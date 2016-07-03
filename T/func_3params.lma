@@ -1,0 +1,5 @@
+func sum(x, y, z) => x + y + z
+
+func main() {
+    sum(3, 8, 2)
+}

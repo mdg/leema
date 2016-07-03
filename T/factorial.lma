@@ -1,0 +1,10 @@
+func fact(i : Int) : Int
+{
+	if i == 1 {
+		1
+	} else {
+		i * fact(i-1)
+	}
+}
+
+fact(4)

@@ -1,0 +1,3 @@
+f := file_read("hello.txt")
+cout("hello $f\n")
+input := stream_read(f)

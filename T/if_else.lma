@@ -1,0 +1,9 @@
+x := 3
+if x == 1 {
+	"hello"
+	7
+} else if x == 2 {
+	"tacos"
+} else {
+	"burritos"
+}

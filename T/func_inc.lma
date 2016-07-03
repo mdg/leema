@@ -1,0 +1,6 @@
+func inc(x) => x + 1
+
+func main() {
+    inc(-4)
+}
+

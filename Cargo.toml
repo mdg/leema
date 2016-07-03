@@ -1,0 +1,11 @@
+[package]
+name = "leema"
+version = "0.0.1"
+authors = ["Matthew Graham <mdg149@gmail.com>"]
+rustc-link-search = ["."]
+rustc-link-lib = ["leemalex"]
+
+[dependencies]
+libc = "0.2"
+docopt = "0.6"
+rustc-serialize = "0.3"

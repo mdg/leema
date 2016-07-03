@@ -1,0 +1,3 @@
+func eight() => 8
+
+func hello() => "hello"
