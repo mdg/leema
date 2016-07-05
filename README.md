@@ -1,4 +1,5 @@
 leema
 ======
 
-A concurrent, error-tolerant, functional programming language.
+Leema is a concurrent, error-tolerant, functional programming language.
+
