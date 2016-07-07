@@ -13,19 +13,19 @@ use std::sync::Arc;
 /* TMPL: types */
 
 type YYCODETYPE = i8;
-const YYNOCODE: i32 = 89;
+const YYNOCODE: i32 = 91;
 type YYACTIONTYPE = u8;
 const YYWILDCARD: YYCODETYPE = 0;
 enum YYMinorType {
     YY0,
-    YY12(String),
-    YY68(i64),
-    YY72(Val),
-    YY75(Type),
-    YY125(Ast),
+    YY4(String),
+    YY44(Val),
+    YY135(Type),
+    YY140(i64),
+    YY157(Ast),
 }
-const YYNSTATE: i32 = 140;
-const YYNRULE: i32 = 78;
+const YYNSTATE: i32 = 142;
+const YYNRULE: i32 = 80;
 const YYERRORSYMBOL: i32 = 0;
 
 //const YY_NO_ACTION: i32 = YYNSTATE+YYNRULE+2;
@@ -217,167 +217,168 @@ fn token_major(t: &Token) -> i32 {
 #[inline]
 fn token_minor(t: Token) -> YYMinorType {
   match t {
-        Token::HASHTAG(x) => YYMinorType::YY12(x),
-        Token::ID(x) => YYMinorType::YY12(x),
-        Token::INT(x) => YYMinorType::YY68(x),
-        Token::StrLit(x) => YYMinorType::YY12(x),
-        Token::TYPE_ID(x) => YYMinorType::YY12(x),
+        Token::HASHTAG(x) => YYMinorType::YY4(x),
+        Token::ID(x) => YYMinorType::YY4(x),
+        Token::INT(x) => YYMinorType::YY140(x),
+        Token::StrLit(x) => YYMinorType::YY4(x),
+        Token::TYPE_ID(x) => YYMinorType::YY4(x),
         _ => YYMinorType::YY0
   }
 }
-const YY_ACTTAB_COUNT: i32 = 528;
-const YY_ACTION: [YYACTIONTYPE; 528] = [
- /*     0 */   119,   85,  122,   14,   13,   16,   15,   27,   25,   23,
- /*    10 */    22,   70,   33,   89,   24,   31,  113,   83,   37,  112,
- /*    20 */    38,  111,   12,  118,   88,    7,   31,  140,  108,  118,
- /*    30 */   138,  133,   86,   80,   29,   78,    9,  141,    3,   45,
- /*    40 */    26,  119,   85,  122,   40,   32,    8,  117,  124,  123,
- /*    50 */   121,  120,    6,   29,   39,   24,  105,   70,   33,   30,
- /*    60 */    11,   96,   92,   12,   79,  112,    7,  111,   90,  118,
- /*    70 */    30,   46,  133,   86,   80,  104,   78,    9,   77,   44,
- /*    80 */    45,   10,   23,   22,  130,   40,  103,    8,   43,  124,
- /*    90 */   123,  121,  120,    6,   41,   39,  118,   26,   99,   98,
- /*   100 */    97,   20,   19,   21,  127,   35,   18,   17,   14,   13,
- /*   110 */    16,   15,   27,   25,   23,   22,  218,  218,  218,  218,
- /*   120 */    27,   25,   23,   22,   20,   19,   21,  127,   46,   18,
- /*   130 */    17,   14,   13,   16,   15,   27,   25,   23,   22,   91,
- /*   140 */   128,   20,   19,   21,  127,    2,   18,   17,   14,   13,
- /*   150 */    16,   15,   27,   25,   23,   22,  139,  107,    5,   20,
- /*   160 */    19,   21,  127,    1,   18,   17,   14,   13,   16,   15,
- /*   170 */    27,   25,   23,   22,   20,   19,   21,  127,  102,   18,
- /*   180 */    17,   14,   13,   16,   15,   27,   25,   23,   22,  119,
- /*   190 */    85,  122,   70,   48,   75,   74,   42,   36,  126,   34,
- /*   200 */   112,   82,  111,   24,  118,  119,   85,  122,  219,   87,
- /*   210 */   118,   12,   73,   47,    7,  129,  114,  132,  131,   24,
- /*   220 */    95,  136,  135,  134,   70,   52,   94,   12,  118,  101,
- /*   230 */     7,   84,  112,  116,  111,    8,  118,  124,  123,  121,
- /*   240 */   120,    6,  115,   39,   93,  100,   72,  220,   26,  220,
- /*   250 */   220,    8,  220,  124,  123,  121,  120,    6,  220,   39,
- /*   260 */   220,  220,  220,  220,  220,   21,  127,  220,   18,   17,
- /*   270 */    14,   13,   16,   15,   27,   25,   23,   22,  137,   46,
- /*   280 */   220,  220,   47,  220,  220,  220,  132,  131,    4,  220,
- /*   290 */   136,  135,  134,   70,   52,  119,  125,  122,   76,  220,
- /*   300 */   220,  112,   47,  111,  220,  118,  132,  131,  220,  220,
- /*   310 */   136,  135,  134,   70,   52,  220,  220,  220,  220,  220,
- /*   320 */    28,  112,  220,  111,  220,  118,  127,  220,   18,   17,
- /*   330 */    14,   13,   16,   15,   27,   25,   23,   22,  220,  220,
- /*   340 */    66,   49,  220,  124,  123,  121,  120,  220,  112,   39,
- /*   350 */   111,   81,  118,   70,   48,  220,  220,  220,  220,  220,
- /*   360 */   220,  112,  106,  111,  220,  118,   66,   50,  220,  220,
- /*   370 */   220,   70,   49,  220,  112,  220,  111,   71,  118,  112,
- /*   380 */   220,  111,  220,  118,  220,   70,   67,  220,   70,   55,
- /*   390 */   220,  220,  220,  112,  220,  111,  112,  118,  111,  220,
- /*   400 */   118,   70,   68,  220,   70,   59,  220,   70,  110,  112,
- /*   410 */   220,  111,  112,  118,  111,  112,  118,  111,  220,  118,
- /*   420 */    70,  109,  220,   70,   58,  220,   70,   57,  112,  220,
- /*   430 */   111,  112,  118,  111,  112,  118,  111,  220,  118,  220,
- /*   440 */    70,   56,  220,  220,  220,  220,   70,   65,  112,  220,
- /*   450 */   111,  220,  118,  220,  112,  220,  111,  220,  118,  220,
- /*   460 */    70,   64,  220,   70,   63,  220,  220,  220,  112,  220,
- /*   470 */   111,  112,  118,  111,  220,  118,   70,   62,  220,   70,
- /*   480 */    61,  220,   70,   60,  112,  220,  111,  112,  118,  111,
- /*   490 */   112,  118,  111,  220,  118,   70,   69,  220,   70,   54,
- /*   500 */   220,   70,   53,  112,  220,  111,  112,  118,  111,  112,
- /*   510 */   118,  111,  220,  118,  220,   70,   51,  220,  220,  220,
- /*   520 */   220,  220,  220,  112,  220,  111,  220,  118,
+const YY_ACTTAB_COUNT: i32 = 527;
+const YY_ACTION: [YYACTIONTYPE; 527] = [
+ /*     0 */   121,   85,  124,   14,   13,   16,   15,   27,   25,   23,
+ /*    10 */    22,   70,   34,   37,   24,   38,  115,   32,   89,  114,
+ /*    20 */    46,  113,   12,  120,   88,    7,  101,  103,  102,    4,
+ /*    30 */   140,  135,   86,   83,  142,   78,   10,   23,   22,   45,
+ /*    40 */    33,  121,   85,  124,   40,  143,    8,    3,  126,  125,
+ /*    50 */   123,  122,    6,  119,   39,   24,   82,   32,   26,   66,
+ /*    60 */    49,   31,   29,   12,  107,   29,    7,  114,   90,  113,
+ /*    70 */    79,  120,  135,   86,   83,  106,   78,   10,   77,   11,
+ /*    80 */    45,    9,  132,   44,  128,   40,  105,    8,   43,  126,
+ /*    90 */   125,  123,  122,    6,  120,   39,  120,   20,   19,   21,
+ /*   100 */   129,   31,   18,   17,   14,   13,   16,   15,   27,   25,
+ /*   110 */    23,   22,   46,  130,   20,   19,   21,  129,   41,   18,
+ /*   120 */    17,   14,   13,   16,   15,   27,   25,   23,   22,   36,
+ /*   130 */   109,    5,   20,   19,   21,  129,   91,   18,   17,   14,
+ /*   140 */    13,   16,   15,   27,   25,   23,   22,   20,   19,   21,
+ /*   150 */   129,    2,   18,   17,   14,   13,   16,   15,   27,   25,
+ /*   160 */    23,   22,  222,  222,  222,  222,   27,   25,   23,   22,
+ /*   170 */    20,   19,   21,  129,   46,   18,   17,   14,   13,   16,
+ /*   180 */    15,   27,   25,   23,   22,  121,   85,  124,   70,   48,
+ /*   190 */     1,  141,  104,   75,   74,   42,  114,   80,  113,   24,
+ /*   200 */   120,  121,   85,  124,   70,   48,   96,   12,   81,  116,
+ /*   210 */     7,  131,  114,  108,  113,   24,  120,   70,   34,  110,
+ /*   220 */   120,  120,   92,   12,   30,  114,    7,  113,   35,  120,
+ /*   230 */    73,    8,   95,  126,  125,  123,  122,    6,   94,   39,
+ /*   240 */    93,   84,  118,   99,   98,   97,  117,    8,  100,  126,
+ /*   250 */   125,  123,  122,    6,  224,   39,   66,   50,  224,   72,
+ /*   260 */   223,   87,  224,  224,  114,   47,  113,   71,  120,  224,
+ /*   270 */   224,  134,  133,   70,   49,  138,  137,  136,   70,   53,
+ /*   280 */   224,  114,  224,  113,  224,  120,  114,  224,  113,  224,
+ /*   290 */   120,   21,  129,  224,   18,   17,   14,   13,   16,   15,
+ /*   300 */    27,   25,   23,   22,   70,   67,  224,  139,  224,  224,
+ /*   310 */   224,   47,  114,  224,  113,  224,  120,  134,  133,  224,
+ /*   320 */   224,  138,  137,  136,   70,   53,  121,  127,  124,  224,
+ /*   330 */   224,   76,  114,  224,  113,   47,  120,  224,  224,  224,
+ /*   340 */   224,  134,  133,  224,  224,  138,  137,  136,   70,   53,
+ /*   350 */   224,   28,  224,  224,  224,  224,  114,  224,  113,  224,
+ /*   360 */   120,  129,  224,   18,   17,   14,   13,   16,   15,   27,
+ /*   370 */    25,   23,   22,  224,  126,  125,  123,  122,   70,   55,
+ /*   380 */    39,   70,   68,  224,   70,   59,  114,  224,  113,  114,
+ /*   390 */   120,  113,  114,  120,  113,  224,  120,  224,   70,  112,
+ /*   400 */   224,  224,  224,   70,  111,  224,  114,  224,  113,  224,
+ /*   410 */   120,  114,  224,  113,  224,  120,  224,  224,   70,   58,
+ /*   420 */   224,  224,  224,  224,   70,   57,  114,  224,  113,  224,
+ /*   430 */   120,  224,  114,  224,  113,  224,  120,   70,   56,  224,
+ /*   440 */    70,   65,  224,   70,   64,  114,  224,  113,  114,  120,
+ /*   450 */   113,  114,  120,  113,  224,  120,   70,   63,  224,   70,
+ /*   460 */    62,  224,   70,   61,  114,  224,  113,  114,  120,  113,
+ /*   470 */   114,  120,  113,  224,  120,   70,   60,  224,  224,  224,
+ /*   480 */    70,   69,  224,  114,  224,  113,  224,  120,  114,  224,
+ /*   490 */   113,  224,  120,  224,  224,   70,   54,  224,  224,  224,
+ /*   500 */   224,   70,   52,  114,  224,  113,  224,  120,  224,  114,
+ /*   510 */   224,  113,  224,  120,   70,   51,  224,  224,  224,  224,
+ /*   520 */   224,  224,  114,  224,  113,  224,  120,
 ];
-const YY_LOOKAHEAD: [YYCODETYPE; 528] = [
+const YY_LOOKAHEAD: [YYCODETYPE; 527] = [
  /*     0 */     1,    2,    3,   18,   19,   20,   21,   22,   23,   24,
- /*    10 */    25,   74,   75,   29,   15,    2,   79,   74,    2,   82,
- /*    20 */     4,   84,   23,   86,   30,   26,    2,    0,   85,   86,
- /*    30 */    31,   32,   33,   34,   10,   36,   37,    0,   26,   40,
- /*    40 */     7,    1,    2,    3,   45,    1,   47,   56,   49,   50,
- /*    50 */    51,   52,   53,   10,   55,   15,   54,   74,   75,   46,
- /*    60 */    35,    5,   79,   23,    2,   82,   26,   84,   28,   86,
- /*    70 */    46,   38,   32,   33,   34,   27,   36,   37,    2,   26,
- /*    80 */    40,   35,   24,   25,   74,   45,   39,   47,   27,   49,
- /*    90 */    50,   51,   52,   53,   10,   55,   86,    7,   42,   43,
- /*   100 */    44,   11,   12,   13,   14,   48,   16,   17,   18,   19,
- /*   110 */    20,   21,   22,   23,   24,   25,   18,   19,   20,   21,
- /*   120 */    22,   23,   24,   25,   11,   12,   13,   14,   38,   16,
- /*   130 */    17,   18,   19,   20,   21,   22,   23,   24,   25,   27,
- /*   140 */    27,   11,   12,   13,   14,   60,   16,   17,   18,   19,
- /*   150 */    20,   21,   22,   23,   24,   25,   31,   27,   10,   11,
- /*   160 */    12,   13,   14,   60,   16,   17,   18,   19,   20,   21,
- /*   170 */    22,   23,   24,   25,   11,   12,   13,   14,   70,   16,
- /*   180 */    17,   18,   19,   20,   21,   22,   23,   24,   25,    1,
- /*   190 */     2,    3,   74,   75,    2,   69,    2,   77,   74,   41,
- /*   200 */    82,   83,   84,   15,   86,    1,    2,    3,   58,   59,
- /*   210 */    86,   23,   77,   63,   26,   27,   74,   67,   68,   15,
- /*   220 */    69,   71,   72,   73,   74,   75,   70,   23,   86,   65,
- /*   230 */    26,   87,   82,   87,   84,   47,   86,   49,   50,   51,
- /*   240 */    52,   53,   87,   55,   65,   76,   65,   88,    7,   88,
- /*   250 */    88,   47,   88,   49,   50,   51,   52,   53,   88,   55,
- /*   260 */    88,   88,   88,   88,   88,   13,   14,   88,   16,   17,
- /*   270 */    18,   19,   20,   21,   22,   23,   24,   25,   59,   38,
- /*   280 */    88,   88,   63,   88,   88,   88,   67,   68,   47,   88,
- /*   290 */    71,   72,   73,   74,   75,    1,    2,    3,   59,   88,
- /*   300 */    88,   82,   63,   84,   88,   86,   67,   68,   88,   88,
- /*   310 */    71,   72,   73,   74,   75,   88,   88,   88,   88,   88,
- /*   320 */    26,   82,   88,   84,   88,   86,   14,   88,   16,   17,
- /*   330 */    18,   19,   20,   21,   22,   23,   24,   25,   88,   88,
- /*   340 */    74,   75,   88,   49,   50,   51,   52,   88,   82,   55,
- /*   350 */    84,   85,   86,   74,   75,   88,   88,   88,   88,   88,
- /*   360 */    88,   82,   83,   84,   88,   86,   74,   75,   88,   88,
- /*   370 */    88,   74,   75,   88,   82,   88,   84,   85,   86,   82,
- /*   380 */    88,   84,   88,   86,   88,   74,   75,   88,   74,   75,
- /*   390 */    88,   88,   88,   82,   88,   84,   82,   86,   84,   88,
- /*   400 */    86,   74,   75,   88,   74,   75,   88,   74,   75,   82,
- /*   410 */    88,   84,   82,   86,   84,   82,   86,   84,   88,   86,
- /*   420 */    74,   75,   88,   74,   75,   88,   74,   75,   82,   88,
- /*   430 */    84,   82,   86,   84,   82,   86,   84,   88,   86,   88,
- /*   440 */    74,   75,   88,   88,   88,   88,   74,   75,   82,   88,
- /*   450 */    84,   88,   86,   88,   82,   88,   84,   88,   86,   88,
- /*   460 */    74,   75,   88,   74,   75,   88,   88,   88,   82,   88,
- /*   470 */    84,   82,   86,   84,   88,   86,   74,   75,   88,   74,
- /*   480 */    75,   88,   74,   75,   82,   88,   84,   82,   86,   84,
- /*   490 */    82,   86,   84,   88,   86,   74,   75,   88,   74,   75,
- /*   500 */    88,   74,   75,   82,   88,   84,   82,   86,   84,   82,
- /*   510 */    86,   84,   88,   86,   88,   74,   75,   88,   88,   88,
- /*   520 */    88,   88,   88,   82,   88,   84,   88,   86,
+ /*    10 */    25,   76,   77,    2,   15,    4,   81,    2,   29,   84,
+ /*    20 */    38,   86,   23,   88,   30,   26,   65,   66,   67,   47,
+ /*    30 */    31,   32,   33,   34,    0,   36,   37,   24,   25,   40,
+ /*    40 */     1,    1,    2,    3,   45,    0,   47,   26,   49,   50,
+ /*    50 */    51,   52,   53,   56,   55,   15,    2,    2,   35,   76,
+ /*    60 */    77,   46,   10,   23,   54,   10,   26,   84,   28,   86,
+ /*    70 */    87,   88,   32,   33,   34,   27,   36,   37,    2,   35,
+ /*    80 */    40,    7,   76,   26,   76,   45,   39,   47,   27,   49,
+ /*    90 */    50,   51,   52,   53,   88,   55,   88,   11,   12,   13,
+ /*   100 */    14,   46,   16,   17,   18,   19,   20,   21,   22,   23,
+ /*   110 */    24,   25,   38,   27,   11,   12,   13,   14,   10,   16,
+ /*   120 */    17,   18,   19,   20,   21,   22,   23,   24,   25,   48,
+ /*   130 */    27,   10,   11,   12,   13,   14,   27,   16,   17,   18,
+ /*   140 */    19,   20,   21,   22,   23,   24,   25,   11,   12,   13,
+ /*   150 */    14,   60,   16,   17,   18,   19,   20,   21,   22,   23,
+ /*   160 */    24,   25,   18,   19,   20,   21,   22,   23,   24,   25,
+ /*   170 */    11,   12,   13,   14,   38,   16,   17,   18,   19,   20,
+ /*   180 */    21,   22,   23,   24,   25,    1,    2,    3,   76,   77,
+ /*   190 */    60,   31,   72,    2,   71,    2,   84,   85,   86,   15,
+ /*   200 */    88,    1,    2,    3,   76,   77,    5,   23,   76,   76,
+ /*   210 */    26,   27,   84,   85,   86,   15,   88,   76,   77,   87,
+ /*   220 */    88,   88,   81,   23,   79,   84,   26,   86,   41,   88,
+ /*   230 */    79,   47,   71,   49,   50,   51,   52,   53,   72,   55,
+ /*   240 */    67,   89,   89,   42,   43,   44,   89,   47,   78,   49,
+ /*   250 */    50,   51,   52,   53,   90,   55,   76,   77,   90,   67,
+ /*   260 */    58,   59,   90,   90,   84,   63,   86,   87,   88,   90,
+ /*   270 */    90,   69,   70,   76,   77,   73,   74,   75,   76,   77,
+ /*   280 */    90,   84,   90,   86,   90,   88,   84,   90,   86,   90,
+ /*   290 */    88,   13,   14,   90,   16,   17,   18,   19,   20,   21,
+ /*   300 */    22,   23,   24,   25,   76,   77,   90,   59,   90,   90,
+ /*   310 */    90,   63,   84,   90,   86,   90,   88,   69,   70,   90,
+ /*   320 */    90,   73,   74,   75,   76,   77,    1,    2,    3,   90,
+ /*   330 */    90,   59,   84,   90,   86,   63,   88,   90,   90,   90,
+ /*   340 */    90,   69,   70,   90,   90,   73,   74,   75,   76,   77,
+ /*   350 */    90,   26,   90,   90,   90,   90,   84,   90,   86,   90,
+ /*   360 */    88,   14,   90,   16,   17,   18,   19,   20,   21,   22,
+ /*   370 */    23,   24,   25,   90,   49,   50,   51,   52,   76,   77,
+ /*   380 */    55,   76,   77,   90,   76,   77,   84,   90,   86,   84,
+ /*   390 */    88,   86,   84,   88,   86,   90,   88,   90,   76,   77,
+ /*   400 */    90,   90,   90,   76,   77,   90,   84,   90,   86,   90,
+ /*   410 */    88,   84,   90,   86,   90,   88,   90,   90,   76,   77,
+ /*   420 */    90,   90,   90,   90,   76,   77,   84,   90,   86,   90,
+ /*   430 */    88,   90,   84,   90,   86,   90,   88,   76,   77,   90,
+ /*   440 */    76,   77,   90,   76,   77,   84,   90,   86,   84,   88,
+ /*   450 */    86,   84,   88,   86,   90,   88,   76,   77,   90,   76,
+ /*   460 */    77,   90,   76,   77,   84,   90,   86,   84,   88,   86,
+ /*   470 */    84,   88,   86,   90,   88,   76,   77,   90,   90,   90,
+ /*   480 */    76,   77,   90,   84,   90,   86,   90,   88,   84,   90,
+ /*   490 */    86,   90,   88,   90,   90,   76,   77,   90,   90,   90,
+ /*   500 */    90,   76,   77,   84,   90,   86,   90,   88,   90,   84,
+ /*   510 */    90,   86,   90,   88,   76,   77,   90,   90,   90,   90,
+ /*   520 */    90,   90,   84,   90,   86,   90,   88,
 ];
-const YY_SHIFT_USE_DFLT: i32 = -17;
+const YY_SHIFT_USE_DFLT: i32 = -19;
 const YY_SHIFT_COUNT: i32 = 90;
-const YY_SHIFT_MIN: i32 = -16;
-const YY_SHIFT_MAX: i32 = 312;
+const YY_SHIFT_MIN: i32 = -18;
+const YY_SHIFT_MAX: i32 = 347;
 const YY_SHIFT_OFST: [i16; 91] = [
- /*     0 */    40,   -1,   -1,  188,  204,  204,  204,  204,  204,  204,
- /*    10 */   204,  204,  204,  204,  204,  204,  204,  204,  204,  204,
- /*    20 */   204,  204,  204,  204,  204,  204,  204,  204,  204,  294,
- /*    30 */   294,  294,  294,   90,   56,  241,   33,   16,   16,   16,
- /*    40 */   192,  194,  158,  158,  194,  192,  125,  125,  148,  130,
- /*    50 */   113,  163,  163,  163,  163,  163,  252,  252,  312,  312,
- /*    60 */    98,   98,   98,   98,  -15,  -15,   24,   58,   58,   58,
- /*    70 */    13,  112,   57,   84,   61,   53,   47,   46,   76,   25,
- /*    80 */    62,   48,    2,   43,   -9,   12,   44,   37,   27,   -6,
- /*    90 */   -16,
+ /*     0 */    40,   -1,   -1,  184,  200,  200,  200,  200,  200,  200,
+ /*    10 */   200,  200,  200,  200,  200,  200,  200,  200,  200,  200,
+ /*    20 */   200,  200,  200,  200,  200,  200,  200,  200,  200,  325,
+ /*    30 */    74,  325,  325,  325,  136,  201,  -18,   11,   11,   11,
+ /*    40 */   191,  193,  187,  187,  193,  191,  160,  160,  121,  103,
+ /*    50 */    86,  159,  159,  159,  159,  159,  278,  278,  347,  347,
+ /*    60 */   144,  144,  144,  144,  -15,  -15,   55,   13,   13,   13,
+ /*    70 */    15,  109,   81,  108,   61,   57,   47,   44,   76,   48,
+ /*    80 */    10,   52,   23,   54,   -3,   21,   39,   45,   34,   -6,
+ /*    90 */   -11,
 ];
-const YY_REDUCE_USE_DFLT: i32 = -64;
+const YY_REDUCE_USE_DFLT: i32 = -66;
 const YY_REDUCE_COUNT: i32 = 47;
-const YY_REDUCE_MIN: i32 = -63;
-const YY_REDUCE_MAX: i32 = 441;
+const YY_REDUCE_MIN: i32 = -65;
+const YY_REDUCE_MAX: i32 = 438;
 const YY_REDUCE_OFST: [i16; 48] = [
- /*     0 */   150,  239,  219,  292,  -17,  279,  118,  266,  -63,  441,
- /*    10 */   427,  424,  421,  408,  405,  402,  389,  386,  372,  366,
- /*    20 */   352,  349,  346,  333,  330,  327,  314,  311,  297,  -57,
- /*    30 */   142,  124,   10,  181,  169,  179,  164,  155,  146,  144,
- /*    40 */   156,  151,  135,  120,  126,  108,  103,   85,
+ /*     0 */   202,  272,  248,  180,  141,  128,  112,  -17,  -65,  438,
+ /*    10 */   425,  419,  404,  399,  386,  383,  380,  367,  364,  361,
+ /*    20 */   348,  342,  327,  322,  308,  305,  302,  228,  197,  132,
+ /*    30 */   -39,  133,    8,    6,  192,  170,  173,  157,  153,  152,
+ /*    40 */   166,  161,  151,  145,  123,  120,  130,   91,
 ];
-const YY_DEFAULT: [YYACTIONTYPE; 140] = [
- /*     0 */   144,  144,  144,  218,  218,  208,  208,  218,  218,  218,
- /*    10 */   218,  218,  218,  218,  218,  218,  218,  218,  218,  218,
- /*    20 */   218,  218,  218,  218,  218,  218,  218,  218,  218,  218,
- /*    30 */   218,  218,  218,  218,  218,  218,  218,  215,  215,  215,
- /*    40 */   218,  168,  161,  161,  168,  218,  218,  218,  209,  218,
- /*    50 */   218,  156,  155,  154,  153,  157,  190,  189,  188,  181,
- /*    60 */   196,  195,  194,  193,  192,  191,  197,  184,  185,  183,
- /*    70 */   197,  218,  218,  169,  218,  218,  218,  218,  218,  218,
- /*    80 */   218,  218,  218,  212,  218,  199,  218,  218,  218,  218,
- /*    90 */   218,  173,  178,  177,  167,  170,  166,  165,  164,  163,
- /*   100 */   162,  160,  159,  158,  211,  207,  210,  198,  213,  187,
- /*   110 */   186,  180,  179,  176,  175,  217,  216,  214,  206,  205,
- /*   120 */   204,  203,  202,  201,  200,  199,  174,  182,  172,  171,
- /*   130 */   152,  151,  150,  149,  148,  147,  146,  145,  143,  142,
+const YY_DEFAULT: [YYACTIONTYPE; 142] = [
+ /*     0 */   146,  146,  146,  222,  222,  212,  212,  222,  222,  222,
+ /*    10 */   222,  222,  222,  222,  222,  222,  222,  222,  222,  222,
+ /*    20 */   222,  222,  222,  222,  222,  222,  222,  222,  222,  222,
+ /*    30 */   222,  222,  222,  222,  222,  222,  222,  219,  219,  219,
+ /*    40 */   222,  172,  165,  165,  172,  222,  222,  222,  213,  222,
+ /*    50 */   222,  161,  158,  157,  156,  155,  194,  193,  192,  185,
+ /*    60 */   200,  199,  198,  197,  196,  195,  201,  188,  189,  187,
+ /*    70 */   201,  222,  222,  173,  222,  222,  222,  222,  222,  222,
+ /*    80 */   222,  216,  222,  222,  222,  203,  222,  222,  222,  222,
+ /*    90 */   222,  177,  182,  181,  171,  174,  170,  169,  168,  167,
+ /*   100 */   166,  164,  160,  159,  163,  162,  215,  211,  214,  202,
+ /*   110 */   217,  191,  190,  184,  183,  180,  179,  221,  220,  218,
+ /*   120 */   210,  209,  208,  207,  206,  205,  204,  203,  178,  186,
+ /*   130 */   176,  175,  154,  153,  152,  151,  150,  149,  148,  147,
+ /*   140 */   145,  144,
 ];
 
 /* TMPL: fallback tokens */
@@ -399,7 +400,7 @@ const YY_FALLBACK: [i32; 0] = [
 
 /* TMPL: stack-overflow */
 
-const YY_RULE_INFO: [YYCODETYPE; 78] = [
+const YY_RULE_INFO: [YYCODETYPE; 80] = [
   58,
   58,
   60,
@@ -412,72 +413,74 @@ const YY_RULE_INFO: [YYCODETYPE; 78] = [
   63,
   63,
   63,
+  75,
   73,
-  71,
-  71,
-  72,
-  72,
+  73,
+  74,
+  74,
   65,
   65,
+  66,
   67,
+  69,
+  72,
+  79,
+  79,
+  78,
+  78,
+  78,
+  78,
   70,
+  71,
+  71,
+  71,
   77,
   77,
+  77,
+  77,
+  77,
+  77,
+  81,
+  81,
+  77,
+  77,
+  77,
+  77,
+  77,
+  77,
+  77,
+  77,
+  77,
+  77,
+  77,
+  77,
+  77,
+  77,
+  77,
+  77,
+  77,
+  77,
+  77,
   76,
   76,
   76,
   76,
-  68,
-  69,
-  69,
-  69,
-  75,
-  75,
-  75,
-  75,
-  75,
-  75,
-  79,
-  79,
-  75,
-  75,
-  75,
-  75,
-  75,
-  75,
-  75,
-  75,
-  75,
-  75,
-  75,
-  75,
-  75,
-  75,
-  75,
-  75,
-  75,
-  75,
-  75,
-  74,
-  74,
-  74,
-  74,
-  74,
-  74,
-  74,
-  74,
-  74,
-  82,
-  83,
-  83,
-  83,
+  76,
+  76,
+  76,
+  76,
+  76,
   84,
+  85,
   85,
   85,
   86,
   87,
   87,
-  87,
+  88,
+  89,
+  89,
+  89,
 ];
 
 struct YYStackEntry {
@@ -680,7 +683,7 @@ match () {
 	yyres = Ast::Nothing;
 
 } };
- YYMinorType::YY125(yyres)
+ YYMinorType::YY157(yyres)
 }
             ,
             1 /* program ::= stmts */
@@ -689,7 +692,7 @@ match () {
 let yyres :  Ast ;
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,) {
- (YYMinorType::YY72(yy0),) => {
+ (YYMinorType::YY44(yy0),) => {
 
 	if list::is_empty(&yy0) {
 		panic!("null program");
@@ -700,7 +703,7 @@ match (yyp0.minor,) {
 	self.extra = Ok(Ast::ReplRoot(yy0));
 
 },    _ => unreachable!() };
- YYMinorType::YY125(yyres)
+ YYMinorType::YY157(yyres)
 }
             ,
             2 /* linebreak ::= NEWLINE */
@@ -714,7 +717,7 @@ match () {
 	yyres = Ast::Nothing;
 
 } };
- YYMinorType::YY125(yyres)
+ YYMinorType::YY157(yyres)
 }
             ,
             3 /* linebreak ::= linebreak NEWLINE */
@@ -729,7 +732,7 @@ match () {
 	yyres = Ast::Nothing;
 
 } };
- YYMinorType::YY125(yyres)
+ YYMinorType::YY157(yyres)
 }
             ,
             4 /* stmts ::= */
@@ -742,7 +745,7 @@ match () {
 	yyres = sexpr::new(SexprType::BlockExpr, list::empty());
 
 } };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
             5 /* stmts ::= stmt linebreak stmts */
@@ -753,12 +756,12 @@ let yyp2 = self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY44(yy2),) => {
 
 	yyres = list::cons(yy0, yy2);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
             6 /* stmt ::= let_stmt */
@@ -766,19 +769,19 @@ match (yyp0.minor,yyp2.minor,) {
           | 8 /* stmt ::= fail_stmt */
           | 10 /* stmt ::= func_stmt */
           | 11 /* stmt ::= macro_stmt */
-          | 39 /* expr ::= list */
-          | 40 /* expr ::= tuple */
-          | 57 /* expr ::= term */
-          | 66 /* term ::= strexpr */
+          | 41 /* expr ::= list */
+          | 42 /* expr ::= tuple */
+          | 59 /* expr ::= term */
+          | 68 /* term ::= strexpr */
             => 
 {
 let yyres :  Val ;
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,) {
- (YYMinorType::YY72(yy0),) => {
+ (YYMinorType::YY44(yy0),) => {
  yyres = yy0; 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
             9 /* stmt ::= DT */
@@ -790,7 +793,7 @@ match () {
  () => {
  yyres = Val::Void; 
 } };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
             12 /* fail_stmt ::= FAIL HASHTAG term */
@@ -801,7 +804,7 @@ let yyp2 = self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp1.minor,yyp2.minor,) {
- (YYMinorType::YY12(yy1),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY4(yy1),YYMinorType::YY44(yy2),) => {
 
 println!("found fail_stmt {:?}", yy1);
 	/*
@@ -814,7 +817,7 @@ println!("found fail_stmt {:?}", yy1);
 	yyres = Val::Failure;
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
             13 /* let_stmt ::= Let ID DEFINE expr */
@@ -826,13 +829,13 @@ self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp1.minor,yyp3.minor,) {
- (YYMinorType::YY12(yy1),YYMinorType::YY72(yy3),) => {
+ (YYMinorType::YY4(yy1),YYMinorType::YY44(yy3),) => {
 
 	let bind = list::cons(Val::new_str(yy1), list::singleton(yy3));
 	yyres = sexpr::new(SexprType::Bind, bind);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
             14 /* let_stmt ::= Fork ID DEFINE expr */
@@ -844,27 +847,29 @@ self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp1.minor,yyp3.minor,) {
- (YYMinorType::YY12(yy1),YYMinorType::YY72(yy3),) => {
+ (YYMinorType::YY4(yy1),YYMinorType::YY44(yy3),) => {
 
 	let bind = list::cons(Val::new_str(yy1), list::singleton(yy3));
 	yyres = sexpr::new(SexprType::Fork, bind);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
             15 /* expr_stmt ::= expr */
+          | 17 /* block ::= arrow_block */
+          | 18 /* block ::= curly_block */
             => 
 {
 let yyres :  Val ;
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,) {
- (YYMinorType::YY72(yy0),) => {
+ (YYMinorType::YY44(yy0),) => {
 
 	yyres = yy0;
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
             16 /* expr_stmt ::= DollarGT expr */
@@ -874,29 +879,29 @@ let yyres :  Val ;
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp1.minor,) {
- (YYMinorType::YY72(yy1),) => {
+ (YYMinorType::YY44(yy1),) => {
  yyres = yy1; 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            17 /* arrow_block ::= BLOCKARROW expr */
-          | 36 /* expr ::= IF if_expr */
+            19 /* arrow_block ::= BLOCKARROW expr */
+          | 38 /* expr ::= IF if_expr */
             => 
 {
 let yyres :  Val ;
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp1.minor,) {
- (YYMinorType::YY72(yy1),) => {
+ (YYMinorType::YY44(yy1),) => {
 
 	yyres = yy1;
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            18 /* arrow_block ::= CurlyL linebreak stmts CurlyR */
+            20 /* curly_block ::= CurlyL linebreak stmts CurlyR */
             => 
 {
 let yyres :  Val ;
@@ -905,22 +910,22 @@ let yyp2 = self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp2.minor,) {
- (YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY44(yy2),) => {
 
 	yyres = yy2;
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            19 /* func_stmt ::= Func dfunc_1 */
+            21 /* func_stmt ::= Func dfunc_1 */
             => 
 {
 let yyres :  Val ;
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp1.minor,) {
- (YYMinorType::YY72(yy1),) => {
+ (YYMinorType::YY44(yy1),) => {
 
 	/*
 	const Val *plist = Val::list(p);
@@ -933,10 +938,10 @@ match (yyp1.minor,) {
 	yyres = Val::Sexpr(SexprType::DefFunc, Box::new(yy1));
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            20 /* dfunc_1 ::= ID LPAREN dfunc_args RPAREN opt_typex arrow_block */
+            22 /* dfunc_1 ::= ID LPAREN dfunc_args RPAREN opt_typex block */
             => 
 {
 let yyres :  Val ;
@@ -947,7 +952,7 @@ let yyp2 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,yyp4.minor,yyp5.minor,) {
- (YYMinorType::YY12(yy0),YYMinorType::YY72(yy2),YYMinorType::YY75(yy4),YYMinorType::YY72(yy5),) => {
+ (YYMinorType::YY4(yy0),YYMinorType::YY44(yy2),YYMinorType::YY135(yy4),YYMinorType::YY44(yy5),) => {
 
 	/*
 	const Val *plist = Val::list(p);
@@ -962,10 +967,10 @@ match (yyp0.minor,yyp2.minor,yyp4.minor,yyp5.minor,) {
 	yyres = sexpr::single_func_list(id, yy2, typ, yy5)
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            21 /* opt_typex ::= */
+            23 /* opt_typex ::= */
             => 
 {
 let yyres :  Type ;
@@ -975,25 +980,25 @@ match () {
 	yyres = Type::AnonVar;
 
 } };
- YYMinorType::YY75(yyres)
+ YYMinorType::YY135(yyres)
 }
             ,
-            22 /* opt_typex ::= COLON typex */
+            24 /* opt_typex ::= COLON typex */
             => 
 {
 let yyres :  Type ;
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp1.minor,) {
- (YYMinorType::YY75(yy1),) => {
+ (YYMinorType::YY135(yy1),) => {
 
 	yyres = yy1;
 
 },    _ => unreachable!() };
- YYMinorType::YY75(yyres)
+ YYMinorType::YY135(yyres)
 }
             ,
-            23 /* typex ::= TYPE_INT */
+            25 /* typex ::= TYPE_INT */
             => 
 {
 let yyres :  Type ;
@@ -1004,10 +1009,10 @@ match () {
 	yyres = Type::Int;
 
 } };
- YYMinorType::YY75(yyres)
+ YYMinorType::YY135(yyres)
 }
             ,
-            24 /* typex ::= TYPE_STR */
+            26 /* typex ::= TYPE_STR */
             => 
 {
 let yyres :  Type ;
@@ -1018,10 +1023,10 @@ match () {
 	yyres = Type::Str;
 
 } };
- YYMinorType::YY75(yyres)
+ YYMinorType::YY135(yyres)
 }
             ,
-            25 /* typex ::= TYPE_BOOL */
+            27 /* typex ::= TYPE_BOOL */
             => 
 {
 let yyres :  Type ;
@@ -1032,40 +1037,40 @@ match () {
 	yyres = Type::Bool;
 
 } };
- YYMinorType::YY75(yyres)
+ YYMinorType::YY135(yyres)
 }
             ,
-            26 /* typex ::= TYPE_ID */
+            28 /* typex ::= TYPE_ID */
             => 
 {
 let yyres :  Type ;
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,) {
- (YYMinorType::YY12(yy0),) => {
+ (YYMinorType::YY4(yy0),) => {
 
 	yyres = Type::User(yy0);
 
 },    _ => unreachable!() };
- YYMinorType::YY75(yyres)
+ YYMinorType::YY135(yyres)
 }
             ,
-            27 /* macro_stmt ::= MACRO dfunc_1 */
+            29 /* macro_stmt ::= MACRO dfunc_1 */
             => 
 {
 let yyres :  Val ;
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp1.minor,) {
- (YYMinorType::YY72(yy1),) => {
+ (YYMinorType::YY44(yy1),) => {
 
 	yyres = Val::Sexpr(SexprType::DefMacro, Box::new(yy1));
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            28 /* dfunc_args ::= */
-          | 68 /* list_items ::= */
+            30 /* dfunc_args ::= */
+          | 70 /* list_items ::= */
             => 
 {
 let yyres :  Val ;
@@ -1075,25 +1080,25 @@ match () {
 	yyres = list::empty();
 
 } };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            29 /* dfunc_args ::= ID opt_typex */
+            31 /* dfunc_args ::= ID opt_typex */
             => 
 {
 let yyres :  Val ;
 let yyp1 = self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp1.minor,) {
- (YYMinorType::YY12(yy0),YYMinorType::YY75(yy1),) => {
+ (YYMinorType::YY4(yy0),YYMinorType::YY135(yy1),) => {
 
 	yyres = list::singleton(sexpr::id_with_type(yy0, yy1));
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            30 /* dfunc_args ::= ID opt_typex COMMA dfunc_args */
+            32 /* dfunc_args ::= ID opt_typex COMMA dfunc_args */
             => 
 {
 let yyres :  Val ;
@@ -1102,15 +1107,15 @@ self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp1.minor,yyp3.minor,) {
- (YYMinorType::YY12(yy0),YYMinorType::YY75(yy1),YYMinorType::YY72(yy3),) => {
+ (YYMinorType::YY4(yy0),YYMinorType::YY135(yy1),YYMinorType::YY44(yy3),) => {
 
 	yyres = list::cons(sexpr::id_with_type(yy0, yy1), yy3);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            31 /* expr ::= ID LPAREN RPAREN */
+            33 /* expr ::= ID LPAREN RPAREN */
             => 
 {
 let yyres :  Val ;
@@ -1118,16 +1123,16 @@ self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,) {
- (YYMinorType::YY12(yy0),) => {
+ (YYMinorType::YY4(yy0),) => {
 
 	println!("zero param function call!");
 	yyres = sexpr::call(yy0, Val::Nil);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            32 /* expr ::= ID LPAREN expr RPAREN */
+            34 /* expr ::= ID LPAREN expr RPAREN */
             => 
 {
 let yyres :  Val ;
@@ -1136,17 +1141,17 @@ let yyp2 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY12(yy0),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY4(yy0),YYMinorType::YY44(yy2),) => {
 
 	println!("1 param function call!");
 	let args = list::singleton(yy2);
 	yyres = sexpr::call(yy0, args);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            33 /* expr ::= ID LPAREN tuple_args RPAREN */
+            35 /* expr ::= ID LPAREN tuple_args RPAREN */
             => 
 {
 let yyres :  Val ;
@@ -1155,16 +1160,16 @@ let yyp2 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY12(yy0),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY4(yy0),YYMinorType::YY44(yy2),) => {
 
 	println!("tuple function call");
 	yyres = sexpr::call(yy0, yy2);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            34 /* expr ::= term ID term */
+            36 /* expr ::= term ID term */
             => 
 {
 let yyres :  Val ;
@@ -1172,16 +1177,16 @@ let yyp2 = self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp1.minor,yyp2.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY12(yy1),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY4(yy1),YYMinorType::YY44(yy2),) => {
 
 	/* yyres = Val::binaryop(yy0, yy1, yy2); */
 	yyres = Val::Void;
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            35 /* expr ::= term DOLLAR term */
+            37 /* expr ::= term DOLLAR term */
             => 
 {
 let yyres :  Val ;
@@ -1189,16 +1194,16 @@ let yyp2 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY44(yy2),) => {
 
 	/* yyres = Val::binaryop(yy0, yy2, D); */
 	yyres = Val::Void;
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            37 /* if_expr ::= expr arrow_block ELSE arrow_block */
+            39 /* if_expr ::= expr curly_block ELSE curly_block */
             => 
 {
 let yyres :  Val ;
@@ -1207,15 +1212,15 @@ self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp1.minor,yyp3.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY72(yy1),YYMinorType::YY72(yy3),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY44(yy1),YYMinorType::YY44(yy3),) => {
 
 	yyres = sexpr::ifexpr(yy0, yy1, yy3);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            38 /* if_expr ::= expr arrow_block ELSE IF if_expr */
+            40 /* if_expr ::= expr curly_block ELSE IF if_expr */
             => 
 {
 let yyres :  Val ;
@@ -1225,63 +1230,63 @@ self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp1.minor,yyp4.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY72(yy1),YYMinorType::YY72(yy4),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY44(yy1),YYMinorType::YY44(yy4),) => {
 
 	yyres = sexpr::ifexpr(yy0, yy1, yy4);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            41 /* expr ::= NOT expr */
+            43 /* expr ::= NOT expr */
             => 
 {
 let yyres :  Val ;
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp1.minor,) {
- (YYMinorType::YY72(yy1),) => {
+ (YYMinorType::YY44(yy1),) => {
 
 	yyres = sexpr::call("bool_not".to_string(), list::singleton(yy1));
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            42 /* expr ::= expr ConcatNewline */
+            44 /* expr ::= expr ConcatNewline */
             => 
 {
 let yyres :  Val ;
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,) {
- (YYMinorType::YY72(yy0),) => {
+ (YYMinorType::YY44(yy0),) => {
 
 	let newline = Val::Str(Arc::new("\n".to_string()));
 	let args = list::cons(yy0, list::singleton(newline));
 	yyres = sexpr::new(SexprType::StrExpr, args)
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            43 /* expr ::= MINUS expr */
+            45 /* expr ::= MINUS expr */
             => 
 {
 let yyres :  Val ;
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp1.minor,) {
- (YYMinorType::YY72(yy1),) => {
+ (YYMinorType::YY44(yy1),) => {
 
 	println!("found minus {:?}", yy1);
 	yyres = sexpr::call("negate".to_string(), list::singleton(yy1));
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            44 /* expr ::= expr PLUS expr */
+            46 /* expr ::= expr PLUS expr */
             => 
 {
 let yyres :  Val ;
@@ -1289,15 +1294,15 @@ let yyp2 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY44(yy2),) => {
 
 	yyres = sexpr::binaryop("int_add".to_string(), yy0, yy2);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            45 /* expr ::= expr MINUS expr */
+            47 /* expr ::= expr MINUS expr */
             => 
 {
 let yyres :  Val ;
@@ -1305,15 +1310,15 @@ let yyp2 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY44(yy2),) => {
 
 	yyres = sexpr::binaryop("int_sub".to_string(), yy0, yy2);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            46 /* expr ::= expr TIMES expr */
+            48 /* expr ::= expr TIMES expr */
             => 
 {
 let yyres :  Val ;
@@ -1321,15 +1326,15 @@ let yyp2 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY44(yy2),) => {
 
 	yyres = sexpr::binaryop("int_mult".to_string(), yy0, yy2);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            47 /* expr ::= expr DIVIDE expr */
+            49 /* expr ::= expr DIVIDE expr */
             => 
 {
 let yyres :  Val ;
@@ -1337,15 +1342,15 @@ let yyp2 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY44(yy2),) => {
 
 	yyres = sexpr::binaryop("int_div".to_string(), yy0, yy2);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            48 /* expr ::= expr AND expr */
+            50 /* expr ::= expr AND expr */
             => 
 {
 let yyres :  Val ;
@@ -1353,15 +1358,15 @@ let yyp2 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY44(yy2),) => {
 
 	yyres = sexpr::binaryop("and".to_string(), yy0, yy2);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            49 /* expr ::= expr OR expr */
+            51 /* expr ::= expr OR expr */
             => 
 {
 let yyres :  Val ;
@@ -1369,15 +1374,15 @@ let yyp2 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY44(yy2),) => {
 
 	yyres = sexpr::binaryop("or".to_string(), yy0, yy2);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            50 /* expr ::= expr XOR expr */
+            52 /* expr ::= expr XOR expr */
             => 
 {
 let yyres :  Val ;
@@ -1385,15 +1390,15 @@ let yyp2 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY44(yy2),) => {
 
 	yyres = sexpr::binaryop("xor".to_string(),yy0, yy2);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            51 /* expr ::= expr LT expr */
+            53 /* expr ::= expr LT expr */
             => 
 {
 let yyres :  Val ;
@@ -1401,15 +1406,15 @@ let yyp2 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY44(yy2),) => {
 
 	yyres = sexpr::binaryop("less_than".to_string(), yy0, yy2);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            52 /* expr ::= expr LTEQ expr */
+            54 /* expr ::= expr LTEQ expr */
             => 
 {
 let yyres :  Val ;
@@ -1417,15 +1422,15 @@ let yyp2 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY44(yy2),) => {
 
 	yyres = sexpr::binaryop("less_than_equal".to_string(), yy0, yy2);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            53 /* expr ::= expr GT expr */
+            55 /* expr ::= expr GT expr */
             => 
 {
 let yyres :  Val ;
@@ -1433,15 +1438,15 @@ let yyp2 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY44(yy2),) => {
 
 	yyres = sexpr::binaryop("greater_than".to_string(), yy0, yy2);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            54 /* expr ::= expr GTEQ expr */
+            56 /* expr ::= expr GTEQ expr */
             => 
 {
 let yyres :  Val ;
@@ -1449,15 +1454,15 @@ let yyp2 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY44(yy2),) => {
 
 	yyres = sexpr::binaryop("greater_than_equal".to_string(), yy0, yy2);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            55 /* expr ::= expr EQ expr */
+            57 /* expr ::= expr EQ expr */
             => 
 {
 let yyres :  Val ;
@@ -1465,15 +1470,15 @@ let yyp2 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY44(yy2),) => {
 
 	yyres = sexpr::binaryop("equal".to_string(), yy0, yy2);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            56 /* expr ::= expr NEQ expr */
+            58 /* expr ::= expr NEQ expr */
             => 
 {
 let yyres :  Val ;
@@ -1481,17 +1486,17 @@ let yyp2 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY44(yy2),) => {
 
 	let eq = sexpr::binaryop("equal".to_string(), yy0, yy2);
 	yyres = sexpr::call("bool_not".to_string(), list::singleton(eq));
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            58 /* term ::= LPAREN expr RPAREN */
-          | 67 /* list ::= SquareL list_items SquareR */
+            60 /* term ::= LPAREN expr RPAREN */
+          | 69 /* list ::= SquareL list_items SquareR */
             => 
 {
 let yyres :  Val ;
@@ -1499,27 +1504,27 @@ self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp1.minor,) {
- (YYMinorType::YY72(yy1),) => {
+ (YYMinorType::YY44(yy1),) => {
 
 	yyres = yy1;
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            59 /* term ::= ID */
+            61 /* term ::= ID */
             => 
 {
 let yyres :  Val ;
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,) {
- (YYMinorType::YY12(yy0),) => {
+ (YYMinorType::YY4(yy0),) => {
  yyres = Val::id(yy0); 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            60 /* term ::= VOID */
+            62 /* term ::= VOID */
             => 
 {
 let yyres :  Val ;
@@ -1531,10 +1536,10 @@ match () {
 	yyres = Val::Void;
 
 } };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            61 /* term ::= DollarQuestion */
+            63 /* term ::= DollarQuestion */
             => 
 {
 let yyres :  Val ;
@@ -1545,24 +1550,24 @@ match () {
 	yyres = Val::id("$".to_string());
 
 } };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            62 /* term ::= INT */
+            64 /* term ::= INT */
             => 
 {
 let yyres :  Val ;
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,) {
- (YYMinorType::YY68(yy0),) => {
+ (YYMinorType::YY140(yy0),) => {
 
 	yyres = Val::Int(yy0);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            63 /* term ::= True */
+            65 /* term ::= True */
             => 
 {
 let yyres :  Val ;
@@ -1571,10 +1576,10 @@ match () {
  () => {
  yyres = Val::Bool(true); 
 } };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            64 /* term ::= False */
+            66 /* term ::= False */
             => 
 {
 let yyres :  Val ;
@@ -1583,39 +1588,39 @@ match () {
  () => {
  yyres = Val::Bool(false); 
 } };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            65 /* term ::= HASHTAG */
+            67 /* term ::= HASHTAG */
             => 
 {
 let yyres :  Val ;
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,) {
- (YYMinorType::YY12(yy0),) => {
+ (YYMinorType::YY4(yy0),) => {
 
 	yyres = Val::Hashtag(Arc::new(yy0));
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            69 /* list_items ::= expr */
+            71 /* list_items ::= expr */
             => 
 {
 let yyres :  Val ;
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,) {
- (YYMinorType::YY72(yy0),) => {
+ (YYMinorType::YY44(yy0),) => {
 
 	yyres = list::singleton(yy0);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            70 /* list_items ::= expr COMMA list_items */
-          | 73 /* tuple_args ::= term COMMA tuple_args */
+            72 /* list_items ::= expr COMMA list_items */
+          | 75 /* tuple_args ::= term COMMA tuple_args */
             => 
 {
 let yyres :  Val ;
@@ -1623,15 +1628,15 @@ let yyp2 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY44(yy2),) => {
 
 	yyres = list::cons(yy0, yy2);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            71 /* tuple ::= LPAREN tuple_args RPAREN */
+            73 /* tuple ::= LPAREN tuple_args RPAREN */
             => 
 {
 let yyres :  Val ;
@@ -1639,15 +1644,15 @@ self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp1.minor,) {
- (YYMinorType::YY72(yy1),) => {
+ (YYMinorType::YY44(yy1),) => {
 
 	yyres = Val::tuple_from_list(yy1);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            72 /* tuple_args ::= term COMMA term */
+            74 /* tuple_args ::= term COMMA term */
             => 
 {
 let yyres :  Val ;
@@ -1655,15 +1660,15 @@ let yyp2 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY72(yy0),YYMinorType::YY72(yy2),) => {
+ (YYMinorType::YY44(yy0),YYMinorType::YY44(yy2),) => {
 
 	yyres = list::cons(yy0, list::singleton(yy2));
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            74 /* strexpr ::= StrOpen strlist StrClose */
+            76 /* strexpr ::= StrOpen strlist StrClose */
             => 
 {
 let yyres :  Val ;
@@ -1671,15 +1676,15 @@ self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp1.minor,) {
- (YYMinorType::YY72(yy1),) => {
+ (YYMinorType::YY44(yy1),) => {
 
 	yyres = sexpr::strexpr(yy1);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            75 /* strlist ::= */
+            77 /* strlist ::= */
             => 
 {
 let yyres :  Val ;
@@ -1689,37 +1694,37 @@ match () {
 	yyres = Val::Nil;
 
 } };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            76 /* strlist ::= StrLit strlist */
+            78 /* strlist ::= StrLit strlist */
             => 
 {
 let yyres :  Val ;
 let yyp1 = self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp1.minor,) {
- (YYMinorType::YY12(yy0),YYMinorType::YY72(yy1),) => {
+ (YYMinorType::YY4(yy0),YYMinorType::YY44(yy1),) => {
 
 	yyres = list::cons(Val::new_str(yy0), yy1);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
-            77 /* strlist ::= ID strlist */
+            79 /* strlist ::= ID strlist */
             => 
 {
 let yyres :  Val ;
 let yyp1 = self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp1.minor,) {
- (YYMinorType::YY12(yy0),YYMinorType::YY72(yy1),) => {
+ (YYMinorType::YY4(yy0),YYMinorType::YY44(yy1),) => {
 
 	yyres = list::cons(Val::id(yy0), yy1);
 
 },    _ => unreachable!() };
- YYMinorType::YY72(yyres)
+ YYMinorType::YY44(yyres)
 }
             ,
             _ => unreachable!(),

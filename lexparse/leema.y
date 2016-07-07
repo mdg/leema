@@ -25,7 +25,9 @@ use std::sync::Arc;
 %type more_pattern_args { Val }
 %type stmt { Val }
 %type match_block { Val }
+%type block { Val }
 %type arrow_block { Val }
+%type curly_block { Val }
 %type pattern { Val }
 %type func_stmt { Val }
 %type macro_stmt { Val }
@@ -247,10 +249,16 @@ expr_stmt(A) ::= expr(B). {
 }
 expr_stmt(A) ::= DollarGT expr(B). { A = B; }
 
+block(A) ::= arrow_block(B). {
+	A = B;
+}
+block(A) ::= curly_block(B). {
+	A = B;
+}
 arrow_block(A) ::= BLOCKARROW expr(B). {
 	A = B;
 }
-arrow_block(A) ::= CurlyL linebreak stmts(B) CurlyR. {
+curly_block(A) ::= CurlyL linebreak stmts(B) CurlyR. {
 	A = B;
 }
 
@@ -269,7 +277,7 @@ func_stmt(A) ::= Func dfunc_1(B).
 }
 
 dfunc_1(A) ::= ID(B) LPAREN dfunc_args(D) RPAREN opt_typex(E)
-	arrow_block(C).
+	block(C).
 {
 	/*
 	const Val *plist = Val::list(p);
@@ -373,10 +381,10 @@ if_expr(A) ::= expr(B) arrow_block(C). {
 	A = sexpr::ifexpr(B, C, Val::Void);
 }
 */
-if_expr(A) ::= expr(B) arrow_block(C) ELSE arrow_block(D). {
+if_expr(A) ::= expr(B) curly_block(C) ELSE curly_block(D). {
 	A = sexpr::ifexpr(B, C, D);
 }
-if_expr(A) ::= expr(B) arrow_block(C) ELSE IF if_expr(D). {
+if_expr(A) ::= expr(B) curly_block(C) ELSE IF if_expr(D). {
 	A = sexpr::ifexpr(B, C, D);
 }
 
