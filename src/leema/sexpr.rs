@@ -155,7 +155,8 @@ mod tests {
 	use std::sync::Arc;
 
 #[test]
-fn test_ast_replace_id() {
+fn test_ast_replace_id()
+{
 	let str_a = "a".to_string();
 	let node = Val::id(str_a.clone());
 
@@ -167,7 +168,8 @@ fn test_ast_replace_id() {
 }
 
 #[test]
-fn test_sexpr_empty_call() {
+fn test_sexpr_empty_call()
+{
 	let c = sexpr::call("testf".to_string(), Val::Nil);
 	let expected = sexpr::new(SexprType::Call,
 		list::cons(Val::id("testf".to_string()),

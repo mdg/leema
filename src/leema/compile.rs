@@ -7,6 +7,7 @@ use leema::code::{self, CodeKey, CodeMap, Code, OpVec};
 use std::collections::{HashMap};
 use std::sync::Arc;
 use std::mem;
+use std::io::{stderr, Write};
 
 
 #[derive(Debug)]
@@ -378,8 +379,7 @@ impl StaticSpace
 			}
 			*/
 			SexprType::IfExpr => {
-				self.precompile_if_block(expr);
-				Iexpr::new(Source::Void)
+				self.precompile_if_block(expr)
 			}
 			/*
 			SexprType::LessThan3(oreq1, oreq2) => {
@@ -752,9 +752,11 @@ println!("infer_type({}, {}, {:?}) for {}", varname, tmptype, newtype, self.func
 
 	pub fn precompile_macro_call(&mut self, name: &String, mut argx: Val) -> Iexpr
 	{
-println!("precompile_macro_call({})", name);
+write!(stderr(), "precompile_macro_call({}, {:?})\n", name, argx);
 		let mappl = {
 			let &(ref ids, ref body) = self.m.get(name).unwrap();
+write!(stderr(), "ids = {:?}\n", ids);
+write!(stderr(), "body = {:?}\n", body);
 			let argv = Val::tuple_items(argx);
 			let expected_argc = ids.len();
 			let passed_argc = argv.len();
@@ -776,6 +778,7 @@ println!("precompile_macro_call({})", name);
 
 			Val::replace_ids(body.clone(), &margs)
 		};
+write!(stderr(), "result = {:?}\n", mappl);
 		self.precompile(mappl)
 	}
 
@@ -1002,21 +1005,13 @@ mod tests {
 	use std::collections::HashMap;
 	use std::rc::Rc;
 	use std::sync::Arc;
+    use std::io::{stderr, Write};
 
 
 fn call_with_no_params(fs: &mut Frame)
 {
 	// blah
 	let x = 5;
-}
-
-#[test]
-fn test_precompile_empty_list_to_vec()
-{
-	let mut ss = prefab::new_staticspace();
-	let result = ss.precompile_list_to_vec(Val::Nil);
-	let expected: Vec<Iexpr> = vec![];
-	assert_eq!(expected, result);
 }
 
 #[test]
@@ -1082,6 +1077,54 @@ fn test_compile_macro()
     assert_eq!(expected, iprog);
     let macro_name = "mand".to_string();
     assert!(ss.m.contains_key(&macro_name));
+}
+
+#[test]
+fn test_use_macro()
+{
+	let input = "macro mand(a, b) {
+        if a {
+            b
+        } else {
+            false
+        }
+    }
+    mand(true, true)
+    ".to_string();
+    let root = Ast::parse(lex(input));
+    let mut ss = prefab::new_staticspace();
+
+    let iprog = ss.compile(root.root());
+    let expected = Iexpr{
+        dst: Reg::Result,
+        typ: Type::Void,
+        src: Source::Block(vec![
+            Iexpr{
+                dst: Reg::Result,
+                typ: Type::Void,
+                src: Source::Void,
+            },
+        ]),
+    };
+    assert_eq!(expected, iprog);
+    let macro_name = "mand".to_string();
+    assert!(ss.m.contains_key(&macro_name));
+}
+
+#[test]
+fn test_precompile_if_block()
+{
+	let input = "if true {
+        1
+    } else {
+        2
+    }".to_string();
+	let root = Ast::parse(lex(input));
+	let mut ss = prefab::new_staticspace();
+	let ifprog = ss.compile(root.root());
+
+	let expected = Iexpr::new(Source::Void);
+	assert_eq!(expected, ifprog);
 }
 
 #[test]

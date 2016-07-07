@@ -253,4 +253,20 @@ fn test_ast_parse_list() {
 	assert_eq!(expected, root);
 }
 
+#[test]
+fn test_ast_parse_if()
+{
+	let input = "if x {
+        y
+    } else {
+        z
+    }".to_string();
+	let root = Ast::parse(lex(input));
+
+	let expected = Ast::ReplRoot(sexpr::new(
+        SexprType::BlockExpr, list::empty(),
+    ));
+	assert_eq!(expected, root);
+}
+
 }

@@ -49,11 +49,12 @@ pub enum Type
 	Failure,
 	*/
 	Kind,
+	TypeConstructor(i8),
 	//Pkind(u8, i16),
 	Any,
 	Unknown,
-	AnonVar,
 	Var(Arc<String>, Arc<String>),
+	AnonVar,
 }
 
 impl Type {
@@ -186,6 +187,7 @@ pub enum Val {
 	TypeVar(Arc<String>),
 	TypeX(Arc<String>, Vec<Val>),
 	Type(Type),
+	Kind(i8),
 	Lib(LibVal),
 	//Ptype(String, Vec<String>, Vec<Type>),
 	Future(FutureVal),
@@ -382,6 +384,7 @@ impl Val {
 				Type::Tuple(tuptypes)
 			}
 			&Val::Cons(_, _) => Type::RelaxedList,
+			&Val::Type(_) => Type::Kind,
 			_ => { panic!("dunno what type {:?}", self) }
 		}
 	}
@@ -552,6 +555,9 @@ impl fmt::Display for Val {
 			Val::Type(ref s) => {
 				write!(f, "{:?}", s)
 			}
+			Val::Kind(_) => {
+				write!(f, "Kind")
+			}
 			Val::TypeVar(ref s) => {
 				write!(f, "%{}", s)
 			}
@@ -616,6 +622,9 @@ impl fmt::Debug for Val {
 			}
 			Val::Type(ref s) => {
 				write!(f, "{:?}", s)
+			}
+			Val::Kind(_) => {
+				write!(f, "Kind")
 			}
 			Val::TypeVar(ref s) => {
 				write!(f, "TypeVar({:?})", s)
@@ -1084,6 +1093,18 @@ fn test_compare_true_false() {
 
 #[test]
 fn test_compare_across_types() {
+	let f = Val::Bool(false);
+	let t = Val::Bool(true);
+	let i = Val::Int(7);
+	let s = Val::new_str("hello".to_string());
+
+	assert!(f < t);
+	assert!(t < i);
+	assert!(i < s);
+}
+
+#[test]
+fn test_replace_ids() {
 	let f = Val::Bool(false);
 	let t = Val::Bool(true);
 	let i = Val::Int(7);
