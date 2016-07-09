@@ -70,8 +70,15 @@ use std::sync::Arc;
 }
 
 %syntax_error {
-	println!("syntax error");
-	panic!("Syntax error. wtf? @ <line,column>?");
+    match token {
+        &Token::EOI => {
+	        panic!("Unexpected end of file. Maybe add newline?");
+        }
+        _ => {
+	        println!("syntax error at token {:?}\n", token);
+	        panic!("Syntax error. wtf? @ <line,column>?");
+        }
+    }
 }
 
 %parse_failure {
@@ -93,16 +100,20 @@ program(A) ::= stmts(B). {
 }
 
 linebreak(A) ::= NEWLINE. {
-	A = Ast::Nothing;
+    // set to avoid uninitialized variable
+    A = Ast::Nothing;
 }
 linebreak(A) ::= linebreak NEWLINE. {
-	A = Ast::Nothing;
+    // set to avoid uninitialized variable
+    A = Ast::Nothing;
 }
 
 stmts(A) ::= . {
+print!("empty stmt list\n");
 	A = sexpr::new(SexprType::BlockExpr, list::empty());
 }
 stmts(A) ::= stmt(C) linebreak stmts(B). {
+print!("append stmt({:?})\n", C);
 	A = list::cons(C, B);
 }
 
@@ -110,7 +121,10 @@ stmts(A) ::= stmt(C) linebreak stmts(B). {
 /* stmt(A) ::= short_func_stmt(B). { A = B; } */
 /* stmt(A) ::= matched_func_stmt(B). { A = B; } */
 stmt(A) ::= let_stmt(B). { A = B; }
-stmt(A) ::= expr_stmt(B). { A = B; }
+stmt(A) ::= expr_stmt(B). {
+print!("valid expr_stmt\n");
+    A = B;
+}
 stmt(A) ::= fail_stmt(B). { A = B; }
 /* stmt(A) ::= data_decl(B). { A = B; } */
 stmt(A) ::= DT. { A = Val::Void; }
@@ -374,6 +388,7 @@ expr(A) ::= term(B) DOLLAR term(C). {
 }
 /* IF expression */
 expr(A) ::= IF if_expr(B). {
+print!("valid if expr\n");
 	A = B;
 }
 /*
@@ -382,9 +397,11 @@ if_expr(A) ::= expr(B) arrow_block(C). {
 }
 */
 if_expr(A) ::= expr(B) curly_block(C) ELSE curly_block(D). {
+print!("found if/else expr\n");
 	A = sexpr::ifexpr(B, C, D);
 }
 if_expr(A) ::= expr(B) curly_block(C) ELSE IF if_expr(D). {
+print!("found if/else/if expr\n");
 	A = sexpr::ifexpr(B, C, D);
 }
 

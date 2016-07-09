@@ -1,7 +1,8 @@
 #include "lex.c"
 #include "token.h"
 
-yyscan_t lib_lexscan(const char *input) {
+yyscan_t lib_lexscan(const char *input)
+{
 	struct TokenBuffer *tok;
 	tok = (struct TokenBuffer *) malloc(sizeof(struct TokenBuffer));
 	tok->token = 0;
@@ -20,7 +21,8 @@ yyscan_t lib_lexscan(const char *input) {
 	return scanner;
 }
 
-void lib_lexclose(yyscan_t scanner) {
+void lib_lexclose(yyscan_t scanner)
+{
 	struct TokenBuffer *tok;
 	tok = (struct TokenBuffer *) yyget_extra(scanner);
 	yyset_extra(NULL, scanner);
@@ -28,17 +30,20 @@ void lib_lexclose(yyscan_t scanner) {
 	yylex_destroy(scanner);
 }
 
-struct TokenBuffer * lib_lexone(yyscan_t scanner) {
+struct TokenBuffer * lib_lexone(yyscan_t scanner)
+{
 	int tok = yylex(scanner);
 	return (struct TokenBuffer *) yyget_extra(scanner);
 }
 
 
-int set_token(yyscan_t scanner, int tok) {
+int set_token(yyscan_t scanner, int tok)
+{
 	return set_token_val(scanner, tok, NULL);
 }
 
-int set_token_val(yyscan_t scanner, int tok, const char *val) {
+int set_token_val(yyscan_t scanner, int tok, const char *val)
+{
 	struct TokenBuffer *buf;
 	buf = (struct TokenBuffer *) yyget_extra(scanner);
 	buf->token = tok;

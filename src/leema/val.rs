@@ -1,6 +1,6 @@
 use leema::reg::{self, Reg, NumericRegistry};
 use leema::sexpr;
-use leema::list::{self, List};
+use leema::list;
 use std::fmt::{self, Formatter, Display};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
@@ -194,7 +194,7 @@ pub enum Val {
 	Void,
 }
 
-const NIL: List = List::Nil;
+const NIL: Val = Val::Nil;
 pub const UNIT: Val = Val::Unit;
 pub const VOID: Val = Val::Void;
 pub const FALSE: Val = Val::Bool(false);
@@ -490,6 +490,9 @@ impl Val {
 			}
 			(SexprType::StrExpr, strs) => {
 				write!(f, "\"{}\"", strs)
+			}
+			(SexprType::IfExpr, ifs) => {
+				write!(f, "if({:?})", ifs)
 			}
 			(SexprType::DefMacro, &Val::Cons(ref id, ref args)) => {
 				let name = Val::to_str(id);

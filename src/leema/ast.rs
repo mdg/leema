@@ -260,12 +260,25 @@ fn test_ast_parse_if()
         y
     } else {
         z
-    }".to_string();
+    }
+    ".to_string();
 	let root = Ast::parse(lex(input));
 
-	let expected = Ast::ReplRoot(sexpr::new(
-        SexprType::BlockExpr, list::empty(),
+    let blocka = sexpr::new(SexprType::BlockExpr, list::singleton(
+        Val::id("y".to_string()),
     ));
+    let blockb = sexpr::new(SexprType::BlockExpr, list::singleton(
+        Val::id("z".to_string()),
+    ));
+	let expected = Ast::ReplRoot(sexpr::new(SexprType::BlockExpr, list::cons(
+        sexpr::new(SexprType::IfExpr,
+        list::cons(Val::id("x".to_string()),
+        list::cons(blocka,
+        list::cons(blockb,
+        Val::Nil,
+        )))),
+        Val::Nil,
+    )));
 	assert_eq!(expected, root);
 }
 
