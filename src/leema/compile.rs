@@ -22,9 +22,7 @@ pub enum Source
 	BoundVal(Reg),
 	DefineFunc(String, Box<Iexpr>),
 	Fork(Box<Iexpr>, Box<Iexpr>),
-	IfBlock(Vec<Iexpr>),
-	IfCase(Box<Iexpr>, Box<Iexpr>),
-	ElseCase(Box<Iexpr>),
+	IfExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
 	List(Vec<Iexpr>),
 	Str(Vec<Iexpr>),
 	Tuple(Vec<Iexpr>),
@@ -115,42 +113,19 @@ impl Iexpr
 		}
 	}
 
-	fn else_case(code: Iexpr) -> Iexpr
+	fn if_expr(test: Iexpr, truth: Iexpr, lies: Iexpr) -> Iexpr
 	{
+        if truth.typ != lies.typ {
+            panic!("Mismatched if types: {:?}!={:?}", truth.typ, lies.typ);
+        }
 		Iexpr{
 			dst: Reg::Undecided,
-			typ: code.typ.clone(),
-			src: Source::ElseCase(Box::new(code)),
-		}
-	}
-
-	fn if_block(cases: Vec<Iexpr>) -> Iexpr
-	{
-		let mut result;
-		{
-			let mut if_type = None;
-			for c in &cases {
-				if if_type.is_none() {
-					if_type = Some(&c.typ);
-				} else if if_type != Some(&c.typ) {
-					panic!("mismatched types in if expression");
-				}
-			}
-			result = if_type.unwrap().clone();
-		}
-		Iexpr{
-			dst: Reg::Undecided,
-			typ: result,
-			src: Source::IfBlock(cases),
-		}
-	}
-
-	fn if_true(test: Iexpr, code: Iexpr) -> Iexpr
-	{
-		Iexpr{
-			dst: Reg::Undecided,
-			typ: code.typ.clone(),
-			src: Source::IfCase(Box::new(test), Box::new(code)),
+			typ: truth.typ.clone(),
+			src: Source::IfExpr(
+                Box::new(test),
+                Box::new(truth),
+                Box::new(lies)
+            ),
 		}
 	}
 
@@ -379,7 +354,7 @@ impl StaticSpace
 			}
 			*/
 			SexprType::IfExpr => {
-				self.precompile_if_block(expr)
+				self.precompile_ifexpr(expr)
 			}
 			/*
 			SexprType::LessThan3(oreq1, oreq2) => {
@@ -608,9 +583,15 @@ println!("don't replace {:?} with {:?}", t, self.inferred);
 		Iexpr::new_block(self.precompile_list_to_vec(items))
 	}
 
-	pub fn precompile_if_block(&mut self, cases: Val) -> Iexpr
+	pub fn precompile_ifexpr(&mut self, expr: Val) -> Iexpr
 	{
-		Iexpr::if_block(self.precompile_list_to_vec(cases))
+        let (raw_test, e2) = list::take(expr);
+        let (raw_truth, e3) = list::take(e2);
+        let (raw_lies, _) = list::take(e3);
+        let test = self.precompile(raw_test);
+        let truth = self.precompile(raw_truth);
+        let lies = self.precompile(raw_lies);
+        Iexpr::if_expr(test, truth, lies)
 	}
 
 	pub fn precompile_id(&mut self, name: Arc<String>) -> Iexpr
@@ -854,8 +835,12 @@ write!(stderr(), "result = {:?}\n", mappl);
 			Source::Tuple(ref mut tup) => {
 				self.assign_tuple_registers(i.dst, &mut *tup);
 			}
-			Source::IfBlock(ref mut cases) => {
-				self.assign_if_registers(i.dst, cases);
+			Source::IfExpr(ref mut test, ref mut truth, ref mut lies) => {
+				self.assign_registers(&mut *test);
+                truth.dst = i.dst;
+                lies.dst = i.dst;
+                self.assign_registers(&mut *truth);
+                self.assign_registers(&mut *lies);
 			}
 			Source::List(ref mut l) => {
 				self.assign_list_registers(i.dst, &mut *l);
@@ -873,12 +858,6 @@ write!(stderr(), "result = {:?}\n", mappl);
 			Source::ConstVal(_) => {}
 			Source::DefineFunc(_, _) => {}
 			Source::Void => {}
-			Source::IfCase(_, _) => {
-				panic!("Assign registers direct to if case");
-			}
-			Source::ElseCase(_) => {
-				panic!("Assign registers direct to else case");
-			}
 		}
 	}
 
@@ -891,28 +870,6 @@ write!(stderr(), "result = {:?}\n", mappl);
 				first = false;
 			}
 			self.assign_registers(i);
-		}
-	}
-
-	pub fn assign_if_registers(&mut self, dst: Reg, cases: &mut Vec<Iexpr>)
-	{
-		let testreg = Reg::R1(self.nextreg());
-		for case in cases {
-			match case.src {
-				Source::IfCase(ref mut test, ref mut code) => {
-					test.dst = testreg;
-					code.dst = dst;
-					self.assign_registers(&mut *test);
-					self.assign_registers(&mut *code);
-				}
-				Source::ElseCase(ref mut code) => {
-					code.dst = dst;
-					self.assign_registers(&mut *code);
-				}
-				_ => {
-					panic!("Not an if case {:?}", case);
-				}
-			}
 		}
 	}
 
@@ -1118,7 +1075,8 @@ fn test_precompile_if_block()
         1
     } else {
         2
-    }".to_string();
+    }
+    ".to_string();
 	let root = Ast::parse(lex(input));
 	let mut ss = prefab::new_staticspace();
 	let ifprog = ss.compile(root.root());

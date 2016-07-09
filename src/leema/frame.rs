@@ -305,24 +305,21 @@ fn execute_fork(w: &mut Worker, curf: &mut Frame,
 	w.event = Event::Fork;
 }
 
-fn execute_iftrue(curf: &mut Frame, reg: &Reg, jmp: i16)
+fn execute_jump_if_not(curf: &mut Frame, jmp: i16, reg: &Reg)
 {
-	println!("execute_iftrue({:?},{:?})", reg, jmp);
-	let test_val = curf.e.get_reg(reg).clone();
-	match test_val {
-		Val::Bool(test) => {
-			if test {
-				println!("if test is true");
-				curf.pc += 1;
-			} else {
-				println!("if test is false");
-				curf.pc += jmp as i32;
-			}
-		}
-		_ => {
-			panic!("can't if check a not bool {:?}", test_val);
-		}
-	}
+    println!("execute_jump_if_not({:?},{:?})", jmp, reg);
+    let test_val = curf.e.get_reg(reg);
+    if let &Val::Bool(test) = test_val {
+        if test {
+            println!("if test is true");
+            curf.pc += 1;
+        } else {
+            println!("if test is false");
+            curf.pc += jmp as i32;
+        }
+    } else {
+        panic!("can't if check a not bool {:?}", test_val);
+    }
 }
 
 fn execute_jump(curf: &mut Frame, jmp: i16)
@@ -479,11 +476,11 @@ write!(stderr(), "lock app, find_code\n");
 			&Op::Fork(ref dst, ref freg, ref args) => {
 				execute_fork(self, curf, dst, freg, args);
 			}
-			&Op::IfTrue(ref reg, jmp) => {
-				execute_iftrue(curf, reg, jmp);
-			}
 			&Op::Jump(jmp) => {
 				execute_jump(curf, jmp);
+			}
+			&Op::JumpIfNot(jmp, ref reg) => {
+				execute_jump_if_not(curf, jmp, reg);
 			}
 			&Op::ListCons(ref dst, ref src) => {
 				execute_list_cons(curf, *dst, *src);

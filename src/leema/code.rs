@@ -35,8 +35,8 @@ pub enum Op {
 	Copy(Reg, Reg),
 	Fork(Reg, Reg, Reg),
 	//IfFail(Reg, i16),
-	IfTrue(Reg, i16),
 	Jump(i16),
+	JumpIfNot(i16, Reg),
 	ListCons(Reg, Reg),
 	ListCreate(Reg),
 	StrCat(Reg, Reg),
@@ -190,8 +190,8 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
 		Source::Fork(ref f, ref args) => {
 			make_fork_ops(input.dst, f, args)
 		}
-		Source::IfBlock(ref cases) => {
-			make_if_ops(input.dst, cases)
+		Source::IfExpr(ref test, ref truth, ref lies) => {
+			make_if_ops(&*test, &*truth, &*lies)
 		}
 		Source::Str(ref items) => {
 			make_str_ops(input.dst, items)
@@ -220,12 +220,6 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
 			// blank, skip it
 			vec![]
 		}
-		Source::IfCase(_, _) => {
-			panic!("IfCase shouldn't be make_ops directly");
-		}
-		Source::ElseCase(_) => {
-			panic!("ElseCase shouldn't be make_ops directly");
-		}
 	}
 }
 
@@ -240,44 +234,19 @@ pub fn make_call_ops(dst: Reg, f: &Iexpr, args: &Iexpr) -> OpVec
 	ops
 }
 
-pub fn make_if_ops(dst: Reg, cases: &Vec<Iexpr>) -> OpVec
+pub fn make_if_ops(test: &Iexpr, truth: &Iexpr, lies: &Iexpr) -> OpVec
 {
-println!("make_if_ops({:?}, {:?})", dst, cases);
-	let mut op_cases = vec![];
-	let mut jumptoend = 1;
-	for case in cases.iter().rev() {
-		let mut case_ops = vec![];
-		let code_ops = match case.src {
-			Source::IfCase(ref test, ref code) => {
-				case_ops.append(&mut make_sub_ops(test));
-				let mut block_ops = make_sub_ops(code);
-				let mut jmp = block_ops.len() as i16 + 1;
-				if jumptoend > 1 {
-					jmp += 1;
-				}
-				case_ops.push(Op::IfTrue(test.dst, jmp));
-				case_ops.append(&mut block_ops);
-				if jumptoend > 1 {
-					case_ops.push(Op::Jump(jumptoend));
-				}
-				case_ops
-			}
-			Source::ElseCase(ref code) => {
-				make_sub_ops(code)
-			}
-			_ => {
-				panic!("Not an if case {:?}", case);
-			}
-		};
-		jumptoend += code_ops.len() as i16;
-		op_cases.push(code_ops);
-	}
+println!("make_if_ops({:?},{:?},{:?})", test, truth, lies);
+    let mut if_ops = make_sub_ops(&test);
+    let mut truth_ops = make_sub_ops(&truth);
+    let mut lies_ops = make_sub_ops(&lies);
 
-	let mut ops = vec![];
-	for oc in op_cases.iter_mut().rev() {
-		ops.append(oc);
-	}
-	ops
+    truth_ops.push(Op::Jump((lies_ops.len() + 1) as i16));
+    if_ops.push(Op::JumpIfNot((truth_ops.len() + 1) as i16, test.dst));
+
+    if_ops.append(&mut truth_ops);
+    if_ops.append(&mut lies_ops);
+    if_ops
 }
 
 
