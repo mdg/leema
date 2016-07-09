@@ -1081,7 +1081,48 @@ fn test_precompile_if_block()
 	let mut ss = prefab::new_staticspace();
 	let ifprog = ss.compile(root.root());
 
-	let expected = Iexpr::new(Source::Void);
+    let test = Iexpr{
+        dst: Reg::R1(0),
+        typ: Type::Bool,
+        src: Source::ConstVal(Val::Bool(true)),
+    };
+    let block_t = Iexpr{
+        dst: Reg::Result,
+        typ: Type::Int,
+        src: Source::Block(vec![
+            Iexpr{
+                dst: Reg::Result,
+                typ: Type::Int,
+                src: Source::ConstVal(Val::Int(1)),
+            },
+        ]),
+    };
+    let block_f = Iexpr{
+        dst: Reg::Result,
+        typ: Type::Int,
+        src: Source::Block(vec![
+            Iexpr{
+                dst: Reg::Result,
+                typ: Type::Int,
+                src: Source::ConstVal(Val::Int(2)),
+            },
+        ]),
+    };
+	let expected = Iexpr{
+        dst: Reg::Result,
+        typ: Type::Int,
+        src: Source::Block(vec![
+            Iexpr{
+                dst: Reg::Result,
+                typ: Type::Int,
+                src: Source::IfExpr(
+                    Box::new(test),
+                    Box::new(block_t),
+                    Box::new(block_f)
+                ),
+            },
+        ]),
+    };
 	assert_eq!(expected, ifprog);
 }
 
