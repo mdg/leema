@@ -744,7 +744,6 @@ let yyres :  Val ;
 match () {
  () => {
 
-print!("empty stmt list\n");
 	yyres = sexpr::new(SexprType::BlockExpr, list::empty());
 
 } };
@@ -761,7 +760,6 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
  (YYMinorType::YY44(yy0),YYMinorType::YY44(yy2),) => {
 
-print!("append stmt({:?})\n", yy0);
 	yyres = list::cons(yy0, yy2);
 
 },    _ => unreachable!() };
@@ -795,7 +793,6 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,) {
  (YYMinorType::YY44(yy0),) => {
 
-print!("valid expr_stmt\n");
     yyres = yy0;
 
 },    _ => unreachable!() };
@@ -904,6 +901,7 @@ match (yyp1.minor,) {
 }
             ,
             19 /* arrow_block ::= BLOCKARROW expr */
+          | 38 /* expr ::= IF if_expr */
             => 
 {
 let yyres :  Val ;
@@ -1220,22 +1218,6 @@ match (yyp0.minor,yyp2.minor,) {
  YYMinorType::YY44(yyres)
 }
             ,
-            38 /* expr ::= IF if_expr */
-            => 
-{
-let yyres :  Val ;
-let yyp1 = self.yystack.pop().unwrap();
-self.yystack.pop().unwrap();
-match (yyp1.minor,) {
- (YYMinorType::YY44(yy1),) => {
-
-print!("valid if expr\n");
-	yyres = yy1;
-
-},    _ => unreachable!() };
- YYMinorType::YY44(yyres)
-}
-            ,
             39 /* if_expr ::= expr curly_block ELSE curly_block */
             => 
 {
@@ -1247,7 +1229,6 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp1.minor,yyp3.minor,) {
  (YYMinorType::YY44(yy0),YYMinorType::YY44(yy1),YYMinorType::YY44(yy3),) => {
 
-print!("found if/else expr\n");
 	yyres = sexpr::ifexpr(yy0, yy1, yy3);
 
 },    _ => unreachable!() };
@@ -1266,7 +1247,6 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp1.minor,yyp4.minor,) {
  (YYMinorType::YY44(yy0),YYMinorType::YY44(yy1),YYMinorType::YY44(yy4),) => {
 
-print!("found if/else/if expr\n");
 	yyres = sexpr::ifexpr(yy0, yy1, yy4);
 
 },    _ => unreachable!() };
