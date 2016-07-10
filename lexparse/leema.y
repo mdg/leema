@@ -30,9 +30,10 @@ use std::sync::Arc;
 %type curly_block { Val }
 %type pattern { Val }
 %type func_stmt { Val }
-%type macro_stmt { Val }
 %type dfunc_args { Val }
 %type dfunc_1 { Val }
+%type macro_stmt { Val }
+%type macro_args { Val }
 %type let_stmt { Val }
 %type expr_stmt { Val }
 %type fail_stmt { Val }
@@ -303,6 +304,17 @@ dfunc_1(A) ::= ID(B) LPAREN dfunc_args(D) RPAREN opt_typex(E)
 	A = sexpr::single_func_list(id, D, typ, C)
 }
 
+dfunc_args(A) ::= . {
+	A = list::empty();
+}
+dfunc_args(A) ::= ID(B) opt_typex(C). {
+	A = list::singleton(sexpr::id_with_type(B, C));
+}
+dfunc_args(A) ::= ID(B) opt_typex(C) COMMA dfunc_args(D). {
+	A = list::cons(sexpr::id_with_type(B, C), D);
+}
+
+
 
 opt_typex(A) ::= . {
 	A = Type::AnonVar;
@@ -325,10 +337,26 @@ typex(A) ::= TYPE_ID(B). {
 }
 
 
-/* defining a macro, much like a function */
-macro_stmt(A) ::= MACRO dfunc_1(B). {
-	A = Val::Sexpr(SexprType::DefMacro, Box::new(B));
+/* defining a macro */
+macro_stmt(A) ::= MACRO ID(B) LPAREN macro_args(D) RPAREN block(C). {
+    A = sexpr::new(SexprType::DefMacro,
+        list::cons(Val::id(B),
+        list::cons(D,
+        list::cons(C,
+        Val::Nil
+    ))));
 }
+
+macro_args(A) ::= . {
+    A = Val::Nil;
+}
+macro_args(A) ::= ID(B). {
+    A = list::singleton(Val::id(B));
+}
+macro_args(A) ::= ID(B) COMMA macro_args(C). {
+    A = list::cons(Val::id(B), C);
+}
+
 
 /* function with pattern matching
 func_stmt(A) ::= F ID(B) typedecl(T) linebreak match_block(C) END_BLOCK. {
@@ -343,17 +371,6 @@ idtype(A) ::= ID(B) COLON texpr(C). {
 	A = sexpr::idtype(B, C);
 }
 */
-
-
-dfunc_args(A) ::= . {
-	A = list::empty();
-}
-dfunc_args(A) ::= ID(B) opt_typex(C). {
-	A = list::singleton(sexpr::id_with_type(B, C));
-}
-dfunc_args(A) ::= ID(B) opt_typex(C) COMMA dfunc_args(D). {
-	A = list::cons(sexpr::id_with_type(B, C), D);
-}
 
 /* regular function call */
 expr(A) ::= ID(B) LPAREN RPAREN. {

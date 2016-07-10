@@ -310,14 +310,18 @@ fn test_ast_parse_macro()
         )))),
         Val::Nil,
     ));
+    let args =
+        list::cons(Val::id("a".to_string()),
+        list::cons(Val::id("b".to_string()),
+        Val::Nil,
+    ));
 	let expected = Ast::ReplRoot(sexpr::new_block(list::singleton(
         sexpr::new(SexprType::DefMacro,
             list::cons(Val::id("mand".to_string()),
-            list::cons(sexpr::id_with_type("a".to_string(), Type::AnonVar),
-            list::cons(sexpr::id_with_type("b".to_string(), Type::AnonVar),
+            list::cons(args,
             list::cons(ifx,
             Val::Nil,
-        )))))
+        ))))
     )));
 	assert_eq!(expected, root);
 }

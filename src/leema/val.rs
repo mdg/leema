@@ -500,9 +500,11 @@ impl Val {
                 let t = list::head_ref(typ);
 				write!(f, "{:?}:{:?}", id, t)
 			}
-			(SexprType::DefMacro, &Val::Cons(ref id, ref args)) => {
-				let name = Val::to_str(id);
-				write!(f, "DefMacro:{}({:?})", name, args)
+			(SexprType::DefMacro, ref mac) => {
+				let (name, m2) = list::take_ref(mac);
+				let (args, m3) = list::take_ref(m2);
+				let (body, _) = list::take_ref(m3);
+				write!(f, "DefMacro({},{:?},{:?})", name, args, body)
 			}
 			_ => {
 				write!(f, "something else: {:?}/{:?}", st, x)
