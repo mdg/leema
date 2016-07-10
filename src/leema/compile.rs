@@ -618,7 +618,7 @@ println!("don't replace {:?} with {:?}", t, self.inferred);
 				panic!("precompile bound undecided {:?} for {}", reg, name);
 			}
 			Some(&Reg::Lib) => {
-				println!("found function {}", name);
+				//println!("found function {}", name);
 				Iexpr::const_val(Val::Str(name))
 			}
 			Some(_) => {
@@ -631,7 +631,6 @@ println!("don't replace {:?} with {:?}", t, self.inferred);
 	{
 		let (f, sx) = list::take(call);
 		let args = list::take_head(sx);
-println!("Compile {}({:?})", f, args);
 		if !f.is_id() {
 			panic!("not an identifier: {:?}", f);
 		}
@@ -640,10 +639,8 @@ println!("Compile {}({:?})", f, args);
 			return self.precompile_macro_call(&fname, args);
 		}
 		let fexpr = self.precompile(f);
-println!("precompile_call {}({:?})", fname, args);
 		let cargs = self.precompile(args);
 		let deftype = self.function_type(&fname);
-println!("call {:?}({:?}) -> {:?}", fexpr, cargs, deftype);
 		let call_argtypes = cargs.typ.clone();
 		/*
 		let call_argtypes = cargs.iter().map(|a| {
@@ -661,7 +658,7 @@ println!("call {:?}({:?}) -> {:?}", fexpr, cargs, deftype);
 	pub fn match_types(&mut self, def_args: &Vec<Type>
 		, call_arg_type: &Type)
 	{
-println!("match types? {:?} == {:?}", def_args, call_arg_type);
+//println!("match types? {:?} == {:?}", def_args, call_arg_type);
 		let call_args = match call_arg_type {
 			&Type::Tuple(ref tuple_arg_vec) => tuple_arg_vec,
 			_ => {

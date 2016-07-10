@@ -16,7 +16,6 @@ yyscan_t lib_lexscan(const char *input)
 	yyscan_t scanner = NULL;
 	yylex_init(&scanner);
 	yyset_extra(tok, scanner);
-	printf("yy_scan_string(%s)\n", input);
 	yy_scan_string(input, scanner);
 	return scanner;
 }

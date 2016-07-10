@@ -43,7 +43,6 @@ fn main()
 	let args: Args = Docopt::new(USAGE)
 		.and_then(|d| d.decode())
 		.unwrap_or_else(|e| e.exit());
-	println!("args = {:?}", args);
 
 	let loader = ast::new_file_loader();
 	let mut ss = prefab::new_staticspace();

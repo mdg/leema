@@ -67,7 +67,7 @@ use std::sync::Arc;
 %nonassoc LPAREN RPAREN.
 
 %parse_accept {
-	println!("parse accepted");
+	//println!("parse accepted");
 }
 
 %syntax_error {
@@ -378,7 +378,6 @@ expr(A) ::= ID(B) LPAREN RPAREN. {
 	A = sexpr::call(B, Val::Nil);
 }
 expr(A) ::= ID(B) LPAREN expr(C) RPAREN. {
-	println!("1 param function call!");
 	let args = list::singleton(C);
 	A = sexpr::call(B, args);
 }

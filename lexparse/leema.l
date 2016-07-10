@@ -39,14 +39,12 @@ EOI	\0
 
 
 <<EOF>>	{
-	printf("EOF!\n");
 	return set_token(yyg, TOKEN_EOI);
 }
 {EOL}	{
 	return set_token(yyg, TOKEN_NEWLINE);
 }
 "\""	{
-	printf("StrOpen\n");
 	BEGIN(STR);
 	return set_token(yyg, TOKEN_StrOpen);
 }

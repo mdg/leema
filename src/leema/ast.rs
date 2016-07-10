@@ -35,7 +35,6 @@ pub enum Ast {
 impl Ast
 {
 	pub fn parse(toks: Vec<Token>) -> Ast {
-		println!("parse({:?})", toks);
 		let e = Err(0);
 		let mut p = Parser::new(e);
 		for t in toks {
@@ -92,7 +91,7 @@ impl Loader for FileLoader
 		let mut f: File = File::open(filename).unwrap();
 		let mut input = String::new();
 		f.read_to_string(&mut input).ok();
-		println!("file contents> {}", input);
+		//println!("file contents> {}", input);
 		input
 	}
 }

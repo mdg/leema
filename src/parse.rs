@@ -1211,7 +1211,6 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
  (YYMinorType::YY66(yy0),YYMinorType::YY32(yy2),) => {
 
-	println!("1 param function call!");
 	let args = list::singleton(yy2);
 	yyres = sexpr::call(yy0, args);
 
@@ -1830,7 +1829,7 @@ match (yyp0.minor,yyp1.minor,) {
     fn yy_accept(&mut self) {
         self.yystack.clear();
 
-	println!("parse accepted");
+	//println!("parse accepted");
     }
 }
 

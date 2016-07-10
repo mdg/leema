@@ -186,10 +186,10 @@ impl Application
         let mut done = false;
         while !done {
             {
-write!(stderr(), "wait_until_done try_lock\n");
+//write!(stderr(), "wait_until_done try_lock\n");
                 let mut lock_result = (*app).try_lock();
                 if !lock_result.is_err() {
-write!(stderr(), "wait_until_done locked\n");
+//write!(stderr(), "wait_until_done locked\n");
                     let mut _app = lock_result.unwrap();
                     done = _app.done.load(Ordering::Relaxed);
                     if done {
@@ -197,7 +197,7 @@ write!(stderr(), "wait_until_done locked\n");
                     }
                 }
             }
-write!(stderr(), "wait_until_done lock released?\n");
+//write!(stderr(), "wait_until_done lock released?\n");
             thread::yield_now();
             //thread::sleep(time::Duration::new(1, 0));
         }

@@ -70,9 +70,7 @@ pub fn strexpr(strs: Val) -> Val
 
 pub fn call(callname: String, input: Val) -> Val
 {
-println!("call({}, {:?}) = ", callname, input);
 	let args = Val::tuple_from_list(input.clone());
-println!("{:?}\n", args);
 	let callid = Val::id(callname);
 	let callargs = list::cons(callid, list::singleton(args));
 	Val::Sexpr(SexprType::Call, Box::new(callargs))
