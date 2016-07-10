@@ -43,6 +43,11 @@ pub fn new(t: SexprType, v: Val) -> Val
 	Val::Sexpr(t, Box::new(v))
 }
 
+pub fn new_block(lst: Val) -> Val
+{
+	Val::Sexpr(SexprType::BlockExpr, Box::new(lst))
+}
+
 pub fn id_with_type(id: String, t: Type) -> Val
 {
 	new(SexprType::IdWithType, 

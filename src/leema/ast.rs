@@ -1,4 +1,4 @@
-use leema::val::{Val};
+use leema::val::{Val, Type};
 use leema::lex::{lex};
 use parse::{Parser, Token};
 use std::collections::HashMap;
@@ -113,7 +113,7 @@ impl Loader for StringLoader
 #[cfg(test)]
 mod tests {
 	use leema::ast::{Ast};
-	use leema::val::{Val, SexprType};
+	use leema::val::{Val, SexprType, Type};
 	use leema::sexpr;
 	use leema::list;
 	use leema::lex::{lex};
@@ -278,6 +278,46 @@ fn test_ast_parse_if()
         Val::Nil,
         )))),
         Val::Nil,
+    )));
+	assert_eq!(expected, root);
+}
+
+#[test]
+fn test_ast_parse_macro()
+{
+	let input = "macro mand(a, b) {
+        if a {
+            b
+        } else {
+            false
+        }
+    }
+    ".to_string();
+	let root = Ast::parse(lex(input));
+
+    let blocka = sexpr::new(SexprType::BlockExpr, list::singleton(
+        Val::id("b".to_string()),
+    ));
+    let blockb = sexpr::new(SexprType::BlockExpr, list::singleton(
+        Val::Bool(false)
+    ));
+    let ifx = sexpr::new(SexprType::BlockExpr, list::cons(
+        sexpr::new(SexprType::IfExpr,
+            list::cons(Val::id("a".to_string()),
+            list::cons(blocka,
+            list::cons(blockb,
+            Val::Nil,
+        )))),
+        Val::Nil,
+    ));
+	let expected = Ast::ReplRoot(sexpr::new_block(list::singleton(
+        sexpr::new(SexprType::DefMacro,
+            list::cons(Val::id("mand".to_string()),
+            list::cons(sexpr::id_with_type("a".to_string(), Type::AnonVar),
+            list::cons(sexpr::id_with_type("b".to_string(), Type::AnonVar),
+            list::cons(ifx,
+            Val::Nil,
+        )))))
     )));
 	assert_eq!(expected, root);
 }

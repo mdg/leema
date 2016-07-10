@@ -439,6 +439,7 @@ println!("What's in precompile_fork({:?})", self.E);
 		let (nameval, f1) = list::take(expr);
 		let (mut params, f2) = list::take(f1);
 		let (code, _) = list::take(f2);
+print!("precompile_macro({:?},{:?},{:?})\n", nameval, params, code);
 
         let name = nameval.to_str();
 		let mut args = vec![];
@@ -452,6 +453,7 @@ println!("What's in precompile_fork({:?})", self.E);
 			params = tail;
 		}
 
+print!("macro_defined({:?},{:?},{:?})\n", name, args, code);
 		self.m.insert(name.clone(), (args, code));
 	}
 
@@ -1034,8 +1036,17 @@ fn test_compile_macro()
     assert_eq!(expected, iprog);
     let macro_name = "mand".to_string();
     assert!(ss.m.contains_key(&macro_name));
+
+    let &(ref names, ref body) = ss.m.get(&macro_name).unwrap();
+    assert_eq!(vec![
+        Arc::new("a".to_string()),
+        Arc::new("b".to_string()),
+    ], *names);
+
+    assert_eq!(Val::Void, *body);
 }
 
+/*
 #[test]
 fn test_use_macro()
 {
@@ -1046,15 +1057,15 @@ fn test_use_macro()
             false
         }
     }
-    mand(true, true)
+    mand(true, false)
     ".to_string();
     let root = Ast::parse(lex(input));
     let mut ss = prefab::new_staticspace();
-
     let iprog = ss.compile(root.root());
+
     let expected = Iexpr{
         dst: Reg::Result,
-        typ: Type::Void,
+        typ: Type::Bool,
         src: Source::Block(vec![
             Iexpr{
                 dst: Reg::Result,
@@ -1064,9 +1075,8 @@ fn test_use_macro()
         ]),
     };
     assert_eq!(expected, iprog);
-    let macro_name = "mand".to_string();
-    assert!(ss.m.contains_key(&macro_name));
 }
+*/
 
 #[test]
 fn test_precompile_if_block()

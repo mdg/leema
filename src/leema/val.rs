@@ -476,7 +476,9 @@ impl Val {
 			}
 			(SexprType::BlockExpr, lines) => {
 				if dbg {
-					write!(f, "{{{:?}}}", lines)
+					write!(f, "{{");
+					Val::fmt_list(f, lines, dbg);
+					write!(f, "}}")
 				} else {
 					write!(f, "block-expr")
 				}
@@ -493,6 +495,10 @@ impl Val {
 			}
 			(SexprType::IfExpr, ifs) => {
 				write!(f, "if({:?})", ifs)
+			}
+			(SexprType::IdWithType, &Val::Cons(ref id, ref typ)) => {
+                let t = list::head_ref(typ);
+				write!(f, "{:?}:{:?}", id, t)
 			}
 			(SexprType::DefMacro, &Val::Cons(ref id, ref args)) => {
 				let name = Val::to_str(id);
@@ -589,7 +595,7 @@ impl fmt::Debug for Val {
 			Val::Cons(ref head, ref tail) => {
 				write!(f, "L[");
 				Val::fmt_list(f, self, true);
-				write!(f, "]l")
+				write!(f, "]")
 			}
 			Val::Nil => {
 				write!(f, "L[]")
@@ -753,9 +759,8 @@ impl PartialOrd for Val
 							&*x1, &*x2
 						)
 					}
-					_ => {
-						None
-					}
+                    Some(_) => cmp,
+					None => None,
 				}
 			}
 			(&Val::Bool(false), _) => {
@@ -800,6 +805,9 @@ impl PartialOrd for Val
 			(_, &Val::Unit) => {
 				Some(Ordering::Greater)
 			}
+			(&Val::Sexpr(_, _), _) => Some(Ordering::Less),
+			(_, &Val::Sexpr(_, _)) => Some(Ordering::Greater),
+			//(&Val::Sexpr(_, ref x1), &Val::Sexpr(t2, ref x2)) => {
 			_ => {
 				println!("can't compare({:?},{:?})", self, other);
 				None
