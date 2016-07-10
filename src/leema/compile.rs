@@ -1043,7 +1043,20 @@ fn test_compile_macro()
         Arc::new("b".to_string()),
     ], *names);
 
-    assert_eq!(Val::Void, *body);
+    let block_t = sexpr::new_block(list::singleton(Val::id("b".to_string())));
+    let block_f = sexpr::new_block(list::singleton(Val::Bool(false)));
+    let expected_body = sexpr::new_block(
+        list::cons(
+            sexpr::new(SexprType::IfExpr,
+                list::cons(Val::id("a".to_string()),
+                list::cons(block_t,
+                list::cons(block_f,
+                Val::Nil,
+            )))),
+            Val::Nil,
+        ),
+    );
+    assert_eq!(expected_body, *body);
 }
 
 /*
