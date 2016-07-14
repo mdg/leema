@@ -5,7 +5,7 @@ use leema::frame::{self, Frame};
 use leema::compile::{StaticSpace};
 use leema::ast;
 use std::fs::File;
-use std::io::Read;
+use std::io::{stderr, Read, Write};
 use std::mem;
 use std::any::{Any};
 use std::fmt::{self, Display, Debug};
@@ -194,7 +194,13 @@ pub fn cout(fs: &mut Frame)
 	fs.e.set_reg(&Reg::Result, Val::Void);
 }
 
-pub fn cerr(fs: &mut Frame) {
+pub fn cerr(fs: &mut Frame)
+{
+	{
+		let va = fs.e.get_param(0);
+		write!(stderr(), "{}", va);
+	}
+	fs.e.set_reg(&Reg::Result, Val::Void);
 }
 
 
@@ -248,7 +254,7 @@ pub fn file_read(fs: &mut Frame)
 				Type::Lib("File".to_string()),
 			)
 		}
-		Err(e) => Val::Failure,
+		Err(_) => Val::Failure,
 	};
 	fs.e.set_reg(&Reg::Result, openf);
 }

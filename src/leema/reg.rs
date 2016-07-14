@@ -10,7 +10,6 @@ use leema::val::{Val};
 pub enum Reg {
 	Param(i8, Option<i8>),
 	Reg(i8, Option<i8>),
-	Rsult(Option<i8>),
 	P1(i8),
 	P2(i8, i8),
 	R1(i8),

@@ -1,15 +1,12 @@
-use leema::val::{Env, Val, Type};
-use leema::sexpr;
-use leema::reg::{Reg};
-use leema::frame::{self, Frame, Application, Parent};
+use leema::val::{Env};
+use leema::frame::{Frame, Application, Parent};
 use leema::lex::{lex};
 use leema::ast::{Ast};
 use leema::compile::{StaticSpace};
-use leema::code::{CodeKey, Code, Op, OpVec, make_ops};
+use leema::code::{CodeKey, Code, Op, make_ops};
 
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::collections::{HashMap};
 use std::io::{stdin, stdout, Write};
 
 
@@ -53,42 +50,10 @@ fn apply_macro(mdef: Sexpr, input: List) -> Sexpr {
 }
 */
 
-pub fn compile_add2() -> OpVec
-{
-	vec![
-		Op::ConstVal(Reg::R1(0), Val::Str(Arc::new("int_add".to_string()))),
-		Op::TupleCreate(Reg::R1(1), 2),
-		Op::ConstVal(Reg::R2(1, 0), Val::Int(2)),
-		Op::Copy(Reg::R2(1, 1), Reg::P1(0)),
-		Op::ApplyFunc(
-			Reg::Result,
-			Reg::R1(0),
-			Reg::R1(1)
-		),
-		Op::Return,
-	]
-}
 
-fn compile3() -> OpVec
-{
-	vec![
-		Op::ConstVal(Reg::R1(0), Val::Str(Arc::new("add2".to_string()))),
-		Op::TupleCreate(Reg::R1(1), 1),
-		Op::ConstVal(Reg::R2(1, 0), Val::Int(9)),
-		Op::ApplyFunc(
-			Reg::Result,
-			Reg::R1(0),
-			Reg::R1(1)
-		),
-		Op::Return,
-	]
-}
-
-
-pub fn push_eval(app: Arc<Mutex<Application>>, i: isize, function: Code, mut e: Env)
+pub fn push_eval(app: Arc<Mutex<Application>>, i: isize, function: Code, e: Env)
 {
 	println!("exec {:?}", function);
-	let codename = format!("repl_line_{}", i);
 
 	let frm = Frame::new(Parent::Repl, e);
 //println!("repl.push_eval: app.lock().unwrap()");
@@ -103,7 +68,7 @@ pub fn wait_eval(app: Arc<Mutex<Application>>) -> Frame
 //println!("repl.wait_eval: app.lock().unwrap()");
 	let mut result = None;
 	while result.is_none() {
-		thread::sleep_ms(10);
+		thread::yield_now();
 		let mut _app = app.lock().unwrap();
 //println!("repl.wait_eval: app.pop_old_frame().unwrap()");
 		result = _app.take_main_frame()

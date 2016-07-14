@@ -1,9 +1,6 @@
 use leema::val::{Val, SexprType, Type};
 use leema::list;
-use std::fmt::{self};
-use std::sync::{Arc};
-use std::collections::HashMap;
-use std::mem;
+use std::fmt;
 
 /**
  * define function

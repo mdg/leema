@@ -1,9 +1,11 @@
+#[macro_use]
 mod leema;
 mod repl;
 mod parse;
 
 use leema::frame::{self, Frame};
 use leema::prefab;
+use leema::log;
 use leema::val::{Env};
 use leema::code::{CodeKey};
 use leema::compile::{Compiler};
@@ -22,6 +24,7 @@ extern crate rustc_serialize;
 struct Args {
 	arg_file: Option<String>,
 	flag_repl: bool,
+	flag_verbose: bool,
 }
 
 const USAGE: &'static str = "
@@ -30,11 +33,13 @@ leema interpreter
 Usage:
   leema [options]
   leema [options] <file>
+  leema (-v | --verbose)
   leema (-h | --help)
 
 Options:
-  -h --help   Show this message
-  --repl      Launch the REPL
+  -v --verbose    Output debug messages
+  -h --help       Show this message
+  --repl          Launch the REPL
 ";
 
 
@@ -44,6 +49,7 @@ fn main()
 		.and_then(|d| d.decode())
 		.unwrap_or_else(|e| e.exit());
 
+    println!("{:?}", args);
 	let loader = ast::new_file_loader();
 	let mut ss = prefab::new_staticspace();
 	if args.arg_file.is_some() {
@@ -57,6 +63,10 @@ fn main()
 		panic!("do you want a file or the repl?");
 	}
 
+    if args.flag_verbose {
+        log::set_verbose();
+    }
+    verbose_out!("verbose mode\n");
 
 	let mut app = Application::new();
     app.add_app_code(&ss);
