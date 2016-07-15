@@ -46,6 +46,8 @@ Options:
 
 fn main()
 {
+    // got this pattern from stack overflow. kind of in disbelief that
+    // there isn't a better way to do it.
     let exit_code = real_main();
     std::process::exit(exit_code);
 }
