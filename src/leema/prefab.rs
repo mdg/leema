@@ -14,7 +14,6 @@ use std::sync::{Arc, Mutex};
 
 pub fn int_add(fs: &mut Frame)
 {
-	println!("run int_add! {:?}", fs);
 	let ic;
 	{
 		let a = fs.e.get_param(0);
@@ -33,7 +32,6 @@ pub fn int_add(fs: &mut Frame)
 
 pub fn int_sub(fs: &mut Frame)
 {
-	println!("run int_sub! {:?}", fs);
 	let ic;
 	{
 		let a = fs.e.get_param(0);

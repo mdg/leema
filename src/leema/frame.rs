@@ -1,3 +1,5 @@
+#[macro_use]
+use leema::log;
 use leema::val::{Val, Env, FutureVal};
 use leema::reg::{Reg};
 use leema::compile::{StaticSpace};
@@ -508,7 +510,7 @@ write!(stderr(), "lock app, find_code\n");
 
 	fn add_fork(&mut self, key: &CodeKey, newf: Frame)
 	{
-write!(stderr(), "lock app, add_fork\n");
+verbose_out!("lock app, add_fork\n");
 		let mut a = self.app.lock().unwrap();
 		a.push_new_frame(key, newf);
 	}
@@ -520,15 +522,15 @@ write!(stderr(), "lock app, add_fork\n");
 		}
 	}
 
-	pub fn fresh_frame(&mut self) -> (Code, Frame)
+	pub fn fresh_frame(&mut self) -> Option<(Code, Frame)>
 	{
 		if self.fresh.is_empty() {
 			//println!("Nothing to do.");
             thread::yield_now();
-write!(stderr(), "rotate in fresh_frame\n");
+verbose_out!("rotate in fresh_frame\n");
 			self.rotate();
 		}
-		self.fresh.pop_front().unwrap()
+		self.fresh.pop_front()
 	}
 
 	pub fn take_event(&mut self) -> Event
@@ -540,8 +542,12 @@ write!(stderr(), "rotate in fresh_frame\n");
 
 	pub fn iterate(&mut self)
 	{
-write!(stderr(), "iterate\n");
-		let (code, mut curf) = self.fresh_frame();
+verbose_out!("iterate\n");
+		let ff = self.fresh_frame();
+        if ff.is_none() {
+            return;
+        }
+		let (code, mut curf) = ff.unwrap();
 		match code {
 			Code::Leema(ref ops) => {
 				self.iterate_leema(&mut curf, ops);
@@ -565,14 +571,14 @@ write!(stderr(), "iterate\n");
 						self.fresh.push_back((code, *pf));
 					}
 					Parent::Repl => {
-write!(stderr(), "lock app, repl done in iterate\n");
+verbose_out!("lock app, repl done in iterate\n");
 						let mut _app = self.app.lock().unwrap();
 						_app.set_main_frame(curf);
 					}
 					Parent::Main => {
-println!("finished main func");
+verbose_out!("finished main func");
                         {
-write!(stderr(), "lock app, main done in iterate\n");
+verbose_out!("lock app, main done in iterate\n");
                             let mut _app = self.app.lock().unwrap();
                             _app.set_main_frame(curf);
                             _app.done.store(true, Ordering::Relaxed);
