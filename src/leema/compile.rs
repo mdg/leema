@@ -266,6 +266,12 @@ impl StaticSpace
             || self.interlib.contains_key(&CodeKey::Main)
 	}
 
+	pub fn has_script(&self) -> bool
+	{
+		self.lib.contains_key(&CodeKey::Script)
+            || self.interlib.contains_key(&CodeKey::Script)
+	}
+
 	pub fn take_lib(&mut self) -> CodeMap
 	{
 		let mut tmp = HashMap::new();

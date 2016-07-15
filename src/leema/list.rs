@@ -1,6 +1,4 @@
 use leema::val::{Val};
-use leema::reg;
-use std::fmt::{self, Display, Debug, Formatter};
 use std::collections::{LinkedList};
 
 

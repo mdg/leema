@@ -1,12 +1,10 @@
-use leema::val::{Val, Type, LibVal};
+use leema::val::{Val, Type};
 use leema::reg::{Reg};
-use leema::code::{Code, CodeKey};
-use leema::frame::{self, Frame};
+use leema::code::{Code};
+use leema::frame::{Frame};
 use leema::compile::{StaticSpace};
-use leema::ast;
 use std::fs::File;
 use std::io::{stderr, Read, Write};
-use std::mem;
 use std::any::{Any};
 use std::fmt::{self, Display, Debug};
 use std::sync::{Arc, Mutex};

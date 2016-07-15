@@ -1,13 +1,12 @@
 use leema::reg::{self, Reg, NumericRegistry};
 use leema::sexpr;
 use leema::list;
-use std::fmt::{self, Formatter, Display};
+use std::fmt::{self};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{self, AtomicBool};
 use std::sync::mpsc;
 use std::any::{Any};
-use std::fs::File;
 use std::cmp::{PartialEq, PartialOrd, Ordering};
 use std::clone::Clone;
 use std::fmt::{Debug};

@@ -1,6 +1,5 @@
 use parse::{Token};
 use parse;
-use leema::val::{Type};
 use std::ptr;
 
 #[repr(C)]

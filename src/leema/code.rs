@@ -111,7 +111,7 @@ impl Clone for Code
 pub enum CodeKey
 {
 	Main,
-	Adhoc,
+	Script,
 	Name(Arc<String>),
 	Repl(isize),
 }

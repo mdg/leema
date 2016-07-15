@@ -12,6 +12,7 @@ use leema::compile::{Compiler};
 use leema::frame::{Application, Parent};
 use leema::ast;
 use leema::reg::Reg;
+use std::io::{stderr, Write};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use docopt::{Docopt};
@@ -98,7 +99,10 @@ verbose_out!("We have main!\n{:?}", frm);
 
 	if args.flag_repl {
 		repl::reploop(rappl.clone(), Env::new(), ss);
-	} else {
+	} else if ! (ss.has_main() || ss.has_script()) {
+        write!(stderr(), "no main function or script code\n").ok();
+        return leema::CLI_NOMAIN;
+    } else {
         let result = Application::wait_until_done(&rappl);
         println!("result: {:?}", result);
         let rframe = result.unwrap();
