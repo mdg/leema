@@ -24,9 +24,9 @@ extern crate rustc_serialize;
 #[derive(Debug)]
 #[derive(RustcDecodable)]
 struct Args {
-	arg_file: Option<String>,
-	flag_repl: bool,
-	flag_verbose: bool,
+    arg_file: Option<String>,
+    flag_repl: bool,
+    flag_verbose: bool,
 }
 
 const USAGE: &'static str = "
@@ -55,51 +55,51 @@ fn main()
 
 fn real_main() -> i32
 {
-	let args: Args = Docopt::new(USAGE)
-		.and_then(|d| d.decode())
-		.unwrap_or_else(|e| e.exit());
+    let args: Args = Docopt::new(USAGE)
+        .and_then(|d| d.decode())
+        .unwrap_or_else(|e| e.exit());
 
     println!("{:?}", args);
-	let loader = ast::new_file_loader();
-	let mut ss = prefab::new_staticspace();
-	if args.arg_file.is_some() {
-		let mut c = Compiler::new(ss, loader);
-		c.compile_file(args.arg_file.unwrap());
-		ss = c.ss;
-		//println!("file inter> {:?}", ss.inter);
-		println!("lib code> {:?}", ss.lib);
-		println!("\nss> {:?}\n", ss);
-	} else if !args.flag_repl {
-		panic!("do you want a file or the repl?");
-	}
+    let loader = ast::new_file_loader();
+    let mut ss = prefab::new_staticspace();
+    if args.arg_file.is_some() {
+        let mut c = Compiler::new(ss, loader);
+        c.compile_file(args.arg_file.unwrap());
+        ss = c.ss;
+        //println!("file inter> {:?}", ss.inter);
+        println!("lib code> {:?}", ss.lib);
+        println!("\nss> {:?}\n", ss);
+    } else if !args.flag_repl {
+        panic!("do you want a file or the repl?");
+    }
 
     if args.flag_verbose {
         log::set_verbose();
     }
     verbose_out!("verbose mode\n");
 
-	let mut app = Application::new();
+    let mut app = Application::new();
     app.add_app_code(&ss);
 
-	let e = Env::new();
-	if ss.has_main() {
-		let frm = Frame::new(Parent::Main, e);
+    let e = Env::new();
+    if ss.has_main() {
+        let frm = Frame::new(Parent::Main, e);
 verbose_out!("We have main!\n{:?}", frm);
-		app.push_new_frame(&CodeKey::Main, frm);
-	}
+        app.push_new_frame(&CodeKey::Main, frm);
+    }
 
-	let rappl = Arc::new(Mutex::new(app));
-	let app0 = rappl.clone();
+    let rappl = Arc::new(Mutex::new(app));
+    let app0 = rappl.clone();
 
-	thread::spawn(move || {
-		let mut w0 = frame::Worker::new(app0);
+    thread::spawn(move || {
+        let mut w0 = frame::Worker::new(app0);
         verbose_out!("w0.gotowork");
-		w0.gotowork();
-	});
+        w0.gotowork();
+    });
 
-	if args.flag_repl {
-		repl::reploop(rappl.clone(), Env::new(), ss);
-	} else if ! (ss.has_main() || ss.has_script()) {
+    if args.flag_repl {
+        repl::reploop(rappl.clone(), Env::new(), ss);
+    } else if ! (ss.has_main() || ss.has_script()) {
         write!(stderr(), "no main function or script code\n").ok();
         return leema::CLI_NOMAIN;
     } else {
