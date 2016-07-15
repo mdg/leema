@@ -6,11 +6,12 @@ mod parse;
 use leema::frame::{self, Frame};
 use leema::prefab;
 use leema::log;
-use leema::val::{Env};
+use leema::val::{Env, Val};
 use leema::code::{CodeKey};
 use leema::compile::{Compiler};
 use leema::frame::{Application, Parent};
 use leema::ast;
+use leema::reg::Reg;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use docopt::{Docopt};
@@ -45,6 +46,12 @@ Options:
 
 fn main()
 {
+    let exit_code = real_main();
+    std::process::exit(exit_code);
+}
+
+fn real_main() -> i32
+{
 	let args: Args = Docopt::new(USAGE)
 		.and_then(|d| d.decode())
 		.unwrap_or_else(|e| e.exit());
@@ -74,7 +81,7 @@ fn main()
 	let e = Env::new();
 	if ss.has_main() {
 		let frm = Frame::new(Parent::Main, e);
-println!("We have main!\n{:?}", frm);
+verbose_out!("We have main!\n{:?}", frm);
 		app.push_new_frame(&CodeKey::Main, frm);
 	}
 
@@ -83,7 +90,7 @@ println!("We have main!\n{:?}", frm);
 
 	thread::spawn(move || {
 		let mut w0 = frame::Worker::new(app0);
-        println!("w0.gotowork");
+        verbose_out!("w0.gotowork");
 		w0.gotowork();
 	});
 
@@ -92,5 +99,11 @@ println!("We have main!\n{:?}", frm);
 	} else {
         let result = Application::wait_until_done(&rappl);
         println!("result: {:?}", result);
+        let rframe = result.unwrap();
+        let rframe_res = rframe.e.get_reg(&Reg::Result);
+        if let &Val::Int(resulti) = rframe_res {
+            return resulti as i32;
+        }
     }
+    return 0;
 }

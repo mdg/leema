@@ -361,7 +361,6 @@ fn execute_strcat(w: &mut Worker, curf: &mut Frame, dstreg: &Reg, srcreg: &Reg)
 }
 
 fn execute_tuple_create(curf: &mut Frame, dst: &Reg, ref sz: i8) {
-	println!("execute_tuple_create({:?},{:?})", dst, sz);
 	let tupsize: usize = *sz as usize;
 	curf.e.set_reg(dst, Val::new_tuple(tupsize));
 	curf.pc = curf.pc + 1;
@@ -417,7 +416,7 @@ impl Worker
 	pub fn new(app: Arc<Mutex<Application>>) -> Worker
 	{
         let done = {
-write!(stderr(), "lock app, new worker\n");
+verbose_out!("lock app, new worker\n");
             let _app = app.lock().unwrap();
             //_app.done.clone()
         };
@@ -447,7 +446,7 @@ write!(stderr(), "lock app, new worker\n");
 		}
 
 		let ac = {
-write!(stderr(), "lock app, find_code\n");
+verbose_out!("lock app, find_code\n");
 			let app = self.app.lock().unwrap();
 			//let app = self.app.lock().unwrap() as MutexGuard<'a, Application>;
 			//let app = Deref::deref(&self.app.lock().unwrap());
@@ -636,12 +635,12 @@ verbose_out!("lock app, main done in iterate\n");
 
 	pub fn rotate(&mut self) -> bool
 	{
-write!(stderr(), "rotate\n");
+verbose_out!("rotate\n");
 		self.check_futures();
 //println!("worker.app.try_lock()");
 		let lock_result = self.app.try_lock();
 		if lock_result.is_err() {
-write!(stderr(), "rotate try_lock is_err\n");
+verbose_out!("rotate try_lock is_err\n");
             thread::yield_now();
             return false;
 		}
@@ -700,9 +699,9 @@ write!(stderr(), "rotate try_lock is_err\n");
 
 	pub fn gotowork(&mut self) -> ()
 	{
-println!("local gotowork");
+verbose_out!("local gotowork");
 		while !self.done {
-write!(stderr(), "worker not done\n");
+verbose_out!("worker not done\n");
 			self.rotate();
 			self.iterate();
 		}
@@ -720,6 +719,7 @@ process
 
 #[cfg(test)]
 mod tests {
+	use leema::log;
 	use leema::frame::{Application, Frame, Parent, Worker};
 	use leema::ast::{Ast};
 	use leema::code::{CodeKey};
@@ -727,6 +727,7 @@ mod tests {
 	use leema::val::{Env, Val};
 	use leema::prefab;
 	use leema::lex::{lex};
+	use std::thread;
 	use std::sync::{Arc, Mutex};
     use std::io::{stderr, Write};
 use libc::{getpid};
@@ -752,9 +753,11 @@ write!(stderr(), "app.add_app_code\n");
 
     let app0 = Arc::new(Mutex::new(app));
     let app1 = app0.clone();
-    let mut w0 = Worker::new(app0);
-write!(stderr(), "w0.gotowork\n");
-    w0.gotowork();
+	thread::spawn(move || {
+		let mut w0 = Worker::new(app0);
+        verbose_out!("w0.gotowork");
+		w0.gotowork();
+	});
 
 write!(stderr(), "Application::wait_until_done\n");
     let result_frame = Application::wait_until_done(&app1);
