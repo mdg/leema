@@ -1,0 +1,8 @@
+macro m_and(a, b) {
+	if a {
+		b
+	} else {
+		false
+	}
+}
+m_and(true, false)
