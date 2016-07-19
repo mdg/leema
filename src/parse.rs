@@ -5,6 +5,7 @@
 use leema::ast::{Ast};
 use leema::val::{Val, SexprType, Type};
 use leema::list;
+use leema::log;
 use leema::sexpr;
 use std::sync::Arc;
 /* TMPL: makeheader cruft */
@@ -822,7 +823,7 @@ self.yystack.pop().unwrap();
 match (yyp1.minor,yyp2.minor,) {
  (YYMinorType::YY66(yy1),YYMinorType::YY32(yy2),) => {
 
-println!("found fail_stmt {:?}", yy1);
+verbose_out!("found fail_stmt {:?}\n", yy1);
 	/*
 	yyres = Val::list(
 		list::push(yy0,
@@ -1346,7 +1347,6 @@ self.yystack.pop().unwrap();
 match (yyp1.minor,) {
  (YYMinorType::YY32(yy1),) => {
 
-	println!("found minus {:?}", yy1);
 	yyres = sexpr::call("negate".to_string(), list::singleton(yy1));
 
 },    _ => unreachable!() };
@@ -1599,7 +1599,6 @@ self.yystack.pop().unwrap();
 match () {
  () => {
 
-	println!("found literal void\n");
 	yyres = Val::Void;
 
 } };

@@ -677,11 +677,11 @@ verbose_out!("rotate try_lock is_err\n");
                 (reg, code, mut frame) => {
                     let result = frame.receive_future(reg);
                     if result.is_some() {
-                        println!("found future ready {:?}", result);
+                        verbose_out!("found future ready {:?}\n", result);
                         frame.e.set_reg(&reg, result.unwrap());
                         self.fresh.push_back((code, frame));
                     } else {
-                        println!("future not ready {:?}", reg);
+                        verbose_out!("future not ready {:?}\n", reg);
                         newfutures.push_back((reg, code, frame));
                     }
                 }

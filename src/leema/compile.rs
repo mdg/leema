@@ -1,5 +1,6 @@
 use leema::val::{Val,SexprType,Type};
 use leema::list;
+use leema::log;
 use leema::sexpr;
 use leema::reg::{Reg};
 use leema::ast;
@@ -393,7 +394,7 @@ impl StaticSpace
 
     pub fn precompile_bind(&mut self, name: Arc<String>, val: Val) -> Iexpr
     {
-        println!("compile let {} := {}", name, val);
+verbose_out!("compile let {} := {}\n", name, val);
         if self.defined(&name) {
             panic!("{} was already defined", name);
         }
@@ -407,7 +408,7 @@ impl StaticSpace
 
     pub fn precompile_fork(&mut self, name: Arc<String>, val: Val) -> Iexpr
     {
-        println!("compile fork {} := {}", name, val);
+verbose_out!("compile fork {} := {}\n", name, val);
         if self.defined(&name) {
             panic!("{} was already defined", name);
         }
@@ -433,7 +434,7 @@ impl StaticSpace
 
         let fork_name_ix = self.precompile(Val::Id(fork_name));
 
-println!("What's in precompile_fork({:?})", self.E);
+verbose_out!("What's in precompile_fork({:?})\n", self.E);
         // now make an expression to call the new function
         let cargs = Iexpr::tuple(vec![]);
         let forkx = Iexpr::fork(dst, valexpr_type, fork_name_ix, cargs);
@@ -549,9 +550,9 @@ print!("macro_defined({:?},{:?},{:?})\n", name, args, code);
         }
         */
         let fexpr = ss.compile(code);
-println!("fexpr> {:?} : {:?}", fexpr, fexpr.typ);
+verbose_out!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
         let inftypes = ss.apply_inferences(argtypes);
-println!("inftypes> {:?}", inftypes);
+verbose_out!("inftypes> {:?}\n", inftypes);
         self.define_func(
             name.clone(),
             fexpr.typ.clone(),
@@ -576,10 +577,10 @@ println!("inftypes> {:?}", inftypes);
                 _ => None,
             };
             if newt.is_some() {
-println!("replace {:?} with {:?}", t, newt);
+verbose_out!("replace {:?} with {:?}\n", t, newt);
                 output.push(newt.unwrap());
             } else {
-println!("don't replace {:?} with {:?}", t, self.inferred);
+verbose_out!("don't replace {:?} with {:?}\n", t, self.inferred);
                 output.push(t);
             }
         }
@@ -609,22 +610,21 @@ println!("don't replace {:?} with {:?}", t, self.inferred);
         let typ = self.T.get(&*name);
         match reg {
             None => {
-                println!("what's in E? {:?}", self.E);
+                verbose_out!("what's in E? {:?}", self.E);
                 panic!("undefined variable: {}", name);
             }
             Some(&Reg::R1(reg)) => {
-                println!("precompile bound var {} = {:?}", name, reg);
+                verbose_out!("precompile bound var {} = {:?}\n", name, reg);
                 Iexpr::bound_val(Reg::R1(reg), typ.unwrap().clone())
             }
             Some(&Reg::P1(p)) => {
-                println!("precompile param {} = {:?}", name, reg);
+                verbose_out!("precompile param {} = {:?}\n", name, reg);
                 Iexpr::bound_val(Reg::P1(p), typ.unwrap().clone())
             }
             Some(&Reg::Undecided) => {
                 panic!("precompile bound undecided {:?} for {}", reg, name);
             }
             Some(&Reg::Lib) => {
-                //println!("found function {}", name);
                 Iexpr::const_val(Val::Str(name))
             }
             Some(_) => {
@@ -696,17 +696,17 @@ println!("don't replace {:?} with {:?}", t, self.inferred);
                 panic!("can't infer types");
             } else if call_arg.is_var() {
                 let name = call_arg.var_name();
-println!("found arg var named {}", name);
+verbose_out!("found arg var named {}\n", name);
                 self.infer_type(
                     call_arg.var_name(),
                     call_arg.tmp_type(),
                     def_arg
                 );
             } else if def_arg.is_var() {
-                println!("the function arg is a type var?");
+verbose_out!("the function arg is a type var?\n");
                 //bad_types = true;
             } else if def_arg != call_arg {
-println!("wrong arg {:?} != {:?}", def_arg, call_arg);
+verbose_out!("wrong arg {:?} != {:?}\n", def_arg, call_arg);
                 bad_types = true;
                 break;
             } else {
@@ -724,7 +724,7 @@ println!("wrong arg {:?} != {:?}", def_arg, call_arg);
         , tmptype: Arc<String>
         , newtype: &Type
     ) {
-println!("infer_type({}, {}, {:?}) for {}", varname, tmptype, newtype, self.func_name);
+verbose_out!("infer_type({}, {}, {:?}) for {}", varname, tmptype, newtype, self.func_name);
         self.T.remove(&varname);
         self.T.insert(
             varname,
@@ -738,11 +738,11 @@ println!("infer_type({}, {}, {:?}) for {}", varname, tmptype, newtype, self.func
 
     pub fn precompile_macro_call(&mut self, name: &String, mut argx: Val) -> Iexpr
     {
-write!(stderr(), "precompile_macro_call({}, {:?})\n", name, argx);
+verbose_out!("precompile_macro_call({}, {:?})\n", name, argx);
         let mappl = {
             let &(ref ids, ref body) = self.m.get(name).unwrap();
-write!(stderr(), "ids = {:?}\n", ids);
-write!(stderr(), "body = {:?}\n", body);
+verbose_out!("ids = {:?}\n", ids);
+verbose_out!("body = {:?}\n", body);
             let argv = Val::tuple_items(argx);
             let expected_argc = ids.len();
             let passed_argc = argv.len();
@@ -764,7 +764,7 @@ write!(stderr(), "body = {:?}\n", body);
 
             Val::replace_ids(body.clone(), &margs)
         };
-write!(stderr(), "result = {:?}\n", mappl);
+verbose_out!("result = {:?}\n", mappl);
         self.precompile(mappl)
     }
 

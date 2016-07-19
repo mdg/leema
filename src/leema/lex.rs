@@ -120,7 +120,6 @@ impl Token {
                     Token::PLUS
                 }
                 parse::TOKEN_MINUS => {
-                    println!("found TOKEN_MINUS-");
                     Token::MINUS
                 }
                 parse::TOKEN_False => {

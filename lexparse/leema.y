@@ -2,6 +2,7 @@
 use leema::ast::{Ast};
 use leema::val::{Val, SexprType, Type};
 use leema::list;
+use leema::log;
 use leema::sexpr;
 use std::sync::Arc;
 }
@@ -236,7 +237,7 @@ result_stmt(A) ::= expr_stmt(B). { A = B; }
 result_stmt(A) ::= fail_stmt(B). { A = B; }
 */
 fail_stmt(A) ::= FAIL(B) HASHTAG(C) term(D). {
-println!("found fail_stmt {:?}", C);
+verbose_out!("found fail_stmt {:?}\n", C);
 	/*
 	A = Val::list(
 		list::push(B,
@@ -430,7 +431,6 @@ expr(A) ::= expr(B) ConcatNewline. {
 }
 /* arithmetic */
 expr(A) ::= MINUS expr(B). {
-	println!("found minus {:?}", B);
 	A = sexpr::call("negate".to_string(), list::singleton(B));
 }
 expr(A) ::= expr(B) PLUS expr(C). {
@@ -507,7 +507,6 @@ term(A) ::= LPAREN expr(C) RPAREN. {
 term(A) ::= ID(B). { A = Val::id(B); }
 /* term(A) ::= var_field(B). { A = Ast::Nothing; } */
 term(A) ::= VOID. {
-	println!("found literal void\n");
 	A = Val::Void;
 }
 term(A) ::= DollarQuestion. {

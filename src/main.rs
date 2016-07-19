@@ -59,24 +59,23 @@ fn real_main() -> i32
         .and_then(|d| d.decode())
         .unwrap_or_else(|e| e.exit());
 
-    println!("{:?}", args);
+    if args.flag_verbose {
+        log::set_verbose();
+    }
+    verbose_out!("verbose mode\nargs:{:?}\n", args);
+
     let loader = ast::new_file_loader();
     let mut ss = prefab::new_staticspace();
     if args.arg_file.is_some() {
         let mut c = Compiler::new(ss, loader);
         c.compile_file(args.arg_file.unwrap());
         ss = c.ss;
-        //println!("file inter> {:?}", ss.inter);
-        println!("lib code> {:?}", ss.lib);
-        println!("\nss> {:?}\n", ss);
+        verbose_out!("lib code> {:?}\n", ss.lib);
+        verbose_out!("\nss> {:?}\n", ss);
     } else if !args.flag_repl {
         panic!("do you want a file or the repl?");
     }
 
-    if args.flag_verbose {
-        log::set_verbose();
-    }
-    verbose_out!("verbose mode\n");
 
     let mut app = Application::new();
     app.add_app_code(&ss);
@@ -104,7 +103,7 @@ verbose_out!("We have main!\n{:?}", frm);
         return leema::CLI_NOMAIN;
     } else {
         let result = Application::wait_until_done(&rappl);
-        println!("result: {:?}", result);
+        verbose_out!("result: {:?}\n", result);
         let rframe = result.unwrap();
         let rframe_res = rframe.e.get_reg(&Reg::Result);
         if let &Val::Int(resulti) = rframe_res {
