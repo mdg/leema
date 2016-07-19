@@ -326,6 +326,11 @@ impl Val {
         Val::Str(Arc::new(s))
     }
 
+    pub fn empty_str() -> Val
+    {
+        Val::Str(Arc::new("".to_string()))
+    }
+
     pub fn to_str(&self) -> Arc<String>
     {
         match self {

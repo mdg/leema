@@ -1,5 +1,4 @@
 
-
 static mut VERBOSE: bool = false;
 
 pub fn set_verbose()
@@ -21,12 +20,12 @@ macro_rules! verbose_out
 {
     ($fmt:expr) => {
         if log::is_verbose() {
-            print!($fmt);
+            write!(stderr(), $fmt).ok();
         }
     };
     ($fmt:expr, $($arg:tt)*) => {
         if log::is_verbose() {
-            (print!($fmt, $($arg)*));
+            (write!(stderr(), $fmt, $($arg)*)).ok();
         }
     };
 }

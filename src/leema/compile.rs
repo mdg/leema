@@ -337,8 +337,7 @@ impl StaticSpace
                 Iexpr::new(Source::Void)
             }
             SexprType::StrExpr => {
-                //self.precompile_str(strings)
-                Iexpr::new(Source::Void)
+                self.precompile_str(expr)
             }
             /*
             SexprType::BooleanAnd(a, b) => {
@@ -637,6 +636,7 @@ verbose_out!("don't replace {:?} with {:?}\n", t, self.inferred);
     {
         let (f, sx) = list::take(call);
         let args = list::take_head(sx);
+verbose_out!("args = {:?}\n", args);
         if !f.is_id() {
             panic!("not an identifier: {:?}", f);
         }
@@ -646,8 +646,10 @@ verbose_out!("don't replace {:?} with {:?}\n", t, self.inferred);
         }
         let fexpr = self.precompile(f);
         let cargs = self.precompile(args);
+verbose_out!("cargs = {:?}\n", cargs);
         let deftype = self.function_type(&fname);
         let call_argtypes = cargs.typ.clone();
+verbose_out!("call_argtypes = {:?}\n", call_argtypes);
         /*
         let call_argtypes = cargs.iter().map(|a| {
             a.typ.clone()
@@ -774,9 +776,50 @@ verbose_out!("result = {:?}\n", mappl);
     }
     */
 
-    pub fn precompile_str(&mut self, strings: Val) -> Iexpr
+    pub fn precompile_str(&mut self, expr: Val) -> Iexpr
     {
-        Iexpr::str(self.precompile_list_to_vec(strings))
+        let mut next_s = expr;
+        let mut last_s = None;
+        let mut new_strs = Vec::new();
+        loop {
+            match (last_s, next_s) {
+                (Some(ls), Val::Nil) => {
+                    new_strs.push(self.precompile(ls));
+                    break;
+                }
+                (None, Val::Nil) => {
+                    // stick an empty string in there. we really shouldn't
+                    // be here. this should be handled in the parser.
+                    break;
+                }
+                (Some(Val::Str(ls)), Val::Cons(next, tail)) => {
+                    match *next {
+                        Val::Str(ns) => {
+                            let next_str = format!("{}{}", ls, ns);
+                            last_s = Some(Val::new_str(next_str));
+                        }
+                        _ => {
+                            let next_str = Val::Str(ls.clone());
+                            new_strs.push(Iexpr::const_val(next_str));
+                            last_s = Some(*next);
+                        }
+                    }
+                    next_s = *tail;
+                }
+                (None, Val::Cons(ns, tail)) => {
+                    last_s = Some(*ns);
+                    next_s = *tail;
+                }
+                a => panic!("How'd we get that? {:?}", a),
+            }
+        }
+
+        let result: Iexpr = match new_strs.len() {
+            0 => Iexpr::const_val(Val::empty_str()),
+            1 => new_strs.pop().unwrap(),
+            _ => Iexpr::str(new_strs),
+        };
+        result
     }
 
     pub fn precompile_list(&mut self, items: Val) -> Iexpr

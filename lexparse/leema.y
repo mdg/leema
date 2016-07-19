@@ -5,6 +5,7 @@ use leema::list;
 use leema::log;
 use leema::sexpr;
 use std::sync::Arc;
+use std::io::{stderr, Write};
 }
 
 %start_symbol {program}
