@@ -82,9 +82,16 @@ fn real_main() -> i32
 
     let e = Env::new();
     if ss.has_main() {
+        if ss.has_script() {
+            panic!("Cannot have both script code and a main function");
+        }
         let frm = Frame::new(Parent::Main, e);
 verbose_out!("We have main!\n{:?}", frm);
         app.push_new_frame(&CodeKey::Main, frm);
+    } else if ss.has_script() {
+        let frm = Frame::new(Parent::Main, e);
+verbose_out!("We have a script!\n{:?}", frm);
+        app.push_new_frame(&CodeKey::Script, frm);
     }
 
     let rappl = Arc::new(Mutex::new(app));

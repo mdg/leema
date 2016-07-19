@@ -243,6 +243,8 @@ impl StaticSpace
         let typ = Type::Func(args, Box::new(result));
         let key = if *name == "main" {
             CodeKey::Main
+        } else if *name == "*script*" {
+            CodeKey::Script
         } else {
             self.E.insert(name.clone(), Reg::Lib);
             self.T.insert(name.clone(), typ);
@@ -991,7 +993,17 @@ impl Compiler
     pub fn compile_file(&mut self, filename: String)
     {
         let ast = self.loader.parse(filename);
-        self.ss.compile(ast.root());
+        let script = self.ss.compile(ast.root());
+verbose_out!("script output: {:?}\n", script);
+        if script.src != Source::Void {
+            let stype = script.typ.clone();
+            self.ss.define_func(
+                Arc::new("*script*".to_string()),
+                stype,
+                vec![],
+                Code::Inter(Arc::new(script)),
+            );
+        }
     }
 }
 

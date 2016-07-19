@@ -699,7 +699,7 @@ verbose_out!("rotate try_lock is_err\n");
 
     pub fn gotowork(&mut self) -> ()
     {
-verbose_out!("local gotowork");
+verbose_out!("local gotowork\n");
         while !self.done {
 verbose_out!("worker not done\n");
             self.rotate();
@@ -755,7 +755,7 @@ write!(stderr(), "app.add_app_code\n");
     let app1 = app0.clone();
     thread::spawn(move || {
         let mut w0 = Worker::new(app0);
-        verbose_out!("w0.gotowork");
+        verbose_out!("w0.gotowork\n");
         w0.gotowork();
     });
 
