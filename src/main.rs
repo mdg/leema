@@ -83,7 +83,8 @@ fn real_main() -> i32
     let e = Env::new();
     if ss.has_main() {
         if ss.has_script() {
-            panic!("Cannot have both script code and a main function");
+            // might just get rid of scripts altogether
+            // panic!("Cannot have both script code and a main function");
         }
         let frm = Frame::new(Parent::Main, e);
 verbose_out!("We have main!\n{:?}", frm);

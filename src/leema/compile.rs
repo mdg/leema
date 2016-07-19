@@ -63,9 +63,10 @@ impl Iexpr
 
     fn new_block(code: Vec<Iexpr>) -> Iexpr
     {
+verbose_out!("new_block> {:?}\n", code);
         let block_type = match code.last() {
             None => {
-                Type::Unknown
+                Type::Void
             }
             Some(ix) => {
                 ix.typ.clone()
@@ -590,7 +591,12 @@ verbose_out!("don't replace {:?} with {:?}\n", t, self.inferred);
 
     pub fn precompile_block(&mut self, items: Val) -> Iexpr
     {
-        Iexpr::new_block(self.precompile_list_to_vec(items))
+verbose_out!("pc block> {:?}\n", items);
+        let mut bvec = self.precompile_list_to_vec(items);
+        bvec.retain(|i| {
+            i.src != Source::Void
+        });
+        Iexpr::new_block(bvec)
     }
 
     pub fn precompile_ifexpr(&mut self, expr: Val) -> Iexpr
