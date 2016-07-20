@@ -448,7 +448,7 @@ verbose_out!("What's in precompile_fork({:?})\n", self.E);
         let (nameval, f1) = list::take(expr);
         let (mut params, f2) = list::take(f1);
         let (code, _) = list::take(f2);
-print!("precompile_macro({:?},{:?},{:?})\n", nameval, params, code);
+verbose_out!("precompile_macro({:?},{:?},{:?})\n", nameval, params, code);
 
         let name = nameval.to_str();
         let mut args = vec![];
@@ -462,7 +462,7 @@ print!("precompile_macro({:?},{:?},{:?})\n", nameval, params, code);
             params = tail;
         }
 
-print!("macro_defined({:?},{:?},{:?})\n", name, args, code);
+verbose_out!("macro_defined({:?},{:?},{:?})\n", name, args, code);
         self.m.insert(name.clone(), (args, code));
     }
 
@@ -1089,13 +1089,7 @@ fn test_compile_macro()
     let expected = Iexpr{
         dst: Reg::Result,
         typ: Type::Void,
-        src: Source::Block(vec![
-            Iexpr{
-                dst: Reg::Result,
-                typ: Type::Void,
-                src: Source::Void,
-            },
-        ]),
+        src: Source::Block(vec![]),
     };
     assert_eq!(expected, iprog);
     let macro_name = "mand".to_string();
@@ -1225,13 +1219,7 @@ fn test_compile_func_oneline_untyped()
     let expected = Iexpr{
         dst: Reg::Result,
         typ: Type::Void,
-        src: Source::Block(vec![
-            Iexpr{
-                dst: Reg::Result,
-                typ: Type::Void,
-                src: Source::Void,
-            },
-        ]),
+        src: Source::Block(vec![]),
     };
     assert_eq!(expected, iprog);
     // but also assert that the function was defined!

@@ -384,7 +384,6 @@ expr(A) ::= ID(B) LPAREN expr(C) RPAREN. {
 	A = sexpr::call(B, args);
 }
 expr(A) ::= ID(B) LPAREN tuple_args(C) RPAREN. {
-	println!("tuple function call");
 	A = sexpr::call(B, C);
 }
 /* postfix function call, are we really doing this?

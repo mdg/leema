@@ -1,9 +1,11 @@
 use leema::reg::{Reg};
 use leema::val::{Val};
+use leema::log;
 use leema::compile::{Iexpr,Source};
 use leema::frame;
 use std::fmt;
 use std::collections::{HashMap};
+use std::io::{stderr, Write};
 use std::sync::Arc;
 
 
@@ -236,7 +238,7 @@ pub fn make_call_ops(dst: Reg, f: &Iexpr, args: &Iexpr) -> OpVec
 
 pub fn make_if_ops(test: &Iexpr, truth: &Iexpr, lies: &Iexpr) -> OpVec
 {
-println!("make_if_ops({:?},{:?},{:?})", test, truth, lies);
+verbose_out!("make_if_ops({:?},{:?},{:?})", test, truth, lies);
     let mut if_ops = make_sub_ops(&test);
     let mut truth_ops = make_sub_ops(&truth);
     let mut lies_ops = make_sub_ops(&lies);

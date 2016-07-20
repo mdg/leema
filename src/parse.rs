@@ -1231,7 +1231,6 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
  (YYMinorType::YY66(yy0),YYMinorType::YY32(yy2),) => {
 
-	println!("tuple function call");
 	yyres = sexpr::call(yy0, yy2);
 
 },    _ => unreachable!() };
