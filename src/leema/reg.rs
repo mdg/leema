@@ -61,6 +61,6 @@ impl Reg {
 }
 
 pub trait NumericRegistry {
-    fn getRegR1(&self, r: i8) -> &Val;
-    fn setRegR1(&mut self, r: i8, v: Val);
+    fn get_reg_r1(&self, r: i8) -> &Val;
+    fn set_reg_r1(&mut self, r: i8, v: Val);
 }

@@ -664,7 +664,7 @@ impl fmt::Debug for Val {
 
 
 impl reg::NumericRegistry for Val {
-    fn getRegR1(&self, r: i8) -> &Val {
+    fn get_reg_r1(&self, r: i8) -> &Val {
         match self {
             &Val::Tuple(ref tup) => {
                 &tup[r as usize]
@@ -675,7 +675,7 @@ impl reg::NumericRegistry for Val {
         }
     }
 
-    fn setRegR1(&mut self, r: i8, v: Val)
+    fn set_reg_r1(&mut self, r: i8, v: Val)
     {
         if self.is_list() && !list::is_empty(self) {
             if r == 0 {
@@ -688,7 +688,7 @@ impl reg::NumericRegistry for Val {
                     }
                 }
             } else {
-                self.setRegR1(r-1, v);
+                self.set_reg_r1(r-1, v);
             }
         } else if self.is_tuple() {
             match self {
@@ -704,7 +704,7 @@ impl reg::NumericRegistry for Val {
                 }
             }
         } else {
-            panic!("Can't setRegR1 on NotTuple");
+            panic!("Can't set_reg_r1 on NotTuple");
         }
     }
 }
@@ -940,10 +940,10 @@ impl Env {
     pub fn set_reg(&mut self, reg: &Reg, v: Val) {
         match reg {
             &Reg::R1(r) => {
-                self.setRegR1(r, v)
+                self.set_reg_r1(r, v)
             }
             &Reg::R2(r1,r2) => {
-                self.getMutRegR1(r1).setRegR1(r2, v);
+                self.get_mut_reg_r1(r1).set_reg_r1(r2, v);
             }
             &Reg::Result => {
                 self.result = Some(v);
@@ -951,7 +951,7 @@ impl Env {
             &Reg::Result2(r2) => {
                 match self.result {
                     Some(ref mut resultv) => {
-                        resultv.setRegR1(r2, v);
+                        resultv.set_reg_r1(r2, v);
                     }
                     None => {
                         panic!("Result is None {:?}", reg);
@@ -964,7 +964,7 @@ impl Env {
         }
     }
 
-    pub fn getMutRegR1(&mut self, r: i8) -> &mut Val
+    pub fn get_mut_reg_r1(&mut self, r: i8) -> &mut Val
     {
         if self.reg.contains_key(&r) {
             self.reg.get_mut(&r).unwrap()
@@ -980,10 +980,10 @@ impl Env {
                 self.get_param(p)
             }
             &Reg::R1(r) => {
-                self.getRegR1(r)
+                self.get_reg_r1(r)
             }
             &Reg::R2(r1,r2) => {
-                self.getRegR1(r1).getRegR1(r2)
+                self.get_reg_r1(r1).get_reg_r1(r2)
             }
             &Reg::Result => {
                 match self.result {
@@ -998,7 +998,7 @@ impl Env {
             &Reg::Result2(r2) => {
                 match self.result {
                     Some(ref rv) => {
-                        rv.getRegR1(r2)
+                        rv.get_reg_r1(r2)
                     }
                     None => {
                         panic!("No result set!")
@@ -1026,14 +1026,14 @@ impl Env {
 
 impl reg::NumericRegistry for Env {
 
-    fn setRegR1(&mut self, r: i8, v: Val) {
+    fn set_reg_r1(&mut self, r: i8, v: Val) {
         if self.reg.contains_key(&r) {
             println!("register already set: {}", r);
         }
         self.reg.insert(r, v);
     }
 
-    fn getRegR1(&self, r: i8) -> &Val {
+    fn get_reg_r1(&self, r: i8) -> &Val {
         if self.reg.contains_key(&r) {
             self.reg.get(&r).unwrap()
         } else {
