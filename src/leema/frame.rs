@@ -313,10 +313,10 @@ verbose_out!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
     let test_val = curf.e.get_reg(reg);
     if let &Val::Bool(test) = test_val {
         if test {
-            println!("if test is true");
+            verbose_out!("if test is true");
             curf.pc += 1;
         } else {
-            println!("if test is false");
+            verbose_out!("if test is false");
             curf.pc += jmp as i32;
         }
     } else {
