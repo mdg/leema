@@ -767,6 +767,7 @@ verbose_out!("body = {:?}\n", body);
                 i += 1;
             }
 
+verbose_out!("macro replace ids\n\t{:?}\n\t{:?}\n", body, margs);
             Val::replace_ids(body.clone(), &margs)
         };
 verbose_out!("result = {:?}\n", mappl);

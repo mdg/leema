@@ -225,7 +225,35 @@ pub fn set_head(l: &mut Val, v: Val)
 
 #[cfg(test)]
 mod tests {
+    use leema::list;
     use leema::val::{Val};
 
+#[test]
+fn test_map()
+{
+    let l =
+        list::cons(Val::Bool(true),
+        list::cons(Val::Bool(false),
+        list::cons(Val::Bool(true),
+        Val::Nil,
+    )));
+
+    let not_l = list::map(l, |v| {
+        if let Val::Bool(b) = v {
+            Val::Bool(!b)
+        } else {
+            Val::Void
+        }
+    });
+
+    let expected =
+        list::cons(Val::Bool(false),
+        list::cons(Val::Bool(true),
+        list::cons(Val::Bool(false),
+        Val::Nil,
+    )));
+
+    assert_eq!(expected, not_l);
+}
 
 }

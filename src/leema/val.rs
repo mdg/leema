@@ -1051,6 +1051,8 @@ mod tests {
     use leema::val::{Val};
     use leema::list;
     use leema::sexpr;
+    use std::collections::{HashMap};
+    use std::sync::{Arc};
 
 
 #[test]
@@ -1124,15 +1126,27 @@ fn test_compare_across_types() {
 }
 
 #[test]
-fn test_replace_ids() {
-    let f = Val::Bool(false);
-    let t = Val::Bool(true);
-    let i = Val::Int(7);
-    let s = Val::new_str("hello".to_string());
+fn test_replace_ids_if()
+{
+    let body = sexpr::new_block(list::singleton(
+        sexpr::new_block(
+            list::cons(Val::id("a".to_string()),
+            list::cons(sexpr::new_block(
+                list::singleton(Val::id("b".to_string())),
+            ),
+            list::cons(sexpr::new_block(
+                list::singleton(Val::Bool(false)),
+            ),
+            Val::Nil,
+        )))),
+    ));
+    let mut ids = HashMap::new();
+    ids.insert(Arc::new("a".to_string()), Val::Bool(true));
+    ids.insert(Arc::new("b".to_string()), Val::Bool(false));
 
-    assert!(f < t);
-    assert!(t < i);
-    assert!(i < s);
+    let result = Val::replace_ids(body, &ids);
+
+    assert_eq!(Val::Void, result);
 }
 
 }
