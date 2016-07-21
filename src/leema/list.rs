@@ -76,22 +76,17 @@ pub fn len(l: &Val) -> usize {
     fold_ref(l, 0, |res, _| { res + 1 })
 }
 
-pub fn map<F>(l: Val, op: F) -> Val
+pub fn map<F>(mut l: Val, op: F) -> Val
     where F: Fn(Val) -> Val
 {
-    //list::from_ll(map_to_ll(l, op))
-        /*
-        let mut l = input;
-        let mut result = List::Nil;
-        while l != List::Nil {
-            let (head, tail) = List::take(l);
-            let single = op(head);
-            result = List::cons(single, result);
-            l = tail;
-        }
-        List::reverse(result)
-        */
-    Val::Nil
+    let mut result = Val::Nil;
+    while l != Val::Nil {
+        let (head, tail) = take(l);
+        let single = op(head);
+        result = cons(single, result);
+        l = tail;
+    }
+    reverse(&result)
 }
 
 pub fn map_to_ll<F>(l: Val, op: F) -> LinkedList<Val>

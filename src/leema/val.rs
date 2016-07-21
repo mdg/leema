@@ -1048,7 +1048,7 @@ verbose_out!("{:?} not set in {:?}\n", r, self.reg);
 
 #[cfg(test)]
 mod tests {
-    use leema::val::{Val};
+    use leema::val::{Val, SexprType};
     use leema::list;
     use leema::sexpr;
     use std::collections::{HashMap};
@@ -1129,8 +1129,10 @@ fn test_compare_across_types() {
 fn test_replace_ids_if()
 {
     let body = sexpr::new_block(list::singleton(
-        sexpr::new_block(
-            list::cons(Val::id("a".to_string()),
+        sexpr::new(SexprType::IfExpr,
+            list::cons(sexpr::new_block(
+                list::singleton(Val::id("a".to_string())),
+            ),
             list::cons(sexpr::new_block(
                 list::singleton(Val::id("b".to_string())),
             ),
@@ -1138,7 +1140,8 @@ fn test_replace_ids_if()
                 list::singleton(Val::Bool(false)),
             ),
             Val::Nil,
-        )))),
+            ))),
+        ),
     ));
     let mut ids = HashMap::new();
     ids.insert(Arc::new("a".to_string()), Val::Bool(true));
@@ -1146,7 +1149,14 @@ fn test_replace_ids_if()
 
     let result = Val::replace_ids(body, &ids);
 
-    assert_eq!(Val::Void, result);
+    let expected = sexpr::new(SexprType::IfExpr,
+        list::cons(Val::id("a".to_string()),
+        list::cons(Val::id("b".to_string()),
+        list::cons(Val::Bool(false),
+        Val::Nil,
+        ))),
+    );
+    assert_eq!(expected, result);
 }
 
 }
