@@ -1128,21 +1128,13 @@ fn test_compare_across_types() {
 #[test]
 fn test_replace_ids_if()
 {
-    let body = sexpr::new_block(list::singleton(
-        sexpr::new(SexprType::IfExpr,
-            list::cons(sexpr::new_block(
-                list::singleton(Val::id("a".to_string())),
-            ),
-            list::cons(sexpr::new_block(
-                list::singleton(Val::id("b".to_string())),
-            ),
-            list::cons(sexpr::new_block(
-                list::singleton(Val::Bool(false)),
-            ),
-            Val::Nil,
-            ))),
-        ),
-    ));
+    let body = sexpr::new(SexprType::IfExpr,
+        list::cons(Val::id("a".to_string()),
+        list::cons(Val::id("b".to_string()),
+        list::cons(Val::Bool(false),
+        Val::Nil,
+        ))),
+    );
     let mut ids = HashMap::new();
     ids.insert(Arc::new("a".to_string()), Val::Bool(true));
     ids.insert(Arc::new("b".to_string()), Val::Bool(false));
@@ -1150,8 +1142,8 @@ fn test_replace_ids_if()
     let result = Val::replace_ids(body, &ids);
 
     let expected = sexpr::new(SexprType::IfExpr,
-        list::cons(Val::id("a".to_string()),
-        list::cons(Val::id("b".to_string()),
+        list::cons(Val::Bool(true),
+        list::cons(Val::Bool(false),
         list::cons(Val::Bool(false),
         Val::Nil,
         ))),
