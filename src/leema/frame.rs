@@ -309,7 +309,7 @@ fn execute_fork(w: &mut Worker, curf: &mut Frame,
 
 fn execute_jump_if_not(curf: &mut Frame, jmp: i16, reg: &Reg)
 {
-    verbose_out!("execute_jump_if_not({:?},{:?})", jmp, reg);
+verbose_out!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
     let test_val = curf.e.get_reg(reg);
     if let &Val::Bool(test) = test_val {
         if test {

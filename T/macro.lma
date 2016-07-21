@@ -5,4 +5,11 @@ macro m_and(a, b) {
 		false
 	}
 }
-m_and(true, false)
+
+func main() {
+    if m_and(true, false) {
+        cout("true\n")
+    } else {
+        cout("false\n")
+    }
+}

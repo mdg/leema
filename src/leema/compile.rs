@@ -353,14 +353,6 @@ impl StaticSpace
                 let ib = Box::new(self.precompile(*b));
                 Iexpr::new(Source::BooleanOr(ia, ib))
             }
-            SexprType::IfCase(test, ifcode) => {
-                let it = self.precompile(*test);
-                let icode = self.precompile(*ifcode);
-                Iexpr::if_true(it, icode)
-            }
-            SexprType::ElseCase(code) => {
-                Iexpr::else_case(self.precompile(*code))
-            }
             */
             SexprType::IfExpr => {
                 self.precompile_ifexpr(expr)
@@ -604,9 +596,12 @@ verbose_out!("pc block> {:?}\n", items);
         let (raw_test, e2) = list::take(expr);
         let (raw_truth, e3) = list::take(e2);
         let (raw_lies, _) = list::take(e3);
+verbose_out!("precompile ifx\n\t{:?}\n\t{:?}\n\t{:?}\n", raw_test, raw_truth, raw_lies);
+
         let test = self.precompile(raw_test);
         let truth = self.precompile(raw_truth);
         let lies = self.precompile(raw_lies);
+verbose_out!("ixif:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
         Iexpr::if_expr(test, truth, lies)
     }
 

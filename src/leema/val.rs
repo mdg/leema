@@ -1,6 +1,7 @@
 use leema::reg::{self, Reg, NumericRegistry};
 use leema::sexpr;
 use leema::list;
+use leema::log;
 use std::fmt::{self};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
@@ -10,6 +11,7 @@ use std::any::{Any};
 use std::cmp::{PartialEq, PartialOrd, Ordering};
 use std::clone::Clone;
 use std::fmt::{Debug};
+use std::io::{stderr, Write};
 
 
 #[derive(Clone)]
@@ -1037,6 +1039,7 @@ impl reg::NumericRegistry for Env {
         if self.reg.contains_key(&r) {
             self.reg.get(&r).unwrap()
         } else {
+verbose_out!("{:?} not set in {:?}\n", r, self.reg);
             panic!("register is not set: {}", r);
         }
     }
