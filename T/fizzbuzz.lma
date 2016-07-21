@@ -1,45 +1,15 @@
 
 func fizzbuzz(x, max) =>
-    if x > max =>
-        if max > 100 =>
-            cout("big max\n")
-        //
-        abort
+    match (x mod 3, x mod 5)
+    /(0, 0) => cout("fizzbuzz\n")
+    /(0, _) => cout("fizz\n")
+    /(_, 0) => cout("buzz\n")
+    /(_, _) => cout("$x\n")
     //
 
-    match(x mod 3, x mod 5)
-    (0, 0) =>
-        cout("fizzbuzz\n")
+    if x = max =>
+        fizzbuzz(x+1, max)
     //
-    (0, _) =>
-        cout("fizz\n")
-    //
-    (_, 0) =>
-        cout("buzz\n")
-    //
-    (_, _) {
-        cout("$x\n")
-    /m
-
-    match(x mod 3, x mod 5)
-    /(0, 0) =>
-        cout("fizzbuzz\n")
-    /(0, _) =>
-        cout("fizz\n")
-    /(_, 0) =>
-        cout("buzz\n")
-    /(_, _) =>
-        cout("$x\n")
-    //
-
-    match x mod 3
-    / 0 =>
-        cout("fizzbuzz\n")
-    / _ =>
-        cout("$x\n")
-    //
-
-    fizzbuzz(x+1, max)
 //
 
 

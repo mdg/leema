@@ -1,3 +1,8 @@
+func fact(i: Int): Int
+/0 => 1
+/i => i * fact(i-1)
+//
+
 func fact(i : Int) : Int
 {
 	if i == 1 {
