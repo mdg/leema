@@ -41,7 +41,7 @@ EOI	\0
 <<EOF>>	{
 	return set_token(yyg, TOKEN_EOI);
 }
-{EOL}	{
+{EOL}+	{
 	return set_token(yyg, TOKEN_NEWLINE);
 }
 "\""	{

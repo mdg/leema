@@ -1,6 +1,6 @@
 
 func fact(i) {
-	if i == 1 {
+	if i = 1 {
 		1
 	} else {
 		i * fact(i-1)

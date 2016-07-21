@@ -10,6 +10,7 @@ use std::io::{stderr, Write};
 
 %start_symbol {program}
 %derive_token {Debug,PartialEq}
+%wildcard ANY.
 %extra_argument { Result<Ast, i32> }
 
 /* %type match_block { Ast } */
@@ -22,7 +23,6 @@ use std::io::{stderr, Write};
 %type program { Ast }
 %type stmts { Val }
 
-%type linebreak { Ast }
 %type pattern_args { Val }
 %type more_pattern_args { Val }
 %type stmt { Val }
@@ -102,19 +102,10 @@ program(A) ::= stmts(B). {
 	self.extra = Ok(Ast::ReplRoot(B));
 }
 
-linebreak(A) ::= NEWLINE. {
-    // set to avoid uninitialized variable
-    A = Ast::Nothing;
-}
-linebreak(A) ::= linebreak NEWLINE. {
-    // set to avoid uninitialized variable
-    A = Ast::Nothing;
-}
-
 stmts(A) ::= . {
 	A = sexpr::new(SexprType::BlockExpr, list::empty());
 }
-stmts(A) ::= stmt(C) linebreak stmts(B). {
+stmts(A) ::= stmt(C) NEWLINE stmts(B). {
 	A = list::cons(C, B);
 }
 
@@ -164,7 +155,7 @@ match_block(A) ::= match_case(B). {
 match_block(A) ::= match_case(B) match_block(C). {
 	A = list::cons(B, C);
 }
-match_case(A) ::= pattern(B) arrow_block(D) linebreak. {
+match_case(A) ::= pattern(B) arrow_block(D) NEWLINE. {
 	A = Val::tuple2(B, D);
 }
 
@@ -197,13 +188,13 @@ pexpr(A) ::= INT(B). {
  *
  * Algebraic Data Types or simple structures (which are just ADTs with
  * only one variant whose name matches the data type.
-data_decl(A) ::= DT TYPEID(B) linebreak struct_fields(C) END_BLOCK. {
+data_decl(A) ::= DT TYPEID(B) NEWLINE struct_fields(C) END_BLOCK. {
 	/* just pretend that there are more than one * /
 	Val *constructor = Val::tuple2(B, C);
 	Val *constructors(Val::list(list::singleton(constructor)));
 	A = Val::dtype(B, constructors);
 }
-data_decl(A) ::= DT TYPEID(B) linebreak constructors(C) END_BLOCK. {
+data_decl(A) ::= DT TYPEID(B) NEWLINE constructors(C) END_BLOCK. {
 	A = Val::dtype(B, C);
 }
 
@@ -214,11 +205,11 @@ constructors(A) ::= constructor(B) constructors(C). {
 	A = Val::cons(B, C);
 }
 
-constructor(A) ::= TYPEID(B) linebreak struct_fields(C). {
+constructor(A) ::= TYPEID(B) NEWLINE struct_fields(C). {
 	A = Val::tuple2(B, C);
 }
 
-struct_fields(A) ::= struct_field(B) linebreak struct_fields(C). {
+struct_fields(A) ::= struct_field(B) NEWLINE struct_fields(C). {
 	A = Val::cons(B, C);
 }
 struct_fields(A) ::= . {
@@ -272,7 +263,7 @@ block(A) ::= curly_block(B). {
 arrow_block(A) ::= BLOCKARROW expr(B). {
 	A = B;
 }
-curly_block(A) ::= CurlyL linebreak stmts(B) CurlyR. {
+curly_block(A) ::= CurlyL NEWLINE stmts(B) CurlyR. {
 	A = B;
 }
 
@@ -361,7 +352,7 @@ macro_args(A) ::= ID(B) COMMA macro_args(C). {
 
 
 /* function with pattern matching
-func_stmt(A) ::= F ID(B) typedecl(T) linebreak match_block(C) END_BLOCK. {
+func_stmt(A) ::= F ID(B) typedecl(T) NEWLINE match_block(C) END_BLOCK. {
 	Val *func = Val::fexpr(C, T);
 	A = Val::tuple2(B, func, LET_ASSIGN);
 }
