@@ -70,9 +70,6 @@ impl Token {
                 parse::TOKEN_ConcatNewline => {
                     Token::ConcatNewline
                 }
-                parse::TOKEN_DEFINE => {
-                    Token::DEFINE
-                }
                 parse::TOKEN_LPAREN => {
                     Token::LPAREN
                 }

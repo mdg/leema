@@ -249,11 +249,11 @@ verbose_out!("found fail_stmt {:?}\n", C);
 	A = Val::Failure;
 }
 
-let_stmt(A) ::= Let ID(B) DEFINE expr(C). {
+let_stmt(A) ::= Let ID(B) EQ expr(C). {
 	let bind = list::cons(Val::new_str(B), list::singleton(C));
 	A = sexpr::new(SexprType::Bind, bind);
 }
-let_stmt(A) ::= Fork ID(B) DEFINE expr(C). {
+let_stmt(A) ::= Fork ID(B) EQ expr(C). {
 	let bind = list::cons(Val::new_str(B), list::singleton(C));
 	A = sexpr::new(SexprType::Fork, bind);
 }

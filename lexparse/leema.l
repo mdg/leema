@@ -60,12 +60,11 @@ void	{ return set_token(yyg, TOKEN_VOID); }
 "$>"	{ return set_token(yyg, TOKEN_DollarGT); }
 ":"	{ return set_token(yyg, TOKEN_COLON); }
 "=>"	{ return set_token(yyg, TOKEN_BLOCKARROW); }
-":="	{ return set_token(yyg, TOKEN_DEFINE); }
+"="	{ return set_token(yyg, TOKEN_EQ); }
 "<"	{ return set_token(yyg, TOKEN_LT); }
 "<="	{ return set_token(yyg, TOKEN_LTEQ); }
 ">"	{ return set_token(yyg, TOKEN_GT); }
 ">="	{ return set_token(yyg, TOKEN_GTEQ); }
-"=="	{ return set_token(yyg, TOKEN_EQ); }
 "!="	{ return set_token(yyg, TOKEN_NEQ); }
 "("	{ return set_token(yyg, TOKEN_LPAREN); }
 ")"	{ return set_token(yyg, TOKEN_RPAREN); }

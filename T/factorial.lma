@@ -1,10 +1,5 @@
-func fact(i: Int): Int
-/0 => 1
-/i => i * fact(i-1)
-//
 
-func fact(i : Int) : Int
-{
+func fact(i) {
 	if i == 1 {
 		1
 	} else {
@@ -12,4 +7,6 @@ func fact(i : Int) : Int
 	}
 }
 
-fact(4)
+func main() {
+    fact(4)
+}

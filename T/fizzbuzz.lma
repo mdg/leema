@@ -1,18 +1,25 @@
 
-func fizzbuzz(x, max) =>
-    match (x mod 3, x mod 5)
-    /(0, 0) => cout("fizzbuzz\n")
-    /(0, _) => cout("fizz\n")
-    /(_, 0) => cout("buzz\n")
-    /(_, _) => cout("$x\n")
-    //
+func fizzbuzz(x, max) {
+    let xm30 = (x mod 3) = 0
+    let xm50 = (x mod 5) = 0
 
-    if x = max =>
+    if xm30 and xm50 {
+        cout("fizzbuzz\n")
+    } else if xm30 {
+        cout("fizz\n")
+    } else if xm50 {
+        cout("buzz\n")
+    } else {
+        cout("$x\n")
+    }
+
+    if x < max {
         fizzbuzz(x+1, max)
-    //
-//
+    }
+}
 
 
-func main() =>
+func main() {
     fizzbuzz(1, 100)
-//
+}
+
