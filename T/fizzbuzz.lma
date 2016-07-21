@@ -1,0 +1,35 @@
+func fizzbuzz_item: I64 = match(x, mod3, mod5)
+(100, _, _) => cout("fizzbuzz\n")
+(x, 0, 0) {
+    cout("fizzbuzz\n")
+    fizzbuzz(x+1)
+}
+(x, 0, _) {
+    cout("fizz\n");
+    fizzbuzz(x+1)
+}
+(x, _, 0) {
+    cout("buzz\n")
+    fizzbuzz(x+1)
+}
+
+func fizzbuzz(x) {
+    fizzbuzz_item(x, x mod 3, x mod 5)
+}
+
+
+func fizzbuzz(x) {
+    if x mod 3 and x mod 5 {
+        cout("fizzbuzz\n")
+    } else if x mod 3 {
+        cout("fizz\n")
+    } else if x mod 5 {
+        cout("buzz\n")
+    } else {
+        cout("$x\n")
+    }
+}
+
+func main() {
+    map(range(0, 100), fizzbuzz)
+}
