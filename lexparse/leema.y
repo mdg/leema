@@ -114,7 +114,6 @@ stmts(A) ::= stmt(C) NEWLINE stmts(B). {
 }
 stmts(A) ::= stmt ANY(B) stmts. {
     panic!("newline expected, found {:?}", B);
-	A = Val::Void;
 }
 stmts(A) ::= stmt error stmts. {
     println!("newline error between statements");
@@ -396,12 +395,11 @@ seems like this should be pretty achievable w/ `[] | empty?`
 expr(A) ::= term(B) ID(C). {
 	A = Sexpr::Nothing;
 }*/
-/* infix function call
+/* infix function call */
 expr(A) ::= term(B) ID(C) term(D). {
-	A = Val::binaryop(B, C, D);
-	A = Val::Void;
+	A = sexpr::binaryop(C, B, D);
 }
-*/
+
 expr(A) ::= term(B) DOLLAR term(C). {
 	/* A = Val::binaryop(B, C, D); */
 	A = Val::Void;
