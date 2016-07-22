@@ -13,6 +13,7 @@ use std::io::{stderr, Write};
 %wildcard ANY.
 %extra_argument { Result<Ast, i32> }
 
+%type ANY { TokenLoc }
 %type COMMA { TokenLoc }
 %type HASHTAG { TokenData<String> }
 %type ID { String }
@@ -110,6 +111,10 @@ stmts(A) ::= . {
 stmts(A) ::= stmt(C) NEWLINE stmts(B). {
     println!("parse new stmt {:?}", C);
 	A = list::cons(C, B);
+}
+stmts(A) ::= stmt ANY(B) stmts. {
+    panic!("newline expected, found {:?}", B);
+	A = Val::Void;
 }
 stmts(A) ::= stmt error stmts. {
     println!("newline error between statements");
