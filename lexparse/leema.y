@@ -113,7 +113,8 @@ stmts(A) ::= stmt(C) NEWLINE stmts(B). {
 	A = list::cons(C, B);
 }
 stmts(A) ::= stmt ANY(B) stmts. {
-    panic!("newline expected, found {:?}", B);
+    println!("newline expected, found {:?}", B);
+	A = Val::Void;
 }
 stmts(A) ::= stmt error stmts. {
     println!("newline error between statements");
@@ -132,6 +133,10 @@ stmt(A) ::= fail_stmt(B). { A = B; }
 stmt(A) ::= DT. { A = Val::Void; }
 stmt(A) ::= func_stmt(B). { A = B; }
 stmt(A) ::= macro_stmt(B). { A = B; }
+/* if_stmt */
+stmt(A) ::= IF expr(B) curly_block(C). {
+    A = sexpr::ifexpr(B, C, Val::Void);
+}
 
 /*
 stmt(A) ::= FAILED(B) ID(C) match_block(D). {

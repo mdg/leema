@@ -757,6 +757,9 @@ impl PartialOrd for Val
             (&Val::Unit, &Val::Unit) => {
                 Some(Ordering::Equal)
             }
+            (&Val::Void, &Val::Void) => {
+                Some(Ordering::Equal)
+            }
             (&Val::Tuple(ref a), &Val::Tuple(ref b)) => {
                 PartialOrd::partial_cmp(&*a, &*b)
             }
@@ -812,6 +815,12 @@ impl PartialOrd for Val
                 Some(Ordering::Less)
             }
             (_, &Val::Unit) => {
+                Some(Ordering::Greater)
+            }
+            (&Val::Void, _) => {
+                Some(Ordering::Less)
+            }
+            (_, &Val::Void) => {
                 Some(Ordering::Greater)
             }
             (&Val::Sexpr(_, _), _) => Some(Ordering::Less),

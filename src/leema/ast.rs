@@ -353,6 +353,30 @@ fn test_ast_parse_if()
 }
 
 #[test]
+fn test_ast_parse_if_no_else()
+{
+    let input = "if x {
+        y
+    }
+    ".to_string();
+    let root = Ast::parse(lex(input));
+
+    let blocka = sexpr::new(SexprType::BlockExpr, list::singleton(
+        Val::id("y".to_string()),
+    ));
+    let expected = Ast::ReplRoot(sexpr::new(SexprType::BlockExpr, list::cons(
+        sexpr::new(SexprType::IfExpr,
+        list::cons(Val::id("x".to_string()),
+        list::cons(blocka,
+        list::cons(Val::Void,
+        Val::Nil,
+        )))),
+        Val::Nil,
+    )));
+    assert_eq!(expected, root);
+}
+
+#[test]
 fn test_ast_parse_macro()
 {
     let input = "macro mand(a, b) {
