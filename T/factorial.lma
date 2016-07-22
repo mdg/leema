@@ -1,4 +1,3 @@
-
 func fact(i) {
 	if i = 1 {
 		1
