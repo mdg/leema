@@ -4,7 +4,8 @@ use std::ptr;
 
 #[repr(C)]
 #[derive(Debug)]
-struct LibTokenBuffer {
+struct LibTokenBuffer
+{
     tok: i32,
     value: *const u8,
     len: usize,
@@ -14,8 +15,10 @@ struct LibTokenBuffer {
     block_comment_depth: i32,
 }
 
-impl LibTokenBuffer {
-    fn val(&self) -> String {
+impl LibTokenBuffer
+{
+    fn val(&self) -> String
+    {
         let mut valvec = Vec::with_capacity(self.len+1);
         unsafe {
             valvec.set_len(self.len);
@@ -24,7 +27,8 @@ impl LibTokenBuffer {
         String::from_utf8(valvec).unwrap()
     }
 
-    fn ival(&self) -> i64 {
+    fn ival(&self) -> i64
+    {
         let strval = self.val();
         let iresult = i64::from_str_radix(&strval, 10);
         iresult.unwrap()
@@ -35,14 +39,16 @@ enum LexState {}
 
 #[link(name = "leemalex")]
 #[link(name = "stdc++")]
-extern "C" {
+extern "C"
+{
     fn lib_lexscan(input: *const u8) -> *mut LexState;
     fn lib_lexone(scanner: *mut LexState) -> *const LibTokenBuffer;
     fn lib_lexclose(scanner: *mut LexState);
 }
 
 
-impl Token {
+impl Token
+{
     fn from_lib(tok: *const LibTokenBuffer) -> Token
     {
         unsafe {
@@ -77,7 +83,7 @@ impl Token {
                     Token::COLON
                 }
                 parse::TOKEN_COMMA => {
-                    Token::COMMA
+                    Token::COMMA(tl)
                 }
                 parse::TOKEN_RPAREN => {
                     Token::RPAREN
@@ -114,7 +120,7 @@ impl Token {
                     Token::ELSE
                 }
                 parse::TOKEN_PLUS => {
-                    Token::PLUS
+                    Token::PLUS(tl)
                 }
                 parse::TOKEN_MINUS => {
                     Token::MINUS
@@ -170,7 +176,8 @@ impl Token {
 }
 
 
-pub fn lex(mut input: String) -> Vec<Token> {
+pub fn lex(mut input: String) -> Vec<Token>
+{
     // need to append \0 so C library knows where the string stops
     input.push_str("\0");
     let lexer;
@@ -200,18 +207,21 @@ pub fn lex(mut input: String) -> Vec<Token> {
 
 
 #[cfg(test)]
-mod tests {
+mod tests
+{
     use parse::Token;
 
 #[test]
-fn test_lex_int() {
+fn test_lex_int()
+{
     let actual = super::lex("5".to_string());
     assert_eq!(1, actual.len());
     assert_eq!(Token::INT(5), actual[0]);
 }
 
 #[test]
-fn test_lex_minus_int() {
+fn test_lex_minus_int()
+{
     let actual = super::lex("-7".to_string());
     assert_eq!(2, actual.len());
     assert_eq!(Token::MINUS, actual[0]);

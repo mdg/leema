@@ -48,15 +48,21 @@ int set_token_val(yyscan_t scanner, int tok, const char *val)
 	buf->token = tok;
 	if (val) {
 		//printf("set_token_val(%d,%s (%p))\n", tok, val, val);
+        int toklen = strlen(val);
 		buf->val = val;
-		buf->length = strlen(val);
+		buf->length = toklen;
+	    buf->column += toklen;
 	} else {
-		//printf("set_token(%d)\n", tok);
 		buf->val = NULL;
 		buf->length = 0;
+        if (buf->token == TOKEN_NEWLINE) {
+            buf->column = 1;
+        } else {
+            buf->column += 1;
+        }
 	}
-	buf->lineno = yyget_lineno(scanner);
-	buf->column = yyget_column(scanner);
+	buf->lineno = yyget_lineno(scanner) + 1;
+    printf("lineno,column: %d,%d\n", buf->lineno, buf->column);
 	return tok;
 }
 

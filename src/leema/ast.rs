@@ -290,6 +290,40 @@ fn test_ast_parse_list() {
 }
 
 #[test]
+fn test_call_function_plus_comma()
+{
+    let input = "func main() {
+        foo(x+1, 40)
+    }
+    ".to_string();
+    Ast::parse(lex(input));
+}
+
+#[test]
+fn test_call_function_comma_plus()
+{
+    let input = "func main() {
+        foo(40, x+1)
+    }
+    ".to_string();
+    Ast::parse(lex(input));
+}
+
+#[test]
+fn test_parse_multiple_param_func()
+{
+    let input = "func doubles(x, x2) {
+        x + x = x2
+    }
+
+    func main() {
+        doubles(5, 10)
+    }
+    ".to_string();
+    Ast::parse(lex(input));
+}
+
+#[test]
 fn test_ast_parse_if()
 {
     let input = "if x {

@@ -70,7 +70,8 @@ pub enum Code
     Inter(Arc<Iexpr>),
 }
 
-impl fmt::Debug for Code {
+impl fmt::Debug for Code
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             &Code::Leema(ref ops) => {

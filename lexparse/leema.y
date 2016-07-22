@@ -13,10 +13,12 @@ use std::io::{stderr, Write};
 %wildcard ANY.
 %extra_argument { Result<Ast, i32> }
 
+%type COMMA { TokenLoc }
 %type HASHTAG { TokenData<String> }
 %type ID { String }
 %type INT { i64 }
 %type NEWLINE { TokenLoc }
+%type PLUS { TokenLoc }
 %type StrLit { String }
 %type TYPE_ID { String }
 
@@ -58,7 +60,6 @@ use std::io::{stderr, Write};
 
 
 %nonassoc ASSIGN BLOCKARROW WHERE GIVEN.
-%left COMMA.
 %left OR XOR.
 %left AND.
 %right ConcatNewline NOT.
@@ -367,14 +368,16 @@ idtype(A) ::= ID(B) COLON texpr(C). {
 
 /* regular function call */
 expr(A) ::= ID(B) LPAREN RPAREN. {
-	println!("zero param function call!");
+	verbose_out!("zero param function call!");
 	A = sexpr::call(B, Val::Nil);
 }
 expr(A) ::= ID(B) LPAREN expr(C) RPAREN. {
+	verbose_out!("one param function call!");
 	let args = list::singleton(C);
 	A = sexpr::call(B, args);
 }
 expr(A) ::= ID(B) LPAREN tuple_args(C) RPAREN. {
+	verbose_out!("multi param function call!");
 	A = sexpr::call(B, C);
 }
 /* postfix function call, are we really doing this?
@@ -425,6 +428,7 @@ expr(A) ::= MINUS expr(B). {
 	A = sexpr::call("negate".to_string(), list::singleton(B));
 }
 expr(A) ::= expr(B) PLUS expr(C). {
+    verbose_out!("parse PLUS expr");
 	A = sexpr::binaryop("int_add".to_string(), B, C);
 }
 expr(A) ::= expr(B) MINUS expr(C). {
@@ -545,9 +549,11 @@ tuple(A) ::= LPAREN tuple_args(B) RPAREN. {
 	A = Val::tuple_from_list(B);
 }
 tuple_args(A) ::= term(B) COMMA term(C). {
+	verbose_out!("base tuple args!");
 	A = list::cons(B, list::singleton(C));
 }
 tuple_args(A) ::= term(B) COMMA tuple_args(C). {
+	verbose_out!("additional tuple arg!");
 	A = list::cons(B, C);
 }
 
