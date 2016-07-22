@@ -89,6 +89,7 @@ fork	{ return set_token(yyg, TOKEN_Fork); }
 given	{ return set_token(yyg, TOKEN_GIVEN); }
 let	{ return set_token(yyg, TOKEN_Let); }
 macro	{ return set_token(yyg, TOKEN_MACRO); }
+mod	{ return set_token(yyg, TOKEN_MOD); }
 where	{ return set_token(yyg, TOKEN_WHERE); }
 with	{ return set_token(yyg, TOKEN_WITH); }
 and	{ return set_token(yyg, TOKEN_AND); }

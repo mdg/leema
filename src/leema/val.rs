@@ -490,10 +490,11 @@ impl Val {
                 }
             }
             (SexprType::Call, &Val::Cons(ref id, ref args)) => {
+                let (argst, _) = list::take_ref(args);
                 if dbg {
-                    write!(f, "{:?}({:?})", id, args)
+                    write!(f, "{:?}({:?})", id, argst)
                 } else {
-                    write!(f, "{}({})", id, args)
+                    write!(f, "{}({})", id, argst)
                 }
             }
             (SexprType::StrExpr, strs) => {

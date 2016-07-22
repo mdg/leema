@@ -64,6 +64,24 @@ pub fn int_mult(fs: &mut Frame)
     fs.e.set_reg(&Reg::Result, Val::Int(ic));
 }
 
+pub fn int_mod(fs: &mut Frame)
+{
+    let ic;
+    {
+        let a = fs.e.get_param(0);
+        let b = fs.e.get_param(1);
+        match (a,b) {
+            (&Val::Int(ia), &Val::Int(ib)) => {
+                ic = ia % ib;
+            }
+            _ => {
+                panic!("can't mod that! {:?}", (a,b));
+            }
+        }
+    }
+    fs.e.set_reg(&Reg::Result, Val::Int(ic));
+}
+
 pub fn int_negate(fs: &mut Frame)
 {
     let result;

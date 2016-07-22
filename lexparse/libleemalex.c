@@ -62,7 +62,7 @@ int set_token_val(yyscan_t scanner, int tok, const char *val)
         }
 	}
 	buf->lineno = yyget_lineno(scanner) + 1;
-    printf("lineno,column: %d,%d\n", buf->lineno, buf->column);
+    //printf("lineno,column: %d,%d\n", buf->lineno, buf->column);
 	return tok;
 }
 

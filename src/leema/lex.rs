@@ -125,6 +125,9 @@ impl Token
                 parse::TOKEN_MINUS => {
                     Token::MINUS
                 }
+                parse::TOKEN_MOD => {
+                    Token::MOD
+                }
                 parse::TOKEN_False => {
                     Token::False
                 }

@@ -104,10 +104,16 @@ program(A) ::= stmts(B). {
 }
 
 stmts(A) ::= . {
+    println!("parse empty statements list");
 	A = sexpr::new(SexprType::BlockExpr, list::empty());
 }
 stmts(A) ::= stmt(C) NEWLINE stmts(B). {
+    println!("parse new stmt {:?}", C);
 	A = list::cons(C, B);
+}
+stmts(A) ::= stmt error stmts. {
+    println!("newline error between statements");
+	A = Val::Void;
 }
 
 
@@ -385,11 +391,12 @@ seems like this should be pretty achievable w/ `[] | empty?`
 expr(A) ::= term(B) ID(C). {
 	A = Sexpr::Nothing;
 }*/
-/* infix function call */
+/* infix function call
 expr(A) ::= term(B) ID(C) term(D). {
-	/* A = Val::binaryop(B, C, D); */
+	A = Val::binaryop(B, C, D);
 	A = Val::Void;
 }
+*/
 expr(A) ::= term(B) DOLLAR term(C). {
 	/* A = Val::binaryop(B, C, D); */
 	A = Val::Void;
@@ -427,9 +434,17 @@ expr(A) ::= expr(B) ConcatNewline. {
 expr(A) ::= MINUS expr(B). {
 	A = sexpr::call("negate".to_string(), list::singleton(B));
 }
+expr(A) ::= expr(B) error(D) expr(C). {
+    write!(stderr(), "binaryop error: {:?} err {:?}\n", B, C).ok();
+    A = Val::Void;
+}
 expr(A) ::= expr(B) PLUS expr(C). {
-    verbose_out!("parse PLUS expr");
+    println!("parse {:?}+{:?}\n", B, C);
 	A = sexpr::binaryop("int_add".to_string(), B, C);
+}
+expr(A) ::= expr(B) PLUS error. {
+    write!(stderr(), "wtf PLUS error: {:?} + error\n", B).ok();
+    A = Val::Void;
 }
 expr(A) ::= expr(B) MINUS expr(C). {
 	A = sexpr::binaryop("int_sub".to_string(), B, C);
@@ -439,6 +454,9 @@ expr(A) ::= expr(B) TIMES expr(C). {
 }
 expr(A) ::= expr(B) DIVIDE expr(C). {
 	A = sexpr::binaryop("int_div".to_string(), B, C);
+}
+expr(A) ::= expr(B) MOD expr(C). {
+	A = sexpr::binaryop("int_mod".to_string(), B, C);
 }
 expr(A) ::= expr(B) AND expr(C). {
 	A = sexpr::binaryop("and".to_string(), B, C);
@@ -548,11 +566,11 @@ list_items(A) ::= expr(B) COMMA list_items(C). {
 tuple(A) ::= LPAREN tuple_args(B) RPAREN. {
 	A = Val::tuple_from_list(B);
 }
-tuple_args(A) ::= term(B) COMMA term(C). {
+tuple_args(A) ::= expr(B) COMMA expr(C). {
 	verbose_out!("base tuple args!");
 	A = list::cons(B, list::singleton(C));
 }
-tuple_args(A) ::= term(B) COMMA tuple_args(C). {
+tuple_args(A) ::= expr(B) COMMA tuple_args(C). {
 	verbose_out!("additional tuple arg!");
 	A = list::cons(B, C);
 }

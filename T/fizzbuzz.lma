@@ -14,7 +14,9 @@ func fizzbuzz(x, max) {
 
     if x < max {
         fizzbuzz(x+1, max)
+
     }
+
 }
 
 
