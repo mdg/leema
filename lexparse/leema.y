@@ -1,5 +1,5 @@
 %include {
-use leema::ast::{Ast};
+use leema::ast::{Ast, TokenLoc, TokenData};
 use leema::val::{Val, SexprType, Type};
 use leema::list;
 use leema::log;
@@ -13,10 +13,10 @@ use std::io::{stderr, Write};
 %wildcard ANY.
 %extra_argument { Result<Ast, i32> }
 
-/* %type match_block { Ast } */
-%type HASHTAG { String }
+%type HASHTAG { TokenData<String> }
 %type ID { String }
 %type INT { i64 }
+%type NEWLINE { TokenLoc }
 %type StrLit { String }
 %type TYPE_ID { String }
 
@@ -509,7 +509,7 @@ term(A) ::= INT(B). {
 term(A) ::= True. { A = Val::Bool(true); }
 term(A) ::= False. { A = Val::Bool(false); }
 term(A) ::= HASHTAG(B). {
-	A = Val::Hashtag(Arc::new(B));
+	A = Val::Hashtag(Arc::new(B.data));
 }
 term(A) ::= strexpr(B). { A = B; }
 

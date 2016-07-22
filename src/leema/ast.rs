@@ -18,6 +18,43 @@ pub enum FuncType {
 }
 */
 
+#[derive(Copy)]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+pub struct TokenLoc
+{
+    lineno: i32,
+    column: i16,
+}
+
+impl TokenLoc
+{
+    pub fn new(l: i32, c: i16) -> TokenLoc
+    {
+        TokenLoc{lineno: l, column: c}
+    }
+}
+
+#[derive(Debug)]
+#[derive(PartialEq)]
+pub struct TokenData<T>
+{
+    pub data: T,
+    loc: TokenLoc,
+}
+
+impl<T> TokenData<T>
+{
+    pub fn new(d: T, tl: TokenLoc) -> TokenData<T>
+    {
+        TokenData{
+            data: d,
+            loc: tl,
+        }
+    }
+}
+
 
 // but shouldn't the Ast be regular s-exprs?
 // but Rust has one, and it has macros

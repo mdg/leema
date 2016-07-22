@@ -1,5 +1,5 @@
-use parse::{Token};
-use parse;
+use leema::ast::{TokenLoc, TokenData};
+use parse::{self, Token};
 use std::ptr;
 
 #[repr(C)]
@@ -31,7 +31,6 @@ impl LibTokenBuffer {
     }
 }
 
-
 enum LexState {}
 
 #[link(name = "leemalex")]
@@ -47,6 +46,7 @@ impl Token {
     fn from_lib(tok: *const LibTokenBuffer) -> Token
     {
         unsafe {
+            let tl = TokenLoc::new((*tok).lineno, (*tok).column as i16);
             match (*tok).tok {
                 parse::TOKEN_BLOCKARROW => Token::BLOCKARROW,
                 parse::TOKEN_Func => {
@@ -65,7 +65,7 @@ impl Token {
                     Token::TYPE_ID((*tok).val())
                 }
                 parse::TOKEN_HASHTAG => {
-                    Token::HASHTAG((*tok).val())
+                    Token::HASHTAG(TokenData::new((*tok).val(), tl))
                 }
                 parse::TOKEN_ConcatNewline => {
                     Token::ConcatNewline
@@ -158,7 +158,9 @@ impl Token {
                 parse::TOKEN_EOI => {
                     Token::EOI
                 }
-                parse::TOKEN_NEWLINE => { Token::NEWLINE }
+                parse::TOKEN_NEWLINE => {
+                    Token::NEWLINE(tl)
+                }
                 _ => {
                     panic!("Unrecognized token: {:?}", (*tok));
                 }

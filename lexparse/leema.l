@@ -109,9 +109,6 @@ Bool	{ return set_token(yyg, TOKEN_TYPE_BOOL); }
 "@"{ID}	{ /* return set_token_val(yyg, TOKEN_CONTEXTID, yytext); */ }
 {ID}	{ return set_token_val(yyg, TOKEN_ID, yytext); }
 {TYPE_ID}	{ return set_token_val(yyg, TOKEN_TYPE_ID, yytext); }
-"="	{
-	printf("= is an invalid token, use := or ==\n");
-}
 .	{
 	printf("unrecognized character: '%s'\n", yytext);
 }
