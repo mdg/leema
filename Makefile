@@ -11,6 +11,8 @@ run: lexer parser
 test: lexer parser
 	cargo test
 
+T: build T/func_inc.test
+
 # lexer
 lexer: target/debug/deps/libleemalex.a
 
@@ -33,6 +35,9 @@ lexparse/lex.c: lexparse/leema.h lexparse/leema.l
 lexparse/leema.h: lexparse/leema.rs
 	./lemon -s -H -Tlemon_rust/lempar.rs lexparse/leema.y
 
+# T tests
+T/func_inc.test:
+	target/debug/leema T/func_inc.lma
 
 # parser
 parser: src/parse.rs lexparse/leema.h
