@@ -812,6 +812,11 @@ verbose_out!("result = {:?}\n", mappl);
                     }
                     next_s = *tail;
                 }
+                (Some(Val::Id(ls)), Val::Cons(next, tail)) => {
+                    new_strs.push(self.precompile(Val::Id(ls)));
+                    last_s = Some(*next);
+                    next_s = *tail;
+                }
                 (None, Val::Cons(ns, tail)) => {
                     last_s = Some(*ns);
                     next_s = *tail;
