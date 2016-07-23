@@ -928,8 +928,12 @@ self.yystack.pop().unwrap();
 match (yyp1.minor,yyp3.minor,) {
  (YYMinorType::YY66(yy1),YYMinorType::YY32(yy3),) => {
 
-	let bind = list::cons(Val::new_str(yy1), list::singleton(yy3));
-	yyres = sexpr::new(SexprType::Bind, bind);
+	let letx =
+        list::cons(Val::id(yy1),
+        list::cons(yy3,
+        Val::Nil
+        ));
+	yyres = sexpr::new(SexprType::Let, letx);
 
 },    _ => unreachable!() };
  YYMinorType::YY32(yyres)

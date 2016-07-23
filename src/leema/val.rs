@@ -155,7 +155,7 @@ impl Debug for FutureVal
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
 pub enum SexprType {
-    Bind,
+    Let,
     Fork,
     IdWithType,
     TypeExpr,
@@ -462,7 +462,7 @@ impl Val {
     fn fmt_sexpr(st: SexprType, x: &Val, f: &mut fmt::Formatter, dbg: bool) -> fmt::Result
     {
         match (st, x) {
-            (SexprType::Bind, b) => {
+            (SexprType::Let, b) => {
                 let (id, exprtail) = list::take_ref(b);
                 let (expr, _) = list::take_ref(exprtail);
                 if dbg {

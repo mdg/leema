@@ -339,6 +339,9 @@ pub fn define_prefab(ss: &mut StaticSpace)
     ss.define_func(Arc::new("int_mult".to_string()), Type::Int,
         vec![Type::Int, Type::Int], Code::Rust(int_mult),
         );
+    ss.define_func(Arc::new("int_mod".to_string()), Type::Int,
+        vec![Type::Int, Type::Int], Code::Rust(int_mod),
+        );
     ss.define_func(Arc::new("negate".to_string()), Type::Int,
         vec![Type::Int], Code::Rust(int_negate),
         );

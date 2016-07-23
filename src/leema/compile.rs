@@ -317,9 +317,8 @@ impl StaticSpace
     pub fn precompile_sexpr(&mut self, st: SexprType, expr: Val) -> Iexpr
     {
         match st {
-            SexprType::Bind => {
-                //self.precompile_bind(name, *val)
-                Iexpr::new(Source::Void)
+            SexprType::Let => {
+                self.precompile_let(expr)
             }
             SexprType::Fork => {
                 //self.precompile_fork(expr);
@@ -386,18 +385,21 @@ impl StaticSpace
         }
     }
 
-    pub fn precompile_bind(&mut self, name: Arc<String>, val: Val) -> Iexpr
+    pub fn precompile_let(&mut self, expr: Val) -> Iexpr
     {
-verbose_out!("compile let {} := {}\n", name, val);
+        let (lhs, e2) = list::take(expr);
+        let (rhs, _ ) = list::take(e2);
+verbose_out!("compile let {} := {}\n", lhs, rhs);
+        let name = lhs.to_str();
         if self.defined(&name) {
             panic!("{} was already defined", name);
         }
-        let mut valexpr = self.precompile(val);
-        valexpr.dst = Reg::R1(self.nextreg());
-        self.last_reg = valexpr.dst;
+        let mut irhs = self.precompile(rhs);
+        irhs.dst = Reg::R1(self.nextreg());
+        self.last_reg = irhs.dst;
 
-        self.define(valexpr.dst, name, valexpr.typ.clone());
-        valexpr
+        self.define(irhs.dst, name, irhs.typ.clone());
+        irhs
     }
 
     pub fn precompile_fork(&mut self, name: Arc<String>, val: Val) -> Iexpr
@@ -612,7 +614,7 @@ verbose_out!("ixif:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
         let typ = self.T.get(&*name);
         match reg {
             None => {
-                verbose_out!("what's in E? {:?}", self.E);
+                verbose_out!("what's in E? {:?}\n", self.E);
                 panic!("undefined variable: {}", name);
             }
             Some(&Reg::R1(reg)) => {
