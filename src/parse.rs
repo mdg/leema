@@ -777,7 +777,6 @@ let yyres :  Val ;
 match () {
  () => {
 
-    println!("parse empty statements list");
 	yyres = sexpr::new(SexprType::BlockExpr, list::empty());
 
 } };
@@ -785,6 +784,7 @@ match () {
 }
             ,
             3 /* stmts ::= stmt NEWLINE stmts */
+          | 79 /* list_items ::= expr COMMA list_items */
             => 
 {
 let yyres :  Val ;
@@ -794,7 +794,6 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
  (YYMinorType::YY32(yy0),YYMinorType::YY32(yy2),) => {
 
-    println!("parse new stmt {:?}", yy0);
 	yyres = list::cons(yy0, yy2);
 
 },    _ => unreachable!() };
@@ -811,7 +810,6 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp1.minor,) {
  (YYMinorType::YY158(yy1),) => {
 
-    println!("newline expected, found {:?}", yy1);
 	yyres = Val::Void;
 
 },    _ => unreachable!() };
@@ -828,7 +826,6 @@ let yyp0 = self.yystack.pop().unwrap();
 match () {
  () => {
 
-    println!("newline error between statements");
 	yyres = Val::Void;
 
 } };
@@ -1463,7 +1460,6 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
  (YYMinorType::YY32(yy0),YYMinorType::YY32(yy2),) => {
 
-    println!("parse {:?}+{:?}\n", yy0, yy2);
 	yyres = sexpr::binaryop("int_add".to_string(), yy0, yy2);
 
 },    _ => unreachable!() };
@@ -1814,22 +1810,6 @@ match (yyp0.minor,) {
  (YYMinorType::YY32(yy0),) => {
 
 	yyres = list::singleton(yy0);
-
-},    _ => unreachable!() };
- YYMinorType::YY32(yyres)
-}
-            ,
-            79 /* list_items ::= expr COMMA list_items */
-            => 
-{
-let yyres :  Val ;
-let yyp2 = self.yystack.pop().unwrap();
-let yyp1 = self.yystack.pop().unwrap();
-let yyp0 = self.yystack.pop().unwrap();
-match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY32(yy0),YYMinorType::YY32(yy2),) => {
-
-	yyres = list::cons(yy0, yy2);
 
 },    _ => unreachable!() };
  YYMinorType::YY32(yyres)

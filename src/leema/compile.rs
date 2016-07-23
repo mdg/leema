@@ -976,25 +976,27 @@ verbose_out!("result = {:?}\n", mappl);
     }
 }
 
-pub struct Compiler
+pub struct Compiler<'a>
 {
-    loader: Box<ast::Loader>,
-    pub ss: StaticSpace,
+    pub ss: &'a mut StaticSpace,
+    loader: ast::Loader,
 }
 
-impl Compiler
+impl<'a> Compiler<'a>
 {
-    pub fn new(ss: StaticSpace, l: Box<ast::Loader>) -> Compiler
+    pub fn new(ss: &'a mut StaticSpace, l: ast::Loader) -> Compiler
     {
         Compiler {
-            loader: l,
             ss: ss,
+            loader: l,
         }
     }
 
     pub fn compile_file(&mut self, filename: String)
     {
+verbose_out!("parse output: {:?}\n", filename);
         let ast = self.loader.parse(filename);
+verbose_out!("ast: {:?}\n", ast);
         let script = self.ss.compile(ast.root());
 verbose_out!("script output: {:?}\n", script);
         if script.src != Source::Void {

@@ -2,7 +2,9 @@ use leema::val::{Val, Type};
 use leema::reg::{Reg};
 use leema::code::{Code};
 use leema::frame::{Frame};
-use leema::compile::{StaticSpace};
+use leema::compile::{Compiler, StaticSpace};
+use leema::lex::{lex};
+use leema::ast::{self, Ast};
 use std::fs::File;
 use std::io::{stderr, Read, Write};
 use std::any::{Any};
@@ -299,6 +301,32 @@ println!("read from file: '{}'", input);
     fs.e.set_reg(&Reg::Result, Val::Str(Arc::new(input)));
 }
 
+fn define_macros(ss: &mut StaticSpace)
+{
+    let input = "macro and(a, b) {
+        if a {
+            b
+        } else {
+            false
+        }
+    }
+
+    macro or(a, b) {
+        if a {
+            true
+        } else {
+            b
+        }
+    }
+
+    ".to_string();
+
+    let mut loader = ast::Loader::new();
+    loader.set_file("prefab_macros".to_string(), input);
+    let mut c = Compiler::new(ss, loader);
+    c.compile_file("prefab_macros".to_string());
+}
+
 pub fn define_prefab(ss: &mut StaticSpace)
 {
     // set up static space
@@ -349,6 +377,8 @@ pub fn define_prefab(ss: &mut StaticSpace)
         vec![Type::Lib("File".to_string())],
         Code::Rust(stream_read_file),
         );
+
+    define_macros(ss);
 }
 
 pub fn new_staticspace() -> StaticSpace

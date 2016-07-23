@@ -92,8 +92,8 @@ macro	{ return set_token(yyg, TOKEN_MACRO); }
 mod	{ return set_token(yyg, TOKEN_MOD); }
 where	{ return set_token(yyg, TOKEN_WHERE); }
 with	{ return set_token(yyg, TOKEN_WITH); }
-and	{ return set_token(yyg, TOKEN_AND); }
-or	{ return set_token(yyg, TOKEN_OR); }
+native_and	{ return set_token(yyg, TOKEN_AND); }
+native_or	{ return set_token(yyg, TOKEN_OR); }
 xor	{ return set_token(yyg, TOKEN_XOR); }
 not	{ return set_token(yyg, TOKEN_NOT); }
 Int	{ return set_token(yyg, TOKEN_TYPE_INT); }

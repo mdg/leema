@@ -105,19 +105,15 @@ program(A) ::= stmts(B). {
 }
 
 stmts(A) ::= . {
-    println!("parse empty statements list");
 	A = sexpr::new(SexprType::BlockExpr, list::empty());
 }
 stmts(A) ::= stmt(C) NEWLINE stmts(B). {
-    println!("parse new stmt {:?}", C);
 	A = list::cons(C, B);
 }
 stmts(A) ::= stmt ANY(B) stmts. {
-    println!("newline expected, found {:?}", B);
 	A = Val::Void;
 }
 stmts(A) ::= stmt error stmts. {
-    println!("newline error between statements");
 	A = Val::Void;
 }
 
@@ -447,7 +443,6 @@ expr(A) ::= expr(B) error(D) expr(C). {
     A = Val::Void;
 }
 expr(A) ::= expr(B) PLUS expr(C). {
-    println!("parse {:?}+{:?}\n", B, C);
 	A = sexpr::binaryop("int_add".to_string(), B, C);
 }
 expr(A) ::= expr(B) PLUS error. {

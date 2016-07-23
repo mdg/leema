@@ -1,9 +1,11 @@
 use leema::val::{Val, Type};
 use leema::lex::{lex};
+use leema::log;
 use parse::{Parser, Token};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
+use std::io::{stderr};
 
 /*
 #[derive(Clone)]
@@ -95,53 +97,44 @@ impl Ast
 }
 
 
-pub trait Loader
-{
-    fn load(&self, filename: String) -> String;
-    fn parse(&self, filename: String) -> Ast
-    {
-        let str = self.load(filename);
-        let tokens = lex(str);
-        Ast::parse(tokens)
-    }
-}
-
-struct FileLoader
-{
-    path: Vec<String>,
-}
-
-pub fn new_file_loader() -> Box<Loader>
-{
-    Box::new(FileLoader{path: vec![]})
-}
-
-struct StringLoader
+pub struct Loader
 {
     files: HashMap<String, String>,
 }
 
-impl Loader for FileLoader
+impl Loader
 {
+    pub fn new() -> Loader
+    {
+        Loader{
+            files: HashMap::new(),
+        }
+    }
+
+    pub fn set_file(&mut self, file: String, contents: String)
+    {
+        self.files.insert(file, contents);
+    }
+
     fn load(&self, filename: String) -> String
     {
+        let ready_file = self.files.get(&filename);
+        if ready_file.is_some() {
+            return ready_file.unwrap().clone();
+        }
+
         let mut f: File = File::open(filename).unwrap();
         let mut input = String::new();
         f.read_to_string(&mut input).ok();
-        //println!("file contents> {}", input);
         input
     }
-}
 
-impl Loader for StringLoader
-{
-    fn load(&self, filename: String) -> String
+    pub fn parse(&self, filename: String) -> Ast
     {
-        let result = self.files.get(&filename);
-        if result.is_none() {
-            panic!("String file cannot be imported: {}", filename);
-        }
-        result.unwrap().clone()
+        let str = self.load(filename);
+        let tokens = lex(str);
+verbose_out!("tokens: {:?}\n", tokens);
+        Ast::parse(tokens)
     }
 }
 

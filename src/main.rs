@@ -64,12 +64,13 @@ fn real_main() -> i32
     }
     verbose_out!("verbose mode\nargs:{:?}\n", args);
 
-    let loader = ast::new_file_loader();
+    let loader = ast::Loader::new();
     let mut ss = prefab::new_staticspace();
     if args.arg_file.is_some() {
-        let mut c = Compiler::new(ss, loader);
-        c.compile_file(args.arg_file.unwrap());
-        ss = c.ss;
+        {
+            let mut c = Compiler::new(&mut ss, loader);
+            c.compile_file(args.arg_file.unwrap());
+        }
         verbose_out!("lib code> {:?}\n", ss.lib);
         verbose_out!("\nss> {:?}\n", ss);
     } else if !args.flag_repl {
