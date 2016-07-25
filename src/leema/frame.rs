@@ -521,17 +521,6 @@ verbose_out!("lock app, add_fork\n");
         }
     }
 
-    pub fn fresh_frame(&mut self) -> Option<(Code, Frame)>
-    {
-        if self.fresh.is_empty() {
-            //println!("Nothing to do.");
-            thread::yield_now();
-verbose_out!("rotate in fresh_frame\n");
-            self.rotate();
-        }
-        self.fresh.pop_front()
-    }
-
     pub fn take_event(&mut self) -> Event
     {
         let mut e = Event::Uneventful;
@@ -539,14 +528,9 @@ verbose_out!("rotate in fresh_frame\n");
         e
     }
 
-    pub fn iterate(&mut self)
+    pub fn iterate(&mut self, code: Code, mut curf: Frame)
     {
 verbose_out!("iterate\n");
-        let ff = self.fresh_frame();
-        if ff.is_none() {
-            return;
-        }
-        let (code, mut curf) = ff.unwrap();
         match code {
             Code::Leema(ref ops) => {
                 self.iterate_leema(&mut curf, ops);
@@ -633,7 +617,7 @@ verbose_out!("lock app, main done in iterate\n");
         }
     }
 
-    pub fn rotate(&mut self) -> bool
+    pub fn rotate(&mut self) -> Option<(Code, Frame)>
     {
 verbose_out!("rotate\n");
         self.check_futures();
@@ -641,8 +625,7 @@ verbose_out!("rotate\n");
         let lock_result = self.app.try_lock();
         if lock_result.is_err() {
 verbose_out!("rotate try_lock is_err\n");
-            thread::yield_now();
-            return false;
+            return None;
         }
 //println!("lock_result.unwrap()");
         let mut app = lock_result.unwrap();
@@ -659,10 +642,13 @@ verbose_out!("rotate try_lock is_err\n");
             }
             None => {
                 // nothing
-                thread::sleep_ms(100);
             }
         }
-        return true;
+
+        if self.fresh.is_empty() {
+            return None;
+        }
+        self.fresh.pop_front()
     }
 
     pub fn check_futures(&mut self)
@@ -702,8 +688,14 @@ verbose_out!("rotate try_lock is_err\n");
 verbose_out!("local gotowork\n");
         while !self.done {
 verbose_out!("worker not done\n");
-            self.rotate();
-            self.iterate();
+            match self.rotate() {
+                None => {
+                    thread::yield_now();
+                },
+                Some((code, curf)) => {
+                    self.iterate(code, curf);
+                }
+            }
         }
     }
 }
