@@ -164,6 +164,15 @@ impl Token
                 parse::TOKEN_GTEQ => {
                     Token::GTEQ
                 }
+                parse::TOKEN_TYPE_BOOL => {
+                    Token::TYPE_BOOL
+                }
+                parse::TOKEN_TYPE_INT => {
+                    Token::TYPE_INT
+                }
+                parse::TOKEN_TYPE_VOID => {
+                    Token::TYPE_VOID
+                }
                 parse::TOKEN_EOI => {
                     Token::EOI
                 }

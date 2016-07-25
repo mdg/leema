@@ -341,8 +341,11 @@ typex(A) ::= TYPE_STR. {
 typex(A) ::= TYPE_BOOL. {
 	A = Type::Bool;
 }
+typex(A) ::= TYPE_VOID. {
+	A = Type::Void;
+}
 typex(A) ::= TYPE_ID(B). {
-	A = Type::User(B);
+	A = Type::Id(Arc::new(B));
 }
 
 

@@ -26,7 +26,6 @@ pub enum Type
     Hashtag,
     Tuple(Vec<Type>),
     Unit,
-    User(String),
     Struct(String),
     Enum(String),
     Func(Vec<Type>, Box<Type>),
@@ -50,10 +49,12 @@ pub enum Type
     Failure,
     */
     Kind,
-    TypeConstructor(i8),
-    //Pkind(u8, i16),
     Any,
+
     Unknown,
+    Id(Arc<String>),
+    Texpr(Arc<String>, Vec<Type>),
+    Tvar(Arc<String>),
     Var(Arc<String>, Arc<String>),
     AnonVar,
 }
@@ -106,6 +107,48 @@ impl Type {
         }
     }
 }
+
+impl fmt::Display for Type
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        match self {
+            &Type::Int => write!(f, "Int"),
+            &Type::Str => write!(f, "Str"),
+            &Type::Bool => write!(f, "Bool"),
+            &Type::Hashtag => write!(f, "Hashtag"),
+            &Type::Tuple(ref items) => write!(f, "Ttuple()"),
+            &Type::Unit => write!(f, "Unit"),
+            &Type::Struct(ref name) => write!(f, "Struct"),
+            &Type::Enum(ref name) => write!(f, "Enum"),
+            &Type::Func(ref args, ref result) => {
+                for a in args {
+                    write!(f, "{}->", a).ok();
+                }
+                write!(f, "{}", result)
+            }
+            // different from base collection/map interfaces?
+            // base interface/type should probably be iterator
+            // and then it should be a protocol, not type
+            &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
+            &Type::RelaxedList => write!(f, "List"),
+            &Type::Lib(ref name) => write!(f, "Lib({})", name),
+            &Type::Void => write!(f, "Void"),
+            &Type::Kind => write!(f, "Kind"),
+            &Type::Any => write!(f, "Any"),
+
+            &Type::Unknown => write!(f, "TypeUnknown"),
+            &Type::Id(ref name) => write!(f, "TypeId({})", name),
+            &Type::Texpr(ref base, ref args) => write!(f, "Texpr"),
+            &Type::Tvar(ref name) => write!(f, "Tvar({})", name),
+            &Type::Var(ref tname, ref vname) => {
+                write!(f, "TypeVar({}, {})", tname, vname)
+            }
+            &Type::AnonVar => write!(f, "TypeAnonymous"),
+        }
+    }
+}
+
 
 /*
 pub trait LibTrait
@@ -184,13 +227,9 @@ pub enum Val {
     Failure,
     Sexpr(SexprType, Box<Val>),
     Id(Arc<String>),
-    TypeId(Arc<String>),
-    TypeVar(Arc<String>),
-    TypeX(Arc<String>, Vec<Val>),
     Type(Type),
-    Kind(i8),
+    Kind(u8),
     Lib(LibVal),
-    //Ptype(String, Vec<String>, Vec<Type>),
     Future(FutureVal),
     Void,
 }
@@ -343,6 +382,24 @@ impl Val {
             }
             _ => {
                 panic!("Cannot convert to string: {:?}", self);
+            }
+        }
+    }
+
+    pub fn is_type(&self) -> bool
+    {
+        match self {
+            &Val::Type(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn to_type(&self) -> Type
+    {
+        match self {
+            &Val::Type(ref t) => t.clone(),
+            _ => {
+                panic!("Cannot unwrap not-type as type {:?}", self);
             }
         }
     }
@@ -564,20 +621,11 @@ impl fmt::Display for Val {
             Val::Id(ref name) => {
                 write!(f, "ID({})", name)
             }
-            Val::TypeId(ref name) => {
-                write!(f, "TypeId({})", name)
+            Val::Type(ref t) => {
+                write!(f, "{}", t)
             }
-            Val::TypeX(ref name, ref params) => {
-                write!(f, "TypeX({},{:?})", name, params)
-            }
-            Val::Type(ref s) => {
-                write!(f, "{:?}", s)
-            }
-            Val::Kind(_) => {
-                write!(f, "Kind")
-            }
-            Val::TypeVar(ref s) => {
-                write!(f, "%{}", s)
+            Val::Kind(c) => {
+                write!(f, "Kind({})", c)
             }
             Val::Future(_) => {
                 write!(f, "Future")
@@ -632,20 +680,11 @@ impl fmt::Debug for Val {
             Val::Id(ref id) => {
                 write!(f, "ID({})", id)
             }
-            Val::TypeId(ref id) => {
-                write!(f, "TypeId({})", id)
+            Val::Type(ref t) => {
+                write!(f, "{:?}", t)
             }
-            Val::TypeX(ref name, ref params) => {
-                write!(f, "TypeX({}, {:?})", name, params)
-            }
-            Val::Type(ref s) => {
-                write!(f, "{:?}", s)
-            }
-            Val::Kind(_) => {
-                write!(f, "Kind")
-            }
-            Val::TypeVar(ref s) => {
-                write!(f, "TypeVar({:?})", s)
+            Val::Kind(c) => {
+                write!(f, "Kind{:?}", c)
             }
             Val::Future(_) => {
                 write!(f, "Future")

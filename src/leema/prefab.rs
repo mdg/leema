@@ -164,7 +164,6 @@ pub fn equal(fs: &mut Frame)
         let va = fs.e.get_param(0);
         let vb = fs.e.get_param(1);
         result = va == vb;
-println!("equal({}, {}) is {}", va, vb, result);
     }
     fs.e.set_reg(&Reg::Result, Val::Bool(result));
 }

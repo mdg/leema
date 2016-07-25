@@ -99,6 +99,7 @@ not	{ return set_token(yyg, TOKEN_NOT); }
 Int	{ return set_token(yyg, TOKEN_TYPE_INT); }
 Str	{ return set_token(yyg, TOKEN_TYPE_STR); }
 Bool	{ return set_token(yyg, TOKEN_TYPE_BOOL); }
+Void	{ return set_token(yyg, TOKEN_TYPE_VOID); }
 "#:"	{
 	add_block_comment_depth(yyg, +1);
 	BEGIN(BLOCKCOMMENT);

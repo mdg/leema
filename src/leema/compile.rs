@@ -520,31 +520,25 @@ verbose_out!("macro_defined({:?},{:?},{:?})\n", name, args, code);
             next_param = tail;
             i += 1;
         }
-
-        /*
-        // only necessary for recursion
-        // if the type isn't predefined, can't recurse
-        if false { // function type declared
-            // ss.define(name.clone(), Type::Func);
-        } else { // define it as unknown
-            // really this should be declaring type variables
-            // and setting the result a type variables
-            let rt = if result_type == Type::AnonVar {
-                Type::Var(
-                    name.clone(),
-                    format!("{}ResultType", name),
-                )
-            } else {
-                result_type
-            };
-            ss.E.insert(name.clone(), Reg::Lib);
-            ss.T.insert(name.clone(),
-                Type::Func(Box::new(rt),
-                    argtypes.clone()
-                ),
-            );
+        if !result.is_type() {
+            panic!("Result is not a type? {:?}", result);
         }
-        */
+        let unwrapped_type = result.to_type();
+        let rt = match unwrapped_type {
+            Type::AnonVar => {
+                Type::Tvar(Arc::new(format!("{}_ResultType", name)))
+            }
+            _ => {
+                unwrapped_type
+            }
+        };
+verbose_out!("{} type: {:?} -> {:?}\n", name, argtypes, rt);
+
+        // necessary for recursion
+        // if the type isn't predefined, can't recurse
+        let ftype = Type::Func(argtypes.clone(), Box::new(rt));
+        ss.define(Reg::Lib, name.clone(), ftype);
+
         let fexpr = ss.compile(code);
 verbose_out!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
         let inftypes = ss.apply_inferences(argtypes);
