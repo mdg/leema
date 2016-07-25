@@ -1,0 +1,23 @@
+
+interface Additive<T>
+{
+    func add(a: T, b: T): T
+}
+
+implement Additive
+    with Int
+{
+    func 
+}
+
+protocol Additive<T>
+{
+    func add(a: T, b: T): T
+}
+
+bind Additive<Int>
+{
+    func add(a: Int, b: Int): Int {
+        int_add(a, b)
+    }
+}
