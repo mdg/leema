@@ -1,23 +1,37 @@
 
-interface Additive<T>
+interface Additive
 {
-    func add(a: T, b: T): T
-}
-
-implement Additive
-    with Int
-{
-    func 
-}
-
-protocol Additive<T>
-{
-    func add(a: T, b: T): T
+    func add(a: Int, b: Int): Int {
+        int_add(a, b)
+    }
 }
 
 bind Additive<Int>
 {
     func add(a: Int, b: Int): Int {
         int_add(a, b)
+    }
+}
+
+protocol Eq
+{
+    func equal(a: Eq, b: Eq): bool
+    func not_equal(a: Eq, b: Eq): bool {
+        not Eq::equal(a, b)
+    }
+}
+
+bind Additive
+{
+    func add(a: Int, b: Int): Int {
+        int_add(a, b)
+    }
+}
+
+protocol Equal<T>
+{
+    func equal(a: T, b: T): bool
+    func not_equal(a: T, b: T): bool {
+        not Equal<T>::equal(a, b)
     }
 }
