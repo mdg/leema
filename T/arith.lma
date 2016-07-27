@@ -1,9 +1,12 @@
 
 interface Additive
 {
-    func add(a: Int, b: Int): Int {
-        int_add(a, b)
-    }
+    func add(a: Additive, b: Additive): Int
+}
+
+interface Additive<T>
+{
+    func add(a: T, b: T): Int
 }
 
 bind Additive<Int>
@@ -13,7 +16,7 @@ bind Additive<Int>
     }
 }
 
-protocol Eq
+interface Eq
 {
     func equal(a: Eq, b: Eq): bool
     func not_equal(a: Eq, b: Eq): bool {
@@ -21,17 +24,29 @@ protocol Eq
     }
 }
 
-bind Additive
+bind Eq<Int>
+bind Int <: Eq
 {
-    func add(a: Int, b: Int): Int {
-        int_add(a, b)
+    func equal(a: Int, b: Int): bool {
+        int_equal(a, b)
     }
 }
 
-protocol Equal<T>
+protocol PatternMatch<P, I, O>
 {
-    func equal(a: T, b: T): bool
-    func not_equal(a: T, b: T): bool {
-        not Equal<T>::equal(a, b)
+    func patt_match(p: P, i: I): O
+}
+
+bind PatternMatch<Regex, String, RegexMatch>
+{
+    func patt_match(p: Regex, i: String): RegexMatch {
+        ...
+    }
+}
+
+bind PatternMatch<String, String, RegexMatch>
+{
+    func patt_match(p: P, i: I): O {
+        ...
     }
 }
