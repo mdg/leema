@@ -95,14 +95,18 @@ impl Token
                     Token::SquareR
                 }
                 parse::TOKEN_TIMES => Token::TIMES,
+                parse::TOKEN_SLASH => Token::SLASH(tl),
+                parse::TOKEN_PIPE => Token::PIPE,
                 parse::TOKEN_Fork => Token::Fork,
                 parse::TOKEN_Let => Token::Let,
+                /*
                 parse::TOKEN_CurlyL => {
                     Token::CurlyL
                 }
                 parse::TOKEN_CurlyR => {
                     Token::CurlyR
                 }
+                */
                 /* string tokens */
                 parse::TOKEN_StrOpen => {
                     Token::StrOpen
@@ -113,11 +117,14 @@ impl Token
                 parse::TOKEN_StrClose => {
                     Token::StrClose
                 }
+                parse::TOKEN_CASE => {
+                    Token::CASE
+                }
                 parse::TOKEN_IF => {
                     Token::IF
                 }
                 parse::TOKEN_ELSE => {
-                    Token::ELSE
+                    Token::ELSE(tl)
                 }
                 parse::TOKEN_PLUS => {
                     Token::PLUS(tl)

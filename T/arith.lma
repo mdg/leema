@@ -1,31 +1,31 @@
 
-interface Additive
-{
-    func add(a: Additive, b: Additive): Int
-}
-
-interface Additive<T>
+supertype Additive
 {
     func add(a: T, b: T): Int
 }
 
-bind Additive<Int>
+List<Additive>
+
+subtype Int <: Additive
 {
     func add(a: Int, b: Int): Int {
         int_add(a, b)
     }
 }
 
-interface Eq
+supertype Eq
 {
-    func equal(a: Eq, b: Eq): bool
+    func equal(a: Eq, b: Eq): bool {
+        false
+    }
     func not_equal(a: Eq, b: Eq): bool {
         not Eq::equal(a, b)
     }
 }
 
+subtype Eq<T>
+
 bind Eq<Int>
-bind Int <: Eq
 {
     func equal(a: Int, b: Int): bool {
         int_equal(a, b)
@@ -37,16 +37,104 @@ protocol PatternMatch<P, I, O>
     func patt_match(p: P, i: I): O
 }
 
-bind PatternMatch<Regex, String, RegexMatch>
+define PatternMatch<Regex, String>
 {
-    func patt_match(p: Regex, i: String): RegexMatch {
+    func patt_match(p: Regex, i: String): Pattern<Regex>::Result {
         ...
     }
 }
 
-bind PatternMatch<String, String, RegexMatch>
+bind PatternMatch<String, String, String>
 {
     func patt_match(p: P, i: I): O {
         ...
     }
 }
+
+func foo(a <: Eq, b: Eq) {
+    if Eq.equal(a, b) {
+        let x = PatternMatch.patt_match(a, b)
+    }
+}
+
+struct Foo<T>
+    x: T
+    y: Int
+/
+
+enum Foo<T>
+    Bar: struct
+        n: Str
+        a: Int
+    /
+    Baz: Int
+    Ber: (Int, T)
+    Biv
+/
+
+struct Foo<T>
+{
+    T <: Eq
+    T <: Additive
+    x: T
+    y: Any<Eq, Additive>
+    z: <Eq, Additive>
+    a: T<Eq, Additive>
+}
+
+struct Foo<T<:Additive, Eq>>
+{
+    x: T
+    y: Any<Eq, Additive>
+    z: <Eq, Additive>
+    a: T<Eq, Additive>
+}
+
+let x = Any<:Eq, Additive>
+
+supertype Ord<T> {
+    func cmp(a: T, b: T): Option<Order> {
+        None
+    }
+}
+
+supertype Ord
+    func type_cmp(a: Ord, b: Ord): Option<Order>
+    func cmp(a: Ord, b: Ord): Order =>
+        let type_cmp(a;
+    ..
+..
+
+subtype Ord<Int>
+    func cmp(a: Int, b: Int) =>
+        if a < b => Order::LT;
+        else if a > b => Order::GT;
+        else => Order::EQ;
+    /
+/
+
+supertype FullOrd <: Ord {
+    func cmp_full(a: Ord, b: Ord): Order
+    |(a, b) | a < b => 
+        match Ord::cmp(a, b) {
+            None {
+... cout("hello\n")
+                FullOrd::cmp_full(
+                    FullOrd::cmp_priority(a),
+                    FullOrd::cmp_priority(b),
+                )
+            }
+            Some(o) => o
+        }
+    /
+    func cmp_priority(a: Ord): Int
+}
+
+
+protocol OrdP<A, B>
+    func cmp(a: A, b: B) => Order::LT;
+    func cmp(b: B, a: A) => Order::GT;
+    func cmp(a: A, b: A) => Ord::cmp(a, b);
+/
+
+

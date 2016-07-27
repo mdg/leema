@@ -207,6 +207,7 @@ pub enum SexprType {
     Call,
     DefFunc,
     DefMacro,
+    CaseExpr,
     IfExpr,
     Comparison,
     LessThan3(bool, bool),

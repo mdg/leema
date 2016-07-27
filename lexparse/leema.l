@@ -70,14 +70,14 @@ void	{ return set_token(yyg, TOKEN_VOID); }
 ")"	{ return set_token(yyg, TOKEN_RPAREN); }
 "["	{ return set_token(yyg, TOKEN_SquareL); }
 "]"	{ return set_token(yyg, TOKEN_SquareR); }
-"{"	{ return set_token(yyg, TOKEN_CurlyL); }
-"}"	{ return set_token(yyg, TOKEN_CurlyR); }
 ","	{ return set_token(yyg, TOKEN_COMMA); }
 "+"	{ return set_token(yyg, TOKEN_PLUS); }
 "-"	{ return set_token(yyg, TOKEN_MINUS); }
 "*"	{ return set_token(yyg, TOKEN_TIMES); }
-"/"	{ return set_token(yyg, TOKEN_DIVIDE); }
+"/"	{ return set_token(yyg, TOKEN_SLASH); }
+"|"	{ return set_token(yyg, TOKEN_PIPE); }
 "\\n"	{ return set_token(yyg, TOKEN_ConcatNewline); }
+case	{ return set_token(yyg, TOKEN_CASE); }
 else	{ return set_token(yyg, TOKEN_ELSE); }
 failed	{ return set_token(yyg, TOKEN_FAILED); }
 fail	{ return set_token(yyg, TOKEN_FAIL); }

@@ -13,13 +13,14 @@ use std::io::{stderr, Write};
 %wildcard ANY.
 %extra_argument { Result<Ast, i32> }
 
-%type ANY { TokenLoc }
 %type COMMA { TokenLoc }
+%type ELSE { TokenLoc }
 %type HASHTAG { TokenData<String> }
 %type ID { String }
 %type INT { i64 }
 %type NEWLINE { TokenLoc }
 %type PLUS { TokenLoc }
+%type SLASH { TokenLoc }
 %type StrLit { String }
 %type TYPE_ID { String }
 
@@ -31,12 +32,14 @@ use std::io::{stderr, Write};
 %type stmt { Val }
 %type match_block { Val }
 %type block { Val }
-%type arrow_block { Val }
-%type curly_block { Val }
+%type block_one { Val }
+%type block_many { Val }
+%type midblock { Val }
 %type pattern { Val }
 %type func_stmt { Val }
 %type dfunc_args { Val }
-%type dfunc_1 { Val }
+%type dfunc_one { Val }
+%type dfunc_many { Val }
 %type macro_stmt { Val }
 %type macro_args { Val }
 %type let_stmt { Val }
@@ -47,9 +50,8 @@ use std::io::{stderr, Write};
 %type typex { Type }
 %type opt_typex { Type }
 %type id_type { Val }
+%type cases { Val }
 %type if_expr { Val }
-%type else_case { Val }
-%type elses { Val }
 /* %type var_field { Ast } */
 
 %type list { Val }
@@ -67,7 +69,7 @@ use std::io::{stderr, Write};
 %left LT LTEQ.
 %nonassoc EQ NEQ GT GTEQ.
 %left PLUS MINUS.
-%left TIMES DIVIDE.
+%left TIMES SLASH.
 %nonassoc LPAREN RPAREN.
 
 %parse_accept {
@@ -108,12 +110,15 @@ stmts(A) ::= . {
 	A = sexpr::new(SexprType::BlockExpr, list::empty());
 }
 stmts(A) ::= stmt(C) NEWLINE stmts(B). {
+    verbose_out!("found new stmt: {:?}\n", C);
 	A = list::cons(C, B);
 }
-stmts(A) ::= stmt ANY(B) stmts. {
+stmts(A) ::= stmt ANY stmts. {
+    verbose_out!("expected NEWLINE after stmt, found something else\n");
 	A = Val::Void;
 }
 stmts(A) ::= stmt error stmts. {
+    verbose_out!("error parsing newline after stmt\n");
 	A = Val::Void;
 }
 
@@ -130,7 +135,7 @@ stmt(A) ::= DT. { A = Val::Void; }
 stmt(A) ::= func_stmt(B). { A = B; }
 stmt(A) ::= macro_stmt(B). { A = B; }
 /* if_stmt */
-stmt(A) ::= IF expr(B) curly_block(C). {
+stmt(A) ::= IF expr(B) block(C). {
     A = sexpr::ifexpr(B, C, Val::Void);
 }
 
@@ -270,47 +275,32 @@ expr_stmt(A) ::= expr(B). {
 }
 expr_stmt(A) ::= DollarGT expr(B). { A = B; }
 
-block(A) ::= arrow_block(B). {
+block(A) ::= block_one(B). {
 	A = B;
 }
-block(A) ::= curly_block(B). {
+block(A) ::= block_many(B). {
 	A = B;
 }
-arrow_block(A) ::= BLOCKARROW expr(B). {
+block_one(A) ::= BLOCKARROW expr(B). {
 	A = B;
 }
-curly_block(A) ::= CurlyL NEWLINE stmts(B) CurlyR. {
+block_many(A) ::= BLOCKARROW NEWLINE stmts(B) SLASH. {
+	A = B;
+}
+midblock(A) ::= BLOCKARROW expr(B) NEWLINE. {
+	A = B;
+}
+midblock(A) ::= BLOCKARROW NEWLINE stmts(B). {
 	A = B;
 }
 
-/* alternate syntax for defining a short function */
-func_stmt(A) ::= Func dfunc_1(B).
+/* func one case, no matching */
+func_stmt(A) ::= Func ID(B) LPAREN dfunc_args(D) RPAREN opt_typex(E)
+    block(C).
 {
-	/*
-	const Val *plist = Val::list(p);
-	const Val *mcase = Val::tuple2(plist, C);
-	const list *mblk = list::singleton(mcase);
-
-	Val *func = Val::fexpr(mblk, T);
-	A = Val::tuple2(B, func, LET_ASSIGN);
-	*/
-	A = Val::Sexpr(SexprType::DefFunc, Box::new(B));
-}
-
-dfunc_1(A) ::= ID(B) LPAREN dfunc_args(D) RPAREN opt_typex(E)
-	block(C).
-{
-	/*
-	const Val *plist = Val::list(p);
-	const Val *mcase = Val::tuple2(plist, C);
-	const list *mblk = list::singleton(mcase);
-
-	Val *func = Val::fexpr(mblk, T);
-	A = Val::tuple2(B, func, LET_ASSIGN);
-	*/
 	let id = Val::id(B);
 	let typ = Val::Type(E);
-	A = sexpr::single_func_list(id, D, typ, C)
+	A = sexpr::defunc(id, D, typ, C)
 }
 
 dfunc_args(A) ::= . {
@@ -351,6 +341,7 @@ typex(A) ::= TYPE_ID(B). {
 
 /* defining a macro */
 macro_stmt(A) ::= MACRO ID(B) LPAREN macro_args(D) RPAREN block(C). {
+    verbose_out!("found macro {:?}\n", B);
     A = sexpr::new(SexprType::DefMacro,
         list::cons(Val::id(B),
         list::cons(D,
@@ -412,20 +403,18 @@ expr(A) ::= term(B) DOLLAR term(C). {
 	/* A = Val::binaryop(B, C, D); */
 	A = Val::Void;
 }
-/* IF expression */
-expr(A) ::= IF if_expr(B). {
+/* CASE expression */
+expr(A) ::= CASE NEWLINE cases(B) SLASH. {
+    verbose_out!("parsed case expr\n");
 	A = B;
 }
-/*
-if_expr(A) ::= expr(B) arrow_block(C). {
-	A = sexpr::ifexpr(B, C, Val::Void);
+cases(A) ::= PIPE expr(B) midblock(C) PIPE ELSE midblock(D). {
+    verbose_out!("found cases base\n");
+    A = sexpr::casex(B, C, D);
 }
-*/
-if_expr(A) ::= expr(B) curly_block(C) ELSE curly_block(D). {
-	A = sexpr::ifexpr(B, C, D);
-}
-if_expr(A) ::= expr(B) curly_block(C) ELSE IF if_expr(D). {
-	A = sexpr::ifexpr(B, C, D);
+cases(A) ::= PIPE expr(B) midblock(C) cases(D). {
+    verbose_out!("found extra case\n");
+    A = sexpr::casex(B, C, D);
 }
 
 expr(A) ::= list(B). { A = B; }
@@ -462,7 +451,7 @@ expr(A) ::= expr(B) MINUS expr(C). {
 expr(A) ::= expr(B) TIMES expr(C). {
 	A = sexpr::binaryop("int_mult".to_string(), B, C);
 }
-expr(A) ::= expr(B) DIVIDE expr(C). {
+expr(A) ::= expr(B) SLASH expr(C). {
 	A = sexpr::binaryop("int_div".to_string(), B, C);
 }
 expr(A) ::= expr(B) MOD expr(C). {

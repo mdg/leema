@@ -89,6 +89,17 @@ pub fn macro_from_func(f: Val) -> Val
     }
 }
 
+pub fn casex(cond: Val, truth: Val, lies: Val) -> Val
+{
+    Val::Sexpr(SexprType::CaseExpr, Box::new(
+        list::cons(cond,
+        list::cons(truth,
+        list::cons(lies,
+        Val::Nil
+        )))
+    ))
+}
+
 pub fn ifexpr(cond: Val, ifblock: Val, elseblock: Val) -> Val
 {
     Val::Sexpr(SexprType::IfExpr, Box::new(
@@ -99,14 +110,16 @@ pub fn ifexpr(cond: Val, ifblock: Val, elseblock: Val) -> Val
         )))))
 }
 
-pub fn single_func_list(name: Val, args: Val, typ: Val, blk: Val) -> Val
+pub fn defunc(name: Val, args: Val, typ: Val, blk: Val) -> Val
 {
-    list::cons(name,
+    Val::Sexpr(SexprType::DefFunc, Box::new(
+        list::cons(name,
         list::cons(args,
         list::cons(typ,
         list::cons(blk,
         Val::Nil
         ))))
+    ))
 }
 
 pub fn split(x: Val) -> (SexprType, Val)

@@ -4,6 +4,7 @@ use leema::code::{Code};
 use leema::frame::{Frame};
 use leema::compile::{Compiler, StaticSpace};
 use leema::lex::{lex};
+use leema::log;
 use leema::ast::{self, Ast};
 use std::fs::File;
 use std::io::{stderr, Read, Write};
@@ -302,21 +303,20 @@ println!("read from file: '{}'", input);
 
 fn define_macros(ss: &mut StaticSpace)
 {
-    let input = "macro and(a, b) {
-        if a {
-            b
-        } else {
-            false
-        }
-    }
+    verbose_out!("defining prefab macros\n");
+    let input = "macro and(a, b) =>
+        case
+        |a => b
+        |else => false
+        /
+    /
 
-    macro or(a, b) {
-        if a {
-            true
-        } else {
-            b
-        }
-    }
+    macro or(a, b) =>
+        case
+        |a => true
+        |else => b
+        /
+    /
 
     ".to_string();
 
@@ -324,6 +324,7 @@ fn define_macros(ss: &mut StaticSpace)
     loader.set_file("prefab_macros".to_string(), input);
     let mut c = Compiler::new(ss, loader);
     c.compile_file("prefab_macros".to_string());
+    verbose_out!("prefab macros compiled\n");
 }
 
 pub fn define_prefab(ss: &mut StaticSpace)

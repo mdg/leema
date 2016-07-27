@@ -1,11 +1,11 @@
-func fact(i) {
-	if i = 1 {
-		1
-	} else {
-		i * fact(i-1)
-	}
-}
+func fact(i) =>
+    case
+    |i = 1 => 1
+    |else => i * (i-1)
+    /
+/
 
-func main() {
+func main() =>
     fact(4)
-}
+/
+
