@@ -1,18 +1,12 @@
-func fact(i) =>
+func fact(i) ->
     case
-    |i = 1 => case
-        |i + 1 = 2 => 5
-        |i + 2 = 3 => 6
-        /
-    |else => i * (i-1)
-    /
-/
-
-func main() =>
-    fact(
-        4
-    )
+    |i = 1 -- 1
+    |else -- i * (i-1)
     --
-    7 + 5
-/
+--
+
+func main() ->
+    let f = fact(4)
+    cout("factorial(4) = $f\n")
+--
 
