@@ -18,7 +18,6 @@ use std::io::{stderr, Write};
 %type HASHTAG { TokenData<String> }
 %type ID { String }
 %type INT { i64 }
-%type NEWLINE { TokenLoc }
 %type PLUS { TokenLoc }
 %type SLASH { TokenLoc }
 %type StrLit { String }
@@ -109,17 +108,9 @@ program(A) ::= stmts(B). {
 stmts(A) ::= . {
 	A = sexpr::new(SexprType::BlockExpr, list::empty());
 }
-stmts(A) ::= stmt(C) NEWLINE stmts(B). {
+stmts(A) ::= stmt(C) stmts(B). {
     verbose_out!("found new stmt: {:?}\n", C);
 	A = list::cons(C, B);
-}
-stmts(A) ::= stmt ANY stmts. {
-    verbose_out!("expected NEWLINE after stmt, found something else\n");
-	A = Val::Void;
-}
-stmts(A) ::= stmt error stmts. {
-    verbose_out!("error parsing newline after stmt\n");
-	A = Val::Void;
 }
 
 
@@ -284,13 +275,13 @@ block(A) ::= block_many(B). {
 block_one(A) ::= BLOCKARROW expr(B). {
 	A = B;
 }
-block_many(A) ::= BLOCKARROW NEWLINE stmts(B) SLASH. {
+block_many(A) ::= BLOCKARROW stmts(B) SLASH. {
 	A = B;
 }
-midblock(A) ::= BLOCKARROW expr(B) NEWLINE. {
+midblock(A) ::= BLOCKARROW expr(B). {
 	A = B;
 }
-midblock(A) ::= BLOCKARROW NEWLINE stmts(B). {
+midblock(A) ::= BLOCKARROW stmts(B). {
 	A = B;
 }
 
@@ -404,7 +395,7 @@ expr(A) ::= term(B) DOLLAR term(C). {
 	A = Val::Void;
 }
 /* CASE expression */
-expr(A) ::= CASE NEWLINE cases(B) SLASH. {
+expr(A) ::= CASE cases(B) SLASH. {
     verbose_out!("parsed case expr\n");
 	A = B;
 }

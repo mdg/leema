@@ -41,9 +41,6 @@ EOI	\0
 <<EOF>>	{
 	return set_token(yyg, TOKEN_EOI);
 }
-{EOL}+	{
-	return set_token(yyg, TOKEN_NEWLINE);
-}
 "\""	{
 	BEGIN(STR);
 	return set_token(yyg, TOKEN_StrOpen);
@@ -59,7 +56,8 @@ void	{ return set_token(yyg, TOKEN_VOID); }
 "$?"	{ return set_token(yyg, TOKEN_DollarQuestion); }
 "$>"	{ return set_token(yyg, TOKEN_DollarGT); }
 ":"	{ return set_token(yyg, TOKEN_COLON); }
-"=>"	{ return set_token(yyg, TOKEN_BLOCKARROW); }
+"=>"	{ return set_token_val(yyg, TOKEN_BLOCKARROW, yytext + 3); }
+"=>\n *"	{ return set_token_val(yyg, TOKEN_BLOCKARROW, yytext + 3); }
 "="	{ return set_token(yyg, TOKEN_EQ); }
 "<"	{ return set_token(yyg, TOKEN_LT); }
 "<="	{ return set_token(yyg, TOKEN_LTEQ); }
@@ -77,7 +75,7 @@ void	{ return set_token(yyg, TOKEN_VOID); }
 "/"	{ return set_token(yyg, TOKEN_SLASH); }
 "|"	{ return set_token(yyg, TOKEN_PIPE); }
 "\\n"	{ return set_token(yyg, TOKEN_ConcatNewline); }
-case	{ return set_token(yyg, TOKEN_CASE); }
+case\n *	{ return set_token_val(yyg, TOKEN_CASE, yytext + 5); }
 else	{ return set_token(yyg, TOKEN_ELSE); }
 failed	{ return set_token(yyg, TOKEN_FAILED); }
 fail	{ return set_token(yyg, TOKEN_FAIL); }

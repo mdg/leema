@@ -1,25 +1,20 @@
-func fizzbuzz(x, max): Void {
-    let xm30 = (x mod 3) = 0
-    let xm50 = (x mod 5) = 0
+func fizzbuzz(x, max): Void ->
+    let xm30 := (x mod 3) = 0
+    let xm50 := (x mod 5) = 0
 
-    if xm30 and xm50 {
+    if xm30 and xm50 ->
         cout("fizzbuzz\n")
-    } else if xm30 {
+    else if xm30 ->
         cout("fizz\n")
-    } else if xm50 {
+    else if xm50 ->
         cout("buzz\n")
-    } else {
+    else ->
         cout("$x\n")
-    }
+    --
 
-    if x < max {
-        fizzbuzz(x+1, max)
-    } else {
-    }
-}
+    if x < max -- fizzbuzz(x+1, max)
+--
 
 
-func main() {
-    fizzbuzz(1, 100)
-}
+func main() -- fizzbuzz(1, 100)
 
