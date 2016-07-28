@@ -26,15 +26,12 @@ use std::io::{stderr, Write};
 %type program { Ast }
 %type stmts { Val }
 
-%type pattern_args { Val }
-%type more_pattern_args { Val }
 %type stmt { Val }
 %type match_block { Val }
 %type endblock { Val }
 %type midblock { Val }
 %type block_onex { Val }
 %type block_stmts { Val }
-%type pattern { Val }
 %type func_stmt { Val }
 %type dfunc_args { Val }
 %type dfunc_one { Val }
@@ -44,6 +41,10 @@ use std::io::{stderr, Write};
 %type if_stmt { Val }
 %type else_if { Val }
 %type if_case { Val }
+%type match_case { Val }
+%type pexpr { Val }
+%type ptuple { Val }
+%type pargs { Val }
 %type let_stmt { Val }
 %type expr_stmt { Val }
 %type fail_stmt { Val }
@@ -154,39 +155,6 @@ long_func_decl(A) ::= ID(B) typedecl(C) FUNCDECL(D). {
 	A->merge_span(*B, *D);
 	cerr << "func decl, with type: "<< B->text <<" @ ";
 	cerr << A->span_str() << endl;
-}
-
-match_block(A) ::= match_case(B). {
-	A = list::singleton(B);
-}
-match_block(A) ::= match_case(B) match_block(C). {
-	A = list::cons(B, C);
-}
-match_case(A) ::= pattern(B) arrow_block(D) NEWLINE. {
-	A = Val::tuple2(B, D);
-}
-
-pattern(A) ::= pexpr(B). {
-	A = Val::list(list::singleton(B));
-}
-pattern(A) ::= LPAREN pattern_args(B) RPAREN. {
-	A = Val::list(B);
-}
-pattern_args(A) ::= pexpr(B) more_pattern_args(C). {
-	A = list::cons(B, C);
-}
-more_pattern_args(A) ::= . {
-	A = NULL;
-}
-more_pattern_args(A) ::= COMMA pexpr(B) more_pattern_args(C). {
-	A = list::cons(B, C);
-}
-
-pexpr(A) ::= ID(B). {
-	A = B;
-}
-pexpr(A) ::= INT(B). {
-	A = B;
 }
 */
 
@@ -459,6 +427,44 @@ cases(A) ::= PIPE expr(B) midblock(C) cases(D). {
     verbose_out!("found extra case\n");
     A = sexpr::casex(B, C, D);
 }
+
+/* match expression */
+expr(A) ::= MATCH expr(B) match_case(C) DOUBLEDASH. {
+    verbose_out!("parsed match expr\n");
+    A = sexpr::match_expr(B, C);
+}
+match_case(A) ::= PIPE pexpr(B) midblock(C) match_case(D). {
+    verbose_out!("found cases base\n");
+    A = sexpr::match_case(B, C, D);
+}
+match_case(A) ::= PIPE pexpr(B) midblock(C). {
+    verbose_out!("parsed base match case\n");
+    A = sexpr::match_case(B, C, Val::Void);
+}
+
+pexpr(A) ::= ptuple(B). { A = B; }
+pexpr(A) ::= INT(B). { A = Val::Int(B); }
+pexpr(A) ::= ID(B). { A = Val::id(B); }
+pexpr(A) ::= UNDERSCORE. { A = Val::Wildcard; }
+ptuple(A) ::= LPAREN RPAREN. {
+	A = Val::Tuple(vec![]);
+}
+ptuple(A) ::= LPAREN pexpr(B) RPAREN. {
+	A = Val::Tuple(vec![B]);
+}
+ptuple(A) ::= LPAREN pargs(B) RPAREN. {
+	A = Val::tuple_from_list(B);
+}
+pargs(A) ::= pexpr(B) COMMA pexpr(C). {
+	A = list::cons(B,
+        list::cons(C,
+        Val::Nil
+        ));
+}
+pargs(A) ::= pexpr(B) COMMA pargs(C). {
+	A = list::cons(B, C);
+}
+
 
 expr(A) ::= list(B). { A = B; }
 /* tuple

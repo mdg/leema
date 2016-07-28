@@ -23,9 +23,12 @@ pub enum Source
     BoundVal(Reg),
     DefineFunc(String, Box<Iexpr>),
     Fork(Box<Iexpr>, Box<Iexpr>),
+    MatchExpr(Box<Iexpr>, Box<Iexpr>),
+    MatchCase(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     CaseExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     IfStmt(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     List(Vec<Iexpr>),
+    PatternVar,
     Str(Vec<Iexpr>),
     Tuple(Vec<Iexpr>),
     Void,
@@ -98,6 +101,15 @@ verbose_out!("new_block> {:?}\n", code);
         }
     }
 
+    fn pattern_var(dst: Reg) -> Iexpr
+    {
+        Iexpr{
+            dst: dst,
+            typ: Type::Unknown,
+            src: Source::PatternVar,
+        }
+    }
+
     fn call(t: Type, f: Iexpr, args: Iexpr) -> Iexpr
     {
         Iexpr{
@@ -116,6 +128,31 @@ verbose_out!("new_block> {:?}\n", code);
         }
     }
 
+    fn match_expr(x: Iexpr, cases: Iexpr) -> Iexpr
+    {
+        Iexpr{
+            dst: Reg::Undecided,
+            typ: cases.typ.clone(),
+            src: Source::MatchExpr(
+                Box::new(x),
+                Box::new(cases),
+            ),
+        }
+    }
+
+    fn match_case(pattern: Iexpr, code: Iexpr, next: Iexpr) -> Iexpr
+    {
+        Iexpr{
+            dst: Reg::Undecided,
+            typ: code.typ.clone(),
+            src: Source::MatchCase(
+                Box::new(pattern),
+                Box::new(code),
+                Box::new(next),
+            ),
+        }
+    }
+
     fn case_expr(test: Iexpr, truth: Iexpr, lies: Iexpr) -> Iexpr
     {
         if truth.typ != lies.typ {
@@ -127,7 +164,7 @@ verbose_out!("new_block> {:?}\n", code);
             src: Source::CaseExpr(
                 Box::new(test),
                 Box::new(truth),
-                Box::new(lies)
+                Box::new(lies),
             ),
         }
     }
@@ -367,6 +404,12 @@ impl StaticSpace
                 Iexpr::new(Source::BooleanOr(ia, ib))
             }
             */
+            SexprType::MatchExpr => {
+                self.precompile_matchx(expr)
+            }
+            SexprType::MatchCase => {
+                self.precompile_matchcase(expr)
+            }
             SexprType::CaseExpr => {
                 self.precompile_casex(expr)
             }
@@ -604,6 +647,56 @@ verbose_out!("pc block> {:?}\n", items);
         Iexpr::new_block(bvec)
     }
 
+    pub fn precompile_matchx(&mut self, expr: Val) -> Iexpr
+    {
+        let (raw_x, e2) = list::take(expr);
+        let (raw_cases, _) = list::take(e2);
+verbose_out!("precompile matchx\n\t{:?}\n\t{:?}\n", raw_x, raw_cases);
+
+        let x = self.precompile(raw_x);
+        let cases = self.precompile(raw_cases);
+verbose_out!("ixmatch:\n\t{:?}\n\t{:?}\n", x, cases);
+        Iexpr::match_expr(x, cases)
+    }
+
+    pub fn precompile_matchcase(&mut self, expr: Val) -> Iexpr
+    {
+        let (raw_patt, e2) = list::take(expr);
+        let (raw_code, e3) = list::take(e2);
+        let (raw_next, _) = list::take(e3);
+verbose_out!("precompile matchcase\n\t{:?}\n\t{:?}\n\t{:?}\n", raw_patt, raw_code, raw_next);
+
+        let patt = self.precompile_pattern(raw_patt);
+        let code = self.precompile(raw_code);
+        let next = self.precompile(raw_next);
+verbose_out!("ixmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
+        Iexpr::match_case(patt, code, next)
+    }
+
+    pub fn precompile_pattern(&mut self, pexpr: Val) -> Iexpr
+    {
+        match pexpr {
+            Val::Id(name) => {
+                Iexpr::new(Source::PatternVar)
+            }
+            Val::Int(_) => {
+                Iexpr::const_val(pexpr)
+            }
+            Val::Str(_) => {
+                Iexpr::const_val(pexpr)
+            }
+            Val::Bool(_) => {
+                Iexpr::const_val(pexpr)
+            }
+            Val::Wildcard => {
+                Iexpr::const_val(pexpr)
+            }
+            _ => {
+                panic!("That's not a pattern! {:?}", pexpr);
+            }
+        }
+    }
+
     pub fn precompile_casex(&mut self, expr: Val) -> Iexpr
     {
         let (raw_test, e2) = list::take(expr);
@@ -801,12 +894,6 @@ verbose_out!("result = {:?}\n", mappl);
         self.precompile(mappl)
     }
 
-    /*
-    pub fn apply_macro(&mut self, name: &String, args: Sexpr) -> Sexpr
-    {
-    }
-    */
-
     pub fn precompile_str(&mut self, expr: Val) -> Iexpr
     {
         let mut next_s = expr;
@@ -919,6 +1006,18 @@ verbose_out!("result = {:?}\n", mappl);
             Source::Tuple(ref mut tup) => {
                 self.assign_tuple_registers(i.dst, &mut *tup);
             }
+            Source::MatchExpr(ref mut x, ref mut cases) => {
+                self.assign_registers(&mut *x);
+                cases.dst = i.dst;
+                self.assign_registers(&mut *cases);
+            }
+            Source::MatchCase(ref mut patt, ref mut code, ref mut next) => {
+                self.assign_registers(&mut *patt);
+                code.dst = i.dst;
+                next.dst = i.dst;
+                self.assign_registers(&mut *code);
+                self.assign_registers(&mut *next);
+            }
             Source::CaseExpr(ref mut test, ref mut truth, ref mut lies) => {
                 self.assign_registers(&mut *test);
                 truth.dst = i.dst;
@@ -948,6 +1047,7 @@ verbose_out!("result = {:?}\n", mappl);
             Source::BoundVal(_) => {}
             Source::ConstVal(_) => {}
             Source::DefineFunc(_, _) => {}
+            Source::PatternVar => {}
             Source::Void => {}
         }
     }

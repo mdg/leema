@@ -100,6 +100,27 @@ pub fn casex(cond: Val, truth: Val, lies: Val) -> Val
     ))
 }
 
+pub fn match_expr(x: Val, cases: Val) -> Val
+{
+    Val::Sexpr(SexprType::MatchExpr, Box::new(
+        list::cons(x,
+        list::cons(cases,
+        Val::Nil
+        ))
+    ))
+}
+
+pub fn match_case(patt: Val, code: Val, next: Val) -> Val
+{
+    Val::Sexpr(SexprType::MatchCase, Box::new(
+        list::cons(patt,
+        list::cons(code,
+        list::cons(next,
+        Val::Nil
+        )))
+    ))
+}
+
 pub fn ifstmt(cond: Val, ifblock: Val, elseblock: Val) -> Val
 {
     Val::Sexpr(SexprType::IfStmt, Box::new(

@@ -209,6 +209,8 @@ pub enum SexprType {
     DefMacro,
     CaseExpr,
     IfStmt,
+    MatchExpr,
+    MatchCase,
     Comparison,
     LessThan3(bool, bool),
     BooleanAnd,
@@ -233,6 +235,8 @@ pub enum Val {
     Lib(LibVal),
     Future(FutureVal),
     Void,
+    Wildcard,
+    PatternVar,
 }
 
 const NIL: Val = Val::Nil;
@@ -450,6 +454,7 @@ impl Val {
             &Val::Cons(_, _) => Type::RelaxedList,
             &Val::Type(_) => Type::Kind,
             &Val::Void => Type::Void,
+            &Val::Wildcard => Type::Unknown,
             _ => { panic!("dunno what type {:?}", self) }
         }
     }
@@ -559,6 +564,25 @@ impl Val {
             (SexprType::StrExpr, strs) => {
                 write!(f, "\"{}\"", strs)
             }
+            (SexprType::MatchExpr, mc) => {
+                let (x, m2) = list::take_ref(mc);
+                let (cases, _) = list::take_ref(m2);
+                if dbg {
+                    write!(f, "match({:?},{:?})", x, cases)
+                } else {
+                    write!(f, "match({},{})", x, cases)
+                }
+            }
+            (SexprType::MatchCase, mc) => {
+                let (patt, m2) = list::take_ref(mc);
+                let (code, m3) = list::take_ref(m2);
+                let (next, _) = list::take_ref(m3);
+                if dbg {
+                    write!(f, "matchcase({:?},{:?})", patt, next)
+                } else {
+                    write!(f, "matchcase({},{})", patt, next)
+                }
+            }
             (SexprType::IfStmt, ifs) => {
                 write!(f, "if({:?})", ifs)
             }
@@ -635,6 +659,12 @@ impl fmt::Display for Val {
             Val::Void => {
                 write!(f, "Void")
             }
+            Val::PatternVar => {
+                write!(f, "pvar")
+            }
+            Val::Wildcard => {
+                write!(f, "_")
+            }
         }
     }
 }
@@ -691,8 +721,14 @@ impl fmt::Debug for Val {
             Val::Future(_) => {
                 write!(f, "Future")
             }
+            Val::PatternVar => {
+                write!(f, "pvar")
+            }
             Val::Void => {
                 write!(f, "Void")
+            }
+            Val::Wildcard => {
+                write!(f, "_Wildcard")
             }
         }
     }

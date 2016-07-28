@@ -78,6 +78,7 @@ void	{ return set_token(yyg, TOKEN_VOID); }
 "*"	{ return set_token(yyg, TOKEN_TIMES); }
 "/"	{ return set_token(yyg, TOKEN_SLASH); }
 "|"	{ return set_token(yyg, TOKEN_PIPE); }
+"_"	{ return set_token(yyg, TOKEN_UNDERSCORE); }
 "\\n"	{ return set_token(yyg, TOKEN_ConcatNewline); }
 case	{ return set_token(yyg, TOKEN_CASE); }
 else	{ return set_token(yyg, TOKEN_ELSE); }
@@ -91,6 +92,7 @@ fork	{ return set_token(yyg, TOKEN_Fork); }
 given	{ return set_token(yyg, TOKEN_GIVEN); }
 let	{ return set_token(yyg, TOKEN_Let); }
 macro	{ return set_token(yyg, TOKEN_MACRO); }
+match	{ return set_token(yyg, TOKEN_MATCH); }
 mod	{ return set_token(yyg, TOKEN_MOD); }
 where	{ return set_token(yyg, TOKEN_WHERE); }
 with	{ return set_token(yyg, TOKEN_WITH); }

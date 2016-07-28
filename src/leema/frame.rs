@@ -307,6 +307,11 @@ fn execute_fork(w: &mut Worker, curf: &mut Frame,
     w.event = Event::Fork;
 }
 
+fn execute_jump(curf: &mut Frame, jmp: i16)
+{
+    curf.pc += jmp as i32;
+}
+
 fn execute_jump_if_not(curf: &mut Frame, jmp: i16, reg: &Reg)
 {
 verbose_out!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
@@ -324,9 +329,9 @@ verbose_out!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
     }
 }
 
-fn execute_jump(curf: &mut Frame, jmp: i16)
+fn execute_match_pattern(curf: &mut Frame, jmp: i16, patt: &Reg, input: &Reg)
 {
-    curf.pc += jmp as i32;
+    panic!("todo: execute_match_pattern");
 }
 
 fn execute_list_cons(curf: &mut Frame, dst: Reg, src_reg: Reg) {
@@ -482,6 +487,9 @@ verbose_out!("lock app, find_code\n");
             }
             &Op::JumpIfNot(jmp, ref reg) => {
                 execute_jump_if_not(curf, jmp, reg);
+            }
+            &Op::MatchPattern(jmp, ref patt, ref input) => {
+                execute_match_pattern(curf, jmp, patt, input);
             }
             &Op::ListCons(ref dst, ref src) => {
                 execute_list_cons(curf, *dst, *src);

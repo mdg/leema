@@ -124,6 +124,8 @@ impl Token
                 parse::TOKEN_IF => {
                     Token::IF
                 }
+                parse::TOKEN_MATCH => Token::MATCH,
+                parse::TOKEN_UNDERSCORE => Token::UNDERSCORE,
                 parse::TOKEN_ELSE => {
                     Token::ELSE(tl)
                 }

@@ -39,6 +39,8 @@ pub enum Op {
     //IfFail(Reg, i16),
     Jump(i16),
     JumpIfNot(i16, Reg),
+    // jump if no match, pattern reg, input reg
+    MatchPattern(i16, Reg, Reg),
     ListCons(Reg, Reg),
     ListCreate(Reg),
     StrCat(Reg, Reg),
@@ -193,6 +195,15 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
         Source::Fork(ref f, ref args) => {
             make_fork_ops(input.dst, f, args)
         }
+        Source::MatchExpr(ref x, ref cases) => {
+            make_matchexpr_ops(&*x, &*cases)
+        }
+        Source::MatchCase(ref patt, ref code, ref next) => {
+            panic!("matchcase not compiled directly");
+        }
+        Source::PatternVar => {
+            panic!("PatternVar not compiled directly");
+        }
         Source::CaseExpr(ref test, ref truth, ref lies) => {
             make_case_ops(&*test, &*truth, &*lies)
         }
@@ -237,6 +248,64 @@ pub fn make_call_ops(dst: Reg, f: &Iexpr, args: &Iexpr) -> OpVec
     let mut ops = make_sub_ops(f);
     ops.append(&mut make_sub_ops(args));
     ops.push(Op::ApplyFunc(dst, freg, argsreg));
+    ops
+}
+
+pub fn make_matchexpr_ops(x: &Iexpr, cases: &Iexpr) -> OpVec
+{
+verbose_out!("make_matchexpr_ops({:?},{:?})", x, cases);
+    let mut x_ops = make_sub_ops(&x);
+    let mut case_ops = make_matchcase_ops(cases, x.dst);
+
+    x_ops.append(&mut case_ops);
+    x_ops
+}
+
+pub fn make_matchcase_ops(matchcase: &Iexpr, xreg: Reg) -> OpVec
+{
+    let (patt, code, next) = match matchcase.src {
+        Source::MatchCase(ref patt, ref code, ref next) => (patt, code, next),
+        Source::ConstVal(Val::Void) => {
+            return vec![];
+        }
+        _ => {
+            panic!("Cannot make ops for a not MatchCase {:?}", matchcase);
+        }
+    };
+verbose_out!("make_matchcase_ops({:?},{:?},{:?})", patt, code, next);
+    let mut patt_ops = make_pattern_ops(patt);
+    let mut code_ops = make_sub_ops(code);
+    let mut next_ops = make_matchcase_ops(next, xreg);
+
+    code_ops.push(Op::Jump((next_ops.len() + 1) as i16));
+    patt_ops.push(Op::MatchPattern(
+        (code_ops.len() + 1) as i16,
+        patt.dst,
+        xreg,
+    ));
+
+    patt_ops.append(&mut code_ops);
+    patt_ops.append(&mut next_ops);
+    patt_ops
+}
+
+pub fn make_pattern_ops(pattern: &Iexpr) -> OpVec
+{
+    let mut ops = vec![];
+    match &pattern.src {
+        &Source::ConstVal(ref v) => {
+            ops.push(Op::ConstVal(pattern.dst, v.clone()))
+        }
+        &Source::PatternVar => {
+            ops.push(Op::ConstVal(pattern.dst, Val::PatternVar))
+        }
+        &Source::Tuple(ref v) => {
+            ops.push(Op::TupleCreate(pattern.dst, v.len() as i8))
+        }
+        _ => {
+            panic!("That's not a pattern! {:?}", pattern);
+        }
+    }
     ops
 }
 
