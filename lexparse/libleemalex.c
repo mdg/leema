@@ -55,15 +55,20 @@ int set_token_val(yyscan_t scanner, int tok, const char *val)
 	} else {
 		buf->val = NULL;
 		buf->length = 0;
-        if (buf->token == TOKEN_NEWLINE) {
-            buf->column = 1;
-        } else {
-            buf->column += 1;
-        }
 	}
-	buf->lineno = yyget_lineno(scanner) + 1;
+	//buf->lineno = yyget_lineno(scanner) + 1;
     //printf("lineno,column: %d,%d\n", buf->lineno, buf->column);
 	return tok;
+}
+
+void set_newline(yyscan_t scanner)
+{
+	struct TokenBuffer *buf;
+	buf = (struct TokenBuffer *) yyget_extra(scanner);
+    buf->column = 1;
+    buf->lineno += 1;
+    buf->val = NULL;
+    buf->length = 0;
 }
 
 int add_block_comment_depth(yyscan_t scanner, int delta)

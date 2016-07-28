@@ -30,10 +30,10 @@ use std::io::{stderr, Write};
 %type more_pattern_args { Val }
 %type stmt { Val }
 %type match_block { Val }
-%type block { Val }
-%type block_one { Val }
-%type block_many { Val }
+%type endblock { Val }
 %type midblock { Val }
+%type block_onex { Val }
+%type block_stmts { Val }
 %type pattern { Val }
 %type func_stmt { Val }
 %type dfunc_args { Val }
@@ -50,8 +50,6 @@ use std::io::{stderr, Write};
 %type opt_typex { Type }
 %type id_type { Val }
 %type cases { Val }
-%type if_expr { Val }
-/* %type var_field { Ast } */
 
 %type list { Val }
 %type list_items { Val }
@@ -126,7 +124,7 @@ stmt(A) ::= DT. { A = Val::Void; }
 stmt(A) ::= func_stmt(B). { A = B; }
 stmt(A) ::= macro_stmt(B). { A = B; }
 /* if_stmt */
-stmt(A) ::= IF expr(B) block(C). {
+stmt(A) ::= IF expr(B) endblock(C). {
     A = sexpr::ifexpr(B, C, Val::Void);
 }
 
@@ -266,28 +264,28 @@ expr_stmt(A) ::= expr(B). {
 }
 expr_stmt(A) ::= DollarGT expr(B). { A = B; }
 
-block(A) ::= block_one(B). {
+endblock(A) ::= block_onex(B). {
 	A = B;
 }
-block(A) ::= block_many(B). {
+endblock(A) ::= block_stmts(B) DOUBLEDASH. {
 	A = B;
 }
-block_one(A) ::= BLOCKARROW expr(B). {
+midblock(A) ::= block_onex(B). {
 	A = B;
 }
-block_many(A) ::= BLOCKARROW stmts(B) SLASH. {
+midblock(A) ::= block_stmts(B). {
 	A = B;
 }
-midblock(A) ::= BLOCKARROW expr(B). {
+block_onex(A) ::= DOUBLEDASH expr(B). {
 	A = B;
 }
-midblock(A) ::= BLOCKARROW stmts(B). {
+block_stmts(A) ::= BLOCKARROW stmts(B). {
 	A = B;
 }
 
 /* func one case, no matching */
 func_stmt(A) ::= Func ID(B) LPAREN dfunc_args(D) RPAREN opt_typex(E)
-    block(C).
+    endblock(C).
 {
 	let id = Val::id(B);
 	let typ = Val::Type(E);
@@ -331,7 +329,7 @@ typex(A) ::= TYPE_ID(B). {
 
 
 /* defining a macro */
-macro_stmt(A) ::= MACRO ID(B) LPAREN macro_args(D) RPAREN block(C). {
+macro_stmt(A) ::= MACRO ID(B) LPAREN macro_args(D) RPAREN endblock(C). {
     verbose_out!("found macro {:?}\n", B);
     A = sexpr::new(SexprType::DefMacro,
         list::cons(Val::id(B),
@@ -395,7 +393,7 @@ expr(A) ::= term(B) DOLLAR term(C). {
 	A = Val::Void;
 }
 /* CASE expression */
-expr(A) ::= CASE cases(B) SLASH. {
+expr(A) ::= CASE cases(B) DOUBLEDASH. {
     verbose_out!("parsed case expr\n");
 	A = B;
 }

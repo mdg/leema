@@ -304,19 +304,19 @@ println!("read from file: '{}'", input);
 fn define_macros(ss: &mut StaticSpace)
 {
     verbose_out!("defining prefab macros\n");
-    let input = "macro and(a, b) =>
+    let input = "macro and(a, b) ->
         case
-        |a => b
-        |else => false
-        /
-    /
+        |a -> b
+        |else -> false
+        --
+    --
 
-    macro or(a, b) =>
+    macro or(a, b) ->
         case
-        |a => true
-        |else => b
-        /
-    /
+        |a -> true
+        |else -> b
+        --
+    --
 
     ".to_string();
 

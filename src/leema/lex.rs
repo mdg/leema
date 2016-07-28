@@ -55,6 +55,7 @@ impl Token
             let tl = TokenLoc::new((*tok).lineno, (*tok).column as i16);
             match (*tok).tok {
                 parse::TOKEN_BLOCKARROW => Token::BLOCKARROW,
+                parse::TOKEN_DOUBLEDASH => Token::DOUBLEDASH,
                 parse::TOKEN_Func => {
                     Token::Func
                 }
@@ -182,9 +183,6 @@ impl Token
                 }
                 parse::TOKEN_EOI => {
                     Token::EOI
-                }
-                parse::TOKEN_NEWLINE => {
-                    Token::NEWLINE(tl)
                 }
                 _ => {
                     panic!("Unrecognized token: {:?}", (*tok));

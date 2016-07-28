@@ -8,6 +8,7 @@ typedef void * yyscan_t;
 
 int set_token(yyscan_t, int tok);
 int set_token_val(yyscan_t, int tok, const char *val);
+void set_newline(yyscan_t);
 int add_block_comment_depth(yyscan_t, int delta);
 }
 
@@ -41,6 +42,9 @@ EOI	\0
 <<EOF>>	{
 	return set_token(yyg, TOKEN_EOI);
 }
+{EOL}   {
+    set_newline(yyg);
+}
 "\""	{
 	BEGIN(STR);
 	return set_token(yyg, TOKEN_StrOpen);
@@ -56,8 +60,8 @@ void	{ return set_token(yyg, TOKEN_VOID); }
 "$?"	{ return set_token(yyg, TOKEN_DollarQuestion); }
 "$>"	{ return set_token(yyg, TOKEN_DollarGT); }
 ":"	{ return set_token(yyg, TOKEN_COLON); }
-"=>"	{ return set_token_val(yyg, TOKEN_BLOCKARROW, yytext + 3); }
-"=>\n *"	{ return set_token_val(yyg, TOKEN_BLOCKARROW, yytext + 3); }
+"->"	{ return set_token(yyg, TOKEN_BLOCKARROW); }
+"--"	{ return set_token(yyg, TOKEN_DOUBLEDASH); }
 "="	{ return set_token(yyg, TOKEN_EQ); }
 "<"	{ return set_token(yyg, TOKEN_LT); }
 "<="	{ return set_token(yyg, TOKEN_LTEQ); }
@@ -75,7 +79,7 @@ void	{ return set_token(yyg, TOKEN_VOID); }
 "/"	{ return set_token(yyg, TOKEN_SLASH); }
 "|"	{ return set_token(yyg, TOKEN_PIPE); }
 "\\n"	{ return set_token(yyg, TOKEN_ConcatNewline); }
-case\n *	{ return set_token_val(yyg, TOKEN_CASE, yytext + 5); }
+case	{ return set_token(yyg, TOKEN_CASE); }
 else	{ return set_token(yyg, TOKEN_ELSE); }
 failed	{ return set_token(yyg, TOKEN_FAILED); }
 fail	{ return set_token(yyg, TOKEN_FAIL); }
