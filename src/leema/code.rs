@@ -267,8 +267,6 @@ verbose_out!("make_if_ops({:?},{:?},{:?})", test, truth, lies);
 
     if_ops.append(&mut truth_ops);
     if_ops.append(&mut lies_ops);
-    // leave a void in the result to be sure it's not returning something else
-    if_ops.push(Op::ConstVal(truth.dst, Val::Void));
     if_ops
 }
 

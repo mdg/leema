@@ -1001,6 +1001,9 @@ impl Env {
             &Reg::Result => {
                 self.result = Some(v);
             }
+            &Reg::Void => {
+                // do nothing, void reg is like /dev/null
+            }
             &Reg::Result2(r2) => {
                 match self.result {
                     Some(ref mut resultv) => {
@@ -1057,6 +1060,9 @@ impl Env {
                         panic!("No result set!")
                     }
                 }
+            }
+            &Reg::Void => {
+                panic!("Cannot get Reg::Void");
             }
             _ => {
                 println!("register is not set: {:?}", reg);

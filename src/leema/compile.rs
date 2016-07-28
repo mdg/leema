@@ -135,7 +135,7 @@ verbose_out!("new_block> {:?}\n", code);
     fn ifstmt(test: Iexpr, truth: Iexpr, lies: Iexpr) -> Iexpr
     {
         Iexpr{
-            dst: Reg::Undecided,
+            dst: Reg::Void,
             typ: Type::Void, // if statements are untyped
             src: Source::IfStmt(
                 Box::new(test),
@@ -928,8 +928,8 @@ verbose_out!("result = {:?}\n", mappl);
             }
             Source::IfStmt(ref mut test, ref mut truth, ref mut lies) => {
                 self.assign_registers(&mut *test);
-                truth.dst = i.dst;
-                lies.dst = i.dst;
+                truth.dst = Reg::Void;
+                lies.dst = Reg::Void;
                 self.assign_registers(&mut *truth);
                 self.assign_registers(&mut *lies);
             }
