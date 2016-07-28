@@ -41,6 +41,8 @@ use std::io::{stderr, Write};
 %type dfunc_many { Val }
 %type macro_stmt { Val }
 %type macro_args { Val }
+%type if_stmt { Val }
+%type else_if { Val }
 %type let_stmt { Val }
 %type expr_stmt { Val }
 %type fail_stmt { Val }
@@ -124,9 +126,7 @@ stmt(A) ::= DT. { A = Val::Void; }
 stmt(A) ::= func_stmt(B). { A = B; }
 stmt(A) ::= macro_stmt(B). { A = B; }
 /* if_stmt */
-stmt(A) ::= IF expr(B) endblock(C). {
-    A = sexpr::ifexpr(B, C, Val::Void);
-}
+stmt(A) ::= if_stmt(B). { A = B; }
 
 /*
 stmt(A) ::= FAILED(B) ID(C) match_block(D). {
@@ -349,6 +349,21 @@ macro_args(A) ::= ID(B) COMMA macro_args(C). {
     A = list::cons(Val::id(B), C);
 }
 
+if_stmt(A) ::= IF expr(B) endblock(C). {
+    A = sexpr::ifstmt(B, C, Val::Void);
+}
+if_stmt(A) ::= IF expr(B) midblock(C) else_if(D) DOUBLEDASH. {
+    A = sexpr::ifstmt(B, C, D);
+}
+else_if(A) ::= ELSE IF expr(B) midblock(C) else_if(D). {
+    A = sexpr::ifstmt(B, C, D);
+}
+else_if(A) ::= ELSE IF expr(B) midblock(C). {
+    A = sexpr::ifstmt(B, C, Val::Void);
+}
+else_if(A) ::= ELSE midblock(B). {
+    A = B;
+}
 
 /* function with pattern matching
 func_stmt(A) ::= F ID(B) typedecl(T) NEWLINE match_block(C) END_BLOCK. {

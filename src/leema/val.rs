@@ -208,7 +208,7 @@ pub enum SexprType {
     DefFunc,
     DefMacro,
     CaseExpr,
-    IfExpr,
+    IfStmt,
     Comparison,
     LessThan3(bool, bool),
     BooleanAnd,
@@ -559,7 +559,7 @@ impl Val {
             (SexprType::StrExpr, strs) => {
                 write!(f, "\"{}\"", strs)
             }
-            (SexprType::IfExpr, ifs) => {
+            (SexprType::IfStmt, ifs) => {
                 write!(f, "if({:?})", ifs)
             }
             (SexprType::IdWithType, &Val::Cons(ref id, ref typ)) => {
@@ -1179,7 +1179,7 @@ fn test_compare_across_types() {
 #[test]
 fn test_replace_ids_if()
 {
-    let body = sexpr::new(SexprType::IfExpr,
+    let body = sexpr::new(SexprType::IfStmt,
         list::cons(Val::id("a".to_string()),
         list::cons(Val::id("b".to_string()),
         list::cons(Val::Bool(false),
@@ -1192,7 +1192,7 @@ fn test_replace_ids_if()
 
     let result = Val::replace_ids(body, &ids);
 
-    let expected = sexpr::new(SexprType::IfExpr,
+    let expected = sexpr::new(SexprType::IfStmt,
         list::cons(Val::Bool(true),
         list::cons(Val::Bool(false),
         list::cons(Val::Bool(false),

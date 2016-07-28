@@ -23,8 +23,8 @@ pub enum Source
     BoundVal(Reg),
     DefineFunc(String, Box<Iexpr>),
     Fork(Box<Iexpr>, Box<Iexpr>),
-    IfExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     CaseExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
+    IfStmt(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     List(Vec<Iexpr>),
     Str(Vec<Iexpr>),
     Tuple(Vec<Iexpr>),
@@ -132,15 +132,12 @@ verbose_out!("new_block> {:?}\n", code);
         }
     }
 
-    fn if_expr(test: Iexpr, truth: Iexpr, lies: Iexpr) -> Iexpr
+    fn ifstmt(test: Iexpr, truth: Iexpr, lies: Iexpr) -> Iexpr
     {
-        if truth.typ != lies.typ {
-            panic!("Mismatched if types: {:?}!={:?}", truth.typ, lies.typ);
-        }
         Iexpr{
             dst: Reg::Undecided,
-            typ: truth.typ.clone(),
-            src: Source::IfExpr(
+            typ: Type::Void, // if statements are untyped
+            src: Source::IfStmt(
                 Box::new(test),
                 Box::new(truth),
                 Box::new(lies)
@@ -373,8 +370,8 @@ impl StaticSpace
             SexprType::CaseExpr => {
                 self.precompile_casex(expr)
             }
-            SexprType::IfExpr => {
-                self.precompile_ifexpr(expr)
+            SexprType::IfStmt => {
+                self.precompile_ifstmt(expr)
             }
             /*
             SexprType::LessThan3(oreq1, oreq2) => {
@@ -621,7 +618,7 @@ verbose_out!("ixcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
         Iexpr::case_expr(test, truth, lies)
     }
 
-    pub fn precompile_ifexpr(&mut self, expr: Val) -> Iexpr
+    pub fn precompile_ifstmt(&mut self, expr: Val) -> Iexpr
     {
         let (raw_test, e2) = list::take(expr);
         let (raw_truth, e3) = list::take(e2);
@@ -632,7 +629,7 @@ verbose_out!("precompile ifx\n\t{:?}\n\t{:?}\n\t{:?}\n", raw_test, raw_truth, ra
         let truth = self.precompile(raw_truth);
         let lies = self.precompile(raw_lies);
 verbose_out!("ixif:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
-        Iexpr::if_expr(test, truth, lies)
+        Iexpr::ifstmt(test, truth, lies)
     }
 
     pub fn precompile_id(&mut self, name: Arc<String>) -> Iexpr
@@ -929,7 +926,7 @@ verbose_out!("result = {:?}\n", mappl);
                 self.assign_registers(&mut *truth);
                 self.assign_registers(&mut *lies);
             }
-            Source::IfExpr(ref mut test, ref mut truth, ref mut lies) => {
+            Source::IfStmt(ref mut test, ref mut truth, ref mut lies) => {
                 self.assign_registers(&mut *test);
                 truth.dst = i.dst;
                 lies.dst = i.dst;
@@ -1145,7 +1142,7 @@ fn test_compile_macro()
     let block_f = sexpr::new_block(list::singleton(Val::Bool(false)));
     let expected_body = sexpr::new_block(
         list::cons(
-            sexpr::new(SexprType::IfExpr,
+            sexpr::new(SexprType::IfStmt,
                 list::cons(Val::id("a".to_string()),
                 list::cons(block_t,
                 list::cons(block_f,
@@ -1236,7 +1233,7 @@ fn test_precompile_if_block()
             Iexpr{
                 dst: Reg::Result,
                 typ: Type::Int,
-                src: Source::IfExpr(
+                src: Source::IfStmt(
                     Box::new(test),
                     Box::new(block_t),
                     Box::new(block_f)

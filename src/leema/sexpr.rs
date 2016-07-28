@@ -100,14 +100,15 @@ pub fn casex(cond: Val, truth: Val, lies: Val) -> Val
     ))
 }
 
-pub fn ifexpr(cond: Val, ifblock: Val, elseblock: Val) -> Val
+pub fn ifstmt(cond: Val, ifblock: Val, elseblock: Val) -> Val
 {
-    Val::Sexpr(SexprType::IfExpr, Box::new(
+    Val::Sexpr(SexprType::IfStmt, Box::new(
         list::cons(cond,
         list::cons(ifblock,
         list::cons(elseblock,
         Val::Nil
-        )))))
+        )))
+    ))
 }
 
 pub fn defunc(name: Val, args: Val, typ: Val, blk: Val) -> Val
