@@ -449,6 +449,7 @@ impl Val {
             }
             &Val::Cons(_, _) => Type::RelaxedList,
             &Val::Type(_) => Type::Kind,
+            &Val::Void => Type::Void,
             _ => { panic!("dunno what type {:?}", self) }
         }
     }

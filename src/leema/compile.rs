@@ -24,6 +24,7 @@ pub enum Source
     DefineFunc(String, Box<Iexpr>),
     Fork(Box<Iexpr>, Box<Iexpr>),
     IfExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
+    CaseExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     List(Vec<Iexpr>),
     Str(Vec<Iexpr>),
     Tuple(Vec<Iexpr>),
@@ -112,6 +113,22 @@ verbose_out!("new_block> {:?}\n", code);
             dst: dst,
             typ: t,
             src: Source::Fork(Box::new(f), Box::new(args)),
+        }
+    }
+
+    fn case_expr(test: Iexpr, truth: Iexpr, lies: Iexpr) -> Iexpr
+    {
+        if truth.typ != lies.typ {
+            panic!("Mismatched case types: {:?}!={:?}", truth.typ, lies.typ);
+        }
+        Iexpr{
+            dst: Reg::Undecided,
+            typ: truth.typ.clone(),
+            src: Source::CaseExpr(
+                Box::new(test),
+                Box::new(truth),
+                Box::new(lies)
+            ),
         }
     }
 
@@ -353,6 +370,9 @@ impl StaticSpace
                 Iexpr::new(Source::BooleanOr(ia, ib))
             }
             */
+            SexprType::CaseExpr => {
+                self.precompile_casex(expr)
+            }
             SexprType::IfExpr => {
                 self.precompile_ifexpr(expr)
             }
@@ -585,6 +605,20 @@ verbose_out!("pc block> {:?}\n", items);
             i.src != Source::Void
         });
         Iexpr::new_block(bvec)
+    }
+
+    pub fn precompile_casex(&mut self, expr: Val) -> Iexpr
+    {
+        let (raw_test, e2) = list::take(expr);
+        let (raw_truth, e3) = list::take(e2);
+        let (raw_lies, _) = list::take(e3);
+verbose_out!("precompile casex\n\t{:?}\n\t{:?}\n\t{:?}\n", raw_test, raw_truth, raw_lies);
+
+        let test = self.precompile(raw_test);
+        let truth = self.precompile(raw_truth);
+        let lies = self.precompile(raw_lies);
+verbose_out!("ixcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
+        Iexpr::case_expr(test, truth, lies)
     }
 
     pub fn precompile_ifexpr(&mut self, expr: Val) -> Iexpr
@@ -887,6 +921,13 @@ verbose_out!("result = {:?}\n", mappl);
             }
             Source::Tuple(ref mut tup) => {
                 self.assign_tuple_registers(i.dst, &mut *tup);
+            }
+            Source::CaseExpr(ref mut test, ref mut truth, ref mut lies) => {
+                self.assign_registers(&mut *test);
+                truth.dst = i.dst;
+                lies.dst = i.dst;
+                self.assign_registers(&mut *truth);
+                self.assign_registers(&mut *lies);
             }
             Source::IfExpr(ref mut test, ref mut truth, ref mut lies) => {
                 self.assign_registers(&mut *test);

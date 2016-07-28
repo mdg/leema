@@ -193,6 +193,9 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
         Source::Fork(ref f, ref args) => {
             make_fork_ops(input.dst, f, args)
         }
+        Source::CaseExpr(ref test, ref truth, ref lies) => {
+            make_case_ops(&*test, &*truth, &*lies)
+        }
         Source::IfExpr(ref test, ref truth, ref lies) => {
             make_if_ops(&*test, &*truth, &*lies)
         }
@@ -235,6 +238,21 @@ pub fn make_call_ops(dst: Reg, f: &Iexpr, args: &Iexpr) -> OpVec
     ops.append(&mut make_sub_ops(args));
     ops.push(Op::ApplyFunc(dst, freg, argsreg));
     ops
+}
+
+pub fn make_case_ops(test: &Iexpr, truth: &Iexpr, lies: &Iexpr) -> OpVec
+{
+verbose_out!("make_case_ops({:?},{:?},{:?})", test, truth, lies);
+    let mut case_ops = make_sub_ops(&test);
+    let mut truth_ops = make_sub_ops(&truth);
+    let mut lies_ops = make_sub_ops(&lies);
+
+    truth_ops.push(Op::Jump((lies_ops.len() + 1) as i16));
+    case_ops.push(Op::JumpIfNot((truth_ops.len() + 1) as i16, test.dst));
+
+    case_ops.append(&mut truth_ops);
+    case_ops.append(&mut lies_ops);
+    case_ops
 }
 
 pub fn make_if_ops(test: &Iexpr, truth: &Iexpr, lies: &Iexpr) -> OpVec
