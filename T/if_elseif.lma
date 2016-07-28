@@ -1,9 +1,10 @@
-x := 2
-if x == 1 {
-	"hello"
-	7
-} else if x == 2 {
-	"tacos"
-} else {
-	"burritos"
-}
+func main() ->
+    let x = 2
+    if x = 1 ->
+        cout("hello")
+    else if x = 2 ->
+        cout("tacos")
+    else ->
+        cout("burritos")
+    --
+--

@@ -1,3 +1,5 @@
-func hashtag() => #foo
+func hashtag() -- #foo
 
-hashtag()
+func main() ->
+    hashtag()
+--

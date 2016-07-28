@@ -1,15 +1,15 @@
-macro m_and(a, b) {
-	if a {
-		b
-	} else {
-		false
-	}
-}
+macro m_and(a, b) ->
+	case
+    |a -> b
+	|else -> false
+	--
+--
 
-func main() {
-    if m_and(true, false) {
+func main() ->
+    if m_and(true, false) ->
         cout("is true\n")
-    } else {
+    else ->
         cout("is false\n")
-    }
-}
+    --
+    0
+--
