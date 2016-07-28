@@ -1,1 +1,1 @@
-cout("hello \"quotes\"\n")
+func main() -> cout("hello \"quotes\"\n") --
