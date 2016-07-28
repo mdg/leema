@@ -358,8 +358,10 @@ macro_args(A) ::= ID(B) COMMA macro_args(C). {
 * expecting a full block to be inside of a single expr if/else block
 * when it is not
 *
-* if only style:
-*     if x -- y
+* if only style (requires stmt block to avoid if-block bugs):
+*     if x ->
+*         y
+*     --
 *
 * if/else style:
 *     if x -- y
@@ -374,7 +376,7 @@ macro_args(A) ::= ID(B) COMMA macro_args(C). {
 *     |z -- whatever
 *     --
 */
-if_stmt(A) ::= IF expr(B) endblock(C). {
+if_stmt(A) ::= IF expr(B) block_stmts(C) DOUBLEDASH. {
     /* if-only style */
     A = sexpr::ifstmt(B, C, Val::Void);
 }
