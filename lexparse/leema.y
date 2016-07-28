@@ -43,6 +43,7 @@ use std::io::{stderr, Write};
 %type macro_args { Val }
 %type if_stmt { Val }
 %type else_if { Val }
+%type if_case { Val }
 %type let_stmt { Val }
 %type expr_stmt { Val }
 %type fail_stmt { Val }
@@ -349,11 +350,41 @@ macro_args(A) ::= ID(B) COMMA macro_args(C). {
     A = list::cons(Val::id(B), C);
 }
 
+/* if statements can go 3 different ways
+* might be that one of these should be the only one, but I'm not sure
+* now and not ready to commit, so leaving all 3 in.
+*
+* part of the reason for indecision is concern about incorrectly
+* expecting a full block to be inside of a single expr if/else block
+* when it is not
+*
+* if only style:
+*     if x -- y
+*
+* if/else style:
+*     if x -- y
+*     else if y -- z
+*     else z -- whatever
+*     --
+*
+* case expr style:
+*     if
+*     |x -- y
+*     |y -- z
+*     |z -- whatever
+*     --
+*/
 if_stmt(A) ::= IF expr(B) endblock(C). {
+    /* if-only style */
     A = sexpr::ifstmt(B, C, Val::Void);
 }
 if_stmt(A) ::= IF expr(B) midblock(C) else_if(D) DOUBLEDASH. {
+    /* if-else style */
     A = sexpr::ifstmt(B, C, D);
+}
+if_stmt(A) ::= IF if_case(B) DOUBLEDASH. {
+    /* case-expr style */
+    A = B;
 }
 else_if(A) ::= ELSE IF expr(B) midblock(C) else_if(D). {
     A = sexpr::ifstmt(B, C, D);
@@ -362,6 +393,12 @@ else_if(A) ::= ELSE IF expr(B) midblock(C). {
     A = sexpr::ifstmt(B, C, Val::Void);
 }
 else_if(A) ::= ELSE midblock(B). {
+    A = B;
+}
+if_case(A) ::= PIPE expr(B) midblock(C) if_case(D). {
+    A = sexpr::ifstmt(B, C, D);
+}
+if_case(A) ::= PIPE ELSE midblock(B). {
     A = B;
 }
 

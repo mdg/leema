@@ -45,9 +45,9 @@
 #define TOKEN_TYPE_VOID               44
 #define TOKEN_MACRO                   45
 #define TOKEN_IF                      46
-#define TOKEN_DOLLAR                  47
-#define TOKEN_CASE                    48
-#define TOKEN_PIPE                    49
+#define TOKEN_PIPE                    47
+#define TOKEN_DOLLAR                  48
+#define TOKEN_CASE                    49
 #define TOKEN_MOD                     50
 #define TOKEN_VOID                    51
 #define TOKEN_DollarQuestion          52
