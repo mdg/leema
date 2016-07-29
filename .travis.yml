@@ -2,3 +2,6 @@ language: rust
 rust:
   - 1.10.0
 script: make test
+before_install:
+  - apt-get install python3-pip
+  - pip3 install nose
