@@ -28,10 +28,7 @@ use std::io::{stderr, Write};
 
 %type stmt { Val }
 %type match_block { Val }
-%type endblock { Val }
-%type midblock { Val }
-%type block_onex { Val }
-%type block_stmts { Val }
+%type block { Val }
 %type func_stmt { Val }
 %type dfunc_args { Val }
 %type dfunc_one { Val }
@@ -233,28 +230,13 @@ expr_stmt(A) ::= expr(B). {
 }
 expr_stmt(A) ::= DollarGT expr(B). { A = B; }
 
-endblock(A) ::= block_onex(B). {
-	A = B;
-}
-endblock(A) ::= block_stmts(B) DOUBLEDASH. {
-	A = B;
-}
-midblock(A) ::= block_onex(B). {
-	A = B;
-}
-midblock(A) ::= block_stmts(B). {
-	A = B;
-}
-block_onex(A) ::= DOUBLEDASH expr(B). {
-	A = B;
-}
-block_stmts(A) ::= BLOCKARROW stmts(B). {
+block(A) ::= BLOCKARROW stmts(B). {
 	A = B;
 }
 
 /* func one case, no matching */
 func_stmt(A) ::= Func ID(B) LPAREN dfunc_args(D) RPAREN opt_typex(E)
-    endblock(C).
+    block(C) DOUBLEDASH.
 {
 	let id = Val::id(B);
 	let typ = Val::Type(E);
@@ -298,7 +280,7 @@ typex(A) ::= TYPE_ID(B). {
 
 
 /* defining a macro */
-macro_stmt(A) ::= MACRO ID(B) LPAREN macro_args(D) RPAREN endblock(C). {
+macro_stmt(A) ::= MACRO ID(B) LPAREN macro_args(D) RPAREN block(C) DOUBLEDASH. {
     verbose_out!("found macro {:?}\n", B);
     A = sexpr::new(SexprType::DefMacro,
         list::cons(Val::id(B),
@@ -344,11 +326,11 @@ macro_args(A) ::= ID(B) COMMA macro_args(C). {
 *     |z -- whatever
 *     --
 */
-if_stmt(A) ::= IF expr(B) block_stmts(C) DOUBLEDASH. {
+if_stmt(A) ::= IF expr(B) block(C) DOUBLEDASH. {
     /* if-only style */
     A = sexpr::ifstmt(B, C, Val::Void);
 }
-if_stmt(A) ::= IF expr(B) midblock(C) else_if(D) DOUBLEDASH. {
+if_stmt(A) ::= IF expr(B) block(C) else_if(D) DOUBLEDASH. {
     /* if-else style */
     A = sexpr::ifstmt(B, C, D);
 }
@@ -356,19 +338,19 @@ if_stmt(A) ::= IF if_case(B) DOUBLEDASH. {
     /* case-expr style */
     A = B;
 }
-else_if(A) ::= ELSE IF expr(B) midblock(C) else_if(D). {
+else_if(A) ::= ELSE IF expr(B) block(C) else_if(D). {
     A = sexpr::ifstmt(B, C, D);
 }
-else_if(A) ::= ELSE IF expr(B) midblock(C). {
+else_if(A) ::= ELSE IF expr(B) block(C). {
     A = sexpr::ifstmt(B, C, Val::Void);
 }
-else_if(A) ::= ELSE midblock(B). {
+else_if(A) ::= ELSE block(B). {
     A = B;
 }
-if_case(A) ::= PIPE expr(B) midblock(C) if_case(D). {
+if_case(A) ::= PIPE expr(B) block(C) if_case(D). {
     A = sexpr::ifstmt(B, C, D);
 }
-if_case(A) ::= PIPE ELSE midblock(B). {
+if_case(A) ::= PIPE ELSE block(B). {
     A = B;
 }
 
@@ -419,11 +401,11 @@ expr(A) ::= CASE cases(B) DOUBLEDASH. {
     verbose_out!("parsed case expr\n");
 	A = B;
 }
-cases(A) ::= PIPE expr(B) midblock(C) PIPE ELSE midblock(D). {
+cases(A) ::= PIPE expr(B) block(C) PIPE ELSE block(D). {
     verbose_out!("found cases base\n");
     A = sexpr::casex(B, C, D);
 }
-cases(A) ::= PIPE expr(B) midblock(C) cases(D). {
+cases(A) ::= PIPE expr(B) block(C) cases(D). {
     verbose_out!("found extra case\n");
     A = sexpr::casex(B, C, D);
 }
@@ -433,11 +415,11 @@ expr(A) ::= MATCH expr(B) match_case(C) DOUBLEDASH. {
     verbose_out!("parsed match expr\n");
     A = sexpr::match_expr(B, C);
 }
-match_case(A) ::= PIPE pexpr(B) midblock(C) match_case(D). {
+match_case(A) ::= PIPE pexpr(B) block(C) match_case(D). {
     verbose_out!("found cases base\n");
     A = sexpr::match_case(B, C, D);
 }
-match_case(A) ::= PIPE pexpr(B) midblock(C). {
+match_case(A) ::= PIPE pexpr(B) block(C). {
     verbose_out!("parsed base match case\n");
     A = sexpr::match_case(B, C, Val::Void);
 }

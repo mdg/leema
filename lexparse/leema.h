@@ -37,8 +37,8 @@
 #define TOKEN_Let                     36
 #define TOKEN_Fork                    37
 #define TOKEN_DollarGT                38
-#define TOKEN_DOUBLEDASH              39
-#define TOKEN_Func                    40
+#define TOKEN_Func                    39
+#define TOKEN_DOUBLEDASH              40
 #define TOKEN_COLON                   41
 #define TOKEN_TYPE_INT                42
 #define TOKEN_TYPE_STR                43
