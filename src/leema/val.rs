@@ -236,7 +236,7 @@ pub enum Val {
     Future(FutureVal),
     Void,
     Wildcard,
-    PatternVar,
+    PatternVar(Reg),
 }
 
 const NIL: Val = Val::Nil;
@@ -459,6 +459,26 @@ impl Val {
         }
     }
 
+    pub fn pattern_match(patt: &Val, input: &Val) -> bool
+    {
+        match (patt, input) {
+            (&Val::Wildcard, _) => true,
+            (&Val::PatternVar(_), _) => true,
+            (&Val::Int(p), &Val::Int(i)) if p == i => true,
+            (&Val::Bool(p), &Val::Bool(i)) if p == i => true,
+            (&Val::Str(ref p), &Val::Str(ref i)) if p == i => true,
+            (&Val::Tuple(ref p), &Val::Tuple(ref i)) if p.len() == i.len() => {
+                let it = p.iter().zip(i.iter());
+                it.fold(true, |m, (p_item, i_item)| {
+                    m && Val::pattern_match(p_item, i_item)
+                })
+            }
+            (ref punknown, _) => {
+                panic!("unsupported pattern! {:?}", punknown);
+            }
+        }
+    }
+
     pub fn replace_ids(node: Val,
         idvals: &HashMap<Arc<String>, Val>) -> Val
     {
@@ -659,8 +679,8 @@ impl fmt::Display for Val {
             Val::Void => {
                 write!(f, "Void")
             }
-            Val::PatternVar => {
-                write!(f, "pvar")
+            Val::PatternVar(r) => {
+                write!(f, "pvar:{:?}", r)
             }
             Val::Wildcard => {
                 write!(f, "_")
@@ -721,8 +741,8 @@ impl fmt::Debug for Val {
             Val::Future(_) => {
                 write!(f, "Future")
             }
-            Val::PatternVar => {
-                write!(f, "pvar")
+            Val::PatternVar(r) => {
+                write!(f, "pvar:{:?}", r)
             }
             Val::Void => {
                 write!(f, "Void")
@@ -1115,6 +1135,30 @@ impl Env {
             Some(v) => {
                 v
             }
+        }
+    }
+
+    pub fn apply_pattern(&mut self, patt: &Reg, input: &Reg)
+    {
+        let pval = self.get_reg(patt);
+        let ival = self.get_reg(input);
+        self._apply_pattern(pval, ival)
+    }
+
+    fn _apply_pattern(&mut self, patt: &Val, input: &Val)
+    {
+        match (patt, input) {
+            (&Val::PatternVar(dstreg), _) => {
+                self.set_reg(&dstreg, input.clone());
+            }
+            (&Val::Tuple(ref patt_items), &Val::Tuple(ref input_items)) => {
+                let mut it = input_items.iter();
+                for pi in patt_items {
+                    let ii = it.next();
+                    self._apply_pattern(&pi, ii.unwrap());
+                }
+            }
+            _ => {},
         }
     }
 }

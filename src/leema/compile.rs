@@ -28,7 +28,7 @@ pub enum Source
     CaseExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     IfStmt(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     List(Vec<Iexpr>),
-    PatternVar,
+    PatternVar(Reg),
     Str(Vec<Iexpr>),
     Tuple(Vec<Iexpr>),
     Void,
@@ -104,9 +104,9 @@ verbose_out!("new_block> {:?}\n", code);
     fn pattern_var(dst: Reg) -> Iexpr
     {
         Iexpr{
-            dst: dst,
+            dst: Reg::Undecided,
             typ: Type::Unknown,
-            src: Source::PatternVar,
+            src: Source::PatternVar(dst),
         }
     }
 
@@ -677,7 +677,9 @@ verbose_out!("ixmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
     {
         match pexpr {
             Val::Id(name) => {
-                Iexpr::new(Source::PatternVar)
+                let dstreg = Reg::R1(self.nextreg());
+                self.define(dstreg, name, Type::Unknown);
+                Iexpr::new(Source::PatternVar(dstreg))
             }
             Val::Int(_) => {
                 Iexpr::const_val(pexpr)
@@ -690,6 +692,13 @@ verbose_out!("ixmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
             }
             Val::Wildcard => {
                 Iexpr::const_val(pexpr)
+            }
+            Val::Tuple(items) => {
+                let mut ptup = vec![];
+                for i in items {
+                    ptup.push(self.precompile_pattern(i));
+                }
+                Iexpr::tuple(ptup)
             }
             _ => {
                 panic!("That's not a pattern! {:?}", pexpr);
@@ -1047,7 +1056,7 @@ verbose_out!("result = {:?}\n", mappl);
             Source::BoundVal(_) => {}
             Source::ConstVal(_) => {}
             Source::DefineFunc(_, _) => {}
-            Source::PatternVar => {}
+            Source::PatternVar(_) => {}
             Source::Void => {}
         }
     }

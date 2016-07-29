@@ -331,38 +331,12 @@ verbose_out!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
 
 fn execute_match_pattern(curf: &mut Frame, jmp: i16, patt: &Reg, input: &Reg)
 {
-    let apply = vec![];
-    if match_pattern(&mut apply, curf.e, patt, input) {
-        apply_pattern(curf.e, &apply);
+    let e: &mut Env = &mut curf.e;
+    if Val::pattern_match(e.get_reg(&patt), e.get_reg(&input)) {
+        e.apply_pattern(patt, input);
         curf.pc += 1;
     } else {
         curf.pc += jmp as i32;
-    }
-}
-
-fn match_pattern(
-    apply: &mut Vec<(Reg, &Val)>, e: &Env, patt: &Reg, input: &Reg) -> bool
-{
-    let pval = e.get_reg(&patt);
-    let ival = e.get_reg(&input);
-    match (pval, ival) {
-        (Val::Int(p), Val::Int(i)) if p == i => true,
-        (Val::Bool(p), Val::Bool(i)) if p == i => true,
-        (Val::Str(p), Val::Str(i)) if p == i => true,
-        (Val::Wildcard, _) => true,
-        (Val::PatternVar(dreg), _) => {
-            apply.push((dreg, apply));
-            true
-        }
-        _ => false,
-    }
-}
-
-fn apply_pattern(e: &mut Env, apply: &Vec<(Reg, &Val)>)
-{
-    for a in apply {
-        let (dst, src) = a;
-        e.set_reg(dst, src);
     }
 }
 

@@ -201,7 +201,7 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
         Source::MatchCase(ref patt, ref code, ref next) => {
             panic!("matchcase not compiled directly");
         }
-        Source::PatternVar => {
+        Source::PatternVar(_) => {
             panic!("PatternVar not compiled directly");
         }
         Source::CaseExpr(ref test, ref truth, ref lies) => {
@@ -273,7 +273,7 @@ pub fn make_matchcase_ops(matchcase: &Iexpr, xreg: Reg) -> OpVec
         }
     };
 verbose_out!("make_matchcase_ops({:?},{:?},{:?})", patt, code, next);
-    let mut patt_ops = make_pattern_load_ops(patt);
+    let mut patt_ops = make_pattern_ops(patt);
     let mut code_ops = make_sub_ops(code);
     let mut next_ops = make_matchcase_ops(next, xreg);
 
@@ -289,15 +289,15 @@ verbose_out!("make_matchcase_ops({:?},{:?},{:?})", patt, code, next);
     patt_ops
 }
 
-pub fn make_pattern_load_ops(pattern: &Iexpr) -> OpVec
+pub fn make_pattern_ops(pattern: &Iexpr) -> OpVec
 {
     let mut ops = vec![];
     match &pattern.src {
         &Source::ConstVal(ref v) => {
             ops.push(Op::ConstVal(pattern.dst, v.clone()))
         }
-        &Source::PatternVar => {
-            ops.push(Op::ConstVal(pattern.dst, Val::PatternVar))
+        &Source::PatternVar(ref dst) => {
+            ops.push(Op::ConstVal(pattern.dst, Val::PatternVar(dst.clone())))
         }
         &Source::Tuple(ref v) => {
             ops.push(Op::TupleCreate(pattern.dst, v.len() as i8))
@@ -305,14 +305,6 @@ pub fn make_pattern_load_ops(pattern: &Iexpr) -> OpVec
         _ => {
             panic!("That's not a pattern! {:?}", pattern);
         }
-    }
-    ops
-}
-
-pub fn make_pattern_apply_ops(pattern: &Iexpr) -> OpVec
-{
-    let mut ops = vec![];
-    match &pattern.src {
     }
     ops
 }
