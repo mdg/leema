@@ -387,10 +387,10 @@ seems like this should be pretty achievable w/ `[] | empty?`
 expr(A) ::= term(B) ID(C). {
 	A = Sexpr::Nothing;
 }*/
-/* infix function call
+/* infix function call */
 expr(A) ::= term(B) ID(C) term(D). {
 	A = sexpr::binaryop(C, B, D);
-}*/
+}
 
 expr(A) ::= term(B) DOLLAR term(C). {
 	/* A = Val::binaryop(B, C, D); */

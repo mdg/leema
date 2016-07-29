@@ -1,4 +1,4 @@
-func sum(x, y, z) -- x + y + z
+func sum(x, y, z) -> x + y + z --
 
 func main() ->
     let s = sum(3, 8, 2)
