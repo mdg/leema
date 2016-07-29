@@ -1,0 +1,12 @@
+func match_fact(i) ->
+    match i
+    |1 ->
+    |_ -> i * (i-1)
+    --
+--
+
+func main() ->
+    let f = match_fact(4)
+    cout("factorial(4) = $f\n")
+--
+
