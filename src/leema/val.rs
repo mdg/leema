@@ -613,6 +613,9 @@ impl Val {
                     write!(f, "matchcase({},{})", patt, next)
                 }
             }
+            (SexprType::CaseExpr, casex) => {
+                write!(f, "case({:?})", casex)
+            }
             (SexprType::IfStmt, ifs) => {
                 write!(f, "if({:?})", ifs)
             }

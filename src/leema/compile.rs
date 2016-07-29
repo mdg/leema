@@ -1220,13 +1220,13 @@ fn test_compile_call_no_params()
 #[test]
 fn test_compile_macro()
 {
-    let input = "macro mand(a, b) {
-        if a {
-            b
-        } else {
-            false
-        }
-    }
+    let input = "
+    macro mand(a, b) ->
+        case
+        |a -> b
+        |else -> false
+        --
+    --
     ".to_string();
     let root = Ast::parse(lex(input));
     let mut ss = prefab::new_staticspace();
@@ -1251,7 +1251,7 @@ fn test_compile_macro()
     let block_f = sexpr::new_block(list::singleton(Val::Bool(false)));
     let expected_body = sexpr::new_block(
         list::cons(
-            sexpr::new(SexprType::IfStmt,
+            sexpr::new(SexprType::CaseExpr,
                 list::cons(Val::id("a".to_string()),
                 list::cons(block_t,
                 list::cons(block_f,
@@ -1298,11 +1298,12 @@ fn test_use_macro()
 #[test]
 fn test_precompile_if_block()
 {
-    let input = "if true {
+    let input = "
+    if true ->
         1
-    } else {
+    else ->
         2
-    }
+    --
     ".to_string();
     let root = Ast::parse(lex(input));
     let mut ss = prefab::new_staticspace();
@@ -1314,22 +1315,22 @@ fn test_precompile_if_block()
         src: Source::ConstVal(Val::Bool(true)),
     };
     let block_t = Iexpr{
-        dst: Reg::Result,
+        dst: Reg::Void,
         typ: Type::Int,
         src: Source::Block(vec![
             Iexpr{
-                dst: Reg::Result,
+                dst: Reg::Void,
                 typ: Type::Int,
                 src: Source::ConstVal(Val::Int(1)),
             },
         ]),
     };
     let block_f = Iexpr{
-        dst: Reg::Result,
+        dst: Reg::Void,
         typ: Type::Int,
         src: Source::Block(vec![
             Iexpr{
-                dst: Reg::Result,
+                dst: Reg::Void,
                 typ: Type::Int,
                 src: Source::ConstVal(Val::Int(2)),
             },
@@ -1337,11 +1338,11 @@ fn test_precompile_if_block()
     };
     let expected = Iexpr{
         dst: Reg::Result,
-        typ: Type::Int,
+        typ: Type::Void,
         src: Source::Block(vec![
             Iexpr{
                 dst: Reg::Result,
-                typ: Type::Int,
+                typ: Type::Void,
                 src: Source::IfStmt(
                     Box::new(test),
                     Box::new(block_t),
@@ -1356,7 +1357,7 @@ fn test_precompile_if_block()
 #[test]
 fn test_compile_func_oneline_untyped()
 {
-    let input = "func inc(x) => x + 1\n".to_string();
+    let input = "func inc(x) -> x + 1 --".to_string();
     let root = Ast::parse(lex(input));
     let mut ss = prefab::new_staticspace();
 
@@ -1375,7 +1376,7 @@ fn test_compile_func_oneline_untyped()
 #[test]
 fn test_compile_main_func()
 {
-    let input = "func main() => 1\n".to_string();
+    let input = "func main() -> 1 --".to_string();
     let root = Ast::parse(lex(input));
     let mut ss = prefab::new_staticspace();
 

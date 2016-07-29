@@ -754,7 +754,7 @@ fn test_main_func_finishes()
 {
 let p = unsafe { getpid(); };
 write!(stderr(), "test_main_func_finishes {:?}\n", p);
-    let input = "func main() => 3\n".to_string();
+    let input = "func main() -> 3 --".to_string();
     let mut ss = prefab::new_staticspace();
     ss.compile(Ast::parse(lex(input)).root());
 

@@ -285,9 +285,10 @@ fn test_ast_parse_list() {
 #[test]
 fn test_call_function_plus_comma()
 {
-    let input = "func main() {
+    let input = "
+    func main() ->
         foo(x+1, 40)
-    }
+    --
     ".to_string();
     Ast::parse(lex(input));
 }
@@ -295,9 +296,10 @@ fn test_call_function_plus_comma()
 #[test]
 fn test_call_function_comma_plus()
 {
-    let input = "func main() {
+    let input = "
+    func main() ->
         foo(40, x+1)
-    }
+    --
     ".to_string();
     Ast::parse(lex(input));
 }
@@ -305,13 +307,14 @@ fn test_call_function_comma_plus()
 #[test]
 fn test_parse_multiple_param_func()
 {
-    let input = "func doubles(x, x2) {
+    let input = "
+    func doubles(x, x2) ->
         x + x = x2
-    }
+    --
 
-    func main() {
+    func main() ->
         doubles(5, 10)
-    }
+    --
     ".to_string();
     Ast::parse(lex(input));
 }
@@ -319,11 +322,12 @@ fn test_parse_multiple_param_func()
 #[test]
 fn test_ast_parse_if()
 {
-    let input = "if x {
+    let input = "
+    if x ->
         y
-    } else {
+    else ->
         z
-    }
+    --
     ".to_string();
     let root = Ast::parse(lex(input));
 
@@ -334,7 +338,7 @@ fn test_ast_parse_if()
         Val::id("z".to_string()),
     ));
     let expected = Ast::ReplRoot(sexpr::new(SexprType::BlockExpr, list::cons(
-        sexpr::new(SexprType::IfExpr,
+        sexpr::new(SexprType::IfStmt,
         list::cons(Val::id("x".to_string()),
         list::cons(blocka,
         list::cons(blockb,
@@ -348,17 +352,14 @@ fn test_ast_parse_if()
 #[test]
 fn test_ast_parse_if_no_else()
 {
-    let input = "if x {
-        y
-    }
-    ".to_string();
+    let input = "if x -> y --".to_string();
     let root = Ast::parse(lex(input));
 
     let blocka = sexpr::new(SexprType::BlockExpr, list::singleton(
         Val::id("y".to_string()),
     ));
     let expected = Ast::ReplRoot(sexpr::new(SexprType::BlockExpr, list::cons(
-        sexpr::new(SexprType::IfExpr,
+        sexpr::new(SexprType::IfStmt,
         list::cons(Val::id("x".to_string()),
         list::cons(blocka,
         list::cons(Val::Void,
@@ -372,13 +373,13 @@ fn test_ast_parse_if_no_else()
 #[test]
 fn test_ast_parse_macro()
 {
-    let input = "macro mand(a, b) {
-        if a {
-            b
-        } else {
-            false
-        }
-    }
+    let input = "
+    macro mand(a, b) ->
+        case
+        |a -> b
+        |else -> false
+        --
+    --
     ".to_string();
     let root = Ast::parse(lex(input));
 
@@ -389,7 +390,7 @@ fn test_ast_parse_macro()
         Val::Bool(false)
     ));
     let ifx = sexpr::new(SexprType::BlockExpr, list::cons(
-        sexpr::new(SexprType::IfExpr,
+        sexpr::new(SexprType::CaseExpr,
             list::cons(Val::id("a".to_string()),
             list::cons(blocka,
             list::cons(blockb,

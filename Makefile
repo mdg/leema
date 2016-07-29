@@ -5,13 +5,16 @@ default: build
 build: lexer parser
 	cargo build
 
-run: lexer parser
+run: build
 	cargo run
 
-test: lexer parser
+test: cargotest T
+
+cargotest: lexer parser
 	cargo test
 
-T: build T/func_inc.test
+T: build test.py
+	nosetests
 
 # lexer
 lexer: target/debug/deps/libleemalex.a
