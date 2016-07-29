@@ -67,10 +67,10 @@ use std::io::{stderr, Write};
 %left OR XOR.
 %left AND.
 %right ConcatNewline NOT.
-%left LT LTEQ.
 %nonassoc EQ NEQ GT GTEQ.
+%left LT LTEQ.
 %left PLUS MINUS.
-%left TIMES SLASH.
+%left TIMES SLASH MOD.
 %nonassoc LPAREN RPAREN.
 
 %parse_accept {
@@ -405,10 +405,10 @@ seems like this should be pretty achievable w/ `[] | empty?`
 expr(A) ::= term(B) ID(C). {
 	A = Sexpr::Nothing;
 }*/
-/* infix function call */
+/* infix function call
 expr(A) ::= term(B) ID(C) term(D). {
 	A = sexpr::binaryop(C, B, D);
-}
+}*/
 
 expr(A) ::= term(B) DOLLAR term(C). {
 	/* A = Val::binaryop(B, C, D); */
@@ -483,16 +483,8 @@ expr(A) ::= expr(B) ConcatNewline. {
 expr(A) ::= MINUS expr(B). {
 	A = sexpr::call("negate".to_string(), list::singleton(B));
 }
-expr(A) ::= expr(B) error(D) expr(C). {
-    write!(stderr(), "binaryop error: {:?} err {:?}\n", B, C).ok();
-    A = Val::Void;
-}
 expr(A) ::= expr(B) PLUS expr(C). {
 	A = sexpr::binaryop("int_add".to_string(), B, C);
-}
-expr(A) ::= expr(B) PLUS error. {
-    write!(stderr(), "wtf PLUS error: {:?} + error\n", B).ok();
-    A = Val::Void;
 }
 expr(A) ::= expr(B) MINUS expr(C). {
 	A = sexpr::binaryop("int_sub".to_string(), B, C);
