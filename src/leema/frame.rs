@@ -332,11 +332,20 @@ verbose_out!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
 fn execute_match_pattern(curf: &mut Frame, jmp: i16, patt: &Reg, input: &Reg)
 {
     let e: &mut Env = &mut curf.e;
-    if Val::pattern_match(e.get_reg(&patt), e.get_reg(&input)) {
-        e.apply_pattern(patt, input);
-        curf.pc += 1;
-    } else {
-        curf.pc += jmp as i32;
+    let matches = {
+        let pval = e.get_reg(&patt);
+        let ival = e.get_reg(&input);
+        Val::pattern_match(pval, ival)
+    };
+    match matches {
+        Some(assignments) => {
+            for a in assignments {
+                let (dst, v) = a;
+                e.set_reg(&dst, v);
+            }
+            curf.pc += 1;
+        }
+        Nothing => curf.pc += jmp as i32,
     }
 }
 

@@ -459,7 +459,18 @@ impl Val {
         }
     }
 
-    pub fn pattern_match(patt: &Val, input: &Val) -> bool
+    pub fn pattern_match(patt: &Val, input: &Val) -> Option<Vec<(Reg, Val)>>
+    {
+        let mut assigns = vec![];
+        if Val::_pattern_match(&mut assigns, patt, input) {
+            Some(assigns)
+        } else {
+            None
+        }
+    }
+
+    fn _pattern_match(assigns: &mut Vec<(Reg, Val)>,
+        patt: &Val, input: &Val) -> bool
     {
         match (patt, input) {
             (&Val::Wildcard, _) => true,
@@ -469,9 +480,10 @@ impl Val {
             (&Val::Str(ref p), &Val::Str(ref i)) if p == i => true,
             (&Val::Tuple(ref p), &Val::Tuple(ref i)) if p.len() == i.len() => {
                 let it = p.iter().zip(i.iter());
-                it.fold(true, |m, (p_item, i_item)| {
-                    m && Val::pattern_match(p_item, i_item)
-                })
+                let m = it.fold(true, |m, (p_item, i_item)| {
+                    m && Val::_pattern_match(assigns, p_item, i_item)
+                });
+                m
             }
             (ref punknown, _) => {
                 panic!("unsupported pattern! {:?}", punknown);
@@ -1135,30 +1147,6 @@ impl Env {
             Some(v) => {
                 v
             }
-        }
-    }
-
-    pub fn apply_pattern(&mut self, patt: &Reg, input: &Reg)
-    {
-        let pval = self.get_reg(patt);
-        let ival = self.get_reg(input);
-        self._apply_pattern(pval, ival)
-    }
-
-    fn _apply_pattern(&mut self, patt: &Val, input: &Val)
-    {
-        match (patt, input) {
-            (&Val::PatternVar(dstreg), _) => {
-                self.set_reg(&dstreg, input.clone());
-            }
-            (&Val::Tuple(ref patt_items), &Val::Tuple(ref input_items)) => {
-                let mut it = input_items.iter();
-                for pi in patt_items {
-                    let ii = it.next();
-                    self._apply_pattern(&pi, ii.unwrap());
-                }
-            }
-            _ => {},
         }
     }
 }
