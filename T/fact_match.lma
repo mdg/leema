@@ -1,7 +1,7 @@
-func match_fact(i) ->
+func match_fact(i): Int ->
     match i
-    |1 ->
-    |_ -> i * (i-1)
+    |1 -> 1
+    |_ -> i * match_fact(i-1)
     --
 --
 

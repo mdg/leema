@@ -485,9 +485,7 @@ impl Val {
                 });
                 m
             }
-            (ref punknown, _) => {
-                panic!("unsupported pattern! {:?}", punknown);
-            }
+            _ => false,
         }
     }
 
