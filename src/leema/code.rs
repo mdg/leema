@@ -273,7 +273,7 @@ pub fn make_matchcase_ops(matchcase: &Iexpr, xreg: Reg) -> OpVec
         }
     };
 verbose_out!("make_matchcase_ops({:?},{:?},{:?})", patt, code, next);
-    let mut patt_ops = make_pattern_ops(patt);
+    let mut patt_ops = make_pattern_load_ops(patt);
     let mut code_ops = make_sub_ops(code);
     let mut next_ops = make_matchcase_ops(next, xreg);
 
@@ -289,7 +289,7 @@ verbose_out!("make_matchcase_ops({:?},{:?},{:?})", patt, code, next);
     patt_ops
 }
 
-pub fn make_pattern_ops(pattern: &Iexpr) -> OpVec
+pub fn make_pattern_load_ops(pattern: &Iexpr) -> OpVec
 {
     let mut ops = vec![];
     match &pattern.src {
@@ -305,6 +305,14 @@ pub fn make_pattern_ops(pattern: &Iexpr) -> OpVec
         _ => {
             panic!("That's not a pattern! {:?}", pattern);
         }
+    }
+    ops
+}
+
+pub fn make_pattern_apply_ops(pattern: &Iexpr) -> OpVec
+{
+    let mut ops = vec![];
+    match &pattern.src {
     }
     ops
 }

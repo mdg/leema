@@ -16,4 +16,3 @@ func fizzbuzz(x, max): Void ->
 
 
 func main() -> fizzbuzz(1, 100) --
-
