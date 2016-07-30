@@ -25,7 +25,6 @@ pub enum Type
     Bool,
     Hashtag,
     Tuple(Vec<Type>),
-    Unit,
     Struct(String),
     Enum(String),
     Func(Vec<Type>, Box<Type>),
@@ -118,7 +117,6 @@ impl fmt::Display for Type
             &Type::Bool => write!(f, "Bool"),
             &Type::Hashtag => write!(f, "Hashtag"),
             &Type::Tuple(ref items) => write!(f, "Ttuple()"),
-            &Type::Unit => write!(f, "Unit"),
             &Type::Struct(ref name) => write!(f, "Struct"),
             &Type::Enum(ref name) => write!(f, "Enum"),
             &Type::Func(ref args, ref result) => {
@@ -226,7 +224,6 @@ pub enum Val {
     Cons(Box<Val>, Box<Val>),
     Nil,
     Tuple(Vec<Val>),
-    Unit,
     Failure,
     Sexpr(SexprType, Box<Val>),
     Id(Arc<String>),
@@ -240,7 +237,6 @@ pub enum Val {
 }
 
 const NIL: Val = Val::Nil;
-pub const UNIT: Val = Val::Unit;
 pub const VOID: Val = Val::Void;
 pub const FALSE: Val = Val::Bool(false);
 pub const TRUE: Val = Val::Bool(true);
@@ -314,11 +310,7 @@ impl Val {
             res.push(item);
             res
         });
-        if false && items.len() == 0 {
-            Val::Unit
-        } else {
-            Val::Tuple(items)
-        }
+        Val::Tuple(items)
     }
 
     pub fn is_list(&self) -> bool
@@ -659,9 +651,6 @@ impl fmt::Display for Val {
             Val::Nil => {
                 write!(f, "[]")
             }
-            Val::Unit => {
-                f.write_str("()")
-            }
             Val::Hashtag(ref s) => {
                 write!(f, "#{}", s)
             }
@@ -721,9 +710,6 @@ impl fmt::Debug for Val {
             }
             Val::Nil => {
                 write!(f, "L[]")
-            }
-            Val::Unit => {
-                f.write_str("()")
             }
             Val::Hashtag(ref s) => {
                 write!(f, "#{}", s)
@@ -864,9 +850,6 @@ impl PartialOrd for Val
                     }
                 }
             }
-            (&Val::Unit, &Val::Unit) => {
-                Some(Ordering::Equal)
-            }
             (&Val::Void, &Val::Void) => {
                 Some(Ordering::Equal)
             }
@@ -919,12 +902,6 @@ impl PartialOrd for Val
                 Some(Ordering::Less)
             }
             (_, &Val::Nil) => {
-                Some(Ordering::Greater)
-            }
-            (&Val::Unit, _) => {
-                Some(Ordering::Less)
-            }
-            (_, &Val::Unit) => {
                 Some(Ordering::Greater)
             }
             (&Val::Void, _) => {
@@ -981,9 +958,6 @@ impl Clone for Val
             &Val::Tuple(ref t) => {
                 Val::Tuple(t.clone())
             }
-            &Val::Unit => {
-                Val::Unit
-            }
             &Val::Failure => {
                 Val::Failure
             }
@@ -1019,7 +993,7 @@ pub struct Env {
 impl Env {
     pub fn new() -> Env {
         Env{
-            params: Val::Unit,
+            params: Val::Void,
             result: None,
             reg: BTreeMap::new(),
             kv: BTreeMap::new(),
@@ -1143,7 +1117,7 @@ impl Env {
     pub fn takeResult(&mut self) -> Val {
         match self.result.take() {
             None => {
-                Val::Unit
+                Val::Void
             }
             Some(v) => {
                 v
