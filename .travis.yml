@@ -2,7 +2,7 @@ language: rust
 rust:
   - 1.10.0
 script: make test
-before_install:
-  - sudo apt-get install python-pip
-  - sudo pip install nose
-sudo: required
+addons:
+  apt:
+    packages:
+    - python3-nose
