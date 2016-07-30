@@ -302,6 +302,7 @@ impl Val {
 
     pub fn tuple_from_list(l: Val) -> Val
     {
+        // TODO switch to be list::to_vec(), use regular Tuple constructor
         if !l.is_list() {
             panic!("Cannot make tuple from not-list: {:?}", l);
         }

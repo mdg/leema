@@ -426,10 +426,12 @@ match_case(A) ::= PIPE pexpr(B) block(C). {
 
 pexpr(A) ::= ptuple(B). { A = B; }
 pexpr(A) ::= INT(B). { A = Val::Int(B); }
+pexpr(A) ::= True. { A = Val::Bool(true); }
+pexpr(A) ::= False. { A = Val::Bool(false); }
 pexpr(A) ::= ID(B). { A = Val::id(B); }
 pexpr(A) ::= UNDERSCORE. { A = Val::Wildcard; }
 ptuple(A) ::= LPAREN RPAREN. {
-	A = Val::Tuple(vec![]);
+	panic!("an empty tuple is not a valid pattern");
 }
 ptuple(A) ::= LPAREN pexpr(B) RPAREN. {
 	A = Val::Tuple(vec![B]);

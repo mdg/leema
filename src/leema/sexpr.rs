@@ -67,6 +67,8 @@ pub fn strexpr(strs: Val) -> Val
 
 pub fn call(callname: String, input: Val) -> Val
 {
+    // TODO: make this take a vector of inputs instead of a list
+    // only use a tuple if it's a list of more than one item
     let args = Val::tuple_from_list(input.clone());
     let callid = Val::id(callname);
     let callargs = list::cons(callid, list::singleton(args));

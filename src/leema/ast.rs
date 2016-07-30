@@ -224,7 +224,8 @@ fn test_ast_parse_plus_twice() {
 }
 
 #[test]
-fn test_ast_parse_call_one_param() {
+fn test_ast_parse_call_one_param()
+{
     let input = "inc(-4)\n".to_string();
     let root = Ast::parse(lex(input));
 
