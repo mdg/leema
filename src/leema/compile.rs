@@ -359,6 +359,13 @@ impl StaticSpace
             Val::Id(id) => {
                 self.precompile_id(id)
             }
+            Val::CallParams => {
+                Iexpr{
+                    dst: Reg::Params(None),
+                    typ: Type::Unknown,
+                    src: Source::ConstVal(Val::CallParams)
+                }
+            }
             _ => {
                 Iexpr::const_val(val)
             }

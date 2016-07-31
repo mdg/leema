@@ -8,6 +8,7 @@ use leema::val::{Val};
 #[derive(Copy)]
 #[derive(Clone)]
 pub enum Reg {
+    Params(Option<i8>),
     Param(i8, Option<i8>),
     Reg(i8, Option<i8>),
     P1(i8),

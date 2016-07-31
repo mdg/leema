@@ -50,11 +50,11 @@
 #define TOKEN_DOLLAR                  49
 #define TOKEN_CASE                    50
 #define TOKEN_MATCH                   51
-#define TOKEN_UNDERSCORE              52
-#define TOKEN_VOID                    53
-#define TOKEN_DollarQuestion          54
-#define TOKEN_True                    55
-#define TOKEN_False                   56
+#define TOKEN_True                    52
+#define TOKEN_False                   53
+#define TOKEN_UNDERSCORE              54
+#define TOKEN_VOID                    55
+#define TOKEN_DollarQuestion          56
 #define TOKEN_SquareL                 57
 #define TOKEN_SquareR                 58
 #define TOKEN_StrOpen                 59

@@ -231,6 +231,7 @@ pub enum Val {
     Kind(u8),
     Lib(LibVal),
     Future(FutureVal),
+    CallParams,
     Void,
     Wildcard,
     PatternVar(Reg),
@@ -448,6 +449,7 @@ impl Val {
             &Val::Type(_) => Type::Kind,
             &Val::Void => Type::Void,
             &Val::Wildcard => Type::Unknown,
+            &Val::CallParams => Type::Unknown,
             _ => { panic!("dunno what type {:?}", self) }
         }
     }
@@ -682,6 +684,9 @@ impl fmt::Display for Val {
             Val::Void => {
                 write!(f, "Void")
             }
+            Val::CallParams => {
+                write!(f, "CallParams")
+            }
             Val::PatternVar(r) => {
                 write!(f, "pvar:{:?}", r)
             }
@@ -743,6 +748,9 @@ impl fmt::Debug for Val {
             }
             Val::PatternVar(r) => {
                 write!(f, "pvar:{:?}", r)
+            }
+            Val::CallParams => {
+                write!(f, "CallParams")
             }
             Val::Void => {
                 write!(f, "Void")

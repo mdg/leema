@@ -242,6 +242,15 @@ func_stmt(A) ::= Func ID(B) LPAREN dfunc_args(D) RPAREN opt_typex(E)
 	let typ = Val::Type(E);
 	A = sexpr::defunc(id, D, typ, C)
 }
+/* func w/ pattern matching */
+func_stmt(A) ::= Func ID(B) LPAREN dfunc_args(C) RPAREN opt_typex(D)
+    match_case(E) DOUBLEDASH.
+{
+	let id = Val::id(B);
+	let typ = Val::Type(D);
+    let body = sexpr::match_expr(Val::CallParams, E);
+	A = sexpr::defunc(id, C, typ, body)
+}
 
 dfunc_args(A) ::= . {
 	A = list::empty();
@@ -430,7 +439,7 @@ pexpr(A) ::= True. { A = Val::Bool(true); }
 pexpr(A) ::= False. { A = Val::Bool(false); }
 pexpr(A) ::= ID(B). { A = Val::id(B); }
 pexpr(A) ::= UNDERSCORE. { A = Val::Wildcard; }
-ptuple(A) ::= LPAREN RPAREN. {
+ptuple ::= LPAREN RPAREN. {
 	panic!("an empty tuple is not a valid pattern");
 }
 ptuple(A) ::= LPAREN pexpr(B) RPAREN. {

@@ -177,6 +177,10 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
             }
             ops
         }
+        Source::ConstVal(Val::CallParams) => {
+            // call params are already there, noop this
+            vec![]
+        }
         Source::ConstVal(ref v) => {
             vec![Op::ConstVal(input.dst, v.clone())]
         }
@@ -199,10 +203,10 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
             make_matchexpr_ops(&*x, &*cases)
         }
         Source::MatchCase(ref patt, ref code, ref next) => {
-            panic!("matchcase not compiled directly");
+            panic!("matchcase ops not generated directly");
         }
         Source::PatternVar(_) => {
-            panic!("PatternVar not compiled directly");
+            panic!("PatternVar ops not generated directly");
         }
         Source::CaseExpr(ref test, ref truth, ref lies) => {
             make_case_ops(&*test, &*truth, &*lies)
@@ -266,6 +270,7 @@ pub fn make_matchcase_ops(matchcase: &Iexpr, xreg: Reg) -> OpVec
     let (patt, code, next) = match matchcase.src {
         Source::MatchCase(ref patt, ref code, ref next) => (patt, code, next),
         Source::ConstVal(Val::Void) => {
+            // this is here when there's no else case
             return vec![];
         }
         _ => {
