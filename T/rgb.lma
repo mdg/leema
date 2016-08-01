@@ -1,39 +1,33 @@
-struct Color1 ->
-red: Int
-blue: Int
-green: Int
---
 
-struct Color2
-|red: Int
-|blue: Int
-|green: Int
---
+struct Color
+    .red: Int
+    .blue: Int
+    .green: Int
 
-struct Food
-|b: struct Burrito
-|t: struct Taco
-    |tortilla: Str
-    |cheese: Bool
+    func red(this: Color) ->
+        this.red
     --
 --
 
-enum Option<T>
-|Some(T)
-|None
+struct Hsv
+.h: Int
+.s: Int
+.v: Int
 --
 
-enum PrimaryColor
-|Red
-|Green
-|Blue
---
-
-enum Shape
-|Circle(Int)
-|struct Square |size: Int --
-|struct Rectangle
-    |x: Int
-    |y: Int
+bind Hsv -> Color
+    func red(this: Hsv) ->
     --
+--
+
+func main() ->
+    let c = Color(10, 20, 30)
+    let d = construct Color
+        .red = 10
+        .blue = 20
+        .green = 30
+    --
+    let e = Color{ .red = 10 .blue = 20 .green = 30 }
+    let f = Color(red=10, blue=20, green: 30)
+    cout("color: $c\n")
 --
