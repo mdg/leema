@@ -1,0 +1,39 @@
+struct Color1 ->
+red: Int
+blue: Int
+green: Int
+--
+
+struct Color2
+|red: Int
+|blue: Int
+|green: Int
+--
+
+struct Food
+|b: struct Burrito
+|t: struct Taco
+    |tortilla: Str
+    |cheese: Bool
+    --
+--
+
+enum Option<T>
+|Some(T)
+|None
+--
+
+enum PrimaryColor
+|Red
+|Green
+|Blue
+--
+
+enum Shape
+|Circle(Int)
+|struct Square |size: Int --
+|struct Rectangle
+    |x: Int
+    |y: Int
+    --
+--
