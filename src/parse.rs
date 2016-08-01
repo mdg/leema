@@ -46,7 +46,7 @@ pub enum Token {
     COMMA( TokenLoc ), //2
     ELSE( TokenLoc ), //3
     HASHTAG( TokenData<String> ), //4
-    ID( String ), //5
+    ID( TokenData<String> ), //5
     INT( i64 ), //6
     PLUS( TokenLoc ), //7
     SLASH( TokenLoc ), //8
@@ -239,7 +239,7 @@ fn token_minor(t: Token) -> YYMinorType {
         Token::COMMA(x) => YYMinorType::YY128(x),
         Token::ELSE(x) => YYMinorType::YY128(x),
         Token::HASHTAG(x) => YYMinorType::YY117(x),
-        Token::ID(x) => YYMinorType::YY4(x),
+        Token::ID(x) => YYMinorType::YY117(x),
         Token::INT(x) => YYMinorType::YY60(x),
         Token::PLUS(x) => YYMinorType::YY128(x),
         Token::SLASH(x) => YYMinorType::YY128(x),
@@ -968,9 +968,9 @@ self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp1.minor,yyp3.minor,) {
- (YYMinorType::YY4(yy1),YYMinorType::YY195(yy3),) => {
+ (YYMinorType::YY117(yy1),YYMinorType::YY195(yy3),) => {
 
-	yyres = Val::Tuple(vec![Val::id(yy1), Val::Type(yy3)]);
+	yyres = Val::Tuple(vec![Val::id(yy1.data), Val::Type(yy3)]);
 
 },    _ => unreachable!() };
  YYMinorType::YY24(yyres)
@@ -1009,10 +1009,10 @@ self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp1.minor,yyp3.minor,) {
- (YYMinorType::YY4(yy1),YYMinorType::YY24(yy3),) => {
+ (YYMinorType::YY117(yy1),YYMinorType::YY24(yy3),) => {
 
 	let letx =
-        list::cons(Val::id(yy1),
+        list::cons(Val::id(yy1.data),
         list::cons(yy3,
         Val::Nil
         ));
@@ -1031,9 +1031,9 @@ self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp1.minor,yyp3.minor,) {
- (YYMinorType::YY4(yy1),YYMinorType::YY24(yy3),) => {
+ (YYMinorType::YY117(yy1),YYMinorType::YY24(yy3),) => {
 
-	let bind = list::cons(Val::new_str(yy1), list::singleton(yy3));
+	let bind = list::cons(Val::new_str(yy1.data), list::singleton(yy3));
 	yyres = sexpr::new(SexprType::Fork, bind);
 
 },    _ => unreachable!() };
@@ -1095,9 +1095,9 @@ self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp1.minor,yyp3.minor,yyp5.minor,yyp6.minor,) {
- (YYMinorType::YY4(yy1),YYMinorType::YY24(yy3),YYMinorType::YY195(yy5),YYMinorType::YY24(yy6),) => {
+ (YYMinorType::YY117(yy1),YYMinorType::YY24(yy3),YYMinorType::YY195(yy5),YYMinorType::YY24(yy6),) => {
 
-	let id = Val::id(yy1);
+	let id = Val::id(yy1.data);
 	let typ = Val::Type(yy5);
 	yyres = sexpr::defunc(id, yy3, typ, yy6)
 
@@ -1118,9 +1118,9 @@ self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp1.minor,yyp3.minor,yyp5.minor,yyp6.minor,) {
- (YYMinorType::YY4(yy1),YYMinorType::YY24(yy3),YYMinorType::YY195(yy5),YYMinorType::YY24(yy6),) => {
+ (YYMinorType::YY117(yy1),YYMinorType::YY24(yy3),YYMinorType::YY195(yy5),YYMinorType::YY24(yy6),) => {
 
-	let id = Val::id(yy1);
+	let id = Val::id(yy1.data);
 	let typ = Val::Type(yy5);
     let body = sexpr::match_expr(Val::CallParams, yy6);
 	yyres = sexpr::defunc(id, yy3, typ, body)
@@ -1136,9 +1136,9 @@ let yyres :  Val ;
 let yyp1 = self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp1.minor,) {
- (YYMinorType::YY4(yy0),YYMinorType::YY195(yy1),) => {
+ (YYMinorType::YY117(yy0),YYMinorType::YY195(yy1),) => {
 
-	yyres = list::singleton(sexpr::id_with_type(yy0, yy1));
+	yyres = list::singleton(sexpr::id_with_type(yy0.data, yy1));
 
 },    _ => unreachable!() };
  YYMinorType::YY24(yyres)
@@ -1153,9 +1153,9 @@ let yyp2 = self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp1.minor,yyp3.minor,) {
- (YYMinorType::YY4(yy0),YYMinorType::YY195(yy1),YYMinorType::YY24(yy3),) => {
+ (YYMinorType::YY117(yy0),YYMinorType::YY195(yy1),YYMinorType::YY24(yy3),) => {
 
-	yyres = list::cons(sexpr::id_with_type(yy0, yy1), yy3);
+	yyres = list::cons(sexpr::id_with_type(yy0.data, yy1), yy3);
 
 },    _ => unreachable!() };
  YYMinorType::YY24(yyres)
@@ -1271,11 +1271,11 @@ self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 self.yystack.pop().unwrap();
 match (yyp1.minor,yyp3.minor,yyp5.minor,) {
- (YYMinorType::YY4(yy1),YYMinorType::YY24(yy3),YYMinorType::YY24(yy5),) => {
+ (YYMinorType::YY117(yy1),YYMinorType::YY24(yy3),YYMinorType::YY24(yy5),) => {
 
     verbose_out!("found macro {:?}\n", yy1);
     yyres = sexpr::new(SexprType::DefMacro,
-        list::cons(Val::id(yy1),
+        list::cons(Val::id(yy1.data),
         list::cons(yy3,
         list::cons(yy5,
         Val::Nil
@@ -1304,9 +1304,9 @@ match () {
 let yyres :  Val ;
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,) {
- (YYMinorType::YY4(yy0),) => {
+ (YYMinorType::YY117(yy0),) => {
 
-    yyres = list::singleton(Val::id(yy0));
+    yyres = list::singleton(Val::id(yy0.data));
 
 },    _ => unreachable!() };
  YYMinorType::YY24(yyres)
@@ -1320,9 +1320,9 @@ let yyp2 = self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
- (YYMinorType::YY4(yy0),YYMinorType::YY24(yy2),) => {
+ (YYMinorType::YY117(yy0),YYMinorType::YY24(yy2),) => {
 
-    yyres = list::cons(Val::id(yy0), yy2);
+    yyres = list::cons(Val::id(yy0.data), yy2);
 
 },    _ => unreachable!() };
  YYMinorType::YY24(yyres)
@@ -1526,9 +1526,9 @@ let yyp2 = self.yystack.pop().unwrap();
 let yyp1 = self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp1.minor,yyp2.minor,) {
- (YYMinorType::YY24(yy0),YYMinorType::YY4(yy1),YYMinorType::YY24(yy2),) => {
+ (YYMinorType::YY24(yy0),YYMinorType::YY117(yy1),YYMinorType::YY24(yy2),) => {
 
-	yyres = sexpr::binaryop(yy1, yy0, yy2);
+	yyres = sexpr::binaryop(yy1.data, yy0, yy2);
 
 },    _ => unreachable!() };
  YYMinorType::YY24(yyres)
@@ -1716,8 +1716,8 @@ match (yyp0.minor,) {
 let yyres :  Val ;
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,) {
- (YYMinorType::YY4(yy0),) => {
- yyres = Val::id(yy0); 
+ (YYMinorType::YY117(yy0),) => {
+ yyres = Val::id(yy0.data); 
 },    _ => unreachable!() };
  YYMinorType::YY24(yyres)
 }
@@ -2276,9 +2276,9 @@ let yyres :  Val ;
 let yyp1 = self.yystack.pop().unwrap();
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp1.minor,) {
- (YYMinorType::YY4(yy0),YYMinorType::YY24(yy1),) => {
+ (YYMinorType::YY117(yy0),YYMinorType::YY24(yy1),) => {
 
-	yyres = list::cons(Val::id(yy0), yy1);
+	yyres = list::cons(Val::id(yy0.data), yy1);
 
 },    _ => unreachable!() };
  YYMinorType::YY24(yyres)

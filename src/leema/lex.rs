@@ -69,7 +69,7 @@ impl Token
                     Token::INT((*tok).ival())
                 }
                 parse::TOKEN_ID => {
-                    Token::ID((*tok).val())
+                    Token::ID(TokenData::new((*tok).val(), tl))
                 }
                 parse::TOKEN_HASHTAG => {
                     let mut txt = (*tok).val();

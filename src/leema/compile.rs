@@ -278,6 +278,11 @@ impl StaticSpace
         self.T.insert(name, typ);
     }
 
+    pub fn define_type(&mut self, name: Arc<String>, typ: Type)
+    {
+        self.T.insert(name, typ);
+    }
+
     pub fn defined(&self, name: &String) -> bool
     {
         self.E.get(name).is_some()
@@ -288,9 +293,9 @@ impl StaticSpace
         self.m.get(name).is_some()
     }
 
-    pub fn define_type(&mut self, name: Arc<String>, typ: Type)
+    pub fn type_defined(&self, name: &String) -> bool
     {
-        self.T.insert(name, typ);
+        self.T.get(name).is_some()
     }
 
     pub fn define_func(&mut self, name: Arc<String>
@@ -400,6 +405,10 @@ impl StaticSpace
                 self.precompile_macro(expr);
                 Iexpr::new(Source::Void)
             }
+            SexprType::DefStruct => {
+                self.precompile_defstruct(expr);
+                Iexpr::new(Source::Void)
+            }
             SexprType::StrExpr => {
                 self.precompile_str(expr)
             }
@@ -506,6 +515,26 @@ verbose_out!("What's in precompile_fork({:?})\n", self.E);
         let cargs = Iexpr::tuple(vec![]);
         let forkx = Iexpr::fork(dst, valexpr_type, fork_name_ix, cargs);
         forkx
+    }
+
+    pub fn precompile_defstruct(&mut self, expr: Val)
+    {
+        let (nameval, f1) = list::take(expr);
+        let (mut fields, f2) = list::take(f1);
+verbose_out!("precompile_defstruct({:?},{:?})\n", nameval, fields);
+
+        let nametype = nameval.to_type();
+        let name = match nametype {
+            Type::Id(namestr) => namestr,
+            _ => {
+                panic!("Not a type name: {:?}", nametype);
+            }
+        };
+
+        if self.type_defined(&name) {
+            panic!("Type already defined: {}", name);
+        }
+        self.define_type(name.clone(), Type::Struct(name));
     }
 
     pub fn precompile_macro(&mut self, expr: Val)
@@ -783,13 +812,18 @@ verbose_out!("ixif:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
         let (f, sx) = list::take(call);
         let args = list::take_head(sx);
 verbose_out!("args = {:?}\n", args);
-        if !f.is_id() {
-            panic!("not an identifier: {:?}", f);
-        }
-        let fname = f.to_str();
-        if self.is_macro(&fname) {
-            return self.precompile_macro_call(&fname, args);
-        }
+        let fname = match &f {
+            &Val::Id(ref name) => {
+                if self.is_macro(name) {
+                    return self.precompile_macro_call(name, args);
+                }
+                name
+            }
+            &Val::Type(Type::Id(ref name)) => name,
+            _ => {
+                panic!("not a valid function name: {:?}", f);
+            }
+        }.clone();
         let fexpr = self.precompile(f);
         let cargs = self.precompile(args);
 verbose_out!("cargs = {:?}\n", cargs);

@@ -1,8 +1,8 @@
 
 struct Rgb
 .red: Int
-.blue: Int
 .green: Int
+.blue: Int
 --
 
 func main() ->

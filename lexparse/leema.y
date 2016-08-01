@@ -16,7 +16,7 @@ use std::io::{stderr, Write};
 %type COMMA { TokenLoc }
 %type ELSE { TokenLoc }
 %type HASHTAG { TokenData<String> }
-%type ID { String }
+%type ID { TokenData<String> }
 %type INT { i64 }
 %type PLUS { TokenLoc }
 %type SLASH { TokenLoc }
@@ -147,7 +147,7 @@ struct_fields(A) ::= . {
 	A = list::empty();
 }
 struct_field(A) ::= DOT ID(B) COLON typex(C). {
-	A = Val::Tuple(vec![Val::id(B), Val::Type(C)]);
+	A = Val::Tuple(vec![Val::id(B.data), Val::Type(C)]);
 }
 
 
@@ -165,14 +165,14 @@ verbose_out!("found fail_stmt {:?}\n", C);
 
 let_stmt(A) ::= Let ID(B) EQ expr(C). {
 	let letx =
-        list::cons(Val::id(B),
+        list::cons(Val::id(B.data),
         list::cons(C,
         Val::Nil
         ));
 	A = sexpr::new(SexprType::Let, letx);
 }
 let_stmt(A) ::= Fork ID(B) EQ expr(C). {
-	let bind = list::cons(Val::new_str(B), list::singleton(C));
+	let bind = list::cons(Val::new_str(B.data), list::singleton(C));
 	A = sexpr::new(SexprType::Fork, bind);
 }
 
@@ -189,7 +189,7 @@ block(A) ::= BLOCKARROW stmts(B). {
 func_stmt(A) ::= Func ID(B) LPAREN dfunc_args(D) RPAREN opt_typex(E)
     block(C) DOUBLEDASH.
 {
-	let id = Val::id(B);
+	let id = Val::id(B.data);
 	let typ = Val::Type(E);
 	A = sexpr::defunc(id, D, typ, C)
 }
@@ -197,7 +197,7 @@ func_stmt(A) ::= Func ID(B) LPAREN dfunc_args(D) RPAREN opt_typex(E)
 func_stmt(A) ::= Func ID(B) LPAREN dfunc_args(C) RPAREN opt_typex(D)
     match_case(E) DOUBLEDASH.
 {
-	let id = Val::id(B);
+	let id = Val::id(B.data);
 	let typ = Val::Type(D);
     let body = sexpr::match_expr(Val::CallParams, E);
 	A = sexpr::defunc(id, C, typ, body)
@@ -207,10 +207,10 @@ dfunc_args(A) ::= . {
 	A = list::empty();
 }
 dfunc_args(A) ::= ID(B) opt_typex(C). {
-	A = list::singleton(sexpr::id_with_type(B, C));
+	A = list::singleton(sexpr::id_with_type(B.data, C));
 }
 dfunc_args(A) ::= ID(B) opt_typex(C) COMMA dfunc_args(D). {
-	A = list::cons(sexpr::id_with_type(B, C), D);
+	A = list::cons(sexpr::id_with_type(B.data, C), D);
 }
 
 
@@ -243,7 +243,7 @@ typex(A) ::= TYPE_ID(B). {
 macro_stmt(A) ::= MACRO ID(B) LPAREN macro_args(D) RPAREN block(C) DOUBLEDASH. {
     verbose_out!("found macro {:?}\n", B);
     A = sexpr::new(SexprType::DefMacro,
-        list::cons(Val::id(B),
+        list::cons(Val::id(B.data),
         list::cons(D,
         list::cons(C,
         Val::Nil
@@ -254,10 +254,10 @@ macro_args(A) ::= . {
     A = Val::Nil;
 }
 macro_args(A) ::= ID(B). {
-    A = list::singleton(Val::id(B));
+    A = list::singleton(Val::id(B.data));
 }
 macro_args(A) ::= ID(B) COMMA macro_args(C). {
-    A = list::cons(Val::id(B), C);
+    A = list::cons(Val::id(B.data), C);
 }
 
 /* if statements can go 3 different ways
@@ -335,7 +335,7 @@ expr(A) ::= term(B) ID(C). {
 }*/
 /* infix function call */
 expr(A) ::= term(B) ID(C) term(D). {
-	A = sexpr::binaryop(C, B, D);
+	A = sexpr::binaryop(C.data, B, D);
 }
 
 expr(A) ::= term(B) DOLLAR term(C). {
@@ -375,7 +375,7 @@ pexpr(A) ::= INT(B). { A = Val::Int(B); }
 pexpr(A) ::= True. { A = Val::Bool(true); }
 pexpr(A) ::= False. { A = Val::Bool(false); }
 pexpr(A) ::= HASHTAG(B). { A = Val::Hashtag(Arc::new(B.data)); }
-pexpr(A) ::= ID(B). { A = Val::id(B); }
+pexpr(A) ::= ID(B). { A = Val::id(B.data); }
 pexpr(A) ::= UNDERSCORE. { A = Val::Wildcard; }
 ptuple ::= LPAREN RPAREN. {
 	panic!("an empty tuple is not a valid pattern");
@@ -491,7 +491,7 @@ term(A) ::= LPAREN expr(C) RPAREN. {
 term(A) ::= typex(B). {
     A = Val::Type(B);
 }
-term(A) ::= ID(B). { A = Val::id(B); }
+term(A) ::= ID(B). { A = Val::id(B.data); }
 /* term(A) ::= var_field(B). { A = Ast::Nothing; } */
 term(A) ::= VOID. {
 	A = Val::Void;
@@ -559,5 +559,5 @@ strlist(A) ::= StrLit(B) strlist(C). {
 	A = list::cons(Val::new_str(B), C);
 }
 strlist(A) ::= ID(B) strlist(C). {
-	A = list::cons(Val::id(B), C);
+	A = list::cons(Val::id(B.data), C);
 }

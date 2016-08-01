@@ -25,7 +25,7 @@ pub enum Type
     Bool,
     Hashtag,
     Tuple(Vec<Type>),
-    Struct(String),
+    Struct(Arc<String>),
     Enum(String),
     Func(Vec<Type>, Box<Type>),
     // different from base collection/map interfaces?
@@ -39,9 +39,6 @@ pub enum Type
     /*
     Map(Box<Type>, Box<Type>),
 
-    Struct(String),
-    // partial/parameterized struct
-    Pstruct(String, Vec<Type>),
     Arrow(Vec<Type>),
     // partial/parameterized arrow
     Parrow(Vec<Type>, Vec<Type>),
