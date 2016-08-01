@@ -1,4 +1,4 @@
-use leema::reg::{self, Reg, NumericRegistry};
+use leema::reg::{self, Reg, Ireg, Iregistry};
 use leema::sexpr;
 use leema::list;
 use leema::log;
@@ -687,7 +687,7 @@ impl fmt::Display for Val {
             Val::CallParams => {
                 write!(f, "CallParams")
             }
-            Val::PatternVar(r) => {
+            Val::PatternVar(ref r) => {
                 write!(f, "pvar:{:?}", r)
             }
             Val::Wildcard => {
@@ -746,7 +746,7 @@ impl fmt::Debug for Val {
             Val::Future(_) => {
                 write!(f, "Future")
             }
-            Val::PatternVar(r) => {
+            Val::PatternVar(ref r) => {
                 write!(f, "pvar:{:?}", r)
             }
             Val::CallParams => {
@@ -771,48 +771,89 @@ impl fmt::Debug for Val {
 */
 
 
-impl reg::NumericRegistry for Val {
-    fn get_reg_r1(&self, r: i8) -> &Val {
-        match self {
-            &Val::Tuple(ref tup) => {
-                &tup[r as usize]
+impl reg::Iregistry for Val
+{
+    fn ireg_get(&self, i: &Ireg) -> &Val
+    {
+        match (i, self) {
+            // set reg on tuple
+            (&Ireg::Reg(p), &Val::Tuple(ref tup)) => {
+                if p as usize >= tup.len() {
+                    panic!("{:?} too big for {:?}", i, tup);
+                }
+                &tup[p as usize]
+            }
+            (&Ireg::Sub(p, ref s), &Val::Tuple(ref tup)) => {
+                if p as usize >= tup.len() {
+                    panic!("{:?} too big for {:?}", i, tup);
+                }
+                tup[p as usize].ireg_get(&*s)
             }
             _ => {
-                panic!("Tuple is only registry value");
+                panic!("Tuple is only registry value (maybe lists too?)");
             }
         }
     }
 
-    fn set_reg_r1(&mut self, r: i8, v: Val)
+    fn ireg_get_mut<'a, 'b>(&'a mut self, i: &'b Ireg) -> &'a mut Val
     {
-        if self.is_list() && !list::is_empty(self) {
-            if r == 0 {
-                match self {
-                    &mut Val::Cons(ref mut head, _) => {
-                        *head = Box::new(v);
-                    }
-                    _ => {
-                        panic!("how did this happen?");
-                    }
+        match (i, self) {
+            // set reg on tuple
+            (&Ireg::Reg(p), &mut Val::Tuple(ref mut tup)) => {
+                if p as usize >= tup.len() {
+                    panic!("{:?} too big for {:?}", i, tup);
                 }
-            } else {
-                self.set_reg_r1(r-1, v);
+                tup.get_mut(p as usize).unwrap()
             }
-        } else if self.is_tuple() {
-            match self {
-                &mut Val::Tuple(ref mut tup) => {
-                    if r as usize >= tup.len() {
-                        println!("Reg({}) too big for {:?}"
-                            , r, tup);
-                    }
-                    tup[r as usize] = v;
+            (&Ireg::Sub(p, ref s), &mut Val::Tuple(ref mut tup)) => {
+                if p as usize >= tup.len() {
+                    panic!("{:?} too big for {:?}", i, tup);
                 }
-                _ => {
-                    panic!("weird");
-                }
+                let ch = tup.get_mut(p as usize).unwrap();
+                ch.ireg_get_mut(&*s)
             }
-        } else {
-            panic!("Can't set_reg_r1 on NotTuple");
+            _ => {
+                panic!("Tuple is only mut registry value");
+            }
+        }
+    }
+
+    fn ireg_set(&mut self, i: &Ireg, v: Val)
+    {
+        match (i, self) {
+            // set reg on tuple
+            (&Ireg::Reg(p), &mut Val::Tuple(ref mut tup)) => {
+                if p as usize >= tup.len() {
+                    panic!("{:?} too big for {:?}", i, tup);
+                }
+                tup[p as usize] = v;
+            }
+            (&Ireg::Sub(p, ref s), &mut Val::Tuple(ref mut tup)) => {
+                if p as usize >= tup.len() {
+                    panic!("{:?} too big for {:?}", i, tup);
+                }
+                tup[p as usize].ireg_set(&*s, v);
+            }
+            // set reg on lists
+            (&Ireg::Reg(0), &mut Val::Cons(ref mut head, _)) => {
+                *head = Box::new(v);
+            }
+            (&Ireg::Sub(0, ref s), &mut Val::Cons(ref mut head, _)) => {
+                head.ireg_set(&*s, v);
+            }
+            (&Ireg::Reg(p), &mut Val::Cons(_, ref mut tail)) => {
+                tail.ireg_set(&Ireg::Reg(p-1), v);
+            }
+            (&Ireg::Sub(p, ref s), &mut Val::Cons(_, ref mut tail)) => {
+                tail.ireg_set(&Ireg::Sub(p-1, s.clone()), v);
+            }
+            (_, &mut Val::Nil) => {
+                panic!("cannot set reg on empty list: {:?}", i);
+            }
+            // values that can't act as registries
+            _ => {
+                panic!("Can't ireg_set({:?})", i);
+            }
         }
     }
 }
@@ -1020,51 +1061,31 @@ impl Env {
         }
     }
 
-    pub fn get_param(&self, p: i8) -> &Val {
-        match self.params {
-            Val::Tuple(ref ps) => {
-                &ps[p as usize]
-            }
-            _ => {
-                panic!("that's not a tuple: {:?}", self.params);
-            }
-        }
-    }
-
-    pub fn get_mut_param(&mut self, p: i8) -> &mut Val {
-        match self.params {
-            Val::Tuple(ref mut ps) => {
-                &mut ps[p as usize]
-            }
-            _ => {
-                panic!("that's not a tuple: {:?}", self.params);
-            }
-        }
+    pub fn get_reg_mut(&mut self, reg: &Reg) -> &mut Val
+    {
+        panic!("should totally implement this");
     }
 
     pub fn set_reg(&mut self, reg: &Reg, v: Val) {
         match reg {
-            &Reg::R1(r) => {
-                self.set_reg_r1(r, v)
-            }
-            &Reg::R2(r1,r2) => {
-                self.get_mut_reg_r1(r1).set_reg_r1(r2, v);
+            &Reg::Reg(ref i) => {
+                self.ireg_set(i, v)
             }
             &Reg::Result => {
                 self.result = Some(v);
             }
-            &Reg::Void => {
-                // do nothing, void reg is like /dev/null
-            }
-            &Reg::Result2(r2) => {
+            &Reg::Subresult(ref i) => {
                 match self.result {
-                    Some(ref mut resultv) => {
-                        resultv.set_reg_r1(r2, v);
+                    Some(ref mut rv) => {
+                        rv.ireg_set(i, v)
                     }
                     None => {
-                        panic!("Result is None {:?}", reg);
+                        panic!("No result set!")
                     }
                 }
+            }
+            &Reg::Void => {
+                // do nothing, void reg is like /dev/null
             }
             _ => {
                 panic!("set other reg: {:?}", reg);
@@ -1072,26 +1093,14 @@ impl Env {
         }
     }
 
-    pub fn get_mut_reg_r1(&mut self, r: i8) -> &mut Val
-    {
-        if self.reg.contains_key(&r) {
-            self.reg.get_mut(&r).unwrap()
-        } else {
-            panic!("register is not set: {}", r);
-        }
-    }
-
     pub fn get_reg(&self, reg: &Reg) -> &Val
     {
         match reg {
-            &Reg::P1(p) => {
-                self.get_param(p)
+            &Reg::Params => {
+                &self.params
             }
-            &Reg::R1(r) => {
-                self.get_reg_r1(r)
-            }
-            &Reg::R2(r1,r2) => {
-                self.get_reg_r1(r1).get_reg_r1(r2)
+            &Reg::Param(ref r) => {
+                self.params.ireg_get(r)
             }
             &Reg::Result => {
                 match self.result {
@@ -1103,15 +1112,18 @@ impl Env {
                     }
                 }
             }
-            &Reg::Result2(r2) => {
+            &Reg::Subresult(ref i) => {
                 match self.result {
                     Some(ref rv) => {
-                        rv.get_reg_r1(r2)
+                        rv.ireg_get(i)
                     }
                     None => {
                         panic!("No result set!")
                     }
                 }
+            }
+            &Reg::Reg(ref i) => {
+                self.ireg_get(i)
             }
             &Reg::Void => {
                 panic!("Cannot get Reg::Void");
@@ -1135,21 +1147,55 @@ impl Env {
     }
 }
 
-impl reg::NumericRegistry for Env {
-
-    fn set_reg_r1(&mut self, r: i8, v: Val) {
-        if self.reg.contains_key(&r) {
-            println!("register already set: {}", r);
+impl reg::Iregistry for Env
+{
+    fn ireg_get(&self, i: &Ireg) -> &Val
+    {
+        let p = i.get_primary();
+        if !self.reg.contains_key(&p) {
+            verbose_out!("{:?} not set in {:?}\n", i, self.reg);
+            panic!("register is not set: {:?}", i);
         }
-        self.reg.insert(r, v);
+        let v = self.reg.get(&p).unwrap();
+
+        if let &Ireg::Sub(_, ref s) = i {
+            v.ireg_get(&*s)
+        } else {
+            v
+        }
     }
 
-    fn get_reg_r1(&self, r: i8) -> &Val {
-        if self.reg.contains_key(&r) {
-            self.reg.get(&r).unwrap()
+    fn ireg_get_mut(&mut self, i: &Ireg) -> &mut Val
+    {
+        let p = i.get_primary();
+        if !self.reg.contains_key(&p) {
+            verbose_out!("{:?} not set in {:?}\n", i, self.reg);
+            panic!("mut register is not set: {:?}", i);
+        }
+        let v = self.reg.get_mut(&p).unwrap();
+
+        if let &Ireg::Sub(_, ref s) = i {
+            v.ireg_get_mut(&*s)
         } else {
-verbose_out!("{:?} not set in {:?}\n", r, self.reg);
-            panic!("register is not set: {}", r);
+            v
+        }
+    }
+
+    fn ireg_set(&mut self, i: &Ireg, v: Val)
+    {
+        match i {
+            &Ireg::Reg(p) => {
+                if self.reg.contains_key(&p) {
+                    println!("register already set: {:?}", i);
+                }
+                self.reg.insert(p, v);
+            }
+            &Ireg::Sub(p, ref s) => {
+                if !self.reg.contains_key(&p) {
+                    panic!("primary register not set: {:?}", i);
+                }
+                self.reg.get_mut(&p).unwrap().ireg_set(&*s, v);
+            }
         }
     }
 }

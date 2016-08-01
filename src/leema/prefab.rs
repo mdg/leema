@@ -17,8 +17,8 @@ pub fn int_add(fs: &mut Frame)
 {
     let ic;
     {
-        let a = fs.e.get_param(0);
-        let b = fs.e.get_param(1);
+        let a = fs.get_param(0);
+        let b = fs.get_param(1);
         match (a,b) {
             (&Val::Int(ia), &Val::Int(ib)) => {
                 ic = ia + ib;
@@ -35,8 +35,8 @@ pub fn int_sub(fs: &mut Frame)
 {
     let ic;
     {
-        let a = fs.e.get_param(0);
-        let b = fs.e.get_param(1);
+        let a = fs.get_param(0);
+        let b = fs.get_param(1);
         match (a,b) {
             (&Val::Int(ia), &Val::Int(ib)) => {
                 ic = ia - ib;
@@ -53,8 +53,8 @@ pub fn int_mult(fs: &mut Frame)
 {
     let ic;
     {
-        let a = fs.e.get_param(0);
-        let b = fs.e.get_param(1);
+        let a = fs.get_param(0);
+        let b = fs.get_param(1);
         match (a,b) {
             (&Val::Int(ia), &Val::Int(ib)) => {
                 ic = ia * ib;
@@ -71,8 +71,8 @@ pub fn int_mod(fs: &mut Frame)
 {
     let ic;
     {
-        let a = fs.e.get_param(0);
-        let b = fs.e.get_param(1);
+        let a = fs.get_param(0);
+        let b = fs.get_param(1);
         match (a,b) {
             (&Val::Int(ia), &Val::Int(ib)) => {
                 ic = ia % ib;
@@ -89,7 +89,7 @@ pub fn int_negate(fs: &mut Frame)
 {
     let result;
     {
-        let a = fs.e.get_param(0);
+        let a = fs.get_param(0);
         match a {
             &Val::Int(a) => {
                 result = -a;
@@ -107,7 +107,7 @@ pub fn bool_not(fs: &mut Frame)
     println!("run bool_not!");
     let bnot;
     {
-        let bval = fs.e.get_param(0);
+        let bval = fs.get_param(0);
         bnot = match bval {
             &Val::Bool(b) => !b,
             _ => {
@@ -122,8 +122,8 @@ pub fn bool_xor(fs: &mut Frame)
 {
     let result;
     {
-        let va = fs.e.get_param(0);
-        let vb = fs.e.get_param(1);
+        let va = fs.get_param(0);
+        let vb = fs.get_param(1);
         match (va,vb) {
             (&Val::Bool(a), &Val::Bool(b)) => {
                 result = a && !b || b && !a;
@@ -140,8 +140,8 @@ pub fn less_than(fs: &mut Frame)
 {
     let result;
     {
-        let va = fs.e.get_param(0);
-        let vb = fs.e.get_param(1);
+        let va = fs.get_param(0);
+        let vb = fs.get_param(1);
         result = va < vb;
     }
     fs.e.set_reg(&Reg::Result, Val::Bool(result));
@@ -151,8 +151,8 @@ pub fn less_than_equal(fs: &mut Frame)
 {
     let result;
     {
-        let va = fs.e.get_param(0);
-        let vb = fs.e.get_param(1);
+        let va = fs.get_param(0);
+        let vb = fs.get_param(1);
         result = va <= vb;
     }
     fs.e.set_reg(&Reg::Result, Val::Bool(result));
@@ -162,8 +162,8 @@ pub fn equal(fs: &mut Frame)
 {
     let result;
     {
-        let va = fs.e.get_param(0);
-        let vb = fs.e.get_param(1);
+        let va = fs.get_param(0);
+        let vb = fs.get_param(1);
         result = va == vb;
     }
     fs.e.set_reg(&Reg::Result, Val::Bool(result));
@@ -173,8 +173,8 @@ pub fn greater_than(fs: &mut Frame)
 {
     let result;
     {
-        let va = fs.e.get_param(0);
-        let vb = fs.e.get_param(1);
+        let va = fs.get_param(0);
+        let vb = fs.get_param(1);
         result = va > vb;
     }
     fs.e.set_reg(&Reg::Result, Val::Bool(result));
@@ -184,8 +184,8 @@ pub fn greater_than_equal(fs: &mut Frame)
 {
     let result;
     {
-        let va = fs.e.get_param(0);
-        let vb = fs.e.get_param(1);
+        let va = fs.get_param(0);
+        let vb = fs.get_param(1);
         result = va >= vb;
     }
     fs.e.set_reg(&Reg::Result, Val::Bool(result));
@@ -195,7 +195,7 @@ pub fn get_type(fs: &mut Frame)
 {
     let result;
     {
-        let v = fs.e.get_param(0);
+        let v = fs.get_param(0);
         result = v.get_type();
     }
     fs.e.set_reg(&Reg::Result, Val::Type(result));
@@ -204,7 +204,7 @@ pub fn get_type(fs: &mut Frame)
 pub fn cout(fs: &mut Frame)
 {
     {
-        let va = fs.e.get_param(0);
+        let va = fs.get_param(0);
         print!("{}", va);
     }
     fs.e.set_reg(&Reg::Result, Val::Void);
@@ -213,7 +213,7 @@ pub fn cout(fs: &mut Frame)
 pub fn cerr(fs: &mut Frame)
 {
     {
-        let va = fs.e.get_param(0);
+        let va = fs.get_param(0);
         write!(stderr(), "{}", va);
     }
     fs.e.set_reg(&Reg::Result, Val::Void);
@@ -252,7 +252,7 @@ impl Debug for LeemaFile
 pub fn file_read(fs: &mut Frame)
 {
     let open_result = {
-        let fnval = fs.e.get_param(0);
+        let fnval = fs.get_param(0);
         match fnval {
             &Val::Str(ref fnstr) => {
                 File::open(&**fnstr)
@@ -279,7 +279,7 @@ pub fn stream_read_file(fs: &mut Frame)
 {
     let mut input = "".to_string();
     {
-        let mut streamval = fs.e.get_mut_param(0);
+        let mut streamval = fs.get_param_mut(0);
         let mut anyf = match streamval {
             &mut Val::Lib(ref lv) =>
             {

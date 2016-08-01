@@ -2,7 +2,7 @@ use leema::val::{Val,SexprType,Type};
 use leema::list;
 use leema::log;
 use leema::sexpr;
-use leema::reg::{Reg};
+use leema::reg::{Reg, Ireg};
 use leema::ast;
 use leema::code::{self, CodeKey, CodeMap, Code, OpVec};
 use std::collections::{HashMap};
@@ -95,6 +95,10 @@ verbose_out!("new_block> {:?}\n", code);
     fn bound_val(src: Reg, t: Type) -> Iexpr
     {
         Iexpr{
+            // TODO:
+            // set to void to avoid reassignment
+            // the src is the one that we care about
+            // right?
             dst: Reg::Undecided,
             typ: t,
             src: Source::BoundVal(src),
@@ -361,7 +365,7 @@ impl StaticSpace
             }
             Val::CallParams => {
                 Iexpr{
-                    dst: Reg::Params(None),
+                    dst: Reg::Params,
                     typ: Type::Unknown,
                     src: Source::ConstVal(Val::CallParams)
                 }
@@ -462,10 +466,10 @@ verbose_out!("compile let {} := {}\n", lhs, rhs);
             panic!("{} was already defined", name);
         }
         let mut irhs = self.precompile(rhs);
-        irhs.dst = Reg::R1(self.nextreg());
-        self.last_reg = irhs.dst;
+        irhs.dst = Reg::new_reg(self.nextreg());
+        self.last_reg = irhs.dst.clone();
 
-        self.define(irhs.dst, name, irhs.typ.clone());
+        self.define(irhs.dst.clone(), name, irhs.typ.clone());
         irhs
     }
 
@@ -477,10 +481,10 @@ verbose_out!("compile fork {} := {}\n", name, val);
         }
 
         let mut valexpr = self.compile(val);
-        let dst = Reg::R1(self.nextreg());
+        let dst = Reg::new_reg(self.nextreg());
         //valexpr.dst = Reg::R1(self.nextreg());
-        self.last_reg = dst;
-        self.define(dst, name.clone(), valexpr.typ.clone());
+        self.last_reg = dst.clone();
+        self.define(dst.clone(), name.clone(), valexpr.typ.clone());
 
         let fork_name = Arc::new(format!("fork_{}", name));
 
@@ -554,7 +558,7 @@ verbose_out!("macro_defined({:?},{:?},{:?})\n", name, args, code);
             //let ptype = Type(ptype_val)
             argtypes.push(ptype.clone());
             ss.define(
-                Reg::P1(i),
+                Reg::Param(Ireg::Reg(i)),
                 var_name,
                 ptype
             );
@@ -684,8 +688,8 @@ verbose_out!("ixmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
     {
         match pexpr {
             Val::Id(name) => {
-                let dstreg = Reg::R1(self.nextreg());
-                self.define(dstreg, name, Type::Unknown);
+                let dstreg = Reg::new_reg(self.nextreg());
+                self.define(dstreg.clone(), name, Type::Unknown);
                 Iexpr::new(Source::PatternVar(dstreg))
             }
             Val::Int(_) => {
@@ -751,13 +755,13 @@ verbose_out!("ixif:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
                 verbose_out!("what's in E? {:?}\n", self.E);
                 panic!("undefined variable: {}", name);
             }
-            Some(&Reg::R1(reg)) => {
+            Some(&Reg::Reg(ref i)) => {
                 verbose_out!("precompile bound var {} = {:?}\n", name, reg);
-                Iexpr::bound_val(Reg::R1(reg), typ.unwrap().clone())
+                Iexpr::bound_val(Reg::Reg(i.clone()), typ.unwrap().clone())
             }
-            Some(&Reg::P1(p)) => {
+            Some(&Reg::Param(ref i)) => {
                 verbose_out!("precompile param {} = {:?}\n", name, reg);
-                Iexpr::bound_val(Reg::P1(p), typ.unwrap().clone())
+                Iexpr::bound_val(Reg::Param(i.clone()), typ.unwrap().clone())
             }
             Some(&Reg::Undecided) => {
                 panic!("precompile bound undecided {:?} for {}", reg, name);
@@ -1000,11 +1004,11 @@ verbose_out!("result = {:?}\n", mappl);
     pub fn assign_registers(&mut self, i: &mut Iexpr)
     {
         if i.dst == Reg::Undecided {
-            i.dst = Reg::R1(self.nextreg());
+            i.dst = Reg::new_reg(self.nextreg());
         }
         match i.src {
             Source::Block(ref mut items) => {
-                self.assign_block_registers(i.dst, items);
+                self.assign_block_registers(&i.dst, items);
             }
             Source::Call(ref mut f, ref mut args) => {
                 self.assign_registers(&mut *f);
@@ -1020,24 +1024,24 @@ verbose_out!("result = {:?}\n", mappl);
                 }
             }
             Source::Tuple(ref mut tup) => {
-                self.assign_tuple_registers(i.dst, &mut *tup);
+                self.assign_tuple_registers(&i.dst, &mut *tup);
             }
             Source::MatchExpr(ref mut x, ref mut cases) => {
                 self.assign_registers(&mut *x);
-                cases.dst = i.dst;
+                cases.dst = i.dst.clone();
                 self.assign_registers(&mut *cases);
             }
             Source::MatchCase(ref mut patt, ref mut code, ref mut next) => {
                 self.assign_registers(&mut *patt);
-                code.dst = i.dst;
-                next.dst = i.dst;
+                code.dst = i.dst.clone();
+                next.dst = i.dst.clone();
                 self.assign_registers(&mut *code);
                 self.assign_registers(&mut *next);
             }
             Source::CaseExpr(ref mut test, ref mut truth, ref mut lies) => {
                 self.assign_registers(&mut *test);
-                truth.dst = i.dst;
-                lies.dst = i.dst;
+                truth.dst = i.dst.clone();
+                lies.dst = i.dst.clone();
                 self.assign_registers(&mut *truth);
                 self.assign_registers(&mut *lies);
             }
@@ -1049,7 +1053,7 @@ verbose_out!("result = {:?}\n", mappl);
                 self.assign_registers(&mut *lies);
             }
             Source::List(ref mut l) => {
-                self.assign_list_registers(i.dst, &mut *l);
+                self.assign_list_registers(&i.dst, &mut *l);
             }
             Source::BooleanAnd(ref mut a, ref mut b) => {
                 self.assign_registers(&mut *a);
@@ -1068,49 +1072,36 @@ verbose_out!("result = {:?}\n", mappl);
         }
     }
 
-    pub fn assign_block_registers(&mut self, dst: Reg, items: &mut Vec<Iexpr>)
+    pub fn assign_block_registers(&mut self, dst: &Reg, items: &mut Vec<Iexpr>)
     {
         let mut first = true;
-        for ref mut i in items.iter_mut().rev() {
-            if first {
-                i.dst = dst;
-                first = false;
-            }
+        match items.last_mut() {
+            Some(ref mut i) => i.dst = dst.clone(),
+            _ => {},
+        }
+        for ref mut i in items.iter_mut() {
             self.assign_registers(i);
         }
     }
 
-    pub fn assign_list_registers(&mut self, dst: Reg, items: &mut Vec<Iexpr>)
+    pub fn assign_list_registers(&mut self, dst: &Reg, items: &mut Vec<Iexpr>)
     {
-        if dst.is_primary() {
-            let dst2 = dst.to_secondary(0);
-            for mut i in items {
-                i.dst = dst2;
-                self.assign_registers(&mut i);
-            }
-        } else {
-            panic!("can't put list in secondary {:?}", dst);
+        let head_dst = dst.sub(0);
+        for mut i in items {
+            i.dst = head_dst.clone();
+            self.assign_registers(&mut i);
         }
     }
 
-    pub fn assign_tuple_registers(&mut self, dst: Reg, tup: &mut Vec<Iexpr>)
+    pub fn assign_tuple_registers(&mut self, dst: &Reg, tup: &mut Vec<Iexpr>)
     {
-        match dst {
-            Reg::R1(r) => {
-                let mut i = 0;
-                for mut x in tup {
-                    if x.dst == Reg::Undecided {
-                        x.dst = Reg::R2(r,i);
-                    }
-                    i += 1;
-                    self.assign_registers(&mut x);
-                }
+        let mut i = 0;
+        for mut x in tup {
+            if x.dst == Reg::Undecided {
+                x.dst = x.dst.sub(i);
             }
-            _ => {
-                for mut i in tup {
-                    self.assign_registers(&mut i);
-                }
-            }
+            i += 1;
+            self.assign_registers(&mut x);
         }
     }
 

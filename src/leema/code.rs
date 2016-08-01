@@ -158,10 +158,9 @@ impl Lib
 
 pub fn make_ops(input: &Iexpr) -> OpVec
 {
-    let dst = input.dst;
     let mut ops = make_sub_ops(input);
-    if dst != Reg::Result {
-        ops.push(Op::Copy(Reg::Result, dst));
+    if input.dst != Reg::Result {
+        ops.push(Op::Copy(Reg::Result, input.dst.clone()));
     }
     ops.push(Op::Return);
     ops
@@ -182,22 +181,22 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
             vec![]
         }
         Source::ConstVal(ref v) => {
-            vec![Op::ConstVal(input.dst, v.clone())]
+            vec![Op::ConstVal(input.dst.clone(), v.clone())]
         }
-        Source::BoundVal(src) => {
+        Source::BoundVal(ref src) => {
             // panic!("{:?} shouldn't be here", input);
             // shouldn't have to do anything here, should
             // just use the dst reg
-            vec![Op::Copy(input.dst, src)]
+            vec![Op::Copy(input.dst.clone(), src.clone())]
         }
         Source::Call(ref f, ref args) => {
-            make_call_ops(input.dst, f, args)
+            make_call_ops(&input.dst, f, args)
         }
         Source::DefineFunc(ref _name, ref code) => {
             make_ops(code)
         }
         Source::Fork(ref f, ref args) => {
-            make_fork_ops(input.dst, f, args)
+            make_fork_ops(&input.dst, f, args)
         }
         Source::MatchExpr(ref x, ref cases) => {
             make_matchexpr_ops(&*x, &*cases)
@@ -215,11 +214,11 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
             make_if_ops(&*test, &*truth, &*lies)
         }
         Source::Str(ref items) => {
-            make_str_ops(input.dst, items)
+            make_str_ops(&input.dst, items)
         }
         Source::Tuple(ref items) => {
             let newtup = Op::TupleCreate(
-                input.dst,
+                input.dst.clone(),
                 items.len() as i8,
                 );
             let mut ops = vec![newtup];
@@ -229,7 +228,7 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
             ops
         }
         Source::List(ref items) => {
-            make_list_ops(input.dst, items)
+            make_list_ops(&input.dst, items)
         }
         Source::BooleanAnd(ref a, ref b) => {
             panic!("maybe AND should just be a macro");
@@ -244,14 +243,14 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
     }
 }
 
-pub fn make_call_ops(dst: Reg, f: &Iexpr, args: &Iexpr) -> OpVec
+pub fn make_call_ops(dst: &Reg, f: &Iexpr, args: &Iexpr) -> OpVec
 {
     //println!("make_call_ops {:?}({:?})", f, args);
     let freg = f.dst.clone();
     let argsreg = args.dst.clone();
     let mut ops = make_sub_ops(f);
     ops.append(&mut make_sub_ops(args));
-    ops.push(Op::ApplyFunc(dst, freg, argsreg));
+    ops.push(Op::ApplyFunc(dst.clone(), freg, argsreg));
     ops
 }
 
@@ -259,13 +258,13 @@ pub fn make_matchexpr_ops(x: &Iexpr, cases: &Iexpr) -> OpVec
 {
 verbose_out!("make_matchexpr_ops({:?},{:?})", x, cases);
     let mut x_ops = make_sub_ops(&x);
-    let mut case_ops = make_matchcase_ops(cases, x.dst);
+    let mut case_ops = make_matchcase_ops(cases, &x.dst);
 
     x_ops.append(&mut case_ops);
     x_ops
 }
 
-pub fn make_matchcase_ops(matchcase: &Iexpr, xreg: Reg) -> OpVec
+pub fn make_matchcase_ops(matchcase: &Iexpr, xreg: &Reg) -> OpVec
 {
     let (patt, code, next) = match matchcase.src {
         Source::MatchCase(ref patt, ref code, ref next) => (patt, code, next),
@@ -280,13 +279,13 @@ pub fn make_matchcase_ops(matchcase: &Iexpr, xreg: Reg) -> OpVec
 verbose_out!("make_matchcase_ops({:?},{:?},{:?})", patt, code, next);
     let mut patt_ops = make_pattern_ops(patt);
     let mut code_ops = make_sub_ops(code);
-    let mut next_ops = make_matchcase_ops(next, xreg);
+    let mut next_ops = make_matchcase_ops(next, &xreg);
 
     code_ops.push(Op::Jump((next_ops.len() + 1) as i16));
     patt_ops.push(Op::MatchPattern(
         (code_ops.len() + 1) as i16,
-        patt.dst,
-        xreg,
+        patt.dst.clone(),
+        xreg.clone(),
     ));
 
     patt_ops.append(&mut code_ops);
@@ -297,15 +296,16 @@ verbose_out!("make_matchcase_ops({:?},{:?},{:?})", patt, code, next);
 pub fn make_pattern_ops(pattern: &Iexpr) -> OpVec
 {
     let mut ops = vec![];
+    let pdst = pattern.dst.clone();
     match &pattern.src {
         &Source::ConstVal(ref v) => {
-            ops.push(Op::ConstVal(pattern.dst, v.clone()))
+            ops.push(Op::ConstVal(pdst, v.clone()))
         }
         &Source::PatternVar(ref dst) => {
-            ops.push(Op::ConstVal(pattern.dst, Val::PatternVar(dst.clone())))
+            ops.push(Op::ConstVal(pdst, Val::PatternVar(dst.clone())))
         }
         &Source::Tuple(ref v) => {
-            ops.push(Op::TupleCreate(pattern.dst, v.len() as i8))
+            ops.push(Op::TupleCreate(pdst, v.len() as i8))
         }
         _ => {
             panic!("That's not a pattern! {:?}", pattern);
@@ -322,7 +322,10 @@ verbose_out!("make_case_ops({:?},{:?},{:?})", test, truth, lies);
     let mut lies_ops = make_sub_ops(&lies);
 
     truth_ops.push(Op::Jump((lies_ops.len() + 1) as i16));
-    case_ops.push(Op::JumpIfNot((truth_ops.len() + 1) as i16, test.dst));
+    case_ops.push(
+        Op::JumpIfNot((truth_ops.len() + 1) as i16,
+        test.dst.clone())
+    );
 
     case_ops.append(&mut truth_ops);
     case_ops.append(&mut lies_ops);
@@ -337,7 +340,7 @@ verbose_out!("make_if_ops({:?},{:?},{:?})", test, truth, lies);
     let mut lies_ops = make_sub_ops(&lies);
 
     truth_ops.push(Op::Jump((lies_ops.len() + 1) as i16));
-    if_ops.push(Op::JumpIfNot((truth_ops.len() + 1) as i16, test.dst));
+    if_ops.push(Op::JumpIfNot((truth_ops.len() + 1) as i16, test.dst.clone()));
 
     if_ops.append(&mut truth_ops);
     if_ops.append(&mut lies_ops);
@@ -345,39 +348,36 @@ verbose_out!("make_if_ops({:?},{:?},{:?})", test, truth, lies);
 }
 
 
-pub fn make_fork_ops(dst: Reg, f: &Iexpr, args: &Iexpr) -> OpVec
+pub fn make_fork_ops(dst: &Reg, f: &Iexpr, args: &Iexpr) -> OpVec
 {
     println!("make_fork_ops({:?}, {:?}, {:?})", dst, f, args);
-    let freg = f.dst;
-    let argsreg = args.dst;
     let mut ops = make_sub_ops(f);
     ops.append(&mut make_sub_ops(args));
-    ops.push(Op::Fork(dst, freg, argsreg));
+    ops.push(Op::Fork(dst.clone(), f.dst.clone(), args.dst.clone()));
     ops
 }
 
-pub fn make_list_ops(dst: Reg, items: &Vec<Iexpr>) -> OpVec
+pub fn make_list_ops(dst: &Reg, items: &Vec<Iexpr>) -> OpVec
 {
-    let mut ops = vec![Op::ListCreate(dst)];
+    let mut ops = vec![Op::ListCreate(dst.clone())];
     for i in items.iter().rev() {
-        ops.push(Op::ListCons(dst, dst));
+        ops.push(Op::ListCons(dst.clone(), dst.clone()));
         ops.append(&mut make_sub_ops(i));
     }
     ops
 }
 
-pub fn make_str_ops(dst: Reg, items: &Vec<Iexpr>) -> OpVec
+pub fn make_str_ops(dst: &Reg, items: &Vec<Iexpr>) -> OpVec
 {
     let mut ops = vec![
         Op::ConstVal(
-            dst,
+            dst.clone(),
             Val::Str(Arc::new("".to_string())),
         ),
     ];
     for i in items {
-        let idst = i.dst;
         ops.append(&mut make_sub_ops(i));
-        ops.push(Op::StrCat(dst, idst));
+        ops.push(Op::StrCat(dst.clone(), i.dst.clone()));
     }
     ops
 }

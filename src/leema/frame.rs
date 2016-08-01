@@ -1,7 +1,7 @@
 #[macro_use]
 use leema::log;
 use leema::val::{Val, Env, FutureVal};
-use leema::reg::{Reg};
+use leema::reg::{Reg, Ireg};
 use leema::compile::{StaticSpace};
 use leema::code::{self, CodeKey, Code, CodeMap, Op, OpVec, ModSym, RustFunc};
 use leema::list;
@@ -32,7 +32,7 @@ impl Debug for Parent
     {
         match self {
             &Parent::Null => write!(f, "Parent::Null"),
-            &Parent::Caller(dst, ref code, ref pf) => {
+            &Parent::Caller(ref dst, ref code, ref pf) => {
                 write!(f,
                     "Parent::Caller({:?}, {:?}, {:?})",
                     dst, code, pf
@@ -78,7 +78,7 @@ impl Frame
         e
     }
 
-    pub fn receive_future(&mut self, r: Reg) -> Option<Val>
+    pub fn receive_future(&mut self, r: &Reg) -> Option<Val>
     {
         let fval = self.e.get_reg(&r);
         if !fval.is_future() {
@@ -94,6 +94,19 @@ impl Frame
             },
             _ => panic!("Not a future val? {:?}", fval),
         }
+    }
+
+    /**
+     * handy accessor function when calling from rust native functions
+     */
+    pub fn get_param(&self, p: i8) -> &Val
+    {
+        self.e.get_reg(&Reg::Param(Ireg::Reg(p)))
+    }
+
+    pub fn get_param_mut(&mut self, p: i8) -> &mut Val
+    {
+        self.e.get_reg_mut(&Reg::Param(Ireg::Reg(p)))
     }
 }
 
@@ -349,7 +362,7 @@ fn execute_match_pattern(curf: &mut Frame, jmp: i16, patt: &Reg, input: &Reg)
     }
 }
 
-fn execute_list_cons(curf: &mut Frame, dst: Reg, src_reg: Reg)
+fn execute_list_cons(curf: &mut Frame, dst: &Reg, src_reg: &Reg)
 {
     let src;
     {
@@ -359,7 +372,7 @@ fn execute_list_cons(curf: &mut Frame, dst: Reg, src_reg: Reg)
     curf.pc += 1;
 }
 
-fn execute_list_create(curf: &mut Frame, dst: Reg) {
+fn execute_list_create(curf: &mut Frame, dst: &Reg) {
     curf.e.set_reg(&dst, list::empty());
     curf.pc = curf.pc + 1;
 }
@@ -371,7 +384,7 @@ fn execute_strcat(w: &mut Worker, curf: &mut Frame, dstreg: &Reg, srcreg: &Reg)
         let src = curf.e.get_reg(srcreg);
         if src.is_future() {
             // oops, not ready to do this yet, let's bail and wait
-            w.event = Event::FutureWait(*srcreg);
+            w.event = Event::FutureWait(srcreg.clone());
             return;
         }
         let dst = curf.e.get_reg(dstreg);
@@ -413,7 +426,7 @@ fn execute_func_apply(w: &mut Worker, curf: &mut Frame, dst: &Reg, freg: &Reg, a
             let e = Env::with_args(args.clone());
             // set current state to called
             w.event = Event::Call(
-                *dst,
+                dst.clone(),
                 code.clone(),
                 Frame::new(Parent::Null, e),
             );
@@ -508,10 +521,10 @@ verbose_out!("lock app, find_code\n");
                 execute_match_pattern(curf, jmp, patt, input);
             }
             &Op::ListCons(ref dst, ref src) => {
-                execute_list_cons(curf, *dst, *src);
+                execute_list_cons(curf, dst, src);
             }
             &Op::ListCreate(ref dst) => {
-                execute_list_create(curf, *dst);
+                execute_list_create(curf, dst);
             }
             &Op::TupleCreate(ref dst, ref sz) => {
                 execute_tuple_create(curf, dst, *sz);
@@ -685,7 +698,7 @@ verbose_out!("rotate try_lock is_err\n");
             }
             match ff.unwrap() {
                 (reg, code, mut frame) => {
-                    let result = frame.receive_future(reg);
+                    let result = frame.receive_future(&reg);
                     if result.is_some() {
                         verbose_out!("found future ready {:?}\n", result);
                         frame.e.set_reg(&reg, result.unwrap());
