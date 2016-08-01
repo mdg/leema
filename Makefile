@@ -8,9 +8,9 @@ build: lexer parser
 run: build
 	cargo run
 
-test: cargotest T
+test: unittest T
 
-cargotest: lexer parser
+unittest: lexer parser
 	cargo test
 
 T: build test.py
