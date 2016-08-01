@@ -415,4 +415,41 @@ fn test_ast_parse_macro()
     assert_eq!(expected, root);
 }
 
+#[test]
+fn test_parse_call_function_call_result()
+{
+    let input = "foo(5)(6)".to_string();
+    let root = Ast::parse(lex(input));
+
+    let expected = Ast::ReplRoot(sexpr::new_block(list::singleton(
+        sexpr::new(SexprType::Call,
+        list::cons(
+            sexpr::new(SexprType::Call,
+            list::cons(Val::id("foo".to_string()),
+            list::cons(Val::Tuple(vec![Val::Int(5)]),
+            Val::Nil,
+            ))),
+        list::cons(Val::Tuple(vec![Val::Int(6)]),
+        Val::Nil,
+        ))),
+    )));
+    assert_eq!(expected, root);
+}
+
+#[test]
+fn test_parse_constructor_call()
+{
+    let input = "Taco(1, 2)".to_string();
+    let root = Ast::parse(lex(input));
+
+    let expected = Ast::ReplRoot(sexpr::new_block(list::singleton(
+        sexpr::new(SexprType::Call,
+        list::cons(Val::Type(Type::Id(Arc::new("Taco".to_string()))),
+        list::cons(Val::Tuple(vec![Val::Int(1), Val::Int(2)]),
+        Val::Nil,
+        ))),
+    )));
+    assert_eq!(expected, root);
+}
+
 }

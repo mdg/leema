@@ -316,23 +316,17 @@ if_case(A) ::= PIPE ELSE block(B). {
 
 
 /* regular function call */
-expr(A) ::= call_id(B) LPAREN RPAREN. {
+expr(A) ::= expr(B) LPAREN RPAREN. {
 	verbose_out!("zero param function call!");
 	A = sexpr::call(B, vec![]);
 }
-expr(A) ::= call_id(B) LPAREN expr(C) RPAREN. {
+expr(A) ::= expr(B) LPAREN expr(C) RPAREN. {
 	verbose_out!("one param function call!");
 	A = sexpr::call(B, vec![C]);
 }
-expr(A) ::= call_id(B) LPAREN tuple_args(C) RPAREN. {
+expr(A) ::= expr(B) LPAREN tuple_args(C) RPAREN. {
 	verbose_out!("multi param function call!");
 	A = sexpr::call(B, list::to_vec(C));
-}
-call_id(A) ::= ID(B). {
-    A = Val::id(B);
-}
-call_id(A) ::= typex(B). {
-    A = Val::Type(B);
 }
 /* postfix function call, are we really doing this?
 seems like this should be pretty achievable w/ `[] | empty?`
@@ -493,6 +487,9 @@ expr(A) ::= term(B). { A = B; }
 
 term(A) ::= LPAREN expr(C) RPAREN. {
 	A = C;
+}
+term(A) ::= typex(B). {
+    A = Val::Type(B);
 }
 term(A) ::= ID(B). { A = Val::id(B); }
 /* term(A) ::= var_field(B). { A = Ast::Nothing; } */

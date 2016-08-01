@@ -883,6 +883,9 @@ impl PartialOrd for Val
             (&Val::Hashtag(ref a), &Val::Hashtag(ref b)) => {
                 PartialOrd::partial_cmp(a, b)
             }
+            (&Val::Type(ref a), &Val::Type(ref b)) => {
+                PartialOrd::partial_cmp(a, b)
+            }
             (&Val::Id(ref a), &Val::Id(ref b)) => {
                 PartialOrd::partial_cmp(a, b)
             }
@@ -951,6 +954,12 @@ impl PartialOrd for Val
                 Some(Ordering::Less)
             }
             (_, &Val::Hashtag(_)) => {
+                Some(Ordering::Greater)
+            }
+            (&Val::Type(_), _) => {
+                Some(Ordering::Less)
+            }
+            (_, &Val::Type(_)) => {
                 Some(Ordering::Greater)
             }
             (&Val::Id(_), _) => {
