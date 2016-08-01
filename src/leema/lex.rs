@@ -71,9 +71,6 @@ impl Token
                 parse::TOKEN_ID => {
                     Token::ID((*tok).val())
                 }
-                parse::TOKEN_TYPE_ID => {
-                    Token::TYPE_ID(TokenData::new((*tok).val(), tl))
-                }
                 parse::TOKEN_HASHTAG => {
                     let mut txt = (*tok).val();
                     let hash = txt.remove(0);
@@ -185,11 +182,17 @@ impl Token
                 parse::TOKEN_GTEQ => {
                     Token::GTEQ
                 }
+                parse::TOKEN_TYPE_ID => {
+                    Token::TYPE_ID(TokenData::new((*tok).val(), tl))
+                }
                 parse::TOKEN_TYPE_BOOL => {
                     Token::TYPE_BOOL
                 }
                 parse::TOKEN_TYPE_INT => {
                     Token::TYPE_INT
+                }
+                parse::TOKEN_TYPE_STR => {
+                    Token::TYPE_STR
                 }
                 parse::TOKEN_TYPE_VOID => {
                     Token::TYPE_VOID

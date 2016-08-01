@@ -145,10 +145,7 @@ pub fn defunc(name: Val, args: Val, typ: Val, blk: Val) -> Val
 pub fn def_struct(name: Val, fields: Val) -> Val
 {
     Val::Sexpr(SexprType::DefStruct, Box::new(
-        list::cons(name,
-        list::cons(fields,
-        Val::Nil
-        ))
+        list::cons(name, fields)
     ))
 }
 

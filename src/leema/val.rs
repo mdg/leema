@@ -626,6 +626,11 @@ impl Val {
                 let (body, _) = list::take_ref(m3);
                 write!(f, "DefMacro({},{:?},{:?})", name, args, body)
             }
+            (SexprType::DefStruct, ref ds) => {
+                let (name, m2) = list::take_ref(ds);
+                let (fields, _) = list::take_ref(m2);
+                write!(f, "struct({},{:?})", name, fields)
+            }
             _ => {
                 write!(f, "something else: {:?}/{:?}", st, x)
             }

@@ -437,6 +437,34 @@ fn test_parse_call_function_call_result()
 }
 
 #[test]
+fn test_parse_defstruct()
+{
+    let input = "
+    struct Taco
+    .id: Int
+    .name: Str
+    --
+    ".to_string();
+    let root = Ast::parse(lex(input));
+
+    let expected = Ast::ReplRoot(sexpr::new_block(list::singleton(
+        sexpr::new(SexprType::DefStruct,
+        list::cons(Val::Type(Type::Id(Arc::new("Taco".to_string()))),
+        list::cons(Val::Tuple(vec![
+            Val::id("id".to_string()),
+            Val::Type(Type::Int),
+            ]),
+        list::cons(Val::Tuple(vec![
+            Val::id("name".to_string()),
+            Val::Type(Type::Str),
+            ]),
+        Val::Nil,
+        )))),
+    )));
+    assert_eq!(expected, root);
+}
+
+#[test]
 fn test_parse_constructor_call()
 {
     let input = "Taco(1, 2)".to_string();
