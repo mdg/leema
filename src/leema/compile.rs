@@ -1098,7 +1098,7 @@ verbose_out!("result = {:?}\n", mappl);
         let mut i = 0;
         for mut x in tup {
             if x.dst == Reg::Undecided {
-                x.dst = x.dst.sub(i);
+                x.dst = dst.sub(i);
             }
             i += 1;
             self.assign_registers(&mut x);
@@ -1193,12 +1193,12 @@ fn test_compile_call_no_params()
     let iprog = ss.compile(root.root());
 
     let fname = Iexpr{
-        dst: Reg::R1(0),
+        dst: Reg::new_reg(0),
         typ: Type::Str,
         src: Source::ConstVal(Val::new_str("no_params".to_string())),
     };
     let argt = Iexpr{
-        dst: Reg::R1(1),
+        dst: Reg::new_reg(1),
         typ: Type::Tuple(vec![]),
         src: Source::Tuple(vec![]),
     };
@@ -1308,7 +1308,7 @@ fn test_precompile_if_block()
     let ifprog = ss.compile(root.root());
 
     let test = Iexpr{
-        dst: Reg::R1(0),
+        dst: Reg::new_reg(0),
         typ: Type::Bool,
         src: Source::ConstVal(Val::Bool(true)),
     };
