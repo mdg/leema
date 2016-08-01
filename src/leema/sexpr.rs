@@ -204,7 +204,7 @@ fn test_ast_replace_id()
 #[test]
 fn test_sexpr_empty_call()
 {
-    let c = sexpr::call("testf".to_string(), Val::Nil);
+    let c = sexpr::call("testf".to_string(), vec![]);
     let expected = sexpr::new(SexprType::Call,
         list::cons(Val::id("testf".to_string()),
         list::cons(Val::Tuple(vec![]),
