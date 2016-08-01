@@ -380,16 +380,15 @@ idtype(A) ::= ID(B) COLON texpr(C). {
 /* regular function call */
 expr(A) ::= ID(B) LPAREN RPAREN. {
 	verbose_out!("zero param function call!");
-	A = sexpr::call(B, Val::Nil);
+	A = sexpr::call(B, vec![]);
 }
 expr(A) ::= ID(B) LPAREN expr(C) RPAREN. {
 	verbose_out!("one param function call!");
-	let args = list::singleton(C);
-	A = sexpr::call(B, args);
+	A = sexpr::call(B, vec![C]);
 }
 expr(A) ::= ID(B) LPAREN tuple_args(C) RPAREN. {
 	verbose_out!("multi param function call!");
-	A = sexpr::call(B, C);
+	A = sexpr::call(B, list::to_vec(C));
 }
 /* postfix function call, are we really doing this?
 seems like this should be pretty achievable w/ `[] | empty?`
@@ -465,7 +464,7 @@ expr(A) ::= list(B). { A = B; }
  */
 expr(A) ::= tuple(B). { A = B; }
 expr(A) ::= NOT expr(B). {
-	A = sexpr::call("bool_not".to_string(), list::singleton(B));
+	A = sexpr::call("bool_not".to_string(), vec![B]);
 }
 expr(A) ::= expr(B) ConcatNewline. {
 	let newline = Val::Str(Arc::new("\n".to_string()));
@@ -474,7 +473,7 @@ expr(A) ::= expr(B) ConcatNewline. {
 }
 /* arithmetic */
 expr(A) ::= MINUS expr(B). {
-	A = sexpr::call("negate".to_string(), list::singleton(B));
+	A = sexpr::call("negate".to_string(), vec![B]);
 }
 expr(A) ::= expr(B) PLUS expr(C). {
 	A = sexpr::binaryop("int_add".to_string(), B, C);
@@ -519,7 +518,7 @@ expr(A) ::= expr(B) EQ(P) expr(C). {
 }
 expr(A) ::= expr(B) NEQ(P) expr(C). {
 	let eq = sexpr::binaryop("equal".to_string(), B, C);
-	A = sexpr::call("bool_not".to_string(), list::singleton(eq));
+	A = sexpr::call("bool_not".to_string(), vec![eq]);
 }
 /*
 expr(A) ::= expr(B) LT expr(C) LT expr(D). {

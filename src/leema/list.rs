@@ -46,6 +46,24 @@ pub fn from_tuple(t: &Val) -> Val
     result
 }
 
+pub fn to_vec(mut it: Val) -> Vec<Val>
+{
+    let mut acc = Vec::new();
+    loop {
+        match it {
+            Val::Cons(h, mut t) => {
+                acc.push(*h);
+                it = *t;
+            }
+            Val::Nil => break,
+            _ => {
+                panic!("cannot convert not-List to vector: {:?}", it);
+            }
+        }
+    }
+    acc
+}
+
 pub fn is_empty(l: &Val) -> bool
 {
     match l {
@@ -94,16 +112,6 @@ pub fn map_to_ll<F>(l: Val, op: F) -> LinkedList<Val>
 {
     let mut it = l;
     let acc = LinkedList::new();
-    while it != Val::Nil {
-    }
-    acc
-}
-
-pub fn map_to_vec<R, F>(l: Val, op: F) -> Vec<R>
-    where F: Fn(Val) -> R
-{
-    let mut it = l;
-    let acc = Vec::new();
     while it != Val::Nil {
     }
     acc

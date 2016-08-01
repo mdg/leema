@@ -65,11 +65,9 @@ pub fn strexpr(strs: Val) -> Val
     }
 }
 
-pub fn call(callname: String, input: Val) -> Val
+pub fn call(callname: String, input: Vec<Val>) -> Val
 {
-    // TODO: make this take a vector of inputs instead of a list
-    // only use a tuple if it's a list of more than one item
-    let args = Val::tuple_from_list(input.clone());
+    let args = Val::Tuple(input);
     let callid = Val::id(callname);
     let callargs = list::cons(callid, list::singleton(args));
     Val::Sexpr(SexprType::Call, Box::new(callargs))
@@ -77,8 +75,7 @@ pub fn call(callname: String, input: Val) -> Val
 
 pub fn binaryop(callname: String, a: Val, b: Val) -> Val
 {
-    let args = list::cons(a, list::singleton(b));
-    call(callname, args)
+    call(callname, vec![a, b])
 }
 
 pub fn macro_from_func(f: Val) -> Val

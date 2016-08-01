@@ -1395,7 +1395,7 @@ match (yyp0.minor,) {
  (YYMinorType::YY74(yy0),) => {
 
 	verbose_out!("zero param function call!");
-	yyres = sexpr::call(yy0, Val::Nil);
+	yyres = sexpr::call(yy0, vec![]);
 
 },    _ => unreachable!() };
  YYMinorType::YY14(yyres)
@@ -1413,8 +1413,7 @@ match (yyp0.minor,yyp2.minor,) {
  (YYMinorType::YY74(yy0),YYMinorType::YY14(yy2),) => {
 
 	verbose_out!("one param function call!");
-	let args = list::singleton(yy2);
-	yyres = sexpr::call(yy0, args);
+	yyres = sexpr::call(yy0, vec![yy2]);
 
 },    _ => unreachable!() };
  YYMinorType::YY14(yyres)
@@ -1432,7 +1431,7 @@ match (yyp0.minor,yyp2.minor,) {
  (YYMinorType::YY74(yy0),YYMinorType::YY14(yy2),) => {
 
 	verbose_out!("multi param function call!");
-	yyres = sexpr::call(yy0, yy2);
+	yyres = sexpr::call(yy0, list::to_vec(yy2));
 
 },    _ => unreachable!() };
  YYMinorType::YY14(yyres)
@@ -1735,7 +1734,7 @@ self.yystack.pop().unwrap();
 match (yyp1.minor,) {
  (YYMinorType::YY14(yy1),) => {
 
-	yyres = sexpr::call("bool_not".to_string(), list::singleton(yy1));
+	yyres = sexpr::call("bool_not".to_string(), vec![yy1]);
 
 },    _ => unreachable!() };
  YYMinorType::YY14(yyres)
@@ -1767,7 +1766,7 @@ self.yystack.pop().unwrap();
 match (yyp1.minor,) {
  (YYMinorType::YY14(yy1),) => {
 
-	yyres = sexpr::call("negate".to_string(), list::singleton(yy1));
+	yyres = sexpr::call("negate".to_string(), vec![yy1]);
 
 },    _ => unreachable!() };
  YYMinorType::YY14(yyres)
@@ -1992,7 +1991,7 @@ match (yyp0.minor,yyp2.minor,) {
  (YYMinorType::YY14(yy0),YYMinorType::YY14(yy2),) => {
 
 	let eq = sexpr::binaryop("equal".to_string(), yy0, yy2);
-	yyres = sexpr::call("bool_not".to_string(), list::singleton(eq));
+	yyres = sexpr::call("bool_not".to_string(), vec![eq]);
 
 },    _ => unreachable!() };
  YYMinorType::YY14(yyres)
