@@ -257,8 +257,19 @@ pub fn make_call_ops(dst: &Reg, f: &Iexpr, args: &Iexpr) -> OpVec
 pub fn make_matchexpr_ops(x: &Iexpr, cases: &Iexpr) -> OpVec
 {
 verbose_out!("make_matchexpr_ops({:?},{:?})", x, cases);
-    let mut x_ops = make_sub_ops(&x);
+    let mut x_ops = match x.dst {
+        Reg::Params => {
+            // this means its a match function
+            // nothing to be done here
+            vec![]
+        }
+        _ => {
+            make_sub_ops(&x)
+        }
+    };
+    verbose_out!("call make_matchcase_ops()\n");
     let mut case_ops = make_matchcase_ops(cases, &x.dst);
+    verbose_out!("made matchcase_ops =\n{:?}\n", case_ops);
 
     x_ops.append(&mut case_ops);
     x_ops
@@ -270,13 +281,14 @@ pub fn make_matchcase_ops(matchcase: &Iexpr, xreg: &Reg) -> OpVec
         Source::MatchCase(ref patt, ref code, ref next) => (patt, code, next),
         Source::ConstVal(Val::Void) => {
             // this is here when there's no else case
+            verbose_out!("empty_matchcase_ops\n");
             return vec![];
         }
         _ => {
             panic!("Cannot make ops for a not MatchCase {:?}", matchcase);
         }
     };
-verbose_out!("make_matchcase_ops({:?},{:?},{:?})", patt, code, next);
+verbose_out!("make_matchcase_ops({:?},{:?},{:?})\n", patt, code, next);
     let mut patt_ops = make_pattern_ops(patt);
     let mut code_ops = make_sub_ops(code);
     let mut next_ops = make_matchcase_ops(next, &xreg);
@@ -299,13 +311,17 @@ pub fn make_pattern_ops(pattern: &Iexpr) -> OpVec
     let pdst = pattern.dst.clone();
     match &pattern.src {
         &Source::ConstVal(ref v) => {
-            ops.push(Op::ConstVal(pdst, v.clone()))
+            ops.push(Op::ConstVal(pdst, v.clone()));
         }
         &Source::PatternVar(ref dst) => {
-            ops.push(Op::ConstVal(pdst, Val::PatternVar(dst.clone())))
+            ops.push(Op::ConstVal(pdst, Val::PatternVar(dst.clone())));
         }
-        &Source::Tuple(ref v) => {
-            ops.push(Op::TupleCreate(pdst, v.len() as i8))
+        &Source::Tuple(ref items) => {
+            ops.push(Op::TupleCreate(pdst, items.len() as i8));
+            for i in items {
+                let mut item_ops = make_pattern_ops(i);
+                ops.append(&mut item_ops);
+            }
         }
         _ => {
             panic!("That's not a pattern! {:?}", pattern);

@@ -259,8 +259,11 @@ impl Application
     }
 }
 
-fn execute_const_val(curf: &mut Frame, reg: &Reg, v: &Val) {
+fn execute_const_val(curf: &mut Frame, reg: &Reg, v: &Val)
+{
+verbose_out!("execute_const_val({:?}, {:?})\n", reg, v);
     curf.e.set_reg(reg, v.clone());
+verbose_out!("e: {:?}\n", curf.e);
     curf.pc = curf.pc + 1;
 }
 
@@ -344,12 +347,15 @@ verbose_out!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
 
 fn execute_match_pattern(curf: &mut Frame, jmp: i16, patt: &Reg, input: &Reg)
 {
+    verbose_out!("execute_match_pattern({}, {:?}, {:?})\n", jmp, patt, input);
     let e: &mut Env = &mut curf.e;
     let matches = {
         let pval = e.get_reg(&patt);
         let ival = e.get_reg(&input);
+verbose_out!("match input: {:?}={:?}\n", pval, ival);
         Val::pattern_match(pval, ival)
     };
+verbose_out!("matches: {:?}\n", matches);
     match matches {
         Some(assignments) => {
             for a in assignments {
@@ -394,13 +400,16 @@ fn execute_strcat(w: &mut Worker, curf: &mut Frame, dstreg: &Reg, srcreg: &Reg)
     curf.e.set_reg(dstreg, result);
 }
 
-fn execute_tuple_create(curf: &mut Frame, dst: &Reg, ref sz: i8) {
+fn execute_tuple_create(curf: &mut Frame, dst: &Reg, ref sz: i8)
+{
+    verbose_out!("execute_tuple_create({:?}, {})\n", dst, sz);
     let tupsize: usize = *sz as usize;
     curf.e.set_reg(dst, Val::new_tuple(tupsize));
     curf.pc = curf.pc + 1;
 }
 
-fn execute_load_func(curf: &mut Frame, dst: &Reg, ms: &ModSym) {
+fn execute_load_func(curf: &mut Frame, dst: &Reg, ms: &ModSym)
+{
     curf.pc = curf.pc + 1;
 }
 
