@@ -62,6 +62,9 @@ impl Token
                 parse::TOKEN_MACRO => {
                     Token::MACRO
                 }
+                parse::TOKEN_STRUCT => {
+                    Token::STRUCT
+                }
                 parse::TOKEN_INT => {
                     Token::INT((*tok).ival())
                 }
@@ -69,7 +72,7 @@ impl Token
                     Token::ID((*tok).val())
                 }
                 parse::TOKEN_TYPE_ID => {
-                    Token::TYPE_ID((*tok).val())
+                    Token::TYPE_ID(TokenData::new((*tok).val(), tl))
                 }
                 parse::TOKEN_HASHTAG => {
                     let mut txt = (*tok).val();
@@ -90,6 +93,9 @@ impl Token
                 }
                 parse::TOKEN_COMMA => {
                     Token::COMMA(tl)
+                }
+                parse::TOKEN_DOT => {
+                    Token::DOT
                 }
                 parse::TOKEN_RPAREN => {
                     Token::RPAREN

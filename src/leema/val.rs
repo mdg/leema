@@ -205,6 +205,7 @@ pub enum SexprType {
     Call,
     DefFunc,
     DefMacro,
+    DefStruct,
     CaseExpr,
     IfStmt,
     MatchExpr,

@@ -1,33 +1,11 @@
 
-struct Color
-    .red: Int
-    .blue: Int
-    .green: Int
-
-    func red(this: Color) ->
-        this.red
-    --
---
-
-struct Hsv
-.h: Int
-.s: Int
-.v: Int
---
-
-bind Hsv -> Color
-    func red(this: Hsv) ->
-    --
+struct Rgb
+.red: Int
+.blue: Int
+.green: Int
 --
 
 func main() ->
-    let c = Color(10, 20, 30)
-    let d = construct Color
-        .red = 10
-        .blue = 20
-        .green = 30
-    --
-    let e = Color{ .red = 10 .blue = 20 .green = 30 }
-    let f = Color(red=10, blue=20, green: 30)
+    let c = Rgb(10, 20, 30)
     cout("color: $c\n")
 --

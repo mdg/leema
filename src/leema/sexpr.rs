@@ -65,17 +65,16 @@ pub fn strexpr(strs: Val) -> Val
     }
 }
 
-pub fn call(callname: String, input: Vec<Val>) -> Val
+pub fn call(callid: Val, input: Vec<Val>) -> Val
 {
     let args = Val::Tuple(input);
-    let callid = Val::id(callname);
     let callargs = list::cons(callid, list::singleton(args));
     Val::Sexpr(SexprType::Call, Box::new(callargs))
 }
 
 pub fn binaryop(callname: String, a: Val, b: Val) -> Val
 {
-    call(callname, vec![a, b])
+    call(Val::id(callname), vec![a, b])
 }
 
 pub fn macro_from_func(f: Val) -> Val
@@ -143,6 +142,16 @@ pub fn defunc(name: Val, args: Val, typ: Val, blk: Val) -> Val
     ))
 }
 
+pub fn def_struct(name: Val, fields: Val) -> Val
+{
+    Val::Sexpr(SexprType::DefStruct, Box::new(
+        list::cons(name,
+        list::cons(fields,
+        Val::Nil
+        ))
+    ))
+}
+
 pub fn split(x: Val) -> (SexprType, Val)
 {
     match x {
@@ -204,7 +213,7 @@ fn test_ast_replace_id()
 #[test]
 fn test_sexpr_empty_call()
 {
-    let c = sexpr::call("testf".to_string(), vec![]);
+    let c = sexpr::call(Val::id("testf".to_string()), vec![]);
     let expected = sexpr::new(SexprType::Call,
         list::cons(Val::id("testf".to_string()),
         list::cons(Val::Tuple(vec![]),

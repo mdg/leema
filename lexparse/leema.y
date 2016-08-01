@@ -21,7 +21,7 @@ use std::io::{stderr, Write};
 %type PLUS { TokenLoc }
 %type SLASH { TokenLoc }
 %type StrLit { String }
-%type TYPE_ID { String }
+%type TYPE_ID { TokenData<String> }
 
 %type program { Ast }
 %type stmts { Val }
@@ -35,6 +35,7 @@ use std::io::{stderr, Write};
 %type dfunc_many { Val }
 %type macro_stmt { Val }
 %type macro_args { Val }
+%type call_id { Val }
 %type if_stmt { Val }
 %type else_if { Val }
 %type if_case { Val }
@@ -42,6 +43,9 @@ use std::io::{stderr, Write};
 %type pexpr { Val }
 %type ptuple { Val }
 %type pargs { Val }
+%type def_struct { Val }
+%type struct_fields { Val }
+%type struct_field { Val }
 %type let_stmt { Val }
 %type expr_stmt { Val }
 %type fail_stmt { Val }
@@ -113,15 +117,12 @@ stmts(A) ::= stmt(C) stmts(B). {
 }
 
 
-/* stmt(A) ::= short_func_stmt(B). { A = B; } */
-/* stmt(A) ::= matched_func_stmt(B). { A = B; } */
+stmt(A) ::= def_struct(B). { A = B; }
 stmt(A) ::= let_stmt(B). { A = B; }
 stmt(A) ::= expr_stmt(B). {
     A = B;
 }
 stmt(A) ::= fail_stmt(B). { A = B; }
-/* stmt(A) ::= data_decl(B). { A = B; } */
-stmt(A) ::= DT. { A = Val::Void; }
 stmt(A) ::= func_stmt(B). { A = B; }
 stmt(A) ::= macro_stmt(B). { A = B; }
 /* if_stmt */
@@ -134,72 +135,22 @@ stmt(A) ::= FAILED(B) ID(C) match_block(D). {
 }
 */
 
-/*
-matched_func_stmt(A) ::= long_func_decl(B) match_block(C). {
-	A = B;
-	A->match_block = C;
-	cerr << "function, with matching: " << B->func_name << endl;
-}
-long_func_decl(A) ::= ID(B) FUNCDECL(C). {
-	A = new MatchFuncDefStmt(B->text);
-	A->merge_span(*B, *C);
-	cerr << "func decl, no type: " << B->text <<" @ ";
-	cerr << B->span_front << endl;
-}
-long_func_decl(A) ::= ID(B) typedecl(C) FUNCDECL(D). {
-	A = new MatchFuncDefStmt(B->text);
-	A->type = C;
-	A->merge_span(*B, *D);
-	cerr << "func decl, with type: "<< B->text <<" @ ";
-	cerr << A->span_str() << endl;
-}
-*/
 
-
-/** Data Types
- *
- * Algebraic Data Types or simple structures (which are just ADTs with
- * only one variant whose name matches the data type.
-data_decl(A) ::= DT TYPEID(B) NEWLINE struct_fields(C) END_BLOCK. {
-	/* just pretend that there are more than one * /
-	Val *constructor = Val::tuple2(B, C);
-	Val *constructors(Val::list(list::singleton(constructor)));
-	A = Val::dtype(B, constructors);
+/** Data Structures */
+def_struct(A) ::= STRUCT typex(B) struct_fields(C) DOUBLEDASH. {
+    A = sexpr::def_struct(Val::Type(B), C);
 }
-data_decl(A) ::= DT TYPEID(B) NEWLINE constructors(C) END_BLOCK. {
-	A = Val::dtype(B, C);
-}
-
-constructors(A) ::= constructor(B). {
-	A = Val::list(list::singleton(B));
-}
-constructors(A) ::= constructor(B) constructors(C). {
-	A = Val::cons(B, C);
-}
-
-constructor(A) ::= TYPEID(B) NEWLINE struct_fields(C). {
-	A = Val::tuple2(B, C);
-}
-
-struct_fields(A) ::= struct_field(B) NEWLINE struct_fields(C). {
-	A = Val::cons(B, C);
+struct_fields(A) ::= struct_field(B) struct_fields(C). {
+	A = list::cons(B, C);
 }
 struct_fields(A) ::= . {
-	A = Val::empty_list();
+	A = list::empty();
 }
-struct_field(A) ::= DOT ID(C) TYPEDECL TYPEID(D). {
-	A = Val::tuple(
-		list::cons(C,
-		list::cons(D,
-		NULL)));
+struct_field(A) ::= DOT ID(B) COLON typex(C). {
+	A = Val::Tuple(vec![Val::id(B), Val::Type(C)]);
 }
- */
 
 
-/*
-result_stmt(A) ::= expr_stmt(B). { A = B; }
-result_stmt(A) ::= fail_stmt(B). { A = B; }
-*/
 fail_stmt(A) ::= FAIL(B) HASHTAG(C) term(D). {
 verbose_out!("found fail_stmt {:?}\n", C);
 	/*
@@ -284,7 +235,7 @@ typex(A) ::= TYPE_VOID. {
 	A = Type::Void;
 }
 typex(A) ::= TYPE_ID(B). {
-	A = Type::Id(Arc::new(B));
+	A = Type::Id(Arc::new(B.data));
 }
 
 
@@ -363,32 +314,25 @@ if_case(A) ::= PIPE ELSE block(B). {
     A = B;
 }
 
-/* function with pattern matching
-func_stmt(A) ::= F ID(B) typedecl(T) NEWLINE match_block(C) END_BLOCK. {
-	Val *func = Val::fexpr(C, T);
-	A = Val::tuple2(B, func, LET_ASSIGN);
-}
-
-idtype(A) ::= ID(B). {
-	A = Sexpr::new_idtype(B, Type::AnonVar);
-}
-idtype(A) ::= ID(B) COLON texpr(C). {
-	A = sexpr::idtype(B, C);
-}
-*/
 
 /* regular function call */
-expr(A) ::= ID(B) LPAREN RPAREN. {
+expr(A) ::= call_id(B) LPAREN RPAREN. {
 	verbose_out!("zero param function call!");
 	A = sexpr::call(B, vec![]);
 }
-expr(A) ::= ID(B) LPAREN expr(C) RPAREN. {
+expr(A) ::= call_id(B) LPAREN expr(C) RPAREN. {
 	verbose_out!("one param function call!");
 	A = sexpr::call(B, vec![C]);
 }
-expr(A) ::= ID(B) LPAREN tuple_args(C) RPAREN. {
+expr(A) ::= call_id(B) LPAREN tuple_args(C) RPAREN. {
 	verbose_out!("multi param function call!");
 	A = sexpr::call(B, list::to_vec(C));
+}
+call_id(A) ::= ID(B). {
+    A = Val::id(B);
+}
+call_id(A) ::= typex(B). {
+    A = Val::Type(B);
 }
 /* postfix function call, are we really doing this?
 seems like this should be pretty achievable w/ `[] | empty?`
@@ -465,7 +409,7 @@ expr(A) ::= list(B). { A = B; }
  */
 expr(A) ::= tuple(B). { A = B; }
 expr(A) ::= NOT expr(B). {
-	A = sexpr::call("bool_not".to_string(), vec![B]);
+	A = sexpr::call(Val::id("bool_not".to_string()), vec![B]);
 }
 expr(A) ::= expr(B) ConcatNewline. {
 	let newline = Val::Str(Arc::new("\n".to_string()));
@@ -474,7 +418,7 @@ expr(A) ::= expr(B) ConcatNewline. {
 }
 /* arithmetic */
 expr(A) ::= MINUS expr(B). {
-	A = sexpr::call("negate".to_string(), vec![B]);
+	A = sexpr::call(Val::id("negate".to_string()), vec![B]);
 }
 expr(A) ::= expr(B) PLUS expr(C). {
 	A = sexpr::binaryop("int_add".to_string(), B, C);
@@ -519,7 +463,7 @@ expr(A) ::= expr(B) EQ(P) expr(C). {
 }
 expr(A) ::= expr(B) NEQ(P) expr(C). {
 	let eq = sexpr::binaryop("equal".to_string(), B, C);
-	A = sexpr::call("bool_not".to_string(), vec![eq]);
+	A = sexpr::call(Val::id("bool_not".to_string()), vec![eq]);
 }
 /*
 expr(A) ::= expr(B) LT expr(C) LT expr(D). {

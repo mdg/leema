@@ -157,7 +157,7 @@ fn test_ast_parse_plus() {
     let root = Ast::parse(lexed);
     let xargs = vec![Val::Int(5), Val::Int(3)];
     let expected = Ast::ReplRoot(sexpr::new(SexprType::BlockExpr,
-        list::singleton(sexpr::call("int_add".to_string(), xargs))
+        list::singleton(sexpr::call(Val::id("int_add".to_string()), xargs))
     ));
     assert_eq!(expected, root);
 }
@@ -210,10 +210,10 @@ fn test_ast_parse_plus_twice() {
     let input = "5 + 3 + 2\n".to_string();
     let root = Ast::parse(lex(input));
 
-    let first_add = sexpr::call("int_add".to_string(),
+    let first_add = sexpr::call(Val::id("int_add".to_string()),
         vec![Val::Int(5), Val::Int(3)],
     );
-    let second_add = sexpr::call("int_add".to_string(),
+    let second_add = sexpr::call(Val::id("int_add".to_string()),
         vec![first_add, Val::Int(2)]
     );
 
@@ -230,12 +230,12 @@ fn test_ast_parse_call_one_param()
     let root = Ast::parse(lex(input));
 
     let neg4 = sexpr::call(
-        "negate".to_string(),
+        Val::id("negate".to_string()),
         vec![Val::Int(4)],
     );
     let expected = Ast::ReplRoot(sexpr::new(SexprType::BlockExpr,
         list::singleton(
-            sexpr::call("inc".to_string(), vec![neg4])
+            sexpr::call(Val::id("inc".to_string()), vec![neg4])
         )
     ));
     assert_eq!(expected, root);
@@ -248,7 +248,7 @@ fn test_ast_parse_function_call() {
 
     let xargs = vec![Val::Int(7), Val::Int(2)];
     let expected = Ast::ReplRoot(sexpr::new(SexprType::BlockExpr,
-        list::singleton(sexpr::call("foo".to_string(), xargs))
+        list::singleton(sexpr::call(Val::id("foo".to_string()), xargs))
     ));
     assert_eq!(expected, root);
 }

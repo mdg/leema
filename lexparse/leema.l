@@ -55,7 +55,7 @@ EOI	\0
 void	{ return set_token(yyg, TOKEN_VOID); }
 
 {SPACE}+	{}
-"\."	{ /* return set_token(yyg, TOKEN_DOT); */ }
+"\."	{ return set_token(yyg, TOKEN_DOT); }
 "$"	{ return set_token(yyg, TOKEN_DOLLAR); }
 "$?"	{ return set_token(yyg, TOKEN_DollarQuestion); }
 "$>"	{ return set_token(yyg, TOKEN_DollarGT); }
@@ -94,6 +94,7 @@ let	{ return set_token(yyg, TOKEN_Let); }
 macro	{ return set_token(yyg, TOKEN_MACRO); }
 match	{ return set_token(yyg, TOKEN_MATCH); }
 mod	{ return set_token(yyg, TOKEN_MOD); }
+struct	{ return set_token(yyg, TOKEN_STRUCT); }
 where	{ return set_token(yyg, TOKEN_WHERE); }
 with	{ return set_token(yyg, TOKEN_WITH); }
 native_and	{ return set_token(yyg, TOKEN_AND); }
