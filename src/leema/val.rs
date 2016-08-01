@@ -473,6 +473,7 @@ impl Val {
             (&Val::Int(p), &Val::Int(i)) if p == i => true,
             (&Val::Bool(p), &Val::Bool(i)) if p == i => true,
             (&Val::Str(ref p), &Val::Str(ref i)) if p == i => true,
+            (&Val::Hashtag(ref p), &Val::Hashtag(ref i)) if p == i => true,
             (&Val::Tuple(ref p), &Val::Tuple(ref i)) if p.len() == i.len() => {
                 let it = p.iter().zip(i.iter());
                 let m = it.fold(true, |m, (p_item, i_item)| {
@@ -878,6 +879,9 @@ impl PartialOrd for Val
             (&Val::Nil, &Val::Nil) => {
                 Some(Ordering::Equal)
             }
+            (&Val::Hashtag(ref a), &Val::Hashtag(ref b)) => {
+                PartialOrd::partial_cmp(a, b)
+            }
             (&Val::Id(ref a), &Val::Id(ref b)) => {
                 PartialOrd::partial_cmp(a, b)
             }
@@ -942,6 +946,12 @@ impl PartialOrd for Val
             (_, &Val::Str(_)) => {
                 Some(Ordering::Greater)
             }
+            (&Val::Hashtag(_), _) => {
+                Some(Ordering::Less)
+            }
+            (_, &Val::Hashtag(_)) => {
+                Some(Ordering::Greater)
+            }
             (&Val::Id(_), _) => {
                 Some(Ordering::Less)
             }
@@ -964,8 +974,7 @@ impl PartialOrd for Val
             (_, &Val::Sexpr(_, _)) => Some(Ordering::Greater),
             //(&Val::Sexpr(_, ref x1), &Val::Sexpr(t2, ref x2)) => {
             _ => {
-                println!("can't compare({:?},{:?})", self, other);
-                None
+                panic!("can't compare({:?},{:?})", self, other);
             }
         }
     }

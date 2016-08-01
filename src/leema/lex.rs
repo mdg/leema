@@ -72,7 +72,12 @@ impl Token
                     Token::TYPE_ID((*tok).val())
                 }
                 parse::TOKEN_HASHTAG => {
-                    Token::HASHTAG(TokenData::new((*tok).val(), tl))
+                    let mut txt = (*tok).val();
+                    let hash = txt.remove(0);
+                    if hash != '#' {
+                        panic!("hashtag didn't start with #? {:?}", hash);
+                    }
+                    Token::HASHTAG(TokenData::new(txt, tl))
                 }
                 parse::TOKEN_ConcatNewline => {
                     Token::ConcatNewline

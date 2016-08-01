@@ -14,6 +14,8 @@ lexparse/lex.c
 lexparse/lex.o
 lexparse/libleemalex.o
 
+# python test files
+__pycache__
 
 # vim editor files
 .*.swp

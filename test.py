@@ -53,6 +53,11 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(0, result['code'])
         self.assertEqual(b"sum(3, 8, 2) = 13\n", result['output'])
 
+    def test_hashtag(self):
+        result = run_leema('hashtag')
+        self.assertEqual(0, result['code'])
+        self.assertEqual(b"h is #foo\nmatched #foo\n", result['output'])
+
 
 if __name__ == '__main__':
     unittest.main()

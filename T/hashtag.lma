@@ -1,5 +1,10 @@
-func hashtag() -- #foo
+func hashtag() -> #foo --
 
 func main() ->
-    hashtag()
+    let h = hashtag()
+    cout("h is $h\n")
+    match h
+    |#foo -> cout("matched #foo\n")
+    |_ -> cout("some other thing? $h\n")
+    --
 --

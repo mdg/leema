@@ -701,6 +701,9 @@ verbose_out!("ixmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
             Val::Bool(_) => {
                 Iexpr::const_val(pexpr)
             }
+            Val::Hashtag(_) => {
+                Iexpr::const_val(pexpr)
+            }
             Val::Wildcard => {
                 Iexpr::const_val(pexpr)
             }
