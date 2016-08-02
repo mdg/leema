@@ -147,7 +147,7 @@ struct_fields(A) ::= . {
 	A = list::empty();
 }
 struct_field(A) ::= DOT ID(B) COLON typex(C). {
-	A = Val::Tuple(vec![Val::id(B.data), Val::Type(C)]);
+	A = sexpr::id_with_type(B.data, C);
 }
 
 

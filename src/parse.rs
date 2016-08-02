@@ -970,7 +970,7 @@ self.yystack.pop().unwrap();
 match (yyp1.minor,yyp3.minor,) {
  (YYMinorType::YY117(yy1),YYMinorType::YY195(yy3),) => {
 
-	yyres = Val::Tuple(vec![Val::id(yy1.data), Val::Type(yy3)]);
+	yyres = sexpr::id_with_type(yy1.data, yy3);
 
 },    _ => unreachable!() };
  YYMinorType::YY24(yyres)

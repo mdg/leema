@@ -58,6 +58,11 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(0, result['code'])
         self.assertEqual(b"h is #foo\nmatched #foo\n", result['output'])
 
+    def test_rgb(self):
+        result = run_leema('rgb')
+        self.assertEqual(0, result['code'])
+        self.assertEqual(b"color: Rgb(10,20,30,)\n", result['output'])
+
 
 if __name__ == '__main__':
     unittest.main()

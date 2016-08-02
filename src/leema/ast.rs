@@ -450,14 +450,8 @@ fn test_parse_defstruct()
     let expected = Ast::ReplRoot(sexpr::new_block(list::singleton(
         sexpr::new(SexprType::DefStruct,
         list::cons(Val::Type(Type::Id(Arc::new("Taco".to_string()))),
-        list::cons(Val::Tuple(vec![
-            Val::id("id".to_string()),
-            Val::Type(Type::Int),
-            ]),
-        list::cons(Val::Tuple(vec![
-            Val::id("name".to_string()),
-            Val::Type(Type::Str),
-            ]),
+        list::cons(sexpr::id_with_type("id".to_string(), Type::Int),
+        list::cons(sexpr::id_with_type("name".to_string(), Type::Str),
         Val::Nil,
         )))),
     )));

@@ -1,5 +1,5 @@
 use leema::reg::{Reg};
-use leema::val::{Val};
+use leema::val::{Val, Type};
 use leema::log;
 use leema::compile::{Iexpr,Source};
 use leema::frame;
@@ -34,6 +34,7 @@ pub enum Op {
     ApplyFunc(Reg, Reg, Reg),
     Return,
     ConstVal(Reg, Val),
+    Constructor(Reg, Type),
     Copy(Reg, Reg),
     Fork(Reg, Reg, Reg),
     //IfFail(Reg, i16),
@@ -192,6 +193,9 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
         Source::Call(ref f, ref args) => {
             make_call_ops(&input.dst, f, args)
         }
+        Source::Constructor(ref typ) => {
+            make_constructor_ops(&input.dst, typ)
+        }
         Source::DefineFunc(ref _name, ref code) => {
             make_ops(code)
         }
@@ -251,6 +255,22 @@ pub fn make_call_ops(dst: &Reg, f: &Iexpr, args: &Iexpr) -> OpVec
     let mut ops = make_sub_ops(f);
     ops.append(&mut make_sub_ops(args));
     ops.push(Op::ApplyFunc(dst.clone(), freg, argsreg));
+    ops
+}
+
+pub fn make_constructor_ops(dst: &Reg, typ: &Type) -> OpVec
+{
+    let mut ops = vec![];
+    if let &Type::Struct(_, nfields) = typ {
+        ops.push(Op::Constructor(dst.clone(), typ.clone()));
+        let mut i = 0;
+        while i < nfields {
+            ops.push(Op::Copy(dst.sub(i), Reg::new_param(i)));
+            i += 1;
+        }
+    } else {
+        panic!("Cannot construct a not type");
+    }
     ops
 }
 

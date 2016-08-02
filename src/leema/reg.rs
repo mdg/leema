@@ -96,6 +96,11 @@ impl Reg
         }
     }
 
+    pub fn new_param(p: i8) -> Reg
+    {
+        Reg::Param(Ireg::Reg(p))
+    }
+
     pub fn new_reg(p: i8) -> Reg
     {
         Reg::Reg(Ireg::Reg(p))

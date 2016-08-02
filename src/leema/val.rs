@@ -18,6 +18,8 @@ use std::io::{stderr, Write};
 #[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Hash)]
 pub enum Type
 {
     Int,
@@ -25,7 +27,7 @@ pub enum Type
     Bool,
     Hashtag,
     Tuple(Vec<Type>),
-    Struct(Arc<String>),
+    Struct(Arc<String>, i8),
     Enum(String),
     Func(Vec<Type>, Box<Type>),
     // different from base collection/map interfaces?
@@ -114,7 +116,7 @@ impl fmt::Display for Type
             &Type::Bool => write!(f, "Bool"),
             &Type::Hashtag => write!(f, "Hashtag"),
             &Type::Tuple(ref items) => write!(f, "Ttuple()"),
-            &Type::Struct(ref name) => write!(f, "Struct"),
+            &Type::Struct(ref name, nfields) => write!(f, "{}", name),
             &Type::Enum(ref name) => write!(f, "Enum"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
@@ -224,6 +226,8 @@ pub enum Val {
     Tuple(Vec<Val>),
     Failure,
     Sexpr(SexprType, Box<Val>),
+    Struct(Type, Vec<Val>),
+    Enum(Type, u8, Box<Val>),
     Id(Arc<String>),
     Type(Type),
     Kind(u8),
@@ -664,6 +668,13 @@ impl fmt::Display for Val {
             Val::Tuple(ref t) => {
                 Val::fmt_tuple(f, t, false)
             }
+            Val::Struct(ref name, ref fields) => {
+                write!(f, "{}", name).ok();
+                Val::fmt_tuple(f, fields, false)
+            }
+            Val::Enum(ref name, variant, ref val) => {
+                write!(f, "Enum-{}.{}:{}", name, variant, val)
+            }
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv.t)
             }
@@ -727,7 +738,14 @@ impl fmt::Debug for Val {
             Val::Tuple(ref t) => {
                 write!(f, "tuple/").ok();
                 Val::fmt_tuple(f, t, true).ok();
-                write!(f, "/tuple")
+                write!(f, "/t")
+            }
+            Val::Struct(ref name, ref fields) => {
+                write!(f, "{}", name).ok();
+                Val::fmt_tuple(f, fields, false)
+            }
+            Val::Enum(ref name, variant, ref val) => {
+                write!(f, "Enum-{}.{}:{:?}", name, variant, val)
             }
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv.t)
@@ -837,6 +855,19 @@ impl reg::Iregistry for Val
                     panic!("{:?} too big for {:?}", i, tup);
                 }
                 tup[p as usize].ireg_set(&*s, v);
+            }
+            // set reg on structs
+            (&Ireg::Reg(p), &mut Val::Struct(ref name, ref mut fields)) => {
+                if p as usize >= fields.len() {
+                    panic!("{:?} too big for struct {}({:?})", i, name, fields);
+                }
+                fields[p as usize] = v;
+            }
+            (&Ireg::Sub(p, ref s), &mut Val::Struct(ref name, ref mut fld)) => {
+                if p as usize >= fld.len() {
+                    panic!("{:?} too big for struct {:?}", i, name);
+                }
+                fld[p as usize].ireg_set(&*s, v);
             }
             // set reg on lists
             (&Ireg::Reg(0), &mut Val::Cons(ref mut head, _)) => {
@@ -1101,7 +1132,7 @@ impl Env {
                         rv.ireg_set(i, v)
                     }
                     None => {
-                        panic!("No result set!")
+                        panic!("No result set! {:?}", reg)
                     }
                 }
             }

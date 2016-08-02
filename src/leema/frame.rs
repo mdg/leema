@@ -1,6 +1,6 @@
 #[macro_use]
 use leema::log;
-use leema::val::{Val, Env, FutureVal};
+use leema::val::{Val, Env, FutureVal, Type};
 use leema::reg::{Reg, Ireg};
 use leema::compile::{StaticSpace};
 use leema::code::{self, CodeKey, Code, CodeMap, Op, OpVec, ModSym, RustFunc};
@@ -267,6 +267,19 @@ verbose_out!("e: {:?}\n", curf.e);
     curf.pc = curf.pc + 1;
 }
 
+fn execute_constructor(curf: &mut Frame, reg: &Reg, typ: &Type)
+{
+verbose_out!("execute_constructor({:?}, {:?})\n", reg, typ);
+    if let &Type::Struct(_, nfields) = typ {
+        let mut fields = Vec::with_capacity(nfields as usize);
+        fields.resize(nfields as usize, Val::Void);
+        curf.e.set_reg(reg, Val::Struct(typ.clone(), fields));
+        curf.pc = curf.pc + 1;
+    } else {
+        panic!("Cannot construct not structure: {:?}", typ);
+    }
+}
+
 fn execute_copy(curf: &mut Frame, dst: &Reg, src: &Reg) {
     let src_val = curf.e.get_reg(src).clone();
     curf.e.set_reg(dst, src_val);
@@ -513,6 +526,9 @@ verbose_out!("lock app, find_code\n");
         match op {
             &Op::ConstVal(ref dst, ref v) => {
                 execute_const_val(curf, dst, v);
+            }
+            &Op::Constructor(ref dst, ref typ) => {
+                execute_constructor(curf, dst, typ);
             }
             &Op::Copy(ref dst, ref src) => {
                 execute_copy(curf, dst, src);

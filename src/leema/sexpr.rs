@@ -161,6 +161,21 @@ pub fn split(x: Val) -> (SexprType, Val)
     }
 }
 
+pub fn split_id_with_type(x: Val) -> (Val, Type)
+{
+    if let Val::Sexpr(SexprType::IdWithType, sx) = x {
+        let (id, sx2) = list::take(*sx);
+        let (typval, _) = list::take(sx2);
+        if let Val::Type(typ) = typval {
+            (id, typ)
+        } else {
+            panic!("id_with_type type is not: {:?}", typval);
+        }
+    } else {
+        panic!("Cannot split a not id_with_type: {:?}", x);
+    }
+}
+
 
 /*
 #[derive(Clone)]

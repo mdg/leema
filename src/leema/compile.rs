@@ -20,6 +20,7 @@ pub enum Source
     BooleanOr(Box<Iexpr>, Box<Iexpr>),
     ConstVal(Val),
     Call(Box<Iexpr>, Box<Iexpr>),
+    Constructor(Type),
     BoundVal(Reg),
     DefineFunc(String, Box<Iexpr>),
     Fork(Box<Iexpr>, Box<Iexpr>),
@@ -120,6 +121,15 @@ verbose_out!("new_block> {:?}\n", code);
             dst: Reg::Undecided,
             typ: t,
             src: Source::Call(Box::new(f), Box::new(args)),
+        }
+    }
+
+    fn constructor(t: Type) -> Iexpr
+    {
+        Iexpr{
+            dst: Reg::Result,
+            typ: t.clone(),
+            src: Source::Constructor(t),
         }
     }
 
@@ -228,10 +238,18 @@ pub struct StaticSpace
 {
     scope_name: String,
     func_name: String,
+    // macros
     m: HashMap<Arc<String>, (Vec<Arc<String>>, Val)>,
+    // registers of locally defined labels
     E: HashMap<Arc<String>, Reg>,
+    // types of locally defined labels
     T: HashMap<Arc<String>, Type>,
+    // probably should move this to its own data structre and maybe module
+    // to handle updates and multiple possible type options
     inferred: HashMap<Arc<String>, Type>,
+    // type definitins in type namespace
+    typespace: HashMap<Arc<String>, Type>,
+    typefields: HashMap<Type, Vec<Val>>,
     pub interlib: HashMap<CodeKey, Arc<Iexpr>>,
     pub lib: CodeMap,
     last_reg: Reg,
@@ -249,6 +267,8 @@ impl StaticSpace
             E: HashMap::new(),
             T: HashMap::new(),
             inferred: HashMap::new(),
+            typespace: HashMap::new(),
+            typefields: HashMap::new(),
             interlib: HashMap::new(),
             lib: HashMap::new(),
             last_reg: Reg::Undecided,
@@ -265,6 +285,8 @@ impl StaticSpace
             E: self.E.clone(),
             T: self.T.clone(),
             inferred: HashMap::new(),
+            typespace: self.typespace.clone(),
+            typefields: HashMap::new(),
             interlib: HashMap::new(),
             lib: HashMap::new(),
             last_reg: Reg::Undecided,
@@ -301,7 +323,8 @@ impl StaticSpace
     pub fn define_func(&mut self, name: Arc<String>
         , result: Type, args: Vec<Type>, code: Code)
     {
-        let typ = Type::Func(args, Box::new(result));
+        let typ = Type::Func(args, Box::new(result.clone()));
+        verbose_out!("define {}({:?}): {:?}\n", name, typ, result);
         let key = if *name == "main" {
             CodeKey::Main
         } else if *name == "*script*" {
@@ -366,6 +389,9 @@ impl StaticSpace
                 self.precompile_sexpr(st, *x)
             }
             Val::Id(id) => {
+                self.precompile_id(id)
+            }
+            Val::Type(Type::Id(id)) => {
                 self.precompile_id(id)
             }
             Val::CallParams => {
@@ -519,8 +545,7 @@ verbose_out!("What's in precompile_fork({:?})\n", self.E);
 
     pub fn precompile_defstruct(&mut self, expr: Val)
     {
-        let (nameval, f1) = list::take(expr);
-        let (mut fields, f2) = list::take(f1);
+        let (nameval, mut fields) = list::take(expr);
 verbose_out!("precompile_defstruct({:?},{:?})\n", nameval, fields);
 
         let nametype = nameval.to_type();
@@ -534,7 +559,24 @@ verbose_out!("precompile_defstruct({:?},{:?})\n", nameval, fields);
         if self.type_defined(&name) {
             panic!("Type already defined: {}", name);
         }
-        self.define_type(name.clone(), Type::Struct(name));
+
+        let mut constructor_types = vec![];
+        while let Val::Cons(head, tail) = fields {
+            let (fldname, fldtype) = sexpr::split_id_with_type(*head);
+            constructor_types.push(fldtype);
+            fields = *tail;
+        }
+        let nfields = constructor_types.len() as i8;
+        let struct_type = Type::Struct(name.clone(), nfields);
+        self.typespace.insert(name.clone(), struct_type.clone());
+        let fixpr = Iexpr::constructor(struct_type.clone());
+
+        self.define_func(
+            name.clone(),
+            struct_type,
+            constructor_types,
+            Code::Inter(Arc::new(fixpr)),
+        );
     }
 
     pub fn precompile_macro(&mut self, expr: Val)
@@ -1034,7 +1076,7 @@ verbose_out!("result = {:?}\n", mappl);
         let fbind = self.T.get(fname);
         match fbind {
             Some(&ref typ) => typ.clone(),
-            None => panic!("what is this? {:?}", fbind),
+            None => panic!("what is this? {:?}:{:?}", fname, fbind),
         }
     }
 
@@ -1103,6 +1145,7 @@ verbose_out!("result = {:?}\n", mappl);
             // nothing to recurse into for these
             Source::BoundVal(_) => {}
             Source::ConstVal(_) => {}
+            Source::Constructor(_) => {}
             Source::DefineFunc(_, _) => {}
             Source::PatternVar(_) => {}
             Source::Void => {}
