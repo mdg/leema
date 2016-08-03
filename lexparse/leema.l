@@ -9,6 +9,7 @@ typedef void * yyscan_t;
 int set_token(yyscan_t, int tok);
 int set_token_val(yyscan_t, int tok, const char *val);
 void set_newline(yyscan_t);
+void skip_token(yyscan_t);
 int add_block_comment_depth(yyscan_t, int delta);
 }
 
@@ -130,6 +131,7 @@ Void	{ return set_token(yyg, TOKEN_TYPE_VOID); }
 	BEGIN(STREXPR);
 }
 <STR>"$"	{
+    skip_token(yyg);
 	BEGIN(STRID);
 }
 <STR>"\\\""	{ return set_token_val(yyg, TOKEN_StrLit, "\""); }
@@ -142,9 +144,14 @@ Void	{ return set_token(yyg, TOKEN_TYPE_VOID); }
 	BEGIN(STR);
 	return set_token_val(yyg, TOKEN_ID, yytext);
 }
-<STREXPR>{ID}"}"	{
-	BEGIN(STR);
+<STREXPR>{ID}	{
 	return set_token_val(yyg, TOKEN_ID, yytext);
+}
+<STREXPR>"."	{
+	return set_token(yyg, TOKEN_DOT);
+}
+<STREXPR>"}"	{
+	BEGIN(STR);
 }
 
 

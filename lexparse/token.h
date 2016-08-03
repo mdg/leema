@@ -14,7 +14,8 @@ struct TokenBuffer {
 	size_t length;
 
 	int32_t lineno;
-	int32_t column;
+	int32_t token_column;
+	int32_t next_column;
 	int32_t block_comment_depth;
 };
 

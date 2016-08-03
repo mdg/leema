@@ -11,7 +11,8 @@ struct LibTokenBuffer
     len: usize,
 
     lineno: i32,
-    column: i32,
+    token_column: i32,
+    next_column: i32, // ignored here
     block_comment_depth: i32,
 }
 
@@ -52,7 +53,7 @@ impl Token
     fn from_lib(tok: *const LibTokenBuffer) -> Token
     {
         unsafe {
-            let tl = TokenLoc::new((*tok).lineno, (*tok).column as i16);
+            let tl = TokenLoc::new((*tok).lineno, (*tok).token_column as i16);
             match (*tok).tok {
                 parse::TOKEN_BLOCKARROW => Token::BLOCKARROW,
                 parse::TOKEN_DOUBLEDASH => Token::DOUBLEDASH,
@@ -243,6 +244,7 @@ pub fn lex(mut input: String) -> Vec<Token>
 mod tests
 {
     use parse::Token;
+    use leema::ast::{TokenData, TokenLoc};
 
 #[test]
 fn test_lex_int()
@@ -259,6 +261,22 @@ fn test_lex_minus_int()
     assert_eq!(2, actual.len());
     assert_eq!(Token::MINUS, actual[0]);
     assert_eq!(Token::INT(7), actual[1]);
+}
+
+#[test]
+fn test_lex_string_id()
+{
+    let actual = super::lex("\"hello $who\n\"".to_string());
+    assert_eq!(5, actual.len());
+
+    assert_eq!(Token::StrOpen, actual[0]);
+    assert_eq!(Token::StrLit("hello ".to_string()), actual[1]);
+    assert_eq!(
+        Token::ID(TokenData::new("who".to_string(), TokenLoc::new(1, 9))),
+        actual[2]
+    );
+    assert_eq!(Token::StrLit("\n".to_string()), actual[3]);
+    assert_eq!(Token::StrClose, actual[4]);
 }
 
 }
