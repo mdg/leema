@@ -249,7 +249,7 @@ pub struct StaticSpace
     inferred: HashMap<Arc<String>, Type>,
     // type definitins in type namespace
     typespace: HashMap<Arc<String>, Type>,
-    typefields: HashMap<Type, Vec<Val>>,
+    typefields: HashMap<Type, Vec<(Arc<String>, Type)>>,
     pub interlib: HashMap<CodeKey, Arc<Iexpr>>,
     pub lib: CodeMap,
     last_reg: Reg,
@@ -438,6 +438,9 @@ impl StaticSpace
             SexprType::StrExpr => {
                 self.precompile_str(expr)
             }
+            SexprType::FieldAccess => {
+                self.precompile_fieldaccess(expr)
+            }
             /*
             SexprType::BooleanAnd(a, b) => {
                 let ia = Box::new(self.precompile(*a));
@@ -561,15 +564,19 @@ verbose_out!("precompile_defstruct({:?},{:?})\n", nameval, fields);
         }
 
         let mut constructor_types = vec![];
+        let mut typefields = vec![];
         while let Val::Cons(head, tail) = fields {
             let (fldname, fldtype) = sexpr::split_id_with_type(*head);
-            constructor_types.push(fldtype);
+            constructor_types.push(fldtype.clone());
+            typefields.push((fldname.to_str(), fldtype));
             fields = *tail;
         }
         let nfields = constructor_types.len() as i8;
         let struct_type = Type::Struct(name.clone(), nfields);
         self.typespace.insert(name.clone(), struct_type.clone());
+        self.typefields.insert(struct_type.clone(), typefields);
         let fixpr = Iexpr::constructor(struct_type.clone());
+vout!("typefields now: {:?}\n", self.typefields);
 
         self.define_func(
             name.clone(),
@@ -1023,8 +1030,8 @@ verbose_out!("result = {:?}\n", mappl);
                     }
                     next_s = *tail;
                 }
-                (Some(Val::Id(ls)), Val::Cons(next, tail)) => {
-                    new_strs.push(self.precompile(Val::Id(ls)));
+                (Some(innerx), Val::Cons(next, tail)) => {
+                    new_strs.push(self.precompile(innerx));
                     last_s = Some(*next);
                     next_s = *tail;
                 }
@@ -1042,6 +1049,36 @@ verbose_out!("result = {:?}\n", mappl);
             _ => Iexpr::str(new_strs),
         };
         result
+    }
+
+    pub fn precompile_fieldaccess(&mut self, expr: Val) -> Iexpr
+    {
+vout!("typefields at fieldaccess: {:?}\n", self.typefields);
+        let (raw_base, x2) = list::take(expr);
+        let (raw_field, _) = list::take(x2);
+
+        let base = self.precompile(raw_base);
+
+        let field_name = match raw_field {
+            Val::Id(fld_name) => fld_name,
+            _ => {
+                panic!("Not a field name! {:?}", raw_field);
+            }
+        };
+
+        if base.typ == Type::Unknown {
+            panic!("type of {:?} is unknown. Cannot access {} field",
+                base, field_name);
+        }
+        // lookup fields in 
+        let found_field = self.lookup_field_by_name(&base.typ, &*field_name);
+        if found_field.is_none() {
+            vout!("cannot find field: {}", field_name);
+            vout!(" in {:?}\n", self.typefields);
+            panic!("cannot find field: {}", field_name);
+        }
+        let (ref fldtyp, fldidx) = found_field.unwrap();
+        base
     }
 
     pub fn precompile_list(&mut self, items: Val) -> Iexpr
@@ -1078,6 +1115,25 @@ verbose_out!("result = {:?}\n", mappl);
             Some(&ref typ) => typ.clone(),
             None => panic!("what is this? {:?}:{:?}", fname, fbind),
         }
+    }
+
+    pub fn lookup_field_by_name(&self, stype: &Type, fname: &String) ->
+        Option<(&Type, u8)>
+    {
+        let sfields_opt = self.typefields.get(stype);
+        if sfields_opt.is_none() {
+            return None;
+        }
+        let sfields = sfields_opt.unwrap();
+        let mut i = 0;
+        for sf in sfields {
+            let &(ref sfname, ref sftype): &(Arc<String>, Type) = sf;
+            if (**sfname) == *fname {
+                return Some((sftype, i));
+            }
+            i += 1;
+        }
+        return None;
     }
 
     pub fn assign_registers(&mut self, i: &mut Iexpr)
@@ -1449,6 +1505,31 @@ fn test_compile_func_oneline_untyped()
     assert_eq!(expected, iprog);
     // but also assert that the function was defined!
     assert!(ss.defined(&"inc".to_string()));
+}
+
+#[test]
+fn test_compile_strx_field_access()
+{
+    let input = "
+    struct Foo
+        .fld: Int
+    --
+    func foo_fld(s: Foo): Str -> \"hello ${s.fld}\" --
+    ".to_string();
+    let root = Ast::parse(lex(input));
+    let mut ss = prefab::new_staticspace();
+
+    let root = ss.compile(root.root());
+
+    let expected = Iexpr{
+        dst: Reg::Result,
+        typ: Type::Void,
+        src: Source::Block(vec![]),
+    };
+    assert_eq!(expected, root);
+    // but also assert that the function was defined!
+    // for now, as long as compile didn't fail, this is enough
+    assert!(ss.defined(&"foo_fld".to_string()));
 }
 
 #[test]
