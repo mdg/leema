@@ -474,4 +474,24 @@ fn test_parse_constructor_call()
     assert_eq!(expected, root);
 }
 
+#[test]
+fn test_parse_strlit_field_access()
+{
+    let input = "\"hello ${hello.name}\"".to_string();
+    let root = Ast::parse(lex(input));
+
+    let expected = Ast::ReplRoot(sexpr::new_block(list::singleton(
+        sexpr::new(SexprType::StrExpr,
+        list::cons(Val::new_str("hello".to_string()),
+        list::cons(sexpr::new(SexprType::FieldAccess,
+            list::cons(Val::id("hello".to_string()),
+            list::cons(Val::id("name".to_string()),
+            Val::Nil,
+            ))),
+        Val::Nil,
+        ))),
+    )));
+    assert_eq!(expected, root);
+}
+
 }

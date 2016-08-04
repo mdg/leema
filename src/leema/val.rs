@@ -213,6 +213,7 @@ pub enum SexprType {
     LessThan3(bool, bool),
     BooleanAnd,
     BooleanOr,
+    FieldAccess,
 }
 
 #[derive(Clone)]

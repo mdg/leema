@@ -43,9 +43,9 @@ use std::io::{stderr, Write};
 %type pexpr { Val }
 %type ptuple { Val }
 %type pargs { Val }
-%type def_struct { Val }
-%type struct_fields { Val }
-%type struct_field { Val }
+%type defstruct { Val }
+%type defstruct_fields { Val }
+%type defstruct_field { Val }
 %type let_stmt { Val }
 %type expr_stmt { Val }
 %type fail_stmt { Val }
@@ -56,12 +56,15 @@ use std::io::{stderr, Write};
 %type id_type { Val }
 %type cases { Val }
 
+%type field_access { Val }
 %type list { Val }
 %type list_items { Val }
 %type tuple { Val }
 %type tuple_args { Val }
 %type strexpr { Val }
 %type strlist { Val }
+%type strlist_field_access { Val }
+%type more_strlist_field_access { Val }
 
 
 %nonassoc ASSIGN BLOCKARROW WHERE GIVEN.
@@ -117,7 +120,7 @@ stmts(A) ::= stmt(C) stmts(B). {
 }
 
 
-stmt(A) ::= def_struct(B). { A = B; }
+stmt(A) ::= defstruct(B). { A = B; }
 stmt(A) ::= let_stmt(B). { A = B; }
 stmt(A) ::= expr_stmt(B). {
     A = B;
@@ -137,16 +140,16 @@ stmt(A) ::= FAILED(B) ID(C) match_block(D). {
 
 
 /** Data Structures */
-def_struct(A) ::= STRUCT typex(B) struct_fields(C) DOUBLEDASH. {
+defstruct(A) ::= STRUCT typex(B) defstruct_fields(C) DOUBLEDASH. {
     A = sexpr::def_struct(Val::Type(B), C);
 }
-struct_fields(A) ::= struct_field(B) struct_fields(C). {
+defstruct_fields(A) ::= defstruct_field(B) defstruct_fields(C). {
 	A = list::cons(B, C);
 }
-struct_fields(A) ::= . {
+defstruct_fields(A) ::= . {
 	A = list::empty();
 }
-struct_field(A) ::= DOT ID(B) COLON typex(C). {
+defstruct_field(A) ::= DOT ID(B) COLON typex(C). {
 	A = sexpr::id_with_type(B.data, C);
 }
 
@@ -492,6 +495,11 @@ term(A) ::= typex(B). {
     A = Val::Type(B);
 }
 term(A) ::= ID(B). { A = Val::id(B.data); }
+/*
+term(A) ::= expr(B) field_access(C). {
+    A = sexpr::new(SexprType::FieldAccess, list::cons(B, C));
+}
+*/
 /* term(A) ::= var_field(B). { A = Ast::Nothing; } */
 term(A) ::= VOID. {
 	A = Val::Void;
@@ -509,20 +517,13 @@ term(A) ::= HASHTAG(B). {
 }
 term(A) ::= strexpr(B). { A = B; }
 
-	/*
-var_field(A) ::= ID(B) DOT ID(C) var_field_depth(D). {
-	A = Val::list(
-		list::cons(B,
-		list::cons(C,
-		D->data.list)), LET_SUBSYMBOL);
+
+field_access(A) ::= DOT ID(B). {
+    A = list::singleton(Val::id(B.data));
 }
-var_field_depth(A) ::= . {
-	// A = Val::empty_list(LET_SUBSYMBOL);
+field_access(A) ::= DOT ID(B) field_access(C). {
+    A = list::cons(Val::id(B.data), C);
 }
-var_field_depth(A) ::= DOT ID(B) var_field_depth(C). {
-	// A = Val::cons(B, C);
-}
-		*/
 
 list(A) ::= SquareL list_items(B) SquareR. {
 	A = B;
@@ -561,3 +562,18 @@ strlist(A) ::= StrLit(B) strlist(C). {
 strlist(A) ::= ID(B) strlist(C). {
 	A = list::cons(Val::id(B.data), C);
 }
+/*
+strlist(A) ::= LPAREN expr(B) RPAREN strlist(C). {
+	A = list::cons(B, C);
+}
+strlist_field_access(A) ::= ID(B) more_strlist_field_access(C). {
+	A = sexpr::new(SexprType::FieldAccess, list::cons(Val::id(B.data), C));
+}
+more_strlist_field_access(A) ::= DOT ID(B). {
+	A = list::singleton(Val::id(B.data));
+}
+more_strlist_field_access(A) ::= DOT ID(B) more_strlist_field_access(C). {
+	A = list::cons(Val::id(B.data), C);
+}
+*/
+
