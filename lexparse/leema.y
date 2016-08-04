@@ -56,15 +56,13 @@ use std::io::{stderr, Write};
 %type id_type { Val }
 %type cases { Val }
 
-%type field_access { Val }
 %type list { Val }
 %type list_items { Val }
 %type tuple { Val }
 %type tuple_args { Val }
 %type strexpr { Val }
 %type strlist { Val }
-%type strlist_field_access { Val }
-%type more_strlist_field_access { Val }
+%type strlist_term { Val }
 
 
 %nonassoc ASSIGN BLOCKARROW WHERE GIVEN.
@@ -75,7 +73,8 @@ use std::io::{stderr, Write};
 %left LT LTEQ.
 %left PLUS MINUS.
 %left TIMES SLASH MOD.
-%nonassoc LPAREN RPAREN.
+%left DOT.
+%left LPAREN RPAREN.
 
 %parse_accept {
 	//println!("parse accepted");
@@ -400,6 +399,15 @@ pargs(A) ::= pexpr(B) COMMA pargs(C). {
 }
 
 
+expr(A) ::= expr(B) DOT ID(C). {
+    A = sexpr::new(SexprType::FieldAccess,
+        list::cons(B,
+        list::cons(Val::id(C.data),
+        Val::Nil,
+        ))
+    );
+}
+
 expr(A) ::= list(B). { A = B; }
 /* tuple
  * (4 + 4, 6 - 7)
@@ -495,12 +503,6 @@ term(A) ::= typex(B). {
     A = Val::Type(B);
 }
 term(A) ::= ID(B). { A = Val::id(B.data); }
-/*
-term(A) ::= expr(B) field_access(C). {
-    A = sexpr::new(SexprType::FieldAccess, list::cons(B, C));
-}
-*/
-/* term(A) ::= var_field(B). { A = Ast::Nothing; } */
 term(A) ::= VOID. {
 	A = Val::Void;
 }
@@ -517,13 +519,6 @@ term(A) ::= HASHTAG(B). {
 }
 term(A) ::= strexpr(B). { A = B; }
 
-
-field_access(A) ::= DOT ID(B). {
-    A = list::singleton(Val::id(B.data));
-}
-field_access(A) ::= DOT ID(B) field_access(C). {
-    A = list::cons(Val::id(B.data), C);
-}
 
 list(A) ::= SquareL list_items(B) SquareR. {
 	A = B;
@@ -559,21 +554,16 @@ strlist(A) ::= . {
 strlist(A) ::= StrLit(B) strlist(C). {
 	A = list::cons(Val::new_str(B), C);
 }
-strlist(A) ::= ID(B) strlist(C). {
-	A = list::cons(Val::id(B.data), C);
-}
-/*
-strlist(A) ::= LPAREN expr(B) RPAREN strlist(C). {
+strlist(A) ::= strlist_term(B) strlist(C). {
 	A = list::cons(B, C);
 }
-strlist_field_access(A) ::= ID(B) more_strlist_field_access(C). {
-	A = sexpr::new(SexprType::FieldAccess, list::cons(Val::id(B.data), C));
+strlist_term(A) ::= ID(B). {
+    A = Val::id(B.data);
 }
-more_strlist_field_access(A) ::= DOT ID(B). {
-	A = list::singleton(Val::id(B.data));
+strlist_term(A) ::= strlist_term(B) DOT ID(C). {
+    A = sexpr::new(SexprType::FieldAccess,
+        list::cons(B,
+        list::cons(Val::id(C.data),
+        Val::Nil,
+    )))
 }
-more_strlist_field_access(A) ::= DOT ID(B) more_strlist_field_access(C). {
-	A = list::cons(Val::id(B.data), C);
-}
-*/
-

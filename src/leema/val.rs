@@ -633,6 +633,11 @@ impl Val {
                 let (fields, _) = list::take_ref(m2);
                 write!(f, "struct({},{:?})", name, fields)
             }
+            (SexprType::FieldAccess, ref fa) => {
+                let (base, fa2) = list::take_ref(fa);
+                let (field, _) = list::take_ref(fa2);
+                write!(f, "({:?}.{})", base, field)
+            }
             _ => {
                 write!(f, "something else: {:?}/{:?}", st, x)
             }
@@ -686,7 +691,7 @@ impl fmt::Display for Val {
                 Val::fmt_sexpr(*t, head, f, false)
             }
             Val::Id(ref name) => {
-                write!(f, "ID({})", name)
+                write!(f, "{}", name)
             }
             Val::Type(ref t) => {
                 write!(f, "{}", t)
