@@ -234,8 +234,9 @@ verbose_out!("new_block> {:?}\n", code);
 pub struct Binding(Reg, Type);
 
 #[derive(Debug)]
-pub struct StaticSpace
+pub struct StaticSpace<'a>
 {
+    parent: Option<&'a StaticSpace<'a>>,
     scope_name: String,
     func_name: String,
     // macros
@@ -256,11 +257,12 @@ pub struct StaticSpace
     _nextreg: i8,
 }
 
-impl StaticSpace
+impl<'a> StaticSpace<'a>
 {
-    pub fn new() -> StaticSpace
+    pub fn new() -> StaticSpace<'a>
     {
         StaticSpace{
+            parent: None,
             scope_name: "".to_string(),
             func_name: "".to_string(),
             m: HashMap::new(),
@@ -276,16 +278,17 @@ impl StaticSpace
         }
     }
 
-    pub fn child(&self, name: &String) -> StaticSpace
+    pub fn child(&'a self, name: &String) -> StaticSpace<'a>
     {
         StaticSpace{
+            parent: Some(self),
             scope_name: format!("{}.{}", self.scope_name, name),
             func_name: name.clone(),
-            m: self.m.clone(),
-            E: self.E.clone(),
-            T: self.T.clone(),
+            m: HashMap::new(),
+            E: HashMap::new(),
+            T: HashMap::new(),
             inferred: HashMap::new(),
-            typespace: self.typespace.clone(),
+            typespace: HashMap::new(),
             typefields: HashMap::new(),
             interlib: HashMap::new(),
             lib: HashMap::new(),
@@ -1258,15 +1261,15 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
     }
 }
 
-pub struct Compiler<'a>
+pub struct Compiler<'a, 'b: 'a>
 {
-    pub ss: &'a mut StaticSpace,
+    pub ss: &'a mut StaticSpace<'b>,
     loader: ast::Loader,
 }
 
-impl<'a> Compiler<'a>
+impl<'a, 'b> Compiler<'a, 'b>
 {
-    pub fn new(ss: &'a mut StaticSpace, l: ast::Loader) -> Compiler
+    pub fn new(ss: &'a mut StaticSpace<'b>, l: ast::Loader) -> Compiler<'a, 'b>
     {
         Compiler {
             ss: ss,

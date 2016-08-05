@@ -301,7 +301,7 @@ println!("read from file: '{}'", input);
     fs.e.set_reg(&Reg::Result, Val::Str(Arc::new(input)));
 }
 
-fn define_macros(ss: &mut StaticSpace)
+fn define_macros<'a, 'b>(ss: &'b mut StaticSpace<'a>)
 {
     verbose_out!("defining prefab macros\n");
     let input = "macro and(a, b) ->
@@ -327,7 +327,7 @@ fn define_macros(ss: &mut StaticSpace)
     verbose_out!("prefab macros compiled\n");
 }
 
-pub fn define_prefab(ss: &mut StaticSpace)
+pub fn define_prefab<'a, 'b>(ss: &'b mut StaticSpace<'a>)
 {
     // set up static space
     ss.define_func(Arc::new("int_add".to_string()), Type::Int,
@@ -384,7 +384,7 @@ pub fn define_prefab(ss: &mut StaticSpace)
     define_macros(ss);
 }
 
-pub fn new_staticspace() -> StaticSpace
+pub fn new_staticspace<'a>() -> StaticSpace<'a>
 {
     let mut ss = StaticSpace::new();
     define_prefab(&mut ss);
