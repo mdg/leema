@@ -621,85 +621,89 @@ verbose_out!("macro_defined({:?},{:?},{:?})\n", name, args, code);
 
         let name = nameval.to_str();
 
-        let mut ss = self.child(&name);
-        let mut argtypes = vec![];
-        let mut i: i8 = 0;
-        let full_types = false;
+        let (funcx, inferred) = {
+            let mut ss = self.child(&name);
+            let mut argtypes = vec![];
+            let mut i: i8 = 0;
+            let full_types = false;
 
-        let mut next_param = params;
-        while next_param != Val::Nil {
-            let (head, tail) = list::take(next_param);
-            if !head.is_id() {
-                panic!("func param not an id {:?}", head);
+            let mut next_param = params;
+            while next_param != Val::Nil {
+                let (head, tail) = list::take(next_param);
+                if !head.is_id() {
+                    panic!("func param not an id {:?}", head);
+                }
+                let (st, sx) = sexpr::split(head);
+                let (pid, ptype_val) = list::take(sx);
+                let var_name = pid.to_str();
+                let ptype = Type::var(var_name.clone());
+                //let ptype = Type(ptype_val)
+                argtypes.push(ptype.clone());
+                ss.define(
+                    Reg::Param(Ireg::Reg(i)),
+                    var_name,
+                    ptype
+                );
+                /*
+                match head {
+                    Sexpr::IdType(var_name, param_type) => {
+                        let ptype = if
+                            param_type == Type::AnonVar
+                        {
+                            Type::Var(
+                                var_name.clone(),
+                                "TypeVar_{}".to_string()
+                            )
+                        } else {
+                            param_type
+                        };
+                        ss.define(
+                            Reg::P1(i),
+                            var_name,
+                            ptype.clone(),
+                        );
+                        argtypes.push(ptype);
+                    }
+                    _ => {
+                        panic!("not an id {:?}"
+                            , head);
+                    }
+                };
+                */
+                next_param = tail;
+                i += 1;
             }
-            let (st, sx) = sexpr::split(head);
-            let (pid, ptype_val) = list::take(sx);
-            let var_name = pid.to_str();
-            let ptype = Type::var(var_name.clone());
-            //let ptype = Type(ptype_val)
-            argtypes.push(ptype.clone());
-            ss.define(
-                Reg::Param(Ireg::Reg(i)),
-                var_name,
-                ptype
-            );
-            /*
-            match head {
-                Sexpr::IdType(var_name, param_type) => {
-                    let ptype = if
-                        param_type == Type::AnonVar
-                    {
-                        Type::Var(
-                            var_name.clone(),
-                            "TypeVar_{}".to_string()
-                        )
-                    } else {
-                        param_type
-                    };
-                    ss.define(
-                        Reg::P1(i),
-                        var_name,
-                        ptype.clone(),
-                    );
-                    argtypes.push(ptype);
+            if !result.is_type() {
+                panic!("Result is not a type? {:?}", result);
+            }
+            let unwrapped_type = result.to_type();
+            let rt = match unwrapped_type {
+                Type::AnonVar => {
+                    Type::Tvar(Arc::new(format!("{}_ResultType", name)))
                 }
                 _ => {
-                    panic!("not an id {:?}"
-                        , head);
+                    unwrapped_type
                 }
             };
-            */
-            next_param = tail;
-            i += 1;
-        }
-        if !result.is_type() {
-            panic!("Result is not a type? {:?}", result);
-        }
-        let unwrapped_type = result.to_type();
-        let rt = match unwrapped_type {
-            Type::AnonVar => {
-                Type::Tvar(Arc::new(format!("{}_ResultType", name)))
-            }
-            _ => {
-                unwrapped_type
-            }
-        };
 verbose_out!("{} type: {:?} -> {:?}\n", name, argtypes, rt);
 
-        // necessary for recursion
-        // if the type isn't predefined, can't recurse
-        let ftype = Type::Func(argtypes.clone(), Box::new(rt));
-        ss.define(Reg::Lib, name.clone(), ftype);
+            // necessary for recursion
+            // if the type isn't predefined, can't recurse
+            let ftype = Type::Func(argtypes.clone(), Box::new(rt));
+            ss.define(Reg::Lib, name.clone(), ftype);
 
-        let fexpr = ss.compile(code);
+            let fexpr = ss.compile(code);
 verbose_out!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
-        let inftypes = ss.apply_inferences(argtypes);
+            let inftypes = ss.apply_inferences(argtypes);
 verbose_out!("inftypes> {:?}\n", inftypes);
+            (fexpr, inftypes)
+        };
+
         self.define_func(
             name.clone(),
-            fexpr.typ.clone(),
-            inftypes,
-            Code::Inter(Arc::new(fexpr)),
+            funcx.typ.clone(),
+            inferred,
+            Code::Inter(Arc::new(funcx)),
         );
     }
 
