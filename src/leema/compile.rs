@@ -2,6 +2,7 @@ use leema::val::{Val,SexprType,Type};
 use leema::list;
 use leema::log;
 use leema::sexpr;
+use leema::scope::Scope;
 use leema::reg::{Reg, Ireg};
 use leema::ast;
 use leema::code::{self, CodeKey, CodeMap, Code, OpVec};
@@ -237,6 +238,7 @@ pub struct Binding(Reg, Type);
 pub struct StaticSpace<'a>
 {
     parent: Option<&'a StaticSpace<'a>>,
+    scope: Scope,
     scope_name: String,
     func_name: String,
     // macros
@@ -263,6 +265,7 @@ impl<'a> StaticSpace<'a>
     {
         StaticSpace{
             parent: None,
+            scope: Scope::new("__script".to_string()),
             scope_name: "".to_string(),
             func_name: "".to_string(),
             m: HashMap::new(),
@@ -282,6 +285,7 @@ impl<'a> StaticSpace<'a>
     {
         StaticSpace{
             parent: Some(self),
+            scope: Scope::new(name.clone()),
             scope_name: format!("{}.{}", self.scope_name, name),
             func_name: name.clone(),
             m: HashMap::new(),
@@ -620,6 +624,7 @@ verbose_out!("macro_defined({:?},{:?},{:?})\n", name, args, code);
         let (code, _) = list::take(f3);
 
         let name = nameval.to_str();
+        Scope::push_child(&mut self.scope, (*name).clone());
 
         let (funcx, inferred) = {
             let mut ss = self.child(&name);

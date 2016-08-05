@@ -6,6 +6,7 @@ pub mod compile;
 pub mod frame;
 pub mod lex;
 pub mod val;
+pub mod scope;
 pub mod list;
 pub mod prefab;
 pub mod reg;
