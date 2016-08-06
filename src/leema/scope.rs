@@ -3,7 +3,7 @@ use leema::list;
 use leema::log;
 use leema::reg::{Reg, Ireg};
 use leema::sexpr;
-use std::collections::{HashMap};
+use std::collections::{HashMap, LinkedList};
 use std::sync::Arc;
 use std::io::{stderr, Write};
 use std::mem;
@@ -124,6 +124,65 @@ impl Scope
                 panic!("mixed lookup_label result");
             }
         }
+    }
+
+    pub fn apply_call_types(&mut self, fname: &String, input_tuple: &Type) -> Type
+    {
+vout!("apply_call_types({}, {:?})\n", fname, input_tuple);
+        let input_args = match input_tuple {
+            &Type::Tuple(ref input_vec) => input_vec,
+            _ => {
+                panic!("call args not a tuple: {:?}", input_tuple);
+            }
+        };
+        let input_len = input_args.len();
+
+        let defined_type_opt = self.T.get(fname);
+        if defined_type_opt.is_none() {
+            panic!("function is undefined: {}", fname);
+        }
+        let defined_type = defined_type_opt.unwrap();
+        let (defined_args, defined_result) = Type::split_func(defined_type);
+
+        let defined_args_len = defined_args.len();
+        if input_len < defined_args_len {
+            panic!("too few args: f{:?} called with {:?}",
+                defined_args, input_args);
+        }
+        if input_len > defined_args_len {
+            panic!("too many args: f{:?} called with {:?}",
+                defined_args, input_args);
+        }
+
+        let mut bad_types = false;
+        for a in input_args.iter().zip(defined_args.iter()) {
+            match a {
+                (&Type::Var(_), &Type::Var(_)) => {
+                    panic!("can't infer types");
+                }
+                (&Type::Unknown, _) => {
+                    panic!("input arg is unknown!");
+                }
+                (_, &Type::Unknown) => {
+                    panic!("defined arg is unknown!");
+                }
+                (&Type::Var(ref i), d) => {
+                    self.inferred.insert((**i).clone(), d.clone());
+                }
+                (i, d) if i == d => {
+                    // types matched, we're good
+                }
+                (i, d) => {
+                    vout!("wrong arg {:?} != {:?}\n", i, d);
+                    bad_types = true;
+                }
+            }
+        }
+        if bad_types {
+            panic!("wrong types: f{:?} called with {:?}",
+                defined_args, input_args);
+        }
+        defined_result.clone()
     }
 
     /**

@@ -839,80 +839,9 @@ verbose_out!("args = {:?}\n", args);
         let fexpr = self.precompile(f);
         let cargs = self.precompile(args);
 verbose_out!("cargs = {:?}\n", cargs);
-        let deftype_opt = self.scope.get_type(&fname);
-        if deftype_opt.is_none() {
-            panic!("function not defined: {}", fname);
-        }
-        let deftype = deftype_opt.unwrap();
-        let call_argtypes = cargs.typ.clone();
-verbose_out!("call_argtypes = {:?}\n", call_argtypes);
-        /*
-        let call_argtypes = cargs.iter().map(|a| {
-            a.typ.clone()
-        }).collect();
-        */
-        let (def_argtypes, def_result) = Type::split_func(deftype);
-        if def_result == &Type::Unknown {
-            panic!("function result type is unknown {}", fname);
-        }
-        let callx = Iexpr::call(def_result.clone(), fexpr, cargs);
-        self.match_types(&def_argtypes, &call_argtypes);
-        callx
-    }
-
-    pub fn match_types(&mut self, def_args: &Vec<Type>
-        , call_arg_type: &Type)
-    {
-//println!("match types? {:?} == {:?}", def_args, call_arg_type);
-        let call_args = match call_arg_type {
-            &Type::Tuple(ref tuple_arg_vec) => tuple_arg_vec,
-            _ => {
-                panic!("call args not a tuple: {:?}",
-                    call_arg_type
-                );
-            }
-        };
-
-        let arg_len = def_args.len();
-        let call_arg_len = call_args.len();
-        if call_arg_len < arg_len {
-            panic!("too few args: f{:?} called with {:?}",
-                def_args, call_args);
-        }
-        if call_arg_len > arg_len {
-            panic!("too many args: f{:?} called with {:?}",
-                def_args, call_args);
-        }
-        let mut i = 0;
-        let mut bad_types = false;
-        while i < arg_len {
-            let def_arg = def_args.get(i).unwrap();
-            let call_arg = call_args.get(i).unwrap();
-
-            if *call_arg == Type::Unknown {
-                panic!("call arg is unknown!");
-            } else if def_arg.is_var() && call_arg.is_var() {
-                panic!("can't infer types");
-            } else if call_arg.is_var() {
-                let name = call_arg.var_name();
-verbose_out!("found arg var named {}\n", name);
-                self.scope.infer_type(call_arg, def_arg);
-            } else if def_arg.is_var() {
-verbose_out!("the function arg is a type var?\n");
-                //bad_types = true;
-            } else if def_arg != call_arg {
-verbose_out!("wrong arg {:?} != {:?}\n", def_arg, call_arg);
-                bad_types = true;
-                break;
-            } else {
-                // arg types match, we're good
-            }
-            i += 1;
-        }
-        if bad_types {
-            panic!("wrong types: f{:?} called with {:?}",
-                def_args, call_args);
-        }
+verbose_out!("cargs.type = {:?}\n", cargs.typ);
+        let call_result = self.scope.apply_call_types(&fname, &cargs.typ);
+        Iexpr::call(call_result, fexpr, cargs)
     }
 
     pub fn precompile_macro_call(&mut self, name: &String, mut argx: Val) -> Iexpr
@@ -1444,7 +1373,7 @@ fn test_compile_func_oneline_untyped()
     };
     assert_eq!(expected, iprog);
     // but also assert that the function was defined!
-    assert!(ss.defined(&"inc".to_string()));
+    assert!(ss.scope.is_label(&"inc".to_string()));
 }
 
 #[test]
@@ -1469,7 +1398,7 @@ fn test_compile_strx_field_access()
     assert_eq!(expected, root);
     // but also assert that the function was defined!
     // for now, as long as compile didn't fail, this is enough
-    assert!(ss.defined(&"foo_fld".to_string()));
+    assert!(ss.scope.is_label(&"foo_fld".to_string()));
 }
 
 #[test]
