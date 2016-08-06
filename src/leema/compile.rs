@@ -235,59 +235,42 @@ verbose_out!("new_block> {:?}\n", code);
 pub struct Binding(Reg, Type);
 
 #[derive(Debug)]
-pub struct StaticSpace<'a>
+pub struct StaticSpace
 {
-    parent: Option<&'a StaticSpace<'a>>,
     scope: Scope,
-    // probably should move this to its own data structre and maybe module
-    // to handle updates and multiple possible type options
-    inferred: HashMap<Arc<String>, Type>,
-    // type definitins in type namespace
-    typespace: HashMap<Arc<String>, Type>,
     typefields: HashMap<Type, Vec<(Arc<String>, Type)>>,
     pub interlib: HashMap<CodeKey, Arc<Iexpr>>,
     pub lib: CodeMap,
     last_reg: Reg,
-    _nextreg: i8,
 }
 
-impl<'a> StaticSpace<'a>
+impl StaticSpace
 {
-    pub fn new() -> StaticSpace<'a>
+    pub fn new() -> StaticSpace
     {
         StaticSpace{
-            parent: None,
             scope: Scope::new("__script".to_string()),
-            inferred: HashMap::new(),
-            typespace: HashMap::new(),
             typefields: HashMap::new(),
             interlib: HashMap::new(),
             lib: HashMap::new(),
             last_reg: Reg::Undecided,
-            _nextreg: 0,
         }
     }
 
-    pub fn child(&'a self, name: &String) -> StaticSpace<'a>
+    pub fn child(&self, name: &String) -> StaticSpace
     {
         StaticSpace{
-            parent: Some(self),
             scope: Scope::new(name.clone()),
-            inferred: HashMap::new(),
-            typespace: HashMap::new(),
             typefields: HashMap::new(),
             interlib: HashMap::new(),
             lib: HashMap::new(),
             last_reg: Reg::Undecided,
-            _nextreg: 0,
         }
     }
 
-    pub fn define_func(&mut self, name: Arc<String>
-        , result: Type, args: Vec<Type>, code: Code)
+    pub fn define_func(&mut self, name: Arc<String>, typ: Type, code: Code)
     {
-        let typ = Type::Func(args, Box::new(result.clone()));
-        verbose_out!("define {}({:?}): {:?}\n", name, typ, result);
+        vout!("define {}:={:?}\n", name, typ);
         let key = if *name == "main" {
             CodeKey::Main
         } else if *name == "*script*" {
@@ -466,7 +449,7 @@ verbose_out!("compile let {} := {}\n", lhs, rhs);
             panic!("{} was already defined", name);
         }
         let mut irhs = self.precompile(rhs);
-        irhs.dst = Reg::new_reg(self.nextreg());
+        irhs.dst = Reg::new_reg(self.scope.nextreg());
         self.last_reg = irhs.dst.clone();
 
         self.scope.assign_label(irhs.dst.clone(), &*name, irhs.typ.clone());
@@ -481,8 +464,8 @@ verbose_out!("compile fork {} := {}\n", name, val);
         }
 
         let mut valexpr = self.compile(val);
-        let dst = Reg::new_reg(self.nextreg());
-        //valexpr.dst = Reg::R1(self.nextreg());
+        let dst = Reg::new_reg(self.scope.nextreg());
+        //valexpr.dst = Reg::R1(self.scope.nextreg());
         self.last_reg = dst.clone();
         self.scope.assign_label(dst.clone(), &*name, valexpr.typ.clone());
 
@@ -491,8 +474,7 @@ verbose_out!("compile fork {} := {}\n", name, val);
         let valexpr_type = valexpr.typ.clone();
         self.define_func(
             fork_name.clone(),
-            valexpr_type.clone(),
-            vec![],
+            Type::f(vec![], valexpr_type.clone()),
             Code::Inter(Arc::new(valexpr)),
         );
         // shouldn't need to type define a function that will
@@ -534,15 +516,14 @@ verbose_out!("precompile_defstruct({:?},{:?})\n", nameval, fields);
         }
         let nfields = constructor_types.len() as i8;
         let struct_type = Type::Struct(name.clone(), nfields);
-        self.typespace.insert(name.clone(), struct_type.clone());
+        self.scope.define_type(&name, &struct_type);
         self.typefields.insert(struct_type.clone(), typefields);
         let fixpr = Iexpr::constructor(struct_type.clone());
 vout!("typefields now: {:?}\n", self.typefields);
 
         self.define_func(
             name.clone(),
-            struct_type,
-            constructor_types,
+            Type::f(constructor_types, struct_type),
             Code::Inter(Arc::new(fixpr)),
         );
     }
@@ -580,7 +561,7 @@ verbose_out!("macro_defined({:?},{:?},{:?})\n", name, args, code);
         let name = nameval.to_str();
         Scope::push_scope(&mut self.scope, (*name).clone());
 
-        let (funcx, inferred) = {
+        let funcx = {
             let mut ss = self.child(&name);
             let mut argtypes = vec![];
             let mut i: i8 = 0;
@@ -653,44 +634,15 @@ verbose_out!("{} type: {:?} -> {:?}\n", name, argtypes, rt);
 
             let fexpr = ss.compile(code);
 verbose_out!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
-            let inftypes = ss.apply_inferences(argtypes);
-verbose_out!("inftypes> {:?}\n", inftypes);
-            (fexpr, inftypes)
+            fexpr
         };
 
         Scope::pop_scope(&mut self.scope);
         self.define_func(
             name.clone(),
             funcx.typ.clone(),
-            inferred,
             Code::Inter(Arc::new(funcx)),
         );
-    }
-
-    pub fn apply_inferences(&self, types: Vec<Type>) -> Vec<Type>
-    {
-        let mut output = vec![];
-        for t in types {
-            let newt = match &t {
-                &Type::Var(ref tv) => {
-                    match self.inferred.get(tv) {
-                        None => None,
-                        Some(newtype) => {
-                            Some(newtype.clone())
-                        }
-                    }
-                }
-                _ => None,
-            };
-            if newt.is_some() {
-verbose_out!("replace {:?} with {:?}\n", t, newt);
-                output.push(newt.unwrap());
-            } else {
-verbose_out!("don't replace {:?} with {:?}\n", t, self.inferred);
-                output.push(t);
-            }
-        }
-        output
     }
 
     pub fn precompile_block(&mut self, items: Val) -> Iexpr
@@ -733,7 +685,7 @@ verbose_out!("ixmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
     {
         match pexpr {
             Val::Id(name) => {
-                let dstreg = Reg::new_reg(self.nextreg());
+                let dstreg = Reg::new_reg(self.scope.nextreg());
                 self.scope.assign_label(dstreg.clone(), &*name, Type::Unknown);
                 Iexpr::new(Source::PatternVar(dstreg))
             }
@@ -1004,10 +956,23 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
         return None;
     }
 
+    pub fn replace_inferred_types(&mut self, i: &mut Iexpr)
+    {
+        // replaces type vars w/ inferred types
+        match self.scope.inferred_type(&i.typ) {
+            Some(inftype) => {
+                i.typ = inftype.clone();
+            }
+            None => {} // not a type var or not inferred
+        }
+    }
+
     pub fn assign_registers(&mut self, i: &mut Iexpr)
     {
+        self.replace_inferred_types(i);
+        // now actually assign registers
         if i.dst == Reg::Undecided {
-            i.dst = Reg::new_reg(self.nextreg());
+            i.dst = Reg::new_reg(self.scope.nextreg());
         }
         match i.src {
             Source::Block(ref mut items) => {
@@ -1117,24 +1082,17 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
         self.assign_registers(i);
 
     }
-
-    pub fn nextreg(&mut self) -> i8
-    {
-        let r = self._nextreg;
-        self._nextreg += 1;
-        r
-    }
 }
 
-pub struct Compiler<'a, 'b: 'a>
+pub struct Compiler<'a>
 {
-    pub ss: &'a mut StaticSpace<'b>,
+    pub ss: &'a mut StaticSpace,
     loader: ast::Loader,
 }
 
-impl<'a, 'b> Compiler<'a, 'b>
+impl<'a> Compiler<'a>
 {
-    pub fn new(ss: &'a mut StaticSpace<'b>, l: ast::Loader) -> Compiler<'a, 'b>
+    pub fn new(ss: &'a mut StaticSpace, l: ast::Loader) -> Compiler<'a>
     {
         Compiler {
             ss: ss,
@@ -1153,8 +1111,7 @@ verbose_out!("script output: {:?}\n", script);
             let stype = script.typ.clone();
             self.ss.define_func(
                 Arc::new("*script*".to_string()),
-                stype,
-                vec![],
+                Type::f(vec![], stype),
                 Code::Inter(Arc::new(script)),
             );
         }
@@ -1191,8 +1148,9 @@ fn test_compile_call_no_params()
     let input = "no_params()\n".to_string();
     let root = Ast::parse(lex(input));
     let mut ss = prefab::new_staticspace();
-    ss.define_func(Arc::new("no_params".to_string()), Type::Void,
-        vec![], Code::Rust(call_with_no_params),
+    ss.define_func(Arc::new("no_params".to_string()),
+        Type::f(vec![], Type::Void),
+        Code::Rust(call_with_no_params),
     );
     let iprog = ss.compile(root.root());
 

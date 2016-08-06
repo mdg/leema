@@ -73,6 +73,11 @@ impl Scope
         mem::replace(s, *tmp.unwrap());
     }
 
+    pub fn is_assigned(&self, name: &String) -> bool
+    {
+        self.is_label(name) || self.is_macro(name) || self.is_type(name)
+    }
+
     pub fn define_macro(&mut self, name: &String, args: Vec<Arc<String>>, body: Val)
     {
         if self.m.contains_key(name) {
@@ -101,7 +106,7 @@ impl Scope
 
     pub fn assign_label(&mut self, r: Reg, name: &String, typ: Type)
     {
-        if self.E.contains_key(name) || self.T.contains_key(name) {
+        if self.is_assigned(name) {
             panic!("label already assigned: {}", name);
         }
         self.E.insert(name.clone(), r);
@@ -185,6 +190,27 @@ vout!("apply_call_types({}, {:?})\n", fname, input_tuple);
         defined_result.clone()
     }
 
+    pub fn inferred_type(&self, typevar: &Type) -> Option<&Type>
+    {
+        match typevar {
+            &Type::Var(ref name) => {
+                /*
+                match self.inferred.get(name) {
+                    Some(t) => t.clone(),
+                    None => {
+                        panic!("Could not infer type: {}", name);
+                    }
+                }
+                */
+                self.inferred.get(&**name)
+            }
+            _ => {
+                // panic!("cannot infer type of not-var: {:?}", typevar);
+                None
+            }
+        }
+    }
+
     /**
      * mark typevar as inferred, and which type.
      *
@@ -212,6 +238,14 @@ vout!("infer_type({}, {:?}) for {}", typevar, newtype, self.scope_name);
         }
     }
 
+    pub fn define_type(&mut self, name: &String, typ: &Type)
+    {
+        if self.is_assigned(name) {
+            panic!("Type is already defined: {}", name);
+        }
+        self.K.insert(name.clone(), typ.clone());
+    }
+
     pub fn is_type(&self, name: &String) -> bool
     {
         self.get_type(name).is_some()
@@ -219,7 +253,7 @@ vout!("infer_type({}, {:?}) for {}", typevar, newtype, self.scope_name);
 
     pub fn get_type(&self, name: &String) -> Option<&Type>
     {
-        let t = self.T.get(name);
+        let t = self.K.get(name);
         if t.is_some() {
             return t;
         }
@@ -227,6 +261,14 @@ vout!("infer_type({}, {:?}) for {}", typevar, newtype, self.scope_name);
             Some(ref p) => p.get_type(name),
             None => None,
         }
+    }
+
+
+    pub fn nextreg(&mut self) -> i8
+    {
+        let r = self._nextreg;
+        self._nextreg += 1;
+        r
     }
 }
 

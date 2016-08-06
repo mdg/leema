@@ -301,7 +301,7 @@ println!("read from file: '{}'", input);
     fs.e.set_reg(&Reg::Result, Val::Str(Arc::new(input)));
 }
 
-fn define_macros<'a, 'b>(ss: &'b mut StaticSpace<'a>)
+fn define_macros(ss: &mut StaticSpace)
 {
     verbose_out!("defining prefab macros\n");
     let input = "macro and(a, b) ->
@@ -327,64 +327,78 @@ fn define_macros<'a, 'b>(ss: &'b mut StaticSpace<'a>)
     verbose_out!("prefab macros compiled\n");
 }
 
-pub fn define_prefab<'a, 'b>(ss: &'b mut StaticSpace<'a>)
+pub fn define_prefab(ss: &mut StaticSpace)
 {
     // set up static space
-    ss.define_func(Arc::new("int_add".to_string()), Type::Int,
-        vec![Type::Int, Type::Int], Code::Rust(int_add),
+    ss.define_func(Arc::new("int_add".to_string()),
+        Type::f(vec![Type::Int, Type::Int], Type::Int),
+        Code::Rust(int_add),
         );
-    ss.define_func(Arc::new("int_sub".to_string()), Type::Int,
-        vec![Type::Int, Type::Int], Code::Rust(int_sub),
+    ss.define_func(Arc::new("int_sub".to_string()),
+        Type::f(vec![Type::Int, Type::Int], Type::Int),
+        Code::Rust(int_sub),
         );
-    ss.define_func(Arc::new("int_mult".to_string()), Type::Int,
-        vec![Type::Int, Type::Int], Code::Rust(int_mult),
+    ss.define_func(Arc::new("int_mult".to_string()),
+        Type::f(vec![Type::Int, Type::Int], Type::Int),
+        Code::Rust(int_mult),
         );
-    ss.define_func(Arc::new("int_mod".to_string()), Type::Int,
-        vec![Type::Int, Type::Int], Code::Rust(int_mod),
+    ss.define_func(Arc::new("int_mod".to_string()),
+        Type::f(vec![Type::Int, Type::Int], Type::Int),
+        Code::Rust(int_mod),
         );
-    ss.define_func(Arc::new("negate".to_string()), Type::Int,
-        vec![Type::Int], Code::Rust(int_negate),
+    ss.define_func(Arc::new("negate".to_string()),
+        Type::f(vec![Type::Int], Type::Int),
+        Code::Rust(int_negate),
         );
-    ss.define_func(Arc::new("bool_not".to_string()), Type::Bool,
-        vec![Type::Bool], Code::Rust(bool_not),
+    ss.define_func(Arc::new("bool_not".to_string()),
+        Type::f(vec![Type::Bool], Type::Bool),
+        Code::Rust(bool_not),
         );
-    ss.define_func(Arc::new("xor".to_string()), Type::Bool,
-        vec![Type::Bool, Type::Bool], Code::Rust(bool_xor),
+    ss.define_func(Arc::new("xor".to_string()),
+        Type::f(vec![Type::Bool, Type::Bool], Type::Bool),
+        Code::Rust(bool_xor),
         );
-    ss.define_func(Arc::new("less_than".to_string()), Type::Bool,
-        vec![Type::Int, Type::Int], Code::Rust(less_than),
+    ss.define_func(Arc::new("less_than".to_string()),
+        Type::f(vec![Type::Int, Type::Int], Type::Bool),
+        Code::Rust(less_than),
         );
-    ss.define_func(Arc::new("less_than_equal".to_string()), Type::Bool,
-        vec![Type::Int, Type::Int], Code::Rust(less_than_equal),
+    ss.define_func(Arc::new("less_than_equal".to_string()),
+        Type::f(vec![Type::Int, Type::Int], Type::Bool),
+        Code::Rust(less_than_equal),
         );
-    ss.define_func(Arc::new("equal".to_string()), Type::Bool,
-        vec![Type::Int, Type::Int], Code::Rust(equal),
+    ss.define_func(Arc::new("equal".to_string()),
+        Type::f(vec![Type::Int, Type::Int], Type::Bool),
+        Code::Rust(equal),
         );
-    ss.define_func(Arc::new("greater_than".to_string()), Type::Bool,
-        vec![Type::Int, Type::Int], Code::Rust(greater_than),
+    ss.define_func(Arc::new("greater_than".to_string()),
+        Type::f(vec![Type::Int, Type::Int], Type::Bool),
+        Code::Rust(greater_than),
         );
-    ss.define_func(Arc::new("greater_than_equal".to_string()), Type::Bool,
-        vec![Type::Int, Type::Int], Code::Rust(greater_than_equal),
+    ss.define_func(Arc::new("greater_than_equal".to_string()),
+        Type::f(vec![Type::Int, Type::Int], Type::Bool),
+        Code::Rust(greater_than_equal),
         );
-    ss.define_func(Arc::new("type".to_string()), Type::Kind,
-        vec![Type::Any], Code::Rust(get_type),
+    ss.define_func(Arc::new("type".to_string()),
+        Type::f(vec![Type::Any], Type::Kind),
+        Code::Rust(get_type),
         );
-    ss.define_func(Arc::new("cout".to_string()), Type::Void,
-        vec![Type::Str], Code::Rust(cout));
+    ss.define_func(Arc::new("cout".to_string()),
+        Type::f(vec![Type::Str], Type::Void),
+        Code::Rust(cout),
+        );
     ss.define_func(Arc::new("file_read".to_string()),
-        Type::Lib("File".to_string()),
-        vec![Type::Str], Code::Rust(file_read)
+        Type::f(vec![Type::Str], Type::Lib("File".to_string())),
+        Code::Rust(file_read),
         );
     ss.define_func(Arc::new("stream_read".to_string()),
-        Type::Void,
-        vec![Type::Lib("File".to_string())],
+        Type::f(vec![Type::Lib("File".to_string())], Type::Void),
         Code::Rust(stream_read_file),
         );
 
     define_macros(ss);
 }
 
-pub fn new_staticspace<'a>() -> StaticSpace<'a>
+pub fn new_staticspace() -> StaticSpace
 {
     let mut ss = StaticSpace::new();
     define_prefab(&mut ss);

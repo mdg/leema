@@ -56,7 +56,13 @@ pub enum Type
     AnonVar,
 }
 
-impl Type {
+impl Type
+{
+    pub fn f(inputs: Vec<Type>, result: Type) -> Type
+    {
+        Type::Func(inputs, Box::new(result))
+    }
+
     pub fn split_func(t: &Type) -> (&Vec<Type>, &Type)
     {
         match t {
