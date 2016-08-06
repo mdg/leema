@@ -52,16 +52,15 @@ pub enum Type
     Unknown,
     Id(Arc<String>),
     Texpr(Arc<String>, Vec<Type>),
-    Tvar(Arc<String>),
-    Var(Arc<String>, Arc<String>),
+    Var(Arc<String>),
     AnonVar,
 }
 
 impl Type {
-    pub fn func_types(t: Type) -> (Vec<Type>, Type)
+    pub fn split_func(t: &Type) -> (&Vec<Type>, &Type)
     {
         match t {
-            Type::Func(args, result) => (args, *result),
+            &Type::Func(ref args, ref result) => (args, &*result),
             _ => {
                 panic!("Not a func type {:?}", t);
             }
@@ -71,7 +70,7 @@ impl Type {
     pub fn is_var(&self) -> bool
     {
         match self {
-            &Type::Var(_, _) => true,
+            &Type::Var(_) => true,
             &Type::AnonVar => true,
             _ => false,
         }
@@ -80,7 +79,7 @@ impl Type {
     pub fn var_name(&self) -> Arc<String>
     {
         match self {
-            &Type::Var(_, ref id) => id.clone(),
+            &Type::Var(ref id) => id.clone(),
             &Type::AnonVar => Arc::new("anon".to_string()),
             _ => {
                 panic!("Not a Type::Var {:?}", self);
@@ -91,18 +90,7 @@ impl Type {
     pub fn var(vname: Arc<String>) -> Type
     {
         let tname = Arc::new(format!("TypeVar_{}", vname));
-        Type::Var(tname, vname)
-    }
-
-    pub fn tmp_type(&self) -> Arc<String>
-    {
-        match self {
-            &Type::Var(ref tmptype, _) => tmptype.clone(),
-            &Type::AnonVar => Arc::new("anonvar".to_string()),
-            _ => {
-                panic!("Not a Type::Var {:?}", self);
-            }
-        }
+        Type::Var(tname)
     }
 }
 
@@ -137,9 +125,8 @@ impl fmt::Display for Type
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::Id(ref name) => write!(f, "TypeId({})", name),
             &Type::Texpr(ref base, ref args) => write!(f, "Texpr"),
-            &Type::Tvar(ref name) => write!(f, "Tvar({})", name),
-            &Type::Var(ref tname, ref vname) => {
-                write!(f, "TypeVar({}, {})", tname, vname)
+            &Type::Var(ref name) => {
+                write!(f, "Type::Var({})", name)
             }
             &Type::AnonVar => write!(f, "TypeAnonymous"),
         }

@@ -239,14 +239,6 @@ pub struct StaticSpace<'a>
 {
     parent: Option<&'a StaticSpace<'a>>,
     scope: Scope,
-    scope_name: String,
-    func_name: String,
-    // macros
-    m: HashMap<Arc<String>, (Vec<Arc<String>>, Val)>,
-    // registers of locally defined labels
-    E: HashMap<Arc<String>, Reg>,
-    // types of locally defined labels
-    T: HashMap<Arc<String>, Type>,
     // probably should move this to its own data structre and maybe module
     // to handle updates and multiple possible type options
     inferred: HashMap<Arc<String>, Type>,
@@ -266,11 +258,6 @@ impl<'a> StaticSpace<'a>
         StaticSpace{
             parent: None,
             scope: Scope::new("__script".to_string()),
-            scope_name: "".to_string(),
-            func_name: "".to_string(),
-            m: HashMap::new(),
-            E: HashMap::new(),
-            T: HashMap::new(),
             inferred: HashMap::new(),
             typespace: HashMap::new(),
             typefields: HashMap::new(),
@@ -286,11 +273,6 @@ impl<'a> StaticSpace<'a>
         StaticSpace{
             parent: Some(self),
             scope: Scope::new(name.clone()),
-            scope_name: format!("{}.{}", self.scope_name, name),
-            func_name: name.clone(),
-            m: HashMap::new(),
-            E: HashMap::new(),
-            T: HashMap::new(),
             inferred: HashMap::new(),
             typespace: HashMap::new(),
             typefields: HashMap::new(),
@@ -299,32 +281,6 @@ impl<'a> StaticSpace<'a>
             last_reg: Reg::Undecided,
             _nextreg: 0,
         }
-    }
-
-    pub fn define(&mut self, r: Reg, name: Arc<String>, typ: Type)
-    {
-        self.E.insert(name.clone(), r);
-        self.T.insert(name, typ);
-    }
-
-    pub fn define_type(&mut self, name: Arc<String>, typ: Type)
-    {
-        self.T.insert(name, typ);
-    }
-
-    pub fn defined(&self, name: &String) -> bool
-    {
-        self.E.get(name).is_some()
-    }
-
-    pub fn is_macro(&self, name: &String) -> bool
-    {
-        self.m.get(name).is_some()
-    }
-
-    pub fn type_defined(&self, name: &String) -> bool
-    {
-        self.T.get(name).is_some()
     }
 
     pub fn define_func(&mut self, name: Arc<String>
@@ -337,8 +293,7 @@ impl<'a> StaticSpace<'a>
         } else if *name == "*script*" {
             CodeKey::Script
         } else {
-            self.E.insert(name.clone(), Reg::Lib);
-            self.T.insert(name.clone(), typ);
+            self.scope.assign_label(Reg::Lib, &*name, typ);
             CodeKey::Name(name)
         };
         match code {
@@ -396,10 +351,10 @@ impl<'a> StaticSpace<'a>
                 self.precompile_sexpr(st, *x)
             }
             Val::Id(id) => {
-                self.precompile_id(id)
+                self.precompile_id(&*id)
             }
             Val::Type(Type::Id(id)) => {
-                self.precompile_id(id)
+                self.precompile_id(&*id)
             }
             Val::CallParams => {
                 Iexpr{
@@ -507,21 +462,21 @@ impl<'a> StaticSpace<'a>
         let (rhs, _ ) = list::take(e2);
 verbose_out!("compile let {} := {}\n", lhs, rhs);
         let name = lhs.to_str();
-        if self.defined(&name) {
+        if self.scope.is_label(&name) {
             panic!("{} was already defined", name);
         }
         let mut irhs = self.precompile(rhs);
         irhs.dst = Reg::new_reg(self.nextreg());
         self.last_reg = irhs.dst.clone();
 
-        self.define(irhs.dst.clone(), name, irhs.typ.clone());
+        self.scope.assign_label(irhs.dst.clone(), &*name, irhs.typ.clone());
         irhs
     }
 
     pub fn precompile_fork(&mut self, name: Arc<String>, val: Val) -> Iexpr
     {
 verbose_out!("compile fork {} := {}\n", name, val);
-        if self.defined(&name) {
+        if self.scope.is_label(&name) {
             panic!("{} was already defined", name);
         }
 
@@ -529,7 +484,7 @@ verbose_out!("compile fork {} := {}\n", name, val);
         let dst = Reg::new_reg(self.nextreg());
         //valexpr.dst = Reg::R1(self.nextreg());
         self.last_reg = dst.clone();
-        self.define(dst.clone(), name.clone(), valexpr.typ.clone());
+        self.scope.assign_label(dst.clone(), &*name, valexpr.typ.clone());
 
         let fork_name = Arc::new(format!("fork_{}", name));
 
@@ -546,7 +501,6 @@ verbose_out!("compile fork {} := {}\n", name, val);
 
         let fork_name_ix = self.precompile(Val::Id(fork_name));
 
-verbose_out!("What's in precompile_fork({:?})\n", self.E);
         // now make an expression to call the new function
         let cargs = Iexpr::tuple(vec![]);
         let forkx = Iexpr::fork(dst, valexpr_type, fork_name_ix, cargs);
@@ -566,7 +520,7 @@ verbose_out!("precompile_defstruct({:?},{:?})\n", nameval, fields);
             }
         };
 
-        if self.type_defined(&name) {
+        if self.scope.is_type(&name) {
             panic!("Type already defined: {}", name);
         }
 
@@ -613,7 +567,7 @@ verbose_out!("precompile_macro({:?},{:?},{:?})\n", nameval, params, code);
         }
 
 verbose_out!("macro_defined({:?},{:?},{:?})\n", name, args, code);
-        self.m.insert(name.clone(), (args, code));
+        self.scope.define_macro(&*name, args, code);
     }
 
     pub fn precompile_defunc(&mut self, func: Val)
@@ -624,7 +578,7 @@ verbose_out!("macro_defined({:?},{:?},{:?})\n", name, args, code);
         let (code, _) = list::take(f3);
 
         let name = nameval.to_str();
-        Scope::push_child(&mut self.scope, (*name).clone());
+        Scope::push_scope(&mut self.scope, (*name).clone());
 
         let (funcx, inferred) = {
             let mut ss = self.child(&name);
@@ -644,10 +598,10 @@ verbose_out!("macro_defined({:?},{:?},{:?})\n", name, args, code);
                 let ptype = Type::var(var_name.clone());
                 //let ptype = Type(ptype_val)
                 argtypes.push(ptype.clone());
-                ss.define(
+                ss.scope.assign_label(
                     Reg::Param(Ireg::Reg(i)),
-                    var_name,
-                    ptype
+                    &*var_name,
+                    ptype,
                 );
                 /*
                 match head {
@@ -684,7 +638,7 @@ verbose_out!("macro_defined({:?},{:?},{:?})\n", name, args, code);
             let unwrapped_type = result.to_type();
             let rt = match unwrapped_type {
                 Type::AnonVar => {
-                    Type::Tvar(Arc::new(format!("{}_ResultType", name)))
+                    Type::Var(Arc::new(format!("{}_ResultType", name)))
                 }
                 _ => {
                     unwrapped_type
@@ -695,7 +649,7 @@ verbose_out!("{} type: {:?} -> {:?}\n", name, argtypes, rt);
             // necessary for recursion
             // if the type isn't predefined, can't recurse
             let ftype = Type::Func(argtypes.clone(), Box::new(rt));
-            ss.define(Reg::Lib, name.clone(), ftype);
+            ss.scope.assign_label(Reg::Lib, &*name, ftype);
 
             let fexpr = ss.compile(code);
 verbose_out!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
@@ -704,6 +658,7 @@ verbose_out!("inftypes> {:?}\n", inftypes);
             (fexpr, inftypes)
         };
 
+        Scope::pop_scope(&mut self.scope);
         self.define_func(
             name.clone(),
             funcx.typ.clone(),
@@ -717,7 +672,7 @@ verbose_out!("inftypes> {:?}\n", inftypes);
         let mut output = vec![];
         for t in types {
             let newt = match &t {
-                &Type::Var(_, ref tv) => {
+                &Type::Var(ref tv) => {
                     match self.inferred.get(tv) {
                         None => None,
                         Some(newtype) => {
@@ -779,7 +734,7 @@ verbose_out!("ixmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
         match pexpr {
             Val::Id(name) => {
                 let dstreg = Reg::new_reg(self.nextreg());
-                self.define(dstreg.clone(), name, Type::Unknown);
+                self.scope.assign_label(dstreg.clone(), &*name, Type::Unknown);
                 Iexpr::new(Source::PatternVar(dstreg))
             }
             Val::Int(_) => {
@@ -838,32 +793,28 @@ verbose_out!("ixif:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
         Iexpr::ifstmt(test, truth, lies)
     }
 
-    pub fn precompile_id(&mut self, name: Arc<String>) -> Iexpr
+    pub fn precompile_id(&mut self, name: &String) -> Iexpr
     {
         // look up stuff in static space
-        let reg = self.E.get(&*name);
-        let typ = self.T.get(&*name);
-        match reg {
+        match self.scope.lookup_label(name) {
+            Some((reg, typ)) => {
+                match reg {
+                    &Reg::Reg(_) => {
+                        Iexpr::bound_val(reg.clone(), typ.clone())
+                    }
+                    &Reg::Param(_) => {
+                        Iexpr::bound_val(reg.clone(), typ.clone())
+                    }
+                    &Reg::Lib => {
+                        Iexpr::const_val(Val::new_str(name.clone()))
+                    }
+                    _ => {
+                        panic!("unexpected reg: {:?}", reg);
+                    }
+                }
+            }
             None => {
-                verbose_out!("what's in E? {:?}\n", self.E);
                 panic!("undefined variable: {}", name);
-            }
-            Some(&Reg::Reg(ref i)) => {
-                verbose_out!("precompile bound var {} = {:?}\n", name, reg);
-                Iexpr::bound_val(Reg::Reg(i.clone()), typ.unwrap().clone())
-            }
-            Some(&Reg::Param(ref i)) => {
-                verbose_out!("precompile param {} = {:?}\n", name, reg);
-                Iexpr::bound_val(Reg::Param(i.clone()), typ.unwrap().clone())
-            }
-            Some(&Reg::Undecided) => {
-                panic!("precompile bound undecided {:?} for {}", reg, name);
-            }
-            Some(&Reg::Lib) => {
-                Iexpr::const_val(Val::Str(name))
-            }
-            Some(_) => {
-                panic!("unexpected reg: {:?}", reg);
             }
         }
     }
@@ -875,7 +826,7 @@ verbose_out!("ixif:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
 verbose_out!("args = {:?}\n", args);
         let fname = match &f {
             &Val::Id(ref name) => {
-                if self.is_macro(name) {
+                if self.scope.is_macro(name) {
                     return self.precompile_macro_call(name, args);
                 }
                 name
@@ -888,7 +839,11 @@ verbose_out!("args = {:?}\n", args);
         let fexpr = self.precompile(f);
         let cargs = self.precompile(args);
 verbose_out!("cargs = {:?}\n", cargs);
-        let deftype = self.function_type(&fname);
+        let deftype_opt = self.scope.get_type(&fname);
+        if deftype_opt.is_none() {
+            panic!("function not defined: {}", fname);
+        }
+        let deftype = deftype_opt.unwrap();
         let call_argtypes = cargs.typ.clone();
 verbose_out!("call_argtypes = {:?}\n", call_argtypes);
         /*
@@ -896,12 +851,13 @@ verbose_out!("call_argtypes = {:?}\n", call_argtypes);
             a.typ.clone()
         }).collect();
         */
-        let (def_argtypes, def_result) = Type::func_types(deftype);
-        if def_result == Type::Unknown {
+        let (def_argtypes, def_result) = Type::split_func(deftype);
+        if def_result == &Type::Unknown {
             panic!("function result type is unknown {}", fname);
         }
+        let callx = Iexpr::call(def_result.clone(), fexpr, cargs);
         self.match_types(&def_argtypes, &call_argtypes);
-        Iexpr::call(def_result, fexpr, cargs)
+        callx
     }
 
     pub fn match_types(&mut self, def_args: &Vec<Type>
@@ -940,11 +896,7 @@ verbose_out!("call_argtypes = {:?}\n", call_argtypes);
             } else if call_arg.is_var() {
                 let name = call_arg.var_name();
 verbose_out!("found arg var named {}\n", name);
-                self.infer_type(
-                    call_arg.var_name(),
-                    call_arg.tmp_type(),
-                    def_arg
-                );
+                self.scope.infer_type(call_arg, def_arg);
             } else if def_arg.is_var() {
 verbose_out!("the function arg is a type var?\n");
                 //bad_types = true;
@@ -963,27 +915,11 @@ verbose_out!("wrong arg {:?} != {:?}\n", def_arg, call_arg);
         }
     }
 
-    pub fn infer_type(&mut self, varname: Arc<String>
-        , tmptype: Arc<String>
-        , newtype: &Type
-    ) {
-verbose_out!("infer_type({}, {}, {:?}) for {}", varname, tmptype, newtype, self.func_name);
-        self.T.remove(&varname);
-        self.T.insert(
-            varname,
-            newtype.clone(),
-            );
-        self.inferred.insert(tmptype, newtype.clone());
-
-        //let f = self.T.get(&self.func_name).unwrap();
-//println!("ftype to fix {:?} in {:?}", f, self.scope_name);
-    }
-
     pub fn precompile_macro_call(&mut self, name: &String, mut argx: Val) -> Iexpr
     {
 verbose_out!("precompile_macro_call({}, {:?})\n", name, argx);
         let mappl = {
-            let &(ref ids, ref body) = self.m.get(name).unwrap();
+            let &(ref ids, ref body) = self.scope.get_macro(name).unwrap();
 verbose_out!("ids = {:?}\n", ids);
 verbose_out!("body = {:?}\n", body);
             let argv = Val::tuple_items(argx);
@@ -1118,15 +1054,6 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
             results.push(ci);
         }
         Iexpr::tuple(results)
-    }
-
-    pub fn function_type(&mut self, fname: &String) -> Type
-    {
-        let fbind = self.T.get(fname);
-        match fbind {
-            Some(&ref typ) => typ.clone(),
-            None => panic!("what is this? {:?}:{:?}", fname, fbind),
-        }
     }
 
     pub fn lookup_field_by_name(&self, stype: &Type, fname: &String) ->
@@ -1385,13 +1312,14 @@ fn test_compile_macro()
     };
     assert_eq!(expected, iprog);
     let macro_name = "mand".to_string();
-    assert!(ss.m.contains_key(&macro_name));
+    let found_macro = ss.scope.get_macro(&macro_name);
+    assert!(found_macro.is_some());
 
-    let &(ref names, ref body) = ss.m.get(&macro_name).unwrap();
+    let &(ref args, ref body) = found_macro.unwrap();
     assert_eq!(vec![
         Arc::new("a".to_string()),
         Arc::new("b".to_string()),
-    ], *names);
+    ], *args);
 
     let block_t = sexpr::new_block(list::singleton(Val::id("b".to_string())));
     let block_f = sexpr::new_block(list::singleton(Val::Bool(false)));

@@ -12,19 +12,19 @@ use std::mem;
 pub struct Scope
 {
     parent: Option<Box<Scope>>,
-    scope_name: String,
-    func_name: String,
+    pub scope_name: String,
+    pub func_name: String,
     // macros
-    m: HashMap<Arc<String>, (Vec<Arc<String>>, Val)>,
+    m: HashMap<String, (Vec<Arc<String>>, Val)>,
     // registers of locally defined labels
-    E: HashMap<Arc<String>, Reg>,
+    E: HashMap<String, Reg>,
     // types of locally defined labels
-    T: HashMap<Arc<String>, Type>,
+    T: HashMap<String, Type>,
     // probably should move this to its own data structre and maybe module
     // to handle updates and multiple possible type options
-    inferred: HashMap<Arc<String>, Type>,
+    inferred: HashMap<String, Type>,
     // type definitins in type namespace
-    typespace: HashMap<Arc<String>, Type>,
+    K: HashMap<String, Type>,
     _nextreg: i8,
 }
 
@@ -40,12 +40,12 @@ impl Scope
             E: HashMap::new(),
             T: HashMap::new(),
             inferred: HashMap::new(),
-            typespace: HashMap::new(),
+            K: HashMap::new(),
             _nextreg: 0,
         }
     }
 
-    pub fn push_child(parent: &mut Scope, func_nm: String)
+    pub fn push_scope(parent: &mut Scope, func_nm: String)
     {
         let new_scope_nm = format!("{}.{}", parent.scope_name, func_nm);
         let mut tmp_scope = Scope{
@@ -56,10 +56,150 @@ impl Scope
             E: HashMap::new(),
             T: HashMap::new(),
             inferred: HashMap::new(),
-            typespace: HashMap::new(),
+            K: HashMap::new(),
             _nextreg: 0,
         };
         mem::swap(parent, &mut tmp_scope);
         parent.parent = Some(Box::new(tmp_scope));
     }
+
+    pub fn pop_scope(s: &mut Scope)
+    {
+        let mut tmp = None;
+        mem::swap(&mut s.parent, &mut tmp);
+        if tmp.is_none() {
+            panic!("No scope left to pop {}");
+        }
+        mem::replace(s, *tmp.unwrap());
+    }
+
+    pub fn define_macro(&mut self, name: &String, args: Vec<Arc<String>>, body: Val)
+    {
+        if self.m.contains_key(name) {
+            panic!("macro is already defined: {}", name);
+        }
+        self.m.insert(name.clone(), (args, body));
+    }
+
+    pub fn is_macro(&self, name: &String) -> bool
+    {
+        self.get_macro(name).is_some()
+    }
+
+    pub fn get_macro<'a>(&'a self, name: &String) -> Option<&'a (Vec<Arc<String>>, Val)>
+    {
+        let m = self.m.get(name);
+        if m.is_some() || self.parent.is_none() {
+            return m;
+        }
+        //this work? self.parent.and_then(|p| p.get_macro(name))
+        match self.parent {
+            Some(ref p) => p.get_macro(name),
+            None => None,
+        }
+    }
+
+    pub fn assign_label(&mut self, r: Reg, name: &String, typ: Type)
+    {
+        if self.E.contains_key(name) || self.T.contains_key(name) {
+            panic!("label already assigned: {}", name);
+        }
+        self.E.insert(name.clone(), r);
+        self.T.insert(name.clone(), typ);
+    }
+
+    pub fn is_label(&self, name: &String) -> bool
+    {
+        self.lookup_label(name).is_some()
+    }
+
+    pub fn lookup_label(&self, name: &String) -> Option<(&Reg, &Type)>
+    {
+        let regopt = self.E.get(name);
+        let typopt = self.T.get(name);
+        match (regopt, typopt) {
+            (Some(ref r), Some(t)) => Some((r, t)),
+            (None, None) => None,
+            _ => {
+                panic!("mixed lookup_label result");
+            }
+        }
+    }
+
+    /**
+     * mark typevar as inferred, and which type.
+     *
+     * panic if it was already inferred w/ a different type.
+     * do nothing if it was already inferred w/ the same type.
+     */
+    pub fn infer_type(&mut self, typevar: &Type, newtype: &Type)
+    {
+vout!("infer_type({}, {:?}) for {}", typevar, newtype, self.scope_name);
+        let tvname = match typevar {
+            &Type::Var(ref tvnm) => tvnm,
+            _ => {
+                panic!("cannot infer not a typevar: {:?}", typevar);
+            }
+        };
+        // avoiding patterns here to avoid borrow overlaps
+        if self.inferred.contains_key(&**tvname) {
+            let old_type = self.inferred.get(&**tvname).unwrap();
+            if old_type != newtype {
+                panic!("typevar previously inferred: {:?} now {:?}",
+                    old_type, newtype); 
+            }
+        } else {
+            self.inferred.insert((**tvname).clone(), newtype.clone());
+        }
+    }
+
+    pub fn is_type(&self, name: &String) -> bool
+    {
+        self.get_type(name).is_some()
+    }
+
+    pub fn get_type(&self, name: &String) -> Option<&Type>
+    {
+        let t = self.T.get(name);
+        if t.is_some() {
+            return t;
+        }
+        match self.parent {
+            Some(ref p) => p.get_type(name),
+            None => None,
+        }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use leema::val::{Val, SexprType, Type};
+    use leema::sexpr;
+    use leema::scope::{Scope};
+
+#[test]
+fn test_push_pop()
+{
+    let mut s = Scope::new("hello".to_string());
+
+    Scope::push_scope(&mut s, "world".to_string());
+    assert_eq!("hello.world".to_string(), s.scope_name);
+
+    Scope::pop_scope(&mut s);
+    assert_eq!("hello".to_string(), s.scope_name);
+}
+
+#[test]
+fn test_macro_defined()
+{
+    let mut s = Scope::new("hello".to_string());
+    let macro_name = "world".to_string();
+    s.define_macro(&macro_name, vec![], Val::Void);
+    assert!(s.is_macro(&macro_name));
+
+    Scope::push_scope(&mut s, "world".to_string());
+    assert!(s.is_macro(&macro_name));
+}
+
 }
