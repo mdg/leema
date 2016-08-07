@@ -257,17 +257,6 @@ impl StaticSpace
         }
     }
 
-    pub fn child(&self, name: &String) -> StaticSpace
-    {
-        StaticSpace{
-            scope: Scope::new(name.clone()),
-            typefields: HashMap::new(),
-            interlib: HashMap::new(),
-            lib: HashMap::new(),
-            last_reg: Reg::Undecided,
-        }
-    }
-
     pub fn define_func(&mut self, name: Arc<String>, typ: Type, code: Code)
     {
         vout!("define {}:={:?}\n", name, typ);
@@ -562,7 +551,6 @@ verbose_out!("macro_defined({:?},{:?},{:?})\n", name, args, code);
         Scope::push_scope(&mut self.scope, (*name).clone());
 
         let funcx = {
-            let mut ss = self.child(&name);
             let mut argtypes = vec![];
             let mut i: i8 = 0;
             let full_types = false;
@@ -579,7 +567,7 @@ verbose_out!("macro_defined({:?},{:?},{:?})\n", name, args, code);
                 let ptype = Type::var(var_name.clone());
                 //let ptype = Type(ptype_val)
                 argtypes.push(ptype.clone());
-                ss.scope.assign_label(
+                self.scope.assign_label(
                     Reg::Param(Ireg::Reg(i)),
                     &*var_name,
                     ptype,
@@ -630,9 +618,9 @@ verbose_out!("{} type: {:?} -> {:?}\n", name, argtypes, rt);
             // necessary for recursion
             // if the type isn't predefined, can't recurse
             let ftype = Type::Func(argtypes.clone(), Box::new(rt));
-            ss.scope.assign_label(Reg::Lib, &*name, ftype);
+            self.scope.assign_label(Reg::Lib, &*name, ftype);
 
-            let fexpr = ss.compile(code);
+            let fexpr = self.compile(code);
 verbose_out!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
             fexpr
         };

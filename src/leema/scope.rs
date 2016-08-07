@@ -97,7 +97,6 @@ impl Scope
         if m.is_some() || self.parent.is_none() {
             return m;
         }
-        //this work? self.parent.and_then(|p| p.get_macro(name))
         match self.parent {
             Some(ref p) => p.get_macro(name),
             None => None,
@@ -124,7 +123,17 @@ impl Scope
         let typopt = self.T.get(name);
         match (regopt, typopt) {
             (Some(ref r), Some(t)) => Some((r, t)),
-            (None, None) => None,
+            (None, None) => {
+                vout!("could not find label, looking in parent: {}\n", name);
+                print!("could not find label, looking in parent: {}\n", name);
+                match self.parent {
+                    Some(ref p) => p.lookup_label(name),
+                    None => {
+                        println!("could not find in parent");
+                        None
+                    }
+                }
+            }
             _ => {
                 panic!("mixed lookup_label result");
             }
@@ -142,52 +151,60 @@ vout!("apply_call_types({}, {:?})\n", fname, input_tuple);
         };
         let input_len = input_args.len();
 
-        let defined_type_opt = self.T.get(fname);
-        if defined_type_opt.is_none() {
-            panic!("function is undefined: {}", fname);
-        }
-        let defined_type = defined_type_opt.unwrap();
-        let (defined_args, defined_result) = Type::split_func(defined_type);
+        let (infers, result_type) = {
+            let func_label = self.lookup_label(fname);
+            if func_label.is_none() {
+                panic!("function is undefined: {}", fname);
+            }
+            let (_, defined_type) = func_label.unwrap();
+            let (defined_args, defined_result) = Type::split_func(defined_type);
 
-        let defined_args_len = defined_args.len();
-        if input_len < defined_args_len {
-            panic!("too few args: f{:?} called with {:?}",
-                defined_args, input_args);
-        }
-        if input_len > defined_args_len {
-            panic!("too many args: f{:?} called with {:?}",
-                defined_args, input_args);
-        }
+            let defined_args_len = defined_args.len();
+            if input_len < defined_args_len {
+                panic!("too few args: f{:?} called with {:?}",
+                    defined_args, input_args);
+            }
+            if input_len > defined_args_len {
+                panic!("too many args: f{:?} called with {:?}",
+                    defined_args, input_args);
+            }
 
-        let mut bad_types = false;
-        for a in input_args.iter().zip(defined_args.iter()) {
-            match a {
-                (&Type::Var(_), &Type::Var(_)) => {
-                    panic!("can't infer types");
-                }
-                (&Type::Unknown, _) => {
-                    panic!("input arg is unknown!");
-                }
-                (_, &Type::Unknown) => {
-                    panic!("defined arg is unknown!");
-                }
-                (&Type::Var(ref i), d) => {
-                    self.inferred.insert((**i).clone(), d.clone());
-                }
-                (i, d) if i == d => {
-                    // types matched, we're good
-                }
-                (i, d) => {
-                    vout!("wrong arg {:?} != {:?}\n", i, d);
-                    bad_types = true;
+            let mut bad_types = false;
+            let mut infers = vec![];
+            for a in input_args.iter().zip(defined_args.iter()) {
+                match a {
+                    (&Type::Var(_), &Type::Var(_)) => {
+                        panic!("can't infer types");
+                    }
+                    (&Type::Unknown, _) => {
+                        panic!("input arg is unknown!");
+                    }
+                    (_, &Type::Unknown) => {
+                        panic!("defined arg is unknown!");
+                    }
+                    (&Type::Var(ref i), d) => {
+                        infers.push(((**i).clone(), d.clone()));
+                    }
+                    (i, d) if i == d => {
+                        // types matched, we're good
+                    }
+                    (i, d) => {
+                        vout!("wrong arg {:?} != {:?}\n", i, d);
+                        bad_types = true;
+                    }
                 }
             }
+            if bad_types {
+                panic!("wrong types: f{:?} called with {:?}",
+                    defined_args, input_args);
+            }
+            (infers, defined_result.clone())
+        };
+        for infer in infers {
+            let (i, d) = infer;
+            self.inferred.insert(i, d);
         }
-        if bad_types {
-            panic!("wrong types: f{:?} called with {:?}",
-                defined_args, input_args);
-        }
-        defined_result.clone()
+        result_type
     }
 
     pub fn inferred_type(&self, typevar: &Type) -> Option<&Type>
@@ -278,6 +295,7 @@ mod tests {
     use leema::val::{Val, SexprType, Type};
     use leema::sexpr;
     use leema::scope::{Scope};
+    use leema::reg::{Reg};
 
 #[test]
 fn test_push_pop()
@@ -301,6 +319,18 @@ fn test_macro_defined()
 
     Scope::push_scope(&mut s, "world".to_string());
     assert!(s.is_macro(&macro_name));
+}
+
+#[test]
+fn test_label_assigned()
+{
+    let mut s = Scope::new("hello".to_string());
+    let label_name = "world".to_string();
+    s.assign_label(Reg::new_param(2), &label_name, Type::Int);
+    assert!(s.is_label(&label_name));
+
+    Scope::push_scope(&mut s, "world".to_string());
+    assert!(s.is_label(&label_name));
 }
 
 }
