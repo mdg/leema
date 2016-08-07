@@ -40,6 +40,14 @@ pub fn new(t: SexprType, v: Val) -> Val
     Val::Sexpr(t, Box::new(v))
 }
 
+pub fn is_type(v: &Val, st: SexprType) -> bool
+{
+    match v {
+        &Val::Sexpr(st, _) => true,
+        _ => false,
+    }
+}
+
 pub fn new_block(lst: Val) -> Val
 {
     Val::Sexpr(SexprType::BlockExpr, Box::new(lst))

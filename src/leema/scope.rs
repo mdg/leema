@@ -26,6 +26,7 @@ pub struct Scope
     // type definitins in type namespace
     K: HashMap<String, Type>,
     _nextreg: i8,
+    _anon_type_idx: i16,
 }
 
 impl Scope
@@ -42,6 +43,7 @@ impl Scope
             inferred: HashMap::new(),
             K: HashMap::new(),
             _nextreg: 0,
+            _anon_type_idx: 0,
         }
     }
 
@@ -58,6 +60,7 @@ impl Scope
             inferred: HashMap::new(),
             K: HashMap::new(),
             _nextreg: 0,
+            _anon_type_idx: 0,
         };
         mem::swap(parent, &mut tmp_scope);
         parent.parent = Some(Box::new(tmp_scope));
@@ -73,15 +76,13 @@ impl Scope
         mem::replace(s, *tmp.unwrap());
     }
 
-    pub fn is_assigned(&self, name: &String) -> bool
-    {
-        self.is_label(name) || self.is_macro(name) || self.is_type(name)
-    }
-
     pub fn define_macro(&mut self, name: &String, args: Vec<Arc<String>>, body: Val)
     {
-        if self.m.contains_key(name) {
-            panic!("macro is already defined: {}", name);
+        if self.is_label(name) {
+            panic!("label already assigned: {}", name);
+        }
+        if self.is_macro(name) {
+            panic!("macro already defined: {}", name);
         }
         self.m.insert(name.clone(), (args, body));
     }
@@ -105,8 +106,11 @@ impl Scope
 
     pub fn assign_label(&mut self, r: Reg, name: &String, typ: Type)
     {
-        if self.is_assigned(name) {
+        if self.is_label(name) {
             panic!("label already assigned: {}", name);
+        }
+        if self.is_macro(name) {
+            panic!("macro already defined: {}", name);
         }
         self.E.insert(name.clone(), r);
         self.T.insert(name.clone(), typ);
@@ -124,12 +128,9 @@ impl Scope
         match (regopt, typopt) {
             (Some(ref r), Some(t)) => Some((r, t)),
             (None, None) => {
-                vout!("could not find label, looking in parent: {}\n", name);
-                print!("could not find label, looking in parent: {}\n", name);
                 match self.parent {
                     Some(ref p) => p.lookup_label(name),
                     None => {
-                        println!("could not find in parent");
                         None
                     }
                 }
@@ -257,7 +258,7 @@ vout!("infer_type({}, {:?}) for {}", typevar, newtype, self.scope_name);
 
     pub fn define_type(&mut self, name: &String, typ: &Type)
     {
-        if self.is_assigned(name) {
+        if self.is_type(name) {
             panic!("Type is already defined: {}", name);
         }
         self.K.insert(name.clone(), typ.clone());
@@ -280,6 +281,13 @@ vout!("infer_type({}, {:?}) for {}", typevar, newtype, self.scope_name);
         }
     }
 
+
+    pub fn new_anon_type(&mut self) -> Type
+    {
+        let idx = self._anon_type_idx;
+        self._anon_type_idx += 1;
+        Type::var(Arc::new(format!("TypeVar_{}", idx)))
+    }
 
     pub fn nextreg(&mut self) -> i8
     {

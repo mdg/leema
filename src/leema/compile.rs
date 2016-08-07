@@ -558,46 +558,18 @@ verbose_out!("macro_defined({:?},{:?},{:?})\n", name, args, code);
             let mut next_param = params;
             while next_param != Val::Nil {
                 let (head, tail) = list::take(next_param);
-                if !head.is_id() {
-                    panic!("func param not an id {:?}", head);
+                if !sexpr::is_type(&head, SexprType::IdWithType) {
+                    panic!("func param not an id with type {:?}", head);
                 }
-                let (st, sx) = sexpr::split(head);
-                let (pid, ptype_val) = list::take(sx);
+                let (pid, raw_ptype) = sexpr::split_id_with_type(head);
                 let var_name = pid.to_str();
-                let ptype = Type::var(var_name.clone());
-                //let ptype = Type(ptype_val)
+                let ptype = self.precompile_type(raw_ptype);
                 argtypes.push(ptype.clone());
                 self.scope.assign_label(
-                    Reg::Param(Ireg::Reg(i)),
+                    Reg::new_param(i),
                     &*var_name,
                     ptype,
                 );
-                /*
-                match head {
-                    Sexpr::IdType(var_name, param_type) => {
-                        let ptype = if
-                            param_type == Type::AnonVar
-                        {
-                            Type::Var(
-                                var_name.clone(),
-                                "TypeVar_{}".to_string()
-                            )
-                        } else {
-                            param_type
-                        };
-                        ss.define(
-                            Reg::P1(i),
-                            var_name,
-                            ptype.clone(),
-                        );
-                        argtypes.push(ptype);
-                    }
-                    _ => {
-                        panic!("not an id {:?}"
-                            , head);
-                    }
-                };
-                */
                 next_param = tail;
                 i += 1;
             }
@@ -759,6 +731,37 @@ verbose_out!("ixif:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
         }
     }
 
+    pub fn precompile_type(&mut self, ptype: Type) -> Type
+    {
+        match ptype {
+            Type::AnonVar => {
+                self.scope.new_anon_type()
+            }
+            Type::Id(type_id) => {
+                let found_type = self.scope.get_type(&*type_id);
+                if found_type.is_none() {
+                    panic!("Undefined type: {}", type_id);
+                }
+                found_type.unwrap().clone()
+            }
+            Type::Var(_) => {
+                ptype
+            }
+            Type::Int => {
+                ptype
+            }
+            Type::Bool => {
+                ptype
+            }
+            Type::Str => {
+                ptype
+            }
+            _ => {
+                panic!("What kind of type is that? {:?}", ptype);
+            }
+        }
+    }
+
     pub fn precompile_call(&mut self, call: Val) -> Iexpr
     {
         let (f, sx) = list::take(call);
@@ -890,9 +893,9 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
         // lookup fields in 
         let found_field = self.lookup_field_by_name(&base.typ, &*field_name);
         if found_field.is_none() {
-            vout!("cannot find field: {}", field_name);
-            vout!(" in {:?}\n", self.typefields);
-            panic!("cannot find field: {}", field_name);
+            print!("cannot find field: {:?}.{}", base.typ, field_name);
+            print!(" in {:?}\n", self.typefields);
+            panic!("cannot find field: {:?}.{}", base.typ, field_name);
         }
         let (ref fldtyp, fldidx) = found_field.unwrap();
         base
