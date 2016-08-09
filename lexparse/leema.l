@@ -63,6 +63,7 @@ void	{ return set_token(yyg, TOKEN_VOID); }
 ":"	{ return set_token(yyg, TOKEN_COLON); }
 "->"	{ return set_token(yyg, TOKEN_BLOCKARROW); }
 "--"	{ return set_token(yyg, TOKEN_DOUBLEDASH); }
+":="	{ return set_token(yyg, TOKEN_ASSIGN); }
 "="	{ return set_token(yyg, TOKEN_EQ); }
 "<"	{ return set_token(yyg, TOKEN_LT); }
 "<="	{ return set_token(yyg, TOKEN_LTEQ); }

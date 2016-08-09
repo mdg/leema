@@ -165,7 +165,7 @@ verbose_out!("found fail_stmt {:?}\n", C);
 	A = Val::Failure;
 }
 
-let_stmt(A) ::= Let ID(B) EQ expr(C). {
+let_stmt(A) ::= Let ID(B) ASSIGN expr(C). {
 	let letx =
         list::cons(Val::id(B.data),
         list::cons(C,
@@ -173,7 +173,7 @@ let_stmt(A) ::= Let ID(B) EQ expr(C). {
         ));
 	A = sexpr::new(SexprType::Let, letx);
 }
-let_stmt(A) ::= Fork ID(B) EQ expr(C). {
+let_stmt(A) ::= Fork ID(B) ASSIGN expr(C). {
 	let bind = list::cons(Val::new_str(B.data), list::singleton(C));
 	A = sexpr::new(SexprType::Fork, bind);
 }

@@ -53,7 +53,7 @@ bind PatternMatch<String, String, String>
 
 func foo(a <: Eq, b: Eq) {
     if Eq.equal(a, b) {
-        let x = PatternMatch.patt_match(a, b)
+        let x := PatternMatch.patt_match(a, b)
     }
 }
 
@@ -90,7 +90,7 @@ struct Foo<T<:Additive, Eq>>
     a: T<Eq, Additive>
 }
 
-let x = Any<:Eq, Additive>
+let x := Any<:Eq, Additive>
 
 supertype Ord<T> {
     func cmp(a: T, b: T): Option<Order> {

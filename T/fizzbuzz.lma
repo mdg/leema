@@ -1,6 +1,6 @@
 func fizzbuzz(x, max): Void ->
-    let xm30 = (x mod 3) = 0
-    let xm50 = (x mod 5) = 0
+    let xm30 := (x mod 3) = 0
+    let xm50 := (x mod 5) = 0
 
     if
     |xm30 and xm50 -> cout("fizzbuzz\n")

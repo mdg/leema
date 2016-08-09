@@ -107,6 +107,7 @@ impl Token
                 parse::TOKEN_TIMES => Token::TIMES,
                 parse::TOKEN_SLASH => Token::SLASH(tl),
                 parse::TOKEN_PIPE => Token::PIPE,
+                parse::TOKEN_ASSIGN => Token::ASSIGN,
                 parse::TOKEN_Fork => Token::Fork,
                 parse::TOKEN_Let => Token::Let,
                 /*

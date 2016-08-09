@@ -6,7 +6,7 @@ struct Rgb
 --
 
 func main() ->
-    let c = Rgb(10, 20, 30)
+    let c := Rgb(10, 20, 30)
     cout("color: $c\n")
     cout("red: ${c.red}\n")
 --

@@ -1,7 +1,7 @@
 func hashtag() -> #foo --
 
 func main() ->
-    let h = hashtag()
+    let h := hashtag()
     cout("h is $h\n")
     match h
     |#foo -> cout("matched #foo\n")

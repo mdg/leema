@@ -1339,7 +1339,7 @@ fn test_compile_and_call_func()
     let input = "
     func make_hash() -> #foo --
     func main() ->
-        let h = make_hash()
+        let h := make_hash()
         cout(\"hello $h\n\")
     --
     ".to_string();

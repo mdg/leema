@@ -1,5 +1,5 @@
 func main() ->
-    let x = 2
+    let x := 2
     if x = 1 ->
         cout("hello")
     else if x = 2 ->

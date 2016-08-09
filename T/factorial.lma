@@ -6,7 +6,7 @@ func fact(i): Int ->
 --
 
 func main() ->
-    let f = fact(4)
+    let f := fact(4)
     cout("factorial(4) = $f\n")
 --
 
