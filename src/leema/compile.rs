@@ -23,7 +23,6 @@ pub enum Source
     Call(Box<Iexpr>, Box<Iexpr>),
     Constructor(Type),
     BoundVal(Reg),
-    DefineFunc(String, Box<Iexpr>),
     Fork(Box<Iexpr>, Box<Iexpr>),
     MatchExpr(Box<Iexpr>, Box<Iexpr>),
     MatchCase(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
@@ -242,6 +241,7 @@ pub struct StaticSpace
     pub interlib: HashMap<CodeKey, Arc<Iexpr>>,
     pub lib: CodeMap,
     last_reg: Reg,
+    _anon_type_idx: i16,
 }
 
 impl StaticSpace
@@ -254,6 +254,7 @@ impl StaticSpace
             interlib: HashMap::new(),
             lib: HashMap::new(),
             last_reg: Reg::Undecided,
+            _anon_type_idx: 0,
         }
     }
 
@@ -550,7 +551,7 @@ verbose_out!("macro_defined({:?},{:?},{:?})\n", name, args, code);
         let name = nameval.to_str();
         Scope::push_scope(&mut self.scope, (*name).clone());
 
-        let funcx = {
+        let (inf_arg_types, funcx) = {
             let mut argtypes = vec![];
             let mut i: i8 = 0;
             let full_types = false;
@@ -585,22 +586,26 @@ verbose_out!("macro_defined({:?},{:?},{:?})\n", name, args, code);
                     unwrapped_type
                 }
             };
-verbose_out!("{} type: {:?} -> {:?}\n", name, argtypes, rt);
+vout!("{} type: {:?} -> {:?}\n", name, argtypes, rt);
 
             // necessary for recursion
             // if the type isn't predefined, can't recurse
             let ftype = Type::Func(argtypes.clone(), Box::new(rt));
             self.scope.assign_label(Reg::Lib, &*name, ftype);
 
-            let fexpr = self.compile(code);
-verbose_out!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
-            fexpr
+            let mut fexpr = self.compile(code);
+vout!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
+            let final_arg_tuple =
+                self.scope.inferred_type(Type::Tuple(argtypes));
+            let final_arg_types = Type::tuple_items(final_arg_tuple);
+            Scope::pop_scope(&mut self.scope);
+            (final_arg_types, fexpr)
         };
 
-        Scope::pop_scope(&mut self.scope);
+        let final_ftype = Type::f(inf_arg_types, funcx.typ.clone());
         self.define_func(
             name.clone(),
-            funcx.typ.clone(),
+            final_ftype,
             Code::Inter(Arc::new(funcx)),
         );
     }
@@ -735,7 +740,9 @@ verbose_out!("ixif:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
     {
         match ptype {
             Type::AnonVar => {
-                self.scope.new_anon_type()
+                let idx = self._anon_type_idx;
+                self._anon_type_idx += 1;
+                Type::var(Arc::new(format!("TypeVar_{}", idx)))
             }
             Type::Id(type_id) => {
                 let found_type = self.scope.get_type(&*type_id);
@@ -893,9 +900,8 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
         // lookup fields in 
         let found_field = self.lookup_field_by_name(&base.typ, &*field_name);
         if found_field.is_none() {
-            print!("cannot find field: {:?}.{}", base.typ, field_name);
-            print!(" in {:?}\n", self.typefields);
-            panic!("cannot find field: {:?}.{}", base.typ, field_name);
+            panic!("cannot find field: {:?}.{} in {:?}",
+                base.typ, field_name, self.typefields);
         }
         let (ref fldtyp, fldidx) = found_field.unwrap();
         base
@@ -950,12 +956,7 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
     pub fn replace_inferred_types(&mut self, i: &mut Iexpr)
     {
         // replaces type vars w/ inferred types
-        match self.scope.inferred_type(&i.typ) {
-            Some(inftype) => {
-                i.typ = inftype.clone();
-            }
-            None => {} // not a type var or not inferred
-        }
+        i.typ = self.scope.inferred_type(i.typ.clone());
     }
 
     pub fn assign_registers(&mut self, i: &mut Iexpr)
@@ -1026,7 +1027,6 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
             Source::BoundVal(_) => {}
             Source::ConstVal(_) => {}
             Source::Constructor(_) => {}
-            Source::DefineFunc(_, _) => {}
             Source::PatternVar(_) => {}
             Source::Void => {}
         }
@@ -1323,6 +1323,22 @@ fn test_compile_func_oneline_untyped()
     assert_eq!(expected, iprog);
     // but also assert that the function was defined!
     assert!(ss.scope.is_label(&"inc".to_string()));
+}
+
+#[test]
+fn test_compile_and_call_func()
+{
+    let input = "
+    func make_hash() -> #foo --
+    func main() ->
+        let h = make_hash()
+        cout(\"hello $h\n\")
+    --
+    ".to_string();
+    let root = Ast::parse(lex(input));
+    let mut ss = prefab::new_staticspace();
+
+    let iprog = ss.compile(root.root());
 }
 
 #[test]

@@ -98,6 +98,16 @@ impl Type
         let tname = Arc::new(format!("TypeVar_{}", vname));
         Type::Var(tname)
     }
+
+    pub fn tuple_items(tup: Type) -> Vec<Type>
+    {
+        match tup {
+            Type::Tuple(items) => items,
+            _ => {
+                panic!("No items in not tuple type {:?}", tup);
+            }
+        }
+    }
 }
 
 impl fmt::Display for Type

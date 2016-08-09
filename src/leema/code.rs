@@ -196,9 +196,6 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
         Source::Constructor(ref typ) => {
             make_constructor_ops(&input.dst, typ)
         }
-        Source::DefineFunc(ref _name, ref code) => {
-            make_ops(code)
-        }
         Source::Fork(ref f, ref args) => {
             make_fork_ops(&input.dst, f, args)
         }

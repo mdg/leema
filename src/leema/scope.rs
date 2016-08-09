@@ -26,7 +26,6 @@ pub struct Scope
     // type definitins in type namespace
     K: HashMap<String, Type>,
     _nextreg: i8,
-    _anon_type_idx: i16,
 }
 
 impl Scope
@@ -43,7 +42,6 @@ impl Scope
             inferred: HashMap::new(),
             K: HashMap::new(),
             _nextreg: 0,
-            _anon_type_idx: 0,
         }
     }
 
@@ -60,7 +58,6 @@ impl Scope
             inferred: HashMap::new(),
             K: HashMap::new(),
             _nextreg: 0,
-            _anon_type_idx: 0,
         };
         mem::swap(parent, &mut tmp_scope);
         parent.parent = Some(Box::new(tmp_scope));
@@ -158,6 +155,7 @@ vout!("apply_call_types({}, {:?})\n", fname, input_tuple);
                 panic!("function is undefined: {}", fname);
             }
             let (_, defined_type) = func_label.unwrap();
+vout!("split_func {}({:?})", fname, defined_type);
             let (defined_args, defined_result) = Type::split_func(defined_type);
 
             let defined_args_len = defined_args.len();
@@ -171,11 +169,12 @@ vout!("apply_call_types({}, {:?})\n", fname, input_tuple);
             }
 
             let mut bad_types = false;
-            let mut infers = vec![];
+            let mut infers: Vec<(String, Type)> = vec![];
             for a in input_args.iter().zip(defined_args.iter()) {
                 match a {
-                    (&Type::Var(_), &Type::Var(_)) => {
-                        panic!("can't infer types");
+                    (&Type::Var(ref i), &Type::Var(ref d)) => {
+                        vout!("can we infer types when both sides are vars? {:?}={:?}", i, d);
+                        infers.push(((**d).clone(), Type::Var(i.clone())))
                     }
                     (&Type::Unknown, _) => {
                         panic!("input arg is unknown!");
@@ -185,6 +184,9 @@ vout!("apply_call_types({}, {:?})\n", fname, input_tuple);
                     }
                     (&Type::Var(ref i), d) => {
                         infers.push(((**i).clone(), d.clone()));
+                    }
+                    (i, &Type::Var(ref d)) => {
+                        infers.push(((**d).clone(), i.clone()));
                     }
                     (i, d) if i == d => {
                         // types matched, we're good
@@ -208,23 +210,22 @@ vout!("apply_call_types({}, {:?})\n", fname, input_tuple);
         result_type
     }
 
-    pub fn inferred_type(&self, typevar: &Type) -> Option<&Type>
+    pub fn inferred_type(&self, typevar: Type) -> Type
     {
         match typevar {
-            &Type::Var(ref name) => {
-                /*
-                match self.inferred.get(name) {
+            Type::Var(ref name) => {
+                match self.inferred.get(&**name) {
                     Some(t) => t.clone(),
                     None => {
                         panic!("Could not infer type: {}", name);
                     }
                 }
-                */
-                self.inferred.get(&**name)
+            }
+            Type::AnonVar => {
+                panic!("Cannot infer an anonymous type");
             }
             _ => {
-                // panic!("cannot infer type of not-var: {:?}", typevar);
-                None
+                typevar
             }
         }
     }
@@ -281,13 +282,6 @@ vout!("infer_type({}, {:?}) for {}", typevar, newtype, self.scope_name);
         }
     }
 
-
-    pub fn new_anon_type(&mut self) -> Type
-    {
-        let idx = self._anon_type_idx;
-        self._anon_type_idx += 1;
-        Type::var(Arc::new(format!("TypeVar_{}", idx)))
-    }
 
     pub fn nextreg(&mut self) -> i8
     {
