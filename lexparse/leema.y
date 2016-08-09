@@ -537,16 +537,17 @@ tuple(A) ::= LPAREN tuple_args(B) RPAREN. {
 	A = Val::tuple_from_list(B);
 }
 tuple_args(A) ::= expr(B) COMMA expr(C). {
-	verbose_out!("base tuple args!");
+	vout!("base tuple args!");
 	A = list::cons(B, list::singleton(C));
 }
 tuple_args(A) ::= expr(B) COMMA tuple_args(C). {
-	verbose_out!("additional tuple arg!");
+	vout!("additional tuple arg!");
 	A = list::cons(B, C);
 }
 
 strexpr(A) ::= StrOpen strlist(B) StrClose. {
 	A = sexpr::strexpr(B);
+    vout!("strexpr({:?})\n", A);
 }
 strlist(A) ::= . {
 	A = Val::Nil;

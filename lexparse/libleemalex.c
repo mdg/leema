@@ -51,7 +51,7 @@ int set_token_val(yyscan_t scanner, int tok, const char *val)
 	if (val) {
 		//printf("set_token_val(%d,%s (%p))\n", tok, val, val);
 		buf->val = val;
-		buf->length = len;
+		buf->length = strlen(val);
 	} else {
 		buf->val = NULL;
 		buf->length = 0;

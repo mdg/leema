@@ -2228,7 +2228,7 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
  (YYMinorType::YY182(yy0),YYMinorType::YY182(yy2),) => {
 
-	verbose_out!("base tuple args!");
+	vout!("base tuple args!");
 	yyres = list::cons(yy0, list::singleton(yy2));
 
 },    _ => unreachable!() };
@@ -2245,7 +2245,7 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
  (YYMinorType::YY182(yy0),YYMinorType::YY182(yy2),) => {
 
-	verbose_out!("additional tuple arg!");
+	vout!("additional tuple arg!");
 	yyres = list::cons(yy0, yy2);
 
 },    _ => unreachable!() };
@@ -2263,6 +2263,7 @@ match (yyp1.minor,) {
  (YYMinorType::YY182(yy1),) => {
 
 	yyres = sexpr::strexpr(yy1);
+    vout!("strexpr({:?})\n", yyres);
 
 },    _ => unreachable!() };
  YYMinorType::YY182(yyres)
