@@ -61,7 +61,7 @@ class TestScripts(unittest.TestCase):
     def test_rgb(self):
         result = run_leema('rgb')
         self.assertEqual(0, result['code'])
-        self.assertEqual(b"color: Rgb(10,20,30,)\n", result['output'])
+        self.assertEqual(b"color: Rgb(10,20,30,)\nred: 10\n", result['output'])
 
 
 if __name__ == '__main__':

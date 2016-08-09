@@ -23,6 +23,7 @@ pub enum Source
     Call(Box<Iexpr>, Box<Iexpr>),
     Constructor(Type),
     BoundVal(Reg),
+    FieldAccess(Box<Iexpr>, i8),
     Fork(Box<Iexpr>, Box<Iexpr>),
     MatchExpr(Box<Iexpr>, Box<Iexpr>),
     MatchCase(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
@@ -903,8 +904,12 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
             panic!("cannot find field: {:?}.{} in {:?}",
                 base.typ, field_name, self.typefields);
         }
-        let (ref fldtyp, fldidx) = found_field.unwrap();
-        base
+        let (fldtyp, fldidx) = found_field.unwrap();
+        Iexpr{
+            dst: Reg::Undecided,
+            typ: fldtyp.clone(),
+            src: Source::FieldAccess(Box::new(base), fldidx),
+        }
     }
 
     pub fn precompile_list(&mut self, items: Val) -> Iexpr
@@ -935,7 +940,7 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
     }
 
     pub fn lookup_field_by_name(&self, stype: &Type, fname: &String) ->
-        Option<(&Type, u8)>
+        Option<(&Type, i8)>
     {
         let sfields_opt = self.typefields.get(stype);
         if sfields_opt.is_none() {
@@ -973,6 +978,9 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
             Source::Call(ref mut f, ref mut args) => {
                 self.assign_registers(&mut *f);
                 self.assign_registers(&mut *args);
+            }
+            Source::FieldAccess(ref mut base, _) => {
+                self.assign_registers(base);
             }
             Source::Fork(ref mut f, ref mut args) => {
                 self.assign_registers(&mut *f);

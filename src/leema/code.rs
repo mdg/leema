@@ -190,6 +190,11 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
             // just use the dst reg
             vec![Op::Copy(input.dst.clone(), src.clone())]
         }
+        Source::FieldAccess(ref base, subreg) => {
+            let mut base_ops = make_sub_ops(base);
+            base_ops.push(Op::Copy(input.dst.clone(), base.dst.sub(subreg)));
+            base_ops
+        }
         Source::Call(ref f, ref args) => {
             make_call_ops(&input.dst, f, args)
         }

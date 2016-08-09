@@ -807,7 +807,7 @@ impl reg::Iregistry for Val
     fn ireg_get(&self, i: &Ireg) -> &Val
     {
         match (i, self) {
-            // set reg on tuple
+            // get reg on tuple
             (&Ireg::Reg(p), &Val::Tuple(ref tup)) => {
                 if p as usize >= tup.len() {
                     panic!("{:?} too big for {:?}", i, tup);
@@ -820,8 +820,22 @@ impl reg::Iregistry for Val
                 }
                 tup[p as usize].ireg_get(&*s)
             }
+            // get reg on struct
+            (&Ireg::Reg(p), &Val::Struct(_, ref fields)) => {
+                if p as usize >= fields.len() {
+                    panic!("{:?} too big for {:?}", i, fields);
+                }
+                &fields[p as usize]
+            }
+            (&Ireg::Sub(p, ref s), &Val::Struct(_, ref fields)) => {
+                if p as usize >= fields.len() {
+                    panic!("{:?} too big for {:?}", i, fields);
+                }
+                fields[p as usize].ireg_get(&*s)
+            }
             _ => {
-                panic!("Tuple is only registry value (maybe lists too?)");
+                panic!("Tuple is only registry value (maybe lists too?) {:?}.{:?}",
+                    self, i);
             }
         }
     }
