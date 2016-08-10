@@ -269,7 +269,10 @@ pub fn file_read(fs: &mut Frame)
                 Type::Lib("File".to_string()),
             )
         }
-        Err(_) => Val::Failure,
+        Err(_) => Val::failure(
+            Val::hashtag("file_open_fail".to_string()),
+            Val::new_str("Failed to open file".to_string()),
+            )
     };
     fs.e.set_reg(&Reg::Result, openf);
 }

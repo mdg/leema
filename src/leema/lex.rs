@@ -56,7 +56,7 @@ impl Token
             let tl = TokenLoc::new((*tok).lineno, (*tok).token_column as i16);
             match (*tok).tok {
                 parse::TOKEN_BLOCKARROW => Token::BLOCKARROW,
-                parse::TOKEN_DOUBLEDASH => Token::DOUBLEDASH,
+                parse::TOKEN_DOUBLEDASH => Token::DOUBLEDASH(tl),
                 parse::TOKEN_Func => {
                     Token::Func
                 }
@@ -138,6 +138,9 @@ impl Token
                 parse::TOKEN_UNDERSCORE => Token::UNDERSCORE,
                 parse::TOKEN_ELSE => {
                     Token::ELSE(tl)
+                }
+                parse::TOKEN_FAIL => {
+                    Token::FAIL
                 }
                 parse::TOKEN_PLUS => {
                     Token::PLUS(tl)

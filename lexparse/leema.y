@@ -14,6 +14,7 @@ use std::io::{stderr, Write};
 %extra_argument { Result<Ast, i32> }
 
 %type COMMA { TokenLoc }
+%type DOUBLEDASH { TokenLoc }
 %type ELSE { TokenLoc }
 %type HASHTAG { TokenData<String> }
 %type ID { TokenData<String> }
@@ -153,16 +154,9 @@ defstruct_field(A) ::= DOT ID(B) COLON typex(C). {
 }
 
 
-fail_stmt(A) ::= FAIL(B) HASHTAG(C) term(D). {
-verbose_out!("found fail_stmt {:?}\n", C);
-	/*
-	A = Val::list(
-		list::push(B,
-		list::push(C,
-		list::push(D,
-		NULL))));
-		*/
-	A = Val::Failure;
+fail_stmt(A) ::= FAIL(B) LPAREN HASHTAG(C) COMMA expr(D) RPAREN. {
+vout!("found fail_stmt {:?}\n", C);
+	A = Val::failure(Val::hashtag(C.data), D);
 }
 
 let_stmt(A) ::= Let ID(B) ASSIGN expr(C). {

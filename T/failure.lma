@@ -1,0 +1,17 @@
+func cat(cx: Int): String ->
+    if cx = 4 ->
+        fail(#xis4, "tacos are delicious")
+    --
+    "not 4"
+--
+
+func dog(dx): String ->
+    let c := cat(dx)
+    "it is $c"
+--
+
+func main() ->
+    let d := dog(4)
+    cout("d: $d\n")
+--
+

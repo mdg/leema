@@ -28,6 +28,7 @@ pub enum Type
     Hashtag,
     Tuple(Vec<Type>),
     Struct(Arc<String>, i8),
+    Failure,
     Enum(String),
     Func(Vec<Type>, Box<Type>),
     // different from base collection/map interfaces?
@@ -44,7 +45,6 @@ pub enum Type
     Arrow(Vec<Type>),
     // partial/parameterized arrow
     Parrow(Vec<Type>, Vec<Type>),
-    Failure,
     */
     Kind,
     Any,
@@ -93,12 +93,6 @@ impl Type
         }
     }
 
-    pub fn var(vname: Arc<String>) -> Type
-    {
-        let tname = Arc::new(format!("TypeVar_{}", vname));
-        Type::Var(tname)
-    }
-
     pub fn tuple_items(tup: Type) -> Vec<Type>
     {
         match tup {
@@ -122,6 +116,7 @@ impl fmt::Display for Type
             &Type::Tuple(ref items) => write!(f, "Ttuple()"),
             &Type::Struct(ref name, nfields) => write!(f, "{}", name),
             &Type::Enum(ref name) => write!(f, "Enum"),
+            &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
                     write!(f, "{}->", a).ok();
@@ -228,10 +223,10 @@ pub enum Val {
     Cons(Box<Val>, Box<Val>),
     Nil,
     Tuple(Vec<Val>),
-    Failure,
     Sexpr(SexprType, Box<Val>),
     Struct(Type, Vec<Val>),
     Enum(Type, u8, Box<Val>),
+    Failure(Box<Val>, Box<Val>),
     Id(Arc<String>),
     Type(Type),
     Kind(u8),
@@ -391,6 +386,11 @@ impl Val {
         }
     }
 
+    pub fn hashtag(s: String) -> Val
+    {
+        Val::Hashtag(Arc::new(s))
+    }
+
     pub fn is_type(&self) -> bool
     {
         match self {
@@ -432,6 +432,14 @@ impl Val {
         }
     }
 
+    pub fn failure(tag: Val, msg: Val) -> Val
+    {
+        Val::Failure(
+            Box::new(tag),
+            Box::new(msg),
+        )
+    }
+
     pub fn new_lib<T: Any + Send + Sync>(lv: T, typ: Type) -> Val
     {
         Val::Lib(LibVal{v: Arc::new(lv), t: typ})
@@ -452,6 +460,7 @@ impl Val {
                 Type::Tuple(tuptypes)
             }
             &Val::Cons(_, _) => Type::RelaxedList,
+            &Val::Failure(_, _) => Type::Failure,
             &Val::Type(_) => Type::Kind,
             &Val::Void => Type::Void,
             &Val::Wildcard => Type::Unknown,
@@ -687,8 +696,8 @@ impl fmt::Display for Val {
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv.t)
             }
-            Val::Failure => {
-                f.write_str("Failure")
+            Val::Failure(ref tag, ref msg) => {
+                write!(f, "Failure({}, {})", tag, msg)
             }
             Val::Sexpr(ref t, ref head) => {
                 Val::fmt_sexpr(*t, head, f, false)
@@ -759,8 +768,8 @@ impl fmt::Debug for Val {
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv.t)
             }
-            Val::Failure => {
-                f.write_str("Failure")
+            Val::Failure(ref tag, ref msg) => {
+                write!(f, "Failure({}, {})", tag, msg)
             }
             Val::Sexpr(ref t, ref head) => {
                 Val::fmt_sexpr(*t, head, f, true)
@@ -1122,7 +1131,7 @@ impl Env {
             result: None,
             reg: BTreeMap::new(),
             kv: BTreeMap::new(),
-            error: Val::Failure,
+            error: Val::Void,
         }
     }
 
@@ -1132,7 +1141,7 @@ impl Env {
             result: None,
             reg: BTreeMap::new(),
             kv: BTreeMap::new(),
-            error: Val::Failure,
+            error: Val::Void,
         }
     }
 

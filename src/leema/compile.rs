@@ -566,6 +566,7 @@ verbose_out!("macro_defined({:?},{:?},{:?})\n", name, args, code);
                 let (pid, raw_ptype) = sexpr::split_id_with_type(head);
                 let var_name = pid.to_str();
                 let ptype = self.precompile_type(raw_ptype);
+vout!("precompiled {} as {:?}\n", var_name, ptype);
                 argtypes.push(ptype.clone());
                 self.scope.assign_label(
                     Reg::new_param(i),
@@ -743,7 +744,7 @@ verbose_out!("ixif:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
             Type::AnonVar => {
                 let idx = self._anon_type_idx;
                 self._anon_type_idx += 1;
-                Type::var(Arc::new(format!("TypeVar_{}", idx)))
+                Type::Var(Arc::new(format!("TypeVar_{}", idx)))
             }
             Type::Id(type_id) => {
                 let found_type = self.scope.get_type(&*type_id);

@@ -1,0 +1,31 @@
+func cat(x): String ->
+    if x = 4 ->
+        fail(#xis4, "tacos are delicious")
+    --
+    "not 4"
+--
+
+func mouse(m): String ->
+    "mouse #$m"
+--
+
+func dog(x): String ->
+   let e = match x
+   |3 -> mouse(x)
+   |_ ->
+      let c = cat(x)
+      let d = "it is $c"
+      d
+   --
+   e
+
+   failure c
+   |#xis4 -> "yikes!"
+   --
+--
+
+func main() ->
+   let d := dog(4)
+   cout("d: $d\n")
+--
+

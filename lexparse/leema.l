@@ -84,8 +84,8 @@ void	{ return set_token(yyg, TOKEN_VOID); }
 "\\n"	{ return set_token(yyg, TOKEN_ConcatNewline); }
 case	{ return set_token(yyg, TOKEN_CASE); }
 else	{ return set_token(yyg, TOKEN_ELSE); }
-failed	{ return set_token(yyg, TOKEN_FAILED); }
 fail	{ return set_token(yyg, TOKEN_FAIL); }
+failed	{ return set_token(yyg, TOKEN_FAILED); }
 func	{ return set_token(yyg, TOKEN_Func); }
 if	{ return set_token(yyg, TOKEN_IF); }
 true	{ return set_token(yyg, TOKEN_True); }
