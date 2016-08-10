@@ -23,6 +23,7 @@ pub enum Source
     Call(Box<Iexpr>, Box<Iexpr>),
     Constructor(Type),
     BoundVal(Reg),
+    Fail(Box<Iexpr>, Box<Iexpr>),
     FieldAccess(Box<Iexpr>, i8),
     Fork(Box<Iexpr>, Box<Iexpr>),
     MatchExpr(Box<Iexpr>, Box<Iexpr>),
@@ -335,6 +336,26 @@ impl StaticSpace
                     dst: Reg::Params,
                     typ: Type::Unknown,
                     src: Source::ConstVal(Val::CallParams)
+                }
+            }
+            Val::Failure(raw_tag, raw_msg) => {
+                let mut tag = self.precompile(*raw_tag);
+                let mut msg = self.precompile(*raw_msg);
+                tag.dst = Reg::Result.sub(0);
+                msg.dst = Reg::Result.sub(1);
+                if tag.typ != Type::Hashtag {
+                    panic!("Failure tag is not a hashtag: {:?}", tag.typ);
+                }
+                if msg.typ != Type::Str {
+                    panic!("Failure msg is not a string: {:?}", msg.typ);
+                }
+                Iexpr{
+                    dst: Reg::Result,
+                    typ: Type::Failure,
+                    src: Source::Fail(
+                        Box::new(tag),
+                        Box::new(msg),
+                    ),
                 }
             }
             _ => {
@@ -1036,6 +1057,7 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
             Source::BoundVal(_) => {}
             Source::ConstVal(_) => {}
             Source::Constructor(_) => {}
+            Source::Fail(_, _) => {}
             Source::PatternVar(_) => {}
             Source::Void => {}
         }

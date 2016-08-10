@@ -917,6 +917,13 @@ impl reg::Iregistry for Val
             (_, &mut Val::Nil) => {
                 panic!("cannot set reg on empty list: {:?}", i);
             }
+            // set reg on Failures
+            (&Ireg::Reg(0), &mut Val::Failure(ref mut tag, _)) => {
+                *tag = Box::new(v);
+            }
+            (&Ireg::Reg(1), &mut Val::Failure(_, ref mut msg)) => {
+                *msg = Box::new(v);
+            }
             // values that can't act as registries
             _ => {
                 panic!("Can't ireg_set({:?})", i);

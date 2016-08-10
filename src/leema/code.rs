@@ -36,6 +36,7 @@ pub enum Op {
     ConstVal(Reg, Val),
     Constructor(Reg, Type),
     Copy(Reg, Reg),
+    Failure,
     Fork(Reg, Reg, Reg),
     //IfFail(Reg, i16),
     Jump(i16),
@@ -189,6 +190,13 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
             // shouldn't have to do anything here, should
             // just use the dst reg
             vec![Op::Copy(input.dst.clone(), src.clone())]
+        }
+        Source::Fail(ref tag, ref msg) => {
+            let mut ops = vec![Op::Failure];
+            ops.append(&mut make_sub_ops(tag));
+            ops.append(&mut make_sub_ops(msg));
+            ops.push(Op::Return);
+            ops
         }
         Source::FieldAccess(ref base, subreg) => {
             let mut base_ops = make_sub_ops(base);

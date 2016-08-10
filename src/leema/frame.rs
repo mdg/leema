@@ -426,6 +426,12 @@ fn execute_load_func(curf: &mut Frame, dst: &Reg, ms: &ModSym)
     curf.pc = curf.pc + 1;
 }
 
+fn execute_failure(curf: &mut Frame)
+{
+    curf.e.set_reg(&Reg::Result, Val::failure(Val::Void, Val::Void));
+    curf.pc = curf.pc + 1;
+}
+
 /**
  * get code from func
  * make an Env from the args
@@ -565,6 +571,9 @@ verbose_out!("lock app, find_code\n");
             }
             &Op::Return => {
                 self.event = Event::Complete;
+            }
+            &Op::Failure => {
+                execute_failure(curf);
             }
         }
     }

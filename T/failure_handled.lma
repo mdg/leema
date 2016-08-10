@@ -19,7 +19,7 @@ func dog(x): String ->
    --
    e
 
-   failure c
+   repair c
    |#xis4 -> "yikes!"
    --
 --
