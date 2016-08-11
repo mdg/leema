@@ -115,8 +115,15 @@ verbose_out!("We have a script!\n{:?}", frm);
         verbose_out!("result: {:?}\n", result);
         let rframe = result.unwrap();
         let rframe_res = rframe.e.get_reg(&Reg::Result);
-        if let &Val::Int(resulti) = rframe_res {
-            return resulti as i32;
+        match rframe_res {
+            &Val::Int(resulti) => {
+                return resulti as i32;
+            }
+            &Val::Failure(ref tag, ref msg) => {
+                println!("Uncaught Failure: {} \"{}\"", tag, msg);
+                return leema::CLI_UNCAUGHT_FAILURE;
+            }
+            _ => {}
         }
     }
     return 0;

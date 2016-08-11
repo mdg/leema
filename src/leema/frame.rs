@@ -141,8 +141,7 @@ pub enum Event
     Fork,
     FutureWait(Reg),
     IOWait,
-    Complete,
-    Failed,
+    Complete(bool),
 }
 
 pub struct Worker
@@ -398,19 +397,27 @@ fn execute_list_create(curf: &mut Frame, dst: &Reg) {
 
 fn execute_strcat(w: &mut Worker, curf: &mut Frame, dstreg: &Reg, srcreg: &Reg)
 {
-    let result;
-    {
+    let dregbuf;
+    let (dstreg2, dstval) = {
         let src = curf.e.get_reg(srcreg);
-        if src.is_future() {
+        if src.is_failure() {
+            w.event = Event::Complete(false);
+            dregbuf = Reg::Result;
+            (&dregbuf, src.clone())
+        } else if src.is_future() {
             // oops, not ready to do this yet, let's bail and wait
             w.event = Event::FutureWait(srcreg.clone());
-            return;
+            dregbuf = Reg::Void;
+            (&dregbuf, Val::Void)
+        } else {
+            let dst = curf.e.get_reg(dstreg);
+            let result = Val::Str(Arc::new(format!("{}{}", dst, src)));
+            curf.pc = curf.pc + 1;
+            (dstreg, result)
         }
-        let dst = curf.e.get_reg(dstreg);
-        result = Val::Str(Arc::new(format!("{}{}", dst, src)));
-    }
-    curf.pc = curf.pc + 1;
-    curf.e.set_reg(dstreg, result);
+    };
+    // working around the borrow checker here
+    curf.e.set_reg(dstreg2, dstval);
 }
 
 fn execute_tuple_create(curf: &mut Frame, dst: &Reg, ref sz: i8)
@@ -570,7 +577,7 @@ verbose_out!("lock app, find_code\n");
                 execute_func_apply(self, curf, dst, func, args);
             }
             &Op::Return => {
-                self.event = Event::Complete;
+                self.event = Event::Complete(true);
             }
             &Op::Failure => {
                 execute_failure(curf);
@@ -601,21 +608,26 @@ verbose_out!("lock app, add_fork\n");
 
     pub fn iterate(&mut self, code: Code, mut curf: Frame)
     {
-verbose_out!("iterate\n");
+vout!("iterate\n");
         match code {
             Code::Leema(ref ops) => {
                 self.iterate_leema(&mut curf, ops);
             }
             Code::Rust(ref rf) => {
                 rf(&mut curf);
-                self.event = Event::Complete;
+                self.event = Event::Complete(true);
             }
             Code::Inter(ref ix) => {
                 panic!("cannot execute partial code");
             }
         }
         match self.take_event() {
-            Event::Complete => {
+            Event::Complete(success) => {
+                if success {
+                    // analyze successful function run
+                } else {
+                    vout!("function call failed\n");
+                }
                 match curf.parent {
                     Parent::Caller(dst, code, mut pf) => {
                         pf.e.set_reg(
@@ -625,14 +637,14 @@ verbose_out!("iterate\n");
                         self.fresh.push_back((code, *pf));
                     }
                     Parent::Repl => {
-verbose_out!("lock app, repl done in iterate\n");
+vout!("lock app, repl done in iterate\n");
                         let mut _app = self.app.lock().unwrap();
                         _app.set_main_frame(curf);
                     }
                     Parent::Main => {
-verbose_out!("finished main func");
+vout!("finished main func\n");
                         {
-verbose_out!("lock app, main done in iterate\n");
+vout!("lock app, main done in iterate\n");
                             let mut _app = self.app.lock().unwrap();
                             _app.set_main_frame(curf);
                             _app.done.store(true, Ordering::Relaxed);
@@ -679,9 +691,6 @@ verbose_out!("lock app, main done in iterate\n");
                 self.fresh.push_back((code, curf));
                 // end this iteration,
             }
-            Event::Failed => {
-                panic!("Frame failed");
-            }
             Event::Uneventful => {
                 panic!("We shouldn't be here with uneventful");
             }
@@ -690,12 +699,12 @@ verbose_out!("lock app, main done in iterate\n");
 
     pub fn rotate(&mut self) -> Option<(Code, Frame)>
     {
-verbose_out!("rotate\n");
+vout!("rotate\n");
         self.check_futures();
 //println!("worker.app.try_lock()");
         let lock_result = self.app.try_lock();
         if lock_result.is_err() {
-verbose_out!("rotate try_lock is_err\n");
+vout!("rotate try_lock is_err\n");
             return None;
         }
 //println!("lock_result.unwrap()");

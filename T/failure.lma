@@ -1,17 +1,17 @@
-func cat(cx: Int): String ->
+func add4(cx: Int): Int ->
     if cx = 4 ->
         fail(#xis4, "tacos are delicious")
     --
-    "not 4"
+    cx + 4
 --
 
-func dog(dx): String ->
-    let c := cat(dx)
-    "it is $c"
+func add5(dx): Int ->
+    let c := add4(dx)
+    c + 1
 --
 
 func main() ->
-    let d := dog(4)
-    cout("d: $d\n")
+    let d := add5(4)
+    cout("strcat propagated: $d\n")
 --
 

@@ -432,6 +432,14 @@ impl Val {
         }
     }
 
+    pub fn is_failure(&self) -> bool
+    {
+        match self {
+            &Val::Failure(_, _) => true,
+            _ => false,
+        }
+    }
+
     pub fn failure(tag: Val, msg: Val) -> Val
     {
         Val::Failure(
