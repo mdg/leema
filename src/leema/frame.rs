@@ -51,6 +51,7 @@ impl Debug for Parent
 pub struct Frame
 {
     pub parent: Parent,
+    pub result: Val,
     pub e: Env,
     pc: i32,
 }
@@ -61,6 +62,7 @@ impl Frame
     {
         Frame{
             parent: par,
+            result: Val::Void,
             e: env,
             pc: 0,
         }
@@ -325,6 +327,7 @@ fn execute_fork(w: &mut Worker, curf: &mut Frame,
     let ready = Arc::new(AtomicBool::new(false));
     let newf = Frame{
         parent: Parent::Fork(ready.clone(), tx),
+        result: Val::Void,
         e: curf.e.clone(),
         pc: 0,
     };
@@ -473,7 +476,7 @@ fn execute_call(w: &mut Worker, curf: &mut Frame, dst: &Reg, freg: &Reg, argreg:
             let args = curf.e.get_reg(argreg);
             match call_arg_failure(args) {
                 Some(failure) => {
-                    curf.e.set_reg(&Reg::Result, failure.clone());
+                    curf.result = failure.clone();
                     w.event = Event::Complete(false);
                     return;
                 }
