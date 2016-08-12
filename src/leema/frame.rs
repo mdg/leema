@@ -439,6 +439,20 @@ fn execute_failure(curf: &mut Frame)
     curf.pc = curf.pc + 1;
 }
 
+fn call_arg_failure(args: &Val) -> Option<&Val>
+{
+    if let &Val::Tuple(ref items) = args {
+        for i in items {
+            if i.is_failure() {
+                return Some(i);
+            }
+        }
+    } else {
+        panic!("call args are not a tuple");
+    }
+    None
+}
+
 /**
  * get code from func
  * make an Env from the args
@@ -446,7 +460,7 @@ fn execute_failure(curf: &mut Frame)
  * create a new frame w/ func code and new frame state
  * set curf.flag to Called(new_frame)
  */
-fn execute_func_apply(w: &mut Worker, curf: &mut Frame, dst: &Reg, freg: &Reg, argreg: &Reg)
+fn execute_call(w: &mut Worker, curf: &mut Frame, dst: &Reg, freg: &Reg, argreg: &Reg)
 {
     let ref fname_val = curf.e.get_reg(freg);
     match *fname_val {
@@ -457,6 +471,14 @@ fn execute_func_apply(w: &mut Worker, curf: &mut Frame, dst: &Reg, freg: &Reg, a
             let code = w.find_code(&ck).unwrap().clone();
             // pass in args
             let args = curf.e.get_reg(argreg);
+            match call_arg_failure(args) {
+                Some(failure) => {
+                    curf.e.set_reg(&Reg::Result, failure.clone());
+                    w.event = Event::Complete(false);
+                    return;
+                }
+                None => {}
+            }
             // create new frame
             let e = Env::with_args(args.clone());
             // set current state to called
@@ -574,7 +596,7 @@ verbose_out!("lock app, find_code\n");
                 execute_load_func(curf, reg, modsym);
             }
             &Op::ApplyFunc(ref dst, ref func, ref args) => {
-                execute_func_apply(self, curf, dst, func, args);
+                execute_call(self, curf, dst, func, args);
             }
             &Op::Return => {
                 self.event = Event::Complete(true);

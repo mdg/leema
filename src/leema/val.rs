@@ -1131,7 +1131,8 @@ impl Clone for Val
 
 #[derive(Debug)]
 #[derive(Clone)]
-pub struct Env {
+pub struct Env
+{
     params: Val,
     result: Option<Val>,
     reg: BTreeMap<i8, Val>,
@@ -1139,7 +1140,8 @@ pub struct Env {
     error: Val,
 }
 
-impl Env {
+impl Env
+{
     pub fn new() -> Env {
         Env{
             params: Val::Void,
