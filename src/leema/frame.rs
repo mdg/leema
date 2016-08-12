@@ -860,7 +860,7 @@ write!(stderr(), "app.add_app_code\n");
     app.add_app_code(&ss);
 
     if ss.has_main() {
-        let frm = Frame::new(Parent::Main, Env::new());
+        let frm = Frame::new(Parent::Main(Val::Void), Env::new());
         app.push_new_frame(&CodeKey::Main, frm);
     }
 
@@ -874,7 +874,7 @@ write!(stderr(), "app.add_app_code\n");
 
 write!(stderr(), "Application::wait_until_done\n");
     let result = Application::wait_until_done(&app1);
-    assert_eq!(&Val::Int(3), result);
+    assert_eq!(Val::Int(3), result);
 }
 
 }

@@ -306,7 +306,8 @@ impl StaticSpace
     pub fn compile(&mut self, expr: Val) -> Iexpr
     {
         let mut i = self.precompile(expr);
-        self.set_registers(&mut i);
+println!("assign_registers: {:?}", i);
+        self.assign_registers(&mut i);
         i
     }
 
@@ -468,7 +469,7 @@ verbose_out!("compile let {} := {}\n", lhs, rhs);
 
     pub fn precompile_fork(&mut self, name: Arc<String>, val: Val) -> Iexpr
     {
-verbose_out!("compile fork {} := {}\n", name, val);
+println!("compile fork {} := {}\n", name, val);
         if self.scope.is_label(&name) {
             panic!("{} was already defined", name);
         }
@@ -614,6 +615,7 @@ vout!("{} type: {:?} -> {:?}\n", name, argtypes, rt);
             let ftype = Type::Func(argtypes.clone(), Box::new(rt));
             self.scope.assign_label(Reg::Lib, &*name, ftype);
 
+println!("compile func code: {:?}", code);
             let mut fexpr = self.compile(code);
 vout!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
             let final_arg_tuple =
@@ -638,6 +640,13 @@ verbose_out!("pc block> {:?}\n", items);
         bvec.retain(|i| {
             i.src != Source::Void
         });
+        if bvec.is_empty() {
+            return Iexpr{
+                dst: Reg::Void,
+                typ: Type::Void,
+                src: Source::Void,
+            };
+        }
         Iexpr::new_block(bvec)
     }
 
@@ -990,10 +999,11 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
         // now actually assign registers
         if i.dst == Reg::Undecided {
             i.dst = Reg::new_reg(self.scope.nextreg());
+println!("newreg assigned in {}: {:?}", self.scope.scope_name, i);
         }
         match i.src {
             Source::Block(ref mut items) => {
-                self.assign_block_registers(&i.dst, items);
+                self.assign_block_registers(&mut i.dst, items);
             }
             Source::Call(ref mut f, ref mut args) => {
                 self.assign_registers(&mut *f);
@@ -1015,28 +1025,31 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
                 self.assign_tuple_registers(&i.dst, &mut *tup);
             }
             Source::MatchExpr(ref mut x, ref mut cases) => {
-                self.assign_registers(&mut *x);
+                self.assign_registers(x);
                 cases.dst = i.dst.clone();
-                self.assign_registers(&mut *cases);
+                self.assign_registers(cases);
             }
             Source::MatchCase(ref mut patt, ref mut code, ref mut next) => {
-                self.assign_registers(&mut *patt);
+                self.assign_registers(patt);
+                // all of these cases should use the same reg
                 code.dst = i.dst.clone();
                 next.dst = i.dst.clone();
-                self.assign_registers(&mut *code);
-                self.assign_registers(&mut *next);
+                self.assign_registers(code);
+                self.assign_registers(next);
             }
             Source::CaseExpr(ref mut test, ref mut truth, ref mut lies) => {
-                self.assign_registers(&mut *test);
-                truth.dst = i.dst.clone();
-                lies.dst = i.dst.clone();
-                self.assign_registers(&mut *truth);
-                self.assign_registers(&mut *lies);
+                self.assign_registers(test);
+                self.assign_registers(truth);
+                // use the same register for truth and lies
+                lies.dst = truth.dst.clone();
+                self.assign_registers(lies);
             }
             Source::IfStmt(ref mut test, ref mut truth, ref mut lies) => {
-                self.assign_registers(&mut *test);
-                self.assign_registers(&mut *truth);
-                self.assign_registers(&mut *lies);
+                self.assign_registers(test);
+                truth.dst = i.dst.clone();
+                lies.dst = i.dst.clone();
+                self.assign_registers(truth);
+                self.assign_registers(lies);
             }
             Source::List(ref mut l) => {
                 self.assign_list_registers(&i.dst, &mut *l);
@@ -1064,11 +1077,16 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
         }
     }
 
-    pub fn assign_block_registers(&mut self, dst: &Reg, items: &mut Vec<Iexpr>)
+    pub fn assign_block_registers(&mut self, dst: &mut Reg, items: &mut Vec<Iexpr>)
     {
-        let mut first = true;
+println!("assign_block_registers({}, {:?})", self.scope.scope_name, dst);
         match items.last_mut() {
-            Some(ref mut i) => i.dst = dst.clone(),
+            Some(ref mut i) if i.dst == Reg::Undecided => {
+                i.dst = dst.clone();
+            }
+            Some(ref i) => {
+                *dst = i.dst.clone();
+            }
             _ => {},
         }
         for ref mut i in items.iter_mut() {
@@ -1096,12 +1114,6 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
             self.assign_registers(&mut x);
         }
     }
-
-    pub fn set_registers(&mut self, i: &mut Iexpr)
-    {
-        self.assign_registers(i);
-
-    }
 }
 
 pub struct Compiler<'a>
@@ -1122,11 +1134,11 @@ impl<'a> Compiler<'a>
 
     pub fn compile_file(&mut self, filename: String)
     {
-verbose_out!("parse output: {:?}\n", filename);
+println!("parse output: {:?}\n", filename);
         let ast = self.loader.parse(filename);
-verbose_out!("ast: {:?}\n", ast);
+println!("ast: {:?}\n", ast);
         let script = self.ss.compile(ast.root());
-verbose_out!("script output: {:?}\n", script);
+println!("script output: {:?}\n", script);
         if script.src != Source::Void {
             let stype = script.typ.clone();
             self.ss.define_func(
@@ -1175,22 +1187,22 @@ fn test_compile_call_no_params()
     let iprog = ss.compile(root.root());
 
     let fname = Iexpr{
-        dst: Reg::new_reg(0),
+        dst: Reg::new_reg(1),
         typ: Type::Str,
         src: Source::ConstVal(Val::new_str("no_params".to_string())),
     };
     let argt = Iexpr{
-        dst: Reg::new_reg(1),
+        dst: Reg::new_reg(2),
         typ: Type::Tuple(vec![]),
         src: Source::Tuple(vec![]),
     };
     let expected_call = Iexpr{
-        dst: Reg::Result,
+        dst: Reg::new_reg(0),
         typ: Type::Void,
         src: Source::Call(Box::new(fname), Box::new(argt)),
     };
     let expected_block = Iexpr{
-        dst: Reg::Result,
+        dst: Reg::new_reg(0),
         typ: Type::Void,
         src: Source::Block(vec![expected_call]),
     };
@@ -1213,9 +1225,9 @@ fn test_compile_macro()
 
     let iprog = ss.compile(root.root());
     let expected = Iexpr{
-        dst: Reg::Result,
+        dst: Reg::Void,
         typ: Type::Void,
-        src: Source::Block(vec![]),
+        src: Source::Void,
     };
     assert_eq!(expected, iprog);
     let macro_name = "mand".to_string();
@@ -1291,7 +1303,7 @@ fn test_precompile_if_block()
     let ifprog = ss.compile(root.root());
 
     let test = Iexpr{
-        dst: Reg::new_reg(0),
+        dst: Reg::new_reg(1),
         typ: Type::Bool,
         src: Source::ConstVal(Val::Bool(true)),
     };
@@ -1318,11 +1330,11 @@ fn test_precompile_if_block()
         ]),
     };
     let expected = Iexpr{
-        dst: Reg::Result,
+        dst: Reg::Void,
         typ: Type::Void,
         src: Source::Block(vec![
             Iexpr{
-                dst: Reg::Result,
+                dst: Reg::Void,
                 typ: Type::Void,
                 src: Source::IfStmt(
                     Box::new(test),
@@ -1345,9 +1357,9 @@ fn test_compile_func_oneline_untyped()
     let iprog = ss.compile(root.root());
 
     let expected = Iexpr{
-        dst: Reg::Result,
+        dst: Reg::Void,
         typ: Type::Void,
-        src: Source::Block(vec![]),
+        src: Source::Void,
     };
     assert_eq!(expected, iprog);
     // but also assert that the function was defined!
@@ -1385,9 +1397,9 @@ fn test_compile_strx_field_access()
     let root = ss.compile(root.root());
 
     let expected = Iexpr{
-        dst: Reg::Result,
+        dst: Reg::Void,
         typ: Type::Void,
-        src: Source::Block(vec![]),
+        src: Source::Void,
     };
     assert_eq!(expected, root);
     // but also assert that the function was defined!
