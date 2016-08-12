@@ -286,7 +286,6 @@ vout!("infer_type({}, {:?}) for {}", typevar, newtype, self.scope_name);
     pub fn nextreg(&mut self) -> i8
     {
         let r = self._nextreg;
-println!("nextreg({}): {}", self.scope_name, r);
         self._nextreg += 1;
         r
     }

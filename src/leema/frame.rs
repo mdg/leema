@@ -6,6 +6,7 @@ use leema::compile::{StaticSpace};
 use leema::code::{self, CodeKey, Code, CodeMap, Op, OpVec, ModSym, RustFunc};
 use leema::list;
 use std::collections::{HashMap, LinkedList};
+use std::collections::hash_map;
 use std::sync::{Arc, Mutex, MutexGuard, Condvar};
 use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 use std::sync::mpsc;
@@ -261,6 +262,7 @@ impl Application
         }
         for (name, inter) in &ss.interlib {
             let ops = code::make_ops(inter);
+vout!("code: {:?}\n{:?}\n", name, ops);
             self.code.insert((*name).clone(), Code::Leema(Arc::new(ops)));
         }
     }
@@ -279,6 +281,11 @@ impl Application
         } else {
             Some(c.unwrap().clone())
         }
+    }
+
+    pub fn code_iter(&self) -> hash_map::Iter<CodeKey, Code>
+    {
+        self.code.iter()
     }
 }
 
@@ -370,10 +377,10 @@ verbose_out!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
     let test_val = curf.e.get_reg(reg);
     if let &Val::Bool(test) = test_val {
         if test {
-            verbose_out!("if test is true");
+            vout!("if test is true\n");
             curf.pc += 1;
         } else {
-            verbose_out!("if test is false");
+            vout!("if test is false\n");
             curf.pc += jmp as i32;
         }
     } else {
@@ -576,7 +583,7 @@ verbose_out!("lock app, find_code\n");
     pub fn execute(&mut self, curf: &mut Frame, ops: &OpVec)
     {
         let op = ops.get(curf.pc as usize).unwrap();
-        // println!("exec: {:?}", op);
+        vout!("exec: {:?}\n", op);
         match op {
             &Op::ConstVal(ref dst, ref v) => {
                 execute_const_val(curf, dst, v);
@@ -617,12 +624,15 @@ verbose_out!("lock app, find_code\n");
             &Op::ApplyFunc(ref dst, ref func, ref args) => {
                 execute_call(self, curf, dst, func, args);
             }
-            &Op::Return(ref dst) => {
+            &Op::Return => {
+                self.event = Event::Complete(true);
+            }
+            &Op::SetResult(ref dst) => {
                 if dst == &Reg::Void {
                     panic!("return void at {} in {:?}", curf.pc, ops);
                 }
                 curf.parent.set_result(curf.e.get_reg(dst).clone());
-                self.event = Event::Complete(true);
+                curf.pc += 1;
             }
             &Op::Failure(ref dst) => {
                 execute_failure(curf, dst);

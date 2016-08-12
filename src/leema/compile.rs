@@ -306,7 +306,6 @@ impl StaticSpace
     pub fn compile(&mut self, expr: Val) -> Iexpr
     {
         let mut i = self.precompile(expr);
-println!("assign_registers: {:?}", i);
         self.assign_registers(&mut i);
         i
     }
@@ -469,7 +468,7 @@ verbose_out!("compile let {} := {}\n", lhs, rhs);
 
     pub fn precompile_fork(&mut self, name: Arc<String>, val: Val) -> Iexpr
     {
-println!("compile fork {} := {}\n", name, val);
+vout!("compile fork {} := {}\n", name, val);
         if self.scope.is_label(&name) {
             panic!("{} was already defined", name);
         }
@@ -615,7 +614,6 @@ vout!("{} type: {:?} -> {:?}\n", name, argtypes, rt);
             let ftype = Type::Func(argtypes.clone(), Box::new(rt));
             self.scope.assign_label(Reg::Lib, &*name, ftype);
 
-println!("compile func code: {:?}", code);
             let mut fexpr = self.compile(code);
 vout!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
             let final_arg_tuple =
@@ -999,7 +997,6 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
         // now actually assign registers
         if i.dst == Reg::Undecided {
             i.dst = Reg::new_reg(self.scope.nextreg());
-println!("newreg assigned in {}: {:?}", self.scope.scope_name, i);
         }
         match i.src {
             Source::Block(ref mut items) => {
@@ -1039,9 +1036,10 @@ println!("newreg assigned in {}: {:?}", self.scope.scope_name, i);
             }
             Source::CaseExpr(ref mut test, ref mut truth, ref mut lies) => {
                 self.assign_registers(test);
-                self.assign_registers(truth);
                 // use the same register for truth and lies
-                lies.dst = truth.dst.clone();
+                truth.dst = i.dst.clone();
+                lies.dst = i.dst.clone();
+                self.assign_registers(truth);
                 self.assign_registers(lies);
             }
             Source::IfStmt(ref mut test, ref mut truth, ref mut lies) => {
@@ -1079,7 +1077,6 @@ println!("newreg assigned in {}: {:?}", self.scope.scope_name, i);
 
     pub fn assign_block_registers(&mut self, dst: &mut Reg, items: &mut Vec<Iexpr>)
     {
-println!("assign_block_registers({}, {:?})", self.scope.scope_name, dst);
         match items.last_mut() {
             Some(ref mut i) if i.dst == Reg::Undecided => {
                 i.dst = dst.clone();
@@ -1134,11 +1131,8 @@ impl<'a> Compiler<'a>
 
     pub fn compile_file(&mut self, filename: String)
     {
-println!("parse output: {:?}\n", filename);
         let ast = self.loader.parse(filename);
-println!("ast: {:?}\n", ast);
         let script = self.ss.compile(ast.root());
-println!("script output: {:?}\n", script);
         if script.src != Source::Void {
             let stype = script.typ.clone();
             self.ss.define_func(

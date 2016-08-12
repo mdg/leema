@@ -32,7 +32,8 @@ impl fmt::Display for ModSym {
 pub enum Op {
     LoadFunc(Reg, ModSym),
     ApplyFunc(Reg, Reg, Reg),
-    Return(Reg),
+    Return,
+    SetResult(Reg),
     ConstVal(Reg, Val),
     Constructor(Reg, Type),
     Copy(Reg, Reg),
@@ -161,7 +162,10 @@ impl Lib
 pub fn make_ops(input: &Iexpr) -> OpVec
 {
     let mut ops = make_sub_ops(input);
-    ops.push(Op::Return(input.dst.clone()));
+    if input.typ != Type::Void {
+        ops.push(Op::SetResult(input.dst.clone()));
+    }
+    ops.push(Op::Return);
     ops
 }
 
@@ -192,7 +196,8 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
             let mut ops = vec![Op::Failure(input.dst.clone())];
             ops.append(&mut make_sub_ops(tag));
             ops.append(&mut make_sub_ops(msg));
-            ops.push(Op::Return(input.dst.clone()));
+            ops.push(Op::SetResult(input.dst.clone()));
+            ops.push(Op::Return);
             ops
         }
         Source::FieldAccess(ref base, subreg) => {
@@ -359,7 +364,7 @@ pub fn make_pattern_ops(pattern: &Iexpr) -> OpVec
 
 pub fn make_case_ops(test: &Iexpr, truth: &Iexpr, lies: &Iexpr) -> OpVec
 {
-verbose_out!("make_case_ops({:?},{:?},{:?})", test, truth, lies);
+vout!("make_case_ops({:?},{:?},{:?})\n", test, truth, lies);
     let mut case_ops = make_sub_ops(&test);
     let mut truth_ops = make_sub_ops(&truth);
     let mut lies_ops = make_sub_ops(&lies);
@@ -377,7 +382,7 @@ verbose_out!("make_case_ops({:?},{:?},{:?})", test, truth, lies);
 
 pub fn make_if_ops(test: &Iexpr, truth: &Iexpr, lies: &Iexpr) -> OpVec
 {
-verbose_out!("make_if_ops({:?},{:?},{:?})", test, truth, lies);
+vout!("make_if_ops({:?},{:?},{:?})\n", test, truth, lies);
     let mut if_ops = make_sub_ops(&test);
     let mut truth_ops = make_sub_ops(&truth);
     let mut lies_ops = make_sub_ops(&lies);

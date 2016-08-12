@@ -1196,9 +1196,11 @@ impl Env
             &Reg::Void => {
                 panic!("Cannot get Reg::Void");
             }
-            _ => {
-                println!("register is not set: {:?}", reg);
-                &self.error
+            &Reg::Lib => {
+                panic!("Please look in application library for Reg::Lib");
+            }
+            &Reg::Undecided => {
+                panic!("Cannot get undecided register");
             }
         }
     }
@@ -1226,7 +1228,7 @@ impl reg::Iregistry for Env
     {
         let p = i.get_primary();
         if !self.reg.contains_key(&p) {
-            verbose_out!("{:?} not set in {:?}\n", i, self.reg);
+            vout!("{:?} not set in {:?}\n", i, self.reg);
             panic!("register is not set: {:?}", i);
         }
         let v = self.reg.get(&p).unwrap();
@@ -1243,7 +1245,7 @@ impl reg::Iregistry for Env
         let p = i.get_primary();
         if !self.reg.contains_key(&p) {
             verbose_out!("{:?} not set in {:?}\n", i, self.reg);
-            panic!("mut register is not set: {:?}", i);
+            panic!("register_mut is not set: {:?}", i);
         }
         let v = self.reg.get_mut(&p).unwrap();
 

@@ -11,8 +11,8 @@ use leema::code::{CodeKey};
 use leema::compile::{Compiler};
 use leema::frame::{Application, Parent};
 use leema::ast;
-use leema::reg::Reg;
 use std::io::{stderr, Write};
+use std::fs;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use docopt::{Docopt};
@@ -25,6 +25,7 @@ extern crate rustc_serialize;
 #[derive(RustcDecodable)]
 struct Args {
     arg_file: Option<String>,
+    flag_export_ops: bool,
     flag_repl: bool,
     flag_verbose: bool,
 }
@@ -39,6 +40,7 @@ Usage:
   leema (-h | --help)
 
 Options:
+  --export-ops    Export program ops to a file
   -v --verbose    Output debug messages
   -h --help       Show this message
   --repl          Launch the REPL
@@ -62,7 +64,7 @@ fn real_main() -> i32
     if args.flag_verbose {
         log::set_verbose();
     }
-    verbose_out!("verbose mode\nargs:{:?}\n", args);
+    vout!("verbose mode\nargs:{:?}\n", args);
 
     let loader = ast::Loader::new();
     let mut ss = prefab::new_staticspace();
@@ -71,8 +73,8 @@ fn real_main() -> i32
             let mut c = Compiler::new(&mut ss, loader);
             c.compile_file(args.arg_file.unwrap());
         }
-        verbose_out!("lib code> {:?}\n", ss.lib);
-        verbose_out!("\nss> {:?}\n", ss);
+        vout!("lib code> {:?}\n", ss.lib);
+        vout!("\nss> {:?}\n", ss);
     } else if !args.flag_repl {
         panic!("do you want a file or the repl?");
     }
@@ -80,6 +82,14 @@ fn real_main() -> i32
 
     let mut app = Application::new();
     app.add_app_code(&ss);
+
+    if args.flag_export_ops {
+        let mut opsf = fs::File::create("leema-ops").ok().unwrap();
+        for keycode in app.code_iter() {
+            write!(opsf, "{:?}\n", keycode).ok();
+        }
+        return 0;
+    }
 
     let e = Env::new();
     if ss.has_main() {
