@@ -20,7 +20,7 @@ use std::io::{stderr, Write};
 pub enum Parent
 {
     Null,
-    Caller(Reg, Val, Code, Box<Frame>),
+    Caller(Reg, Code, Box<Frame>),
     Fork(Arc<AtomicBool>, mpsc::Sender<Val>),
     Repl(Val),
     Main(Val),
@@ -31,8 +31,8 @@ impl Parent
     pub fn set_result(&mut self, r: Val)
     {
         match self {
-            &mut Parent::Caller(_, ref mut res, _, _) => {
-                *res = r;
+            &mut Parent::Caller(ref dst, _, ref mut pf) => {
+                pf.e.set_reg(dst, r);
             }
             &mut Parent::Fork(_, _) => {
             }
@@ -53,10 +53,10 @@ impl Debug for Parent
     {
         match self {
             &Parent::Null => write!(f, "Parent::Null"),
-            &Parent::Caller(ref dst, ref res, ref code, ref pf) => {
+            &Parent::Caller(ref dst, ref code, ref pf) => {
                 write!(f,
-                    "Parent::Caller({:?}, {:?}, {:?}, {:?})",
-                    dst, res, code, pf
+                    "Parent::Caller({:?}, {:?}, {:?})",
+                    dst, code, pf
                 )
             }
             &Parent::Fork(ref ready, _) => {
@@ -674,11 +674,7 @@ vout!("iterate\n");
                     vout!("function call failed\n");
                 }
                 match curf.parent {
-                    Parent::Caller(dst, res, code, mut pf) => {
-                        pf.e.set_reg(
-                            &dst,
-                            res,
-                        );
+                    Parent::Caller(dst, code, mut pf) => {
                         self.fresh.push_back((code, *pf));
                     }
                     Parent::Repl(res) => {
@@ -720,7 +716,6 @@ vout!("lock app, main done in iterate\n");
             Event::Call(dst, ch_code, mut ch_frame) => {
                 ch_frame.parent = Parent::Caller(
                     dst,
-                    Val::Void,
                     code,
                     Box::new(curf),
                 );
