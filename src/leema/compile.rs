@@ -129,7 +129,7 @@ verbose_out!("new_block> {:?}\n", code);
     fn constructor(t: Type) -> Iexpr
     {
         Iexpr{
-            dst: Reg::Undecided,
+            dst: Reg::new_reg(0),
             typ: t.clone(),
             src: Source::Constructor(t),
         }
@@ -529,7 +529,7 @@ verbose_out!("precompile_defstruct({:?},{:?})\n", nameval, fields);
         self.scope.define_type(&name, &struct_type);
         self.typefields.insert(struct_type.clone(), typefields);
         let fixpr = Iexpr::constructor(struct_type.clone());
-vout!("typefields now: {:?}\n", self.typefields);
+        vout!("typefields now: {:?}\n", self.typefields);
 
         self.define_func(
             name.clone(),

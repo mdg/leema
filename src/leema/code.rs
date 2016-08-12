@@ -209,6 +209,7 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
             make_call_ops(&input.dst, f, args)
         }
         Source::Constructor(ref typ) => {
+            vout!("make_constructor_ops({:?})\n", input);
             make_constructor_ops(&input.dst, typ)
         }
         Source::Fork(ref f, ref args) => {
