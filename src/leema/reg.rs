@@ -1,6 +1,7 @@
 use leema::val::{Val};
+use std::fmt;
+use std::io::{Write};
 
-#[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(Eq)]
 #[derive(PartialOrd)]
@@ -46,13 +47,31 @@ impl Ireg
     }
 }
 
+impl fmt::Display for Ireg
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        match self {
+            &Ireg::Reg(r) => write!(f, ".{}", r),
+            &Ireg::Sub(r, ref s) => write!(f, ".{}{}", r, s),
+        }
+    }
+}
+
+impl fmt::Debug for Ireg
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "{}", self)
+    }
+}
+
 pub trait Iregistry {
     fn ireg_get(&self, r: &Ireg) -> &Val;
     fn ireg_get_mut(&mut self, r: &Ireg) -> &mut Val;
     fn ireg_set(&mut self, r: &Ireg, v: Val);
 }
 
-#[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(Eq)]
 #[derive(PartialOrd)]
@@ -123,5 +142,28 @@ impl Reg
             &Reg::Reg(Ireg::Sub(_, ref s)) => s,
             _ => panic!("cannot get sub from other register: {:?}", self),
         }
+    }
+}
+
+impl fmt::Display for Reg
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        match self {
+            &Reg::Param(ref r) => write!(f, "Param{}", r),
+            &Reg::Reg(ref r) => write!(f, "Reg{}", r),
+            &Reg::Params => write!(f, "Reg::Params"),
+            &Reg::Lib => write!(f, "Reg::Lib"),
+            &Reg::Void => write!(f, "Reg::Void"),
+            &Reg::Undecided => write!(f, "Reg::Undecided"),
+        }
+    }
+}
+
+impl fmt::Debug for Reg
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "{}", self)
     }
 }
