@@ -2,6 +2,7 @@ use leema::val::{Env};
 use leema::frame::{Frame, Application, Parent};
 use leema::lex::{lex};
 use leema::ast::{Ast};
+use leema::val::{Val};
 use leema::compile::{StaticSpace};
 use leema::code::{CodeKey, Code, Op, make_ops};
 
@@ -51,11 +52,11 @@ fn apply_macro(mdef: Sexpr, input: List) -> Sexpr {
 */
 
 
-pub fn push_eval(app: Arc<Mutex<Application>>, i: isize, function: Code, e: Env)
+pub fn push_eval(app: &Mutex<Application>, i: isize, function: Code, e: Env)
 {
     println!("exec {:?}", function);
 
-    let frm = Frame::new(Parent::Repl, e);
+    let frm = Frame::new(Parent::Repl(Val::Void), e);
 //println!("repl.push_eval: app.lock().unwrap()");
     let mut _app = app.lock().unwrap();
     let ckey = CodeKey::Repl(i);
@@ -63,22 +64,21 @@ pub fn push_eval(app: Arc<Mutex<Application>>, i: isize, function: Code, e: Env)
     _app.add_code(ckey, function);
 }
 
-pub fn wait_eval(app: Arc<Mutex<Application>>) -> Frame
+pub fn wait_eval(app: Arc<Mutex<Application>>) -> Val
 {
 //println!("repl.wait_eval: app.lock().unwrap()");
-    let mut result = None;
-    while result.is_none() {
-        thread::yield_now();
-        let mut _app = app.lock().unwrap();
+    let mut result = Val::Void;
+    // this is crap. set this w/ a channel or something.
+    thread::yield_now();
+    let mut _app = app.lock().unwrap();
 //println!("repl.wait_eval: app.pop_old_frame().unwrap()");
-        result = _app.take_main_frame()
-    }
-    result.unwrap()
+    _app.take_result()
 }
 
-pub fn reploop(app: Arc<Mutex<Application>>, mut e: Env, mut ss: StaticSpace)
+pub fn reploop(app: Arc<Mutex<Application>>, mut ss: StaticSpace)
 {
     let mut i = 1;
+    let mut e = Env::new();
     loop {
         prompt();
         let input = read_cmd();
@@ -100,14 +100,14 @@ pub fn reploop(app: Arc<Mutex<Application>>, mut e: Env, mut ss: StaticSpace)
         println!("---\n");
 
         let code = Code::Leema(Arc::new(ops));
-        push_eval(app.clone(), i, code, e);
+        push_eval(&*app, i, code, e);
         //let result = Worker::eval(cmd_code);
         // println!("= {:?}", result);
 
-        let mut result_frame = wait_eval(app.clone());
-        println!("= {:?}", result_frame.e.takeResult());
-        println!("w/ {:?}", result_frame);
-        e = result_frame.take_env();
+        let mut result = wait_eval(app.clone());
+        // TODO: but really, extract the env out of the execution
+        e = Env::new();
+        println!("= {:?}", result);
         i += 1;
     }
 }

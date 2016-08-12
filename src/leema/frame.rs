@@ -20,10 +20,31 @@ use std::io::{stderr, Write};
 pub enum Parent
 {
     Null,
-    Caller(Reg, Code, Box<Frame>),
+    Caller(Reg, Val, Code, Box<Frame>),
     Fork(Arc<AtomicBool>, mpsc::Sender<Val>),
-    Repl,
-    Main,
+    Repl(Val),
+    Main(Val),
+}
+
+impl Parent
+{
+    fn set_result(&mut self, r: Val)
+    {
+        match self {
+            &mut Parent::Caller(_, ref mut res, _, _) => {
+                *res = r;
+            }
+            &mut Parent::Fork(_, _) => {
+            }
+            &mut Parent::Main(ref mut res) => {
+                *res = r;
+            }
+            &mut Parent::Repl(ref mut res) => {
+                *res = r;
+            }
+            &mut Parent::Null => {}
+        }
+    }
 }
 
 impl Debug for Parent
@@ -32,17 +53,17 @@ impl Debug for Parent
     {
         match self {
             &Parent::Null => write!(f, "Parent::Null"),
-            &Parent::Caller(ref dst, ref code, ref pf) => {
+            &Parent::Caller(ref dst, ref res, ref code, ref pf) => {
                 write!(f,
-                    "Parent::Caller({:?}, {:?}, {:?})",
-                    dst, code, pf
+                    "Parent::Caller({:?}, {:?}, {:?}, {:?})",
+                    dst, res, code, pf
                 )
             }
             &Parent::Fork(ref ready, _) => {
                 write!(f, "Parent::Fork({:?})", ready)
             }
-            &Parent::Repl => write!(f, "Parent::Repl"),
-            &Parent::Main => write!(f, "Parent::Main"),
+            &Parent::Repl(ref res) => write!(f, "Parent::Repl({:?})", res),
+            &Parent::Main(ref res) => write!(f, "Parent::Main({:?})", res),
         }
     }
 }
@@ -51,7 +72,6 @@ impl Debug for Parent
 pub struct Frame
 {
     pub parent: Parent,
-    pub result: Val,
     pub e: Env,
     pc: i32,
 }
@@ -62,7 +82,6 @@ impl Frame
     {
         Frame{
             parent: par,
-            result: Val::Void,
             e: env,
             pc: 0,
         }
@@ -162,6 +181,7 @@ pub struct Application
 {
     new_frames: LinkedList<(CodeKey, Frame)>,
     main_frame: Option<Frame>,
+    result: Option<Val>,
     code: CodeMap,
     //done: Arc<(Mutex<bool>, Condvar)>,
     done: AtomicBool,
@@ -175,30 +195,31 @@ impl Application
         Application{
             new_frames: LinkedList::new(),
             main_frame: None,
+            result: None,
             code: HashMap::new(),
             //done: Arc::new((Mutex::new(false), Condvar::new())),
             done: AtomicBool::new(false),
         }
     }
 
-    pub fn push_new_frame(&mut self, fname: &CodeKey, f: Frame) -> () {
+    pub fn push_new_frame(&mut self, fname: &CodeKey, f: Frame)
+    {
         self.new_frames.push_back((fname.clone(), f))
     }
 
-    pub fn pop_new_frame(&mut self) -> Option<(CodeKey, Frame)> {
+    pub fn pop_new_frame(&mut self) -> Option<(CodeKey, Frame)>
+    {
         self.new_frames.pop_front()
     }
 
-    pub fn set_main_frame(&mut self, f: Frame) -> () {
-        if self.main_frame.is_some() {
-            panic!("main_frame is already set");
-        }
-        self.main_frame = Some(f)
+    pub fn set_result(&mut self, res: Val)
+    {
+        self.result = Some(res);
     }
 
-    pub fn wait_until_done(app: &Arc<Mutex<Application>>) -> Option<Frame>
+    pub fn wait_until_done(app: &Arc<Mutex<Application>>) -> Val
     {
-        let mut result = None;
+        let mut result = Val::Void;
         let mut done = false;
         while !done {
             {
@@ -209,7 +230,7 @@ impl Application
                     let mut _app = lock_result.unwrap();
                     done = _app.done.load(Ordering::Relaxed);
                     if done {
-                        result = _app.take_main_frame();
+                        result = _app.take_result();
                     }
                 }
             }
@@ -228,8 +249,9 @@ impl Application
         result
     }
 
-    pub fn take_main_frame(&mut self) -> Option<Frame> {
-        self.main_frame.take()
+    pub fn take_result(&mut self) -> Val
+    {
+        self.result.take().unwrap()
     }
 
     pub fn add_app_code(&mut self, ss: &StaticSpace)
@@ -327,7 +349,6 @@ fn execute_fork(w: &mut Worker, curf: &mut Frame,
     let ready = Arc::new(AtomicBool::new(false));
     let newf = Frame{
         parent: Parent::Fork(ready.clone(), tx),
-        result: Val::Void,
         e: curf.e.clone(),
         pc: 0,
     };
@@ -476,7 +497,7 @@ fn execute_call(w: &mut Worker, curf: &mut Frame, dst: &Reg, freg: &Reg, argreg:
             let args = curf.e.get_reg(argreg);
             match call_arg_failure(args) {
                 Some(failure) => {
-                    curf.result = failure.clone();
+                    curf.parent.set_result(failure.clone());
                     w.event = Event::Complete(false);
                     return;
                 }
@@ -654,24 +675,24 @@ vout!("iterate\n");
                     vout!("function call failed\n");
                 }
                 match curf.parent {
-                    Parent::Caller(dst, code, mut pf) => {
+                    Parent::Caller(dst, res, code, mut pf) => {
                         pf.e.set_reg(
                             &dst,
-                            curf.e.takeResult(),
+                            res,
                         );
                         self.fresh.push_back((code, *pf));
                     }
-                    Parent::Repl => {
+                    Parent::Repl(res) => {
 vout!("lock app, repl done in iterate\n");
                         let mut _app = self.app.lock().unwrap();
-                        _app.set_main_frame(curf);
+                        _app.set_result(res);
                     }
-                    Parent::Main => {
+                    Parent::Main(res) => {
 vout!("finished main func\n");
                         {
 vout!("lock app, main done in iterate\n");
                             let mut _app = self.app.lock().unwrap();
-                            _app.set_main_frame(curf);
+                            _app.set_result(res);
                             _app.done.store(true, Ordering::Relaxed);
                             self.done = true;
                         }
@@ -700,6 +721,7 @@ vout!("lock app, main done in iterate\n");
             Event::Call(dst, ch_code, mut ch_frame) => {
                 ch_frame.parent = Parent::Caller(
                     dst,
+                    Val::Void,
                     code,
                     Box::new(curf),
                 );

@@ -87,11 +87,11 @@ fn real_main() -> i32
             // might just get rid of scripts altogether
             // panic!("Cannot have both script code and a main function");
         }
-        let frm = Frame::new(Parent::Main, e);
+        let frm = Frame::new(Parent::Main(Val::Void), e);
 verbose_out!("We have main!\n{:?}", frm);
         app.push_new_frame(&CodeKey::Main, frm);
     } else if ss.has_script() {
-        let frm = Frame::new(Parent::Main, e);
+        let frm = Frame::new(Parent::Main(Val::Void), e);
 verbose_out!("We have a script!\n{:?}", frm);
         app.push_new_frame(&CodeKey::Script, frm);
     }
@@ -106,20 +106,18 @@ verbose_out!("We have a script!\n{:?}", frm);
     });
 
     if args.flag_repl {
-        repl::reploop(rappl.clone(), Env::new(), ss);
+        repl::reploop(rappl.clone(), ss);
     } else if ! (ss.has_main() || ss.has_script()) {
         write!(stderr(), "no main function or script code\n").ok();
         return leema::CLI_NOMAIN;
     } else {
         let result = Application::wait_until_done(&rappl);
-        verbose_out!("result: {:?}\n", result);
-        let rframe = result.unwrap();
-        let rframe_res = rframe.e.get_reg(&Reg::Result);
-        match rframe_res {
-            &Val::Int(resulti) => {
+        vout!("result: {:?}\n", result);
+        match result {
+            Val::Int(resulti) => {
                 return resulti as i32;
             }
-            &Val::Failure(ref tag, ref msg) => {
+            Val::Failure(tag, msg) => {
                 println!("Uncaught Failure: {} \"{}\"", tag, msg);
                 return leema::CLI_UNCAUGHT_FAILURE;
             }
