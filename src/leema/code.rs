@@ -32,11 +32,11 @@ impl fmt::Display for ModSym {
 pub enum Op {
     LoadFunc(Reg, ModSym),
     ApplyFunc(Reg, Reg, Reg),
-    Return,
+    Return(Reg),
     ConstVal(Reg, Val),
     Constructor(Reg, Type),
     Copy(Reg, Reg),
-    Failure,
+    Failure(Reg),
     Fork(Reg, Reg, Reg),
     //IfFail(Reg, i16),
     Jump(i16),
@@ -161,10 +161,7 @@ impl Lib
 pub fn make_ops(input: &Iexpr) -> OpVec
 {
     let mut ops = make_sub_ops(input);
-    if input.dst != Reg::Result {
-        ops.push(Op::Copy(Reg::Result, input.dst.clone()));
-    }
-    ops.push(Op::Return);
+    ops.push(Op::Return(input.dst.clone()));
     ops
 }
 
@@ -192,10 +189,10 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
             vec![Op::Copy(input.dst.clone(), src.clone())]
         }
         Source::Fail(ref tag, ref msg) => {
-            let mut ops = vec![Op::Failure];
+            let mut ops = vec![Op::Failure(input.dst.clone())];
             ops.append(&mut make_sub_ops(tag));
             ops.append(&mut make_sub_ops(msg));
-            ops.push(Op::Return);
+            ops.push(Op::Return(input.dst.clone()));
             ops
         }
         Source::FieldAccess(ref base, subreg) => {

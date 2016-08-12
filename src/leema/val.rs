@@ -1172,19 +1172,6 @@ impl Env
             &Reg::Reg(ref i) => {
                 self.ireg_set(i, v)
             }
-            &Reg::Result => {
-                self.result = Some(v);
-            }
-            &Reg::Subresult(ref i) => {
-                match self.result {
-                    Some(ref mut rv) => {
-                        rv.ireg_set(i, v)
-                    }
-                    None => {
-                        panic!("No result set! {:?}", reg)
-                    }
-                }
-            }
             &Reg::Void => {
                 // do nothing, void reg is like /dev/null
             }
@@ -1203,26 +1190,6 @@ impl Env
             &Reg::Param(ref r) => {
                 self.params.ireg_get(r)
             }
-            &Reg::Result => {
-                match self.result {
-                    Some(ref rv) => {
-                        rv
-                    }
-                    None => {
-                        panic!("No result set!")
-                    }
-                }
-            }
-            &Reg::Subresult(ref i) => {
-                match self.result {
-                    Some(ref rv) => {
-                        rv.ireg_get(i)
-                    }
-                    None => {
-                        panic!("No result set!")
-                    }
-                }
-            }
             &Reg::Reg(ref i) => {
                 self.ireg_get(i)
             }
@@ -1234,6 +1201,11 @@ impl Env
                 &self.error
             }
         }
+    }
+
+    pub fn get_param(&self, reg: i8) -> &Val
+    {
+        self.get_reg(&Reg::Reg(Ireg::Reg(reg)))
     }
 
     pub fn takeResult(&mut self) -> Val {

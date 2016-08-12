@@ -1,5 +1,4 @@
 use leema::val::{Val, Type};
-use leema::reg::{Reg};
 use leema::code::{Code};
 use leema::frame::{Frame};
 use leema::compile::{Compiler, StaticSpace};
@@ -27,7 +26,7 @@ pub fn int_add(fs: &mut Frame)
             }
         }
     }
-    fs.e.set_reg(&Reg::Result, Val::Int(ic));
+    fs.parent.set_result(Val::Int(ic));
 }
 
 pub fn int_sub(fs: &mut Frame)
@@ -45,7 +44,7 @@ pub fn int_sub(fs: &mut Frame)
             }
         }
     }
-    fs.e.set_reg(&Reg::Result, Val::Int(ic));
+    fs.parent.set_result(Val::Int(ic));
 }
 
 pub fn int_mult(fs: &mut Frame)
@@ -63,7 +62,7 @@ pub fn int_mult(fs: &mut Frame)
             }
         }
     }
-    fs.e.set_reg(&Reg::Result, Val::Int(ic));
+    fs.parent.set_result(Val::Int(ic));
 }
 
 pub fn int_mod(fs: &mut Frame)
@@ -81,7 +80,7 @@ pub fn int_mod(fs: &mut Frame)
             }
         }
     }
-    fs.e.set_reg(&Reg::Result, Val::Int(ic));
+    fs.parent.set_result(Val::Int(ic));
 }
 
 pub fn int_negate(fs: &mut Frame)
@@ -98,7 +97,7 @@ pub fn int_negate(fs: &mut Frame)
             }
         }
     }
-    fs.e.set_reg(&Reg::Result, Val::Int(result));
+    fs.parent.set_result(Val::Int(result));
 }
 
 pub fn bool_not(fs: &mut Frame)
@@ -114,7 +113,7 @@ pub fn bool_not(fs: &mut Frame)
             }
         }
     }
-    fs.e.set_reg(&Reg::Result, Val::Bool(bnot));
+    fs.parent.set_result(Val::Bool(bnot));
 }
 
 pub fn bool_xor(fs: &mut Frame)
@@ -132,7 +131,7 @@ pub fn bool_xor(fs: &mut Frame)
             }
         }
     }
-    fs.e.set_reg(&Reg::Result, Val::Bool(result));
+    fs.parent.set_result(Val::Bool(result));
 }
 
 pub fn less_than(fs: &mut Frame)
@@ -143,18 +142,14 @@ pub fn less_than(fs: &mut Frame)
         let vb = fs.get_param(1);
         result = va < vb;
     }
-    fs.e.set_reg(&Reg::Result, Val::Bool(result));
+    fs.parent.set_result(Val::Bool(result));
 }
 
 pub fn less_than_equal(fs: &mut Frame)
 {
-    let result;
-    {
-        let va = fs.get_param(0);
-        let vb = fs.get_param(1);
-        result = va <= vb;
-    }
-    fs.e.set_reg(&Reg::Result, Val::Bool(result));
+    let va = fs.e.get_param(0);
+    let vb = fs.e.get_param(1);
+    fs.parent.set_result(Val::Bool(va <= vb));
 }
 
 pub fn equal(fs: &mut Frame)
@@ -165,7 +160,7 @@ pub fn equal(fs: &mut Frame)
         let vb = fs.get_param(1);
         result = va == vb;
     }
-    fs.e.set_reg(&Reg::Result, Val::Bool(result));
+    fs.parent.set_result(Val::Bool(result));
 }
 
 pub fn greater_than(fs: &mut Frame)
@@ -176,7 +171,7 @@ pub fn greater_than(fs: &mut Frame)
         let vb = fs.get_param(1);
         result = va > vb;
     }
-    fs.e.set_reg(&Reg::Result, Val::Bool(result));
+    fs.parent.set_result(Val::Bool(result));
 }
 
 pub fn greater_than_equal(fs: &mut Frame)
@@ -187,7 +182,7 @@ pub fn greater_than_equal(fs: &mut Frame)
         let vb = fs.get_param(1);
         result = va >= vb;
     }
-    fs.e.set_reg(&Reg::Result, Val::Bool(result));
+    fs.parent.set_result(Val::Bool(result));
 }
 
 pub fn get_type(fs: &mut Frame)
@@ -197,7 +192,7 @@ pub fn get_type(fs: &mut Frame)
         let v = fs.get_param(0);
         result = v.get_type();
     }
-    fs.e.set_reg(&Reg::Result, Val::Type(result));
+    fs.parent.set_result(Val::Type(result));
 }
 
 pub fn cout(fs: &mut Frame)
@@ -206,7 +201,7 @@ pub fn cout(fs: &mut Frame)
         let va = fs.get_param(0);
         print!("{}", va);
     }
-    fs.e.set_reg(&Reg::Result, Val::Void);
+    fs.parent.set_result(Val::Void);
 }
 
 pub fn cerr(fs: &mut Frame)
@@ -215,7 +210,7 @@ pub fn cerr(fs: &mut Frame)
         let va = fs.get_param(0);
         write!(stderr(), "{}", va);
     }
-    fs.e.set_reg(&Reg::Result, Val::Void);
+    fs.parent.set_result(Val::Void);
 }
 
 
@@ -274,7 +269,7 @@ pub fn file_read(fs: &mut Frame)
             Val::new_str("Failed to open file".to_string()),
             )
     };
-    fs.e.set_reg(&Reg::Result, openf);
+    fs.parent.set_result(openf);
 }
 
 pub fn stream_read_file(fs: &mut Frame)
@@ -300,7 +295,7 @@ pub fn stream_read_file(fs: &mut Frame)
         //let result = myf.f.lock().unwrap().read_to_string(&mut input);
     }
 println!("read from file: '{}'", input);
-    fs.e.set_reg(&Reg::Result, Val::Str(Arc::new(input)));
+    fs.parent.set_result(Val::Str(Arc::new(input)));
 }
 
 fn define_macros(ss: &mut StaticSpace)

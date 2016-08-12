@@ -61,8 +61,6 @@ pub trait Iregistry {
 pub enum Reg {
     Params,
     Param(Ireg),
-    Result,
-    Subresult(Ireg),
     Reg(Ireg),
     Lib,
     Void,
@@ -79,12 +77,6 @@ impl Reg
             }
             &Reg::Param(ref ir) => {
                 Reg::Param(ir.sub(sub))
-            }
-            &Reg::Result => {
-                Reg::Subresult(Ireg::Reg(sub))
-            }
-            &Reg::Subresult(ref ir) => {
-                Reg::Subresult(ir.sub(sub))
             }
             &Reg::Reg(ref r) => {
                 Reg::Reg(r.sub(sub))
@@ -110,7 +102,6 @@ impl Reg
     {
         match self {
             &Reg::Params => true,
-            &Reg::Result => true,
             &Reg::Reg(Ireg::Reg(_)) => true,
             _ => false,
         }
@@ -120,7 +111,6 @@ impl Reg
     {
         match self {
             &Reg::Param(_) => true,
-            &Reg::Subresult(_) => true,
             &Reg::Reg(Ireg::Sub(_, _)) => true,
             _ => false,
         }
@@ -130,7 +120,6 @@ impl Reg
     {
         match self {
             &Reg::Param(ref s) => s,
-            &Reg::Subresult(ref s) => s,
             &Reg::Reg(Ireg::Sub(_, ref s)) => s,
             _ => panic!("cannot get sub from other register: {:?}", self),
         }

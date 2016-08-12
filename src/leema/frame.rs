@@ -28,7 +28,7 @@ pub enum Parent
 
 impl Parent
 {
-    fn set_result(&mut self, r: Val)
+    pub fn set_result(&mut self, r: Val)
     {
         match self {
             &mut Parent::Caller(_, ref mut res, _, _) => {
@@ -421,27 +421,22 @@ fn execute_list_create(curf: &mut Frame, dst: &Reg) {
 
 fn execute_strcat(w: &mut Worker, curf: &mut Frame, dstreg: &Reg, srcreg: &Reg)
 {
-    let dregbuf;
-    let (dstreg2, dstval) = {
+    let result = {
         let src = curf.e.get_reg(srcreg);
         if src.is_failure() {
+            curf.parent.set_result(src.clone());
             w.event = Event::Complete(false);
-            dregbuf = Reg::Result;
-            (&dregbuf, src.clone())
+            return;
         } else if src.is_future() {
             // oops, not ready to do this yet, let's bail and wait
             w.event = Event::FutureWait(srcreg.clone());
-            dregbuf = Reg::Void;
-            (&dregbuf, Val::Void)
-        } else {
-            let dst = curf.e.get_reg(dstreg);
-            let result = Val::Str(Arc::new(format!("{}{}", dst, src)));
-            curf.pc = curf.pc + 1;
-            (dstreg, result)
+            return;
         }
+        let dst = curf.e.get_reg(dstreg);
+        Val::Str(Arc::new(format!("{}{}", dst, src)))
     };
-    // working around the borrow checker here
-    curf.e.set_reg(dstreg2, dstval);
+    curf.e.set_reg(dstreg, result);
+    curf.pc = curf.pc + 1;
 }
 
 fn execute_tuple_create(curf: &mut Frame, dst: &Reg, ref sz: i8)
@@ -457,9 +452,9 @@ fn execute_load_func(curf: &mut Frame, dst: &Reg, ms: &ModSym)
     curf.pc = curf.pc + 1;
 }
 
-fn execute_failure(curf: &mut Frame)
+fn execute_failure(curf: &mut Frame, dst: &Reg)
 {
-    curf.e.set_reg(&Reg::Result, Val::failure(Val::Void, Val::Void));
+    curf.e.set_reg(dst, Val::failure(Val::Void, Val::Void));
     curf.pc = curf.pc + 1;
 }
 
@@ -622,11 +617,15 @@ verbose_out!("lock app, find_code\n");
             &Op::ApplyFunc(ref dst, ref func, ref args) => {
                 execute_call(self, curf, dst, func, args);
             }
-            &Op::Return => {
+            &Op::Return(ref dst) => {
+                if dst == &Reg::Void {
+                    panic!("return void at {} in {:?}", curf.pc, ops);
+                }
+                curf.parent.set_result(curf.e.get_reg(dst).clone());
                 self.event = Event::Complete(true);
             }
-            &Op::Failure => {
-                execute_failure(curf);
+            &Op::Failure(ref dst) => {
+                execute_failure(curf, dst);
             }
         }
     }
@@ -879,9 +878,8 @@ write!(stderr(), "app.add_app_code\n");
     });
 
 write!(stderr(), "Application::wait_until_done\n");
-    let result_frame = Application::wait_until_done(&app1);
-    assert!(result_frame.is_some());
-    assert_eq!(&Val::Int(3), result_frame.unwrap().e.get_reg(&Reg::Result));
+    let result = Application::wait_until_done(&app1);
+    assert_eq!(&Val::Int(3), result);
 }
 
 }

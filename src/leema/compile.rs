@@ -129,7 +129,7 @@ verbose_out!("new_block> {:?}\n", code);
     fn constructor(t: Type) -> Iexpr
     {
         Iexpr{
-            dst: Reg::Result,
+            dst: Reg::Undecided,
             typ: t.clone(),
             src: Source::Constructor(t),
         }
@@ -341,8 +341,6 @@ impl StaticSpace
             Val::Failure(raw_tag, raw_msg) => {
                 let mut tag = self.precompile(*raw_tag);
                 let mut msg = self.precompile(*raw_msg);
-                tag.dst = Reg::Result.sub(0);
-                msg.dst = Reg::Result.sub(1);
                 if tag.typ != Type::Hashtag {
                     panic!("Failure tag is not a hashtag: {:?}", tag.typ);
                 }
@@ -350,7 +348,7 @@ impl StaticSpace
                     panic!("Failure msg is not a string: {:?}", msg.typ);
                 }
                 Iexpr{
-                    dst: Reg::Result,
+                    dst: Reg::Undecided,
                     typ: Type::Failure,
                     src: Source::Fail(
                         Box::new(tag),
@@ -1037,8 +1035,6 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
             }
             Source::IfStmt(ref mut test, ref mut truth, ref mut lies) => {
                 self.assign_registers(&mut *test);
-                truth.dst = Reg::Void;
-                lies.dst = Reg::Void;
                 self.assign_registers(&mut *truth);
                 self.assign_registers(&mut *lies);
             }
@@ -1053,11 +1049,16 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
                 self.assign_registers(&mut *a);
                 self.assign_registers(&mut *b);
             }
+            Source::Fail(ref mut tag, ref mut msg) => {
+                tag.dst = i.dst.sub(0);
+                msg.dst = i.dst.sub(1);
+                self.assign_registers(tag);
+                self.assign_registers(msg);
+            }
             // nothing to recurse into for these
             Source::BoundVal(_) => {}
             Source::ConstVal(_) => {}
             Source::Constructor(_) => {}
-            Source::Fail(_, _) => {}
             Source::PatternVar(_) => {}
             Source::Void => {}
         }
@@ -1098,9 +1099,6 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
 
     pub fn set_registers(&mut self, i: &mut Iexpr)
     {
-        if i.dst == Reg::Undecided {
-            i.dst = Reg::Result;
-        }
         self.assign_registers(i);
 
     }
