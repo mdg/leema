@@ -1055,9 +1055,9 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
             }
             Source::IfStmt(ref mut test, ref mut truth, ref mut lies) => {
                 self.assign_registers(test);
-                truth.dst = i.dst.clone();
-                lies.dst = i.dst.clone();
                 self.assign_registers(truth);
+                // use the same register for truth and lies
+                lies.dst = truth.dst.clone();
                 self.assign_registers(lies);
             }
             Source::List(ref mut l) => {
@@ -1072,8 +1072,6 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
                 self.assign_registers(&mut *b);
             }
             Source::Fail(ref mut tag, ref mut msg) => {
-                tag.dst = i.dst.sub(0);
-                msg.dst = i.dst.sub(1);
                 self.assign_registers(tag);
                 self.assign_registers(msg);
             }
@@ -1313,22 +1311,22 @@ fn test_precompile_if_block()
         src: Source::ConstVal(Val::Bool(true)),
     };
     let block_t = Iexpr{
-        dst: Reg::Void,
+        dst: Reg::new_reg(2),
         typ: Type::Int,
         src: Source::Block(vec![
             Iexpr{
-                dst: Reg::Void,
+                dst: Reg::new_reg(2),
                 typ: Type::Int,
                 src: Source::ConstVal(Val::Int(1)),
             },
         ]),
     };
     let block_f = Iexpr{
-        dst: Reg::Void,
+        dst: Reg::new_reg(2),
         typ: Type::Int,
         src: Source::Block(vec![
             Iexpr{
-                dst: Reg::Void,
+                dst: Reg::new_reg(2),
                 typ: Type::Int,
                 src: Source::ConstVal(Val::Int(2)),
             },

@@ -267,7 +267,7 @@ pub fn file_read(fs: &mut Frame)
         Err(_) => Val::failure(
             Val::hashtag("file_open_fail".to_string()),
             Val::new_str("Failed to open file".to_string()),
-            fs.trace.clone(),
+            fs.trace.failure_here(),
             )
     };
     fs.parent.set_result(openf);

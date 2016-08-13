@@ -96,6 +96,39 @@ impl FrameTrace
             parent: Some(parent.clone()),
         })
     }
+
+    pub fn failure_here(&self) -> Arc<FrameTrace>
+    {
+        Arc::new(FrameTrace{
+            direction: 0,
+            function: self.function.clone(),
+            parent: self.parent.clone(),
+        })
+    }
+}
+
+impl fmt::Display for FrameTrace
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        let dir = match self.direction {
+            0 => "<>",
+            1 => " >",
+            -1 => "< ",
+            d => {
+                panic!("Invalid direction: {}", d);
+            }
+        };
+
+        match self.parent {
+            None => {
+                write!(f, "{} {}\n", dir, self.function)
+            }
+            Some(ref p) => {
+                write!(f, "{} {}\n{}", dir, self.function, p)
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -517,7 +550,8 @@ fn execute_failure(curf: &mut Frame, dst: &Reg, tag: &Reg, msg: &Reg)
 {
     let tagval = curf.e.get_reg(tag).clone();
     let msgval = curf.e.get_reg(msg).clone();
-    curf.e.set_reg(dst, Val::failure(tagval, msgval, curf.trace.clone()));
+    let f = Val::failure(tagval, msgval, curf.trace.failure_here());
+    curf.e.set_reg(dst, f);
     curf.pc = curf.pc + 1;
 }
 

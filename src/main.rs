@@ -128,7 +128,7 @@ verbose_out!("We have a script!\n{:?}", frm);
                 return resulti as i32;
             }
             Val::Failure(tag, msg, stack) => {
-                println!("Uncaught Failure: {} \"{}\"\n{:?}", tag, msg, stack);
+                println!("Uncaught Failure: {} \"{}\"\n{}", tag, msg, stack);
                 return leema::CLI_UNCAUGHT_FAILURE;
             }
             _ => {}
