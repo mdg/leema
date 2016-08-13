@@ -16,6 +16,10 @@ lexparse/libleemalex.o
 
 # python test files
 __pycache__
+nosetests.xml
+
+# leema output files
+leema-ops
 
 # vim editor files
 .*.swp
