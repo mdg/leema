@@ -66,7 +66,8 @@ impl fmt::Debug for Ireg
     }
 }
 
-pub trait Iregistry {
+pub trait Iregistry
+{
     fn ireg_get(&self, r: &Ireg) -> &Val;
     fn ireg_get_mut(&mut self, r: &Ireg) -> &mut Val;
     fn ireg_set(&mut self, r: &Ireg, v: Val);

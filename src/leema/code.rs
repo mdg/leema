@@ -37,7 +37,7 @@ pub enum Op {
     ConstVal(Reg, Val),
     Constructor(Reg, Type),
     Copy(Reg, Reg),
-    Failure(Reg),
+    Failure(Reg, Reg, Reg),
     Fork(Reg, Reg, Reg),
     //IfFail(Reg, i16),
     Jump(i16),
@@ -193,9 +193,15 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
             vec![Op::Copy(input.dst.clone(), src.clone())]
         }
         Source::Fail(ref tag, ref msg) => {
-            let mut ops = vec![Op::Failure(input.dst.clone())];
+            let mut ops = vec![];
             ops.append(&mut make_sub_ops(tag));
             ops.append(&mut make_sub_ops(msg));
+            let failop = Op::Failure(
+                input.dst.clone(),
+                tag.dst.clone(),
+                msg.dst.clone(),
+            );
+            ops.push(failop);
             ops.push(Op::SetResult(input.dst.clone()));
             ops.push(Op::Return);
             ops

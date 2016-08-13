@@ -56,7 +56,7 @@ pub fn push_eval(app: &Mutex<Application>, i: isize, function: Code, e: Env)
 {
     println!("exec {:?}", function);
 
-    let frm = Frame::new(Parent::Repl(Val::Void), e);
+    let frm = Frame::new_root(e);
 //println!("repl.push_eval: app.lock().unwrap()");
     let mut _app = app.lock().unwrap();
     let ckey = CodeKey::Repl(i);

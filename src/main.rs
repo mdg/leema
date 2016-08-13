@@ -97,11 +97,11 @@ fn real_main() -> i32
             // might just get rid of scripts altogether
             // panic!("Cannot have both script code and a main function");
         }
-        let frm = Frame::new(Parent::Main(Val::Void), e);
+        let frm = Frame::new_root(e);
 verbose_out!("We have main!\n{:?}", frm);
         app.push_new_frame(&CodeKey::Main, frm);
     } else if ss.has_script() {
-        let frm = Frame::new(Parent::Main(Val::Void), e);
+        let frm = Frame::new_root(e);
 verbose_out!("We have a script!\n{:?}", frm);
         app.push_new_frame(&CodeKey::Script, frm);
     }
@@ -127,8 +127,8 @@ verbose_out!("We have a script!\n{:?}", frm);
             Val::Int(resulti) => {
                 return resulti as i32;
             }
-            Val::Failure(tag, msg) => {
-                println!("Uncaught Failure: {} \"{}\"", tag, msg);
+            Val::Failure(tag, msg, stack) => {
+                println!("Uncaught Failure: {} \"{}\"\n{:?}", tag, msg, stack);
                 return leema::CLI_UNCAUGHT_FAILURE;
             }
             _ => {}

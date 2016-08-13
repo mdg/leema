@@ -1,6 +1,7 @@
 use leema::reg::{self, Reg, Ireg, Iregistry};
 use leema::sexpr;
 use leema::list;
+use leema::frame::{FrameTrace};
 use leema::log;
 use std::fmt::{self};
 use std::collections::{BTreeMap, HashMap};
@@ -41,10 +42,6 @@ pub enum Type
     Void,
     /*
     Map(Box<Type>, Box<Type>),
-
-    Arrow(Vec<Type>),
-    // partial/parameterized arrow
-    Parrow(Vec<Type>, Vec<Type>),
     */
     Kind,
     Any,
@@ -203,6 +200,7 @@ pub enum SexprType {
     DefFunc,
     DefMacro,
     DefStruct,
+    Fail,
     CaseExpr,
     IfStmt,
     MatchExpr,
@@ -226,7 +224,11 @@ pub enum Val {
     Sexpr(SexprType, Box<Val>),
     Struct(Type, Vec<Val>),
     Enum(Type, u8, Box<Val>),
-    Failure(Box<Val>, Box<Val>),
+    Failure(
+        Box<Val>, // tag
+        Box<Val>, // msg
+        Arc<FrameTrace>,
+    ),
     Id(Arc<String>),
     Type(Type),
     Kind(u8),
@@ -435,16 +437,17 @@ impl Val {
     pub fn is_failure(&self) -> bool
     {
         match self {
-            &Val::Failure(_, _) => true,
+            &Val::Failure(_, _, _) => true,
             _ => false,
         }
     }
 
-    pub fn failure(tag: Val, msg: Val) -> Val
+    pub fn failure(tag: Val, msg: Val, trace: Arc<FrameTrace>) -> Val
     {
         Val::Failure(
             Box::new(tag),
             Box::new(msg),
+            trace,
         )
     }
 
@@ -468,7 +471,7 @@ impl Val {
                 Type::Tuple(tuptypes)
             }
             &Val::Cons(_, _) => Type::RelaxedList,
-            &Val::Failure(_, _) => Type::Failure,
+            &Val::Failure(_, _, _) => Type::Failure,
             &Val::Type(_) => Type::Kind,
             &Val::Void => Type::Void,
             &Val::Wildcard => Type::Unknown,
@@ -704,8 +707,8 @@ impl fmt::Display for Val {
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv.t)
             }
-            Val::Failure(ref tag, ref msg) => {
-                write!(f, "Failure({}, {})", tag, msg)
+            Val::Failure(ref tag, ref msg, ref stack) => {
+                write!(f, "Failure({}, {}\n{:?}\n)", tag, msg, **stack)
             }
             Val::Sexpr(ref t, ref head) => {
                 Val::fmt_sexpr(*t, head, f, false)
@@ -776,8 +779,8 @@ impl fmt::Debug for Val {
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv.t)
             }
-            Val::Failure(ref tag, ref msg) => {
-                write!(f, "Failure({}, {})", tag, msg)
+            Val::Failure(ref tag, ref msg, ref stack) => {
+                write!(f, "Failure({}, {}, {:?})", tag, msg, stack)
             }
             Val::Sexpr(ref t, ref head) => {
                 Val::fmt_sexpr(*t, head, f, true)
@@ -926,10 +929,10 @@ impl reg::Iregistry for Val
                 panic!("cannot set reg on empty list: {:?}", i);
             }
             // set reg on Failures
-            (&Ireg::Reg(0), &mut Val::Failure(ref mut tag, _)) => {
+            (&Ireg::Reg(0), &mut Val::Failure(ref mut tag, _, _)) => {
                 *tag = Box::new(v);
             }
-            (&Ireg::Reg(1), &mut Val::Failure(_, ref mut msg)) => {
+            (&Ireg::Reg(1), &mut Val::Failure(_, ref mut msg, _)) => {
                 *msg = Box::new(v);
             }
             // values that can't act as registries

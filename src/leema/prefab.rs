@@ -267,6 +267,7 @@ pub fn file_read(fs: &mut Frame)
         Err(_) => Val::failure(
             Val::hashtag("file_open_fail".to_string()),
             Val::new_str("Failed to open file".to_string()),
+            fs.trace.clone(),
             )
     };
     fs.parent.set_result(openf);
@@ -301,7 +302,8 @@ println!("read from file: '{}'", input);
 fn define_macros(ss: &mut StaticSpace)
 {
     verbose_out!("defining prefab macros\n");
-    let input = "macro and(a, b) ->
+    let input = "
+    macro and(a, b) ->
         case
         |a -> b
         |else -> false
@@ -314,7 +316,6 @@ fn define_macros(ss: &mut StaticSpace)
         |else -> b
         --
     --
-
     ".to_string();
 
     let mut loader = ast::Loader::new();

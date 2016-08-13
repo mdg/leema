@@ -1010,7 +1010,12 @@ match (yyp2.minor,yyp4.minor,) {
  (YYMinorType::YY21(yy2),YYMinorType::YY182(yy4),) => {
 
 vout!("found fail_stmt {:?}\n", yy2);
-	yyres = Val::failure(Val::hashtag(yy2.data), yy4);
+	yyres = sexpr::new(SexprType::Fail,
+        list::cons(Val::hashtag(yy2.data),
+        list::cons(yy4,
+        Val::Nil,
+        ))
+    );
 
 },    _ => unreachable!() };
  YYMinorType::YY182(yyres)

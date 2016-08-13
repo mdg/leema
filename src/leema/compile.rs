@@ -338,23 +338,8 @@ impl StaticSpace
                     src: Source::ConstVal(Val::CallParams)
                 }
             }
-            Val::Failure(raw_tag, raw_msg) => {
-                let mut tag = self.precompile(*raw_tag);
-                let mut msg = self.precompile(*raw_msg);
-                if tag.typ != Type::Hashtag {
-                    panic!("Failure tag is not a hashtag: {:?}", tag.typ);
-                }
-                if msg.typ != Type::Str {
-                    panic!("Failure msg is not a string: {:?}", msg.typ);
-                }
-                Iexpr{
-                    dst: Reg::Undecided,
-                    typ: Type::Failure,
-                    src: Source::Fail(
-                        Box::new(tag),
-                        Box::new(msg),
-                    ),
-                }
+            Val::Failure(_, _, _) => {
+                panic!("Should not compile failures directly");
             }
             _ => {
                 Iexpr::const_val(val)
@@ -389,6 +374,9 @@ impl StaticSpace
             SexprType::DefStruct => {
                 self.precompile_defstruct(expr);
                 Iexpr::new(Source::Void)
+            }
+            SexprType::Fail => {
+                self.precompile_fail(expr)
             }
             SexprType::StrExpr => {
                 self.precompile_str(expr)
@@ -736,6 +724,29 @@ verbose_out!("precompile ifx\n\t{:?}\n\t{:?}\n\t{:?}\n", raw_test, raw_truth, ra
         let lies = self.precompile(raw_lies);
 verbose_out!("ixif:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
         Iexpr::ifstmt(test, truth, lies)
+    }
+
+    pub fn precompile_fail(&mut self, failstmt: Val) -> Iexpr
+    {
+        let (raw_tag, s2) = list::take(failstmt);
+        let (raw_msg, _) = list::take(s2);
+
+        let mut tag = self.precompile(raw_tag);
+        let mut msg = self.precompile(raw_msg);
+        if tag.typ != Type::Hashtag {
+            panic!("Failure tag is not a hashtag: {:?}", tag.typ);
+        }
+        if msg.typ != Type::Str {
+            panic!("Failure msg is not a string: {:?}", msg.typ);
+        }
+        Iexpr{
+            dst: Reg::Undecided,
+            typ: Type::Failure,
+            src: Source::Fail(
+                Box::new(tag),
+                Box::new(msg),
+            ),
+        }
     }
 
     pub fn precompile_id(&mut self, name: &String) -> Iexpr

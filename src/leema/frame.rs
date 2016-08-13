@@ -11,7 +11,6 @@ use std::sync::{Arc, Mutex, MutexGuard, Condvar};
 use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 use std::sync::mpsc;
 use std::mem;
-use std::ops::{Deref};
 use std::fmt::{self, Debug};
 use std::thread;
 use std::time;
@@ -70,20 +69,79 @@ impl Debug for Parent
 }
 
 #[derive(Debug)]
+pub struct FrameTrace
+{
+    // TODO: Implement this in leema later
+    direction: i8,
+    function: String,
+    parent: Option<Arc<FrameTrace>>,
+}
+
+impl FrameTrace
+{
+    pub fn new_root(func: &String) -> Arc<FrameTrace>
+    {
+        Arc::new(FrameTrace{
+            direction: 1,
+            function: func.clone(),
+            parent: None,
+        })
+    }
+
+    pub fn push_call(parent: &Arc<FrameTrace>, func: &String) -> Arc<FrameTrace>
+    {
+        Arc::new(FrameTrace{
+            direction: 1,
+            function: func.clone(),
+            parent: Some(parent.clone()),
+        })
+    }
+}
+
+#[derive(Debug)]
 pub struct Frame
 {
+    pub name: String,
     pub parent: Parent,
+    pub trace: Arc<FrameTrace>,
     pub e: Env,
     pc: i32,
 }
 
 impl Frame
 {
-    pub fn new(par: Parent, env: Env) -> Frame
+    pub fn new_root(env: Env) -> Frame
+    {
+        let fname = "MAIN".to_string();
+        Frame{
+            parent: Parent::Main(Val::Void),
+            trace: FrameTrace::new_root(&fname),
+            name: fname,
+            e: env,
+            pc: 0,
+        }
+    }
+
+    pub fn new_call(name: &String, dst: &Reg, e: Env, trace: &Arc<FrameTrace>)
+        -> Frame
     {
         Frame{
-            parent: par,
-            e: env,
+            name: name.clone(),
+            parent: Parent::Null,
+            trace: FrameTrace::push_call(&trace, name),
+            e: e,
+            pc: 0,
+        }
+    }
+
+    pub fn new_fork(f: &Frame, ready: &Arc<AtomicBool>, tx: mpsc::Sender<Val>)
+        -> Frame
+    {
+        Frame{
+            name: f.name.clone(),
+            parent: Parent::Fork(ready.clone(), tx),
+            trace: f.trace.clone(),
+            e: f.e.clone(),
             pc: 0,
         }
     }
@@ -354,11 +412,7 @@ fn execute_fork(w: &mut Worker, curf: &mut Frame,
     // set current state to called
     let (tx, rx) = mpsc::channel::<Val>();
     let ready = Arc::new(AtomicBool::new(false));
-    let newf = Frame{
-        parent: Parent::Fork(ready.clone(), tx),
-        e: curf.e.clone(),
-        pc: 0,
-    };
+    let newf = Frame::new_fork(&curf, &ready, tx);
     curf.e.set_reg(dst, Val::future(ready, rx));
     w.add_fork(&fkey, newf);
 
@@ -459,9 +513,11 @@ fn execute_load_func(curf: &mut Frame, dst: &Reg, ms: &ModSym)
     curf.pc = curf.pc + 1;
 }
 
-fn execute_failure(curf: &mut Frame, dst: &Reg)
+fn execute_failure(curf: &mut Frame, dst: &Reg, tag: &Reg, msg: &Reg)
 {
-    curf.e.set_reg(dst, Val::failure(Val::Void, Val::Void));
+    let tagval = curf.e.get_reg(tag).clone();
+    let msgval = curf.e.get_reg(msg).clone();
+    curf.e.set_reg(dst, Val::failure(tagval, msgval, curf.trace.clone()));
     curf.pc = curf.pc + 1;
 }
 
@@ -511,7 +567,7 @@ fn execute_call(w: &mut Worker, curf: &mut Frame, dst: &Reg, freg: &Reg, argreg:
             w.event = Event::Call(
                 dst.clone(),
                 code.clone(),
-                Frame::new(Parent::Null, e),
+                Frame::new_call(&name_str, &dst, e, &curf.trace),
             );
         }
         _ => {
@@ -566,7 +622,6 @@ verbose_out!("lock app, new worker\n");
 verbose_out!("lock app, find_code\n");
             let app = self.app.lock().unwrap();
             //let app = self.app.lock().unwrap() as MutexGuard<'a, Application>;
-            //let app = Deref::deref(&self.app.lock().unwrap());
             match app.find_code(name) {
                 Some(appc) => {
                     appc.clone()
@@ -634,8 +689,8 @@ verbose_out!("lock app, find_code\n");
                 curf.parent.set_result(curf.e.get_reg(dst).clone());
                 curf.pc += 1;
             }
-            &Op::Failure(ref dst) => {
-                execute_failure(curf, dst);
+            &Op::Failure(ref dst, ref tag, ref msg) => {
+                execute_failure(curf, dst, tag, msg);
             }
         }
     }
@@ -870,7 +925,7 @@ write!(stderr(), "app.add_app_code\n");
     app.add_app_code(&ss);
 
     if ss.has_main() {
-        let frm = Frame::new(Parent::Main(Val::Void), Env::new());
+        let frm = Frame::new_root(Env::new());
         app.push_new_frame(&CodeKey::Main, frm);
     }
 

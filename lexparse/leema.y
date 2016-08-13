@@ -156,7 +156,12 @@ defstruct_field(A) ::= DOT ID(B) COLON typex(C). {
 
 fail_stmt(A) ::= FAIL(B) LPAREN HASHTAG(C) COMMA expr(D) RPAREN. {
 vout!("found fail_stmt {:?}\n", C);
-	A = Val::failure(Val::hashtag(C.data), D);
+	A = sexpr::new(SexprType::Fail,
+        list::cons(Val::hashtag(C.data),
+        list::cons(D,
+        Val::Nil,
+        ))
+    );
 }
 
 let_stmt(A) ::= Let ID(B) ASSIGN expr(C). {
