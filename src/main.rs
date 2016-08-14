@@ -9,7 +9,7 @@ use leema::log;
 use leema::val::{Env, Val};
 use leema::code::{CodeKey};
 use leema::compile::{Compiler};
-use leema::frame::{Application, Parent};
+use leema::frame::{Application};
 use leema::ast;
 use std::io::{stderr, Write};
 use std::fs;

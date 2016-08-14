@@ -97,6 +97,16 @@ impl FrameTrace
         })
     }
 
+    pub fn propagate_down(trace: &Arc<FrameTrace>, func: &String)
+        -> Arc<FrameTrace>
+    {
+        Arc::new(FrameTrace{
+            direction: -1,
+            function: func.clone(),
+            parent: Some(trace.clone()),
+        })
+    }
+
     pub fn failure_here(&self) -> Arc<FrameTrace>
     {
         Arc::new(FrameTrace{
@@ -518,7 +528,16 @@ fn execute_strcat(w: &mut Worker, curf: &mut Frame, dstreg: &Reg, srcreg: &Reg)
     let result = {
         let src = curf.e.get_reg(srcreg);
         if src.is_failure() {
-            curf.parent.set_result(src.clone());
+            let mut f = src.clone();
+            match &mut f {
+                &mut Val::Failure(_, _, ref mut trace) => {
+                    *trace = FrameTrace::propagate_down(trace, &curf.name);
+                }
+                ff => {
+                    panic!("is failure, but not a failure: {:?}", ff);
+                }
+            }
+            curf.parent.set_result(f);
             w.event = Event::Complete(false);
             return;
         } else if src.is_future() {
@@ -588,8 +607,12 @@ fn execute_call(w: &mut Worker, curf: &mut Frame, dst: &Reg, freg: &Reg, argreg:
             // pass in args
             let args = curf.e.get_reg(argreg);
             match call_arg_failure(args) {
-                Some(failure) => {
-                    curf.parent.set_result(failure.clone());
+                Some(bfailure) => {
+                    let mut failure = bfailure.clone();
+                    if let &mut Val::Failure(_, _, ref mut trace) = &mut failure {
+                        *trace = FrameTrace::propagate_down(trace, &curf.name);
+                    }
+                    curf.parent.set_result(failure);
                     w.event = Event::Complete(false);
                     return;
                 }
