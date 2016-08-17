@@ -1,0 +1,27 @@
+func foo(x: Int): String ->
+    if x = 4 ->
+        fail(#xis4, "tacos are delicious")
+    --
+    "not 4"
+--
+
+func handle_inline(x: Int, prop: Bool): String ->
+   let c := foo(x)
+   failed c
+   |#xis4 ->
+      if prop ->
+         cout("c failed. log and propagate\n")
+         return c
+      else ->
+         cout("c failed. no propagate.\n")
+         let c := "yikes-linear!"
+      --
+   --
+
+   "str interp: $c"
+--
+
+func main() ->
+   let d := handle_inline(4, true)
+   cout("d: $d\n")
+--
