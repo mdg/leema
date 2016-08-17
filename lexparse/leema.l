@@ -59,7 +59,6 @@ void	{ return set_token(yyg, TOKEN_VOID); }
 "\."	{ return set_token(yyg, TOKEN_DOT); }
 "$"	{ return set_token(yyg, TOKEN_DOLLAR); }
 "$?"	{ return set_token(yyg, TOKEN_DollarQuestion); }
-"$>"	{ return set_token(yyg, TOKEN_DollarGT); }
 ":"	{ return set_token(yyg, TOKEN_COLON); }
 "->"	{ return set_token(yyg, TOKEN_BLOCKARROW); }
 "--"	{ return set_token(yyg, TOKEN_DOUBLEDASH); }
@@ -91,14 +90,12 @@ if	{ return set_token(yyg, TOKEN_IF); }
 true	{ return set_token(yyg, TOKEN_True); }
 false	{ return set_token(yyg, TOKEN_False); }
 fork	{ return set_token(yyg, TOKEN_Fork); }
-given	{ return set_token(yyg, TOKEN_GIVEN); }
 let	{ return set_token(yyg, TOKEN_Let); }
 macro	{ return set_token(yyg, TOKEN_MACRO); }
 match	{ return set_token(yyg, TOKEN_MATCH); }
 mod	{ return set_token(yyg, TOKEN_MOD); }
 struct	{ return set_token(yyg, TOKEN_STRUCT); }
-where	{ return set_token(yyg, TOKEN_WHERE); }
-with	{ return set_token(yyg, TOKEN_WITH); }
+return  { return set_token(yyg, TOKEN_RETURN); }
 native_and	{ return set_token(yyg, TOKEN_AND); }
 native_or	{ return set_token(yyg, TOKEN_OR); }
 xor	{ return set_token(yyg, TOKEN_XOR); }

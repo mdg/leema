@@ -259,6 +259,12 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
         Source::BooleanOr(ref a, ref b) => {
             panic!("maybe OR should just be a macro");
         }
+        Source::Return(ref result) => {
+            let mut rops = make_sub_ops(result);
+            rops.push(Op::SetResult(result.dst.clone()));
+            rops.push(Op::Return);
+            rops
+        }
         Source::Void => {
             // blank, skip it
             vec![]

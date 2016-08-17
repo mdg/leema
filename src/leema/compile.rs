@@ -34,6 +34,7 @@ pub enum Source
     PatternVar(Reg),
     Str(Vec<Iexpr>),
     Tuple(Vec<Iexpr>),
+    Return(Box<Iexpr>),
     Void,
 }
 
@@ -408,7 +409,12 @@ impl StaticSpace
             SexprType::IfStmt => {
                 self.precompile_ifstmt(expr)
             }
+            SexprType::Return => {
+                let r = self.precompile(expr);
+                Iexpr::new(Source::Return(Box::new(r)))
+            }
             /*
+            TODO: make this work at some point
             SexprType::LessThan3(oreq1, oreq2) => {
                 let lt1func = if oreq1 {
                     "less_than_equal".to_string()
@@ -1074,6 +1080,14 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
             Source::Fail(ref mut tag, ref mut msg) => {
                 self.assign_registers(tag);
                 self.assign_registers(msg);
+            }
+            Source::Return(ref mut res) => {
+                if res.dst == Reg::Undecided {
+                    res.dst = i.dst.clone();
+                } else {
+                    i.dst = res.dst.clone();
+                }
+                self.assign_registers(res);
             }
             // nothing to recurse into for these
             Source::BoundVal(_) => {}

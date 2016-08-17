@@ -142,6 +142,9 @@ impl Token
                 parse::TOKEN_FAIL => {
                     Token::FAIL
                 }
+                parse::TOKEN_FAILED => {
+                    Token::FAILED
+                }
                 parse::TOKEN_PLUS => {
                     Token::PLUS(tl)
                 }
@@ -187,6 +190,9 @@ impl Token
                 parse::TOKEN_GTEQ => {
                     Token::GTEQ
                 }
+                parse::TOKEN_RETURN => {
+                    Token::RETURN
+                }
                 parse::TOKEN_TYPE_ID => {
                     Token::TYPE_ID(TokenData::new((*tok).val(), tl))
                 }
@@ -204,6 +210,12 @@ impl Token
                 }
                 parse::TOKEN_EOI => {
                     Token::EOI
+                }
+                parse::TOKEN_ANY => {
+                    Token::ANY
+                }
+                parse::TOKEN_DollarQuestion => {
+                    Token::DollarQuestion
                 }
                 _ => {
                     panic!("Unrecognized token: {:?}", (*tok));

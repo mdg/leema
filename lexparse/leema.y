@@ -28,7 +28,6 @@ use std::io::{stderr, Write};
 %type stmts { Val }
 
 %type stmt { Val }
-%type match_block { Val }
 %type block { Val }
 %type func_stmt { Val }
 %type dfunc_args { Val }
@@ -66,7 +65,7 @@ use std::io::{stderr, Write};
 %type strlist_term { Val }
 
 
-%nonassoc ASSIGN BLOCKARROW WHERE GIVEN.
+%nonassoc ASSIGN BLOCKARROW RETURN.
 %left OR XOR.
 %left AND.
 %right ConcatNewline NOT.
@@ -74,6 +73,7 @@ use std::io::{stderr, Write};
 %left LT LTEQ.
 %left PLUS MINUS.
 %left TIMES SLASH MOD.
+%right DOLLAR.
 %left DOT.
 %left LPAREN RPAREN.
 
@@ -98,9 +98,6 @@ use std::io::{stderr, Write};
 	panic!("Parse failed.");
 }
 
-program(A) ::= FAILED WITH CONTEXTID. {
-	A = Ast::Nothing;
-}
 program(A) ::= stmts(B). {
 	if list::is_empty(&B) {
 		panic!("null program");
@@ -130,13 +127,13 @@ stmt(A) ::= func_stmt(B). { A = B; }
 stmt(A) ::= macro_stmt(B). { A = B; }
 /* if_stmt */
 stmt(A) ::= if_stmt(B). { A = B; }
-
-/*
-stmt(A) ::= FAILED(B) ID(C) match_block(D). {
-	A = new FailureStmt(C->text, D);
-	A->merge_span(*B, *D);
+stmt(A) ::= RETURN expr(B). {
+    A = sexpr::new(SexprType::Return, B);
 }
-*/
+
+stmt(A) ::= FAILED ID(B) match_case(C) DOUBLEDASH. {
+	A = sexpr::match_expr(Val::id(B.data), C);
+}
 
 
 /** Data Structures */
@@ -180,7 +177,6 @@ let_stmt(A) ::= Fork ID(B) ASSIGN expr(C). {
 expr_stmt(A) ::= expr(B). {
 	A = B;
 }
-expr_stmt(A) ::= DollarGT expr(B). { A = B; }
 
 block(A) ::= BLOCKARROW stmts(B). {
 	A = B;

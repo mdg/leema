@@ -205,6 +205,7 @@ pub enum SexprType {
     IfStmt,
     MatchExpr,
     MatchCase,
+    Return,
     Comparison,
     LessThan3(bool, bool),
     BooleanAnd,
