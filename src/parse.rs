@@ -925,7 +925,12 @@ self.yystack.pop().unwrap();
 match (yyp1.minor,yyp2.minor,) {
  (YYMinorType::YY117(yy1),YYMinorType::YY104(yy2),) => {
 
-	yyres = sexpr::match_expr(Val::id(yy1.data), yy2);
+	yyres = sexpr::new(SexprType::MatchFailed,
+        list::cons(Val::id(yy1.data),
+        list::cons(yy2,
+        Val::Nil
+        ))
+    );
 
 },    _ => unreachable!() };
  YYMinorType::YY104(yyres)

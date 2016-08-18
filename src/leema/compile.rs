@@ -409,6 +409,9 @@ impl StaticSpace
             SexprType::IfStmt => {
                 self.precompile_ifstmt(expr)
             }
+            SexprType::MatchFailed => {
+                self.precompile_matchfailed(expr)
+            }
             SexprType::Return => {
                 let r = self.precompile(expr);
                 Iexpr::new(Source::Return(Box::new(r)))
@@ -436,9 +439,15 @@ impl StaticSpace
                     "and".to_string(), lt1, lt2
                 ))
             }
-                */
-            _ => {
-                panic!("Can't compile {:?}/{:?}", st, expr);
+            */
+            SexprType::Comparison => {
+                panic!("Can't compile Comparison yet");
+            }
+            SexprType::TypeExpr => {
+                panic!("Can't compile TypeExpr yet");
+            }
+            SexprType::IdWithType => {
+                panic!("Don't compile IdWithType directly: {:?}", expr);
             }
         }
     }
@@ -659,12 +668,12 @@ verbose_out!("ixmatch:\n\t{:?}\n\t{:?}\n", x, cases);
         let (raw_patt, e2) = list::take(expr);
         let (raw_code, e3) = list::take(e2);
         let (raw_next, _) = list::take(e3);
-verbose_out!("precompile matchcase\n\t{:?}\n\t{:?}\n\t{:?}\n", raw_patt, raw_code, raw_next);
+vout!("precompile matchcase\n\t{:?}\n\t{:?}\n\t{:?}\n", raw_patt, raw_code, raw_next);
 
         let patt = self.precompile_pattern(raw_patt);
         let code = self.precompile(raw_code);
         let next = self.precompile(raw_next);
-verbose_out!("ixmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
+vout!("ixmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
         Iexpr::match_case(patt, code, next)
     }
 
@@ -753,6 +762,48 @@ verbose_out!("ixif:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
                 Box::new(msg),
             ),
         }
+    }
+
+    pub fn precompile_matchfailed(&mut self, expr: Val) -> Iexpr
+    {
+        let (raw_x, e2) = list::take(expr);
+        let (raw_cases, _) = list::take(e2);
+vout!("precompile matchfailed\n\t{:?}\n\t{:?}\n", raw_x, raw_cases);
+
+        let (st, raw_casex) = sexpr::split(raw_cases);
+        if st != SexprType::MatchCase {
+            panic!("match failed case not MatchCase: {:?}", st);
+        }
+        let x = self.precompile(raw_x);
+        let cases = self.precompile_matchfailedcase(raw_casex);
+vout!("ixmatchfailed:\n\t{:?}\n\t{:?}\n", x, cases);
+        let mut ix = Iexpr::match_expr(x, cases);
+        ix.dst = Reg::Void;
+        ix
+    }
+
+    pub fn precompile_matchfailedcase(&mut self, expr: Val) -> Iexpr
+    {
+        let (raw_patt, e2) = list::take(expr);
+        let (raw_code, e3) = list::take(e2);
+        let (raw_next, _) = list::take(e3);
+vout!("precompile failedmatchcase\n\t{:?}\n\t{:?}\n\t{:?}\n", raw_patt, raw_code, raw_next);
+
+        match &raw_patt {
+            &Val::Hashtag(_) => {}
+            &Val::Wildcard => {}
+            _ => {
+                panic!("Failed patterns must be hashtags or _");
+            }
+        }
+
+        let patt = self.precompile_pattern(raw_patt);
+        let code = self.precompile(raw_code);
+        let next = self.precompile(raw_next);
+vout!("ixfailedmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
+        let mut ix = Iexpr::match_case(patt, code, next);
+        ix.dst = Reg::Void;
+        ix
     }
 
     pub fn precompile_id(&mut self, name: &String) -> Iexpr

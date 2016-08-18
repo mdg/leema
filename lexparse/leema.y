@@ -132,7 +132,12 @@ stmt(A) ::= RETURN expr(B). {
 }
 
 stmt(A) ::= FAILED ID(B) match_case(C) DOUBLEDASH. {
-	A = sexpr::match_expr(Val::id(B.data), C);
+	A = sexpr::new(SexprType::MatchFailed,
+        list::cons(Val::id(B.data),
+        list::cons(C,
+        Val::Nil
+        ))
+    );
 }
 
 

@@ -205,12 +205,15 @@ pub enum SexprType {
     IfStmt,
     MatchExpr,
     MatchCase,
+    MatchFailed,
     Return,
     Comparison,
+    FieldAccess,
+    /*
     LessThan3(bool, bool),
     BooleanAnd,
     BooleanOr,
-    FieldAccess,
+    */
 }
 
 #[derive(Clone)]
