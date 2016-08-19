@@ -456,16 +456,37 @@ impl StaticSpace
     {
         let (lhs, e2) = list::take(expr);
         let (rhs, _ ) = list::take(e2);
-verbose_out!("compile let {} := {}\n", lhs, rhs);
+vout!("compile let {} := {}\n", lhs, rhs);
         let name = lhs.to_str();
-        if self.scope.is_label(&name) {
-            panic!("{} was already defined", name);
-        }
         let mut irhs = self.precompile(rhs);
-        irhs.dst = Reg::new_reg(self.scope.nextreg());
-        self.last_reg = irhs.dst.clone();
+        let mut is_new = false;
+        match self.scope.lookup_label(&name) {
+            None => {
+                // label not already defined. assign it.
+                // using this flag to escape immutable borrow in match
+                is_new = true;
+            }
+            Some((dst, typ)) if self.scope.is_failed(&name) => {
+                irhs.dst = dst.clone();
+                if irhs.typ != *typ {
+                    panic!("Recovered type does not match original type: {}",
+                        name);
+                }
+            }
+            Some((_, _)) => {
+                // already defined, but not a failure so blow up
+                panic!("{} was already defined", name);
+            }
+        }
+        if is_new {
+            // TODO: run this through the same logic as pattern matching
+            irhs.dst = Reg::new_reg(self.scope.nextreg());
+            self.last_reg = irhs.dst.clone();
 
-        self.scope.assign_label(irhs.dst.clone(), &*name, irhs.typ.clone());
+            self.scope.assign_label(
+                irhs.dst.clone(), &*name, irhs.typ.clone()
+            );
+        }
         irhs
     }
 
@@ -572,7 +593,7 @@ verbose_out!("macro_defined({:?},{:?},{:?})\n", name, args, code);
         let (code, _) = list::take(f3);
 
         let name = nameval.to_str();
-        Scope::push_scope(&mut self.scope, (*name).clone());
+        Scope::push_scope(&mut self.scope, Some(&*name));
 
         let (inf_arg_types, funcx) = {
             let mut argtypes = vec![];
@@ -774,11 +795,31 @@ vout!("precompile matchfailed\n\t{:?}\n\t{:?}\n", raw_x, raw_cases);
         if st != SexprType::MatchCase {
             panic!("match failed case not MatchCase: {:?}", st);
         }
-        let x = self.precompile(raw_x);
+
+        match &raw_x {
+            &Val::Id(ref failed_id) => {
+                Scope::push_failed_scope(&mut self.scope, failed_id);
+            }
+            _ => {
+                panic!("failed statements must be an ID");
+            }
+        }
+
+        let mut x = self.precompile(raw_x);
+        match x.src {
+            Source::BoundVal(ref mut reg) => {
+                *reg = reg.sub(0);
+            }
+            _ => {
+                panic!("Can only fail match bound labels");
+            }
+        }
+
         let cases = self.precompile_matchfailedcase(raw_casex);
 vout!("ixmatchfailed:\n\t{:?}\n\t{:?}\n", x, cases);
         let mut ix = Iexpr::match_expr(x, cases);
         ix.dst = Reg::Void;
+        Scope::pop_scope(&mut self.scope);
         ix
     }
 

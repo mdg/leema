@@ -12,8 +12,7 @@ use std::mem;
 pub struct Scope
 {
     parent: Option<Box<Scope>>,
-    pub scope_name: String,
-    pub func_name: String,
+    scope_name: Option<String>,
     // macros
     m: HashMap<String, (Vec<Arc<String>>, Val)>,
     // registers of locally defined labels
@@ -25,6 +24,7 @@ pub struct Scope
     inferred: HashMap<String, Type>,
     // type definitins in type namespace
     K: HashMap<String, Type>,
+    failed: Option<String>,
     _nextreg: i8,
 }
 
@@ -34,29 +34,49 @@ impl Scope
     {
         Scope{
             parent: None,
-            scope_name: scope_nm,
-            func_name: "".to_string(),
+            scope_name: Some(scope_nm),
             m: HashMap::new(),
             E: HashMap::new(),
             T: HashMap::new(),
             inferred: HashMap::new(),
             K: HashMap::new(),
+            failed: None,
             _nextreg: 0,
         }
     }
 
-    pub fn push_scope(parent: &mut Scope, func_nm: String)
+    pub fn push_scope(parent: &mut Scope, func_nm: Option<&String>)
     {
-        let new_scope_nm = format!("{}.{}", parent.scope_name, func_nm);
+        let new_scope_nm = match func_nm {
+            Some(nm) => Some(nm.clone()),
+            None => None,
+        };
         let mut tmp_scope = Scope{
             parent: None,
             scope_name: new_scope_nm,
-            func_name: func_nm,
             m: HashMap::new(),
             E: HashMap::new(),
             T: HashMap::new(),
             inferred: HashMap::new(),
             K: HashMap::new(),
+            failed: None,
+            _nextreg: 0,
+        };
+        mem::swap(parent, &mut tmp_scope);
+        parent.parent = Some(Box::new(tmp_scope));
+    }
+
+    pub fn push_failed_scope(parent: &mut Scope, var: &String)
+    {
+        let mut tmp_scope = Scope{
+            parent: None,
+            scope_name: None,
+            m: HashMap::new(),
+            E: HashMap::new(),
+            T: HashMap::new(),
+            inferred: HashMap::new(),
+            K: HashMap::new(),
+            failed: Some(var.clone()),
             _nextreg: 0,
         };
         mem::swap(parent, &mut tmp_scope);
@@ -71,6 +91,24 @@ impl Scope
             panic!("No scope left to pop {}");
         }
         mem::replace(s, *tmp.unwrap());
+    }
+
+    pub fn get_scope_name(&self) -> String
+    {
+        match (&self.parent, &self.scope_name) {
+            (&None, &None) => {
+                "".to_string()
+            }
+            (&None, &Some(ref scope_nm)) => {
+                scope_nm.clone()
+            }
+            (&Some(ref p), &None) => {
+                p.get_scope_name()
+            }
+            (&Some(ref p), &Some(ref scope_nm)) => {
+                format!("{}.{}", p.get_scope_name(), scope_nm)
+            }
+        }
     }
 
     pub fn define_macro(&mut self, name: &String, args: Vec<Arc<String>>, body: Val)
@@ -134,6 +172,19 @@ impl Scope
             }
             _ => {
                 panic!("mixed lookup_label result");
+            }
+        }
+    }
+
+    pub fn is_failed(&self, name: &String) -> bool
+    {
+        match self.failed {
+            Some(ref scope_failed_name) if scope_failed_name == name => true,
+            _ => {
+                match self.parent {
+                    Some(ref p) => p.is_failed(name),
+                    None => false,
+                }
             }
         }
     }
@@ -238,7 +289,7 @@ vout!("split_func {}({:?})", fname, defined_type);
      */
     pub fn infer_type(&mut self, typevar: &Type, newtype: &Type)
     {
-vout!("infer_type({}, {:?}) for {}", typevar, newtype, self.scope_name);
+vout!("infer_type({}, {:?}) for {:?}", typevar, newtype, self.scope_name);
         let tvname = match typevar {
             &Type::Var(ref tvnm) => tvnm,
             _ => {
@@ -304,11 +355,11 @@ fn test_push_pop()
 {
     let mut s = Scope::new("hello".to_string());
 
-    Scope::push_scope(&mut s, "world".to_string());
-    assert_eq!("hello.world".to_string(), s.scope_name);
+    Scope::push_scope(&mut s, Some(&"world".to_string()));
+    assert_eq!("hello.world".to_string(), s.get_scope_name());
 
     Scope::pop_scope(&mut s);
-    assert_eq!("hello".to_string(), s.scope_name);
+    assert_eq!("hello".to_string(), s.get_scope_name());
 }
 
 #[test]
@@ -319,7 +370,7 @@ fn test_macro_defined()
     s.define_macro(&macro_name, vec![], Val::Void);
     assert!(s.is_macro(&macro_name));
 
-    Scope::push_scope(&mut s, "world".to_string());
+    Scope::push_scope(&mut s, Some(&"foo".to_string()));
     assert!(s.is_macro(&macro_name));
 }
 
@@ -331,7 +382,7 @@ fn test_label_assigned()
     s.assign_label(Reg::new_param(2), &label_name, Type::Int);
     assert!(s.is_label(&label_name));
 
-    Scope::push_scope(&mut s, "world".to_string());
+    Scope::push_scope(&mut s, Some(&"world".to_string()));
     assert!(s.is_label(&label_name));
 }
 

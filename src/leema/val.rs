@@ -857,8 +857,17 @@ impl reg::Iregistry for Val
                 }
                 fields[p as usize].ireg_get(&*s)
             }
+            // Failures
+            (&Ireg::Reg(0), &Val::Failure(ref tag, _, _)) => tag,
+            (&Ireg::Reg(1), &Val::Failure(_, ref msg, _)) => msg,
+            (&Ireg::Reg(2), &Val::Failure(_, _, ref trace)) => {
+                panic!("Cannot access frame trace until it is implemented as a leema value {}", trace);
+            }
+            (&Ireg::Sub(_, _), &Val::Failure(ref tag, ref msg, _)) => {
+                panic!("Cannot access sub data for Failure {} {}", tag, msg);
+            }
             _ => {
-                panic!("Tuple is only registry value (maybe lists too?) {:?}.{:?}",
+                panic!("Unsupported registry value {:?}{:?}",
                     self, i);
             }
         }
@@ -1268,7 +1277,8 @@ impl reg::Iregistry for Env
         match i {
             &Ireg::Reg(p) => {
                 if self.reg.contains_key(&p) {
-                    println!("register already set: {:?}", i);
+                    vout!("register already set: {:?}", i);
+                    vout!("overwrite {:?} with {:?}", self.reg.get(&p), v);
                 }
                 self.reg.insert(p, v);
             }
