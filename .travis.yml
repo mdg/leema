@@ -3,6 +3,5 @@ rust:
   - 1.10.0
 script: make test
 before_install:
-  - sudo apt-cache search python-pip
   - sudo pip install nose
 sudo: required
