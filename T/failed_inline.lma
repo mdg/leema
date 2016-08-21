@@ -7,10 +7,8 @@ func foo(x: Int): String ->
 
 func handle_inline(x: Int, prop: Bool): String ->
    let c := foo(x)
-   cout("foo completed\n")
    failed c
    |#xis4 ->
-      cout("check if propagate\n")
       if prop ->
          cout("c failed. log and propagate\n")
          return c
