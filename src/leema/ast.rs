@@ -494,4 +494,56 @@ fn test_parse_strlit_field_access()
     assert_eq!(expected, root);
 }
 
+#[test]
+fn test_parse_let_plus_negation()
+{
+    let input = "
+    let x := 4 + 8
+    -x
+    ".to_string();
+    let root = Ast::parse(lex(input));
+
+    let expected = Ast::ReplRoot(sexpr::new_block(
+        list::cons(sexpr::call(Val::id("+".to_string()), vec![
+            Val::Int(4),
+            Val::Int(8),
+            ]),
+        list::cons(sexpr::call(Val::id("negate".to_string()), vec![
+            Val::id("x".to_string()),
+            ]),
+        Val::Nil,
+        ))
+    ));
+
+    assert_eq!(expected, root);
+}
+
+#[test]
+fn test_parse_let_plus_tuple()
+{
+    let input = "
+    let x := 4 + y
+    ∴ (x, z)
+    |> (x, z)
+    ‣ (x, z)
+    ∎ (x, z)
+    qed (x, z)
+    ".to_string();
+    let root = Ast::parse(lex(input));
+
+    let expected = Ast::ReplRoot(sexpr::new_block(
+        list::cons(sexpr::call(Val::id("+".to_string()), vec![
+            Val::Int(4),
+            Val::Int(8),
+            ]),
+        list::cons(sexpr::call(Val::id("negate".to_string()), vec![
+            Val::id("x".to_string()),
+            ]),
+        Val::Nil,
+        ))
+    ));
+
+    assert_eq!(expected, root);
+}
+
 }
