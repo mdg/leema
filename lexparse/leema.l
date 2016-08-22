@@ -112,6 +112,12 @@ Void	{ return set_token(yyg, TOKEN_TYPE_VOID); }
 	BEGIN(LINECOMMENT);
 }
 {HASHTAG}	{ return set_token_val(yyg, TOKEN_HASHTAG, yytext); }
+{ID}"(" {
+    return set_token_val(yyg, TOKEN_CALL_ID, yytext);
+}
+{TYPE_ID}"("	{
+    return set_token_val(yyg, TOKEN_CALL_TYPE_ID, yytext);
+}
 "@"{ID}	{ /* return set_token_val(yyg, TOKEN_CONTEXTID, yytext); */ }
 {ID}	{ return set_token_val(yyg, TOKEN_ID, yytext); }
 {TYPE_ID}	{ return set_token_val(yyg, TOKEN_TYPE_ID, yytext); }

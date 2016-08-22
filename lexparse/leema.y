@@ -17,6 +17,8 @@ use std::io::{stderr, Write};
 %type DOUBLEDASH { TokenLoc }
 %type ELSE { TokenLoc }
 %type HASHTAG { TokenData<String> }
+%type CALL_ID { TokenData<String> }
+%type CALL_TYPE_ID { TokenData<String> }
 %type ID { TokenData<String> }
 %type INT { i64 }
 %type PLUS { TokenLoc }
@@ -35,6 +37,7 @@ use std::io::{stderr, Write};
 %type dfunc_many { Val }
 %type macro_stmt { Val }
 %type macro_args { Val }
+%type call_expr { Val }
 %type call_id { Val }
 %type if_stmt { Val }
 %type else_if { Val }
@@ -47,8 +50,8 @@ use std::io::{stderr, Write};
 %type defstruct_fields { Val }
 %type defstruct_field { Val }
 %type let_stmt { Val }
-%type expr_stmt { Val }
 %type fail_stmt { Val }
+%type functerm { Val }
 %type term { Val }
 %type expr { Val }
 %type typex { Type }
@@ -119,7 +122,7 @@ stmts(A) ::= stmt(C) stmts(B). {
 
 stmt(A) ::= defstruct(B). { A = B; }
 stmt(A) ::= let_stmt(B). { A = B; }
-stmt(A) ::= expr_stmt(B). {
+stmt(A) ::= expr(B). {
     A = B;
 }
 stmt(A) ::= fail_stmt(B). { A = B; }
@@ -177,10 +180,6 @@ let_stmt(A) ::= Let ID(B) ASSIGN expr(C). {
 let_stmt(A) ::= Fork ID(B) ASSIGN expr(C). {
 	let bind = list::cons(Val::new_str(B.data), list::singleton(C));
 	A = sexpr::new(SexprType::Fork, bind);
-}
-
-expr_stmt(A) ::= expr(B). {
-	A = B;
 }
 
 block(A) ::= BLOCKARROW stmts(B). {
@@ -318,23 +317,21 @@ if_case(A) ::= PIPE ELSE block(B). {
 
 
 /* regular function call */
-expr(A) ::= expr(B) LPAREN RPAREN. {
+expr(A) ::= call_expr(B). {
+    A = B;
+}
+call_expr(A) ::= functerm(B) RPAREN. {
 	verbose_out!("zero param function call!");
 	A = sexpr::call(B, vec![]);
 }
-expr(A) ::= expr(B) LPAREN expr(C) RPAREN. {
+call_expr(A) ::= functerm(B) expr(C) RPAREN. {
 	verbose_out!("one param function call!");
 	A = sexpr::call(B, vec![C]);
 }
-expr(A) ::= expr(B) LPAREN tuple_args(C) RPAREN. {
+call_expr(A) ::= functerm(B) tuple_args(C) RPAREN. {
 	verbose_out!("multi param function call!");
 	A = sexpr::call(B, list::to_vec(C));
 }
-/* postfix function call, are we really doing this?
-seems like this should be pretty achievable w/ `[] | empty?`
-expr(A) ::= term(B) ID(C). {
-	A = Sexpr::Nothing;
-}*/
 /* infix function call */
 expr(A) ::= term(B) ID(C) term(D). {
 	A = sexpr::binaryop(C.data, B, D);
@@ -495,6 +492,17 @@ expr(A) ::= expr(B) LTEQ expr(C) LTEQ expr(D). {
 
 expr(A) ::= term(B). { A = B; }
 
+functerm(A) ::= CALL_ID(B). {
+    A = Val::id(B.data);
+}
+functerm(A) ::= CALL_TYPE_ID(B). {
+    A = Val::id(B.data);
+}
+/*
+functerm(A) ::= typex(B). {
+    A = Val::id(B.data);
+}
+*/
 
 term(A) ::= LPAREN expr(C) RPAREN. {
 	A = C;
