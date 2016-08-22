@@ -30,6 +30,7 @@ EOI	\0
 %x STREXPR
 %x LINECOMMENT
 %x BLOCKCOMMENT
+%s CALLPAREN
 
 %option reentrant
 %option noyywrap
@@ -44,6 +45,7 @@ EOI	\0
 	return set_token(yyg, TOKEN_EOI);
 }
 {EOL}   {
+    BEGIN(INITIAL);
     set_newline(yyg);
 }
 "\""	{
@@ -51,60 +53,211 @@ EOI	\0
 	return set_token(yyg, TOKEN_StrOpen);
 }
 {INT}	{
+    BEGIN(INITIAL);
 	return set_token_val(yyg, TOKEN_INT, yytext);
 }
 void	{ return set_token(yyg, TOKEN_VOID); }
 
-{SPACE}+	{}
-"\."	{ return set_token(yyg, TOKEN_DOT); }
-"$"	{ return set_token(yyg, TOKEN_DOLLAR); }
-"$?"	{ return set_token(yyg, TOKEN_DollarQuestion); }
-":"	{ return set_token(yyg, TOKEN_COLON); }
-"->"	{ return set_token(yyg, TOKEN_BLOCKARROW); }
-"--"	{ return set_token(yyg, TOKEN_DOUBLEDASH); }
-":="	{ return set_token(yyg, TOKEN_ASSIGN); }
-"="	{ return set_token(yyg, TOKEN_EQ); }
-"<"	{ return set_token(yyg, TOKEN_LT); }
-"<="	{ return set_token(yyg, TOKEN_LTEQ); }
-">"	{ return set_token(yyg, TOKEN_GT); }
-">="	{ return set_token(yyg, TOKEN_GTEQ); }
-"!="	{ return set_token(yyg, TOKEN_NEQ); }
-"("	{ return set_token(yyg, TOKEN_LPAREN); }
-")"	{ return set_token(yyg, TOKEN_RPAREN); }
-"["	{ return set_token(yyg, TOKEN_SquareL); }
-"]"	{ return set_token(yyg, TOKEN_SquareR); }
-","	{ return set_token(yyg, TOKEN_COMMA); }
-"~"	{ return set_token(yyg, TOKEN_NEGATE); }
-"+"	{ return set_token(yyg, TOKEN_PLUS); }
-"-"	{ return set_token(yyg, TOKEN_MINUS); }
-"*"	{ return set_token(yyg, TOKEN_TIMES); }
-"/"	{ return set_token(yyg, TOKEN_SLASH); }
-"|"	{ return set_token(yyg, TOKEN_PIPE); }
-"_"	{ return set_token(yyg, TOKEN_UNDERSCORE); }
-"\\n"	{ return set_token(yyg, TOKEN_ConcatNewline); }
-case	{ return set_token(yyg, TOKEN_CASE); }
-else	{ return set_token(yyg, TOKEN_ELSE); }
-fail	{ return set_token(yyg, TOKEN_FAIL); }
-failed	{ return set_token(yyg, TOKEN_FAILED); }
-func	{ return set_token(yyg, TOKEN_Func); }
-if	{ return set_token(yyg, TOKEN_IF); }
-true	{ return set_token(yyg, TOKEN_True); }
-false	{ return set_token(yyg, TOKEN_False); }
-fork	{ return set_token(yyg, TOKEN_Fork); }
-let	{ return set_token(yyg, TOKEN_Let); }
-macro	{ return set_token(yyg, TOKEN_MACRO); }
-match	{ return set_token(yyg, TOKEN_MATCH); }
-mod	{ return set_token(yyg, TOKEN_MOD); }
-struct	{ return set_token(yyg, TOKEN_STRUCT); }
-return  { return set_token(yyg, TOKEN_RETURN); }
-native_and	{ return set_token(yyg, TOKEN_AND); }
-native_or	{ return set_token(yyg, TOKEN_OR); }
-xor	{ return set_token(yyg, TOKEN_XOR); }
-not	{ return set_token(yyg, TOKEN_NOT); }
-Int	{ return set_token(yyg, TOKEN_TYPE_INT); }
-Str	{ return set_token(yyg, TOKEN_TYPE_STR); }
-Bool	{ return set_token(yyg, TOKEN_TYPE_BOOL); }
-Void	{ return set_token(yyg, TOKEN_TYPE_VOID); }
+{SPACE}+	{
+    BEGIN(INITIAL);
+}
+"\."	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_DOT);
+}
+"$"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_DOLLAR); }
+"$?"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_DollarQuestion); }
+":"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_COLON);
+}
+"->"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_BLOCKARROW);
+}
+"--"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_DOUBLEDASH);
+}
+":="	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_ASSIGN);
+}
+"="	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_EQ);
+}
+"<"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_LT);
+}
+"<="	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_LTEQ);
+}
+">"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_GT);
+}
+">="	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_GTEQ);
+}
+"!="	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_NEQ);
+}
+<INITIAL>"("	{
+    return set_token(yyg, TOKEN_LPAREN);
+}
+<CALLPAREN>"("	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_PARENCALL);
+}
+")"	{
+    BEGIN(CALLPAREN);
+    return set_token(yyg, TOKEN_RPAREN);
+}
+"["	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_SquareL);
+}
+"]"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_SquareR);
+}
+","	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_COMMA);
+}
+"~"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_NEGATE);
+}
+"+"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_PLUS);
+}
+"-"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_MINUS);
+}
+"*"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_TIMES);
+}
+"/"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_SLASH);
+}
+"|"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_PIPE);
+}
+"_"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_UNDERSCORE);
+}
+"\\n"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_ConcatNewline);
+}
+case	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_CASE);
+}
+else	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_ELSE);
+}
+fail	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_FAIL);
+}
+failed	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_FAILED);
+}
+func	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_Func);
+}
+if	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_IF);
+}
+true	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_True);
+}
+false	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_False);
+}
+fork	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_Fork);
+}
+let	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_Let);
+}
+macro	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_MACRO);
+}
+match	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_MATCH);
+}
+mod	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_MOD);
+}
+struct	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_STRUCT);
+}
+return  {
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_RETURN);
+}
+native_and	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_AND);
+}
+native_or	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_OR);
+}
+xor	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_XOR);
+}
+not	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_NOT);
+}
+Int	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_TYPE_INT);
+}
+Str	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_TYPE_STR);
+}
+Bool	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_TYPE_BOOL);
+}
+Void	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_TYPE_VOID);
+}
 "#:"	{
 	add_block_comment_depth(yyg, +1);
 	BEGIN(BLOCKCOMMENT);
@@ -113,15 +266,15 @@ Void	{ return set_token(yyg, TOKEN_TYPE_VOID); }
 	BEGIN(LINECOMMENT);
 }
 {HASHTAG}	{ return set_token_val(yyg, TOKEN_HASHTAG, yytext); }
-{ID}"(" {
-    return set_token_val(yyg, TOKEN_CALL_ID, yytext);
-}
-{TYPE_ID}"("	{
-    return set_token_val(yyg, TOKEN_CALL_TYPE_ID, yytext);
-}
 "@"{ID}	{ /* return set_token_val(yyg, TOKEN_CONTEXTID, yytext); */ }
-{ID}	{ return set_token_val(yyg, TOKEN_ID, yytext); }
-{TYPE_ID}	{ return set_token_val(yyg, TOKEN_TYPE_ID, yytext); }
+{ID}	{
+    BEGIN(CALLPAREN);
+    return set_token_val(yyg, TOKEN_ID, yytext);
+}
+{TYPE_ID}	{
+    BEGIN(CALLPAREN);
+    return set_token_val(yyg, TOKEN_TYPE_ID, yytext);
+}
 .	{
 	printf("unrecognized character: '%s'\n", yytext);
 }

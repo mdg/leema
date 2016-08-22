@@ -72,18 +72,6 @@ impl Token
                 parse::TOKEN_ID => {
                     Token::ID(TokenData::new((*tok).val(), tl))
                 }
-                parse::TOKEN_CALL_ID => {
-                    let mut txt = (*tok).val();
-                    let txtlen = txt.len();
-                    txt.truncate(txtlen - 1);
-                    Token::CALL_ID(TokenData::new(txt, tl))
-                }
-                parse::TOKEN_CALL_TYPE_ID => {
-                    let mut txt = (*tok).val();
-                    let txtlen = txt.len();
-                    txt.truncate(txtlen - 1);
-                    Token::CALL_TYPE_ID(TokenData::new(txt, tl))
-                }
                 parse::TOKEN_HASHTAG => {
                     let mut txt = (*tok).val();
                     let hash = txt.remove(0);
@@ -97,6 +85,9 @@ impl Token
                 }
                 parse::TOKEN_LPAREN => {
                     Token::LPAREN
+                }
+                parse::TOKEN_PARENCALL => {
+                    Token::PARENCALL
                 }
                 parse::TOKEN_COLON => {
                     Token::COLON

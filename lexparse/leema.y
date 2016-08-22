@@ -17,8 +17,6 @@ use std::io::{stderr, Write};
 %type DOUBLEDASH { TokenLoc }
 %type ELSE { TokenLoc }
 %type HASHTAG { TokenData<String> }
-%type CALL_ID { TokenData<String> }
-%type CALL_TYPE_ID { TokenData<String> }
 %type ID { TokenData<String> }
 %type INT { i64 }
 %type PLUS { TokenLoc }
@@ -187,7 +185,7 @@ block(A) ::= BLOCKARROW stmts(B). {
 }
 
 /* func one case, no matching */
-func_stmt(A) ::= Func CALL_ID(B) dfunc_args(D) RPAREN opt_typex(E)
+func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(D) RPAREN opt_typex(E)
     block(C) DOUBLEDASH.
 {
 	let id = Val::id(B.data);
@@ -195,7 +193,7 @@ func_stmt(A) ::= Func CALL_ID(B) dfunc_args(D) RPAREN opt_typex(E)
 	A = sexpr::defunc(id, D, typ, C)
 }
 /* func w/ pattern matching */
-func_stmt(A) ::= Func CALL_ID(B) dfunc_args(C) RPAREN opt_typex(D)
+func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(C) RPAREN opt_typex(D)
     match_case(E) DOUBLEDASH.
 {
 	let id = Val::id(B.data);
@@ -241,7 +239,7 @@ typex(A) ::= TYPE_ID(B). {
 
 
 /* defining a macro */
-macro_stmt(A) ::= MACRO CALL_ID(B) macro_args(D) RPAREN block(C) DOUBLEDASH. {
+macro_stmt(A) ::= MACRO ID(B) PARENCALL macro_args(D) RPAREN block(C) DOUBLEDASH. {
     verbose_out!("found macro {:?}\n", B);
     A = sexpr::new(SexprType::DefMacro,
         list::cons(Val::id(B.data),
@@ -320,15 +318,15 @@ if_case(A) ::= PIPE ELSE block(B). {
 expr(A) ::= call_expr(B). {
     A = B;
 }
-call_expr(A) ::= functerm(B) RPAREN. {
+call_expr(A) ::= term(B) PARENCALL RPAREN. {
 	verbose_out!("zero param function call!");
 	A = sexpr::call(B, vec![]);
 }
-call_expr(A) ::= functerm(B) expr(C) RPAREN. {
+call_expr(A) ::= term(B) PARENCALL expr(C) RPAREN. {
 	verbose_out!("one param function call!");
 	A = sexpr::call(B, vec![C]);
 }
-call_expr(A) ::= functerm(B) tuple_args(C) RPAREN. {
+call_expr(A) ::= term(B) PARENCALL tuple_args(C) RPAREN. {
 	verbose_out!("multi param function call!");
 	A = sexpr::call(B, list::to_vec(C));
 }
@@ -487,18 +485,6 @@ expr(A) ::= expr(B) LTEQ expr(C) LTEQ expr(D). {
 */
 
 expr(A) ::= term(B). { A = B; }
-
-functerm(A) ::= CALL_ID(B). {
-    A = Val::id(B.data);
-}
-functerm(A) ::= CALL_TYPE_ID(B). {
-	A = Val::Type(Type::Id(Arc::new(B.data)));
-}
-/*
-functerm(A) ::= typex(B). {
-    A = Val::id(B.data);
-}
-*/
 
 term(A) ::= LPAREN expr(C) RPAREN. {
 	A = C;

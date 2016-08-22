@@ -418,7 +418,7 @@ fn test_ast_parse_macro()
 #[test]
 fn test_parse_call_function_call_result()
 {
-    let input = "foo(5)(6)".to_string();
+    let input = "(foo(5))(6)".to_string();
     let root = Ast::parse(lex(input));
 
     let expected = Ast::ReplRoot(sexpr::new_block(list::singleton(
