@@ -8,8 +8,8 @@ func foo(x): String ->
 func handle_nonlinear(x: Int, prop: Bool): String ->
    let c := foo(x)
    "str interp: $c"
-
-   --ps
+--
+ps ->
    failed c
    |#xis4 ->
       if prop ->

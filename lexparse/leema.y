@@ -33,10 +33,12 @@ use std::io::{stderr, Write};
 %type dfunc_args { Val }
 %type dfunc_one { Val }
 %type dfunc_many { Val }
+%type opt_ps { Val }
+%type failed_stmt { Val }
+%type failed_stmts { Val }
 %type macro_stmt { Val }
 %type macro_args { Val }
 %type call_expr { Val }
-%type call_id { Val }
 %type if_stmt { Val }
 %type else_if { Val }
 %type if_case { Val }
@@ -132,14 +134,7 @@ stmt(A) ::= RETURN expr(B). {
     A = sexpr::new(SexprType::Return, B);
 }
 
-stmt(A) ::= FAILED ID(B) match_case(C) DOUBLEDASH. {
-	A = sexpr::new(SexprType::MatchFailed,
-        list::cons(Val::id(B.data),
-        list::cons(C,
-        Val::Nil
-        ))
-    );
-}
+stmt(A) ::= failed_stmt(B). { A = B; }
 
 
 /** Data Structures */
@@ -167,6 +162,15 @@ vout!("found fail_stmt {:?}\n", C);
     );
 }
 
+failed_stmt(A) ::= FAILED ID(B) match_case(C) DOUBLEDASH. {
+	A = sexpr::new(SexprType::MatchFailed,
+        list::cons(Val::id(B.data),
+        list::cons(C,
+        Val::Nil
+        ))
+    );
+}
+
 let_stmt(A) ::= Let ID(B) ASSIGN expr(C). {
 	let letx =
         list::cons(Val::id(B.data),
@@ -186,7 +190,7 @@ block(A) ::= BLOCKARROW stmts(B). {
 
 /* func one case, no matching */
 func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(D) RPAREN opt_typex(E)
-    block(C) DOUBLEDASH.
+    block(C) DOUBLEDASH opt_ps(F).
 {
 	let id = Val::id(B.data);
 	let typ = Val::Type(E);
@@ -194,7 +198,7 @@ func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(D) RPAREN opt_typex(E)
 }
 /* func w/ pattern matching */
 func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(C) RPAREN opt_typex(D)
-    match_case(E) DOUBLEDASH.
+    match_case(E) DOUBLEDASH opt_ps(F).
 {
 	let id = Val::id(B.data);
 	let typ = Val::Type(D);
@@ -235,6 +239,20 @@ typex(A) ::= TYPE_VOID. {
 }
 typex(A) ::= TYPE_ID(B). {
 	A = Type::Id(Arc::new(B.data));
+}
+
+opt_ps(A) ::= . {
+    A = Val::Void;
+}
+opt_ps(A) ::= PS BLOCKARROW failed_stmts(B) DOUBLEDASH. {
+    A = B;
+}
+
+failed_stmts(A) ::= failed_stmt(B). {
+    A = list::singleton(B);
+}
+failed_stmts(A) ::= failed_stmt(B) failed_stmts(C). {
+    A = list::cons(B, C);
 }
 
 

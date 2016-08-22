@@ -222,6 +222,10 @@ struct	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_STRUCT);
 }
+ps {
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_PS);
+}
 return  {
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_RETURN);

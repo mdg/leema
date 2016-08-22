@@ -301,7 +301,7 @@ println!("read from file: '{}'", input);
 
 fn define_macros(ss: &mut StaticSpace)
 {
-    verbose_out!("defining prefab macros\n");
+    vout!("defining prefab macros\n");
     let input = "
     macro boolean_and(a, b) ->
         case
@@ -322,7 +322,7 @@ fn define_macros(ss: &mut StaticSpace)
     loader.set_file("prefab_macros".to_string(), input);
     let mut c = Compiler::new(ss, loader);
     c.compile_file("prefab_macros".to_string());
-    verbose_out!("prefab macros compiled\n");
+    vout!("prefab macros compiled\n");
 }
 
 pub fn define_prefab(ss: &mut StaticSpace)
