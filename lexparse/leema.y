@@ -332,10 +332,6 @@ call_expr(A) ::= functerm(B) tuple_args(C) RPAREN. {
 	verbose_out!("multi param function call!");
 	A = sexpr::call(B, list::to_vec(C));
 }
-/* infix function call */
-expr(A) ::= term(B) ID(C) term(D). {
-	A = sexpr::binaryop(C.data, B, D);
-}
 
 expr(A) ::= term(B) DOLLAR term(C). {
 	/* A = Val::binaryop(B, C, D); */
