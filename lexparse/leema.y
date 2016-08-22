@@ -415,7 +415,7 @@ expr(A) ::= expr(B) ConcatNewline. {
 	A = sexpr::new(SexprType::StrExpr, args)
 }
 /* arithmetic */
-expr(A) ::= MINUS expr(B). {
+expr(A) ::= NEGATE term(B). {
 	A = sexpr::call(Val::id("negate".to_string()), vec![B]);
 }
 expr(A) ::= expr(B) PLUS expr(C). {

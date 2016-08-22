@@ -36,7 +36,7 @@ lexparse/lex.c: lexparse/leema.h lexparse/leema.l
 	sed -i -r "s/static int yy_start/int yy_start/" lexparse/lex.c
 
 lexparse/leema.h: lexparse/leema.rs
-	-./lemon -s -H -Tlemon_rust/lempar.rs lexparse/leema.y
+	./lemon -s -H -Tlemon_rust/lempar.rs lexparse/leema.y
 
 # parser
 parser: src/parse.rs lexparse/leema.h
@@ -46,7 +46,7 @@ src/parse.rs: lexparse/leema.rs
 
 lexparse/leema.rs: lemon lexparse/leema.y lemon_rust/lempar.rs
 	./lemon -g lexparse/leema.y
-	-./lemon -s -H -Tlemon_rust/lempar.rs lexparse/leema.y
+	./lemon -s -H -Tlemon_rust/lempar.rs lexparse/leema.y
 
 lemon: lemon_rust/lemon_rust.c
 	gcc -o lemon lemon_rust/lemon_rust.c

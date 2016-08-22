@@ -74,6 +74,7 @@ void	{ return set_token(yyg, TOKEN_VOID); }
 "["	{ return set_token(yyg, TOKEN_SquareL); }
 "]"	{ return set_token(yyg, TOKEN_SquareR); }
 ","	{ return set_token(yyg, TOKEN_COMMA); }
+"~"	{ return set_token(yyg, TOKEN_NEGATE); }
 "+"	{ return set_token(yyg, TOKEN_PLUS); }
 "-"	{ return set_token(yyg, TOKEN_MINUS); }
 "*"	{ return set_token(yyg, TOKEN_TIMES); }
