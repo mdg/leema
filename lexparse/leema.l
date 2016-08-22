@@ -226,11 +226,11 @@ return  {
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_RETURN);
 }
-native_and	{
+and	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_AND);
 }
-native_or	{
+or	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_OR);
 }

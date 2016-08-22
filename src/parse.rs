@@ -1976,7 +1976,7 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
  (YYMinorType::YY116(yy0),YYMinorType::YY116(yy2),) => {
 
-	yyres = sexpr::binaryop("and".to_string(), yy0, yy2);
+	yyres = sexpr::binaryop("boolean_and".to_string(), yy0, yy2);
 
 },    _ => unreachable!() };
  YYMinorType::YY116(yyres)
@@ -1992,7 +1992,7 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
  (YYMinorType::YY116(yy0),YYMinorType::YY116(yy2),) => {
 
-	yyres = sexpr::binaryop("or".to_string(), yy0, yy2);
+	yyres = sexpr::binaryop("boolean_or".to_string(), yy0, yy2);
 
 },    _ => unreachable!() };
  YYMinorType::YY116(yyres)
@@ -2008,7 +2008,7 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
  (YYMinorType::YY116(yy0),YYMinorType::YY116(yy2),) => {
 
-	yyres = sexpr::binaryop("xor".to_string(),yy0, yy2);
+	yyres = sexpr::binaryop("boolean_xor".to_string(),yy0, yy2);
 
 },    _ => unreachable!() };
  YYMinorType::YY116(yyres)

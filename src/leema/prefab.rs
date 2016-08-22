@@ -303,14 +303,14 @@ fn define_macros(ss: &mut StaticSpace)
 {
     verbose_out!("defining prefab macros\n");
     let input = "
-    macro and(a, b) ->
+    macro boolean_and(a, b) ->
         case
         |a -> b
         |else -> false
         --
     --
 
-    macro or(a, b) ->
+    macro boolean_or(a, b) ->
         case
         |a -> true
         |else -> b

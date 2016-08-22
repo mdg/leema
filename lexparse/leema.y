@@ -432,13 +432,13 @@ expr(A) ::= expr(B) MOD expr(C). {
 	A = sexpr::binaryop("int_mod".to_string(), B, C);
 }
 expr(A) ::= expr(B) AND expr(C). {
-	A = sexpr::binaryop("and".to_string(), B, C);
+	A = sexpr::binaryop("boolean_and".to_string(), B, C);
 }
 expr(A) ::= expr(B) OR expr(C). {
-	A = sexpr::binaryop("or".to_string(), B, C);
+	A = sexpr::binaryop("boolean_or".to_string(), B, C);
 }
 expr(A) ::= expr(B) XOR expr(C). {
-	A = sexpr::binaryop("xor".to_string(),B, C);
+	A = sexpr::binaryop("boolean_xor".to_string(),B, C);
 }
 
 /* comparisons */
