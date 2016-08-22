@@ -133,7 +133,7 @@ impl Loader
     {
         let str = self.load(filename);
         let tokens = lex(str);
-verbose_out!("tokens: {:?}\n", tokens);
+vout!("tokens: {:?}\n", tokens);
         Ast::parse(tokens)
     }
 }
@@ -226,7 +226,7 @@ fn test_ast_parse_plus_twice() {
 #[test]
 fn test_ast_parse_call_one_param()
 {
-    let input = "inc(-4)\n".to_string();
+    let input = "inc(~4)\n".to_string();
     let root = Ast::parse(lex(input));
 
     let neg4 = sexpr::call(
@@ -499,15 +499,20 @@ fn test_parse_let_plus_negation()
 {
     let input = "
     let x := 4 + 8
-    -x
+    ~x
     ".to_string();
     let root = Ast::parse(lex(input));
 
     let expected = Ast::ReplRoot(sexpr::new_block(
-        list::cons(sexpr::call(Val::id("+".to_string()), vec![
-            Val::Int(4),
-            Val::Int(8),
-            ]),
+        list::cons(sexpr::new(SexprType::Let,
+            list::cons(Val::id("x".to_string()),
+            list::cons(sexpr::call(Val::id("int_add".to_string()), vec![
+                Val::Int(4),
+                Val::Int(8),
+                ]),
+            Val::Nil,
+            )),
+        ),
         list::cons(sexpr::call(Val::id("negate".to_string()), vec![
             Val::id("x".to_string()),
             ]),
@@ -523,21 +528,23 @@ fn test_parse_let_plus_tuple()
 {
     let input = "
     let x := 4 + y
-    ∴ (x, z)
-    |> (x, z)
-    ‣ (x, z)
-    ∎ (x, z)
-    qed (x, z)
+    (x, z)
     ".to_string();
     let root = Ast::parse(lex(input));
 
     let expected = Ast::ReplRoot(sexpr::new_block(
-        list::cons(sexpr::call(Val::id("+".to_string()), vec![
-            Val::Int(4),
-            Val::Int(8),
-            ]),
-        list::cons(sexpr::call(Val::id("negate".to_string()), vec![
+        list::cons(sexpr::new(SexprType::Let,
+            list::cons(Val::id("x".to_string()),
+            list::cons(sexpr::call(Val::id("int_add".to_string()), vec![
+                Val::Int(4),
+                Val::id("y".to_string()),
+                ]),
+            Val::Nil,
+            ))
+        ),
+        list::cons(Val::Tuple(vec![
             Val::id("x".to_string()),
+            Val::id("z".to_string()),
             ]),
         Val::Nil,
         ))

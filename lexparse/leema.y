@@ -187,7 +187,7 @@ block(A) ::= BLOCKARROW stmts(B). {
 }
 
 /* func one case, no matching */
-func_stmt(A) ::= Func ID(B) LPAREN dfunc_args(D) RPAREN opt_typex(E)
+func_stmt(A) ::= Func CALL_ID(B) dfunc_args(D) RPAREN opt_typex(E)
     block(C) DOUBLEDASH.
 {
 	let id = Val::id(B.data);
@@ -195,7 +195,7 @@ func_stmt(A) ::= Func ID(B) LPAREN dfunc_args(D) RPAREN opt_typex(E)
 	A = sexpr::defunc(id, D, typ, C)
 }
 /* func w/ pattern matching */
-func_stmt(A) ::= Func ID(B) LPAREN dfunc_args(C) RPAREN opt_typex(D)
+func_stmt(A) ::= Func CALL_ID(B) dfunc_args(C) RPAREN opt_typex(D)
     match_case(E) DOUBLEDASH.
 {
 	let id = Val::id(B.data);
@@ -241,7 +241,7 @@ typex(A) ::= TYPE_ID(B). {
 
 
 /* defining a macro */
-macro_stmt(A) ::= MACRO ID(B) LPAREN macro_args(D) RPAREN block(C) DOUBLEDASH. {
+macro_stmt(A) ::= MACRO CALL_ID(B) macro_args(D) RPAREN block(C) DOUBLEDASH. {
     verbose_out!("found macro {:?}\n", B);
     A = sexpr::new(SexprType::DefMacro,
         list::cons(Val::id(B.data),
@@ -492,7 +492,7 @@ functerm(A) ::= CALL_ID(B). {
     A = Val::id(B.data);
 }
 functerm(A) ::= CALL_TYPE_ID(B). {
-    A = Val::id(B.data);
+	A = Val::Type(Type::Id(Arc::new(B.data)));
 }
 /*
 functerm(A) ::= typex(B). {
