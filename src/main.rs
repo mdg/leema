@@ -98,11 +98,11 @@ fn real_main() -> i32
             // panic!("Cannot have both script code and a main function");
         }
         let frm = Frame::new_root(e);
-verbose_out!("We have main!\n{:?}", frm);
+vout!("We have main!\n{:?}", frm);
         app.push_new_frame(&CodeKey::Main, frm);
     } else if ss.has_script() {
         let frm = Frame::new_root(e);
-verbose_out!("We have a script!\n{:?}", frm);
+vout!("We have a script!\n{:?}", frm);
         app.push_new_frame(&CodeKey::Script, frm);
     }
 
@@ -111,7 +111,7 @@ verbose_out!("We have a script!\n{:?}", frm);
 
     thread::spawn(move || {
         let mut w0 = frame::Worker::new(app0);
-        verbose_out!("w0.gotowork");
+        vout!("w0.gotowork");
         w0.gotowork();
     });
 

@@ -301,7 +301,7 @@ pub fn make_constructor_ops(dst: &Reg, typ: &Type) -> OpVec
 
 pub fn make_matchexpr_ops(x: &Iexpr, cases: &Iexpr) -> OpVec
 {
-verbose_out!("make_matchexpr_ops({:?},{:?})", x, cases);
+vout!("make_matchexpr_ops({:?},{:?})", x, cases);
     let mut x_ops = match x.dst {
         Reg::Params => {
             // this means its a match function
@@ -312,9 +312,9 @@ verbose_out!("make_matchexpr_ops({:?},{:?})", x, cases);
             make_sub_ops(&x)
         }
     };
-    verbose_out!("call make_matchcase_ops()\n");
+    vout!("call make_matchcase_ops()\n");
     let mut case_ops = make_matchcase_ops(cases, &x.dst);
-    verbose_out!("made matchcase_ops =\n{:?}\n", case_ops);
+    vout!("made matchcase_ops =\n{:?}\n", case_ops);
 
     x_ops.append(&mut case_ops);
     x_ops
@@ -326,14 +326,14 @@ pub fn make_matchcase_ops(matchcase: &Iexpr, xreg: &Reg) -> OpVec
         Source::MatchCase(ref patt, ref code, ref next) => (patt, code, next),
         Source::ConstVal(Val::Void) => {
             // this is here when there's no else case
-            verbose_out!("empty_matchcase_ops\n");
+            vout!("empty_matchcase_ops\n");
             return vec![];
         }
         _ => {
             panic!("Cannot make ops for a not MatchCase {:?}", matchcase);
         }
     };
-verbose_out!("make_matchcase_ops({:?},{:?},{:?})\n", patt, code, next);
+vout!("make_matchcase_ops({:?},{:?},{:?})\n", patt, code, next);
     let mut patt_ops = make_pattern_ops(patt);
     let mut code_ops = make_sub_ops(code);
     let mut next_ops = make_matchcase_ops(next, &xreg);

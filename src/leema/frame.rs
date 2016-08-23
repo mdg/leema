@@ -392,15 +392,15 @@ vout!("code: {:?}\n{:?}\n", name, ops);
 
 fn execute_const_val(curf: &mut Frame, reg: &Reg, v: &Val)
 {
-verbose_out!("execute_const_val({:?}, {:?})\n", reg, v);
+vout!("execute_const_val({:?}, {:?})\n", reg, v);
     curf.e.set_reg(reg, v.clone());
-verbose_out!("e: {:?}\n", curf.e);
+vout!("e: {:?}\n", curf.e);
     curf.pc = curf.pc + 1;
 }
 
 fn execute_constructor(curf: &mut Frame, reg: &Reg, typ: &Type)
 {
-verbose_out!("execute_constructor({:?}, {:?})\n", reg, typ);
+vout!("execute_constructor({:?}, {:?})\n", reg, typ);
     if let &Type::Struct(_, nfields) = typ {
         let mut fields = Vec::with_capacity(nfields as usize);
         fields.resize(nfields as usize, Val::Void);
@@ -470,7 +470,7 @@ fn execute_jump(curf: &mut Frame, jmp: i16)
 
 fn execute_jump_if_not(curf: &mut Frame, jmp: i16, reg: &Reg)
 {
-verbose_out!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
+vout!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
     let test_val = curf.e.get_reg(reg);
     if let &Val::Bool(test) = test_val {
         if test {
@@ -487,15 +487,15 @@ verbose_out!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
 
 fn execute_match_pattern(curf: &mut Frame, jmp: i16, patt: &Reg, input: &Reg)
 {
-    verbose_out!("execute_match_pattern({}, {:?}, {:?})\n", jmp, patt, input);
+    vout!("execute_match_pattern({}, {:?}, {:?})\n", jmp, patt, input);
     let e: &mut Env = &mut curf.e;
     let matches = {
         let pval = e.get_reg(&patt);
         let ival = e.get_reg(&input);
-verbose_out!("match input: {:?}={:?}\n", pval, ival);
+vout!("match input: {:?}={:?}\n", pval, ival);
         Val::pattern_match(pval, ival)
     };
-verbose_out!("matches: {:?}\n", matches);
+vout!("matches: {:?}\n", matches);
     match matches {
         Some(assignments) => {
             for a in assignments {
@@ -554,7 +554,7 @@ fn execute_strcat(w: &mut Worker, curf: &mut Frame, dstreg: &Reg, srcreg: &Reg)
 
 fn execute_tuple_create(curf: &mut Frame, dst: &Reg, ref sz: i8)
 {
-    verbose_out!("execute_tuple_create({:?}, {})\n", dst, sz);
+    vout!("execute_tuple_create({:?}, {})\n", dst, sz);
     let tupsize: usize = *sz as usize;
     curf.e.set_reg(dst, Val::new_tuple(tupsize));
     curf.pc = curf.pc + 1;
@@ -646,7 +646,7 @@ impl Worker
     pub fn new(app: Arc<Mutex<Application>>) -> Worker
     {
         let done = {
-verbose_out!("lock app, new worker\n");
+vout!("lock app, new worker\n");
             let _app = app.lock().unwrap();
             //_app.done.clone()
         };
@@ -676,7 +676,7 @@ verbose_out!("lock app, new worker\n");
         }
 
         let ac = {
-verbose_out!("lock app, find_code\n");
+vout!("lock app, find_code\n");
             let app = self.app.lock().unwrap();
             //let app = self.app.lock().unwrap() as MutexGuard<'a, Application>;
             match app.find_code(name) {
@@ -754,7 +754,7 @@ verbose_out!("lock app, find_code\n");
 
     fn add_fork(&mut self, key: &CodeKey, newf: Frame)
     {
-verbose_out!("lock app, add_fork\n");
+vout!("lock app, add_fork\n");
         let mut a = self.app.lock().unwrap();
         a.push_new_frame(key, newf);
     }
@@ -906,11 +906,11 @@ vout!("rotate try_lock is_err\n");
                 (reg, code, mut frame) => {
                     let result = frame.receive_future(&reg);
                     if result.is_some() {
-                        verbose_out!("found future ready {:?}\n", result);
+                        vout!("found future ready {:?}\n", result);
                         frame.e.set_reg(&reg, result.unwrap());
                         self.fresh.push_back((code, frame));
                     } else {
-                        verbose_out!("future not ready {:?}\n", reg);
+                        vout!("future not ready {:?}\n", reg);
                         newfutures.push_back((reg, code, frame));
                     }
                 }
@@ -928,9 +928,9 @@ vout!("rotate try_lock is_err\n");
 
     pub fn gotowork(&mut self) -> ()
     {
-verbose_out!("local gotowork\n");
+vout!("local gotowork\n");
         while !self.done {
-verbose_out!("worker not done\n");
+vout!("worker not done\n");
             match self.rotate() {
                 None => {
                     thread::yield_now();
@@ -990,7 +990,7 @@ write!(stderr(), "app.add_app_code\n");
     let app1 = app0.clone();
     thread::spawn(move || {
         let mut w0 = Worker::new(app0);
-        verbose_out!("w0.gotowork\n");
+        vout!("w0.gotowork\n");
         w0.gotowork();
     });
 

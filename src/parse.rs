@@ -889,7 +889,7 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp1.minor,) {
  (YYMinorType::YY188(yy0),YYMinorType::YY188(yy1),) => {
 
-    verbose_out!("found new stmt: {:?}\n", yy0);
+    vout!("found new stmt: {:?}\n", yy0);
 	yyres = list::cons(yy0, yy1);
 
 },    _ => unreachable!() };
@@ -1368,7 +1368,7 @@ self.yystack.pop().unwrap();
 match (yyp1.minor,yyp3.minor,yyp5.minor,) {
  (YYMinorType::YY93(yy1),YYMinorType::YY188(yy3),YYMinorType::YY188(yy5),) => {
 
-    verbose_out!("found macro {:?}\n", yy1);
+    vout!("found macro {:?}\n", yy1);
     yyres = sexpr::new(SexprType::DefMacro,
         list::cons(Val::id(yy1.data),
         list::cons(yy3,
@@ -1570,7 +1570,7 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,) {
  (YYMinorType::YY188(yy0),) => {
 
-	verbose_out!("zero param function call!");
+	vout!("zero param function call!");
 	yyres = sexpr::call(yy0, vec![]);
 
 },    _ => unreachable!() };
@@ -1588,7 +1588,7 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
  (YYMinorType::YY188(yy0),YYMinorType::YY188(yy2),) => {
 
-	verbose_out!("one param function call!");
+	vout!("one param function call!");
 	yyres = sexpr::call(yy0, vec![yy2]);
 
 },    _ => unreachable!() };
@@ -1606,7 +1606,7 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp2.minor,) {
  (YYMinorType::YY188(yy0),YYMinorType::YY188(yy2),) => {
 
-	verbose_out!("multi param function call!");
+	vout!("multi param function call!");
 	yyres = sexpr::call(yy0, list::to_vec(yy2));
 
 },    _ => unreachable!() };
@@ -1640,7 +1640,7 @@ self.yystack.pop().unwrap();
 match (yyp1.minor,) {
  (YYMinorType::YY188(yy1),) => {
 
-    verbose_out!("parsed case expr\n");
+    vout!("parsed case expr\n");
 	yyres = yy1;
 
 },    _ => unreachable!() };
@@ -1660,7 +1660,7 @@ self.yystack.pop().unwrap();
 match (yyp1.minor,yyp2.minor,yyp5.minor,) {
  (YYMinorType::YY188(yy1),YYMinorType::YY188(yy2),YYMinorType::YY188(yy5),) => {
 
-    verbose_out!("found cases base\n");
+    vout!("found cases base\n");
     yyres = sexpr::casex(yy1, yy2, yy5);
 
 },    _ => unreachable!() };
@@ -1678,7 +1678,7 @@ self.yystack.pop().unwrap();
 match (yyp1.minor,yyp2.minor,yyp3.minor,) {
  (YYMinorType::YY188(yy1),YYMinorType::YY188(yy2),YYMinorType::YY188(yy3),) => {
 
-    verbose_out!("found extra case\n");
+    vout!("found extra case\n");
     yyres = sexpr::casex(yy1, yy2, yy3);
 
 },    _ => unreachable!() };
@@ -1696,7 +1696,7 @@ self.yystack.pop().unwrap();
 match (yyp1.minor,yyp2.minor,) {
  (YYMinorType::YY188(yy1),YYMinorType::YY188(yy2),) => {
 
-    verbose_out!("parsed match expr\n");
+    vout!("parsed match expr\n");
     yyres = sexpr::match_expr(yy1, yy2);
 
 },    _ => unreachable!() };
@@ -1714,7 +1714,7 @@ self.yystack.pop().unwrap();
 match (yyp1.minor,yyp2.minor,yyp3.minor,) {
  (YYMinorType::YY188(yy1),YYMinorType::YY188(yy2),YYMinorType::YY188(yy3),) => {
 
-    verbose_out!("found cases base\n");
+    vout!("found cases base\n");
     yyres = sexpr::match_case(yy1, yy2, yy3);
 
 },    _ => unreachable!() };
@@ -1731,7 +1731,7 @@ self.yystack.pop().unwrap();
 match (yyp1.minor,yyp2.minor,) {
  (YYMinorType::YY188(yy1),YYMinorType::YY188(yy2),) => {
 
-    verbose_out!("parsed base match case\n");
+    vout!("parsed base match case\n");
     yyres = sexpr::match_case(yy1, yy2, Val::Void);
 
 },    _ => unreachable!() };

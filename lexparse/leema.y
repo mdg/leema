@@ -115,7 +115,7 @@ stmts(A) ::= . {
 	A = sexpr::new(SexprType::BlockExpr, list::empty());
 }
 stmts(A) ::= stmt(C) stmts(B). {
-    verbose_out!("found new stmt: {:?}\n", C);
+    vout!("found new stmt: {:?}\n", C);
 	A = list::cons(C, B);
 }
 
@@ -258,7 +258,7 @@ failed_stmts(A) ::= failed_stmt(B) failed_stmts(C). {
 
 /* defining a macro */
 macro_stmt(A) ::= MACRO ID(B) PARENCALL macro_args(D) RPAREN block(C) DOUBLEDASH. {
-    verbose_out!("found macro {:?}\n", B);
+    vout!("found macro {:?}\n", B);
     A = sexpr::new(SexprType::DefMacro,
         list::cons(Val::id(B.data),
         list::cons(D,
@@ -337,15 +337,15 @@ expr(A) ::= call_expr(B). {
     A = B;
 }
 call_expr(A) ::= term(B) PARENCALL RPAREN. {
-	verbose_out!("zero param function call!");
+	vout!("zero param function call!");
 	A = sexpr::call(B, vec![]);
 }
 call_expr(A) ::= term(B) PARENCALL expr(C) RPAREN. {
-	verbose_out!("one param function call!");
+	vout!("one param function call!");
 	A = sexpr::call(B, vec![C]);
 }
 call_expr(A) ::= term(B) PARENCALL tuple_args(C) RPAREN. {
-	verbose_out!("multi param function call!");
+	vout!("multi param function call!");
 	A = sexpr::call(B, list::to_vec(C));
 }
 
@@ -355,29 +355,29 @@ expr(A) ::= term(B) DOLLAR term(C). {
 }
 /* CASE expression */
 expr(A) ::= CASE cases(B) DOUBLEDASH. {
-    verbose_out!("parsed case expr\n");
+    vout!("parsed case expr\n");
 	A = B;
 }
 cases(A) ::= PIPE expr(B) block(C) PIPE ELSE block(D). {
-    verbose_out!("found cases base\n");
+    vout!("found cases base\n");
     A = sexpr::casex(B, C, D);
 }
 cases(A) ::= PIPE expr(B) block(C) cases(D). {
-    verbose_out!("found extra case\n");
+    vout!("found extra case\n");
     A = sexpr::casex(B, C, D);
 }
 
 /* match expression */
 expr(A) ::= MATCH expr(B) match_case(C) DOUBLEDASH. {
-    verbose_out!("parsed match expr\n");
+    vout!("parsed match expr\n");
     A = sexpr::match_expr(B, C);
 }
 match_case(A) ::= PIPE pexpr(B) block(C) match_case(D). {
-    verbose_out!("found cases base\n");
+    vout!("found cases base\n");
     A = sexpr::match_case(B, C, D);
 }
 match_case(A) ::= PIPE pexpr(B) block(C). {
-    verbose_out!("parsed base match case\n");
+    vout!("parsed base match case\n");
     A = sexpr::match_case(B, C, Val::Void);
 }
 

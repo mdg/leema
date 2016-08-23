@@ -1260,7 +1260,7 @@ impl reg::Iregistry for Env
     {
         let p = i.get_primary();
         if !self.reg.contains_key(&p) {
-            verbose_out!("{:?} not set in {:?}\n", i, self.reg);
+            vout!("{:?} not set in {:?}\n", i, self.reg);
             panic!("register_mut is not set: {:?}", i);
         }
         let v = self.reg.get_mut(&p).unwrap();

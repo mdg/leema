@@ -71,7 +71,7 @@ impl Iexpr
 
     fn new_block(code: Vec<Iexpr>) -> Iexpr
     {
-verbose_out!("new_block> {:?}\n", code);
+vout!("new_block> {:?}\n", code);
         let block_type = match code.last() {
             None => {
                 Type::Void
@@ -526,7 +526,7 @@ vout!("compile fork {} := {}\n", name, val);
     pub fn precompile_defstruct(&mut self, expr: Val)
     {
         let (nameval, mut fields) = list::take(expr);
-verbose_out!("precompile_defstruct({:?},{:?})\n", nameval, fields);
+vout!("precompile_defstruct({:?},{:?})\n", nameval, fields);
 
         let nametype = nameval.to_type();
         let name = match nametype {
@@ -567,7 +567,7 @@ verbose_out!("precompile_defstruct({:?},{:?})\n", nameval, fields);
         let (nameval, f1) = list::take(expr);
         let (mut params, f2) = list::take(f1);
         let (code, _) = list::take(f2);
-verbose_out!("precompile_macro({:?},{:?},{:?})\n", nameval, params, code);
+vout!("precompile_macro({:?},{:?},{:?})\n", nameval, params, code);
 
         let name = nameval.to_str();
         let mut args = vec![];
@@ -581,7 +581,7 @@ verbose_out!("precompile_macro({:?},{:?},{:?})\n", nameval, params, code);
             params = tail;
         }
 
-verbose_out!("macro_defined({:?},{:?},{:?})\n", name, args, code);
+vout!("macro_defined({:?},{:?},{:?})\n", name, args, code);
         self.scope.define_macro(&*name, args, code);
     }
 
@@ -657,7 +657,7 @@ vout!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
 
     pub fn precompile_block(&mut self, items: Val) -> Iexpr
     {
-verbose_out!("pc block> {:?}\n", items);
+vout!("pc block> {:?}\n", items);
         let mut bvec = self.precompile_list_to_vec(items);
         bvec.retain(|i| {
             i.src != Source::Void
@@ -676,11 +676,11 @@ verbose_out!("pc block> {:?}\n", items);
     {
         let (raw_x, e2) = list::take(expr);
         let (raw_cases, _) = list::take(e2);
-verbose_out!("precompile matchx\n\t{:?}\n\t{:?}\n", raw_x, raw_cases);
+vout!("precompile matchx\n\t{:?}\n\t{:?}\n", raw_x, raw_cases);
 
         let x = self.precompile(raw_x);
         let cases = self.precompile(raw_cases);
-verbose_out!("ixmatch:\n\t{:?}\n\t{:?}\n", x, cases);
+vout!("ixmatch:\n\t{:?}\n\t{:?}\n", x, cases);
         Iexpr::match_expr(x, cases)
     }
 
@@ -739,12 +739,12 @@ vout!("ixmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
         let (raw_test, e2) = list::take(expr);
         let (raw_truth, e3) = list::take(e2);
         let (raw_lies, _) = list::take(e3);
-verbose_out!("precompile casex\n\t{:?}\n\t{:?}\n\t{:?}\n", raw_test, raw_truth, raw_lies);
+vout!("precompile casex\n\t{:?}\n\t{:?}\n\t{:?}\n", raw_test, raw_truth, raw_lies);
 
         let test = self.precompile(raw_test);
         let truth = self.precompile(raw_truth);
         let lies = self.precompile(raw_lies);
-verbose_out!("ixcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
+vout!("ixcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
         Iexpr::case_expr(test, truth, lies)
     }
 
@@ -753,12 +753,12 @@ verbose_out!("ixcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
         let (raw_test, e2) = list::take(expr);
         let (raw_truth, e3) = list::take(e2);
         let (raw_lies, _) = list::take(e3);
-verbose_out!("precompile ifx\n\t{:?}\n\t{:?}\n\t{:?}\n", raw_test, raw_truth, raw_lies);
+vout!("precompile ifx\n\t{:?}\n\t{:?}\n\t{:?}\n", raw_test, raw_truth, raw_lies);
 
         let test = self.precompile(raw_test);
         let truth = self.precompile(raw_truth);
         let lies = self.precompile(raw_lies);
-verbose_out!("ixif:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
+vout!("ixif:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
         Iexpr::ifstmt(test, truth, lies)
     }
 
@@ -910,7 +910,7 @@ vout!("ixfailedmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
     {
         let (f, sx) = list::take(call);
         let args = list::take_head(sx);
-verbose_out!("args = {:?}\n", args);
+vout!("args = {:?}\n", args);
         let fname = match &f {
             &Val::Id(ref name) => {
                 if self.scope.is_macro(name) {
@@ -925,19 +925,19 @@ verbose_out!("args = {:?}\n", args);
         }.clone();
         let fexpr = self.precompile(f);
         let cargs = self.precompile(args);
-verbose_out!("cargs = {:?}\n", cargs);
-verbose_out!("cargs.type = {:?}\n", cargs.typ);
+vout!("cargs = {:?}\n", cargs);
+vout!("cargs.type = {:?}\n", cargs.typ);
         let call_result = self.scope.apply_call_types(&fname, &cargs.typ);
         Iexpr::call(call_result, fexpr, cargs)
     }
 
     pub fn precompile_macro_call(&mut self, name: &String, mut argx: Val) -> Iexpr
     {
-verbose_out!("precompile_macro_call({}, {:?})\n", name, argx);
+vout!("precompile_macro_call({}, {:?})\n", name, argx);
         let mappl = {
             let &(ref ids, ref body) = self.scope.get_macro(name).unwrap();
-verbose_out!("ids = {:?}\n", ids);
-verbose_out!("body = {:?}\n", body);
+vout!("ids = {:?}\n", ids);
+vout!("body = {:?}\n", body);
             let argv = Val::tuple_items(argx);
             let expected_argc = ids.len();
             let passed_argc = argv.len();
@@ -957,10 +957,10 @@ verbose_out!("body = {:?}\n", body);
                 i += 1;
             }
 
-verbose_out!("macro replace ids\n\t{:?}\n\t{:?}\n", body, margs);
+vout!("macro replace ids\n\t{:?}\n\t{:?}\n", body, margs);
             Val::replace_ids(body.clone(), &margs)
         };
-verbose_out!("result = {:?}\n", mappl);
+vout!("result = {:?}\n", mappl);
         self.precompile(mappl)
     }
 

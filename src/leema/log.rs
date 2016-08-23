@@ -29,18 +29,3 @@ macro_rules! vout
         }
     };
 }
-
-#[macro_export]
-macro_rules! verbose_out
-{
-    ($fmt:expr) => {
-        if log::is_verbose() {
-            write!(stderr(), $fmt).ok();
-        }
-    };
-    ($fmt:expr, $($arg:tt)*) => {
-        if log::is_verbose() {
-            (write!(stderr(), $fmt, $($arg)*)).ok();
-        }
-    };
-}
