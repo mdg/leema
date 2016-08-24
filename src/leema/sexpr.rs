@@ -138,15 +138,16 @@ pub fn ifstmt(cond: Val, ifblock: Val, elseblock: Val) -> Val
     ))
 }
 
-pub fn defunc(name: Val, args: Val, typ: Val, blk: Val) -> Val
+pub fn defunc(name: Val, args: Val, typ: Val, blk: Val, ps: Val) -> Val
 {
     Val::Sexpr(SexprType::DefFunc, Box::new(
         list::cons(name,
         list::cons(args,
         list::cons(typ,
         list::cons(blk,
+        list::cons(ps,
         Val::Nil
-        ))))
+        )))))
     ))
 }
 

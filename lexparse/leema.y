@@ -194,7 +194,7 @@ func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(D) RPAREN opt_typex(E)
 {
 	let id = Val::id(B.data);
 	let typ = Val::Type(E);
-	A = sexpr::defunc(id, D, typ, C)
+	A = sexpr::defunc(id, D, typ, C, F)
 }
 /* func w/ pattern matching */
 func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(C) RPAREN opt_typex(D)
@@ -203,7 +203,7 @@ func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(C) RPAREN opt_typex(D)
 	let id = Val::id(B.data);
 	let typ = Val::Type(D);
     let body = sexpr::match_expr(Val::CallParams, E);
-	A = sexpr::defunc(id, C, typ, body)
+	A = sexpr::defunc(id, C, typ, body, F)
 }
 
 dfunc_args(A) ::= . {

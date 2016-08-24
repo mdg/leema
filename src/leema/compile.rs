@@ -590,10 +590,13 @@ vout!("macro_defined({:?},{:?},{:?})\n", name, args, code);
         let (nameval, f1) = list::take(func);
         let (params, f2) = list::take(f1);
         let (result, f3) = list::take(f2);
-        let (code, _) = list::take(f3);
+        let (code, f4) = list::take(f3);
+        let (ps, _) = list::take(f4);
 
         let name = nameval.to_str();
         Scope::push_scope(&mut self.scope, Some(&*name));
+
+        let ps_index = StaticSpace::collect_ps_index(ps);
 
         let (inf_arg_types, funcx) = {
             let mut argtypes = vec![];
@@ -653,6 +656,28 @@ vout!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
             final_ftype,
             Code::Inter(Arc::new(funcx)),
         );
+    }
+
+    pub fn collect_ps_index(ps: Val) -> HashMap<Arc<String>, Val>
+    {
+        let base = HashMap::new();
+        if ps == Val::Void {
+            return base;
+        }
+        list::fold(ps, base, |mut acc, f| {
+            let id = match &f {
+                &Val::Sexpr(SexprType::MatchFailed, ref mf) => {
+                    let (x, _) = list::take_ref(mf);
+                    x.id_name().clone()
+                }
+                _ => {
+                    panic!("Postscript blocks may only contain failures: {:?}",
+                        f);
+                }
+            };
+            acc.insert(id, f);
+            acc
+        })
     }
 
     pub fn precompile_block(&mut self, items: Val) -> Iexpr
@@ -796,14 +821,15 @@ vout!("precompile matchfailed\n\t{:?}\n\t{:?}\n", raw_x, raw_cases);
             panic!("match failed case not MatchCase: {:?}", st);
         }
 
-        match &raw_x {
-            &Val::Id(ref failed_id) => {
-                Scope::push_failed_scope(&mut self.scope, failed_id);
+        let failed_id = match &raw_x {
+            &Val::Id(ref failed_id_ref) => {
+                Scope::push_failed_scope(&mut self.scope, failed_id_ref);
+                failed_id_ref.clone()
             }
             _ => {
-                panic!("failed statements must be an ID");
+                panic!("failure match expressions must be an ID");
             }
-        }
+        };
 
         let mut x = self.precompile(raw_x);
         match x.src {

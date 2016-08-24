@@ -1134,7 +1134,7 @@ match (yyp1.minor,yyp3.minor,yyp5.minor,yyp6.minor,yyp8.minor,) {
 
 	let id = Val::id(yy1.data);
 	let typ = Val::Type(yy5);
-	yyres = sexpr::defunc(id, yy3, typ, yy6)
+	yyres = sexpr::defunc(id, yy3, typ, yy6, yy8)
 
 },    _ => unreachable!() };
  YYMinorType::YY188(yyres)
@@ -1159,7 +1159,7 @@ match (yyp1.minor,yyp3.minor,yyp5.minor,yyp6.minor,yyp8.minor,) {
 	let id = Val::id(yy1.data);
 	let typ = Val::Type(yy5);
     let body = sexpr::match_expr(Val::CallParams, yy6);
-	yyres = sexpr::defunc(id, yy3, typ, body)
+	yyres = sexpr::defunc(id, yy3, typ, body, yy8)
 
 },    _ => unreachable!() };
  YYMinorType::YY188(yyres)
