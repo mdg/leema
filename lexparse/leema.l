@@ -71,10 +71,6 @@ void	{ return set_token(yyg, TOKEN_VOID); }
 "$?"	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_DollarQuestion); }
-":"	{
-    BEGIN(INITIAL);
-    return set_token(yyg, TOKEN_COLON);
-}
 "->"	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_BLOCKARROW);
@@ -133,6 +129,14 @@ void	{ return set_token(yyg, TOKEN_VOID); }
 ","	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_COMMA);
+}
+";"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_SEMICOLON);
+}
+":"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_COLON);
 }
 "~"	{
     BEGIN(INITIAL);
@@ -261,6 +265,10 @@ Bool	{
 Void	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_TYPE_VOID);
+}
+"#"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_TYPE_HASHTAG);
 }
 "#:"	{
 	add_block_comment_depth(yyg, +1);

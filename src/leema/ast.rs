@@ -268,6 +268,17 @@ fn test_ast_parse_tuple() {
 }
 
 #[test]
+fn test_ast_parse_list_empty() {
+    let input = "[]\n".to_string();
+    let root = Ast::parse(lex(input));
+
+    let expected = Ast::ReplRoot(sexpr::new(
+        SexprType::BlockExpr, list::singleton(list::empty())
+    ));
+    assert_eq!(expected, root);
+}
+
+#[test]
 fn test_ast_parse_list() {
     let input = "[1, 2, x]\n".to_string();
     let root = Ast::parse(lex(input));
@@ -280,6 +291,27 @@ fn test_ast_parse_list() {
     let expected = Ast::ReplRoot(sexpr::new(
         SexprType::BlockExpr, list::singleton(xlist)
     ));
+    assert_eq!(expected, root);
+}
+
+#[test]
+fn test_ast_parse_list_cons() {
+    let input = "[1, 2; x]\n".to_string();
+    let root = Ast::parse(lex(input));
+
+    let prefix_list =
+        list::cons(Val::Int(1),
+        list::cons(Val::Int(2),
+        Val::Nil,
+        ));
+    let expected = Ast::ReplRoot(
+        sexpr::new(SexprType::BlockExpr, list::singleton(
+            sexpr::call(Val::id("list_cons".to_string()), vec![
+                prefix_list,
+                Val::id("x".to_string()),
+            ])
+        ))
+    );
     assert_eq!(expected, root);
 }
 

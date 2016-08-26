@@ -2,6 +2,7 @@ use leema::val::{Val, Type};
 use leema::code::{Code};
 use leema::frame::{Frame};
 use leema::compile::{Compiler, StaticSpace};
+use leema::list;
 use leema::log;
 use leema::ast;
 use std::fs::File;
@@ -132,6 +133,13 @@ pub fn bool_xor(fs: &mut Frame)
         }
     }
     fs.parent.set_result(Val::Bool(result));
+}
+
+pub fn list_cons(fs: &mut Frame)
+{
+    let head = fs.e.get_param(0);
+    let tail = fs.e.get_param(1);
+    fs.parent.set_result(list::cons(head.clone(), tail.clone()));
 }
 
 pub fn less_than(fs: &mut Frame)
@@ -355,6 +363,14 @@ pub fn define_prefab(ss: &mut StaticSpace)
     ss.define_func(Arc::new("xor".to_string()),
         Type::f(vec![Type::Bool, Type::Bool], Type::Bool),
         Code::Rust(bool_xor),
+        );
+    let type_var_a = Type::Var(Arc::new("TypeA".to_string()));
+    ss.define_func(Arc::new("list_cons".to_string()),
+        Type::f(vec![
+            type_var_a.clone(),
+            Type::StrictList(Box::new(type_var_a.clone())),
+        ], Type::StrictList(Box::new(type_var_a.clone()))),
+        Code::Rust(list_cons),
         );
     ss.define_func(Arc::new("less_than".to_string()),
         Type::f(vec![Type::Int, Type::Int], Type::Bool),

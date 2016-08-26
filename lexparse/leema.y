@@ -13,6 +13,7 @@ use std::io::{stderr, Write};
 %wildcard ANY.
 %extra_argument { Result<Ast, i32> }
 
+%type COLON { TokenLoc }
 %type COMMA { TokenLoc }
 %type DOUBLEDASH { TokenLoc }
 %type ELSE { TokenLoc }
@@ -20,7 +21,10 @@ use std::io::{stderr, Write};
 %type ID { TokenData<String> }
 %type INT { i64 }
 %type PLUS { TokenLoc }
+%type SEMICOLON { TokenLoc }
 %type SLASH { TokenLoc }
+%type SquareL { TokenLoc }
+%type SquareR { TokenLoc }
 %type StrLit { String }
 %type TYPE_ID { TokenData<String> }
 
@@ -39,6 +43,7 @@ use std::io::{stderr, Write};
 %type macro_stmt { Val }
 %type macro_args { Val }
 %type call_expr { Val }
+%type func_term { Val }
 %type if_stmt { Val }
 %type else_if { Val }
 %type if_case { Val }
@@ -46,6 +51,7 @@ use std::io::{stderr, Write};
 %type pexpr { Val }
 %type ptuple { Val }
 %type pargs { Val }
+%type plist { Val }
 %type defstruct { Val }
 %type defstruct_fields { Val }
 %type defstruct_field { Val }
@@ -76,6 +82,7 @@ use std::io::{stderr, Write};
 %left LT LTEQ.
 %left PLUS MINUS.
 %left TIMES SLASH MOD.
+%left SEMICOLON.
 %right DOLLAR.
 %left DOT.
 %left LPAREN RPAREN.
@@ -231,6 +238,9 @@ typex(A) ::= TYPE_INT. {
 typex(A) ::= TYPE_STR. {
 	A = Type::Str;
 }
+typex(A) ::= TYPE_HASHTAG. {
+	A = Type::Hashtag;
+}
 typex(A) ::= TYPE_BOOL. {
 	A = Type::Bool;
 }
@@ -239,6 +249,9 @@ typex(A) ::= TYPE_VOID. {
 }
 typex(A) ::= TYPE_ID(B). {
 	A = Type::Id(Arc::new(B.data));
+}
+typex(A) ::= SquareL typex(B) SquareR. {
+	A = Type::StrictList(Box::new(B));
 }
 
 opt_ps(A) ::= . {
@@ -336,17 +349,24 @@ if_case(A) ::= PIPE ELSE block(B). {
 expr(A) ::= call_expr(B). {
     A = B;
 }
-call_expr(A) ::= term(B) PARENCALL RPAREN. {
+call_expr(A) ::= func_term(B) PARENCALL RPAREN. {
 	vout!("zero param function call!");
 	A = sexpr::call(B, vec![]);
 }
-call_expr(A) ::= term(B) PARENCALL expr(C) RPAREN. {
+call_expr(A) ::= func_term(B) PARENCALL expr(C) RPAREN. {
 	vout!("one param function call!");
 	A = sexpr::call(B, vec![C]);
 }
-call_expr(A) ::= term(B) PARENCALL tuple_args(C) RPAREN. {
+call_expr(A) ::= func_term(B) PARENCALL tuple_args(C) RPAREN. {
 	vout!("multi param function call!");
 	A = sexpr::call(B, list::to_vec(C));
+}
+
+func_term(A) ::= term(B). {
+    A = B;
+}
+func_term(A) ::= typex(B). {
+    A = Val::Type(B);
 }
 
 expr(A) ::= term(B) DOLLAR term(C). {
@@ -382,6 +402,7 @@ match_case(A) ::= PIPE pexpr(B) block(C). {
 }
 
 pexpr(A) ::= ptuple(B). { A = B; }
+pexpr(A) ::= plist(B). { A = B; }
 pexpr(A) ::= INT(B). { A = Val::Int(B); }
 pexpr(A) ::= True. { A = Val::Bool(true); }
 pexpr(A) ::= False. { A = Val::Bool(false); }
@@ -405,6 +426,13 @@ pargs(A) ::= pexpr(B) COMMA pexpr(C). {
 }
 pargs(A) ::= pexpr(B) COMMA pargs(C). {
 	A = list::cons(B, C);
+}
+/* list pattern */
+plist(A) ::= SquareL SquareR. {
+    A = list::empty();
+}
+plist(A) ::= SquareL expr(B) SquareR. {
+    A = list::singleton(B);
 }
 
 
@@ -507,9 +535,6 @@ expr(A) ::= term(B). { A = B; }
 term(A) ::= LPAREN expr(C) RPAREN. {
 	A = C;
 }
-term(A) ::= typex(B). {
-    A = Val::Type(B);
-}
 term(A) ::= ID(B). { A = Val::id(B.data); }
 term(A) ::= VOID. {
 	A = Val::Void;
@@ -528,11 +553,14 @@ term(A) ::= HASHTAG(B). {
 term(A) ::= strexpr(B). { A = B; }
 
 
+list(A) ::= SquareL SquareR. {
+	A = list::empty();
+}
 list(A) ::= SquareL list_items(B) SquareR. {
 	A = B;
 }
-list_items(A) ::= . {
-	A = list::empty();
+list(A) ::= SquareL list_items(B) SEMICOLON expr(C) SquareR. {
+	A = sexpr::call(Val::id("list_cons".to_string()), vec![B, C]);
 }
 list_items(A) ::= expr(B). {
 	A = list::singleton(B);

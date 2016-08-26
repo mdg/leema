@@ -90,7 +90,7 @@ impl Token
                     Token::PARENCALL
                 }
                 parse::TOKEN_COLON => {
-                    Token::COLON
+                    Token::COLON(tl)
                 }
                 parse::TOKEN_COMMA => {
                     Token::COMMA(tl)
@@ -101,11 +101,14 @@ impl Token
                 parse::TOKEN_RPAREN => {
                     Token::RPAREN
                 }
+                parse::TOKEN_SEMICOLON => {
+                    Token::SEMICOLON(tl)
+                }
                 parse::TOKEN_SquareL => {
-                    Token::SquareL
+                    Token::SquareL(tl)
                 }
                 parse::TOKEN_SquareR => {
-                    Token::SquareR
+                    Token::SquareR(tl)
                 }
                 parse::TOKEN_TIMES => Token::TIMES,
                 parse::TOKEN_SLASH => Token::SLASH(tl),
@@ -213,6 +216,9 @@ impl Token
                 }
                 parse::TOKEN_TYPE_STR => {
                     Token::TYPE_STR
+                }
+                parse::TOKEN_TYPE_HASHTAG => {
+                    Token::TYPE_HASHTAG
                 }
                 parse::TOKEN_TYPE_VOID => {
                     Token::TYPE_VOID

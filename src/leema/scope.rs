@@ -402,7 +402,7 @@ fn test_push_pop()
 {
     let mut s = Scope::new("hello".to_string());
 
-    Scope::push_scope(&mut s, Some(&"world".to_string()));
+    Scope::push_call_scope(&mut s, &"world".to_string(), Val::Void);
     assert_eq!("hello.world".to_string(), s.get_scope_name());
 
     Scope::pop_scope(&mut s);
@@ -417,7 +417,7 @@ fn test_macro_defined()
     s.define_macro(&macro_name, vec![], Val::Void);
     assert!(s.is_macro(&macro_name));
 
-    Scope::push_scope(&mut s, Some(&"foo".to_string()));
+    Scope::push_call_scope(&mut s, &"foo".to_string(), Val::Void);
     assert!(s.is_macro(&macro_name));
 }
 
@@ -429,7 +429,7 @@ fn test_label_assigned()
     s.assign_label(Reg::new_param(2), &label_name, Type::Int);
     assert!(s.is_label(&label_name));
 
-    Scope::push_scope(&mut s, Some(&"world".to_string()));
+    Scope::push_call_scope(&mut s, &"world".to_string(), Val::Void);
     assert!(s.is_label(&label_name));
 }
 
