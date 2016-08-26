@@ -458,6 +458,9 @@ impl StaticSpace
         let (rhs, _ ) = list::take(e2);
 vout!("compile let {} := {}\n", lhs, rhs);
         let name = lhs.to_str();
+
+        let let_ps = self.scope.take_failure_check(&name);
+
         let mut irhs = self.precompile(rhs);
         let mut is_new = false;
         match self.scope.lookup_label(&name) {
@@ -487,7 +490,15 @@ vout!("compile let {} := {}\n", lhs, rhs);
                 irhs.dst.clone(), &*name, irhs.typ.clone()
             );
         }
-        irhs
+        match let_ps {
+            Some(l) => {
+                Iexpr::new_block(vec![
+                    irhs,
+                    self.precompile(l),
+                ])
+            }
+            None => irhs,
+        }
     }
 
     pub fn precompile_fork(&mut self, name: Arc<String>, val: Val) -> Iexpr
@@ -594,9 +605,7 @@ vout!("macro_defined({:?},{:?},{:?})\n", name, args, code);
         let (ps, _) = list::take(f4);
 
         let name = nameval.to_str();
-        Scope::push_scope(&mut self.scope, Some(&*name));
-
-        let ps_index = StaticSpace::collect_ps_index(ps);
+        Scope::push_call_scope(&mut self.scope, &*name, ps);
 
         let (inf_arg_types, funcx) = {
             let mut argtypes = vec![];
@@ -656,28 +665,6 @@ vout!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
             final_ftype,
             Code::Inter(Arc::new(funcx)),
         );
-    }
-
-    pub fn collect_ps_index(ps: Val) -> HashMap<Arc<String>, Val>
-    {
-        let base = HashMap::new();
-        if ps == Val::Void {
-            return base;
-        }
-        list::fold(ps, base, |mut acc, f| {
-            let id = match &f {
-                &Val::Sexpr(SexprType::MatchFailed, ref mf) => {
-                    let (x, _) = list::take_ref(mf);
-                    x.id_name().clone()
-                }
-                _ => {
-                    panic!("Postscript blocks may only contain failures: {:?}",
-                        f);
-                }
-            };
-            acc.insert(id, f);
-            acc
-        })
     }
 
     pub fn precompile_block(&mut self, items: Val) -> Iexpr

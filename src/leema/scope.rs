@@ -24,6 +24,9 @@ pub struct Scope
     inferred: HashMap<String, Type>,
     // type definitins in type namespace
     K: HashMap<String, Type>,
+    // labels that have failure checks
+    checked_failures: HashMap<Arc<String>, Val>,
+    // the failed label currently being checked
     failed: Option<String>,
     _nextreg: i8,
 }
@@ -40,25 +43,41 @@ impl Scope
             T: HashMap::new(),
             inferred: HashMap::new(),
             K: HashMap::new(),
+            checked_failures: HashMap::new(),
             failed: None,
             _nextreg: 0,
         }
     }
 
-    pub fn push_scope(parent: &mut Scope, func_nm: Option<&String>)
+    pub fn push_call_scope(parent: &mut Scope, func_nm: &String, ps: Val)
     {
-        let new_scope_nm = match func_nm {
-            Some(nm) => Some(nm.clone()),
-            None => None,
-        };
         let mut tmp_scope = Scope{
             parent: None,
-            scope_name: new_scope_nm,
+            scope_name: Some(func_nm.clone()),
             m: HashMap::new(),
             E: HashMap::new(),
             T: HashMap::new(),
             inferred: HashMap::new(),
             K: HashMap::new(),
+            checked_failures: Scope::collect_ps_index(ps),
+            failed: None,
+            _nextreg: 0,
+        };
+        mem::swap(parent, &mut tmp_scope);
+        parent.parent = Some(Box::new(tmp_scope));
+    }
+
+    pub fn push_block_scope(parent: &mut Scope)
+    {
+        let mut tmp_scope = Scope{
+            parent: None,
+            scope_name: None,
+            m: HashMap::new(),
+            E: HashMap::new(),
+            T: HashMap::new(),
+            inferred: HashMap::new(),
+            K: HashMap::new(),
+            checked_failures: HashMap::new(),
             failed: None,
             _nextreg: 0,
         };
@@ -76,6 +95,7 @@ impl Scope
             T: HashMap::new(),
             inferred: HashMap::new(),
             K: HashMap::new(),
+            checked_failures: HashMap::new(),
             failed: Some(var.clone()),
             _nextreg: 0,
         };
@@ -339,6 +359,33 @@ vout!("infer_type({}, {:?}) for {:?}", typevar, newtype, self.scope_name);
         let r = self._nextreg;
         self._nextreg += 1;
         r
+    }
+
+    pub fn collect_ps_index(ps: Val) -> HashMap<Arc<String>, Val>
+    {
+        let base = HashMap::new();
+        if ps == Val::Void {
+            return base;
+        }
+        list::fold(ps, base, |mut acc, f| {
+            let id = match &f {
+                &Val::Sexpr(SexprType::MatchFailed, ref mf) => {
+                    let (x, _) = list::take_ref(mf);
+                    x.id_name().clone()
+                }
+                _ => {
+                    panic!("Postscript blocks may only contain failures: {:?}",
+                        f);
+                }
+            };
+            acc.insert(id, f);
+            acc
+        })
+    }
+
+    pub fn take_failure_check(&mut self, name: &String) -> Option<Val>
+    {
+        self.checked_failures.remove(name)
     }
 }
 

@@ -17,7 +17,7 @@ ps ->
          return c
       else ->
          cout("c failed. no propagate.\n")
-         let c := "yikes-linear!"
+         let c := "yikes - not linear!"
       --
    |_ ->
       cout("no match on failure hashtag\n")
@@ -25,6 +25,6 @@ ps ->
 --
 
 func main() ->
-   let d := handle_nonlinear(4, true)
+   let d := handle_nonlinear(4, false)
    cout("d: $d\n")
 --
