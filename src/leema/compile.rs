@@ -223,9 +223,18 @@ vout!("new_block> {:?}\n", code);
 
     fn list(items: Vec<Iexpr>) -> Iexpr
     {
+        let item_type = items.iter().fold(Type::Unknown, |old_t, new_x| {
+            if old_t == Type::Unknown {
+                new_x.typ.clone()
+            } else if old_t == new_x.typ {
+                old_t
+            } else {
+                panic!("Mixed list types: {:?} != {:?}", old_t, new_x);
+            }
+        });
         Iexpr{
-            dst: Reg::Undecided, 
-            typ: Type::RelaxedList,
+            dst: Reg::Undecided,
+            typ: Type::StrictList(Box::new(item_type)),
             src: Source::List(items),
         }
     }

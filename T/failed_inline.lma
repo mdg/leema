@@ -19,6 +19,9 @@ func handle_inline(x: Int, prop: Bool): String ->
    |_ ->
       cout("no match on failure hashtag\n")
    --
+   let d := foo(x+1)
+   failed d
+   |#
 
    "str interp: $c"
 --
