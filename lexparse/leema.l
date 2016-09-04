@@ -274,11 +274,10 @@ Void	{
 	add_block_comment_depth(yyg, +1);
 	BEGIN(BLOCKCOMMENT);
 }
-"##"	{
-	BEGIN(LINECOMMENT);
+"##.*"	{
+	// have to update the cursor info here? hopefully not
 }
 {HASHTAG}	{ return set_token_val(yyg, TOKEN_HASHTAG, yytext); }
-"@"{ID}	{ /* return set_token_val(yyg, TOKEN_CONTEXTID, yytext); */ }
 {ID}	{
     BEGIN(CALLPAREN);
     return set_token_val(yyg, TOKEN_ID, yytext);
@@ -324,11 +323,6 @@ Void	{
 	BEGIN(STR);
 }
 
-
-<LINECOMMENT>.*	{
-	BEGIN(INITIAL);
-	//return set_token_val(yyg, TOKEN_Comment, yytext);
-}
 
 <BLOCKCOMMENT>"#:" {
 	// go another level deeper in the nested comments

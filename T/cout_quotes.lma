@@ -1,1 +1,4 @@
-func main() -> cout("hello \"quotes\"\n") --
+func main() ->
+    ## print a message to the console
+    cout("hello \"quotes\"\n")
+--
