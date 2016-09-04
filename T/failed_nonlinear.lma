@@ -17,7 +17,7 @@ ps ->
          return c
       else ->
          cout("c failed. no propagate.\n")
-         let c := "yikes - not linear!"
+         let c := "whoa - not linear!"
       --
    |_ ->
       cout("no match on failure hashtag\n")
