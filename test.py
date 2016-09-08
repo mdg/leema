@@ -71,6 +71,14 @@ class TestScripts(unittest.TestCase):
             b"l is a list with 3 elements [3, 2, 8]\n",
             result['output'])
 
+    def test_list_match_head(self):
+        result = run_leema('list_match_head')
+        self.assertEqual(0, result['code'])
+        self.assertEqual(
+            b"l: [Int(3),Int(2),Int(8),]\n" +
+            b"l is a list with head 3 and tail [Int(2),Int(8),]\n",
+            result['output'])
+
     def test_rgb(self):
         result = run_leema('rgb')
         self.assertEqual(0, result['code'])

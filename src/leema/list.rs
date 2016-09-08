@@ -14,6 +14,10 @@ pub fn cons(head: Val, tail: Val) -> Val
         Val::Nil => {
             Val::Cons(Box::new(head), Box::new(Val::Nil))
         }
+        Val::Id(_) => {
+            // this is used when parsing list patterns
+            Val::Cons(Box::new(head), Box::new(tail))
+        }
         _ => {
             panic!("Can't cons to a not list {:?}", tail);
         }

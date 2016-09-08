@@ -491,6 +491,33 @@ fn test_parse_defstruct()
 }
 
 #[test]
+fn test_parse_match_list()
+{
+    let input = "
+    match x
+    |[h;t] -> h
+    |_ -> false
+    --
+    ".to_string();
+    let root = Ast::parse(lex(input));
+
+    let expected = Ast::ReplRoot(sexpr::new_block(list::singleton(
+        sexpr::match_expr(
+            Val::id("x".to_string()),
+            sexpr::match_case(
+                list::cons(Val::id("h".to_string()), Val::id("t".to_string())),
+                sexpr::new_block(list::singleton(Val::id("h".to_string()))),
+            sexpr::match_case(
+                Val::Wildcard,
+                sexpr::new_block(list::singleton(Val::Bool(false))),
+                Val::Void,
+            )),
+        ),
+    )));
+    assert_eq!(expected, root);
+}
+
+#[test]
 fn test_parse_constructor_call()
 {
     let input = "Taco(1, 2)".to_string();

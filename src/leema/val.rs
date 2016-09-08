@@ -569,6 +569,13 @@ impl Val {
                 // do nothing, we've formatted enough
                 write!(f, "")
             }
+            &Val::Id(ref name) => {
+                if dbg {
+                    write!(f, "{:?},", l)
+                } else {
+                    write!(f, "{},", name)
+                }
+            }
             _ => {
                 panic!("Not a list: {:?}", l);
             }
@@ -994,6 +1001,9 @@ impl PartialOrd for Val
             (&Val::Id(ref a), &Val::Id(ref b)) => {
                 PartialOrd::partial_cmp(a, b)
             }
+            (&Val::Wildcard, &Val::Wildcard) => {
+                Some(Ordering::Equal)
+            }
             (&Val::Nil, &Val::Cons(_, _)) => {
                 Some(Ordering::Less)
             }
@@ -1027,8 +1037,7 @@ impl PartialOrd for Val
                             &*x1, &*x2
                         )
                     }
-                    Some(_) => cmp,
-                    None => None,
+                    _ => cmp,
                 }
             }
             (&Val::Bool(false), _) => {
@@ -1087,6 +1096,8 @@ impl PartialOrd for Val
             }
             (&Val::Sexpr(_, _), _) => Some(Ordering::Less),
             (_, &Val::Sexpr(_, _)) => Some(Ordering::Greater),
+            (&Val::Wildcard, _) => Some(Ordering::Less),
+            (_, &Val::Wildcard) => Some(Ordering::Greater),
             //(&Val::Sexpr(_, ref x1), &Val::Sexpr(t2, ref x2)) => {
             _ => {
                 panic!("can't compare({:?},{:?})", self, other);

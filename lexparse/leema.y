@@ -435,14 +435,14 @@ plist(A) ::= SquareL SquareR. {
 plist(A) ::= SquareL plist_items(B) SquareR. {
     A = B;
 }
-plist(A) ::= SquareL plist_items(B) SEMICOLON pexpr(C) SquareR. {
-	A = list::cons(B, C);
-}
 plist_items(A) ::= pexpr(B). {
 	A = list::singleton(B);
 }
 plist_items(A) ::= pexpr(B) COMMA plist_items(C). {
     A = list::cons(B, C);
+}
+plist_items(A) ::= pexpr(B) SEMICOLON pexpr(C). {
+	A = list::cons(B, C);
 }
 
 
