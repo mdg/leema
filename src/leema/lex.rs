@@ -115,7 +115,7 @@ impl Token
                 parse::TOKEN_PIPE => Token::PIPE,
                 parse::TOKEN_ASSIGN => Token::ASSIGN,
                 parse::TOKEN_Fork => Token::Fork,
-                parse::TOKEN_Let => Token::Let,
+                parse::TOKEN_Let => Token::Let(tl),
                 /*
                 parse::TOKEN_CurlyL => {
                     Token::CurlyL

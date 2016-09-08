@@ -20,6 +20,7 @@ use std::io::{stderr, Write};
 %type HASHTAG { TokenData<String> }
 %type ID { TokenData<String> }
 %type INT { i64 }
+%type Let { TokenLoc }
 %type PLUS { TokenLoc }
 %type SEMICOLON { TokenLoc }
 %type SLASH { TokenLoc }

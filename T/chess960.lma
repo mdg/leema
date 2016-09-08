@@ -6,7 +6,7 @@ func assign(line, col, bb, bw, pieces)
 |(line, col, bb, bw, [p;pieces]) -> assign([p;line], col+1, bb, 0, pieces)
 --
 
-func chess960() -> [#]
+func chess960(): [#] ->
     let bb := 2 * (random() mod 4) + 1
     let bw := 2 * (random() mod 4) + 2
     let pieces := [
@@ -15,9 +15,10 @@ func chess960() -> [#]
         (random(), #queen),
         (random(), #rkr),
         (random(), #rkr),
-        (random(), #rkr),
+        (random(), #rkr)
         ]
     assign([], 1, bb, bw, pieces)
+--
 
 func main() ->
     let backline := chess960()
