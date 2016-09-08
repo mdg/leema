@@ -1,0 +1,12 @@
+func main() ->
+    let l := [3, 2, 8]
+    cout("l: $l\n")
+
+    match l
+    |[h;t] ->
+        cout("l is a list with head $h and tail $t\n")
+    |_ ->
+        cout("l is not a list with 3 elements\n")
+    --
+--
+
