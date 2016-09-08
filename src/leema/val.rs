@@ -499,11 +499,19 @@ impl Val {
     {
         match (patt, input) {
             (&Val::Wildcard, _) => true,
-            (&Val::PatternVar(_), _) => true,
+            (&Val::PatternVar(ref dst), _) => {
+                // should put something in assigns vector here
+                assigns.push((dst.clone(), input.clone()));
+                true
+            }
             (&Val::Int(p), &Val::Int(i)) if p == i => true,
             (&Val::Bool(p), &Val::Bool(i)) if p == i => true,
             (&Val::Str(ref p), &Val::Str(ref i)) if p == i => true,
             (&Val::Hashtag(ref p), &Val::Hashtag(ref i)) if p == i => true,
+            (&Val::Cons(ref ph, ref pt), &Val::Cons(ref ih, ref it)) => {
+                Val::_pattern_match(assigns, ph, ih)
+                    && Val::_pattern_match(assigns, pt, it)
+            }
             (&Val::Tuple(ref p), &Val::Tuple(ref i)) if p.len() == i.len() => {
                 let it = p.iter().zip(i.iter());
                 let m = it.fold(true, |m, (p_item, i_item)| {
@@ -511,6 +519,7 @@ impl Val {
                 });
                 m
             }
+            (&Val::Nil, &Val::Nil) => true,
             _ => false,
         }
     }

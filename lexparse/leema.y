@@ -52,6 +52,7 @@ use std::io::{stderr, Write};
 %type ptuple { Val }
 %type pargs { Val }
 %type plist { Val }
+%type plist_items { Val }
 %type defstruct { Val }
 %type defstruct_fields { Val }
 %type defstruct_field { Val }
@@ -431,8 +432,17 @@ pargs(A) ::= pexpr(B) COMMA pargs(C). {
 plist(A) ::= SquareL SquareR. {
     A = list::empty();
 }
-plist(A) ::= SquareL expr(B) SquareR. {
-    A = list::singleton(B);
+plist(A) ::= SquareL plist_items(B) SquareR. {
+    A = B;
+}
+plist(A) ::= SquareL plist_items(B) SEMICOLON pexpr(C) SquareR. {
+	A = list::cons(B, C);
+}
+plist_items(A) ::= pexpr(B). {
+	A = list::singleton(B);
+}
+plist_items(A) ::= pexpr(B) COMMA plist_items(C). {
+    A = list::cons(B, C);
 }
 
 

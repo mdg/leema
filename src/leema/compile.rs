@@ -712,42 +712,51 @@ vout!("ixmatch:\n\t{:?}\n\t{:?}\n", x, cases);
         let (raw_next, _) = list::take(e3);
 vout!("precompile matchcase\n\t{:?}\n\t{:?}\n\t{:?}\n", raw_patt, raw_code, raw_next);
 
-        let patt = self.precompile_pattern(raw_patt);
+        let patt_val = self.precompile_pattern(raw_patt);
+        let patt = Iexpr::const_val(patt_val);
         let code = self.precompile(raw_code);
         let next = self.precompile(raw_next);
 vout!("ixmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
         Iexpr::match_case(patt, code, next)
     }
 
-    pub fn precompile_pattern(&mut self, pexpr: Val) -> Iexpr
+    pub fn precompile_pattern(&mut self, pexpr: Val) -> Val
     {
         match pexpr {
             Val::Id(name) => {
                 let dstreg = Reg::new_reg(self.scope.nextreg());
                 self.scope.assign_label(dstreg.clone(), &*name, Type::Unknown);
-                Iexpr::new(Source::PatternVar(dstreg))
+                Val::PatternVar(dstreg)
             }
             Val::Int(_) => {
-                Iexpr::const_val(pexpr)
+                pexpr
             }
             Val::Str(_) => {
-                Iexpr::const_val(pexpr)
+                pexpr
             }
             Val::Bool(_) => {
-                Iexpr::const_val(pexpr)
+                pexpr
             }
             Val::Hashtag(_) => {
-                Iexpr::const_val(pexpr)
+                pexpr
+            }
+            Val::Cons(phead, ptail) => {
+                let chead = self.precompile_pattern(*phead);
+                let ctail = self.precompile_pattern(*ptail);
+                Val::Cons(Box::new(chead), Box::new(ctail))
+            }
+            Val::Nil => {
+                pexpr
             }
             Val::Wildcard => {
-                Iexpr::const_val(pexpr)
+                pexpr
             }
             Val::Tuple(items) => {
                 let mut ptup = vec![];
                 for i in items {
                     ptup.push(self.precompile_pattern(i));
                 }
-                Iexpr::tuple(ptup)
+                Val::Tuple(ptup)
             }
             _ => {
                 panic!("That's not a pattern! {:?}", pexpr);
@@ -860,7 +869,8 @@ vout!("precompile failedmatchcase\n\t{:?}\n\t{:?}\n\t{:?}\n", raw_patt, raw_code
             }
         }
 
-        let patt = self.precompile_pattern(raw_patt);
+        let patt_val = self.precompile_pattern(raw_patt);
+        let patt = Iexpr::const_val(patt_val);
         let code = self.precompile(raw_code);
         let next = self.precompile(raw_next);
 vout!("ixfailedmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
