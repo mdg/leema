@@ -1,5 +1,5 @@
 
-func assign(line, col, bb, bw, pieces)
+func assign(line, col, rkr, bb, bw, pieces)
 |(line, col, rkr, bb, bw, []) -> line
 |(line, col, #rook, bb, bw, [#rkr;pieces]) ->
     assign([#rook;line], col+1, #king, bb, bw, pieces)
