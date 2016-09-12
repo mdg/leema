@@ -396,11 +396,11 @@ expr(A) ::= MATCH expr(B) match_case(C) DOUBLEDASH. {
 }
 match_case(A) ::= PIPE pexpr(B) block(C) match_case(D). {
     vout!("found cases base\n");
-    A = sexpr::match_case(B, C, D);
+    A = list::from3(B, C, D);
 }
 match_case(A) ::= PIPE pexpr(B) block(C). {
     vout!("parsed base match case\n");
-    A = sexpr::match_case(B, C, Val::Void);
+    A = list::from2(B, C);
 }
 
 pexpr(A) ::= ptuple(B). { A = B; }

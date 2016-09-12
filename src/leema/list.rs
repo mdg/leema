@@ -29,6 +29,16 @@ pub fn singleton(head: Val) -> Val
     cons(head, Val::Nil)
 }
 
+pub fn from2(a: Val, b: Val) -> Val
+{
+    cons(a, cons(b, Val::Nil))
+}
+
+pub fn from3(a: Val, b: Val, c: Val) -> Val
+{
+    cons(a, cons(b, cons(c, Val::Nil)))
+}
+
 pub fn empty() -> Val
 {
     Val::Nil
@@ -197,6 +207,19 @@ pub fn take_head(l: Val) -> Val
         }
         _ => {
             panic!("Cannot take_head from not a list: {:?}", l);
+        }
+    }
+}
+
+pub fn head_or(l: Val, orval: Val) -> Val
+{
+    match l {
+        Val::Cons(head, tail) => *head,
+        Val::Nil => {
+            orval
+        }
+        _ => {
+            panic!("Cannot take head from not a list: {:?}", l);
         }
     }
 }
