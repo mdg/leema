@@ -329,6 +329,11 @@ pub fn make_matchcase_ops(matchcase: &Iexpr, xreg: &Reg) -> OpVec
             vout!("empty_matchcase_ops\n");
             return vec![];
         }
+        Source::Void => {
+            // this is here when there's no else case
+            vout!("empty_matchcase_ops\n");
+            return vec![];
+        }
         _ => {
             panic!("Cannot make ops for a not MatchCase {:?}", matchcase);
         }
