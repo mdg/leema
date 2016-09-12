@@ -198,7 +198,7 @@ pub fn take_ref(l: &Val) -> (&Val, &Val)
     }
 }
 
-pub fn take_head(l: Val) -> Val
+pub fn head(l: Val) -> Val
 {
     match l {
         Val::Cons(head, tail) => *head,

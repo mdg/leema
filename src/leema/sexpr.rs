@@ -67,7 +67,7 @@ pub fn strexpr(strs: Val) -> Val
     if list::is_empty(&strs) {
         Val::new_str("".to_string())
     } else if list::is_singleton(&strs) {
-        list::take_head(strs)
+        list::head(strs)
     } else {
         new(SexprType::StrExpr, strs)
     }
@@ -113,17 +113,6 @@ pub fn match_expr(x: Val, cases: Val) -> Val
         list::cons(cases,
         Val::Nil
         ))
-    ))
-}
-
-pub fn match_case(patt: Val, code: Val, next: Val) -> Val
-{
-    Val::Sexpr(SexprType::MatchCase, Box::new(
-        list::cons(patt,
-        list::cons(code,
-        list::cons(next,
-        Val::Nil
-        )))
     ))
 }
 

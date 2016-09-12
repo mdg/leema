@@ -504,13 +504,12 @@ fn test_parse_match_list()
     let expected = Ast::ReplRoot(sexpr::new_block(list::singleton(
         sexpr::match_expr(
             Val::id("x".to_string()),
-            sexpr::match_case(
+            list::from3(
                 list::cons(Val::id("h".to_string()), Val::id("t".to_string())),
                 sexpr::new_block(list::singleton(Val::id("h".to_string()))),
-            sexpr::match_case(
+            list::from2(
                 Val::Wildcard,
                 sexpr::new_block(list::singleton(Val::Bool(false))),
-                Val::Void,
             )),
         ),
     )));

@@ -8,6 +8,18 @@ use std::sync::Arc;
 use std::io::{stderr, Write};
 use std::mem;
 
+
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(Clone)]
+#[derive(Copy)]
+enum ScopeType
+{
+    Module,
+    Function,
+    Block,
+}
+
 #[derive(Debug)]
 pub struct Scope
 {
@@ -28,6 +40,7 @@ pub struct Scope
     checked_failures: HashMap<Arc<String>, Val>,
     // the failed label currently being checked
     failed: Option<String>,
+    typ: ScopeType,
     _nextreg: i8,
 }
 
@@ -45,6 +58,7 @@ impl Scope
             K: HashMap::new(),
             checked_failures: HashMap::new(),
             failed: None,
+            typ: ScopeType::Module,
             _nextreg: 0,
         }
     }
@@ -61,6 +75,7 @@ impl Scope
             K: HashMap::new(),
             checked_failures: Scope::collect_ps_index(ps),
             failed: None,
+            typ: ScopeType::Function,
             _nextreg: 0,
         };
         mem::swap(parent, &mut tmp_scope);
@@ -79,6 +94,7 @@ impl Scope
             K: HashMap::new(),
             checked_failures: HashMap::new(),
             failed: None,
+            typ: ScopeType::Block,
             _nextreg: 0,
         };
         mem::swap(parent, &mut tmp_scope);
@@ -97,6 +113,7 @@ impl Scope
             K: HashMap::new(),
             checked_failures: HashMap::new(),
             failed: Some(var.clone()),
+            typ: ScopeType::Block,
             _nextreg: 0,
         };
         mem::swap(parent, &mut tmp_scope);
@@ -169,6 +186,113 @@ impl Scope
         }
         self.E.insert(name.clone(), r);
         self.T.insert(name.clone(), typ);
+    }
+
+    pub fn new_pattern_reg(&mut self, dst: &Reg) -> Reg
+    {
+        match dst {
+            &Reg::Param(_) => dst.clone(),
+            &Reg::Undecided => Reg::new_reg(self.nextreg()),
+            _ => {
+                panic!("Unexpected reg param: {:?}", dst);
+            }
+        }
+    }
+
+    pub fn assign_pattern(&mut self, patt: Val, typ: &Type, dst: &Reg) -> Val
+    {
+        match patt {
+            Val::Id(name) => {
+                let dstreg = self.new_pattern_reg(dst);
+                self.assign_label(dstreg.clone(), &*name, typ.clone());
+                Val::PatternVar(dstreg)
+            }
+            Val::Cons(phead, ptail) => {
+                match typ {
+                    &Type::StrictList(ref innert) => {
+                        let chead = self.assign_pattern(*phead, innert, dst);
+                        let ctail = self.assign_pattern(*ptail, typ, dst);
+                        Val::Cons(Box::new(chead), Box::new(ctail))
+                    }
+                    &Type::Var(_) => {
+                        let innert =
+                            Type::Var(Arc::new("TypeVar_G".to_string()));
+                        let chead = self.assign_pattern(*phead, &innert, dst);
+                        let outert = Type::StrictList(Box::new(innert));
+                        let ctail = self.assign_pattern(*ptail, &outert, dst);
+                        self.infer_type(typ, &outert);
+                        Val::Cons(Box::new(chead), Box::new(ctail))
+                    }
+                    &Type::RelaxedList => {
+                        panic!("is relaxed list really necessary?");
+                    }
+                    _ => {
+                        panic!("pattern is a list, expected list input as well, instead {:?}", typ);
+                    }
+                }
+            }
+            Val::Tuple(items) => {
+                match typ {
+                    &Type::Tuple(ref ttypes) => {
+                        let mut atup = vec![];
+                        let mut i = 0;
+                        for p in items {
+                            let itemtype = ttypes.get(i).unwrap();
+                            let tp = self.assign_pattern(p, &itemtype, dst);
+                            atup.push(tp);
+                            i += 1;
+                        }
+                        Val::Tuple(atup)
+                    }
+                    &Type::Var(_) => {
+                        let mut tup_typ_vars = vec![];
+                        let mut atup = vec![];
+                        let mut i = 0;
+                        for p in items {
+                            let new_type_name = format!("TypeVar_Item{}", i);
+                            let new_t = Type::Var(Arc::new(new_type_name));
+                            atup.push(self.assign_pattern(p, &new_t, dst));
+                            tup_typ_vars.push(new_t);
+                            i += 1;
+                        }
+                        self.infer_type(typ, &Type::Tuple(tup_typ_vars));
+                        Val::Tuple(atup)
+                    }
+                    _ => {
+                        panic!("pattern is a tuple, expected tuple input, not {:?}", typ);
+                    }
+                }
+            }
+            Val::Int(_) => {
+                self.infer_type(typ, &Type::Int);
+                patt
+            }
+            Val::Str(_) => {
+                self.infer_type(typ, &Type::Str);
+                patt
+            }
+            Val::Bool(_) => {
+                self.infer_type(typ, &Type::Bool);
+                patt
+            }
+            Val::Hashtag(_) => {
+                self.infer_type(typ, &Type::Hashtag);
+                patt
+            }
+            Val::Nil => {
+                // should really make this list of type var
+                // need a good way to generate unique type vars
+                self.infer_type(typ, &Type::RelaxedList);
+                patt
+            }
+            Val::Wildcard => {
+                // nothing to infer here
+                patt
+            }
+            _ => {
+                panic!("That's not a pattern! {:?}", patt);
+            }
+        }
     }
 
     pub fn is_label(&self, name: &String) -> bool
@@ -338,11 +462,25 @@ vout!("split_func {}({:?})", fname, defined_type);
      */
     pub fn infer_type(&mut self, typevar: &Type, newtype: &Type)
     {
-vout!("infer_type({}, {:?}) for {:?}", typevar, newtype, self.scope_name);
+        // don't put inferences at the block level
+        match (&self.typ, &mut self.parent) {
+            (&ScopeType::Block, &mut Some(ref mut par)) => {
+                par.infer_type(typevar, newtype);
+                return;
+            }
+            _ => {} // something else, infer here
+        }
+vout!("infer_type({}, {:?}) for {:?}\n",
+typevar, newtype, self.get_scope_name());
         match typevar {
             &Type::Var(_) => {}
             _ => {
-                panic!("cannot infer not a typevar: {:?}", typevar);
+                // nothing
+                if typevar != newtype {
+                    panic!("type mismatch, found {:?}, expected {:?}",
+                        typevar, newtype);
+                }
+                return;
             }
         }
         // avoiding patterns here to avoid borrow overlaps

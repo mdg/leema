@@ -1817,7 +1817,7 @@ match (yyp1.minor,yyp2.minor,yyp3.minor,) {
  (YYMinorType::YY82(yy1),YYMinorType::YY82(yy2),YYMinorType::YY82(yy3),) => {
 
     vout!("found cases base\n");
-    yyres = sexpr::match_case(yy1, yy2, yy3);
+    yyres = list::from3(yy1, yy2, yy3);
 
 },    _ => unreachable!() };
  YYMinorType::YY82(yyres)
@@ -1834,7 +1834,7 @@ match (yyp1.minor,yyp2.minor,) {
  (YYMinorType::YY82(yy1),YYMinorType::YY82(yy2),) => {
 
     vout!("parsed base match case\n");
-    yyres = sexpr::match_case(yy1, yy2, Val::Void);
+    yyres = list::from2(yy1, yy2);
 
 },    _ => unreachable!() };
  YYMinorType::YY82(yyres)

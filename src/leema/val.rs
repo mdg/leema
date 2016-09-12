@@ -204,7 +204,6 @@ pub enum SexprType {
     CaseExpr,
     IfStmt,
     MatchExpr,
-    MatchCase,
     MatchFailed,
     Return,
     Comparison,
@@ -643,16 +642,6 @@ impl Val {
                     write!(f, "match({:?},{:?})", x, cases)
                 } else {
                     write!(f, "match({},{})", x, cases)
-                }
-            }
-            (SexprType::MatchCase, mc) => {
-                let (patt, m2) = list::take_ref(mc);
-                let (code, m3) = list::take_ref(m2);
-                let (next, _) = list::take_ref(m3);
-                if dbg {
-                    write!(f, "matchcase({:?},{:?})", patt, next)
-                } else {
-                    write!(f, "matchcase({},{})", patt, next)
                 }
             }
             (SexprType::CaseExpr, casex) => {

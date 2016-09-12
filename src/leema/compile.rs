@@ -87,6 +87,15 @@ vout!("new_block> {:?}\n", code);
         }
     }
 
+    fn noop() -> Iexpr
+    {
+        Iexpr{
+            dst: Reg::Void,
+            typ: Type::Void,
+            src: Source::Void,
+        }
+    }
+
     fn const_val(src: Val) -> Iexpr
     {
         Iexpr{
@@ -409,9 +418,6 @@ impl StaticSpace
             SexprType::MatchExpr => {
                 self.precompile_matchx(expr)
             }
-            SexprType::MatchCase => {
-                self.precompile_matchcase(expr)
-            }
             SexprType::CaseExpr => {
                 self.precompile_casex(expr)
             }
@@ -698,70 +704,38 @@ vout!("pc block> {:?}\n", items);
         let (raw_x, e2) = list::take(expr);
         let (raw_cases, _) = list::take(e2);
 vout!("precompile matchx\n\t{:?}\n\t{:?}\n", raw_x, raw_cases);
+        let match_func = raw_x == Val::CallParams;
 
         let x = self.precompile(raw_x);
-        let cases = self.precompile(raw_cases);
+        let cases = self.precompile_matchcase(raw_cases, match_func, &x.typ);
 vout!("ixmatch:\n\t{:?}\n\t{:?}\n", x, cases);
         Iexpr::match_expr(x, cases)
     }
 
-    pub fn precompile_matchcase(&mut self, expr: Val) -> Iexpr
-    {
+    pub fn precompile_matchcase(&mut self, expr: Val, match_func: bool,
+        match_type: &Type
+    ) -> Iexpr {
+        if expr == Val::Void {
+            return Iexpr::noop();
+        }
         let (raw_patt, e2) = list::take(expr);
         let (raw_code, e3) = list::take(e2);
-        let (raw_next, _) = list::take(e3);
+        let raw_next = list::head_or(e3, Val::Void);
 vout!("precompile matchcase\n\t{:?}\n\t{:?}\n\t{:?}\n", raw_patt, raw_code, raw_next);
+        Scope::push_block_scope(&mut self.scope);
 
-        let patt_val = self.precompile_pattern(raw_patt);
+        let patt_reg = if match_func {
+            Reg::Params
+        } else {
+            Reg::Undecided
+        };
+        let patt_val = self.scope.assign_pattern(raw_patt, &match_type, &patt_reg);
         let patt = Iexpr::const_val(patt_val);
         let code = self.precompile(raw_code);
-        let next = self.precompile(raw_next);
+        let next = self.precompile_matchcase(raw_next, match_func, match_type);
 vout!("ixmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
+        Scope::pop_scope(&mut self.scope);
         Iexpr::match_case(patt, code, next)
-    }
-
-    pub fn precompile_pattern(&mut self, pexpr: Val) -> Val
-    {
-        match pexpr {
-            Val::Id(name) => {
-                let dstreg = Reg::new_reg(self.scope.nextreg());
-                self.scope.assign_label(dstreg.clone(), &*name, Type::Unknown);
-                Val::PatternVar(dstreg)
-            }
-            Val::Int(_) => {
-                pexpr
-            }
-            Val::Str(_) => {
-                pexpr
-            }
-            Val::Bool(_) => {
-                pexpr
-            }
-            Val::Hashtag(_) => {
-                pexpr
-            }
-            Val::Cons(phead, ptail) => {
-                let chead = self.precompile_pattern(*phead);
-                let ctail = self.precompile_pattern(*ptail);
-                Val::Cons(Box::new(chead), Box::new(ctail))
-            }
-            Val::Nil => {
-                pexpr
-            }
-            Val::Wildcard => {
-                pexpr
-            }
-            Val::Tuple(items) => {
-                let mut ptup = vec![];
-                for i in items {
-                    ptup.push(self.precompile_pattern(i));
-                }
-                Val::Tuple(ptup)
-            }
-            _ => {
-                panic!("That's not a pattern! {:?}", pexpr);
-            }
-        }
     }
 
     pub fn precompile_casex(&mut self, expr: Val) -> Iexpr
@@ -818,13 +792,8 @@ vout!("ixif:\n\t{:?}\n\t{:?}\n\t{:?}\n", test, truth, lies);
     pub fn precompile_matchfailed(&mut self, expr: Val) -> Iexpr
     {
         let (raw_x, e2) = list::take(expr);
-        let (raw_cases, _) = list::take(e2);
-vout!("precompile matchfailed\n\t{:?}\n\t{:?}\n", raw_x, raw_cases);
-
-        let (st, raw_casex) = sexpr::split(raw_cases);
-        if st != SexprType::MatchCase {
-            panic!("match failed case not MatchCase: {:?}", st);
-        }
+        let (raw_casex, _) = list::take(e2);
+vout!("precompile matchfailed\n\t{:?}\n\t{:?}\n", raw_x, raw_casex);
 
         let failed_id = match &raw_x {
             &Val::Id(ref failed_id_ref) => {
@@ -863,16 +832,17 @@ vout!("precompile failedmatchcase\n\t{:?}\n\t{:?}\n\t{:?}\n", raw_patt, raw_code
 
         match &raw_patt {
             &Val::Hashtag(_) => {}
+            &Val::Id(_) => {}
             &Val::Wildcard => {}
             _ => {
                 panic!("Failed patterns must be hashtags or _");
             }
         }
 
-        let patt_val = self.precompile_pattern(raw_patt);
+        let patt_val = self.scope.assign_pattern(raw_patt, &Type::Hashtag, &Reg::Undecided);
         let patt = Iexpr::const_val(patt_val);
         let code = self.precompile(raw_code);
-        let next = self.precompile(raw_next);
+        let next = self.precompile_matchfailedcase(raw_next);
 vout!("ixfailedmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
         let mut ix = Iexpr::match_case(patt, code, next);
         ix.dst = Reg::Void;
@@ -941,7 +911,7 @@ vout!("ixfailedmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
     pub fn precompile_call(&mut self, call: Val) -> Iexpr
     {
         let (f, sx) = list::take(call);
-        let args = list::take_head(sx);
+        let args = list::head(sx);
 vout!("args = {:?}\n", args);
         let fname = match &f {
             &Val::Id(ref name) => {
