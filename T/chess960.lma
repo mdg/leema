@@ -5,10 +5,11 @@ func assign(line, col, rkr, bb, bw, pieces)
     assign([#rook;line], col+1, #king, bb, bw, pieces)
 |(line, col, #king, bb, bw, [#rkr;pieces]) ->
     assign([#king;line], col+1, #rook, bb, bw, pieces)
-|(line, col, rkr, bb, bw, [p;pieces]) -> case
+|(line, col, rkr, bb, bw, [p;pieces]) ->
+    case
     |col = bb -> assign([#bishop;line], col+1, rkr, 0, bw, pieces)
     |col = bw -> assign([#bishop;line], col+1, rkr, bb, 0, pieces)
-    |else -> assign([p;line], col+1, rkr, bb, bw, pieces)
+    |-> assign([p;line], col+1, rkr, bb, bw, pieces)
     --
 --
 

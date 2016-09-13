@@ -380,6 +380,10 @@ expr(A) ::= CASE cases(B) DOUBLEDASH. {
     vout!("parsed case expr\n");
 	A = B;
 }
+cases(A) ::= PIPE expr(B) block(C) PIPE block(D). {
+    vout!("found cases base\n");
+    A = sexpr::casex(B, C, D);
+}
 cases(A) ::= PIPE expr(B) block(C) PIPE ELSE block(D). {
     vout!("found cases base\n");
     A = sexpr::casex(B, C, D);

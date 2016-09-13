@@ -21,6 +21,11 @@ enum ScopeType
 }
 
 #[derive(Debug)]
+pub struct Inferator
+{
+}
+
+#[derive(Debug)]
 pub struct Scope
 {
     parent: Option<Box<Scope>>,
@@ -190,8 +195,17 @@ impl Scope
 
     pub fn assign_label(&mut self, r: Reg, name: &String, typ: Type)
     {
-        if self.is_label(name) {
-            panic!("label already assigned: {}", name);
+        match self.lookup_label(name) {
+            None => {} // undefined, proceed below
+            Some((old_reg, old_type)) => {
+                if *old_reg != r {
+                    panic!("Cannot move label to new reg: {}", name);
+                }
+                if *old_type != typ {
+                    panic!("Old type does not match new type: {} {:?}->{:?}",
+                        name, old_type, typ);
+                }
+            }
         }
         if self.is_macro(name) {
             panic!("macro already defined: {}", name);
@@ -488,12 +502,16 @@ vout!("split_func {}({:?})", fname, defined_type);
         }
 vout!("infer_type({}, {:?}) for {:?}\n",
 typevar, newtype, self.get_scope_name());
-        match (typevar, newtype) {
+        let (dst_type, src_type) = match (typevar, newtype) {
             (&Type::StrictList(ref innerv), &Type::StrictList(ref innert)) => {
                 return self.infer_type(innerv, innert);
             }
-            (&Type::Var(_), _) => {}
-            (_, &Type::Var(_)) => {}
+            (&Type::Var(_), _) => {
+                (typevar, newtype)
+            }
+            (_, &Type::Var(_)) => {
+                (newtype, typevar)
+            }
             _ => {
                 // nothing
                 if typevar != newtype {
@@ -502,7 +520,7 @@ typevar, newtype, self.get_scope_name());
                 }
                 return;
             }
-        }
+        };
         // avoiding patterns here to avoid borrow overlaps
         if self.inferred.contains_key(&typevar) {
             let old_type = self.inferred.get(&typevar).unwrap();

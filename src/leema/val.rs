@@ -473,12 +473,14 @@ impl Val {
                 }
                 Type::Tuple(tuptypes)
             }
-            &Val::Cons(_, _) => Type::RelaxedList,
+            &Val::Cons(_, _) => Type::StrictList(Box::new(Type::Unknown)),
+            &Val::Nil => Type::StrictList(Box::new(Type::Unknown)),
             &Val::Failure(_, _, _) => Type::Failure,
             &Val::Type(_) => Type::Kind,
             &Val::Void => Type::Void,
             &Val::Wildcard => Type::Unknown,
             &Val::CallParams => Type::Unknown,
+            &Val::PatternVar(_) => Type::Unknown,
             _ => { panic!("dunno what type {:?}", self) }
         }
     }
