@@ -40,9 +40,10 @@ pub struct Scope
     checked_failures: HashMap<Arc<String>, Val>,
     // the failed label currently being checked
     failed: Option<String>,
+    function_param_types: Option<Type>,
     typ: ScopeType,
+    _typevar: i16,
     _nextreg: i8,
-    _typevar: i8,
 }
 
 impl Scope
@@ -59,6 +60,7 @@ impl Scope
             K: HashMap::new(),
             checked_failures: HashMap::new(),
             failed: None,
+            function_param_types: None,
             typ: ScopeType::Module,
             _nextreg: 0,
             _typevar: 0,
@@ -77,6 +79,7 @@ impl Scope
             K: HashMap::new(),
             checked_failures: Scope::collect_ps_index(ps),
             failed: None,
+            function_param_types: None,
             typ: ScopeType::Function,
             _nextreg: 0,
             _typevar: parent._typevar,
@@ -97,6 +100,7 @@ impl Scope
             K: HashMap::new(),
             checked_failures: HashMap::new(),
             failed: None,
+            function_param_types: None,
             typ: ScopeType::Block,
             _nextreg: 0,
             _typevar: parent._typevar,
@@ -117,6 +121,7 @@ impl Scope
             K: HashMap::new(),
             checked_failures: HashMap::new(),
             failed: Some(var.clone()),
+            function_param_types: None,
             typ: ScopeType::Block,
             _nextreg: 0,
             _typevar: parent._typevar,
@@ -195,11 +200,16 @@ impl Scope
         self.T.insert(name.clone(), typ);
     }
 
-    pub fn new_pattern_reg(&mut self, dst: &Reg) -> Reg
+    pub fn new_pattern_reg(&mut self, dst: &Reg, idx: Option<i8>) -> Reg
     {
-        match dst {
-            &Reg::Param(_) => dst.clone(),
-            &Reg::Undecided => Reg::new_reg(self.nextreg()),
+        match (dst, idx) {
+            (&Reg::Param(_), None) => dst.clone(),
+            (&Reg::Param(_), Some(_)) => Reg::Undecided,
+            (&Reg::Params, Some(i)) => Reg::new_param(i),
+            (&Reg::Undecided, _) => Reg::new_reg(self.nextreg()),
+            (&Reg::Params, None) => {
+                panic!("Cannot make new pattern reg for Reg::Params, None");
+            }
             _ => {
                 panic!("Unexpected reg param: {:?}", dst);
             }
@@ -210,7 +220,7 @@ impl Scope
     {
         match patt {
             Val::Id(name) => {
-                let dstreg = self.new_pattern_reg(dst);
+                let dstreg = self.new_pattern_reg(dst, None);
                 self.assign_label(dstreg.clone(), &*name, typ.clone());
                 Val::PatternVar(dstreg)
             }
@@ -248,8 +258,9 @@ impl Scope
                         let mut atup = vec![];
                         let mut i = 0;
                         for p in items {
-                            let itemtype = ttypes.get(i).unwrap();
-                            let tp = self.assign_pattern(p, &itemtype, dst);
+                            let preg = self.new_pattern_reg(dst, Some(i));
+                            let itemtype = ttypes.get(i as usize).unwrap();
+                            let tp = self.assign_pattern(p, &itemtype, &preg);
                             atup.push(tp);
                             i += 1;
                         }
@@ -258,10 +269,13 @@ impl Scope
                     &Type::Var(_) => {
                         let mut tup_typ_vars = vec![];
                         let mut atup = vec![];
+                        let mut i = 0;
                         for p in items {
+                            let preg = self.new_pattern_reg(dst, Some(i));
                             let new_t = self.new_typevar();
-                            atup.push(self.assign_pattern(p, &new_t, dst));
+                            atup.push(self.assign_pattern(p, &new_t, &preg));
                             tup_typ_vars.push(new_t);
+                            i += 1;
                         }
                         self.infer_type(typ, &Type::Tuple(tup_typ_vars));
                         Val::Tuple(atup)
@@ -498,6 +512,26 @@ typevar, newtype, self.get_scope_name());
             }
         } else {
             self.inferred.insert(typevar.clone(), newtype.clone());
+        }
+    }
+
+    pub fn set_function_param_types(&mut self, types: Type)
+    {
+        self.function_param_types = Some(types);
+    }
+
+    pub fn function_param_types(&self) -> Type
+    {
+        match (&self.function_param_types, &self.parent) {
+            (&Some(ref pt), _) => {
+                return pt.clone();
+            }
+            (_, &Some(ref p)) => {
+                return p.function_param_types();
+            }
+            _ => {
+                panic!("No function param types");
+            }
         }
     }
 

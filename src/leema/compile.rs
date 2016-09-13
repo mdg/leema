@@ -262,7 +262,6 @@ pub struct StaticSpace
     pub interlib: HashMap<CodeKey, Arc<Iexpr>>,
     pub lib: CodeMap,
     last_reg: Reg,
-    _anon_type_idx: i16,
 }
 
 impl StaticSpace
@@ -275,7 +274,6 @@ impl StaticSpace
             interlib: HashMap::new(),
             lib: HashMap::new(),
             last_reg: Reg::Undecided,
-            _anon_type_idx: 0,
         }
     }
 
@@ -353,8 +351,8 @@ impl StaticSpace
             Val::CallParams => {
                 Iexpr{
                     dst: Reg::Params,
-                    typ: Type::Unknown,
-                    src: Source::ConstVal(Val::CallParams)
+                    typ: self.scope.function_param_types().clone(),
+                    src: Source::ConstVal(Val::CallParams),
                 }
             }
             Val::Failure(_, _, _) => {
@@ -617,16 +615,15 @@ vout!("macro_defined({:?},{:?},{:?})\n", name, args, code);
         let (params, f2) = list::take(f1);
         let (result, f3) = list::take(f2);
         let (code, f4) = list::take(f3);
-        let (ps, _) = list::take(f4);
-
+        let ps = list::head(f4);
         let name = nameval.to_str();
-        Scope::push_call_scope(&mut self.scope, &*name, ps);
 
         let (inf_arg_types, funcx) = {
             let mut argtypes = vec![];
             let mut i: i8 = 0;
             let full_types = false;
 
+            Scope::push_call_scope(&mut self.scope, &*name, ps);
             let mut next_param = params;
             while next_param != Val::Nil {
                 let (head, tail) = list::take(next_param);
@@ -649,21 +646,14 @@ vout!("precompiled {} as {:?}\n", var_name, ptype);
             if !result.is_type() {
                 panic!("Result is not a type? {:?}", result);
             }
-            let unwrapped_type = result.to_type();
-            let rt = match unwrapped_type {
-                Type::AnonVar => {
-                    Type::Var(Arc::new(format!("{}_ResultType", name)))
-                }
-                _ => {
-                    unwrapped_type
-                }
-            };
+            let rt = self.precompile_type(result.to_type());
 vout!("{} type: {:?} -> {:?}\n", name, argtypes, rt);
 
             // necessary for recursion
             // if the type isn't predefined, can't recurse
             let ftype = Type::Func(argtypes.clone(), Box::new(rt));
             self.scope.assign_label(Reg::Lib, &*name, ftype);
+            self.scope.set_function_param_types(Type::Tuple(argtypes.clone()));
 
             let mut fexpr = self.compile(code);
 vout!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
@@ -879,9 +869,7 @@ vout!("ixfailedmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
     {
         match ptype {
             Type::AnonVar => {
-                let idx = self._anon_type_idx;
-                self._anon_type_idx += 1;
-                Type::Var(Arc::new(format!("TypeVar_{}", idx)))
+                self.scope.new_typevar()
             }
             Type::Id(type_id) => {
                 let found_type = self.scope.get_type(&*type_id);
@@ -901,6 +889,21 @@ vout!("ixfailedmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
             }
             Type::Str => {
                 ptype
+            }
+            Type::Void => {
+                ptype
+            }
+            Type::Hashtag => {
+                ptype
+            }
+            Type::Tuple(_) => {
+                ptype
+            }
+            Type::Failure => {
+                ptype
+            }
+            Type::Struct(s, _) => {
+                panic!("How'd we get a struct type already? {}", s);
             }
             _ => {
                 panic!("What kind of type is that? {:?}", ptype);
