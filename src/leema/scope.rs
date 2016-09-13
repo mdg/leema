@@ -42,6 +42,7 @@ pub struct Scope
     failed: Option<String>,
     typ: ScopeType,
     _nextreg: i8,
+    _typevar: i8,
 }
 
 impl Scope
@@ -60,6 +61,7 @@ impl Scope
             failed: None,
             typ: ScopeType::Module,
             _nextreg: 0,
+            _typevar: 0,
         }
     }
 
@@ -77,6 +79,7 @@ impl Scope
             failed: None,
             typ: ScopeType::Function,
             _nextreg: 0,
+            _typevar: parent._typevar,
         };
         mem::swap(parent, &mut tmp_scope);
         parent.parent = Some(Box::new(tmp_scope));
@@ -96,6 +99,7 @@ impl Scope
             failed: None,
             typ: ScopeType::Block,
             _nextreg: 0,
+            _typevar: parent._typevar,
         };
         mem::swap(parent, &mut tmp_scope);
         parent.parent = Some(Box::new(tmp_scope));
@@ -115,6 +119,7 @@ impl Scope
             failed: Some(var.clone()),
             typ: ScopeType::Block,
             _nextreg: 0,
+            _typevar: parent._typevar,
         };
         mem::swap(parent, &mut tmp_scope);
         parent.parent = Some(Box::new(tmp_scope));
@@ -122,12 +127,14 @@ impl Scope
 
     pub fn pop_scope(s: &mut Scope)
     {
+        let tmp_typevar = s._typevar;
         let mut tmp = None;
         mem::swap(&mut s.parent, &mut tmp);
         if tmp.is_none() {
             panic!("No scope left to pop {}");
         }
         mem::replace(s, *tmp.unwrap());
+        s._typevar = tmp_typevar;
     }
 
     pub fn get_scope_name(&self) -> String
@@ -215,8 +222,7 @@ impl Scope
                         Val::Cons(Box::new(chead), Box::new(ctail))
                     }
                     &Type::Var(_) => {
-                        let innert =
-                            Type::Var(Arc::new("TypeVar_G".to_string()));
+                        let innert = self.new_typevar();
                         let chead = self.assign_pattern(*phead, &innert, dst);
                         let outert = Type::StrictList(Box::new(innert));
                         let ctail = self.assign_pattern(*ptail, &outert, dst);
@@ -230,6 +236,11 @@ impl Scope
                         panic!("pattern is a list, expected list input as well, instead {:?}", typ);
                     }
                 }
+            }
+            Val::Nil => {
+                let innert = self.new_typevar();
+                self.infer_type(&Type::StrictList(Box::new(innert)), typ);
+                patt
             }
             Val::Tuple(items) => {
                 match typ {
@@ -247,13 +258,10 @@ impl Scope
                     &Type::Var(_) => {
                         let mut tup_typ_vars = vec![];
                         let mut atup = vec![];
-                        let mut i = 0;
                         for p in items {
-                            let new_type_name = format!("TypeVar_Item{}", i);
-                            let new_t = Type::Var(Arc::new(new_type_name));
+                            let new_t = self.new_typevar();
                             atup.push(self.assign_pattern(p, &new_t, dst));
                             tup_typ_vars.push(new_t);
-                            i += 1;
                         }
                         self.infer_type(typ, &Type::Tuple(tup_typ_vars));
                         Val::Tuple(atup)
@@ -277,12 +285,6 @@ impl Scope
             }
             Val::Hashtag(_) => {
                 self.infer_type(typ, &Type::Hashtag);
-                patt
-            }
-            Val::Nil => {
-                // should really make this list of type var
-                // need a good way to generate unique type vars
-                self.infer_type(typ, &Type::RelaxedList);
                 patt
             }
             Val::Wildcard => {
@@ -472,8 +474,12 @@ vout!("split_func {}({:?})", fname, defined_type);
         }
 vout!("infer_type({}, {:?}) for {:?}\n",
 typevar, newtype, self.get_scope_name());
-        match typevar {
-            &Type::Var(_) => {}
+        match (typevar, newtype) {
+            (&Type::StrictList(ref innerv), &Type::StrictList(ref innert)) => {
+                return self.infer_type(innerv, innert);
+            }
+            (&Type::Var(_), _) => {}
+            (_, &Type::Var(_)) => {}
             _ => {
                 // nothing
                 if typevar != newtype {
@@ -526,6 +532,14 @@ typevar, newtype, self.get_scope_name());
         let r = self._nextreg;
         self._nextreg += 1;
         r
+    }
+
+    pub fn new_typevar(&mut self) -> Type
+    {
+        let t = self._typevar;
+        self._typevar += 1;
+        let tname = format!("TypeVar_{}_{}", self.get_scope_name(), t);
+        Type::Var(Arc::new(tname))
     }
 
     pub fn collect_ps_index(ps: Val) -> HashMap<Arc<String>, Val>
