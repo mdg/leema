@@ -1,12 +1,26 @@
-func fizzbuzz(x, max): Void ->
+func fizzbuzz(x: TypeA, max: TypeB): Void ->
     let xm30 := (x mod 3) = 0
     let xm50 := (x mod 5) = 0
 
+    if xm30 and xm50 ->
+        read(file)
+    else if xm30 ->
+        cout("fizz\n")
+    else if xm50 ->
+        cout("buzz\n")
+    else ->
+        cout("$x\n")
+    --
+
     if
     |xm30 and xm50 -> cout("fizzbuzz\n")
-    |xm30 -> cout("fizz\n")
+    |xm30 ->
+        if
+        |xm50 -> cout("fizz\n")
+        |-> cout("foo\n")
+        --
     |xm50 -> cout("buzz\n")
-    |else -> cout("$x\n")
+    |-> cout("$x\n")
     --
 
     if x < max ->
