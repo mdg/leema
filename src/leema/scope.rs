@@ -69,7 +69,7 @@ vout!("infer.match_types({:?}, {:?})\n", a, b);
             self.inferences.insert(key.clone(), LinkedList::new());
         }
         let types = self.inferences.get_mut(key).unwrap();
-        for t in types {
+        for t in types.iter() {
             if option == t {
                 // don't store dupes, we're done
                 return;
@@ -142,10 +142,11 @@ impl BlockScope
 
     pub fn find_label_reg(&self, name: &String) -> Option<&Reg>
     {
-        match (self.E.get(name), self.parent) {
+        let lbl = self.E.get(name);
+        match (lbl, &self.parent) {
             (Some(ref t), _) => Some(t),
-            (None, Some(ref p)) => p.find_label_reg(name),
-            (None, None) => None,
+            (None, &Some(ref p)) => p.find_label_reg(name),
+            (None, &None) => None,
         }
     }
 }
@@ -231,10 +232,11 @@ impl FunctionScope
 
     pub fn find_label_type(&self, name: &String) -> Option<&Type>
     {
-        match (self.T.get(name), self.parent) {
+        let lbl = self.T.get(name);
+        match (lbl, &self.parent) {
             (Some(ref t), _) => Some(t),
-            (None, Some(ref p)) => p.find_label_type(name),
-            (None, None) => None,
+            (None, &Some(ref p)) => p.find_label_type(name),
+            (None, &None) => None,
         }
     }
 
@@ -628,7 +630,7 @@ vout!("split_func {}({:?})", fname, defined_type);
 
     pub fn function_param_types(&self) -> &Vec<Type>
     {
-        &self._function.function_param_types.unwrap()
+        self._function.function_param_types.as_ref().unwrap()
     }
 
     pub fn define_type(&mut self, name: &String, typ: &Type)

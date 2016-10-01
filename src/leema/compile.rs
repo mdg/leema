@@ -657,9 +657,12 @@ vout!("{} type: {:?} -> {:?}\n", name, argtypes, rt);
 
             let mut fexpr = self.compile(code);
 vout!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
-            let final_arg_tuple =
-                self.scope.find_inferred_type(&Type::Tuple(argtypes));
-            let final_arg_types = Type::tuple_items(final_arg_tuple.clone());
+            let final_arg_types = {
+                let input_arg_tuple = Type::Tuple(argtypes);
+                let final_arg_tuple =
+                    self.scope.find_inferred_type(&input_arg_tuple);
+                Type::tuple_items(final_arg_tuple.clone())
+            };
             self.scope.pop_function_scope();
             (final_arg_types, fexpr)
         };
