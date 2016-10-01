@@ -10,132 +10,198 @@ use std::mem;
 
 
 #[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(Clone)]
-#[derive(Copy)]
-enum ScopeType
-{
-    Module,
-    Function,
-    Block,
-}
-
-#[derive(Debug)]
 pub struct Inferator
 {
+    inferences: HashMap<Type, LinkedList<Type>>,
+    typevar_index: i16,
 }
 
-#[derive(Debug)]
-pub struct Scope
+impl Inferator
 {
-    parent: Option<Box<Scope>>,
-    scope_name: Option<String>,
-    // macros
-    m: HashMap<String, (Vec<Arc<String>>, Val)>,
-    // registers of locally defined labels
-    E: HashMap<String, Reg>,
-    // types of locally defined labels
-    T: HashMap<String, Type>,
-    // probably should move this to its own data structre and maybe module
-    // to handle updates and multiple possible type options
-    inferred: HashMap<Type, Type>,
-    // type definitins in type namespace
-    K: HashMap<String, Type>,
-    // labels that have failure checks
-    checked_failures: HashMap<Arc<String>, Val>,
-    // the failed label currently being checked
-    failed: Option<String>,
-    function_param_types: Option<Type>,
-    typ: ScopeType,
-    _typevar: i16,
-    _nextreg: i8,
-}
-
-impl Scope
-{
-    pub fn new(scope_nm: String) -> Scope
+    pub fn new() -> Inferator
     {
-        Scope{
-            parent: None,
-            scope_name: Some(scope_nm),
-            m: HashMap::new(),
-            E: HashMap::new(),
-            T: HashMap::new(),
-            inferred: HashMap::new(),
-            K: HashMap::new(),
-            checked_failures: HashMap::new(),
-            failed: None,
-            function_param_types: None,
-            typ: ScopeType::Module,
-            _nextreg: 0,
-            _typevar: 0,
+        Inferator{
+            inferences: HashMap::new(),
+            typevar_index: 0,
         }
     }
 
-    pub fn push_call_scope(parent: &mut Scope, func_nm: &String, ps: Val)
+    pub fn next_typevar_index(&mut self) -> i16
     {
-        let mut tmp_scope = Scope{
-            parent: None,
-            scope_name: Some(func_nm.clone()),
-            m: HashMap::new(),
-            E: HashMap::new(),
-            T: HashMap::new(),
-            inferred: HashMap::new(),
-            K: HashMap::new(),
-            checked_failures: Scope::collect_ps_index(ps),
-            failed: None,
-            function_param_types: None,
-            typ: ScopeType::Function,
-            _nextreg: 0,
-            _typevar: parent._typevar,
-        };
-        mem::swap(parent, &mut tmp_scope);
-        parent.parent = Some(Box::new(tmp_scope));
+        let t = self.typevar_index;
+        self.typevar_index += 1;
+        t
     }
 
-    pub fn push_block_scope(parent: &mut Scope)
+    /**
+     * mark typevar as inferred, and which type.
+     *
+     * panic if it was already inferred w/ a different type.
+     * do nothing if it was already inferred w/ the same type.
+     */
+    pub fn match_types(&mut self, a: &Type, b: &Type)
     {
-        let mut tmp_scope = Scope{
+vout!("infer.match_types({:?}, {:?})\n", a, b);
+
+        match (a, b) {
+            (&Type::Var(_), &Type::Var(_)) => {
+                self.mapvar(a, b);
+                self.mapvar(b, a);
+            }
+            (&Type::Var(_), _) => {
+                self.mapvar(a, b);
+            }
+            (_, &Type::Var(_)) => {
+                self.mapvar(b, a);
+            }
+            (&Type::StrictList(ref innera), &Type::StrictList(ref innerb)) => {
+                return self.match_types(innera, innerb);
+            }
+        }
+    }
+
+    fn mapvar(&mut self, key: &Type, option: &Type)
+    {
+        if !self.inferences.contains_key(key) {
+            self.inferences.insert(key.clone(), LinkedList::new());
+        }
+        let types = self.inferences.get_mut(key).unwrap();
+        for t in types {
+            if option == t {
+                // don't store dupes, we're done
+                return;
+            }
+            if !Type::is_var(t) && !Type::is_var(option) {
+                panic!("Mismatched types: {:?} != {:?}", option, t);
+            }
+        }
+        s.push_front(option.clone());
+    }
+
+    pub fn find_inferred_type(&self, key: &Type) -> &Type
+    {
+        let mut result = key;
+        match key {
+            &Type::Var(_) => {
+                match self.inferences.get(&key) {
+                    Some(ref types) => {
+                        for t in types.iter() {
+                            if !t.is_var() {
+                                result = t;
+                                break;
+                            } else if t < result {
+                                result = t;
+                            }
+                        }
+                    }
+                    None => {
+                        panic!("Could not infer type: {}", typevar);
+                    }
+                }
+            }
+            &Type::AnonVar => {
+                panic!("Cannot infer an anonymous type");
+            }
+            _ => {
+                // do nothing, leave result = key
+            }
+        }
+        result
+    }
+}
+
+#[derive(Debug)]
+pub struct BlockScope
+{
+    parent: Option<Box<BlockScope>>,
+    // registers of locally defined labels
+    E: HashMap<String, Reg>,
+    nextreg: i8,
+}
+
+impl BlockScope
+{
+    pub fn new(nr: i8) -> BlockScope
+    {
+        BlockScope{
             parent: None,
-            scope_name: None,
-            m: HashMap::new(),
             E: HashMap::new(),
+            nextreg: nr,
+        }
+    }
+
+    pub fn nextreg(&mut self) -> i8
+    {
+        let r = self.nextreg;
+        self.nextreg += 1;
+        r
+    }
+
+    pub fn find_label_reg(&self, name: &String) -> Option<&Reg>
+    {
+        match (self.E.get(name), self.parent) {
+            (Some(ref t), _) => Some(t),
+            (None, Some(ref p)) => p.find_label_reg(name),
+            (None, None) => None,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct FunctionScope
+{
+    parent: Option<Box<FunctionScope>>,
+    name: String,
+    function_param_types: Vec<Type>,
+    blk: BlockScope,
+    checked_failures: HashMap<Arc<String>, Val>,
+    // types of locally defined labels
+    T: HashMap<String, Type>,
+}
+
+impl FunctionScope
+{
+    pub fn new(name: &String) -> FunctionScope
+    {
+        FunctionScope{
+            parent: None,
+            name: name.clone(),
+            function_param_types: vec![],
+            blk: BlockScope::new(0),
             T: HashMap::new(),
-            inferred: HashMap::new(),
-            K: HashMap::new(),
             checked_failures: HashMap::new(),
-            failed: None,
-            function_param_types: None,
-            typ: ScopeType::Block,
-            _nextreg: 0,
-            _typevar: parent._typevar,
-        };
-        mem::swap(parent, &mut tmp_scope);
-        parent.parent = Some(Box::new(tmp_scope));
+        }
     }
 
-    pub fn push_failed_scope(parent: &mut Scope, var: &String)
-    {
-        let mut tmp_scope = Scope{
+    pub fn push_function(parent: &mut FunctionScope, name: &String,
+        inputs: Vec<Type>, failures: Val
+    ) {
+        let new_name = format!("{}.{}", self.name, name);
+        let cfails = Scope::collect_ps_index(failures);
+        let mut tmp = FunctionScope{
             parent: None,
-            scope_name: None,
-            m: HashMap::new(),
-            E: HashMap::new(),
+            name: new_name,
+            function_param_types: inputs,
+            blk: BlockScope::new(0),
             T: HashMap::new(),
-            inferred: HashMap::new(),
-            K: HashMap::new(),
-            checked_failures: HashMap::new(),
-            failed: Some(var.clone()),
-            function_param_types: None,
-            typ: ScopeType::Block,
-            _nextreg: 0,
-            _typevar: parent._typevar,
+            checked_failures: cfails,
         };
         mem::swap(parent, &mut tmp_scope);
         parent.parent = Some(Box::new(tmp_scope));
     }
 
-    pub fn pop_scope(s: &mut Scope)
+    pub fn push_block(&mut self)
+    {
+        let mut tmp_block = BlockScope{
+            parent: None,
+            E: HashMap::new(),
+            nextreg: self.blk.nextreg,
+        };
+        mem::swap(&mut self.blk, &mut tmp_scope);
+        self.blk.parent = Some(Box::new(tmp_scope));
+    }
+
+    pub fn pop_block(scope: &mut FunctionBlock)
     {
         let tmp_typevar = s._typevar;
         let mut tmp = None;
@@ -147,22 +213,125 @@ impl Scope
         s._typevar = tmp_typevar;
     }
 
-    pub fn get_scope_name(&self) -> String
+    pub fn is_label(&self, name: &String) -> bool
     {
-        match (&self.parent, &self.scope_name) {
-            (&None, &None) => {
-                "".to_string()
-            }
-            (&None, &Some(ref scope_nm)) => {
-                scope_nm.clone()
-            }
-            (&Some(ref p), &None) => {
-                p.get_scope_name()
-            }
-            (&Some(ref p), &Some(ref scope_nm)) => {
-                format!("{}.{}", p.get_scope_name(), scope_nm)
+        self.find_label_type(name).is_some()
+    }
+
+    pub fn find_label_type(&self, name: &String) -> Option<&Type>
+    {
+        match (self.T.get(name), self.parent) {
+            (Some(ref t), _) => Some(t),
+            (None, Some(ref p)) => p.find_label_type(name),
+            (None, None) => None,
+        }
+    }
+
+    pub fn lookup_label(&self, name: &String) -> Option<(&Reg, &Type)>
+    {
+        let regopt = self.blk.find_label_reg(name);
+        let typopt = self.find_label_type(name);
+        match (regopt, typopt) {
+            (Some(ref r), Some(ref t)) => Some((r, t)),
+            (None, None) => None,
+            _ => {
+                panic!("mixed lookup_label result {:?}", (regopt, typopt));
             }
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct ModuleScope
+{
+    name: String,
+    // macros
+    _macros: HashMap<String, (Vec<Arc<String>>, Val)>,
+    // types of locally defined labels
+    _label_types: HashMap<String, Type>,
+    // type definitins in type namespace
+    _type_defs: HashMap<String, Type>,
+}
+
+impl ModuleScope
+{
+    pub fn new(name: &String) -> ModuleScope
+    {
+        ModuleScope{
+            name: name.clone(),
+            _macros: HashMap.new(),
+            _label_types: HashMap.new(),
+            _type_defs: HashMap.new(),
+        }
+    }
+
+    pub fn get_type(&self, name: &String) -> Option<&Type>
+    {
+        self._type_defs.get(name)
+    }
+}
+
+#[derive(Debug)]
+pub struct Scope
+{
+    _module: ModuleScope,
+    _infer: Inferator,
+    _function: FunctionScope,
+    _failed: Option<String>,
+}
+
+impl Scope
+{
+    pub fn new(scope_nm: &String) -> Scope
+    {
+        Scope{
+            _module: ModuleScope::new(scope_nm),
+            _infer: Inferator::new(),
+            _function: FunctionScope::new(&"__script__".to_string()),
+            _failed: None,
+        }
+    }
+
+    pub fn push_function_scope(&mut self, func_nm: &String,
+        itypes: Vec<Type>, ps: Val
+    ) {
+        FunctionScope::push_function(&mut self._function, func_nm, itypes, ps);
+    }
+
+    pub fn pop_function_scope(&mut self)
+    {
+        FunctionScope.pop_function(&mut self._function)
+    }
+
+    pub fn push_block_scope(&mut self)
+    {
+        self._function.push_block();
+    }
+
+    pub fn pop_block_scope(&mut self)
+    {
+        FunctionScope.pop_block(self._function)
+    }
+
+    pub fn push_failed_scope(&mut self, var: &String)
+    {
+        if self._failed.is_some() {
+            panic!("Cannot nest failed scopes: {}", var);
+        }
+        self._failed = Some(var.clone());
+    }
+
+    pub fn pop_failed_scope(&mut self) -> String
+    {
+        if self._failed.is_none() {
+            panic!("Cannot pop empty failed scope");
+        }
+        self._failed.take().unwrap()
+    }
+
+    pub fn get_scope_name(&self) -> String
+    {
+        format!("{}.{}", self._module.name, self._function.name)
     }
 
     pub fn define_macro(&mut self, name: &String, args: Vec<Arc<String>>, body: Val)
@@ -173,7 +342,7 @@ impl Scope
         if self.is_macro(name) {
             panic!("macro already defined: {}", name);
         }
-        self.m.insert(name.clone(), (args, body));
+        self._module._macros.insert(name.clone(), (args, body));
     }
 
     pub fn is_macro(&self, name: &String) -> bool
@@ -183,35 +352,26 @@ impl Scope
 
     pub fn get_macro<'a>(&'a self, name: &String) -> Option<&'a (Vec<Arc<String>>, Val)>
     {
-        let m = self.m.get(name);
-        if m.is_some() || self.parent.is_none() {
-            return m;
-        }
-        match self.parent {
-            Some(ref p) => p.get_macro(name),
-            None => None,
-        }
+        self._module._macros.get(name)
     }
 
     pub fn assign_label(&mut self, r: Reg, name: &String, typ: Type)
     {
-        match self.lookup_label(name) {
+        match self._function.lookup_label(name) {
             None => {} // undefined, proceed below
             Some((old_reg, old_type)) => {
                 if *old_reg != r {
                     panic!("Cannot move label to new reg: {}", name);
                 }
-                if *old_type != typ {
-                    panic!("Old type does not match new type: {} {:?}->{:?}",
-                        name, old_type, typ);
-                }
+                self._infer.match_types(old_type, &typ);
+                return;
             }
         }
         if self.is_macro(name) {
             panic!("macro already defined: {}", name);
         }
-        self.E.insert(name.clone(), r);
-        self.T.insert(name.clone(), typ);
+        self._function.blk.E.insert(name.clone(), r);
+        self._function.T.insert(name.clone(), typ);
     }
 
     pub fn new_pattern_reg(&mut self, dst: &Reg, idx: Option<i8>) -> Reg
@@ -250,7 +410,7 @@ impl Scope
                         let chead = self.assign_pattern(*phead, &innert, dst);
                         let outert = Type::StrictList(Box::new(innert));
                         let ctail = self.assign_pattern(*ptail, &outert, dst);
-                        self.infer_type(typ, &outert);
+                        self._infer.match_types(typ, &outert);
                         Val::Cons(Box::new(chead), Box::new(ctail))
                     }
                     &Type::RelaxedList => {
@@ -263,7 +423,8 @@ impl Scope
             }
             Val::Nil => {
                 let innert = self.new_typevar();
-                self.infer_type(&Type::StrictList(Box::new(innert)), typ);
+                self._infer.match_types(
+                    &Type::StrictList(Box::new(innert)), typ);
                 patt
             }
             Val::Tuple(items) => {
@@ -291,7 +452,8 @@ impl Scope
                             tup_typ_vars.push(new_t);
                             i += 1;
                         }
-                        self.infer_type(typ, &Type::Tuple(tup_typ_vars));
+                        self._infer.match_types(
+                            typ, &Type::Tuple(tup_typ_vars));
                         Val::Tuple(atup)
                     }
                     _ => {
@@ -300,19 +462,19 @@ impl Scope
                 }
             }
             Val::Int(_) => {
-                self.infer_type(typ, &Type::Int);
+                self._infer.match_types(typ, &Type::Int);
                 patt
             }
             Val::Str(_) => {
-                self.infer_type(typ, &Type::Str);
+                self._infer.match_types(typ, &Type::Str);
                 patt
             }
             Val::Bool(_) => {
-                self.infer_type(typ, &Type::Bool);
+                self._infer.match_types(typ, &Type::Bool);
                 patt
             }
             Val::Hashtag(_) => {
-                self.infer_type(typ, &Type::Hashtag);
+                self._infer.match_types(typ, &Type::Hashtag);
                 patt
             }
             Val::Wildcard => {
@@ -327,39 +489,19 @@ impl Scope
 
     pub fn is_label(&self, name: &String) -> bool
     {
-        self.lookup_label(name).is_some()
+        self._function.is_label(name)
     }
 
     pub fn lookup_label(&self, name: &String) -> Option<(&Reg, &Type)>
     {
-        let regopt = self.E.get(name);
-        let typopt = self.T.get(name);
-        match (regopt, typopt) {
-            (Some(ref r), Some(t)) => Some((r, t)),
-            (None, None) => {
-                match self.parent {
-                    Some(ref p) => p.lookup_label(name),
-                    None => {
-                        None
-                    }
-                }
-            }
-            _ => {
-                panic!("mixed lookup_label result");
-            }
-        }
+        self._function.lookup_label(name)
     }
 
     pub fn is_failed(&self, name: &String) -> bool
     {
-        match self.failed {
-            Some(ref scope_failed_name) if scope_failed_name == name => true,
-            _ => {
-                match self.parent {
-                    Some(ref p) => p.is_failed(name),
-                    None => false,
-                }
-            }
+        match self._failed {
+            Some(ref f) => f == name,
+            None => false,
         }
     }
 
@@ -403,7 +545,7 @@ vout!("split_func {}({:?})", fname, defined_type);
             if var == result_type {
                 result_type = inf.clone();
             }
-            self.inferred.insert(var, inf);
+            self._infer.match_types(&var, &inf);
         }
         result_type
     }
@@ -464,93 +606,19 @@ vout!("split_func {}({:?})", fname, defined_type);
         }
     }
 
-    pub fn inferred_type(&self, typevar: Type) -> Type
+    pub fn find_inferred_type(&self, typevar: &Type) -> &Type
     {
-        match typevar {
-            Type::Var(_) => {
-                match self.inferred.get(&typevar) {
-                    Some(t) => t.clone(),
-                    None => {
-                        panic!("Could not infer type: {}", typevar);
-                    }
-                }
-            }
-            Type::AnonVar => {
-                panic!("Cannot infer an anonymous type");
-            }
-            _ => {
-                typevar
-            }
-        }
+        self._infer.find_inferred_type(typevar)
     }
 
-    /**
-     * mark typevar as inferred, and which type.
-     *
-     * panic if it was already inferred w/ a different type.
-     * do nothing if it was already inferred w/ the same type.
-     */
-    pub fn infer_type(&mut self, typevar: &Type, newtype: &Type)
+    pub fn set_function_param_types(&mut self, fpt: Vec<Type>)
     {
-        // don't put inferences at the block level
-        match (&self.typ, &mut self.parent) {
-            (&ScopeType::Block, &mut Some(ref mut par)) => {
-                par.infer_type(typevar, newtype);
-                return;
-            }
-            _ => {} // something else, infer here
-        }
-vout!("infer_type({}, {:?}) for {:?}\n",
-typevar, newtype, self.get_scope_name());
-        let (dst_type, src_type) = match (typevar, newtype) {
-            (&Type::StrictList(ref innerv), &Type::StrictList(ref innert)) => {
-                return self.infer_type(innerv, innert);
-            }
-            (&Type::Var(_), _) => {
-                (typevar, newtype)
-            }
-            (_, &Type::Var(_)) => {
-                (newtype, typevar)
-            }
-            _ => {
-                // nothing
-                if typevar != newtype {
-                    panic!("type mismatch, found {:?}, expected {:?}",
-                        typevar, newtype);
-                }
-                return;
-            }
-        };
-        // avoiding patterns here to avoid borrow overlaps
-        if self.inferred.contains_key(&typevar) {
-            let old_type = self.inferred.get(&typevar).unwrap();
-            if old_type != newtype {
-                panic!("typevar previously inferred: {:?} now {:?}",
-                    old_type, newtype); 
-            }
-        } else {
-            self.inferred.insert(typevar.clone(), newtype.clone());
-        }
+        self._function.function_param_types = fpt;
     }
 
-    pub fn set_function_param_types(&mut self, types: Type)
+    pub fn function_param_types(&self) -> Vec<Type>
     {
-        self.function_param_types = Some(types);
-    }
-
-    pub fn function_param_types(&self) -> Type
-    {
-        match (&self.function_param_types, &self.parent) {
-            (&Some(ref pt), _) => {
-                return pt.clone();
-            }
-            (_, &Some(ref p)) => {
-                return p.function_param_types();
-            }
-            _ => {
-                panic!("No function param types");
-            }
-        }
+        self._function.function_param_types
     }
 
     pub fn define_type(&mut self, name: &String, typ: &Type)
@@ -558,39 +626,36 @@ typevar, newtype, self.get_scope_name());
         if self.is_type(name) {
             panic!("Type is already defined: {}", name);
         }
-        self.K.insert(name.clone(), typ.clone());
+        self._module._type_defs.insert(name.clone(), typ.clone());
     }
 
     pub fn is_type(&self, name: &String) -> bool
     {
-        self.get_type(name).is_some()
+        self._module.get_type(name).is_some()
     }
 
-    pub fn get_type(&self, name: &String) -> Option<&Type>
+    pub fn get_type<'a>(&'a self, name: &String) -> Option<&'a Type>
     {
-        let t = self.K.get(name);
-        if t.is_some() {
-            return t;
-        }
-        match self.parent {
-            Some(ref p) => p.get_type(name),
-            None => None,
-        }
+        self._module.get_type(name)
     }
 
 
     pub fn nextreg(&mut self) -> i8
     {
-        let r = self._nextreg;
-        self._nextreg += 1;
-        r
+        self._function.blk.nextreg()
     }
 
     pub fn new_typevar(&mut self) -> Type
     {
-        let t = self._typevar;
-        self._typevar += 1;
+        let t = self._infer.next_typevar_index();
         let tname = format!("TypeVar_{}_{}", self.get_scope_name(), t);
+        Type::Var(Arc::new(tname))
+    }
+
+    pub fn named_typevar(&mut self, var: &String) -> Type
+    {
+        let t = self._infer.next_typevar_index();
+        let tname = format!("TypeVar_{}_{}_{}", self.get_scope_name(), t, var);
         Type::Var(Arc::new(tname))
     }
 
@@ -618,7 +683,7 @@ typevar, newtype, self.get_scope_name());
 
     pub fn take_failure_check(&mut self, name: &String) -> Option<Val>
     {
-        self.checked_failures.remove(name)
+        self._function.checked_failures.remove(name)
     }
 }
 

@@ -623,7 +623,7 @@ vout!("macro_defined({:?},{:?},{:?})\n", name, args, code);
             let mut i: i8 = 0;
             let full_types = false;
 
-            Scope::push_call_scope(&mut self.scope, &*name, ps);
+            self.scope.push_function_scope(&*name, ps);
             let mut next_param = params;
             while next_param != Val::Nil {
                 let (head, tail) = list::take(next_param);
@@ -653,14 +653,14 @@ vout!("{} type: {:?} -> {:?}\n", name, argtypes, rt);
             // if the type isn't predefined, can't recurse
             let ftype = Type::Func(argtypes.clone(), Box::new(rt));
             self.scope.assign_label(Reg::Lib, &*name, ftype);
-            self.scope.set_function_param_types(Type::Tuple(argtypes.clone()));
+            self.scope.set_function_param_types(argtypes);
 
             let mut fexpr = self.compile(code);
 vout!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
             let final_arg_tuple =
-                self.scope.inferred_type(Type::Tuple(argtypes));
-            let final_arg_types = Type::tuple_items(final_arg_tuple);
-            Scope::pop_scope(&mut self.scope);
+                self.scope.find_inferred_type(&Type::Tuple(argtypes));
+            let final_arg_types = Type::tuple_items(final_arg_tuple.clone());
+            self.scope.pop_function_scope();
             (final_arg_types, fexpr)
         };
 
@@ -712,7 +712,7 @@ vout!("ixmatch:\n\t{:?}\n\t{:?}\n", x, cases);
         let (raw_code, e3) = list::take(e2);
         let raw_next = list::head_or(e3, Val::Void);
 vout!("precompile matchcase\n\t{:?}\n\t{:?}\n\t{:?}\n", raw_patt, raw_code, raw_next);
-        Scope::push_block_scope(&mut self.scope);
+        self.scope.push_block_scope();
 
         let patt_reg = if match_func {
             Reg::Params
@@ -724,7 +724,7 @@ vout!("precompile matchcase\n\t{:?}\n\t{:?}\n\t{:?}\n", raw_patt, raw_code, raw_
         let code = self.precompile(raw_code);
         let next = self.precompile_matchcase(raw_next, match_func, match_type);
 vout!("ixmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
-        Scope::pop_scope(&mut self.scope);
+        self.scope.pop_block_scope();
         Iexpr::match_case(patt, code, next)
     }
 
@@ -787,7 +787,7 @@ vout!("precompile matchfailed\n\t{:?}\n\t{:?}\n", raw_x, raw_casex);
 
         let failed_id = match &raw_x {
             &Val::Id(ref failed_id_ref) => {
-                Scope::push_failed_scope(&mut self.scope, failed_id_ref);
+                push_failed_scope(&mut self.scope, failed_id_ref);
                 failed_id_ref.clone()
             }
             _ => {
@@ -809,7 +809,7 @@ vout!("precompile matchfailed\n\t{:?}\n\t{:?}\n", raw_x, raw_casex);
 vout!("ixmatchfailed:\n\t{:?}\n\t{:?}\n", x, cases);
         let mut ix = Iexpr::match_expr(x, cases);
         ix.dst = Reg::Void;
-        Scope::pop_scope(&mut self.scope);
+        self.scope.pop_failed_scope();
         ix
     }
 
@@ -1099,15 +1099,9 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
         return None;
     }
 
-    pub fn replace_inferred_types(&mut self, i: &mut Iexpr)
-    {
-        // replaces type vars w/ inferred types
-        i.typ = self.scope.inferred_type(i.typ.clone());
-    }
-
     pub fn assign_registers(&mut self, i: &mut Iexpr)
     {
-        self.replace_inferred_types(i);
+        i.typ = self.scope.find_inferred_type(&i.typ).clone();
         // now actually assign registers
         if i.dst == Reg::Undecided {
             i.dst = Reg::new_reg(self.scope.nextreg());
