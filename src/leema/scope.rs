@@ -57,6 +57,9 @@ vout!("infer.match_types({:?}, {:?})\n", a, b);
             (&Type::StrictList(ref innera), &Type::StrictList(ref innerb)) => {
                 return self.match_types(innera, innerb);
             }
+            (_, _) => {
+                panic!("these types don't match {:?}<>{:?}");
+            }
         }
     }
 
@@ -75,10 +78,10 @@ vout!("infer.match_types({:?}, {:?})\n", a, b);
                 panic!("Mismatched types: {:?} != {:?}", option, t);
             }
         }
-        s.push_front(option.clone());
+        types.push_front(option.clone());
     }
 
-    pub fn find_inferred_type(&self, key: &Type) -> &Type
+    pub fn find_inferred_type<'a>(&'a self, key: &'a Type) -> &'a Type
     {
         let mut result = key;
         match key {
@@ -95,7 +98,7 @@ vout!("infer.match_types({:?}, {:?})\n", a, b);
                         }
                     }
                     None => {
-                        panic!("Could not infer type: {}", typevar);
+                        panic!("Could not infer type: {}", key);
                     }
                 }
             }
@@ -152,7 +155,7 @@ pub struct FunctionScope
 {
     parent: Option<Box<FunctionScope>>,
     name: String,
-    function_param_types: Vec<Type>,
+    function_param_types: Option<Vec<Type>>,
     blk: BlockScope,
     checked_failures: HashMap<Arc<String>, Val>,
     // types of locally defined labels
@@ -166,7 +169,7 @@ impl FunctionScope
         FunctionScope{
             parent: None,
             name: name.clone(),
-            function_param_types: vec![],
+            function_param_types: Some(vec![]),
             blk: BlockScope::new(0),
             T: HashMap::new(),
             checked_failures: HashMap::new(),
@@ -174,14 +177,14 @@ impl FunctionScope
     }
 
     pub fn push_function(parent: &mut FunctionScope, name: &String,
-        inputs: Vec<Type>, failures: Val
+        failures: Val
     ) {
-        let new_name = format!("{}.{}", self.name, name);
+        let new_name = format!("{}.{}", parent.name, name);
         let cfails = Scope::collect_ps_index(failures);
-        let mut tmp = FunctionScope{
+        let mut tmp_scope = FunctionScope{
             parent: None,
             name: new_name,
-            function_param_types: inputs,
+            function_param_types: None,
             blk: BlockScope::new(0),
             T: HashMap::new(),
             checked_failures: cfails,
@@ -190,9 +193,19 @@ impl FunctionScope
         parent.parent = Some(Box::new(tmp_scope));
     }
 
+    pub fn pop_function(s: &mut FunctionScope)
+    {
+        let mut tmp: Option<Box<FunctionScope>> = None;
+        mem::swap(&mut s.parent, &mut tmp);
+        if tmp.is_none() {
+            panic!("No scope left to pop {}");
+        }
+        mem::replace(s, *tmp.unwrap());
+    }
+
     pub fn push_block(&mut self)
     {
-        let mut tmp_block = BlockScope{
+        let mut tmp_scope = BlockScope{
             parent: None,
             E: HashMap::new(),
             nextreg: self.blk.nextreg,
@@ -201,16 +214,14 @@ impl FunctionScope
         self.blk.parent = Some(Box::new(tmp_scope));
     }
 
-    pub fn pop_block(scope: &mut FunctionBlock)
+    pub fn pop_block(&mut self)
     {
-        let tmp_typevar = s._typevar;
-        let mut tmp = None;
-        mem::swap(&mut s.parent, &mut tmp);
+        let mut tmp: Option<Box<BlockScope>> = None;
+        mem::swap(&mut self.blk.parent, &mut tmp);
         if tmp.is_none() {
             panic!("No scope left to pop {}");
         }
-        mem::replace(s, *tmp.unwrap());
-        s._typevar = tmp_typevar;
+        mem::replace(&mut self.blk, *tmp.unwrap());
     }
 
     pub fn is_label(&self, name: &String) -> bool
@@ -259,9 +270,9 @@ impl ModuleScope
     {
         ModuleScope{
             name: name.clone(),
-            _macros: HashMap.new(),
-            _label_types: HashMap.new(),
-            _type_defs: HashMap.new(),
+            _macros: HashMap::new(),
+            _label_types: HashMap::new(),
+            _type_defs: HashMap::new(),
         }
     }
 
@@ -292,15 +303,14 @@ impl Scope
         }
     }
 
-    pub fn push_function_scope(&mut self, func_nm: &String,
-        itypes: Vec<Type>, ps: Val
-    ) {
-        FunctionScope::push_function(&mut self._function, func_nm, itypes, ps);
+    pub fn push_function_scope(&mut self, func_nm: &String, ps: Val)
+    {
+        FunctionScope::push_function(&mut self._function, func_nm, ps);
     }
 
     pub fn pop_function_scope(&mut self)
     {
-        FunctionScope.pop_function(&mut self._function)
+        FunctionScope::pop_function(&mut self._function)
     }
 
     pub fn push_block_scope(&mut self)
@@ -310,7 +320,7 @@ impl Scope
 
     pub fn pop_block_scope(&mut self)
     {
-        FunctionScope.pop_block(self._function)
+        self._function.pop_block();
     }
 
     pub fn push_failed_scope(&mut self, var: &String)
@@ -606,19 +616,19 @@ vout!("split_func {}({:?})", fname, defined_type);
         }
     }
 
-    pub fn find_inferred_type(&self, typevar: &Type) -> &Type
+    pub fn find_inferred_type<'a>(&'a self, typevar: &'a Type) -> &'a Type
     {
         self._infer.find_inferred_type(typevar)
     }
 
-    pub fn set_function_param_types(&mut self, fpt: Vec<Type>)
+    pub fn set_function_param_types(&mut self, fpt: &Vec<Type>)
     {
-        self._function.function_param_types = fpt;
+        self._function.function_param_types = Some(fpt.clone());
     }
 
-    pub fn function_param_types(&self) -> Vec<Type>
+    pub fn function_param_types(&self) -> &Vec<Type>
     {
-        self._function.function_param_types
+        &self._function.function_param_types.unwrap()
     }
 
     pub fn define_type(&mut self, name: &String, typ: &Type)

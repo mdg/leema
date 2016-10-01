@@ -269,7 +269,7 @@ impl StaticSpace
     pub fn new() -> StaticSpace
     {
         StaticSpace{
-            scope: Scope::new("__script".to_string()),
+            scope: Scope::new(&"__script".to_string()),
             typefields: HashMap::new(),
             interlib: HashMap::new(),
             lib: HashMap::new(),
@@ -351,7 +351,7 @@ impl StaticSpace
             Val::CallParams => {
                 Iexpr{
                     dst: Reg::Params,
-                    typ: self.scope.function_param_types().clone(),
+                    typ: Type::Tuple(self.scope.function_param_types().clone()),
                     src: Source::ConstVal(Val::CallParams),
                 }
             }
@@ -653,7 +653,7 @@ vout!("{} type: {:?} -> {:?}\n", name, argtypes, rt);
             // if the type isn't predefined, can't recurse
             let ftype = Type::Func(argtypes.clone(), Box::new(rt));
             self.scope.assign_label(Reg::Lib, &*name, ftype);
-            self.scope.set_function_param_types(argtypes);
+            self.scope.set_function_param_types(&argtypes);
 
             let mut fexpr = self.compile(code);
 vout!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
@@ -787,7 +787,7 @@ vout!("precompile matchfailed\n\t{:?}\n\t{:?}\n", raw_x, raw_casex);
 
         let failed_id = match &raw_x {
             &Val::Id(ref failed_id_ref) => {
-                push_failed_scope(&mut self.scope, failed_id_ref);
+                self.scope.push_failed_scope(failed_id_ref);
                 failed_id_ref.clone()
             }
             _ => {
