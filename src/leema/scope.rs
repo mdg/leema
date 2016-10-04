@@ -230,6 +230,16 @@ impl FunctionScope
         self.find_label_type(name).is_some()
     }
 
+    pub fn find_label_reg(&self, name: &String) -> Option<&Reg>
+    {
+        let lbl = self.blk.find_label_reg(name);
+        match (lbl, &self.parent) {
+            (Some(ref t), _) => Some(t),
+            (None, &Some(ref p)) => p.find_label_reg(name),
+            (None, &None) => None,
+        }
+    }
+
     pub fn find_label_type(&self, name: &String) -> Option<&Type>
     {
         let lbl = self.T.get(name);
@@ -242,7 +252,7 @@ impl FunctionScope
 
     pub fn lookup_label(&self, name: &String) -> Option<(&Reg, &Type)>
     {
-        let regopt = self.blk.find_label_reg(name);
+        let regopt = self.find_label_reg(name);
         let typopt = self.find_label_type(name);
         match (regopt, typopt) {
             (Some(ref r), Some(ref t)) => Some((r, t)),
@@ -260,8 +270,6 @@ pub struct ModuleScope
     name: String,
     // macros
     _macros: HashMap<String, (Vec<Arc<String>>, Val)>,
-    // types of locally defined labels
-    _label_types: HashMap<String, Type>,
     // type definitins in type namespace
     _type_defs: HashMap<String, Type>,
 }
@@ -273,9 +281,13 @@ impl ModuleScope
         ModuleScope{
             name: name.clone(),
             _macros: HashMap::new(),
-            _label_types: HashMap::new(),
             _type_defs: HashMap::new(),
         }
+    }
+
+    pub fn is_macro(&self, name: &String) -> bool
+    {
+        self._macros.contains_key(name)
     }
 
     pub fn get_type(&self, name: &String) -> Option<&Type>
@@ -351,7 +363,7 @@ impl Scope
         if self.is_label(name) {
             panic!("label already assigned: {}", name);
         }
-        if self.is_macro(name) {
+        if self._module.is_macro(name) {
             panic!("macro already defined: {}", name);
         }
         self._module._macros.insert(name.clone(), (args, body));
@@ -369,6 +381,9 @@ impl Scope
 
     pub fn assign_label(&mut self, r: Reg, name: &String, typ: Type)
     {
+        if self.is_macro(name) {
+            panic!("macro already defined: {}", name);
+        }
         match self._function.lookup_label(name) {
             None => {} // undefined, proceed below
             Some((old_reg, old_type)) => {
@@ -378,9 +393,6 @@ impl Scope
                 self._infer.match_types(old_type, &typ);
                 return;
             }
-        }
-        if self.is_macro(name) {
-            panic!("macro already defined: {}", name);
         }
         self._function.blk.E.insert(name.clone(), r);
         self._function.T.insert(name.clone(), typ);
@@ -710,37 +722,38 @@ mod tests {
 #[test]
 fn test_push_pop()
 {
-    let mut s = Scope::new("hello".to_string());
+    let mut s = Scope::new(&"hello".to_string());
 
-    Scope::push_call_scope(&mut s, &"world".to_string(), Val::Void);
+    Scope::push_function_scope(&mut s, &"world".to_string(), Val::Void);
     assert_eq!("hello.world".to_string(), s.get_scope_name());
 
-    Scope::pop_scope(&mut s);
+    Scope::pop_function_scope(&mut s);
     assert_eq!("hello".to_string(), s.get_scope_name());
 }
 
 #[test]
 fn test_macro_defined()
 {
-    let mut s = Scope::new("hello".to_string());
+    let mut s = Scope::new(&"hello".to_string());
     let macro_name = "world".to_string();
     s.define_macro(&macro_name, vec![], Val::Void);
     assert!(s.is_macro(&macro_name));
 
-    Scope::push_call_scope(&mut s, &"foo".to_string(), Val::Void);
+    Scope::push_function_scope(&mut s, &"foo".to_string(), Val::Void);
     assert!(s.is_macro(&macro_name));
 }
 
 #[test]
 fn test_label_assigned()
 {
-    let mut s = Scope::new("hello".to_string());
+    let mut s = Scope::new(&"hello".to_string());
     let label_name = "world".to_string();
     s.assign_label(Reg::new_param(2), &label_name, Type::Int);
     assert!(s.is_label(&label_name));
 
-    Scope::push_call_scope(&mut s, &"world".to_string(), Val::Void);
+    Scope::push_function_scope(&mut s, &"world".to_string(), Val::Void);
     assert!(s.is_label(&label_name));
+    assert!(s.lookup_label(&label_name).is_some());
 }
 
 }
