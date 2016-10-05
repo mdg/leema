@@ -189,11 +189,11 @@ pub struct FunctionScope
 
 impl FunctionScope
 {
-    pub fn new(name: &String) -> FunctionScope
+    pub fn new() -> FunctionScope
     {
         FunctionScope{
             parent: None,
-            name: name.clone(),
+            name: "".to_string(),
             function_param_types: Some(vec![]),
             blk: BlockScope::new(0),
             T: HashMap::new(),
@@ -336,7 +336,7 @@ impl Scope
         Scope{
             _module: ModuleScope::new(scope_nm),
             _infer: Inferator::new(),
-            _function: FunctionScope::new(&"__script__".to_string()),
+            _function: FunctionScope::new(),
             _failed: None,
         }
     }
@@ -379,7 +379,11 @@ impl Scope
 
     pub fn get_scope_name(&self) -> String
     {
-        format!("{}.{}", self._module.name, self._function.name)
+        if self._function.name.is_empty() {
+            self._module.name.clone()
+        } else {
+            format!("{}{}", self._module.name, self._function.name)
+        }
     }
 
     pub fn define_macro(&mut self, name: &String, args: Vec<Arc<String>>, body: Val)
@@ -672,17 +676,32 @@ mod tests {
     use leema::sexpr;
     use leema::scope::{Scope};
     use leema::reg::{Reg};
+    use std::sync::Arc;
 
 #[test]
 fn test_push_pop()
 {
     let mut s = Scope::new(&"hello".to_string());
+    assert_eq!("hello".to_string(), s.get_scope_name());
 
     Scope::push_function_scope(&mut s, &"world".to_string(), Val::Void);
-    assert_eq!("hello.__script__.world".to_string(), s.get_scope_name());
+    assert_eq!("hello.world".to_string(), s.get_scope_name());
 
     Scope::pop_function_scope(&mut s);
-    assert_eq!("hello.__script__".to_string(), s.get_scope_name());
+    assert_eq!("hello".to_string(), s.get_scope_name());
+}
+
+#[test]
+fn test_type_var_generation()
+{
+    let mut s = Scope::new(&"hello".to_string());
+    assert_eq!(Type::Var(Arc::new("TypeVar_hello_0".to_string())), s.new_typevar());
+
+    Scope::push_function_scope(&mut s, &"world".to_string(), Val::Void);
+    assert_eq!(Type::Var(Arc::new("TypeVar_hello.world_1".to_string())), s.new_typevar());
+
+    Scope::pop_function_scope(&mut s);
+    assert_eq!(Type::Var(Arc::new("TypeVar_hello_2".to_string())), s.new_typevar());
 }
 
 #[test]
