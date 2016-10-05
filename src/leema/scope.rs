@@ -564,7 +564,7 @@ vout!("apply_call_types({}, {:?})\n", fname, input_tuple);
                     panic!("call args not a tuple: {:?}", input_tuple);
                 }
             };
-            let result = Type::Var(Arc::new("TypeVar_Result".to_string()));
+            let result = self.new_typevar();
             let mut called_type = Type::Func(
                 input_args.clone(),
                 Box::new(result.clone()),
