@@ -55,11 +55,35 @@ vout!("infer.match_types({:?}, {:?})\n", a, b);
                 self.mapvar(b, a);
             }
             (&Type::StrictList(ref innera), &Type::StrictList(ref innerb)) => {
-                return self.match_types(innera, innerb);
+                self.match_types(innera, innerb);
             }
+            (&Type::Tuple(ref ta), &Type::Tuple(ref tb)) => {
+                self.match_type_vectors(ta, tb);
+            }
+            (&Type::Func(ref pa, ref ra), &Type::Func(ref pb, ref rb)) => {
+                self.match_type_vectors(pa, pb);
+                self.match_types(ra, rb);
+            }
+            (_, _) if a == b => {}
             (_, _) => {
-                panic!("these types don't match {:?}<>{:?}");
+                panic!("these types don't match {:?}<>{:?}", a, b);
             }
+        }
+    }
+
+    fn match_type_vectors(&mut self,
+        passed_types: &Vec<Type>,
+        defined_types: &Vec<Type>,
+    ) {
+        let passed_len = passed_types.len();
+        let defined_types_len = defined_types.len();
+        if passed_len != defined_types_len {
+            panic!("tuple size mismatch: {:?} != {:?}",
+                passed_types, defined_types);
+        }
+        for z in passed_types.iter().zip(defined_types.iter()) {
+            let (p, d) = z;
+            self.match_types(p, d);
         }
     }
 
@@ -533,7 +557,7 @@ impl Scope
         -> Type
     {
 vout!("apply_call_types({}, {:?})\n", fname, input_tuple);
-        let (mut result_type, mut infers) = {
+        let mut result_type = {
             let input_args = match input_tuple {
                 &Type::Tuple(ref input_vec) => input_vec,
                 _ => {
@@ -545,89 +569,19 @@ vout!("apply_call_types({}, {:?})\n", fname, input_tuple);
                 input_args.clone(),
                 Box::new(result.clone()),
             );
-            let func_label = self.lookup_label(fname);
+            let func_label = self._function.lookup_label(fname);
             if func_label.is_none() {
                 panic!("function is undefined: {}", fname);
             }
             let (_, defined_type) = func_label.unwrap();
 vout!("split_func {}({:?})", fname, defined_type);
 
-            let mut tmp_infers = vec![];
-            Scope::smash_types(&mut tmp_infers, &called_type, &defined_type);
-            (result, tmp_infers)
+            self._infer.match_types(&called_type, &defined_type);
+            result
         };
+println!("result_type = {:?}", result_type);
 
-        /*
-        let mut bad_types = false;
-        if bad_types {
-            panic!("wrong types: f{:?} called with {:?}",
-                defined_args, input_args);
-        }
-        */
-        for infer in infers {
-            let (var, inf) = infer;
-            if var == result_type {
-                result_type = inf.clone();
-            }
-            self._infer.match_types(&var, &inf);
-        }
         result_type
-    }
-
-    pub fn smash_types(
-        infers: &mut Vec<(Type, Type)>,
-        passed_type: &Type,
-        defined_type: &Type,
-    ) {
-        match (passed_type, defined_type) {
-            (&Type::Var(ref p), &Type::Var(ref d)) => {
-                vout!("can we infer types when both sides are vars? {:?}={:?}", p, d);
-                infers.push((passed_type.clone(), defined_type.clone()));
-            }
-            (&Type::Var(_), _) => {
-                infers.push((passed_type.clone(), defined_type.clone()));
-            }
-            (_, &Type::Var(_)) => {
-                infers.push((defined_type.clone(), passed_type.clone()));
-            }
-            (&Type::Unknown, _) => {
-                panic!("passed type is unknown!");
-            }
-            (_, &Type::Unknown) => {
-                panic!("defined type is unknown!");
-            }
-            (&Type::Func(ref pargs, ref presult), &Type::Func(ref defargs, ref defresult)) => {
-                Scope::smash_type_vector(infers, pargs, defargs);
-                Scope::smash_types(infers, presult, defresult);
-            }
-            (ref p, ref d) if p == d => {
-                // types matched, we're good
-            }
-            (ref p, ref d) => {
-                panic!("wrong type {:?} != {:?}\n", p, d);
-            }
-        }
-    }
-
-    fn smash_type_vector(
-        infers: &mut Vec<(Type, Type)>,
-        passed_types: &Vec<Type>,
-        defined_types: &Vec<Type>,
-    ) {
-        let passed_len = passed_types.len();
-        let defined_types_len = defined_types.len();
-        if passed_len < defined_types_len {
-            panic!("too few values: {:?} != {:?}",
-                passed_types, defined_types);
-        }
-        if passed_len > defined_types_len {
-            panic!("too many values: {:?} != {:?}",
-                passed_types, defined_types);
-        }
-        for z in passed_types.iter().zip(defined_types.iter()) {
-            let (p, d) = z;
-            Scope::smash_types(infers, p, d);
-        }
     }
 
     pub fn find_inferred_type<'a>(&'a self, typevar: &'a Type) -> &'a Type
@@ -725,10 +679,10 @@ fn test_push_pop()
     let mut s = Scope::new(&"hello".to_string());
 
     Scope::push_function_scope(&mut s, &"world".to_string(), Val::Void);
-    assert_eq!("hello.world".to_string(), s.get_scope_name());
+    assert_eq!("hello.__script__.world".to_string(), s.get_scope_name());
 
     Scope::pop_function_scope(&mut s);
-    assert_eq!("hello".to_string(), s.get_scope_name());
+    assert_eq!("hello.__script__".to_string(), s.get_scope_name());
 }
 
 #[test]

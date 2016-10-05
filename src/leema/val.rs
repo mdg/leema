@@ -1315,12 +1315,22 @@ impl reg::Iregistry for Env
 
 #[cfg(test)]
 mod tests {
-    use leema::val::{Val, SexprType};
+    use leema::val::{Type, Val, SexprType};
     use leema::list;
     use leema::sexpr;
     use std::collections::{HashMap};
     use std::sync::{Arc};
 
+
+#[test]
+fn test_equal_type_str() {
+    assert_eq!(Type::Str, Type::Str);
+}
+
+#[test]
+fn test_equal_type_int() {
+    assert_eq!(Type::Int, Type::Int);
+}
 
 #[test]
 fn test_tuple_from_list() {
