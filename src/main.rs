@@ -8,7 +8,7 @@ use leema::prefab;
 use leema::log;
 use leema::val::{Env, Val};
 use leema::code::{CodeKey};
-use leema::compile::{Compiler};
+use leema::compile::{self, StaticSpace};
 use leema::frame::{Application};
 use leema::ast;
 use std::io::{stderr, Write};
@@ -67,17 +67,16 @@ fn real_main() -> i32
     vout!("verbose mode\nargs:{:?}\n", args);
 
     let loader = ast::Loader::new();
-    let mut ss = prefab::new_staticspace();
-    if args.arg_file.is_some() {
-        {
-            let mut c = Compiler::new(&mut ss, loader);
-            c.compile_file(args.arg_file.unwrap());
-        }
-        vout!("lib code> {:?}\n", ss.lib);
-        vout!("\nss> {:?}\n", ss);
+    let mut ss = if args.arg_file.is_some() {
+        let modname = args.arg_file.unwrap();
+        compile::file(&loader, &modname)
     } else if !args.flag_repl {
         panic!("do you want a file or the repl?");
-    }
+    } else {
+        StaticSpace::new(&"repl".to_string())
+    };
+    vout!("lib code> {:?}\n", ss.lib);
+    vout!("\nss> {:?}\n", ss);
 
 
     let mut app = Application::new();

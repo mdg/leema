@@ -116,9 +116,9 @@ impl Loader
         self.files.insert(file, contents);
     }
 
-    fn load(&self, filename: String) -> String
+    fn load(&self, filename: &String) -> String
     {
-        let ready_file = self.files.get(&filename);
+        let ready_file = self.files.get(filename);
         if ready_file.is_some() {
             return ready_file.unwrap().clone();
         }
@@ -129,7 +129,7 @@ impl Loader
         input
     }
 
-    pub fn parse(&self, filename: String) -> Ast
+    pub fn parse(&self, filename: &String) -> Ast
     {
         let str = self.load(filename);
         let tokens = lex(str);

@@ -1,7 +1,7 @@
 use leema::val::{Val, Type};
 use leema::code::{Code};
 use leema::frame::{Frame};
-use leema::compile::{Compiler, StaticSpace};
+use leema::compile::{self, StaticSpace};
 use leema::list;
 use leema::log;
 use leema::ast;
@@ -328,8 +328,7 @@ fn define_macros(ss: &mut StaticSpace)
 
     let mut loader = ast::Loader::new();
     loader.set_file("prefab_macros".to_string(), input);
-    let mut c = Compiler::new(ss, loader);
-    c.compile_file("prefab_macros".to_string());
+    compile::file(&loader, &"prefab_macros".to_string());
     vout!("prefab macros compiled\n");
 }
 
@@ -412,9 +411,9 @@ pub fn define_prefab(ss: &mut StaticSpace)
     define_macros(ss);
 }
 
-pub fn new_staticspace() -> StaticSpace
+pub fn new_staticspace(name: &String) -> StaticSpace
 {
-    let mut ss = StaticSpace::new();
+    let mut ss = StaticSpace::new(name);
     define_prefab(&mut ss);
     ss
 }

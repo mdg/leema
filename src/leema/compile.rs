@@ -266,10 +266,10 @@ pub struct StaticSpace
 
 impl StaticSpace
 {
-    pub fn new() -> StaticSpace
+    pub fn new(name: &String) -> StaticSpace
     {
         StaticSpace{
-            scope: Scope::new(&"__script".to_string()),
+            scope: Scope::new(name),
             typefields: HashMap::new(),
             interlib: HashMap::new(),
             lib: HashMap::new(),
@@ -1230,35 +1230,21 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
     }
 }
 
-pub struct Compiler<'a>
+pub fn file(loader: &ast::Loader, mod_name: &String) -> StaticSpace
 {
-    pub ss: &'a mut StaticSpace,
-    loader: ast::Loader,
-}
-
-impl<'a> Compiler<'a>
-{
-    pub fn new(ss: &'a mut StaticSpace, l: ast::Loader) -> Compiler<'a>
-    {
-        Compiler {
-            ss: ss,
-            loader: l,
-        }
+    let filename = format!("{}.lma", mod_name);
+    let mut ss = StaticSpace::new(&filename);
+    let ast = loader.parse(&filename);
+    let script = ss.compile(ast.root());
+    if script.src != Source::Void {
+        let stype = script.typ.clone();
+        ss.define_func(
+            Arc::new("*script*".to_string()),
+            Type::f(vec![], stype),
+            Code::Inter(Arc::new(script)),
+        );
     }
-
-    pub fn compile_file(&mut self, filename: String)
-    {
-        let ast = self.loader.parse(filename);
-        let script = self.ss.compile(ast.root());
-        if script.src != Source::Void {
-            let stype = script.typ.clone();
-            self.ss.define_func(
-                Arc::new("*script*".to_string()),
-                Type::f(vec![], stype),
-                Code::Inter(Arc::new(script)),
-            );
-        }
-    }
+    ss
 }
 
 #[cfg(test)]
