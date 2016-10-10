@@ -1,7 +1,6 @@
 #[macro_use]
 mod leema;
 mod repl;
-mod parse;
 
 use leema::frame::{self, Frame};
 use leema::prefab;

@@ -1,5 +1,5 @@
 use leema::ast::{TokenLoc, TokenData};
-use parse::{self, Token};
+use leema::parse::{self, Token};
 use std::ptr;
 
 #[repr(C)]

@@ -1,7 +1,7 @@
 use leema::val::{Val, Type};
 use leema::lex::{lex};
 use leema::log;
-use parse::{Parser, Token};
+use leema::parse::{Parser, Token};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
