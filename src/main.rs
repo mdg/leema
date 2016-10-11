@@ -1,14 +1,16 @@
 #[macro_use]
+use leema::log;
+
+#[macro_use]
 mod leema;
-mod repl;
 
 use leema::frame::{self, Frame};
 use leema::prefab;
-use leema::log;
 use leema::val::{Env, Val};
 use leema::code::{CodeKey};
+use leema::interloader::{Interloader};
 use leema::compile::{self, StaticSpace};
-use leema::frame::{Application};
+use leema::application::{Application};
 use leema::ast;
 use std::io::{stderr, Write};
 use std::fs;
@@ -23,9 +25,7 @@ extern crate rustc_serialize;
 #[derive(Debug)]
 #[derive(RustcDecodable)]
 struct Args {
-    arg_file: Option<String>,
-    flag_export_ops: bool,
-    flag_repl: bool,
+    arg_file: String,
     flag_verbose: bool,
 }
 
@@ -33,13 +33,11 @@ const USAGE: &'static str = "
 leema interpreter
 
 Usage:
-  leema [options]
   leema [options] <file>
   leema (-v | --verbose)
   leema (-h | --help)
 
 Options:
-  --export-ops    Export program ops to a file
   -v --verbose    Output debug messages
   -h --help       Show this message
   --repl          Launch the REPL
@@ -65,72 +63,32 @@ fn real_main() -> i32
     }
     vout!("verbose mode\nargs:{:?}\n", args);
 
-    let loader = ast::Loader::new();
-    let mut ss = if args.arg_file.is_some() {
-        let modname = args.arg_file.unwrap();
-        compile::file(&loader, &modname)
-    } else if !args.flag_repl {
-        panic!("do you want a file or the repl?");
-    } else {
-        StaticSpace::new(&"repl".to_string())
+    /*
+    let interspace = {
+        let interloader = InterLoader::new();
+        interloader.load_module("prefab");
+        interloader.load_root_file(args.arg_file);
+        interloader.take_space()
     };
-    vout!("lib code> {:?}\n", ss.lib);
-    vout!("\nss> {:?}\n", ss);
+    */
 
+    let modname = Interloader::module_name(&args.arg_file);
+    let inter = Interloader::new();
+    inter.load_module("prefab");
+    inter.load_module(&modname);
 
-    let mut app = Application::new();
-    app.add_app_code(&ss);
-
-    if args.flag_export_ops {
-        let mut opsf = fs::File::create("leema-ops").ok().unwrap();
-        for keycode in app.code_iter() {
-            write!(opsf, "{:?}\n", keycode).ok();
+    let app = Application::new(inter);
+    app.push_call(&modname, "main");
+    let result = app.run();
+    match result {
+        Val::Int(resulti) => {
+            return resulti as i32;
         }
-        return 0;
-    }
-
-    let e = Env::new();
-    if ss.has_main() {
-        if ss.has_script() {
-            // might just get rid of scripts altogether
-            // panic!("Cannot have both script code and a main function");
+        Val::Failure(tag, msg, stack) => {
+            println!("Uncaught Failure: {} \"{}\"\n{}", tag, msg, stack);
+            return leema::CLI_UNCAUGHT_FAILURE;
         }
-        let frm = Frame::new_root(e);
-vout!("We have main!\n{:?}", frm);
-        app.push_new_frame(&CodeKey::Main, frm);
-    } else if ss.has_script() {
-        let frm = Frame::new_root(e);
-vout!("We have a script!\n{:?}", frm);
-        app.push_new_frame(&CodeKey::Script, frm);
-    }
-
-    let rappl = Arc::new(Mutex::new(app));
-    let app0 = rappl.clone();
-
-    thread::spawn(move || {
-        let mut w0 = frame::Worker::new(app0);
-        vout!("w0.gotowork");
-        w0.gotowork();
-    });
-
-    if args.flag_repl {
-        repl::reploop(rappl.clone(), ss);
-    } else if ! (ss.has_main() || ss.has_script()) {
-        write!(stderr(), "no main function or script code\n").ok();
-        return leema::CLI_NOMAIN;
-    } else {
-        let result = Application::wait_until_done(&rappl);
-        vout!("result: {:?}\n", result);
-        match result {
-            Val::Int(resulti) => {
-                return resulti as i32;
-            }
-            Val::Failure(tag, msg, stack) => {
-                println!("Uncaught Failure: {} \"{}\"\n{}", tag, msg, stack);
-                return leema::CLI_UNCAUGHT_FAILURE;
-            }
-            _ => {}
-        }
+        _ => {}
     }
     return 0;
 }
