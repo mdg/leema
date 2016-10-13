@@ -162,13 +162,9 @@ pub fn less_than_equal(fs: &mut Frame)
 
 pub fn equal(fs: &mut Frame)
 {
-    let result;
-    {
-        let va = fs.get_param(0);
-        let vb = fs.get_param(1);
-        result = va == vb;
-    }
-    fs.parent.set_result(Val::Bool(result));
+    let va = fs.e.get_param(0);
+    let vb = fs.e.get_param(1);
+    fs.parent.set_result(Val::Bool(va == vb));
 }
 
 pub fn greater_than(fs: &mut Frame)
