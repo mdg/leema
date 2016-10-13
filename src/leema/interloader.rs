@@ -1,10 +1,14 @@
 
+use leema::val::{Val};
+use leema::compile::{Iexpr};
+use std::collections::{HashMap, HashSet};
+
 
 pub struct Interloader
 {
     file: HashMap<String, String>,
-    smod: HashMap<String, Smodule>,
-    interfunc: HashMap<(String, String), Iexpr>
+    smod: HashMap<String, Val>,
+    intermod: HashMap<String, Imodule>
 }
 
 /*
@@ -24,6 +28,27 @@ Imodule =
 --
 */
 
+/*
+calling push leema code from rust
+string module
+sexpr module block
+- raw list, imports, makros, codes
+
+iexpr type0 func interface (and cache)
+iexpr type0 func body (and cache)
+
+iexpr type' func interface (and cache)
+iexpr type' func body (and cache)
+
+module scope
+function scope
+
+read_module -> sexpr module in cache
+load_module -> sexpr module in cache
+- read imports
+*/
+
+
 impl Interloader
 {
     pub fn new() -> Interloader
@@ -37,8 +62,9 @@ impl Interloader
 
     pub fn load_func(&mut self, module: &str, func: &str) -> Iexpr
     {
-        let smod = self.import_module(module, func, true);
+        let smod = self.read_module(module);
         let sfunc = self.find_sfunc(module, func);
+        let ifunc = self.import_module(sfunc);
         self.interize(sfunc)
     }
 
@@ -47,36 +73,71 @@ impl Interloader
         self.import_module(module, true);
     }
 
-    pub fn import_module(&mut self, module: &str, recurse: bool) -> Val
+    fn read_module(&mut self, module: &str, primary: bool) -> &Val
     {
-        let fmod = open_file(module);
-        let smod = parse(fmod);
-        for import in smod.imports {
-            if recurse {
-                self.import_module(import, false);
+        if self.smod.contains_key(module) {
+            return self.smod.get(module).unwrap();
+        }
+
+        let mod_fname = module_filename(module);
+        let smod = ast::parse(mod_fname);
+        self.smod.insert(module, smod);
+        self.smod.get(module).unwrap()
+    }
+
+    fn import_module(&mut self, smod: &Val)
+    {
+        let (imports, makros, rem_smod) = Sexpr::split_module(smod);
+        for imp in imports {
+            if primary {
+                self.import_module(imp, false);
             } else {
-                self.add_import(import);
+                self.add_import(imp);
             }
         }
-        for makro in smod.makros {
+        for makro in makros {
             self.add_macro(module, makro);
         }
-        self.store_smod(module, smod);
-        smod
+        self.smod.insert(module, rem_smod);
     }
 
-    fn find_sfunc(&mut self, module: &str, func: &str) -> &Val
+    fn import_module(&mut self, module: &str, primary: bool)
     {
-        let smod = self.smods.get(module);
-        for f in smod {
+        if self.smod.contains_key(module) {
+            return self.smod.get(module).unwrap();
         }
+
+        let mod_fname = module_filename(module);
+        let smod = ast::parse(mod_fname);
+
+        let (imports, makros, rem_smod) = Sexpr::split_module(smod);
+        for imp in imports {
+            if primary {
+                self.import_module(imp, false);
+            } else {
+                self.add_import(imp);
+            }
+        }
+        for makro in makros {
+            self.add_macro(module, makro);
+        }
+        self.smod.insert(module, rem_smod);
     }
 
-    fn interize(&mut self, imod: Val) -> Iexpr
+    fn find_sfunc(&mut self, module: &str, func: &str) -> Option<&Val>
+    {
+        let opt_smod = self.smod.get(module);
+        if opt_smod.is_none() {
+            return opt_smod;
+        }
+        // for f in Sexpr::iter(smod.unwrap()) {}
+    }
+
+    fn interize(&mut self, smod: &Val) -> Iexpr
     {
         imod = HashMap::new();
         for func in smod {
-            push_func_scope()
+            self.scope.push_func_scope();
             let ifunc = vec![];
             for code in func {
                 ifunc.push(self.interize(code));
@@ -121,6 +182,11 @@ impl Interloader
     pub fn module_name(name_or_file: &str) -> String
     {
         name_or_file.to_string()
+    }
+
+    pub fn module_filename(name_or_file: &str) -> String
+    {
+        format!("{}.lma", module_name(name_or_file))
     }
 }
 

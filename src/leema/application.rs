@@ -4,15 +4,25 @@ struct Worker
 {
     code: HashMap<(String, String), Code>,
     app_channel: Channel<CodeRequest>,
-    code_request_idx: s64,
+    code_request_idx: u64,
 }
 
 impl Worker
 {
+    pub fn new(app_ch: Channel<AppRequest>) -> Worker
+    {
+        Worker{
+            code: HashMap::new(),
+            app_channel: app_ch,
+            code_request_idx: 0,
+        }
+    }
+
     pub fn call_func(&mut self, module: &str, func: &str)
     {
         push_frame(get_code(module, func))
     }
+
     pub fn get_code(&mut self, module: &str, func: &str)
     {
         c = code.find(module, func);
@@ -22,6 +32,13 @@ impl Worker
             frame.wait_on_code(i)
         }
         c
+    }
+
+    pub fn new_code_request(&mut self) -> u64
+    {
+        let idx = self.code_request_idx;
+        self.code_request_idx += 1;
+        idx
     }
 }
 
@@ -67,13 +84,13 @@ impl Application
     pub fn get_protocol_code(module: &str, func: &str, typ: &Vec<Type>) {}
     pub fn load_code(&mut self, module: &str, func: &str)
     {
-        if self.code.contains(module, func) {
-            return code.get((module, func))
+        if self.lib.contains(module, func) {
+            return self.lib.get((module, func))
         }
         let ifunc = self.inter.load_func(module, func);
         let tfunc = self.inter.resolve_types(ifunc);
         let new_code = code::make_ops(tfunc);
-        self.code.insert((module, func), new_code);
+        self.lib.insert((module, func), new_code);
         new_code
     }
 

@@ -41,7 +41,7 @@ impl Inferator
      */
     pub fn match_types(&mut self, a: &Type, b: &Type)
     {
-vout!("infer.match_types({:?}, {:?})\n", a, b);
+print!("infer.match_types({:?}, {:?})\n", a, b);
 
         match (a, b) {
             (&Type::Var(_), &Type::Var(_)) => {
@@ -578,8 +578,9 @@ vout!("apply_call_types({}, {:?})\n", fname, input_tuple);
                 panic!("function is undefined: {}", fname);
             }
             let (_, defined_type) = func_label.unwrap();
-vout!("split_func {}({:?})", fname, defined_type);
+println!("split_func {}({:?})", fname, defined_type);
 
+println!("match_types {:?}={:?} for {:?}", called_type, defined_type, self._infer);
             self._infer.match_types(&called_type, &defined_type);
             result
         };

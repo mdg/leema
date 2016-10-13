@@ -656,7 +656,7 @@ vout!("{} type: {:?} -> {:?}\n", name, argtypes, rt);
             self.scope.set_function_param_types(&argtypes);
 
             let mut fexpr = self.compile(code);
-vout!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
+print!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
             let final_arg_types = {
                 let input_arg_tuple = Type::Tuple(argtypes);
                 let final_arg_tuple =
@@ -668,6 +668,7 @@ vout!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
         };
 
         let final_ftype = Type::f(inf_arg_types, funcx.typ.clone());
+print!("final_ftype> {:?}\n", final_ftype);
         self.define_func(
             name.clone(),
             final_ftype,

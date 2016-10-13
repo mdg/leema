@@ -50,6 +50,7 @@ pub enum Type
     Id(Arc<String>),
     Texpr(Arc<String>, Vec<Type>),
     Var(Arc<String>),
+    Infernode(Box<Type>, Box<Type>),
     AnonVar,
 }
 
