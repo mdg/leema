@@ -1,32 +1,9 @@
 
 use leema::val::{Val};
 use leema::compile::{Iexpr};
+use leema::module;
 use std::collections::{HashMap, HashSet};
 
-
-pub struct Interloader
-{
-    file: HashMap<String, String>,
-    smod: HashMap<String, Val>,
-    intermod: HashMap<String, Imodule>
-}
-
-/*
-Smodule =
-|imports
-|makros
-|types
-|funcs
-|repl_stmt
---
-
-Imodule =
-|imports
-|makros
-|types
-|func
---
-*/
 
 /*
 calling push leema code from rust
@@ -43,20 +20,33 @@ iexpr type' func body (and cache)
 module scope
 function scope
 
-read_module -> sexpr module in cache
-load_module -> sexpr module in cache
-- read imports
+read_module ->
+    open file, read contents, init Module
+--
+import module ->
+    read_module, assign raw funcs, assign type0 funcs
+--
+load_module ->
+    import module
+--
+load func(mod, func) ->
+    m = self.import_module(mod)
+    f0 = m.get_type0_func(func)
+    ft = self.resolve_types(f0)
+--
 */
 
+pub struct Interloader
+{
+    module: HashMap<String, Module>,
+}
 
 impl Interloader
 {
     pub fn new() -> Interloader
     {
         Interloader{
-            file: HashMap::new(),
-            smod: HashMap::new(),
-            interfunc: HashMap::new(),
+            module: HashMap::new(),
         }
     }
 

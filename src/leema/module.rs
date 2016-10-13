@@ -1,4 +1,4 @@
-use std::collections::{HashMap};
+use std::collections::{HashMap, HashSet};
 
 
 /*
@@ -16,6 +16,10 @@ struct module
 pub struct Module
 {
     name: String,
-    imports: HashMap<String, bool>,
+    file: String,
+    imports: HashSet<String>,
     macros: HashMap<String, Val>,
+    raw_func: HashMap<String, Val>,
+    type0_func: HashMap<String, Iexpr>,
+    typed_func: HashMap<String, Iexpr>,
 }
