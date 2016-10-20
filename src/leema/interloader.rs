@@ -1,6 +1,6 @@
 
 use leema::val::{Val};
-use leema::compile::{Iexpr};
+use leema::compile::{Iexpr, Source};
 use leema::module;
 use std::collections::{HashMap, HashSet};
 
@@ -21,35 +21,46 @@ module scope
 function scope
 
 read_module ->
-    open file, read contents, init Module
+    open file
+    return init_module( parse(lex(read(file))))
 --
-import module ->
-    read_module, assign raw funcs, assign type0 funcs
+import module(depth) ->
+    m = read_module
+    assign imports
+    assign macros
+    assign raw funcs
+    assign type0 funcs
 --
 load_module ->
-    import module
+    if module_loaded {
+        return loaded_module
+    }
+    return import module
 --
-load func(mod, func) ->
-    m = self.import_module(mod)
+load_func(mod, func) ->
+    m = self.load_module(mod)
     f0 = m.get_type0_func(func)
     ft = self.resolve_types(f0)
 --
-*/
 
-pub struct Interloader
-{
-    module: HashMap<String, Module>,
-}
+load_code(mod, func): Code ->
+--
+load_code_by_type(mod, func, param_types): Code ->
+--
+
+typecheck_module(mod) ->
+    let m = load_module(mod)
+    for import_mod in m.imports {
+        typecheck_module(import_mod)
+    }
+    for f in m.functions {
+        self.resolve_types(f)
+    }
+--
+*/
 
 impl Interloader
 {
-    pub fn new() -> Interloader
-    {
-        Interloader{
-            module: HashMap::new(),
-        }
-    }
-
     pub fn load_func(&mut self, module: &str, func: &str) -> Iexpr
     {
         let smod = self.read_module(module);
@@ -58,26 +69,36 @@ impl Interloader
         self.interize(sfunc)
     }
 
-    pub fn load_module(&mut self, module: &str)
+    pub fn load_module(&mut self, module: &str) -> &Module
     {
-        self.import_module(module, true);
+        if !self.module.contains_key(module) {
+            self.import_module(module);
+        }
+        self.module.get(module).unwrap()
     }
 
-    fn read_module(&mut self, module: &str, primary: bool) -> &Val
+    pub fn read_module(&mut self, module: &str) -> &Val
     {
-        if self.smod.contains_key(module) {
-            return self.smod.get(module).unwrap();
-        }
+        let mod_fname = module_filename(module);
+        let smod = ast::parse(mod_fname);
+        self.module.new(module, smod)
+    }
+
+    fn import_module(&mut self, module: &str)
+    {
+        /*
+        m = read_module
+        assign imports
+        assign macros
+        assign raw funcs
+        assign type0 funcs
+        */
 
         let mod_fname = module_filename(module);
         let smod = ast::parse(mod_fname);
-        self.smod.insert(module, smod);
-        self.smod.get(module).unwrap()
-    }
 
-    fn import_module(&mut self, smod: &Val)
-    {
         let (imports, makros, rem_smod) = Sexpr::split_module(smod);
+        /*
         for imp in imports {
             if primary {
                 self.import_module(imp, false);
@@ -85,63 +106,46 @@ impl Interloader
                 self.add_import(imp);
             }
         }
+        */
         for makro in makros {
             self.add_macro(module, makro);
         }
-        self.smod.insert(module, rem_smod);
-    }
-
-    fn import_module(&mut self, module: &str, primary: bool)
-    {
-        if self.smod.contains_key(module) {
-            return self.smod.get(module).unwrap();
-        }
-
-        let mod_fname = module_filename(module);
-        let smod = ast::parse(mod_fname);
-
-        let (imports, makros, rem_smod) = Sexpr::split_module(smod);
-        for imp in imports {
-            if primary {
-                self.import_module(imp, false);
-            } else {
-                self.add_import(imp);
-            }
-        }
-        for makro in makros {
-            self.add_macro(module, makro);
-        }
-        self.smod.insert(module, rem_smod);
     }
 
     fn find_sfunc(&mut self, module: &str, func: &str) -> Option<&Val>
     {
+        /*
         let opt_smod = self.smod.get(module);
         if opt_smod.is_none() {
             return opt_smod;
         }
+        */
         // for f in Sexpr::iter(smod.unwrap()) {}
+        None
     }
 
     fn interize(&mut self, smod: &Val) -> Iexpr
     {
+        /*
         imod = HashMap::new();
         for func in smod {
-            self.scope.push_func_scope();
+            //self.scope.push_func_scope();
             let ifunc = vec![];
             for code in func {
                 ifunc.push(self.interize(code));
             }
-            pop_func_scope();
+            //pop_func_scope();
             imod.insert(func.name, ifunc);
         }
         imod
+        */
+        Iexpr::new(Source::Void)
     }
 
     pub fn resolve_types(ifunc: Iexpr) -> Iexpr
     {
+        /*
         for e in ifunc {
-            /*
             if e.t resolves to t' {
                 e.t = t'
             } else {
@@ -150,8 +154,9 @@ impl Interloader
                     resolve_types(inner_ifunc)
                 }
             }
-            */
         }
+            */
+        Iexpr::new(Source::Void)
     }
 
     fn add_import(&self, module: &str, import_mod: Val)

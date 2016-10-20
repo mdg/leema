@@ -60,7 +60,7 @@ pub struct Iexpr
 
 impl Iexpr
 {
-    fn new(src: Source) -> Iexpr
+    pub fn new(src: Source) -> Iexpr
     {
         Iexpr{
             dst: Reg::Undecided,
