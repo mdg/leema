@@ -9,7 +9,7 @@ use std::io::{stderr, Write};
 }
 
 %start_symbol {program}
-%derive_token {Debug,PartialEq}
+%derive_token {Debug,Clone,PartialEq}
 %wildcard ANY.
 %extra_argument { Result<Ast, i32> }
 
