@@ -110,7 +110,7 @@ mod tests {
 
 #[test]
 fn test_ast_parse_plus() {
-    let input = "5 + 3\n".to_string();
+    let input = "5 + 3\n";
     let lexed = lex(input);
     let root = Ast::parse(lexed);
     let xargs = vec![Val::Int(5), Val::Int(3)];
@@ -122,7 +122,7 @@ fn test_ast_parse_plus() {
 
 #[test]
 fn test_ast_parse_strlit() {
-    let input = "\"taco\"\n".to_string();
+    let input = "\"taco\"\n";
     let root = Ast::parse(lex(input));
 
     let expected = Ast::ReplRoot(sexpr::new(SexprType::BlockExpr,
@@ -133,7 +133,7 @@ fn test_ast_parse_strlit() {
 
 #[test]
 fn test_ast_parse_string_id() {
-    let input = "\"$var\"\n".to_string();
+    let input = "\"$var\"\n";
     let root = Ast::parse(lex(input));
 
     let expected = Ast::ReplRoot(sexpr::new(SexprType::BlockExpr,
@@ -144,7 +144,7 @@ fn test_ast_parse_string_id() {
 
 #[test]
 fn test_ast_parse_string_list() {
-    let input = "\"hello $name\n\"\n".to_string();
+    let input = "\"hello $name\n\"\n";
     let root = Ast::parse(lex(input));
 
     let part1 = Val::new_str("hello ".to_string());
@@ -165,7 +165,7 @@ fn test_ast_parse_string_list() {
 
 #[test]
 fn test_ast_parse_plus_twice() {
-    let input = "5 + 3 + 2\n".to_string();
+    let input = "5 + 3 + 2\n";
     let root = Ast::parse(lex(input));
 
     let first_add = sexpr::call(Val::id("int_add".to_string()),
@@ -184,7 +184,7 @@ fn test_ast_parse_plus_twice() {
 #[test]
 fn test_ast_parse_call_one_param()
 {
-    let input = "inc(~4)\n".to_string();
+    let input = "inc(~4)\n";
     let root = Ast::parse(lex(input));
 
     let neg4 = sexpr::call(
@@ -201,7 +201,7 @@ fn test_ast_parse_call_one_param()
 
 #[test]
 fn test_ast_parse_function_call() {
-    let input = "foo(7, 2)\n".to_string();
+    let input = "foo(7, 2)\n";
     let root = Ast::parse(lex(input));
 
     let xargs = vec![Val::Int(7), Val::Int(2)];
@@ -213,7 +213,7 @@ fn test_ast_parse_function_call() {
 
 #[test]
 fn test_ast_parse_tuple() {
-    let input = "(3, \"taco\", true)\n".to_string();
+    let input = "(3, \"taco\", true)\n";
     let root = Ast::parse(lex(input));
 
     let xtup = list::singleton(Val::Tuple(vec![
@@ -227,7 +227,7 @@ fn test_ast_parse_tuple() {
 
 #[test]
 fn test_ast_parse_list_empty() {
-    let input = "[]\n".to_string();
+    let input = "[]\n";
     let root = Ast::parse(lex(input));
 
     let expected = Ast::ReplRoot(sexpr::new(
@@ -238,7 +238,7 @@ fn test_ast_parse_list_empty() {
 
 #[test]
 fn test_ast_parse_list() {
-    let input = "[1, 2, x]\n".to_string();
+    let input = "[1, 2, x]\n";
     let root = Ast::parse(lex(input));
 
     let xlist = list::cons(Val::Int(1),
@@ -254,7 +254,7 @@ fn test_ast_parse_list() {
 
 #[test]
 fn test_ast_parse_list_cons() {
-    let input = "[1, 2; x]\n".to_string();
+    let input = "[1, 2; x]\n";
     let root = Ast::parse(lex(input));
 
     let prefix_list =
@@ -280,7 +280,7 @@ fn test_call_function_plus_comma()
     func main() ->
         foo(x+1, 40)
     --
-    ".to_string();
+    ";
     Ast::parse(lex(input));
 }
 
@@ -291,7 +291,7 @@ fn test_call_function_comma_plus()
     func main() ->
         foo(40, x+1)
     --
-    ".to_string();
+    ";
     Ast::parse(lex(input));
 }
 
@@ -306,7 +306,7 @@ fn test_parse_multiple_param_func()
     func main() ->
         doubles(5, 10)
     --
-    ".to_string();
+    ";
     Ast::parse(lex(input));
 }
 
@@ -319,7 +319,7 @@ fn test_ast_parse_if()
     else ->
         z
     --
-    ".to_string();
+    ";
     let root = Ast::parse(lex(input));
 
     let blocka = sexpr::new(SexprType::BlockExpr, list::singleton(
@@ -343,7 +343,7 @@ fn test_ast_parse_if()
 #[test]
 fn test_ast_parse_if_no_else()
 {
-    let input = "if x -> y --".to_string();
+    let input = "if x -> y --";
     let root = Ast::parse(lex(input));
 
     let blocka = sexpr::new(SexprType::BlockExpr, list::singleton(
@@ -371,7 +371,7 @@ fn test_ast_parse_macro()
         |else -> false
         --
     --
-    ".to_string();
+    ";
     let root = Ast::parse(lex(input));
 
     let blocka = sexpr::new(SexprType::BlockExpr, list::singleton(
@@ -408,7 +408,7 @@ fn test_ast_parse_macro()
 #[test]
 fn test_parse_call_function_call_result()
 {
-    let input = "(foo(5))(6)".to_string();
+    let input = "(foo(5))(6)";
     let root = Ast::parse(lex(input));
 
     let expected = Ast::ReplRoot(sexpr::new_block(list::singleton(
@@ -434,7 +434,7 @@ fn test_parse_defstruct()
     .id: Int
     .name: Str
     --
-    ".to_string();
+    ";
     let root = Ast::parse(lex(input));
 
     let expected = Ast::ReplRoot(sexpr::new_block(list::singleton(
@@ -456,7 +456,7 @@ fn test_parse_match_list()
     |[h;t] -> h
     |_ -> false
     --
-    ".to_string();
+    ";
     let root = Ast::parse(lex(input));
 
     let expected = Ast::ReplRoot(sexpr::new_block(list::singleton(
@@ -477,7 +477,7 @@ fn test_parse_match_list()
 #[test]
 fn test_parse_constructor_call()
 {
-    let input = "Taco(1, 2)".to_string();
+    let input = "Taco(1, 2)";
     let root = Ast::parse(lex(input));
 
     let expected = Ast::ReplRoot(sexpr::new_block(list::singleton(
@@ -493,7 +493,7 @@ fn test_parse_constructor_call()
 #[test]
 fn test_parse_strlit_field_access()
 {
-    let input = "\"hello ${dog.name}\"".to_string();
+    let input = "\"hello ${dog.name}\"";
     let root = Ast::parse(lex(input));
 
     let expected = Ast::ReplRoot(sexpr::new_block(list::singleton(
@@ -516,7 +516,7 @@ fn test_parse_let_plus_negation()
     let input = "
     let x := 4 + 8
     ~x
-    ".to_string();
+    ";
     let root = Ast::parse(lex(input));
 
     let expected = Ast::ReplRoot(sexpr::new_block(
@@ -545,7 +545,7 @@ fn test_parse_let_plus_tuple()
     let input = "
     let x := 4 + y
     (x, z)
-    ".to_string();
+    ";
     let root = Ast::parse(lex(input));
 
     let expected = Ast::ReplRoot(sexpr::new_block(

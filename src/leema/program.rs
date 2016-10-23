@@ -4,7 +4,7 @@ use std::collections::{HashMap};
 
 pub struct Lib
 {
-    modules: HashMap<String, Intermod>,
+    intermod: HashMap<String, Intermod>,
     version: Version,
 }
 
@@ -13,7 +13,7 @@ impl Lib
     pub fn new(v: Version) -> Lib
     {
         Lib{
-            modules: HashMap::new(),
+            intermod: HashMap::new(),
             version: v,
         }
     }

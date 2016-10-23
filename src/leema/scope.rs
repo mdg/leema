@@ -300,10 +300,10 @@ pub struct ModuleScope
 
 impl ModuleScope
 {
-    pub fn new(name: &String) -> ModuleScope
+    pub fn new(name: &str) -> ModuleScope
     {
         ModuleScope{
-            name: name.clone(),
+            name: String::from(name),
             _macros: HashMap::new(),
             _type_defs: HashMap::new(),
         }
@@ -331,7 +331,7 @@ pub struct Scope
 
 impl Scope
 {
-    pub fn new(scope_nm: &String) -> Scope
+    pub fn new(scope_nm: &str) -> Scope
     {
         Scope{
             _module: ModuleScope::new(scope_nm),

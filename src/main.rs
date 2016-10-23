@@ -67,7 +67,7 @@ fn real_main() -> i32
 
     let interload = Interloader::new();
     let mut prog = program::Lib::new(Version::Sin);
-    typecheck::module(&mut prog, &args.arg_file);
+    typecheck::module(&mut prog, interload, &args.arg_file);
 
     /*
     let app = Application::new(program);

@@ -408,7 +408,7 @@ pub fn define_prefab(ss: &mut StaticSpace)
     define_macros(ss);
 }
 
-pub fn new_staticspace(name: &String) -> StaticSpace
+pub fn new_staticspace(name: &str) -> StaticSpace
 {
     let mut ss = StaticSpace::new(name);
     define_prefab(&mut ss);

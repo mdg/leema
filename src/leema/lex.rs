@@ -274,13 +274,13 @@ pub fn lex(mut str_input: &str) -> Vec<Token>
 #[cfg(test)]
 mod tests
 {
-    use parse::Token;
+    use leema::parse::Token;
     use leema::ast::{TokenData, TokenLoc};
 
 #[test]
 fn test_lex_int()
 {
-    let actual = super::lex("5".to_string());
+    let actual = super::lex("5");
     assert_eq!(1, actual.len());
     assert_eq!(Token::INT(5), actual[0]);
 }
@@ -288,7 +288,7 @@ fn test_lex_int()
 #[test]
 fn test_lex_minus_int()
 {
-    let actual = super::lex("-7".to_string());
+    let actual = super::lex("-7");
     assert_eq!(2, actual.len());
     assert_eq!(Token::MINUS, actual[0]);
     assert_eq!(Token::INT(7), actual[1]);
@@ -297,7 +297,7 @@ fn test_lex_minus_int()
 #[test]
 fn test_lex_string_id()
 {
-    let actual = super::lex("\"hello $who\n\"".to_string());
+    let actual = super::lex("\"hello $who\n\"");
     assert_eq!(5, actual.len());
 
     assert_eq!(Token::StrOpen, actual[0]);

@@ -973,7 +973,7 @@ fn test_main_func_finishes()
 {
 let p = unsafe { getpid(); };
 write!(stderr(), "test_main_func_finishes {:?}\n", p);
-    let input = "func main() -> 3 --".to_string();
+    let input = "func main() -> 3 --";
     let mut ss = prefab::new_staticspace(&"tacos".to_string());
     ss.compile(Ast::parse(lex(input)).root());
 

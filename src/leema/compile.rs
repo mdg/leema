@@ -267,7 +267,7 @@ pub struct StaticSpace
 
 impl StaticSpace
 {
-    pub fn new(name: &String) -> StaticSpace
+    pub fn new(name: &str) -> StaticSpace
     {
         StaticSpace{
             scope: Scope::new(name),
@@ -1277,9 +1277,9 @@ fn call_with_no_params(fs: &mut Frame)
 #[test]
 fn test_compile_call_no_params()
 {
-    let input = "no_params()\n".to_string();
+    let input = "no_params()\n";
     let root = Ast::parse(lex(input));
-    let mut ss = prefab::new_staticspace(&"tacos".to_string());
+    let mut ss = prefab::new_staticspace("tacos");
     ss.define_func(Arc::new("no_params".to_string()),
         Type::f(vec![], Type::Void),
         Code::Rust(call_with_no_params),
@@ -1319,9 +1319,9 @@ fn test_compile_macro()
         |else -> false
         --
     --
-    ".to_string();
+    ";
     let root = Ast::parse(lex(input));
-    let mut ss = prefab::new_staticspace(&"tacos".to_string());
+    let mut ss = prefab::new_staticspace("tacos");
 
     let iprog = ss.compile(root.root());
     let expected = Iexpr{
@@ -1397,9 +1397,9 @@ fn test_precompile_if_block()
     else ->
         2
     --
-    ".to_string();
+    ";
     let root = Ast::parse(lex(input));
-    let mut ss = prefab::new_staticspace(&"tacos".to_string());
+    let mut ss = prefab::new_staticspace("tacos");
     let ifprog = ss.compile(root.root());
 
     let test = Iexpr{
@@ -1450,7 +1450,7 @@ fn test_precompile_if_block()
 #[test]
 fn test_compile_func_oneline_untyped()
 {
-    let input = "func inc(x) -> x + 1 --".to_string();
+    let input = "func inc(x) -> x + 1 --";
     let root = Ast::parse(lex(input));
     let mut ss = prefab::new_staticspace(&"tacos".to_string());
 
@@ -1475,7 +1475,7 @@ fn test_compile_and_call_func()
         let h := make_hash()
         cout(\"hello $h\n\")
     --
-    ".to_string();
+    ";
     let root = Ast::parse(lex(input));
     let mut ss = prefab::new_staticspace(&"tacos".to_string());
 
@@ -1490,7 +1490,7 @@ fn test_compile_strx_field_access()
         .fld: Int
     --
     func foo_fld(s: Foo): Str -> \"hello ${s.fld}\" --
-    ".to_string();
+    ";
     let root = Ast::parse(lex(input));
     let mut ss = prefab::new_staticspace(&"tacos".to_string());
 
@@ -1510,7 +1510,7 @@ fn test_compile_strx_field_access()
 #[test]
 fn test_compile_main_func()
 {
-    let input = "func main() -> 1 --".to_string();
+    let input = "func main() -> 1 --";
     let root = Ast::parse(lex(input));
     let mut ss = prefab::new_staticspace(&"tacos".to_string());
 
