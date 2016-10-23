@@ -38,7 +38,7 @@ const YYERRORSYMBOL: i32 = 0;
 
 /* TMPL: action tables */
 
-#[derive(Debug,PartialEq
+#[derive(Debug,Clone,PartialEq
 )]
 pub enum Token {
     EOI, //0

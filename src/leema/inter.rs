@@ -1,9 +1,25 @@
 
 use leema::val::{Val};
 use leema::compile::{Iexpr, Source};
-use leema::module;
+use leema::ast::{Ast};
+use leema::lex::{lex};
 use std::collections::{HashMap, HashSet};
+use std::fs::File;
+use std::io::Read;
 
+
+#[derive(PartialEq)]
+#[derive(Eq)]
+#[derive(PartialOrd)]
+#[derive(Ord)]
+#[derive(Clone)]
+#[derive(Copy)]
+#[derive(Debug)]
+pub enum Version
+{
+    Sin,
+    Cos,
+}
 
 /*
 calling push leema code from rust
@@ -59,32 +75,119 @@ typecheck_module(mod) ->
 --
 */
 
+
+/*
+struct module
+- name
+- list imports
+- map str:val makros
+- // map str:Val raw_types
+- map str:Val raw_func
+- map str:Type type0_types
+- map str:Iexpr type0_func
+- map str:Type typen_types
+- map str:Iexpr typen_func
+*/
+pub struct Intermod
+{
+    name: String,
+    file: String,
+    version: Version,
+    srctext: String,
+    sexpr: Val,
+    imports: HashSet<String>,
+    macros: HashMap<String, Val>,
+    srcfunc: HashMap<String, Val>,
+    interfunc: HashMap<String, Iexpr>,
+}
+
+impl Intermod
+{
+    pub fn new(name: &str, fname: &str, ver: Version, content: String) -> Intermod
+    {
+        let tokens = lex(&content);
+        let smod_ast = Ast::parse(tokens.clone());
+        let smod = Ast::root(smod_ast);
+        let imports = HashSet::new();
+        let makros = HashMap::new();
+        let srcfunc = HashMap::new();
+        let interfunc = HashMap::new();
+
+        Intermod{
+            name: String::from(name),
+            file: String::from(fname),
+            version: ver,
+            srctext: content,
+            sexpr: smod,
+            imports: imports,
+            macros: makros,
+            srcfunc: srcfunc,
+            interfunc: interfunc,
+        }
+    }
+
+    pub fn name(name_or_file: &str) -> String
+    {
+        String::from(name_or_file)
+    }
+
+    pub fn filename(module_name: &str) -> String
+    {
+        format!("{}.lma", module_name)
+    }
+}
+
+
+pub struct Interloader
+{
+    files: HashMap<String, String>,
+}
+
 impl Interloader
 {
+    pub fn new() -> Interloader
+    {
+        Interloader{
+            files: HashMap::new(),
+        }
+    }
+
+    pub fn set_file(&mut self, modname: &str, content: String)
+    {
+        self.files.insert(String::from(modname), content);
+    }
+
     pub fn load_func(&mut self, module: &str, func: &str) -> Iexpr
     {
+        /*
         let smod = self.read_module(module);
         let sfunc = self.find_sfunc(module, func);
         let ifunc = self.import_module(sfunc);
         self.interize(sfunc)
+        */
+        Iexpr::new(Source::Void)
     }
 
-    pub fn load_module(&mut self, module: &str) -> &Module
+    pub fn load_module(&mut self, mod_name: &str, ver: Version) -> Intermod
     {
-        if !self.module.contains_key(module) {
-            self.import_module(module);
+        let mod_fname = Intermod::filename(mod_name);
+        let mod_content = self.read_file(&mod_fname);
+        Intermod::new(mod_name, &mod_fname, ver, mod_content)
+    }
+
+    pub fn read_file(&self, file_name: &str) -> String
+    {
+        if self.files.contains_key(file_name) {
+            self.files.get(file_name).unwrap().clone()
+        } else {
+            let mut result = String::new();
+            let mut f = File::open(file_name).ok().unwrap();
+            f.read_to_string(&mut result);
+            result
         }
-        self.module.get(module).unwrap()
     }
 
-    pub fn read_module(&mut self, module: &str) -> &Val
-    {
-        let mod_fname = module_filename(module);
-        let smod = ast::parse(mod_fname);
-        self.module.new(module, smod)
-    }
-
-    fn import_module(&mut self, module: &str)
+    fn import_module(&mut self, modname: &str)
     {
         /*
         m = read_module
@@ -92,13 +195,10 @@ impl Interloader
         assign macros
         assign raw funcs
         assign type0 funcs
-        */
 
-        let mod_fname = module_filename(module);
-        let smod = ast::parse(mod_fname);
+        let mod_fname = module::filename(modname);
 
         let (imports, makros, rem_smod) = Sexpr::split_module(smod);
-        /*
         for imp in imports {
             if primary {
                 self.import_module(imp, false);
@@ -106,10 +206,10 @@ impl Interloader
                 self.add_import(imp);
             }
         }
-        */
         for makro in makros {
             self.add_macro(module, makro);
         }
+        */
     }
 
     fn find_sfunc(&mut self, module: &str, func: &str) -> Option<&Val>
@@ -172,16 +272,6 @@ impl Interloader
         // self.smod.insert(module, smod);
         // let iftype = Interloader::interface_type(smod);
         // self.store_provisional_interface(module, iftype);
-    }
-
-    pub fn module_name(name_or_file: &str) -> String
-    {
-        name_or_file.to_string()
-    }
-
-    pub fn module_filename(name_or_file: &str) -> String
-    {
-        format!("{}.lma", module_name(name_or_file))
     }
 }
 

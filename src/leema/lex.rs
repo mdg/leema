@@ -241,10 +241,10 @@ impl Token
 }
 
 
-pub fn lex(mut input: String) -> Vec<Token>
+pub fn lex(mut str_input: &str) -> Vec<Token>
 {
     // need to append \0 so C library knows where the string stops
-    input.push_str("\0");
+    let input = format!("{}\0", str_input);
     let lexer;
     unsafe {
         lexer = lib_lexscan(input.as_ptr());

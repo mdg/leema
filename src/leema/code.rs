@@ -17,8 +17,10 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct ModSym (pub String, pub String);
 
-impl fmt::Display for ModSym {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl fmt::Display for ModSym
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
         match *self {
             ModSym(ref module, ref symbol) => {
                 write!(f, "{}::{}", module, symbol)
@@ -29,7 +31,8 @@ impl fmt::Display for ModSym {
 
 #[derive(Debug)]
 #[derive(Clone)]
-pub enum Op {
+pub enum Op
+{
     LoadFunc(Reg, ModSym),
     ApplyFunc(Reg, Reg, Reg),
     Return,
@@ -52,7 +55,8 @@ pub enum Op {
 
 pub type OpVec = Vec<Op>;
 
-impl Op {
+impl Op
+{
     pub fn print_list(ops: &OpVec)
     {
         for op in ops {
@@ -64,7 +68,8 @@ impl Op {
 
 pub type RustFunc = fn(&mut frame::Frame) -> ();
 
-trait RustFunc2 {
+trait RustFunc2
+{
     fn call(&mut self, env: &mut frame::Frame) -> ();
 }
 

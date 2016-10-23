@@ -1,9 +1,7 @@
 use leema::val::{Val, Type};
-use leema::lex::{lex};
 use leema::log;
 use leema::parse::{Parser, Token};
 use std::collections::HashMap;
-use std::fs::File;
 use std::io::prelude::*;
 use std::io::{stderr};
 
@@ -38,6 +36,7 @@ impl TokenLoc
     }
 }
 
+#[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub struct TokenData<T>
@@ -73,7 +72,8 @@ pub enum Ast {
 
 impl Ast
 {
-    pub fn parse(toks: Vec<Token>) -> Ast {
+    pub fn parse(toks: Vec<Token>) -> Ast
+    {
         let e = Err(0);
         let mut p = Parser::new(e);
         for t in toks {
@@ -94,48 +94,6 @@ impl Ast
         }
     }
 
-}
-
-
-pub struct Loader
-{
-    files: HashMap<String, String>,
-}
-
-impl Loader
-{
-    pub fn new() -> Loader
-    {
-        Loader{
-            files: HashMap::new(),
-        }
-    }
-
-    pub fn set_file(&mut self, file: String, contents: String)
-    {
-        self.files.insert(file, contents);
-    }
-
-    fn load(&self, filename: &String) -> String
-    {
-        let ready_file = self.files.get(filename);
-        if ready_file.is_some() {
-            return ready_file.unwrap().clone();
-        }
-
-        let mut f: File = File::open(filename).unwrap();
-        let mut input = String::new();
-        f.read_to_string(&mut input).ok();
-        input
-    }
-
-    pub fn parse(&self, filename: &String) -> Ast
-    {
-        let str = self.load(filename);
-        let tokens = lex(str);
-vout!("tokens: {:?}\n", tokens);
-        Ast::parse(tokens)
-    }
 }
 
 

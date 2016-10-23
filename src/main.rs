@@ -8,9 +8,11 @@ use leema::frame::{self, Frame};
 use leema::prefab;
 use leema::val::{Env, Val};
 use leema::code::{CodeKey};
-use leema::interloader::{Interloader};
+use leema::inter::{Interloader, Version};
 use leema::compile::{self, StaticSpace};
+use leema::program;
 use leema::application::{Application};
+use leema::typecheck;
 use leema::ast;
 use std::io::{stderr, Write};
 use std::fs;
@@ -63,21 +65,12 @@ fn real_main() -> i32
     }
     vout!("verbose mode\nargs:{:?}\n", args);
 
+    let interload = Interloader::new();
+    let mut prog = program::Lib::new(Version::Sin);
+    typecheck::module(&mut prog, &args.arg_file);
+
     /*
-    let interspace = {
-        let interloader = InterLoader::new();
-        interloader.load_module("prefab");
-        interloader.load_root_file(args.arg_file);
-        interloader.take_space()
-    };
-    */
-
-    let modname = Interloader::module_name(&args.arg_file);
-    let inter = Interloader::new();
-    inter.load_module("prefab");
-    inter.load_module(&modname);
-
-    let app = Application::new(inter);
+    let app = Application::new(program);
     app.push_call(&modname, "main");
     let result = app.run();
     match result {
@@ -90,5 +83,6 @@ fn real_main() -> i32
         }
         _ => {}
     }
+    */
     return 0;
 }

@@ -2,6 +2,7 @@ use leema::val::{Val, Type};
 use leema::code::{Code};
 use leema::frame::{Frame};
 use leema::compile::{self, StaticSpace};
+use leema::inter::{Interloader};
 use leema::list;
 use leema::log;
 use leema::ast;
@@ -320,10 +321,10 @@ fn define_macros(ss: &mut StaticSpace)
         |else -> b
         --
     --
-    ".to_string();
+    ";
 
-    let mut loader = ast::Loader::new();
-    loader.set_file("prefab_macros".to_string(), input);
+    let mut loader = Interloader::new();
+    loader.set_file("prefab_macros", String::from(input));
     compile::file(&loader, &"prefab_macros".to_string());
     vout!("prefab macros compiled\n");
 }

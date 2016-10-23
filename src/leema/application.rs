@@ -1,14 +1,22 @@
+use leema::compile::{Iexpr, Source};
+use leema::inter::{Interloader};
+use leema::code::{Code, CodeMap};
+use leema::val::{Val};
+
+use std::collections::{HashMap, HashSet};
+use std::mem;
 
 
 struct Worker
 {
     code: HashMap<(String, String), Code>,
-    app_channel: Channel<CodeRequest>,
+    // app_channel: Channel<CodeRequest>,
     code_request_idx: u64,
 }
 
 impl Worker
 {
+    /*
     pub fn new(app_ch: Channel<AppRequest>) -> Worker
     {
         Worker{
@@ -17,15 +25,17 @@ impl Worker
             code_request_idx: 0,
         }
     }
+    */
 
     pub fn call_func(&mut self, module: &str, func: &str)
     {
-        push_frame(get_code(module, func))
+        //push_frame(get_code(module, func))
     }
 
+    /*
     pub fn get_code(&mut self, module: &str, func: &str)
     {
-        c = code.find(module, func);
+        c = self.code.find(module, func);
         if c.is_none() {
             i = self.new_code_request();
             c = self.app_channel.push(CodeRequest(i, module, func));
@@ -33,6 +43,7 @@ impl Worker
         }
         c
     }
+    */
 
     pub fn new_code_request(&mut self) -> u64
     {
@@ -51,7 +62,7 @@ pub struct Application
 
 impl Application
 {
-    pub fn new(i: Interload) -> Application
+    pub fn new(i: Interloader) -> Application
     {
         Application{
             inter: i,
@@ -66,6 +77,7 @@ impl Application
 
     pub fn run(&mut self) -> Val
     {
+        Val::Void
     }
 
     pub fn init_module(&mut self, module: &str)
@@ -78,54 +90,57 @@ impl Application
 
     pub fn take_result(&mut self) -> Val
     {
+        let mut tmp = Val::Void;
+        mem::swap(&mut self.result, &mut tmp);
+        tmp
     }
 
-    pub fn get_interface_code(module: &str, func: &str, typ: &Type) {}
-    pub fn get_protocol_code(module: &str, func: &str, typ: &Vec<Type>) {}
-    pub fn load_code(&mut self, module: &str, func: &str)
+    // pub fn get_interface_code(module: &str, func: &str, typ: &Type) {}
+    // pub fn get_protocol_code(module: &str, func: &str, typ: &Vec<Type>) {}
+    /*
+    pub fn load_code(&mut self, module: &str, func: &str) -> OpVec
     {
         if self.lib.contains(module, func) {
             return self.lib.get((module, func))
         }
+        / *
         let ifunc = self.inter.load_func(module, func);
         let tfunc = self.inter.resolve_types(ifunc);
         let new_code = code::make_ops(tfunc);
         self.lib.insert((module, func), new_code);
         new_code
+        * /
+        vec![]
     }
+    */
 
-    pub fn make_code(func: &Iexpr) -> Code
+    pub fn make_code(func: &Iexpr) // -> Code
     {
+        /*
         imod = load_imod(module);
         ifunc = get_ifunc(imod, func);
         store_resolved_interface(module, func, tfunc);
         cfunc = tfunc_to_code(tfunc);
         cfunc
+        */
     }
 
-    pub fn type_mod(module: &str, func: &str) -> FuncType
+    pub fn type_mod(module: &str, func: &str) // -> FuncType
     {
+        /*
         imod = interload.load_mod(module);
         ifunc = load_func(imod, func);
         tfunc = self.type_check(ifunc);
         self.ftypes.insert((module, func), tfunc);
         tfunc
+        */
     }
 }
 
-struct ModuleLib
-{
-    imports: HashSet<String>,
-    lib: HashMap<String, Module>,
-}
-
+/*
 struct FunctionLib
 {
     code: HashMap<String, Code>,
-}
-
-struct Interloader
-{
 }
 
 struct TypeLoad
@@ -135,6 +150,7 @@ struct TypeLoad
 struct RunLoad
 {
 }
+*/
 
 /*
 enum Stype

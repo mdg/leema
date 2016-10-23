@@ -4,7 +4,8 @@ use leema::log;
 use leema::sexpr;
 use leema::scope::Scope;
 use leema::reg::{Reg, Ireg};
-use leema::ast;
+use leema::ast::{self, Ast};
+use leema::inter::{Interloader};
 use leema::code::{self, CodeKey, CodeMap, Code, OpVec};
 use std::collections::{HashMap};
 use std::sync::Arc;
@@ -1231,11 +1232,12 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
     }
 }
 
-pub fn file(loader: &ast::Loader, mod_name: &String) -> StaticSpace
+pub fn file(inter: &Interloader, mod_name: &String) -> StaticSpace
 {
     let mut ss = StaticSpace::new(mod_name);
-    let ast = loader.parse(mod_name);
-    let script = ss.compile(ast.root());
+    /*
+    let ast = inter.parse(mod_name);
+    let script = ss.compile(Ast::root(ast));
     if script.src != Source::Void {
         let stype = script.typ.clone();
         ss.define_func(
@@ -1244,6 +1246,7 @@ pub fn file(loader: &ast::Loader, mod_name: &String) -> StaticSpace
             Code::Inter(Arc::new(script)),
         );
     }
+    */
     ss
 }
 
