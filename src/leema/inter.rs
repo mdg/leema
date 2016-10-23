@@ -3,9 +3,12 @@ use leema::val::{Val};
 use leema::compile::{Iexpr, Source};
 use leema::ast::{Ast};
 use leema::lex::{lex};
+
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
+use std::path::{Path, PathBuf};
 use std::io::Read;
+use std::borrow::{Cow};
 
 
 #[derive(PartialEq)]
@@ -20,6 +23,7 @@ pub enum Version
     Sin,
     Cos,
 }
+
 
 /*
 calling push leema code from rust
@@ -76,23 +80,12 @@ typecheck_module(mod) ->
 */
 
 
-/*
-struct module
-- name
-- list imports
-- map str:val makros
-- // map str:Val raw_types
-- map str:Val raw_func
-- map str:Type type0_types
-- map str:Iexpr type0_func
-- map str:Type typen_types
-- map str:Iexpr typen_func
-*/
+#[derive(Debug)]
 pub struct Intermod
 {
     name: String,
-    file: String,
-    version: Version,
+    file: Option<PathBuf>,
+    version: Option<Version>,
     srctext: String,
     sexpr: Val,
     imports: HashSet<String>,
@@ -103,7 +96,9 @@ pub struct Intermod
 
 impl Intermod
 {
-    pub fn new(name: &str, fname: &str, ver: Version, content: String) -> Intermod
+    pub fn new(name: &str, fname: Option<PathBuf>, ver: Option<Version>
+        , content: String
+    ) -> Intermod
     {
         let tokens = lex(&content);
         let smod_ast = Ast::parse(tokens.clone());
@@ -115,7 +110,7 @@ impl Intermod
 
         Intermod{
             name: String::from(name),
-            file: String::from(fname),
+            file: fname,
             version: ver,
             srctext: content,
             sexpr: smod,
@@ -138,9 +133,12 @@ impl Intermod
 }
 
 
+#[derive(Debug)]
 pub struct Interloader
 {
-    files: HashMap<String, String>,
+    version: Option<Version>,
+    path: PathBuf,
+    modules: HashMap<String, String>,
 }
 
 impl Interloader
@@ -148,13 +146,20 @@ impl Interloader
     pub fn new() -> Interloader
     {
         Interloader{
-            files: HashMap::new(),
+            version: None,
+            path: Path::new(".").to_path_buf(),
+            modules: HashMap::new(),
         }
     }
 
-    pub fn set_file(&mut self, modname: &str, content: String)
+    pub fn add_path(&mut self, path: &Path)
     {
-        self.files.insert(String::from(modname), content);
+        self.path = path.to_path_buf();
+    }
+
+    pub fn set_module(&mut self, modname: &str, content: String)
+    {
+        self.modules.insert(String::from(modname), content);
     }
 
     pub fn load_func(&mut self, module: &str, func: &str) -> Iexpr
@@ -168,23 +173,38 @@ impl Interloader
         Iexpr::new(Source::Void)
     }
 
-    pub fn load_module(&mut self, mod_name: &str, ver: Version) -> Intermod
+    pub fn module_path(&self, mod_name: &str) -> PathBuf
     {
-        let mod_fname = Intermod::filename(mod_name);
-        let mod_content = self.read_file(&mod_fname);
-        Intermod::new(mod_name, &mod_fname, ver, mod_content)
+        let mut path = PathBuf::new();
+        path.push(self.path.as_path());
+        path.push(mod_name);
+        path.set_extension("lma");
+        path
     }
 
-    pub fn read_file(&self, file_name: &str) -> String
+    pub fn load_module(&self, mod_name: &str) -> Intermod
     {
-        if self.files.contains_key(file_name) {
-            self.files.get(file_name).unwrap().clone()
+        let fname;
+        let content = if self.modules.contains_key(mod_name) {
+            fname = None;
+            self.modules.get(mod_name).unwrap().clone()
         } else {
+            let path = self.module_path(mod_name);
+println!("self path: {:?}", self.path);
+            if !path.exists() {
+                panic!("Module file does not exist: {:?}", path);
+            }
+            if !path.is_file() {
+                panic!("Module is not a file: {:?}", path);
+            }
+            fname = Some(path.clone());
+
+            let mut f = File::open(path).ok().unwrap();
             let mut result = String::new();
-            let mut f = File::open(file_name).ok().unwrap();
             f.read_to_string(&mut result);
             result
-        }
+        };
+        Intermod::new(mod_name, fname, self.version, content)
     }
 
     fn import_module(&mut self, modname: &str)
@@ -275,3 +295,22 @@ impl Interloader
     }
 }
 
+
+#[cfg(test)]
+mod tests
+{
+    use leema::inter::{Interloader};
+    use std::path::Path;
+
+#[test]
+fn test_module_path()
+{
+    let mut i = Interloader::new();
+    i.add_path(Path::new("hello"));
+    let mp = i.module_path("world");
+
+    let actual = Path::new("hello/world.lma");
+    assert_eq!(actual, mp.as_path());
+}
+
+}

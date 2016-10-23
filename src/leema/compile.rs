@@ -1232,7 +1232,7 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
     }
 }
 
-pub fn file(inter: &Interloader, mod_name: &String) -> StaticSpace
+pub fn file(inter: &Interloader, mod_name: &str) -> StaticSpace
 {
     let mut ss = StaticSpace::new(mod_name);
     /*
@@ -1258,6 +1258,7 @@ mod tests {
     use leema::compile::{Iexpr, Source};
     use leema::reg::{Reg};
     use leema::code::{Code, CodeKey};
+    use leema::inter::{Interloader};
     use leema::list;
     use leema::frame::{self, Frame};
     use leema::lex::{lex};
@@ -1279,7 +1280,8 @@ fn test_compile_call_no_params()
 {
     let input = "no_params()\n";
     let root = Ast::parse(lex(input));
-    let mut ss = prefab::new_staticspace("tacos");
+    let mut inter = Interloader::new();
+    let mut ss = prefab::new_staticspace("tacos", &mut inter);
     ss.define_func(Arc::new("no_params".to_string()),
         Type::f(vec![], Type::Void),
         Code::Rust(call_with_no_params),
@@ -1321,7 +1323,8 @@ fn test_compile_macro()
     --
     ";
     let root = Ast::parse(lex(input));
-    let mut ss = prefab::new_staticspace("tacos");
+    let mut inter = Interloader::new();
+    let mut ss = prefab::new_staticspace("tacos", &mut inter);
 
     let iprog = ss.compile(root.root());
     let expected = Iexpr{
@@ -1399,7 +1402,8 @@ fn test_precompile_if_block()
     --
     ";
     let root = Ast::parse(lex(input));
-    let mut ss = prefab::new_staticspace("tacos");
+    let mut inter = Interloader::new();
+    let mut ss = prefab::new_staticspace("tacos", &mut inter);
     let ifprog = ss.compile(root.root());
 
     let test = Iexpr{
@@ -1452,7 +1456,8 @@ fn test_compile_func_oneline_untyped()
 {
     let input = "func inc(x) -> x + 1 --";
     let root = Ast::parse(lex(input));
-    let mut ss = prefab::new_staticspace(&"tacos".to_string());
+    let mut inter = Interloader::new();
+    let mut ss = prefab::new_staticspace("tacos", &mut inter);
 
     let iprog = ss.compile(root.root());
 
@@ -1477,7 +1482,8 @@ fn test_compile_and_call_func()
     --
     ";
     let root = Ast::parse(lex(input));
-    let mut ss = prefab::new_staticspace(&"tacos".to_string());
+    let mut inter = Interloader::new();
+    let mut ss = prefab::new_staticspace("tacos", &mut inter);
 
     let iprog = ss.compile(root.root());
 }
@@ -1492,7 +1498,8 @@ fn test_compile_strx_field_access()
     func foo_fld(s: Foo): Str -> \"hello ${s.fld}\" --
     ";
     let root = Ast::parse(lex(input));
-    let mut ss = prefab::new_staticspace(&"tacos".to_string());
+    let mut inter = Interloader::new();
+    let mut ss = prefab::new_staticspace("tacos", &mut inter);
 
     let root = ss.compile(root.root());
 
@@ -1512,7 +1519,8 @@ fn test_compile_main_func()
 {
     let input = "func main() -> 1 --";
     let root = Ast::parse(lex(input));
-    let mut ss = prefab::new_staticspace(&"tacos".to_string());
+    let mut inter = Interloader::new();
+    let mut ss = prefab::new_staticspace("tacos", &mut inter);
 
     let iprog = ss.compile(root.root());
 

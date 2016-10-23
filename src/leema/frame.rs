@@ -958,6 +958,7 @@ mod tests {
     use leema::frame::{Application, Frame, Parent, Worker};
     use leema::ast::{Ast};
     use leema::code::{CodeKey};
+    use leema::inter::{Interloader};
     use leema::reg::{Reg};
     use leema::val::{Env, Val};
     use leema::prefab;
@@ -965,7 +966,7 @@ mod tests {
     use std::thread;
     use std::sync::{Arc, Mutex};
     use std::io::{stderr, Write};
-use libc::{getpid};
+    use libc::{getpid};
 
 
 #[test]
@@ -974,7 +975,8 @@ fn test_main_func_finishes()
 let p = unsafe { getpid(); };
 write!(stderr(), "test_main_func_finishes {:?}\n", p);
     let input = "func main() -> 3 --";
-    let mut ss = prefab::new_staticspace(&"tacos".to_string());
+    let mut inter = Interloader::new();
+    let mut ss = prefab::new_staticspace("tacos", &mut inter);
     ss.compile(Ast::parse(lex(input)).root());
 
     let mut app = Application::new();

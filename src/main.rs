@@ -16,8 +16,7 @@ use leema::typecheck;
 use leema::ast;
 use std::io::{stderr, Write};
 use std::fs;
-use std::sync::{Arc, Mutex};
-use std::thread;
+use std::path::Path;
 use docopt::{Docopt};
 
 extern crate libc;
@@ -65,9 +64,23 @@ fn real_main() -> i32
     }
     vout!("verbose mode\nargs:{:?}\n", args);
 
-    let interload = Interloader::new();
-    let mut prog = program::Lib::new(Version::Sin);
-    typecheck::module(&mut prog, interload, &args.arg_file);
+    let path = Path::new(&args.arg_file);
+    if path.parent().is_none() {
+        panic!("Cannot execute root directory");
+    }
+    if !path.exists() {
+        panic!("Path does not exist: {}", args.arg_file);
+    }
+    if !path.is_file() {
+        panic!("Path is not a file: {}", args.arg_file);
+    }
+    let root_path = path.parent().unwrap();
+
+    let initial_version = Version::Sin;
+    let mut interload = Interloader::new();
+    interload.add_path(root_path);
+    let mut prog = program::Lib::new(initial_version);
+    typecheck::program(&mut prog, &interload, path);
 
     /*
     let app = Application::new(program);

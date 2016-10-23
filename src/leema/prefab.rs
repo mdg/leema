@@ -304,7 +304,7 @@ println!("read from file: '{}'", input);
     fs.parent.set_result(Val::Str(Arc::new(input)));
 }
 
-fn define_macros(ss: &mut StaticSpace)
+fn define_macros(ss: &mut StaticSpace, inter: &mut Interloader)
 {
     vout!("defining prefab macros\n");
     let input = "
@@ -323,13 +323,12 @@ fn define_macros(ss: &mut StaticSpace)
     --
     ";
 
-    let mut loader = Interloader::new();
-    loader.set_file("prefab_macros", String::from(input));
-    compile::file(&loader, &"prefab_macros".to_string());
+    inter.set_module("prefab_macros", String::from(input));
+    compile::file(&inter, "prefab_macros");
     vout!("prefab macros compiled\n");
 }
 
-pub fn define_prefab(ss: &mut StaticSpace)
+pub fn define_prefab(ss: &mut StaticSpace, inter: &mut Interloader)
 {
     // set up static space
     ss.define_func(Arc::new("int_add".to_string()),
@@ -405,12 +404,12 @@ pub fn define_prefab(ss: &mut StaticSpace)
         Code::Rust(stream_read_file),
         );
 
-    define_macros(ss);
+    define_macros(ss, inter);
 }
 
-pub fn new_staticspace(name: &str) -> StaticSpace
+pub fn new_staticspace(name: &str, inter: &mut Interloader) -> StaticSpace
 {
     let mut ss = StaticSpace::new(name);
-    define_prefab(&mut ss);
+    define_prefab(&mut ss, inter);
     ss
 }
