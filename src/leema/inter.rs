@@ -5,6 +5,7 @@ use leema::ast::{Ast};
 use leema::lex::{lex};
 
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::io::Read;
@@ -80,7 +81,6 @@ typecheck_module(mod) ->
 */
 
 
-#[derive(Debug)]
 pub struct Intermod
 {
     name: String,
@@ -129,6 +129,31 @@ impl Intermod
     pub fn filename(module_name: &str) -> String
     {
         format!("{}.lma", module_name)
+    }
+
+}
+
+impl fmt::Debug for Intermod
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "Intermod{{\n").ok();
+        write!(f, "\tname: {}\n", self.name).ok();
+        write!(f, "\tfile: {:?}\n", self.file).ok();
+        write!(f, "\tversion: {:?}\n", self.version).ok();
+        write!(f, "\tsrctext: \"\"\"\n{:?}\"\"\"\n", self.srctext).ok();
+        write!(f, "\tsexpr: {:?}\n", self.sexpr).ok();
+        write!(f, "\timports: {:?}\n", self.imports).ok();
+        write!(f, "\tmacros: {:?}\n", self.macros).ok();
+        write!(f, "\tsrcfunc: {:?}\n", self.srcfunc).ok();
+        write!(f, "\tinterfunc: {:?}\n", self.interfunc).ok();
+        write!(f, "}}\n")
+    /*
+    imports: HashSet<String>,
+    macros: HashMap<String, Val>,
+    srcfunc: HashMap<String, Val>,
+    interfunc: HashMap<String, Iexpr>,
+    */
     }
 }
 
@@ -190,7 +215,6 @@ impl Interloader
             self.modules.get(mod_name).unwrap().clone()
         } else {
             let path = self.module_path(mod_name);
-println!("self path: {:?}", self.path);
             if !path.exists() {
                 panic!("Module file does not exist: {:?}", path);
             }
