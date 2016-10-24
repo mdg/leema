@@ -2,7 +2,7 @@
 #![allow(unused_variables)]
 /* TMPL: %include */
 
-use leema::ast::{Ast, TokenLoc, TokenData};
+use leema::ast::{TokenLoc, TokenData};
 use leema::val::{Val, SexprType, Type};
 use leema::list;
 use leema::log;
@@ -21,7 +21,6 @@ const YYWILDCARD: YYCODETYPE = 1;
 enum YYMinorType {
     YY0,
     YY39(Type),
-    YY49(Ast),
     YY82(Val),
     YY132(TokenLoc),
     YY158(String),
@@ -747,23 +746,23 @@ struct YYStackEntry {
 pub struct Parser {
     yyerrcnt: i32, /* Shifts left before out of the error */
     yystack: Vec<YYStackEntry>,
-    extra:  Result<Ast, i32> ,
+    extra:  Result<Val, i32> ,
 }
 
 impl Parser {
 
     pub fn new(
-            extra:  Result<Ast, i32> ,
+            extra:  Result<Val, i32> ,
         ) -> Parser {
         let mut p = Parser { yyerrcnt: -1, yystack: Vec::new(), extra: extra};
         p.yystack.push(YYStackEntry{stateno: 0, major: 0, minor: YYMinorType::YY0});
         p
     }
 
-    pub fn into_extra(self) ->  Result<Ast, i32>  {
+    pub fn into_extra(self) ->  Result<Val, i32>  {
         self.extra
     }
-    pub fn extra(&self) -> & Result<Ast, i32>  {
+    pub fn extra(&self) -> & Result<Val, i32>  {
         &self.extra
     }
 
@@ -926,7 +925,7 @@ impl Parser {
             0 /* program ::= stmts */
             => 
 {
-let yyres :  Ast ;
+let yyres :  Val ;
 let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,) {
  (YYMinorType::YY82(yy0),) => {
@@ -935,12 +934,12 @@ match (yyp0.minor,) {
 		panic!("null program");
 	}
 	// ignore yyres, it doesn't really go anywhere for program
-	yyres = Ast::Nothing;
+	yyres = Val::Void;
 	// we're done, so put yy0 in extra
-	self.extra = Ok(Ast::ReplRoot(yy0));
+	self.extra = Ok(yy0);
 
 },    _ => unreachable!() };
- YYMinorType::YY49(yyres)
+ YYMinorType::YY82(yyres)
 }
             ,
             1 /* stmts ::= */

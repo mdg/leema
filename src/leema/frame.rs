@@ -956,7 +956,7 @@ process
 mod tests {
     use leema::log;
     use leema::frame::{Application, Frame, Parent, Worker};
-    use leema::ast::{Ast};
+    use leema::ast;
     use leema::code::{CodeKey};
     use leema::inter::{Interloader};
     use leema::reg::{Reg};
@@ -977,7 +977,7 @@ write!(stderr(), "test_main_func_finishes {:?}\n", p);
     let input = "func main() -> 3 --";
     let mut inter = Interloader::new();
     let mut ss = prefab::new_staticspace("tacos", &mut inter);
-    ss.compile(Ast::parse(lex(input)).root());
+    ss.compile(ast::parse(lex(input)));
 
     let mut app = Application::new();
 write!(stderr(), "app.add_app_code\n");

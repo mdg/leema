@@ -4,7 +4,7 @@ use leema::log;
 use leema::sexpr;
 use leema::scope::Scope;
 use leema::reg::{Reg, Ireg};
-use leema::ast::{self, Ast};
+use leema::ast;
 use leema::inter::{Interloader};
 use leema::code::{self, CodeKey, CodeMap, Code, OpVec};
 use std::collections::{HashMap};
@@ -1237,7 +1237,7 @@ pub fn file(inter: &Interloader, mod_name: &str) -> StaticSpace
     let mut ss = StaticSpace::new(mod_name);
     /*
     let ast = inter.parse(mod_name);
-    let script = ss.compile(Ast::root(ast));
+    let script = ss.compile(ast::root(ast));
     if script.src != Source::Void {
         let stype = script.typ.clone();
         ss.define_func(
@@ -1252,7 +1252,7 @@ pub fn file(inter: &Interloader, mod_name: &str) -> StaticSpace
 
 #[cfg(test)]
 mod tests {
-    use leema::ast::{Ast};
+    use leema::ast;
     use leema::val::{Val, SexprType, Type};
     use leema::sexpr;
     use leema::compile::{Iexpr, Source};
@@ -1279,14 +1279,14 @@ fn call_with_no_params(fs: &mut Frame)
 fn test_compile_call_no_params()
 {
     let input = "no_params()\n";
-    let root = Ast::parse(lex(input));
+    let root = ast::parse(lex(input));
     let mut inter = Interloader::new();
     let mut ss = prefab::new_staticspace("tacos", &mut inter);
     ss.define_func(Arc::new("no_params".to_string()),
         Type::f(vec![], Type::Void),
         Code::Rust(call_with_no_params),
     );
-    let iprog = ss.compile(root.root());
+    let iprog = ss.compile(root);
 
     let fname = Iexpr{
         dst: Reg::new_reg(1),
@@ -1322,11 +1322,11 @@ fn test_compile_macro()
         --
     --
     ";
-    let root = Ast::parse(lex(input));
+    let root = ast::parse(lex(input));
     let mut inter = Interloader::new();
     let mut ss = prefab::new_staticspace("tacos", &mut inter);
 
-    let iprog = ss.compile(root.root());
+    let iprog = ss.compile(root);
     let expected = Iexpr{
         dst: Reg::Void,
         typ: Type::Void,
@@ -1372,9 +1372,9 @@ fn test_use_macro()
     }
     mand(true, false)
     ".to_string();
-    let root = Ast::parse(lex(input));
+    let root = ast::parse(lex(input));
     let mut ss = prefab::new_staticspace();
-    let iprog = ss.compile(root.root());
+    let iprog = ss.compile(root);
 
     let expected = Iexpr{
         dst: Reg::Result,
@@ -1401,10 +1401,10 @@ fn test_precompile_if_block()
         2
     --
     ";
-    let root = Ast::parse(lex(input));
+    let root = ast::parse(lex(input));
     let mut inter = Interloader::new();
     let mut ss = prefab::new_staticspace("tacos", &mut inter);
-    let ifprog = ss.compile(root.root());
+    let ifprog = ss.compile(root);
 
     let test = Iexpr{
         dst: Reg::new_reg(1),
@@ -1455,11 +1455,11 @@ fn test_precompile_if_block()
 fn test_compile_func_oneline_untyped()
 {
     let input = "func inc(x) -> x + 1 --";
-    let root = Ast::parse(lex(input));
+    let root = ast::parse(lex(input));
     let mut inter = Interloader::new();
     let mut ss = prefab::new_staticspace("tacos", &mut inter);
 
-    let iprog = ss.compile(root.root());
+    let iprog = ss.compile(root);
 
     let expected = Iexpr{
         dst: Reg::Void,
@@ -1481,11 +1481,11 @@ fn test_compile_and_call_func()
         cout(\"hello $h\n\")
     --
     ";
-    let root = Ast::parse(lex(input));
+    let root = ast::parse(lex(input));
     let mut inter = Interloader::new();
     let mut ss = prefab::new_staticspace("tacos", &mut inter);
 
-    let iprog = ss.compile(root.root());
+    let iprog = ss.compile(root);
 }
 
 #[test]
@@ -1497,32 +1497,32 @@ fn test_compile_strx_field_access()
     --
     func foo_fld(s: Foo): Str -> \"hello ${s.fld}\" --
     ";
-    let root = Ast::parse(lex(input));
+    let root = ast::parse(lex(input));
     let mut inter = Interloader::new();
     let mut ss = prefab::new_staticspace("tacos", &mut inter);
 
-    let root = ss.compile(root.root());
+    let iroot = ss.compile(root);
 
     let expected = Iexpr{
         dst: Reg::Void,
         typ: Type::Void,
         src: Source::Void,
     };
-    assert_eq!(expected, root);
+    assert_eq!(expected, iroot);
     // but also assert that the function was defined!
     // for now, as long as compile didn't fail, this is enough
-    assert!(ss.scope.is_label(&"foo_fld".to_string()));
+    assert!(ss.scope.is_label("foo_fld"));
 }
 
 #[test]
 fn test_compile_main_func()
 {
     let input = "func main() -> 1 --";
-    let root = Ast::parse(lex(input));
+    let root = ast::parse(lex(input));
     let mut inter = Interloader::new();
     let mut ss = prefab::new_staticspace("tacos", &mut inter);
 
-    let iprog = ss.compile(root.root());
+    let iprog = ss.compile(root);
 
     // make sure that ss thinks it has a main function
     assert!(ss.has_main());

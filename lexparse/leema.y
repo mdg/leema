@@ -1,5 +1,5 @@
 %include {
-use leema::ast::{Ast, TokenLoc, TokenData};
+use leema::ast::{TokenLoc, TokenData};
 use leema::val::{Val, SexprType, Type};
 use leema::list;
 use leema::log;
@@ -11,7 +11,7 @@ use std::io::{stderr, Write};
 %start_symbol {program}
 %derive_token {Debug,Clone,PartialEq}
 %wildcard ANY.
-%extra_argument { Result<Ast, i32> }
+%extra_argument { Result<Val, i32> }
 
 %type COLON { TokenLoc }
 %type COMMA { TokenLoc }
@@ -29,7 +29,7 @@ use std::io::{stderr, Write};
 %type StrLit { String }
 %type TYPE_ID { TokenData<String> }
 
-%type program { Ast }
+%type program { Val }
 %type stmts { Val }
 
 %type stmt { Val }
@@ -115,9 +115,9 @@ program(A) ::= stmts(B). {
 		panic!("null program");
 	}
 	// ignore A, it doesn't really go anywhere for program
-	A = Ast::Nothing;
+	A = Val::Void;
 	// we're done, so put B in extra
-	self.extra = Ok(Ast::ReplRoot(B));
+	self.extra = Ok(B);
 }
 
 stmts(A) ::= . {

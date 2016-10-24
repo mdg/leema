@@ -249,7 +249,7 @@ impl FunctionScope
         mem::replace(&mut self.blk, *tmp.unwrap());
     }
 
-    pub fn is_label(&self, name: &String) -> bool
+    pub fn is_label(&self, name: &str) -> bool
     {
         self.find_label_type(name).is_some()
     }
@@ -264,7 +264,7 @@ impl FunctionScope
         }
     }
 
-    pub fn find_label_type(&self, name: &String) -> Option<&Type>
+    pub fn find_label_type(&self, name: &str) -> Option<&Type>
     {
         let lbl = self.T.get(name);
         match (lbl, &self.parent) {
@@ -539,7 +539,7 @@ impl Scope
         }
     }
 
-    pub fn is_label(&self, name: &String) -> bool
+    pub fn is_label(&self, name: &str) -> bool
     {
         self._function.is_label(name)
     }

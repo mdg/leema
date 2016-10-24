@@ -1,7 +1,7 @@
 
 use leema::val::{Val};
 use leema::compile::{Iexpr, Source};
-use leema::ast::{Ast};
+use leema::ast;
 use leema::lex::{lex};
 
 use std::collections::{HashMap, HashSet};
@@ -101,8 +101,7 @@ impl Intermod
     ) -> Intermod
     {
         let tokens = lex(&content);
-        let smod_ast = Ast::parse(tokens.clone());
-        let smod = Ast::root(smod_ast);
+        let smod = ast::parse(tokens.clone());
         let imports = HashSet::new();
         let makros = HashMap::new();
         let srcfunc = HashMap::new();
