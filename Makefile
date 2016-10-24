@@ -39,9 +39,9 @@ lexparse/leema.h: lexparse/leema.rs
 	./lemon -s -H -Tlemon_rust/lempar.rs lexparse/leema.y
 
 # parser
-parser: src/parse.rs lexparse/leema.h
+parser: src/leema/parse.rs lexparse/leema.h
 
-src/parse.rs: lexparse/leema.rs
+src/leema/parse.rs: lexparse/leema.rs
 	cp lexparse/leema.rs src/leema/parse.rs
 
 lexparse/leema.rs: lemon lexparse/leema.y lemon_rust/lempar.rs
