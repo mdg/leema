@@ -26,6 +26,7 @@ extern crate rustc_serialize;
 #[derive(Debug)]
 #[derive(RustcDecodable)]
 struct Args {
+    arg_cmd: String,
     arg_file: String,
     flag_verbose: bool,
 }
@@ -34,7 +35,7 @@ const USAGE: &'static str = "
 leema interpreter
 
 Usage:
-  leema [options] <file>
+  leema [options] <cmd> <file>
   leema (-v | --verbose)
   leema (-h | --help)
 
@@ -65,9 +66,6 @@ fn real_main() -> i32
     vout!("verbose mode\nargs:{:?}\n", args);
 
     let path = Path::new(&args.arg_file);
-    if path.parent().is_none() {
-        panic!("Cannot execute root directory");
-    }
     if !path.exists() {
         panic!("Path does not exist: {}", args.arg_file);
     }
@@ -76,11 +74,26 @@ fn real_main() -> i32
     }
     let root_path = path.parent().unwrap();
 
-    let initial_version = Version::Sin;
     let mut interload = Interloader::new();
     interload.add_path(root_path);
-    let mut prog = program::Lib::new(initial_version);
-    typecheck::program(&mut prog, &interload, path);
+
+    if args.arg_cmd == "tokens" {
+        println!("make tokens");
+        let tokens = inter.read_tokens(&args.arg_file);
+        println!("{:?}\n", tokens);
+    } else if args.arg_cmd == "ast" {
+        // let tokens = lex(&content);
+        // let smod = ast::parse(tokens.clone());
+        println!("make ast");
+    } else if args.arg_cmd == "typecheck" {
+        println!("typecheck {}", args.arg_file);
+        let initial_version = Version::Sin;
+        let mut prog = program::Lib::new(initial_version);
+        typecheck::program(&mut prog, &interload, path);
+    } else {
+        println!("invalid command");
+        return 1;
+    }
 
     /*
     let app = Application::new(program);

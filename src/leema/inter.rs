@@ -1,8 +1,9 @@
 
-use leema::val::{Val};
-use leema::compile::{Iexpr, Source};
 use leema::ast;
+use leema::compile::{Iexpr, Source};
 use leema::lex::{lex};
+use leema::sexpr;
+use leema::val::{self, Val, SexprType};
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -92,6 +93,7 @@ pub struct Intermod
     macros: HashMap<String, Val>,
     srcfunc: HashMap<String, Val>,
     interfunc: HashMap<String, Iexpr>,
+    //typedfunc: HashMap<String, Iexpr>,
 }
 
 impl Intermod
@@ -106,6 +108,7 @@ impl Intermod
         let makros = HashMap::new();
         let srcfunc = HashMap::new();
         let interfunc = HashMap::new();
+        // let prog = split_program(smod.clone());
 
         Intermod{
             name: String::from(name),
@@ -113,8 +116,8 @@ impl Intermod
             version: ver,
             srctext: content,
             sexpr: smod,
-            imports: imports,
-            macros: makros,
+            imports: imports, // prog.imports,
+            macros: makros, // prog.macros,
             srcfunc: srcfunc,
             interfunc: interfunc,
         }
@@ -130,6 +133,37 @@ impl Intermod
         format!("{}.lma", module_name)
     }
 
+    fn split_program_val(progval: Val) // -> Modval
+    {
+        match progval {
+            Val::Sexpr(st, sx) => {
+                Intermod::split_program_sexpr(st, *sx)
+            }
+            _ => {
+                panic!("Program is not sexpr: {:?}", progval);
+            }
+        }
+    }
+
+    fn split_program_sexpr(st: SexprType, sx: Val)
+    {
+        match st {
+            SexprType::BlockExpr => {
+                // split_program_list(sx);
+            }
+            _ => {
+                panic!("Program is not block: {:?}/{:?}", st, sx);
+            }
+        }
+        /*
+        Program{
+            imports: vec![],
+            macros: vec![],
+            types: vec![],
+            funcs: vec![],
+        }
+        */
+    }
 }
 
 impl fmt::Debug for Intermod
@@ -197,36 +231,45 @@ impl Interloader
         Iexpr::new(Source::Void)
     }
 
-    pub fn module_path(&self, mod_name: &str) -> PathBuf
+    pub fn module_path(&self, mod_name: &str) -> Option<PathBuf>
     {
-        let mut path = PathBuf::new();
-        path.push(self.path.as_path());
-        path.push(mod_name);
-        path.set_extension("lma");
-        path
+        if self.modules.contains_key(mod_name) {
+            None
+        } else {
+            let mut path = PathBuf::new();
+            path.push(self.path.as_path());
+            path.push(mod_name);
+            path.set_extension("lma");
+            Some(path)
+        }
+    }
+
+    pub fn read_module(&self, mod_path: Option<Path>) -> String
+    {
+        let mut fname = None;
+        match mod_path {
+            None => {
+                self.modules.get(mod_name).unwrap().clone()
+            }
+            Some(path) => {
+                let path = self.module_path(mod_name);
+                if !path.exists() {
+                    panic!("Module file does not exist: {:?}", path);
+                }
+                if !path.is_file() {
+                    panic!("Module is not a file: {:?}", path);
+                }
+                let mut f = File::open(path).ok().unwrap();
+                let mut result = String::new();
+                f.read_to_string(&mut result);
+                result
+            }
+        }
     }
 
     pub fn load_module(&self, mod_name: &str) -> Intermod
     {
-        let fname;
-        let content = if self.modules.contains_key(mod_name) {
-            fname = None;
-            self.modules.get(mod_name).unwrap().clone()
-        } else {
-            let path = self.module_path(mod_name);
-            if !path.exists() {
-                panic!("Module file does not exist: {:?}", path);
-            }
-            if !path.is_file() {
-                panic!("Module is not a file: {:?}", path);
-            }
-            fname = Some(path.clone());
-
-            let mut f = File::open(path).ok().unwrap();
-            let mut result = String::new();
-            f.read_to_string(&mut result);
-            result
-        };
+        let (fname, content) = self.read_module(mod_name);
         Intermod::new(mod_name, fname, self.version, content)
     }
 
