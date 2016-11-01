@@ -276,6 +276,12 @@ impl Interloader
         lex(&txt)
     }
 
+    pub fn read_file_ast(path: &Path) -> Val
+    {
+        let toks = Interloader::read_file_tokens(path);
+        ast::parse(toks)
+    }
+
     pub fn load_module(&self, mod_name: &str) -> Intermod
     {
         let (filename, txt) = self.read_module(mod_name);

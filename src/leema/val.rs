@@ -656,6 +656,18 @@ impl Val {
                 let t = list::head_ref(typ);
                 write!(f, "{:?}:{:?}", id, t)
             }
+            (SexprType::DefFunc, ref func) => {
+                let (name, f2) = list::take_ref(func);
+                let (args, f3) = list::take_ref(f2);
+                let (rtype, f4) = list::take_ref(f3);
+                let (body, _) = list::take_ref(f4);
+                write!(f, "DefFunc({}({:?}):{:?} {:?})",
+                    name,
+                    args,
+                    rtype,
+                    body,
+                )
+            }
             (SexprType::DefMacro, ref mac) => {
                 let (name, m2) = list::take_ref(mac);
                 let (args, m3) = list::take_ref(m2);

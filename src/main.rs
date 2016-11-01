@@ -78,13 +78,12 @@ fn real_main() -> i32
     inter.add_path(root_path);
 
     if args.arg_cmd == "tokens" {
-        println!("make tokens");
         let tokens = Interloader::read_file_tokens(&path);
         println!("{:?}\n", tokens);
     } else if args.arg_cmd == "ast" {
-        // let tokens = lex(&content);
-        // let smod = ast::parse(tokens.clone());
         println!("make ast");
+        let smod = Interloader::read_file_ast(&path);
+        println!("{:?}\n", smod);
     } else if args.arg_cmd == "typecheck" {
         println!("typecheck {}", args.arg_file);
         let initial_version = Version::Sin;
