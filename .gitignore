@@ -23,4 +23,5 @@ nosetests.xml
 leema-ops
 
 # vim editor files
+.*.swo
 .*.swp

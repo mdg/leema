@@ -2,6 +2,7 @@
 use leema::ast;
 use leema::compile::{Iexpr, Source};
 use leema::lex::{lex};
+use leema::parse::{Token};
 use leema::sexpr;
 use leema::val::{self, Val, SexprType};
 
@@ -244,33 +245,42 @@ impl Interloader
         }
     }
 
-    pub fn read_module(&self, mod_path: Option<Path>) -> String
+    fn read_module(&self, mod_name: &str) -> (Option<PathBuf>, String)
     {
-        let mut fname = None;
-        match mod_path {
-            None => {
-                self.modules.get(mod_name).unwrap().clone()
-            }
-            Some(path) => {
-                let path = self.module_path(mod_name);
-                if !path.exists() {
-                    panic!("Module file does not exist: {:?}", path);
-                }
-                if !path.is_file() {
-                    panic!("Module is not a file: {:?}", path);
-                }
-                let mut f = File::open(path).ok().unwrap();
-                let mut result = String::new();
-                f.read_to_string(&mut result);
-                result
-            }
+        if self.modules.contains_key(mod_name) {
+            (None, self.modules.get(mod_name).unwrap().clone())
+        } else {
+            let path = self.module_path(mod_name).unwrap().to_path_buf();
+            let txt = Interloader::read_file_text(&path);
+            (Some(path), txt)
         }
+    }
+
+    pub fn read_file_text(path: &Path) -> String
+    {
+        if !path.exists() {
+            panic!("Module file does not exist: {:?}", path);
+        }
+        if !path.is_file() {
+            panic!("Module is not a file: {:?}", path);
+        }
+        let mut f = File::open(path).ok().unwrap();
+        let mut result = String::new();
+        f.read_to_string(&mut result);
+        result
+    }
+
+    pub fn read_file_tokens(path: &Path) -> Vec<Token>
+    {
+        let txt = Interloader::read_file_text(path);
+        lex(&txt)
     }
 
     pub fn load_module(&self, mod_name: &str) -> Intermod
     {
-        let (fname, content) = self.read_module(mod_name);
-        Intermod::new(mod_name, fname, self.version, content)
+        let (filename, txt) = self.read_module(mod_name);
+        let toks = lex(&txt);
+        Intermod::new(mod_name, filename, self.version, txt)
     }
 
     fn import_module(&mut self, modname: &str)

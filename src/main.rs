@@ -74,12 +74,12 @@ fn real_main() -> i32
     }
     let root_path = path.parent().unwrap();
 
-    let mut interload = Interloader::new();
-    interload.add_path(root_path);
+    let mut inter = Interloader::new();
+    inter.add_path(root_path);
 
     if args.arg_cmd == "tokens" {
         println!("make tokens");
-        let tokens = inter.read_tokens(&args.arg_file);
+        let tokens = Interloader::read_file_tokens(&path);
         println!("{:?}\n", tokens);
     } else if args.arg_cmd == "ast" {
         // let tokens = lex(&content);
@@ -89,7 +89,7 @@ fn real_main() -> i32
         println!("typecheck {}", args.arg_file);
         let initial_version = Version::Sin;
         let mut prog = program::Lib::new(initial_version);
-        typecheck::program(&mut prog, &interload, path);
+        // typecheck::program(&mut prog, &interload, path);
     } else {
         println!("invalid command");
         return 1;
