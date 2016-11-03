@@ -18,6 +18,7 @@ pub enum Source
     Fail(Box<Iexpr>, Box<Iexpr>),
     FieldAccess(Box<Iexpr>, i8),
     Fork(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
+    Let(Box<Iexpr>, Box<Iexpr>),
     MatchExpr(Box<Iexpr>, Box<Iexpr>),
     MatchCase(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     CaseExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
@@ -74,7 +75,7 @@ vout!("new_block> {:?}\n", code);
         }
     }
 
-    fn noop() -> Iexpr
+    pub fn noop() -> Iexpr
     {
         Iexpr{
             typ: Type::Void,
