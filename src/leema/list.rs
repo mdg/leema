@@ -131,6 +131,20 @@ pub fn map_to_ll<F>(l: Val, op: F) -> LinkedList<Val>
     acc
 }
 
+pub fn map_to_vec<F, T>(l: Val, op: F) -> Vec<T>
+    where F: Fn(Val) -> T
+{
+    let mut it = l;
+    let mut acc = Vec::new();
+    while it != Val::Nil {
+        let (head, tail) = take(it);
+        let single = op(head);
+        acc.push(single);
+        it = tail;
+    }
+    acc
+}
+
 pub fn fold<R, F>(l: Val, init: R, op: F) -> R
     where F: Fn(R, Val) -> R
 {
