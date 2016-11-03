@@ -81,9 +81,11 @@ fn real_main() -> i32
         let tokens = Interloader::read_file_tokens(&path);
         println!("{:?}\n", tokens);
     } else if args.arg_cmd == "ast" {
-        println!("make ast");
         let smod = Interloader::read_file_ast(&path);
         println!("{:?}\n", smod);
+    } else if args.arg_cmd == "inter" {
+        let src = Interloader::read_file_inter(&path);
+        println!("{:?}\n", src);
     } else if args.arg_cmd == "typecheck" {
         println!("typecheck {}", args.arg_file);
         let initial_version = Version::Sin;

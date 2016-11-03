@@ -1,10 +1,16 @@
+use leema::val::{Val, Type, SexprType};
+use leema::iexpr::{Iexpr, Source};
 use leema::lex::{lex};
+
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
+
 
 struct Srcmod
 {
     name: String,
     file: Option<PathBuf>,
-    version: Option<Version>,
+    // version: Option<Version>,
     srctext: String,
     sexpr: Val,
     imports: HashSet<String>,
@@ -12,6 +18,7 @@ struct Srcmod
     srcfunc: HashMap<String, Val>,
 }
 
+/*
 impl Srcmod
 {
     pub fn new(name: String, file: Option<PathBuf>, tokens: Vec<Token>)
@@ -28,7 +35,7 @@ impl Srcmod
             name: String::from(name),
             file: fname,
             version: ver,
-            srctext: content,
+            // srctext: content,
             sexpr: smod,
             imports: imports, // prog.imports,
             macros: makros, // prog.macros,
@@ -36,8 +43,25 @@ impl Srcmod
             interfunc: interfunc,
         }
     }
+}
+*/
 
-    pub fn compile_src_mod(m: Val) -> Val
-    {
+pub fn compile_mod(m: Val) -> Iexpr
+{
+    match m {
+        Val::Sexpr(st, sx) => {
+            compile_mod_sexpr(st, *sx)
+        }
+        Val::Int(i) => {
+            Iexpr::const_val(m)
+        }
+        _ => {
+            Iexpr::const_val(Val::Void)
+        }
     }
+}
+
+pub fn compile_mod_sexpr(st: SexprType, sx: Val) -> Iexpr
+{
+    Iexpr::const_val(Val::Void)
 }

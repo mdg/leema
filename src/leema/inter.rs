@@ -1,9 +1,10 @@
 
 use leema::ast;
-use leema::compile::{Iexpr, Source};
+use leema::iexpr::{Iexpr, Source};
 use leema::lex::{lex};
 use leema::parse::{Token};
 use leema::sexpr;
+use leema::src;
 use leema::val::{self, Val, SexprType};
 
 use std::collections::{HashMap, HashSet};
@@ -229,7 +230,7 @@ impl Interloader
         let ifunc = self.import_module(sfunc);
         self.interize(sfunc)
         */
-        Iexpr::new(Source::Void)
+        Iexpr::const_val(Val::Void)
     }
 
     pub fn module_path(&self, mod_name: &str) -> Option<PathBuf>
@@ -280,6 +281,12 @@ impl Interloader
     {
         let toks = Interloader::read_file_tokens(path);
         ast::parse(toks)
+    }
+
+    pub fn read_file_inter(path: &Path) -> Iexpr
+    {
+        let smod = Interloader::read_file_ast(path);
+        src::compile_mod(smod)
     }
 
     pub fn load_module(&self, mod_name: &str) -> Intermod
@@ -341,7 +348,7 @@ impl Interloader
         }
         imod
         */
-        Iexpr::new(Source::Void)
+        Iexpr::const_val(Val::Void)
     }
 
     pub fn resolve_types(ifunc: Iexpr) -> Iexpr
@@ -358,7 +365,7 @@ impl Interloader
             }
         }
             */
-        Iexpr::new(Source::Void)
+        Iexpr::const_val(Val::Void)
     }
 
     fn add_import(&self, module: &str, import_mod: Val)

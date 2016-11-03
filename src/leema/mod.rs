@@ -12,8 +12,10 @@ pub mod prefab;
 pub mod program;
 pub mod reg;
 pub mod application;
+pub mod iexpr;
 pub mod inter;
 pub mod sexpr;
+pub mod src;
 pub mod parse;
 pub mod typecheck;
 
