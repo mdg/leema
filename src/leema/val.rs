@@ -192,8 +192,6 @@ impl Debug for FutureVal
 pub enum SexprType {
     Let,
     Fork,
-    IdWithType,
-    TypeExpr,
     StrExpr,
     BlockExpr,
     Call,
@@ -233,6 +231,7 @@ pub enum Val {
         Arc<FrameTrace>,
     ),
     Id(Arc<String>),
+    TypedId(Arc<String>, Type),
     Type(Type),
     Kind(u8),
     Lib(LibVal),
@@ -270,11 +269,16 @@ impl Val {
         Val::Id(Arc::new(s))
     }
 
+    pub fn typed_id(s: &str, t: Type) -> Val
+    {
+        Val::TypedId(Arc::new(String::from(s)), t)
+    }
+
     pub fn is_id(&self) -> bool
     {
         match self {
             &Val::Id(_) => true,
-            &Val::Sexpr(SexprType::IdWithType, _) => true,
+            &Val::TypedId(_, _) => true,
             _ => false,
         }
     }
@@ -283,9 +287,7 @@ impl Val {
     {
         match self {
             &Val::Id(ref name) => name.clone(),
-            &Val::Sexpr(SexprType::IdWithType, ref idhead) => {
-                list::head_ref(idhead).to_str()
-            }
+            &Val::TypedId(ref name, ref typ) => name.clone(),
             _ => {
                 panic!("not an id {:?}", self);
             }
@@ -381,10 +383,8 @@ impl Val {
     {
         match self {
             &Val::Id(ref id) => id.clone(),
+            &Val::TypedId(ref id, ref typ) => id.clone(),
             &Val::Str(ref s) => s.clone(),
-            &Val::Sexpr(SexprType::IdWithType, ref id) => {
-                id.to_str()
-            }
             _ => {
                 panic!("Cannot convert to string: {:?}", self);
             }
@@ -410,6 +410,20 @@ impl Val {
             &Val::Type(ref t) => t.clone(),
             _ => {
                 panic!("Cannot unwrap not-type as type {:?}", self);
+            }
+        }
+    }
+
+    pub fn split_typed_id(&self) -> (Val, Type)
+    {
+        match self {
+            &Val::Id(ref id) => (self.clone(), Type::AnonVar),
+            &Val::TypedId(ref tid, ref typ) => (
+                Val::Id(tid.clone()),
+                typ.clone(),
+            ),
+            _ => {
+                panic!("not a TypedId: {:?}", self);
             }
         }
     }
@@ -652,10 +666,6 @@ impl Val {
             (SexprType::IfStmt, ifs) => {
                 write!(f, "if({:?})", ifs)
             }
-            (SexprType::IdWithType, &Val::Cons(ref id, ref typ)) => {
-                let t = list::head_ref(typ);
-                write!(f, "{:?}:{:?}", id, t)
-            }
             (SexprType::DefFunc, ref func) => {
                 let (name, f2) = list::take_ref(func);
                 let (args, f3) = list::take_ref(f2);
@@ -739,6 +749,9 @@ impl fmt::Display for Val {
             Val::Id(ref name) => {
                 write!(f, "{}", name)
             }
+            Val::TypedId(ref name, ref typ) => {
+                write!(f, "{}:{}", name, typ)
+            }
             Val::Type(ref t) => {
                 write!(f, "{}", t)
             }
@@ -810,6 +823,9 @@ impl fmt::Debug for Val {
             }
             Val::Id(ref id) => {
                 write!(f, "ID({})", id)
+            }
+            Val::TypedId(ref id, ref typ) => {
+                write!(f, "TypedId({}, {:?})", id, typ)
             }
             Val::Type(ref t) => {
                 write!(f, "{:?}", t)

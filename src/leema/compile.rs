@@ -457,12 +457,6 @@ impl StaticSpace
             SexprType::Comparison => {
                 panic!("Can't compile Comparison yet");
             }
-            SexprType::TypeExpr => {
-                panic!("Can't compile TypeExpr yet");
-            }
-            SexprType::IdWithType => {
-                panic!("Don't compile IdWithType directly: {:?}", expr);
-            }
         }
     }
 
@@ -568,7 +562,7 @@ vout!("precompile_defstruct({:?},{:?})\n", nameval, fields);
         let mut constructor_types = vec![];
         let mut typefields = vec![];
         while let Val::Cons(head, tail) = fields {
-            let (fldname, fldtype) = sexpr::split_id_with_type(*head);
+            let (fldname, fldtype) = Val::split_typed_id(&*head);
             constructor_types.push(fldtype.clone());
             typefields.push((fldname.to_str(), fldtype));
             fields = *tail;
@@ -628,10 +622,10 @@ vout!("macro_defined({:?},{:?},{:?})\n", name, args, code);
             let mut next_param = params;
             while next_param != Val::Nil {
                 let (head, tail) = list::take(next_param);
-                if !sexpr::is_type(&head, SexprType::IdWithType) {
+                if !head.is_id() {
                     panic!("func param not an id with type {:?}", head);
                 }
-                let (pid, raw_ptype) = sexpr::split_id_with_type(head);
+                let (pid, raw_ptype) = Val::split_typed_id(&head);
                 let var_name = pid.to_str();
                 let ptype = self.precompile_type(raw_ptype);
 vout!("precompiled {} as {:?}\n", var_name, ptype);

@@ -15,6 +15,7 @@ pub enum Source
     ConstVal(Val),
     Call(Box<Iexpr>, Box<Iexpr>),
     Constructor(Type),
+    DefFunc(Box<Iexpr>, Vec<Iexpr>, Box<Iexpr>),
     Fail(Box<Iexpr>, Box<Iexpr>),
     FieldAccess(Box<Iexpr>, i8),
     Fork(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
@@ -24,7 +25,7 @@ pub enum Source
     CaseExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     IfStmt(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     List(Vec<Iexpr>),
-    Str(Vec<Iexpr>),
+    StrMash(Vec<Iexpr>),
     Tuple(Vec<Iexpr>),
     Return(Box<Iexpr>),
 }
@@ -58,7 +59,7 @@ impl Iexpr
         }
     }
 
-    fn new_block(code: Vec<Iexpr>) -> Iexpr
+    pub fn new_block(code: Vec<Iexpr>) -> Iexpr
     {
 vout!("new_block> {:?}\n", code);
         let block_type = match code.last() {
@@ -88,6 +89,39 @@ vout!("new_block> {:?}\n", code);
         Iexpr{
             typ: src.get_type(),
             src: Source::ConstVal(src),
+        }
+    }
+
+    fn new_list(items: Vec<Iexpr>) -> Iexpr
+    {
+        let item_type = items.iter().fold(Type::Unknown, |old_t, new_x| {
+            if old_t == Type::Unknown {
+                new_x.typ.clone()
+            } else if old_t == new_x.typ {
+                old_t
+            } else {
+                panic!("Mixed list types: {:?} != {:?}", old_t, new_x);
+            }
+        });
+        Iexpr{
+            typ: Type::StrictList(Box::new(item_type)),
+            src: Source::List(items),
+        }
+    }
+
+    pub fn def_func(name: Iexpr, args: Vec<Iexpr>, body: Iexpr, ftype: Type)
+        -> Iexpr
+    {
+        if let &Type::Func(ref defparams, ref result) = &ftype {
+            if args.len() != defparams.len() {
+                panic!("Inconsistent argument count");
+            }
+        } else {
+            panic!("Invalid function type: {:?}", ftype);
+        }
+        Iexpr{
+            typ: ftype,
+            src: Source::DefFunc(Box::new(name), args, Box::new(body)),
         }
     }
 
@@ -169,7 +203,7 @@ vout!("new_block> {:?}\n", code);
     {
         Iexpr{
             typ: Type::Str,
-            src: Source::Str(items),
+            src: Source::StrMash(items),
         }
     }
 
@@ -184,21 +218,27 @@ vout!("new_block> {:?}\n", code);
             src: Source::Tuple(items),
         }
     }
+}
 
-    fn list(items: Vec<Iexpr>) -> Iexpr
-    {
-        let item_type = items.iter().fold(Type::Unknown, |old_t, new_x| {
-            if old_t == Type::Unknown {
-                new_x.typ.clone()
-            } else if old_t == new_x.typ {
-                old_t
-            } else {
-                panic!("Mixed list types: {:?} != {:?}", old_t, new_x);
-            }
-        });
-        Iexpr{
-            typ: Type::StrictList(Box::new(item_type)),
-            src: Source::List(items),
-        }
-    }
+
+#[cfg(test)]
+mod tests
+{
+use leema::iexpr::{Iexpr, Source};
+use leema::list;
+use leema::sexpr;
+use leema::val::{Val, SexprType, Type};
+
+
+fn test_new_const_str()
+{
+    let hello = Val::new_str(String::from("hello"));
+    let actual = Iexpr::const_val(hello.clone());
+    let expected = Iexpr{
+        src: Source::ConstVal(hello),
+        typ: Type::Str,
+    };
+    assert_eq!(expected, actual);
+}
+
 }

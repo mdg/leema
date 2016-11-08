@@ -389,7 +389,7 @@ impl Interloader
 mod tests
 {
     use leema::inter::{Interloader};
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
 #[test]
 fn test_module_path()
@@ -399,7 +399,7 @@ fn test_module_path()
     let mp = i.module_path("world");
 
     let actual = Path::new("hello/world.lma");
-    assert_eq!(actual, mp.as_path());
+    assert_eq!(actual, mp.unwrap().as_path());
 }
 
 }

@@ -1084,7 +1084,7 @@ self.yystack.pop().unwrap();
 match (yyp1.minor,yyp3.minor,) {
  (YYMinorType::YY209(yy1),YYMinorType::YY39(yy3),) => {
 
-	yyres = sexpr::id_with_type(yy1.data, yy3);
+	yyres = Val::typed_id(&yy1.data, yy3);
 
 },    _ => unreachable!() };
  YYMinorType::YY82(yyres)
@@ -1250,7 +1250,7 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp1.minor,) {
  (YYMinorType::YY209(yy0),YYMinorType::YY39(yy1),) => {
 
-	yyres = list::singleton(sexpr::id_with_type(yy0.data, yy1));
+	yyres = list::singleton(Val::typed_id(&yy0.data, yy1));
 
 },    _ => unreachable!() };
  YYMinorType::YY82(yyres)
@@ -1267,7 +1267,7 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,yyp1.minor,yyp3.minor,) {
  (YYMinorType::YY209(yy0),YYMinorType::YY39(yy1),YYMinorType::YY82(yy3),) => {
 
-	yyres = list::cons(sexpr::id_with_type(yy0.data, yy1), yy3);
+	yyres = list::cons(Val::typed_id(&yy0.data, yy1), yy3);
 
 },    _ => unreachable!() };
  YYMinorType::YY82(yyres)

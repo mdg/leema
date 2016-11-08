@@ -53,15 +53,6 @@ pub fn new_block(lst: Val) -> Val
     Val::Sexpr(SexprType::BlockExpr, Box::new(lst))
 }
 
-pub fn id_with_type(id: String, t: Type) -> Val
-{
-    new(SexprType::IdWithType, 
-        list::cons(Val::id(id),
-        list::cons(Val::Type(t),
-        Val::Nil
-    )))
-}
-
 pub fn strexpr(strs: Val) -> Val
 {
     if list::is_empty(&strs) {
@@ -156,21 +147,6 @@ pub fn split(x: Val) -> (SexprType, Val)
         _ => {
             panic!("Cannot split a not sexpr: {:?}", x);
         }
-    }
-}
-
-pub fn split_id_with_type(x: Val) -> (Val, Type)
-{
-    if let Val::Sexpr(SexprType::IdWithType, sx) = x {
-        let (id, sx2) = list::take(*sx);
-        let (typval, _) = list::take(sx2);
-        if let Val::Type(typ) = typval {
-            (id, typ)
-        } else {
-            panic!("id_with_type type is not: {:?}", typval);
-        }
-    } else {
-        panic!("Cannot split a not id_with_type: {:?}", x);
     }
 }
 

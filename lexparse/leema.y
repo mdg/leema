@@ -157,7 +157,7 @@ defstruct_fields(A) ::= . {
 	A = list::empty();
 }
 defstruct_field(A) ::= DOT ID(B) COLON typex(C). {
-	A = sexpr::id_with_type(B.data, C);
+	A = Val::typed_id(&B.data, C);
 }
 
 
@@ -219,10 +219,10 @@ dfunc_args(A) ::= . {
 	A = list::empty();
 }
 dfunc_args(A) ::= ID(B) opt_typex(C). {
-	A = list::singleton(sexpr::id_with_type(B.data, C));
+	A = list::singleton(Val::typed_id(&B.data, C));
 }
 dfunc_args(A) ::= ID(B) opt_typex(C) COMMA dfunc_args(D). {
-	A = list::cons(sexpr::id_with_type(B.data, C), D);
+	A = list::cons(Val::typed_id(&B.data, C), D);
 }
 
 
