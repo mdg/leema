@@ -17,13 +17,14 @@ pub enum Source
     Constructor(Type),
     DefFunc(Box<Iexpr>, Vec<Iexpr>, Box<Iexpr>),
     Fail(Box<Iexpr>, Box<Iexpr>),
-    FieldAccess(Box<Iexpr>, i8),
+    FieldAccess(Box<Iexpr>, Val),
     Fork(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     Let(Box<Iexpr>, Box<Iexpr>),
     MatchExpr(Box<Iexpr>, Box<Iexpr>),
     MatchCase(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     WhenExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
-    IfStmt(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
+    IfExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
+    Import(Val),
     List(Vec<Iexpr>),
     StrMash(Vec<Iexpr>),
     Tuple(Vec<Iexpr>),
@@ -195,14 +196,25 @@ vout!("new_block> {:?}\n", code);
         }
     }
 
-    fn ifstmt(test: Iexpr, truth: Iexpr, lies: Iexpr) -> Iexpr
+    pub fn new_if(test: Iexpr, truth: Iexpr, lies: Iexpr) -> Iexpr
     {
         Iexpr{
-            typ: Type::Void, // if statements are untyped
-            src: Source::IfStmt(
+            typ: Type::Unknown, // if statements are untyped
+            src: Source::IfExpr(
                 Box::new(test),
                 Box::new(truth),
                 Box::new(lies),
+            ),
+        }
+    }
+
+    pub fn new_field_access(base: Iexpr, fld: Val) -> Iexpr
+    {
+        Iexpr{
+            typ: Type::Unknown, // new field access
+            src: Source::FieldAccess(
+                Box::new(base),
+                fld,
             ),
         }
     }
@@ -212,6 +224,14 @@ vout!("new_block> {:?}\n", code);
         Iexpr{
             typ: Type::Str,
             src: Source::StrMash(items),
+        }
+    }
+
+    pub fn new_import(imp: Val) -> Iexpr
+    {
+        Iexpr{
+            typ: Type::Void,
+            src: Source::Import(imp),
         }
     }
 

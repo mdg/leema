@@ -83,6 +83,9 @@ impl Token
                 parse::TOKEN_ConcatNewline => {
                     Token::ConcatNewline
                 }
+                parse::TOKEN_IMPORT => {
+                    Token::IMPORT
+                }
                 parse::TOKEN_LPAREN => {
                     Token::LPAREN
                 }

@@ -457,6 +457,9 @@ impl StaticSpace
             SexprType::Comparison => {
                 panic!("Can't compile Comparison yet");
             }
+            SexprType::Import => {
+                panic!("Can't compile Import");
+            }
         }
     }
 

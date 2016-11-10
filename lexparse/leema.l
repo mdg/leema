@@ -195,6 +195,10 @@ if	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_IF);
 }
+import	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_IMPORT);
+}
 true	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_True);

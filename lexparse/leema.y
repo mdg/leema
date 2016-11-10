@@ -59,7 +59,6 @@ use std::io::{stderr, Write};
 %type defstruct_field { Val }
 %type let_stmt { Val }
 %type fail_stmt { Val }
-%type functerm { Val }
 %type term { Val }
 %type expr { Val }
 %type typex { Type }
@@ -130,6 +129,9 @@ stmts(A) ::= stmt(C) stmts(B). {
 
 
 stmt(A) ::= defstruct(B). { A = B; }
+stmt(A) ::= IMPORT ID(B). {
+    A = sexpr::new_import(Val::id(B.data));
+}
 stmt(A) ::= let_stmt(B). { A = B; }
 stmt(A) ::= expr(B). {
     A = B;
@@ -451,15 +453,6 @@ plist_items(A) ::= pexpr(B) SEMICOLON pexpr(C). {
 }
 
 
-expr(A) ::= expr(B) DOT ID(C). {
-    A = sexpr::new(SexprType::FieldAccess,
-        list::cons(B,
-        list::cons(Val::id(C.data),
-        Val::Nil,
-        ))
-    );
-}
-
 expr(A) ::= list(B). { A = B; }
 /* tuple
  * (4 + 4, 6 - 7)
@@ -566,6 +559,14 @@ term(A) ::= HASHTAG(B). {
 	A = Val::Hashtag(Arc::new(B.data));
 }
 term(A) ::= strexpr(B). { A = B; }
+term(A) ::= term(B) DOT ID(C). {
+    A = sexpr::new(SexprType::FieldAccess,
+        list::cons(B,
+        list::cons(Val::id(C.data),
+        Val::Nil,
+        ))
+    );
+}
 
 
 list(A) ::= SquareL SquareR. {

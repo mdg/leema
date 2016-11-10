@@ -1,8 +1,8 @@
 macro m_and(a, b) ->
-	case
+    case
     |a -> b
-	|else -> false
-	--
+    |else -> false
+    --
 --
 
 func main() ->

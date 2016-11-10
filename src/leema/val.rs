@@ -201,6 +201,7 @@ pub enum SexprType {
     Fail,
     CaseExpr,
     IfStmt,
+    Import,
     MatchExpr,
     MatchFailed,
     Return,
@@ -695,6 +696,10 @@ impl Val {
                 let (base, fa2) = list::take_ref(fa);
                 let (field, _) = list::take_ref(fa2);
                 write!(f, "({:?}.{})", base, field)
+            }
+            (SexprType::Import, ref filelist) => {
+                let file = list::head_ref(filelist);
+                write!(f, "(import {:?})", file)
             }
             _ => {
                 write!(f, "something else: {:?}/{:?}", st, x)

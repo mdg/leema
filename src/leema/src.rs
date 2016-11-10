@@ -143,6 +143,18 @@ pub fn compile_sexpr(st: SexprType, sx: Val) -> Iexpr
             let (name, args, result_type, body) = list::to_tuple4(sx);
             compile_def_func(name, args, result_type, body)
         }
+        SexprType::FieldAccess => {
+            let (rbase, rfield) = list::to_tuple2(sx);
+            let base = compile_expr(rbase);
+            Iexpr::new_field_access(base, rfield)
+        }
+        SexprType::IfStmt => {
+            let (rtest, rtruthy, rfalsy) = list::to_tuple3(sx);
+            let test = compile_expr(rtest);
+            let truthy = compile_expr(rtruthy);
+            let falsy = compile_expr(rfalsy);
+            Iexpr::new_if(test, truthy, falsy)
+        }
         SexprType::Let => {
             let (pattern, sx2) = list::take(sx);
             let (rhs, _sx3) = list::take(sx2);
@@ -164,6 +176,10 @@ pub fn compile_sexpr(st: SexprType, sx: Val) -> Iexpr
         SexprType::StrExpr => {
             let items = compile_list_to_vec(sx);
             Iexpr::new_str_mash(items)
+        }
+        SexprType::Import => {
+            let modname = list::head(sx);
+            Iexpr::new_import(modname)
         }
         SexprType::Fork => {
             panic!("Cannot compile fork: {:?}/{:?}", st, sx);

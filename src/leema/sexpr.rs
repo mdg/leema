@@ -138,6 +138,13 @@ pub fn def_struct(name: Val, fields: Val) -> Val
     ))
 }
 
+pub fn new_import(name: Val) -> Val
+{
+    Val::Sexpr(SexprType::Import, Box::new(
+        list::singleton(name)
+    ))
+}
+
 pub fn split(x: Val) -> (SexprType, Val)
 {
     match x {
