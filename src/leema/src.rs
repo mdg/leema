@@ -103,8 +103,25 @@ fn compile_expr(x: Val) -> Iexpr
         Val::Bool(_) => {
             Iexpr::const_val(x)
         }
+        Val::Tuple(tup) => {
+            Iexpr::new_tuple(tup.into_iter().map(|x| {
+                compile_expr(x)
+            }).collect())
+        }
+        Val::Id(_) => {
+            Iexpr::const_val(x)
+        }
+        Val::TypedId(_, _) => {
+            Iexpr::const_val(x)
+        }
+        Val::Wildcard => {
+            Iexpr::const_val(x)
+        }
+        Val::Void => {
+            Iexpr::const_val(x)
+        }
         _ => {
-            Iexpr::const_val(Val::Void)
+            panic!("Cannot compile: {:?}", x)
         }
     }
 }
@@ -116,11 +133,14 @@ pub fn compile_sexpr(st: SexprType, sx: Val) -> Iexpr
             let items = list::map_to_vec(sx, compile_expr);
             Iexpr::new_block(items)
         }
+        SexprType::Call => {
+            let (rname, rargs) = list::to_tuple2(sx);
+            let name = compile_expr(rname);
+            let args = compile_expr(rargs);
+            Iexpr::new_call(name, args)
+        }
         SexprType::DefFunc => {
-            let (name, sx2) = list::take(sx);
-            let (args, sx3) = list::take(sx2);
-            let (result_type, sx4) = list::take(sx3);
-            let (body, _sx5) = list::take(sx4);
+            let (name, args, result_type, body) = list::to_tuple4(sx);
             compile_def_func(name, args, result_type, body)
         }
         SexprType::Let => {
@@ -128,9 +148,28 @@ pub fn compile_sexpr(st: SexprType, sx: Val) -> Iexpr
             let (rhs, _sx3) = list::take(sx2);
             compile_let(pattern, rhs)
         }
-        SexprType::Fork => { Iexpr::noop() }
+        SexprType::MatchExpr => {
+            let (rinput, rcases) = list::to_tuple2(sx);
+            let input = compile_expr(rinput);
+            let cases = compile_match_case(rcases);
+            Iexpr::new_match_expr(input, cases)
+        }
+        SexprType::CaseExpr => {
+            let (rtest, rtruthy, rfalsy) = list::to_tuple3(sx);
+            let test = compile_expr(rtest);
+            let truthy = compile_expr(rtruthy);
+            let falsy = compile_expr(rfalsy);
+            Iexpr::new_when_expr(test, truthy, falsy)
+        }
+        SexprType::StrExpr => {
+            let items = compile_list_to_vec(sx);
+            Iexpr::new_str_mash(items)
+        }
+        SexprType::Fork => {
+            panic!("Cannot compile fork: {:?}/{:?}", st, sx);
+        }
         _ => {
-            Iexpr::const_val(Val::Void)
+            panic!("Cannot compile sexpr: {:?}/{:?}", st, sx);
         }
     }
 }
@@ -171,6 +210,22 @@ pub fn compile_let(patt: Val, val: Val) -> Iexpr
     let lhs = compile_pattern(patt);
     let rhs = compile_expr(val);
     Iexpr::new(Source::Let(Box::new(lhs), Box::new(rhs)))
+}
+
+pub fn compile_match_case(mcase: Val) -> Iexpr
+{
+    if mcase == Val::Void {
+        return Iexpr::noop();
+    }
+    let (rpattern, e2) = list::take(mcase);
+    let (rbody, e3) = list::take(e2);
+    let rnext = list::head_or(e3, Val::Void);
+
+    let pattern = compile_expr(rpattern);
+    let body = compile_expr(rbody);
+    let next = compile_match_case(rnext);
+
+    Iexpr::new_match_case(pattern, body, next)
 }
 
 fn compile_list_to_vec(items: Val) -> Vec<Iexpr>

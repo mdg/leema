@@ -22,7 +22,7 @@ pub enum Source
     Let(Box<Iexpr>, Box<Iexpr>),
     MatchExpr(Box<Iexpr>, Box<Iexpr>),
     MatchCase(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
-    CaseExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
+    WhenExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     IfStmt(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     List(Vec<Iexpr>),
     StrMash(Vec<Iexpr>),
@@ -109,6 +109,17 @@ vout!("new_block> {:?}\n", code);
         }
     }
 
+    pub fn new_tuple(items: Vec<Iexpr>) -> Iexpr
+    {
+        let tuptyp = items.iter().map(|i| {
+            i.typ.clone()
+        }).collect();
+        Iexpr{
+            typ: Type::Tuple(tuptyp),
+            src: Source::Tuple(items),
+        }
+    }
+
     pub fn def_func(name: Iexpr, args: Vec<Iexpr>, body: Iexpr, ftype: Type)
         -> Iexpr
     {
@@ -125,10 +136,10 @@ vout!("new_block> {:?}\n", code);
         }
     }
 
-    fn call(t: Type, f: Iexpr, args: Iexpr) -> Iexpr
+    pub fn new_call(f: Iexpr, args: Iexpr) -> Iexpr
     {
         Iexpr{
-            typ: t,
+            typ: Type::Unknown,
             src: Source::Call(Box::new(f), Box::new(args)),
         }
     }
@@ -149,40 +160,37 @@ vout!("new_block> {:?}\n", code);
         }
     }
 
-    fn match_expr(x: Iexpr, cases: Iexpr) -> Iexpr
+    pub fn new_when_expr(test: Iexpr, truth: Iexpr, lies: Iexpr) -> Iexpr
     {
         Iexpr{
-            typ: cases.typ.clone(),
+            typ: Type::Unknown,
+            src: Source::WhenExpr(
+                Box::new(test),
+                Box::new(truth),
+                Box::new(lies),
+            ),
+        }
+    }
+
+    pub fn new_match_expr(input: Iexpr, cases: Iexpr) -> Iexpr
+    {
+        Iexpr{
+            typ: Type::Unknown,
             src: Source::MatchExpr(
-                Box::new(x),
+                Box::new(input),
                 Box::new(cases),
             ),
         }
     }
 
-    fn match_case(pattern: Iexpr, code: Iexpr, next: Iexpr) -> Iexpr
+    pub fn new_match_case(pattern: Iexpr, code: Iexpr, next: Iexpr) -> Iexpr
     {
         Iexpr{
-            typ: code.typ.clone(),
+            typ: Type::Unknown,
             src: Source::MatchCase(
                 Box::new(pattern),
                 Box::new(code),
                 Box::new(next),
-            ),
-        }
-    }
-
-    fn case_expr(test: Iexpr, truth: Iexpr, lies: Iexpr) -> Iexpr
-    {
-        if truth.typ != lies.typ {
-            panic!("Mismatched case types: {:?}!={:?}", truth.typ, lies.typ);
-        }
-        Iexpr{
-            typ: truth.typ.clone(),
-            src: Source::CaseExpr(
-                Box::new(test),
-                Box::new(truth),
-                Box::new(lies),
             ),
         }
     }
@@ -194,12 +202,12 @@ vout!("new_block> {:?}\n", code);
             src: Source::IfStmt(
                 Box::new(test),
                 Box::new(truth),
-                Box::new(lies)
+                Box::new(lies),
             ),
         }
     }
 
-    fn str(items: Vec<Iexpr>) -> Iexpr
+    pub fn new_str_mash(items: Vec<Iexpr>) -> Iexpr
     {
         Iexpr{
             typ: Type::Str,

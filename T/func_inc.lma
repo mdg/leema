@@ -1,7 +1,7 @@
 func inc(x) -> x + 1 --
 
-func main() -> 
-    let i := inc(-4)
-    cout("inc(-4) = $i\n")
+func main() ->
+    let i := inc(~4)
+    cout("inc(~4) = $i\n")
     inc(4)
 --

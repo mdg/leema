@@ -495,6 +495,8 @@ impl Val {
             &Val::Wildcard => Type::Unknown,
             &Val::CallParams => Type::Unknown,
             &Val::PatternVar(_) => Type::Unknown,
+            &Val::Id(_) => Type::AnonVar,
+            &Val::TypedId(_, ref typ) => typ.clone(),
             _ => { panic!("dunno what type {:?}", self) }
         }
     }

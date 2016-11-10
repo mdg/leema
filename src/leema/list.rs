@@ -212,6 +212,30 @@ pub fn take_ref(l: &Val) -> (&Val, &Val)
     }
 }
 
+pub fn to_tuple2(l1: Val) -> (Val, Val)
+{
+    let (i1, l2) = take(l1);
+    let (i2, _) = take(l2);
+    (i1, i2)
+}
+
+pub fn to_tuple3(l1: Val) -> (Val, Val, Val)
+{
+    let (i1, l2) = take(l1);
+    let (i2, l3) = take(l2);
+    let (i3, _) = take(l3);
+    (i1, i2, i3)
+}
+
+pub fn to_tuple4(l1: Val) -> (Val, Val, Val, Val)
+{
+    let (i1, l2) = take(l1);
+    let (i2, l3) = take(l2);
+    let (i3, l4) = take(l3);
+    let (i4, _) = take(l4);
+    (i1, i2, i3, i4)
+}
+
 pub fn head(l: Val) -> Val
 {
     match l {
