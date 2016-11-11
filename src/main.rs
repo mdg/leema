@@ -65,26 +65,22 @@ fn real_main() -> i32
     }
     vout!("verbose mode\nargs:{:?}\n", args);
 
-    let path = Path::new(&args.arg_file);
-    if !path.exists() {
-        panic!("Path does not exist: {}", args.arg_file);
-    }
-    if !path.is_file() {
-        panic!("Path is not a file: {}", args.arg_file);
-    }
-    let root_path = path.parent().unwrap();
+    let mut inter = Interloader::new(&args.arg_file);
 
-    let mut inter = Interloader::new();
-    inter.add_path(root_path);
+    let modkey = inter.mod_name_to_key(&inter.main_mod);
+    let mut rootmod = inter.init_module(modkey);
 
     if args.arg_cmd == "tokens" {
-        let tokens = Interloader::read_file_tokens(&path);
+        let tokens = Interloader::read_tokens(&mut rootmod);
         println!("{:?}\n", tokens);
     } else if args.arg_cmd == "ast" {
-        let smod = Interloader::read_file_ast(&path);
+        let tokens = Interloader::read_tokens(&mut rootmod);
+        let smod = Interloader::read_ast(&mut rootmod);
         println!("{:?}\n", smod);
     } else if args.arg_cmd == "inter" {
-        let src = Interloader::read_file_inter(&path);
+        let tokens = Interloader::read_tokens(&mut rootmod);
+        let smod = Interloader::read_ast(&mut rootmod);
+        let src = Interloader::read_inter(&mut rootmod);
         println!("{:?}\n", src);
     } else if args.arg_cmd == "typecheck" {
         println!("typecheck {}", args.arg_file);

@@ -2,6 +2,7 @@
 use leema::ast;
 use leema::iexpr::{Iexpr, Source};
 use leema::lex::{lex};
+use leema::module::{ModKey, Module};
 use leema::parse::{Token};
 use leema::sexpr;
 use leema::src;
@@ -197,29 +198,45 @@ impl fmt::Debug for Intermod
 pub struct Interloader
 {
     version: Option<Version>,
-    path: PathBuf,
-    modules: HashMap<String, String>,
+    pub root_path: PathBuf,
+    pub main_mod: String,
+    modtxt: HashMap<String, String>,
 }
 
 impl Interloader
 {
-    pub fn new() -> Interloader
+    pub fn new(mainfile: &str) -> Interloader
     {
+        let path = Path::new(&mainfile);
+        if !path.exists() {
+            panic!("Path does not exist: {}", mainfile);
+        }
+        if !path.is_file() {
+            panic!("Path is not a file: {}", mainfile);
+        }
+        let ext = path.extension();
+        if ext.is_none() {
+            panic!("Main file has no extension: {}", mainfile);
+        }
+        if ext.unwrap() == "lma" {
+            panic!("Main file extension is not lma: {}", mainfile);
+        }
+        let modname = path.file_stem();
+        if modname.is_none() {
+            panic!("Is that not a real file? {}", mainfile);
+        }
+
         Interloader{
             version: None,
-            path: Path::new(".").to_path_buf(),
-            modules: HashMap::new(),
+            root_path: path.parent().unwrap().to_path_buf(),
+            main_mod: modname.unwrap().to_str().unwrap().to_string(),
+            modtxt: HashMap::new(),
         }
     }
 
-    pub fn add_path(&mut self, path: &Path)
+    pub fn set_mod_txt(&mut self, modname: &str, content: String)
     {
-        self.path = path.to_path_buf();
-    }
-
-    pub fn set_module(&mut self, modname: &str, content: String)
-    {
-        self.modules.insert(String::from(modname), content);
+        self.modtxt.insert(String::from(modname), content);
     }
 
     pub fn load_func(&mut self, module: &str, func: &str) -> Iexpr
@@ -233,25 +250,53 @@ impl Interloader
         Iexpr::const_val(Val::Void)
     }
 
-    pub fn module_path(&self, mod_name: &str) -> Option<PathBuf>
+    pub fn mod_name_to_key(&self, mod_name: &str) -> ModKey
     {
-        if self.modules.contains_key(mod_name) {
-            None
+        if self.modtxt.contains_key(mod_name) {
+            ModKey::name_only(mod_name)
+        } else {
+            let mut path = PathBuf::new();
+            path.push(self.root_path.as_path());
+            path.push(mod_name);
+            path.set_extension("lma");
+            ModKey::new(mod_name, path)
+        }
+    }
+
+    pub fn mod_file_to_key(&self, path: &PathBuf) -> ModKey
+    {
+        let local_file = path.strip_prefix(&self.root_path).ok();
+        println!("{:?}", local_file);
+        ModKey::name_only(mod_name)
+        /*
+        if self.modtxt.contains_key(mod_name) {
         } else {
             let mut path = PathBuf::new();
             path.push(self.path.as_path());
             path.push(mod_name);
             path.set_extension("lma");
-            Some(path)
+            ModKey::new(mod_name, path)
         }
+        */
+    }
+
+    pub fn init_module(&self, mod_key: ModKey) -> Module
+    {
+        let txt = if mod_key.file.is_none() {
+            self.modtxt.get(&mod_key.name).unwrap().clone()
+        } else {
+            Interloader::read_file_text(&mod_key.file.unwrap())
+        };
+        Module::new(mod_key, txt)
     }
 
     fn read_module(&self, mod_name: &str) -> (Option<PathBuf>, String)
     {
-        if self.modules.contains_key(mod_name) {
-            (None, self.modules.get(mod_name).unwrap().clone())
+        let mk: ModKey = self.mod_name_to_key(mod_name);
+        if mk.file.is_none() {
+            (None, self.modtxt.get(mod_name).unwrap().clone())
         } else {
-            let path = self.module_path(mod_name).unwrap().to_path_buf();
+            let path: PathBuf = mk.file.unwrap();
             let txt = Interloader::read_file_text(&path);
             (Some(path), txt)
         }
@@ -271,22 +316,21 @@ impl Interloader
         result
     }
 
-    pub fn read_file_tokens(path: &Path) -> Vec<Token>
+    pub fn read_tokens(m: &mut Module) -> &Vec<Token>
     {
-        let txt = Interloader::read_file_text(path);
-        lex(&txt)
+        m.tok = lex(&m.txt);
+        m.tok
     }
 
-    pub fn read_file_ast(path: &Path) -> Val
+    pub fn read_ast(m: &mut Module) -> &Val
     {
-        let toks = Interloader::read_file_tokens(path);
-        ast::parse(toks)
+        m.ast = ast::parse(m.tok);
+        &m.ast
     }
 
-    pub fn read_file_inter(path: &Path) -> Iexpr
+    pub fn read_inter(m: &mut Module) -> &Iexpr
     {
-        let smod = Interloader::read_file_ast(path);
-        src::compile_mod(smod)
+        src::compile_mod(m.ast)
     }
 
     pub fn load_module(&self, mod_name: &str) -> Intermod

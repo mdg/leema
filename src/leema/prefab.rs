@@ -323,7 +323,7 @@ fn define_macros(ss: &mut StaticSpace, inter: &mut Interloader)
     --
     ";
 
-    inter.set_module("prefab_macros", String::from(input));
+    inter.set_mod_txt("prefab_macros", String::from(input));
     compile::file(&inter, "prefab_macros");
     vout!("prefab macros compiled\n");
 }

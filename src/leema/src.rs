@@ -7,76 +7,14 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 
-struct Srcmod
-{
-    name: String,
-    file: Option<PathBuf>,
-    // version: Option<Version>,
-    srctext: String,
-    sexpr: Val,
-    imports: HashSet<String>,
-    macros: HashMap<String, Val>,
-    srcfunc: HashMap<String, Val>,
-}
-
 /*
-impl Srcmod
-{
-    pub fn new(name: String, file: Option<PathBuf>, tokens: Vec<Token>)
-    {
-        let tokens = lex(&text);
-        let smod = ast::parse(tokens.clone());
-        let imports = HashSet::new();
-        let makros = HashMap::new();
-        let srcfunc = HashMap::new();
-        let interfunc = HashMap::new();
-        // let prog = split_program(smod.clone());
-
-        Intermod{
-            name: String::from(name),
-            file: fname,
-            version: ver,
-            // srctext: content,
-            sexpr: smod,
-            imports: imports, // prog.imports,
-            macros: makros, // prog.macros,
-            srcfunc: srcfunc,
-            interfunc: interfunc,
-        }
-    }
-}
-*/
-
-
-struct SrcState
-{
-    type_idx: u32,
-}
-
-impl SrcState
-{
-    pub fn new() -> SrcState
-    {
-        SrcState{
-            type_idx: 0,
-        }
-    }
-
-    pub fn next(&mut self) -> u32
-    {
-        let result = self.type_idx;
-        self.type_idx += 1;
-        result
-    }
-}
-
-
 pub fn compile_mod(m: Val) -> Iexpr
 {
     let ss = SrcState::new();
     let ix = compile_expr(m);
     ix
 }
+*/
 
 fn compile_expr(x: Val) -> Iexpr
 {
