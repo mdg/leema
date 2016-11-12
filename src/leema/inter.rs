@@ -218,7 +218,7 @@ impl Interloader
         if ext.is_none() {
             panic!("Main file has no extension: {}", mainfile);
         }
-        if ext.unwrap() == "lma" {
+        if ext.unwrap() != "lma" {
             panic!("Main file extension is not lma: {}", mainfile);
         }
         let modname = path.file_stem();
@@ -263,29 +263,12 @@ impl Interloader
         }
     }
 
-    pub fn mod_file_to_key(&self, path: &PathBuf) -> ModKey
-    {
-        let local_file = path.strip_prefix(&self.root_path).ok();
-        println!("{:?}", local_file);
-        ModKey::name_only(mod_name)
-        /*
-        if self.modtxt.contains_key(mod_name) {
-        } else {
-            let mut path = PathBuf::new();
-            path.push(self.path.as_path());
-            path.push(mod_name);
-            path.set_extension("lma");
-            ModKey::new(mod_name, path)
-        }
-        */
-    }
-
     pub fn init_module(&self, mod_key: ModKey) -> Module
     {
         let txt = if mod_key.file.is_none() {
             self.modtxt.get(&mod_key.name).unwrap().clone()
         } else {
-            Interloader::read_file_text(&mod_key.file.unwrap())
+            Interloader::read_file_text(mod_key.file.as_ref().unwrap())
         };
         Module::new(mod_key, txt)
     }
@@ -319,18 +302,18 @@ impl Interloader
     pub fn read_tokens(m: &mut Module) -> &Vec<Token>
     {
         m.tok = lex(&m.txt);
-        m.tok
+        &m.tok
     }
 
     pub fn read_ast(m: &mut Module) -> &Val
     {
-        m.ast = ast::parse(m.tok);
+        m.ast = ast::parse(m.tok.clone());
         &m.ast
     }
 
-    pub fn read_inter(m: &mut Module) -> &Iexpr
+    pub fn read_inter(m: &mut Module) -> Iexpr
     {
-        src::compile_mod(m.ast)
+        src::compile_mod(m.ast.clone())
     }
 
     pub fn load_module(&self, mod_name: &str) -> Intermod

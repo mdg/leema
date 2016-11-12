@@ -7,14 +7,11 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 
-/*
 pub fn compile_mod(m: Val) -> Iexpr
 {
-    let ss = SrcState::new();
     let ix = compile_expr(m);
     ix
 }
-*/
 
 fn compile_expr(x: Val) -> Iexpr
 {

@@ -74,14 +74,14 @@ fn real_main() -> i32
         let tokens = Interloader::read_tokens(&mut rootmod);
         println!("{:?}\n", tokens);
     } else if args.arg_cmd == "ast" {
-        let tokens = Interloader::read_tokens(&mut rootmod);
+        Interloader::read_tokens(&mut rootmod);
         let smod = Interloader::read_ast(&mut rootmod);
         println!("{:?}\n", smod);
     } else if args.arg_cmd == "inter" {
-        let tokens = Interloader::read_tokens(&mut rootmod);
-        let smod = Interloader::read_ast(&mut rootmod);
-        let src = Interloader::read_inter(&mut rootmod);
-        println!("{:?}\n", src);
+        Interloader::read_tokens(&mut rootmod);
+        Interloader::read_ast(&mut rootmod);
+        let ix = Interloader::read_inter(&mut rootmod);
+        println!("{:?}\n", ix);
     } else if args.arg_cmd == "typecheck" {
         println!("typecheck {}", args.arg_file);
         let initial_version = Version::Sin;
