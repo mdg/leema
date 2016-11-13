@@ -8,6 +8,7 @@ pub mod lex;
 pub mod val;
 pub mod scope;
 pub mod list;
+pub mod loader;
 pub mod module;
 pub mod prefab;
 pub mod program;

@@ -6,6 +6,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 
+#[derive(Debug)]
 pub struct ModKey
 {
     pub name: String,
@@ -32,15 +33,34 @@ impl ModKey
     }
 }
 
+#[derive(Debug)]
+pub struct ModSrc
+{
+    pub imports: HashSet<String>,
+    pub macros: HashMap<String, Val>,
+    pub funcs: HashMap<String, Val>,
+}
+
+impl ModSrc
+{
+    pub fn new() -> ModSrc
+    {
+        ModSrc{
+            imports: HashSet::new(),
+            macros: HashMap::new(),
+            funcs: HashMap::new(),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Module
 {
     pub key: ModKey,
     pub txt: String,
     pub tok: Vec<Token>,
     pub ast: Val,
-    pub imports: HashSet<String>,
-    pub macros: HashMap<String, Val>,
-    pub srcfunx: HashMap<String, Val>,
+    pub src: ModSrc,
 }
 
 impl Module
@@ -53,9 +73,7 @@ impl Module
             txt: txt,
             tok: Vec::new(),
             ast: Val::Void,
-            imports: HashSet::new(),
-            macros: HashMap::new(),
-            srcfunx: HashMap::new(),
+            src: ModSrc::new(),
         };
         modul
     }

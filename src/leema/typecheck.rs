@@ -1,5 +1,5 @@
 
-use leema::inter::{Interloader};
+use leema::loader::{Interloader};
 use leema::program;
 use leema::log;
 

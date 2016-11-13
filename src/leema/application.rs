@@ -1,5 +1,5 @@
 use leema::compile::{Iexpr, Source};
-use leema::inter::{Interloader};
+use leema::loader::{Interloader};
 use leema::code::{Code, CodeMap};
 use leema::val::{Val};
 

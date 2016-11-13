@@ -5,7 +5,7 @@ use leema::sexpr;
 use leema::scope::Scope;
 use leema::reg::{Reg, Ireg};
 use leema::ast;
-use leema::inter::{Interloader};
+use leema::loader::{Interloader};
 use leema::code::{self, CodeKey, CodeMap, Code, OpVec};
 use std::collections::{HashMap};
 use std::sync::Arc;

@@ -6,17 +6,13 @@ mod leema;
 
 use leema::frame::{self, Frame};
 use leema::prefab;
-use leema::val::{Env, Val};
-use leema::code::{CodeKey};
-use leema::inter::{Interloader, Version};
+use leema::inter::{Version};
+use leema::loader::{Interloader};
 use leema::compile::{self, StaticSpace};
 use leema::program;
 use leema::application::{Application};
 use leema::typecheck;
-use leema::ast;
 use std::io::{stderr, Write};
-use std::fs;
-use std::path::Path;
 use docopt::{Docopt};
 
 extern crate libc;
@@ -75,8 +71,12 @@ fn real_main() -> i32
         println!("{:?}\n", tokens);
     } else if args.arg_cmd == "ast" {
         Interloader::read_tokens(&mut rootmod);
-        let smod = Interloader::read_ast(&mut rootmod);
-        println!("{:?}\n", smod);
+        let mod_ast = Interloader::read_ast(&mut rootmod);
+        println!("{:?}\n", mod_ast);
+    } else if args.arg_cmd == "modsrc" {
+        Interloader::read_tokens(&mut rootmod);
+        Interloader::read_ast(&mut rootmod);
+        println!("{:?}\n", rootmod);
     } else if args.arg_cmd == "inter" {
         Interloader::read_tokens(&mut rootmod);
         Interloader::read_ast(&mut rootmod);

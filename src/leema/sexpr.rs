@@ -1,6 +1,5 @@
-use leema::val::{Val, SexprType, Type};
+use leema::val::{Val, SexprType};
 use leema::list;
-use std::fmt;
 
 /**
  * define function

@@ -2,10 +2,14 @@ use leema::val::{Val, Type, SexprType};
 use leema::iexpr::{Iexpr, Source};
 use leema::lex::{lex};
 use leema::list;
+use leema::module::{Module};
 
-use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
 
+pub fn split_ast_mod(m: Val) -> Iexpr
+{
+    let ix = compile_expr(m);
+    ix
+}
 
 pub fn compile_mod(m: Val) -> Iexpr
 {

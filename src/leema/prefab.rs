@@ -2,7 +2,7 @@ use leema::val::{Val, Type};
 use leema::code::{Code};
 use leema::frame::{Frame};
 use leema::compile::{self, StaticSpace};
-use leema::inter::{Interloader};
+use leema::loader::{Interloader};
 use leema::list;
 use leema::log;
 use leema::ast;
