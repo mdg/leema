@@ -241,18 +241,24 @@ impl Interloader
 #[cfg(test)]
 mod tests
 {
-    use leema::inter::{Interloader};
+    use leema::loader::{Interloader};
     use std::path::{Path, PathBuf};
 
 #[test]
-fn test_module_path()
+fn test_root_path()
 {
-    let mut i = Interloader::new();
-    i.add_path(Path::new("hello"));
-    let mp = i.module_path("world");
+    let mut i = Interloader::new("hello/world.lma");
 
-    let actual = Path::new("hello/world.lma");
-    assert_eq!(actual, mp.unwrap().as_path());
+    let expected = Path::new("hello");
+    assert_eq!(expected, i.root_path);
+}
+
+#[test]
+fn test_main_mod()
+{
+    let mut i = Interloader::new("hello/world.lma");
+
+    assert_eq!("world", i.main_mod);
 }
 
 }

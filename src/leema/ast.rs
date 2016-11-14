@@ -408,8 +408,8 @@ fn test_parse_defstruct()
     let expected = sexpr::new_block(list::singleton(
         sexpr::new(SexprType::DefStruct,
         list::cons(Val::Type(Type::Id(Arc::new("Taco".to_string()))),
-        list::cons(sexpr::id_with_type("id".to_string(), Type::Int),
-        list::cons(sexpr::id_with_type("name".to_string(), Type::Str),
+        list::cons(Val::TypedId(Arc::new("id".to_string()), Type::Int),
+        list::cons(Val::TypedId(Arc::new("name".to_string()), Type::Str),
         Val::Nil,
         )))),
     ));
