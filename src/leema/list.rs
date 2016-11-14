@@ -105,7 +105,7 @@ pub fn is_singleton(l: &Val) -> bool
 }
 
 pub fn len(l: &Val) -> usize {
-    fold_ref(l, 0, |res, _| { res + 1 })
+    fold_ref(0, l, |res, _| { res + 1 })
 }
 
 pub fn map<F>(mut l: Val, op: F) -> Val
@@ -145,7 +145,7 @@ pub fn map_to_vec<F, T>(l: Val, op: F) -> Vec<T>
     acc
 }
 
-pub fn fold<R, F>(l: Val, init: R, op: F) -> R
+pub fn fold<R, F>(init: R, l: Val, op: F) -> R
     where F: Fn(R, Val) -> R
 {
     let mut acc = init;
@@ -161,7 +161,7 @@ pub fn fold<R, F>(l: Val, init: R, op: F) -> R
     acc
 }
 
-pub fn fold_ref<R, F>(l: &Val, init: R, op: F) -> R
+pub fn fold_ref<R, F>(init: R, l: &Val, op: F) -> R
     where F: Fn(R, &Val) -> R
 {
     let mut result = init;

@@ -317,7 +317,7 @@ impl Val {
             panic!("Cannot make tuple from not-list: {:?}", l);
         }
         let mut empties: Vec<Val> = vec![];
-        let items = list::fold(l, empties, |mut res, item| {
+        let items = list::fold(empties, l, |mut res, item| {
             res.push(item);
             res
         });

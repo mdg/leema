@@ -648,7 +648,7 @@ println!("result_type = {:?}", result_type);
         if ps == Val::Void {
             return base;
         }
-        list::fold(ps, base, |mut acc, f| {
+        list::fold(base, ps, |mut acc, f| {
             let id = match &f {
                 &Val::Sexpr(SexprType::MatchFailed, ref mf) => {
                     let (x, _) = list::take_ref(mf);
