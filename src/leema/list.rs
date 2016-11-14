@@ -174,6 +174,20 @@ pub fn fold_ref<R, F>(init: R, l: &Val, op: F) -> R
     result
 }
 
+pub fn fold_mut<R, F>(init: &mut R, l: Val, op: F)
+    where F: Fn(&mut R, Val)
+{
+    let mut it = l;
+    while it != Val::Nil {
+        if !it.is_list() {
+            panic!("Cannot fold on not-list: {:?}", it);
+        }
+        let (head, tail) = take(it);
+        op(init, head);
+        it = tail;
+    }
+}
+
 pub fn reverse(l: &Val) -> Val
 {
     let mut result = Val::Nil;
