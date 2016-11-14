@@ -3,7 +3,7 @@ use leema::ast;
 use leema::val::{Val};
 use leema::iexpr::{Iexpr, Source};
 use leema::inter::{Intermod, Version};
-use leema::module::{Module, ModKey};
+use leema::module::{Module, ModKey, ModSrc};
 use leema::lex::{lex};
 use leema::src;
 use leema::parse::{Token};
@@ -129,6 +129,12 @@ impl Interloader
     {
         m.ast = ast::parse(m.tok.clone());
         &m.ast
+    }
+
+    pub fn split_ast(m: &mut Module)
+    {
+        let ast = m.take_ast();
+        ModSrc::split_ast(&mut m.src, ast);
     }
 
     pub fn read_inter(m: &mut Module) -> Iexpr

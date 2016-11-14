@@ -9,6 +9,7 @@ use leema::prefab;
 use leema::inter::{Version};
 use leema::loader::{Interloader};
 use leema::compile::{self, StaticSpace};
+use leema::module::{Module};
 use leema::program;
 use leema::application::{Application};
 use leema::typecheck;
@@ -76,7 +77,8 @@ fn real_main() -> i32
     } else if args.arg_cmd == "modsrc" {
         Interloader::read_tokens(&mut rootmod);
         Interloader::read_ast(&mut rootmod);
-        println!("{:?}\n", rootmod);
+        Interloader::split_ast(&mut rootmod);
+        println!("{:?}\n", rootmod.src);
     } else if args.arg_cmd == "inter" {
         Interloader::read_tokens(&mut rootmod);
         Interloader::read_ast(&mut rootmod);

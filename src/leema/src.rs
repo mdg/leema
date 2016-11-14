@@ -2,14 +2,8 @@ use leema::val::{Val, Type, SexprType};
 use leema::iexpr::{Iexpr, Source};
 use leema::lex::{lex};
 use leema::list;
-use leema::module::{Module};
+use leema::module::{Module, ModSrc};
 
-
-pub fn split_ast_mod(m: Val) -> Iexpr
-{
-    let ix = compile_expr(m);
-    ix
-}
 
 pub fn compile_mod(m: Val) -> Iexpr
 {
