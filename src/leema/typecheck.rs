@@ -7,10 +7,9 @@ use std::path::Path;
 use std::io::{stderr, Write};
 
 
-pub fn program(prog: &mut program::Lib, inter: &Interloader, modfile: &Path)
+pub fn program(prog: &mut program::Lib, inter: &Interloader)
 {
-    let modname = modfile.file_stem().unwrap().to_str().unwrap();
-    module(prog, inter, modname);
+    module(prog, inter, &inter.main_mod);
 }
 
 pub fn module(prog: &mut program::Lib, inter: &Interloader, modname: &str)

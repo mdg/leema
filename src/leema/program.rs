@@ -1,45 +1,24 @@
 use leema::inter::{Version, Intermod};
+use leema::module::{Module};
 use std::collections::{HashMap};
 
 
 pub struct Lib
 {
-    intermod: HashMap<String, Intermod>,
-    version: Version,
+    module: HashMap<String, Module>,
 }
 
 impl Lib
 {
-    pub fn new(v: Version) -> Lib
+    pub fn new() -> Lib
     {
         Lib{
-            intermod: HashMap::new(),
-            version: v,
-        }
-    }
-}
-
-pub struct Set
-{
-    pub sin: Lib,
-    pub cos: Lib,
-}
-
-impl Set
-{
-    pub fn new() -> Set
-    {
-        Set{
-            sin: Lib::new(Version::Sin),
-            cos: Lib::new(Version::Cos),
+            module: HashMap::new(),
         }
     }
 
-    pub fn lib(&mut self, version: Version) -> &mut Lib
+    pub fn add_mod(&mut self, m: Module)
     {
-        match version {
-            Version::Sin => &mut self.sin,
-            Version::Cos => &mut self.cos,
-        }
+        self.module.insert(m.key.name.clone(), m);
     }
 }

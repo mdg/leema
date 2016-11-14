@@ -85,12 +85,12 @@ fn real_main() -> i32
         let ix = Interloader::read_inter(&mut rootmod);
         println!("{:?}\n", ix);
     } else if args.arg_cmd == "typecheck" {
-        println!("typecheck {}", args.arg_file);
-        let initial_version = Version::Sin;
-        let mut prog = program::Lib::new(initial_version);
-        // typecheck::program(&mut prog, &interload, path);
+        println!("typecheck {}", inter.main_mod);
+        let mut prog = program::Lib::new();
+        prog.add_mod(rootmod);
+        typecheck::program(&mut prog, &inter);
     } else {
-        println!("invalid command");
+        println!("invalid command: {:?}", args.arg_cmd);
         return 1;
     }
 
