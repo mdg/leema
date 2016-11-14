@@ -28,12 +28,6 @@ impl Interloader
     pub fn new(mainfile: &str) -> Interloader
     {
         let path = Path::new(&mainfile);
-        if !path.exists() {
-            panic!("Path does not exist: {}", mainfile);
-        }
-        if !path.is_file() {
-            panic!("Path is not a file: {}", mainfile);
-        }
         let ext = path.extension();
         if ext.is_none() {
             panic!("Main file has no extension: {}", mainfile);

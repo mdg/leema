@@ -1058,6 +1058,16 @@ impl PartialOrd for Val
             (&Val::Tuple(ref a), &Val::Tuple(ref b)) => {
                 PartialOrd::partial_cmp(&*a, &*b)
             }
+            (&Val::TypedId(ref ida, ref typa),
+                    &Val::TypedId(ref idb, ref typb)) => {
+                let cmp = PartialOrd::partial_cmp(&ida, &idb);
+                match cmp {
+                    Some(Ordering::Equal) => {
+                        PartialOrd::partial_cmp(&typa, &typb)
+                    }
+                    _ => cmp,
+                }
+            }
             (&Val::Sexpr(t1, ref x1), &Val::Sexpr(t2, ref x2)) => {
                 let cmp = PartialOrd::partial_cmp(&t1, &t2);
                 match cmp {
@@ -1109,6 +1119,12 @@ impl PartialOrd for Val
                 Some(Ordering::Less)
             }
             (_, &Val::Id(_)) => {
+                Some(Ordering::Greater)
+            }
+            (&Val::TypedId(_, _), _) => {
+                Some(Ordering::Less)
+            }
+            (_, &Val::TypedId(_, _)) => {
                 Some(Ordering::Greater)
             }
             (&Val::Nil, _) => {
