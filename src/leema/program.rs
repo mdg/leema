@@ -17,8 +17,24 @@ impl Lib
         }
     }
 
-    pub fn add_mod(&mut self, m: Module)
+    pub fn has_mod(&mut self, modname: &str) -> bool
     {
-        self.module.insert(m.key.name.clone(), m);
+        self.module.contains_key(modname)
+    }
+
+    pub fn add_mod(&mut self, m: Module) -> &mut Module
+    {
+        // self.module.insert(m.key.name.clone(), m);
+        self.module.entry(m.key.name.clone()).or_insert(m)
+    }
+
+    pub fn get_mod(&self, modname: &str) -> &Module
+    {
+        self.module.get(modname).unwrap()
+    }
+
+    pub fn get_mod_mut(&mut self, modname: &str) -> &mut Module
+    {
+        self.module.get_mut(modname).unwrap()
     }
 }

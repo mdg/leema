@@ -68,22 +68,15 @@ fn real_main() -> i32
     let mut rootmod = inter.init_module(modkey);
 
     if args.arg_cmd == "tokens" {
-        let tokens = Interloader::read_tokens(&mut rootmod);
-        println!("{:?}\n", tokens);
+        rootmod.read_tokens();
+        println!("{:?}\n", rootmod.tok);
     } else if args.arg_cmd == "ast" {
-        Interloader::read_tokens(&mut rootmod);
-        let mod_ast = Interloader::read_ast(&mut rootmod);
-        println!("{:?}\n", mod_ast);
+        rootmod.read_tokens();
+        rootmod.read_ast();
+        println!("{:?}\n", rootmod.ast);
     } else if args.arg_cmd == "modsrc" {
-        Interloader::read_tokens(&mut rootmod);
-        Interloader::read_ast(&mut rootmod);
-        Interloader::split_ast(&mut rootmod);
+        rootmod.load();
         println!("{:?}\n", rootmod.src);
-    } else if args.arg_cmd == "inter" {
-        Interloader::read_tokens(&mut rootmod);
-        Interloader::read_ast(&mut rootmod);
-        let ix = Interloader::read_inter(&mut rootmod);
-        println!("{:?}\n", ix);
     } else if args.arg_cmd == "typecheck" {
         println!("typecheck {}", inter.main_mod);
         let mut prog = program::Lib::new();

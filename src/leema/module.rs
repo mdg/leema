@@ -1,6 +1,8 @@
+use leema::ast;
 use leema::val::{Val, Type, SexprType};
 use leema::iexpr::{Iexpr, Source};
 use leema::list;
+use leema::lex::{lex};
 use leema::parse::{Token};
 
 use std::collections::{HashMap, HashSet};
@@ -97,6 +99,7 @@ pub struct Module
     pub tok: Vec<Token>,
     pub ast: Val,
     pub src: ModSrc,
+    loaded: bool,
 }
 
 impl Module
@@ -110,14 +113,36 @@ impl Module
             tok: Vec::new(),
             ast: Val::Void,
             src: ModSrc::new(),
+            loaded: false,
         };
         modul
     }
 
-    pub fn take_ast(&mut self) -> Val
+    pub fn load(&mut self)
     {
-        let mut tmp = Val::Void;
-        mem::swap(&mut tmp, &mut self.ast);
-        tmp
+        if self.loaded {
+            return;
+        }
+        self.read_tokens();
+        self.read_ast();
+        self.split_ast();
+        self.loaded = true;
+    }
+
+    pub fn read_tokens(&mut self)
+    {
+        self.tok = lex(&self.txt);
+    }
+
+    pub fn read_ast(&mut self)
+    {
+        self.ast = ast::parse(self.tok.clone());
+    }
+
+    pub fn split_ast(&mut self)
+    {
+        let mut ast = Val::Void;
+        mem::swap(&mut ast, &mut self.ast);
+        ModSrc::split_ast(&mut self.src, ast);
     }
 }

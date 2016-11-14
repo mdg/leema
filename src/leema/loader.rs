@@ -1,10 +1,8 @@
 
-use leema::ast;
 use leema::val::{Val};
 use leema::iexpr::{Iexpr, Source};
 use leema::inter::{Intermod, Version};
 use leema::module::{Module, ModKey, ModSrc};
-use leema::lex::{lex};
 use leema::src;
 use leema::parse::{Token};
 
@@ -87,18 +85,6 @@ impl Interloader
         Module::new(mod_key, txt)
     }
 
-    fn read_module(&self, mod_name: &str) -> (Option<PathBuf>, String)
-    {
-        let mk: ModKey = self.mod_name_to_key(mod_name);
-        if mk.file.is_none() {
-            (None, self.modtxt.get(mod_name).unwrap().clone())
-        } else {
-            let path: PathBuf = mk.file.unwrap();
-            let txt = Interloader::read_file_text(&path);
-            (Some(path), txt)
-        }
-    }
-
     pub fn read_file_text(path: &Path) -> String
     {
         if !path.exists() {
@@ -111,36 +97,6 @@ impl Interloader
         let mut result = String::new();
         f.read_to_string(&mut result);
         result
-    }
-
-    pub fn read_tokens(m: &mut Module) -> &Vec<Token>
-    {
-        m.tok = lex(&m.txt);
-        &m.tok
-    }
-
-    pub fn read_ast(m: &mut Module) -> &Val
-    {
-        m.ast = ast::parse(m.tok.clone());
-        &m.ast
-    }
-
-    pub fn split_ast(m: &mut Module)
-    {
-        let ast = m.take_ast();
-        ModSrc::split_ast(&mut m.src, ast);
-    }
-
-    pub fn read_inter(m: &mut Module) -> Iexpr
-    {
-        src::compile_mod(m.ast.clone())
-    }
-
-    pub fn load_module(&self, mod_name: &str) -> Intermod
-    {
-        let (filename, txt) = self.read_module(mod_name);
-        let toks = lex(&txt);
-        Intermod::new(mod_name, filename, self.version, txt)
     }
 
     fn import_module(&mut self, modname: &str)
