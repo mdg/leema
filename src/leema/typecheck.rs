@@ -31,8 +31,8 @@ pub fn module(prog: &mut program::Lib, inter: &Interloader, modname: &str)
         let mut imods = Vec::with_capacity(m.src.imports.len());
         for i in &m.src.imports {
             println!("import({})", i);
-            let mkey = inter.mod_name_to_key(&modname);
-            let mut im = inter.init_module(mkey);
+            let ikey = inter.mod_name_to_key(&i);
+            let mut im = inter.init_module(ikey);
             im.load();
             imods.push(im);
         }
@@ -40,6 +40,7 @@ pub fn module(prog: &mut program::Lib, inter: &Interloader, modname: &str)
     };
 
     for i in imported_mods {
+        println!("imported({:?})", i);
         prog.add_mod(i);
     }
 }
