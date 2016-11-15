@@ -9,21 +9,37 @@ use std::io::{stderr, Write};
 
 pub fn program(prog: &mut program::Lib, inter: &Interloader)
 {
+    {
+        let mut m = if !prog.has_mod(&inter.main_mod) {
+            let mkey = inter.mod_name_to_key(&inter.main_mod);
+            prog.add_mod(inter.init_module(mkey))
+        } else {
+            prog.get_mod_mut(&inter.main_mod)
+        };
+        m.load();
+    }
     module(prog, inter, &inter.main_mod);
 }
 
 pub fn module(prog: &mut program::Lib, inter: &Interloader, modname: &str)
 {
     vout!("typecheck.module({})\n", modname);
-    // let modname = module::name(module_or_file);
+    let imported_mods = {
+        let m = prog.get_mod(modname);
+        println!("loaded module:\n{:?}\n", m);
 
-    let mut m = if !prog.has_mod(modname) {
-        let mkey = inter.mod_name_to_key(&modname);
-        prog.add_mod(inter.init_module(mkey))
-    } else {
-        prog.get_mod_mut(modname)
+        let mut imods = Vec::with_capacity(m.src.imports.len());
+        for i in &m.src.imports {
+            println!("import({})", i);
+            let mkey = inter.mod_name_to_key(&modname);
+            let mut im = inter.init_module(mkey);
+            im.load();
+            imods.push(im);
+        }
+        imods
     };
-    m.load();
-    println!("loaded module:\n{:?}\n", m);
-    //if prog.module
+
+    for i in imported_mods {
+        prog.add_mod(i);
+    }
 }
