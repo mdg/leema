@@ -1419,7 +1419,9 @@ fn test_compile_func_oneline_untyped()
     let input = "func inc(x) -> x + 1 --";
     let root = ast::parse(lex(input));
     let mut inter = Interloader::new("test.lma");
-    let mut ss = prefab::new_staticspace("tacos", &mut inter);
+    let mk = ModKey::name_only("tacos");
+    let mi = ModuleInterface::new(mk);
+    let mut ss = prefab::new_staticspace(mi, &mut inter);
 
     let iprog = ss.compile(root);
 
@@ -1445,7 +1447,9 @@ fn test_compile_and_call_func()
     ";
     let root = ast::parse(lex(input));
     let mut inter = Interloader::new("test.lma");
-    let mut ss = prefab::new_staticspace("tacos", &mut inter);
+    let mk = ModKey::name_only("tacos");
+    let mi = ModuleInterface::new(mk);
+    let mut ss = prefab::new_staticspace(mi, &mut inter);
 
     let iprog = ss.compile(root);
 }
@@ -1461,7 +1465,9 @@ fn test_compile_strx_field_access()
     ";
     let root = ast::parse(lex(input));
     let mut inter = Interloader::new("test.lma");
-    let mut ss = prefab::new_staticspace("tacos", &mut inter);
+    let mk = ModKey::name_only("tacos");
+    let mi = ModuleInterface::new(mk);
+    let mut ss = prefab::new_staticspace(mi, &mut inter);
 
     let iroot = ss.compile(root);
 
@@ -1482,7 +1488,9 @@ fn test_compile_main_func()
     let input = "func main() -> 1 --";
     let root = ast::parse(lex(input));
     let mut inter = Interloader::new("test.lma");
-    let mut ss = prefab::new_staticspace("tacos", &mut inter);
+    let mk = ModKey::name_only("tacos");
+    let mi = ModuleInterface::new(mk);
+    let mut ss = prefab::new_staticspace(mi, &mut inter);
 
     let iprog = ss.compile(root);
 

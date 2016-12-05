@@ -976,7 +976,9 @@ let p = unsafe { getpid(); };
 write!(stderr(), "test_main_func_finishes {:?}\n", p);
     let input = "func main() -> 3 --";
     let mut inter = Interloader::new("test.lma");
-    let mut ss = prefab::new_staticspace("tacos", &mut inter);
+    let mk = ModKey::name_only("tacos");
+    let mi = ModuleInterface::new(mk);
+    let mut ss = prefab::new_staticspace(mi, &mut inter);
     ss.compile(ast::parse(lex(input)));
 
     let mut app = Application::new();

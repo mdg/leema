@@ -677,7 +677,8 @@ mod tests {
 #[test]
 fn test_push_pop()
 {
-    let mut s = Scope::new(&"hello".to_string());
+    let mk = ModKey::name_only("hello");
+    let mut s = Scope::new(mk);
     assert_eq!("hello".to_string(), s.get_scope_name());
 
     Scope::push_function_scope(&mut s, &"world".to_string(), Val::Void);
@@ -690,7 +691,8 @@ fn test_push_pop()
 #[test]
 fn test_type_var_generation()
 {
-    let mut s = Scope::new(&"hello".to_string());
+    let mk = ModKey::name_only("hello");
+    let mut s = Scope::new(mk);
     assert_eq!(Type::Var(Arc::new("TypeVar_hello_0".to_string())), s.new_typevar());
 
     Scope::push_function_scope(&mut s, &"world".to_string(), Val::Void);
@@ -701,21 +703,10 @@ fn test_type_var_generation()
 }
 
 #[test]
-fn test_macro_defined()
-{
-    let mut s = Scope::new(&"hello".to_string());
-    let macro_name = "world".to_string();
-    s.define_macro(&macro_name, vec![], Val::Void);
-    assert!(s.is_macro(&macro_name));
-
-    Scope::push_function_scope(&mut s, &"foo".to_string(), Val::Void);
-    assert!(s.is_macro(&macro_name));
-}
-
-#[test]
 fn test_label_assigned()
 {
-    let mut s = Scope::new(&"hello".to_string());
+    let mk = ModKey::name_only("hello");
+    let mut s = Scope::new(mk);
     let label_name = "world".to_string();
     s.assign_label(Reg::new_param(2), &label_name, Type::Int);
     assert!(s.is_label(&label_name));

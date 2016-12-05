@@ -131,14 +131,14 @@ impl ModuleInterface
         }
     }
 
-    pub fn load(ms: &ModSrc) -> Rc<ModuleInterface>
+    pub fn load(ms: &ModSrc) -> ModuleInterface
     {
-        Rc::new(ModuleInterface{
+        ModuleInterface{
             key: ms.key.clone(),
             macros: ms.macros.clone(),
             func_types: ms.func_types.clone(),
             type_defs: HashMap::new(),
-        })
+        }
     }
 }
 
@@ -182,7 +182,7 @@ impl Module
         self.read_tokens();
         self.read_ast();
         self.split_ast();
-        self.ifc = ModuleInterface::load(&self.src);
+        self.ifc = Rc::new(ModuleInterface::load(&self.src));
         self.loaded = true;
     }
 
