@@ -250,6 +250,14 @@ pub fn to_tuple4(l1: Val) -> (Val, Val, Val, Val)
     (i1, i2, i3, i4)
 }
 
+pub fn to_ref_tuple3(l1: &Val) -> (&Val, &Val, &Val)
+{
+    let (i1, l2) = take_ref(l1);
+    let (i2, l3) = take_ref(l2);
+    let (i3, _) = take_ref(l3);
+    (i1, i2, i3)
+}
+
 pub fn head(l: Val) -> Val
 {
     match l {

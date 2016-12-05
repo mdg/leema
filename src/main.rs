@@ -81,7 +81,7 @@ fn real_main() -> i32
         println!("typecheck {}", inter.main_mod);
         let mut prog = program::Lib::new();
         prog.add_mod(rootmod);
-        typecheck::program(&mut prog, &inter);
+        // typecheck::function(&mut prog, &inter, &inter.main_mod, "main");
     } else {
         println!("invalid command: {:?}", args.arg_cmd);
         return 1;

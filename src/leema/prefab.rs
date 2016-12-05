@@ -3,14 +3,17 @@ use leema::code::{Code};
 use leema::frame::{Frame};
 use leema::compile::{self, StaticSpace};
 use leema::loader::{Interloader};
+use leema::module::{ModuleInterface};
 use leema::list;
 use leema::log;
 use leema::ast;
+
 use std::fs::File;
 use std::io::{stderr, Read, Write};
 use std::any::{Any};
 use std::fmt::{self, Display, Debug};
 use std::sync::{Arc, Mutex};
+use std::rc::{Rc};
 
 
 pub fn int_add(fs: &mut Frame)
@@ -324,7 +327,7 @@ fn define_macros(ss: &mut StaticSpace, inter: &mut Interloader)
     ";
 
     inter.set_mod_txt("prefab_macros", String::from(input));
-    compile::file(&inter, "prefab_macros");
+    // compile::file(&inter, "prefab_macros");
     vout!("prefab macros compiled\n");
 }
 
@@ -407,9 +410,9 @@ pub fn define_prefab(ss: &mut StaticSpace, inter: &mut Interloader)
     define_macros(ss, inter);
 }
 
-pub fn new_staticspace(name: &str, inter: &mut Interloader) -> StaticSpace
-{
-    let mut ss = StaticSpace::new(name);
+pub fn new_staticspace(mi: Rc<ModuleInterface>, inter: &mut Interloader
+) -> StaticSpace {
+    let mut ss = StaticSpace::new(mi);
     define_prefab(&mut ss, inter);
     ss
 }

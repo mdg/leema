@@ -3,8 +3,11 @@ use leema::list;
 use leema::log;
 use leema::reg::{Reg, Ireg};
 use leema::sexpr;
+use leema::module::{ModuleInterface};
+
 use std::collections::{HashMap, LinkedList};
 use std::sync::Arc;
+use std::rc::Rc;
 use std::io::{stderr, Write};
 use std::mem;
 
@@ -291,32 +294,33 @@ impl FunctionScope
 #[derive(Debug)]
 pub struct ModuleScope
 {
-    name: String,
-    // macros
-    _macros: HashMap<String, (Vec<Arc<String>>, Val)>,
-    // type definitins in type namespace
-    _type_defs: HashMap<String, Type>,
+    local: Rc<ModuleInterface>,
+    imports: HashMap<String, Rc<ModuleInterface>>,
 }
 
 impl ModuleScope
 {
-    pub fn new(name: &str) -> ModuleScope
+    pub fn new(lm: Rc<ModuleInterface>) -> ModuleScope
     {
         ModuleScope{
-            name: String::from(name),
-            _macros: HashMap::new(),
-            _type_defs: HashMap::new(),
+            local: lm.clone(),
+            imports: HashMap::new(),
         }
+    }
+
+    pub fn name(&self) -> &str
+    {
+        &self.local.key.name
     }
 
     pub fn is_macro(&self, name: &String) -> bool
     {
-        self._macros.contains_key(name)
+        self.local.macros.contains_key(name)
     }
 
     pub fn get_type(&self, name: &String) -> Option<&Type>
     {
-        self._type_defs.get(name)
+        self.local.type_defs.get(name)
     }
 }
 
@@ -331,10 +335,10 @@ pub struct Scope
 
 impl Scope
 {
-    pub fn new(scope_nm: &str) -> Scope
+    pub fn new(lm: Rc<ModuleInterface>) -> Scope
     {
         Scope{
-            _module: ModuleScope::new(scope_nm),
+            _module: ModuleScope::new(lm),
             _infer: Inferator::new(),
             _function: FunctionScope::new(),
             _failed: None,
@@ -380,21 +384,10 @@ impl Scope
     pub fn get_scope_name(&self) -> String
     {
         if self._function.name.is_empty() {
-            self._module.name.clone()
+            String::from(self._module.name())
         } else {
-            format!("{}{}", self._module.name, self._function.name)
+            format!("{}{}", self._module.name(), self._function.name)
         }
-    }
-
-    pub fn define_macro(&mut self, name: &String, args: Vec<Arc<String>>, body: Val)
-    {
-        if self.is_label(name) {
-            panic!("label already assigned: {}", name);
-        }
-        if self._module.is_macro(name) {
-            panic!("macro already defined: {}", name);
-        }
-        self._module._macros.insert(name.clone(), (args, body));
     }
 
     pub fn is_macro(&self, name: &String) -> bool
@@ -404,7 +397,7 @@ impl Scope
 
     pub fn get_macro<'a>(&'a self, name: &String) -> Option<&'a (Vec<Arc<String>>, Val)>
     {
-        self._module._macros.get(name)
+        self._module.local.macros.get(name)
     }
 
     pub fn assign_label(&mut self, r: Reg, name: &String, typ: Type)
@@ -604,13 +597,15 @@ println!("result_type = {:?}", result_type);
         self._function.function_param_types.as_ref().unwrap()
     }
 
+    /*
     pub fn define_type(&mut self, name: &String, typ: &Type)
     {
         if self.is_type(name) {
             panic!("Type is already defined: {}", name);
         }
-        self._module._type_defs.insert(name.clone(), typ.clone());
+        self._module.type_defs.insert(name.clone(), typ.clone());
     }
+    */
 
     pub fn is_type(&self, name: &String) -> bool
     {

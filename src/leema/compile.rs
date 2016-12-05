@@ -1,14 +1,17 @@
 use leema::val::{Val,SexprType,Type};
 use leema::list;
 use leema::log;
+use leema::module::{ModuleInterface, ModKey};
 use leema::sexpr;
 use leema::scope::Scope;
 use leema::reg::{Reg, Ireg};
 use leema::ast;
 use leema::loader::{Interloader};
 use leema::code::{self, CodeKey, CodeMap, Code, OpVec};
+
 use std::collections::{HashMap};
 use std::sync::Arc;
+use std::rc::Rc;
 use std::mem;
 use std::io::{stderr, Write};
 
@@ -267,10 +270,11 @@ pub struct StaticSpace
 
 impl StaticSpace
 {
-    pub fn new(name: &str) -> StaticSpace
+    // pub fn new(key: &ModKey) -> StaticSpace
+    pub fn new(mi: Rc<ModuleInterface>) -> StaticSpace
     {
         StaticSpace{
-            scope: Scope::new(name),
+            scope: Scope::new(mi),
             typefields: HashMap::new(),
             interlib: HashMap::new(),
             lib: HashMap::new(),
@@ -385,14 +389,6 @@ impl StaticSpace
                 self.precompile_defunc(expr);
                 Iexpr::new(Source::Void)
             }
-            SexprType::DefMacro => {
-                self.precompile_macro(expr);
-                Iexpr::new(Source::Void)
-            }
-            SexprType::DefStruct => {
-                self.precompile_defstruct(expr);
-                Iexpr::new(Source::Void)
-            }
             SexprType::Fail => {
                 self.precompile_fail(expr)
             }
@@ -459,6 +455,14 @@ impl StaticSpace
             }
             SexprType::Import => {
                 panic!("Can't compile Import");
+            }
+            SexprType::DefMacro => {
+                // ignore macros, they're handled elsewhere
+                panic!("Macros should have been handled elsewhere");
+            }
+            SexprType::DefStruct => {
+                // ignore defstruct here. will deal with them earlier
+                panic!("structs should have been handled elsewhere");
             }
         }
     }
@@ -545,6 +549,7 @@ vout!("compile fork {} := {}\n", name, val);
         forkx
     }
 
+    /*
     pub fn precompile_defstruct(&mut self, expr: Val)
     {
         let (nameval, mut fields) = list::take(expr);
@@ -583,29 +588,7 @@ vout!("precompile_defstruct({:?},{:?})\n", nameval, fields);
             Code::Inter(Arc::new(fixpr)),
         );
     }
-
-    pub fn precompile_macro(&mut self, expr: Val)
-    {
-        let (nameval, f1) = list::take(expr);
-        let (mut params, f2) = list::take(f1);
-        let (code, _) = list::take(f2);
-vout!("precompile_macro({:?},{:?},{:?})\n", nameval, params, code);
-
-        let name = nameval.to_str();
-        let mut args = vec![];
-        while params != Val::Nil {
-            let (head, tail) = list::take(params);
-            if !head.is_id() {
-                panic!("macro param not an id {:?}", head);
-            }
-            let var_name = Val::id_name(&head);
-            args.push(var_name);
-            params = tail;
-        }
-
-vout!("macro_defined({:?},{:?},{:?})\n", name, args, code);
-        self.scope.define_macro(&*name, args, code);
-    }
+    */
 
     pub fn precompile_defunc(&mut self, func: Val)
     {
@@ -1227,24 +1210,6 @@ vout!("typefields at fieldaccess: {:?}\n", self.typefields);
             self.assign_registers(&mut x);
         }
     }
-}
-
-pub fn file(inter: &Interloader, mod_name: &str) -> StaticSpace
-{
-    let mut ss = StaticSpace::new(mod_name);
-    /*
-    let ast = inter.parse(mod_name);
-    let script = ss.compile(ast::root(ast));
-    if script.src != Source::Void {
-        let stype = script.typ.clone();
-        ss.define_func(
-            Arc::new("*script*".to_string()),
-            Type::f(vec![], stype),
-            Code::Inter(Arc::new(script)),
-        );
-    }
-    */
-    ss
 }
 
 #[cfg(test)]
