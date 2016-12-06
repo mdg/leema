@@ -669,16 +669,19 @@ println!("result_type = {:?}", result_type);
 #[cfg(test)]
 mod tests {
     use leema::val::{Val, SexprType, Type};
+    use leema::module::{ModKey, ModuleInterface};
     use leema::sexpr;
     use leema::scope::{Scope};
     use leema::reg::{Reg};
     use std::sync::Arc;
+    use std::rc::Rc;
 
 #[test]
 fn test_push_pop()
 {
     let mk = ModKey::name_only("hello");
-    let mut s = Scope::new(mk);
+    let mi = Rc::new(ModuleInterface::new(&mk));
+    let mut s = Scope::new(mi);
     assert_eq!("hello".to_string(), s.get_scope_name());
 
     Scope::push_function_scope(&mut s, &"world".to_string(), Val::Void);
@@ -692,7 +695,8 @@ fn test_push_pop()
 fn test_type_var_generation()
 {
     let mk = ModKey::name_only("hello");
-    let mut s = Scope::new(mk);
+    let mi = Rc::new(ModuleInterface::new(&mk));
+    let mut s = Scope::new(mi);
     assert_eq!(Type::Var(Arc::new("TypeVar_hello_0".to_string())), s.new_typevar());
 
     Scope::push_function_scope(&mut s, &"world".to_string(), Val::Void);
@@ -706,7 +710,8 @@ fn test_type_var_generation()
 fn test_label_assigned()
 {
     let mk = ModKey::name_only("hello");
-    let mut s = Scope::new(mk);
+    let mi = Rc::new(ModuleInterface::new(&mk));
+    let mut s = Scope::new(mi);
     let label_name = "world".to_string();
     s.assign_label(Reg::new_param(2), &label_name, Type::Int);
     assert!(s.is_label(&label_name));
