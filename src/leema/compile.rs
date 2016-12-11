@@ -458,7 +458,8 @@ impl StaticSpace
             }
             SexprType::DefMacro => {
                 // ignore macros, they're handled elsewhere
-                panic!("Macros should have been handled elsewhere");
+                // panic!("Macros should have been handled elsewhere");
+                Iexpr::noop()
             }
             SexprType::DefStruct => {
                 // ignore defstruct here. will deal with them earlier
@@ -1277,6 +1278,7 @@ fn test_compile_call_no_params()
     assert_eq!(expected_block, iprog);
 }
 
+/*
 #[test]
 fn test_compile_macro()
 {
@@ -1327,7 +1329,6 @@ fn test_compile_macro()
     assert_eq!(expected_body, *body);
 }
 
-/*
 #[test]
 fn test_use_macro()
 {
@@ -1462,6 +1463,7 @@ fn test_compile_and_call_func()
     let iprog = ss.compile(root);
 }
 
+/*
 #[test]
 fn test_compile_strx_field_access()
 {
@@ -1489,6 +1491,7 @@ fn test_compile_strx_field_access()
     // for now, as long as compile didn't fail, this is enough
     assert!(ss.scope.is_label("foo_fld"));
 }
+*/
 
 #[test]
 fn test_compile_main_func()
