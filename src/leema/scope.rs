@@ -1,6 +1,7 @@
 use leema::val::{Val,SexprType,Type};
 use leema::list;
 use leema::log;
+use leema::program::{Lib};
 use leema::reg::{Reg, Ireg};
 use leema::sexpr;
 use leema::module::{ModuleInterface};
@@ -343,6 +344,14 @@ impl Scope
             _function: FunctionScope::new(),
             _failed: None,
         }
+    }
+
+    pub fn push_function(&mut self, prog: &mut Lib, modnm: &str, funcnm: &str)
+    {
+    }
+
+    pub fn pop_function(&mut self, prog: &mut Lib)
+    {
     }
 
     pub fn push_function_scope(&mut self, func_nm: &String, ps: Val)

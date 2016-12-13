@@ -11,6 +11,7 @@ use leema::loader::{Interloader};
 use leema::compile::{self, StaticSpace};
 use leema::module::{Module};
 use leema::program;
+use leema::scope::{Scope};
 use leema::application::{Application};
 use leema::typecheck;
 use std::io::{stderr, Write};
@@ -79,7 +80,9 @@ fn real_main() -> i32
         println!("{:?}\n", rootmod.src);
     } else if args.arg_cmd == "typecheck" {
         println!("typecheck {}", inter.main_mod);
-        let mut prog = program::Lib::new();
+        rootmod.load();
+        let mut prog = program::Lib::new(inter);
+        let mut scope = Scope::new(rootmod.ifc.clone());
         prog.add_mod(rootmod);
         // typecheck::function(&mut prog, &inter, &inter.main_mod, "main");
     } else {

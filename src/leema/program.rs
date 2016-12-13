@@ -1,18 +1,22 @@
 use leema::inter::{Version, Intermod};
 use leema::module::{Module};
+use leema::loader::{Interloader};
+
 use std::collections::{HashMap};
 
 
 pub struct Lib
 {
+    loader: Interloader,
     module: HashMap<String, Module>,
 }
 
 impl Lib
 {
-    pub fn new() -> Lib
+    pub fn new(l: Interloader) -> Lib
     {
         Lib{
+            loader: l,
             module: HashMap::new(),
         }
     }
