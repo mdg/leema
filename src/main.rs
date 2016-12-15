@@ -80,11 +80,12 @@ fn real_main() -> i32
         println!("{:?}\n", rootmod.src);
     } else if args.arg_cmd == "typecheck" {
         println!("typecheck {}", inter.main_mod);
-        rootmod.load();
+        let main_mod = inter.main_mod.clone();
         let mut prog = program::Lib::new(inter);
-        let mut scope = Scope::new(rootmod.ifc.clone());
+        rootmod.load();
         prog.add_mod(rootmod);
-        // typecheck::function(&mut prog, &inter, &inter.main_mod, "main");
+        let mut scope = Scope::init();
+        typecheck::program(scope, &mut prog, &main_mod, "main");
     } else {
         println!("invalid command: {:?}", args.arg_cmd);
         return 1;

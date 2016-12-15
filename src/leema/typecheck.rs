@@ -1,24 +1,27 @@
 
 use leema::loader::{Interloader};
-use leema::program;
+use leema::program::{Lib};
+use leema::scope::{Scope};
+use leema::val::{Type};
 use leema::log;
 
 use std::path::Path;
 use std::io::{stderr, Write};
 
 
-pub fn program(prog: &mut program::Lib, inter: &Interloader)
+pub fn program(scope: Scope, prog: &mut Lib, modnm: &str, funcnm: &str)
 {
-    {
-        let mut m = if !prog.has_mod(&inter.main_mod) {
-            let mkey = inter.mod_name_to_key(&inter.main_mod);
-            prog.add_mod(inter.init_module(mkey))
-        } else {
-            prog.get_mod_mut(&inter.main_mod)
-        };
-        m.load();
-    }
-    module(prog, inter, &inter.main_mod);
+    let prog_type = function(scope, prog, modnm, funcnm);
+    println!("\nprogram type: {:?}", prog_type);
+}
+
+pub fn function(mut scope: Scope, prog: &mut Lib, modnm: &str, funcnm: &str) -> Type
+{
+    println!("\ntypecheck::function({}:{})", modnm, funcnm);
+    scope.push_function(prog, modnm, funcnm);
+    println!("\nscope: {:?}", scope);
+    scope.pop_function(prog);
+    Type::Void
 }
 
 /*
@@ -63,6 +66,7 @@ typecheck_expr(e) {
 }
 */
 
+/*
 pub fn module(prog: &mut program::Lib, inter: &Interloader, modname: &str)
 {
     vout!("typecheck.module({})\n", modname);
@@ -99,12 +103,7 @@ pub fn module(prog: &mut program::Lib, inter: &Interloader, modname: &str)
         func(prog, inter, &fname);
     }
 }
-
-pub fn func(prog: &mut program::Lib, inter: &Interloader, fname: &str)
-{
-    println!("\ntypecheck::func({:?})", fname);
-    // prog.get_func(fname);
-}
+*/
 
 /*
 thing that reads files
