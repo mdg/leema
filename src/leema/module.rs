@@ -174,6 +174,23 @@ impl Module
         }
     }
 
+    pub fn init() -> Module
+    {
+        let init_key = ModKey::name_only("__init__");
+        let init_mod = Rc::new(ModuleInterface::new(&init_key));
+        let init_src = ModSrc::new(&init_key);
+        Module{
+            key: init_key,
+            txt: String::from(""),
+            tok: Vec::new(),
+            ast: Val::Void,
+            src: init_src,
+            ifc: init_mod,
+            loaded: true,
+            imports_loaded: true,
+        }
+    }
+
     pub fn load(&mut self)
     {
         if self.loaded {

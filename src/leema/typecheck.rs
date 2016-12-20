@@ -20,6 +20,8 @@ pub fn function(mut scope: Scope, prog: &mut Lib, modnm: &str, funcnm: &str) -> 
     println!("\ntypecheck::function({}:{})", modnm, funcnm);
     scope.push_function(prog, modnm, funcnm);
     println!("\nscope: {:?}", scope);
+    // function_code
+    // let func_src = scope._module.local.src;
     scope.pop_function(prog);
     Type::Void
 }

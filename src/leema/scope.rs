@@ -4,7 +4,7 @@ use leema::log;
 use leema::program::{Lib};
 use leema::reg::{Reg, Ireg};
 use leema::sexpr;
-use leema::module::{ModuleInterface, ModKey};
+use leema::module::{ModuleInterface, ModKey, Module};
 
 use std::collections::{HashMap, LinkedList};
 use std::sync::Arc;
@@ -296,13 +296,13 @@ impl FunctionScope
 pub struct ModuleScope
 {
     parent: Option<Box<ModuleScope>>,
-    local: Rc<ModuleInterface>,
+    local: Rc<Module>,
     imports: HashMap<String, Rc<ModuleInterface>>,
 }
 
 impl ModuleScope
 {
-    pub fn new(lm: Rc<ModuleInterface>) -> ModuleScope
+    pub fn new(lm: Rc<Module>) -> ModuleScope
     {
         ModuleScope{
             parent: None,
@@ -318,12 +318,12 @@ impl ModuleScope
 
     pub fn is_macro(&self, name: &String) -> bool
     {
-        self.local.macros.contains_key(name)
+        self.local.ifc.macros.contains_key(name)
     }
 
     pub fn get_type(&self, name: &String) -> Option<&Type>
     {
-        self.local.type_defs.get(name)
+        self.local.ifc.type_defs.get(name)
     }
 }
 
@@ -338,10 +338,10 @@ pub struct Scope
 
 impl Scope
 {
-    pub fn new(lm: Rc<ModuleInterface>) -> Scope
+    pub fn new(m: Rc<Module>) -> Scope
     {
         Scope{
-            _module: ModuleScope::new(lm),
+            _module: ModuleScope::new(m.clone()),
             _infer: Inferator::new(),
             _function: FunctionScope::new(),
             _failed: None,
@@ -350,8 +350,7 @@ impl Scope
 
     pub fn init() -> Scope
     {
-        let init_key = ModKey::name_only("__init__");
-        let init_mod = Rc::new(ModuleInterface::new(&init_key));
+        let init_mod = Rc::new(Module::init());
         Scope{
             _module: ModuleScope::new(init_mod),
             _infer: Inferator::new(),
@@ -362,13 +361,19 @@ impl Scope
 
     pub fn push_function(&mut self, prog: &mut Lib, modnm: &str, funcnm: &str)
     {
+        self.push_module(prog, modnm);
+        if self._function.name != funcnm {
+        }
+    }
+
+    pub fn push_module(&mut self, prog: &mut Lib, modnm: &str)
+    {
         if self._module.local.key.name != modnm {
             let new_mod = prog.load_module(modnm);
-            let mut new_modscope = ModuleScope::new(new_mod.ifc.clone());
+            let mut new_modscope = ModuleScope::new(new_mod);
             mem::swap(&mut new_modscope, &mut self._module);
             self._module.parent = Some(Box::new(new_modscope));
         }
-        // if self._function.
     }
 
     pub fn pop_function(&mut self, prog: &mut Lib)
@@ -425,9 +430,10 @@ impl Scope
         self.get_macro(name).is_some()
     }
 
-    pub fn get_macro<'a>(&'a self, name: &String) -> Option<&'a (Vec<Arc<String>>, Val)>
+    pub fn get_macro<'a>(&'a self, name: &String)
+        -> Option<&'a (Vec<Arc<String>>, Val)>
     {
-        self._module.local.macros.get(name)
+        self._module.local.ifc.macros.get(name)
     }
 
     pub fn assign_label(&mut self, r: Reg, name: &String, typ: Type)

@@ -2,13 +2,14 @@ use leema::inter::{Version, Intermod};
 use leema::module::{Module};
 use leema::loader::{Interloader};
 
+use std::rc::{Rc};
 use std::collections::{HashMap};
 
 
 pub struct Lib
 {
     loader: Interloader,
-    module: HashMap<String, Module>,
+    module: HashMap<String, Rc<Module>>,
 }
 
 impl Lib
@@ -26,30 +27,29 @@ impl Lib
         self.module.contains_key(modname)
     }
 
-    pub fn load_module(&mut self, modname: &str) -> &Module
+    pub fn load_module(&mut self, modname: &str) -> Rc<Module>
     {
         if ! self.module.contains_key(modname) {
             let modkey = self.loader.mod_name_to_key(modname);
             let mut new_mod = self.loader.init_module(modkey);
             new_mod.load();
-            self.module.insert(String::from(modname), new_mod);
+            self.module.insert(String::from(modname), Rc::new(new_mod));
         }
-        self.module.get(modname).unwrap()
+        self.module.get(modname).unwrap().clone()
     }
 
-    pub fn add_mod(&mut self, m: Module) -> &mut Module
+    pub fn add_mod(&mut self, m: Module) -> Rc<Module>
     {
         // self.module.insert(m.key.name.clone(), m);
-        self.module.entry(m.key.name.clone()).or_insert(m)
+        let rcm = Rc::new(m);
+        if !self.module.contains_key(&rcm.key.name) {
+            self.module.insert(rcm.key.name.clone(), rcm.clone());
+        }
+        rcm
     }
 
-    pub fn get_mod(&self, modname: &str) -> &Module
+    pub fn get_mod(&self, modname: &str) -> Rc<Module>
     {
-        self.module.get(modname).unwrap()
-    }
-
-    pub fn get_mod_mut(&mut self, modname: &str) -> &mut Module
-    {
-        self.module.get_mut(modname).unwrap()
+        self.module.get(modname).unwrap().clone()
     }
 }

@@ -274,7 +274,7 @@ impl StaticSpace
     pub fn new(mi: Rc<ModuleInterface>) -> StaticSpace
     {
         StaticSpace{
-            scope: Scope::new(mi),
+            scope: Scope::init(),
             typefields: HashMap::new(),
             interlib: HashMap::new(),
             lib: HashMap::new(),
