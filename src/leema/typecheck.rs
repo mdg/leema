@@ -21,7 +21,7 @@ pub fn function(mut scope: Scope, prog: &mut Lib, modnm: &str, funcnm: &str) -> 
     scope.push_function(prog, modnm, funcnm);
     println!("\nscope: {:?}", scope);
     // function_code
-    // let func_src = scope._module.local.src;
+    // let func_src = scope._function.src;
     scope.pop_function(prog);
     Type::Void
 }
@@ -31,11 +31,15 @@ mod -> prog
 imps -> libs
 
 load_func(mn, fn) {
+    mod = prog.load_module(prog, mn)
+    import_mods(mod)
     if !mod_sourced(mn)
         source_mod(mn)
     if !mod_loaded(mn)
         load_mod(mn)
     mod = get_mod(mn)
+    if !mod.imports_loaded
+        load_imports(mod.imports)
     src_func = get_func(mod, fn)
     pfunc = preprocess(src_func)
     tfunc = type_func(pfunc)

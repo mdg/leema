@@ -185,6 +185,7 @@ pub struct FunctionScope
     parent: Option<Box<FunctionScope>>,
     name: String,
     function_param_types: Option<Vec<Type>>,
+    pub src: Val,
     blk: BlockScope,
     checked_failures: HashMap<Arc<String>, Val>,
     // types of locally defined labels
@@ -199,24 +200,25 @@ impl FunctionScope
             parent: None,
             name: "".to_string(),
             function_param_types: Some(vec![]),
+            src: Val::Void,
             blk: BlockScope::new(0),
             T: HashMap::new(),
             checked_failures: HashMap::new(),
         }
     }
 
-    pub fn push_function(parent: &mut FunctionScope, name: &String,
-        failures: Val
-    ) {
+    pub fn push_function(parent: &mut FunctionScope, name: &str, src: Val)
+    {
         let new_name = format!("{}.{}", parent.name, name);
-        let cfails = Scope::collect_ps_index(failures);
+        // let cfails = Scope::collect_ps_index(failures);
         let mut tmp_scope = FunctionScope{
             parent: None,
             name: new_name,
             function_param_types: None,
+            src: src,
             blk: BlockScope::new(0),
             T: HashMap::new(),
-            checked_failures: cfails,
+            checked_failures: HashMap::new(),
         };
         mem::swap(parent, &mut tmp_scope);
         parent.parent = Some(Box::new(tmp_scope));
@@ -332,7 +334,7 @@ pub struct Scope
 {
     _module: ModuleScope,
     _infer: Inferator,
-    _function: FunctionScope,
+    pub _function: FunctionScope,
     _failed: Option<String>,
 }
 
@@ -360,10 +362,18 @@ impl Scope
     }
 
     pub fn push_function(&mut self, prog: &mut Lib, modnm: &str, funcnm: &str)
+        -> &mut FunctionScope
     {
         self.push_module(prog, modnm);
         if self._function.name != funcnm {
+            let fopt = self._module.local.src.funcs.get(funcnm);
+            if fopt.is_none() {
+                panic!("no function {} in module {}", funcnm, modnm);
+            }
+            let func_src = fopt.unwrap().clone();
+            FunctionScope::push_function(&mut self._function, funcnm, func_src);
         }
+        &mut self._function
     }
 
     pub fn push_module(&mut self, prog: &mut Lib, modnm: &str)

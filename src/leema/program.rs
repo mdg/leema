@@ -30,12 +30,23 @@ impl Lib
     pub fn load_module(&mut self, modname: &str) -> Rc<Module>
     {
         if ! self.module.contains_key(modname) {
-            let modkey = self.loader.mod_name_to_key(modname);
-            let mut new_mod = self.loader.init_module(modkey);
-            new_mod.load();
-            self.module.insert(String::from(modname), Rc::new(new_mod));
+            self.read_module(modname);
         }
+        self.load_imports(modname);
         self.module.get(modname).unwrap().clone()
+    }
+
+    pub fn read_module(&mut self, modname: &str)
+    {
+        let modkey = self.loader.mod_name_to_key(modname);
+        let mut new_mod = self.loader.init_module(modkey);
+        new_mod.load();
+        self.module.insert(String::from(modname), Rc::new(new_mod));
+    }
+
+    pub fn load_imports(&mut self, modname: &str)
+    {
+        let m = self.module.get(modname).unwrap();
     }
 
     pub fn add_mod(&mut self, m: Module) -> Rc<Module>

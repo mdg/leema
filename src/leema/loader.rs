@@ -99,31 +99,6 @@ impl Interloader
         result
     }
 
-    fn import_module(&mut self, modname: &str)
-    {
-        /*
-        m = read_module
-        assign imports
-        assign macros
-        assign raw funcs
-        assign type0 funcs
-
-        let mod_fname = module::filename(modname);
-
-        let (imports, makros, rem_smod) = Sexpr::split_module(smod);
-        for imp in imports {
-            if primary {
-                self.import_module(imp, false);
-            } else {
-                self.add_import(imp);
-            }
-        }
-        for makro in makros {
-            self.add_macro(module, makro);
-        }
-        */
-    }
-
     fn find_sfunc(&mut self, module: &str, func: &str) -> Option<&Val>
     {
         /*
