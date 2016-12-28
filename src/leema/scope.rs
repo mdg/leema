@@ -298,7 +298,7 @@ impl FunctionScope
 pub struct ModuleScope
 {
     parent: Option<Box<ModuleScope>>,
-    local: Rc<Module>,
+    local: Rc<ModuleSource>,
     imports: HashMap<String, Rc<ModuleInterface>>,
 }
 

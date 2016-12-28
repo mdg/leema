@@ -40,26 +40,63 @@ impl ModKey
     }
 }
 
+type MacroDef = (Vec<Arc<String>>, Val);
+type MacroMap = HashMap<String, MacroDef>;
+
 #[derive(Debug)]
-pub struct ModSrc
+pub struct ModuleSource
 {
-    pub key: ModKey,
-    pub imports: HashSet<String>,
-    pub macros: HashMap<String, (Vec<Arc<String>>, Val)>,
-    pub funcs: HashMap<String, Val>,
-    pub func_types: HashMap<String, Type>,
+    pub key: Rc<ModKey>,
+    pub txt: String,
+    pub ast: Val,
 }
 
-impl ModSrc
+impl ModuleSource
 {
-    pub fn new(mk: &ModKey) -> ModSrc
+    pub fn new(mk: ModKey, txt: String) -> ModuleSource
     {
-        ModSrc{
-            key: mk.clone(),
+        let ast = ModuleSource::read_ast(&txt);
+        ModuleSource{
+            key: Rc::new(mk),
+            txt: txt,
+            ast: ast,
+        }
+    }
+
+    pub fn init() -> ModuleSource
+    {
+        let init_key = ModKey::name_only("__init__");
+        ModuleSource::new(init_key, String::from(""))
+    }
+
+    pub fn read_tokens(txt: &str) -> Vec<Token>
+    {
+        lex(txt)
+    }
+
+    pub fn read_ast(txt: &str) -> Val
+    {
+        let toks = ModuleSource::read_tokens(txt);
+        ast::parse(toks)
+    }
+}
+
+#[derive(Debug)]
+pub struct ModulePreface
+{
+    pub key: Rc<ModKey>,
+    pub imports: HashSet<String>,
+    pub macros: MacroMap,
+}
+
+impl ModulePreface
+{
+    pub fn new(ms: &ModuleSource) -> ModulePreface
+    {
+        ModulePreface{
+            key: ms.key.clone(),
             imports: HashSet::new(),
             macros: HashMap::new(),
-            funcs: HashMap::new(),
-            func_types: HashMap::new(),
         }
     }
 
@@ -68,7 +105,63 @@ impl ModSrc
         match ast {
             Val::Sexpr(SexprType::BlockExpr, sx) => {
                 list::fold_mut(self, *sx
-                    , ModSrc::split_ast_block_item);
+                    , ModulePreface::split_ast_block_item);
+            }
+            _ => {
+                panic!("what's that doing in the ast? {:?}", ast);
+            }
+        }
+    }
+
+    pub fn split_ast_block_item(mp: &mut ModulePreface, item: Val)
+    {
+        match item {
+            Val::Sexpr(SexprType::Import, imp) => {
+                let iname = (*Val::to_str(list::head_ref(&imp))).clone();
+                mp.imports.insert(iname);
+            }
+            Val::Sexpr(SexprType::DefMacro, dm) => {
+                let (mname_val, args_val, body) = list::to_tuple3(*dm);
+                let mname = (*mname_val.to_str()).clone();
+                let args = list::map_to_vec(args_val, |a| {
+                    a.to_str()
+                });
+                mp.macros.insert(mname, (args, body));
+            }
+            _ => {
+                panic!("Unexpected top-level ast item: {:?}", item);
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ModuleInterface
+{
+    pub key: Rc<ModKey>,
+    pub funcs: HashMap<String, Option<Val>>,
+    pub valtypes: HashMap<String, Type>,
+    pub newtypes: HashMap<Type, Val>,
+}
+
+impl ModuleInterface
+{
+    pub fn new(ms: &ModuleSource) -> ModuleInterface
+    {
+        ModuleInterface{
+            key: ms.key.clone(),
+            funcs: HashMap::new(),
+            valtypes: HashMap::new(),
+            newtypes: HashMap::new(),
+        }
+    }
+
+    pub fn split_ast(&mut self, ast: Val)
+    {
+        match ast {
+            Val::Sexpr(SexprType::BlockExpr, sx) => {
+                list::fold_mut(self, *sx
+                    , ModuleInterface::split_ast_block_item);
             }
             _ => {
                 panic!("what's that doing in the ast? {:?}", ast);
@@ -82,26 +175,14 @@ impl ModSrc
         result_type.to_type().clone()
     }
 
-    pub fn split_ast_block_item(ms: &mut ModSrc, item: Val)
+    pub fn split_ast_block_item(ms: &mut ModuleInterface, item: Val)
     {
         match item {
-            Val::Sexpr(SexprType::Import, imp) => {
-                let iname = (*Val::to_str(list::head_ref(&imp))).clone();
-                ms.imports.insert(iname);
-            }
-            Val::Sexpr(SexprType::DefMacro, dm) => {
-                let (mname_val, args_val, body) = list::to_tuple3(*dm);
-                let mname = (*mname_val.to_str()).clone();
-                let args = list::map_to_vec(args_val, |a| {
-                    a.to_str()
-                });
-                ms.macros.insert(mname, (args, body));
-            }
             Val::Sexpr(SexprType::DefFunc, df) => {
-                let ftype = ModSrc::func_type(&*df);
+                let ftype = ModuleInterface::func_type(&*df);
                 let fname = (*Val::to_str(list::head_ref(&df))).clone();
-                ms.funcs.insert(fname.clone(), *df);
-                ms.func_types.insert(fname, ftype);
+                ms.funcs.insert(fname.clone(), Some(*df));
+                ms.valtypes.insert(fname, ftype);
             }
             _ => {
                 panic!("Unexpected top-level ast item: {:?}", item);
@@ -111,45 +192,9 @@ impl ModSrc
 }
 
 #[derive(Debug)]
-pub struct ModuleInterface
-{
-    pub key: ModKey,
-    pub macros: HashMap<String, (Vec<Arc<String>>, Val)>,
-    pub func_types: HashMap<String, Type>,
-    pub type_defs: HashMap<String, Type>,
-}
-
-impl ModuleInterface
-{
-    pub fn new(key: &ModKey) -> ModuleInterface
-    {
-        ModuleInterface{
-            key: key.clone(),
-            macros: HashMap::new(),
-            func_types: HashMap::new(),
-            type_defs: HashMap::new(),
-        }
-    }
-
-    pub fn load(ms: &ModSrc) -> ModuleInterface
-    {
-        ModuleInterface{
-            key: ms.key.clone(),
-            macros: ms.macros.clone(),
-            func_types: ms.func_types.clone(),
-            type_defs: HashMap::new(),
-        }
-    }
-}
-
-#[derive(Debug)]
 pub struct Module
 {
     pub key: ModKey,
-    pub txt: String,
-    pub tok: Vec<Token>,
-    pub ast: Val,
-    pub src: ModSrc,
     pub ifc: Rc<ModuleInterface>,
     loaded: bool,
     pub imports_loaded: bool,
@@ -157,70 +202,4 @@ pub struct Module
 
 impl Module
 {
-    pub fn new(key: ModKey, txt: String) -> Module
-    {
-        let modsrc = ModSrc::new(&key);
-        let modifc = Rc::new(ModuleInterface::new(&key));
-        Module{
-            key: key,
-            // version: Option<Version>,
-            txt: txt,
-            tok: Vec::new(),
-            ast: Val::Void,
-            src: modsrc,
-            ifc: modifc,
-            loaded: false,
-            imports_loaded: false,
-        }
-    }
-
-    pub fn init() -> Module
-    {
-        let init_key = ModKey::name_only("__init__");
-        let init_mod = Rc::new(ModuleInterface::new(&init_key));
-        let init_src = ModSrc::new(&init_key);
-        Module{
-            key: init_key,
-            txt: String::from(""),
-            tok: Vec::new(),
-            ast: Val::Void,
-            src: init_src,
-            ifc: init_mod,
-            loaded: true,
-            imports_loaded: true,
-        }
-    }
-
-    pub fn load(&mut self)
-    {
-        if self.loaded {
-            return;
-        }
-        self.read_tokens();
-        self.read_ast();
-        self.split_ast();
-        self.ifc = Rc::new(ModuleInterface::load(&self.src));
-        self.loaded = true;
-    }
-
-    pub fn read_tokens(&mut self)
-    {
-        self.tok = lex(&self.txt);
-    }
-
-    pub fn read_ast(&mut self)
-    {
-        self.ast = ast::parse(self.tok.clone());
-    }
-
-    pub fn split_ast(&mut self)
-    {
-        let mut ast = Val::Void;
-        mem::swap(&mut ast, &mut self.ast);
-        ModSrc::split_ast(&mut self.src, ast);
-    }
-
-    pub fn init_scope(&mut self)
-    {
-    }
 }

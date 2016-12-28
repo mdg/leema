@@ -2,7 +2,7 @@
 use leema::val::{Val};
 use leema::iexpr::{Iexpr, Source};
 use leema::inter::{Intermod, Version};
-use leema::module::{Module, ModKey, ModSrc};
+use leema::module::{ModuleSource, ModKey};
 use leema::src;
 use leema::parse::{Token};
 
@@ -51,17 +51,6 @@ impl Interloader
         self.modtxt.insert(String::from(modname), content);
     }
 
-    pub fn load_func(&mut self, module: &str, func: &str) -> Iexpr
-    {
-        /*
-        let smod = self.read_module(module);
-        let sfunc = self.find_sfunc(module, func);
-        let ifunc = self.import_module(sfunc);
-        self.interize(sfunc)
-        */
-        Iexpr::const_val(Val::Void)
-    }
-
     pub fn mod_name_to_key(&self, mod_name: &str) -> ModKey
     {
         if self.modtxt.contains_key(mod_name) {
@@ -75,17 +64,16 @@ impl Interloader
         }
     }
 
-    pub fn init_module(&self, mod_key: ModKey) -> Module
+    pub fn read_module(&self, mod_key: &ModKey) -> String
     {
-        let txt = if mod_key.file.is_none() {
+        if mod_key.file.is_none() {
             self.modtxt.get(&mod_key.name).unwrap().clone()
         } else {
             Interloader::read_file_text(mod_key.file.as_ref().unwrap())
-        };
-        Module::new(mod_key, txt)
+        }
     }
 
-    pub fn read_file_text(path: &Path) -> String
+    fn read_file_text(path: &Path) -> String
     {
         if !path.exists() {
             panic!("Module file does not exist: {:?}", path);
@@ -97,68 +85,6 @@ impl Interloader
         let mut result = String::new();
         f.read_to_string(&mut result);
         result
-    }
-
-    fn find_sfunc(&mut self, module: &str, func: &str) -> Option<&Val>
-    {
-        /*
-        let opt_smod = self.smod.get(module);
-        if opt_smod.is_none() {
-            return opt_smod;
-        }
-        */
-        // for f in Sexpr::iter(smod.unwrap()) {}
-        None
-    }
-
-    fn interize(&mut self, smod: &Val) -> Iexpr
-    {
-        /*
-        imod = HashMap::new();
-        for func in smod {
-            //self.scope.push_func_scope();
-            let ifunc = vec![];
-            for code in func {
-                ifunc.push(self.interize(code));
-            }
-            //pop_func_scope();
-            imod.insert(func.name, ifunc);
-        }
-        imod
-        */
-        Iexpr::const_val(Val::Void)
-    }
-
-    pub fn resolve_types(ifunc: Iexpr) -> Iexpr
-    {
-        /*
-        for e in ifunc {
-            if e.t resolves to t' {
-                e.t = t'
-            } else {
-                if e is function {
-                    inner_ifunc = get_ifunc(e.mod, e.func)
-                    resolve_types(inner_ifunc)
-                }
-            }
-        }
-            */
-        Iexpr::const_val(Val::Void)
-    }
-
-    fn add_import(&self, module: &str, import_mod: Val)
-    {
-    }
-
-    fn add_macro(&self, module: &str, makro: Val)
-    {
-    }
-
-    fn store_smod(&self, module: &str, smod: Val)
-    {
-        // self.smod.insert(module, smod);
-        // let iftype = Interloader::interface_type(smod);
-        // self.store_provisional_interface(module, iftype);
     }
 }
 

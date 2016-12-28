@@ -1,8 +1,9 @@
 
 use leema::loader::{Interloader};
+use leema::list;
 use leema::program::{Lib};
 use leema::scope::{Scope};
-use leema::val::{Type};
+use leema::val::{Val, Type};
 use leema::log;
 
 use std::path::Path;
@@ -21,8 +22,28 @@ pub fn function(mut scope: Scope, prog: &mut Lib, modnm: &str, funcnm: &str) -> 
     scope.push_function(prog, modnm, funcnm);
     println!("\nscope: {:?}", scope);
     // function_code
-    // let func_src = scope._function.src;
+    {
+        let func_src = &scope._function.src;
+        let (def_fname, def_args, def_result, body) =
+                list::to_ref_tuple4(func_src);
+        println!("\nfunc: {}({:?}) -> {:?} {{\n{:?}\n}}\n",
+                def_fname, def_args, def_result, body);
+        let result = compile_expr(scope, prog, body);
+    }
     scope.pop_function(prog);
+    Type::Void
+}
+
+pub fn compile_expr(mut scope: Scope, prog: &mut Lib, expr: &Val) -> Type
+{
+    match expr {
+        &Val::Int(i) => {
+            // Iexpr::const_val(expr.clone());
+        }
+        what => {
+            println!("Couldn't match expr: {:?}", expr);
+        }
+    }
     Type::Void
 }
 

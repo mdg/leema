@@ -1,5 +1,5 @@
 use leema::inter::{Version, Intermod};
-use leema::module::{Module};
+use leema::module::{ModuleSource, ModuleInterface};
 use leema::loader::{Interloader};
 
 use std::rc::{Rc};
@@ -9,7 +9,8 @@ use std::collections::{HashMap};
 pub struct Lib
 {
     loader: Interloader,
-    module: HashMap<String, Rc<Module>>,
+    modsrc: HashMap<String, Option<ModuleSource>>,
+    modifc: HashMap<String, Rc<ModuleInterface>>,
 }
 
 impl Lib
@@ -18,35 +19,52 @@ impl Lib
     {
         Lib{
             loader: l,
-            module: HashMap::new(),
+            modsrc: HashMap::new(),
+            modifc: HashMap::new(),
         }
     }
 
-    pub fn has_mod(&mut self, modname: &str) -> bool
+    pub fn load_module(&mut self, modname: &str) -> ModuleSource
     {
-        self.module.contains_key(modname)
-    }
-
-    pub fn load_module(&mut self, modname: &str) -> Rc<Module>
-    {
-        if ! self.module.contains_key(modname) {
-            self.read_module(modname);
+        if !self.modsrc.contains_key(modname) {
+            let mut m = self.read_module(modname);
+            self.load_imports(&mut m);
+            self.modsrc.insert(String::from(modname), None);
+            m
+        } else {
+            let msrc = match self.modsrc.get_mut(modname);
+            match msrc {
+                Some(_) => {
+                    msrc.take()
+                }
+                None => {
+                    panic!("Module already in use: {}", modname);
+                }
+            }
         }
-        self.load_imports(modname);
-        self.module.get(modname).unwrap().clone()
     }
 
-    pub fn read_module(&mut self, modname: &str)
+    pub fn read_module(&mut self, modname: &str) -> ModuleSource
     {
         let modkey = self.loader.mod_name_to_key(modname);
         let mut new_mod = self.loader.init_module(modkey);
         new_mod.load();
-        self.module.insert(String::from(modname), Rc::new(new_mod));
+        new_mod
     }
 
-    pub fn load_imports(&mut self, modname: &str)
+    pub fn load_imports(&mut self, m: &mut Module)
     {
-        let m = self.module.get(modname).unwrap();
+        if m.imports_loaded {
+            return;
+        }
+        for i in m.src.imports.iter() {
+            if *i == m.key.name {
+                panic!("A module cannot import itself: {}", i);
+            }
+            let im = self.read_module(i);
+            self.module.insert(i.clone(), Rc::new(im));
+        }
+        m.imports_loaded = true;
     }
 
     pub fn add_mod(&mut self, m: Module) -> Rc<Module>

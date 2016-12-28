@@ -9,7 +9,7 @@ use leema::prefab;
 use leema::inter::{Version};
 use leema::loader::{Interloader};
 use leema::compile::{self, StaticSpace};
-use leema::module::{Module};
+use leema::module::{ModuleSource};
 use leema::program;
 use leema::scope::{Scope};
 use leema::application::{Application};
@@ -66,19 +66,21 @@ fn real_main() -> i32
     let mut inter = Interloader::new(&args.arg_file);
 
     let modkey = inter.mod_name_to_key(&inter.main_mod);
-    let mut rootmod = inter.init_module(modkey);
 
     if args.arg_cmd == "tokens" {
-        rootmod.read_tokens();
-        println!("{:?}\n", rootmod.tok);
+        let mut modtxt = inter.read_module(&modkey);
+        let toks = ModuleSource::read_tokens(&modtxt);
+        println!("{:?}\n", toks);
     } else if args.arg_cmd == "ast" {
-        rootmod.read_tokens();
-        rootmod.read_ast();
-        println!("{:?}\n", rootmod.ast);
+        let mut modtxt = inter.read_module(&modkey);
+        let ast = ModuleSource::read_ast(&modtxt);
+        println!("{:?}\n", ast);
     } else if args.arg_cmd == "modsrc" {
-        rootmod.load();
-        println!("{:?}\n", rootmod.src);
+        let mut modtxt = inter.read_module(&modkey);
+        let src = ModuleSource::new(modkey, modtxt);
+        println!("{:?}\n", src);
     } else if args.arg_cmd == "typecheck" {
+        /*
         println!("typecheck {}", inter.main_mod);
         let main_mod = inter.main_mod.clone();
         let mut prog = program::Lib::new(inter);
@@ -86,6 +88,7 @@ fn real_main() -> i32
         prog.add_mod(rootmod);
         let mut scope = Scope::init();
         typecheck::program(scope, &mut prog, &main_mod, "main");
+        */
     } else {
         println!("invalid command: {:?}", args.arg_cmd);
         return 1;
