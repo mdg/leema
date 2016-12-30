@@ -1,6 +1,7 @@
 use leema::inter::{Version, Intermod};
 use leema::module::{ModuleSource, ModuleInterface, ModulePreface};
 use leema::loader::{Interloader};
+use leema::phase0;
 
 use std::rc::{Rc};
 use std::collections::{HashMap, HashSet};
@@ -34,10 +35,11 @@ impl Lib
     pub fn load_module(&mut self, modname: &str)
     {
         if !self.modsrc.contains_key(modname) {
-            self.modsrc.insert(String::from(modname), None);
             let m = self.read_module(modname);
             let pref = ModulePreface::new(&m);
             self.load_imports(modname, &pref.imports);
+            phase0::preproc(self, &pref, &m.ast);
+            self.modsrc.insert(String::from(modname), Some(m));
             self.modpre.insert(String::from(modname), Rc::new(pref));
         }
         /*
@@ -55,7 +57,7 @@ impl Lib
         */
     }
 
-    pub fn read_module(&self, modname: &str) -> ModuleSource
+    fn read_module(&self, modname: &str) -> ModuleSource
     {
         let modkey = self.loader.mod_name_to_key(modname);
         let modtxt = self.loader.read_module(&modkey);

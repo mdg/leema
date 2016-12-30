@@ -925,9 +925,6 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp0.minor,) {
  (YYMinorType::YY82(yy0),) => {
 
-	if list::is_empty(&yy0) {
-		panic!("null program");
-	}
 	// ignore yyres, it doesn't really go anywhere for program
 	yyres = Val::Void;
 	// we're done, so put yy0 in extra

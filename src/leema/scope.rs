@@ -374,6 +374,7 @@ impl Scope
     pub fn push_module(&mut self, prog: &mut Lib, modnm: &str)
     {
         if self._module.local.key.name != modnm {
+            prog.load_module(modnm);
             /*
             let new_mod = prog.load_module(modnm);
             let mut new_modscope = ModuleScope::new(new_mod);
