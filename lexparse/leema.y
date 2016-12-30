@@ -110,9 +110,6 @@ use std::io::{stderr, Write};
 }
 
 program(A) ::= stmts(B). {
-	if list::is_empty(&B) {
-		panic!("null program");
-	}
 	// ignore A, it doesn't really go anywhere for program
 	A = Val::Void;
 	// we're done, so put B in extra
