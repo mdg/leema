@@ -26,6 +26,11 @@ impl Lib
         }
     }
 
+    pub fn main_module(&self) -> &str
+    {
+        &self.loader.main_mod
+    }
+
     pub fn load_module(&mut self, modname: &str)
     {
         if !self.modsrc.contains_key(modname) {

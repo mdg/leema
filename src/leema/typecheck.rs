@@ -10,9 +10,10 @@ use std::path::Path;
 use std::io::{stderr, Write};
 
 
-pub fn program(scope: Scope, prog: &mut Lib, modnm: &str, funcnm: &str)
+pub fn program(scope: Scope, prog: &mut Lib)
 {
-    let prog_type = function(scope, prog, modnm, funcnm);
+    let main_mod = prog.main_module().to_string();
+    let prog_type = function(scope, prog, &main_mod, "main");
     println!("\nprogram type: {:?}", prog_type);
 }
 
