@@ -63,20 +63,19 @@ fn real_main() -> i32
     }
     vout!("verbose mode\nargs:{:?}\n", args);
 
-    let mut inter = Interloader::new(&args.arg_file);
-
+    let inter = Interloader::new(&args.arg_file);
     let modkey = inter.mod_name_to_key(&inter.main_mod);
 
     if args.arg_cmd == "tokens" {
-        let mut modtxt = inter.read_module(&modkey);
+        let modtxt = inter.read_module(&modkey);
         let toks = ModuleSource::read_tokens(&modtxt);
         println!("{:?}\n", toks);
     } else if args.arg_cmd == "ast" {
-        let mut modtxt = inter.read_module(&modkey);
+        let modtxt = inter.read_module(&modkey);
         let ast = ModuleSource::read_ast(&modtxt);
         println!("{:?}\n", ast);
     } else if args.arg_cmd == "modsrc" {
-        let mut modtxt = inter.read_module(&modkey);
+        let modtxt = inter.read_module(&modkey);
         let src = ModuleSource::new(modkey, modtxt);
         println!("{:?}\n", src);
     } else if args.arg_cmd == "typecheck" {
@@ -85,7 +84,6 @@ fn real_main() -> i32
         let main_mod = inter.main_mod.clone();
         let mut prog = program::Lib::new(inter);
         rootmod.load();
-        prog.add_mod(rootmod);
         let mut scope = Scope::init();
         typecheck::program(scope, &mut prog, &main_mod, "main");
         */

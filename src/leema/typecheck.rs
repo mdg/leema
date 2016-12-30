@@ -23,12 +23,14 @@ pub fn function(mut scope: Scope, prog: &mut Lib, modnm: &str, funcnm: &str) -> 
     println!("\nscope: {:?}", scope);
     // function_code
     {
+        /*
         let func_src = &scope._function.src;
         let (def_fname, def_args, def_result, body) =
                 list::to_ref_tuple4(func_src);
         println!("\nfunc: {}({:?}) -> {:?} {{\n{:?}\n}}\n",
                 def_fname, def_args, def_result, body);
         let result = compile_expr(scope, prog, body);
+        */
     }
     scope.pop_function(prog);
     Type::Void

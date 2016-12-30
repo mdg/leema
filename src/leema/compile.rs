@@ -903,12 +903,7 @@ vout!("ixfailedmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
         let args = list::head(sx);
 vout!("args = {:?}\n", args);
         let fname = match &f {
-            &Val::Id(ref name) => {
-                if self.scope.is_macro(name) {
-                    return self.precompile_macro_call(name, args);
-                }
-                name
-            }
+            &Val::Id(ref name) => name,
             &Val::Type(Type::Id(ref name)) => name,
             _ => {
                 panic!("not a valid function name: {:?}", f);
@@ -920,39 +915,6 @@ vout!("cargs = {:?}\n", cargs);
 vout!("cargs.type = {:?}\n", cargs.typ);
         let call_result = self.scope.apply_call_types(&fname, &cargs.typ);
         Iexpr::call(call_result, fexpr, cargs)
-    }
-
-    pub fn precompile_macro_call(&mut self, name: &String, mut argx: Val) -> Iexpr
-    {
-vout!("precompile_macro_call({}, {:?})\n", name, argx);
-        let mappl = {
-            let &(ref ids, ref body) = self.scope.get_macro(name).unwrap();
-vout!("ids = {:?}\n", ids);
-vout!("body = {:?}\n", body);
-            let argv = Val::tuple_items(argx);
-            let expected_argc = ids.len();
-            let passed_argc = argv.len();
-            if expected_argc != passed_argc {
-                panic!("wrong number of arguments for macro: {} expected {}, got {}",
-                    name, expected_argc, passed_argc
-                    );
-            }
-
-            let mut i = 0;
-            let mut margs = HashMap::new();
-            while i < passed_argc {
-                margs.insert(
-                    ids.get(i).unwrap().clone(),
-                    argv.get(i).unwrap().clone(),
-                );
-                i += 1;
-            }
-
-vout!("macro replace ids\n\t{:?}\n\t{:?}\n", body, margs);
-            Val::replace_ids(body.clone(), &margs)
-        };
-vout!("result = {:?}\n", mappl);
-        self.precompile(mappl)
     }
 
     pub fn precompile_str(&mut self, expr: Val) -> Iexpr

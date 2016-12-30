@@ -2,7 +2,7 @@ use leema::val::{Val, Type, SexprType};
 use leema::iexpr::{Iexpr, Source};
 use leema::lex::{lex};
 use leema::list;
-use leema::module::{Module, ModSrc};
+use leema::module::{Module};
 
 
 pub fn compile_mod(m: Val) -> Iexpr

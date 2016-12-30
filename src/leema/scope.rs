@@ -4,7 +4,7 @@ use leema::log;
 use leema::program::{Lib};
 use leema::reg::{Reg, Ireg};
 use leema::sexpr;
-use leema::module::{ModuleInterface, ModKey, Module};
+use leema::module::{ModuleInterface, ModKey, ModuleSource};
 
 use std::collections::{HashMap, LinkedList};
 use std::sync::Arc;
@@ -304,7 +304,7 @@ pub struct ModuleScope
 
 impl ModuleScope
 {
-    pub fn new(lm: Rc<Module>) -> ModuleScope
+    pub fn new(lm: Rc<ModuleSource>) -> ModuleScope
     {
         ModuleScope{
             parent: None,
@@ -316,16 +316,6 @@ impl ModuleScope
     pub fn name(&self) -> &str
     {
         &self.local.key.name
-    }
-
-    pub fn is_macro(&self, name: &String) -> bool
-    {
-        self.local.ifc.macros.contains_key(name)
-    }
-
-    pub fn get_type(&self, name: &String) -> Option<&Type>
-    {
-        self.local.ifc.type_defs.get(name)
     }
 }
 
@@ -340,19 +330,22 @@ pub struct Scope
 
 impl Scope
 {
-    pub fn new(m: Rc<Module>) -> Scope
+    pub fn new(m: Rc<ModuleInterface>) -> Scope
     {
+        Scope::init()
+        /*
         Scope{
             _module: ModuleScope::new(m.clone()),
             _infer: Inferator::new(),
             _function: FunctionScope::new(),
             _failed: None,
         }
+        */
     }
 
     pub fn init() -> Scope
     {
-        let init_mod = Rc::new(Module::init());
+        let init_mod = Rc::new(ModuleSource::init());
         Scope{
             _module: ModuleScope::new(init_mod),
             _infer: Inferator::new(),
@@ -366,12 +359,14 @@ impl Scope
     {
         self.push_module(prog, modnm);
         if self._function.name != funcnm {
-            let fopt = self._module.local.src.funcs.get(funcnm);
+            /*
+            let fopt = None; // self._module.local.src.funcs.get(funcnm);
             if fopt.is_none() {
                 panic!("no function {} in module {}", funcnm, modnm);
             }
             let func_src = fopt.unwrap().clone();
             FunctionScope::push_function(&mut self._function, funcnm, func_src);
+            */
         }
         &mut self._function
     }
@@ -379,10 +374,12 @@ impl Scope
     pub fn push_module(&mut self, prog: &mut Lib, modnm: &str)
     {
         if self._module.local.key.name != modnm {
+            /*
             let new_mod = prog.load_module(modnm);
             let mut new_modscope = ModuleScope::new(new_mod);
             mem::swap(&mut new_modscope, &mut self._module);
             self._module.parent = Some(Box::new(new_modscope));
+            */
         }
     }
 
@@ -435,22 +432,8 @@ impl Scope
         }
     }
 
-    pub fn is_macro(&self, name: &String) -> bool
-    {
-        self.get_macro(name).is_some()
-    }
-
-    pub fn get_macro<'a>(&'a self, name: &String)
-        -> Option<&'a (Vec<Arc<String>>, Val)>
-    {
-        self._module.local.ifc.macros.get(name)
-    }
-
     pub fn assign_label(&mut self, r: Reg, name: &String, typ: Type)
     {
-        if self.is_macro(name) {
-            panic!("macro already defined: {}", name);
-        }
         match self._function.lookup_label(name) {
             None => {} // undefined, proceed below
             Some((old_reg, old_type)) => {
@@ -655,12 +638,12 @@ println!("result_type = {:?}", result_type);
 
     pub fn is_type(&self, name: &String) -> bool
     {
-        self._module.get_type(name).is_some()
+        false // self._module.get_type(name).is_some()
     }
 
     pub fn get_type<'a>(&'a self, name: &String) -> Option<&'a Type>
     {
-        self._module.get_type(name)
+        None // self._module.get_type(name)
     }
 
 

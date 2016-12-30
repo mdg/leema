@@ -1,15 +1,16 @@
 use leema::inter::{Version, Intermod};
-use leema::module::{ModuleSource, ModuleInterface};
+use leema::module::{ModuleSource, ModuleInterface, ModulePreface};
 use leema::loader::{Interloader};
 
 use std::rc::{Rc};
-use std::collections::{HashMap};
+use std::collections::{HashMap, HashSet};
 
 
 pub struct Lib
 {
     loader: Interloader,
     modsrc: HashMap<String, Option<ModuleSource>>,
+    modpre: HashMap<String, Rc<ModulePreface>>,
     modifc: HashMap<String, Rc<ModuleInterface>>,
 }
 
@@ -20,18 +21,22 @@ impl Lib
         Lib{
             loader: l,
             modsrc: HashMap::new(),
+            modpre: HashMap::new(),
             modifc: HashMap::new(),
         }
     }
 
-    pub fn load_module(&mut self, modname: &str) -> ModuleSource
+    pub fn load_module(&mut self, modname: &str)
     {
         if !self.modsrc.contains_key(modname) {
-            let mut m = self.read_module(modname);
-            self.load_imports(&mut m);
             self.modsrc.insert(String::from(modname), None);
-            m
-        } else {
+            let m = self.read_module(modname);
+            let pref = ModulePreface::new(&m);
+            self.load_imports(modname, &pref.imports);
+            self.modpre.insert(String::from(modname), Rc::new(pref));
+        }
+        /*
+        else {
             let msrc = match self.modsrc.get_mut(modname);
             match msrc {
                 Some(_) => {
@@ -42,43 +47,29 @@ impl Lib
                 }
             }
         }
+        */
     }
 
-    pub fn read_module(&mut self, modname: &str) -> ModuleSource
+    pub fn read_module(&self, modname: &str) -> ModuleSource
     {
         let modkey = self.loader.mod_name_to_key(modname);
-        let mut new_mod = self.loader.init_module(modkey);
-        new_mod.load();
-        new_mod
+        let modtxt = self.loader.read_module(&modkey);
+        ModuleSource::new(modkey, modtxt)
     }
 
-    pub fn load_imports(&mut self, m: &mut Module)
+    fn load_imports(&mut self, modname: &str, imports: &HashSet<String>)
     {
-        if m.imports_loaded {
-            return;
-        }
-        for i in m.src.imports.iter() {
-            if *i == m.key.name {
+        for i in imports {
+            if i == modname {
                 panic!("A module cannot import itself: {}", i);
             }
+            if self.modpre.contains_key(i) {
+                continue;
+            }
             let im = self.read_module(i);
-            self.module.insert(i.clone(), Rc::new(im));
+            let pref = ModulePreface::new(&im);
+            self.modsrc.insert(i.clone(), Some(im));
+            self.modpre.insert(i.clone(), Rc::new(pref));
         }
-        m.imports_loaded = true;
-    }
-
-    pub fn add_mod(&mut self, m: Module) -> Rc<Module>
-    {
-        // self.module.insert(m.key.name.clone(), m);
-        let rcm = Rc::new(m);
-        if !self.module.contains_key(&rcm.key.name) {
-            self.module.insert(rcm.key.name.clone(), rcm.clone());
-        }
-        rcm
-    }
-
-    pub fn get_mod(&self, modname: &str) -> Rc<Module>
-    {
-        self.module.get(modname).unwrap().clone()
     }
 }
