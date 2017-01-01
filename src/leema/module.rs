@@ -93,18 +93,20 @@ impl ModulePreface
 {
     pub fn new(ms: &ModuleSource) -> ModulePreface
     {
-        ModulePreface{
+        let mut mp = ModulePreface{
             key: ms.key.clone(),
             imports: HashSet::new(),
             macros: HashMap::new(),
-        }
+        };
+        mp.split_ast(&ms.ast);
+        mp
     }
 
-    pub fn split_ast(&mut self, ast: Val)
+    pub fn split_ast(&mut self, ast: &Val)
     {
         match ast {
-            Val::Sexpr(SexprType::BlockExpr, sx) => {
-                list::fold_mut(self, *sx
+            &Val::Sexpr(SexprType::BlockExpr, ref sx) => {
+                list::fold_mut_ref(self, sx
                     , ModulePreface::split_ast_block_item);
             }
             _ => {
@@ -113,23 +115,24 @@ impl ModulePreface
         }
     }
 
-    pub fn split_ast_block_item(mp: &mut ModulePreface, item: Val)
+    pub fn split_ast_block_item(mp: &mut ModulePreface, item: &Val)
     {
         match item {
-            Val::Sexpr(SexprType::Import, imp) => {
-                let iname = (*Val::to_str(list::head_ref(&imp))).clone();
-                mp.imports.insert(iname);
+            &Val::Sexpr(SexprType::Import, ref imp) => {
+                let iname = list::head_ref(imp);
+                mp.imports.insert(String::from(iname.str()));
             }
-            Val::Sexpr(SexprType::DefMacro, dm) => {
-                let (mname_val, args_val, body) = list::to_tuple3(*dm);
-                let mname = (*mname_val.to_str()).clone();
-                let args = list::map_to_vec(args_val, |a| {
-                    a.to_str()
+            &Val::Sexpr(SexprType::DefMacro, ref dm) => {
+                let (mname_val, args_val, body) = list::to_ref_tuple3(dm);
+                let mname = mname_val.str();
+                let mut args = vec![];
+                list::fold_mut_ref(&mut args, args_val, |acc, a| {
+                    acc.push(a.to_str().clone());
                 });
-                mp.macros.insert(mname, (args, body));
+                mp.macros.insert(String::from(mname), (args, body.clone()));
             }
             _ => {
-                panic!("Unexpected top-level ast item: {:?}", item);
+                println!("Unexpected top-level ast item: {:?}", item);
             }
         }
     }
