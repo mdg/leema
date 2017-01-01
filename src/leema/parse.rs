@@ -1684,7 +1684,7 @@ match (yyp0.minor,) {
  (YYMinorType::YY82(yy0),) => {
 
 	vout!("zero param function call!");
-	yyres = sexpr::call(yy0, vec![]);
+	yyres = sexpr::call(yy0, Val::Nil);
 
 },    _ => unreachable!() };
  YYMinorType::YY82(yyres)
@@ -1702,7 +1702,7 @@ match (yyp0.minor,yyp2.minor,) {
  (YYMinorType::YY82(yy0),YYMinorType::YY82(yy2),) => {
 
 	vout!("one param function call!");
-	yyres = sexpr::call(yy0, vec![yy2]);
+	yyres = sexpr::call(yy0, list::singleton(yy2));
 
 },    _ => unreachable!() };
  YYMinorType::YY82(yyres)
@@ -1720,7 +1720,7 @@ match (yyp0.minor,yyp2.minor,) {
  (YYMinorType::YY82(yy0),YYMinorType::YY82(yy2),) => {
 
 	vout!("multi param function call!");
-	yyres = sexpr::call(yy0, list::to_vec(yy2));
+	yyres = sexpr::call(yy0, yy2);
 
 },    _ => unreachable!() };
  YYMinorType::YY82(yyres)
@@ -2115,7 +2115,7 @@ self.yystack.pop().unwrap();
 match (yyp1.minor,) {
  (YYMinorType::YY82(yy1),) => {
 
-	yyres = sexpr::call(Val::id("bool_not".to_string()), vec![yy1]);
+	yyres = sexpr::call(Val::id("bool_not".to_string()), list::singleton(yy1));
 
 },    _ => unreachable!() };
  YYMinorType::YY82(yyres)
@@ -2147,7 +2147,7 @@ self.yystack.pop().unwrap();
 match (yyp1.minor,) {
  (YYMinorType::YY82(yy1),) => {
 
-	yyres = sexpr::call(Val::id("negate".to_string()), vec![yy1]);
+	yyres = sexpr::call(Val::id("negate".to_string()), list::singleton(yy1));
 
 },    _ => unreachable!() };
  YYMinorType::YY82(yyres)
@@ -2372,7 +2372,7 @@ match (yyp0.minor,yyp2.minor,) {
  (YYMinorType::YY82(yy0),YYMinorType::YY82(yy2),) => {
 
 	let eq = sexpr::binaryop("equal".to_string(), yy0, yy2);
-	yyres = sexpr::call(Val::id("bool_not".to_string()), vec![eq]);
+	yyres = sexpr::call(Val::id("bool_not".to_string()), list::singleton(eq));
 
 },    _ => unreachable!() };
  YYMinorType::YY82(yyres)
@@ -2514,7 +2514,7 @@ let yyp0 = self.yystack.pop().unwrap();
 match (yyp1.minor,yyp3.minor,) {
  (YYMinorType::YY82(yy1),YYMinorType::YY82(yy3),) => {
 
-	yyres = sexpr::call(Val::id("list_cons".to_string()), vec![yy1, yy3]);
+	yyres = sexpr::call(Val::id("list_cons".to_string()), list::from2(yy1, yy3));
 
 },    _ => unreachable!() };
  YYMinorType::YY82(yyres)

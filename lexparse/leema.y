@@ -352,15 +352,15 @@ expr(A) ::= call_expr(B). {
 }
 call_expr(A) ::= func_term(B) PARENCALL RPAREN. {
 	vout!("zero param function call!");
-	A = sexpr::call(B, vec![]);
+	A = sexpr::call(B, Val::Nil);
 }
 call_expr(A) ::= func_term(B) PARENCALL expr(C) RPAREN. {
 	vout!("one param function call!");
-	A = sexpr::call(B, vec![C]);
+	A = sexpr::call(B, list::singleton(C));
 }
 call_expr(A) ::= func_term(B) PARENCALL tuple_args(C) RPAREN. {
 	vout!("multi param function call!");
-	A = sexpr::call(B, list::to_vec(C));
+	A = sexpr::call(B, C);
 }
 
 func_term(A) ::= term(B). {
@@ -456,7 +456,7 @@ expr(A) ::= list(B). { A = B; }
  */
 expr(A) ::= tuple(B). { A = B; }
 expr(A) ::= NOT expr(B). {
-	A = sexpr::call(Val::id("bool_not".to_string()), vec![B]);
+	A = sexpr::call(Val::id("bool_not".to_string()), list::singleton(B));
 }
 expr(A) ::= expr(B) ConcatNewline. {
 	let newline = Val::Str(Arc::new("\n".to_string()));
@@ -465,7 +465,7 @@ expr(A) ::= expr(B) ConcatNewline. {
 }
 /* arithmetic */
 expr(A) ::= NEGATE term(B). {
-	A = sexpr::call(Val::id("negate".to_string()), vec![B]);
+	A = sexpr::call(Val::id("negate".to_string()), list::singleton(B));
 }
 expr(A) ::= expr(B) PLUS expr(C). {
 	A = sexpr::binaryop("int_add".to_string(), B, C);
@@ -510,7 +510,7 @@ expr(A) ::= expr(B) EQ(P) expr(C). {
 }
 expr(A) ::= expr(B) NEQ(P) expr(C). {
 	let eq = sexpr::binaryop("equal".to_string(), B, C);
-	A = sexpr::call(Val::id("bool_not".to_string()), vec![eq]);
+	A = sexpr::call(Val::id("bool_not".to_string()), list::singleton(eq));
 }
 /*
 expr(A) ::= expr(B) LT expr(C) LT expr(D). {
@@ -573,7 +573,7 @@ list(A) ::= SquareL list_items(B) SquareR. {
 	A = B;
 }
 list(A) ::= SquareL list_items(B) SEMICOLON expr(C) SquareR. {
-	A = sexpr::call(Val::id("list_cons".to_string()), vec![B, C]);
+	A = sexpr::call(Val::id("list_cons".to_string()), list::from2(B, C));
 }
 list_items(A) ::= expr(B). {
 	A = list::singleton(B);

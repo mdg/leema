@@ -63,16 +63,15 @@ pub fn strexpr(strs: Val) -> Val
     }
 }
 
-pub fn call(callid: Val, input: Vec<Val>) -> Val
+pub fn call(callid: Val, args: Val) -> Val
 {
-    let args = Val::Tuple(input);
-    let callargs = list::cons(callid, list::singleton(args));
+    let callargs = list::cons(callid, args);
     Val::Sexpr(SexprType::Call, Box::new(callargs))
 }
 
 pub fn binaryop(callname: String, a: Val, b: Val) -> Val
 {
-    call(Val::id(callname), vec![a, b])
+    call(Val::id(callname), list::from2(a, b))
 }
 
 pub fn macro_from_func(f: Val) -> Val
