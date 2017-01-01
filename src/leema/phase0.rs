@@ -5,6 +5,7 @@ use leema::list;
 use leema::sexpr;
 
 use std::collections::{HashMap};
+use std::sync::{Arc};
 
 
 #[derive(Debug)]
@@ -28,8 +29,7 @@ impl Phase0
 
     pub fn preproc_module_expr(&mut self, prog: &Lib
             , mp: &ModulePreface, x: &Val
-    ) -> Val
-    {
+    ) {
         match x {
             &Val::Sexpr(SexprType::DefFunc, ref parts) => {
                 let (fname, args, fresult, body) = list::to_ref_tuple4(parts);
@@ -40,18 +40,24 @@ impl Phase0
                         fname.clone(), pp_args, pp_fresult, pp_body, Val::Void);
                 self.funcs.insert(fname.str().to_string(), pp_func);
             }
+            &Val::Sexpr(SexprType::DefMacro, _) => {
+                // do nothing. the macro definition will have been handled
+                // in the file read
+            }
             _ => {
                 println!("Cannot phase0: {:?}", x);
             }
         }
-        x.clone()
     }
 
     pub fn preproc_expr(prog: &Lib, mp: &ModulePreface, x: &Val) -> Val
     {
         match x {
             &Val::Sexpr(SexprType::Call, ref call_info) => {
-                println!("preproc_call({:?})", call_info);
+                let (ref callx, ref args) = list::take_ref(call_info);
+                Phase0::preproc_call(prog, mp, callx, args)
+            }
+            &Val::Id(_) => {
                 x.clone()
             }
             &Val::Sexpr(sexpr_type, ref sx) => {
@@ -60,19 +66,98 @@ impl Phase0
             &Val::Int(i) => {
                 Val::Int(i)
             }
+            &Val::Str(_) => {
+                x.clone()
+            }
+            &Val::Bool(b) => {
+                Val::Bool(b)
+            }
             &Val::Type(_) => {
                 x.clone()
             }
             &Val::TypedId(_, _) => {
                 x.clone()
             }
-            &Val::Id(_) => {
-                x.clone()
-            }
             _ => {
                 println!("preproc_unknown_expr({:?})", x);
                 x.clone()
             }
+        }
+    }
+
+    pub fn preproc_call(prog: &Lib, mp: &ModulePreface
+            , callx: &Val, args: &Val) -> Val
+    {
+        let pp_args = Phase0::preproc_list(prog, mp, args);
+        match callx {
+            &Val::Id(ref id) => {
+                match mp.macros.get(&**id) {
+                    Some(&(ref arg_names, ref body)) => {
+                        Phase0::apply_macro(&**id, body, arg_names, args)
+                    }
+                    None => {
+                        sexpr::call(callx.clone(), pp_args)
+                    }
+                }
+            }
+            _ => {
+                let pp_callx = Phase0::preproc_expr(prog, mp, callx);
+                sexpr::call(pp_callx, pp_args)
+            }
+        }
+    }
+
+    pub fn apply_macro(macro_name: &str, body: &Val
+            , arg_names: &Vec<Arc<String>>, args: &Val) -> Val
+    {
+        let mut arg_map = HashMap::new();
+        let mut arg_it = args;
+        for n in arg_names {
+            if *arg_it == Val::Nil {
+                panic!("Too few arguments passed to macro {}, expected {}"
+                        , macro_name, arg_names.len());
+            }
+            let (arg_val, arg_tail) = list::take_ref(arg_it);
+            arg_map.insert(n, arg_val);
+            arg_it = arg_tail;
+        }
+        if *arg_it != Val::Nil {
+            panic!("Too many arguments passed to macro {}, expected {}"
+                    , macro_name, arg_names.len());
+        }
+        body.clone()
+    }
+
+    pub fn replace_ids(node: &Val, idvals: &HashMap<Arc<String>, &Val>) -> Val
+    {
+        match node {
+            &Val::Cons(_, _) => {
+                let f = |v: &Val| -> Val {
+                    Phase0::replace_ids(v, idvals)
+                };
+                list::map_ref(node, f)
+            }
+            &Val::Tuple(ref t) => {
+                let mut result = vec![];
+                for tv in t {
+                    let rv = Phase0::replace_ids(tv, idvals);
+                    result.push(rv);
+                }
+                Val::Tuple(result)
+            }
+            &Val::Id(ref name) => {
+                match idvals.get(&*name) {
+                    Some(newx) => (*newx).clone(),
+                    None => Val::Id(name.clone()),
+                }
+            }
+            &Val::Sexpr(stype, ref sdata) => {
+                sexpr::new(
+                    stype,
+                    Phase0::replace_ids(sdata, idvals),
+                )
+            }
+            _ => node.clone(),
         }
     }
 
