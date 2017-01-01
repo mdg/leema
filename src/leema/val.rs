@@ -380,6 +380,18 @@ impl Val {
         Val::Str(Arc::new("".to_string()))
     }
 
+    pub fn str(&self) -> &str
+    {
+        match self {
+            &Val::Id(ref id) => id,
+            &Val::TypedId(ref id, ref typ) => id,
+            &Val::Str(ref s) => s,
+            _ => {
+                panic!("Cannot convert to string: {:?}", self);
+            }
+        }
+    }
+
     pub fn to_str(&self) -> Arc<String>
     {
         match self {

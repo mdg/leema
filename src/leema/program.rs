@@ -38,7 +38,8 @@ impl Lib
             let m = self.read_module(modname);
             let pref = ModulePreface::new(&m);
             self.load_imports(modname, &pref.imports);
-            phase0::preproc(self, &pref, &m.ast);
+            let p0 = phase0::preproc(self, &pref, &m.ast);
+            println!("phase0: {:?}", p0);
             self.modsrc.insert(String::from(modname), Some(m));
             self.modpre.insert(String::from(modname), Rc::new(pref));
         }

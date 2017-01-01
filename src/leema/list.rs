@@ -121,6 +121,19 @@ pub fn map<F>(mut l: Val, op: F) -> Val
     reverse(&result)
 }
 
+pub fn map_ref<F>(mut l: &Val, op: F) -> Val
+    where F: Fn(&Val) -> Val
+{
+    let mut result = Val::Nil;
+    while *l != Val::Nil {
+        let (head, tail) = take_ref(l);
+        let single = op(head);
+        result = cons(single, result);
+        l = tail;
+    }
+    reverse(&result)
+}
+
 pub fn map_to_ll<F>(l: Val, op: F) -> LinkedList<Val>
     where F: Fn(Val) -> Val
 {
@@ -183,6 +196,20 @@ pub fn fold_mut<R, F>(init: &mut R, l: Val, op: F)
             panic!("Cannot fold on not-list: {:?}", it);
         }
         let (head, tail) = take(it);
+        op(init, head);
+        it = tail;
+    }
+}
+
+pub fn fold_mut_ref<R, F>(init: &mut R, l: &Val, op: F)
+    where F: Fn(&mut R, &Val)
+{
+    let mut it = l;
+    while *it != Val::Nil {
+        if !it.is_list() {
+            panic!("Cannot fold on not-list: {:?}", it);
+        }
+        let (head, tail) = take_ref(it);
         op(init, head);
         it = tail;
     }

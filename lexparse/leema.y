@@ -180,12 +180,12 @@ failed_stmt(A) ::= FAILED ID(B) match_case(C) DOUBLEDASH. {
 }
 
 let_stmt(A) ::= Let ID(B) ASSIGN expr(C). {
-	let letx =
+    let letx =
         list::cons(Val::id(B.data),
         list::cons(C,
         Val::Nil
         ));
-	A = sexpr::new(SexprType::Let, letx);
+    A = sexpr::new(SexprType::Let, letx);
 }
 let_stmt(A) ::= Fork ID(B) ASSIGN expr(C). {
 	let bind = list::cons(Val::new_str(B.data), list::singleton(C));
