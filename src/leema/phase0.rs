@@ -63,22 +63,6 @@ impl Protomod
                 let (ref callx, ref args) = list::take_ref(call_info);
                 Protomod::preproc_call(prog, mp, callx, args)
             }
-            &Val::Sexpr(SexprType::FieldAccess, ref flds) => {
-                let (head, tail) = list::take_ref(flds);
-                match head {
-                    &Val::Id(ref mod_id) => {
-                        if mp.imports.contains(&**mod_id) {
-                            let macro_name = list::head_ref(tail);
-                            macro_name.clone()
-                        } else {
-                            x.clone()
-                        }
-                    }
-                    _ => {
-                        x.clone()
-                    }
-                }
-            }
             &Val::Id(_) => {
                 x.clone()
             }
@@ -115,10 +99,38 @@ impl Protomod
             &Val::Id(ref id) => {
                 match mp.macros.get(&**id) {
                     Some(&(ref arg_names, ref body)) => {
-                        Protomod::apply_macro(&**id, body, arg_names, args)
+                        let macrod = Protomod::apply_macro(&**id, body, arg_names, args);
+                        // do it again to make sure there's not a wrapped
+                        // macro
+                        Protomod::preproc_expr(prog, mp, &macrod)
                     }
                     None => {
                         sexpr::call(callx.clone(), pp_args)
+                    }
+                }
+            }
+            &Val::Sexpr(SexprType::FieldAccess, ref flds) => {
+                match list::to_ref_tuple2(flds) {
+                    (&Val::Id(ref modname), &Val::Id(ref modcall)) => {
+                        if mp.imports.contains(&**modname) {
+                            match prog.get_macro(modname, modcall) {
+                                Some(&(ref arg_names, ref body)) => {
+                                    let result = Protomod::apply_macro(
+                                        &**modcall, body, arg_names, args);
+                                    Protomod::preproc_expr(prog, mp, &result)
+                                }
+                                None => {
+                                    panic!("macro undefined: {}.{}",
+                                        modname, modcall);
+                                }
+                            }
+                        } else {
+                            sexpr::call(callx.clone(), pp_args)
+                        }
+                    }
+                    _ => {
+                        let pp_callx = Protomod::preproc_expr(prog, mp, callx);
+                        sexpr::call(pp_callx, pp_args)
                     }
                 }
             }
@@ -140,14 +152,14 @@ impl Protomod
                         , macro_name, arg_names.len());
             }
             let (arg_val, arg_tail) = list::take_ref(arg_it);
-            arg_map.insert(n, arg_val);
+            arg_map.insert(n.clone(), arg_val);
             arg_it = arg_tail;
         }
         if *arg_it != Val::Nil {
             panic!("Too many arguments passed to macro {}, expected {}"
                     , macro_name, arg_names.len());
         }
-        body.clone()
+        Protomod::replace_ids(body, &arg_map)
     }
 
     pub fn replace_ids(node: &Val, idvals: &HashMap<Arc<String>, &Val>) -> Val

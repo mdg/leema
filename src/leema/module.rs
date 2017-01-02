@@ -12,6 +12,8 @@ use std::sync::{Arc};
 use std::mem;
 
 
+// Textmod -> Preface -> Protomod -> Intermod -> Code
+
 #[derive(Debug)]
 #[derive(Clone)]
 pub struct ModKey
@@ -40,7 +42,7 @@ impl ModKey
     }
 }
 
-type MacroDef = (Vec<Arc<String>>, Val);
+pub type MacroDef = (Vec<Arc<String>>, Val);
 type MacroMap = HashMap<String, MacroDef>;
 
 #[derive(Debug)]

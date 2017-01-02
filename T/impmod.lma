@@ -2,7 +2,7 @@ import macs
 
 
 func main() ->
-    if macs\m_and(true, false) ->
+    if macs.m_and(true, false) ->
         cout("is true\n")
     else ->
         cout("is false\n")

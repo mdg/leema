@@ -1,5 +1,5 @@
 use leema::inter::{Version, Intermod};
-use leema::module::{ModuleSource, ModuleInterface, ModulePreface};
+use leema::module::{ModuleSource, ModuleInterface, ModulePreface, MacroDef};
 use leema::loader::{Interloader};
 use leema::phase0::{self, Protomod};
 
@@ -65,6 +65,15 @@ impl Lib
             let pref = ModulePreface::new(&im);
             self.modsrc.insert(i.clone(), im);
             self.preface.insert(i.clone(), Rc::new(pref));
+        }
+    }
+
+    pub fn get_macro(&self, modname: &str, macname: &str)
+            -> Option<&MacroDef>
+    {
+        match self.preface.get(modname) {
+            Some(pref) => pref.macros.get(macname),
+            None => None,
         }
     }
 }
