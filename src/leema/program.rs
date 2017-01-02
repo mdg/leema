@@ -1,7 +1,7 @@
 use leema::inter::{Version, Intermod};
 use leema::module::{ModuleSource, ModuleInterface, ModulePreface};
 use leema::loader::{Interloader};
-use leema::phase0;
+use leema::phase0::{self, Protomod};
 
 use std::rc::{Rc};
 use std::collections::{HashMap, HashSet};
@@ -10,9 +10,9 @@ use std::collections::{HashMap, HashSet};
 pub struct Lib
 {
     loader: Interloader,
-    modsrc: HashMap<String, Option<ModuleSource>>,
-    modpre: HashMap<String, Rc<ModulePreface>>,
-    modifc: HashMap<String, Rc<ModuleInterface>>,
+    modsrc: HashMap<String, ModuleSource>,
+    preface: HashMap<String, Rc<ModulePreface>>,
+    proto: HashMap<String, Rc<Protomod>>,
 }
 
 impl Lib
@@ -22,8 +22,8 @@ impl Lib
         Lib{
             loader: l,
             modsrc: HashMap::new(),
-            modpre: HashMap::new(),
-            modifc: HashMap::new(),
+            preface: HashMap::new(),
+            proto: HashMap::new(),
         }
     }
 
@@ -34,28 +34,15 @@ impl Lib
 
     pub fn load_module(&mut self, modname: &str)
     {
-        if !self.modsrc.contains_key(modname) {
+        if !self.proto.contains_key(modname) {
             let m = self.read_module(modname);
             let pref = ModulePreface::new(&m);
             self.load_imports(modname, &pref.imports);
             let p0 = phase0::preproc(self, &pref, &m.ast);
-            println!("phase0: {:?}", p0);
-            self.modsrc.insert(String::from(modname), Some(m));
-            self.modpre.insert(String::from(modname), Rc::new(pref));
+            self.modsrc.insert(String::from(modname), m);
+            self.preface.insert(String::from(modname), Rc::new(pref));
+            self.proto.insert(String::from(modname), Rc::new(p0));
         }
-        /*
-        else {
-            let msrc = match self.modsrc.get_mut(modname);
-            match msrc {
-                Some(_) => {
-                    msrc.take()
-                }
-                None => {
-                    panic!("Module already in use: {}", modname);
-                }
-            }
-        }
-        */
     }
 
     fn read_module(&self, modname: &str) -> ModuleSource
@@ -71,13 +58,13 @@ impl Lib
             if i == modname {
                 panic!("A module cannot import itself: {}", i);
             }
-            if self.modpre.contains_key(i) {
+            if self.preface.contains_key(i) {
                 continue;
             }
             let im = self.read_module(i);
             let pref = ModulePreface::new(&im);
-            self.modsrc.insert(i.clone(), Some(im));
-            self.modpre.insert(i.clone(), Rc::new(pref));
+            self.modsrc.insert(i.clone(), im);
+            self.preface.insert(i.clone(), Rc::new(pref));
         }
     }
 }
