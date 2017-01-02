@@ -132,7 +132,7 @@ impl ModulePreface
                 mp.macros.insert(String::from(mname), (args, body.clone()));
             }
             _ => {
-                println!("Unexpected top-level ast item: {:?}", item);
+                // ignore everything else, it will be handled in a later phase
             }
         }
     }

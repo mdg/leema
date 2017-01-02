@@ -1,8 +1,7 @@
 
-supertype Additive
-{
-    func add(a: T, b: T): Int
-}
+interface Additive ->
+   func add(a: T, b: T): Int
+--
 
 List<Additive>
 

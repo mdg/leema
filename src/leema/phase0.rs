@@ -47,6 +47,9 @@ impl Protomod
                 // do nothing. the macro definition will have been handled
                 // in the file read
             }
+            &Val::Sexpr(SexprType::Import, _) => {
+                // do nothing. imports handled in file read
+            }
             _ => {
                 println!("Cannot phase0: {:?}", x);
             }
@@ -59,6 +62,22 @@ impl Protomod
             &Val::Sexpr(SexprType::Call, ref call_info) => {
                 let (ref callx, ref args) = list::take_ref(call_info);
                 Protomod::preproc_call(prog, mp, callx, args)
+            }
+            &Val::Sexpr(SexprType::FieldAccess, ref flds) => {
+                let (head, tail) = list::take_ref(flds);
+                match head {
+                    &Val::Id(ref mod_id) => {
+                        if mp.imports.contains(&**mod_id) {
+                            let macro_name = list::head_ref(tail);
+                            macro_name.clone()
+                        } else {
+                            x.clone()
+                        }
+                    }
+                    _ => {
+                        x.clone()
+                    }
+                }
             }
             &Val::Id(_) => {
                 x.clone()

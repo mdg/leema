@@ -19,7 +19,7 @@ pub fn program(scope: Scope, prog: &mut Lib)
 
 pub fn function(mut scope: Scope, prog: &mut Lib, modnm: &str, funcnm: &str) -> Type
 {
-    println!("\ntypecheck::function({}:{})", modnm, funcnm);
+    println!("typecheck::function({}:{})", modnm, funcnm);
     scope.push_function(prog, modnm, funcnm);
     println!("\nscope: {:?}", scope);
     // function_code
