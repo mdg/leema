@@ -35,21 +35,33 @@ impl Lib
     pub fn load_module(&mut self, modname: &str)
     {
         if !self.proto.contains_key(modname) {
-            let m = self.read_module(modname);
-            let pref = ModulePreface::new(&m);
-            self.load_imports(modname, &pref.imports);
-            let p0 = phase0::preproc(self, &pref, &m.ast);
-            self.modsrc.insert(String::from(modname), m);
-            self.preface.insert(String::from(modname), Rc::new(pref));
-            self.proto.insert(String::from(modname), Rc::new(p0));
+            let proto = self.read_proto(modname);
+            self.proto.insert(String::from(modname), Rc::new(proto));
         }
     }
 
-    fn read_module(&self, modname: &str) -> ModuleSource
+    pub fn read_modsrc(&self, modname: &str) -> ModuleSource
     {
         let modkey = self.loader.mod_name_to_key(modname);
         let modtxt = self.loader.read_module(&modkey);
         ModuleSource::new(modkey, modtxt)
+    }
+
+    pub fn read_preface(&self, modname: &str) -> (ModuleSource, ModulePreface)
+    {
+        let ms = self.read_modsrc(modname);
+        let pref = ModulePreface::new(&ms);
+        (ms, pref)
+    }
+
+    pub fn read_proto(&mut self, modname: &str) -> Protomod
+    {
+        let (ms, pref) = self.read_preface(modname);
+        self.load_imports(modname, &pref.imports);
+        let proto = phase0::preproc(self, &pref, &ms.ast);
+        self.modsrc.insert(String::from(modname), ms);
+        self.preface.insert(String::from(modname), Rc::new(pref));
+        proto
     }
 
     fn load_imports(&mut self, modname: &str, imports: &HashSet<String>)
@@ -61,7 +73,7 @@ impl Lib
             if self.preface.contains_key(i) {
                 continue;
             }
-            let im = self.read_module(i);
+            let im = self.read_modsrc(i);
             let pref = ModulePreface::new(&im);
             self.modsrc.insert(i.clone(), im);
             self.preface.insert(i.clone(), Rc::new(pref));

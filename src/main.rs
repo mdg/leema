@@ -65,6 +65,7 @@ fn real_main() -> i32
 
     let inter = Interloader::new(&args.arg_file);
     let modkey = inter.mod_name_to_key(&inter.main_mod);
+    println!("{} {}", args.arg_cmd, inter.main_mod);
 
     if args.arg_cmd == "tokens" {
         let modtxt = inter.read_module(&modkey);
@@ -75,11 +76,18 @@ fn real_main() -> i32
         let ast = ModuleSource::read_ast(&modtxt);
         println!("{:?}\n", ast);
     } else if args.arg_cmd == "modsrc" {
-        let modtxt = inter.read_module(&modkey);
-        let src = ModuleSource::new(modkey, modtxt);
+        let mut prog = program::Lib::new(inter);
+        let src = prog.read_modsrc(&modkey.name);
         println!("{:?}\n", src);
+    } else if args.arg_cmd == "preface" {
+        let mut prog = program::Lib::new(inter);
+        let (_, pref) = prog.read_preface(&modkey.name);
+        println!("{:?}\n", pref);
+    } else if args.arg_cmd == "proto" {
+        let mut prog = program::Lib::new(inter);
+        let proto = prog.read_proto(&modkey.name);
+        println!("\n{:?}\n", proto);
     } else if args.arg_cmd == "typecheck" {
-        println!("typecheck {}", inter.main_mod);
         let mut prog = program::Lib::new(inter);
         let mut scope = Scope::init();
         typecheck::program(scope, &mut prog);
