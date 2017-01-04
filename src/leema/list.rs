@@ -158,6 +158,20 @@ pub fn map_to_vec<F, T>(l: Val, op: F) -> Vec<T>
     acc
 }
 
+pub fn map_ref_to_vec<F, T>(l: &Val, op: F) -> Vec<T>
+    where F: Fn(&Val) -> T
+{
+    let mut it = l;
+    let mut acc = Vec::new();
+    while *it != Val::Nil {
+        let (head, tail) = take_ref(it);
+        let single = op(head);
+        acc.push(single);
+        it = tail;
+    }
+    acc
+}
+
 pub fn fold<R, F>(init: R, l: Val, op: F) -> R
     where F: Fn(R, Val) -> R
 {
@@ -180,7 +194,7 @@ pub fn fold_ref<R, F>(init: R, l: &Val, op: F) -> R
     let mut result = init;
     let mut curr = l;
     while *curr != Val::Nil {
-        let (head, tail) = take_ref(l);
+        let (head, tail) = take_ref(curr);
         result = op(result, head);
         curr = tail;
     }
