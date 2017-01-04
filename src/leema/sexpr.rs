@@ -1,5 +1,7 @@
-use leema::val::{Val, SexprType};
+use leema::val::{Val, SexprType, Type};
 use leema::list;
+
+use std::sync::{Arc};
 
 /**
  * define function
@@ -127,6 +129,35 @@ pub fn defunc(name: Val, args: Val, typ: Val, blk: Val, ps: Val) -> Val
         Val::Nil
         )))))
     ))
+}
+
+pub fn defunc_type(defunc: &Val) -> Type
+{
+    if !defunc.is_sexpr_type(SexprType::DefFunc) {
+        panic!("Cannot find function type of not function: {:?}", defunc);
+    }
+    let (_, sx) = split_ref(defunc);
+    let (nameval, argvals, resultval) = list::to_ref_tuple3(sx);
+    let name = nameval.to_str();
+    fn fpart_type(i: &mut i16, a: &Val, nm: Arc<String>) -> Type
+    {
+        let typ = a.get_type();
+        match typ {
+            Type::AnonVar => {
+                *i = *i + 1;
+                Type::Var2(nm, a.to_str())
+            }
+            _ => {
+                typ.clone()
+            }
+        }
+    }
+    let (argt, nvar) = list::fold_ref((vec![], 0), argvals,
+        |(mut r, mut i), a| {
+            r.push(fpart_type(&mut i, a, name.clone()));
+            (r, i)
+        });
+    Type::Int
 }
 
 pub fn def_struct(name: Val, fields: Val) -> Val

@@ -50,6 +50,7 @@ pub enum Type
     Id(Arc<String>),
     Texpr(Arc<String>, Vec<Type>),
     Var(Arc<String>),
+    Var2(Arc<String>, Arc<String>),
     AnonVar,
 }
 
@@ -135,6 +136,9 @@ impl fmt::Display for Type
             &Type::Texpr(ref base, ref args) => write!(f, "Texpr"),
             &Type::Var(ref name) => {
                 write!(f, "Type::Var({})", name)
+            }
+            &Type::Var2(ref ctx, ref name) => {
+                write!(f, "Type::Var2({}/{})", ctx, name)
             }
             &Type::AnonVar => write!(f, "TypeAnonymous"),
         }
@@ -510,6 +514,7 @@ impl Val {
             &Val::PatternVar(_) => Type::Unknown,
             &Val::Id(_) => Type::AnonVar,
             &Val::TypedId(_, ref typ) => typ.clone(),
+            &Val::Sexpr(SexprType::DefFunc, _) => sexpr::defunc_type(self),
             _ => { panic!("dunno what type {:?}", self) }
         }
     }

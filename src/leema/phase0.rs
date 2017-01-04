@@ -35,6 +35,7 @@ impl Protomod
     ) {
         match x {
             &Val::Sexpr(SexprType::DefFunc, ref parts) => {
+                let ftype = sexpr::defunc_type(x);
                 let (fname, args, fresult, body) = list::to_ref_tuple4(parts);
                 let pp_args = Protomod::preproc_list(prog, mp, args);
                 let pp_fresult = Protomod::preproc_expr(prog, mp, fresult);
