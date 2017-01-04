@@ -187,28 +187,17 @@ pub fn split(x: Val) -> (SexprType, Val)
     }
 }
 
-
-/*
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
-struct TypedId {
-    tid: String,
-    texpr: Type,
-}
-
-impl TypedId {
-    pub fn new(id: String, typ: Type) -> TypedId
-    {
-        TypedId{
-            tid: id,
-            texpr: typ,
+pub fn split_ref(x: &Val) -> (SexprType, &Val)
+{
+    match x {
+        &Val::Sexpr(st, ref sx) => {
+            (st, sx)
+        }
+        _ => {
+            panic!("Cannot split a not sexpr: {:?}", x);
         }
     }
 }
-
-*/
 
 
 #[cfg(test)]
