@@ -50,7 +50,7 @@ pub enum Type
     Id(Arc<String>),
     Texpr(Arc<String>, Vec<Type>),
     Var(Arc<String>),
-    Var2(Arc<String>, Arc<String>),
+    ModuleScope(Arc<String>, Box<Type>),
     AnonVar,
 }
 
@@ -137,8 +137,8 @@ impl fmt::Display for Type
             &Type::Var(ref name) => {
                 write!(f, "Type::Var({})", name)
             }
-            &Type::Var2(ref ctx, ref name) => {
-                write!(f, "Type::Var2({}/{})", ctx, name)
+            &Type::ModuleScope(ref scope, ref typ) => {
+                write!(f, "{}.{})", scope, typ)
             }
             &Type::AnonVar => write!(f, "TypeAnonymous"),
         }

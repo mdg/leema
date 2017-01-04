@@ -144,19 +144,20 @@ pub fn defunc_type(defunc: &Val) -> Type
         let typ = a.get_type();
         match typ {
             Type::AnonVar => {
-                *i = *i + 1;
-                Type::Var2(nm, a.to_str())
+                Type::Var(Arc::new(format!("T_{}_{}", nm, a.to_str())))
             }
             _ => {
                 typ.clone()
             }
         }
     }
+    println!("begin fold_ref");
     let (argt, nvar) = list::fold_ref((vec![], 0), argvals,
         |(mut r, mut i), a| {
             r.push(fpart_type(&mut i, a, name.clone()));
             (r, i)
         });
+    println!("defunc argt: {:?}", argt);
     Type::Int
 }
 
