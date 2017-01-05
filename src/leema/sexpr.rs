@@ -139,24 +139,19 @@ pub fn defunc_type(defunc: &Val) -> Type
     let (_, sx) = split_ref(defunc);
     let (nameval, argvals, resultval) = list::to_ref_tuple3(sx);
     let name = nameval.to_str();
-    fn fpart_type(a: &Val, nm: Arc<String>) -> Type
-    {
+    let argt = list::fold_ref(vec![], argvals, |mut r, a| {
         let typ = a.get_type();
-        match typ {
+        let argtype = match typ {
             Type::AnonVar => {
-                Type::Var(Arc::new(format!("T_{}_{}", nm, a.to_str())))
+                Type::Var(Arc::new(format!("T_{}_{}", name, a.to_str())))
             }
             _ => {
                 typ.clone()
             }
-        }
-    }
-    let argt = list::fold_ref(vec![], argvals,
-        |mut r, a| {
-            r.push(fpart_type(a, name.clone()));
-            r
-        });
-    println!("defunc argt: {:?}", argt);
+        };
+        r.push(argtype);
+        r
+    });
     let tresult = match resultval {
         &Val::Type(Type::AnonVar) => {
             Type::Var(Arc::new(format!("Tresult_{}", name)))
