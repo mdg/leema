@@ -35,14 +35,17 @@ impl Protomod
     ) {
         match x {
             &Val::Sexpr(SexprType::DefFunc, ref parts) => {
-                let ftype = sexpr::defunc_type(x);
                 let (fname, args, fresult, body) = list::to_ref_tuple4(parts);
+                let strname = String::from(fname.str());
                 let pp_args = Protomod::preproc_list(prog, mp, args);
                 let pp_fresult = Protomod::preproc_expr(prog, mp, fresult);
                 let pp_body = Protomod::preproc_expr(prog, mp, body);
                 let pp_func = sexpr::defunc(
                         fname.clone(), pp_args, pp_fresult, pp_body, Val::Void);
-                self.funcsrc.insert(fname.str().to_string(), pp_func);
+                self.funcsrc.insert(strname.clone(), pp_func);
+
+                let ftype = sexpr::defunc_type(x);
+                self.valtypes.insert(strname, ftype);
             }
             &Val::Sexpr(SexprType::DefMacro, _) => {
                 // do nothing. the macro definition will have been handled

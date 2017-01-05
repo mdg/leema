@@ -139,7 +139,7 @@ pub fn defunc_type(defunc: &Val) -> Type
     let (_, sx) = split_ref(defunc);
     let (nameval, argvals, resultval) = list::to_ref_tuple3(sx);
     let name = nameval.to_str();
-    fn fpart_type(i: &mut i16, a: &Val, nm: Arc<String>) -> Type
+    fn fpart_type(a: &Val, nm: Arc<String>) -> Type
     {
         let typ = a.get_type();
         match typ {
@@ -151,14 +151,24 @@ pub fn defunc_type(defunc: &Val) -> Type
             }
         }
     }
-    println!("begin fold_ref");
-    let (argt, nvar) = list::fold_ref((vec![], 0), argvals,
-        |(mut r, mut i), a| {
-            r.push(fpart_type(&mut i, a, name.clone()));
-            (r, i)
+    let argt = list::fold_ref(vec![], argvals,
+        |mut r, a| {
+            r.push(fpart_type(a, name.clone()));
+            r
         });
     println!("defunc argt: {:?}", argt);
-    Type::Int
+    let tresult = match resultval {
+        &Val::Type(Type::AnonVar) => {
+            Type::Var(Arc::new(format!("Tresult_{}", name)))
+        }
+        &Val::Type(ref innert) => {
+            innert.clone()
+        }
+        _ => {
+            panic!("Result type of {} is not a type: {:?}", name, resultval);
+        }
+    };
+    Type::Func(argt, Box::new(tresult))
 }
 
 pub fn def_struct(name: Val, fields: Val) -> Val
