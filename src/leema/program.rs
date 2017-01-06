@@ -1,4 +1,4 @@
-use leema::inter::{Version, Intermod};
+use leema::inter::{self, Version, Intermod};
 use leema::module::{ModuleSource, ModuleInterface, ModulePreface, MacroDef};
 use leema::loader::{Interloader};
 use leema::phase0::{self, Protomod};
@@ -13,6 +13,7 @@ pub struct Lib
     modsrc: HashMap<String, ModuleSource>,
     preface: HashMap<String, Rc<ModulePreface>>,
     proto: HashMap<String, Rc<Protomod>>,
+    inter: HashMap<String, Intermod>,
 }
 
 impl Lib
@@ -24,6 +25,7 @@ impl Lib
             modsrc: HashMap::new(),
             preface: HashMap::new(),
             proto: HashMap::new(),
+            inter: HashMap::new(),
         }
     }
 
@@ -36,7 +38,9 @@ impl Lib
     {
         if !self.proto.contains_key(modname) {
             let proto = self.read_proto(modname);
+            let inter = inter::compile(&proto, self);
             self.proto.insert(String::from(modname), Rc::new(proto));
+            self.inter.insert(String::from(modname), inter);
         }
     }
 

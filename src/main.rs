@@ -89,7 +89,7 @@ fn real_main() -> i32
         println!("\n{:?}\n", proto);
     } else if args.arg_cmd == "typecheck" {
         let mut prog = program::Lib::new(inter);
-        let mut scope = Scope::init();
+        let mut scope = Scope::new();
         typecheck::program(scope, &mut prog);
     } else {
         println!("invalid command: {:?}", args.arg_cmd);

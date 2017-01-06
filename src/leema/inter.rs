@@ -1,11 +1,14 @@
 
 use leema::ast;
 use leema::iexpr::{Iexpr, Source};
-use leema::lex::{lex};
+use leema::module::{ModKey};
+use leema::phase0::{Protomod};
+use leema::program;
 use leema::val::{self, Val, SexprType};
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::rc::{Rc};
 use std::path::{PathBuf};
 use std::fs::File;
 use std::borrow::{Cow};
@@ -82,86 +85,29 @@ typecheck_module(mod) ->
 
 pub struct Intermod
 {
-    name: String,
-    file: Option<PathBuf>,
-    version: Option<Version>,
-    srctext: String,
-    sexpr: Val,
-    imports: HashSet<String>,
-    macros: HashMap<String, Val>,
-    srcfunc: HashMap<String, Val>,
+    key: Rc<ModKey>,
     interfunc: HashMap<String, Iexpr>,
-    //typedfunc: HashMap<String, Iexpr>,
 }
 
 impl Intermod
 {
-    pub fn new(name: &str, fname: Option<PathBuf>, ver: Option<Version>
-        , content: String
-    ) -> Intermod
+    pub fn new(key: Rc<ModKey>) -> Intermod
     {
-        let tokens = lex(&content);
-        let smod = ast::parse(tokens.clone());
-        let imports = HashSet::new();
-        let makros = HashMap::new();
-        let srcfunc = HashMap::new();
-        let interfunc = HashMap::new();
-        // let prog = split_program(smod.clone());
-
         Intermod{
-            name: String::from(name),
-            file: fname,
-            version: ver,
-            srctext: content,
-            sexpr: smod,
-            imports: imports, // prog.imports,
-            macros: makros, // prog.macros,
-            srcfunc: srcfunc,
-            interfunc: interfunc,
+            key: key,
+            interfunc: HashMap::new(),
         }
     }
 
-    pub fn name(name_or_file: &str) -> String
+    pub fn name(&self) -> &str
     {
-        String::from(name_or_file)
+        &self.key.name
     }
+}
 
-    pub fn filename(module_name: &str) -> String
-    {
-        format!("{}.lma", module_name)
-    }
-
-    fn split_program_val(progval: Val) // -> Modval
-    {
-        match progval {
-            Val::Sexpr(st, sx) => {
-                Intermod::split_program_sexpr(st, *sx)
-            }
-            _ => {
-                panic!("Program is not sexpr: {:?}", progval);
-            }
-        }
-    }
-
-    fn split_program_sexpr(st: SexprType, sx: Val)
-    {
-        match st {
-            SexprType::BlockExpr => {
-                // split_program_list(sx);
-            }
-            _ => {
-                panic!("Program is not block: {:?}/{:?}", st, sx);
-            }
-        }
-        /*
-        Program{
-            imports: vec![],
-            macros: vec![],
-            types: vec![],
-            funcs: vec![],
-        }
-        */
-    }
+pub fn compile(proto: &Protomod, prog: &program::Lib) -> Intermod
+{
+    Intermod::new(proto.key.clone())
 }
 
 impl fmt::Debug for Intermod
@@ -169,14 +115,7 @@ impl fmt::Debug for Intermod
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         write!(f, "Intermod{{\n").ok();
-        write!(f, "\tname: {}\n", self.name).ok();
-        write!(f, "\tfile: {:?}\n", self.file).ok();
-        write!(f, "\tversion: {:?}\n", self.version).ok();
-        write!(f, "\tsrctext: \"\"\"\n{:?}\"\"\"\n", self.srctext).ok();
-        write!(f, "\tsexpr: {:?}\n", self.sexpr).ok();
-        write!(f, "\timports: {:?}\n", self.imports).ok();
-        write!(f, "\tmacros: {:?}\n", self.macros).ok();
-        write!(f, "\tsrcfunc: {:?}\n", self.srcfunc).ok();
+        write!(f, "\tname: {}\n", self.key.name).ok();
         write!(f, "\tinterfunc: {:?}\n", self.interfunc).ok();
         write!(f, "}}\n")
     /*

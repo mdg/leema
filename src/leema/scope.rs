@@ -4,7 +4,8 @@ use leema::log;
 use leema::program::{Lib};
 use leema::reg::{Reg, Ireg};
 use leema::sexpr;
-use leema::module::{ModuleInterface, ModKey, ModuleSource};
+use leema::module::{ModulePreface, ModKey, ModuleSource};
+use leema::phase0::{Protomod};
 
 use std::collections::{HashMap, LinkedList};
 use std::sync::Arc;
@@ -298,24 +299,36 @@ impl FunctionScope
 pub struct ModuleScope
 {
     parent: Option<Box<ModuleScope>>,
-    local: Rc<ModuleSource>,
-    imports: HashMap<String, Rc<ModuleInterface>>,
+    preface: Rc<ModulePreface>,
+    proto: Rc<Protomod>,
 }
 
 impl ModuleScope
 {
-    pub fn new(lm: Rc<ModuleSource>) -> ModuleScope
+    pub fn init() -> ModuleScope
+    {
+        let init_mod = Rc::new(ModuleSource::init());
+        let pref = ModulePreface::new(&init_mod);
+        let proto = Protomod::new(pref.key.clone());
+        ModuleScope{
+            parent: None,
+            preface: Rc::new(pref),
+            proto: Rc::new(proto),
+        }
+    }
+
+    pub fn new(mp: Rc<ModulePreface>, p: Rc<Protomod>) -> ModuleScope
     {
         ModuleScope{
             parent: None,
-            local: lm.clone(),
-            imports: HashMap::new(),
+            preface: mp,
+            proto: p,
         }
     }
 
     pub fn name(&self) -> &str
     {
-        &self.local.key.name
+        &self.preface.key.name
     }
 }
 
@@ -330,24 +343,10 @@ pub struct Scope
 
 impl Scope
 {
-    pub fn new(m: Rc<ModuleInterface>) -> Scope
+    pub fn new() -> Scope
     {
-        Scope::init()
-        /*
         Scope{
-            _module: ModuleScope::new(m.clone()),
-            _infer: Inferator::new(),
-            _function: FunctionScope::new(),
-            _failed: None,
-        }
-        */
-    }
-
-    pub fn init() -> Scope
-    {
-        let init_mod = Rc::new(ModuleSource::init());
-        Scope{
-            _module: ModuleScope::new(init_mod),
+            _module: ModuleScope::init(),
             _infer: Inferator::new(),
             _function: FunctionScope::new(),
             _failed: None,
@@ -371,12 +370,16 @@ impl Scope
         &mut self._function
     }
 
+    pub fn pop_function(&mut self, prog: &mut Lib)
+    {
+    }
+
     pub fn push_module(&mut self, prog: &mut Lib, modnm: &str)
     {
-        if self._module.local.key.name != modnm {
+        if self._module.name() != modnm {
             prog.load_module(modnm);
             /*
-            let new_mod = prog.load_module(modnm);
+            let m = prog.module_preface(modnm);
             let mut new_modscope = ModuleScope::new(new_mod);
             mem::swap(&mut new_modscope, &mut self._module);
             self._module.parent = Some(Box::new(new_modscope));
@@ -384,7 +387,7 @@ impl Scope
         }
     }
 
-    pub fn pop_function(&mut self, prog: &mut Lib)
+    pub fn pop_module(&mut self, prog: &mut Lib, modnm: &str)
     {
     }
 
