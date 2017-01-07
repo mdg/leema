@@ -42,9 +42,10 @@ impl Protomod
                 let pp_body = Protomod::preproc_expr(prog, mp, body);
                 let pp_func = sexpr::defunc(
                         fname.clone(), pp_args, pp_fresult, pp_body, Val::Void);
-                self.funcsrc.insert(strname.clone(), pp_func);
 
-                let ftype = sexpr::defunc_type(x);
+                let ftype = sexpr::defunc_type(&pp_func);
+
+                self.funcsrc.insert(strname.clone(), pp_func);
                 self.valtypes.insert(strname, ftype);
             }
             &Val::Sexpr(SexprType::DefMacro, _) => {
