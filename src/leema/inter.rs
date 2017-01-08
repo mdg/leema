@@ -1,9 +1,11 @@
 
 use leema::ast;
 use leema::iexpr::{Iexpr, Source};
+use leema::list;
 use leema::module::{ModKey};
 use leema::phase0::{Protomod};
 use leema::program;
+use leema::sexpr;
 use leema::val::{self, Val, SexprType};
 
 use std::collections::{HashMap, HashSet};
@@ -105,9 +107,14 @@ impl Intermod
     }
 }
 
-pub fn compile(proto: &Protomod, prog: &program::Lib) -> Intermod
+pub fn compile(prog: &program::Lib, proto: &Protomod) -> Intermod
 {
-    Intermod::new(proto.key.clone())
+    let inter = Intermod::new(proto.key.clone());
+    for (fname, defunc) in proto.funcsrc.iter() {
+        let (st, sx) = sexpr::split_ref(defunc);
+        let (_, args, _, body) = list::to_ref_tuple4(sx);
+    }
+    inter
 }
 
 impl fmt::Debug for Intermod

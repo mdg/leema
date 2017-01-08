@@ -87,6 +87,10 @@ fn real_main() -> i32
         let mut prog = program::Lib::new(inter);
         let proto = prog.read_proto(&modkey.name);
         println!("\n{:?}\n", proto);
+    } else if args.arg_cmd == "inter" {
+        let mut prog = program::Lib::new(inter);
+        let imod = prog.read_inter(&modkey.name);
+        println!("\n{:?}\n", imod);
     } else if args.arg_cmd == "typecheck" {
         let mut prog = program::Lib::new(inter);
         let mut scope = Scope::new();

@@ -36,11 +36,31 @@ impl Lib
 
     pub fn load_module(&mut self, modname: &str)
     {
+        self.load_inter(modname)
+    }
+
+    pub fn load_inter(&mut self, modname: &str)
+    {
+        if !self.inter.contains_key(modname) {
+            let inter = self.read_inter(modname);
+            self.inter.insert(String::from(modname), inter);
+        }
+    }
+
+    pub fn load_proto(&mut self, modname: &str)
+    {
         if !self.proto.contains_key(modname) {
             let proto = self.read_proto(modname);
-            let inter = inter::compile(&proto, self);
             self.proto.insert(String::from(modname), Rc::new(proto));
-            self.inter.insert(String::from(modname), inter);
+        }
+    }
+
+    pub fn load_preface(&mut self, modname: &str)
+    {
+        if !self.preface.contains_key(modname) {
+            let (msrc, mpref) = self.read_preface(modname);
+            self.modsrc.insert(String::from(modname), msrc);
+            self.preface.insert(String::from(modname), Rc::new(mpref));
         }
     }
 
@@ -68,6 +88,15 @@ impl Lib
         proto
     }
 
+    pub fn read_inter(&mut self, modname: &str) -> Intermod
+    {
+        self.load_proto(modname);
+        let preface = self.preface.get(modname).unwrap().clone();
+        self.import_protos(modname, &preface.imports);
+        let proto = self.proto.get(modname).unwrap();
+        inter::compile(self, &proto)
+    }
+
     fn load_imports(&mut self, modname: &str, imports: &HashSet<String>)
     {
         for i in imports {
@@ -81,6 +110,13 @@ impl Lib
             let pref = ModulePreface::new(&im);
             self.modsrc.insert(i.clone(), im);
             self.preface.insert(i.clone(), Rc::new(pref));
+        }
+    }
+
+    fn import_protos(&mut self, modname: &str, imports: &HashSet<String>)
+    {
+        for i in imports {
+            self.load_proto(i);
         }
     }
 
