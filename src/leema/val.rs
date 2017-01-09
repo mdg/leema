@@ -203,8 +203,7 @@ pub enum SexprType {
     DefMacro,
     DefStruct,
     Fail,
-    CaseExpr,
-    IfStmt,
+    IfExpr,
     Import,
     MatchExpr,
     MatchFailed,
@@ -680,11 +679,8 @@ impl Val {
                     write!(f, "match({},{})", x, cases)
                 }
             }
-            (SexprType::CaseExpr, casex) => {
-                write!(f, "case({:?})", casex)
-            }
-            (SexprType::IfStmt, ifs) => {
-                write!(f, "if({:?})", ifs)
+            (SexprType::IfExpr, casex) => {
+                write!(f, "if({:?})", casex)
             }
             (SexprType::DefFunc, ref func) => {
                 let (name, f2) = list::take_ref(func);

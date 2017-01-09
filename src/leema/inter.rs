@@ -198,6 +198,19 @@ pub fn compile_expr(scope: &mut Interscope, prog: &Lib, x: &Val) -> Iexpr
             scope.pop_block();
             Iexpr::new_block(iblk)
         }
+        &Val::Sexpr(SexprType::Call, ref callinfo) => {
+            let (callx, args) = list::to_ref_tuple2(callinfo);
+            let icall = compile_expr(scope, prog, callx);
+            let iargs = compile_expr(scope, prog, args);
+            Iexpr::new_call(icall, iargs)
+        }
+        &Val::Sexpr(SexprType::IfExpr, ref ifinfo) => {
+            let (ifx, truth, lies) = list::to_ref_tuple3(ifinfo);
+            let ifix = compile_expr(scope, prog, ifx);
+            let itruth = compile_expr(scope, prog, truth);
+            let ilies = compile_expr(scope, prog, lies);
+            Iexpr::new_if(ifix, itruth, ilies)
+        }
         &Val::Sexpr(SexprType::Let, ref letx) => {
             let (lhs_patt, rhs_val) = list::to_ref_tuple2(letx);
             let ilhs = compile_pattern(scope, prog, lhs_patt);

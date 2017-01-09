@@ -319,30 +319,30 @@ macro_args(A) ::= ID(B) COMMA macro_args(C). {
 */
 if_stmt(A) ::= IF expr(B) block(C) DOUBLEDASH. {
     /* if-only style */
-    A = sexpr::ifstmt(B, C, Val::Void);
+    A = sexpr::ifx(B, C, Val::Void);
 }
 if_stmt(A) ::= IF expr(B) block(C) else_if(D) DOUBLEDASH. {
     /* if-else style */
-    A = sexpr::ifstmt(B, C, D);
+    A = sexpr::ifx(B, C, D);
 }
 if_stmt(A) ::= IF if_case(B) DOUBLEDASH. {
     /* case-expr style */
     A = B;
 }
 else_if(A) ::= ELSE IF expr(B) block(C) else_if(D). {
-    A = sexpr::ifstmt(B, C, D);
+    A = sexpr::ifx(B, C, D);
 }
 else_if(A) ::= ELSE IF expr(B) block(C). {
-    A = sexpr::ifstmt(B, C, Val::Void);
+    A = sexpr::ifx(B, C, Val::Void);
 }
 else_if(A) ::= ELSE block(B). {
     A = B;
 }
 if_case(A) ::= PIPE expr(B) block(C). {
-    A = sexpr::ifstmt(B, C, Val::Void);
+    A = sexpr::ifx(B, C, Val::Void);
 }
 if_case(A) ::= PIPE expr(B) block(C) if_case(D). {
-    A = sexpr::ifstmt(B, C, D);
+    A = sexpr::ifx(B, C, D);
 }
 if_case(A) ::= PIPE ELSE block(B). {
     A = B;
@@ -384,15 +384,15 @@ expr(A) ::= CASE cases(B) DOUBLEDASH. {
 }
 cases(A) ::= PIPE expr(B) block(C) PIPE block(D). {
     vout!("found cases base\n");
-    A = sexpr::casex(B, C, D);
+    A = sexpr::ifx(B, C, D);
 }
 cases(A) ::= PIPE expr(B) block(C) PIPE ELSE block(D). {
     vout!("found cases base\n");
-    A = sexpr::casex(B, C, D);
+    A = sexpr::ifx(B, C, D);
 }
 cases(A) ::= PIPE expr(B) block(C) cases(D). {
     vout!("found extra case\n");
-    A = sexpr::casex(B, C, D);
+    A = sexpr::ifx(B, C, D);
 }
 
 /* match expression */

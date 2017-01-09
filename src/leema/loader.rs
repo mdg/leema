@@ -3,7 +3,6 @@ use leema::val::{Val};
 use leema::iexpr::{Iexpr, Source};
 use leema::inter::{Intermod, Version};
 use leema::module::{ModuleSource, ModKey};
-use leema::src;
 use leema::parse::{Token};
 
 use std::fs::File;

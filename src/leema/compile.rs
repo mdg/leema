@@ -413,11 +413,8 @@ impl StaticSpace
             SexprType::MatchExpr => {
                 self.precompile_matchx(expr)
             }
-            SexprType::CaseExpr => {
+            SexprType::IfExpr => {
                 self.precompile_casex(expr)
-            }
-            SexprType::IfStmt => {
-                self.precompile_ifstmt(expr)
             }
             SexprType::MatchFailed => {
                 self.precompile_matchfailed(expr)
