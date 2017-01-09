@@ -94,7 +94,7 @@ impl Lib
         let preface = self.preface.get(modname).unwrap().clone();
         self.import_protos(modname, &preface.imports);
         let proto = self.proto.get(modname).unwrap();
-        inter::compile(self, &proto)
+        Intermod::compile(self, &proto)
     }
 
     fn load_imports(&mut self, modname: &str, imports: &HashSet<String>)

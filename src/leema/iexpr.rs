@@ -22,9 +22,9 @@ pub enum Source
     Let(Box<Iexpr>, Box<Iexpr>),
     MatchExpr(Box<Iexpr>, Box<Iexpr>),
     MatchCase(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
+    Pattern(Val),
     WhenExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     IfExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
-    Import(Val),
     List(Vec<Iexpr>),
     StrMash(Vec<Iexpr>),
     Tuple(Vec<Iexpr>),
@@ -37,6 +37,7 @@ impl Source
     {
         match src {
             &Source::ConstVal(ref v) => v.get_type(),
+            &Source::Let(_, _) => Type::Void,
             _ => Type::Unknown,
         }
     }
@@ -224,14 +225,6 @@ vout!("new_block> {:?}\n", code);
         Iexpr{
             typ: Type::Str,
             src: Source::StrMash(items),
-        }
-    }
-
-    pub fn new_import(imp: Val) -> Iexpr
-    {
-        Iexpr{
-            typ: Type::Void,
-            src: Source::Import(imp),
         }
     }
 

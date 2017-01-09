@@ -103,7 +103,7 @@ vout!("new_block> {:?}\n", code);
     fn const_val(src: Val) -> Iexpr
     {
         Iexpr{
-            dst: Reg::Undecided, 
+            dst: Reg::Undecided,
             typ: src.get_type(),
             src: Source::ConstVal(src),
         }

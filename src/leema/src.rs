@@ -109,10 +109,6 @@ pub fn compile_sexpr(st: SexprType, sx: Val) -> Iexpr
             let items = compile_list_to_vec(sx);
             Iexpr::new_str_mash(items)
         }
-        SexprType::Import => {
-            let modname = list::head(sx);
-            Iexpr::new_import(modname)
-        }
         SexprType::Fork => {
             panic!("Cannot compile fork: {:?}/{:?}", st, sx);
         }
