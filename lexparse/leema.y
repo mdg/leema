@@ -338,6 +338,9 @@ else_if(A) ::= ELSE IF expr(B) block(C). {
 else_if(A) ::= ELSE block(B). {
     A = B;
 }
+if_case(A) ::= PIPE expr(B) block(C). {
+    A = sexpr::ifstmt(B, C, Val::Void);
+}
 if_case(A) ::= PIPE expr(B) block(C) if_case(D). {
     A = sexpr::ifstmt(B, C, D);
 }

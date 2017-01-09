@@ -84,7 +84,7 @@ void	{ return set_token(yyg, TOKEN_VOID); }
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_ASSIGN);
 }
-"="	{
+"=="	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_EQ);
 }
