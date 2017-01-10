@@ -4,7 +4,6 @@ use leema::iexpr::{Iexpr, Source};
 use leema::list;
 use leema::module::{ModKey};
 use leema::phase0::{Protomod};
-use leema::program::{self, Lib};
 use leema::sexpr;
 use leema::val::{Val, SexprType, Type};
 
@@ -90,15 +89,18 @@ pub struct Intermod
 {
     key: Rc<ModKey>,
     interfunc: HashMap<String, Iexpr>,
+    imports: HashMap<String, Rc<Protomod>>,
 }
 
 impl Intermod
 {
-    pub fn new(key: Rc<ModKey>) -> Intermod
+    pub fn new(key: Rc<ModKey>, imports: HashMap<String, Rc<Protomod>>)
+            -> Intermod
     {
         Intermod{
             key: key,
             interfunc: HashMap::new(),
+            imports: imports,
         }
     }
 
@@ -107,9 +109,10 @@ impl Intermod
         &self.key.name
     }
 
-    pub fn compile(prog: &program::Lib, proto: &Protomod) -> Intermod
+    pub fn compile(proto: Rc<Protomod>, imports: HashMap<String, Rc<Protomod>>)
+            -> Intermod
     {
-        let mut inter = Intermod::new(proto.key.clone());
+        let mut inter = Intermod::new(proto.key.clone(), imports);
         for (fname, defunc) in proto.funcsrc.iter() {
             let (args, body) = split_func_args_body(defunc);
             let ftype = proto.valtypes.get(fname).unwrap();

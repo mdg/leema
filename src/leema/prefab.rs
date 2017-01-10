@@ -307,11 +307,9 @@ println!("read from file: '{}'", input);
     fs.parent.set_result(Val::Str(Arc::new(input)));
 }
 
-fn define_macros(ss: &mut StaticSpace, inter: &mut Interloader)
+pub fn source_code() -> &'static str
 {
-    vout!("defining prefab macros\n");
-    let input = "
-    macro boolean_and(a, b) ->
+    "macro boolean_and(a, b) ->
         case
         |a -> b
         |else -> false
@@ -324,9 +322,21 @@ fn define_macros(ss: &mut StaticSpace, inter: &mut Interloader)
         |else -> b
         --
     --
-    ";
 
-    inter.set_mod_txt("prefab_macros", String::from(input));
+    func int_add(a: Int, b: Int): Int -RUST-
+    func int_sub(a: Int, b: Int): Int -RUST-
+    func int_mult(a: Int, b: Int): Int -RUST-
+    func int_mod(a: Int, b: Int): Int -RUST-
+    func int_negate(a: Int): Int -RUST-
+    "
+}
+
+fn define_macros(ss: &mut StaticSpace, inter: &mut Interloader)
+{
+    vout!("defining prefab macros\n");
+    let input = String::from(source_code());
+
+    inter.set_mod_txt("prefab_macros", input);
     // compile::file(&inter, "prefab_macros");
     vout!("prefab macros compiled\n");
 }

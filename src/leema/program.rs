@@ -2,6 +2,7 @@ use leema::inter::{self, Version, Intermod};
 use leema::module::{ModuleSource, ModuleInterface, ModulePreface, MacroDef};
 use leema::loader::{Interloader};
 use leema::phase0::{self, Protomod};
+use leema::prefab;
 
 use std::rc::{Rc};
 use std::collections::{HashMap, HashSet};
@@ -18,15 +19,18 @@ pub struct Lib
 
 impl Lib
 {
-    pub fn new(l: Interloader) -> Lib
+    pub fn new(mut l: Interloader) -> Lib
     {
-        Lib{
+        l.set_mod_txt("prefab", String::from(prefab::source_code()));
+        let mut proglib = Lib{
             loader: l,
             modsrc: HashMap::new(),
             preface: HashMap::new(),
             proto: HashMap::new(),
             inter: HashMap::new(),
-        }
+        };
+        proglib.load_module("prefab");
+        proglib
     }
 
     pub fn main_module(&self) -> &str
@@ -92,9 +96,9 @@ impl Lib
     {
         self.load_proto(modname);
         let preface = self.preface.get(modname).unwrap().clone();
-        self.import_protos(modname, &preface.imports);
+        let imports = self.import_protos(modname, &preface.imports);
         let proto = self.proto.get(modname).unwrap();
-        Intermod::compile(self, &proto)
+        Intermod::compile(&proto, imports)
     }
 
     fn load_imports(&mut self, modname: &str, imports: &HashSet<String>)
@@ -114,10 +118,15 @@ impl Lib
     }
 
     fn import_protos(&mut self, modname: &str, imports: &HashSet<String>)
+            -> HashMap<String, Rc<Protomod>>
     {
+        let mut imported_protos = HashMap::new();
         for i in imports {
             self.load_proto(i);
+            let p = self.proto.get(i).unwrap().clone();
+            imported_protos.insert(i.clone(), p);
         }
+        imported_protos
     }
 
     pub fn get_macro(&self, modname: &str, macname: &str)
