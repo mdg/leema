@@ -237,6 +237,9 @@ pub fn compile_expr(scope: &mut Interscope, proto: &Protomod, x: &Val) -> Iexpr
         &Val::Bool(b) => {
             Iexpr::const_val(Val::Bool(b))
         }
+        &Val::Int(i) => {
+            Iexpr::const_val(Val::Int(i))
+        }
         _ => {
             panic!("Cannot compile expr: {:?}", x);
         }
