@@ -8,12 +8,13 @@ test.pyc
 # More information here http://doc.crates.io/guide.html#cargotoml-vs-cargolock
 Cargo.lock
 
-# temporary parser files
+# generated parser files
 lexparse/leema.out
 lexparse/leema.rs
 lexparse/lex.c
 lexparse/lex.o
 lexparse/libleemalex.o
+src/leema/parse.rs
 
 # python test files
 __pycache__
