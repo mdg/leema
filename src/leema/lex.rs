@@ -208,6 +208,9 @@ impl Token
                 parse::TOKEN_RETURN => {
                     Token::RETURN
                 }
+                parse::TOKEN_RUSTBLOCK => {
+                    Token::RUSTBLOCK
+                }
                 parse::TOKEN_TYPE_ID => {
                     Token::TYPE_ID(TokenData::new((*tok).val(), tl))
                 }

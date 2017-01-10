@@ -89,18 +89,15 @@ pub struct Intermod
 {
     key: Rc<ModKey>,
     interfunc: HashMap<String, Iexpr>,
-    imports: HashMap<String, Rc<Protomod>>,
 }
 
 impl Intermod
 {
-    pub fn new(key: Rc<ModKey>, imports: HashMap<String, Rc<Protomod>>)
-            -> Intermod
+    pub fn new(key: Rc<ModKey>) -> Intermod
     {
         Intermod{
             key: key,
             interfunc: HashMap::new(),
-            imports: imports,
         }
     }
 
@@ -109,14 +106,15 @@ impl Intermod
         &self.key.name
     }
 
-    pub fn compile(proto: Rc<Protomod>, imports: HashMap<String, Rc<Protomod>>)
+    pub fn compile(proto: &Protomod, imports: &HashMap<String, Rc<Protomod>>)
             -> Intermod
     {
-        let mut inter = Intermod::new(proto.key.clone(), imports);
+        let mut inter = Intermod::new(proto.key.clone());
         for (fname, defunc) in proto.funcsrc.iter() {
             let (args, body) = split_func_args_body(defunc);
             let ftype = proto.valtypes.get(fname).unwrap();
-            let ifunc = compile_function(proto, fname, ftype, &args, body);
+            let ifunc = compile_function(proto, imports
+                    , fname, ftype, &args, body);
             inter.interfunc.insert(fname.to_string(), ifunc);
         }
         inter
@@ -134,7 +132,9 @@ struct Blockscope
 #[derive(Debug)]
 pub struct Interscope<'a>
 {
+    fname: &'a str,
     proto: &'a Protomod,
+    imports: &'a HashMap<String, Rc<Protomod>>,
     blk: Blockscope,
     // types of locally defined labels
     T: HashMap<String, Type>,
@@ -142,7 +142,8 @@ pub struct Interscope<'a>
 
 impl<'a> Interscope<'a>
 {
-    pub fn new(proto: &'a Protomod, args: &Vec<String>, argt: &Vec<Type>
+    pub fn new(proto: &'a Protomod, imports: &'a HashMap<String, Rc<Protomod>>
+            , fname: &'a str, args: &Vec<String>, argt: &Vec<Type>
             ) -> Interscope<'a>
     {
         let mut e = HashSet::new();
@@ -158,7 +159,9 @@ impl<'a> Interscope<'a>
             E: e,
         };
         Interscope{
+            fname: fname,
             proto: proto,
+            imports: imports,
             blk: blk,
             T: t,
         }
@@ -189,15 +192,19 @@ impl<'a> Interscope<'a>
 }
 
 
-pub fn compile_function(proto: &Protomod, fname: &str, ftype: &Type,
-        args: &Vec<String>, body: &Val) -> Iexpr
+pub fn compile_function<'a>(proto: &'a Protomod
+        , imports: &'a HashMap<String, Rc<Protomod>>, fname: &'a str
+        , ftype: &Type, args: &Vec<String>, body: &Val) -> Iexpr
 {
+    if *body == Val::RustBlock {
+        return Iexpr::valx(Val::RustBlock);
+    }
     let (argt, result) = Type::split_func(ftype);
-    let mut scope = Interscope::new(proto, args, argt);
-    compile_expr(&mut scope, proto, body)
+    let mut scope = Interscope::new(proto, imports, fname, args, argt);
+    compile_expr(&mut scope, body)
 }
 
-pub fn compile_expr(scope: &mut Interscope, proto: &Protomod, x: &Val) -> Iexpr
+pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
 {
     match x {
         &Val::Sexpr(SexprType::BlockExpr, ref blk) => {
@@ -206,7 +213,7 @@ pub fn compile_expr(scope: &mut Interscope, proto: &Protomod, x: &Val) -> Iexpr
             let mut blk_head: &Val = &**blk;
             while *blk_head != Val::Nil {
                 let (bx, tail) = list::take_ref(blk_head);
-                iblk.push(compile_expr(scope, proto, bx));
+                iblk.push(compile_expr(scope, bx));
                 blk_head = tail;
             }
             scope.pop_block();
@@ -214,21 +221,21 @@ pub fn compile_expr(scope: &mut Interscope, proto: &Protomod, x: &Val) -> Iexpr
         }
         &Val::Sexpr(SexprType::Call, ref callinfo) => {
             let (callx, args) = list::to_ref_tuple2(callinfo);
-            let icall = compile_expr(scope, proto, callx);
-            let iargs = compile_expr(scope, proto, args);
+            let icall = compile_expr(scope, callx);
+            let iargs = compile_expr(scope, args);
             Iexpr::new_call(icall, iargs)
         }
         &Val::Sexpr(SexprType::IfExpr, ref ifinfo) => {
             let (ifx, truth, lies) = list::to_ref_tuple3(ifinfo);
-            let ifix = compile_expr(scope, proto, ifx);
-            let itruth = compile_expr(scope, proto, truth);
-            let ilies = compile_expr(scope, proto, lies);
+            let ifix = compile_expr(scope, ifx);
+            let itruth = compile_expr(scope, truth);
+            let ilies = compile_expr(scope, lies);
             Iexpr::new_if(ifix, itruth, ilies)
         }
         &Val::Sexpr(SexprType::Let, ref letx) => {
             let (lhs_patt, rhs_val) = list::to_ref_tuple2(letx);
-            let ilhs = compile_pattern(scope, proto, lhs_patt);
-            let irhs = compile_expr(scope, proto, rhs_val);
+            let ilhs = compile_pattern(scope, lhs_patt);
+            let irhs = compile_expr(scope, rhs_val);
             Iexpr::new(Source::Let(Box::new(ilhs), Box::new(irhs)))
         }
         &Val::Id(ref id) => {
@@ -249,7 +256,7 @@ pub fn compile_expr(scope: &mut Interscope, proto: &Protomod, x: &Val) -> Iexpr
     }
 }
 
-pub fn compile_pattern(scope: &mut Interscope, proto: &Protomod, p: &Val
+pub fn compile_pattern(scope: &mut Interscope, p: &Val
         ) -> Iexpr
 {
     match p {

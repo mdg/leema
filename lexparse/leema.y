@@ -196,6 +196,15 @@ block(A) ::= BLOCKARROW stmts(B). {
 	A = B;
 }
 
+/* rust func declaration */
+func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(D) RPAREN COLON typex(E)
+    RUSTBLOCK.
+{
+	let id = Val::id(B.data);
+	let typ = Val::Type(E);
+	A = sexpr::defunc(id, D, typ, Val::RustBlock, Val::Void)
+}
+
 /* func one case, no matching */
 func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(D) RPAREN opt_typex(E)
     block(C) DOUBLEDASH opt_ps(F).

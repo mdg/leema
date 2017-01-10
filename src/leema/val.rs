@@ -38,6 +38,7 @@ pub enum Type
     StrictList(Box<Type>),
     RelaxedList,
     Lib(String),
+    RustBlock,
     // Future(Box<Type>),
     Void,
     /*
@@ -127,6 +128,7 @@ impl fmt::Display for Type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
             &Type::RelaxedList => write!(f, "List"),
             &Type::Lib(ref name) => write!(f, "Lib({})", name),
+            &Type::RustBlock => write!(f, "RustBlock"),
             &Type::Void => write!(f, "Void"),
             &Type::Kind => write!(f, "Kind"),
             &Type::Any => write!(f, "Any"),
@@ -239,6 +241,7 @@ pub enum Val {
     Type(Type),
     Kind(u8),
     Lib(LibVal),
+    RustBlock,
     Future(FutureVal),
     CallParams,
     Void,
@@ -514,6 +517,7 @@ impl Val {
             &Val::Id(_) => Type::AnonVar,
             &Val::TypedId(_, ref typ) => typ.clone(),
             &Val::Sexpr(SexprType::DefFunc, _) => sexpr::defunc_type(self),
+            &Val::RustBlock => Type::RustBlock,
             _ => { panic!("dunno what type {:?}", self) }
         }
     }
@@ -760,6 +764,9 @@ impl fmt::Display for Val {
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv.t)
             }
+            Val::RustBlock => {
+                write!(f, "RustBlock")
+            }
             Val::Failure(ref tag, ref msg, ref stack) => {
                 write!(f, "Failure({}, {}\n{:?}\n)", tag, msg, **stack)
             }
@@ -834,6 +841,9 @@ impl fmt::Debug for Val {
             }
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv.t)
+            }
+            Val::RustBlock => {
+                write!(f, "RustBlock")
             }
             Val::Failure(ref tag, ref msg, ref stack) => {
                 write!(f, "Failure({}, {}, {:?})", tag, msg, stack)
@@ -1062,6 +1072,9 @@ impl PartialOrd for Val
                     }
                 }
             }
+            (&Val::RustBlock, &Val::RustBlock) => {
+                Some(Ordering::Equal)
+            }
             (&Val::Void, &Val::Void) => {
                 Some(Ordering::Equal)
             }
@@ -1158,6 +1171,8 @@ impl PartialOrd for Val
             (_, &Val::CallParams) => {
                 Some(Ordering::Greater)
             }
+            (&Val::RustBlock, _) => Some(Ordering::Less),
+            (_, &Val::RustBlock) => Some(Ordering::Greater),
             (&Val::Sexpr(_, _), _) => Some(Ordering::Less),
             (_, &Val::Sexpr(_, _)) => Some(Ordering::Greater),
             (&Val::Wildcard, _) => Some(Ordering::Less),
