@@ -12,9 +12,9 @@ pub enum Source
     Block(Vec<Iexpr>),
     BooleanAnd(Box<Iexpr>, Box<Iexpr>),
     BooleanOr(Box<Iexpr>, Box<Iexpr>),
-    ConstVal(Val),
     Call(Box<Iexpr>, Box<Iexpr>),
     Constructor(Type),
+    ConstVal(Val),
     DefFunc(Box<Iexpr>, Vec<Iexpr>, Box<Iexpr>),
     Fail(Box<Iexpr>, Box<Iexpr>),
     FieldAccess(Box<Iexpr>, Val),
@@ -23,12 +23,12 @@ pub enum Source
     MatchExpr(Box<Iexpr>, Box<Iexpr>),
     MatchCase(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     Pattern(Val),
-    WhenExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     IfExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     List(Vec<Iexpr>),
     StrMash(Vec<Iexpr>),
     Tuple(Vec<Iexpr>),
     Return(Box<Iexpr>),
+    ValExpr(Val),
 }
 
 impl Source
@@ -91,6 +91,14 @@ vout!("new_block> {:?}\n", code);
         Iexpr{
             typ: src.get_type(),
             src: Source::ConstVal(src),
+        }
+    }
+
+    pub fn valx(src: Val) -> Iexpr
+    {
+        Iexpr{
+            typ: src.get_type(),
+            src: Source::ValExpr(src),
         }
     }
 
@@ -159,18 +167,6 @@ vout!("new_block> {:?}\n", code);
         Iexpr{
             typ: t,
             src: Source::Fork(Box::new(dst), Box::new(f), Box::new(args)),
-        }
-    }
-
-    pub fn new_when_expr(test: Iexpr, truth: Iexpr, lies: Iexpr) -> Iexpr
-    {
-        Iexpr{
-            typ: Type::Unknown,
-            src: Source::WhenExpr(
-                Box::new(test),
-                Box::new(truth),
-                Box::new(lies),
-            ),
         }
     }
 

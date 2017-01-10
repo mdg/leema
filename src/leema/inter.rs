@@ -113,7 +113,7 @@ impl Intermod
         for (fname, defunc) in proto.funcsrc.iter() {
             let (args, body) = split_func_args_body(defunc);
             let ftype = proto.valtypes.get(fname).unwrap();
-            let ifunc = compile_function(prog, fname, ftype, &args, body);
+            let ifunc = compile_function(proto, fname, ftype, &args, body);
             inter.interfunc.insert(fname.to_string(), ifunc);
         }
         inter
@@ -129,17 +129,18 @@ struct Blockscope
 }
 
 #[derive(Debug)]
-pub struct Interscope
+pub struct Interscope<'a>
 {
-    name: String,
+    proto: &'a Protomod,
     blk: Blockscope,
     // types of locally defined labels
     T: HashMap<String, Type>,
 }
 
-impl Interscope
+impl<'a> Interscope<'a>
 {
-    pub fn new(fname: &str, args: &Vec<String>, argt: &Vec<Type>) -> Interscope
+    pub fn new(proto: &'a Protomod, args: &Vec<String>, argt: &Vec<Type>
+            ) -> Interscope<'a>
     {
         let mut e = HashSet::new();
         let mut t = HashMap::new();
@@ -154,7 +155,7 @@ impl Interscope
             E: e,
         };
         Interscope{
-            name: String::from(fname),
+            proto: proto,
             blk: blk,
             T: t,
         }
@@ -170,20 +171,30 @@ impl Interscope
 
     pub fn add_var(&mut self, name: &str)
     {
+        if self.blk.E.contains(name) {
+            panic!("variable is already declared: {}", name);
+        }
         self.blk.E.insert(String::from(name));
+    }
+
+    pub fn contains_var(&self, name: &str) -> bool
+    {
+        self.blk.E.contains(name)
+            || self.proto.contains_val(name)
+            || self.proto.contains_import_val("prefab", name)
     }
 }
 
 
-pub fn compile_function(prog: &program::Lib, fname: &str, ftype: &Type,
+pub fn compile_function(proto: &Protomod, fname: &str, ftype: &Type,
         args: &Vec<String>, body: &Val) -> Iexpr
 {
     let (argt, result) = Type::split_func(ftype);
-    let mut scope = Interscope::new(fname, args, argt);
-    compile_expr(&mut scope, prog, body)
+    let mut scope = Interscope::new(proto, args, argt);
+    compile_expr(&mut scope, proto, body)
 }
 
-pub fn compile_expr(scope: &mut Interscope, prog: &Lib, x: &Val) -> Iexpr
+pub fn compile_expr(scope: &mut Interscope, proto: &Protomod, x: &Val) -> Iexpr
 {
     match x {
         &Val::Sexpr(SexprType::BlockExpr, ref blk) => {
@@ -192,7 +203,7 @@ pub fn compile_expr(scope: &mut Interscope, prog: &Lib, x: &Val) -> Iexpr
             let mut blk_head: &Val = &**blk;
             while *blk_head != Val::Nil {
                 let (bx, tail) = list::take_ref(blk_head);
-                iblk.push(compile_expr(scope, prog, bx));
+                iblk.push(compile_expr(scope, proto, bx));
                 blk_head = tail;
             }
             scope.pop_block();
@@ -200,22 +211,31 @@ pub fn compile_expr(scope: &mut Interscope, prog: &Lib, x: &Val) -> Iexpr
         }
         &Val::Sexpr(SexprType::Call, ref callinfo) => {
             let (callx, args) = list::to_ref_tuple2(callinfo);
-            let icall = compile_expr(scope, prog, callx);
-            let iargs = compile_expr(scope, prog, args);
+            let icall = compile_expr(scope, proto, callx);
+            let iargs = compile_expr(scope, proto, args);
             Iexpr::new_call(icall, iargs)
         }
         &Val::Sexpr(SexprType::IfExpr, ref ifinfo) => {
             let (ifx, truth, lies) = list::to_ref_tuple3(ifinfo);
-            let ifix = compile_expr(scope, prog, ifx);
-            let itruth = compile_expr(scope, prog, truth);
-            let ilies = compile_expr(scope, prog, lies);
+            let ifix = compile_expr(scope, proto, ifx);
+            let itruth = compile_expr(scope, proto, truth);
+            let ilies = compile_expr(scope, proto, lies);
             Iexpr::new_if(ifix, itruth, ilies)
         }
         &Val::Sexpr(SexprType::Let, ref letx) => {
             let (lhs_patt, rhs_val) = list::to_ref_tuple2(letx);
-            let ilhs = compile_pattern(scope, prog, lhs_patt);
-            let irhs = compile_expr(scope, prog, rhs_val);
+            let ilhs = compile_pattern(scope, proto, lhs_patt);
+            let irhs = compile_expr(scope, proto, rhs_val);
             Iexpr::new(Source::Let(Box::new(ilhs), Box::new(irhs)))
+        }
+        &Val::Id(ref id) => {
+            if !scope.contains_var(id) {
+                panic!("undeclared variable: {}", id);
+            }
+            Iexpr::valx(Val::Id(id.clone()))
+        }
+        &Val::Bool(b) => {
+            Iexpr::const_val(Val::Bool(b))
         }
         _ => {
             panic!("Cannot compile expr: {:?}", x);
@@ -223,7 +243,8 @@ pub fn compile_expr(scope: &mut Interscope, prog: &Lib, x: &Val) -> Iexpr
     }
 }
 
-pub fn compile_pattern(scope: &mut Interscope, prog: &Lib, p: &Val) -> Iexpr
+pub fn compile_pattern(scope: &mut Interscope, proto: &Protomod, p: &Val
+        ) -> Iexpr
 {
     match p {
         &Val::Id(ref id) => {
