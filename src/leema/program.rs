@@ -121,6 +121,8 @@ impl Lib
             -> HashMap<String, Rc<Protomod>>
     {
         let mut imported_protos = HashMap::new();
+        imported_protos.insert(String::from("prefab")
+                , self.proto.get("prefab").unwrap().clone());
         for i in imports {
             self.load_proto(i);
             let p = self.proto.get(i).unwrap().clone();

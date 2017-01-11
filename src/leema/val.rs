@@ -808,7 +808,8 @@ impl fmt::Debug for Val {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Val::Str(ref s) => {
-                write!(f, "Str(\"{}\")", s)
+                let escaped = s.replace("\n", "\\n");
+                write!(f, "Str(\"{}\")", escaped)
             }
             Val::Int(ref i) => {
                 write!(f, "Int({})", i)

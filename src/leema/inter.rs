@@ -185,9 +185,18 @@ impl<'a> Interscope<'a>
 
     pub fn contains_var(&self, name: &str) -> bool
     {
-        self.blk.E.contains(name)
-            || self.proto.contains_val(name)
-            || self.proto.contains_import_val("prefab", name)
+        if self.blk.E.contains(name) {
+            true
+        } else if self.proto.contains_val(name) {
+            true
+        } else {
+            match self.imports.get("prefab") {
+                Some(ref proto) => {
+                    proto.contains_val(name)
+                }
+                None => false,
+            }
+        }
     }
 }
 
@@ -238,6 +247,15 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
             let irhs = compile_expr(scope, rhs_val);
             Iexpr::new(Source::Let(Box::new(ilhs), Box::new(irhs)))
         }
+        &Val::Sexpr(SexprType::StrExpr, ref strlist) => {
+            let mut strvec = vec![];
+            list::fold_mut_ref(&mut (&mut strvec, scope), strlist,
+                |&mut (ref mut sv, ref mut scp), x| {
+                    sv.push(compile_expr(*scp, x));
+                }
+            );
+            Iexpr::new_str_mash(strvec)
+        }
         &Val::Id(ref id) => {
             if !scope.contains_var(id) {
                 panic!("undeclared variable: {}", id);
@@ -249,6 +267,9 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
         }
         &Val::Int(i) => {
             Iexpr::const_val(Val::Int(i))
+        }
+        &Val::Str(ref s) => {
+            Iexpr::const_val(Val::Str(s.clone()))
         }
         _ => {
             panic!("Cannot compile expr: {:?}", x);

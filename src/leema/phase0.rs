@@ -16,7 +16,6 @@ pub struct Protomod
     pub funcsrc: HashMap<String, Val>,
     pub valtypes: HashMap<String, Type>,
     pub newtypes: HashMap<Type, Val>,
-    pub imports: HashMap<String, Rc<Protomod>>,
 }
 
 impl Protomod
@@ -28,23 +27,12 @@ impl Protomod
             funcsrc: HashMap::new(),
             valtypes: HashMap::new(),
             newtypes: HashMap::new(),
-            imports: HashMap::new(),
         }
     }
 
     pub fn contains_val(&self, valnm: &str) -> bool
     {
         self.valtypes.contains_key(valnm)
-    }
-
-    pub fn contains_import_val(&self, modnm: &str, valnm: &str) -> bool
-    {
-        match self.imports.get(modnm) {
-            Some(ref ipro) => {
-                ipro.contains_val(valnm)
-            }
-            None => false,
-        }
     }
 
     pub fn preproc_module_expr(&mut self, prog: &Lib
