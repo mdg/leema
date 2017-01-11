@@ -175,12 +175,39 @@ impl<'a> Interscope<'a>
     {
     }
 
-    pub fn add_var(&mut self, name: &str)
+    pub fn add_var(&mut self, name: &str, typ: &Type)
     {
         if self.blk.E.contains(name) {
             panic!("variable is already declared: {}", name);
         }
+        if !self.T.contains_key(name) {
+            self.T.insert(String::from(name), typ.clone());
+        } else {
+            let scope_type = self.T.get(name).unwrap();
+            if scope_type != typ {
+                panic!("variable {} already declared type: {:?}"
+                        , name, scope_type);
+            }
+        }
         self.blk.E.insert(String::from(name));
+    }
+
+    pub fn vartype(&self, name: &str) -> Option<&Type>
+    {
+        let local = self.T.get(name);
+        if local.is_some() {
+            return local;
+        }
+        let modtyp = self.proto.valtype(name);
+        if modtyp.is_some() {
+            return modtyp;
+        }
+        match self.imports.get("prefab") {
+            Some(ref proto) => {
+                proto.valtype(name)
+            }
+            None => None,
+        }
     }
 
     pub fn contains_var(&self, name: &str) -> bool
@@ -243,8 +270,8 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
         }
         &Val::Sexpr(SexprType::Let, ref letx) => {
             let (lhs_patt, rhs_val) = list::to_ref_tuple2(letx);
-            let ilhs = compile_pattern(scope, lhs_patt);
             let irhs = compile_expr(scope, rhs_val);
+            let ilhs = compile_pattern(scope, lhs_patt, &irhs.typ);
             Iexpr::new(Source::Let(Box::new(ilhs), Box::new(irhs)))
         }
         &Val::Sexpr(SexprType::StrExpr, ref strlist) => {
@@ -257,10 +284,17 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
             Iexpr::new_str_mash(strvec)
         }
         &Val::Id(ref id) => {
-            if !scope.contains_var(id) {
-                panic!("undeclared variable: {}", id);
+            match scope.vartype(id) {
+                Some(typ) => {
+                    Iexpr{
+                        src: Source::ValExpr(Val::Id(id.clone())),
+                        typ: typ.clone(),
+                    }
+                }
+                None => {
+                    panic!("undeclared variable: {}", id);
+                }
             }
-            Iexpr::valx(Val::Id(id.clone()))
         }
         &Val::Bool(b) => {
             Iexpr::const_val(Val::Bool(b))
@@ -277,13 +311,15 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
     }
 }
 
-pub fn compile_pattern(scope: &mut Interscope, p: &Val
-        ) -> Iexpr
+pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type) -> Iexpr
 {
     match p {
         &Val::Id(ref id) => {
-            scope.add_var(&id);
-            Iexpr::new(Source::Pattern(p.clone()))
+            scope.add_var(&id, srctyp);
+            Iexpr{
+                src: Source::Pattern(p.clone()),
+                typ: srctyp.clone(),
+            }
         }
         _ => {
             panic!("Unsupported pattern: {:?}", p);

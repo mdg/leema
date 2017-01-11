@@ -35,6 +35,11 @@ impl Protomod
         self.valtypes.contains_key(valnm)
     }
 
+    pub fn valtype(&self, valnm: &str) -> Option<&Type>
+    {
+        self.valtypes.get(valnm)
+    }
+
     pub fn preproc_module_expr(&mut self, prog: &Lib
             , mp: &ModulePreface, x: &Val
     ) {
