@@ -12,7 +12,7 @@ pub enum Source
     Block(Vec<Iexpr>),
     BooleanAnd(Box<Iexpr>, Box<Iexpr>),
     BooleanOr(Box<Iexpr>, Box<Iexpr>),
-    Call(Box<Iexpr>, Box<Iexpr>),
+    Call(Box<Iexpr>, Vec<Iexpr>),
     Constructor(Type),
     ConstVal(Val),
     DefFunc(Box<Iexpr>, Vec<Iexpr>, Box<Iexpr>),
@@ -146,11 +146,11 @@ vout!("new_block> {:?}\n", code);
         }
     }
 
-    pub fn new_call(f: Iexpr, args: Iexpr) -> Iexpr
+    pub fn new_call(f: Iexpr, args: Vec<Iexpr>) -> Iexpr
     {
         Iexpr{
             typ: Type::Unknown,
-            src: Source::Call(Box::new(f), Box::new(args)),
+            src: Source::Call(Box::new(f), args),
         }
     }
 

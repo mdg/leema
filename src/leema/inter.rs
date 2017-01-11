@@ -245,20 +245,14 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
     match x {
         &Val::Sexpr(SexprType::BlockExpr, ref blk) => {
             scope.push_block();
-            let mut iblk = vec![];
-            let mut blk_head: &Val = &**blk;
-            while *blk_head != Val::Nil {
-                let (bx, tail) = list::take_ref(blk_head);
-                iblk.push(compile_expr(scope, bx));
-                blk_head = tail;
-            }
+            let iblk = compile_list_to_vec(scope, blk);
             scope.pop_block();
             Iexpr::new_block(iblk)
         }
         &Val::Sexpr(SexprType::Call, ref callinfo) => {
-            let (callx, args) = list::to_ref_tuple2(callinfo);
+            let (callx, args) = list::take_ref(callinfo);
             let icall = compile_expr(scope, callx);
-            let iargs = compile_expr(scope, args);
+            let iargs = compile_list_to_vec(scope, args);
             Iexpr::new_call(icall, iargs)
         }
         &Val::Sexpr(SexprType::IfExpr, ref ifinfo) => {
@@ -275,12 +269,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
             Iexpr::new(Source::Let(Box::new(ilhs), Box::new(irhs)))
         }
         &Val::Sexpr(SexprType::StrExpr, ref strlist) => {
-            let mut strvec = vec![];
-            list::fold_mut_ref(&mut (&mut strvec, scope), strlist,
-                |&mut (ref mut sv, ref mut scp), x| {
-                    sv.push(compile_expr(*scp, x));
-                }
-            );
+            let strvec = compile_list_to_vec(scope, strlist);
             Iexpr::new_str_mash(strvec)
         }
         &Val::Id(ref id) => {
@@ -309,6 +298,17 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
             panic!("Cannot compile expr: {:?}", x);
         }
     }
+}
+
+pub fn compile_list_to_vec(scope: &mut Interscope, l: &Val) -> Vec<Iexpr>
+{
+    let mut result = vec![];
+    list::fold_mut_ref(&mut (&mut result, scope), l,
+        |&mut (ref mut dst, ref mut scp), x| {
+            dst.push(compile_expr(*scp, x));
+        }
+    );
+    result
 }
 
 pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type) -> Iexpr

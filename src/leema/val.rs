@@ -656,7 +656,7 @@ impl Val {
             }
             (SexprType::BlockExpr, lines) => {
                 if dbg {
-                    write!(f, "{{");
+                    write!(f, "B{{");
                     Val::fmt_list(f, lines, dbg);
                     write!(f, "}}")
                 } else {
@@ -664,11 +664,10 @@ impl Val {
                 }
             }
             (SexprType::Call, &Val::Cons(ref id, ref args)) => {
-                let (argst, _) = list::take_ref(args);
                 if dbg {
-                    write!(f, "{:?}({:?})", id, argst)
+                    write!(f, "{:?}({:?})", id, args)
                 } else {
-                    write!(f, "{}({})", id, argst)
+                    write!(f, "{}({})", id, args)
                 }
             }
             (SexprType::StrExpr, strs) => {
@@ -829,12 +828,11 @@ impl fmt::Debug for Val {
                 write!(f, "#{}", s)
             }
             Val::Tuple(ref t) => {
-                write!(f, "tuple/").ok();
-                Val::fmt_tuple(f, t, true).ok();
-                write!(f, "/t")
+                write!(f, "T").ok();
+                Val::fmt_tuple(f, t, true)
             }
             Val::Struct(ref name, ref fields) => {
-                write!(f, "{}", name).ok();
+                write!(f, "struct {}", name).ok();
                 Val::fmt_tuple(f, fields, false)
             }
             Val::Enum(ref name, variant, ref val) => {
@@ -859,7 +857,7 @@ impl fmt::Debug for Val {
                 write!(f, "TypedId({}, {:?})", id, typ)
             }
             Val::Type(ref t) => {
-                write!(f, "{:?}", t)
+                write!(f, "Type:{:?}", t)
             }
             Val::Kind(c) => {
                 write!(f, "Kind{:?}", c)

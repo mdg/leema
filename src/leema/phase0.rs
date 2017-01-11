@@ -99,6 +99,7 @@ impl Protomod
             &Val::TypedId(_, _) => {
                 x.clone()
             }
+            &Val::RustBlock => Val::RustBlock,
             _ => {
                 println!("preproc_unknown_expr({:?})", x);
                 x.clone()
