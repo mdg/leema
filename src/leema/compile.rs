@@ -335,23 +335,11 @@ impl StaticSpace
     pub fn precompile(&mut self, val: Val) -> Iexpr
     {
         match val {
-            Val::Cons(_, _) => {
-                self.precompile_list(val)
-            }
-            Val::Nil => {
-                Iexpr::const_val(Val::Nil)
-            }
             Val::Tuple(tup) => {
                 self.precompile_tuple(tup)
             }
             Val::Sexpr(st, x) => {
                 self.precompile_sexpr(st, *x)
-            }
-            Val::Id(id) => {
-                self.precompile_id(&*id)
-            }
-            Val::Type(Type::Id(id)) => {
-                self.precompile_id(&*id)
             }
             Val::CallParams => {
                 Iexpr{
@@ -377,16 +365,6 @@ impl StaticSpace
             }
             SexprType::Fork => {
                 //self.precompile_fork(expr);
-                Iexpr::new(Source::Void)
-            }
-            SexprType::BlockExpr => {
-                self.precompile_block(expr)
-            }
-            SexprType::Call => {
-                self.precompile_call(expr)
-            }
-            SexprType::DefFunc => {
-                self.precompile_defunc(expr);
                 Iexpr::new(Source::Void)
             }
             SexprType::Fail => {
@@ -447,17 +425,13 @@ impl StaticSpace
             SexprType::Comparison => {
                 panic!("Can't compile Comparison yet");
             }
-            SexprType::Import => {
-                panic!("Can't compile Import");
-            }
             SexprType::DefMacro => {
                 // ignore macros, they're handled elsewhere
                 // panic!("Macros should have been handled elsewhere");
                 Iexpr::noop()
             }
-            SexprType::DefStruct => {
-                // ignore defstruct here. will deal with them earlier
-                panic!("structs should have been handled elsewhere");
+            _ => {
+                panic!("why hasn't this been deleted yet? {:?}", st);
             }
         }
     }
@@ -584,90 +558,6 @@ vout!("precompile_defstruct({:?},{:?})\n", nameval, fields);
         );
     }
     */
-
-    pub fn precompile_defunc(&mut self, func: Val)
-    {
-        let (nameval, f1) = list::take(func);
-        let (params, f2) = list::take(f1);
-        let (result, f3) = list::take(f2);
-        let (code, f4) = list::take(f3);
-        let ps = list::head(f4);
-        let name = nameval.to_str();
-
-        let (inf_arg_types, funcx) = {
-            let mut argtypes = vec![];
-            let mut i: i8 = 0;
-            let full_types = false;
-
-            self.scope.push_function_scope(&*name, ps);
-            let mut next_param = params;
-            while next_param != Val::Nil {
-                let (head, tail) = list::take(next_param);
-                if !head.is_id() {
-                    panic!("func param not an id with type {:?}", head);
-                }
-                let (pid, raw_ptype) = Val::split_typed_id(&head);
-                let var_name = pid.to_str();
-                let ptype = self.precompile_type(raw_ptype);
-vout!("precompiled {} as {:?}\n", var_name, ptype);
-                argtypes.push(ptype.clone());
-                self.scope.assign_label(
-                    Reg::new_param(i),
-                    &*var_name,
-                    ptype,
-                );
-                next_param = tail;
-                i += 1;
-            }
-            if !result.is_type() {
-                panic!("Result is not a type? {:?}", result);
-            }
-            let rt = self.precompile_type(result.to_type());
-vout!("{} type: {:?} -> {:?}\n", name, argtypes, rt);
-
-            // necessary for recursion
-            // if the type isn't predefined, can't recurse
-            let ftype = Type::Func(argtypes.clone(), Box::new(rt));
-            self.scope.assign_label(Reg::Lib, &*name, ftype);
-            self.scope.set_function_param_types(&argtypes);
-
-            let mut fexpr = self.compile(code);
-print!("fexpr> {:?} : {:?}\n", fexpr, fexpr.typ);
-            let final_arg_types = {
-                let input_arg_tuple = Type::Tuple(argtypes);
-                let final_arg_tuple =
-                    self.scope.find_inferred_type(&input_arg_tuple);
-                Type::tuple_items(final_arg_tuple.clone())
-            };
-            self.scope.pop_function_scope();
-            (final_arg_types, fexpr)
-        };
-
-        let final_ftype = Type::f(inf_arg_types, funcx.typ.clone());
-print!("final_ftype> {:?}\n", final_ftype);
-        self.define_func(
-            name.clone(),
-            final_ftype,
-            Code::Inter(Arc::new(funcx)),
-        );
-    }
-
-    pub fn precompile_block(&mut self, items: Val) -> Iexpr
-    {
-vout!("pc block> {:?}\n", items);
-        let mut bvec = self.precompile_list_to_vec(items);
-        bvec.retain(|i| {
-            i.src != Source::Void
-        });
-        if bvec.is_empty() {
-            return Iexpr{
-                dst: Reg::Void,
-                typ: Type::Void,
-                src: Source::Void,
-            };
-        }
-        Iexpr::new_block(bvec)
-    }
 
     pub fn precompile_matchx(&mut self, expr: Val) -> Iexpr
     {
@@ -819,32 +709,6 @@ vout!("ixfailedmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
         ix
     }
 
-    pub fn precompile_id(&mut self, name: &String) -> Iexpr
-    {
-        // look up stuff in static space
-        match self.scope.lookup_label(name) {
-            Some((reg, typ)) => {
-                match reg {
-                    &Reg::Reg(_) => {
-                        Iexpr::bound_val(reg.clone(), typ.clone())
-                    }
-                    &Reg::Param(_) => {
-                        Iexpr::bound_val(reg.clone(), typ.clone())
-                    }
-                    &Reg::Lib => {
-                        Iexpr::const_val(Val::new_str(name.clone()))
-                    }
-                    _ => {
-                        panic!("unexpected reg: {:?}", reg);
-                    }
-                }
-            }
-            None => {
-                panic!("undefined variable: {}", name);
-            }
-        }
-    }
-
     pub fn precompile_type(&mut self, ptype: Type) -> Type
     {
         match ptype {
@@ -889,26 +753,6 @@ vout!("ixfailedmatchcase:\n\t{:?}\n\t{:?}\n\t{:?}\n", patt, code, next);
                 panic!("What kind of type is that? {:?}", ptype);
             }
         }
-    }
-
-    pub fn precompile_call(&mut self, call: Val) -> Iexpr
-    {
-        let (f, sx) = list::take(call);
-        let args = list::head(sx);
-vout!("args = {:?}\n", args);
-        let fname = match &f {
-            &Val::Id(ref name) => name,
-            &Val::Type(Type::Id(ref name)) => name,
-            _ => {
-                panic!("not a valid function name: {:?}", f);
-            }
-        }.clone();
-        let fexpr = self.precompile(f);
-        let cargs = self.precompile(args);
-vout!("cargs = {:?}\n", cargs);
-vout!("cargs.type = {:?}\n", cargs.typ);
-        let call_result = self.scope.apply_call_types(&fname, &cargs.typ);
-        Iexpr::call(call_result, fexpr, cargs)
     }
 
     pub fn precompile_str(&mut self, expr: Val) -> Iexpr
@@ -960,11 +804,6 @@ vout!("cargs.type = {:?}\n", cargs.typ);
             _ => Iexpr::str(new_strs),
         };
         result
-    }
-
-    pub fn precompile_list(&mut self, items: Val) -> Iexpr
-    {
-        Iexpr::list(self.precompile_list_to_vec(items))
     }
 
     fn precompile_list_to_vec(&mut self, items: Val) -> Vec<Iexpr>
