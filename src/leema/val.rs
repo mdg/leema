@@ -51,7 +51,6 @@ pub enum Type
     Id(Arc<String>),
     Texpr(Arc<String>, Vec<Type>),
     Var(Arc<String>),
-    ModuleScope(Arc<String>, Box<Type>),
     AnonVar,
 }
 
@@ -139,9 +138,6 @@ impl fmt::Display for Type
             &Type::Var(ref name) => {
                 write!(f, "Type::Var({})", name)
             }
-            &Type::ModuleScope(ref scope, ref typ) => {
-                write!(f, "{}.{})", scope, typ)
-            }
             &Type::AnonVar => write!(f, "TypeAnonymous"),
         }
     }
@@ -211,7 +207,6 @@ pub enum SexprType {
     MatchFailed,
     Return,
     Comparison,
-    FieldAccess,
     /*
     LessThan3(bool, bool),
     BooleanAnd,
@@ -240,6 +235,7 @@ pub enum Val {
     TypedId(Arc<String>, Type),
     Type(Type),
     Kind(u8),
+    DotAccess(Box<Val>, Arc<String>),
     Lib(LibVal),
     RustBlock,
     Future(FutureVal),
@@ -708,11 +704,6 @@ impl Val {
                 let (fields, _) = list::take_ref(m2);
                 write!(f, "struct({},{:?})", name, fields)
             }
-            (SexprType::FieldAccess, ref fa) => {
-                let (base, fa2) = list::take_ref(fa);
-                let (field, _) = list::take_ref(fa2);
-                write!(f, "({:?}.{})", base, field)
-            }
             (SexprType::Import, ref filelist) => {
                 let file = list::head_ref(filelist);
                 write!(f, "(import {:?})", file)
@@ -786,6 +777,9 @@ impl fmt::Display for Val {
             }
             Val::Future(_) => {
                 write!(f, "Future")
+            }
+            Val::DotAccess(ref outer, ref inner) => {
+                write!(f, "{}.{}", outer, inner)
             }
             Val::Void => {
                 write!(f, "Void")
@@ -861,6 +855,9 @@ impl fmt::Debug for Val {
             }
             Val::Kind(c) => {
                 write!(f, "Kind{:?}", c)
+            }
+            Val::DotAccess(ref outer, ref inner) => {
+                write!(f, "{:?}.{}", outer, inner)
             }
             Val::Future(_) => {
                 write!(f, "Future")

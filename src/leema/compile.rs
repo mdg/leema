@@ -395,9 +395,6 @@ impl StaticSpace
             SexprType::StrExpr => {
                 self.precompile_str(expr)
             }
-            SexprType::FieldAccess => {
-                self.precompile_fieldaccess(expr)
-            }
             /*
             SexprType::BooleanAnd(a, b) => {
                 let ia = Box::new(self.precompile(*a));
@@ -963,39 +960,6 @@ vout!("cargs.type = {:?}\n", cargs.typ);
             _ => Iexpr::str(new_strs),
         };
         result
-    }
-
-    pub fn precompile_fieldaccess(&mut self, expr: Val) -> Iexpr
-    {
-vout!("typefields at fieldaccess: {:?}\n", self.typefields);
-        let (raw_base, x2) = list::take(expr);
-        let (raw_field, _) = list::take(x2);
-
-        let base = self.precompile(raw_base);
-
-        let field_name = match raw_field {
-            Val::Id(fld_name) => fld_name,
-            _ => {
-                panic!("Not a field name! {:?}", raw_field);
-            }
-        };
-
-        if base.typ == Type::Unknown {
-            panic!("type of {:?} is unknown. Cannot access {} field",
-                base, field_name);
-        }
-        // lookup fields in 
-        let found_field = self.lookup_field_by_name(&base.typ, &*field_name);
-        if found_field.is_none() {
-            panic!("cannot find field: {:?}.{} in {:?}",
-                base.typ, field_name, self.typefields);
-        }
-        let (fldtyp, fldidx) = found_field.unwrap();
-        Iexpr{
-            dst: Reg::Undecided,
-            typ: fldtyp.clone(),
-            src: Source::FieldAccess(Box::new(base), fldidx),
-        }
     }
 
     pub fn precompile_list(&mut self, items: Val) -> Iexpr

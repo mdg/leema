@@ -210,7 +210,7 @@ impl<'a> Interscope<'a>
         }
     }
 
-    pub fn contains_var(&self, name: &str) -> bool
+    pub fn contains_id(&self, name: &str) -> bool
     {
         if self.blk.E.contains(name) {
             true
@@ -224,6 +224,16 @@ impl<'a> Interscope<'a>
                 None => false,
             }
         }
+    }
+
+    pub fn contains_local(&self, name: &str) -> bool
+    {
+        self.blk.E.contains(name)
+    }
+
+    pub fn imports_module(&self, name: &str) -> bool
+    {
+        self.imports.contains_key(name)
     }
 }
 
@@ -282,6 +292,27 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
                 }
                 None => {
                     panic!("undeclared variable: {}", id);
+                }
+            }
+        }
+        &Val::DotAccess(ref outer, ref inner) => {
+            match &**outer {
+                &Val::Id(ref outer_id) => {
+                    if scope.contains_local(outer_id) {
+                        Iexpr::new(Source::FieldAccess(
+                            Box::new(Iexpr::valx((**outer).clone())),
+                            inner.clone(),
+                        ))
+                    } else if scope.imports_module(outer_id) {
+                        Iexpr::new(Source::ModuleAccess(
+                            outer_id.clone(), inner.clone()
+                        ))
+                    } else {
+                        panic!("unknown identifier: {}", outer_id);
+                    }
+                }
+                _ => {
+                    panic!("dot access unsupported: {:?}", outer);
                 }
             }
         }

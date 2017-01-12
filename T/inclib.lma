@@ -1,0 +1,5 @@
+func inc(x) -> x + 1 --
+
+func dec(x) -> x - 1 --
+
+func half(x) -> x / 1 --

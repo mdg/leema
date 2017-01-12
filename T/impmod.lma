@@ -1,4 +1,5 @@
 import macs
+import inclib
 
 
 func main() ->
@@ -7,5 +8,5 @@ func main() ->
     else ->
         cout("is false\n")
     --
-    0
+    inclib.inc(5)
 --

@@ -125,28 +125,23 @@ impl Protomod
                     }
                 }
             }
-            &Val::Sexpr(SexprType::FieldAccess, ref flds) => {
-                match list::to_ref_tuple2(flds) {
-                    (&Val::Id(ref modname), &Val::Id(ref modcall)) => {
-                        if mp.imports.contains(&**modname) {
-                            match prog.get_macro(modname, modcall) {
-                                Some(&(ref arg_names, ref body)) => {
-                                    let result = Protomod::apply_macro(
-                                        &**modcall, body, arg_names, args);
-                                    Protomod::preproc_expr(prog, mp, &result)
-                                }
-                                None => {
-                                    panic!("macro undefined: {}.{}",
-                                        modname, modcall);
-                                }
-                            }
-                        } else {
-                            sexpr::call(callx.clone(), pp_args)
+            &Val::DotAccess(ref outer, ref inner) => {
+                match &**outer {
+                    &Val::Id(ref outer_id) => {
+                        if !mp.imports.contains(&**outer_id) {
+                            return sexpr::call(callx.clone(), pp_args);
                         }
+                        let mac = prog.get_macro(outer_id, inner);
+                        if mac.is_none() {
+                            return sexpr::call(callx.clone(), pp_args);
+                        }
+                        let &(ref arg_names, ref body) = mac.unwrap();
+                        let result = Protomod::apply_macro(
+                                &**inner, body, arg_names, args);
+                        Protomod::preproc_expr(prog, mp, &result)
                     }
                     _ => {
-                        let pp_callx = Protomod::preproc_expr(prog, mp, callx);
-                        sexpr::call(pp_callx, pp_args)
+                        sexpr::call(callx.clone(), pp_args)
                     }
                 }
             }

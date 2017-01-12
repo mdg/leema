@@ -569,12 +569,7 @@ term(A) ::= HASHTAG(B). {
 }
 term(A) ::= strexpr(B). { A = B; }
 term(A) ::= term(B) DOT ID(C). {
-    A = sexpr::new(SexprType::FieldAccess,
-        list::cons(B,
-        list::cons(Val::id(C.data),
-        Val::Nil,
-        ))
-    );
+    A = Val::DotAccess(Box::new(B), Arc::new(C.data));
 }
 
 
@@ -623,9 +618,5 @@ strlist_term(A) ::= ID(B). {
     A = Val::id(B.data);
 }
 strlist_term(A) ::= strlist_term(B) DOT ID(C). {
-    A = sexpr::new(SexprType::FieldAccess,
-        list::cons(B,
-        list::cons(Val::id(C.data),
-        Val::Nil,
-    )))
+    A = Val::DotAccess(Box::new(B), Arc::new(C.data));
 }
