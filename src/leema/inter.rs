@@ -210,6 +210,16 @@ impl<'a> Interscope<'a>
         }
     }
 
+    pub fn import_vartype(&self, modnm: &str, valnm: &str) -> Option<&Type>
+    {
+        match self.imports.get(modnm) {
+            None => None,
+            Some(ref proto) => {
+                proto.valtype(valnm)
+            }
+        }
+    }
+
     pub fn contains_id(&self, name: &str) -> bool
     {
         if self.blk.E.contains(name) {
@@ -304,9 +314,17 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
                             inner.clone(),
                         ))
                     } else if scope.imports_module(outer_id) {
-                        Iexpr::new(Source::ModuleAccess(
-                            outer_id.clone(), inner.clone()
-                        ))
+                        let opt_itype = scope.import_vartype(outer_id, inner);
+                        if opt_itype.is_none() {
+                            panic!("module var not found: {:?}", x);
+                        }
+                        let itype = opt_itype.unwrap();
+                        Iexpr{
+                            typ: itype.clone(),
+                            src: Source::ModuleAccess(
+                                outer_id.clone(), inner.clone()
+                            ),
+                        }
                     } else {
                         panic!("unknown identifier: {}", outer_id);
                     }
@@ -356,6 +374,12 @@ pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type) -> Iexpr
             panic!("Unsupported pattern: {:?}", p);
         }
     }
+}
+
+pub fn call_type(ftype: &Type, pargst: &Type) -> Type
+{
+    let (defargst, defresult) = Type::split_func(ftype);
+    defresult.clone()
 }
 
 pub fn split_func_args_body(defunc: &Val) -> (Vec<String>, &Val)
