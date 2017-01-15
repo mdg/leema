@@ -16,6 +16,7 @@ pub mod program;
 pub mod reg;
 pub mod application;
 pub mod iexpr;
+pub mod infer;
 pub mod inter;
 pub mod sexpr;
 pub mod parse;

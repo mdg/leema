@@ -1,6 +1,7 @@
 
 use leema::ast;
 use leema::iexpr::{Iexpr, Source};
+use leema::infer::{Inferator};
 use leema::list;
 use leema::module::{ModKey};
 use leema::phase0::{Protomod};
@@ -137,7 +138,7 @@ pub struct Interscope<'a>
     imports: &'a HashMap<String, Rc<Protomod>>,
     blk: Blockscope,
     // types of locally defined labels
-    T: HashMap<String, Type>,
+    T: Inferator,
 }
 
 impl<'a> Interscope<'a>
@@ -147,11 +148,11 @@ impl<'a> Interscope<'a>
             ) -> Interscope<'a>
     {
         let mut e = HashSet::new();
-        let mut t = HashMap::new();
+        let mut t = Inferator::new();
 
         for (an, at) in args.iter().zip(argt) {
             e.insert(an.clone());
-            t.insert(an.clone(), at.clone());
+            t.bind_vartype(an, at);
         }
 
         let blk = Blockscope{
@@ -180,21 +181,13 @@ impl<'a> Interscope<'a>
         if self.blk.E.contains(name) {
             panic!("variable is already declared: {}", name);
         }
-        if !self.T.contains_key(name) {
-            self.T.insert(String::from(name), typ.clone());
-        } else {
-            let scope_type = self.T.get(name).unwrap();
-            if scope_type != typ {
-                panic!("variable {} already declared type: {:?}"
-                        , name, scope_type);
-            }
-        }
+        self.T.bind_vartype(name, typ);
         self.blk.E.insert(String::from(name));
     }
 
     pub fn vartype(&self, name: &str) -> Option<&Type>
     {
-        let local = self.T.get(name);
+        let local = self.T.vartype(name);
         if local.is_some() {
             return local;
         }
@@ -301,7 +294,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
                     }
                 }
                 None => {
-                    panic!("undeclared variable: {}", id);
+                    panic!("untyped variable: {} not in {:?}", id, scope);
                 }
             }
         }
@@ -374,12 +367,6 @@ pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type) -> Iexpr
             panic!("Unsupported pattern: {:?}", p);
         }
     }
-}
-
-pub fn call_type(ftype: &Type, pargst: &Type) -> Type
-{
-    let (defargst, defresult) = Type::split_func(ftype);
-    defresult.clone()
 }
 
 pub fn split_func_args_body(defunc: &Val) -> (Vec<String>, &Val)

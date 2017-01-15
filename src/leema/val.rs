@@ -91,6 +91,17 @@ impl Type
         }
     }
 
+    pub fn var_name_str(&self) -> &str
+    {
+        match self {
+            &Type::Var(ref id) => id,
+            &Type::AnonVar => "anon",
+            _ => {
+                panic!("Not a Type::Var {:?}", self);
+            }
+        }
+    }
+
     pub fn tuple_items(tup: Type) -> Vec<Type>
     {
         match tup {
