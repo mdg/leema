@@ -29,11 +29,8 @@ impl Inferator
             Some(&Type::AnonVar) => {
                 panic!("Can't infer AnonVar");
             }
-            Some(ref argt) if argt.is_var() => {
-                self.inferred_type(argt)
-            }
             Some(ref argt) => {
-                Some(argt)
+                Some(self.inferred_type(argt))
             }
         }
     }
@@ -45,23 +42,27 @@ impl Inferator
             return;
         }
 
-        self.mash(argn, argt);
+        let oldargt = self.T.get(argn).unwrap();
+        Inferator::mash(&mut self.inferences, oldargt, argt);
     }
 
-    fn inferred_type<'a>(&'a self, typ: &'a Type) -> Option<&Type>
+    fn inferred_type<'a>(&'a self, typ: &'a Type) -> &Type
     {
+        if !typ.is_var() {
+            return typ;
+        }
         let varname = typ.var_name();
         match self.inferences.get(&varname) {
             Some(ref other_type) => {
                 self.inferred_type(other_type)
             }
-            None => Some(typ),
+            None => typ,
         }
     }
 
-    fn mash(&mut self, oldn: &str, newt: &Type)
+    fn mash(inferences: &mut HashMap<Arc<String>
+            , Type>, oldt: &Type, newt: &Type)
     {
-        let oldt = self.T.get(oldn).unwrap();
         if oldt == newt {
             // all good
             return;
@@ -69,16 +70,16 @@ impl Inferator
         match (oldt, newt) {
             (&Type::Var(ref oldtname), &Type::Var(ref newtname)) => {
                 if oldtname < newtname {
-                    self.inferences.insert(newtname.clone(), oldt.clone());
+                    inferences.insert(newtname.clone(), oldt.clone());
                 } else {
-                    self.inferences.insert(oldtname.clone(), newt.clone());
+                    inferences.insert(oldtname.clone(), newt.clone());
                 }
             }
             (&Type::Var(ref oldtname), _) => {
-                self.inferences.insert(oldtname.clone(), newt.clone());
+                inferences.insert(oldtname.clone(), newt.clone());
             }
             (_, &Type::Var(ref newtname)) => {
-                self.inferences.insert(newtname.clone(), oldt.clone());
+                inferences.insert(newtname.clone(), oldt.clone());
             }
             (_, _) => {
                 panic!("cannot mash types: {:?} <> {:?}", oldt, newt);
@@ -88,14 +89,23 @@ impl Inferator
 
 
 
-    pub fn make_call_type(&mut self, ftype: &Type, argst: &Vec<Type>) -> Type
+    pub fn make_call_type(&mut self, ftype: &Type, argst: &Vec<&Type>) -> Type
     {
         let (defargst, defresult) = Type::split_func(ftype);
 
-        // let args = defargst.iter().zip(pargst).map(|defargt, pargt| {
-            // Type::mash(defargt, pargt)
-        // });
-        defresult.clone()
+        let defargslen = defargst.len();
+        let argslen = argst.len();
+        if argslen > defargslen {
+            panic!("too many args passed to {:?}", ftype);
+        }
+        if argslen < defargslen {
+            panic!("it's so much fun to curry, but not supported yet");
+        }
+
+        defargst.iter().zip(argst).map(|(defargt, argt)| {
+            Inferator::mash(&mut self.inferences, defargt, argt)
+        });
+        self.inferred_type(defresult).clone()
     }
 
 

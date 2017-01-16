@@ -266,7 +266,16 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
             let (callx, args) = list::take_ref(callinfo);
             let icall = compile_expr(scope, callx);
             let iargs = compile_list_to_vec(scope, args);
-            Iexpr::new_call(icall, iargs)
+            let ftype = {
+                let iargst: Vec<&Type> = iargs.iter().map(|ia| {
+                    &ia.typ
+                }).collect::<Vec<&Type>>();
+                scope.T.make_call_type(&icall.typ, &iargst)
+            };
+            Iexpr{
+                typ: ftype,
+                src: Source::Call(Box::new(icall), iargs),
+            }
         }
         &Val::Sexpr(SexprType::IfExpr, ref ifinfo) => {
             let (ifx, truth, lies) = list::to_ref_tuple3(ifinfo);

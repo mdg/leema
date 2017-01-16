@@ -328,7 +328,7 @@ pub fn source_code() -> &'static str
     func int_mult(a: Int, b: Int): Int -RUST-
     func int_mod(a: Int, b: Int): Int -RUST-
     func int_negate(a: Int): Int -RUST-
-    func equal(a): Bool -RUST-
+    func equal(a, b): Bool -RUST-
     func cout(txt: Str): Void -RUST-
     "
 }
