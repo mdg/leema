@@ -46,6 +46,11 @@ impl Inferator
         Inferator::mash(&mut self.inferences, oldargt, argt);
     }
 
+    pub fn merge_types(&mut self, a: &Type, b: &Type)
+    {
+        Inferator::mash(&mut self.inferences, a, b);
+    }
+
     fn inferred_type<'a>(&'a self, typ: &'a Type) -> &Type
     {
         if !typ.is_var() {

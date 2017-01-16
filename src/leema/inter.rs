@@ -282,6 +282,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
             let ifix = compile_expr(scope, ifx);
             let itruth = compile_expr(scope, truth);
             let ilies = compile_expr(scope, lies);
+            scope.T.merge_types(&itruth.typ, &ilies.typ);
             Iexpr::new_if(ifix, itruth, ilies)
         }
         &Val::Sexpr(SexprType::Let, ref letx) => {

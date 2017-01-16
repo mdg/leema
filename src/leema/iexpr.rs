@@ -198,7 +198,7 @@ vout!("new_block> {:?}\n", code);
     pub fn new_if(test: Iexpr, truth: Iexpr, lies: Iexpr) -> Iexpr
     {
         Iexpr{
-            typ: Type::Unknown, // if statements are untyped
+            typ: truth.typ.clone(),
             src: Source::IfExpr(
                 Box::new(test),
                 Box::new(truth),
