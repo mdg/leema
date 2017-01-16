@@ -260,6 +260,9 @@ typex(A) ::= TYPE_VOID. {
 typex(A) ::= TYPE_ID(B). {
 	A = Type::Id(Arc::new(B.data));
 }
+typex(A) ::= ID(B). {
+    A = Type::Var(Arc::new(B.data));
+}
 typex(A) ::= SquareL typex(B) SquareR. {
 	A = Type::StrictList(Box::new(B));
 }
@@ -378,8 +381,9 @@ call_expr(A) ::= func_term(B) PARENCALL tuple_args(C) RPAREN. {
 func_term(A) ::= term(B). {
     A = B;
 }
-func_term(A) ::= typex(B). {
-    A = Val::Type(B);
+func_term(A) ::= TYPE_ID(B). {
+    let tid = Type::Id(Arc::new(B.data));
+    A = Val::Type(tid);
 }
 
 expr(A) ::= term(B) DOLLAR term(C). {

@@ -1,4 +1,4 @@
-func inc(x) -> x + 1 --
+func inc(x: t): t -> x + 1 --
 
 func main() ->
     let i := inc(~4)
