@@ -1,0 +1,7 @@
+func inc(x: Int): Int -> x + 1 --
+
+func main() ->
+    let i := inc("hello")
+    cout("inc(4) = $i\n")
+    i
+--
