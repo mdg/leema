@@ -250,7 +250,15 @@ pub fn compile_function<'a>(proto: &'a Protomod
     }
     let (argt, result) = Type::split_func(ftype);
     let mut scope = Interscope::new(proto, imports, fname, args, argt);
-    compile_expr(&mut scope, body)
+    let ibody = compile_expr(&mut scope, body);
+    let argt2: Vec<Type> = argt.iter().map(|a| {
+        scope.T.inferred_type(a).clone()
+    }).collect();
+    let final_ftype = Type::Func(argt2, Box::new(ibody.typ.clone()));
+    Iexpr{
+        typ: final_ftype,
+        src: Source::Func(Box::new(ibody)),
+    }
 }
 
 pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
@@ -395,7 +403,10 @@ impl fmt::Debug for Intermod
     {
         write!(f, "Intermod{{\n").ok();
         write!(f, "\tname: {}\n", self.key.name).ok();
-        write!(f, "\tinterfunc: {:?}\n", self.interfunc).ok();
+        write!(f, "\tinterfunc:\n").ok();
+        for (fname, fix) in self.interfunc.iter() {
+            write!(f, "\t\t{}: {:?}\n", fname, fix).ok();
+        }
         write!(f, "}}\n")
     /*
     imports: HashSet<String>,

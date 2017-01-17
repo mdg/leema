@@ -51,7 +51,7 @@ impl Inferator
         Inferator::mash(&mut self.inferences, a, b);
     }
 
-    fn inferred_type<'a>(&'a self, typ: &'a Type) -> &Type
+    pub fn inferred_type<'a>(&'a self, typ: &'a Type) -> &Type
     {
         if !typ.is_var() {
             return typ;
@@ -107,9 +107,9 @@ impl Inferator
             panic!("it's so much fun to curry, but not supported yet");
         }
 
-        defargst.iter().zip(argst).map(|(defargt, argt)| {
+        for (defargt, argt) in defargst.iter().zip(argst.iter()) {
             Inferator::mash(&mut self.inferences, defargt, argt)
-        });
+        }
         self.inferred_type(defresult).clone()
     }
 

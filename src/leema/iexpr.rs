@@ -16,10 +16,10 @@ pub enum Source
     Call(Box<Iexpr>, Vec<Iexpr>),
     Constructor(Type),
     ConstVal(Val),
-    DefFunc(Box<Iexpr>, Vec<Iexpr>, Box<Iexpr>),
     Fail(Box<Iexpr>, Box<Iexpr>),
     FieldAccess(Box<Iexpr>, Arc<String>),
     Fork(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
+    Func(Box<Iexpr>),
     Let(Box<Iexpr>, Box<Iexpr>),
     MatchExpr(Box<Iexpr>, Box<Iexpr>),
     MatchCase(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
@@ -129,22 +129,6 @@ vout!("new_block> {:?}\n", code);
         Iexpr{
             typ: Type::Tuple(tuptyp),
             src: Source::Tuple(items),
-        }
-    }
-
-    pub fn def_func(name: Iexpr, args: Vec<Iexpr>, body: Iexpr, ftype: Type)
-        -> Iexpr
-    {
-        if let &Type::Func(ref defparams, ref result) = &ftype {
-            if args.len() != defparams.len() {
-                panic!("Inconsistent argument count");
-            }
-        } else {
-            panic!("Invalid function type: {:?}", ftype);
-        }
-        Iexpr{
-            typ: ftype,
-            src: Source::DefFunc(Box::new(name), args, Box::new(body)),
         }
     }
 
