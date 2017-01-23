@@ -1,53 +1,143 @@
 
 use leema::loader::{Interloader};
 use leema::list;
-use leema::program::{Lib};
+use leema::iexpr::{Iexpr};
+use leema::inter::{Intermod};
+use leema::infer::{Inferator};
+use leema::program::{self, Lib};
 use leema::scope::{Scope};
 use leema::val::{Val, Type};
 use leema::log;
 
+use std::collections::{HashMap};
 use std::path::Path;
 use std::io::{stderr, Write};
+use std::rc::{Rc};
 
 
-pub fn program(scope: Scope, prog: &mut Lib)
+#[derive(Debug)]
+struct CallFrame<'a>
 {
-    let main_mod = prog.main_module().to_string();
-    let prog_type = function(scope, prog, &main_mod, "main");
-    println!("\nprogram type: {:?}", prog_type);
+    fname: &'a str,
+    fix: &'a Iexpr,
+    T: Inferator,
 }
 
-pub fn function(mut scope: Scope, prog: &mut Lib, modnm: &str, funcnm: &str) -> Type
+impl <'a> CallFrame<'a>
 {
-    println!("typecheck::function({}:{})", modnm, funcnm);
-    scope.push_function(prog, modnm, funcnm);
-    println!("\nscope: {:?}", scope);
-    // function_code
+    pub fn new(fname: &'a str) -> CallFrame<'a>
     {
-        /*
-        let func_src = &scope._function.src;
-        let (def_fname, def_args, def_result, body) =
-                list::to_ref_tuple4(func_src);
-        println!("\nfunc: {}({:?}) -> {:?} {{\n{:?}\n}}\n",
-                def_fname, def_args, def_result, body);
-        let result = compile_expr(scope, prog, body);
-        */
+        CallFrame{
+            parent: None,
+            fname: fname,
+            T: Inferator::new(),
+        }
     }
-    scope.pop_function(prog);
-    Type::Void
+
+    pub fn pop_call(frame: &mut CallFrame)
+    {
+        // let mut tmpf = None;
+        // mem::swap(tmpf, frame.parent);
+        // mem::replace(frame, frame.parent);
+    }
 }
 
-pub fn compile_expr(mut scope: Scope, prog: &mut Lib, expr: &Val) -> Type
+#[derive(Debug)]
+struct ModScope<'a>
 {
-    match expr {
-        &Val::Int(i) => {
-            // Iexpr::const_val(expr.clone());
-        }
-        what => {
-            println!("Couldn't match expr: {:?}", expr);
+    inter: &'a Intermod,
+    typed: Intermod,
+    callstack: Vec<CallFrame<'a>>,
+}
+
+impl<'a> ModScope<'a>
+{
+    pub fn new(inter: &'a Intermod) -> ModScope<'a>
+    {
+        ModScope
+        {
+            inter: inter,
+            typed: Intermod::new(inter.key.clone()),
         }
     }
-    Type::Void
+}
+
+#[derive(Debug)]
+struct Typescope<'a>
+{
+    prog: &'a program::Lib,
+    typed: HashMap<&'a str, Option<ModScope<'a>>>,
+    modstack: Vec<ModScope<'a>>,
+}
+
+impl<'a> Typescope<'a>
+{
+    pub fn new(prog: &'a program::Lib) -> Typescope<'a>
+    {
+        Typescope{
+            prog: prog,
+            typed: HashMap::new(),
+            modstack: vec![],
+        }
+    }
+
+    pub fn push_call(scope: &mut Typescope, modnm: &'a str, funcnm: &'a str)
+    {
+    }
+
+    pub fn pop_call(scope: &mut Typescope) -> Option<Intermod>
+    {
+        None
+    }
+}
+
+pub fn check_main(prog: &Lib)
+        -> Intermod
+{
+    let scope = Typescope::new(prog, "main");
+    check_function(&mut scope)
+}
+
+fn check(scope: &mut Typescope, fix: &Iexpr)
+{
+    // let func = scope.inter.interfunc.get(scope.call.fname).unwrap();
+    scope.add_parameters()
+    for x in fix {
+        check(x)
+    }
+}
+
+pub fn module(inter: &Intermod)
+        -> Intermod
+{
+    scope = new scope(inter);
+    for funcs in inter {
+        func = check_function(scope, func)
+        scope.add(func);
+    }
+}
+
+CallFrame {
+}
+
+pub fn typecheck(f: Frame, ix: &Iexpr) -> Iexpr
+{
+    match ix {
+        Call(func, args) => {
+            tfunc = typecheck(func)
+            targs = typecheck(args)
+            newf = new Frame(args)
+            new_fix = what?
+            typecheck(f, ix)
+        }
+    }
+}
+
+pub fn function(f: Frame, fix: &Iexpr) -> Iexpr
+{
+    for i in fix {
+        typecheck(f, i);
+    }
 }
 
 /*

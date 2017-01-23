@@ -3,6 +3,7 @@ use leema::module::{ModuleSource, ModuleInterface, ModulePreface, MacroDef};
 use leema::loader::{Interloader};
 use leema::phase0::{self, Protomod};
 use leema::prefab;
+use leema::typecheck;
 
 use std::rc::{Rc};
 use std::collections::{HashMap, HashSet};
@@ -14,7 +15,8 @@ pub struct Lib
     modsrc: HashMap<String, ModuleSource>,
     preface: HashMap<String, Rc<ModulePreface>>,
     proto: HashMap<String, Rc<Protomod>>,
-    inter: HashMap<String, Intermod>,
+    inter: HashMap<String, Rc<Intermod>>,
+    typed: HashMap<String, Rc<Intermod>>,
 }
 
 impl Lib
@@ -28,6 +30,7 @@ impl Lib
             preface: HashMap::new(),
             proto: HashMap::new(),
             inter: HashMap::new(),
+            typed: HashMap::new(),
         };
         proglib.load_module("prefab");
         proglib
@@ -36,6 +39,14 @@ impl Lib
     pub fn main_module(&self) -> &str
     {
         &self.loader.main_mod
+    }
+
+    pub fn typecheck_module(&mut self, modname: &str)
+    {
+        if !self.typed.contains_key(modname) {
+            let typed = self.check_types(modname);
+            self.typed.insert(String::from(modname), Rc::new(typed));
+        }
     }
 
     pub fn load_module(&mut self, modname: &str)
@@ -47,7 +58,7 @@ impl Lib
     {
         if !self.inter.contains_key(modname) {
             let inter = self.read_inter(modname);
-            self.inter.insert(String::from(modname), inter);
+            self.inter.insert(String::from(modname), Rc::new(inter));
         }
     }
 
@@ -99,6 +110,23 @@ impl Lib
         let imports = self.import_protos(modname, &preface.imports);
         let proto = self.proto.get(modname).unwrap();
         Intermod::compile(&proto, &imports)
+    }
+
+    pub fn check_types(&mut self, modname: &str) -> Intermod
+    {
+        self.load_inter(modname);
+        let pref = self.preface.get(modname).unwrap().clone();
+        let mut imports = HashMap::new();
+        let prefab = self.inter.get("prefab").unwrap().clone();
+        imports.insert(String::from("prefab"), prefab);
+        for i in pref.imports.iter() {
+            self.typecheck_module(i);
+            imports.insert(i.clone(), self.inter.get(i).unwrap().clone());
+        }
+        // let inter = self.inter.get(modname).unwrap().clone();
+        typecheck::module(self, modname)
+        typecheck::function_call(self, modname, "main")
+        // typecheck::function(self, modname, "main")
     }
 
     fn load_imports(&mut self, modname: &str, imports: &HashSet<String>)

@@ -88,8 +88,8 @@ typecheck_module(mod) ->
 
 pub struct Intermod
 {
-    key: Rc<ModKey>,
-    interfunc: HashMap<String, Iexpr>,
+    pub key: Rc<ModKey>,
+    pub interfunc: HashMap<String, Iexpr>,
 }
 
 impl Intermod
