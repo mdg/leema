@@ -1,9 +1,10 @@
+use leema::iexpr::{Iexpr};
 use leema::inter::{self, Version, Intermod};
 use leema::module::{ModuleSource, ModuleInterface, ModulePreface, MacroDef};
 use leema::loader::{Interloader};
 use leema::phase0::{self, Protomod};
 use leema::prefab;
-use leema::typecheck;
+use leema::typecheck::{self, CallOp, CallFrame, Typescope};
 
 use std::rc::{Rc};
 use std::collections::{HashMap, HashSet};
@@ -16,7 +17,7 @@ pub struct Lib
     preface: HashMap<String, Rc<ModulePreface>>,
     proto: HashMap<String, Rc<Protomod>>,
     inter: HashMap<String, Rc<Intermod>>,
-    typed: HashMap<String, Rc<Intermod>>,
+    typed: HashMap<(String, String), Iexpr>,
 }
 
 impl Lib
@@ -41,12 +42,17 @@ impl Lib
         &self.loader.main_mod
     }
 
-    pub fn typecheck_module(&mut self, modname: &str)
+    pub fn typecheck_main(&mut self, modname: &str, funcname: &str)
     {
-        if !self.typed.contains_key(modname) {
-            let typed = self.check_types(modname);
-            self.typed.insert(String::from(modname), Rc::new(typed));
+            /*
+        if !self.typed.contains_key(&(modname, funcname)) {
+            self.deep_typecheck(modname, funcname);
+            self.typed.insert(
+                (String::from(modname), String::from(funcname)),
+                ifunc,
+            );
         }
+            */
     }
 
     pub fn load_module(&mut self, modname: &str)
@@ -112,7 +118,7 @@ impl Lib
         Intermod::compile(&proto, &imports)
     }
 
-    pub fn check_types(&mut self, modname: &str) -> Intermod
+    pub fn deep_typecheck<'a>(&mut self, modname: &'a str, funcname: &'a str)
     {
         self.load_inter(modname);
         let pref = self.preface.get(modname).unwrap().clone();
@@ -120,14 +126,50 @@ impl Lib
         let prefab = self.inter.get("prefab").unwrap().clone();
         imports.insert(String::from("prefab"), prefab);
         for i in pref.imports.iter() {
-            self.typecheck_module(i);
+            self.load_inter(i);
             imports.insert(i.clone(), self.inter.get(i).unwrap().clone());
         }
-        // let inter = self.inter.get(modname).unwrap().clone();
-        typecheck::module(self, modname)
-        typecheck::function_call(self, modname, "main")
+        let inter = self.inter.get(modname).unwrap().clone();
+        self.typecheck_current(modname, funcname);
+        // typecheck::module(self, modname)
+        // typecheck::function_call(self, modname, "main")
         // typecheck::function(self, modname, "main")
+        // let scope = Typescope::new(inter);
     }
+
+    pub fn typecheck_current(&mut self, modname: &str, funcname: &str)
+    {
+        let inter = self.inter.get(modname).unwrap().clone();
+        let fix = inter.interfunc.get(funcname).unwrap();
+        let mut cf = CallFrame::new(modname, funcname);
+        cf.collect_calls(fix);
+println!("collected calls: {:?}", cf);
+        for c in cf.calls.iter() {
+            println!("c: {:?}", c);
+            match c {
+                &CallOp::LocalCall(ref call_name) => {
+                    self.deep_typecheck(modname, call_name);
+                }
+                &CallOp::ExternalCall(ref extmod, ref extfunc) => {
+                    self.deep_typecheck(extmod, extfunc);
+                }
+            }
+        }
+    }
+
+    /*
+    pub fn typecheck_deeper(scope: &mut Typescope)
+    {
+        if let call = scope.pop_call() {
+            match call {
+                &CallOp::LocalCall(funcnm) => {
+                }
+                &CallOp::ExternalCall(modnm, funcnm) => {
+                }
+            }
+        }
+    }
+    */
 
     fn load_imports(&mut self, modname: &str, imports: &HashSet<String>)
     {

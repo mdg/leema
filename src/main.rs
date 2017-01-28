@@ -93,8 +93,7 @@ fn real_main() -> i32
         println!("\n{:?}\n", imod);
     } else if args.arg_cmd == "typecheck" {
         let mut prog = program::Lib::new(inter);
-        let typed = prog.check_types(&modkey.name);
-        println!("\n{:?}\n", typed);
+        prog.deep_typecheck(&modkey.name, "main");
     } else {
         println!("invalid command: {:?}", args.arg_cmd);
         return 1;

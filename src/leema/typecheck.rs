@@ -1,143 +1,167 @@
 
 use leema::loader::{Interloader};
 use leema::list;
-use leema::iexpr::{Iexpr};
+use leema::iexpr::{Iexpr, Source};
 use leema::inter::{Intermod};
 use leema::infer::{Inferator};
-use leema::program::{self, Lib};
 use leema::scope::{Scope};
 use leema::val::{Val, Type};
 use leema::log;
 
-use std::collections::{HashMap};
+use std::collections::{HashMap, LinkedList};
 use std::path::Path;
 use std::io::{stderr, Write};
 use std::rc::{Rc};
+use std::sync::{Arc};
 
 
 #[derive(Debug)]
-struct CallFrame<'a>
+pub enum CallOp
 {
-    fname: &'a str,
-    fix: &'a Iexpr,
-    T: Inferator,
+    LocalCall(Arc<String>),
+    ExternalCall(Arc<String>, Arc<String>),
 }
 
-impl <'a> CallFrame<'a>
+#[derive(Debug)]
+pub struct CallFrame<'a>
 {
-    pub fn new(fname: &'a str) -> CallFrame<'a>
+    modname: &'a str,
+    fname: &'a str,
+    T: Inferator,
+    pub calls: LinkedList<CallOp>,
+}
+
+impl<'a> CallFrame<'a>
+{
+    pub fn new(modname: &'a str, fname: &'a str) -> CallFrame<'a>
     {
         CallFrame{
-            parent: None,
+            modname: modname,
             fname: fname,
             T: Inferator::new(),
+            calls: LinkedList::new(),
         }
     }
 
-    pub fn pop_call(frame: &mut CallFrame)
+    pub fn push_call(&'a mut self, call: CallOp)
     {
-        // let mut tmpf = None;
-        // mem::swap(tmpf, frame.parent);
-        // mem::replace(frame, frame.parent);
+        self.calls.push_back(call);
+    }
+
+    pub fn pop_call(&mut self) -> Option<CallOp>
+    {
+        self.calls.pop_front()
+    }
+
+    pub fn collect_calls<'b>(&'a mut self, ix: &'b Iexpr)
+    {
+        match ix.src {
+            Source::Call(ref callx, ref args) => {
+                { self.collect_calls_vec(args); }
+                { self.collect_callexpr(callx); }
+            }
+            Source::Block(ref expressions) => {
+                self.collect_calls_vec(expressions);
+            }
+            Source::Let(ref lhs, ref rhs) => {
+                self.collect_calls(rhs);
+            }
+            Source::StrMash(ref items) => {
+                self.collect_calls_vec(items);
+            }
+            Source::ConstVal(ref val) => {
+                // nothing to do. constants aren't calls.
+            }
+            Source::ValExpr(ref val) => {
+                // nothing to do. not calls.
+            }
+            Source::Func(ref body) => {
+                self.collect_calls(body);
+            }
+            _ => {
+                panic!("Cannot collect calls: {:?}", ix);
+            }
+        }
+    }
+
+    pub fn collect_callexpr<'b>(&'a mut self, callx: &'b Iexpr)
+    {
+        match callx.src {
+            Source::ValExpr(Val::Id(ref callname)) => {
+                self.push_call(CallOp::LocalCall(callname.clone()));
+            }
+            Source::ModuleAccess(ref modname, ref callname) => {
+                self.push_call(
+                    CallOp::ExternalCall(modname.clone(), callname.clone()));
+            }
+            _ => {
+                panic!("Unsupported call type: {:?}", callx);
+            }
+        }
+    }
+
+    pub fn collect_calls_vec<'b>(&'a mut self, xvec: &'b Vec<Iexpr>)
+    {
+        for x in xvec {
+            self.collect_calls(x);
+        }
     }
 }
 
 #[derive(Debug)]
-struct ModScope<'a>
+pub struct Typescope<'a>
 {
+    pub fname: &'a str,
     inter: &'a Intermod,
-    typed: Intermod,
-    callstack: Vec<CallFrame<'a>>,
-}
-
-impl<'a> ModScope<'a>
-{
-    pub fn new(inter: &'a Intermod) -> ModScope<'a>
-    {
-        ModScope
-        {
-            inter: inter,
-            typed: Intermod::new(inter.key.clone()),
-        }
-    }
-}
-
-#[derive(Debug)]
-struct Typescope<'a>
-{
-    prog: &'a program::Lib,
-    typed: HashMap<&'a str, Option<ModScope<'a>>>,
-    modstack: Vec<ModScope<'a>>,
+    // imports: &'a HashMap<&'a str, &'a Intermod>,
+    T: Inferator,
 }
 
 impl<'a> Typescope<'a>
 {
-    pub fn new(prog: &'a program::Lib) -> Typescope<'a>
+    pub fn new(inter: &'a Intermod, func: &'a str) -> Typescope<'a>
     {
-        Typescope{
-            prog: prog,
-            typed: HashMap::new(),
-            modstack: vec![],
+        Typescope
+        {
+            fname: func,
+            inter: inter,
+            // imports: HashMap::new(),
+            T: Inferator::new(),
         }
     }
 
-    pub fn push_call(scope: &mut Typescope, modnm: &'a str, funcnm: &'a str)
+    pub fn pop_call(&'a mut self)
     {
-    }
-
-    pub fn pop_call(scope: &mut Typescope) -> Option<Intermod>
-    {
-        None
     }
 }
 
-pub fn check_main(prog: &Lib)
-        -> Intermod
+pub fn typecheck_expr(scope: &mut Typescope, ix: &Iexpr) -> Iexpr
 {
-    let scope = Typescope::new(prog, "main");
-    check_function(&mut scope)
+    match &ix.src {
+        &Source::Call(ref func, ref args) => {
+            // let tfunc = typecheck_expr(scope, func);
+            // let targs = typecheck_expr(scope, args);
+            // let newf = new Frame(args)
+            // new_fix = what?
+            // typecheck(f, ix)
+        }
+        _ => {
+        }
+    }
+    Iexpr::noop()
 }
 
-fn check(scope: &mut Typescope, fix: &Iexpr)
+pub fn typecheck_function(scope: &mut Typescope)
 {
-    // let func = scope.inter.interfunc.get(scope.call.fname).unwrap();
+    println!("check_function({:?})", scope.fname);
+    /*
     scope.add_parameters()
-    for x in fix {
-        check(x)
-    }
-}
 
-pub fn module(inter: &Intermod)
-        -> Intermod
-{
-    scope = new scope(inter);
-    for funcs in inter {
-        func = check_function(scope, func)
-        scope.add(func);
-    }
-}
-
-CallFrame {
-}
-
-pub fn typecheck(f: Frame, ix: &Iexpr) -> Iexpr
-{
-    match ix {
-        Call(func, args) => {
-            tfunc = typecheck(func)
-            targs = typecheck(args)
-            newf = new Frame(args)
-            new_fix = what?
-            typecheck(f, ix)
-        }
-    }
-}
-
-pub fn function(f: Frame, fix: &Iexpr) -> Iexpr
-{
+    typecheck_expr(scope, fix);
     for i in fix {
-        typecheck(f, i);
+        typecheck_expr(f, i);
     }
+    */
 }
 
 /*

@@ -6,6 +6,7 @@ use std::io::{stderr, Write};
 use std::sync::{Arc};
 
 
+#[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub enum Source
@@ -45,6 +46,7 @@ impl Source
     }
 }
 
+#[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub struct Iexpr

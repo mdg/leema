@@ -146,6 +146,7 @@ impl Protomod
                 }
             }
             _ => {
+                println!("function call is what? {:?}", callx);
                 let pp_callx = Protomod::preproc_expr(prog, mp, callx);
                 sexpr::call(pp_callx, pp_args)
             }
@@ -227,7 +228,6 @@ pub fn preproc(prog: &mut Lib, mp: &ModulePreface, ast: &Val) -> Protomod
     let mut p0 = Protomod::new(mk);
     match ast {
         &Val::Sexpr(SexprType::BlockExpr, ref exprs) => {
-            println!("preproc(block, {:?})", exprs);
             list::fold_mut_ref(&mut p0, exprs, |p, x| {
                 p.preproc_module_expr(prog, mp, x);
             });
