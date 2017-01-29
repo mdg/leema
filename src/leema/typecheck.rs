@@ -43,7 +43,7 @@ impl<'a> CallFrame<'a>
         }
     }
 
-    pub fn push_call(&'a mut self, call: CallOp)
+    pub fn push_call(&mut self, call: CallOp)
     {
         self.calls.push_back(call);
     }
@@ -53,7 +53,7 @@ impl<'a> CallFrame<'a>
         self.calls.pop_front()
     }
 
-    pub fn collect_calls<'b>(&'a mut self, ix: &'b Iexpr)
+    pub fn collect_calls<'b>(&mut self, ix: &'b Iexpr)
     {
         match ix.src {
             Source::Call(ref callx, ref args) => {
@@ -68,6 +68,11 @@ impl<'a> CallFrame<'a>
             }
             Source::StrMash(ref items) => {
                 self.collect_calls_vec(items);
+            }
+            Source::IfExpr(ref cond, ref truth, ref lies) => {
+                self.collect_calls(cond);
+                self.collect_calls(truth);
+                self.collect_calls(lies);
             }
             Source::ConstVal(ref val) => {
                 // nothing to do. constants aren't calls.
@@ -84,7 +89,7 @@ impl<'a> CallFrame<'a>
         }
     }
 
-    pub fn collect_callexpr<'b>(&'a mut self, callx: &'b Iexpr)
+    pub fn collect_callexpr<'b>(&mut self, callx: &'b Iexpr)
     {
         match callx.src {
             Source::ValExpr(Val::Id(ref callname)) => {
@@ -100,7 +105,7 @@ impl<'a> CallFrame<'a>
         }
     }
 
-    pub fn collect_calls_vec<'b>(&'a mut self, xvec: &'b Vec<Iexpr>)
+    pub fn collect_calls_vec<'b>(&mut self, xvec: &'b Vec<Iexpr>)
     {
         for x in xvec {
             self.collect_calls(x);

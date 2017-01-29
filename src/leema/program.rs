@@ -148,7 +148,13 @@ println!("collected calls: {:?}", cf);
             println!("c: {:?}", c);
             match c {
                 &CallOp::LocalCall(ref call_name) => {
-                    self.deep_typecheck(modname, call_name);
+                    if inter.interfunc.contains_key(&**call_name) {
+                        if *funcname != **call_name {
+                            self.deep_typecheck(modname, call_name);
+                        }
+                    } else {
+                        self.deep_typecheck("prefab", call_name);
+                    }
                 }
                 &CallOp::ExternalCall(ref extmod, ref extfunc) => {
                     self.deep_typecheck(extmod, extfunc);
