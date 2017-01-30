@@ -121,31 +121,12 @@ impl Lib
     pub fn deep_typecheck<'a>(&mut self, modname: &'a str, funcname: &'a str)
     {
         self.load_inter(modname);
-        let pref = self.preface.get(modname).unwrap().clone();
-        let mut imports = HashMap::new();
-        let prefab = self.inter.get("prefab").unwrap().clone();
-        imports.insert(String::from("prefab"), prefab);
-        for i in pref.imports.iter() {
-            self.load_inter(i);
-            imports.insert(i.clone(), self.inter.get(i).unwrap().clone());
-        }
-        let inter = self.inter.get(modname).unwrap().clone();
-        self.typecheck_current(modname, funcname);
-        // typecheck::module(self, modname)
-        // typecheck::function_call(self, modname, "main")
-        // typecheck::function(self, modname, "main")
-        // let scope = Typescope::new(inter);
-    }
 
-    pub fn typecheck_current(&mut self, modname: &str, funcname: &str)
-    {
         let inter = self.inter.get(modname).unwrap().clone();
         let fix = inter.interfunc.get(funcname).unwrap();
         let mut cf = CallFrame::new(modname, funcname);
         cf.collect_calls(fix);
-println!("collected calls: {:?}", cf);
         for c in cf.calls.iter() {
-            println!("c: {:?}", c);
             match c {
                 &CallOp::LocalCall(ref call_name) => {
                     if inter.interfunc.contains_key(&**call_name) {
@@ -161,6 +142,17 @@ println!("collected calls: {:?}", cf);
                 }
             }
         }
+
+        let pref = self.preface.get(modname).unwrap().clone();
+        let imports = {
+            let mut imps = HashMap::new();
+            let prefab = self.inter.get("prefab").unwrap().clone();
+            imps.insert(String::from("prefab"), prefab);
+            for i in pref.imports.iter() {
+                self.load_inter(i);
+                imps.insert(i.clone(), self.inter.get(i).unwrap().clone());
+            }
+        };
     }
 
     /*
