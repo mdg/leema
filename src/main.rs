@@ -5,15 +5,10 @@ use leema::log;
 mod leema;
 
 use leema::frame::{self, Frame};
-use leema::prefab;
-use leema::inter::{Version};
 use leema::loader::{Interloader};
-use leema::compile::{self, StaticSpace};
 use leema::module::{ModuleSource};
 use leema::program;
-use leema::scope::{Scope};
 use leema::application::{Application};
-use leema::typecheck;
 use std::io::{stderr, Write};
 use docopt::{Docopt};
 
@@ -76,11 +71,11 @@ fn real_main() -> i32
         let ast = ModuleSource::read_ast(&modtxt);
         println!("{:?}\n", ast);
     } else if args.arg_cmd == "modsrc" {
-        let mut prog = program::Lib::new(inter);
+        let prog = program::Lib::new(inter);
         let src = prog.read_modsrc(&modkey.name);
         println!("{:?}\n", src);
     } else if args.arg_cmd == "preface" {
-        let mut prog = program::Lib::new(inter);
+        let prog = program::Lib::new(inter);
         let (_, pref) = prog.read_preface(&modkey.name);
         println!("{:?}\n", pref);
     } else if args.arg_cmd == "proto" {
