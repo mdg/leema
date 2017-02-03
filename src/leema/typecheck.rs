@@ -114,29 +114,27 @@ impl<'a> CallFrame<'a>
 }
 
 #[derive(Debug)]
-pub struct Typescope<'a>
+pub struct Typescope<'a, 'b>
 {
-    pub fname: &'a str,
+    pub fname: &'b str,
     inter: &'a Intermod,
-    // imports: &'a HashMap<&'a str, &'a Intermod>,
+    imports: &'a HashMap<String, &'a Intermod>,
     T: Inferator,
 }
 
-impl<'a> Typescope<'a>
+impl<'a, 'b> Typescope<'a, 'b>
 {
-    pub fn new(inter: &'a Intermod, func: &'a str) -> Typescope<'a>
+    pub fn new(inter: &'a Intermod, func: &'b str
+            , imps: &'a HashMap<String, &'a Intermod>
+            ) -> Typescope<'a, 'b>
     {
         Typescope
         {
             fname: func,
             inter: inter,
-            // imports: HashMap::new(),
+            imports: imps,
             T: Inferator::new(),
         }
-    }
-
-    pub fn pop_call(&'a mut self)
-    {
     }
 }
 
@@ -156,7 +154,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Iexpr) -> Iexpr
     Iexpr::noop()
 }
 
-pub fn typecheck_function(scope: &mut Typescope)
+pub fn typecheck_function(scope: &mut Typescope, ix: &Iexpr) -> Iexpr
 {
     println!("check_function({:?})", scope.fname);
     /*
@@ -167,6 +165,7 @@ pub fn typecheck_function(scope: &mut Typescope)
         typecheck_expr(f, i);
     }
     */
+    Iexpr::noop()
 }
 
 /*

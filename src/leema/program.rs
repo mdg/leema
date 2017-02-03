@@ -7,6 +7,7 @@ use leema::prefab;
 use leema::typecheck::{self, CallOp, CallFrame, Typescope};
 
 use std::rc::{Rc};
+use std::sync::{Arc};
 use std::collections::{HashMap, HashSet};
 
 
@@ -17,7 +18,7 @@ pub struct Lib
     preface: HashMap<String, Rc<ModulePreface>>,
     proto: HashMap<String, Rc<Protomod>>,
     inter: HashMap<String, Rc<Intermod>>,
-    typed: HashMap<(String, String), Iexpr>,
+    typed: HashMap<String, Intermod>,
 }
 
 impl Lib
@@ -118,7 +119,7 @@ impl Lib
         Intermod::compile(&proto, &imports)
     }
 
-    pub fn deep_typecheck<'a>(&mut self, modname: &'a str, funcname: &'a str)
+    pub fn deep_typecheck<'a, 'b>(&'a mut self, modname: &'b str, funcname: &'b str)
     {
         self.load_inter(modname);
 
@@ -143,31 +144,26 @@ impl Lib
             }
         }
 
-        let pref = self.preface.get(modname).unwrap().clone();
-        let imports = {
-            let mut imps = HashMap::new();
-            let prefab = self.inter.get("prefab").unwrap().clone();
-            imps.insert(String::from("prefab"), prefab);
-            for i in pref.imports.iter() {
-                self.load_inter(i);
-                imps.insert(i.clone(), self.inter.get(i).unwrap().clone());
-            }
-        };
-    }
-
-    /*
-    pub fn typecheck_deeper(scope: &mut Typescope)
-    {
-        if let call = scope.pop_call() {
-            match call {
-                &CallOp::LocalCall(funcnm) => {
-                }
-                &CallOp::ExternalCall(modnm, funcnm) => {
-                }
-            }
+        if !self.typed.contains_key(modname) {
+            println!("could not find typed intermod: {}", modname);
+            let im = self.inter.get(modname).unwrap();
+            let tm = Intermod::new(im.key.clone());
+            self.typed.insert(String::from(modname), tm);
         }
+        let typed = self.typed.get(modname).unwrap();
+
+        let pref = self.preface.get(modname).unwrap().clone();
+        let prefab = self.inter.get("prefab").unwrap();
+        let mut imports: HashMap<String, &'a Intermod> = HashMap::new();
+        imports.insert(String::from("prefab"), prefab);
+        for i in pref.imports.iter() {
+            let iii: &'a Intermod = self.typed.get(i).unwrap();
+            imports.insert(i.clone(), iii);
+        }
+
+        let mut scope = Typescope::new(typed, funcname, &imports);
+        typecheck::typecheck_function(&mut scope, fix);
     }
-    */
 
     fn load_imports(&mut self, modname: &str, imports: &HashSet<String>)
     {
