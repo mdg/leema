@@ -140,23 +140,19 @@ impl<'a, 'b> Typescope<'a, 'b>
         }
     }
 
-    pub fn typecheck_pattern(&mut self, patt: &Iexpr, valtype: &Type)
+    pub fn typecheck_pattern(&mut self, patt: &Val, valtype: &Type)
     {
-        self.T.merge_types(&patt.typ, valtype);
-        match (&patt.src, valtype) {
+        match (patt, valtype) {
             (_, &Type::AnonVar) => {
                 panic!("pattern value type cannot be anonymous: {:?}"
-                        , patt.src);
+                        , patt);
             }
-            (&Source::Id(ref id), _) => {
+            (&Val::Id(ref id), _) => {
                 self.T.bind_vartype(id, valtype);
-            }
-            (&Source::Pattern(ref pattp), _) => {
-                self.typecheck_pattern(pattp, valtype);
             }
             _ => {
                 panic!("cannot typecheck pattern match: {:?} := {:?}"
-                        , patt.src, valtype);
+                        , patt, valtype);
             }
         }
     }
@@ -195,12 +191,28 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Iexpr) -> Type
         &Source::Id(ref id) => {
             ix.typ.clone()
         }
+        &Source::IfExpr(ref cond, ref truth, ref lies) => {
+            let cond_t = typecheck_expr(scope, cond);
+            scope.T.match_types(&cond_t, &Type::Bool);
+
+            let truth_t = typecheck_expr(scope, truth);
+            let lies_t = typecheck_expr(scope, lies);
+            scope.T.match_types(&truth_t, &lies_t);
+            truth_t
+        }
+        &Source::StrMash(ref items) => {
+            for i in items {
+                let it = typecheck_expr(scope, i);
+                scope.T.match_types(&it, &Type::Str);
+            }
+            Type::Str
+        }
         &Source::Func(ref body) => {
-            typecheck_expr(scope, body)
+            // typecheck_expr(scope, body)
+            panic!("unexpected func in typecheck: {:?}", body);
         }
         _ => {
-            println!("Could not typecheck_expr({:?})", ix);
-            Type::Void
+            panic!("Could not typecheck_expr({:?})", ix);
         }
     }
 }

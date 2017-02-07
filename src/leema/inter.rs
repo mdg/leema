@@ -299,8 +299,8 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
         &Val::Sexpr(SexprType::Let, ref letx) => {
             let (lhs_patt, rhs_val) = list::to_ref_tuple2(letx);
             let irhs = compile_expr(scope, rhs_val);
-            let ilhs = compile_pattern(scope, lhs_patt, &irhs.typ);
-            Iexpr::new(Source::Let(Box::new(ilhs), Box::new(irhs)))
+            compile_pattern(scope, lhs_patt, &irhs.typ);
+            Iexpr::new(Source::Let(lhs_patt.clone(), Box::new(irhs)))
         }
         &Val::Sexpr(SexprType::StrExpr, ref strlist) => {
             let strvec = compile_list_to_vec(scope, strlist);
@@ -374,15 +374,11 @@ pub fn compile_list_to_vec(scope: &mut Interscope, l: &Val) -> Vec<Iexpr>
     result
 }
 
-pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type) -> Iexpr
+pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type)
 {
     match p {
         &Val::Id(ref id) => {
             scope.add_var(&id, srctyp);
-            Iexpr{
-                src: Source::Pattern(p.clone()),
-                typ: srctyp.clone(),
-            }
         }
         _ => {
             panic!("Unsupported pattern: {:?}", p);
