@@ -1,10 +1,7 @@
 
-use leema::loader::{Interloader};
-use leema::list;
 use leema::iexpr::{Iexpr, Source};
 use leema::inter::{Intermod};
 use leema::infer::{Inferator};
-use leema::scope::{Scope};
 use leema::val::{Val, Type};
 use leema::log;
 
@@ -188,7 +185,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Iexpr) -> Type
             }
             last_type
         }
-        &Source::Id(ref id) => {
+        &Source::Id(_) => {
             ix.typ.clone()
         }
         &Source::IfExpr(ref cond, ref truth, ref lies) => {
@@ -202,8 +199,10 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Iexpr) -> Type
         }
         &Source::StrMash(ref items) => {
             for i in items {
-                let it = typecheck_expr(scope, i);
-                scope.T.match_types(&it, &Type::Str);
+                typecheck_expr(scope, i);
+                // TODO: check that this supports the stringification interface
+                // let it = typecheck_expr(scope, i);
+                // scope.T.match_types(&it, &Type::Str);
             }
             Type::Str
         }
