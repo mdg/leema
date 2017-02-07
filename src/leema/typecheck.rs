@@ -77,7 +77,10 @@ impl<'a> CallFrame<'a>
             Source::ConstVal(ref val) => {
                 // nothing to do. constants aren't calls.
             }
-            Source::ValExpr(ref val) => {
+            Source::Id(ref id) => {
+                // nothing to do. not calls.
+            }
+            Source::RustBlock => {
                 // nothing to do. not calls.
             }
             Source::Func(ref body) => {
@@ -92,7 +95,7 @@ impl<'a> CallFrame<'a>
     pub fn collect_callexpr<'b>(&mut self, callx: &'b Iexpr)
     {
         match callx.src {
-            Source::ValExpr(Val::Id(ref callname)) => {
+            Source::Id(ref callname) => {
                 self.push_call(CallOp::LocalCall(callname.clone()));
             }
             Source::ModuleAccess(ref modname, ref callname) => {
@@ -136,36 +139,89 @@ impl<'a, 'b> Typescope<'a, 'b>
             T: Inferator::new(),
         }
     }
+
+    pub fn typecheck_pattern(&mut self, patt: &Iexpr, valtype: &Type)
+    {
+        self.T.merge_types(&patt.typ, valtype);
+        match (&patt.src, valtype) {
+            (_, &Type::AnonVar) => {
+                panic!("pattern value type cannot be anonymous: {:?}"
+                        , patt.src);
+            }
+            (&Source::Id(ref id), _) => {
+                self.T.bind_vartype(id, valtype);
+            }
+            (&Source::Pattern(ref pattp), _) => {
+                self.typecheck_pattern(pattp, valtype);
+            }
+            _ => {
+                panic!("cannot typecheck pattern match: {:?} := {:?}"
+                        , patt.src, valtype);
+            }
+        }
+    }
 }
 
-pub fn typecheck_expr(scope: &mut Typescope, ix: &Iexpr) -> Iexpr
+pub fn typecheck_expr(scope: &mut Typescope, ix: &Iexpr) -> Type
 {
     match &ix.src {
         &Source::Call(ref func, ref args) => {
-            // let tfunc = typecheck_expr(scope, func);
-            // let targs = typecheck_expr(scope, args);
-            // let newf = new Frame(args)
-            // new_fix = what?
-            // typecheck(f, ix)
+            let tfunc = typecheck_expr(scope, func);
+            let mut targs = vec![];
+            for a in args {
+                targs.push(typecheck_expr(scope, a));
+            }
+            let mut targs_ref = vec![];
+            for ta in targs.iter() {
+                targs_ref.push(ta);
+            }
+            scope.T.make_call_type(&tfunc, &targs_ref)
+        }
+        &Source::ConstVal(ref cv) => {
+            ix.typ.clone()
+        }
+        &Source::Let(ref lhs, ref rhs) => {
+            let rhs_type = typecheck_expr(scope, rhs);
+            scope.typecheck_pattern(lhs, &rhs_type);
+            Type::Void
+        }
+        &Source::Block(ref elems) => {
+            let mut last_type = Type::Void;
+            for e in elems {
+                last_type = typecheck_expr(scope, e);
+            }
+            last_type
+        }
+        &Source::Id(ref id) => {
+            ix.typ.clone()
+        }
+        &Source::Func(ref body) => {
+            typecheck_expr(scope, body)
         }
         _ => {
+            println!("Could not typecheck_expr({:?})", ix);
+            Type::Void
         }
     }
-    Iexpr::noop()
 }
 
-pub fn typecheck_function(scope: &mut Typescope, ix: &Iexpr) -> Iexpr
+pub fn typecheck_function(scope: &mut Typescope, ix: &Iexpr) -> Type
 {
     println!("check_function({:?})", scope.fname);
-    /*
-    scope.add_parameters()
-
-    typecheck_expr(scope, fix);
-    for i in fix {
-        typecheck_expr(f, i);
+    match &ix.src {
+        &Source::Func(ref body) => {
+            typecheck_expr(scope, &*body)
+        }
+        &Source::RustBlock => {
+            ix.typ.clone()
+        }
+        _ => {
+            panic!("Cannot typecheck_function a not function: {:?}", ix);
+        }
     }
+    /*
+    scope.add_parameters(fix)
     */
-    Iexpr::noop()
 }
 
 /*

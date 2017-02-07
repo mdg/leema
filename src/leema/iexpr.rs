@@ -26,12 +26,13 @@ pub enum Source
     MatchCase(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     ModuleAccess(Arc<String>, Arc<String>),
     Pattern(Val),
+    RustBlock,
+    Id(Arc<String>),
     IfExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     List(Vec<Iexpr>),
     StrMash(Vec<Iexpr>),
     Tuple(Vec<Iexpr>),
     Return(Box<Iexpr>),
-    ValExpr(Val),
 }
 
 impl Source
@@ -95,14 +96,6 @@ vout!("new_block> {:?}\n", code);
         Iexpr{
             typ: src.get_type(),
             src: Source::ConstVal(src),
-        }
-    }
-
-    pub fn valx(src: Val) -> Iexpr
-    {
-        Iexpr{
-            typ: src.get_type(),
-            src: Source::ValExpr(src),
         }
     }
 

@@ -246,7 +246,10 @@ pub fn compile_function<'a>(proto: &'a Protomod
         , ftype: &Type, args: &Vec<String>, body: &Val) -> Iexpr
 {
     if *body == Val::RustBlock {
-        return Iexpr::valx(Val::RustBlock);
+        return Iexpr{
+            typ: ftype.clone(),
+            src: Source::RustBlock,
+        }
     }
     let (argt, result) = Type::split_func(ftype);
     let mut scope = Interscope::new(proto, imports, fname, args, argt);
@@ -307,7 +310,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
             match scope.vartype(id) {
                 Some(typ) => {
                     Iexpr{
-                        src: Source::ValExpr(Val::Id(id.clone())),
+                        src: Source::Id(id.clone()),
                         typ: typ.clone(),
                     }
                 }
@@ -321,7 +324,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
                 &Val::Id(ref outer_id) => {
                     if scope.contains_local(outer_id) {
                         Iexpr::new(Source::FieldAccess(
-                            Box::new(Iexpr::valx((**outer).clone())),
+                            Box::new(Iexpr::new(Source::Id(outer_id.clone()))),
                             inner.clone(),
                         ))
                     } else if scope.imports_module(outer_id) {
