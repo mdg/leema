@@ -85,7 +85,7 @@ fn test_ast_parse_plus() {
     let input = "5 + 3\n";
     let lexed = lex(input);
     let root = ast::parse(lexed);
-    let xargs = vec![Val::Int(5), Val::Int(3)];
+    let xargs = list::from2(Val::Int(5), Val::Int(3));
     let expected = sexpr::new(SexprType::BlockExpr,
         list::singleton(sexpr::call(Val::id("int_add".to_string()), xargs))
     );
@@ -139,10 +139,10 @@ fn test_ast_parse_plus_twice() {
     let root = ast::parse(lex(input));
 
     let first_add = sexpr::call(Val::id("int_add".to_string()),
-        vec![Val::Int(5), Val::Int(3)],
+        list::from2(Val::Int(5), Val::Int(3)),
     );
     let second_add = sexpr::call(Val::id("int_add".to_string()),
-        vec![first_add, Val::Int(2)]
+        list::from2(first_add, Val::Int(2))
     );
 
     let expected = sexpr::new(SexprType::BlockExpr,
@@ -159,11 +159,11 @@ fn test_ast_parse_call_one_param()
 
     let neg4 = sexpr::call(
         Val::id("negate".to_string()),
-        vec![Val::Int(4)],
+        list::singleton(Val::Int(4)),
     );
     let expected = sexpr::new(SexprType::BlockExpr,
         list::singleton(
-            sexpr::call(Val::id("inc".to_string()), vec![neg4])
+            sexpr::call(Val::id("inc".to_string()), list::singleton(neg4))
         )
     );
     assert_eq!(expected, root);
@@ -174,7 +174,7 @@ fn test_ast_parse_function_call() {
     let input = "foo(7, 2)\n";
     let root = ast::parse(lex(input));
 
-    let xargs = vec![Val::Int(7), Val::Int(2)];
+    let xargs = list::from2(Val::Int(7), Val::Int(2));
     let expected = sexpr::new(SexprType::BlockExpr,
         list::singleton(sexpr::call(Val::id("foo".to_string()), xargs))
     );
@@ -233,10 +233,12 @@ fn test_ast_parse_list_cons() {
         Val::Nil,
         ));
     let expected = sexpr::new(SexprType::BlockExpr, list::singleton(
-        sexpr::call(Val::id("list_cons".to_string()), vec![
-            prefix_list,
-            Val::id("x".to_string()),
-        ])
+        sexpr::call(Val::id("list_cons".to_string()),
+            list::cons(prefix_list,
+            list::cons(Val::id("x".to_string()),
+            Val::Nil,
+            ))
+        )
     ));
     assert_eq!(expected, root);
 }
@@ -297,7 +299,7 @@ fn test_ast_parse_if()
         Val::id("z".to_string()),
     ));
     let expected = sexpr::new(SexprType::BlockExpr, list::cons(
-        sexpr::new(SexprType::IfStmt,
+        sexpr::new(SexprType::IfExpr,
         list::cons(Val::id("x".to_string()),
         list::cons(blocka,
         list::cons(blockb,
@@ -318,7 +320,7 @@ fn test_ast_parse_if_no_else()
         Val::id("y".to_string()),
     ));
     let expected = sexpr::new(SexprType::BlockExpr, list::cons(
-        sexpr::new(SexprType::IfStmt,
+        sexpr::new(SexprType::IfExpr,
         list::cons(Val::id("x".to_string()),
         list::cons(blocka,
         list::cons(Val::Void,
@@ -349,7 +351,7 @@ fn test_ast_parse_macro()
         Val::Bool(false)
     ));
     let ifx = sexpr::new(SexprType::BlockExpr, list::cons(
-        sexpr::new(SexprType::CaseExpr,
+        sexpr::new(SexprType::IfExpr,
             list::cons(Val::id("a".to_string()),
             list::cons(blocka,
             list::cons(blockb,
@@ -379,17 +381,13 @@ fn test_parse_call_function_call_result()
     let input = "(foo(5))(6)";
     let root = ast::parse(lex(input));
 
+    let foo_call = sexpr::new(SexprType::Call,
+        list::from2(Val::id("foo".to_string()), Val::Int(5))
+        );
     let expected = sexpr::new_block(list::singleton(
         sexpr::new(SexprType::Call,
-        list::cons(
-            sexpr::new(SexprType::Call,
-            list::cons(Val::id("foo".to_string()),
-            list::cons(Val::Tuple(vec![Val::Int(5)]),
-            Val::Nil,
-            ))),
-        list::cons(Val::Tuple(vec![Val::Int(6)]),
-        Val::Nil,
-        ))),
+            list::from2(foo_call, Val::Int(6)),
+        )
     ));
     assert_eq!(expected, root);
 }
@@ -451,9 +449,10 @@ fn test_parse_constructor_call()
     let expected = sexpr::new_block(list::singleton(
         sexpr::new(SexprType::Call,
         list::cons(Val::Type(Type::Id(Arc::new("Taco".to_string()))),
-        list::cons(Val::Tuple(vec![Val::Int(1), Val::Int(2)]),
+        list::cons(Val::Int(1),
+        list::cons(Val::Int(2),
         Val::Nil,
-        ))),
+        )))),
     ));
     assert_eq!(expected, root);
 }
@@ -467,11 +466,10 @@ fn test_parse_strlit_field_access()
     let expected = sexpr::new_block(list::singleton(
         sexpr::new(SexprType::StrExpr,
         list::cons(Val::new_str("hello ".to_string()),
-        list::cons(sexpr::new(SexprType::FieldAccess,
-            list::cons(Val::id("dog".to_string()),
-            list::cons(Val::id("name".to_string()),
-            Val::Nil,
-            ))),
+        list::cons(Val::dot_access(
+            Val::id("dog".to_string()),
+            "name".to_string(),
+            ),
         Val::Nil,
         ))),
     ));
@@ -490,16 +488,15 @@ fn test_parse_let_plus_negation()
     let expected = sexpr::new_block(
         list::cons(sexpr::new(SexprType::Let,
             list::cons(Val::id("x".to_string()),
-            list::cons(sexpr::call(Val::id("int_add".to_string()), vec![
-                Val::Int(4),
-                Val::Int(8),
-                ]),
+            list::cons(sexpr::call(Val::id("int_add".to_string()),
+                list::from2(Val::Int(4), Val::Int(8)),
+                ),
             Val::Nil,
             )),
         ),
-        list::cons(sexpr::call(Val::id("negate".to_string()), vec![
-            Val::id("x".to_string()),
-            ]),
+        list::cons(sexpr::call(Val::id("negate".to_string()),
+            list::singleton(Val::id("x".to_string())),
+            ),
         Val::Nil,
         ))
     );
@@ -519,10 +516,9 @@ fn test_parse_let_plus_tuple()
     let expected = sexpr::new_block(
         list::cons(sexpr::new(SexprType::Let,
             list::cons(Val::id("x".to_string()),
-            list::cons(sexpr::call(Val::id("int_add".to_string()), vec![
-                Val::Int(4),
-                Val::id("y".to_string()),
-                ]),
+            list::cons(sexpr::call(Val::id("int_add".to_string()),
+                list::from2(Val::Int(4), Val::id("y".to_string())),
+                ),
             Val::Nil,
             ))
         ),

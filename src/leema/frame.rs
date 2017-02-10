@@ -959,7 +959,7 @@ mod tests {
     use leema::ast;
     use leema::code::{CodeKey};
     use leema::loader::{Interloader};
-    use leema::module::{ModKey, ModuleInterface};
+    use leema::module::{ModKey, ModuleInterface, ModuleSource};
     use leema::reg::{Reg};
     use leema::val::{Env, Val};
     use leema::prefab;
@@ -980,7 +980,8 @@ write!(stderr(), "test_main_func_finishes {:?}\n", p);
     let input = "func main() -> 3 --";
     let mut inter = Interloader::new("test.lma");
     let mk = ModKey::name_only("tacos");
-    let mi = Rc::new(ModuleInterface::new(&mk));
+    let ms = ModuleSource::new(mk, String::from(""));
+    let mi = Rc::new(ModuleInterface::new(&ms));
     let mut ss = prefab::new_staticspace(mi, &mut inter);
     ss.compile(ast::parse(lex(input)));
 

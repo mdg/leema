@@ -422,6 +422,11 @@ impl Val {
         Val::Hashtag(Arc::new(s))
     }
 
+    pub fn dot_access(base: Val, sub: String) -> Val
+    {
+        Val::DotAccess(Box::new(base), Arc::new(sub))
+    }
+
     pub fn is_type(&self) -> bool
     {
         match self {
@@ -1112,6 +1117,17 @@ impl PartialOrd for Val
                     _ => cmp,
                 }
             }
+            (&Val::DotAccess(ref base1, ref sub1),
+                    &Val::DotAccess(ref base2, ref sub2)) =>
+            {
+                let cmp = PartialOrd::partial_cmp(&base1, &base2);
+                match cmp {
+                    Some(Ordering::Equal) => {
+                        PartialOrd::partial_cmp(&sub1, &sub2)
+                    }
+                    _ => cmp,
+                }
+            }
             (&Val::Bool(false), _) => {
                 Some(Ordering::Less)
             }
@@ -1491,7 +1507,7 @@ fn test_compare_across_types() {
 #[test]
 fn test_replace_ids_if()
 {
-    let body = sexpr::new(SexprType::IfStmt,
+    let body = sexpr::new(SexprType::IfExpr,
         list::cons(Val::id("a".to_string()),
         list::cons(Val::id("b".to_string()),
         list::cons(Val::Bool(false),
@@ -1504,7 +1520,7 @@ fn test_replace_ids_if()
 
     let result = Val::replace_ids(body, &ids);
 
-    let expected = sexpr::new(SexprType::IfStmt,
+    let expected = sexpr::new(SexprType::IfExpr,
         list::cons(Val::Bool(true),
         list::cons(Val::Bool(false),
         list::cons(Val::Bool(false),

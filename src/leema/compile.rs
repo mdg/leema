@@ -984,7 +984,7 @@ mod tests {
     use leema::reg::{Reg};
     use leema::code::{Code, CodeKey};
     use leema::loader::{Interloader};
-    use leema::module::{ModKey, ModuleInterface};
+    use leema::module::{ModKey, ModuleInterface, ModuleSource};
     use leema::list;
     use leema::frame::{self, Frame};
     use leema::lex::{lex};
@@ -1009,7 +1009,8 @@ fn test_compile_call_no_params()
     let root = ast::parse(lex(input));
     let mut inter = Interloader::new("test.lma");
     let mk = ModKey::name_only("tacos");
-    let mi = Rc::new(ModuleInterface::new(&mk));
+    let ms = ModuleSource::new(mk, String::from(""));
+    let mi = Rc::new(ModuleInterface::new(&ms));
     let mut ss = prefab::new_staticspace(mi, &mut inter);
     ss.define_func(Arc::new("no_params".to_string()),
         Type::f(vec![], Type::Void),
@@ -1135,7 +1136,8 @@ fn test_precompile_if_block()
     let root = ast::parse(lex(input));
     let mut inter = Interloader::new("test.lma");
     let mk = ModKey::name_only("tacos");
-    let mi = Rc::new(ModuleInterface::new(&mk));
+    let ms = ModuleSource::new(mk, String::from(""));
+    let mi = Rc::new(ModuleInterface::new(&ms));
     let mut ss = prefab::new_staticspace(mi, &mut inter);
     let ifprog = ss.compile(root);
 
@@ -1191,7 +1193,8 @@ fn test_compile_func_oneline_untyped()
     let root = ast::parse(lex(input));
     let mut inter = Interloader::new("test.lma");
     let mk = ModKey::name_only("tacos");
-    let mi = Rc::new(ModuleInterface::new(&mk));
+    let ms = ModuleSource::new(mk, String::from(""));
+    let mi = Rc::new(ModuleInterface::new(&ms));
     let mut ss = prefab::new_staticspace(mi, &mut inter);
 
     let iprog = ss.compile(root);
@@ -1219,7 +1222,8 @@ fn test_compile_and_call_func()
     let root = ast::parse(lex(input));
     let mut inter = Interloader::new("test.lma");
     let mk = ModKey::name_only("tacos");
-    let mi = Rc::new(ModuleInterface::new(&mk));
+    let ms = ModuleSource::new(mk, String::from(""));
+    let mi = Rc::new(ModuleInterface::new(&ms));
     let mut ss = prefab::new_staticspace(mi, &mut inter);
 
     let iprog = ss.compile(root);
@@ -1262,7 +1266,8 @@ fn test_compile_main_func()
     let root = ast::parse(lex(input));
     let mut inter = Interloader::new("test.lma");
     let mk = ModKey::name_only("tacos");
-    let mi = Rc::new(ModuleInterface::new(&mk));
+    let ms = ModuleSource::new(mk, String::from(""));
+    let mi = Rc::new(ModuleInterface::new(&ms));
     let mut ss = prefab::new_staticspace(mi, &mut inter);
 
     let iprog = ss.compile(root);

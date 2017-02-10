@@ -219,12 +219,10 @@ fn test_ast_replace_id()
 #[test]
 fn test_sexpr_empty_call()
 {
-    let c = sexpr::call(Val::id("testf".to_string()), vec![]);
+    let c = sexpr::call(Val::id("testf".to_string()), Val::Nil);
     let expected = sexpr::new(SexprType::Call,
-        list::cons(Val::id("testf".to_string()),
-        list::cons(Val::Tuple(vec![]),
-        Val::Nil
-    )));
+        list::singleton(Val::id("testf".to_string())),
+    );
 
     assert_eq!(expected, c);
 }

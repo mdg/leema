@@ -712,39 +712,33 @@ mod tests {
 #[test]
 fn test_push_pop()
 {
-    let mk = ModKey::name_only("hello");
-    let mi = Rc::new(ModuleInterface::new(&mk));
-    let mut s = Scope::new(mi);
-    assert_eq!("hello".to_string(), s.get_scope_name());
+    let mut s = Scope::new();
+    assert_eq!("__init__".to_string(), s.get_scope_name());
 
     Scope::push_function_scope(&mut s, &"world".to_string(), Val::Void);
-    assert_eq!("hello.world".to_string(), s.get_scope_name());
+    assert_eq!("__init__.world".to_string(), s.get_scope_name());
 
     Scope::pop_function_scope(&mut s);
-    assert_eq!("hello".to_string(), s.get_scope_name());
+    assert_eq!("__init__".to_string(), s.get_scope_name());
 }
 
 #[test]
 fn test_type_var_generation()
 {
-    let mk = ModKey::name_only("hello");
-    let mi = Rc::new(ModuleInterface::new(&mk));
-    let mut s = Scope::new(mi);
-    assert_eq!(Type::Var(Arc::new("TypeVar_hello_0".to_string())), s.new_typevar());
+    let mut s = Scope::new();
+    assert_eq!(Type::Var(Arc::new("TypeVar___init___0".to_string())), s.new_typevar());
 
     Scope::push_function_scope(&mut s, &"world".to_string(), Val::Void);
-    assert_eq!(Type::Var(Arc::new("TypeVar_hello.world_1".to_string())), s.new_typevar());
+    assert_eq!(Type::Var(Arc::new("TypeVar___init__.world_1".to_string())), s.new_typevar());
 
     Scope::pop_function_scope(&mut s);
-    assert_eq!(Type::Var(Arc::new("TypeVar_hello_2".to_string())), s.new_typevar());
+    assert_eq!(Type::Var(Arc::new("TypeVar___init___2".to_string())), s.new_typevar());
 }
 
 #[test]
 fn test_label_assigned()
 {
-    let mk = ModKey::name_only("hello");
-    let mi = Rc::new(ModuleInterface::new(&mk));
-    let mut s = Scope::new(mi);
+    let mut s = Scope::new();
     let label_name = "world".to_string();
     s.assign_label(Reg::new_param(2), &label_name, Type::Int);
     assert!(s.is_label(&label_name));
