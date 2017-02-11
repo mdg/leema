@@ -1,4 +1,3 @@
-use leema::compile::{Iexpr, Source};
 use leema::loader::{Interloader};
 use leema::code::{Code, CodeMap};
 use leema::val::{Val};
@@ -113,17 +112,6 @@ impl Application
         vec![]
     }
     */
-
-    pub fn make_code(func: &Iexpr) // -> Code
-    {
-        /*
-        imod = load_imod(module);
-        ifunc = get_ifunc(imod, func);
-        store_resolved_interface(module, func, tfunc);
-        cfunc = tfunc_to_code(tfunc);
-        cfunc
-        */
-    }
 
     pub fn type_mod(module: &str, func: &str) // -> FuncType
     {

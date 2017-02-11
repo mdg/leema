@@ -2,7 +2,6 @@
 use leema::log;
 use leema::val::{Val, Env, FutureVal, Type};
 use leema::reg::{Reg, Ireg};
-use leema::compile::{StaticSpace};
 use leema::code::{self, CodeKey, Code, CodeMap, Op, OpVec, ModSym, RustFunc};
 use leema::list;
 use std::collections::{HashMap, LinkedList};
@@ -354,18 +353,6 @@ impl Application
     pub fn take_result(&mut self) -> Val
     {
         self.result.take().unwrap()
-    }
-
-    pub fn add_app_code(&mut self, ss: &StaticSpace)
-    {
-        for (name, code) in &ss.lib {
-            self.code.insert(name.clone(), code.clone());
-        }
-        for (name, inter) in &ss.interlib {
-            let ops = code::make_ops(inter);
-vout!("code: {:?}\n{:?}\n", name, ops);
-            self.code.insert((*name).clone(), Code::Leema(Arc::new(ops)));
-        }
     }
 
     pub fn add_code(&mut self, key: CodeKey, c: Code) -> Code

@@ -1,7 +1,6 @@
 use leema::val::{Val, Type};
-use leema::code::{Code};
+use leema::code::{Code, RustFunc};
 use leema::frame::{Frame};
-use leema::compile::{self, StaticSpace};
 use leema::loader::{Interloader};
 use leema::module::{ModuleInterface};
 use leema::list;
@@ -333,98 +332,28 @@ pub fn source_code() -> &'static str
     "
 }
 
-fn define_macros(ss: &mut StaticSpace, inter: &mut Interloader)
+pub fn get_function(func_name: &str) -> RustFunc
 {
-    vout!("defining prefab macros\n");
-    let input = String::from(source_code());
-
-    inter.set_mod_txt("prefab_macros", input);
-    // compile::file(&inter, "prefab_macros");
-    vout!("prefab macros compiled\n");
-}
-
-pub fn define_prefab(ss: &mut StaticSpace, inter: &mut Interloader)
-{
-    // set up static space
-    ss.define_func(Arc::new("int_add".to_string()),
-        Type::f(vec![Type::Int, Type::Int], Type::Int),
-        Code::Rust(int_add),
-        );
-    ss.define_func(Arc::new("int_sub".to_string()),
-        Type::f(vec![Type::Int, Type::Int], Type::Int),
-        Code::Rust(int_sub),
-        );
-    ss.define_func(Arc::new("int_mult".to_string()),
-        Type::f(vec![Type::Int, Type::Int], Type::Int),
-        Code::Rust(int_mult),
-        );
-    ss.define_func(Arc::new("int_mod".to_string()),
-        Type::f(vec![Type::Int, Type::Int], Type::Int),
-        Code::Rust(int_mod),
-        );
-    ss.define_func(Arc::new("negate".to_string()),
-        Type::f(vec![Type::Int], Type::Int),
-        Code::Rust(int_negate),
-        );
-    ss.define_func(Arc::new("bool_not".to_string()),
-        Type::f(vec![Type::Bool], Type::Bool),
-        Code::Rust(bool_not),
-        );
-    ss.define_func(Arc::new("xor".to_string()),
-        Type::f(vec![Type::Bool, Type::Bool], Type::Bool),
-        Code::Rust(bool_xor),
-        );
-    let type_var_a = Type::Var(Arc::new("TypeA".to_string()));
-    ss.define_func(Arc::new("list_cons".to_string()),
-        Type::f(vec![
-            type_var_a.clone(),
-            Type::StrictList(Box::new(type_var_a.clone())),
-        ], Type::StrictList(Box::new(type_var_a.clone()))),
-        Code::Rust(list_cons),
-        );
-    ss.define_func(Arc::new("less_than".to_string()),
-        Type::f(vec![Type::Int, Type::Int], Type::Bool),
-        Code::Rust(less_than),
-        );
-    ss.define_func(Arc::new("less_than_equal".to_string()),
-        Type::f(vec![Type::Int, Type::Int], Type::Bool),
-        Code::Rust(less_than_equal),
-        );
-    ss.define_func(Arc::new("equal".to_string()),
-        Type::f(vec![Type::Int, Type::Int], Type::Bool),
-        Code::Rust(equal),
-        );
-    ss.define_func(Arc::new("greater_than".to_string()),
-        Type::f(vec![Type::Int, Type::Int], Type::Bool),
-        Code::Rust(greater_than),
-        );
-    ss.define_func(Arc::new("greater_than_equal".to_string()),
-        Type::f(vec![Type::Int, Type::Int], Type::Bool),
-        Code::Rust(greater_than_equal),
-        );
-    ss.define_func(Arc::new("type".to_string()),
-        Type::f(vec![Type::Any], Type::Kind),
-        Code::Rust(get_type),
-        );
-    ss.define_func(Arc::new("cout".to_string()),
-        Type::f(vec![Type::Str], Type::Void),
-        Code::Rust(cout),
-        );
-    ss.define_func(Arc::new("file_read".to_string()),
-        Type::f(vec![Type::Str], Type::Lib("File".to_string())),
-        Code::Rust(file_read),
-        );
-    ss.define_func(Arc::new("stream_read".to_string()),
-        Type::f(vec![Type::Lib("File".to_string())], Type::Void),
-        Code::Rust(stream_read_file),
-        );
-
-    define_macros(ss, inter);
-}
-
-pub fn new_staticspace(mi: Rc<ModuleInterface>, inter: &mut Interloader
-) -> StaticSpace {
-    let mut ss = StaticSpace::new(mi);
-    define_prefab(&mut ss, inter);
-    ss
+    match func_name {
+        "int_add" => int_add,
+        "int_sub" => int_sub,
+        "int_mult" => int_mult,
+        "int_mod" => int_mod,
+        "int_negate" => int_negate,
+        "bool_not" => bool_not,
+        "bool_xor" => bool_xor,
+        "list_cons" => list_cons,
+        "less_than" => less_than,
+        "less_than_equal" => less_than_equal,
+        "equal" => equal,
+        "greater_than" => greater_than,
+        "greater_than_equal" => greater_than_equal,
+        "type" => get_type,
+        "cout" => cout,
+        "file_read" => file_read,
+        "stream_read" => stream_read_file,
+        _ => {
+            panic!("Unknown function: {}", func_name);
+        }
+    }
 }

@@ -54,8 +54,10 @@ impl<'a> CallFrame<'a>
     {
         match ix.src {
             Source::Call(ref callx, ref args) => {
-                { self.collect_calls_vec(args); }
-                { self.collect_callexpr(callx); }
+                if let Source::Tuple(ref argsix) = args.src {
+                    self.collect_calls_vec(argsix);
+                    self.collect_callexpr(callx);
+                }
             }
             Source::Block(ref expressions) => {
                 self.collect_calls_vec(expressions);
@@ -161,8 +163,10 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Iexpr) -> Type
         &Source::Call(ref func, ref args) => {
             let tfunc = typecheck_expr(scope, func);
             let mut targs = vec![];
-            for a in args {
-                targs.push(typecheck_expr(scope, a));
+            if let Source::Tuple(ref argstup) = args.src {
+                for a in argstup {
+                    targs.push(typecheck_expr(scope, a));
+                }
             }
             let mut targs_ref = vec![];
             for ta in targs.iter() {

@@ -283,9 +283,10 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
                 }).collect::<Vec<&Type>>();
                 scope.T.make_call_type(&icall.typ, &iargst)
             };
+            let argsix = Iexpr::new_tuple(iargs);
             Iexpr{
                 typ: ftype,
-                src: Source::Call(Box::new(icall), iargs),
+                src: Source::Call(Box::new(icall), Box::new(argsix)),
             }
         }
         &Val::Sexpr(SexprType::IfExpr, ref ifinfo) => {
