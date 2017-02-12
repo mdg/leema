@@ -1,9 +1,11 @@
 use leema::loader::{Interloader};
+use leema::program;
 use leema::code::{Code, CodeMap};
 use leema::val::{Val};
 
 use std::collections::{HashMap, HashSet};
 use std::mem;
+use std::sync::atomic::{AtomicBool};
 
 
 struct Worker
@@ -54,19 +56,19 @@ impl Worker
 
 pub struct Application
 {
-    inter: Interloader,
-    lib: CodeMap,
-    result: Val,
+    prog: program::Lib,
+    result: Option<Val>,
+    done: AtomicBool,
 }
 
 impl Application
 {
-    pub fn new(i: Interloader) -> Application
+    pub fn new(prog: program::Lib) -> Application
     {
         Application{
-            inter: i,
-            lib: HashMap::new(),
-            result: Val::Void,
+            prog: prog,
+            result: None,
+            done: AtomicBool::new(false),
         }
     }
 
@@ -87,11 +89,9 @@ impl Application
     {
     }
 
-    pub fn take_result(&mut self) -> Val
+    pub fn take_result(&mut self) -> Option<Val>
     {
-        let mut tmp = Val::Void;
-        mem::swap(&mut self.result, &mut tmp);
-        tmp
+        self.result.take()
     }
 
     // pub fn get_interface_code(module: &str, func: &str, typ: &Type) {}

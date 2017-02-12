@@ -273,68 +273,22 @@ pub struct Worker
     event: Event,
     pub result: Val,
     //io: IOQueue,
-    app: Arc<Mutex<Application>>,
+    app: Arc<Mutex<OldApplication>>,
     code: CodeMap,
     done: bool,
 }
 
-pub struct Application
+pub struct OldApplication
 {
-    new_frames: LinkedList<(CodeKey, Frame)>,
-    main_frame: Option<Frame>,
-    result: Option<Val>,
-    code: CodeMap,
-    //done: Arc<(Mutex<bool>, Condvar)>,
-    done: AtomicBool,
-    // modules
 }
 
-impl Application
+impl OldApplication
 {
-    pub fn new() -> Application
+    pub fn wait_until_done(app: &Arc<Mutex<OldApplication>>) -> Option<Val>
     {
-        Application{
-            new_frames: LinkedList::new(),
-            main_frame: None,
-            result: None,
-            code: HashMap::new(),
-            //done: Arc::new((Mutex::new(false), Condvar::new())),
-            done: AtomicBool::new(false),
-        }
-    }
-
-    pub fn push_new_frame(&mut self, fname: &CodeKey, f: Frame)
-    {
-        self.new_frames.push_back((fname.clone(), f))
-    }
-
-    pub fn pop_new_frame(&mut self) -> Option<(CodeKey, Frame)>
-    {
-        self.new_frames.pop_front()
-    }
-
-    pub fn set_result(&mut self, res: Val)
-    {
-        self.result = Some(res);
-    }
-
-    pub fn wait_until_done(app: &Arc<Mutex<Application>>) -> Val
-    {
-        let mut result = Val::Void;
+        let mut result = None;
         let mut done = false;
         while !done {
-            {
-//write!(stderr(), "wait_until_done try_lock\n");
-                let mut lock_result = (*app).try_lock();
-                if !lock_result.is_err() {
-//write!(stderr(), "wait_until_done locked\n");
-                    let mut _app = lock_result.unwrap();
-                    done = _app.done.load(Ordering::Relaxed);
-                    if done {
-                        result = _app.take_result();
-                    }
-                }
-            }
 //write!(stderr(), "wait_until_done lock released?\n");
             thread::yield_now();
             //thread::sleep(time::Duration::new(1, 0));
@@ -348,32 +302,6 @@ impl Application
         }
         */
         result
-    }
-
-    pub fn take_result(&mut self) -> Val
-    {
-        self.result.take().unwrap()
-    }
-
-    pub fn add_code(&mut self, key: CodeKey, c: Code) -> Code
-    {
-        self.code.insert(key.clone(), c);
-        self.find_code(&key).unwrap()
-    }
-
-    pub fn find_code(&self, key: &CodeKey) -> Option<Code>
-    {
-        let c = self.code.get(&key);
-        if c.is_none() {
-            None
-        } else {
-            Some(c.unwrap().clone())
-        }
-    }
-
-    pub fn code_iter(&self) -> hash_map::Iter<CodeKey, Code>
-    {
-        self.code.iter()
     }
 }
 
@@ -414,28 +342,6 @@ fn execute_fork(w: &mut Worker, curf: &mut Frame,
 ) {
     println!("execute_fork");
 
-    let fkey = {
-        let ref fname_val = curf.e.get_reg(freg);
-        match *fname_val {
-            &Val::Str(ref name_str) => {
-                // load code
-                let ck = CodeKey::Name(name_str.clone());
-                let code = w.find_code(&ck);
-                if code.is_none() {
-                    panic!("Can't find function {}()",
-                        name_str,
-                    );
-                }
-                ck
-            }
-            _ => {
-                panic!("That's not a function name! {:?}",
-                    fname_val,
-                );
-            }
-        }
-    };
-
     // args are empty for a fork
     // create new frame
     let e = Env::new();
@@ -444,7 +350,6 @@ fn execute_fork(w: &mut Worker, curf: &mut Frame,
     let ready = Arc::new(AtomicBool::new(false));
     let newf = Frame::new_fork(&curf, &ready, tx);
     curf.e.set_reg(dst, Val::future(ready, rx));
-    w.add_fork(&fkey, newf);
 
     curf.pc = curf.pc + 1;
     w.event = Event::Fork;
@@ -589,6 +494,7 @@ fn execute_call(w: &mut Worker, curf: &mut Frame, dst: &Reg, freg: &Reg, argreg:
         &Val::Str(ref name_str) => {
             curf.pc = curf.pc + 1;
             // load code
+            /*
             let ck = CodeKey::Name(name_str.clone());
             let code = w.find_code(&ck).unwrap().clone();
             // pass in args
@@ -613,6 +519,7 @@ fn execute_call(w: &mut Worker, curf: &mut Frame, dst: &Reg, freg: &Reg, argreg:
                 code.clone(),
                 Frame::new_call(&name_str, &dst, e, &curf.trace),
             );
+            */
         }
         _ => {
             panic!("That's not a function! {:?}", fname_val);
@@ -630,7 +537,7 @@ fn execute_call(w: &mut Worker, curf: &mut Frame, dst: &Reg, freg: &Reg, argreg:
  */
 impl Worker
 {
-    pub fn new(app: Arc<Mutex<Application>>) -> Worker
+    pub fn new(app: Arc<Mutex<OldApplication>>) -> Worker
     {
         let done = {
 vout!("lock app, new worker\n");
@@ -646,37 +553,6 @@ vout!("lock app, new worker\n");
             code: HashMap::new(),
             done: false,
         }
-    }
-
-    /*
-    pub fn push(&mut self, f: Frame) -> () {
-        println!("huh, this is called after all");
-        self.fresh.push_front(f);
-    }
-    */
-
-    pub fn find_code(&mut self, name: &CodeKey) -> Option<&Code>
-    {
-        if self.code.contains_key(name) {
-            let mut c: Option<&Code> = self.code.get(name);
-            return c;
-        }
-
-        let ac = {
-vout!("lock app, find_code\n");
-            let app = self.app.lock().unwrap();
-            //let app = self.app.lock().unwrap() as MutexGuard<'a, Application>;
-            match app.find_code(name) {
-                Some(appc) => {
-                    appc.clone()
-                }
-                None => {
-                    panic!("shit, no code for {:?}", name);
-                }
-            }
-        };
-        self.code.insert(name.clone(), ac);
-        self.code.get(name)
     }
 
     pub fn execute(&mut self, curf: &mut Frame, ops: &OpVec)
@@ -742,8 +618,6 @@ vout!("lock app, find_code\n");
     fn add_fork(&mut self, key: &CodeKey, newf: Frame)
     {
 vout!("lock app, add_fork\n");
-        let mut a = self.app.lock().unwrap();
-        a.push_new_frame(key, newf);
     }
 
     fn iterate_leema(&mut self, curf: &mut Frame, ops: &OpVec)
@@ -787,17 +661,19 @@ vout!("iterate\n");
                         self.fresh.push_back((code, *pf));
                     }
                     Parent::Repl(res) => {
+                        /*
 vout!("lock app, repl done in iterate\n");
                         let mut _app = self.app.lock().unwrap();
                         _app.set_result(res);
+                        */
                     }
                     Parent::Main(res) => {
 vout!("finished main func\n");
                         {
 vout!("lock app, main done in iterate\n");
                             let mut _app = self.app.lock().unwrap();
-                            _app.set_result(res);
-                            _app.done.store(true, Ordering::Relaxed);
+                            // _app.set_result(res);
+                            // _app.done.store(true, Ordering::Relaxed);
                             self.done = true;
                         }
                         //self.notify_done();
@@ -859,6 +735,7 @@ vout!("rotate try_lock is_err\n");
         }
 //println!("lock_result.unwrap()");
         let mut app = lock_result.unwrap();
+        /*
         match app.pop_new_frame() {
             Some((codekey, new_frame)) => {
                 let new_code = app.find_code(&codekey);
@@ -874,6 +751,7 @@ vout!("rotate try_lock is_err\n");
                 // nothing
             }
         }
+        */
 
         if self.fresh.is_empty() {
             return None;
@@ -942,11 +820,13 @@ process
 #[cfg(test)]
 mod tests {
     use leema::log;
-    use leema::frame::{Application, Frame, Parent, Worker};
+    use leema::frame::{Frame, Parent, Worker};
+    use leema::application::{Application};
     use leema::ast;
     use leema::code::{CodeKey};
     use leema::loader::{Interloader};
     use leema::module::{ModKey, ModuleInterface, ModuleSource};
+    use leema::program;
     use leema::reg::{Reg};
     use leema::val::{Env, Val};
     use leema::prefab;
@@ -966,20 +846,10 @@ let p = unsafe { getpid(); };
 write!(stderr(), "test_main_func_finishes {:?}\n", p);
     let input = "func main() -> 3 --";
     let mut inter = Interloader::new("test.lma");
-    let mk = ModKey::name_only("tacos");
-    let ms = ModuleSource::new(mk, String::from(""));
-    let mi = Rc::new(ModuleInterface::new(&ms));
-    let mut ss = prefab::new_staticspace(mi, &mut inter);
-    ss.compile(ast::parse(lex(input)));
+    let prog = program::Lib::new(inter);
 
-    let mut app = Application::new();
-write!(stderr(), "app.add_app_code\n");
-    app.add_app_code(&ss);
-
-    if ss.has_main() {
-        let frm = Frame::new_root(Env::new());
-        app.push_new_frame(&CodeKey::Main, frm);
-    }
+    let mut app = Application::new(prog);
+    app.push_call("test", "main");
 
     let app0 = Arc::new(Mutex::new(app));
     let app1 = app0.clone();
