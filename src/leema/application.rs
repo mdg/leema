@@ -5,7 +5,8 @@ use leema::val::{Val};
 
 use std::collections::{HashMap, HashSet};
 use std::mem;
-use std::sync::atomic::{AtomicBool};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
 
 
 struct Worker
@@ -76,9 +77,17 @@ impl Application
     {
     }
 
-    pub fn run(&mut self) -> Val
+    pub fn run(&mut self)
     {
-        Val::Void
+    }
+
+    pub fn wait_for_result(&mut self) -> Option<Val>
+    {
+        while !self.done.load(Ordering::Relaxed) {
+            thread::yield_now();
+            self.done.store(true, Ordering::Relaxed);
+        }
+        self.result.take()
     }
 
     pub fn init_module(&mut self, module: &str)

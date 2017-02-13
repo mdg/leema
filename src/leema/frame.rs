@@ -851,17 +851,11 @@ write!(stderr(), "test_main_func_finishes {:?}\n", p);
     let mut app = Application::new(prog);
     app.push_call("test", "main");
 
-    let app0 = Arc::new(Mutex::new(app));
-    let app1 = app0.clone();
-    thread::spawn(move || {
-        let mut w0 = Worker::new(app0);
-        vout!("w0.gotowork\n");
-        w0.gotowork();
-    });
+    app.run();
 
 write!(stderr(), "Application::wait_until_done\n");
-    let result = Application::wait_until_done(&app1);
-    assert_eq!(Val::Int(3), result);
+    let result = app.wait_for_result();
+    assert_eq!(Some(Val::Int(3)), result);
 }
 
 }
