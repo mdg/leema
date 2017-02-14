@@ -89,6 +89,13 @@ fn real_main() -> i32
     } else if args.arg_cmd == "typecheck" {
         let mut prog = program::Lib::new(inter);
         prog.deep_typecheck(&modkey.name, "main");
+    } else if args.arg_cmd == "run" {
+        let mut prog = program::Lib::new(inter);
+        let mut app = Application::new(prog);
+        app.push_call(&modkey.name, "main");
+        app.run();
+        let result = app.wait_for_result();
+        println!("Result = {:?}", result);
     } else {
         println!("invalid command: {:?}", args.arg_cmd);
         return 1;
