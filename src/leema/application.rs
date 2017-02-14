@@ -1,75 +1,44 @@
 use leema::loader::{Interloader};
 use leema::program;
+use leema::worker::{Worker};
 use leema::code::{Code, CodeMap};
 use leema::val::{Val};
+use leema::log;
+use leema::msg::{Msg};
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 use std::mem;
+use std::sync::{Arc};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{channel, Sender, Receiver};
 use std::thread;
+use std::io::{stderr, Write};
 
-
-struct Worker
-{
-    code: HashMap<(String, String), Code>,
-    // app_channel: Channel<CodeRequest>,
-    code_request_idx: u64,
-}
-
-impl Worker
-{
-    /*
-    pub fn new(app_ch: Channel<AppRequest>) -> Worker
-    {
-        Worker{
-            code: HashMap::new(),
-            app_channel: app_ch,
-            code_request_idx: 0,
-        }
-    }
-    */
-
-    pub fn call_func(&mut self, module: &str, func: &str)
-    {
-        //push_frame(get_code(module, func))
-    }
-
-    /*
-    pub fn get_code(&mut self, module: &str, func: &str)
-    {
-        c = self.code.find(module, func);
-        if c.is_none() {
-            i = self.new_code_request();
-            c = self.app_channel.push(CodeRequest(i, module, func));
-            frame.wait_on_code(i)
-        }
-        c
-    }
-    */
-
-    pub fn new_code_request(&mut self) -> u64
-    {
-        let idx = self.code_request_idx;
-        self.code_request_idx += 1;
-        idx
-    }
-}
 
 pub struct Application
 {
     prog: program::Lib,
+    app_recv: Receiver<Msg>,
+    app_send: Sender<Msg>,
+    worker: HashMap<i64, Sender<Msg>>,
     result: Option<Val>,
     done: AtomicBool,
+    last_worker_id: i64,
 }
 
 impl Application
 {
     pub fn new(prog: program::Lib) -> Application
     {
+        let (tx, rx) = channel();
         Application{
             prog: prog,
+            app_recv: rx,
+            app_send: tx,
+            worker: HashMap::new(),
             result: None,
             done: AtomicBool::new(false),
+            last_worker_id: 0,
         }
     }
 
@@ -79,6 +48,25 @@ impl Application
 
     pub fn run(&mut self)
     {
+        self.start_worker();
+        self.start_worker();
+    }
+
+    pub fn next_worker_id(&mut self) -> i64
+    {
+        self.last_worker_id += 1;
+        self.last_worker_id
+    }
+
+    fn start_worker(&mut self)
+    {
+        let worker_id = self.next_worker_id();
+        let app_send = self.app_send.clone();
+        vout!("start worker {}", worker_id);
+        thread::spawn(move || {
+            let mut w = Worker::new(worker_id, app_send);
+            w.run();
+        });
     }
 
     pub fn wait_for_result(&mut self) -> Option<Val>
