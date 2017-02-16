@@ -6,7 +6,7 @@ use leema::val::{Val};
 use leema::log;
 use leema::msg::{Msg};
 
-use std::collections::{HashMap};
+use std::collections::{HashMap, LinkedList};
 use std::mem;
 use std::sync::{Arc};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -21,6 +21,7 @@ pub struct Application
     app_recv: Receiver<Msg>,
     app_send: Sender<Msg>,
     worker: HashMap<i64, Sender<Msg>>,
+    calls: LinkedList<(String, String)>,
     result: Option<Val>,
     done: AtomicBool,
     last_worker_id: i64,
@@ -36,6 +37,7 @@ impl Application
             app_recv: rx,
             app_send: tx,
             worker: HashMap::new(),
+            calls: LinkedList::new(),
             result: None,
             done: AtomicBool::new(false),
             last_worker_id: 0,
@@ -44,6 +46,7 @@ impl Application
 
     pub fn push_call(&mut self, module: &str, func: &str)
     {
+        self.calls.push_back((String::from(module), String::from(func)));
     }
 
     pub fn run(&mut self)
@@ -67,15 +70,25 @@ impl Application
             let mut w = Worker::new(worker_id, app_send);
             w.run();
         });
+        // self.worker.insert(worker_id, chan);
     }
 
     pub fn wait_for_result(&mut self) -> Option<Val>
     {
         while !self.done.load(Ordering::Relaxed) {
+            self.iterate();
             thread::yield_now();
-            self.done.store(true, Ordering::Relaxed);
+            // self.done.store(true, Ordering::Relaxed);
         }
         self.result.take()
+    }
+
+    pub fn iterate(&mut self)
+    {
+        vout!("iterate application\n");
+        while let Some((module, call)) = self.calls.pop_front() {
+            vout!("call {}.{}()\n", module, call);
+        }
     }
 
     pub fn init_module(&mut self, module: &str)

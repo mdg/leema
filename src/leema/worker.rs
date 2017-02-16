@@ -7,6 +7,7 @@ use leema::msg::{Msg};
 use std::collections::{HashMap, LinkedList};
 use std::io::{stderr, Write};
 use std::sync::mpsc::{channel, Sender, Receiver};
+use std::thread;
 
 
 pub struct Worker
@@ -37,6 +38,7 @@ impl Worker
     {
         while !self.done {
             self.iterate();
+            thread::yield_now();
         }
     }
 
