@@ -1,11 +1,19 @@
 
 
-pub enum Msg
+#[derive(Debug)]
+pub enum MsgVal
 {
     Int(i64),
-    Str(Box<String>),
+    Str(String),
     Bool(bool),
-    Hashtag(Box<String>),
+    Hashtag(String),
     Cons(Box<Msg>, Box<Msg>),
     Nil,
+}
+
+#[derive(Debug)]
+pub enum Msg
+{
+    Call(String, String),
+    RequestCode(String, String),
 }

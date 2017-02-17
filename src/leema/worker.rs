@@ -13,8 +13,9 @@ use std::thread;
 pub struct Worker
 {
     fresh: LinkedList<(Code, Frame)>,
-    code: HashMap<(String, String), Code>,
-    app_send: Sender<Msg>,
+    code: HashMap<String, HashMap<String, Code>>,
+    tx: Sender<Msg>,
+    rx: Receiver<Msg>,
     worker_id: i64,
     code_request_idx: u64,
     done: bool,
@@ -22,12 +23,13 @@ pub struct Worker
 
 impl Worker
 {
-    pub fn new(wid: i64, app_ch: Sender<Msg>) -> Worker
+    pub fn new(wid: i64, send: Sender<Msg>, recv: Receiver<Msg>) -> Worker
     {
         Worker{
             fresh: LinkedList::new(),
             code: HashMap::new(),
-            app_send: app_ch,
+            tx: send,
+            rx: recv,
             worker_id: wid,
             code_request_idx: 0,
             done: false,
@@ -44,11 +46,38 @@ impl Worker
 
     pub fn iterate(&mut self)
     {
-        vout!("iterate worker {}\n", self.worker_id);
+        // vout!("iterate worker {}\n", self.worker_id);
+        while let Result::Ok(msg) = self.rx.try_recv() {
+            self.process_msg(msg);
+        }
     }
 
-    pub fn call_func(&mut self, module: &str, func: &str)
+    pub fn process_msg(&mut self, msg: Msg)
     {
+        vout!("received message: {:?}\n", msg);
+        match msg {
+            Msg::Call(module, call) => {
+                self.create_frame(module, call);
+            }
+            Msg::RequestCode(module, call) => {
+                panic!("Cannot request code from a worker");
+            }
+        }
+    }
+
+    pub fn create_frame(&mut self, module: String, func: String)
+    {
+        let m = self.code.get(&module);
+        let code = if m.is_some() {
+            m.unwrap().get(&func)
+        } else {
+            None
+        };
+        if code.is_some() {
+            vout!("make new frame with {}.{}\n", module, func);
+        } else {
+            self.tx.send(Msg::RequestCode(module, func));
+        }
         //push_frame(get_code(module, func))
     }
 

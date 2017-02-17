@@ -65,12 +65,12 @@ impl Application
     {
         let worker_id = self.next_worker_id();
         let app_send = self.app_send.clone();
-        vout!("start worker {}", worker_id);
+        let (worker_send, worker_recv) = channel();
         thread::spawn(move || {
-            let mut w = Worker::new(worker_id, app_send);
+            let mut w = Worker::new(worker_id, app_send, worker_recv);
             w.run();
         });
-        // self.worker.insert(worker_id, chan);
+        self.worker.insert(worker_id, worker_send);
     }
 
     pub fn wait_for_result(&mut self) -> Option<Val>
@@ -85,9 +85,9 @@ impl Application
 
     pub fn iterate(&mut self)
     {
-        vout!("iterate application\n");
         while let Some((module, call)) = self.calls.pop_front() {
-            vout!("call {}.{}()\n", module, call);
+            let w = self.worker.values().next().unwrap();
+            w.send(Msg::Call(module, call));
         }
     }
 
