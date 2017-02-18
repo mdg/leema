@@ -7,7 +7,7 @@ pub enum MsgVal
     Str(String),
     Bool(bool),
     Hashtag(String),
-    Cons(Box<Msg>, Box<Msg>),
+    Cons(Box<MsgVal>, Box<MsgVal>),
     Nil,
 }
 
@@ -16,4 +16,5 @@ pub enum Msg
 {
     Call(String, String),
     RequestCode(String, String),
+    MainResult(MsgVal),
 }

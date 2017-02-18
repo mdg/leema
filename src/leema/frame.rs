@@ -147,7 +147,7 @@ pub struct Frame
     pub parent: Parent,
     pub trace: Arc<FrameTrace>,
     pub e: Env,
-    pc: i32,
+    pub pc: i32,
 }
 
 impl Frame
@@ -230,6 +230,67 @@ impl Frame
     {
         self.e.get_reg_mut(&Reg::Param(Ireg::Reg(p)))
     }
+
+
+    pub fn execute_failure(&mut self, dst: &Reg, tag: &Reg, msg: &Reg)
+    {
+        let tagval = self.e.get_reg(tag).clone();
+        let msgval = self.e.get_reg(msg).clone();
+        let f = Val::failure(tagval, msgval, self.trace.failure_here());
+        self.e.set_reg(dst, f);
+        self.pc += 1;
+    }
+
+    pub fn execute_match_pattern(&mut self, jmp: i16, patt: &Reg, input: &Reg)
+    {
+        vout!("execute_match_pattern({}, {:?}, {:?})\n", jmp, patt, input);
+        let e: &mut Env = &mut self.e;
+        let matches = {
+            let pval = e.get_reg(&patt);
+            let ival = e.get_reg(&input);
+vout!("match input: {:?}={:?}\n", pval, ival);
+            Val::pattern_match(pval, ival)
+        };
+vout!("matches: {:?}\n", matches);
+        match matches {
+            Some(assignments) => {
+                for a in assignments {
+                    let (dst, v) = a;
+                    e.set_reg(&dst, v);
+                }
+                self.pc += 1;
+            }
+            Nothing => self.pc += jmp as i32,
+        }
+    }
+
+    pub fn execute_strcat(&mut self, dstreg: &Reg, srcreg: &Reg) -> Event
+    {
+        let result = {
+            let src = self.e.get_reg(srcreg);
+            if src.is_failure() {
+                let mut f = src.clone();
+                match &mut f {
+                    &mut Val::Failure(_, _, ref mut trace) => {
+                        *trace = FrameTrace::propagate_down(trace, &self.name);
+                    }
+                    ff => {
+                        panic!("is failure, but not a failure: {:?}", ff);
+                    }
+                }
+                self.parent.set_result(f);
+                return Event::Complete(false)
+            } else if src.is_future() {
+                // oops, not ready to do this yet, let's bail and wait
+                return Event::FutureWait(srcreg.clone())
+            }
+            let dst = self.e.get_reg(dstreg);
+            Val::Str(Arc::new(format!("{}{}", dst, src)))
+        };
+        self.e.set_reg(dstreg, result);
+        self.pc += 1;
+        Event::Uneventful
+    }
 }
 
 /*
@@ -266,46 +327,7 @@ pub enum Event
     Complete(bool),
 }
 
-pub struct Worker
-{
-    fresh: LinkedList<(Code, Frame)>,
-    futures: LinkedList<(Reg, Code, Frame)>,
-    event: Event,
-    pub result: Val,
-    //io: IOQueue,
-    app: Arc<Mutex<OldApplication>>,
-    code: CodeMap,
-    done: bool,
-}
-
-pub struct OldApplication
-{
-}
-
-impl OldApplication
-{
-    pub fn wait_until_done(app: &Arc<Mutex<OldApplication>>) -> Option<Val>
-    {
-        let mut result = None;
-        let mut done = false;
-        while !done {
-//write!(stderr(), "wait_until_done lock released?\n");
-            thread::yield_now();
-            //thread::sleep(time::Duration::new(1, 0));
-        }
-        /*
-        let &(ref lock, ref cond) = &*self.done;
-        let guard = lock.lock().unwrap();
-        cond.wait(guard);
-        while !self.done.load(Ordering::Relaxed) {
-            //println!("still not done");
-        }
-        */
-        result
-    }
-}
-
-fn execute_const_val(curf: &mut Frame, reg: &Reg, v: &Val)
+pub fn execute_const_val(curf: &mut Frame, reg: &Reg, v: &Val)
 {
 vout!("execute_const_val({:?}, {:?})\n", reg, v);
     curf.e.set_reg(reg, v.clone());
@@ -313,7 +335,7 @@ vout!("e: {:?}\n", curf.e);
     curf.pc = curf.pc + 1;
 }
 
-fn execute_constructor(curf: &mut Frame, reg: &Reg, typ: &Type)
+pub fn execute_constructor(curf: &mut Frame, reg: &Reg, typ: &Type)
 {
 vout!("execute_constructor({:?}, {:?})\n", reg, typ);
     if let &Type::Struct(_, nfields) = typ {
@@ -326,7 +348,7 @@ vout!("execute_constructor({:?}, {:?})\n", reg, typ);
     }
 }
 
-fn execute_copy(curf: &mut Frame, dst: &Reg, src: &Reg) {
+pub fn execute_copy(curf: &mut Frame, dst: &Reg, src: &Reg) {
     let src_val = curf.e.get_reg(src).clone();
     curf.e.set_reg(dst, src_val);
     curf.pc = curf.pc + 1;
@@ -336,10 +358,9 @@ fn execute_copy(curf: &mut Frame, dst: &Reg, src: &Reg) {
  * fork the frame and frame state
  * add it to the fresh queue
  * jump current frame state past the fork block
- */
-fn execute_fork(w: &mut Worker, curf: &mut Frame,
+fn execute_fork(curf: &mut Frame,
     dst: &Reg, freg: &Reg, argreg: &Reg
-) {
+) -> Event {
     println!("execute_fork");
 
     // args are empty for a fork
@@ -352,15 +373,16 @@ fn execute_fork(w: &mut Worker, curf: &mut Frame,
     curf.e.set_reg(dst, Val::future(ready, rx));
 
     curf.pc = curf.pc + 1;
-    w.event = Event::Fork;
+    Event::Fork
 }
+ */
 
-fn execute_jump(curf: &mut Frame, jmp: i16)
+pub fn execute_jump(curf: &mut Frame, jmp: i16)
 {
     curf.pc += jmp as i32;
 }
 
-fn execute_jump_if_not(curf: &mut Frame, jmp: i16, reg: &Reg)
+pub fn execute_jump_if_not(curf: &mut Frame, jmp: i16, reg: &Reg)
 {
 vout!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
     let test_val = curf.e.get_reg(reg);
@@ -377,30 +399,7 @@ vout!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
     }
 }
 
-fn execute_match_pattern(curf: &mut Frame, jmp: i16, patt: &Reg, input: &Reg)
-{
-    vout!("execute_match_pattern({}, {:?}, {:?})\n", jmp, patt, input);
-    let e: &mut Env = &mut curf.e;
-    let matches = {
-        let pval = e.get_reg(&patt);
-        let ival = e.get_reg(&input);
-vout!("match input: {:?}={:?}\n", pval, ival);
-        Val::pattern_match(pval, ival)
-    };
-vout!("matches: {:?}\n", matches);
-    match matches {
-        Some(assignments) => {
-            for a in assignments {
-                let (dst, v) = a;
-                e.set_reg(&dst, v);
-            }
-            curf.pc += 1;
-        }
-        Nothing => curf.pc += jmp as i32,
-    }
-}
-
-fn execute_list_cons(curf: &mut Frame, dst: &Reg, src_reg: &Reg)
+pub fn execute_list_cons(curf: &mut Frame, dst: &Reg, src_reg: &Reg)
 {
     let src;
     {
@@ -410,41 +409,12 @@ fn execute_list_cons(curf: &mut Frame, dst: &Reg, src_reg: &Reg)
     curf.pc += 1;
 }
 
-fn execute_list_create(curf: &mut Frame, dst: &Reg) {
+pub fn execute_list_create(curf: &mut Frame, dst: &Reg) {
     curf.e.set_reg(&dst, list::empty());
     curf.pc = curf.pc + 1;
 }
 
-fn execute_strcat(w: &mut Worker, curf: &mut Frame, dstreg: &Reg, srcreg: &Reg)
-{
-    let result = {
-        let src = curf.e.get_reg(srcreg);
-        if src.is_failure() {
-            let mut f = src.clone();
-            match &mut f {
-                &mut Val::Failure(_, _, ref mut trace) => {
-                    *trace = FrameTrace::propagate_down(trace, &curf.name);
-                }
-                ff => {
-                    panic!("is failure, but not a failure: {:?}", ff);
-                }
-            }
-            curf.parent.set_result(f);
-            w.event = Event::Complete(false);
-            return;
-        } else if src.is_future() {
-            // oops, not ready to do this yet, let's bail and wait
-            w.event = Event::FutureWait(srcreg.clone());
-            return;
-        }
-        let dst = curf.e.get_reg(dstreg);
-        Val::Str(Arc::new(format!("{}{}", dst, src)))
-    };
-    curf.e.set_reg(dstreg, result);
-    curf.pc = curf.pc + 1;
-}
-
-fn execute_tuple_create(curf: &mut Frame, dst: &Reg, ref sz: i8)
+pub fn execute_tuple_create(curf: &mut Frame, dst: &Reg, ref sz: i8)
 {
     vout!("execute_tuple_create({:?}, {})\n", dst, sz);
     let tupsize: usize = *sz as usize;
@@ -452,17 +422,8 @@ fn execute_tuple_create(curf: &mut Frame, dst: &Reg, ref sz: i8)
     curf.pc = curf.pc + 1;
 }
 
-fn execute_load_func(curf: &mut Frame, dst: &Reg, ms: &ModSym)
+pub fn execute_load_func(curf: &mut Frame, dst: &Reg, ms: &ModSym)
 {
-    curf.pc = curf.pc + 1;
-}
-
-fn execute_failure(curf: &mut Frame, dst: &Reg, tag: &Reg, msg: &Reg)
-{
-    let tagval = curf.e.get_reg(tag).clone();
-    let msgval = curf.e.get_reg(msg).clone();
-    let f = Val::failure(tagval, msgval, curf.trace.failure_here());
-    curf.e.set_reg(dst, f);
     curf.pc = curf.pc + 1;
 }
 
@@ -487,7 +448,7 @@ fn call_arg_failure(args: &Val) -> Option<&Val>
  * create a new frame w/ func code and new frame state
  * set curf.flag to Called(new_frame)
  */
-fn execute_call(w: &mut Worker, curf: &mut Frame, dst: &Reg, freg: &Reg, argreg: &Reg)
+pub fn execute_call(curf: &mut Frame, dst: &Reg, freg: &Reg, argreg: &Reg)
 {
     let ref fname_val = curf.e.get_reg(freg);
     match *fname_val {
@@ -527,286 +488,6 @@ fn execute_call(w: &mut Worker, curf: &mut Frame, dst: &Reg, freg: &Reg, argreg:
     }
 }
 
-
-/**
- * main_loop
- *   get fresh/active frame
- *     iterate until !active
- *   push frame
- *   rotate
- */
-impl Worker
-{
-    pub fn new(app: Arc<Mutex<OldApplication>>) -> Worker
-    {
-        let done = {
-vout!("lock app, new worker\n");
-            let _app = app.lock().unwrap();
-            //_app.done.clone()
-        };
-        Worker {
-            fresh: LinkedList::new(),
-            futures: LinkedList::new(),
-            event: Event::Uneventful,
-            result: Val::Int(0),
-            app: app,
-            code: HashMap::new(),
-            done: false,
-        }
-    }
-
-    pub fn execute(&mut self, curf: &mut Frame, ops: &OpVec)
-    {
-        let op = ops.get(curf.pc as usize).unwrap();
-        vout!("exec: {:?}\n", op);
-        match op {
-            &Op::ConstVal(ref dst, ref v) => {
-                execute_const_val(curf, dst, v);
-            }
-            &Op::Constructor(ref dst, ref typ) => {
-                execute_constructor(curf, dst, typ);
-            }
-            &Op::Copy(ref dst, ref src) => {
-                execute_copy(curf, dst, src);
-            }
-            &Op::Fork(ref dst, ref freg, ref args) => {
-                execute_fork(self, curf, dst, freg, args);
-            }
-            &Op::Jump(jmp) => {
-                execute_jump(curf, jmp);
-            }
-            &Op::JumpIfNot(jmp, ref reg) => {
-                execute_jump_if_not(curf, jmp, reg);
-            }
-            &Op::MatchPattern(jmp, ref patt, ref input) => {
-                execute_match_pattern(curf, jmp, patt, input);
-            }
-            &Op::ListCons(ref dst, ref src) => {
-                execute_list_cons(curf, dst, src);
-            }
-            &Op::ListCreate(ref dst) => {
-                execute_list_create(curf, dst);
-            }
-            &Op::TupleCreate(ref dst, ref sz) => {
-                execute_tuple_create(curf, dst, *sz);
-            }
-            &Op::StrCat(ref dst, ref src) => {
-                execute_strcat(self, curf, dst, src);
-            }
-            &Op::LoadFunc(ref reg, ref modsym) => {
-                execute_load_func(curf, reg, modsym);
-            }
-            &Op::ApplyFunc(ref dst, ref func, ref args) => {
-                execute_call(self, curf, dst, func, args);
-            }
-            &Op::Return => {
-                self.event = Event::Complete(true);
-            }
-            &Op::SetResult(ref dst) => {
-                if dst == &Reg::Void {
-                    panic!("return void at {} in {:?}", curf.pc, ops);
-                }
-                curf.parent.set_result(curf.e.get_reg(dst).clone());
-                curf.pc += 1;
-            }
-            &Op::Failure(ref dst, ref tag, ref msg) => {
-                execute_failure(curf, dst, tag, msg);
-            }
-        }
-    }
-
-    fn add_fork(&mut self, key: &CodeKey, newf: Frame)
-    {
-vout!("lock app, add_fork\n");
-    }
-
-    fn iterate_leema(&mut self, curf: &mut Frame, ops: &OpVec)
-    {
-        while let Event::Uneventful = self.event {
-            self.execute(curf, ops);
-        }
-    }
-
-    pub fn take_event(&mut self) -> Event
-    {
-        let mut e = Event::Uneventful;
-        mem::swap(&mut e, &mut self.event);
-        e
-    }
-
-    pub fn iterate(&mut self, code: Code, mut curf: Frame)
-    {
-vout!("iterate\n");
-        match code {
-            Code::Leema(ref ops) => {
-                self.iterate_leema(&mut curf, ops);
-            }
-            Code::Rust(ref rf) => {
-                rf(&mut curf);
-                self.event = Event::Complete(true);
-            }
-            Code::Inter(ref ix) => {
-                panic!("cannot execute partial code");
-            }
-        }
-        match self.take_event() {
-            Event::Complete(success) => {
-                if success {
-                    // analyze successful function run
-                } else {
-                    vout!("function call failed\n");
-                }
-                match curf.parent {
-                    Parent::Caller(dst, code, mut pf) => {
-                        self.fresh.push_back((code, *pf));
-                    }
-                    Parent::Repl(res) => {
-                        /*
-vout!("lock app, repl done in iterate\n");
-                        let mut _app = self.app.lock().unwrap();
-                        _app.set_result(res);
-                        */
-                    }
-                    Parent::Main(res) => {
-vout!("finished main func\n");
-                        {
-vout!("lock app, main done in iterate\n");
-                            let mut _app = self.app.lock().unwrap();
-                            // _app.set_result(res);
-                            // _app.done.store(true, Ordering::Relaxed);
-                            self.done = true;
-                        }
-                        //self.notify_done();
-                    }
-                    Parent::Fork(mut ready, mut tx) => {
-                        println!("finished a fork!");
-                        /*
-                        // still need to pass the
-                        // result from the fork
-                        // to the parent
-                        */
-                        let r = curf.e.takeResult();
-                        println!("send({:?})", r);
-                        tx.send(r);
-                        ready.store(
-                            true,
-                            Ordering::Relaxed,
-                        );
-                    }
-                    Parent::Null => {
-                        // this shouldn't have happened
-                    }
-                }
-            }
-            Event::Call(dst, ch_code, mut ch_frame) => {
-                ch_frame.parent = Parent::Caller(
-                    dst,
-                    code,
-                    Box::new(curf),
-                );
-                self.fresh.push_back((ch_code, ch_frame));
-            }
-            Event::FutureWait(reg) => {
-                println!("wait for future {:?}", reg);
-                self.futures.push_back((reg, code, curf));
-            }
-            Event::IOWait => {
-                println!("do I/O");
-            }
-            Event::Fork => {
-                self.fresh.push_back((code, curf));
-                // end this iteration,
-            }
-            Event::Uneventful => {
-                panic!("We shouldn't be here with uneventful");
-            }
-        }
-    }
-
-    pub fn rotate(&mut self) -> Option<(Code, Frame)>
-    {
-vout!("rotate\n");
-        self.check_futures();
-//println!("worker.app.try_lock()");
-        let lock_result = self.app.try_lock();
-        if lock_result.is_err() {
-vout!("rotate try_lock is_err\n");
-            return None;
-        }
-//println!("lock_result.unwrap()");
-        let mut app = lock_result.unwrap();
-        /*
-        match app.pop_new_frame() {
-            Some((codekey, new_frame)) => {
-                let new_code = app.find_code(&codekey);
-                if new_code.is_none() {
-                    panic!("can't find new code");
-                }
-                self.fresh.push_front((
-                    new_code.unwrap(),
-                    new_frame,
-                    ));
-            }
-            None => {
-                // nothing
-            }
-        }
-        */
-
-        if self.fresh.is_empty() {
-            return None;
-        }
-        self.fresh.pop_front()
-    }
-
-    pub fn check_futures(&mut self)
-    {
-        let mut newfutures = LinkedList::new();
-        loop {
-            let mut ff = self.futures.pop_front();
-            if ff.is_none() {
-                break;
-            }
-            match ff.unwrap() {
-                (reg, code, mut frame) => {
-                    let result = frame.receive_future(&reg);
-                    if result.is_some() {
-                        vout!("found future ready {:?}\n", result);
-                        frame.e.set_reg(&reg, result.unwrap());
-                        self.fresh.push_back((code, frame));
-                    } else {
-                        vout!("future not ready {:?}\n", reg);
-                        newfutures.push_back((reg, code, frame));
-                    }
-                }
-            }
-        }
-    }
-
-    /*
-    fn notify_done(&mut self)
-    {
-        let &(_, ref cond) = &*self.done;
-        cond.notify_one();
-    }
-    */
-
-    pub fn gotowork(&mut self) -> ()
-    {
-vout!("local gotowork\n");
-        while !self.done {
-vout!("worker not done\n");
-            match self.rotate() {
-                None => {
-                    thread::yield_now();
-                },
-                Some((code, curf)) => {
-                    self.iterate(code, curf);
-                }
-            }
-        }
-    }
-}
 
 /*
 process_set
