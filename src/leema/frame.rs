@@ -2,7 +2,7 @@
 use leema::log;
 use leema::val::{Val, Env, FutureVal, Type};
 use leema::reg::{Reg, Ireg};
-use leema::code::{self, CodeKey, Code, CodeMap, Op, OpVec, ModSym, RustFunc};
+use leema::code::{self, CodeKey, Code, Op, OpVec, ModSym, RustFunc};
 use leema::list;
 use std::collections::{HashMap, LinkedList};
 use std::collections::hash_map;

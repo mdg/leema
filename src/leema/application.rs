@@ -1,7 +1,7 @@
 use leema::loader::{Interloader};
 use leema::program;
 use leema::worker::{Worker};
-use leema::code::{Code, CodeMap};
+use leema::code::{Code};
 use leema::val::{Val};
 use leema::log;
 use leema::msg::{Msg};

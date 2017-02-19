@@ -129,40 +129,6 @@ pub enum CodeKey
     Repl(isize),
 }
 
-pub type CodeMap = HashMap<CodeKey, Code>;
-
-/*
-#[derive(Clone)]
-#[derive(Debug)]
-pub struct Lib
-{
-    book: HashMap<String, Code>,
-    main: Option<Code>,
-    ext: Option<Code>,
-}
-
-impl Lib
-{
-    fn new() -> Lib
-    {
-        Lib{
-            book: HashMap::new(),
-            main: None,
-            ext: None,
-        }
-    }
-
-    pub fn add(&self, name: String, c: Code)
-    {
-        match name {
-            "main" => {
-                self.main = Some(c);
-            }
-            "" => 
-        }
-    }
-}
-*/
 
 pub fn make_ops(input: &Iexpr) -> OpVec
 {

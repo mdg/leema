@@ -1,5 +1,5 @@
 
-use leema::code::{self, CodeKey, Code, CodeMap, Op, OpVec, ModSym, RustFunc};
+use leema::code::{self, CodeKey, Code, Op, OpVec, ModSym, RustFunc};
 use leema::frame::{self, Event, Frame, Parent};
 use leema::log;
 use leema::msg::{Msg};
