@@ -135,11 +135,20 @@ impl Worker
 
     pub fn process_msg(&mut self, msg: Msg)
     {
-        vout!("received message: {:?}\n", msg);
         match msg {
             Msg::Call(module, call) => {
                 vout!("worker call {}.{}()\n", module, call);
                 self.create_root_frame(module, call);
+            }
+            Msg::FoundCode(id, module, func, code) => {
+                vout!("found code for frame: {}\n", id);
+                let dupe_code = code.clone();
+                let mut new_mod = HashMap::new();
+                new_mod.insert(func, code);
+                self.code.insert(module, new_mod);
+                let wait = Wait::new(WaitType::Code, id);
+                let frame = self.waiting.remove(&wait).unwrap();
+                self.fresh.push_back((dupe_code, frame));
             }
             _ => {
                 panic!("Must be a message for the app: {:?}", msg);

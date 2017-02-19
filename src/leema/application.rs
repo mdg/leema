@@ -100,7 +100,7 @@ impl Application
             Msg::RequestCode(worker_id, frame, module, func) => {
                 let code = self.prog.load_code(&module, &func);
                 let worker = self.worker.get(&worker_id).unwrap();
-                worker.send(Msg::FoundCode(frame, code.clone()));
+                worker.send(Msg::FoundCode(frame, module, func, code.clone()));
             }
             Msg::MainResult(mv) => {
                 self.result = Some(Val::from_msg(mv));
