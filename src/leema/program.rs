@@ -1,3 +1,4 @@
+use leema::code::{self, Code};
 use leema::iexpr::{Iexpr};
 use leema::inter::{self, Version, Intermod};
 use leema::module::{ModuleSource, ModuleInterface, ModulePreface, MacroDef};
@@ -19,6 +20,7 @@ pub struct Lib
     proto: HashMap<String, Rc<Protomod>>,
     inter: HashMap<String, Rc<Intermod>>,
     typed: HashMap<String, Intermod>,
+    code: HashMap<String, HashMap<String, Code>>,
 }
 
 impl Lib
@@ -33,8 +35,9 @@ impl Lib
             proto: HashMap::new(),
             inter: HashMap::new(),
             typed: HashMap::new(),
+            code: HashMap::new(),
         };
-        proglib.load_module("prefab");
+        proglib.load_inter("prefab");
         proglib
     }
 
@@ -43,22 +46,29 @@ impl Lib
         &self.loader.main_mod
     }
 
-    pub fn typecheck_main(&mut self, modname: &str, funcname: &str)
+    pub fn load_code(&mut self, modname: &str, funcname: &str) -> &Code
     {
-            /*
-        if !self.typed.contains_key(&(modname, funcname)) {
-            self.deep_typecheck(modname, funcname);
-            self.typed.insert(
-                (String::from(modname), String::from(funcname)),
-                ifunc,
-            );
-        }
-            */
-    }
+        let (has_mod, has_func) = if self.code.contains_key(modname) {
+            let old_mod = self.code.get(modname).unwrap();
+            (true, old_mod.contains_key(funcname))
+        } else {
+            (false, false)
+        };
 
-    pub fn load_module(&mut self, modname: &str)
-    {
-        self.load_inter(modname)
+        if !has_func {
+            let new_code = self.read_code(modname, funcname);
+
+            if has_mod {
+                let mut old_mod = self.code.get_mut(modname).unwrap();
+                old_mod.insert(String::from(funcname), new_code);
+            } else {
+                let mut new_mod = HashMap::new();
+                new_mod.insert(String::from(funcname), new_code);
+                self.code.insert(String::from(modname), new_mod);
+            }
+        }
+
+        self.code.get(modname).unwrap().get(funcname).unwrap()
     }
 
     pub fn load_inter(&mut self, modname: &str)
@@ -117,6 +127,16 @@ impl Lib
         let imports = self.import_protos(modname, &preface.imports);
         let proto = self.proto.get(modname).unwrap();
         Intermod::compile(&proto, &imports)
+    }
+
+    pub fn read_code(&mut self, modname: &str, funcname: &str) -> Code
+    {
+        self.load_inter(modname);
+
+        let inter = self.inter.get(modname).unwrap();
+        let fix = inter.interfunc.get(funcname).unwrap();
+        let ops = code::make_ops(fix);
+        Code::Leema(Arc::new(ops))
     }
 
     pub fn deep_typecheck<'a, 'b>(&'a mut self, modname: &'b str, funcname: &'b str)

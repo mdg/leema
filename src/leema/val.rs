@@ -3,7 +3,6 @@ use leema::sexpr;
 use leema::list;
 use leema::frame::{FrameTrace};
 use leema::log;
-use leema::msg::{MsgVal};
 
 use std::fmt::{self};
 use std::collections::{BTreeMap, HashMap};
@@ -225,6 +224,17 @@ pub enum SexprType {
     BooleanAnd,
     BooleanOr,
     */
+}
+
+#[derive(Debug)]
+pub enum MsgVal
+{
+    Int(i64),
+    Str(String),
+    Bool(bool),
+    Hashtag(String),
+    Cons(Box<MsgVal>, Box<MsgVal>),
+    Nil,
 }
 
 #[derive(Clone)]

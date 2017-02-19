@@ -89,6 +89,10 @@ fn real_main() -> i32
     } else if args.arg_cmd == "typecheck" {
         let mut prog = program::Lib::new(inter);
         prog.deep_typecheck(&modkey.name, "main");
+    } else if args.arg_cmd == "code" {
+        let mut prog = program::Lib::new(inter);
+        let code = prog.load_code(&modkey.name, "main");
+        println!("code: {:?}", code);
     } else if args.arg_cmd == "run" {
         let prog = program::Lib::new(inter);
         let mut app = Application::new(prog);

@@ -97,7 +97,10 @@ impl Application
     pub fn process_msg(&mut self, msg: Msg)
     {
         match msg {
-            Msg::RequestCode(worker, frame, module, func) => {
+            Msg::RequestCode(worker_id, frame, module, func) => {
+                let code = self.prog.load_code(&module, &func);
+                let worker = self.worker.get(&worker_id).unwrap();
+                worker.send(Msg::FoundCode(frame, code.clone()));
             }
             Msg::MainResult(mv) => {
                 self.result = Some(Val::from_msg(mv));
