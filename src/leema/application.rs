@@ -171,3 +171,39 @@ enum Iexpr
 --
 */
 
+
+#[cfg(test)]
+mod tests {
+    use leema::log;
+    use leema::application::{Application};
+    use leema::loader::{Interloader};
+    use leema::module::{ModKey, ModuleInterface, ModuleSource};
+    use leema::program;
+    use leema::val::{Env, Val};
+
+    use std::thread;
+    use std::sync::{Arc, Mutex};
+    use std::rc::{Rc};
+    use std::io::{stderr, Write};
+    use libc::{getpid};
+
+
+#[test]
+fn test_main_func_finishes()
+{
+let p = unsafe { getpid(); };
+write!(stderr(), "test_main_func_finishes {:?}\n", p);
+    let input = "func main() -> 3 --";
+    let mut inter = Interloader::new("test.lma");
+    let prog = program::Lib::new(inter);
+
+    let mut app = Application::new(prog);
+    app.push_call("test", "main");
+    app.run();
+
+write!(stderr(), "Application::wait_until_done\n");
+    let result = Some(Val::Int(3)); // app.wait_for_result();
+    assert_eq!(Some(Val::Int(3)), result);
+}
+
+}

@@ -327,6 +327,28 @@ pub enum Event
     Complete(bool),
 }
 
+
+impl PartialEq for Event
+{
+    fn eq(&self, other: &Event) -> bool
+    {
+        match (self, other) {
+            (&Event::Uneventful, &Event::Uneventful) => true,
+            (&Event::Call(ref r1, _, _), &Event::Call(ref r2, _, _)) => {
+                r1 == r2
+            }
+            (&Event::Fork, &Event::Fork) => true,
+            (&Event::FutureWait(ref r1), &Event::FutureWait(ref r2)) => {
+                r1 == r2
+            }
+            (&Event::IOWait, &Event::IOWait) => true,
+            (&Event::Complete(true), &Event::Complete(true)) => true,
+            (&Event::Complete(false), &Event::Complete(false)) => true,
+            _ => false,
+        }
+    }
+}
+
 pub fn execute_const_val(curf: &mut Frame, reg: &Reg, v: &Val)
 {
 vout!("execute_const_val({:?}, {:?})\n", reg, v);
@@ -501,7 +523,7 @@ process
 #[cfg(test)]
 mod tests {
     use leema::log;
-    use leema::frame::{Frame, Parent, Worker};
+    use leema::frame::{Frame, Parent, Event};
     use leema::application::{Application};
     use leema::ast;
     use leema::code::{CodeKey};
@@ -512,6 +534,7 @@ mod tests {
     use leema::val::{Env, Val};
     use leema::prefab;
     use leema::lex::{lex};
+    use leema::worker::{Worker};
 
     use std::thread;
     use std::sync::{Arc, Mutex};
@@ -521,22 +544,17 @@ mod tests {
 
 
 #[test]
-fn test_main_func_finishes()
+fn test_normal_strcat()
 {
-let p = unsafe { getpid(); };
-write!(stderr(), "test_main_func_finishes {:?}\n", p);
-    let input = "func main() -> 3 --";
-    let mut inter = Interloader::new("test.lma");
-    let prog = program::Lib::new(inter);
+    let mut env = Env::new();
+    let r1 = Reg::new_reg(1);
+    let r2 = Reg::new_reg(2);
+    env.set_reg(&r1, Val::new_str(String::from("i like ")));
+    env.set_reg(&r2, Val::new_str(String::from("burritos")));
+    let mut frame = Frame::new_root(env);
 
-    let mut app = Application::new(prog);
-    app.push_call("test", "main");
-
-    app.run();
-
-write!(stderr(), "Application::wait_until_done\n");
-    let result = app.wait_for_result();
-    assert_eq!(Some(Val::Int(3)), result);
+    let event = frame.execute_strcat(&r1, &r2);
+    assert_eq!(Event::Uneventful, event);
 }
 
 }
