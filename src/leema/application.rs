@@ -9,7 +9,6 @@ use leema::msg::{Msg};
 use std::collections::{HashMap, LinkedList};
 use std::mem;
 use std::sync::{Arc};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::thread;
 use std::io::{stderr, Write};
@@ -23,7 +22,7 @@ pub struct Application
     worker: HashMap<i64, Sender<Msg>>,
     calls: LinkedList<(String, String)>,
     result: Option<Val>,
-    done: AtomicBool,
+    done: bool,
     last_worker_id: i64,
 }
 
@@ -39,7 +38,7 @@ impl Application
             worker: HashMap::new(),
             calls: LinkedList::new(),
             result: None,
-            done: AtomicBool::new(false),
+            done: false,
             last_worker_id: 0,
         }
     }
@@ -75,7 +74,7 @@ impl Application
 
     pub fn wait_for_result(&mut self) -> Option<Val>
     {
-        while !self.done.load(Ordering::Relaxed) {
+        while !self.done {
             self.iterate();
             thread::yield_now();
             // self.done.store(true, Ordering::Relaxed);
@@ -89,14 +88,25 @@ impl Application
             let w = self.worker.values().next().unwrap();
             w.send(Msg::Call(module, call));
         }
+
+        while let Result::Ok(msg) = self.app_recv.try_recv() {
+            self.process_msg(msg);
+        }
     }
 
-    pub fn init_module(&mut self, module: &str)
+    pub fn process_msg(&mut self, msg: Msg)
     {
-    }
-
-    pub fn start_workers(&mut self)
-    {
+        match msg {
+            Msg::RequestCode(worker, frame, module, func) => {
+            }
+            Msg::MainResult(mv) => {
+                self.result = Some(Val::from_msg(mv));
+                self.done = true;
+            }
+            _ => {
+                panic!("Probable worker msg: {:?}", msg);
+            }
+        }
     }
 
     pub fn take_result(&mut self) -> Option<Val>
@@ -202,7 +212,7 @@ write!(stderr(), "test_main_func_finishes {:?}\n", p);
     app.run();
 
 write!(stderr(), "Application::wait_until_done\n");
-    let result = Some(Val::Int(3)); // app.wait_for_result();
+    let result = app.wait_for_result();
     assert_eq!(Some(Val::Int(3)), result);
 }
 

@@ -4,6 +4,7 @@ use leema::frame::{self, Event, Frame, Parent};
 use leema::log;
 use leema::msg::{Msg};
 use leema::reg::{Reg};
+use leema::val::{Env};
 
 use std::collections::{HashMap, LinkedList};
 use std::io::{stderr, Write};
@@ -13,16 +14,48 @@ use std::sync::mpsc::{channel, Sender, Receiver};
 use std::thread;
 
 
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(Eq)]
+#[derive(Hash)]
+enum WaitType
+{
+    Code,
+    IO,
+}
+
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(Eq)]
+#[derive(Hash)]
+struct Wait
+{
+    typ: WaitType,
+    frame_id: i64,
+}
+
+impl Wait
+{
+    fn new(typ: WaitType, f: i64) -> Wait
+    {
+        Wait{
+            typ: typ,
+            frame_id: f,
+        }
+    }
+}
+
 pub struct Worker
 {
     fresh: LinkedList<(Code, Frame)>,
+    waiting: HashMap<Wait, Frame>,
     code: HashMap<String, HashMap<String, Code>>,
     event: Event,
     tx: Sender<Msg>,
     rx: Receiver<Msg>,
     //io: IOQueue,
-    worker_id: i64,
-    code_request_idx: u64,
+    id: i64,
+    next_frame_id: i64,
     done: bool,
 }
 
@@ -39,12 +72,13 @@ impl Worker
     {
         Worker{
             fresh: LinkedList::new(),
+            waiting: HashMap::new(),
             code: HashMap::new(),
             event: Event::Uneventful,
             tx: send,
             rx: recv,
-            worker_id: wid,
-            code_request_idx: 0,
+            id: wid,
+            next_frame_id: 0,
             done: false,
         }
     }
@@ -54,11 +88,6 @@ impl Worker
         let mut e = Event::Uneventful;
         mem::swap(&mut e, &mut self.event);
         e
-    }
-
-    pub fn pop_fresh(&mut self) -> Option<(Code, Frame)>
-    {
-        self.fresh.pop_front()
     }
 
     pub fn run(&mut self)
@@ -71,7 +100,7 @@ impl Worker
 
     pub fn run_once(&mut self)
     {
-        vout!("iterate worker {}\n", self.worker_id);
+        vout!("iterate worker {}\n", self.id);
         while let Result::Ok(msg) = self.rx.try_recv() {
             self.process_msg(msg);
         }
@@ -110,7 +139,7 @@ impl Worker
         match msg {
             Msg::Call(module, call) => {
                 vout!("worker call {}.{}()\n", module, call);
-                self.create_frame(module, call);
+                self.create_root_frame(module, call);
             }
             _ => {
                 panic!("Must be a message for the app: {:?}", msg);
@@ -118,41 +147,49 @@ impl Worker
         }
     }
 
-    pub fn create_frame(&mut self, module: String, func: String)
+    pub fn create_root_frame(&mut self, module: String, func: String)
     {
-        let m = self.code.get(&module);
-        let code = if m.is_some() {
-            m.unwrap().get(&func)
-        } else {
-            None
+        let opt_code = match self.code.get(&module) {
+            Some(ref m) => {
+                match m.get(&func) {
+                    Some(ref code) => Some((*code).clone()),
+                    None => None,
+                }
+            }
+            None => None,
         };
-        if code.is_some() {
-            vout!("make new frame with {}.{}\n", module, func);
-        } else {
-            vout!("lookup code in application {}.{}\n", module, func);
-            self.tx.send(Msg::RequestCode(module, func));
+        let id = self.next_frame_id;
+        self.next_frame_id += 1;
+        let env = Env::new();
+        let frame = Frame::new_root(id, env);
+        match opt_code {
+            Some(code) => {
+                vout!("make new frame with {}.{}\n", module, func);
+                self.fresh.push_back((code, frame));
+            }
+            None => {
+                vout!("lookup code in application {}.{}\n", module, func);
+                self.request_code(frame, module, func);
+            }
         }
-        //push_frame(get_code(module, func))
     }
 
-    /*
-    pub fn get_code(&mut self, module: &str, func: &str)
+    fn request_code(&mut self, f: Frame, mname: String, fname: String)
     {
-        c = self.code.find(module, func);
-        if c.is_none() {
-            i = self.new_code_request();
-            c = self.app_channel.push(CodeRequest(i, module, func));
-            frame.wait_on_code(i)
-        }
-        c
+        let frame_id = f.id;
+        let wait = Wait::new(WaitType::Code, frame_id);
+        self.waiting.insert(wait, f);
+        self.tx.send(Msg::RequestCode(self.id, frame_id, mname, fname));
     }
-    */
 
-    pub fn new_code_request(&mut self) -> u64
+    fn pop_fresh(&mut self) -> Option<(Code, Frame)>
     {
-        let idx = self.code_request_idx;
-        self.code_request_idx += 1;
-        idx
+        self.fresh.pop_front()
+    }
+
+    fn push_fresh(&mut self, code: Code, f: Frame)
+    {
+        self.fresh.push_back((code, f))
     }
 
     pub fn execute_leema_op(&mut self, curf: &mut Frame, ops: &OpVec)

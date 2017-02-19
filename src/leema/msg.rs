@@ -15,6 +15,6 @@ pub enum MsgVal
 pub enum Msg
 {
     Call(String, String),
-    RequestCode(String, String),
+    RequestCode(i64, i64, String, String),
     MainResult(MsgVal),
 }

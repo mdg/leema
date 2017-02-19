@@ -3,6 +3,8 @@ use leema::sexpr;
 use leema::list;
 use leema::frame::{FrameTrace};
 use leema::log;
+use leema::msg::{MsgVal};
+
 use std::fmt::{self};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
@@ -727,6 +729,41 @@ impl Val {
             _ => {
                 write!(f, "something else: {:?}/{:?}", st, x)
             }
+        }
+    }
+
+    pub fn to_msg(&self) -> MsgVal
+    {
+        match self {
+            &Val::Int(i) => MsgVal::Int(i),
+            &Val::Bool(b) => MsgVal::Bool(b),
+            &Val::Str(ref s) => MsgVal::Str((**s).clone()),
+            &Val::Hashtag(ref t) => MsgVal::Hashtag((**t).clone()),
+            &Val::Cons(ref head, ref tail) => {
+                let msghead = Box::new(head.to_msg());
+                let msgtail = Box::new(tail.to_msg());
+                MsgVal::Cons(msghead, msgtail)
+            }
+            &Val::Nil => MsgVal::Nil,
+            _ => {
+                panic!("Not yet convertable to a msg: {:?}", self);
+            }
+        }
+    }
+
+    pub fn from_msg(mv: MsgVal) -> Val
+    {
+        match mv {
+            MsgVal::Int(i) => Val::Int(i),
+            MsgVal::Bool(b) => Val::Bool(b),
+            MsgVal::Str(s) => Val::new_str(s),
+            MsgVal::Hashtag(s) => Val::hashtag(s),
+            MsgVal::Cons(mhead, mtail) => {
+                let head = Val::from_msg(*mhead);
+                let tail = Val::from_msg(*mtail);
+                Val::Cons(Box::new(head), Box::new(tail))
+            }
+            MsgVal::Nil => Val::Nil,
         }
     }
 }

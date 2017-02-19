@@ -147,12 +147,13 @@ pub struct Frame
     pub parent: Parent,
     pub trace: Arc<FrameTrace>,
     pub e: Env,
+    pub id: i64,
     pub pc: i32,
 }
 
 impl Frame
 {
-    pub fn new_root(env: Env) -> Frame
+    pub fn new_root(id: i64, env: Env) -> Frame
     {
         let fname = "MAIN".to_string();
         Frame{
@@ -160,6 +161,7 @@ impl Frame
             trace: FrameTrace::new_root(&fname),
             name: fname,
             e: env,
+            id: id,
             pc: 0,
         }
     }
@@ -172,6 +174,7 @@ impl Frame
             parent: Parent::Null,
             trace: FrameTrace::push_call(&trace, name),
             e: e,
+            id: -1,
             pc: 0,
         }
     }
@@ -184,6 +187,7 @@ impl Frame
             parent: Parent::Fork(ready.clone(), tx),
             trace: f.trace.clone(),
             e: f.e.clone(),
+            id: f.id,
             pc: 0,
         }
     }
@@ -551,7 +555,7 @@ fn test_normal_strcat()
     let r2 = Reg::new_reg(2);
     env.set_reg(&r1, Val::new_str(String::from("i like ")));
     env.set_reg(&r2, Val::new_str(String::from("burritos")));
-    let mut frame = Frame::new_root(env);
+    let mut frame = Frame::new_root(1, env);
 
     let event = frame.execute_strcat(&r1, &r2);
     assert_eq!(Event::Uneventful, event);
