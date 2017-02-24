@@ -206,8 +206,9 @@ fn test_main_func_finishes()
 {
 let p = unsafe { getpid(); };
 write!(stderr(), "test_main_func_finishes {:?}\n", p);
-    let input = "func main() -> 3 --";
+    let input = "func main() -> 3 --".to_string();
     let mut inter = Interloader::new("test.lma");
+    inter.set_mod_txt("test", input);
     let prog = program::Lib::new(inter);
 
     let mut app = Application::new(prog);

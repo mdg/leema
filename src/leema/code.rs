@@ -1,4 +1,4 @@
-use leema::reg::{Reg};
+use leema::reg::{Reg, RegTable};
 use leema::val::{Val, Type};
 use leema::log;
 use leema::iexpr::{Iexpr, Source};
@@ -129,10 +129,10 @@ pub enum CodeKey
     Repl(isize),
 }
 
-
 pub fn make_ops(input: &Iexpr) -> OpVec
 {
-    let mut ops = make_sub_ops(input);
+    let mut regtbl = RegTable::new();
+    let mut ops = make_sub_ops(&mut regtbl, input);
     if input.typ != Type::Void {
         ops.push(Op::SetResult(Reg::Undecided));
     }
@@ -140,13 +140,13 @@ pub fn make_ops(input: &Iexpr) -> OpVec
     ops
 }
 
-pub fn make_sub_ops(input: &Iexpr) -> OpVec
+pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> OpVec
 {
     match input.src {
         Source::Block(ref lines) => {
             let mut ops = vec![];
             for i in lines {
-                ops.append(&mut make_sub_ops(i));
+                ops.append(&mut make_sub_ops(rt, i));
             }
             ops
         }
@@ -159,8 +159,8 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
         }
         Source::Fail(ref tag, ref msg) => {
             let mut ops = vec![];
-            ops.append(&mut make_sub_ops(tag));
-            ops.append(&mut make_sub_ops(msg));
+            ops.append(&mut make_sub_ops(rt, tag));
+            ops.append(&mut make_sub_ops(rt, msg));
             let failop = Op::Failure(
                 Reg::Undecided,
                 Reg::Undecided,
@@ -172,7 +172,7 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
             ops
         }
         Source::FieldAccess(ref base, ref sub) => {
-            let mut base_ops = make_sub_ops(base);
+            let mut base_ops = make_sub_ops(rt, base);
             base_ops.push(Op::Copy(Reg::Undecided, Reg::Undecided));
             base_ops
         }
@@ -180,20 +180,20 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
             vec![]
         }
         Source::Call(ref f, ref args) => {
-            make_call_ops(&Reg::Undecided, f, args)
+            make_call_ops(rt, &Reg::Undecided, f, args)
         }
         Source::Constructor(ref typ) => {
             vout!("make_constructor_ops({:?})\n", input);
-            make_constructor_ops(&Reg::Undecided, typ)
+            make_constructor_ops(rt, &Reg::Undecided, typ)
         }
         Source::Fork(ref dst, ref f, ref args) => {
-            make_fork_ops(&Reg::Undecided, f, args)
+            make_fork_ops(rt, &Reg::Undecided, f, args)
         }
         Source::Let(ref patt, ref x) => {
-            make_sub_ops(x)
+            make_sub_ops(rt, x)
         }
         Source::MatchExpr(ref x, ref cases) => {
-            make_matchexpr_ops(&*x, &*cases)
+            make_matchexpr_ops(rt, &*x, &*cases)
         }
         Source::MatchCase(ref patt, ref code, ref next) => {
             panic!("matchcase ops not generated directly");
@@ -202,10 +202,10 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
             panic!("how to make ops for an id? {}", id);
         }
         Source::IfExpr(ref test, ref truth, ref lies) => {
-            make_if_ops(&*test, &*truth, &*lies)
+            make_if_ops(rt, &*test, &*truth, &*lies)
         }
         Source::StrMash(ref items) => {
-            make_str_ops(&Reg::Undecided, items)
+            make_str_ops(rt, &Reg::Undecided, items)
         }
         Source::Tuple(ref items) => {
             let newtup = Op::TupleCreate(
@@ -214,12 +214,12 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
                 );
             let mut ops = vec![newtup];
             for i in items {
-                ops.append(&mut make_sub_ops(i));
+                ops.append(&mut make_sub_ops(rt, i));
             }
             ops
         }
         Source::List(ref items) => {
-            make_list_ops(&Reg::Undecided, items)
+            make_list_ops(rt, &Reg::Undecided, items)
         }
         Source::BooleanAnd(ref a, ref b) => {
             panic!("maybe AND should just be a macro");
@@ -231,7 +231,7 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
             panic!("Module access not supported yet: {:?}.{:?}", module, name);
         }
         Source::Return(ref result) => {
-            let mut rops = make_sub_ops(result);
+            let mut rops = make_sub_ops(rt, result);
             rops.push(Op::SetResult(Reg::Undecided));
             rops.push(Op::Return);
             rops
@@ -242,18 +242,18 @@ pub fn make_sub_ops(input: &Iexpr) -> OpVec
     }
 }
 
-pub fn make_call_ops(dst: &Reg, f: &Iexpr, args: &Iexpr) -> OpVec
+pub fn make_call_ops(rt: &mut RegTable, dst: &Reg, f: &Iexpr, args: &Iexpr) -> OpVec
 {
     //println!("make_call_ops {:?}({:?})", f, args);
     let freg = Reg::Undecided;
     let argsreg = Reg::Undecided;
-    let mut ops = make_sub_ops(f);
-    ops.append(&mut make_sub_ops(args));
+    let mut ops = make_sub_ops(rt, f);
+    ops.append(&mut make_sub_ops(rt, args));
     ops.push(Op::ApplyFunc(dst.clone(), freg, argsreg));
     ops
 }
 
-pub fn make_constructor_ops(dst: &Reg, typ: &Type) -> OpVec
+pub fn make_constructor_ops(rt: &mut RegTable, dst: &Reg, typ: &Type) -> OpVec
 {
     let mut ops = vec![];
     if let &Type::Struct(_, nfields) = typ {
@@ -269,7 +269,7 @@ pub fn make_constructor_ops(dst: &Reg, typ: &Type) -> OpVec
     ops
 }
 
-pub fn make_matchexpr_ops(x: &Iexpr, cases: &Iexpr) -> OpVec
+pub fn make_matchexpr_ops(rt: &mut RegTable, x: &Iexpr, cases: &Iexpr) -> OpVec
 {
 vout!("make_matchexpr_ops({:?},{:?})", x, cases);
     let mut x_ops = match Reg::Undecided {
@@ -279,18 +279,19 @@ vout!("make_matchexpr_ops({:?},{:?})", x, cases);
             vec![]
         }
         _ => {
-            make_sub_ops(&x)
+            make_sub_ops(rt, &x)
         }
     };
     vout!("call make_matchcase_ops()\n");
-    let mut case_ops = make_matchcase_ops(cases, &Reg::Undecided);
+    let mut case_ops = make_matchcase_ops(rt, cases, &Reg::Undecided);
     vout!("made matchcase_ops =\n{:?}\n", case_ops);
 
     x_ops.append(&mut case_ops);
     x_ops
 }
 
-pub fn make_matchcase_ops(matchcase: &Iexpr, xreg: &Reg) -> OpVec
+pub fn make_matchcase_ops(rt: &mut RegTable, matchcase: &Iexpr, xreg: &Reg
+            ) -> OpVec
 {
     let (patt, code, next) = match matchcase.src {
         Source::MatchCase(ref patt, ref code, ref next) => (patt, code, next),
@@ -304,9 +305,9 @@ pub fn make_matchcase_ops(matchcase: &Iexpr, xreg: &Reg) -> OpVec
         }
     };
 vout!("make_matchcase_ops({:?},{:?},{:?})\n", patt, code, next);
-    let mut patt_ops = make_pattern_ops(patt);
-    let mut code_ops = make_sub_ops(code);
-    let mut next_ops = make_matchcase_ops(next, &xreg);
+    let mut patt_ops = make_pattern_ops(rt, patt);
+    let mut code_ops = make_sub_ops(rt, code);
+    let mut next_ops = make_matchcase_ops(rt, next, &xreg);
 
     code_ops.push(Op::Jump((next_ops.len() + 1) as i16));
     patt_ops.push(Op::MatchPattern(
@@ -320,7 +321,7 @@ vout!("make_matchcase_ops({:?},{:?},{:?})\n", patt, code, next);
     patt_ops
 }
 
-pub fn make_pattern_ops(pattern: &Iexpr) -> OpVec
+pub fn make_pattern_ops(rt: &mut RegTable, pattern: &Iexpr) -> OpVec
 {
     let mut ops = vec![];
     let pdst = Reg::Undecided;
@@ -334,7 +335,7 @@ pub fn make_pattern_ops(pattern: &Iexpr) -> OpVec
         &Source::Tuple(ref items) => {
             ops.push(Op::TupleCreate(pdst, items.len() as i8));
             for i in items {
-                let mut item_ops = make_pattern_ops(i);
+                let mut item_ops = make_pattern_ops(rt, i);
                 ops.append(&mut item_ops);
             }
         }
@@ -345,12 +346,12 @@ pub fn make_pattern_ops(pattern: &Iexpr) -> OpVec
     ops
 }
 
-pub fn make_case_ops(test: &Iexpr, truth: &Iexpr, lies: &Iexpr) -> OpVec
+pub fn make_case_ops(rt: &mut RegTable, test: &Iexpr, truth: &Iexpr, lies: &Iexpr) -> OpVec
 {
 vout!("make_case_ops({:?},{:?},{:?})\n", test, truth, lies);
-    let mut case_ops = make_sub_ops(&test);
-    let mut truth_ops = make_sub_ops(&truth);
-    let mut lies_ops = make_sub_ops(&lies);
+    let mut case_ops = make_sub_ops(rt, &test);
+    let mut truth_ops = make_sub_ops(rt, &truth);
+    let mut lies_ops = make_sub_ops(rt, &lies);
 
     truth_ops.push(Op::Jump((lies_ops.len() + 1) as i16));
     case_ops.push(
@@ -365,12 +366,12 @@ vout!("make_case_ops({:?},{:?},{:?})\n", test, truth, lies);
     case_ops
 }
 
-pub fn make_if_ops(test: &Iexpr, truth: &Iexpr, lies: &Iexpr) -> OpVec
+pub fn make_if_ops(rt: &mut RegTable, test: &Iexpr, truth: &Iexpr, lies: &Iexpr) -> OpVec
 {
 vout!("make_if_ops({:?},{:?},{:?})\n", test, truth, lies);
-    let mut if_ops = make_sub_ops(&test);
-    let mut truth_ops = make_sub_ops(&truth);
-    let mut lies_ops = make_sub_ops(&lies);
+    let mut if_ops = make_sub_ops(rt, &test);
+    let mut truth_ops = make_sub_ops(rt, &truth);
+    let mut lies_ops = make_sub_ops(rt, &lies);
 
     truth_ops.push(Op::Jump((lies_ops.len() + 1) as i16));
     if_ops.push(Op::JumpIfNot((truth_ops.len() + 1) as i16, Reg::Undecided));
@@ -381,26 +382,26 @@ vout!("make_if_ops({:?},{:?},{:?})\n", test, truth, lies);
 }
 
 
-pub fn make_fork_ops(dst: &Reg, f: &Iexpr, args: &Iexpr) -> OpVec
+pub fn make_fork_ops(rt: &mut RegTable, dst: &Reg, f: &Iexpr, args: &Iexpr) -> OpVec
 {
     println!("make_fork_ops({:?}, {:?}, {:?})", dst, f, args);
-    let mut ops = make_sub_ops(f);
-    ops.append(&mut make_sub_ops(args));
+    let mut ops = make_sub_ops(rt, f);
+    ops.append(&mut make_sub_ops(rt, args));
     ops.push(Op::Fork(dst.clone(), Reg::Undecided, Reg::Undecided));
     ops
 }
 
-pub fn make_list_ops(dst: &Reg, items: &Vec<Iexpr>) -> OpVec
+pub fn make_list_ops(rt: &mut RegTable, dst: &Reg, items: &Vec<Iexpr>) -> OpVec
 {
     let mut ops = vec![Op::ListCreate(dst.clone())];
     for i in items.iter().rev() {
         ops.push(Op::ListCons(dst.clone(), dst.clone()));
-        ops.append(&mut make_sub_ops(i));
+        ops.append(&mut make_sub_ops(rt, i));
     }
     ops
 }
 
-pub fn make_str_ops(dst: &Reg, items: &Vec<Iexpr>) -> OpVec
+pub fn make_str_ops(rt: &mut RegTable, dst: &Reg, items: &Vec<Iexpr>) -> OpVec
 {
     let mut ops = vec![
         Op::ConstVal(
@@ -409,7 +410,7 @@ pub fn make_str_ops(dst: &Reg, items: &Vec<Iexpr>) -> OpVec
         ),
     ];
     for i in items {
-        ops.append(&mut make_sub_ops(i));
+        ops.append(&mut make_sub_ops(rt, i));
         ops.push(Op::StrCat(dst.clone(), Reg::Undecided));
     }
     ops

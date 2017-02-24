@@ -249,7 +249,7 @@ impl Worker
                 self.event = Event::Complete(true);
             }
             &Op::SetResult(ref dst) => {
-                if dst == &Reg::Void {
+                if *dst == Reg::Void {
                     panic!("return void at {} in {:?}", curf.pc, ops);
                 }
                 curf.parent.set_result(curf.e.get_reg(dst).clone());

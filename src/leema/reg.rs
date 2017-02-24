@@ -1,6 +1,9 @@
 use leema::val::{Val};
+
 use std::fmt;
 use std::io::{Write};
+use std::collections::{HashMap};
+
 
 #[derive(PartialEq)]
 #[derive(Eq)]
@@ -166,5 +169,30 @@ impl fmt::Debug for Reg
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         write!(f, "{}", self)
+    }
+}
+
+pub struct RegTable
+{
+    labels: HashMap<String, Reg>,
+    nextreg: i16,
+}
+
+impl RegTable
+{
+    pub fn new() -> RegTable
+    {
+        RegTable{
+            labels: HashMap::new(),
+            nextreg: 0,
+        }
+    }
+
+    pub fn child(&self) -> RegTable
+    {
+        RegTable{
+            labels: HashMap::new(),
+            nextreg: self.nextreg,
+        }
     }
 }
