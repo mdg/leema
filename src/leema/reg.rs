@@ -175,7 +175,7 @@ impl fmt::Debug for Reg
 pub struct RegTable
 {
     labels: HashMap<String, Reg>,
-    nextreg: i16,
+    _nextreg: i8,
 }
 
 impl RegTable
@@ -184,7 +184,7 @@ impl RegTable
     {
         RegTable{
             labels: HashMap::new(),
-            nextreg: 0,
+            _nextreg: 0,
         }
     }
 
@@ -192,7 +192,14 @@ impl RegTable
     {
         RegTable{
             labels: HashMap::new(),
-            nextreg: self.nextreg,
+            _nextreg: self._nextreg,
         }
+    }
+
+    pub fn next(&mut self) -> Reg
+    {
+        let r = self._nextreg;
+        self._nextreg += 1;
+        Reg::new_reg(r)
     }
 }

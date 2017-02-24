@@ -31,6 +31,7 @@ impl fmt::Display for ModSym
 
 #[derive(Debug)]
 #[derive(Clone)]
+#[derive(PartialEq)]
 pub enum Op
 {
     LoadFunc(Reg, ModSym),
@@ -134,7 +135,7 @@ pub fn make_ops(input: &Iexpr) -> OpVec
     let mut regtbl = RegTable::new();
     let mut ops = make_sub_ops(&mut regtbl, input);
     if input.typ != Type::Void {
-        ops.push(Op::SetResult(Reg::Undecided));
+        ops.push(Op::SetResult(Reg::new_reg(0)));
     }
     ops.push(Op::Return);
     ops
@@ -145,9 +146,10 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> OpVec
     match input.src {
         Source::Block(ref lines) => {
             let mut ops = vec![];
-            for i in lines {
+            for i in lines.iter().rev() {
                 ops.append(&mut make_sub_ops(rt, i));
             }
+            ops.reverse();
             ops
         }
         Source::ConstVal(Val::CallParams) => {
@@ -155,19 +157,20 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> OpVec
             vec![]
         }
         Source::ConstVal(ref v) => {
-            vec![Op::ConstVal(Reg::Undecided, v.clone())]
+            vec![Op::ConstVal(rt.next(), v.clone())]
         }
         Source::Fail(ref tag, ref msg) => {
             let mut ops = vec![];
+            let result_reg = rt.next();
             ops.append(&mut make_sub_ops(rt, tag));
             ops.append(&mut make_sub_ops(rt, msg));
             let failop = Op::Failure(
-                Reg::Undecided,
+                result_reg.clone(),
                 Reg::Undecided,
                 Reg::Undecided,
             );
             ops.push(failop);
-            ops.push(Op::SetResult(Reg::Undecided));
+            ops.push(Op::SetResult(result_reg));
             ops.push(Op::Return);
             ops
         }
@@ -414,4 +417,29 @@ pub fn make_str_ops(rt: &mut RegTable, dst: &Reg, items: &Vec<Iexpr>) -> OpVec
         ops.push(Op::StrCat(dst.clone(), Reg::Undecided));
     }
     ops
+}
+
+
+#[cfg(test)]
+mod tests {
+    use leema::code::{self, Op};
+    use leema::iexpr::{Iexpr};
+    use leema::reg::{Reg};
+    use leema::val::{Val};
+
+#[test]
+fn test_code_constval()
+{
+    let ic = Iexpr::const_val(Val::Int(9));
+    let code = code::make_ops(&ic);
+
+    assert_eq!(3, code.len());
+    let x = vec![
+        Op::ConstVal(Reg::new_reg(0), Val::Int(9)),
+        Op::SetResult(Reg::new_reg(0)),
+        Op::Return,
+    ];
+    assert_eq!(x, code);
+}
+
 }
