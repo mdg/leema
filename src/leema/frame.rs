@@ -551,8 +551,8 @@ mod tests {
 fn test_normal_strcat()
 {
     let mut env = Env::new();
-    let r1 = Reg::new_reg(1);
-    let r2 = Reg::new_reg(2);
+    let r1 = Reg::local(1);
+    let r2 = Reg::local(2);
     env.set_reg(&r1, Val::new_str(String::from("i like ")));
     env.set_reg(&r2, Val::new_str(String::from("burritos")));
     let mut frame = Frame::new_root(1, env);
