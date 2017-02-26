@@ -84,7 +84,7 @@ pub trait Iregistry
 pub enum Reg {
     Params,
     Param(Ireg),
-    Reg(Ireg),
+    Reg(Ireg), // TODO: rename to Reg::Local
     Lib,
     Void,
     Undecided,
@@ -104,7 +104,7 @@ impl Reg
             &Reg::Reg(ref r) => {
                 Reg::Reg(r.sub(sub))
             }
-            &Reg::Void => Reg::Void, 
+            &Reg::Void => Reg::Void,
             _ => {
                 panic!("Can't make a subreg for {:?}", self);
             }
@@ -174,8 +174,10 @@ impl fmt::Debug for Reg
 
 pub struct RegTable
 {
+    dstack: Vec<Reg>,
     labels: HashMap<String, Reg>,
-    _nextreg: i8,
+    free: Vec<i8>,
+    _lastreg: i8,
 }
 
 impl RegTable
@@ -183,23 +185,50 @@ impl RegTable
     pub fn new() -> RegTable
     {
         RegTable{
+            dstack: vec![Reg::new_reg(0)],
             labels: HashMap::new(),
-            _nextreg: 0,
+            free: Vec::new(),
+            _lastreg: 0,
         }
     }
 
-    pub fn child(&self) -> RegTable
+    pub fn dst(&self) -> Reg
     {
-        RegTable{
-            labels: HashMap::new(),
-            _nextreg: self._nextreg,
-        }
+        self.dstack.last().unwrap().clone()
     }
 
     pub fn next(&mut self) -> Reg
     {
-        let r = self._nextreg;
-        self._nextreg += 1;
-        Reg::new_reg(r)
+        match self.free.pop() {
+            None => {
+                self._lastreg += 1;
+                Reg::new_reg(self._lastreg)
+            }
+            Some(r) => Reg::new_reg(r),
+        }
+    }
+
+    pub fn push_dst(&mut self)
+    {
+        let dst = self.next();
+        self.dstack.push(dst);
+    }
+
+    pub fn pop_dst(&mut self) -> Reg
+    {
+        let popped = self.dstack.pop().unwrap();
+        if let Reg::Reg(Ireg::Reg(i)) = popped {
+            self.free.push(i);
+        }
+        popped
+    }
+
+    pub fn id(&mut self, name: &str) -> Reg
+    {
+        if !self.labels.contains_key(name) {
+            let dst = self.dst();
+            self.labels.insert(String::from(name), dst);
+        }
+        self.labels.get(name).unwrap().clone()
     }
 }

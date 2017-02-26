@@ -157,7 +157,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> OpVec
             vec![]
         }
         Source::ConstVal(ref v) => {
-            vec![Op::ConstVal(rt.next(), v.clone())]
+            vec![Op::ConstVal(rt.dst(), v.clone())]
         }
         Source::Fail(ref tag, ref msg) => {
             let mut ops = vec![];
@@ -180,7 +180,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> OpVec
             base_ops
         }
         Source::Func(ref body) => {
-            vec![]
+            make_sub_ops(rt, &body)
         }
         Source::Call(ref f, ref args) => {
             make_call_ops(rt, &Reg::Undecided, f, args)
@@ -193,6 +193,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> OpVec
             make_fork_ops(rt, &Reg::Undecided, f, args)
         }
         Source::Let(ref patt, ref x) => {
+            let pval = assign_pattern_registers(rt, patt);
             make_sub_ops(rt, x)
         }
         Source::MatchExpr(ref x, ref cases) => {
@@ -202,7 +203,12 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> OpVec
             panic!("matchcase ops not generated directly");
         }
         Source::Id(ref id) => {
-            panic!("how to make ops for an id? {}", id);
+            let src = rt.id(id);
+            let mut idops = vec![];
+            if src != rt.dst() {
+                idops.push(Op::Copy(rt.dst(), src));
+            }
+            idops
         }
         Source::IfExpr(ref test, ref truth, ref lies) => {
             make_if_ops(rt, &*test, &*truth, &*lies)
@@ -324,6 +330,18 @@ vout!("make_matchcase_ops({:?},{:?},{:?})\n", patt, code, next);
     patt_ops
 }
 
+pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
+{
+    match pattern {
+        &Val::Id(ref id) => {
+            Val::PatternVar(rt.id(id))
+        }
+        _ => {
+            panic!("pattern type unsupported: {:?}", pattern);
+        }
+    }
+}
+
 pub fn make_pattern_ops(rt: &mut RegTable, pattern: &Iexpr) -> OpVec
 {
     let mut ops = vec![];
@@ -372,12 +390,14 @@ vout!("make_case_ops({:?},{:?},{:?})\n", test, truth, lies);
 pub fn make_if_ops(rt: &mut RegTable, test: &Iexpr, truth: &Iexpr, lies: &Iexpr) -> OpVec
 {
 vout!("make_if_ops({:?},{:?},{:?})\n", test, truth, lies);
+    rt.push_dst();
     let mut if_ops = make_sub_ops(rt, &test);
+    let tst_dst = rt.pop_dst();
     let mut truth_ops = make_sub_ops(rt, &truth);
     let mut lies_ops = make_sub_ops(rt, &lies);
 
     truth_ops.push(Op::Jump((lies_ops.len() + 1) as i16));
-    if_ops.push(Op::JumpIfNot((truth_ops.len() + 1) as i16, Reg::Undecided));
+    if_ops.push(Op::JumpIfNot((truth_ops.len() + 1) as i16, tst_dst));
 
     if_ops.append(&mut truth_ops);
     if_ops.append(&mut lies_ops);
