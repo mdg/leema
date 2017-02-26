@@ -197,30 +197,19 @@ impl RegTable
         self.dstack.last().unwrap().clone()
     }
 
-    pub fn next(&mut self) -> Reg
-    {
-        match self.free.pop() {
-            None => {
-                self._lastreg += 1;
-                Reg::local(self._lastreg)
-            }
-            Some(r) => Reg::local(r),
-        }
-    }
-
-    pub fn push_dst(&mut self)
+    pub fn push_dst(&mut self) -> Reg
     {
         let dst = self.next();
-        self.dstack.push(dst);
+        self.dstack.push(dst.clone());
+        dst
     }
 
-    pub fn pop_dst(&mut self) -> Reg
+    pub fn pop_dst(&mut self)
     {
         let popped = self.dstack.pop().unwrap();
         if let Reg::Local(Ireg::Reg(i)) = popped {
             self.free.push(i);
         }
-        popped
     }
 
     pub fn id(&mut self, name: &str) -> Reg
@@ -230,5 +219,16 @@ impl RegTable
             self.labels.insert(String::from(name), dst);
         }
         self.labels.get(name).unwrap().clone()
+    }
+
+    fn next(&mut self) -> Reg
+    {
+        match self.free.pop() {
+            None => {
+                self._lastreg += 1;
+                Reg::local(self._lastreg)
+            }
+            Some(r) => Reg::local(r),
+        }
     }
 }

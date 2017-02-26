@@ -227,8 +227,8 @@ impl Worker
             &Op::MatchPattern(jmp, ref patt, ref input) => {
                 curf.execute_match_pattern(jmp, patt, input);
             }
-            &Op::ListCons(ref dst, ref src) => {
-                frame::execute_list_cons(curf, dst, src);
+            &Op::ListCons(ref dst, ref head, ref tail) => {
+                frame::execute_list_cons(curf, dst, head, tail);
             }
             &Op::ListCreate(ref dst) => {
                 frame::execute_list_create(curf, dst);

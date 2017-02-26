@@ -425,13 +425,14 @@ vout!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
     }
 }
 
-pub fn execute_list_cons(curf: &mut Frame, dst: &Reg, src_reg: &Reg)
+pub fn execute_list_cons(curf: &mut Frame, dst: &Reg, head: &Reg, tail: &Reg)
 {
-    let src;
-    {
-        src = curf.e.get_reg(&src_reg).clone();
-    }
-    curf.e.set_reg(&dst, list::cons(Val::Void, src));
+    let new_list = {
+        let headval = curf.e.get_reg(&head).clone();
+        let tailval = curf.e.get_reg(&tail).clone();
+        list::cons(headval, tailval)
+    };
+    curf.e.set_reg(&dst, new_list);
     curf.pc += 1;
 }
 
