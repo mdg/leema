@@ -1354,7 +1354,7 @@ impl Env
 
     pub fn set_reg(&mut self, reg: &Reg, v: Val) {
         match reg {
-            &Reg::Reg(ref i) => {
+            &Reg::Local(ref i) => {
                 self.ireg_set(i, v)
             }
             &Reg::Void => {
@@ -1375,7 +1375,7 @@ impl Env
             &Reg::Param(ref r) => {
                 self.params.ireg_get(r)
             }
-            &Reg::Reg(ref i) => {
+            &Reg::Local(ref i) => {
                 self.ireg_get(i)
             }
             &Reg::Void => {
@@ -1392,7 +1392,7 @@ impl Env
 
     pub fn get_param(&self, reg: i8) -> &Val
     {
-        self.get_reg(&Reg::Reg(Ireg::Reg(reg)))
+        self.get_reg(&Reg::Local(Ireg::Reg(reg)))
     }
 
     pub fn takeResult(&mut self) -> Val {

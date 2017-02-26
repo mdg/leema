@@ -84,7 +84,7 @@ pub trait Iregistry
 pub enum Reg {
     Params,
     Param(Ireg),
-    Reg(Ireg), // TODO: rename to Reg::Local
+    Local(Ireg),
     Lib,
     Void,
     Undecided,
@@ -101,8 +101,8 @@ impl Reg
             &Reg::Param(ref ir) => {
                 Reg::Param(ir.sub(sub))
             }
-            &Reg::Reg(ref r) => {
-                Reg::Reg(r.sub(sub))
+            &Reg::Local(ref r) => {
+                Reg::Local(r.sub(sub))
             }
             &Reg::Void => Reg::Void,
             _ => {
@@ -111,21 +111,21 @@ impl Reg
         }
     }
 
-    pub fn new_param(p: i8) -> Reg
+    pub fn param(p: i8) -> Reg
     {
         Reg::Param(Ireg::Reg(p))
     }
 
-    pub fn new_reg(p: i8) -> Reg
+    pub fn local(p: i8) -> Reg
     {
-        Reg::Reg(Ireg::Reg(p))
+        Reg::Local(Ireg::Reg(p))
     }
 
     pub fn is_primary(&self) -> bool
     {
         match self {
             &Reg::Params => true,
-            &Reg::Reg(Ireg::Reg(_)) => true,
+            &Reg::Local(Ireg::Reg(_)) => true,
             _ => false,
         }
     }
@@ -134,7 +134,7 @@ impl Reg
     {
         match self {
             &Reg::Param(_) => true,
-            &Reg::Reg(Ireg::Sub(_, _)) => true,
+            &Reg::Local(Ireg::Sub(_, _)) => true,
             _ => false,
         }
     }
@@ -143,7 +143,7 @@ impl Reg
     {
         match self {
             &Reg::Param(ref s) => s,
-            &Reg::Reg(Ireg::Sub(_, ref s)) => s,
+            &Reg::Local(Ireg::Sub(_, ref s)) => s,
             _ => panic!("cannot get sub from other register: {:?}", self),
         }
     }
@@ -155,7 +155,7 @@ impl fmt::Display for Reg
     {
         match self {
             &Reg::Param(ref r) => write!(f, "Param{}", r),
-            &Reg::Reg(ref r) => write!(f, "Reg{}", r),
+            &Reg::Local(ref r) => write!(f, "Reg{}", r),
             &Reg::Params => write!(f, "Reg::Params"),
             &Reg::Lib => write!(f, "Reg::Lib"),
             &Reg::Void => write!(f, "Reg::Void"),
@@ -185,7 +185,7 @@ impl RegTable
     pub fn new() -> RegTable
     {
         RegTable{
-            dstack: vec![Reg::new_reg(0)],
+            dstack: vec![Reg::local(0)],
             labels: HashMap::new(),
             free: Vec::new(),
             _lastreg: 0,
@@ -202,9 +202,9 @@ impl RegTable
         match self.free.pop() {
             None => {
                 self._lastreg += 1;
-                Reg::new_reg(self._lastreg)
+                Reg::local(self._lastreg)
             }
-            Some(r) => Reg::new_reg(r),
+            Some(r) => Reg::local(r),
         }
     }
 
@@ -217,7 +217,7 @@ impl RegTable
     pub fn pop_dst(&mut self) -> Reg
     {
         let popped = self.dstack.pop().unwrap();
-        if let Reg::Reg(Ireg::Reg(i)) = popped {
+        if let Reg::Local(Ireg::Reg(i)) = popped {
             self.free.push(i);
         }
         popped

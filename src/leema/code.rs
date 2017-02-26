@@ -135,7 +135,7 @@ pub fn make_ops(input: &Iexpr) -> OpVec
     let mut regtbl = RegTable::new();
     let mut ops = make_sub_ops(&mut regtbl, input);
     if input.typ != Type::Void {
-        ops.push(Op::SetResult(Reg::new_reg(0)));
+        ops.push(Op::SetResult(Reg::local(0)));
     }
     ops.push(Op::Return);
     ops
@@ -269,7 +269,7 @@ pub fn make_constructor_ops(rt: &mut RegTable, dst: &Reg, typ: &Type) -> OpVec
         ops.push(Op::Constructor(dst.clone(), typ.clone()));
         let mut i = 0;
         while i < nfields {
-            ops.push(Op::Copy(dst.sub(i), Reg::new_param(i)));
+            ops.push(Op::Copy(dst.sub(i), Reg::param(i)));
             i += 1;
         }
     } else {
@@ -455,8 +455,8 @@ fn test_code_constval()
 
     assert_eq!(3, code.len());
     let x = vec![
-        Op::ConstVal(Reg::new_reg(0), Val::Int(9)),
-        Op::SetResult(Reg::new_reg(0)),
+        Op::ConstVal(Reg::local(0), Val::Int(9)),
+        Op::SetResult(Reg::local(0)),
         Op::Return,
     ];
     assert_eq!(x, code);
