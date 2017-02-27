@@ -66,6 +66,13 @@ impl Op
     }
 }
 
+#[derive(Debug)]
+struct Oxpr
+{
+    ops: Vec<Op>,
+    dst: Reg,
+}
+
 
 pub type RustFunc = fn(&mut frame::Frame) -> ();
 
@@ -141,7 +148,7 @@ pub fn make_ops(input: &Iexpr) -> OpVec
     ops
 }
 
-pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> OpVec
+pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> Oxpr
 {
     match input.src {
         Source::Block(ref lines) => {
@@ -190,7 +197,8 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> OpVec
             make_constructor_ops(rt, &Reg::Undecided, typ)
         }
         Source::Fork(ref dst, ref f, ref args) => {
-            make_fork_ops(rt, &Reg::Undecided, f, args)
+            // make_fork_ops(rt, f, args)
+            Oxpr{ ops: vec![], dst: Reg::Undecided }
         }
         Source::Let(ref patt, ref x) => {
             let pval = assign_pattern_registers(rt, patt);
@@ -208,7 +216,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> OpVec
             if src != rt.dst() {
                 idops.push(Op::Copy(rt.dst(), src));
             }
-            idops
+            Oxpr{ ops: idops, dst: src }
         }
         Source::IfExpr(ref test, ref truth, ref lies) => {
             make_if_ops(rt, &*test, &*truth, &*lies)
@@ -251,7 +259,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> OpVec
     }
 }
 
-pub fn make_call_ops(rt: &mut RegTable, f: &Iexpr, args: &Iexpr) -> OpVec
+pub fn make_call_ops(rt: &mut RegTable, f: &Iexpr, args: &Iexpr) -> Oxpr
 {
     let dst = rt.dst();
 
@@ -392,25 +400,30 @@ vout!("make_case_ops({:?},{:?},{:?})\n", test, truth, lies);
     case_ops
 }
 
-pub fn make_if_ops(rt: &mut RegTable, test: &Iexpr, truth: &Iexpr, lies: &Iexpr) -> OpVec
+pub fn make_if_ops(rt: &mut RegTable, test: &Iexpr, truth: &Iexpr, lies: &Iexpr) -> Oxpr
 {
 vout!("make_if_ops({:?},{:?},{:?})\n", test, truth, lies);
-    let tst_dst = rt.push_dst();
+    rt.push_dst();
     let mut if_ops = make_sub_ops(rt, &test);
     rt.pop_dst();
     let mut truth_ops = make_sub_ops(rt, &truth);
     let mut lies_ops = make_sub_ops(rt, &lies);
 
-    truth_ops.push(Op::Jump((lies_ops.len() + 1) as i16));
-    if_ops.push(Op::JumpIfNot((truth_ops.len() + 1) as i16, tst_dst));
+    truth_ops.ops.push(Op::Jump((lies_ops.ops.len() + 1) as i16));
+    if_ops.ops.push(
+        Op::JumpIfNot((truth_ops.ops.len() + 1) as i16, if_ops.dst)
+    );
 
-    if_ops.append(&mut truth_ops);
-    if_ops.append(&mut lies_ops);
-    if_ops
+    if_ops.ops.append(&mut truth_ops.ops);
+    if_ops.ops.append(&mut lies_ops.ops);
+    Oxpr{
+        ops: if_ops.ops,
+        dst: truth_ops.dst,
+    }
 }
 
-
-pub fn make_fork_ops(rt: &mut RegTable, dst: &Reg, f: &Iexpr, args: &Iexpr) -> OpVec
+/*
+pub fn make_fork_ops(rt: &mut RegTable, dst: &Reg, f: &Iexpr, args: &Iexpr) -> Oxpr
 {
     println!("make_fork_ops({:?}, {:?}, {:?})", dst, f, args);
     let mut ops = make_sub_ops(rt, f);
@@ -418,22 +431,23 @@ pub fn make_fork_ops(rt: &mut RegTable, dst: &Reg, f: &Iexpr, args: &Iexpr) -> O
     ops.push(Op::Fork(dst.clone(), Reg::Undecided, Reg::Undecided));
     ops
 }
+*/
 
-pub fn make_list_ops(rt: &mut RegTable, items: &Vec<Iexpr>) -> OpVec
+pub fn make_list_ops(rt: &mut RegTable, items: &Vec<Iexpr>) -> Oxpr
 {
     let dst = rt.dst();
     let mut ops = vec![Op::ListCreate(dst.clone())];
-    let inter = rt.push_dst();
+    rt.push_dst();
     for i in items.iter().rev() {
         let mut listops = make_sub_ops(rt, i);
-        ops.append(&mut listops);
-        ops.push(Op::ListCons(dst.clone(), inter.clone(), dst.clone()));
+        ops.append(&mut listops.ops);
+        ops.push(Op::ListCons(dst.clone(), listops.dst, dst.clone()));
     }
     rt.pop_dst();
-    ops
+    Oxpr{ ops: ops, dst: dst }
 }
 
-pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Iexpr>) -> OpVec
+pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Iexpr>) -> Oxpr
 {
     let dst = rt.dst();
     let mut ops = vec![
@@ -444,11 +458,12 @@ pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Iexpr>) -> OpVec
     ];
     let tmp = rt.push_dst();
     for i in items {
-        ops.append(&mut make_sub_ops(rt, i));
+        let strops = &mut make_sub_ops(rt, i);
+        ops.append(&mut strops.ops);
         ops.push(Op::StrCat(dst.clone(), tmp.clone()));
     }
     rt.pop_dst();
-    ops
+    Oxpr{ ops: ops, dst: dst }
 }
 
 
