@@ -152,12 +152,15 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> Oxpr
 {
     match input.src {
         Source::Block(ref lines) => {
-            let mut ops = vec![];
+            let mut oxprs = vec![];
             for i in lines.iter().rev() {
-                let mut iops = make_sub_ops(rt, i);
-                ops.append(&mut iops.ops);
+                oxprs.push(make_sub_ops(rt, i));
             }
-            ops.reverse();
+            oxprs.reverse();
+            let mut ops = vec![];
+            for mut i in oxprs {
+                ops.append(&mut i.ops);
+            }
             Oxpr{
                 ops: ops,
                 dst: rt.dst(),
@@ -229,12 +232,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> Oxpr
         }
         Source::Id(ref id) => {
             let src = rt.id(id);
-            let dst = rt.dst();
-            let mut idops = vec![];
-            if src != dst {
-                idops.push(Op::Copy(dst.clone(), src));
-            }
-            Oxpr{ ops: idops, dst: dst.clone() }
+            Oxpr{ ops: vec![], dst: src }
         }
         Source::IfExpr(ref test, ref truth, ref lies) => {
             make_if_ops(rt, &*test, &*truth, &*lies)
@@ -474,11 +472,11 @@ pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Iexpr>) -> Oxpr
             Val::Str(Arc::new("".to_string())),
         ),
     ];
-    let tmp = rt.push_dst();
+    rt.push_dst();
     for i in items {
-        let strops = &mut make_sub_ops(rt, i);
+        let mut strops = make_sub_ops(rt, i);
         ops.append(&mut strops.ops);
-        ops.push(Op::StrCat(dst.clone(), tmp.clone()));
+        ops.push(Op::StrCat(dst.clone(), strops.dst));
     }
     rt.pop_dst();
     Oxpr{ ops: ops, dst: dst }

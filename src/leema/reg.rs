@@ -215,7 +215,7 @@ impl RegTable
     pub fn id(&mut self, name: &str) -> Reg
     {
         if !self.labels.contains_key(name) {
-            let dst = self.dst();
+            let dst = self.next();
             self.labels.insert(String::from(name), dst);
         }
         self.labels.get(name).unwrap().clone()
