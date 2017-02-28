@@ -245,15 +245,14 @@ impl Frame
         self.pc += 1;
     }
 
-    pub fn execute_match_pattern(&mut self, jmp: i16, patt: &Reg, input: &Reg)
+    pub fn execute_match_pattern(&mut self, jmp: i16, patt: &Val, input: &Reg)
     {
         vout!("execute_match_pattern({}, {:?}, {:?})\n", jmp, patt, input);
         let e: &mut Env = &mut self.e;
         let matches = {
-            let pval = e.get_reg(&patt);
             let ival = e.get_reg(&input);
-vout!("match input: {:?}={:?}\n", pval, ival);
-            Val::pattern_match(pval, ival)
+vout!("match input: {:?}={:?}\n", patt, ival);
+            Val::pattern_match(patt, ival)
         };
 vout!("matches: {:?}\n", matches);
         match matches {

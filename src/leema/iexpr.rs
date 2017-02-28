@@ -23,7 +23,7 @@ pub enum Source
     Func(Box<Iexpr>),
     Let(Val, Box<Iexpr>),
     MatchExpr(Box<Iexpr>, Box<Iexpr>),
-    MatchCase(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
+    MatchCase(Val, Box<Iexpr>, Box<Iexpr>),
     ModuleAccess(Arc<String>, Arc<String>),
     RustBlock,
     Id(Arc<String>),
@@ -162,12 +162,12 @@ vout!("new_block> {:?}\n", code);
         }
     }
 
-    pub fn new_match_case(pattern: Iexpr, code: Iexpr, next: Iexpr) -> Iexpr
+    pub fn new_match_case(pattern: Val, code: Iexpr, next: Iexpr) -> Iexpr
     {
         Iexpr{
             typ: Type::Unknown,
             src: Source::MatchCase(
-                Box::new(pattern),
+                pattern,
                 Box::new(code),
                 Box::new(next),
             ),
