@@ -41,6 +41,14 @@ impl Ireg
         }
     }
 
+    pub fn next_sibling(&self) -> Ireg
+    {
+        match self {
+            &Ireg::Sub(r, ref s) => Ireg::Sub(r, Box::new(s.next_sibling())),
+            &Ireg::Reg(r) => Ireg::Reg(r+1),
+        }
+    }
+
     pub fn get_sub(&self) -> &Ireg
     {
         match self {
@@ -125,6 +133,7 @@ impl Reg
     {
         match self {
             &Reg::Params => true,
+            &Reg::Param(Ireg::Reg(_)) => true,
             &Reg::Local(Ireg::Reg(_)) => true,
             _ => false,
         }
@@ -133,9 +142,20 @@ impl Reg
     pub fn is_sub(&self) -> bool
     {
         match self {
-            &Reg::Param(_) => true,
+            &Reg::Param(Ireg::Sub(_, _)) => true,
             &Reg::Local(Ireg::Sub(_, _)) => true,
             _ => false,
+        }
+    }
+
+    pub fn next_sibling(&self) -> Reg
+    {
+        match self {
+            &Reg::Param(ref sub) => Reg::Param(sub.next_sibling()),
+            &Reg::Local(ref sub) => Reg::Local(sub.next_sibling()),
+            _ => {
+                panic!("register has no sibling: {:?}", self);
+            }
         }
     }
 
@@ -192,16 +212,16 @@ impl RegTable
         }
     }
 
-    pub fn dst(&self) -> Reg
+    pub fn dst(&self) -> &Reg
     {
-        self.dstack.last().unwrap().clone()
+        self.dstack.last().unwrap()
     }
 
-    pub fn push_dst(&mut self) -> Reg
+    pub fn push_dst(&mut self) -> &Reg
     {
         let dst = self.next();
         self.dstack.push(dst.clone());
-        dst
+        self.dst()
     }
 
     pub fn pop_dst(&mut self)
@@ -210,6 +230,21 @@ impl RegTable
         if let Reg::Local(Ireg::Reg(i)) = popped {
             self.free.push(i);
         }
+    }
+
+    pub fn push_sub(&mut self) -> &Reg
+    {
+        let dst = self.dst().sub(0);
+        self.dstack.push(dst.clone());
+        self.dst()
+    }
+
+    pub fn next_sub(&mut self) -> Reg
+    {
+        let dst = self.dst().next_sibling();
+        let last = self.dstack.last_mut().unwrap();
+        *last = dst.clone();
+        dst
     }
 
     pub fn id(&mut self, name: &str) -> Reg

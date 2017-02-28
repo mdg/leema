@@ -163,7 +163,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> Oxpr
             }
             Oxpr{
                 ops: ops,
-                dst: rt.dst(),
+                dst: rt.dst().clone(),
             }
         }
         Source::ConstVal(Val::CallParams) => {
@@ -177,11 +177,11 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> Oxpr
             let dst = rt.dst();
             Oxpr{
                 ops: vec![Op::ConstVal(dst.clone(), v.clone())],
-                dst: dst,
+                dst: dst.clone(),
             }
         }
         Source::Fail(ref tag, ref msg) => {
-            let result_reg = rt.dst();
+            let result_reg = rt.dst().clone();
             let mut ops = vec![];
             let mut tag_ops = make_sub_ops(rt, tag);
             let mut msg_ops = make_sub_ops(rt, msg);
@@ -241,17 +241,20 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> Oxpr
             make_str_ops(rt, items)
         }
         Source::Tuple(ref items) => {
-            let dst = rt.dst();
+            let dst = rt.dst().clone();
             let newtup = Op::TupleCreate(
                 dst.clone(),
                 items.len() as i8,
                 );
             let mut ops = vec![newtup];
+            rt.push_sub();
             for i in items {
                 // set dst to dst.child
                 let mut iops = make_sub_ops(rt, i);
                 ops.append(&mut iops.ops);
+                rt.next_sub();
             }
+            rt.pop_dst();
             Oxpr{
                 ops: ops,
                 dst: dst,
@@ -283,7 +286,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> Oxpr
 
 pub fn make_call_ops(rt: &mut RegTable, f: &Iexpr, args: &Iexpr) -> Oxpr
 {
-    let dst = rt.dst();
+    let dst = rt.dst().clone();
 
     rt.push_dst();
     let mut fops = make_sub_ops(rt, f);
@@ -291,7 +294,7 @@ pub fn make_call_ops(rt: &mut RegTable, f: &Iexpr, args: &Iexpr) -> Oxpr
     rt.push_dst();
     let mut argops = make_sub_ops(rt, args);
     fops.ops.append(&mut argops.ops);
-    fops.ops.push(Op::ApplyFunc(dst, fops.dst.clone(), argops.dst));
+    fops.ops.push(Op::ApplyFunc(dst.clone(), fops.dst.clone(), argops.dst));
 
     rt.pop_dst();
     rt.pop_dst();
@@ -314,7 +317,7 @@ pub fn make_constructor_ops(rt: &mut RegTable, typ: &Type) -> Oxpr
     }
     Oxpr{
         ops: ops,
-        dst: dst,
+        dst: dst.clone(),
     }
 }
 
@@ -451,7 +454,7 @@ pub fn make_fork_ops(rt: &mut RegTable, dst: &Reg, f: &Iexpr, args: &Iexpr) -> O
 
 pub fn make_list_ops(rt: &mut RegTable, items: &Vec<Iexpr>) -> Oxpr
 {
-    let dst = rt.dst();
+    let dst = rt.dst().clone();
     let mut ops = vec![Op::ListCreate(dst.clone())];
     rt.push_dst();
     for i in items.iter().rev() {
@@ -465,7 +468,7 @@ pub fn make_list_ops(rt: &mut RegTable, items: &Vec<Iexpr>) -> Oxpr
 
 pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Iexpr>) -> Oxpr
 {
-    let dst = rt.dst();
+    let dst = rt.dst().clone();
     let mut ops = vec![
         Op::ConstVal(
             dst.clone(),
