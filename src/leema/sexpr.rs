@@ -54,6 +54,19 @@ pub fn new_block(lst: Val) -> Val
     Val::Sexpr(SexprType::BlockExpr, Box::new(lst))
 }
 
+fn strexpr_mash(merge: Val, next: Val) -> (Option<Val>, Val)
+{
+    match (merge, next) {
+        (Val::Str(merge_str), Val::Str(next_str)) => {
+            let new_merge = Val::new_str(format!("{}{}", merge_str, next_str));
+            (None, new_merge)
+        }
+        (merge1, next1) => {
+            (Some(merge1), next1)
+        }
+    }
+}
+
 pub fn strexpr(strs: Val) -> Val
 {
     if list::is_empty(&strs) {
@@ -61,7 +74,8 @@ pub fn strexpr(strs: Val) -> Val
     } else if list::is_singleton(&strs) {
         list::head(strs)
     } else {
-        new(SexprType::StrExpr, strs)
+        let mashed = list::merge_adjacent(strs, strexpr_mash);
+        new(SexprType::StrExpr, mashed)
     }
 }
 
@@ -225,6 +239,27 @@ fn test_sexpr_empty_call()
     );
 
     assert_eq!(expected, c);
+}
+
+#[test]
+fn test_strexpr_merge_end()
+{
+    let strs = list::from3(
+        Val::id("greeting".to_string()),
+        Val::new_str(" world".to_string()),
+        Val::new_str("\n".to_string()),
+    );
+    let strx = sexpr::strexpr(strs);
+
+    let (sxtype, sx) = sexpr::split(strx);
+    assert_eq!(SexprType::StrExpr, sxtype);
+    assert_eq!(2, list::len(&sx));
+
+    let (h1, t1) = list::take_ref(&sx);
+    assert_eq!(Val::id("greeting".to_string()), *h1);
+    let (h2, t2) = list::take_ref(t1);
+    assert_eq!(Val::new_str(" world\n".to_string()), *h2);
+    assert_eq!(Val::Nil, *t2);
 }
 
 /*

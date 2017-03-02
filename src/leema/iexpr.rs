@@ -228,6 +228,7 @@ use leema::sexpr;
 use leema::val::{Val, SexprType, Type};
 
 
+#[test]
 fn test_new_const_str()
 {
     let hello = Val::new_str(String::from("hello"));
@@ -237,6 +238,22 @@ fn test_new_const_str()
         typ: Type::Str,
     };
     assert_eq!(expected, actual);
+}
+
+#[test]
+fn test_new_str_mash_const()
+{
+    let strs = vec![
+        Iexpr::const_val(Val::new_str(String::from("hello"))),
+        Iexpr::const_val(Val::new_str(String::from(" mash"))),
+    ];
+    let strmash = Iexpr::new_str_mash(strs);
+    if let Source::StrMash(ss) = strmash.src {
+        assert_eq!(2, ss.len());
+        // println!("{:?}", ss);
+    } else {
+        assert_eq!("failed", "strmash pattern");
+    }
 }
 
 }

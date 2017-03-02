@@ -104,7 +104,8 @@ pub fn is_singleton(l: &Val) -> bool
     is_empty(tail)
 }
 
-pub fn len(l: &Val) -> usize {
+pub fn len(l: &Val) -> usize
+{
     fold_ref(0, l, |res, _| { res + 1 })
 }
 
@@ -227,6 +228,29 @@ pub fn fold_mut_ref<R, F>(init: &mut R, l: &Val, op: F)
         op(init, head);
         it = tail;
     }
+}
+
+pub fn merge_adjacent<F>(l: Val, op: F) -> Val
+    where F: Fn(Val, Val) -> (Option<Val>, Val)
+{
+    if l == Val::Nil {
+        return Val::Nil;
+    }
+    let mut acc = Val::Nil;
+    let (mut merge, mut it) = take(l);
+    while it != Val::Nil {
+        if !it.is_list() {
+            panic!("Cannot fold on not-list: {:?}", it);
+        }
+        let (head, tail) = take(it);
+        let (appender, merger) = op(merge, head);
+        merge = merger;
+        if appender.is_some() {
+            acc = cons(appender.unwrap(), acc);
+        }
+        it = tail;
+    }
+    reverse(&cons(merge, acc))
 }
 
 pub fn reverse(l: &Val) -> Val
@@ -401,6 +425,18 @@ fn test_map()
     )));
 
     assert_eq!(expected, not_l);
+}
+
+#[test]
+fn test_len()
+{
+    let l =
+        list::cons(Val::Int(2),
+        list::cons(Val::Int(3),
+        list::cons(Val::Int(5),
+        Val::Nil,
+        )));
+    assert_eq!(3, list::len(&l));
 }
 
 }
