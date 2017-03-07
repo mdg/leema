@@ -120,9 +120,6 @@ impl Worker
                 rf(&mut curf);
                 self.event = Event::Complete(true);
             }
-            Code::Inter(ref ix) => {
-                panic!("cannot execute partial code");
-            }
         }
     }
 
@@ -304,7 +301,7 @@ vout!("lock app, main done in iterate\n");
                         */
                         let r = curf.e.takeResult();
                         println!("send({:?})", r);
-                        tx.send(r);
+                        tx.send(Msg::MainResult(r.to_msg()));
                         ready.store(
                             true,
                             Ordering::Relaxed,

@@ -85,7 +85,6 @@ pub enum Code
 {
     Leema(Arc<OpVec>),
     Rust(RustFunc),
-    Inter(Arc<Iexpr>),
 }
 
 impl fmt::Debug for Code
@@ -103,9 +102,6 @@ impl fmt::Debug for Code
             &Code::Rust(_) => {
                 write!(f, "Code::Rust")
             }
-            &Code::Inter(ref ix) => {
-                write!(f, "Code::Inter({:?})", ix)
-            }
         }
     }
 }
@@ -117,7 +113,6 @@ impl Clone for Code
         match self {
             &Code::Leema(ref ops) => Code::Leema(ops.clone()),
             &Code::Rust(rf) => Code::Rust(rf),
-            &Code::Inter(ref ix) => Code::Inter(ix.clone()),
         }
     }
 }

@@ -8,12 +8,14 @@ use std::fmt::{self};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{self, AtomicBool};
-use std::sync::mpsc;
+use std::sync::mpsc::{self, Receiver};
 use std::any::{Any};
+use std::rc::{Rc};
 use std::cmp::{PartialEq, PartialOrd, Ordering};
 use std::clone::Clone;
 use std::fmt::{Debug};
 use std::io::{stderr, Write};
+use std::marker::{Send};
 
 
 #[derive(Clone)]
@@ -155,7 +157,6 @@ impl fmt::Display for Type
     }
 }
 
-
 /*
 pub trait LibTrait
     : Any
@@ -188,7 +189,7 @@ impl Debug for LibVal
 }
 
 #[derive(Clone)]
-pub struct FutureVal(pub Arc<AtomicBool>, pub Arc<Mutex<mpsc::Receiver<Val>>>);
+pub struct FutureVal(pub Arc<AtomicBool>, pub Arc<Mutex<Receiver<MsgVal>>>);
 
 impl Debug for FutureVal
 {
@@ -471,7 +472,7 @@ impl Val {
         }
     }
 
-    pub fn future(ready: Arc<AtomicBool>, r: mpsc::Receiver<Val>) -> Val
+    pub fn future(ready: Arc<AtomicBool>, r: mpsc::Receiver<MsgVal>) -> Val
     {
         Val::Future(FutureVal(ready, Arc::new(Mutex::new(r))))
     }

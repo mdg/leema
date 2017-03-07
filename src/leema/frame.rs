@@ -4,6 +4,8 @@ use leema::val::{Val, Env, FutureVal, Type};
 use leema::reg::{Reg, Ireg};
 use leema::code::{self, CodeKey, Code, Op, OpVec, ModSym, RustFunc};
 use leema::list;
+use leema::msg::{Msg};
+
 use std::collections::{HashMap, LinkedList};
 use std::collections::hash_map;
 use std::sync::{Arc, Mutex, MutexGuard, Condvar};
@@ -20,7 +22,7 @@ pub enum Parent
 {
     Null,
     Caller(Reg, Code, Box<Frame>),
-    Fork(Arc<AtomicBool>, mpsc::Sender<Val>),
+    Fork(Arc<AtomicBool>, mpsc::Sender<Msg>),
     Repl(Val),
     Main(Val),
 }
@@ -179,7 +181,7 @@ impl Frame
         }
     }
 
-    pub fn new_fork(f: &Frame, ready: &Arc<AtomicBool>, tx: mpsc::Sender<Val>)
+    pub fn new_fork(f: &Frame, ready: &Arc<AtomicBool>, tx: mpsc::Sender<Msg>)
         -> Frame
     {
         Frame{
@@ -216,7 +218,7 @@ impl Frame
         match fval {
             &Val::Future(FutureVal(_, ref amrx)) => {
                 let rx = amrx.lock().unwrap();
-                Some(rx.recv().unwrap())
+                Some(Val::from_msg(rx.recv().unwrap()))
             },
             _ => panic!("Not a future val? {:?}", fval),
         }
