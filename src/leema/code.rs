@@ -7,6 +7,7 @@ use std::fmt;
 use std::collections::{HashMap};
 use std::io::{stderr, Write};
 use std::sync::Arc;
+use std::marker;
 
 
 #[derive(Debug)]
@@ -30,7 +31,6 @@ impl fmt::Display for ModSym
 }
 
 #[derive(Debug)]
-#[derive(Clone)]
 #[derive(PartialEq)]
 pub enum Op
 {
@@ -54,7 +54,8 @@ pub enum Op
     TupleCreate(Reg, i8),
 }
 
-pub type OpVec = Vec<Op>;
+unsafe impl marker::Send for Op {}
+unsafe impl marker::Sync for Op {}
 
 impl Op
 {
@@ -65,6 +66,52 @@ impl Op
         }
     }
 }
+
+impl Clone for Op
+{
+    fn clone(&self) -> Op
+    {
+        match self {
+            &Op::LoadFunc(ref r, ref ms) => Op::LoadFunc(r.clone(), ms.clone()),
+            &Op::ApplyFunc(ref dst, ref f, ref args) => {
+                Op::ApplyFunc(dst.clone(), f.clone(), args.clone())
+            }
+            &Op::Return => Op::Return,
+            &Op::SetResult(ref src) => Op::SetResult(src.clone()),
+            &Op::ConstVal(ref dst, ref src) => {
+                Op::ConstVal(dst.clone(), src.deep_clone())
+            }
+            &Op::Constructor(ref dst, ref src) => {
+                Op::Constructor(dst.clone(), src.deep_clone())
+            }
+            &Op::Copy(ref src, ref dst) => {
+                Op::Copy(dst.clone(), src.clone())
+            }
+            &Op::Failure(ref dst, ref typ, ref msg) => {
+                Op::Failure(dst.clone(), typ.clone(), msg.clone())
+            }
+            &Op::Jump(j) => Op::Jump(j),
+            // &Op::Fork(r) => {}
+            &Op::JumpIfNot(j, ref tst) => Op::JumpIfNot(j, tst.clone()),
+            &Op::MatchPattern(j, ref patt, ref input) => {
+                Op::MatchPattern(j, patt.deep_clone(), input.clone())
+            }
+            &Op::ListCons(ref dst, ref head, ref tail) => {
+                Op::ListCons(dst.clone(), head.clone(), tail.clone())
+            }
+            &Op::ListCreate(ref dst) => Op::ListCreate(dst.clone()),
+            &Op::StrCat(ref dst, ref src) => {
+                Op::StrCat(dst.clone(), src.clone())
+            }
+            &Op::TupleCreate(ref dst, sz) => Op::TupleCreate(dst.clone(), sz),
+            _ => {
+                panic!("cannot clone op: {:?}", self);
+            }
+        }
+    }
+}
+
+pub type OpVec = Vec<Op>;
 
 #[derive(Debug)]
 pub struct Oxpr

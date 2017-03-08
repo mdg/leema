@@ -114,6 +114,16 @@ impl Type
             }
         }
     }
+
+    pub fn deep_clone(&self) -> Type
+    {
+        match self {
+            &Type::Int => Type::Int,
+            _ => {
+                panic!("cannot deep_clone Type: {:?}", self);
+            }
+        }
+    }
 }
 
 impl fmt::Display for Type
@@ -243,7 +253,7 @@ pub enum Val {
     Int(i64),
     Str(Arc<String>),
     Bool(bool),
-    Hashtag(Arc<String>),
+    Hashtag(Rc<String>),
     Cons(Box<Val>, Box<Val>),
     Nil,
     Tuple(Vec<Val>),
@@ -432,7 +442,7 @@ impl Val {
 
     pub fn hashtag(s: String) -> Val
     {
-        Val::Hashtag(Arc::new(s))
+        Val::Hashtag(Rc::new(s))
     }
 
     pub fn dot_access(base: Val, sub: String) -> Val
@@ -618,6 +628,47 @@ impl Val {
                 )
             }
             _ => node.clone(),
+        }
+    }
+
+    pub fn deep_clone(&self) -> Val
+    {
+        match self {
+            &Val::Int(i) => Val::Int(i),
+            &Val::Str(ref s) => Val::new_str((**s).clone()),
+            &Val::Bool(b) => Val::Bool(b),
+            &Val::Hashtag(ref s) => Val::hashtag((**s).clone()),
+            &Val::Cons(ref head, ref tail) => {
+                Val::Cons(
+                    Box::new(head.deep_clone()),
+                    Box::new(tail.deep_clone()),
+                )
+            }
+            &Val::Nil => Val::Nil,
+            &Val::Tuple(ref items) => {
+                Val::Tuple(items.iter().map(|i| i.deep_clone()).collect())
+            }
+            &Val::Sexpr(st, ref sx) => {
+                Val::Sexpr(st, Box::new(sx.deep_clone()))
+            }
+            // &Val::Struct(Type, Vec<Val>),
+            // &Val::Enum(Type, u8, Box<Val>),
+            // &Val::Failure(ref tag, ref msg, ref ft),
+            &Val::Id(ref s) => Val::id((**s).clone()),
+            // &Val::TypedId(Arc<String>, Type),
+            &Val::Type(ref t) => Val::Type(t.deep_clone()),
+            &Val::Kind(k) => Val::Kind(k),
+            // &Val::DotAccess(Box<Val>, Arc<String>),
+            // &Val::Lib(LibVal),
+            // &Val::RustBlock,
+            // &Val::Future(FutureVal),
+            // &Val::CallParams,
+            &Val::Void => Val::Void,
+            &Val::Wildcard => Val::Wildcard,
+            &Val::PatternVar(ref r) => Val::PatternVar(r.clone()),
+            _ => {
+                panic!("cannot deep clone val: {:?}", self);
+            }
         }
     }
 

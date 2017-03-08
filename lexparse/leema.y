@@ -6,6 +6,7 @@ use leema::log;
 use leema::sexpr;
 use std::sync::Arc;
 use std::io::{stderr, Write};
+use std::rc::{Rc};
 }
 
 %start_symbol {program}
@@ -427,7 +428,7 @@ pexpr(A) ::= plist(B). { A = B; }
 pexpr(A) ::= INT(B). { A = Val::Int(B); }
 pexpr(A) ::= True. { A = Val::Bool(true); }
 pexpr(A) ::= False. { A = Val::Bool(false); }
-pexpr(A) ::= HASHTAG(B). { A = Val::Hashtag(Arc::new(B.data)); }
+pexpr(A) ::= HASHTAG(B). { A = Val::Hashtag(Rc::new(B.data)); }
 pexpr(A) ::= ID(B). { A = Val::id(B.data); }
 pexpr(A) ::= UNDERSCORE. { A = Val::Wildcard; }
 ptuple ::= LPAREN RPAREN. {
@@ -569,7 +570,7 @@ term(A) ::= INT(B). {
 term(A) ::= True. { A = Val::Bool(true); }
 term(A) ::= False. { A = Val::Bool(false); }
 term(A) ::= HASHTAG(B). {
-	A = Val::Hashtag(Arc::new(B.data));
+	A = Val::Hashtag(Rc::new(B.data));
 }
 term(A) ::= strexpr(B). { A = B; }
 term(A) ::= term(B) DOT ID(C). {
