@@ -130,6 +130,13 @@ struct Blockscope
     E: HashSet<String>,
 }
 
+pub enum ScopeLevel
+{
+    Local,
+    Module,
+    External,
+}
+
 #[derive(Debug)]
 pub struct Interscope<'a>
 {
@@ -185,19 +192,19 @@ impl<'a> Interscope<'a>
         self.blk.E.insert(String::from(name));
     }
 
-    pub fn vartype(&self, name: &str) -> Option<&Type>
+    pub fn vartype(&self, name: &str) -> Option<(ScopeLevel, &Type)>
     {
         let local = self.T.vartype(name);
         if local.is_some() {
-            return local;
+            return Some((ScopeLevel::Local, local.unwrap()));
         }
         let modtyp = self.proto.valtype(name);
         if modtyp.is_some() {
-            return modtyp;
+            return Some((ScopeLevel::Module, modtyp.unwrap()));
         }
         match self.imports.get("prefab") {
             Some(ref proto) => {
-                proto.valtype(name)
+                Some((ScopeLevel::External, proto.valtype(name).unwrap()))
             }
             None => None,
         }
@@ -309,9 +316,21 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
         }
         &Val::Id(ref id) => {
             match scope.vartype(id) {
-                Some(typ) => {
+                Some((ScopeLevel::Local, typ)) => {
                     Iexpr{
                         src: Source::Id(id.clone()),
+                        typ: typ.clone(),
+                    }
+                }
+                Some((ScopeLevel::Module, typ)) => {
+                    Iexpr{
+                        src: Source::ConstVal(Val::Str(id.clone())),
+                        typ: typ.clone(),
+                    }
+                }
+                Some((ScopeLevel::External, typ)) => {
+                    Iexpr{
+                        src: Source::ConstVal(Val::Str(id.clone())),
                         typ: typ.clone(),
                     }
                 }
