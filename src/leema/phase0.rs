@@ -6,7 +6,6 @@ use leema::sexpr;
 
 use std::collections::{HashMap};
 use std::rc::Rc;
-use std::sync::{Arc};
 
 
 #[derive(Debug)]
@@ -154,7 +153,7 @@ impl Protomod
     }
 
     pub fn apply_macro(macro_name: &str, body: &Val
-            , arg_names: &Vec<Arc<String>>, args: &Val) -> Val
+            , arg_names: &Vec<Rc<String>>, args: &Val) -> Val
     {
         let mut arg_map = HashMap::new();
         let mut arg_it = args;
@@ -174,7 +173,7 @@ impl Protomod
         Protomod::replace_ids(body, &arg_map)
     }
 
-    pub fn replace_ids(node: &Val, idvals: &HashMap<Arc<String>, &Val>) -> Val
+    pub fn replace_ids(node: &Val, idvals: &HashMap<Rc<String>, &Val>) -> Val
     {
         match node {
             &Val::Cons(_, _) => {

@@ -310,12 +310,14 @@ vout!("lock app, main done in iterate\n");
                 }
             }
             Event::Call(dst, ch_code, mut ch_frame) => {
+                /*
                 ch_frame.parent = Parent::Caller(
                     dst,
                     code,
                     Box::new(curf),
                 );
                 self.fresh.push_back((ch_code, ch_frame));
+                */
             }
             Event::FutureWait(reg) => {
                 println!("wait for future {:?}", reg);

@@ -1,7 +1,7 @@
 use leema::val::{Val, SexprType, Type};
 use leema::list;
 
-use std::sync::{Arc};
+use std::rc::{Rc};
 
 /**
  * define function
@@ -146,7 +146,7 @@ pub fn defunc_type(defunc: &Val) -> Type
         let typ = a.get_type();
         let argtype = match typ {
             Type::AnonVar => {
-                Type::Var(Arc::new(format!("T_{}_{}", name, a.to_str())))
+                Type::Var(Rc::new(format!("T_{}_{}", name, a.to_str())))
             }
             _ => {
                 typ.clone()
@@ -157,7 +157,7 @@ pub fn defunc_type(defunc: &Val) -> Type
     });
     let tresult = match resultval {
         &Val::Type(Type::AnonVar) => {
-            Type::Var(Arc::new(format!("Tresult_{}", name)))
+            Type::Var(Rc::new(format!("Tresult_{}", name)))
         }
         &Val::Type(ref innert) => {
             innert.clone()
@@ -215,7 +215,6 @@ mod tests {
     use leema::sexpr;
     use std::collections::HashMap;
     use std::rc::Rc;
-    use std::sync::Arc;
 
 #[test]
 fn test_ast_replace_id()
@@ -224,7 +223,7 @@ fn test_ast_replace_id()
     let node = Val::id(str_a.clone());
 
     let mut idvals = HashMap::new();
-    idvals.insert(Arc::new(str_a), Val::Int(5));
+    idvals.insert(Rc::new(str_a), Val::Int(5));
 
     let actual = Val::replace_ids(node, &idvals);
     assert_eq!(Val::Int(5), actual);

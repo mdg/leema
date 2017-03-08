@@ -3,7 +3,7 @@ use leema::val::{Val, Type};
 use leema::log;
 
 use std::io::{stderr, Write};
-use std::sync::{Arc};
+use std::rc::{Rc};
 
 
 #[derive(Clone)]
@@ -18,15 +18,15 @@ pub enum Source
     Constructor(Type),
     ConstVal(Val),
     Fail(Box<Iexpr>, Box<Iexpr>),
-    FieldAccess(Box<Iexpr>, Arc<String>),
+    FieldAccess(Box<Iexpr>, Rc<String>),
     Fork(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     Func(Box<Iexpr>),
     Let(Val, Box<Iexpr>),
     MatchExpr(Box<Iexpr>, Box<Iexpr>),
     MatchCase(Val, Box<Iexpr>, Box<Iexpr>),
-    ModuleAccess(Arc<String>, Arc<String>),
+    ModuleAccess(Rc<String>, Rc<String>),
     RustBlock,
-    Id(Arc<String>),
+    Id(Rc<String>),
     IfExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
     List(Vec<Iexpr>),
     StrMash(Vec<Iexpr>),
@@ -186,7 +186,7 @@ vout!("new_block> {:?}\n", code);
         }
     }
 
-    pub fn new_field_access(base: Iexpr, fld: Arc<String>) -> Iexpr
+    pub fn new_field_access(base: Iexpr, fld: Rc<String>) -> Iexpr
     {
         Iexpr{
             typ: Type::Unknown, // new field access

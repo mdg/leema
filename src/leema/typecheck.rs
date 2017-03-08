@@ -9,14 +9,13 @@ use std::collections::{HashMap, LinkedList};
 use std::path::Path;
 use std::io::{stderr, Write};
 use std::rc::{Rc};
-use std::sync::{Arc};
 
 
 #[derive(Debug)]
 pub enum CallOp
 {
-    LocalCall(Arc<String>),
-    ExternalCall(Arc<String>, Arc<String>),
+    LocalCall(Rc<String>),
+    ExternalCall(Rc<String>, Rc<String>),
 }
 
 #[derive(Debug)]

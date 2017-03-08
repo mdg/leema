@@ -2,14 +2,14 @@
 use leema::val::{Val, Type};
 
 use std::collections::{HashMap};
-use std::sync::{Arc};
+use std::rc::{Rc};
 
 
 #[derive(Debug)]
 pub struct Inferator
 {
     T: HashMap<String, Type>,
-    inferences: HashMap<Arc<String>, Type>,
+    inferences: HashMap<Rc<String>, Type>,
 }
 
 impl Inferator
@@ -65,7 +65,7 @@ impl Inferator
         }
     }
 
-    fn mash(inferences: &mut HashMap<Arc<String>
+    fn mash(inferences: &mut HashMap<Rc<String>
             , Type>, oldt: &Type, newt: &Type)
     {
         if oldt == newt {

@@ -31,7 +31,7 @@ pub enum Type
     Bool,
     Hashtag,
     Tuple(Vec<Type>),
-    Struct(Arc<String>, i8),
+    Struct(Rc<String>, i8),
     Failure,
     Enum(String),
     Func(Vec<Type>, Box<Type>),
@@ -51,9 +51,9 @@ pub enum Type
     Any,
 
     Unknown,
-    Id(Arc<String>),
-    Texpr(Arc<String>, Vec<Type>),
-    Var(Arc<String>),
+    Id(Rc<String>),
+    Texpr(Rc<String>, Vec<Type>),
+    Var(Rc<String>),
     AnonVar,
 }
 
@@ -83,11 +83,11 @@ impl Type
         }
     }
 
-    pub fn var_name(&self) -> Arc<String>
+    pub fn var_name(&self) -> Rc<String>
     {
         match self {
             &Type::Var(ref id) => id.clone(),
-            &Type::AnonVar => Arc::new("anon".to_string()),
+            &Type::AnonVar => Rc::new("anon".to_string()),
             _ => {
                 panic!("Not a Type::Var {:?}", self);
             }
@@ -251,7 +251,7 @@ pub enum MsgVal
 #[derive(Clone)]
 pub enum Val {
     Int(i64),
-    Str(Arc<String>),
+    Str(Rc<String>),
     Bool(bool),
     Hashtag(Rc<String>),
     Cons(Box<Val>, Box<Val>),
@@ -265,11 +265,11 @@ pub enum Val {
         Box<Val>, // msg
         Arc<FrameTrace>,
     ),
-    Id(Arc<String>),
-    TypedId(Arc<String>, Type),
+    Id(Rc<String>),
+    TypedId(Rc<String>, Type),
     Type(Type),
     Kind(u8),
-    DotAccess(Box<Val>, Arc<String>),
+    DotAccess(Box<Val>, Rc<String>),
     Lib(LibVal),
     RustBlock,
     Future(FutureVal),
@@ -303,12 +303,12 @@ impl Val {
 
     pub fn id(s: String) -> Val
     {
-        Val::Id(Arc::new(s))
+        Val::Id(Rc::new(s))
     }
 
     pub fn typed_id(s: &str, t: Type) -> Val
     {
-        Val::TypedId(Arc::new(String::from(s)), t)
+        Val::TypedId(Rc::new(String::from(s)), t)
     }
 
     pub fn is_id(&self) -> bool
@@ -320,7 +320,7 @@ impl Val {
         }
     }
 
-    pub fn id_name(&self) -> Arc<String>
+    pub fn id_name(&self) -> Rc<String>
     {
         match self {
             &Val::Id(ref name) => name.clone(),
@@ -408,12 +408,12 @@ impl Val {
 
     pub fn new_str(s: String) -> Val
     {
-        Val::Str(Arc::new(s))
+        Val::Str(Rc::new(s))
     }
 
     pub fn empty_str() -> Val
     {
-        Val::Str(Arc::new("".to_string()))
+        Val::Str(Rc::new("".to_string()))
     }
 
     pub fn str(&self) -> &str
@@ -428,7 +428,7 @@ impl Val {
         }
     }
 
-    pub fn to_str(&self) -> Arc<String>
+    pub fn to_str(&self) -> Rc<String>
     {
         match self {
             &Val::Id(ref id) => id.clone(),
@@ -447,7 +447,7 @@ impl Val {
 
     pub fn dot_access(base: Val, sub: String) -> Val
     {
-        Val::DotAccess(Box::new(base), Arc::new(sub))
+        Val::DotAccess(Box::new(base), Rc::new(sub))
     }
 
     pub fn is_type(&self) -> bool
@@ -598,7 +598,7 @@ impl Val {
     }
 
     pub fn replace_ids(node: Val,
-        idvals: &HashMap<Arc<String>, Val>) -> Val
+        idvals: &HashMap<Rc<String>, Val>) -> Val
     {
         match node {
             Val::Cons(_, _) => {
@@ -655,10 +655,10 @@ impl Val {
             // &Val::Enum(Type, u8, Box<Val>),
             // &Val::Failure(ref tag, ref msg, ref ft),
             &Val::Id(ref s) => Val::id((**s).clone()),
-            // &Val::TypedId(Arc<String>, Type),
+            // &Val::TypedId(Rc<String>, Type),
             &Val::Type(ref t) => Val::Type(t.deep_clone()),
             &Val::Kind(k) => Val::Kind(k),
-            // &Val::DotAccess(Box<Val>, Arc<String>),
+            // &Val::DotAccess(Box<Val>, Rc<String>),
             // &Val::Lib(LibVal),
             // &Val::RustBlock,
             // &Val::Future(FutureVal),
@@ -1520,7 +1520,7 @@ mod tests {
     use leema::list;
     use leema::sexpr;
     use std::collections::{HashMap};
-    use std::sync::{Arc};
+    use std::rc::{Rc};
 
 
 #[test]
@@ -1614,8 +1614,8 @@ fn test_replace_ids_if()
         ))),
     );
     let mut ids = HashMap::new();
-    ids.insert(Arc::new("a".to_string()), Val::Bool(true));
-    ids.insert(Arc::new("b".to_string()), Val::Bool(false));
+    ids.insert(Rc::new("a".to_string()), Val::Bool(true));
+    ids.insert(Rc::new("b".to_string()), Val::Bool(false));
 
     let result = Val::replace_ids(body, &ids);
 

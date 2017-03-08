@@ -4,7 +4,6 @@ use leema::val::{Val, SexprType, Type};
 use leema::list;
 use leema::log;
 use leema::sexpr;
-use std::sync::Arc;
 use std::io::{stderr, Write};
 use std::rc::{Rc};
 }
@@ -259,10 +258,10 @@ typex(A) ::= TYPE_VOID. {
 	A = Type::Void;
 }
 typex(A) ::= TYPE_ID(B). {
-	A = Type::Id(Arc::new(B.data));
+	A = Type::Id(Rc::new(B.data));
 }
 typex(A) ::= ID(B). {
-    A = Type::Var(Arc::new(B.data));
+    A = Type::Var(Rc::new(B.data));
 }
 typex(A) ::= SquareL typex(B) SquareR. {
 	A = Type::StrictList(Box::new(B));
@@ -383,7 +382,7 @@ func_term(A) ::= term(B). {
     A = B;
 }
 func_term(A) ::= TYPE_ID(B). {
-    let tid = Type::Id(Arc::new(B.data));
+    let tid = Type::Id(Rc::new(B.data));
     A = Val::Type(tid);
 }
 
@@ -476,7 +475,7 @@ expr(A) ::= NOT expr(B). {
 	A = sexpr::call(Val::id("bool_not".to_string()), list::singleton(B));
 }
 expr(A) ::= expr(B) ConcatNewline. {
-	let newline = Val::Str(Arc::new("\n".to_string()));
+	let newline = Val::new_str("\n".to_string());
 	let args = list::cons(B, list::singleton(newline));
 	A = sexpr::new(SexprType::StrExpr, args)
 }
@@ -574,7 +573,7 @@ term(A) ::= HASHTAG(B). {
 }
 term(A) ::= strexpr(B). { A = B; }
 term(A) ::= term(B) DOT ID(C). {
-    A = Val::DotAccess(Box::new(B), Arc::new(C.data));
+    A = Val::DotAccess(Box::new(B), Rc::new(C.data));
 }
 
 
@@ -623,5 +622,5 @@ strlist_term(A) ::= ID(B). {
     A = Val::id(B.data);
 }
 strlist_term(A) ::= strlist_term(B) DOT ID(C). {
-    A = Val::DotAccess(Box::new(B), Arc::new(C.data));
+    A = Val::DotAccess(Box::new(B), Rc::new(C.data));
 }

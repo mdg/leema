@@ -8,6 +8,7 @@ use leema::msg::{Msg};
 
 use std::collections::{HashMap, LinkedList};
 use std::collections::hash_map;
+use std::rc::{Rc};
 use std::sync::{Arc, Mutex, MutexGuard, Condvar};
 use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 use std::sync::mpsc;
@@ -65,6 +66,38 @@ impl Debug for Parent
             }
             &Parent::Repl(ref res) => write!(f, "Parent::Repl({:?})", res),
             &Parent::Main(ref res) => write!(f, "Parent::Main({:?})", res),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum Event
+{
+    Uneventful,
+    Call(Reg, Rc<String>, Rc<String>),
+    Fork,
+    FutureWait(Reg),
+    IOWait,
+    Complete(bool),
+}
+
+impl PartialEq for Event
+{
+    fn eq(&self, other: &Event) -> bool
+    {
+        match (self, other) {
+            (&Event::Uneventful, &Event::Uneventful) => true,
+            (&Event::Call(ref r1, _, _), &Event::Call(ref r2, _, _)) => {
+                r1 == r2
+            }
+            (&Event::Fork, &Event::Fork) => true,
+            (&Event::FutureWait(ref r1), &Event::FutureWait(ref r2)) => {
+                r1 == r2
+            }
+            (&Event::IOWait, &Event::IOWait) => true,
+            (&Event::Complete(true), &Event::Complete(true)) => true,
+            (&Event::Complete(false), &Event::Complete(false)) => true,
+            _ => false,
         }
     }
 }
@@ -290,7 +323,7 @@ vout!("matches: {:?}\n", matches);
                 return Event::FutureWait(srcreg.clone())
             }
             let dst = self.e.get_reg(dstreg);
-            Val::Str(Arc::new(format!("{}{}", dst, src)))
+            Val::new_str(format!("{}{}", dst, src))
         };
         self.e.set_reg(dstreg, result);
         self.pc += 1;
@@ -320,39 +353,6 @@ pub struct IoWorker
     id: u16,
 }
 */
-
-#[derive(Debug)]
-pub enum Event
-{
-    Uneventful,
-    Call(Reg, Code, Frame),
-    Fork,
-    FutureWait(Reg),
-    IOWait,
-    Complete(bool),
-}
-
-
-impl PartialEq for Event
-{
-    fn eq(&self, other: &Event) -> bool
-    {
-        match (self, other) {
-            (&Event::Uneventful, &Event::Uneventful) => true,
-            (&Event::Call(ref r1, _, _), &Event::Call(ref r2, _, _)) => {
-                r1 == r2
-            }
-            (&Event::Fork, &Event::Fork) => true,
-            (&Event::FutureWait(ref r1), &Event::FutureWait(ref r2)) => {
-                r1 == r2
-            }
-            (&Event::IOWait, &Event::IOWait) => true,
-            (&Event::Complete(true), &Event::Complete(true)) => true,
-            (&Event::Complete(false), &Event::Complete(false)) => true,
-            _ => false,
-        }
-    }
-}
 
 pub fn execute_const_val(curf: &mut Frame, reg: &Reg, v: &Val)
 {
@@ -482,10 +482,7 @@ pub fn execute_call(curf: &mut Frame, dst: &Reg, freg: &Reg, argreg: &Reg)
     match *fname_val {
         &Val::Str(ref name_str) => {
             curf.pc = curf.pc + 1;
-            // load code
             /*
-            let ck = CodeKey::Name(name_str.clone());
-            let code = w.find_code(&ck).unwrap().clone();
             // pass in args
             let args = curf.e.get_reg(argreg);
             match call_arg_failure(args) {

@@ -8,7 +8,6 @@ use leema::parse::{Token};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::{Rc};
-use std::sync::{Arc};
 use std::mem;
 
 
@@ -42,7 +41,7 @@ impl ModKey
     }
 }
 
-pub type MacroDef = (Vec<Arc<String>>, Val);
+pub type MacroDef = (Vec<Rc<String>>, Val);
 type MacroMap = HashMap<String, MacroDef>;
 
 #[derive(Debug)]

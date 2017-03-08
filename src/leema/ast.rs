@@ -78,7 +78,6 @@ mod tests {
     use leema::lex::{lex};
     use std::collections::HashMap;
     use std::rc::Rc;
-    use std::sync::Arc;
 
 #[test]
 fn test_ast_parse_plus() {
@@ -405,9 +404,9 @@ fn test_parse_defstruct()
 
     let expected = sexpr::new_block(list::singleton(
         sexpr::new(SexprType::DefStruct,
-        list::cons(Val::Type(Type::Id(Arc::new("Taco".to_string()))),
-        list::cons(Val::TypedId(Arc::new("id".to_string()), Type::Int),
-        list::cons(Val::TypedId(Arc::new("name".to_string()), Type::Str),
+        list::cons(Val::Type(Type::Id(Rc::new("Taco".to_string()))),
+        list::cons(Val::TypedId(Rc::new("id".to_string()), Type::Int),
+        list::cons(Val::TypedId(Rc::new("name".to_string()), Type::Str),
         Val::Nil,
         )))),
     ));
@@ -448,7 +447,7 @@ fn test_parse_constructor_call()
 
     let expected = sexpr::new_block(list::singleton(
         sexpr::new(SexprType::Call,
-        list::cons(Val::Type(Type::Id(Arc::new("Taco".to_string()))),
+        list::cons(Val::Type(Type::Id(Rc::new("Taco".to_string()))),
         list::cons(Val::Int(1),
         list::cons(Val::Int(2),
         Val::Nil,

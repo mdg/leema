@@ -514,7 +514,7 @@ pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Iexpr>) -> Oxpr
     let mut ops = vec![
         Op::ConstVal(
             dst.clone(),
-            Val::Str(Arc::new("".to_string())),
+            Val::empty_str(),
         ),
     ];
     rt.push_dst();

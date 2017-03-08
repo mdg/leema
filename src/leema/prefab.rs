@@ -303,7 +303,7 @@ pub fn stream_read_file(fs: &mut Frame)
         //let result = myf.f.lock().unwrap().read_to_string(&mut input);
     }
 println!("read from file: '{}'", input);
-    fs.parent.set_result(Val::Str(Arc::new(input)));
+    fs.parent.set_result(Val::new_str(input));
 }
 
 pub fn source_code() -> &'static str

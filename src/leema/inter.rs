@@ -11,7 +11,6 @@ use leema::val::{Val, SexprType, Type};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::rc::{Rc};
-use std::sync::{Arc};
 use std::path::{PathBuf};
 use std::fs::File;
 use std::borrow::{Cow};
