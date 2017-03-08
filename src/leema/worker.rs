@@ -25,22 +25,21 @@ enum WaitType
 }
 
 #[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(Eq)]
-#[derive(Hash)]
-struct Wait
+struct FrameWait
 {
     typ: WaitType,
-    frame_id: i64,
+    frame: Frame,
+    code: Option<Code>,
 }
 
-impl Wait
+impl FrameWait
 {
-    fn new(typ: WaitType, f: i64) -> Wait
+    fn code_request(f: Frame) -> FrameWait
     {
-        Wait{
-            typ: typ,
-            frame_id: f,
+        FrameWait{
+            typ: WaitType::Code,
+            frame: f,
+            code: None,
         }
     }
 }
@@ -48,7 +47,7 @@ impl Wait
 pub struct Worker
 {
     fresh: LinkedList<(Code, Frame)>,
-    waiting: HashMap<Wait, Frame>,
+    waiting: HashMap<i64, FrameWait>,
     code: HashMap<String, HashMap<String, Code>>,
     event: Event,
     tx: Sender<Msg>,
@@ -137,15 +136,13 @@ impl Worker
                 vout!("worker call {}.{}()\n", module, call);
                 self.create_root_frame(module, call);
             }
-            Msg::FoundCode(id, module, func, code) => {
-                vout!("found code for frame: {}\n", id);
+            Msg::FoundCode(frame_id, module, func, code) => {
                 let dupe_code = code.clone();
                 let mut new_mod = HashMap::new();
                 new_mod.insert(func, code);
                 self.code.insert(module, new_mod);
-                let wait = Wait::new(WaitType::Code, id);
-                let frame = self.waiting.remove(&wait).unwrap();
-                self.fresh.push_back((dupe_code, frame));
+                let fwait = self.waiting.remove(&frame_id).unwrap();
+                self.fresh.push_back((dupe_code, fwait.frame));
             }
             _ => {
                 panic!("Must be a message for the app: {:?}", msg);
@@ -183,8 +180,8 @@ impl Worker
     fn request_code(&mut self, f: Frame, mname: String, fname: String)
     {
         let frame_id = f.id;
-        let wait = Wait::new(WaitType::Code, frame_id);
-        self.waiting.insert(wait, f);
+        let wait = FrameWait::code_request(f);
+        self.waiting.insert(frame_id, wait);
         self.tx.send(Msg::RequestCode(self.id, frame_id, mname, fname));
     }
 
