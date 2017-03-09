@@ -1,12 +1,12 @@
 
 use leema::ast;
-use leema::iexpr::{Iexpr, Source};
+use leema::ixpr::{Ixpr, Source};
 use leema::infer::{Inferator};
 use leema::list;
 use leema::module::{ModKey};
 use leema::phase0::{Protomod};
-use leema::sexpr;
-use leema::val::{Val, SexprType, Type};
+use leema::sxpr;
+use leema::val::{Val, SxprType, Type};
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -33,14 +33,14 @@ pub enum Version
 /*
 calling push leema code from rust
 string module
-sexpr module block
+sxpr module block
 - raw list, imports, makros, codes
 
-iexpr type0 func interface (and cache)
-iexpr type0 func body (and cache)
+ixpr type0 func interface (and cache)
+ixpr type0 func body (and cache)
 
-iexpr type' func interface (and cache)
-iexpr type' func body (and cache)
+ixpr type' func interface (and cache)
+ixpr type' func body (and cache)
 
 module scope
 function scope
@@ -88,7 +88,7 @@ typecheck_module(mod) ->
 pub struct Intermod
 {
     pub key: Rc<ModKey>,
-    pub interfunc: HashMap<String, Iexpr>,
+    pub interfunc: HashMap<String, Ixpr>,
 }
 
 impl Intermod
@@ -249,10 +249,10 @@ impl<'a> Interscope<'a>
 
 pub fn compile_function<'a>(proto: &'a Protomod
         , imports: &'a HashMap<String, Rc<Protomod>>, fname: &'a str
-        , ftype: &Type, args: &Vec<String>, body: &Val) -> Iexpr
+        , ftype: &Type, args: &Vec<String>, body: &Val) -> Ixpr
 {
     if *body == Val::RustBlock {
-        return Iexpr{
+        return Ixpr{
             typ: ftype.clone(),
             src: Source::RustBlock,
         }
@@ -264,22 +264,22 @@ pub fn compile_function<'a>(proto: &'a Protomod
         scope.T.inferred_type(a).clone()
     }).collect();
     let final_ftype = Type::Func(argt2, Box::new(ibody.typ.clone()));
-    Iexpr{
+    Ixpr{
         typ: final_ftype,
         src: Source::Func(Box::new(ibody)),
     }
 }
 
-pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
+pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
 {
     match x {
-        &Val::Sexpr(SexprType::BlockExpr, ref blk) => {
+        &Val::Sxpr(SxprType::BlockExpr, ref blk) => {
             scope.push_block();
             let iblk = compile_list_to_vec(scope, blk);
             scope.pop_block();
-            Iexpr::new_block(iblk)
+            Ixpr::new_block(iblk)
         }
-        &Val::Sexpr(SexprType::Call, ref callinfo) => {
+        &Val::Sxpr(SxprType::Call, ref callinfo) => {
             let (callx, args) = list::take_ref(callinfo);
             let icall = compile_expr(scope, callx);
             let iargs = compile_list_to_vec(scope, args);
@@ -289,46 +289,46 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
                 }).collect::<Vec<&Type>>();
                 scope.T.make_call_type(&icall.typ, &iargst)
             };
-            let argsix = Iexpr::new_tuple(iargs);
-            Iexpr{
+            let argsix = Ixpr::new_tuple(iargs);
+            Ixpr{
                 typ: ftype,
                 src: Source::Call(Box::new(icall), Box::new(argsix)),
             }
         }
-        &Val::Sexpr(SexprType::IfExpr, ref ifinfo) => {
+        &Val::Sxpr(SxprType::IfExpr, ref ifinfo) => {
             let (ifx, truth, lies) = list::to_ref_tuple3(ifinfo);
             let ifix = compile_expr(scope, ifx);
             let itruth = compile_expr(scope, truth);
             let ilies = compile_expr(scope, lies);
             scope.T.merge_types(&itruth.typ, &ilies.typ);
-            Iexpr::new_if(ifix, itruth, ilies)
+            Ixpr::new_if(ifix, itruth, ilies)
         }
-        &Val::Sexpr(SexprType::Let, ref letx) => {
+        &Val::Sxpr(SxprType::Let, ref letx) => {
             let (lhs_patt, rhs_val) = list::to_ref_tuple2(letx);
             let irhs = compile_expr(scope, rhs_val);
             compile_pattern(scope, lhs_patt, &irhs.typ);
-            Iexpr::new(Source::Let(lhs_patt.clone(), Box::new(irhs)))
+            Ixpr::new(Source::Let(lhs_patt.clone(), Box::new(irhs)))
         }
-        &Val::Sexpr(SexprType::StrExpr, ref strlist) => {
+        &Val::Sxpr(SxprType::StrExpr, ref strlist) => {
             let strvec = compile_list_to_vec(scope, strlist);
-            Iexpr::new_str_mash(strvec)
+            Ixpr::new_str_mash(strvec)
         }
         &Val::Id(ref id) => {
             match scope.vartype(id) {
                 Some((ScopeLevel::Local, typ)) => {
-                    Iexpr{
+                    Ixpr{
                         src: Source::Id(id.clone()),
                         typ: typ.clone(),
                     }
                 }
                 Some((ScopeLevel::Module, typ)) => {
-                    Iexpr{
+                    Ixpr{
                         src: Source::ConstVal(Val::Str(id.clone())),
                         typ: typ.clone(),
                     }
                 }
                 Some((ScopeLevel::External, typ)) => {
-                    Iexpr{
+                    Ixpr{
                         src: Source::ConstVal(Val::Str(id.clone())),
                         typ: typ.clone(),
                     }
@@ -342,8 +342,8 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
             match &**outer {
                 &Val::Id(ref outer_id) => {
                     if scope.contains_local(outer_id) {
-                        Iexpr::new(Source::FieldAccess(
-                            Box::new(Iexpr::new(Source::Id(outer_id.clone()))),
+                        Ixpr::new(Source::FieldAccess(
+                            Box::new(Ixpr::new(Source::Id(outer_id.clone()))),
                             inner.clone(),
                         ))
                     } else if scope.imports_module(outer_id) {
@@ -352,7 +352,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
                             panic!("module var not found: {:?}", x);
                         }
                         let itype = opt_itype.unwrap();
-                        Iexpr{
+                        Ixpr{
                             typ: itype.clone(),
                             src: Source::ModuleAccess(
                                 outer_id.clone(), inner.clone()
@@ -368,13 +368,13 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
             }
         }
         &Val::Bool(b) => {
-            Iexpr::const_val(Val::Bool(b))
+            Ixpr::const_val(Val::Bool(b))
         }
         &Val::Int(i) => {
-            Iexpr::const_val(Val::Int(i))
+            Ixpr::const_val(Val::Int(i))
         }
         &Val::Str(ref s) => {
-            Iexpr::const_val(Val::Str(s.clone()))
+            Ixpr::const_val(Val::Str(s.clone()))
         }
         _ => {
             panic!("Cannot compile expr: {:?}", x);
@@ -382,7 +382,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Iexpr
     }
 }
 
-pub fn compile_list_to_vec(scope: &mut Interscope, l: &Val) -> Vec<Iexpr>
+pub fn compile_list_to_vec(scope: &mut Interscope, l: &Val) -> Vec<Ixpr>
 {
     let mut result = vec![];
     list::fold_mut_ref(&mut (&mut result, scope), l,
@@ -407,7 +407,7 @@ pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type)
 
 pub fn split_func_args_body(defunc: &Val) -> (Vec<String>, &Val)
 {
-    let (st, sx) = sexpr::split_ref(defunc);
+    let (st, sx) = sxpr::split_ref(defunc);
     let (_, args, _, body) = list::to_ref_tuple4(sx);
     let arg_names = list::map_ref_to_vec(args, |a| {
         String::from(a.str())
@@ -430,7 +430,7 @@ impl fmt::Debug for Intermod
     imports: HashSet<String>,
     macros: HashMap<String, Val>,
     srcfunc: HashMap<String, Val>,
-    interfunc: HashMap<String, Iexpr>,
+    interfunc: HashMap<String, Ixpr>,
     */
     }
 }

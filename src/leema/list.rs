@@ -5,8 +5,8 @@ use std::collections::{LinkedList};
 pub fn cons(head: Val, tail: Val) -> Val
 {
     match tail {
-        Val::Sexpr(t, oldt) => {
-            Val::Sexpr(t, Box::new(cons(head, *oldt)))
+        Val::Sxpr(t, oldt) => {
+            Val::Sxpr(t, Box::new(cons(head, *oldt)))
         }
         Val::Cons(_, _) => {
             Val::Cons(Box::new(head), Box::new(tail))
@@ -83,7 +83,7 @@ pub fn is_empty(l: &Val) -> bool
     match l {
         &Val::Nil => true,
         &Val::Cons(_, _) => false,
-        &Val::Sexpr(_, ref head) => {
+        &Val::Sxpr(_, ref head) => {
             match **head {
                 Val::Nil => true,
                 _ => false,

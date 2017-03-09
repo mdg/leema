@@ -11,27 +11,27 @@ use std::rc::{Rc};
 #[derive(PartialEq)]
 pub enum Source
 {
-    Block(Vec<Iexpr>),
-    BooleanAnd(Box<Iexpr>, Box<Iexpr>),
-    BooleanOr(Box<Iexpr>, Box<Iexpr>),
-    Call(Box<Iexpr>, Box<Iexpr>),
+    Block(Vec<Ixpr>),
+    BooleanAnd(Box<Ixpr>, Box<Ixpr>),
+    BooleanOr(Box<Ixpr>, Box<Ixpr>),
+    Call(Box<Ixpr>, Box<Ixpr>),
     Constructor(Type),
     ConstVal(Val),
-    Fail(Box<Iexpr>, Box<Iexpr>),
-    FieldAccess(Box<Iexpr>, Rc<String>),
-    Fork(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
-    Func(Box<Iexpr>),
-    Let(Val, Box<Iexpr>),
-    MatchExpr(Box<Iexpr>, Box<Iexpr>),
-    MatchCase(Val, Box<Iexpr>, Box<Iexpr>),
+    Fail(Box<Ixpr>, Box<Ixpr>),
+    FieldAccess(Box<Ixpr>, Rc<String>),
+    Fork(Box<Ixpr>, Box<Ixpr>, Box<Ixpr>),
+    Func(Box<Ixpr>),
+    Let(Val, Box<Ixpr>),
+    MatchExpr(Box<Ixpr>, Box<Ixpr>),
+    MatchCase(Val, Box<Ixpr>, Box<Ixpr>),
     ModuleAccess(Rc<String>, Rc<String>),
     RustBlock,
     Id(Rc<String>),
-    IfExpr(Box<Iexpr>, Box<Iexpr>, Box<Iexpr>),
-    List(Vec<Iexpr>),
-    StrMash(Vec<Iexpr>),
-    Tuple(Vec<Iexpr>),
-    Return(Box<Iexpr>),
+    IfExpr(Box<Ixpr>, Box<Ixpr>, Box<Ixpr>),
+    List(Vec<Ixpr>),
+    StrMash(Vec<Ixpr>),
+    Tuple(Vec<Ixpr>),
+    Return(Box<Ixpr>),
 }
 
 impl Source
@@ -49,23 +49,23 @@ impl Source
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
-pub struct Iexpr
+pub struct Ixpr
 {
     pub typ: Type,
     pub src: Source,
 }
 
-impl Iexpr
+impl Ixpr
 {
-    pub fn new(src: Source) -> Iexpr
+    pub fn new(src: Source) -> Ixpr
     {
-        Iexpr{
+        Ixpr{
             typ: Source::type_of(&src),
             src: src,
         }
     }
 
-    pub fn new_block(code: Vec<Iexpr>) -> Iexpr
+    pub fn new_block(code: Vec<Ixpr>) -> Ixpr
     {
 vout!("new_block> {:?}\n", code);
         let block_type = match code.last() {
@@ -76,29 +76,29 @@ vout!("new_block> {:?}\n", code);
                 ix.typ.clone()
             }
         };
-        Iexpr{
+        Ixpr{
             typ: block_type,
             src: Source::Block(code),
         }
     }
 
-    pub fn noop() -> Iexpr
+    pub fn noop() -> Ixpr
     {
-        Iexpr{
+        Ixpr{
             typ: Type::Void,
             src: Source::ConstVal(Val::Void),
         }
     }
 
-    pub fn const_val(src: Val) -> Iexpr
+    pub fn const_val(src: Val) -> Ixpr
     {
-        Iexpr{
+        Ixpr{
             typ: src.get_type(),
             src: Source::ConstVal(src),
         }
     }
 
-    fn new_list(items: Vec<Iexpr>) -> Iexpr
+    fn new_list(items: Vec<Ixpr>) -> Ixpr
     {
         let item_type = items.iter().fold(Type::Unknown, |old_t, new_x| {
             if old_t == Type::Unknown {
@@ -109,51 +109,51 @@ vout!("new_block> {:?}\n", code);
                 panic!("Mixed list types: {:?} != {:?}", old_t, new_x);
             }
         });
-        Iexpr{
+        Ixpr{
             typ: Type::StrictList(Box::new(item_type)),
             src: Source::List(items),
         }
     }
 
-    pub fn new_tuple(items: Vec<Iexpr>) -> Iexpr
+    pub fn new_tuple(items: Vec<Ixpr>) -> Ixpr
     {
         let tuptyp = items.iter().map(|i| {
             i.typ.clone()
         }).collect();
-        Iexpr{
+        Ixpr{
             typ: Type::Tuple(tuptyp),
             src: Source::Tuple(items),
         }
     }
 
-    pub fn new_call(f: Iexpr, args: Vec<Iexpr>) -> Iexpr
+    pub fn new_call(f: Ixpr, args: Vec<Ixpr>) -> Ixpr
     {
-        let args_tup = Iexpr::new_tuple(args);
-        Iexpr{
+        let args_tup = Ixpr::new_tuple(args);
+        Ixpr{
             typ: Type::Unknown,
             src: Source::Call(Box::new(f), Box::new(args_tup)),
         }
     }
 
-    fn constructor(t: Type) -> Iexpr
+    fn constructor(t: Type) -> Ixpr
     {
-        Iexpr{
+        Ixpr{
             typ: t.clone(),
             src: Source::Constructor(t),
         }
     }
 
-    fn fork(dst: Iexpr, t: Type, f: Iexpr, args: Iexpr) -> Iexpr
+    fn fork(dst: Ixpr, t: Type, f: Ixpr, args: Ixpr) -> Ixpr
     {
-        Iexpr{
+        Ixpr{
             typ: t,
             src: Source::Fork(Box::new(dst), Box::new(f), Box::new(args)),
         }
     }
 
-    pub fn new_match_expr(input: Iexpr, cases: Iexpr) -> Iexpr
+    pub fn new_match_expr(input: Ixpr, cases: Ixpr) -> Ixpr
     {
-        Iexpr{
+        Ixpr{
             typ: Type::Unknown,
             src: Source::MatchExpr(
                 Box::new(input),
@@ -162,9 +162,9 @@ vout!("new_block> {:?}\n", code);
         }
     }
 
-    pub fn new_match_case(pattern: Val, code: Iexpr, next: Iexpr) -> Iexpr
+    pub fn new_match_case(pattern: Val, code: Ixpr, next: Ixpr) -> Ixpr
     {
-        Iexpr{
+        Ixpr{
             typ: Type::Unknown,
             src: Source::MatchCase(
                 pattern,
@@ -174,9 +174,9 @@ vout!("new_block> {:?}\n", code);
         }
     }
 
-    pub fn new_if(test: Iexpr, truth: Iexpr, lies: Iexpr) -> Iexpr
+    pub fn new_if(test: Ixpr, truth: Ixpr, lies: Ixpr) -> Ixpr
     {
-        Iexpr{
+        Ixpr{
             typ: truth.typ.clone(),
             src: Source::IfExpr(
                 Box::new(test),
@@ -186,9 +186,9 @@ vout!("new_block> {:?}\n", code);
         }
     }
 
-    pub fn new_field_access(base: Iexpr, fld: Rc<String>) -> Iexpr
+    pub fn new_field_access(base: Ixpr, fld: Rc<String>) -> Ixpr
     {
-        Iexpr{
+        Ixpr{
             typ: Type::Unknown, // new field access
             src: Source::FieldAccess(
                 Box::new(base),
@@ -197,21 +197,21 @@ vout!("new_block> {:?}\n", code);
         }
     }
 
-    pub fn new_str_mash(items: Vec<Iexpr>) -> Iexpr
+    pub fn new_str_mash(items: Vec<Ixpr>) -> Ixpr
     {
-        Iexpr{
+        Ixpr{
             typ: Type::Str,
             src: Source::StrMash(items),
         }
     }
 
-    fn tuple(items: Vec<Iexpr>) -> Iexpr
+    fn tuple(items: Vec<Ixpr>) -> Ixpr
     {
         let mut types = vec![];
         for i in &items {
             types.push(i.typ.clone());
         }
-        Iexpr{
+        Ixpr{
             typ: Type::Tuple(types),
             src: Source::Tuple(items),
         }
@@ -222,18 +222,18 @@ vout!("new_block> {:?}\n", code);
 #[cfg(test)]
 mod tests
 {
-use leema::iexpr::{Iexpr, Source};
+use leema::ixpr::{Ixpr, Source};
 use leema::list;
-use leema::sexpr;
-use leema::val::{Val, SexprType, Type};
+use leema::sxpr;
+use leema::val::{Val, SxprType, Type};
 
 
 #[test]
 fn test_new_const_str()
 {
     let hello = Val::new_str(String::from("hello"));
-    let actual = Iexpr::const_val(hello.clone());
-    let expected = Iexpr{
+    let actual = Ixpr::const_val(hello.clone());
+    let expected = Ixpr{
         src: Source::ConstVal(hello),
         typ: Type::Str,
     };
@@ -244,10 +244,10 @@ fn test_new_const_str()
 fn test_new_str_mash_const()
 {
     let strs = vec![
-        Iexpr::const_val(Val::new_str(String::from("hello"))),
-        Iexpr::const_val(Val::new_str(String::from(" mash"))),
+        Ixpr::const_val(Val::new_str(String::from("hello"))),
+        Ixpr::const_val(Val::new_str(String::from(" mash"))),
     ];
-    let strmash = Iexpr::new_str_mash(strs);
+    let strmash = Ixpr::new_str_mash(strs);
     if let Source::StrMash(ss) = strmash.src {
         assert_eq!(2, ss.len());
         // println!("{:?}", ss);

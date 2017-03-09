@@ -1,4 +1,4 @@
-use leema::val::{Val, SexprType, Type};
+use leema::val::{Val, SxprType, Type};
 use leema::list;
 
 use std::rc::{Rc};
@@ -21,37 +21,37 @@ use std::rc::{Rc};
 /**
  * Val
  * Val -> List
- * Val -> Sexpr
+ * Val -> Sxpr
  * Val -> Ast
  *
- * Sexpr
- * Sexpr -> Val
- * Sexpr -> List
+ * Sxpr
+ * Sxpr -> Val
+ * Sxpr -> List
  *
  * List -> Val
- * List -> Sexpr
+ * List -> Sxpr
  * List -> Ast
  *
  * Ast -> Val
- * Ast -> Sexpr
+ * Ast -> Sxpr
  */
 
-pub fn new(t: SexprType, v: Val) -> Val
+pub fn new(t: SxprType, v: Val) -> Val
 {
-    Val::Sexpr(t, Box::new(v))
+    Val::Sxpr(t, Box::new(v))
 }
 
-pub fn is_type(v: &Val, st: SexprType) -> bool
+pub fn is_type(v: &Val, st: SxprType) -> bool
 {
     match v {
-        &Val::Sexpr(st, _) => true,
+        &Val::Sxpr(st, _) => true,
         _ => false,
     }
 }
 
 pub fn new_block(lst: Val) -> Val
 {
-    Val::Sexpr(SexprType::BlockExpr, Box::new(lst))
+    Val::Sxpr(SxprType::BlockExpr, Box::new(lst))
 }
 
 fn strexpr_mash(merge: Val, next: Val) -> (Option<Val>, Val)
@@ -75,14 +75,14 @@ pub fn strexpr(strs: Val) -> Val
         list::head(strs)
     } else {
         let mashed = list::merge_adjacent(strs, strexpr_mash);
-        new(SexprType::StrExpr, mashed)
+        new(SxprType::StrExpr, mashed)
     }
 }
 
 pub fn call(callid: Val, args: Val) -> Val
 {
     let callargs = list::cons(callid, args);
-    Val::Sexpr(SexprType::Call, Box::new(callargs))
+    Val::Sxpr(SxprType::Call, Box::new(callargs))
 }
 
 pub fn binaryop(callname: String, a: Val, b: Val) -> Val
@@ -93,8 +93,8 @@ pub fn binaryop(callname: String, a: Val, b: Val) -> Val
 pub fn macro_from_func(f: Val) -> Val
 {
     match f {
-        Val::Sexpr(SexprType::DefFunc, f) => {
-            Val::Sexpr(SexprType::DefMacro, f)
+        Val::Sxpr(SxprType::DefFunc, f) => {
+            Val::Sxpr(SxprType::DefMacro, f)
         }
         _ => panic!("Cannot create macro from not func"),
     }
@@ -102,7 +102,7 @@ pub fn macro_from_func(f: Val) -> Val
 
 pub fn ifx(cond: Val, truth: Val, lies: Val) -> Val
 {
-    Val::Sexpr(SexprType::IfExpr, Box::new(
+    Val::Sxpr(SxprType::IfExpr, Box::new(
         list::cons(cond,
         list::cons(truth,
         list::cons(lies,
@@ -113,7 +113,7 @@ pub fn ifx(cond: Val, truth: Val, lies: Val) -> Val
 
 pub fn match_expr(x: Val, cases: Val) -> Val
 {
-    Val::Sexpr(SexprType::MatchExpr, Box::new(
+    Val::Sxpr(SxprType::MatchExpr, Box::new(
         list::cons(x,
         list::cons(cases,
         Val::Nil
@@ -123,7 +123,7 @@ pub fn match_expr(x: Val, cases: Val) -> Val
 
 pub fn defunc(name: Val, args: Val, typ: Val, blk: Val, ps: Val) -> Val
 {
-    Val::Sexpr(SexprType::DefFunc, Box::new(
+    Val::Sxpr(SxprType::DefFunc, Box::new(
         list::cons(name,
         list::cons(args,
         list::cons(typ,
@@ -136,7 +136,7 @@ pub fn defunc(name: Val, args: Val, typ: Val, blk: Val, ps: Val) -> Val
 
 pub fn defunc_type(defunc: &Val) -> Type
 {
-    if !defunc.is_sexpr_type(SexprType::DefFunc) {
+    if !defunc.is_sxpr_type(SxprType::DefFunc) {
         panic!("Cannot find function type of not function: {:?}", defunc);
     }
     let (_, sx) = split_ref(defunc);
@@ -171,38 +171,38 @@ pub fn defunc_type(defunc: &Val) -> Type
 
 pub fn def_struct(name: Val, fields: Val) -> Val
 {
-    Val::Sexpr(SexprType::DefStruct, Box::new(
+    Val::Sxpr(SxprType::DefStruct, Box::new(
         list::cons(name, fields)
     ))
 }
 
 pub fn new_import(name: Val) -> Val
 {
-    Val::Sexpr(SexprType::Import, Box::new(
+    Val::Sxpr(SxprType::Import, Box::new(
         list::singleton(name)
     ))
 }
 
-pub fn split(x: Val) -> (SexprType, Val)
+pub fn split(x: Val) -> (SxprType, Val)
 {
     match x {
-        Val::Sexpr(st, sx) => {
+        Val::Sxpr(st, sx) => {
             (st, *sx)
         }
         _ => {
-            panic!("Cannot split a not sexpr: {:?}", x);
+            panic!("Cannot split a not sxpr: {:?}", x);
         }
     }
 }
 
-pub fn split_ref(x: &Val) -> (SexprType, &Val)
+pub fn split_ref(x: &Val) -> (SxprType, &Val)
 {
     match x {
-        &Val::Sexpr(st, ref sx) => {
+        &Val::Sxpr(st, ref sx) => {
             (st, sx)
         }
         _ => {
-            panic!("Cannot split a not sexpr: {:?}", x);
+            panic!("Cannot split a not sxpr: {:?}", x);
         }
     }
 }
@@ -210,9 +210,9 @@ pub fn split_ref(x: &Val) -> (SexprType, &Val)
 
 #[cfg(test)]
 mod tests {
-    use leema::val::{Val, SexprType};
+    use leema::val::{Val, SxprType};
     use leema::list;
-    use leema::sexpr;
+    use leema::sxpr;
     use std::collections::HashMap;
     use std::rc::Rc;
 
@@ -230,10 +230,10 @@ fn test_ast_replace_id()
 }
 
 #[test]
-fn test_sexpr_empty_call()
+fn test_sxpr_empty_call()
 {
-    let c = sexpr::call(Val::id("testf".to_string()), Val::Nil);
-    let expected = sexpr::new(SexprType::Call,
+    let c = sxpr::call(Val::id("testf".to_string()), Val::Nil);
+    let expected = sxpr::new(SxprType::Call,
         list::singleton(Val::id("testf".to_string())),
     );
 
@@ -248,10 +248,10 @@ fn test_strexpr_merge_end()
         Val::new_str(" world".to_string()),
         Val::new_str("\n".to_string()),
     );
-    let strx = sexpr::strexpr(strs);
+    let strx = sxpr::strexpr(strs);
 
-    let (sxtype, sx) = sexpr::split(strx);
-    assert_eq!(SexprType::StrExpr, sxtype);
+    let (sxtype, sx) = sxpr::split(strx);
+    assert_eq!(SxprType::StrExpr, sxtype);
     assert_eq!(2, list::len(&sx));
 
     let (h1, t1) = list::take_ref(&sx);
@@ -264,22 +264,22 @@ fn test_strexpr_merge_end()
 /*
 #[test]
 fn test_ast_replace_id_and_macro() {
-    let if_case = Sexpr::IfCase(Box::new(Sexpr::Id("a".to_string())),
-        Box::new(Sexpr::Id("b".to_string()))
+    let if_case = Sxpr::IfCase(Box::new(Sxpr::Id("a".to_string())),
+        Box::new(Sxpr::Id("b".to_string()))
     );
-    let else_case = Sexpr::ElseCase(Box::new(Sexpr::val(Val::Bool(false))));
-    let if_expr = Sexpr::IfExpr(List::from_sexpr_vec(vec![
+    let else_case = Sxpr::ElseCase(Box::new(Sxpr::val(Val::Bool(false))));
+    let if_expr = Sxpr::IfExpr(List::from_sxpr_vec(vec![
         if_case,
         else_case,
     ]));
 
     let mut idvals = HashMap::new();
     let str_a = "a".to_string();
-    idvals.insert(&str_a, Sexpr::val(Val::Bool(true)));
+    idvals.insert(&str_a, Sxpr::val(Val::Bool(true)));
     let str_b = "b".to_string();
-    idvals.insert(&str_b, Sexpr::val(Val::Bool(true)));
+    idvals.insert(&str_b, Sxpr::val(Val::Bool(true)));
 
-    let actual = Sexpr::replace_ids(if_expr, &idvals);
+    let actual = Sxpr::replace_ids(if_expr, &idvals);
     assert_eq!(Val::Int(5), actual);
 }
 */

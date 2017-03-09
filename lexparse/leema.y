@@ -1,9 +1,9 @@
 %include {
 use leema::ast::{TokenLoc, TokenData};
-use leema::val::{Val, SexprType, Type};
+use leema::val::{Val, SxprType, Type};
 use leema::list;
 use leema::log;
-use leema::sexpr;
+use leema::sxpr;
 use std::io::{stderr, Write};
 use std::rc::{Rc};
 }
@@ -117,7 +117,7 @@ program(A) ::= stmts(B). {
 }
 
 stmts(A) ::= . {
-	A = sexpr::new(SexprType::BlockExpr, list::empty());
+	A = sxpr::new(SxprType::BlockExpr, list::empty());
 }
 stmts(A) ::= stmt(C) stmts(B). {
     vout!("found new stmt: {:?}\n", C);
@@ -127,7 +127,7 @@ stmts(A) ::= stmt(C) stmts(B). {
 
 stmt(A) ::= defstruct(B). { A = B; }
 stmt(A) ::= IMPORT ID(B). {
-    A = sexpr::new_import(Val::id(B.data));
+    A = sxpr::new_import(Val::id(B.data));
 }
 stmt(A) ::= let_stmt(B). { A = B; }
 stmt(A) ::= expr(B). {
@@ -139,7 +139,7 @@ stmt(A) ::= macro_stmt(B). { A = B; }
 /* if_stmt */
 stmt(A) ::= if_stmt(B). { A = B; }
 stmt(A) ::= RETURN expr(B). {
-    A = sexpr::new(SexprType::Return, B);
+    A = sxpr::new(SxprType::Return, B);
 }
 
 stmt(A) ::= failed_stmt(B). { A = B; }
@@ -147,7 +147,7 @@ stmt(A) ::= failed_stmt(B). { A = B; }
 
 /** Data Structures */
 defstruct(A) ::= STRUCT typex(B) defstruct_fields(C) DOUBLEDASH. {
-    A = sexpr::def_struct(Val::Type(B), C);
+    A = sxpr::def_struct(Val::Type(B), C);
 }
 defstruct_fields(A) ::= defstruct_field(B) defstruct_fields(C). {
 	A = list::cons(B, C);
@@ -162,7 +162,7 @@ defstruct_field(A) ::= DOT ID(B) COLON typex(C). {
 
 fail_stmt(A) ::= FAIL(B) LPAREN HASHTAG(C) COMMA expr(D) RPAREN. {
 vout!("found fail_stmt {:?}\n", C);
-	A = sexpr::new(SexprType::Fail,
+	A = sxpr::new(SxprType::Fail,
         list::cons(Val::hashtag(C.data),
         list::cons(D,
         Val::Nil,
@@ -171,7 +171,7 @@ vout!("found fail_stmt {:?}\n", C);
 }
 
 failed_stmt(A) ::= FAILED ID(B) match_case(C) DOUBLEDASH. {
-	A = sexpr::new(SexprType::MatchFailed,
+	A = sxpr::new(SxprType::MatchFailed,
         list::cons(Val::id(B.data),
         list::cons(C,
         Val::Nil
@@ -185,11 +185,11 @@ let_stmt(A) ::= Let ID(B) ASSIGN expr(C). {
         list::cons(C,
         Val::Nil
         ));
-    A = sexpr::new(SexprType::Let, letx);
+    A = sxpr::new(SxprType::Let, letx);
 }
 let_stmt(A) ::= Fork ID(B) ASSIGN expr(C). {
 	let bind = list::cons(Val::new_str(B.data), list::singleton(C));
-	A = sexpr::new(SexprType::Fork, bind);
+	A = sxpr::new(SxprType::Fork, bind);
 }
 
 block(A) ::= BLOCKARROW stmts(B). {
@@ -202,7 +202,7 @@ func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(D) RPAREN COLON typex(E)
 {
 	let id = Val::id(B.data);
 	let typ = Val::Type(E);
-	A = sexpr::defunc(id, D, typ, Val::RustBlock, Val::Void)
+	A = sxpr::defunc(id, D, typ, Val::RustBlock, Val::Void)
 }
 
 /* func one case, no matching */
@@ -211,7 +211,7 @@ func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(D) RPAREN opt_typex(E)
 {
 	let id = Val::id(B.data);
 	let typ = Val::Type(E);
-	A = sexpr::defunc(id, D, typ, C, F)
+	A = sxpr::defunc(id, D, typ, C, F)
 }
 /* func w/ pattern matching */
 func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(C) RPAREN opt_typex(D)
@@ -219,8 +219,8 @@ func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(C) RPAREN opt_typex(D)
 {
 	let id = Val::id(B.data);
 	let typ = Val::Type(D);
-    let body = sexpr::match_expr(Val::CallParams, E);
-	A = sexpr::defunc(id, C, typ, body, F)
+    let body = sxpr::match_expr(Val::CallParams, E);
+	A = sxpr::defunc(id, C, typ, body, F)
 }
 
 dfunc_args(A) ::= . {
@@ -285,7 +285,7 @@ failed_stmts(A) ::= failed_stmt(B) failed_stmts(C). {
 /* defining a macro */
 macro_stmt(A) ::= MACRO ID(B) PARENCALL macro_args(D) RPAREN block(C) DOUBLEDASH. {
     vout!("found macro {:?}\n", B);
-    A = sexpr::new(SexprType::DefMacro,
+    A = sxpr::new(SxprType::DefMacro,
         list::cons(Val::id(B.data),
         list::cons(D,
         list::cons(C,
@@ -331,30 +331,30 @@ macro_args(A) ::= ID(B) COMMA macro_args(C). {
 */
 if_stmt(A) ::= IF expr(B) block(C) DOUBLEDASH. {
     /* if-only style */
-    A = sexpr::ifx(B, C, Val::Void);
+    A = sxpr::ifx(B, C, Val::Void);
 }
 if_stmt(A) ::= IF expr(B) block(C) else_if(D) DOUBLEDASH. {
     /* if-else style */
-    A = sexpr::ifx(B, C, D);
+    A = sxpr::ifx(B, C, D);
 }
 if_stmt(A) ::= IF if_case(B) DOUBLEDASH. {
     /* case-expr style */
     A = B;
 }
 else_if(A) ::= ELSE IF expr(B) block(C) else_if(D). {
-    A = sexpr::ifx(B, C, D);
+    A = sxpr::ifx(B, C, D);
 }
 else_if(A) ::= ELSE IF expr(B) block(C). {
-    A = sexpr::ifx(B, C, Val::Void);
+    A = sxpr::ifx(B, C, Val::Void);
 }
 else_if(A) ::= ELSE block(B). {
     A = B;
 }
 if_case(A) ::= PIPE expr(B) block(C). {
-    A = sexpr::ifx(B, C, Val::Void);
+    A = sxpr::ifx(B, C, Val::Void);
 }
 if_case(A) ::= PIPE expr(B) block(C) if_case(D). {
-    A = sexpr::ifx(B, C, D);
+    A = sxpr::ifx(B, C, D);
 }
 if_case(A) ::= PIPE ELSE block(B). {
     A = B;
@@ -367,15 +367,15 @@ expr(A) ::= call_expr(B). {
 }
 call_expr(A) ::= func_term(B) PARENCALL RPAREN. {
 	vout!("zero param function call!");
-	A = sexpr::call(B, Val::Nil);
+	A = sxpr::call(B, Val::Nil);
 }
 call_expr(A) ::= func_term(B) PARENCALL expr(C) RPAREN. {
 	vout!("one param function call!");
-	A = sexpr::call(B, list::singleton(C));
+	A = sxpr::call(B, list::singleton(C));
 }
 call_expr(A) ::= func_term(B) PARENCALL tuple_args(C) RPAREN. {
 	vout!("multi param function call!");
-	A = sexpr::call(B, C);
+	A = sxpr::call(B, C);
 }
 
 func_term(A) ::= term(B). {
@@ -397,21 +397,21 @@ expr(A) ::= CASE cases(B) DOUBLEDASH. {
 }
 cases(A) ::= PIPE expr(B) block(C) PIPE block(D). {
     vout!("found cases base\n");
-    A = sexpr::ifx(B, C, D);
+    A = sxpr::ifx(B, C, D);
 }
 cases(A) ::= PIPE expr(B) block(C) PIPE ELSE block(D). {
     vout!("found cases base\n");
-    A = sexpr::ifx(B, C, D);
+    A = sxpr::ifx(B, C, D);
 }
 cases(A) ::= PIPE expr(B) block(C) cases(D). {
     vout!("found extra case\n");
-    A = sexpr::ifx(B, C, D);
+    A = sxpr::ifx(B, C, D);
 }
 
 /* match expression */
 expr(A) ::= MATCH expr(B) match_case(C) DOUBLEDASH. {
     vout!("parsed match expr\n");
-    A = sexpr::match_expr(B, C);
+    A = sxpr::match_expr(B, C);
 }
 match_case(A) ::= PIPE pexpr(B) block(C) match_case(D). {
     vout!("found cases base\n");
@@ -472,82 +472,82 @@ expr(A) ::= list(B). { A = B; }
  */
 expr(A) ::= tuple(B). { A = B; }
 expr(A) ::= NOT expr(B). {
-	A = sexpr::call(Val::id("bool_not".to_string()), list::singleton(B));
+	A = sxpr::call(Val::id("bool_not".to_string()), list::singleton(B));
 }
 expr(A) ::= expr(B) ConcatNewline. {
 	let newline = Val::new_str("\n".to_string());
 	let args = list::cons(B, list::singleton(newline));
-	A = sexpr::new(SexprType::StrExpr, args)
+	A = sxpr::new(SxprType::StrExpr, args)
 }
 /* arithmetic */
 expr(A) ::= NEGATE term(B). {
-	A = sexpr::call(Val::id("negate".to_string()), list::singleton(B));
+	A = sxpr::call(Val::id("negate".to_string()), list::singleton(B));
 }
 expr(A) ::= expr(B) PLUS expr(C). {
-	A = sexpr::binaryop("int_add".to_string(), B, C);
+	A = sxpr::binaryop("int_add".to_string(), B, C);
 }
 expr(A) ::= expr(B) MINUS expr(C). {
-	A = sexpr::binaryop("int_sub".to_string(), B, C);
+	A = sxpr::binaryop("int_sub".to_string(), B, C);
 }
 expr(A) ::= expr(B) TIMES expr(C). {
-	A = sexpr::binaryop("int_mult".to_string(), B, C);
+	A = sxpr::binaryop("int_mult".to_string(), B, C);
 }
 expr(A) ::= expr(B) SLASH expr(C). {
-	A = sexpr::binaryop("int_div".to_string(), B, C);
+	A = sxpr::binaryop("int_div".to_string(), B, C);
 }
 expr(A) ::= expr(B) MOD expr(C). {
-	A = sexpr::binaryop("int_mod".to_string(), B, C);
+	A = sxpr::binaryop("int_mod".to_string(), B, C);
 }
 expr(A) ::= expr(B) AND expr(C). {
-	A = sexpr::binaryop("boolean_and".to_string(), B, C);
+	A = sxpr::binaryop("boolean_and".to_string(), B, C);
 }
 expr(A) ::= expr(B) OR expr(C). {
-	A = sexpr::binaryop("boolean_or".to_string(), B, C);
+	A = sxpr::binaryop("boolean_or".to_string(), B, C);
 }
 expr(A) ::= expr(B) XOR expr(C). {
-	A = sexpr::binaryop("boolean_xor".to_string(),B, C);
+	A = sxpr::binaryop("boolean_xor".to_string(),B, C);
 }
 
 /* comparisons */
 expr(A) ::= expr(B) LT expr(C). {
-	A = sexpr::binaryop("less_than".to_string(), B, C);
+	A = sxpr::binaryop("less_than".to_string(), B, C);
 }
 expr(A) ::= expr(B) LTEQ expr(C). {
-	A = sexpr::binaryop("less_than_equal".to_string(), B, C);
+	A = sxpr::binaryop("less_than_equal".to_string(), B, C);
 }
 expr(A) ::= expr(B) GT expr(C). {
-	A = sexpr::binaryop("greater_than".to_string(), B, C);
+	A = sxpr::binaryop("greater_than".to_string(), B, C);
 }
 expr(A) ::= expr(B) GTEQ expr(C). {
-	A = sexpr::binaryop("greater_than_equal".to_string(), B, C);
+	A = sxpr::binaryop("greater_than_equal".to_string(), B, C);
 }
 expr(A) ::= expr(B) EQ(P) expr(C). {
-	A = sexpr::binaryop("equal".to_string(), B, C);
+	A = sxpr::binaryop("equal".to_string(), B, C);
 }
 expr(A) ::= expr(B) NEQ(P) expr(C). {
-	let eq = sexpr::binaryop("equal".to_string(), B, C);
-	A = sexpr::call(Val::id("bool_not".to_string()), list::singleton(eq));
+	let eq = sxpr::binaryop("equal".to_string(), B, C);
+	A = sxpr::call(Val::id("bool_not".to_string()), list::singleton(eq));
 }
 /*
 expr(A) ::= expr(B) LT expr(C) LT expr(D). {
-	let l1 = sexpr::binaryop("less_than".to_string(), B, C);
-	let l2 = sexpr::binaryop("less_than".to_string(), C, D);
-	A = sexpr::binaryop("and".to_string(), l1, l2);
+	let l1 = sxpr::binaryop("less_than".to_string(), B, C);
+	let l2 = sxpr::binaryop("less_than".to_string(), C, D);
+	A = sxpr::binaryop("and".to_string(), l1, l2);
 }
 expr(A) ::= expr(B) LT expr(C) LTEQ expr(D). {
-	let l1 = sexpr::binaryop("less_than".to_string(), B, C);
-	let l2 = sexpr::binaryop("less_than_equal".to_string(), C, D);
-	A = sexpr::binaryop("and".to_string(), l1, l2);
+	let l1 = sxpr::binaryop("less_than".to_string(), B, C);
+	let l2 = sxpr::binaryop("less_than_equal".to_string(), C, D);
+	A = sxpr::binaryop("and".to_string(), l1, l2);
 }
 expr(A) ::= expr(B) LTEQ expr(C) LT expr(D). {
-	let l1 = sexpr::binaryop("less_than_equal".to_string(), B, C);
-	let l2 = sexpr::binaryop("less_than".to_string(), C, D);
-	A = sexpr::binaryop("and".to_string(), l1, l2);
+	let l1 = sxpr::binaryop("less_than_equal".to_string(), B, C);
+	let l2 = sxpr::binaryop("less_than".to_string(), C, D);
+	A = sxpr::binaryop("and".to_string(), l1, l2);
 }
 expr(A) ::= expr(B) LTEQ expr(C) LTEQ expr(D). {
-	let l1 = sexpr::binaryop("less_than_equal".to_string(), B, C);
-	let l2 = sexpr::binaryop("less_than_equal".to_string(), C, D);
-	A = sexpr::binaryop("and".to_string(), l1, l2);
+	let l1 = sxpr::binaryop("less_than_equal".to_string(), B, C);
+	let l2 = sxpr::binaryop("less_than_equal".to_string(), C, D);
+	A = sxpr::binaryop("and".to_string(), l1, l2);
 }
 */
 
@@ -584,7 +584,7 @@ list(A) ::= SquareL list_items(B) SquareR. {
 	A = B;
 }
 list(A) ::= SquareL list_items(B) SEMICOLON expr(C) SquareR. {
-	A = sexpr::call(Val::id("list_cons".to_string()), list::from2(B, C));
+	A = sxpr::call(Val::id("list_cons".to_string()), list::from2(B, C));
 }
 list_items(A) ::= expr(B). {
 	A = list::singleton(B);
@@ -606,7 +606,7 @@ tuple_args(A) ::= expr(B) COMMA tuple_args(C). {
 }
 
 strexpr(A) ::= StrOpen strlist(B) StrClose. {
-	A = sexpr::strexpr(B);
+	A = sxpr::strexpr(B);
     vout!("strexpr({:?})\n", A);
 }
 strlist(A) ::= . {

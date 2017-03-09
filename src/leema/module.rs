@@ -1,6 +1,6 @@
 use leema::ast;
-use leema::val::{Val, Type, SexprType};
-use leema::iexpr::{Iexpr, Source};
+use leema::val::{Val, Type, SxprType};
+use leema::ixpr::{Ixpr, Source};
 use leema::list;
 use leema::lex::{lex};
 use leema::parse::{Token};
@@ -106,7 +106,7 @@ impl ModulePreface
     pub fn split_ast(&mut self, ast: &Val)
     {
         match ast {
-            &Val::Sexpr(SexprType::BlockExpr, ref sx) => {
+            &Val::Sxpr(SxprType::BlockExpr, ref sx) => {
                 list::fold_mut_ref(self, sx
                     , ModulePreface::split_ast_block_item);
             }
@@ -119,11 +119,11 @@ impl ModulePreface
     pub fn split_ast_block_item(mp: &mut ModulePreface, item: &Val)
     {
         match item {
-            &Val::Sexpr(SexprType::Import, ref imp) => {
+            &Val::Sxpr(SxprType::Import, ref imp) => {
                 let iname = list::head_ref(imp);
                 mp.imports.insert(String::from(iname.str()));
             }
-            &Val::Sexpr(SexprType::DefMacro, ref dm) => {
+            &Val::Sxpr(SxprType::DefMacro, ref dm) => {
                 let (mname_val, args_val, body) = list::to_ref_tuple3(dm);
                 let mname = mname_val.str();
                 let mut args = vec![];

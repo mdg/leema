@@ -1,5 +1,5 @@
 
-use leema::iexpr::{Iexpr, Source};
+use leema::ixpr::{Ixpr, Source};
 use leema::inter::{Intermod};
 use leema::infer::{Inferator};
 use leema::val::{Val, Type};
@@ -49,7 +49,7 @@ impl<'a> CallFrame<'a>
         self.calls.pop_front()
     }
 
-    pub fn collect_calls<'b>(&mut self, ix: &'b Iexpr)
+    pub fn collect_calls<'b>(&mut self, ix: &'b Ixpr)
     {
         match ix.src {
             Source::Call(ref callx, ref args) => {
@@ -90,7 +90,7 @@ impl<'a> CallFrame<'a>
         }
     }
 
-    pub fn collect_callexpr<'b>(&mut self, callx: &'b Iexpr)
+    pub fn collect_callexpr<'b>(&mut self, callx: &'b Ixpr)
     {
         match callx.src {
             Source::Id(ref callname) => {
@@ -106,7 +106,7 @@ impl<'a> CallFrame<'a>
         }
     }
 
-    pub fn collect_calls_vec<'b>(&mut self, xvec: &'b Vec<Iexpr>)
+    pub fn collect_calls_vec<'b>(&mut self, xvec: &'b Vec<Ixpr>)
     {
         for x in xvec {
             self.collect_calls(x);
@@ -156,7 +156,7 @@ impl<'a, 'b> Typescope<'a, 'b>
     }
 }
 
-pub fn typecheck_expr(scope: &mut Typescope, ix: &Iexpr) -> Type
+pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
 {
     match &ix.src {
         &Source::Call(ref func, ref args) => {
@@ -219,7 +219,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Iexpr) -> Type
     }
 }
 
-pub fn typecheck_function(scope: &mut Typescope, ix: &Iexpr) -> Type
+pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> Type
 {
     println!("check_function({:?})", scope.fname);
     match &ix.src {
@@ -338,7 +338,7 @@ library of typed code
 
 
 pub fn function(prog: &mut program::Lib, inter: &Interloader,
-        modname: &str, fname: &str) -> Iexpr
+        modname: &str, fname: &str) -> Ixpr
 {
     let mut m = prog.load_module(modname);
     let mut tf = m.typed_func(fname);

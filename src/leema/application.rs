@@ -176,11 +176,11 @@ enum Itype
 | Infernode(Itype, Itype),
 --
 
-enum Iexpr
+enum Ixpr
 | Val(Val, Itype)
 | Id(String, Itype)
-| Call(Iexpr, Vec<Iexpr>, Itype)
-| Iexpr(IexprType, Ival)
+| Call(Ixpr, Vec<Ixpr>, Itype)
+| Ixpr(IxprType, Ival)
 --
 */
 

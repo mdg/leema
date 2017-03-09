@@ -1,7 +1,7 @@
 use leema::reg::{Reg, RegTable};
 use leema::val::{Val, Type};
 use leema::log;
-use leema::iexpr::{Iexpr, Source};
+use leema::ixpr::{Ixpr, Source};
 use leema::frame;
 use std::fmt;
 use std::collections::{HashMap};
@@ -179,7 +179,7 @@ pub enum CodeKey
     Repl(isize),
 }
 
-pub fn make_ops(input: &Iexpr) -> OpVec
+pub fn make_ops(input: &Ixpr) -> OpVec
 {
     let mut regtbl = RegTable::new();
     let mut ops = make_sub_ops(&mut regtbl, input);
@@ -190,7 +190,7 @@ pub fn make_ops(input: &Iexpr) -> OpVec
     ops.ops
 }
 
-pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> Oxpr
+pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
 {
     match input.src {
         Source::Block(ref lines) => {
@@ -326,7 +326,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Iexpr) -> Oxpr
     }
 }
 
-pub fn make_call_ops(rt: &mut RegTable, f: &Iexpr, args: &Iexpr) -> Oxpr
+pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr, args: &Ixpr) -> Oxpr
 {
     let dst = rt.dst().clone();
 
@@ -363,7 +363,7 @@ pub fn make_constructor_ops(rt: &mut RegTable, typ: &Type) -> Oxpr
     }
 }
 
-pub fn make_matchexpr_ops(rt: &mut RegTable, x: &Iexpr, cases: &Iexpr) -> Oxpr
+pub fn make_matchexpr_ops(rt: &mut RegTable, x: &Ixpr, cases: &Ixpr) -> Oxpr
 {
 vout!("make_matchexpr_ops({:?},{:?})", x, cases);
     let mut x_ops = match Reg::Undecided {
@@ -387,7 +387,7 @@ vout!("make_matchexpr_ops({:?},{:?})", x, cases);
     }
 }
 
-pub fn make_matchcase_ops(rt: &mut RegTable, matchcase: &Iexpr, xreg: &Reg
+pub fn make_matchcase_ops(rt: &mut RegTable, matchcase: &Ixpr, xreg: &Reg
             ) -> Oxpr
 {
     let (patt, code, next) = match matchcase.src {
@@ -436,7 +436,7 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
     }
 }
 
-pub fn make_case_ops(rt: &mut RegTable, test: &Iexpr, truth: &Iexpr, lies: &Iexpr) -> Oxpr
+pub fn make_case_ops(rt: &mut RegTable, test: &Ixpr, truth: &Ixpr, lies: &Ixpr) -> Oxpr
 {
 vout!("make_case_ops({:?},{:?},{:?})\n", test, truth, lies);
     rt.push_dst();
@@ -461,7 +461,7 @@ vout!("make_case_ops({:?},{:?},{:?})\n", test, truth, lies);
     }
 }
 
-pub fn make_if_ops(rt: &mut RegTable, test: &Iexpr, truth: &Iexpr, lies: &Iexpr) -> Oxpr
+pub fn make_if_ops(rt: &mut RegTable, test: &Ixpr, truth: &Ixpr, lies: &Ixpr) -> Oxpr
 {
 vout!("make_if_ops({:?},{:?},{:?})\n", test, truth, lies);
     rt.push_dst();
@@ -484,7 +484,7 @@ vout!("make_if_ops({:?},{:?},{:?})\n", test, truth, lies);
 }
 
 /*
-pub fn make_fork_ops(rt: &mut RegTable, dst: &Reg, f: &Iexpr, args: &Iexpr) -> Oxpr
+pub fn make_fork_ops(rt: &mut RegTable, dst: &Reg, f: &Ixpr, args: &Ixpr) -> Oxpr
 {
     println!("make_fork_ops({:?}, {:?}, {:?})", dst, f, args);
     let mut ops = make_sub_ops(rt, f);
@@ -494,7 +494,7 @@ pub fn make_fork_ops(rt: &mut RegTable, dst: &Reg, f: &Iexpr, args: &Iexpr) -> O
 }
 */
 
-pub fn make_list_ops(rt: &mut RegTable, items: &Vec<Iexpr>) -> Oxpr
+pub fn make_list_ops(rt: &mut RegTable, items: &Vec<Ixpr>) -> Oxpr
 {
     let dst = rt.dst().clone();
     let mut ops = vec![Op::ListCreate(dst.clone())];
@@ -508,7 +508,7 @@ pub fn make_list_ops(rt: &mut RegTable, items: &Vec<Iexpr>) -> Oxpr
     Oxpr{ ops: ops, dst: dst }
 }
 
-pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Iexpr>) -> Oxpr
+pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Ixpr>) -> Oxpr
 {
     let dst = rt.dst().clone();
     let mut ops = vec![
@@ -531,14 +531,14 @@ pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Iexpr>) -> Oxpr
 #[cfg(test)]
 mod tests {
     use leema::code::{self, Op};
-    use leema::iexpr::{Iexpr};
+    use leema::ixpr::{Ixpr};
     use leema::reg::{Reg};
     use leema::val::{Val};
 
 #[test]
 fn test_code_constval()
 {
-    let ic = Iexpr::const_val(Val::Int(9));
+    let ic = Ixpr::const_val(Val::Int(9));
     let code = code::make_ops(&ic);
 
     assert_eq!(3, code.len());

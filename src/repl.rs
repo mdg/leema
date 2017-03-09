@@ -23,9 +23,9 @@ fn read_cmd() -> String {
 }
 
 /*
-fn apply_macro(mdef: Sexpr, input: List) -> Sexpr {
+fn apply_macro(mdef: Sxpr, input: List) -> Sxpr {
     match mdef {
-        Sexpr::MacroDef(_, ref args, ref code) => {
+        Sxpr::MacroDef(_, ref args, ref code) => {
             if input_items.len() != args.len() {
                 panic!("Wrong number of args");
             }
@@ -42,7 +42,7 @@ fn apply_macro(mdef: Sexpr, input: List) -> Sexpr {
             for c in code {
                 new_code.push(Ast::replace_id(c, &argval));
             }
-            Sexpr::Block(List::Nil)
+            Sxpr::Block(List::Nil)
         }
         _ => {
             panic!("That was not a macro");

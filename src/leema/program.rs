@@ -1,5 +1,5 @@
 use leema::code::{self, Code};
-use leema::iexpr::{Iexpr};
+use leema::ixpr::{Ixpr};
 use leema::inter::{self, Version, Intermod};
 use leema::module::{ModuleSource, ModuleInterface, ModulePreface, MacroDef};
 use leema::loader::{Interloader};

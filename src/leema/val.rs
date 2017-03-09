@@ -1,5 +1,5 @@
 use leema::reg::{self, Reg, Ireg, Iregistry};
-use leema::sexpr;
+use leema::sxpr;
 use leema::list;
 use leema::frame::{FrameTrace};
 use leema::log;
@@ -214,7 +214,7 @@ impl Debug for FutureVal
 #[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
-pub enum SexprType {
+pub enum SxprType {
     Let,
     Fork,
     StrExpr,
@@ -257,7 +257,7 @@ pub enum Val {
     Cons(Box<Val>, Box<Val>),
     Nil,
     Tuple(Vec<Val>),
-    Sexpr(SexprType, Box<Val>),
+    Sxpr(SxprType, Box<Val>),
     Struct(Type, Vec<Val>),
     Enum(Type, u8, Box<Val>),
     Failure(
@@ -285,18 +285,18 @@ pub const FALSE: Val = Val::Bool(false);
 pub const TRUE: Val = Val::Bool(true);
 
 impl Val {
-    pub fn is_sexpr(&self) -> bool
+    pub fn is_sxpr(&self) -> bool
     {
         match self {
-            &Val::Sexpr(_, _) => true,
+            &Val::Sxpr(_, _) => true,
             _ => false,
         }
     }
 
-    pub fn is_sexpr_type(&self, st: SexprType) -> bool
+    pub fn is_sxpr_type(&self, st: SxprType) -> bool
     {
         match self {
-            &Val::Sexpr(st, _) => true,
+            &Val::Sxpr(st, _) => true,
             _ => false,
         }
     }
@@ -391,17 +391,17 @@ impl Val {
     pub fn take_tuple_vals(&mut self) -> Vec<Val>
     {
         match self {
-            &mut Sexpr::Val(ref mut tv) => {
+            &mut Sxpr::Val(ref mut tv) => {
                 let mut tmp = Box::new(Val::Void);
                 mem::swap(&mut *tv, &mut tmp);
                 match *tmp {
                     Val::Tuple(vals) => {
                         vals
                     }
-                    _ => panic!("sexpr val is not a tuple"),
+                    _ => panic!("sxpr val is not a tuple"),
                 }
             }
-            _ => panic!("tuple sexpr not a val"),
+            _ => panic!("tuple sxpr not a val"),
         }
     }
     */
@@ -551,7 +551,7 @@ impl Val {
             &Val::PatternVar(_) => Type::Unknown,
             &Val::Id(_) => Type::AnonVar,
             &Val::TypedId(_, ref typ) => typ.clone(),
-            &Val::Sexpr(SexprType::DefFunc, _) => sexpr::defunc_type(self),
+            &Val::Sxpr(SxprType::DefFunc, _) => sxpr::defunc_type(self),
             &Val::RustBlock => Type::RustBlock,
             _ => { panic!("dunno what type {:?}", self) }
         }
@@ -621,8 +621,8 @@ impl Val {
                     None => Val::Id(name),
                 }
             }
-            Val::Sexpr(stype, sdata) => {
-                sexpr::new(
+            Val::Sxpr(stype, sdata) => {
+                sxpr::new(
                     stype,
                     Val::replace_ids(*sdata, idvals),
                 )
@@ -648,8 +648,8 @@ impl Val {
             &Val::Tuple(ref items) => {
                 Val::Tuple(items.iter().map(|i| i.deep_clone()).collect())
             }
-            &Val::Sexpr(st, ref sx) => {
-                Val::Sexpr(st, Box::new(sx.deep_clone()))
+            &Val::Sxpr(st, ref sx) => {
+                Val::Sxpr(st, Box::new(sx.deep_clone()))
             }
             // &Val::Struct(Type, Vec<Val>),
             // &Val::Enum(Type, u8, Box<Val>),
@@ -709,10 +709,10 @@ impl Val {
         f.write_str(")")
     }
 
-    fn fmt_sexpr(st: SexprType, x: &Val, f: &mut fmt::Formatter, dbg: bool) -> fmt::Result
+    fn fmt_sxpr(st: SxprType, x: &Val, f: &mut fmt::Formatter, dbg: bool) -> fmt::Result
     {
         match (st, x) {
-            (SexprType::Let, b) => {
+            (SxprType::Let, b) => {
                 let (id, exprtail) = list::take_ref(b);
                 let (expr, _) = list::take_ref(exprtail);
                 if dbg {
@@ -721,7 +721,7 @@ impl Val {
                     write!(f, "let {} := {}", id, expr)
                 }
             }
-            (SexprType::Fork, b) => {
+            (SxprType::Fork, b) => {
                 let (id, exprtail) = list::take_ref(b);
                 let (expr, _) = list::take_ref(exprtail);
                 if dbg {
@@ -730,7 +730,7 @@ impl Val {
                     write!(f, "fork {} := {}", id, expr)
                 }
             }
-            (SexprType::BlockExpr, lines) => {
+            (SxprType::BlockExpr, lines) => {
                 if dbg {
                     write!(f, "B{{");
                     Val::fmt_list(f, lines, dbg);
@@ -739,17 +739,17 @@ impl Val {
                     write!(f, "block-expr")
                 }
             }
-            (SexprType::Call, &Val::Cons(ref id, ref args)) => {
+            (SxprType::Call, &Val::Cons(ref id, ref args)) => {
                 if dbg {
                     write!(f, "{:?}({:?})", id, args)
                 } else {
                     write!(f, "{}({})", id, args)
                 }
             }
-            (SexprType::StrExpr, strs) => {
+            (SxprType::StrExpr, strs) => {
                 write!(f, "\"{}\"", strs)
             }
-            (SexprType::MatchExpr, mc) => {
+            (SxprType::MatchExpr, mc) => {
                 let (x, m2) = list::take_ref(mc);
                 let (cases, _) = list::take_ref(m2);
                 if dbg {
@@ -758,10 +758,10 @@ impl Val {
                     write!(f, "match({},{})", x, cases)
                 }
             }
-            (SexprType::IfExpr, casex) => {
+            (SxprType::IfExpr, casex) => {
                 write!(f, "if({:?})", casex)
             }
-            (SexprType::DefFunc, ref func) => {
+            (SxprType::DefFunc, ref func) => {
                 let (name, f2) = list::take_ref(func);
                 let (args, f3) = list::take_ref(f2);
                 let (rtype, f4) = list::take_ref(f3);
@@ -773,18 +773,18 @@ impl Val {
                     body,
                 )
             }
-            (SexprType::DefMacro, ref mac) => {
+            (SxprType::DefMacro, ref mac) => {
                 let (name, m2) = list::take_ref(mac);
                 let (args, m3) = list::take_ref(m2);
                 let (body, _) = list::take_ref(m3);
                 write!(f, "DefMacro({},{:?},{:?})", name, args, body)
             }
-            (SexprType::DefStruct, ref ds) => {
+            (SxprType::DefStruct, ref ds) => {
                 let (name, m2) = list::take_ref(ds);
                 let (fields, _) = list::take_ref(m2);
                 write!(f, "struct({},{:?})", name, fields)
             }
-            (SexprType::Import, ref filelist) => {
+            (SxprType::Import, ref filelist) => {
                 let file = list::head_ref(filelist);
                 write!(f, "(import {:?})", file)
             }
@@ -875,8 +875,8 @@ impl fmt::Display for Val {
             Val::Failure(ref tag, ref msg, ref stack) => {
                 write!(f, "Failure({}, {}\n{:?}\n)", tag, msg, **stack)
             }
-            Val::Sexpr(ref t, ref head) => {
-                Val::fmt_sexpr(*t, head, f, false)
+            Val::Sxpr(ref t, ref head) => {
+                Val::fmt_sxpr(*t, head, f, false)
             }
             Val::Id(ref name) => {
                 write!(f, "{}", name)
@@ -956,8 +956,8 @@ impl fmt::Debug for Val {
             Val::Failure(ref tag, ref msg, ref stack) => {
                 write!(f, "Failure({}, {}, {:?})", tag, msg, stack)
             }
-            Val::Sexpr(ref t, ref head) => {
-                Val::fmt_sexpr(*t, head, f, true)
+            Val::Sxpr(ref t, ref head) => {
+                Val::fmt_sxpr(*t, head, f, true)
             }
             Val::Id(ref id) => {
                 write!(f, "ID({})", id)
@@ -1205,7 +1205,7 @@ impl PartialOrd for Val
                     _ => cmp,
                 }
             }
-            (&Val::Sexpr(t1, ref x1), &Val::Sexpr(t2, ref x2)) => {
+            (&Val::Sxpr(t1, ref x1), &Val::Sxpr(t2, ref x2)) => {
                 let cmp = PartialOrd::partial_cmp(&t1, &t2);
                 match cmp {
                     Some(Ordering::Equal) => {
@@ -1295,11 +1295,11 @@ impl PartialOrd for Val
             }
             (&Val::RustBlock, _) => Some(Ordering::Less),
             (_, &Val::RustBlock) => Some(Ordering::Greater),
-            (&Val::Sexpr(_, _), _) => Some(Ordering::Less),
-            (_, &Val::Sexpr(_, _)) => Some(Ordering::Greater),
+            (&Val::Sxpr(_, _), _) => Some(Ordering::Less),
+            (_, &Val::Sxpr(_, _)) => Some(Ordering::Greater),
             (&Val::Wildcard, _) => Some(Ordering::Less),
             (_, &Val::Wildcard) => Some(Ordering::Greater),
-            //(&Val::Sexpr(_, ref x1), &Val::Sexpr(t2, ref x2)) => {
+            //(&Val::Sxpr(_, ref x1), &Val::Sxpr(t2, ref x2)) => {
             _ => {
                 panic!("can't compare({:?},{:?})", self, other);
             }
@@ -1347,8 +1347,8 @@ impl Clone for Val
             &Val::Failure => {
                 Val::Failure
             }
-            &Val::Sexpr(ref s) => {
-                Val::Sexpr(s.clone())
+            &Val::Sxpr(ref s) => {
+                Val::Sxpr(s.clone())
             }
             &Val::Type(ref t) => {
                 Val::Type(t.clone())
@@ -1516,9 +1516,9 @@ impl reg::Iregistry for Env
 
 #[cfg(test)]
 mod tests {
-    use leema::val::{Type, Val, SexprType};
+    use leema::val::{Type, Val, SxprType};
     use leema::list;
-    use leema::sexpr;
+    use leema::sxpr;
     use std::collections::{HashMap};
     use std::rc::{Rc};
 
@@ -1606,7 +1606,7 @@ fn test_compare_across_types() {
 #[test]
 fn test_replace_ids_if()
 {
-    let body = sexpr::new(SexprType::IfExpr,
+    let body = sxpr::new(SxprType::IfExpr,
         list::cons(Val::id("a".to_string()),
         list::cons(Val::id("b".to_string()),
         list::cons(Val::Bool(false),
@@ -1619,7 +1619,7 @@ fn test_replace_ids_if()
 
     let result = Val::replace_ids(body, &ids);
 
-    let expected = sexpr::new(SexprType::IfExpr,
+    let expected = sxpr::new(SxprType::IfExpr,
         list::cons(Val::Bool(true),
         list::cons(Val::Bool(false),
         list::cons(Val::Bool(false),
