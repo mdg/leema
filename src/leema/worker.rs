@@ -121,6 +121,7 @@ impl Worker
                 self.event = Event::Complete(true);
             }
         }
+        self.handle_event(code, curf);
     }
 
     fn execute_leema_frame(&mut self, curf: &mut Frame, ops: &OpVec)
@@ -180,15 +181,16 @@ impl Worker
     {
         let id = self.next_frame_id;
         self.next_frame_id += 1;
-        let env = Env::new();
-        self.load_frame(Frame::new_root(id, env));
+        self.load_frame(Frame::new_root(id, module, func));
     }
 
     fn request_code(&mut self, f: Frame)
     {
         let frame_id = f.id;
         let msg = Msg::RequestCode(self.id, frame_id
-            , f.module_name().to_string(), f.function_name().to_string());
+            , f.module_name().to_string()
+            , f.function_name().to_string()
+        );
         let wait = FrameWait::code_request(f);
         self.waiting.insert(frame_id, wait);
         self.tx.send(msg);
@@ -246,7 +248,7 @@ impl Worker
                 frame::execute_load_func(curf, reg, modsym);
             }
             &Op::ApplyFunc(ref dst, ref func, ref args) => {
-                frame::execute_call(curf, dst, func, args);
+                self.event = frame::execute_call(curf, dst, func, args);
             }
             &Op::Return => {
                 self.event = Event::Complete(true);

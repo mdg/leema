@@ -191,10 +191,11 @@ pub struct Frame
 
 impl Frame
 {
-    pub fn new_root(id: i64, env: Env) -> Frame
+    pub fn new_root(id: i64, m: String, f: String) -> Frame
     {
-        let modname = Rc::new("__init__".to_string());
-        let fname = Rc::new("main".to_string());
+        let env = Env::new();
+        let modname = Rc::new(m);
+        let fname = Rc::new(f);
         Frame{
             parent: Parent::Main(Val::Void),
             trace: FrameTrace::new_root(&fname),
