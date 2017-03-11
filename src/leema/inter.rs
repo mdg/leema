@@ -329,7 +329,12 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
                 }
                 Some((ScopeLevel::External, typ)) => {
                     Ixpr{
-                        src: Source::ConstVal(Val::Str(id.clone())),
+                        src: Source::ConstVal(
+                            Val::Tuple(vec![
+                                Val::Str(Rc::new("prefab".to_string())),
+                                Val::Str(id.clone()),
+                            ])
+                        ),
                         typ: typ.clone(),
                     }
                 }

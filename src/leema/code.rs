@@ -321,7 +321,10 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             rops
         }
         Source::RustBlock => {
-            panic!("Whoa how to make a RustBlock ops?");
+            Oxpr{
+                ops: vec![],
+                dst: rt.dst().clone(),
+            }
         }
     }
 }

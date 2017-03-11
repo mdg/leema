@@ -502,35 +502,49 @@ pub fn execute_call(curf: &mut Frame, dst: &Reg, freg: &Reg, argreg: &Reg)
 -> Event
 {
     let ref fname_val = curf.e.get_reg(freg);
-    match *fname_val {
+    let (modname, funcname) = match *fname_val {
         &Val::Str(ref name_str) => {
             // pass in args
-            let args = curf.e.get_reg(argreg);
-            match call_arg_failure(args) {
-                Some(bfailure) => {
-                    let mut failure = bfailure.clone();
-                    if let &mut Val::Failure(_, _, ref mut trace) = &mut failure
-                    {
-                        *trace = FrameTrace::propagate_down(
-                            trace,
-                            curf.function_name(),
-                        );
-                    }
-                    curf.parent.set_result(failure);
-                    Event::Complete(false)
+            (Rc::new("".to_string()), name_str.clone())
+        }
+        &Val::Tuple(ref modfunc) if modfunc.len() == 2 => {
+            let modnm = modfunc.get(0).unwrap();
+            let funcnm = modfunc.get(1).unwrap();
+            match (modnm, funcnm) {
+                (&Val::Str(ref m), &Val::Str(ref f)) => {
+                    (m.clone(), f.clone())
                 }
-                None => {
-                    Event::Call(
-                        dst.clone(),
-                        Rc::new("".to_string()),
-                        name_str.clone(),
-                        args.clone(),
-                    )
+                _ => {
+                    panic!("That's not a function! {:?}", fname_val);
                 }
             }
         }
         _ => {
             panic!("That's not a function! {:?}", fname_val);
+        }
+    };
+
+    let args = curf.e.get_reg(argreg);
+    match call_arg_failure(args) {
+        Some(bfailure) => {
+            let mut failure = bfailure.clone();
+            if let &mut Val::Failure(_, _, ref mut trace) = &mut failure
+            {
+                *trace = FrameTrace::propagate_down(
+                    trace,
+                    curf.function_name(),
+                );
+            }
+            curf.parent.set_result(failure);
+            Event::Complete(false)
+        }
+        None => {
+            Event::Call(
+                dst.clone(),
+                modname,
+                funcname,
+                args.clone(),
+            )
         }
     }
 }
