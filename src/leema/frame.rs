@@ -22,7 +22,7 @@ use std::io::{stderr, Write};
 pub enum Parent
 {
     Null,
-    Caller(Reg, Code, Box<Frame>),
+    Caller(Rc<Code>, Box<Frame>, Reg),
     Fork(Arc<AtomicBool>, mpsc::Sender<Msg>),
     Repl(Val),
     Main(Val),
@@ -33,7 +33,7 @@ impl Parent
     pub fn set_result(&mut self, r: Val)
     {
         match self {
-            &mut Parent::Caller(ref dst, _, ref mut pf) => {
+            &mut Parent::Caller(_, ref mut pf, ref dst) => {
                 pf.e.set_reg(dst, r);
             }
             &mut Parent::Fork(_, _) => {
@@ -74,7 +74,7 @@ impl Debug for Parent
 pub enum Event
 {
     Uneventful,
-    Call(Reg, Rc<String>, Rc<String>),
+    Call(Reg, Rc<String>, Rc<String>, Val),
     Fork,
     FutureWait(Reg),
     IOWait,
@@ -87,8 +87,10 @@ impl PartialEq for Event
     {
         match (self, other) {
             (&Event::Uneventful, &Event::Uneventful) => true,
-            (&Event::Call(ref r1, _, _), &Event::Call(ref r2, _, _)) => {
-                r1 == r2
+            (&Event::Call(ref r1, ref m1, ref f1, ref a1),
+                    &Event::Call(ref r2, ref m2, ref f2, ref a2)) =>
+            {
+                (r1 == r2 && m1 == m2 && f1 == f2 && a1 == a2)
             }
             (&Event::Fork, &Event::Fork) => true,
             (&Event::FutureWait(ref r1), &Event::FutureWait(ref r2)) => {
@@ -122,21 +124,21 @@ impl FrameTrace
         })
     }
 
-    pub fn push_call(parent: &Arc<FrameTrace>, func: &String) -> Arc<FrameTrace>
+    pub fn push_call(parent: &Arc<FrameTrace>, func: &str) -> Arc<FrameTrace>
     {
         Arc::new(FrameTrace{
             direction: 1,
-            function: func.clone(),
+            function: func.to_string(),
             parent: Some(parent.clone()),
         })
     }
 
-    pub fn propagate_down(trace: &Arc<FrameTrace>, func: &String)
+    pub fn propagate_down(trace: &Arc<FrameTrace>, func: &str)
         -> Arc<FrameTrace>
     {
         Arc::new(FrameTrace{
             direction: -1,
-            function: func.clone(),
+            function: String::from(func),
             parent: Some(trace.clone()),
         })
     }
@@ -178,8 +180,9 @@ impl fmt::Display for FrameTrace
 #[derive(Debug)]
 pub struct Frame
 {
-    pub name: String,
     pub parent: Parent,
+    pub module: Rc<String>,
+    pub function: Rc<String>,
     pub trace: Arc<FrameTrace>,
     pub e: Env,
     pub id: i64,
@@ -190,42 +193,49 @@ impl Frame
 {
     pub fn new_root(id: i64, env: Env) -> Frame
     {
-        let fname = "MAIN".to_string();
+        let modname = Rc::new("__init__".to_string());
+        let fname = Rc::new("main".to_string());
         Frame{
             parent: Parent::Main(Val::Void),
             trace: FrameTrace::new_root(&fname),
-            name: fname,
+            module: modname,
+            function: fname,
             e: env,
             id: id,
             pc: 0,
         }
     }
 
-    pub fn new_call(name: &String, dst: &Reg, e: Env, trace: &Arc<FrameTrace>)
-        -> Frame
-    {
+    pub fn push_call(code: Rc<Code>, curf: Frame, dst: Reg
+            , module: Rc<String>, func: Rc<String>
+    ) -> Frame {
+        let trace = curf.trace.clone();
+        let fid = curf.id;
         Frame{
-            name: name.clone(),
-            parent: Parent::Null,
-            trace: FrameTrace::push_call(&trace, name),
-            e: e,
-            id: -1,
+            parent: Parent::Caller(code, Box::new(curf), dst),
+            module: module.clone(),
+            function: func.clone(),
+            trace: FrameTrace::push_call(&trace, &(*func)),
+            e: Env::new(),
+            id: fid,
             pc: 0,
         }
     }
 
+    /*
     pub fn new_fork(f: &Frame, ready: &Arc<AtomicBool>, tx: mpsc::Sender<Msg>)
         -> Frame
     {
         Frame{
-            name: f.name.clone(),
             parent: Parent::Fork(ready.clone(), tx),
+            name: f.name.clone(),
             trace: f.trace.clone(),
             e: f.e.clone(),
             id: f.id,
             pc: 0,
         }
     }
+    */
 
     pub fn set_parent(&mut self, p: Parent)
     {
@@ -237,6 +247,16 @@ impl Frame
         let mut e = Env::new();
         mem::swap(&mut e, &mut self.e);
         e
+    }
+
+    pub fn module_name(&self) -> &str
+    {
+        &(**self.module)
+    }
+
+    pub fn function_name(&self) -> &str
+    {
+        &(**self.function)
     }
 
     pub fn receive_future(&mut self, r: &Reg) -> Option<Val>
@@ -310,7 +330,8 @@ vout!("matches: {:?}\n", matches);
                 let mut f = src.clone();
                 match &mut f {
                     &mut Val::Failure(_, _, ref mut trace) => {
-                        *trace = FrameTrace::propagate_down(trace, &self.name);
+                        *trace = FrameTrace::propagate_down(trace
+                            , self.function_name());
                     }
                     ff => {
                         panic!("is failure, but not a failure: {:?}", ff);
@@ -477,35 +498,35 @@ fn call_arg_failure(args: &Val) -> Option<&Val>
  * set curf.flag to Called(new_frame)
  */
 pub fn execute_call(curf: &mut Frame, dst: &Reg, freg: &Reg, argreg: &Reg)
+-> Event
 {
     let ref fname_val = curf.e.get_reg(freg);
     match *fname_val {
         &Val::Str(ref name_str) => {
-            curf.pc = curf.pc + 1;
-            /*
             // pass in args
             let args = curf.e.get_reg(argreg);
             match call_arg_failure(args) {
                 Some(bfailure) => {
                     let mut failure = bfailure.clone();
-                    if let &mut Val::Failure(_, _, ref mut trace) = &mut failure {
-                        *trace = FrameTrace::propagate_down(trace, &curf.name);
+                    if let &mut Val::Failure(_, _, ref mut trace) = &mut failure
+                    {
+                        *trace = FrameTrace::propagate_down(
+                            trace,
+                            curf.function_name(),
+                        );
                     }
                     curf.parent.set_result(failure);
-                    w.event = Event::Complete(false);
-                    return;
+                    Event::Complete(false)
                 }
-                None => {}
+                None => {
+                    Event::Call(
+                        dst.clone(),
+                        Rc::new("".to_string()),
+                        name_str.clone(),
+                        args.clone(),
+                    )
+                }
             }
-            // create new frame
-            let e = Env::with_args(args.clone());
-            // set current state to called
-            w.event = Event::Call(
-                dst.clone(),
-                code.clone(),
-                Frame::new_call(&name_str, &dst, e, &curf.trace),
-            );
-            */
         }
         _ => {
             panic!("That's not a function! {:?}", fname_val);

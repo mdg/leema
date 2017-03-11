@@ -9,6 +9,7 @@ use leema::val::{Env};
 use std::collections::{HashMap, LinkedList};
 use std::io::{stderr, Write};
 use std::mem;
+use std::rc::{Rc};
 use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::thread;
@@ -29,7 +30,7 @@ struct FrameWait
 {
     typ: WaitType,
     frame: Frame,
-    code: Option<Code>,
+    code: Option<Rc<Code>>,
 }
 
 impl FrameWait
@@ -46,9 +47,9 @@ impl FrameWait
 
 pub struct Worker
 {
-    fresh: LinkedList<(Code, Frame)>,
+    fresh: LinkedList<(Rc<Code>, Frame)>,
     waiting: HashMap<i64, FrameWait>,
-    code: HashMap<String, HashMap<String, Code>>,
+    code: HashMap<String, HashMap<String, Rc<Code>>>,
     event: Event,
     tx: Sender<Msg>,
     rx: Receiver<Msg>,
@@ -109,9 +110,9 @@ impl Worker
         }
     }
 
-    pub fn execute_frame(&mut self, code: Code, mut curf: Frame)
+    pub fn execute_frame(&mut self, code: Rc<Code>, mut curf: Frame)
     {
-        match code {
+        match *code {
             Code::Leema(ref ops) => {
                 self.execute_leema_frame(&mut curf, ops);
             }
@@ -137,12 +138,12 @@ impl Worker
                 self.create_root_frame(module, call);
             }
             Msg::FoundCode(frame_id, module, func, code) => {
-                let dupe_code = code.clone();
+                let rc_code = Rc::new(code);
                 let mut new_mod = HashMap::new();
-                new_mod.insert(func, code);
+                new_mod.insert(func, rc_code.clone());
                 self.code.insert(module, new_mod);
                 let fwait = self.waiting.remove(&frame_id).unwrap();
-                self.fresh.push_back((dupe_code, fwait.frame));
+                self.fresh.push_back((rc_code.clone(), fwait.frame));
             }
             _ => {
                 panic!("Must be a message for the app: {:?}", msg);
@@ -150,47 +151,55 @@ impl Worker
         }
     }
 
-    pub fn create_root_frame(&mut self, module: String, func: String)
+    pub fn load_frame(&mut self, frame: Frame)
     {
-        let opt_code = match self.code.get(&module) {
+        let opt_code = match self.code.get(frame.module_name()) {
             Some(ref m) => {
-                match m.get(&func) {
-                    Some(ref code) => Some((*code).clone()),
+                match m.get(frame.function_name()) {
+                    Some(ref code) => {
+                        Some((**code).clone())
+                    }
                     None => None,
                 }
             }
             None => None,
         };
-        let id = self.next_frame_id;
-        self.next_frame_id += 1;
-        let env = Env::new();
-        let frame = Frame::new_root(id, env);
         match opt_code {
             Some(code) => {
-                vout!("make new frame with {}.{}\n", module, func);
                 self.fresh.push_back((code, frame));
             }
             None => {
-                vout!("lookup code in application {}.{}\n", module, func);
-                self.request_code(frame, module, func);
+                vout!("lookup code in application {}.{}\n"
+                    , frame.module_name(), frame.function_name());
+                self.request_code(frame);
             }
         }
     }
 
-    fn request_code(&mut self, f: Frame, mname: String, fname: String)
+    pub fn create_root_frame(&mut self, module: String, func: String)
     {
-        let frame_id = f.id;
-        let wait = FrameWait::code_request(f);
-        self.waiting.insert(frame_id, wait);
-        self.tx.send(Msg::RequestCode(self.id, frame_id, mname, fname));
+        let id = self.next_frame_id;
+        self.next_frame_id += 1;
+        let env = Env::new();
+        self.load_frame(Frame::new_root(id, env));
     }
 
-    fn pop_fresh(&mut self) -> Option<(Code, Frame)>
+    fn request_code(&mut self, f: Frame)
+    {
+        let frame_id = f.id;
+        let msg = Msg::RequestCode(self.id, frame_id
+            , f.module_name().to_string(), f.function_name().to_string());
+        let wait = FrameWait::code_request(f);
+        self.waiting.insert(frame_id, wait);
+        self.tx.send(msg);
+    }
+
+    fn pop_fresh(&mut self) -> Option<(Rc<Code>, Frame)>
     {
         self.fresh.pop_front()
     }
 
-    fn push_fresh(&mut self, code: Code, f: Frame)
+    fn push_fresh(&mut self, code: Rc<Code>, f: Frame)
     {
         self.fresh.push_back((code, f))
     }
@@ -260,7 +269,7 @@ impl Worker
 vout!("lock app, add_fork\n");
     }
 
-    pub fn handle_event(&mut self, code: Code, mut curf: Frame)
+    pub fn handle_event(&mut self, code: Rc<Code>, mut curf: Frame)
     {
         match self.take_event() {
             Event::Complete(success) => {
@@ -270,7 +279,7 @@ vout!("lock app, add_fork\n");
                     vout!("function call failed\n");
                 }
                 match curf.parent {
-                    Parent::Caller(dst, code, mut pf) => {
+                    Parent::Caller(code, mut pf, dst) => {
                         self.fresh.push_back((code, *pf));
                     }
                     Parent::Repl(res) => {
@@ -309,15 +318,9 @@ vout!("lock app, main done in iterate\n");
                     }
                 }
             }
-            Event::Call(dst, ch_code, mut ch_frame) => {
-                /*
-                ch_frame.parent = Parent::Caller(
-                    dst,
-                    code,
-                    Box::new(curf),
-                );
-                self.fresh.push_back((ch_code, ch_frame));
-                */
+            Event::Call(dst, module, func, args) => {
+                let newf = Frame::push_call(code, curf, dst, module, func);
+                self.load_frame(newf);
             }
             Event::FutureWait(reg) => {
                 println!("wait for future {:?}", reg);
@@ -326,7 +329,7 @@ vout!("lock app, main done in iterate\n");
                 println!("do I/O");
             }
             Event::Fork => {
-                self.fresh.push_back((code, curf));
+                // self.fresh.push_back((code, curf));
                 // end this iteration,
             }
             Event::Uneventful => {
