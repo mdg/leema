@@ -328,6 +328,9 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
                     }
                 }
                 Some((ScopeLevel::External, typ)) => {
+                    // if it's external and no module prefix,
+                    // it's almost certainly prefab. probably
+                    // a better way to make this work
                     Ixpr{
                         src: Source::ConstVal(
                             Val::Tuple(vec![

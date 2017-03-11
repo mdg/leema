@@ -280,7 +280,7 @@ pub fn file_read(fs: &mut Frame)
     fs.parent.set_result(openf);
 }
 
-pub fn stream_read_file(fs: &mut Frame)
+pub fn file_stream_read(fs: &mut Frame)
 {
     let mut input = "".to_string();
     {
@@ -332,28 +332,37 @@ pub fn source_code() -> &'static str
     "
 }
 
-pub fn get_function(func_name: &str) -> RustFunc
-{
-    match func_name {
-        "int_add" => int_add,
-        "int_sub" => int_sub,
-        "int_mult" => int_mult,
-        "int_mod" => int_mod,
-        "int_negate" => int_negate,
-        "bool_not" => bool_not,
-        "bool_xor" => bool_xor,
-        "list_cons" => list_cons,
-        "less_than" => less_than,
-        "less_than_equal" => less_than_equal,
-        "equal" => equal,
-        "greater_than" => greater_than,
-        "greater_than_equal" => greater_than_equal,
-        "type" => get_type,
-        "cout" => cout,
-        "file_read" => file_read,
-        "stream_read" => stream_read_file,
-        _ => {
-            panic!("Unknown function: {}", func_name);
+macro_rules! load_rust_funcs {
+    ( $fname:ident, $( $f:ident ),* ) => {
+        match $fname {
+            $(
+            stringify!($f) => Some($f),
+            )*
+            _ => None,
         }
     }
+}
+
+pub fn load_rust_func(func_name: &str) -> Option<RustFunc>
+{
+    load_rust_funcs!(
+        func_name,
+        int_add,
+        int_sub,
+        int_mult,
+        int_mod,
+        int_negate,
+        bool_not,
+        bool_xor,
+        list_cons,
+        less_than,
+        less_than_equal,
+        equal,
+        greater_than,
+        greater_than_equal,
+        get_type,
+        cout,
+        file_read,
+        file_stream_read
+    )
 }

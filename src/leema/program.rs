@@ -1,12 +1,14 @@
 use leema::code::{self, Code};
-use leema::ixpr::{Ixpr};
+use leema::ixpr::{Ixpr, Source};
 use leema::inter::{self, Version, Intermod};
 use leema::module::{ModuleSource, ModuleInterface, ModulePreface, MacroDef};
 use leema::loader::{Interloader};
+use leema::log;
 use leema::phase0::{self, Protomod};
 use leema::prefab;
 use leema::typecheck::{self, CallOp, CallFrame, Typescope};
 
+use std::io::{Write, stderr};
 use std::rc::{Rc};
 use std::sync::{Arc};
 use std::collections::{HashMap, HashSet};
@@ -20,6 +22,7 @@ pub struct Lib
     proto: HashMap<String, Rc<Protomod>>,
     inter: HashMap<String, Rc<Intermod>>,
     typed: HashMap<String, Intermod>,
+    rust_load: HashMap<String, fn(&str) -> Option<code::RustFunc>>,
     code: HashMap<String, HashMap<String, Code>>,
 }
 
@@ -35,8 +38,10 @@ impl Lib
             proto: HashMap::new(),
             inter: HashMap::new(),
             typed: HashMap::new(),
+            rust_load: HashMap::new(),
             code: HashMap::new(),
         };
+        proglib.rust_load.insert("prefab".to_string(), prefab::load_rust_func);
         proglib.load_inter("prefab");
         proglib
     }
@@ -57,6 +62,9 @@ impl Lib
 
         if !has_func {
             let new_code = self.read_code(modname, funcname);
+            if modname == "prefab" {
+                vout!("code for {}.{} is {:?}\n", modname, funcname, new_code);
+            }
 
             if has_mod {
                 let mut old_mod = self.code.get_mut(modname).unwrap();
@@ -135,8 +143,30 @@ impl Lib
 
         let inter = self.inter.get(modname).unwrap();
         let fix = inter.interfunc.get(funcname).unwrap();
-        let ops = code::make_ops(fix);
-        Code::Leema(Arc::new(ops))
+        if modname == "prefab" {
+            vout!("prefab inter: {:?}\n", inter);
+            vout!("prefab.{} fix: {:?}\n", funcname, fix);
+        }
+        if fix.src == Source::RustBlock {
+            /*
+            let rust_loader = self.rust_load.get(modname);
+            if rust_loader.is_none() {
+                panic!("no rust loader for: {}", modname);
+            }
+            let rustfunc = rust_loader.unwrap().load_rust_func(funcname);
+            if rustfunc.is_none() {
+                panic!("no rust function for: {}.{}", modname, funcname);
+            }
+            Code::Rust(rustfunc.unwrap())
+            */
+            Code::Leema(vec![])
+        } else {
+            let ops = code::make_ops(fix);
+            if modname == "prefab" {
+                vout!("prefab.{} ops: {:?}\n", funcname, ops);
+            }
+            Code::Leema(ops)
+        }
     }
 
     pub fn deep_typecheck<'a, 'b>(&'a mut self, modname: &'b str, funcname: &'b str)

@@ -130,7 +130,7 @@ trait RustFunc2
 
 pub enum Code
 {
-    Leema(Arc<OpVec>),
+    Leema(OpVec),
     Rust(RustFunc),
 }
 
