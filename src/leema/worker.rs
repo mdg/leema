@@ -295,7 +295,7 @@ vout!("lock app, add_fork\n");
                 match curf.parent {
                     Parent::Caller(old_code, mut pf, dst) => {
                         pf.pc += 1;
-                        self.fresh.push_back((code, *pf));
+                        self.fresh.push_back((old_code, *pf));
                     }
                     Parent::Repl(res) => {
                         /*
@@ -306,12 +306,8 @@ vout!("lock app, repl done in iterate\n");
                     }
                     Parent::Main(res) => {
 vout!("finished main func\n");
-                        {
-vout!("lock app, main done in iterate\n");
-                            // let mut _app = self.app.lock().unwrap();
-                            self.done = true;
-                        }
-                        //self.notify_done();
+                        self.tx.send(Msg::MainResult(res.to_msg()));
+                        self.done = true;
                     }
                     Parent::Fork(mut ready, mut tx) => {
                         println!("finished a fork!");

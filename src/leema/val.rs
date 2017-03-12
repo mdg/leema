@@ -246,6 +246,7 @@ pub enum MsgVal
     Hashtag(String),
     Cons(Box<MsgVal>, Box<MsgVal>),
     Nil,
+    Void,
 }
 
 #[derive(Clone)]
@@ -807,6 +808,7 @@ impl Val {
                 MsgVal::Cons(msghead, msgtail)
             }
             &Val::Nil => MsgVal::Nil,
+            &Val::Void => MsgVal::Void,
             _ => {
                 panic!("Not yet convertable to a msg: {:?}", self);
             }
@@ -826,6 +828,7 @@ impl Val {
                 Val::Cons(Box::new(head), Box::new(tail))
             }
             MsgVal::Nil => Val::Nil,
+            MsgVal::Void => Val::Void,
         }
     }
 }
