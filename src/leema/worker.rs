@@ -293,7 +293,8 @@ vout!("lock app, add_fork\n");
                     vout!("function call failed\n");
                 }
                 match curf.parent {
-                    Parent::Caller(code, mut pf, dst) => {
+                    Parent::Caller(old_code, mut pf, dst) => {
+                        pf.pc += 1;
                         self.fresh.push_back((code, *pf));
                     }
                     Parent::Repl(res) => {
