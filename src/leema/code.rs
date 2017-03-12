@@ -134,6 +134,28 @@ pub enum Code
     Rust(RustFunc),
 }
 
+impl Code
+{
+    pub fn type_name(&self) -> &'static str
+    {
+        match self {
+            &Code::Leema(_) => "LeemaCode",
+            &Code::Rust(_) => "RustCode",
+        }
+    }
+}
+
+impl fmt::Display for Code
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        match self {
+            &Code::Leema(_) => write!(f, "LeemaCode"),
+            &Code::Rust(_) => write!(f, "RustCode"),
+        }
+    }
+}
+
 impl fmt::Debug for Code
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

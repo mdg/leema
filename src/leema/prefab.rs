@@ -204,10 +204,8 @@ pub fn get_type(fs: &mut Frame)
 
 pub fn cout(fs: &mut Frame)
 {
-    {
-        let va = fs.get_param(0);
-        print!("{}", va);
-    }
+    let v = fs.e.get_param(0);
+    print!("{}", v);
     fs.parent.set_result(Val::Void);
 }
 

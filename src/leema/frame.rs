@@ -208,7 +208,7 @@ impl Frame
     }
 
     pub fn push_call(code: Rc<Code>, curf: Frame, dst: Reg
-            , module: Rc<String>, func: Rc<String>
+            , module: Rc<String>, func: Rc<String>, args: Val
     ) -> Frame {
         let trace = curf.trace.clone();
         let fid = curf.id;
@@ -217,7 +217,7 @@ impl Frame
             module: module.clone(),
             function: func.clone(),
             trace: FrameTrace::push_call(&trace, &(*func)),
-            e: Env::new(),
+            e: Env::with_args(args),
             id: fid,
             pc: 0,
         }

@@ -1444,7 +1444,7 @@ impl Env
 
     pub fn get_param(&self, reg: i8) -> &Val
     {
-        self.get_reg(&Reg::Local(Ireg::Reg(reg)))
+        self.get_reg(&Reg::Param(Ireg::Reg(reg)))
     }
 
     pub fn takeResult(&mut self) -> Val {
@@ -1498,8 +1498,8 @@ impl reg::Iregistry for Env
         match i {
             &Ireg::Reg(p) => {
                 if self.reg.contains_key(&p) {
-                    vout!("register already set: {:?}", i);
-                    vout!("overwrite {:?} with {:?}", self.reg.get(&p), v);
+                    vout!("register already set: {:?}\n", i);
+                    vout!("overwrite {:?} with {:?}\n", self.reg.get(&p), v);
                 }
                 self.reg.insert(p, v);
             }

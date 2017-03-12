@@ -4,7 +4,6 @@ use leema::log;
 #[macro_use]
 mod leema;
 
-use leema::frame::{self, Frame};
 use leema::loader::{Interloader};
 use leema::module::{ModuleSource};
 use leema::program;

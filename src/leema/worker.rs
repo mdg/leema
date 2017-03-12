@@ -7,6 +7,7 @@ use leema::reg::{Reg};
 use leema::val::{Env};
 
 use std::collections::{HashMap, LinkedList};
+use std::fmt;
 use std::io::{stderr, Write};
 use std::mem;
 use std::rc::{Rc};
@@ -25,7 +26,6 @@ enum WaitType
     IO,
 }
 
-#[derive(Debug)]
 struct FrameWait
 {
     typ: WaitType,
@@ -42,6 +42,18 @@ impl FrameWait
             frame: f,
             code: None,
         }
+    }
+}
+
+impl fmt::Debug for FrameWait
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        let code = match &self.code {
+            &None => "None",
+            &Some(ref icode) => icode.type_name(),
+        };
+        write!(f, "FrameWait {:?}\n\t{:?}\n{}\n\n", self.typ, self.frame, code)
     }
 }
 
@@ -321,7 +333,8 @@ vout!("lock app, main done in iterate\n");
                 }
             }
             Event::Call(dst, module, func, args) => {
-                let newf = Frame::push_call(code, curf, dst, module, func);
+                let newf =
+                    Frame::push_call(code, curf, dst, module, func, args);
                 self.load_frame(newf);
             }
             Event::FutureWait(reg) => {

@@ -148,18 +148,15 @@ impl Lib
             vout!("prefab.{} fix: {:?}\n", funcname, fix);
         }
         if fix.src == Source::RustBlock {
-            /*
             let rust_loader = self.rust_load.get(modname);
             if rust_loader.is_none() {
                 panic!("no rust loader for: {}", modname);
             }
-            let rustfunc = rust_loader.unwrap().load_rust_func(funcname);
+            let rustfunc = rust_loader.unwrap()(funcname);
             if rustfunc.is_none() {
                 panic!("no rust function for: {}.{}", modname, funcname);
             }
             Code::Rust(rustfunc.unwrap())
-            */
-            Code::Leema(vec![])
         } else {
             let ops = code::make_ops(fix);
             if modname == "prefab" {
