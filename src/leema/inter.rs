@@ -384,6 +384,12 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
         &Val::Str(ref s) => {
             Ixpr::const_val(Val::Str(s.clone()))
         }
+        &Val::Cons(_, _) => {
+            let items = list::map_ref_to_vec(x, |ref mut i| {
+                compile_expr(scope, i)
+            });
+            Ixpr::new_list(items)
+        }
         _ => {
             panic!("Cannot compile expr: {:?}", x);
         }

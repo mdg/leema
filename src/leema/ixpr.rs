@@ -98,7 +98,7 @@ vout!("new_block> {:?}\n", code);
         }
     }
 
-    fn new_list(items: Vec<Ixpr>) -> Ixpr
+    pub fn new_list(items: Vec<Ixpr>) -> Ixpr
     {
         let item_type = items.iter().fold(Type::Unknown, |old_t, new_x| {
             if old_t == Type::Unknown {

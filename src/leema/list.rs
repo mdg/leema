@@ -159,8 +159,8 @@ pub fn map_to_vec<F, T>(l: Val, op: F) -> Vec<T>
     acc
 }
 
-pub fn map_ref_to_vec<F, T>(l: &Val, op: F) -> Vec<T>
-    where F: Fn(&Val) -> T
+pub fn map_ref_to_vec<F, T>(l: &Val, mut op: F) -> Vec<T>
+    where F: FnMut(&Val) -> T
 {
     let mut it = l;
     let mut acc = Vec::new();

@@ -1,5 +1,5 @@
-t := (3, 4, 5)
+let t := (3, 4, 5)
 cout("t = $t\n")
-tp := type(t)
+let tp := type(t)
 cout("tp = $tp\n")
 tp

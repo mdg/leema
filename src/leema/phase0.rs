@@ -92,12 +92,18 @@ impl Protomod
             &Val::Bool(b) => {
                 Val::Bool(b)
             }
+            &Val::Cons(_, _) => {
+                list::map_ref(x, |i| { Protomod::preproc_expr(prog, mp, i) })
+            }
+            &Val::Nil => Val::Nil,
+            &Val::Hashtag(ref ht) => Val::Hashtag(ht.clone()),
             &Val::Type(_) => {
                 x.clone()
             }
             &Val::TypedId(_, _) => {
                 x.clone()
             }
+            &Val::Wildcard => Val::Wildcard,
             &Val::RustBlock => Val::RustBlock,
             _ => {
                 println!("preproc_unknown_expr({:?})", x);
