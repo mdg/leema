@@ -2,7 +2,7 @@ import unittest
 import subprocess
 
 def run_leema(f):
-    args = ["target/debug/leema", "T/"+f+".lma"]
+    args = ["target/debug/leema", "run", "T/"+f+".lma"]
     print(args)
     proc = subprocess.Popen(args, stdout=subprocess.PIPE)
     result = proc.wait()

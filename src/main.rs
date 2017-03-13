@@ -59,7 +59,7 @@ fn real_main() -> i32
 
     let inter = Interloader::new(&args.arg_file);
     let modkey = inter.mod_name_to_key(&inter.main_mod);
-    println!("{} {}", args.arg_cmd, inter.main_mod);
+    vout!("{} {}", args.arg_cmd, inter.main_mod);
 
     if args.arg_cmd == "tokens" {
         let modtxt = inter.read_module(&modkey);
@@ -98,7 +98,7 @@ fn real_main() -> i32
         app.push_call(&modkey.name, "main");
         app.run();
         let result = app.wait_for_result();
-        println!("Result = {:?}", result);
+        vout!("Result = {:?}", result);
     } else {
         println!("invalid command: {:?}", args.arg_cmd);
         return 1;

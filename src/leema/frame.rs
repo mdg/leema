@@ -504,12 +504,14 @@ pub fn execute_call(curf: &mut Frame, dst: &Reg, freg: &Reg, argreg: &Reg)
     let ref fname_val = curf.e.get_reg(freg);
     let (modname, funcname) = match *fname_val {
         &Val::Str(ref name_str) => {
+            vout!("execute_call({})", name_str);
             // pass in args
             (Rc::new("".to_string()), name_str.clone())
         }
         &Val::Tuple(ref modfunc) if modfunc.len() == 2 => {
             let modnm = modfunc.get(0).unwrap();
             let funcnm = modfunc.get(1).unwrap();
+            vout!("execute_call({}.{})", modnm, funcnm);
             match (modnm, funcnm) {
                 (&Val::Str(ref m), &Val::Str(ref f)) => {
                     (m.clone(), f.clone())
@@ -585,12 +587,12 @@ mod tests {
 #[test]
 fn test_normal_strcat()
 {
-    let mut env = Env::new();
     let r1 = Reg::local(1);
     let r2 = Reg::local(2);
-    env.set_reg(&r1, Val::new_str(String::from("i like ")));
-    env.set_reg(&r2, Val::new_str(String::from("burritos")));
-    let mut frame = Frame::new_root(1, env);
+    let mut frame = Frame::new_root(1
+        , String::from("foo"), String::from("bar"));
+    frame.e.set_reg(&r1, Val::new_str(String::from("i like ")));
+    frame.e.set_reg(&r2, Val::new_str(String::from("burritos")));
 
     let event = frame.execute_strcat(&r1, &r2);
     assert_eq!(Event::Uneventful, event);
