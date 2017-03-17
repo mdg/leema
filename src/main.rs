@@ -98,7 +98,7 @@ fn real_main() -> i32
         app.push_call(&modkey.name, "main");
         app.run();
         let result = app.wait_for_result();
-        vout!("Result = {:?}", result);
+        vout!("Result = {:?}\n", result);
     } else {
         println!("invalid command: {:?}", args.arg_cmd);
         return 1;

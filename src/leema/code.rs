@@ -162,7 +162,7 @@ impl fmt::Debug for Code
         match self {
             &Code::Leema(ref ops) => {
                 let mut result;
-                result = write!(f, "Code::Leema");
+                result = write!(f, "Code::Leema\n");
                 for op in &**ops {
                     result = write!(f, "  {:?}\n", op);
                 }
@@ -220,9 +220,8 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             for i in lines.iter().rev() {
                 oxprs.push(make_sub_ops(rt, i));
             }
-            oxprs.reverse();
             let mut ops = vec![];
-            for mut i in oxprs {
+            for mut i in oxprs.iter_mut().rev() {
                 ops.append(&mut i.ops);
             }
             Oxpr{
@@ -296,6 +295,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         }
         Source::Id(ref id) => {
             let src = rt.id(id);
+vout!("id({}).reg = {:?}\n", id, src);
             Oxpr{ ops: vec![], dst: src }
         }
         Source::IfExpr(ref test, ref truth, ref lies) => {
@@ -316,6 +316,9 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 // set dst to dst.child
                 let mut iops = make_sub_ops(rt, i);
                 ops.append(&mut iops.ops);
+                if *rt.dst() != iops.dst {
+                    ops.push(Op::Copy(rt.dst().clone(), iops.dst));
+                }
                 rt.next_sub();
             }
             rt.pop_dst();
@@ -454,7 +457,9 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
 {
     match pattern {
         &Val::Id(ref id) => {
-            Val::PatternVar(rt.id(id))
+            let id_reg = rt.id(id);
+            vout!("pattern var:reg is {}.{:?}\n", id, id_reg);
+            Val::PatternVar(id_reg)
         }
         _ => {
             panic!("pattern type unsupported: {:?}", pattern);

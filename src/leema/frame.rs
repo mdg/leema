@@ -55,9 +55,9 @@ impl Debug for Parent
     {
         match self {
             &Parent::Null => write!(f, "Parent::Null"),
-            &Parent::Caller(ref dst, ref code, ref pf) => {
+            &Parent::Caller(ref code, ref pf, ref dst) => {
                 write!(f,
-                    "Parent::Caller({:?}, {:?}, {:?})",
+                    "Parent::Caller({:?}, {}, {:?})",
                     dst, code, pf
                 )
             }

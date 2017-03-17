@@ -120,7 +120,6 @@ stmts(A) ::= . {
 	A = sxpr::new(SxprType::BlockExpr, list::empty());
 }
 stmts(A) ::= stmt(C) stmts(B). {
-    vout!("found new stmt: {:?}\n", C);
 	A = list::cons(C, B);
 }
 
@@ -392,19 +391,15 @@ expr(A) ::= term(B) DOLLAR term(C). {
 }
 /* CASE expression */
 expr(A) ::= CASE cases(B) DOUBLEDASH. {
-    vout!("parsed case expr\n");
 	A = B;
 }
 cases(A) ::= PIPE expr(B) block(C) PIPE block(D). {
-    vout!("found cases base\n");
     A = sxpr::ifx(B, C, D);
 }
 cases(A) ::= PIPE expr(B) block(C) PIPE ELSE block(D). {
-    vout!("found cases base\n");
     A = sxpr::ifx(B, C, D);
 }
 cases(A) ::= PIPE expr(B) block(C) cases(D). {
-    vout!("found extra case\n");
     A = sxpr::ifx(B, C, D);
 }
 
