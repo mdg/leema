@@ -365,6 +365,7 @@ pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr, args: &Ixpr) -> Oxpr
 
     rt.pop_dst();
     rt.pop_dst();
+    fops.dst = dst;
     fops
 }
 
