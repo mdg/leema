@@ -301,9 +301,9 @@ impl Frame
         self.pc += 1;
     }
 
-    pub fn execute_match_pattern(&mut self, jmp: i16, patt: &Val, input: &Reg)
+    pub fn execute_match_pattern(&mut self, dst: &Reg, patt: &Val, input: &Reg)
     {
-        vout!("execute_match_pattern({}, {:?}, {:?})\n", jmp, patt, input);
+        vout!("execute_match_pattern({:?}, {:?}, {:?})\n", dst, patt, input);
         let e: &mut Env = &mut self.e;
         let matches = {
             let ival = e.get_reg(&input);
@@ -314,13 +314,16 @@ vout!("matches: {:?}\n", matches);
         match matches {
             Some(assignments) => {
                 for a in assignments {
-                    let (dst, v) = a;
-                    e.set_reg(&dst, v);
+                    let (pdst, v) = a;
+                    e.set_reg(&pdst, v);
                 }
-                self.pc += 1;
+                e.set_reg(dst, Val::Bool(true));
             }
-            Nothing => self.pc += jmp as i32,
+            Nothing => {
+                e.set_reg(dst, Val::Bool(false));
+            }
         }
+        self.pc += 1;
     }
 
     pub fn execute_strcat(&mut self, dstreg: &Reg, srcreg: &Reg) -> Event

@@ -241,8 +241,8 @@ impl Worker
             &Op::JumpIfNot(jmp, ref reg) => {
                 frame::execute_jump_if_not(curf, jmp, reg);
             }
-            &Op::MatchPattern(jmp, ref patt, ref input) => {
-                curf.execute_match_pattern(jmp, patt, input);
+            &Op::MatchPattern(ref dst, ref patt, ref input) => {
+                curf.execute_match_pattern(dst, patt, input);
             }
             &Op::ListCons(ref dst, ref head, ref tail) => {
                 frame::execute_list_cons(curf, dst, head, tail);

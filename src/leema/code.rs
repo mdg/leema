@@ -47,7 +47,7 @@ pub enum Op
     Jump(i16),
     JumpIfNot(i16, Reg),
     // jump if no match, pattern reg, input reg
-    MatchPattern(i16, Val, Reg),
+    MatchPattern(Reg, Val, Reg),
     ListCons(Reg, Reg, Reg),
     ListCreate(Reg),
     StrCat(Reg, Reg),
@@ -84,7 +84,7 @@ impl Clone for Op
             &Op::Constructor(ref dst, ref src) => {
                 Op::Constructor(dst.clone(), src.deep_clone())
             }
-            &Op::Copy(ref src, ref dst) => {
+            &Op::Copy(ref dst, ref src) => {
                 Op::Copy(dst.clone(), src.clone())
             }
             &Op::Failure(ref dst, ref typ, ref msg) => {
@@ -93,8 +93,8 @@ impl Clone for Op
             &Op::Jump(j) => Op::Jump(j),
             // &Op::Fork(r) => {}
             &Op::JumpIfNot(j, ref tst) => Op::JumpIfNot(j, tst.clone()),
-            &Op::MatchPattern(j, ref patt, ref input) => {
-                Op::MatchPattern(j, patt.deep_clone(), input.clone())
+            &Op::MatchPattern(ref dst, ref patt, ref input) => {
+                Op::MatchPattern(dst.clone(), patt.deep_clone(), input.clone())
             }
             &Op::ListCons(ref dst, ref head, ref tail) => {
                 Op::ListCons(dst.clone(), head.clone(), tail.clone())
@@ -285,7 +285,9 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         }
         Source::Let(ref patt, ref x) => {
             let pval = assign_pattern_registers(rt, patt);
-            make_sub_ops(rt, x)
+            let mut xops = make_sub_ops(rt, x);
+            xops.ops.push(Op::MatchPattern(rt.dst().clone(), pval, xops.dst));
+            Oxpr{ ops: xops.ops, dst: rt.dst().clone() }
         }
         Source::MatchExpr(ref x, ref cases) => {
             make_matchexpr_ops(rt, &*x, &*cases)
@@ -439,11 +441,14 @@ vout!("make_matchcase_ops({:?},{:?},{:?})\n", patt, code, next);
     let mut next_ops = make_matchcase_ops(rt, next, &xreg);
 
     code_ops.ops.push(Op::Jump((next_ops.ops.len() + 1) as i16));
+    let mut patt_ops = vec![];
+    /*
     let mut patt_ops = vec![Op::MatchPattern(
         (code_ops.ops.len() + 1) as i16,
         patt_val,
         xreg.clone(),
     )];
+    */
 
     patt_ops.append(&mut code_ops.ops);
     patt_ops.append(&mut next_ops.ops);
