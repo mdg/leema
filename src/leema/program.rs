@@ -192,7 +192,6 @@ impl Lib
         }
 
         if !self.typed.contains_key(modname) {
-            println!("could not find typed intermod: {}", modname);
             let im = self.inter.get(modname).unwrap();
             let tm = Intermod::new(im.key.clone());
             self.typed.insert(String::from(modname), tm);

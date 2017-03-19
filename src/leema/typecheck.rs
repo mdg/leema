@@ -100,6 +100,22 @@ impl<'a> CallFrame<'a>
                 self.push_call(
                     CallOp::ExternalCall(modname.clone(), callname.clone()));
             }
+            Source::ConstVal(ref val) => {
+                match val {
+                    &Val::Str(ref name) => {
+                        self.push_call(CallOp::LocalCall(name.clone()));
+                    }
+                    &Val::Tuple(ref modfunc) if modfunc.len() == 2 => {
+                        self.push_call(CallOp::ExternalCall(
+                            modfunc.get(0).unwrap().to_str(),
+                            modfunc.get(1).unwrap().to_str(),
+                        ));
+                    }
+                    _ => {
+                        panic!("Const val is not a call: {:?}", val);
+                    }
+                }
+            }
             _ => {
                 panic!("Unsupported call type: {:?}", callx);
             }

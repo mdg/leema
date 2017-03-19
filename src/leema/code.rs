@@ -499,7 +499,6 @@ vout!("make_case_ops({:?},{:?},{:?})\n", test, truth, lies);
 
 pub fn make_if_ops(rt: &mut RegTable, test: &Ixpr, truth: &Ixpr, lies: &Ixpr) -> Oxpr
 {
-vout!("make_if_ops({:?},{:?},{:?})\n", test, truth, lies);
     rt.push_dst();
     let mut if_ops = make_sub_ops(rt, &test);
     rt.pop_dst();
