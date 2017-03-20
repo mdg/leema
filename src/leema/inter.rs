@@ -3,6 +3,7 @@ use leema::ast;
 use leema::ixpr::{Ixpr, Source};
 use leema::infer::{Inferator};
 use leema::list;
+use leema::log;
 use leema::module::{ModKey};
 use leema::phase0::{Protomod};
 use leema::sxpr;
@@ -10,6 +11,7 @@ use leema::val::{Val, SxprType, Type};
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::io::{stderr, Write};
 use std::rc::{Rc};
 use std::path::{PathBuf};
 use std::fs::File;
@@ -323,7 +325,10 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
                 }
                 Some((ScopeLevel::Module, typ)) => {
                     Ixpr{
-                        src: Source::ConstVal(Val::Str(id.clone())),
+                        src: Source::ConstVal(Val::Tuple(vec![
+                            Val::Str(Rc::new(scope.proto.key.name.clone())),
+                            Val::Str(id.clone()),
+                        ])),
                         typ: typ.clone(),
                     }
                 }

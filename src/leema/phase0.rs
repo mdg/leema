@@ -229,7 +229,7 @@ impl Protomod
 
 pub fn preproc(prog: &mut Lib, mp: &ModulePreface, ast: &Val) -> Protomod
 {
-    let mk = Rc::new(ModKey::name_only("tacos"));
+    let mk = mp.key.clone();
     let mut p0 = Protomod::new(mk);
     match ast {
         &Val::Sxpr(SxprType::BlockExpr, ref exprs) => {

@@ -365,15 +365,12 @@ expr(A) ::= call_expr(B). {
     A = B;
 }
 call_expr(A) ::= func_term(B) PARENCALL RPAREN. {
-	vout!("zero param function call!");
 	A = sxpr::call(B, Val::Nil);
 }
 call_expr(A) ::= func_term(B) PARENCALL expr(C) RPAREN. {
-	vout!("one param function call!");
 	A = sxpr::call(B, list::singleton(C));
 }
 call_expr(A) ::= func_term(B) PARENCALL tuple_args(C) RPAREN. {
-	vout!("multi param function call!");
 	A = sxpr::call(B, C);
 }
 
