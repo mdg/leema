@@ -21,6 +21,7 @@ struct Args {
     arg_cmd: String,
     arg_file: String,
     flag_verbose: bool,
+    flag_func: Option<String>,
 }
 
 const USAGE: &'static str = "
@@ -32,9 +33,10 @@ Usage:
   leema (-h | --help)
 
 Options:
-  -v --verbose    Output debug messages
-  -h --help       Show this message
-  --repl          Launch the REPL
+     --func=<func>
+  -v --verbose     Output debug messages
+  -h --help        Show this message
+  --repl           Launch the REPL
 ";
 
 
@@ -90,7 +92,10 @@ fn real_main() -> i32
         prog.deep_typecheck(&modkey.name, "main");
     } else if args.arg_cmd == "code" {
         let mut prog = program::Lib::new(inter);
-        let code = prog.load_code(&modkey.name, "main");
+        let code = match args.flag_func {
+            Some(func) => prog.load_code(&modkey.name, &func),
+            None => prog.load_code(&modkey.name, "main"),
+        };
         println!("code: {:?}", code);
     } else if args.arg_cmd == "run" {
         let prog = program::Lib::new(inter);
