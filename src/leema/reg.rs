@@ -3,6 +3,7 @@ use leema::val::{Val};
 use std::fmt;
 use std::io::{Write};
 use std::collections::{HashMap};
+use std::rc::{Rc};
 
 
 #[derive(PartialEq)]
@@ -215,6 +216,15 @@ impl RegTable
     pub fn dst(&self) -> &Reg
     {
         self.dstack.last().unwrap()
+    }
+
+    pub fn def_args(&mut self, args: &Vec<Rc<String>>)
+    {
+        let mut r: i8 = 0;
+        for a in args {
+            self.labels.insert((&**a).clone(), Reg::param(r));
+            r += 1;
+        }
     }
 
     pub fn push_dst(&mut self) -> &Reg

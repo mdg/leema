@@ -81,7 +81,7 @@ impl<'a> CallFrame<'a>
             Source::RustBlock => {
                 // nothing to do. not calls.
             }
-            Source::Func(ref body) => {
+            Source::Func(ref _args, ref body) => {
                 self.collect_calls(body);
             }
             _ => {
@@ -225,7 +225,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
             }
             Type::Str
         }
-        &Source::Func(ref body) => {
+        &Source::Func(ref _args, ref body) => {
             // typecheck_expr(scope, body)
             panic!("unexpected func in typecheck: {:?}", body);
         }
@@ -239,7 +239,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> Type
 {
     println!("check_function({:?})", scope.fname);
     match &ix.src {
-        &Source::Func(ref body) => {
+        &Source::Func(ref argnames, ref body) => {
             typecheck_expr(scope, &*body)
         }
         &Source::RustBlock => {

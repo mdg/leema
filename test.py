@@ -52,7 +52,6 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(b"buzz", lines[-1])
 
     def test_func_3params(self):
-        self.skipTest("need to try soon")
         result = run_leema('func_3params')
         self.assertEqual(0, result['code'])
         self.assertEqual(b"sum(3, 8, 2) = 13\n", result['output'])

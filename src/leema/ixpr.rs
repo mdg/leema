@@ -20,7 +20,7 @@ pub enum Source
     Fail(Box<Ixpr>, Box<Ixpr>),
     FieldAccess(Box<Ixpr>, Rc<String>),
     Fork(Box<Ixpr>, Box<Ixpr>, Box<Ixpr>),
-    Func(Box<Ixpr>),
+    Func(Vec<Rc<String>>, Box<Ixpr>),
     Let(Val, Box<Ixpr>),
     MatchExpr(Box<Ixpr>, Box<Ixpr>),
     MatchCase(Val, Box<Ixpr>, Box<Ixpr>),

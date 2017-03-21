@@ -152,14 +152,14 @@ pub struct Interscope<'a>
 impl<'a> Interscope<'a>
 {
     pub fn new(proto: &'a Protomod, imports: &'a HashMap<String, Rc<Protomod>>
-            , fname: &'a str, args: &Vec<String>, argt: &Vec<Type>
+            , fname: &'a str, args: &Vec<Rc<String>>, argt: &Vec<Type>
             ) -> Interscope<'a>
     {
         let mut e = HashSet::new();
         let mut t = Inferator::new();
 
         for (an, at) in args.iter().zip(argt) {
-            e.insert(an.clone());
+            e.insert((&**an).clone());
             t.bind_vartype(an, at);
         }
 
@@ -251,7 +251,7 @@ impl<'a> Interscope<'a>
 
 pub fn compile_function<'a>(proto: &'a Protomod
         , imports: &'a HashMap<String, Rc<Protomod>>, fname: &'a str
-        , ftype: &Type, args: &Vec<String>, body: &Val) -> Ixpr
+        , ftype: &Type, args: &Vec<Rc<String>>, body: &Val) -> Ixpr
 {
     if *body == Val::RustBlock {
         return Ixpr{
@@ -268,7 +268,7 @@ pub fn compile_function<'a>(proto: &'a Protomod
     let final_ftype = Type::Func(argt2, Box::new(ibody.typ.clone()));
     Ixpr{
         typ: final_ftype,
-        src: Source::Func(Box::new(ibody)),
+        src: Source::Func(args.clone(), Box::new(ibody)),
     }
 }
 
@@ -427,12 +427,12 @@ pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type)
     }
 }
 
-pub fn split_func_args_body(defunc: &Val) -> (Vec<String>, &Val)
+pub fn split_func_args_body(defunc: &Val) -> (Vec<Rc<String>>, &Val)
 {
     let (st, sx) = sxpr::split_ref(defunc);
     let (_, args, _, body) = list::to_ref_tuple4(sx);
     let arg_names = list::map_ref_to_vec(args, |a| {
-        String::from(a.str())
+        a.to_str()
     });
     (arg_names, body)
 }

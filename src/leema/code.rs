@@ -269,7 +269,8 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             // TODO: find the subreg index for the field name
             base_ops
         }
-        Source::Func(ref body) => {
+        Source::Func(ref argnames, ref body) => {
+            rt.def_args(argnames);
             make_sub_ops(rt, &body)
         }
         Source::Call(ref f, ref args) => {
