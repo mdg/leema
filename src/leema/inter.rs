@@ -275,46 +275,6 @@ pub fn compile_function<'a>(proto: &'a Protomod
 pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
 {
     match x {
-        &Val::Sxpr(SxprType::BlockExpr, ref blk) => {
-            scope.push_block();
-            let iblk = compile_list_to_vec(scope, blk);
-            scope.pop_block();
-            Ixpr::new_block(iblk)
-        }
-        &Val::Sxpr(SxprType::Call, ref callinfo) => {
-            let (callx, args) = list::take_ref(callinfo);
-            let icall = compile_expr(scope, callx);
-            let iargs = compile_list_to_vec(scope, args);
-            let ftype = {
-                let iargst: Vec<&Type> = iargs.iter().map(|ia| {
-                    &ia.typ
-                }).collect::<Vec<&Type>>();
-                scope.T.make_call_type(&icall.typ, &iargst)
-            };
-            let argsix = Ixpr::new_tuple(iargs);
-            Ixpr{
-                typ: ftype,
-                src: Source::Call(Box::new(icall), Box::new(argsix)),
-            }
-        }
-        &Val::Sxpr(SxprType::IfExpr, ref ifinfo) => {
-            let (ifx, truth, lies) = list::to_ref_tuple3(ifinfo);
-            let ifix = compile_expr(scope, ifx);
-            let itruth = compile_expr(scope, truth);
-            let ilies = compile_expr(scope, lies);
-            scope.T.merge_types(&itruth.typ, &ilies.typ);
-            Ixpr::new_if(ifix, itruth, ilies)
-        }
-        &Val::Sxpr(SxprType::Let, ref letx) => {
-            let (lhs_patt, rhs_val) = list::to_ref_tuple2(letx);
-            let irhs = compile_expr(scope, rhs_val);
-            compile_pattern(scope, lhs_patt, &irhs.typ);
-            Ixpr::new(Source::Let(lhs_patt.clone(), Box::new(irhs)))
-        }
-        &Val::Sxpr(SxprType::StrExpr, ref strlist) => {
-            let strvec = compile_list_to_vec(scope, strlist);
-            Ixpr::new_str_mash(strvec)
-        }
         &Val::Id(ref id) => {
             match scope.vartype(id) {
                 Some((ScopeLevel::Local, typ)) => {
@@ -398,8 +358,58 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
             });
             Ixpr::new_list(items)
         }
+        &Val::Sxpr(st, ref sx) => compile_sxpr(scope, st, sx),
         _ => {
             panic!("Cannot compile expr: {:?}", x);
+        }
+    }
+}
+
+pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
+{
+    match st {
+        SxprType::BlockExpr => {
+            scope.push_block();
+            let iblk = compile_list_to_vec(scope, sx);
+            scope.pop_block();
+            Ixpr::new_block(iblk)
+        }
+        SxprType::Call => {
+            let (callx, args) = list::take_ref(sx);
+            let icall = compile_expr(scope, callx);
+            let iargs = compile_list_to_vec(scope, args);
+            let ftype = {
+                let iargst: Vec<&Type> = iargs.iter().map(|ia| {
+                    &ia.typ
+                }).collect::<Vec<&Type>>();
+                scope.T.make_call_type(&icall.typ, &iargst)
+            };
+            let argsix = Ixpr::new_tuple(iargs);
+            Ixpr{
+                typ: ftype,
+                src: Source::Call(Box::new(icall), Box::new(argsix)),
+            }
+        }
+        SxprType::IfExpr => {
+            let (ifx, truth, lies) = list::to_ref_tuple3(sx);
+            let ifix = compile_expr(scope, ifx);
+            let itruth = compile_expr(scope, truth);
+            let ilies = compile_expr(scope, lies);
+            scope.T.merge_types(&itruth.typ, &ilies.typ);
+            Ixpr::new_if(ifix, itruth, ilies)
+        }
+        SxprType::Let => {
+            let (lhs_patt, rhs_val) = list::to_ref_tuple2(sx);
+            let irhs = compile_expr(scope, rhs_val);
+            compile_pattern(scope, lhs_patt, &irhs.typ);
+            Ixpr::new(Source::Let(lhs_patt.clone(), Box::new(irhs)))
+        }
+        SxprType::StrExpr => {
+            let strvec = compile_list_to_vec(scope, sx);
+            Ixpr::new_str_mash(strvec)
+        }
+        _ => {
+            panic!("Cannot compile sxpr: {:?} {:?}", st, sx);
         }
     }
 }
