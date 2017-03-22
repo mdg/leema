@@ -7,8 +7,6 @@ use leema::log;
 use leema::msg::{Msg};
 
 use std::collections::{HashMap, LinkedList};
-use std::mem;
-use std::sync::{Arc};
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::thread;
 use std::io::{stderr, Write};
@@ -195,7 +193,6 @@ mod tests {
     use leema::val::{Env, Val};
 
     use std::thread;
-    use std::sync::{Arc, Mutex};
     use std::rc::{Rc};
     use std::io::{stderr, Write};
     use libc::{getpid};

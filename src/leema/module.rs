@@ -1,14 +1,12 @@
 use leema::ast;
 use leema::val::{Val, Type, SxprType};
-use leema::ixpr::{Ixpr, Source};
 use leema::list;
 use leema::lex::{lex};
 use leema::parse::{Token};
 
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 use std::rc::{Rc};
-use std::mem;
 
 
 // Textmod -> Preface -> Protomod -> Intermod -> Code

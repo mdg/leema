@@ -1,17 +1,14 @@
 use leema::val::{Val, Type};
-use leema::code::{Code, RustFunc};
+use leema::code::{RustFunc};
 use leema::frame::{Frame};
-use leema::loader::{Interloader};
-use leema::module::{ModuleInterface};
 use leema::list;
 use leema::log;
-use leema::ast;
 
 use std::fs::File;
 use std::io::{stderr, Read, Write};
 use std::any::{Any};
 use std::fmt::{self, Display, Debug};
-use std::sync::{Arc, Mutex};
+use std::sync::{Mutex};
 use std::rc::{Rc};
 
 

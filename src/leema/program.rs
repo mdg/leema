@@ -10,7 +10,6 @@ use leema::typecheck::{self, CallOp, CallFrame, Typescope};
 
 use std::io::{Write, stderr};
 use std::rc::{Rc};
-use std::sync::{Arc};
 use std::collections::{HashMap, HashSet};
 
 

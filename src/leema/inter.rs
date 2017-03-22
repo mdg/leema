@@ -1,5 +1,4 @@
 
-use leema::ast;
 use leema::ixpr::{Ixpr, Source};
 use leema::infer::{Inferator};
 use leema::list;
@@ -13,9 +12,6 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::io::{stderr, Write};
 use std::rc::{Rc};
-use std::path::{PathBuf};
-use std::fs::File;
-use std::borrow::{Cow};
 
 
 #[derive(PartialEq)]
