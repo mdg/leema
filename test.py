@@ -16,13 +16,11 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(b"hello \"quotes\"\n", result['output'])
 
     def test_fact_match(self):
-        self.skipTest("pattern matching still broken")
         result = run_leema('fact_match')
         self.assertEqual(0, result['code'])
         self.assertEqual(b"factorial(4) = 24\n", result['output'])
 
     def test_factorial(self):
-        self.skipTest("doesn't work yet")
         result = run_leema('factorial')
         self.assertEqual(0, result['code'])
         self.assertEqual(b"factorial(4) = 24\n", result['output'])
@@ -76,6 +74,11 @@ class TestScripts(unittest.TestCase):
         result = run_leema('if_else_false')
         self.assertEqual(0, result['code'])
         self.assertEqual(b"burritos\n", result['output'])
+
+    def test_if_nested(self):
+        result = run_leema('if_nested')
+        self.assertEqual(0, result['code'])
+        self.assertEqual(b"x = 1, y = 2\n", result['output'])
 
     def test_list_match_all(self):
         self.skipTest("no pattern matching yet")
