@@ -56,11 +56,16 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(0, result['code'])
         self.assertEqual(b"sum(3, 8, 2) = 13\n", result['output'])
 
-    def test_hashtag(self):
-        self.skipTest("need to fix pattern matching")
-        result = run_leema('hashtag')
+    def test_footag_match(self):
+        result = run_leema('footag_match')
         self.assertEqual(0, result['code'])
         self.assertEqual(b"h is #foo\nmatched #foo\n", result['output'])
+
+    def test_footag_nomatch(self):
+        result = run_leema('footag_nomatch')
+        self.assertEqual(0, result['code'])
+        self.assertEqual(b"h is #foot\nsome other thing? #foot\n",
+                result['output'])
 
     def test_if_else_true(self):
         result = run_leema('if_else_true')

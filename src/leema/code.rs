@@ -163,8 +163,10 @@ impl fmt::Debug for Code
             &Code::Leema(ref ops) => {
                 let mut result;
                 result = write!(f, "Code::Leema\n");
+                let mut i = 0;
                 for op in &**ops {
-                    result = write!(f, "  {:?}\n", op);
+                    result = write!(f, "{:3} {:?}\n", i, op);
+                    i += 1;
                 }
                 result
             }
@@ -398,24 +400,17 @@ pub fn make_constructor_ops(rt: &mut RegTable, typ: &Type) -> Oxpr
 pub fn make_matchexpr_ops(rt: &mut RegTable, x: &Ixpr, cases: &Ixpr) -> Oxpr
 {
 vout!("make_matchexpr_ops({:?},{:?})", x, cases);
-    let mut x_ops = match Reg::Undecided {
-        Reg::Params => {
-            // this means its a match function
-            // nothing to be done here
-            vec![]
-        }
-        _ => {
-            make_sub_ops(rt, &x).ops
-        }
-    };
-    vout!("call make_matchcase_ops()\n");
-    let mut case_ops = make_matchcase_ops(rt, cases, &Reg::Undecided);
+    rt.push_dst();
+    let mut xops = make_sub_ops(rt, &x);
+    rt.pop_dst();
+
+    let mut case_ops = make_matchcase_ops(rt, cases, &xops.dst);
     vout!("made matchcase_ops =\n{:?}\n", case_ops);
 
-    x_ops.append(&mut case_ops.ops);
+    xops.ops.append(&mut case_ops.ops);
     Oxpr{
-        ops: x_ops,
-        dst: Reg::Undecided,
+        ops: xops.ops,
+        dst: rt.dst().clone(),
     }
 }
 
@@ -437,19 +432,27 @@ pub fn make_matchcase_ops(rt: &mut RegTable, matchcase: &Ixpr, xreg: &Reg
         }
     };
 vout!("make_matchcase_ops({:?},{:?},{:?})\n", patt, code, next);
+    // push reg scope
     let patt_val = assign_pattern_registers(rt, patt);
     let mut code_ops = make_sub_ops(rt, code);
+    // pop reg scope
     let mut next_ops = make_matchcase_ops(rt, next, &xreg);
 
-    code_ops.ops.push(Op::Jump((next_ops.ops.len() + 1) as i16));
-    let mut patt_ops = vec![];
-    /*
+    let next_len = next_ops.ops.len();
+    if next_len > 0 {
+        code_ops.ops.push(Op::Jump((next_len + 1) as i16));
+    }
+    rt.push_dst();
     let mut patt_ops = vec![Op::MatchPattern(
-        (code_ops.ops.len() + 1) as i16,
+        rt.dst().clone(),
         patt_val,
         xreg.clone(),
     )];
-    */
+    patt_ops.push(Op::JumpIfNot(
+        code_ops.ops.len() as i16 + 1,
+        rt.dst().clone(),
+    ));
+    rt.pop_dst();
 
     patt_ops.append(&mut code_ops.ops);
     patt_ops.append(&mut next_ops.ops);
@@ -467,6 +470,9 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
             vout!("pattern var:reg is {}.{:?}\n", id, id_reg);
             Val::PatternVar(id_reg)
         }
+        &Val::Int(i) => Val::Int(i),
+        &Val::Bool(b) => Val::Bool(b),
+        &Val::Str(ref s) => Val::Str(s.clone()),
         &Val::Hashtag(ref h) => Val::Hashtag(h.clone()),
         &Val::Wildcard => Val::Wildcard,
         _ => {
