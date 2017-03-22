@@ -126,8 +126,7 @@ impl Intermod
 #[derive(Debug)]
 struct Blockscope
 {
-    parent: Option<Box<Blockscope>>,
-    // registers of locally defined labels
+    // set of locally defined labels
     E: HashSet<String>,
 }
 
@@ -144,7 +143,7 @@ pub struct Interscope<'a>
     fname: &'a str,
     proto: &'a Protomod,
     imports: &'a HashMap<String, Rc<Protomod>>,
-    blk: Blockscope,
+    blkstk: Vec<Blockscope>,
     // types of locally defined labels
     T: Inferator,
 }
@@ -164,33 +163,41 @@ impl<'a> Interscope<'a>
         }
 
         let blk = Blockscope{
-            parent: None,
             E: e,
         };
         Interscope{
             fname: fname,
             proto: proto,
             imports: imports,
-            blk: blk,
+            blkstk: vec![blk],
             T: t,
         }
     }
 
     pub fn push_block(&mut self)
     {
+        self.blkstk.push(Blockscope{
+            E: HashSet::new()
+        });
     }
 
     pub fn pop_block(&mut self)
     {
+        self.blkstk.pop();
+    }
+
+    pub fn blk(&self) -> &Blockscope
+    {
+        self.blkstk.last().unwrap()
     }
 
     pub fn add_var(&mut self, name: &str, typ: &Type)
     {
-        if self.blk.E.contains(name) {
+        if self.blk().E.contains(name) {
             panic!("variable is already declared: {}", name);
         }
         self.T.bind_vartype(name, typ);
-        self.blk.E.insert(String::from(name));
+        self.blkstk.last_mut().unwrap().E.insert(String::from(name));
     }
 
     pub fn vartype(&self, name: &str) -> Option<(ScopeLevel, &Type)>
@@ -223,7 +230,7 @@ impl<'a> Interscope<'a>
 
     pub fn contains_id(&self, name: &str) -> bool
     {
-        if self.blk.E.contains(name) {
+        if self.contains_local(name) {
             true
         } else if self.proto.contains_val(name) {
             true
@@ -239,7 +246,12 @@ impl<'a> Interscope<'a>
 
     pub fn contains_local(&self, name: &str) -> bool
     {
-        self.blk.E.contains(name)
+        for b in self.blkstk.iter() {
+            if b.E.contains(name) {
+                return true;
+            }
+        }
+        false
     }
 
     pub fn imports_module(&self, name: &str) -> bool
@@ -404,6 +416,12 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
             compile_pattern(scope, lhs_patt, &irhs.typ);
             Ixpr::new(Source::Let(lhs_patt.clone(), Box::new(irhs)))
         }
+        SxprType::MatchExpr => {
+            let (mx, cases) = list::to_ref_tuple2(sx);
+            let imx = compile_expr(scope, mx);
+            let icases = compile_matchcase(scope, cases, &imx.typ);
+            Ixpr::new_match_expr(imx, icases)
+        }
         SxprType::StrExpr => {
             let strvec = compile_list_to_vec(scope, sx);
             Ixpr::new_str_mash(strvec)
@@ -412,6 +430,29 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
             panic!("Cannot compile sxpr: {:?} {:?}", st, sx);
         }
     }
+}
+
+pub fn compile_matchcase(scope: &mut Interscope, case: &Val, xtyp: &Type
+) -> Ixpr
+{
+    let (patt, t2) = list::take_ref(case);
+    let (blk, t3) = list::take_ref(t2);
+    scope.push_block();
+    compile_pattern(scope, patt, xtyp);
+    let iblk = compile_expr(scope, blk);
+    scope.pop_block();
+    let inext = match t3 {
+        &Val::Cons(ref next, _) => {
+            compile_matchcase(scope, next, xtyp)
+        }
+        &Val::Nil => {
+            Ixpr::noop()
+        }
+        _ => {
+            panic!("next is not a list: {:?}", *t3);
+        }
+    };
+    Ixpr::new_match_case(patt.clone(), iblk, inext)
 }
 
 pub fn compile_list_to_vec(scope: &mut Interscope, l: &Val) -> Vec<Ixpr>
@@ -430,6 +471,21 @@ pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type)
     match p {
         &Val::Id(ref id) => {
             scope.add_var(&id, srctyp);
+        }
+        &Val::Int(_) => {
+            scope.T.merge_types(&Type::Int, srctyp);
+        }
+        &Val::Str(_) => {
+            scope.T.merge_types(&Type::Str, srctyp);
+        }
+        &Val::Bool(_) => {
+            scope.T.merge_types(&Type::Bool, srctyp);
+        }
+        &Val::Hashtag(_) => {
+            scope.T.merge_types(&Type::Hashtag, srctyp);
+        }
+        &Val::Wildcard => {
+            // matches, but nothing to do
         }
         _ => {
             panic!("Unsupported pattern: {:?}", p);

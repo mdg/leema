@@ -467,6 +467,8 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
             vout!("pattern var:reg is {}.{:?}\n", id, id_reg);
             Val::PatternVar(id_reg)
         }
+        &Val::Hashtag(ref h) => Val::Hashtag(h.clone()),
+        &Val::Wildcard => Val::Wildcard,
         _ => {
             panic!("pattern type unsupported: {:?}", pattern);
         }
