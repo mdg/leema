@@ -1,0 +1,7 @@
+func main() ->
+    let a := if
+    |true -> 5
+    |false -> 3
+    --
+    cout("a = $a\n")
+--
