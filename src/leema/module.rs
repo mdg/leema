@@ -97,6 +97,9 @@ impl ModulePreface
             imports: HashSet::new(),
             macros: HashMap::new(),
         };
+        if ms.key.name != "prefab" {
+            mp.imports.insert(String::from("prefab"));
+        }
         mp.split_ast(&ms.ast);
         mp
     }

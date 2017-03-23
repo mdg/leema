@@ -208,7 +208,11 @@ impl<'a> Interscope<'a>
         }
         match self.imports.get("prefab") {
             Some(ref proto) => {
-                Some((ScopeLevel::External, proto.valtype(name).unwrap()))
+                let valtype_opt = proto.valtype(name);
+                if valtype_opt.is_none() {
+                    panic!("could not find {} in prefab", name);
+                }
+                Some((ScopeLevel::External, valtype_opt.unwrap()))
             }
             None => None,
         }
@@ -367,6 +371,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
             Ixpr::new_list(items)
         }
         &Val::Sxpr(st, ref sx) => compile_sxpr(scope, st, sx),
+        &Val::Void => Ixpr::noop(),
         _ => {
             panic!("Cannot compile expr: {:?}", x);
         }

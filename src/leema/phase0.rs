@@ -2,10 +2,12 @@ use leema::program::{Lib};
 use leema::val::{SxprType, Val, Type};
 use leema::module::{ModKey, ModulePreface};
 use leema::list;
+use leema::log;
 use leema::sxpr;
 
 use std::collections::{HashMap};
 use std::rc::Rc;
+use std::io::{stderr, Write};
 
 
 #[derive(Debug)]
@@ -105,6 +107,7 @@ impl Protomod
             }
             &Val::Wildcard => Val::Wildcard,
             &Val::RustBlock => Val::RustBlock,
+            &Val::Void => Val::Void,
             _ => {
                 println!("preproc_unknown_expr({:?})", x);
                 x.clone()
@@ -126,7 +129,17 @@ impl Protomod
                         Protomod::preproc_expr(prog, mp, &macrod)
                     }
                     None => {
-                        sxpr::call(callx.clone(), pp_args)
+                        match prog.get_macro("prefab", &**id) {
+                            Some(&(ref arg_names, ref body)) => {
+                                let macrod = Protomod::apply_macro(&**id, body, arg_names, args);
+                                // do it again to make sure there's not a wrapped
+                                // macro
+                                Protomod::preproc_expr(prog, mp, &macrod)
+                            }
+                            None => {
+                                sxpr::call(callx.clone(), pp_args)
+                            }
+                        }
                     }
                 }
             }

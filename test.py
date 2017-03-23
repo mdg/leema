@@ -10,6 +10,12 @@ def run_leema(f):
     return {'code': result, 'output': output}
 
 class TestScripts(unittest.TestCase):
+
+    def test_booland(self):
+        result = run_leema('booland')
+        self.assertEqual(0, result['code'])
+        self.assertEqual(b"a and b is false\n", result['output'])
+
     def test_cout(self):
         result = run_leema('cout_quotes')
         self.assertEqual(0, result['code'])
