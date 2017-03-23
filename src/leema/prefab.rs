@@ -304,14 +304,14 @@ println!("read from file: '{}'", input);
 pub fn source_code() -> &'static str
 {
     "macro boolean_and(a, b) ->
-        case
+        if
         |a -> b
         |else -> false
         --
     --
 
     macro boolean_or(a, b) ->
-        case
+        if
         |a -> true
         |else -> b
         --
