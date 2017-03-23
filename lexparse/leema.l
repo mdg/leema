@@ -175,10 +175,6 @@ void	{ return set_token(yyg, TOKEN_VOID); }
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_ConcatNewline);
 }
-case	{
-    BEGIN(INITIAL);
-    return set_token(yyg, TOKEN_CASE);
-}
 else	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_ELSE);

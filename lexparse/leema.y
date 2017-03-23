@@ -47,6 +47,7 @@ use std::rc::{Rc};
 %type func_term { Val }
 %type if_stmt { Val }
 %type else_if { Val }
+%type if_expr { Val }
 %type if_case { Val }
 %type match_case { Val }
 %type pexpr { Val }
@@ -64,7 +65,6 @@ use std::rc::{Rc};
 %type typex { Type }
 %type opt_typex { Type }
 %type id_type { Val }
-%type cases { Val }
 
 %type list { Val }
 %type list_items { Val }
@@ -336,10 +336,6 @@ if_stmt(A) ::= IF expr(B) block(C) else_if(D) DOUBLEDASH. {
     /* if-else style */
     A = sxpr::ifx(B, C, D);
 }
-if_stmt(A) ::= IF if_case(B) DOUBLEDASH. {
-    /* case-expr style */
-    A = B;
-}
 else_if(A) ::= ELSE IF expr(B) block(C) else_if(D). {
     A = sxpr::ifx(B, C, D);
 }
@@ -349,19 +345,13 @@ else_if(A) ::= ELSE IF expr(B) block(C). {
 else_if(A) ::= ELSE block(B). {
     A = B;
 }
-if_case(A) ::= PIPE expr(B) block(C). {
-    A = sxpr::ifx(B, C, Val::Void);
-}
-if_case(A) ::= PIPE expr(B) block(C) if_case(D). {
-    A = sxpr::ifx(B, C, D);
-}
-if_case(A) ::= PIPE ELSE block(B). {
-    A = B;
-}
 
 
 /* regular function call */
 expr(A) ::= call_expr(B). {
+    A = B;
+}
+expr(A) ::= if_expr(B). {
     A = B;
 }
 call_expr(A) ::= func_term(B) PARENCALL RPAREN. {
@@ -386,18 +376,19 @@ expr(A) ::= term(B) DOLLAR term(C). {
 	/* A = Val::binaryop(B, C, D); */
 	A = Val::Void;
 }
-/* CASE expression */
-expr(A) ::= CASE cases(B) DOUBLEDASH. {
-	A = B;
+/* IF expression */
+if_expr(A) ::= IF if_case(B) DOUBLEDASH. {
+    /* case-expr style */
+    A = B;
 }
-cases(A) ::= PIPE expr(B) block(C) PIPE block(D). {
+if_case(A) ::= PIPE expr(B) block(C). {
+    A = sxpr::ifx(B, C, Val::Void);
+}
+if_case(A) ::= PIPE expr(B) block(C) if_case(D). {
     A = sxpr::ifx(B, C, D);
 }
-cases(A) ::= PIPE expr(B) block(C) PIPE ELSE block(D). {
-    A = sxpr::ifx(B, C, D);
-}
-cases(A) ::= PIPE expr(B) block(C) cases(D). {
-    A = sxpr::ifx(B, C, D);
+if_case(A) ::= PIPE ELSE block(B). {
+    A = B;
 }
 
 /* match expression */

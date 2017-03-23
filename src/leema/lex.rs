@@ -137,9 +137,6 @@ impl Token
                 parse::TOKEN_StrClose => {
                     Token::StrClose
                 }
-                parse::TOKEN_CASE => {
-                    Token::CASE
-                }
                 parse::TOKEN_IF => {
                     Token::IF
                 }
