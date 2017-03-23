@@ -1,0 +1,6 @@
+func main() ->
+  let a := true
+  let b := false
+  let c := a and b
+  cout("a and b is $c\n")
+--
