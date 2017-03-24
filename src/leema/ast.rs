@@ -335,7 +335,7 @@ fn test_ast_parse_macro()
 {
     let input = "
     macro mand(a, b) ->
-        case
+        if
         |a -> b
         |else -> false
         --
