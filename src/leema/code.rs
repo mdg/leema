@@ -223,8 +223,13 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 oxprs.push(make_sub_ops(rt, i));
             }
             let mut ops = vec![];
+            let mut last_dst = rt.dst().clone();
             for mut i in oxprs.iter_mut().rev() {
                 ops.append(&mut i.ops);
+                last_dst = i.dst.clone();
+            }
+            if *rt.dst() != last_dst {
+                ops.push(Op::Copy(rt.dst().clone(), last_dst));
             }
             Oxpr{
                 ops: ops,
@@ -478,31 +483,6 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
         _ => {
             panic!("pattern type unsupported: {:?}", pattern);
         }
-    }
-}
-
-pub fn make_case_ops(rt: &mut RegTable, test: &Ixpr, truth: &Ixpr, lies: &Ixpr) -> Oxpr
-{
-vout!("make_case_ops({:?},{:?},{:?})\n", test, truth, lies);
-    rt.push_dst();
-    let mut case_ops = make_sub_ops(rt, &test);
-    rt.pop_dst();
-    let mut truth_ops = make_sub_ops(rt, &truth);
-    let mut lies_ops = make_sub_ops(rt, &lies);
-
-    truth_ops.ops.push(Op::Jump((lies_ops.ops.len() + 1) as i16));
-    case_ops.ops.push(
-        Op::JumpIfNot(
-            (truth_ops.ops.len() + 1) as i16,
-            case_ops.dst,
-        )
-    );
-
-    case_ops.ops.append(&mut truth_ops.ops);
-    case_ops.ops.append(&mut lies_ops.ops);
-    Oxpr{
-        ops: case_ops.ops,
-        dst: truth_ops.dst,
     }
 }
 
