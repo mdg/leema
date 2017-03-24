@@ -4,11 +4,7 @@ func fizzbuzz(x, max): Void ->
 
     if
     |xm30 and xm50 -> cout("fizzbuzz\n")
-    |xm30 ->
-        if
-        |xm50 -> cout("fizz\n")
-        |else -> cout("foo\n")
-        --
+    |xm30 -> cout("fizz\n")
     |xm50 -> cout("buzz\n")
     |else -> cout("$x\n")
     --

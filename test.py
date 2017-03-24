@@ -14,7 +14,10 @@ class TestScripts(unittest.TestCase):
     def test_booland(self):
         result = run_leema('booland')
         self.assertEqual(0, result['code'])
-        self.assertEqual(b"a and b is false\n", result['output'])
+        lines = result['output'].split('\n')
+        self.assertEqual(b"a is true", lines[0])
+        self.assertEqual(b"b is false", lines[1])
+        self.assertEqual(b"a and b is false", lines[2])
 
     def test_cout(self):
         result = run_leema('cout_quotes')
@@ -32,7 +35,6 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(b"factorial(4) = 24\n", result['output'])
 
     def test_fizzbuzz(self):
-        self.skipTest("nah")
         result = run_leema('fizzbuzz')
         self.assertEqual(0, result['code'])
         lines = result['output'].strip().splitlines()
