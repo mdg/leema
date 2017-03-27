@@ -105,6 +105,11 @@ impl Protomod
             &Val::TypedId(_, _) => {
                 x.clone()
             }
+            &Val::Tuple(ref items) => {
+                Val::Tuple(items.iter().map(|i| {
+                    Protomod::preproc_expr(prog, mp, i)
+                }).collect())
+            }
             &Val::Wildcard => Val::Wildcard,
             &Val::RustBlock => Val::RustBlock,
             &Val::Void => Val::Void,
@@ -228,8 +233,43 @@ impl Protomod
     pub fn preproc_sxpr(prog: &Lib, mp: &ModulePreface
             , st: SxprType, sx: &Val) -> Val
     {
-        let pp_sx = Protomod::preproc_list(prog, mp, sx);
-        sxpr::new(st, pp_sx)
+        match st {
+            SxprType::Let => {
+                let (patt, src) = list::to_ref_tuple2(sx);
+                let ppatt = Protomod::preproc_pattern(prog, mp, patt);
+                let psrc = Protomod::preproc_expr(prog, mp, src);
+                sxpr::new(st, list::from2(ppatt, psrc))
+            }
+            SxprType::MatchExpr => {
+                let (mx, cases) = list::to_ref_tuple2(sx);
+                let pmx = Protomod::preproc_expr(prog, mp, mx);
+                let pcases = Protomod::preproc_matchcase(prog, mp, cases);
+                sxpr::new(st, list::from2(pmx, pcases))
+            }
+            _ => {
+                let pp_sx = Protomod::preproc_list(prog, mp, sx);
+                sxpr::new(st, pp_sx)
+            }
+        }
+    }
+
+    pub fn preproc_matchcase(prog: &Lib, mp: &ModulePreface, case: &Val) -> Val
+    {
+        let (patt, t2) = list::take_ref(case);
+        let (blk, t3) = list::take_ref(t2);
+        let p_patt = Protomod::preproc_pattern(prog, mp, patt);
+        let p_blk = Protomod::preproc_expr(prog, mp, blk);
+
+        let p_next = match t3 {
+            &Val::Cons(ref next, _) => {
+                Protomod::preproc_matchcase(prog, mp, next)
+            }
+            &Val::Nil => Val::Void,
+            _ => {
+                panic!("next is not a list: {:?}", *t3);
+            }
+        };
+        list::from3(p_patt, p_blk, p_next)
     }
 
     pub fn preproc_list(prog: &Lib, mp: &ModulePreface, l: &Val) -> Val
@@ -237,6 +277,30 @@ impl Protomod
         list::map_ref(l, |a| {
             Protomod::preproc_expr(prog, mp, a)
         })
+    }
+
+    pub fn preproc_pattern(prog: &Lib, mp: &ModulePreface, p: &Val) -> Val
+    {
+        match p {
+            &Val::Cons(_, _) => Protomod::preproc_pattern_list(prog, mp, p),
+            _ => p.clone(),
+        }
+    }
+
+    pub fn preproc_pattern_list(prog: &Lib, mp: &ModulePreface, p: &Val) -> Val
+    {
+        match p {
+            &Val::Cons(ref head, ref tail) => {
+                let phead = Protomod::preproc_pattern(prog, mp, head);
+                let ptail = Protomod::preproc_pattern_list(prog, mp, tail);
+                Val::Cons(Box::new(phead), Box::new(ptail))
+            }
+            &Val::Id(ref id) => Val::Id(id.clone()),
+            &Val::Nil => Val::Nil,
+            _ => {
+                panic!("Not a pattern list: {:?}", p);
+            }
+        }
     }
 }
 
