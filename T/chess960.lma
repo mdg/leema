@@ -1,15 +1,15 @@
 
-func assign(line, col, rkr, bb, bw, pieces)
+func assign(line, col, rkr, bb: Int, bw: Int, pieces)
 |(_, _, _, _, _, []) -> line
 |(line, col, #rook, bb, bw, [#rkr;pieces]) ->
     assign([#rook;line], col+1, #king, bb, bw, pieces)
 |(line, col, #king, bb, bw, [#rkr;pieces]) ->
     assign([#king;line], col+1, #rook, bb, bw, pieces)
 |(line, col, rkr, bb, bw, [p;pieces]) ->
-    when
-    |col = bb -> assign([#bishop;line], col+1, rkr, 0, bw, pieces)
-    |col = bw -> assign([#bishop;line], col+1, rkr, bb, 0, pieces)
-    |-> assign([p;line], col+1, rkr, bb, bw, pieces)
+    if
+    |col == bb -> assign([#bishop;line], col+1, rkr, 0, bw, pieces)
+    |col == bw -> assign([#bishop;line], col+1, rkr, bb, 0, pieces)
+    |else -> assign([p;line], col+1, rkr, bb, bw, pieces)
     --
 --
 
@@ -24,11 +24,12 @@ func chess960(): [#] ->
         (random(), #rkr),
         (random(), #rkr)
         ]
+    ## let sorted_pieces := sort(pieces)
     assign([], 1, #rook, bb, bw, pieces)
 --
 
 func main() ->
     let backline := chess960()
-    cout(backline)
+    cout("$backline")
     0
 --
