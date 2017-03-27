@@ -443,6 +443,9 @@ pub fn compile_matchcase(scope: &mut Interscope, case: &Val, xtyp: &Type
     let iblk = compile_expr(scope, blk);
     scope.pop_block();
     let inext = match t3 {
+        &Val::Cons(ref next, _) if **next == Val::Void => {
+            Ixpr::noop()
+        }
         &Val::Cons(ref next, _) => {
             compile_matchcase(scope, next, xtyp)
         }
