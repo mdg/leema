@@ -393,15 +393,12 @@ if_case(A) ::= PIPE ELSE block(B). {
 
 /* match expression */
 expr(A) ::= MATCH expr(B) match_case(C) DOUBLEDASH. {
-    vout!("parsed match expr\n");
     A = sxpr::match_expr(B, C);
 }
 match_case(A) ::= PIPE pexpr(B) block(C) match_case(D). {
-    vout!("found cases base\n");
     A = list::from3(B, C, D);
 }
 match_case(A) ::= PIPE pexpr(B) block(C). {
-    vout!("parsed base match case\n");
     A = list::from2(B, C);
 }
 
@@ -580,11 +577,9 @@ tuple(A) ::= LPAREN tuple_args(B) RPAREN. {
 	A = Val::tuple_from_list(B);
 }
 tuple_args(A) ::= expr(B) COMMA expr(C). {
-	vout!("base tuple args!");
 	A = list::cons(B, list::singleton(C));
 }
 tuple_args(A) ::= expr(B) COMMA tuple_args(C). {
-	vout!("additional tuple arg!");
 	A = list::cons(B, C);
 }
 

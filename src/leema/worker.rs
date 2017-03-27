@@ -112,7 +112,6 @@ impl Worker
 
     pub fn run_once(&mut self)
     {
-        vout!("iterate worker {}\n", self.id);
         while let Result::Ok(msg) = self.rx.try_recv() {
             self.process_msg(msg);
         }
