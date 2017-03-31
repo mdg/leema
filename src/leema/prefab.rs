@@ -11,6 +11,8 @@ use std::fmt::{self, Display, Debug};
 use std::sync::{Mutex};
 use std::rc::{Rc};
 
+use rand;
+
 
 pub fn int_add(fs: &mut Frame)
 {
@@ -99,6 +101,12 @@ pub fn int_negate(fs: &mut Frame)
         }
     }
     fs.parent.set_result(Val::Int(result));
+}
+
+pub fn int_random(fs: &mut Frame)
+{
+    let result = rand::random::<i64>(); // as i64;
+    fs.parent.set_result(Val::Int(result))
 }
 
 pub fn bool_not(fs: &mut Frame)
@@ -322,9 +330,11 @@ pub fn source_code() -> &'static str
     func int_mult(a: Int, b: Int): Int -RUST-
     func int_mod(a: Int, b: Int): Int -RUST-
     func int_negate(a: Int): Int -RUST-
+    func int_random(): Int -RUST-
     func equal(a, b): Bool -RUST-
     func less_than(a, b): Bool -RUST-
     func cout(txt: Str): Void -RUST-
+    func list_cons(head, tail): List -RUST-
     "
 }
 
@@ -348,6 +358,7 @@ pub fn load_rust_func(func_name: &str) -> Option<RustFunc>
         int_mult,
         int_mod,
         int_negate,
+        int_random,
         bool_not,
         bool_xor,
         list_cons,

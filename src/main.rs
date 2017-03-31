@@ -13,6 +13,7 @@ use docopt::{Docopt};
 
 extern crate libc;
 extern crate docopt;
+extern crate rand;
 extern crate rustc_serialize;
 
 #[derive(Debug)]

@@ -8,4 +8,5 @@ rustc-link-lib = ["leemalex"]
 [dependencies]
 libc = "0.2"
 docopt = "0.6"
+rand = "0.3"
 rustc-serialize = "0.3"
