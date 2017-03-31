@@ -480,6 +480,12 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
         &Val::Str(ref s) => Val::Str(s.clone()),
         &Val::Hashtag(ref h) => Val::Hashtag(h.clone()),
         &Val::Wildcard => Val::Wildcard,
+        &Val::Nil => Val::Nil,
+        &Val::Cons(ref head, ref tail) => {
+            let pr_head = assign_pattern_registers(rt, head);
+            let pr_tail = assign_pattern_registers(rt, tail);
+            Val::Cons(Box::new(pr_head), Box::new(pr_tail))
+        }
         &Val::Tuple(ref items) => {
             let reg_items = items.iter().map(|p| {
                 assign_pattern_registers(rt, p)

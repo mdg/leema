@@ -471,8 +471,7 @@ pub fn compile_list_to_vec(scope: &mut Interscope, l: &Val) -> Vec<Ixpr>
     result
 }
 
-pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type
-) -> Type
+pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type) -> Type
 {
     match p {
         &Val::Id(ref id) => {
@@ -498,6 +497,13 @@ pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type
         &Val::Wildcard => {
             // matches, but nothing to do
             srctyp.clone()
+        }
+        &Val::Nil => {
+            scope.T.merge_types(&Type::RelaxedList, srctyp);
+            Type::RelaxedList
+        }
+        &Val::Cons(_, _) => {
+            compile_pattern_list(scope, p, srctyp)
         }
         &Val::Tuple(ref items) => {
             let mut inner_types = vec![];
@@ -527,6 +533,28 @@ pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type
         }
         _ => {
             panic!("Unsupported pattern: {:?}", p);
+        }
+    }
+}
+
+pub fn compile_pattern_list(scope: &mut Interscope, p: &Val, srctyp: &Type
+) -> Type
+{
+    match p {
+        &Val::Cons(ref head, ref tail) => {
+            compile_pattern(scope, head, srctyp);
+            compile_pattern_list(scope, tail, srctyp);
+            Type::RelaxedList
+        }
+        &Val::Nil => {
+            Type::RelaxedList
+        }
+        &Val::Id(ref id) => {
+            scope.add_var(&id, srctyp);
+            Type::RelaxedList
+        }
+        _ => {
+            panic!("cannot compile pattern list: {:?}", p);
         }
     }
 }

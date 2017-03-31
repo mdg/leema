@@ -89,7 +89,6 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(b"x = 1, y = 2\n", result['output'])
 
     def test_list_match_all(self):
-        self.skipTest("no pattern matching yet")
         result = run_leema('list_match_all')
         self.assertEqual(0, result['code'])
         self.assertEqual(
@@ -98,7 +97,6 @@ class TestScripts(unittest.TestCase):
             result['output'])
 
     def test_list_match_head(self):
-        self.skipTest("no pattern matching yet")
         result = run_leema('list_match_head')
         self.assertEqual(0, result['code'])
         self.assertEqual(
