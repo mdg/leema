@@ -371,6 +371,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
             Ixpr::new_list(items)
         }
         &Val::Sxpr(st, ref sx) => compile_sxpr(scope, st, sx),
+        &Val::CallParams => Ixpr::const_val(Val::CallParams),
         &Val::Void => Ixpr::noop(),
         _ => {
             panic!("Cannot compile expr: {:?}", x);
@@ -470,26 +471,59 @@ pub fn compile_list_to_vec(scope: &mut Interscope, l: &Val) -> Vec<Ixpr>
     result
 }
 
-pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type)
+pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type
+) -> Type
 {
     match p {
         &Val::Id(ref id) => {
             scope.add_var(&id, srctyp);
+            srctyp.clone()
         }
         &Val::Int(_) => {
             scope.T.merge_types(&Type::Int, srctyp);
+            Type::Int
         }
         &Val::Str(_) => {
             scope.T.merge_types(&Type::Str, srctyp);
+            Type::Str
         }
         &Val::Bool(_) => {
             scope.T.merge_types(&Type::Bool, srctyp);
+            Type::Bool
         }
         &Val::Hashtag(_) => {
             scope.T.merge_types(&Type::Hashtag, srctyp);
+            Type::Hashtag
         }
         &Val::Wildcard => {
             // matches, but nothing to do
+            srctyp.clone()
+        }
+        &Val::Tuple(ref items) => {
+            let mut inner_types = vec![];
+            match srctyp {
+                &Type::Tuple(ref subtypes) => {
+                    if subtypes.len() != items.len() {
+                        panic!("tuple pattern size mismatch: {:?} <- {:?}",
+                            items, subtypes);
+                    }
+                    let pitems = items.iter().map(|i| {
+                        let inner = compile_pattern(scope, i, srctyp);
+                        inner_types.push(inner);
+                    });
+                }
+                _ => {
+                    // not a tuple, but might be a matching var
+                    // will let merge types sort it out later
+                    let pitems = items.iter().map(|i| {
+                        let inner = compile_pattern(scope, i, &Type::Unknown);
+                        inner_types.push(inner);
+                    });
+                }
+            }
+            let subt = Type::Tuple(inner_types);
+            scope.T.merge_types(&subt, srctyp);
+            subt
         }
         _ => {
             panic!("Unsupported pattern: {:?}", p);

@@ -240,7 +240,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             // call params are already there, noop this
             Oxpr{
                 ops: vec![],
-                dst: Reg::Undecided,
+                dst: Reg::Params,
             }
         }
         Source::ConstVal(ref v) => {
@@ -480,6 +480,12 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
         &Val::Str(ref s) => Val::Str(s.clone()),
         &Val::Hashtag(ref h) => Val::Hashtag(h.clone()),
         &Val::Wildcard => Val::Wildcard,
+        &Val::Tuple(ref items) => {
+            let reg_items = items.iter().map(|p| {
+                assign_pattern_registers(rt, p)
+            }).collect();
+            Val::Tuple(reg_items)
+        }
         _ => {
             panic!("pattern type unsupported: {:?}", pattern);
         }

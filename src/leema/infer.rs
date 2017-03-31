@@ -86,6 +86,9 @@ impl Inferator
             (_, &Type::Var(ref newtname)) => {
                 inferences.insert(newtname.clone(), oldt.clone());
             }
+            // nothing to mash for unknown types
+            (&Type::Unknown, _) => {}
+            (_, &Type::Unknown) => {}
             (_, _) => {
                 panic!("cannot mash types: {:?} <> {:?}", oldt, newt);
             }
