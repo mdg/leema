@@ -1,0 +1,13 @@
+func inspect_list(l)
+|([h;t]) ->
+    cout("l is a list with head $h and tail $t\n")
+|_ ->
+    cout("l is not a list with at least 1 element\n")
+--
+
+func main() ->
+    let l := [3, 2, 8]
+    cout("l: $l\n")
+    inspect_list(l)
+--
+

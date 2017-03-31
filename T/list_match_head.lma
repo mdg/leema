@@ -6,7 +6,7 @@ func main() ->
     |[h;t] ->
         cout("l is a list with head $h and tail $t\n")
     |_ ->
-        cout("l is not a list with 3 elements\n")
+        cout("l is not a list with at least 1 element\n")
     --
 --
 
