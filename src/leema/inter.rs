@@ -210,7 +210,7 @@ impl<'a> Interscope<'a>
             Some(ref proto) => {
                 let valtype_opt = proto.valtype(name);
                 if valtype_opt.is_none() {
-                    panic!("could not find {} in prefab", name);
+                    panic!("undefined variable: {}", name);
                 }
                 Some((ScopeLevel::External, valtype_opt.unwrap()))
             }
@@ -473,7 +473,7 @@ pub fn compile_list_to_vec(scope: &mut Interscope, l: &Val) -> Vec<Ixpr>
 
 pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type) -> Type
 {
-    match p {
+    let result = match p {
         &Val::Id(ref id) => {
             scope.add_var(&id, srctyp);
             srctyp.clone()
@@ -506,27 +506,24 @@ pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type) -> Type
             compile_pattern_list(scope, p, srctyp)
         }
         &Val::Tuple(ref items) => {
-            let mut inner_types = vec![];
-            match srctyp {
+            let inner_types = match srctyp {
                 &Type::Tuple(ref subtypes) => {
                     if subtypes.len() != items.len() {
                         panic!("tuple pattern size mismatch: {:?} <- {:?}",
                             items, subtypes);
                     }
-                    let pitems = items.iter().map(|i| {
-                        let inner = compile_pattern(scope, i, srctyp);
-                        inner_types.push(inner);
-                    });
+                    items.iter().map(|i| {
+                        compile_pattern(scope, i, srctyp)
+                    }).collect()
                 }
                 _ => {
                     // not a tuple, but might be a matching var
                     // will let merge types sort it out later
-                    let pitems = items.iter().map(|i| {
-                        let inner = compile_pattern(scope, i, &Type::Unknown);
-                        inner_types.push(inner);
-                    });
+                    items.iter().map(|i| {
+                        compile_pattern(scope, i, &Type::Unknown)
+                    }).collect()
                 }
-            }
+            };
             let subt = Type::Tuple(inner_types);
             scope.T.merge_types(&subt, srctyp);
             subt
@@ -534,7 +531,8 @@ pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type) -> Type
         _ => {
             panic!("Unsupported pattern: {:?}", p);
         }
-    }
+    };
+    result
 }
 
 pub fn compile_pattern_list(scope: &mut Interscope, p: &Val, srctyp: &Type
