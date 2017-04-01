@@ -691,6 +691,9 @@ impl Val {
                     write!(f, "{},", name)
                 }
             }
+            &Val::PatternVar(_) => {
+                write!(f, "{:?}", l)
+            }
             _ => {
                 panic!("Not a list: {:?}", l);
             }

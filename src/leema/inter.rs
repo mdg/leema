@@ -370,6 +370,9 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
             });
             Ixpr::new_list(items)
         }
+        &Val::Nil => {
+            Ixpr::new_list(vec![])
+        }
         &Val::Tuple(ref items) => {
             let c_items = items.iter().map(|i| {
                 compile_expr(scope, i)
@@ -591,4 +594,56 @@ impl fmt::Debug for Intermod
     interfunc: HashMap<String, Ixpr>,
     */
     }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use leema::log;
+    use leema::loader::{Interloader};
+    use leema::program;
+
+    use std::rc::{Rc};
+    use std::io::{stderr, Write};
+
+
+#[test]
+fn test_too_many_args()
+{
+    let input = String::from("
+
+    func sum(a, b) -> a + b --
+    func main() -> sum(3, 4, 5) --
+    ");
+
+    let mut loader = Interloader::new("tacos.lma");
+    loader.set_mod_txt("tacos", input);
+    let mut prog = program::Lib::new(loader);
+    let imod = prog.read_inter("tacos");
+    assert!(false, "this should have crashed earlier");
+}
+
+#[test]
+fn test_pattern_type_mismatch()
+{
+    let input = String::from("
+
+    func foo(inputs)
+    |([]) -> #empty
+    |([#whatever;more]) -> #whatever
+    |([_;more]) -> foo(more)
+    --
+
+    func main() ->
+        foo([5, 3, 4])
+    --
+    ");
+
+    let mut loader = Interloader::new("tacos.lma");
+    loader.set_mod_txt("tacos", input);
+    let mut prog = program::Lib::new(loader);
+    let imod = prog.read_inter("tacos");
+    assert!(false, "should this crash here or in typecheck?");
+}
+
 }
