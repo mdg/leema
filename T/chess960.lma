@@ -14,15 +14,15 @@ func assign(line, col, rkr, bb: Int, bw: Int, pieces)
 --
 
 func chess960(): [#] ->
-    let bb := 2 * (random() mod 4) + 1
-    let bw := 2 * (random() mod 4) + 2
+    let bb := 2 * (int_random() mod 4) + 1
+    let bw := 2 * (int_random() mod 4) + 2
     let pieces := [
-        (random(), #knight),
-        (random(), #knight),
-        (random(), #queen),
-        (random(), #rkr),
-        (random(), #rkr),
-        (random(), #rkr)
+        (int_random(), #knight),
+        (int_random(), #knight),
+        (int_random(), #queen),
+        (int_random(), #rkr),
+        (int_random(), #rkr),
+        (int_random(), #rkr)
         ]
     ## let sorted_pieces := sort(pieces)
     assign([], 1, #rook, bb, bw, pieces)

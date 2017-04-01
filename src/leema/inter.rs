@@ -370,6 +370,12 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
             });
             Ixpr::new_list(items)
         }
+        &Val::Tuple(ref items) => {
+            let c_items = items.iter().map(|i| {
+                compile_expr(scope, i)
+            }).collect();
+            Ixpr::new_tuple(c_items)
+        }
         &Val::Sxpr(st, ref sx) => compile_sxpr(scope, st, sx),
         &Val::CallParams => Ixpr::const_val(Val::CallParams),
         &Val::Void => Ixpr::noop(),
