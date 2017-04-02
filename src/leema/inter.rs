@@ -608,6 +608,7 @@ mod tests {
 
 
 #[test]
+#[should_panic]
 fn test_too_many_args()
 {
     let input = String::from("
@@ -620,10 +621,29 @@ fn test_too_many_args()
     loader.set_mod_txt("tacos", input);
     let mut prog = program::Lib::new(loader);
     let imod = prog.read_inter("tacos");
-    assert!(false, "this should have crashed earlier");
 }
 
 #[test]
+#[should_panic]
+fn test_use_match_pattern_var_not_func_var()
+{
+    let input = String::from("
+
+    ## should be using n, a should be undefined
+    func factorial(a)
+    |(1) -> 1
+    |(n) -> a * (a-1)
+    --
+    ");
+
+    let mut loader = Interloader::new("tacos.lma");
+    loader.set_mod_txt("tacos", input);
+    let mut prog = program::Lib::new(loader);
+    let imod = prog.read_inter("tacos");
+}
+
+#[test]
+#[should_panic]
 fn test_pattern_type_mismatch()
 {
     let input = String::from("
@@ -643,7 +663,6 @@ fn test_pattern_type_mismatch()
     loader.set_mod_txt("tacos", input);
     let mut prog = program::Lib::new(loader);
     let imod = prog.read_inter("tacos");
-    assert!(false, "should this crash here or in typecheck?");
 }
 
 }

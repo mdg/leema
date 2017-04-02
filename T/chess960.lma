@@ -13,6 +13,28 @@ func assign(line, col, rkr, bb: Int, bw: Int, pieces)
     --
 --
 
+func print_pieces(all_pieces)
+|([]) -> ## noop
+|([#rook;pieces]) ->
+    cout("R")
+    print_pieces(pieces)
+|([#knight;pieces]) ->
+    cout("N")
+    print_pieces(pieces)
+|([#bishop;pieces]) ->
+    cout("B")
+    print_pieces(pieces)
+|([#queen;pieces]) ->
+    cout("Q")
+    print_pieces(pieces)
+|([#king;pieces]) ->
+    cout("K")
+    print_pieces(pieces)
+|([what;pieces]) ->
+    cout("no match? $what\n")
+    print_pieces(pieces)
+--
+
 func chess960(): [#] ->
     let bb := 2 * (int_random() mod 4) + 1
     let bw := 2 * (int_random() mod 4) + 2
@@ -30,6 +52,6 @@ func chess960(): [#] ->
 
 func main() ->
     let backline := chess960()
-    cout("$backline")
+    print_pieces(backline)
     0
 --
