@@ -223,20 +223,14 @@ fn test_ast_parse_list() {
 
 #[test]
 fn test_ast_parse_list_cons() {
-    let input = "[1, 2; x]\n";
+    let input = "1;2;x\n";
     let root = ast::parse(lex(input));
 
-    let prefix_list =
-        list::cons(Val::Int(1),
-        list::cons(Val::Int(2),
-        Val::Nil,
-        ));
+    let inner = sxpr::call(Val::id("list_cons".to_string()),
+        list::from2(Val::Int(2), Val::id("x".to_string())));
     let expected = sxpr::new(SxprType::BlockExpr, list::singleton(
         sxpr::call(Val::id("list_cons".to_string()),
-            list::cons(prefix_list,
-            list::cons(Val::id("x".to_string()),
-            Val::Nil,
-            ))
+            list::from2(Val::Int(1), inner)
         )
     ));
     assert_eq!(expected, root);
@@ -418,7 +412,7 @@ fn test_parse_match_list()
 {
     let input = "
     match x
-    |[h;t] -> h
+    |h;t -> h
     |_ -> false
     --
     ";
