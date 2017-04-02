@@ -1,0 +1,11 @@
+func last_tag(input)
+|[] -> #error
+|[final] -> final
+|#last;_ -> #last
+|head;tail -> last_tag(tail)
+--
+
+func main() ->
+    let last := last_tag([4, 5, 6])
+    cout("last tag is $last\n")
+--
