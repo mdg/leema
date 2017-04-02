@@ -92,15 +92,15 @@ class TestScripts(unittest.TestCase):
         result = run_leema('list_cons')
         self.assertEqual(0, result['code'])
         self.assertEqual(
-            b"l1: [Int(3),Int(2),Int(8),]\n" +
-            b"l2: [Int(4),Int(6),Int(3),Int(2),Int(8),]\n",
+            b"l1: [3,2,8,]\n" +
+            b"l2: [4,6,3,2,8,]\n",
             result['output'])
 
     def test_list_match_all(self):
         result = run_leema('list_match_all')
         self.assertEqual(0, result['code'])
         self.assertEqual(
-            b"l: [Int(3),Int(2),Int(8),]\n" +
+            b"l: [3,2,8,]\n" +
             b"l is a list with 3 elements [3, 2, 8]\n",
             result['output'])
 
@@ -108,16 +108,16 @@ class TestScripts(unittest.TestCase):
         result = run_leema('list_match_head')
         self.assertEqual(0, result['code'])
         self.assertEqual(
-            b"l: [Int(3),Int(2),Int(8),Int(4),]\n" +
-            b"l is a list starting with 3, 2 and ending with [Int(8),Int(4),]\n",
+            b"l: [3,2,8,4,]\n" +
+            b"l is a list starting with 3, 2 and ending with [8,4,]\n",
             result['output'])
 
     def test_fmatch_list_tail(self):
         result = run_leema('fmatch_list_tail')
         self.assertEqual(0, result['code'])
         self.assertEqual(
-            b"l: [Int(3),Int(2),Int(8),]\n" +
-            b"l is a list with head 3 and tail [Int(2),Int(8),]\n",
+            b"l: [3,2,8,]\n" +
+            b"l is a list with head 3 and tail [2,8,]\n",
             result['output'])
 
     def test_rgb(self):
