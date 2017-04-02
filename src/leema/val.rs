@@ -696,7 +696,11 @@ impl Val {
     {
         match l {
             &Val::Cons(ref head, ref tail) => {
-                write!(f, "{:?},", head);
+                if dbg {
+                    write!(f, "{:?},", head);
+                } else {
+                    write!(f, "{},", head);
+                }
                 Val::fmt_list(f, tail, dbg)
             }
             &Val::Nil => {
@@ -875,7 +879,7 @@ impl fmt::Display for Val {
             }
             Val::Cons(ref head, ref tail) => {
                 write!(f, "[");
-                Val::fmt_list(f, self, true);
+                Val::fmt_list(f, self, false);
                 write!(f, "]")
             }
             Val::Nil => {
