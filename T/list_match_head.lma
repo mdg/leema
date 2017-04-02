@@ -1,12 +1,12 @@
 func main() ->
-    let l := [3, 2, 8]
+    let l := [3, 2, 8, 4]
     cout("l: $l\n")
 
     match l
-    |[h;t] ->
-        cout("l is a list with head $h and tail $t\n")
+    |h1;h2;t ->
+        cout("l is a list starting with $h1, $h2 and ending with $t\n")
     |_ ->
-        cout("l is not a list with at least 1 element\n")
+        cout("l is not a list with at least 2 element\n")
     --
 --
 

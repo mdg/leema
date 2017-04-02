@@ -441,7 +441,8 @@ plist_items(A) ::= pexpr(B). {
 plist_items(A) ::= pexpr(B) COMMA plist_items(C). {
     A = list::cons(B, C);
 }
-plist_items(A) ::= pexpr(B) SEMICOLON pexpr(C). {
+/* list decons pattern */
+plist(A) ::= pexpr(B) SEMICOLON pexpr(C). {
 	A = list::cons(B, C);
 }
 
