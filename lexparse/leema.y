@@ -81,9 +81,9 @@ use std::rc::{Rc};
 %right ConcatNewline NOT.
 %nonassoc EQ NEQ GT GTEQ.
 %left LT LTEQ.
+%right SEMICOLON.
 %left PLUS MINUS.
 %left TIMES SLASH MOD.
-%left SEMICOLON.
 %right DOLLAR.
 %left DOT.
 %left LPAREN RPAREN.
@@ -478,6 +478,9 @@ expr(A) ::= expr(B) SLASH expr(C). {
 expr(A) ::= expr(B) MOD expr(C). {
 	A = sxpr::binaryop("int_mod".to_string(), B, C);
 }
+expr(A) ::= expr(B) SEMICOLON expr(C). {
+	A = sxpr::call(Val::id("list_cons".to_string()), list::from2(B, C));
+}
 expr(A) ::= expr(B) AND expr(C). {
 	A = sxpr::binaryop("boolean_and".to_string(), B, C);
 }
@@ -562,9 +565,6 @@ list(A) ::= SquareL SquareR. {
 }
 list(A) ::= SquareL list_items(B) SquareR. {
 	A = B;
-}
-list(A) ::= SquareL list_items(B) SEMICOLON expr(C) SquareR. {
-	A = sxpr::call(Val::id("list_cons".to_string()), list::from2(B, C));
 }
 list_items(A) ::= expr(B). {
 	A = list::singleton(B);

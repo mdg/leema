@@ -88,6 +88,14 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(0, result['code'])
         self.assertEqual(b"x = 1, y = 2\n", result['output'])
 
+    def test_list_cons(self):
+        result = run_leema('list_cons')
+        self.assertEqual(0, result['code'])
+        self.assertEqual(
+            b"l1: [Int(3),Int(2),Int(8),]\n" +
+            b"l2: [Int(4),Int(6),Int(3),Int(2),Int(8),]\n",
+            result['output'])
+
     def test_list_match_all(self):
         result = run_leema('list_match_all')
         self.assertEqual(0, result['code'])
