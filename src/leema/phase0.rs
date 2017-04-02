@@ -298,6 +298,7 @@ impl Protomod
             }
             &Val::Id(ref id) => Val::Id(id.clone()),
             &Val::Nil => Val::Nil,
+            &Val::Wildcard => Val::Wildcard,
             _ => {
                 panic!("Not a pattern list: {:?}", p);
             }

@@ -560,6 +560,9 @@ pub fn compile_pattern_list(scope: &mut Interscope, p: &Val, srctyp: &Type
             scope.add_var(&id, srctyp);
             Type::RelaxedList
         }
+        &Val::Wildcard => {
+            Type::RelaxedList
+        }
         _ => {
             panic!("cannot compile pattern list: {:?}", p);
         }

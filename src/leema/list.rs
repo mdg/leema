@@ -18,6 +18,12 @@ pub fn cons(head: Val, tail: Val) -> Val
             // this is used when parsing list patterns
             Val::Cons(Box::new(head), Box::new(tail))
         }
+        Val::Wildcard => {
+            Val::Cons(Box::new(head), Box::new(tail))
+        }
+        Val::PatternVar(_) => {
+            Val::Cons(Box::new(head), Box::new(tail))
+        }
         _ => {
             panic!("Can't cons to a not list {:?}", tail);
         }

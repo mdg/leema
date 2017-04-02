@@ -571,7 +571,7 @@ impl Val {
     fn _pattern_match(assigns: &mut Vec<(Reg, Val)>,
         patt: &Val, input: &Val) -> bool
     {
-        match (patt, input) {
+        let result = match (patt, input) {
             (&Val::Wildcard, _) => true,
             (&Val::PatternVar(ref dst), _) => {
                 // should put something in assigns vector here
@@ -582,9 +582,8 @@ impl Val {
             (&Val::Bool(p), &Val::Bool(i)) if p == i => true,
             (&Val::Str(ref p), &Val::Str(ref i)) if p == i => true,
             (&Val::Hashtag(ref p), &Val::Hashtag(ref i)) if p == i => true,
-            (&Val::Cons(ref ph, ref pt), &Val::Cons(ref ih, ref it)) => {
-                Val::_pattern_match(assigns, ph, ih)
-                    && Val::_pattern_match(assigns, pt, it)
+            (&Val::Cons(_, _), &Val::Cons(_, _)) => {
+                Val::_pattern_match_list(assigns, patt, input)
             }
             (&Val::Tuple(ref p), &Val::Tuple(ref i)) if p.len() == i.len() => {
                 let it = p.iter().zip(i.iter());
@@ -595,7 +594,27 @@ impl Val {
             }
             (&Val::Nil, &Val::Nil) => true,
             _ => false,
-        }
+        };
+        result
+    }
+
+    fn _pattern_match_list(assigns: &mut Vec<(Reg, Val)>,
+        patt: &Val, input: &Val) -> bool
+    {
+        let result = match (patt, input) {
+            (&Val::Cons(ref ph, ref pt), &Val::Cons(ref ih, ref it)) => {
+                Val::_pattern_match(assigns, ph, ih)
+                    && Val::_pattern_match_list(assigns, pt, it)
+            }
+            (&Val::Wildcard, _) => true,
+            (&Val::PatternVar(ref dst), _) => {
+                assigns.push((dst.clone(), input.clone()));
+                true
+            }
+            (&Val::Nil, &Val::Nil) => true,
+            _ => false,
+        };
+        result
     }
 
     pub fn replace_ids(node: Val,
@@ -683,6 +702,9 @@ impl Val {
             &Val::Nil => {
                 // do nothing, we've formatted enough
                 write!(f, "")
+            }
+            &Val::Wildcard => {
+                write!(f, "_")
             }
             &Val::Id(ref name) => {
                 if dbg {
@@ -1524,7 +1546,9 @@ impl reg::Iregistry for Env
 mod tests {
     use leema::val::{Type, Val, SxprType};
     use leema::list;
+    use leema::reg::{Reg};
     use leema::sxpr;
+
     use std::collections::{HashMap};
     use std::rc::{Rc};
 
@@ -1633,6 +1657,15 @@ fn test_replace_ids_if()
         ))),
     );
     assert_eq!(expected, result);
+}
+
+#[test]
+fn test_pattern_match_list_cons_wildcard_head()
+{
+    let patt = list::cons(Val::Wildcard, Val::PatternVar(Reg::local(1)));
+    let input = list::from3(Val::Int(1), Val::Int(2), Val::Int(3));
+    let pmatch = Val::pattern_match(&patt, &input);
+    assert!(pmatch.is_some());
 }
 
 }
