@@ -1,8 +1,8 @@
 func last_tag(input)
-|[] -> #error
-|[final] -> final
-|#last;_ -> #last
-|head;tail -> last_tag(tail)
+|([]) -> #error
+|([final]) -> final
+|(#last;_) -> #last
+|(head;tail) -> last_tag(tail)
 --
 
 func main() ->

@@ -1668,4 +1668,13 @@ fn test_pattern_match_list_cons_wildcard_head()
     assert!(pmatch.is_some());
 }
 
+#[test]
+fn test_pattern_match_list_cons_wildcard_tail()
+{
+    let patt = list::cons(Val::PatternVar(Reg::local(1)), Val::Wildcard);
+    let input = list::from3(Val::Int(1), Val::Int(2), Val::Int(3));
+    let pmatch = Val::pattern_match(&patt, &input);
+    assert!(pmatch.is_some());
+}
+
 }
