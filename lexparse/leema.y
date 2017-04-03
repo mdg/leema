@@ -474,7 +474,7 @@ expr(A) ::= expr(B) ConcatNewline. {
 }
 /* arithmetic */
 expr(A) ::= NEGATE term(B). {
-	A = sxpr::call(Val::id("negate".to_string()), list::singleton(B));
+	A = sxpr::call(Val::id("int_negate".to_string()), list::singleton(B));
 }
 expr(A) ::= expr(B) PLUS expr(C). {
 	A = sxpr::binaryop("int_add".to_string(), B, C);
