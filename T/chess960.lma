@@ -1,43 +1,69 @@
 
-func assign(line, col, rkr, bb: Int, bw: Int, pieces)
-|(_, _, _, _, _, []) -> line
-|(line, col, #rook, bb, bw, [#rkr;pieces]) ->
-    assign([#rook;line], col+1, #king, bb, bw, pieces)
-|(line, col, #king, bb, bw, [#rkr;pieces]) ->
-    assign([#king;line], col+1, #rook, bb, bw, pieces)
-|(line, col, rkr, bb, bw, [p;pieces]) ->
+func assign(line_, col_, rkr_, bb_: Int, bw_: Int, pieces_)
+|(line, col, _, 0, 0, []) -> line
+|(line, col, rkr, bb, bw, []) ->
     if
-    |col == bb -> assign([#bishop;line], col+1, rkr, 0, bw, pieces)
-    |col == bw -> assign([#bishop;line], col+1, rkr, bb, 0, pieces)
-    |else -> assign([p;line], col+1, rkr, bb, bw, pieces)
+    |col == bb ->
+        cout("assign final black bishop\n")
+        assign(#bishop;line, col+1, rkr, 0, bw, [])
+    |col == bw ->
+        cout("assign final white bishop\n")
+        assign(#bishop;line, col+1, rkr, bb, 0, [])
+    |else ->
+        cout("that's no good: $col,$bb,$bw\n")
+        line
+    --
+|(line, col, #rook, bb, bw, #rkr;pieces) ->
+    cout("assign rook\n")
+    assign(#rook;line, col+1, #king, bb, bw, pieces)
+|(line, col, #king, bb, bw, #rkr;pieces) ->
+    cout("assign king\n")
+    assign(#king;line, col+1, #rook, bb, bw, pieces)
+|(line, col, rkr, bb, bw, p;pieces) ->
+    if
+    |col == bb ->
+        cout("assign black bishop\n")
+        assign(#bishop;line, col+1, rkr, 0, bw, p;pieces)
+    |col == bw ->
+        cout("assign white bishop\n")
+        assign(#bishop;line, col+1, rkr, bb, 0, p;pieces)
+    |else ->
+        cout("assign else: $p\n")
+        assign(p;line, col+1, rkr, bb, bw, pieces)
     --
 --
 
 func print_pieces(all_pieces)
-|([]) -> ## noop
-|([#rook;pieces]) ->
+|([]) ->
+    cout("\n")
+|(#rook;pieces) ->
     cout("R")
     print_pieces(pieces)
-|([#knight;pieces]) ->
+|(#knight;pieces) ->
     cout("N")
     print_pieces(pieces)
-|([#bishop;pieces]) ->
+|(#bishop;pieces) ->
     cout("B")
     print_pieces(pieces)
-|([#queen;pieces]) ->
+|(#queen;pieces) ->
     cout("Q")
     print_pieces(pieces)
-|([#king;pieces]) ->
+|(#king;pieces) ->
     cout("K")
     print_pieces(pieces)
-|([what;pieces]) ->
+|(what;pieces) ->
     cout("no match? $what\n")
     print_pieces(pieces)
 --
 
+func take_pieces(output, input)
+|(outs, []) -> output
+|(outs, (_, head);tail) -> take_pieces(head;outs, tail)
+--
+
 func chess960(): [#] ->
-    let bb := 2 * (int_random() mod 4) + 1
-    let bw := 2 * (int_random() mod 4) + 2
+    let bb := 2 * (int_abs(int_random()) mod 4) + 1
+    let bw := 2 * (int_abs(int_random()) mod 4) + 2
     let pieces := [
         (int_random(), #knight),
         (int_random(), #knight),
@@ -47,11 +73,14 @@ func chess960(): [#] ->
         (int_random(), #rkr)
         ]
     ## let sorted_pieces := sort(pieces)
-    assign([], 1, #rook, bb, bw, pieces)
+    let just_pieces := take_pieces([], pieces)
+    cout("assign(1, #rook, $bb, $bw, $just_pieces)\n")
+    assign([], 1, #rook, bb, bw, just_pieces)
 --
 
 func main() ->
     let backline := chess960()
+    cout("$backline\n")
     print_pieces(backline)
     0
 --
