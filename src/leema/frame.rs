@@ -507,14 +507,14 @@ pub fn execute_call(curf: &mut Frame, dst: &Reg, freg: &Reg, argreg: &Reg)
     let ref fname_val = curf.e.get_reg(freg);
     let (modname, funcname) = match *fname_val {
         &Val::Str(ref name_str) => {
-            vout!("execute_call({})", name_str);
+            vout!("execute_call({})\n", name_str);
             // pass in args
             (Rc::new("".to_string()), name_str.clone())
         }
         &Val::Tuple(ref modfunc) if modfunc.len() == 2 => {
             let modnm = modfunc.get(0).unwrap();
             let funcnm = modfunc.get(1).unwrap();
-            vout!("execute_call({}.{})", modnm, funcnm);
+            vout!("execute_call({}.{})\n", modnm, funcnm);
             match (modnm, funcnm) {
                 (&Val::Str(ref m), &Val::Str(ref f)) => {
                     (m.clone(), f.clone())
