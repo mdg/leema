@@ -334,6 +334,13 @@ pub fn source_code() -> &'static str
     func less_than(a, b): Bool -RUST-
     func cout(txt: Str): Void -RUST-
     func list_cons(head, tail): List -RUST-
+
+    func int_abs(a: Int): Int ->
+        if
+        |a < 0 -> ~a
+        |else -> a
+        --
+    --
     "
 }
 
