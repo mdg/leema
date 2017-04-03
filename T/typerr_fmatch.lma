@@ -1,0 +1,10 @@
+
+func merge(a, b)
+|(x) -> x
+|(x, h;t) -> merge(h;x, t)
+--
+
+func main() ->
+    let m := merge([], [4, 5, 6])
+    cout("$m\n")
+--

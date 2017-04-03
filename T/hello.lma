@@ -1,0 +1,3 @@
+func main() ->
+    cout("hello world\n")
+--
