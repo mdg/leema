@@ -64,6 +64,7 @@ use std::rc::{Rc};
 %type expr { Val }
 %type typex { Type }
 %type opt_typex { Type }
+%type tuple_types { Val }
 %type id_type { Val }
 
 %type list { Val }
@@ -264,6 +265,17 @@ typex(A) ::= ID(B). {
 }
 typex(A) ::= SquareL typex(B) SquareR. {
 	A = Type::StrictList(Box::new(B));
+}
+typex(A) ::= LPAREN tuple_types(B) RPAREN. {
+    A = Type::Tuple(list::map_to_vec(B, |v| {
+        v.to_type()
+    }));
+}
+tuple_types(A) ::= . {
+    A = Val::Nil;
+}
+tuple_types(A) ::= typex(B) COMMA tuple_types(C). {
+    A = list::cons(Val::Type(B), C);
 }
 
 opt_ps(A) ::= . {
