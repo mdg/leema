@@ -1,39 +1,30 @@
 
-func assign(line_, col_, rkr_, bb_: Int, bw_: Int, pieces_)
-|(line, col, _, 0, 0, []) -> line
-|(line, col, rkr, bb, bw, []) ->
-    if
-    |col == bb ->
-        cout("assign final black bishop\n")
-        assign(#bishop;line, col+1, rkr, 0, bw, [])
-    |col == bw ->
-        cout("assign final white bishop\n")
-        assign(#bishop;line, col+1, rkr, bb, 0, [])
-    |else ->
-        cout("that's no good: $col,$bb,$bw\n")
-        line
-    --
-|(line, col, #rook, bb, bw, #rkr;pieces) ->
-    cout("assign rook\n")
-    assign(#rook;line, col+1, #king, bb, bw, pieces)
-|(line, col, #king, bb, bw, #rkr;pieces) ->
-    cout("assign king\n")
-    assign(#king;line, col+1, #rook, bb, bw, pieces)
-|(line, col, rkr, bb, bw, p;pieces) ->
+func assign(line_: [#], col_: Int, rkr_: #, bb_: Int, bw_: Int, pcs_: [#])
+|(line, _, _, 0, 0, []) -> line
+|(line, col, rkr, bb, bw, all_pieces) ->
     if
     |col == bb ->
         cout("assign black bishop\n")
-        assign(#bishop;line, col+1, rkr, 0, bw, p;pieces)
+        assign(#bishop;line, col+1, rkr, 0, bw, all_pieces)
     |col == bw ->
         cout("assign white bishop\n")
-        assign(#bishop;line, col+1, rkr, bb, 0, p;pieces)
+        assign(#bishop;line, col+1, rkr, bb, 0, all_pieces)
     |else ->
-        cout("assign else: $p\n")
-        assign(p;line, col+1, rkr, bb, bw, pieces)
+        match (rkr, all_pieces)
+        |(#rook, #rkr;pieces) ->
+            cout("assign rook\n")
+            assign(#rook;line, col, #king, bb, bw, pieces)
+        |(#king, #rkr;pieces) ->
+            cout("assign king\n")
+            assign(#rook;line, col, #rook, bb, bw, pieces)
+        |(_, p;pieces) ->
+            cout("assign piece: $p\n")
+            assign(p;line, col, rkr, bb, bw, pieces)
+        --
     --
 --
 
-func print_pieces(all_pieces)
+func print_pieces(all_pieces: [#])
 |([]) ->
     cout("\n")
 |(#rook;pieces) ->
@@ -56,7 +47,7 @@ func print_pieces(all_pieces)
     print_pieces(pieces)
 --
 
-func take_pieces(output, input)
+func take_pieces(output: [#], input): [#]
 |(outs, []) -> output
 |(outs, (_, head);tail) -> take_pieces(head;outs, tail)
 --
