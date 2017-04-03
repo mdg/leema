@@ -436,7 +436,6 @@ pub fn make_matchcase_ops(rt: &mut RegTable, matchcase: &Ixpr, xreg: &Reg
             panic!("Cannot make ops for a not MatchCase {:?}", matchcase);
         }
     };
-vout!("make_matchcase_ops({:?},{:?},{:?})\n", patt, code, next);
     // push reg scope
     let patt_val = assign_pattern_registers(rt, patt);
     let mut code_ops = make_sub_ops(rt, code);

@@ -65,8 +65,8 @@ impl Inferator
         }
     }
 
-    fn mash(inferences: &mut HashMap<Rc<String>
-            , Type>, oldt: &Type, newt: &Type)
+    fn mash(inferences: &mut HashMap<Rc<String>, Type>
+            , oldt: &Type, newt: &Type)
     {
         if oldt == newt {
             // all good
@@ -79,6 +79,9 @@ impl Inferator
                 } else {
                     inferences.insert(oldtname.clone(), newt.clone());
                 }
+            }
+            (&Type::StrictList(ref oldit), &Type::StrictList(ref newit)) => {
+                Inferator::mash(inferences, oldit, newit);
             }
             (&Type::Var(ref oldtname), _) => {
                 inferences.insert(oldtname.clone(), newt.clone());
