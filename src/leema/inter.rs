@@ -142,6 +142,7 @@ pub struct Interscope<'a>
     blkstk: Vec<Blockscope>,
     // types of locally defined labels
     T: Inferator,
+    argt: Type,
 }
 
 impl<'a> Interscope<'a>
@@ -167,6 +168,7 @@ impl<'a> Interscope<'a>
             imports: imports,
             blkstk: vec![blk],
             T: t,
+            argt: Type::Tuple(argt.clone()),
         }
     }
 
@@ -380,7 +382,12 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
             Ixpr::new_tuple(c_items)
         }
         &Val::Sxpr(st, ref sx) => compile_sxpr(scope, st, sx),
-        &Val::CallParams => Ixpr::const_val(Val::CallParams),
+        &Val::CallParams => {
+            Ixpr{
+                typ: scope.argt.clone(),
+                src: Source::ConstVal(Val::CallParams),
+            }
+        }
         &Val::Void => Ixpr::noop(),
         _ => {
             panic!("Cannot compile expr: {:?}", x);
