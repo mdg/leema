@@ -157,7 +157,7 @@ fn test_ast_parse_call_one_param()
     let root = ast::parse(lex(input));
 
     let neg4 = sxpr::call(
-        Val::id("negate".to_string()),
+        Val::id("int_negate".to_string()),
         list::singleton(Val::Int(4)),
     );
     let expected = sxpr::new(SxprType::BlockExpr,
@@ -487,7 +487,7 @@ fn test_parse_let_plus_negation()
             Val::Nil,
             )),
         ),
-        list::cons(sxpr::call(Val::id("negate".to_string()),
+        list::cons(sxpr::call(Val::id("int_negate".to_string()),
             list::singleton(Val::id("x".to_string())),
             ),
         Val::Nil,
