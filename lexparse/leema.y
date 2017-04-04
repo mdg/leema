@@ -274,6 +274,9 @@ typex(A) ::= LPAREN tuple_types(B) RPAREN. {
 tuple_types(A) ::= . {
     A = Val::Nil;
 }
+tuple_types(A) ::= typex(B). {
+    A = list::singleton(Val::Type(B));
+}
 tuple_types(A) ::= typex(B) COMMA tuple_types(C). {
     A = list::cons(Val::Type(B), C);
 }

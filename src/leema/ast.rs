@@ -526,4 +526,17 @@ fn test_parse_let_plus_tuple()
     assert_eq!(expected, root);
 }
 
+#[test]
+fn test_parse_function_hashtag_tuple()
+{
+    let input = "
+    func foo(input: [(Int, #)]): [#] ->
+        [#tacos, #burritos]
+    --
+    ";
+    let root = ast::parse(lex(input));
+
+    assert!(true); // didn't panic!
+}
+
 }
