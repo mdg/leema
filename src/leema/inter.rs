@@ -528,8 +528,8 @@ pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type
                         panic!("tuple pattern size mismatch: {:?} <- {:?}",
                             items, subtypes);
                     }
-                    items.iter().map(|i| {
-                        compile_pattern(scope, i, srctyp)
+                    items.iter().zip(subtypes).map(|(i,st)| {
+                        compile_pattern(scope, i, st)
                     }).collect()
                 }
                 _ => {

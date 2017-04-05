@@ -708,17 +708,17 @@ impl Val {
                 write!(f, "")
             }
             &Val::Wildcard => {
-                write!(f, "_")
+                write!(f, ";_")
             }
             &Val::Id(ref name) => {
                 if dbg {
-                    write!(f, "{:?},", l)
+                    write!(f, ";{:?}", l)
                 } else {
-                    write!(f, "{},", name)
+                    write!(f, ";{}", name)
                 }
             }
             &Val::PatternVar(_) => {
-                write!(f, "{:?}", l)
+                write!(f, ";{:?}", l)
             }
             _ => {
                 panic!("Not a list: {:?}", l);
