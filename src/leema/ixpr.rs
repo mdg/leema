@@ -174,10 +174,10 @@ vout!("new_block> {:?}\n", code);
         }
     }
 
-    pub fn new_if(test: Ixpr, truth: Ixpr, lies: Ixpr) -> Ixpr
+    pub fn new_if(test: Ixpr, truth: Ixpr, lies: Ixpr, typ: Type) -> Ixpr
     {
         Ixpr{
-            typ: truth.typ.clone(),
+            typ: typ,
             src: Source::IfExpr(
                 Box::new(test),
                 Box::new(truth),

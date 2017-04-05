@@ -425,8 +425,12 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
             let ifix = compile_expr(scope, ifx);
             let itruth = compile_expr(scope, truth);
             let ilies = compile_expr(scope, lies);
-            scope.T.merge_types(&itruth.typ, &ilies.typ);
-            Ixpr::new_if(ifix, itruth, ilies)
+            let iftyp = scope.T.merge_types(&itruth.typ, &ilies.typ);
+            if iftyp.is_none() {
+                panic!("if/else types do not match: {:?} <> {:?}",
+                    itruth.typ, ilies.typ);
+            }
+            Ixpr::new_if(ifix, itruth, ilies, iftyp.unwrap())
         }
         SxprType::Let => {
             let (lhs_patt, rhs_val) = list::to_ref_tuple2(sx);
@@ -487,42 +491,38 @@ pub fn compile_list_to_vec(scope: &mut Interscope, l: &Val) -> Vec<Ixpr>
     result
 }
 
-pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type) -> Type
+pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type
+    ) -> Option<Type>
 {
     let result = match p {
         &Val::Id(ref id) => {
             scope.add_var(&id, srctyp);
-            srctyp.clone()
+            Some(srctyp.clone())
         }
         &Val::Int(_) => {
-            scope.T.merge_types(&Type::Int, srctyp);
-            Type::Int
+            scope.T.merge_types(&Type::Int, srctyp)
         }
         &Val::Str(_) => {
-            scope.T.merge_types(&Type::Str, srctyp);
-            Type::Str
+            scope.T.merge_types(&Type::Str, srctyp)
         }
         &Val::Bool(_) => {
-            scope.T.merge_types(&Type::Bool, srctyp);
-            Type::Bool
+            scope.T.merge_types(&Type::Bool, srctyp)
         }
         &Val::Hashtag(_) => {
-            scope.T.merge_types(&Type::Hashtag, srctyp);
-            Type::Hashtag
+            scope.T.merge_types(&Type::Hashtag, srctyp)
         }
         &Val::Wildcard => {
             // matches, but nothing to do
-            srctyp.clone()
+            Some(srctyp.clone())
         }
         &Val::Nil => {
-            scope.T.merge_types(&Type::RelaxedList, srctyp);
-            Type::RelaxedList
+            scope.T.merge_types(&Type::RelaxedList, srctyp)
         }
         &Val::Cons(_, _) => {
             compile_pattern_list(scope, p, srctyp)
         }
         &Val::Tuple(ref items) => {
-            let inner_types = match srctyp {
+            let inner_opt_types: Vec<Option<Type>> = match srctyp {
                 &Type::Tuple(ref subtypes) => {
                     if subtypes.len() != items.len() {
                         panic!("tuple pattern size mismatch: {:?} <- {:?}",
@@ -540,38 +540,49 @@ pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type) -> Type
                     }).collect()
                 }
             };
+
+            let mut inner_types = vec![];
+            for i in inner_opt_types {
+                match i {
+                    Some(ii) => inner_types.push(ii),
+                    None => {
+                        return None;
+                    }
+                }
+            }
             let subt = Type::Tuple(inner_types);
-            scope.T.merge_types(&subt, srctyp);
-            subt
+            scope.T.merge_types(&subt, srctyp)
         }
         _ => {
-            panic!("Unsupported pattern: {:?}", p);
+            vout!("Unsupported pattern: {:?}\n", p);
+            None
         }
     };
     result
 }
 
 pub fn compile_pattern_list(scope: &mut Interscope, p: &Val, srctyp: &Type
-) -> Type
+) -> Option<Type>
 {
     match p {
         &Val::Cons(ref head, ref tail) => {
-            compile_pattern(scope, head, srctyp);
-            compile_pattern_list(scope, tail, srctyp);
-            Type::RelaxedList
+            compile_pattern(scope, head, srctyp).and_then(|x| {
+                compile_pattern_list(scope, tail, srctyp)
+            })
         }
         &Val::Nil => {
-            Type::RelaxedList
+            Some(Type::RelaxedList)
         }
         &Val::Id(ref id) => {
             scope.add_var(&id, srctyp);
-            Type::RelaxedList
+            Some(Type::RelaxedList)
         }
         &Val::Wildcard => {
-            Type::RelaxedList
+            Some(Type::RelaxedList)
         }
         _ => {
-            panic!("cannot compile pattern list: {:?}", p);
+            vout!("cannot compile pattern list: {:?}\n", p);
+            None
         }
     }
 }

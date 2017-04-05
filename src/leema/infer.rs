@@ -35,20 +35,20 @@ impl Inferator
         }
     }
 
-    pub fn bind_vartype(&mut self, argn: &str, argt: &Type)
+    pub fn bind_vartype(&mut self, argn: &str, argt: &Type) -> Option<Type>
     {
         if !self.T.contains_key(argn) {
             self.T.insert(String::from(argn), argt.clone());
-            return;
+            return Some(argt.clone())
         }
 
         let oldargt = self.T.get(argn).unwrap();
-        Inferator::mash(&mut self.inferences, oldargt, argt);
+        Inferator::mash(&mut self.inferences, oldargt, argt)
     }
 
-    pub fn merge_types(&mut self, a: &Type, b: &Type)
+    pub fn merge_types(&mut self, a: &Type, b: &Type) -> Option<Type>
     {
-        Inferator::mash(&mut self.inferences, a, b);
+        Inferator::mash(&mut self.inferences, a, b)
     }
 
     pub fn inferred_type<'a>(&'a self, typ: &'a Type) -> &Type
@@ -66,35 +66,41 @@ impl Inferator
     }
 
     fn mash(inferences: &mut HashMap<Rc<String>, Type>
-            , oldt: &Type, newt: &Type)
+            , oldt: &Type, newt: &Type) -> Option<Type>
     {
         if oldt == newt {
             // all good
-            return;
+            return Some(oldt.clone());
         }
         match (oldt, newt) {
             (&Type::Var(ref oldtname), &Type::Var(ref newtname)) => {
                 if oldtname < newtname {
                     inferences.insert(newtname.clone(), oldt.clone());
+                    Some(oldt.clone())
                 } else {
                     inferences.insert(oldtname.clone(), newt.clone());
+                    Some(newt.clone())
                 }
             }
             (&Type::StrictList(ref oldit), &Type::StrictList(ref newit)) => {
-                Inferator::mash(inferences, oldit, newit);
+                Inferator::mash(inferences, oldit, newit).and_then(|t| {
+                    Some(Type::StrictList(Box::new(t)))
+                })
             }
+            (&Type::StrictList(_), &Type::RelaxedList) => Some(oldt.clone()),
+            (&Type::RelaxedList, &Type::StrictList(_)) => Some(newt.clone()),
             (&Type::Var(ref oldtname), _) => {
                 inferences.insert(oldtname.clone(), newt.clone());
+                Some(newt.clone())
             }
             (_, &Type::Var(ref newtname)) => {
                 inferences.insert(newtname.clone(), oldt.clone());
+                Some(oldt.clone())
             }
             // nothing to mash for unknown types
-            (&Type::Unknown, _) => {}
-            (_, &Type::Unknown) => {}
-            (_, _) => {
-                panic!("cannot mash types: {:?} <> {:?}", oldt, newt);
-            }
+            (&Type::Unknown, _) => Some(newt.clone()),
+            (_, &Type::Unknown) => Some(oldt.clone()),
+            (_, _) => None,
         }
     }
 
@@ -114,7 +120,7 @@ impl Inferator
         }
 
         for (defargt, argt) in defargst.iter().zip(argst.iter()) {
-            Inferator::mash(&mut self.inferences, defargt, argt)
+            Inferator::mash(&mut self.inferences, defargt, argt);
         }
         self.inferred_type(defresult).clone()
     }
