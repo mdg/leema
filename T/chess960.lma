@@ -1,53 +1,52 @@
 
-func assign(line_: [#], col_: Int, rkr_: #, bb_: Int, bw_: Int, pcs_: [#])
+func assign(line_: [#], col_: Int, rkr_: #, bb_: Int, bw_: Int, pcs_: [#]): [#]
 |(line, _, _, 0, 0, []) -> line
-|(line, col, rkr, bb, bw, all_pieces) ->
+|(line, col, rkr, bb, bw, assign_pieces) ->
     if
     |col == bb ->
         cout("assign black bishop\n")
-        assign(#bishop;line, col+1, rkr, 0, bw, all_pieces)
+        assign(#bishop;line, col+1, rkr, 0, bw, assign_pieces)
     |col == bw ->
         cout("assign white bishop\n")
-        assign(#bishop;line, col+1, rkr, bb, 0, all_pieces)
+        assign(#bishop;line, col+1, rkr, bb, 0, assign_pieces)
     |else ->
-        match (rkr, all_pieces)
-        |(#rook, #rkr;pieces) ->
+        match (rkr, assign_pieces)
+        |(#rook, #rkr;apieces) ->
             cout("assign rook\n")
-            assign(#rook;line, col, #king, bb, bw, pieces)
-        |(#king, #rkr;pieces) ->
+            assign(#rook;line, col+1, #king, bb, bw, apieces)
+        |(#king, #rkr;apieces) ->
             cout("assign king\n")
-            assign(#rook;line, col, #rook, bb, bw, pieces)
-        |(_, p;pieces) ->
+            assign(#king;line, col+1, #rook, bb, bw, apieces)
+        |(_, p;apieces) ->
             cout("assign piece: $p\n")
-            assign(p;line, col, rkr, bb, bw, pieces)
+            assign(p;line, col+1, rkr, bb, bw, apieces)
         --
     --
 --
 
-func print_pieces(all_pieces: [#])
+func print_pieces(all_ppcs: [#])
 |([]) ->
     cout("\n")
-|(#rook;pieces) ->
+|(#rook;ppcs) ->
     cout("R")
-    print_pieces(pieces)
-|(#knight;pieces) ->
+    print_pieces(ppcs)
+|(#knight;ppcs) ->
     cout("N")
-    print_pieces(pieces)
-|(#bishop;pieces) ->
+    print_pieces(ppcs)
+|(#bishop;ppcs) ->
     cout("B")
-    print_pieces(pieces)
-|(#queen;pieces) ->
+    print_pieces(ppcs)
+|(#queen;ppcs) ->
     cout("Q")
-    print_pieces(pieces)
-|(#king;pieces) ->
+    print_pieces(ppcs)
+|(#king;ppcs) ->
     cout("K")
-    print_pieces(pieces)
-|(what;pieces) ->
-    cout("no match? $what\n")
-    print_pieces(pieces)
+    print_pieces(ppcs)
+|wat ->
+    cout("no match? $wat\n")
 --
 
-func take_pieces(output: [#], input): [#]
+func take_pieces(output: [#], input: [(Int, #)]): [#]
 |(outs, []) -> output
 |(outs, (_, head);tail) -> take_pieces(head;outs, tail)
 --
