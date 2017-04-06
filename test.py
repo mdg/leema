@@ -120,6 +120,16 @@ class TestScripts(unittest.TestCase):
             b"l is a list with head 3 and tail [2,8,]\n",
             result['output'])
 
+    def test_fmatch_list_deep_scope(self):
+        result = run_leema('fmatch_list_deep_scope')
+        self.assertEqual(0, result['code'])
+        self.assertEqual(
+            b"found a! what else is in [#b,#c,] ?\n" +
+            b"found b! what else is in [#c,] ?\n" +
+            b"found c.\n" +
+            b"done\n",
+            result['output'])
+
     def test_rgb(self):
         self.skipTest("structs come back later")
         result = run_leema('rgb')
