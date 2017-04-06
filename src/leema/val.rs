@@ -124,6 +124,28 @@ impl Type
             }
         }
     }
+
+    pub fn list_inner_type(&self) -> Type
+    {
+        match self {
+            &Type::StrictList(ref inner) => (**inner).clone(),
+            &Type::RelaxedList => Type::Any,
+            &Type::Var(_) => Type::Unknown,
+            &Type::Unknown => Type::Unknown,
+            _ => {
+                panic!("cannot get inner type of a not list: {:?}", self);
+            }
+        }
+    }
+
+    pub fn wrap_in_list(inner: Type) -> Type
+    {
+        match inner {
+            Type::Any => Type::RelaxedList,
+            Type::Unknown => Type::RelaxedList,
+            _ => Type::StrictList(Box::new(inner)),
+        }
+    }
 }
 
 impl fmt::Display for Type

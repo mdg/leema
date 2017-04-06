@@ -126,6 +126,8 @@ struct Blockscope
     E: HashSet<String>,
 }
 
+#[derive(Debug)]
+#[derive(PartialEq)]
 pub enum ScopeLevel
 {
     Local,
@@ -196,12 +198,13 @@ impl<'a> Interscope<'a>
         }
         self.T.bind_vartype(name, typ);
         self.blkstk.last_mut().unwrap().E.insert(String::from(name));
+vout!("add_var({}, {:?}) -> {:?}\n", name, typ, self.blkstk);
     }
 
     pub fn vartype(&self, name: &str) -> Option<(ScopeLevel, &Type)>
     {
         let local = self.T.vartype(name);
-        if local.is_some() {
+        if local.is_some() && self.contains_local(name) {
             return Some((ScopeLevel::Local, local.unwrap()));
         }
         let modtyp = self.proto.valtype(name);
@@ -212,6 +215,8 @@ impl<'a> Interscope<'a>
             Some(ref proto) => {
                 let valtype_opt = proto.valtype(name);
                 if valtype_opt.is_none() {
+                    vout!("cannot find variable: {} in {:?}\nor {:?}\n",
+                        name, self.T, self.blkstk);
                     panic!("undefined variable: {}", name);
                 }
                 Some((ScopeLevel::External, valtype_opt.unwrap()))
@@ -566,8 +571,9 @@ pub fn compile_pattern_list(scope: &mut Interscope, p: &Val, srctyp: &Type
 {
     match p {
         &Val::Cons(ref head, ref tail) => {
-            compile_pattern(scope, head, srctyp).and_then(|x| {
-                compile_pattern_list(scope, tail, srctyp)
+            let inner_srct = srctyp.list_inner_type();
+            compile_pattern(scope, head, &inner_srct).and_then(|x| {
+                compile_pattern_list(scope, tail, &Type::wrap_in_list(x))
             })
         }
         &Val::Nil => {
@@ -620,13 +626,72 @@ impl fmt::Debug for Intermod
 
 #[cfg(test)]
 mod tests {
+    use leema::inter::{ScopeLevel, Interscope};
     use leema::log;
     use leema::loader::{Interloader};
+    use leema::module::{ModKey};
+    use leema::phase0::{Protomod};
     use leema::program;
+    use leema::val::{Type};
 
     use std::rc::{Rc};
     use std::io::{stderr, Write};
+    use std::collections::{HashMap};
 
+
+#[test]
+fn test_scope_add_vartype()
+{
+    let mk = Rc::new(ModKey::name_only("tacos"));
+    let proto = Protomod::new(mk);
+    let imps = HashMap::new();
+    let args = vec![];
+    let argt = vec![];
+    let mut scope = Interscope::new(&proto, &imps, "foo", &args, &argt);
+    scope.add_var("hello", &Type::Int);
+
+    let (scope_lvl, typ) = scope.vartype("hello").unwrap();
+    assert_eq!(ScopeLevel::Local, scope_lvl);
+    assert_eq!(Type::Int, *typ);
+}
+
+#[test]
+fn test_scope_push_block()
+{
+    let mk = Rc::new(ModKey::name_only("tacos"));
+    let proto = Protomod::new(mk);
+    let imps = HashMap::new();
+    let args = vec![];
+    let argt = vec![];
+    let mut scope = Interscope::new(&proto, &imps, "foo", &args, &argt);
+    scope.add_var("hello", &Type::Int);
+    println!("add_var(hello) -> {:?}", scope);
+
+    {
+        let (hello_lvl, hello_typ) = scope.vartype("hello").unwrap();
+        assert_eq!(ScopeLevel::Local, hello_lvl);
+        assert_eq!(Type::Int, *hello_typ);
+    }
+
+    scope.push_block();
+    scope.add_var("world", &Type::Str);
+    println!("push_block().add_var(world) -> {:?}", scope);
+
+    {
+        let (world_lvl, world_typ) = scope.vartype("world").unwrap();
+        assert_eq!(ScopeLevel::Local, world_lvl);
+        assert_eq!(Type::Str, *world_typ);
+
+        let (hello_lvl, hello_typ) = scope.vartype("hello").unwrap();
+        assert_eq!(ScopeLevel::Local, hello_lvl);
+        assert_eq!(Type::Int, *hello_typ);
+    }
+
+    scope.pop_block();
+
+    assert_eq!(None, scope.vartype("world"));
+    assert!(scope.vartype("hello").is_some());
+}
 
 #[test]
 #[should_panic]
@@ -664,8 +729,54 @@ fn test_use_match_pattern_var_not_func_var()
 }
 
 #[test]
+fn test_pattern_declaration()
+{
+    let input = String::from("
+
+    func foo(inputs: [#])
+    |([]) -> #empty
+    |(#whatever;more) -> #whatever
+    |(_;more) -> foo(more)
+    --
+
+    func main() ->
+        foo([#a, #b, #c])
+    --
+    ");
+
+    let mut loader = Interloader::new("tacos.lma");
+    loader.set_mod_txt("tacos", input);
+    let mut prog = program::Lib::new(loader);
+    let imod = prog.read_inter("tacos");
+    assert!(true); // didn't panic earlier
+}
+
+#[test]
 #[should_panic]
-fn test_pattern_type_mismatch()
+fn test_pattern_type_explicit_mismatch()
+{
+    let input = String::from("
+
+    func foo(inputs: [#])
+    |([]) -> #empty
+    |([#whatever;more]) -> #whatever
+    |([_;more]) -> foo(more)
+    --
+
+    func main() ->
+        foo([5, 3, 4])
+    --
+    ");
+
+    let mut loader = Interloader::new("tacos.lma");
+    loader.set_mod_txt("tacos", input);
+    let mut prog = program::Lib::new(loader);
+    let imod = prog.read_inter("tacos");
+}
+
+#[test]
+#[should_panic]
+fn test_pattern_type_inferred_mismatch()
 {
     let input = String::from("
 

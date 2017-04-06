@@ -323,3 +323,34 @@ pub fn preproc(prog: &mut Lib, mp: &ModulePreface, ast: &Val) -> Protomod
     }
     p0
 }
+
+
+#[cfg(test)]
+mod tests {
+    use leema::log;
+    use leema::loader::{Interloader};
+    use leema::program;
+
+    use std::rc::{Rc};
+    use std::io::{stderr, Write};
+
+
+#[test]
+fn test_preproc_list_pattern()
+{
+    let input = String::from("
+
+    func foo(a)
+    |(h;t) -> cout(\"head: $h, tail: $t\n\")
+    --
+
+    func main() -> foo([3, 4, 5]) --
+    ");
+
+    let mut loader = Interloader::new("tacos.lma");
+    loader.set_mod_txt("tacos", input);
+    let mut prog = program::Lib::new(loader);
+    let pmod = prog.read_proto("tacos");
+}
+
+}

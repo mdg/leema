@@ -67,7 +67,6 @@ impl Ixpr
 
     pub fn new_block(code: Vec<Ixpr>) -> Ixpr
     {
-vout!("new_block> {:?}\n", code);
         let block_type = match code.last() {
             None => {
                 Type::Void

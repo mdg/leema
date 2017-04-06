@@ -171,3 +171,26 @@ print!("infer.match_types({:?}, {:?})\n", a, b);
         }
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use leema::infer::{Inferator};
+    use leema::log;
+    use leema::module::{ModKey};
+    use leema::val::{Type};
+
+    use std::rc::{Rc};
+    use std::io::{stderr, Write};
+    use std::collections::{HashMap};
+
+
+#[test]
+fn test_add_and_find()
+{
+    let mut t = Inferator::new();
+    t.bind_vartype("a", &Type::Int);
+    assert_eq!(Type::Int, *t.vartype("a").unwrap());
+}
+
+}
