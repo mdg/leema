@@ -120,8 +120,8 @@ class TestScripts(unittest.TestCase):
             b"l is a list with head 3 and tail [2,8,]\n",
             result['output'])
 
-    def test_fmatch_list_deep_scope(self):
-        result = run_leema('fmatch_list_deep_scope')
+    def test_fmatch_scope_depth(self):
+        result = run_leema('fmatch_scope_depth')
         self.assertEqual(0, result['code'])
         self.assertEqual(
             b"found a! what else is in [#b,#c,] ?\n" +
