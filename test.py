@@ -14,7 +14,7 @@ class TestScripts(unittest.TestCase):
     def test_booland(self):
         result = run_leema('booland')
         self.assertEqual(0, result['code'])
-        lines = result['output'].split('\n')
+        lines = result['output'].split(b"\n")
         self.assertEqual(b"a is true", lines[0])
         self.assertEqual(b"b is false", lines[1])
         self.assertEqual(b"a and b is false", lines[2])
@@ -129,6 +129,11 @@ class TestScripts(unittest.TestCase):
             b"found c.\n" +
             b"done\n",
             result['output'])
+
+    def test_chess960(self):
+        result = run_leema('chess960')
+        self.assertEqual(0, result['code'])
+        self.assertRegex(result['output'].strip(), b"^[BNRQK]{8}$")
 
     def test_rgb(self):
         self.skipTest("structs come back later")
