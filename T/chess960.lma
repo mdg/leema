@@ -4,21 +4,16 @@ func assign(line_: [#], col_: Int, rkr_: #, bb_: Int, bw_: Int, pcs_: [#]): [#]
 |(line, col, rkr, bb, bw, assign_pieces) ->
     if
     |col == bb ->
-        cout("assign black bishop\n")
         assign(#bishop;line, col+1, rkr, 0, bw, assign_pieces)
     |col == bw ->
-        cout("assign white bishop\n")
         assign(#bishop;line, col+1, rkr, bb, 0, assign_pieces)
     |else ->
         match (rkr, assign_pieces)
         |(#rook, #rkr;apieces) ->
-            cout("assign rook\n")
             assign(#rook;line, col+1, #king, bb, bw, apieces)
         |(#king, #rkr;apieces) ->
-            cout("assign king\n")
             assign(#king;line, col+1, #rook, bb, bw, apieces)
         |(_, p;apieces) ->
-            cout("assign piece: $p\n")
             assign(p;line, col+1, rkr, bb, bw, apieces)
         --
     --
@@ -64,13 +59,11 @@ func chess960(): [#] ->
         ]
     ## let sorted_pieces := sort(pieces)
     let just_pieces := take_pieces([], pieces)
-    cout("assign(1, #rook, $bb, $bw, $just_pieces)\n")
     assign([], 1, #rook, bb, bw, just_pieces)
 --
 
 func main() ->
     let backline := chess960()
-    cout("$backline\n")
     print_pieces(backline)
     0
 --
