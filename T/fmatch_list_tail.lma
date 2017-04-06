@@ -1,4 +1,6 @@
-func inspect_list(l)
+func inspect_list(l: [Int])
+|(0;_) ->
+    cout("l has a 0\n")
 |(h;t) ->
     cout("l is a list with head $h and tail $t\n")
 |_ ->
@@ -10,4 +12,3 @@ func main() ->
     cout("l: $l\n")
     inspect_list(l)
 --
-
