@@ -205,6 +205,7 @@ pub enum CodeKey
 
 pub fn make_ops(input: &Ixpr) -> OpVec
 {
+    vout!("make_ops({:?})\n", input);
     let mut regtbl = RegTable::new();
     let mut ops = make_sub_ops(&mut regtbl, input);
     if input.typ != Type::Void {
@@ -367,6 +368,7 @@ vout!("id({}).reg = {:?}\n", id, src);
 pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr, args: &Ixpr) -> Oxpr
 {
     let dst = rt.dst().clone();
+    vout!("make_call_ops: {:?} = {:?}\n", dst, f);
 
     rt.push_dst();
     let mut fops = make_sub_ops(rt, f);

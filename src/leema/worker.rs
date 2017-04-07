@@ -150,11 +150,13 @@ impl Worker
                 self.create_root_frame(module, call);
             }
             Msg::FoundCode(frame_id, module, func, code) => {
+                vout!("found code for frame: {} <- {:?}\n", frame_id, code);
                 let rc_code = Rc::new(code);
                 let mut new_mod = HashMap::new();
                 new_mod.insert(func, rc_code.clone());
                 self.code.insert(module, new_mod);
                 let fwait = self.waiting.remove(&frame_id).unwrap();
+                vout!("frame is: {:?}\n", fwait);
                 self.fresh.push_back((rc_code.clone(), fwait.frame));
             }
             _ => {
@@ -291,6 +293,7 @@ vout!("lock app, add_fork\n");
                 } else {
                     vout!("function call failed\n");
                 }
+                vout!("function is complete: {:?}\n", curf.parent);
                 match curf.parent {
                     Parent::Caller(old_code, mut pf, dst) => {
                         pf.pc += 1;

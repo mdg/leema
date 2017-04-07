@@ -275,6 +275,8 @@ pub enum MsgVal
 pub enum Val {
     Int(i64),
     Str(Rc<String>),
+    // StrCat(Rc<Val>, Box<Val>),
+    // EmptyStr,
     Bool(bool),
     Hashtag(Rc<String>),
     Cons(Box<Val>, Box<Val>),

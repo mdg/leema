@@ -63,6 +63,7 @@ impl Application
         let worker_id = self.next_worker_id();
         let app_send = self.app_send.clone();
         let (worker_send, worker_recv) = channel();
+        vout!("start worker {}\n", worker_id);
         thread::spawn(move || {
             let mut w = Worker::new(worker_id, app_send, worker_recv);
             w.run();
@@ -83,6 +84,7 @@ impl Application
     pub fn iterate(&mut self)
     {
         while let Some((module, call)) = self.calls.pop_front() {
+            vout!("application call {}.{}()\n", module, call);
             let w = self.worker.values().next().unwrap();
             w.send(Msg::Call(module, call));
         }
@@ -94,6 +96,7 @@ impl Application
 
     pub fn process_msg(&mut self, msg: Msg)
     {
+        vout!("Received a message! {:?}\n", msg);
         match msg {
             Msg::RequestCode(worker_id, frame, module, func) => {
                 let code = self.prog.load_code(&module, &func);
