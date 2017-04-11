@@ -3,10 +3,16 @@
 default: build
 
 build: lexer parser
-	cargo build
+	cargo build --bin leema
 
 run: build
-	cargo run
+	cargo run --bin leema
+
+leemaw: lexer parser
+	cargo build --bin leemaw
+
+lib: lexer parser
+	cargo build --lib
 
 test: unit T
 
