@@ -1,0 +1,14 @@
+
+rust type Listener
+rust type Stream
+
+## create a tcp listener on the given port
+func listen(addr: String, port: Int): Listener -RUST-
+
+## accept new sockets on the given socket
+func accept(l: Listener): Stream -RUST-
+
+func tcp_read(s: Stream): String -RUST-
+
+func tcp_write(s: Stream, output: String): Void -RUST-
+
