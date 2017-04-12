@@ -5,6 +5,10 @@ Leema is a concurrent, error-tolerant, functional programming language.
 
 ## Build
 
+Dependencies:
+* lemon_rust submodule
+* flex
+
 Build the leema vm by running `make`
 
 ## Tests
