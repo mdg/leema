@@ -11,9 +11,6 @@ name = "leema"
 [[bin]]
 name = "leemaw"
 
-[lib]
-name = "leema"
-
 [dependencies]
 libc = "0.2"
 docopt = "0.6"
