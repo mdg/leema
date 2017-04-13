@@ -1,8 +1,13 @@
-#[macro_use]
-use leema::log;
+extern crate libc;
+extern crate docopt;
+extern crate rand;
+extern crate rustc_serialize;
+extern crate tokio_core;
 
 #[macro_use]
 mod leema;
+
+use leema::log;
 
 use leema::loader::{Interloader};
 use leema::module::{ModuleSource};
@@ -11,10 +16,6 @@ use leema::application::{Application};
 use std::io::{stderr, Write};
 use docopt::{Docopt};
 
-extern crate libc;
-extern crate docopt;
-extern crate rand;
-extern crate rustc_serialize;
 
 #[derive(Debug)]
 #[derive(RustcDecodable)]

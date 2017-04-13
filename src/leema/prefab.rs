@@ -1,5 +1,5 @@
 use leema::val::{Val, Type};
-use leema::code::{RustFunc};
+use leema::code::{Code, RustFunc};
 use leema::frame::{Frame};
 use leema::list;
 use leema::log;
@@ -348,14 +348,14 @@ macro_rules! load_rust_funcs {
     ( $fname:ident, $( $f:ident ),* ) => {
         match $fname {
             $(
-            stringify!($f) => Some($f),
+            stringify!($f) => Some(Code::Rust($f)),
             )*
             _ => None,
         }
     }
 }
 
-pub fn load_rust_func(func_name: &str) -> Option<RustFunc>
+pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     load_rust_funcs!(
         func_name,

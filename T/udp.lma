@@ -1,8 +1,8 @@
 
-rust type Stream
+## rust type Stream
 
 ## create a tcp listener on the given port
-func bind(addr: String, port: Int): Stream -RUST-
+func udp_bind(addr: String, port: Int): Stream -RUST-
 
 func udp_read(s: Stream): String -RUST-
 

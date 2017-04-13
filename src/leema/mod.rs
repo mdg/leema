@@ -20,6 +20,7 @@ pub mod inter;
 pub mod sxpr;
 pub mod parse;
 pub mod typecheck;
+pub mod udp;
 pub mod worker;
 
 pub const CLI_SUCCESS: i32 =  0;

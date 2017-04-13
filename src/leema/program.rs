@@ -5,7 +5,7 @@ use leema::module::{ModuleSource, ModuleInterface, ModulePreface, MacroDef};
 use leema::loader::{Interloader};
 use leema::log;
 use leema::phase0::{self, Protomod};
-use leema::prefab;
+use leema::{prefab, udp};
 use leema::typecheck::{self, CallOp, CallFrame, Typescope};
 
 use std::io::{Write, stderr};
@@ -21,7 +21,7 @@ pub struct Lib
     proto: HashMap<String, Rc<Protomod>>,
     inter: HashMap<String, Rc<Intermod>>,
     typed: HashMap<String, Intermod>,
-    rust_load: HashMap<String, fn(&str) -> Option<code::RustFunc>>,
+    rust_load: HashMap<String, fn(&str) -> Option<code::Code>>,
     code: HashMap<String, HashMap<String, Code>>,
 }
 
@@ -42,6 +42,8 @@ impl Lib
         };
         proglib.rust_load.insert("prefab".to_string(), prefab::load_rust_func);
         proglib.load_inter("prefab");
+        // proglib.rust_load.insert("tcp".to_string(), tcp::load_rust_func);
+        proglib.rust_load.insert("udp".to_string(), udp::load_rust_func);
         proglib
     }
 
@@ -155,7 +157,7 @@ impl Lib
             if rustfunc.is_none() {
                 panic!("no rust function for: {}.{}", modname, funcname);
             }
-            Code::Rust(rustfunc.unwrap())
+            rustfunc.unwrap()
         } else {
             let ops = code::make_ops(fix);
             if modname == "prefab" {

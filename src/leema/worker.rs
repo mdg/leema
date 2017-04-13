@@ -15,6 +15,8 @@ use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::thread;
 
+use tokio_core::reactor;
+
 
 #[derive(Debug)]
 #[derive(PartialEq)]
@@ -61,6 +63,8 @@ pub struct Worker
 {
     fresh: LinkedList<(Rc<Code>, Frame)>,
     waiting: HashMap<i64, FrameWait>,
+    core: reactor::Core,
+    handle: reactor::Handle,
     code: HashMap<String, HashMap<String, Rc<Code>>>,
     event: Event,
     tx: Sender<Msg>,
@@ -82,9 +86,13 @@ impl Worker
 {
     pub fn new(wid: i64, send: Sender<Msg>, recv: Receiver<Msg>) -> Worker
     {
+        let c = reactor::Core::new().unwrap();
+        let h = c.handle();
         Worker{
             fresh: LinkedList::new(),
             waiting: HashMap::new(),
+            core: c,
+            handle: h,
             code: HashMap::new(),
             event: Event::Uneventful,
             tx: send,
@@ -129,6 +137,10 @@ impl Worker
             }
             Code::Rust(ref rf) => {
                 rf(&mut curf);
+                self.event = Event::Complete(true);
+            }
+            Code::RustIo(ref rf) => {
+                rf(&mut curf, &self.handle);
                 self.event = Event::Complete(true);
             }
         }
