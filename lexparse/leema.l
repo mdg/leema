@@ -92,6 +92,11 @@ void	{ return set_token(yyg, TOKEN_VOID); }
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_EQ);
 }
+"="	{
+    // only here to make it easier to report errors that it cannot be used
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_EQ1);
+}
 "<"	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_LT);
@@ -138,6 +143,10 @@ void	{ return set_token(yyg, TOKEN_VOID); }
 ";"	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_SEMICOLON);
+}
+"::"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_DBLCOLON);
 }
 ":"	{
     BEGIN(INITIAL);

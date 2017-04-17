@@ -15,6 +15,7 @@ use std::rc::{Rc};
 
 %type COLON { TokenLoc }
 %type COMMA { TokenLoc }
+%type DBLCOLON { TokenLoc }
 %type DOUBLEDASH { TokenLoc }
 %type ELSE { TokenLoc }
 %type HASHTAG { TokenData<String> }
@@ -64,6 +65,7 @@ use std::rc::{Rc};
 %type expr { Val }
 %type typex { Type }
 %type opt_typex { Type }
+%type mod_prefix { Val }
 %type tuple_types { Val }
 %type id_type { Val }
 
@@ -190,6 +192,10 @@ let_stmt(A) ::= Let ID(B) ASSIGN expr(C). {
 let_stmt(A) ::= Fork ID(B) ASSIGN expr(C). {
 	let bind = list::cons(Val::new_str(B.data), list::singleton(C));
 	A = sxpr::new(SxprType::Fork, bind);
+}
+let_stmt ::= Let ID(B) EQ1 expr. {
+    panic!("Found let {} = <expr>\nit should be let {} := <expr>\n",
+        B.data, B.data);
 }
 
 block(A) ::= BLOCKARROW stmts(B). {
@@ -556,6 +562,9 @@ term(A) ::= LPAREN expr(C) RPAREN. {
 	A = C;
 }
 term(A) ::= ID(B). { A = Val::id(B.data); }
+term(A) ::= mod_prefix(B). {
+    A = B;
+}
 term(A) ::= VOID. {
 	A = Val::Void;
 }
@@ -575,6 +584,12 @@ term(A) ::= term(B) DOT ID(C). {
     A = Val::DotAccess(Box::new(B), Rc::new(C.data));
 }
 
+mod_prefix(A) ::= ID(B) DBLCOLON ID(C). {
+    A = Val::ModPrefix(Rc::new(B.data), Rc::new(Val::id(C.data)));
+}
+mod_prefix(A) ::= ID(B) DBLCOLON mod_prefix(C). {
+    A = Val::ModPrefix(Rc::new(B.data), Rc::new(C));
+}
 
 list(A) ::= SquareL SquareR. {
 	A = list::empty();

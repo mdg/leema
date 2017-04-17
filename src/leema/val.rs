@@ -291,6 +291,7 @@ pub enum Val {
         Arc<FrameTrace>,
     ),
     Id(Rc<String>),
+    ModPrefix(Rc<String>, Rc<Val>),
     TypedId(Rc<String>, Type),
     Type(Type),
     Kind(u8),
@@ -934,6 +935,9 @@ impl fmt::Display for Val {
             Val::Sxpr(ref t, ref head) => {
                 Val::fmt_sxpr(*t, head, f, false)
             }
+            Val::ModPrefix(ref module, ref next) => {
+                write!(f, "{}::{}", module, next)
+            }
             Val::Id(ref name) => {
                 write!(f, "{}", name)
             }
@@ -1014,6 +1018,9 @@ impl fmt::Debug for Val {
             }
             Val::Sxpr(ref t, ref head) => {
                 Val::fmt_sxpr(*t, head, f, true)
+            }
+            Val::ModPrefix(ref head, ref tail) => {
+                write!(f, "{}::{:?}", head, tail)
             }
             Val::Id(ref id) => {
                 write!(f, "ID({})", id)

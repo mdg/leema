@@ -95,6 +95,9 @@ impl Token
                 parse::TOKEN_COLON => {
                     Token::COLON(tl)
                 }
+                parse::TOKEN_DBLCOLON => {
+                    Token::DBLCOLON(tl)
+                }
                 parse::TOKEN_COMMA => {
                     Token::COMMA(tl)
                 }
@@ -201,6 +204,9 @@ impl Token
                 }
                 parse::TOKEN_GTEQ => {
                     Token::GTEQ
+                }
+                parse::TOKEN_EQ1 => {
+                    Token::EQ1
                 }
                 parse::TOKEN_RETURN => {
                     Token::RETURN
