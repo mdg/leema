@@ -172,7 +172,7 @@ impl fmt::Display for Type
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
             &Type::RelaxedList => write!(f, "List"),
-            &Type::Lib(ref name) => write!(f, "Lib({})", name),
+            &Type::Lib(ref name) => write!(f, "LibType({})", &name),
             &Type::RustBlock => write!(f, "RustBlock"),
             &Type::Void => write!(f, "Void"),
             &Type::Kind => write!(f, "Kind"),
@@ -551,6 +551,22 @@ impl Val {
     pub fn new_lib<T: Any + Send + Sync>(lv: T, typ: Type) -> Val
     {
         Val::Lib(LibVal{v: Arc::new(lv), t: typ})
+    }
+
+    pub fn libval_as<T: Any>(&self) -> Option<&T>
+    {
+        match self {
+            &Val::Lib(ref lv) => Any::downcast_ref(&*lv.v),
+            _ => None,
+        }
+    }
+
+    pub fn libval_as_mut<T: Any>(&mut self) -> Option<&mut T>
+    {
+        match self {
+            &mut Val::Lib(ref mut lv) => Any::downcast_mut(&mut *lv.v),
+            _ => None,
+        }
     }
 
     pub fn get_type(&self) -> Type
@@ -1464,7 +1480,26 @@ impl Env
 
     pub fn get_reg_mut(&mut self, reg: &Reg) -> &mut Val
     {
-        panic!("should totally implement this");
+        match reg {
+            &Reg::Params => {
+                &mut self.params
+            }
+            &Reg::Param(ref r) => {
+                self.params.ireg_get_mut(r)
+            }
+            &Reg::Local(ref i) => {
+                self.ireg_get_mut(i)
+            }
+            &Reg::Void => {
+                panic!("Cannot get Reg::Void");
+            }
+            &Reg::Lib => {
+                panic!("Please look in application library for Reg::Lib");
+            }
+            &Reg::Undecided => {
+                panic!("Cannot get undecided register");
+            }
+        }
     }
 
     pub fn set_reg(&mut self, reg: &Reg, v: Val) {
@@ -1508,6 +1543,11 @@ impl Env
     pub fn get_param(&self, reg: i8) -> &Val
     {
         self.get_reg(&Reg::Param(Ireg::Reg(reg)))
+    }
+
+    pub fn get_param_mut(&mut self, reg: i8) -> &mut Val
+    {
+        self.get_reg_mut(&Reg::Param(Ireg::Reg(reg)))
     }
 
     pub fn takeResult(&mut self) -> Val {
