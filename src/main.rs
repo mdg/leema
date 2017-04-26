@@ -3,6 +3,7 @@ extern crate docopt;
 extern crate rand;
 extern crate rustc_serialize;
 extern crate tokio_core;
+extern crate futures;
 
 #[macro_use]
 mod leema;

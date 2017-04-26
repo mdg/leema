@@ -1,4 +1,5 @@
 extern crate tokio_core;
+extern crate futures;
 
 use leema::code::{Code, RustIoFunc};
 use leema::frame::{Frame};
@@ -9,29 +10,39 @@ use std::str::{FromStr};
 use std::sync::{Arc};
 use self::tokio_core::net::{UdpSocket};
 use self::tokio_core::reactor::{Handle};
+use futures::future::{Future};
 
 
 pub fn udp_bind(fs: &mut Frame, h: &Handle)
 {
+    let send_addr = SocketAddr::new(
+        IpAddr::from_str("127.0.0.1").unwrap(),
+        3999,
+    );
     let addr_val = fs.e.get_param(0);
     let port_val = fs.e.get_param(1);
-    let sock = match (addr_val, port_val) {
+    let sock_val = match (addr_val, port_val) {
         (&Val::Str(ref addr), &Val::Int(big_port)) => {
             let ip = IpAddr::from_str(addr).unwrap();
             let short_port = big_port as u16;
             let sock_addr = SocketAddr::new(ip, short_port);
-            let sock = Arc::new(UdpSocket::bind(&sock_addr, h).unwrap());
+            let sock = UdpSocket::bind(&sock_addr, h).unwrap();
 println!("udp_bind = {:?}", sock);
+            let sent = sock.send_dgram("tacos", send_addr);
+            sent.wait();
+            /*
             Val::Lib(LibVal{
-                v: sock,
+                v: Arc::new(sock),
                 t: Type::Lib(String::from("UdpStream")),
             })
+            */
         }
         _ => {
             panic!("invalid parameters to udp_bind");
         }
     };
-    fs.parent.set_result(sock);
+    // fs.parent.set_result(sock_val);
+    fs.parent.set_result(Val::Int(0));
 }
 
 pub fn udp_read(fs: &mut Frame, h: &Handle)
@@ -40,6 +51,7 @@ pub fn udp_read(fs: &mut Frame, h: &Handle)
 
 pub fn udp_send(fs: &mut Frame, h: &Handle)
 {
+    /*
     let sock = {
         let mut sock_val = fs.e.get_param_mut(0);
         // let sock_opt: Option<&mut UdpSocket> = sock_val.libval_as();
@@ -71,6 +83,7 @@ println!("udp_sent = {}", output);
             panic!("invalid parameters to udp_bind");
         }
     }
+    */
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>

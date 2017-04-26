@@ -14,7 +14,9 @@ use std::rc::{Rc};
 use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::thread;
+use std::time::{Duration};
 
+use futures::future::{Future};
 use tokio_core::reactor;
 
 
@@ -86,8 +88,13 @@ impl Worker
 {
     pub fn new(wid: i64, send: Sender<Msg>, recv: Receiver<Msg>) -> Worker
     {
-        let c = reactor::Core::new().unwrap();
+        let mut c = reactor::Core::new().unwrap();
         let h = c.handle();
+        let t = reactor::Timeout::new(Duration::new(3, 1), &h).unwrap()
+            .map(|n| {
+                println!("timed out");
+            });
+        c.run(t);
         Worker{
             fresh: LinkedList::new(),
             waiting: HashMap::new(),

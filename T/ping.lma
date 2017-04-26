@@ -1,6 +1,6 @@
 import udp
 
 func main() ->
-   let sock := udp::udp_bind("0.0.0.0", 7001)
-   udp::udp_write(sock, "hello world\n")
+   let sock := udp::udp_bind("0.0.0.0", 0)
+   udp::udp_send(sock, "127.0.0.1", 3999, "hello world\n")
 --

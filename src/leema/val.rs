@@ -561,6 +561,7 @@ impl Val {
         }
     }
 
+    /*
     pub fn libval_as_mut<T: Any>(&mut self) -> Option<&mut T>
     {
         match self {
@@ -568,6 +569,7 @@ impl Val {
             _ => None,
         }
     }
+    */
 
     pub fn get_type(&self) -> Type
     {
