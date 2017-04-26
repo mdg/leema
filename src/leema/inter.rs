@@ -330,6 +330,23 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
                 }
             }
         }
+        &Val::ModPrefix(ref prefix, ref inner) => {
+            if !scope.imports_module(prefix) {
+                panic!("module not found: {}", prefix);
+            }
+            let inner_id = inner.to_str();
+            let opt_itype = scope.import_vartype(prefix, &*inner_id);
+            if opt_itype.is_none() {
+                panic!("module var not found: {:?}", x);
+            }
+            let itype = opt_itype.unwrap();
+            Ixpr{
+                typ: itype.clone(),
+                src: Source::ModuleAccess(
+                    prefix.clone(), inner_id.clone()
+                ),
+            }
+        }
         &Val::DotAccess(ref outer, ref inner) => {
             match &**outer {
                 &Val::Id(ref outer_id) => {

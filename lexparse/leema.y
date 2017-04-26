@@ -131,6 +131,9 @@ stmt(A) ::= defstruct(B). { A = B; }
 stmt(A) ::= IMPORT ID(B). {
     A = sxpr::new_import(Val::id(B.data));
 }
+stmt(A) ::= IMPORT mod_prefix(B). {
+    A = sxpr::new_import(B);
+}
 stmt(A) ::= let_stmt(B). { A = B; }
 stmt(A) ::= expr(B). {
     A = B;

@@ -149,6 +149,20 @@ impl Protomod
                     }
                 }
             }
+            &Val::ModPrefix(ref prefix, ref inner) => {
+                if !mp.imports.contains(&**prefix) {
+                    panic!("module not found: {}", prefix);
+                }
+                let inner_id = inner.to_str();
+                let mac = prog.get_macro(prefix, &*inner_id);
+                if mac.is_none() {
+                    return sxpr::call(callx.clone(), pp_args);
+                }
+                let &(ref arg_names, ref body) = mac.unwrap();
+                let result = Protomod::apply_macro(
+                        &**inner_id, body, arg_names, args);
+                Protomod::preproc_expr(prog, mp, &result)
+            }
             &Val::DotAccess(ref outer, ref inner) => {
                 match &**outer {
                     &Val::Id(ref outer_id) => {

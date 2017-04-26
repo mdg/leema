@@ -359,7 +359,14 @@ vout!("id({}).reg = {:?}\n", id, src);
             panic!("maybe OR should just be a macro");
         }
         Source::ModuleAccess(ref module, ref name) => {
-            panic!("Module access not supported yet: {:?}.{:?}", module, name);
+            let modval = Val::Str(module.clone());
+            let idval = Val::Str(name.clone());
+            let modname = Val::Tuple(vec![modval, idval]);
+            let dst = rt.dst();
+            Oxpr{
+                ops: vec![Op::ConstVal(dst.clone(), modname)],
+                dst: dst.clone(),
+            }
         }
         Source::Return(ref result) => {
             let mut rops = make_sub_ops(rt, result);
