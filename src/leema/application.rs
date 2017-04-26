@@ -48,8 +48,11 @@ impl Application
 
     pub fn run(&mut self)
     {
-        self.start_worker();
-        self.start_worker();
+        let t1 = self.start_worker();
+        let t2 = self.start_worker();
+        t1.join().unwrap();
+        t2.join().unwrap();
+        println!("workers rejoined");
     }
 
     pub fn next_worker_id(&mut self) -> i64
@@ -58,17 +61,17 @@ impl Application
         self.last_worker_id
     }
 
-    fn start_worker(&mut self)
+    fn start_worker(&mut self) -> thread::JoinHandle<()>
     {
         let worker_id = self.next_worker_id();
         let app_send = self.app_send.clone();
         let (worker_send, worker_recv) = channel();
         vout!("start worker {}\n", worker_id);
-        thread::spawn(move || {
-            let mut w = Worker::new(worker_id, app_send, worker_recv);
-            w.run();
+        let handle = thread::spawn(move || {
+            Worker::run(worker_id, app_send, worker_recv);
         });
         self.worker.insert(worker_id, worker_send);
+        handle
     }
 
     pub fn wait_for_result(&mut self) -> Option<Val>

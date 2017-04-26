@@ -4,7 +4,7 @@ use leema::frame::{self, Event, Frame, Parent};
 use leema::log;
 use leema::msg::{Msg};
 use leema::reg::{Reg};
-use leema::val::{Env};
+use leema::val::{Env, Val};
 
 use std::collections::{HashMap, LinkedList};
 use std::fmt;
@@ -16,7 +16,9 @@ use std::sync::mpsc::{channel, Sender, Receiver};
 use std::thread;
 use std::time::{Duration};
 
+use futures::{Poll, Async};
 use futures::future::{Future};
+use futures::task;
 use tokio_core::reactor;
 
 
@@ -65,7 +67,6 @@ pub struct Worker
 {
     fresh: LinkedList<(Rc<Code>, Frame)>,
     waiting: HashMap<i64, FrameWait>,
-    core: reactor::Core,
     handle: reactor::Handle,
     code: HashMap<String, HashMap<String, Rc<Code>>>,
     event: Event,
@@ -86,19 +87,13 @@ pub struct Worker
  */
 impl Worker
 {
-    pub fn new(wid: i64, send: Sender<Msg>, recv: Receiver<Msg>) -> Worker
+    pub fn run(wid: i64, send: Sender<Msg>, recv: Receiver<Msg>)
     {
-        let mut c = reactor::Core::new().unwrap();
-        let h = c.handle();
-        let t = reactor::Timeout::new(Duration::new(3, 1), &h).unwrap()
-            .map(|n| {
-                println!("timed out");
-            });
-        c.run(t);
-        Worker{
+        let mut core = reactor::Core::new().unwrap();
+        let h = core.handle();
+        let w = Worker{
             fresh: LinkedList::new(),
             waiting: HashMap::new(),
-            core: c,
             handle: h,
             code: HashMap::new(),
             event: Event::Uneventful,
@@ -107,7 +102,9 @@ impl Worker
             id: wid,
             next_frame_id: 0,
             done: false,
-        }
+        };
+        core.run(w);
+        println!("worker {} done", wid);
     }
 
     pub fn take_event(&mut self) -> Event
@@ -115,14 +112,6 @@ impl Worker
         let mut e = Event::Uneventful;
         mem::swap(&mut e, &mut self.event);
         e
-    }
-
-    pub fn run(&mut self)
-    {
-        while !self.done {
-            self.run_once();
-            thread::yield_now();
-        }
     }
 
     pub fn run_once(&mut self)
@@ -369,5 +358,35 @@ vout!("finished main func\n");
                 panic!("We shouldn't be here with uneventful");
             }
         }
+    }
+}
+
+impl Future for Worker
+{
+    type Item = Val;
+    type Error = Val;
+
+    fn poll(&mut self) -> Poll<Val, Val>
+    {
+        println!("worker poll");
+        /*
+        while !self.done {
+            self.run_once();
+            thread::yield_now();
+        }
+        */
+        // Result::Ok(Async::Ready(Val::Int(9)))
+        let tp = task::park();
+        let t = reactor::Timeout::new(Duration::new(3, 1), &self.handle)
+            .unwrap()
+            .map(move |_| {
+                println!("timed out");
+                tp.unpark();
+            })
+            .map_err(|_| {
+                () // Val::new_str("timeout error".to_string())
+            });
+        self.handle.spawn(t);
+        Result::Ok(Async::NotReady)
     }
 }
