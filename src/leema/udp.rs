@@ -28,8 +28,16 @@ pub fn udp_bind(fs: &mut Frame, h: &Handle)
             let sock_addr = SocketAddr::new(ip, short_port);
             let sock = UdpSocket::bind(&sock_addr, h).unwrap();
 println!("udp_bind = {:?}", sock);
-            let sent = sock.send_dgram("tacos", send_addr);
-            sent.wait();
+            let sent = sock.send_dgram("tacos", send_addr)
+                .map(|_| {
+                    println!("dgram sent");
+                    ()
+                })
+                .map_err(|_| {
+                    println!("dgram error");
+                    ()
+                });
+            h.spawn(sent);
             /*
             Val::Lib(LibVal{
                 v: Arc::new(sock),

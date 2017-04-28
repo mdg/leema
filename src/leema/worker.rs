@@ -368,19 +368,13 @@ impl Future for Worker
 
     fn poll(&mut self) -> Poll<Val, Val>
     {
-        println!("worker poll");
-        /*
-        while !self.done {
-            self.run_once();
-            thread::yield_now();
-        }
-        */
-        // Result::Ok(Async::Ready(Val::Int(9)))
+        self.run_once();
+        thread::yield_now();
+
         let tp = task::park();
-        let t = reactor::Timeout::new(Duration::new(3, 1), &self.handle)
+        let t = reactor::Timeout::new(Duration::new(0, 1), &self.handle)
             .unwrap()
             .map(move |_| {
-                println!("timed out");
                 tp.unpark();
             })
             .map_err(|_| {
