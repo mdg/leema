@@ -372,7 +372,7 @@ impl Future for Worker
         thread::yield_now();
 
         let tp = task::park();
-        let t = reactor::Timeout::new(Duration::new(0, 1), &self.handle)
+        let t = reactor::Timeout::new(Duration::new(0, 100000), &self.handle)
             .unwrap()
             .map(move |_| {
                 tp.unpark();

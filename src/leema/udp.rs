@@ -24,14 +24,11 @@ pub fn udp_bind(fs: &mut Frame, h: &Handle)
             let short_port = big_port as u16;
             let sock_addr = SocketAddr::new(ip, short_port);
             let sock = UdpSocket::bind(&sock_addr, h).unwrap();
-println!("udp_bind = {:?}", sock);
-            let msg = "tacos";
+            let msg = "tacos\n";
             // let sent = sock.send_to(msg.as_bytes(), &send_addr);
             // let sent = try_nb!(sock.send_to(msg.as_bytes(), &send_addr));
-            let sent = sock.send_dgram("tacos", send_addr)
+            let sent = sock.send_dgram(msg, send_addr)
                 .map(move |(s, t)| {
-                    let sent = s.send_to(t.as_bytes(), &send_addr);
-                    s.poll_write();
                     ()
                 })
                 .map_err(|e| {
