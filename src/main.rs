@@ -2,8 +2,9 @@ extern crate libc;
 extern crate docopt;
 extern crate rand;
 extern crate rustc_serialize;
-extern crate tokio_core;
 extern crate futures;
+#[macro_use]
+extern crate tokio_core;
 
 #[macro_use]
 mod leema;

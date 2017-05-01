@@ -1,6 +1,3 @@
-extern crate tokio_core;
-extern crate futures;
-
 use leema::code::{Code, RustIoFunc};
 use leema::frame::{Frame};
 use leema::val::{Val, LibVal, Type};
@@ -8,8 +5,8 @@ use leema::val::{Val, LibVal, Type};
 use std::net::{IpAddr, SocketAddr};
 use std::str::{FromStr};
 use std::sync::{Arc};
-use self::tokio_core::net::{UdpSocket};
-use self::tokio_core::reactor::{Handle};
+use ::tokio_core::net::{UdpSocket};
+use ::tokio_core::reactor::{Handle};
 use futures::future::{Future};
 
 
@@ -28,13 +25,17 @@ pub fn udp_bind(fs: &mut Frame, h: &Handle)
             let sock_addr = SocketAddr::new(ip, short_port);
             let sock = UdpSocket::bind(&sock_addr, h).unwrap();
 println!("udp_bind = {:?}", sock);
+            let msg = "tacos";
+            // let sent = sock.send_to(msg.as_bytes(), &send_addr);
+            // let sent = try_nb!(sock.send_to(msg.as_bytes(), &send_addr));
             let sent = sock.send_dgram("tacos", send_addr)
-                .map(|_| {
-                    println!("dgram sent");
+                .map(move |(s, t)| {
+                    let sent = s.send_to(t.as_bytes(), &send_addr);
+                    s.poll_write();
                     ()
                 })
-                .map_err(|_| {
-                    println!("dgram error");
+                .map_err(|e| {
+                    println!("dgram error {:?}", e);
                     ()
                 });
             h.spawn(sent);
