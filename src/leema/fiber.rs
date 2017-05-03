@@ -14,7 +14,7 @@ use std::fmt::{self, Debug};
 use std::time::{Duration};
 use std::io::{stderr, Write};
 
-use futures::{Poll, Async};
+use futures::{Poll, Async, Sink, Stream};
 use futures::future::{Future};
 use futures::task;
 use futures::unsync::mpsc::{Sender, Receiver};
@@ -76,8 +76,29 @@ impl Fiber
         self.head.function_name()
     }
 
-    pub fn request_code(&self)
+    pub fn request_code(&mut self)
     {
+        let msg = FiberToWorkerMsg::RequestCode(
+            self.fiber_id,
+            self.module_name().to_string(),
+            self.function_name().to_string(),
+        );
+        self.from_worker.and_then(|msg| {
+            println!("fiber.from_worker({:?})", msg);
+            self.receive_msg(msg);
+            let d = Duration::new(0, 100000);
+            reactor::Timeout::new(d, &self.handle).map_err(|_| {()})
+        });
+        self.to_worker.start_send(msg);
+    }
+
+    pub fn receive_msg(&mut self, msg: WorkerToFiberMsg)
+    {
+        match msg {
+            WorkerToFiberMsg::FoundCode(code) => {
+                self.code = Some(code);
+            }
+        }
     }
 }
 
@@ -90,9 +111,10 @@ impl Future for Fiber
     {
         if self.code.is_none() {
             self.request_code();
+            return Result::Ok(Async::NotReady);
         }
-        let d = Duration::new(0, 100000);
         let tp = task::park();
+        let d = Duration::new(0, 100000);
         let t = reactor::Timeout::new(d, &self.handle)
             .unwrap()
             .map(move |fut| {
