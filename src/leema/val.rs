@@ -198,8 +198,7 @@ pub trait LibTrait
 {}
 */
 
-//pub struct LibVal(pub Arc<Any + Send + Sync + 'static>);
-pub struct LibVal{
+pub struct LibVal {
     pub v: Arc<Any + Send + Sync>,
     pub t: Type,
 }
@@ -208,7 +207,10 @@ impl Clone for LibVal
 {
     fn clone(&self) -> LibVal
     {
-        LibVal{v: self.v.clone(), t: self.t.clone()}
+        LibVal{
+            v: self.v.clone(),
+            t: self.t.clone(),
+        }
     }
 }
 
@@ -216,7 +218,7 @@ impl Debug for LibVal
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        write!(f, "LibVal<{:?}>", self.t)
+        write!(f, "Resource<{:?}>", self.t)
     }
 }
 

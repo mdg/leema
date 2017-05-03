@@ -2,13 +2,13 @@
 pub mod log;
 pub mod ast;
 pub mod code;
+pub mod fiber;
 pub mod frame;
 pub mod lex;
 pub mod val;
 pub mod list;
 pub mod loader;
 pub mod module;
-pub mod msg;
 pub mod phase0;
 pub mod prefab;
 pub mod program;

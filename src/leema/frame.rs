@@ -4,7 +4,6 @@ use leema::val::{Val, Env, FutureVal, Type};
 use leema::reg::{Reg, Ireg};
 use leema::code::{self, CodeKey, Code, Op, OpVec, ModSym, RustFunc};
 use leema::list;
-use leema::msg::{Msg};
 
 use std::collections::{HashMap, LinkedList};
 use std::collections::hash_map;
@@ -23,7 +22,7 @@ pub enum Parent
 {
     Null,
     Caller(Rc<Code>, Box<Frame>, Reg),
-    Fork(Arc<AtomicBool>, mpsc::Sender<Msg>),
+    // Fork(Arc<AtomicBool>, mpsc::Sender<Msg>),
     Repl(Val),
     Main(Val),
 }
@@ -36,8 +35,7 @@ impl Parent
             &mut Parent::Caller(_, ref mut pf, ref dst) => {
                 pf.e.set_reg(dst, r);
             }
-            &mut Parent::Fork(_, _) => {
-            }
+            // &mut Parent::Fork(_, _) => {}
             &mut Parent::Main(ref mut res) => {
                 *res = r;
             }
@@ -61,9 +59,11 @@ impl Debug for Parent
                     dst, code, pf
                 )
             }
+            /*
             &Parent::Fork(ref ready, _) => {
                 write!(f, "Parent::Fork({:?})", ready)
             }
+            */
             &Parent::Repl(ref res) => write!(f, "Parent::Repl({:?})", res),
             &Parent::Main(ref res) => write!(f, "Parent::Main({:?})", res),
         }
@@ -185,13 +185,12 @@ pub struct Frame
     pub function: Rc<String>,
     pub trace: Arc<FrameTrace>,
     pub e: Env,
-    pub id: i64,
     pub pc: i32,
 }
 
 impl Frame
 {
-    pub fn new_root(id: i64, m: String, f: String) -> Frame
+    pub fn new_root(m: String, f: String) -> Frame
     {
         let env = Env::new();
         let modname = Rc::new(m);
@@ -202,7 +201,6 @@ impl Frame
             module: modname,
             function: fname,
             e: env,
-            id: id,
             pc: 0,
         }
     }
@@ -211,14 +209,12 @@ impl Frame
             , module: Rc<String>, func: Rc<String>, args: Val
     ) -> Frame {
         let trace = curf.trace.clone();
-        let fid = curf.id;
         Frame{
             parent: Parent::Caller(code, Box::new(curf), dst),
             module: module.clone(),
             function: func.clone(),
             trace: FrameTrace::push_call(&trace, &(*func)),
             e: Env::with_args(args),
-            id: fid,
             pc: 0,
         }
     }
@@ -365,17 +361,6 @@ impl Debug for Frame
             self.parent, self.e, self.pc,
         )
     }
-}
-
-pub struct IOQueue {
-    waiters: LinkedList<Frame>,
-}
-
-pub struct IoWorker
-{
-    queue: LinkedList<Box<Iop>>,
-    files: HashMap<u32, File>,
-    id: u16,
 }
 */
 

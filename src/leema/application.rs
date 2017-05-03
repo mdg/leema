@@ -1,10 +1,9 @@
 use leema::loader::{Interloader};
 use leema::program;
-use leema::worker::{Worker};
+use leema::worker::{Worker, Msg};
 use leema::code::{Code};
 use leema::val::{Val};
 use leema::log;
-use leema::msg::{Msg};
 
 use std::collections::{HashMap, LinkedList};
 use std::sync::mpsc::{channel, Sender, Receiver};
@@ -50,9 +49,6 @@ impl Application
     {
         let t1 = self.start_worker();
         let t2 = self.start_worker();
-        t1.join().unwrap();
-        t2.join().unwrap();
-        println!("workers rejoined");
     }
 
     pub fn next_worker_id(&mut self) -> i64
@@ -89,7 +85,7 @@ impl Application
         while let Some((module, call)) = self.calls.pop_front() {
             vout!("application call {}.{}()\n", module, call);
             let w = self.worker.values().next().unwrap();
-            w.send(Msg::Call(module, call));
+            w.send(Msg::Spawn(module, call));
         }
 
         while let Result::Ok(msg) = self.app_recv.try_recv() {
