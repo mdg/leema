@@ -31,7 +31,7 @@ pub enum FiberToWorkerMsg
 #[derive(Debug)]
 pub enum WorkerToFiberMsg
 {
-    FoundCode(Code),
+    FoundCode(Rc<Code>),
 }
 
 #[derive(Debug)]
@@ -42,7 +42,7 @@ pub struct Fiber
     to_worker: Sender<FiberToWorkerMsg>,
     from_worker: Receiver<WorkerToFiberMsg>,
     head: Frame,
-    code: Option<Code>,
+    code: Option<Rc<Code>>,
 }
 
 impl Fiber
@@ -58,7 +58,7 @@ impl Fiber
             head: root,
             code: None,
         };
-        h.spawn(f);
+        f.request_code();
     }
 
     pub fn id(&self) -> i64
@@ -76,20 +76,32 @@ impl Fiber
         self.head.function_name()
     }
 
-    pub fn request_code(&mut self)
+    pub fn request_code(mut self)
     {
         let msg = FiberToWorkerMsg::RequestCode(
             self.fiber_id,
             self.module_name().to_string(),
             self.function_name().to_string(),
         );
+        self.to_worker.start_send(msg);
+        /*
         self.from_worker.and_then(|msg| {
             println!("fiber.from_worker({:?})", msg);
             self.receive_msg(msg);
             let d = Duration::new(0, 100000);
             reactor::Timeout::new(d, &self.handle).map_err(|_| {()})
         });
-        self.to_worker.start_send(msg);
+        */
+        let h = self.handle.clone();
+        let f = SentMessage{f: Some(self)}
+            .and_then(|f: Fiber| {
+                println!("message sent for fiber: {:?}", f.fiber_id);
+                ReceivedMessage{f: f}
+                    .map(|i| {
+                    ()
+                })
+            });
+        h.spawn(f);
     }
 
     pub fn receive_msg(&mut self, msg: WorkerToFiberMsg)
@@ -109,10 +121,6 @@ impl Future for Fiber
 
     fn poll(&mut self) -> Poll<(), ()>
     {
-        if self.code.is_none() {
-            self.request_code();
-            return Result::Ok(Async::NotReady);
-        }
         let tp = task::park();
         let d = Duration::new(0, 100000);
         let t = reactor::Timeout::new(d, &self.handle)
@@ -126,5 +134,43 @@ println!("fiber timed out: {:?}", fut);
             });
         self.handle.spawn(t);
         Result::Ok(Async::NotReady)
+    }
+}
+
+struct SentMessage
+{
+    f: Option<Fiber>,
+}
+
+impl Future for SentMessage
+{
+    type Item = Fiber;
+    type Error = ();
+
+    fn poll(&mut self) -> Poll<Fiber, ()>
+    {
+        let mut f = self.f.take().unwrap();
+        let result = f.to_worker.poll_complete();
+        result.map(|a| {
+                Async::Ready(f)
+            })
+            .map_err(|_| { () })
+    }
+}
+
+struct ReceivedMessage
+{
+    f: Fiber,
+}
+
+impl Future for ReceivedMessage
+{
+    type Item = Fiber;
+    type Error = ();
+
+    fn poll(&mut self) -> Poll<Fiber, ()>
+    {
+        let fut = self.f.from_worker.poll();
+        Ok(Async::NotReady)
     }
 }

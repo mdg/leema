@@ -16,7 +16,7 @@ use std::sync::mpsc::{channel, Sender, Receiver};
 use std::thread;
 use std::time::{Duration};
 
-use futures::{Poll, Async};
+use futures::{Poll, Async, Stream, Sink};
 use futures::future::{Future};
 use futures::task;
 use futures::unsync;
@@ -124,8 +124,7 @@ impl Worker
             next_fiber_id: 0,
             done: false,
         };
-        core.run(w);
-        println!("worker {} done", wid);
+        let result = core.run(w).unwrap();
     }
 
     pub fn take_event(&mut self) -> Event
@@ -178,49 +177,21 @@ impl Worker
                 vout!("worker call {}.{}()\n", module, call);
                 self.spawn_fiber(module, call);
             }
-            Msg::FoundCode(frame_id, module, func, code) => {
-                vout!("found code for frame: {} <- {:?}\n", frame_id, code);
+            Msg::FoundCode(fiber_id, module, func, code) => {
                 let rc_code = Rc::new(code);
                 let mut new_mod = HashMap::new();
                 new_mod.insert(func, rc_code.clone());
                 self.code.insert(module, new_mod);
-                let fwait = self.waiting.remove(&frame_id).unwrap();
-                vout!("frame is: {:?}\n", fwait);
-                self.fresh.push_back((rc_code.clone(), fwait.frame));
+                let response = WorkerToFiberMsg::FoundCode(rc_code);
+                let mut sender = self.send_to_fiber.get_mut(&fiber_id).unwrap();
+                sender.start_send(response);
+                sender.poll_complete();
             }
             _ => {
                 panic!("Must be a message for the app: {:?}", msg);
             }
         }
     }
-
-    /*
-    pub fn load_frame(&mut self, frame: Frame)
-    {
-        let opt_code = match self.code.get(frame.module_name()) {
-            Some(ref m) => {
-                match m.get(frame.function_name()) {
-                    Some(ref code) => {
-                        Some((**code).clone())
-                    }
-                    None => None,
-                }
-            }
-            None => None,
-        };
-        match opt_code {
-            Some(code) => {
-                self.handle.spawn(fiber);
-                self.fresh.push_back((code, frame));
-            }
-            None => {
-                vout!("lookup code in application {}.{}\n"
-                    , frame.module_name(), frame.function_name());
-                self.request_code(frame);
-            }
-        }
-    }
-    */
 
     pub fn spawn_fiber(&mut self, module: String, func: String)
     {
@@ -232,18 +203,6 @@ impl Worker
         self.send_to_fiber.insert(id, send_to_fiber);
         Fiber::spawn(&self.handle, id, frame
             , self.send_from_fiber.clone(), recv_from_worker);
-    }
-
-    fn request_code(&mut self, f: Fiber)
-    {
-        let fid = f.id();
-        let msg = Msg::RequestCode(self.id, fid
-            , f.module_name().to_string()
-            , f.function_name().to_string()
-        );
-        // let wait = FrameWait::code_request(f);
-        // self.waiting.insert(fid, wait);
-        // self.tx.send(msg);
     }
 
     fn pop_fresh(&mut self) -> Option<(Rc<Code>, Frame)>
@@ -388,7 +347,34 @@ vout!("finished main func\n");
             }
         }
     }
+
+    fn process_msg_from_fiber(&mut self, msg: FiberToWorkerMsg)
+    {
+        match msg {
+            FiberToWorkerMsg::RequestCode(fid, module, func) => {
+                let mut found = false;
+                if let Some(msrc) = self.code.get(&module) {
+                    if let Some(mfunc) = msrc.get(&func) {
+                        let response =
+                            WorkerToFiberMsg::FoundCode(mfunc.clone());
+                        let mut sender =
+                            self.send_to_fiber.get_mut(&fid).unwrap();
+                        sender.start_send(response);
+                        sender.poll_complete();
+                        found = true;
+                    }
+                }
+                if !found {
+                    let msg = Msg::RequestCode(self.id, fid, module, func);
+                    self.app_tx.send(msg);
+                }
+            }
+        }
+    }
 }
+
+// struct Iterate { w: Worker }
+// struct RecvFromFiber { f: Fiber }
 
 impl Future for Worker
 {
@@ -397,6 +383,26 @@ impl Future for Worker
 
     fn poll(&mut self) -> Poll<Val, Val>
     {
+        loop {
+            match self.recv_from_fiber.poll() {
+                Result::Ok(Async::NotReady) => {
+                    // println!("recv_from_fiber(Async::NotReady)");
+                    break;
+                }
+                Result::Ok(Async::Ready(None)) => {
+                    println!("recv_from_fiber(Async::Ready(None))");
+                    break;
+                }
+                Result::Ok(Async::Ready(Some(msg))) => {
+                    println!("received msg: {:?}", msg);
+                    self.process_msg_from_fiber(msg);
+                }
+                Result::Err(err) => {
+                    println!("recv_from_fiber err: {:?}", err);
+                }
+            }
+        }
+
         self.run_once();
         thread::yield_now();
 
