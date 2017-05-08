@@ -96,7 +96,7 @@ impl Fiber
         let f = SentMessage{f: Some(self)}
             .and_then(|f: Fiber| {
                 println!("message sent for fiber: {:?}", f.fiber_id);
-                ReceivedMessage{f: f}
+                ReceivedMessage{f: Some(f)}
                     .map(|i| {
                     ()
                 })
@@ -160,7 +160,7 @@ impl Future for SentMessage
 
 struct ReceivedMessage
 {
-    f: Fiber,
+    f: Option<Fiber>,
 }
 
 impl Future for ReceivedMessage
@@ -170,7 +170,20 @@ impl Future for ReceivedMessage
 
     fn poll(&mut self) -> Poll<Fiber, ()>
     {
-        let fut = self.f.from_worker.poll();
-        Ok(Async::NotReady)
+        let mut f = self.f.take().unwrap();
+        let presult = f.from_worker.poll();
+        match presult {
+            Ok(Async::NotReady) => {
+                let tp = task::park();
+                tp.unpark();
+                self.f = Some(f);
+                Ok(Async::NotReady)
+            }
+            _ => {
+                presult.map(|r| {
+                    Async::Ready(f)
+                })
+            }
+        }
     }
 }
