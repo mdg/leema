@@ -6,6 +6,7 @@ use leema::reg::{Reg, Ireg};
 use leema::code::{self, CodeKey, Code, Op, OpVec, ModSym, RustFunc};
 use leema::list;
 
+use std::cell::{RefCell};
 use std::collections::{HashMap, LinkedList};
 use std::collections::hash_map;
 use std::rc::{Rc};
@@ -35,9 +36,19 @@ pub enum WorkerToFiberMsg
 }
 
 #[derive(Debug)]
+pub enum FiberState
+{
+    New,
+    CodeWait,
+    IoWait,
+    Complete,
+}
+
+#[derive(Debug)]
 pub struct Fiber
 {
     fiber_id: i64,
+    state: FiberState,
     handle: reactor::Handle,
     to_worker: Sender<FiberToWorkerMsg>,
     from_worker: Receiver<WorkerToFiberMsg>,
@@ -52,13 +63,15 @@ impl Fiber
     {
         let f = Fiber{
             fiber_id: id,
+            state: FiberState::New,
             handle: h.clone(),
             to_worker: tx,
             from_worker: rx,
             head: root,
             code: None,
         };
-        f.request_code();
+        let fref = Rc::new(RefCell::new(f));
+        Fiber::request_code(fref);
     }
 
     pub fn id(&self) -> i64
@@ -76,32 +89,26 @@ impl Fiber
         self.head.function_name()
     }
 
-    pub fn request_code(mut self)
+    pub fn request_code(fref: Rc<RefCell<Fiber>>)
     {
+        let f: &mut Fiber = &mut *(fref.borrow_mut());
         let msg = FiberToWorkerMsg::RequestCode(
-            self.fiber_id,
-            self.module_name().to_string(),
-            self.function_name().to_string(),
+            f.fiber_id,
+            f.module_name().to_string(),
+            f.function_name().to_string(),
         );
-        self.to_worker.start_send(msg);
-        /*
-        self.from_worker.and_then(|msg| {
-            println!("fiber.from_worker({:?})", msg);
-            self.receive_msg(msg);
-            let d = Duration::new(0, 100000);
-            reactor::Timeout::new(d, &self.handle).map_err(|_| {()})
-        });
-        */
-        let h = self.handle.clone();
-        let f = SentMessage{f: Some(self)}
-            .and_then(|f: Fiber| {
-                println!("message sent for fiber: {:?}", f.fiber_id);
-                ReceivedMessage{f: Some(f)}
+        f.state = FiberState::CodeWait;
+        f.to_worker.start_send(msg);
+        let h = f.handle.clone();
+
+        let fut = SentMessage{f: fref.clone()}
+            .and_then(|fref2: Rc<RefCell<Fiber>>| {
+                let f2: &mut Fiber = &mut *(fref2.borrow_mut());
+                ReceivedMessage{f: fref2.clone()}
                     .map(|i| {
-                    ()
                 })
             });
-        h.spawn(f);
+        h.spawn(fut);
     }
 
     pub fn receive_msg(&mut self, msg: WorkerToFiberMsg)
@@ -139,20 +146,19 @@ println!("fiber timed out: {:?}", fut);
 
 struct SentMessage
 {
-    f: Option<Fiber>,
+    f: Rc<RefCell<Fiber>>,
 }
 
 impl Future for SentMessage
 {
-    type Item = Fiber;
+    type Item = Rc<RefCell<Fiber>>;
     type Error = ();
 
-    fn poll(&mut self) -> Poll<Fiber, ()>
+    fn poll(&mut self) -> Poll<Rc<RefCell<Fiber>>, ()>
     {
-        let mut f = self.f.take().unwrap();
-        let result = f.to_worker.poll_complete();
+        let result = self.f.borrow_mut().to_worker.poll_complete();
         result.map(|a| {
-                Async::Ready(f)
+                Async::Ready(self.f.clone())
             })
             .map_err(|_| { () })
     }
@@ -160,28 +166,26 @@ impl Future for SentMessage
 
 struct ReceivedMessage
 {
-    f: Option<Fiber>,
+    f: Rc<RefCell<Fiber>>,
 }
 
 impl Future for ReceivedMessage
 {
-    type Item = Fiber;
+    type Item = Rc<RefCell<Fiber>>;
     type Error = ();
 
-    fn poll(&mut self) -> Poll<Fiber, ()>
+    fn poll(&mut self) -> Poll<Rc<RefCell<Fiber>>, ()>
     {
-        let mut f = self.f.take().unwrap();
-        let presult = f.from_worker.poll();
+        let presult = self.f.borrow_mut().from_worker.poll();
         match presult {
             Ok(Async::NotReady) => {
                 let tp = task::park();
                 tp.unpark();
-                self.f = Some(f);
                 Ok(Async::NotReady)
             }
             _ => {
                 presult.map(|r| {
-                    Async::Ready(f)
+                    Async::Ready(self.f.clone())
                 })
             }
         }
