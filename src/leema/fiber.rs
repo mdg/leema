@@ -13,6 +13,7 @@ use std::rc::{Rc};
 use std::mem;
 use std::fmt::{self, Debug};
 use std::time::{Duration};
+use std::thread;
 use std::io::{stderr, Write};
 
 use futures::{Poll, Async, Sink, Stream};
@@ -41,6 +42,7 @@ pub enum FiberState
     New,
     CodeWait,
     IoWait,
+    Ready,
     Complete,
 }
 
@@ -71,7 +73,8 @@ impl Fiber
             code: None,
         };
         let fref = Rc::new(RefCell::new(f));
-        Fiber::request_code(fref);
+        Fiber::request_code(fref.clone());
+        h.spawn(FiberExec{f: fref});
     }
 
     pub fn id(&self) -> i64
@@ -101,45 +104,59 @@ impl Fiber
         f.to_worker.start_send(msg);
         let h = f.handle.clone();
 
-        let fut = SentMessage{f: fref.clone()}
+        let fut =
+            SentMessage{f: fref.clone()}
             .and_then(|fref2: Rc<RefCell<Fiber>>| {
-                let f2: &mut Fiber = &mut *(fref2.borrow_mut());
-                ReceivedMessage{f: fref2.clone()}
-                    .map(|i| {
-                })
+                ReceivedMessage{f: fref2}
+            })
+            .map(|i| {
+println!("received message on fiber");
             });
         h.spawn(fut);
     }
 
-    pub fn receive_msg(&mut self, msg: WorkerToFiberMsg)
+    pub fn handle_msg(&mut self, msg: WorkerToFiberMsg)
     {
         match msg {
             WorkerToFiberMsg::FoundCode(code) => {
                 self.code = Some(code);
+                self.state = FiberState::Ready;
             }
         }
     }
 }
 
-impl Future for Fiber
+struct FiberExec
+{
+    f: Rc<RefCell<Fiber>>,
+}
+
+impl Future for FiberExec
 {
     type Item = ();
     type Error = ();
 
     fn poll(&mut self) -> Poll<(), ()>
     {
-        let tp = task::park();
-        let d = Duration::new(0, 100000);
-        let t = reactor::Timeout::new(d, &self.handle)
-            .unwrap()
-            .map(move |fut| {
-println!("fiber timed out: {:?}", fut);
-                tp.unpark();
-            })
-            .map_err(|_| {
-                () // Val::new_str("timeout error".to_string())
-            });
-        self.handle.spawn(t);
+        task::park().unpark();
+        match self.f.borrow().state {
+            FiberState::New => {
+                println!("brand new fiber");
+            }
+            FiberState::CodeWait => {
+                thread::yield_now();
+            }
+            FiberState::IoWait => {
+                println!("fiber io wait");
+                thread::yield_now();
+            }
+            FiberState::Ready => {
+                println!("fiber ready");
+            }
+            FiberState::Complete => {
+                println!("fiber complete");
+            }
+        }
         Result::Ok(Async::NotReady)
     }
 }
@@ -183,10 +200,16 @@ impl Future for ReceivedMessage
                 tp.unpark();
                 Ok(Async::NotReady)
             }
-            _ => {
-                presult.map(|r| {
-                    Async::Ready(self.f.clone())
-                })
+            Ok(Async::Ready(Some(msg))) => {
+                self.f.borrow_mut().handle_msg(msg);
+                Ok(Async::Ready(self.f.clone()))
+            }
+            Ok(Async::Ready(None)) => {
+                println!("end of queue");
+                Ok(Async::Ready(self.f.clone()))
+            }
+            Err(e) => {
+                panic!("poll error {:?}", e);
             }
         }
     }
