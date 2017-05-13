@@ -1,14 +1,15 @@
 #[macro_use]
 use leema::log;
-use leema::frame::{Frame, Event};
-use leema::val::{Val, Env, FutureVal, Type};
+use leema::frame::{Frame, Event, Parent, FrameTrace};
+use leema::val::{Val, Env, FutureVal, Type, MsgVal};
 use leema::reg::{Reg, Ireg};
 use leema::code::{self, CodeKey, Code, Op, OpVec, ModSym, RustFunc};
 use leema::list;
 
-use std::cell::{RefCell};
+use std::cell::{RefCell, RefMut};
 use std::collections::{HashMap, LinkedList};
 use std::collections::hash_map;
+use std::ops::{DerefMut};
 use std::rc::{Rc};
 use std::mem;
 use std::fmt::{self, Debug};
@@ -28,6 +29,7 @@ pub enum FiberToWorkerMsg
 {
     // RequestCode(fiber_id, module, function)
     RequestCode(i64, String, String),
+    MainResult(MsgVal),
 }
 
 #[derive(Debug)]
@@ -110,6 +112,23 @@ impl Fiber
         // Result::Ok(Async::NotReady)
     }
 
+    pub fn push_call(&mut self, code: Rc<Code>, dst: Reg
+            , module: Rc<String>, func: Rc<String>, args: Val
+    ) {
+        let trace = self.head.trace.clone();
+        let mut newf = Frame{
+            parent: Parent::Null,
+            module: module.clone(),
+            function: func.clone(),
+            trace: FrameTrace::push_call(&trace, &(*func)),
+            e: Env::with_args(args),
+            pc: 0,
+        };
+        mem::swap(&mut self.head, &mut newf);
+        let parent = Parent::Caller(code, Box::new(newf), dst);
+        self.head.set_parent(parent);
+    }
+
     pub fn handle_msg(f: &Rc<RefCell<Fiber>>, msg: WorkerToFiberMsg)
     {
         match msg {
@@ -122,11 +141,73 @@ impl Fiber
         }
     }
 
-    fn execute_leema_frame(curf: &mut Frame, ops: &OpVec)
+    fn execute_leema_frame(curf: &mut Frame, ops: &OpVec) -> Event
     {
         let mut e = Event::Uneventful;
         while Event::Uneventful == e {
             e = Frame::execute_leema_op(curf, ops);
+        }
+        e
+    }
+
+    pub fn handle_event(f: &mut Rc<RefCell<Fiber>>, e: Event, code: &Rc<Code>)
+    {
+        match e {
+            Event::Complete(success) => {
+                if success {
+                    // analyze successful function run
+                } else {
+                    vout!("function call failed\n");
+                }
+                let parent = f.borrow_mut().head.take_parent();
+                vout!("function is complete: {:?}\n", parent);
+                match parent {
+                    Parent::Caller(old_code, mut pf, dst) => {
+                        RefMut::map(f.borrow_mut(), |fref| {
+                            pf.pc += 1;
+                            fref.head = *pf;
+                            fref
+                        });
+                    }
+                    Parent::Repl(res) => {
+                    }
+                    Parent::Main(res) => {
+vout!("finished main func\n");
+                        let msg = FiberToWorkerMsg::MainResult(res.to_msg());
+                        f.borrow_mut().to_worker.send(msg);
+                        let h = f.borrow().handle.clone();
+                        let fut =
+                            SentMessage{f: f.clone()}
+                            .map(|_| {
+                                ()
+                            });
+                        h.spawn(fut);
+                    }
+                    Parent::Null => {
+                        // this shouldn't have happened
+                    }
+                }
+            }
+            Event::Call(dst, module, func, args) => {
+                RefMut::map(f.borrow_mut(), |fref| {
+                    fref.push_call(code.clone(), dst, module, func, args);
+                    fref
+                });
+                // self.load_frame(newf);
+            }
+            Event::FutureWait(reg) => {
+                println!("wait for future {:?}", reg);
+            }
+            Event::IOWait => {
+                println!("do I/O");
+            }
+            Event::Fork => {
+                // self.fresh.push_back((code, curf));
+                // end this iteration,
+            }
+            Event::Uneventful => {
+                panic!("We shouldn't be here with uneventful");
+            }
         }
     }
 }
@@ -138,23 +219,28 @@ struct FiberExec
 
 impl FiberExec
 {
-    fn run(f: &Rc<RefCell<Fiber>>, code: &Rc<Code>)
+    fn run(f: &mut Rc<RefCell<Fiber>>, code: &Rc<Code>)
     // fn run<F>(f: Rc<RefCell<Fiber>>, code: Rc<Code>) // -> F
         // where F: Future<Item=(), Error=()>
     {
-        match **code {
+        let ev = match **code {
             Code::Leema(ref ops) => {
+                // let fref: &mut Fiber = f.borrow;
                 Fiber::execute_leema_frame(&mut f.borrow_mut().head, ops);
+                Event::Uneventful
             }
             Code::Rust(ref rf) => {
                 // rf(&mut rf);
+                // self.event = Event::Complete(true);
+                Event::Uneventful
             }
             Code::RustIo(ref rf) => {
                 // rf(&mut f, &self.handle);
                 // self.event = Event::Complete(true);
+                Event::Uneventful
             }
-        }
-        // self.handle_event(code, curf);
+        };
+        Fiber::handle_event(f, ev, code);
     }
 }
 
@@ -166,22 +252,22 @@ impl Future for FiberExec
     fn poll(&mut self) -> Poll<(), ()>
     {
         task::park().unpark();
-        match &self.fs {
-            &FiberState::New(_) => {
+        match &mut self.fs {
+            &mut FiberState::New(_) => {
                 println!("brand new fiber");
             }
-            &FiberState::CodeWait(_) => {
+            &mut FiberState::CodeWait(_) => {
                 thread::yield_now();
             }
-            &FiberState::IoWait(_, _) => {
+            &mut FiberState::IoWait(_, _) => {
                 println!("fiber io wait");
                 thread::yield_now();
             }
-            &FiberState::Ready(ref f, ref code) => {
+            &mut FiberState::Ready(ref mut f, ref code) => {
                 // let fut = f.run(code);
                 FiberExec::run(f, code);
             }
-            &FiberState::Complete(_) => {
+            &mut FiberState::Complete(_) => {
                 println!("fiber complete");
             }
         }

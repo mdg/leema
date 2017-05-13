@@ -205,20 +205,6 @@ impl Frame
         }
     }
 
-    pub fn push_call(code: Rc<Code>, curf: Frame, dst: Reg
-            , module: Rc<String>, func: Rc<String>, args: Val
-    ) -> Frame {
-        let trace = curf.trace.clone();
-        Frame{
-            parent: Parent::Caller(code, Box::new(curf), dst),
-            module: module.clone(),
-            function: func.clone(),
-            trace: FrameTrace::push_call(&trace, &(*func)),
-            e: Env::with_args(args),
-            pc: 0,
-        }
-    }
-
     /*
     pub fn new_fork(f: &Frame, ready: &Arc<AtomicBool>, tx: mpsc::Sender<Msg>)
         -> Frame
@@ -237,6 +223,11 @@ impl Frame
     pub fn set_parent(&mut self, p: Parent)
     {
         self.parent = p;
+    }
+
+    pub fn take_parent(&mut self) -> Parent
+    {
+        mem::replace(&mut self.parent, Parent::Null)
     }
 
     pub fn take_env(&mut self) -> Env
