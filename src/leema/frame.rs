@@ -287,17 +287,108 @@ impl Frame
         self.e.get_reg_mut(&Reg::Param(Ireg::Reg(p)))
     }
 
+    pub fn execute_leema_op(&mut self, ops: &OpVec) -> Event
+    {
+        let op = ops.get(self.pc as usize).unwrap();
+        vout!("exec: {:?}\n", op);
+        match op {
+            &Op::ConstVal(ref dst, ref v) => {
+                self.execute_const_val(dst, v)
+            }
+            &Op::Constructor(ref dst, ref typ) => {
+                self.execute_constructor(dst, typ)
+            }
+            &Op::Copy(ref dst, ref src) => {
+                self.execute_copy(dst, src)
+            }
+            &Op::Fork(ref dst, ref freg, ref args) => {
+                // frame::execute_fork(self, curf, dst, freg, args);
+                Event::Uneventful
+            }
+            &Op::Jump(jmp) => {
+                execute_jump(self, jmp)
+            }
+            &Op::JumpIfNot(jmp, ref reg) => {
+                execute_jump_if_not(self, jmp, reg)
+            }
+            &Op::MatchPattern(ref dst, ref patt, ref input) => {
+                self.execute_match_pattern(dst, patt, input)
+            }
+            &Op::ListCons(ref dst, ref head, ref tail) => {
+                execute_list_cons(self, dst, head, tail)
+            }
+            &Op::ListCreate(ref dst) => {
+                execute_list_create(self, dst)
+            }
+            &Op::TupleCreate(ref dst, ref sz) => {
+                execute_tuple_create(self, dst, *sz)
+            }
+            &Op::StrCat(ref dst, ref src) => {
+                self.execute_strcat(dst, src)
+            }
+            &Op::LoadFunc(ref reg, ref modsym) => {
+                execute_load_func(self, reg, modsym)
+            }
+            &Op::ApplyFunc(ref dst, ref func, ref args) => {
+                execute_call(self, dst, func, args)
+            }
+            &Op::Return => {
+                Event::Complete(true)
+            }
+            &Op::SetResult(ref dst) => {
+                if *dst == Reg::Void {
+                    panic!("return void at {} in {:?}", self.pc, ops);
+                }
+                self.parent.set_result(self.e.get_reg(dst).clone());
+                self.pc += 1;
+                Event::Uneventful
+            }
+            &Op::Failure(ref dst, ref tag, ref msg) => {
+                self.execute_failure(dst, tag, msg)
+            }
+        }
+    }
 
-    pub fn execute_failure(&mut self, dst: &Reg, tag: &Reg, msg: &Reg)
+    pub fn execute_const_val(&mut self, reg: &Reg, v: &Val) -> Event
+    {
+        self.e.set_reg(reg, v.clone());
+        self.pc += 1;
+        Event::Uneventful
+    }
+
+    pub fn execute_constructor(&mut self, reg: &Reg, typ: &Type) -> Event
+    {
+        if let &Type::Struct(_, nfields) = typ {
+            let mut fields = Vec::with_capacity(nfields as usize);
+            fields.resize(nfields as usize, Val::Void);
+            self.e.set_reg(reg, Val::Struct(typ.clone(), fields));
+            self.pc = self.pc + 1;
+            Event::Uneventful
+        } else {
+            panic!("Cannot construct not structure: {:?}", typ);
+        }
+    }
+
+    pub fn execute_copy(&mut self, dst: &Reg, src: &Reg) -> Event
+    {
+        let src_val = self.e.get_reg(src).clone();
+        self.e.set_reg(dst, src_val);
+        self.pc = self.pc + 1;
+        Event::Uneventful
+    }
+
+    pub fn execute_failure(&mut self, dst: &Reg, tag: &Reg, msg: &Reg) -> Event
     {
         let tagval = self.e.get_reg(tag).clone();
         let msgval = self.e.get_reg(msg).clone();
         let f = Val::failure(tagval, msgval, self.trace.failure_here());
         self.e.set_reg(dst, f);
         self.pc += 1;
+        Event::Uneventful
     }
 
     pub fn execute_match_pattern(&mut self, dst: &Reg, patt: &Val, input: &Reg)
+        -> Event
     {
         vout!("execute_match_pattern({:?}, {:?}, {:?})\n", dst, patt, input);
         let e: &mut Env = &mut self.e;
@@ -320,6 +411,7 @@ vout!("matches: {:?}\n", matches);
             }
         }
         self.pc += 1;
+        Event::Uneventful
     }
 
     pub fn execute_strcat(&mut self, dstreg: &Reg, srcreg: &Reg) -> Event
@@ -364,33 +456,6 @@ impl Debug for Frame
 }
 */
 
-pub fn execute_const_val(curf: &mut Frame, reg: &Reg, v: &Val)
-{
-vout!("execute_const_val({:?}, {:?})\n", reg, v);
-    curf.e.set_reg(reg, v.clone());
-vout!("e: {:?}\n", curf.e);
-    curf.pc = curf.pc + 1;
-}
-
-pub fn execute_constructor(curf: &mut Frame, reg: &Reg, typ: &Type)
-{
-vout!("execute_constructor({:?}, {:?})\n", reg, typ);
-    if let &Type::Struct(_, nfields) = typ {
-        let mut fields = Vec::with_capacity(nfields as usize);
-        fields.resize(nfields as usize, Val::Void);
-        curf.e.set_reg(reg, Val::Struct(typ.clone(), fields));
-        curf.pc = curf.pc + 1;
-    } else {
-        panic!("Cannot construct not structure: {:?}", typ);
-    }
-}
-
-pub fn execute_copy(curf: &mut Frame, dst: &Reg, src: &Reg) {
-    let src_val = curf.e.get_reg(src).clone();
-    curf.e.set_reg(dst, src_val);
-    curf.pc = curf.pc + 1;
-}
-
 /**
  * fork the frame and frame state
  * add it to the fresh queue
@@ -414,12 +479,13 @@ fn execute_fork(curf: &mut Frame,
 }
  */
 
-pub fn execute_jump(curf: &mut Frame, jmp: i16)
+pub fn execute_jump(curf: &mut Frame, jmp: i16) -> Event
 {
     curf.pc += jmp as i32;
+    Event::Uneventful
 }
 
-pub fn execute_jump_if_not(curf: &mut Frame, jmp: i16, reg: &Reg)
+pub fn execute_jump_if_not(curf: &mut Frame, jmp: i16, reg: &Reg) -> Event
 {
 vout!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
     let test_val = curf.e.get_reg(reg);
@@ -431,12 +497,14 @@ vout!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
             vout!("if test is false\n");
             curf.pc += jmp as i32;
         }
+        Event::Uneventful
     } else {
         panic!("can't if check a not bool {:?}", test_val);
     }
 }
 
 pub fn execute_list_cons(curf: &mut Frame, dst: &Reg, head: &Reg, tail: &Reg)
+    -> Event
 {
     let new_list = {
         let headval = curf.e.get_reg(&head).clone();
@@ -445,24 +513,28 @@ pub fn execute_list_cons(curf: &mut Frame, dst: &Reg, head: &Reg, tail: &Reg)
     };
     curf.e.set_reg(&dst, new_list);
     curf.pc += 1;
+    Event::Uneventful
 }
 
-pub fn execute_list_create(curf: &mut Frame, dst: &Reg) {
+pub fn execute_list_create(curf: &mut Frame, dst: &Reg) -> Event
+{
     curf.e.set_reg(&dst, list::empty());
     curf.pc = curf.pc + 1;
+    Event::Uneventful
 }
 
-pub fn execute_tuple_create(curf: &mut Frame, dst: &Reg, ref sz: i8)
+pub fn execute_tuple_create(curf: &mut Frame, dst: &Reg, ref sz: i8) -> Event
 {
-    vout!("execute_tuple_create({:?}, {})\n", dst, sz);
     let tupsize: usize = *sz as usize;
     curf.e.set_reg(dst, Val::new_tuple(tupsize));
     curf.pc = curf.pc + 1;
+    Event::Uneventful
 }
 
-pub fn execute_load_func(curf: &mut Frame, dst: &Reg, ms: &ModSym)
+pub fn execute_load_func(curf: &mut Frame, dst: &Reg, ms: &ModSym) -> Event
 {
     curf.pc = curf.pc + 1;
+    Event::Uneventful
 }
 
 fn call_arg_failure(args: &Val) -> Option<&Val>

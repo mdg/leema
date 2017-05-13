@@ -1,6 +1,6 @@
 #[macro_use]
 use leema::log;
-use leema::frame::{Frame};
+use leema::frame::{Frame, Event};
 use leema::val::{Val, Env, FutureVal, Type};
 use leema::reg::{Reg, Ireg};
 use leema::code::{self, CodeKey, Code, Op, OpVec, ModSym, RustFunc};
@@ -37,25 +37,23 @@ pub enum WorkerToFiberMsg
 }
 
 #[derive(Debug)]
-pub enum FiberState
-{
-    New,
-    CodeWait,
-    IoWait,
-    Ready,
-    Complete,
-}
-
-#[derive(Debug)]
 pub struct Fiber
 {
     fiber_id: i64,
-    state: FiberState,
     handle: reactor::Handle,
     to_worker: Sender<FiberToWorkerMsg>,
     from_worker: Receiver<WorkerToFiberMsg>,
     head: Frame,
-    code: Option<Rc<Code>>,
+}
+
+#[derive(Debug)]
+pub enum FiberState
+{
+    New(Rc<RefCell<Fiber>>),
+    CodeWait(Rc<RefCell<Fiber>>),
+    IoWait(Rc<RefCell<Fiber>>, Rc<Code>),
+    Ready(Rc<RefCell<Fiber>>, Rc<Code>),
+    Complete(Rc<RefCell<Fiber>>),
 }
 
 impl Fiber
@@ -65,16 +63,13 @@ impl Fiber
     {
         let f = Fiber{
             fiber_id: id,
-            state: FiberState::New,
             handle: h.clone(),
             to_worker: tx,
             from_worker: rx,
             head: root,
-            code: None,
         };
         let fref = Rc::new(RefCell::new(f));
         Fiber::request_code(fref.clone());
-        h.spawn(FiberExec{f: fref});
     }
 
     pub fn id(&self) -> i64
@@ -94,41 +89,73 @@ impl Fiber
 
     pub fn request_code(fref: Rc<RefCell<Fiber>>)
     {
+        let fut =
+            SentMessage{f: fref.clone()}
+            .and_then(|f2| {
+                ReceivedMessage{f: f2}
+            })
+            .map(|i| {
+            });
+
         let f: &mut Fiber = &mut *(fref.borrow_mut());
         let msg = FiberToWorkerMsg::RequestCode(
             f.fiber_id,
             f.module_name().to_string(),
             f.function_name().to_string(),
         );
-        f.state = FiberState::CodeWait;
         f.to_worker.start_send(msg);
         let h = f.handle.clone();
 
-        let fut =
-            SentMessage{f: fref.clone()}
-            .and_then(|fref2: Rc<RefCell<Fiber>>| {
-                ReceivedMessage{f: fref2}
-            })
-            .map(|i| {
-println!("received message on fiber");
-            });
         h.spawn(fut);
+        // Result::Ok(Async::NotReady)
     }
 
-    pub fn handle_msg(&mut self, msg: WorkerToFiberMsg)
+    pub fn handle_msg(f: &Rc<RefCell<Fiber>>, msg: WorkerToFiberMsg)
     {
         match msg {
             WorkerToFiberMsg::FoundCode(code) => {
-                self.code = Some(code);
-                self.state = FiberState::Ready;
+                println!("set code from msg");
+                let h = f.borrow().handle.clone();
+                let state = FiberState::Ready(f.clone(), code);
+                h.spawn(FiberExec{fs: state});
             }
+        }
+    }
+
+    fn execute_leema_frame(curf: &mut Frame, ops: &OpVec)
+    {
+        let mut e = Event::Uneventful;
+        while Event::Uneventful == e {
+            e = Frame::execute_leema_op(curf, ops);
         }
     }
 }
 
 struct FiberExec
 {
-    f: Rc<RefCell<Fiber>>,
+    fs: FiberState,
+}
+
+impl FiberExec
+{
+    fn run(f: &Rc<RefCell<Fiber>>, code: &Rc<Code>)
+    // fn run<F>(f: Rc<RefCell<Fiber>>, code: Rc<Code>) // -> F
+        // where F: Future<Item=(), Error=()>
+    {
+        match **code {
+            Code::Leema(ref ops) => {
+                Fiber::execute_leema_frame(&mut f.borrow_mut().head, ops);
+            }
+            Code::Rust(ref rf) => {
+                // rf(&mut rf);
+            }
+            Code::RustIo(ref rf) => {
+                // rf(&mut f, &self.handle);
+                // self.event = Event::Complete(true);
+            }
+        }
+        // self.handle_event(code, curf);
+    }
 }
 
 impl Future for FiberExec
@@ -139,21 +166,22 @@ impl Future for FiberExec
     fn poll(&mut self) -> Poll<(), ()>
     {
         task::park().unpark();
-        match self.f.borrow().state {
-            FiberState::New => {
+        match &self.fs {
+            &FiberState::New(_) => {
                 println!("brand new fiber");
             }
-            FiberState::CodeWait => {
+            &FiberState::CodeWait(_) => {
                 thread::yield_now();
             }
-            FiberState::IoWait => {
+            &FiberState::IoWait(_, _) => {
                 println!("fiber io wait");
                 thread::yield_now();
             }
-            FiberState::Ready => {
-                println!("fiber ready");
+            &FiberState::Ready(ref f, ref code) => {
+                // let fut = f.run(code);
+                FiberExec::run(f, code);
             }
-            FiberState::Complete => {
+            &FiberState::Complete(_) => {
                 println!("fiber complete");
             }
         }
@@ -201,7 +229,7 @@ impl Future for ReceivedMessage
                 Ok(Async::NotReady)
             }
             Ok(Async::Ready(Some(msg))) => {
-                self.f.borrow_mut().handle_msg(msg);
+                Fiber::handle_msg(&self.f, msg);
                 Ok(Async::Ready(self.f.clone()))
             }
             Ok(Async::Ready(None)) => {

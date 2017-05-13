@@ -221,13 +221,13 @@ impl Worker
         vout!("exec: {:?}\n", op);
         match op {
             &Op::ConstVal(ref dst, ref v) => {
-                frame::execute_const_val(curf, dst, v);
+                curf.execute_const_val(dst, v);
             }
             &Op::Constructor(ref dst, ref typ) => {
-                frame::execute_constructor(curf, dst, typ);
+                curf.execute_constructor(dst, typ);
             }
             &Op::Copy(ref dst, ref src) => {
-                frame::execute_copy(curf, dst, src);
+                curf.execute_copy(dst, src);
             }
             &Op::Fork(ref dst, ref freg, ref args) => {
                 // frame::execute_fork(self, curf, dst, freg, args);
