@@ -91,12 +91,15 @@ impl Fiber
 
     pub fn request_code(fref: Rc<RefCell<Fiber>>)
     {
+println!("request_code()");
         let fut =
             SentMessage{f: fref.clone()}
             .and_then(|f2| {
+println!("message sent for fiber");
                 ReceivedMessage{f: f2}
             })
             .map(|i| {
+println!("received message on fiber");
             });
 
         let f: &mut Fiber = &mut *(fref.borrow_mut());
@@ -109,6 +112,7 @@ impl Fiber
         let h = f.handle.clone();
 
         h.spawn(fut);
+println!("code requested");
         // Result::Ok(Async::NotReady)
     }
 
@@ -163,26 +167,52 @@ impl Fiber
                 vout!("function is complete: {:?}\n", parent);
                 match parent {
                     Parent::Caller(old_code, mut pf, dst) => {
-                        RefMut::map(f.borrow_mut(), |fref| {
+                        RefMut::map(f.borrow_mut(), move |fref| {
                             pf.pc += 1;
                             fref.head = *pf;
                             fref
                         });
                     }
                     Parent::Repl(res) => {
+                        /*
+vout!("lock app, repl done in iterate\n");
+                        let mut _app = self.app.lock().unwrap();
+                        _app.set_result(res);
+                        */
                     }
                     Parent::Main(res) => {
 vout!("finished main func\n");
                         let msg = FiberToWorkerMsg::MainResult(res.to_msg());
-                        f.borrow_mut().to_worker.send(msg);
-                        let h = f.borrow().handle.clone();
-                        let fut =
-                            SentMessage{f: f.clone()}
-                            .map(|_| {
-                                ()
-                            });
-                        h.spawn(fut);
+                        // let fclone = f.clone();
+                        RefMut::map(f.borrow_mut(), move |fref2| {
+                            /*
+                            (*fref2).to_worker.send(msg);
+                            let h = fref2.handle.clone();
+                            let fut =
+                                SentMessage{f: fclone}
+                                .map(|_| {
+                                    ()
+                                });
+                                */
+                            // h.spawn(fut);
+                            fref2
+                        });
                     }
+                    /*
+                    Parent::Fork(mut ready, mut tx) => {
+                        println!("finished a fork!");
+                        // still need to pass the
+                        // result from the fork
+                        // to the parent
+                        let r = curf.e.takeResult();
+                        println!("send({:?})", r);
+                        tx.send(Msg::MainResult(r.to_msg()));
+                        ready.store(
+                            true,
+                            Ordering::Relaxed,
+                        );
+                    }
+                    */
                     Parent::Null => {
                         // this shouldn't have happened
                     }
@@ -206,7 +236,8 @@ vout!("finished main func\n");
                 // end this iteration,
             }
             Event::Uneventful => {
-                panic!("We shouldn't be here with uneventful");
+                println!("We shouldn't be here with uneventful");
+                panic!("code: {:?}, pc: {:?}", code, f.borrow_mut().head.pc);
             }
         }
     }
@@ -225,6 +256,7 @@ impl FiberExec
     {
         let ev = match **code {
             Code::Leema(ref ops) => {
+println!("run leema code");
                 // let fref: &mut Fiber = f.borrow;
                 Fiber::execute_leema_frame(&mut f.borrow_mut().head, ops);
                 Event::Uneventful
@@ -287,6 +319,7 @@ impl Future for SentMessage
 
     fn poll(&mut self) -> Poll<Rc<RefCell<Fiber>>, ()>
     {
+println!("SentMessage poll");
         let result = self.f.borrow_mut().to_worker.poll_complete();
         result.map(|a| {
                 Async::Ready(self.f.clone())
@@ -307,14 +340,17 @@ impl Future for ReceivedMessage
 
     fn poll(&mut self) -> Poll<Rc<RefCell<Fiber>>, ()>
     {
+println!("ReceivedMessage::poll()");
         let presult = self.f.borrow_mut().from_worker.poll();
         match presult {
             Ok(Async::NotReady) => {
+println!("poll returned not ready");
                 let tp = task::park();
                 tp.unpark();
                 Ok(Async::NotReady)
             }
             Ok(Async::Ready(Some(msg))) => {
+println!("poll received a msg: {:?}", msg);
                 Fiber::handle_msg(&self.f, msg);
                 Ok(Async::Ready(self.f.clone()))
             }
