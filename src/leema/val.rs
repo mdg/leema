@@ -198,7 +198,8 @@ pub trait LibTrait
 {}
 */
 
-pub struct LibVal {
+pub struct LibVal
+{
     pub v: Arc<Any + Send + Sync>,
     pub t: Type,
 }
@@ -299,6 +300,7 @@ pub enum Val {
     Kind(u8),
     DotAccess(Box<Val>, Rc<String>),
     Lib(LibVal),
+    EventResourceRef(i64, i64),
     RustBlock,
     Future(FutureVal),
     CallParams,
@@ -946,6 +948,9 @@ impl fmt::Display for Val {
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv.t)
             }
+            Val::EventResourceRef(wid, rid) => {
+                write!(f, "EventResourceRef({},{})", wid, rid)
+            }
             Val::RustBlock => {
                 write!(f, "RustBlock")
             }
@@ -1029,6 +1034,9 @@ impl fmt::Debug for Val {
             }
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv.t)
+            }
+            Val::EventResourceRef(wid, rid) => {
+                write!(f, "EventResourceRef({},{})", wid, rid)
             }
             Val::RustBlock => {
                 write!(f, "RustBlock")
