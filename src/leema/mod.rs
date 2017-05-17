@@ -2,7 +2,6 @@
 pub mod log;
 pub mod ast;
 pub mod code;
-pub mod fiber;
 pub mod frame;
 pub mod lex;
 pub mod val;
