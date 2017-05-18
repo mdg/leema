@@ -124,11 +124,11 @@ pub struct Oxpr
 }
 
 
-pub type RustFunc = fn(&mut frame::Frame) -> ();
+pub type RustFunc = fn(&mut frame::Frame) -> frame::Event;
 
 trait RustFunc2
 {
-    fn call(&mut self, env: &mut frame::Frame) -> ();
+    fn call(&mut self, env: &mut frame::Frame) -> frame::Event;
 }
 
 pub enum Code

@@ -1,6 +1,6 @@
 use leema::val::{Val, Type};
 use leema::code::{Code, RustFunc};
-use leema::frame::{Frame};
+use leema::frame::{Frame, Event};
 use leema::list;
 use leema::log;
 
@@ -14,7 +14,7 @@ use std::rc::{Rc};
 use rand;
 
 
-pub fn int_add(fs: &mut Frame)
+pub fn int_add(fs: &mut Frame) -> Event
 {
     let ic;
     {
@@ -30,9 +30,10 @@ pub fn int_add(fs: &mut Frame)
         }
     }
     fs.parent.set_result(Val::Int(ic));
+    Event::success()
 }
 
-pub fn int_sub(fs: &mut Frame)
+pub fn int_sub(fs: &mut Frame) -> Event
 {
     let ic;
     {
@@ -48,9 +49,10 @@ pub fn int_sub(fs: &mut Frame)
         }
     }
     fs.parent.set_result(Val::Int(ic));
+    Event::success()
 }
 
-pub fn int_mult(fs: &mut Frame)
+pub fn int_mult(fs: &mut Frame) -> Event
 {
     let ic;
     {
@@ -66,9 +68,10 @@ pub fn int_mult(fs: &mut Frame)
         }
     }
     fs.parent.set_result(Val::Int(ic));
+    Event::success()
 }
 
-pub fn int_mod(fs: &mut Frame)
+pub fn int_mod(fs: &mut Frame) -> Event
 {
     let ic;
     {
@@ -84,9 +87,10 @@ pub fn int_mod(fs: &mut Frame)
         }
     }
     fs.parent.set_result(Val::Int(ic));
+    Event::success()
 }
 
-pub fn int_negate(fs: &mut Frame)
+pub fn int_negate(fs: &mut Frame) -> Event
 {
     let result;
     {
@@ -101,15 +105,17 @@ pub fn int_negate(fs: &mut Frame)
         }
     }
     fs.parent.set_result(Val::Int(result));
+    Event::success()
 }
 
-pub fn int_random(fs: &mut Frame)
+pub fn int_random(fs: &mut Frame) -> Event
 {
     let result = rand::random::<i64>(); // as i64;
-    fs.parent.set_result(Val::Int(result))
+    fs.parent.set_result(Val::Int(result));
+    Event::success()
 }
 
-pub fn bool_not(fs: &mut Frame)
+pub fn bool_not(fs: &mut Frame) -> Event
 {
     println!("run bool_not!");
     let bnot;
@@ -123,9 +129,10 @@ pub fn bool_not(fs: &mut Frame)
         }
     }
     fs.parent.set_result(Val::Bool(bnot));
+    Event::success()
 }
 
-pub fn bool_xor(fs: &mut Frame)
+pub fn bool_xor(fs: &mut Frame) -> Event
 {
     let result;
     {
@@ -141,9 +148,10 @@ pub fn bool_xor(fs: &mut Frame)
         }
     }
     fs.parent.set_result(Val::Bool(result));
+    Event::success()
 }
 
-pub fn list_cons(fs: &mut Frame)
+pub fn list_cons(fs: &mut Frame) -> Event
 {
     let result = {
         let head = fs.e.get_param(0);
@@ -151,30 +159,34 @@ pub fn list_cons(fs: &mut Frame)
         list::cons(head.clone(), tail.clone())
     };
     fs.parent.set_result(result);
+    Event::success()
 }
 
-pub fn less_than(fs: &mut Frame)
+pub fn less_than(fs: &mut Frame) -> Event
 {
     let va = fs.e.get_param(0);
     let vb = fs.e.get_param(1);
     fs.parent.set_result(Val::Bool(va < vb));
+    Event::success()
 }
 
-pub fn less_than_equal(fs: &mut Frame)
+pub fn less_than_equal(fs: &mut Frame) -> Event
 {
     let va = fs.e.get_param(0);
     let vb = fs.e.get_param(1);
     fs.parent.set_result(Val::Bool(va <= vb));
+    Event::success()
 }
 
-pub fn equal(fs: &mut Frame)
+pub fn equal(fs: &mut Frame) -> Event
 {
     let va = fs.e.get_param(0);
     let vb = fs.e.get_param(1);
     fs.parent.set_result(Val::Bool(va == vb));
+    Event::success()
 }
 
-pub fn greater_than(fs: &mut Frame)
+pub fn greater_than(fs: &mut Frame) -> Event
 {
     let result;
     {
@@ -183,9 +195,10 @@ pub fn greater_than(fs: &mut Frame)
         result = va > vb;
     }
     fs.parent.set_result(Val::Bool(result));
+    Event::success()
 }
 
-pub fn greater_than_equal(fs: &mut Frame)
+pub fn greater_than_equal(fs: &mut Frame) -> Event
 {
     let result;
     {
@@ -194,32 +207,36 @@ pub fn greater_than_equal(fs: &mut Frame)
         result = va >= vb;
     }
     fs.parent.set_result(Val::Bool(result));
+    Event::success()
 }
 
-pub fn get_type(fs: &mut Frame)
+pub fn get_type(fs: &mut Frame) -> Event
 {
-    let result;
+    let result: Type;
     {
         let v = fs.get_param(0);
         result = v.get_type();
     }
     fs.parent.set_result(Val::Type(result));
+    Event::success()
 }
 
-pub fn cout(fs: &mut Frame)
+pub fn cout(fs: &mut Frame) -> Event
 {
     let v = fs.e.get_param(0);
     print!("{}", v);
     fs.parent.set_result(Val::Void);
+    Event::success()
 }
 
-pub fn cerr(fs: &mut Frame)
+pub fn cerr(fs: &mut Frame) -> Event
 {
     {
         let va = fs.get_param(0);
         write!(stderr(), "{}", va);
     }
     fs.parent.set_result(Val::Void);
+    Event::success()
 }
 
 
@@ -252,7 +269,7 @@ impl Debug for LeemaFile
 }
 
 
-pub fn file_read(fs: &mut Frame)
+pub fn file_read(fs: &mut Frame) -> Event
 {
     let open_result = {
         let fnval = fs.get_param(0);
@@ -280,9 +297,10 @@ pub fn file_read(fs: &mut Frame)
             )
     };
     fs.parent.set_result(openf);
+    Event::success()
 }
 
-pub fn file_stream_read(fs: &mut Frame)
+pub fn file_stream_read(fs: &mut Frame) -> Event
 {
     let mut input = "".to_string();
     {
@@ -306,6 +324,7 @@ pub fn file_stream_read(fs: &mut Frame)
     }
 println!("read from file: '{}'", input);
     fs.parent.set_result(Val::new_str(input));
+    Event::success()
 }
 
 pub fn source_code() -> &'static str

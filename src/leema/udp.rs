@@ -1,5 +1,5 @@
 use leema::code::{Code, RustFunc};
-use leema::frame::{Frame};
+use leema::frame::{Frame, Event};
 use leema::val::{Val, LibVal, Type};
 
 use std::net::{IpAddr, SocketAddr};
@@ -11,7 +11,7 @@ use futures::future::{Future};
 use std::os::unix::io::AsRawFd;
 
 
-pub fn udp_bind(fs: &mut Frame)
+pub fn udp_bind(fs: &mut Frame) -> Event
 {
     /*
     let send_addr = SocketAddr::new(
@@ -40,15 +40,19 @@ println!("sock fd: {}", sock_fd);
     // fs.parent.set_result(sock_val);
     fs.parent.set_result(Val::Int(0));
     */
+    Event::success()
 }
 
-pub fn udp_recv(f: &mut Frame)
+pub fn udp_recv(f: &mut Frame) -> Event
 {
     let sock_ref = f.e.get_param(0);
     /*
     let evf = |sock| {
         let buf = String::from("hello");
         sock.recv_dgram(buf)
+            .map(|(sock, buf2)| {
+                buf2
+            });
     };
     let post_ev = |fiber, (_sock, buf)| {
         fiber.head.e.set(Reg::reg(0), buf);
@@ -58,16 +62,17 @@ pub fn udp_recv(f: &mut Frame)
         .and_then(|whatever| {
         });
         */
+    Event::success()
 }
 
-pub fn udp_send(fs: &mut Frame)
+pub fn udp_send(fs: &mut Frame) -> Event
 {
     println!("udp_send");
     let dst = fs.e.get_param(0);
     let sock_ref = fs.e.get_param(1);
     let msg = fs.e.get_param(2);
-    let send_addr = dst.str();
     /*
+    let send_addr = dst.to_str();
     let event = Event::ResourceAction(sock_ref, |sock| {
             sock.send_dgram(msg, send_addr);
         });
@@ -112,6 +117,7 @@ println!("udp_sent = {}", output);
         }
     }
     */
+    Event::success()
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>

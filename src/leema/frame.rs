@@ -81,6 +81,19 @@ pub enum Event
     Complete(bool),
 }
 
+impl Event
+{
+    pub fn success() -> Event
+    {
+        Event::Complete(true)
+    }
+
+    pub fn failure() -> Event
+    {
+        Event::Complete(false)
+    }
+}
+
 impl PartialEq for Event
 {
     fn eq(&self, other: &Event) -> bool
