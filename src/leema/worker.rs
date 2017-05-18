@@ -1,10 +1,12 @@
 
 use leema::code::{self, CodeKey, Code, Op, OpVec, ModSym, RustFunc};
+use leema::fiber::{Fiber};
 use leema::frame::{self, Event, Frame, Parent};
 use leema::log;
 use leema::reg::{Reg};
 use leema::val::{Env, Val, MsgVal};
 
+use std::cell::{RefCell, RefMut};
 use std::collections::{HashMap, LinkedList};
 use std::fmt;
 use std::io::{stderr, Write};
@@ -22,16 +24,6 @@ use tokio_core::reactor;
 
 
 #[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(Eq)]
-#[derive(Hash)]
-enum WaitType
-{
-    Code,
-    IO,
-}
-
-#[derive(Debug)]
 pub enum Msg
 {
     // Spawn(module, function)
@@ -43,44 +35,28 @@ pub enum Msg
     MainResult(MsgVal),
 }
 
-struct FrameWait
+#[derive(Debug)]
+enum ReadyFiber
 {
-    typ: WaitType,
-    frame: Frame,
-    code: Option<Rc<Code>>,
+    New(Fiber),
+    Ready(Fiber, Rc<Code>),
 }
 
-impl FrameWait
+#[derive(Debug)]
+enum FiberWait
 {
-    fn code_request(f: Frame) -> FrameWait
-    {
-        FrameWait{
-            typ: WaitType::Code,
-            frame: f,
-            code: None,
-        }
-    }
+    CodeWait(Fiber),
+    IoWait(Fiber, Rc<Code>),
+    FutureWait(Fiber, Rc<Code>),
 }
 
-impl fmt::Debug for FrameWait
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        let code = match &self.code {
-            &None => "None",
-            &Some(ref icode) => icode.type_name(),
-        };
-        write!(f, "FrameWait {:?}\n\t{:?}\n{}\n\n", self.typ, self.frame, code)
-    }
-}
 
 pub struct Worker
 {
-    fresh: LinkedList<(Rc<Code>, Frame)>,
-    waiting: HashMap<i64, FrameWait>,
+    fresh: LinkedList<ReadyFiber>,
+    waiting: HashMap<i64, FiberWait>,
     handle: reactor::Handle,
     code: HashMap<String, HashMap<String, Rc<Code>>>,
-    event: Event,
     app_tx: Sender<Msg>,
     app_rx: Receiver<Msg>,
     //io: IOQueue,
@@ -105,43 +81,72 @@ impl Worker
         let w = Worker{
             fresh: LinkedList::new(),
             waiting: HashMap::new(),
-            handle: h,
+            handle: h.clone(),
             code: HashMap::new(),
-            event: Event::Uneventful,
             app_tx: send,
             app_rx: recv,
             id: wid,
             next_fiber_id: 0,
             done: false,
         };
-        let result = core.run(w).unwrap();
+        let wexec = WorkerExec{
+            w: Rc::new(RefCell::new(w)),
+            h: h,
+        };
+        let result = core.run(wexec).unwrap();
         println!("worker {} done with: {:?}", wid, result);
     }
 
-    pub fn run_once(&mut self)
+    fn load_code(&mut self, curf: Fiber)
     {
-        while let Result::Ok(msg) = self.app_rx.try_recv() {
-            self.process_msg(msg);
-        }
-
-        while let Some((code, curf)) = self.pop_fresh() {
-            self.execute_frame(code, curf);
-        }
+        let msg = Msg::RequestCode(self.id, curf.fiber_id
+            , curf.module_name().to_string()
+            , curf.function_name().to_string());
+        self.app_tx.send(msg);
     }
 
-    pub fn execute_frame(&mut self, code: Rc<Code>, mut curf: Frame)
+    pub fn handle_event(w: &Rc<RefCell<Worker>>, e: Event, mut f: Fiber
+        , code: Rc<Code>)
     {
-        match *code {
-            Code::Leema(_) => {
-                // moved to frame
+        match e {
+            Event::Complete(success) => {
+                if success {
+                    // analyze successful function run
+                } else {
+                    vout!("function call failed\n");
+                }
+                vout!("function is complete\n");
+                let parent = f.head.take_parent();
+                match parent {
+                    Parent::Caller(old_code, mut pf, dst) => {
+                        pf.pc += 1;
+                        f.head = *pf;
+                    }
+                    Parent::Repl(res) => {
+                    }
+                    Parent::Main(res) => {
+                    }
+                    Parent::Null => {
+                        // this shouldn't have happened
+                    }
+                }
             }
-            Code::Rust(ref rf) => {
-                rf(&mut curf);
-                self.event = Event::Complete(true);
+            Event::Call(dst, module, func, args) => {
+                f.push_call(code.clone(), dst, module, func, args);
             }
-            Code::RustIo(ref rf) => {
-                rf(&mut curf, &self.handle);
-                self.event = Event::Complete(true);
+            Event::FutureWait(reg) => {
+                println!("wait for future {:?}", reg);
+            }
+            Event::IOWait => {
+                println!("do I/O");
+            }
+            Event::Fork => {
+                // self.fresh.push_back((code, curf));
+                // end this iteration,
+            }
+            Event::Uneventful => {
+                println!("We shouldn't be here with uneventful");
+                panic!("code: {:?}, pc: {:?}", code, f.head.pc);
             }
         }
     }
@@ -170,16 +175,18 @@ impl Worker
         let id = self.next_fiber_id;
         self.next_fiber_id += 1;
         let frame = Frame::new_root(module, func);
+        let fib = Fiber::spawn(id, frame, &self.handle);
+        self.fresh.push_back(ReadyFiber::New(fib));
     }
 
-    fn pop_fresh(&mut self) -> Option<(Rc<Code>, Frame)>
+    fn pop_fresh(&mut self) -> Option<ReadyFiber>
     {
         self.fresh.pop_front()
     }
 
-    fn push_fresh(&mut self, code: Rc<Code>, f: Frame)
+    fn push_fresh(&mut self, f: ReadyFiber)
     {
-        self.fresh.push_back((code, f))
+        self.fresh.push_back(f)
     }
 
     fn add_fork(&mut self, key: &CodeKey, newf: Frame)
@@ -188,29 +195,59 @@ vout!("lock app, add_fork\n");
     }
 }
 
-// struct Iterate { w: Worker }
-// struct RecvFromFiber { f: Fiber }
 
-impl Future for Worker
+struct WorkerExec
+{
+    w: Rc<RefCell<Worker>>,
+    h: reactor::Handle,
+}
+
+impl WorkerExec
+{
+    pub fn run_once(&mut self)
+    {
+        RefMut::map(self.w.borrow_mut(), |wref| {
+            while let Result::Ok(msg) = wref.app_rx.try_recv() {
+                wref.process_msg(msg);
+            }
+            wref
+        });
+
+        while let Some(readyf) = self.w.borrow_mut().pop_fresh() {
+            match readyf {
+                ReadyFiber::New(f) => {
+                    self.w.borrow_mut().load_code(f);
+                }
+                ReadyFiber::Ready(mut f, code) => {
+                    let ev = f.head.execute_frame(&code);
+                    Worker::handle_event(&self.w, ev, f, code);
+                }
+            }
+        }
+    }
+}
+
+impl Future for WorkerExec
 {
     type Item = Val;
     type Error = Val;
 
     fn poll(&mut self) -> Poll<Val, Val>
     {
+        task::park().unpark();
         self.run_once();
         thread::yield_now();
 
-        let tp = task::park();
-        let t = reactor::Timeout::new(Duration::new(0, 100000), &self.handle)
+        /*
+        let t = reactor::Timeout::new(Duration::new(0, 100000), &self.h)
             .unwrap()
             .map(move |fut| {
-                tp.unpark();
             })
             .map_err(|_| {
                 () // Val::new_str("timeout error".to_string())
             });
-        self.handle.spawn(t);
+        self.h.spawn(t);
+        */
         Result::Ok(Async::NotReady)
     }
 }

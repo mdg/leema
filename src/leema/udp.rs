@@ -1,4 +1,4 @@
-use leema::code::{Code, RustIoFunc};
+use leema::code::{Code, RustFunc};
 use leema::frame::{Frame};
 use leema::val::{Val, LibVal, Type};
 
@@ -8,10 +8,12 @@ use std::sync::{Arc};
 use ::tokio_core::net::{UdpSocket};
 use ::tokio_core::reactor::{Handle};
 use futures::future::{Future};
+use std::os::unix::io::AsRawFd;
 
 
-pub fn udp_bind(fs: &mut Frame, h: &Handle)
+pub fn udp_bind(fs: &mut Frame)
 {
+    /*
     let send_addr = SocketAddr::new(
         IpAddr::from_str("127.0.0.1").unwrap(),
         3999,
@@ -24,9 +26,51 @@ pub fn udp_bind(fs: &mut Frame, h: &Handle)
             let short_port = big_port as u16;
             let sock_addr = SocketAddr::new(ip, short_port);
             let sock = UdpSocket::bind(&sock_addr, h).unwrap();
-            let msg = "tacos\n";
-            // let sent = sock.send_to(msg.as_bytes(), &send_addr);
-            // let sent = try_nb!(sock.send_to(msg.as_bytes(), &send_addr));
+let sock_fd = sock.as_raw_fd();
+println!("sock fd: {}", sock_fd);
+            Val::Lib(LibVal{
+                v: Arc::new(sock),
+                t: Type::Lib(String::from("UdpStream")),
+            })
+        }
+        _ => {
+            panic!("invalid parameters to udp_bind");
+        }
+    };
+    // fs.parent.set_result(sock_val);
+    fs.parent.set_result(Val::Int(0));
+    */
+}
+
+pub fn udp_recv(f: &mut Frame)
+{
+    let sock_ref = f.e.get_param(0);
+    /*
+    let evf = |sock| {
+        let buf = String::from("hello");
+        sock.recv_dgram(buf)
+    };
+    let post_ev = |fiber, (_sock, buf)| {
+        fiber.head.e.set(Reg::reg(0), buf);
+    };
+    let ev = Event::ResourceAction(sock_ref, |sock| {
+        })
+        .and_then(|whatever| {
+        });
+        */
+}
+
+pub fn udp_send(fs: &mut Frame)
+{
+    println!("udp_send");
+    let dst = fs.e.get_param(0);
+    let sock_ref = fs.e.get_param(1);
+    let msg = fs.e.get_param(2);
+    let send_addr = dst.str();
+    /*
+    let event = Event::ResourceAction(sock_ref, |sock| {
+            sock.send_dgram(msg, send_addr);
+        });
             let sent = sock.send_dgram(msg, send_addr)
                 .map(move |(s, t)| {
                     ()
@@ -36,28 +80,6 @@ pub fn udp_bind(fs: &mut Frame, h: &Handle)
                     ()
                 });
             h.spawn(sent);
-            /*
-            Val::Lib(LibVal{
-                v: Arc::new(sock),
-                t: Type::Lib(String::from("UdpStream")),
-            })
-            */
-        }
-        _ => {
-            panic!("invalid parameters to udp_bind");
-        }
-    };
-    // fs.parent.set_result(sock_val);
-    fs.parent.set_result(Val::Int(0));
-}
-
-pub fn udp_read(fs: &mut Frame, h: &Handle)
-{
-}
-
-pub fn udp_send(fs: &mut Frame, h: &Handle)
-{
-    /*
     let sock = {
         let mut sock_val = fs.e.get_param_mut(0);
         // let sock_opt: Option<&mut UdpSocket> = sock_val.libval_as();
@@ -95,9 +117,9 @@ println!("udp_sent = {}", output);
 pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
-        "udp_bind" => Some(Code::RustIo(udp_bind)),
-        "udp_read" => Some(Code::RustIo(udp_read)),
-        "udp_send" => Some(Code::RustIo(udp_send)),
+        "udp_bind" => Some(Code::Rust(udp_bind)),
+        "udp_recv" => Some(Code::Rust(udp_recv)),
+        "udp_send" => Some(Code::Rust(udp_send)),
         _ => None,
     }
 }

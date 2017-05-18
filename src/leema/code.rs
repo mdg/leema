@@ -125,7 +125,6 @@ pub struct Oxpr
 
 
 pub type RustFunc = fn(&mut frame::Frame) -> ();
-pub type RustIoFunc = fn(&mut frame::Frame, &reactor::Handle) -> ();
 
 trait RustFunc2
 {
@@ -136,7 +135,6 @@ pub enum Code
 {
     Leema(OpVec),
     Rust(RustFunc),
-    RustIo(RustIoFunc),
 }
 
 impl Code
@@ -146,7 +144,6 @@ impl Code
         match self {
             &Code::Leema(_) => "LeemaCode",
             &Code::Rust(_) => "RustCode",
-            &Code::RustIo(_) => "RustIo",
         }
     }
 }
@@ -158,7 +155,6 @@ impl fmt::Display for Code
         match self {
             &Code::Leema(_) => write!(f, "LeemaCode"),
             &Code::Rust(_) => write!(f, "RustCode"),
-            &Code::RustIo(_) => write!(f, "RustIo"),
         }
     }
 }
@@ -180,9 +176,6 @@ impl fmt::Debug for Code
             &Code::Rust(_) => {
                 write!(f, "Code::Rust")
             }
-            &Code::RustIo(_) => {
-                write!(f, "Code::RustIo")
-            }
         }
     }
 }
@@ -194,7 +187,6 @@ impl Clone for Code
         match self {
             &Code::Leema(ref ops) => Code::Leema(ops.clone()),
             &Code::Rust(rf) => Code::Rust(rf),
-            &Code::RustIo(rf) => Code::RustIo(rf),
         }
     }
 }
