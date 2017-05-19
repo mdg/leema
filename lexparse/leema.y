@@ -372,9 +372,6 @@ else_if(A) ::= ELSE block(B). {
 
 
 /* regular function call */
-expr(A) ::= call_expr(B). {
-    A = B;
-}
 expr(A) ::= if_expr(B). {
     A = B;
 }
@@ -400,6 +397,7 @@ expr(A) ::= term(B) DOLLAR term(C). {
 	/* A = Val::binaryop(B, C, D); */
 	A = Val::Void;
 }
+
 /* IF expression */
 if_expr(A) ::= IF if_case(B) DOUBLEDASH. {
     /* case-expr style */
@@ -475,7 +473,6 @@ expr(A) ::= list(B). { A = B; }
 /* tuple
  * (4 + 4, 6 - 7)
  */
-expr(A) ::= tuple(B). { A = B; }
 expr(A) ::= NOT expr(B). {
 	A = sxpr::call(Val::id("bool_not".to_string()), list::singleton(B));
 }
@@ -563,6 +560,12 @@ expr(A) ::= term(B). { A = B; }
 
 term(A) ::= LPAREN expr(C) RPAREN. {
 	A = C;
+}
+term(A) ::= tuple(B). {
+    A = B;
+}
+term(A) ::= call_expr(B). {
+    A = B;
 }
 term(A) ::= ID(B). { A = Val::id(B.data); }
 term(A) ::= mod_prefix(B). {
