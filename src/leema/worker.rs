@@ -141,6 +141,10 @@ impl Worker
                     Parent::Caller(old_code, mut pf, dst) => {
                         pf.pc += 1;
                         f.head = *pf;
+                        vout!("return to caller: {}.{}()\n"
+                            , f.head.module_name()
+                            , f.head.function_name()
+                            );
                         RefMut::map(w.borrow_mut(), |wref| {
                             wref.push_fresh(ReadyFiber::Ready(f, old_code));
                             wref
@@ -149,6 +153,7 @@ impl Worker
                     Parent::Repl(res) => {
                     }
                     Parent::Main(res) => {
+                        vout!("finished main func\n");
                         let msg = Msg::MainResult(res.to_msg());
                         RefMut::map(w.borrow_mut(), |wref| {
                             wref.done = true;
@@ -162,6 +167,7 @@ impl Worker
                 }
             }
             Event::Call(dst, module, func, args) => {
+                vout!("push_call({}.{})", module, func);
                 f.push_call(code.clone(), dst, module, func, args);
                 w.borrow_mut().load_code(f);
             }
@@ -209,6 +215,7 @@ impl Worker
 
     pub fn spawn_fiber(&mut self, module: String, func: String)
     {
+        vout!("spawn_fiber({}::{})", module, func);
         let id = self.next_fiber_id;
         self.next_fiber_id += 1;
         let frame = Frame::new_root(module, func);

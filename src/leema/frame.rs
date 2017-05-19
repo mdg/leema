@@ -295,11 +295,10 @@ impl Frame
     {
         match &**code {
             &Code::Leema(ref ops) => {
-                // moved to frame
-                // let fref: &mut Fiber = f.borrow;
                 self.execute_leema_frame(ops)
             }
             &Code::Rust(ref rf) => {
+                vout!("execute rust code");
                 rf(self)
             }
         }
