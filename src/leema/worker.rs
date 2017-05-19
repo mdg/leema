@@ -97,12 +97,29 @@ impl Worker
         println!("worker {} done with: {:?}", wid, result);
     }
 
+    fn find_code<'a>(&'a self, modname: &str, funcname: &str)
+        -> Option<Rc<Code>>
+    {
+        self.code.get(modname)
+        .and_then(|module: &'a HashMap<String, Rc<Code>>| {
+            module.get(funcname)
+        })
+        .map(|func: &'a Rc<Code>| {
+            (*func).clone()
+        })
+    }
+
     fn load_code(&mut self, curf: Fiber)
     {
-        let msg = Msg::RequestCode(self.id, curf.fiber_id
-            , curf.module_name().to_string()
-            , curf.function_name().to_string());
-        self.app_tx.send(msg);
+        let opt_code = self.find_code(curf.module_name(), curf.function_name());
+        if let Some(func) = opt_code {
+            self.push_fresh(ReadyFiber::Ready(curf, func));
+        } else {
+            let msg = Msg::RequestCode(self.id, curf.fiber_id
+                , curf.module_name().to_string()
+                , curf.function_name().to_string());
+            self.app_tx.send(msg);
+        }
     }
 
     pub fn handle_event(w: &Rc<RefCell<Worker>>, e: Event, mut f: Fiber
@@ -213,16 +230,22 @@ impl WorkerExec
             wref
         });
 
-        while let Some(readyf) = self.w.borrow_mut().pop_fresh() {
-            match readyf {
-                ReadyFiber::New(f) => {
-                    self.w.borrow_mut().load_code(f);
+        let opt_ev = {
+            let wref: &mut Worker = &mut *(self.w.borrow_mut());
+            match wref.pop_fresh() {
+                Some(ReadyFiber::New(f)) => {
+                    wref.load_code(f);
+                    None
                 }
-                ReadyFiber::Ready(mut f, code) => {
-                    let ev = f.head.execute_frame(&code);
-                    Worker::handle_event(&self.w, ev, f, code);
+                Some(ReadyFiber::Ready(mut f, code)) => {
+                    let e = f.head.execute_frame(&code);
+                    Some((e, f, code))
                 }
+                None => None,
             }
+        };
+        if let Some((ev, f, code)) = opt_ev {
+            Worker::handle_event(&self.w, ev, f, code);
         }
     }
 }
