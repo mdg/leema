@@ -1,0 +1,11 @@
+
+## should be using n, a should be undefined
+func factorial(a)
+|(1) -> 1
+|(n) -> a * (a-1)
+--
+
+func main() ->
+    let f := factorial(5)
+    cout("fact(5) is $f\n")
+--
