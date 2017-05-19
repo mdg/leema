@@ -45,9 +45,9 @@ enum ReadyFiber
 #[derive(Debug)]
 enum FiberWait
 {
-    CodeWait(Fiber),
-    IoWait(Fiber, Rc<Code>),
-    FutureWait(Fiber, Rc<Code>),
+    Code(Fiber),
+    Io(Fiber, Rc<Code>),
+    Future(Fiber, Rc<Code>),
 }
 
 
@@ -119,6 +119,9 @@ impl Worker
                 , curf.module_name().to_string()
                 , curf.function_name().to_string());
             self.app_tx.send(msg);
+            let fiber_id = curf.fiber_id;
+            let fw = FiberWait::Code(curf);
+            self.waiting.insert(fiber_id, fw);
         }
     }
 
@@ -138,10 +141,20 @@ impl Worker
                     Parent::Caller(old_code, mut pf, dst) => {
                         pf.pc += 1;
                         f.head = *pf;
+                        RefMut::map(w.borrow_mut(), |wref| {
+                            wref.push_fresh(ReadyFiber::Ready(f, old_code));
+                            wref
+                        });
                     }
                     Parent::Repl(res) => {
                     }
                     Parent::Main(res) => {
+                        let msg = Msg::MainResult(res.to_msg());
+                        RefMut::map(w.borrow_mut(), |wref| {
+                            wref.done = true;
+                            wref.app_tx.send(msg);
+                            wref
+                        });
                     }
                     Parent::Null => {
                         // this shouldn't have happened
@@ -150,6 +163,7 @@ impl Worker
             }
             Event::Call(dst, module, func, args) => {
                 f.push_call(code.clone(), dst, module, func, args);
+                w.borrow_mut().load_code(f);
             }
             Event::FutureWait(reg) => {
                 println!("wait for future {:?}", reg);
@@ -180,6 +194,12 @@ impl Worker
                 let mut new_mod = HashMap::new();
                 new_mod.insert(func, rc_code.clone());
                 self.code.insert(module, new_mod);
+                let opt_fiber = self.waiting.remove(&fiber_id);
+                if let Some(FiberWait::Code(fib)) = opt_fiber {
+                    self.push_fresh(ReadyFiber::Ready(fib, rc_code));
+                } else {
+                    panic!("Cannot find waiting fiber: {}", fiber_id);
+                }
             }
             _ => {
                 panic!("Must be a message for the app: {:?}", msg);

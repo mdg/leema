@@ -297,13 +297,12 @@ impl Frame
             &Code::Leema(ref ops) => {
                 // moved to frame
                 // let fref: &mut Fiber = f.borrow;
-                self.execute_leema_frame(ops);
+                self.execute_leema_frame(ops)
             }
             &Code::Rust(ref rf) => {
-                rf(self);
+                rf(self)
             }
         }
-        Event::Uneventful
     }
 
     pub fn execute_leema_frame(&mut self, ops: &OpVec) -> Event
