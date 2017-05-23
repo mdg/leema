@@ -1,7 +1,9 @@
 
+use leema::log;
 use leema::val::{Val, Type};
 
 use std::collections::{HashMap};
+use std::io::{stderr, Write};
 use std::rc::{Rc};
 
 
@@ -97,10 +99,30 @@ impl Inferator
                 inferences.insert(newtname.clone(), oldt.clone());
                 Some(oldt.clone())
             }
+            (&Type::Tuple(ref oldi), &Type::Tuple(ref newi)) => {
+                if oldi.len() != newi.len() {
+                    panic!("tuple size mismatch: {:?}!={:?}", oldt, newt);
+                }
+                let mut masht = vec![];
+                for (oldit, newit) in oldi.iter().zip(newi.iter()) {
+                    match Inferator::mash(inferences, oldit, newit) {
+                        Some(mashit) => {
+                            masht.push(mashit);
+                        }
+                        None => {
+                            panic!("tuple type mismatch: {:?} != {:?}",
+                                oldt, newt);
+                        }
+                    }
+                }
+                Some(Type::Tuple(masht))
+            }
             // nothing to mash for unknown types
             (&Type::Unknown, _) => Some(newt.clone()),
             (_, &Type::Unknown) => Some(oldt.clone()),
-            (_, _) => None,
+            (_, _) => {
+                panic!("type mismatch: {:?} != {:?}", oldt, newt);
+            }
         }
     }
 

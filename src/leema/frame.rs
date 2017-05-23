@@ -675,8 +675,7 @@ fn test_normal_strcat()
 {
     let r1 = Reg::local(1);
     let r2 = Reg::local(2);
-    let mut frame = Frame::new_root(1
-        , String::from("foo"), String::from("bar"));
+    let mut frame = Frame::new_root(String::from("foo"), String::from("bar"));
     frame.e.set_reg(&r1, Val::new_str(String::from("i like ")));
     frame.e.set_reg(&r2, Val::new_str(String::from("burritos")));
 

@@ -204,8 +204,11 @@ impl Lib
         let mut imports: HashMap<String, &'a Intermod> = HashMap::new();
         imports.insert(String::from("prefab"), prefab);
         for i in pref.imports.iter() {
-            let iii: &'a Intermod = self.typed.get(i).unwrap();
-            imports.insert(i.clone(), iii);
+            let iii: Option<&'a Intermod> = self.typed.get(i);
+            if iii.is_none() {
+                panic!("cannot find intermod: {}", i);
+            }
+            imports.insert(i.clone(), iii.unwrap());
         }
 
         let mut scope = Typescope::new(typed, funcname, &imports);

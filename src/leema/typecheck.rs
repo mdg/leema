@@ -72,11 +72,24 @@ impl<'a> CallFrame<'a>
                 self.collect_calls(truth);
                 self.collect_calls(lies);
             }
+            Source::List(ref items) => {
+                for i in items {
+                    self.collect_calls(i);
+                }
+            }
             Source::ConstVal(ref val) => {
                 // nothing to do. constants aren't calls.
             }
             Source::Id(ref id) => {
                 // nothing to do. not calls.
+            }
+            Source::MatchExpr(ref sample, ref cases) => {
+                self.collect_calls(sample);
+                self.collect_calls(cases);
+            }
+            Source::MatchCase(_, ref truth, ref lies) => {
+                // self.collect_calls(truth);
+                // self.collect_calls(lies);
             }
             Source::RustBlock => {
                 // nothing to do. not calls.
@@ -182,6 +195,8 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
                 for a in argstup {
                     targs.push(typecheck_expr(scope, a));
                 }
+            } else {
+                println!("args are not a tuple");
             }
             let mut targs_ref = vec![];
             for ta in targs.iter() {

@@ -797,10 +797,11 @@ fn test_pattern_type_inferred_mismatch()
 {
     let input = String::from("
 
+    ## foo should return a #
     func foo(inputs)
     |([]) -> #empty
-    |([#whatever;more]) -> #whatever
-    |([_;more]) -> foo(more)
+    |(#whatever;more) -> #whatever
+    |(_;more) -> foo(more)
     --
 
     func main() ->

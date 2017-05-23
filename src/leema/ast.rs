@@ -263,7 +263,7 @@ fn test_parse_multiple_param_func()
 {
     let input = "
     func doubles(x, x2) ->
-        x + x = x2
+        x + x == x2
     --
 
     func main() ->
