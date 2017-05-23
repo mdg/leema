@@ -126,7 +126,7 @@ impl Worker
     }
 
     pub fn handle_event(w: &Rc<RefCell<Worker>>, e: Event, mut f: Fiber
-        , code: Rc<Code>)
+        , code: Rc<Code>) -> Poll<Val, Val>
     {
         match e {
             Event::Complete(success) => {
@@ -165,21 +165,26 @@ impl Worker
                         // this shouldn't have happened
                     }
                 }
+                Result::Ok(Async::NotReady)
             }
             Event::Call(dst, module, func, args) => {
                 vout!("push_call({}.{})", module, func);
                 f.push_call(code.clone(), dst, module, func, args);
                 w.borrow_mut().load_code(f);
+                Result::Ok(Async::NotReady)
             }
             Event::FutureWait(reg) => {
                 println!("wait for future {:?}", reg);
+                Result::Ok(Async::NotReady)
             }
             Event::IOWait => {
                 println!("do I/O");
+                Result::Ok(Async::NotReady)
             }
             Event::Fork => {
                 // self.fresh.push_back((code, curf));
                 // end this iteration,
+                Result::Ok(Async::NotReady)
             }
             Event::Uneventful => {
                 println!("We shouldn't be here with uneventful");
@@ -248,7 +253,7 @@ struct WorkerExec
 
 impl WorkerExec
 {
-    pub fn run_once(&mut self)
+    pub fn run_once(&mut self) -> Poll<Val, Val>
     {
         RefMut::map(self.w.borrow_mut(), |wref| {
             while let Result::Ok(msg) = wref.app_rx.try_recv() {
@@ -272,7 +277,9 @@ impl WorkerExec
             }
         };
         if let Some((ev, f, code)) = opt_ev {
-            Worker::handle_event(&self.w, ev, f, code);
+            Worker::handle_event(&self.w, ev, f, code)
+        } else {
+            Result::Ok(Async::NotReady)
         }
     }
 }
@@ -285,19 +292,8 @@ impl Future for WorkerExec
     fn poll(&mut self) -> Poll<Val, Val>
     {
         task::park().unpark();
-        self.run_once();
+        let poll_result = self.run_once();
         thread::yield_now();
-
-        /*
-        let t = reactor::Timeout::new(Duration::new(0, 100000), &self.h)
-            .unwrap()
-            .map(move |fut| {
-            })
-            .map_err(|_| {
-                () // Val::new_str("timeout error".to_string())
-            });
-        self.h.spawn(t);
-        */
-        Result::Ok(Async::NotReady)
+        poll_result
     }
 }
