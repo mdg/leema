@@ -121,7 +121,8 @@ impl Inferator
             (&Type::Unknown, _) => Some(newt.clone()),
             (_, &Type::Unknown) => Some(oldt.clone()),
             (_, _) => {
-                panic!("type mismatch: {:?} != {:?}", oldt, newt);
+                println!("type mismatch: {:?} != {:?}", oldt, newt);
+                None
             }
         }
     }

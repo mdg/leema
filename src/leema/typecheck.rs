@@ -177,9 +177,47 @@ impl<'a, 'b> Typescope<'a, 'b>
             (&Val::Id(ref id), _) => {
                 self.T.bind_vartype(id, valtype);
             }
+            (&Val::Tuple(ref p_items), &Type::Tuple(ref t_items)) => {
+                if p_items.len() != t_items.len() {
+                    panic!("tuple pattern size mismatch: {:?} != {:?}"
+                        , p_items, t_items);
+                }
+                for (pi, ti) in p_items.iter().zip(t_items.iter()) {
+                    self.typecheck_pattern(pi, ti);
+                }
+            }
             _ => {
-                panic!("cannot typecheck pattern match: {:?} := {:?}"
+                println!("typecheck pattern catchall: {:?} := {:?}"
                         , patt, valtype);
+                let ptype = patt.get_type();
+                let mtype = self.T.merge_types(&ptype, valtype);
+                if mtype.is_none() {
+                    panic!("pattern type mismatch: {:?} != {:?}"
+                        , patt, valtype);
+                }
+            }
+        }
+    }
+
+    pub fn typecheck_matchcase(&mut self, valtype: &Type, case: &Ixpr) -> Type
+    {
+        match &case.src {
+            &Source::MatchCase(ref patt, ref truth, ref lies) => {
+                self.typecheck_pattern(patt, valtype);
+                let ttype = typecheck_expr(self, truth);
+                let ftype = self.typecheck_matchcase(valtype, lies);
+
+                match self.T.merge_types(&ttype, &ftype) {
+                    Some(rtype) => rtype,
+                    None => {
+                        panic!("match case type mismatch: {:?} != {:?}"
+                            , truth, lies);
+                    }
+                }
+            }
+            &Source::ConstVal(Val::Void) => Type::Unknown,
+            _ => {
+                typecheck_expr(self, case)
             }
         }
     }
@@ -222,6 +260,9 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
         &Source::Id(_) => {
             ix.typ.clone()
         }
+        &Source::List(_) => {
+            ix.typ.clone()
+        }
         &Source::IfExpr(ref cond, ref truth, ref lies) => {
             let cond_t = typecheck_expr(scope, cond);
             scope.T.match_types(&cond_t, &Type::Bool);
@@ -243,6 +284,13 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
         &Source::Func(ref _args, ref body) => {
             // typecheck_expr(scope, body)
             panic!("unexpected func in typecheck: {:?}", body);
+        }
+        &Source::MatchExpr(ref subject, ref cases) => {
+            let subject_type = typecheck_expr(scope, subject);
+            scope.typecheck_matchcase(&subject_type, cases)
+        }
+        &Source::MatchCase(_, _, _) => {
+            panic!("typecheck matchcase in a specific function: {:?}", ix);
         }
         _ => {
             panic!("Could not typecheck_expr({:?})", ix);

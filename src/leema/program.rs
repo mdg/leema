@@ -84,7 +84,10 @@ impl Lib
     {
         if !self.inter.contains_key(modname) {
             let inter = self.read_inter(modname);
+            let modkey = inter.key.clone();
             self.inter.insert(String::from(modname), Rc::new(inter));
+            let typemod = Intermod::new(modkey);
+            self.typed.insert(String::from(modname), typemod);
         }
     }
 
@@ -192,11 +195,6 @@ impl Lib
             }
         }
 
-        if !self.typed.contains_key(modname) {
-            let im = self.inter.get(modname).unwrap();
-            let tm = Intermod::new(im.key.clone());
-            self.typed.insert(String::from(modname), tm);
-        }
         let typed = self.typed.get(modname).unwrap();
 
         let pref = self.preface.get(modname).unwrap().clone();
@@ -206,7 +204,7 @@ impl Lib
         for i in pref.imports.iter() {
             let iii: Option<&'a Intermod> = self.typed.get(i);
             if iii.is_none() {
-                panic!("cannot find intermod: {}", i);
+                panic!("cannot find intermod in imports: {}", i);
             }
             imports.insert(i.clone(), iii.unwrap());
         }

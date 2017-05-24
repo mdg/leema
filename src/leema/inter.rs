@@ -158,7 +158,9 @@ impl<'a> Interscope<'a>
 
         for (an, at) in args.iter().zip(argt) {
             e.insert((&**an).clone());
-            t.bind_vartype(an, at);
+            if let None = t.bind_vartype(an, at) {
+                panic!("args type mismatch: {:?} != {:?}", args, argt);
+            }
         }
 
         let blk = Blockscope{
@@ -196,7 +198,9 @@ impl<'a> Interscope<'a>
         if self.blk().E.contains(name) {
             panic!("variable is already declared: {}", name);
         }
-        self.T.bind_vartype(name, typ);
+        if let None = self.T.bind_vartype(name, typ) {
+            panic!("var type mismatch: {} != {:?}", name, typ);
+        }
         self.blkstk.last_mut().unwrap().E.insert(String::from(name));
 vout!("add_var({}, {:?}) -> {:?}\n", name, typ, self.blkstk);
     }
@@ -457,7 +461,10 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
         SxprType::Let => {
             let (lhs_patt, rhs_val) = list::to_ref_tuple2(sx);
             let irhs = compile_expr(scope, rhs_val);
-            compile_pattern(scope, lhs_patt, &irhs.typ);
+            if let None = compile_pattern(scope, lhs_patt, &irhs.typ) {
+                panic!("let pattern type mismatch: let {:?} := {:?}"
+                    , lhs_patt, irhs);
+            }
             Ixpr::new(Source::Let(lhs_patt.clone(), Box::new(irhs)))
         }
         SxprType::MatchExpr => {
@@ -482,7 +489,10 @@ pub fn compile_matchcase(scope: &mut Interscope, case: &Val, xtyp: &Type
     let (patt, t2) = list::take_ref(case);
     let (blk, t3) = list::take_ref(t2);
     scope.push_block();
-    compile_pattern(scope, patt, xtyp);
+    if let None = compile_pattern(scope, patt, xtyp) {
+        panic!("match case pattern type mismatch: {:?} != {:?}",
+            patt, xtyp);
+    }
     let iblk = compile_expr(scope, blk);
     scope.pop_block();
     let inext = match t3 {
