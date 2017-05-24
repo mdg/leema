@@ -53,6 +53,36 @@ impl Inferator
         Inferator::mash(&mut self.inferences, a, b)
     }
 
+    pub fn match_pattern(&mut self, patt: &Val, valtype: &Type)
+    {
+        match (patt, valtype) {
+            (_, &Type::AnonVar) => {
+                panic!("pattern value type cannot be anonymous: {:?}"
+                        , patt);
+            }
+            (&Val::Id(ref id), _) => {
+                self.bind_vartype(id, valtype);
+            }
+            (&Val::Tuple(ref p_items), &Type::Tuple(ref t_items)) => {
+                if p_items.len() != t_items.len() {
+                    panic!("tuple pattern size mismatch: {:?} != {:?}"
+                        , p_items, t_items);
+                }
+                for (pi, ti) in p_items.iter().zip(t_items.iter()) {
+                    self.match_pattern(pi, ti);
+                }
+            }
+            _ => {
+                let ptype = patt.get_type();
+                let mtype = self.merge_types(&ptype, valtype);
+                if mtype.is_none() {
+                    panic!("pattern type mismatch: {:?} != {:?}"
+                        , patt, valtype);
+                }
+            }
+        }
+    }
+
     pub fn inferred_type<'a>(&'a self, typ: &'a Type) -> &Type
     {
         if !typ.is_var() {
@@ -147,61 +177,16 @@ impl Inferator
         }
         self.inferred_type(defresult).clone()
     }
-
-
-
-    /**
-     * mark typevar as inferred, and which type.
-     *
-     * panic if it was already inferred w/ a different type.
-     * do nothing if it was already inferred w/ the same type.
-     */
-    pub fn match_types(&mut self, a: &Type, b: &Type)
-    {
-print!("infer.match_types({:?}, {:?})\n", a, b);
-
-        match (a, b) {
-            (&Type::StrictList(ref innera), &Type::StrictList(ref innerb)) => {
-                self.match_types(innera, innerb);
-            }
-            (&Type::Tuple(ref ta), &Type::Tuple(ref tb)) => {
-                self.match_type_vectors(ta, tb);
-            }
-            (&Type::Func(ref pa, ref ra), &Type::Func(ref pb, ref rb)) => {
-                self.match_type_vectors(pa, pb);
-                self.match_types(ra, rb);
-            }
-            (_, _) if a == b => {}
-            (_, _) => {
-                panic!("these types don't match {:?}<>{:?}", a, b);
-            }
-        }
-    }
-
-    fn match_type_vectors(&mut self,
-        passed_types: &Vec<Type>,
-        defined_types: &Vec<Type>,
-    ) {
-        let passed_len = passed_types.len();
-        let defined_types_len = defined_types.len();
-        if passed_len != defined_types_len {
-            panic!("tuple size mismatch: {:?} != {:?}",
-                passed_types, defined_types);
-        }
-        for z in passed_types.iter().zip(defined_types.iter()) {
-            let (p, d) = z;
-            self.match_types(p, d);
-        }
-    }
 }
 
 
 #[cfg(test)]
 mod tests {
     use leema::infer::{Inferator};
+    use leema::list;
     use leema::log;
     use leema::module::{ModKey};
-    use leema::val::{Type};
+    use leema::val::{Val, Type};
 
     use std::rc::{Rc};
     use std::io::{stderr, Write};
@@ -214,6 +199,56 @@ fn test_add_and_find()
     let mut t = Inferator::new();
     t.bind_vartype("a", &Type::Int);
     assert_eq!(Type::Int, *t.vartype("a").unwrap());
+}
+
+#[test]
+fn test_merge_strict_list_unknown()
+{
+    let mut t = Inferator::new();
+    let mtype = t.merge_types(
+        &Type::StrictList(Box::new(Type::Unknown)),
+        &Type::StrictList(Box::new(Type::Int)),
+    );
+
+    assert_eq!(Some(Type::StrictList(Box::new(Type::Int))), mtype);
+}
+
+#[test]
+fn test_merge_types_via_tvar()
+{
+    let mut t = Inferator::new();
+    let intlist = Type::StrictList(Box::new(Type::Int));
+    let unknownlist = Type::StrictList(Box::new(Type::Unknown));
+    let tvar = Type::Var(Rc::new("Taco".to_string()));
+
+    let mtype0 = t.merge_types(&unknownlist, &tvar);
+    assert_eq!(Some(unknownlist), mtype0);
+
+    let mtype1 = t.merge_types(&intlist, &tvar);
+    assert_eq!(Some(intlist), mtype1);
+}
+
+#[test]
+fn test_match_pattern_empty_list()
+{
+    let mut t = Inferator::new();
+    let tvar = Type::Var(Rc::new("Taco".to_string()));
+    t.match_pattern(&Val::Nil, &tvar);
+
+    assert_eq!(&Type::StrictList(Box::new(Type::Unknown)),
+        t.inferred_type(&tvar));
+}
+
+#[test]
+fn test_match_pattern_empty_and_full_lists()
+{
+    let mut t = Inferator::new();
+    let tvar = Type::Var(Rc::new("Taco".to_string()));
+    t.match_pattern(&Val::Nil, &tvar);
+    t.match_pattern(&list::singleton(Val::Int(5)), &tvar);
+
+    assert_eq!(&Type::StrictList(Box::new(Type::Int)),
+        t.inferred_type(&tvar));
 }
 
 }

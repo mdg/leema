@@ -167,43 +167,11 @@ impl<'a, 'b> Typescope<'a, 'b>
         }
     }
 
-    pub fn typecheck_pattern(&mut self, patt: &Val, valtype: &Type)
-    {
-        match (patt, valtype) {
-            (_, &Type::AnonVar) => {
-                panic!("pattern value type cannot be anonymous: {:?}"
-                        , patt);
-            }
-            (&Val::Id(ref id), _) => {
-                self.T.bind_vartype(id, valtype);
-            }
-            (&Val::Tuple(ref p_items), &Type::Tuple(ref t_items)) => {
-                if p_items.len() != t_items.len() {
-                    panic!("tuple pattern size mismatch: {:?} != {:?}"
-                        , p_items, t_items);
-                }
-                for (pi, ti) in p_items.iter().zip(t_items.iter()) {
-                    self.typecheck_pattern(pi, ti);
-                }
-            }
-            _ => {
-                println!("typecheck pattern catchall: {:?} := {:?}"
-                        , patt, valtype);
-                let ptype = patt.get_type();
-                let mtype = self.T.merge_types(&ptype, valtype);
-                if mtype.is_none() {
-                    panic!("pattern type mismatch: {:?} != {:?}"
-                        , patt, valtype);
-                }
-            }
-        }
-    }
-
     pub fn typecheck_matchcase(&mut self, valtype: &Type, case: &Ixpr) -> Type
     {
         match &case.src {
             &Source::MatchCase(ref patt, ref truth, ref lies) => {
-                self.typecheck_pattern(patt, valtype);
+                self.T.match_pattern(patt, valtype);
                 let ttype = typecheck_expr(self, truth);
                 let ftype = self.typecheck_matchcase(valtype, lies);
 
@@ -247,7 +215,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
         }
         &Source::Let(ref lhs, ref rhs) => {
             let rhs_type = typecheck_expr(scope, rhs);
-            scope.typecheck_pattern(lhs, &rhs_type);
+            scope.T.match_pattern(lhs, &rhs_type);
             Type::Void
         }
         &Source::Block(ref elems) => {
@@ -265,11 +233,11 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
         }
         &Source::IfExpr(ref cond, ref truth, ref lies) => {
             let cond_t = typecheck_expr(scope, cond);
-            scope.T.match_types(&cond_t, &Type::Bool);
+            scope.T.merge_types(&cond_t, &Type::Bool);
 
             let truth_t = typecheck_expr(scope, truth);
             let lies_t = typecheck_expr(scope, lies);
-            scope.T.match_types(&truth_t, &lies_t);
+            scope.T.merge_types(&truth_t, &lies_t);
             truth_t
         }
         &Source::StrMash(ref items) => {
