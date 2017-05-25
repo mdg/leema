@@ -589,7 +589,10 @@ impl Val {
                 }
                 Type::Tuple(tuptypes)
             }
-            &Val::Cons(_, _) => Type::StrictList(Box::new(Type::Unknown)),
+            &Val::Cons(ref head, ref tail) => {
+                let inner = head.get_type();
+                Type::StrictList(Box::new(inner))
+            }
             &Val::Nil => Type::StrictList(Box::new(Type::Unknown)),
             &Val::Failure(_, _, _) => Type::Failure,
             &Val::Type(_) => Type::Kind,
@@ -1718,6 +1721,20 @@ fn test_compare_across_types() {
     assert!(f < t);
     assert!(t < i);
     assert!(i < s);
+}
+
+#[test]
+fn test_get_type_empty_list()
+{
+    let typ = Val::Nil.get_type();
+    assert_eq!(Type::StrictList(Box::new(Type::Unknown)), typ);
+}
+
+#[test]
+fn test_get_type_int_list()
+{
+    let typ = list::from2(Val::Int(3), Val::Int(8)).get_type();
+    assert_eq!(Type::StrictList(Box::new(Type::Int)), typ);
 }
 
 #[test]

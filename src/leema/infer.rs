@@ -72,6 +72,12 @@ impl Inferator
                     self.match_pattern(pi, ti);
                 }
             }
+            (&Val::Nil, _) => {
+                self.merge_types(
+                    &Type::StrictList(Box::new(Type::Unknown)),
+                    valtype,
+                );
+            }
             _ => {
                 let ptype = patt.get_type();
                 let mtype = self.merge_types(&ptype, valtype);

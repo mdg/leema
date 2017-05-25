@@ -548,7 +548,10 @@ pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type
             Some(srctyp.clone())
         }
         &Val::Nil => {
-            scope.T.merge_types(&Type::RelaxedList, srctyp)
+            scope.T.merge_types(
+                &Type::StrictList(Box::new(Type::Unknown)),
+                srctyp,
+            )
         }
         &Val::Cons(_, _) => {
             compile_pattern_list(scope, p, srctyp)
