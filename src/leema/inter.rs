@@ -607,14 +607,14 @@ pub fn compile_pattern_list(scope: &mut Interscope, p: &Val, srctyp: &Type
             })
         }
         &Val::Nil => {
-            Some(Type::RelaxedList)
+            Some(Type::wrap_in_list(Type::Unknown))
         }
         &Val::Id(ref id) => {
             scope.add_var(&id, srctyp);
-            Some(Type::RelaxedList)
+            Some(Type::wrap_in_list(Type::Unknown))
         }
         &Val::Wildcard => {
-            Some(Type::RelaxedList)
+            Some(Type::wrap_in_list(Type::Unknown))
         }
         _ => {
             vout!("cannot compile pattern list: {:?}\n", p);

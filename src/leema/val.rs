@@ -39,7 +39,6 @@ pub enum Type
     // base interface/type should probably be iterator
     // and then it should be a protocol, not type
     StrictList(Box<Type>),
-    RelaxedList,
     Lib(String),
     RustBlock,
     // Future(Box<Type>),
@@ -129,7 +128,6 @@ impl Type
     {
         match self {
             &Type::StrictList(ref inner) => (**inner).clone(),
-            &Type::RelaxedList => Type::Any,
             &Type::Var(_) => Type::Unknown,
             &Type::Unknown => Type::Unknown,
             _ => {
@@ -140,11 +138,7 @@ impl Type
 
     pub fn wrap_in_list(inner: Type) -> Type
     {
-        match inner {
-            Type::Any => Type::RelaxedList,
-            Type::Unknown => Type::RelaxedList,
-            _ => Type::StrictList(Box::new(inner)),
-        }
+        Type::StrictList(Box::new(inner))
     }
 }
 
@@ -171,7 +165,6 @@ impl fmt::Display for Type
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
-            &Type::RelaxedList => write!(f, "List"),
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
             &Type::RustBlock => write!(f, "RustBlock"),
             &Type::Void => write!(f, "Void"),

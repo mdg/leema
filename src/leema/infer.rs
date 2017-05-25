@@ -125,8 +125,6 @@ impl Inferator
                     Some(Type::StrictList(Box::new(t)))
                 })
             }
-            (&Type::StrictList(_), &Type::RelaxedList) => Some(oldt.clone()),
-            (&Type::RelaxedList, &Type::StrictList(_)) => Some(newt.clone()),
             (&Type::Var(ref oldtname), _) => {
                 inferences.insert(oldtname.clone(), newt.clone());
                 Some(newt.clone())
