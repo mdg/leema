@@ -1,4 +1,5 @@
 
+use leema::list;
 use leema::log;
 use leema::val::{Val, Type};
 
@@ -39,13 +40,23 @@ impl Inferator
 
     pub fn bind_vartype(&mut self, argn: &str, argt: &Type) -> Option<Type>
     {
+        let realt = match argt {
+            &Type::Unknown => {
+                let arg_typename = format!("T_local_{}", argn);
+                Type::Var(Rc::new(arg_typename))
+            }
+            &Type::AnonVar => {
+                panic!("cannot bind var to anonymous type: {}", argn);
+            }
+            _ => argt.clone(),
+        };
         if !self.T.contains_key(argn) {
-            self.T.insert(String::from(argn), argt.clone());
-            return Some(argt.clone())
+            self.T.insert(String::from(argn), realt.clone());
+            return Some(realt)
         }
 
         let oldargt = self.T.get(argn).unwrap();
-        Inferator::mash(&mut self.inferences, oldargt, argt)
+        Inferator::mash(&mut self.inferences, oldargt, &realt)
     }
 
     pub fn merge_types(&mut self, a: &Type, b: &Type) -> Option<Type>
@@ -78,6 +89,17 @@ impl Inferator
                     valtype,
                 );
             }
+            (&Val::Cons(_, _), &Type::StrictList(ref subt)) => {
+                list::map_ref(patt, |p| {
+                    self.match_pattern(p, subt);
+                    Val::Void
+                });
+            }
+            (&Val::Cons(ref head, ref tail), &Type::Var(ref tvar_name)) => {
+                let tvar_inner_name = format!("{}_inner", tvar_name);
+                let tvar_inner = Type::Var(Rc::new(tvar_inner_name));
+                self.match_list_pattern(patt, &tvar_inner);
+            }
             _ => {
                 let ptype = patt.get_type();
                 let mtype = self.merge_types(&ptype, valtype);
@@ -85,6 +107,24 @@ impl Inferator
                     panic!("pattern type mismatch: {:?} != {:?}"
                         , patt, valtype);
                 }
+            }
+        }
+    }
+
+    pub fn match_list_pattern(&mut self, l: &Val, itype: &Type)
+    {
+        match l {
+            &Val::Cons(ref head, ref tail) => {
+                self.match_pattern(head, itype);
+                self.match_list_pattern(tail, itype);
+            }
+            &Val::Id(ref idname) => {
+                self.bind_vartype(idname, itype);
+            }
+            &Val::Nil => {}
+            &Val::Wildcard => {}
+            _ => {
+                panic!("match_list_pattern on not a list: {:?}", l);
             }
         }
     }

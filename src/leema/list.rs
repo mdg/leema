@@ -128,8 +128,8 @@ pub fn map<F>(mut l: Val, op: F) -> Val
     reverse(&result)
 }
 
-pub fn map_ref<F>(mut l: &Val, op: F) -> Val
-    where F: Fn(&Val) -> Val
+pub fn map_ref<F>(mut l: &Val, mut op: F) -> Val
+    where F: FnMut(&Val) -> Val
 {
     let mut result = Val::Nil;
     while *l != Val::Nil {
