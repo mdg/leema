@@ -7,6 +7,7 @@ use leema::log;
 use leema::phase0::{self, Protomod};
 use leema::{prefab, udp};
 use leema::typecheck::{self, CallOp, CallFrame, Typescope, Typemod};
+use leema::val::{Type};
 
 use std::io::{Write, stderr};
 use std::rc::{Rc};
@@ -195,26 +196,30 @@ impl Lib
             }
         }
 
-        let ftype = {
-            let typed = self.typed.get(modname).unwrap();
-
-            let pref = self.preface.get(modname).unwrap().clone();
-            let prefab = self.typed.get("prefab").unwrap();
-            let mut imports: HashMap<String, &'a Typemod> = HashMap::new();
-            imports.insert(String::from("prefab"), prefab);
-            for i in pref.imports.iter() {
-                let iii: Option<&'a Typemod> = self.typed.get(i);
-                if iii.is_none() {
-                    panic!("cannot find intermod in imports: {}", i);
-                }
-                imports.insert(i.clone(), iii.unwrap());
-            }
-
-            let mut scope = Typescope::new(typed, funcname, &imports);
-            typecheck::typecheck_function(&mut scope, fix)
-        };
+        let ftype = self.deep_typecheck_function(modname, funcname, fix);
         let mutyped = self.typed.get_mut(modname).unwrap();
         mutyped.func.insert(String::from(funcname), ftype);
+    }
+
+    pub fn deep_typecheck_function<'a, 'b>(&'a mut self
+        , modname: &'b str, funcname: &'b str, fix: &Ixpr) -> Type
+    {
+        let typed = self.typed.get(modname).unwrap();
+
+        let pref = self.preface.get(modname).unwrap().clone();
+        let prefab = self.typed.get("prefab").unwrap();
+        let mut imports: HashMap<String, &'a Typemod> = HashMap::new();
+        imports.insert(String::from("prefab"), prefab);
+        for i in pref.imports.iter() {
+            let iii: Option<&'a Typemod> = self.typed.get(i);
+            if iii.is_none() {
+                panic!("cannot find intermod in imports: {}", i);
+            }
+            imports.insert(i.clone(), iii.unwrap());
+        }
+
+        let mut scope = Typescope::new(typed, funcname, &imports);
+        typecheck::typecheck_function(&mut scope, fix)
     }
 
     fn load_imports(&mut self, modname: &str, imports: &HashSet<String>)
