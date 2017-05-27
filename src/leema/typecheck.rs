@@ -271,7 +271,14 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> Type
     println!("check_function({:?})", scope.fname);
     match &ix.src {
         &Source::Func(ref argnames, ref body) => {
-            typecheck_expr(scope, &*body)
+            let result_type = typecheck_expr(scope, &*body);
+            println!("type is: {}", result_type);
+            println!("vars:");
+            for var in scope.T.vars() {
+                let typ = scope.T.vartype(var);
+                println!("\t{}: {}", var, typ.unwrap());
+            }
+            result_type
         }
         &Source::RustBlock => {
             ix.typ.clone()

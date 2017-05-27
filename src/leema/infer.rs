@@ -4,6 +4,7 @@ use leema::log;
 use leema::val::{Val, Type};
 
 use std::collections::{HashMap};
+use std::collections::hash_map::Keys;
 use std::io::{stderr, Write};
 use std::rc::{Rc};
 
@@ -23,6 +24,11 @@ impl Inferator
             T: HashMap::new(),
             inferences: HashMap::new(),
         }
+    }
+
+    pub fn vars(&self) -> Keys<String, Type>
+    {
+        self.T.keys()
     }
 
     pub fn vartype(&self, argn: &str) -> Option<&Type>
