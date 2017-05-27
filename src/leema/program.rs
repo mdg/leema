@@ -6,7 +6,7 @@ use leema::loader::{Interloader};
 use leema::log;
 use leema::phase0::{self, Protomod};
 use leema::{prefab, udp};
-use leema::typecheck::{self, CallOp, CallFrame, Typescope};
+use leema::typecheck::{self, CallOp, CallFrame, Typescope, Typemod};
 
 use std::io::{Write, stderr};
 use std::rc::{Rc};
@@ -20,7 +20,7 @@ pub struct Lib
     preface: HashMap<String, Rc<ModulePreface>>,
     proto: HashMap<String, Rc<Protomod>>,
     inter: HashMap<String, Rc<Intermod>>,
-    typed: HashMap<String, Intermod>,
+    typed: HashMap<String, Typemod>,
     rust_load: HashMap<String, fn(&str) -> Option<code::Code>>,
     code: HashMap<String, HashMap<String, Code>>,
 }
@@ -86,7 +86,7 @@ impl Lib
             let inter = self.read_inter(modname);
             let modkey = inter.key.clone();
             self.inter.insert(String::from(modname), Rc::new(inter));
-            let typemod = Intermod::new(modkey);
+            let typemod = Typemod::new(modkey);
             self.typed.insert(String::from(modname), typemod);
         }
     }
@@ -195,22 +195,26 @@ impl Lib
             }
         }
 
-        let typed = self.typed.get(modname).unwrap();
+        let ftype = {
+            let typed = self.typed.get(modname).unwrap();
 
-        let pref = self.preface.get(modname).unwrap().clone();
-        let prefab = self.inter.get("prefab").unwrap();
-        let mut imports: HashMap<String, &'a Intermod> = HashMap::new();
-        imports.insert(String::from("prefab"), prefab);
-        for i in pref.imports.iter() {
-            let iii: Option<&'a Intermod> = self.typed.get(i);
-            if iii.is_none() {
-                panic!("cannot find intermod in imports: {}", i);
+            let pref = self.preface.get(modname).unwrap().clone();
+            let prefab = self.typed.get("prefab").unwrap();
+            let mut imports: HashMap<String, &'a Typemod> = HashMap::new();
+            imports.insert(String::from("prefab"), prefab);
+            for i in pref.imports.iter() {
+                let iii: Option<&'a Typemod> = self.typed.get(i);
+                if iii.is_none() {
+                    panic!("cannot find intermod in imports: {}", i);
+                }
+                imports.insert(i.clone(), iii.unwrap());
             }
-            imports.insert(i.clone(), iii.unwrap());
-        }
 
-        let mut scope = Typescope::new(typed, funcname, &imports);
-        typecheck::typecheck_function(&mut scope, fix);
+            let mut scope = Typescope::new(typed, funcname, &imports);
+            typecheck::typecheck_function(&mut scope, fix)
+        };
+        let mutyped = self.typed.get_mut(modname).unwrap();
+        mutyped.func.insert(String::from(funcname), ftype);
     }
 
     fn load_imports(&mut self, modname: &str, imports: &HashSet<String>)

@@ -1,7 +1,7 @@
 
 use leema::ixpr::{Ixpr, Source};
-use leema::inter::{Intermod};
 use leema::infer::{Inferator};
+use leema::module::{ModKey};
 use leema::val::{Val, Type};
 use leema::log;
 
@@ -144,18 +144,46 @@ impl<'a> CallFrame<'a>
 }
 
 #[derive(Debug)]
+pub struct Typemod
+{
+    pub key: Rc<ModKey>,
+    pub func: HashMap<String, Type>,
+}
+
+impl Typemod
+{
+    pub fn new(key: Rc<ModKey>) -> Typemod
+    {
+        Typemod{
+            key: key,
+            func: HashMap::new(),
+        }
+    }
+
+    pub fn name(&self) -> &str
+    {
+        &self.key.name
+    }
+
+    pub fn function_type(&self, fname: &str) -> Option<&Type>
+    {
+        self.func.get(fname)
+    }
+}
+
+#[derive(Debug)]
 pub struct Typescope<'a, 'b>
 {
     pub fname: &'b str,
-    inter: &'a Intermod,
-    imports: &'a HashMap<String, &'a Intermod>,
+    inter: &'a Typemod,
+    imports: &'a HashMap<String, &'a Typemod>,
     T: Inferator,
 }
 
 impl<'a, 'b> Typescope<'a, 'b>
 {
-    pub fn new(inter: &'a Intermod, func: &'b str
-            , imps: &'a HashMap<String, &'a Intermod>
+    pub fn new(inter: &'a Typemod, func: &'b str
+            , imps: &'a HashMap<String, &'a Typemod>
             ) -> Typescope<'a, 'b>
     {
         Typescope
@@ -189,12 +217,43 @@ impl<'a, 'b> Typescope<'a, 'b>
             }
         }
     }
+
+    pub fn typecheck_call(&mut self, src: &Source) -> Type
+    {
+        match src {
+            &Source::Tuple(ref items) => {
+                if items.len() != 2 {
+                    panic!("call tuples should have 2 items: {:?}", items);
+                }
+                let ref modname = items[0];
+                let ref funcname = items[1];
+            }
+            &Source::ConstVal(ref fval) => {
+                match fval {
+                    &Val::Tuple(ref items) => {
+                        let ref modname = items[0];
+                        let ref funcname = items[1];
+                    }
+                    &Val::Str(ref strname) => {
+                    }
+                    _ => {
+                        panic!("whateval is in typecheck_call? {:?}", fval);
+                    }
+                }
+            }
+            _ => {
+                panic!("whatever is that in typecheck_call? {:?}", src);
+            }
+        }
+        Type::Void
+    }
 }
 
 pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
 {
     match &ix.src {
         &Source::Call(ref func, ref args) => {
+            scope.typecheck_call(&func.src);
             let tfunc = typecheck_expr(scope, func);
             let mut targs = vec![];
             if let Source::Tuple(ref argstup) = args.src {
@@ -271,6 +330,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> Type
     println!("check_function({:?})", scope.fname);
     match &ix.src {
         &Source::Func(ref argnames, ref body) => {
+            println!("f({:?}) =>\n{:?}", argnames, body);
             let result_type = typecheck_expr(scope, &*body);
             println!("type is: {}", result_type);
             println!("vars:");

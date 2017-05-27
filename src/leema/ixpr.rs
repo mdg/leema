@@ -153,7 +153,7 @@ impl Ixpr
     pub fn new_match_expr(input: Ixpr, cases: Ixpr) -> Ixpr
     {
         Ixpr{
-            typ: Type::Unknown,
+            typ: cases.typ.clone(),
             src: Source::MatchExpr(
                 Box::new(input),
                 Box::new(cases),
@@ -164,7 +164,7 @@ impl Ixpr
     pub fn new_match_case(pattern: Val, code: Ixpr, next: Ixpr) -> Ixpr
     {
         Ixpr{
-            typ: Type::Unknown,
+            typ: code.typ.clone(),
             src: Source::MatchCase(
                 pattern,
                 Box::new(code),
@@ -201,18 +201,6 @@ impl Ixpr
         Ixpr{
             typ: Type::Str,
             src: Source::StrMash(items),
-        }
-    }
-
-    fn tuple(items: Vec<Ixpr>) -> Ixpr
-    {
-        let mut types = vec![];
-        for i in &items {
-            types.push(i.typ.clone());
-        }
-        Ixpr{
-            typ: Type::Tuple(types),
-            src: Source::Tuple(items),
         }
     }
 }

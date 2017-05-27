@@ -3,16 +3,19 @@ use leema::list;
 use leema::log;
 use leema::val::{Val, Type};
 
-use std::collections::{HashMap};
+use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Keys;
 use std::io::{stderr, Write};
 use std::rc::{Rc};
 
 
+type Blockscope = HashSet<String>;
+
 #[derive(Debug)]
 pub struct Inferator
 {
     T: HashMap<String, Type>,
+    e: Vec<Blockscope>,
     inferences: HashMap<Rc<String>, Type>,
 }
 
@@ -22,6 +25,7 @@ impl Inferator
     {
         Inferator{
             T: HashMap::new(),
+            e: vec![Blockscope::new()],
             inferences: HashMap::new(),
         }
     }
@@ -46,6 +50,14 @@ impl Inferator
 
     pub fn bind_vartype(&mut self, argn: &str, argt: &Type) -> Option<Type>
     {
+        {
+            let e = self.e.last_mut().unwrap();
+            if e.contains(argn) {
+                panic!("Cannot redeclare variable: {}", argn);
+            }
+            e.insert(argn.to_string());
+        }
+
         let realt = match argt {
             &Type::Unknown => {
                 let arg_typename = format!("T_local_{}", argn);
@@ -135,6 +147,31 @@ impl Inferator
         }
     }
 
+    pub fn push_block(&mut self)
+    {
+        self.e.push(Blockscope::new());
+    }
+
+    pub fn pop_block(&mut self)
+    {
+        self.e.pop();
+    }
+
+    pub fn blk(&self) -> &Blockscope
+    {
+        self.e.last().unwrap()
+    }
+
+    pub fn contains_var(&self, name: &str) -> bool
+    {
+        for e in self.e.iter() {
+            if e.contains(name) {
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn inferred_type<'a>(&'a self, typ: &'a Type) -> &Type
     {
         if !typ.is_var() {
@@ -157,6 +194,10 @@ impl Inferator
             return Some(oldt.clone());
         }
         match (oldt, newt) {
+            // anything is better than Unknown
+            (&Type::Unknown, _) => Some(newt.clone()),
+            (_, &Type::Unknown) => Some(oldt.clone()),
+            // handle variables
             (&Type::Var(ref oldtname), &Type::Var(ref newtname)) => {
                 if oldtname < newtname {
                     inferences.insert(newtname.clone(), oldt.clone());
@@ -197,9 +238,6 @@ impl Inferator
                 }
                 Some(Type::Tuple(masht))
             }
-            // nothing to mash for unknown types
-            (&Type::Unknown, _) => Some(newt.clone()),
-            (_, &Type::Unknown) => Some(oldt.clone()),
             (_, _) => {
                 println!("type mismatch: {:?} != {:?}", oldt, newt);
                 None

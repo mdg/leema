@@ -8,7 +8,7 @@ use leema::phase0::{Protomod};
 use leema::sxpr;
 use leema::val::{Val, SxprType, Type};
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 use std::fmt;
 use std::io::{stderr, Write};
 use std::rc::{Rc};
@@ -120,13 +120,6 @@ impl Intermod
 }
 
 #[derive(Debug)]
-struct Blockscope
-{
-    // set of locally defined labels
-    E: HashSet<String>,
-}
-
-#[derive(Debug)]
 #[derive(PartialEq)]
 pub enum ScopeLevel
 {
@@ -141,7 +134,6 @@ pub struct Interscope<'a>
     fname: &'a str,
     proto: &'a Protomod,
     imports: &'a HashMap<String, Rc<Protomod>>,
-    blkstk: Vec<Blockscope>,
     // types of locally defined labels
     T: Inferator,
     argt: Type,
@@ -153,62 +145,27 @@ impl<'a> Interscope<'a>
             , fname: &'a str, args: &Vec<Rc<String>>, argt: &Vec<Type>
             ) -> Interscope<'a>
     {
-        let mut e = HashSet::new();
         let mut t = Inferator::new();
 
         for (an, at) in args.iter().zip(argt) {
-            e.insert((&**an).clone());
             if let None = t.bind_vartype(an, at) {
                 panic!("args type mismatch: {:?} != {:?}", args, argt);
             }
         }
 
-        let blk = Blockscope{
-            E: e,
-        };
         Interscope{
             fname: fname,
             proto: proto,
             imports: imports,
-            blkstk: vec![blk],
             T: t,
             argt: Type::Tuple(argt.clone()),
         }
     }
 
-    pub fn push_block(&mut self)
-    {
-        self.blkstk.push(Blockscope{
-            E: HashSet::new()
-        });
-    }
-
-    pub fn pop_block(&mut self)
-    {
-        self.blkstk.pop();
-    }
-
-    pub fn blk(&self) -> &Blockscope
-    {
-        self.blkstk.last().unwrap()
-    }
-
-    pub fn add_var(&mut self, name: &str, typ: &Type)
-    {
-        if self.blk().E.contains(name) {
-            panic!("variable is already declared: {}", name);
-        }
-        if let None = self.T.bind_vartype(name, typ) {
-            panic!("var type mismatch: {} != {:?}", name, typ);
-        }
-        self.blkstk.last_mut().unwrap().E.insert(String::from(name));
-vout!("add_var({}, {:?}) -> {:?}\n", name, typ, self.blkstk);
-    }
-
     pub fn vartype(&self, name: &str) -> Option<(ScopeLevel, &Type)>
     {
         let local = self.T.vartype(name);
-        if local.is_some() && self.contains_local(name) {
+        if local.is_some() && self.T.contains_var(name) {
             return Some((ScopeLevel::Local, local.unwrap()));
         }
         let modtyp = self.proto.valtype(name);
@@ -219,8 +176,8 @@ vout!("add_var({}, {:?}) -> {:?}\n", name, typ, self.blkstk);
             Some(ref proto) => {
                 let valtype_opt = proto.valtype(name);
                 if valtype_opt.is_none() {
-                    vout!("cannot find variable: {} in {:?}\nor {:?}\n",
-                        name, self.T, self.blkstk);
+                    vout!("cannot find variable: {} in {:?}\n",
+                        name, self.T);
                     panic!("undefined variable: {}", name);
                 }
                 Some((ScopeLevel::External, valtype_opt.unwrap()))
@@ -241,7 +198,7 @@ vout!("add_var({}, {:?}) -> {:?}\n", name, typ, self.blkstk);
 
     pub fn contains_id(&self, name: &str) -> bool
     {
-        if self.contains_local(name) {
+        if self.T.contains_var(name) {
             true
         } else if self.proto.contains_val(name) {
             true
@@ -253,16 +210,6 @@ vout!("add_var({}, {:?}) -> {:?}\n", name, typ, self.blkstk);
                 None => false,
             }
         }
-    }
-
-    pub fn contains_local(&self, name: &str) -> bool
-    {
-        for b in self.blkstk.iter() {
-            if b.E.contains(name) {
-                return true;
-            }
-        }
-        false
     }
 
     pub fn imports_module(&self, name: &str) -> bool
@@ -284,14 +231,18 @@ pub fn compile_function<'a>(proto: &'a Protomod
     }
     let (argt, result) = Type::split_func(ftype);
     let mut scope = Interscope::new(proto, imports, fname, args, argt);
-    let ibody = compile_expr(&mut scope, body);
+    let mut ibody = compile_expr(&mut scope, body);
     let argt2: Vec<Type> = argt.iter().map(|a| {
         scope.T.inferred_type(a).clone()
     }).collect();
-    let final_ftype = Type::Func(argt2, Box::new(ibody.typ.clone()));
+    let ibody2 = Ixpr{
+        typ: scope.T.inferred_type(&ibody.typ).clone(),
+        src: ibody.src,
+    };
+    let final_ftype = Type::Func(argt2, Box::new(ibody2.typ.clone()));
     Ixpr{
         typ: final_ftype,
-        src: Source::Func(args.clone(), Box::new(ibody)),
+        src: Source::Func(args.clone(), Box::new(ibody2)),
     }
 }
 
@@ -354,7 +305,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
         &Val::DotAccess(ref outer, ref inner) => {
             match &**outer {
                 &Val::Id(ref outer_id) => {
-                    if scope.contains_local(outer_id) {
+                    if scope.T.contains_var(outer_id) {
                         Ixpr::new(Source::FieldAccess(
                             Box::new(Ixpr::new(Source::Id(outer_id.clone()))),
                             inner.clone(),
@@ -425,9 +376,9 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
 {
     match st {
         SxprType::BlockExpr => {
-            scope.push_block();
+            scope.T.push_block();
             let iblk = compile_list_to_vec(scope, sx);
-            scope.pop_block();
+            scope.T.pop_block();
             Ixpr::new_block(iblk)
         }
         SxprType::Call => {
@@ -461,10 +412,7 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
         SxprType::Let => {
             let (lhs_patt, rhs_val) = list::to_ref_tuple2(sx);
             let irhs = compile_expr(scope, rhs_val);
-            if let None = compile_pattern(scope, lhs_patt, &irhs.typ) {
-                panic!("let pattern type mismatch: let {:?} := {:?}"
-                    , lhs_patt, irhs);
-            }
+            scope.T.match_pattern(lhs_patt, &irhs.typ);
             Ixpr::new(Source::Let(lhs_patt.clone(), Box::new(irhs)))
         }
         SxprType::MatchExpr => {
@@ -488,19 +436,22 @@ pub fn compile_matchcase(scope: &mut Interscope, case: &Val, xtyp: &Type
 {
     let (patt, t2) = list::take_ref(case);
     let (blk, t3) = list::take_ref(t2);
-    scope.push_block();
-    if let None = compile_pattern(scope, patt, xtyp) {
+    scope.T.push_block();
+    scope.T.match_pattern(patt, xtyp);
+        /*
         panic!("match case pattern type mismatch: {:?} != {:?}",
             patt, xtyp);
-    }
+        */
     let iblk = compile_expr(scope, blk);
-    scope.pop_block();
+    scope.T.pop_block();
     let inext = match t3 {
         &Val::Cons(ref next, _) if **next == Val::Void => {
             Ixpr::noop()
         }
         &Val::Cons(ref next, _) => {
-            compile_matchcase(scope, next, xtyp)
+            let inxt_inner = compile_matchcase(scope, next, xtyp);
+            scope.T.merge_types(&iblk.typ, &inxt_inner.typ);
+            inxt_inner
         }
         &Val::Nil => {
             Ixpr::noop()
@@ -521,106 +472,6 @@ pub fn compile_list_to_vec(scope: &mut Interscope, l: &Val) -> Vec<Ixpr>
         }
     );
     result
-}
-
-pub fn compile_pattern(scope: &mut Interscope, p: &Val, srctyp: &Type
-    ) -> Option<Type>
-{
-    let result = match p {
-        &Val::Id(ref id) => {
-            scope.add_var(&id, srctyp);
-            Some(srctyp.clone())
-        }
-        &Val::Int(_) => {
-            scope.T.merge_types(&Type::Int, srctyp)
-        }
-        &Val::Str(_) => {
-            scope.T.merge_types(&Type::Str, srctyp)
-        }
-        &Val::Bool(_) => {
-            scope.T.merge_types(&Type::Bool, srctyp)
-        }
-        &Val::Hashtag(_) => {
-            scope.T.merge_types(&Type::Hashtag, srctyp)
-        }
-        &Val::Wildcard => {
-            // matches, but nothing to do
-            Some(srctyp.clone())
-        }
-        &Val::Nil => {
-            scope.T.merge_types(
-                &Type::StrictList(Box::new(Type::Unknown)),
-                srctyp,
-            )
-        }
-        &Val::Cons(_, _) => {
-            compile_pattern_list(scope, p, srctyp)
-        }
-        &Val::Tuple(ref items) => {
-            let inner_opt_types: Vec<Option<Type>> = match srctyp {
-                &Type::Tuple(ref subtypes) => {
-                    if subtypes.len() != items.len() {
-                        panic!("tuple pattern size mismatch: {:?} <- {:?}",
-                            items, subtypes);
-                    }
-                    items.iter().zip(subtypes).map(|(i,st)| {
-                        compile_pattern(scope, i, st)
-                    }).collect()
-                }
-                _ => {
-                    // not a tuple, but might be a matching var
-                    // will let merge types sort it out later
-                    items.iter().map(|i| {
-                        compile_pattern(scope, i, &Type::Unknown)
-                    }).collect()
-                }
-            };
-
-            let mut inner_types = vec![];
-            for i in inner_opt_types {
-                match i {
-                    Some(ii) => inner_types.push(ii),
-                    None => {
-                        return None;
-                    }
-                }
-            }
-            let subt = Type::Tuple(inner_types);
-            scope.T.merge_types(&subt, srctyp)
-        }
-        _ => {
-            vout!("Unsupported pattern: {:?}\n", p);
-            None
-        }
-    };
-    result
-}
-
-pub fn compile_pattern_list(scope: &mut Interscope, p: &Val, srctyp: &Type
-) -> Option<Type>
-{
-    match p {
-        &Val::Cons(ref head, ref tail) => {
-            let inner_srct = srctyp.list_inner_type();
-            compile_pattern(scope, head, &inner_srct).and_then(|x| {
-                compile_pattern_list(scope, tail, &Type::wrap_in_list(x))
-            })
-        }
-        &Val::Nil => {
-            Some(Type::wrap_in_list(Type::Unknown))
-        }
-        &Val::Id(ref id) => {
-            scope.add_var(&id, srctyp);
-            Some(Type::wrap_in_list(Type::Unknown))
-        }
-        &Val::Wildcard => {
-            Some(Type::wrap_in_list(Type::Unknown))
-        }
-        _ => {
-            vout!("cannot compile pattern list: {:?}\n", p);
-            None
-        }
-    }
 }
 
 pub fn split_func_args_body(defunc: &Val) -> (Vec<Rc<String>>, &Val)
@@ -703,7 +554,7 @@ fn test_scope_push_block()
         assert_eq!(Type::Int, *hello_typ);
     }
 
-    scope.push_block();
+    scope.T.push_block();
     scope.add_var("world", &Type::Str);
     println!("push_block().add_var(world) -> {:?}", scope);
 
@@ -717,7 +568,7 @@ fn test_scope_push_block()
         assert_eq!(Type::Int, *hello_typ);
     }
 
-    scope.pop_block();
+    scope.T.pop_block();
 
     assert_eq!(None, scope.vartype("world"));
     assert!(scope.vartype("hello").is_some());
