@@ -196,6 +196,8 @@ impl Lib
             }
         }
 
+        self.typed.get_mut(modname).unwrap().func.insert(
+            String::from(funcname), fix.typ.clone());
         let ftype = self.deep_typecheck_function(modname, funcname, fix);
         let mutyped = self.typed.get_mut(modname).unwrap();
         mutyped.func.insert(String::from(funcname), ftype);

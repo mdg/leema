@@ -218,7 +218,7 @@ impl<'a, 'b> Typescope<'a, 'b>
         }
     }
 
-    pub fn typecheck_call(&mut self, src: &Source) -> Type
+    pub fn typecheck_call_func(&mut self, src: &Source) -> Type
     {
         match src {
             &Source::Tuple(ref items) => {
@@ -227,14 +227,17 @@ impl<'a, 'b> Typescope<'a, 'b>
                 }
                 let ref modname = items[0];
                 let ref funcname = items[1];
+                Type::Void
             }
             &Source::ConstVal(ref fval) => {
                 match fval {
                     &Val::Tuple(ref items) => {
                         let ref modname = items[0];
                         let ref funcname = items[1];
+                        self.functype(modname.str(), funcname.str())
                     }
                     &Val::Str(ref strname) => {
+                        Type::Void
                     }
                     _ => {
                         panic!("whateval is in typecheck_call? {:?}", fval);
@@ -245,7 +248,15 @@ impl<'a, 'b> Typescope<'a, 'b>
                 panic!("whatever is that in typecheck_call? {:?}", src);
             }
         }
-        Type::Void
+    }
+
+    pub fn functype(&self, modname: &str, funcname: &str) -> Type
+    {
+        if modname == self.inter.key.name {
+            self.inter.func.get(funcname).unwrap().clone()
+        } else {
+            Type::Void
+        }
     }
 }
 
@@ -253,8 +264,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
 {
     match &ix.src {
         &Source::Call(ref func, ref args) => {
-            scope.typecheck_call(&func.src);
-            let tfunc = typecheck_expr(scope, func);
+            let tfunc = scope.typecheck_call_func(&func.src);
             let mut targs = vec![];
             if let Source::Tuple(ref argstup) = args.src {
                 for a in argstup {
@@ -327,10 +337,15 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
 
 pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> Type
 {
-    println!("check_function({:?})", scope.fname);
-    match &ix.src {
-        &Source::Func(ref argnames, ref body) => {
-            println!("f({:?}) =>\n{:?}", argnames, body);
+    println!("check_function({:?}: {:?})", scope.fname, ix.typ);
+    match (&ix.src, &ix.typ) {
+        (&Source::Func(ref arg_names, ref body)
+                , &Type::Func(ref arg_types, ref declared_result_type)) =>
+        {
+            for (an, at) in arg_names.iter().zip(arg_types.iter()) {
+                scope.T.bind_vartype(an, at);
+            }
+            println!("f({:?}) =>\n{:?}", arg_names, body);
             let result_type = typecheck_expr(scope, &*body);
             println!("type is: {}", result_type);
             println!("vars:");
@@ -338,9 +353,15 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> Type
                 let typ = scope.T.vartype(var);
                 println!("\t{}: {}", var, typ.unwrap());
             }
-            result_type
+            let final_args = arg_types.iter().map(|at| {
+                scope.T.inferred_type(at).clone()
+            }).collect();
+            let final_result = scope.T
+                .merge_types(&result_type, declared_result_type)
+                .unwrap();
+            Type::Func(final_args, Box::new(final_result))
         }
-        &Source::RustBlock => {
+        (&Source::RustBlock, _) => {
             ix.typ.clone()
         }
         _ => {
