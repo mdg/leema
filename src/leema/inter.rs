@@ -240,6 +240,13 @@ pub fn compile_function<'a>(proto: &'a Protomod
         src: ibody.src,
     };
     let final_ftype = Type::Func(argt2, Box::new(ibody2.typ.clone()));
+    vout!("compile function {}: {}\n", fname, ftype);
+    for v in scope.T.vars() {
+        let vtyp = scope.T.vartype(v);
+        vout!("\t{}: {}\n", v, vtyp.unwrap());
+    }
+    vout!("\t<result>: {}\n", ibody2.typ);
+    vout!("inferences: {:?}\n", scope.T);
     Ixpr{
         typ: final_ftype,
         src: Source::Func(args.clone(), Box::new(ibody2)),

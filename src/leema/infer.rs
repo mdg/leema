@@ -108,11 +108,8 @@ impl Inferator
                     valtype,
                 );
             }
-            (&Val::Cons(_, _), &Type::StrictList(ref subt)) => {
-                list::map_ref(patt, |p| {
-                    self.match_pattern(p, subt);
-                    Val::Void
-                });
+            (&Val::Cons(ref head, _), &Type::StrictList(ref subt)) => {
+                self.match_list_pattern(patt, subt);
             }
             (&Val::Cons(ref head, ref tail), &Type::Var(ref tvar_name)) => {
                 let tvar_inner_name = format!("{}_inner", tvar_name);
