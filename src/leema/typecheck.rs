@@ -253,9 +253,15 @@ impl<'a, 'b> Typescope<'a, 'b>
     pub fn functype(&self, modname: &str, funcname: &str) -> Type
     {
         if modname == self.inter.key.name {
-            self.inter.func.get(funcname).unwrap().clone()
+            self.inter.func.get(funcname)
+            .unwrap()
+            .clone()
         } else {
-            Type::Void
+            self.imports.get(modname)
+            .expect(&format!("cannot find module {}", modname))
+            .func.get(funcname)
+            .expect(&format!("cannot find function {}::{}", modname, funcname))
+            .clone()
         }
     }
 }

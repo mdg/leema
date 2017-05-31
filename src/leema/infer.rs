@@ -35,7 +35,7 @@ impl Inferator
         self.T.keys()
     }
 
-    pub fn vartype(&self, argn: &str) -> Option<&Type>
+    pub fn vartype(&self, argn: &str) -> Option<Type>
     {
         match self.T.get(argn) {
             None => None,
@@ -50,6 +50,7 @@ impl Inferator
 
     pub fn bind_vartype(&mut self, argn: &str, argt: &Type) -> Option<Type>
     {
+        vout!("bind_vartype({}, {:?})\n", argn, argt);
         {
             let e = self.e.last_mut().unwrap();
             if e.contains(argn) {
@@ -117,6 +118,8 @@ impl Inferator
                 let tvar_inner_name = format!("{}_inner", tvar_name);
                 let tvar_inner = Type::Var(Rc::new(tvar_inner_name));
                 self.match_list_pattern(patt, &tvar_inner);
+                self.merge_types(&valtype,
+                    &Type::StrictList(Box::new(tvar_inner.clone())));
             }
             _ => {
                 let ptype = patt.get_type();
@@ -129,15 +132,16 @@ impl Inferator
         }
     }
 
-    pub fn match_list_pattern(&mut self, l: &Val, itype: &Type)
+    pub fn match_list_pattern(&mut self, l: &Val, inner_type: &Type)
     {
         match l {
             &Val::Cons(ref head, ref tail) => {
-                self.match_pattern(head, itype);
-                self.match_list_pattern(tail, itype);
+                self.match_pattern(head, inner_type);
+                self.match_list_pattern(tail, inner_type);
             }
             &Val::Id(ref idname) => {
-                self.bind_vartype(idname, itype);
+                let ltype = Type::StrictList(Box::new(inner_type.clone()));
+                self.bind_vartype(idname, &ltype);
             }
             &Val::Nil => {}
             &Val::Wildcard => {}
@@ -172,17 +176,23 @@ impl Inferator
         false
     }
 
-    pub fn inferred_type<'a>(&'a self, typ: &'a Type) -> &Type
     {
-        if !typ.is_var() {
-            return typ;
         }
-        let varname = typ.var_name();
-        match self.inferences.get(&varname) {
-            Some(ref other_type) => {
-                self.inferred_type(other_type)
+    pub fn inferred_type<'a>(&'a self, typ: &'a Type) -> Type
+    {
+        match typ {
+            &Type::Var(ref varname) => {
+                match self.inferences.get(&**varname) {
+                    Some(ref other_type) => {
+                        self.inferred_type(other_type)
+                    }
+                    None => typ.clone(),
+                }
             }
-            None => typ,
+            &Type::StrictList(ref inner) => {
+                Type::StrictList(Box::new(self.inferred_type(inner)))
+            }
+            _ => typ.clone()
         }
     }
 
@@ -193,7 +203,8 @@ impl Inferator
             // all good
             return Some(oldt.clone());
         }
-        match (oldt, newt) {
+        vout!("mash({:?}, {:?})", oldt, newt);
+        let mtype = match (oldt, newt) {
             // anything is better than Unknown
             (&Type::Unknown, _) => Some(newt.clone()),
             (_, &Type::Unknown) => Some(oldt.clone()),
@@ -242,7 +253,9 @@ impl Inferator
                 println!("type mismatch: {:?} != {:?}", oldt, newt);
                 None
             }
-        }
+        };
+        vout!(" -> {:?}\n", mtype);
+        mtype
     }
 
 

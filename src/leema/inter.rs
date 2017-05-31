@@ -162,7 +162,7 @@ impl<'a> Interscope<'a>
         }
     }
 
-    pub fn vartype(&self, name: &str) -> Option<(ScopeLevel, &Type)>
+    pub fn vartype(&self, name: &str) -> Option<(ScopeLevel, Type)>
     {
         let local = self.T.vartype(name);
         if local.is_some() && self.T.contains_var(name) {
@@ -170,7 +170,7 @@ impl<'a> Interscope<'a>
         }
         let modtyp = self.proto.valtype(name);
         if modtyp.is_some() {
-            return Some((ScopeLevel::Module, modtyp.unwrap()));
+            return Some((ScopeLevel::Module, modtyp.unwrap().clone()));
         }
         match self.imports.get("prefab") {
             Some(ref proto) => {
@@ -180,7 +180,7 @@ impl<'a> Interscope<'a>
                         name, self.T);
                     panic!("undefined variable: {}", name);
                 }
-                Some((ScopeLevel::External, valtype_opt.unwrap()))
+                Some((ScopeLevel::External, valtype_opt.unwrap().clone()))
             }
             None => None,
         }
