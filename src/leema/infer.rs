@@ -203,7 +203,7 @@ impl Inferator
             // all good
             return Some(oldt.clone());
         }
-        vout!("mash({:?}, {:?})", oldt, newt);
+        vout!("mash({:?}, {:?})\n", oldt, newt);
         let mtype = match (oldt, newt) {
             // anything is better than Unknown
             (&Type::Unknown, _) => Some(newt.clone()),
@@ -254,7 +254,7 @@ impl Inferator
                 None
             }
         };
-        vout!(" -> {:?}\n", mtype);
+        vout!("mashed to -> {:?}\n", mtype);
         mtype
     }
 
@@ -274,7 +274,10 @@ impl Inferator
         }
 
         for (defargt, argt) in defargst.iter().zip(argst.iter()) {
-            Inferator::mash(&mut self.inferences, defargt, argt);
+            if Inferator::mash(&mut self.inferences, defargt, argt).is_none() {
+                panic!("expected function args: {:?} found {:?}",
+                    defargst, argst);
+            }
         }
         self.inferred_type(defresult).clone()
     }
