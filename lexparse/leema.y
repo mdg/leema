@@ -22,6 +22,8 @@ use std::rc::{Rc};
 %type ID { TokenData<String> }
 %type INT { i64 }
 %type Let { TokenLoc }
+%type LPAREN { TokenLoc }
+%type RPAREN { TokenLoc }
 %type PLUS { TokenLoc }
 %type SEMICOLON { TokenLoc }
 %type SLASH { TokenLoc }
@@ -29,6 +31,7 @@ use std::rc::{Rc};
 %type SquareR { TokenLoc }
 %type StrLit { String }
 %type TYPE_ID { TokenData<String> }
+%type TYPE_VAR { TokenData<String> }
 
 %type program { Val }
 %type stmts { Val }
@@ -265,6 +268,9 @@ typex(A) ::= TYPE_BOOL. {
 }
 typex(A) ::= TYPE_VOID. {
 	A = Type::Void;
+}
+typex(A) ::= TYPE_VAR(B). {
+	A = Type::Var(Rc::new(B.data));
 }
 typex(A) ::= TYPE_ID(B). {
 	A = Type::Id(Rc::new(B.data));

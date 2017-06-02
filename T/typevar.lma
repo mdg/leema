@@ -1,0 +1,17 @@
+
+func new_pair(a: $A, b: $B): ($A, $B) -> (a, b) --
+func first(p: ($A, $B)): $A
+|((a, b)) -> a
+--
+func second(p: ($A, $B)): $B
+|((a, b)) -> b
+--
+
+func main() ->
+    let p := new_pair(4, "b")
+    let f := first(p)
+    let s := second(p)
+
+    cout("first: $f, second: $s\n")
+--
+

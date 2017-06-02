@@ -87,7 +87,7 @@ impl Token
                     Token::IMPORT
                 }
                 parse::TOKEN_LPAREN => {
-                    Token::LPAREN
+                    Token::LPAREN(tl)
                 }
                 parse::TOKEN_PARENCALL => {
                     Token::PARENCALL
@@ -105,7 +105,7 @@ impl Token
                     Token::DOT
                 }
                 parse::TOKEN_RPAREN => {
-                    Token::RPAREN
+                    Token::RPAREN(tl)
                 }
                 parse::TOKEN_SEMICOLON => {
                     Token::SEMICOLON(tl)
@@ -231,6 +231,9 @@ impl Token
                 }
                 parse::TOKEN_TYPE_VOID => {
                     Token::TYPE_VOID
+                }
+                parse::TOKEN_TYPE_VAR => {
+                    Token::TYPE_VAR(TokenData::new((*tok).val(), tl))
                 }
                 parse::TOKEN_EOI => {
                     Token::EOI

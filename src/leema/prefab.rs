@@ -352,7 +352,7 @@ pub fn source_code() -> &'static str
     func equal(a, b): Bool -RUST-
     func less_than(a, b): Bool -RUST-
     func cout(txt: Str): Void -RUST-
-    func list_cons(head, tail): List -RUST-
+    func list_cons(head: $A, tail: [$A]): [$A] -RUST-
 
     func int_abs(a: Int): Int ->
         if

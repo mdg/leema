@@ -18,8 +18,8 @@ use std::io::{stderr, Write};
 use std::marker::{Send};
 
 
+// #[derive(Debug)]
 #[derive(Clone)]
-#[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
 #[derive(Eq)]
@@ -151,7 +151,59 @@ impl fmt::Display for Type
             &Type::Str => write!(f, "Str"),
             &Type::Bool => write!(f, "Bool"),
             &Type::Hashtag => write!(f, "Hashtag"),
-            &Type::Tuple(ref items) => write!(f, "Ttuple()"),
+            &Type::Tuple(ref items) => {
+                write!(f, "(");
+                for i in items {
+                    write!(f, "{},", i);
+                }
+                write!(f, ")")
+            }
+            &Type::Struct(ref name, nfields) => write!(f, "{}", name),
+            &Type::Enum(ref name) => write!(f, "Enum"),
+            &Type::Failure => write!(f, "Failure"),
+            &Type::Func(ref args, ref result) => {
+                for a in args {
+                    write!(f, "{}->", a).ok();
+                }
+                write!(f, "{}", result)
+            }
+            // different from base collection/map interfaces?
+            // base interface/type should probably be iterator
+            // and then it should be a protocol, not type
+            &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
+            &Type::Lib(ref name) => write!(f, "LibType({})", &name),
+            &Type::RustBlock => write!(f, "RustBlock"),
+            &Type::Void => write!(f, "Void"),
+            &Type::Kind => write!(f, "Kind"),
+            &Type::Any => write!(f, "Any"),
+
+            &Type::Unknown => write!(f, "TypeUnknown"),
+            &Type::Id(ref name) => write!(f, "TypeId({})", name),
+            &Type::Texpr(ref base, ref args) => write!(f, "Texpr"),
+            &Type::Var(ref name) => {
+                write!(f, "Type::Var({})", name)
+            }
+            &Type::AnonVar => write!(f, "TypeAnonymous"),
+        }
+    }
+}
+
+impl fmt::Debug for Type
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        match self {
+            &Type::Int => write!(f, "Int"),
+            &Type::Str => write!(f, "Str"),
+            &Type::Bool => write!(f, "Bool"),
+            &Type::Hashtag => write!(f, "Hashtag"),
+            &Type::Tuple(ref items) => {
+                write!(f, "T(");
+                for i in items {
+                    write!(f, "{:?},", i);
+                }
+                write!(f, ")")
+            }
             &Type::Struct(ref name, nfields) => write!(f, "{}", name),
             &Type::Enum(ref name) => write!(f, "Enum"),
             &Type::Failure => write!(f, "Failure"),

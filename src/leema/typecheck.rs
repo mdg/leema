@@ -77,6 +77,11 @@ impl<'a> CallFrame<'a>
                     self.collect_calls(i);
                 }
             }
+            Source::Tuple(ref items) => {
+                for i in items {
+                    self.collect_calls(i);
+                }
+            }
             Source::ConstVal(ref val) => {
                 // nothing to do. constants aren't calls.
             }
@@ -303,8 +308,18 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
         &Source::Id(_) => {
             ix.typ.clone()
         }
-        &Source::List(_) => {
+        &Source::List(ref items) => {
+            for i in items {
+                typecheck_expr(scope, i);
+            }
             ix.typ.clone()
+        }
+        &Source::Tuple(ref items) => {
+            let mut tuptyp = vec![];
+            for i in items {
+                tuptyp.push(typecheck_expr(scope, i));
+            }
+            Type::Tuple(tuptyp)
         }
         &Source::IfExpr(ref cond, ref truth, ref lies) => {
             let cond_t = typecheck_expr(scope, cond);

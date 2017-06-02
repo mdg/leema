@@ -16,7 +16,8 @@ int add_block_comment_depth(yyscan_t, int delta);
 DIGIT	[0-9]
 INT	[0-9]+
 ID      [a-z_][a-zA-Z_0-9]*[?']?
-TYPE_ID [A-Z_][a-zA-Z_0-9]+(\?|\*)?
+TYPE_ID [A-Z][a-zA-Z_0-9]+(\?|\*)?
+TYPE_VAR $[A-Z][a-zA-Z_0-9]*
 HASHTAG	#[a-zA-Z_0-9]+[?!]?
 LINECOMMENT	##.*
 STRC	[^\$\\\"]
@@ -66,12 +67,6 @@ void	{ return set_token(yyg, TOKEN_VOID); }
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_DOT);
 }
-"$"	{
-    BEGIN(INITIAL);
-    return set_token(yyg, TOKEN_DOLLAR); }
-"$?"	{
-    BEGIN(INITIAL);
-    return set_token(yyg, TOKEN_DollarQuestion); }
 "-RUST-"	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_RUSTBLOCK);
@@ -299,6 +294,18 @@ Void	{
 {TYPE_ID}	{
     BEGIN(CALLPAREN);
     return set_token_val(yyg, TOKEN_TYPE_ID, yytext);
+}
+{TYPE_VAR}	{
+    BEGIN(INITIAL);
+    return set_token_val(yyg, TOKEN_TYPE_VAR, yytext);
+}
+"$\?"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_DollarQuestion);
+}
+"$"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_DOLLAR);
 }
 .	{
 	printf("unrecognized character: '%s'\n", yytext);
