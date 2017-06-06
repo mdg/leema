@@ -291,10 +291,7 @@ impl WorkerExec
             }
             &Code::Rust(ref rf) => {
                 vout!("execute rust code\n");
-                let (mut head, mut handle) = (f.head, f.handle);
-                let rust_result = rf(&mut head);
-                f.head = head;
-                f.handle = handle;
+                let rust_result = rf(&mut f);
                 rust_result
             }
         };

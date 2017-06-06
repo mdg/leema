@@ -1,5 +1,6 @@
 use leema::val::{Val, Type};
 use leema::code::{Code, RustFunc};
+use leema::fiber::{Fiber};
 use leema::frame::{Frame, Event};
 use leema::list;
 use leema::log;
@@ -14,8 +15,9 @@ use std::rc::{Rc};
 use rand;
 
 
-pub fn int_add(fs: &mut Frame) -> Event
+pub fn int_add(f: &mut Fiber) -> Event
 {
+    let fs = &mut f.head;
     let ic;
     {
         let a = fs.get_param(0);
@@ -33,8 +35,9 @@ pub fn int_add(fs: &mut Frame) -> Event
     Event::success()
 }
 
-pub fn int_sub(fs: &mut Frame) -> Event
+pub fn int_sub(f: &mut Fiber) -> Event
 {
+    let fs = &mut f.head;
     let ic;
     {
         let a = fs.get_param(0);
@@ -52,8 +55,9 @@ pub fn int_sub(fs: &mut Frame) -> Event
     Event::success()
 }
 
-pub fn int_mult(fs: &mut Frame) -> Event
+pub fn int_mult(f: &mut Fiber) -> Event
 {
+    let fs = &mut f.head;
     let ic;
     {
         let a = fs.get_param(0);
@@ -71,8 +75,9 @@ pub fn int_mult(fs: &mut Frame) -> Event
     Event::success()
 }
 
-pub fn int_mod(fs: &mut Frame) -> Event
+pub fn int_mod(f: &mut Fiber) -> Event
 {
+    let fs = &mut f.head;
     let ic;
     {
         let a = fs.get_param(0);
@@ -90,8 +95,9 @@ pub fn int_mod(fs: &mut Frame) -> Event
     Event::success()
 }
 
-pub fn int_negate(fs: &mut Frame) -> Event
+pub fn int_negate(f: &mut Fiber) -> Event
 {
+    let fs = &mut f.head;
     let result;
     {
         let a = fs.get_param(0);
@@ -108,15 +114,17 @@ pub fn int_negate(fs: &mut Frame) -> Event
     Event::success()
 }
 
-pub fn int_random(fs: &mut Frame) -> Event
+pub fn int_random(f: &mut Fiber) -> Event
 {
+    let fs = &mut f.head;
     let result = rand::random::<i64>(); // as i64;
     fs.parent.set_result(Val::Int(result));
     Event::success()
 }
 
-pub fn bool_not(fs: &mut Frame) -> Event
+pub fn bool_not(f: &mut Fiber) -> Event
 {
+    let fs = &mut f.head;
     println!("run bool_not!");
     let bnot;
     {
@@ -132,8 +140,9 @@ pub fn bool_not(fs: &mut Frame) -> Event
     Event::success()
 }
 
-pub fn bool_xor(fs: &mut Frame) -> Event
+pub fn bool_xor(f: &mut Fiber) -> Event
 {
+    let fs = &mut f.head;
     let result;
     {
         let va = fs.get_param(0);
@@ -151,8 +160,9 @@ pub fn bool_xor(fs: &mut Frame) -> Event
     Event::success()
 }
 
-pub fn list_cons(fs: &mut Frame) -> Event
+pub fn list_cons(f: &mut Fiber) -> Event
 {
+    let fs = &mut f.head;
     let result = {
         let head = fs.e.get_param(0);
         let tail = fs.e.get_param(1);
@@ -162,32 +172,36 @@ pub fn list_cons(fs: &mut Frame) -> Event
     Event::success()
 }
 
-pub fn less_than(fs: &mut Frame) -> Event
+pub fn less_than(f: &mut Fiber) -> Event
 {
+    let fs = &mut f.head;
     let va = fs.e.get_param(0);
     let vb = fs.e.get_param(1);
     fs.parent.set_result(Val::Bool(va < vb));
     Event::success()
 }
 
-pub fn less_than_equal(fs: &mut Frame) -> Event
+pub fn less_than_equal(f: &mut Fiber) -> Event
 {
+    let fs = &mut f.head;
     let va = fs.e.get_param(0);
     let vb = fs.e.get_param(1);
     fs.parent.set_result(Val::Bool(va <= vb));
     Event::success()
 }
 
-pub fn equal(fs: &mut Frame) -> Event
+pub fn equal(f: &mut Fiber) -> Event
 {
+    let fs = &mut f.head;
     let va = fs.e.get_param(0);
     let vb = fs.e.get_param(1);
     fs.parent.set_result(Val::Bool(va == vb));
     Event::success()
 }
 
-pub fn greater_than(fs: &mut Frame) -> Event
+pub fn greater_than(f: &mut Fiber) -> Event
 {
+    let fs = &mut f.head;
     let result;
     {
         let va = fs.get_param(0);
@@ -198,8 +212,9 @@ pub fn greater_than(fs: &mut Frame) -> Event
     Event::success()
 }
 
-pub fn greater_than_equal(fs: &mut Frame) -> Event
+pub fn greater_than_equal(f: &mut Fiber) -> Event
 {
+    let fs = &mut f.head;
     let result;
     {
         let va = fs.get_param(0);
@@ -210,8 +225,9 @@ pub fn greater_than_equal(fs: &mut Frame) -> Event
     Event::success()
 }
 
-pub fn get_type(fs: &mut Frame) -> Event
+pub fn get_type(f: &mut Fiber) -> Event
 {
+    let fs = &mut f.head;
     let result: Type;
     {
         let v = fs.get_param(0);
@@ -221,16 +237,18 @@ pub fn get_type(fs: &mut Frame) -> Event
     Event::success()
 }
 
-pub fn cout(fs: &mut Frame) -> Event
+pub fn cout(f: &mut Fiber) -> Event
 {
+    let fs = &mut f.head;
     let v = fs.e.get_param(0);
     print!("{}", v);
     fs.parent.set_result(Val::Void);
     Event::success()
 }
 
-pub fn cerr(fs: &mut Frame) -> Event
+pub fn cerr(f: &mut Fiber) -> Event
 {
+    let fs = &mut f.head;
     {
         let va = fs.get_param(0);
         write!(stderr(), "{}", va);
@@ -269,8 +287,9 @@ impl Debug for LeemaFile
 }
 
 
-pub fn file_read(fs: &mut Frame) -> Event
+pub fn file_read(f: &mut Fiber) -> Event
 {
+    let fs = &mut f.head;
     let open_result = {
         let fnval = fs.get_param(0);
         match fnval {
@@ -300,8 +319,9 @@ pub fn file_read(fs: &mut Frame) -> Event
     Event::success()
 }
 
-pub fn file_stream_read(fs: &mut Frame) -> Event
+pub fn file_stream_read(f: &mut Fiber) -> Event
 {
+    let fs = &mut f.head;
     let mut input = "".to_string();
     {
         let mut streamval = fs.get_param_mut(0);

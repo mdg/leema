@@ -19,17 +19,17 @@ struct UdpSock
     buffer: String,
 }
 
-pub fn udp_socket(f: &mut Frame) -> Event
+pub fn udp_socket(f: &mut Fiber) -> Event
 {
     let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
     // let sock = UdpSocket::bind(&sock_addr, &f.handle).unwrap();
     Event::Complete(true)
 }
 
-pub fn udp_bind(f: &mut Frame) -> Event
+pub fn udp_bind(f: &mut Fiber) -> Event
 {
-    let addr_val = f.e.get_param(0);
-    let port_val = f.e.get_param(1);
+    let addr_val = f.head.e.get_param(0);
+    let port_val = f.head.e.get_param(1);
     /*
     let sock_val = match (addr_val, port_val) {
         (&Val::Str(ref addr), &Val::Int(big_port)) => {
@@ -50,11 +50,11 @@ println!("sock fd: {}", sock_fd);
     };
     // fs.parent.set_result(sock_val);
     */
-    f.parent.set_result(Val::Int(0));
+    f.head.parent.set_result(Val::Int(0));
     Event::success()
 }
 
-pub fn udp_recv(f: &mut Frame) -> Event
+pub fn udp_recv(f: &mut Fiber) -> Event
 {
     /*
     let sock_ref = f.e.get_param(0);
@@ -76,7 +76,7 @@ pub fn udp_recv(f: &mut Frame) -> Event
     Event::success()
 }
 
-pub fn udp_send(fs: &mut Frame) -> Event
+pub fn udp_send(fs: &mut Fiber) -> Event
 {
     println!("udp_send");
     /*

@@ -125,7 +125,7 @@ pub struct Oxpr
 }
 
 
-pub type RustFunc = fn(&mut frame::Frame) -> frame::Event;
+pub type RustFunc = fn(&mut fiber::Fiber) -> frame::Event;
 
 trait RustFunc2
 {
