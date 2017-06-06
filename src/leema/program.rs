@@ -147,7 +147,11 @@ impl Lib
         self.load_inter(modname);
 
         let inter = self.inter.get(modname).unwrap();
-        let fix = inter.interfunc.get(funcname).unwrap();
+        let fix = inter.interfunc.get(funcname)
+            .or_else(|| {
+                panic!("Cannot find function {}::{}", modname, funcname);
+            })
+            .unwrap();
         if modname == "prefab" {
             vout!("prefab inter: {:?}\n", inter);
             vout!("prefab.{} fix: {:?}\n", funcname, fix);
