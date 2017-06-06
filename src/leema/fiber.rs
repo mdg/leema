@@ -29,7 +29,7 @@ pub struct Fiber
 {
     pub fiber_id: i64,
     pub head: Frame,
-    handle: reactor::Handle,
+    pub handle: reactor::Handle,
 }
 
 impl Fiber

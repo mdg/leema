@@ -1,3 +1,4 @@
+use leema::fiber;
 use leema::reg::{Reg, RegTable};
 use leema::val::{Val, Type};
 use leema::log;

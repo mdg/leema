@@ -291,19 +291,6 @@ impl Frame
         self.e.get_reg_mut(&Reg::Param(Ireg::Reg(p)))
     }
 
-    pub fn execute_frame(&mut self, code: &Rc<Code>) -> Event
-    {
-        match &**code {
-            &Code::Leema(ref ops) => {
-                self.execute_leema_frame(ops)
-            }
-            &Code::Rust(ref rf) => {
-                vout!("execute rust code");
-                rf(self)
-            }
-        }
-    }
-
     pub fn execute_leema_frame(&mut self, ops: &OpVec) -> Event
     {
         let mut e = Event::Uneventful;

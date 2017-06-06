@@ -1,4 +1,5 @@
 use leema::code::{Code, RustFunc};
+use leema::fiber::{Fiber};
 use leema::frame::{Frame, Event};
 use leema::val::{Val, LibVal, Type};
 
@@ -6,20 +7,30 @@ use std::net::{IpAddr, SocketAddr};
 use std::str::{FromStr};
 use std::sync::{Arc};
 use ::tokio_core::net::{UdpSocket};
-use ::tokio_core::reactor::{Handle};
+use ::tokio_core::reactor::{Remote};
 use futures::future::{Future};
 use std::os::unix::io::AsRawFd;
 
 
-pub fn udp_bind(fs: &mut Frame) -> Event
+struct UdpSock
 {
+    handle: Remote,
+    socket: Option<UdpSocket>,
+    buffer: String,
+}
+
+pub fn udp_socket(f: &mut Frame) -> Event
+{
+    let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
+    // let sock = UdpSocket::bind(&sock_addr, &f.handle).unwrap();
+    Event::Complete(true)
+}
+
+pub fn udp_bind(f: &mut Frame) -> Event
+{
+    let addr_val = f.e.get_param(0);
+    let port_val = f.e.get_param(1);
     /*
-    let send_addr = SocketAddr::new(
-        IpAddr::from_str("127.0.0.1").unwrap(),
-        3999,
-    );
-    let addr_val = fs.e.get_param(0);
-    let port_val = fs.e.get_param(1);
     let sock_val = match (addr_val, port_val) {
         (&Val::Str(ref addr), &Val::Int(big_port)) => {
             let ip = IpAddr::from_str(addr).unwrap();
@@ -38,15 +49,15 @@ println!("sock fd: {}", sock_fd);
         }
     };
     // fs.parent.set_result(sock_val);
-    fs.parent.set_result(Val::Int(0));
     */
+    f.parent.set_result(Val::Int(0));
     Event::success()
 }
 
 pub fn udp_recv(f: &mut Frame) -> Event
 {
-    let sock_ref = f.e.get_param(0);
     /*
+    let sock_ref = f.e.get_param(0);
     let evf = |sock| {
         let buf = String::from("hello");
         sock.recv_dgram(buf)
@@ -68,10 +79,14 @@ pub fn udp_recv(f: &mut Frame) -> Event
 pub fn udp_send(fs: &mut Frame) -> Event
 {
     println!("udp_send");
+    /*
+    let send_addr = SocketAddr::new(
+        IpAddr::from_str("127.0.0.1").unwrap(),
+        3999,
+    );
     let dst = fs.e.get_param(0);
     let sock_ref = fs.e.get_param(1);
     let msg = fs.e.get_param(2);
-    /*
     let send_addr = dst.to_str();
     let event = Event::ResourceAction(sock_ref, |sock| {
             sock.send_dgram(msg, send_addr);

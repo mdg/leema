@@ -270,8 +270,7 @@ impl WorkerExec
                     None
                 }
                 Some(ReadyFiber::Ready(mut f, code)) => {
-                    let e = f.head.execute_frame(&code);
-                    Some((e, f, code))
+                    WorkerExec::execute_frame(f, code)
                 }
                 None => None,
             }
@@ -281,6 +280,25 @@ impl WorkerExec
         } else {
             Result::Ok(Async::NotReady)
         }
+    }
+
+    pub fn execute_frame(mut f: Fiber, code: Rc<Code>
+        ) -> Option<(Event, Fiber, Rc<Code>)>
+    {
+        let ev = match &*code {
+            &Code::Leema(ref ops) => {
+                f.head.execute_leema_frame(ops)
+            }
+            &Code::Rust(ref rf) => {
+                vout!("execute rust code\n");
+                let (mut head, mut handle) = (f.head, f.handle);
+                let rust_result = rf(&mut head);
+                f.head = head;
+                f.handle = handle;
+                rust_result
+            }
+        };
+        Some((ev, f, code))
     }
 }
 
