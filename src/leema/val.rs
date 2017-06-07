@@ -236,39 +236,10 @@ impl fmt::Debug for Type
 
 pub trait LibVal
     : Any
-    // + Send
-    // + Sync
     + Debug
 {
     fn get_type(&self) -> Type;
 }
-
-/*
-pub struct LibVal
-{
-    pub v: Arc<Any + Send + Sync>,
-    pub t: Type,
-}
-
-impl Clone for LibVal
-{
-    fn clone(&self) -> LibVal
-    {
-        LibVal{
-            v: self.v.clone(),
-            t: self.t.clone(),
-        }
-    }
-}
-
-impl Debug for LibVal
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        write!(f, "Resource<{:?}>", self.t)
-    }
-}
-*/
 
 #[derive(Clone)]
 pub struct FutureVal(pub Arc<AtomicBool>, pub Arc<Mutex<Receiver<MsgVal>>>);
@@ -605,23 +576,15 @@ impl Val
         Val::Lib(Arc::new(lv))
     }
 
-    pub fn libval_as<T: Any>(&self) -> Option<&T>
+    pub fn libval_as<T>(&self) -> Option<&T>
     {
         match self {
-            &Val::Lib(ref lv) => Any::downcast_ref(&*lv),
+            &Val::Lib(ref lvref) => {
+                Any::downcast_ref::<T>(&**lvref)
+            }
             _ => None,
         }
     }
-
-    /*
-    pub fn libval_as_mut<T: Any>(&mut self) -> Option<&mut T>
-    {
-        match self {
-            &mut Val::Lib(ref mut lv) => Any::downcast_mut(&mut *lv.v),
-            _ => None,
-        }
-    }
-    */
 
     pub fn get_type(&self) -> Type
     {

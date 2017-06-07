@@ -1,14 +1,16 @@
 use leema::code::{Code, RustFunc};
 use leema::fiber::{Fiber};
 use leema::frame::{Frame, Event};
+use leema::log;
 use leema::val::{Val, LibVal, Type};
 
 use std::net::{IpAddr, SocketAddr};
 use std::str::{FromStr};
-use std::sync::{Arc};
+use std::sync::{Arc, Mutex, MutexGuard};
 use ::tokio_core::net::{UdpSocket};
 use ::tokio_core::reactor::{Remote};
 use futures::future::{Future};
+use std::io::{stderr, Write};
 use std::os::unix::io::AsRawFd;
 
 
@@ -20,7 +22,7 @@ struct UdpSock
     buffer: String,
 }
 
-impl LibVal for UdpSock
+impl LibVal for Mutex<UdpSock>
 {
     fn get_type(&self) -> Type
     {
@@ -30,6 +32,7 @@ impl LibVal for UdpSock
 
 pub fn udp_socket(f: &mut Fiber) -> Event
 {
+    vout!("udp_socket\n");
     let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
     let rsock = UdpSocket::bind(&sock_addr, &f.handle).unwrap();
     let lsock = UdpSock{
@@ -37,13 +40,14 @@ pub fn udp_socket(f: &mut Fiber) -> Event
         socket: Some(rsock),
         buffer: String::from(""),
     };
-    let rval = Val::libval(lsock);
+    let rval = Val::libval(Mutex::new(lsock));
     f.head.parent.set_result(rval);
-    Event::Complete(true)
+    Event::success()
 }
 
 pub fn udp_bind(f: &mut Fiber) -> Event
 {
+println!("udp_bind");
     let addr_val = f.head.e.get_param(0);
     let port_val = f.head.e.get_param(1);
     /*
@@ -73,7 +77,8 @@ println!("sock fd: {}", sock_fd);
 pub fn udp_recv(f: &mut Fiber) -> Event
 {
     /*
-    let sock_ref = f.e.get_param(0);
+    let sockr = f.e.get_param(0);
+    let mutex_sock: &Mutex<UdpSock> = sockr.libval_as();
     let evf = |sock| {
         let buf = String::from("hello");
         sock.recv_dgram(buf)
@@ -89,12 +94,15 @@ pub fn udp_recv(f: &mut Fiber) -> Event
         .and_then(|whatever| {
         });
         */
+    f.head.parent.set_result(Val::Int(0));
     Event::success()
 }
 
-pub fn udp_send(fs: &mut Fiber) -> Event
+pub fn udp_send(f: &mut Fiber) -> Event
 {
-    println!("udp_send");
+    let sockr = f.head.e.get_param(0);
+    let opt_sock = sockr.libval_as();
+    let mutex_sock: &Mutex<UdpSock> = opt_sock.unwrap();
     /*
     let send_addr = SocketAddr::new(
         IpAddr::from_str("127.0.0.1").unwrap(),
@@ -148,6 +156,7 @@ println!("udp_sent = {}", output);
         }
     }
     */
+    f.head.parent.set_result(Val::Int(0));
     Event::success()
 }
 
@@ -157,6 +166,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         "udp_bind" => Some(Code::Rust(udp_bind)),
         "udp_recv" => Some(Code::Rust(udp_recv)),
         "udp_send" => Some(Code::Rust(udp_send)),
+        "udp_socket" => Some(Code::Rust(udp_socket)),
         _ => None,
     }
 }
