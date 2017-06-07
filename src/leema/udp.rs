@@ -12,6 +12,7 @@ use futures::future::{Future};
 use std::os::unix::io::AsRawFd;
 
 
+#[derive(Debug)]
 struct UdpSock
 {
     handle: Remote,
@@ -19,10 +20,25 @@ struct UdpSock
     buffer: String,
 }
 
+impl LibVal for UdpSock
+{
+    fn get_type(&self) -> Type
+    {
+        Type::Lib(String::from("UdpSocket"))
+    }
+}
+
 pub fn udp_socket(f: &mut Fiber) -> Event
 {
     let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
-    // let sock = UdpSocket::bind(&sock_addr, &f.handle).unwrap();
+    let rsock = UdpSocket::bind(&sock_addr, &f.handle).unwrap();
+    let lsock = UdpSock{
+        handle: f.handle.remote().clone(),
+        socket: Some(rsock),
+        buffer: String::from(""),
+    };
+    let rval = Val::libval(lsock);
+    f.head.parent.set_result(rval);
     Event::Complete(true)
 }
 

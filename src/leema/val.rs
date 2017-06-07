@@ -234,15 +234,16 @@ impl fmt::Debug for Type
     }
 }
 
-/*
-pub trait LibTrait
+pub trait LibVal
     : Any
-    + Send
-    + Sync
+    // + Send
+    // + Sync
     + Debug
-{}
-*/
+{
+    fn get_type(&self) -> Type;
+}
 
+/*
 pub struct LibVal
 {
     pub v: Arc<Any + Send + Sync>,
@@ -267,6 +268,7 @@ impl Debug for LibVal
         write!(f, "Resource<{:?}>", self.t)
     }
 }
+*/
 
 #[derive(Clone)]
 pub struct FutureVal(pub Arc<AtomicBool>, pub Arc<Mutex<Receiver<MsgVal>>>);
@@ -344,7 +346,7 @@ pub enum Val {
     Type(Type),
     Kind(u8),
     DotAccess(Box<Val>, Rc<String>),
-    Lib(LibVal),
+    Lib(Arc<LibVal>),
     EventResourceRef(i64, i64),
     RustBlock,
     Future(FutureVal),
@@ -359,7 +361,8 @@ pub const VOID: Val = Val::Void;
 pub const FALSE: Val = Val::Bool(false);
 pub const TRUE: Val = Val::Bool(true);
 
-impl Val {
+impl Val
+{
     pub fn is_sxpr(&self) -> bool
     {
         match self {
@@ -597,15 +600,15 @@ impl Val {
         )
     }
 
-    pub fn new_lib<T: Any + Send + Sync>(lv: T, typ: Type) -> Val
+    pub fn libval<T: LibVal>(lv: T) -> Val
     {
-        Val::Lib(LibVal{v: Arc::new(lv), t: typ})
+        Val::Lib(Arc::new(lv))
     }
 
     pub fn libval_as<T: Any>(&self) -> Option<&T>
     {
         match self {
-            &Val::Lib(ref lv) => Any::downcast_ref(&*lv.v),
+            &Val::Lib(ref lv) => Any::downcast_ref(&*lv),
             _ => None,
         }
     }
@@ -994,7 +997,7 @@ impl fmt::Display for Val {
                 write!(f, "Enum-{}.{}:{}", name, variant, val)
             }
             Val::Lib(ref lv) => {
-                write!(f, "LibVal({:?})", lv.t)
+                write!(f, "LibVal({:?})", lv)
             }
             Val::EventResourceRef(wid, rid) => {
                 write!(f, "EventResourceRef({},{})", wid, rid)
@@ -1081,7 +1084,7 @@ impl fmt::Debug for Val {
                 write!(f, "Enum-{}.{}:{:?}", name, variant, val)
             }
             Val::Lib(ref lv) => {
-                write!(f, "LibVal({:?})", lv.t)
+                write!(f, "LibVal({:?})", lv)
             }
             Val::EventResourceRef(wid, rid) => {
                 write!(f, "EventResourceRef({},{})", wid, rid)

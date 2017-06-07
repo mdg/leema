@@ -1,4 +1,4 @@
-use leema::val::{Val, Type};
+use leema::val::{Val, Type, LibVal};
 use leema::code::{Code, RustFunc};
 use leema::fiber::{Fiber};
 use leema::frame::{Frame, Event};
@@ -270,6 +270,14 @@ impl LeemaFile
     }
 }
 
+impl LibVal for LeemaFile
+{
+    fn get_type(&self) -> Type
+    {
+        Type::Lib("File".to_string())
+    }
+}
+
 impl Display for LeemaFile
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
@@ -304,10 +312,7 @@ pub fn file_read(f: &mut Fiber) -> Event
     };
     let openf = match open_result {
         Ok(f) => {
-            Val::new_lib(
-                LeemaFile::new(f),
-                Type::Lib("File".to_string()),
-            )
+            Val::libval(LeemaFile::new(f))
         }
         Err(_) => Val::failure(
             Val::hashtag("file_open_fail".to_string()),
@@ -325,18 +330,8 @@ pub fn file_stream_read(f: &mut Fiber) -> Event
     let mut input = "".to_string();
     {
         let mut streamval = fs.get_param_mut(0);
-        let mut anyf = match streamval {
-            &mut Val::Lib(ref lv) =>
-            {
-                &*lv.v as &Any
-            }
-            _ => {
-                panic!("Can't read from not a File {:?}"
-                    , streamval);
-            }
-        };
-        let mut optf = Any::downcast_ref::<LeemaFile>(anyf);
-        let mut myfref = optf.unwrap();
+        let mut optf = streamval.libval_as();
+        let mut myfref: &LeemaFile = optf.unwrap();
         let mut lockf = myfref.f.lock();
         let mut rawf = lockf.unwrap();
         let mut result = rawf.read_to_string(&mut input);
