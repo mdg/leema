@@ -132,9 +132,15 @@ pub fn udp_send(f: &mut Fiber) -> Event
     match mutex_sock.try_lock() {
         Ok(ref mut guard) => {
             let sock = guard.socket.take().unwrap();
+            let sockr2 = sockr.clone();
             let fut = sock.send_dgram(omsg, send_addr)
-                .map(|(used_sock, buf)| {
-                    println!("send_dgram sent");
+                .map(move |(used_sock, buf)| {
+                    // put the used sock back in the value
+                    let msock2: &Mutex<UdpSock> = sockr2.libval_as().unwrap();
+                    if let Ok(ref mut g) = msock2.lock() {
+                        g.socket = Some(used_sock);
+                    }
+                    vout!("send_dgram sent\n");
                     ()
                 })
                 .map_err(|e| {
@@ -150,56 +156,6 @@ pub fn udp_send(f: &mut Fiber) -> Event
             panic!("socket lock is poisoned");
         }
     }
-    /*
-    let send_addr = SocketAddr::new(
-        IpAddr::from_str("127.0.0.1").unwrap(),
-        3999,
-    );
-    let send_addr = dst.to_str();
-    let event = Event::ResourceAction(sock_ref, |sock| {
-            sock.send_dgram(msg, send_addr);
-        });
-            let sent = sock.send_dgram(msg, send_addr)
-                .map(move |(s, t)| {
-                    ()
-                })
-                .map_err(|e| {
-                    println!("dgram error {:?}", e);
-                    ()
-                });
-            h.spawn(sent);
-    let sock = {
-        let mut sock_val = fs.e.get_param_mut(0);
-        // let sock_opt: Option<&mut UdpSocket> = sock_val.libval_as();
-        let sock_opt: Option<&mut UdpSocket> = sock_val.libval_as_mut();
-
-        match sock_opt {
-            Some(ref s) => s.clone(),
-            None => {
-                panic!("udp_write for not a UdpSocket: {:?}", sock_val);
-            }
-        }
-    };
-    println!("sock = {:?}", sock);
-
-    let addr_val = fs.e.get_param(1);
-    let port_val = fs.e.get_param(2);
-    let text_val = fs.e.get_param(3);
-    println!("udp_send({:?}, {:?}, {}, {})",
-        sock, addr_val, port_val, text_val);
-    match (addr_val, port_val, text_val) {
-        (&Val::Str(ref addr), &Val::Int(long_port), &Val::Str(ref output)) => {
-            let ip = IpAddr::from_str(addr).unwrap();
-            let short_port = long_port as u16;
-            let sock_addr = SocketAddr::new(ip, short_port);
-            let sent = sock.send_dgram(&**output, sock_addr);
-println!("udp_sent = {}", output);
-        }
-        _ => {
-            panic!("invalid parameters to udp_bind");
-        }
-    }
-    */
     f.head.parent.set_result(Val::Int(0));
     Event::success()
 }
