@@ -9,13 +9,15 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{self, AtomicBool};
 use std::sync::mpsc::{self, Receiver};
-use std::any::{Any};
 use std::rc::{Rc};
 use std::cmp::{PartialEq, PartialOrd, Ordering};
 use std::clone::Clone;
 use std::fmt::{Debug};
 use std::io::{stderr, Write};
 use std::marker::{Send};
+use std::ops::Deref;
+
+use mopa;
 
 
 // #[derive(Debug)]
@@ -235,11 +237,13 @@ impl fmt::Debug for Type
 }
 
 pub trait LibVal
-    : Any
+    : mopa::Any
     + Debug
 {
     fn get_type(&self) -> Type;
 }
+
+mopafy!(LibVal);
 
 #[derive(Clone)]
 pub struct FutureVal(pub Arc<AtomicBool>, pub Arc<Mutex<Receiver<MsgVal>>>);
@@ -577,10 +581,12 @@ impl Val
     }
 
     pub fn libval_as<T>(&self) -> Option<&T>
+        where T: LibVal
     {
         match self {
-            &Val::Lib(ref lvref) => {
-                Any::downcast_ref::<T>(&**lvref)
+            &Val::Lib(ref lvarc) => {
+                let lvref: &LibVal = &**lvarc;
+                lvref.downcast_ref::<T>()
             }
             _ => None,
         }

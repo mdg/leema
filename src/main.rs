@@ -1,5 +1,7 @@
 extern crate libc;
 extern crate docopt;
+#[macro_use]
+extern crate mopa;
 extern crate rand;
 extern crate rustc_serialize;
 extern crate futures;
