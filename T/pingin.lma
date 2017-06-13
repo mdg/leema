@@ -1,0 +1,7 @@
+import udp
+
+func main() ->
+   let sock := udp::udp_bind("0.0.0.0", 3999)
+   let input := udp::udp_recv(sock)
+   cout("received ping ($input)\n")
+--
