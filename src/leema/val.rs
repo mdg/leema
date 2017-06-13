@@ -304,6 +304,7 @@ pub enum Val {
     // EmptyStr,
     Bool(bool),
     Hashtag(Rc<String>),
+    Buffer(Vec<u8>),
     Cons(Box<Val>, Box<Val>),
     Nil,
     Tuple(Vec<Val>),
@@ -965,6 +966,9 @@ impl fmt::Display for Val {
             Val::Enum(ref name, variant, ref val) => {
                 write!(f, "Enum-{}.{}:{}", name, variant, val)
             }
+            Val::Buffer(ref buf) => {
+                write!(f, "Buffer")
+            }
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv)
             }
@@ -1040,6 +1044,9 @@ impl fmt::Debug for Val {
             }
             Val::Hashtag(ref s) => {
                 write!(f, "#{}", s)
+            }
+            Val::Buffer(ref buf) => {
+                write!(f, "Buffer<{:?}>", buf)
             }
             Val::Tuple(ref t) => {
                 write!(f, "T").ok();
@@ -1427,6 +1434,21 @@ impl PartialEq for Val
             false
         } else {
             cmp.unwrap() == Ordering::Equal
+        }
+    }
+}
+
+impl AsMut<[u8]> for Val
+{
+    fn as_mut(&mut self) -> &mut [u8]
+    {
+        match self {
+            &mut Val::Buffer(ref mut buf) => {
+                buf.as_mut()
+            }
+            _ => {
+                panic!("Cannot convert val to AsMut<[u8]>: {:?}", self);
+            }
         }
     }
 }

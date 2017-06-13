@@ -77,7 +77,7 @@ impl Application
             thread::yield_now();
             // self.done.store(true, Ordering::Relaxed);
         }
-        vout!("application done");
+        vout!("application done\n");
         self.result.take()
     }
 

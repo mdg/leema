@@ -168,7 +168,7 @@ impl Worker
                 Result::Ok(Async::NotReady)
             }
             Event::Call(dst, module, func, args) => {
-                vout!("push_call({}.{})", module, func);
+                vout!("push_call({}.{})\n", module, func);
                 f.push_call(code.clone(), dst, module, func, args);
                 w.borrow_mut().load_code(f);
                 Result::Ok(Async::NotReady)
@@ -220,7 +220,7 @@ impl Worker
 
     pub fn spawn_fiber(&mut self, module: String, func: String)
     {
-        vout!("spawn_fiber({}::{})", module, func);
+        vout!("spawn_fiber({}::{})\n", module, func);
         let id = self.next_fiber_id;
         self.next_fiber_id += 1;
         let frame = Frame::new_root(module, func);

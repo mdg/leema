@@ -2,6 +2,7 @@ use leema::code::{Code, RustFunc};
 use leema::fiber::{Fiber};
 use leema::frame::{Frame, Event};
 use leema::log;
+use leema::reg::{Reg};
 use leema::val::{Val, LibVal, Type};
 
 use std::net::{IpAddr, SocketAddr};
@@ -50,53 +51,67 @@ pub fn udp_socket(f: &mut Fiber) -> Event
 
 pub fn udp_bind(f: &mut Fiber) -> Event
 {
-println!("udp_bind");
+    vout!("udp_bind({:?})", f.head.e);
     let addr_val = f.head.e.get_param(0);
-    let port_val = f.head.e.get_param(1);
-    /*
-    let sock_val = match (addr_val, port_val) {
-        (&Val::Str(ref addr), &Val::Int(big_port)) => {
-            let ip = IpAddr::from_str(addr).unwrap();
-            let short_port = big_port as u16;
-            let sock_addr = SocketAddr::new(ip, short_port);
-            let sock = UdpSocket::bind(&sock_addr, h).unwrap();
-let sock_fd = sock.as_raw_fd();
-println!("sock fd: {}", sock_fd);
-            Val::Lib(LibVal{
-                v: Arc::new(sock),
-                t: Type::Lib(String::from("UdpStream")),
-            })
-        }
-        _ => {
-            panic!("invalid parameters to udp_bind");
-        }
+    let port_num = if let &Val::Int(p) = f.head.e.get_param(1) {
+        p
+    } else {
+        0
+    } as u16;
+
+    let sock_addr = SocketAddr::new(
+        IpAddr::from_str(addr_val.str()).unwrap(),
+        port_num,
+    );
+    let rsock = UdpSocket::bind(&sock_addr, &f.handle).unwrap();
+    let lsock = UdpSock{
+        handle: f.handle.clone(),
+        remote: f.handle.remote().clone(),
+        socket: Some(rsock),
+        buffer: String::from(""),
     };
-    // fs.parent.set_result(sock_val);
-    */
-    f.head.parent.set_result(Val::Int(0));
+    let rval = Val::libval(Mutex::new(lsock));
+    f.head.parent.set_result(rval);
     Event::success()
 }
 
 pub fn udp_recv(f: &mut Fiber) -> Event
 {
-    /*
-    let sockr = f.e.get_param(0);
-    let mutex_sock: &Mutex<UdpSock> = sockr.libval_as();
-    let evf = |sock| {
-        let buf = String::from("hello");
-        sock.recv_dgram(buf)
-            .map(|(sock, buf2)| {
-                buf2
-            });
-    };
-    let post_ev = |fiber, (_sock, buf)| {
-        fiber.head.e.set(Reg::reg(0), buf);
-    };
-    let ev = Event::ResourceAction(sock_ref, |sock| {
-        })
-        .and_then(|whatever| {
-        });
-        */
+    vout!("udp_recv({:?})\n", f.head.e);
+    let sockr = f.head.e.get_param(0).clone();
+    let dstreg = Reg::local(0);
+    f.head.e.set_reg(&dstreg, Val::Buffer(Vec::with_capacity(2048)));
+    let result = f.head.e.get_reg_mut(&dstreg);
+    let opt_sock = sockr.libval_as();
+    if opt_sock.is_none() {
+        panic!("socket param is not a UdpSock: {:?}", sockr);
+    }
+    let mutex_sock: &Mutex<UdpSock> = opt_sock.unwrap();
+    match mutex_sock.try_lock() {
+        Ok(ref mut guard) => {
+            let mut buffer: Vec<u8> = Vec::with_capacity(2048);
+            // let mut buffer = String::from("");
+            let sock = guard.socket.take().unwrap();
+            let sockr2 = sockr.clone();
+            let fut = sock.recv_dgram(buffer)
+                .map(|(isock, ibuf, nbytes, src_addr)| {
+                    // sockr.
+                    // buf2
+                    ()
+                })
+                .map_err(|e| {
+                    println!("error receiving UdpSock bytes: {:?}", e);
+                    ()
+                });
+            guard.handle.spawn(fut);
+        }
+        Err(TryLockError::WouldBlock) => {
+            return Event::Uneventful;
+        }
+        Err(TryLockError::Poisoned(ref p)) => {
+            panic!("socket lock is poisoned");
+        }
+    }
     f.head.parent.set_result(Val::Int(0));
     Event::success()
 }
