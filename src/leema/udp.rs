@@ -33,7 +33,7 @@ impl LibVal for Mutex<UdpSock>
     }
 }
 
-pub fn udp_socket(f: &mut Fiber) -> Event
+pub fn udp_socket(mut f: Fiber) -> Event
 {
     vout!("udp_socket\n");
     let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
@@ -46,10 +46,10 @@ pub fn udp_socket(f: &mut Fiber) -> Event
     };
     let rval = Val::libval(Mutex::new(lsock));
     f.head.parent.set_result(rval);
-    Event::success()
+    Event::success(f)
 }
 
-pub fn udp_bind(f: &mut Fiber) -> Event
+pub fn udp_bind(mut f: Fiber) -> Event
 {
     vout!("udp_bind({:?})", f.head.e);
     let addr_val = f.head.e.get_param(0);
@@ -72,10 +72,10 @@ pub fn udp_bind(f: &mut Fiber) -> Event
     };
     let rval = Val::libval(Mutex::new(lsock));
     f.head.parent.set_result(rval);
-    Event::success()
+    Event::success(f)
 }
 
-pub fn udp_recv(f: &mut Fiber) -> Event
+pub fn udp_recv(mut f: Fiber) -> Event
 {
     vout!("udp_recv({:?})\n", f.head.e);
     let sockr = f.head.e.get_param(0).clone();
@@ -106,17 +106,17 @@ pub fn udp_recv(f: &mut Fiber) -> Event
             guard.handle.spawn(fut);
         }
         Err(TryLockError::WouldBlock) => {
-            return Event::Uneventful;
+            return Event::Uneventful(f);
         }
         Err(TryLockError::Poisoned(ref p)) => {
             panic!("socket lock is poisoned");
         }
     }
     f.head.parent.set_result(Val::Int(0));
-    Event::success()
+    Event::success(f)
 }
 
-pub fn udp_send(f: &mut Fiber) -> Event
+pub fn udp_send(mut f: Fiber) -> Event
 {
     vout!("udp_send.e = {:?}\n", f.head.e);
     let sockr = f.head.e.get_param(0);
@@ -165,14 +165,14 @@ pub fn udp_send(f: &mut Fiber) -> Event
             guard.handle.spawn(fut);
         }
         Err(TryLockError::WouldBlock) => {
-            return Event::Uneventful;
+            return Event::Uneventful(f);
         }
         Err(TryLockError::Poisoned(ref p)) => {
             panic!("socket lock is poisoned");
         }
     }
     f.head.parent.set_result(Val::Int(0));
-    Event::success()
+    Event::success(f)
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>

@@ -125,11 +125,11 @@ impl Worker
         }
     }
 
-    pub fn handle_event(w: &Rc<RefCell<Worker>>, e: Event, mut f: Fiber
-        , code: Rc<Code>) -> Poll<Val, Val>
+    pub fn handle_event(w: &Rc<RefCell<Worker>>, e: Event, code: Rc<Code>)
+        -> Poll<Val, Val>
     {
         match e {
-            Event::Complete(success) => {
+            Event::Complete(mut f, success) => {
                 if success {
                     // analyze successful function run
                 } else {
@@ -167,10 +167,10 @@ impl Worker
                 }
                 Result::Ok(Async::NotReady)
             }
-            Event::Call(dst, module, func, args) => {
+            Event::Call(mut fiber, dst, module, func, args) => {
                 vout!("push_call({}.{})\n", module, func);
-                f.push_call(code.clone(), dst, module, func, args);
-                w.borrow_mut().load_code(f);
+                fiber.push_call(code.clone(), dst, module, func, args);
+                w.borrow_mut().load_code(fiber);
                 Result::Ok(Async::NotReady)
             }
             Event::FutureWait(reg) => {
@@ -186,9 +186,12 @@ impl Worker
                 // end this iteration,
                 Result::Ok(Async::NotReady)
             }
-            Event::Uneventful => {
+            Event::Uneventful(nextf) => {
                 println!("We shouldn't be here with uneventful");
-                panic!("code: {:?}, pc: {:?}", code, f.head.pc);
+                panic!("code: {:?}, pc: {:?}", code, nextf.head.pc);
+            }
+            Event::None => {
+                panic!("Event::None? wtf!");
             }
         }
     }
@@ -275,27 +278,26 @@ impl WorkerExec
                 None => None,
             }
         };
-        if let Some((ev, f, code)) = opt_ev {
-            Worker::handle_event(&self.w, ev, f, code)
+        if let Some((ev, code)) = opt_ev {
+            Worker::handle_event(&self.w, ev, code)
         } else {
             Result::Ok(Async::NotReady)
         }
     }
 
     pub fn execute_frame(mut f: Fiber, code: Rc<Code>
-        ) -> Option<(Event, Fiber, Rc<Code>)>
+        ) -> Option<(Event, Rc<Code>)>
     {
         let ev = match &*code {
             &Code::Leema(ref ops) => {
-                f.head.execute_leema_frame(ops)
+                f.execute_leema_frame(ops)
             }
             &Code::Rust(ref rf) => {
                 vout!("execute rust code\n");
-                let rust_result = rf(&mut f);
-                rust_result
+                rf(f)
             }
         };
-        Some((ev, f, code))
+        Some((ev, code))
     }
 }
 

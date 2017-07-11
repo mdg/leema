@@ -8,7 +8,6 @@ use std::fmt::{self};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{self, AtomicBool};
-use std::sync::mpsc::{self, Receiver};
 use std::rc::{Rc};
 use std::cmp::{PartialEq, PartialOrd, Ordering};
 use std::clone::Clone;
@@ -16,6 +15,9 @@ use std::fmt::{Debug};
 use std::io::{stderr, Write};
 use std::marker::{Send};
 use std::ops::Deref;
+
+use ::futures::sync::mpsc::{Receiver};
+use ::tokio_core::reactor::{Handle, Remote};
 
 use mopa;
 
@@ -536,7 +538,7 @@ impl Val
         }
     }
 
-    pub fn future(ready: Arc<AtomicBool>, r: mpsc::Receiver<MsgVal>) -> Val
+    pub fn future(ready: Arc<AtomicBool>, r: Receiver<MsgVal>) -> Val
     {
         Val::Future(FutureVal(ready, Arc::new(Mutex::new(r))))
     }
