@@ -127,16 +127,19 @@ pub fn udp_recv(mut f: Fiber) -> Event
 pub fn udp_send(mut f: Fiber) -> Event
 {
     vout!("udp_send.e = {:?}\n", f.head.e);
+    let sockr2;
+
     let sock_result = {
         let sockr = f.head.e.get_param(0);
         vout!("sockr: {:?}\n", sockr);
+        sockr2 = sockr.clone();
 
         let opt_mutex = sockr.libval_as();
         let mutex_sock: &Mutex<UdpSock> = opt_mutex.unwrap();
         // let sock_lock_r: TryLockResult<MutexGuard> = mutex_sock.try_lock();
         let sock_lock_result = mutex_sock.try_lock();
         sock_lock_result.map(|ref mut guard| {
-            guard.socket.take().unwrap()
+            (guard.socket.take().unwrap(), guard.handle.clone())
         })
         .map_err(|err| {
             match err {
@@ -151,29 +154,9 @@ pub fn udp_send(mut f: Fiber) -> Event
     if sock_result.is_err() {
         return Event::Uneventful(f)
     }
-    let sock = sock_result.unwrap();
+    let (sock, handle) = sock_result.unwrap();
 
-    /*
-        let sock = guard.socket.take().unwrap();
-        let sockr2 = sockr.clone();
-        let fut = sock.send_dgram(omsg, send_addr)
-            .map(move |(used_sock, buf)| {
-                // put the used sock back in the value
-                let msock2: &Mutex<UdpSock> = sockr2.libval_as().unwrap();
-                if let Ok(ref mut g) = msock2.lock() {
-                    g.socket = Some(used_sock);
-                }
-                vout!("send_dgram sent\n");
-                ()
-            })
-            .map_err(|e| {
-                println!("send_dgram error: {:?}", e);
-                ()
-            });
-        guard.handle.spawn(fut);
-        */
-    {
-        /*
+    let fut = {
         let dst_ip = f.head.e.get_param(1);
         let dst_port =
             if let &Val::Int(p) = f.head.e.get_param(2) {
@@ -194,10 +177,34 @@ pub fn udp_send(mut f: Fiber) -> Event
         let omsg = (&*msg).clone();
 
         vout!("udp_send(sockr, '{}', {}, '{}')\n", dst_ip, dst_port, msg);
-        */
+
+        sock.send_dgram(omsg, send_addr)
+    };
+
+    {
+        let hfut = fut.map(move |(used_sock, buf)| {
+            // put the used sock back in the value
+            let msock2: &Mutex<UdpSock> = sockr2.libval_as().unwrap();
+            if let Ok(ref mut g) = msock2.lock() {
+                g.socket = Some(used_sock);
+            }
+            vout!("send_dgram sent from fiber: {}\n", f.fiber_id);
+            ()
+        })
+        .map_err(|e| {
+            println!("send_dgram error: {:?}", e);
+            ()
+        });
+        handle.spawn(hfut);
     }
+
+    /*
+        let sock = guard.socket.take().unwrap();
+        let fut = sock.send_dgram(omsg, send_addr)
+        guard.handle.spawn(fut);
     f.head.parent.set_result(Val::Int(0));
-    Event::success(f)
+        */
+    Event::IOWait
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>
