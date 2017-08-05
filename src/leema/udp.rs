@@ -7,7 +7,7 @@ use leema::val::{Val, LibVal, Type};
 
 use std::net::{IpAddr, SocketAddr};
 use std::str::{FromStr};
-use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
+use std::sync::{Arc, Mutex, MutexGuard, TryLockResult, TryLockError};
 use std::io::{stderr, Write};
 use std::os::unix::io::AsRawFd;
 
@@ -52,6 +52,7 @@ pub fn udp_socket(mut f: Fiber) -> Event
 pub fn udp_bind(mut f: Fiber) -> Event
 {
     vout!("udp_bind({:?})", f.head.e);
+    /*
     let addr_val = f.head.e.get_param(0);
     let port_num = if let &Val::Int(p) = f.head.e.get_param(1) {
         p
@@ -72,12 +73,14 @@ pub fn udp_bind(mut f: Fiber) -> Event
     };
     let rval = Val::libval(Mutex::new(lsock));
     f.head.parent.set_result(rval);
+    */
     Event::success(f)
 }
 
 pub fn udp_recv(mut f: Fiber) -> Event
 {
     vout!("udp_recv({:?})\n", f.head.e);
+    /*
     let sockr = f.head.e.get_param(0).clone();
     let dstreg = Reg::local(0);
     f.head.e.set_reg(&dstreg, Val::Buffer(Vec::with_capacity(2048)));
@@ -93,17 +96,21 @@ pub fn udp_recv(mut f: Fiber) -> Event
             // let mut buffer = String::from("");
             let sock = guard.socket.take().unwrap();
             let sockr2 = sockr.clone();
+            // let fut = sock.recv_dgram(result)
+            / *
             let fut = sock.recv_dgram(buffer)
                 .map(|(isock, ibuf, nbytes, src_addr)| {
                     // sockr.
                     // buf2
+                    f.head.e.set_reg(&Reg::local(0), Val::Int(888));
                     ()
                 })
                 .map_err(|e| {
                     println!("error receiving UdpSock bytes: {:?}", e);
                     ()
                 });
-            guard.handle.spawn(fut);
+                * /
+            // guard.handle.spawn(fut);
         }
         Err(TryLockError::WouldBlock) => {
             return Event::Uneventful(f);
@@ -112,6 +119,7 @@ pub fn udp_recv(mut f: Fiber) -> Event
             panic!("socket lock is poisoned");
         }
     }
+    */
     f.head.parent.set_result(Val::Int(0));
     Event::success(f)
 }
@@ -119,57 +127,74 @@ pub fn udp_recv(mut f: Fiber) -> Event
 pub fn udp_send(mut f: Fiber) -> Event
 {
     vout!("udp_send.e = {:?}\n", f.head.e);
-    let sockr = f.head.e.get_param(0);
-    let dst_ip = f.head.e.get_param(1);
-    let dst_port =
-        if let &Val::Int(p) = f.head.e.get_param(2) {
-            p as i16
-        } else {
-            panic!("port is not a number");
-        };
-    let msg =
-        if let &Val::Str(ref s) = f.head.e.get_param(3) {
-            s.clone()
-        } else {
-            panic!("msg is not a string");
-        };
-    let send_addr = SocketAddr::new(
-        IpAddr::from_str(dst_ip.str()).unwrap(),
-        3999,
-    );
-    let omsg = (&*msg).clone();
+    let sock_result = {
+        let sockr = f.head.e.get_param(0);
+        vout!("sockr: {:?}\n", sockr);
 
-    vout!("udp_send(sockr, '{}', {}, '{}')\n", dst_ip, dst_port, msg);
-    vout!("sockr: {:?}\n", sockr);
+        let opt_mutex = sockr.libval_as();
+        let mutex_sock: &Mutex<UdpSock> = opt_mutex.unwrap();
+        // let sock_lock_r: TryLockResult<MutexGuard> = mutex_sock.try_lock();
+        let sock_lock_result = mutex_sock.try_lock();
+        sock_lock_result.map(|ref mut guard| {
+            guard.socket.take().unwrap()
+        })
+        .map_err(|err| {
+            match err {
+                TryLockError::WouldBlock => true,
+                TryLockError::Poisoned(_) => {
+                    panic!("socket mutex is poisoned");
+                }
+            }
+        })
+    };
 
-    let opt_mutex = sockr.libval_as();
-    let mutex_sock: &Mutex<UdpSock> = opt_mutex.unwrap();
-    match mutex_sock.try_lock() {
-        Ok(ref mut guard) => {
-            let sock = guard.socket.take().unwrap();
-            let sockr2 = sockr.clone();
-            let fut = sock.send_dgram(omsg, send_addr)
-                .map(move |(used_sock, buf)| {
-                    // put the used sock back in the value
-                    let msock2: &Mutex<UdpSock> = sockr2.libval_as().unwrap();
-                    if let Ok(ref mut g) = msock2.lock() {
-                        g.socket = Some(used_sock);
-                    }
-                    vout!("send_dgram sent\n");
-                    ()
-                })
-                .map_err(|e| {
-                    println!("send_dgram error: {:?}", e);
-                    ()
-                });
-            guard.handle.spawn(fut);
-        }
-        Err(TryLockError::WouldBlock) => {
-            return Event::Uneventful(f);
-        }
-        Err(TryLockError::Poisoned(ref p)) => {
-            panic!("socket lock is poisoned");
-        }
+    if sock_result.is_err() {
+        return Event::Uneventful(f)
+    }
+    let sock = sock_result.unwrap();
+
+    /*
+        let sock = guard.socket.take().unwrap();
+        let sockr2 = sockr.clone();
+        let fut = sock.send_dgram(omsg, send_addr)
+            .map(move |(used_sock, buf)| {
+                // put the used sock back in the value
+                let msock2: &Mutex<UdpSock> = sockr2.libval_as().unwrap();
+                if let Ok(ref mut g) = msock2.lock() {
+                    g.socket = Some(used_sock);
+                }
+                vout!("send_dgram sent\n");
+                ()
+            })
+            .map_err(|e| {
+                println!("send_dgram error: {:?}", e);
+                ()
+            });
+        guard.handle.spawn(fut);
+        */
+    {
+        /*
+        let dst_ip = f.head.e.get_param(1);
+        let dst_port =
+            if let &Val::Int(p) = f.head.e.get_param(2) {
+                p as i16
+            } else {
+                panic!("port is not a number");
+            };
+        let msg =
+            if let &Val::Str(ref s) = f.head.e.get_param(3) {
+                s.clone()
+            } else {
+                panic!("msg is not a string");
+            };
+        let send_addr = SocketAddr::new(
+            IpAddr::from_str(dst_ip.str()).unwrap(),
+            3999,
+        );
+        let omsg = (&*msg).clone();
+
+        vout!("udp_send(sockr, '{}', {}, '{}')\n", dst_ip, dst_port, msg);
+        */
     }
     f.head.parent.set_result(Val::Int(0));
     Event::success(f)
