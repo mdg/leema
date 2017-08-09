@@ -1,7 +1,15 @@
 import udp
 
-func main() ->
+
+func read_data(): Future<Str> ->
    let sock := udp::udp_bind("0.0.0.0", 3999)
-   let input := udp::udp_recv(sock)
-   cout("received ping ($input)\n")
+   udp::udp_recv(sock)
 --
+
+func main() ->
+   ## let sock := udp::udp_socket()
+   let finput := read_data()
+   let input := await(finput)
+   cout("received ping (${await(input)})\n")
+--
+
