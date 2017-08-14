@@ -181,6 +181,7 @@ pub fn udp_send(mut f: Fiber) -> Event
         sock.send_dgram(omsg, send_addr)
     };
 
+    let (fut_receiver, fut_sender) = Val::new_fut();
     {
         let hfut = fut.map(move |(used_sock, buf)| {
             // put the used sock back in the value
@@ -189,6 +190,7 @@ pub fn udp_send(mut f: Fiber) -> Event
                 g.socket = Some(used_sock);
             }
             vout!("send_dgram sent from fiber: {}\n", f.fiber_id);
+            fut_sender.send(Val::Int(0));
             ()
         })
         .map_err(|e| {
@@ -202,8 +204,8 @@ pub fn udp_send(mut f: Fiber) -> Event
         let sock = guard.socket.take().unwrap();
         let fut = sock.send_dgram(omsg, send_addr)
         guard.handle.spawn(fut);
-    f.head.parent.set_result(Val::Int(0));
         */
+    f.head.parent.set_result(fut_receiver);
     Event::IOWait
 }
 
