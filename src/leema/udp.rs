@@ -19,11 +19,20 @@ use futures::future::{Future};
 #[derive(Debug)]
 struct UdpSock
 {
-    handle: Handle,
+    worker_id: u64,
     remote: Remote,
     socket: Option<UdpSocket>,
     buffer: String,
 }
+
+/*
+#[derive(Debug)]
+struct Resource
+{
+    worker_id: u64,
+    resource_id: u64,
+}
+*/
 
 impl LibVal for Mutex<UdpSock>
 {
@@ -77,11 +86,44 @@ pub fn udp_bind(mut f: Fiber) -> Event
     Event::success(f)
 }
 
+/**
+ * udp_recv(sock)
+ */
 pub fn udp_recv(mut f: Fiber) -> Event
 {
-    vout!("udp_recv({:?})\n", f.head.e);
+vout!("udp_recv({:?})\n", f.head.e);
+
+    let sock_result = {
+        let sockr = f.head.e.get_param(0);
+        vout!("sockr: {:?}\n", sockr);
+        sockr2 = sockr.clone();
+
+        let opt_mutex = sockr.libval_as();
+        let mutex_sock: &Mutex<UdpSock> = opt_mutex.unwrap();
+        // let sock_lock_r: TryLockResult<MutexGuard> = mutex_sock.try_lock();
+        let sock_lock_result = mutex_sock.try_lock();
+        sock_lock_result.map(|ref mut guard| {
+            (guard.socket.take().unwrap(), guard.handle.clone())
+        })
+        .map_err(|err| {
+            match err {
+                TryLockError::WouldBlock => true,
+                TryLockError::Poisoned(_) => {
+                    panic!("socket mutex is poisoned");
+                }
+            }
+        })
+    };
+    let sockr = f.head.e.get_param(0);
+    let opt_mutex = sockr.libval_as();
+    let mutex_sock: &Mutex<UdpSock> = opt_mutex.unwrap();
+    let sock_lock_result = mutex_sock.try_lock();
+    sock_lock_result.
+    let mutex_sock: &Mutex<UdpSock> = opt_mutex.unwrap();
+    let sock_lock_result = mutex_sock.try_lock();
+    sock_lock_result.map(|ref mut guard| {
+        guard.socket
     /*
-    let sockr = f.head.e.get_param(0).clone();
     let dstreg = Reg::local(0);
     f.head.e.set_reg(&dstreg, Val::Buffer(Vec::with_capacity(2048)));
     let result = f.head.e.get_reg_mut(&dstreg);
@@ -181,7 +223,7 @@ pub fn udp_send(mut f: Fiber) -> Event
         sock.send_dgram(omsg, send_addr)
     };
 
-    let (fut_receiver, fut_sender) = Val::new_fut();
+    let to_worker = f.to_worker.clone()
     {
         let hfut = fut.map(move |(used_sock, buf)| {
             // put the used sock back in the value
@@ -190,7 +232,7 @@ pub fn udp_send(mut f: Fiber) -> Event
                 g.socket = Some(used_sock);
             }
             vout!("send_dgram sent from fiber: {}\n", f.fiber_id);
-            fut_sender.send(Val::Int(0));
+            to_worker.send(FiberToWorkerMsg::IOComplete(f.fiber_id));
             ()
         })
         .map_err(|e| {
@@ -206,7 +248,9 @@ pub fn udp_send(mut f: Fiber) -> Event
         guard.handle.spawn(fut);
         */
     f.head.parent.set_result(fut_receiver);
-    Event::IOWait
+    Event::IOWait(|f, result| {
+        f.head.parent.set_result(result);
+    })
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>
