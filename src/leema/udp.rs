@@ -1,11 +1,12 @@
 use leema::code::{Code, RustFunc};
 use leema::fiber::{Fiber};
-use leema::frame::{Frame, Event};
+use leema::frame::{Frame, Event, Resource};
 use leema::log;
 use leema::reg::{Reg};
 use leema::val::{Val, LibVal, Type};
 
 use std::net::{IpAddr, SocketAddr};
+use std::rc::{Rc};
 use std::str::{FromStr};
 use std::sync::{Arc, Mutex, MutexGuard, TryLockResult, TryLockError};
 use std::io::{stderr, Write};
@@ -19,18 +20,24 @@ use futures::future::{Future};
 #[derive(Debug)]
 struct UdpSock
 {
-    worker_id: u64,
-    remote: Remote,
+    handle: Handle,
     socket: Option<UdpSocket>,
-    buffer: String,
+}
+
+impl Resource for UdpSocket
+{
+    fn get_type(&self) -> Type
+    {
+        Type::Resource(Rc::new(String::from("UdpSocket")))
+    }
 }
 
 /*
 #[derive(Debug)]
 struct Resource
 {
-    worker_id: u64,
-    resource_id: u64,
+    worker_id: i64,
+    resource_id: i64,
 }
 */
 
@@ -49,9 +56,7 @@ pub fn udp_socket(mut f: Fiber) -> Event
     let rsock = UdpSocket::bind(&sock_addr, &f.handle).unwrap();
     let lsock = UdpSock{
         handle: f.handle.clone(),
-        remote: f.handle.remote().clone(),
         socket: Some(rsock),
-        buffer: String::from(""),
     };
     let rval = Val::libval(Mutex::new(lsock));
     f.head.parent.set_result(rval);
@@ -76,14 +81,39 @@ pub fn udp_bind(mut f: Fiber) -> Event
     let rsock = UdpSocket::bind(&sock_addr, &f.handle).unwrap();
     let lsock = UdpSock{
         handle: f.handle.clone(),
-        remote: f.handle.remote().clone(),
         socket: Some(rsock),
-        buffer: String::from(""),
     };
     let rval = Val::libval(Mutex::new(lsock));
     f.head.parent.set_result(rval);
     */
     Event::success(f)
+}
+
+fn udp_recv_1(handle: Handle, resource: Box<Resource>, _input: Val) -> Event
+{
+    let mut result_sock =
+        resource.downcast::<UdpSocket>();
+    let mut sock = result_sock.unwrap();
+    let mut buffer: Vec<u8> = Vec::with_capacity(2048);
+    let fut = sock.recv_dgram(buffer)
+        .map(|(isock, ibuff, ibufsize, _iaddr)| {
+            // let result = Val::Str(Rc::new(String::from(ibuff)));
+            let result = Val::Str(Rc::new("hello".to_string()));
+            // msg.send(FiberToWorkerMsg::EventResult());
+            ()
+        })
+        .map_err(|e| {
+            panic!("{:?}", e);
+            ()
+        });
+    handle.spawn(fut);
+    Event::Success
+}
+
+fn udp_recv_2(mut f: Fiber, result: Val) -> Event
+{
+    f.head.parent.set_result(result);
+    Event::Success
 }
 
 /**
@@ -93,36 +123,9 @@ pub fn udp_recv(mut f: Fiber) -> Event
 {
 vout!("udp_recv({:?})\n", f.head.e);
 
-    let sock_result = {
-        let sockr = f.head.e.get_param(0);
-        vout!("sockr: {:?}\n", sockr);
-        sockr2 = sockr.clone();
+    let sockrr = f.head.e.get_param(0);
+    Event::Iop(sockrr.resource_ref(), udp_recv_1, Val::Void)
 
-        let opt_mutex = sockr.libval_as();
-        let mutex_sock: &Mutex<UdpSock> = opt_mutex.unwrap();
-        // let sock_lock_r: TryLockResult<MutexGuard> = mutex_sock.try_lock();
-        let sock_lock_result = mutex_sock.try_lock();
-        sock_lock_result.map(|ref mut guard| {
-            (guard.socket.take().unwrap(), guard.handle.clone())
-        })
-        .map_err(|err| {
-            match err {
-                TryLockError::WouldBlock => true,
-                TryLockError::Poisoned(_) => {
-                    panic!("socket mutex is poisoned");
-                }
-            }
-        })
-    };
-    let sockr = f.head.e.get_param(0);
-    let opt_mutex = sockr.libval_as();
-    let mutex_sock: &Mutex<UdpSock> = opt_mutex.unwrap();
-    let sock_lock_result = mutex_sock.try_lock();
-    sock_lock_result.
-    let mutex_sock: &Mutex<UdpSock> = opt_mutex.unwrap();
-    let sock_lock_result = mutex_sock.try_lock();
-    sock_lock_result.map(|ref mut guard| {
-        guard.socket
     /*
     let dstreg = Reg::local(0);
     f.head.e.set_reg(&dstreg, Val::Buffer(Vec::with_capacity(2048)));
@@ -162,8 +165,6 @@ vout!("udp_recv({:?})\n", f.head.e);
         }
     }
     */
-    f.head.parent.set_result(Val::Int(0));
-    Event::success(f)
 }
 
 pub fn udp_send(mut f: Fiber) -> Event
@@ -223,7 +224,6 @@ pub fn udp_send(mut f: Fiber) -> Event
         sock.send_dgram(omsg, send_addr)
     };
 
-    let to_worker = f.to_worker.clone()
     {
         let hfut = fut.map(move |(used_sock, buf)| {
             // put the used sock back in the value
@@ -232,7 +232,6 @@ pub fn udp_send(mut f: Fiber) -> Event
                 g.socket = Some(used_sock);
             }
             vout!("send_dgram sent from fiber: {}\n", f.fiber_id);
-            to_worker.send(FiberToWorkerMsg::IOComplete(f.fiber_id));
             ()
         })
         .map_err(|e| {
@@ -247,10 +246,7 @@ pub fn udp_send(mut f: Fiber) -> Event
         let fut = sock.send_dgram(omsg, send_addr)
         guard.handle.spawn(fut);
         */
-    f.head.parent.set_result(fut_receiver);
-    Event::IOWait(|f, result| {
-        f.head.parent.set_result(result);
-    })
+    Event::IOWait
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>

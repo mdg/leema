@@ -32,6 +32,26 @@ pub struct Fiber
     pub handle: reactor::Handle,
 }
 
+macro_rules! handle_value {
+    ($curf:expr, $reg:expr) => {{
+        let val_clone = $curf.head.e.get_reg($reg).clone();
+        match &val_clone {
+            &Val::Failure(_, _, ref trace) => {
+                FrameTrace::propagate_down(trace
+                    , $curf.function_name());
+                $curf.head.parent.set_result(val_clone.clone());
+                return Event::failure($curf);
+            }
+            &Val::Future(_) => {
+                return Event::FutureWait($reg.clone())
+            }
+            _ => {
+                val_clone.clone()
+            }
+        }
+    }}
+}
+
 impl Fiber
 {
     pub fn spawn(id: i64, root: Frame, h: &reactor::Handle) -> Fiber
@@ -150,26 +170,38 @@ impl Fiber
     pub fn execute_strcat(mut self, dstreg: &Reg, srcreg: &Reg) -> Event
     {
         let result = {
+            let dst = handle_value!(self, dstreg);
+            dst
+            /*
             let src = self.head.e.get_reg(srcreg);
-            if src.is_failure() {
-                let mut f = src.clone();
-                match &mut f {
-                    &mut Val::Failure(_, _, ref mut trace) => {
-                        *trace = FrameTrace::propagate_down(trace
-                            , self.function_name());
-                    }
-                    ff => {
-                        panic!("is failure, but not a failure: {:?}", ff);
-                    }
+            match (dst, src) {
+                (&Val::Failure(_, _, ref trace), _) => {
+                    *trace = FrameTrace::propagate_down(trace
+                        , self.function_name());
+                    let mut f = dst.clone();
+                    self.head.parent.set_result(f);
+                    return Event::failure(self);
                 }
-                self.head.parent.set_result(f);
-                return Event::failure(self)
-            } else if src.is_future() {
-                // oops, not ready to do this yet, let's bail and wait
-                return Event::FutureWait(srcreg.clone())
+                (_, &Val::Failure(_, _, ref trace)) => {
+                    *trace = FrameTrace::propagate_down(trace
+                        , self.function_name());
+                    let mut f = src.clone();
+                    self.head.parent.set_result(f);
+                    return Event::failure(self);
+                }
+                (&Val::Future(_), _) => {
+                    // oops, not ready to do this yet, let's bail and wait
+                    return Event::FutureWait(dstreg.clone())
+                }
+                (_, &Val::Future(_)) => {
+                    // oops, not ready to do this yet, let's bail and wait
+                    return Event::FutureWait(srcreg.clone())
+                }
+                (ref a, ref b) => {
+                    Val::new_str(format!("{}{}", dst, src))
+                }
             }
-            let dst = self.head.e.get_reg(dstreg);
-            Val::new_str(format!("{}{}", dst, src))
+            */
         };
         self.head.e.set_reg(dstreg, result);
         self.head.pc += 1;

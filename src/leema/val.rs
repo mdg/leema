@@ -44,6 +44,7 @@ pub enum Type
     // and then it should be a protocol, not type
     StrictList(Box<Type>),
     Lib(String),
+    Resource(Rc<String>),
     RustBlock,
     // Future(Box<Type>),
     Void,
@@ -176,6 +177,7 @@ impl fmt::Display for Type
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
+            &Type::Resource(ref name) => write!(f, "{}", &name),
             &Type::RustBlock => write!(f, "RustBlock"),
             &Type::Void => write!(f, "Void"),
             &Type::Kind => write!(f, "Kind"),
@@ -222,6 +224,7 @@ impl fmt::Debug for Type
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
+            &Type::Resource(ref name) => write!(f, "Resource({})", &name),
             &Type::RustBlock => write!(f, "RustBlock"),
             &Type::Void => write!(f, "Void"),
             &Type::Kind => write!(f, "Kind"),
@@ -325,7 +328,8 @@ pub enum Val {
     Kind(u8),
     DotAccess(Box<Val>, Rc<String>),
     Lib(Arc<LibVal>),
-    EventResourceRef(i64, i64),
+    LibRc(Rc<LibVal>),
+    ResourceRef(i64, i64),
     RustBlock,
     Future(FutureVal),
     CallParams,
@@ -578,9 +582,22 @@ impl Val
         )
     }
 
+    pub fn resource_ref(&self) -> (i64, i64)
+    {
+        match self {
+            &Val::ResourceRef(wid, rid) => (wid, rid),
+            _ => panic!("not a resource ref"),
+        }
+    }
+
     pub fn libval<T: LibVal>(lv: T) -> Val
     {
         Val::Lib(Arc::new(lv))
+    }
+
+    pub fn libval_rc<T: LibVal>(lv: T) -> Val
+    {
+        Val::LibRc(Rc::new(lv))
     }
 
     pub fn libval_as<T>(&self) -> Option<&T>
@@ -589,6 +606,11 @@ impl Val
         match self {
             &Val::Lib(ref lvarc) => {
                 let lvref: &LibVal = &**lvarc;
+vout!("lvref: {:?}\n", lvref);
+                lvref.downcast_ref::<T>()
+            }
+            &Val::LibRc(ref lvrc) => {
+                let lvref: &LibVal = &**lvrc;
                 lvref.downcast_ref::<T>()
             }
             _ => None,
@@ -974,8 +996,11 @@ impl fmt::Display for Val {
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv)
             }
-            Val::EventResourceRef(wid, rid) => {
-                write!(f, "EventResourceRef({},{})", wid, rid)
+            Val::LibRc(ref lv) => {
+                write!(f, "LibValRc({:?})", lv)
+            }
+            Val::ResourceRef(wid, rid) => {
+                write!(f, "ResourceRef({},{})", wid, rid)
             }
             Val::RustBlock => {
                 write!(f, "RustBlock")
@@ -1064,8 +1089,11 @@ impl fmt::Debug for Val {
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv)
             }
-            Val::EventResourceRef(wid, rid) => {
-                write!(f, "EventResourceRef({},{})", wid, rid)
+            Val::LibRc(ref lv) => {
+                write!(f, "LibValRc({:?})", lv)
+            }
+            Val::ResourceRef(wid, rid) => {
+                write!(f, "ResourceRef({},{})", wid, rid)
             }
             Val::RustBlock => {
                 write!(f, "RustBlock")

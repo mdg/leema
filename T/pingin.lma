@@ -1,15 +1,24 @@
 import udp
 
 
-func read_data(): Future<Str> ->
+func read_data(): Str ->
    let sock := udp::udp_bind("0.0.0.0", 3999)
    udp::udp_recv(sock)
+--
+
+func recv_dgram_loop(sock: udp::Sock): Str* ->
+    yield udp::udp_recv(sock)
+    recv_dgram(sock)
+--
+
+func read_dgrams(): Str* ->
+   let sock := udp::udp_bind("0.0.0.0", 3999)
+   recv_dgram_loop(sock)
 --
 
 func main() ->
    ## let sock := udp::udp_socket()
    let finput := read_data()
-   let input := await(finput)
-   cout("received ping (${await(input)})\n")
+   cout("received ping (${input})\n")
 --
 

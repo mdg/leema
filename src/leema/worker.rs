@@ -1,10 +1,10 @@
 
 use leema::code::{self, CodeKey, Code, Op, OpVec, ModSym, RustFunc};
 use leema::fiber::{Fiber};
-use leema::frame::{self, Event, Frame, Parent};
+use leema::frame::{self, Event, Frame, Parent, Resource};
 use leema::log;
 use leema::reg::{Reg};
-use leema::val::{Env, Val, MsgVal};
+use leema::val::{Env, Val, MsgVal, Type};
 
 use std::cell::{RefCell, RefMut};
 use std::collections::{HashMap, LinkedList};
@@ -33,6 +33,7 @@ pub enum Msg
     // FoundCode(frame_id, module, function, code)
     FoundCode(i64, String, String, Code),
     MainResult(MsgVal),
+    IOReady(i64),
 }
 
 #[derive(Debug)]
@@ -57,6 +58,7 @@ pub struct Worker
     waiting: HashMap<i64, FiberWait>,
     handle: reactor::Handle,
     code: HashMap<String, HashMap<String, Rc<Code>>>,
+    resource: HashMap<i64, Option<Box<Resource>>>,
     app_tx: Sender<Msg>,
     app_rx: Receiver<Msg>,
     //io: IOQueue,
@@ -82,6 +84,7 @@ impl Worker
             fresh: LinkedList::new(),
             waiting: HashMap::new(),
             handle: h.clone(),
+            resource: HashMap::new(),
             code: HashMap::new(),
             app_tx: send,
             app_rx: recv,
@@ -167,6 +170,12 @@ impl Worker
                 }
                 Result::Ok(Async::NotReady)
             }
+            Event::Success => {
+                Result::Ok(Async::NotReady)
+            }
+            Event::Failure => {
+                Result::Ok(Async::NotReady)
+            }
             Event::Call(mut fiber, dst, module, func, args) => {
                 vout!("push_call({}.{})\n", module, func);
                 fiber.push_call(code.clone(), dst, module, func, args);
@@ -175,6 +184,12 @@ impl Worker
             }
             Event::FutureWait(reg) => {
                 println!("wait for future {:?}", reg);
+                Result::Ok(Async::NotReady)
+            }
+            Event::Iop(_, _, _) => {
+                Result::Ok(Async::NotReady)
+            }
+            Event::Iop2(_) => {
                 Result::Ok(Async::NotReady)
             }
             Event::IOWait => {
@@ -227,7 +242,7 @@ impl Worker
         let id = self.next_fiber_id;
         self.next_fiber_id += 1;
         let frame = Frame::new_root(module, func);
-        let fib = Fiber::spawn(id, frame, &self.handle);
+        let fib = Fiber::spawn(id, frame, &self.handle); //self.app_rx.clone());
         self.fresh.push_back(ReadyFiber::New(fib));
     }
 
@@ -273,7 +288,7 @@ impl WorkerExec
                     None
                 }
                 Some(ReadyFiber::Ready(mut f, code)) => {
-                    WorkerExec::execute_frame(f, code)
+                    Some(WorkerExec::execute_frame(f, code))
                 }
                 None => None,
             }
@@ -286,7 +301,7 @@ impl WorkerExec
     }
 
     pub fn execute_frame(mut f: Fiber, code: Rc<Code>
-        ) -> Option<(Event, Rc<Code>)>
+        ) -> (Event, Rc<Code>)
     {
         let ev = match &*code {
             &Code::Leema(ref ops) => {
@@ -297,7 +312,7 @@ impl WorkerExec
                 rf(f)
             }
         };
-        Some((ev, code))
+        (ev, code)
     }
 }
 

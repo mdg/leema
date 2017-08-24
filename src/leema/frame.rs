@@ -18,6 +18,9 @@ use std::thread;
 use std::time;
 use std::io::{stderr, Write};
 
+use ::tokio_core::reactor::{self};
+use mopa;
+
 
 pub enum Parent
 {
@@ -71,6 +74,19 @@ impl Debug for Parent
     }
 }
 
+pub trait Resource
+    : mopa::Any
+    + fmt::Debug
+{
+    fn get_type(&self) -> Type;
+}
+
+mopafy!(Resource);
+
+pub type ResourceFunc1 =
+    fn(reactor::Handle, Box<Resource>, Val) -> Event;
+pub type ResourceFunc2 = fn(Fiber, Val) -> Event;
+
 #[derive(Debug)]
 pub enum Event
 {
@@ -80,7 +96,11 @@ pub enum Event
     Fork,
     FutureWait(Reg),
     IOWait,
+    Iop((i64, i64), ResourceFunc1, Val),
+    Iop2(ResourceFunc2),
     Complete(Fiber, bool),
+    Success,
+    Failure,
 }
 
 impl Event
@@ -96,14 +116,15 @@ impl Event
     }
 }
 
+/*
 impl PartialEq for Event
 {
     fn eq(&self, other: &Event) -> bool
     {
         match (self, other) {
             (&Event::Uneventful, &Event::Uneventful) => true,
-            (&Event::Call(ref r1, ref m1, ref f1, ref a1),
-                    &Event::Call(ref r2, ref m2, ref f2, ref a2)) =>
+            (&Event::Call(_, ref r1, ref m1, ref f1, ref a1),
+                    &Event::Call(_, ref r2, ref m2, ref f2, ref a2)) =>
             {
                 (r1 == r2 && m1 == m2 && f1 == f2 && a1 == a2)
             }
@@ -118,6 +139,7 @@ impl PartialEq for Event
         }
     }
 }
+*/
 
 #[derive(Debug)]
 pub struct FrameTrace
