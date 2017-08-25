@@ -109,10 +109,10 @@ fn udp_recv_1(h: Handle, resp: EventResult
             ()
         });
     h.spawn(fut);
-    Event::Success
+    Event::Iop2(udp_recv_2)
 }
 
-fn udp_recv_2(mut f: Fiber, result: Val) -> Event
+fn udp_recv_2(f: &mut Fiber, result: Val) -> Event
 {
     f.head.parent.set_result(result);
     Event::Success

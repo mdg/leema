@@ -87,9 +87,8 @@ pub type EventResult = fn(Val, Box<Resource>);
 
 pub type ResourceFunc1 =
     fn(reactor::Handle, EventResult, Box<Resource>, Val) -> Event;
-pub type ResourceFunc2 = fn(Fiber, Val) -> Event;
+pub type ResourceFunc2 = fn(&mut Fiber, Val) -> Event;
 
-#[derive(Debug)]
 pub enum Event
 {
     None,
@@ -115,6 +114,31 @@ impl Event
     pub fn failure(f: Fiber) -> Event
     {
         Event::Complete(f, false)
+    }
+}
+
+impl fmt::Debug for Event {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &Event::None => write!(f, "Event::None"),
+            &Event::Uneventful(_) => write!(f, "Uneventful"),
+            &Event::Call(_, ref r, ref cmod, ref cfunc, ref cargs) => {
+                write!(f, "Event::Call(_, {:?}, {}, {}, {:?})",
+                    r, cmod, cfunc, cargs)
+            }
+            &Event::Fork => write!(f, "Event::Fork"),
+            &Event::FutureWait(ref r) => write!(f, "Event::FutureWait({})", r),
+            &Event::IOWait => write!(f, "Event::IOWait"),
+            &Event::Iop(wrid, rf, ref args) => {
+                write!(f, "Event::Iop({:?}, f, {:?})", wrid, args)
+            }
+            &Event::Iop2(ResourceFunc2) => write!(f, "Event::Iop2"),
+            &Event::Complete(_, c) => {
+                write!(f, "Event::Complete({})", c)
+            }
+            &Event::Success => write!(f, "Event::Success"),
+            &Event::Failure => write!(f, "Event::Failure"),
+        }
     }
 }
 
