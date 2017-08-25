@@ -83,8 +83,10 @@ pub trait Resource
 
 mopafy!(Resource);
 
+pub type EventResult = fn(Val, Box<Resource>);
+
 pub type ResourceFunc1 =
-    fn(reactor::Handle, Box<Resource>, Val) -> Event;
+    fn(reactor::Handle, EventResult, Box<Resource>, Val) -> Event;
 pub type ResourceFunc2 = fn(Fiber, Val) -> Event;
 
 #[derive(Debug)]

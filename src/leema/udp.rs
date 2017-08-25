@@ -1,6 +1,6 @@
 use leema::code::{Code, RustFunc};
 use leema::fiber::{Fiber};
-use leema::frame::{Frame, Event, Resource};
+use leema::frame::{Frame, Event, Resource, EventResult};
 use leema::log;
 use leema::reg::{Reg};
 use leema::val::{Val, LibVal, Type};
@@ -89,24 +89,26 @@ pub fn udp_bind(mut f: Fiber) -> Event
     Event::success(f)
 }
 
-fn udp_recv_1(handle: Handle, resource: Box<Resource>, _input: Val) -> Event
+fn udp_recv_1(h: Handle, resp: EventResult
+    , resource: Box<Resource>, _input: Val) -> Event
 {
     let mut result_sock =
         resource.downcast::<UdpSocket>();
     let mut sock = result_sock.unwrap();
     let mut buffer: Vec<u8> = Vec::with_capacity(2048);
     let fut = sock.recv_dgram(buffer)
-        .map(|(isock, ibuff, ibufsize, _iaddr)| {
+        .map(move |(isock, ibuff, ibufsize, _iaddr)| {
             // let result = Val::Str(Rc::new(String::from(ibuff)));
             let result = Val::Str(Rc::new("hello".to_string()));
             // msg.send(FiberToWorkerMsg::EventResult());
+            resp(result, Box::new(isock));
             ()
         })
         .map_err(|e| {
             panic!("{:?}", e);
             ()
         });
-    handle.spawn(fut);
+    h.spawn(fut);
     Event::Success
 }
 
