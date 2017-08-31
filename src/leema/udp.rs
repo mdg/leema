@@ -89,8 +89,8 @@ pub fn udp_bind(mut f: Fiber) -> Event
     Event::success(f)
 }
 
-fn udp_recv_1(h: Handle, resp: EventResult
-    , resource: Box<Resource>, _input: Val) -> Event
+fn udp_recv_1<T>(resp: EventResult
+    , resource: Box<Resource>, _input: Vec<Val>) -> Event
 {
     let mut result_sock =
         resource.downcast::<UdpSocket>();
@@ -108,8 +108,7 @@ fn udp_recv_1(h: Handle, resp: EventResult
             panic!("{:?}", e);
             ()
         });
-    h.spawn(fut);
-    Event::Iop2(udp_recv_2)
+    Event::IoFuture(Box::new(fut))
 }
 
 fn udp_recv_2(f: &mut Fiber, result: Val) -> Event
@@ -126,7 +125,7 @@ pub fn udp_recv(mut f: Fiber) -> Event
 vout!("udp_recv({:?})\n", f.head.e);
 
     let sockrr = f.head.e.get_param(0);
-    Event::Iop(sockrr.resource_ref(), udp_recv_1, Val::Void)
+    Event::Iop(sockrr.resource_ref(), udp_recv_1, vec![])
 
     /*
     let dstreg = Reg::local(0);

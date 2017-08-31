@@ -18,6 +18,7 @@ use std::thread;
 use std::time;
 use std::io::{stderr, Write};
 
+use futures::future;
 use ::tokio_core::reactor::{self};
 use mopa;
 
@@ -83,11 +84,69 @@ pub trait Resource
 
 mopafy!(Resource);
 
-pub type EventResult = fn(Val, Box<Resource>);
+pub type EventResult = Fn(Val, Box<Resource + 'static>);
 
-pub type ResourceFunc1 =
-    fn(reactor::Handle, EventResult, Box<Resource>, Val) -> Event;
+pub type IopAction =
+    fn(EventResult, Box<Resource>, Vec<Val>) -> Event;
 pub type ResourceFunc2 = fn(&mut Fiber, Val) -> Event;
+
+#[derive(Debug)]
+pub struct Iop
+{
+    pub action: IopAction,
+    pub params: Vec<Val>,
+    pub src_worker_id: i64,
+}
+
+pub struct Ioq
+{
+    rsrc: Option<Box<Resource>>,
+    queue: LinkedList<Iop>,
+}
+
+impl Ioq
+{
+    /**
+     * Checkout a resource object and return it w/ the Iop
+     *
+     * If the resource is already in used, then return None
+     */
+    pub fn checkout(&mut self, worker_id: i64, iopf: IopAction
+        , args: Vec<Val>) -> Option<(Box<Resource>, Iop)>
+    {
+        let iop = Iop{
+            action: iopf,
+            params: args,
+            src_worker_id: worker_id,
+        };
+
+        match self.rsrc.take() {
+            Some(r) => {
+                Some((r, iop))
+            }
+            None => {
+                self.queue.push_back(iop);
+                None
+            }
+        }
+    }
+
+    /**
+     * Add the resource back to the Ioq to be used later
+     */
+    pub fn checkin(&mut self, r: Box<Resource>) -> Option<(Box<Resource>, Iop)>
+    {
+        match self.queue.pop_front() {
+            Some(iop) => {
+                Some((r, iop))
+            }
+            None => {
+                self.rsrc = Some(r);
+                None
+            }
+        }
+    }
+}
 
 pub enum Event
 {
@@ -97,7 +156,8 @@ pub enum Event
     Fork,
     FutureWait(Reg),
     IOWait,
-    Iop((i64, i64), ResourceFunc1, Val),
+    Iop((i64, i64), IopAction, Vec<Val>),
+    IoFuture(Box<future::Future<Item=(), Error=()>>),
     Iop2(ResourceFunc2),
     Complete(Fiber, bool),
     Success,
@@ -129,8 +189,8 @@ impl fmt::Debug for Event {
             &Event::Fork => write!(f, "Event::Fork"),
             &Event::FutureWait(ref r) => write!(f, "Event::FutureWait({})", r),
             &Event::IOWait => write!(f, "Event::IOWait"),
-            &Event::Iop(wrid, rf, ref args) => {
-                write!(f, "Event::Iop({:?}, f, {:?})", wrid, args)
+            &Event::Iop(wrid, iopf, iopargs) => {
+                write!(f, "Event::Iop({:?}, f, {:?})", wrid, iopargs)
             }
             &Event::Iop2(ResourceFunc2) => write!(f, "Event::Iop2"),
             &Event::Complete(_, c) => {

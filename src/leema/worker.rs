@@ -1,12 +1,12 @@
 
 use leema::code::{self, CodeKey, Code, Op, OpVec, ModSym, RustFunc};
 use leema::fiber::{Fiber};
-use leema::frame::{self, Event, Frame, Parent, Resource};
+use leema::frame::{self, Event, Frame, Parent, Resource, Iop, Ioq};
 use leema::log;
 use leema::reg::{Reg};
 use leema::val::{Env, Val, MsgVal, Type};
 
-use std::cell::{RefCell, RefMut};
+use std::cell::{RefCell, RefMut, Ref};
 use std::collections::{HashMap, LinkedList};
 use std::fmt;
 use std::io::{stderr, Write};
@@ -58,7 +58,7 @@ pub struct Worker
     waiting: HashMap<i64, FiberWait>,
     handle: reactor::Handle,
     code: HashMap<String, HashMap<String, Rc<Code>>>,
-    resource: HashMap<i64, Option<Box<Resource>>>,
+    resource: HashMap<i64, Ioq>,
     app_tx: Sender<Msg>,
     app_rx: Receiver<Msg>,
     //io: IOQueue,
@@ -128,7 +128,7 @@ impl Worker
         }
     }
 
-    pub fn handle_event(w: &Rc<RefCell<Worker>>, e: Event, code: Rc<Code>)
+    pub fn handle_event(&mut self, e: Event, code: Rc<Code>)
         -> Poll<Val, Val>
     {
         match e {
@@ -148,21 +148,15 @@ impl Worker
                             , f.head.module_name()
                             , f.head.function_name()
                             );
-                        RefMut::map(w.borrow_mut(), |wref| {
-                            wref.push_fresh(ReadyFiber::Ready(f, old_code));
-                            wref
-                        });
+                        self.push_fresh(ReadyFiber::Ready(f, old_code));
                     }
                     Parent::Repl(res) => {
                     }
                     Parent::Main(res) => {
                         vout!("finished main func\n");
                         let msg = Msg::MainResult(res.to_msg());
-                        RefMut::map(w.borrow_mut(), |wref| {
-                            wref.done = true;
-                            wref.app_tx.send(msg);
-                            wref
-                        });
+                        self.done = true;
+                        self.app_tx.send(msg);
                     }
                     Parent::Null => {
                         // this shouldn't have happened
@@ -179,14 +173,40 @@ impl Worker
             Event::Call(mut fiber, dst, module, func, args) => {
                 vout!("push_call({}.{})\n", module, func);
                 fiber.push_call(code.clone(), dst, module, func, args);
-                w.borrow_mut().load_code(fiber);
+                self.load_code(fiber);
                 Result::Ok(Async::NotReady)
             }
             Event::FutureWait(reg) => {
                 println!("wait for future {:?}", reg);
                 Result::Ok(Async::NotReady)
             }
-            Event::Iop(_, _, _) => {
+            Event::Iop((rsrc_worker_id, rsrc_id), iopf, iopargs) => {
+                if self.id == rsrc_worker_id {
+                    let opt_ioq = self.resource.get(&rsrc_id);
+                    if opt_ioq.is_none() {
+                        panic!("Iop resource not found: {}", rsrc_id);
+                    }
+                    let ioq = opt_ioq.unwrap();
+                    match ioq.checkout(self.id, iopf, iopargs) {
+                        Some((rsrc, iop2)) => {
+                            let resp = self.create_iop_response();
+                            match (iop2.action)(resp, rsrc, iop2.params) {
+                                Event::IoFuture(fut) => {
+                                    self.handle.spawn(fut);
+                                }
+                                _ => {
+                                    panic!("not a future");
+                                }
+                            }
+                        }
+                        None => {
+                            // resource is busy, will push it later
+                        }
+                    }
+                } else {
+                    panic!("cannot send iop from worker({}) to worker({})",
+                        self.id, rsrc_worker_id);
+                }
                 Result::Ok(Async::NotReady)
             }
             Event::Iop2(_) => {
@@ -260,6 +280,15 @@ impl Worker
     {
 vout!("lock app, add_fork\n");
     }
+
+    fn create_iop_response<T>(&self) -> Fn(Val, Box<T>)
+        // where  T: Fn(Val, Box<Resource + 'static>)
+        where  T: Resource + 'static
+    {
+        let h = self.handle.clone();
+        |result, rsrc| {
+        }
+    }
 }
 
 
@@ -294,7 +323,7 @@ impl WorkerExec
             }
         };
         if let Some((ev, code)) = opt_ev {
-            Worker::handle_event(&self.w, ev, code)
+            self.w.borrow_mut().handle_event(ev, code)
         } else {
             Result::Ok(Async::NotReady)
         }
