@@ -182,14 +182,14 @@ impl Worker
             }
             Event::Iop((rsrc_worker_id, rsrc_id), iopf, iopargs) => {
                 if self.id == rsrc_worker_id {
-                    let opt_ioq = self.resource.get(&rsrc_id);
+                    let resp = self.create_iop_response();
+                    let opt_ioq = self.resource.get_mut(&rsrc_id);
                     if opt_ioq.is_none() {
                         panic!("Iop resource not found: {}", rsrc_id);
                     }
-                    let ioq = opt_ioq.unwrap();
+                    let mut ioq = opt_ioq.unwrap();
                     match ioq.checkout(self.id, iopf, iopargs) {
                         Some((rsrc, iop2)) => {
-                            let resp = self.create_iop_response();
                             match (iop2.action)(resp, rsrc, iop2.params) {
                                 Event::IoFuture(fut) => {
                                     self.handle.spawn(fut);
@@ -207,6 +207,10 @@ impl Worker
                     panic!("cannot send iop from worker({}) to worker({})",
                         self.id, rsrc_worker_id);
                 }
+                Result::Ok(Async::NotReady)
+            }
+            Event::IoFuture(fut) => {
+                self.handle.spawn(fut);
                 Result::Ok(Async::NotReady)
             }
             Event::Iop2(_) => {
@@ -281,13 +285,11 @@ impl Worker
 vout!("lock app, add_fork\n");
     }
 
-    fn create_iop_response<T>(&self) -> Fn(Val, Box<T>)
-        // where  T: Fn(Val, Box<Resource + 'static>)
-        where  T: Resource + 'static
+    fn create_iop_response(&self) -> Box<Fn(Val, Box<Resource>)>
     {
         let h = self.handle.clone();
-        |result, rsrc| {
-        }
+        Box::new(|result, rsrc| {
+        })
     }
 }
 

@@ -84,16 +84,16 @@ pub trait Resource
 
 mopafy!(Resource);
 
-pub type EventResult = Fn(Val, Box<Resource + 'static>);
+pub type EventResult = Fn(Val, Box<Resource>);
 
 pub type IopAction =
-    fn(EventResult, Box<Resource>, Vec<Val>) -> Event;
+    fn(Box<EventResult>, Box<Resource>, Vec<Val>) -> Event;
 pub type ResourceFunc2 = fn(&mut Fiber, Val) -> Event;
 
 #[derive(Debug)]
 pub struct Iop
 {
-    pub action: IopAction,
+    pub action: Box<IopAction>,
     pub params: Vec<Val>,
     pub src_worker_id: i64,
 }
@@ -111,7 +111,7 @@ impl Ioq
      *
      * If the resource is already in used, then return None
      */
-    pub fn checkout(&mut self, worker_id: i64, iopf: IopAction
+    pub fn checkout(&mut self, worker_id: i64, iopf: Box<IopAction>
         , args: Vec<Val>) -> Option<(Box<Resource>, Iop)>
     {
         let iop = Iop{
@@ -156,7 +156,7 @@ pub enum Event
     Fork,
     FutureWait(Reg),
     IOWait,
-    Iop((i64, i64), IopAction, Vec<Val>),
+    Iop((i64, i64), Box<IopAction>, Vec<Val>),
     IoFuture(Box<future::Future<Item=(), Error=()>>),
     Iop2(ResourceFunc2),
     Complete(Fiber, bool),
@@ -189,9 +189,10 @@ impl fmt::Debug for Event {
             &Event::Fork => write!(f, "Event::Fork"),
             &Event::FutureWait(ref r) => write!(f, "Event::FutureWait({})", r),
             &Event::IOWait => write!(f, "Event::IOWait"),
-            &Event::Iop(wrid, iopf, iopargs) => {
+            &Event::Iop(wrid, ref iopf, ref iopargs) => {
                 write!(f, "Event::Iop({:?}, f, {:?})", wrid, iopargs)
             }
+            &Event::IoFuture(ref fut) => write!(f, "Event::IoFuture"),
             &Event::Iop2(ResourceFunc2) => write!(f, "Event::Iop2"),
             &Event::Complete(_, c) => {
                 write!(f, "Event::Complete({})", c)
