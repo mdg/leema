@@ -605,8 +605,9 @@ impl Val
     {
         match self {
             &Val::Lib(ref lvarc) => {
+                vout!("lvarc: {:?}\n", lvarc);
                 let lvref: &LibVal = &**lvarc;
-vout!("lvref: {:?}\n", lvref);
+                vout!("lvref: {:?}\n", lvref);
                 lvref.downcast_ref::<T>()
             }
             &Val::LibRc(ref lvrc) => {
