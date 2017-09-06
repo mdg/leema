@@ -1,6 +1,7 @@
 use leema::loader::{Interloader};
 use leema::program;
-use leema::worker::{Worker, Msg};
+use leema::msg::{AppMsg, WorkerMsg};
+use leema::worker::{Worker};
 use leema::code::{Code};
 use leema::val::{Val};
 use leema::log;
@@ -14,9 +15,9 @@ use std::io::{stderr, Write};
 pub struct Application
 {
     prog: program::Lib,
-    app_recv: Receiver<Msg>,
-    app_send: Sender<Msg>,
-    worker: HashMap<i64, Sender<Msg>>,
+    app_recv: Receiver<AppMsg>,
+    app_send: Sender<AppMsg>,
+    worker: HashMap<i64, Sender<WorkerMsg>>,
     calls: LinkedList<(String, String)>,
     result: Option<Val>,
     done: bool,
@@ -86,7 +87,7 @@ impl Application
         while let Some((module, call)) = self.calls.pop_front() {
             vout!("application call {}.{}()\n", module, call);
             let w = self.worker.values().next().unwrap();
-            w.send(Msg::Spawn(module, call));
+            w.send(WorkerMsg::Spawn(module, call));
         }
 
         while let Result::Ok(msg) = self.app_recv.try_recv() {
@@ -94,21 +95,23 @@ impl Application
         }
     }
 
-    pub fn process_msg(&mut self, msg: Msg)
+    pub fn process_msg(&mut self, msg: AppMsg)
     {
         vout!("Received a message! {:?}\n", msg);
         match msg {
-            Msg::RequestCode(worker_id, frame, module, func) => {
+            AppMsg::RequestCode(worker_id, frame, module, func) => {
                 let code = self.prog.load_code(&module, &func);
                 let worker = self.worker.get(&worker_id).unwrap();
-                worker.send(Msg::FoundCode(frame, module, func, code.clone()));
+                worker.send(
+                    WorkerMsg::FoundCode(frame, module, func, code.clone())
+                );
             }
-            Msg::MainResult(mv) => {
+            AppMsg::MainResult(mv) => {
                 self.result = Some(Val::from_msg(mv));
                 self.done = true;
             }
-            _ => {
-                panic!("Probable worker msg: {:?}", msg);
+            AppMsg::Spawn(module, call) => {
+                panic!("whoa a spawn msg sent to Application");
             }
         }
     }

@@ -1,5 +1,7 @@
 
 use leema::frame;
+use leema::msg::{WorkerMsg, AppMsg, IoMsg};
+use leema::rsrc::{self, Rsrc};
 use leema::val::{Val, MsgVal};
 use leema::worker;
 
@@ -7,8 +9,6 @@ use std;
 use std::fmt;
 // std::sync::mpsc::{channel, Sender, Receiver};
 use std::collections::{HashMap, LinkedList};
-
-use mopa;
 
 /*
 Rsrc
@@ -27,28 +27,10 @@ ResourceQueue
 IoEvent
 */
 
-pub trait Rsrc
-    : mopa::Any
-    + fmt::Debug
-{
-}
-
-mopafy!(Rsrc);
-
-pub type IoResult = Fn(Val, Box<Rsrc>);
-pub type RsrcAction = fn(Box<IoResult>, Box<Rsrc>, Vec<Val>) -> frame::Event;
-    // -> IoFuture(Box<future::Future<Item=(), Error=()>>);
-
-#[derive(Debug)]
-enum IoMsg
-{
-    Iop(i64, RsrcAction, Vec<MsgVal>),
-}
-
 #[derive(Debug)]
 pub struct Iop
 {
-    pub action: Box<RsrcAction>,
+    pub action: Box<rsrc::Action>,
     pub params: Vec<Val>,
     pub src_worker_id: i64,
 }
@@ -63,7 +45,7 @@ struct Io
 {
     resource: HashMap<i64, Ioq>,
     msg_rx: std::sync::mpsc::Receiver<IoMsg>,
-    app_tx: std::sync::mpsc::Sender<worker::Msg>,
-    worker_tx: HashMap<i64, std::sync::mpsc::Sender<worker::Msg>>,
+    app_tx: std::sync::mpsc::Sender<WorkerMsg>,
+    worker_tx: HashMap<i64, std::sync::mpsc::Sender<WorkerMsg>>,
 }
 

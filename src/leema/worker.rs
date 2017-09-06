@@ -3,6 +3,7 @@ use leema::code::{self, CodeKey, Code, Op, OpVec, ModSym, RustFunc};
 use leema::fiber::{Fiber};
 use leema::frame::{self, Event, Frame, Parent, Resource, Iop, Ioq};
 use leema::log;
+use leema::msg::{AppMsg, WorkerMsg, IoMsg};
 use leema::reg::{Reg};
 use leema::val::{Env, Val, MsgVal, Type};
 
@@ -22,19 +23,6 @@ use futures::future::{Future};
 use futures::task;
 use tokio_core::reactor;
 
-
-#[derive(Debug)]
-pub enum Msg
-{
-    // Spawn(module, function)
-    Spawn(String, String),
-    // RequestCode(worker_id, frame_id, module, function)
-    RequestCode(i64, i64, String, String),
-    // FoundCode(frame_id, module, function, code)
-    FoundCode(i64, String, String, Code),
-    MainResult(MsgVal),
-    IOReady(i64),
-}
 
 #[derive(Debug)]
 enum ReadyFiber
@@ -59,8 +47,8 @@ pub struct Worker
     handle: reactor::Handle,
     code: HashMap<String, HashMap<String, Rc<Code>>>,
     resource: HashMap<i64, Ioq>,
-    app_tx: Sender<Msg>,
-    app_rx: Receiver<Msg>,
+    app_tx: Sender<AppMsg>,
+    msg_rx: Receiver<WorkerMsg>,
     //io: IOQueue,
     id: i64,
     next_fiber_id: i64,
@@ -76,7 +64,7 @@ pub struct Worker
  */
 impl Worker
 {
-    pub fn run(wid: i64, send: Sender<Msg>, recv: Receiver<Msg>)
+    pub fn run(wid: i64, send: Sender<AppMsg>, recv: Receiver<WorkerMsg>)
     {
         let mut core = reactor::Core::new().unwrap();
         let h = core.handle();
@@ -87,7 +75,7 @@ impl Worker
             resource: HashMap::new(),
             code: HashMap::new(),
             app_tx: send,
-            app_rx: recv,
+            msg_rx: recv,
             id: wid,
             next_fiber_id: 0,
             done: false,
@@ -118,7 +106,7 @@ impl Worker
         if let Some(func) = opt_code {
             self.push_fresh(ReadyFiber::Ready(curf, func));
         } else {
-            let msg = Msg::RequestCode(self.id, curf.fiber_id
+            let msg = AppMsg::RequestCode(self.id, curf.fiber_id
                 , curf.module_name().to_string()
                 , curf.function_name().to_string());
             self.app_tx.send(msg);
@@ -154,7 +142,7 @@ impl Worker
                     }
                     Parent::Main(res) => {
                         vout!("finished main func\n");
-                        let msg = Msg::MainResult(res.to_msg());
+                        let msg = AppMsg::MainResult(res.to_msg());
                         self.done = true;
                         self.app_tx.send(msg);
                     }
@@ -235,14 +223,14 @@ impl Worker
         }
     }
 
-    pub fn process_msg(&mut self, msg: Msg)
+    pub fn process_msg(&mut self, msg: WorkerMsg)
     {
         match msg {
-            Msg::Spawn(module, call) => {
+            WorkerMsg::Spawn(module, call) => {
                 vout!("worker call {}.{}()\n", module, call);
                 self.spawn_fiber(module, call);
             }
-            Msg::FoundCode(fiber_id, module, func, code) => {
+            WorkerMsg::FoundCode(fiber_id, module, func, code) => {
                 let rc_code = Rc::new(code);
                 let mut new_mod = HashMap::new();
                 new_mod.insert(func, rc_code.clone());
@@ -254,9 +242,6 @@ impl Worker
                     panic!("Cannot find waiting fiber: {}", fiber_id);
                 }
             }
-            _ => {
-                panic!("Must be a message for the app: {:?}", msg);
-            }
         }
     }
 
@@ -266,7 +251,7 @@ impl Worker
         let id = self.next_fiber_id;
         self.next_fiber_id += 1;
         let frame = Frame::new_root(module, func);
-        let fib = Fiber::spawn(id, frame, &self.handle); //self.app_rx.clone());
+        let fib = Fiber::spawn(id, frame, &self.handle); //self.msg_rx.clone());
         self.fresh.push_back(ReadyFiber::New(fib));
     }
 
@@ -312,7 +297,7 @@ impl WorkerExec
     pub fn run_once(&mut self) -> Poll<Val, Val>
     {
         RefMut::map(self.w.borrow_mut(), |wref| {
-            while let Result::Ok(msg) = wref.app_rx.try_recv() {
+            while let Result::Ok(msg) = wref.msg_rx.try_recv() {
                 wref.process_msg(msg);
             }
             wref
