@@ -6,6 +6,7 @@ pub mod fiber;
 pub mod frame;
 pub mod lex;
 pub mod val;
+pub mod io;
 pub mod list;
 pub mod loader;
 pub mod module;

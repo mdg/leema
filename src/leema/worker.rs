@@ -182,7 +182,7 @@ impl Worker
             }
             Event::Iop((rsrc_worker_id, rsrc_id), iopf, iopargs) => {
                 if self.id == rsrc_worker_id {
-                    let resp = self.create_iop_response();
+                    let resp = self.create_iop_response(rsrc_id, self.id, 0);
                     let opt_ioq = self.resource.get_mut(&rsrc_id);
                     if opt_ioq.is_none() {
                         panic!("Iop resource not found: {}", rsrc_id);
@@ -285,10 +285,17 @@ impl Worker
 vout!("lock app, add_fork\n");
     }
 
-    fn create_iop_response(&self) -> Box<Fn(Val, Box<Resource>)>
+    fn create_iop_response(&self, rsrc_id: i64, src_worker_id: i64
+        , src_fiber_id: i64)
+        -> Box<Fn(Val, Box<Resource>)>
     {
         let h = self.handle.clone();
         Box::new(|result, rsrc| {
+            // put resource back w/ resource_id
+            // same thread
+
+            // send result value back to original worker and fiber
+            // different thread, convert to message and send
         })
     }
 }
