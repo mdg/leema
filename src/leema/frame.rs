@@ -5,6 +5,7 @@ use leema::val::{Val, Env, FutureVal, Type};
 use leema::reg::{Reg, Ireg};
 use leema::code::{self, CodeKey, Code, Op, OpVec, ModSym, RustFunc};
 use leema::list;
+use leema::rsrc::{self, Rsrc};
 
 use std::collections::{HashMap, LinkedList};
 use std::collections::hash_map;
@@ -75,78 +76,6 @@ impl Debug for Parent
     }
 }
 
-pub trait Resource
-    : mopa::Any
-    + fmt::Debug
-{
-    fn get_type(&self) -> Type;
-}
-
-mopafy!(Resource);
-
-pub type EventResult = Fn(Val, Box<Resource>);
-
-pub type IopAction =
-    fn(Box<EventResult>, Box<Resource>, Vec<Val>) -> Event;
-pub type ResourceFunc2 = fn(&mut Fiber, Val) -> Event;
-
-#[derive(Debug)]
-pub struct Iop
-{
-    pub action: Box<IopAction>,
-    pub params: Vec<Val>,
-    pub src_worker_id: i64,
-}
-
-pub struct Ioq
-{
-    rsrc: Option<Box<Resource>>,
-    queue: LinkedList<Iop>,
-}
-
-impl Ioq
-{
-    /**
-     * Checkout a resource object and return it w/ the Iop
-     *
-     * If the resource is already in used, then return None
-     */
-    pub fn checkout(&mut self, worker_id: i64, iopf: Box<IopAction>
-        , args: Vec<Val>) -> Option<(Box<Resource>, Iop)>
-    {
-        let iop = Iop{
-            action: iopf,
-            params: args,
-            src_worker_id: worker_id,
-        };
-
-        match self.rsrc.take() {
-            Some(r) => {
-                Some((r, iop))
-            }
-            None => {
-                self.queue.push_back(iop);
-                None
-            }
-        }
-    }
-
-    /**
-     * Add the resource back to the Ioq to be used later
-     */
-    pub fn checkin(&mut self, r: Box<Resource>) -> Option<(Box<Resource>, Iop)>
-    {
-        match self.queue.pop_front() {
-            Some(iop) => {
-                Some((r, iop))
-            }
-            None => {
-                self.rsrc = Some(r);
-                None
-            }
-        }
-    }
-}
 
 pub enum Event
 {
@@ -156,9 +85,8 @@ pub enum Event
     Fork,
     FutureWait(Reg),
     IOWait,
-    Iop((i64, i64), Box<IopAction>, Vec<Val>),
+    Iop((i64, i64), Box<rsrc::Action>, Vec<Val>),
     IoFuture(Box<future::Future<Item=(), Error=()>>),
-    Iop2(ResourceFunc2),
     Complete(Fiber, bool),
     Success,
     Failure,
@@ -193,7 +121,6 @@ impl fmt::Debug for Event {
                 write!(f, "Event::Iop({:?}, f, {:?})", wrid, iopargs)
             }
             &Event::IoFuture(ref fut) => write!(f, "Event::IoFuture"),
-            &Event::Iop2(ResourceFunc2) => write!(f, "Event::Iop2"),
             &Event::Complete(_, c) => {
                 write!(f, "Event::Complete({})", c)
             }

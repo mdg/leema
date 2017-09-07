@@ -1,6 +1,6 @@
 
 use leema::frame;
-use leema::val::{Val};
+use leema::val::{Val, Type};
 
 use std::fmt;
 
@@ -11,6 +11,7 @@ pub trait Rsrc
     : mopa::Any
     + fmt::Debug
 {
+    fn get_type(&self) -> Type;
 }
 
 mopafy!(Rsrc);

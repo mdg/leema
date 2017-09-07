@@ -1,10 +1,11 @@
 
 use leema::code::{self, CodeKey, Code, Op, OpVec, ModSym, RustFunc};
 use leema::fiber::{Fiber};
-use leema::frame::{self, Event, Frame, Parent, Resource, Iop, Ioq};
+use leema::frame::{self, Event, Frame, Parent};
 use leema::log;
 use leema::msg::{AppMsg, WorkerMsg, IoMsg};
 use leema::reg::{Reg};
+use leema::rsrc::{self, Rsrc};
 use leema::val::{Env, Val, MsgVal, Type};
 
 use std::cell::{RefCell, RefMut, Ref};
@@ -46,7 +47,6 @@ pub struct Worker
     waiting: HashMap<i64, FiberWait>,
     handle: reactor::Handle,
     code: HashMap<String, HashMap<String, Rc<Code>>>,
-    resource: HashMap<i64, Ioq>,
     app_tx: Sender<AppMsg>,
     msg_rx: Receiver<WorkerMsg>,
     //io: IOQueue,
@@ -72,7 +72,6 @@ impl Worker
             fresh: LinkedList::new(),
             waiting: HashMap::new(),
             handle: h.clone(),
-            resource: HashMap::new(),
             code: HashMap::new(),
             app_tx: send,
             msg_rx: recv,
@@ -201,9 +200,6 @@ impl Worker
                 self.handle.spawn(fut);
                 Result::Ok(Async::NotReady)
             }
-            Event::Iop2(_) => {
-                Result::Ok(Async::NotReady)
-            }
             Event::IOWait => {
                 println!("do I/O");
                 Result::Ok(Async::NotReady)
@@ -272,7 +268,7 @@ vout!("lock app, add_fork\n");
 
     fn create_iop_response(&self, rsrc_id: i64, src_worker_id: i64
         , src_fiber_id: i64)
-        -> Box<Fn(Val, Box<Resource>)>
+        -> Box<Fn(Val, Box<Rsrc>)>
     {
         let h = self.handle.clone();
         Box::new(|result, rsrc| {

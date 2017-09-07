@@ -1,8 +1,9 @@
 use leema::code::{Code, RustFunc};
 use leema::fiber::{Fiber};
-use leema::frame::{Frame, Event, Resource, EventResult};
+use leema::frame::{Frame, Event};
 use leema::log;
 use leema::reg::{Reg};
+use leema::rsrc::{self, Rsrc};
 use leema::val::{Val, LibVal, Type};
 
 use std::net::{IpAddr, SocketAddr};
@@ -24,22 +25,13 @@ struct UdpSock
     socket: Option<UdpSocket>,
 }
 
-impl Resource for UdpSocket
+impl Rsrc for UdpSocket
 {
     fn get_type(&self) -> Type
     {
         Type::Resource(Rc::new(String::from("UdpSocket")))
     }
 }
-
-/*
-#[derive(Debug)]
-struct Resource
-{
-    worker_id: i64,
-    resource_id: i64,
-}
-*/
 
 impl LibVal for Mutex<UdpSock>
 {
@@ -89,8 +81,8 @@ pub fn udp_bind(mut f: Fiber) -> Event
     Event::success(f)
 }
 
-fn udp_recv_1(resp: Box<EventResult>
-    , resource: Box<Resource>, _input: Vec<Val>) -> Event
+fn udp_recv_1(resp: Box<rsrc::Result>
+    , resource: Box<Rsrc>, _input: Vec<Val>) -> Event
 {
     let mut result_sock =
         resource.downcast::<UdpSocket>();
