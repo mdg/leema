@@ -21,6 +21,7 @@ pub enum WorkerMsg
     Spawn(String, String),
     // FoundCode(frame_id, module, function, code)
     FoundCode(i64, String, String, Code),
+    Done,
 }
 
 #[derive(Debug)]

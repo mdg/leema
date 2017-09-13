@@ -6,11 +6,17 @@ use leema::val::{Val, MsgVal};
 use leema::worker;
 
 use std;
+use std::cell::{RefCell};
 use std::fmt;
-// std::sync::mpsc::{channel, Sender, Receiver};
+use std::rc::{Rc};
+use std::sync::mpsc::{channel, Sender, Receiver};
 use std::collections::{HashMap, LinkedList};
+use std::thread;
 
 use futures::{Poll, Async};
+use futures::future::{Future};
+use futures::task;
+use tokio_core::reactor;
 
 /*
 Rsrc
@@ -45,6 +51,14 @@ pub struct Ioq
 
 impl Ioq
 {
+    pub fn new(resource: Box<Rsrc>) -> Ioq
+    {
+        Ioq{
+            rsrc: Some(resource),
+            queue: LinkedList::new(),
+        }
+    }
+
     /**
      * Checkout a resource object and return it w/ the Iop
      *
@@ -87,14 +101,76 @@ impl Ioq
     }
 }
 
-struct Io
+pub struct Io
 {
     resource: HashMap<i64, Ioq>,
+    pub handle: reactor::Handle,
     msg_rx: std::sync::mpsc::Receiver<IoMsg>,
-    app_tx: std::sync::mpsc::Sender<WorkerMsg>,
+    app_tx: std::sync::mpsc::Sender<AppMsg>,
     worker_tx: HashMap<i64, std::sync::mpsc::Sender<WorkerMsg>>,
+    next_rsrc_id: i64,
 }
 
 impl Io
 {
+    pub fn run(app_tx: Sender<AppMsg>, msg_rx: Receiver<IoMsg>)
+    {
+        let mut core = reactor::Core::new().unwrap();
+        let h = core.handle();
+        let io = Io{
+            resource: HashMap::new(),
+            handle: h,
+            msg_rx: msg_rx,
+            app_tx: app_tx,
+            worker_tx: HashMap::new(),
+            next_rsrc_id: 1,
+        };
+
+        let result = core.run(io).unwrap();
+        println!("io is done with: {:?}", result);
+    }
+
+    pub fn run_once(&mut self) -> Poll<Val, Val>
+    {
+        let rsrc_id = 0;
+        let resp = self.create_iop_response(rsrc_id, 0, 0);
+        Ok(Async::NotReady)
+    }
+
+    fn create_iop_response(&self, rsrc_id: i64, src_worker_id: i64
+        , src_fiber_id: i64)
+        -> Box<Fn(Val, Box<Rsrc>)>
+    {
+        let h = self.handle.clone();
+        // let tx = self.worker_tx.clone();
+        Box::new(|result, rsrc| {
+            // put resource back w/ resource_id
+            // same thread
+
+            // send result value back to original worker and fiber
+            // different thread, convert to message and send
+        })
+    }
+
+    pub fn new_rsrc(&mut self, rsrc: Box<Rsrc>) -> i64
+    {
+        let rsrc_id = self.next_rsrc_id;
+        self.next_rsrc_id += 1;
+        self.resource.insert(rsrc_id, Ioq::new(rsrc));
+        rsrc_id
+    }
+}
+
+impl Future for Io
+{
+    type Item = Val;
+    type Error = Val;
+
+    fn poll(&mut self) -> Poll<Val, Val>
+    {
+        task::park().unpark();
+        let poll_result = self.run_once();
+        thread::yield_now();
+        poll_result
+    }
 }

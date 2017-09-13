@@ -329,7 +329,7 @@ pub enum Val {
     DotAccess(Box<Val>, Rc<String>),
     Lib(Arc<LibVal>),
     LibRc(Rc<LibVal>),
-    ResourceRef(i64, i64),
+    ResourceRef(i64),
     RustBlock,
     Future(FutureVal),
     CallParams,
@@ -582,10 +582,10 @@ impl Val
         )
     }
 
-    pub fn resource_ref(&self) -> (i64, i64)
+    pub fn resource_ref(&self) -> i64
     {
         match self {
-            &Val::ResourceRef(wid, rid) => (wid, rid),
+            &Val::ResourceRef(rid) => rid,
             _ => panic!("not a resource ref"),
         }
     }
@@ -1000,8 +1000,8 @@ impl fmt::Display for Val {
             Val::LibRc(ref lv) => {
                 write!(f, "LibValRc({:?})", lv)
             }
-            Val::ResourceRef(wid, rid) => {
-                write!(f, "ResourceRef({},{})", wid, rid)
+            Val::ResourceRef(rid) => {
+                write!(f, "ResourceRef({})", rid)
             }
             Val::RustBlock => {
                 write!(f, "RustBlock")
@@ -1093,8 +1093,8 @@ impl fmt::Debug for Val {
             Val::LibRc(ref lv) => {
                 write!(f, "LibValRc({:?})", lv)
             }
-            Val::ResourceRef(wid, rid) => {
-                write!(f, "ResourceRef({},{})", wid, rid)
+            Val::ResourceRef(rid) => {
+                write!(f, "ResourceRef({})", rid)
             }
             Val::RustBlock => {
                 write!(f, "RustBlock")

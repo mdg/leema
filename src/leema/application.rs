@@ -65,7 +65,8 @@ impl Application
         let (worker_send, worker_recv) = channel();
         vout!("start worker {}\n", worker_id);
         let handle = thread::spawn(move || {
-            Worker::run(worker_id, app_send, worker_recv);
+            let w = Worker::init(worker_id, app_send, worker_recv);
+            Worker::run(w);
         });
         self.worker.insert(worker_id, worker_send);
         handle

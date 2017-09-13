@@ -1,6 +1,6 @@
 use leema::code::{Code, RustFunc};
 use leema::fiber::{Fiber};
-use leema::frame::{Frame, Event};
+use leema::frame::{self, Frame};
 use leema::log;
 use leema::reg::{Reg};
 use leema::rsrc::{self, Rsrc};
@@ -18,13 +18,6 @@ use ::tokio_core::reactor::{Handle, Remote};
 use futures::future::{Future};
 
 
-#[derive(Debug)]
-struct UdpSock
-{
-    handle: Handle,
-    socket: Option<UdpSocket>,
-}
-
 impl Rsrc for UdpSocket
 {
     fn get_type(&self) -> Type
@@ -33,29 +26,23 @@ impl Rsrc for UdpSocket
     }
 }
 
-impl LibVal for Mutex<UdpSock>
+
+pub fn udp_socket_iop<'a>(ctx: &'a mut rsrc::IopCtx, params: Vec<Val>)
+    -> rsrc::Event
 {
-    fn get_type(&self) -> Type
-    {
-        Type::Lib(String::from("UdpSocket"))
-    }
+    let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
+    let rsock = UdpSocket::bind(&sock_addr, &ctx.handle()).unwrap();
+    let rsrc_id = ctx.new_rsrc(Box::new(rsock));
+    rsrc::Event::Success(Val::ResourceRef(rsrc_id))
 }
 
-pub fn udp_socket(mut f: Fiber) -> Event
+pub fn udp_socket(mut f: Fiber) -> frame::Event
 {
     vout!("udp_socket\n");
-    let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
-    let rsock = UdpSocket::bind(&sock_addr, &f.handle).unwrap();
-    let lsock = UdpSock{
-        handle: f.handle.clone(),
-        socket: Some(rsock),
-    };
-    let rval = Val::libval(Mutex::new(lsock));
-    f.head.parent.set_result(rval);
-    Event::success(f)
+    frame::Event::IoCall(udp_socket_iop, vec![])
 }
 
-pub fn udp_bind(mut f: Fiber) -> Event
+pub fn udp_bind(mut f: Fiber) -> frame::Event
 {
     vout!("udp_bind({:?})", f.head.e);
     /*
@@ -78,11 +65,11 @@ pub fn udp_bind(mut f: Fiber) -> Event
     let rval = Val::libval(Mutex::new(lsock));
     f.head.parent.set_result(rval);
     */
-    Event::success(f)
+    frame::Event::Success
 }
 
 fn udp_recv_1(resp: Box<rsrc::Result>
-    , resource: Box<Rsrc>, _input: Vec<Val>) -> Event
+    , resource: Box<Rsrc>, _input: Vec<Val>) -> rsrc::Event
 {
     let mut result_sock =
         resource.downcast::<UdpSocket>();
@@ -100,19 +87,21 @@ fn udp_recv_1(resp: Box<rsrc::Result>
             panic!("{:?}", e);
             ()
         });
-    Event::IoFuture(Box::new(fut))
+    rsrc::Event::Future(Box::new(fut))
 }
 
-fn udp_recv_2(f: &mut Fiber, result: Val) -> Event
+/*
+fn udp_recv_2(f: &mut Fiber, result: Val) -> frame::Event
 {
     f.head.parent.set_result(result);
-    Event::Success
+    frame::Event::Success
 }
+*/
 
 /**
  * udp_recv(sock)
  */
-pub fn udp_recv(mut f: Fiber) -> Event
+pub fn udp_recv(mut f: Fiber) -> frame::Event
 {
 vout!("udp_recv({:?})\n", f.head.e);
 
@@ -158,12 +147,13 @@ vout!("udp_recv({:?})\n", f.head.e);
         }
     }
     */
-    Event::Success
+    frame::Event::Success
 }
 
-pub fn udp_send(mut f: Fiber) -> Event
+pub fn udp_send(mut f: Fiber) -> frame::Event
 {
     vout!("udp_send.e = {:?}\n", f.head.e);
+/*
     let sockr2;
 
     let sock_result = {
@@ -171,8 +161,6 @@ pub fn udp_send(mut f: Fiber) -> Event
         vout!("sockr: {:?}\n", sockr);
         sockr2 = sockr.clone();
 
-        let opt_mutex = sockr.libval_as();
-        let mutex_sock: &Mutex<UdpSock> = opt_mutex.unwrap();
         // let sock_lock_r: TryLockResult<MutexGuard> = mutex_sock.try_lock();
         let sock_lock_result = mutex_sock.try_lock();
         sock_lock_result.map(|ref mut guard| {
@@ -189,7 +177,7 @@ pub fn udp_send(mut f: Fiber) -> Event
     };
 
     if sock_result.is_err() {
-        return Event::Uneventful(f)
+        return frame::Event::Uneventful(f)
     }
     let (sock, handle) = sock_result.unwrap();
 
@@ -234,13 +222,14 @@ pub fn udp_send(mut f: Fiber) -> Event
         });
         handle.spawn(hfut);
     }
+*/
 
     /*
         let sock = guard.socket.take().unwrap();
         let fut = sock.send_dgram(omsg, send_addr)
         guard.handle.spawn(fut);
         */
-    Event::IOWait
+    frame::Event::IOWait
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>

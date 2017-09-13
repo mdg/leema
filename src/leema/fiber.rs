@@ -29,7 +29,6 @@ pub struct Fiber
 {
     pub fiber_id: i64,
     pub head: Frame,
-    pub handle: reactor::Handle,
 }
 
 macro_rules! handle_value {
@@ -54,12 +53,11 @@ macro_rules! handle_value {
 
 impl Fiber
 {
-    pub fn spawn(id: i64, root: Frame, h: &reactor::Handle) -> Fiber
+    pub fn spawn(id: i64, root: Frame) -> Fiber
     {
         Fiber{
             fiber_id: id,
             head: root,
-            handle: h.clone(),
         }
     }
 

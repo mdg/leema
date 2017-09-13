@@ -21,8 +21,6 @@ use std::time::{Duration};
 
 use futures::{Poll, Async, Stream, Sink};
 use futures::future::{Future};
-use futures::task;
-use tokio_core::reactor;
 
 
 #[derive(Debug)]
@@ -45,7 +43,6 @@ pub struct Worker
 {
     fresh: LinkedList<ReadyFiber>,
     waiting: HashMap<i64, FiberWait>,
-    handle: reactor::Handle,
     code: HashMap<String, HashMap<String, Rc<Code>>>,
     app_tx: Sender<AppMsg>,
     msg_rx: Receiver<WorkerMsg>,
@@ -64,27 +61,49 @@ pub struct Worker
  */
 impl Worker
 {
-    pub fn run(wid: i64, send: Sender<AppMsg>, recv: Receiver<WorkerMsg>)
+    pub fn init(wid: i64, send: Sender<AppMsg>, recv: Receiver<WorkerMsg>)
+        -> Worker
     {
-        let mut core = reactor::Core::new().unwrap();
-        let h = core.handle();
-        let w = Worker{
+        Worker{
             fresh: LinkedList::new(),
             waiting: HashMap::new(),
-            handle: h.clone(),
             code: HashMap::new(),
             app_tx: send,
             msg_rx: recv,
             id: wid,
             next_fiber_id: 0,
             done: false,
+        }
+    }
+
+    pub fn run(mut self)
+    {
+        while !self.done {
+            self.run_once();
+        }
+    }
+
+    pub fn run_once(&mut self)
+    {
+        while let Result::Ok(msg) = self.msg_rx.try_recv() {
+            self.process_msg(msg);
+        }
+
+        let opt_ev = {
+            match self.pop_fresh() {
+                Some(ReadyFiber::New(f)) => {
+                    self.load_code(f);
+                    None
+                }
+                Some(ReadyFiber::Ready(mut f, code)) => {
+                    Some(Worker::execute_frame(f, code))
+                }
+                None => None,
+            }
         };
-        let wexec = WorkerExec{
-            w: Rc::new(RefCell::new(w)),
-            h: h,
-        };
-        let result = core.run(wexec).unwrap();
-        println!("worker {} done with: {:?}", wid, result);
+        if let Some((ev, code)) = opt_ev {
+            self.handle_event(ev, code);
+        }
     }
 
     fn find_code<'a>(&'a self, modname: &str, funcname: &str)
@@ -113,6 +132,21 @@ impl Worker
             let fw = FiberWait::Code(curf);
             self.waiting.insert(fiber_id, fw);
         }
+    }
+
+    pub fn execute_frame(mut f: Fiber, code: Rc<Code>
+        ) -> (Event, Rc<Code>)
+    {
+        let ev = match &*code {
+            &Code::Leema(ref ops) => {
+                f.execute_leema_frame(ops)
+            }
+            &Code::Rust(ref rf) => {
+                vout!("execute rust code\n");
+                rf(f)
+            }
+        };
+        (ev, code)
     }
 
     pub fn handle_event(&mut self, e: Event, code: Rc<Code>)
@@ -163,19 +197,25 @@ impl Worker
                 self.load_code(fiber);
                 Result::Ok(Async::NotReady)
             }
+            Event::IoCall(iopa, params) => {
+                vout!("handle Event::IoCall(_, {:?})", params);
+                Result::Ok(Async::NotReady)
+            }
             Event::FutureWait(reg) => {
                 println!("wait for future {:?}", reg);
                 Result::Ok(Async::NotReady)
             }
             Event::Iop((rsrc_worker_id, rsrc_id), iopf, iopargs) => {
                 if self.id == rsrc_worker_id {
-                    let resp = self.create_iop_response(rsrc_id, self.id, 0);
+println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
+                    /*
                     let opt_ioq = self.resource.get_mut(&rsrc_id);
                     if opt_ioq.is_none() {
                         panic!("Iop resource not found: {}", rsrc_id);
                     }
                     let mut ioq = opt_ioq.unwrap();
                     match ioq.checkout(self.id, iopf, iopargs) {
+                        // Some((iopf2, rsrc, iopargs2)) => {
                         Some((rsrc, iop2)) => {
                             match (iop2.action)(resp, rsrc, iop2.params) {
                                 Event::IoFuture(fut) => {
@@ -190,14 +230,11 @@ impl Worker
                             // resource is busy, will push it later
                         }
                     }
+                    */
                 } else {
                     panic!("cannot send iop from worker({}) to worker({})",
                         self.id, rsrc_worker_id);
                 }
-                Result::Ok(Async::NotReady)
-            }
-            Event::IoFuture(fut) => {
-                self.handle.spawn(fut);
                 Result::Ok(Async::NotReady)
             }
             Event::IOWait => {
@@ -238,6 +275,9 @@ impl Worker
                     panic!("Cannot find waiting fiber: {}", fiber_id);
                 }
             }
+            WorkerMsg::Done => {
+                self.done = true;
+            }
         }
     }
 
@@ -247,7 +287,7 @@ impl Worker
         let id = self.next_fiber_id;
         self.next_fiber_id += 1;
         let frame = Frame::new_root(module, func);
-        let fib = Fiber::spawn(id, frame, &self.handle); //self.msg_rx.clone());
+        let fib = Fiber::spawn(id, frame);
         self.fresh.push_back(ReadyFiber::New(fib));
     }
 
@@ -264,87 +304,5 @@ impl Worker
     fn add_fork(&mut self, key: &CodeKey, newf: Frame)
     {
 vout!("lock app, add_fork\n");
-    }
-
-    fn create_iop_response(&self, rsrc_id: i64, src_worker_id: i64
-        , src_fiber_id: i64)
-        -> Box<Fn(Val, Box<Rsrc>)>
-    {
-        let h = self.handle.clone();
-        Box::new(|result, rsrc| {
-            // put resource back w/ resource_id
-            // same thread
-
-            // send result value back to original worker and fiber
-            // different thread, convert to message and send
-        })
-    }
-}
-
-
-struct WorkerExec
-{
-    w: Rc<RefCell<Worker>>,
-    h: reactor::Handle,
-}
-
-impl WorkerExec
-{
-    pub fn run_once(&mut self) -> Poll<Val, Val>
-    {
-        RefMut::map(self.w.borrow_mut(), |wref| {
-            while let Result::Ok(msg) = wref.msg_rx.try_recv() {
-                wref.process_msg(msg);
-            }
-            wref
-        });
-
-        let opt_ev = {
-            let wref: &mut Worker = &mut *(self.w.borrow_mut());
-            match wref.pop_fresh() {
-                Some(ReadyFiber::New(f)) => {
-                    wref.load_code(f);
-                    None
-                }
-                Some(ReadyFiber::Ready(mut f, code)) => {
-                    Some(WorkerExec::execute_frame(f, code))
-                }
-                None => None,
-            }
-        };
-        if let Some((ev, code)) = opt_ev {
-            self.w.borrow_mut().handle_event(ev, code)
-        } else {
-            Result::Ok(Async::NotReady)
-        }
-    }
-
-    pub fn execute_frame(mut f: Fiber, code: Rc<Code>
-        ) -> (Event, Rc<Code>)
-    {
-        let ev = match &*code {
-            &Code::Leema(ref ops) => {
-                f.execute_leema_frame(ops)
-            }
-            &Code::Rust(ref rf) => {
-                vout!("execute rust code\n");
-                rf(f)
-            }
-        };
-        (ev, code)
-    }
-}
-
-impl Future for WorkerExec
-{
-    type Item = Val;
-    type Error = Val;
-
-    fn poll(&mut self) -> Poll<Val, Val>
-    {
-        task::park().unpark();
-        let poll_result = self.run_once();
-        thread::yield_now();
-        poll_result
     }
 }
