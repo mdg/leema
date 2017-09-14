@@ -109,11 +109,13 @@ pub struct Io
     app_tx: std::sync::mpsc::Sender<AppMsg>,
     worker_tx: HashMap<i64, std::sync::mpsc::Sender<WorkerMsg>>,
     next_rsrc_id: i64,
+    io: Option<Rc<RefCell<Io>>>,
 }
 
 impl Io
 {
-    pub fn run(app_tx: Sender<AppMsg>, msg_rx: Receiver<IoMsg>)
+    pub fn new(app_tx: Sender<AppMsg>, msg_rx: Receiver<IoMsg>)
+        -> (Rc<RefCell<Io>>, reactor::Core)
     {
         let mut core = reactor::Core::new().unwrap();
         let h = core.handle();
@@ -124,10 +126,12 @@ impl Io
             app_tx: app_tx,
             worker_tx: HashMap::new(),
             next_rsrc_id: 1,
+            io: None,
         };
-
-        let result = core.run(io).unwrap();
-        println!("io is done with: {:?}", result);
+        let rcio = Rc::new(RefCell::new(io));
+        let rcio2 = rcio.clone();
+        rcio.borrow_mut().io = Some(rcio2);
+        (rcio, core)
     }
 
     pub fn run_once(&mut self) -> Poll<Val, Val>
@@ -161,7 +165,28 @@ impl Io
     }
 }
 
-impl Future for Io
+struct IoLoop
+{
+    handle: reactor::Handle,
+    io: Rc<RefCell<Io>>,
+}
+
+impl IoLoop
+{
+    pub fn run(mut core: reactor::Core, rcio: Rc<RefCell<Io>>)
+    {
+        let my_handle = rcio.borrow().handle.clone();
+        let my_loop = IoLoop{
+            io: rcio,
+            handle: my_handle,
+        };
+
+        let result = core.run(my_loop).unwrap();
+        println!("io is done with: {:?}", result);
+    }
+}
+
+impl Future for IoLoop
 {
     type Item = Val;
     type Error = Val;
@@ -169,7 +194,7 @@ impl Future for Io
     fn poll(&mut self) -> Poll<Val, Val>
     {
         task::park().unpark();
-        let poll_result = self.run_once();
+        let poll_result = self.io.borrow_mut().run_once();
         thread::yield_now();
         poll_result
     }
