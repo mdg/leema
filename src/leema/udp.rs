@@ -36,13 +36,13 @@ pub fn udp_socket_iop<'a>(ctx: &'a mut rsrc::IopCtx, params: Vec<Val>)
     rsrc::Event::Success(Val::ResourceRef(rsrc_id))
 }
 
-pub fn udp_socket(mut f: Fiber) -> frame::Event
+pub fn udp_socket(f: &mut Fiber) -> frame::Event
 {
     vout!("udp_socket\n");
     frame::Event::IoCall(udp_socket_iop, vec![])
 }
 
-pub fn udp_bind(mut f: Fiber) -> frame::Event
+pub fn udp_bind(f: &mut Fiber) -> frame::Event
 {
     vout!("udp_bind({:?})", f.head.e);
     /*
@@ -101,7 +101,7 @@ fn udp_recv_2(f: &mut Fiber, result: Val) -> frame::Event
 /**
  * udp_recv(sock)
  */
-pub fn udp_recv(mut f: Fiber) -> frame::Event
+pub fn udp_recv(f: &mut Fiber) -> frame::Event
 {
 vout!("udp_recv({:?})\n", f.head.e);
 
@@ -150,7 +150,7 @@ vout!("udp_recv({:?})\n", f.head.e);
     frame::Event::Success
 }
 
-pub fn udp_send(mut f: Fiber) -> frame::Event
+pub fn udp_send(f: &mut Fiber) -> frame::Event
 {
     vout!("udp_send.e = {:?}\n", f.head.e);
 /*

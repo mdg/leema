@@ -15,7 +15,7 @@ use std::rc::{Rc};
 use rand;
 
 
-pub fn int_add(mut f: Fiber) -> Event
+pub fn int_add(f: &mut Fiber) -> Event
 {
     let ic;
     {
@@ -34,7 +34,7 @@ pub fn int_add(mut f: Fiber) -> Event
     Event::success()
 }
 
-pub fn int_sub(mut f: Fiber) -> Event
+pub fn int_sub(f: &mut Fiber) -> Event
 {
     let ic;
     {
@@ -53,7 +53,7 @@ pub fn int_sub(mut f: Fiber) -> Event
     Event::success()
 }
 
-pub fn int_mult(mut f: Fiber) -> Event
+pub fn int_mult(f: &mut Fiber) -> Event
 {
     let ic;
     {
@@ -72,7 +72,7 @@ pub fn int_mult(mut f: Fiber) -> Event
     Event::success()
 }
 
-pub fn int_mod(mut f: Fiber) -> Event
+pub fn int_mod(f: &mut Fiber) -> Event
 {
     let ic;
     {
@@ -91,7 +91,7 @@ pub fn int_mod(mut f: Fiber) -> Event
     Event::success()
 }
 
-pub fn int_negate(mut f: Fiber) -> Event
+pub fn int_negate(f: &mut Fiber) -> Event
 {
     let result;
     {
@@ -109,14 +109,14 @@ pub fn int_negate(mut f: Fiber) -> Event
     Event::success()
 }
 
-pub fn int_random(mut f: Fiber) -> Event
+pub fn int_random(f: &mut Fiber) -> Event
 {
     let result = rand::random::<i64>(); // as i64;
     f.head.parent.set_result(Val::Int(result));
     Event::success()
 }
 
-pub fn bool_not(mut f: Fiber) -> Event
+pub fn bool_not(f: &mut Fiber) -> Event
 {
     println!("run bool_not!");
     let bnot;
@@ -133,7 +133,7 @@ pub fn bool_not(mut f: Fiber) -> Event
     Event::success()
 }
 
-pub fn bool_xor(mut f: Fiber) -> Event
+pub fn bool_xor(f: &mut Fiber) -> Event
 {
     let result;
     {
@@ -152,7 +152,7 @@ pub fn bool_xor(mut f: Fiber) -> Event
     Event::success()
 }
 
-pub fn list_cons(mut f: Fiber) -> Event
+pub fn list_cons(f: &mut Fiber) -> Event
 {
     let result = {
         let head = f.head.e.get_param(0);
@@ -163,7 +163,7 @@ pub fn list_cons(mut f: Fiber) -> Event
     Event::success()
 }
 
-pub fn less_than(mut f: Fiber) -> Event
+pub fn less_than(f: &mut Fiber) -> Event
 {
     let result = {
         let va = f.head.e.get_param(0);
@@ -174,7 +174,7 @@ pub fn less_than(mut f: Fiber) -> Event
     Event::success()
 }
 
-pub fn less_than_equal(mut f: Fiber) -> Event
+pub fn less_than_equal(f: &mut Fiber) -> Event
 {
     let result = {
         let va = f.head.e.get_param(0);
@@ -185,7 +185,7 @@ pub fn less_than_equal(mut f: Fiber) -> Event
     Event::success()
 }
 
-pub fn equal(mut f: Fiber) -> Event
+pub fn equal(f: &mut Fiber) -> Event
 {
     let result = {
         let va = f.head.e.get_param(0);
@@ -196,7 +196,7 @@ pub fn equal(mut f: Fiber) -> Event
     Event::success()
 }
 
-pub fn greater_than(mut f: Fiber) -> Event
+pub fn greater_than(f: &mut Fiber) -> Event
 {
     let result = {
         let va = f.head.get_param(0);
@@ -207,7 +207,7 @@ pub fn greater_than(mut f: Fiber) -> Event
     Event::success()
 }
 
-pub fn greater_than_equal(mut f: Fiber) -> Event
+pub fn greater_than_equal(f: &mut Fiber) -> Event
 {
     let result = {
         let va = f.head.get_param(0);
@@ -218,7 +218,7 @@ pub fn greater_than_equal(mut f: Fiber) -> Event
     Event::success()
 }
 
-pub fn get_type(mut f: Fiber) -> Event
+pub fn get_type(f: &mut Fiber) -> Event
 {
     let result: Type;
     {
@@ -229,7 +229,7 @@ pub fn get_type(mut f: Fiber) -> Event
     Event::success()
 }
 
-pub fn cout(mut f: Fiber) -> Event
+pub fn cout(f: &mut Fiber) -> Event
 {
     {
         let v = f.head.e.get_param(0);
@@ -239,7 +239,7 @@ pub fn cout(mut f: Fiber) -> Event
     Event::success()
 }
 
-pub fn cerr(mut f: Fiber) -> Event
+pub fn cerr(f: &mut Fiber) -> Event
 {
     {
         let va = f.head.get_param(0);
@@ -287,7 +287,7 @@ impl Debug for LeemaFile
 }
 
 
-pub fn file_read(mut f: Fiber) -> Event
+pub fn file_read(f: &mut Fiber) -> Event
 {
     let open_result = {
         let fnval = f.head.get_param(0);
@@ -315,7 +315,7 @@ pub fn file_read(mut f: Fiber) -> Event
     Event::success()
 }
 
-pub fn file_stream_read(mut f: Fiber) -> Event
+pub fn file_stream_read(f: &mut Fiber) -> Event
 {
     let mut input = "".to_string();
     {
