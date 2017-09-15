@@ -34,7 +34,7 @@ enum ReadyFiber
 enum FiberWait
 {
     Code(Fiber),
-    Io(Fiber, Rc<Code>),
+    Io(Fiber, Rc<Code>, Reg),
     Future(Fiber, Rc<Code>),
 }
 
@@ -46,7 +46,6 @@ pub struct Worker
     code: HashMap<String, HashMap<String, Rc<Code>>>,
     app_tx: Sender<AppMsg>,
     msg_rx: Receiver<WorkerMsg>,
-    //io: IOQueue,
     id: i64,
     next_fiber_id: i64,
     done: bool,
@@ -273,6 +272,15 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
                     self.push_fresh(ReadyFiber::Ready(fib, rc_code));
                 } else {
                     panic!("Cannot find waiting fiber: {}", fiber_id);
+                }
+            }
+            WorkerMsg::IopResult(fiber_id, result_msg) => {
+                vout!("iop_result({}, {:?})\n", fiber_id, result_msg);
+                let result_val = Val::from_msg(result_msg);
+                let wait = self.waiting.remove(&fiber_id).unwrap();
+                if let FiberWait::Io(mut fib, code, dstreg) = wait {
+                    fib.head.e.set_reg(&dstreg, result_val);
+                    self.fresh.push_back(ReadyFiber::Ready(fib, code));
                 }
             }
             WorkerMsg::Done => {

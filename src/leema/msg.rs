@@ -21,6 +21,8 @@ pub enum WorkerMsg
     Spawn(String, String),
     // FoundCode(frame_id, module, function, code)
     FoundCode(i64, String, String, Code),
+    // IopResult(fiber_id, MsgVal)
+    IopResult(i64, MsgVal),
     Done,
 }
 

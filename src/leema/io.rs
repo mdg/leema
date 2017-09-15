@@ -6,7 +6,7 @@ use leema::val::{Val, MsgVal};
 use leema::worker;
 
 use std;
-use std::cell::{RefCell};
+use std::cell::{RefCell, RefMut};
 use std::fmt;
 use std::rc::{Rc};
 use std::sync::mpsc::{channel, Sender, Receiver};
@@ -146,13 +146,24 @@ impl Io
         -> Box<Fn(Val, Box<Rsrc>)>
     {
         let h = self.handle.clone();
+        let rcio = self.io.clone().unwrap();
         // let tx = self.worker_tx.clone();
-        Box::new(|result, rsrc| {
-            // put resource back w/ resource_id
-            // same thread
+        Box::new(move |result, rsrc| {
+            RefMut::map(rcio.borrow_mut(), |ioref| {
+                // put resource back w/ resource_id
+                // same thread
+                ioref.return_rsrc(rsrc_id, rsrc);
 
-            // send result value back to original worker and fiber
-            // different thread, convert to message and send
+                // send result value back to original worker and fiber
+                // different thread, convert to message and send
+                let result_msg = result.to_msg();
+                {
+                    let src_send = ioref.worker_tx.get(&src_worker_id).unwrap();
+                    src_send.send(
+                        WorkerMsg::IopResult(src_fiber_id, result_msg));
+                }
+                ioref
+            });
         })
     }
 
@@ -162,6 +173,13 @@ impl Io
         self.next_rsrc_id += 1;
         self.resource.insert(rsrc_id, Ioq::new(rsrc));
         rsrc_id
+    }
+
+    pub fn return_rsrc(&mut self, rsrc_id: i64, rsrc: Box<Rsrc>)
+    {
+        let ioq = self.resource.get_mut(&rsrc_id).unwrap();
+        if let Some((next_rsrc, iop)) = ioq.checkin(rsrc) {
+        }
     }
 }
 
