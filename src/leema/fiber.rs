@@ -441,7 +441,7 @@ fn test_normal_strcat()
     let mut frame = Frame::new_root(String::from("foo"), String::from("bar"));
     frame.e.set_reg(&r1, Val::new_str(String::from("i like ")));
     frame.e.set_reg(&r2, Val::new_str(String::from("burritos")));
-    let fib = Fiber::spawn(1, frame);
+    let mut fib = Fiber::spawn(1, frame);
 
     let event = fib.execute_strcat(&r1, &r2);
     assert_eq!(Event::Uneventful, event);
