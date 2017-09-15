@@ -76,33 +76,32 @@ impl Debug for Parent
     }
 }
 
-
 pub enum Event
 {
     None,
-    Uneventful(Fiber),
-    Call(Fiber, Reg, Rc<String>, Rc<String>, Val),
+    Uneventful,
+    Call(Reg, Rc<String>, Rc<String>, Val),
     Fork,
     FutureWait(Reg),
     IOWait,
     IoCall(rsrc::IopAction, Vec<Val>),
     Iop((i64, i64), Box<rsrc::Action>, Vec<Val>),
     // IoFuture(Box<future::Future<Item=(), Error=()>>),
-    Complete(Fiber, bool),
+    Complete(bool),
     Success,
     Failure,
 }
 
 impl Event
 {
-    pub fn success(f: Fiber) -> Event
+    pub fn success() -> Event
     {
-        Event::Complete(f, true)
+        Event::Complete(true)
     }
 
-    pub fn failure(f: Fiber) -> Event
+    pub fn failure() -> Event
     {
-        Event::Complete(f, false)
+        Event::Complete(false)
     }
 }
 
@@ -110,9 +109,9 @@ impl fmt::Debug for Event {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             &Event::None => write!(f, "Event::None"),
-            &Event::Uneventful(_) => write!(f, "Uneventful"),
-            &Event::Call(_, ref r, ref cmod, ref cfunc, ref cargs) => {
-                write!(f, "Event::Call(_, {:?}, {}, {}, {:?})",
+            &Event::Uneventful => write!(f, "Uneventful"),
+            &Event::Call(ref r, ref cmod, ref cfunc, ref cargs) => {
+                write!(f, "Event::Call({:?}, {}, {}, {:?})",
                     r, cmod, cfunc, cargs)
             }
             &Event::IoCall(iopa, ref params) => {
@@ -124,7 +123,7 @@ impl fmt::Debug for Event {
             &Event::Iop(wrid, ref iopf, ref iopargs) => {
                 write!(f, "Event::Iop({:?}, f, {:?})", wrid, iopargs)
             }
-            &Event::Complete(_, c) => {
+            &Event::Complete(c) => {
                 write!(f, "Event::Complete({})", c)
             }
             &Event::Success => write!(f, "Event::Success"),
@@ -133,15 +132,14 @@ impl fmt::Debug for Event {
     }
 }
 
-/*
 impl PartialEq for Event
 {
     fn eq(&self, other: &Event) -> bool
     {
         match (self, other) {
             (&Event::Uneventful, &Event::Uneventful) => true,
-            (&Event::Call(_, ref r1, ref m1, ref f1, ref a1),
-                    &Event::Call(_, ref r2, ref m2, ref f2, ref a2)) =>
+            (&Event::Call(ref r1, ref m1, ref f1, ref a1),
+                    &Event::Call(ref r2, ref m2, ref f2, ref a2)) =>
             {
                 (r1 == r2 && m1 == m2 && f1 == f2 && a1 == a2)
             }
@@ -150,13 +148,12 @@ impl PartialEq for Event
                 r1 == r2
             }
             (&Event::IOWait, &Event::IOWait) => true,
-            (&Event::Complete(true), &Event::Complete(true)) => true,
-            (&Event::Complete(false), &Event::Complete(false)) => true,
+            (&Event::Success, &Event::Success) => true,
+            (&Event::Failure, &Event::Failure) => true,
             _ => false,
         }
     }
 }
-*/
 
 #[derive(Debug)]
 pub struct FrameTrace
@@ -345,7 +342,7 @@ impl Debug for Frame
 }
 */
 
-/**
+/*
  * fork the frame and frame state
  * add it to the fresh queue
  * jump current frame state past the fork block
@@ -376,42 +373,3 @@ process
 |      |       \- call code
  \--- fork
 */
-
-
-#[cfg(test)]
-mod tests {
-    use leema::log;
-    use leema::frame::{Frame, Parent, Event};
-    use leema::application::{Application};
-    use leema::ast;
-    use leema::code::{CodeKey};
-    use leema::loader::{Interloader};
-    use leema::module::{ModKey, ModuleInterface, ModuleSource};
-    use leema::program;
-    use leema::reg::{Reg};
-    use leema::val::{Env, Val};
-    use leema::prefab;
-    use leema::lex::{lex};
-    use leema::worker::{Worker};
-
-    use std::thread;
-    use std::sync::{Arc, Mutex};
-    use std::rc::{Rc};
-    use std::io::{stderr, Write};
-    use libc::{getpid};
-
-
-#[test]
-fn test_normal_strcat()
-{
-    let r1 = Reg::local(1);
-    let r2 = Reg::local(2);
-    let mut frame = Frame::new_root(String::from("foo"), String::from("bar"));
-    frame.e.set_reg(&r1, Val::new_str(String::from("i like ")));
-    frame.e.set_reg(&r2, Val::new_str(String::from("burritos")));
-
-    let event = frame.execute_strcat(&r1, &r2);
-    assert_eq!(Event::Uneventful, event);
-}
-
-}

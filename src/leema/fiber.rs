@@ -39,7 +39,7 @@ macro_rules! handle_value {
                 FrameTrace::propagate_down(trace
                     , $curf.function_name());
                 $curf.head.parent.set_result(val_clone.clone());
-                return Event::failure($curf);
+                return Event::failure();
             }
             &Val::Future(_) => {
                 return Event::FutureWait($reg.clone())
@@ -93,17 +93,16 @@ impl Fiber
         self.head.set_parent(parent);
     }
 
-    pub fn execute_leema_frame(mut self, ops: &OpVec) -> Event
+    pub fn execute_leema_frame(&mut self, ops: &OpVec) -> Event
     {
         let mut e = Event::None;
-        while let Event::Uneventful(f) = e {
-            self = f;
+        while let Event::Uneventful = e {
             e = self.execute_leema_op(ops);
         }
         e
     }
 
-    pub fn execute_leema_op(mut self, ops: &OpVec) -> Event
+    pub fn execute_leema_op(&mut self, ops: &OpVec) -> Event
     {
         let op = ops.get(self.head.pc as usize).unwrap();
         vout!("exec: {:?}\n", op);
@@ -119,7 +118,7 @@ impl Fiber
             }
             &Op::Fork(ref dst, ref freg, ref args) => {
                 // frame::execute_fork(self, curf, dst, freg, args);
-                Event::Uneventful(self)
+                Event::Uneventful
             }
             &Op::Jump(jmp) => {
                 self.execute_jump(jmp)
@@ -149,7 +148,7 @@ impl Fiber
                 self.execute_call(dst, func, args)
             }
             &Op::Return => {
-                Event::Complete(self, true)
+                Event::Complete(true)
             }
             &Op::SetResult(ref dst) => {
                 if *dst == Reg::Void {
@@ -157,7 +156,7 @@ impl Fiber
                 }
                 self.head.parent.set_result(self.head.e.get_reg(dst).clone());
                 self.head.pc += 1;
-                Event::Uneventful(self)
+                Event::Uneventful
             }
             &Op::Failure(ref dst, ref tag, ref msg) => {
                 self.execute_failure(dst, tag, msg)
@@ -165,7 +164,7 @@ impl Fiber
         }
     }
 
-    pub fn execute_strcat(mut self, dstreg: &Reg, srcreg: &Reg) -> Event
+    pub fn execute_strcat(&mut self, dstreg: &Reg, srcreg: &Reg) -> Event
     {
         let result = {
             let dst = handle_value!(self, dstreg);
@@ -203,10 +202,10 @@ impl Fiber
         };
         self.head.e.set_reg(dstreg, result);
         self.head.pc += 1;
-        Event::Uneventful(self)
+        Event::Uneventful
     }
 
-    pub fn execute_match_pattern(mut self, dst: &Reg, patt: &Val, input: &Reg)
+    pub fn execute_match_pattern(&mut self, dst: &Reg, patt: &Val, input: &Reg)
         -> Event
     {
         vout!("execute_match_pattern({:?}, {:?}, {:?})\n", dst, patt, input);
@@ -227,7 +226,7 @@ impl Fiber
             }
         }
         self.head.pc += 1;
-        Event::Uneventful(self)
+        Event::Uneventful
     }
 
     /**
@@ -237,7 +236,7 @@ impl Fiber
     * create a new frame w/ func code and new frame state
     * set curf.flag to Called(new_frame)
     */
-    pub fn execute_call(mut self, dst: &Reg, freg: &Reg, argreg: &Reg)
+    pub fn execute_call(&mut self, dst: &Reg, freg: &Reg, argreg: &Reg)
     -> Event
     {
         let (modname, funcname) = {
@@ -281,12 +280,11 @@ impl Fiber
                     );
                 }
                 self.head.parent.set_result(failure);
-                Event::Complete(self, false)
+                Event::Complete(false)
             }
             None => {
                 let args_copy = self.head.e.get_reg(argreg).clone();
                 Event::Call(
-                    self,
                     dst.clone(),
                     modname,
                     funcname,
@@ -296,27 +294,27 @@ impl Fiber
         }
     }
 
-    pub fn execute_const_val(mut self, reg: &Reg, v: &Val) -> Event
+    pub fn execute_const_val(&mut self, reg: &Reg, v: &Val) -> Event
     {
         self.head.e.set_reg(reg, v.clone());
         self.head.pc += 1;
-        Event::Uneventful(self)
+        Event::Uneventful
     }
 
-    pub fn execute_constructor(mut self, reg: &Reg, typ: &Type) -> Event
+    pub fn execute_constructor(&mut self, reg: &Reg, typ: &Type) -> Event
     {
         if let &Type::Struct(_, nfields) = typ {
             let mut fields = Vec::with_capacity(nfields as usize);
             fields.resize(nfields as usize, Val::Void);
             self.head.e.set_reg(reg, Val::Struct(typ.clone(), fields));
             self.head.pc = self.head.pc + 1;
-            Event::Uneventful(self)
+            Event::Uneventful
         } else {
             panic!("Cannot construct not structure: {:?}", typ);
         }
     }
 
-    pub fn execute_cons_list(mut self, dst: &Reg, head: &Reg, tail: &Reg)
+    pub fn execute_cons_list(&mut self, dst: &Reg, head: &Reg, tail: &Reg)
         -> Event
     {
         let new_list = {
@@ -326,31 +324,31 @@ impl Fiber
         };
         self.head.e.set_reg(&dst, new_list);
         self.head.pc += 1;
-        Event::Uneventful(self)
+        Event::Uneventful
     }
 
-    pub fn execute_create_list(mut self, dst: &Reg) -> Event
+    pub fn execute_create_list(&mut self, dst: &Reg) -> Event
     {
         self.head.e.set_reg(&dst, list::empty());
         self.head.pc = self.head.pc + 1;
-        Event::Uneventful(self)
+        Event::Uneventful
     }
 
-    pub fn execute_create_tuple(mut self, dst: &Reg, ref sz: i8) -> Event
+    pub fn execute_create_tuple(&mut self, dst: &Reg, ref sz: i8) -> Event
     {
         let tupsize: usize = *sz as usize;
         self.head.e.set_reg(dst, Val::new_tuple(tupsize));
         self.head.pc = self.head.pc + 1;
-        Event::Uneventful(self)
+        Event::Uneventful
     }
 
-    pub fn execute_jump(mut self, jmp: i16) -> Event
+    pub fn execute_jump(&mut self, jmp: i16) -> Event
     {
         self.head.pc += jmp as i32;
-        Event::Uneventful(self)
+        Event::Uneventful
     }
 
-    pub fn execute_jump_if_not(mut self, jmp: i16, reg: &Reg) -> Event
+    pub fn execute_jump_if_not(&mut self, jmp: i16, reg: &Reg) -> Event
     {
         vout!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
         let tjump: i32 = {
@@ -368,31 +366,31 @@ impl Fiber
             }
         };
         self.head.pc += 1;
-        Event::Uneventful(self)
+        Event::Uneventful
     }
 
-    pub fn execute_load_func(mut self, dst: &Reg, ms: &ModSym) -> Event
+    pub fn execute_load_func(&mut self, dst: &Reg, ms: &ModSym) -> Event
     {
         self.head.pc = self.head.pc + 1;
-        Event::Uneventful(self)
+        Event::Uneventful
     }
 
-    pub fn execute_copy(mut self, dst: &Reg, src: &Reg) -> Event
+    pub fn execute_copy(&mut self, dst: &Reg, src: &Reg) -> Event
     {
         let src_val = self.head.e.get_reg(src).clone();
         self.head.e.set_reg(dst, src_val);
         self.head.pc = self.head.pc + 1;
-        Event::Uneventful(self)
+        Event::Uneventful
     }
 
-    pub fn execute_failure(mut self, dst: &Reg, tag: &Reg, msg: &Reg) -> Event
+    pub fn execute_failure(&mut self, dst: &Reg, tag: &Reg, msg: &Reg) -> Event
     {
         let tagval = self.head.e.get_reg(tag).clone();
         let msgval = self.head.e.get_reg(msg).clone();
         let f = Val::failure(tagval, msgval, self.head.trace.failure_here());
         self.head.e.set_reg(dst, f);
         self.head.pc += 1;
-        Event::Uneventful(self)
+        Event::Uneventful
     }
 
     fn call_arg_failure(args: &Val) -> Option<&Val>
@@ -408,4 +406,45 @@ impl Fiber
         }
         None
     }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use leema::log;
+    use leema::frame::{Frame, Parent, Event};
+    use leema::fiber::{Fiber};
+    use leema::application::{Application};
+    use leema::ast;
+    use leema::code::{CodeKey};
+    use leema::loader::{Interloader};
+    use leema::module::{ModKey, ModuleInterface, ModuleSource};
+    use leema::program;
+    use leema::reg::{Reg};
+    use leema::val::{Env, Val};
+    use leema::prefab;
+    use leema::lex::{lex};
+    use leema::worker::{Worker};
+
+    use std::thread;
+    use std::sync::{Arc, Mutex};
+    use std::rc::{Rc};
+    use std::io::{stderr, Write};
+    use libc::{getpid};
+
+
+#[test]
+fn test_normal_strcat()
+{
+    let r1 = Reg::local(1);
+    let r2 = Reg::local(2);
+    let mut frame = Frame::new_root(String::from("foo"), String::from("bar"));
+    frame.e.set_reg(&r1, Val::new_str(String::from("i like ")));
+    frame.e.set_reg(&r2, Val::new_str(String::from("burritos")));
+    let fib = Fiber::spawn(1, frame);
+
+    let event = fib.execute_strcat(&r1, &r2);
+    assert_eq!(Event::Uneventful, event);
+}
+
 }

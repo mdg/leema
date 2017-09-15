@@ -31,7 +31,7 @@ pub fn int_add(mut f: Fiber) -> Event
         }
     }
     f.head.parent.set_result(Val::Int(ic));
-    Event::success(f)
+    Event::success()
 }
 
 pub fn int_sub(mut f: Fiber) -> Event
@@ -50,7 +50,7 @@ pub fn int_sub(mut f: Fiber) -> Event
         }
     }
     f.head.parent.set_result(Val::Int(ic));
-    Event::success(f)
+    Event::success()
 }
 
 pub fn int_mult(mut f: Fiber) -> Event
@@ -69,7 +69,7 @@ pub fn int_mult(mut f: Fiber) -> Event
         }
     }
     f.head.parent.set_result(Val::Int(ic));
-    Event::success(f)
+    Event::success()
 }
 
 pub fn int_mod(mut f: Fiber) -> Event
@@ -88,7 +88,7 @@ pub fn int_mod(mut f: Fiber) -> Event
         }
     }
     f.head.parent.set_result(Val::Int(ic));
-    Event::success(f)
+    Event::success()
 }
 
 pub fn int_negate(mut f: Fiber) -> Event
@@ -106,14 +106,14 @@ pub fn int_negate(mut f: Fiber) -> Event
         }
     }
     f.head.parent.set_result(Val::Int(result));
-    Event::success(f)
+    Event::success()
 }
 
 pub fn int_random(mut f: Fiber) -> Event
 {
     let result = rand::random::<i64>(); // as i64;
     f.head.parent.set_result(Val::Int(result));
-    Event::success(f)
+    Event::success()
 }
 
 pub fn bool_not(mut f: Fiber) -> Event
@@ -130,7 +130,7 @@ pub fn bool_not(mut f: Fiber) -> Event
         }
     }
     f.head.parent.set_result(Val::Bool(bnot));
-    Event::success(f)
+    Event::success()
 }
 
 pub fn bool_xor(mut f: Fiber) -> Event
@@ -149,7 +149,7 @@ pub fn bool_xor(mut f: Fiber) -> Event
         }
     }
     f.head.parent.set_result(Val::Bool(result));
-    Event::success(f)
+    Event::success()
 }
 
 pub fn list_cons(mut f: Fiber) -> Event
@@ -160,7 +160,7 @@ pub fn list_cons(mut f: Fiber) -> Event
         list::cons(head.clone(), tail.clone())
     };
     f.head.parent.set_result(result);
-    Event::success(f)
+    Event::success()
 }
 
 pub fn less_than(mut f: Fiber) -> Event
@@ -171,7 +171,7 @@ pub fn less_than(mut f: Fiber) -> Event
         Val::Bool(va < vb)
     };
     f.head.parent.set_result(result);
-    Event::success(f)
+    Event::success()
 }
 
 pub fn less_than_equal(mut f: Fiber) -> Event
@@ -182,7 +182,7 @@ pub fn less_than_equal(mut f: Fiber) -> Event
         Val::Bool(va <= vb)
     };
     f.head.parent.set_result(result);
-    Event::success(f)
+    Event::success()
 }
 
 pub fn equal(mut f: Fiber) -> Event
@@ -193,7 +193,7 @@ pub fn equal(mut f: Fiber) -> Event
         Val::Bool(va == vb)
     };
     f.head.parent.set_result(result);
-    Event::success(f)
+    Event::success()
 }
 
 pub fn greater_than(mut f: Fiber) -> Event
@@ -204,7 +204,7 @@ pub fn greater_than(mut f: Fiber) -> Event
         va > vb
     };
     f.head.parent.set_result(Val::Bool(result));
-    Event::success(f)
+    Event::success()
 }
 
 pub fn greater_than_equal(mut f: Fiber) -> Event
@@ -215,7 +215,7 @@ pub fn greater_than_equal(mut f: Fiber) -> Event
         va >= vb
     };
     f.head.parent.set_result(Val::Bool(result));
-    Event::success(f)
+    Event::success()
 }
 
 pub fn get_type(mut f: Fiber) -> Event
@@ -226,7 +226,7 @@ pub fn get_type(mut f: Fiber) -> Event
         result = v.get_type();
     }
     f.head.parent.set_result(Val::Type(result));
-    Event::success(f)
+    Event::success()
 }
 
 pub fn cout(mut f: Fiber) -> Event
@@ -236,7 +236,7 @@ pub fn cout(mut f: Fiber) -> Event
         print!("{}", v);
     }
     f.head.parent.set_result(Val::Void);
-    Event::success(f)
+    Event::success()
 }
 
 pub fn cerr(mut f: Fiber) -> Event
@@ -246,7 +246,7 @@ pub fn cerr(mut f: Fiber) -> Event
         write!(stderr(), "{}", va);
     }
     f.head.parent.set_result(Val::Void);
-    Event::success(f)
+    Event::success()
 }
 
 
@@ -312,7 +312,7 @@ pub fn file_read(mut f: Fiber) -> Event
             )
     };
     f.head.parent.set_result(openf);
-    Event::success(f)
+    Event::success()
 }
 
 pub fn file_stream_read(mut f: Fiber) -> Event
@@ -329,7 +329,7 @@ pub fn file_stream_read(mut f: Fiber) -> Event
     }
 println!("read from file: '{}'", input);
     f.head.parent.set_result(Val::new_str(input));
-    Event::success(f)
+    Event::success()
 }
 
 pub fn source_code() -> &'static str

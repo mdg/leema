@@ -299,7 +299,7 @@ fn test_add_and_find()
 {
     let mut t = Inferator::new();
     t.bind_vartype("a", &Type::Int);
-    assert_eq!(Type::Int, *t.vartype("a").unwrap());
+    assert_eq!(Type::Int, t.vartype("a").unwrap());
 }
 
 #[test]
@@ -336,7 +336,7 @@ fn test_match_pattern_empty_list()
     let tvar = Type::Var(Rc::new("Taco".to_string()));
     t.match_pattern(&Val::Nil, &tvar);
 
-    assert_eq!(&Type::StrictList(Box::new(Type::Unknown)),
+    assert_eq!(Type::StrictList(Box::new(Type::Unknown)),
         t.inferred_type(&tvar));
 }
 
@@ -348,7 +348,7 @@ fn test_match_pattern_empty_and_full_lists()
     t.match_pattern(&Val::Nil, &tvar);
     t.match_pattern(&list::singleton(Val::Int(5)), &tvar);
 
-    assert_eq!(&Type::StrictList(Box::new(Type::Int)),
+    assert_eq!(Type::StrictList(Box::new(Type::Int)),
         t.inferred_type(&tvar));
 }
 

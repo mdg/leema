@@ -88,20 +88,15 @@ impl Worker
             self.process_msg(msg);
         }
 
-        let opt_ev = {
-            match self.pop_fresh() {
-                Some(ReadyFiber::New(f)) => {
-                    self.load_code(f);
-                    None
-                }
-                Some(ReadyFiber::Ready(mut f, code)) => {
-                    Some(Worker::execute_frame(f, code))
-                }
-                None => None,
+        match self.pop_fresh() {
+            Some(ReadyFiber::New(f)) => {
+                self.load_code(f);
             }
-        };
-        if let Some((ev, code)) = opt_ev {
-            self.handle_event(ev, code);
+            Some(ReadyFiber::Ready(mut f, code)) => {
+                let ev = Worker::execute_frame(&mut f, &*code);
+                self.handle_event(f, ev, code);
+            }
+            None => {}
         }
     }
 
@@ -133,6 +128,7 @@ impl Worker
         }
     }
 
+    /*
     pub fn execute_frame(mut f: Fiber, code: Rc<Code>
         ) -> (Event, Rc<Code>)
     {
@@ -147,12 +143,28 @@ impl Worker
         };
         (ev, code)
     }
+    */
 
-    pub fn handle_event(&mut self, e: Event, code: Rc<Code>)
+    pub fn execute_frame(f: &mut Fiber, code: &Code
+        ) -> Event
+    {
+        let ev = match code {
+            &Code::Leema(ref ops) => {
+                f.execute_leema_frame(ops)
+            }
+            &Code::Rust(ref rf) => {
+                vout!("execute rust code\n");
+                rf(f)
+            }
+        };
+        ev
+    }
+
+    pub fn handle_event(&mut self, mut f: Fiber, e: Event, code: Rc<Code>)
         -> Poll<Val, Val>
     {
         match e {
-            Event::Complete(mut f, success) => {
+            Event::Complete(success) => {
                 if success {
                     // analyze successful function run
                 } else {
@@ -190,10 +202,10 @@ impl Worker
             Event::Failure => {
                 Result::Ok(Async::NotReady)
             }
-            Event::Call(mut fiber, dst, module, func, args) => {
+            Event::Call(dst, module, func, args) => {
                 vout!("push_call({}.{})\n", module, func);
-                fiber.push_call(code.clone(), dst, module, func, args);
-                self.load_code(fiber);
+                f.push_call(code.clone(), dst, module, func, args);
+                // self.load_code(fiber);
                 Result::Ok(Async::NotReady)
             }
             Event::IoCall(iopa, params) => {
@@ -245,9 +257,9 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
                 // end this iteration,
                 Result::Ok(Async::NotReady)
             }
-            Event::Uneventful(nextf) => {
+            Event::Uneventful => {
                 println!("We shouldn't be here with uneventful");
-                panic!("code: {:?}, pc: {:?}", code, nextf.head.pc);
+                panic!("code: {:?}, pc: {:?}", code, f.head.pc);
             }
             Event::None => {
                 panic!("Event::None? wtf!");

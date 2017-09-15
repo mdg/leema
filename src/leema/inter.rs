@@ -536,11 +536,11 @@ fn test_scope_add_vartype()
     let args = vec![];
     let argt = vec![];
     let mut scope = Interscope::new(&proto, &imps, "foo", &args, &argt);
-    scope.add_var("hello", &Type::Int);
+    scope.T.bind_vartype("hello", &Type::Int);
 
     let (scope_lvl, typ) = scope.vartype("hello").unwrap();
     assert_eq!(ScopeLevel::Local, scope_lvl);
-    assert_eq!(Type::Int, *typ);
+    assert_eq!(Type::Int, typ);
 }
 
 #[test]
@@ -552,27 +552,27 @@ fn test_scope_push_block()
     let args = vec![];
     let argt = vec![];
     let mut scope = Interscope::new(&proto, &imps, "foo", &args, &argt);
-    scope.add_var("hello", &Type::Int);
+    scope.T.bind_vartype("hello", &Type::Int);
     println!("add_var(hello) -> {:?}", scope);
 
     {
         let (hello_lvl, hello_typ) = scope.vartype("hello").unwrap();
         assert_eq!(ScopeLevel::Local, hello_lvl);
-        assert_eq!(Type::Int, *hello_typ);
+        assert_eq!(Type::Int, hello_typ);
     }
 
     scope.T.push_block();
-    scope.add_var("world", &Type::Str);
+    scope.T.bind_vartype("world", &Type::Str);
     println!("push_block().add_var(world) -> {:?}", scope);
 
     {
         let (world_lvl, world_typ) = scope.vartype("world").unwrap();
         assert_eq!(ScopeLevel::Local, world_lvl);
-        assert_eq!(Type::Str, *world_typ);
+        assert_eq!(Type::Str, world_typ);
 
         let (hello_lvl, hello_typ) = scope.vartype("hello").unwrap();
         assert_eq!(ScopeLevel::Local, hello_lvl);
-        assert_eq!(Type::Int, *hello_typ);
+        assert_eq!(Type::Int, hello_typ);
     }
 
     scope.T.pop_block();
