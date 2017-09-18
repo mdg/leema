@@ -136,6 +136,7 @@ pub struct Interscope<'a>
     imports: &'a HashMap<String, Rc<Protomod>>,
     // types of locally defined labels
     T: Inferator,
+    argnames: Vec<Rc<String>>,
     argt: Type,
 }
 
@@ -158,6 +159,7 @@ impl<'a> Interscope<'a>
             proto: proto,
             imports: imports,
             T: t,
+            argnames: args.clone(),
             argt: Type::Tuple(argt.clone()),
         }
     }
