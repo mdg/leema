@@ -261,9 +261,6 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
                 println!("We shouldn't be here with uneventful");
                 panic!("code: {:?}, pc: {:?}", code, f.head.pc);
             }
-            Event::None => {
-                panic!("Event::None? wtf!");
-            }
         }
     }
 

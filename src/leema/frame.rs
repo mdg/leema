@@ -78,7 +78,6 @@ impl Debug for Parent
 
 pub enum Event
 {
-    None,
     Uneventful,
     Call(Reg, Rc<String>, Rc<String>, Val),
     Fork,
@@ -108,7 +107,6 @@ impl Event
 impl fmt::Debug for Event {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            &Event::None => write!(f, "Event::None"),
             &Event::Uneventful => write!(f, "Uneventful"),
             &Event::Call(ref r, ref cmod, ref cfunc, ref cargs) => {
                 write!(f, "Event::Call({:?}, {}, {}, {:?})",

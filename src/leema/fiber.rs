@@ -95,7 +95,7 @@ impl Fiber
 
     pub fn execute_leema_frame(&mut self, ops: &OpVec) -> Event
     {
-        let mut e = Event::None;
+        let mut e = Event::Uneventful;
         while let Event::Uneventful = e {
             e = self.execute_leema_op(ops);
         }
