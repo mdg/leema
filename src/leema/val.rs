@@ -109,12 +109,12 @@ impl Type
         }
     }
 
-    pub fn tuple_items(tup: Type) -> Vec<Type>
+    pub fn tuple_items(self) -> Vec<Type>
     {
-        match tup {
+        match self {
             Type::Tuple(items) => items,
             _ => {
-                panic!("No items in not tuple type {:?}", tup);
+                panic!("No items in not tuple type {:?}", self);
             }
         }
     }
@@ -443,6 +443,16 @@ impl Val
             Val::Tuple(items) => items,
             _ => {
                 panic!("No items in not tuple {:?}", tup);
+            }
+        }
+    }
+
+    pub fn tuple_items_ref(&self) -> &Vec<Val>
+    {
+        match self {
+            &Val::Tuple(ref items) => items,
+            _ => {
+                panic!("No items in not tuple type {:?}", self);
             }
         }
     }
