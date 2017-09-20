@@ -5,7 +5,7 @@ use leema::list;
 use leema::log;
 use leema::sxpr;
 
-use std::collections::{HashMap};
+use std::collections::{HashMap, LinkedList};
 use std::rc::Rc;
 use std::io::{stderr, Write};
 
@@ -14,6 +14,7 @@ use std::io::{stderr, Write};
 pub struct Protomod
 {
     pub key: Rc<ModKey>,
+    pub funcseq: LinkedList<String>,
     pub funcsrc: HashMap<String, Val>,
     pub valtypes: HashMap<String, Type>,
     pub newtypes: HashMap<Type, Val>,
@@ -25,6 +26,7 @@ impl Protomod
     {
         Protomod{
             key: mk,
+            funcseq: LinkedList::new(),
             funcsrc: HashMap::new(),
             valtypes: HashMap::new(),
             newtypes: HashMap::new(),
@@ -56,6 +58,7 @@ impl Protomod
 
                 let ftype = sxpr::defunc_type(&pp_func);
 
+                self.funcseq.push_back(strname.clone());
                 self.funcsrc.insert(strname.clone(), pp_func);
                 self.valtypes.insert(strname, ftype);
             }

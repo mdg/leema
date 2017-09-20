@@ -394,6 +394,45 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> Type
     */
 }
 
+
+#[cfg(test)]
+mod tests {
+    use leema::program;
+    use leema::loader::{Interloader};
+    use leema::log;
+    use leema::module::{ModKey};
+    use leema::val::{Val, Type};
+
+    use std::io::{stderr, Write};
+    use std::collections::{HashMap};
+
+
+#[test]
+#[should_panic]
+fn test_pattern_type_inferred_mismatch()
+{
+    let input = String::from("
+
+    ## foo should take [#] and return a #
+    func foo(inputs)
+    |([]) -> #empty
+    |(#whatever;more) -> #whatever
+    |(_;more) -> foo(more)
+    --
+
+    func main() ->
+        foo([5, 3, 4])
+    --
+    ");
+
+    let mut loader = Interloader::new("tacos.lma");
+    loader.set_mod_txt("tacos", input);
+    let mut prog = program::Lib::new(loader);
+    prog.deep_typecheck("tacos", "main");
+}
+
+}
+
 /*
 mod -> prog
 imps -> libs

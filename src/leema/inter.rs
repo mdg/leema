@@ -104,15 +104,18 @@ impl Intermod
         &self.key.name
     }
 
-    pub fn compile(proto: &Protomod, imports: &HashMap<String, Rc<Protomod>>)
-            -> Intermod
+    pub fn compile(proto: &Protomod, imports: &HashMap<String
+            , Rc<Protomod>>) -> Intermod
     {
         let mut inter = Intermod::new(proto.key.clone());
-        for (fname, defunc) in proto.funcsrc.iter() {
+        let mut locals: HashMap<String, Type> = HashMap::new();
+        for fname in proto.funcseq.iter() {
+            let defunc = proto.funcsrc.get(fname).unwrap();
             let (args, body) = split_func_args_body(defunc);
             let ftype = proto.valtypes.get(fname).unwrap();
-            let ifunc = compile_function(proto, imports
+            let ifunc = compile_function(proto, imports, &locals
                     , fname, ftype, &args, body);
+            locals.insert(fname.to_string(), ifunc.typ.clone());
             inter.interfunc.insert(fname.to_string(), ifunc);
         }
         inter
@@ -134,6 +137,8 @@ pub struct Interscope<'a>
     fname: &'a str,
     proto: &'a Protomod,
     imports: &'a HashMap<String, Rc<Protomod>>,
+    // types of functions already compiled in this module
+    mod_locals: &'a HashMap<String, Type>,
     // types of locally defined labels
     T: Inferator,
     argnames: Vec<Rc<String>>,
@@ -143,6 +148,7 @@ pub struct Interscope<'a>
 impl<'a> Interscope<'a>
 {
     pub fn new(proto: &'a Protomod, imports: &'a HashMap<String, Rc<Protomod>>
+            , locals: &'a HashMap<String, Type>
             , fname: &'a str, args: &Vec<Rc<String>>, argt: &Vec<Type>
             ) -> Interscope<'a>
     {
@@ -158,6 +164,7 @@ impl<'a> Interscope<'a>
             fname: fname,
             proto: proto,
             imports: imports,
+            mod_locals: locals,
             T: t,
             argnames: args.clone(),
             argt: Type::Tuple(argt.clone()),
@@ -170,9 +177,11 @@ impl<'a> Interscope<'a>
         if local.is_some() && self.T.contains_var(name) {
             return Some((ScopeLevel::Local, local.unwrap()));
         }
-        let modtyp = self.proto.valtype(name);
-        if modtyp.is_some() {
-            return Some((ScopeLevel::Module, modtyp.unwrap().clone()));
+        if let Some(local_valtype) = self.mod_locals.get(name) {
+            return Some((ScopeLevel::Module, local_valtype.clone()));
+        }
+        if let Some(modtyp) = self.proto.valtype(name) {
+            return Some((ScopeLevel::Module, modtyp.clone()));
         }
         match self.imports.get("prefab") {
             Some(ref proto) => {
@@ -245,7 +254,8 @@ impl<'a> Interscope<'a>
 
 
 pub fn compile_function<'a>(proto: &'a Protomod
-        , imports: &'a HashMap<String, Rc<Protomod>>, fname: &'a str
+        , imports: &'a HashMap<String, Rc<Protomod>>
+        , locals: &'a HashMap<String, Type>, fname: &'a str
         , ftype: &Type, args: &Vec<Rc<String>>, body: &Val) -> Ixpr
 {
     if *body == Val::RustBlock {
@@ -255,7 +265,7 @@ pub fn compile_function<'a>(proto: &'a Protomod
         }
     }
     let (argt, result) = Type::split_func(ftype);
-    let mut scope = Interscope::new(proto, imports, fname, args, argt);
+    let mut scope = Interscope::new(proto, imports, locals, fname, args, argt);
     let mut ibody = compile_expr(&mut scope, body);
     let argt2: Vec<Type> = argt.iter().map(|a| {
         scope.T.inferred_type(a).clone()
@@ -566,7 +576,9 @@ fn test_scope_add_vartype()
     let imps = HashMap::new();
     let args = vec![];
     let argt = vec![];
-    let mut scope = Interscope::new(&proto, &imps, "foo", &args, &argt);
+    let locals = HashMap::new();
+    let mut scope = Interscope::new(&proto, &imps, &locals
+        , "foo", &args, &argt);
     scope.T.bind_vartype("hello", &Type::Int);
 
     let (scope_lvl, typ) = scope.vartype("hello").unwrap();
@@ -582,7 +594,9 @@ fn test_scope_push_block()
     let imps = HashMap::new();
     let args = vec![];
     let argt = vec![];
-    let mut scope = Interscope::new(&proto, &imps, "foo", &args, &argt);
+    let locals = HashMap::new();
+    let mut scope = Interscope::new(&proto, &imps, &locals
+        , "foo", &args, &argt);
     scope.T.bind_vartype("hello", &Type::Int);
     println!("add_var(hello) -> {:?}", scope);
 
