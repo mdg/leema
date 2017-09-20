@@ -189,6 +189,12 @@ impl Inferator
             &Type::StrictList(ref inner) => {
                 Type::StrictList(Box::new(self.inferred_type(inner)))
             }
+            &Type::Tuple(ref inners) => {
+                let infers = inners.iter().map(|i| {
+                    self.inferred_type(i)
+                }).collect();
+                Type::Tuple(infers)
+            }
             _ => typ.clone()
         }
     }
@@ -350,6 +356,25 @@ fn test_match_pattern_empty_and_full_lists()
 
     assert_eq!(Type::StrictList(Box::new(Type::Int)),
         t.inferred_type(&tvar));
+}
+
+#[test]
+fn test_match_pattern_hashtag_list_inside_tuple()
+{
+    let mut t = Inferator::new();
+    let tvar = Type::Tuple(vec![
+        Type::Var(Rc::new("Taco".to_string()))
+    ]);
+    let listpatt = Val::Tuple(vec![list::cons(
+        Val::hashtag("leema".to_string()),
+        Val::id("tail".to_string())
+    )]);
+    t.match_pattern(&listpatt, &tvar);
+
+    let exp = Type::Tuple(vec![
+        Type::StrictList(Box::new(Type::Hashtag)),
+    ]);
+    assert_eq!(exp, t.inferred_type(&tvar));
 }
 
 }
