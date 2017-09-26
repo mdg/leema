@@ -22,6 +22,7 @@ mopafy!(Rsrc);
 pub enum Event
 {
     Future(Box<future::Future<Item=(Val, Option<Box<Rsrc>>), Error=Val>>),
+    NewRsrc(Box<Rsrc>),
     Success(Val),
     Failure(Val),
 }
@@ -61,5 +62,5 @@ impl<'a> IopCtx<'a>
     }
 }
 
-pub type IopAction = Box<fn(&mut IopCtx, Vec<Val>) -> Event>;
-pub type RsrcAction = Box<fn(&mut IopCtx, Box<Rsrc>, Vec<Val>) -> Event>;
+pub type IopAction = Box<fn(IopCtx, Vec<Val>) -> Event>;
+pub type RsrcAction = Box<fn(IopCtx, Box<Rsrc>, Vec<Val>) -> Event>;

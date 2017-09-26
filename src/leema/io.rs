@@ -1,13 +1,15 @@
 
-use leema::frame::{self, Event};
+use leema::frame::{self};
+use leema::log;
 use leema::msg::{WorkerMsg, AppMsg, IoMsg};
-use leema::rsrc::{self, Rsrc, IopCtx, RsrcAction, IopAction};
+use leema::rsrc::{self, Rsrc, Event, IopCtx, RsrcAction, IopAction};
 use leema::val::{Val, MsgVal};
 use leema::worker;
 
 use std;
 use std::cell::{RefCell, RefMut};
 use std::fmt;
+use std::io::{stderr, Write};
 use std::rc::{Rc};
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::collections::{HashMap, LinkedList};
@@ -41,6 +43,7 @@ pub struct Op<T>
     params: Vec<Val>,
     src_worker_id: i64,
     src_fiber_id: i64,
+    rsrc_id: i64,
 }
 
 type RsrcOp = Op<RsrcAction>;
@@ -70,18 +73,19 @@ impl RsrcQueue
      * If the resource is already in used, then return None
      */
     pub fn push_op(&mut self, worker_id: i64, fiber_id: i64, opf: RsrcAction
-        , args: Vec<Val>) -> Option<(Box<Rsrc>, RsrcOp)>
+        , args: Vec<Val>) -> Option<(RsrcOp, Box<Rsrc>)>
     {
         let op = RsrcOp{
             action: opf,
             params: args,
             src_worker_id: worker_id,
             src_fiber_id: fiber_id,
+            rsrc_id: self.rsrc_id,
         };
 
         match self.rsrc.take() {
             Some(r) => {
-                Some((r, op))
+                Some((op, r))
             }
             None => {
                 self.queue.push_back(op);
@@ -93,11 +97,11 @@ impl RsrcQueue
     /**
      * Add the resource back to the Ioq to be used later
      */
-    pub fn checkin(&mut self, r: Box<Rsrc>) -> Option<(Box<Rsrc>, RsrcOp)>
+    pub fn checkin(&mut self, r: Box<Rsrc>) -> Option<(RsrcOp, Box<Rsrc>)>
     {
         match self.queue.pop_front() {
             Some(iop) => {
-                Some((r, iop))
+                Some((iop, r))
             }
             None => {
                 self.rsrc = Some(r);
@@ -141,17 +145,11 @@ impl Io
         (rcio, core)
     }
 
-    pub fn add_worker(worker_id: i64)
-    {
-    }
-
     pub fn run_once(&mut self) -> Poll<Val, Val>
     {
         if let Ok(incoming) = self.msg_rx.try_recv() {
             self.handle_incoming(incoming);
         }
-        let rsrc_id = 0;
-        let resp = self.create_iop_ctx(0, 0, rsrc_id);
         Ok(Async::NotReady)
     }
 
@@ -160,7 +158,7 @@ impl Io
         match incoming {
             IoMsg::Iop{
                 worker_id: wid,
-                frame_id: fid,
+                fiber_id: fid,
                 action,
                 params,
             } => {
@@ -172,7 +170,7 @@ impl Io
             }
             IoMsg::RsrcOp{
                 worker_id: wid,
-                frame_id: fid,
+                fiber_id: fid,
                 rsrc_id,
                 action,
                 params,
@@ -190,19 +188,67 @@ impl Io
         }
     }
 
-    fn handle_iop_action(&mut self, worker_id: i64, frame_id: i64
+    fn handle_iop_action(&mut self, worker_id: i64, fiber_id: i64
         , action: IopAction, params: Vec<Val>)
     {
     }
 
-    fn handle_rsrc_action(&mut self, worker_id: i64, frame_id: i64
+    fn handle_rsrc_action(&mut self, worker_id: i64, fiber_id: i64
         , action: RsrcAction, rsrc_id: i64
         , params: Vec<Val>)
     {
+        let rsrc_op = {
+            let opt_rsrcq = self.resource.get_mut(&rsrc_id);
+            if opt_rsrcq.is_none() {
+                panic!("missing queue for rsrc: {}", rsrc_id);
+            }
+            let mut rsrcq = opt_rsrcq.unwrap();
+            rsrcq.push_op(worker_id, fiber_id, action, params)
+        };
+        self.run_rsrc_op(rsrc_op);
     }
 
-    fn handle_event(&mut self, ev: Event)
+    fn run_rsrc_op(&mut self, rsrc_op: Option<(RsrcOp, Box<Rsrc>)>)
     {
+        if let Some((op, rsrc)) = rsrc_op {
+            let ev = {
+                let ctx = self.create_iop_ctx(
+                    op.src_worker_id, op.src_fiber_id, op.rsrc_id);
+                (op.action)(ctx, rsrc, op.params)
+            };
+            self.handle_event(op.src_worker_id
+                , op.src_fiber_id, op.rsrc_id, ev);
+        }
+    }
+
+    fn handle_event(&mut self, worker_id: i64, fiber_id: i64
+        , rsrc_id: i64, ev: Event)
+    {
+        match ev {
+            Event::NewRsrc(rsrc) => {
+println!("do something with this new resource!");
+            }
+            Event::Success(result) => {
+            }
+            Event::Failure(result) => {
+            }
+            Event::Future(libfut) => {
+                let rcio: Rc<RefCell<Io>> = self.io.clone().unwrap();
+                let rcio_err = rcio.clone();
+                let iofut = libfut
+                    .map(move |(result, rsrc)| {
+                        let mut bio = rcio.borrow_mut();
+                        bio.send_result(worker_id, fiber_id, result);
+                        bio.return_rsrc(rsrc_id, rsrc);
+                        ()
+                    }).map_err(move |result| {
+                        rcio_err.borrow_mut().send_result(
+                            worker_id, fiber_id, result);
+                        ()
+                    });
+                self.handle.spawn(iofut);
+            }
+        }
     }
 
     fn create_iop_ctx<'a>(&'a mut self, src_worker_id: i64, src_fiber_id: i64
@@ -242,14 +288,26 @@ impl Io
         rsrc_id
     }
 
-    /*
-    pub fn return_rsrc(&mut self, rsrc_id: i64, rsrc: Box<Rsrc>)
+    pub fn send_result(&mut self, worker_id: i64, fiber_id: i64, result: Val)
     {
-        let ioq = self.resource.get_mut(&rsrc_id).unwrap();
-        if let Some((next_rsrc, iop)) = ioq.checkin(rsrc) {
+    }
+
+    pub fn return_rsrc(&mut self, rsrc_id: i64, rsrc: Option<Box<Rsrc>>)
+    {
+        match rsrc {
+            None => {
+                vout!("rsrc was not returned for {}", rsrc_id);
+                // TODO: maybe should clear the ioq?
+            }
+            Some(real_rsrc) => {
+                let next_op = {
+                    let ioq = self.resource.get_mut(&rsrc_id).unwrap();
+                    ioq.checkin(real_rsrc)
+                };
+                self.run_rsrc_op(next_op);
+            }
         }
     }
-    */
 }
 
 struct IoLoop
