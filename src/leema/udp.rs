@@ -27,7 +27,7 @@ impl Rsrc for UdpSocket
 }
 
 
-pub fn udp_socket_iop<'a>(ctx: &'a mut rsrc::IopCtx, params: Vec<Val>)
+pub fn udp_socket_iop<'a>(mut ctx: rsrc::IopCtx<'a>, params: Vec<Val>)
     -> rsrc::Event
 {
     let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
@@ -87,6 +87,7 @@ fn udp_recv_1(resp: Box<rsrc::IopCtx>
             panic!("{:?}", e);
             Val::new_str("error".to_string())
         });
+
     rsrc::Event::Future(Box::new(fut))
 }
 
