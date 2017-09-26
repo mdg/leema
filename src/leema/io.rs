@@ -1,7 +1,7 @@
 
 use leema::frame::{self, Event};
 use leema::msg::{WorkerMsg, AppMsg, IoMsg};
-use leema::rsrc::{self, Rsrc};
+use leema::rsrc::{self, Rsrc, IopCtx, RsrcAction, IopAction};
 use leema::val::{Val, MsgVal};
 use leema::worker;
 
@@ -35,42 +35,45 @@ ResourceQueue
 IoEvent
 */
 
-#[derive(Debug)]
-pub struct Iop
+pub struct RsrcOp
 {
-    pub action: Box<rsrc::Action>,
-    pub params: Vec<Val>,
-    pub src_worker_id: i64,
+    action: rsrc::RsrcAction,
+    params: Vec<Val>,
+    src_worker_id: i64,
+    src_fiber_id: i64,
 }
 
-pub struct Ioq
+pub struct RsrcQueue
 {
+    rsrc_id: i64,
     rsrc: Option<Box<Rsrc>>,
-    queue: LinkedList<Iop>,
+    queue: LinkedList<RsrcOp>,
 }
 
-impl Ioq
+impl RsrcQueue
 {
-    pub fn new(resource: Box<Rsrc>) -> Ioq
+    pub fn new(rsrc_id: i64, resource: Box<Rsrc>) -> Ioq
     {
         Ioq{
+            rsrc_id: rsrc_id,
             rsrc: Some(resource),
             queue: LinkedList::new(),
         }
     }
 
     /**
-     * Checkout a resource object and return it w/ the Iop
+     * Push a RsrcOp onto the queue
      *
      * If the resource is already in used, then return None
      */
-    pub fn checkout(&mut self, worker_id: i64, iopf: Box<rsrc::Action>
-        , args: Vec<Val>) -> Option<(Box<Rsrc>, Iop)>
+    pub fn push(&mut self, worker_id: i64, fiber_id: i64, iopf: RsrcAction
+        , args: Vec<Val>) -> Option<(Box<Rsrc>, RsrcOp)>
     {
-        let iop = Iop{
+        let iop = RsrcOp{
             action: iopf,
             params: args,
             src_worker_id: worker_id,
+            src_fiber_id: fiber_id,
         };
 
         match self.rsrc.take() {
@@ -100,6 +103,15 @@ impl Ioq
         }
     }
 }
+
+pub struct Iop
+{
+    action: rsrc::IopAction,
+    params: Vec<Val>,
+    src_worker_id: i64,
+    src_fiber_id: i64,
+}
+
 
 pub struct Io
 {
@@ -134,20 +146,79 @@ impl Io
         (rcio, core)
     }
 
+    pub fn add_worker(worker_id: i64)
+    {
+    }
+
     pub fn run_once(&mut self) -> Poll<Val, Val>
     {
+        if let Ok(incoming) = self.msg_rx.try_recv() {
+            self.handle_incoming(incoming);
+        }
         let rsrc_id = 0;
-        let resp = self.create_iop_response(rsrc_id, 0, 0);
+        let resp = self.create_iop_ctx(0, 0, rsrc_id);
         Ok(Async::NotReady)
     }
 
-    fn create_iop_response(&self, rsrc_id: i64, src_worker_id: i64
-        , src_fiber_id: i64)
-        -> Box<Fn(Val, Box<Rsrc>)>
+    pub fn handle_incoming(&mut self, incoming: IoMsg)
+    {
+        match incoming {
+            IoMsg::Iop{
+                worker_id: wid,
+                frame_id: fid,
+                action,
+                params,
+            } => {
+                println!("handle incoming Iop");
+                let param_vals = params.into_iter().map(|mv| {
+                    Val::from_msg(mv)
+                }).collect();
+                self.handle_iop_action(wid, fid, action, param_vals);
+            }
+            IoMsg::RsrcOp{
+                worker_id: wid,
+                frame_id: fid,
+                rsrc_id,
+                action,
+                params,
+            } => {
+                println!("handle incoming RsrcOp");
+                let param_vals = params.into_iter().map(|mv| {
+                    Val::from_msg(mv)
+                }).collect();
+                self.handle_rsrc_action(wid, fid
+                    , action, rsrc_id, param_vals);
+            }
+            IoMsg::NewWorker(worker_id, worker_tx) => {
+                self.worker_tx.insert(worker_id, worker_tx);
+            }
+        }
+    }
+
+    fn handle_iop_action(&mut self, worker_id: i64, frame_id: i64
+        , action: IopAction, params: Vec<Val>)
+    {
+    }
+
+    fn handle_rsrc_action(&mut self, worker_id: i64, frame_id: i64
+        , action: RsrcAction, rsrc_id: i64
+        , params: Vec<Val>)
+    {
+    }
+
+    fn handle_event(&mut self, ev: Event)
+    {
+    }
+
+    fn create_iop_ctx<'a>(&'a mut self, src_worker_id: i64, src_fiber_id: i64
+        , rsrc_id: i64)
+        -> IopCtx<'a>
     {
         let h = self.handle.clone();
         let rcio = self.io.clone().unwrap();
         // let tx = self.worker_tx.clone();
+        IopCtx::new(self, src_worker_id, src_fiber_id, rsrc_id)
+        /*
         Box::new(move |result, rsrc| {
             RefMut::map(rcio.borrow_mut(), |ioref| {
                 // put resource back w/ resource_id
@@ -165,13 +236,14 @@ impl Io
                 ioref
             });
         })
+        */
     }
 
     pub fn new_rsrc(&mut self, rsrc: Box<Rsrc>) -> i64
     {
         let rsrc_id = self.next_rsrc_id;
         self.next_rsrc_id += 1;
-        self.resource.insert(rsrc_id, Ioq::new(rsrc));
+        self.resource.insert(rsrc_id, Ioq::new(rsrc_id, rsrc));
         rsrc_id
     }
 
@@ -216,4 +288,41 @@ impl Future for IoLoop
         thread::yield_now();
         poll_result
     }
+}
+
+
+#[cfg(test)]
+mod tests
+{
+    use leema::io::{self, Io};
+    use leema::msg;
+
+    use std::sync::mpsc;
+    use std::collections::{HashMap};
+
+fn mock_iop_action(ctx: &mut IoContext, params: Vec<Val>) -> Event
+{
+    ctx.set_result(Val::Int(7));
+}
+
+#[test]
+fn test_io_constructor()
+{
+    let (_, msg_rx) = mpsc::channel::<msg::IoMsg>();
+    let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
+    // let worker_tx = HashMap::new();
+
+    let (io, core) = Io::new(app_tx, msg_rx);
+}
+
+#[test]
+fn test_iop_action_flow()
+{
+    let (msg_tx, msg_rx) = mpsc::channel::<msg::IoMsg>();
+    let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
+    // let worker_tx = HashMap::new();
+
+    let (io, core) = Io::new(app_tx, msg_rx);
+}
+
 }
