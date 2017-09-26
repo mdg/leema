@@ -45,6 +45,7 @@ pub enum IoMsg
         params: Vec<MsgVal>,
     },
     NewWorker(i64, mpsc::Sender<WorkerMsg>),
+    Done,
 }
 
 impl fmt::Debug for IoMsg
@@ -62,6 +63,9 @@ impl fmt::Debug for IoMsg
             }
             &IoMsg::NewWorker(worker_id, _) => {
                 write!(f, "IoMsg::NewWorker({})", worker_id)
+            }
+            &IoMsg::Done => {
+                write!(f, "IoMsg::Done")
             }
         }
     }

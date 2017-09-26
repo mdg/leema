@@ -65,6 +65,11 @@ impl<'a> IopCtx<'a>
     {
         self.io.send_result(self.src_worker_id, self.src_fiber_id, result);
     }
+
+    pub fn return_rsrc(&mut self, rsrc: Box<Rsrc>)
+    {
+        self.io.return_rsrc(self.rsrc_id, Some(rsrc));
+    }
 }
 
 pub type IopAction = Box<fn(IopCtx, Vec<Val>) -> Event>;

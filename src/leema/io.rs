@@ -121,6 +121,7 @@ pub struct Io
     worker_tx: HashMap<i64, std::sync::mpsc::Sender<WorkerMsg>>,
     next_rsrc_id: i64,
     io: Option<Rc<RefCell<Io>>>,
+    done: bool
 }
 
 impl Io
@@ -138,6 +139,7 @@ impl Io
             worker_tx: HashMap::new(),
             next_rsrc_id: 1,
             io: None,
+            done: false,
         };
         let rcio = Rc::new(RefCell::new(io));
         let rcio2 = rcio.clone();
@@ -150,7 +152,11 @@ impl Io
         if let Ok(incoming) = self.msg_rx.try_recv() {
             self.handle_incoming(incoming);
         }
-        Ok(Async::NotReady)
+        if self.done {
+            Ok(Async::Ready(Val::Int(1)))
+        } else {
+            Ok(Async::NotReady)
+        }
     }
 
     pub fn handle_incoming(&mut self, incoming: IoMsg)
@@ -184,6 +190,9 @@ impl Io
             }
             IoMsg::NewWorker(worker_id, worker_tx) => {
                 self.worker_tx.insert(worker_id, worker_tx);
+            }
+            IoMsg::Done => {
+                self.done = true;
             }
         }
     }
@@ -349,9 +358,9 @@ impl Future for IoLoop
 #[cfg(test)]
 mod tests
 {
-    use leema::io::{self, Io};
+    use leema::io::{self, Io, IoLoop};
     use leema::msg;
-    use leema::rsrc;
+    use leema::rsrc::{self, Rsrc};
     use leema::val::{Val};
 
     use std::sync::mpsc;
@@ -361,6 +370,14 @@ fn mock_iop_action(mut ctx: rsrc::IopCtx, params: Vec<Val>) -> rsrc::Event
 {
     ctx.send_result(Val::Int(8));
     rsrc::Event::Success(Val::Int(7))
+}
+
+fn mock_rsrc_action(mut ctx: rsrc::IopCtx, rsrc: Box<Rsrc>, params: Vec<Val>
+    ) -> rsrc::Event
+{
+    ctx.send_result(Val::Int(18));
+    ctx.return_rsrc(rsrc);
+    rsrc::Event::Success(Val::Int(17))
 }
 
 #[test]
@@ -378,9 +395,47 @@ fn test_iop_action_flow()
 {
     let (msg_tx, msg_rx) = mpsc::channel::<msg::IoMsg>();
     let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
-    // let worker_tx = HashMap::new();
+    let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
 
     let (io, core) = Io::new(app_tx, msg_rx);
+
+    msg_tx.send(msg::IoMsg::NewWorker(1, worker_tx));
+    msg_tx.send(msg::IoMsg::Iop{
+        worker_id: 1,
+        fiber_id: 2,
+        action: Box::new(mock_iop_action),
+        params: vec![],
+    });
+    msg_tx.send(msg::IoMsg::Done);
+
+    IoLoop::run(core, io);
+
+    let resp = worker_rx.try_recv();
+    assert!(resp.is_ok());
+}
+
+#[test]
+fn test_rsrc_action_flow()
+{
+    let (msg_tx, msg_rx) = mpsc::channel::<msg::IoMsg>();
+    let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
+    let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
+
+    let (io, core) = Io::new(app_tx, msg_rx);
+
+    msg_tx.send(msg::IoMsg::NewWorker(1, worker_tx));
+    msg_tx.send(msg::IoMsg::RsrcOp{
+        worker_id: 1,
+        fiber_id: 2,
+        action: Box::new(mock_rsrc_action),
+        rsrc_id: 3,
+        params: vec![],
+    });
+    msg_tx.send(msg::IoMsg::Done);
+    IoLoop::run(core, io);
+
+    let resp = worker_rx.try_recv();
+    assert!(resp.is_ok());
 }
 
 }
