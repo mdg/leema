@@ -21,17 +21,17 @@ mopafy!(Rsrc);
 
 pub enum Event
 {
-    Future(Box<future::Future<Item=(), Error=()>>),
+    Future(Box<future::Future<Item=(Val, Option<Box<Rsrc>>), Error=Val>>),
     Success(Val),
     Failure(Val),
 }
 
-pub type Result = Fn(Val, Box<Rsrc>);
-pub type Action = fn(Box<Result>, Box<Rsrc>, Vec<Val>) -> Event;
-
 pub struct IopCtx<'a>
 {
     io: &'a mut Io,
+    src_worker_id: i64,
+    src_frame_id: i64,
+    rsrc_id: i64,
     /*
     resource: &'a mut HashMap<i64, Ioq>,
     next_rsrc_id: &'a mut i64,
@@ -40,10 +40,13 @@ pub struct IopCtx<'a>
 
 impl<'a> IopCtx<'a>
 {
-    pub fn new(io: &'a mut Io) -> IopCtx<'a>
+    pub fn new(io: &'a mut Io, wid: i64, fid: i64, rsrc_id: i64) -> IopCtx<'a>
     {
         IopCtx{
             io: io,
+            src_worker_id: wid,
+            src_frame_id: fid,
+            rsrc_id: rsrc_id,
         }
     }
 
@@ -58,7 +61,5 @@ impl<'a> IopCtx<'a>
     }
 }
 
-pub type IopAction = fn(&mut IopCtx, Vec<Val>) -> Event;
-
-
-// pub type ResourceFunc2 = fn(&mut Fiber, Val) -> frame::Event;
+pub type IopAction = Box<fn(&mut IopCtx, Vec<Val>) -> Event>;
+pub type RsrcAction = Box<fn(&mut IopCtx, Box<Rsrc>, Vec<Val>) -> Event>;

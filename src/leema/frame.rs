@@ -84,7 +84,7 @@ pub enum Event
     FutureWait(Reg),
     IOWait,
     IoCall(rsrc::IopAction, Vec<Val>),
-    Iop((i64, i64), Box<rsrc::Action>, Vec<Val>),
+    Iop((i64, i64), rsrc::IopAction, Vec<Val>),
     // IoFuture(Box<future::Future<Item=(), Error=()>>),
     Complete(bool),
     Success,
@@ -112,7 +112,7 @@ impl fmt::Debug for Event {
                 write!(f, "Event::Call({:?}, {}, {}, {:?})",
                     r, cmod, cfunc, cargs)
             }
-            &Event::IoCall(iopa, ref params) => {
+            &Event::IoCall(ref iopa, ref params) => {
                 write!(f, "Event::IoCall(_, {:?})", params)
             }
             &Event::Fork => write!(f, "Event::Fork"),

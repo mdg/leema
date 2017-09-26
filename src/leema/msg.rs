@@ -1,7 +1,10 @@
 
 use leema::code::{Code};
-use leema::rsrc::{self, Rsrc};
+use leema::rsrc::{self, Rsrc, RsrcAction, IopAction};
 use leema::val::{MsgVal, Val};
+
+use std::fmt;
+use std::sync::mpsc;
 
 
 #[derive(Debug)]
@@ -26,13 +29,40 @@ pub enum WorkerMsg
     Done,
 }
 
-#[derive(Debug)]
 pub enum IoMsg
 {
     Iop{
         worker_id: i64,
         frame_id: i64,
-        action: rsrc::Action,
+        action: IopAction,
         params: Vec<MsgVal>,
     },
+    RsrcOp{
+        worker_id: i64,
+        frame_id: i64,
+        action: RsrcAction,
+        rsrc_id: i64,
+        params: Vec<MsgVal>,
+    },
+    NewWorker(i64, mpsc::Sender<WorkerMsg>),
+}
+
+impl fmt::Debug for IoMsg
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        match self {
+            &IoMsg::Iop{worker_id, frame_id, ref params, ..} => {
+                write!(f, "IoMsg::Iop({}:{}, {:?})"
+                    , worker_id, frame_id, params)
+            }
+            &IoMsg::RsrcOp{worker_id, frame_id, rsrc_id, ref params, ..} => {
+                write!(f, "IoMsg::RsrcOp({}:{}, {}, {:?})"
+                    , worker_id, frame_id, rsrc_id, params)
+            }
+            &IoMsg::NewWorker(worker_id, _) => {
+                write!(f, "IoMsg::NewWorker({})", worker_id)
+            }
+        }
+    }
 }

@@ -35,13 +35,16 @@ ResourceQueue
 IoEvent
 */
 
-pub struct RsrcOp
+pub struct Op<T>
 {
-    action: rsrc::RsrcAction,
+    action: T,
     params: Vec<Val>,
     src_worker_id: i64,
     src_fiber_id: i64,
 }
+
+type RsrcOp = Op<RsrcAction>;
+type Iop = Op<IopAction>;
 
 pub struct RsrcQueue
 {
@@ -52,9 +55,9 @@ pub struct RsrcQueue
 
 impl RsrcQueue
 {
-    pub fn new(rsrc_id: i64, resource: Box<Rsrc>) -> Ioq
+    pub fn new(rsrc_id: i64, resource: Box<Rsrc>) -> RsrcQueue
     {
-        Ioq{
+        RsrcQueue{
             rsrc_id: rsrc_id,
             rsrc: Some(resource),
             queue: LinkedList::new(),
@@ -66,11 +69,11 @@ impl RsrcQueue
      *
      * If the resource is already in used, then return None
      */
-    pub fn push(&mut self, worker_id: i64, fiber_id: i64, iopf: RsrcAction
+    pub fn push_op(&mut self, worker_id: i64, fiber_id: i64, opf: RsrcAction
         , args: Vec<Val>) -> Option<(Box<Rsrc>, RsrcOp)>
     {
-        let iop = RsrcOp{
-            action: iopf,
+        let op = RsrcOp{
+            action: opf,
             params: args,
             src_worker_id: worker_id,
             src_fiber_id: fiber_id,
@@ -78,10 +81,10 @@ impl RsrcQueue
 
         match self.rsrc.take() {
             Some(r) => {
-                Some((r, iop))
+                Some((r, op))
             }
             None => {
-                self.queue.push_back(iop);
+                self.queue.push_back(op);
                 None
             }
         }
@@ -90,7 +93,7 @@ impl RsrcQueue
     /**
      * Add the resource back to the Ioq to be used later
      */
-    pub fn checkin(&mut self, r: Box<Rsrc>) -> Option<(Box<Rsrc>, Iop)>
+    pub fn checkin(&mut self, r: Box<Rsrc>) -> Option<(Box<Rsrc>, RsrcOp)>
     {
         match self.queue.pop_front() {
             Some(iop) => {
@@ -104,18 +107,10 @@ impl RsrcQueue
     }
 }
 
-pub struct Iop
-{
-    action: rsrc::IopAction,
-    params: Vec<Val>,
-    src_worker_id: i64,
-    src_fiber_id: i64,
-}
-
 
 pub struct Io
 {
-    resource: HashMap<i64, Ioq>,
+    resource: HashMap<i64, RsrcQueue>,
     pub handle: reactor::Handle,
     msg_rx: std::sync::mpsc::Receiver<IoMsg>,
     app_tx: std::sync::mpsc::Sender<AppMsg>,
@@ -243,16 +238,18 @@ impl Io
     {
         let rsrc_id = self.next_rsrc_id;
         self.next_rsrc_id += 1;
-        self.resource.insert(rsrc_id, Ioq::new(rsrc_id, rsrc));
+        self.resource.insert(rsrc_id, RsrcQueue::new(rsrc_id, rsrc));
         rsrc_id
     }
 
+    /*
     pub fn return_rsrc(&mut self, rsrc_id: i64, rsrc: Box<Rsrc>)
     {
         let ioq = self.resource.get_mut(&rsrc_id).unwrap();
         if let Some((next_rsrc, iop)) = ioq.checkin(rsrc) {
         }
     }
+    */
 }
 
 struct IoLoop

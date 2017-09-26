@@ -39,7 +39,7 @@ pub fn udp_socket_iop<'a>(ctx: &'a mut rsrc::IopCtx, params: Vec<Val>)
 pub fn udp_socket(f: &mut Fiber) -> frame::Event
 {
     vout!("udp_socket\n");
-    frame::Event::IoCall(udp_socket_iop, vec![])
+    frame::Event::IoCall(Box::new(udp_socket_iop), vec![])
 }
 
 pub fn udp_bind(f: &mut Fiber) -> frame::Event
@@ -68,7 +68,7 @@ pub fn udp_bind(f: &mut Fiber) -> frame::Event
     frame::Event::Success
 }
 
-fn udp_recv_1(resp: Box<rsrc::Result>
+fn udp_recv_1(resp: Box<rsrc::IopCtx>
     , resource: Box<Rsrc>, _input: Vec<Val>) -> rsrc::Event
 {
     let mut result_sock =
@@ -80,12 +80,12 @@ fn udp_recv_1(resp: Box<rsrc::Result>
             // let result = Val::Str(Rc::new(String::from(ibuff)));
             let result = Val::Str(Rc::new("hello".to_string()));
             // msg.send(FiberToWorkerMsg::EventResult());
-            resp(result, Box::new(isock));
-            ()
+            let rsrc_out: Box<Rsrc> = Box::new(isock);
+            (result, Some(rsrc_out))
         })
         .map_err(|e| {
             panic!("{:?}", e);
-            ()
+            Val::new_str("error".to_string())
         });
     rsrc::Event::Future(Box::new(fut))
 }
