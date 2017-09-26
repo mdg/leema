@@ -351,13 +351,16 @@ mod tests
 {
     use leema::io::{self, Io};
     use leema::msg;
+    use leema::rsrc;
+    use leema::val::{Val};
 
     use std::sync::mpsc;
     use std::collections::{HashMap};
 
-fn mock_iop_action(ctx: &mut IoContext, params: Vec<Val>) -> Event
+fn mock_iop_action(mut ctx: rsrc::IopCtx, params: Vec<Val>) -> rsrc::Event
 {
-    ctx.set_result(Val::Int(7));
+    ctx.send_result(Val::Int(8));
+    rsrc::Event::Success(Val::Int(7))
 }
 
 #[test]

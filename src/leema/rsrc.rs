@@ -31,7 +31,7 @@ pub struct IopCtx<'a>
 {
     io: &'a mut Io,
     src_worker_id: i64,
-    src_frame_id: i64,
+    src_fiber_id: i64,
     rsrc_id: i64,
     /*
     resource: &'a mut HashMap<i64, Ioq>,
@@ -46,7 +46,7 @@ impl<'a> IopCtx<'a>
         IopCtx{
             io: io,
             src_worker_id: wid,
-            src_frame_id: fid,
+            src_fiber_id: fid,
             rsrc_id: rsrc_id,
         }
     }
@@ -59,6 +59,11 @@ impl<'a> IopCtx<'a>
     pub fn new_rsrc(&mut self, rsrc: Box<Rsrc>) -> i64
     {
         self.io.new_rsrc(rsrc)
+    }
+
+    pub fn send_result(&mut self, result: Val)
+    {
+        self.io.send_result(self.src_worker_id, self.src_fiber_id, result);
     }
 }
 
