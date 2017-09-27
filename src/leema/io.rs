@@ -299,6 +299,8 @@ println!("do something with this new resource!");
 
     pub fn send_result(&mut self, worker_id: i64, fiber_id: i64, result: Val)
     {
+        let tx = self.worker_tx.get(&worker_id).unwrap();
+        tx.send(WorkerMsg::IopResult(fiber_id, result.to_msg()));
     }
 
     pub fn return_rsrc(&mut self, rsrc_id: i64, rsrc: Option<Box<Rsrc>>)
@@ -361,10 +363,22 @@ mod tests
     use leema::io::{self, Io, IoLoop};
     use leema::msg;
     use leema::rsrc::{self, Rsrc};
-    use leema::val::{Val};
+    use leema::val::{Val, Type};
 
-    use std::sync::mpsc;
     use std::collections::{HashMap};
+    use std::rc::{Rc};
+    use std::sync::mpsc;
+
+#[derive(Debug)]
+struct MockRsrc {}
+
+impl Rsrc for MockRsrc
+{
+    fn get_type(&self) -> Type
+    {
+        Type::Resource(Rc::new("MockRsrc".to_string()))
+    }
+}
 
 fn mock_iop_action(mut ctx: rsrc::IopCtx, params: Vec<Val>) -> rsrc::Event
 {
@@ -421,14 +435,15 @@ fn test_rsrc_action_flow()
     let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
     let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
 
-    let (io, core) = Io::new(app_tx, msg_rx);
+    let (mut io, core) = Io::new(app_tx, msg_rx);
+    let rsrc_id = io.borrow_mut().new_rsrc(Box::new(MockRsrc{}));
 
-    msg_tx.send(msg::IoMsg::NewWorker(1, worker_tx));
+    msg_tx.send(msg::IoMsg::NewWorker(8, worker_tx));
     msg_tx.send(msg::IoMsg::RsrcOp{
-        worker_id: 1,
-        fiber_id: 2,
+        worker_id: 8,
+        fiber_id: 7,
         action: Box::new(mock_rsrc_action),
-        rsrc_id: 3,
+        rsrc_id: rsrc_id,
         params: vec![],
     });
     msg_tx.send(msg::IoMsg::Done);
