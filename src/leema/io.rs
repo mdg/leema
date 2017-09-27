@@ -200,6 +200,8 @@ impl Io
     fn handle_iop_action(&mut self, worker_id: i64, fiber_id: i64
         , action: IopAction, params: Vec<Val>)
     {
+        let ctx = self.create_iop_ctx(worker_id, fiber_id, 0);
+        action(ctx, params);
     }
 
     fn handle_rsrc_action(&mut self, worker_id: i64, fiber_id: i64
@@ -268,25 +270,6 @@ println!("do something with this new resource!");
         let rcio = self.io.clone().unwrap();
         // let tx = self.worker_tx.clone();
         IopCtx::new(self, src_worker_id, src_fiber_id, rsrc_id)
-        /*
-        Box::new(move |result, rsrc| {
-            RefMut::map(rcio.borrow_mut(), |ioref| {
-                // put resource back w/ resource_id
-                // same thread
-                ioref.return_rsrc(rsrc_id, rsrc);
-
-                // send result value back to original worker and fiber
-                // different thread, convert to message and send
-                let result_msg = result.to_msg();
-                {
-                    let src_send = ioref.worker_tx.get(&src_worker_id).unwrap();
-                    src_send.send(
-                        WorkerMsg::IopResult(src_fiber_id, result_msg));
-                }
-                ioref
-            });
-        })
-        */
     }
 
     pub fn new_rsrc(&mut self, rsrc: Box<Rsrc>) -> i64
