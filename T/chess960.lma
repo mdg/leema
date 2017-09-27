@@ -1,14 +1,14 @@
 
-func assign(line_: [#], col_: Int, rkr_: #, bb_: Int, bw_: Int, pcs_: [#]): [#]
+func assign(line: [#], col: Int, rkr: #, bb: Int, bw: Int, pcs: [#]): [#]
 |(line, _, _, 0, 0, []) -> line
-|(line, col, rkr, bb, bw, assign_pieces) ->
+|(line, col, rkr, bb, bw, pcs) ->
     if
     |col == bb ->
-        assign(#bishop;line, col+1, rkr, 0, bw, assign_pieces)
+        assign(#bishop;line, col+1, rkr, 0, bw, pcs)
     |col == bw ->
-        assign(#bishop;line, col+1, rkr, bb, 0, assign_pieces)
+        assign(#bishop;line, col+1, rkr, bb, 0, pcs)
     |else ->
-        match (rkr, assign_pieces)
+        match (rkr, pcs)
         |(#rook, #rkr;apieces) ->
             assign(#rook;line, col+1, #king, bb, bw, apieces)
         |(#king, #rkr;apieces) ->
@@ -37,12 +37,12 @@ func print_pieces(all_ppcs: [#])
 |(#king;ppcs) ->
     cout("K")
     print_pieces(ppcs)
-|wat ->
-    cout("no match? $wat\n")
+|(all_ppcs) ->
+    cout("no match? $all_ppcs\n")
 --
 
-func take_pieces(output: [#], input: [(Int, #)]): [#]
-|(outs, []) -> output
+func take_pieces(outs: [#], input: [(Int, #)]): [#]
+|(outs, []) -> outs
 |(outs, (_, head);tail) -> take_pieces(head;outs, tail)
 --
 

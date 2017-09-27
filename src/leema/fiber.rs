@@ -199,8 +199,14 @@ impl Fiber
         match matches {
             Some(assignments) => {
                 for a in assignments {
-                    let (pdst, v) = a;
-                    self.head.e.set_reg(&pdst, v);
+                    match a {
+                        (Reg::Param(_), _) => {
+                            // don't write into param, it's already correct
+                        }
+                        (pdst, v) => {
+                            self.head.e.set_reg(&pdst, v);
+                        }
+                    }
                 }
                 self.head.e.set_reg(dst, Val::Bool(true));
             }
