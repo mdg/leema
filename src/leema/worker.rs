@@ -160,7 +160,7 @@ impl Worker
         ev
     }
 
-    pub fn handle_event(&mut self, mut f: Fiber, e: Event, code: Rc<Code>)
+    pub fn handle_event(&mut self, mut fbr: Fiber, e: Event, code: Rc<Code>)
         -> Poll<Val, Val>
     {
         match e {
@@ -170,17 +170,16 @@ impl Worker
                 } else {
                     vout!("function call failed\n");
                 }
-                vout!("function is complete\n");
-                let parent = f.head.take_parent();
+                let parent = fbr.head.take_parent();
                 match parent {
                     Parent::Caller(old_code, mut pf, dst) => {
                         pf.pc += 1;
-                        f.head = *pf;
+                        fbr.head = *pf;
                         vout!("return to caller: {}.{}()\n"
-                            , f.head.module_name()
-                            , f.head.function_name()
+                            , fbr.head.module_name()
+                            , fbr.head.function_name()
                             );
-                        self.push_fresh(ReadyFiber::Ready(f, old_code));
+                        self.push_fresh(ReadyFiber::Ready(fbr, old_code));
                     }
                     Parent::Repl(res) => {
                     }
@@ -204,8 +203,8 @@ impl Worker
             }
             Event::Call(dst, module, func, args) => {
                 vout!("push_call({}.{})\n", module, func);
-                f.push_call(code.clone(), dst, module, func, args);
-                // self.load_code(fiber);
+                fbr.push_call(code.clone(), dst, module, func, args);
+                self.load_code(fbr);
                 Result::Ok(Async::NotReady)
             }
             Event::IoCall(iopa, params) => {
@@ -259,7 +258,7 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
             }
             Event::Uneventful => {
                 println!("We shouldn't be here with uneventful");
-                panic!("code: {:?}, pc: {:?}", code, f.head.pc);
+                panic!("code: {:?}, pc: {:?}", code, fbr.head.pc);
             }
         }
     }

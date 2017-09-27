@@ -167,25 +167,9 @@ impl Fiber
     pub fn execute_strcat(&mut self, dstreg: &Reg, srcreg: &Reg) -> Event
     {
         let result = {
-            let dst = handle_value!(self, dstreg);
-            dst
-            /*
+            let dst = self.head.e.get_reg(dstreg);
             let src = self.head.e.get_reg(srcreg);
             match (dst, src) {
-                (&Val::Failure(_, _, ref trace), _) => {
-                    *trace = FrameTrace::propagate_down(trace
-                        , self.function_name());
-                    let mut f = dst.clone();
-                    self.head.parent.set_result(f);
-                    return Event::failure(self);
-                }
-                (_, &Val::Failure(_, _, ref trace)) => {
-                    *trace = FrameTrace::propagate_down(trace
-                        , self.function_name());
-                    let mut f = src.clone();
-                    self.head.parent.set_result(f);
-                    return Event::failure(self);
-                }
                 (&Val::Future(_), _) => {
                     // oops, not ready to do this yet, let's bail and wait
                     return Event::FutureWait(dstreg.clone())
@@ -198,7 +182,6 @@ impl Fiber
                     Val::new_str(format!("{}{}", dst, src))
                 }
             }
-            */
         };
         self.head.e.set_reg(dstreg, result);
         self.head.pc += 1;
