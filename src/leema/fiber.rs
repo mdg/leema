@@ -348,7 +348,7 @@ impl Fiber
                 panic!("can't if check a not bool {:?}", test_val);
             }
         };
-        self.head.pc += 1;
+        self.head.pc += tjump;
         Event::Uneventful
     }
 
