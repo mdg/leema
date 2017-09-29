@@ -4,6 +4,7 @@ use leema::val::{Val, Type};
 use leema::log;
 use leema::ixpr::{Ixpr, Source};
 use leema::frame;
+use leema::rsrc;
 
 use std::fmt;
 use std::collections::{HashMap};
@@ -136,6 +137,8 @@ pub enum Code
 {
     Leema(OpVec),
     Rust(RustFunc),
+    Iop(rsrc::IopAction),
+    RsrcOp(rsrc::RsrcAction),
 }
 
 impl Code
@@ -145,6 +148,8 @@ impl Code
         match self {
             &Code::Leema(_) => "LeemaCode",
             &Code::Rust(_) => "RustCode",
+            &Code::Iop(_) => "IopCode",
+            &Code::RsrcOp(_) => "RsrcOpCode",
         }
     }
 }
@@ -156,6 +161,8 @@ impl fmt::Display for Code
         match self {
             &Code::Leema(_) => write!(f, "LeemaCode"),
             &Code::Rust(_) => write!(f, "RustCode"),
+            &Code::Iop(_) => write!(f, "IopCode"),
+            &Code::RsrcOp(_) => write!(f, "RsrcOpCode"),
         }
     }
 }
@@ -177,6 +184,8 @@ impl fmt::Debug for Code
             &Code::Rust(_) => {
                 write!(f, "Code::Rust")
             }
+            &Code::Iop(_) => write!(f, "Code::Iop"),
+            &Code::RsrcOp(_) => write!(f, "Code::RsrcOp"),
         }
     }
 }
@@ -188,6 +197,8 @@ impl Clone for Code
         match self {
             &Code::Leema(ref ops) => Code::Leema(ops.clone()),
             &Code::Rust(rf) => Code::Rust(rf),
+            &Code::Iop(ref iopf) => Code::Iop(Box::new(**iopf)),
+            &Code::RsrcOp(ref rsrcf) => Code::RsrcOp(Box::new(**rsrcf)),
         }
     }
 }

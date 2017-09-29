@@ -156,6 +156,12 @@ impl Worker
                 vout!("execute rust code\n");
                 rf(f)
             }
+            &Code::Iop(ref iopf) => {
+                panic!("cannot execute iop in a worker\n");
+            }
+            &Code::RsrcOp(ref rsrcf) =>{
+                panic!("cannot execute rsrcop in a worker\n");
+            }
         };
         ev
     }
