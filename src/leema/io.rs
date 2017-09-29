@@ -341,7 +341,7 @@ impl Future for IoLoop
 
 
 #[cfg(test)]
-mod tests
+pub mod tests
 {
     use leema::io::{self, Io, IoLoop};
     use leema::msg;
@@ -366,7 +366,7 @@ impl Rsrc for MockRsrc
 fn mock_iop_action(mut ctx: rsrc::IopCtx, params: Vec<Val>) -> rsrc::Event
 {
     ctx.send_result(Val::Int(8));
-    rsrc::Event::Success(Val::Int(7))
+    rsrc::Event::Success(None)
 }
 
 fn mock_rsrc_action(mut ctx: rsrc::IopCtx, rsrc: Box<Rsrc>, params: Vec<Val>
@@ -374,7 +374,44 @@ fn mock_rsrc_action(mut ctx: rsrc::IopCtx, rsrc: Box<Rsrc>, params: Vec<Val>
 {
     ctx.send_result(Val::Int(18));
     ctx.return_rsrc(rsrc);
-    rsrc::Event::Success(Val::Int(17))
+    rsrc::Event::Success(None)
+}
+
+pub fn exercise_iop_action(action: rsrc::IopAction, params: Vec<Val>)
+    -> Result<(i64, Val), mpsc::TryRecvError>
+{
+    let (msg_tx, msg_rx) = mpsc::channel::<msg::IoMsg>();
+    let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
+    let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
+
+    let (io, core) = Io::new(app_tx, msg_rx);
+
+    let msg_params =
+        params.iter().map(|p| {
+            p.to_msg()
+        }).collect();
+    msg_tx.send(msg::IoMsg::NewWorker(11, worker_tx));
+    msg_tx.send(msg::IoMsg::Iop{
+        worker_id: 11,
+        fiber_id: 21,
+        action: action,
+        params: msg_params,
+    });
+    msg_tx.send(msg::IoMsg::Done);
+
+    IoLoop::run(core, io);
+
+    worker_rx.try_recv()
+        .map(|result_msg| {
+            match result_msg {
+                msg::WorkerMsg::IopResult(fiber_id, msg_val) => {
+                    (fiber_id, Val::from_msg(msg_val))
+                }
+                _ => {
+                    (0, Val::new_str("that didn't work".to_string()))
+                }
+            }
+        })
 }
 
 #[test]
@@ -390,24 +427,7 @@ fn test_io_constructor()
 #[test]
 fn test_iop_action_flow()
 {
-    let (msg_tx, msg_rx) = mpsc::channel::<msg::IoMsg>();
-    let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
-    let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
-
-    let (io, core) = Io::new(app_tx, msg_rx);
-
-    msg_tx.send(msg::IoMsg::NewWorker(1, worker_tx));
-    msg_tx.send(msg::IoMsg::Iop{
-        worker_id: 1,
-        fiber_id: 2,
-        action: Box::new(mock_iop_action),
-        params: vec![],
-    });
-    msg_tx.send(msg::IoMsg::Done);
-
-    IoLoop::run(core, io);
-
-    let resp = worker_rx.try_recv();
+    let resp = exercise_iop_action(Box::new(mock_iop_action), vec![]);
     assert!(resp.is_ok());
 }
 

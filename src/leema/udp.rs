@@ -33,13 +33,29 @@ pub fn udp_socket_iop<'a>(mut ctx: rsrc::IopCtx<'a>, params: Vec<Val>)
     let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
     let rsock = UdpSocket::bind(&sock_addr, &ctx.handle()).unwrap();
     let rsrc_id = ctx.new_rsrc(Box::new(rsock));
-    rsrc::Event::Success(Val::ResourceRef(rsrc_id))
+    ctx.send_result(Val::ResourceRef(rsrc_id));
+    rsrc::Event::Success(None)
 }
 
 pub fn udp_socket(f: &mut Fiber) -> frame::Event
 {
     vout!("udp_socket\n");
     frame::Event::IoCall(Box::new(udp_socket_iop), vec![])
+}
+
+pub fn udp_bind_iop<'a>(mut ctx: rsrc::IopCtx<'a>, params: Vec<Val>)
+    -> rsrc::Event
+{
+    let sock_addr_str = params.get(0).unwrap();
+    let port = params.get(1).unwrap().to_int() as u16;
+    let sock_addr =
+        SocketAddr::new(
+            IpAddr::from_str((sock_addr_str.str())).unwrap(), port
+        );
+    let rsock = UdpSocket::bind(&sock_addr, &ctx.handle()).unwrap();
+    let rsrc_id = ctx.new_rsrc(Box::new(rsock));
+    ctx.send_result(Val::ResourceRef(rsrc_id));
+    rsrc::Event::Success(None)
 }
 
 pub fn udp_bind(f: &mut Fiber) -> frame::Event
@@ -244,3 +260,21 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
     }
 }
 
+
+#[cfg(test)]
+mod tests
+{
+    use leema::io::tests::{exercise_iop_action};
+    use leema::udp;
+    use leema::val::{self, Val};
+
+#[test]
+fn test_udp_socket_creation()
+{
+    let response = exercise_iop_action(Box::new(udp::udp_socket_iop), vec![]);
+    assert!(response.is_ok());
+    let (_fiber_id, rsrc_ref) = response.ok().unwrap();
+    assert_eq!(Val::ResourceRef(1), rsrc_ref);
+}
+
+}

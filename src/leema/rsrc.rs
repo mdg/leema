@@ -23,8 +23,8 @@ pub enum Event
 {
     Future(Box<future::Future<Item=(Val, Option<Box<Rsrc>>), Error=Val>>),
     NewRsrc(Box<Rsrc>),
-    Success(Val),
-    Failure(Val),
+    Success(Option<Box<Rsrc>>),
+    Failure(Option<Box<Rsrc>>),
 }
 
 pub struct IopCtx<'a>

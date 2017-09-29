@@ -290,6 +290,7 @@ pub enum SxprType {
 }
 
 #[derive(Debug)]
+#[derive(PartialEq)]
 pub enum MsgVal
 {
     Int(i64),
@@ -299,6 +300,7 @@ pub enum MsgVal
     Cons(Box<MsgVal>, Box<MsgVal>),
     Nil,
     Void,
+    ResourceRef(i64),
 }
 
 #[derive(Clone)]
@@ -506,6 +508,16 @@ impl Val
             &Val::Str(ref s) => s.clone(),
             _ => {
                 panic!("Cannot convert to string: {:?}", self);
+            }
+        }
+    }
+
+    pub fn to_int(&self) -> i64
+    {
+        match self {
+            &Val::Int(i) => i,
+            _ => {
+                panic!("Not an int: {:?}", self);
             }
         }
     }
@@ -941,6 +953,7 @@ impl Val
             }
             &Val::Nil => MsgVal::Nil,
             &Val::Void => MsgVal::Void,
+            &Val::ResourceRef(rsrc_id) => MsgVal::ResourceRef(rsrc_id),
             _ => {
                 panic!("Not yet convertable to a msg: {:?}", self);
             }
@@ -961,6 +974,7 @@ impl Val
             }
             MsgVal::Nil => Val::Nil,
             MsgVal::Void => Val::Void,
+            MsgVal::ResourceRef(rsrc_id) => Val::ResourceRef(rsrc_id),
         }
     }
 }
@@ -1364,6 +1378,9 @@ impl PartialOrd for Val
                     _ => cmp,
                 }
             }
+            (&Val::ResourceRef(rra), &Val::ResourceRef(rrb)) => {
+                PartialOrd::partial_cmp(&rra, &rrb)
+            }
             (&Val::Sxpr(t1, ref x1), &Val::Sxpr(t2, ref x2)) => {
                 let cmp = PartialOrd::partial_cmp(&t1, &t2);
                 match cmp {
@@ -1432,6 +1449,12 @@ impl PartialOrd for Val
                 Some(Ordering::Less)
             }
             (_, &Val::TypedId(_, _)) => {
+                Some(Ordering::Greater)
+            }
+            (&Val::ResourceRef(_), _) => {
+                Some(Ordering::Less)
+            }
+            (_, &Val::ResourceRef(_)) => {
                 Some(Ordering::Greater)
             }
             (&Val::Nil, _) => {
