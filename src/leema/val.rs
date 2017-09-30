@@ -22,6 +22,33 @@ use ::tokio_core::reactor::{Handle, Remote};
 use mopa;
 
 
+#[derive(Debug)]
+#[derive(Clone)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+pub enum FuncType
+{
+    Pure,
+    Obs,
+    Sys,
+    Query,
+    Cmd,
+    Main, // or Control?
+}
+
+#[derive(Debug)]
+#[derive(Clone)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Hash)]
+pub enum FuncCallType
+{
+    FrameCall,
+    IoCall,
+    // RsrcCall,
+}
+
 // #[derive(Debug)]
 #[derive(Clone)]
 #[derive(PartialEq)]
@@ -38,7 +65,7 @@ pub enum Type
     Struct(Rc<String>, i8),
     Failure,
     Enum(String),
-    Func(Vec<Type>, Box<Type>),
+    Func(FuncCallType, Vec<Type>, Box<Type>),
     // different from base collection/map interfaces?
     // base interface/type should probably be iterator
     // and then it should be a protocol, not type
@@ -63,15 +90,17 @@ pub enum Type
 
 impl Type
 {
-    pub fn f(inputs: Vec<Type>, result: Type) -> Type
+    pub fn f(calltype: FuncCallType, inputs: Vec<Type>, result: Type) -> Type
     {
-        Type::Func(inputs, Box::new(result))
+        Type::Func(calltype, inputs, Box::new(result))
     }
 
-    pub fn split_func(t: &Type) -> (&Vec<Type>, &Type)
+    pub fn split_func(t: &Type) -> (&FuncCallType, &Vec<Type>, &Type)
     {
         match t {
-            &Type::Func(ref args, ref result) => (args, &*result),
+            &Type::Func(ref calltype, ref args, ref result) => {
+                (calltype, args, &*result)
+            }
             _ => {
                 panic!("Not a func type {:?}", t);
             }
@@ -166,7 +195,8 @@ impl fmt::Display for Type
             &Type::Struct(ref name, nfields) => write!(f, "{}", name),
             &Type::Enum(ref name) => write!(f, "Enum"),
             &Type::Failure => write!(f, "Failure"),
-            &Type::Func(ref args, ref result) => {
+            &Type::Func(ref calltype, ref args, ref result) => {
+                write!(f, "{:?}:", calltype).ok();
                 for a in args {
                     write!(f, "{}->", a).ok();
                 }
@@ -213,7 +243,8 @@ impl fmt::Debug for Type
             &Type::Struct(ref name, nfields) => write!(f, "{}", name),
             &Type::Enum(ref name) => write!(f, "Enum"),
             &Type::Failure => write!(f, "Failure"),
-            &Type::Func(ref args, ref result) => {
+            &Type::Func(ref calltype, ref args, ref result) => {
+                write!(f, "{:?}:", calltype).ok();
                 for a in args {
                     write!(f, "{}->", a).ok();
                 }

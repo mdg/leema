@@ -361,7 +361,8 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> Type
     println!("check_function({:?}: {:?})", scope.fname, ix.typ);
     match (&ix.src, &ix.typ) {
         (&Source::Func(ref arg_names, ref body)
-                , &Type::Func(ref arg_types, ref declared_result_type)) =>
+                , &Type::Func(ref calltype, ref arg_types
+                    , ref declared_result_type)) =>
         {
             for (an, at) in arg_names.iter().zip(arg_types.iter()) {
                 scope.T.bind_vartype(an, at);
@@ -380,7 +381,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> Type
             let final_result = scope.T
                 .merge_types(&result_type, declared_result_type)
                 .unwrap();
-            Type::Func(final_args, Box::new(final_result))
+            Type::Func(calltype.clone(), final_args, Box::new(final_result))
         }
         (&Source::RustBlock, _) => {
             ix.typ.clone()

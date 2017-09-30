@@ -1,4 +1,4 @@
-use leema::val::{Val, SxprType, Type};
+use leema::val::{Val, SxprType, Type, FuncCallType};
 use leema::list;
 
 use std::rc::{Rc};
@@ -140,7 +140,7 @@ pub fn defunc_type(defunc: &Val) -> Type
         panic!("Cannot find function type of not function: {:?}", defunc);
     }
     let (_, sx) = split_ref(defunc);
-    let (nameval, argvals, resultval) = list::to_ref_tuple3(sx);
+    let (nameval, argvals, resultval, bodyval) = list::to_ref_tuple4(sx);
     let name = nameval.to_str();
     let argt = list::fold_ref(vec![], argvals, |mut r, a| {
         let typ = a.get_type();
@@ -166,7 +166,12 @@ pub fn defunc_type(defunc: &Val) -> Type
             panic!("Result type of {} is not a type: {:?}", name, resultval);
         }
     };
-    Type::Func(argt, Box::new(tresult))
+    let calltype =
+        match bodyval {
+            &Val::RustBlock => FuncCallType::IoCall,
+            _ => FuncCallType::FrameCall,
+        };
+    Type::Func(calltype, argt, Box::new(tresult))
 }
 
 pub fn def_struct(name: Val, fields: Val) -> Val

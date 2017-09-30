@@ -6,7 +6,7 @@ use leema::log;
 use leema::module::{ModKey};
 use leema::phase0::{Protomod};
 use leema::sxpr;
-use leema::val::{Val, SxprType, Type};
+use leema::val::{self, Val, SxprType, Type};
 
 use std::collections::{HashMap};
 use std::fmt;
@@ -264,7 +264,7 @@ pub fn compile_function<'a>(proto: &'a Protomod
             src: Source::RustBlock,
         }
     }
-    let (argt, result) = Type::split_func(ftype);
+    let (calltype, argt, result) = Type::split_func(ftype);
     let mut scope = Interscope::new(proto, imports, locals, fname, args, argt);
     let mut ibody = compile_expr(&mut scope, body);
     let argt2: Vec<Type> = argt.iter().map(|a| {
@@ -274,7 +274,8 @@ pub fn compile_function<'a>(proto: &'a Protomod
         typ: scope.T.inferred_type(&ibody.typ).clone(),
         src: ibody.src,
     };
-    let final_ftype = Type::Func(argt2, Box::new(ibody2.typ.clone()));
+    let final_ftype = Type::Func(val::FuncCallType::FrameCall, argt2
+        , Box::new(ibody2.typ.clone()));
     vout!("compile function {}: {}\n", fname, ftype);
     for v in scope.T.vars() {
         let vtyp = scope.T.vartype(v);

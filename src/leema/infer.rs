@@ -265,7 +265,7 @@ impl Inferator
 
     pub fn make_call_type(&mut self, ftype: &Type, argst: &Vec<&Type>) -> Type
     {
-        let (defargst, defresult) = Type::split_func(ftype);
+        let (calltype, defargst, defresult) = Type::split_func(ftype);
 
         let defargslen = defargst.len();
         let argslen = argst.len();

@@ -255,7 +255,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         "udp_bind" => Some(Code::Rust(udp_bind)),
         "udp_recv" => Some(Code::Rust(udp_recv)),
         "udp_send" => Some(Code::Rust(udp_send)),
-        "udp_socket" => Some(Code::Rust(udp_socket)),
+        "udp_socket" => Some(Code::Iop(Box::new(udp_socket_iop))),
         _ => None,
     }
 }
