@@ -187,14 +187,10 @@ impl Worker
             Event::Failure => {
                 Result::Ok(Async::NotReady)
             }
-            Event::Call(dst, FuncCallType::FrameCall, module, func, args) => {
+            Event::Call(dst, call_type, module, func, args) => {
                 vout!("push_call({}.{})\n", module, func);
                 fbr.push_call(code.clone(), dst, module, func, args);
                 self.load_code(fbr);
-                Result::Ok(Async::NotReady)
-            }
-            Event::Call(dst, FuncCallType::IoCall, module, func, args) => {
-                vout!("push_io_call({}.{})\n", module, func);
                 Result::Ok(Async::NotReady)
             }
             Event::FutureWait(reg) => {

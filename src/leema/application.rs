@@ -1,5 +1,6 @@
 use leema::loader::{Interloader};
 use leema::program;
+use leema::io::{Io, IoLoop};
 use leema::msg::{AppMsg, WorkerMsg, IoMsg};
 use leema::worker::{Worker};
 use leema::code::{Code};
@@ -17,7 +18,7 @@ pub struct Application
     prog: program::Lib,
     app_recv: Receiver<AppMsg>,
     app_send: Sender<AppMsg>,
-    io_recv: Receiver<IoMsg>,
+    io_recv: Option<Receiver<IoMsg>>,
     io_send: Sender<IoMsg>,
     worker: HashMap<i64, Sender<WorkerMsg>>,
     calls: LinkedList<(String, String)>,
@@ -36,7 +37,7 @@ impl Application
             prog: prog,
             app_recv: rx,
             app_send: tx,
-            io_recv: iorx,
+            io_recv: Some(iorx),
             io_send: iotx,
             worker: HashMap::new(),
             calls: LinkedList::new(),
@@ -53,14 +54,20 @@ impl Application
 
     pub fn run(&mut self)
     {
+        let iot = self.start_io();
         let t1 = self.start_worker();
         let t2 = self.start_worker();
     }
 
-    pub fn next_worker_id(&mut self) -> i64
+    fn start_io(&mut self) -> thread::JoinHandle<()>
     {
-        self.last_worker_id += 1;
-        self.last_worker_id
+        let app_send = self.app_send.clone();
+        let io_recv = self.io_recv.take().unwrap();
+        let handle = thread::spawn(move || {
+            let (rcio, core) = Io::new(app_send, io_recv);
+            IoLoop::run(core, rcio);
+        });
+        handle
     }
 
     fn start_worker(&mut self) -> thread::JoinHandle<()>
@@ -74,8 +81,15 @@ impl Application
             let w = Worker::init(worker_id, app_send, io_send, worker_recv);
             Worker::run(w);
         });
-        self.worker.insert(worker_id, worker_send);
+        self.worker.insert(worker_id, worker_send.clone());
+        self.io_send.send(IoMsg::NewWorker(worker_id, worker_send));
         handle
+    }
+
+    pub fn next_worker_id(&mut self) -> i64
+    {
+        self.last_worker_id += 1;
+        self.last_worker_id
     }
 
     pub fn wait_for_result(&mut self) -> Option<Val>

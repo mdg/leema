@@ -302,7 +302,7 @@ println!("do something with this new resource!");
     }
 }
 
-struct IoLoop
+pub struct IoLoop
 {
     handle: reactor::Handle,
     io: Rc<RefCell<Io>>,
