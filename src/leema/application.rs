@@ -1,6 +1,6 @@
 use leema::loader::{Interloader};
 use leema::program;
-use leema::msg::{AppMsg, WorkerMsg};
+use leema::msg::{AppMsg, WorkerMsg, IoMsg};
 use leema::worker::{Worker};
 use leema::code::{Code};
 use leema::val::{Val};
@@ -17,6 +17,8 @@ pub struct Application
     prog: program::Lib,
     app_recv: Receiver<AppMsg>,
     app_send: Sender<AppMsg>,
+    io_recv: Receiver<IoMsg>,
+    io_send: Sender<IoMsg>,
     worker: HashMap<i64, Sender<WorkerMsg>>,
     calls: LinkedList<(String, String)>,
     result: Option<Val>,
@@ -29,10 +31,13 @@ impl Application
     pub fn new(prog: program::Lib) -> Application
     {
         let (tx, rx) = channel();
+        let (iotx, iorx) = channel();
         Application{
             prog: prog,
             app_recv: rx,
             app_send: tx,
+            io_recv: iorx,
+            io_send: iotx,
             worker: HashMap::new(),
             calls: LinkedList::new(),
             result: None,
@@ -62,10 +67,11 @@ impl Application
     {
         let worker_id = self.next_worker_id();
         let app_send = self.app_send.clone();
+        let io_send = self.io_send.clone();
         let (worker_send, worker_recv) = channel();
         vout!("start worker {}\n", worker_id);
         let handle = thread::spawn(move || {
-            let w = Worker::init(worker_id, app_send, worker_recv);
+            let w = Worker::init(worker_id, app_send, io_send, worker_recv);
             Worker::run(w);
         });
         self.worker.insert(worker_id, worker_send);

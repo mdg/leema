@@ -52,7 +52,7 @@ impl<'a> CallFrame<'a>
     pub fn collect_calls<'b>(&mut self, ix: &'b Ixpr)
     {
         match ix.src {
-            Source::Call(ref callx, ref args) => {
+            Source::Call(ref _funcmode, ref callx, ref args) => {
                 if let Source::Tuple(ref argsix) = args.src {
                     self.collect_calls_vec(argsix);
                     self.collect_callexpr(callx);
@@ -274,7 +274,7 @@ impl<'a, 'b> Typescope<'a, 'b>
 pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
 {
     match &ix.src {
-        &Source::Call(ref func, ref args) => {
+        &Source::Call(ref _mode, ref func, ref args) => {
             let tfunc = scope.typecheck_call_func(&func.src);
             let mut targs = vec![];
             if let Source::Tuple(ref argstup) = args.src {

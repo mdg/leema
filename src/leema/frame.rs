@@ -1,7 +1,7 @@
 #[macro_use]
 use leema::log;
 use leema::fiber::Fiber;
-use leema::val::{Val, Env, FutureVal, Type};
+use leema::val::{self, Val, Env, FutureVal, Type};
 use leema::reg::{Reg, Ireg};
 use leema::code::{self, CodeKey, Code, Op, OpVec, ModSym, RustFunc};
 use leema::list;
@@ -79,11 +79,10 @@ impl Debug for Parent
 pub enum Event
 {
     Uneventful,
-    Call(Reg, Rc<String>, Rc<String>, Val),
+    Call(Reg, val::FuncCallType, Rc<String>, Rc<String>, Val),
     Fork,
     FutureWait(Reg),
     IOWait,
-    IoCall(rsrc::IopAction, Vec<Val>),
     Iop((i64, i64), rsrc::IopAction, Vec<Val>),
     // IoFuture(Box<future::Future<Item=(), Error=()>>),
     Complete(bool),
@@ -108,12 +107,9 @@ impl fmt::Debug for Event {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             &Event::Uneventful => write!(f, "Uneventful"),
-            &Event::Call(ref r, ref cmod, ref cfunc, ref cargs) => {
-                write!(f, "Event::Call({:?}, {}, {}, {:?})",
-                    r, cmod, cfunc, cargs)
-            }
-            &Event::IoCall(ref iopa, ref params) => {
-                write!(f, "Event::IoCall(_, {:?})", params)
+            &Event::Call(ref r, ref calltype, ref cmod, ref cfunc, ref cargs) => {
+                write!(f, "Event::Call({:?}, {:?}, {}, {}, {:?})",
+                    r, calltype, cmod, cfunc, cargs)
             }
             &Event::Fork => write!(f, "Event::Fork"),
             &Event::FutureWait(ref r) => write!(f, "Event::FutureWait({})", r),
@@ -136,10 +132,10 @@ impl PartialEq for Event
     {
         match (self, other) {
             (&Event::Uneventful, &Event::Uneventful) => true,
-            (&Event::Call(ref r1, ref m1, ref f1, ref a1),
-                    &Event::Call(ref r2, ref m2, ref f2, ref a2)) =>
+            (&Event::Call(ref r1, ref cm1, ref m1, ref f1, ref a1),
+                    &Event::Call(ref r2, ref cm2, ref m2, ref f2, ref a2)) =>
             {
-                (r1 == r2 && m1 == m2 && f1 == f2 && a1 == a2)
+                r1 == r2 && cm1 == cm2 && m1 == m2 && f1 == f2 && a1 == a2
             }
             (&Event::Fork, &Event::Fork) => true,
             (&Event::FutureWait(ref r1), &Event::FutureWait(ref r2)) => {

@@ -1,5 +1,5 @@
 
-use leema::val::{Val, Type};
+use leema::val::{self, Val, Type};
 use leema::log;
 
 use std::io::{stderr, Write};
@@ -14,7 +14,7 @@ pub enum Source
     Block(Vec<Ixpr>),
     BooleanAnd(Box<Ixpr>, Box<Ixpr>),
     BooleanOr(Box<Ixpr>, Box<Ixpr>),
-    Call(Box<Ixpr>, Box<Ixpr>),
+    Call(val::FuncCallType, Box<Ixpr>, Box<Ixpr>),
     Constructor(Type),
     ConstVal(Val),
     Fail(Box<Ixpr>, Box<Ixpr>),
@@ -122,15 +122,6 @@ impl Ixpr
         Ixpr{
             typ: Type::Tuple(tuptyp),
             src: Source::Tuple(items),
-        }
-    }
-
-    pub fn new_call(f: Ixpr, args: Vec<Ixpr>) -> Ixpr
-    {
-        let args_tup = Ixpr::new_tuple(args);
-        Ixpr{
-            typ: Type::Unknown,
-            src: Source::Call(Box::new(f), Box::new(args_tup)),
         }
     }
 

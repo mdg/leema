@@ -427,6 +427,12 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
         SxprType::Call => {
             let (callx, args) = list::take_ref(sx);
             let icall = compile_expr(scope, callx);
+            let callmode =
+                if let &Type::Func(ref mode, _, _) = &icall.typ {
+                    mode.clone()
+                } else {
+                    panic!("call expression is not a function");
+                };
             let iargs = compile_list_to_vec(scope, args);
             let ftype = {
                 let iargst: Vec<&Type> = iargs.iter().map(|ia| {
@@ -437,7 +443,7 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
             let argsix = Ixpr::new_tuple(iargs);
             Ixpr{
                 typ: ftype,
-                src: Source::Call(Box::new(icall), Box::new(argsix)),
+                src: Source::Call(callmode, Box::new(icall), Box::new(argsix)),
             }
         }
         SxprType::IfExpr => {

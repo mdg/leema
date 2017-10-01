@@ -6,7 +6,7 @@ use leema::log;
 use leema::msg::{AppMsg, WorkerMsg, IoMsg};
 use leema::reg::{Reg};
 use leema::rsrc::{self, Rsrc};
-use leema::val::{Env, Val, MsgVal, Type};
+use leema::val::{Env, Val, MsgVal, Type, FuncCallType};
 
 use std::cell::{RefCell, RefMut, Ref};
 use std::collections::{HashMap, LinkedList};
@@ -45,6 +45,7 @@ pub struct Worker
     waiting: HashMap<i64, FiberWait>,
     code: HashMap<String, HashMap<String, Rc<Code>>>,
     app_tx: Sender<AppMsg>,
+    io_tx: Sender<IoMsg>,
     msg_rx: Receiver<WorkerMsg>,
     id: i64,
     next_fiber_id: i64,
@@ -60,14 +61,15 @@ pub struct Worker
  */
 impl Worker
 {
-    pub fn init(wid: i64, send: Sender<AppMsg>, recv: Receiver<WorkerMsg>)
-        -> Worker
+    pub fn init(wid: i64, send: Sender<AppMsg>, io: Sender<IoMsg>
+        , recv: Receiver<WorkerMsg>) -> Worker
     {
         Worker{
             fresh: LinkedList::new(),
             waiting: HashMap::new(),
             code: HashMap::new(),
             app_tx: send,
+            io_tx: io,
             msg_rx: recv,
             id: wid,
             next_fiber_id: 0,
@@ -207,14 +209,14 @@ impl Worker
             Event::Failure => {
                 Result::Ok(Async::NotReady)
             }
-            Event::Call(dst, module, func, args) => {
+            Event::Call(dst, FuncCallType::FrameCall, module, func, args) => {
                 vout!("push_call({}.{})\n", module, func);
                 fbr.push_call(code.clone(), dst, module, func, args);
                 self.load_code(fbr);
                 Result::Ok(Async::NotReady)
             }
-            Event::IoCall(iopa, params) => {
-                vout!("handle Event::IoCall(_, {:?})", params);
+            Event::Call(dst, FuncCallType::IoCall, module, func, args) => {
+                vout!("push_io_call({}.{})\n", module, func);
                 Result::Ok(Async::NotReady)
             }
             Event::FutureWait(reg) => {

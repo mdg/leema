@@ -37,12 +37,6 @@ pub fn udp_socket_iop<'a>(mut ctx: rsrc::IopCtx<'a>, params: Vec<Val>)
     rsrc::Event::Success(None)
 }
 
-pub fn udp_socket(f: &mut Fiber) -> frame::Event
-{
-    vout!("udp_socket\n");
-    frame::Event::IoCall(Box::new(udp_socket_iop), vec![])
-}
-
 pub fn udp_bind_iop<'a>(mut ctx: rsrc::IopCtx<'a>, params: Vec<Val>)
     -> rsrc::Event
 {

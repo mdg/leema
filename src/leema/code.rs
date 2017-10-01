@@ -1,6 +1,6 @@
 use leema::fiber;
 use leema::reg::{Reg, RegTable};
-use leema::val::{Val, Type};
+use leema::val::{self, Val, Type};
 use leema::log;
 use leema::ixpr::{Ixpr, Source};
 use leema::frame;
@@ -40,7 +40,7 @@ impl fmt::Display for ModSym
 pub enum Op
 {
     LoadFunc(Reg, ModSym),
-    ApplyFunc(Reg, Reg, Reg),
+    ApplyFunc(Reg, val::FuncCallType, Reg, Reg),
     Return,
     SetResult(Reg),
     ConstVal(Reg, Val),
@@ -78,8 +78,9 @@ impl Clone for Op
     {
         match self {
             &Op::LoadFunc(ref r, ref ms) => Op::LoadFunc(r.clone(), ms.clone()),
-            &Op::ApplyFunc(ref dst, ref f, ref args) => {
-                Op::ApplyFunc(dst.clone(), f.clone(), args.clone())
+            &Op::ApplyFunc(ref dst, ref callmode, ref f, ref args) => {
+                Op::ApplyFunc(dst.clone(), callmode.clone()
+                    , f.clone(), args.clone())
             }
             &Op::Return => Op::Return,
             &Op::SetResult(ref src) => Op::SetResult(src.clone()),
@@ -296,8 +297,8 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             rt.def_args(argnames);
             make_sub_ops(rt, &body)
         }
-        Source::Call(ref f, ref args) => {
-            make_call_ops(rt, f, args)
+        Source::Call(ref mode, ref f, ref args) => {
+            make_call_ops(rt, mode, f, args, &input.typ)
         }
         Source::Constructor(ref typ) => {
             vout!("make_constructor_ops({:?})\n", input);
@@ -387,10 +388,11 @@ vout!("id({}).reg = {:?}\n", id, src);
     }
 }
 
-pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr, args: &Ixpr) -> Oxpr
+pub fn make_call_ops(rt: &mut RegTable, mode: &val::FuncCallType, f: &Ixpr
+    , args: &Ixpr, ftyp: &Type) -> Oxpr
 {
     let dst = rt.dst().clone();
-    vout!("make_call_ops: {:?} = {:?}\n", dst, f);
+    vout!("make_call_ops: {:?} = {:?} : {:?}\n", dst, f, ftyp);
 
     rt.push_dst();
     let mut fops = make_sub_ops(rt, f);
@@ -398,7 +400,8 @@ pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr, args: &Ixpr) -> Oxpr
     rt.push_dst();
     let mut argops = make_sub_ops(rt, args);
     fops.ops.append(&mut argops.ops);
-    fops.ops.push(Op::ApplyFunc(dst.clone(), fops.dst.clone(), argops.dst));
+    fops.ops.push(Op::ApplyFunc(dst.clone(), mode.clone()
+        , fops.dst.clone(), argops.dst));
 
     rt.pop_dst();
     rt.pop_dst();

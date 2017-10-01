@@ -31,7 +31,7 @@ pub enum WorkerMsg
 
 pub enum IoMsg
 {
-    Iop{
+    Iop1{
         worker_id: i64,
         fiber_id: i64,
         action: IopAction,
@@ -53,7 +53,7 @@ impl fmt::Debug for IoMsg
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
-            &IoMsg::Iop{worker_id, fiber_id, ref params, ..} => {
+            &IoMsg::Iop1{worker_id, fiber_id, ref params, ..} => {
                 write!(f, "IoMsg::Iop({}:{}, {:?})"
                     , worker_id, fiber_id, params)
             }

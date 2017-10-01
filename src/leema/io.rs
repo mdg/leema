@@ -162,7 +162,7 @@ impl Io
     pub fn handle_incoming(&mut self, incoming: IoMsg)
     {
         match incoming {
-            IoMsg::Iop{
+            IoMsg::Iop1{
                 worker_id: wid,
                 fiber_id: fid,
                 action,
@@ -391,7 +391,7 @@ pub fn exercise_iop_action(action: rsrc::IopAction, params: Vec<Val>)
             p.to_msg()
         }).collect();
     msg_tx.send(msg::IoMsg::NewWorker(11, worker_tx));
-    msg_tx.send(msg::IoMsg::Iop{
+    msg_tx.send(msg::IoMsg::Iop1{
         worker_id: 11,
         fiber_id: 21,
         action: action,
