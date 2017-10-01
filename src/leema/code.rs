@@ -198,7 +198,7 @@ impl Clone for Code
         match self {
             &Code::Leema(ref ops) => Code::Leema(ops.clone()),
             &Code::Rust(rf) => Code::Rust(rf),
-            &Code::Iop(ref iopf) => Code::Iop(Box::new(**iopf)),
+            &Code::Iop(ref iopf) => Code::Iop(*iopf),
             &Code::RsrcOp(ref rsrcf) => Code::RsrcOp(Box::new(**rsrcf)),
         }
     }

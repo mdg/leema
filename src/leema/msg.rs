@@ -35,7 +35,7 @@ pub enum IoMsg
         worker_id: i64,
         fiber_id: i64,
         action: IopAction,
-        params: Vec<MsgVal>,
+        params: MsgVal,
     },
     RsrcOp{
         worker_id: i64,

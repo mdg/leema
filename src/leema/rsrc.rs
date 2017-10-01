@@ -72,5 +72,5 @@ impl<'a> IopCtx<'a>
     }
 }
 
-pub type IopAction = Box<fn(IopCtx, Vec<Val>) -> Event>;
+pub type IopAction = fn(IopCtx, Val) -> Event;
 pub type RsrcAction = Box<fn(IopCtx, Box<Rsrc>, Vec<Val>) -> Event>;

@@ -34,7 +34,7 @@ enum ReadyFiber
 enum FiberWait
 {
     Code(Fiber),
-    Io(Fiber, Rc<Code>, Reg),
+    Io(Fiber),
     Future(Fiber, Rc<Code>),
 }
 
@@ -178,29 +178,7 @@ impl Worker
                 } else {
                     vout!("function call failed\n");
                 }
-                let parent = fbr.head.take_parent();
-                match parent {
-                    Parent::Caller(old_code, mut pf, dst) => {
-                        pf.pc += 1;
-                        fbr.head = *pf;
-                        vout!("return to caller: {}.{}()\n"
-                            , fbr.head.module_name()
-                            , fbr.head.function_name()
-                            );
-                        self.push_fresh(ReadyFiber::Ready(fbr, old_code));
-                    }
-                    Parent::Repl(res) => {
-                    }
-                    Parent::Main(res) => {
-                        vout!("finished main func\n");
-                        let msg = AppMsg::MainResult(res.to_msg());
-                        self.done = true;
-                        self.app_tx.send(msg);
-                    }
-                    Parent::Null => {
-                        // this shouldn't have happened
-                    }
-                }
+                self.return_from_call(fbr);
                 Result::Ok(Async::NotReady)
             }
             Event::Success => {
@@ -271,6 +249,33 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
         }
     }
 
+    pub fn return_from_call(&mut self, mut fbr: Fiber)
+    {
+        let parent = fbr.head.take_parent();
+        match parent {
+            Parent::Caller(old_code, mut pf, dst) => {
+                pf.pc += 1;
+                fbr.head = *pf;
+                vout!("return to caller: {}.{}()\n"
+                    , fbr.head.module_name()
+                    , fbr.head.function_name()
+                    );
+                self.push_fresh(ReadyFiber::Ready(fbr, old_code));
+            }
+            Parent::Repl(res) => {
+            }
+            Parent::Main(res) => {
+                vout!("finished main func\n");
+                let msg = AppMsg::MainResult(res.to_msg());
+                self.done = true;
+                self.app_tx.send(msg);
+            }
+            Parent::Null => {
+                // this shouldn't have happened
+            }
+        }
+    }
+
     pub fn process_msg(&mut self, msg: WorkerMsg)
     {
         match msg {
@@ -285,7 +290,7 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
                 self.code.insert(module, new_mod);
                 let opt_fiber = self.waiting.remove(&fiber_id);
                 if let Some(FiberWait::Code(fib)) = opt_fiber {
-                    self.push_fresh(ReadyFiber::Ready(fib, rc_code));
+                    self.push_coded_fiber(fib, rc_code);
                 } else {
                     panic!("Cannot find waiting fiber: {}", fiber_id);
                 }
@@ -294,13 +299,39 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
                 vout!("iop_result({}, {:?})\n", fiber_id, result_msg);
                 let result_val = Val::from_msg(result_msg);
                 let wait = self.waiting.remove(&fiber_id).unwrap();
-                if let FiberWait::Io(mut fib, code, dstreg) = wait {
-                    fib.head.e.set_reg(&dstreg, result_val);
-                    self.fresh.push_back(ReadyFiber::Ready(fib, code));
+                if let FiberWait::Io(mut fib) = wait {
+                    fib.head.parent.set_result(result_val);
+                    self.return_from_call(fib);
                 }
             }
             WorkerMsg::Done => {
                 self.done = true;
+            }
+        }
+    }
+
+    fn push_coded_fiber(&mut self, fib: Fiber, code: Rc<Code>)
+    {
+        match &*code {
+            &Code::Leema(_) => {
+                self.push_fresh(ReadyFiber::Ready(fib, code));
+            }
+            &Code::Rust(_) => {
+                self.push_fresh(ReadyFiber::Ready(fib, code));
+            }
+            &Code::Iop(iopf) => {
+                let fiber_id = fib.fiber_id;
+                let msg_val = fib.head.e.get_reg(&Reg::Params).to_msg();
+                self.io_tx.send(IoMsg::Iop1{
+                    worker_id: self.id,
+                    fiber_id: fiber_id,
+                    action: iopf,
+                    params: msg_val,
+                });
+                self.waiting.insert(fiber_id, FiberWait::Io(fib));
+            }
+            &Code::RsrcOp(_) => {
+                panic!("isn't RsrcOp dead yet?");
             }
         }
     }

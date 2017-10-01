@@ -27,7 +27,7 @@ impl Rsrc for UdpSocket
 }
 
 
-pub fn udp_socket_iop<'a>(mut ctx: rsrc::IopCtx<'a>, params: Vec<Val>)
+pub fn udp_socket_iop<'a>(mut ctx: rsrc::IopCtx<'a>, params: Val)
     -> rsrc::Event
 {
     let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
@@ -249,7 +249,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         "udp_bind" => Some(Code::Rust(udp_bind)),
         "udp_recv" => Some(Code::Rust(udp_recv)),
         "udp_send" => Some(Code::Rust(udp_send)),
-        "udp_socket" => Some(Code::Iop(Box::new(udp_socket_iop))),
+        "udp_socket" => Some(Code::Iop(udp_socket_iop)),
         _ => None,
     }
 }
@@ -265,7 +265,7 @@ mod tests
 #[test]
 fn test_udp_socket_creation()
 {
-    let response = exercise_iop_action(Box::new(udp::udp_socket_iop), vec![]);
+    let response = exercise_iop_action(udp::udp_socket_iop, Val::Tuple(vec![]));
     assert!(response.is_ok());
     let (_fiber_id, rsrc_ref) = response.ok().unwrap();
     assert_eq!(Val::ResourceRef(1), rsrc_ref);

@@ -329,6 +329,7 @@ pub enum MsgVal
     Bool(bool),
     Hashtag(String),
     Cons(Box<MsgVal>, Box<MsgVal>),
+    Tuple(Vec<MsgVal>),
     Nil,
     Void,
     ResourceRef(i64),
@@ -982,6 +983,11 @@ impl Val
                 let msgtail = Box::new(tail.to_msg());
                 MsgVal::Cons(msghead, msgtail)
             }
+            &Val::Tuple(ref items) => {
+                MsgVal::Tuple(items.iter().map(|iv| {
+                    iv.to_msg()
+                }).collect())
+            }
             &Val::Nil => MsgVal::Nil,
             &Val::Void => MsgVal::Void,
             &Val::ResourceRef(rsrc_id) => MsgVal::ResourceRef(rsrc_id),
@@ -1002,6 +1008,11 @@ impl Val
                 let head = Val::from_msg(*mhead);
                 let tail = Val::from_msg(*mtail);
                 Val::Cons(Box::new(head), Box::new(tail))
+            }
+            MsgVal::Tuple(items) => {
+                Val::Tuple(items.into_iter().map(|mv| {
+                    Val::from_msg(mv)
+                }).collect())
             }
             MsgVal::Nil => Val::Nil,
             MsgVal::Void => Val::Void,

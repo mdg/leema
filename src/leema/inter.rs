@@ -493,10 +493,6 @@ pub fn compile_matchcase(scope: &mut Interscope, callmatchx: bool
 
     scope.T.push_block();
     scope.T.match_pattern(patt, xtyp);
-        /*
-        panic!("match case pattern type mismatch: {:?} != {:?}",
-            patt, xtyp);
-        */
     let iblk = compile_expr(scope, blk);
     scope.T.pop_block();
     let inext = match t3 {
