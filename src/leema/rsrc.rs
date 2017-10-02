@@ -33,10 +33,7 @@ pub struct IopCtx<'a>
     src_worker_id: i64,
     src_fiber_id: i64,
     rsrc_id: i64,
-    /*
-    resource: &'a mut HashMap<i64, Ioq>,
-    next_rsrc_id: &'a mut i64,
-    */
+    rsrc: Option<Box<Rsrc>>,
 }
 
 impl<'a> IopCtx<'a>
@@ -48,6 +45,7 @@ impl<'a> IopCtx<'a>
             src_worker_id: wid,
             src_fiber_id: fid,
             rsrc_id: rsrc_id,
+            rsrc: None,
         }
     }
 
@@ -64,6 +62,21 @@ impl<'a> IopCtx<'a>
     pub fn send_result(&mut self, result: Val)
     {
         self.io.send_result(self.src_worker_id, self.src_fiber_id, result);
+    }
+
+    pub fn take_rsrc<T>(&mut self) -> T
+        where T: Rsrc
+    {
+        let opt_rsrc = self.rsrc.take();
+        match opt_rsrc {
+            Some(rsrc) => {
+                let result = rsrc.downcast::<T>();
+                *(result.unwrap())
+            }
+            None => {
+                panic!("no resource to take");
+            }
+        }
     }
 
     pub fn return_rsrc(&mut self, rsrc: Box<Rsrc>)
