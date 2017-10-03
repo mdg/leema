@@ -27,7 +27,7 @@ impl Rsrc for UdpSocket
 }
 
 
-pub fn udp_socket_iop<'a>(mut ctx: rsrc::IopCtx<'a>, params: Val)
+pub fn udp_socket_iop<'a>(mut ctx: rsrc::IopCtx<'a>)
     -> rsrc::Event
 {
     let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
@@ -78,12 +78,9 @@ pub fn udp_bind(f: &mut Fiber) -> frame::Event
     frame::Event::Success
 }
 
-fn udp_recv_1(resp: Box<rsrc::IopCtx>
-    , resource: Box<Rsrc>, _input: Vec<Val>) -> rsrc::Event
+fn udp_recv_1(mut ctx: Box<rsrc::IopCtx>) -> rsrc::Event
 {
-    let mut result_sock =
-        resource.downcast::<UdpSocket>();
-    let mut sock = result_sock.unwrap();
+    let mut sock: UdpSocket = ctx.take_rsrc();
     let mut buffer: Vec<u8> = Vec::with_capacity(2048);
     let fut = sock.recv_dgram(buffer)
         .map(move |(isock, ibuff, ibufsize, _iaddr)| {
@@ -161,19 +158,19 @@ vout!("udp_recv({:?})\n", f.head.e);
     frame::Event::Success
 }
 
-pub fn udp_send<'a>(mut ctx: rsrc::IopCtx<'a>, params: Val) -> rsrc::Event
+pub fn udp_send<'a>(mut ctx: rsrc::IopCtx<'a>) -> rsrc::Event
 {
-    vout!("udp_send.e = {:?}\n", params);
+    vout!("udp_send()\n");
     let sock: UdpSocket = ctx.take_rsrc();
-    let dst_ip = params.get(1).unwrap();
-    let dst_port = params.get(2).unwrap();
-    let msg = params.get(3).unwrap();
+    let dst_ip = ctx.take_param(1).unwrap();
+    let dst_port = ctx.take_param(2).unwrap().to_int() as u16;
+    let msg = ctx.take_param(3).unwrap().to_string();
 
     let dst_addr = SocketAddr::new(
         IpAddr::from_str(dst_ip.str()).unwrap(),
         dst_port,
     );
-    let fut =
+    let fut = Box::new(
         sock.send_dgram(msg, dst_addr)
         .map(move |(sock2, buff)| {
             let sockr: Box<Rsrc> = Box::new(sock2) as Box<Rsrc>;
@@ -181,8 +178,9 @@ pub fn udp_send<'a>(mut ctx: rsrc::IopCtx<'a>, params: Val) -> rsrc::Event
         })
         .map_err(|e| {
             Val::new_str("send dgram didn't work. socket is gone".to_string())
-        });
-/*
+        })
+    );
+    /*
     let sock_result = {
         let sockr = f.head.e.get_param(0);
         vout!("sockr: {:?}\n", sockr);
@@ -264,8 +262,8 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
     match func_name {
         "udp_bind" => Some(Code::Rust(udp_bind)),
         "udp_recv" => Some(Code::Rust(udp_recv)),
-        "udp_send" => Some(Code::Iop(udp_send)),
-        "udp_socket" => Some(Code::Iop(udp_socket_iop)),
+        "udp_send" => Some(Code::Iop(udp_send, Some(0))),
+        "udp_socket" => Some(Code::Iop(udp_socket_iop, None)),
         _ => None,
     }
 }

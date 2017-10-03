@@ -32,20 +32,35 @@ pub struct IopCtx<'a>
     io: &'a mut Io,
     src_worker_id: i64,
     src_fiber_id: i64,
-    rsrc_id: i64,
+    rsrc_id: Option<i64>,
     rsrc: Option<Box<Rsrc>>,
+    params: Vec<Option<Val>>,
 }
 
 impl<'a> IopCtx<'a>
 {
-    pub fn new(io: &'a mut Io, wid: i64, fid: i64, rsrc_id: i64) -> IopCtx<'a>
+    pub fn new(io: &'a mut Io, wid: i64, fid: i64
+        , rsrc_id: Option<i64>, rsrc: Option<Box<Rsrc>>
+        , param_val: Val)
+        -> IopCtx<'a>
     {
+        let params = match param_val {
+            Val::Tuple(items) => {
+                items.into_iter().map(|i| {
+                    Some(i)
+                }).collect()
+            }
+            _ => {
+                panic!("IopCtx params not a tuple");
+            }
+        };
         IopCtx{
             io: io,
             src_worker_id: wid,
             src_fiber_id: fid,
             rsrc_id: rsrc_id,
-            rsrc: None,
+            rsrc: rsrc,
+            params: params,
         }
     }
 
@@ -81,9 +96,23 @@ impl<'a> IopCtx<'a>
 
     pub fn return_rsrc(&mut self, rsrc: Box<Rsrc>)
     {
-        self.io.return_rsrc(self.rsrc_id, Some(rsrc));
+        match self.rsrc_id {
+            Some(rsrc_id) => {
+                self.io.return_rsrc(rsrc_id, Some(rsrc));
+            }
+            None => {
+                panic!("cannot return resource without resource id");
+            }
+        }
+    }
+
+    /**
+     * Take a parameter from the context
+     */
+    pub fn take_param(&mut self, i: i8) -> Option<Val>
+    {
+        self.params.get_mut(i as usize).unwrap().take()
     }
 }
 
-pub type IopAction = fn(IopCtx, Val) -> Event;
-pub type RsrcAction = Box<fn(IopCtx, Box<Rsrc>, Vec<Val>) -> Event>;
+pub type IopAction = fn(IopCtx) -> Event;

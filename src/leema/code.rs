@@ -138,8 +138,7 @@ pub enum Code
 {
     Leema(OpVec),
     Rust(RustFunc),
-    Iop(rsrc::IopAction),
-    RsrcOp(rsrc::RsrcAction),
+    Iop(rsrc::IopAction, Option<i8>),
 }
 
 impl Code
@@ -149,8 +148,34 @@ impl Code
         match self {
             &Code::Leema(_) => "LeemaCode",
             &Code::Rust(_) => "RustCode",
-            &Code::Iop(_) => "IopCode",
-            &Code::RsrcOp(_) => "RsrcOpCode",
+            &Code::Iop(_, _) => "IopCode",
+        }
+    }
+
+    pub fn is_leema(&self) -> bool
+    {
+        if let &Code::Leema(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_rust(&self) -> bool
+    {
+        if let &Code::Rust(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn get_iop(&self) -> Option<(rsrc::IopAction, Option<i8>)>
+    {
+        if let &Code::Iop(iopf, rsrc_idx) = self {
+            Some((iopf, rsrc_idx))
+        } else {
+            None
         }
     }
 }
@@ -162,8 +187,7 @@ impl fmt::Display for Code
         match self {
             &Code::Leema(_) => write!(f, "LeemaCode"),
             &Code::Rust(_) => write!(f, "RustCode"),
-            &Code::Iop(_) => write!(f, "IopCode"),
-            &Code::RsrcOp(_) => write!(f, "RsrcOpCode"),
+            &Code::Iop(_, _) => write!(f, "IopCode"),
         }
     }
 }
@@ -185,8 +209,7 @@ impl fmt::Debug for Code
             &Code::Rust(_) => {
                 write!(f, "Code::Rust")
             }
-            &Code::Iop(_) => write!(f, "Code::Iop"),
-            &Code::RsrcOp(_) => write!(f, "Code::RsrcOp"),
+            &Code::Iop(_, _) => write!(f, "Code::Iop"),
         }
     }
 }
@@ -198,8 +221,9 @@ impl Clone for Code
         match self {
             &Code::Leema(ref ops) => Code::Leema(ops.clone()),
             &Code::Rust(rf) => Code::Rust(rf),
-            &Code::Iop(ref iopf) => Code::Iop(*iopf),
-            &Code::RsrcOp(ref rsrcf) => Code::RsrcOp(Box::new(**rsrcf)),
+            &Code::Iop(ref iopf, ref rsrc_idx) => {
+                Code::Iop(*iopf, rsrc_idx.clone())
+            }
         }
     }
 }

@@ -1,6 +1,6 @@
 
 use leema::code::{Code};
-use leema::rsrc::{self, Rsrc, RsrcAction, IopAction};
+use leema::rsrc::{self, Rsrc, IopAction};
 use leema::val::{MsgVal, Val};
 
 use std::fmt;
@@ -31,18 +31,12 @@ pub enum WorkerMsg
 
 pub enum IoMsg
 {
-    Iop1{
+    Iop{
         worker_id: i64,
         fiber_id: i64,
         action: IopAction,
+        rsrc_id: Option<i64>,
         params: MsgVal,
-    },
-    RsrcOp{
-        worker_id: i64,
-        fiber_id: i64,
-        action: RsrcAction,
-        rsrc_id: i64,
-        params: Vec<MsgVal>,
     },
     NewWorker(i64, mpsc::Sender<WorkerMsg>),
     Done,
@@ -53,13 +47,9 @@ impl fmt::Debug for IoMsg
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
-            &IoMsg::Iop1{worker_id, fiber_id, ref params, ..} => {
+            &IoMsg::Iop{worker_id, fiber_id, ref params, ..} => {
                 write!(f, "IoMsg::Iop({}:{}, {:?})"
                     , worker_id, fiber_id, params)
-            }
-            &IoMsg::RsrcOp{worker_id, fiber_id, rsrc_id, ref params, ..} => {
-                write!(f, "IoMsg::RsrcOp({}:{}, {}, {:?})"
-                    , worker_id, fiber_id, rsrc_id, params)
             }
             &IoMsg::NewWorker(worker_id, _) => {
                 write!(f, "IoMsg::NewWorker({})", worker_id)

@@ -158,11 +158,8 @@ impl Worker
                 vout!("execute rust code\n");
                 rf(f)
             }
-            &Code::Iop(ref iopf) => {
+            &Code::Iop(_, _) => {
                 panic!("cannot execute iop in a worker\n");
-            }
-            &Code::RsrcOp(ref rsrcf) =>{
-                panic!("cannot execute rsrcop in a worker\n");
             }
         };
         ev
@@ -182,13 +179,15 @@ impl Worker
                 Result::Ok(Async::NotReady)
             }
             Event::Success => {
+                vout!("function call success\n");
                 Result::Ok(Async::NotReady)
             }
             Event::Failure => {
+                vout!("function call failure\n");
                 Result::Ok(Async::NotReady)
             }
             Event::Call(dst, call_type, module, func, args) => {
-                vout!("push_call({}.{})\n", module, func);
+                vout!("push_call({}.{}, {:?})\n", module, func, args);
                 fbr.push_call(code.clone(), dst, module, func, args);
                 self.load_code(fbr);
                 Result::Ok(Async::NotReady)
@@ -308,27 +307,32 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
 
     fn push_coded_fiber(&mut self, fib: Fiber, code: Rc<Code>)
     {
-        match &*code {
-            &Code::Leema(_) => {
-                self.push_fresh(ReadyFiber::Ready(fib, code));
-            }
-            &Code::Rust(_) => {
-                self.push_fresh(ReadyFiber::Ready(fib, code));
-            }
-            &Code::Iop(iopf) => {
-                let fiber_id = fib.fiber_id;
-                let msg_val = fib.head.e.get_reg(&Reg::Params).to_msg();
-                self.io_tx.send(IoMsg::Iop1{
-                    worker_id: self.id,
-                    fiber_id: fiber_id,
-                    action: iopf,
-                    params: msg_val,
-                });
-                self.waiting.insert(fiber_id, FiberWait::Io(fib));
-            }
-            &Code::RsrcOp(_) => {
-                panic!("isn't RsrcOp dead yet?");
-            }
+        if code.is_leema() {
+            self.push_fresh(ReadyFiber::Ready(fib, code));
+        } else if code.is_rust() {
+            self.push_fresh(ReadyFiber::Ready(fib, code));
+        } else if let Some((iopf, rsrc_idx)) = code.get_iop() {
+            let fiber_id = fib.fiber_id;
+            let rsrc_id = rsrc_idx.and_then(|idx| {
+                if let &Val::ResourceRef(rid) =
+                    fib.head.e.get_param(idx)
+                {
+                    Some(rid)
+                } else {
+                    None
+                }
+            });
+            let msg_val = fib.head.e.get_reg(&Reg::Params).to_msg();
+            self.io_tx.send(IoMsg::Iop{
+                worker_id: self.id,
+                fiber_id: fiber_id,
+                rsrc_id: rsrc_id,
+                action: iopf,
+                params: msg_val,
+            });
+            self.waiting.insert(fiber_id, FiberWait::Io(fib));
+        } else {
+            panic!("code is what type? {:?}", *code);
         }
     }
 
