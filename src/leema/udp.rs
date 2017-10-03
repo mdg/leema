@@ -51,27 +51,6 @@ pub fn udp_bind<'a>(mut ctx: rsrc::IopCtx<'a>) -> rsrc::Event
     rsrc::Event::Success(None)
 }
 
-/*
-fn udp_recv_1(mut ctx: Box<rsrc::IopCtx>) -> rsrc::Event
-{
-    let mut sock: UdpSocket = ctx.take_rsrc();
-    let mut buffer: Vec<u8> = Vec::with_capacity(2048);
-    let fut = sock.recv_dgram(buffer)
-        .map(move |(isock, ibuff, ibufsize, _iaddr)| {
-            // let result = Val::Str(Rc::new(String::from(ibuff)));
-            let result = Val::Str(Rc::new("hello".to_string()));
-            let rsrc_out: Box<Rsrc> = Box::new(isock);
-            (result, Some(rsrc_out))
-        })
-        .map_err(|e| {
-            panic!("{:?}", e);
-            Val::new_str("error".to_string())
-        });
-
-    rsrc::Event::Future(Box::new(fut))
-}
-*/
-
 /**
  * udp_recv(sock)
  */
@@ -142,7 +121,7 @@ mod tests
 #[test]
 fn test_udp_socket_creation()
 {
-    let response = exercise_iop_action(udp::udp_socket, Val::Tuple(vec![]));
+    let response = exercise_iop_action(udp::udp_socket, vec![]);
     assert!(response.is_ok());
     let (_fiber_id, rsrc_ref) = response.ok().unwrap();
     assert_eq!(Val::ResourceRef(1), rsrc_ref);

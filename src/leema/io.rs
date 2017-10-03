@@ -350,21 +350,21 @@ impl Rsrc for MockRsrc
     }
 }
 
-fn mock_iop_action(mut ctx: rsrc::IopCtx, params: Val) -> rsrc::Event
+fn mock_iop_action(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     ctx.send_result(Val::Int(8));
     rsrc::Event::Success(None)
 }
 
-fn mock_rsrc_action(mut ctx: rsrc::IopCtx, rsrc: Box<Rsrc>, params: Vec<Val>
-    ) -> rsrc::Event
+fn mock_rsrc_action(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
+    let rsrc: MockRsrc = ctx.take_rsrc();
     ctx.send_result(Val::Int(18));
-    ctx.return_rsrc(rsrc);
+    ctx.return_rsrc(Box::new(rsrc));
     rsrc::Event::Success(None)
 }
 
-pub fn exercise_iop_action(action: rsrc::IopAction, params: Val)
+pub fn exercise_iop_action(action: rsrc::IopAction, params: Vec<Val>)
     -> Result<(i64, Val), mpsc::TryRecvError>
 {
     let (msg_tx, msg_rx) = mpsc::channel::<msg::IoMsg>();
@@ -373,9 +373,9 @@ pub fn exercise_iop_action(action: rsrc::IopAction, params: Val)
 
     let (io, core) = Io::new(app_tx, msg_rx);
 
-    let msg_params = params.to_msg();
+    let msg_params = Val::Tuple(params).to_msg();
     msg_tx.send(msg::IoMsg::NewWorker(11, worker_tx));
-    msg_tx.send(msg::IoMsg::Iop1{
+    msg_tx.send(msg::IoMsg::Iop{
         worker_id: 11,
         fiber_id: 21,
         action: action,
@@ -412,7 +412,7 @@ fn test_io_constructor()
 #[test]
 fn test_iop_action_flow()
 {
-    let resp = exercise_iop_action(mock_iop_action, Val::Tuple(vec![]));
+    let resp = exercise_iop_action(mock_iop_action, vec![]);
     assert!(resp.is_ok());
 }
 
@@ -430,9 +430,9 @@ fn test_rsrc_action_flow()
     msg_tx.send(msg::IoMsg::Iop{
         worker_id: 8,
         fiber_id: 7,
-        action: Box::new(mock_rsrc_action),
+        action: mock_rsrc_action,
         rsrc_id: Some(rsrc_id),
-        params: vec![],
+        params: Val::empty_tuple().to_msg(),
     });
     msg_tx.send(msg::IoMsg::Done);
     IoLoop::run(core, io);
