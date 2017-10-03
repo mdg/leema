@@ -27,8 +27,7 @@ impl Rsrc for UdpSocket
 }
 
 
-pub fn udp_socket_iop<'a>(mut ctx: rsrc::IopCtx<'a>)
-    -> rsrc::Event
+pub fn udp_socket<'a>(mut ctx: rsrc::IopCtx<'a>) -> rsrc::Event
 {
     let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
     let rsock = UdpSocket::bind(&sock_addr, &ctx.handle()).unwrap();
@@ -37,11 +36,11 @@ pub fn udp_socket_iop<'a>(mut ctx: rsrc::IopCtx<'a>)
     rsrc::Event::Success(None)
 }
 
-pub fn udp_bind_iop<'a>(mut ctx: rsrc::IopCtx<'a>, params: Vec<Val>)
-    -> rsrc::Event
+pub fn udp_bind<'a>(mut ctx: rsrc::IopCtx<'a>) -> rsrc::Event
 {
-    let sock_addr_str = params.get(0).unwrap();
-    let port = params.get(1).unwrap().to_int() as u16;
+    vout!("udp_bind()\n");
+    let sock_addr_str = ctx.take_param(0).unwrap();
+    let port = ctx.take_param(1).unwrap().to_int() as u16;
     let sock_addr =
         SocketAddr::new(
             IpAddr::from_str((sock_addr_str.str())).unwrap(), port
@@ -52,32 +51,7 @@ pub fn udp_bind_iop<'a>(mut ctx: rsrc::IopCtx<'a>, params: Vec<Val>)
     rsrc::Event::Success(None)
 }
 
-pub fn udp_bind(f: &mut Fiber) -> frame::Event
-{
-    vout!("udp_bind({:?})", f.head.e);
-    /*
-    let addr_val = f.head.e.get_param(0);
-    let port_num = if let &Val::Int(p) = f.head.e.get_param(1) {
-        p
-    } else {
-        0
-    } as u16;
-
-    let sock_addr = SocketAddr::new(
-        IpAddr::from_str(addr_val.str()).unwrap(),
-        port_num,
-    );
-    let rsock = UdpSocket::bind(&sock_addr, &f.handle).unwrap();
-    let lsock = UdpSock{
-        handle: f.handle.clone(),
-        socket: Some(rsock),
-    };
-    let rval = Val::libval(Mutex::new(lsock));
-    f.head.parent.set_result(rval);
-    */
-    frame::Event::Success
-}
-
+/*
 fn udp_recv_1(mut ctx: Box<rsrc::IopCtx>) -> rsrc::Event
 {
     let mut sock: UdpSocket = ctx.take_rsrc();
@@ -86,7 +60,6 @@ fn udp_recv_1(mut ctx: Box<rsrc::IopCtx>) -> rsrc::Event
         .map(move |(isock, ibuff, ibufsize, _iaddr)| {
             // let result = Val::Str(Rc::new(String::from(ibuff)));
             let result = Val::Str(Rc::new("hello".to_string()));
-            // msg.send(FiberToWorkerMsg::EventResult());
             let rsrc_out: Box<Rsrc> = Box::new(isock);
             (result, Some(rsrc_out))
         })
@@ -97,65 +70,29 @@ fn udp_recv_1(mut ctx: Box<rsrc::IopCtx>) -> rsrc::Event
 
     rsrc::Event::Future(Box::new(fut))
 }
-
-/*
-fn udp_recv_2(f: &mut Fiber, result: Val) -> frame::Event
-{
-    f.head.parent.set_result(result);
-    frame::Event::Success
-}
 */
 
 /**
  * udp_recv(sock)
  */
-pub fn udp_recv(f: &mut Fiber) -> frame::Event
+pub fn udp_recv<'a>(mut ctx: rsrc::IopCtx<'a>) -> rsrc::Event
 {
-vout!("udp_recv({:?})\n", f.head.e);
+    vout!("udp_recv()\n");
 
-    let sockrr = f.head.e.get_param(0);
-    /*
-    Event::Iop(sockrr.resource_ref(), Box::new(udp_recv_1), vec![])
-
-    let dstreg = Reg::local(0);
-    f.head.e.set_reg(&dstreg, Val::Buffer(Vec::with_capacity(2048)));
-    let result = f.head.e.get_reg_mut(&dstreg);
-    let opt_sock = sockr.libval_as();
-    if opt_sock.is_none() {
-        panic!("socket param is not a UdpSock: {:?}", sockr);
-    }
-    let mutex_sock: &Mutex<UdpSock> = opt_sock.unwrap();
-    match mutex_sock.try_lock() {
-        Ok(ref mut guard) => {
-            let mut buffer: Vec<u8> = Vec::with_capacity(2048);
-            // let mut buffer = String::from("");
-            let sock = guard.socket.take().unwrap();
-            let sockr2 = sockr.clone();
-            // let fut = sock.recv_dgram(result)
-            / *
-            let fut = sock.recv_dgram(buffer)
-                .map(|(isock, ibuf, nbytes, src_addr)| {
-                    // sockr.
-                    // buf2
-                    f.head.e.set_reg(&Reg::local(0), Val::Int(888));
-                    ()
-                })
-                .map_err(|e| {
-                    println!("error receiving UdpSock bytes: {:?}", e);
-                    ()
-                });
-                * /
-            // guard.handle.spawn(fut);
-        }
-        Err(TryLockError::WouldBlock) => {
-            return Event::Uneventful(f);
-        }
-        Err(TryLockError::Poisoned(ref p)) => {
-            panic!("socket lock is poisoned");
-        }
-    }
-    */
-    frame::Event::Success
+    let mut buffer: Vec<u8> = Vec::with_capacity(2048);
+    let sock: UdpSocket = ctx.take_rsrc();
+    let fut = sock.recv_dgram(buffer)
+        .map(|(isock, ibuf, nbytes, src_addr)| {
+            let utf8_result = String::from_utf8(ibuf);
+            let result_val = Val::new_str(utf8_result.unwrap());
+            let irsrc: Box<Rsrc> = Box::new(isock);
+            (result_val, Some(irsrc))
+        })
+        .map_err(|e| {
+            println!("error receiving UdpSocket bytes: {:?}", e);
+            Val::new_str("error receiving UdpSocket str".to_string())
+        });
+    rsrc::Event::Future(Box::new(fut))
 }
 
 pub fn udp_send<'a>(mut ctx: rsrc::IopCtx<'a>) -> rsrc::Event
@@ -180,90 +117,16 @@ pub fn udp_send<'a>(mut ctx: rsrc::IopCtx<'a>) -> rsrc::Event
             Val::new_str("send dgram didn't work. socket is gone".to_string())
         })
     );
-    /*
-    let sock_result = {
-        let sockr = f.head.e.get_param(0);
-        vout!("sockr: {:?}\n", sockr);
-        sockr2 = sockr.clone();
-
-        // let sock_lock_r: TryLockResult<MutexGuard> = mutex_sock.try_lock();
-        let sock_lock_result = mutex_sock.try_lock();
-        sock_lock_result.map(|ref mut guard| {
-            (guard.socket.take().unwrap(), guard.handle.clone())
-        })
-        .map_err(|err| {
-            match err {
-                TryLockError::WouldBlock => true,
-                TryLockError::Poisoned(_) => {
-                    panic!("socket mutex is poisoned");
-                }
-            }
-        })
-    };
-
-    if sock_result.is_err() {
-        return frame::Event::Uneventful(f)
-    }
-    let (sock, handle) = sock_result.unwrap();
-
-    let fut = {
-        let dst_ip = f.head.e.get_param(1);
-        let dst_port =
-            if let &Val::Int(p) = f.head.e.get_param(2) {
-                p as i16
-            } else {
-                panic!("port is not a number");
-            };
-        let msg =
-            if let &Val::Str(ref s) = f.head.e.get_param(3) {
-                s.clone()
-            } else {
-                panic!("msg is not a string");
-            };
-        let send_addr = SocketAddr::new(
-            IpAddr::from_str(dst_ip.str()).unwrap(),
-            3999,
-        );
-        let omsg = (&*msg).clone();
-
-        vout!("udp_send(sockr, '{}', {}, '{}')\n", dst_ip, dst_port, msg);
-
-        sock.send_dgram(omsg, send_addr)
-    };
-
-    {
-        let hfut = fut.map(move |(used_sock, buf)| {
-            // put the used sock back in the value
-            let msock2: &Mutex<UdpSock> = sockr2.libval_as().unwrap();
-            if let Ok(ref mut g) = msock2.lock() {
-                g.socket = Some(used_sock);
-            }
-            vout!("send_dgram sent from fiber: {}\n", f.fiber_id);
-            ()
-        })
-        .map_err(|e| {
-            println!("send_dgram error: {:?}", e);
-            ()
-        });
-        handle.spawn(hfut);
-    }
-*/
-
-    /*
-        let sock = guard.socket.take().unwrap();
-        let fut = sock.send_dgram(omsg, send_addr)
-        guard.handle.spawn(fut);
-        */
     rsrc::Event::Future(Box::new(fut))
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
-        "udp_bind" => Some(Code::Rust(udp_bind)),
-        "udp_recv" => Some(Code::Rust(udp_recv)),
+        "udp_bind" => Some(Code::Iop(udp_bind, None)),
+        "udp_recv" => Some(Code::Iop(udp_recv, Some(0))),
         "udp_send" => Some(Code::Iop(udp_send, Some(0))),
-        "udp_socket" => Some(Code::Iop(udp_socket_iop, None)),
+        "udp_socket" => Some(Code::Iop(udp_socket, None)),
         _ => None,
     }
 }
@@ -279,7 +142,7 @@ mod tests
 #[test]
 fn test_udp_socket_creation()
 {
-    let response = exercise_iop_action(udp::udp_socket_iop, Val::Tuple(vec![]));
+    let response = exercise_iop_action(udp::udp_socket, Val::Tuple(vec![]));
     assert!(response.is_ok());
     let (_fiber_id, rsrc_ref) = response.ok().unwrap();
     assert_eq!(Val::ResourceRef(1), rsrc_ref);
