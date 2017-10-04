@@ -40,10 +40,10 @@ IoEvent
 pub struct Iop
 {
     action: rsrc::IopAction,
-    params: Val,
+    ctx: IopCtx,
     src_worker_id: i64,
     src_fiber_id: i64,
-    rsrc_id: i64,
+    rsrc_id: Option<i64>,
 }
 
 pub struct RsrcQueue
@@ -69,23 +69,15 @@ impl RsrcQueue
      *
      * If the resource is already in used, then return None
      */
-    pub fn push_op(&mut self, worker_id: i64, fiber_id: i64
-        , iopf: rsrc::IopAction, args: Val) -> Option<(Iop, Box<Rsrc>)>
+    pub fn push_iop(&mut self, mut iop: Iop) -> Option<Iop>
     {
-        let op = Iop{
-            action: iopf,
-            params: args,
-            src_worker_id: worker_id,
-            src_fiber_id: fiber_id,
-            rsrc_id: self.rsrc_id,
-        };
-
         match self.rsrc.take() {
             Some(r) => {
-                Some((op, r))
+                iop.ctx.init_rsrc(r);
+                Some(iop)
             }
             None => {
-                self.queue.push_back(op);
+                self.queue.push_back(iop);
                 None
             }
         }
@@ -113,6 +105,7 @@ pub struct Io
 {
     resource: HashMap<i64, RsrcQueue>,
     pub handle: reactor::Handle,
+    next: LinkedList<Iop>,
     msg_rx: std::sync::mpsc::Receiver<IoMsg>,
     app_tx: std::sync::mpsc::Sender<AppMsg>,
     worker_tx: HashMap<i64, std::sync::mpsc::Sender<WorkerMsg>>,
@@ -131,6 +124,7 @@ impl Io
         let io = Io{
             resource: HashMap::new(),
             handle: h,
+            next: LinkedList::new(),
             msg_rx: msg_rx,
             app_tx: app_tx,
             worker_tx: HashMap::new(),
@@ -182,45 +176,50 @@ impl Io
     fn handle_iop_action(&mut self, worker_id: i64, fiber_id: i64
         , action: rsrc::IopAction, opt_rsrc_id: Option<i64>, params: Val)
     {
+        let ctx = self.create_iop_ctx(worker_id, fiber_id
+            , opt_rsrc_id.clone(), None, params);
+        let iop = Iop{
+            ctx: ctx,
+            action: action,
+            src_worker_id: worker_id,
+            src_fiber_id: fiber_id,
+            rsrc_id: opt_rsrc_id.clone(),
+        };
         match opt_rsrc_id {
             None => {
-                let ctx = self.create_iop_ctx(worker_id, fiber_id
-                    , None, None, params);
-                action(ctx);
+                self.next.push_back(iop);
             }
             Some(rsrc_id) => {
-                let rsrc_op = {
+                let opt_rsrc_op = {
                     let opt_rsrcq = self.resource.get_mut(&rsrc_id);
                     if opt_rsrcq.is_none() {
                         panic!("missing queue for rsrc: {}", rsrc_id);
                     }
                     let mut rsrcq = opt_rsrcq.unwrap();
-                    rsrcq.push_op(worker_id, fiber_id, action, params)
+                    rsrcq.push_iop(iop)
                 };
-                self.run_iop(rsrc_op);
+                if let Some(rsrc_op) = opt_rsrc_op {
+                    self.next.push_back(rsrc_op);
+                }
             }
         }
     }
 
     fn run_iop(&mut self, rsrc_op: Option<(Iop, Box<Rsrc>)>)
     {
-        if let Some((op, rsrc)) = rsrc_op {
-            let ev = {
-                let ctx =
-                    self.create_iop_ctx(
-                        op.src_worker_id, op.src_fiber_id
-                        , Some(op.rsrc_id), Some(rsrc)
-                        , op.params
-                    );
-                (op.action)(ctx)
-            };
-            self.handle_event(op.src_worker_id
-                , op.src_fiber_id, op.rsrc_id, ev);
+        if let Some((mut iop, rsrc)) = rsrc_op {
+            iop.ctx.init_rsrc(rsrc);
+            self.next.push_back(iop);
         }
     }
 
-    fn handle_event(&mut self, worker_id: i64, fiber_id: i64
-        , rsrc_id: i64, ev: Event)
+    pub fn take_next_iop(&mut self) -> Option<Iop>
+    {
+        self.next.pop_front()
+    }
+
+    pub fn handle_event(&mut self, worker_id: i64, fiber_id: i64
+        , rsrc_id: Option<i64>, ev: Event)
     {
         match ev {
             Event::NewRsrc(rsrc) => {
@@ -273,19 +272,23 @@ println!("do something with this new resource!");
         tx.send(WorkerMsg::IopResult(fiber_id, result.to_msg()));
     }
 
-    pub fn return_rsrc(&mut self, rsrc_id: i64, rsrc: Option<Box<Rsrc>>)
+    pub fn return_rsrc(&mut self, rsrc_id: Option<i64>, rsrc: Option<Box<Rsrc>>)
     {
-        match rsrc {
-            None => {
-                vout!("rsrc was not returned for {}", rsrc_id);
-                // TODO: maybe should clear the ioq?
-            }
-            Some(real_rsrc) => {
+        match (rsrc_id, rsrc) {
+            (Some(irsrc_id), Some(real_rsrc)) => {
                 let next_op = {
-                    let ioq = self.resource.get_mut(&rsrc_id).unwrap();
+                    let ioq = self.resource.get_mut(&irsrc_id).unwrap();
                     ioq.checkin(real_rsrc)
                 };
                 self.run_iop(next_op);
+            }
+            (Some(irsrc_id), None) => {
+                vout!("rsrc was not returned for {}", irsrc_id);
+                // TODO: maybe should clear the ioq?
+            }
+            (None, _) => {
+                panic!("cannot return resource without id");
+                // TODO: maybe should clear the ioq?
             }
         }
     }
@@ -321,6 +324,12 @@ impl Future for IoLoop
     {
         task::park().unpark();
         let poll_result = self.io.borrow_mut().run_once();
+        let opt_iop = self.io.borrow_mut().take_next_iop();
+        if let Some(iop) = opt_iop {
+            let ev = (iop.action)(iop.ctx);
+            self.io.borrow_mut().handle_event(iop.src_worker_id
+                , iop.src_fiber_id, iop.rsrc_id, ev);
+        }
         thread::yield_now();
         poll_result
     }

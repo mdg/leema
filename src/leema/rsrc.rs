@@ -82,6 +82,17 @@ impl IopCtx
             .send_result(self.src_worker_id, self.src_fiber_id, result);
     }
 
+    pub fn init_rsrc(&mut self, rsrc: Box<Rsrc>)
+    {
+        if self.rsrc_id.is_none() {
+            panic!("cannot init rsrc with no rsrc_id");
+        }
+        if self.rsrc.is_some() {
+            panic!("cannot reinitialize rsrc");
+        }
+        self.rsrc = Some(rsrc);
+    }
+
     pub fn take_rsrc<T>(&mut self) -> T
         where T: Rsrc
     {
@@ -99,14 +110,7 @@ impl IopCtx
 
     pub fn return_rsrc(&mut self, rsrc: Box<Rsrc>)
     {
-        match self.rsrc_id {
-            Some(rsrc_id) => {
-                self.rcio.borrow_mut().return_rsrc(rsrc_id, Some(rsrc));
-            }
-            None => {
-                panic!("cannot return resource without resource id");
-            }
-        }
+        self.rcio.borrow_mut().return_rsrc(self.rsrc_id, Some(rsrc));
     }
 
     /**
