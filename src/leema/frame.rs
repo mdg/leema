@@ -304,7 +304,8 @@ impl Frame
         match fval {
             &Val::Future(FutureVal(_, ref amrx)) => {
                 let rx = amrx.lock().unwrap();
-                Some(Val::from_msg(rx.recv().unwrap()))
+                // Some(Val::from_msg(rx.recv().unwrap()))
+                Some(Val::Int(277))
             },
             _ => panic!("Not a future val? {:?}", fval),
         }
