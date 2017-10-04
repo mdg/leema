@@ -1,15 +1,11 @@
 use leema::code::{Code, RustFunc};
-use leema::fiber::{Fiber};
-use leema::frame::{self, Frame};
 use leema::log;
-use leema::reg::{Reg};
 use leema::rsrc::{self, Rsrc};
-use leema::val::{Val, LibVal, Type};
+use leema::val::{Val, Type};
 
 use std::net::{IpAddr, SocketAddr};
 use std::rc::{Rc};
 use std::str::{FromStr};
-use std::sync::{Arc, Mutex, MutexGuard, TryLockResult, TryLockError};
 use std::io::{stderr, Write};
 use std::os::unix::io::AsRawFd;
 

@@ -1,14 +1,17 @@
 
-rust type Listener
-rust type Stream
+## rust type TcpListener
+## rust type TcpSocket
+
+## open a tcp connection to a remote port
+func connect(addr: Str, port: Int): TcpSocket -RUST-
 
 ## create a tcp listener on the given port
-func listen(addr: String, port: Int): Listener -RUST-
+func listen(addr: Str, port: Int): Listener -RUST-
 
 ## accept new sockets on the given socket
-func accept(l: Listener): Stream -RUST-
+func accept(l: Listener): TcpSocket -RUST-
 
-func tcp_read(s: Stream): String -RUST-
+func recv(s: TcpSocket): Str -RUST-
 
-func tcp_write(s: Stream, output: String): Void -RUST-
+func send(s: TcpSocket, output: Str): Int -RUST-
 

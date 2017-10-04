@@ -173,8 +173,6 @@ impl Inferator
         false
     }
 
-    {
-        }
     pub fn inferred_type<'a>(&'a self, typ: &'a Type) -> Type
     {
         match typ {

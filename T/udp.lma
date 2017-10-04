@@ -2,12 +2,12 @@
 ## rust type Stream
 
 ## create a udp socket on any address and port
-func udp_socket(): UdpSock -RUST-
+func udp_socket(): UdpSocket -RUST-
 
 ## create a udp socket on the given address and port
-func udp_bind(addr: Str, port: Int): UdpSock -RUST-
+func udp_bind(addr: Str, port: Int): UdpSocket -RUST-
 
-func udp_recv(s: UdpSock): Str -RUST-
+func udp_recv(s: UdpSocket): Str -RUST-
 
-func udp_send(s: UdpSock, addr: Str, port: Int, output: Str): Void -RUST-
+func udp_send(s: UdpSocket, addr: Str, port: Int, output: Str): Void -RUST-
 
