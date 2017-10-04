@@ -22,6 +22,7 @@ pub mod inter;
 pub mod rsrc;
 pub mod sxpr;
 pub mod parse;
+pub mod tcp;
 pub mod typecheck;
 pub mod udp;
 pub mod worker;

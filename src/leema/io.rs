@@ -251,12 +251,12 @@ println!("do something with this new resource!");
 
     fn create_iop_ctx<'a>(&'a mut self, src_worker_id: i64, src_fiber_id: i64
         , rsrc_id: Option<i64>, rsrc: Option<Box<Rsrc>>, param_val: Val)
-        -> IopCtx<'a>
+        -> IopCtx
     {
         let h = self.handle.clone();
         let rcio = self.io.clone().unwrap();
         // let tx = self.worker_tx.clone();
-        IopCtx::new(self, src_worker_id, src_fiber_id, rsrc_id, rsrc, param_val)
+        IopCtx::new(rcio, src_worker_id, src_fiber_id, rsrc_id, rsrc, param_val)
     }
 
     pub fn new_rsrc(&mut self, rsrc: Box<Rsrc>) -> i64

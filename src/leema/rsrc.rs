@@ -4,6 +4,8 @@ use leema::io::{Io};
 
 use std::fmt;
 use std::collections::{HashMap};
+use std::rc::{Rc};
+use std::cell::{RefCell, RefMut};
 
 use futures::future;
 use tokio_core::reactor;
@@ -27,9 +29,9 @@ pub enum Event
     Failure(Option<Box<Rsrc>>),
 }
 
-pub struct IopCtx<'a>
+pub struct IopCtx
 {
-    io: &'a mut Io,
+    rcio: Rc<RefCell<Io>>,
     src_worker_id: i64,
     src_fiber_id: i64,
     rsrc_id: Option<i64>,
@@ -37,12 +39,12 @@ pub struct IopCtx<'a>
     params: Vec<Option<Val>>,
 }
 
-impl<'a> IopCtx<'a>
+impl IopCtx
 {
-    pub fn new(io: &'a mut Io, wid: i64, fid: i64
+    pub fn new(rcio: Rc<RefCell<Io>>, wid: i64, fid: i64
         , rsrc_id: Option<i64>, rsrc: Option<Box<Rsrc>>
         , param_val: Val)
-        -> IopCtx<'a>
+        -> IopCtx
     {
         let params = match param_val {
             Val::Tuple(items) => {
@@ -55,7 +57,7 @@ impl<'a> IopCtx<'a>
             }
         };
         IopCtx{
-            io: io,
+            rcio: rcio,
             src_worker_id: wid,
             src_fiber_id: fid,
             rsrc_id: rsrc_id,
@@ -64,19 +66,20 @@ impl<'a> IopCtx<'a>
         }
     }
 
-    pub fn handle(&mut self) -> &mut reactor::Handle
+    pub fn handle(&self) -> reactor::Handle
     {
-        &mut self.io.handle
+        self.rcio.borrow().handle.clone()
     }
 
     pub fn new_rsrc(&mut self, rsrc: Box<Rsrc>) -> i64
     {
-        self.io.new_rsrc(rsrc)
+        self.rcio.borrow_mut().new_rsrc(rsrc)
     }
 
     pub fn send_result(&mut self, result: Val)
     {
-        self.io.send_result(self.src_worker_id, self.src_fiber_id, result);
+        self.rcio.borrow_mut()
+            .send_result(self.src_worker_id, self.src_fiber_id, result);
     }
 
     pub fn take_rsrc<T>(&mut self) -> T
@@ -98,7 +101,7 @@ impl<'a> IopCtx<'a>
     {
         match self.rsrc_id {
             Some(rsrc_id) => {
-                self.io.return_rsrc(rsrc_id, Some(rsrc));
+                self.rcio.borrow_mut().return_rsrc(rsrc_id, Some(rsrc));
             }
             None => {
                 panic!("cannot return resource without resource id");

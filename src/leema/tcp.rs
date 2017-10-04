@@ -9,53 +9,57 @@ use std::str::{FromStr};
 use std::io::{stderr, Write};
 use std::os::unix::io::AsRawFd;
 
-use ::tokio_core::net::{UdpSocket};
+use ::tokio_core::net::{TcpStream};
 use ::tokio_core::reactor::{Handle, Remote};
 use futures::future::{Future};
 
 
-impl Rsrc for UdpSocket
+impl Rsrc for TcpStream
 {
     fn get_type(&self) -> Type
     {
-        Type::Resource(Rc::new(String::from("UdpSocket")))
+        Type::Resource(Rc::new(String::from("TcpSocket")))
     }
 }
 
 
-pub fn udp_socket(mut ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
-    let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
-    let rsock = UdpSocket::bind(&sock_addr, &ctx.handle()).unwrap();
-    let rsrc_id = ctx.new_rsrc(Box::new(rsock));
-    ctx.send_result(Val::ResourceRef(rsrc_id));
-    rsrc::Event::Success(None)
-}
-
-pub fn udp_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
-{
-    vout!("udp_bind()\n");
-    let sock_addr_str = ctx.take_param(0).unwrap();
-    let port = ctx.take_param(1).unwrap().to_int() as u16;
-    let sock_addr =
+    vout!("tcp_connect()\n");
+    let sock_addr = {
+        let sock_addr_str = ctx.take_param(0).unwrap();
+        let port = ctx.take_param(1).unwrap().to_int() as u16;
         SocketAddr::new(
             IpAddr::from_str((sock_addr_str.str())).unwrap(), port
-        );
-    let rsock = UdpSocket::bind(&sock_addr, &ctx.handle()).unwrap();
-    let rsrc_id = ctx.new_rsrc(Box::new(rsock));
-    ctx.send_result(Val::ResourceRef(rsrc_id));
-    rsrc::Event::Success(None)
+        )
+    };
+
+    let handle = ctx.handle().clone();
+    let fut =
+        TcpStream::connect(&sock_addr, &handle)
+        .map(move |sock| {
+            let rsrc_id = ctx.new_rsrc(Box::new(sock));
+            let rsrc_id_val = Val::ResourceRef(rsrc_id);
+            (rsrc_id_val, None)
+        })
+        .map_err(move |e| {
+            Val::new_str("Failure to connect".to_string())
+        });
+    // let rsrc_id = ctx.new_rsrc(Box::new(rsock));
+    // ctx.send_result(Val::ResourceRef(rsrc_id));
+    rsrc::Event::Future(Box::new(fut))
 }
 
 /**
- * udp_recv(sock)
+ * tcp_recv(sock)
  */
-pub fn udp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn tcp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
-    vout!("udp_recv()\n");
+    vout!("tcp_recv()\n");
 
     let mut buffer: Vec<u8> = Vec::with_capacity(2048);
-    let sock: UdpSocket = ctx.take_rsrc();
+    /*
+    let sock: TcpStream = ctx.take_rsrc();
     let fut = sock.recv_dgram(buffer)
         .map(|(isock, ibuf, nbytes, src_addr)| {
             let utf8_result = String::from_utf8(ibuf);
@@ -68,11 +72,14 @@ pub fn udp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
             Val::new_str("error receiving UdpSocket str".to_string())
         });
     rsrc::Event::Future(Box::new(fut))
+    */
+    rsrc::Event::Success(None)
 }
 
-pub fn udp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn tcp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
-    vout!("udp_send()\n");
+    vout!("tcp_send()\n");
+    /*
     let sock: UdpSocket = ctx.take_rsrc();
     let dst_ip = ctx.take_param(1).unwrap();
     let dst_port = ctx.take_param(2).unwrap().to_int() as u16;
@@ -93,15 +100,16 @@ pub fn udp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
         })
     );
     rsrc::Event::Future(Box::new(fut))
+    */
+    rsrc::Event::Success(None)
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
-        "udp_bind" => Some(Code::Iop(udp_bind, None)),
-        "udp_recv" => Some(Code::Iop(udp_recv, Some(0))),
-        "udp_send" => Some(Code::Iop(udp_send, Some(0))),
-        "udp_socket" => Some(Code::Iop(udp_socket, None)),
+        "connect" => Some(Code::Iop(tcp_connect, None)),
+        "tcp_recv" => Some(Code::Iop(tcp_recv, Some(0))),
+        "tcp_send" => Some(Code::Iop(tcp_send, Some(0))),
         _ => None,
     }
 }
@@ -124,3 +132,4 @@ fn test_udp_socket_creation()
 }
 
 }
+
