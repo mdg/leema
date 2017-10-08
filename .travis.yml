@@ -2,5 +2,6 @@ language: rust
 rust:
   - 1.16.0
 install:
-  - pip install nose
+  - sudo pip install nose
 script: make test
+sudo: required
