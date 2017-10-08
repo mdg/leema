@@ -133,7 +133,19 @@ class TestScripts(unittest.TestCase):
     def test_chess960(self):
         result = run_leema('chess960')
         self.assertEqual(0, result['code'])
-        self.assertRegex(result['output'].strip(), b"^[BNRQK]{8}$")
+        output = result['output']
+        self.assertEqual(8, len(output))
+        self.assertEqual(1, output.count("K"))
+        self.assertEqual(1, output.count("Q"))
+        self.assertEqual(2, output.count("B"))
+        self.assertEqual(2, output.count("N"))
+        self.assertEqual(2, output.count("R"))
+
+        pr1 = output.index("R")
+        pr2 = output.rindex("R")
+        pk = output.index("K")
+        self.assertTrue(pr1 < pk)
+        self.assertTrue(pk < pr2)
 
     def test_rgb(self):
         self.skipTest("structs come back later")
