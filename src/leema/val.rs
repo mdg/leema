@@ -303,6 +303,7 @@ pub enum SxprType {
     StrExpr,
     BlockExpr,
     Call,
+    NamedParam,
     DefFunc,
     DefMacro,
     DefStruct,

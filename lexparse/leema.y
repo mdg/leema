@@ -49,6 +49,8 @@ use std::rc::{Rc};
 %type macro_args { Val }
 %type call_expr { Val }
 %type func_term { Val }
+%type call_args { Val }
+%type call_arg { Val }
 %type if_stmt { Val }
 %type else_if { Val }
 %type if_expr { Val }
@@ -384,10 +386,7 @@ expr(A) ::= if_expr(B). {
 call_expr(A) ::= func_term(B) PARENCALL RPAREN. {
 	A = sxpr::call(B, Val::Nil);
 }
-call_expr(A) ::= func_term(B) PARENCALL expr(C) RPAREN. {
-	A = sxpr::call(B, list::singleton(C));
-}
-call_expr(A) ::= func_term(B) PARENCALL tuple_args(C) RPAREN. {
+call_expr(A) ::= func_term(B) PARENCALL call_args(C) RPAREN. {
 	A = sxpr::call(B, C);
 }
 
@@ -397,6 +396,23 @@ func_term(A) ::= term(B). {
 func_term(A) ::= TYPE_ID(B). {
     let tid = Type::Id(Rc::new(B.data));
     A = Val::Type(tid);
+}
+
+call_arg(A) ::= expr(B). {
+    A = B;
+}
+call_arg(A) ::= ID(B) COLON expr(C). {
+    let name = Val::id(B.data);
+    A = sxpr::named_param(name, C);
+}
+call_args(A) ::= call_arg(B). {
+    A = list::singleton(B);
+}
+call_args(A) ::= call_arg(B) COMMA. {
+    A = list::singleton(B);
+}
+call_args(A) ::= call_arg(B) COMMA call_args(C). {
+    A = list::cons(B, C);
 }
 
 expr(A) ::= term(B) DOLLAR term(C). {

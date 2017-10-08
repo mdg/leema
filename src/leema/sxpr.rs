@@ -85,6 +85,12 @@ pub fn call(callid: Val, args: Val) -> Val
     Val::Sxpr(SxprType::Call, Box::new(callargs))
 }
 
+pub fn named_param(name: Val, expr: Val) -> Val
+{
+    let parts = list::from2(name, expr);
+    Val::Sxpr(SxprType::NamedParam, Box::new(parts))
+}
+
 pub fn binaryop(callname: String, a: Val, b: Val) -> Val
 {
     call(Val::id(callname), list::from2(a, b))
