@@ -38,12 +38,13 @@ pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let fut =
         TcpStream::connect(&sock_addr, &handle)
         .map(move |sock| {
-            let rsrc_id = ctx.new_rsrc(Box::new(sock));
-            let rsrc_id_val = Val::ResourceRef(rsrc_id);
-            (rsrc_id_val, None)
+            rsrc::Event::NewRsrc(Box::new(sock))
         })
         .map_err(move |e| {
-            Val::new_str("Failure to connect".to_string())
+            rsrc::Event::Failure(
+                Val::new_str("Failure to connect".to_string()),
+                None,
+            )
         });
     // let rsrc_id = ctx.new_rsrc(Box::new(rsock));
     // ctx.send_result(Val::ResourceRef(rsrc_id));
@@ -73,7 +74,7 @@ pub fn tcp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
         });
     rsrc::Event::Future(Box::new(fut))
     */
-    rsrc::Event::Success(None)
+    rsrc::Event::Success(Val::Void, None)
 }
 
 pub fn tcp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
@@ -101,7 +102,7 @@ pub fn tcp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
     );
     rsrc::Event::Future(Box::new(fut))
     */
-    rsrc::Event::Success(None)
+    rsrc::Event::Success(Val::Void, None)
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>

@@ -224,23 +224,29 @@ impl Io
         match ev {
             Event::NewRsrc(rsrc) => {
 println!("do something with this new resource!");
+                let rsrc_id = self.new_rsrc(rsrc);
+                let result = Val::ResourceRef(rsrc_id);
+                self.send_result(worker_id, fiber_id, result);
             }
-            Event::Success(result) => {
+            Event::Success(result, rsrc) => {
+                self.return_rsrc(rsrc_id, rsrc);
+                self.send_result(worker_id, fiber_id, result);
             }
-            Event::Failure(result) => {
+            Event::Failure(result, rsrc) => {
+                self.return_rsrc(rsrc_id, rsrc);
+                self.send_result(worker_id, fiber_id, result);
             }
             Event::Future(libfut) => {
                 let rcio: Rc<RefCell<Io>> = self.io.clone().unwrap();
                 let rcio_err = rcio.clone();
                 let iofut = libfut
-                    .map(move |(result, rsrc)| {
+                    .map(move |ev2| {
                         let mut bio = rcio.borrow_mut();
-                        bio.send_result(worker_id, fiber_id, result);
-                        bio.return_rsrc(rsrc_id, rsrc);
+                        bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
-                    }).map_err(move |result| {
-                        rcio_err.borrow_mut().send_result(
-                            worker_id, fiber_id, result);
+                    }).map_err(move |ev2| {
+                        let mut bio = rcio_err.borrow_mut();
+                        bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
                     });
                 self.handle.spawn(iofut);

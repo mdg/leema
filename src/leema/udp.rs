@@ -27,9 +27,7 @@ pub fn udp_socket(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
     let rsock = UdpSocket::bind(&sock_addr, &ctx.handle()).unwrap();
-    let rsrc_id = ctx.new_rsrc(Box::new(rsock));
-    ctx.send_result(Val::ResourceRef(rsrc_id));
-    rsrc::Event::Success(None)
+    rsrc::Event::NewRsrc(Box::new(rsock))
 }
 
 pub fn udp_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
@@ -42,9 +40,7 @@ pub fn udp_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
             IpAddr::from_str((sock_addr_str.str())).unwrap(), port
         );
     let rsock = UdpSocket::bind(&sock_addr, &ctx.handle()).unwrap();
-    let rsrc_id = ctx.new_rsrc(Box::new(rsock));
-    ctx.send_result(Val::ResourceRef(rsrc_id));
-    rsrc::Event::Success(None)
+    rsrc::Event::NewRsrc(Box::new(rsock))
 }
 
 /**
@@ -61,11 +57,14 @@ pub fn udp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
             let utf8_result = String::from_utf8(ibuf);
             let result_val = Val::new_str(utf8_result.unwrap());
             let irsrc: Box<Rsrc> = Box::new(isock);
-            (result_val, Some(irsrc))
+            rsrc::Event::Success(result_val, Some(irsrc))
         })
         .map_err(|e| {
             println!("error receiving UdpSocket bytes: {:?}", e);
-            Val::new_str("error receiving UdpSocket str".to_string())
+            rsrc::Event::Failure(
+                Val::new_str("error receiving UdpSocket str".to_string()),
+                None,
+            )
         });
     rsrc::Event::Future(Box::new(fut))
 }
@@ -86,10 +85,15 @@ pub fn udp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
         sock.send_dgram(msg, dst_addr)
         .map(move |(sock2, buff)| {
             let sockr: Box<Rsrc> = Box::new(sock2) as Box<Rsrc>;
-            (Val::Int(0), Some(sockr))
+            rsrc::Event::Success(Val::Int(0), Some(sockr))
         })
         .map_err(|e| {
-            Val::new_str("send dgram didn't work. socket is gone".to_string())
+            rsrc::Event::Failure(
+                Val::new_str(
+                    "send dgram didn't work. socket is gone".to_string()
+                ),
+                None
+            )
         })
     );
     rsrc::Event::Future(Box::new(fut))

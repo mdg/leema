@@ -23,10 +23,10 @@ mopafy!(Rsrc);
 
 pub enum Event
 {
-    Future(Box<future::Future<Item=(Val, Option<Box<Rsrc>>), Error=Val>>),
+    Future(Box<future::Future<Item=Event, Error=Event>>),
     NewRsrc(Box<Rsrc>),
-    Success(Option<Box<Rsrc>>),
-    Failure(Option<Box<Rsrc>>),
+    Success(Val, Option<Box<Rsrc>>),
+    Failure(Val, Option<Box<Rsrc>>),
 }
 
 pub struct IopCtx
@@ -71,17 +71,6 @@ impl IopCtx
         self.rcio.borrow().handle.clone()
     }
 
-    pub fn new_rsrc(&mut self, rsrc: Box<Rsrc>) -> i64
-    {
-        self.rcio.borrow_mut().new_rsrc(rsrc)
-    }
-
-    pub fn send_result(&mut self, result: Val)
-    {
-        self.rcio.borrow_mut()
-            .send_result(self.src_worker_id, self.src_fiber_id, result);
-    }
-
     pub fn init_rsrc(&mut self, rsrc: Box<Rsrc>)
     {
         if self.rsrc_id.is_none() {
@@ -106,11 +95,6 @@ impl IopCtx
                 panic!("no resource to take");
             }
         }
-    }
-
-    pub fn return_rsrc(&mut self, rsrc: Box<Rsrc>)
-    {
-        self.rcio.borrow_mut().return_rsrc(self.rsrc_id, Some(rsrc));
     }
 
     /**
