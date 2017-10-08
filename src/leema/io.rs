@@ -292,6 +292,9 @@ println!("do something with this new resource!");
                 vout!("rsrc was not returned for {}", irsrc_id);
                 // TODO: maybe should clear the ioq?
             }
+            (None, None) => {
+                // TODO: maybe should clear the ioq?
+            }
             (None, _) => {
                 panic!("cannot return resource without id");
                 // TODO: maybe should clear the ioq?
@@ -367,16 +370,13 @@ impl Rsrc for MockRsrc
 
 fn mock_iop_action(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
-    ctx.send_result(Val::Int(8));
-    rsrc::Event::Success(None)
+    rsrc::Event::Success(Val::Int(8), None)
 }
 
 fn mock_rsrc_action(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     let rsrc: MockRsrc = ctx.take_rsrc();
-    ctx.send_result(Val::Int(18));
-    ctx.return_rsrc(Box::new(rsrc));
-    rsrc::Event::Success(None)
+    rsrc::Event::Success(Val::Int(18), Some(Box::new(rsrc)))
 }
 
 pub fn exercise_iop_action(action: rsrc::IopAction, params: Vec<Val>)
