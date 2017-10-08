@@ -133,7 +133,7 @@ class TestScripts(unittest.TestCase):
     def test_chess960(self):
         result = run_leema('chess960')
         self.assertEqual(0, result['code'])
-        output = result['output']
+        output = result['output'].strip()
         self.assertEqual(8, len(output))
         self.assertEqual(1, output.count("K"))
         self.assertEqual(1, output.count("Q"))
