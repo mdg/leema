@@ -1,4 +1,6 @@
 
+NOSETESTS=nosetests
+
 
 default: build
 
@@ -20,7 +22,7 @@ unit: lexer parser
 	cargo test
 
 T: build test.py
-	nosetests-3.4 --with-xunit
+	${NOSETESTS} --with-xunit
 
 # lexer
 lexer: target/debug/deps/libleemalex.a
