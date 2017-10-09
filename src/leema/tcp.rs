@@ -6,13 +6,72 @@ use leema::val::{Val, Type};
 use std::net::{IpAddr, SocketAddr};
 use std::rc::{Rc};
 use std::str::{FromStr};
-use std::io::{stderr, Write};
+use std::io::{self, stderr, Write};
 use std::os::unix::io::AsRawFd;
+use bytes::{BytesMut};
 
+use ::tokio_core::io::{Codec, EasyBuf};
 use ::tokio_core::net::{TcpStream};
 use ::tokio_core::reactor::{Handle, Remote};
+use ::tokio_io::{AsyncRead};
+use ::tokio_io::codec::{Framed, Encoder, Decoder};
 use futures::future::{Future};
 
+
+#[derive(Debug)]
+struct TcpValCodec
+{
+}
+
+impl Codec for TcpValCodec
+{
+    type In = Val;
+    type Out = Val;
+
+    fn decode(&mut self, buf: &mut EasyBuf) -> io::Result<Option<Val>>
+    {
+        Ok(Some(Val::Void))
+    }
+
+    fn encode(&mut self, msg: Val, buf: &mut Vec<u8>) -> io::Result<()>
+    {
+        Ok(())
+    }
+
+    // fn decode_eof(&mut self, buf: &mut EasyBuf) -> Result<
+}
+
+impl Encoder for TcpValCodec
+{
+    type Item = Val;
+    type Error = Val;
+
+    fn encode(&mut self, item: Val, dst: &mut BytesMut)
+        -> Result<(), Self::Error>
+    {
+        Ok(())
+    }
+}
+
+impl Decoder for TcpValCodec
+{
+    type Item = Val;
+    type Error = Val;
+
+    fn decode(&mut self, src: &mut BytesMut) ->
+        Result<Option<Val>, Self::Error>
+    {
+        Ok(Some(Val::Void))
+    }
+}
+
+impl Rsrc for Framed<TcpStream, TcpValCodec>
+{
+    fn get_type(&self) -> Type
+    {
+        Type::Resource(Rc::new(String::from("TcpSocket")))
+    }
+}
 
 impl Rsrc for TcpStream
 {
@@ -38,7 +97,9 @@ pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let fut =
         TcpStream::connect(&sock_addr, &handle)
         .map(move |sock| {
-            rsrc::Event::NewRsrc(Box::new(sock))
+            let codec = TcpValCodec{};
+            let framed = AsyncRead::framed(sock, codec);
+            rsrc::Event::NewRsrc(Box::new(framed))
         })
         .map_err(move |e| {
             rsrc::Event::Failure(
@@ -80,16 +141,10 @@ pub fn tcp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
 pub fn tcp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("tcp_send()\n");
-    /*
-    let sock: UdpSocket = ctx.take_rsrc();
-    let dst_ip = ctx.take_param(1).unwrap();
-    let dst_port = ctx.take_param(2).unwrap().to_int() as u16;
-    let msg = ctx.take_param(3).unwrap().to_string();
+    let sock: TcpStream = ctx.take_rsrc();
+    let msg = ctx.take_param(1).unwrap().to_string();
 
-    let dst_addr = SocketAddr::new(
-        IpAddr::from_str(dst_ip.str()).unwrap(),
-        dst_port,
-    );
+    /*
     let fut = Box::new(
         sock.send_dgram(msg, dst_addr)
         .map(move |(sock2, buff)| {
@@ -110,7 +165,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
     match func_name {
         "connect" => Some(Code::Iop(tcp_connect, None)),
         "tcp_recv" => Some(Code::Iop(tcp_recv, Some(0))),
-        "tcp_send" => Some(Code::Iop(tcp_send, Some(0))),
+        "send" => Some(Code::Iop(tcp_send, Some(0))),
         _ => None,
     }
 }

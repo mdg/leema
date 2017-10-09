@@ -12,6 +12,7 @@ name = "leema"
 name = "leemaw"
 
 [dependencies]
+bytes = "0.4.5"
 futures = "0.1.16"
 libc = "0.2"
 docopt = "0.6"

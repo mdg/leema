@@ -4,6 +4,7 @@ use leema::list;
 use leema::frame::{FrameTrace};
 use leema::log;
 
+use bytes::{BytesMut};
 use std::fmt::{self};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
@@ -12,7 +13,7 @@ use std::rc::{Rc};
 use std::cmp::{PartialEq, PartialOrd, Ordering};
 use std::clone::Clone;
 use std::fmt::{Debug};
-use std::io::{stderr, Write};
+use std::io::{stderr, Write, Error};
 use std::marker::{Send};
 use std::ops::Deref;
 
@@ -1019,6 +1020,14 @@ impl Val
             MsgVal::Void => Val::Void,
             MsgVal::ResourceRef(rsrc_id) => Val::ResourceRef(rsrc_id),
         }
+    }
+}
+
+impl From<Error> for Val
+{
+    fn from(e: Error) -> Val
+    {
+        Val::Void
     }
 }
 
