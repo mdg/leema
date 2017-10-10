@@ -97,21 +97,27 @@ impl Rsrc for TcpListener
 
 struct Acceptor
 {
-    listener: TcpListener,
+    listener: Option<TcpListener>,
     handle: Handle,
 }
 
 impl Future for Acceptor
 {
-    type Item = (TcpStream, SocketAddr);
-    type Error = std::io::Error;
+    type Item = (TcpListener, TcpStream, SocketAddr);
+    type Error = (TcpListener, std::io::Error);
 
-    fn poll(&mut self) -> Poll<(TcpStream, SocketAddr), std::io::Error>
+    fn poll(&mut self)
+        -> Poll<(TcpListener, TcpStream, SocketAddr),
+                (TcpListener, std::io::Error)>
     {
-        match self.listener.accept() {
+        let accept_result = {
+            self.listener.as_ref().unwrap().accept()
+        };
+        match accept_result {
             Ok((sock, addr)) => {
                 let tsock = TcpStream::from_stream(sock, &self.handle).unwrap();
-                Ok(Async::Ready((tsock, addr)))
+                let listener = self.listener.take().unwrap();
+                Ok(Async::Ready((listener, tsock, addr)))
             }
             Err(e) => {
                 match e.kind() {
@@ -119,7 +125,8 @@ impl Future for Acceptor
                         Ok(Async::NotReady)
                     }
                     _ => {
-                        Err(e)
+                        let listener = self.listener.take().unwrap();
+                        Err((listener, e))
                     }
                 }
             }
@@ -143,6 +150,7 @@ pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let fut =
         TcpStream::connect(&sock_addr, &handle)
         .map(move |sock| {
+            vout!("tcp connected");
             let codec = TcpValCodec{};
             let box_sock = Box::new(sock);
             let framed = AsyncRead::framed(box_sock, codec);
@@ -154,8 +162,6 @@ pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
                 None,
             )
         });
-    // let rsrc_id = ctx.new_rsrc(Box::new(rsock));
-    // ctx.send_result(Val::ResourceRef(rsrc_id));
     rsrc::Event::Future(Box::new(fut))
 }
 
@@ -179,10 +185,10 @@ pub fn tcp_accept(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let listener: TcpListener = ctx.take_rsrc();
     let acc =
         Acceptor{
-            listener: listener,
+            listener: Some(listener),
             handle: ctx.handle().clone(),
         }
-        .map(|(sock, addr)| {
+        .map(|(ilistener, sock, addr)| {
             rsrc::Event::NewRsrc(Box::new(sock))
         })
         .map_err(|e| {
