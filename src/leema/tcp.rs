@@ -3,19 +3,22 @@ use leema::log;
 use leema::rsrc::{self, Rsrc};
 use leema::val::{Val, Type};
 
+use std;
 use std::net::{IpAddr, SocketAddr};
 use std::rc::{Rc};
 use std::str::{FromStr};
 use std::io::{self, stderr, Write};
+use std::net::{TcpListener};
 use std::os::unix::io::AsRawFd;
 use bytes::{BytesMut};
 use bytes::buf::{BufMut};
 
 use ::tokio_core::io::{Codec, EasyBuf};
-use ::tokio_core::net::{TcpStream, TcpListener};
+use ::tokio_core::net::{TcpStream};
 use ::tokio_core::reactor::{Handle, Remote};
 use ::tokio_io::{AsyncRead};
 use ::tokio_io::codec::{Framed, Encoder, Decoder};
+use futures::{Async, Poll};
 use futures::future::{Future};
 use futures::sink::{Sink};
 
@@ -92,6 +95,38 @@ impl Rsrc for TcpListener
     }
 }
 
+struct Acceptor
+{
+    listener: TcpListener,
+    handle: Handle,
+}
+
+impl Future for Acceptor
+{
+    type Item = (TcpStream, SocketAddr);
+    type Error = std::io::Error;
+
+    fn poll(&mut self) -> Poll<(TcpStream, SocketAddr), std::io::Error>
+    {
+        match self.listener.accept() {
+            Ok((sock, addr)) => {
+                let tsock = TcpStream::from_stream(sock, &self.handle).unwrap();
+                Ok(Async::Ready((tsock, addr)))
+            }
+            Err(e) => {
+                match e.kind() {
+                    io::ErrorKind::WouldBlock => {
+                        Ok(Async::NotReady)
+                    }
+                    _ => {
+                        Err(e)
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
@@ -132,8 +167,9 @@ pub fn tcp_listen(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let sock_addr = SocketAddr::new(
         IpAddr::from_str((ip_str.str())).unwrap(), port
     );
-    let listen_result = TcpListener::bind(&sock_addr, &ctx.handle());
+    let listen_result = TcpListener::bind(&sock_addr);
     let listener: TcpListener = listen_result.unwrap();
+    listener.set_nonblocking(true);
     rsrc::Event::NewRsrc(Box::new(listener))
 }
 
@@ -141,7 +177,18 @@ pub fn tcp_accept(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("tcp_accept()\n");
     let listener: TcpListener = ctx.take_rsrc();
-    rsrc::Event::Success(Val::Int(0), Some(Box::new(listener)))
+    let acc =
+        Acceptor{
+            listener: listener,
+            handle: ctx.handle().clone(),
+        }
+        .map(|(sock, addr)| {
+            rsrc::Event::NewRsrc(Box::new(sock))
+        })
+        .map_err(|e| {
+            rsrc::Event::Failure(Val::new_str("accept error".to_string()), None)
+        });
+    rsrc::Event::Future(Box::new(acc))
 }
 
 
