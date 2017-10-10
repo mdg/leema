@@ -12,7 +12,7 @@ use bytes::{BytesMut};
 use bytes::buf::{BufMut};
 
 use ::tokio_core::io::{Codec, EasyBuf};
-use ::tokio_core::net::{TcpStream};
+use ::tokio_core::net::{TcpStream, TcpListener};
 use ::tokio_core::reactor::{Handle, Remote};
 use ::tokio_io::{AsyncRead};
 use ::tokio_io::codec::{Framed, Encoder, Decoder};
@@ -84,6 +84,14 @@ impl Rsrc for TcpStream
     }
 }
 
+impl Rsrc for TcpListener
+{
+    fn get_type(&self) -> Type
+    {
+        Type::Resource(Rc::new(String::from("TcpListener")))
+    }
+}
+
 
 pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
@@ -115,6 +123,27 @@ pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
     // ctx.send_result(Val::ResourceRef(rsrc_id));
     rsrc::Event::Future(Box::new(fut))
 }
+
+pub fn tcp_listen(mut ctx: rsrc::IopCtx) -> rsrc::Event
+{
+    vout!("tcp_listen()\n");
+    let ip_str = ctx.take_param(0).unwrap();
+    let port = ctx.take_param(1).unwrap().to_int() as u16;
+    let sock_addr = SocketAddr::new(
+        IpAddr::from_str((ip_str.str())).unwrap(), port
+    );
+    let listen_result = TcpListener::bind(&sock_addr, &ctx.handle());
+    let listener: TcpListener = listen_result.unwrap();
+    rsrc::Event::NewRsrc(Box::new(listener))
+}
+
+pub fn tcp_accept(mut ctx: rsrc::IopCtx) -> rsrc::Event
+{
+    vout!("tcp_accept()\n");
+    let listener: TcpListener = ctx.take_rsrc();
+    rsrc::Event::Success(Val::Int(0), Some(Box::new(listener)))
+}
+
 
 /**
  * tcp_recv(sock)
@@ -162,7 +191,9 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
         "connect" => Some(Code::Iop(tcp_connect, None)),
-        "tcp_recv" => Some(Code::Iop(tcp_recv, Some(0))),
+        "listen" => Some(Code::Iop(tcp_listen, None)),
+        "accept" => Some(Code::Iop(tcp_accept, Some(0))),
+        "recv" => Some(Code::Iop(tcp_recv, Some(0))),
         "send" => Some(Code::Iop(tcp_send, Some(0))),
         _ => None,
     }

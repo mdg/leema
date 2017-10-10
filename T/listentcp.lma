@@ -1,0 +1,8 @@
+import tcp
+
+func main() ->
+   let listener := tcp::listen("0.0.0.0", 3999)
+   let sock := tcp::accept(listener)
+   let line := tcp::recv(sock)
+   cout("received: $line\n")
+--
