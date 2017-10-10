@@ -9,6 +9,7 @@ use std::str::{FromStr};
 use std::io::{self, stderr, Write};
 use std::os::unix::io::AsRawFd;
 use bytes::{BytesMut};
+use bytes::buf::{BufMut};
 
 use ::tokio_core::io::{Codec, EasyBuf};
 use ::tokio_core::net::{TcpStream};
@@ -16,6 +17,7 @@ use ::tokio_core::reactor::{Handle, Remote};
 use ::tokio_io::{AsyncRead};
 use ::tokio_io::codec::{Framed, Encoder, Decoder};
 use futures::future::{Future};
+use futures::sink::{Sink};
 
 
 #[derive(Debug)]
@@ -49,6 +51,7 @@ impl Encoder for TcpValCodec
     fn encode(&mut self, item: Val, dst: &mut BytesMut)
         -> Result<(), Self::Error>
     {
+        BufMut::put_slice(dst, item.str().as_bytes());
         Ok(())
     }
 }
@@ -65,7 +68,7 @@ impl Decoder for TcpValCodec
     }
 }
 
-impl Rsrc for Framed<TcpStream, TcpValCodec>
+impl Rsrc for Framed<Box<TcpStream>, TcpValCodec>
 {
     fn get_type(&self) -> Type
     {
@@ -98,7 +101,8 @@ pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
         TcpStream::connect(&sock_addr, &handle)
         .map(move |sock| {
             let codec = TcpValCodec{};
-            let framed = AsyncRead::framed(sock, codec);
+            let box_sock = Box::new(sock);
+            let framed = AsyncRead::framed(box_sock, codec);
             rsrc::Event::NewRsrc(Box::new(framed))
         })
         .map_err(move |e| {
@@ -141,23 +145,17 @@ pub fn tcp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
 pub fn tcp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("tcp_send()\n");
-    let sock: TcpStream = ctx.take_rsrc();
-    let msg = ctx.take_param(1).unwrap().to_string();
+    let sock: Framed<Box<TcpStream>, TcpValCodec> = ctx.take_rsrc();
+    let msg = ctx.take_param(1).unwrap();
 
-    /*
-    let fut = Box::new(
-        sock.send_dgram(msg, dst_addr)
-        .map(move |(sock2, buff)| {
-            let sockr: Box<Rsrc> = Box::new(sock2) as Box<Rsrc>;
-            (Val::Int(0), Some(sockr))
+    let fut = Box::new(Sink::send(sock, msg)
+        .map(|sock2| {
+            rsrc::Event::Success(Val::Int(0), Some(Box::new(sock2)))
         })
         .map_err(|e| {
-            Val::new_str("send dgram didn't work. socket is gone".to_string())
-        })
-    );
-    rsrc::Event::Future(Box::new(fut))
-    */
-    rsrc::Event::Success(Val::Void, None)
+            rsrc::Event::Failure(Val::new_str("send failure".to_string()), None)
+        }));
+    rsrc::Event::Future(fut)
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>

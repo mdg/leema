@@ -4,7 +4,6 @@ use leema::list;
 use leema::frame::{FrameTrace};
 use leema::log;
 
-use bytes::{BytesMut};
 use std::fmt::{self};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
