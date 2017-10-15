@@ -8,19 +8,19 @@ use std::net::{IpAddr, SocketAddr};
 use std::rc::{Rc};
 use std::str::{FromStr};
 use std::io::{self, stderr, Write};
-use std::net::{TcpListener};
 use std::os::unix::io::AsRawFd;
 use bytes::{BytesMut};
 use bytes::buf::{BufMut};
 
 use ::tokio_core::io::{Codec, EasyBuf};
-use ::tokio_core::net::{TcpStream};
+use ::tokio_core::net::{TcpStream, TcpListener};
 use ::tokio_core::reactor::{Handle, Remote};
 use ::tokio_io::{AsyncRead};
 use ::tokio_io::codec::{Framed, Encoder, Decoder};
 use futures::{Async, Poll};
 use futures::future::{Future};
 use futures::sink::{Sink};
+use futures::task;
 
 
 #[derive(Debug)]
@@ -111,22 +111,65 @@ impl Future for Acceptor
                 (TcpListener, std::io::Error)>
     {
         let accept_result = {
-            self.listener.as_ref().unwrap().accept()
+            self.listener.as_mut().unwrap().accept()
         };
         match accept_result {
             Ok((sock, addr)) => {
-                let tsock = TcpStream::from_stream(sock, &self.handle).unwrap();
                 let listener = self.listener.take().unwrap();
-                Ok(Async::Ready((listener, tsock, addr)))
+                Ok(Async::Ready((listener, sock, addr)))
             }
             Err(e) => {
                 match e.kind() {
                     io::ErrorKind::WouldBlock => {
+                        task::park().unpark();
                         Ok(Async::NotReady)
                     }
                     _ => {
                         let listener = self.listener.take().unwrap();
                         Err((listener, e))
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct Receiver
+{
+    sock: Option<TcpStream>,
+}
+
+impl Future for Receiver
+{
+    type Item = (TcpStream, Val);
+    type Error = (TcpStream, std::io::Error);
+
+    fn poll(&mut self)
+        -> Poll<(TcpStream, Val),
+                (TcpStream, std::io::Error)>
+    {
+        let mut buf = BytesMut::new();
+        let read_result = self.sock.as_ref().unwrap().read_buf(&mut buf);
+        match read_result {
+            Ok(Async::Ready(sz)) => {
+                let isock = self.sock.take().unwrap();
+                let rstr = String::from_utf8(buf.to_vec()).unwrap();
+                let rval = Val::new_str(rstr);
+                Ok(Async::Ready((isock, rval)))
+            }
+            Ok(Async::NotReady) => {
+                vout!("Receiver NotReady\n");
+                Ok(Async::NotReady)
+            }
+            Err(e) => {
+                match e.kind() {
+                    io::ErrorKind::WouldBlock => {
+                        vout!("Receiver WouldBlock\n");
+                        Ok(Async::NotReady)
+                    }
+                    _ => {
+                        let sock = self.sock.take().unwrap();
+                        Err((sock, e))
                     }
                 }
             }
@@ -173,9 +216,9 @@ pub fn tcp_listen(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let sock_addr = SocketAddr::new(
         IpAddr::from_str((ip_str.str())).unwrap(), port
     );
-    let listen_result = TcpListener::bind(&sock_addr);
+    let handle = ctx.handle().clone();
+    let listen_result = TcpListener::bind(&sock_addr, &handle);
     let listener: TcpListener = listen_result.unwrap();
-    listener.set_nonblocking(true);
     rsrc::Event::NewRsrc(Box::new(listener))
 }
 
@@ -205,23 +248,19 @@ pub fn tcp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("tcp_recv()\n");
 
-    let mut buffer: Vec<u8> = Vec::with_capacity(2048);
-    /*
     let sock: TcpStream = ctx.take_rsrc();
-    let fut = sock.recv_dgram(buffer)
-        .map(|(isock, ibuf, nbytes, src_addr)| {
-            let utf8_result = String::from_utf8(ibuf);
-            let result_val = Val::new_str(utf8_result.unwrap());
-            let irsrc: Box<Rsrc> = Box::new(isock);
-            (result_val, Some(irsrc))
+    let fut =
+        Receiver{
+            sock: Some(sock),
+        }
+        .map(|(isock, data)| {
+            rsrc::Event::Success(data, Some(Box::new(isock)))
         })
-        .map_err(|e| {
-            println!("error receiving UdpSocket bytes: {:?}", e);
-            Val::new_str("error receiving UdpSocket str".to_string())
+        .map_err(|(isock, err)| {
+            let errval = Val::new_str("recv failure".to_string());
+            rsrc::Event::Failure(errval, Some(Box::new(isock)))
         });
     rsrc::Event::Future(Box::new(fut))
-    */
-    rsrc::Event::Success(Val::Void, None)
 }
 
 pub fn tcp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
