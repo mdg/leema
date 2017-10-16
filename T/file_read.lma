@@ -1,3 +1,0 @@
-f := file::read("hello.txt")
-cout("hello $f\n")
-input := stream::read(f)

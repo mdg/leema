@@ -3,11 +3,17 @@
 
 ## open a file
 ## how to distinguish when opening a file for reading or writing
-func open(addr: Str, port: Int): File -RUST-
+func open(path: Str): File -RUST-
 
 ## read from a file
 func read(f: File): Str -RUST-
 
 ## write to a file
 func write(f: File, data: Str): Int -RUST-
+
+## read the full contents of a file into a string
+func read_file(path: Str): Str -RUST-
+
+## write the full contents of a string into a file
+func write_file(path: Str): Str -RUST-
 

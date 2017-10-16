@@ -5,7 +5,7 @@ use leema::module::{ModuleSource, ModuleInterface, ModulePreface, MacroDef};
 use leema::loader::{Interloader};
 use leema::log;
 use leema::phase0::{self, Protomod};
-use leema::{prefab, udp, tcp};
+use leema::{prefab, file, udp, tcp};
 use leema::typecheck::{self, CallOp, CallFrame, Typescope, Typemod};
 use leema::val::{Type};
 
@@ -43,6 +43,7 @@ impl Lib
         };
         proglib.rust_load.insert("prefab".to_string(), prefab::load_rust_func);
         proglib.load_inter("prefab");
+        proglib.rust_load.insert("file".to_string(), file::load_rust_func);
         proglib.rust_load.insert("tcp".to_string(), tcp::load_rust_func);
         proglib.rust_load.insert("udp".to_string(), udp::load_rust_func);
         proglib
