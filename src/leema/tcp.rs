@@ -12,7 +12,6 @@ use std::os::unix::io::AsRawFd;
 use bytes::{BytesMut};
 use bytes::buf::{BufMut};
 
-use ::tokio_core::io::{Codec, EasyBuf};
 use ::tokio_core::net::{TcpStream, TcpListener};
 use ::tokio_core::reactor::{Handle, Remote};
 use ::tokio_io::{AsyncRead};
@@ -26,24 +25,6 @@ use futures::task;
 #[derive(Debug)]
 struct TcpValCodec
 {
-}
-
-impl Codec for TcpValCodec
-{
-    type In = Val;
-    type Out = Val;
-
-    fn decode(&mut self, buf: &mut EasyBuf) -> io::Result<Option<Val>>
-    {
-        Ok(Some(Val::Void))
-    }
-
-    fn encode(&mut self, msg: Val, buf: &mut Vec<u8>) -> io::Result<()>
-    {
-        Ok(())
-    }
-
-    // fn decode_eof(&mut self, buf: &mut EasyBuf) -> Result<
 }
 
 impl Encoder for TcpValCodec
