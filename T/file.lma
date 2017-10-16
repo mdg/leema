@@ -1,0 +1,13 @@
+
+## rust type File
+
+## open a file
+## how to distinguish when opening a file for reading or writing
+func open(addr: Str, port: Int): File -RUST-
+
+## read from a file
+func read(f: File): Str -RUST-
+
+## write to a file
+func write(f: File, data: Str): Int -RUST-
+
