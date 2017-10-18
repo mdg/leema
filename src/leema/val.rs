@@ -331,6 +331,7 @@ pub enum MsgVal
     Hashtag(String),
     Cons(Box<MsgVal>, Box<MsgVal>),
     Tuple(Vec<MsgVal>),
+    Buffer(Vec<u8>),
     Nil,
     Void,
     ResourceRef(i64),
@@ -989,6 +990,7 @@ impl Val
                     iv.to_msg()
                 }).collect())
             }
+            &Val::Buffer(ref buf) => MsgVal::Buffer(buf.clone()),
             &Val::Nil => MsgVal::Nil,
             &Val::Void => MsgVal::Void,
             &Val::ResourceRef(rsrc_id) => MsgVal::ResourceRef(rsrc_id),
@@ -1015,6 +1017,7 @@ impl Val
                     Val::from_msg(mv)
                 }).collect())
             }
+            MsgVal::Buffer(buf) => Val::Buffer(buf),
             MsgVal::Nil => Val::Nil,
             MsgVal::Void => Val::Void,
             MsgVal::ResourceRef(rsrc_id) => Val::ResourceRef(rsrc_id),
