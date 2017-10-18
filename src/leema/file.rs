@@ -4,7 +4,9 @@ use leema::log;
 use leema::rsrc;
 use leema::val::{Val};
 
-use std::io::{self, stderr, Write};
+use std::fs::{File};
+use std::io::{self, stderr, Read, Write};
+use std::path::{Path};
 
 
 pub fn file_open(mut ctx: rsrc::IopCtx) -> rsrc::Event
@@ -16,7 +18,12 @@ pub fn file_open(mut ctx: rsrc::IopCtx) -> rsrc::Event
 pub fn file_read_file(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("file_read_file()\n");
-    rsrc::Event::Success(Val::Void, None)
+    let pathval = ctx.take_param(0).unwrap();
+    let path = Path::new(pathval.str());
+    let mut f = File::open(path).unwrap();
+    let mut s = String::new();
+    f.read_to_string(&mut s);
+    rsrc::Event::Success(Val::new_str(s), None)
 }
 
 pub fn file_write(mut ctx: rsrc::IopCtx) -> rsrc::Event
