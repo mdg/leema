@@ -441,7 +441,7 @@ fn test_parse_constructor_call()
 
     let expected = sxpr::new_block(list::singleton(
         sxpr::new(SxprType::Call,
-        list::cons(Val::Type(Type::Id(Rc::new("Taco".to_string()))),
+        list::cons(Val::Id(Rc::new("Taco".to_string())),
         list::cons(Val::Int(1),
         list::cons(Val::Int(2),
         Val::Nil,
