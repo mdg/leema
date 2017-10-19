@@ -88,6 +88,11 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(0, result['code'])
         self.assertEqual(b"x = 1, y = 2\n", result['output'])
 
+    def test_typevar(self):
+        result = run_leema('typevar')
+        self.assertEqual(0, result['code'])
+        self.assertEqual(b"first: 4, second: b\n", result['output'])
+
     def test_list_cons(self):
         result = run_leema('list_cons')
         self.assertEqual(0, result['code'])

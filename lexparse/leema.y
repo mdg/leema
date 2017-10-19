@@ -30,7 +30,6 @@ use std::rc::{Rc};
 %type SquareL { TokenLoc }
 %type SquareR { TokenLoc }
 %type StrLit { String }
-%type TYPE_ID { TokenData<String> }
 %type TYPE_VAR { TokenData<String> }
 
 %type program { Val }
@@ -48,7 +47,6 @@ use std::rc::{Rc};
 %type macro_stmt { Val }
 %type macro_args { Val }
 %type call_expr { Val }
-%type func_term { Val }
 %type call_args { Val }
 %type call_arg { Val }
 %type if_stmt { Val }
@@ -274,11 +272,8 @@ typex(A) ::= TYPE_VOID. {
 typex(A) ::= TYPE_VAR(B). {
 	A = Type::Var(Rc::new(B.data));
 }
-typex(A) ::= TYPE_ID(B). {
-	A = Type::Id(Rc::new(B.data));
-}
 typex(A) ::= ID(B). {
-    A = Type::Var(Rc::new(B.data));
+	A = Type::Id(Rc::new(B.data));
 }
 typex(A) ::= SquareL typex(B) SquareR. {
 	A = Type::StrictList(Box::new(B));
@@ -383,19 +378,11 @@ else_if(A) ::= ELSE block(B). {
 expr(A) ::= if_expr(B). {
     A = B;
 }
-call_expr(A) ::= func_term(B) PARENCALL RPAREN. {
+call_expr(A) ::= term(B) PARENCALL RPAREN. {
 	A = sxpr::call(B, Val::Nil);
 }
-call_expr(A) ::= func_term(B) PARENCALL call_args(C) RPAREN. {
+call_expr(A) ::= term(B) PARENCALL call_args(C) RPAREN. {
 	A = sxpr::call(B, C);
-}
-
-func_term(A) ::= term(B). {
-    A = B;
-}
-func_term(A) ::= TYPE_ID(B). {
-    let tid = Type::Id(Rc::new(B.data));
-    A = Val::Type(tid);
 }
 
 call_arg(A) ::= expr(B). {

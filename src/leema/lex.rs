@@ -214,9 +214,6 @@ impl Token
                 parse::TOKEN_RUSTBLOCK => {
                     Token::RUSTBLOCK
                 }
-                parse::TOKEN_TYPE_ID => {
-                    Token::TYPE_ID(TokenData::new((*tok).val(), tl))
-                }
                 parse::TOKEN_TYPE_BOOL => {
                     Token::TYPE_BOOL
                 }
