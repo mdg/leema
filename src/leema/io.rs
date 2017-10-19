@@ -160,7 +160,6 @@ impl Io
                 rsrc_id,
                 params,
             } => {
-                println!("handle incoming Iop");
                 let param_vals = Val::from_msg(params);
                 self.handle_iop_action(wid, fid, action, rsrc_id, param_vals);
             }

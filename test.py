@@ -133,7 +133,7 @@ class TestScripts(unittest.TestCase):
     def test_chess960(self):
         result = run_leema('chess960')
         self.assertEqual(0, result['code'])
-        output = result['output'].strip()
+        output = result['output'].strip().decode("utf-8")
         self.assertEqual(8, len(output))
         self.assertEqual(1, output.count("K"))
         self.assertEqual(1, output.count("Q"))
@@ -152,6 +152,12 @@ class TestScripts(unittest.TestCase):
         result = run_leema('rgb')
         self.assertEqual(0, result['code'])
         self.assertEqual(b"color: Rgb(10,20,30,)\nred: 10\n", result['output'])
+
+    def test_read_file(self):
+        result = run_leema('read_file')
+        self.assertEqual(0, result['code'])
+        expected = b"hello leema friend\n\n"
+        self.assertEqual(expected, result['output'])
 
 
 if __name__ == '__main__':
