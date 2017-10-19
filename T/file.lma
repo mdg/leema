@@ -15,5 +15,5 @@ func write(f: File, data: Str): Int -RUST-
 func read_file(path: Str): Str -RUST-
 
 ## write the full contents of a string into a file
-func write_file(path: Str): Str -RUST-
+func write_file(path: Str, output: Str): Void -RUST-
 
