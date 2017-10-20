@@ -1,0 +1,9 @@
+import file
+
+
+func main() ->
+    let txt := "goodbye friend\n"
+    file::write_file("goodbye.txt", txt)
+    cout("file written\n")
+--
+
