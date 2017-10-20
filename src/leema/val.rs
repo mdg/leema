@@ -421,6 +421,7 @@ impl Val
         match self {
             &Val::Id(ref name) => name.clone(),
             &Val::TypedId(ref name, ref typ) => name.clone(),
+            &Val::Type(Type::Id(ref name)) => name.clone(),
             _ => {
                 panic!("not an id {:?}", self);
             }

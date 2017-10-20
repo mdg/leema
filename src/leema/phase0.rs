@@ -5,7 +5,7 @@ use leema::list;
 use leema::log;
 use leema::sxpr;
 
-use std::collections::{HashMap, LinkedList};
+use std::collections::{HashMap, HashSet, LinkedList};
 use std::rc::Rc;
 use std::io::{stderr, Write};
 
@@ -17,7 +17,8 @@ pub struct Protomod
     pub funcseq: LinkedList<String>,
     pub funcsrc: HashMap<String, Val>,
     pub valtypes: HashMap<String, Type>,
-    pub newtypes: HashMap<Type, Val>,
+    pub newtypes: HashSet<Type>,
+    pub structfields: HashMap<String, Vec<(Rc<String>, Type)>>,
 }
 
 impl Protomod
@@ -29,7 +30,8 @@ impl Protomod
             funcseq: LinkedList::new(),
             funcsrc: HashMap::new(),
             valtypes: HashMap::new(),
-            newtypes: HashMap::new(),
+            newtypes: HashSet::new(),
+            structfields: HashMap::new(),
         }
     }
 
@@ -41,6 +43,15 @@ impl Protomod
     pub fn valtype(&self, valnm: &str) -> Option<&Type>
     {
         self.valtypes.get(valnm)
+    }
+
+    pub fn new_struct(&mut self
+        , name: Rc<String>, fields: Vec<(Rc<String>, Type)>)
+    {
+        let num_fields = fields.len() as i8;
+        self.structfields.insert((*name).clone(), fields);
+        let s = Type::Struct(name, num_fields);
+        self.newtypes.insert(s);
     }
 
     pub fn preproc_module_expr(&mut self, prog: &Lib
@@ -61,6 +72,10 @@ impl Protomod
                 self.funcseq.push_back(strname.clone());
                 self.funcsrc.insert(strname.clone(), pp_func);
                 self.valtypes.insert(strname, ftype);
+            }
+            &Val::Sxpr(SxprType::DefStruct, ref parts) => {
+                let (sname, fields) = Protomod::preproc_struct(prog, mp, parts);
+                self.new_struct(sname, fields);
             }
             &Val::Sxpr(SxprType::DefMacro, _) => {
                 // do nothing. the macro definition will have been handled
@@ -112,6 +127,10 @@ impl Protomod
                 Val::Tuple(items.iter().map(|i| {
                     Protomod::preproc_expr(prog, mp, i)
                 }).collect())
+            }
+            &Val::DotAccess(ref base, ref fld) => {
+                let ppbase = Protomod::preproc_expr(prog, mp, base);
+                Val::DotAccess(Box::new(ppbase), fld.clone())
             }
             &Val::Wildcard => Val::Wildcard,
             &Val::RustBlock => Val::RustBlock,
@@ -320,6 +339,21 @@ impl Protomod
                 panic!("Not a pattern list: {:?}", p);
             }
         }
+    }
+
+    pub fn preproc_struct(prog: &Lib, mp: &ModulePreface, sp: &Val)
+        -> (Rc<String>, Vec<(Rc<String>, Type)>)
+    {
+        let (ref name, ref fields) = list::take_ref(sp);
+        let rc_name = name.id_name().clone();
+
+        let sfields = list::map_ref_to_vec(fields, |f| {
+            println!("preproc_struct_field({:?})", f);
+            let (fname, ftype) = Val::split_typed_id(f);
+            (fname.id_name(), ftype)
+        });
+
+        (rc_name, sfields)
     }
 }
 
