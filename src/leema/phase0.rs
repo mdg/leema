@@ -1,5 +1,5 @@
 use leema::program::{Lib};
-use leema::val::{SxprType, Val, Type};
+use leema::val::{SxprType, Val, Type, FuncCallType};
 use leema::module::{ModKey, ModulePreface};
 use leema::list;
 use leema::log;
@@ -49,9 +49,18 @@ impl Protomod
         , name: Rc<String>, fields: Vec<(Rc<String>, Type)>)
     {
         let num_fields = fields.len() as i8;
+        let stype = Type::Struct(name.clone(), num_fields);
+
+        let cfields = fields.iter().map(|&(ref _name, ref ftype)| {
+            ftype.clone()
+        }).collect();
+
+        let ctype = Type::Func(FuncCallType::FrameCall,
+            cfields, Box::new(stype.clone()));
+
+        self.valtypes.insert((*name).clone(), ctype);
         self.structfields.insert((*name).clone(), fields);
-        let s = Type::Struct(name, num_fields);
-        self.newtypes.insert(s);
+        self.newtypes.insert(stype);
     }
 
     pub fn preproc_module_expr(&mut self, prog: &Lib
@@ -435,7 +444,6 @@ fn test_new_struct_fields()
         (Rc::new("lettuce".to_string()), Type::Bool),
         (Rc::new("buns".to_string()), Type::Int),
     ];
-
     proto.new_struct(struct_name.clone(), raw_fields);
 
     assert!(proto.structfields.contains_key(&*struct_name));
@@ -450,6 +458,29 @@ fn test_new_struct_fields()
     let buns = structfields.get(1).unwrap();
     assert_eq!("buns", &*buns.0);
     assert_eq!(Type::Int, buns.1);
+}
+
+#[test]
+fn test_new_struct_constructor_valtype()
+{
+    let mk = Rc::new(ModKey::name_only("tacos"));
+    let mut proto = Protomod::new(mk);
+    let struct_name = Rc::new("Burrito".to_string());
+    let raw_fields = vec![
+        (Rc::new("lettuce".to_string()), Type::Bool),
+        (Rc::new("buns".to_string()), Type::Int),
+    ];
+    proto.new_struct(struct_name.clone(), raw_fields);
+
+    assert!(proto.valtypes.contains_key(&*struct_name));
+
+    let constructor = proto.valtypes.get(&*struct_name).unwrap();
+
+    if let &Type::Func(ref calltyp, ref params, ref result) = constructor {
+        assert_eq!(2, params.len());
+    } else {
+        panic!("constructor valtype is not a func");
+    }
 }
 
 }
