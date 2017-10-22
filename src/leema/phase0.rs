@@ -14,7 +14,7 @@ use std::io::{stderr, Write};
 pub struct Protomod
 {
     pub key: Rc<ModKey>,
-    pub funcseq: LinkedList<String>,
+    pub funcseq: LinkedList<Rc<String>>,
     pub funcsrc: HashMap<String, Val>,
     pub valtypes: HashMap<String, Type>,
     pub newtypes: HashSet<Type>,
@@ -58,6 +58,7 @@ impl Protomod
         let ctype = Type::Func(FuncCallType::FrameCall,
             cfields, Box::new(stype.clone()));
 
+        self.funcseq.push_back(name.clone());
         self.valtypes.insert((*name).clone(), ctype);
         self.structfields.insert((*name).clone(), fields);
         self.newtypes.insert(stype);
@@ -69,6 +70,7 @@ impl Protomod
         match x {
             &Val::Sxpr(SxprType::DefFunc, ref parts) => {
                 let (fname, args, fresult, body) = list::to_ref_tuple4(parts);
+                let rcname = fname.id_name().clone();
                 let strname = String::from(fname.str());
                 let pp_args = Protomod::preproc_list(prog, mp, args);
                 let pp_fresult = Protomod::preproc_expr(prog, mp, fresult);
@@ -78,7 +80,7 @@ impl Protomod
 
                 let ftype = sxpr::defunc_type(&pp_func);
 
-                self.funcseq.push_back(strname.clone());
+                self.funcseq.push_back(rcname);
                 self.funcsrc.insert(strname.clone(), pp_func);
                 self.valtypes.insert(strname, ftype);
             }

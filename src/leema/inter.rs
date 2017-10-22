@@ -110,9 +110,14 @@ impl Intermod
         let mut inter = Intermod::new(proto.key.clone());
         let mut locals: HashMap<String, Type> = HashMap::new();
         for fname in proto.funcseq.iter() {
-            let defunc = proto.funcsrc.get(fname).unwrap();
+            let opt_defunc = proto.funcsrc.get(&**fname);
+            if opt_defunc.is_none() {
+                panic!("No function source found for {}::{}",
+                    proto.key.name, fname);
+            }
+            let defunc = opt_defunc.unwrap();
             let (args, body) = split_func_args_body(defunc);
-            let ftype = proto.valtypes.get(fname).unwrap();
+            let ftype = proto.valtypes.get(&**fname).unwrap();
             let ifunc = compile_function(proto, imports, &locals
                     , fname, ftype, &args, body);
             locals.insert(fname.to_string(), ifunc.typ.clone());
