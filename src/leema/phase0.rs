@@ -357,7 +357,6 @@ impl Protomod
         let rc_name = name.id_name().clone();
 
         let sfields = list::map_ref_to_vec(fields, |f| {
-            println!("preproc_struct_field({:?})", f);
             let (fname, ftype) = Val::split_typed_id(f);
             (fname.id_name(), ftype)
         });
