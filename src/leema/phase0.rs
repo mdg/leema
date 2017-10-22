@@ -380,7 +380,10 @@ pub fn preproc(prog: &mut Lib, mp: &ModulePreface, ast: &Val) -> Protomod
 mod tests {
     use leema::log;
     use leema::loader::{Interloader};
+    use leema::module::{ModKey};
+    use leema::phase0::{Protomod};
     use leema::program;
+    use leema::val::{Val, Type};
 
     use std::rc::{Rc};
     use std::io::{stderr, Write};
@@ -402,6 +405,51 @@ fn test_preproc_list_pattern()
     loader.set_mod_txt("tacos", input);
     let mut prog = program::Lib::new(loader);
     let pmod = prog.read_proto("tacos");
+}
+
+#[test]
+fn test_new_struct_newtypes()
+{
+    let mk = Rc::new(ModKey::name_only("tacos"));
+    let mut proto = Protomod::new(mk);
+    let struct_name = Rc::new("Burrito".to_string());
+    let raw_fields = vec![
+        (Rc::new("lettuce".to_string()), Type::Bool),
+        (Rc::new("buns".to_string()), Type::Int),
+    ];
+
+    proto.new_struct(struct_name.clone(), raw_fields);
+
+    assert!(proto.newtypes.contains(
+        &Type::Struct(Rc::new("Burrito".to_string()), 2)
+    ));
+}
+
+#[test]
+fn test_new_struct_fields()
+{
+    let mk = Rc::new(ModKey::name_only("tacos"));
+    let mut proto = Protomod::new(mk);
+    let struct_name = Rc::new("Burrito".to_string());
+    let raw_fields = vec![
+        (Rc::new("lettuce".to_string()), Type::Bool),
+        (Rc::new("buns".to_string()), Type::Int),
+    ];
+
+    proto.new_struct(struct_name.clone(), raw_fields);
+
+    assert!(proto.structfields.contains_key(&*struct_name));
+
+    let structfields = proto.structfields.get(&*struct_name).unwrap();
+    assert_eq!(2, structfields.len());
+
+    let lettuce = structfields.get(0).unwrap();
+    assert_eq!("lettuce", &*lettuce.0);
+    assert_eq!(Type::Bool, lettuce.1);
+
+    let buns = structfields.get(1).unwrap();
+    assert_eq!("buns", &*buns.0);
+    assert_eq!(Type::Int, buns.1);
 }
 
 }
