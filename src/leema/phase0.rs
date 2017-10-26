@@ -45,25 +45,6 @@ impl Protomod
         self.valtypes.get(valnm)
     }
 
-    pub fn new_struct(&mut self
-        , name: Rc<String>, fields: Vec<(Rc<String>, Type)>)
-    {
-        let num_fields = fields.len() as i8;
-        let stype = Type::Struct(name.clone(), num_fields);
-
-        let cfields = fields.iter().map(|&(ref _name, ref ftype)| {
-            ftype.clone()
-        }).collect();
-
-        let ctype = Type::Func(FuncCallType::FrameCall,
-            cfields, Box::new(stype.clone()));
-
-        self.funcseq.push_back(name.clone());
-        self.valtypes.insert((*name).clone(), ctype);
-        self.structfields.insert((*name).clone(), fields);
-        self.newtypes.insert(stype);
-    }
-
     pub fn preproc_module_expr(&mut self, prog: &Lib
             , mp: &ModulePreface, x: &Val
     ) {
@@ -85,8 +66,7 @@ impl Protomod
                 self.valtypes.insert(strname, ftype);
             }
             &Val::Sxpr(SxprType::DefStruct, ref parts) => {
-                let (sname, fields) = Protomod::preproc_struct(prog, mp, parts);
-                self.new_struct(sname, fields);
+                self.preproc_struct(parts);
             }
             &Val::Sxpr(SxprType::DefMacro, _) => {
                 // do nothing. the macro definition will have been handled
@@ -352,18 +332,50 @@ impl Protomod
         }
     }
 
-    pub fn preproc_struct(prog: &Lib, mp: &ModulePreface, sp: &Val)
-        -> (Rc<String>, Vec<(Rc<String>, Type)>)
+    pub fn preproc_struct(&mut self, sp: &Val)
     {
-        let (ref name, ref fields) = list::take_ref(sp);
+        let (ref name, ref src_fields) = list::take_ref(sp);
         let rc_name = name.id_name().clone();
 
-        let sfields = list::map_ref_to_vec(fields, |f| {
+        let field_type_vec = list::map_ref_to_vec(src_fields, |f| {
             let (fname, ftype) = Val::split_typed_id(f);
-            (fname.id_name(), ftype)
+            ftype.clone()
         });
 
-        (rc_name, sfields)
+        let field_id_vec = list::map_ref_to_vec(src_fields, |f| {
+            let (fname, _) = Val::split_typed_id(f);
+            fname.clone()
+        });
+
+        let field_name_vec = list::map_ref_to_vec(src_fields, |f| {
+            let (fname, ftype) = Val::split_typed_id(f);
+            fname.id_name()
+        });
+
+        let struct_fields =
+            list::map_ref_to_vec(src_fields, |f| {
+                let (fname, ftype) = Val::split_typed_id(f);
+                (fname.id_name().clone(), ftype.clone())
+            });
+
+        let num_fields = field_type_vec.len() as i8;
+        let stype = Type::Struct(rc_name.clone(), num_fields);
+
+        let func_type = Type::Func(FuncCallType::FrameCall,
+            field_type_vec, Box::new(stype.clone()));
+
+        let srcblk = Val::Struct(stype.clone(), field_id_vec);
+        let srcxpr = sxpr::defunc((*name).clone()
+            , (*src_fields).clone()
+            , Val::Type(stype.clone())
+            , srcblk, Val::Void
+            );
+
+        self.funcseq.push_back(rc_name.clone());
+        self.funcsrc.insert((*rc_name).clone(), srcxpr);
+        self.valtypes.insert((*rc_name).clone(), func_type);
+        self.structfields.insert((*rc_name).clone(), struct_fields);
+        self.newtypes.insert(stype);
     }
 }
 
