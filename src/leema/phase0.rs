@@ -400,6 +400,7 @@ pub fn preproc(prog: &mut Lib, mp: &ModulePreface, ast: &Val) -> Protomod
 
 #[cfg(test)]
 mod tests {
+    use leema::list;
     use leema::log;
     use leema::loader::{Interloader};
     use leema::module::{ModKey};
@@ -435,12 +436,12 @@ fn test_new_struct_newtypes()
     let mk = Rc::new(ModKey::name_only("tacos"));
     let mut proto = Protomod::new(mk);
     let struct_name = Rc::new("Burrito".to_string());
-    let raw_fields = vec![
-        (Rc::new("lettuce".to_string()), Type::Bool),
-        (Rc::new("buns".to_string()), Type::Int),
-    ];
-
-    proto.new_struct(struct_name.clone(), raw_fields);
+    let raw_fields = list::from3(
+        Val::Id(struct_name.clone()),
+        Val::typed_id("lettuce", Type::Bool),
+        Val::typed_id("buns", Type::Int),
+    );
+    proto.preproc_struct(&raw_fields);
 
     assert!(proto.newtypes.contains(
         &Type::Struct(Rc::new("Burrito".to_string()), 2)
@@ -453,11 +454,12 @@ fn test_new_struct_fields()
     let mk = Rc::new(ModKey::name_only("tacos"));
     let mut proto = Protomod::new(mk);
     let struct_name = Rc::new("Burrito".to_string());
-    let raw_fields = vec![
-        (Rc::new("lettuce".to_string()), Type::Bool),
-        (Rc::new("buns".to_string()), Type::Int),
-    ];
-    proto.new_struct(struct_name.clone(), raw_fields);
+    let raw_fields = list::from3(
+        Val::Id(struct_name.clone()),
+        Val::typed_id("lettuce", Type::Bool),
+        Val::typed_id("buns", Type::Int),
+    );
+    proto.preproc_struct(&raw_fields);
 
     assert!(proto.structfields.contains_key(&*struct_name));
 
@@ -479,11 +481,12 @@ fn test_new_struct_constructor_valtype()
     let mk = Rc::new(ModKey::name_only("tacos"));
     let mut proto = Protomod::new(mk);
     let struct_name = Rc::new("Burrito".to_string());
-    let raw_fields = vec![
-        (Rc::new("lettuce".to_string()), Type::Bool),
-        (Rc::new("buns".to_string()), Type::Int),
-    ];
-    proto.new_struct(struct_name.clone(), raw_fields);
+    let raw_fields = list::from3(
+        Val::Id(struct_name.clone()),
+        Val::typed_id("lettuce", Type::Bool),
+        Val::typed_id("buns", Type::Int),
+    );
+    proto.preproc_struct(&raw_fields);
 
     assert!(proto.valtypes.contains_key(&*struct_name));
 
