@@ -153,10 +153,10 @@ class TestScripts(unittest.TestCase):
         self.assertTrue(pk < pr2)
 
     def test_rgb(self):
-        self.skipTest("structs come back later")
         result = run_leema('rgb')
         self.assertEqual(0, result['code'])
-        self.assertEqual(b"color: Rgb(10,20,30,)\nred: 10\n", result['output'])
+        expected = b"color: Rgb(10,20,30,)\nred: 10\nblue: 30\n"
+        self.assertEqual(expected, result['output'])
 
     def test_read_file(self):
         result = run_leema('read_file')

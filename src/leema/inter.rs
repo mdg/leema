@@ -364,35 +364,6 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
             } else {
                 panic!("no field: {:?}.{}", outer, inner);
             }
-            /*
-            match &**outer {
-                &Val::Id(ref outer_id) => {
-                    if scope.T.contains_var(outer_id) {
-                        Ixpr::new(Source::FieldAccess(
-                            Box::new(Ixpr::new(Source::Id(outer_id.clone()))),
-                            inner.clone(),
-                        ))
-                    } else if scope.imports_module(outer_id) {
-                        let opt_itype = scope.import_vartype(outer_id, inner);
-                        if opt_itype.is_none() {
-                            panic!("module var not found: {:?}", x);
-                        }
-                        let itype = opt_itype.unwrap();
-                        Ixpr{
-                            typ: itype.clone(),
-                            src: Source::ModuleAccess(
-                                outer_id.clone(), inner.clone()
-                            ),
-                        }
-                    } else {
-                        panic!("unknown identifier: {}", outer_id);
-                    }
-                }
-                _ => {
-                    panic!("dot access unsupported: {:?}", outer);
-                }
-            }
-            */
         }
         &Val::Bool(b) => {
             Ixpr::const_val(Val::Bool(b))
