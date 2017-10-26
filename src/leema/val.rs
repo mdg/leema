@@ -151,8 +151,10 @@ impl Type
     pub fn deep_clone(&self) -> Type
     {
         match self {
+            &Type::Str => Type::Str,
             &Type::Bool => Type::Bool,
             &Type::Int => Type::Int,
+            &Type::Hashtag => Type::Hashtag,
             &Type::Struct(ref s, nflds) => {
                 Type::Struct(Rc::new((**s).clone()), nflds)
             }
