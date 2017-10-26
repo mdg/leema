@@ -1,0 +1,10 @@
+import date
+
+func main() ->
+    let d := date::Date(2010, 9, 8)
+    cout("date is: $d\n")
+    match d
+    |date::Date(y, mon, day) ->
+        cout("year: $y / month: $mon / day: $day\n")
+    --
+--
