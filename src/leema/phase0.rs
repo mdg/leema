@@ -377,6 +377,22 @@ impl Protomod
         self.structfields.insert((*rc_name).clone(), struct_fields);
         self.newtypes.insert(stype);
     }
+
+    pub fn struct_field_idx(&self, typ: &Type, fld: &str) -> Option<(i8, &Type)>
+    {
+        let typename = typ.typename();
+        let opt_structfields = self.structfields.get(typename);
+        if opt_structfields.is_none() {
+            panic!("cannot find struct fields for: {}", typename);
+        }
+        let structfields = opt_structfields.unwrap();
+        structfields.iter().enumerate().find(|&(_, &(ref fname, _))| {
+            &**fname == fld
+        })
+        .map(|(idx, &(_, ref ftype))| {
+            (idx as i8, ftype)
+        })
+    }
 }
 
 pub fn preproc(prog: &mut Lib, mp: &ModulePreface, ast: &Val) -> Protomod

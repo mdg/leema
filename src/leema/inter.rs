@@ -233,6 +233,11 @@ impl<'a> Interscope<'a>
         self.imports.contains_key(name)
     }
 
+    pub fn struct_field_idx(&self, typ: &Type, fld: &str) -> Option<(i8, &Type)>
+    {
+        self.proto.struct_field_idx(typ, fld)
+    }
+
     pub fn assertVarNamesMatch(argnames: &Vec<Rc<String>>, patt: &Val)
     {
         let patt_items = patt.tuple_items_ref();
@@ -351,6 +356,15 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
             }
         }
         &Val::DotAccess(ref outer, ref inner) => {
+            let ix_outer = compile_expr(scope, outer);
+            if let Some((inner_idx, inner_typ)) =
+                scope.struct_field_idx(&ix_outer.typ, inner)
+            {
+                Ixpr::new_field_access(ix_outer, inner_idx, inner_typ.clone())
+            } else {
+                panic!("no field: {:?}.{}", outer, inner);
+            }
+            /*
             match &**outer {
                 &Val::Id(ref outer_id) => {
                     if scope.T.contains_var(outer_id) {
@@ -378,6 +392,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
                     panic!("dot access unsupported: {:?}", outer);
                 }
             }
+            */
         }
         &Val::Bool(b) => {
             Ixpr::const_val(Val::Bool(b))

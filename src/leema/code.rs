@@ -311,11 +311,12 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 dst: result_reg,
             }
         }
-        Source::FieldAccess(ref base, ref sub) => {
+        Source::FieldAccess(ref base, fld_idx) => {
             let mut base_ops = make_sub_ops(rt, base);
-            // base_ops.push(Op::Copy(Reg::Undecided, Reg::Undecided));
-            // TODO: find the subreg index for the field name
-            base_ops
+            Oxpr{
+                ops: vec![],
+                dst: base_ops.dst.sub(fld_idx),
+            }
         }
         Source::Func(ref argnames, ref body) => {
             rt.def_args(argnames);

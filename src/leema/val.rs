@@ -95,6 +95,17 @@ impl Type
         Type::Func(calltype, inputs, Box::new(result))
     }
 
+    pub fn typename(&self) -> &str
+    {
+        match self {
+            &Type::Int => "Int",
+            &Type::Struct(ref sname, _) => &**sname,
+            _ => {
+                panic!("No typename for {:?}", self);
+            }
+        }
+    }
+
     pub fn split_func(t: &Type) -> (&FuncCallType, &Vec<Type>, &Type)
     {
         match t {

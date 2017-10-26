@@ -18,7 +18,7 @@ pub enum Source
     Constructor(Type),
     ConstVal(Val),
     Fail(Box<Ixpr>, Box<Ixpr>),
-    FieldAccess(Box<Ixpr>, Rc<String>),
+    FieldAccess(Box<Ixpr>, i8),
     Fork(Box<Ixpr>, Box<Ixpr>, Box<Ixpr>),
     Func(Vec<Rc<String>>, Box<Ixpr>),
     Let(Val, Box<Ixpr>),
@@ -176,13 +176,13 @@ impl Ixpr
         }
     }
 
-    pub fn new_field_access(base: Ixpr, fld: Rc<String>) -> Ixpr
+    pub fn new_field_access(base: Ixpr, fld_idx: i8, fld_typ: Type) -> Ixpr
     {
         Ixpr{
-            typ: Type::Unknown, // new field access
+            typ: fld_typ,
             src: Source::FieldAccess(
                 Box::new(base),
-                fld,
+                fld_idx,
             ),
         }
     }
