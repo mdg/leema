@@ -413,6 +413,9 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
                 src: Source::ConstVal(Val::CallParams),
             }
         }
+        &Val::Struct(ref typ, ref flds) => {
+            Ixpr::constructor(typ.clone())
+        }
         &Val::Void => Ixpr::noop(),
         _ => {
             panic!("Cannot compile expr: {:?}", x);

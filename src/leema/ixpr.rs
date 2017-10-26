@@ -125,7 +125,7 @@ impl Ixpr
         }
     }
 
-    fn constructor(t: Type) -> Ixpr
+    pub fn constructor(t: Type) -> Ixpr
     {
         Ixpr{
             typ: t.clone(),
