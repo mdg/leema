@@ -56,11 +56,11 @@
 #define TOKEN_IF                      55
 #define TOKEN_PIPE                    56
 #define TOKEN_MATCH                   57
-#define TOKEN_True                    58
-#define TOKEN_False                   59
-#define TOKEN_UNDERSCORE              60
-#define TOKEN_NEGATE                  61
-#define TOKEN_VOID                    62
-#define TOKEN_DollarQuestion          63
+#define TOKEN_NEGATE                  58
+#define TOKEN_VOID                    59
+#define TOKEN_DollarQuestion          60
+#define TOKEN_True                    61
+#define TOKEN_False                   62
+#define TOKEN_UNDERSCORE              63
 #define TOKEN_StrOpen                 64
 #define TOKEN_StrClose                65

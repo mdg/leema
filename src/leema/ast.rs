@@ -226,13 +226,13 @@ fn test_ast_parse_list_cons() {
     let input = "1;2;x\n";
     let root = ast::parse(lex(input));
 
-    let inner = sxpr::call(Val::id("list_cons".to_string()),
-        list::from2(Val::Int(2), Val::id("x".to_string())));
-    let expected = sxpr::new(SxprType::BlockExpr, list::singleton(
-        sxpr::call(Val::id("list_cons".to_string()),
-            list::from2(Val::Int(1), inner)
-        )
-    ));
+    let lst =
+        list::cons(Val::Int(1),
+            list::cons(Val::Int(2),
+            Val::id("x".to_string())
+        ));
+
+    let expected = sxpr::new(SxprType::BlockExpr, list::singleton(lst));
     assert_eq!(expected, root);
 }
 
@@ -245,6 +245,59 @@ fn test_call_function_plus_comma()
     --
     ";
     ast::parse(lex(input));
+}
+
+#[test]
+fn test_parse_empty_tuple() {
+    let input = "()";
+    let root = ast::parse(lex(input));
+
+    let xtuple = Val::Tuple(vec![]);
+    let expected = sxpr::new(
+        SxprType::BlockExpr, list::singleton(xtuple)
+    );
+    assert_eq!(expected, root);
+}
+
+#[test]
+fn test_parse_one_tuple() {
+    let input = "(5)";
+    let root = ast::parse(lex(input));
+
+    let xtuple = Val::Int(5);
+    let expected = sxpr::new(
+        SxprType::BlockExpr, list::singleton(xtuple)
+    );
+    assert_eq!(expected, root);
+}
+
+#[test]
+fn test_parse_match_empty_list() {
+    let input = "
+    func is_empty(l)
+    |[] -> true
+    |_ -> false
+    --
+    ";
+    let root = ast::parse(lex(input));
+
+    let cases =
+        list::cons(list::empty(),
+        list::cons(sxpr::new_block(list::singleton(Val::Bool(true))),
+        list::cons(
+            list::cons(Val::Wildcard,
+            list::cons(sxpr::new_block(list::singleton(Val::Bool(false))),
+            Val::Nil)),
+        Val::Nil)));
+    let matchblk =
+        sxpr::defunc(Val::id("is_empty".to_string()),
+            list::singleton(Val::typed_id("l", Type::AnonVar)),
+            Val::Type(Type::AnonVar),
+            sxpr::match_expr(Val::CallParams, cases),
+            Val::Void,
+        );
+    let expected = sxpr::new(SxprType::BlockExpr, list::singleton(matchblk));
+    assert_eq!(expected, root);
 }
 
 #[test]

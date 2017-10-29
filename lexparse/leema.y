@@ -54,11 +54,6 @@ use std::rc::{Rc};
 %type if_expr { Val }
 %type if_case { Val }
 %type match_case { Val }
-%type pexpr { Val }
-%type ptuple { Val }
-%type pargs { Val }
-%type plist { Val }
-%type plist_items { Val }
 %type defstruct { Val }
 %type defstruct_fields { Val }
 %type defstruct_field { Val }
@@ -426,55 +421,11 @@ if_case(A) ::= PIPE ELSE block(B). {
 expr(A) ::= MATCH expr(B) match_case(C) DOUBLEDASH. {
     A = sxpr::match_expr(B, C);
 }
-match_case(A) ::= PIPE pexpr(B) block(C) match_case(D). {
+match_case(A) ::= PIPE expr(B) block(C) match_case(D). {
     A = list::from3(B, C, D);
 }
-match_case(A) ::= PIPE pexpr(B) block(C). {
+match_case(A) ::= PIPE expr(B) block(C). {
     A = list::from2(B, C);
-}
-
-pexpr(A) ::= ptuple(B). { A = B; }
-pexpr(A) ::= plist(B). { A = B; }
-pexpr(A) ::= INT(B). { A = Val::Int(B); }
-pexpr(A) ::= True. { A = Val::Bool(true); }
-pexpr(A) ::= False. { A = Val::Bool(false); }
-pexpr(A) ::= HASHTAG(B). { A = Val::Hashtag(Rc::new(B.data)); }
-pexpr(A) ::= ID(B). { A = Val::id(B.data); }
-pexpr(A) ::= UNDERSCORE. { A = Val::Wildcard; }
-ptuple ::= LPAREN RPAREN. {
-	panic!("an empty tuple is not a valid pattern");
-}
-ptuple(A) ::= LPAREN pexpr(B) RPAREN. {
-	A = Val::Tuple(vec![B]);
-}
-ptuple(A) ::= LPAREN pargs(B) RPAREN. {
-	A = Val::tuple_from_list(B);
-}
-pargs(A) ::= pexpr(B) COMMA pexpr(C). {
-	A = list::cons(B,
-        list::cons(C,
-        Val::Nil
-        ));
-}
-pargs(A) ::= pexpr(B) COMMA pargs(C). {
-	A = list::cons(B, C);
-}
-/* list pattern */
-plist(A) ::= SquareL SquareR. {
-    A = list::empty();
-}
-plist(A) ::= SquareL plist_items(B) SquareR. {
-    A = B;
-}
-plist_items(A) ::= pexpr(B). {
-	A = list::singleton(B);
-}
-plist_items(A) ::= pexpr(B) COMMA plist_items(C). {
-    A = list::cons(B, C);
-}
-/* list decons pattern */
-plist(A) ::= pexpr(B) SEMICOLON pexpr(C). {
-	A = list::cons(B, C);
 }
 
 
@@ -510,7 +461,7 @@ expr(A) ::= expr(B) MOD expr(C). {
 	A = sxpr::binaryop("int_mod".to_string(), B, C);
 }
 expr(A) ::= expr(B) SEMICOLON expr(C). {
-	A = sxpr::call(Val::id("list_cons".to_string()), list::from2(B, C));
+	A = list::cons(B, C);
 }
 expr(A) ::= expr(B) AND expr(C). {
 	A = sxpr::binaryop("boolean_and".to_string(), B, C);
@@ -595,6 +546,7 @@ term(A) ::= HASHTAG(B). {
 	A = Val::Hashtag(Rc::new(B.data));
 }
 term(A) ::= strexpr(B). { A = B; }
+term(A) ::= UNDERSCORE. { A = Val::Wildcard; }
 term(A) ::= term(B) DOT ID(C). {
     A = Val::DotAccess(Box::new(B), Rc::new(C.data));
 }
@@ -619,6 +571,9 @@ list_items(A) ::= expr(B) COMMA list_items(C). {
 	A = list::cons(B, C);
 }
 
+tuple(A) ::= LPAREN RPAREN. {
+    A = Val::Tuple(vec![]);
+}
 tuple(A) ::= LPAREN tuple_args(B) RPAREN. {
 	A = Val::tuple_from_list(B);
 }
