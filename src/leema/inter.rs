@@ -241,21 +241,6 @@ impl<'a> Interscope<'a>
     pub fn assert_var_names_match(argnames: &Vec<Rc<String>>, patt: &Val)
     {
         let num_args = argnames.len();
-        if num_args == 1 {
-            if let &Val::Id(ref pname) = patt {
-                let single_arg = argnames.get(0).unwrap();
-                if single_arg != pname {
-                    // varname doesn't match, abort
-                    panic!(
-                        "pattern variable should match func variable: {} != {}",
-                        pname, single_arg
-                    );
-                }
-            }
-            // a single variable that isn't an ID, should be good
-            return;
-        }
-
         let patt_items = patt.tuple_items_ref();
         let patt_size = patt_items.len();
         if num_args != patt_size {

@@ -275,17 +275,17 @@ fn test_parse_one_tuple() {
 fn test_parse_match_empty_list() {
     let input = "
     func is_empty(l)
-    |[] -> true
-    |_ -> false
+    |([]) -> true
+    |(_) -> false
     --
     ";
     let root = ast::parse(lex(input));
 
     let cases =
-        list::cons(list::empty(),
+        list::cons(Val::Tuple(vec![list::empty()]),
         list::cons(sxpr::new_block(list::singleton(Val::Bool(true))),
         list::cons(
-            list::cons(Val::Wildcard,
+            list::cons(Val::Tuple(vec![Val::Wildcard]),
             list::cons(sxpr::new_block(list::singleton(Val::Bool(false))),
             Val::Nil)),
         Val::Nil)));
@@ -465,8 +465,8 @@ fn test_parse_match_list()
 {
     let input = "
     match x
-    |h;t -> h
-    |_ -> false
+    |(h;t) -> h
+    |(_) -> false
     --
     ";
     let root = ast::parse(lex(input));
@@ -475,10 +475,12 @@ fn test_parse_match_list()
         sxpr::match_expr(
             Val::id("x".to_string()),
             list::from3(
-                list::cons(Val::id("h".to_string()), Val::id("t".to_string())),
+                Val::Tuple(vec![list::cons(
+                    Val::id("h".to_string()), Val::id("t".to_string())
+                )]),
                 sxpr::new_block(list::singleton(Val::id("h".to_string()))),
             list::from2(
-                Val::Wildcard,
+                Val::Tuple(vec![Val::Wildcard]),
                 sxpr::new_block(list::singleton(Val::Bool(false))),
             )),
         ),

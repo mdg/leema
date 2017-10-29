@@ -1532,7 +1532,13 @@ impl PartialOrd for Val
             (&Val::Nil, _) => {
                 Some(Ordering::Less)
             }
+            (&Val::Cons(_, _), _) => {
+                Some(Ordering::Less)
+            }
             (_, &Val::Nil) => {
+                Some(Ordering::Greater)
+            }
+            (_, &Val::Cons(_, _)) => {
                 Some(Ordering::Greater)
             }
             (&Val::Void, _) => {

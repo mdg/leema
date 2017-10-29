@@ -19,7 +19,7 @@ lib: lexer parser
 test: unit T
 
 unit: lexer parser
-	cargo test
+	cargo test --bin leema
 
 T: build test.py
 	${NOSETESTS} --with-xunit

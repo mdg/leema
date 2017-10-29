@@ -421,11 +421,13 @@ if_case(A) ::= PIPE ELSE block(B). {
 expr(A) ::= MATCH expr(B) match_case(C) DOUBLEDASH. {
     A = sxpr::match_expr(B, C);
 }
-match_case(A) ::= PIPE expr(B) block(C) match_case(D). {
-    A = list::from3(B, C, D);
+match_case(A) ::= PIPE LPAREN call_args(B) RPAREN block(C) match_case(D). {
+    let patt = Val::tuple_from_list(B);
+    A = list::from3(patt, C, D);
 }
-match_case(A) ::= PIPE expr(B) block(C). {
-    A = list::from2(B, C);
+match_case(A) ::= PIPE LPAREN call_args(B) RPAREN block(C). {
+    let patt = Val::tuple_from_list(B);
+    A = list::from2(patt, C);
 }
 
 
