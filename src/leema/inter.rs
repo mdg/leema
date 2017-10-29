@@ -238,10 +238,25 @@ impl<'a> Interscope<'a>
         self.proto.struct_field_idx(typ, fld)
     }
 
-    pub fn assertVarNamesMatch(argnames: &Vec<Rc<String>>, patt: &Val)
+    pub fn assert_var_names_match(argnames: &Vec<Rc<String>>, patt: &Val)
     {
-        let patt_items = patt.tuple_items_ref();
         let num_args = argnames.len();
+        if num_args == 1 {
+            if let &Val::Id(ref pname) = patt {
+                let single_arg = argnames.get(0).unwrap();
+                if single_arg != pname {
+                    // varname doesn't match, abort
+                    panic!(
+                        "pattern variable should match func variable: {} != {}",
+                        pname, single_arg
+                    );
+                }
+            }
+            // a single variable that isn't an ID, should be good
+            return;
+        }
+
+        let patt_items = patt.tuple_items_ref();
         let patt_size = patt_items.len();
         if num_args != patt_size {
             panic!("pattern size mismatch: {}!={}", num_args, patt_size);
@@ -482,7 +497,7 @@ pub fn compile_matchcase(scope: &mut Interscope, callmatchx: bool
     let (blk, t3) = list::take_ref(t2);
 
     if callmatchx {
-        Interscope::assertVarNamesMatch(&scope.argnames, patt);
+        Interscope::assert_var_names_match(&scope.argnames, patt);
     }
 
     scope.T.push_block();

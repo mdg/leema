@@ -422,8 +422,10 @@ mod tests {
     use leema::module::{ModKey};
     use leema::phase0::{Protomod};
     use leema::program;
-    use leema::val::{Val, Type};
+    use leema::sxpr;
+    use leema::val::{Val, Type, SxprType};
 
+    use std::collections::{HashMap};
     use std::rc::{Rc};
     use std::io::{stderr, Write};
 
@@ -444,6 +446,14 @@ fn test_preproc_list_pattern()
     loader.set_mod_txt("tacos", input);
     let mut prog = program::Lib::new(loader);
     let pmod = prog.read_proto("tacos");
+
+    assert_eq!(2, pmod.funcsrc.len());
+
+    let foo_func = pmod.funcsrc.get("foo").unwrap();
+    assert!(sxpr::is_type(foo_func, SxprType::DefFunc));
+
+    let main_func = pmod.funcsrc.get("main").unwrap();
+    assert!(sxpr::is_type(main_func, SxprType::DefFunc));
 }
 
 #[test]
