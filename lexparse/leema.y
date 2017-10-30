@@ -53,6 +53,7 @@ use std::rc::{Rc};
 %type if_case { Val }
 %type match_expr { Val }
 %type match_case { Val }
+%type match_pattern { Val }
 %type defstruct { Val }
 %type defstruct_fields { Val }
 %type defstruct_field { Val }
@@ -179,21 +180,20 @@ failed_stmt(A) ::= FAILED ID(B) match_case(C) DOUBLEDASH. {
     );
 }
 
-let_stmt(A) ::= Let ID(B) ASSIGN expr(C). {
+let_stmt(A) ::= Let match_pattern(B) ASSIGN expr(C). {
     let letx =
-        list::cons(Val::id(B.data),
+        list::cons(B,
         list::cons(C,
         Val::Nil
         ));
     A = sxpr::new(SxprType::Let, letx);
 }
-let_stmt(A) ::= Fork ID(B) ASSIGN expr(C). {
-	let bind = list::cons(Val::new_str(B.data), list::singleton(C));
+let_stmt(A) ::= Fork match_pattern(B) ASSIGN expr(C). {
+	let bind = list::cons(B, list::singleton(C));
 	A = sxpr::new(SxprType::Fork, bind);
 }
-let_stmt ::= Let ID(B) EQ1 expr. {
-    panic!("Found let {} = <expr>\nit should be let {} := <expr>\n",
-        B.data, B.data);
+let_stmt ::= Let match_pattern(B) EQ1 expr. {
+    panic!("Found let x = ...\ninstead it should be let x := ...\n");
 }
 
 /* rust func declaration */
@@ -399,13 +399,15 @@ if_case(A) ::= PIPE ELSE block(B). {
 match_expr(A) ::= MATCH expr(B) match_case(C) DOUBLEDASH. {
     A = sxpr::match_expr(B, C);
 }
-match_case(A) ::= PIPE LPAREN call_args(B) RPAREN block(C) match_case(D). {
-    let patt = Val::tuple_from_list(B);
-    A = list::from3(patt, C, D);
+match_case(A) ::= PIPE match_pattern(B) block(C) match_case(D). {
+    A = list::from3(B, C, D);
 }
-match_case(A) ::= PIPE LPAREN call_args(B) RPAREN block(C). {
-    let patt = Val::tuple_from_list(B);
-    A = list::from2(patt, C);
+match_case(A) ::= PIPE match_pattern(B) block(C). {
+    A = list::from2(B, C);
+}
+
+match_pattern(A) ::= expr(B). {
+    A = B;
 }
 
 

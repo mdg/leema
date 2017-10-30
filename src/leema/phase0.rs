@@ -103,8 +103,8 @@ impl Protomod
             &Val::Bool(b) => {
                 Val::Bool(b)
             }
-            &Val::Cons(_, _) => {
-                list::map_ref(x, |i| { Protomod::preproc_expr(prog, mp, i) })
+            &Val::Cons(ref head, ref tail) => {
+                Protomod::preproc_cons(prog, mp, head, tail)
             }
             &Val::Nil => Val::Nil,
             &Val::Hashtag(ref ht) => Val::Hashtag(ht.clone()),
@@ -130,6 +130,31 @@ impl Protomod
             _ => {
                 println!("preproc_unknown_expr({:?})", x);
                 x.clone()
+            }
+        }
+    }
+
+    pub fn preproc_cons(prog: &Lib, mp: &ModulePreface
+            , head: &Val, tail: &Val) -> Val
+    {
+        let pphead = Protomod::preproc_expr(prog, mp, head);
+        match tail {
+            &Val::Cons(ref next_head, ref next_tail) => {
+                let pptail =
+                    Protomod::preproc_cons(prog, mp, next_head, next_tail);
+                sxpr::call(Val::id("list_cons".to_string()),
+                    list::from2(pphead, pptail))
+            }
+            &Val::Nil => {
+                list::singleton(pphead)
+            }
+            &Val::Id(_) => {
+                let pptail = Protomod::preproc_expr(prog, mp, tail);
+                sxpr::call(Val::id("list_cons".to_string()),
+                    list::from2(pphead, pptail))
+            }
+            _ => {
+                panic!("cannot preproc cons: {:?};{:?}", head, tail)
             }
         }
     }
