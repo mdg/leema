@@ -57,7 +57,7 @@ impl Protomod
                 let pp_fresult = Protomod::preproc_expr(prog, mp, fresult);
                 let pp_body = Protomod::preproc_expr(prog, mp, body);
                 let pp_func = sxpr::defunc(
-                        fname.clone(), pp_args, pp_fresult, pp_body, Val::Void);
+                        fname.clone(), pp_args, pp_fresult, pp_body);
 
                 let ftype = sxpr::defunc_type(&pp_func);
 
@@ -368,7 +368,7 @@ impl Protomod
         let srcxpr = sxpr::defunc((*name).clone()
             , (*src_fields).clone()
             , Val::Type(stype.clone())
-            , srcblk, Val::Void
+            , srcblk
             );
 
         self.funcseq.push_back(rc_name.clone());

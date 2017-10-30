@@ -294,9 +294,8 @@ fn test_parse_match_empty_list() {
             list::singleton(Val::typed_id("l", Type::AnonVar)),
             Val::Type(Type::AnonVar),
             sxpr::match_expr(Val::CallParams, cases),
-            Val::Void,
         );
-    let expected = sxpr::new(SxprType::BlockExpr, list::singleton(matchblk));
+    let expected = sxpr::new_block(list::singleton(matchblk));
     assert_eq!(expected, root);
 }
 
@@ -338,19 +337,19 @@ fn test_ast_parse_if()
     ";
     let root = ast::parse(lex(input));
 
-    let blocka = sxpr::new(SxprType::BlockExpr, list::singleton(
+    let blocka = sxpr::new_block(list::singleton(
         Val::id("y".to_string()),
     ));
-    let blockb = sxpr::new(SxprType::BlockExpr, list::singleton(
+    let blockb = sxpr::new_block(list::singleton(
         Val::id("z".to_string()),
     ));
-    let expected = sxpr::new(SxprType::BlockExpr, list::cons(
+    let expected = sxpr::new_block(list::cons(
         sxpr::new(SxprType::IfExpr,
-        list::cons(Val::id("x".to_string()),
-        list::cons(blocka,
-        list::cons(blockb,
-        Val::Nil,
-        )))),
+            list::cons(Val::id("x".to_string()),
+            list::cons(blocka,
+            list::cons(blockb,
+            Val::Nil,
+            )))),
         Val::Nil,
     ));
     assert_eq!(expected, root);
@@ -362,16 +361,16 @@ fn test_ast_parse_if_no_else()
     let input = "if x -> y --";
     let root = ast::parse(lex(input));
 
-    let blocka = sxpr::new(SxprType::BlockExpr, list::singleton(
+    let blocka = sxpr::new_block(list::singleton(
         Val::id("y".to_string()),
     ));
-    let expected = sxpr::new(SxprType::BlockExpr, list::cons(
+    let expected = sxpr::new_block(list::cons(
         sxpr::new(SxprType::IfExpr,
-        list::cons(Val::id("x".to_string()),
-        list::cons(blocka,
-        list::cons(Val::Void,
-        Val::Nil,
-        )))),
+            list::cons(Val::id("x".to_string()),
+            list::cons(blocka,
+            list::cons(Val::Void,
+            Val::Nil,
+            )))),
         Val::Nil,
     ));
     assert_eq!(expected, root);

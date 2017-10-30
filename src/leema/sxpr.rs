@@ -49,9 +49,9 @@ pub fn is_type(v: &Val, st: SxprType) -> bool
     }
 }
 
-pub fn new_block(lst: Val) -> Val
+pub fn new_block(stmts: Val) -> Val
 {
-    Val::Sxpr(SxprType::BlockExpr, Box::new(lst))
+    Val::Sxpr(SxprType::BlockExpr, Box::new(stmts))
 }
 
 fn strexpr_mash(merge: Val, next: Val) -> (Option<Val>, Val)
@@ -127,16 +127,15 @@ pub fn match_expr(x: Val, cases: Val) -> Val
     ))
 }
 
-pub fn defunc(name: Val, args: Val, typ: Val, blk: Val, ps: Val) -> Val
+pub fn defunc(name: Val, args: Val, typ: Val, blk: Val) -> Val
 {
     Val::Sxpr(SxprType::DefFunc, Box::new(
         list::cons(name,
         list::cons(args,
         list::cons(typ,
         list::cons(blk,
-        list::cons(ps,
         Val::Nil
-        )))))
+        ))))
     ))
 }
 
