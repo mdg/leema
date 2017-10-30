@@ -154,9 +154,6 @@ impl Token
                 parse::TOKEN_FAILED => {
                     Token::FAILED
                 }
-                parse::TOKEN_PS => {
-                    Token::PS
-                }
                 parse::TOKEN_PLUS => {
                     Token::PLUS(tl)
                 }
