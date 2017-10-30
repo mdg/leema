@@ -70,7 +70,6 @@ use std::rc::{Rc};
 %type list { Val }
 %type list_items { Val }
 %type tuple { Val }
-%type tuple_args { Val }
 %type strexpr { Val }
 %type strlist { Val }
 %type strlist_term { Val }
@@ -546,17 +545,8 @@ list_items(A) ::= expr(B) COMMA list_items(C). {
 /* tuple
  * (4 + 4, 6 - 7)
  */
-tuple(A) ::= LPAREN tuple_args(B) RPAREN. {
+tuple(A) ::= LPAREN call_args(B) RPAREN. {
 	A = Val::tuple_from_list(B);
-}
-tuple_args(A) ::= . {
-    A = list::empty();
-}
-tuple_args(A) ::= expr(B). {
-	A = list::singleton(B);
-}
-tuple_args(A) ::= expr(B) COMMA tuple_args(C). {
-	A = list::cons(B, C);
 }
 
 strexpr(A) ::= StrOpen strlist(B) StrClose. {
