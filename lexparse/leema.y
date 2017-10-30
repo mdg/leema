@@ -496,9 +496,6 @@ expr(A) ::= expr(B) LTEQ expr(C) LTEQ expr(D). {
 }
 */
 
-term(A) ::= LPAREN expr(C) RPAREN. {
-	A = C;
-}
 term(A) ::= tuple(B). {
     A = B;
 }
@@ -549,14 +546,14 @@ list_items(A) ::= expr(B) COMMA list_items(C). {
 /* tuple
  * (4 + 4, 6 - 7)
  */
-tuple(A) ::= LPAREN RPAREN. {
-    A = Val::Tuple(vec![]);
-}
 tuple(A) ::= LPAREN tuple_args(B) RPAREN. {
 	A = Val::tuple_from_list(B);
 }
-tuple_args(A) ::= expr(B) COMMA expr(C). {
-	A = list::cons(B, list::singleton(C));
+tuple_args(A) ::= . {
+    A = list::empty();
+}
+tuple_args(A) ::= expr(B). {
+	A = list::singleton(B);
 }
 tuple_args(A) ::= expr(B) COMMA tuple_args(C). {
 	A = list::cons(B, C);
