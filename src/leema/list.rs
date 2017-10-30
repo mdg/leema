@@ -30,6 +30,29 @@ pub fn cons(head: Val, tail: Val) -> Val
     }
 }
 
+pub fn concat(l1: &Val, l2: &Val) -> Val
+{
+    if l1 == &Val::Nil {
+        return l2.clone();
+    }
+    if l2 == &Val::Nil {
+        return l1.clone();
+    }
+
+    match l1 {
+        &Val::Nil => {
+            l2.clone()
+        }
+        &Val::Cons(ref head, ref tail) => {
+            let new_tail = concat(tail, l2);
+            cons((**head).clone(), new_tail)
+        }
+        _ => {
+            panic!("cannot concat to a not list: concat({:?}, {:?})", l1, l2);
+        }
+    }
+}
+
 pub fn singleton(head: Val) -> Val
 {
     cons(head, Val::Nil)
@@ -404,6 +427,24 @@ pub fn set_head(l: &mut Val, v: Val)
 mod tests {
     use leema::list;
     use leema::val::{Val};
+
+#[test]
+fn test_concat()
+{
+    let l1 = list::from2(Val::Int(1), Val::Int(2));
+    let l2 = list::from2(Val::Int(3), Val::Int(4));
+
+    let lc = list::concat(&l1, &l2);
+
+    let exp =
+        list::cons(Val::Int(1),
+        list::cons(Val::Int(2),
+        list::cons(Val::Int(3),
+        list::cons(Val::Int(4),
+        Val::Nil
+        ))));
+    assert_eq!(exp, lc);
+}
 
 #[test]
 fn test_map()
