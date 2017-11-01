@@ -86,6 +86,7 @@ pub enum Type
     Texpr(Rc<String>, Vec<Type>),
     Var(Rc<String>),
     AnonVar,
+    Error(Rc<String>),
 }
 
 impl Type
@@ -147,6 +148,17 @@ impl Type
                 panic!("Not a Type::Var {:?}", self);
             }
         }
+    }
+
+    /**
+     * Check if this value is a type error
+     */
+    pub fn is_error(&self) -> bool
+    {
+        if let &Type::Error(_) = self {
+            return true;
+        }
+        return false;
     }
 
     pub fn tuple_items(self) -> Vec<Type>
@@ -237,6 +249,7 @@ impl fmt::Display for Type
                 write!(f, "Type::Var({})", name)
             }
             &Type::AnonVar => write!(f, "TypeAnonymous"),
+            &Type::Error(ref estr) => write!(f, "TypeError({})", estr),
         }
     }
 }
@@ -285,6 +298,7 @@ impl fmt::Debug for Type
                 write!(f, "Type::Var({})", name)
             }
             &Type::AnonVar => write!(f, "TypeAnonymous"),
+            &Type::Error(ref estr) => write!(f, "TypeError({})", estr),
         }
     }
 }

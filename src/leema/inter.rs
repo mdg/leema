@@ -145,7 +145,7 @@ pub struct Interscope<'a>
     // types of functions already compiled in this module
     mod_locals: &'a HashMap<String, Type>,
     // types of locally defined labels
-    T: Inferator,
+    T: Inferator<'a>,
     argnames: Vec<Rc<String>>,
     argt: Type,
 }
@@ -157,7 +157,7 @@ impl<'a> Interscope<'a>
             , fname: &'a str, args: &Vec<Rc<String>>, argt: &Vec<Type>
             ) -> Interscope<'a>
     {
-        let mut t = Inferator::new();
+        let mut t = Inferator::new(fname);
 
         for (an, at) in args.iter().zip(argt) {
             if let None = t.bind_vartype(an, at) {
@@ -434,6 +434,9 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
                 }).collect::<Vec<&Type>>();
                 scope.T.make_call_type(&icall.typ, &iargst)
             };
+            if ftype.is_error() {
+                panic!("type error in function call: {} {:?}", callx, ftype);
+            }
             let argsix = Ixpr::new_tuple(iargs);
             Ixpr{
                 typ: ftype,

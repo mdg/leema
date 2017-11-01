@@ -23,7 +23,7 @@ pub struct CallFrame<'a>
 {
     modname: &'a str,
     fname: &'a str,
-    T: Inferator,
+    T: Inferator<'a>,
     pub calls: LinkedList<CallOp>,
 }
 
@@ -34,7 +34,7 @@ impl<'a> CallFrame<'a>
         CallFrame{
             modname: modname,
             fname: fname,
-            T: Inferator::new(),
+            T: Inferator::new(fname),
             calls: LinkedList::new(),
         }
     }
@@ -182,7 +182,7 @@ pub struct Typescope<'a, 'b>
     pub fname: &'b str,
     inter: &'a Typemod,
     imports: &'a HashMap<String, &'a Typemod>,
-    T: Inferator,
+    T: Inferator<'b>,
 }
 
 impl<'a, 'b> Typescope<'a, 'b>
@@ -196,7 +196,7 @@ impl<'a, 'b> Typescope<'a, 'b>
             fname: func,
             inter: inter,
             imports: imps,
-            T: Inferator::new(),
+            T: Inferator::new(func),
         }
     }
 

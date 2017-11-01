@@ -12,18 +12,20 @@ use std::rc::{Rc};
 type Blockscope = HashSet<String>;
 
 #[derive(Debug)]
-pub struct Inferator
+pub struct Inferator<'b>
 {
+    funcname: &'b str,
     T: HashMap<String, Type>,
     e: Vec<Blockscope>,
     inferences: HashMap<Rc<String>, Type>,
 }
 
-impl Inferator
+impl<'b> Inferator<'b>
 {
-    pub fn new() -> Inferator
+    pub fn new(funcname: &'b str) -> Inferator
     {
         Inferator{
+            funcname: funcname,
             T: HashMap::new(),
             e: vec![Blockscope::new()],
             inferences: HashMap::new(),
@@ -54,7 +56,8 @@ impl Inferator
         {
             let e = self.e.last_mut().unwrap();
             if e.contains(argn) {
-                panic!("Cannot redeclare variable: {}", argn);
+                panic!("Cannot redeclare variable type: {} as {}"
+                    , argn, argt);
             }
             e.insert(argn.to_string());
         }
@@ -276,8 +279,10 @@ impl Inferator
 
         for (defargt, argt) in defargst.iter().zip(argst.iter()) {
             if Inferator::mash(&mut self.inferences, defargt, argt).is_none() {
-                panic!("expected function args: {:?} found {:?}",
-                    defargst, argst);
+                return Type::Error(Rc::new(
+                    format!("expected function args in {}: {:?} found {:?}",
+                    self.funcname, defargst, argst)
+                ));
             }
         }
         self.inferred_type(defresult).clone()
