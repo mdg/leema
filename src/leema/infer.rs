@@ -55,11 +55,10 @@ impl<'b> Inferator<'b>
         vout!("bind_vartype({}, {:?})\n", argn, argt);
         {
             let e = self.e.last_mut().unwrap();
-            if e.contains(argn) {
-                panic!("Cannot redeclare variable type: {} as {}"
-                    , argn, argt);
+            if !e.contains(argn) {
+                e.insert(argn.to_string());
             }
-            e.insert(argn.to_string());
+            // if a var already exists, just use it to match against input
         }
 
         let realt = match argt {

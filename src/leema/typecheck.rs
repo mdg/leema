@@ -262,11 +262,14 @@ impl<'a, 'b> Typescope<'a, 'b>
             .unwrap()
             .clone()
         } else {
-            self.imports.get(modname)
-            .expect(&format!("cannot find module {}", modname))
-            .func.get(funcname)
-            .expect(&format!("cannot find function {}::{}", modname, funcname))
-            .clone()
+            let m =
+                self.imports.get(modname)
+                .expect(&format!("cannot find module {} in {:?}"
+                    , modname, self.imports));
+            m.func.get(funcname)
+                .expect(&format!("cannot find function {}::{} in {:?}"
+                    , modname, funcname, m))
+                .clone()
         }
     }
 }
