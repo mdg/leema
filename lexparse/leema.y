@@ -218,7 +218,11 @@ func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(C) RPAREN opt_typex(D)
 {
 	let id = Val::id(B.data);
 	let typ = Val::Type(D);
-    let body = sxpr::match_expr(Val::CallParams, E);
+    // extract field names from args to pass them through to match expr
+    let args = Val::Tuple(list::map_ref_to_vec(&C, |arg| {
+        Val::Id(arg.id_name())
+    }));
+    let body = sxpr::match_expr(args, E);
 	A = sxpr::defunc(id, C, typ, body)
 }
 

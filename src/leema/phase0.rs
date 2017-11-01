@@ -114,6 +114,10 @@ impl Protomod
             &Val::TypedId(_, _) => {
                 x.clone()
             }
+            &Val::Tuple(ref items) if items.len() == 1 => {
+                // one tuples are compiled to just the value
+                Protomod::preproc_expr(prog, mp, items.get(0).unwrap())
+            }
             &Val::Tuple(ref items) => {
                 Val::Tuple(items.iter().map(|i| {
                     Protomod::preproc_expr(prog, mp, i)

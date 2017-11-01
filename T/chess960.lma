@@ -20,24 +20,24 @@ func assign(line: [#], col: Int, rkr: #, bb: Int, bw: Int, pcs: [#]): [#]
 --
 
 func print_pieces(all_ppcs: [#])
-|([]) ->
+|[] ->
     cout("\n")
-|(#rook;ppcs) ->
+|#rook;ppcs ->
     cout("R")
     print_pieces(ppcs)
-|(#knight;ppcs) ->
+|#knight;ppcs ->
     cout("N")
     print_pieces(ppcs)
-|(#bishop;ppcs) ->
+|#bishop;ppcs ->
     cout("B")
     print_pieces(ppcs)
-|(#queen;ppcs) ->
+|#queen;ppcs ->
     cout("Q")
     print_pieces(ppcs)
-|(#king;ppcs) ->
+|#king;ppcs ->
     cout("K")
     print_pieces(ppcs)
-|(all_ppcs) ->
+|all_ppcs ->
     cout("no match? $all_ppcs\n")
 --
 
