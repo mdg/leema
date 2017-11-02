@@ -1,7 +1,7 @@
 leema
 ======
 
-![https://travis-ci.org/mdg/leema.svg?branch=master]
+![travis-ci](https://travis-ci.org/mdg/leema.svg?branch=master])
 
 Leema is a concurrent, error-tolerant, functional programming language.
 
