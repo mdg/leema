@@ -305,7 +305,7 @@ mod tests {
 #[test]
 fn test_add_and_find()
 {
-    let mut t = Inferator::new();
+    let mut t = Inferator::new("burritos");
     t.bind_vartype("a", &Type::Int);
     assert_eq!(Type::Int, t.vartype("a").unwrap());
 }
@@ -313,7 +313,7 @@ fn test_add_and_find()
 #[test]
 fn test_merge_strict_list_unknown()
 {
-    let mut t = Inferator::new();
+    let mut t = Inferator::new("burritos");
     let mtype = t.merge_types(
         &Type::StrictList(Box::new(Type::Unknown)),
         &Type::StrictList(Box::new(Type::Int)),
@@ -325,7 +325,7 @@ fn test_merge_strict_list_unknown()
 #[test]
 fn test_merge_types_via_tvar()
 {
-    let mut t = Inferator::new();
+    let mut t = Inferator::new("burritos");
     let intlist = Type::StrictList(Box::new(Type::Int));
     let unknownlist = Type::StrictList(Box::new(Type::Unknown));
     let tvar = Type::Var(Rc::new("Taco".to_string()));
@@ -340,7 +340,7 @@ fn test_merge_types_via_tvar()
 #[test]
 fn test_match_pattern_empty_list()
 {
-    let mut t = Inferator::new();
+    let mut t = Inferator::new("burritos");
     let tvar = Type::Var(Rc::new("Taco".to_string()));
     t.match_pattern(&Val::Nil, &tvar);
 
@@ -351,7 +351,7 @@ fn test_match_pattern_empty_list()
 #[test]
 fn test_match_pattern_empty_and_full_lists()
 {
-    let mut t = Inferator::new();
+    let mut t = Inferator::new("burritos");
     let tvar = Type::Var(Rc::new("Taco".to_string()));
     t.match_pattern(&Val::Nil, &tvar);
     t.match_pattern(&list::singleton(Val::Int(5)), &tvar);
@@ -363,7 +363,7 @@ fn test_match_pattern_empty_and_full_lists()
 #[test]
 fn test_match_pattern_hashtag_list_inside_tuple()
 {
-    let mut t = Inferator::new();
+    let mut t = Inferator::new("burritos");
     let tvar = Type::Tuple(vec![
         Type::Var(Rc::new("Taco".to_string()))
     ]);

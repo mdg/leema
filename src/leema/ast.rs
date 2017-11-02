@@ -264,7 +264,7 @@ fn test_parse_one_tuple() {
     let input = "(5)";
     let root = ast::parse(lex(input));
 
-    let xtuple = Val::Int(5);
+    let xtuple = Val::Tuple(vec![Val::Int(5)]);
     let expected = sxpr::new(
         SxprType::BlockExpr, list::singleton(xtuple)
     );
@@ -293,7 +293,7 @@ fn test_parse_match_empty_list() {
         sxpr::defunc(Val::id("is_empty".to_string()),
             list::singleton(Val::typed_id("l", Type::AnonVar)),
             Val::Type(Type::AnonVar),
-            sxpr::match_expr(Val::CallParams, cases),
+            sxpr::match_expr(Val::Tuple(vec![Val::id("l".to_string())]), cases),
         );
     let expected = sxpr::new_block(list::singleton(matchblk));
     assert_eq!(expected, root);
@@ -426,9 +426,9 @@ fn test_parse_call_function_call_result()
     let input = "(foo(5))(6)";
     let root = ast::parse(lex(input));
 
-    let foo_call = sxpr::new(SxprType::Call,
+    let foo_call = Val::Tuple(vec![sxpr::new(SxprType::Call,
         list::from2(Val::id("foo".to_string()), Val::Int(5))
-        );
+        )]);
     let expected = sxpr::new_block(list::singleton(
         sxpr::new(SxprType::Call,
             list::from2(foo_call, Val::Int(6)),
