@@ -91,7 +91,6 @@ pub trait Iregistry
 #[derive(Ord)]
 #[derive(Clone)]
 pub enum Reg {
-    Params,
     Param(Ireg),
     Local(Ireg),
     Lib,
@@ -104,9 +103,6 @@ impl Reg
     pub fn sub(&self, sub: i8) -> Reg
     {
         match self {
-            &Reg::Params => {
-                Reg::Param(Ireg::Reg(sub))
-            }
             &Reg::Param(ref ir) => {
                 Reg::Param(ir.sub(sub))
             }
@@ -133,7 +129,6 @@ impl Reg
     pub fn is_primary(&self) -> bool
     {
         match self {
-            &Reg::Params => true,
             &Reg::Param(Ireg::Reg(_)) => true,
             &Reg::Local(Ireg::Reg(_)) => true,
             _ => false,
@@ -177,7 +172,6 @@ impl fmt::Display for Reg
         match self {
             &Reg::Param(ref r) => write!(f, "Param{}", r),
             &Reg::Local(ref r) => write!(f, "Reg{}", r),
-            &Reg::Params => write!(f, "Reg::Params"),
             &Reg::Lib => write!(f, "Reg::Lib"),
             &Reg::Void => write!(f, "Reg::Void"),
             &Reg::Undecided => write!(f, "Reg::Undecided"),

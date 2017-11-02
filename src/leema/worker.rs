@@ -322,7 +322,7 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
                     None
                 }
             });
-            let msg_val = fib.head.e.get_reg(&Reg::Params).to_msg();
+            let msg_val = fib.head.e.get_params().to_msg();
             self.io_tx.send(IoMsg::Iop{
                 worker_id: self.id,
                 fiber_id: fiber_id,

@@ -1673,9 +1673,6 @@ impl Env
     pub fn get_reg_mut(&mut self, reg: &Reg) -> &mut Val
     {
         match reg {
-            &Reg::Params => {
-                &mut self.params
-            }
             &Reg::Param(ref r) => {
                 self.params.ireg_get_mut(r)
             }
@@ -1711,9 +1708,6 @@ impl Env
     pub fn get_reg(&self, reg: &Reg) -> &Val
     {
         match reg {
-            &Reg::Params => {
-                &self.params
-            }
             &Reg::Param(ref r) => {
                 self.params.ireg_get(r)
             }
@@ -1730,6 +1724,11 @@ impl Env
                 panic!("Cannot get undecided register");
             }
         }
+    }
+
+    pub fn get_params(&self) -> &Val
+    {
+        &self.params
     }
 
     pub fn get_param(&self, reg: i8) -> &Val
