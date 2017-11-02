@@ -399,7 +399,6 @@ pub enum Val {
     ResourceRef(i64),
     RustBlock,
     Future(FutureVal),
-    CallParams,
     Void,
     Wildcard,
     PatternVar(Reg),
@@ -729,7 +728,6 @@ impl Val
             &Val::Type(_) => Type::Kind,
             &Val::Void => Type::Void,
             &Val::Wildcard => Type::Unknown,
-            &Val::CallParams => Type::Unknown,
             &Val::PatternVar(_) => Type::Unknown,
             &Val::Id(_) => Type::AnonVar,
             &Val::TypedId(_, ref typ) => typ.clone(),
@@ -863,7 +861,6 @@ impl Val
             // &Val::Lib(LibVal),
             // &Val::RustBlock,
             // &Val::Future(FutureVal),
-            // &Val::CallParams,
             &Val::Void => Val::Void,
             &Val::Wildcard => Val::Wildcard,
             &Val::PatternVar(ref r) => Val::PatternVar(r.clone()),
@@ -1146,9 +1143,6 @@ impl fmt::Display for Val {
             Val::Void => {
                 write!(f, "Void")
             }
-            Val::CallParams => {
-                write!(f, "CallParams")
-            }
             Val::PatternVar(ref r) => {
                 write!(f, "pvar:{:?}", r)
             }
@@ -1238,9 +1232,6 @@ impl fmt::Debug for Val {
             }
             Val::PatternVar(ref r) => {
                 write!(f, "pvar:{:?}", r)
-            }
-            Val::CallParams => {
-                write!(f, "CallParams")
             }
             Val::Void => {
                 write!(f, "Void")
@@ -1448,9 +1439,6 @@ impl PartialOrd for Val
             (&Val::Void, &Val::Void) => {
                 Some(Ordering::Equal)
             }
-            (&Val::CallParams, &Val::CallParams) => {
-                Some(Ordering::Equal)
-            }
             (&Val::Tuple(ref a), &Val::Tuple(ref b)) => {
                 PartialOrd::partial_cmp(&*a, &*b)
             }
@@ -1559,12 +1547,6 @@ impl PartialOrd for Val
                 Some(Ordering::Less)
             }
             (_, &Val::Void) => {
-                Some(Ordering::Greater)
-            }
-            (&Val::CallParams, _) => {
-                Some(Ordering::Less)
-            }
-            (_, &Val::CallParams) => {
                 Some(Ordering::Greater)
             }
             (&Val::RustBlock, _) => Some(Ordering::Less),

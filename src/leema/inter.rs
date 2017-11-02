@@ -237,29 +237,6 @@ impl<'a> Interscope<'a>
     {
         self.proto.struct_field_idx(typ, fld)
     }
-
-    pub fn assert_var_names_match(argnames: &Vec<Rc<String>>, patt: &Val)
-    {
-        let num_args = argnames.len();
-        let patt_items = patt.tuple_items_ref();
-        let patt_size = patt_items.len();
-        if num_args != patt_size {
-            panic!("pattern size mismatch: {}!={}", num_args, patt_size);
-        }
-        for (arg, p) in argnames.iter().zip(patt_items.iter()) {
-            match p {
-                &Val::Id(ref patt_id) => {
-                    if patt_id != arg {
-                        panic!("pattern id does not match arg name {}!={}",
-                            patt_id, arg);
-                    }
-                }
-                _ => {
-                    // no pattern name for this var, it's cool
-                }
-            }
-        }
-    }
 }
 
 
@@ -393,12 +370,6 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
             Ixpr::new_tuple(c_items)
         }
         &Val::Sxpr(st, ref sx) => compile_sxpr(scope, st, sx),
-        &Val::CallParams => {
-            Ixpr{
-                typ: scope.argt.clone(),
-                src: Source::ConstVal(Val::CallParams),
-            }
-        }
         &Val::Struct(ref typ, ref flds) => {
             Ixpr::constructor(typ.clone())
         }
@@ -463,9 +434,8 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
         }
         SxprType::MatchExpr => {
             let (mx, cases) = list::to_ref_tuple2(sx);
-            let call_match = *mx == Val::CallParams;
             let imx = compile_expr(scope, mx);
-            let icases = compile_matchcase(scope, call_match, cases, &imx.typ);
+            let icases = compile_matchcase(scope, cases, &imx.typ);
             Ixpr::new_match_expr(imx, icases)
         }
         SxprType::StrExpr => {
@@ -478,15 +448,11 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
     }
 }
 
-pub fn compile_matchcase(scope: &mut Interscope, callmatchx: bool
+pub fn compile_matchcase(scope: &mut Interscope
         , case: &Val, xtyp: &Type) -> Ixpr
 {
     let (patt, t2) = list::take_ref(case);
     let (blk, t3) = list::take_ref(t2);
-
-    if callmatchx {
-        Interscope::assert_var_names_match(&scope.argnames, patt);
-    }
 
     scope.T.push_block();
     scope.T.match_pattern(patt, xtyp);
@@ -497,7 +463,7 @@ pub fn compile_matchcase(scope: &mut Interscope, callmatchx: bool
             Ixpr::noop()
         }
         &Val::Cons(ref next, _) => {
-            let inxt_inner = compile_matchcase(scope, callmatchx, next, xtyp);
+            let inxt_inner = compile_matchcase(scope, next, xtyp);
             scope.T.merge_types(&iblk.typ, &inxt_inner.typ);
             inxt_inner
         }

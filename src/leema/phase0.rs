@@ -130,7 +130,6 @@ impl Protomod
             &Val::Wildcard => Val::Wildcard,
             &Val::RustBlock => Val::RustBlock,
             &Val::Void => Val::Void,
-            &Val::CallParams => Val::CallParams,
             _ => {
                 println!("preproc_unknown_expr({:?})", x);
                 x.clone()

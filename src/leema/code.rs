@@ -277,13 +277,6 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 dst: rt.dst().clone(),
             }
         }
-        Source::ConstVal(Val::CallParams) => {
-            // call params are already there, noop this
-            Oxpr{
-                ops: vec![],
-                dst: Reg::Params,
-            }
-        }
         Source::ConstVal(ref v) => {
             let dst = rt.dst();
             Oxpr{
