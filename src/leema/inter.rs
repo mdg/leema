@@ -609,33 +609,14 @@ fn test_too_many_args()
 }
 
 #[test]
-#[should_panic]
-fn test_use_match_pattern_var_not_func_var()
-{
-    let input = String::from("
-
-    ## should be using n, a should be undefined
-    func factorial(a)
-    |(1) -> 1
-    |(n) -> a * (a-1)
-    --
-    ");
-
-    let mut loader = Interloader::new("tacos.lma");
-    loader.set_mod_txt("tacos", input);
-    let mut prog = program::Lib::new(loader);
-    let imod = prog.read_inter("tacos");
-}
-
-#[test]
 fn test_pattern_declaration()
 {
     let input = String::from("
 
     func foo(inputs: [#])
-    |([]) -> #empty
-    |(#whatever;more) -> #whatever
-    |(_;more) -> foo(more)
+    |[] -> #empty
+    |#whatever;more -> #whatever
+    |_;more -> foo(more)
     --
 
     func main() ->

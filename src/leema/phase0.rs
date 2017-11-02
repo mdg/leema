@@ -339,6 +339,17 @@ impl Protomod
     {
         match p {
             &Val::Cons(_, _) => Protomod::preproc_pattern_list(prog, mp, p),
+            &Val::Tuple(ref items) if items.len() == 1 => {
+                let first = items.get(0).unwrap();
+                Protomod::preproc_pattern(prog, mp, first)
+            }
+            &Val::Tuple(ref items) => {
+                Val::Tuple(
+                    items.iter().map(|i| {
+                        Protomod::preproc_pattern(prog, mp, i)
+                    }).collect()
+                )
+            }
             _ => p.clone(),
         }
     }

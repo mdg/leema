@@ -1,10 +1,10 @@
 
 func new_pair(a: $A, b: $B): ($A, $B) -> (a, b) --
 func first(p: ($A, $B)): $A
-|((a, b)) -> a
+|(a, b) -> a
 --
 func second(p: ($A, $B)): $B
-|((a, b)) -> b
+|(a, b) -> b
 --
 
 func main() ->
