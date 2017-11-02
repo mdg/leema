@@ -178,6 +178,8 @@ impl Lib
 
     pub fn deep_typecheck<'a, 'b>(&'a mut self, modname: &'b str, funcname: &'b str)
     {
+        vout!("deep_");
+        println!("typecheck {}::{}", modname, funcname);
         self.load_inter(modname);
 
         let inter = self.inter.get(modname).unwrap().clone();
@@ -194,6 +196,11 @@ impl Lib
                     } else {
                         self.deep_typecheck("prefab", call_name);
                     }
+                }
+                &CallOp::ExternalCall(ref extmod, ref extfunc)
+                    if modname == &**extmod && funcname == &**extfunc
+                => {
+                    // do nothing, it's recursive, we're already doing it
                 }
                 &CallOp::ExternalCall(ref extmod, ref extfunc) => {
                     self.deep_typecheck(extmod, extfunc);

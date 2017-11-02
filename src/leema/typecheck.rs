@@ -93,8 +93,8 @@ impl<'a> CallFrame<'a>
                 self.collect_calls(cases);
             }
             Source::MatchCase(_, ref truth, ref lies) => {
-                // self.collect_calls(truth);
-                // self.collect_calls(lies);
+                self.collect_calls(truth);
+                self.collect_calls(lies);
             }
             Source::RustBlock => {
                 // nothing to do. not calls.
@@ -361,7 +361,8 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
 
 pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> Type
 {
-    println!("check_function({:?}: {:?})", scope.fname, ix.typ);
+    vout!("typecheck function({:?}: {:?})", scope.fname, ix.typ);
+    vout!("typescope: {:?}\n", scope);
     match (&ix.src, &ix.typ) {
         (&Source::Func(ref arg_names, ref body)
                 , &Type::Func(ref calltype, ref arg_types
