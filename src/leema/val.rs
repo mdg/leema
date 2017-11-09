@@ -895,6 +895,11 @@ impl Val
             &Val::Sxpr(st, ref sx) => {
                 Val::Sxpr(st, Box::new(sx.deep_clone()))
             }
+            &Val::Struct(ref typ, ref flds) => {
+                Val::Struct(typ.deep_clone(), flds.iter().map(|f| {
+                    f.deep_clone()
+                }).collect())
+            }
             // &Val::Struct(Type, Vec<Val>),
             // &Val::Enum(Type, u8, Box<Val>),
             // &Val::Failure(ref tag, ref msg, ref ft),
