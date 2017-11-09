@@ -1,4 +1,3 @@
-
 struct Date
 .year: Int
 .month: Int
