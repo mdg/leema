@@ -65,7 +65,6 @@ use std::rc::{Rc};
 %type opt_typex { Type }
 %type mod_prefix { Val }
 %type tuple_types { Val }
-%type id_type { Val }
 
 %type list { Val }
 %type list_items { Val }

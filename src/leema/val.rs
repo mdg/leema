@@ -816,6 +816,13 @@ impl Val
                 });
                 m
             }
+            (&Val::Struct(_, ref dst), &Val::Struct(_, ref src)) => {
+                let mut m = true;
+                for (idst, isrc) in dst.iter().zip(src.iter()) {
+                    m = m && Val::_pattern_match(assigns, idst, isrc);
+                }
+                m
+            }
             (&Val::Nil, &Val::Nil) => true,
             _ => false,
         };
