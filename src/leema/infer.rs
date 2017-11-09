@@ -120,6 +120,22 @@ impl<'b> Inferator<'b>
                 self.merge_types(&valtype,
                     &Type::StrictList(Box::new(tvar_inner.clone())));
             }
+            (&Val::Struct(ref typ1, ref flds1),
+                &Type::Struct(ref typename2, nflds2)
+            ) => {
+                let type_match = match typ1 {
+                    &Type::Struct(ref typename1, nflds1) => {
+                        typename1 == typename2 // && nflds1 == nflds2
+                    }
+                    _ => {
+                        panic!("struct pattern type mismatch: {:?} != {:?}"
+                            , patt, valtype);
+                    }
+                };
+                for fld in flds1 {
+                    // do something w/ flds1
+                }
+            }
             _ => {
                 let ptype = patt.get_type();
                 let mtype = self.merge_types(&ptype, valtype);

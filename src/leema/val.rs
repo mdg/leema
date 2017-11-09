@@ -712,6 +712,9 @@ impl Val
             &Val::Int(_) => Type::Int,
             &Val::Str(_) => Type::Str,
             &Val::Hashtag(_) => Type::Hashtag,
+            &Val::Tuple(ref items) if items.len() == 1 => {
+                items.get(0).unwrap().get_type()
+            }
             &Val::Tuple(ref items) => {
                 let mut tuptypes = vec![];
                 for i in items {
@@ -732,8 +735,50 @@ impl Val
             &Val::Id(_) => Type::AnonVar,
             &Val::TypedId(_, ref typ) => typ.clone(),
             &Val::Sxpr(SxprType::DefFunc, _) => sxpr::defunc_type(self),
+            &Val::Sxpr(SxprType::StrExpr, _) => Type::Str,
+            &Val::Sxpr(SxprType::BlockExpr, ref exprs) => {
+                match list::last(exprs) {
+                    Some(last) => {
+                        last.get_type()
+                    }
+                    None => {
+                        Type::Void
+                    }
+                }
+            }
+            &Val::Sxpr(SxprType::Call, _) => Type::Unknown,
+            &Val::Sxpr(st, _) => {
+                panic!("cannot find type for: {:?}", st);
+            }
             &Val::RustBlock => Type::RustBlock,
-            _ => { panic!("dunno what type {:?}", self) }
+            &Val::Struct(ref typ, _) => {
+                typ.clone()
+            }
+            &Val::Enum(_, _, _) => {
+                panic!("cannot type enums yet");
+            }
+            &Val::Buffer(_) => Type::Str,
+            &Val::ModPrefix(_, _) => {
+                panic!("module prefixes have no type");
+            }
+            &Val::Kind(_) => {
+                panic!("is kind even a thing here?");
+            }
+            &Val::DotAccess(_, _) => {
+                panic!("maybe DotAccess should be an sxpr?");
+            }
+            &Val::Lib(ref lv) => {
+                lv.get_type()
+            }
+            &Val::LibRc(ref lv) => {
+                lv.get_type()
+            }
+            &Val::ResourceRef(_) => {
+                panic!("cannot get type of ResourceRef: {:?}", self);
+            }
+            &Val::Future(_) => {
+                panic!("cannot get type of Future: {:?}", self);
+            }
         }
     }
 

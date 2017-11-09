@@ -1,10 +1,13 @@
-import date
+
+struct Date
+.year: Int
+.month: Int
+.day: Int
+--
 
 func main() ->
-    let d := date::Date(2010, 9, 8)
+    let d := Date(2010, 9, 8)
     cout("date is: $d\n")
-    match d
-    |date::Date(y, mon, day) ->
-        cout("year: $y / month: $mon / day: $day\n")
-    --
+    let Date(y, mon, day) := d
+    cout("year: $y / month: $mon / day: $day\n")
 --

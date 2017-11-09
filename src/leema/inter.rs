@@ -429,8 +429,9 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
         SxprType::Let => {
             let (lhs_patt, rhs_val) = list::to_ref_tuple2(sx);
             let irhs = compile_expr(scope, rhs_val);
-            scope.T.match_pattern(lhs_patt, &irhs.typ);
-            Ixpr::new(Source::Let(lhs_patt.clone(), Box::new(irhs)))
+            let cpatt = compile_pattern(scope, lhs_patt);
+            scope.T.match_pattern(&cpatt, &irhs.typ);
+            Ixpr::new(Source::Let(cpatt, Box::new(irhs)))
         }
         SxprType::MatchExpr => {
             let (mx, cases) = list::to_ref_tuple2(sx);
@@ -455,7 +456,8 @@ pub fn compile_matchcase(scope: &mut Interscope
     let (blk, t3) = list::take_ref(t2);
 
     scope.T.push_block();
-    scope.T.match_pattern(patt, xtyp);
+    let cpatt = compile_pattern(scope, patt);
+    scope.T.match_pattern(&cpatt, xtyp);
     let iblk = compile_expr(scope, blk);
     scope.T.pop_block();
     let inext = match t3 {
@@ -474,7 +476,88 @@ pub fn compile_matchcase(scope: &mut Interscope
             panic!("next is not a list: {:?}", *t3);
         }
     };
-    Ixpr::new_match_case(patt.clone(), iblk, inext)
+    Ixpr::new_match_case(cpatt, iblk, inext)
+}
+
+pub fn compile_pattern(scope: &mut Interscope, patt: &Val) -> Val
+{
+    match patt {
+        &Val::Id(ref name) => {
+            Val::Id(name.clone())
+        }
+        &Val::Cons(ref head, ref tail) => {
+            let chead = compile_pattern(scope, head);
+            let ctail = match &**tail {
+                &Val::Id(_) => {
+                    compile_pattern(scope, &**tail)
+                }
+                &Val::Wildcard => Val::Wildcard,
+                &Val::Nil => Val::Nil,
+                &Val::Cons(_, _) => {
+                    compile_pattern(scope, &**tail)
+                }
+                _ => {
+                    panic!("invalid pattern tail: {:?}", tail);
+                }
+            };
+            Val::Cons(Box::new(chead), Box::new(ctail))
+        }
+        &Val::Nil => {
+            Val::Nil
+        }
+        &Val::Tuple(ref items) => {
+            let citems = items.iter().map(|i| {
+                compile_pattern(scope, i)
+            }).collect();
+            Val::Tuple(citems)
+        }
+        &Val::Int(i) => {
+            Val::Int(i)
+        }
+        &Val::Bool(b) => {
+            Val::Bool(b)
+        }
+        &Val::Str(ref s) => {
+            Val::Str(s.clone())
+        }
+        &Val::Hashtag(ref h) => {
+            Val::Hashtag(h.clone())
+        }
+        &Val::Wildcard => {
+            Val::Wildcard
+        }
+        &Val::Sxpr(SxprType::Call, ref callx) => {
+            compile_pattern_call(scope, callx)
+        }
+        _ => {
+            panic!("invalid pattern: {:?}", patt);
+        }
+    }
+}
+
+pub fn compile_pattern_call(scope: &mut Interscope, patt: &Val) -> Val
+{
+    let (callx, args) = list::take_ref(patt);
+    if !scope.proto.structfields.contains_key(callx.str()) {
+        panic!("Unknown type: {}", callx.str());
+    }
+    let args_vec = list::map_ref_to_vec(args, |a| {
+        compile_pattern(scope, a)
+    });
+    let struct_flds = scope.proto.structfields.get(callx.str()).unwrap();
+    if args_vec.len() < struct_flds.len() {
+        panic!("too few fields in struct pattern for: {}", callx.str());
+    }
+    if args_vec.len() > struct_flds.len() {
+        panic!("too many fields in struct pattern for: {}", callx.str());
+    }
+    for (arg, fld) in args_vec.iter().zip(struct_flds.iter()) {
+        println!("iterate var {} type {:?}", arg, fld);
+        let &(_, ref fldtype) = fld;
+        scope.T.bind_vartype(arg.str(), fldtype);
+    }
+    let struct_type = Type::Struct(callx.to_str(), args_vec.len() as i8);
+    Val::Struct(struct_type, args_vec.clone())
 }
 
 pub fn compile_list_to_vec(scope: &mut Interscope, l: &Val) -> Vec<Ixpr>

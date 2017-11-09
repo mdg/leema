@@ -350,7 +350,20 @@ impl Protomod
                     }).collect()
                 )
             }
-            _ => p.clone(),
+            &Val::Sxpr(SxprType::Call, ref sx) => {
+                let pp_sx = list::map_ref(&**sx, |px| {
+                    Protomod::preproc_pattern(prog, mp, px)
+                });
+                Val::Sxpr(SxprType::Call, Box::new(pp_sx))
+            }
+            &Val::Id(_) => {
+                p.clone()
+            }
+            &Val::Wildcard => Val::Wildcard,
+            _ => {
+                println!("preproc_pattern what?: {:?}", p);
+                p.clone()
+            }
         }
     }
 
