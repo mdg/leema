@@ -91,20 +91,16 @@ pub fn from_tuple(t: &Val) -> Val
 
 pub fn to_vec(mut it: Val) -> Vec<Val>
 {
-    let mut acc = Vec::new();
-    loop {
-        match it {
-            Val::Cons(h, mut t) => {
-                acc.push(*h);
-                it = *t;
-            }
-            Val::Nil => break,
-            _ => {
-                panic!("cannot convert not-List to vector: {:?}", it);
-            }
-        }
-    }
-    acc
+    map_to_vec(it, |i| {
+        i
+    })
+}
+
+pub fn ref_to_vec(it: &Val) -> Vec<Val>
+{
+    map_ref_to_vec(it, |i| {
+        i.clone()
+    })
 }
 
 pub fn is_empty(l: &Val) -> bool
@@ -136,6 +132,18 @@ pub fn is_singleton(l: &Val) -> bool
 pub fn len(l: &Val) -> usize
 {
     fold_ref(0, l, |res, _| { res + 1 })
+}
+
+pub fn last<'a>(l: &'a Val) -> Option<&'a Val>
+{
+    match l {
+        &Val::Nil => None,
+        &Val::Cons(ref head, ref tail) if **tail == Val::Nil => Some(head),
+        &Val::Cons(ref head, ref tail) => last(tail),
+        _ => {
+            panic!("cannot get last of a not list: {:?}", l);
+        }
+    }
 }
 
 pub fn map<F>(mut l: Val, op: F) -> Val
@@ -177,8 +185,9 @@ pub fn map_to_ll<F>(l: Val, op: F) -> LinkedList<Val>
 pub fn map_to_vec<F, T>(l: Val, op: F) -> Vec<T>
     where F: Fn(Val) -> T
 {
+    let list_len = len(&l);
     let mut it = l;
-    let mut acc = Vec::new();
+    let mut acc = Vec::with_capacity(list_len);
     while it != Val::Nil {
         let (head, tail) = take(it);
         let single = op(head);
@@ -192,7 +201,8 @@ pub fn map_ref_to_vec<F, T>(l: &Val, mut op: F) -> Vec<T>
     where F: FnMut(&Val) -> T
 {
     let mut it = l;
-    let mut acc = Vec::new();
+    let list_len = len(l);
+    let mut acc = Vec::with_capacity(list_len);
     while *it != Val::Nil {
         let (head, tail) = take_ref(it);
         let single = op(head);
