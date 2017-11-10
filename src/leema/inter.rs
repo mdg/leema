@@ -552,7 +552,6 @@ pub fn compile_pattern_call(scope: &mut Interscope, patt: &Val) -> Val
         panic!("too many fields in struct pattern for: {}", callx.str());
     }
     for (arg, fld) in args_vec.iter().zip(struct_flds.iter()) {
-        println!("iterate var {} type {:?}", arg, fld);
         let &(_, ref fldtype) = fld;
         scope.T.bind_vartype(arg.str(), fldtype);
     }

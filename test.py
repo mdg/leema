@@ -140,6 +140,14 @@ class TestScripts(unittest.TestCase):
             b"done\n",
             result['output'])
 
+    def test_destruct(self):
+        result = run_leema('destruct')
+        self.assertEqual(0, result['code'])
+        self.assertEqual(
+            b"date is: Date(2010,9,8,)\n" +
+            b"year: 2010 / month: 9 / day: 8\n",
+            result['output'])
+
     def test_chess960(self):
         result = run_leema('chess960')
         self.assertEqual(0, result['code'])
