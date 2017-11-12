@@ -398,7 +398,7 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
                 } else {
                     panic!("call expression is not a function");
                 };
-            let iargs = compile_list_to_vec(scope, args);
+            let iargs = compile_list_to_vec(scope, &*args);
             let ftype = {
                 let iargst: Vec<&Type> = iargs.iter().map(|ia| {
                     &ia.typ
@@ -453,14 +453,14 @@ pub fn compile_matchcase(scope: &mut Interscope
         , case: &Val, xtyp: &Type) -> Ixpr
 {
     let (patt, t2) = list::take_ref(case);
-    let (blk, t3) = list::take_ref(t2);
+    let (blk, t3) = list::take_ref(&*t2);
 
     scope.T.push_block();
     let cpatt = compile_pattern(scope, patt);
     scope.T.match_pattern(&cpatt, xtyp);
     let iblk = compile_expr(scope, blk);
     scope.T.pop_block();
-    let inext = match t3 {
+    let inext = match &**t3 {
         &Val::Cons(ref next, _) if **next == Val::Void => {
             Ixpr::noop()
         }
@@ -500,7 +500,7 @@ pub fn compile_pattern(scope: &mut Interscope, patt: &Val) -> Val
                     panic!("invalid pattern tail: {:?}", tail);
                 }
             };
-            Val::Cons(Box::new(chead), Box::new(ctail))
+            Val::Cons(Box::new(chead), Rc::new(ctail))
         }
         &Val::Nil => {
             Val::Nil
@@ -541,7 +541,7 @@ pub fn compile_pattern_call(scope: &mut Interscope, patt: &Val) -> Val
     if !scope.proto.structfields.contains_key(callx.str()) {
         panic!("Unknown type: {}", callx.str());
     }
-    let args_vec = list::map_ref_to_vec(args, |a| {
+    let args_vec = list::map_ref_to_vec(&*args, |a| {
         compile_pattern(scope, a)
     });
     let struct_flds = scope.proto.structfields.get(callx.str()).unwrap();

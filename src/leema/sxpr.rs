@@ -38,7 +38,7 @@ use std::rc::{Rc};
 
 pub fn new(t: SxprType, v: Val) -> Val
 {
-    Val::Sxpr(t, Box::new(v))
+    Val::Sxpr(t, Rc::new(v))
 }
 
 pub fn is_type(v: &Val, st: SxprType) -> bool
@@ -51,19 +51,17 @@ pub fn is_type(v: &Val, st: SxprType) -> bool
 
 pub fn new_block(stmts: Val) -> Val
 {
-    Val::Sxpr(SxprType::BlockExpr, Box::new(stmts))
+    Val::Sxpr(SxprType::BlockExpr, Rc::new(stmts))
 }
 
-fn strexpr_mash(merge: Val, next: Val) -> (Option<Val>, Val)
+fn strexpr_mash(merge: &Val, next: &Val) -> Option<Val>
 {
     match (merge, next) {
-        (Val::Str(merge_str), Val::Str(next_str)) => {
+        (&Val::Str(ref merge_str), &Val::Str(ref next_str)) => {
             let new_merge = Val::new_str(format!("{}{}", merge_str, next_str));
-            (None, new_merge)
+            Some(new_merge)
         }
-        (merge1, next1) => {
-            (Some(merge1), next1)
-        }
+        _ => None,
     }
 }
 
@@ -74,7 +72,7 @@ pub fn strexpr(strs: Val) -> Val
     } else if list::is_singleton(&strs) {
         list::head(strs)
     } else {
-        let mashed = list::merge_adjacent(strs, strexpr_mash);
+        let mashed = list::merge_adjacent(&strs, strexpr_mash);
         new(SxprType::StrExpr, mashed)
     }
 }
@@ -82,13 +80,13 @@ pub fn strexpr(strs: Val) -> Val
 pub fn call(callid: Val, args: Val) -> Val
 {
     let callargs = list::cons(callid, args);
-    Val::Sxpr(SxprType::Call, Box::new(callargs))
+    Val::Sxpr(SxprType::Call, Rc::new(callargs))
 }
 
 pub fn named_param(name: Val, expr: Val) -> Val
 {
     let parts = list::from2(name, expr);
-    Val::Sxpr(SxprType::NamedParam, Box::new(parts))
+    Val::Sxpr(SxprType::NamedParam, Rc::new(parts))
 }
 
 pub fn binaryop(callname: String, a: Val, b: Val) -> Val
@@ -108,7 +106,7 @@ pub fn macro_from_func(f: Val) -> Val
 
 pub fn ifx(cond: Val, truth: Val, lies: Val) -> Val
 {
-    Val::Sxpr(SxprType::IfExpr, Box::new(
+    Val::Sxpr(SxprType::IfExpr, Rc::new(
         list::cons(cond,
         list::cons(truth,
         list::cons(lies,
@@ -119,7 +117,7 @@ pub fn ifx(cond: Val, truth: Val, lies: Val) -> Val
 
 pub fn match_expr(x: Val, cases: Val) -> Val
 {
-    Val::Sxpr(SxprType::MatchExpr, Box::new(
+    Val::Sxpr(SxprType::MatchExpr, Rc::new(
         list::cons(x,
         list::cons(cases,
         Val::Nil
@@ -129,7 +127,7 @@ pub fn match_expr(x: Val, cases: Val) -> Val
 
 pub fn defunc(name: Val, args: Val, typ: Val, blk: Val) -> Val
 {
-    Val::Sxpr(SxprType::DefFunc, Box::new(
+    Val::Sxpr(SxprType::DefFunc, Rc::new(
         list::cons(name,
         list::cons(args,
         list::cons(typ,
@@ -181,23 +179,23 @@ pub fn defunc_type(defunc: &Val) -> Type
 
 pub fn def_struct(name: Val, fields: Val) -> Val
 {
-    Val::Sxpr(SxprType::DefStruct, Box::new(
+    Val::Sxpr(SxprType::DefStruct, Rc::new(
         list::cons(name, fields)
     ))
 }
 
 pub fn new_import(name: Val) -> Val
 {
-    Val::Sxpr(SxprType::Import, Box::new(
+    Val::Sxpr(SxprType::Import, Rc::new(
         list::singleton(name)
     ))
 }
 
-pub fn split(x: Val) -> (SxprType, Val)
+pub fn split(x: Val) -> (SxprType, Rc<Val>)
 {
     match x {
         Val::Sxpr(st, sx) => {
-            (st, *sx)
+            (st, sx)
         }
         _ => {
             panic!("Cannot split a not sxpr: {:?}", x);
@@ -235,7 +233,7 @@ fn test_ast_replace_id()
     let mut idvals = HashMap::new();
     idvals.insert(Rc::new(str_a), Val::Int(5));
 
-    let actual = Val::replace_ids(node, &idvals);
+    let actual = Val::replace_ids(&node, &idvals);
     assert_eq!(Val::Int(5), actual);
 }
 
@@ -268,7 +266,7 @@ fn test_strexpr_merge_end()
     assert_eq!(Val::id("greeting".to_string()), *h1);
     let (h2, t2) = list::take_ref(t1);
     assert_eq!(Val::new_str(" world\n".to_string()), *h2);
-    assert_eq!(Val::Nil, *t2);
+    assert_eq!(Val::Nil, **t2);
 }
 
 /*

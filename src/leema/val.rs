@@ -377,10 +377,10 @@ pub enum Val {
     Bool(bool),
     Hashtag(Rc<String>),
     Buffer(Vec<u8>),
-    Cons(Box<Val>, Box<Val>),
+    Cons(Box<Val>, Rc<Val>),
     Nil,
     Tuple(Vec<Val>),
-    Sxpr(SxprType, Box<Val>),
+    Sxpr(SxprType, Rc<Val>),
     Struct(Type, Vec<Val>),
     Enum(Type, u8, Box<Val>),
     Failure(
@@ -473,15 +473,15 @@ impl Val
         Val::Tuple(t)
     }
 
-    pub fn tuple_from_list(l: Val) -> Val
+    pub fn tuple_from_list(l: &Val) -> Val
     {
         // TODO switch to be list::to_vec(), use regular Tuple constructor
         if !l.is_list() {
             panic!("Cannot make tuple from not-list: {:?}", l);
         }
-        let mut empties: Vec<Val> = vec![];
-        let items = list::fold(empties, l, |mut res, item| {
-            res.push(item);
+        let mut empties: Vec<Val> = Vec::with_capacity(list::len(l));
+        let items = list::fold_ref(empties, l, |mut res, item| {
+            res.push(item.clone());
             res
         });
         Val::Tuple(items)
@@ -848,34 +848,34 @@ impl Val
         result
     }
 
-    pub fn replace_ids(node: Val,
+    pub fn replace_ids(node: &Val,
         idvals: &HashMap<Rc<String>, Val>) -> Val
     {
         match node {
-            Val::Cons(_, _) => {
-                let f = |v: Val| -> Val {
+            &Val::Cons(_, _) => {
+                let f = |v: &Val| -> Val {
                     Val::replace_ids(v, idvals)
                 };
-                list::map(node, f)
+                list::map_ref(&node, f)
             }
-            Val::Tuple(t) => {
-                let mut result = vec![];
-                for tv in t {
+            &Val::Tuple(ref t) => {
+                let mut result = Vec::with_capacity(t.len());
+                for tv in t.iter() {
                     let rv = Val::replace_ids(tv, idvals);
                     result.push(rv);
                 }
                 Val::Tuple(result)
             }
-            Val::Id(name) => {
+            &Val::Id(ref name) => {
                 match idvals.get(&*name) {
                     Some(newx) => newx.clone(),
-                    None => Val::Id(name),
+                    None => Val::Id(name.clone()),
                 }
             }
-            Val::Sxpr(stype, sdata) => {
+            &Val::Sxpr(stype, ref sdata) => {
                 sxpr::new(
                     stype,
-                    Val::replace_ids(*sdata, idvals),
+                    Val::replace_ids(&**sdata, idvals),
                 )
             }
             _ => node.clone(),
@@ -892,7 +892,7 @@ impl Val
             &Val::Cons(ref head, ref tail) => {
                 Val::Cons(
                     Box::new(head.deep_clone()),
-                    Box::new(tail.deep_clone()),
+                    Rc::new(tail.deep_clone()),
                 )
             }
             &Val::Nil => Val::Nil,
@@ -900,7 +900,7 @@ impl Val
                 Val::Tuple(items.iter().map(|i| i.deep_clone()).collect())
             }
             &Val::Sxpr(st, ref sx) => {
-                Val::Sxpr(st, Box::new(sx.deep_clone()))
+                Val::Sxpr(st, Rc::new(sx.deep_clone()))
             }
             &Val::Struct(ref typ, ref flds) => {
                 Val::Struct(typ.deep_clone(), flds.iter().map(|f| {
@@ -979,7 +979,7 @@ impl Val
         match (st, x) {
             (SxprType::Let, b) => {
                 let (id, exprtail) = list::take_ref(b);
-                let (expr, _) = list::take_ref(exprtail);
+                let (expr, _) = list::take_ref(&*exprtail);
                 if dbg {
                     write!(f, "let {:?} := {:?}", id, expr)
                 } else {
@@ -988,7 +988,7 @@ impl Val
             }
             (SxprType::Fork, b) => {
                 let (id, exprtail) = list::take_ref(b);
-                let (expr, _) = list::take_ref(exprtail);
+                let (expr, _) = list::take_ref(&*exprtail);
                 if dbg {
                     write!(f, "fork {:?} := {:?}", id, expr)
                 } else {
@@ -1016,7 +1016,7 @@ impl Val
             }
             (SxprType::MatchExpr, mc) => {
                 let (x, m2) = list::take_ref(mc);
-                let (cases, _) = list::take_ref(m2);
+                let (cases, _) = list::take_ref(&*m2);
                 if dbg {
                     write!(f, "match({:?},{:?})", x, cases)
                 } else {
@@ -1028,9 +1028,9 @@ impl Val
             }
             (SxprType::DefFunc, ref func) => {
                 let (name, f2) = list::take_ref(func);
-                let (args, f3) = list::take_ref(f2);
-                let (rtype, f4) = list::take_ref(f3);
-                let (body, _) = list::take_ref(f4);
+                let (args, f3) = list::take_ref(&*f2);
+                let (rtype, f4) = list::take_ref(&*f3);
+                let (body, _) = list::take_ref(&*f4);
                 write!(f, "DefFunc({}({:?}):{:?} {:?})",
                     name,
                     args,
@@ -1040,13 +1040,13 @@ impl Val
             }
             (SxprType::DefMacro, ref mac) => {
                 let (name, m2) = list::take_ref(mac);
-                let (args, m3) = list::take_ref(m2);
-                let (body, _) = list::take_ref(m3);
+                let (args, m3) = list::take_ref(&*m2);
+                let (body, _) = list::take_ref(&*m3);
                 write!(f, "DefMacro({},{:?},{:?})", name, args, body)
             }
             (SxprType::DefStruct, ref ds) => {
                 let (name, m2) = list::take_ref(ds);
-                let (fields, _) = list::take_ref(m2);
+                let (fields, _) = list::take_ref(&*m2);
                 write!(f, "struct({},{:?})", name, fields)
             }
             (SxprType::Import, ref filelist) => {
@@ -1096,7 +1096,7 @@ impl Val
             MsgVal::Cons(mhead, mtail) => {
                 let head = Val::from_msg(*mhead);
                 let tail = Val::from_msg(*mtail);
-                Val::Cons(Box::new(head), Box::new(tail))
+                Val::Cons(Box::new(head), Rc::new(tail))
             }
             MsgVal::Tuple(items) => {
                 Val::Tuple(items.into_iter().map(|mv| {
@@ -1416,10 +1416,10 @@ impl reg::Iregistry for Val
                 head.ireg_set(&*s, v);
             }
             (&Ireg::Reg(p), &mut Val::Cons(_, ref mut tail)) => {
-                tail.ireg_set(&Ireg::Reg(p-1), v);
+                panic!("Cannot set a register on a list");
             }
             (&Ireg::Sub(p, ref s), &mut Val::Cons(_, ref mut tail)) => {
-                tail.ireg_set(&Ireg::Sub(p-1, s.clone()), v);
+                panic!("Cannot set a subregister on a list");
             }
             (_, &mut Val::Nil) => {
                 panic!("cannot set reg on empty list: {:?}", i);
@@ -1889,7 +1889,7 @@ fn test_equal_type_int() {
 #[test]
 fn test_tuple_from_list() {
     let origl = list::cons(Val::Int(4), list::singleton(Val::Int(7)));
-    let tuple = Val::tuple_from_list(origl);
+    let tuple = Val::tuple_from_list(&origl);
     print!("wtf?({:?})", tuple);
     let exp = Val::Tuple(vec![Val::Int(4), Val::Int(7)]);
     assert_eq!(exp, tuple);
@@ -1984,7 +1984,7 @@ fn test_replace_ids_if()
     ids.insert(Rc::new("a".to_string()), Val::Bool(true));
     ids.insert(Rc::new("b".to_string()), Val::Bool(false));
 
-    let result = Val::replace_ids(body, &ids);
+    let result = Val::replace_ids(&body, &ids);
 
     let expected = sxpr::new(SxprType::IfExpr,
         list::cons(Val::Bool(true),

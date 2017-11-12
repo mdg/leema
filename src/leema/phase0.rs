@@ -163,9 +163,9 @@ impl Protomod
     }
 
     pub fn preproc_call(prog: &Lib, mp: &ModulePreface
-            , callx: &Val, args: &Val) -> Val
+            , callx: &Val, args: &Rc<Val>) -> Val
     {
-        let pp_args = Protomod::preproc_list(prog, mp, args);
+        let pp_args = Protomod::preproc_list(prog, mp, &**args);
         match callx {
             &Val::Id(ref id) => {
                 match mp.macros.get(&**id) {
@@ -179,8 +179,8 @@ impl Protomod
                         match prog.get_macro("prefab", &**id) {
                             Some(&(ref arg_names, ref body)) => {
                                 let macrod = Protomod::apply_macro(&**id, body, arg_names, args);
-                                // do it again to make sure there's not a wrapped
-                                // macro
+                                // do it again to make sure there's
+                                // not a wrapped macro
                                 Protomod::preproc_expr(prog, mp, &macrod)
                             }
                             None => {
@@ -233,20 +233,20 @@ impl Protomod
     }
 
     pub fn apply_macro(macro_name: &str, body: &Val
-            , arg_names: &Vec<Rc<String>>, args: &Val) -> Val
+            , arg_names: &Vec<Rc<String>>, args: &Rc<Val>) -> Val
     {
         let mut arg_map = HashMap::new();
         let mut arg_it = args;
         for n in arg_names {
-            if *arg_it == Val::Nil {
+            if **arg_it == Val::Nil {
                 panic!("Too few arguments passed to macro {}, expected {}"
                         , macro_name, arg_names.len());
             }
-            let (arg_val, arg_tail) = list::take_ref(arg_it);
+            let (arg_val, arg_tail) = list::take_ref(&**arg_it);
             arg_map.insert(n.clone(), arg_val);
             arg_it = arg_tail;
         }
-        if *arg_it != Val::Nil {
+        if **arg_it != Val::Nil {
             panic!("Too many arguments passed to macro {}, expected {}"
                     , macro_name, arg_names.len());
         }
@@ -312,11 +312,11 @@ impl Protomod
     pub fn preproc_matchcase(prog: &Lib, mp: &ModulePreface, case: &Val) -> Val
     {
         let (patt, t2) = list::take_ref(case);
-        let (blk, t3) = list::take_ref(t2);
+        let (blk, t3) = list::take_ref(&*t2);
         let p_patt = Protomod::preproc_pattern(prog, mp, patt);
         let p_blk = Protomod::preproc_expr(prog, mp, blk);
 
-        let p_next = match t3 {
+        let p_next = match &**t3 {
             &Val::Cons(ref next, _) => {
                 Protomod::preproc_matchcase(prog, mp, next)
             }
@@ -355,7 +355,7 @@ impl Protomod
                 let pp_sx = list::map_ref(&**sx, |px| {
                     Protomod::preproc_pattern(prog, mp, px)
                 });
-                Val::Sxpr(SxprType::Call, Box::new(pp_sx))
+                Val::Sxpr(SxprType::Call, Rc::new(pp_sx))
             }
             &Val::Id(_) => {
                 p.clone()
@@ -378,7 +378,7 @@ impl Protomod
             &Val::Cons(ref head, ref tail) => {
                 let phead = Protomod::preproc_pattern(prog, mp, head);
                 let ptail = Protomod::preproc_pattern_list(prog, mp, tail);
-                Val::Cons(Box::new(phead), Box::new(ptail))
+                Val::Cons(Box::new(phead), Rc::new(ptail))
             }
             &Val::Id(ref id) => Val::Id(id.clone()),
             &Val::Nil => Val::Nil,
@@ -394,23 +394,23 @@ impl Protomod
         let (ref name, ref src_fields) = list::take_ref(sp);
         let rc_name = name.id_name().clone();
 
-        let field_type_vec = list::map_ref_to_vec(src_fields, |f| {
+        let field_type_vec = list::map_ref_to_vec(&**src_fields, |f| {
             let (fname, ftype) = Val::split_typed_id(f);
             ftype.clone()
         });
 
-        let field_id_vec = list::map_ref_to_vec(src_fields, |f| {
+        let field_id_vec = list::map_ref_to_vec(&**src_fields, |f| {
             let (fname, _) = Val::split_typed_id(f);
             fname.clone()
         });
 
-        let field_name_vec = list::map_ref_to_vec(src_fields, |f| {
+        let field_name_vec = list::map_ref_to_vec(&**src_fields, |f| {
             let (fname, ftype) = Val::split_typed_id(f);
             fname.id_name()
         });
 
         let struct_fields =
-            list::map_ref_to_vec(src_fields, |f| {
+            list::map_ref_to_vec(&**src_fields, |f| {
                 let (fname, ftype) = Val::split_typed_id(f);
                 (fname.id_name().clone(), ftype.clone())
             });
@@ -423,7 +423,7 @@ impl Protomod
 
         let srcblk = Val::Struct(stype.clone(), field_id_vec);
         let srcxpr = sxpr::defunc((*name).clone()
-            , (*src_fields).clone()
+            , (***src_fields).clone()
             , Val::Type(stype.clone())
             , srcblk
             );

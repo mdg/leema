@@ -269,7 +269,7 @@ typex(A) ::= SquareL typex(B) SquareR. {
 	A = Type::StrictList(Box::new(B));
 }
 typex(A) ::= LPAREN tuple_types(B) RPAREN. {
-    A = Type::Tuple(list::map_to_vec(B, |v| {
+    A = Type::Tuple(list::map_ref_to_vec(&B, |v| {
         v.to_type()
     }));
 }
@@ -549,7 +549,7 @@ list_items(A) ::= expr(B) COMMA list_items(C). {
  * (4 + 4, 6 - 7)
  */
 tuple(A) ::= LPAREN call_args(B) RPAREN. {
-	A = Val::tuple_from_list(B);
+	A = Val::tuple_from_list(&B);
 }
 
 strexpr(A) ::= StrOpen strlist(B) StrClose. {

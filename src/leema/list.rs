@@ -1,28 +1,31 @@
 use leema::val::{Val};
+
 use std::collections::{LinkedList};
+use std::rc::{Rc};
 
 
 pub fn cons(head: Val, tail: Val) -> Val
 {
     match tail {
-        Val::Sxpr(t, oldt) => {
-            Val::Sxpr(t, Box::new(cons(head, *oldt)))
+        Val::Sxpr(sxtype, tail) => {
+            let new_tail = Val::Cons(Box::new(head), tail.clone());
+            Val::Sxpr(sxtype, Rc::new(new_tail))
         }
         Val::Cons(_, _) => {
-            Val::Cons(Box::new(head), Box::new(tail))
+            Val::Cons(Box::new(head), Rc::new(tail))
         }
         Val::Nil => {
-            Val::Cons(Box::new(head), Box::new(Val::Nil))
+            Val::Cons(Box::new(head), Rc::new(Val::Nil))
         }
         Val::Id(_) => {
             // this is used when parsing list patterns
-            Val::Cons(Box::new(head), Box::new(tail))
+            Val::Cons(Box::new(head), Rc::new(tail))
         }
         Val::Wildcard => {
-            Val::Cons(Box::new(head), Box::new(tail))
+            Val::Cons(Box::new(head), Rc::new(tail))
         }
         Val::PatternVar(_) => {
-            Val::Cons(Box::new(head), Box::new(tail))
+            Val::Cons(Box::new(head), Rc::new(tail))
         }
         _ => {
             panic!("Can't cons to a not list {:?}", tail);
@@ -89,13 +92,6 @@ pub fn from_tuple(t: &Val) -> Val
     result
 }
 
-pub fn to_vec(mut it: Val) -> Vec<Val>
-{
-    map_to_vec(it, |i| {
-        i
-    })
-}
-
 pub fn ref_to_vec(it: &Val) -> Vec<Val>
 {
     map_ref_to_vec(it, |i| {
@@ -126,7 +122,7 @@ pub fn is_singleton(l: &Val) -> bool
         return false;
     }
     let (head, tail) = take_ref(l);
-    is_empty(tail)
+    is_empty(&*tail)
 }
 
 pub fn len(l: &Val) -> usize
@@ -146,19 +142,6 @@ pub fn last<'a>(l: &'a Val) -> Option<&'a Val>
     }
 }
 
-pub fn map<F>(mut l: Val, op: F) -> Val
-    where F: Fn(Val) -> Val
-{
-    let mut result = Val::Nil;
-    while l != Val::Nil {
-        let (head, tail) = take(l);
-        let single = op(head);
-        result = cons(single, result);
-        l = tail;
-    }
-    reverse(&result)
-}
-
 pub fn map_ref<F>(mut l: &Val, mut op: F) -> Val
     where F: FnMut(&Val) -> Val
 {
@@ -167,34 +150,9 @@ pub fn map_ref<F>(mut l: &Val, mut op: F) -> Val
         let (head, tail) = take_ref(l);
         let single = op(head);
         result = cons(single, result);
-        l = tail;
+        l = &*tail;
     }
     reverse(&result)
-}
-
-pub fn map_to_ll<F>(l: Val, op: F) -> LinkedList<Val>
-    where F: Fn(Val) -> Val
-{
-    let mut it = l;
-    let acc = LinkedList::new();
-    while it != Val::Nil {
-    }
-    acc
-}
-
-pub fn map_to_vec<F, T>(l: Val, op: F) -> Vec<T>
-    where F: Fn(Val) -> T
-{
-    let list_len = len(&l);
-    let mut it = l;
-    let mut acc = Vec::with_capacity(list_len);
-    while it != Val::Nil {
-        let (head, tail) = take(it);
-        let single = op(head);
-        acc.push(single);
-        it = tail;
-    }
-    acc
 }
 
 pub fn map_ref_to_vec<F, T>(l: &Val, mut op: F) -> Vec<T>
@@ -207,23 +165,7 @@ pub fn map_ref_to_vec<F, T>(l: &Val, mut op: F) -> Vec<T>
         let (head, tail) = take_ref(it);
         let single = op(head);
         acc.push(single);
-        it = tail;
-    }
-    acc
-}
-
-pub fn fold<R, F>(init: R, l: Val, op: F) -> R
-    where F: Fn(R, Val) -> R
-{
-    let mut acc = init;
-    let mut it = l;
-    while it != Val::Nil {
-        if !it.is_list() {
-            panic!("Cannot fold on not-list: {:?}", it);
-        }
-        let (head, tail) = take(it);
-        acc = op(acc, head);
-        it = tail;
+        it = &*tail;
     }
     acc
 }
@@ -236,23 +178,9 @@ pub fn fold_ref<R, F>(init: R, l: &Val, op: F) -> R
     while *curr != Val::Nil {
         let (head, tail) = take_ref(curr);
         result = op(result, head);
-        curr = tail;
+        curr = &*tail;
     }
     result
-}
-
-pub fn fold_mut<R, F>(init: &mut R, l: Val, op: F)
-    where F: Fn(&mut R, Val)
-{
-    let mut it = l;
-    while it != Val::Nil {
-        if !it.is_list() {
-            panic!("Cannot fold on not-list: {:?}", it);
-        }
-        let (head, tail) = take(it);
-        op(init, head);
-        it = tail;
-    }
 }
 
 pub fn fold_mut_ref<R, F>(init: &mut R, l: &Val, op: F)
@@ -265,31 +193,37 @@ pub fn fold_mut_ref<R, F>(init: &mut R, l: &Val, op: F)
         }
         let (head, tail) = take_ref(it);
         op(init, head);
-        it = tail;
+        it = &*tail;
     }
 }
 
-pub fn merge_adjacent<F>(l: Val, op: F) -> Val
-    where F: Fn(Val, Val) -> (Option<Val>, Val)
+pub fn merge_adjacent<F>(l: &Val, op: F) -> Val
+    where F: Fn(&Val, &Val) -> Option<Val>
 {
-    if l == Val::Nil {
+    if *l == Val::Nil {
         return Val::Nil;
     }
     let mut acc = Val::Nil;
-    let (mut merge, mut it) = take(l);
-    while it != Val::Nil {
+    let (premerge, mut it) = take_ref(l);
+    let mut merger = premerge.clone();
+    while **it != Val::Nil {
         if !it.is_list() {
-            panic!("Cannot fold on not-list: {:?}", it);
+            panic!("Cannot merge not-list: {:?}", it);
         }
-        let (head, tail) = take(it);
-        let (appender, merger) = op(merge, head);
-        merge = merger;
-        if appender.is_some() {
-            acc = cons(appender.unwrap(), acc);
+        let (head, tail) = take_ref(&*it);
+        let opt_merged = op(&merger, head);
+        match opt_merged {
+            Some(merged) => {
+                merger = merged;
+            }
+            None => {
+                acc = cons(merger, acc);
+                merger = head.clone();
+            }
         }
         it = tail;
     }
-    reverse(&cons(merge, acc))
+    reverse(&cons(merger, acc))
 }
 
 pub fn reverse(l: &Val) -> Val
@@ -304,10 +238,10 @@ pub fn reverse(l: &Val) -> Val
     result
 }
 
-pub fn take(l: Val) -> (Val, Val)
+pub fn take(l: Val) -> (Val, Rc<Val>)
 {
     match l {
-        Val::Cons(head, tail) => (*head, *tail),
+        Val::Cons(head, tail) => (*head, tail),
         Val::Nil => {
             panic!("Cannot take from empty list");
         }
@@ -317,7 +251,7 @@ pub fn take(l: Val) -> (Val, Val)
     }
 }
 
-pub fn take_ref(l: &Val) -> (&Val, &Val)
+pub fn take_ref(l: &Val) -> (&Val, &Rc<Val>)
 {
     match l {
         &Val::Cons(ref head, ref tail) => (head, tail),
@@ -330,51 +264,27 @@ pub fn take_ref(l: &Val) -> (&Val, &Val)
     }
 }
 
-pub fn to_tuple2(l1: Val) -> (Val, Val)
-{
-    let (i1, l2) = take(l1);
-    let (i2, _) = take(l2);
-    (i1, i2)
-}
-
-pub fn to_tuple3(l1: Val) -> (Val, Val, Val)
-{
-    let (i1, l2) = take(l1);
-    let (i2, l3) = take(l2);
-    let (i3, _) = take(l3);
-    (i1, i2, i3)
-}
-
-pub fn to_tuple4(l1: Val) -> (Val, Val, Val, Val)
-{
-    let (i1, l2) = take(l1);
-    let (i2, l3) = take(l2);
-    let (i3, l4) = take(l3);
-    let (i4, _) = take(l4);
-    (i1, i2, i3, i4)
-}
-
 pub fn to_ref_tuple2(l1: &Val) -> (&Val, &Val)
 {
     let (i1, l2) = take_ref(l1);
-    let (i2, _) = take_ref(l2);
+    let (i2, _) = take_ref(&*l2);
     (i1, i2)
 }
 
 pub fn to_ref_tuple3(l1: &Val) -> (&Val, &Val, &Val)
 {
     let (i1, l2) = take_ref(l1);
-    let (i2, l3) = take_ref(l2);
-    let (i3, _) = take_ref(l3);
+    let (i2, l3) = take_ref(&*l2);
+    let (i3, _) = take_ref(&*l3);
     (i1, i2, i3)
 }
 
 pub fn to_ref_tuple4(l1: &Val) -> (&Val, &Val, &Val, &Val)
 {
     let (i1, l2) = take_ref(l1);
-    let (i2, l3) = take_ref(l2);
-    let (i3, l4) = take_ref(l3);
-    let (i4, _) = take_ref(l4);
+    let (i2, l3) = take_ref(&*l2);
+    let (i3, l4) = take_ref(&*l3);
+    let (i4, _) = take_ref(&*l4);
     (i1, i2, i3, i4)
 }
 
@@ -457,7 +367,7 @@ fn test_concat()
 }
 
 #[test]
-fn test_map()
+fn test_map_ref()
 {
     let l =
         list::cons(Val::Bool(true),
@@ -466,8 +376,8 @@ fn test_map()
         Val::Nil,
     )));
 
-    let not_l = list::map(l, |v| {
-        if let Val::Bool(b) = v {
+    let not_l = list::map_ref(&l, |v| {
+        if let &Val::Bool(b) = v {
             Val::Bool(!b)
         } else {
             Val::Void
@@ -494,6 +404,37 @@ fn test_len()
         Val::Nil,
         )));
     assert_eq!(3, list::len(&l));
+}
+
+#[test]
+fn test_merge_adjacent()
+{
+    let l =
+        list::cons(Val::Int(2),
+        list::cons(Val::Int(3),
+        list::cons(Val::Int(2),
+        list::cons(Val::Int(4),
+        list::cons(Val::Int(4),
+        Val::Nil,
+        )))));
+
+    let m = list::merge_adjacent(&l, |a, b| {
+        if a == b {
+            Some(a.clone())
+        } else {
+            None
+        }
+    });
+
+    let expected =
+        list::cons(Val::Int(2),
+        list::cons(Val::Int(3),
+        list::cons(Val::Int(2),
+        list::cons(Val::Int(4),
+        Val::Nil
+        ))));
+
+    assert_eq!(expected, m);
 }
 
 }
