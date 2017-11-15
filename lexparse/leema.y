@@ -13,6 +13,7 @@ use std::rc::{Rc};
 %wildcard ANY.
 %extra_argument { Result<Val, i32> }
 
+%type BLOCKARROW { TokenLoc }
 %type COLON { TokenLoc }
 %type COMMA { TokenLoc }
 %type DBLCOLON { TokenLoc }
@@ -63,6 +64,8 @@ use std::rc::{Rc};
 %type expr { Val }
 %type typex { Type }
 %type opt_typex { Type }
+%type arrow_typex { Vec<Type> }
+%type type_term { Type }
 %type mod_prefix { Val }
 %type tuple_types { Val }
 
@@ -190,7 +193,7 @@ let_stmt(A) ::= Fork match_pattern(B) ASSIGN expr(C). {
 	let bind = list::cons(B, list::singleton(C));
 	A = sxpr::new(SxprType::Fork, bind);
 }
-let_stmt ::= Let match_pattern(B) EQ1 expr. {
+let_stmt ::= Let match_pattern EQ1 expr. {
     panic!("Found let x = ...\ninstead it should be let x := ...\n");
 }
 
@@ -244,31 +247,47 @@ opt_typex(A) ::= COLON typex(B). {
 	A = B;
 }
 
-typex(A) ::= TYPE_INT. {
+typex(A) ::= type_term(B). {
+    A = B;
+}
+typex(A) ::= arrow_typex(B). {
+    A = Type::Arrow(B);
+}
+
+arrow_typex(A) ::= type_term(B) GT type_term(C). {
+    A = vec![B, C];
+}
+arrow_typex(A) ::= arrow_typex(B) GT type_term(C). {
+    let mut tmp = B;
+    tmp.push(C);
+    A = tmp;
+}
+
+type_term(A) ::= TYPE_INT. {
 	A = Type::Int;
 }
-typex(A) ::= TYPE_STR. {
+type_term(A) ::= TYPE_STR. {
 	A = Type::Str;
 }
-typex(A) ::= TYPE_HASHTAG. {
+type_term(A) ::= TYPE_HASHTAG. {
 	A = Type::Hashtag;
 }
-typex(A) ::= TYPE_BOOL. {
+type_term(A) ::= TYPE_BOOL. {
 	A = Type::Bool;
 }
-typex(A) ::= TYPE_VOID. {
+type_term(A) ::= TYPE_VOID. {
 	A = Type::Void;
 }
-typex(A) ::= TYPE_VAR(B). {
+type_term(A) ::= TYPE_VAR(B). {
 	A = Type::Var(Rc::new(B.data));
 }
-typex(A) ::= ID(B). {
+type_term(A) ::= ID(B). {
 	A = Type::Id(Rc::new(B.data));
 }
-typex(A) ::= SquareL typex(B) SquareR. {
+type_term(A) ::= SquareL typex(B) SquareR. {
 	A = Type::StrictList(Box::new(B));
 }
-typex(A) ::= LPAREN tuple_types(B) RPAREN. {
+type_term(A) ::= LPAREN tuple_types(B) RPAREN. {
     A = Type::Tuple(list::map_ref_to_vec(&B, |v| {
         v.to_type()
     }));

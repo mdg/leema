@@ -55,7 +55,7 @@ impl Token
         unsafe {
             let tl = TokenLoc::new((*tok).lineno, (*tok).token_column as i16);
             match (*tok).tok {
-                parse::TOKEN_BLOCKARROW => Token::BLOCKARROW,
+                parse::TOKEN_BLOCKARROW => Token::BLOCKARROW(tl),
                 parse::TOKEN_DOUBLEDASH => Token::DOUBLEDASH(tl),
                 parse::TOKEN_Func => {
                     Token::Func

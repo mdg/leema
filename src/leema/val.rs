@@ -66,6 +66,7 @@ pub enum Type
     Failure,
     Enum(String),
     Func(FuncCallType, Vec<Type>, Box<Type>),
+    Arrow(Vec<Type>),
     // different from base collection/map interfaces?
     // base interface/type should probably be iterator
     // and then it should be a protocol, not type
@@ -231,6 +232,17 @@ impl fmt::Display for Type
                 }
                 write!(f, "{}", result)
             }
+            &Type::Arrow(ref parts) => {
+                let result = write!(f, "{}", parts.first().unwrap());
+                result.and_then(|_| {
+                    parts.iter().skip(1).map(|p| {
+                        write!(f, " > {}", p)
+                    })
+                    .fold(Ok(()), |acc, r| {
+                        acc.and(r)
+                    })
+                })
+            }
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
@@ -279,6 +291,17 @@ impl fmt::Debug for Type
                     write!(f, "{}->", a).ok();
                 }
                 write!(f, "{}", result)
+            }
+            &Type::Arrow(ref parts) => {
+                let result = write!(f, "{:?}", parts.first().unwrap());
+                result.and_then(|_| {
+                    parts.iter().skip(1).map(|p| {
+                        write!(f, " > {:?}", p)
+                    })
+                    .fold(Ok(()), |acc, r| {
+                        acc.and(r)
+                    })
+                })
             }
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator
