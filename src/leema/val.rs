@@ -36,19 +36,6 @@ pub enum FuncType
     Main, // or Control?
 }
 
-#[derive(Debug)]
-#[derive(Clone)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
-#[derive(Eq)]
-#[derive(Hash)]
-pub enum FuncCallType
-{
-    FrameCall,
-    IoCall,
-    // RsrcCall,
-}
-
 // #[derive(Debug)]
 #[derive(Clone)]
 #[derive(PartialEq)]
@@ -65,8 +52,7 @@ pub enum Type
     Struct(Rc<String>, i8),
     Failure,
     Enum(String),
-    Func(FuncCallType, Vec<Type>, Box<Type>),
-    Arrow(Vec<Type>),
+    Func(Vec<Type>, Box<Type>),
     // different from base collection/map interfaces?
     // base interface/type should probably be iterator
     // and then it should be a protocol, not type
@@ -92,9 +78,9 @@ pub enum Type
 
 impl Type
 {
-    pub fn f(calltype: FuncCallType, inputs: Vec<Type>, result: Type) -> Type
+    pub fn f(inputs: Vec<Type>, result: Type) -> Type
     {
-        Type::Func(calltype, inputs, Box::new(result))
+        Type::Func(inputs, Box::new(result))
     }
 
     pub fn typename(&self) -> &str
@@ -108,11 +94,11 @@ impl Type
         }
     }
 
-    pub fn split_func(t: &Type) -> (&FuncCallType, &Vec<Type>, &Type)
+    pub fn split_func(t: &Type) -> (&Vec<Type>, &Type)
     {
         match t {
-            &Type::Func(ref calltype, ref args, ref result) => {
-                (calltype, args, &*result)
+            &Type::Func(ref args, ref result) => {
+                (args, &*result)
             }
             _ => {
                 panic!("Not a func type {:?}", t);
@@ -225,23 +211,11 @@ impl fmt::Display for Type
             &Type::Struct(ref name, nfields) => write!(f, "{}", name),
             &Type::Enum(ref name) => write!(f, "Enum"),
             &Type::Failure => write!(f, "Failure"),
-            &Type::Func(ref calltype, ref args, ref result) => {
-                write!(f, "{:?}:", calltype).ok();
+            &Type::Func(ref args, ref result) => {
                 for a in args {
-                    write!(f, "{}->", a).ok();
+                    write!(f, "{} > ", a).ok();
                 }
                 write!(f, "{}", result)
-            }
-            &Type::Arrow(ref parts) => {
-                let result = write!(f, "{}", parts.first().unwrap());
-                result.and_then(|_| {
-                    parts.iter().skip(1).map(|p| {
-                        write!(f, " > {}", p)
-                    })
-                    .fold(Ok(()), |acc, r| {
-                        acc.and(r)
-                    })
-                })
             }
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator
@@ -285,23 +259,11 @@ impl fmt::Debug for Type
             &Type::Struct(ref name, nfields) => write!(f, "{}", name),
             &Type::Enum(ref name) => write!(f, "Enum"),
             &Type::Failure => write!(f, "Failure"),
-            &Type::Func(ref calltype, ref args, ref result) => {
-                write!(f, "{:?}:", calltype).ok();
+            &Type::Func(ref args, ref result) => {
                 for a in args {
                     write!(f, "{}->", a).ok();
                 }
                 write!(f, "{}", result)
-            }
-            &Type::Arrow(ref parts) => {
-                let result = write!(f, "{:?}", parts.first().unwrap());
-                result.and_then(|_| {
-                    parts.iter().skip(1).map(|p| {
-                        write!(f, " > {:?}", p)
-                    })
-                    .fold(Ok(()), |acc, r| {
-                        acc.and(r)
-                    })
-                })
             }
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator

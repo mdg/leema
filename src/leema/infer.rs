@@ -251,10 +251,11 @@ impl<'b> Inferator<'b>
                 Some(oldt.clone())
             }
             (&Type::Tuple(ref oldi), &Type::Tuple(ref newi)) => {
-                if oldi.len() != newi.len() {
+                let oldlen = oldi.len();
+                if oldlen != newi.len() {
                     panic!("tuple size mismatch: {:?}!={:?}", oldt, newt);
                 }
-                let mut masht = vec![];
+                let mut masht = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldi.iter().zip(newi.iter()) {
                     match Inferator::mash(inferences, oldit, newit) {
                         Some(mashit) => {
@@ -267,6 +268,37 @@ impl<'b> Inferator<'b>
                     }
                 }
                 Some(Type::Tuple(masht))
+            }
+            (&Type::Func(ref oldargs, ref oldresult),
+                    &Type::Func(ref newargs, ref newresult)
+            ) => {
+                let oldlen = oldargs.len();
+                let newlen = newargs.len();
+                if oldlen != newlen {
+                    panic!("function arg count mismatch: {}!={}",
+                        oldlen, newlen);
+                }
+                let mut masht = Vec::with_capacity(oldlen);
+                for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
+                    match Inferator::mash(inferences, oldit, newit) {
+                        Some(mashit) => {
+                            masht.push(mashit);
+                        }
+                        None => {
+                            panic!("function args mismatch: {:?} != {:?}"
+                                , oldargs, newargs);
+                        }
+                    }
+                }
+                let mashresult =
+                    match Inferator::mash(inferences, oldresult, newresult) {
+                        Some(mr) => mr,
+                        None => {
+                            panic!("function result mismatch: {:?} != {:?}"
+                                , oldresult, newresult);
+                        }
+                    };
+                Some(Type::Func(masht, Box::new(mashresult)))
             }
             (_, _) => {
                 println!("type mismatch: {:?} != {:?}", oldt, newt);
@@ -281,12 +313,12 @@ impl<'b> Inferator<'b>
 
     pub fn make_call_type(&mut self, ftype: &Type, argst: &Vec<&Type>) -> Type
     {
-        let (calltype, defargst, defresult) = Type::split_func(ftype);
+        let (defargst, defresult) = Type::split_func(ftype);
 
         let defargslen = defargst.len();
         let argslen = argst.len();
         if argslen > defargslen {
-            panic!("too many args passed to {:?}", ftype);
+            panic!("too many args passed to {:?}: {:?}", ftype, argst);
         }
         if argslen < defargslen {
             panic!("it's so much fun to curry, but not supported yet");
@@ -300,7 +332,7 @@ impl<'b> Inferator<'b>
                 ));
             }
         }
-        self.inferred_type(defresult).clone()
+        self.inferred_type(defresult)
     }
 }
 

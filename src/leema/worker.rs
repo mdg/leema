@@ -6,7 +6,7 @@ use leema::log;
 use leema::msg::{AppMsg, WorkerMsg, IoMsg};
 use leema::reg::{Reg};
 use leema::rsrc::{self, Rsrc};
-use leema::val::{Env, Val, MsgVal, Type, FuncCallType};
+use leema::val::{Env, Val, MsgVal, Type};
 
 use std::cell::{RefCell, RefMut, Ref};
 use std::collections::{HashMap, LinkedList};
@@ -186,7 +186,7 @@ impl Worker
                 vout!("function call failure\n");
                 Result::Ok(Async::NotReady)
             }
-            Event::Call(dst, call_type, module, func, args) => {
+            Event::Call(dst, module, func, args) => {
                 vout!("push_call({}.{}, {:?})\n", module, func, args);
                 fbr.push_call(code.clone(), dst, module, func, args);
                 self.load_code(fbr);

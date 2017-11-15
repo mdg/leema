@@ -251,7 +251,10 @@ typex(A) ::= type_term(B). {
     A = B;
 }
 typex(A) ::= arrow_typex(B). {
-    A = Type::Arrow(B);
+    let argc = B.len() - 1;
+    let mut items = B;
+    let last = items.remove(argc);
+    A = Type::Func(items, Box::new(last));
 }
 
 arrow_typex(A) ::= type_term(B) GT type_term(C). {

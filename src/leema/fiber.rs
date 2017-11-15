@@ -144,8 +144,8 @@ impl Fiber
             &Op::LoadFunc(ref reg, ref modsym) => {
                 self.execute_load_func(reg, modsym)
             }
-            &Op::ApplyFunc(ref dst, ref callmode, ref func, ref args) => {
-                self.execute_call(dst, callmode, func, args)
+            &Op::ApplyFunc(ref dst, ref func, ref args) => {
+                self.execute_call(dst, func, args)
             }
             &Op::Return => {
                 Event::Complete(true)
@@ -225,7 +225,7 @@ impl Fiber
     * create a new frame w/ func code and new frame state
     * set curf.flag to Called(new_frame)
     */
-    pub fn execute_call(&mut self, dst: &Reg, callmode: &val::FuncCallType
+    pub fn execute_call(&mut self, dst: &Reg
         , freg: &Reg, argreg: &Reg) -> Event
     {
         let (modname, funcname) = {
@@ -275,7 +275,6 @@ impl Fiber
                 let args_copy = self.head.e.get_reg(argreg).clone();
                 Event::Call(
                     dst.clone(),
-                    callmode.clone(),
                     modname,
                     funcname,
                     args_copy,

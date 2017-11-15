@@ -14,7 +14,7 @@ pub enum Source
     Block(Vec<Ixpr>),
     BooleanAnd(Box<Ixpr>, Box<Ixpr>),
     BooleanOr(Box<Ixpr>, Box<Ixpr>),
-    Call(val::FuncCallType, Box<Ixpr>, Box<Ixpr>),
+    Call(Box<Ixpr>, Box<Ixpr>),
     Constructor(Type),
     ConstVal(Val),
     Fail(Box<Ixpr>, Box<Ixpr>),

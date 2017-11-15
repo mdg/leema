@@ -1,4 +1,4 @@
-use leema::val::{Val, SxprType, Type, FuncCallType};
+use leema::val::{Val, SxprType, Type};
 use leema::list;
 
 use std::rc::{Rc};
@@ -169,12 +169,7 @@ pub fn defunc_type(defunc: &Val) -> Type
             panic!("Result type of {} is not a type: {:?}", name, resultval);
         }
     };
-    let calltype =
-        match bodyval {
-            &Val::RustBlock => FuncCallType::IoCall,
-            _ => FuncCallType::FrameCall,
-        };
-    Type::Func(calltype, argt, Box::new(tresult))
+    Type::Func(argt, Box::new(tresult))
 }
 
 pub fn def_struct(name: Val, fields: Val) -> Val

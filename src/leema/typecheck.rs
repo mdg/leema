@@ -52,7 +52,7 @@ impl<'a> CallFrame<'a>
     pub fn collect_calls<'b>(&mut self, ix: &'b Ixpr)
     {
         match ix.src {
-            Source::Call(ref _funcmode, ref callx, ref args) => {
+            Source::Call(ref callx, ref args) => {
                 if let Source::Tuple(ref argsix) = args.src {
                     self.collect_calls_vec(argsix);
                     self.collect_callexpr(callx);
@@ -277,7 +277,7 @@ impl<'a, 'b> Typescope<'a, 'b>
 pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
 {
     match &ix.src {
-        &Source::Call(ref _mode, ref func, ref args) => {
+        &Source::Call(ref func, ref args) => {
             let tfunc = scope.typecheck_call_func(&func.src);
             let mut targs = vec![];
             if let Source::Tuple(ref argstup) = args.src {
@@ -365,8 +365,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> Type
     vout!("typescope: {:?}\n", scope);
     match (&ix.src, &ix.typ) {
         (&Source::Func(ref arg_names, ref body)
-                , &Type::Func(ref calltype, ref arg_types
-                    , ref declared_result_type)) =>
+                , &Type::Func(ref arg_types, ref declared_result_type)) =>
         {
             for (an, at) in arg_names.iter().zip(arg_types.iter()) {
                 scope.T.bind_vartype(an, at);
@@ -385,7 +384,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> Type
             let final_result = scope.T
                 .merge_types(&result_type, declared_result_type)
                 .unwrap();
-            Type::Func(calltype.clone(), final_args, Box::new(final_result))
+            Type::Func(final_args, Box::new(final_result))
         }
         (&Source::RustBlock, _) => {
             ix.typ.clone()

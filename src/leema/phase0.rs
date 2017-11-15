@@ -1,5 +1,5 @@
 use leema::program::{Lib};
-use leema::val::{SxprType, Val, Type, FuncCallType};
+use leema::val::{SxprType, Val, Type};
 use leema::module::{ModKey, ModulePreface};
 use leema::list;
 use leema::log;
@@ -418,8 +418,7 @@ impl Protomod
         let num_fields = field_type_vec.len() as i8;
         let stype = Type::Struct(rc_name.clone(), num_fields);
 
-        let func_type = Type::Func(FuncCallType::FrameCall,
-            field_type_vec, Box::new(stype.clone()));
+        let func_type = Type::Func(field_type_vec, Box::new(stype.clone()));
 
         let srcblk = Val::Struct(stype.clone(), field_id_vec);
         let srcxpr = sxpr::defunc((*name).clone()
@@ -575,7 +574,7 @@ fn test_new_struct_constructor_valtype()
 
     let constructor = proto.valtypes.get(&*struct_name).unwrap();
 
-    if let &Type::Func(ref calltyp, ref params, ref result) = constructor {
+    if let &Type::Func(ref params, ref result) = constructor {
         assert_eq!(2, params.len());
     } else {
         panic!("constructor valtype is not a func");

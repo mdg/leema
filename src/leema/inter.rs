@@ -251,7 +251,7 @@ pub fn compile_function<'a>(proto: &'a Protomod
             src: Source::RustBlock,
         }
     }
-    let (calltype, argt, result) = Type::split_func(ftype);
+    let (argt, _result) = Type::split_func(ftype);
     let mut scope = Interscope::new(proto, imports, locals, fname, args, argt);
     let mut ibody = compile_expr(&mut scope, body);
     let argt2: Vec<Type> = argt.iter().map(|a| {
@@ -261,8 +261,7 @@ pub fn compile_function<'a>(proto: &'a Protomod
         typ: scope.T.inferred_type(&ibody.typ).clone(),
         src: ibody.src,
     };
-    let final_ftype = Type::Func(val::FuncCallType::FrameCall, argt2
-        , Box::new(ibody2.typ.clone()));
+    let final_ftype = Type::Func(argt2, Box::new(ibody2.typ.clone()));
     vout!("compile function {}: {}\n", fname, ftype);
     for v in scope.T.vars() {
         let vtyp = scope.T.vartype(v);
@@ -392,12 +391,6 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
         SxprType::Call => {
             let (callx, args) = list::take_ref(sx);
             let icall = compile_expr(scope, callx);
-            let callmode =
-                if let &Type::Func(ref mode, _, _) = &icall.typ {
-                    mode.clone()
-                } else {
-                    panic!("call expression is not a function");
-                };
             let iargs = compile_list_to_vec(scope, &*args);
             let ftype = {
                 let iargst: Vec<&Type> = iargs.iter().map(|ia| {
@@ -411,7 +404,7 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
             let argsix = Ixpr::new_tuple(iargs);
             Ixpr{
                 typ: ftype,
-                src: Source::Call(callmode, Box::new(icall), Box::new(argsix)),
+                src: Source::Call(Box::new(icall), Box::new(argsix)),
             }
         }
         SxprType::IfExpr => {
