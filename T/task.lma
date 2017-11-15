@@ -1,0 +1,37 @@
+import date
+import file
+import str
+import list
+
+
+struct Task
+.txt: Str
+.created: Date
+.first_due: Date
+.due: Date
+.np: Int
+--
+
+
+func split_csv_line(line) ->
+    str::split(line, ",")
+--
+
+func create_task(line_parts)
+|([txt, created, first_due, due, np]) ->
+    Task(
+        txt,
+        created,
+        first_due,
+        due,
+        np,
+    )
+--
+
+func main() ->
+    let taskf := file::open("tasks.csv")
+    let lines := file::read(taskf, 100, "\n")
+    let line_parts := list::map(lines, split_csv_line)
+    let tasks := list::map($?, create_task)
+--
+

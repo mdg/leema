@@ -1,0 +1,18 @@
+
+func map(items: [$A], f: $A > $B): [$B] ->
+    _map([], items, f)
+--
+
+func _map(result :[$C], input: [$D], f: $D > $C): [$C]
+|(result, [], _f) -> reverse(result)
+|(result, h;t, f) -> _map(f(h);result, t, f)
+--
+
+func reverse(items: [$E]): [$E] ->
+    _reverse([], items)
+--
+
+func _reverse(out: [$F], in: [$F]): [$F]
+|(out, []) -> out
+|(out, h;t) -> _reverse(h;out, t)
+--

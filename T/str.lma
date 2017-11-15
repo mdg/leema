@@ -1,0 +1,2 @@
+
+func split(input: Str, divisor: Str): [Str] -RUST-
