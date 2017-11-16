@@ -30,7 +30,7 @@ pub fn split(f: &mut Fiber) -> frame::Event
         let src = f.head.e.get_param(0);
         let div = f.head.e.get_param(1);
         let subs =
-            src.str().split(div.str()).fold(Val::Nil, |acc, s| {
+            src.str().rsplit(div.str()).fold(Val::Nil, |acc, s| {
                 list::cons(
                     Val::new_str(s.to_string()),
                     acc
