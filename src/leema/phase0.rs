@@ -127,6 +127,13 @@ impl Protomod
                 let ppbase = Protomod::preproc_expr(prog, mp, base);
                 Val::DotAccess(Box::new(ppbase), fld.clone())
             }
+            &Val::ModPrefix(ref prefix, ref name) => {
+                if !mp.imports.contains(&**prefix) {
+                    panic!("cannot find {} module. maybe import it?");
+                }
+                let ppname = Protomod::preproc_expr(prog, mp, name);
+                Val::ModPrefix(prefix.clone(), Rc::new(ppname))
+            }
             &Val::Wildcard => Val::Wildcard,
             &Val::RustBlock => Val::RustBlock,
             &Val::Void => Val::Void,

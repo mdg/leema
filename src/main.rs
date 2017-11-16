@@ -15,10 +15,13 @@ mod leema;
 
 use leema::log;
 
+use leema::list;
 use leema::loader::{Interloader};
 use leema::module::{ModuleSource};
 use leema::program;
 use leema::application::{Application};
+use leema::val::{Val};
+
 use std::io::{stderr, Write};
 use docopt::{Docopt};
 
@@ -27,7 +30,7 @@ use docopt::{Docopt};
 #[derive(RustcDecodable)]
 struct Args {
     arg_cmd: String,
-    arg_file: String,
+    arg_script: Vec<String>,
     flag_verbose: bool,
     flag_func: Option<String>,
 }
@@ -36,7 +39,7 @@ const USAGE: &'static str = "
 leema interpreter
 
 Usage:
-  leema [options] <cmd> <file>
+  leema [options] <cmd> <script>...
   leema (-v | --verbose)
   leema (-h | --help)
 
@@ -67,7 +70,13 @@ fn real_main() -> i32
     }
     vout!("verbose mode\nargs:{:?}\n", args);
 
-    let inter = Interloader::new(&args.arg_file);
+    let file = args.arg_script.first().unwrap();
+    let leema_args: Val =
+        args.arg_script.iter().skip(1).fold(Val::Nil, |acc, a| {
+            let strval = Val::new_str(a.to_string());
+            list::cons(strval, acc)
+        });
+    let inter = Interloader::new(file);
     let modkey = inter.mod_name_to_key(&inter.main_mod);
     vout!("{} {}\n", args.arg_cmd, inter.main_mod);
 
@@ -108,6 +117,7 @@ fn real_main() -> i32
     } else if args.arg_cmd == "run" {
         let prog = program::Lib::new(inter);
         let mut app = Application::new(prog);
+        app.set_args(leema_args);
         app.push_call(&modkey.name, "main");
         app.run();
         let result = app.wait_for_result();

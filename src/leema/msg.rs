@@ -1,7 +1,7 @@
 
 use leema::code::{Code};
-use leema::rsrc::{self, Rsrc, IopAction};
-use leema::val::{MsgVal, Val};
+use leema::rsrc::{IopAction};
+use leema::val::{MsgVal};
 
 use std::fmt;
 use std::sync::mpsc;

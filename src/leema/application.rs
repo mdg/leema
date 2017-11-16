@@ -22,6 +22,7 @@ pub struct Application
     io_send: Sender<IoMsg>,
     worker: HashMap<i64, Sender<WorkerMsg>>,
     calls: LinkedList<(String, String)>,
+    args: Val,
     result: Option<Val>,
     done: bool,
     last_worker_id: i64,
@@ -41,10 +42,16 @@ impl Application
             io_send: iotx,
             worker: HashMap::new(),
             calls: LinkedList::new(),
+            args: Val::Nil,
             result: None,
             done: false,
             last_worker_id: 0,
         }
+    }
+
+    pub fn set_args(&mut self, args: Val)
+    {
+        self.args = args;
     }
 
     pub fn push_call(&mut self, module: &str, func: &str)

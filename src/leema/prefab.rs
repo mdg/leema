@@ -1,5 +1,5 @@
 use leema::val::{Val, Type, LibVal};
-use leema::code::{Code, RustFunc};
+use leema::code::{Code};
 use leema::fiber::{Fiber};
 use leema::frame::{Frame, Event};
 use leema::list;

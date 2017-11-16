@@ -3,12 +3,11 @@ use leema::val::{Val};
 use leema::ixpr::{Ixpr, Source};
 use leema::inter::{Intermod, Version};
 use leema::module::{ModuleSource, ModKey};
-use leema::parse::{Token};
 
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 
 
 #[derive(Debug)]
