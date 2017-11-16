@@ -118,19 +118,19 @@ pub fn int_random(f: &mut Fiber) -> Event
 
 pub fn bool_not(f: &mut Fiber) -> Event
 {
-    println!("run bool_not!");
-    let bnot;
-    {
-        let bval = f.head.get_param(0);
-        bnot = match bval {
-            &Val::Bool(b) => !b,
-            _ => {
-                panic!("wtf is all that? {:?}", bval);
-            }
-        }
+    let i = f.head.e.get_param(0);
+    if let &Val::Bool(b) = i {
+        f.head.parent.set_result(Val::Bool(!b));
+        Event::success()
+    } else {
+        let tag = Val::hashtag("invalid_type".to_string());
+        let msg = Val::new_str(
+            format!("input to not must be a boolean: {:?}", i)
+        );
+        let fail = Val::failure(tag, msg, f.head.trace.clone());
+        f.head.parent.set_result(fail);
+        Event::failure()
     }
-    f.head.parent.set_result(Val::Bool(bnot));
-    Event::success()
 }
 
 pub fn bool_xor(f: &mut Fiber) -> Event
@@ -347,6 +347,8 @@ pub fn source_code() -> &'static str
         |else -> b
         --
     --
+
+    func bool_not(v: Bool): Bool -RUST-
 
     func int_add(a: Int, b: Int): Int -RUST-
     func int_sub(a: Int, b: Int): Int -RUST-
