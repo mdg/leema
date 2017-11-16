@@ -1,2 +1,4 @@
 
+func is_empty(input: Str): Bool -RUST-
+func len(input: Str): Int -RUST-
 func split(input: Str, divisor: Str): [Str] -RUST-
