@@ -8,8 +8,24 @@ func _map(result :[$C], input: [$D], f: $D > $C): [$C]
 |(result, h;t, f) -> _map(f(h);result, t, f)
 --
 
+func filter(items: [$H], f: $H > Bool): [$H] ->
+    _filter([], items, f)
+--
+
 func reverse(items: [$E]): [$E] ->
     _reverse([], items)
+--
+
+func _filter(acc: [$G], in: [$G], pred: $G > Bool): [$G]
+|(acc, [], _) -> reverse(acc)
+|(acc, h;t, f) ->
+    let matcher := f(h)
+    let new_acc :=
+        match f(h)
+        |true -> h;acc
+        |false -> acc
+        --
+    _filter(new_acc, t, f)
 --
 
 func _reverse(out: [$F], in: [$F]): [$F]
