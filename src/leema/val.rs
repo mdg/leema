@@ -556,6 +556,11 @@ impl Val
             &Val::Id(ref id) => id.clone(),
             &Val::TypedId(ref id, ref typ) => id.clone(),
             &Val::Str(ref s) => s.clone(),
+            &Val::ModPrefix(ref prefix, ref name) => {
+                let name_str = name.to_str();
+                let s = format!("{}::{}", prefix, name_str);
+                Rc::new(s)
+            }
             _ => {
                 panic!("Cannot convert to string: {:?}", self);
             }

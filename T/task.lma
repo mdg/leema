@@ -1,5 +1,4 @@
 import date
-import file
 import str
 import list
 
@@ -28,13 +27,6 @@ func split_task_file(txt) ->
     line_parts
 --
 
-func print_task(task) ->
-    match task
-    |Task(txt, created, first_due, due, np) ->
-        cout("Task: \"$txt\"\n")
-    --
---
-
 func create_task(line_parts)
 |([txt, created, first_due, due, np]) ->
     Task(
@@ -44,12 +36,4 @@ func create_task(line_parts)
         due,
         np,
     )
---
-
-func main() ->
-    let full_task_txt := file::read_file("T/data/tasks.csv")
-    let line_parts := split_task_file(full_task_txt)
-    let tasks := list::map(line_parts, create_task)
-    cout("tasks:\n")
-    list::map(tasks, print_task)
 --

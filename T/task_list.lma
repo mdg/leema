@@ -1,0 +1,18 @@
+import task
+import file
+import list
+
+func print_task(t) ->
+    match t
+    |task::Task(txt, created, first_due, due, np) ->
+        cout("Task: \"$txt\"\n")
+    --
+--
+
+func main() ->
+    let full_task_txt := file::read_file("T/data/tasks.csv")
+    let line_parts := task::split_task_file(full_task_txt)
+    let tasks := list::map(line_parts, task::create_task)
+    cout("tasks:\n")
+    list::map(tasks, print_task)
+--

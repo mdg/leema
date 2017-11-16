@@ -531,13 +531,33 @@ pub fn compile_pattern(scope: &mut Interscope, patt: &Val) -> Val
 pub fn compile_pattern_call(scope: &mut Interscope, patt: &Val) -> Val
 {
     let (callx, args) = list::take_ref(patt);
-    if !scope.proto.structfields.contains_key(callx.str()) {
-        panic!("Unknown type: {}", callx.str());
-    }
+    let struct_flds = match callx {
+        &Val::Id(ref name) => {
+            let flds = scope.proto.structfields.get(callx.str());
+            if !flds.is_none() {
+                panic!("Unknown type: {}", callx.str());
+            }
+            flds.unwrap()
+        }
+        &Val::ModPrefix(ref prefix, ref name) => {
+            let opt_imp = scope.imports.get(&**prefix);
+            if opt_imp.is_none() {
+                panic!("missing import: {}", prefix);
+            }
+            let imp = opt_imp.unwrap();
+            let impflds = imp.structfields.get(name.str());
+            if impflds.is_none() {
+                panic!("unknown type: {}", name.str());
+            }
+            impflds.unwrap()
+        }
+        _ => {
+            panic!("cannot match pattern call: {:?}", patt);
+        }
+    };
     let args_vec = list::map_ref_to_vec(&*args, |a| {
         compile_pattern(scope, a)
     });
-    let struct_flds = scope.proto.structfields.get(callx.str()).unwrap();
     if args_vec.len() < struct_flds.len() {
         panic!("too few fields in struct pattern for: {}", callx.str());
     }

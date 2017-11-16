@@ -365,6 +365,7 @@ impl Protomod
             &Val::Bool(b) => Val::Bool(b),
             &Val::Str(ref s) => Val::Str(s.clone()),
             &Val::Hashtag(ref h) => Val::Hashtag(h.clone()),
+            &Val::ModPrefix(_, _) => p.clone(),
             _ => {
                 println!("preproc_pattern what?: {:?}", p);
                 p.clone()
