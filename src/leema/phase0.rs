@@ -402,6 +402,11 @@ impl Protomod
     {
         let (ref name, ref src_fields) = list::take_ref(sp);
         let rc_name = name.id_name().clone();
+        let base_type_id = Type::Id(rc_name.clone());
+        let mod_type = Type::ModPrefix(
+            Rc::new(self.key.name.clone()),
+            Rc::new(base_type_id),
+        );
 
         let field_type_vec = list::map_ref_to_vec(&**src_fields, |f| {
             let (fname, ftype) = Val::split_typed_id(f);
@@ -425,7 +430,7 @@ impl Protomod
             });
 
         let num_fields = field_type_vec.len() as i8;
-        let stype = Type::Struct(rc_name.clone(), num_fields);
+        let stype = Type::Struct(Rc::new(mod_type), num_fields);
 
         let func_type = Type::Func(field_type_vec, Box::new(stype.clone()));
 

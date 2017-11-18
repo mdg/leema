@@ -49,7 +49,7 @@ pub enum Type
     Bool,
     Hashtag,
     Tuple(Vec<Type>),
-    Struct(Rc<String>, i8),
+    Struct(Rc<Type>, i8),
     Failure,
     Enum(String),
     Func(Vec<Type>, Box<Type>),
@@ -88,7 +88,7 @@ impl Type
     {
         match self {
             &Type::Int => "Int",
-            &Type::Struct(ref sname, _) => &**sname,
+            &Type::Struct(ref sname, _) => sname.typename(),
             _ => {
                 panic!("No typename for {:?}", self);
             }
@@ -167,7 +167,16 @@ impl Type
             &Type::Int => Type::Int,
             &Type::Hashtag => Type::Hashtag,
             &Type::Struct(ref s, nflds) => {
-                Type::Struct(Rc::new((**s).clone()), nflds)
+                Type::Struct(Rc::new(s.deep_clone()), nflds)
+            }
+            &Type::Id(ref id) => {
+                let old_str: &str = &**id;
+                Type::Id(Rc::new(old_str.to_string()))
+            }
+            &Type::ModPrefix(ref prefix, ref base) => {
+                let new_prefix = (&**prefix).to_string();
+                let new_base = base.deep_clone();
+                Type::ModPrefix(Rc::new(new_prefix), Rc::new(new_base))
             }
             _ => {
                 panic!("cannot deep_clone Type: {:?}", self);
@@ -608,6 +617,11 @@ impl Val
     {
         match self {
             &Val::Type(ref t) => t.clone(),
+            &Val::Id(ref id) => Type::Id(id.clone()),
+            &Val::ModPrefix(ref prefix, ref base) => {
+                let tbase = base.to_type();
+                Type::ModPrefix(prefix.clone(), Rc::new(tbase))
+            }
             _ => {
                 panic!("Cannot unwrap not-type as type {:?}", self);
             }

@@ -300,15 +300,11 @@ impl<'b> Inferator<'b>
                     };
                 Some(Type::Func(masht, Box::new(mashresult)))
             }
-            (&Type::Id(ref idname), &Type::Struct(ref sname, _))
-                if idname == sname
-            => {
-                Some(newt.clone())
-            }
-            (&Type::Struct(ref sname, _), &Type::Id(ref idname))
-                if sname == idname
-            => {
+            (&Type::Struct(ref sname, _), _) if **sname == *newt => {
                 Some(oldt.clone())
+            }
+            (_, &Type::Struct(ref sname, _)) if *oldt == **sname => {
+                Some(newt.clone())
             }
             (_, _) => {
                 println!("type mismatch: {:?} != {:?}", oldt, newt);

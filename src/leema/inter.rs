@@ -568,7 +568,8 @@ pub fn compile_pattern_call(scope: &mut Interscope, patt: &Val) -> Val
         let &(_, ref fldtype) = fld;
         scope.T.bind_vartype(arg.str(), fldtype);
     }
-    let struct_type = Type::Struct(callx.to_str(), args_vec.len() as i8);
+    let calltyp = Rc::new(callx.to_type());
+    let struct_type = Type::Struct(calltyp, args_vec.len() as i8);
     Val::Struct(struct_type, args_vec.clone())
 }
 
