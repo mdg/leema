@@ -108,11 +108,12 @@ impl Protomod
             }
             &Val::Nil => Val::Nil,
             &Val::Hashtag(ref ht) => Val::Hashtag(ht.clone()),
-            &Val::Type(_) => {
-                x.clone()
+            &Val::Type(ref typ) => {
+                Val::Type(Protomod::preproc_type(prog, mp, typ))
             }
-            &Val::TypedId(_, _) => {
-                x.clone()
+            &Val::TypedId(ref id, ref typ) => {
+                let pptyp = Protomod::preproc_type(prog, mp, typ);
+                Val::TypedId(id.clone(), pptyp)
             }
             &Val::Tuple(ref items) if items.len() == 1 => {
                 // one tuples are compiled to just the value
@@ -456,6 +457,19 @@ impl Protomod
         .map(|(idx, &(_, ref ftype))| {
             (idx as i8, ftype)
         })
+    }
+
+    pub fn preproc_type(prog: &Lib, mp: &ModulePreface, t: &Type) -> Type
+    {
+        match t {
+            &Type::Id(_) => {
+                let prefix = Rc::new(mp.key.name.clone());
+                Type::ModPrefix(prefix, Rc::new(t.clone()))
+            }
+            _ => {
+                t.clone()
+            }
+        }
     }
 }
 

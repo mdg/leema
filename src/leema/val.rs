@@ -230,7 +230,7 @@ impl fmt::Display for Type
             &Type::Any => write!(f, "Any"),
 
             &Type::Unknown => write!(f, "TypeUnknown"),
-            &Type::Id(ref name) => write!(f, "TypeId({})", name),
+            &Type::Id(ref name) => write!(f, "{}", name),
             &Type::ModPrefix(ref prefix, ref sub) => {
                 write!(f, "{}::{}", prefix, sub)
             }
@@ -260,7 +260,9 @@ impl fmt::Debug for Type
                 }
                 write!(f, ")")
             }
-            &Type::Struct(ref name, nfields) => write!(f, "{}", name),
+            &Type::Struct(ref name, nfields) => {
+                write!(f, "StructType({})", name)
+            }
             &Type::Enum(ref name) => write!(f, "Enum"),
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
@@ -1264,10 +1266,10 @@ impl fmt::Debug for Val {
                 Val::fmt_sxpr(*t, head, f, true)
             }
             Val::ModPrefix(ref head, ref tail) => {
-                write!(f, "{}::{:?}", head, tail)
+                write!(f, "Id({}::{})", head, tail)
             }
             Val::Id(ref id) => {
-                write!(f, "ID({})", id)
+                write!(f, "Id({})", id)
             }
             Val::TypedId(ref id, ref typ) => {
                 write!(f, "TypedId({}, {:?})", id, typ)
