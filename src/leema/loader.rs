@@ -1,8 +1,6 @@
 
-use leema::val::{Val};
-use leema::ixpr::{Ixpr, Source};
-use leema::inter::{Intermod, Version};
-use leema::module::{ModuleSource, ModKey};
+use leema::inter::{Version};
+use leema::module::{ModKey};
 
 use std::fs::File;
 use std::io::Read;

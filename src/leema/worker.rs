@@ -19,8 +19,7 @@ use std::sync::mpsc::{channel, Sender, Receiver};
 use std::thread;
 use std::time::{Duration};
 
-use futures::{Poll, Async, Stream, Sink};
-use futures::future::{Future};
+use futures::{Poll, Async};
 
 
 #[derive(Debug)]

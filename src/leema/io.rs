@@ -11,7 +11,7 @@ use std::cell::{RefCell, RefMut};
 use std::fmt;
 use std::io::{stderr, Write};
 use std::rc::{Rc};
-use std::sync::mpsc::{channel, Sender, Receiver};
+use std::sync::mpsc::{Sender, Receiver};
 use std::collections::{HashMap, LinkedList};
 use std::thread;
 

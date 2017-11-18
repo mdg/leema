@@ -1,6 +1,5 @@
 use leema::val::{Val};
 
-use std::collections::{LinkedList};
 use std::rc::{Rc};
 
 

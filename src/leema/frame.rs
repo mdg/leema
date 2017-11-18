@@ -4,24 +4,15 @@ use leema::fiber::Fiber;
 use leema::val::{self, Val, Env, FutureVal, Type};
 use leema::reg::{Reg, Ireg};
 use leema::code::{self, CodeKey, Code, Op, OpVec, ModSym, RustFunc};
-use leema::list;
-use leema::rsrc::{self, Rsrc};
+use leema::rsrc::{self};
 
-use std::collections::{HashMap, LinkedList};
-use std::collections::hash_map;
 use std::rc::{Rc};
-use std::sync::{Arc, Mutex, MutexGuard, Condvar};
-use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
-use std::sync::mpsc;
+use std::sync::{Arc};
 use std::mem;
 use std::fmt::{self, Debug};
-use std::thread;
-use std::time;
 use std::io::{stderr, Write};
 
-use futures::future;
 use ::tokio_core::reactor::{self};
-use mopa;
 
 
 pub enum Parent

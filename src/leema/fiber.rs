@@ -17,12 +17,6 @@ use std::time::{Duration};
 use std::thread;
 use std::io::{stderr, Write};
 
-use futures::{Poll, Async, Sink, Stream};
-use futures::future::{Future};
-use futures::task;
-use futures::unsync::mpsc::{Sender, Receiver};
-use tokio_core::reactor;
-
 
 #[derive(Debug)]
 pub struct Fiber
