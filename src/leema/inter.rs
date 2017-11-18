@@ -534,7 +534,7 @@ pub fn compile_pattern_call(scope: &mut Interscope, patt: &Val) -> Val
     let struct_flds = match callx {
         &Val::Id(ref name) => {
             let flds = scope.proto.structfields.get(callx.str());
-            if !flds.is_none() {
+            if flds.is_none() {
                 panic!("Unknown type: {}", callx.str());
             }
             flds.unwrap()
