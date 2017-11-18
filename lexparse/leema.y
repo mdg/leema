@@ -66,6 +66,7 @@ use std::rc::{Rc};
 %type opt_typex { Type }
 %type arrow_typex { Vec<Type> }
 %type type_term { Type }
+%type mod_type { Type }
 %type mod_prefix { Val }
 %type tuple_types { Val }
 
@@ -287,6 +288,9 @@ type_term(A) ::= TYPE_VAR(B). {
 type_term(A) ::= ID(B). {
 	A = Type::Id(Rc::new(B.data));
 }
+type_term(A) ::= mod_type(B). {
+    A = B;
+}
 type_term(A) ::= SquareL typex(B) SquareR. {
 	A = Type::StrictList(Box::new(B));
 }
@@ -303,6 +307,14 @@ tuple_types(A) ::= typex(B). {
 }
 tuple_types(A) ::= typex(B) COMMA tuple_types(C). {
     A = list::cons(Val::Type(B), C);
+}
+
+mod_type(A) ::= ID(B) DBLCOLON ID(C). {
+    let base_name = Type::Id(Rc::new(C.data));
+    A = Type::ModPrefix(Rc::new(B.data), Rc::new(base_name));
+}
+mod_type(A) ::= ID(B) DBLCOLON mod_type(C). {
+    A = Type::ModPrefix(Rc::new(B.data), Rc::new(C));
 }
 
 

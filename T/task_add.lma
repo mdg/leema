@@ -11,7 +11,7 @@ func print_task(t) ->
 --
 
 func create_new_task(txt) ->
-    Task(
+    task::Task(
         txt,
         date::new(2017, 11, 17),
         date::new(2017, 11, 24),

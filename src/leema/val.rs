@@ -70,6 +70,7 @@ pub enum Type
 
     Unknown,
     Id(Rc<String>),
+    ModPrefix(Rc<String>, Rc<Type>),
     Texpr(Rc<String>, Vec<Type>),
     Var(Rc<String>),
     AnonVar,
@@ -230,6 +231,9 @@ impl fmt::Display for Type
 
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::Id(ref name) => write!(f, "TypeId({})", name),
+            &Type::ModPrefix(ref prefix, ref sub) => {
+                write!(f, "{}::{}", prefix, sub)
+            }
             &Type::Texpr(ref base, ref args) => write!(f, "Texpr"),
             &Type::Var(ref name) => {
                 write!(f, "Type::Var({})", name)
@@ -278,6 +282,9 @@ impl fmt::Debug for Type
 
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::Id(ref name) => write!(f, "TypeId({})", name),
+            &Type::ModPrefix(ref prefix, ref sub) => {
+                write!(f, "TypeId({}::{})", prefix, sub)
+            }
             &Type::Texpr(ref base, ref args) => write!(f, "Texpr"),
             &Type::Var(ref name) => {
                 write!(f, "Type::Var({})", name)
