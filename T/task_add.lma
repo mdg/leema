@@ -1,0 +1,37 @@
+import date
+import task
+import file
+import list
+
+func print_task(t) ->
+    match t
+    |task::Task(txt, created, first_due, due, np) ->
+        cout("Task: \"$txt\"\n")
+    --
+--
+
+func create_new_task(txt) ->
+    Task(
+        txt,
+        date::new(2017, 11, 17),
+        date::new(2017, 11, 24),
+        date::new(2017, 11, 24),
+        0,
+    )
+--
+
+func format_task_list(tasks: [task::Task]): Str ->
+--
+
+func main() ->
+    let full_task_txt := file::read_file("T/data/tasks.csv")
+    let line_parts := task::split_task_file(full_task_txt)
+    let tasks := list::map(line_parts, task::create_task)
+    let text := cin()
+    let new_task := create_new_task(text)
+    let new_list := new_task;tasks
+    let task_str := format_task_list(new_list)
+
+    cout("added: ")
+    print_task(new_task)
+--

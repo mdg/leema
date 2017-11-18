@@ -6,7 +6,7 @@ use leema::list;
 use leema::log;
 
 use std::fs::File;
-use std::io::{stderr, Read, Write};
+use std::io::{stdin, stderr, Read, Write};
 use std::any::{Any};
 use std::fmt::{self, Display, Debug};
 use std::sync::{Mutex};
@@ -229,6 +229,31 @@ pub fn get_type(f: &mut Fiber) -> Event
     Event::success()
 }
 
+
+/**
+ * cin
+ */
+pub fn cin(f: &mut Fiber) -> Event
+{
+    vout!("cin()\n");
+    let mut input = String::new();
+    match stdin().read_line(&mut input) {
+        Ok(n) => {
+            f.head.parent.set_result(Val::new_str(input));
+            Event::success()
+        }
+        Err(err) => {
+            f.head.parent.set_result(Val::failure(
+                Val::hashtag("console_read_fail".to_string()),
+                Val::hashtag("".to_string()),
+                f.head.trace.failure_here(),
+            ));
+
+            Event::success()
+        }
+    }
+}
+
 pub fn cout(f: &mut Fiber) -> Event
 {
     {
@@ -358,6 +383,7 @@ pub fn source_code() -> &'static str
     func int_random(): Int -RUST-
     func equal(a, b): Bool -RUST-
     func less_than(a, b): Bool -RUST-
+    func cin(): Str -RUST-
     func cout(txt: Str): Void -RUST-
     func list_cons(head: $A, tail: [$A]): [$A] -RUST-
 
@@ -400,6 +426,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         greater_than,
         greater_than_equal,
         get_type,
+        cin,
         cout,
         file_read,
         file_stream_read

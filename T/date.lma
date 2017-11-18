@@ -5,3 +5,6 @@ struct Date
 .day: Int
 --
 
+func new(year: Int, month: Int, day: Int) ->
+    Date(year, month, day)
+--
