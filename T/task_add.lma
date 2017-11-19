@@ -20,8 +20,20 @@ func create_new_task(txt) ->
     )
 --
 
-func format_task_list(tasks: [task::Task]): Str ->
+func format_task_line(t: task::Task): Str ->
+    let txt := t.txt
+    let created := t.created
+    let first_due := t.first_due
+    let due := t.due
+    let np := t.np
+    "$txt,$created,$first_due,$due,$np\n"
 --
+
+func format_task_list(tasks: [task::Task]): Str ->
+    let formatted_lines := list::map(tasks, format_task_line)
+    str::join(formatted_lines)
+--
+
 
 func main() ->
     let full_task_txt := file::read_file("T/data/tasks.csv")

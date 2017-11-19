@@ -24,6 +24,16 @@ pub fn is_empty(f: &mut Fiber) -> frame::Event
     frame::Event::success()
 }
 
+pub fn join(f: &mut Fiber) -> frame::Event
+{
+    let src = f.head.e.get_param(0);
+    let total_len = list::fold_ref(0, src, |tlen, s| {
+        tlen + s.str().len()
+    });
+    f.head.parent.set_result(Val::Int(total_len as i64));
+    frame::Event::success()
+}
+
 pub fn split(f: &mut Fiber) -> frame::Event
 {
     let result = {
@@ -47,6 +57,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
         "is_empty" => Some(Code::Rust(is_empty)),
+        "join" => Some(Code::Rust(join)),
         "len" => Some(Code::Rust(len)),
         "split" => Some(Code::Rust(split)),
         _ => None,
