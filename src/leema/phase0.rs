@@ -553,7 +553,13 @@ fn test_new_struct_newtypes()
     proto.preproc_struct(&raw_fields);
 
     assert!(proto.newtypes.contains(
-        &Type::Struct(Rc::new("Burrito".to_string()), 2)
+        &Type::Struct(
+            Rc::new(Type::ModPrefix(
+                Rc::new("tacos".to_string()),
+                Rc::new(Type::Id(Rc::new("Burrito".to_string())))
+            )),
+            2
+        )
     ));
 }
 
