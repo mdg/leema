@@ -23,7 +23,7 @@ impl Rsrc for UdpSocket
 }
 
 
-pub fn udp_socket(mut ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn udp_socket(ctx: rsrc::IopCtx) -> rsrc::Event
 {
     let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
     let rsock = UdpSocket::bind(&sock_addr, &ctx.handle()).unwrap();
@@ -50,7 +50,7 @@ pub fn udp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("udp_recv()\n");
 
-    let mut buffer: Vec<u8> = Vec::with_capacity(2048);
+    let buffer: Vec<u8> = Vec::with_capacity(2048);
     let sock: UdpSocket = ctx.take_rsrc();
     let fut = sock.recv_dgram(buffer)
         .map(|(isock, ibuf, nbytes, src_addr)| {

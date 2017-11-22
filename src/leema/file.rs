@@ -9,7 +9,7 @@ use std::io::{self, stderr, Read, Write};
 use std::path::{Path};
 
 
-pub fn file_open(mut ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn file_open(ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("file_open()\n");
     rsrc::Event::Success(Val::Void, None)
@@ -26,7 +26,7 @@ pub fn file_read_file(mut ctx: rsrc::IopCtx) -> rsrc::Event
     rsrc::Event::Success(Val::new_str(s), None)
 }
 
-pub fn file_write(mut ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn file_write(ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("file_write()\n");
     rsrc::Event::Success(Val::Void, None)
