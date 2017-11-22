@@ -144,7 +144,7 @@ class TestScripts(unittest.TestCase):
         result = run_leema('destruct')
         self.assertEqual(0, result['code'])
         self.assertEqual(
-            b"date is: Date(2010,9,8,)\n" +
+            b"date is: destruct::Date(2010,9,8,)\n" +
             b"year: 2010 / month: 9 / day: 8\n",
             result['output'])
 
@@ -168,7 +168,7 @@ class TestScripts(unittest.TestCase):
     def test_rgb(self):
         result = run_leema('rgb')
         self.assertEqual(0, result['code'])
-        expected = b"color: Rgb(10,20,30,)\nred: 10\nblue: 30\n"
+        expected = b"color: rgb::Rgb(10,20,30,)\nred: 10\nblue: 30\n"
         self.assertEqual(expected, result['output'])
 
     def test_read_file(self):

@@ -360,9 +360,12 @@ impl Protomod
                 )
             }
             &Val::Sxpr(SxprType::Call, ref sx) => {
-                let pp_sx = list::map_ref(&**sx, |px| {
+                let (callx, args) = list::take_ref(sx);
+                let pp_callx = Protomod::preproc_pattern_call(prog, mp, callx);
+                let pp_args = list::map_ref(&**args, |px| {
                     Protomod::preproc_pattern(prog, mp, px)
                 });
+                let pp_sx = list::cons(pp_callx, pp_args);
                 Val::Sxpr(SxprType::Call, Rc::new(pp_sx))
             }
             &Val::Id(_) => {
@@ -377,6 +380,21 @@ impl Protomod
             _ => {
                 println!("preproc_pattern what?: {:?}", p);
                 p.clone()
+            }
+        }
+    }
+
+    pub fn preproc_pattern_call(prog: &Lib, mp: &ModulePreface, p: &Val) -> Val
+    {
+        match p {
+            &Val::Id(_) => {
+                Val::ModPrefix(Rc::new(mp.key.name.clone()), Rc::new(p.clone()))
+            }
+            &Val::ModPrefix(_, _) => {
+                p.clone()
+            }
+            _ => {
+                Protomod::preproc_pattern(prog, mp, p)
             }
         }
     }
@@ -407,6 +425,7 @@ impl Protomod
             Rc::new(self.key.name.clone()),
             Rc::new(base_type_id),
         );
+        let mod_typename = mod_type.typename();
 
         let field_type_vec = list::map_ref_to_vec(&**src_fields, |f| {
             let (fname, ftype) = Val::split_typed_id(f);
@@ -444,14 +463,14 @@ impl Protomod
         self.funcseq.push_back(rc_name.clone());
         self.funcsrc.insert((*rc_name).clone(), srcxpr);
         self.valtypes.insert((*rc_name).clone(), func_type);
-        self.structfields.insert((*rc_name).clone(), struct_fields);
+        self.structfields.insert((*mod_typename).clone(), struct_fields);
         self.newtypes.insert(stype);
     }
 
     pub fn struct_field_idx(&self, typ: &Type, fld: &str) -> Option<(i8, &Type)>
     {
         let typename = typ.typename();
-        let opt_structfields = self.structfields.get(typename);
+        let opt_structfields = self.structfields.get(&*typename);
         if opt_structfields.is_none() {
             panic!("cannot find struct fields for: {}", typename);
         }
@@ -576,9 +595,9 @@ fn test_new_struct_fields()
     );
     proto.preproc_struct(&raw_fields);
 
-    assert!(proto.structfields.contains_key(&*struct_name));
+    assert!(proto.structfields.contains_key("tacos::Burrito"));
 
-    let structfields = proto.structfields.get(&*struct_name).unwrap();
+    let structfields = proto.structfields.get("tacos::Burrito").unwrap();
     assert_eq!(2, structfields.len());
 
     let lettuce = structfields.get(0).unwrap();

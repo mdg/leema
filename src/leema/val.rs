@@ -84,11 +84,16 @@ impl Type
         Type::Func(inputs, Box::new(result))
     }
 
-    pub fn typename(&self) -> &str
+    pub fn typename(&self) -> Rc<String>
     {
         match self {
-            &Type::Int => "Int",
+            &Type::Int => Rc::new("Int".to_string()),
             &Type::Struct(ref sname, _) => sname.typename(),
+            &Type::Id(ref name) => name.clone(),
+            &Type::ModPrefix(_, _) => {
+                let str = format!("{}", self);
+                Rc::new(str)
+            }
             _ => {
                 panic!("No typename for {:?}", self);
             }

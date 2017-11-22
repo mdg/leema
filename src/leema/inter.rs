@@ -540,16 +540,26 @@ pub fn compile_pattern_call(scope: &mut Interscope, patt: &Val) -> Val
             flds.unwrap()
         }
         &Val::ModPrefix(ref prefix, ref name) => {
-            let opt_imp = scope.imports.get(&**prefix);
-            if opt_imp.is_none() {
-                panic!("missing import: {}", prefix);
-            }
-            let imp = opt_imp.unwrap();
-            let impflds = imp.structfields.get(name.str());
-            if impflds.is_none() {
+            let opt_flds = if scope.proto.key.name == **prefix {
+                let iflds = scope.proto.structfields.get(name.str());
+                if iflds.is_some() {
+                    iflds
+                } else {
+                    let prefix_name = callx.to_str();
+                    scope.proto.structfields.get(&*prefix_name)
+                }
+            } else {
+                let opt_imp = scope.imports.get(&**prefix);
+                if opt_imp.is_none() {
+                    panic!("missing import: {}", prefix);
+                }
+                let imp = opt_imp.unwrap();
+                imp.structfields.get(name.str())
+            };
+            if opt_flds.is_none() {
                 panic!("unknown type: {}", name.str());
             }
-            impflds.unwrap()
+            opt_flds.unwrap()
         }
         _ => {
             panic!("cannot match pattern call: {:?}", patt);
