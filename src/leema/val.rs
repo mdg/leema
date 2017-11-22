@@ -346,7 +346,6 @@ pub enum SxprType {
     DefFunc,
     DefMacro,
     DefStruct,
-    Fail,
     IfExpr,
     Import,
     MatchExpr,

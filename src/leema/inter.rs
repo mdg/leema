@@ -436,6 +436,11 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
             let strvec = compile_list_to_vec(scope, sx);
             Ixpr::new_str_mash(strvec)
         }
+        SxprType::Return => {
+            let head = list::head_ref(sx);
+            let chead = compile_expr(scope, head);
+            Ixpr::new(Source::Return(Box::new(chead)))
+        }
         _ => {
             panic!("Cannot compile sxpr: {:?} {:?}", st, sx);
         }

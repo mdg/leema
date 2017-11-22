@@ -393,7 +393,7 @@ vout!("id({}).reg = {:?}\n", id, src);
         }
         Source::Return(ref result) => {
             let mut rops = make_sub_ops(rt, result);
-            rops.ops.push(Op::SetResult(Reg::Undecided));
+            rops.ops.push(Op::SetResult(rops.dst.clone()));
             rops.ops.push(Op::Return);
             rops
         }

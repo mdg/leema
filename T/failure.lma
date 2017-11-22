@@ -1,7 +1,7 @@
-func add4(cx: Int): Int ->
-    if cx = 4 ->
-        fail(#xis4, "tacos are delicious")
-    --
+func add4(cx: Int): Int
+|4 ->
+    fail(#xis4, "tacos are delicious")
+|cx ->
     cx + 4
 --
 

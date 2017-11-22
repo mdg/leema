@@ -274,6 +274,19 @@ pub fn cerr(f: &mut Fiber) -> Event
     Event::success()
 }
 
+pub fn create_failure(f: &mut Fiber) -> Event
+{
+    let failtag = f.head.e.get_param(0);
+    let failmsg = f.head.e.get_param(1);
+    let failure = Val::Failure(
+        Box::new(failtag.clone()),
+        Box::new(failmsg.clone()),
+        f.head.trace.clone(),
+    );
+    f.head.parent.set_result(failure);
+    Event::failure()
+}
+
 
 struct LeemaFile {
     f: Mutex<File>,
@@ -373,6 +386,12 @@ pub fn source_code() -> &'static str
         --
     --
 
+    macro fail(ft, msg) ->
+        ->
+            return create_failure(ft, msg)
+        --
+    --
+
     func bool_not(v: Bool): Bool -RUST-
 
     func int_add(a: Int, b: Int): Int -RUST-
@@ -393,6 +412,8 @@ pub fn source_code() -> &'static str
         |else -> a
         --
     --
+
+    func create_failure(failure_tag: #, msg: Str): Failure -RUST-
     "
 }
 
@@ -428,6 +449,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         get_type,
         cin,
         cout,
+        create_failure,
         file_read,
         file_stream_read
     )

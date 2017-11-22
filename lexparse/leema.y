@@ -142,7 +142,7 @@ stmt(A) ::= macro_stmt(B). { A = B; }
 stmt(A) ::= if_stmt(B). { A = B; }
 stmt(A) ::= expr(B). { A = B; }
 stmt(A) ::= RETURN expr(B). {
-    A = sxpr::new(SxprType::Return, B);
+    A = sxpr::new(SxprType::Return, list::singleton(B));
 }
 
 

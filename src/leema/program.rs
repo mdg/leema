@@ -166,7 +166,7 @@ impl Lib
             }
             let rustfunc = rust_loader.unwrap()(funcname);
             if rustfunc.is_none() {
-                panic!("no rust function for: {}.{}", modname, funcname);
+                panic!("no rust function for: {}::{}", modname, funcname);
             }
             rustfunc.unwrap()
         } else {
