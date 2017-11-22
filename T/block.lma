@@ -1,0 +1,10 @@
+func main() ->
+    let x := ->
+        let y := 8
+        y + 4
+    --
+    let z := ->
+        x * 3
+    --
+    cout("z is: $z\n")
+--
