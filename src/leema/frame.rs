@@ -141,10 +141,18 @@ impl PartialEq for Event
 }
 
 #[derive(Debug)]
+pub enum FrameTraceDirection
+{
+    CallUp,
+    FailHere,
+    ReturnDown,
+}
+
+#[derive(Debug)]
 pub struct FrameTrace
 {
     // TODO: Implement this in leema later
-    direction: i8,
+    direction: FrameTraceDirection,
     function: String,
     parent: Option<Arc<FrameTrace>>,
 }
@@ -154,7 +162,7 @@ impl FrameTrace
     pub fn new_root(func: &String) -> Arc<FrameTrace>
     {
         Arc::new(FrameTrace{
-            direction: 1,
+            direction: FrameTraceDirection::CallUp,
             function: func.clone(),
             parent: None,
         })
@@ -163,7 +171,7 @@ impl FrameTrace
     pub fn push_call(parent: &Arc<FrameTrace>, func: &str) -> Arc<FrameTrace>
     {
         Arc::new(FrameTrace{
-            direction: 1,
+            direction: FrameTraceDirection::CallUp,
             function: func.to_string(),
             parent: Some(parent.clone()),
         })
@@ -173,7 +181,7 @@ impl FrameTrace
         -> Arc<FrameTrace>
     {
         Arc::new(FrameTrace{
-            direction: -1,
+            direction: FrameTraceDirection::ReturnDown,
             function: String::from(func),
             parent: Some(trace.clone()),
         })
@@ -182,7 +190,7 @@ impl FrameTrace
     pub fn failure_here(&self) -> Arc<FrameTrace>
     {
         Arc::new(FrameTrace{
-            direction: 0,
+            direction: FrameTraceDirection::FailHere,
             function: self.function.clone(),
             parent: self.parent.clone(),
         })
@@ -194,12 +202,9 @@ impl fmt::Display for FrameTrace
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         let dir = match self.direction {
-            0 => "<>",
-            1 => " >",
-            -1 => "< ",
-            d => {
-                panic!("Invalid direction: {}", d);
-            }
+            FrameTraceDirection::CallUp => " >",
+            FrameTraceDirection::FailHere => "<>",
+            FrameTraceDirection::ReturnDown => "< ",
         };
 
         match self.parent {
