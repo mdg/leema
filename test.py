@@ -19,6 +19,11 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(b"b is false", lines[1])
         self.assertEqual(b"a and b is false", lines[2])
 
+    def test_block(self):
+        result = run_leema('block')
+        self.assertEqual(0, result['code'])
+        self.assertEqual(b"z is: 36\n", result['output'])
+
     def test_cout(self):
         result = run_leema('cout_quotes')
         self.assertEqual(0, result['code'])

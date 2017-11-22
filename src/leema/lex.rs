@@ -148,9 +148,6 @@ impl Token
                 parse::TOKEN_ELSE => {
                     Token::ELSE(tl)
                 }
-                parse::TOKEN_FAIL => {
-                    Token::FAIL
-                }
                 parse::TOKEN_FAILED => {
                     Token::FAILED
                 }

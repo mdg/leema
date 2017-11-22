@@ -181,10 +181,6 @@ else	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_ELSE);
 }
-fail	{
-    BEGIN(INITIAL);
-    return set_token(yyg, TOKEN_FAIL);
-}
 failed	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_FAILED);

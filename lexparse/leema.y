@@ -59,7 +59,6 @@ use std::rc::{Rc};
 %type defstruct_fields { Val }
 %type defstruct_field { Val }
 %type let_stmt { Val }
-%type fail_stmt { Val }
 %type term { Val }
 %type expr { Val }
 %type typex { Type }
@@ -137,7 +136,6 @@ stmt(A) ::= IMPORT mod_prefix(B). {
     A = sxpr::new_import(B);
 }
 stmt(A) ::= let_stmt(B). { A = B; }
-stmt(A) ::= fail_stmt(B). { A = B; }
 stmt(A) ::= failed_stmt(B). { A = B; }
 stmt(A) ::= func_stmt(B). { A = B; }
 stmt(A) ::= macro_stmt(B). { A = B; }
@@ -162,16 +160,6 @@ defstruct_field(A) ::= DOT ID(B) COLON typex(C). {
 	A = Val::typed_id(&B.data, C);
 }
 
-
-fail_stmt(A) ::= FAIL(B) LPAREN HASHTAG(C) COMMA expr(D) RPAREN. {
-vout!("found fail_stmt {:?}\n", C);
-	A = sxpr::new(SxprType::Fail,
-        list::cons(Val::hashtag(C.data),
-        list::cons(D,
-        Val::Nil,
-        ))
-    );
-}
 
 failed_stmt(A) ::= FAILED ID(B) match_case(C) DOUBLEDASH. {
 	A = sxpr::new(SxprType::MatchFailed,
@@ -342,6 +330,7 @@ macro_args(A) ::= ID(B) COMMA macro_args(C). {
 expr(A) ::= if_expr(B). { A = B; }
 expr(A) ::= match_expr(B). { A = B; }
 expr(A) ::= call_expr(B). { A = B; }
+expr(A) ::= block(B) DOUBLEDASH. { A = B; }
 expr(A) ::= term(B). { A = B; }
 
 /* if statements can go 3 different ways
