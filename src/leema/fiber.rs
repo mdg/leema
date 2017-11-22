@@ -104,8 +104,8 @@ impl Fiber
             &Op::ConstVal(ref dst, ref v) => {
                 self.execute_const_val(dst, v)
             }
-            &Op::Constructor(ref dst, ref typ) => {
-                self.execute_constructor(dst, typ)
+            &Op::Constructor(ref dst, ref typ, nflds) => {
+                self.execute_constructor(dst, typ, nflds)
             }
             &Op::Copy(ref dst, ref src) => {
                 self.execute_copy(dst, src)
@@ -284,9 +284,10 @@ impl Fiber
         Event::Uneventful
     }
 
-    pub fn execute_constructor(&mut self, reg: &Reg, typ: &Type) -> Event
+    pub fn execute_constructor(&mut self, reg: &Reg, typ: &Type, nfields: i8
+        ) -> Event
     {
-        if let &Type::Struct(_, nfields) = typ {
+        if let &Type::Struct(_) = typ {
             let mut fields = Vec::with_capacity(nfields as usize);
             fields.resize(nfields as usize, Val::Void);
             self.head.e.set_reg(reg, Val::Struct(typ.clone(), fields));

@@ -49,7 +49,7 @@ pub enum Type
     Bool,
     Hashtag,
     Tuple(Vec<Type>),
-    Struct(Rc<Type>, i8),
+    Struct(Rc<Type>),
     Failure,
     Enum(String),
     Func(Vec<Type>, Box<Type>),
@@ -88,7 +88,7 @@ impl Type
     {
         match self {
             &Type::Int => Rc::new("Int".to_string()),
-            &Type::Struct(ref sname, _) => sname.typename(),
+            &Type::Struct(ref sname) => sname.typename(),
             &Type::Id(ref name) => name.clone(),
             &Type::ModPrefix(_, _) => {
                 let str = format!("{}", self);
@@ -171,8 +171,8 @@ impl Type
             &Type::Bool => Type::Bool,
             &Type::Int => Type::Int,
             &Type::Hashtag => Type::Hashtag,
-            &Type::Struct(ref s, nflds) => {
-                Type::Struct(Rc::new(s.deep_clone()), nflds)
+            &Type::Struct(ref s) => {
+                Type::Struct(Rc::new(s.deep_clone()))
             }
             &Type::Id(ref id) => {
                 let old_str: &str = &**id;
@@ -223,7 +223,7 @@ impl fmt::Display for Type
                 }
                 write!(f, ")")
             }
-            &Type::Struct(ref name, nfields) => write!(f, "{}", name),
+            &Type::Struct(ref name) => write!(f, "{}", name),
             &Type::Enum(ref name) => write!(f, "Enum"),
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
@@ -274,7 +274,7 @@ impl fmt::Debug for Type
                 }
                 write!(f, ")")
             }
-            &Type::Struct(ref name, nfields) => {
+            &Type::Struct(ref name) => {
                 write!(f, "StructType({})", name)
             }
             &Type::Enum(ref name) => write!(f, "Enum"),

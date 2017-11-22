@@ -448,8 +448,7 @@ impl Protomod
                 (fname.id_name().clone(), ftype.clone())
             });
 
-        let num_fields = field_type_vec.len() as i8;
-        let stype = Type::Struct(Rc::new(mod_type), num_fields);
+        let stype = Type::Struct(Rc::new(mod_type));
 
         let func_type = Type::Func(field_type_vec, Box::new(stype.clone()));
 
@@ -572,13 +571,12 @@ fn test_new_struct_newtypes()
     proto.preproc_struct(&raw_fields);
 
     assert!(proto.newtypes.contains(
-        &Type::Struct(
-            Rc::new(Type::ModPrefix(
+        &Type::Struct(Rc::new(
+            Type::ModPrefix(
                 Rc::new("tacos".to_string()),
                 Rc::new(Type::Id(Rc::new("Burrito".to_string())))
-            )),
-            2
-        )
+            )
+        ))
     ));
 }
 

@@ -15,7 +15,7 @@ pub enum Source
     BooleanAnd(Box<Ixpr>, Box<Ixpr>),
     BooleanOr(Box<Ixpr>, Box<Ixpr>),
     Call(Box<Ixpr>, Box<Ixpr>),
-    Constructor(Type),
+    Constructor(Type, i8),
     ConstVal(Val),
     Fail(Box<Ixpr>, Box<Ixpr>),
     FieldAccess(Box<Ixpr>, i8),
@@ -125,11 +125,11 @@ impl Ixpr
         }
     }
 
-    pub fn constructor(t: Type) -> Ixpr
+    pub fn constructor(t: Type, nflds: i8) -> Ixpr
     {
         Ixpr{
             typ: t.clone(),
-            src: Source::Constructor(t),
+            src: Source::Constructor(t, nflds),
         }
     }
 

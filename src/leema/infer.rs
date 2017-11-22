@@ -121,10 +121,10 @@ impl<'b> Inferator<'b>
                     &Type::StrictList(Box::new(tvar_inner.clone())));
             }
             (&Val::Struct(ref typ1, ref flds1),
-                &Type::Struct(ref typename2, nflds2)
+                &Type::Struct(ref typename2)
             ) => {
                 let type_match = match typ1 {
-                    &Type::Struct(ref typename1, nflds1) => {
+                    &Type::Struct(ref typename1) => {
                         typename1 == typename2 // && nflds1 == nflds2
                     }
                     _ => {
@@ -300,10 +300,10 @@ impl<'b> Inferator<'b>
                     };
                 Some(Type::Func(masht, Box::new(mashresult)))
             }
-            (&Type::Struct(ref sname, _), _) if **sname == *newt => {
+            (&Type::Struct(ref sname), _) if **sname == *newt => {
                 Some(oldt.clone())
             }
-            (_, &Type::Struct(ref sname, _)) if *oldt == **sname => {
+            (_, &Type::Struct(ref sname)) if *oldt == **sname => {
                 Some(newt.clone())
             }
             (_, _) => {

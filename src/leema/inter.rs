@@ -370,7 +370,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
         }
         &Val::Sxpr(st, ref sx) => compile_sxpr(scope, st, sx),
         &Val::Struct(ref typ, ref flds) => {
-            Ixpr::constructor(typ.clone())
+            Ixpr::constructor(typ.clone(), flds.len() as i8)
         }
         &Val::Void => Ixpr::noop(),
         _ => {
@@ -579,7 +579,7 @@ pub fn compile_pattern_call(scope: &mut Interscope, patt: &Val) -> Val
         scope.T.bind_vartype(arg.str(), fldtype);
     }
     let calltyp = Rc::new(callx.to_type());
-    let struct_type = Type::Struct(calltyp, args_vec.len() as i8);
+    let struct_type = Type::Struct(calltyp);
     Val::Struct(struct_type, args_vec.clone())
 }
 

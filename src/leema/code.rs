@@ -45,7 +45,7 @@ pub enum Op
     Return,
     SetResult(Reg),
     ConstVal(Reg, Val),
-    Constructor(Reg, Type),
+    Constructor(Reg, Type, i8),
     Copy(Reg, Reg),
     Failure(Reg, Reg, Reg),
     Fork(Reg, Reg, Reg),
@@ -87,8 +87,8 @@ impl Clone for Op
             &Op::ConstVal(ref dst, ref src) => {
                 Op::ConstVal(dst.clone(), src.deep_clone())
             }
-            &Op::Constructor(ref dst, ref src) => {
-                Op::Constructor(dst.clone(), src.deep_clone())
+            &Op::Constructor(ref dst, ref src, nflds) => {
+                Op::Constructor(dst.clone(), src.deep_clone(), nflds)
             }
             &Op::Copy(ref dst, ref src) => {
                 Op::Copy(dst.clone(), src.clone())
@@ -318,9 +318,9 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::Call(ref f, ref args) => {
             make_call_ops(rt, f, args, &input.typ)
         }
-        Source::Constructor(ref typ) => {
+        Source::Constructor(ref typ, nflds) => {
             vout!("make_constructor_ops({:?})\n", input);
-            make_constructor_ops(rt, typ)
+            make_constructor_ops(rt, typ, nflds)
         }
         Source::Fork(ref dst, ref f, ref args) => {
             // make_fork_ops(rt, f, args)
@@ -427,14 +427,14 @@ pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr
     fops
 }
 
-pub fn make_constructor_ops(rt: &mut RegTable, typ: &Type) -> Oxpr
+pub fn make_constructor_ops(rt: &mut RegTable, typ: &Type, nflds: i8) -> Oxpr
 {
     let dst = rt.dst();
     let mut ops = vec![];
-    if let &Type::Struct(_, nfields) = typ {
-        ops.push(Op::Constructor(dst.clone(), typ.clone()));
+    if let &Type::Struct(_) = typ {
+        ops.push(Op::Constructor(dst.clone(), typ.clone(), nflds));
         let mut i = 0;
-        while i < nfields {
+        while i < nflds {
             ops.push(Op::Copy(dst.sub(i), Reg::param(i)));
             i += 1;
         }
