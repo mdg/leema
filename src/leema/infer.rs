@@ -8,14 +8,30 @@ use std::io::{stderr, Write};
 use std::rc::{Rc};
 
 
-type Blockscope = HashSet<String>;
+#[derive(Debug)]
+pub struct Blockscope
+{
+    vars: HashSet<String>,
+    failing: bool,
+}
+
+impl Blockscope
+{
+    pub fn new() -> Blockscope
+    {
+        Blockscope{
+            vars: HashSet::new(),
+            failing: false,
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct Inferator<'b>
 {
     funcname: &'b str,
     T: HashMap<String, Type>,
-    e: Vec<Blockscope>,
+    blocks: Vec<Blockscope>,
     inferences: HashMap<Rc<String>, Type>,
 }
 
@@ -26,7 +42,7 @@ impl<'b> Inferator<'b>
         Inferator{
             funcname: funcname,
             T: HashMap::new(),
-            e: vec![Blockscope::new()],
+            blocks: vec![Blockscope::new()],
             inferences: HashMap::new(),
         }
     }
@@ -51,13 +67,9 @@ impl<'b> Inferator<'b>
 
     pub fn bind_vartype(&mut self, argn: &str, argt: &Type) -> Option<Type>
     {
-        vout!("bind_vartype({}, {:?})\n", argn, argt);
-        {
-            let e = self.e.last_mut().unwrap();
-            if !e.contains(argn) {
-                e.insert(argn.to_string());
-            }
-            // if a var already exists, just use it to match against input
+        let b = self.blocks.last_mut().unwrap();
+        if !b.vars.contains(argn) {
+            b.vars.insert(argn.to_string());
         }
 
         let realt = match argt {
@@ -165,29 +177,26 @@ impl<'b> Inferator<'b>
         }
     }
 
+    pub fn mark_failing(&mut self)
+    {
+        self.blocks.last_mut().unwrap().failing = true;
+    }
+
     pub fn push_block(&mut self)
     {
-        self.e.push(Blockscope::new());
+        self.blocks.push(Blockscope::new());
     }
 
     pub fn pop_block(&mut self)
     {
-        self.e.pop();
+        self.blocks.pop();
     }
 
-    pub fn blk(&self) -> &Blockscope
+    pub fn var_is_in_scope(&self, name: &str) -> bool
     {
-        self.e.last().unwrap()
-    }
-
-    pub fn contains_var(&self, name: &str) -> bool
-    {
-        for e in self.e.iter() {
-            if e.contains(name) {
-                return true;
-            }
-        }
-        false
+        self.blocks.iter().any(|b| {
+            b.vars.contains(name)
+        })
     }
 
     pub fn inferred_type<'a>(&'a self, typ: &'a Type) -> Type

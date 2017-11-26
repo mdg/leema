@@ -1185,7 +1185,7 @@ impl fmt::Display for Val {
                 write!(f, "RustBlock")
             }
             Val::Failure(ref tag, ref msg, ref stack) => {
-                write!(f, "Failure({}, {}\n{:?}\n)", tag, msg, **stack)
+                write!(f, "Failure({}, {}\n{})", tag, msg, **stack)
             }
             Val::Sxpr(ref t, ref head) => {
                 Val::fmt_sxpr(*t, head, f, false)

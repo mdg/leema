@@ -158,7 +158,6 @@ impl<'a> Interscope<'a>
             ) -> Interscope<'a>
     {
         let mut t = Inferator::new(fname);
-
         for (an, at) in args.iter().zip(argt) {
             if let None = t.bind_vartype(an, at) {
                 panic!("args type mismatch: {:?} != {:?}", args, argt);
@@ -179,7 +178,7 @@ impl<'a> Interscope<'a>
     pub fn vartype(&self, name: &str) -> Option<(ScopeLevel, Type)>
     {
         let local = self.T.vartype(name);
-        if local.is_some() && self.T.contains_var(name) {
+        if local.is_some() && self.T.var_is_in_scope(name) {
             return Some((ScopeLevel::Local, local.unwrap()));
         }
         if let Some(local_valtype) = self.mod_locals.get(name) {
@@ -214,7 +213,7 @@ impl<'a> Interscope<'a>
 
     pub fn contains_id(&self, name: &str) -> bool
     {
-        if self.T.contains_var(name) {
+        if self.T.var_is_in_scope(name) {
             true
         } else if self.proto.contains_val(name) {
             true
@@ -384,9 +383,9 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
     match st {
         SxprType::BlockExpr => {
             scope.T.push_block();
-            let iblk = compile_list_to_vec(scope, sx);
+            let iblk = compile_block(scope, sx);
             scope.T.pop_block();
-            Ixpr::new_block(iblk)
+            iblk
         }
         SxprType::Call => {
             let (callx, args) = list::take_ref(sx);
@@ -429,6 +428,12 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
         SxprType::MatchExpr => {
             let (mx, cases) = list::to_ref_tuple2(sx);
             let imx = compile_expr(scope, mx);
+            let icases = compile_matchcase(scope, cases, &imx.typ);
+            Ixpr::new_match_expr(imx, icases)
+        }
+        SxprType::MatchFailed => {
+            let (fx, cases) = list::to_ref_tuple2(sx);
+            let imx = compile_expr(scope, fx);
             let icases = compile_matchcase(scope, cases, &imx.typ);
             Ixpr::new_match_expr(imx, icases)
         }
@@ -588,15 +593,66 @@ pub fn compile_pattern_call(scope: &mut Interscope, patt: &Val) -> Val
     Val::Struct(struct_type, args_vec.clone())
 }
 
+pub fn compile_block(scope: &mut Interscope, l: &Val) -> Ixpr
+{
+    let block_len = list::len(l);
+    let mut result = Vec::with_capacity(block_len);
+    let mut fails = HashMap::new();
+    list::fold_mut_ref(&mut (&mut result, &mut fails, scope), l
+        , |&mut (ref mut ilines, ref mut ifails, ref mut iscope), line| {
+            compile_block_stmt(ilines, ifails, iscope, line);
+        });
+    Ixpr::new_block(result, fails)
+}
+
+pub fn compile_block_stmt(istmts: &mut Vec<Ixpr>
+    , ifails: &mut HashMap<String, Ixpr>
+    , scope: &mut Interscope
+    , stmt: &Val
+    )
+{
+    match stmt {
+        &Val::Sxpr(SxprType::MatchFailed, ref sx) => {
+            scope.T.mark_failing();
+            compile_failed_stmt(ifails, scope, sx);
+        }
+        _ => {
+            istmts.push(compile_expr(scope, stmt));
+        }
+    }
+}
+
 pub fn compile_list_to_vec(scope: &mut Interscope, l: &Val) -> Vec<Ixpr>
 {
-    let mut result = vec![];
+    let mut result = Vec::with_capacity(list::len(l));
     list::fold_mut_ref(&mut (&mut result, scope), l,
         |&mut (ref mut dst, ref mut scp), x| {
             dst.push(compile_expr(*scp, x));
         }
     );
     result
+}
+
+pub fn compile_failed_stmt(fails: &mut HashMap<String, Ixpr>
+    , scope: &mut Interscope
+    , sx: &Val
+    )
+{
+    let (fvar, cases) = list::take_ref(sx);
+    let varname = match fvar {
+        &Val::Id(ref name) => {
+            if fails.contains_key(&**name) {
+                panic!("cannot redefine failure handler for: {}", name);
+            }
+            name
+        }
+        _ => {
+            panic!("the test expression in a failed statement must be an identifier");
+        }
+    };
+
+    let fcases = compile_expr(scope, cases);
+    fails.insert((**varname).clone(), fcases);
 }
 
 pub fn split_func_args_body(defunc: &Val) -> (Vec<Rc<String>>, &Val)

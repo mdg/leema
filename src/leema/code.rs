@@ -255,12 +255,12 @@ pub fn make_ops(input: &Ixpr) -> OpVec
 pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
 {
     match input.src {
-        Source::Block(ref lines) => {
-            let mut oxprs = vec![];
+        Source::Block(ref lines, ref fails) => {
+            let mut oxprs = Vec::with_capacity(lines.len());
             for i in lines.iter().rev() {
                 oxprs.push(make_sub_ops(rt, i));
             }
-            let mut ops = vec![];
+            let mut ops = Vec::with_capacity(oxprs.len());
             let mut last_dst = rt.dst().clone();
             for mut i in oxprs.iter_mut().rev() {
                 ops.append(&mut i.ops);
