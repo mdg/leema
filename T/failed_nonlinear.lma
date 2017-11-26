@@ -1,5 +1,5 @@
 func foo(x): String ->
-    if x = 4 ->
+    if x == 4 ->
         fail(#xis4, "tacos are delicious")
     --
     "not 4"
@@ -8,8 +8,8 @@ func foo(x): String ->
 func handle_nonlinear(x: Int, prop: Bool): String ->
    let c := foo(x)
    "str interp: $c"
---
-ps ->
+   c
+
    failed c
    |#xis4 ->
       if prop ->
