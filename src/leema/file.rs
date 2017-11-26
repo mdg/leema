@@ -5,7 +5,7 @@ use leema::rsrc;
 use leema::val::{Val};
 
 use std::fs::{File, OpenOptions};
-use std::io::{self, stderr, Read, Write};
+use std::io::{stderr, Read, Write};
 use std::path::{Path};
 
 

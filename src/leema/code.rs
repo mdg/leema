@@ -1,19 +1,16 @@
 use leema::fiber;
 use leema::reg::{Reg, RegTable};
-use leema::val::{self, Val, Type};
+use leema::val::{Val, Type};
 use leema::log;
 use leema::ixpr::{Ixpr, Source};
 use leema::frame;
 use leema::rsrc;
 
 use std::fmt;
-use std::collections::{HashMap};
 use std::io::{stderr, Write};
 use std::rc::{Rc};
 use std::sync::Arc;
 use std::marker;
-
-use tokio_core::reactor;
 
 
 #[derive(Debug)]

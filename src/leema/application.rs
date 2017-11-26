@@ -1,9 +1,7 @@
-use leema::loader::{Interloader};
 use leema::program;
 use leema::io::{Io, IoLoop};
 use leema::msg::{AppMsg, WorkerMsg, IoMsg};
 use leema::worker::{Worker};
-use leema::code::{Code};
 use leema::val::{Val};
 use leema::log;
 

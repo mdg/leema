@@ -1,5 +1,4 @@
 
-use leema::list;
 use leema::log;
 use leema::val::{Val, Type};
 

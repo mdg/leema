@@ -1,20 +1,13 @@
 #[macro_use]
 use leema::log;
 use leema::frame::{Frame, Event, Parent, FrameTrace};
-use leema::val::{self, Val, Env, FutureVal, Type, MsgVal};
-use leema::reg::{Reg, Ireg};
-use leema::code::{self, CodeKey, Code, Op, OpVec, ModSym, RustFunc};
+use leema::val::{Val, Env, Type};
+use leema::reg::{Reg};
+use leema::code::{Code, Op, OpVec, ModSym};
 use leema::list;
 
-use std::cell::{RefCell, RefMut};
-use std::collections::{HashMap, LinkedList};
-use std::collections::hash_map;
-use std::ops::{DerefMut};
 use std::rc::{Rc};
 use std::mem;
-use std::fmt::{self, Debug};
-use std::time::{Duration};
-use std::thread;
 use std::io::{stderr, Write};
 
 

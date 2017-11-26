@@ -6,7 +6,6 @@ use leema::val::{Val, Type};
 use leema::log;
 
 use std::collections::{HashMap, LinkedList};
-use std::path::Path;
 use std::io::{stderr, Write};
 use std::rc::{Rc};
 

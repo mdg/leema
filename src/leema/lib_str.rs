@@ -1,5 +1,5 @@
 
-use leema::code::{Code, RustFunc};
+use leema::code::{Code};
 use leema::fiber::{Fiber};
 use leema::frame;
 use leema::list;

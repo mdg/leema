@@ -1,4 +1,4 @@
-use leema::code::{Code, RustFunc};
+use leema::code::{Code};
 use leema::log;
 use leema::rsrc::{self, Rsrc};
 use leema::val::{Val, Type};
@@ -8,12 +8,11 @@ use std::net::{IpAddr, SocketAddr};
 use std::rc::{Rc};
 use std::str::{FromStr};
 use std::io::{self, stderr, Write};
-use std::os::unix::io::AsRawFd;
 use bytes::{BytesMut};
 use bytes::buf::{BufMut};
 
 use ::tokio_core::net::{TcpStream, TcpListener};
-use ::tokio_core::reactor::{Handle, Remote};
+use ::tokio_core::reactor::{Handle};
 use ::tokio_io::{AsyncRead};
 use ::tokio_io::codec::{Framed, Encoder, Decoder};
 use futures::{Async, Poll};

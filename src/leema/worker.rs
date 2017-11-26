@@ -1,23 +1,15 @@
 
-use leema::code::{self, CodeKey, Code, Op, OpVec, ModSym, RustFunc};
+use leema::code::{CodeKey, Code};
 use leema::fiber::{Fiber};
-use leema::frame::{self, Event, Frame, Parent};
+use leema::frame::{Event, Frame, Parent};
 use leema::log;
 use leema::msg::{AppMsg, WorkerMsg, IoMsg};
-use leema::reg::{Reg};
-use leema::rsrc::{self, Rsrc};
-use leema::val::{Env, Val, MsgVal, Type};
+use leema::val::{Val};
 
-use std::cell::{RefCell, RefMut, Ref};
 use std::collections::{HashMap, LinkedList};
-use std::fmt;
 use std::io::{stderr, Write};
-use std::mem;
 use std::rc::{Rc};
-use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
-use std::sync::mpsc::{channel, Sender, Receiver};
-use std::thread;
-use std::time::{Duration};
+use std::sync::mpsc::{Sender, Receiver};
 
 use futures::{Poll, Async};
 

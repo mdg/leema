@@ -1,7 +1,7 @@
 use leema::code::{self, Code};
 use leema::ixpr::{Ixpr, Source};
-use leema::inter::{self, Version, Intermod};
-use leema::module::{ModuleSource, ModuleInterface, ModulePreface, MacroDef};
+use leema::inter::{Intermod};
+use leema::module::{ModuleSource, ModulePreface, MacroDef};
 use leema::loader::{Interloader};
 use leema::log;
 use leema::phase0::{self, Protomod};

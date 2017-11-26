@@ -3,9 +3,8 @@ use leema::val::{Val, Type};
 use leema::io::{Io};
 
 use std::fmt;
-use std::collections::{HashMap};
 use std::rc::{Rc};
-use std::cell::{RefCell, RefMut};
+use std::cell::{RefCell};
 
 use futures::future;
 use tokio_core::reactor;

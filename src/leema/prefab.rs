@@ -1,16 +1,14 @@
 use leema::val::{Val, Type, LibVal};
 use leema::code::{Code};
 use leema::fiber::{Fiber};
-use leema::frame::{Frame, Event};
+use leema::frame::{Event};
 use leema::list;
 use leema::log;
 
 use std::fs::File;
 use std::io::{stdin, stderr, Read, Write};
-use std::any::{Any};
 use std::fmt::{self, Display, Debug};
 use std::sync::{Mutex};
-use std::rc::{Rc};
 
 use rand;
 

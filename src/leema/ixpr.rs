@@ -1,7 +1,8 @@
 
-use leema::val::{self, Val, Type};
+use leema::val::{Val, Type};
 use leema::log;
 
+use std::collections::HashMap;
 use std::io::{stderr, Write};
 use std::rc::{Rc};
 

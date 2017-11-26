@@ -1,14 +1,11 @@
 
-use leema::frame::{self};
 use leema::log;
 use leema::msg::{WorkerMsg, AppMsg, IoMsg};
 use leema::rsrc::{self, Rsrc, Event, IopCtx};
-use leema::val::{Val, MsgVal};
-use leema::worker;
+use leema::val::{Val};
 
 use std;
-use std::cell::{RefCell, RefMut};
-use std::fmt;
+use std::cell::{RefCell};
 use std::io::{stderr, Write};
 use std::rc::{Rc};
 use std::sync::mpsc::{Sender, Receiver};

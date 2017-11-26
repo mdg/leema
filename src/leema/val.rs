@@ -13,11 +13,8 @@ use std::cmp::{PartialEq, PartialOrd, Ordering};
 use std::clone::Clone;
 use std::fmt::{Debug};
 use std::io::{stderr, Write, Error};
-use std::marker::{Send};
-use std::ops::Deref;
 
 use ::futures::sync::mpsc::{Receiver};
-use ::tokio_core::reactor::{Handle, Remote};
 
 use mopa;
 

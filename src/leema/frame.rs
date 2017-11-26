@@ -1,9 +1,8 @@
 #[macro_use]
 use leema::log;
-use leema::fiber::Fiber;
-use leema::val::{self, Val, Env, FutureVal, Type};
+use leema::val::{Val, Env, FutureVal};
 use leema::reg::{Reg, Ireg};
-use leema::code::{self, CodeKey, Code, Op, OpVec, ModSym, RustFunc};
+use leema::code::{Code};
 use leema::rsrc::{self};
 
 use std::rc::{Rc};
@@ -11,8 +10,6 @@ use std::sync::{Arc};
 use std::mem;
 use std::fmt::{self, Debug};
 use std::io::{stderr, Write};
-
-use ::tokio_core::reactor::{self};
 
 
 pub enum Parent
