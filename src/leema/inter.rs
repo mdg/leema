@@ -432,10 +432,8 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
             Ixpr::new_match_expr(imx, icases)
         }
         SxprType::MatchFailed => {
-            let (fx, cases) = list::to_ref_tuple2(sx);
-            let imx = compile_expr(scope, fx);
-            let icases = compile_matchcase(scope, cases, &imx.typ);
-            Ixpr::new_match_expr(imx, icases)
+            let fx = list::head_ref(sx);
+            panic!("Cannot use MatchFailed as an expression for: {}", fx);
         }
         SxprType::StrExpr => {
             let strvec = compile_list_to_vec(scope, sx);
@@ -644,15 +642,17 @@ pub fn compile_failed_stmt(fails: &mut HashMap<String, Ixpr>
             if fails.contains_key(&**name) {
                 panic!("cannot redefine failure handler for: {}", name);
             }
-            name
+            (**name).clone()
         }
         _ => {
             panic!("the test expression in a failed statement must be an identifier");
         }
     };
 
-    let fcases = compile_expr(scope, cases);
-    fails.insert((**varname).clone(), fcases);
+    let ifx = compile_expr(scope, fvar);
+    let icases = compile_matchcase(scope, cases, &ifx.typ);
+    let imatchfailed = Ixpr::new_match_expr(ifx, icases);
+    fails.insert(varname, imatchfailed);
 }
 
 pub fn split_func_args_body(defunc: &Val) -> (Vec<Rc<String>>, &Val)
