@@ -650,7 +650,7 @@ pub fn compile_failed_stmt(fails: &mut HashMap<String, Ixpr>
     };
 
     let ifx = compile_expr(scope, fvar);
-    let icases = compile_matchcase(scope, cases, &ifx.typ);
+    let icases = compile_matchcase(scope, cases, &Type::Hashtag);
     let imatchfailed = Ixpr::new_match_expr(ifx, icases);
     fails.insert(varname, imatchfailed);
 }
