@@ -1037,6 +1037,15 @@ impl Val
                     write!(f, "match({},{})", x, cases)
                 }
             }
+            (SxprType::MatchFailed, ref sx) => {
+                let (name, m2) = list::take_ref(sx);
+                let (cases, _) = list::take_ref(&*m2);
+                if dbg {
+                    write!(f, "MatchFailed({}, {:?})", name, cases)
+                } else {
+                    write!(f, "failed {} cases({})", name, cases)
+                }
+            }
             (SxprType::IfExpr, casex) => {
                 write!(f, "if({:?})", casex)
             }
@@ -1066,14 +1075,6 @@ impl Val
             (SxprType::Import, ref filelist) => {
                 let file = list::head_ref(filelist);
                 write!(f, "(import {:?})", file)
-            }
-            (SxprType::MatchFailed, ref sx) => {
-                let (name, cases) = list::take_ref(sx);
-                if dbg {
-                    write!(f, "MatchFailed({}, {:?})", name, cases)
-                } else {
-                    write!(f, "failed {} cases({})", name, cases)
-                }
             }
             (SxprType::Return, ref result_list) => {
                 let result_item = list::head_ref(result_list);

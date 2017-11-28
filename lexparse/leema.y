@@ -162,10 +162,10 @@ defstruct_field(A) ::= DOT ID(B) COLON typex(C). {
 
 
 failed_stmt(A) ::= FAILED ID(B) match_case(C) DOUBLEDASH. {
-	A = sxpr::new(SxprType::MatchFailed,
+    A = sxpr::new(SxprType::MatchFailed,
         list::cons(Val::id(B.data),
         list::cons(C,
-        Val::Nil
+        Val::Nil,
         ))
     );
 }

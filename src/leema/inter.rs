@@ -636,7 +636,7 @@ pub fn compile_failed_stmt(fails: &mut HashMap<String, Ixpr>
     , sx: &Val
     )
 {
-    let (fvar, cases) = list::take_ref(sx);
+    let (fvar, cases) = list::to_ref_tuple2(sx);
     let varname = match fvar {
         &Val::Id(ref name) => {
             if fails.contains_key(&**name) {

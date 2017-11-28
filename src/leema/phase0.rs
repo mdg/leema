@@ -310,6 +310,12 @@ impl Protomod
                 let pcases = Protomod::preproc_matchcase(prog, mp, cases);
                 sxpr::new(st, list::from2(pmx, pcases))
             }
+            SxprType::MatchFailed => {
+                let (fx, cases) = list::to_ref_tuple2(sx);
+                let pfx = Protomod::preproc_expr(prog, mp, fx);
+                let pcases = Protomod::preproc_matchcase(prog, mp, cases);
+                sxpr::new(SxprType::MatchFailed, list::from2(pfx, pcases))
+            }
             _ => {
                 let pp_sx = Protomod::preproc_list(prog, mp, sx);
                 sxpr::new(st, pp_sx)
