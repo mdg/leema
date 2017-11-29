@@ -91,7 +91,7 @@ pub fn parse(toks: Vec<Token>) -> Val
 
 #[cfg(test)]
 mod tests {
-    use leema::val::{Val, SxprType, Type};
+    use leema::val::{Val, SxprType, Type, SrcLoc};
     use leema::ast;
     use leema::sxpr;
     use leema::list;
@@ -249,7 +249,7 @@ fn test_ast_parse_list_cons() {
     let lst =
         list::cons(Val::Int(1),
             list::cons(Val::Int(2),
-            Val::id("x".to_string())
+            Val::loc(Val::id("x".to_string()), SrcLoc::new(1, 5))
         ));
 
     let expected = sxpr::new(SxprType::BlockExpr, list::singleton(lst));
@@ -490,6 +490,7 @@ fn test_parse_match_list()
     ";
     let root = ast::parse(lex(input));
 
+    let loc_t = SrcLoc::new(3, 5);
     let expected = sxpr::new_block(list::singleton(
         sxpr::match_expr(
             Val::id("x".to_string()),
@@ -497,7 +498,9 @@ fn test_parse_match_list()
                 Val::Tuple(vec![list::cons(
                     Val::id("h".to_string()), Val::id("t".to_string())
                 )]),
-                sxpr::new_block(list::singleton(Val::id("h".to_string()))),
+                sxpr::new_block(list::singleton(
+                    Val::loc(Val::id("h".to_string()), loc_t)
+                )),
             list::from2(
                 Val::Tuple(vec![Val::Wildcard]),
                 sxpr::new_block(list::singleton(Val::Bool(false))),

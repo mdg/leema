@@ -26,6 +26,9 @@ pub fn cons(head: Val, tail: Val) -> Val
         Val::PatternVar(_) => {
             Val::Cons(Box::new(head), Rc::new(tail))
         }
+        Val::Loc(_, _) => {
+            Val::Cons(Box::new(head), Rc::new(tail))
+        }
         _ => {
             panic!("Can't cons to a not list {:?}", tail);
         }

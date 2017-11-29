@@ -373,6 +373,9 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
             Ixpr::constructor(typ.clone(), flds.len() as i8)
         }
         &Val::Void => Ixpr::noop(),
+        &Val::Loc(ref v, ref loc) => {
+            compile_expr(scope, v)
+        }
         _ => {
             panic!("Cannot compile expr: {:?}", x);
         }
@@ -498,6 +501,10 @@ pub fn compile_pattern(scope: &mut Interscope, patt: &Val) -> Val
                 &Val::Cons(_, _) => {
                     compile_pattern(scope, &**tail)
                 }
+                &Val::Loc(ref pv, ref loc) => {
+                    let pv2 = compile_pattern(scope, &**pv);
+                    Val::loc(pv2, *loc)
+                }
                 _ => {
                     panic!("invalid pattern tail: {:?}", tail);
                 }
@@ -530,6 +537,10 @@ pub fn compile_pattern(scope: &mut Interscope, patt: &Val) -> Val
         }
         &Val::Sxpr(SxprType::Call, ref callx) => {
             compile_pattern_call(scope, callx)
+        }
+        &Val::Loc(ref pv, ref loc) => {
+            let pv2 = compile_pattern(scope, pv);
+            Val::loc(pv2, *loc)
         }
         _ => {
             panic!("invalid pattern: {:?}", patt);

@@ -167,6 +167,10 @@ impl Protomod
                 sxpr::call(Val::id("list_cons".to_string()),
                     list::from2(pphead, pptail))
             }
+            &Val::Loc(ref v, ref loc) => {
+                let v2 = Protomod::preproc_cons(prog, mp, head, v);
+                Val::loc(v2, *loc)
+            }
             _ => {
                 panic!("cannot preproc cons: {:?};{:?}", head, tail)
             }
@@ -414,6 +418,10 @@ impl Protomod
             &Val::ModPrefix(_, _) => {
                 p.clone()
             }
+            &Val::Loc(ref v, ref loc) => {
+                let v2 = Protomod::preproc_pattern_call(prog, mp, v);
+                Val::loc(v2, *loc)
+            }
             _ => {
                 Protomod::preproc_pattern(prog, mp, p)
             }
@@ -428,9 +436,13 @@ impl Protomod
                 let ptail = Protomod::preproc_pattern_list(prog, mp, tail);
                 Val::Cons(Box::new(phead), Rc::new(ptail))
             }
-            &Val::Id(ref id) => Val::Id(id.clone()),
+            &Val::Id(_) => p.clone(),
             &Val::Nil => Val::Nil,
             &Val::Wildcard => Val::Wildcard,
+            &Val::Loc(ref v, ref loc) => {
+                let v2 = Protomod::preproc_pattern_list(prog, mp, v);
+                Val::loc(v2, *loc)
+            }
             _ => {
                 panic!("Not a pattern list: {:?}", p);
             }

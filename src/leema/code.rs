@@ -539,6 +539,9 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
             }).collect();
             Val::Struct(typ.clone(), reg_items)
         }
+        &Val::Loc(ref pv, _) => {
+            assign_pattern_registers(rt, pv)
+        }
         _ => {
             panic!("pattern type unsupported: {:?}", pattern);
         }

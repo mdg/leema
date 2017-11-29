@@ -173,6 +173,9 @@ impl<'b> Inferator<'b>
             }
             &Val::Nil => {}
             &Val::Wildcard => {}
+            &Val::Loc(ref lv, _) => {
+                self.match_list_pattern(lv, inner_type);
+            }
             _ => {
                 panic!("match_list_pattern on not a list: {:?}", l);
             }
