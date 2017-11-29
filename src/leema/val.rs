@@ -332,6 +332,34 @@ impl Debug for FutureVal
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
+pub struct SrcLoc
+{
+    pub lineno: i16,
+    pub column: i8,
+}
+
+impl SrcLoc
+{
+    pub fn new(l: i16, c: i8) -> SrcLoc
+    {
+        SrcLoc{lineno: l, column: c}
+    }
+}
+
+impl Default for SrcLoc
+{
+    fn default() -> SrcLoc
+    {
+        SrcLoc::new(0, 0)
+    }
+}
+
+pub const DEFAULT_SRC_LOC: SrcLoc = SrcLoc{lineno: 0, column: 0};
+
+#[derive(Copy)]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
 #[derive(PartialOrd)]
 pub enum SxprType {
     Let,
@@ -406,6 +434,7 @@ pub enum Val {
     Void,
     Wildcard,
     PatternVar(Reg),
+    Loc(Box<Val>, SrcLoc),
 }
 
 const NIL: Val = Val::Nil;
@@ -793,6 +822,7 @@ impl Val
             &Val::Future(_) => {
                 panic!("cannot get type of Future: {:?}", self);
             }
+            &Val::Loc(ref v, _) => v.get_type(),
         }
     }
 
@@ -883,7 +913,7 @@ impl Val
             &Val::Id(ref name) => {
                 match idvals.get(&*name) {
                     Some(newx) => newx.clone(),
-                    None => Val::Id(name.clone()),
+                    None => node.clone()
                 }
             }
             &Val::Sxpr(stype, ref sdata) => {
@@ -1237,6 +1267,9 @@ impl fmt::Display for Val {
             Val::Wildcard => {
                 write!(f, "_")
             }
+            Val::Loc(ref v, _) => {
+                write!(f, "{}", v)
+            }
         }
     }
 }
@@ -1326,6 +1359,9 @@ impl fmt::Debug for Val {
             }
             Val::Wildcard => {
                 write!(f, "_Wildcard")
+            }
+            Val::Loc(ref v, ref loc) => {
+                write!(f, "{:?}@{:?}", v, loc)
             }
         }
     }

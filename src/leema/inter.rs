@@ -6,7 +6,7 @@ use leema::log;
 use leema::module::{ModKey};
 use leema::phase0::{Protomod};
 use leema::sxpr;
-use leema::val::{Val, SxprType, Type};
+use leema::val::{self, Val, SxprType, Type};
 
 use std::collections::{HashMap};
 use std::fmt;
@@ -280,6 +280,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
         &Val::Id(ref id) => {
             match scope.vartype(id) {
                 Some((ScopeLevel::Local, typ)) => {
+                    scope.T.mark_usage(id, &val::DEFAULT_SRC_LOC);
                     Ixpr{
                         src: Source::Id(id.clone()),
                         typ: typ.clone(),
@@ -483,8 +484,8 @@ pub fn compile_matchcase(scope: &mut Interscope
 pub fn compile_pattern(scope: &mut Interscope, patt: &Val) -> Val
 {
     match patt {
-        &Val::Id(ref name) => {
-            Val::Id(name.clone())
+        &Val::Id(_) => {
+            patt.clone()
         }
         &Val::Cons(ref head, ref tail) => {
             let chead = compile_pattern(scope, head);

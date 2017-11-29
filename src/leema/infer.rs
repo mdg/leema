@@ -1,6 +1,6 @@
 
 use leema::log;
-use leema::val::{Val, Type};
+use leema::val::{Val, Type, SrcLoc};
 
 use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Keys;
@@ -12,6 +12,7 @@ use std::rc::{Rc};
 pub struct Blockscope
 {
     vars: HashSet<String>,
+    first_usage: HashMap<String, SrcLoc>,
     failing: bool,
 }
 
@@ -21,6 +22,7 @@ impl Blockscope
     {
         Blockscope{
             vars: HashSet::new(),
+            first_usage: HashMap::new(),
             failing: false,
         }
     }
@@ -174,6 +176,14 @@ impl<'b> Inferator<'b>
             _ => {
                 panic!("match_list_pattern on not a list: {:?}", l);
             }
+        }
+    }
+
+    pub fn mark_usage(&mut self, name: &str, loc: &SrcLoc)
+    {
+        let b = self.blocks.last_mut().unwrap();
+        if !b.first_usage.contains_key(name) {
+            b.first_usage.insert(name.to_string(), loc.clone());
         }
     }
 

@@ -1,4 +1,4 @@
-use leema::val::{Val};
+use leema::val::{Val, SrcLoc};
 use leema::log;
 use leema::parse::{Parser, Token};
 use std::io::{stderr};
@@ -32,7 +32,24 @@ impl TokenLoc
     {
         TokenLoc{lineno: l, column: c}
     }
+
+    pub fn src_loc(&self) -> SrcLoc
+    {
+        SrcLoc::new(
+            self.lineno as i16,
+            self.column as i8,
+        )
+    }
 }
+
+impl Default for TokenLoc
+{
+    fn default() -> TokenLoc
+    {
+        TokenLoc::new(0, 0)
+    }
+}
+
 
 #[derive(Clone)]
 #[derive(Debug)]

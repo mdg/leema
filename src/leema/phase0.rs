@@ -281,7 +281,7 @@ impl Protomod
             &Val::Id(ref name) => {
                 match idvals.get(&*name) {
                     Some(newx) => (*newx).clone(),
-                    None => Val::Id(name.clone()),
+                    None => node.clone(),
                 }
             }
             &Val::Sxpr(stype, ref sdata) => {
