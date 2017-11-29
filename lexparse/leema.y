@@ -190,7 +190,7 @@ let_stmt ::= Let match_pattern EQ1 expr. {
 func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(D) RPAREN COLON typex(E)
     RUSTBLOCK.
 {
-	let id = Val::id(B.data);
+	let id = Val::loc(Val::id(B.data), B.loc.srcloc());
 	let typ = Val::Type(E);
 	A = sxpr::defunc(id, D, typ, Val::RustBlock)
 }
@@ -199,7 +199,7 @@ func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(D) RPAREN COLON typex(E)
 func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(D) RPAREN opt_typex(E)
     block(C) DOUBLEDASH.
 {
-	let id = Val::id(B.data);
+	let id = Val::loc(Val::id(B.data), B.loc.srcloc());
 	let typ = Val::Type(E);
 	A = sxpr::defunc(id, D, typ, C)
 }
@@ -524,7 +524,9 @@ expr(A) ::= expr(B) LTEQ expr(C) LTEQ expr(D). {
 term(A) ::= tuple(B). {
     A = B;
 }
-term(A) ::= ID(B). { A = Val::id(B.data); }
+term(A) ::= ID(B). {
+    A = Val::loc(Val::id(B.data), B.loc.srcloc());
+}
 term(A) ::= mod_prefix(B). {
     A = B;
 }

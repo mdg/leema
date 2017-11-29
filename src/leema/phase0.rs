@@ -138,6 +138,9 @@ impl Protomod
             &Val::Wildcard => Val::Wildcard,
             &Val::RustBlock => Val::RustBlock,
             &Val::Void => Val::Void,
+            &Val::Loc(ref v, ref l) => {
+                Protomod::preproc_expr(prog, mp, v)
+            }
             _ => {
                 println!("preproc_unknown_expr({:?})", x);
                 x.clone()
@@ -178,7 +181,8 @@ impl Protomod
             &Val::Id(ref id) => {
                 match mp.macros.get(&**id) {
                     Some(&(ref arg_names, ref body)) => {
-                        let macrod = Protomod::apply_macro(&**id, body, arg_names, args);
+                        let macrod =
+                            Protomod::apply_macro(&**id, body, arg_names, args);
                         // do it again to make sure there's not a wrapped
                         // macro
                         Protomod::preproc_expr(prog, mp, &macrod)
@@ -186,7 +190,8 @@ impl Protomod
                     None => {
                         match prog.get_macro("prefab", &**id) {
                             Some(&(ref arg_names, ref body)) => {
-                                let macrod = Protomod::apply_macro(&**id, body, arg_names, args);
+                                let macrod = Protomod::apply_macro(&**id
+                                    , body, arg_names, args);
                                 // do it again to make sure there's
                                 // not a wrapped macro
                                 Protomod::preproc_expr(prog, mp, &macrod)
@@ -231,6 +236,9 @@ impl Protomod
                         sxpr::call(callx.clone(), pp_args)
                     }
                 }
+            }
+            &Val::Loc(ref v, ref l) => {
+                Protomod::preproc_call(prog, mp, v, args)
             }
             _ => {
                 println!("function call is what? {:?}", callx);
@@ -283,6 +291,10 @@ impl Protomod
                     Some(newx) => (*newx).clone(),
                     None => node.clone(),
                 }
+            }
+            &Val::Loc(ref v, ref loc) => {
+                let v2 = Protomod::replace_ids(v, idvals);
+                Val::loc(v2, *loc)
             }
             &Val::Sxpr(stype, ref sdata) => {
                 sxpr::new(
@@ -383,6 +395,9 @@ impl Protomod
             &Val::Str(ref s) => Val::Str(s.clone()),
             &Val::Hashtag(ref h) => Val::Hashtag(h.clone()),
             &Val::ModPrefix(_, _) => p.clone(),
+            &Val::Loc(ref v, _) => {
+                Protomod::preproc_pattern(prog, mp, v)
+            }
             _ => {
                 println!("preproc_pattern what?: {:?}", p);
                 p.clone()

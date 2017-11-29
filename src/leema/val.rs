@@ -475,6 +475,7 @@ impl Val
         match self {
             &Val::Id(_) => true,
             &Val::TypedId(_, _) => true,
+            &Val::Loc(ref v, _) => v.is_id(),
             _ => false,
         }
     }
@@ -485,6 +486,7 @@ impl Val
             &Val::Id(ref name) => name.clone(),
             &Val::TypedId(ref name, ref typ) => name.clone(),
             &Val::Type(Type::Id(ref name)) => name.clone(),
+            &Val::Loc(ref v, _) => v.id_name(),
             _ => {
                 panic!("not an id {:?}", self);
             }
@@ -592,6 +594,7 @@ impl Val
             &Val::Id(ref id) => id,
             &Val::TypedId(ref id, ref typ) => id,
             &Val::Str(ref s) => s,
+            &Val::Loc(ref v, _) => v.str(),
             _ => {
                 panic!("Cannot convert to string: {:?}", self);
             }
@@ -609,6 +612,7 @@ impl Val
                 let s = format!("{}::{}", prefix, name_str);
                 Rc::new(s)
             }
+            &Val::Loc(ref v, _) => v.to_str(),
             _ => {
                 panic!("Cannot convert to string: {:?}", self);
             }
@@ -619,6 +623,7 @@ impl Val
     {
         match self {
             &Val::Int(i) => i,
+            &Val::Loc(ref v, _) => v.to_int(),
             _ => {
                 panic!("Not an int: {:?}", self);
             }
@@ -652,6 +657,7 @@ impl Val
                 let tbase = base.to_type();
                 Type::ModPrefix(prefix.clone(), Rc::new(tbase))
             }
+            &Val::Loc(ref v, _) => v.to_type(),
             _ => {
                 panic!("Cannot unwrap not-type as type {:?}", self);
             }
@@ -666,6 +672,7 @@ impl Val
                 Val::Id(tid.clone()),
                 typ.clone(),
             ),
+            &Val::Loc(ref v, _) => v.split_typed_id(),
             _ => {
                 panic!("not a TypedId: {:?}", self);
             }
@@ -710,6 +717,11 @@ impl Val
             Box::new(msg),
             trace,
         )
+    }
+
+    pub fn loc(v: Val, l: SrcLoc) -> Val
+    {
+        Val::Loc(Box::new(v), l)
     }
 
     pub fn resource_ref(&self) -> i64
@@ -915,6 +927,10 @@ impl Val
                     Some(newx) => newx.clone(),
                     None => node.clone()
                 }
+            }
+            &Val::Loc(ref v, ref loc) => {
+                let v2 = Val::replace_ids(v, idvals);
+                Val::loc(v2, loc.clone())
             }
             &Val::Sxpr(stype, ref sdata) => {
                 sxpr::new(
@@ -1600,6 +1616,15 @@ impl PartialOrd for Val
                     }
                     _ => cmp,
                 }
+            }
+            (&Val::Loc(ref v1, _), &Val::Loc(ref v2, _)) => {
+                PartialOrd::partial_cmp(&**v1, &**v2)
+            }
+            (&Val::Loc(ref v1, _), _) => {
+                PartialOrd::partial_cmp(&**v1, other)
+            }
+            (_, &Val::Loc(ref v2, _)) => {
+                PartialOrd::partial_cmp(self, &**v2)
             }
             (&Val::Bool(false), _) => {
                 Some(Ordering::Less)

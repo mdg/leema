@@ -33,7 +33,7 @@ impl TokenLoc
         TokenLoc{lineno: l, column: c}
     }
 
-    pub fn src_loc(&self) -> SrcLoc
+    pub fn srcloc(&self) -> SrcLoc
     {
         SrcLoc::new(
             self.lineno as i16,
@@ -57,7 +57,7 @@ impl Default for TokenLoc
 pub struct TokenData<T>
 {
     pub data: T,
-    loc: TokenLoc,
+    pub loc: TokenLoc,
 }
 
 impl<T> TokenData<T>
@@ -68,6 +68,11 @@ impl<T> TokenData<T>
             data: d,
             loc: tl,
         }
+    }
+
+    pub fn srcloc(&self) -> SrcLoc
+    {
+        self.loc.srcloc()
     }
 }
 
