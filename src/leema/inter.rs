@@ -445,9 +445,8 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
             Ixpr::new_str_mash(strvec)
         }
         SxprType::Return => {
-            let head = list::head_ref(sx);
-            let chead = compile_expr(scope, head);
-            Ixpr::new(Source::Return(Box::new(chead)))
+            let result = list::head_ref(sx);
+            panic!("cannot return as an expression: {}", result);
         }
         _ => {
             panic!("Cannot compile sxpr: {:?} {:?}", st, sx);
@@ -626,6 +625,12 @@ pub fn compile_block_stmt(istmts: &mut Vec<Ixpr>
         &Val::Sxpr(SxprType::MatchFailed(lineno), ref sx) => {
             scope.T.mark_failing();
             compile_failed_stmt(ifails, scope, sx);
+        }
+        &Val::Sxpr(SxprType::Return, ref sx) => {
+            let head = list::head_ref(sx);
+            let chead = compile_expr(scope, head);
+            let ret = Ixpr::new(Source::Return(Box::new(chead)));
+            istmts.push(ret);
         }
         _ => {
             istmts.push(compile_expr(scope, stmt));
