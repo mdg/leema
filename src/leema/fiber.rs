@@ -145,6 +145,11 @@ impl Fiber
                 self.head.pc += 1;
                 Event::Uneventful
             }
+            &Op::PropagateFailure(ref src) => {
+                let ev = self.propagate_failure(src);
+                self.head.pc += 1;
+                ev
+            }
             &Op::Failure(ref dst, ref tag, ref msg) => {
                 self.execute_failure(dst, tag, msg)
             }
@@ -368,6 +373,20 @@ impl Fiber
         self.head.e.set_reg(dst, f);
         self.head.pc += 1;
         Event::Uneventful
+    }
+
+    pub fn propagate_failure(&mut self, src: &Reg) -> Event
+    {
+        let srcval = self.head.e.get_reg(src);
+        if let &Val::Failure(ref tag, ref msg, ref trace) = srcval {
+            let new_trace =
+                FrameTrace::propagate_down(trace, &*self.head.function);
+            let new_fail = Val::Failure(tag.clone(), msg.clone(), new_trace);
+            self.head.parent.set_result(new_fail);
+            Event::Complete(false)
+        } else {
+            Event::Uneventful
+        }
     }
 
     fn call_arg_failure(args: &Val) -> Option<&Val>

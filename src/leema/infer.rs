@@ -182,12 +182,14 @@ impl<'b> Inferator<'b>
         }
     }
 
-    pub fn mark_usage(&mut self, name: &str, loc: &SrcLoc)
+    pub fn mark_usage(&mut self, name: &str, loc: &SrcLoc) -> bool
     {
         let b = self.blocks.last_mut().unwrap();
-        if !b.first_usage.contains_key(name) {
+        let is_first_usage = !b.first_usage.contains_key(name);
+        if is_first_usage {
             b.first_usage.insert(name.to_string(), loc.clone());
         }
+        is_first_usage
     }
 
     pub fn mark_failing(&mut self)

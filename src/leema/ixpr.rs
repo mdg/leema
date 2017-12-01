@@ -27,7 +27,7 @@ pub enum Source
     MatchCase(Val, Box<Ixpr>, Box<Ixpr>),
     ModuleAccess(Rc<String>, Rc<String>),
     RustBlock,
-    Id(Rc<String>),
+    Id(Rc<String>, bool),
     IfExpr(Box<Ixpr>, Box<Ixpr>, Box<Ixpr>),
     List(Vec<Ixpr>),
     StrMash(Vec<Ixpr>),

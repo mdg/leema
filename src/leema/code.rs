@@ -41,6 +41,7 @@ pub enum Op
     ApplyFunc(Reg, Reg, Reg),
     Return,
     SetResult(Reg),
+    PropagateFailure(Reg),
     ConstVal(Reg, Val),
     Constructor(Reg, Type, i8),
     Copy(Reg, Reg),
@@ -81,6 +82,9 @@ impl Clone for Op
             }
             &Op::Return => Op::Return,
             &Op::SetResult(ref src) => Op::SetResult(src.clone()),
+            &Op::PropagateFailure(ref src) => {
+                Op::PropagateFailure(src.clone())
+            }
             &Op::ConstVal(ref dst, ref src) => {
                 Op::ConstVal(dst.clone(), src.deep_clone())
             }
@@ -335,7 +339,12 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::MatchCase(ref patt, ref code, ref next) => {
             panic!("matchcase ops not generated directly");
         }
-        Source::Id(ref id) => {
+        Source::Id(ref id, true) => {
+            let src = rt.id(id);
+            let propagate = Op::PropagateFailure(src.clone());
+            Oxpr{ ops: vec![propagate], dst: src }
+        }
+        Source::Id(ref id, false) => {
             let src = rt.id(id);
 vout!("id({}).reg = {:?}\n", id, src);
             Oxpr{ ops: vec![], dst: src }
@@ -597,12 +606,11 @@ pub fn make_list_ops(rt: &mut RegTable, items: &Vec<Ixpr>) -> Oxpr
 pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Ixpr>) -> Oxpr
 {
     let dst = rt.dst().clone();
-    let mut ops = vec![
-        Op::ConstVal(
-            dst.clone(),
-            Val::empty_str(),
-        ),
-    ];
+    let mut ops = Vec::with_capacity(items.len());
+    ops.push(Op::ConstVal(
+        dst.clone(),
+        Val::empty_str(),
+    ));
     rt.push_dst();
     for i in items {
         let mut strops = make_sub_ops(rt, i);

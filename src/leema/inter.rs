@@ -280,9 +280,9 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
         &Val::Id(ref id) => {
             match scope.vartype(id) {
                 Some((ScopeLevel::Local, typ)) => {
-                    scope.T.mark_usage(id, &val::DEFAULT_SRC_LOC);
+                    let first = scope.T.mark_usage(id, &val::DEFAULT_SRC_LOC);
                     Ixpr{
-                        src: Source::Id(id.clone()),
+                        src: Source::Id(id.clone(), first),
                         typ: typ.clone(),
                     }
                 }
