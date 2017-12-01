@@ -435,9 +435,10 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val) -> Ixpr
             let icases = compile_matchcase(scope, cases, &imx.typ);
             Ixpr::new_match_expr(imx, icases)
         }
-        SxprType::MatchFailed => {
+        SxprType::MatchFailed(line) => {
             let fx = list::head_ref(sx);
-            panic!("Cannot use MatchFailed as an expression for: {}", fx);
+            panic!("Cannot use MatchFailed as an expression for: {} on line {}"
+                , fx, line);
         }
         SxprType::StrExpr => {
             let strvec = compile_list_to_vec(scope, sx);
@@ -622,7 +623,7 @@ pub fn compile_block_stmt(istmts: &mut Vec<Ixpr>
     )
 {
     match stmt {
-        &Val::Sxpr(SxprType::MatchFailed, ref sx) => {
+        &Val::Sxpr(SxprType::MatchFailed(lineno), ref sx) => {
             scope.T.mark_failing();
             compile_failed_stmt(ifails, scope, sx);
         }

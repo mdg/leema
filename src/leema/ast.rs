@@ -16,40 +16,6 @@ pub enum FuncType {
 }
 */
 
-#[derive(Copy)]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-pub struct TokenLoc
-{
-    lineno: i32,
-    column: i16,
-}
-
-impl TokenLoc
-{
-    pub fn new(l: i32, c: i16) -> TokenLoc
-    {
-        TokenLoc{lineno: l, column: c}
-    }
-
-    pub fn srcloc(&self) -> SrcLoc
-    {
-        SrcLoc::new(
-            self.lineno as i16,
-            self.column as i8,
-        )
-    }
-}
-
-impl Default for TokenLoc
-{
-    fn default() -> TokenLoc
-    {
-        TokenLoc::new(0, 0)
-    }
-}
-
 
 #[derive(Clone)]
 #[derive(Debug)]
@@ -57,22 +23,17 @@ impl Default for TokenLoc
 pub struct TokenData<T>
 {
     pub data: T,
-    pub loc: TokenLoc,
+    pub loc: SrcLoc,
 }
 
 impl<T> TokenData<T>
 {
-    pub fn new(d: T, tl: TokenLoc) -> TokenData<T>
+    pub fn new(d: T, tl: SrcLoc) -> TokenData<T>
     {
         TokenData{
             data: d,
             loc: tl,
         }
-    }
-
-    pub fn srcloc(&self) -> SrcLoc
-    {
-        self.loc.srcloc()
     }
 }
 

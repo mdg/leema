@@ -374,7 +374,7 @@ pub enum SxprType {
     IfExpr,
     Import,
     MatchExpr,
-    MatchFailed,
+    MatchFailed(i16),
     Return,
     Comparison,
     /*
@@ -1083,13 +1083,13 @@ impl Val
                     write!(f, "match({},{})", x, cases)
                 }
             }
-            (SxprType::MatchFailed, ref sx) => {
+            (SxprType::MatchFailed(lineno), ref sx) => {
                 let (name, m2) = list::take_ref(sx);
                 let (cases, _) = list::take_ref(&*m2);
                 if dbg {
-                    write!(f, "MatchFailed({}, {:?})", name, cases)
+                    write!(f, "MatchFailed({}:{}, {:?})", name, lineno, cases)
                 } else {
-                    write!(f, "failed {} cases({})", name, cases)
+                    write!(f, "failed {}:{} cases({})", name, lineno, cases)
                 }
             }
             (SxprType::IfExpr, casex) => {

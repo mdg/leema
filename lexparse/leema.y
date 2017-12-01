@@ -1,6 +1,6 @@
 %include {
-use leema::ast::{TokenLoc, TokenData};
-use leema::val::{Val, SxprType, Type};
+use leema::ast::{TokenData};
+use leema::val::{Val, SxprType, Type, SrcLoc};
 use leema::list;
 use leema::log;
 use leema::sxpr;
@@ -13,23 +13,23 @@ use std::rc::{Rc};
 %wildcard ANY.
 %extra_argument { Result<Val, i32> }
 
-%type BLOCKARROW { TokenLoc }
-%type COLON { TokenLoc }
-%type COMMA { TokenLoc }
-%type DBLCOLON { TokenLoc }
-%type DOUBLEDASH { TokenLoc }
-%type ELSE { TokenLoc }
+%type BLOCKARROW { SrcLoc }
+%type COLON { SrcLoc }
+%type COMMA { SrcLoc }
+%type DBLCOLON { SrcLoc }
+%type DOUBLEDASH { SrcLoc }
+%type ELSE { SrcLoc }
 %type HASHTAG { TokenData<String> }
 %type ID { TokenData<String> }
 %type INT { i64 }
-%type Let { TokenLoc }
-%type LPAREN { TokenLoc }
-%type RPAREN { TokenLoc }
-%type PLUS { TokenLoc }
-%type SEMICOLON { TokenLoc }
-%type SLASH { TokenLoc }
-%type SquareL { TokenLoc }
-%type SquareR { TokenLoc }
+%type Let { SrcLoc }
+%type LPAREN { SrcLoc }
+%type RPAREN { SrcLoc }
+%type PLUS { SrcLoc }
+%type SEMICOLON { SrcLoc }
+%type SLASH { SrcLoc }
+%type SquareL { SrcLoc }
+%type SquareR { SrcLoc }
 %type StrLit { String }
 %type TYPE_VAR { TokenData<String> }
 
@@ -162,7 +162,7 @@ defstruct_field(A) ::= DOT ID(B) COLON typex(C). {
 
 
 failed_stmt(A) ::= FAILED ID(B) match_case(C) DOUBLEDASH. {
-    A = sxpr::new(SxprType::MatchFailed,
+    A = sxpr::new(SxprType::MatchFailed(B.loc.lineno),
         list::cons(Val::id(B.data),
         list::cons(C,
         Val::Nil,
@@ -190,7 +190,7 @@ let_stmt ::= Let match_pattern EQ1 expr. {
 func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(D) RPAREN COLON typex(E)
     RUSTBLOCK.
 {
-	let id = Val::loc(Val::id(B.data), B.loc.srcloc());
+	let id = Val::loc(Val::id(B.data), B.loc);
 	let typ = Val::Type(E);
 	A = sxpr::defunc(id, D, typ, Val::RustBlock)
 }
@@ -199,7 +199,7 @@ func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(D) RPAREN COLON typex(E)
 func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(D) RPAREN opt_typex(E)
     block(C) DOUBLEDASH.
 {
-	let id = Val::loc(Val::id(B.data), B.loc.srcloc());
+	let id = Val::loc(Val::id(B.data), B.loc);
 	let typ = Val::Type(E);
 	A = sxpr::defunc(id, D, typ, C)
 }
@@ -525,7 +525,7 @@ term(A) ::= tuple(B). {
     A = B;
 }
 term(A) ::= ID(B). {
-    A = Val::loc(Val::id(B.data), B.loc.srcloc());
+    A = Val::loc(Val::id(B.data), B.loc);
 }
 term(A) ::= mod_prefix(B). {
     A = B;

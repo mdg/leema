@@ -1,5 +1,6 @@
-use leema::ast::{TokenLoc, TokenData};
+use leema::ast::{TokenData};
 use leema::parse::{self, Token};
+use leema::val::{SrcLoc};
 use std::ptr;
 
 #[repr(C)]
@@ -53,7 +54,10 @@ impl Token
     fn from_lib(tok: *const LibTokenBuffer) -> Token
     {
         unsafe {
-            let tl = TokenLoc::new((*tok).lineno, (*tok).token_column as i16);
+            let tl = SrcLoc::new(
+                (*tok).lineno as i16,
+                (*tok).token_column as i8,
+            );
             match (*tok).tok {
                 parse::TOKEN_BLOCKARROW => Token::BLOCKARROW(tl),
                 parse::TOKEN_DOUBLEDASH => Token::DOUBLEDASH(tl),
@@ -278,7 +282,8 @@ pub fn lex(mut str_input: &str) -> Vec<Token>
 mod tests
 {
     use leema::parse::Token;
-    use leema::ast::{TokenData, TokenLoc};
+    use leema::ast::{TokenData};
+    use leema::val::{SrcLoc};
 
 #[test]
 fn test_lex_int()
@@ -306,7 +311,7 @@ fn test_lex_string_id()
     assert_eq!(Token::StrOpen, actual[0]);
     assert_eq!(Token::StrLit("hello ".to_string()), actual[1]);
     assert_eq!(
-        Token::ID(TokenData::new("who".to_string(), TokenLoc::new(1, 9))),
+        Token::ID(TokenData::new("who".to_string(), SrcLoc::new(1, 9))),
         actual[2]
     );
     assert_eq!(Token::StrLit("\n".to_string()), actual[3]);
