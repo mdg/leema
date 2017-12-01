@@ -551,40 +551,7 @@ pub fn compile_pattern(scope: &mut Interscope, patt: &Val) -> Val
 pub fn compile_pattern_call(scope: &mut Interscope, patt: &Val) -> Val
 {
     let (callx, args) = list::take_ref(patt);
-    let struct_flds = match callx {
-        &Val::Id(ref name) => {
-            let flds = scope.proto.structfields.get(callx.str());
-            if flds.is_none() {
-                panic!("Unknown type: {}", callx.str());
-            }
-            flds.unwrap()
-        }
-        &Val::ModPrefix(ref prefix, ref name) => {
-            let opt_flds = if scope.proto.key.name == **prefix {
-                let iflds = scope.proto.structfields.get(name.str());
-                if iflds.is_some() {
-                    iflds
-                } else {
-                    let prefix_name = callx.to_str();
-                    scope.proto.structfields.get(&*prefix_name)
-                }
-            } else {
-                let opt_imp = scope.imports.get(&**prefix);
-                if opt_imp.is_none() {
-                    panic!("missing import: {}", prefix);
-                }
-                let imp = opt_imp.unwrap();
-                imp.structfields.get(name.str())
-            };
-            if opt_flds.is_none() {
-                panic!("unknown type: {}", name.str());
-            }
-            opt_flds.unwrap()
-        }
-        _ => {
-            panic!("cannot match pattern call: {:?}", patt);
-        }
-    };
+    let struct_flds = pattern_call_fields(scope.proto, scope.imports, callx);
     let args_vec = list::map_ref_to_vec(&*args, |a| {
         compile_pattern(scope, a)
     });
@@ -601,6 +568,49 @@ pub fn compile_pattern_call(scope: &mut Interscope, patt: &Val) -> Val
     let calltyp = Rc::new(callx.to_type());
     let struct_type = Type::Struct(calltyp);
     Val::Struct(struct_type, args_vec.clone())
+}
+
+pub fn pattern_call_fields<'a, 'b>(proto: &'a Protomod
+    , imports: &'a HashMap<String, Rc<Protomod>>, callx: &'b Val
+    ) -> &'a Vec<(Rc<String>, Type)>
+{
+    match callx {
+        &Val::Id(ref name) => {
+            let flds = proto.structfields.get(callx.str());
+            if flds.is_none() {
+                panic!("Unknown type: {}", callx.str());
+            }
+            flds.unwrap()
+        }
+        &Val::ModPrefix(ref prefix, ref name) => {
+            let opt_flds = if proto.key.name == **prefix {
+                let iflds = proto.structfields.get(name.str());
+                if iflds.is_some() {
+                    iflds
+                } else {
+                    let prefix_name = callx.to_str();
+                    proto.structfields.get(&*prefix_name)
+                }
+            } else {
+                let opt_imp = imports.get(&**prefix);
+                if opt_imp.is_none() {
+                    panic!("missing import: {}", prefix);
+                }
+                let imp = opt_imp.unwrap();
+                imp.structfields.get(name.str())
+            };
+            if opt_flds.is_none() {
+                panic!("unknown type: {}", name.str());
+            }
+            opt_flds.unwrap()
+        }
+        &Val::Loc(ref v, ref loc) => {
+            pattern_call_fields(proto, imports, v)
+        }
+        _ => {
+            panic!("cannot match pattern call: {}", callx);
+        }
+    }
 }
 
 pub fn compile_block(scope: &mut Interscope, l: &Val) -> Ixpr
