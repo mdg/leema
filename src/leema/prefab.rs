@@ -1,4 +1,4 @@
-use leema::val::{Val, Type, LibVal};
+use leema::val::{self, Val, Type, LibVal};
 use leema::code::{Code};
 use leema::fiber::{Fiber};
 use leema::frame::{Event};
@@ -125,7 +125,8 @@ pub fn bool_not(f: &mut Fiber) -> Event
         let msg = Val::new_str(
             format!("input to not must be a boolean: {:?}", i)
         );
-        let fail = Val::failure(tag, msg, f.head.trace.clone());
+        let fail =
+            Val::failure(tag, msg, f.head.trace.clone(), val::FAILURE_TYPE);
         f.head.parent.set_result(fail);
         Event::failure()
     }
@@ -245,6 +246,7 @@ pub fn cin(f: &mut Fiber) -> Event
                 Val::hashtag("console_read_fail".to_string()),
                 Val::hashtag("".to_string()),
                 f.head.trace.failure_here(),
+                val::FAILURE_INTERNAL,
             ));
 
             Event::success()
@@ -280,6 +282,7 @@ pub fn create_failure(f: &mut Fiber) -> Event
         Box::new(failtag.clone()),
         Box::new(failmsg.clone()),
         f.head.trace.clone(),
+        val::FAILURE_INTERNAL,
     );
     f.head.parent.set_result(failure);
     Event::failure()
@@ -345,6 +348,7 @@ pub fn file_read(f: &mut Fiber) -> Event
             Val::hashtag("file_open_fail".to_string()),
             Val::new_str("Failed to open file".to_string()),
             f.head.trace.failure_here(),
+            val::FAILURE_INTERNAL,
             )
     };
     f.head.parent.set_result(openf);

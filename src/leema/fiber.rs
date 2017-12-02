@@ -1,7 +1,7 @@
 #[macro_use]
 use leema::log;
 use leema::frame::{Frame, Event, Parent, FrameTrace};
-use leema::val::{Val, Env, Type};
+use leema::val::{self, Val, Env, Type};
 use leema::reg::{Reg};
 use leema::code::{Code, Op, OpVec, ModSym};
 use leema::list;
@@ -253,14 +253,14 @@ impl Fiber
                     argv.clone()
                 });
         match opt_failure {
-            Some(mut failure) => {
-                if let &mut Val::Failure(_, _, ref mut trace) = &mut failure {
+            Some(mut failur) => {
+                if let &mut Val::Failure(_, _, ref mut trace, _) = &mut failur {
                     *trace = FrameTrace::propagate_down(
                         trace,
                         self.head.function_name(),
                     );
                 }
-                self.head.parent.set_result(failure);
+                self.head.parent.set_result(failur);
                 Event::Complete(false)
             }
             None => {
@@ -369,7 +369,9 @@ impl Fiber
     {
         let tagval = self.head.e.get_reg(tag).clone();
         let msgval = self.head.e.get_reg(msg).clone();
-        let f = Val::failure(tagval, msgval, self.head.trace.failure_here());
+        let f =
+            Val::failure(tagval, msgval, self.head.trace.failure_here()
+                , val::FAILURE_INTERNAL);
         self.head.e.set_reg(dst, f);
         self.head.pc += 1;
         Event::Uneventful
@@ -378,10 +380,11 @@ impl Fiber
     pub fn propagate_failure(&mut self, src: &Reg) -> Event
     {
         let srcval = self.head.e.get_reg(src);
-        if let &Val::Failure(ref tag, ref msg, ref trace) = srcval {
+        if let &Val::Failure(ref tag, ref msg, ref trace, status) = srcval {
             let new_trace =
                 FrameTrace::propagate_down(trace, &*self.head.function);
-            let new_fail = Val::Failure(tag.clone(), msg.clone(), new_trace);
+            let new_fail =
+                Val::Failure(tag.clone(), msg.clone(), new_trace, status);
             self.head.parent.set_result(new_fail);
             Event::Complete(false)
         } else {

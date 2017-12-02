@@ -30,8 +30,3 @@ pub mod worker;
 // libraries
 pub mod file;
 pub mod lib_str;
-
-pub const CLI_SUCCESS: i32 =  0;
-pub const CLI_NOMAIN : i32 = -1;
-pub const CLI_UNCAUGHT_FAILURE : i32 = -2;
-

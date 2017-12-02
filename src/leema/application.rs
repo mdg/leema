@@ -176,6 +176,28 @@ impl Application
         tfunc
         */
     }
+
+    pub fn handle_result(result: Option<Val>) -> i8
+    {
+        vout!("Result = {:?}\n", result);
+        if result.is_none() {
+            return -4;
+        }
+        let code: i8 = match result.unwrap() {
+            Val::Int(i) => i as i8,
+            Val::Failure(ref tag, ref msg, ref trace, status) => {
+                println!("Failure: {}", tag);
+                println!("Message: {}", msg);
+                println!("Stack Trace:\n{}", trace);
+                status
+            }
+            res => {
+                println!("Result: {}", res);
+                -2
+            }
+        };
+        code
+    }
 }
 
 /*

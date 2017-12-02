@@ -360,6 +360,38 @@ pub const DEFAULT_SRC_LOC: SrcLoc = SrcLoc{lineno: 0, column: 0};
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
+pub enum FailureStatus
+{
+    // user input errors
+    BadUserInput,
+    Unauthenticated,
+    Unauthorized,
+    MissingData,
+    // leema program errors
+    MissingEntryPoint,
+    Timeout,
+    ProgramError{
+        status: i8 // positive numbers only
+    },
+    // vm errors
+    LeemaInternalError,
+}
+
+pub const FAILURE_SUCCESS : i8          =  0;
+pub const FAILURE_NOENTRY : i8          = -1;
+pub const FAILURE_BADINPUT : i8         = -2;
+pub const FAILURE_UNAUTHENTICATED : i8  = -3;
+pub const FAILURE_UNAUTHORIZED : i8     = -4;
+pub const FAILURE_MISSINGDATA : i8      = -5;
+pub const FAILURE_TIMEOUT : i8          = -6;
+pub const FAILURE_INTERNAL : i8         = -7;
+pub const FAILURE_TYPE : i8             = -8;
+
+
+#[derive(Copy)]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
 #[derive(PartialOrd)]
 pub enum SxprType {
     Let,
@@ -385,7 +417,6 @@ pub enum SxprType {
 }
 
 #[derive(Debug)]
-#[derive(PartialEq)]
 pub enum MsgVal
 {
     Int(i64),
@@ -398,6 +429,7 @@ pub enum MsgVal
     Nil,
     Void,
     ResourceRef(i64),
+    Failure(Box<MsgVal>, Box<MsgVal>, Arc<FrameTrace>, i8),
 }
 
 #[derive(Clone)]
@@ -419,6 +451,7 @@ pub enum Val {
         Box<Val>, // tag
         Box<Val>, // msg
         Arc<FrameTrace>,
+        i8, // status
     ),
     Id(Rc<String>),
     ModPrefix(Rc<String>, Rc<Val>),
@@ -705,17 +738,19 @@ impl Val
     pub fn is_failure(&self) -> bool
     {
         match self {
-            &Val::Failure(_, _, _) => true,
+            &Val::Failure(_, _, _, _) => true,
             _ => false,
         }
     }
 
-    pub fn failure(tag: Val, msg: Val, trace: Arc<FrameTrace>) -> Val
+    pub fn failure(tag: Val, msg: Val, trace: Arc<FrameTrace>, status: i8
+        ) -> Val
     {
         Val::Failure(
             Box::new(tag),
             Box::new(msg),
             trace,
+            status,
         )
     }
 
@@ -782,7 +817,7 @@ impl Val
                 Type::StrictList(Box::new(inner))
             }
             &Val::Nil => Type::StrictList(Box::new(Type::Unknown)),
-            &Val::Failure(_, _, _) => Type::Failure,
+            &Val::Failure(_, _, _, _) => Type::Failure,
             &Val::Type(_) => Type::Kind,
             &Val::Void => Type::Void,
             &Val::Wildcard => Type::Unknown,
@@ -1157,6 +1192,14 @@ impl Val
             &Val::Nil => MsgVal::Nil,
             &Val::Void => MsgVal::Void,
             &Val::ResourceRef(rsrc_id) => MsgVal::ResourceRef(rsrc_id),
+            &Val::Failure(ref tag, ref msg, ref stack, status) => {
+                MsgVal::Failure(
+                    Box::new(tag.to_msg()),
+                    Box::new(msg.to_msg()),
+                    stack.clone(),
+                    status,
+                )
+            }
             _ => {
                 panic!("Not yet convertable to a msg: {:?}", self);
             }
@@ -1181,6 +1224,14 @@ impl Val
                 }).collect())
             }
             MsgVal::Buffer(buf) => Val::Buffer(buf),
+            MsgVal::Failure(tag, msg, trace, status) => {
+                Val::Failure(
+                    Box::new(Val::from_msg(*tag)),
+                    Box::new(Val::from_msg(*msg)),
+                    trace,
+                    status,
+                )
+            }
             MsgVal::Nil => Val::Nil,
             MsgVal::Void => Val::Void,
             MsgVal::ResourceRef(rsrc_id) => Val::ResourceRef(rsrc_id),
@@ -1247,7 +1298,7 @@ impl fmt::Display for Val {
             Val::RustBlock => {
                 write!(f, "RustBlock")
             }
-            Val::Failure(ref tag, ref msg, ref stack) => {
+            Val::Failure(ref tag, ref msg, ref stack, status) => {
                 write!(f, "Failure({}, {}\n{})", tag, msg, **stack)
             }
             Val::Sxpr(ref t, ref head) => {
@@ -1340,8 +1391,8 @@ impl fmt::Debug for Val {
             Val::RustBlock => {
                 write!(f, "RustBlock")
             }
-            Val::Failure(ref tag, ref msg, ref stack) => {
-                write!(f, "Failure({}, {}, {:?})", tag, msg, stack)
+            Val::Failure(ref tag, ref msg, ref stack, status) => {
+                write!(f, "Failure({}, {}, {}, {:?})", tag, status, msg, stack)
             }
             Val::Sxpr(ref t, ref head) => {
                 Val::fmt_sxpr(*t, head, f, true)
@@ -1424,12 +1475,12 @@ impl reg::Iregistry for Val
                 fields[p as usize].ireg_get(&*s)
             }
             // Failures
-            (&Ireg::Reg(0), &Val::Failure(ref tag, _, _)) => tag,
-            (&Ireg::Reg(1), &Val::Failure(_, ref msg, _)) => msg,
-            (&Ireg::Reg(2), &Val::Failure(_, _, ref trace)) => {
+            (&Ireg::Reg(0), &Val::Failure(ref tag, _, _, _)) => tag,
+            (&Ireg::Reg(1), &Val::Failure(_, ref msg, _, _)) => msg,
+            (&Ireg::Reg(2), &Val::Failure(_, _, ref trace, _)) => {
                 panic!("Cannot access frame trace until it is implemented as a leema value {}", trace);
             }
-            (&Ireg::Sub(_, _), &Val::Failure(ref tag, ref msg, _)) => {
+            (&Ireg::Sub(_, _), &Val::Failure(ref tag, ref msg, _, _)) => {
                 panic!("Cannot access sub data for Failure {} {}", tag, msg);
             }
             _ => {
@@ -1508,10 +1559,10 @@ impl reg::Iregistry for Val
                 panic!("cannot set reg on empty list: {:?}", i);
             }
             // set reg on Failures
-            (&Ireg::Reg(0), &mut Val::Failure(ref mut tag, _, _)) => {
+            (&Ireg::Reg(0), &mut Val::Failure(ref mut tag, _, _, _)) => {
                 *tag = Box::new(v);
             }
-            (&Ireg::Reg(1), &mut Val::Failure(_, ref mut msg, _)) => {
+            (&Ireg::Reg(1), &mut Val::Failure(_, ref mut msg, _, _)) => {
                 *msg = Box::new(v);
             }
             // values that can't act as registries
