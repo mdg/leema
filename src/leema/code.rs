@@ -45,7 +45,6 @@ pub enum Op
     ConstVal(Reg, Val),
     Constructor(Reg, Type, i8),
     Copy(Reg, Reg),
-    Failure(Reg, Reg, Reg),
     Fork(Reg, Reg, Reg),
     //IfFail(Reg, i16),
     Jump(i16),
@@ -93,9 +92,6 @@ impl Clone for Op
             }
             &Op::Copy(ref dst, ref src) => {
                 Op::Copy(dst.clone(), src.clone())
-            }
-            &Op::Failure(ref dst, ref typ, ref msg) => {
-                Op::Failure(dst.clone(), typ.clone(), msg.clone())
             }
             &Op::Jump(j) => Op::Jump(j),
             // &Op::Fork(r) => {}
@@ -283,26 +279,6 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             Oxpr{
                 ops: vec![Op::ConstVal(dst.clone(), v.clone())],
                 dst: dst.clone(),
-            }
-        }
-        Source::Fail(ref tag, ref msg) => {
-            let result_reg = rt.dst().clone();
-            let mut ops = vec![];
-            let mut tag_ops = make_sub_ops(rt, tag);
-            let mut msg_ops = make_sub_ops(rt, msg);
-            ops.append(&mut tag_ops.ops);
-            ops.append(&mut msg_ops.ops);
-            let failop = Op::Failure(
-                result_reg.clone(),
-                tag_ops.dst,
-                msg_ops.dst,
-            );
-            ops.push(failop);
-            ops.push(Op::SetResult(result_reg.clone()));
-            ops.push(Op::Return);
-            Oxpr{
-                ops: ops,
-                dst: result_reg,
             }
         }
         Source::FieldAccess(ref base, fld_idx) => {

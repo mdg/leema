@@ -188,14 +188,26 @@ impl FrameTrace
         })
     }
 
-    pub fn failure_here(&self) -> Arc<FrameTrace>
+    pub fn fail_here(&self) -> Arc<FrameTrace>
     {
         Arc::new(FrameTrace{
             direction: FrameTraceDirection::FailHere,
             function: self.function.clone(),
-            line: 0,
+            line: self.line,
             parent: self.parent.clone(),
         })
+    }
+
+    pub fn fail_parent(&self) -> Arc<FrameTrace>
+    {
+        match self.parent {
+            Some(ref p) => {
+                p.fail_here()
+            }
+            None => {
+                self.fail_here()
+            }
+        }
     }
 }
 

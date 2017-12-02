@@ -18,7 +18,6 @@ pub enum Source
     Call(Box<Ixpr>, Box<Ixpr>),
     Constructor(Type, i8),
     ConstVal(Val),
-    Fail(Box<Ixpr>, Box<Ixpr>),
     FieldAccess(Box<Ixpr>, i8),
     Fork(Box<Ixpr>, Box<Ixpr>, Box<Ixpr>),
     Func(Vec<Rc<String>>, Box<Ixpr>),

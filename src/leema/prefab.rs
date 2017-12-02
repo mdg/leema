@@ -245,7 +245,7 @@ pub fn cin(f: &mut Fiber) -> Event
             f.head.parent.set_result(Val::failure(
                 Val::hashtag("console_read_fail".to_string()),
                 Val::hashtag("".to_string()),
-                f.head.trace.failure_here(),
+                f.head.trace.fail_here(),
                 val::FAILURE_INTERNAL,
             ));
 
@@ -281,7 +281,7 @@ pub fn create_failure(f: &mut Fiber) -> Event
     let failure = Val::Failure(
         Box::new(failtag.clone()),
         Box::new(failmsg.clone()),
-        f.head.trace.clone(),
+        f.head.trace.fail_parent(),
         val::FAILURE_INTERNAL,
     );
     f.head.parent.set_result(failure);
@@ -347,7 +347,7 @@ pub fn file_read(f: &mut Fiber) -> Event
         Err(_) => Val::failure(
             Val::hashtag("file_open_fail".to_string()),
             Val::new_str("Failed to open file".to_string()),
-            f.head.trace.failure_here(),
+            f.head.trace.fail_here(),
             val::FAILURE_INTERNAL,
             )
     };

@@ -150,9 +150,6 @@ impl Fiber
                 self.head.pc += 1;
                 ev
             }
-            &Op::Failure(ref dst, ref tag, ref msg) => {
-                self.execute_failure(dst, tag, msg)
-            }
         }
     }
 
@@ -363,18 +360,6 @@ impl Fiber
         let src_val = self.head.e.get_reg(src).clone();
         self.head.e.set_reg(dst, src_val);
         self.head.pc = self.head.pc + 1;
-        Event::Uneventful
-    }
-
-    pub fn execute_failure(&mut self, dst: &Reg, tag: &Reg, msg: &Reg) -> Event
-    {
-        let tagval = self.head.e.get_reg(tag).clone();
-        let msgval = self.head.e.get_reg(msg).clone();
-        let f =
-            Val::failure(tagval, msgval, self.head.trace.failure_here()
-                , val::FAILURE_INTERNAL);
-        self.head.e.set_reg(dst, f);
-        self.head.pc += 1;
         Event::Uneventful
     }
 
