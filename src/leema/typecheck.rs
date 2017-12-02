@@ -87,7 +87,7 @@ impl<'a> CallFrame<'a>
             Source::ConstVal(ref val) => {
                 // nothing to do. constants aren't calls.
             }
-            Source::Id(ref _id, _) => {
+            Source::Id(ref _id, _, _) => {
                 // nothing to do. not calls.
             }
             Source::MatchExpr(ref sample, ref cases) => {
@@ -113,7 +113,7 @@ impl<'a> CallFrame<'a>
     pub fn collect_callexpr<'b>(&mut self, callx: &'b Ixpr)
     {
         match callx.src {
-            Source::Id(ref callname, _first_usage) => {
+            Source::Id(ref callname, _first_usage, _) => {
                 self.push_call(CallOp::LocalCall(callname.clone()));
             }
             Source::ModuleAccess(ref modname, ref callname) => {
@@ -313,7 +313,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
             }
             last_type
         }
-        &Source::Id(_, _) => {
+        &Source::Id(_, _, _) => {
             ix.typ.clone()
         }
         &Source::List(ref items) => {

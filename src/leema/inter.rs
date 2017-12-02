@@ -282,7 +282,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val) -> Ixpr
                 Some((ScopeLevel::Local, typ)) => {
                     let first = scope.T.mark_usage(id, &val::DEFAULT_SRC_LOC);
                     Ixpr{
-                        src: Source::Id(id.clone(), first),
+                        src: Source::Id(id.clone(), first, 0),
                         typ: typ.clone(),
                     }
                 }

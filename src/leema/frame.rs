@@ -151,6 +151,7 @@ pub struct FrameTrace
     // TODO: Implement this in leema later
     direction: FrameTraceDirection,
     function: String,
+    line: i16,
     parent: Option<Arc<FrameTrace>>,
 }
 
@@ -161,6 +162,7 @@ impl FrameTrace
         Arc::new(FrameTrace{
             direction: FrameTraceDirection::CallUp,
             function: func.clone(),
+            line: 0,
             parent: None,
         })
     }
@@ -170,16 +172,18 @@ impl FrameTrace
         Arc::new(FrameTrace{
             direction: FrameTraceDirection::CallUp,
             function: func.to_string(),
+            line: 0,
             parent: Some(parent.clone()),
         })
     }
 
-    pub fn propagate_down(trace: &Arc<FrameTrace>, func: &str)
+    pub fn propagate_down(trace: &Arc<FrameTrace>, func: &str, line: i16)
         -> Arc<FrameTrace>
     {
         Arc::new(FrameTrace{
             direction: FrameTraceDirection::ReturnDown,
             function: String::from(func),
+            line: line,
             parent: Some(trace.clone()),
         })
     }
@@ -189,6 +193,7 @@ impl FrameTrace
         Arc::new(FrameTrace{
             direction: FrameTraceDirection::FailHere,
             function: self.function.clone(),
+            line: 0,
             parent: self.parent.clone(),
         })
     }
@@ -206,10 +211,10 @@ impl fmt::Display for FrameTrace
 
         match self.parent {
             None => {
-                write!(f, "{} {}\n", dir, self.function)
+                write!(f, "{} {}:{}\n", dir, self.function, self.line)
             }
             Some(ref p) => {
-                write!(f, "{} {}\n{}", dir, self.function, p)
+                write!(f, "{} {}:{}\n{}", dir, self.function, self.line, p)
             }
         }
     }
