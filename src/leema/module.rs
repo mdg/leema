@@ -107,7 +107,7 @@ impl ModulePreface
     pub fn split_ast(&mut self, ast: &Val)
     {
         match ast {
-            &Val::Sxpr(SxprType::BlockExpr, ref sx) => {
+            &Val::Sxpr(SxprType::BlockExpr, ref sx, ref loc) => {
                 list::fold_mut_ref(self, sx
                     , ModulePreface::split_ast_block_item);
             }
@@ -120,11 +120,11 @@ impl ModulePreface
     pub fn split_ast_block_item(mp: &mut ModulePreface, item: &Val)
     {
         match item {
-            &Val::Sxpr(SxprType::Import, ref imp) => {
+            &Val::Sxpr(SxprType::Import, ref imp, ref loc) => {
                 let iname = list::head_ref(imp);
                 mp.imports.insert(String::from(iname.str()));
             }
-            &Val::Sxpr(SxprType::DefMacro, ref dm) => {
+            &Val::Sxpr(SxprType::DefMacro, ref dm, ref loc) => {
                 let (mname_val, args_val, body) = list::to_ref_tuple3(dm);
                 let mname = mname_val.str();
                 let mut args = vec![];

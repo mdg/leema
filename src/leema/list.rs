@@ -6,9 +6,9 @@ use std::rc::{Rc};
 pub fn cons(head: Val, tail: Val) -> Val
 {
     match tail {
-        Val::Sxpr(sxtype, tail) => {
+        Val::Sxpr(sxtype, tail, loc) => {
             let new_tail = Val::Cons(Box::new(head), tail.clone());
-            Val::Sxpr(sxtype, Rc::new(new_tail))
+            Val::Sxpr(sxtype, Rc::new(new_tail), loc)
         }
         Val::Cons(_, _) => {
             Val::Cons(Box::new(head), Rc::new(tail))
@@ -106,7 +106,7 @@ pub fn is_empty(l: &Val) -> bool
     match l {
         &Val::Nil => true,
         &Val::Cons(_, _) => false,
-        &Val::Sxpr(_, ref head) => {
+        &Val::Sxpr(_, ref head, _) => {
             match **head {
                 Val::Nil => true,
                 _ => false,

@@ -1,5 +1,5 @@
 use leema::program::{Lib};
-use leema::val::{SxprType, Val, Type};
+use leema::val::{SxprType, Val, Type, SrcLoc};
 use leema::module::{ModKey, ModulePreface};
 use leema::list;
 use leema::log;
@@ -49,15 +49,15 @@ impl Protomod
             , mp: &ModulePreface, x: &Val
     ) {
         match x {
-            &Val::Sxpr(SxprType::DefFunc, ref parts) => {
+            &Val::Sxpr(SxprType::DefFunc, ref parts, ref loc) => {
                 let (fname, args, fresult, body) = list::to_ref_tuple4(parts);
                 let rcname = fname.id_name().clone();
                 let strname = String::from(fname.str());
-                let pp_args = Protomod::preproc_list(prog, mp, args);
-                let pp_fresult = Protomod::preproc_expr(prog, mp, fresult);
-                let pp_body = Protomod::preproc_expr(prog, mp, body);
+                let pp_args = Protomod::preproc_list(prog, mp, args, loc);
+                let pp_fresult = Protomod::preproc_expr(prog, mp, fresult, loc);
+                let pp_body = Protomod::preproc_expr(prog, mp, body, loc);
                 let pp_func = sxpr::defunc(
-                        fname.clone(), pp_args, pp_fresult, pp_body);
+                        fname.clone(), pp_args, pp_fresult, pp_body, *loc);
 
                 let ftype = sxpr::defunc_type(&pp_func);
 
@@ -65,14 +65,14 @@ impl Protomod
                 self.funcsrc.insert(strname.clone(), pp_func);
                 self.valtypes.insert(strname, ftype);
             }
-            &Val::Sxpr(SxprType::DefStruct, ref parts) => {
-                self.preproc_struct(parts);
+            &Val::Sxpr(SxprType::DefStruct, ref parts, ref loc) => {
+                self.preproc_struct(parts, loc);
             }
-            &Val::Sxpr(SxprType::DefMacro, _) => {
+            &Val::Sxpr(SxprType::DefMacro, _, ref loc) => {
                 // do nothing. the macro definition will have been handled
                 // in the file read
             }
-            &Val::Sxpr(SxprType::Import, _) => {
+            &Val::Sxpr(SxprType::Import, _, _) => {
                 // do nothing. imports handled in file read
             }
             _ => {
@@ -81,18 +81,19 @@ impl Protomod
         }
     }
 
-    pub fn preproc_expr(prog: &Lib, mp: &ModulePreface, x: &Val) -> Val
+    pub fn preproc_expr(prog: &Lib, mp: &ModulePreface, x: &Val, loc: &SrcLoc
+        ) -> Val
     {
         match x {
-            &Val::Sxpr(SxprType::Call, ref call_info) => {
+            &Val::Sxpr(SxprType::Call, ref call_info, ref loc) => {
                 let (ref callx, ref args) = list::take_ref(call_info);
-                Protomod::preproc_call(prog, mp, callx, args)
+                Protomod::preproc_call(prog, mp, callx, args, loc)
             }
             &Val::Id(_) => {
                 x.clone()
             }
-            &Val::Sxpr(sxpr_type, ref sx) => {
-                Protomod::preproc_sxpr(prog, mp, sxpr_type, sx)
+            &Val::Sxpr(sxpr_type, ref sx, ref sxloc) => {
+                Protomod::preproc_sxpr(prog, mp, sxpr_type, sx, sxloc)
             }
             &Val::Int(i) => {
                 Val::Int(i)
@@ -104,7 +105,7 @@ impl Protomod
                 Val::Bool(b)
             }
             &Val::Cons(ref head, ref tail) => {
-                Protomod::preproc_cons(prog, mp, head, tail)
+                Protomod::preproc_cons(prog, mp, head, tail, loc)
             }
             &Val::Nil => Val::Nil,
             &Val::Hashtag(ref ht) => Val::Hashtag(ht.clone()),
@@ -117,29 +118,29 @@ impl Protomod
             }
             &Val::Tuple(ref items) if items.len() == 1 => {
                 // one tuples are compiled to just the value
-                Protomod::preproc_expr(prog, mp, items.get(0).unwrap())
+                Protomod::preproc_expr(prog, mp, items.get(0).unwrap(), loc)
             }
             &Val::Tuple(ref items) => {
                 Val::Tuple(items.iter().map(|i| {
-                    Protomod::preproc_expr(prog, mp, i)
+                    Protomod::preproc_expr(prog, mp, i, loc)
                 }).collect())
             }
             &Val::DotAccess(ref base, ref fld) => {
-                let ppbase = Protomod::preproc_expr(prog, mp, base);
+                let ppbase = Protomod::preproc_expr(prog, mp, base, loc);
                 Val::DotAccess(Box::new(ppbase), fld.clone())
             }
             &Val::ModPrefix(ref prefix, ref name) => {
                 if !mp.imports.contains(&**prefix) {
                     panic!("cannot find {} module. maybe import it?");
                 }
-                let ppname = Protomod::preproc_expr(prog, mp, name);
+                let ppname = Protomod::preproc_expr(prog, mp, name, loc);
                 Val::ModPrefix(prefix.clone(), Rc::new(ppname))
             }
             &Val::Wildcard => Val::Wildcard,
             &Val::RustBlock => Val::RustBlock,
             &Val::Void => Val::Void,
             &Val::Loc(ref v, ref l) => {
-                Protomod::preproc_expr(prog, mp, v)
+                Protomod::preproc_expr(prog, mp, v, l)
             }
             _ => {
                 println!("preproc_unknown_expr({:?})", x);
@@ -149,26 +150,32 @@ impl Protomod
     }
 
     pub fn preproc_cons(prog: &Lib, mp: &ModulePreface
-            , head: &Val, tail: &Val) -> Val
+            , head: &Val, tail: &Val, loc: &SrcLoc) -> Val
     {
-        let pphead = Protomod::preproc_expr(prog, mp, head);
+        let pphead = Protomod::preproc_expr(prog, mp, head, loc);
         match tail {
             &Val::Cons(ref next_head, ref next_tail) => {
                 let pptail =
-                    Protomod::preproc_cons(prog, mp, next_head, next_tail);
-                sxpr::call(Val::id("list_cons".to_string()),
-                    list::from2(pphead, pptail))
+                    Protomod::preproc_cons(prog, mp, next_head, next_tail, loc);
+                sxpr::call(
+                    Val::id("list_cons".to_string()),
+                    list::from2(pphead, pptail),
+                    *loc,
+                )
             }
             &Val::Nil => {
                 list::singleton(pphead)
             }
             &Val::Id(_) => {
-                let pptail = Protomod::preproc_expr(prog, mp, tail);
-                sxpr::call(Val::id("list_cons".to_string()),
-                    list::from2(pphead, pptail))
+                let pptail = Protomod::preproc_expr(prog, mp, tail, loc);
+                sxpr::call(
+                    Val::id("list_cons".to_string()),
+                    list::from2(pphead, pptail),
+                    *loc,
+                )
             }
-            &Val::Loc(ref v, ref loc) => {
-                let v2 = Protomod::preproc_cons(prog, mp, head, v);
+            &Val::Loc(ref v, ref lloc) => {
+                let v2 = Protomod::preproc_cons(prog, mp, head, v, lloc);
                 Val::loc(v2, *loc)
             }
             _ => {
@@ -178,9 +185,9 @@ impl Protomod
     }
 
     pub fn preproc_call(prog: &Lib, mp: &ModulePreface
-            , callx: &Val, args: &Rc<Val>) -> Val
+            , callx: &Val, args: &Rc<Val>, loc: &SrcLoc) -> Val
     {
-        let pp_args = Protomod::preproc_list(prog, mp, &**args);
+        let pp_args = Protomod::preproc_list(prog, mp, &**args, loc);
         match callx {
             &Val::Id(ref id) => {
                 match mp.macros.get(&**id) {
@@ -189,7 +196,7 @@ impl Protomod
                             Protomod::apply_macro(&**id, body, arg_names, args);
                         // do it again to make sure there's not a wrapped
                         // macro
-                        Protomod::preproc_expr(prog, mp, &macrod)
+                        Protomod::preproc_expr(prog, mp, &macrod, loc)
                     }
                     None => {
                         match prog.get_macro("prefab", &**id) {
@@ -198,10 +205,10 @@ impl Protomod
                                     , body, arg_names, args);
                                 // do it again to make sure there's
                                 // not a wrapped macro
-                                Protomod::preproc_expr(prog, mp, &macrod)
+                                Protomod::preproc_expr(prog, mp, &macrod, loc)
                             }
                             None => {
-                                sxpr::call(callx.clone(), pp_args)
+                                sxpr::call(callx.clone(), pp_args, *loc)
                             }
                         }
                     }
@@ -214,40 +221,38 @@ impl Protomod
                 let inner_id = inner.to_str();
                 let mac = prog.get_macro(prefix, &*inner_id);
                 if mac.is_none() {
-                    return sxpr::call(callx.clone(), pp_args);
+                    return sxpr::call(callx.clone(), pp_args, *loc);
                 }
                 let &(ref arg_names, ref body) = mac.unwrap();
                 let result = Protomod::apply_macro(
                         &**inner_id, body, arg_names, args);
-                Protomod::preproc_expr(prog, mp, &result)
+                Protomod::preproc_expr(prog, mp, &result, loc)
             }
             &Val::DotAccess(ref outer, ref inner) => {
                 match &**outer {
                     &Val::Id(ref outer_id) => {
                         if !mp.imports.contains(&**outer_id) {
-                            return sxpr::call(callx.clone(), pp_args);
+                            return sxpr::call(callx.clone(), pp_args, *loc);
                         }
                         let mac = prog.get_macro(outer_id, inner);
                         if mac.is_none() {
-                            return sxpr::call(callx.clone(), pp_args);
+                            return sxpr::call(callx.clone(), pp_args, *loc);
                         }
                         let &(ref arg_names, ref body) = mac.unwrap();
                         let result = Protomod::apply_macro(
                                 &**inner, body, arg_names, args);
-                        Protomod::preproc_expr(prog, mp, &result)
+                        Protomod::preproc_expr(prog, mp, &result, loc)
                     }
                     _ => {
-                        sxpr::call(callx.clone(), pp_args)
+                        sxpr::call(callx.clone(), pp_args, *loc)
                     }
                 }
             }
             &Val::Loc(ref v, ref l) => {
-                Protomod::preproc_call(prog, mp, v, args)
+                Protomod::preproc_call(prog, mp, v, args, l)
             }
             _ => {
-                println!("function call is what? {:?}", callx);
-                let pp_callx = Protomod::preproc_expr(prog, mp, callx);
-                sxpr::call(pp_callx, pp_args)
+                panic!("function call is what? {:?}@{:?}", callx, loc);
             }
         }
     }
@@ -300,10 +305,11 @@ impl Protomod
                 let v2 = Protomod::replace_ids(v, idvals);
                 Val::loc(v2, *loc)
             }
-            &Val::Sxpr(stype, ref sdata) => {
+            &Val::Sxpr(stype, ref sdata, ref loc) => {
                 sxpr::new(
                     stype,
                     Protomod::replace_ids(sdata, idvals),
+                    *loc,
                 )
             }
             _ => node.clone(),
@@ -311,44 +317,58 @@ impl Protomod
     }
 
     pub fn preproc_sxpr(prog: &Lib, mp: &ModulePreface
-            , st: SxprType, sx: &Val) -> Val
+            , st: SxprType, sx: &Val, loc: &SrcLoc) -> Val
     {
         match st {
             SxprType::Let => {
                 let (patt, src) = list::to_ref_tuple2(sx);
                 let ppatt = Protomod::preproc_pattern(prog, mp, patt);
-                let psrc = Protomod::preproc_expr(prog, mp, src);
-                sxpr::new(st, list::from2(ppatt, psrc))
+                let psrc = Protomod::preproc_expr(prog, mp, src, loc);
+                sxpr::new(
+                    st,
+                    list::from2(ppatt, psrc),
+                    *loc
+                )
             }
             SxprType::MatchExpr => {
                 let (mx, cases) = list::to_ref_tuple2(sx);
-                let pmx = Protomod::preproc_expr(prog, mp, mx);
-                let pcases = Protomod::preproc_matchcase(prog, mp, cases);
-                sxpr::new(st, list::from2(pmx, pcases))
+                let pmx = Protomod::preproc_expr(prog, mp, mx, loc);
+                let pcases = Protomod::preproc_matchcase(prog, mp, cases, loc);
+                sxpr::new(
+                    st,
+                    list::from2(pmx, pcases),
+                    *loc,
+                )
             }
-            SxprType::MatchFailed(line) => {
+            SxprType::MatchFailed => {
                 let (fx, cases) = list::to_ref_tuple2(sx);
-                let pfx = Protomod::preproc_expr(prog, mp, fx);
-                let pcases = Protomod::preproc_matchcase(prog, mp, cases);
-                sxpr::new(SxprType::MatchFailed(line), list::from2(pfx, pcases))
+                let pfx = Protomod::preproc_expr(prog, mp, fx, loc);
+                let pcases = Protomod::preproc_matchcase(prog, mp, cases, loc);
+                sxpr::new(
+                    SxprType::MatchFailed,
+                    list::from2(pfx, pcases),
+                    *loc,
+                )
             }
             _ => {
-                let pp_sx = Protomod::preproc_list(prog, mp, sx);
-                sxpr::new(st, pp_sx)
+                let pp_sx = Protomod::preproc_list(prog, mp, sx, loc);
+                sxpr::new(st, pp_sx, *loc)
             }
         }
     }
 
-    pub fn preproc_matchcase(prog: &Lib, mp: &ModulePreface, case: &Val) -> Val
+    pub fn preproc_matchcase(prog: &Lib, mp: &ModulePreface, case: &Val
+        , loc: &SrcLoc
+        ) -> Val
     {
         let (patt, t2) = list::take_ref(case);
         let (blk, t3) = list::take_ref(&*t2);
         let p_patt = Protomod::preproc_pattern(prog, mp, patt);
-        let p_blk = Protomod::preproc_expr(prog, mp, blk);
+        let p_blk = Protomod::preproc_expr(prog, mp, blk, loc);
 
         let p_next = match &**t3 {
             &Val::Cons(ref next, _) => {
-                Protomod::preproc_matchcase(prog, mp, next)
+                Protomod::preproc_matchcase(prog, mp, next, loc)
             }
             &Val::Nil => Val::Void,
             _ => {
@@ -358,10 +378,11 @@ impl Protomod
         list::from3(p_patt, p_blk, p_next)
     }
 
-    pub fn preproc_list(prog: &Lib, mp: &ModulePreface, l: &Val) -> Val
+    pub fn preproc_list(prog: &Lib, mp: &ModulePreface, l: &Val, loc: &SrcLoc
+        ) -> Val
     {
         list::map_ref(l, |a| {
-            Protomod::preproc_expr(prog, mp, a)
+            Protomod::preproc_expr(prog, mp, a, loc)
         })
     }
 
@@ -381,14 +402,14 @@ impl Protomod
                     }).collect()
                 )
             }
-            &Val::Sxpr(SxprType::Call, ref sx) => {
+            &Val::Sxpr(SxprType::Call, ref sx, ref loc) => {
                 let (callx, args) = list::take_ref(sx);
                 let pp_callx = Protomod::preproc_pattern_call(prog, mp, callx);
                 let pp_args = list::map_ref(&**args, |px| {
                     Protomod::preproc_pattern(prog, mp, px)
                 });
                 let pp_sx = list::cons(pp_callx, pp_args);
-                Val::Sxpr(SxprType::Call, Rc::new(pp_sx))
+                Val::Sxpr(SxprType::Call, Rc::new(pp_sx), *loc)
             }
             &Val::Id(_) => {
                 p.clone()
@@ -449,7 +470,7 @@ impl Protomod
         }
     }
 
-    pub fn preproc_struct(&mut self, sp: &Val)
+    pub fn preproc_struct(&mut self, sp: &Val, loc: &SrcLoc)
     {
         let (ref name, ref src_fields) = list::take_ref(sp);
         let rc_name = name.id_name().clone();
@@ -490,6 +511,7 @@ impl Protomod
             , (***src_fields).clone()
             , Val::Type(stype.clone())
             , srcblk
+            , *loc
             );
 
         self.funcseq.push_back(rc_name.clone());
@@ -534,7 +556,7 @@ pub fn preproc(prog: &mut Lib, mp: &ModulePreface, ast: &Val) -> Protomod
     let mk = mp.key.clone();
     let mut p0 = Protomod::new(mk);
     match ast {
-        &Val::Sxpr(SxprType::BlockExpr, ref exprs) => {
+        &Val::Sxpr(SxprType::BlockExpr, ref exprs, ref loc) => {
             list::fold_mut_ref(&mut p0, exprs, |p, x| {
                 p.preproc_module_expr(prog, mp, x);
             });

@@ -322,7 +322,6 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         }
         Source::Id(ref id, false, _) => {
             let src = rt.id(id);
-vout!("id({}).reg = {:?}\n", id, src);
             Oxpr{ ops: vec![], dst: src }
         }
         Source::IfExpr(ref test, ref truth, ref lies) => {

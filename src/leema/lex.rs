@@ -68,7 +68,7 @@ impl Token
                     Token::MACRO
                 }
                 parse::TOKEN_STRUCT => {
-                    Token::STRUCT
+                    Token::STRUCT(tl)
                 }
                 parse::TOKEN_INT => {
                     Token::INT((*tok).ival())
@@ -85,16 +85,16 @@ impl Token
                     Token::HASHTAG(TokenData::new(txt, tl))
                 }
                 parse::TOKEN_ConcatNewline => {
-                    Token::ConcatNewline
+                    Token::ConcatNewline(tl)
                 }
                 parse::TOKEN_IMPORT => {
-                    Token::IMPORT
+                    Token::IMPORT(tl)
                 }
                 parse::TOKEN_LPAREN => {
                     Token::LPAREN(tl)
                 }
                 parse::TOKEN_PARENCALL => {
-                    Token::PARENCALL
+                    Token::PARENCALL(tl)
                 }
                 parse::TOKEN_COLON => {
                     Token::COLON(tl)
@@ -120,11 +120,11 @@ impl Token
                 parse::TOKEN_SquareR => {
                     Token::SquareR(tl)
                 }
-                parse::TOKEN_TIMES => Token::TIMES,
+                parse::TOKEN_TIMES => Token::TIMES(tl),
                 parse::TOKEN_SLASH => Token::SLASH(tl),
-                parse::TOKEN_PIPE => Token::PIPE,
+                parse::TOKEN_PIPE => Token::PIPE(tl),
                 parse::TOKEN_ASSIGN => Token::ASSIGN,
-                parse::TOKEN_Fork => Token::Fork,
+                parse::TOKEN_Fork => Token::Fork(tl),
                 parse::TOKEN_Let => Token::Let(tl),
                 /*
                 parse::TOKEN_CurlyL => {
@@ -136,7 +136,7 @@ impl Token
                 */
                 /* string tokens */
                 parse::TOKEN_StrOpen => {
-                    Token::StrOpen
+                    Token::StrOpen(tl)
                 }
                 parse::TOKEN_StrLit => {
                     Token::StrLit((*tok).val())
@@ -145,9 +145,9 @@ impl Token
                     Token::StrClose
                 }
                 parse::TOKEN_IF => {
-                    Token::IF
+                    Token::IF(tl)
                 }
-                parse::TOKEN_MATCH => Token::MATCH,
+                parse::TOKEN_MATCH => Token::MATCH(tl),
                 parse::TOKEN_UNDERSCORE => Token::UNDERSCORE,
                 parse::TOKEN_ELSE => {
                     Token::ELSE(tl)
@@ -159,13 +159,13 @@ impl Token
                     Token::PLUS(tl)
                 }
                 parse::TOKEN_MINUS => {
-                    Token::MINUS
+                    Token::MINUS(tl)
                 }
                 parse::TOKEN_NEGATE => {
-                    Token::NEGATE
+                    Token::NEGATE(tl)
                 }
                 parse::TOKEN_MOD => {
-                    Token::MOD
+                    Token::MOD(tl)
                 }
                 parse::TOKEN_False => {
                     Token::False
@@ -174,40 +174,40 @@ impl Token
                     Token::True
                 }
                 parse::TOKEN_AND => {
-                    Token::AND
+                    Token::AND(tl)
                 }
                 parse::TOKEN_OR => {
-                    Token::OR
+                    Token::OR(tl)
                 }
                 parse::TOKEN_XOR => {
-                    Token::XOR
+                    Token::XOR(tl)
                 }
                 parse::TOKEN_NOT => {
-                    Token::NOT
+                    Token::NOT(tl)
                 }
                 parse::TOKEN_LT => {
-                    Token::LT
+                    Token::LT(tl)
                 }
                 parse::TOKEN_LTEQ => {
-                    Token::LTEQ
+                    Token::LTEQ(tl)
                 }
                 parse::TOKEN_EQ => {
-                    Token::EQ
+                    Token::EQ(tl)
                 }
                 parse::TOKEN_NEQ => {
-                    Token::NEQ
+                    Token::NEQ(tl)
                 }
                 parse::TOKEN_GT => {
-                    Token::GT
+                    Token::GT(tl)
                 }
                 parse::TOKEN_GTEQ => {
-                    Token::GTEQ
+                    Token::GTEQ(tl)
                 }
                 parse::TOKEN_EQ1 => {
-                    Token::EQ1
+                    Token::EQ1(tl)
                 }
                 parse::TOKEN_RETURN => {
-                    Token::RETURN
+                    Token::RETURN(tl)
                 }
                 parse::TOKEN_RUSTBLOCK => {
                     Token::RUSTBLOCK
