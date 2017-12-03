@@ -93,7 +93,7 @@ impl Fiber
     {
         let op = ops.get(self.head.pc as usize).unwrap();
         vout!("exec: {:?}\n", op);
-        match op {
+        match &op.0 {
             &Op::ConstVal(ref dst, ref v) => {
                 self.execute_const_val(dst, v)
             }
