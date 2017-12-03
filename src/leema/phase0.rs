@@ -579,7 +579,7 @@ mod tests {
     use leema::phase0::{Protomod};
     use leema::program;
     use leema::sxpr;
-    use leema::val::{Val, Type, SxprType};
+    use leema::val::{Val, Type, SxprType, SrcLoc};
 
     use std::rc::{Rc};
     use std::io::{stderr, Write};
@@ -622,7 +622,8 @@ fn test_new_struct_newtypes()
         Val::typed_id("lettuce", Type::Bool),
         Val::typed_id("buns", Type::Int),
     );
-    proto.preproc_struct(&raw_fields);
+    let loc = SrcLoc::new(8, 9);
+    proto.preproc_struct(&raw_fields, &loc);
 
     assert!(proto.newtypes.contains(
         &Type::Struct(Rc::new(
@@ -645,7 +646,8 @@ fn test_new_struct_fields()
         Val::typed_id("lettuce", Type::Bool),
         Val::typed_id("buns", Type::Int),
     );
-    proto.preproc_struct(&raw_fields);
+    let loc = SrcLoc::new(8, 9);
+    proto.preproc_struct(&raw_fields, &loc);
 
     assert!(proto.structfields.contains_key("tacos::Burrito"));
 
@@ -672,7 +674,8 @@ fn test_new_struct_constructor_valtype()
         Val::typed_id("lettuce", Type::Bool),
         Val::typed_id("buns", Type::Int),
     );
-    proto.preproc_struct(&raw_fields);
+    let loc = SrcLoc::new(8, 9);
+    proto.preproc_struct(&raw_fields, &loc);
 
     assert!(proto.valtypes.contains_key(&*struct_name));
 

@@ -65,8 +65,13 @@ fn test_ast_parse_plus() {
     let lexed = lex(input);
     let root = ast::parse(lexed);
     let xargs = list::from2(Val::Int(5), Val::Int(3));
-    let expected = sxpr::new(SxprType::BlockExpr,
-        list::singleton(sxpr::call(Val::id("int_add".to_string()), xargs))
+    let expected = sxpr::new_block(
+        list::singleton(sxpr::call(
+            Val::id("int_add".to_string()),
+            xargs,
+            SrcLoc::new(1, 3),
+        )),
+        SrcLoc::default(),
     );
     assert_eq!(expected, root);
 }
@@ -76,8 +81,9 @@ fn test_ast_parse_strlit() {
     let input = "\"taco\"\n";
     let root = ast::parse(lex(input));
 
-    let expected = sxpr::new(SxprType::BlockExpr,
-        list::singleton(Val::new_str("taco".to_string()))
+    let expected = sxpr::new_block(
+        list::singleton(Val::new_str("taco".to_string())),
+        SrcLoc::default(),
     );
     assert_eq!(expected, root);
 }
@@ -87,8 +93,9 @@ fn test_ast_parse_string_id() {
     let input = "\"$var\"\n";
     let root = ast::parse(lex(input));
 
-    let expected = sxpr::new(SxprType::BlockExpr,
-        list::singleton(Val::id("var".to_string()))
+    let expected = sxpr::new_block(
+        list::singleton(Val::id("var".to_string())),
+        SrcLoc::default(),
     );
     assert_eq!(expected, root);
 }
@@ -101,14 +108,18 @@ fn test_ast_parse_string_list() {
     let part1 = Val::new_str("hello ".to_string());
     let part2 = Val::id("name".to_string());
     let part3 = Val::new_str("\n".to_string());
-    let expected = sxpr::new(SxprType::BlockExpr, list::singleton(
-        sxpr::new(SxprType::StrExpr,
+    let expected = sxpr::new_block(
+        list::singleton(sxpr::new(
+            SxprType::StrExpr,
             list::cons(part1,
-            list::cons(part2,
-            list::cons(part3,
-            Val::Nil,
-            ))))
-    ));
+                list::cons(part2,
+                list::cons(part3,
+                Val::Nil,
+                ))),
+            SrcLoc::new(1, 1),
+        )),
+        SrcLoc::default(),
+    );
     assert_eq!(expected, root);
 }
 
@@ -117,15 +128,20 @@ fn test_ast_parse_plus_twice() {
     let input = "5 + 3 + 2\n";
     let root = ast::parse(lex(input));
 
-    let first_add = sxpr::call(Val::id("int_add".to_string()),
+    let first_add = sxpr::call(
+        Val::id("int_add".to_string()),
         list::from2(Val::Int(5), Val::Int(3)),
+        SrcLoc::new(1, 7),
     );
-    let second_add = sxpr::call(Val::id("int_add".to_string()),
-        list::from2(first_add, Val::Int(2))
+    let second_add = sxpr::call(
+        Val::id("int_add".to_string()),
+        list::from2(first_add, Val::Int(2)),
+        SrcLoc::new(1, 3),
     );
 
-    let expected = sxpr::new(SxprType::BlockExpr,
-        list::singleton(second_add)
+    let expected = sxpr::new_block(
+        list::singleton(second_add),
+        SrcLoc::default(),
     );
     assert_eq!(expected, root);
 }
@@ -139,11 +155,15 @@ fn test_ast_parse_call_one_param()
     let neg4 = sxpr::call(
         Val::id("int_negate".to_string()),
         list::singleton(Val::Int(4)),
+        SrcLoc::new(1, 5),
     );
-    let expected = sxpr::new(SxprType::BlockExpr,
-        list::singleton(
-            sxpr::call(Val::id("inc".to_string()), list::singleton(neg4))
-        )
+    let expected = sxpr::new_block(
+        list::singleton(sxpr::call(
+            Val::id("inc".to_string()),
+            list::singleton(neg4),
+            SrcLoc::new(1, 4),
+        )),
+        SrcLoc::default(),
     );
     assert_eq!(expected, root);
 }
@@ -154,8 +174,13 @@ fn test_ast_parse_function_call() {
     let root = ast::parse(lex(input));
 
     let xargs = list::from2(Val::Int(7), Val::Int(2));
-    let expected = sxpr::new(SxprType::BlockExpr,
-        list::singleton(sxpr::call(Val::id("foo".to_string()), xargs))
+    let expected = sxpr::new_block(
+        list::singleton(sxpr::call(
+            Val::id("foo".to_string()),
+            xargs,
+            SrcLoc::new(1, 4),
+            )),
+        SrcLoc::default(),
     );
     assert_eq!(expected, root);
 }
@@ -170,7 +195,10 @@ fn test_ast_parse_tuple() {
         Val::new_str("taco".to_string()),
         Val::Bool(true),
     ]));
-    let expected = sxpr::new(SxprType::BlockExpr, xtup);
+    let expected = sxpr::new_block(
+        xtup,
+        SrcLoc::default(),
+        );
     assert_eq!(expected, root);
 }
 
@@ -179,8 +207,9 @@ fn test_ast_parse_list_empty() {
     let input = "[]\n";
     let root = ast::parse(lex(input));
 
-    let expected = sxpr::new(
-        SxprType::BlockExpr, list::singleton(list::empty())
+    let expected = sxpr::new_block(
+        list::singleton(list::empty()),
+        SrcLoc::default(),
     );
     assert_eq!(expected, root);
 }
@@ -195,8 +224,9 @@ fn test_ast_parse_list() {
         list::cons(Val::id("x".to_string()),
         Val::Nil,
     )));
-    let expected = sxpr::new(
-        SxprType::BlockExpr, list::singleton(xlist)
+    let expected = sxpr::new_block(
+        list::singleton(xlist),
+        SrcLoc::default(),
     );
     assert_eq!(expected, root);
 }
@@ -212,7 +242,10 @@ fn test_ast_parse_list_cons() {
             Val::loc(Val::id("x".to_string()), SrcLoc::new(1, 5))
         ));
 
-    let expected = sxpr::new(SxprType::BlockExpr, list::singleton(lst));
+    let expected = sxpr::new_block(
+        list::singleton(lst),
+        SrcLoc::default(),
+    );
     assert_eq!(expected, root);
 }
 
@@ -224,7 +257,8 @@ fn test_call_function_plus_comma()
         foo(x+1, 40)
     --
     ";
-    ast::parse(lex(input));
+    let root = ast::parse(lex(input));
+    assert!(sxpr::is_type(&root, SxprType::BlockExpr));
 }
 
 #[test]
@@ -233,8 +267,9 @@ fn test_parse_empty_tuple() {
     let root = ast::parse(lex(input));
 
     let xtuple = Val::Tuple(vec![]);
-    let expected = sxpr::new(
-        SxprType::BlockExpr, list::singleton(xtuple)
+    let expected = sxpr::new_block(
+        list::singleton(xtuple),
+        SrcLoc::default(),
     );
     assert_eq!(expected, root);
 }
@@ -245,8 +280,9 @@ fn test_parse_one_tuple() {
     let root = ast::parse(lex(input));
 
     let xtuple = Val::Tuple(vec![Val::Int(5)]);
-    let expected = sxpr::new(
-        SxprType::BlockExpr, list::singleton(xtuple)
+    let expected = sxpr::new_block(
+        list::singleton(xtuple),
+        SrcLoc::default(),
     );
     assert_eq!(expected, root);
 }
@@ -263,19 +299,34 @@ fn test_parse_match_empty_list() {
 
     let cases =
         list::cons(Val::Tuple(vec![list::empty()]),
-        list::cons(sxpr::new_block(list::singleton(Val::Bool(true))),
+        list::cons(sxpr::new_block(
+            list::singleton(Val::Bool(true)),
+            SrcLoc::new(3, 7),
+            ),
         list::cons(
             list::cons(Val::Tuple(vec![Val::Wildcard]),
-            list::cons(sxpr::new_block(list::singleton(Val::Bool(false))),
-            Val::Nil)),
+            list::cons(sxpr::new_block(
+                list::singleton(Val::Bool(false)),
+                SrcLoc::new(4, 6),
+                ),
+                Val::Nil)),
         Val::Nil)));
     let matchblk =
-        sxpr::defunc(Val::id("is_empty".to_string()),
+        sxpr::defunc(
+            Val::id("is_empty".to_string()),
             list::singleton(Val::typed_id("l", Type::AnonVar)),
             Val::Type(Type::AnonVar),
-            sxpr::match_expr(Val::Tuple(vec![Val::id("l".to_string())]), cases),
+            sxpr::match_expr(
+                Val::Tuple(vec![Val::id("l".to_string())]),
+                cases,
+                SrcLoc::new(2, 6),
+                ),
+            SrcLoc::new(2, 6),
         );
-    let expected = sxpr::new_block(list::singleton(matchblk));
+    let expected = sxpr::new_block(
+        list::singleton(matchblk),
+        SrcLoc::default(),
+        );
     assert_eq!(expected, root);
 }
 
@@ -317,21 +368,26 @@ fn test_ast_parse_if()
     ";
     let root = ast::parse(lex(input));
 
-    let blocka = sxpr::new_block(list::singleton(
-        Val::id("y".to_string()),
-    ));
-    let blockb = sxpr::new_block(list::singleton(
-        Val::id("z".to_string()),
-    ));
-    let expected = sxpr::new_block(list::cons(
-        sxpr::new(SxprType::IfExpr,
+    let blocka = sxpr::new_block(
+        list::singleton(Val::id("y".to_string())),
+        SrcLoc::new(2, 6),
+    );
+    let blockb = sxpr::new_block(
+        list::singleton(Val::id("z".to_string())),
+        SrcLoc::new(4, 6),
+    );
+    let expected = sxpr::new_block(
+        list::singleton(sxpr::new(
+            SxprType::IfExpr,
             list::cons(Val::id("x".to_string()),
-            list::cons(blocka,
-            list::cons(blockb,
-            Val::Nil,
-            )))),
-        Val::Nil,
-    ));
+                list::cons(blocka,
+                list::cons(blockb,
+                Val::Nil,
+                ))),
+            SrcLoc::new(2, 1),
+        )),
+        SrcLoc::default(),
+    );
     assert_eq!(expected, root);
 }
 
@@ -341,18 +397,22 @@ fn test_ast_parse_if_no_else()
     let input = "if x -> y --";
     let root = ast::parse(lex(input));
 
-    let blocka = sxpr::new_block(list::singleton(
-        Val::id("y".to_string()),
-    ));
-    let expected = sxpr::new_block(list::cons(
-        sxpr::new(SxprType::IfExpr,
+    let blocka = sxpr::new_block(
+        list::singleton(Val::id("y".to_string())),
+        SrcLoc::new(1, 6),
+    );
+    let expected = sxpr::new_block(
+        list::singleton(sxpr::new(
+            SxprType::IfExpr,
             list::cons(Val::id("x".to_string()),
-            list::cons(blocka,
-            list::cons(Val::Void,
-            Val::Nil,
-            )))),
-        Val::Nil,
-    ));
+                list::cons(blocka,
+                list::cons(Val::Void,
+                Val::Nil,
+                ))),
+            SrcLoc::new(1, 1),
+        )),
+        SrcLoc::default(),
+    );
     assert_eq!(expected, root);
 }
 
@@ -369,34 +429,45 @@ fn test_ast_parse_macro()
     ";
     let root = ast::parse(lex(input));
 
-    let blocka = sxpr::new(SxprType::BlockExpr, list::singleton(
-        Val::id("b".to_string()),
-    ));
-    let blockb = sxpr::new(SxprType::BlockExpr, list::singleton(
-        Val::Bool(false)
-    ));
-    let ifx = sxpr::new(SxprType::BlockExpr, list::cons(
-        sxpr::new(SxprType::IfExpr,
+    let blocka = sxpr::new(
+        SxprType::BlockExpr,
+        list::singleton(Val::id("b".to_string())),
+        SrcLoc::new(4, 6),
+    );
+    let blockb = sxpr::new(
+        SxprType::BlockExpr,
+        list::singleton(Val::Bool(false)),
+        SrcLoc::new(5, 8),
+    );
+    let ifx = sxpr::new_block(
+        list::singleton(sxpr::new(
+            SxprType::IfExpr,
             list::cons(Val::id("a".to_string()),
-            list::cons(blocka,
-            list::cons(blockb,
-            Val::Nil,
-        )))),
-        Val::Nil,
-    ));
+                list::cons(blocka,
+                list::cons(blockb,
+                Val::Nil,
+            ))),
+            SrcLoc::new(3, 5),
+        )),
+        SrcLoc::new(2, 10),
+    );
     let args =
         list::cons(Val::id("a".to_string()),
         list::cons(Val::id("b".to_string()),
         Val::Nil,
     ));
-    let expected = sxpr::new_block(list::singleton(
-        sxpr::new(SxprType::DefMacro,
+    let expected = sxpr::new_block(
+        list::singleton(sxpr::new(
+            SxprType::DefMacro,
             list::cons(Val::id("mand".to_string()),
-            list::cons(args,
-            list::cons(ifx,
-            Val::Nil,
-        ))))
-    ));
+                list::cons(args,
+                list::cons(ifx,
+                Val::Nil,
+                ))),
+            SrcLoc::new(2, 1),
+        )),
+        SrcLoc::default(),
+    );
     assert_eq!(expected, root);
 }
 
@@ -406,14 +477,19 @@ fn test_parse_call_function_call_result()
     let input = "(foo(5))(6)";
     let root = ast::parse(lex(input));
 
-    let foo_call = Val::Tuple(vec![sxpr::new(SxprType::Call,
-        list::from2(Val::id("foo".to_string()), Val::Int(5))
+    let foo_call = Val::Tuple(vec![sxpr::new(
+        SxprType::Call,
+        list::from2(Val::id("foo".to_string()), Val::Int(5)),
+        SrcLoc::new(1, 2),
         )]);
-    let expected = sxpr::new_block(list::singleton(
-        sxpr::new(SxprType::Call,
+    let expected = sxpr::new_block(
+        list::singleton(sxpr::new(
+            SxprType::Call,
             list::from2(foo_call, Val::Int(6)),
-        )
-    ));
+            SrcLoc::new(1, 6),
+        )),
+        SrcLoc::default(),
+    );
     assert_eq!(expected, root);
 }
 
@@ -428,14 +504,19 @@ fn test_parse_defstruct()
     ";
     let root = ast::parse(lex(input));
 
-    let expected = sxpr::new_block(list::singleton(
-        sxpr::new(SxprType::DefStruct,
-        list::cons(Val::Type(Type::Id(Rc::new("Taco".to_string()))),
-        list::cons(Val::TypedId(Rc::new("id".to_string()), Type::Int),
-        list::cons(Val::TypedId(Rc::new("name".to_string()), Type::Str),
-        Val::Nil,
-        )))),
-    ));
+    let expected = sxpr::new_block(
+        list::singleton(sxpr::new(
+            SxprType::DefStruct,
+            list::cons(Val::Type(Type::Id(Rc::new("Taco".to_string()))),
+                list::cons(Val::TypedId(Rc::new("id".to_string()), Type::Int),
+                list::cons(Val::TypedId(Rc::new("name".to_string()), Type::Str),
+                Val::Nil,
+                ))),
+            SrcLoc::new(2, 1),
+            ),
+        ),
+        SrcLoc::default(),
+    );
     assert_eq!(expected, root);
 }
 
@@ -451,22 +532,28 @@ fn test_parse_match_list()
     let root = ast::parse(lex(input));
 
     let loc_t = SrcLoc::new(3, 5);
-    let expected = sxpr::new_block(list::singleton(
-        sxpr::match_expr(
+    let expected = sxpr::new_block(
+        list::singleton(sxpr::match_expr(
             Val::id("x".to_string()),
             list::from3(
                 Val::Tuple(vec![list::cons(
                     Val::id("h".to_string()), Val::id("t".to_string())
                 )]),
-                sxpr::new_block(list::singleton(
-                    Val::loc(Val::id("h".to_string()), loc_t)
-                )),
+                sxpr::new_block(
+                    list::singleton(Val::loc(Val::id("h".to_string()), loc_t)),
+                    SrcLoc::new(3, 8),
+                ),
             list::from2(
                 Val::Tuple(vec![Val::Wildcard]),
-                sxpr::new_block(list::singleton(Val::Bool(false))),
+                sxpr::new_block(
+                    list::singleton(Val::Bool(false)),
+                    SrcLoc::new(4, 6),
+                    ),
             )),
-        ),
-    ));
+            SrcLoc::new(2, 1),
+        )),
+        SrcLoc::default(),
+    );
     assert_eq!(expected, root);
 }
 
@@ -476,14 +563,20 @@ fn test_parse_constructor_call()
     let input = "Taco(1, 2)";
     let root = ast::parse(lex(input));
 
-    let expected = sxpr::new_block(list::singleton(
-        sxpr::new(SxprType::Call,
-        list::cons(Val::Id(Rc::new("Taco".to_string())),
-        list::cons(Val::Int(1),
-        list::cons(Val::Int(2),
-        Val::Nil,
-        )))),
-    ));
+    let expected = sxpr::new_block(
+        list::singleton(
+            sxpr::new(
+                SxprType::Call,
+                list::cons(Val::Id(Rc::new("Taco".to_string())),
+                    list::cons(Val::Int(1),
+                    list::cons(Val::Int(2),
+                    Val::Nil,
+                    ))),
+                SrcLoc::new(1, 1),
+            ),
+        ),
+        SrcLoc::default(),
+    );
     assert_eq!(expected, root);
 }
 
@@ -493,16 +586,20 @@ fn test_parse_strlit_field_access()
     let input = "\"hello ${dog.name}\"";
     let root = ast::parse(lex(input));
 
-    let expected = sxpr::new_block(list::singleton(
-        sxpr::new(SxprType::StrExpr,
-        list::cons(Val::new_str("hello ".to_string()),
-        list::cons(Val::dot_access(
-            Val::id("dog".to_string()),
-            "name".to_string(),
-            ),
-        Val::Nil,
-        ))),
-    ));
+    let expected = sxpr::new_block(
+        list::singleton(sxpr::new(
+            SxprType::StrExpr,
+            list::cons(Val::new_str("hello ".to_string()),
+            list::cons(Val::dot_access(
+                Val::id("dog".to_string()),
+                "name".to_string(),
+                ),
+            Val::Nil,
+            )),
+            SrcLoc::new(1, 1),
+        )),
+        SrcLoc::default(),
+    );
     assert_eq!(expected, root);
 }
 
@@ -516,19 +613,27 @@ fn test_parse_let_plus_negation()
     let root = ast::parse(lex(input));
 
     let expected = sxpr::new_block(
-        list::cons(sxpr::new(SxprType::Let,
-            list::cons(Val::id("x".to_string()),
-            list::cons(sxpr::call(Val::id("int_add".to_string()),
-                list::from2(Val::Int(4), Val::Int(8)),
-                ),
-            Val::Nil,
-            )),
-        ),
-        list::cons(sxpr::call(Val::id("int_negate".to_string()),
+        list::cons(
+            sxpr::new(
+                SxprType::Let,
+                list::cons(Val::id("x".to_string()),
+                    list::cons(sxpr::call(
+                        Val::id("int_add".to_string()),
+                        list::from2(Val::Int(4), Val::Int(8)),
+                        SrcLoc::new(2, 12),
+                        ),
+                    Val::Nil,
+                    )),
+                SrcLoc::new(2, 1),
+            ),
+        list::cons(sxpr::call(
+            Val::id("int_negate".to_string()),
             list::singleton(Val::id("x".to_string())),
+            SrcLoc::new(3, 1),
             ),
         Val::Nil,
-        ))
+        )),
+        SrcLoc::default(),
     );
 
     assert_eq!(expected, root);
@@ -544,20 +649,28 @@ fn test_parse_let_plus_tuple()
     let root = ast::parse(lex(input));
 
     let expected = sxpr::new_block(
-        list::cons(sxpr::new(SxprType::Let,
-            list::cons(Val::id("x".to_string()),
-            list::cons(sxpr::call(Val::id("int_add".to_string()),
-                list::from2(Val::Int(4), Val::id("y".to_string())),
+        list::cons(
+            sxpr::new(
+                SxprType::Let,
+                list::cons(Val::id("x".to_string()),
+                    list::cons(sxpr::call(
+                        Val::id("int_add".to_string()),
+                        list::from2(Val::Int(4), Val::id("y".to_string())),
+                        SrcLoc::new(2, 8),
+                        ),
+                    Val::Nil,
+                    )),
+                SrcLoc::new(2, 1),
                 ),
-            Val::Nil,
-            ))
-        ),
-        list::cons(Val::Tuple(vec![
-            Val::id("x".to_string()),
-            Val::id("z".to_string()),
-            ]),
-        Val::Nil,
-        ))
+            list::cons(
+                Val::Tuple(vec![
+                    Val::id("x".to_string()),
+                    Val::id("z".to_string()),
+                    ]),
+                Val::Nil,
+                ),
+            ),
+        SrcLoc::default(),
     );
 
     assert_eq!(expected, root);

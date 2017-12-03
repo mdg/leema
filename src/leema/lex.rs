@@ -298,7 +298,7 @@ fn test_lex_minus_int()
 {
     let actual = super::lex("-7");
     assert_eq!(2, actual.len());
-    assert_eq!(Token::MINUS, actual[0]);
+    assert_eq!(Token::MINUS(SrcLoc::new(1, 1)), actual[0]);
     assert_eq!(Token::INT(7), actual[1]);
 }
 
@@ -308,7 +308,7 @@ fn test_lex_string_id()
     let actual = super::lex("\"hello $who\n\"");
     assert_eq!(5, actual.len());
 
-    assert_eq!(Token::StrOpen, actual[0]);
+    assert_eq!(Token::StrOpen(SrcLoc::new(1, 1)), actual[0]);
     assert_eq!(Token::StrLit("hello ".to_string()), actual[1]);
     assert_eq!(
         Token::ID(TokenData::new("who".to_string(), SrcLoc::new(1, 9))),

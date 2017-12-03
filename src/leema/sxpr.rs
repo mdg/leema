@@ -244,7 +244,7 @@ pub fn split_ref(x: &Val) -> (SxprType, &Val, &SrcLoc)
 
 #[cfg(test)]
 mod tests {
-    use leema::val::{Val, SxprType};
+    use leema::val::{Val, SxprType, SrcLoc};
     use leema::list;
     use leema::sxpr;
     use std::collections::HashMap;
@@ -266,9 +266,12 @@ fn test_ast_replace_id()
 #[test]
 fn test_sxpr_empty_call()
 {
-    let c = sxpr::call(Val::id("testf".to_string()), Val::Nil);
-    let expected = sxpr::new(SxprType::Call,
+    let loc = SrcLoc::new(8, 2);
+    let c = sxpr::call(Val::id("testf".to_string()), Val::Nil, loc);
+    let expected = sxpr::new(
+        SxprType::Call,
         list::singleton(Val::id("testf".to_string())),
+        loc,
     );
 
     assert_eq!(expected, c);
@@ -282,11 +285,13 @@ fn test_strexpr_merge_end()
         Val::new_str(" world".to_string()),
         Val::new_str("\n".to_string()),
     );
-    let strx = sxpr::strexpr(strs);
+    let strx = sxpr::strexpr(strs, SrcLoc::new(3, 4));
 
-    let (sxtype, sx) = sxpr::split(strx);
+    let (sxtype, sx, loc) = sxpr::split(strx);
     assert_eq!(SxprType::StrExpr, sxtype);
     assert_eq!(2, list::len(&sx));
+    assert_eq!(3, loc.lineno);
+    assert_eq!(4, loc.column);
 
     let (h1, t1) = list::take_ref(&sx);
     assert_eq!(Val::id("greeting".to_string()), *h1);

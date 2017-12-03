@@ -2024,7 +2024,7 @@ impl reg::Iregistry for Env
 
 #[cfg(test)]
 mod tests {
-    use leema::val::{Type, Val, SxprType};
+    use leema::val::{Type, Val, SxprType, SrcLoc};
     use leema::list;
     use leema::reg::{Reg};
     use leema::sxpr;
@@ -2130,12 +2130,15 @@ fn test_get_type_int_list()
 #[test]
 fn test_replace_ids_if()
 {
-    let body = sxpr::new(SxprType::IfExpr,
+    let loc = SrcLoc::new(3, 4);
+    let body = sxpr::new(
+        SxprType::IfExpr,
         list::cons(Val::id("a".to_string()),
-        list::cons(Val::id("b".to_string()),
-        list::cons(Val::Bool(false),
-        Val::Nil,
-        ))),
+            list::cons(Val::id("b".to_string()),
+            list::cons(Val::Bool(false),
+            Val::Nil,
+            ))),
+        loc,
     );
     let mut ids = HashMap::new();
     ids.insert(Rc::new("a".to_string()), Val::Bool(true));
@@ -2143,12 +2146,14 @@ fn test_replace_ids_if()
 
     let result = Val::replace_ids(&body, &ids);
 
-    let expected = sxpr::new(SxprType::IfExpr,
+    let expected = sxpr::new(
+        SxprType::IfExpr,
         list::cons(Val::Bool(true),
-        list::cons(Val::Bool(false),
-        list::cons(Val::Bool(false),
-        Val::Nil,
-        ))),
+            list::cons(Val::Bool(false),
+            list::cons(Val::Bool(false),
+            Val::Nil,
+            ))),
+        loc,
     );
     assert_eq!(expected, result);
 }
