@@ -89,7 +89,7 @@ impl Interloader
 mod tests
 {
     use leema::loader::{Interloader};
-    use std::path::{Path, PathBuf};
+    use std::path::{Path};
 
 #[test]
 fn test_root_path()

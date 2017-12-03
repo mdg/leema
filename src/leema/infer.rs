@@ -371,12 +371,10 @@ mod tests {
     use leema::infer::{Inferator};
     use leema::list;
     use leema::log;
-    use leema::module::{ModKey};
     use leema::val::{Val, Type};
 
     use std::rc::{Rc};
     use std::io::{stderr, Write};
-    use std::collections::{HashMap};
 
 
 #[test]

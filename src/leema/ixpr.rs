@@ -201,9 +201,7 @@ impl Ixpr
 mod tests
 {
 use leema::ixpr::{Ixpr, Source};
-use leema::list;
-use leema::sxpr;
-use leema::val::{Val, SxprType, Type};
+use leema::val::{Val, Type};
 
 
 #[test]

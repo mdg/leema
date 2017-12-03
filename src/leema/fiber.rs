@@ -1,7 +1,7 @@
 #[macro_use]
 use leema::log;
 use leema::frame::{Frame, Event, Parent, FrameTrace};
-use leema::val::{self, Val, Env, Type};
+use leema::val::{Val, Env, Type};
 use leema::reg::{Reg};
 use leema::code::{Code, Op, OpVec, ModSym};
 use leema::list;
@@ -397,25 +397,12 @@ impl Fiber
 #[cfg(test)]
 mod tests {
     use leema::log;
-    use leema::frame::{Frame, Parent, Event};
+    use leema::frame::{Frame, Event};
     use leema::fiber::{Fiber};
-    use leema::application::{Application};
-    use leema::ast;
-    use leema::code::{CodeKey};
-    use leema::loader::{Interloader};
-    use leema::module::{ModKey, ModuleInterface, ModuleSource};
-    use leema::program;
     use leema::reg::{Reg};
-    use leema::val::{Env, Val};
-    use leema::prefab;
-    use leema::lex::{lex};
-    use leema::worker::{Worker};
+    use leema::val::{Val};
 
-    use std::thread;
-    use std::sync::{Arc, Mutex};
-    use std::rc::{Rc};
     use std::io::{stderr, Write};
-    use libc::{getpid};
 
 
 #[test]

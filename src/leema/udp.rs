@@ -114,7 +114,7 @@ mod tests
 {
     use leema::io::tests::{exercise_iop_action};
     use leema::udp;
-    use leema::val::{self, Val};
+    use leema::val::{Val};
 
 #[test]
 fn test_udp_socket_creation()

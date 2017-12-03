@@ -243,12 +243,9 @@ mod tests {
     use leema::log;
     use leema::application::{Application};
     use leema::loader::{Interloader};
-    use leema::module::{ModKey, ModuleInterface, ModuleSource};
     use leema::program;
-    use leema::val::{Env, Val};
+    use leema::val::{Val};
 
-    use std::thread;
-    use std::rc::{Rc};
     use std::io::{stderr, Write};
     use libc::{getpid};
 

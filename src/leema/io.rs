@@ -344,12 +344,11 @@ impl Future for IoLoop
 #[cfg(test)]
 pub mod tests
 {
-    use leema::io::{self, Io, IoLoop};
+    use leema::io::{Io, IoLoop};
     use leema::msg;
     use leema::rsrc::{self, Rsrc};
     use leema::val::{Val, Type};
 
-    use std::collections::{HashMap};
     use std::rc::{Rc};
     use std::sync::mpsc;
 

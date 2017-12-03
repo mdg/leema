@@ -581,7 +581,6 @@ mod tests {
     use leema::sxpr;
     use leema::val::{Val, Type, SxprType};
 
-    use std::collections::{HashMap};
     use std::rc::{Rc};
     use std::io::{stderr, Write};
 

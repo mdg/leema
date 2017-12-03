@@ -409,11 +409,8 @@ mod tests {
     use leema::program;
     use leema::loader::{Interloader};
     use leema::log;
-    use leema::module::{ModKey};
-    use leema::val::{Val, Type};
 
     use std::io::{stderr, Write};
-    use std::collections::{HashMap};
 
 
 #[test]

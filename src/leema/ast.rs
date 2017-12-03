@@ -57,7 +57,6 @@ mod tests {
     use leema::sxpr;
     use leema::list;
     use leema::lex::{lex};
-    use std::collections::HashMap;
     use std::rc::Rc;
 
 #[test]
