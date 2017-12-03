@@ -234,10 +234,11 @@ use leema::val::{Val, Type};
 fn test_new_const_str()
 {
     let hello = Val::new_str(String::from("hello"));
-    let actual = Ixpr::const_val(hello.clone());
+    let actual = Ixpr::const_val(hello.clone(), 7);
     let expected = Ixpr{
         src: Source::ConstVal(hello),
         typ: Type::Str,
+        line: 7,
     };
     assert_eq!(expected, actual);
 }
@@ -246,10 +247,10 @@ fn test_new_const_str()
 fn test_new_str_mash_const()
 {
     let strs = vec![
-        Ixpr::const_val(Val::new_str(String::from("hello"))),
-        Ixpr::const_val(Val::new_str(String::from(" mash"))),
+        Ixpr::const_val(Val::new_str(String::from("hello")), 16),
+        Ixpr::const_val(Val::new_str(String::from(" mash")), 17),
     ];
-    let strmash = Ixpr::new_str_mash(strs);
+    let strmash = Ixpr::new_str_mash(strs, 18);
     if let Source::StrMash(ss) = strmash.src {
         assert_eq!(2, ss.len());
         // println!("{:?}", ss);

@@ -602,12 +602,12 @@ mod tests {
     use leema::code::{self, Op};
     use leema::ixpr::{Ixpr};
     use leema::reg::{Reg};
-    use leema::val::{Val};
+    use leema::val::{Val, SrcLoc};
 
 #[test]
 fn test_code_constval()
 {
-    let ic = Ixpr::const_val(Val::Int(9));
+    let ic = Ixpr::const_val(Val::Int(9), 8);
     let code = code::make_ops(&ic);
 
     assert_eq!(3, code.len());
