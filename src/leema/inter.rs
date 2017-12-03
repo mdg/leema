@@ -250,6 +250,7 @@ pub fn compile_function<'a>(proto: &'a Protomod
         return Ixpr{
             typ: ftype.clone(),
             src: Source::RustBlock,
+            line: loc.lineno,
         }
     }
     let (argt, _result) = Type::split_func(ftype);
@@ -261,6 +262,7 @@ pub fn compile_function<'a>(proto: &'a Protomod
     let ibody2 = Ixpr{
         typ: scope.T.inferred_type(&ibody.typ).clone(),
         src: ibody.src,
+        line: loc.lineno,
     };
     let final_ftype = Type::Func(argt2, Box::new(ibody2.typ.clone()));
     vout!("compile function {}: {}\n", fname, ftype);
@@ -273,6 +275,7 @@ pub fn compile_function<'a>(proto: &'a Protomod
     Ixpr{
         typ: final_ftype,
         src: Source::Func(args.clone(), Box::new(ibody2)),
+        line: loc.lineno,
     }
 }
 
@@ -284,8 +287,9 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val, loc: &SrcLoc) -> Ixpr
                 Some((ScopeLevel::Local, typ)) => {
                     let first = scope.T.mark_usage(id, &val::DEFAULT_SRC_LOC);
                     Ixpr{
-                        src: Source::Id(id.clone(), first, 0),
+                        src: Source::Id(id.clone(), first, loc.lineno),
                         typ: typ.clone(),
+                        line: loc.lineno,
                     }
                 }
                 Some((ScopeLevel::Module, typ)) => {
@@ -295,6 +299,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val, loc: &SrcLoc) -> Ixpr
                             Val::Str(id.clone()),
                         ])),
                         typ: typ.clone(),
+                        line: loc.lineno,
                     }
                 }
                 Some((ScopeLevel::External, typ)) => {
@@ -309,6 +314,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val, loc: &SrcLoc) -> Ixpr
                             ])
                         ),
                         typ: typ.clone(),
+                        line: loc.lineno,
                     }
                 }
                 None => {
@@ -331,6 +337,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val, loc: &SrcLoc) -> Ixpr
                 src: Source::ModuleAccess(
                     prefix.clone(), inner_id.clone()
                 ),
+                line: loc.lineno,
             }
         }
         &Val::DotAccess(ref outer, ref inner) => {
@@ -344,35 +351,35 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val, loc: &SrcLoc) -> Ixpr
             }
         }
         &Val::Bool(b) => {
-            Ixpr::const_val(Val::Bool(b))
+            Ixpr::const_val(Val::Bool(b), loc.lineno)
         }
         &Val::Int(i) => {
-            Ixpr::const_val(Val::Int(i))
+            Ixpr::const_val(Val::Int(i), loc.lineno)
         }
         &Val::Str(ref s) => {
-            Ixpr::const_val(Val::Str(s.clone()))
+            Ixpr::const_val(Val::Str(s.clone()), loc.lineno)
         }
         &Val::Hashtag(ref s) => {
-            Ixpr::const_val(Val::Hashtag(s.clone()))
+            Ixpr::const_val(Val::Hashtag(s.clone()), loc.lineno)
         }
         &Val::Cons(_, _) => {
             let items = list::map_ref_to_vec(x, |ref mut i| {
                 compile_expr(scope, i, loc)
             });
-            Ixpr::new_list(items)
+            Ixpr::new_list(items, loc.lineno)
         }
         &Val::Nil => {
-            Ixpr::new_list(vec![])
+            Ixpr::new_list(vec![], loc.lineno)
         }
         &Val::Tuple(ref items) => {
             let c_items = items.iter().map(|i| {
                 compile_expr(scope, i, loc)
             }).collect();
-            Ixpr::new_tuple(c_items)
+            Ixpr::new_tuple(c_items, loc.lineno)
         }
         &Val::Sxpr(st, ref sx, ref sxloc) => compile_sxpr(scope, st, sx, sxloc),
         &Val::Struct(ref typ, ref flds) => {
-            Ixpr::constructor(typ.clone(), flds.len() as i8)
+            Ixpr::constructor(typ.clone(), flds.len() as i8, loc.lineno)
         }
         &Val::Void => Ixpr::noop(),
         &Val::Loc(ref v, ref loc) => {
@@ -407,10 +414,11 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val
             if ftype.is_error() {
                 panic!("type error in function call: {} {:?}", callx, ftype);
             }
-            let argsix = Ixpr::new_tuple(iargs);
+            let argsix = Ixpr::new_tuple(iargs, loc.lineno);
             Ixpr{
                 typ: ftype,
                 src: Source::Call(Box::new(icall), Box::new(argsix)),
+                line: loc.lineno,
             }
         }
         SxprType::IfExpr => {
@@ -430,7 +438,7 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val
             let irhs = compile_expr(scope, rhs_val, loc);
             let cpatt = compile_pattern(scope, lhs_patt);
             scope.T.match_pattern(&cpatt, &irhs.typ);
-            Ixpr::new(Source::Let(cpatt, Box::new(irhs)))
+            Ixpr::new(Source::Let(cpatt, Box::new(irhs)), loc.lineno)
         }
         SxprType::MatchExpr => {
             let (mx, cases) = list::to_ref_tuple2(sx);
@@ -445,7 +453,7 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val
         }
         SxprType::StrExpr => {
             let strvec = compile_list_to_vec(scope, sx, loc);
-            Ixpr::new_str_mash(strvec)
+            Ixpr::new_str_mash(strvec, loc.lineno)
         }
         SxprType::Return => {
             let result = list::head_ref(sx);
@@ -626,7 +634,7 @@ pub fn compile_block(scope: &mut Interscope, l: &Val, loc: &SrcLoc) -> Ixpr
         , |&mut (ref mut ilines, ref mut ifails, ref mut iscope), line| {
             compile_block_stmt(ilines, ifails, iscope, line, loc);
         });
-    Ixpr::new_block(result, fails)
+    Ixpr::new_block(result, fails, loc.lineno)
 }
 
 pub fn compile_block_stmt(istmts: &mut Vec<Ixpr>
@@ -644,7 +652,7 @@ pub fn compile_block_stmt(istmts: &mut Vec<Ixpr>
         &Val::Sxpr(SxprType::Return, ref sx, ref sxloc) => {
             let head = list::head_ref(sx);
             let chead = compile_expr(scope, head, sxloc);
-            let ret = Ixpr::new(Source::Return(Box::new(chead)));
+            let ret = Ixpr::new(Source::Return(Box::new(chead)), sxloc.lineno);
             istmts.push(ret);
         }
         _ => {
