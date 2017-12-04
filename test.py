@@ -145,6 +145,22 @@ class TestScripts(unittest.TestCase):
             b"done\n",
             result['output'])
 
+    def test_failure(self):
+        result = run_leema('failure')
+        self.assertEqual(249, result['code'])
+        self.assertEqual(
+            b"Failure: #xis4\n" +
+            b"Message: tacos are delicious\n" +
+            b"Stack Trace:\n" +
+            b"<  main:15\n" +
+            b"<  add5:10\n" +
+            b"<> add4:3\n" +
+            b" > add5:9\n" +
+            b" > main:14\n" +
+            b" > __init__\n" +
+            b"\n",
+            result['output'])
+
     def test_destruct(self):
         result = run_leema('destruct')
         self.assertEqual(0, result['code'])
