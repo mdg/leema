@@ -177,9 +177,9 @@ impl Worker
                 vout!("function call failure\n");
                 Result::Ok(Async::NotReady)
             }
-            Event::Call(dst, module, func, args) => {
-                vout!("push_call({}.{}, {:?})\n", module, func, args);
-                fbr.push_call(code.clone(), dst, module, func, args);
+            Event::Call(dst, line, module, func, args) => {
+                vout!("push_call({} {}.{}, {:?})\n", line, module, func, args);
+                fbr.push_call(code.clone(), dst, line, module, func, args);
                 self.load_code(fbr);
                 Result::Ok(Async::NotReady)
             }

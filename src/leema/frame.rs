@@ -67,7 +67,7 @@ impl Debug for Parent
 pub enum Event
 {
     Uneventful,
-    Call(Reg, Rc<String>, Rc<String>, Val),
+    Call(Reg, i16, Rc<String>, Rc<String>, Val),
     Fork,
     FutureWait(Reg),
     IOWait,
@@ -95,9 +95,9 @@ impl fmt::Debug for Event {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             &Event::Uneventful => write!(f, "Uneventful"),
-            &Event::Call(ref r, ref cmod, ref cfunc, ref cargs) => {
-                write!(f, "Event::Call({:?}, {}, {}, {:?})",
-                    r, cmod, cfunc, cargs)
+            &Event::Call(ref r, line, ref cmod, ref cfunc, ref cargs) => {
+                write!(f, "Event::Call({:?}@{}, {}::{}, {:?})"
+                    , r, line, cmod, cfunc, cargs)
             }
             &Event::Fork => write!(f, "Event::Fork"),
             &Event::FutureWait(ref r) => write!(f, "Event::FutureWait({})", r),
@@ -120,10 +120,10 @@ impl PartialEq for Event
     {
         match (self, other) {
             (&Event::Uneventful, &Event::Uneventful) => true,
-            (&Event::Call(ref r1, ref m1, ref f1, ref a1),
-                    &Event::Call(ref r2, ref m2, ref f2, ref a2)) =>
+            (&Event::Call(ref r1, line1, ref m1, ref f1, ref a1),
+                    &Event::Call(ref r2, line2, ref m2, ref f2, ref a2)) =>
             {
-                r1 == r2 && m1 == m2 && f1 == f2 && a1 == a2
+                r1 == r2 && line1 == line2 && m1 == m2 && f1 == f2 && a1 == a2
             }
             (&Event::Fork, &Event::Fork) => true,
             (&Event::FutureWait(ref r1), &Event::FutureWait(ref r2)) => {
@@ -157,22 +157,23 @@ pub struct FrameTrace
 
 impl FrameTrace
 {
-    pub fn new_root(func: &String) -> Arc<FrameTrace>
+    pub fn new_root() -> Arc<FrameTrace>
     {
         Arc::new(FrameTrace{
             direction: FrameTraceDirection::CallUp,
-            function: func.clone(),
+            function: "__init__".to_string(),
             line: 0,
             parent: None,
         })
     }
 
-    pub fn push_call(parent: &Arc<FrameTrace>, func: &str) -> Arc<FrameTrace>
+    pub fn push_call(parent: &Arc<FrameTrace>, func: &str, line: i16
+        ) -> Arc<FrameTrace>
     {
         Arc::new(FrameTrace{
             direction: FrameTraceDirection::CallUp,
             function: func.to_string(),
-            line: 0,
+            line: line,
             parent: Some(parent.clone()),
         })
     }
@@ -197,18 +198,6 @@ impl FrameTrace
             parent: self.parent.clone(),
         })
     }
-
-    pub fn fail_parent(&self) -> Arc<FrameTrace>
-    {
-        match self.parent {
-            Some(ref p) => {
-                p.fail_here()
-            }
-            None => {
-                self.fail_here()
-            }
-        }
-    }
 }
 
 impl fmt::Display for FrameTrace
@@ -221,12 +210,16 @@ impl fmt::Display for FrameTrace
             FrameTraceDirection::ReturnDown => "< ",
         };
 
+        write!(f, "{} {}", dir, self.function).ok();
+        if self.line != 0 {
+            write!(f, ":{}", self.line).ok();
+        }
         match self.parent {
             None => {
-                write!(f, "{} {}:{}\n", dir, self.function, self.line)
+                write!(f, "\n")
             }
             Some(ref p) => {
-                write!(f, "{} {}:{}\n{}", dir, self.function, self.line, p)
+                write!(f, "\n{}", p)
             }
         }
     }
@@ -252,7 +245,7 @@ impl Frame
         let fname = Rc::new(f);
         Frame{
             parent: Parent::Main(Val::Void),
-            trace: FrameTrace::new_root(&fname),
+            trace: FrameTrace::new_root(),
             module: modname,
             function: fname,
             e: env,
@@ -283,6 +276,11 @@ impl Frame
     pub fn take_parent(&mut self) -> Parent
     {
         mem::replace(&mut self.parent, Parent::Null)
+    }
+
+    pub fn push_frame_trace(&self, line: i16) -> Arc<FrameTrace>
+    {
+        FrameTrace::push_call(&self.trace, &*self.function, line)
     }
 
     pub fn take_env(&mut self) -> Env

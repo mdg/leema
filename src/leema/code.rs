@@ -641,9 +641,9 @@ fn test_code_constval()
 
     assert_eq!(3, code.len());
     let x = vec![
-        Op::ConstVal(Reg::local(0), Val::Int(9)),
-        Op::SetResult(Reg::local(0)),
-        Op::Return,
+        (Op::ConstVal(Reg::local(0), Val::Int(9)), 8),
+        (Op::SetResult(Reg::local(0)), 8),
+        (Op::Return, 8),
     ];
     assert_eq!(x, code);
 }

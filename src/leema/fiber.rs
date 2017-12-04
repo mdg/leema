@@ -63,15 +63,17 @@ impl Fiber
         self.head.function_name()
     }
 
-    pub fn push_call(&mut self, code: Rc<Code>, dst: Reg
-            , module: Rc<String>, func: Rc<String>, args: Val
-    ) {
+    pub fn push_call(&mut self, code: Rc<Code>, dst: Reg, line: i16
+        , module: Rc<String>, func: Rc<String>, args: Val
+        )
+    {
         let trace = self.head.trace.clone();
+        let new_trace = self.head.push_frame_trace(line);
         let mut newf = Frame{
             parent: Parent::Null,
             module: module.clone(),
             function: func.clone(),
-            trace: FrameTrace::push_call(&trace, &(*func)),
+            trace: self.head.push_frame_trace(line),
             e: Env::with_args(args),
             pc: 0,
         };
@@ -92,6 +94,7 @@ impl Fiber
     pub fn execute_leema_op(&mut self, ops: &OpVec) -> Event
     {
         let op = ops.get(self.head.pc as usize).unwrap();
+        let line = op.1;
         vout!("exec: {:?}\n", op);
         match &op.0 {
             &Op::ConstVal(ref dst, ref v) => {
@@ -132,7 +135,7 @@ impl Fiber
                 self.execute_load_func(reg, modsym)
             }
             &Op::ApplyFunc(ref dst, ref func, ref args) => {
-                self.execute_call(dst, func, args)
+                self.execute_call(dst, func, args, line)
             }
             &Op::Return => {
                 Event::Complete(true)
@@ -215,7 +218,7 @@ impl Fiber
     * set curf.flag to Called(new_frame)
     */
     pub fn execute_call(&mut self, dst: &Reg
-        , freg: &Reg, argreg: &Reg) -> Event
+        , freg: &Reg, argreg: &Reg, line: i16) -> Event
     {
         let (modname, funcname) = {
             let ref fname_val = self.head.e.get_reg(freg);
@@ -265,6 +268,7 @@ impl Fiber
                 let args_copy = self.head.e.get_reg(argreg).clone();
                 Event::Call(
                     dst.clone(),
+                    line,
                     modname,
                     funcname,
                     args_copy,

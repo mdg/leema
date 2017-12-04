@@ -285,7 +285,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val, loc: &SrcLoc) -> Ixpr
         &Val::Id(ref id) => {
             match scope.vartype(id) {
                 Some((ScopeLevel::Local, typ)) => {
-                    let first = scope.T.mark_usage(id, &val::DEFAULT_SRC_LOC);
+                    let first = scope.T.mark_usage(id, loc);
                     Ixpr{
                         src: Source::Id(id.clone(), first, loc.lineno),
                         typ: typ.clone(),
@@ -403,7 +403,7 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val
         }
         SxprType::Call => {
             let (callx, args) = list::take_ref(sx);
-            let icall = compile_expr(scope, callx, &SrcLoc::default());
+            let icall = compile_expr(scope, callx, loc);
             let iargs = compile_list_to_vec(scope, &*args, loc);
             let ftype = {
                 let iargst: Vec<&Type> = iargs.iter().map(|ia| {

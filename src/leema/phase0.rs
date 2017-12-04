@@ -193,7 +193,8 @@ impl Protomod
                 match mp.macros.get(&**id) {
                     Some(&(ref arg_names, ref body)) => {
                         let macrod =
-                            Protomod::apply_macro(&**id, body, arg_names, args);
+                            Protomod::apply_macro(
+                                &**id, body, arg_names, args, loc);
                         // do it again to make sure there's not a wrapped
                         // macro
                         Protomod::preproc_expr(prog, mp, &macrod, loc)
@@ -202,7 +203,7 @@ impl Protomod
                         match prog.get_macro("prefab", &**id) {
                             Some(&(ref arg_names, ref body)) => {
                                 let macrod = Protomod::apply_macro(&**id
-                                    , body, arg_names, args);
+                                    , body, arg_names, args, loc);
                                 // do it again to make sure there's
                                 // not a wrapped macro
                                 Protomod::preproc_expr(prog, mp, &macrod, loc)
@@ -225,7 +226,7 @@ impl Protomod
                 }
                 let &(ref arg_names, ref body) = mac.unwrap();
                 let result = Protomod::apply_macro(
-                        &**inner_id, body, arg_names, args);
+                        &**inner_id, body, arg_names, args, loc);
                 Protomod::preproc_expr(prog, mp, &result, loc)
             }
             &Val::DotAccess(ref outer, ref inner) => {
@@ -240,7 +241,7 @@ impl Protomod
                         }
                         let &(ref arg_names, ref body) = mac.unwrap();
                         let result = Protomod::apply_macro(
-                                &**inner, body, arg_names, args);
+                                &**inner, body, arg_names, args, loc);
                         Protomod::preproc_expr(prog, mp, &result, loc)
                     }
                     _ => {
@@ -258,7 +259,8 @@ impl Protomod
     }
 
     pub fn apply_macro(macro_name: &str, body: &Val
-            , arg_names: &Vec<Rc<String>>, args: &Rc<Val>) -> Val
+        , arg_names: &Vec<Rc<String>>, args: &Rc<Val>, loc: &SrcLoc
+        ) -> Val
     {
         let mut arg_map = HashMap::new();
         let mut arg_it = args;
@@ -275,22 +277,24 @@ impl Protomod
             panic!("Too many arguments passed to macro {}, expected {}"
                     , macro_name, arg_names.len());
         }
-        Protomod::replace_ids(body, &arg_map)
+        Protomod::replace_ids(body, &arg_map, loc)
     }
 
-    pub fn replace_ids(node: &Val, idvals: &HashMap<Rc<String>, &Val>) -> Val
+    pub fn replace_ids(node: &Val, idvals: &HashMap<Rc<String>, &Val>
+        , loc: &SrcLoc
+        ) -> Val
     {
         match node {
             &Val::Cons(_, _) => {
                 let f = |v: &Val| -> Val {
-                    Protomod::replace_ids(v, idvals)
+                    Protomod::replace_ids(v, idvals, loc)
                 };
                 list::map_ref(node, f)
             }
             &Val::Tuple(ref t) => {
                 let mut result = vec![];
                 for tv in t {
-                    let rv = Protomod::replace_ids(tv, idvals);
+                    let rv = Protomod::replace_ids(tv, idvals, loc);
                     result.push(rv);
                 }
                 Val::Tuple(result)
@@ -301,14 +305,14 @@ impl Protomod
                     None => node.clone(),
                 }
             }
-            &Val::Loc(ref v, ref loc) => {
-                let v2 = Protomod::replace_ids(v, idvals);
+            &Val::Loc(ref v, ref _oldloc) => {
+                let v2 = Protomod::replace_ids(v, idvals, loc);
                 Val::loc(v2, *loc)
             }
-            &Val::Sxpr(stype, ref sdata, ref loc) => {
+            &Val::Sxpr(stype, ref sdata, ref _oldloc) => {
                 sxpr::new(
                     stype,
-                    Protomod::replace_ids(sdata, idvals),
+                    Protomod::replace_ids(sdata, idvals, loc),
                     *loc,
                 )
             }

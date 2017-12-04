@@ -281,7 +281,7 @@ pub fn create_failure(f: &mut Fiber) -> Event
     let failure = Val::Failure(
         Box::new(failtag.clone()),
         Box::new(failmsg.clone()),
-        f.head.trace.fail_parent(),
+        f.head.trace.fail_here(),
         val::FAILURE_INTERNAL,
     );
     f.head.parent.set_result(failure);
