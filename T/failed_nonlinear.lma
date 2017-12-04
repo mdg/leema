@@ -12,12 +12,13 @@ func handle_nonlinear(x: Int, prop: Bool): String ->
 
    failed c
    |#xis4 ->
-      if prop ->
+      if
+      |prop ->
          cout("c failed. log and propagate\n")
          return c
-      else ->
+      |else ->
          cout("c failed. no propagate.\n")
-         let c := "whoa - not linear!"
+         "whoa - not linear!"
       --
    |_ ->
       cout("no match on failure hashtag\n")
