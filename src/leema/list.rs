@@ -1,5 +1,9 @@
 use leema::val::{Val};
 
+use std::cmp::{Eq};
+use std::collections::{HashMap};
+use std::fmt::{Debug};
+use std::hash::{Hash};
 use std::rc::{Rc};
 
 
@@ -226,6 +230,45 @@ pub fn merge_adjacent<F>(l: &Val, op: F) -> Val
         it = tail;
     }
     reverse(&cons(merger, acc))
+}
+
+pub fn divide<F>(l: &Val, pred: F) -> (Val, Val)
+    where F: Fn(&Val) -> bool
+{
+    let mut it = l;
+    let mut truth = Val::Nil;
+    let mut lies = Val::Nil;
+    while *it != Val::Nil {
+        let (head, tail) = take_ref(it);
+        if pred(head) {
+            truth = cons(head.clone(), truth);
+        } else {
+            lies = cons(head.clone(), lies);
+        }
+        it = &**tail;
+    }
+    let true_result = reverse(&truth);
+    let false_result = reverse(&lies);
+    (true_result, false_result)
+}
+
+pub fn keyed_by<K, F>(l: &Val, keyf: F) -> HashMap<K, Val>
+    where K: Eq + Hash + Debug
+        , F: Fn(&Val) -> K
+{
+    let mut it = l;
+    let mut result: HashMap<K, Val> = HashMap::with_capacity(len(l));
+    while *it != Val::Nil {
+        let (head, tail) = take_ref(it);
+        let key = keyf(head);
+        if result.contains_key(&key) {
+            panic!("cannot duplicate key: {:?}", key);
+        }
+        result.insert(key, head.clone());
+        it = &**tail;
+    }
+
+    result
 }
 
 pub fn reverse(l: &Val) -> Val

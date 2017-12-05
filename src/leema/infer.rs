@@ -12,16 +12,18 @@ use std::rc::{Rc};
 pub struct Blockscope
 {
     vars: HashSet<String>,
+    failures: HashMap<String, Val>,
     first_usage: HashMap<String, SrcLoc>,
     failing: bool,
 }
 
 impl Blockscope
 {
-    pub fn new() -> Blockscope
+    pub fn new(failures: HashMap<String, Val>) -> Blockscope
     {
         Blockscope{
             vars: HashSet::new(),
+            failures: HashMap::new(),
             first_usage: HashMap::new(),
             failing: false,
         }
@@ -44,7 +46,7 @@ impl<'b> Inferator<'b>
         Inferator{
             funcname: funcname,
             T: HashMap::new(),
-            blocks: vec![Blockscope::new()],
+            blocks: vec![Blockscope::new(HashMap::new())],
             inferences: HashMap::new(),
         }
     }
@@ -197,9 +199,9 @@ impl<'b> Inferator<'b>
         self.blocks.last_mut().unwrap().failing = true;
     }
 
-    pub fn push_block(&mut self)
+    pub fn push_block(&mut self, failures: HashMap<String, Val>)
     {
-        self.blocks.push(Blockscope::new());
+        self.blocks.push(Blockscope::new(failures));
     }
 
     pub fn pop_block(&mut self)

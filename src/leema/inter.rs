@@ -396,8 +396,8 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val
 {
     match st {
         SxprType::BlockExpr => {
-            scope.T.push_block();
-            let iblk = compile_block(scope, sx, loc);
+            let lines = push_block(scope, sx);
+            let iblk = compile_block(scope, &lines, loc);
             scope.T.pop_block();
             iblk
         }
@@ -471,10 +471,10 @@ pub fn compile_matchcase(scope: &mut Interscope
     let (patt, t2) = list::take_ref(case);
     let (blk, t3) = list::take_ref(&*t2);
 
-    scope.T.push_block();
+    let empty_blk = scope.T.push_block(HashMap::new());
     let cpatt = compile_pattern(scope, patt);
     scope.T.match_pattern(&cpatt, xtyp);
-    let iblk = compile_expr(scope, blk, loc);
+    let iblk = compile_expr(scope, &blk, loc);
     scope.T.pop_block();
     let inext = match &**t3 {
         &Val::Cons(ref next, _) if **next == Val::Void => {
@@ -623,6 +623,21 @@ pub fn pattern_call_fields<'a, 'b>(proto: &'a Protomod
             panic!("cannot match pattern call: {}", callx);
         }
     }
+}
+
+pub fn push_block<'a, 'b>(scope: &mut Interscope, stmts: &Val) -> Val
+{
+    let (failures, lines) = list::divide(stmts, |i| {
+        sxpr::is_type(i, SxprType::MatchFailed)
+    });
+    let keyed_failures = list::keyed_by(&failures, |i| {
+        let (mfst, failings, _) = sxpr::split_ref(i);
+        let head = list::head_ref(failings);
+        head.str().to_string()
+    });
+
+    scope.T.push_block(keyed_failures);
+    lines
 }
 
 pub fn compile_block(scope: &mut Interscope, l: &Val, loc: &SrcLoc) -> Ixpr
