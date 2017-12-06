@@ -436,14 +436,17 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val
         SxprType::Let => {
             let (lhs_patt, rhs_val) = list::to_ref_tuple2(sx);
             let irhs = compile_expr(scope, rhs_val, loc);
-            let cpatt = compile_pattern(scope, lhs_patt);
+            let mut new_vars = Vec::new();
+            let cpatt = compile_pattern(scope, &mut new_vars, lhs_patt);
             scope.T.match_pattern(&cpatt, &irhs.typ);
             Ixpr::new(Source::Let(cpatt, Box::new(irhs)), loc.lineno)
         }
         SxprType::MatchExpr => {
             let (mx, cases) = list::to_ref_tuple2(sx);
             let imx = compile_expr(scope, mx, loc);
-            let icases = compile_matchcase(scope, cases, &imx.typ, loc);
+            let mut new_vars = Vec::new();
+            let icases =
+                compile_matchcase(scope, &mut new_vars, cases, &imx.typ, loc);
             Ixpr::new_match_expr(imx, icases)
         }
         SxprType::MatchFailed => {
@@ -466,13 +469,15 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val
 }
 
 pub fn compile_matchcase(scope: &mut Interscope
-        , case: &Val, xtyp: &Type, loc: &SrcLoc) -> Ixpr
+    , new_vars: &mut Vec<Rc<String>>
+    , case: &Val, xtyp: &Type, loc: &SrcLoc
+    ) -> Ixpr
 {
     let (patt, t2) = list::take_ref(case);
     let (blk, t3) = list::take_ref(&*t2);
 
     let empty_blk = scope.T.push_block(HashMap::new());
-    let cpatt = compile_pattern(scope, patt);
+    let cpatt = compile_pattern(scope, new_vars, patt);
     scope.T.match_pattern(&cpatt, xtyp);
     let iblk = compile_expr(scope, &blk, loc);
     scope.T.pop_block();
@@ -481,7 +486,8 @@ pub fn compile_matchcase(scope: &mut Interscope
             Ixpr::noop()
         }
         &Val::Cons(ref next, _) => {
-            let inxt_inner = compile_matchcase(scope, next, xtyp, loc);
+            let inxt_inner =
+                compile_matchcase(scope, new_vars, next, xtyp, loc);
             scope.T.merge_types(&iblk.typ, &inxt_inner.typ);
             inxt_inner
         }
@@ -495,25 +501,30 @@ pub fn compile_matchcase(scope: &mut Interscope
     Ixpr::new_match_case(cpatt, iblk, inext)
 }
 
-pub fn compile_pattern(scope: &mut Interscope, patt: &Val) -> Val
+pub fn compile_pattern(scope: &mut Interscope, new_vars: &mut Vec<Rc<String>>
+    , patt: &Val
+    ) -> Val
 {
     match patt {
-        &Val::Id(_) => {
+        &Val::Id(ref name) => {
+            if !scope.T.var_is_in_scope(&**name) {
+                new_vars.push(name.clone());
+            }
             patt.clone()
         }
         &Val::Cons(ref head, ref tail) => {
-            let chead = compile_pattern(scope, head);
+            let chead = compile_pattern(scope, new_vars, head);
             let ctail = match &**tail {
                 &Val::Id(_) => {
-                    compile_pattern(scope, &**tail)
+                    compile_pattern(scope, new_vars, &**tail)
                 }
                 &Val::Wildcard => Val::Wildcard,
                 &Val::Nil => Val::Nil,
                 &Val::Cons(_, _) => {
-                    compile_pattern(scope, &**tail)
+                    compile_pattern(scope, new_vars, &**tail)
                 }
                 &Val::Loc(ref pv, ref loc) => {
-                    let pv2 = compile_pattern(scope, &**pv);
+                    let pv2 = compile_pattern(scope, new_vars, &**pv);
                     Val::loc(pv2, *loc)
                 }
                 _ => {
@@ -527,7 +538,7 @@ pub fn compile_pattern(scope: &mut Interscope, patt: &Val) -> Val
         }
         &Val::Tuple(ref items) => {
             let citems = items.iter().map(|i| {
-                compile_pattern(scope, i)
+                compile_pattern(scope, new_vars, i)
             }).collect();
             Val::Tuple(citems)
         }
@@ -547,10 +558,10 @@ pub fn compile_pattern(scope: &mut Interscope, patt: &Val) -> Val
             Val::Wildcard
         }
         &Val::Sxpr(SxprType::Call, ref callx, ref sxloc) => {
-            compile_pattern_call(scope, callx, sxloc)
+            compile_pattern_call(scope, new_vars, callx, sxloc)
         }
         &Val::Loc(ref pv, ref loc) => {
-            let pv2 = compile_pattern(scope, pv);
+            let pv2 = compile_pattern(scope, new_vars, pv);
             Val::loc(pv2, *loc)
         }
         _ => {
@@ -559,13 +570,14 @@ pub fn compile_pattern(scope: &mut Interscope, patt: &Val) -> Val
     }
 }
 
-pub fn compile_pattern_call(scope: &mut Interscope, patt: &Val, loc: &SrcLoc
+pub fn compile_pattern_call(scope: &mut Interscope
+    , new_vars: &mut Vec<Rc<String>>, patt: &Val, loc: &SrcLoc
     ) -> Val
 {
     let (callx, args) = list::take_ref(patt);
     let struct_flds = pattern_call_fields(scope.proto, scope.imports, callx);
     let args_vec = list::map_ref_to_vec(&*args, |a| {
-        compile_pattern(scope, a)
+        compile_pattern(scope, new_vars, a)
     });
     if args_vec.len() < struct_flds.len() {
         panic!("too few fields in struct pattern for: {}", callx.str());
@@ -708,7 +720,9 @@ pub fn compile_failed_stmt(fails: &mut HashMap<String, Ixpr>
     };
 
     let ifx = compile_expr(scope, fvar, loc);
-    let icases = compile_matchcase(scope, cases, &Type::Hashtag, loc);
+    let mut new_vars = Vec::new();
+    let icases =
+        compile_matchcase(scope, &mut new_vars, cases, &Type::Hashtag, loc);
     let imatchfailed = Ixpr::new_match_expr(ifx, icases);
     fails.insert(varname, imatchfailed);
 }
