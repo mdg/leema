@@ -216,6 +216,23 @@ impl<'b> Inferator<'b>
         })
     }
 
+    pub fn handles_failure(&self, name: &str) -> bool
+    {
+        self.blocks.iter().any(|b| {
+            b.failures.contains_key(name)
+        })
+    }
+
+    pub fn get_failure(&self, name: &str) -> Option<&Val>
+    {
+        for b in self.blocks.iter() {
+            if b.failures.contains_key(name) {
+                return b.failures.get(name);
+            }
+        }
+        None
+    }
+
     pub fn inferred_type<'a>(&'a self, typ: &'a Type) -> Type
     {
         match typ {

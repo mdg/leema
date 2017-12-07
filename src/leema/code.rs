@@ -303,7 +303,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             // make_fork_ops(rt, f, args)
             Oxpr{ ops: vec![], dst: Reg::Undecided }
         }
-        Source::Let(ref patt, ref x) => {
+        Source::Let(ref patt, ref x, ref fails) => {
             let pval = assign_pattern_registers(rt, patt);
             let mut xops = make_sub_ops(rt, x);
             xops.ops.push((

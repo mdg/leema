@@ -63,8 +63,9 @@ impl<'a> CallFrame<'a>
                     self.collect_calls(case);
                 }
             }
-            Source::Let(ref lhs, ref rhs) => {
+            Source::Let(ref lhs, ref rhs, ref failed) => {
                 self.collect_calls(rhs);
+                self.collect_calls_vec(failed)
             }
             Source::StrMash(ref items) => {
                 self.collect_calls_vec(items);
@@ -298,7 +299,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
         &Source::ConstVal(ref cv) => {
             ix.typ.clone()
         }
-        &Source::Let(ref lhs, ref rhs) => {
+        &Source::Let(ref lhs, ref rhs, _) => {
             let rhs_type = typecheck_expr(scope, rhs);
             scope.T.match_pattern(lhs, &rhs_type);
             Type::Void

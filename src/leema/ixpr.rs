@@ -21,7 +21,7 @@ pub enum Source
     FieldAccess(Box<Ixpr>, i8),
     Fork(Box<Ixpr>, Box<Ixpr>, Box<Ixpr>),
     Func(Vec<Rc<String>>, Box<Ixpr>),
-    Let(Val, Box<Ixpr>),
+    Let(Val, Box<Ixpr>, Vec<Ixpr>),
     MatchExpr(Box<Ixpr>, Box<Ixpr>),
     MatchCase(Val, Box<Ixpr>, Box<Ixpr>),
     ModuleAccess(Rc<String>, Rc<String>),
@@ -40,7 +40,7 @@ impl Source
     {
         match src {
             &Source::ConstVal(ref v) => v.get_type(),
-            &Source::Let(_, _) => Type::Void,
+            &Source::Let(_, _, _) => Type::Void,
             _ => Type::Unknown,
         }
     }

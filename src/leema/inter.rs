@@ -439,7 +439,14 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val
             let mut new_vars = Vec::new();
             let cpatt = compile_pattern(scope, &mut new_vars, lhs_patt);
             scope.T.match_pattern(&cpatt, &irhs.typ);
-            Ixpr::new(Source::Let(cpatt, Box::new(irhs)), loc.lineno)
+            let failed = new_vars.iter().map(|v| {
+                compile_failed_var(scope, v, loc)
+            }).collect();
+            Ixpr::new(Source::Let(
+                    cpatt,
+                    Box::new(irhs),
+                    failed,
+                ), loc.lineno)
         }
         SxprType::MatchExpr => {
             let (mx, cases) = list::to_ref_tuple2(sx);
@@ -673,8 +680,7 @@ pub fn compile_block_stmt(istmts: &mut Vec<Ixpr>
 {
     match stmt {
         &Val::Sxpr(SxprType::MatchFailed, ref sx, ref sxloc) => {
-            scope.T.mark_failing();
-            compile_failed_stmt(ifails, scope, sx, sxloc);
+            panic!("MatchFailed should be removed from blocks");
         }
         &Val::Sxpr(SxprType::Return, ref sx, ref sxloc) => {
             let head = list::head_ref(sx);
@@ -698,6 +704,24 @@ pub fn compile_list_to_vec(scope: &mut Interscope, l: &Val, loc: &SrcLoc
         }
     );
     result
+}
+
+pub fn compile_failed_var(scope: &mut Interscope, v: &Rc<String>, loc: &SrcLoc
+    ) -> Ixpr
+{
+    if scope.T.handles_failure(&**v) {
+        scope.T.push_block(HashMap::new());
+        let ixfailure = {
+            let failure = scope.T.get_failure(&**v).unwrap().clone();
+            compile_expr(scope, &failure, loc)
+        };
+        scope.T.pop_block();
+        println!("failed {} then {:?}\n", v, ixfailure);
+    } else {
+        println!("generate automatic failure handler in case {} is used", v);
+    }
+
+    Ixpr::noop()
 }
 
 pub fn compile_failed_stmt(fails: &mut HashMap<String, Ixpr>
@@ -811,7 +835,7 @@ fn test_scope_push_block()
         assert_eq!(Type::Int, hello_typ);
     }
 
-    scope.T.push_block();
+    scope.T.push_block(HashMap::new());
     scope.T.bind_vartype("world", &Type::Str);
     println!("push_block().add_var(world) -> {:?}", scope);
 
