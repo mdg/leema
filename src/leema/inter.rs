@@ -646,7 +646,7 @@ pub fn pattern_call_fields<'a, 'b>(proto: &'a Protomod
 
 pub fn push_block<'a, 'b>(scope: &mut Interscope, stmts: &Val) -> Val
 {
-    let (failures, lines) = list::divide(stmts, |i| {
+    let (failures, lines) = list::partition(stmts, |i| {
         sxpr::is_type(i, SxprType::MatchFailed)
     });
     let keyed_failures = list::keyed_by(&failures, |i| {

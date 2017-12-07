@@ -232,7 +232,7 @@ pub fn merge_adjacent<F>(l: &Val, op: F) -> Val
     reverse(&cons(merger, acc))
 }
 
-pub fn divide<F>(l: &Val, pred: F) -> (Val, Val)
+pub fn partition<F>(l: &Val, pred: F) -> (Val, Val)
     where F: Fn(&Val) -> bool
 {
     let mut it = l;
