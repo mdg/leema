@@ -4,8 +4,40 @@ use std::cmp::{Eq};
 use std::collections::{HashMap};
 use std::fmt::{Debug};
 use std::hash::{Hash};
+use std::iter::{Iterator};
 use std::rc::{Rc};
 
+
+#[derive(Debug)]
+pub struct ListIterator<'a>
+{
+    cursor: &'a Val,
+}
+
+impl<'a> Iterator for ListIterator<'a>
+{
+    type Item = &'a Val;
+
+    fn next(&mut self) -> Option<&'a Val>
+    {
+        let c = self.cursor;
+        match c {
+            &Val::Cons(ref head, ref tail) => {
+                *self = ListIterator{cursor: &**tail};
+                Some(head)
+            }
+            &Val::Nil => None,
+            _ => {
+                panic!("cannot iterate on a not list");
+            }
+        }
+    }
+}
+
+pub fn iter<'a>(head: &'a Val) -> ListIterator<'a>
+{
+    ListIterator{cursor: head}
+}
 
 pub fn cons(head: Val, tail: Val) -> Val
 {
@@ -480,6 +512,23 @@ fn test_merge_adjacent()
         ))));
 
     assert_eq!(expected, m);
+}
+
+#[test]
+fn test_iterator_sum()
+{
+    let l = list::from3(Val::Int(2), Val::Int(3), Val::Int(4));
+    let actual = list::iter(&l).fold(Val::Int(0), |sumval, ival| {
+        match (sumval, ival) {
+            (Val::Int(sum), &Val::Int(i)) => {
+                Val::Int(sum + i)
+            }
+            _ => {
+                panic!("cannot add not-integers");
+            }
+        }
+    });
+    assert_eq!(Val::Int(9), actual);
 }
 
 }
