@@ -716,9 +716,7 @@ pub fn compile_failed_var(scope: &mut Interscope, v: &Rc<String>, loc: &SrcLoc
             compile_match_failed(scope, &failure, loc)
         };
         scope.T.pop_block();
-        println!("failed {} then {:?}\n", v, ixfailure);
     } else {
-        println!("generate automatic failure handler in case {} is used", v);
     }
 
     Ixpr::noop()
