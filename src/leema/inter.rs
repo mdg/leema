@@ -713,7 +713,7 @@ pub fn compile_failed_var(scope: &mut Interscope, v: &Rc<String>, loc: &SrcLoc
         scope.T.push_block(HashMap::new());
         let ixfailure = {
             let failure = scope.T.get_failure(&**v).unwrap().clone();
-            compile_expr(scope, &failure, loc)
+            compile_match_failed(scope, &failure, loc)
         };
         scope.T.pop_block();
         println!("failed {} then {:?}\n", v, ixfailure);
@@ -721,6 +721,14 @@ pub fn compile_failed_var(scope: &mut Interscope, v: &Rc<String>, loc: &SrcLoc
         println!("generate automatic failure handler in case {} is used", v);
     }
 
+    Ixpr::noop()
+}
+
+pub fn compile_match_failed(scope: &mut Interscope, failure: &Val, loc: &SrcLoc
+    ) -> Ixpr
+{
+    let (mfst, mfsx, mfloc) = sxpr::split_ref(failure);
+    assert_eq!(SxprType::MatchFailed, mfst);
     Ixpr::noop()
 }
 

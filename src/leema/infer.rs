@@ -23,7 +23,7 @@ impl Blockscope
     {
         Blockscope{
             vars: HashSet::new(),
-            failures: HashMap::new(),
+            failures: failures,
             first_usage: HashMap::new(),
             failing: false,
         }
