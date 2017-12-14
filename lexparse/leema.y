@@ -194,15 +194,8 @@ defstruct_field(A) ::= DOT ID(B) COLON typex(C). {
 
 
 failed_stmt(A) ::= FAILED ID(B) match_case(C) DOUBLEDASH. {
-    A = sxpr::new(
-        SxprType::MatchFailed,
-        list::cons(
-            Val::id(B.data),
-            list::cons(C,
-            Val::Nil,
-            )),
-        B.loc,
-    );
+    let var = Val::id(B.data);
+    A = sxpr::match_failed(var, C, B.loc);
 }
 
 let_stmt(A) ::= Let(D) match_pattern(B) ASSIGN expr(C). {

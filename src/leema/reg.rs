@@ -1,6 +1,8 @@
+use leema::log;
 use leema::val::{Val};
 
 use std::fmt;
+use std::io::{stderr, Write};
 use std::collections::{HashMap};
 use std::rc::{Rc};
 
@@ -254,6 +256,7 @@ impl RegTable
     {
         if !self.labels.contains_key(name) {
             let dst = self.next();
+            vout!("assign {} to {}\n", dst, name);
             self.labels.insert(String::from(name), dst);
         }
         self.labels.get(name).unwrap().clone()

@@ -22,6 +22,7 @@ pub enum Source
     Fork(Box<Ixpr>, Box<Ixpr>, Box<Ixpr>),
     Func(Vec<Rc<String>>, Box<Ixpr>),
     Let(Val, Box<Ixpr>, Vec<Ixpr>),
+    MatchFailure(Box<Ixpr>, Box<Ixpr>),
     MatchExpr(Box<Ixpr>, Box<Ixpr>),
     MatchCase(Val, Box<Ixpr>, Box<Ixpr>),
     ModuleAccess(Rc<String>, Rc<String>),
@@ -154,6 +155,19 @@ impl Ixpr
         Ixpr{
             typ: t,
             src: Source::Fork(Box::new(dst), Box::new(f), Box::new(args)),
+            line: lineno,
+        }
+    }
+
+    pub fn match_failure(var: Ixpr, cases: Ixpr) -> Ixpr
+    {
+        let lineno = var.line;
+        Ixpr{
+            typ: cases.typ.clone(),
+            src: Source::MatchFailure(
+                Box::new(var),
+                Box::new(cases),
+            ),
             line: lineno,
         }
     }

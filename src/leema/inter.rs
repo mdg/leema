@@ -716,10 +716,10 @@ pub fn compile_failed_var(scope: &mut Interscope, v: &Rc<String>, loc: &SrcLoc
             compile_match_failed(scope, &failure, loc)
         };
         scope.T.pop_block();
+        ixfailure
     } else {
+        Ixpr::noop()
     }
-
-    Ixpr::noop()
 }
 
 pub fn compile_match_failed(scope: &mut Interscope, failure: &Val, loc: &SrcLoc
@@ -727,34 +727,13 @@ pub fn compile_match_failed(scope: &mut Interscope, failure: &Val, loc: &SrcLoc
 {
     let (mfst, mfsx, mfloc) = sxpr::split_ref(failure);
     assert_eq!(SxprType::MatchFailed, mfst);
-    Ixpr::noop()
-}
 
-pub fn compile_failed_stmt(fails: &mut HashMap<String, Ixpr>
-    , scope: &mut Interscope
-    , sx: &Val
-    , loc: &SrcLoc
-    )
-{
-    let (fvar, cases) = list::to_ref_tuple2(sx);
-    let varname = match fvar {
-        &Val::Id(ref name) => {
-            if fails.contains_key(&**name) {
-                panic!("cannot redefine failure handler for: {}", name);
-            }
-            (**name).clone()
-        }
-        _ => {
-            panic!("the test expression in a failed statement must be an identifier");
-        }
-    };
-
-    let ifx = compile_expr(scope, fvar, loc);
+    let (x, cases) = list::to_ref_tuple2(mfsx);
+    let ix = compile_expr(scope, x, mfloc);
     let mut new_vars = Vec::new();
-    let icases =
-        compile_matchcase(scope, &mut new_vars, cases, &Type::Hashtag, loc);
-    let imatchfailed = Ixpr::new_match_expr(ifx, icases);
-    fails.insert(varname, imatchfailed);
+    let ccase =
+        compile_matchcase(scope, &mut new_vars, cases, &Type::Hashtag, mfloc);
+    Ixpr::match_failure(ix, ccase)
 }
 
 pub fn split_func_args_body(defunc: &Val) -> (Vec<Rc<String>>, &Val, &SrcLoc)

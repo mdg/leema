@@ -116,6 +116,9 @@ impl Fiber
             &Op::JumpIfNot(jmp, ref reg) => {
                 self.execute_jump_if_not(jmp, reg)
             }
+            &Op::IfFailure(ref dst, ref src, jmp) => {
+                self.execute_if_failure(dst, src, jmp)
+            }
             &Op::MatchPattern(ref dst, ref patt, ref input) => {
                 self.execute_match_pattern(dst, patt, input)
             }
@@ -350,6 +353,21 @@ impl Fiber
             }
         };
         self.head.pc += tjump;
+        Event::Uneventful
+    }
+
+    pub fn execute_if_failure(&mut self, dst: &Reg, src: &Reg, jmp: i16) -> Event
+    {
+        let dst_val = {
+            if let &Val::Failure(ref tag, _, _, _) = self.head.e.get_reg(src) {
+                tag.clone()
+            } else {
+                self.head.pc += jmp as i32;
+                return Event::Uneventful;
+            }
+        };
+        self.head.e.set_reg(dst, *dst_val);
+        self.head.pc += 1;
         Event::Uneventful
     }
 

@@ -144,6 +144,20 @@ pub fn match_expr(x: Val, cases: Val, loc: SrcLoc) -> Val
     )
 }
 
+pub fn match_failed(var: Val, cases: Val, loc: SrcLoc) -> Val
+{
+    Val::Sxpr(
+        SxprType::MatchFailed,
+        Rc::new(
+            list::cons(var,
+            list::cons(cases,
+            Val::Nil
+            ))
+        ),
+        loc,
+    )
+}
+
 pub fn defunc(name: Val, args: Val, typ: Val, blk: Val, loc: SrcLoc) -> Val
 {
     Val::Sxpr(

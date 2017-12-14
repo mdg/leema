@@ -49,6 +49,8 @@ pub enum Op
     //IfFail(Reg, i16),
     Jump(i16),
     JumpIfNot(i16, Reg),
+    // if failure, copy hashtag, else jump
+    IfFailure(Reg, Reg, i16),
     // jump if no match, pattern reg, input reg
     MatchPattern(Reg, Val, Reg),
     ListCons(Reg, Reg, Reg),
@@ -94,8 +96,13 @@ impl Clone for Op
                 Op::Copy(dst.clone(), src.clone())
             }
             &Op::Jump(j) => Op::Jump(j),
-            // &Op::Fork(r) => {}
+            &Op::Fork(_, _, _) => {
+                panic!("you can't fork yet, relax");
+            }
             &Op::JumpIfNot(j, ref tst) => Op::JumpIfNot(j, tst.clone()),
+            &Op::IfFailure(ref dst, ref src, j) => {
+                Op::IfFailure(dst.clone(), src.clone(), j)
+            }
             &Op::MatchPattern(ref dst, ref patt, ref input) => {
                 Op::MatchPattern(dst.clone(), patt.deep_clone(), input.clone())
             }
@@ -107,9 +114,6 @@ impl Clone for Op
                 Op::StrCat(dst.clone(), src.clone())
             }
             &Op::TupleCreate(ref dst, sz) => Op::TupleCreate(dst.clone(), sz),
-            _ => {
-                panic!("cannot clone op: {:?}", self);
-            }
         }
     }
 }
@@ -306,11 +310,19 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::Let(ref patt, ref x, ref fails) => {
             let pval = assign_pattern_registers(rt, patt);
             let mut xops = make_sub_ops(rt, x);
+            let mut failops: Vec<(Op, i16)> = fails.iter().flat_map(|f1| {
+                let ox = make_sub_ops(rt, f1);
+                ox.ops.into_iter()
+            }).collect();
             xops.ops.push((
                 Op::MatchPattern(rt.dst().clone(), pval, xops.dst),
                 input.line,
                 ));
+            xops.ops.append(&mut failops);
             Oxpr{ ops: xops.ops, dst: rt.dst().clone() }
+        }
+        Source::MatchFailure(ref x, ref cases) => {
+            make_matchfailure_ops(rt, &*x, &*cases)
         }
         Source::MatchExpr(ref x, ref cases) => {
             make_matchexpr_ops(rt, &*x, &*cases)
@@ -441,6 +453,26 @@ pub fn make_constructor_ops(rt: &mut RegTable, typ: &Type, nflds: i8
     Oxpr{
         ops: ops,
         dst: dst.clone(),
+    }
+}
+
+pub fn make_matchfailure_ops(rt: &mut RegTable, x: &Ixpr, cases: &Ixpr) -> Oxpr
+{
+    rt.push_dst();
+    let xops = make_sub_ops(rt, x);
+    rt.pop_dst();
+    let failtag = rt.id("leema#failure");
+    let mut case_ops = make_matchcase_ops(rt, cases, &failtag);
+
+    let faillen = case_ops.ops.len() + 1;
+    let mut failops = Vec::with_capacity(faillen);
+    failops.push(
+        (Op::IfFailure(failtag, xops.dst.clone(), faillen as i16), x.line));
+    failops.append(&mut case_ops.ops);
+
+    Oxpr{
+        ops: failops,
+        dst: xops.dst,
     }
 }
 
