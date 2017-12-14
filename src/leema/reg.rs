@@ -270,3 +270,87 @@ impl RegTable
         }
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use leema::reg::{Reg, RegTable};
+
+#[test]
+fn test_init()
+{
+    let rt = RegTable::new();
+    assert_eq!(Reg::local(0), *rt.dst());
+}
+
+#[test]
+fn test_next()
+{
+    let mut rt = RegTable::new();
+
+    let r1 = rt.next();
+    let r2 = rt.next();
+
+    assert_eq!(Reg::local(1), r1);
+    assert_eq!(Reg::local(2), r2);
+}
+
+#[test]
+fn test_push_dst()
+{
+    let mut rt = RegTable::new();
+
+    assert_eq!(Reg::local(1), *rt.push_dst());
+    assert_eq!(Reg::local(2), *rt.push_dst());
+}
+
+#[test]
+fn test_push_then_dst()
+{
+    let mut rt = RegTable::new();
+
+    rt.push_dst();
+    assert_eq!(Reg::local(1), *rt.dst());
+
+    rt.push_dst();
+    assert_eq!(Reg::local(2), *rt.dst());
+}
+
+#[test]
+fn test_pop_back()
+{
+    let mut rt = RegTable::new();
+
+    rt.push_dst();
+    rt.push_dst();
+
+    assert_eq!(Reg::local(2), *rt.dst());
+
+    rt.pop_dst();
+    assert_eq!(Reg::local(1), *rt.dst());
+
+    rt.pop_dst();
+    assert_eq!(Reg::local(0), *rt.dst());
+}
+
+#[test]
+fn test_pop_push_free()
+{
+    let mut rt = RegTable::new();
+
+    rt.push_dst();
+    assert_eq!(Reg::local(1), *rt.dst());
+
+    rt.push_dst();
+    assert_eq!(Reg::local(2), *rt.dst());
+
+    rt.pop_dst();
+    rt.pop_dst();
+
+    assert_eq!(Reg::local(1), *rt.push_dst());
+    assert_eq!(Reg::local(2), *rt.push_dst());
+    assert_eq!(Reg::local(3), *rt.push_dst());
+    assert_eq!(Reg::local(3), *rt.dst());
+}
+
+}
