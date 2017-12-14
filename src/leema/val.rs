@@ -1051,6 +1051,13 @@ impl Val
             &Val::PatternVar(_) => {
                 write!(f, ";{:?}", l)
             }
+            &Val::Loc(ref v, ref loc) => {
+                if dbg {
+                    write!(f, "{:?}@{:?}", v, loc)
+                } else {
+                    write!(f, "{}", v)
+                }
+            }
             _ => {
                 panic!("Not a list: {:?}", l);
             }
