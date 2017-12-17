@@ -327,7 +327,7 @@ impl Future for IoLoop
 
     fn poll(&mut self) -> Poll<Val, Val>
     {
-        task::park().unpark();
+        task::current().notify();
         let poll_result = self.io.borrow_mut().run_once();
         let opt_iop = self.io.borrow_mut().take_next_iop();
         if let Some(iop) = opt_iop {

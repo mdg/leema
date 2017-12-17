@@ -6,7 +6,7 @@ use leema::log;
 use leema::module::{ModKey};
 use leema::phase0::{Protomod};
 use leema::sxpr;
-use leema::val::{self, Val, SxprType, Type, SrcLoc};
+use leema::val::{Val, SxprType, Type, SrcLoc};
 
 use std::collections::{HashMap};
 use std::fmt;

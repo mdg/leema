@@ -101,7 +101,7 @@ impl Future for Acceptor
             Err(e) => {
                 match e.kind() {
                     io::ErrorKind::WouldBlock => {
-                        task::park().unpark();
+                        task::current().notify();
                         Ok(Async::NotReady)
                     }
                     _ => {
