@@ -199,14 +199,24 @@ impl<'b> Inferator<'b>
         self.blocks.last_mut().unwrap().failing = true;
     }
 
+    pub fn is_root_block(&self) -> bool
+    {
+        self.blocks.len() == 1
+    }
+
     pub fn push_block(&mut self, failures: HashMap<String, Val>)
     {
         self.blocks.push(Blockscope::new(failures));
     }
 
-    pub fn pop_block(&mut self)
+    /**
+     * Pop a block off of the stack
+     * Return true if the new block is the root block (only 1 left)
+     */
+    pub fn pop_block(&mut self) -> bool
     {
         self.blocks.pop();
+        self.blocks.len() == 1
     }
 
     pub fn var_is_in_scope(&self, name: &str) -> bool

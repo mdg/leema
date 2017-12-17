@@ -57,7 +57,7 @@ impl<'a> CallFrame<'a>
                     self.collect_callexpr(callx);
                 }
             }
-            Source::Block(ref expressions, ref fails) => {
+            Source::Block(ref expressions, ref fails, _is_root) => {
                 self.collect_calls_vec(expressions);
                 for case in fails.values() {
                     self.collect_calls(case);
@@ -304,7 +304,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
             scope.T.match_pattern(lhs, &rhs_type);
             Type::Void
         }
-        &Source::Block(ref elems, ref fails) => {
+        &Source::Block(ref elems, ref fails, _is_root) => {
             let mut last_type = Type::Void;
             for e in elems {
                 last_type = typecheck_expr(scope, e);

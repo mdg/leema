@@ -396,10 +396,7 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val
 {
     match st {
         SxprType::BlockExpr => {
-            let lines = push_block(scope, sx);
-            let iblk = compile_block(scope, &lines, loc);
-            scope.T.pop_block();
-            iblk
+            compile_block(scope, &sx, loc)
         }
         SxprType::Call => {
             let (callx, args) = list::take_ref(sx);
@@ -659,16 +656,17 @@ pub fn push_block<'a, 'b>(scope: &mut Interscope, stmts: &Val) -> Val
     lines
 }
 
-pub fn compile_block(scope: &mut Interscope, l: &Val, loc: &SrcLoc) -> Ixpr
+pub fn compile_block(scope: &mut Interscope, blk: &Val, loc: &SrcLoc) -> Ixpr
 {
-    let block_len = list::len(l);
-    let mut result = Vec::with_capacity(block_len);
+    let stmts = push_block(scope, blk);
+    let block_len = list::len(&stmts);
+    let mut result: Vec<Ixpr> = Vec::with_capacity(block_len);
     let mut fails = HashMap::new();
-    list::fold_mut_ref(&mut (&mut result, &mut fails, scope), l
-        , |&mut (ref mut ilines, ref mut ifails, ref mut iscope), line| {
-            compile_block_stmt(ilines, ifails, iscope, line, loc);
-        });
-    Ixpr::new_block(result, fails, loc.lineno)
+    for line in list::iter(&stmts) {
+        compile_block_stmt(&mut result, &mut fails, scope, line, loc);
+    }
+    let is_root = scope.T.pop_block();
+    Ixpr::new_block(result, fails, is_root, loc.lineno)
 }
 
 pub fn compile_block_stmt(istmts: &mut Vec<Ixpr>
