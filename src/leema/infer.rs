@@ -2,18 +2,38 @@
 use leema::log;
 use leema::val::{Val, Type, SrcLoc};
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 use std::collections::hash_map::Keys;
 use std::io::{stderr, Write};
 use std::rc::{Rc};
 
 
 #[derive(Debug)]
+pub struct VarData
+{
+    failure: Val,
+    assignment: Option<SrcLoc>,
+    first_usage: Option<SrcLoc>,
+    must_check_failure: bool,
+}
+
+impl VarData
+{
+    pub fn new(failures: Val) -> VarData
+    {
+        VarData{
+            failure: failures,
+            assignment: None,
+            first_usage: None,
+            must_check_failure: false,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Blockscope
 {
-    vars: HashSet<String>,
-    failures: HashMap<String, Val>,
-    first_usage: HashMap<String, SrcLoc>,
+    vars: HashMap<String, VarData>,
     failing: bool,
 }
 
@@ -21,10 +41,12 @@ impl Blockscope
 {
     pub fn new(failures: HashMap<String, Val>) -> Blockscope
     {
+        let vars: HashMap<String, VarData> =
+            failures.into_iter().map(|(v, fail)| {
+                (v, VarData::new(fail))
+            }).collect();
         Blockscope{
-            vars: HashSet::new(),
-            failures: failures,
-            first_usage: HashMap::new(),
+            vars: vars,
             failing: false,
         }
     }
@@ -72,8 +94,8 @@ impl<'b> Inferator<'b>
     pub fn bind_vartype(&mut self, argn: &str, argt: &Type) -> Option<Type>
     {
         let b = self.blocks.last_mut().unwrap();
-        if !b.vars.contains(argn) {
-            b.vars.insert(argn.to_string());
+        if !b.vars.contains_key(argn) {
+            b.vars.insert(argn.to_string(), VarData::new(Val::Void));
         }
 
         let realt = match argt {
@@ -187,11 +209,17 @@ impl<'b> Inferator<'b>
     pub fn mark_usage(&mut self, name: &str, loc: &SrcLoc) -> bool
     {
         let b = self.blocks.last_mut().unwrap();
-        let is_first_usage = !b.first_usage.contains_key(name);
-        if is_first_usage {
-            b.first_usage.insert(name.to_string(), loc.clone());
+        let opt_var_data = b.vars.get_mut(name);
+        if opt_var_data.is_none() {
+            println!("cannot mark usage on undefined var: {}", name);
+            return false;
         }
-        is_first_usage
+        let mut var_data = opt_var_data.unwrap();
+        if var_data.first_usage.is_some() {
+            return false;
+        }
+        var_data.first_usage = Some(loc.clone());
+        true
     }
 
     pub fn mark_failing(&mut self)
@@ -222,22 +250,29 @@ impl<'b> Inferator<'b>
     pub fn var_is_in_scope(&self, name: &str) -> bool
     {
         self.blocks.iter().any(|b| {
-            b.vars.contains(name)
+            b.vars.contains_key(name)
         })
     }
 
     pub fn handles_failure(&self, name: &str) -> bool
     {
         self.blocks.iter().any(|b| {
-            b.failures.contains_key(name)
+            let optv = b.vars.get(name);
+            if optv.is_none() {
+                return false;
+            }
+            Val::Void == optv.unwrap().failure
         })
     }
 
     pub fn get_failure(&self, name: &str) -> Option<&Val>
     {
         for b in self.blocks.iter() {
-            if b.failures.contains_key(name) {
-                return b.failures.get(name);
+            if b.vars.contains_key(name) {
+                let v: Option<&VarData> = b.vars.get(name);
+                if v.is_some() {
+                    return Some(&v.unwrap().failure);
+                }
             }
         }
         None
