@@ -1,11 +1,11 @@
-func foo(x): String ->
+func foo(x): Str ->
     if x == 4 ->
         fail(#xis4, "tacos are delicious")
     --
     "not 4"
 --
 
-func handle_nonlinear(x: Int, prop: Bool): String ->
+func handle_nonlinear(x: Int, prop: Bool): Str ->
    let c := foo(x)
    "str interp: $c"
    c

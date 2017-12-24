@@ -154,12 +154,14 @@ impl<'a> Interscope<'a>
 {
     pub fn new(proto: &'a Protomod, imports: &'a HashMap<String, Rc<Protomod>>
             , locals: &'a HashMap<String, Type>
-            , fname: &'a str, args: &Vec<Rc<String>>, argt: &Vec<Type>
+            , fname: &'a str, lineno: i16
+            , args: &Vec<Rc<String>>, argt: &Vec<Type>
             ) -> Interscope<'a>
     {
         let mut t = Inferator::new(fname);
         for (an, at) in args.iter().zip(argt) {
-            if let None = t.bind_vartype(an, at) {
+            vout!("bind func param as {}: {}\n", an, at);
+            if let None = t.bind_vartype(an, at, lineno) {
                 panic!("args type mismatch: {:?} != {:?}", args, argt);
             }
         }
@@ -246,6 +248,7 @@ pub fn compile_function<'a>(proto: &'a Protomod
         , loc: &SrcLoc
         ) -> Ixpr
 {
+    vout!("compile {}({:?})\n", fname, args);
     if *body == Val::RustBlock {
         return Ixpr{
             typ: ftype.clone(),
@@ -254,7 +257,8 @@ pub fn compile_function<'a>(proto: &'a Protomod
         }
     }
     let (argt, _result) = Type::split_func(ftype);
-    let mut scope = Interscope::new(proto, imports, locals, fname, args, argt);
+    let mut scope =
+        Interscope::new(proto, imports, locals, fname, loc.lineno, args, argt);
     let mut ibody = compile_expr(&mut scope, body, loc);
     let argt2: Vec<Type> = argt.iter().map(|a| {
         scope.T.inferred_type(a).clone()
@@ -432,10 +436,12 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val
         }
         SxprType::Let => {
             let (lhs_patt, rhs_val) = list::to_ref_tuple2(sx);
+            vout!("compile let {:?} := {:?}\n", lhs_patt, rhs_val);
             let irhs = compile_expr(scope, rhs_val, loc);
             let mut new_vars = Vec::new();
             let cpatt = compile_pattern(scope, &mut new_vars, lhs_patt);
-            scope.T.match_pattern(&cpatt, &irhs.typ);
+            vout!("new vars in let: {:?}\n", new_vars);
+            scope.T.match_pattern(&cpatt, &irhs.typ, loc.lineno);
             let failed = new_vars.iter().map(|v| {
                 compile_failed_var(scope, v, loc)
             }).collect();
@@ -482,7 +488,7 @@ pub fn compile_matchcase(scope: &mut Interscope
 
     let empty_blk = scope.T.push_block(HashMap::new());
     let cpatt = compile_pattern(scope, new_vars, patt);
-    scope.T.match_pattern(&cpatt, xtyp);
+    scope.T.match_pattern(&cpatt, xtyp, loc.lineno);
     let iblk = compile_expr(scope, &blk, loc);
     scope.T.pop_block();
     let inext = match &**t3 {
@@ -591,7 +597,7 @@ pub fn compile_pattern_call(scope: &mut Interscope
     }
     for (arg, fld) in args_vec.iter().zip(struct_flds.iter()) {
         let &(_, ref fldtype) = fld;
-        scope.T.bind_vartype(arg.str(), fldtype);
+        scope.T.bind_vartype(arg.str(), fldtype, loc.lineno);
     }
     let calltyp = Rc::new(callx.to_type());
     let struct_type = Type::Struct(calltyp);
@@ -708,6 +714,7 @@ pub fn compile_failed_var(scope: &mut Interscope, v: &Rc<String>, loc: &SrcLoc
     ) -> Ixpr
 {
     if scope.T.handles_failure(&**v) {
+        vout!("compile failure handling for {}\n", **v);
         scope.T.push_block(HashMap::new());
         let ixfailure = {
             let failure = scope.T.get_failure(&**v).unwrap().clone();
@@ -723,6 +730,7 @@ pub fn compile_failed_var(scope: &mut Interscope, v: &Rc<String>, loc: &SrcLoc
 pub fn compile_match_failed(scope: &mut Interscope, failure: &Val, loc: &SrcLoc
     ) -> Ixpr
 {
+    vout!("compile_match_failed({:?})\n", failure);
     let (mfst, mfsx, mfloc) = sxpr::split_ref(failure);
     assert_eq!(SxprType::MatchFailed, mfst);
 
@@ -767,13 +775,13 @@ impl fmt::Debug for Intermod
 
 #[cfg(test)]
 mod tests {
-    use leema::inter::{ScopeLevel, Interscope};
+    use leema::inter::{self, ScopeLevel, Interscope};
     use leema::log;
     use leema::loader::{Interloader};
     use leema::module::{ModKey};
     use leema::phase0::{Protomod};
     use leema::program;
-    use leema::val::{Type};
+    use leema::val::{Type, Val};
 
     use std::rc::{Rc};
     use std::io::{stderr, Write};
@@ -791,7 +799,7 @@ fn test_scope_add_vartype()
     let locals = HashMap::new();
     let mut scope = Interscope::new(&proto, &imps, &locals
         , "foo", &args, &argt);
-    scope.T.bind_vartype("hello", &Type::Int);
+    scope.T.bind_vartype("hello", &Type::Int, 17);
 
     let (scope_lvl, typ) = scope.vartype("hello").unwrap();
     assert_eq!(ScopeLevel::Local, scope_lvl);
@@ -809,7 +817,7 @@ fn test_scope_push_block()
     let locals = HashMap::new();
     let mut scope = Interscope::new(&proto, &imps, &locals
         , "foo", &args, &argt);
-    scope.T.bind_vartype("hello", &Type::Int);
+    scope.T.bind_vartype("hello", &Type::Int, 18);
     println!("add_var(hello) -> {:?}", scope);
 
     {
@@ -819,7 +827,7 @@ fn test_scope_push_block()
     }
 
     scope.T.push_block(HashMap::new());
-    scope.T.bind_vartype("world", &Type::Str);
+    scope.T.bind_vartype("world", &Type::Str, 33);
     println!("push_block().add_var(world) -> {:?}", scope);
 
     {
@@ -836,6 +844,27 @@ fn test_scope_push_block()
 
     assert_eq!(None, scope.vartype("world"));
     assert!(scope.vartype("hello").is_some());
+}
+
+#[test]
+fn test_new_vars_from_id_pattern()
+{
+    let mk = Rc::new(ModKey::name_only("tacos"));
+    let proto = Protomod::new(mk);
+    let imps = HashMap::new();
+    let args = vec![];
+    let argt = vec![];
+    let locals = HashMap::new();
+    let mut scope = Interscope::new(&proto, &imps, &locals
+        , "foo", &args, &argt);
+
+    let mut new_vars = Vec::default();
+    let patt = Val::id("x".to_string());
+
+    inter::compile_pattern(&mut scope, &mut new_vars, &patt);
+
+    assert_eq!(1, new_vars.len());
+    assert_eq!("x", &**(new_vars.first().unwrap()));
 }
 
 #[test]

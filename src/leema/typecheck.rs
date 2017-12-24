@@ -203,11 +203,12 @@ impl<'a, 'b> Typescope<'a, 'b>
         }
     }
 
-    pub fn typecheck_matchcase(&mut self, valtype: &Type, case: &Ixpr) -> Type
+    pub fn typecheck_matchcase(&mut self, valtype: &Type, case: &Ixpr
+        ) -> Type
     {
         match &case.src {
             &Source::MatchCase(ref patt, ref truth, ref lies) => {
-                self.T.match_pattern(patt, valtype);
+                self.T.match_pattern(patt, valtype, case.line);
                 let ttype = typecheck_expr(self, truth);
                 let ftype = self.typecheck_matchcase(valtype, lies);
 
@@ -301,7 +302,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
         }
         &Source::Let(ref lhs, ref rhs, _) => {
             let rhs_type = typecheck_expr(scope, rhs);
-            scope.T.match_pattern(lhs, &rhs_type);
+            scope.T.match_pattern(lhs, &rhs_type, ix.line);
             Type::Void
         }
         &Source::Block(ref elems, ref fails, _is_root) => {
@@ -374,7 +375,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> Type
                 , &Type::Func(ref arg_types, ref declared_result_type)) =>
         {
             for (an, at) in arg_names.iter().zip(arg_types.iter()) {
-                scope.T.bind_vartype(an, at);
+                scope.T.bind_vartype(an, at, ix.line);
             }
             println!("f({:?}) =>\n{:?}", arg_names, body);
             let result_type = typecheck_expr(scope, &*body);

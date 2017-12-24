@@ -11,8 +11,8 @@ use std::rc::{Rc};
 #[derive(Debug)]
 pub struct VarData
 {
-    failure: Val,
-    assignment: Option<SrcLoc>,
+    failure: Option<Val>,
+    assignment: Option<i16>,
     first_usage: Option<SrcLoc>,
     must_check_failure: bool,
 }
@@ -22,7 +22,20 @@ impl VarData
     pub fn new(failures: Val) -> VarData
     {
         VarData{
-            failure: failures,
+            failure: Some(failures),
+            assignment: None,
+            first_usage: None,
+            must_check_failure: false,
+        }
+    }
+}
+
+impl Default for VarData
+{
+    fn default() -> VarData
+    {
+        VarData{
+            failure: None,
             assignment: None,
             first_usage: None,
             must_check_failure: false,
@@ -91,11 +104,21 @@ impl<'b> Inferator<'b>
         }
     }
 
-    pub fn bind_vartype(&mut self, argn: &str, argt: &Type) -> Option<Type>
+    pub fn bind_vartype(&mut self, argn: &str, argt: &Type, line: i16
+        ) -> Option<Type>
     {
+        vout!("bind_vartype({}, {}: {:?})\n", self.funcname, argn, argt);
         let b = self.blocks.last_mut().unwrap();
         if !b.vars.contains_key(argn) {
-            b.vars.insert(argn.to_string(), VarData::new(Val::Void));
+            let mut vdata = VarData::default();
+            vdata.assignment = Some(line);
+            b.vars.insert(argn.to_string(), vdata);
+        } else {
+            let vdata = b.vars.get_mut(argn).unwrap();
+            if vdata.assignment.is_some() {
+                panic!("rebinding {}. previously bound at line {}", argn, line);
+            }
+            vdata.assignment = Some(line);
         }
 
         let realt = match argt {
@@ -122,7 +145,7 @@ impl<'b> Inferator<'b>
         Inferator::mash(&mut self.inferences, a, b)
     }
 
-    pub fn match_pattern(&mut self, patt: &Val, valtype: &Type)
+    pub fn match_pattern(&mut self, patt: &Val, valtype: &Type, lineno: i16)
     {
         match (patt, valtype) {
             (_, &Type::AnonVar) => {
@@ -130,7 +153,7 @@ impl<'b> Inferator<'b>
                         , patt);
             }
             (&Val::Id(ref id), _) => {
-                self.bind_vartype(id, valtype);
+                self.bind_vartype(id, valtype, lineno);
             }
             (&Val::Tuple(ref p_items), &Type::Tuple(ref t_items)) => {
                 if p_items.len() != t_items.len() {
@@ -138,7 +161,7 @@ impl<'b> Inferator<'b>
                         , p_items, t_items);
                 }
                 for (pi, ti) in p_items.iter().zip(t_items.iter()) {
-                    self.match_pattern(pi, ti);
+                    self.match_pattern(pi, ti, lineno);
                 }
             }
             (&Val::Nil, _) => {
@@ -148,12 +171,12 @@ impl<'b> Inferator<'b>
                 );
             }
             (&Val::Cons(ref head, _), &Type::StrictList(ref subt)) => {
-                self.match_list_pattern(patt, subt);
+                self.match_list_pattern(patt, subt, lineno);
             }
             (&Val::Cons(ref head, ref tail), &Type::Var(ref tvar_name)) => {
                 let tvar_inner_name = format!("{}_inner", tvar_name);
                 let tvar_inner = Type::Var(Rc::new(tvar_inner_name));
-                self.match_list_pattern(patt, &tvar_inner);
+                self.match_list_pattern(patt, &tvar_inner, lineno);
                 self.merge_types(&valtype,
                     &Type::StrictList(Box::new(tvar_inner.clone())));
             }
@@ -184,21 +207,22 @@ impl<'b> Inferator<'b>
         }
     }
 
-    pub fn match_list_pattern(&mut self, l: &Val, inner_type: &Type)
+    pub fn match_list_pattern(&mut self, l: &Val, inner_type: &Type
+        , lineno: i16)
     {
         match l {
             &Val::Cons(ref head, ref tail) => {
-                self.match_pattern(head, inner_type);
-                self.match_list_pattern(tail, inner_type);
+                self.match_pattern(head, inner_type, lineno);
+                self.match_list_pattern(tail, inner_type, lineno);
             }
             &Val::Id(ref idname) => {
                 let ltype = Type::StrictList(Box::new(inner_type.clone()));
-                self.bind_vartype(idname, &ltype);
+                self.bind_vartype(idname, &ltype, lineno);
             }
             &Val::Nil => {}
             &Val::Wildcard => {}
-            &Val::Loc(ref lv, _) => {
-                self.match_list_pattern(lv, inner_type);
+            &Val::Loc(ref lv, loc) => {
+                self.match_list_pattern(lv, inner_type, loc.lineno);
             }
             _ => {
                 panic!("match_list_pattern on not a list: {:?}", l);
@@ -208,13 +232,15 @@ impl<'b> Inferator<'b>
 
     pub fn mark_usage(&mut self, name: &str, loc: &SrcLoc) -> bool
     {
-        let b = self.blocks.last_mut().unwrap();
-        let opt_var_data = b.vars.get_mut(name);
-        if opt_var_data.is_none() {
-            println!("cannot mark usage on undefined var: {}", name);
-            return false;
+        let b_opt = self.blocks.iter_mut().rev().find(|iblock| {
+            iblock.vars.contains_key(name)
+        });
+        if b_opt.is_none() {
+            panic!("cannot mark usage on undefined var: {}", name);
         }
-        let mut var_data = opt_var_data.unwrap();
+        // safe to unwrap these 2 directly b/c we already found it above
+        let b = b_opt.unwrap();
+        let mut var_data = b.vars.get_mut(name).unwrap();
         if var_data.first_usage.is_some() {
             return false;
         }
@@ -250,7 +276,10 @@ impl<'b> Inferator<'b>
     pub fn var_is_in_scope(&self, name: &str) -> bool
     {
         self.blocks.iter().any(|b| {
-            b.vars.contains_key(name)
+            b.vars.get(name)
+                .map_or(false, |v| {
+                    v.assignment.is_some()
+                })
         })
     }
 
@@ -261,7 +290,7 @@ impl<'b> Inferator<'b>
             if optv.is_none() {
                 return false;
             }
-            Val::Void == optv.unwrap().failure
+            optv.unwrap().failure.is_some()
         })
     }
 
@@ -269,10 +298,12 @@ impl<'b> Inferator<'b>
     {
         for b in self.blocks.iter() {
             if b.vars.contains_key(name) {
-                let v: Option<&VarData> = b.vars.get(name);
-                if v.is_some() {
-                    return Some(&v.unwrap().failure);
+                let v_opt: Option<&VarData> = b.vars.get(name);
+                if v_opt.is_none() {
+                    continue;
                 }
+                let v: &VarData = v_opt.as_ref().unwrap();
+                return v.failure.as_ref();
             }
         }
         None
@@ -481,7 +512,7 @@ fn test_match_pattern_empty_list()
 {
     let mut t = Inferator::new("burritos");
     let tvar = Type::Var(Rc::new("Taco".to_string()));
-    t.match_pattern(&Val::Nil, &tvar);
+    t.match_pattern(&Val::Nil, &tvar, 55);
 
     assert_eq!(Type::StrictList(Box::new(Type::Unknown)),
         t.inferred_type(&tvar));
@@ -492,8 +523,8 @@ fn test_match_pattern_empty_and_full_lists()
 {
     let mut t = Inferator::new("burritos");
     let tvar = Type::Var(Rc::new("Taco".to_string()));
-    t.match_pattern(&Val::Nil, &tvar);
-    t.match_pattern(&list::singleton(Val::Int(5)), &tvar);
+    t.match_pattern(&Val::Nil, &tvar, 32);
+    t.match_pattern(&list::singleton(Val::Int(5)), &tvar, 99);
 
     assert_eq!(Type::StrictList(Box::new(Type::Int)),
         t.inferred_type(&tvar));
@@ -510,7 +541,7 @@ fn test_match_pattern_hashtag_list_inside_tuple()
         Val::hashtag("leema".to_string()),
         Val::id("tail".to_string())
     )]);
-    t.match_pattern(&listpatt, &tvar);
+    t.match_pattern(&listpatt, &tvar, 14);
 
     let exp = Type::Tuple(vec![
         Type::StrictList(Box::new(Type::Hashtag)),
