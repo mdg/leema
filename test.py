@@ -67,6 +67,12 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(0, result['code'])
         self.assertEqual(b"sum(3, 8, 2) = 13\n", result['output'])
 
+    def test_func_inc(self):
+        """Test that we can add a const to a function parameter"""
+        result = run_leema('func_inc')
+        self.assertEqual(5, result['code'])
+        self.assertEqual(b"inc(-4) == -3\n", result['output'])
+
     def test_footag_match(self):
         result = run_leema('footag_match')
         self.assertEqual(0, result['code'])
