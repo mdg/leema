@@ -476,7 +476,7 @@ mod tests {
 fn test_add_and_find()
 {
     let mut t = Inferator::new("burritos");
-    t.bind_vartype("a", &Type::Int);
+    t.bind_vartype("a", &Type::Int, 18);
     assert_eq!(Type::Int, t.vartype("a").unwrap());
 }
 

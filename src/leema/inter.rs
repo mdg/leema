@@ -798,7 +798,7 @@ fn test_scope_add_vartype()
     let argt = vec![];
     let locals = HashMap::new();
     let mut scope = Interscope::new(&proto, &imps, &locals
-        , "foo", &args, &argt);
+        , "foo", 105, &args, &argt);
     scope.T.bind_vartype("hello", &Type::Int, 17);
 
     let (scope_lvl, typ) = scope.vartype("hello").unwrap();
@@ -816,7 +816,7 @@ fn test_scope_push_block()
     let argt = vec![];
     let locals = HashMap::new();
     let mut scope = Interscope::new(&proto, &imps, &locals
-        , "foo", &args, &argt);
+        , "foo", 104, &args, &argt);
     scope.T.bind_vartype("hello", &Type::Int, 18);
     println!("add_var(hello) -> {:?}", scope);
 
@@ -856,7 +856,7 @@ fn test_new_vars_from_id_pattern()
     let argt = vec![];
     let locals = HashMap::new();
     let mut scope = Interscope::new(&proto, &imps, &locals
-        , "foo", &args, &argt);
+        , "foo", 103, &args, &argt);
 
     let mut new_vars = Vec::default();
     let patt = Val::id("x".to_string());
