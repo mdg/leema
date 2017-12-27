@@ -21,7 +21,7 @@ pub enum Source
     FieldAccess(Box<Ixpr>, i8),
     Fork(Box<Ixpr>, Box<Ixpr>, Box<Ixpr>),
     Func(Vec<Rc<String>>, Box<Ixpr>),
-    Let(Val, Box<Ixpr>, Vec<Ixpr>),
+    Let(Val, Box<Ixpr>, Vec<(Rc<String>, Ixpr)>),
     MatchFailure(Box<Ixpr>, Box<Ixpr>),
     MatchExpr(Box<Ixpr>, Box<Ixpr>),
     MatchCase(Val, Box<Ixpr>, Box<Ixpr>),

@@ -310,10 +310,13 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::Let(ref patt, ref x, ref fails) => {
             let pval = assign_pattern_registers(rt, patt);
             let mut xops = make_sub_ops(rt, x);
-            let mut failops: Vec<(Op, i16)> = fails.iter().flat_map(|f1| {
-                let ox = make_sub_ops(rt, f1);
-                ox.ops.into_iter()
-            }).collect();
+            let mut failops: Vec<(Op, i16)> =
+                fails.iter().flat_map(|&(ref fail_name, ref f1)| {
+                    rt.push_id(fail_name);
+                    let ox = make_sub_ops(rt, f1);
+                    rt.pop_id();
+                    ox.ops.into_iter()
+                }).collect();
             xops.ops.push((
                 Op::MatchPattern(rt.dst().clone(), pval, xops.dst),
                 input.line,

@@ -443,7 +443,7 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val
             vout!("new vars in let: {:?}\n", new_vars);
             scope.T.match_pattern(&cpatt, &irhs.typ, loc.lineno);
             let failed = new_vars.iter().map(|v| {
-                compile_failed_var(scope, v, loc)
+                (v.clone(), compile_failed_var(scope, v, loc))
             }).collect();
             Ixpr::new(Source::Let(
                     cpatt,

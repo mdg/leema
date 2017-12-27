@@ -65,7 +65,13 @@ impl<'a> CallFrame<'a>
             }
             Source::Let(ref lhs, ref rhs, ref failed) => {
                 self.collect_calls(rhs);
-                self.collect_calls_vec(failed)
+                // would be better to pass the iterator directly instead
+                // of creating a new vector, but I don't know how to do
+                // that right now and I'm only at this cafe for so long today
+                let fails_only = failed.iter().map(|f| {
+                    f.1.clone()
+                }).collect();
+                self.collect_calls_vec(&fails_only);
             }
             Source::StrMash(ref items) => {
                 self.collect_calls_vec(items);

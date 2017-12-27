@@ -2014,7 +2014,7 @@ impl reg::Iregistry for Env
             &Ireg::Reg(p) => {
                 if self.reg.contains_key(&p) {
                     vout!("register already set: {:?}\n", i);
-                    vout!("overwrite {:?} with {:?}\n", self.reg.get(&p), v);
+                    vout!("\toverwrite {:?}\twith {:?}\n", self.reg.get(&p), v);
                 }
                 self.reg.insert(p, v);
             }

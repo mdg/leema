@@ -8,17 +8,16 @@ func foo(x): Str ->
 func handle_nonlinear(x: Int, prop: Bool): Str ->
    let c := foo(x)
    "str interp: $c"
-   c
 
    failed c
    |#xis4 ->
       if
       |prop ->
          cout("c failed. log and propagate\n")
-         return c
+         refail(c)
       |else ->
          cout("c failed. no propagate.\n")
-         "whoa - not linear!"
+         unfail("whoa - not linear!")
       --
    |_ ->
       cout("no match on failure hashtag\n")

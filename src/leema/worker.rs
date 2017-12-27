@@ -242,10 +242,11 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
             Parent::Caller(old_code, mut pf, dst) => {
                 pf.pc += 1;
                 fbr.head = *pf;
-                vout!("return to caller: {}.{}()\n"
+                vout!("return to caller: {}::{}()\n"
                     , fbr.head.module_name()
                     , fbr.head.function_name()
                     );
+                vout!(" result: {}\n", dst);
                 self.push_fresh(ReadyFiber::Ready(fbr, old_code));
             }
             Parent::Repl(res) => {

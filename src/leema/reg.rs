@@ -237,6 +237,18 @@ impl RegTable
         }
     }
 
+    pub fn push_id(&mut self, name: &str) -> &Reg
+    {
+        let dst = self.id(name);
+        self.dstack.push(dst);
+        self.dst()
+    }
+
+    pub fn pop_id(&mut self)
+    {
+        self.dstack.pop();
+    }
+
     pub fn push_sub(&mut self) -> &Reg
     {
         let dst = self.dst().sub(0);

@@ -389,9 +389,16 @@ pub fn source_code() -> &'static str
     --
 
     macro fail(ft, msg) ->
-        ->
-            return create_failure(ft, msg)
-        --
+        return create_failure(ft, msg)
+    --
+
+    macro refail(f) ->
+        return f
+    --
+
+    ## recover from a failure w/ a new valid value
+    macro unfail(new_val) ->
+        new_val
     --
 
     func bool_not(v: Bool): Bool -RUST-
