@@ -647,7 +647,7 @@ pub fn pattern_call_fields<'a, 'b>(proto: &'a Protomod
     }
 }
 
-pub fn push_block<'a, 'b>(scope: &mut Interscope, stmts: &Val) -> Val
+pub fn push_block(scope: &mut Interscope, stmts: &Val) -> Val
 {
     let (failures, lines) = list::partition(stmts, |i| {
         sxpr::is_type(i, SxprType::MatchFailed)
@@ -723,7 +723,8 @@ pub fn compile_failed_var(scope: &mut Interscope, v: &Rc<String>, loc: &SrcLoc
         scope.T.pop_block();
         ixfailure
     } else {
-        Ixpr::noop()
+        Ixpr::new(Source::PropagateFailure(
+            v.clone(), loc.lineno), loc.lineno)
     }
 }
 

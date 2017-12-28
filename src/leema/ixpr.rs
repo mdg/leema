@@ -26,6 +26,7 @@ pub enum Source
     MatchExpr(Box<Ixpr>, Box<Ixpr>),
     MatchCase(Val, Box<Ixpr>, Box<Ixpr>),
     ModuleAccess(Rc<String>, Rc<String>),
+    PropagateFailure(Rc<String>, i16),
     RustBlock,
     Id(Rc<String>, bool, i16),
     IfExpr(Box<Ixpr>, Box<Ixpr>, Box<Ixpr>),
