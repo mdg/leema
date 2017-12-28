@@ -338,12 +338,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             let propagate = Op::PropagateFailure(src.clone(), usage_line);
             Oxpr{ ops: vec![(propagate, input.line)], dst: src }
         }
-        Source::Id(ref id, true, line) => {
-            let src = rt.id(id);
-            let propagate = Op::PropagateFailure(src.clone(), line);
-            Oxpr{ ops: vec![(propagate, input.line)], dst: src }
-        }
-        Source::Id(ref id, false, _) => {
+        Source::Id(ref id, _) => {
             let src = rt.id(id);
             Oxpr{ ops: vec![], dst: src }
         }

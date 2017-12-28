@@ -71,7 +71,7 @@ class TestScripts(unittest.TestCase):
         """Test that we can add a const to a function parameter"""
         result = run_leema('func_inc')
         self.assertEqual(5, result['code'])
-        self.assertEqual(b"inc(-4) == -3\n", result['output'])
+        self.assertEqual(b"inc(-4) = -3\n", result['output'])
 
     def test_footag_match(self):
         result = run_leema('footag_match')
@@ -158,8 +158,8 @@ class TestScripts(unittest.TestCase):
             b"Failure: #xis4\n" +
             b"Message: tacos are delicious\n" +
             b"Stack Trace:\n" +
-            b"<  main:15\n" +
-            b"<  add5:10\n" +
+            b"<  main:14\n" +
+            b"<  add5:9\n" +
             b"<> add4:3\n" +
             b" > add5:9\n" +
             b" > main:14\n" +
