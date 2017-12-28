@@ -28,7 +28,7 @@ pub enum Source
     ModuleAccess(Rc<String>, Rc<String>),
     PropagateFailure(Rc<String>, i16),
     RustBlock,
-    Id(Rc<String>, bool, i16),
+    Id(Rc<String>, i16),
     IfExpr(Box<Ixpr>, Box<Ixpr>, Box<Ixpr>),
     List(Vec<Ixpr>),
     StrMash(Vec<Ixpr>),
