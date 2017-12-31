@@ -6,7 +6,7 @@ use leema::val::{Val, Type};
 use leema::log;
 
 use std::collections::{HashMap, LinkedList};
-use std::io::{stderr, Write};
+use std::io::{Write};
 use std::rc::{Rc};
 
 
@@ -418,7 +418,7 @@ mod tests {
     use leema::loader::{Interloader};
     use leema::log;
 
-    use std::io::{stderr, Write};
+    use std::io::{Write};
 
 
 #[test]

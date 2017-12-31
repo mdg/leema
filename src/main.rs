@@ -22,7 +22,7 @@ use leema::program;
 use leema::application::{Application};
 use leema::val::{Val};
 
-use std::io::{stderr, Write};
+use std::io::{Write};
 use docopt::{Docopt};
 
 

@@ -4,7 +4,7 @@ use leema::val::{Val, Type, SrcLoc};
 
 use std::collections::{HashMap};
 use std::collections::hash_map::Keys;
-use std::io::{stderr, Write};
+use std::io::{Write};
 use std::rc::{Rc};
 
 
@@ -469,7 +469,7 @@ mod tests {
     use leema::val::{Val, Type};
 
     use std::rc::{Rc};
-    use std::io::{stderr, Write};
+    use std::io::{Write};
 
 
 #[test]

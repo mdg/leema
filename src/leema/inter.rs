@@ -10,7 +10,7 @@ use leema::val::{Val, SxprType, Type, SrcLoc};
 
 use std::collections::{HashMap};
 use std::fmt;
-use std::io::{stderr, Write};
+use std::io::{Write};
 use std::rc::{Rc};
 
 
@@ -785,7 +785,7 @@ mod tests {
     use leema::val::{Type, Val};
 
     use std::rc::{Rc};
-    use std::io::{stderr, Write};
+    use std::io::{Write};
     use std::collections::{HashMap};
 
 

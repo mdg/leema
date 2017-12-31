@@ -9,7 +9,7 @@ use std::rc::{Rc};
 use std::sync::{Arc};
 use std::mem;
 use std::fmt::{self, Debug};
-use std::io::{stderr, Write};
+use std::io::{Write};
 
 
 pub enum Parent

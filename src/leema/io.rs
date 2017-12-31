@@ -6,7 +6,7 @@ use leema::val::{Val};
 
 use std;
 use std::cell::{RefCell};
-use std::io::{stderr, Write};
+use std::io::{Write};
 use std::rc::{Rc};
 use std::sync::mpsc::{Sender, Receiver};
 use std::collections::{HashMap, LinkedList};

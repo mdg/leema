@@ -2,7 +2,7 @@ use leema::log;
 use leema::val::{Val};
 
 use std::fmt;
-use std::io::{stderr, Write};
+use std::io::{Write};
 use std::collections::{HashMap};
 use std::rc::{Rc};
 

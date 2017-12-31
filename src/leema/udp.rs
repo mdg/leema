@@ -6,7 +6,7 @@ use leema::val::{Val, Type};
 use std::net::{IpAddr, SocketAddr};
 use std::rc::{Rc};
 use std::str::{FromStr};
-use std::io::{stderr, Write};
+use std::io::{Write};
 
 use ::tokio_core::net::{UdpSocket};
 use futures::future::{Future};

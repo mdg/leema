@@ -8,7 +8,7 @@ use leema::list;
 
 use std::rc::{Rc};
 use std::mem;
-use std::io::{stderr, Write};
+use std::io::{Write};
 
 
 #[derive(Debug)]
@@ -16,26 +16,6 @@ pub struct Fiber
 {
     pub fiber_id: i64,
     pub head: Frame,
-}
-
-macro_rules! handle_value {
-    ($curf:expr, $reg:expr) => {{
-        let val_clone = $curf.head.e.get_reg($reg).clone();
-        match &val_clone {
-            &Val::Failure(_, _, ref trace) => {
-                FrameTrace::propagate_down(trace
-                    , $curf.function_name());
-                $curf.head.parent.set_result(val_clone.clone());
-                return Event::failure();
-            }
-            &Val::Future(_) => {
-                return Event::FutureWait($reg.clone())
-            }
-            _ => {
-                val_clone.clone()
-            }
-        }
-    }}
 }
 
 impl Fiber
@@ -423,8 +403,6 @@ mod tests {
     use leema::fiber::{Fiber};
     use leema::reg::{Reg};
     use leema::val::{Val};
-
-    use std::io::{stderr, Write};
 
 
 #[test]

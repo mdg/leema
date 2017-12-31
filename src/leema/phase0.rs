@@ -7,7 +7,7 @@ use leema::sxpr;
 
 use std::collections::{HashMap, HashSet, LinkedList};
 use std::rc::Rc;
-use std::io::{stderr, Write};
+use std::io::{Write};
 
 
 #[derive(Debug)]
@@ -616,7 +616,7 @@ mod tests {
     use leema::val::{Val, Type, SxprType, SrcLoc};
 
     use std::rc::{Rc};
-    use std::io::{stderr, Write};
+    use std::io::{Write};
 
 
 #[test]

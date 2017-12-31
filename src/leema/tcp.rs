@@ -7,7 +7,7 @@ use std;
 use std::net::{IpAddr, SocketAddr};
 use std::rc::{Rc};
 use std::str::{FromStr};
-use std::io::{self, stderr, Write};
+use std::io::{self, Write};
 use bytes::{BytesMut};
 use bytes::buf::{BufMut};
 

@@ -1,6 +1,7 @@
 
 static mut VERBOSE: bool = false;
 
+
 pub fn set_verbose()
 {
     unsafe {
@@ -20,11 +21,13 @@ macro_rules! vout
 {
     ($fmt:expr) => {
         if log::is_verbose() {
+            use std::io::stderr;
             write!(stderr(), $fmt).ok();
         }
     };
     ($fmt:expr, $($arg:tt)*) => {
         if log::is_verbose() {
+            use std::io::stderr;
             (write!(stderr(), $fmt, $($arg)*)).ok();
         }
     };

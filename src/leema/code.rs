@@ -7,7 +7,7 @@ use leema::frame;
 use leema::rsrc;
 
 use std::fmt;
-use std::io::{stderr, Write};
+use std::io::{Write};
 use std::rc::{Rc};
 use std::sync::Arc;
 use std::marker;

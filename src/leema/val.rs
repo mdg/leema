@@ -12,7 +12,7 @@ use std::rc::{Rc};
 use std::cmp::{PartialEq, PartialOrd, Ordering};
 use std::clone::Clone;
 use std::fmt::{Debug};
-use std::io::{stderr, Write, Error};
+use std::io::{Write, Error};
 
 use ::futures::sync::mpsc::{Receiver};
 

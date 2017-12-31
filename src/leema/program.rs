@@ -10,7 +10,7 @@ use leema::typecheck::{self, CallOp, CallFrame, Typescope, Typemod};
 use leema::val::{Type};
 use leema::{lib_str};
 
-use std::io::{Write, stderr};
+use std::io::{Write};
 use std::rc::{Rc};
 use std::collections::{HashMap, HashSet};
 

@@ -7,7 +7,7 @@ use leema::msg::{AppMsg, WorkerMsg, IoMsg};
 use leema::val::{Val};
 
 use std::collections::{HashMap, LinkedList};
-use std::io::{stderr, Write};
+use std::io::{Write};
 use std::rc::{Rc};
 use std::sync::mpsc::{Sender, Receiver};
 

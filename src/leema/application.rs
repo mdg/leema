@@ -8,7 +8,7 @@ use leema::log;
 use std::collections::{HashMap, LinkedList};
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::thread;
-use std::io::{stderr, Write};
+use std::io::{Write};
 
 
 pub struct Application

@@ -1,7 +1,6 @@
 use leema::val::{Val, SrcLoc};
 use leema::log;
 use leema::parse::{Parser, Token};
-use std::io::{stderr};
 
 /*
 #[derive(Clone)]
