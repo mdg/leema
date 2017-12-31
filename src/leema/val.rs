@@ -47,8 +47,8 @@ pub enum Type
     Hashtag,
     Tuple(Vec<Type>),
     Struct(Rc<Type>),
+    Enum(Rc<Type>),
     Failure,
-    Enum(String),
     Func(Vec<Type>, Box<Type>),
     // different from base collection/map interfaces?
     // base interface/type should probably be iterator
@@ -87,6 +87,7 @@ impl Type
             &Type::Int => Rc::new("Int".to_string()),
             &Type::Struct(ref sname) => sname.typename(),
             &Type::Id(ref name) => name.clone(),
+            &Type::Enum(ref tname) => tname.typename(),
             &Type::ModPrefix(_, _) => {
                 let str = format!("{}", self);
                 Rc::new(str)
@@ -221,7 +222,7 @@ impl fmt::Display for Type
                 write!(f, ")")
             }
             &Type::Struct(ref name) => write!(f, "{}", name),
-            &Type::Enum(ref name) => write!(f, "Enum"),
+            &Type::Enum(ref name) => write!(f, "{}", name),
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
@@ -274,7 +275,7 @@ impl fmt::Debug for Type
             &Type::Struct(ref name) => {
                 write!(f, "StructType({})", name)
             }
-            &Type::Enum(ref name) => write!(f, "Enum"),
+            &Type::Enum(ref name) => write!(f, "Enum({})", name),
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
@@ -403,6 +404,7 @@ pub enum SxprType {
     DefFunc,
     DefMacro,
     DefStruct,
+    DefEnum,
     IfExpr,
     Import,
     MatchExpr,
@@ -1655,6 +1657,31 @@ impl PartialOrd for Val
             (&Val::Tuple(ref a), &Val::Tuple(ref b)) => {
                 PartialOrd::partial_cmp(&*a, &*b)
             }
+            // struct to struct comparison
+            (&Val::Struct(ref at, ref av), &Val::Struct(ref bt, ref bv)) => {
+                match PartialOrd::partial_cmp(&*at, &*bt) {
+                    Some(Ordering::Equal) => {
+                        PartialOrd::partial_cmp(av, bv)
+                    }
+                    tcmp => tcmp,
+                }
+            }
+            // enum to enum comparison
+            (&Val::Enum(ref at, ai, ref av)
+                    , &Val::Enum(ref bt, bi, ref bv)) =>
+            {
+                match PartialOrd::partial_cmp(&*at, &*bt) {
+                    Some(Ordering::Equal) => {
+                        match PartialOrd::partial_cmp(&ai, &bi) {
+                            Some(Ordering::Equal) => {
+                                PartialOrd::partial_cmp(av, bv)
+                            }
+                            icmp => icmp,
+                        }
+                    }
+                    tcmp => tcmp,
+                }
+            }
             (&Val::TypedId(ref ida, ref typa),
                     &Val::TypedId(ref idb, ref typb)) => {
                 let cmp = PartialOrd::partial_cmp(&ida, &idb);
@@ -2106,6 +2133,103 @@ fn test_compare_true_false() {
     let f = Val::Bool(false);
     let t = Val::Bool(true);
     assert!(t > f);
+}
+
+#[test]
+fn test_struct_eq() {
+    let a =
+        Val::Struct(Type::Id(Rc::new("Taco".to_string())), vec![
+            Val::Int(3),
+            Val::Bool(false),
+        ]);
+    let b =
+        Val::Struct(Type::Id(Rc::new("Taco".to_string())), vec![
+            Val::Int(3),
+            Val::Bool(false),
+        ]);
+    assert_eq!(a, b);
+}
+
+#[test]
+fn test_struct_lt_type() {
+    let a =
+        Val::Struct(Type::Id(Rc::new("Burrito".to_string())), vec![
+            Val::Int(3),
+            Val::Bool(false),
+        ]);
+    let b =
+        Val::Struct(Type::Id(Rc::new("Taco".to_string())), vec![
+            Val::Int(3),
+            Val::Bool(false),
+        ]);
+    assert!(a < b);
+}
+
+#[test]
+fn test_struct_lt_val() {
+    let a =
+        Val::Struct(Type::Id(Rc::new("Taco".to_string())), vec![
+            Val::Bool(false),
+            Val::Int(3),
+        ]);
+    let b =
+        Val::Struct(Type::Id(Rc::new("Taco".to_string())), vec![
+            Val::Bool(false),
+            Val::Int(7),
+        ]);
+    assert!(a < b);
+}
+
+#[test]
+fn test_enum_eq() {
+    let a =
+        Val::Enum(
+            Type::Id(Rc::new("Taco".to_string())), 0, Box::new(Val::Void)
+        );
+    let b =
+        Val::Enum(
+            Type::Id(Rc::new("Taco".to_string())), 0, Box::new(Val::Void)
+        );
+    assert_eq!(a, b);
+}
+
+#[test]
+fn test_enum_lt_type() {
+    let a =
+        Val::Enum(
+            Type::Id(Rc::new("Burrito".to_string())), 0, Box::new(Val::Void)
+        );
+    let b =
+        Val::Enum(
+            Type::Id(Rc::new("Taco".to_string())), 0, Box::new(Val::Void)
+        );
+    assert!(a < b);
+}
+
+#[test]
+fn test_enum_lt_variant() {
+    let a =
+        Val::Enum(
+            Type::Id(Rc::new("Taco".to_string())), 1, Box::new(Val::Void)
+        );
+    let b =
+        Val::Enum(
+            Type::Id(Rc::new("Taco".to_string())), 2, Box::new(Val::Void)
+        );
+    assert!(a < b);
+}
+
+#[test]
+fn test_enum_lt_val() {
+    let a =
+        Val::Enum(
+            Type::Id(Rc::new("Taco".to_string())), 0, Box::new(Val::Int(5))
+        );
+    let b =
+        Val::Enum(
+            Type::Id(Rc::new("Taco".to_string())), 0, Box::new(Val::Int(9))
+        );
+    assert!(a < b);
 }
 
 #[test]

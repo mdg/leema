@@ -181,6 +181,10 @@ else	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_ELSE);
 }
+enum	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_ENUM);
+}
 failed	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_FAILED);

@@ -4,7 +4,7 @@ use leema::val::{Val, SxprType, Type, SrcLoc};
 use leema::list;
 use leema::log;
 use leema::sxpr;
-use std::io::{stderr, Write};
+use std::io::{Write};
 use std::rc::{Rc};
 }
 
@@ -21,6 +21,7 @@ use std::rc::{Rc};
 %type DBLCOLON { SrcLoc }
 %type DOUBLEDASH { SrcLoc }
 %type ELSE { SrcLoc }
+%type ENUM { SrcLoc }
 %type EQ { SrcLoc }
 %type EQ1 { SrcLoc }
 %type Fork { SrcLoc }
@@ -83,6 +84,9 @@ use std::rc::{Rc};
 %type defstruct { Val }
 %type defstruct_fields { Val }
 %type defstruct_field { Val }
+%type defenum { Val }
+%type defenum_fields { Val }
+%type defenum_field { Val }
 %type let_stmt { Val }
 %type term { Val }
 %type expr { Val }
@@ -157,6 +161,7 @@ block(A) ::= BLOCKARROW(C) stmts(B). {
 
 
 stmt(A) ::= defstruct(B). { A = B; }
+stmt(A) ::= defenum(B). { A = B; }
 stmt(A) ::= IMPORT ID(B). {
     A = sxpr::new_import(Val::id(B.data), B.loc);
 }
@@ -190,6 +195,20 @@ defstruct_fields(A) ::= . {
 }
 defstruct_field(A) ::= DOT ID(B) COLON typex(C). {
 	A = Val::typed_id(&B.data, C);
+}
+
+/** Enum Definitions */
+defenum(A) ::= ENUM(D) typex(B) defenum_fields(C) DOUBLEDASH. {
+    A = sxpr::def_enum(B, C, D);
+}
+defenum_fields(A) ::= defenum_field(B) defenum_fields(C). {
+    A = list::cons(B, C);
+}
+defenum_fields(A) ::= defenum_field(B). {
+    A = list::singleton(B);
+}
+defenum_field(A) ::= PIPE ID(B). {
+    A = Val::typed_id(&B.data, Type::Void);
 }
 
 

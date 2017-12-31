@@ -220,6 +220,17 @@ pub fn def_struct(name: Val, fields: Val, loc: SrcLoc) -> Val
     )
 }
 
+pub fn def_enum(name: Type, fields: Val, loc: SrcLoc) -> Val
+{
+    Val::Sxpr(
+        SxprType::DefEnum,
+        Rc::new(
+            list::cons(Val::Type(name), fields)
+        ),
+        loc,
+    )
+}
+
 pub fn new_import(name: Val, loc: SrcLoc) -> Val
 {
     Val::Sxpr(

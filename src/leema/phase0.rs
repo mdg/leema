@@ -18,6 +18,7 @@ pub struct Protomod
     pub funcsrc: HashMap<String, Val>,
     pub valtypes: HashMap<String, Type>,
     pub newtypes: HashSet<Type>,
+    pub constants: HashMap<String, Val>,
     pub structfields: HashMap<String, Vec<(Rc<String>, Type)>>,
 }
 
@@ -31,6 +32,7 @@ impl Protomod
             funcsrc: HashMap::new(),
             valtypes: HashMap::new(),
             newtypes: HashSet::new(),
+            constants: HashMap::new(),
             structfields: HashMap::new(),
         }
     }
@@ -67,6 +69,9 @@ impl Protomod
             }
             &Val::Sxpr(SxprType::DefStruct, ref parts, ref loc) => {
                 self.preproc_struct(parts, loc);
+            }
+            &Val::Sxpr(SxprType::DefEnum, ref parts, ref loc) => {
+                self.preproc_enum(parts, loc);
             }
             &Val::Sxpr(SxprType::DefMacro, _, ref loc) => {
                 // do nothing. the macro definition will have been handled
@@ -541,6 +546,31 @@ impl Protomod
         })
     }
 
+    pub fn preproc_enum(&mut self, sp: &Val, loc: &SrcLoc)
+    {
+        let (ref name, ref src_variants) = list::take_ref(sp);
+        let rc_name = name.id_name().clone();
+        let base_type_id = Type::Id(rc_name.clone());
+        let mod_type = Type::ModPrefix(
+            Rc::new(self.key.name.clone()),
+            Rc::new(base_type_id),
+        );
+        let mod_typename = mod_type.typename();
+
+        let etype = Type::Enum(Rc::new(mod_type));
+        for (bigi, v) in list::iter(src_variants).enumerate() {
+            let i = bigi as u8;
+            let (variant_id, vtype) = Val::split_typed_id(v);
+            let variant_name = variant_id.id_name();
+            vout!("variant_id: {:?}, variant_name: {:?}\n"
+                , variant_id, variant_name);
+            let const_val = Val::Enum(etype.clone(), i, Box::new(Val::Void));
+            self.constants.insert((*variant_name).clone(), const_val);
+        }
+
+        self.newtypes.insert(etype);
+    }
+
     pub fn preproc_type(prog: &Lib, mp: &ModulePreface, t: &Type) -> Type
     {
         match t {
@@ -613,6 +643,40 @@ fn test_preproc_list_pattern()
 
     let main_func = pmod.funcsrc.get("main").unwrap();
     assert!(sxpr::is_type(main_func, SxprType::DefFunc));
+}
+
+#[test]
+fn test_preproc_enum_colors()
+{
+    let input = String::from("
+    enum PrimaryColor
+    |Red
+    |Yellow
+    |Blue
+    --
+    ");
+
+    let mut loader = Interloader::new("colors.lma");
+    loader.set_mod_txt("colors", input);
+    let mut prog = program::Lib::new(loader);
+    let pmod = prog.read_proto("colors");
+
+    assert_eq!(0, pmod.funcsrc.len());
+
+    let expected_type =
+        Type::Enum(Rc::new(
+            Type::ModPrefix(Rc::new("colors".to_string()), Rc::new(
+                Type::Id(Rc::new("PrimaryColor".to_string()))
+            ))
+        ));
+    assert_eq!(1, pmod.newtypes.len());
+    assert!(pmod.newtypes.contains(&expected_type));
+
+    assert_eq!(3, pmod.constants.len());
+    let expected_red =
+        Val::Enum(expected_type.clone(), 0, Box::new(Val::Void));
+    let red = pmod.constants.get("Red").unwrap();
+    assert_eq!(expected_red, *red);
 }
 
 #[test]

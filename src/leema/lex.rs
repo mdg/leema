@@ -108,6 +108,9 @@ impl Token
                 parse::TOKEN_DOT => {
                     Token::DOT
                 }
+                parse::TOKEN_ENUM => {
+                    Token::ENUM(tl)
+                }
                 parse::TOKEN_RPAREN => {
                     Token::RPAREN(tl)
                 }
