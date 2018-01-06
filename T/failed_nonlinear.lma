@@ -21,6 +21,7 @@ func handle_nonlinear(x: Int, prop: Bool): Str ->
       --
    |_ ->
       cout("no match on failure hashtag\n")
+      refail(c)
    --
 --
 

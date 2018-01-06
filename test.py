@@ -167,6 +167,14 @@ class TestScripts(unittest.TestCase):
             b"\n",
             result['output'])
 
+    def test_failed_nonlinear(self):
+        result = run_leema('failed_nonlinear')
+        self.assertEqual(0, result['code'])
+        self.assertEqual(
+            b"c failed. no propagate.\n" +
+            b"d: str interp: whoa - not linear!\n",
+            result['output'])
+
     def test_destruct(self):
         result = run_leema('destruct')
         self.assertEqual(0, result['code'])
