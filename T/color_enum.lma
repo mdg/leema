@@ -1,0 +1,15 @@
+
+enum PrimaryColor
+|Red
+|Blue
+|Yellow
+--
+
+func main() ->
+    let r := PrimaryColor.Red
+    let b := PrimaryColor.Blue
+    let y := PrimaryColor.Yellow
+    cout("red: $r\n")
+    cout("blue: $b\n")
+    cout("yellow: $y\n")
+--
