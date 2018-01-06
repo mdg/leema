@@ -6,7 +6,7 @@ use leema::log;
 use leema::module::{ModKey};
 use leema::phase0::{Protomod};
 use leema::sxpr;
-use leema::val::{Val, SxprType, Type, SrcLoc};
+use leema::val::{Val, SxprType, Type, SrcLoc, TypeResult, TypeErr};
 
 use std::collections::{HashMap};
 use std::fmt;
@@ -161,9 +161,13 @@ impl<'a> Interscope<'a>
         let mut t = Inferator::new(fname);
         for (an, at) in args.iter().zip(argt) {
             vout!("bind func param as {}: {}\n", an, at);
-            if let None = t.bind_vartype(an, at, lineno) {
-                panic!("args type mismatch: {:?} != {:?}", args, argt);
-            }
+            t.bind_vartype(an, at, lineno)
+                .map_err(|e| {
+                    TypeErr::Error(Rc::new(format!(
+                        "args type mismatch: {:?} != {:?}", args, argt
+                    )))
+                })
+                .unwrap();
         }
 
         Interscope{
@@ -406,18 +410,22 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val
             let (callx, args) = list::take_ref(sx);
             let icall = compile_expr(scope, callx, loc);
             let iargs = compile_list_to_vec(scope, &*args, loc);
-            let ftype = {
+            let ftype_result = {
                 let iargst: Vec<&Type> = iargs.iter().map(|ia| {
                     &ia.typ
                 }).collect::<Vec<&Type>>();
                 scope.T.make_call_type(&icall.typ, &iargst)
+                    .map_err(|e| {
+                        TypeErr::Context(Box::new(e),
+                            Rc::new(format!(
+                                "type error in function call: {}", callx
+                            )),
+                        )
+                    })
             };
-            if ftype.is_error() {
-                panic!("type error in function call: {} {:?}", callx, ftype);
-            }
             let argsix = Ixpr::new_tuple(iargs, loc.lineno);
             Ixpr{
-                typ: ftype,
+                typ: ftype_result.unwrap(),
                 src: Source::Call(Box::new(icall), Box::new(argsix)),
                 line: loc.lineno,
             }
@@ -427,12 +435,11 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val
             let ifix = compile_expr(scope, ifx, loc);
             let itruth = compile_expr(scope, truth, loc);
             let ilies = compile_expr(scope, lies, loc);
-            let iftyp = scope.T.merge_types(&itruth.typ, &ilies.typ);
-            if iftyp.is_none() {
-                panic!("if/else types do not match: {:?} <> {:?}",
-                    itruth.typ, ilies.typ);
-            }
-            Ixpr::new_if(ifix, itruth, ilies, iftyp.unwrap())
+            let iftyp_result = scope.T.merge_types(&itruth.typ, &ilies.typ)
+                .map_err(|e| {
+                    e.add_context("if/else types do not match".to_string())
+                });
+            Ixpr::new_if(ifix, itruth, ilies, iftyp_result.unwrap())
         }
         SxprType::Let => {
             let (lhs_patt, rhs_val) = list::to_ref_tuple2(sx);
@@ -498,7 +505,7 @@ pub fn compile_matchcase(scope: &mut Interscope
         &Val::Cons(ref next, _) => {
             let inxt_inner =
                 compile_matchcase(scope, new_vars, next, xtyp, loc);
-            scope.T.merge_types(&iblk.typ, &inxt_inner.typ);
+            scope.T.merge_types(&iblk.typ, &inxt_inner.typ).unwrap();
             inxt_inner
         }
         &Val::Nil => {

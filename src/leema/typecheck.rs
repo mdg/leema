@@ -2,7 +2,7 @@
 use leema::ixpr::{Ixpr, Source};
 use leema::infer::{Inferator};
 use leema::module::{ModKey};
-use leema::val::{Val, Type};
+use leema::val::{Val, Type, TypeResult, TypeErr};
 use leema::log;
 
 use std::collections::{HashMap, LinkedList};
@@ -210,30 +210,24 @@ impl<'a, 'b> Typescope<'a, 'b>
     }
 
     pub fn typecheck_matchcase(&mut self, valtype: &Type, case: &Ixpr
-        ) -> Type
+        ) -> TypeResult
     {
         match &case.src {
             &Source::MatchCase(ref patt, ref truth, ref lies) => {
                 self.T.match_pattern(patt, valtype, case.line);
-                let ttype = typecheck_expr(self, truth);
-                let ftype = self.typecheck_matchcase(valtype, lies);
+                let ttype = typecheck_expr(self, truth).unwrap();
+                let ftype = self.typecheck_matchcase(valtype, lies).unwrap();
 
-                match self.T.merge_types(&ttype, &ftype) {
-                    Some(rtype) => rtype,
-                    None => {
-                        panic!("match case type mismatch: {:?} != {:?}"
-                            , truth, lies);
-                    }
-                }
+                self.T.merge_types(&ttype, &ftype)
             }
-            &Source::ConstVal(Val::Void) => Type::Unknown,
+            &Source::ConstVal(Val::Void) => Ok(Type::Unknown),
             _ => {
                 typecheck_expr(self, case)
             }
         }
     }
 
-    pub fn typecheck_call_func(&mut self, src: &Source) -> Type
+    pub fn typecheck_call_func(&mut self, src: &Source) -> TypeResult
     {
         match src {
             &Source::Tuple(ref items) => {
@@ -242,17 +236,17 @@ impl<'a, 'b> Typescope<'a, 'b>
                 }
                 let ref modname = items[0];
                 let ref funcname = items[1];
-                Type::Void
+                Ok(Type::Void)
             }
             &Source::ConstVal(ref fval) => {
                 match fval {
                     &Val::Tuple(ref items) => {
                         let ref modname = items[0];
                         let ref funcname = items[1];
-                        self.functype(modname.str(), funcname.str())
+                        Ok(self.functype(modname.str(), funcname.str()))
                     }
                     &Val::Str(ref strname) => {
-                        Type::Void
+                        Ok(Type::Void)
                     }
                     _ => {
                         panic!("whateval is in typecheck_call? {:?}", fval);
@@ -284,15 +278,15 @@ impl<'a, 'b> Typescope<'a, 'b>
     }
 }
 
-pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
+pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
 {
     match &ix.src {
         &Source::Call(ref func, ref args) => {
-            let tfunc = scope.typecheck_call_func(&func.src);
+            let tfunc = scope.typecheck_call_func(&func.src).unwrap();
             let mut targs = vec![];
             if let Source::Tuple(ref argstup) = args.src {
                 for a in argstup {
-                    targs.push(typecheck_expr(scope, a));
+                    targs.push(typecheck_expr(scope, a).unwrap());
                 }
             } else {
                 println!("args are not a tuple");
@@ -304,15 +298,15 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
             scope.T.make_call_type(&tfunc, &targs_ref)
         }
         &Source::ConstVal(ref cv) => {
-            ix.typ.clone()
+            Ok(ix.typ.clone())
         }
         &Source::Let(ref lhs, ref rhs, _) => {
-            let rhs_type = typecheck_expr(scope, rhs);
+            let rhs_type = typecheck_expr(scope, rhs).unwrap();
             scope.T.match_pattern(lhs, &rhs_type, ix.line);
-            Type::Void
+            Ok(Type::Void)
         }
         &Source::Block(ref elems, ref fails, _is_root) => {
-            let mut last_type = Type::Void;
+            let mut last_type = Ok(Type::Void);
             for e in elems {
                 last_type = typecheck_expr(scope, e);
             }
@@ -322,29 +316,30 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
             last_type
         }
         &Source::Id(_, _) => {
-            ix.typ.clone()
+            Ok(ix.typ.clone())
         }
         &Source::List(ref items) => {
             for i in items {
                 typecheck_expr(scope, i);
             }
-            ix.typ.clone()
+            Ok(ix.typ.clone())
         }
         &Source::Tuple(ref items) => {
             let mut tuptyp = vec![];
             for i in items {
-                tuptyp.push(typecheck_expr(scope, i));
+                tuptyp.push(typecheck_expr(scope, i).unwrap());
             }
-            Type::Tuple(tuptyp)
+            Ok(Type::Tuple(tuptyp))
         }
         &Source::IfExpr(ref cond, ref truth, ref lies) => {
-            let cond_t = typecheck_expr(scope, cond);
+            let cond_t = typecheck_expr(scope, cond).unwrap();
             scope.T.merge_types(&cond_t, &Type::Bool);
 
-            let truth_t = typecheck_expr(scope, truth);
-            let lies_t = typecheck_expr(scope, lies);
-            scope.T.merge_types(&truth_t, &lies_t);
-            truth_t
+            let truth_result = typecheck_expr(scope, truth);
+            let truth_t = truth_result.unwrap();
+            let lies_result = typecheck_expr(scope, lies);
+            let lies_t = lies_result.unwrap();
+            scope.T.merge_types(&truth_t, &lies_t)
         }
         &Source::StrMash(ref items) => {
             for i in items {
@@ -353,15 +348,19 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
                 // let it = typecheck_expr(scope, i);
                 // scope.T.match_types(&it, &Type::Str);
             }
-            Type::Str
+            Ok(Type::Str)
         }
         &Source::Func(ref _args, ref body) => {
             // typecheck_expr(scope, body)
-            panic!("unexpected func in typecheck: {:?}", body);
+            Err(TypeErr::Error(Rc::new(
+                format!("unexpected func in typecheck: {:?}", body)
+                )))
         }
         &Source::MatchExpr(ref subject, ref cases) => {
-            let subject_type = typecheck_expr(scope, subject);
-            scope.typecheck_matchcase(&subject_type, cases)
+            typecheck_expr(scope, subject)
+                .and_then(|subject_type| {
+                    scope.typecheck_matchcase(&subject_type, cases)
+                })
         }
         &Source::MatchCase(_, _, _) => {
             panic!("typecheck matchcase in a specific function: {:?}", ix);
@@ -372,7 +371,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> Type
     }
 }
 
-pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> Type
+pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
 {
     vout!("typecheck function({:?}: {:?})", scope.fname, ix.typ);
     vout!("typescope: {:?}\n", scope);
@@ -384,7 +383,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> Type
                 scope.T.bind_vartype(an, at, ix.line);
             }
             println!("f({:?}) =>\n{:?}", arg_names, body);
-            let result_type = typecheck_expr(scope, &*body);
+            let result_type = typecheck_expr(scope, &*body).unwrap();
             println!("type is: {}", result_type);
             println!("vars:");
             for var in scope.T.vars() {
@@ -394,13 +393,13 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> Type
             let final_args = arg_types.iter().map(|at| {
                 scope.T.inferred_type(at).clone()
             }).collect();
-            let final_result = scope.T
-                .merge_types(&result_type, declared_result_type)
-                .unwrap();
-            Type::Func(final_args, Box::new(final_result))
+            scope.T.merge_types(&result_type, declared_result_type)
+                .map(|final_type| {
+                    Type::Func(final_args, Box::new(final_type))
+                })
         }
         (&Source::RustBlock, _) => {
-            ix.typ.clone()
+            Ok(ix.typ.clone())
         }
         _ => {
             panic!("Cannot typecheck_function a not function: {:?}", ix);

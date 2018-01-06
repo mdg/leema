@@ -71,7 +71,6 @@ pub enum Type
     Texpr(Rc<String>, Vec<Type>),
     Var(Rc<String>),
     AnonVar,
-    Error(Rc<String>),
 }
 
 impl Type
@@ -139,17 +138,6 @@ impl Type
                 panic!("Not a Type::Var {:?}", self);
             }
         }
-    }
-
-    /**
-     * Check if this value is a type error
-     */
-    pub fn is_error(&self) -> bool
-    {
-        if let &Type::Error(_) = self {
-            return true;
-        }
-        return false;
     }
 
     pub fn tuple_items(self) -> Vec<Type>
@@ -251,7 +239,6 @@ impl fmt::Display for Type
                 write!(f, "Type::Var({})", name)
             }
             &Type::AnonVar => write!(f, "TypeAnonymous"),
-            &Type::Error(ref estr) => write!(f, "TypeError({})", estr),
         }
     }
 }
@@ -304,10 +291,46 @@ impl fmt::Debug for Type
                 write!(f, "Type::Var({})", name)
             }
             &Type::AnonVar => write!(f, "TypeAnonymous"),
-            &Type::Error(ref estr) => write!(f, "TypeError({})", estr),
         }
     }
 }
+
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+pub enum TypeErr
+{
+    Error(Rc<String>),
+    Mismatch(Type, Type),
+    Context(Box<TypeErr>, Rc<String>),
+}
+
+impl TypeErr
+{
+    pub fn add_context(self, ctx: String) -> TypeErr
+    {
+        TypeErr::Context(Box::new(self), Rc::new(ctx))
+    }
+}
+
+impl fmt::Display for TypeErr
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        match self {
+            &TypeErr::Error(ref estr) => write!(f, "TypeError({})", estr),
+            &TypeErr::Mismatch(ref a, ref b) => {
+                write!(f, "TypeMismatch({},{})", a, b)
+            }
+            &TypeErr::Context(ref inner_e, ref ctx) => {
+                write!(f, "({}, '{}')", inner_e, ctx)
+            }
+        }
+    }
+}
+
+pub type TypeResult = Result<Type, TypeErr>;
+
 
 pub trait LibVal
     : mopa::Any

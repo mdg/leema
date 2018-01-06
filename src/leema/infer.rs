@@ -1,6 +1,6 @@
 
 use leema::log;
-use leema::val::{Val, Type, SrcLoc};
+use leema::val::{Val, Type, SrcLoc, TypeResult, TypeErr};
 
 use std::collections::{HashMap};
 use std::collections::hash_map::Keys;
@@ -105,7 +105,7 @@ impl<'b> Inferator<'b>
     }
 
     pub fn bind_vartype(&mut self, argn: &str, argt: &Type, line: i16
-        ) -> Option<Type>
+        ) -> TypeResult
     {
         vout!("bind_vartype({}, {}: {:?})\n", self.funcname, argn, argt);
         let b = self.blocks.last_mut().unwrap();
@@ -133,14 +133,14 @@ impl<'b> Inferator<'b>
         };
         if !self.T.contains_key(argn) {
             self.T.insert(String::from(argn), realt.clone());
-            return Some(realt)
+            return Ok(realt)
         }
 
         let oldargt = self.T.get(argn).unwrap();
         Inferator::mash(&mut self.inferences, oldargt, &realt)
     }
 
-    pub fn merge_types(&mut self, a: &Type, b: &Type) -> Option<Type>
+    pub fn merge_types(&mut self, a: &Type, b: &Type) -> TypeResult
     {
         Inferator::mash(&mut self.inferences, a, b)
     }
@@ -198,11 +198,13 @@ impl<'b> Inferator<'b>
             }
             _ => {
                 let ptype = patt.get_type();
-                let mtype = self.merge_types(&ptype, valtype);
-                if mtype.is_none() {
-                    panic!("pattern type mismatch: {:?} != {:?}"
-                        , patt, valtype);
-                }
+                self.merge_types(&ptype, valtype)
+                    .map_err(|e| {
+                        e.add_context(format!(
+                            "pattern type mismatch: {:?}", patt
+                        ));
+                    })
+                    .unwrap();
             }
         }
     }
@@ -334,39 +336,40 @@ impl<'b> Inferator<'b>
     }
 
     fn mash(inferences: &mut HashMap<Rc<String>, Type>
-            , oldt: &Type, newt: &Type) -> Option<Type>
+        , oldt: &Type, newt: &Type
+        ) -> TypeResult
     {
         if oldt == newt {
             // all good
-            return Some(oldt.clone());
+            return Ok(oldt.clone());
         }
         vout!("mash({:?}, {:?})\n", oldt, newt);
-        let mtype = match (oldt, newt) {
+        let mtype: TypeResult = match (oldt, newt) {
             // anything is better than Unknown
-            (&Type::Unknown, _) => Some(newt.clone()),
-            (_, &Type::Unknown) => Some(oldt.clone()),
+            (&Type::Unknown, _) => Ok(newt.clone()),
+            (_, &Type::Unknown) => Ok(oldt.clone()),
             // handle variables
             (&Type::Var(ref oldtname), &Type::Var(ref newtname)) => {
                 if oldtname < newtname {
                     inferences.insert(newtname.clone(), oldt.clone());
-                    Some(oldt.clone())
+                    Ok(oldt.clone())
                 } else {
                     inferences.insert(oldtname.clone(), newt.clone());
-                    Some(newt.clone())
+                    Ok(newt.clone())
                 }
             }
             (&Type::StrictList(ref oldit), &Type::StrictList(ref newit)) => {
                 Inferator::mash(inferences, oldit, newit).and_then(|t| {
-                    Some(Type::StrictList(Box::new(t)))
+                    Ok(Type::StrictList(Box::new(t)))
                 })
             }
             (&Type::Var(ref oldtname), _) => {
                 inferences.insert(oldtname.clone(), newt.clone());
-                Some(newt.clone())
+                Ok(newt.clone())
             }
             (_, &Type::Var(ref newtname)) => {
                 inferences.insert(newtname.clone(), oldt.clone());
-                Some(oldt.clone())
+                Ok(oldt.clone())
             }
             (&Type::Tuple(ref oldi), &Type::Tuple(ref newi)) => {
                 let oldlen = oldi.len();
@@ -375,17 +378,11 @@ impl<'b> Inferator<'b>
                 }
                 let mut masht = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldi.iter().zip(newi.iter()) {
-                    match Inferator::mash(inferences, oldit, newit) {
-                        Some(mashit) => {
-                            masht.push(mashit);
-                        }
-                        None => {
-                            panic!("tuple type mismatch: {:?} != {:?}",
-                                oldt, newt);
-                        }
-                    }
+                    let mashit = Inferator::mash(inferences, oldit, newit)
+                        .expect("tuple type mismatch");
+                    masht.push(mashit);
                 }
-                Some(Type::Tuple(masht))
+                Ok(Type::Tuple(masht))
             }
             (&Type::Func(ref oldargs, ref oldresult),
                     &Type::Func(ref newargs, ref newresult)
@@ -398,35 +395,26 @@ impl<'b> Inferator<'b>
                 }
                 let mut masht = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
-                    match Inferator::mash(inferences, oldit, newit) {
-                        Some(mashit) => {
-                            masht.push(mashit);
-                        }
-                        None => {
-                            panic!("function args mismatch: {:?} != {:?}"
-                                , oldargs, newargs);
-                        }
-                    }
+                    let mashit = Inferator::mash(inferences, oldit, newit)
+                        .expect("function args mismatch");
+                    masht.push(mashit);
                 }
                 let mashresult =
-                    match Inferator::mash(inferences, oldresult, newresult) {
-                        Some(mr) => mr,
-                        None => {
-                            panic!("function result mismatch: {:?} != {:?}"
-                                , oldresult, newresult);
-                        }
-                    };
-                Some(Type::Func(masht, Box::new(mashresult)))
+                    Inferator::mash(inferences, oldresult, newresult)
+                        .expect("function result mismatch");
+                Ok(Type::Func(masht, Box::new(mashresult)))
             }
             (&Type::Struct(ref sname), _) if **sname == *newt => {
-                Some(oldt.clone())
+                Ok(oldt.clone())
             }
             (_, &Type::Struct(ref sname)) if *oldt == **sname => {
-                Some(newt.clone())
+                Ok(newt.clone())
             }
             (_, _) => {
-                println!("type mismatch: {:?} != {:?}", oldt, newt);
-                None
+                Err(TypeErr::Mismatch(
+                    oldt.clone(),
+                    newt.clone(),
+                    ))
             }
         };
         vout!("mashed to -> {:?}\n", mtype);
@@ -434,8 +422,8 @@ impl<'b> Inferator<'b>
     }
 
 
-
-    pub fn make_call_type(&mut self, ftype: &Type, argst: &Vec<&Type>) -> Type
+    pub fn make_call_type(&mut self, ftype: &Type, argst: &Vec<&Type>
+        ) -> TypeResult
     {
         let (defargst, defresult) = Type::split_func(ftype);
 
@@ -449,14 +437,15 @@ impl<'b> Inferator<'b>
         }
 
         for (defargt, argt) in defargst.iter().zip(argst.iter()) {
-            if Inferator::mash(&mut self.inferences, defargt, argt).is_none() {
-                return Type::Error(Rc::new(
-                    format!("expected function args in {}: {:?} found {:?}",
-                    self.funcname, defargst, argst)
-                ));
-            }
+            Inferator::mash(&mut self.inferences, defargt, argt)
+                .map_err(|e| {
+                    e.add_context(format!(
+                        "expected function args in {}: {:?} found {:?}",
+                        self.funcname, defargst, argst,
+                    ))
+                });
         }
-        self.inferred_type(defresult)
+        Ok(self.inferred_type(defresult))
     }
 }
 

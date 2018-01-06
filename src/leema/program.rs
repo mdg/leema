@@ -235,7 +235,7 @@ impl Lib
         }
 
         let mut scope = Typescope::new(typed, funcname, &imports);
-        typecheck::typecheck_function(&mut scope, fix)
+        typecheck::typecheck_function(&mut scope, fix).unwrap()
     }
 
     fn load_imports(&mut self, modname: &str, imports: &HashSet<String>)
