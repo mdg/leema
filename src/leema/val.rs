@@ -46,8 +46,8 @@ pub enum Type
     Bool,
     Hashtag,
     Tuple(Vec<Type>),
-    Struct(Rc<Type>),
-    Enum(Rc<Type>),
+    Struct(Rc<String>),
+    Enum(Rc<String>),
     Failure,
     Func(Vec<Type>, Box<Type>),
     // different from base collection/map interfaces?
@@ -80,13 +80,16 @@ impl Type
         Type::Func(inputs, Box::new(result))
     }
 
-    pub fn typename(&self) -> Rc<String>
+    /**
+     * Get the typename including the module
+     */
+    pub fn full_typename(&self) -> Rc<String>
     {
         match self {
             &Type::Int => Rc::new("Int".to_string()),
-            &Type::Struct(ref sname) => sname.typename(),
             &Type::Id(ref name) => name.clone(),
-            &Type::Enum(ref tname) => tname.typename(),
+            &Type::Struct(ref name) => name.clone(),
+            &Type::Enum(ref name) => name.clone(),
             &Type::ModPrefix(_, _) => {
                 let str = format!("{}", self);
                 Rc::new(str)
@@ -94,6 +97,17 @@ impl Type
             _ => {
                 panic!("No typename for {:?}", self);
             }
+        }
+    }
+
+    /**
+     * Get the typename without any module information
+     */
+    pub fn local_typename(&self) -> Rc<String>
+    {
+        match self {
+            &Type::ModPrefix(_, ref inner) => inner.local_typename(),
+            _ => self.full_typename(),
         }
     }
 
@@ -140,6 +154,22 @@ impl Type
         }
     }
 
+    /**
+     * Convert this ID type to a struct type
+     */
+    pub fn to_struct(&self) -> Type
+    {
+        match self {
+            &Type::Id(ref name) => Type::Struct(name.clone()),
+            &Type::ModPrefix(ref module, ref local) => {
+                Type::ModPrefix(module.clone(), Rc::new(local.to_struct()))
+            }
+            _ => {
+                panic!("cannot convert to struct type: {:?}", self);
+            }
+        }
+    }
+
     pub fn tuple_items(self) -> Vec<Type>
     {
         match self {
@@ -158,7 +188,10 @@ impl Type
             &Type::Int => Type::Int,
             &Type::Hashtag => Type::Hashtag,
             &Type::Struct(ref s) => {
-                Type::Struct(Rc::new(s.deep_clone()))
+                Type::Struct(Rc::new((**s).clone()))
+            }
+            &Type::Enum(ref s) => {
+                Type::Enum(Rc::new((**s).clone()))
             }
             &Type::Id(ref id) => {
                 let old_str: &str = &**id;
@@ -1328,7 +1361,7 @@ impl fmt::Display for Val {
                 Val::fmt_tuple(f, fields, false)
             }
             Val::Enum(ref name, variant, ref val) => {
-                write!(f, "Enum-{}.{}:{}", name, variant, val)
+                write!(f, "{}.{}:{}", name, variant, val)
             }
             Val::Buffer(ref buf) => {
                 write!(f, "Buffer")
@@ -1424,7 +1457,7 @@ impl fmt::Debug for Val {
                 Val::fmt_tuple(f, fields, false)
             }
             Val::Enum(ref name, variant, ref val) => {
-                write!(f, "Enum-{}.{}:{:?}", name, variant, val)
+                write!(f, "enum({}.{}:{:?})", name, variant, val)
             }
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv)
@@ -2098,6 +2131,29 @@ fn test_equal_type_str() {
 #[test]
 fn test_equal_type_int() {
     assert_eq!(Type::Int, Type::Int);
+}
+
+#[test]
+fn test_type_id_to_struct()
+{
+    let typename = Rc::new("Taco".to_string());
+    assert_eq!(
+        Type::Struct(typename.clone()),
+        Type::Id(typename.clone()).to_struct()
+    );
+}
+
+#[test]
+fn test_type_module_id_to_struct()
+{
+    let module = Rc::new("Foo".to_string());
+    let typname = Rc::new("Taco".to_string());
+    let input =
+        Type::ModPrefix(module.clone(), Rc::new(Type::Id(typname.clone())));
+    assert_eq!(
+        Type::ModPrefix(module.clone(), Rc::new(Type::Struct(typname.clone()))),
+        input.to_struct()
+    );
 }
 
 #[test]

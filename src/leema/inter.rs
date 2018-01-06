@@ -240,7 +240,23 @@ impl<'a> Interscope<'a>
 
     pub fn struct_field_idx(&self, typ: &Type, fld: &str) -> Option<(i8, &Type)>
     {
-        self.proto.struct_field_idx(typ, fld)
+        let proto = self.type_module(typ);
+        proto.struct_field_idx(&*typ.local_typename(), fld)
+    }
+
+    pub fn type_module(&self, typ: &Type) -> &Protomod
+    {
+        match typ {
+            &Type::ModPrefix(ref module, ref modtype) => {
+                if !self.imports_module(&**module) {
+                    panic!("module for type cannot be found: {}", typ);
+                }
+                self.imports.get(&**module).unwrap()
+            }
+            _ => {
+                self.proto
+            }
+        }
     }
 }
 
@@ -607,7 +623,7 @@ pub fn compile_pattern_call(scope: &mut Interscope
         scope.T.bind_vartype(arg.str(), fldtype, loc.lineno);
     }
     let calltyp = Rc::new(callx.to_type());
-    let struct_type = Type::Struct(calltyp);
+    let struct_type = calltyp.to_struct();
     Val::Struct(struct_type, args_vec.clone())
 }
 

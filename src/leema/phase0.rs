@@ -483,12 +483,11 @@ impl Protomod
     {
         let (ref name, ref src_fields) = list::take_ref(sp);
         let rc_name = name.id_name().clone();
-        let base_type_id = Type::Id(rc_name.clone());
+        let local_type = Type::Struct(rc_name.clone());
         let mod_type = Type::ModPrefix(
             Rc::new(self.key.name.clone()),
-            Rc::new(base_type_id),
+            Rc::new(local_type.clone()),
         );
-        let mod_typename = mod_type.typename();
 
         let field_type_vec = list::map_ref_to_vec(&**src_fields, |f| {
             let (fname, ftype) = Val::split_typed_id(f);
@@ -511,14 +510,12 @@ impl Protomod
                 (fname.id_name().clone(), ftype.clone())
             });
 
-        let stype = Type::Struct(Rc::new(mod_type));
+        let func_type = Type::Func(field_type_vec, Box::new(mod_type.clone()));
 
-        let func_type = Type::Func(field_type_vec, Box::new(stype.clone()));
-
-        let srcblk = Val::Struct(stype.clone(), field_id_vec);
+        let srcblk = Val::Struct(mod_type.clone(), field_id_vec);
         let srcxpr = sxpr::defunc((*name).clone()
             , (***src_fields).clone()
-            , Val::Type(stype.clone())
+            , Val::Type(mod_type.clone())
             , srcblk
             , *loc
             );
@@ -526,16 +523,18 @@ impl Protomod
         self.funcseq.push_back(rc_name.clone());
         self.funcsrc.insert((*rc_name).clone(), srcxpr);
         self.valtypes.insert((*rc_name).clone(), func_type);
-        self.structfields.insert((*mod_typename).clone(), struct_fields);
-        self.newtypes.insert(stype);
+        self.structfields.insert((*rc_name).clone(), struct_fields);
+        self.newtypes.insert(local_type);
     }
 
-    pub fn struct_field_idx(&self, typ: &Type, fld: &str) -> Option<(i8, &Type)>
+    pub fn struct_field_idx(&self, typename: &str, fld: &str
+        ) -> Option<(i8, &Type)>
     {
-        let typename = typ.typename();
-        let opt_structfields = self.structfields.get(&*typename);
+        vout!("field index for struct: {:?}.{}\n", typename, fld);
+        let opt_structfields = self.structfields.get(typename);
         if opt_structfields.is_none() {
-            panic!("cannot find struct fields for: {}", typename);
+            panic!("cannot find struct fields for: {} in {:?}"
+                , typename, self.structfields);
         }
         let structfields = opt_structfields.unwrap();
         structfields.iter().enumerate().find(|&(_, &(ref fname, _))| {
@@ -550,14 +549,12 @@ impl Protomod
     {
         let (ref name, ref src_variants) = list::take_ref(sp);
         let rc_name = name.id_name().clone();
-        let base_type_id = Type::Id(rc_name.clone());
+        let local_type = Type::Enum(rc_name.clone());
         let mod_type = Type::ModPrefix(
             Rc::new(self.key.name.clone()),
-            Rc::new(base_type_id),
+            Rc::new(local_type.clone()),
         );
-        let mod_typename = mod_type.typename();
 
-        let etype = Type::Enum(Rc::new(mod_type));
         let mut variant_fields = Vec::with_capacity(list::len(src_variants));
         for (bigi, v) in list::iter(src_variants).enumerate() {
             let i = bigi as u8;
@@ -565,15 +562,15 @@ impl Protomod
             let variant_name = variant_id.id_name();
             vout!("variant_id: {:?}, variant_name: {:?}\n"
                 , variant_id, variant_name);
-            let const_val = Val::Enum(etype.clone(), i, Box::new(Val::Void));
+            let const_val = Val::Enum(mod_type.clone(), i, Box::new(Val::Void));
             self.constants.insert((*variant_name).clone(), const_val);
-            variant_fields.push((variant_name.clone(), etype.clone()));
+            variant_fields.push((variant_name.clone(), mod_type.clone()));
         }
 
-        let typeval = Val::Type(etype.clone());
+        let typeval = Val::Type(mod_type.clone());
         self.constants.insert((*rc_name).clone(), typeval.clone());
-        self.valtypes.insert((*rc_name).clone(), etype.clone());
-        self.newtypes.insert(etype);
+        self.valtypes.insert((*rc_name).clone(), mod_type.clone());
+        self.newtypes.insert(local_type);
         self.structfields.insert((*rc_name).clone(), variant_fields);
     }
 
@@ -669,24 +666,32 @@ fn test_preproc_enum_colors()
 
     assert_eq!(0, pmod.funcsrc.len());
 
-    let expected_type =
-        Type::Enum(Rc::new(
-            Type::ModPrefix(Rc::new("colors".to_string()), Rc::new(
-                Type::Id(Rc::new("PrimaryColor".to_string()))
-            ))
-        ));
+    let modname = Rc::new("colors".to_string());
+    let local_typename = Rc::new("PrimaryColor".to_string());
+    let expected_local_type = Type::Enum(local_typename.clone());
+    let expected_full_type =
+        Type::ModPrefix(modname.clone(), Rc::new(expected_local_type.clone()));
+
     assert_eq!(1, pmod.newtypes.len());
-    assert!(pmod.newtypes.contains(&expected_type));
+    assert!(pmod.newtypes.contains(&expected_local_type));
 
     assert_eq!(4, pmod.constants.len());
     let expected_red =
-        Val::Enum(expected_type.clone(), 0, Box::new(Val::Void));
+        Val::Enum(expected_full_type.clone(), 0, Box::new(Val::Void));
     let red = pmod.constants.get("Red").unwrap();
     assert_eq!(expected_red, *red);
 
     assert_eq!(1, pmod.structfields.len());
     let color_flds = pmod.structfields.get("PrimaryColor").unwrap();
     assert_eq!(3, color_flds.len());
+    let rfld = color_flds.get(0).unwrap();
+    let yfld = color_flds.get(1).unwrap();
+    let bfld = color_flds.get(2).unwrap();
+    assert_eq!("Red", &*rfld.0);
+    assert_eq!("Yellow", &*yfld.0);
+    assert_eq!("Blue", &*bfld.0);
+
+    let rfld_idx = pmod.struct_field_idx("PrimaryColor", "Red");
 }
 
 #[test]
@@ -703,14 +708,7 @@ fn test_new_struct_newtypes()
     let loc = SrcLoc::new(8, 9);
     proto.preproc_struct(&raw_fields, &loc);
 
-    assert!(proto.newtypes.contains(
-        &Type::Struct(Rc::new(
-            Type::ModPrefix(
-                Rc::new("tacos".to_string()),
-                Rc::new(Type::Id(Rc::new("Burrito".to_string())))
-            )
-        ))
-    ));
+    assert!(proto.newtypes.contains(&Type::Struct(struct_name.clone())));
 }
 
 #[test]
@@ -727,9 +725,9 @@ fn test_new_struct_fields()
     let loc = SrcLoc::new(8, 9);
     proto.preproc_struct(&raw_fields, &loc);
 
-    assert!(proto.structfields.contains_key("tacos::Burrito"));
+    assert!(proto.structfields.contains_key("Burrito"));
 
-    let structfields = proto.structfields.get("tacos::Burrito").unwrap();
+    let structfields = proto.structfields.get("Burrito").unwrap();
     assert_eq!(2, structfields.len());
 
     let lettuce = structfields.get(0).unwrap();

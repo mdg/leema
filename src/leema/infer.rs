@@ -404,10 +404,14 @@ impl<'b> Inferator<'b>
                         .expect("function result mismatch");
                 Ok(Type::Func(masht, Box::new(mashresult)))
             }
-            (&Type::Struct(ref sname), _) if **sname == *newt => {
+            (&Type::Struct(ref oldname), &Type::Id(ref newname))
+                    if **oldname == **newname =>
+            {
                 Ok(oldt.clone())
             }
-            (_, &Type::Struct(ref sname)) if *oldt == **sname => {
+            (&Type::Id(ref oldname), &Type::Struct(ref newname))
+                    if **oldname == **newname =>
+            {
                 Ok(newt.clone())
             }
             (_, _) => {
