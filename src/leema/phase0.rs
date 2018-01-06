@@ -678,7 +678,7 @@ fn test_preproc_enum_colors()
     assert_eq!(1, pmod.newtypes.len());
     assert!(pmod.newtypes.contains(&expected_type));
 
-    assert_eq!(3, pmod.constants.len());
+    assert_eq!(4, pmod.constants.len());
     let expected_red =
         Val::Enum(expected_type.clone(), 0, Box::new(Val::Void));
     let red = pmod.constants.get("Red").unwrap();

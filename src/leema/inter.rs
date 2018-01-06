@@ -6,7 +6,7 @@ use leema::log;
 use leema::module::{ModKey};
 use leema::phase0::{Protomod};
 use leema::sxpr;
-use leema::val::{Val, SxprType, Type, SrcLoc, TypeResult, TypeErr};
+use leema::val::{Val, SxprType, Type, SrcLoc, TypeErr};
 
 use std::collections::{HashMap};
 use std::fmt;
@@ -792,7 +792,6 @@ mod tests {
     use leema::val::{Type, Val};
 
     use std::rc::{Rc};
-    use std::io::{Write};
     use std::collections::{HashMap};
 
 

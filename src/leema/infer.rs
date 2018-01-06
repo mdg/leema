@@ -443,7 +443,8 @@ impl<'b> Inferator<'b>
                         "expected function args in {}: {:?} found {:?}",
                         self.funcname, defargst, argst,
                     ))
-                });
+                })
+                .unwrap();
         }
         Ok(self.inferred_type(defresult))
     }
@@ -458,7 +459,6 @@ mod tests {
     use leema::val::{Val, Type};
 
     use std::rc::{Rc};
-    use std::io::{Write};
 
 
 #[test]
@@ -478,7 +478,7 @@ fn test_merge_strict_list_unknown()
         &Type::StrictList(Box::new(Type::Int)),
     );
 
-    assert_eq!(Some(Type::StrictList(Box::new(Type::Int))), mtype);
+    assert_eq!(Ok(Type::StrictList(Box::new(Type::Int))), mtype);
 }
 
 #[test]
@@ -490,10 +490,10 @@ fn test_merge_types_via_tvar()
     let tvar = Type::Var(Rc::new("Taco".to_string()));
 
     let mtype0 = t.merge_types(&unknownlist, &tvar);
-    assert_eq!(Some(unknownlist), mtype0);
+    assert_eq!(Ok(unknownlist), mtype0);
 
     let mtype1 = t.merge_types(&intlist, &tvar);
-    assert_eq!(Some(intlist), mtype1);
+    assert_eq!(Ok(intlist), mtype1);
 }
 
 #[test]
