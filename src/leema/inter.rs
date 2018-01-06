@@ -195,7 +195,7 @@ impl<'a> Interscope<'a>
                 if valtype_opt.is_none() {
                     vout!("cannot find variable: {} in {:?}\n",
                         name, self.T);
-                    panic!("undefined variable: {}", name);
+                    panic!("undefined variable: {} in {:?}", name, self.T);
                 }
                 Some((ScopeLevel::External, valtype_opt.unwrap().clone()))
             }

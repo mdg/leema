@@ -136,7 +136,7 @@ impl Protomod
             }
             &Val::ModPrefix(ref prefix, ref name) => {
                 if !mp.imports.contains(&**prefix) {
-                    panic!("cannot find {} module. maybe import it?");
+                    panic!("cannot find {} module. maybe import it?", prefix);
                 }
                 let ppname = Protomod::preproc_expr(prog, mp, name, loc);
                 Val::ModPrefix(prefix.clone(), Rc::new(ppname))
@@ -558,6 +558,7 @@ impl Protomod
         let mod_typename = mod_type.typename();
 
         let etype = Type::Enum(Rc::new(mod_type));
+        let mut variant_fields = Vec::with_capacity(list::len(src_variants));
         for (bigi, v) in list::iter(src_variants).enumerate() {
             let i = bigi as u8;
             let (variant_id, vtype) = Val::split_typed_id(v);
@@ -566,9 +567,14 @@ impl Protomod
                 , variant_id, variant_name);
             let const_val = Val::Enum(etype.clone(), i, Box::new(Val::Void));
             self.constants.insert((*variant_name).clone(), const_val);
+            variant_fields.push((variant_name.clone(), etype.clone()));
         }
 
+        let typeval = Val::Type(etype.clone());
+        self.constants.insert((*rc_name).clone(), typeval.clone());
+        self.valtypes.insert((*rc_name).clone(), etype.clone());
         self.newtypes.insert(etype);
+        self.structfields.insert((*rc_name).clone(), variant_fields);
     }
 
     pub fn preproc_type(prog: &Lib, mp: &ModulePreface, t: &Type) -> Type
@@ -677,6 +683,10 @@ fn test_preproc_enum_colors()
         Val::Enum(expected_type.clone(), 0, Box::new(Val::Void));
     let red = pmod.constants.get("Red").unwrap();
     assert_eq!(expected_red, *red);
+
+    assert_eq!(1, pmod.structfields.len());
+    let color_flds = pmod.structfields.get("PrimaryColor").unwrap();
+    assert_eq!(3, color_flds.len());
 }
 
 #[test]
