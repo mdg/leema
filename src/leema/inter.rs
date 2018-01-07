@@ -310,44 +310,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val, loc: &SrcLoc) -> Ixpr
 {
     match x {
         &Val::Id(ref id) => {
-            match scope.vartype(id) {
-                Some((ScopeLevel::Local, typ)) => {
-                    scope.T.mark_usage(id, loc);
-                    Ixpr{
-                        src: Source::Id(id.clone(), loc.lineno),
-                        typ: typ.clone(),
-                        line: loc.lineno,
-                    }
-                }
-                Some((ScopeLevel::Module, typ)) => {
-                    Ixpr{
-                        src: Source::ConstVal(Val::Tuple(vec![
-                            Val::Str(Rc::new(scope.proto.key.name.clone())),
-                            Val::Str(id.clone()),
-                        ])),
-                        typ: typ.clone(),
-                        line: loc.lineno,
-                    }
-                }
-                Some((ScopeLevel::External, typ)) => {
-                    // if it's external and no module prefix,
-                    // it's almost certainly prefab. probably
-                    // a better way to make this work
-                    Ixpr{
-                        src: Source::ConstVal(
-                            Val::Tuple(vec![
-                                Val::Str(Rc::new("prefab".to_string())),
-                                Val::Str(id.clone()),
-                            ])
-                        ),
-                        typ: typ.clone(),
-                        line: loc.lineno,
-                    }
-                }
-                None => {
-                    panic!("untyped variable: {} not in {:?}", id, scope);
-                }
-            }
+            compile_id(scope, id, loc)
         }
         &Val::ModPrefix(ref prefix, ref inner) => {
             if !scope.imports_module(prefix) {
@@ -500,6 +463,48 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val
         }
         _ => {
             panic!("Cannot compile sxpr: {:?} {:?}", st, sx);
+        }
+    }
+}
+
+pub fn compile_id(scope: &mut Interscope, id: &Rc<String>, loc: &SrcLoc) -> Ixpr
+{
+    match scope.vartype(&**id) {
+        Some((ScopeLevel::Local, typ)) => {
+            scope.T.mark_usage(id, loc);
+            Ixpr{
+                src: Source::Id(id.clone(), loc.lineno),
+                typ: typ.clone(),
+                line: loc.lineno,
+            }
+        }
+        Some((ScopeLevel::Module, typ)) => {
+            Ixpr{
+                src: Source::ConstVal(Val::Tuple(vec![
+                    Val::Str(Rc::new(scope.proto.key.name.clone())),
+                    Val::Str(id.clone()),
+                ])),
+                typ: typ.clone(),
+                line: loc.lineno,
+            }
+        }
+        Some((ScopeLevel::External, typ)) => {
+            // if it's external and no module prefix,
+            // it's almost certainly prefab. probably
+            // a better way to make this work
+            Ixpr{
+                src: Source::ConstVal(
+                    Val::Tuple(vec![
+                        Val::Str(Rc::new("prefab".to_string())),
+                        Val::Str(id.clone()),
+                    ])
+                ),
+                typ: typ.clone(),
+                line: loc.lineno,
+            }
+        }
+        None => {
+            panic!("untyped variable: {} not in {:?}", id, scope);
         }
     }
 }
