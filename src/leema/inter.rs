@@ -158,7 +158,7 @@ impl<'a> Interscope<'a>
             , args: &Vec<Rc<String>>, argt: &Vec<Type>
             ) -> Interscope<'a>
     {
-        let mut t = Inferator::new(fname);
+        let mut t = Inferator::new(&proto.key.name, fname);
         for (an, at) in args.iter().zip(argt) {
             vout!("bind func param as {}: {}\n", an, at);
             t.bind_vartype(an, at, lineno)

@@ -33,7 +33,7 @@ impl<'a> CallFrame<'a>
         CallFrame{
             modname: modname,
             fname: fname,
-            T: Inferator::new(fname),
+            T: Inferator::new(modname, fname),
             calls: LinkedList::new(),
         }
     }
@@ -205,7 +205,7 @@ impl<'a, 'b> Typescope<'a, 'b>
             fname: func,
             inter: inter,
             imports: imps,
-            T: Inferator::new(func),
+            T: Inferator::new(&inter.key.name, func),
         }
     }
 

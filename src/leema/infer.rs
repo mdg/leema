@@ -72,17 +72,19 @@ pub struct Inferator<'b>
     T: HashMap<String, Type>,
     blocks: Vec<Blockscope>,
     inferences: HashMap<Rc<String>, Type>,
+    module: Vec<String>,
 }
 
 impl<'b> Inferator<'b>
 {
-    pub fn new(funcname: &'b str) -> Inferator
+    pub fn new(modname: &str, funcname: &'b str) -> Inferator<'b>
     {
         Inferator{
             funcname: funcname,
             T: HashMap::new(),
             blocks: vec![Blockscope::new(HashMap::new())],
             inferences: HashMap::new(),
+            module: vec![modname.to_string()],
         }
     }
 
@@ -285,6 +287,21 @@ impl<'b> Inferator<'b>
         })
     }
 
+    pub fn current_module(&self) -> &str
+    {
+        self.module.last().unwrap()
+    }
+
+    pub fn push_module(&mut self, m: &str)
+    {
+        self.module.push(m.to_string());
+    }
+
+    pub fn pop_module(&mut self)
+    {
+        self.module.pop();
+    }
+
     pub fn handles_failure(&self, name: &str) -> bool
     {
         self.blocks.iter().any(|b| {
@@ -468,7 +485,7 @@ mod tests {
 #[test]
 fn test_add_and_find()
 {
-    let mut t = Inferator::new("burritos");
+    let mut t = Inferator::new("tacos", "burritos");
     t.bind_vartype("a", &Type::Int, 18);
     assert_eq!(Type::Int, t.vartype("a").unwrap());
 }
@@ -476,7 +493,7 @@ fn test_add_and_find()
 #[test]
 fn test_merge_strict_list_unknown()
 {
-    let mut t = Inferator::new("burritos");
+    let mut t = Inferator::new("tacos", "burritos");
     let mtype = t.merge_types(
         &Type::StrictList(Box::new(Type::Unknown)),
         &Type::StrictList(Box::new(Type::Int)),
@@ -488,7 +505,7 @@ fn test_merge_strict_list_unknown()
 #[test]
 fn test_merge_types_via_tvar()
 {
-    let mut t = Inferator::new("burritos");
+    let mut t = Inferator::new("eat", "burritos");
     let intlist = Type::StrictList(Box::new(Type::Int));
     let unknownlist = Type::StrictList(Box::new(Type::Unknown));
     let tvar = Type::Var(Rc::new("Taco".to_string()));
@@ -501,9 +518,20 @@ fn test_merge_types_via_tvar()
 }
 
 #[test]
+fn test_current_module()
+{
+    let mut t = Inferator::new("tacos", "burritos");
+    assert_eq!("tacos", t.current_module());
+    t.push_module("torta");
+    assert_eq!("torta", t.current_module());
+    t.pop_module();
+    assert_eq!("tacos", t.current_module());
+}
+
+#[test]
 fn test_match_pattern_empty_list()
 {
-    let mut t = Inferator::new("burritos");
+    let mut t = Inferator::new("eat", "burritos");
     let tvar = Type::Var(Rc::new("Taco".to_string()));
     t.match_pattern(&Val::Nil, &tvar, 55);
 
@@ -514,7 +542,7 @@ fn test_match_pattern_empty_list()
 #[test]
 fn test_match_pattern_empty_and_full_lists()
 {
-    let mut t = Inferator::new("burritos");
+    let mut t = Inferator::new("eat", "burritos");
     let tvar = Type::Var(Rc::new("Taco".to_string()));
     t.match_pattern(&Val::Nil, &tvar, 32);
     t.match_pattern(&list::singleton(Val::Int(5)), &tvar, 99);
@@ -526,7 +554,7 @@ fn test_match_pattern_empty_and_full_lists()
 #[test]
 fn test_match_pattern_hashtag_list_inside_tuple()
 {
-    let mut t = Inferator::new("burritos");
+    let mut t = Inferator::new("abc", "burritos");
     let tvar = Type::Tuple(vec![
         Type::Var(Rc::new("Taco".to_string()))
     ]);
