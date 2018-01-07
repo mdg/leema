@@ -436,23 +436,22 @@ pub fn make_constructor_ops(rt: &mut RegTable, typ: &Type, nflds: i8
     ) -> Oxpr
 {
     let dst = rt.dst();
-    let mut ops: Vec<(Op, i16)> = vec![];
-    if let &Type::Struct(_) = typ {
+    let stype = typ.to_struct();
+
+    let mut ops: Vec<(Op, i16)> = Vec::with_capacity((nflds + 1) as usize);
+    ops.push((
+        Op::Constructor(dst.clone(), stype.clone(), nflds),
+        line,
+        ));
+    let mut i = 0;
+    while i < nflds {
         ops.push((
-            Op::Constructor(dst.clone(), typ.clone(), nflds),
+            Op::Copy(dst.sub(i), Reg::param(i)),
             line,
             ));
-        let mut i = 0;
-        while i < nflds {
-            ops.push((
-                Op::Copy(dst.sub(i), Reg::param(i)),
-                line,
-                ));
-            i += 1;
-        }
-    } else {
-        panic!("Cannot construct a not type");
+        i += 1;
     }
+
     Oxpr{
         ops: ops,
         dst: dst.clone(),

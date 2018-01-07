@@ -248,10 +248,13 @@ impl<'a> Interscope<'a>
     {
         match typ {
             &Type::ModPrefix(ref module, ref modtype) => {
-                if !self.imports_module(&**module) {
+                if **module == self.proto.key.name {
+                    self.proto
+                } else if self.imports_module(&**module) {
+                    self.imports.get(&**module).unwrap()
+                } else {
                     panic!("module for type cannot be found: {}", typ);
                 }
-                self.imports.get(&**module).unwrap()
             }
             _ => {
                 self.proto

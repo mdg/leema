@@ -270,15 +270,14 @@ impl Fiber
     pub fn execute_constructor(&mut self, reg: &Reg, typ: &Type, nfields: i8
         ) -> Event
     {
-        if let &Type::Struct(_) = typ {
-            let mut fields = Vec::with_capacity(nfields as usize);
-            fields.resize(nfields as usize, Val::Void);
-            self.head.e.set_reg(reg, Val::Struct(typ.clone(), fields));
-            self.head.pc = self.head.pc + 1;
-            Event::Uneventful
-        } else {
+        if !typ.is_struct() {
             panic!("Cannot construct not structure: {:?}", typ);
         }
+        let mut fields = Vec::with_capacity(nfields as usize);
+        fields.resize(nfields as usize, Val::Void);
+        self.head.e.set_reg(reg, Val::Struct(typ.clone(), fields));
+        self.head.pc = self.head.pc + 1;
+        Event::Uneventful
     }
 
     pub fn execute_cons_list(&mut self, dst: &Reg, head: &Reg, tail: &Reg)

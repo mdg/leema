@@ -161,12 +161,25 @@ impl Type
     {
         match self {
             &Type::Id(ref name) => Type::Struct(name.clone()),
+            &Type::Struct(ref name) => Type::Struct(name.clone()),
             &Type::ModPrefix(ref module, ref local) => {
                 Type::ModPrefix(module.clone(), Rc::new(local.to_struct()))
             }
             _ => {
                 panic!("cannot convert to struct type: {:?}", self);
             }
+        }
+    }
+
+    /**
+     * Check if this type is a structure
+     */
+    pub fn is_struct(&self) -> bool
+    {
+        match self {
+            &Type::Struct(_) => true,
+            &Type::ModPrefix(_, ref local) => local.is_struct(),
+            _ => false,
         }
     }
 
@@ -317,7 +330,7 @@ impl fmt::Debug for Type
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::Id(ref name) => write!(f, "TypeId({})", name),
             &Type::ModPrefix(ref prefix, ref sub) => {
-                write!(f, "TypeId({}::{})", prefix, sub)
+                write!(f, "Module({})::{:?}", prefix, sub)
             }
             &Type::Texpr(ref base, ref args) => write!(f, "Texpr"),
             &Type::Var(ref name) => {
