@@ -316,29 +316,13 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val, loc: &SrcLoc) -> Ixpr
             if !scope.imports_module(prefix) {
                 panic!("module not found: {}", prefix);
             }
-            let inner_id = inner.to_str();
-            let opt_itype = scope.import_vartype(prefix, &*inner_id);
-            if opt_itype.is_none() {
-                panic!("module var not found: {:?}", x);
-            }
-            let itype = opt_itype.unwrap();
-            Ixpr{
-                typ: itype.clone(),
-                src: Source::ModuleAccess(
-                    prefix.clone(), inner_id.clone()
-                ),
-                line: loc.lineno,
-            }
+            scope.T.push_module(prefix.clone());
+            let mod_result = compile_expr(scope, inner, loc);
+            scope.T.pop_module();
+            mod_result
         }
         &Val::DotAccess(ref outer, ref inner) => {
-            let ix_outer = compile_expr(scope, outer, loc);
-            if let Some((inner_idx, inner_typ)) =
-                scope.struct_field_idx(&ix_outer.typ, inner)
-            {
-                Ixpr::new_field_access(ix_outer, inner_idx, inner_typ.clone())
-            } else {
-                panic!("no field: {:?}.{}", outer, inner);
-            }
+            compile_dot_access(scope, outer, inner, loc)
         }
         &Val::Bool(b) => {
             Ixpr::const_val(Val::Bool(b), loc.lineno)
@@ -469,6 +453,72 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val
 
 pub fn compile_id(scope: &mut Interscope, id: &Rc<String>, loc: &SrcLoc) -> Ixpr
 {
+    match scope.T.take_current_module() {
+        Some(modname) => {
+            compile_module_id(scope, modname, id, loc)
+        }
+        None => {
+            compile_local_id(scope, id, loc)
+        }
+    }
+}
+
+pub fn compile_local_id(scope: &mut Interscope, id: &Rc<String>, loc: &SrcLoc
+    ) -> Ixpr
+{
+    match scope.vartype(&**id) {
+        Some((ScopeLevel::Local, typ)) => {
+            scope.T.mark_usage(id, loc);
+            Ixpr{
+                src: Source::Id(id.clone(), loc.lineno),
+                typ: typ.clone(),
+                line: loc.lineno,
+            }
+        }
+        Some((ScopeLevel::Module, typ)) => {
+            if typ.is_func() {
+                Ixpr{
+                    src: Source::ConstVal(Val::Tuple(vec![
+                        Val::Str(Rc::new(scope.proto.key.name.clone())),
+                        Val::Str(id.clone()),
+                    ])),
+                    typ: typ.clone(),
+                    line: loc.lineno,
+                }
+            } else {
+                let c = scope.proto.constants.get(&**id).unwrap();
+                Ixpr{
+                    src: Source::ConstVal(c.clone()),
+                    typ: typ.clone(),
+                    line: loc.lineno,
+                }
+            }
+        }
+        Some((ScopeLevel::External, typ)) => {
+            // if it's external and no module prefix,
+            // it's almost certainly prefab. probably
+            // a better way to make this work
+            Ixpr{
+                src: Source::ConstVal(
+                    Val::Tuple(vec![
+                        Val::Str(Rc::new("prefab".to_string())),
+                        Val::Str(id.clone()),
+                    ])
+                ),
+                typ: typ.clone(),
+                line: loc.lineno,
+            }
+        }
+        None => {
+            panic!("untyped variable: {} not in {:?}", id, scope);
+        }
+    }
+}
+
+pub fn compile_module_id(scope: &mut Interscope, module: Rc<String>
+    , id: &Rc<String>, loc: &SrcLoc
+    ) -> Ixpr
+{
     match scope.vartype(&**id) {
         Some((ScopeLevel::Local, typ)) => {
             scope.T.mark_usage(id, loc);
@@ -505,6 +555,26 @@ pub fn compile_id(scope: &mut Interscope, id: &Rc<String>, loc: &SrcLoc) -> Ixpr
         }
         None => {
             panic!("untyped variable: {} not in {:?}", id, scope);
+        }
+    }
+}
+
+pub fn compile_dot_access(scope: &mut Interscope, base_val: &Val
+    , field: &Rc<String>, loc: &SrcLoc
+    ) -> Ixpr
+{
+    let ix_base = compile_expr(scope, base_val, loc);
+    if ix_base.typ.is_enum() {
+        if let &Type::Enum(ref name) = &ix_base.typ {
+        }
+        panic!("get enum variant: {}.{}", base_val, field);
+    } else {
+        if let Some((field_idx, field_typ)) =
+            scope.struct_field_idx(&ix_base.typ, field)
+        {
+            Ixpr::new_field_access(ix_base, field_idx, field_typ.clone())
+        } else {
+            panic!("no field: {:?}.{}", base_val, field);
         }
     }
 }

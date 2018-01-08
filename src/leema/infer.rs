@@ -72,7 +72,7 @@ pub struct Inferator<'b>
     T: HashMap<String, Type>,
     blocks: Vec<Blockscope>,
     inferences: HashMap<Rc<String>, Type>,
-    module: Vec<String>,
+    module: Option<Rc<String>>,
 }
 
 impl<'b> Inferator<'b>
@@ -84,7 +84,7 @@ impl<'b> Inferator<'b>
             T: HashMap::new(),
             blocks: vec![Blockscope::new(HashMap::new())],
             inferences: HashMap::new(),
-            module: vec![modname.to_string()],
+            module: None,
         }
     }
 
@@ -287,19 +287,25 @@ impl<'b> Inferator<'b>
         })
     }
 
-    pub fn current_module(&self) -> &str
+    pub fn take_current_module(&mut self) -> Option<Rc<String>>
     {
-        self.module.last().unwrap()
+        self.module.take()
     }
 
-    pub fn push_module(&mut self, m: &str)
+    pub fn push_module(&mut self, m: Rc<String>)
     {
-        self.module.push(m.to_string());
+        if self.module.is_some() {
+            panic!("cannot push {} on top of {}"
+                , m, self.module.as_ref().unwrap());
+        }
+        self.module = Some(m);
     }
 
     pub fn pop_module(&mut self)
     {
-        self.module.pop();
+        if self.module.is_none() {
+        }
+        self.module = None;
     }
 
     pub fn handles_failure(&self, name: &str) -> bool
@@ -518,14 +524,13 @@ fn test_merge_types_via_tvar()
 }
 
 #[test]
-fn test_current_module()
+fn test_take_current_module()
 {
     let mut t = Inferator::new("tacos", "burritos");
-    assert_eq!("tacos", t.current_module());
-    t.push_module("torta");
-    assert_eq!("torta", t.current_module());
-    t.pop_module();
-    assert_eq!("tacos", t.current_module());
+    assert_eq!(None, t.take_current_module());
+    t.push_module(Rc::new(String::from("torta")));
+    assert_eq!("torta", &*t.take_current_module().unwrap());
+    assert_eq!(None, t.take_current_module());
 }
 
 #[test]

@@ -288,7 +288,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::FieldAccess(ref base, fld_idx) => {
             let mut base_ops = make_sub_ops(rt, base);
             Oxpr{
-                ops: vec![],
+                ops: base_ops.ops,
                 dst: base_ops.dst.sub(fld_idx),
             }
         }
