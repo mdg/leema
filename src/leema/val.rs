@@ -123,6 +123,15 @@ impl Type
         }
     }
 
+    pub fn is_func(&self) -> bool
+    {
+        if let &Type::Func(_, _) = self {
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn is_var(&self) -> bool
     {
         match self {
@@ -179,6 +188,18 @@ impl Type
         match self {
             &Type::Struct(_) => true,
             &Type::ModPrefix(_, ref local) => local.is_struct(),
+            _ => false,
+        }
+    }
+
+    /**
+     * Check if this type is an enum
+     */
+    pub fn is_enum(&self) -> bool
+    {
+        match self {
+            &Type::Enum(_) => true,
+            &Type::ModPrefix(_, ref local) => local.is_enum(),
             _ => false,
         }
     }
