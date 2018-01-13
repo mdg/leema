@@ -528,7 +528,7 @@ impl Protomod
     }
 
     pub fn struct_field_idx(&self, typename: &str, fld: &str
-        ) -> Option<(i8, &Type)>
+        ) -> Option<(i16, &Type)>
     {
         vout!("field index for struct: {:?}.{}\n", typename, fld);
         let opt_structfields = self.structfields.get(typename);
@@ -541,7 +541,7 @@ impl Protomod
             &**fname == fld
         })
         .map(|(idx, &(_, ref ftype))| {
-            (idx as i8, ftype)
+            (idx as i16, ftype)
         })
     }
 
@@ -557,7 +557,7 @@ impl Protomod
 
         let mut variant_fields = Vec::with_capacity(list::len(src_variants));
         for (bigi, v) in list::iter(src_variants).enumerate() {
-            let i = bigi as u8;
+            let i = bigi as i16;
             let (variant_id, vtype) = Val::split_typed_id(v);
             let variant_name = variant_id.id_name();
             vout!("variant_id: {:?}, variant_name: {:?}\n"

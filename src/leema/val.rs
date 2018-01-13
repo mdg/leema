@@ -538,7 +538,7 @@ pub enum Val {
     Tuple(Vec<Val>),
     Sxpr(SxprType, Rc<Val>, SrcLoc),
     Struct(Type, Vec<Val>),
-    Enum(Type, u8, Box<Val>),
+    Enum(Type, i16, Box<Val>),
     Failure(
         Box<Val>, // tag
         Box<Val>, // msg
@@ -936,8 +936,8 @@ impl Val
             &Val::Struct(ref typ, _) => {
                 typ.clone()
             }
-            &Val::Enum(_, _, _) => {
-                panic!("cannot type enums yet");
+            &Val::Enum(ref typ, _, _) => {
+                typ.clone()
             }
             &Val::Buffer(_) => Type::Str,
             &Val::ModPrefix(_, _) => {
@@ -1094,6 +1094,9 @@ impl Val
                 Val::Struct(typ.deep_clone(), flds.iter().map(|f| {
                     f.deep_clone()
                 }).collect())
+            }
+            &Val::Enum(ref typ, idx, ref flds) => {
+                Val::Enum(typ.deep_clone(), idx, Box::new(flds.deep_clone()))
             }
             // &Val::Struct(Type, Vec<Val>),
             // &Val::Enum(Type, u8, Box<Val>),
@@ -1521,7 +1524,7 @@ impl fmt::Debug for Val {
                 write!(f, "TypedId({}, {:?})", id, typ)
             }
             Val::Type(ref t) => {
-                write!(f, "Type:{:?}", t)
+                write!(f, "TypeVal({:?})", t)
             }
             Val::Kind(c) => {
                 write!(f, "Kind{:?}", c)

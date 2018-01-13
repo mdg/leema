@@ -238,7 +238,8 @@ impl<'a> Interscope<'a>
         self.imports.contains_key(name)
     }
 
-    pub fn struct_field_idx(&self, typ: &Type, fld: &str) -> Option<(i8, &Type)>
+    pub fn struct_field_idx(&self, typ: &Type, fld: &str
+        ) -> Option<(i16, &Type)>
     {
         let proto = self.type_module(typ);
         proto.struct_field_idx(&*typ.local_typename(), fld)
@@ -567,12 +568,15 @@ pub fn compile_dot_access(scope: &mut Interscope, base_val: &Val
     if ix_base.typ.is_enum() {
         if let &Type::Enum(ref name) = &ix_base.typ {
         }
-        panic!("get enum variant: {}.{}", base_val, field);
+        let opt_variant_idx = scope.struct_field_idx(&ix_base.typ, field);
+        let variant_idx = opt_variant_idx.unwrap().0;
+        let val = Val::Enum(ix_base.typ, variant_idx, Box::new(Val::Void));
+        Ixpr::const_val(val, loc.lineno)
     } else {
         if let Some((field_idx, field_typ)) =
             scope.struct_field_idx(&ix_base.typ, field)
         {
-            Ixpr::new_field_access(ix_base, field_idx, field_typ.clone())
+            Ixpr::new_field_access(ix_base, field_idx as i8, field_typ.clone())
         } else {
             panic!("no field: {:?}.{}", base_val, field);
         }
