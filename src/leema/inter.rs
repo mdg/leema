@@ -520,42 +520,28 @@ pub fn compile_module_id(scope: &mut Interscope, module: Rc<String>
     , id: &Rc<String>, loc: &SrcLoc
     ) -> Ixpr
 {
-    match scope.vartype(&**id) {
-        Some((ScopeLevel::Local, typ)) => {
-            scope.T.mark_usage(id, loc);
-            Ixpr{
-                src: Source::Id(id.clone(), loc.lineno),
-                typ: typ.clone(),
-                line: loc.lineno,
-            }
-        }
-        Some((ScopeLevel::Module, typ)) => {
+    match scope.import_vartype(&*module, &**id) {
+        Some(typ) if typ.is_func() => {
             Ixpr{
                 src: Source::ConstVal(Val::Tuple(vec![
-                    Val::Str(Rc::new(scope.proto.key.name.clone())),
+                    Val::Str(module.clone()),
                     Val::Str(id.clone()),
                 ])),
                 typ: typ.clone(),
                 line: loc.lineno,
             }
         }
-        Some((ScopeLevel::External, typ)) => {
-            // if it's external and no module prefix,
-            // it's almost certainly prefab. probably
-            // a better way to make this work
+        Some(typ) => {
+            let mod_proto = scope.imports.get(&*module).unwrap();
+            let c = mod_proto.constants.get(&**id).unwrap();
             Ixpr{
-                src: Source::ConstVal(
-                    Val::Tuple(vec![
-                        Val::Str(Rc::new("prefab".to_string())),
-                        Val::Str(id.clone()),
-                    ])
-                ),
+                src: Source::ConstVal(c.clone()),
                 typ: typ.clone(),
                 line: loc.lineno,
             }
         }
         None => {
-            panic!("untyped variable: {} not in {:?}", id, scope);
+            panic!("undefined module id: {}::{}", module, id);
         }
     }
 }
