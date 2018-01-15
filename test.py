@@ -206,6 +206,14 @@ class TestScripts(unittest.TestCase):
         expected = b"color: rgb::Rgb(10,20,30,)\nred: 10\nblue: 30\n"
         self.assertEqual(expected, result['output'])
 
+    def test_color_enum(self):
+        result = run_leema('color_enum')
+        self.assertEqual(0, result['code'])
+        exp = b"red: color_enum::PrimaryColor.Red\n" \
+            + b"blue: color_enum::PrimaryColor.Blue\n" \
+            + b"yellow: color_enum::PrimaryColor.Yellow\n"
+        self.assertEqual(exp, result['output'])
+
     def test_read_file(self):
         result = run_leema('read_file')
         self.assertEqual(0, result['code'])

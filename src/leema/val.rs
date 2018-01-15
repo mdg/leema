@@ -1394,11 +1394,17 @@ impl fmt::Display for Val {
                 Val::fmt_tuple(f, t, false)
             }
             Val::Struct(ref name, ref fields) => {
-                write!(f, "{}", name).ok();
-                Val::fmt_tuple(f, fields, false)
+                write!(f, "{}", name)
+                    .and_then(|prev_result| {
+                        if !fields.is_empty() {
+                            Val::fmt_tuple(f, fields, false)
+                        } else {
+                            Ok(prev_result)
+                        }
+                    })
             }
-            Val::Enum(ref name, variant, ref val) => {
-                write!(f, "{}.{}:{}", name, variant, val)
+            Val::Enum(ref name, _variant_idx, ref val) => {
+                write!(f, "{}.{}", name, val)
             }
             Val::Buffer(ref buf) => {
                 write!(f, "Buffer")

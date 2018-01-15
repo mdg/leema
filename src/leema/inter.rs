@@ -552,11 +552,12 @@ pub fn compile_dot_access(scope: &mut Interscope, base_val: &Val
 {
     let ix_base = compile_expr(scope, base_val, loc);
     if ix_base.typ.is_enum() {
-        if let &Type::Enum(ref name) = &ix_base.typ {
-        }
         let opt_variant_idx = scope.struct_field_idx(&ix_base.typ, field);
         let variant_idx = opt_variant_idx.unwrap().0;
-        let val = Val::Enum(ix_base.typ, variant_idx, Box::new(Val::Void));
+        let estruct_type = Type::Struct(field.clone());
+        let estruct_val =
+            Val::Struct(estruct_type, Vec::with_capacity(0));
+        let val = Val::Enum(ix_base.typ, variant_idx, Box::new(estruct_val));
         Ixpr::const_val(val, loc.lineno)
     } else {
         if let Some((field_idx, field_typ)) =
