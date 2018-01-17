@@ -488,42 +488,51 @@ impl Protomod
             Rc::new(self.key.name.clone()),
             Rc::new(local_type.clone()),
         );
+        let num_fields = list::len(src_fields);
 
-        let field_type_vec = list::map_ref_to_vec(&**src_fields, |f| {
-            let (fname, ftype) = Val::split_typed_id(f);
-            ftype.clone()
-        });
-
-        let field_id_vec = list::map_ref_to_vec(&**src_fields, |f| {
-            let (fname, _) = Val::split_typed_id(f);
-            fname.clone()
-        });
-
-        let field_name_vec = list::map_ref_to_vec(&**src_fields, |f| {
-            let (fname, ftype) = Val::split_typed_id(f);
-            fname.id_name()
-        });
-
-        let struct_fields =
-            list::map_ref_to_vec(&**src_fields, |f| {
+        if num_fields > 0 {
+            let field_type_vec = list::map_ref_to_vec(&**src_fields, |f| {
                 let (fname, ftype) = Val::split_typed_id(f);
-                (fname.id_name().clone(), ftype.clone())
+                ftype.clone()
             });
 
-        let func_type = Type::Func(field_type_vec, Box::new(mod_type.clone()));
+            let field_id_vec = list::map_ref_to_vec(&**src_fields, |f| {
+                let (fname, _) = Val::split_typed_id(f);
+                fname.clone()
+            });
 
-        let srcblk = Val::Struct(mod_type.clone(), field_id_vec);
-        let srcxpr = sxpr::defunc((*name).clone()
-            , (***src_fields).clone()
-            , Val::Type(mod_type.clone())
-            , srcblk
-            , *loc
-            );
+            let field_name_vec = list::map_ref_to_vec(&**src_fields, |f| {
+                let (fname, ftype) = Val::split_typed_id(f);
+                fname.id_name()
+            });
 
-        self.funcseq.push_back(rc_name.clone());
-        self.funcsrc.insert((*rc_name).clone(), srcxpr);
-        self.valtypes.insert((*rc_name).clone(), func_type);
-        self.structfields.insert((*rc_name).clone(), struct_fields);
+            let struct_fields =
+                list::map_ref_to_vec(&**src_fields, |f| {
+                    let (fname, ftype) = Val::split_typed_id(f);
+                    (fname.id_name().clone(), ftype.clone())
+                });
+
+            let func_type =
+                Type::Func(field_type_vec, Box::new(mod_type.clone()));
+
+            let srcblk = Val::Struct(mod_type.clone(), field_id_vec);
+            let srcxpr = sxpr::defunc((*name).clone()
+                , (***src_fields).clone()
+                , Val::Type(mod_type.clone())
+                , srcblk
+                , *loc
+                );
+
+            self.funcseq.push_back(rc_name.clone());
+            self.funcsrc.insert((*rc_name).clone(), srcxpr);
+            self.valtypes.insert((*rc_name).clone(), func_type);
+            self.structfields.insert((*rc_name).clone(), struct_fields);
+        } else {
+            // an empty struct is stored as a constant with no constructor
+            self.valtypes.insert((*rc_name).clone(), mod_type.clone());
+            let constval = Val::Struct(mod_type.clone(), Vec::with_capacity(0));
+            self.constants.insert((*rc_name).clone(), constval);
+        }
         self.newtypes.insert(local_type);
     }
 

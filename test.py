@@ -206,6 +206,12 @@ class TestScripts(unittest.TestCase):
         expected = b"color: rgb::Rgb(10,20,30,)\nred: 10\nblue: 30\n"
         self.assertEqual(expected, result['output'])
 
+    def test_empty_struct(self):
+        result = run_leema('empty_struct')
+        self.assertEqual(0, result['code'])
+        expected = b"empty: empty_struct::Empty\n"
+        self.assertEqual(expected, result['output'])
+
     def test_color_enum(self):
         result = run_leema('color_enum')
         self.assertEqual(0, result['code'])
