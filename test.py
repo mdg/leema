@@ -214,6 +214,12 @@ class TestScripts(unittest.TestCase):
             + b"yellow: color_enum::PrimaryColor.Yellow\n"
         self.assertEqual(exp, result['output'])
 
+    def test_option(self):
+        result = run_leema('option_test')
+        self.assertEqual(0, result['code'])
+        exp = b"option a? option::Option.None\n"
+        self.assertEqual(exp, result['output'])
+
     def test_read_file(self):
         result = run_leema('read_file')
         self.assertEqual(0, result['code'])

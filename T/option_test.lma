@@ -1,0 +1,9 @@
+
+## test that enums with parameters work, like Option.Some(5)
+
+import option
+
+func main() ->
+    let option_a := option::Option.None
+    cout("option a? $option_a\n")
+--

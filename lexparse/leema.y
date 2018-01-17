@@ -210,6 +210,9 @@ defenum_fields(A) ::= defenum_field(B). {
 defenum_field(A) ::= PIPE ID(B). {
     A = Val::typed_id(&B.data, Type::Void);
 }
+defenum_field(A) ::= PIPE ID(B) PARENCALL dfunc_args(C) RPAREN. {
+    A = Val::typed_id(&B.data, Type::Void);
+}
 
 
 failed_stmt(A) ::= FAILED ID(B) match_case(C) DOUBLEDASH. {
