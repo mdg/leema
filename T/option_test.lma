@@ -6,4 +6,6 @@ import option
 func main() ->
     let option_a := option::Option.None
     cout("option a? $option_a\n")
+    let option_b := option::Option.Some(5)
+    cout("option b? $option_b\n")
 --

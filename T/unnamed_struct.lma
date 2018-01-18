@@ -1,0 +1,15 @@
+
+struct Unnamed
+.#
+.Int
+.Str
+--
+
+func main() ->
+    let u := Unnamed(#hello, 5, "worlds")
+    cout("u: $u\n")
+    cout("u.0: $u.0\n")
+    cout("u.1: $u.1\n")
+    cout("u.2: $u.2\n")
+--
+

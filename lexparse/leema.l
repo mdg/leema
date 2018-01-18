@@ -327,6 +327,9 @@ ${ID}	{
 <STREXPR>{ID}	{
 	return set_token_val(yyg, TOKEN_ID, yytext);
 }
+<STREXPR>{INT}	{
+	return set_token_val(yyg, TOKEN_INT, yytext);
+}
 <STREXPR>"."	{
 	return set_token(yyg, TOKEN_DOT);
 }

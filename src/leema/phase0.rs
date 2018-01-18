@@ -501,11 +501,6 @@ impl Protomod
                 fname.clone()
             });
 
-            let field_name_vec = list::map_ref_to_vec(&**src_fields, |f| {
-                let (fname, ftype) = Val::split_typed_id(f);
-                fname.id_name()
-            });
-
             let struct_fields =
                 list::map_ref_to_vec(&**src_fields, |f| {
                     let (fname, ftype) = Val::split_typed_id(f);
