@@ -506,7 +506,7 @@ fn test_parse_defstruct()
     let expected = sxpr::new_block(
         list::singleton(sxpr::new(
             SxprType::DefStruct,
-            list::cons(Val::Type(Type::Id(Rc::new("Taco".to_string()))),
+            list::cons(Val::Id(Rc::new("Taco".to_string())),
                 list::cons(Val::TypedId(Rc::new("id".to_string()), Type::Int),
                 list::cons(Val::TypedId(Rc::new("name".to_string()), Type::Str),
                 Val::Nil,

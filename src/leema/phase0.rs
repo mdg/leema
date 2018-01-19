@@ -562,13 +562,15 @@ impl Protomod
         let mut variant_fields = Vec::with_capacity(list::len(src_variants));
         for (bigi, v) in list::iter(src_variants).enumerate() {
             let i = bigi as i16;
+            let (st, ref sx, ref sloc) = sxpr::split_ref(v);
+            self.preproc_struct(sx, loc);
+            //variant_fields.push((variant_name.clone(), mod_type.clone()));
             let (variant_id, vtype) = Val::split_typed_id(v);
             let variant_name = variant_id.id_name();
             vout!("variant_id: {:?}, variant_name: {:?}\n"
                 , variant_id, variant_name);
             let const_val = Val::Enum(mod_type.clone(), i, Box::new(Val::Void));
             self.constants.insert((*variant_name).clone(), const_val);
-            variant_fields.push((variant_name.clone(), mod_type.clone()));
         }
 
         let typeval = Val::Type(mod_type.clone());
@@ -766,6 +768,21 @@ fn test_new_struct_constructor_valtype()
     } else {
         panic!("constructor valtype is not a func");
     }
+}
+
+#[test]
+fn test_preproc_empty_constructor()
+{
+    let input = String::from("
+    struct Empty --
+    ");
+
+    let mut loader = Interloader::new("empty.lma");
+    loader.set_mod_txt("empty", input);
+    let mut prog = program::Lib::new(loader);
+    let pmod = prog.read_proto("empty");
+
+    assert!(pmod.constants.contains_key("Empty"));
 }
 
 }

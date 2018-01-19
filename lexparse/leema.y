@@ -184,8 +184,8 @@ stmt(A) ::= RETURN(C) expr(B). {
 
 
 /** Data Structures */
-defstruct(A) ::= STRUCT(D) typex(B) defstruct_fields(C) DOUBLEDASH. {
-    A = sxpr::def_struct(Val::Type(B), C, D);
+defstruct(A) ::= STRUCT(D) ID(B) defstruct_fields(C) DOUBLEDASH. {
+    A = sxpr::def_struct(B.data, C, D);
 }
 defstruct_fields(A) ::= defstruct_field(B) defstruct_fields(C). {
 	A = list::cons(B, C);
@@ -196,22 +196,22 @@ defstruct_fields(A) ::= . {
 defstruct_field(A) ::= DOT ID(B) COLON typex(C). {
 	A = Val::typed_id(&B.data, C);
 }
+defstruct_field(A) ::= DOT typex(C). {
+	A = Val::Type(C);
+}
 
 /** Enum Definitions */
-defenum(A) ::= ENUM(D) typex(B) defenum_fields(C) DOUBLEDASH. {
-    A = sxpr::def_enum(B, C, D);
-}
-defenum_fields(A) ::= defenum_field(B) defenum_fields(C). {
-    A = list::cons(B, C);
+defenum(A) ::= ENUM(D) ID(B) defenum_fields(C) DOUBLEDASH. {
+    A = sxpr::def_enum(B.data, C, D);
 }
 defenum_fields(A) ::= defenum_field(B). {
     A = list::singleton(B);
 }
-defenum_field(A) ::= PIPE ID(B). {
-    A = Val::typed_id(&B.data, Type::Void);
+defenum_fields(A) ::= defenum_field(B) defenum_fields(C). {
+    A = list::cons(B, C);
 }
-defenum_field(A) ::= PIPE ID(B) PARENCALL dfunc_args(C) RPAREN. {
-    A = Val::typed_id(&B.data, Type::Void);
+defenum_field(A) ::= PIPE(D) ID(B) defstruct_fields(C). {
+    A = sxpr::def_struct(B.data, C, B.loc);
 }
 
 

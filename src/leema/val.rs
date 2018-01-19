@@ -797,6 +797,7 @@ impl Val
                 Val::Id(tid.clone()),
                 typ.clone(),
             ),
+            &Val::Type(ref typ) => (Val::Void, typ.clone()),
             &Val::Loc(ref v, _) => v.split_typed_id(),
             _ => {
                 panic!("not a TypedId: {:?}", self);
@@ -1262,9 +1263,12 @@ impl Val
                 write!(f, "DefMacro({},{:?},{:?})", name, args, body)
             }
             (SxprType::DefStruct, ref ds) => {
-                let (name, m2) = list::take_ref(ds);
-                let (fields, _) = list::take_ref(&*m2);
-                write!(f, "struct({},{:?})", name, fields)
+                let (name, struct_fields) = list::take_ref(ds);
+                write!(f, "defstruct({}", name).ok();
+                if !dbg || !list::is_empty(struct_fields) {
+                    write!(f, ",{:?}", struct_fields).ok();
+                }
+                write!(f, ")")
             }
             (SxprType::Import, ref filelist) => {
                 let file = list::head_ref(filelist);

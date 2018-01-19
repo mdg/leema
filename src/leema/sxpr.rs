@@ -209,23 +209,29 @@ pub fn defunc_type(defunc: &Val) -> Type
     Type::Func(argt, Box::new(tresult))
 }
 
-pub fn def_struct(name: Val, fields: Val, loc: SrcLoc) -> Val
+pub fn def_struct(name: String, fields: Val, loc: SrcLoc) -> Val
 {
+    if !fields.is_list() {
+        panic!("cannot def_struct with fields not a list: {:?}", fields);
+    }
     Val::Sxpr(
         SxprType::DefStruct,
         Rc::new(
-            list::cons(name, fields)
+            list::cons(Val::id(name), fields)
         ),
         loc,
     )
 }
 
-pub fn def_enum(name: Type, fields: Val, loc: SrcLoc) -> Val
+pub fn def_enum(name: String, variants: Val, loc: SrcLoc) -> Val
 {
+    if !variants.is_list() {
+        panic!("cannot def_enum with variants not a list: {:?}", variants);
+    }
     Val::Sxpr(
         SxprType::DefEnum,
         Rc::new(
-            list::cons(Val::Type(name), fields)
+            list::cons(Val::id(name), variants)
         ),
         loc,
     )
