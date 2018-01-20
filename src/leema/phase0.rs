@@ -491,21 +491,23 @@ impl Protomod
         let num_fields = list::len(src_fields);
 
         if num_fields > 0 {
-            let field_type_vec = list::map_ref_to_vec(&**src_fields, |f| {
-                let (fname, ftype) = Val::split_typed_id(f);
-                ftype.clone()
-            });
+            let field_type_vec: Vec<Type> =
+                list::iter(&**src_fields).enumerate().map(|(i, f)| {
+                    let (_, ftype) = Protomod::split_typed_id(f, i as i8);
+                    ftype.clone()
+                }).collect();
 
-            let field_id_vec = list::map_ref_to_vec(&**src_fields, |f| {
-                let (fname, _) = Val::split_typed_id(f);
-                fname.clone()
-            });
+            let struct_fields: Vec<(Rc<String>, Type)> =
+                list::iter(&**src_fields).enumerate().map(|(i, f)| {
+                    let (fname, ftype) = Protomod::split_typed_id(f, i as i8);
+                    (fname.id_name(), ftype.clone())
+                }).collect();
 
-            let struct_fields =
-                list::map_ref_to_vec(&**src_fields, |f| {
-                    let (fname, ftype) = Val::split_typed_id(f);
-                    (fname.id_name().clone(), ftype.clone())
-                });
+            let field_id_vec: Vec<Val> =
+                list::iter(&**src_fields).enumerate().map(|(i, f)| {
+                    let (fname, _) = Protomod::split_typed_id(f, i as i8);
+                    fname
+                }).collect();
 
             let func_type =
                 Type::Func(field_type_vec, Box::new(mod_type.clone()));
@@ -542,7 +544,7 @@ impl Protomod
         }
         let structfields = opt_structfields.unwrap();
         structfields.iter().enumerate().find(|&(_, &(ref fname, _))| {
-            &**fname == fld
+            **fname == *fld
         })
         .map(|(idx, &(_, ref ftype))| {
             (idx as i16, ftype)
@@ -583,21 +585,23 @@ impl Protomod
         let num_fields = list::len(src_fields);
 
         if num_fields > 0 {
-            let field_type_vec = list::map_ref_to_vec(&**src_fields, |f| {
-                let (fname, ftype) = Val::split_typed_id(f);
-                ftype.clone()
-            });
+            let field_type_vec =
+                list::iter(&**src_fields).enumerate().map(|(i, f)| {
+                    let (fname, ftype) = Protomod::split_typed_id(f, i as i8);
+                    ftype.clone()
+                }).collect();
 
-            let field_id_vec = list::map_ref_to_vec(&**src_fields, |f| {
-                let (fname, _) = Val::split_typed_id(f);
-                fname.clone()
-            });
+            let field_id_vec =
+                list::iter(&**src_fields).enumerate().map(|(i, f)| {
+                    let (fname, _) = Protomod::split_typed_id(f, i as i8);
+                    fname.clone()
+                }).collect();
 
             let struct_fields =
-                list::map_ref_to_vec(&**src_fields, |f| {
-                    let (fname, ftype) = Val::split_typed_id(f);
+                list::iter(&**src_fields).enumerate().map(|(i, f)| {
+                    let (fname, ftype) = Protomod::split_typed_id(f, i as i8);
                     (fname.id_name().clone(), ftype.clone())
-                });
+                }).collect();
 
             let func_type =
                 Type::Func(field_type_vec, Box::new(enum_type.clone()));
@@ -635,6 +639,22 @@ impl Protomod
             }
             _ => {
                 t.clone()
+            }
+        }
+    }
+
+    pub fn split_typed_id(v: &Val, fld_idx: i8) -> (Val, Type)
+    {
+        match v {
+            &Val::Id(ref id) => (v.clone(), Type::AnonVar),
+            &Val::TypedId(ref tid, ref typ) => (
+                Val::Id(tid.clone()),
+                typ.clone(),
+            ),
+            &Val::Type(ref typ) => (Val::ParamIndex(fld_idx), typ.clone()),
+            &Val::Loc(ref v, _) => Protomod::split_typed_id(v, fld_idx),
+            _ => {
+                panic!("not a TypedId: {:?}", v);
             }
         }
     }

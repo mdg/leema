@@ -546,6 +546,7 @@ pub enum Val {
         i8, // status
     ),
     Id(Rc<String>),
+    ParamIndex(i8),
     ModPrefix(Rc<String>, Rc<Val>),
     TypedId(Rc<String>, Type),
     Type(Type),
@@ -789,22 +790,6 @@ impl Val
         }
     }
 
-    pub fn split_typed_id(&self) -> (Val, Type)
-    {
-        match self {
-            &Val::Id(ref id) => (self.clone(), Type::AnonVar),
-            &Val::TypedId(ref tid, ref typ) => (
-                Val::Id(tid.clone()),
-                typ.clone(),
-            ),
-            &Val::Type(ref typ) => (Val::Void, typ.clone()),
-            &Val::Loc(ref v, _) => v.split_typed_id(),
-            _ => {
-                panic!("not a TypedId: {:?}", self);
-            }
-        }
-    }
-
     pub fn future(ready: Arc<AtomicBool>, r: Receiver<MsgVal>) -> Val
     {
         Val::Future(FutureVal(ready, Arc::new(Mutex::new(r))))
@@ -916,6 +901,7 @@ impl Val
             &Val::Wildcard => Type::Unknown,
             &Val::PatternVar(_) => Type::Unknown,
             &Val::Id(_) => Type::AnonVar,
+            &Val::ParamIndex(_) => Type::AnonVar,
             &Val::TypedId(_, ref typ) => typ.clone(),
             &Val::Sxpr(SxprType::DefFunc, _, _) => sxpr::defunc_type(self),
             &Val::Sxpr(SxprType::StrExpr, _, _) => Type::Str,
@@ -1437,6 +1423,9 @@ impl fmt::Display for Val {
             Val::Id(ref name) => {
                 write!(f, "{}", name)
             }
+            Val::ParamIndex(idx) => {
+                write!(f, "Param{}", idx)
+            }
             Val::TypedId(ref name, ref typ) => {
                 write!(f, "{}:{}", name, typ)
             }
@@ -1529,6 +1518,9 @@ impl fmt::Debug for Val {
             }
             Val::Id(ref id) => {
                 write!(f, "Id({})", id)
+            }
+            Val::ParamIndex(idx) => {
+                write!(f, "Param{}", idx)
             }
             Val::TypedId(ref id, ref typ) => {
                 write!(f, "TypedId({}, {:?})", id, typ)
