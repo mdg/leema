@@ -1895,6 +1895,18 @@ impl PartialOrd for Val
             (_, &Val::Cons(_, _)) => {
                 Some(Ordering::Greater)
             }
+            (&Val::Struct(_, _), _) => {
+                Some(Ordering::Less)
+            }
+            (_, &Val::Struct(_, _)) => {
+                Some(Ordering::Greater)
+            }
+            (&Val::Enum(_, _, _), _) => {
+                Some(Ordering::Less)
+            }
+            (_, &Val::Enum(_, _, _)) => {
+                Some(Ordering::Greater)
+            }
             (&Val::Void, _) => {
                 Some(Ordering::Less)
             }
@@ -1908,7 +1920,7 @@ impl PartialOrd for Val
             (&Val::Wildcard, _) => Some(Ordering::Less),
             (_, &Val::Wildcard) => Some(Ordering::Greater),
             _ => {
-                panic!("can't compare({:?},{:?})", self, other);
+                panic!("cannot compare({:?},{:?})", self, other);
             }
         }
     }
@@ -2364,10 +2376,27 @@ fn test_compare_across_types() {
     let t = Val::Bool(true);
     let i = Val::Int(7);
     let s = Val::new_str("hello".to_string());
+    let strct = Val::Struct(
+        Type::Struct(Rc::new("Foo".to_string())),
+        vec![Val::Int(2), Val::Bool(true)],
+    );
+    let enm = Val::Enum(
+        Type::Enum(Rc::new("Taco".to_string())),
+        1,
+        Box::new(Val::Struct(
+            Type::Struct(Rc::new("Burrito".to_string())),
+            vec![Val::Int(8), Val::Int(6)],
+        ))
+    );
 
     assert!(f < t);
     assert!(t < i);
     assert!(i < s);
+    assert!(i < strct);
+    assert!(i < enm);
+    assert!(strct < enm);
+    assert!(strct < Val::Wildcard);
+    assert!(enm < Val::Wildcard);
 }
 
 #[test]

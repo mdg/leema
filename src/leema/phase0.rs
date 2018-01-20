@@ -563,14 +563,8 @@ impl Protomod
         for (bigi, v) in list::iter(src_variants).enumerate() {
             let i = bigi as i16;
             let (st, ref sx, ref sloc) = sxpr::split_ref(v);
-            self.preproc_struct(sx, loc);
-            //variant_fields.push((variant_name.clone(), mod_type.clone()));
-            let (variant_id, vtype) = Val::split_typed_id(v);
-            let variant_name = variant_id.id_name();
-            vout!("variant_id: {:?}, variant_name: {:?}\n"
-                , variant_id, variant_name);
-            let const_val = Val::Enum(mod_type.clone(), i, Box::new(Val::Void));
-            self.constants.insert((*variant_name).clone(), const_val);
+            let variant_name = self.preproc_enum_struct(&mod_type, sx, i, loc);
+            variant_fields.push((variant_name, mod_type.clone()));
         }
 
         let typeval = Val::Type(mod_type.clone());
@@ -578,6 +572,58 @@ impl Protomod
         self.valtypes.insert((*rc_name).clone(), mod_type.clone());
         self.newtypes.insert(local_type);
         self.structfields.insert((*rc_name).clone(), variant_fields);
+    }
+
+    pub fn preproc_enum_struct(&mut self, enum_type: &Type, sp: &Val
+        , idx: i16, loc: &SrcLoc
+        ) -> Rc<String>
+    {
+        let (ref name, ref src_fields) = list::take_ref(sp);
+        let rc_name = name.id_name().clone();
+        let num_fields = list::len(src_fields);
+
+        if num_fields > 0 {
+            let field_type_vec = list::map_ref_to_vec(&**src_fields, |f| {
+                let (fname, ftype) = Val::split_typed_id(f);
+                ftype.clone()
+            });
+
+            let field_id_vec = list::map_ref_to_vec(&**src_fields, |f| {
+                let (fname, _) = Val::split_typed_id(f);
+                fname.clone()
+            });
+
+            let struct_fields =
+                list::map_ref_to_vec(&**src_fields, |f| {
+                    let (fname, ftype) = Val::split_typed_id(f);
+                    (fname.id_name().clone(), ftype.clone())
+                });
+
+            let func_type =
+                Type::Func(field_type_vec, Box::new(enum_type.clone()));
+
+            let srcblk = Val::Struct(enum_type.clone(), field_id_vec);
+            let srcxpr = sxpr::defunc((*name).clone()
+                , (***src_fields).clone()
+                , Val::Type(enum_type.clone())
+                , srcblk
+                , *loc
+                );
+
+            self.funcseq.push_back(rc_name.clone());
+            self.funcsrc.insert((*rc_name).clone(), srcxpr);
+            self.valtypes.insert((*rc_name).clone(), func_type);
+            self.structfields.insert((*rc_name).clone(), struct_fields);
+        } else {
+            // an empty struct is stored as a constant with no constructor
+            self.valtypes.insert((*rc_name).clone(), enum_type.clone());
+            let construct =
+                Val::Struct(enum_type.clone(), Vec::with_capacity(0));
+            let enumval =
+                Val::Enum(enum_type.clone(), idx, Box::new(construct));
+            self.constants.insert((*rc_name).clone(), enumval);
+        }
+        rc_name
     }
 
     pub fn preproc_type(prog: &Lib, mp: &ModulePreface, t: &Type) -> Type
@@ -682,8 +728,10 @@ fn test_preproc_enum_colors()
     assert!(pmod.newtypes.contains(&expected_local_type));
 
     assert_eq!(4, pmod.constants.len());
+    let expected_struct =
+        Val::Struct(expected_full_type.clone(), Vec::with_capacity(0));
     let expected_red =
-        Val::Enum(expected_full_type.clone(), 0, Box::new(Val::Void));
+        Val::Enum(expected_full_type.clone(), 0, Box::new(expected_struct));
     let red = pmod.constants.get("Red").unwrap();
     assert_eq!(expected_red, *red);
 
