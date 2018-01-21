@@ -4,7 +4,7 @@ use leema::infer::{Inferator};
 use leema::list;
 use leema::log;
 use leema::module::{ModKey};
-use leema::phase0::{Protomod};
+use leema::phase0::{Protomod, StructFieldMap};
 use leema::sxpr;
 use leema::val::{Val, SxprType, Type, SrcLoc, TypeErr};
 
@@ -681,15 +681,15 @@ pub fn compile_pattern_call(scope: &mut Interscope
     let args_vec = list::map_ref_to_vec(&*args, |a| {
         compile_pattern(scope, new_vars, a)
     });
-    if args_vec.len() < struct_flds.len() {
+    let args_len = args_vec.len() as i16;
+    if args_len < struct_flds.len() {
         panic!("too few fields in struct pattern for: {}", callx.str());
     }
-    if args_vec.len() > struct_flds.len() {
+    if args_len > struct_flds.len() {
         panic!("too many fields in struct pattern for: {}", callx.str());
     }
-    for (arg, fld) in args_vec.iter().zip(struct_flds.iter()) {
-        let &(_, ref fldtype) = fld;
-        scope.T.bind_vartype(arg.str(), fldtype, loc.lineno);
+    for (arg, fldtype) in args_vec.iter().zip(struct_flds.types()) {
+        scope.T.bind_vartype(arg.str(), &fldtype, loc.lineno);
     }
     let calltyp = Rc::new(callx.to_type());
     let struct_type = calltyp.to_struct();
@@ -698,7 +698,7 @@ pub fn compile_pattern_call(scope: &mut Interscope
 
 pub fn pattern_call_fields<'a, 'b>(proto: &'a Protomod
     , imports: &'a HashMap<String, Rc<Protomod>>, callx: &'b Val
-    ) -> &'a Vec<(Rc<String>, Type)>
+    ) -> &'a StructFieldMap
 {
     match callx {
         &Val::Id(ref name) => {

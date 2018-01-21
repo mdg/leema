@@ -8,6 +8,73 @@ use leema::sxpr;
 use std::collections::{HashMap, HashSet, LinkedList};
 use std::rc::Rc;
 use std::io::{Write};
+use std::slice;
+
+
+#[derive(Debug)]
+pub struct StructFieldMap
+{
+    field_types: Vec<Type>,
+    field_ids: Vec<Val>,
+    name_index: HashMap<String, i16>,
+}
+
+type StructFieldMapInput = Vec<(Option<Rc<String>>, Type)>;
+
+impl StructFieldMap
+{
+    pub fn new(input: StructFieldMapInput) -> StructFieldMap
+    {
+        let sz = input.len();
+        let mut ftypes = Vec::with_capacity(sz);
+        let mut ids = Vec::with_capacity(sz);
+        let mut names: HashMap<String, i16> = HashMap::with_capacity(sz);
+        for (i, (name, typ)) in input.into_iter().enumerate() {
+            ftypes.push(typ);
+            match name {
+                Some(name_str) => {
+                    ids.push(Val::Id(name_str.clone()));
+                    names.insert((*name_str).clone(), i as i16);
+                }
+                None => {
+                    ids.push(Val::ParamIndex(i as i8))
+                }
+            }
+        }
+
+        StructFieldMap{
+            field_types: ftypes,
+            field_ids: ids,
+            name_index: names,
+        }
+    }
+
+    pub fn len(&self) -> i16
+    {
+        self.field_types.len() as i16
+    }
+
+    pub fn types(&self) -> slice::Iter<Type>
+    {
+        self.field_types.iter()
+    }
+
+    pub fn ids(&self) -> slice::Iter<Val>
+    {
+        self.field_ids.iter()
+    }
+
+    pub fn find(&self, name: &str) -> Option<(i16, &Type)>
+    {
+        self.name_index.get(name)
+            .and_then(|idx| {
+                self.field_types.get(*idx as usize)
+                    .map(|t| {
+                        (*idx, t)
+                    })
+            })
+    }
+}
 
 
 #[derive(Debug)]
@@ -19,7 +86,7 @@ pub struct Protomod
     pub valtypes: HashMap<String, Type>,
     pub newtypes: HashSet<Type>,
     pub constants: HashMap<String, Val>,
-    pub structfields: HashMap<String, Vec<(Rc<String>, Type)>>,
+    pub structfields: HashMap<String, StructFieldMap>,
 }
 
 impl Protomod
@@ -497,24 +564,25 @@ impl Protomod
                     ftype.clone()
                 }).collect();
 
-            let struct_fields: Vec<(Rc<String>, Type)> =
+            let struct_fields: StructFieldMapInput =
                 list::iter(&**src_fields).enumerate().map(|(i, f)| {
                     let (fname, ftype) = Protomod::split_typed_id(f, i as i8);
-                    (fname.id_name(), ftype.clone())
+                    (fname.clone(), ftype.clone())
                 }).collect();
-
-            let field_id_vec: Vec<Val> =
-                list::iter(&**src_fields).enumerate().map(|(i, f)| {
-                    let (fname, _) = Protomod::split_typed_id(f, i as i8);
-                    fname
-                }).collect();
+            let sfm = StructFieldMap::new(struct_fields);
 
             let func_type =
                 Type::Func(field_type_vec, Box::new(mod_type.clone()));
 
-            let srcblk = Val::Struct(mod_type.clone(), field_id_vec);
+            let field_ids: Vec<Val> = sfm.ids().map(|id| {
+                id.clone()
+            }).collect();
+            let args_list = sfm.ids().fold(Val::Nil, |acc, arg| {
+                list::cons(arg.clone(), acc)
+            });
+            let srcblk = Val::Struct(mod_type.clone(), field_ids.clone());
             let srcxpr = sxpr::defunc((*name).clone()
-                , (***src_fields).clone()
+                , args_list // (***src_fields).clone()
                 , Val::Type(mod_type.clone())
                 , srcblk
                 , *loc
@@ -523,7 +591,7 @@ impl Protomod
             self.funcseq.push_back(rc_name.clone());
             self.funcsrc.insert((*rc_name).clone(), srcxpr);
             self.valtypes.insert((*rc_name).clone(), func_type);
-            self.structfields.insert((*rc_name).clone(), struct_fields);
+            self.structfields.insert((*rc_name).clone(), sfm);
         } else {
             // an empty struct is stored as a constant with no constructor
             self.valtypes.insert((*rc_name).clone(), mod_type.clone());
@@ -543,12 +611,7 @@ impl Protomod
                 , typename, self.structfields);
         }
         let structfields = opt_structfields.unwrap();
-        structfields.iter().enumerate().find(|&(_, &(ref fname, _))| {
-            **fname == *fld
-        })
-        .map(|(idx, &(_, ref ftype))| {
-            (idx as i16, ftype)
-        })
+        structfields.find(fld)
     }
 
     pub fn preproc_enum(&mut self, sp: &Val, loc: &SrcLoc)
@@ -566,14 +629,15 @@ impl Protomod
             let i = bigi as i16;
             let (st, ref sx, ref sloc) = sxpr::split_ref(v);
             let variant_name = self.preproc_enum_struct(&mod_type, sx, i, loc);
-            variant_fields.push((variant_name, mod_type.clone()));
+            variant_fields.push((Some(variant_name), mod_type.clone()));
         }
+        let variant_field_map = StructFieldMap::new(variant_fields);
 
         let typeval = Val::Type(mod_type.clone());
         self.constants.insert((*rc_name).clone(), typeval.clone());
         self.valtypes.insert((*rc_name).clone(), mod_type.clone());
         self.newtypes.insert(local_type);
-        self.structfields.insert((*rc_name).clone(), variant_fields);
+        self.structfields.insert((*rc_name).clone(), variant_field_map);
     }
 
     pub fn preproc_enum_struct(&mut self, enum_type: &Type, sp: &Val
@@ -591,17 +655,24 @@ impl Protomod
                     ftype.clone()
                 }).collect();
 
-            let field_id_vec =
-                list::iter(&**src_fields).enumerate().map(|(i, f)| {
+            let field_id_vec: Vec<Val> = list::iter(&**src_fields).enumerate()
+                .map(|(i, f)| {
                     let (fname, _) = Protomod::split_typed_id(f, i as i8);
                     fname.clone()
-                }).collect();
+                })
+                .filter(|n| { n.is_some() })
+                .map(|n| { Val::Id(n.unwrap()) })
+                .collect();
 
-            let struct_fields =
-                list::iter(&**src_fields).enumerate().map(|(i, f)| {
-                    let (fname, ftype) = Protomod::split_typed_id(f, i as i8);
-                    (fname.id_name().clone(), ftype.clone())
-                }).collect();
+            let struct_field_vec: StructFieldMapInput =
+                list::iter(&**src_fields).enumerate()
+                    .map(|(i, f)| {
+                        let (fname, ftype) =
+                            Protomod::split_typed_id(f, i as i8);
+                        (fname.clone(), ftype.clone())
+                    })
+                    .collect();
+            let struct_fields = StructFieldMap::new(struct_field_vec);
 
             let func_type =
                 Type::Func(field_type_vec, Box::new(enum_type.clone()));
@@ -627,7 +698,7 @@ impl Protomod
                 Val::Enum(enum_type.clone(), idx, Box::new(construct));
             self.constants.insert((*rc_name).clone(), enumval);
         }
-        rc_name
+        rc_name.clone()
     }
 
     pub fn preproc_type(prog: &Lib, mp: &ModulePreface, t: &Type) -> Type
@@ -643,7 +714,23 @@ impl Protomod
         }
     }
 
-    pub fn split_typed_id(v: &Val, fld_idx: i8) -> (Val, Type)
+    pub fn split_typed_id(v: &Val, fld_idx: i8) -> (Option<Rc<String>>, Type)
+    {
+        match v {
+            &Val::Id(ref id) => (Some(id.clone()), Type::AnonVar),
+            &Val::TypedId(ref tid, ref typ) => (
+                Some(tid.clone()),
+                typ.clone(),
+            ),
+            &Val::Type(ref typ) => (None, typ.clone()),
+            &Val::Loc(ref v, _) => Protomod::split_typed_id(v, fld_idx),
+            _ => {
+                panic!("not a TypedId: {:?}", v);
+            }
+        }
+    }
+
+    pub fn split_typed_id_1(v: &Val, fld_idx: i8) -> (Val, Type)
     {
         match v {
             &Val::Id(ref id) => (v.clone(), Type::AnonVar),
@@ -652,7 +739,7 @@ impl Protomod
                 typ.clone(),
             ),
             &Val::Type(ref typ) => (Val::ParamIndex(fld_idx), typ.clone()),
-            &Val::Loc(ref v, _) => Protomod::split_typed_id(v, fld_idx),
+            &Val::Loc(ref v, _) => Protomod::split_typed_id_1(v, fld_idx),
             _ => {
                 panic!("not a TypedId: {:?}", v);
             }
