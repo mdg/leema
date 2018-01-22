@@ -15,7 +15,7 @@ use std::slice;
 pub struct StructFieldMap
 {
     field_types: Vec<Type>,
-    field_ids: Vec<Val>,
+    field_ids: Vec<Rc<String>>,
     name_index: HashMap<String, i16>,
 }
 
@@ -33,11 +33,11 @@ impl StructFieldMap
             ftypes.push(typ);
             match name {
                 Some(name_str) => {
-                    ids.push(Val::Id(name_str.clone()));
+                    ids.push(name_str.clone());
                     names.insert((*name_str).clone(), i as i16);
                 }
                 None => {
-                    ids.push(Val::ParamIndex(i as i8))
+                    ids.push(Rc::new(format!("_param_{}", i)));
                 }
             }
         }
@@ -59,7 +59,7 @@ impl StructFieldMap
         self.field_types.iter()
     }
 
-    pub fn ids(&self) -> slice::Iter<Val>
+    pub fn ids(&self) -> slice::Iter<Rc<String>>
     {
         self.field_ids.iter()
     }
@@ -575,10 +575,10 @@ impl Protomod
                 Type::Func(field_type_vec, Box::new(mod_type.clone()));
 
             let field_ids: Vec<Val> = sfm.ids().map(|id| {
-                id.clone()
+                Val::Id(id.clone())
             }).collect();
             let args_list = sfm.ids().fold(Val::Nil, |acc, arg| {
-                list::cons(arg.clone(), acc)
+                list::cons(Val::Id(arg.clone()), acc)
             });
             let srcblk = Val::Struct(mod_type.clone(), field_ids.clone());
             let srcxpr = sxpr::defunc((*name).clone()
@@ -729,22 +729,6 @@ impl Protomod
             }
         }
     }
-
-    pub fn split_typed_id_1(v: &Val, fld_idx: i8) -> (Val, Type)
-    {
-        match v {
-            &Val::Id(ref id) => (v.clone(), Type::AnonVar),
-            &Val::TypedId(ref tid, ref typ) => (
-                Val::Id(tid.clone()),
-                typ.clone(),
-            ),
-            &Val::Type(ref typ) => (Val::ParamIndex(fld_idx), typ.clone()),
-            &Val::Loc(ref v, _) => Protomod::split_typed_id_1(v, fld_idx),
-            _ => {
-                panic!("not a TypedId: {:?}", v);
-            }
-        }
-    }
 }
 
 pub fn preproc(prog: &mut Lib, mp: &ModulePreface, ast: &Val) -> Protomod
@@ -845,12 +829,19 @@ fn test_preproc_enum_colors()
     assert_eq!(1, pmod.structfields.len());
     let color_flds = pmod.structfields.get("PrimaryColor").unwrap();
     assert_eq!(3, color_flds.len());
-    let rfld = color_flds.get(0).unwrap();
-    let yfld = color_flds.get(1).unwrap();
-    let bfld = color_flds.get(2).unwrap();
-    assert_eq!("Red", &*rfld.0);
-    assert_eq!("Yellow", &*yfld.0);
-    assert_eq!("Blue", &*bfld.0);
+    let rfld = color_flds.find("Red").unwrap();
+    let yfld = color_flds.find("Yellow").unwrap();
+    let bfld = color_flds.find("Blue").unwrap();
+    assert_eq!(0, rfld.0);
+    assert_eq!(1, yfld.0);
+    assert_eq!(2, bfld.0);
+    let enumtype = Type::ModPrefix(
+        Rc::new("colors".to_string()),
+        Rc::new(Type::Enum(Rc::new("PrimaryColor".to_string()))),
+        );
+    assert_eq!(enumtype, *rfld.1);
+    assert_eq!(enumtype, *yfld.1);
+    assert_eq!(enumtype, *bfld.1);
 
     let rfld_idx = pmod.struct_field_idx("PrimaryColor", "Red");
 }
@@ -891,13 +882,13 @@ fn test_new_struct_fields()
     let structfields = proto.structfields.get("Burrito").unwrap();
     assert_eq!(2, structfields.len());
 
-    let lettuce = structfields.get(0).unwrap();
-    assert_eq!("lettuce", &*lettuce.0);
-    assert_eq!(Type::Bool, lettuce.1);
+    let lettuce = structfields.find("lettuce").unwrap();
+    assert_eq!(0, lettuce.0);
+    assert_eq!(Type::Bool, *lettuce.1);
 
-    let buns = structfields.get(1).unwrap();
-    assert_eq!("buns", &*buns.0);
-    assert_eq!(Type::Int, buns.1);
+    let buns = structfields.find("buns").unwrap();
+    assert_eq!(1, buns.0);
+    assert_eq!(Type::Int, *buns.1);
 }
 
 #[test]

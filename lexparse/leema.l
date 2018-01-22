@@ -308,7 +308,8 @@ ${ID}	{
 	return set_token(yyg, TOKEN_StrClose);
 }
 <STR>"${"	{
-	BEGIN(STREXPR);
+    skip_token(yyg);
+    BEGIN(STREXPR);
 }
 <STR>"$"	{
     skip_token(yyg);

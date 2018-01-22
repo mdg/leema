@@ -546,7 +546,6 @@ pub enum Val {
         i8, // status
     ),
     Id(Rc<String>),
-    ParamIndex(i8),
     ModPrefix(Rc<String>, Rc<Val>),
     TypedId(Rc<String>, Type),
     Type(Type),
@@ -901,7 +900,6 @@ impl Val
             &Val::Wildcard => Type::Unknown,
             &Val::PatternVar(_) => Type::Unknown,
             &Val::Id(_) => Type::AnonVar,
-            &Val::ParamIndex(_) => Type::AnonVar,
             &Val::TypedId(_, ref typ) => typ.clone(),
             &Val::Sxpr(SxprType::DefFunc, _, _) => sxpr::defunc_type(self),
             &Val::Sxpr(SxprType::StrExpr, _, _) => Type::Str,
@@ -1423,9 +1421,6 @@ impl fmt::Display for Val {
             Val::Id(ref name) => {
                 write!(f, "{}", name)
             }
-            Val::ParamIndex(idx) => {
-                write!(f, "Param{}", idx)
-            }
             Val::TypedId(ref name, ref typ) => {
                 write!(f, "{}:{}", name, typ)
             }
@@ -1518,9 +1513,6 @@ impl fmt::Debug for Val {
             }
             Val::Id(ref id) => {
                 write!(f, "Id({})", id)
-            }
-            Val::ParamIndex(idx) => {
-                write!(f, "Param{}", idx)
             }
             Val::TypedId(ref id, ref typ) => {
                 write!(f, "TypedId({}, {:?})", id, typ)

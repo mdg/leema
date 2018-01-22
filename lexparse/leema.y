@@ -648,3 +648,6 @@ strlist_term(A) ::= ID(B). {
 strlist_term(A) ::= strlist_term(B) DOT ID(C). {
     A = Val::DotAccess(Box::new(B), Rc::new(C.data));
 }
+strlist_term(A) ::= strlist_term(B) DOT INT(C). {
+    A = Val::DotAccess(Box::new(B), Rc::new(C.to_string()));
+}

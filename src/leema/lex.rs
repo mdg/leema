@@ -321,4 +321,27 @@ fn test_lex_string_id()
     assert_eq!(Token::StrClose, actual[4]);
 }
 
+#[test]
+fn test_lex_strexpr_number_field()
+{
+    let actual = super::lex("\"${hello.2}\\n\"");
+    assert_eq!(6, actual.len());
+
+    assert_eq!(Token::StrOpen(SrcLoc::new(1, 1)), actual[0]);
+    assert_eq!(
+        Token::ID(TokenData::new("hello".to_string(), SrcLoc::new(1, 4))),
+        actual[1]
+    );
+    assert_eq!(
+        Token::DOT,
+        actual[2]
+    );
+    assert_eq!(
+        Token::INT(2),
+        actual[3]
+    );
+    assert_eq!(Token::StrLit("\n".to_string()), actual[4]);
+    assert_eq!(Token::StrClose, actual[5]);
+}
+
 }
