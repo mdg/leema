@@ -207,11 +207,11 @@ defenum_fields(A) ::= defenum_field(B) defenum_fields(C). {
 defenum_fields(A) ::= defenum_field(B). {
     A = list::singleton(B);
 }
-defenum_field(A) ::= PIPE ID(B). {
-    A = Val::typed_id(&B.data, Type::Void);
+defenum_field(A) ::= PIPE ID(B) typex(C). {
+    A = Val::typed_id(&B.data, C);
 }
-defenum_field(A) ::= PIPE ID(B) PARENCALL dfunc_args(C) RPAREN. {
-    A = Val::typed_id(&B.data, Type::Void);
+defenum_field(A) ::= PIPE(D) typex(B) defstruct_fields(C). {
+    A = sxpr::def_struct(Val::Type(B), C, D);
 }
 
 

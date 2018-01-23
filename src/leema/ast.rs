@@ -520,6 +520,24 @@ fn test_parse_defstruct()
 }
 
 #[test]
+fn test_parse_enum_variants()
+{
+    let input = "
+        enum Animal
+        |Dog
+        |Cat Int
+        |Mouse $A
+        |Giraffe
+            .height: Int
+            .weight: $A
+        --
+    ";
+    let root = ast::parse(lex(input));
+
+    let (blkt, blkx, loc) = sxpr::split(root);
+}
+
+#[test]
 fn test_parse_match_list()
 {
     let input = "

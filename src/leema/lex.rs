@@ -321,4 +321,20 @@ fn test_lex_string_id()
     assert_eq!(Token::StrClose, actual[4]);
 }
 
+#[test]
+fn test_lex_enum_variants()
+{
+    let actual = super::lex("
+        enum Animal
+        |Dog
+        |Cat Int
+        |Mouse $A
+        |Giraffe
+            .height: Int
+            .weight: $A
+        --
+    ");
+    assert_eq!(21, actual.len());
+}
+
 }

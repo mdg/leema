@@ -1,6 +1,6 @@
 
 enum Option
-|Some(val: $V)
+|Some $V
 |None
 --
 
