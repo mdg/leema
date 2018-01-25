@@ -1262,9 +1262,12 @@ impl Val
                 write!(f, "DefMacro({},{:?},{:?})", name, args, body)
             }
             (SxprType::DefStruct, ref ds) => {
-                let (name, m2) = list::take_ref(ds);
-                let (fields, _) = list::take_ref(&*m2);
-                write!(f, "struct({},{:?})", name, fields)
+                let (name, fields) = list::take_ref(ds);
+                if **fields == Val::Nil {
+                    write!(f, "struct({})", name)
+                } else {
+                    write!(f, "struct({},{:?})", name, fields)
+                }
             }
             (SxprType::Import, ref filelist) => {
                 let file = list::head_ref(filelist);
