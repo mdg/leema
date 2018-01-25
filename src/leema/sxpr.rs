@@ -211,6 +211,9 @@ pub fn defunc_type(defunc: &Val) -> Type
 
 pub fn def_struct(name: Val, fields: Val, loc: SrcLoc) -> Val
 {
+    if !Val::is_list(&fields) {
+        panic!("struct fields must be a list: {:?}", fields);
+    }
     Val::Sxpr(
         SxprType::DefStruct,
         Rc::new(
@@ -323,6 +326,18 @@ fn test_strexpr_merge_end()
     let (h2, t2) = list::take_ref(t1);
     assert_eq!(Val::new_str(" world\n".to_string()), *h2);
     assert_eq!(Val::Nil, **t2);
+}
+
+#[test]
+fn test_def_struct_debug()
+{
+    let ds = sxpr::def_struct(
+        Val::id("Taco".to_string()),
+        Val::Nil,
+        SrcLoc::default(),
+    );
+    let dbg = format!("{:?}", ds);
+    assert_eq!("struct(Taco)", dbg);
 }
 
 /*
