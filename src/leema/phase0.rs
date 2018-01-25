@@ -567,13 +567,9 @@ impl Protomod
         let mut variant_fields = Vec::with_capacity(list::len(src_variants));
         for (bigi, v) in list::iter(src_variants).enumerate() {
             let i = bigi as i16;
-            let (variant_id, vtype) = Val::split_typed_id(v);
-            let variant_name = variant_id.id_name();
-            vout!("variant_id: {:?}, variant_name: {:?}\n"
-                , variant_id, variant_name);
-            let const_val = Val::Enum(mod_type.clone(), i, Box::new(Val::Void));
-            self.constants.insert((*variant_name).clone(), const_val);
-            variant_fields.push((variant_name.clone(), mod_type.clone()));
+            let variant_name = self.preproc_enum_variant(&mod_type, i, v, loc);
+            let vf = (variant_name.clone(), mod_type.clone());
+            variant_fields.push(vf);
         }
 
         let typeval = Val::Type(mod_type.clone());
@@ -581,6 +577,37 @@ impl Protomod
         self.valtypes.insert((*rc_name).clone(), mod_type.clone());
         self.newtypes.insert(local_type);
         self.structfields.insert((*rc_name).clone(), variant_fields);
+    }
+
+    pub fn preproc_enum_variant(&mut self, typ: &Type, i: i16, var: &Val
+        , loc: &SrcLoc
+        ) -> Rc<String>
+    {
+        if let &Val::Loc(ref lvar, ref lloc) = var {
+            return self.preproc_enum_variant(typ, i, lvar, loc);
+        }
+        if sxpr::is_type(var, SxprType::DefStruct) {
+            let (st, sx, iloc) = sxpr::split_ref(var);
+            let (variant_id, fields) = list::take_ref(sx);
+            let variant_name = variant_id.id_name();
+            if **fields == Val::Nil {
+                let const_val = Val::Enum(typ.clone(), i, Box::new(Val::Void));
+                self.constants.insert((*variant_name).clone(), const_val);
+            } else {
+                panic!("enum variant is struct: {} -> {:?}", variant_name, fields);
+            }
+            variant_name.clone()
+        } else {
+            // an enum variant with one, unnamed parameter
+println!("enum variant is typed id: {:?}", var);
+            let (variant_id, vtype) = Val::split_typed_id(var);
+            let variant_name = variant_id.id_name();
+            vout!("variant_id: {:?}, variant_name: {:?}\n"
+                , variant_id, variant_name);
+            let const_val = Val::Enum(typ.clone(), i, Box::new(Val::Void));
+            self.constants.insert((*variant_name).clone(), const_val);
+            variant_name.clone()
+        }
     }
 
     pub fn preproc_type(prog: &Lib, mp: &ModulePreface, t: &Type) -> Type
