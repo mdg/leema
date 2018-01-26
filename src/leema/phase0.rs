@@ -573,8 +573,6 @@ impl Protomod
         }
 
         let typeval = Val::Type(mod_type.clone());
-        self.constants.insert((*rc_name).clone(), typeval.clone());
-        self.valtypes.insert((*rc_name).clone(), mod_type.clone());
         self.newtypes.insert(local_type);
         self.structfields.insert((*rc_name).clone(), variant_fields);
     }
@@ -591,8 +589,11 @@ impl Protomod
             let (variant_id, fields) = list::take_ref(sx);
             let variant_name = variant_id.id_name();
             if **fields == Val::Nil {
-                let const_val = Val::Enum(typ.clone(), i, Box::new(Val::Void));
+                let const_val = Val::Enum(typ.clone(), i, Box::new(
+                    Val::Struct(typ.clone(), Vec::with_capacity(0))
+                ));
                 self.constants.insert((*variant_name).clone(), const_val);
+                self.valtypes.insert((*variant_name).clone(), typ.clone());
             } else {
                 panic!("enum variant is struct: {} -> {:?}", variant_name, fields);
             }
@@ -728,6 +729,55 @@ fn test_preproc_enum_colors()
     assert_eq!("Blue", &*bfld.0);
 
     let rfld_idx = pmod.struct_field_idx("PrimaryColor", "Red");
+}
+
+#[test]
+fn test_enum_types()
+{
+    let input = "
+    enum Animal
+    |Dog
+    |Cat Int
+    ## |Mouse $A
+    ## |Giraffe
+    ##     .height: Int
+    ##     .weight: $A
+    --
+    ".to_string();
+    let mut loader = Interloader::new("animals.lma");
+    loader.set_mod_txt("animals", input);
+    let mut prog = program::Lib::new(loader);
+    let pmod = prog.read_proto("animals");
+
+    let expected_type =
+        Type::ModPrefix(
+            Rc::new("animals".to_string()),
+            Rc::new(Type::Struct(Rc::new("Animal".to_string()))),
+        );
+
+    // verify constants
+    assert_eq!(2, pmod.constants.len());
+    let dog_const = pmod.constants.get("Dog").expect("missing constant: Dog");
+    let cat_const = pmod.constants.get("Cat").expect("missing constant: Cat");
+    let exp_dog_const = Val::Enum(
+        expected_type.clone(),
+        0,
+        Box::new(Val::Struct(expected_type.clone(), Vec::with_capacity(0))),
+        );
+    assert_eq!(exp_dog_const, *dog_const);
+
+    // verify function source
+    assert_eq!(1, pmod.funcsrc.len());
+
+    let modname = Rc::new("animal".to_string());
+    let local_typename = Rc::new("Animal".to_string());
+    let expected_local_type = Type::Enum(local_typename.clone());
+    let expected_full_type =
+        Type::ModPrefix(modname.clone(), Rc::new(expected_local_type.clone()));
+
+    // verify newtypes
+    assert_eq!(1, pmod.newtypes.len());
+    assert!(pmod.newtypes.contains(&expected_local_type));
 }
 
 #[test]
