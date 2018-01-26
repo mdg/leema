@@ -377,10 +377,10 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::List(ref items) => {
             make_list_ops(rt, items, input.line)
         }
-        Source::BooleanAnd(ref a, ref b) => {
+        Source::BooleanAnd(ref _a, ref _b) => {
             panic!("maybe AND should just be a macro");
         }
-        Source::BooleanOr(ref a, ref b) => {
+        Source::BooleanOr(ref _a, ref _b) => {
             panic!("maybe OR should just be a macro");
         }
         Source::ModuleAccess(ref module, ref name) => {
