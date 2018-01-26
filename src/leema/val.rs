@@ -1503,7 +1503,7 @@ impl fmt::Debug for Val {
                 Val::fmt_tuple(f, fields, false)
             }
             Val::Enum(ref name, variant, ref val) => {
-                write!(f, "enum({}.{}:{:?})", name, variant, val)
+                write!(f, "enum({:?}.{}:{:?})", name, variant, val)
             }
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv)
@@ -2319,14 +2319,22 @@ fn test_struct_lt_val() {
 
 #[test]
 fn test_enum_eq() {
+    let etype =
+        Type::ModPrefix(
+            Rc::new("animals".to_string()),
+            Rc::new(Type::Struct(Rc::new("Animal".to_string()))),
+        );
+    let vartype =
+        Type::Struct(Rc::new("Dog".to_string()));
+
     let a =
-        Val::Enum(
-            Type::Id(Rc::new("Taco".to_string())), 0, Box::new(Val::Void)
-        );
+        Val::Enum(etype.clone(), 0, Box::new(
+            Val::Struct(vartype.clone(), Vec::with_capacity(0))
+        ));
     let b =
-        Val::Enum(
-            Type::Id(Rc::new("Taco".to_string())), 0, Box::new(Val::Void)
-        );
+        Val::Enum(etype.clone(), 0, Box::new(
+            Val::Struct(vartype.clone(), Vec::with_capacity(0))
+        ));
     assert_eq!(a, b);
 }
 

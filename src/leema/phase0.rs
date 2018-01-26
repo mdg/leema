@@ -752,7 +752,7 @@ fn test_enum_types()
     let expected_type =
         Type::ModPrefix(
             Rc::new("animals".to_string()),
-            Rc::new(Type::Struct(Rc::new("Animal".to_string()))),
+            Rc::new(Type::Enum(Rc::new("Animal".to_string()))),
         );
 
     // verify constants
