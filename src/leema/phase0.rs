@@ -614,7 +614,13 @@ println!("enum variant is typed id: {:?}", var);
             let variant_name = variant_id.id_name();
             vout!("variant_id: {:?}, variant_name: {:?}\n"
                 , variant_id, variant_name);
-            let const_val = Val::Enum(typ.clone(), i, Box::new(Val::Void));
+            let func_type =
+                Type::Func(vec![vtype.clone()], Box::new(typ.clone()));
+            let const_val = Val::FuncRef(
+                mod_name.clone(),
+                variant_name.clone(),
+                func_type.clone(),
+            );
             self.constants.insert((*variant_name).clone(), const_val);
             self.funcseq.push_back(variant_name.clone());
             variant_name.clone()
@@ -778,6 +784,16 @@ fn test_enum_types()
     let exp_dog_const = Val::Enum(expected_type.clone(), 0,
         Box::new(Val::Struct(expected_type.clone(), Vec::with_capacity(0))),
     );
+    let exp_cat_const = Val::FuncRef(
+        Rc::new("animals".to_string()),
+        Rc::new("Cat".to_string()),
+        Type::Func(
+            vec![
+                Type::Int,
+            ],
+            Box::new(expected_type.clone()),
+        ),
+    );
     let exp_giraffe_const = Val::FuncRef(
         Rc::new("animals".to_string()),
         Rc::new("Giraffe".to_string()),
@@ -790,6 +806,7 @@ fn test_enum_types()
         ),
     );
     assert_eq!(exp_dog_const, *dog_const);
+    assert_eq!(exp_cat_const, *cat_const);
     assert_eq!(exp_giraffe_const, *giraffe_const);
 
     // verify newtypes
