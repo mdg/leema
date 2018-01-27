@@ -772,12 +772,25 @@ fn test_enum_types()
     assert_eq!(4, pmod.constants.len());
     let dog_const = pmod.constants.get("Dog").expect("missing constant: Dog");
     let cat_const = pmod.constants.get("Cat").expect("missing constant: Cat");
-    let exp_dog_const = Val::Enum(
-        expected_type.clone(),
-        0,
+    let giraffe_const =
+        pmod.constants.get("Giraffe").expect("missing constant: Giraffe");
+
+    let exp_dog_const = Val::Enum(expected_type.clone(), 0,
         Box::new(Val::Struct(expected_type.clone(), Vec::with_capacity(0))),
     );
+    let exp_giraffe_const = Val::FuncRef(
+        Rc::new("animals".to_string()),
+        Rc::new("Giraffe".to_string()),
+        Type::Func(
+            vec![
+                Type::Int,
+                Type::Var(Rc::new("$A".to_string())),
+            ],
+            Box::new(expected_type.clone()),
+        ),
+    );
     assert_eq!(exp_dog_const, *dog_const);
+    assert_eq!(exp_giraffe_const, *giraffe_const);
 
     // verify newtypes
     assert_eq!(1, pmod.newtypes.len());

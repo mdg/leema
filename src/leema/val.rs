@@ -1794,6 +1794,18 @@ impl PartialOrd for Val
                     tcmp => tcmp,
                 }
             }
+            (&Val::FuncRef(ref m1, ref n1, ref t1)
+                    , &Val::FuncRef(ref m2, ref n2, ref t2)) =>
+            {
+                Some(PartialOrd::partial_cmp(m1, m2).unwrap()
+                    .then_with(|| {
+                        PartialOrd::partial_cmp(n1, n2).unwrap()
+                    })
+                    .then_with(|| {
+                        PartialOrd::partial_cmp(t1, t2).unwrap()
+                    })
+                )
+            }
             (&Val::TypedId(ref ida, ref typa),
                     &Val::TypedId(ref idb, ref typb)) => {
                 let cmp = PartialOrd::partial_cmp(&ida, &idb);
