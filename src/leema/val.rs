@@ -553,6 +553,7 @@ pub enum Val {
     DotAccess(Box<Val>, Rc<String>),
     Lib(Arc<LibVal>),
     LibRc(Rc<LibVal>),
+    FuncRef(Rc<String>, Rc<String>, Type),
     ResourceRef(i64),
     RustBlock,
     Future(FutureVal),
@@ -948,6 +949,9 @@ impl Val
             }
             &Val::DotAccess(_, _) => {
                 panic!("maybe DotAccess should be an sxpr?");
+            }
+            &Val::FuncRef(_, _, ref typ) => {
+                typ.clone()
             }
             &Val::Lib(ref lv) => {
                 lv.get_type()
@@ -1445,6 +1449,9 @@ impl fmt::Display for Val {
             Val::Kind(c) => {
                 write!(f, "Kind({})", c)
             }
+            Val::FuncRef(ref module, ref name, ref typ) => {
+                write!(f, "{}::{} : {}", module, name, typ)
+            }
             Val::Future(_) => {
                 write!(f, "Future")
             }
@@ -1540,6 +1547,9 @@ impl fmt::Debug for Val {
             }
             Val::DotAccess(ref outer, ref inner) => {
                 write!(f, "{:?}.{}", outer, inner)
+            }
+            Val::FuncRef(ref module, ref name, ref typ) => {
+                write!(f, "FuncRef({}::{} : {})", module, name, typ)
             }
             Val::Future(_) => {
                 write!(f, "Future")
