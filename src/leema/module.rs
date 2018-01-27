@@ -15,7 +15,7 @@ use std::rc::{Rc};
 #[derive(Clone)]
 pub struct ModKey
 {
-    pub name: String,
+    pub name: Rc<String>,
     pub file: Option<PathBuf>,
     // version: Option<Version>,
 }
@@ -25,7 +25,7 @@ impl ModKey
     pub fn new(name: &str, path: PathBuf) -> ModKey
     {
         ModKey{
-            name: String::from(name),
+            name: Rc::new(String::from(name)),
             file: Some(path),
         }
     }
@@ -33,7 +33,7 @@ impl ModKey
     pub fn name_only(name: &str) -> ModKey
     {
         ModKey{
-            name: String::from(name),
+            name: Rc::new(String::from(name)),
             file: None,
         }
     }
@@ -97,7 +97,7 @@ impl ModulePreface
             imports: HashSet::new(),
             macros: HashMap::new(),
         };
-        if ms.key.name != "prefab" {
+        if &*ms.key.name != "prefab" {
             mp.imports.insert(String::from("prefab"));
         }
         mp.split_ast(&ms.ast);

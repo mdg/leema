@@ -249,7 +249,7 @@ impl<'a> Interscope<'a>
     {
         match typ {
             &Type::ModPrefix(ref module, ref modtype) => {
-                if **module == self.proto.key.name {
+                if **module == *self.proto.key.name {
                     self.proto
                 } else if self.imports_module(&**module) {
                     self.imports.get(&**module).unwrap()
@@ -480,7 +480,7 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Rc<String>, loc: &SrcLoc
             if typ.is_func() {
                 Ixpr{
                     src: Source::ConstVal(Val::Tuple(vec![
-                        Val::Str(Rc::new(scope.proto.key.name.clone())),
+                        Val::Str(scope.proto.key.name.clone()),
                         Val::Str(id.clone()),
                     ])),
                     typ: typ.clone(),
@@ -709,7 +709,7 @@ pub fn pattern_call_fields<'a, 'b>(proto: &'a Protomod
             flds.unwrap()
         }
         &Val::ModPrefix(ref prefix, ref name) => {
-            let opt_flds = if proto.key.name == **prefix {
+            let opt_flds = if *proto.key.name == **prefix {
                 let iflds = proto.structfields.get(name.str());
                 if iflds.is_some() {
                     iflds

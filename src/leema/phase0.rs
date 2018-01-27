@@ -443,7 +443,7 @@ impl Protomod
     {
         match p {
             &Val::Id(_) => {
-                Val::ModPrefix(Rc::new(mp.key.name.clone()), Rc::new(p.clone()))
+                Val::ModPrefix(mp.key.name.clone(), Rc::new(p.clone()))
             }
             &Val::ModPrefix(_, _) => {
                 p.clone()
@@ -484,8 +484,9 @@ impl Protomod
         let (ref name, ref src_fields) = list::take_ref(sp);
         let rc_name = name.id_name().clone();
         let local_type = Type::Struct(rc_name.clone());
+        let mod_name = self.key.name.clone();
         let mod_type = Type::ModPrefix(
-            Rc::new(self.key.name.clone()),
+            mod_name.clone(),
             Rc::new(local_type.clone()),
         );
         let num_fields = list::len(src_fields);
@@ -562,7 +563,7 @@ impl Protomod
         let rc_name = name.id_name().clone();
         let local_type = Type::Enum(rc_name.clone());
         let mod_type = Type::ModPrefix(
-            Rc::new(self.key.name.clone()),
+            self.key.name.clone(),
             Rc::new(local_type.clone()),
         );
 
@@ -585,6 +586,7 @@ impl Protomod
         if let &Val::Loc(ref lvar, ref lloc) = var {
             return self.preproc_enum_variant(typ, i, lvar, loc);
         }
+        let mod_name = self.key.name.clone();
         if sxpr::is_type(var, SxprType::DefStruct) {
             let (st, sx, iloc) = sxpr::split_ref(var);
             let (variant_id, fields) = list::take_ref(sx);
@@ -618,7 +620,7 @@ println!("enum variant is typed id: {:?}", var);
     {
         match t {
             &Type::Id(_) => {
-                let prefix = Rc::new(mp.key.name.clone());
+                let prefix = mp.key.name.clone();
                 Type::ModPrefix(prefix, Rc::new(t.clone()))
             }
             _ => {

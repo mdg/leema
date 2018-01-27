@@ -63,7 +63,7 @@ impl Interloader
     pub fn read_module(&self, mod_key: &ModKey) -> String
     {
         if mod_key.file.is_none() {
-            self.modtxt.get(&mod_key.name).unwrap().clone()
+            self.modtxt.get(&*mod_key.name).unwrap().clone()
         } else {
             Interloader::read_file_text(mod_key.file.as_ref().unwrap())
         }

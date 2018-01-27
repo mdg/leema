@@ -261,7 +261,7 @@ impl<'a, 'b> Typescope<'a, 'b>
 
     pub fn functype(&self, modname: &str, funcname: &str) -> Type
     {
-        if modname == self.inter.key.name {
+        if modname == *self.inter.key.name {
             self.inter.func.get(funcname)
             .unwrap()
             .clone()
