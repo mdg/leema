@@ -620,9 +620,22 @@ println!("enum variant is typed id: {:?}", var);
                 variant_name.clone(),
                 func_type.clone(),
             );
+
+            let val_name = Rc::new("val".to_string());
+            let srcblk = Val::Enum(typ.clone(), i,
+                Box::new(Val::Id(val_name.clone())),
+            );
+            let srcxpr = sxpr::defunc(variant_id.clone()
+                , list::singleton(Val::TypedId(val_name.clone(), vtype))
+                , Val::Type(typ.clone())
+                , srcblk
+                , *loc
+            );
+
             self.constants.insert((*variant_name).clone(), const_val);
             self.funcseq.push_back(variant_name.clone());
-            variant_name.clone()
+            self.funcsrc.insert((*variant_name).clone(), srcxpr);
+            variant_name
         }
     }
 
@@ -820,7 +833,11 @@ fn test_enum_types()
     assert_eq!("Giraffe", **fseq_it.next().unwrap());
 
     // verify function source
-    assert_eq!(1, pmod.funcsrc.len());
+    assert!(pmod.funcsrc.get("Dog").is_none());
+    assert!(pmod.funcsrc.get("Cat").is_some());
+    assert!(pmod.funcsrc.get("Mouse").is_some());
+    assert!(pmod.funcsrc.get("Giraffe").is_some());
+    assert_eq!(3, pmod.funcsrc.len());
 
     // verify value types
     // verify struct fields
