@@ -602,7 +602,6 @@ impl Protomod
                 self.constants.insert((*variant_name).clone(), const_val);
                 self.valtypes.insert((*variant_name).clone(), typ.clone());
             } else {
-                self.funcseq.push_back(variant_name.clone());
                 self.preproc_struct_fields(typ, &mod_name, variant_id
                     , &**fields, loc);
             }
@@ -814,7 +813,11 @@ fn test_enum_types()
     assert!(pmod.newtypes.contains(&expected_local_type));
 
     // verify function sequence
-    assert_eq!(4, pmod.funcseq.len());
+    assert_eq!(3, pmod.funcseq.len());
+    let mut fseq_it = pmod.funcseq.iter();
+    assert_eq!("Cat", **fseq_it.next().unwrap());
+    assert_eq!("Mouse", **fseq_it.next().unwrap());
+    assert_eq!("Giraffe", **fseq_it.next().unwrap());
 
     // verify function source
     assert_eq!(1, pmod.funcsrc.len());
