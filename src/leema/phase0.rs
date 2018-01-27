@@ -492,7 +492,8 @@ impl Protomod
         let num_fields = list::len(src_fields);
 
         if num_fields > 0 {
-            self.preproc_struct_fields(&mod_type, name, src_fields, loc);
+            self.preproc_struct_fields(&mod_type, &mod_name
+                , name, src_fields, loc);
         } else {
             // an empty struct is stored as a constant with no constructor
             self.valtypes.insert((*rc_name).clone(), mod_type.clone());
@@ -502,8 +503,8 @@ impl Protomod
         self.newtypes.insert(local_type);
     }
 
-    pub fn preproc_struct_fields(&mut self, typ: &Type, name: &Val
-        , src_fields: &Val, loc: &SrcLoc
+    pub fn preproc_struct_fields(&mut self, typ: &Type, mod_name: &Rc<String>
+        , name: &Val, src_fields: &Val, loc: &SrcLoc
         )
     {
         let rc_name = name.id_name();
@@ -533,6 +534,9 @@ impl Protomod
             , *loc
         );
 
+        let funcref =
+            Val::FuncRef(mod_name.clone(), rc_name.clone(), func_type.clone());
+        self.constants.insert((*rc_name).clone(), funcref);
         self.funcseq.push_back(rc_name.clone());
         self.funcsrc.insert((*rc_name).clone(), srcxpr);
         self.valtypes.insert((*rc_name).clone(), func_type);
@@ -599,7 +603,8 @@ impl Protomod
                 self.valtypes.insert((*variant_name).clone(), typ.clone());
             } else {
                 self.funcseq.push_back(variant_name.clone());
-                self.preproc_struct_fields(typ, variant_id, &**fields, loc);
+                self.preproc_struct_fields(typ, &mod_name, variant_id
+                    , &**fields, loc);
             }
             variant_name.clone()
         } else {
@@ -742,8 +747,8 @@ fn test_enum_types()
     let input = "
     enum Animal
     |Dog
-    ## |Cat Int
-    ## |Mouse $A
+    |Cat Int
+    |Mouse $A
     |Giraffe
         .height: Int
         .weight: $A
@@ -764,7 +769,7 @@ fn test_enum_types()
         );
 
     // verify constants
-    assert_eq!(2, pmod.constants.len());
+    assert_eq!(4, pmod.constants.len());
     let dog_const = pmod.constants.get("Dog").expect("missing constant: Dog");
     let cat_const = pmod.constants.get("Cat").expect("missing constant: Cat");
     let exp_dog_const = Val::Enum(
@@ -779,7 +784,7 @@ fn test_enum_types()
     assert!(pmod.newtypes.contains(&expected_local_type));
 
     // verify function sequence
-    assert_eq!(1, pmod.funcseq.len());
+    assert_eq!(4, pmod.funcseq.len());
 
     // verify function source
     assert_eq!(1, pmod.funcsrc.len());
