@@ -596,8 +596,9 @@ impl Protomod
             let (variant_id, fields) = list::take_ref(sx);
             let variant_name = variant_id.id_name();
             if **fields == Val::Nil {
+                let var_struct_type = Type::Struct(variant_name.clone());
                 let const_val = Val::Enum(typ.clone(), i, Box::new(
-                    Val::Struct(typ.clone(), Vec::with_capacity(0))
+                    Val::Struct(var_struct_type, Vec::with_capacity(0))
                 ));
                 self.constants.insert((*variant_name).clone(), const_val);
                 self.valtypes.insert((*variant_name).clone(), typ.clone());
@@ -794,7 +795,10 @@ fn test_enum_types()
         pmod.constants.get("Giraffe").expect("missing constant: Giraffe");
 
     let exp_dog_const = Val::Enum(expected_type.clone(), 0,
-        Box::new(Val::Struct(expected_type.clone(), Vec::with_capacity(0))),
+        Box::new(Val::Struct(
+            Type::Struct(Rc::new("Dog".to_string())),
+            Vec::with_capacity(0),
+        )),
     );
     let exp_cat_const = Val::FuncRef(
         Rc::new("animals".to_string()),
@@ -820,6 +824,10 @@ fn test_enum_types()
     assert_eq!(exp_dog_const, *dog_const);
     assert_eq!(exp_cat_const, *cat_const);
     assert_eq!(exp_giraffe_const, *giraffe_const);
+
+    // verify constant string formatting
+    let dog_str = format!("{}", dog_const);
+    assert_eq!("animals::Dog", dog_str);
 
     // verify newtypes
     assert_eq!(1, pmod.newtypes.len());
