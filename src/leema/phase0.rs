@@ -636,6 +636,7 @@ println!("enum variant is typed id: {:?}", var);
             self.constants.insert((*variant_name).clone(), const_val);
             self.funcseq.push_back(variant_name.clone());
             self.funcsrc.insert((*variant_name).clone(), srcxpr);
+            self.valtypes.insert((*variant_name).clone(), func_type);
             variant_name
         }
     }
@@ -781,10 +782,31 @@ fn test_enum_types()
     let modname = Rc::new("animals".to_string());
     let local_typename = Rc::new("Animal".to_string());
     let expected_local_type = Type::Enum(local_typename.clone());
+    let typevar_a = Type::Var(Rc::new("$A".to_string()));
     let expected_type =
         Type::ModPrefix(
             Rc::new("animals".to_string()),
             Rc::new(Type::Enum(Rc::new("Animal".to_string()))),
+        );
+    let cat_func_type =
+        Type::Func(
+            vec![
+                Type::Int,
+            ],
+            Box::new(expected_type.clone()),
+        );
+    let mouse_func_type =
+        Type::Func(
+            vec![typevar_a.clone()],
+            Box::new(expected_type.clone()),
+        );
+    let giraffe_func_type =
+        Type::Func(
+            vec![
+                Type::Int,
+                typevar_a.clone(),
+            ],
+            Box::new(expected_type.clone()),
         );
 
     // verify constants
@@ -803,23 +825,12 @@ fn test_enum_types()
     let exp_cat_const = Val::FuncRef(
         Rc::new("animals".to_string()),
         Rc::new("Cat".to_string()),
-        Type::Func(
-            vec![
-                Type::Int,
-            ],
-            Box::new(expected_type.clone()),
-        ),
+        cat_func_type.clone(),
     );
     let exp_giraffe_const = Val::FuncRef(
         Rc::new("animals".to_string()),
         Rc::new("Giraffe".to_string()),
-        Type::Func(
-            vec![
-                Type::Int,
-                Type::Var(Rc::new("$A".to_string())),
-            ],
-            Box::new(expected_type.clone()),
-        ),
+        giraffe_func_type.clone(),
     );
     assert_eq!(exp_dog_const, *dog_const);
     assert_eq!(exp_cat_const, *cat_const);
@@ -848,7 +859,36 @@ fn test_enum_types()
     assert_eq!(3, pmod.funcsrc.len());
 
     // verify value types
+    assert_eq!(*pmod.valtypes.get("Dog").unwrap(), expected_type);
+    assert_eq!(*pmod.valtypes.get("Cat").unwrap(), cat_func_type);
+    assert_eq!(*pmod.valtypes.get("Mouse").unwrap(), mouse_func_type);
+    assert_eq!(*pmod.valtypes.get("Giraffe").unwrap(), giraffe_func_type);
+    assert_eq!(4, pmod.valtypes.len());
+
     // verify struct fields
+    assert_eq!(2, pmod.structfields.len());
+    let variants = pmod.structfields.get("Animal").unwrap();
+    let variant_dog = variants.get(0).unwrap();
+    let variant_cat = variants.get(1).unwrap();
+    let variant_mouse = variants.get(2).unwrap();
+    let variant_giraffe = variants.get(3).unwrap();
+    let giraffe_fields = pmod.structfields.get("Giraffe").unwrap();
+    let giraffe_field_height = giraffe_fields.get(0).unwrap();
+    let giraffe_field_weight = giraffe_fields.get(1).unwrap();
+    assert_eq!(4, variants.len());
+    assert_eq!("Dog", *variant_dog.0);
+    assert_eq!("Cat", *variant_cat.0);
+    assert_eq!("Mouse", *variant_mouse.0);
+    assert_eq!("Giraffe", *variant_giraffe.0);
+    assert_eq!(expected_type, variant_dog.1);
+    assert_eq!(expected_type, variant_cat.1);
+    assert_eq!(expected_type, variant_mouse.1);
+    assert_eq!(expected_type, variant_giraffe.1);
+    assert_eq!(2, giraffe_fields.len());
+    assert_eq!("height", *giraffe_field_height.0);
+    assert_eq!("weight", *giraffe_field_weight.0);
+    assert_eq!(Type::Int, giraffe_field_height.1);
+    assert_eq!(typevar_a, giraffe_field_weight.1);
 }
 
 #[test]

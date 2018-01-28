@@ -1410,8 +1410,11 @@ impl fmt::Display for Val {
                         }
                     })
             }
-            Val::Enum(ref name, _variant_idx, ref val) => {
-                write!(f, "{}.{}", name, val)
+            Val::Enum(Type::ModPrefix(ref modname, _), _var_idx, ref val) => {
+                write!(f, "{}::{}", modname, val)
+            }
+            Val::Enum(ref typename, _variant_idx, ref val) => {
+                write!(f, "_no_mod_enum_::{:?}::{}", typename, val)
             }
             Val::Buffer(ref buf) => {
                 write!(f, "Buffer")
