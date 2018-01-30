@@ -558,8 +558,7 @@ pub fn compile_dot_access(scope: &mut Interscope, base_val: &Val
         let opt_variant_idx = scope.struct_field_idx(&ix_base.typ, field);
         let variant_idx = opt_variant_idx.unwrap().0;
         let estruct_type = Type::Struct(field.clone());
-        let estruct_val =
-            Val::Struct(estruct_type, Vec::with_capacity(0));
+        let estruct_val = Val::Struct(estruct_type, Vec::with_capacity(0));
         let val = Val::Enum(ix_base.typ, variant_idx, field.clone()
             , Box::new(estruct_val));
         Ixpr::const_val(val, loc.lineno)

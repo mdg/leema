@@ -1428,7 +1428,13 @@ impl fmt::Display for Val {
                     })
             }
             Val::Enum(ref _typename, _variant_idx, ref var_name, ref val) => {
-                write!(f, "{}({})", var_name, val)
+                if let Val::Struct(_, _) = **val {
+                    write!(f, "{}", val)
+                } else if **val == Val::Void {
+                    write!(f, "{}", var_name)
+                } else {
+                    write!(f, "{}({})", var_name, val)
+                }
             }
             Val::Buffer(ref buf) => {
                 write!(f, "Buffer")

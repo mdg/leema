@@ -303,6 +303,10 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             vout!("make_constructor_ops({:?})\n", input);
             make_constructor_ops(rt, typ, nflds, input.line)
         }
+        Source::EnumConstructor(ref typ, idx, ref val) => {
+            vout!("make_enum_constructor_ops({:?})\n", input);
+            make_enum_constructor_ops(rt, typ, idx, &**val, input.line)
+        }
         Source::Fork(ref dst, ref f, ref args) => {
             // make_fork_ops(rt, f, args)
             Oxpr{ ops: vec![], dst: Reg::Undecided }
@@ -451,6 +455,35 @@ pub fn make_constructor_ops(rt: &mut RegTable, typ: &Type, nflds: i8
             ));
         i += 1;
     }
+
+    Oxpr{
+        ops: ops,
+        dst: dst.clone(),
+    }
+}
+
+pub fn make_enum_constructor_ops(rt: &mut RegTable, typ: &Type, index: i16
+    , data: &Ixpr, line: i16
+    ) -> Oxpr
+{
+    let dst = rt.dst();
+    let etype = typ.to_enum();
+
+    let mut ops: Vec<(Op, i16)> = Vec::with_capacity(3);
+    /*
+    ops.push((
+        Op::Constructor(dst.clone(), etype.clone(), nflds),
+        line,
+        ));
+    let mut i = 0;
+    while i < nflds {
+        ops.push((
+            Op::Copy(dst.sub(i), Reg::param(i)),
+            line,
+            ));
+        i += 1;
+    }
+    */
 
     Oxpr{
         ops: ops,
