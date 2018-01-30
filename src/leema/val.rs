@@ -48,6 +48,7 @@ pub enum Type
     Tuple(Vec<Type>),
     Struct(Rc<String>),
     Enum(Rc<String>),
+    EnumVariant(Rc<String>, Rc<String>, i16),
     Failure,
     Func(Vec<Type>, Box<Type>),
     // different from base collection/map interfaces?
@@ -90,6 +91,7 @@ impl Type
             &Type::Id(ref name) => name.clone(),
             &Type::Struct(ref name) => name.clone(),
             &Type::Enum(ref name) => name.clone(),
+            &Type::EnumVariant(ref name, _, _) => name.clone(),
             &Type::ModPrefix(_, _) => {
                 let str = format!("{}", self);
                 Rc::new(str)
@@ -278,6 +280,9 @@ impl fmt::Display for Type
             }
             &Type::Struct(ref name) => write!(f, "{}", name),
             &Type::Enum(ref name) => write!(f, "{}", name),
+            &Type::EnumVariant(ref name, ref var, _) => {
+                write!(f, "{}.{}", name, var)
+            }
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
@@ -330,6 +335,9 @@ impl fmt::Debug for Type
                 write!(f, "StructType({})", name)
             }
             &Type::Enum(ref name) => write!(f, "Enum({})", name),
+            &Type::EnumVariant(ref name, ref var, idx) => {
+                write!(f, "EnumVariant({}.{}.{})", name, idx, var)
+            }
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
