@@ -48,7 +48,6 @@ pub enum Type
     Tuple(Vec<Type>),
     Struct(Rc<String>),
     Enum(Rc<String>),
-    EnumVariant(Rc<String>, Rc<String>, i16),
     Failure,
     Func(Vec<Type>, Box<Type>),
     // different from base collection/map interfaces?
@@ -91,7 +90,6 @@ impl Type
             &Type::Id(ref name) => name.clone(),
             &Type::Struct(ref name) => name.clone(),
             &Type::Enum(ref name) => name.clone(),
-            &Type::EnumVariant(ref name, _, _) => name.clone(),
             &Type::ModPrefix(_, _) => {
                 let str = format!("{}", self);
                 Rc::new(str)
@@ -178,6 +176,23 @@ impl Type
             }
             _ => {
                 panic!("cannot convert to struct type: {:?}", self);
+            }
+        }
+    }
+
+    /**
+     * Convert this ID type to an enum type
+     */
+    pub fn to_enum(&self) -> Type
+    {
+        match self {
+            &Type::Id(ref name) => Type::Enum(name.clone()),
+            &Type::Enum(ref name) => Type::Enum(name.clone()),
+            &Type::ModPrefix(ref module, ref local) => {
+                Type::ModPrefix(module.clone(), Rc::new(local.to_enum()))
+            }
+            _ => {
+                panic!("cannot convert to enum type: {:?}", self);
             }
         }
     }
@@ -280,9 +295,6 @@ impl fmt::Display for Type
             }
             &Type::Struct(ref name) => write!(f, "{}", name),
             &Type::Enum(ref name) => write!(f, "{}", name),
-            &Type::EnumVariant(ref name, ref var, _) => {
-                write!(f, "{}.{}", name, var)
-            }
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
@@ -335,9 +347,6 @@ impl fmt::Debug for Type
                 write!(f, "StructType({})", name)
             }
             &Type::Enum(ref name) => write!(f, "Enum({})", name),
-            &Type::EnumVariant(ref name, ref var, idx) => {
-                write!(f, "EnumVariant({}.{}.{})", name, idx, var)
-            }
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
@@ -546,7 +555,7 @@ pub enum Val {
     Tuple(Vec<Val>),
     Sxpr(SxprType, Rc<Val>, SrcLoc),
     Struct(Type, Vec<Val>),
-    Enum(Type, i16, Box<Val>),
+    Enum(Type, i16, Rc<String>, Box<Val>),
     Failure(
         Box<Val>, // tag
         Box<Val>, // msg
@@ -945,7 +954,7 @@ impl Val
             &Val::Struct(ref typ, _) => {
                 typ.clone()
             }
-            &Val::Enum(ref typ, _, _) => {
+            &Val::Enum(ref typ, _, _, _) => {
                 typ.clone()
             }
             &Val::Buffer(_) => Type::Str,
@@ -1107,11 +1116,11 @@ impl Val
                     f.deep_clone()
                 }).collect())
             }
-            &Val::Enum(ref typ, idx, ref flds) => {
-                Val::Enum(typ.deep_clone(), idx, Box::new(flds.deep_clone()))
+            &Val::Enum(ref typ, idx, ref vname, ref flds) => {
+                Val::Enum(typ.deep_clone(), idx, vname.clone(),
+                    Box::new(flds.deep_clone()),
+                )
             }
-            // &Val::Struct(Type, Vec<Val>),
-            // &Val::Enum(Type, u8, Box<Val>),
             // &Val::Failure(ref tag, ref msg, ref ft),
             &Val::Id(ref s) => Val::id((**s).clone()),
             // &Val::TypedId(Rc<String>, Type),
@@ -1418,11 +1427,8 @@ impl fmt::Display for Val {
                         }
                     })
             }
-            Val::Enum(Type::ModPrefix(ref modname, _), _var_idx, ref val) => {
-                write!(f, "{}::{}", modname, val)
-            }
-            Val::Enum(ref typename, _variant_idx, ref val) => {
-                write!(f, "_no_mod_enum_::{:?}::{}", typename, val)
+            Val::Enum(ref _typename, _variant_idx, ref var_name, ref val) => {
+                write!(f, "{}({})", var_name, val)
             }
             Val::Buffer(ref buf) => {
                 write!(f, "Buffer")
@@ -1520,8 +1526,8 @@ impl fmt::Debug for Val {
                 write!(f, "struct {}", name).ok();
                 Val::fmt_tuple(f, fields, false)
             }
-            Val::Enum(ref name, variant, ref val) => {
-                write!(f, "enum({:?}.{}:{:?})", name, variant, val)
+            Val::Enum(ref name, var_idx, ref var_name, ref val) => {
+                write!(f, "enum({:?}.{}.{}:{:?})", name, var_idx, var_name, val)
             }
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv)
@@ -1790,8 +1796,8 @@ impl PartialOrd for Val
                 }
             }
             // enum to enum comparison
-            (&Val::Enum(ref at, ai, ref av)
-                    , &Val::Enum(ref bt, bi, ref bv)) =>
+            (&Val::Enum(ref at, ai, ref an, ref av)
+                    , &Val::Enum(ref bt, bi, ref bn, ref bv)) =>
             {
                 match PartialOrd::partial_cmp(&*at, &*bt) {
                     Some(Ordering::Equal) => {
@@ -1933,10 +1939,10 @@ impl PartialOrd for Val
             (_, &Val::Struct(_, _)) => {
                 Some(Ordering::Greater)
             }
-            (&Val::Enum(_, _, _), _) => {
+            (&Val::Enum(_, _, _, _), _) => {
                 Some(Ordering::Less)
             }
-            (_, &Val::Enum(_, _, _)) => {
+            (_, &Val::Enum(_, _, _, _)) => {
                 Some(Ordering::Greater)
             }
             (&Val::Void, _) => {
@@ -2355,19 +2361,23 @@ fn test_enum_eq() {
     let etype =
         Type::ModPrefix(
             Rc::new("animals".to_string()),
-            Rc::new(Type::Struct(Rc::new("Animal".to_string()))),
+            Rc::new(Type::Enum(Rc::new("Animal".to_string()))),
         );
-    let vartype =
-        Type::Struct(Rc::new("Dog".to_string()));
 
     let a =
-        Val::Enum(etype.clone(), 0, Box::new(
-            Val::Struct(vartype.clone(), Vec::with_capacity(0))
-        ));
+        Val::Enum(
+            etype.clone(),
+            0,
+            Rc::new(String::from("Dog".to_string())),
+            Box::new(Val::Void),
+        );
     let b =
-        Val::Enum(etype.clone(), 0, Box::new(
-            Val::Struct(vartype.clone(), Vec::with_capacity(0))
-        ));
+        Val::Enum(
+            etype.clone(),
+            0,
+            Rc::new(String::from("Dog".to_string())),
+            Box::new(Val::Void),
+        );
     assert_eq!(a, b);
 }
 
@@ -2375,11 +2385,17 @@ fn test_enum_eq() {
 fn test_enum_lt_type() {
     let a =
         Val::Enum(
-            Type::Id(Rc::new("Burrito".to_string())), 0, Box::new(Val::Void)
+            Type::Enum(Rc::new("Burrito".to_string())),
+            0,
+            Rc::new(String::from("Torta")),
+            Box::new(Val::Void),
         );
     let b =
         Val::Enum(
-            Type::Id(Rc::new("Taco".to_string())), 0, Box::new(Val::Void)
+            Type::Enum(Rc::new("Taco".to_string())),
+            0,
+            Rc::new(String::from("Quesadilla")),
+            Box::new(Val::Void),
         );
     assert!(a < b);
 }
@@ -2388,11 +2404,17 @@ fn test_enum_lt_type() {
 fn test_enum_lt_variant() {
     let a =
         Val::Enum(
-            Type::Id(Rc::new("Taco".to_string())), 1, Box::new(Val::Void)
+            Type::Enum(Rc::new("Taco".to_string())),
+            1,
+            Rc::new(String::from("Burrito")),
+            Box::new(Val::Void),
         );
     let b =
         Val::Enum(
-            Type::Id(Rc::new("Taco".to_string())), 2, Box::new(Val::Void)
+            Type::Enum(Rc::new("Taco".to_string())),
+            2,
+            Rc::new(String::from("Torta")),
+            Box::new(Val::Void),
         );
     assert!(a < b);
 }
@@ -2401,13 +2423,79 @@ fn test_enum_lt_variant() {
 fn test_enum_lt_val() {
     let a =
         Val::Enum(
-            Type::Id(Rc::new("Taco".to_string())), 0, Box::new(Val::Int(5))
+            Type::Enum(Rc::new("Taco".to_string())),
+            0,
+            Rc::new(String::from("Burrito")),
+            Box::new(Val::Int(5)),
         );
     let b =
         Val::Enum(
-            Type::Id(Rc::new("Taco".to_string())), 0, Box::new(Val::Int(9))
+            Type::Enum(Rc::new("Taco".to_string())),
+            0,
+            Rc::new(String::from("Burrito")),
+            Box::new(Val::Int(9)),
         );
     assert!(a < b);
+}
+
+#[test]
+fn test_format_struct_empty()
+{
+    let s = Val::Struct(
+        Type::Struct(Rc::new("Taco".to_string())), Vec::with_capacity(0)
+    );
+
+    let s_str = format!("{}", s);
+    assert_eq!("Taco", s_str);
+}
+
+#[test]
+fn test_format_enum_empty()
+{
+    let e = Val::Enum(
+        Type::Enum(Rc::new("Taco".to_string())),
+        7,
+        Rc::new("Burrito".to_string()),
+        Box::new(Val::Void),
+    );
+
+    let e_str = format!("{}", e);
+    assert_eq!("Burrito", e_str);
+}
+
+#[test]
+fn test_format_enum_one_unnamed_field()
+{
+    let s = Val::Enum(
+        Type::Enum(Rc::new("Taco".to_string())),
+        1,
+        Rc::new(String::from("Burrito")),
+        Box::new(Val::Int(5)),
+    );
+
+    let s_str = format!("{}", s);
+    assert_eq!("Burrito(5)", s_str);
+}
+
+#[test]
+fn test_format_enum_two_fields()
+{
+    let s = Val::Struct(
+        Type::Struct(Rc::new("Burrito".to_string())),
+        vec![
+            Val::Int(4),
+            Val::Int(8),
+        ],
+    );
+    let e = Val::Enum(
+        Type::Enum(Rc::new("Taco".to_string())),
+        1,
+        Rc::new("Burrito".to_string()),
+        Box::new(s),
+    );
+
+    let e_str = format!("{}", e);
+    assert_eq!("Burrito(4, 8)", e_str);
 }
 
 #[test]
@@ -2423,6 +2511,7 @@ fn test_compare_across_types() {
     let enm = Val::Enum(
         Type::Enum(Rc::new("Taco".to_string())),
         1,
+        Rc::new("Burrito".to_string()),
         Box::new(Val::Struct(
             Type::Struct(Rc::new("Burrito".to_string())),
             vec![Val::Int(8), Val::Int(6)],

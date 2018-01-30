@@ -356,6 +356,9 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val, loc: &SrcLoc) -> Ixpr
         &Val::Struct(ref typ, ref flds) => {
             Ixpr::constructor(typ.clone(), flds.len() as i8, loc.lineno)
         }
+        &Val::Enum(ref typ, idx, ref var, ref vval) => {
+            Ixpr::enum_constructor(typ.clone(), idx, var, vval, loc.lineno)
+        }
         &Val::Void => Ixpr::noop(),
         &Val::Loc(ref v, ref loc) => {
             compile_expr(scope, v, loc)
@@ -557,7 +560,8 @@ pub fn compile_dot_access(scope: &mut Interscope, base_val: &Val
         let estruct_type = Type::Struct(field.clone());
         let estruct_val =
             Val::Struct(estruct_type, Vec::with_capacity(0));
-        let val = Val::Enum(ix_base.typ, variant_idx, Box::new(estruct_val));
+        let val = Val::Enum(ix_base.typ, variant_idx, field.clone()
+            , Box::new(estruct_val));
         Ixpr::const_val(val, loc.lineno)
     } else {
         if let Some((field_idx, field_typ)) =
@@ -995,6 +999,33 @@ fn test_pattern_declaration()
     loader.set_mod_txt("tacos", input);
     let mut prog = program::Lib::new(loader);
     let imod = prog.read_inter("tacos");
+    assert!(true); // didn't panic earlier
+}
+
+#[test]
+fn test_enum_constructors()
+{
+    let input = String::from("
+
+    enum Animal
+    |Dog
+    |Cat Int
+    |Mouse
+        .whiskers: Int
+        .color: Str
+    --
+
+    func main() ->
+        let d := Dog
+        let c := Cat(3)
+        let m := Mouse(9, \"red\")
+    --
+    ");
+
+    let mut loader = Interloader::new("animals.lma");
+    loader.set_mod_txt("animals", input);
+    let mut prog = program::Lib::new(loader);
+    let imod = prog.read_inter("animals");
     assert!(true); // didn't panic earlier
 }
 

@@ -597,9 +597,9 @@ impl Protomod
             let variant_name = variant_id.id_name();
             if **fields == Val::Nil {
                 let var_struct_type = Type::Struct(variant_name.clone());
-                let const_val = Val::Enum(typ.clone(), i, Box::new(
-                    Val::Struct(var_struct_type, Vec::with_capacity(0))
-                ));
+                let const_val = Val::Enum(typ.clone(), i, variant_name.clone()
+                    , Box::new(Val::Void)
+                    );
                 self.constants.insert((*variant_name).clone(), const_val);
                 self.valtypes.insert((*variant_name).clone(), typ.clone());
             } else {
@@ -624,6 +624,7 @@ println!("enum variant is typed id: {:?}", var);
 
             let val_name = Rc::new("val".to_string());
             let srcblk = Val::Enum(typ.clone(), i,
+                variant_name.clone(),
                 Box::new(Val::Id(val_name.clone())),
             );
             let srcxpr = sxpr::defunc(variant_id.clone()
@@ -744,7 +745,8 @@ fn test_preproc_enum_colors()
 
     assert_eq!(4, pmod.constants.len());
     let expected_red =
-        Val::Enum(expected_full_type.clone(), 0, Box::new(Val::Void));
+        Val::Enum(expected_full_type.clone(), 0, Rc::new("Red".to_string())
+            , Box::new(Val::Void));
     let red = pmod.constants.get("Red").unwrap();
     assert_eq!(expected_red, *red);
 
@@ -783,6 +785,10 @@ fn test_enum_types()
     let local_typename = Rc::new("Animal".to_string());
     let expected_local_type = Type::Enum(local_typename.clone());
     let typevar_a = Type::Var(Rc::new("$A".to_string()));
+    let dog_name = Rc::new("Dog".to_string());
+    let cat_name = Rc::new("Cat".to_string());
+    let mouse_name = Rc::new("Mouse".to_string());
+    let giraffe_name = Rc::new("Giraffe".to_string());
     let expected_type =
         Type::ModPrefix(
             Rc::new("animals".to_string()),
@@ -817,19 +823,20 @@ fn test_enum_types()
         pmod.constants.get("Giraffe").expect("missing constant: Giraffe");
 
     let exp_dog_const = Val::Enum(expected_type.clone(), 0,
+        dog_name.clone(),
         Box::new(Val::Struct(
-            Type::Struct(Rc::new("Dog".to_string())),
+            Type::Struct(dog_name.clone()),
             Vec::with_capacity(0),
         )),
     );
     let exp_cat_const = Val::FuncRef(
         Rc::new("animals".to_string()),
-        Rc::new("Cat".to_string()),
+        cat_name.clone(),
         cat_func_type.clone(),
     );
     let exp_giraffe_const = Val::FuncRef(
         Rc::new("animals".to_string()),
-        Rc::new("Giraffe".to_string()),
+        giraffe_name.clone(),
         giraffe_func_type.clone(),
     );
     assert_eq!(exp_dog_const, *dog_const);
