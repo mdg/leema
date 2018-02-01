@@ -73,6 +73,9 @@ impl Protomod
             &Val::Sxpr(SxprType::DefEnum, ref parts, ref loc) => {
                 self.preproc_enum(parts, loc);
             }
+            &Val::Sxpr(SxprType::DefNamedTuple, ref parts, ref loc) => {
+                self.preproc_namedtuple(parts, loc);
+            }
             &Val::Sxpr(SxprType::DefMacro, _, ref loc) => {
                 // do nothing. the macro definition will have been handled
                 // in the file read
@@ -608,7 +611,7 @@ impl Protomod
         ) -> Rc<String>
     {
         if let &Val::Loc(ref lvar, ref lloc) = var {
-            return self.preproc_enum_variant(typ, i, lvar, loc);
+            return self.preproc_enum_variant(typ, i, lvar, lloc);
         }
         let mod_name = self.key.name.clone();
         if sxpr::is_type(var, SxprType::DefStruct) {
@@ -627,6 +630,11 @@ impl Protomod
                     , &**fields, loc);
             }
             variant_name.clone()
+        } else if sxpr::is_type(var, SxprType::DefNamedTuple) {
+            let (st, sx, iloc) = sxpr::split_ref(var);
+            let (variant_id, fields) = list::take_ref(sx);
+            let variant_name = variant_id.id_name();
+            variant_name
         } else {
             // an enum variant with one, unnamed parameter
 println!("enum variant is typed id: {:?}", var);
@@ -660,6 +668,12 @@ println!("enum variant is typed id: {:?}", var);
             self.valtypes.insert((*variant_name).clone(), func_type);
             variant_name
         }
+    }
+
+    pub fn preproc_namedtuple(&mut self, pieces: &Val, loc: &SrcLoc
+        )
+    {
+        let (name, fields) = list::take_ref(pieces);
     }
 
     pub fn preproc_type(prog: &Lib, mp: &ModulePreface, t: &Type) -> Type
@@ -917,6 +931,20 @@ fn test_enum_types()
     assert_eq!("weight", *giraffe_field_weight.0);
     assert_eq!(Type::Int, giraffe_field_height.1);
     assert_eq!(typevar_a, giraffe_field_weight.1);
+}
+
+#[test]
+fn test_preproc_namedtuple()
+{
+    let input = "
+    struct Greeting(Str, Str)
+    ".to_string();
+    let mut loader = Interloader::new("animals.lma");
+    loader.set_mod_txt("animals", input);
+    let mut prog = program::Lib::new(loader);
+    let pmod = prog.read_proto("animals");
+
+    assert_eq!(1, pmod.newtypes.len());
 }
 
 #[test]
