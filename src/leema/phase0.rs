@@ -482,6 +482,34 @@ impl Protomod
     pub fn preproc_struct(&mut self, sp: &Val, loc: &SrcLoc)
     {
         let (ref name, ref src_fields) = list::take_ref(sp);
+        if list::is_empty(src_fields) {
+            self.preproc_token_struct(name, loc);
+        } else {
+            self.preproc_struct_with_fields(name, src_fields, loc);
+        }
+    }
+
+    pub fn preproc_token_struct(&mut self, name: &Val, loc: &SrcLoc)
+    {
+        let rc_name = name.id_name().clone();
+        let local_type = Type::Token(rc_name.clone());
+        let mod_name = self.key.name.clone();
+        let mod_type = Type::ModPrefix(
+            mod_name.clone(),
+            Rc::new(local_type.clone()),
+        );
+
+        // a token struct is stored as a constant with no constructor
+        let constval = Val::Token(mod_type.clone());
+        self.constants.insert((*rc_name).clone(), constval);
+        self.valtypes.insert((*rc_name).clone(), mod_type.clone());
+        self.newtypes.insert(mod_type);
+    }
+
+    pub fn preproc_struct_with_fields(&mut self, name: &Val, src_fields: &Val
+        , loc: &SrcLoc
+        )
+    {
         let rc_name = name.id_name().clone();
         let local_type = Type::Struct(rc_name.clone());
         let mod_name = self.key.name.clone();
@@ -489,17 +517,9 @@ impl Protomod
             mod_name.clone(),
             Rc::new(local_type.clone()),
         );
-        let num_fields = list::len(src_fields);
 
-        if num_fields > 0 {
-            self.preproc_struct_fields(&mod_type, &mod_name
-                , name, src_fields, loc);
-        } else {
-            // an empty struct is stored as a constant with no constructor
-            self.valtypes.insert((*rc_name).clone(), mod_type.clone());
-            let constval = Val::Struct(mod_type.clone(), Vec::with_capacity(0));
-            self.constants.insert((*rc_name).clone(), constval);
-        }
+        self.preproc_struct_fields(&mod_type, &mod_name
+            , name, src_fields, loc);
         self.newtypes.insert(local_type);
     }
 
@@ -686,6 +706,7 @@ mod tests {
     use leema::sxpr;
     use leema::val::{Val, Type, SxprType, SrcLoc};
 
+    use std::collections::{HashSet};
     use std::rc::{Rc};
     use std::io::{Write};
 
@@ -743,12 +764,15 @@ fn test_preproc_enum_colors()
     assert_eq!(1, pmod.newtypes.len());
     assert!(pmod.newtypes.contains(&expected_local_type));
 
-    assert_eq!(4, pmod.constants.len());
     let expected_red =
         Val::Enum(expected_full_type.clone(), 0, Rc::new("Red".to_string())
             , Box::new(Val::Void));
     let red = pmod.constants.get("Red").unwrap();
     assert_eq!(expected_red, *red);
+    assert!(pmod.constants.get("Yellow").is_some());
+    assert!(pmod.constants.get("Blue").is_some());
+    assert!(pmod.constants.get("Animal").is_some());
+    assert_eq!(4, pmod.constants.len());
 
     assert_eq!(1, pmod.structfields.len());
     let color_flds = pmod.structfields.get("PrimaryColor").unwrap();
@@ -824,10 +848,7 @@ fn test_enum_types()
 
     let exp_dog_const = Val::Enum(expected_type.clone(), 0,
         dog_name.clone(),
-        Box::new(Val::Struct(
-            Type::Struct(dog_name.clone()),
-            Vec::with_capacity(0),
-        )),
+        Box::new(Val::Void),
     );
     let exp_cat_const = Val::FuncRef(
         Rc::new("animals".to_string()),
@@ -966,6 +987,45 @@ fn test_new_struct_constructor_valtype()
     } else {
         panic!("constructor valtype is not a func");
     }
+}
+
+#[test]
+fn test_token_type()
+{
+    let input = String::from("
+    struct Burrito --
+    ");
+
+    let mut loader = Interloader::new("tok.lma");
+    loader.set_mod_txt("tok", input);
+    let mut prog = program::Lib::new(loader);
+    let pmod = prog.read_proto("tok");
+
+    let name_rc = Rc::new("Burrito".to_string());
+    let exptype = Type::ModPrefix(
+        Rc::new("tok".to_string()),
+        Rc::new(Type::Token(name_rc.clone())),
+    );
+
+    // verify newtypes
+    let expset: HashSet<Type> = vec![exptype.clone()].into_iter().collect();
+    assert_eq!(expset, pmod.newtypes);
+    assert!(pmod.newtypes.contains(&exptype));
+    assert_eq!(1, pmod.newtypes.len());
+
+    // verify valtypes
+    assert_eq!(exptype, *pmod.valtypes.get("Burrito").unwrap());
+    assert_eq!(1, pmod.valtypes.len());
+
+    // verify constants
+    assert_eq!(Val::Token(exptype.clone())
+        , *pmod.constants.get("Burrito").unwrap());
+    assert_eq!(1, pmod.constants.len());
+
+    // assert on fields that shouldn't have changed
+    assert_eq!(0, pmod.funcseq.len());
+    assert_eq!(0, pmod.funcsrc.len());
+    assert_eq!(0, pmod.structfields.len());
 }
 
 }

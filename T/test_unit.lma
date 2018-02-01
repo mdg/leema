@@ -1,0 +1,12 @@
+
+struct Unit --
+
+func main() ->
+    let u := Unit
+    let v := Unit
+
+    if
+    |u == v -> cout("units match: $u\n")
+    |else -> cout("unit mismatch\n")
+    --
+--

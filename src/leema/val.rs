@@ -48,6 +48,7 @@ pub enum Type
     Tuple(Vec<Type>),
     Struct(Rc<String>),
     Enum(Rc<String>),
+    Token(Rc<String>),
     Failure,
     Func(Vec<Type>, Box<Type>),
     // different from base collection/map interfaces?
@@ -244,6 +245,9 @@ impl Type
             &Type::Enum(ref s) => {
                 Type::Enum(Rc::new((**s).clone()))
             }
+            &Type::Token(ref t) => {
+                Type::Token(Rc::new((**t).clone()))
+            }
             &Type::Id(ref id) => {
                 let old_str: &str = &**id;
                 Type::Id(Rc::new(old_str.to_string()))
@@ -295,6 +299,7 @@ impl fmt::Display for Type
             }
             &Type::Struct(ref name) => write!(f, "{}", name),
             &Type::Enum(ref name) => write!(f, "{}", name),
+            &Type::Token(ref name) => write!(f, "{}", name),
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
@@ -347,6 +352,7 @@ impl fmt::Debug for Type
                 write!(f, "StructType({})", name)
             }
             &Type::Enum(ref name) => write!(f, "Enum({})", name),
+            &Type::Token(ref name) => write!(f, "Token({})", name),
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
@@ -556,6 +562,7 @@ pub enum Val {
     Sxpr(SxprType, Rc<Val>, SrcLoc),
     Struct(Type, Vec<Val>),
     Enum(Type, i16, Rc<String>, Box<Val>),
+    Token(Type),
     Failure(
         Box<Val>, // tag
         Box<Val>, // msg
@@ -957,6 +964,9 @@ impl Val
             &Val::Enum(ref typ, _, _, _) => {
                 typ.clone()
             }
+            &Val::Token(ref typ) => {
+                typ.clone()
+            }
             &Val::Buffer(_) => Type::Str,
             &Val::ModPrefix(_, _) => {
                 panic!("module prefixes have no type");
@@ -1120,6 +1130,9 @@ impl Val
                 Val::Enum(typ.deep_clone(), idx, vname.clone(),
                     Box::new(flds.deep_clone()),
                 )
+            }
+            &Val::Token(ref typ) => {
+                Val::Token(typ.deep_clone())
             }
             // &Val::Failure(ref tag, ref msg, ref ft),
             &Val::Id(ref s) => Val::id((**s).clone()),
@@ -1436,6 +1449,9 @@ impl fmt::Display for Val {
                     write!(f, "{}({})", var_name, val)
                 }
             }
+            Val::Token(ref name) => {
+                write!(f, "{}", name)
+            }
             Val::Buffer(ref buf) => {
                 write!(f, "Buffer")
             }
@@ -1534,6 +1550,9 @@ impl fmt::Debug for Val {
             }
             Val::Enum(ref name, var_idx, ref var_name, ref val) => {
                 write!(f, "enum({:?}.{}.{}:{:?})", name, var_idx, var_name, val)
+            }
+            Val::Token(ref name) => {
+                write!(f, "Token({})", name)
             }
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv)
@@ -1817,6 +1836,10 @@ impl PartialOrd for Val
                     tcmp => tcmp,
                 }
             }
+            // token to token comparison
+            (&Val::Token(ref at), &Val::Token(ref bt)) => {
+                PartialOrd::partial_cmp(&*at, &*bt)
+            }
             (&Val::FuncRef(ref m1, ref n1, ref t1)
                     , &Val::FuncRef(ref m2, ref n2, ref t2)) =>
             {
@@ -1867,12 +1890,10 @@ impl PartialOrd for Val
             (&Val::Loc(ref v1, _), &Val::Loc(ref v2, _)) => {
                 PartialOrd::partial_cmp(&**v1, &**v2)
             }
-            (&Val::Loc(ref v1, _), _) => {
-                PartialOrd::partial_cmp(&**v1, other)
+            (&Val::Buffer(ref b1), &Val::Buffer(ref b2)) => {
+                PartialOrd::partial_cmp(b1, b2)
             }
-            (_, &Val::Loc(ref v2, _)) => {
-                PartialOrd::partial_cmp(self, &**v2)
-            }
+            // start comparing mixed types
             (&Val::Bool(false), _) => {
                 Some(Ordering::Less)
             }
@@ -1951,11 +1972,23 @@ impl PartialOrd for Val
             (_, &Val::Enum(_, _, _, _)) => {
                 Some(Ordering::Greater)
             }
+            (&Val::Token(_), _) => {
+                Some(Ordering::Less)
+            }
+            (_, &Val::Token(_)) => {
+                Some(Ordering::Greater)
+            }
             (&Val::Void, _) => {
                 Some(Ordering::Less)
             }
             (_, &Val::Void) => {
                 Some(Ordering::Greater)
+            }
+            (&Val::Loc(ref v1, _), _) => {
+                PartialOrd::partial_cmp(&**v1, other)
+            }
+            (_, &Val::Loc(ref v2, _)) => {
+                PartialOrd::partial_cmp(self, &**v2)
             }
             (&Val::RustBlock, _) => Some(Ordering::Less),
             (_, &Val::RustBlock) => Some(Ordering::Greater),
@@ -2501,7 +2534,7 @@ fn test_format_enum_two_fields()
     );
 
     let e_str = format!("{}", e);
-    assert_eq!("Burrito(4, 8)", e_str);
+    assert_eq!("Burrito(4,8,)", e_str);
 }
 
 #[test]
