@@ -1891,17 +1891,17 @@ impl PartialOrd for Val
                     _ => cmp,
                 }
             }
-            (&Val::Loc(ref v1, _), &Val::Loc(ref v2, _)) => {
-                PartialOrd::partial_cmp(&**v1, &**v2)
+            (&Val::Buffer(ref b1), &Val::Buffer(ref b2)) => {
+                PartialOrd::partial_cmp(b1, b2)
             }
+
+            // don't compare loc directly, just pass through to
+            // compare the inner values
             (&Val::Loc(ref v1, _), _) => {
                 PartialOrd::partial_cmp(&**v1, other)
             }
             (_, &Val::Loc(ref v2, _)) => {
                 PartialOrd::partial_cmp(self, &**v2)
-            }
-            (&Val::Buffer(ref b1), &Val::Buffer(ref b2)) => {
-                PartialOrd::partial_cmp(b1, b2)
             }
             // start comparing mixed types
             (&Val::Bool(false), _) => {
