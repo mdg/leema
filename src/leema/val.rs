@@ -1894,6 +1894,12 @@ impl PartialOrd for Val
             (&Val::Loc(ref v1, _), &Val::Loc(ref v2, _)) => {
                 PartialOrd::partial_cmp(&**v1, &**v2)
             }
+            (&Val::Loc(ref v1, _), _) => {
+                PartialOrd::partial_cmp(&**v1, other)
+            }
+            (_, &Val::Loc(ref v2, _)) => {
+                PartialOrd::partial_cmp(self, &**v2)
+            }
             (&Val::Buffer(ref b1), &Val::Buffer(ref b2)) => {
                 PartialOrd::partial_cmp(b1, b2)
             }
@@ -1987,12 +1993,6 @@ impl PartialOrd for Val
             }
             (_, &Val::Void) => {
                 Some(Ordering::Greater)
-            }
-            (&Val::Loc(ref v1, _), _) => {
-                PartialOrd::partial_cmp(&**v1, other)
-            }
-            (_, &Val::Loc(ref v2, _)) => {
-                PartialOrd::partial_cmp(self, &**v2)
             }
             (&Val::RustBlock, _) => Some(Ordering::Less),
             (_, &Val::RustBlock) => Some(Ordering::Greater),
