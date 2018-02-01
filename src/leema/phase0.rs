@@ -615,7 +615,7 @@ impl Protomod
             let (st, sx, iloc) = sxpr::split_ref(var);
             let (variant_id, fields) = list::take_ref(sx);
             let variant_name = variant_id.id_name();
-            if **fields == Val::Nil {
+            if list::is_empty(&**fields) {
                 let var_struct_type = Type::Struct(variant_name.clone());
                 let const_val = Val::Enum(typ.clone(), i, variant_name.clone()
                     , Box::new(Val::Void)

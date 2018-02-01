@@ -1,9 +1,7 @@
 
-struct Name(Str, Str)
+struct Greeting(Str, Str)
 
-struct Name
-:Str
-:Str
+func main() ->
+    let n := Greeting("hello", "world")
+    cout("greeting is: '$n'\n")
 --
-
-func main

@@ -518,6 +518,7 @@ pub enum SxprType {
     DefMacro,
     DefStruct,
     DefEnum,
+    DefNamedTuple,
     IfExpr,
     Import,
     MatchExpr,
@@ -873,6 +874,9 @@ impl Val
 
     pub fn loc(v: Val, l: SrcLoc) -> Val
     {
+        if let Val::Loc(_, _) = v {
+            panic!("don't put a loc around a loc! {:?}", v);
+        }
         Val::Loc(Box::new(v), l)
     }
 
