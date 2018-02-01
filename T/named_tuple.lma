@@ -1,0 +1,9 @@
+
+struct Name(Str, Str)
+
+struct Name
+:Str
+:Str
+--
+
+func main
