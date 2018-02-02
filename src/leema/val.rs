@@ -49,6 +49,7 @@ pub enum Type
     Struct(Rc<String>),
     Enum(Rc<String>),
     Token(Rc<String>),
+    NamedTuple(Rc<String>, Vec<Type>),
     Failure,
     Func(Vec<Type>, Box<Type>),
     // different from base collection/map interfaces?
@@ -300,6 +301,17 @@ impl fmt::Display for Type
             &Type::Struct(ref name) => write!(f, "{}", name),
             &Type::Enum(ref name) => write!(f, "{}", name),
             &Type::Token(ref name) => write!(f, "{}", name),
+            &Type::NamedTuple(ref name, ref flds) => {
+                let nt_result = write!(f, "{}(", name);
+                flds.iter().fold(nt_result, |ntr, fld| {
+                    ntr.and_then(|_| {
+                        write!(f, "{},", fld)
+                    })
+                })
+                .and_then(|_| {
+                    write!(f, ")")
+                })
+            }
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
@@ -353,6 +365,9 @@ impl fmt::Debug for Type
             }
             &Type::Enum(ref name) => write!(f, "Enum({})", name),
             &Type::Token(ref name) => write!(f, "Token({})", name),
+            &Type::NamedTuple(ref name, ref flds) => {
+                write!(f, "NamedTuple({}, {:?})", name, flds)
+            }
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {

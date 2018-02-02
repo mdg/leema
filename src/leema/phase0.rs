@@ -670,10 +670,17 @@ println!("enum variant is typed id: {:?}", var);
         }
     }
 
-    pub fn preproc_namedtuple(&mut self, pieces: &Val, loc: &SrcLoc
-        )
+    pub fn preproc_namedtuple(&mut self, pieces: &Val, loc: &SrcLoc)
     {
-        let (name, fields) = list::take_ref(pieces);
+        let (name_id, fields) = list::take_ref(pieces);
+        let name_str = name_id.id_name();
+        let field_types = list::iter(fields).map(|f| {
+            f.to_type()
+        }).collect();
+        let local_type = Type::NamedTuple(name_str, field_types);
+        let mod_type = self.modtype(local_type);
+
+        self.newtypes.insert(mod_type.clone());
     }
 
     pub fn preproc_type(prog: &Lib, mp: &ModulePreface, t: &Type) -> Type
@@ -687,6 +694,11 @@ println!("enum variant is typed id: {:?}", var);
                 t.clone()
             }
         }
+    }
+
+    fn modtype(&self, t: Type) -> Type
+    {
+        Type::ModPrefix(self.key.name.clone(), Rc::new(t))
     }
 }
 
