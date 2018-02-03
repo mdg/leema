@@ -604,6 +604,7 @@ impl Protomod
 
         self.newtypes.insert(local_type);
         self.structfields.insert((*rc_name).clone(), variant_fields);
+        self.constants.insert((*rc_name).clone(), Val::Type(mod_type));
     }
 
     pub fn preproc_enum_variant(&mut self, typ: &Type, i: i16, var: &Val
@@ -834,7 +835,7 @@ fn test_preproc_enum_colors()
     assert_eq!(expected_red, *red);
     assert!(pmod.constants.get("Yellow").is_some());
     assert!(pmod.constants.get("Blue").is_some());
-    assert!(pmod.constants.get("Animal").is_some());
+    assert!(pmod.constants.get("PrimaryColor").is_some());
     assert_eq!(4, pmod.constants.len());
 
     assert_eq!(1, pmod.structfields.len());
