@@ -6,9 +6,9 @@ enum PrimaryColor
 --
 
 func main() ->
-    let r := PrimaryColor.Red
-    let b := PrimaryColor.Blue
-    let y := PrimaryColor.Yellow
+    let r := Red
+    let b := Blue
+    let y := Yellow
     cout("red: $r\n")
     cout("blue: $b\n")
     cout("yellow: $y\n")

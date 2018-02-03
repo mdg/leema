@@ -314,8 +314,7 @@ impl Protomod
                 }
             }
             &Val::Loc(ref v, ref _oldloc) => {
-                let v2 = Protomod::replace_ids(v, idvals, loc);
-                Val::loc(v2, *loc)
+                Protomod::replace_ids(v, idvals, loc)
             }
             &Val::Sxpr(stype, ref sdata, ref _oldloc) => {
                 sxpr::new(
