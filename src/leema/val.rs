@@ -575,6 +575,7 @@ pub enum Val {
     Cons(Box<Val>, Rc<Val>),
     Nil,
     Tuple(Vec<Val>),
+    NamedTuple(Type, Vec<Val>),
     Sxpr(SxprType, Rc<Val>, SrcLoc),
     Struct(Type, Vec<Val>),
     Enum(Type, i16, Rc<String>, Box<Val>),
@@ -981,6 +982,9 @@ impl Val
                 typ.clone()
             }
             &Val::Enum(ref typ, _, _, _) => {
+                typ.clone()
+            }
+            &Val::NamedTuple(ref typ, _) => {
                 typ.clone()
             }
             &Val::Token(ref typ) => {
@@ -1449,6 +1453,10 @@ impl fmt::Display for Val {
             Val::Tuple(ref t) => {
                 Val::fmt_tuple(f, t, false)
             }
+            Val::NamedTuple(ref name, ref t) => {
+                write!(f, "{}", name);
+                Val::fmt_tuple(f, t, false)
+            }
             Val::Struct(ref name, ref fields) => {
                 write!(f, "{}", name)
                     .and_then(|prev_result| {
@@ -1561,6 +1569,10 @@ impl fmt::Debug for Val {
             }
             Val::Tuple(ref t) => {
                 write!(f, "T").ok();
+                Val::fmt_tuple(f, t, true)
+            }
+            Val::NamedTuple(ref name, ref t) => {
+                write!(f, "{}", name);
                 Val::fmt_tuple(f, t, true)
             }
             Val::Struct(ref name, ref fields) => {

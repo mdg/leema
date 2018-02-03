@@ -680,12 +680,44 @@ println!("enum variant is typed id: {:?}", var);
         let local_type =
             Type::NamedTuple(name_str.clone(), field_types.clone());
         let mod_type = self.modtype(local_type);
-        let func_type = Type::Func(field_types, Box::new(mod_type.clone()));
+        let func_type =
+            Type::Func(field_types.clone(), Box::new(mod_type.clone()));
+
+        let field_name_vec: Vec<Rc<String>> = field_types.iter().enumerate()
+            .map(|(i, _)| {
+                let idx: i8 = i as i8;
+                Rc::new(format!("field_{}", i))
+            })
+            .collect();
+        let field_id_vec = field_name_vec.iter().map(|fname| {
+            Val::Id(fname.clone())
+        }).collect();
+        let src_fields_back = field_name_vec.iter().zip(field_types.iter())
+            .map(|(fname, ftyp)| {
+                Val::TypedId(fname.clone(), ftyp.clone())
+            })
+            .fold(Val::Nil, |acc, f| {
+                list::cons(f, acc)
+            });
+        let src_fields = list::reverse(&src_fields_back);
+        let srcblk = Val::NamedTuple(mod_type.clone(),
+            field_id_vec,
+        );
+        let srcxpr = sxpr::defunc(name_id.clone()
+            , src_fields
+            , Val::Type(mod_type.clone())
+            , srcblk
+            , *loc
+        );
 
         self.newtypes.insert(mod_type.clone());
         self.constants.insert((*name_str).clone(),
             Val::FuncRef(self.key.name.clone(), name_str.clone(),
                 func_type.clone()));
+
+        self.funcsrc.insert((*name_str).clone(), srcxpr);
+        self.valtypes.insert((*name_str).clone(), func_type);
+        self.funcseq.push_back(name_str);
     }
 
     pub fn preproc_type(prog: &Lib, mp: &ModulePreface, t: &Type) -> Type
@@ -992,6 +1024,7 @@ fn test_preproc_namedtuple()
 
     // assert funcseq
     assert_eq!(1, pmod.funcseq.len());
+    assert_eq!("Greeting", **pmod.funcseq.front().unwrap());
 
     // verify valtypes
     assert_eq!(1, pmod.valtypes.len());
