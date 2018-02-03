@@ -215,9 +215,9 @@ class TestScripts(unittest.TestCase):
     def test_color_enum(self):
         result = run_leema('color_enum')
         self.assertEqual(0, result['code'])
-        exp = b"red: color_enum::PrimaryColor.Red\n" \
-            + b"blue: color_enum::PrimaryColor.Blue\n" \
-            + b"yellow: color_enum::PrimaryColor.Yellow\n"
+        exp = b"red: Red\n" \
+            + b"blue: Blue\n" \
+            + b"yellow: Yellow\n"
         self.assertEqual(exp, result['output'])
 
     def test_option(self):
