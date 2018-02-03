@@ -904,7 +904,7 @@ fn test_enum_types()
         );
 
     // verify constants
-    assert_eq!(4, pmod.constants.len());
+    assert_eq!(5, pmod.constants.len());
     let dog_const = pmod.constants.get("Dog").expect("missing constant: Dog");
     let cat_const = pmod.constants.get("Cat").expect("missing constant: Cat");
     let giraffe_const =
@@ -930,7 +930,7 @@ fn test_enum_types()
 
     // verify constant string formatting
     let dog_str = format!("{}", dog_const);
-    assert_eq!("animals::Dog", dog_str);
+    assert_eq!("Dog", dog_str);
 
     // verify newtypes
     assert_eq!(1, pmod.newtypes.len());
