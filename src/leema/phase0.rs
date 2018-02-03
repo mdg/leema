@@ -674,13 +674,18 @@ println!("enum variant is typed id: {:?}", var);
     {
         let (name_id, fields) = list::take_ref(pieces);
         let name_str = name_id.id_name();
-        let field_types = list::iter(fields).map(|f| {
+        let field_types: Vec<Type> = list::iter(fields).map(|f| {
             f.to_type()
         }).collect();
-        let local_type = Type::NamedTuple(name_str, field_types);
+        let local_type =
+            Type::NamedTuple(name_str.clone(), field_types.clone());
         let mod_type = self.modtype(local_type);
+        let func_type = Type::Func(field_types, Box::new(mod_type.clone()));
 
         self.newtypes.insert(mod_type.clone());
+        self.constants.insert((*name_str).clone(),
+            Val::FuncRef(self.key.name.clone(), name_str.clone(),
+                func_type.clone()));
     }
 
     pub fn preproc_type(prog: &Lib, mp: &ModulePreface, t: &Type) -> Type
@@ -951,12 +956,45 @@ fn test_preproc_namedtuple()
     let input = "
     struct Greeting(Str, Str)
     ".to_string();
-    let mut loader = Interloader::new("animals.lma");
-    loader.set_mod_txt("animals", input);
+    let mut loader = Interloader::new("greet.lma");
+    loader.set_mod_txt("greet", input);
     let mut prog = program::Lib::new(loader);
-    let pmod = prog.read_proto("animals");
+    let pmod = prog.read_proto("greet");
 
+    let greet = Rc::new("greet".to_string());
+    let greeting_str = Rc::new("Greeting".to_string());
+    let greeting_ntt = Type::NamedTuple(greeting_str.clone(), vec![
+        Type::Str, Type::Str]);
+    let mod_greeting_ntt = Type::ModPrefix(
+        greet.clone(),
+        Rc::new(greeting_ntt.clone()),
+    );
+    let xfunctyp = Type::Func(
+        vec![Type::Str, Type::Str],
+        Box::new(mod_greeting_ntt.clone()),
+    );
+
+    // assert newtypes
+    let gnewtype: HashSet<Type> =
+        vec![mod_greeting_ntt.clone()].into_iter().collect();
+    assert_eq!(gnewtype, pmod.newtypes);
     assert_eq!(1, pmod.newtypes.len());
+
+    // constants
+    assert_eq!(
+        Val::FuncRef(greet.clone(), greeting_str.clone(), xfunctyp.clone()),
+        *pmod.constants.get("Greeting").unwrap()
+    );
+    assert_eq!(1, pmod.constants.len());
+
+    // assert funcsrc
+    assert_eq!(1, pmod.funcsrc.len());
+
+    // assert funcseq
+    assert_eq!(1, pmod.funcseq.len());
+
+    // verify valtypes
+    assert_eq!(1, pmod.valtypes.len());
 }
 
 #[test]
