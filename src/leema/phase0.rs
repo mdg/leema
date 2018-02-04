@@ -683,7 +683,8 @@ impl Protomod
                 list::cons(f, acc)
             });
         let src_fields = list::reverse(&src_fields_back);
-        let srcblk = Val::NamedTuple(mod_type.clone(),
+        let named_type = Type::NamedTuple(name_str.clone(), field_types);
+        let srcblk = Val::NamedTuple(named_type.clone(),
             field_id_vec,
         );
         let srcxpr = sxpr::defunc(Val::Id(name_str.clone())

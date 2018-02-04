@@ -156,22 +156,22 @@ impl Ixpr
         , vval: &Val, lineno: i16
         ) -> Ixpr
     {
-        let src =
+        let (variant_type, nflds) =
             match *vval {
-                Val::Struct(ref etyp, ref flds) => {
-                    let nflds = flds.len() as i8;
-                    let construct = Ixpr::constructor(
-                        etyp.clone(), nflds, lineno
-                    );
-                    Source::EnumConstructor(t.clone(), idx, Box::new(construct))
+                Val::Struct(ref vartyp, ref flds) => {
+                    (vartyp.clone(), flds.len() as i8)
+                }
+                Val::NamedTuple(ref vartyp, ref flds) => {
+                    (vartyp.clone(), flds.len() as i8)
                 }
                 _ => {
-                    // let construct =
-                    //     Ixpr::constructor(etyp.clone(), 1, lineno);
-                    let construct = Ixpr::noop();
-                    Source::EnumConstructor(t.clone(), idx, Box::new(construct))
+                    panic!("unknown val for enum: {:?}", vval);
                 }
             };
+        let construct = Ixpr::constructor(
+            variant_type, nflds, lineno
+        );
+        let src = Source::EnumConstructor(t.clone(), idx, Box::new(construct));
 
         Ixpr{
             typ: t,

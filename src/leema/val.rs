@@ -292,6 +292,10 @@ impl Type
                 let new_base = base.deep_clone();
                 Type::ModPrefix(Rc::new(new_prefix), Rc::new(new_base))
             }
+            &Type::Var(ref id) => {
+                let old_str: &str = &**id;
+                Type::Var(Rc::new(old_str.to_string()))
+            }
             _ => {
                 panic!("cannot deep_clone Type: {:?}", self);
             }
