@@ -73,6 +73,9 @@ impl Protomod
             &Val::Sxpr(SxprType::DefEnum, ref parts, ref loc) => {
                 self.preproc_enum(parts, loc);
             }
+            &Val::Sxpr(SxprType::DefNamedTuple, ref parts, ref loc) => {
+                self.preproc_namedtuple(parts, loc);
+            }
             &Val::Sxpr(SxprType::DefMacro, _, ref loc) => {
                 // do nothing. the macro definition will have been handled
                 // in the file read
@@ -311,8 +314,7 @@ impl Protomod
                 }
             }
             &Val::Loc(ref v, ref _oldloc) => {
-                let v2 = Protomod::replace_ids(v, idvals, loc);
-                Val::loc(v2, *loc)
+                Protomod::replace_ids(v, idvals, loc)
             }
             &Val::Sxpr(stype, ref sdata, ref _oldloc) => {
                 sxpr::new(
@@ -443,7 +445,7 @@ impl Protomod
     {
         match p {
             &Val::Id(_) => {
-                Val::ModPrefix(Rc::new(mp.key.name.clone()), Rc::new(p.clone()))
+                Val::ModPrefix(mp.key.name.clone(), Rc::new(p.clone()))
             }
             &Val::ModPrefix(_, _) => {
                 p.clone()
@@ -482,58 +484,85 @@ impl Protomod
     pub fn preproc_struct(&mut self, sp: &Val, loc: &SrcLoc)
     {
         let (ref name, ref src_fields) = list::take_ref(sp);
+        if list::is_empty(src_fields) {
+            self.preproc_token_struct(name, loc);
+        } else {
+            self.preproc_struct_with_fields(name, src_fields, loc);
+        }
+    }
+
+    pub fn preproc_token_struct(&mut self, name: &Val, loc: &SrcLoc)
+    {
         let rc_name = name.id_name().clone();
-        let local_type = Type::Struct(rc_name.clone());
+        let local_type = Type::Token(rc_name.clone());
+        let mod_name = self.key.name.clone();
         let mod_type = Type::ModPrefix(
-            Rc::new(self.key.name.clone()),
+            mod_name.clone(),
             Rc::new(local_type.clone()),
         );
-        let num_fields = list::len(src_fields);
 
-        if num_fields > 0 {
-            let field_type_vec = list::map_ref_to_vec(&**src_fields, |f| {
-                let (fname, ftype) = Val::split_typed_id(f);
-                ftype.clone()
-            });
+        // a token struct is stored as a constant with no constructor
+        let constval = Val::Token(mod_type.clone());
+        self.constants.insert((*rc_name).clone(), constval);
+        self.valtypes.insert((*rc_name).clone(), mod_type.clone());
+        self.newtypes.insert(mod_type);
+    }
 
-            let field_id_vec = list::map_ref_to_vec(&**src_fields, |f| {
-                let (fname, _) = Val::split_typed_id(f);
-                fname.clone()
-            });
+    pub fn preproc_struct_with_fields(&mut self, name: &Val, src_fields: &Val
+        , loc: &SrcLoc
+        )
+    {
+        let rc_name = name.id_name().clone();
+        let local_type = Type::Struct(rc_name.clone());
+        let mod_name = self.key.name.clone();
+        let mod_type = Type::ModPrefix(
+            mod_name.clone(),
+            Rc::new(local_type.clone()),
+        );
 
-            let field_name_vec = list::map_ref_to_vec(&**src_fields, |f| {
-                let (fname, ftype) = Val::split_typed_id(f);
-                fname.id_name()
-            });
-
-            let struct_fields =
-                list::map_ref_to_vec(&**src_fields, |f| {
-                    let (fname, ftype) = Val::split_typed_id(f);
-                    (fname.id_name().clone(), ftype.clone())
-                });
-
-            let func_type =
-                Type::Func(field_type_vec, Box::new(mod_type.clone()));
-
-            let srcblk = Val::Struct(mod_type.clone(), field_id_vec);
-            let srcxpr = sxpr::defunc((*name).clone()
-                , (***src_fields).clone()
-                , Val::Type(mod_type.clone())
-                , srcblk
-                , *loc
-                );
-
-            self.funcseq.push_back(rc_name.clone());
-            self.funcsrc.insert((*rc_name).clone(), srcxpr);
-            self.valtypes.insert((*rc_name).clone(), func_type);
-            self.structfields.insert((*rc_name).clone(), struct_fields);
-        } else {
-            // an empty struct is stored as a constant with no constructor
-            self.valtypes.insert((*rc_name).clone(), mod_type.clone());
-            let constval = Val::Struct(mod_type.clone(), Vec::with_capacity(0));
-            self.constants.insert((*rc_name).clone(), constval);
-        }
+        self.preproc_struct_fields(&mod_type, &mod_name
+            , name, src_fields, loc);
         self.newtypes.insert(local_type);
+    }
+
+    pub fn preproc_struct_fields(&mut self, typ: &Type, mod_name: &Rc<String>
+        , name: &Val, src_fields: &Val, loc: &SrcLoc
+        )
+    {
+        let rc_name = name.id_name();
+        let field_type_vec = list::map_ref_to_vec(src_fields, |f| {
+            let (fname, ftype) = Val::split_typed_id(f);
+            ftype.clone()
+        });
+
+        let field_id_vec = list::map_ref_to_vec(src_fields, |f| {
+            let (fname, _) = Val::split_typed_id(f);
+            fname.clone()
+        });
+
+        let struct_fields =
+            list::map_ref_to_vec(src_fields, |f| {
+                let (fname, ftype) = Val::split_typed_id(f);
+                (fname.id_name().clone(), ftype.clone())
+            });
+
+        let func_type = Type::Func(field_type_vec, Box::new(typ.clone()));
+
+        let srcblk = Val::Struct(typ.clone(), field_id_vec);
+        let srcxpr = sxpr::defunc((*name).clone()
+            , (*src_fields).clone()
+            , Val::Type(typ.clone())
+            , srcblk
+            , *loc
+        );
+
+        let funcref =
+            Val::FuncRef(mod_name.clone(), rc_name.clone(), func_type.clone());
+        self.constants.insert((*rc_name).clone(), funcref);
+        self.funcseq.push_back(rc_name.clone());
+        self.funcsrc.insert((*rc_name).clone(), srcxpr);
+        self.valtypes.insert((*rc_name).clone(), func_type);
+        self.structfields.insert((*rc_name).clone(), struct_fields);
     }
 
     pub fn struct_field_idx(&self, typename: &str, fld: &str
@@ -560,40 +589,135 @@ impl Protomod
         let rc_name = name.id_name().clone();
         let local_type = Type::Enum(rc_name.clone());
         let mod_type = Type::ModPrefix(
-            Rc::new(self.key.name.clone()),
+            self.key.name.clone(),
             Rc::new(local_type.clone()),
         );
 
         let mut variant_fields = Vec::with_capacity(list::len(src_variants));
         for (bigi, v) in list::iter(src_variants).enumerate() {
             let i = bigi as i16;
-            let (variant_id, vtype) = Val::split_typed_id(v);
-            let variant_name = variant_id.id_name();
-            vout!("variant_id: {:?}, variant_name: {:?}\n"
-                , variant_id, variant_name);
-            let const_val = Val::Enum(mod_type.clone(), i, Box::new(Val::Void));
-            self.constants.insert((*variant_name).clone(), const_val);
-            variant_fields.push((variant_name.clone(), mod_type.clone()));
+            let variant_name = self.preproc_enum_variant(&mod_type, i, v, loc);
+            let vf = (variant_name.clone(), mod_type.clone());
+            variant_fields.push(vf);
         }
 
-        let typeval = Val::Type(mod_type.clone());
-        self.constants.insert((*rc_name).clone(), typeval.clone());
-        self.valtypes.insert((*rc_name).clone(), mod_type.clone());
         self.newtypes.insert(local_type);
         self.structfields.insert((*rc_name).clone(), variant_fields);
+        self.constants.insert((*rc_name).clone(), Val::Type(mod_type));
+    }
+
+    pub fn preproc_enum_variant(&mut self, typ: &Type, i: i16, var: &Val
+        , loc: &SrcLoc
+        ) -> Rc<String>
+    {
+        if let &Val::Loc(ref lvar, ref lloc) = var {
+            return self.preproc_enum_variant(typ, i, lvar, lloc);
+        }
+        let mod_name = self.key.name.clone();
+        if sxpr::is_type(var, SxprType::DefStruct) {
+            let (st, sx, iloc) = sxpr::split_ref(var);
+            let (variant_id, fields) = list::take_ref(sx);
+            let variant_name = variant_id.id_name();
+            if list::is_empty(&**fields) {
+                let var_struct_type = Type::Struct(variant_name.clone());
+                let const_val = Val::Enum(typ.clone(), i, variant_name.clone()
+                    , Box::new(Val::Void)
+                    );
+                self.constants.insert((*variant_name).clone(), const_val);
+                self.valtypes.insert((*variant_name).clone(), typ.clone());
+            } else {
+                self.preproc_struct_fields(typ, &mod_name, variant_id
+                    , &**fields, loc);
+            }
+            variant_name.clone()
+        } else if sxpr::is_type(var, SxprType::DefNamedTuple) {
+            let (st, sx, iloc) = sxpr::split_ref(var);
+            let (variant_id, fields) = list::take_ref(sx);
+            let variant_name = variant_id.id_name();
+            let field_vec = list::iter(fields).map(|f| {
+                f.to_type()
+            }).collect();
+            self.preproc_namedtuple_func(
+                typ, variant_name.clone(), field_vec, iloc);
+            variant_name
+        } else {
+            panic!("unknown enum variant: {:?}", var);
+        }
+    }
+
+    pub fn preproc_namedtuple(&mut self, pieces: &Val, loc: &SrcLoc)
+    {
+        let (name_id, fields) = list::take_ref(pieces);
+        let name_str = name_id.id_name();
+        let field_types: Vec<Type> = list::iter(fields).map(|f| {
+            f.to_type()
+        }).collect();
+        let local_type =
+            Type::NamedTuple(name_str.clone(), field_types.clone());
+        let mod_type = self.modtype(local_type);
+
+        self.preproc_namedtuple_func(&mod_type, name_str, field_types, loc);
+        self.newtypes.insert(mod_type);
+    }
+
+    pub fn preproc_namedtuple_func(&mut self, mod_type: &Type
+        , name_str: Rc<String>, field_types: Vec<Type>, loc: &SrcLoc)
+    {
+        let func_type =
+            Type::Func(field_types.clone(), Box::new(mod_type.clone()));
+
+        let field_name_vec: Vec<Rc<String>> = field_types.iter().enumerate()
+            .map(|(i, _)| {
+                let idx: i8 = i as i8;
+                Rc::new(format!("field_{}", i))
+            })
+            .collect();
+        let field_id_vec = field_name_vec.iter().map(|fname| {
+            Val::Id(fname.clone())
+        }).collect();
+        let src_fields_back = field_name_vec.iter().zip(field_types.iter())
+            .map(|(fname, ftyp)| {
+                Val::TypedId(fname.clone(), ftyp.clone())
+            })
+            .fold(Val::Nil, |acc, f| {
+                list::cons(f, acc)
+            });
+        let src_fields = list::reverse(&src_fields_back);
+        let named_type = Type::NamedTuple(name_str.clone(), field_types);
+        let srcblk = Val::NamedTuple(named_type.clone(),
+            field_id_vec,
+        );
+        let srcxpr = sxpr::defunc(Val::Id(name_str.clone())
+            , src_fields
+            , Val::Type(mod_type.clone())
+            , srcblk
+            , *loc
+        );
+
+        self.constants.insert((*name_str).clone(),
+            Val::FuncRef(self.key.name.clone(), name_str.clone(),
+                func_type.clone()));
+        self.funcsrc.insert((*name_str).clone(), srcxpr);
+        self.valtypes.insert((*name_str).clone(), func_type);
+        self.funcseq.push_back(name_str);
     }
 
     pub fn preproc_type(prog: &Lib, mp: &ModulePreface, t: &Type) -> Type
     {
         match t {
             &Type::Id(_) => {
-                let prefix = Rc::new(mp.key.name.clone());
+                let prefix = mp.key.name.clone();
                 Type::ModPrefix(prefix, Rc::new(t.clone()))
             }
             _ => {
                 t.clone()
             }
         }
+    }
+
+    fn modtype(&self, t: Type) -> Type
+    {
+        Type::ModPrefix(self.key.name.clone(), Rc::new(t))
     }
 }
 
@@ -627,6 +751,7 @@ mod tests {
     use leema::sxpr;
     use leema::val::{Val, Type, SxprType, SrcLoc};
 
+    use std::collections::{HashSet};
     use std::rc::{Rc};
     use std::io::{Write};
 
@@ -684,11 +809,15 @@ fn test_preproc_enum_colors()
     assert_eq!(1, pmod.newtypes.len());
     assert!(pmod.newtypes.contains(&expected_local_type));
 
-    assert_eq!(4, pmod.constants.len());
     let expected_red =
-        Val::Enum(expected_full_type.clone(), 0, Box::new(Val::Void));
+        Val::Enum(expected_full_type.clone(), 0, Rc::new("Red".to_string())
+            , Box::new(Val::Void));
     let red = pmod.constants.get("Red").unwrap();
     assert_eq!(expected_red, *red);
+    assert!(pmod.constants.get("Yellow").is_some());
+    assert!(pmod.constants.get("Blue").is_some());
+    assert!(pmod.constants.get("PrimaryColor").is_some());
+    assert_eq!(4, pmod.constants.len());
 
     assert_eq!(1, pmod.structfields.len());
     let color_flds = pmod.structfields.get("PrimaryColor").unwrap();
@@ -701,6 +830,188 @@ fn test_preproc_enum_colors()
     assert_eq!("Blue", &*bfld.0);
 
     let rfld_idx = pmod.struct_field_idx("PrimaryColor", "Red");
+}
+
+#[test]
+fn test_enum_types()
+{
+    let input = "
+    enum Animal
+    |Dog
+    |Cat(Int)
+    |Mouse($A)
+    |Giraffe
+        .height: Int
+        .weight: $A
+    --
+    ".to_string();
+    let mut loader = Interloader::new("animals.lma");
+    loader.set_mod_txt("animals", input);
+    let mut prog = program::Lib::new(loader);
+    let pmod = prog.read_proto("animals");
+
+    let modname = Rc::new("animals".to_string());
+    let local_typename = Rc::new("Animal".to_string());
+    let expected_local_type = Type::Enum(local_typename.clone());
+    let typevar_a = Type::Var(Rc::new("$A".to_string()));
+    let dog_name = Rc::new("Dog".to_string());
+    let cat_name = Rc::new("Cat".to_string());
+    let mouse_name = Rc::new("Mouse".to_string());
+    let giraffe_name = Rc::new("Giraffe".to_string());
+    let expected_type =
+        Type::ModPrefix(
+            Rc::new("animals".to_string()),
+            Rc::new(Type::Enum(Rc::new("Animal".to_string()))),
+        );
+    let cat_func_type =
+        Type::Func(
+            vec![
+                Type::Int,
+            ],
+            Box::new(expected_type.clone()),
+        );
+    let mouse_func_type =
+        Type::Func(
+            vec![typevar_a.clone()],
+            Box::new(expected_type.clone()),
+        );
+    let giraffe_func_type =
+        Type::Func(
+            vec![
+                Type::Int,
+                typevar_a.clone(),
+            ],
+            Box::new(expected_type.clone()),
+        );
+
+    // verify constants
+    assert_eq!(5, pmod.constants.len());
+    let dog_const = pmod.constants.get("Dog").expect("missing constant: Dog");
+    let cat_const = pmod.constants.get("Cat").expect("missing constant: Cat");
+    let giraffe_const =
+        pmod.constants.get("Giraffe").expect("missing constant: Giraffe");
+
+    let exp_dog_const = Val::Enum(expected_type.clone(), 0,
+        dog_name.clone(),
+        Box::new(Val::Void),
+    );
+    let exp_cat_const = Val::FuncRef(
+        Rc::new("animals".to_string()),
+        cat_name.clone(),
+        cat_func_type.clone(),
+    );
+    let exp_giraffe_const = Val::FuncRef(
+        Rc::new("animals".to_string()),
+        giraffe_name.clone(),
+        giraffe_func_type.clone(),
+    );
+    assert_eq!(exp_dog_const, *dog_const);
+    assert_eq!(exp_cat_const, *cat_const);
+    assert_eq!(exp_giraffe_const, *giraffe_const);
+
+    // verify constant string formatting
+    let dog_str = format!("{}", dog_const);
+    assert_eq!("Dog", dog_str);
+
+    // verify newtypes
+    assert_eq!(1, pmod.newtypes.len());
+    assert!(pmod.newtypes.contains(&expected_local_type));
+
+    // verify function sequence
+    assert_eq!(3, pmod.funcseq.len());
+    let mut fseq_it = pmod.funcseq.iter();
+    assert_eq!("Cat", **fseq_it.next().unwrap());
+    assert_eq!("Mouse", **fseq_it.next().unwrap());
+    assert_eq!("Giraffe", **fseq_it.next().unwrap());
+
+    // verify function source
+    assert!(pmod.funcsrc.get("Dog").is_none());
+    assert!(pmod.funcsrc.get("Cat").is_some());
+    assert!(pmod.funcsrc.get("Mouse").is_some());
+    assert!(pmod.funcsrc.get("Giraffe").is_some());
+    assert_eq!(3, pmod.funcsrc.len());
+
+    // verify value types
+    assert_eq!("animals::Animal",
+        format!("{}", *pmod.valtypes.get("Dog").unwrap()));
+    assert_eq!("Int > animals::Animal",
+        format!("{}", *pmod.valtypes.get("Cat").unwrap()));
+    assert_eq!(*pmod.valtypes.get("Mouse").unwrap(), mouse_func_type);
+    assert_eq!(*pmod.valtypes.get("Giraffe").unwrap(), giraffe_func_type);
+    assert_eq!(4, pmod.valtypes.len());
+
+    // verify struct fields
+    assert_eq!(2, pmod.structfields.len());
+    let variants = pmod.structfields.get("Animal").unwrap();
+    let variant_dog = variants.get(0).unwrap();
+    let variant_cat = variants.get(1).unwrap();
+    let variant_mouse = variants.get(2).unwrap();
+    let variant_giraffe = variants.get(3).unwrap();
+    let giraffe_fields = pmod.structfields.get("Giraffe").unwrap();
+    let giraffe_field_height = giraffe_fields.get(0).unwrap();
+    let giraffe_field_weight = giraffe_fields.get(1).unwrap();
+    assert_eq!(4, variants.len());
+    assert_eq!("Dog", *variant_dog.0);
+    assert_eq!("Cat", *variant_cat.0);
+    assert_eq!("Mouse", *variant_mouse.0);
+    assert_eq!("Giraffe", *variant_giraffe.0);
+    assert_eq!(expected_type, variant_dog.1);
+    assert_eq!(expected_type, variant_cat.1);
+    assert_eq!(expected_type, variant_mouse.1);
+    assert_eq!(expected_type, variant_giraffe.1);
+    assert_eq!(2, giraffe_fields.len());
+    assert_eq!("height", *giraffe_field_height.0);
+    assert_eq!("weight", *giraffe_field_weight.0);
+    assert_eq!(Type::Int, giraffe_field_height.1);
+    assert_eq!(typevar_a, giraffe_field_weight.1);
+}
+
+#[test]
+fn test_preproc_namedtuple()
+{
+    let input = "
+    struct Greeting(Str, Str)
+    ".to_string();
+    let mut loader = Interloader::new("greet.lma");
+    loader.set_mod_txt("greet", input);
+    let mut prog = program::Lib::new(loader);
+    let pmod = prog.read_proto("greet");
+
+    let greet = Rc::new("greet".to_string());
+    let greeting_str = Rc::new("Greeting".to_string());
+    let greeting_ntt = Type::NamedTuple(greeting_str.clone(), vec![
+        Type::Str, Type::Str]);
+    let mod_greeting_ntt = Type::ModPrefix(
+        greet.clone(),
+        Rc::new(greeting_ntt.clone()),
+    );
+    let xfunctyp = Type::Func(
+        vec![Type::Str, Type::Str],
+        Box::new(mod_greeting_ntt.clone()),
+    );
+
+    // assert newtypes
+    let gnewtype: HashSet<Type> =
+        vec![mod_greeting_ntt.clone()].into_iter().collect();
+    assert_eq!(gnewtype, pmod.newtypes);
+    assert_eq!(1, pmod.newtypes.len());
+
+    // constants
+    assert_eq!(
+        Val::FuncRef(greet.clone(), greeting_str.clone(), xfunctyp.clone()),
+        *pmod.constants.get("Greeting").unwrap()
+    );
+    assert_eq!(1, pmod.constants.len());
+
+    // assert funcsrc
+    assert_eq!(1, pmod.funcsrc.len());
+
+    // assert funcseq
+    assert_eq!(1, pmod.funcseq.len());
+    assert_eq!("Greeting", **pmod.funcseq.front().unwrap());
+
+    // verify valtypes
+    assert_eq!(1, pmod.valtypes.len());
 }
 
 #[test]
@@ -771,6 +1082,45 @@ fn test_new_struct_constructor_valtype()
     } else {
         panic!("constructor valtype is not a func");
     }
+}
+
+#[test]
+fn test_token_type()
+{
+    let input = String::from("
+    struct Burrito --
+    ");
+
+    let mut loader = Interloader::new("tok.lma");
+    loader.set_mod_txt("tok", input);
+    let mut prog = program::Lib::new(loader);
+    let pmod = prog.read_proto("tok");
+
+    let name_rc = Rc::new("Burrito".to_string());
+    let exptype = Type::ModPrefix(
+        Rc::new("tok".to_string()),
+        Rc::new(Type::Token(name_rc.clone())),
+    );
+
+    // verify newtypes
+    let expset: HashSet<Type> = vec![exptype.clone()].into_iter().collect();
+    assert_eq!(expset, pmod.newtypes);
+    assert!(pmod.newtypes.contains(&exptype));
+    assert_eq!(1, pmod.newtypes.len());
+
+    // verify valtypes
+    assert_eq!(exptype, *pmod.valtypes.get("Burrito").unwrap());
+    assert_eq!(1, pmod.valtypes.len());
+
+    // verify constants
+    assert_eq!(Val::Token(exptype.clone())
+        , *pmod.constants.get("Burrito").unwrap());
+    assert_eq!(1, pmod.constants.len());
+
+    // assert on fields that shouldn't have changed
+    assert_eq!(0, pmod.funcseq.len());
+    assert_eq!(0, pmod.funcsrc.len());
+    assert_eq!(0, pmod.structfields.len());
 }
 
 }

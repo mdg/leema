@@ -18,6 +18,7 @@ pub enum Source
     Call(Box<Ixpr>, Box<Ixpr>),
     Constructor(Type, i8),
     ConstVal(Val),
+    EnumConstructor(Type, i16, Box<Ixpr>),
     FieldAccess(Box<Ixpr>, i8),
     Fork(Box<Ixpr>, Box<Ixpr>, Box<Ixpr>),
     Func(Vec<Rc<String>>, Box<Ixpr>),
@@ -147,6 +148,34 @@ impl Ixpr
         Ixpr{
             typ: t.clone(),
             src: Source::Constructor(t, nflds),
+            line: lineno,
+        }
+    }
+
+    pub fn enum_constructor(t: Type, idx: i16, varname: &Rc<String>
+        , vval: &Val, lineno: i16
+        ) -> Ixpr
+    {
+        let (variant_type, nflds) =
+            match *vval {
+                Val::Struct(ref vartyp, ref flds) => {
+                    (vartyp.clone(), flds.len() as i8)
+                }
+                Val::NamedTuple(ref vartyp, ref flds) => {
+                    (vartyp.clone(), flds.len() as i8)
+                }
+                _ => {
+                    panic!("unknown val for enum: {:?}", vval);
+                }
+            };
+        let construct = Ixpr::constructor(
+            variant_type, nflds, lineno
+        );
+        let src = Source::EnumConstructor(t.clone(), idx, Box::new(construct));
+
+        Ixpr{
+            typ: t,
+            src: src,
             line: lineno,
         }
     }

@@ -212,18 +212,25 @@ class TestScripts(unittest.TestCase):
         expected = b"empty: empty_struct::Empty\n"
         self.assertEqual(expected, result['output'])
 
+    def test_named_tuple(self):
+        result = run_leema('named_tuple')
+        self.assertEqual(0, result['code'])
+        expected = b"""greeting is: "Greeting(hello,world,)"\n"""
+        self.assertEqual(expected, result['output'])
+
     def test_color_enum(self):
         result = run_leema('color_enum')
         self.assertEqual(0, result['code'])
-        exp = b"red: color_enum::PrimaryColor.Red\n" \
-            + b"blue: color_enum::PrimaryColor.Blue\n" \
-            + b"yellow: color_enum::PrimaryColor.Yellow\n"
+        exp = b"red: Red\n" \
+            + b"blue: Blue\n" \
+            + b"yellow: Yellow\n"
         self.assertEqual(exp, result['output'])
 
     def test_option(self):
         result = run_leema('option_test')
         self.assertEqual(0, result['code'])
-        exp = b"option a? option::Option.None\n"
+        exp = b"option a? None\n" \
+            + b"option b? Some(4,)\n"
         self.assertEqual(exp, result['output'])
 
     def test_read_file(self):

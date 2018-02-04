@@ -48,6 +48,8 @@ pub enum Type
     Tuple(Vec<Type>),
     Struct(Rc<String>),
     Enum(Rc<String>),
+    Token(Rc<String>),
+    NamedTuple(Rc<String>, Vec<Type>),
     Failure,
     Func(Vec<Type>, Box<Type>),
     // different from base collection/map interfaces?
@@ -181,6 +183,23 @@ impl Type
     }
 
     /**
+     * Convert this ID type to an enum type
+     */
+    pub fn to_enum(&self) -> Type
+    {
+        match self {
+            &Type::Id(ref name) => Type::Enum(name.clone()),
+            &Type::Enum(ref name) => Type::Enum(name.clone()),
+            &Type::ModPrefix(ref module, ref local) => {
+                Type::ModPrefix(module.clone(), Rc::new(local.to_enum()))
+            }
+            _ => {
+                panic!("cannot convert to enum type: {:?}", self);
+            }
+        }
+    }
+
+    /**
      * Check if this type is a structure
      */
     pub fn is_struct(&self) -> bool
@@ -200,6 +219,32 @@ impl Type
         match self {
             &Type::Enum(_) => true,
             &Type::ModPrefix(_, ref local) => local.is_enum(),
+            _ => false,
+        }
+    }
+
+    /**
+     * Check if this type is a named tuple
+     */
+    pub fn is_namedtuple(&self) -> bool
+    {
+        match self {
+            &Type::NamedTuple(_, _) => true,
+            &Type::ModPrefix(_, ref local) => local.is_namedtuple(),
+            _ => false,
+        }
+    }
+
+    /**
+     * Check if this type can be created with a normal constructor
+     */
+    pub fn is_constructable(&self) -> bool
+    {
+        match self {
+            &Type::Struct(_) => true,
+            &Type::Enum(_) => true,
+            &Type::NamedTuple(_, _) => true,
+            &Type::ModPrefix(_, ref local) => local.is_constructable(),
             _ => false,
         }
     }
@@ -227,6 +272,17 @@ impl Type
             &Type::Enum(ref s) => {
                 Type::Enum(Rc::new((**s).clone()))
             }
+            &Type::NamedTuple(ref name, ref flds) => {
+                Type::NamedTuple(
+                    Rc::new((**name).clone()),
+                    flds.iter().map(|f| {
+                        f.deep_clone()
+                    }).collect(),
+                )
+            }
+            &Type::Token(ref t) => {
+                Type::Token(Rc::new((**t).clone()))
+            }
             &Type::Id(ref id) => {
                 let old_str: &str = &**id;
                 Type::Id(Rc::new(old_str.to_string()))
@@ -235,6 +291,10 @@ impl Type
                 let new_prefix = (&**prefix).to_string();
                 let new_base = base.deep_clone();
                 Type::ModPrefix(Rc::new(new_prefix), Rc::new(new_base))
+            }
+            &Type::Var(ref id) => {
+                let old_str: &str = &**id;
+                Type::Var(Rc::new(old_str.to_string()))
             }
             _ => {
                 panic!("cannot deep_clone Type: {:?}", self);
@@ -278,6 +338,10 @@ impl fmt::Display for Type
             }
             &Type::Struct(ref name) => write!(f, "{}", name),
             &Type::Enum(ref name) => write!(f, "{}", name),
+            &Type::Token(ref name) => write!(f, "{}", name),
+            &Type::NamedTuple(ref name, ref flds) => {
+                write!(f, "{}", name)
+            }
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
@@ -330,6 +394,10 @@ impl fmt::Debug for Type
                 write!(f, "StructType({})", name)
             }
             &Type::Enum(ref name) => write!(f, "Enum({})", name),
+            &Type::Token(ref name) => write!(f, "Token({})", name),
+            &Type::NamedTuple(ref name, ref flds) => {
+                write!(f, "NamedTuple({}, {:?})", name, flds)
+            }
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
@@ -495,6 +563,7 @@ pub enum SxprType {
     DefMacro,
     DefStruct,
     DefEnum,
+    DefNamedTuple,
     IfExpr,
     Import,
     MatchExpr,
@@ -536,9 +605,11 @@ pub enum Val {
     Cons(Box<Val>, Rc<Val>),
     Nil,
     Tuple(Vec<Val>),
+    NamedTuple(Type, Vec<Val>),
     Sxpr(SxprType, Rc<Val>, SrcLoc),
     Struct(Type, Vec<Val>),
-    Enum(Type, i16, Box<Val>),
+    Enum(Type, i16, Rc<String>, Box<Val>),
+    Token(Type),
     Failure(
         Box<Val>, // tag
         Box<Val>, // msg
@@ -553,6 +624,7 @@ pub enum Val {
     DotAccess(Box<Val>, Rc<String>),
     Lib(Arc<LibVal>),
     LibRc(Rc<LibVal>),
+    FuncRef(Rc<String>, Rc<String>, Type),
     ResourceRef(i64),
     RustBlock,
     Future(FutureVal),
@@ -848,6 +920,9 @@ impl Val
 
     pub fn loc(v: Val, l: SrcLoc) -> Val
     {
+        if let Val::Loc(_, _) = v {
+            panic!("don't put a loc around a loc! {:?}", v);
+        }
         Val::Loc(Box::new(v), l)
     }
 
@@ -936,7 +1011,13 @@ impl Val
             &Val::Struct(ref typ, _) => {
                 typ.clone()
             }
-            &Val::Enum(ref typ, _, _) => {
+            &Val::Enum(ref typ, _, _, _) => {
+                typ.clone()
+            }
+            &Val::NamedTuple(ref typ, _) => {
+                typ.clone()
+            }
+            &Val::Token(ref typ) => {
                 typ.clone()
             }
             &Val::Buffer(_) => Type::Str,
@@ -948,6 +1029,9 @@ impl Val
             }
             &Val::DotAccess(_, _) => {
                 panic!("maybe DotAccess should be an sxpr?");
+            }
+            &Val::FuncRef(_, _, ref typ) => {
+                typ.clone()
             }
             &Val::Lib(ref lv) => {
                 lv.get_type()
@@ -1095,11 +1179,14 @@ impl Val
                     f.deep_clone()
                 }).collect())
             }
-            &Val::Enum(ref typ, idx, ref flds) => {
-                Val::Enum(typ.deep_clone(), idx, Box::new(flds.deep_clone()))
+            &Val::Enum(ref typ, idx, ref vname, ref flds) => {
+                Val::Enum(typ.deep_clone(), idx, vname.clone(),
+                    Box::new(flds.deep_clone()),
+                )
             }
-            // &Val::Struct(Type, Vec<Val>),
-            // &Val::Enum(Type, u8, Box<Val>),
+            &Val::Token(ref typ) => {
+                Val::Token(typ.deep_clone())
+            }
             // &Val::Failure(ref tag, ref msg, ref ft),
             &Val::Id(ref s) => Val::id((**s).clone()),
             // &Val::TypedId(Rc<String>, Type),
@@ -1396,6 +1483,10 @@ impl fmt::Display for Val {
             Val::Tuple(ref t) => {
                 Val::fmt_tuple(f, t, false)
             }
+            Val::NamedTuple(ref name, ref t) => {
+                write!(f, "{}", name);
+                Val::fmt_tuple(f, t, false)
+            }
             Val::Struct(ref name, ref fields) => {
                 write!(f, "{}", name)
                     .and_then(|prev_result| {
@@ -1406,8 +1497,19 @@ impl fmt::Display for Val {
                         }
                     })
             }
-            Val::Enum(ref name, _variant_idx, ref val) => {
-                write!(f, "{}.{}", name, val)
+            Val::Enum(ref _typename, _variant_idx, ref var_name, ref val) => {
+                if let Val::Struct(_, _) = **val {
+                    write!(f, "{}", val)
+                } else if let Val::NamedTuple(_, _) = **val {
+                    write!(f, "{}", val)
+                } else if **val == Val::Void {
+                    write!(f, "{}", var_name)
+                } else {
+                    write!(f, "{}({})", var_name, val)
+                }
+            }
+            Val::Token(ref name) => {
+                write!(f, "{}", name)
             }
             Val::Buffer(ref buf) => {
                 write!(f, "Buffer")
@@ -1444,6 +1546,9 @@ impl fmt::Display for Val {
             }
             Val::Kind(c) => {
                 write!(f, "Kind({})", c)
+            }
+            Val::FuncRef(ref module, ref name, ref typ) => {
+                write!(f, "{}::{} : {}", module, name, typ)
             }
             Val::Future(_) => {
                 write!(f, "Future")
@@ -1498,12 +1603,19 @@ impl fmt::Debug for Val {
                 write!(f, "T").ok();
                 Val::fmt_tuple(f, t, true)
             }
+            Val::NamedTuple(ref name, ref t) => {
+                write!(f, "{}", name);
+                Val::fmt_tuple(f, t, true)
+            }
             Val::Struct(ref name, ref fields) => {
                 write!(f, "struct {}", name).ok();
                 Val::fmt_tuple(f, fields, false)
             }
-            Val::Enum(ref name, variant, ref val) => {
-                write!(f, "enum({}.{}:{:?})", name, variant, val)
+            Val::Enum(ref name, var_idx, ref var_name, ref val) => {
+                write!(f, "enum({:?}.{}.{}:{:?})", name, var_idx, var_name, val)
+            }
+            Val::Token(ref name) => {
+                write!(f, "Token({})", name)
             }
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv)
@@ -1540,6 +1652,9 @@ impl fmt::Debug for Val {
             }
             Val::DotAccess(ref outer, ref inner) => {
                 write!(f, "{:?}.{}", outer, inner)
+            }
+            Val::FuncRef(ref module, ref name, ref typ) => {
+                write!(f, "FuncRef({}::{} : {})", module, name, typ)
             }
             Val::Future(_) => {
                 write!(f, "Future")
@@ -1668,6 +1783,22 @@ impl reg::Iregistry for Val
                 }
                 fld[p as usize].ireg_set(&*s, v);
             }
+            // set reg on namedtuples
+            (&Ireg::Reg(p), &mut Val::NamedTuple(ref name, ref mut fields)) => {
+                if p as usize >= fields.len() {
+                    panic!("{:?} too big for named tuple {}({:?})"
+                        , i, name, fields);
+                }
+                fields[p as usize] = v;
+            }
+            (&Ireg::Sub(p, ref s), &mut Val::NamedTuple(ref name, ref mut fld)
+                ) =>
+            {
+                if p as usize >= fld.len() {
+                    panic!("{:?} too big for named tuple {:?}", i, name);
+                }
+                fld[p as usize].ireg_set(&*s, v);
+            }
             // set reg on lists
             (&Ireg::Reg(0), &mut Val::Cons(ref mut head, _)) => {
                 *head = Box::new(v);
@@ -1769,8 +1900,8 @@ impl PartialOrd for Val
                 }
             }
             // enum to enum comparison
-            (&Val::Enum(ref at, ai, ref av)
-                    , &Val::Enum(ref bt, bi, ref bv)) =>
+            (&Val::Enum(ref at, ai, ref an, ref av)
+                    , &Val::Enum(ref bt, bi, ref bn, ref bv)) =>
             {
                 match PartialOrd::partial_cmp(&*at, &*bt) {
                     Some(Ordering::Equal) => {
@@ -1783,6 +1914,22 @@ impl PartialOrd for Val
                     }
                     tcmp => tcmp,
                 }
+            }
+            // token to token comparison
+            (&Val::Token(ref at), &Val::Token(ref bt)) => {
+                PartialOrd::partial_cmp(&*at, &*bt)
+            }
+            (&Val::FuncRef(ref m1, ref n1, ref t1)
+                    , &Val::FuncRef(ref m2, ref n2, ref t2)) =>
+            {
+                Some(PartialOrd::partial_cmp(m1, m2).unwrap()
+                    .then_with(|| {
+                        PartialOrd::partial_cmp(n1, n2).unwrap()
+                    })
+                    .then_with(|| {
+                        PartialOrd::partial_cmp(t1, t2).unwrap()
+                    })
+                )
             }
             (&Val::TypedId(ref ida, ref typa),
                     &Val::TypedId(ref idb, ref typb)) => {
@@ -1819,15 +1966,19 @@ impl PartialOrd for Val
                     _ => cmp,
                 }
             }
-            (&Val::Loc(ref v1, _), &Val::Loc(ref v2, _)) => {
-                PartialOrd::partial_cmp(&**v1, &**v2)
+            (&Val::Buffer(ref b1), &Val::Buffer(ref b2)) => {
+                PartialOrd::partial_cmp(b1, b2)
             }
+
+            // don't compare loc directly, just pass through to
+            // compare the inner values
             (&Val::Loc(ref v1, _), _) => {
                 PartialOrd::partial_cmp(&**v1, other)
             }
             (_, &Val::Loc(ref v2, _)) => {
                 PartialOrd::partial_cmp(self, &**v2)
             }
+            // start comparing mixed types
             (&Val::Bool(false), _) => {
                 Some(Ordering::Less)
             }
@@ -1900,10 +2051,16 @@ impl PartialOrd for Val
             (_, &Val::Struct(_, _)) => {
                 Some(Ordering::Greater)
             }
-            (&Val::Enum(_, _, _), _) => {
+            (&Val::Enum(_, _, _, _), _) => {
                 Some(Ordering::Less)
             }
-            (_, &Val::Enum(_, _, _)) => {
+            (_, &Val::Enum(_, _, _, _)) => {
+                Some(Ordering::Greater)
+            }
+            (&Val::Token(_), _) => {
+                Some(Ordering::Less)
+            }
+            (_, &Val::Token(_)) => {
                 Some(Ordering::Greater)
             }
             (&Val::Void, _) => {
@@ -2319,13 +2476,25 @@ fn test_struct_lt_val() {
 
 #[test]
 fn test_enum_eq() {
+    let etype =
+        Type::ModPrefix(
+            Rc::new("animals".to_string()),
+            Rc::new(Type::Enum(Rc::new("Animal".to_string()))),
+        );
+
     let a =
         Val::Enum(
-            Type::Id(Rc::new("Taco".to_string())), 0, Box::new(Val::Void)
+            etype.clone(),
+            0,
+            Rc::new(String::from("Dog".to_string())),
+            Box::new(Val::Void),
         );
     let b =
         Val::Enum(
-            Type::Id(Rc::new("Taco".to_string())), 0, Box::new(Val::Void)
+            etype.clone(),
+            0,
+            Rc::new(String::from("Dog".to_string())),
+            Box::new(Val::Void),
         );
     assert_eq!(a, b);
 }
@@ -2334,11 +2503,17 @@ fn test_enum_eq() {
 fn test_enum_lt_type() {
     let a =
         Val::Enum(
-            Type::Id(Rc::new("Burrito".to_string())), 0, Box::new(Val::Void)
+            Type::Enum(Rc::new("Burrito".to_string())),
+            0,
+            Rc::new(String::from("Torta")),
+            Box::new(Val::Void),
         );
     let b =
         Val::Enum(
-            Type::Id(Rc::new("Taco".to_string())), 0, Box::new(Val::Void)
+            Type::Enum(Rc::new("Taco".to_string())),
+            0,
+            Rc::new(String::from("Quesadilla")),
+            Box::new(Val::Void),
         );
     assert!(a < b);
 }
@@ -2347,11 +2522,17 @@ fn test_enum_lt_type() {
 fn test_enum_lt_variant() {
     let a =
         Val::Enum(
-            Type::Id(Rc::new("Taco".to_string())), 1, Box::new(Val::Void)
+            Type::Enum(Rc::new("Taco".to_string())),
+            1,
+            Rc::new(String::from("Burrito")),
+            Box::new(Val::Void),
         );
     let b =
         Val::Enum(
-            Type::Id(Rc::new("Taco".to_string())), 2, Box::new(Val::Void)
+            Type::Enum(Rc::new("Taco".to_string())),
+            2,
+            Rc::new(String::from("Torta")),
+            Box::new(Val::Void),
         );
     assert!(a < b);
 }
@@ -2360,13 +2541,86 @@ fn test_enum_lt_variant() {
 fn test_enum_lt_val() {
     let a =
         Val::Enum(
-            Type::Id(Rc::new("Taco".to_string())), 0, Box::new(Val::Int(5))
+            Type::Enum(Rc::new("Taco".to_string())),
+            0,
+            Rc::new(String::from("Burrito")),
+            Box::new(Val::Int(5)),
         );
     let b =
         Val::Enum(
-            Type::Id(Rc::new("Taco".to_string())), 0, Box::new(Val::Int(9))
+            Type::Enum(Rc::new("Taco".to_string())),
+            0,
+            Rc::new(String::from("Burrito")),
+            Box::new(Val::Int(9)),
         );
     assert!(a < b);
+}
+
+#[test]
+fn test_format_struct_empty()
+{
+    let s = Val::Struct(
+        Type::Struct(Rc::new("Taco".to_string())), Vec::with_capacity(0)
+    );
+
+    let s_str = format!("{}", s);
+    assert_eq!("Taco", s_str);
+}
+
+#[test]
+fn test_format_enum_empty()
+{
+    let e = Val::Enum(
+        Type::Enum(Rc::new("Taco".to_string())),
+        7,
+        Rc::new("Burrito".to_string()),
+        Box::new(Val::Void),
+    );
+
+    let e_str = format!("{}", e);
+    assert_eq!("Burrito", e_str);
+}
+
+#[test]
+fn test_format_enum_namedtuple()
+{
+    let burrito_str = Rc::new(String::from("Burrito"));
+    let s = Val::Enum(
+        Type::ModPrefix(
+            Rc::new("tortas".to_string()),
+            Rc::new(Type::Enum(Rc::new("Taco".to_string()))),
+        ),
+        1,
+        burrito_str.clone(),
+        Box::new(Val::NamedTuple(
+            Type::NamedTuple(burrito_str, vec![Type::Int, Type::Int]),
+            vec![Val::Int(5), Val::Int(8)],
+        )),
+    );
+
+    let s_str = format!("{}", s);
+    assert_eq!("Burrito(5,8,)", s_str);
+}
+
+#[test]
+fn test_format_enum_two_fields()
+{
+    let s = Val::Struct(
+        Type::Struct(Rc::new("Burrito".to_string())),
+        vec![
+            Val::Int(4),
+            Val::Int(8),
+        ],
+    );
+    let e = Val::Enum(
+        Type::Enum(Rc::new("Taco".to_string())),
+        1,
+        Rc::new("Burrito".to_string()),
+        Box::new(s),
+    );
+
+    let e_str = format!("{}", e);
+    assert_eq!("Burrito(4,8,)", e_str);
 }
 
 #[test]
@@ -2382,6 +2636,7 @@ fn test_compare_across_types() {
     let enm = Val::Enum(
         Type::Enum(Rc::new("Taco".to_string())),
         1,
+        Rc::new("Burrito".to_string()),
         Box::new(Val::Struct(
             Type::Struct(Rc::new("Burrito".to_string())),
             vec![Val::Int(8), Val::Int(6)],

@@ -249,7 +249,7 @@ impl<'a> Interscope<'a>
     {
         match typ {
             &Type::ModPrefix(ref module, ref modtype) => {
-                if **module == self.proto.key.name {
+                if **module == *self.proto.key.name {
                     self.proto
                 } else if self.imports_module(&**module) {
                     self.imports.get(&**module).unwrap()
@@ -354,6 +354,12 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val, loc: &SrcLoc) -> Ixpr
         }
         &Val::Sxpr(st, ref sx, ref sxloc) => compile_sxpr(scope, st, sx, sxloc),
         &Val::Struct(ref typ, ref flds) => {
+            Ixpr::constructor(typ.clone(), flds.len() as i8, loc.lineno)
+        }
+        &Val::Enum(ref typ, idx, ref var, ref vval) => {
+            Ixpr::enum_constructor(typ.clone(), idx, var, vval, loc.lineno)
+        }
+        &Val::NamedTuple(ref typ, ref flds) => {
             Ixpr::constructor(typ.clone(), flds.len() as i8, loc.lineno)
         }
         &Val::Void => Ixpr::noop(),
@@ -480,7 +486,7 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Rc<String>, loc: &SrcLoc
             if typ.is_func() {
                 Ixpr{
                     src: Source::ConstVal(Val::Tuple(vec![
-                        Val::Str(Rc::new(scope.proto.key.name.clone())),
+                        Val::Str(scope.proto.key.name.clone()),
                         Val::Str(id.clone()),
                     ])),
                     typ: typ.clone(),
@@ -555,9 +561,9 @@ pub fn compile_dot_access(scope: &mut Interscope, base_val: &Val
         let opt_variant_idx = scope.struct_field_idx(&ix_base.typ, field);
         let variant_idx = opt_variant_idx.unwrap().0;
         let estruct_type = Type::Struct(field.clone());
-        let estruct_val =
-            Val::Struct(estruct_type, Vec::with_capacity(0));
-        let val = Val::Enum(ix_base.typ, variant_idx, Box::new(estruct_val));
+        let estruct_val = Val::Struct(estruct_type, Vec::with_capacity(0));
+        let val = Val::Enum(ix_base.typ, variant_idx, field.clone()
+            , Box::new(estruct_val));
         Ixpr::const_val(val, loc.lineno)
     } else {
         if let Some((field_idx, field_typ)) =
@@ -709,7 +715,7 @@ pub fn pattern_call_fields<'a, 'b>(proto: &'a Protomod
             flds.unwrap()
         }
         &Val::ModPrefix(ref prefix, ref name) => {
-            let opt_flds = if proto.key.name == **prefix {
+            let opt_flds = if *proto.key.name == **prefix {
                 let iflds = proto.structfields.get(name.str());
                 if iflds.is_some() {
                     iflds
@@ -995,6 +1001,51 @@ fn test_pattern_declaration()
     loader.set_mod_txt("tacos", input);
     let mut prog = program::Lib::new(loader);
     let imod = prog.read_inter("tacos");
+    assert!(true); // didn't panic earlier
+}
+
+#[test]
+fn test_named_tuple_constructor()
+{
+    let input = String::from("
+    struct Greeting(Str, Str)
+
+    func main() ->
+        let g := Greeting(\"hello\", \"world\")
+    --
+    ");
+
+    let mut loader = Interloader::new("greeting.lma");
+    loader.set_mod_txt("greeting", input);
+    let mut prog = program::Lib::new(loader);
+    let imod = prog.read_inter("greeting");
+    assert!(true); // didn't panic earlier
+}
+
+#[test]
+fn test_enum_constructors()
+{
+    let input = String::from("
+
+    enum Animal
+    |Dog
+    |Cat(Int)
+    |Mouse
+        .whiskers: Int
+        .color: Str
+    --
+
+    func main() ->
+        let d := Dog
+        let c := Cat(3)
+        let m := Mouse(9, \"red\")
+    --
+    ");
+
+    let mut loader = Interloader::new("animals.lma");
+    loader.set_mod_txt("animals", input);
+    let mut prog = program::Lib::new(loader);
+    let imod = prog.read_inter("animals");
     assert!(true); // didn't panic earlier
 }
 

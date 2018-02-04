@@ -234,6 +234,17 @@ pub fn def_enum(name: Type, fields: Val, loc: SrcLoc) -> Val
     )
 }
 
+pub fn defnamedtuple(name: Type, fields: Val, loc: SrcLoc) -> Val
+{
+    Val::Sxpr(
+        SxprType::DefNamedTuple,
+        Rc::new(
+            list::cons(Val::Type(name), fields)
+        ),
+        loc,
+    )
+}
+
 pub fn new_import(name: Val, loc: SrcLoc) -> Val
 {
     Val::Sxpr(

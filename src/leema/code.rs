@@ -303,6 +303,10 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             vout!("make_constructor_ops({:?})\n", input);
             make_constructor_ops(rt, typ, nflds, input.line)
         }
+        Source::EnumConstructor(ref typ, idx, ref val) => {
+            vout!("make_enum_constructor_ops({:?})\n", input);
+            make_enum_constructor_ops(rt, typ, idx, &**val, input.line)
+        }
         Source::Fork(ref dst, ref f, ref args) => {
             // make_fork_ops(rt, f, args)
             Oxpr{ ops: vec![], dst: Reg::Undecided }
@@ -377,10 +381,10 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::List(ref items) => {
             make_list_ops(rt, items, input.line)
         }
-        Source::BooleanAnd(ref a, ref b) => {
+        Source::BooleanAnd(ref _a, ref _b) => {
             panic!("maybe AND should just be a macro");
         }
-        Source::BooleanOr(ref a, ref b) => {
+        Source::BooleanOr(ref _a, ref _b) => {
             panic!("maybe OR should just be a macro");
         }
         Source::ModuleAccess(ref module, ref name) => {
@@ -436,11 +440,10 @@ pub fn make_constructor_ops(rt: &mut RegTable, typ: &Type, nflds: i8
     ) -> Oxpr
 {
     let dst = rt.dst();
-    let stype = typ.to_struct();
 
     let mut ops: Vec<(Op, i16)> = Vec::with_capacity((nflds + 1) as usize);
     ops.push((
-        Op::Constructor(dst.clone(), stype.clone(), nflds),
+        Op::Constructor(dst.clone(), typ.clone(), nflds),
         line,
         ));
     let mut i = 0;
@@ -451,6 +454,35 @@ pub fn make_constructor_ops(rt: &mut RegTable, typ: &Type, nflds: i8
             ));
         i += 1;
     }
+
+    Oxpr{
+        ops: ops,
+        dst: dst.clone(),
+    }
+}
+
+pub fn make_enum_constructor_ops(rt: &mut RegTable, typ: &Type, index: i16
+    , data: &Ixpr, line: i16
+    ) -> Oxpr
+{
+    let dst = rt.dst();
+    let etype = typ.to_enum();
+
+    let mut ops: Vec<(Op, i16)> = Vec::with_capacity(3);
+    /*
+    ops.push((
+        Op::Constructor(dst.clone(), etype.clone(), nflds),
+        line,
+        ));
+    let mut i = 0;
+    while i < nflds {
+        ops.push((
+            Op::Copy(dst.sub(i), Reg::param(i)),
+            line,
+            ));
+        i += 1;
+    }
+    */
 
     Oxpr{
         ops: ops,

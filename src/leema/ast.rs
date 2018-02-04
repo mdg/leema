@@ -520,6 +520,48 @@ fn test_parse_defstruct()
 }
 
 #[test]
+fn test_parse_enum_variants()
+{
+    let input = "
+        enum Animal
+        |Dog
+        |Cat(Int)
+        |Mouse($A)
+        |Giraffe
+            .height: Int
+            .weight: $A
+        --
+    ";
+    let root = ast::parse(lex(input));
+
+    let (blkt, blkx, loc) = sxpr::split(root);
+}
+
+#[test]
+fn test_parse_named_tuple()
+{
+    let input = "
+    struct Taco(Int, Str)
+    ";
+    let root = ast::parse(lex(input));
+
+    let expected = sxpr::new_block(
+        list::singleton(sxpr::new(
+            SxprType::DefNamedTuple,
+            list::cons(Val::Type(Type::Id(Rc::new("Taco".to_string()))),
+                list::cons(Val::Type(Type::Int),
+                list::cons(Val::Type(Type::Str),
+                Val::Nil,
+                ))),
+            SrcLoc::new(2, 1),
+            ),
+        ),
+        SrcLoc::default(),
+    );
+    assert_eq!(expected, root);
+}
+
+#[test]
 fn test_parse_match_list()
 {
     let input = "

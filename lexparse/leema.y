@@ -87,6 +87,7 @@ use std::rc::{Rc};
 %type defenum { Val }
 %type defenum_fields { Val }
 %type defenum_field { Val }
+%type defnamedtuple { Val }
 %type let_stmt { Val }
 %type term { Val }
 %type expr { Val }
@@ -162,6 +163,7 @@ block(A) ::= BLOCKARROW(C) stmts(B). {
 
 stmt(A) ::= defstruct(B). { A = B; }
 stmt(A) ::= defenum(B). { A = B; }
+stmt(A) ::= defnamedtuple(B). { A = B; }
 stmt(A) ::= IMPORT ID(B). {
     A = sxpr::new_import(Val::id(B.data), B.loc);
 }
@@ -207,11 +209,17 @@ defenum_fields(A) ::= defenum_field(B) defenum_fields(C). {
 defenum_fields(A) ::= defenum_field(B). {
     A = list::singleton(B);
 }
-defenum_field(A) ::= PIPE ID(B). {
-    A = Val::typed_id(&B.data, Type::Void);
+defenum_field(A) ::= PIPE(D) typex(B) PARENCALL tuple_types(C) RPAREN. {
+    A = sxpr::defnamedtuple(B, C, D);
 }
-defenum_field(A) ::= PIPE ID(B) PARENCALL dfunc_args(C) RPAREN. {
-    A = Val::typed_id(&B.data, Type::Void);
+defenum_field(A) ::= PIPE(D) typex(B) defstruct_fields(C). {
+    A = sxpr::def_struct(Val::Type(B), C, D);
+}
+
+/** named tuple definition **/
+defnamedtuple(A) ::= STRUCT(B) typex(C) PARENCALL tuple_types(D) RPAREN.
+{
+    A = sxpr::defnamedtuple(C, D, B);
 }
 
 

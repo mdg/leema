@@ -270,12 +270,20 @@ impl Fiber
     pub fn execute_constructor(&mut self, reg: &Reg, typ: &Type, nfields: i8
         ) -> Event
     {
-        if !typ.is_struct() {
+        if !typ.is_constructable() {
             panic!("Cannot construct not structure: {:?}", typ);
         }
         let mut fields = Vec::with_capacity(nfields as usize);
         fields.resize(nfields as usize, Val::Void);
-        self.head.e.set_reg(reg, Val::Struct(typ.clone(), fields));
+        let construction =
+            if typ.is_struct() {
+                Val::Struct(typ.clone(), fields)
+            } else if typ.is_namedtuple() {
+                Val::NamedTuple(typ.clone(), fields)
+            } else {
+                panic!("cannot construct unknown type: {:?}", typ);
+            };
+        self.head.e.set_reg(reg, construction);
         self.head.pc = self.head.pc + 1;
         Event::Uneventful
     }
