@@ -223,6 +223,20 @@ impl Type
         }
     }
 
+    /**
+     * Check if this type can be created with a normal constructor
+     */
+    pub fn is_constructable(&self) -> bool
+    {
+        match self {
+            &Type::Struct(_) => true,
+            &Type::Enum(_) => true,
+            &Type::NamedTuple(_, _) => true,
+            &Type::ModPrefix(_, ref local) => local.is_constructable(),
+            _ => false,
+        }
+    }
+
     pub fn tuple_items(self) -> Vec<Type>
     {
         match self {

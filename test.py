@@ -212,6 +212,12 @@ class TestScripts(unittest.TestCase):
         expected = b"empty: empty_struct::Empty\n"
         self.assertEqual(expected, result['output'])
 
+    def test_named_tuple(self):
+        result = run_leema('named_tuple')
+        self.assertEqual(0, result['code'])
+        expected = b"empty: empty_struct::Empty\n"
+        self.assertEqual(expected, result['output'])
+
     def test_color_enum(self):
         result = run_leema('color_enum')
         self.assertEqual(0, result['code'])
@@ -223,7 +229,8 @@ class TestScripts(unittest.TestCase):
     def test_option(self):
         result = run_leema('option_test')
         self.assertEqual(0, result['code'])
-        exp = b"option a? option::Option.None\n"
+        exp = b"option a? option::None\n" \
+            + b"option b? option::Some(4,)\n"
         self.assertEqual(exp, result['output'])
 
     def test_read_file(self):

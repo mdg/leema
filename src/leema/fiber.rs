@@ -270,7 +270,7 @@ impl Fiber
     pub fn execute_constructor(&mut self, reg: &Reg, typ: &Type, nfields: i8
         ) -> Event
     {
-        if !typ.is_struct() {
+        if !typ.is_constructable() {
             panic!("Cannot construct not structure: {:?}", typ);
         }
         let mut fields = Vec::with_capacity(nfields as usize);
