@@ -209,9 +209,8 @@ defenum_fields(A) ::= defenum_field(B) defenum_fields(C). {
 defenum_fields(A) ::= defenum_field(B). {
     A = list::singleton(B);
 }
-defenum_field(A) ::= PIPE(D) ID(B) typex(C). {
-    let typed_id = Val::typed_id(&B.data, C);
-    A = Val::loc(typed_id, D);
+defenum_field(A) ::= PIPE(D) typex(B) PARENCALL tuple_types(C) RPAREN. {
+    A = sxpr::defnamedtuple(B, C, D);
 }
 defenum_field(A) ::= PIPE(D) typex(B) defstruct_fields(C). {
     A = sxpr::def_struct(Val::Type(B), C, D);

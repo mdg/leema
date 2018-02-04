@@ -634,39 +634,14 @@ impl Protomod
             let (st, sx, iloc) = sxpr::split_ref(var);
             let (variant_id, fields) = list::take_ref(sx);
             let variant_name = variant_id.id_name();
+            let field_vec = list::iter(fields).map(|f| {
+                f.to_type()
+            }).collect();
+            self.preproc_namedtuple_func(
+                typ, variant_name.clone(), field_vec, iloc);
             variant_name
         } else {
-            // an enum variant with one, unnamed parameter
-println!("enum variant is typed id: {:?}", var);
-            let (variant_id, vtype) = Val::split_typed_id(var);
-            let variant_name = variant_id.id_name();
-            vout!("variant_id: {:?}, variant_name: {:?}\n"
-                , variant_id, variant_name);
-            let func_type =
-                Type::Func(vec![vtype.clone()], Box::new(typ.clone()));
-            let const_val = Val::FuncRef(
-                mod_name.clone(),
-                variant_name.clone(),
-                func_type.clone(),
-            );
-
-            let val_name = Rc::new("val".to_string());
-            let srcblk = Val::Enum(typ.clone(), i,
-                variant_name.clone(),
-                Box::new(Val::Id(val_name.clone())),
-            );
-            let srcxpr = sxpr::defunc(variant_id.clone()
-                , list::singleton(Val::TypedId(val_name.clone(), vtype))
-                , Val::Type(typ.clone())
-                , srcblk
-                , *loc
-            );
-
-            self.constants.insert((*variant_name).clone(), const_val);
-            self.funcseq.push_back(variant_name.clone());
-            self.funcsrc.insert((*variant_name).clone(), srcxpr);
-            self.valtypes.insert((*variant_name).clone(), func_type);
-            variant_name
+            panic!("unknown enum variant: {:?}", var);
         }
     }
 
@@ -680,6 +655,14 @@ println!("enum variant is typed id: {:?}", var);
         let local_type =
             Type::NamedTuple(name_str.clone(), field_types.clone());
         let mod_type = self.modtype(local_type);
+
+        self.preproc_namedtuple_func(&mod_type, name_str, field_types, loc);
+        self.newtypes.insert(mod_type);
+    }
+
+    pub fn preproc_namedtuple_func(&mut self, mod_type: &Type
+        , name_str: Rc<String>, field_types: Vec<Type>, loc: &SrcLoc)
+    {
         let func_type =
             Type::Func(field_types.clone(), Box::new(mod_type.clone()));
 
@@ -703,18 +686,16 @@ println!("enum variant is typed id: {:?}", var);
         let srcblk = Val::NamedTuple(mod_type.clone(),
             field_id_vec,
         );
-        let srcxpr = sxpr::defunc(name_id.clone()
+        let srcxpr = sxpr::defunc(Val::Id(name_str.clone())
             , src_fields
             , Val::Type(mod_type.clone())
             , srcblk
             , *loc
         );
 
-        self.newtypes.insert(mod_type.clone());
         self.constants.insert((*name_str).clone(),
             Val::FuncRef(self.key.name.clone(), name_str.clone(),
                 func_type.clone()));
-
         self.funcsrc.insert((*name_str).clone(), srcxpr);
         self.valtypes.insert((*name_str).clone(), func_type);
         self.funcseq.push_back(name_str);
@@ -856,8 +837,8 @@ fn test_enum_types()
     let input = "
     enum Animal
     |Dog
-    |Cat Int
-    |Mouse $A
+    |Cat(Int)
+    |Mouse($A)
     |Giraffe
         .height: Int
         .weight: $A
