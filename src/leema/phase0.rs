@@ -931,8 +931,10 @@ fn test_enum_types()
     assert_eq!(3, pmod.funcsrc.len());
 
     // verify value types
-    assert_eq!(*pmod.valtypes.get("Dog").unwrap(), expected_type);
-    assert_eq!(*pmod.valtypes.get("Cat").unwrap(), cat_func_type);
+    assert_eq!("animals::Animal",
+        format!("{}", *pmod.valtypes.get("Dog").unwrap()));
+    assert_eq!("Int > animals::Animal",
+        format!("{}", *pmod.valtypes.get("Cat").unwrap()));
     assert_eq!(*pmod.valtypes.get("Mouse").unwrap(), mouse_func_type);
     assert_eq!(*pmod.valtypes.get("Giraffe").unwrap(), giraffe_func_type);
     assert_eq!(4, pmod.valtypes.len());

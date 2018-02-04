@@ -1008,7 +1008,7 @@ fn test_enum_constructors()
 
     enum Animal
     |Dog
-    |Cat Int
+    |Cat(Int)
     |Mouse
         .whiskers: Int
         .color: Str

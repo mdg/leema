@@ -525,8 +525,8 @@ fn test_parse_enum_variants()
     let input = "
         enum Animal
         |Dog
-        |Cat Int
-        |Mouse $A
+        |Cat(Int)
+        |Mouse($A)
         |Giraffe
             .height: Int
             .weight: $A
