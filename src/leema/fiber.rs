@@ -275,7 +275,15 @@ impl Fiber
         }
         let mut fields = Vec::with_capacity(nfields as usize);
         fields.resize(nfields as usize, Val::Void);
-        self.head.e.set_reg(reg, Val::Struct(typ.clone(), fields));
+        let construction =
+            if typ.is_struct() {
+                Val::Struct(typ.clone(), fields)
+            } else if typ.is_namedtuple() {
+                Val::NamedTuple(typ.clone(), fields)
+            } else {
+                panic!("cannot construct unknown type: {:?}", typ);
+            };
+        self.head.e.set_reg(reg, construction);
         self.head.pc = self.head.pc + 1;
         Event::Uneventful
     }

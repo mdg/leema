@@ -215,7 +215,7 @@ class TestScripts(unittest.TestCase):
     def test_named_tuple(self):
         result = run_leema('named_tuple')
         self.assertEqual(0, result['code'])
-        expected = b"empty: empty_struct::Empty\n"
+        expected = b"empty: named_tuple::Greeting(hello,world,)\n"
         self.assertEqual(expected, result['output'])
 
     def test_color_enum(self):

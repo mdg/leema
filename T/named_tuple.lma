@@ -2,6 +2,6 @@
 struct Greeting(Str, Str)
 
 func main() ->
-    let n := Greeting("hello", "world")
-    cout("greeting is: '$n'\n")
+    let g := Greeting("hello", "world")
+    cout("greeting is: \"$g\"\n")
 --

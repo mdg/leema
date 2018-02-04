@@ -224,6 +224,18 @@ impl Type
     }
 
     /**
+     * Check if this type is a named tuple
+     */
+    pub fn is_namedtuple(&self) -> bool
+    {
+        match self {
+            &Type::NamedTuple(_, _) => true,
+            &Type::ModPrefix(_, ref local) => local.is_namedtuple(),
+            _ => false,
+        }
+    }
+
+    /**
      * Check if this type can be created with a normal constructor
      */
     pub fn is_constructable(&self) -> bool
@@ -259,6 +271,14 @@ impl Type
             }
             &Type::Enum(ref s) => {
                 Type::Enum(Rc::new((**s).clone()))
+            }
+            &Type::NamedTuple(ref name, ref flds) => {
+                Type::NamedTuple(
+                    Rc::new((**name).clone()),
+                    flds.iter().map(|f| {
+                        f.deep_clone()
+                    }).collect(),
+                )
             }
             &Type::Token(ref t) => {
                 Type::Token(Rc::new((**t).clone()))
@@ -316,15 +336,7 @@ impl fmt::Display for Type
             &Type::Enum(ref name) => write!(f, "{}", name),
             &Type::Token(ref name) => write!(f, "{}", name),
             &Type::NamedTuple(ref name, ref flds) => {
-                let nt_result = write!(f, "{}(", name);
-                flds.iter().fold(nt_result, |ntr, fld| {
-                    ntr.and_then(|_| {
-                        write!(f, "{},", fld)
-                    })
-                })
-                .and_then(|_| {
-                    write!(f, ")")
-                })
+                write!(f, "{}", name)
             }
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
@@ -1484,6 +1496,8 @@ impl fmt::Display for Val {
             Val::Enum(ref _typename, _variant_idx, ref var_name, ref val) => {
                 if let Val::Struct(_, _) = **val {
                     write!(f, "{}", val)
+                } else if let Val::NamedTuple(_, _) = **val {
+                    write!(f, "{}", val)
                 } else if **val == Val::Void {
                     write!(f, "{}", var_name)
                 } else {
@@ -1762,6 +1776,22 @@ impl reg::Iregistry for Val
             (&Ireg::Sub(p, ref s), &mut Val::Struct(ref name, ref mut fld)) => {
                 if p as usize >= fld.len() {
                     panic!("{:?} too big for struct {:?}", i, name);
+                }
+                fld[p as usize].ireg_set(&*s, v);
+            }
+            // set reg on namedtuples
+            (&Ireg::Reg(p), &mut Val::NamedTuple(ref name, ref mut fields)) => {
+                if p as usize >= fields.len() {
+                    panic!("{:?} too big for named tuple {}({:?})"
+                        , i, name, fields);
+                }
+                fields[p as usize] = v;
+            }
+            (&Ireg::Sub(p, ref s), &mut Val::NamedTuple(ref name, ref mut fld)
+                ) =>
+            {
+                if p as usize >= fld.len() {
+                    panic!("{:?} too big for named tuple {:?}", i, name);
                 }
                 fld[p as usize].ireg_set(&*s, v);
             }
@@ -2548,17 +2578,24 @@ fn test_format_enum_empty()
 }
 
 #[test]
-fn test_format_enum_one_unnamed_field()
+fn test_format_enum_namedtuple()
 {
+    let burrito_str = Rc::new(String::from("Burrito"));
     let s = Val::Enum(
-        Type::Enum(Rc::new("Taco".to_string())),
+        Type::ModPrefix(
+            Rc::new("tortas".to_string()),
+            Rc::new(Type::Enum(Rc::new("Taco".to_string()))),
+        ),
         1,
-        Rc::new(String::from("Burrito")),
-        Box::new(Val::Int(5)),
+        burrito_str.clone(),
+        Box::new(Val::NamedTuple(
+            Type::NamedTuple(burrito_str, vec![Type::Int, Type::Int]),
+            vec![Val::Int(5), Val::Int(8)],
+        )),
     );
 
     let s_str = format!("{}", s);
-    assert_eq!("Burrito(5)", s_str);
+    assert_eq!("Burrito(5,8,)", s_str);
 }
 
 #[test]
