@@ -359,6 +359,9 @@ pub fn compile_expr(scope: &mut Interscope, x: &Val, loc: &SrcLoc) -> Ixpr
         &Val::Enum(ref typ, idx, ref var, ref vval) => {
             Ixpr::enum_constructor(typ.clone(), idx, var, vval, loc.lineno)
         }
+        &Val::NamedTuple(ref typ, ref flds) => {
+            Ixpr::constructor(typ.clone(), flds.len() as i8, loc.lineno)
+        }
         &Val::Void => Ixpr::noop(),
         &Val::Loc(ref v, ref loc) => {
             compile_expr(scope, v, loc)
@@ -998,6 +1001,24 @@ fn test_pattern_declaration()
     loader.set_mod_txt("tacos", input);
     let mut prog = program::Lib::new(loader);
     let imod = prog.read_inter("tacos");
+    assert!(true); // didn't panic earlier
+}
+
+#[test]
+fn test_named_tuple_constructor()
+{
+    let input = String::from("
+    struct Greeting(Str, Str)
+
+    func main() ->
+        let g := Greeting(\"hello\", \"world\")
+    --
+    ");
+
+    let mut loader = Interloader::new("greeting.lma");
+    loader.set_mod_txt("greeting", input);
+    let mut prog = program::Lib::new(loader);
+    let imod = prog.read_inter("greeting");
     assert!(true); // didn't panic earlier
 }
 

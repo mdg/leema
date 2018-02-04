@@ -440,11 +440,10 @@ pub fn make_constructor_ops(rt: &mut RegTable, typ: &Type, nflds: i8
     ) -> Oxpr
 {
     let dst = rt.dst();
-    let stype = typ.to_struct();
 
     let mut ops: Vec<(Op, i16)> = Vec::with_capacity((nflds + 1) as usize);
     ops.push((
-        Op::Constructor(dst.clone(), stype.clone(), nflds),
+        Op::Constructor(dst.clone(), typ.clone(), nflds),
         line,
         ));
     let mut i = 0;
