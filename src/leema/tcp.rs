@@ -276,17 +276,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
 mod tests
 {
     use leema::io::tests::{exercise_iop_action};
-    use leema::udp;
     use leema::val::{Val};
-
-#[test]
-fn test_udp_socket_creation()
-{
-    let response = exercise_iop_action(udp::udp_socket, vec![]);
-    assert!(response.is_ok());
-    let (_fiber_id, rsrc_ref) = response.ok().unwrap();
-    assert_eq!(Val::ResourceRef(1), rsrc_ref);
-}
 
 }
 
