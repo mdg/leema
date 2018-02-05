@@ -8,7 +8,7 @@ use leema::phase0::{self, Protomod};
 use leema::{prefab, file, udp, tcp};
 use leema::typecheck::{self, CallOp, CallFrame, Typescope, Typemod};
 use leema::val::{Type};
-use leema::{lib_str};
+use leema::{lib_http, lib_str};
 
 use std::io::{Write};
 use std::rc::{Rc};
@@ -45,6 +45,7 @@ impl Lib
         proglib.rust_load.insert("prefab".to_string(), prefab::load_rust_func);
         proglib.load_inter("prefab");
         proglib.rust_load.insert("file".to_string(), file::load_rust_func);
+        proglib.rust_load.insert("http".to_string(), lib_http::load_rust_func);
         proglib.rust_load.insert("str".to_string(), lib_str::load_rust_func);
         proglib.rust_load.insert("tcp".to_string(), tcp::load_rust_func);
         proglib.rust_load.insert("udp".to_string(), udp::load_rust_func);

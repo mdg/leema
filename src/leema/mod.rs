@@ -29,4 +29,5 @@ pub mod worker;
 
 // libraries
 pub mod file;
+pub mod lib_http;
 pub mod lib_str;
