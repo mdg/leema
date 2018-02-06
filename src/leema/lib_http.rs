@@ -1,27 +1,57 @@
 use leema::code::{Code};
 use leema::log;
 use leema::rsrc::{self, Rsrc};
-use leema::val::{Val, Type};
+use leema::val::{Val, Type, LibVal};
 
 use std;
 use std::net::{IpAddr, SocketAddr};
 use std::rc::{Rc};
 use std::str::{FromStr};
+use std::sync::{Arc};
 use std::io::{self, Write};
 use bytes::{BytesMut};
 use bytes::buf::{BufMut};
 
 use ::tokio_core::reactor::{Handle};
 use ::tokio_io::{AsyncRead};
-use ::tokio_io::codec::{Framed, Encoder, Decoder};
 use futures::{Async, Poll};
 use futures::future;
+use futures::stream::Stream;
 use futures::task;
+use hyper;
+use hyper::server::{Http, Request, Response, Service};
 
 
 #[derive(Debug)]
-struct HttpService;
+struct LeemaHttp;
 
+impl LibVal for Response
+{
+    fn get_type(&self) -> Type
+    {
+        Type::Lib("HttpResponse".to_string())
+    }
+}
+
+impl Service for LeemaHttp
+{
+    type Request = Request;
+    type Response = Response;
+    type Error = hyper::Error;
+    // type Response = rsrc::Event;
+    // type Error = rsrc::Event;
+    type Future = Box<future::Future<Item=Self::Response, Error=Self::Error>>;
+
+    fn call(&self, req: Self::Request) -> Self::Future
+    {
+        let resp = Response::new()
+                .with_body("tacos");
+        // .map(|resp| {
+        //     rsrc::Event::Success(Val::Lib(Arc::new(resp)), None)
+        // });
+        Box::new(future::ok(resp))
+    }
+}
 
 pub fn http_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
@@ -35,8 +65,20 @@ pub fn http_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
     };
 
     let handle = ctx.handle().clone();
-    rsrc::Event::Success(Val::Void, None)
-    // rsrc::Event::Future(Box::new(fut))
+    let new_service = || { Ok(LeemaHttp) };
+    let serve = Http::new()
+        .serve_addr_handle(&sock_addr, &handle, new_service)
+        .unwrap()
+        .map(|_| {
+            vout!("incoming http connection, maybe()\n");
+            rsrc::Event::Success(Val::Void, None)
+        })
+        .map_err(|_| {
+            vout!("failed incoming http connection, maybe()\n");
+            rsrc::Event::Failure(Val::Void, None)
+        });
+    vout!("end http_bind\n");
+    rsrc::Event::Stream(Box::new(serve))
 }
 
 

@@ -7,6 +7,7 @@ use std::rc::{Rc};
 use std::cell::{RefCell};
 
 use futures::future;
+use futures::stream;
 use tokio_core::reactor;
 use mopa;
 
@@ -23,6 +24,7 @@ mopafy!(Rsrc);
 pub enum Event
 {
     Future(Box<future::Future<Item=Event, Error=Event>>),
+    Stream(Box<stream::Stream<Item=Event, Error=Event>>),
     NewRsrc(Box<Rsrc>),
     Success(Val, Option<Box<Rsrc>>),
     Failure(Val, Option<Box<Rsrc>>),

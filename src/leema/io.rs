@@ -14,6 +14,7 @@ use std::thread;
 
 use futures::{Poll, Async};
 use futures::future::{Future};
+use futures::stream::{Stream};
 use futures::task;
 use tokio_core::reactor;
 
@@ -246,6 +247,25 @@ println!("do something with this new resource!");
                         ()
                     });
                 self.handle.spawn(iofut);
+            }
+            Event::Stream(libstream) => {
+                let rcio: Rc<RefCell<Io>> = self.io.clone().unwrap();
+                let rcio_err = rcio.clone();
+                let iostream = libstream
+                    .into_future()
+                    .map(move |(ev2, str2)| {
+                        let mut bio = rcio.borrow_mut();
+                        bio.handle_event(
+                            worker_id, fiber_id, rsrc_id, ev2.unwrap()
+                        );
+                        ()
+                    })
+                    .map_err(move |(ev2, str2)| {
+                        let mut bio = rcio_err.borrow_mut();
+                        bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
+                        ()
+                    });
+                self.handle.spawn(iostream);
             }
         }
     }
