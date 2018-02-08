@@ -15,7 +15,7 @@ use bytes::buf::{BufMut};
 use ::tokio_core::reactor::{Handle};
 use ::tokio_io::{AsyncRead};
 use futures::{Async, Poll};
-use futures::future;
+use futures::future::{self, Future};
 use futures::stream::Stream;
 use futures::task;
 use hyper;
@@ -65,7 +65,9 @@ pub fn http_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
     };
 
     let handle = ctx.handle().clone();
-    let new_service = || { Ok(LeemaHttp) };
+    let new_service = || {
+        Ok(LeemaHttp)
+    };
     let serve = Http::new()
         .serve_addr_handle(&sock_addr, &handle, new_service)
         .unwrap()
