@@ -19,17 +19,25 @@ use futures::future::{self, Future};
 use futures::stream::Stream;
 use futures::task;
 use hyper;
-use hyper::server::{Http, Request, Response, Service};
+use hyper::server::{self, Http, Request, Response, Service, Serve};
 
-
-#[derive(Debug)]
-struct LeemaHttp;
 
 impl LibVal for Response
 {
     fn get_type(&self) -> Type
     {
         Type::Lib("HttpResponse".to_string())
+    }
+}
+
+#[derive(Debug)]
+struct LeemaHttp;
+
+impl LeemaHttp
+{
+    pub fn new() -> LeemaHttp
+    {
+        LeemaHttp
     }
 }
 
@@ -53,6 +61,44 @@ impl Service for LeemaHttp
     }
 }
 
+struct NewLeemaHttp;
+
+impl server::NewService for NewLeemaHttp
+{
+    type Request = Request;
+    type Response = Response;
+    type Error = hyper::Error;
+    type Instance = LeemaHttp;
+
+    fn new_service(&self) -> Result<Self::Instance, io::Error>
+    {
+        Ok(LeemaHttp)
+    }
+}
+
+struct HttpFuture
+{
+    serve: Serve<server::AddrIncoming, NewLeemaHttp>,
+}
+
+impl Future for HttpFuture
+{
+    type Item = rsrc::Event;
+    type Error = rsrc::Event;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error>
+    {
+        task::current().notify();
+        let pollstate = self.serve.poll();
+        match &pollstate {
+            &Ok(ref NotReady) => {}
+            _ => {
+            }
+        }
+        Ok(Async::NotReady)
+    }
+}
+
 pub fn http_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("http_bind()\n");
@@ -65,22 +111,27 @@ pub fn http_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
     };
 
     let handle = ctx.handle().clone();
-    let new_service = || {
-        Ok(LeemaHttp)
-    };
     let serve = Http::new()
-        .serve_addr_handle(&sock_addr, &handle, new_service)
+        .serve_addr_handle(&sock_addr, &handle, NewLeemaHttp)
         .unwrap()
-        .map(|_| {
+        .map(|c| {
+            c
+        })
+        .into_inner();
+        /*
+        .map(|c| {
             vout!("incoming http connection, maybe()\n");
             rsrc::Event::Success(Val::Void, None)
         })
-        .map_err(|_| {
+        .map_err(|e| {
             vout!("failed incoming http connection, maybe()\n");
             rsrc::Event::Failure(Val::Void, None)
         });
-    vout!("end http_bind\n");
     rsrc::Event::Stream(Box::new(serve))
+        */
+    let future_loop = HttpFuture{serve: serve};
+    vout!("end http_bind\n");
+    rsrc::Event::Future(Box::new(future_loop))
 }
 
 
