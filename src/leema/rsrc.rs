@@ -30,6 +30,30 @@ pub enum Event
     Failure(Val, Option<Box<Rsrc>>),
 }
 
+impl fmt::Debug for Event
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        match *self {
+            Event::Future(_) => {
+                write!(f, "Event::Future")
+            }
+            Event::Stream(_) => {
+                write!(f, "Event::Future")
+            }
+            Event::NewRsrc(ref r) => {
+                write!(f, "Event::Rsrc({:?})", r)
+            }
+            Event::Success(ref rv, ref r) => {
+                write!(f, "Event::Success({:?}, {:?})", rv, r)
+            }
+            Event::Failure(ref rv, ref r) => {
+                write!(f, "Event::Failure({:?}, {:?})", rv, r)
+            }
+        }
+    }
+}
+
 pub struct IopCtx
 {
     rcio: Rc<RefCell<Io>>,
