@@ -1,8 +1,10 @@
 import http
 
+func action(req: Request): Response ->
+--
 
 func main() ->
-   http::bind("0.0.0.0", 3999)
+   let b = http::bind("0.0.0.0", 3999, action)
    cout("started http on 3999\n")
 --
 
