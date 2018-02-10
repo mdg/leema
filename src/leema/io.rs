@@ -158,6 +158,7 @@ impl Io
                 rsrc_id,
                 params,
             } => {
+println!("iop incoming: {:?}:{:?}:{:?} {:?}", wid, fid, rsrc_id, params);
                 let param_vals = Val::from_msg(params);
                 self.handle_iop_action(wid, fid, action, rsrc_id, param_vals);
             }
@@ -173,6 +174,7 @@ impl Io
     fn handle_iop_action(&mut self, worker_id: i64, fiber_id: i64
         , action: rsrc::IopAction, opt_rsrc_id: Option<i64>, params: Val)
     {
+println!("handle_iop_action({},{},{:?},{:?})", worker_id, fiber_id, opt_rsrc_id, params);
         let ctx = self.create_iop_ctx(worker_id, fiber_id
             , opt_rsrc_id.clone(), None, params);
         let iop = Iop{
@@ -205,6 +207,7 @@ impl Io
     fn run_iop(&mut self, rsrc_op: Option<(Iop, Box<Rsrc>)>)
     {
         if let Some((mut iop, rsrc)) = rsrc_op {
+println!("run_iop");
             iop.ctx.init_rsrc(rsrc);
             self.next.push_back(iop);
         }
@@ -226,29 +229,37 @@ println!("do something with this new resource!");
                 self.send_result(worker_id, fiber_id, result);
             }
             Event::Success(result, rsrc) => {
+println!("handle Event::Success");
                 self.return_rsrc(rsrc_id, rsrc);
                 self.send_result(worker_id, fiber_id, result);
             }
             Event::Failure(result, rsrc) => {
+println!("handle Event::Failure");
                 self.return_rsrc(rsrc_id, rsrc);
                 self.send_result(worker_id, fiber_id, result);
             }
             Event::Future(libfut) => {
+println!("handle Event::Future");
                 let rcio: Rc<RefCell<Io>> = self.io.clone().unwrap();
                 let rcio_err = rcio.clone();
                 let iofut = libfut
                     .map(move |ev2| {
+println!("handle Event::Future ok");
                         let mut bio = rcio.borrow_mut();
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
                     }).map_err(move |ev2| {
+println!("handle Event::Future error");
                         let mut bio = rcio_err.borrow_mut();
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
                     });
+println!("spawn new future");
                 self.handle.spawn(iofut);
+println!("new future spawned");
             }
             Event::Stream(libstream) => {
+println!("handle Event::Stream");
                 let rcio: Rc<RefCell<Io>> = self.io.clone().unwrap();
                 let rcio_err = rcio.clone();
                 let iostream = libstream
@@ -290,12 +301,14 @@ println!("do something with this new resource!");
 
     pub fn send_result(&mut self, worker_id: i64, fiber_id: i64, result: Val)
     {
+println!("send_result({},{},{:?})", worker_id, fiber_id, result);
         let tx = self.worker_tx.get(&worker_id).unwrap();
         tx.send(WorkerMsg::IopResult(fiber_id, result.to_msg()));
     }
 
     pub fn return_rsrc(&mut self, rsrc_id: Option<i64>, rsrc: Option<Box<Rsrc>>)
     {
+println!("return_rsrc({:?})", rsrc_id);
         match (rsrc_id, rsrc) {
             (Some(irsrc_id), Some(real_rsrc)) => {
                 let next_op = {

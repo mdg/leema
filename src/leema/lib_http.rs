@@ -19,7 +19,7 @@ use futures::future::{self, Future};
 use futures::stream::Stream;
 use futures::task;
 use hyper;
-use hyper::server::{self, Http, Request, Response, Service, Serve};
+use hyper::server::{self, Http, Request, Response, Service, Serve, Connection};
 
 
 impl LibVal for Response
@@ -52,8 +52,9 @@ impl Service for LeemaHttp
 
     fn call(&self, req: Self::Request) -> Self::Future
     {
+println!("LeemaHttp.call({:?})", req);
         let resp = Response::new()
-                .with_body("tacos");
+                .with_body("tacos\n");
         // .map(|resp| {
         //     rsrc::Event::Success(Val::Lib(Arc::new(resp)), None)
         // });
@@ -72,6 +73,7 @@ impl server::NewService for NewLeemaHttp
 
     fn new_service(&self) -> Result<Self::Instance, io::Error>
     {
+println!("create new service");
         Ok(LeemaHttp)
     }
 }
@@ -89,13 +91,41 @@ impl Future for HttpFuture
     fn poll(&mut self) -> Poll<Self::Item, Self::Error>
     {
         task::current().notify();
-        let pollstate = self.serve.poll();
-        match &pollstate {
-            &Ok(ref NotReady) => {}
-            _ => {
+        let mut pollstate = self.serve.poll();
+        match &mut pollstate {
+            &mut Ok(Async::NotReady) => {
+                Ok(Async::NotReady)
+            }
+            &mut Ok(Async::Ready(ref mut conn)) => {
+println!("pollstate ok: {:?}", conn);
+                // let next = conn.poll();
+                /*
+                Ok(Async::Ready(rsrc::Event::Success(
+                    Val::new_str("http ok".to_string()),
+                    Some(Box::new(conn.unwrap())),
+                )))
+                */
+                let inner_fut = conn.take().unwrap()
+                    .map(|op| {
+println!("connection is doing something maybe");
+                        rsrc::Event::Success(Val::new_str("inner connection win".to_string()), None)
+                    })
+                    .map_err(|operr| {
+println!("connection maybe failed");
+                        rsrc::Event::Failure(Val::new_str("inner connection lose".to_string()), None)
+                    });
+                Ok(Async::Ready(rsrc::Event::Future(
+                    Box::new(inner_fut)
+                )))
+            }
+            &mut Err(ref pollstate2) => {
+println!("poll err state: {:?}", pollstate2);
+                // pollstate.unwrap()
+                Err(rsrc::Event::Failure(
+                    Val::new_str("http error".to_string()), None
+                ))
             }
         }
-        Ok(Async::NotReady)
     }
 }
 
@@ -111,27 +141,53 @@ pub fn http_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
     };
 
     let handle = ctx.handle().clone();
+    let handle2 = handle.clone();
     let serve = Http::new()
         .serve_addr_handle(&sock_addr, &handle, NewLeemaHttp)
-        .unwrap()
+        .unwrap();
+        /*
+        .for_each(|conn| {
+println!("serve.for_each");
+            conn.map(|c1| {
+println!("conn.map");
+                c1
+            })
+            .map_err(|c2| {
+println!("conn.map_err");
+                c2
+            });
+        });
+        */
+        // .into_inner();
+        /*
+        .map(|_| { 8 })
+        .map_err(|_| { "tacos" });
         .map(|c| {
+println!("new addr handle: {:?}", c);
             c
         })
         .into_inner();
+        */
         /*
         .map(|c| {
+println!("incoming http connection, maybe? {:?}", c);
+c.map(|i| {
+    // println!("c.map(i) = {:?}", i);
+    i
+});
             vout!("incoming http connection, maybe()\n");
             rsrc::Event::Success(Val::Void, None)
         })
         .map_err(|e| {
+println!("failed http connection, maybe? {:?}", e);
             vout!("failed incoming http connection, maybe()\n");
             rsrc::Event::Failure(Val::Void, None)
         });
-    rsrc::Event::Stream(Box::new(serve))
         */
     let future_loop = HttpFuture{serve: serve};
     vout!("end http_bind\n");
     rsrc::Event::Future(Box::new(future_loop))
+    // rsrc::Event::Stream(Box::new(future_loop))
 }
 
 
