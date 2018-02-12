@@ -4,6 +4,7 @@ use leema::rsrc::{self, Rsrc};
 use leema::val::{Val, Type, LibVal};
 
 use std;
+use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 use std::rc::{Rc};
 use std::str::{FromStr};
@@ -78,12 +79,20 @@ println!("create new service");
     }
 }
 
-struct HttpFuture
+struct HttpServer
 {
     serve: Serve<server::AddrIncoming, NewLeemaHttp>,
 }
 
-impl Future for HttpFuture
+impl LibVal for HttpServer
+{
+    fn get_type(&self) -> Type
+    {
+        Type::Struct(Rc::new("Server".to_string()))
+    }
+}
+
+impl Future for HttpServer
 {
     type Item = rsrc::Event;
     type Error = rsrc::Event;
@@ -129,6 +138,14 @@ println!("poll err state: {:?}", pollstate2);
     }
 }
 
+impl fmt::Debug for HttpServer
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "HttpServer")
+    }
+}
+
 pub fn http_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("http_bind()\n");
@@ -144,7 +161,7 @@ pub fn http_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let handle2 = handle.clone();
     let serve = Http::new()
         .serve_addr_handle(&sock_addr, &handle, NewLeemaHttp)
-        .unwrap();
+        .unwrap()
         /*
         .for_each(|conn| {
 println!("serve.for_each");
@@ -162,12 +179,12 @@ println!("conn.map_err");
         /*
         .map(|_| { 8 })
         .map_err(|_| { "tacos" });
+        */
         .map(|c| {
 println!("new addr handle: {:?}", c);
             c
         })
         .into_inner();
-        */
         /*
         .map(|c| {
 println!("incoming http connection, maybe? {:?}", c);
@@ -184,7 +201,7 @@ println!("failed http connection, maybe? {:?}", e);
             rsrc::Event::Failure(Val::Void, None)
         });
         */
-    let future_loop = HttpFuture{serve: serve};
+    let future_loop = HttpServer{serve: serve};
     vout!("end http_bind\n");
     rsrc::Event::Future(Box::new(future_loop))
     // rsrc::Event::Stream(Box::new(future_loop))

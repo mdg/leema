@@ -1,10 +1,13 @@
 import http
 
-func action(req: Request): Response ->
+func action(req: http::Request): http::Response ->
+    cout("wow, handling http!")
+    http::ok200()
 --
 
 func main() ->
-   let b = http::bind("0.0.0.0", 3999, action)
+   let s := http::bind("0.0.0.0", 3999)
+   http::accept(s, action)
    cout("started http on 3999\n")
 --
 

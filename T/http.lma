@@ -1,3 +1,26 @@
 
-func bind(addr: Str, port: Int): Void -RUST-
+enum Method
+|Get
+|Post
+--
+
+struct Request
+.path: Str
+.method: Method
+--
+
+struct Response
+.status: Int
+--
+
+func bind(addr: Str, port: Int): HttpServer -RUST-
+
+func accept(
+    sock: HttpServer,
+    action: http::Request > http::Response,
+    ): Void -RUST-
+
+func ok200(): http::Response ->
+    Response(200)
+--
 
