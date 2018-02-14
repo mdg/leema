@@ -17,7 +17,7 @@ func bind(addr: Str, port: Int): HttpServer -RUST-
 
 func accept(
     sock: HttpServer,
-    action: http::Request > http::Response,
+    ## action: http::Request > http::Response,
     ): Void -RUST-
 
 func ok200(): http::Response ->

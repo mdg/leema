@@ -20,14 +20,60 @@ use futures::future::{self, Future};
 use futures::stream::Stream;
 use futures::task;
 use hyper;
-use hyper::server::{self, Http, Request, Response, Service, Serve, Connection};
+use hyper::server::{self, Http, Service, Serve};
 
 
-impl LibVal for Response
+impl LibVal for server::Request
 {
     fn get_type(&self) -> Type
     {
-        Type::Lib("HttpResponse".to_string())
+        Type::Lib("Request".to_string())
+    }
+}
+
+impl LibVal for server::Response
+{
+    fn get_type(&self) -> Type
+    {
+        Type::Lib("Response".to_string())
+    }
+}
+
+#[derive(Debug)]
+struct Conn
+{
+    c: server::Connection<server::AddrIncoming, LeemaHttp>,
+}
+
+impl Conn
+{
+}
+
+impl rsrc::Rsrc for Conn
+{
+    fn get_type(&self) -> Type
+    {
+        Type::Resource(Rc::new("Conn".to_string()))
+    }
+}
+
+impl Future for Conn
+{
+    type Item = rsrc::Event;
+    type Error = rsrc::Event;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error>
+    {
+        Ok(Async::NotReady)
+        /*
+        self.c.poll()
+            .map(|opaq| {
+                rsrc::Event::Success(Val::Int(0), None)
+            })
+            .map_err(|e| {
+                rsrc::Event::Success(Val::Int(7), None)
+            })
+            */
     }
 }
 
@@ -44,21 +90,22 @@ impl LeemaHttp
 
 impl Service for LeemaHttp
 {
-    type Request = Request;
-    type Response = Response;
-    type Error = hyper::Error;
+    type Request = server::Request;
+    type Response = server::Response;
     // type Response = rsrc::Event;
+    type Error = hyper::Error;
     // type Error = rsrc::Event;
     type Future = Box<future::Future<Item=Self::Response, Error=Self::Error>>;
 
     fn call(&self, req: Self::Request) -> Self::Future
     {
 println!("LeemaHttp.call({:?})", req);
-        let resp = Response::new()
+        let resp = server::Response::new()
                 .with_body("tacos\n");
         // .map(|resp| {
         //     rsrc::Event::Success(Val::Lib(Arc::new(resp)), None)
         // });
+        // Box::new(future::ok(rsrc::Event::Success(Val::Int(8), None)))
         Box::new(future::ok(resp))
     }
 }
@@ -67,8 +114,9 @@ struct NewLeemaHttp;
 
 impl server::NewService for NewLeemaHttp
 {
-    type Request = Request;
-    type Response = Response;
+    type Request = server::Request;
+    type Response = server::Response;
+    // type Response = rsrc::Event;
     type Error = hyper::Error;
     type Instance = LeemaHttp;
 
@@ -84,11 +132,11 @@ struct HttpServer
     serve: Serve<server::AddrIncoming, NewLeemaHttp>,
 }
 
-impl LibVal for HttpServer
+impl rsrc::Rsrc for HttpServer
 {
     fn get_type(&self) -> Type
     {
-        Type::Struct(Rc::new("Server".to_string()))
+        Type::Resource(Rc::new("Server".to_string()))
     }
 }
 
@@ -105,27 +153,14 @@ impl Future for HttpServer
             &mut Ok(Async::NotReady) => {
                 Ok(Async::NotReady)
             }
-            &mut Ok(Async::Ready(ref mut conn)) => {
-println!("pollstate ok: {:?}", conn);
-                // let next = conn.poll();
+            &mut Ok(Async::Ready(ref mut opt_conn)) => {
+                let conn = opt_conn.take().unwrap();
                 /*
-                Ok(Async::Ready(rsrc::Event::Success(
-                    Val::new_str("http ok".to_string()),
-                    Some(Box::new(conn.unwrap())),
+                Ok(Async::Ready(rsrc::Event::NewRsrc(
+                    Box::new(Conn{c: conn}),
                 )))
                 */
-                let inner_fut = conn.take().unwrap()
-                    .map(|op| {
-println!("connection is doing something maybe");
-                        rsrc::Event::Success(Val::new_str("inner connection win".to_string()), None)
-                    })
-                    .map_err(|operr| {
-println!("connection maybe failed");
-                        rsrc::Event::Failure(Val::new_str("inner connection lose".to_string()), None)
-                    });
-                Ok(Async::Ready(rsrc::Event::Future(
-                    Box::new(inner_fut)
-                )))
+                Ok(Async::NotReady)
             }
             &mut Err(ref pollstate2) => {
 println!("poll err state: {:?}", pollstate2);
@@ -203,16 +238,22 @@ println!("failed http connection, maybe? {:?}", e);
         */
     let future_loop = HttpServer{serve: serve};
     vout!("end http_bind\n");
-    rsrc::Event::Future(Box::new(future_loop))
-    // rsrc::Event::Stream(Box::new(future_loop))
+    rsrc::Event::NewRsrc(Box::new(future_loop))
 }
 
+pub fn http_accept(mut ctx: rsrc::IopCtx) -> rsrc::Event
+{
+    vout!("http_accept()\n");
 
+    let srv: HttpServer = ctx.take_rsrc();
+    rsrc::Event::Success(Val::Void, None)
+}
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
         "bind" => Some(Code::Iop(http_bind, None)),
+        "accept" => Some(Code::Iop(http_accept, Some(0))),
         _ => None,
     }
 }
