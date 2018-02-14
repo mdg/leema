@@ -109,7 +109,7 @@ impl Worker
     {
         let opt_code = self.find_code(curf.module_name(), curf.function_name());
         if let Some(func) = opt_code {
-            self.push_fresh(ReadyFiber::Ready(curf, func));
+            self.push_coded_fiber(curf, func);
         } else {
             let msg = AppMsg::RequestCode(self.id, curf.fiber_id
                 , curf.module_name().to_string()
