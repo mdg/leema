@@ -165,7 +165,7 @@ impl Future for HttpServer
             &mut Err(ref pollstate2) => {
 println!("poll err state: {:?}", pollstate2);
                 // pollstate.unwrap()
-                Err(rsrc::Event::Failure(
+                Err(rsrc::Event::Result(
                     Val::new_str("http error".to_string()), None
                 ))
             }
@@ -233,12 +233,12 @@ c.map(|i| {
         .map_err(|e| {
 println!("failed http connection, maybe? {:?}", e);
             vout!("failed incoming http connection, maybe()\n");
-            rsrc::Event::Failure(Val::Void, None)
+            rsrc::Event::Result(Val::Void, None)
         });
         */
     let future_loop = HttpServer{serve: serve};
     vout!("end http_bind\n");
-    rsrc::Event::NewRsrc(Box::new(future_loop))
+    rsrc::Event::NewRsrc(Box::new(future_loop), None)
 }
 
 pub fn http_accept(mut ctx: rsrc::IopCtx) -> rsrc::Event
@@ -246,7 +246,19 @@ pub fn http_accept(mut ctx: rsrc::IopCtx) -> rsrc::Event
     vout!("http_accept()\n");
 
     let srv: HttpServer = ctx.take_rsrc();
-    rsrc::Event::Success(Val::Void, None)
+
+    let fut = srv.serve.into_future()
+        .map(|(opt_item, isrv)| {
+            let item = opt_item.unwrap();
+            let conn = Box::new(Conn{c: item});
+            let srv_result = Box::new(HttpServer{serve: isrv});
+            rsrc::Event::NewRsrc(conn, Some(srv_result))
+        })
+        .map_err(|(err, isrv)| {
+            let srv_result = Box::new(HttpServer{serve: isrv});
+            rsrc::Event::Result(Val::Int(0), Some(srv_result))
+        });
+    rsrc::Event::Future(Box::new(fut))
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>

@@ -25,9 +25,8 @@ pub enum Event
 {
     Future(Box<future::Future<Item=Event, Error=Event>>),
     Stream(Box<stream::Stream<Item=Event, Error=Event>>),
-    NewRsrc(Box<Rsrc>),
-    Success(Val, Option<Box<Rsrc>>),
-    Failure(Val, Option<Box<Rsrc>>),
+    NewRsrc(Box<Rsrc>, Option<Box<Rsrc>>),
+    Result(Val, Option<Box<Rsrc>>),
 }
 
 impl fmt::Debug for Event
@@ -41,14 +40,11 @@ impl fmt::Debug for Event
             Event::Stream(_) => {
                 write!(f, "Event::Future")
             }
-            Event::NewRsrc(ref r) => {
-                write!(f, "Event::Rsrc({:?})", r)
+            Event::NewRsrc(ref r, ref prevr) => {
+                write!(f, "Event::Rsrc({:?}, {:?})", r, prevr)
             }
-            Event::Success(ref rv, ref r) => {
-                write!(f, "Event::Success({:?}, {:?})", rv, r)
-            }
-            Event::Failure(ref rv, ref r) => {
-                write!(f, "Event::Failure({:?}, {:?})", rv, r)
+            Event::Result(ref rv, ref r) => {
+                write!(f, "Event::Result({:?}, {:?})", rv, r)
             }
         }
     }

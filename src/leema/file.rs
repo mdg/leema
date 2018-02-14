@@ -12,7 +12,7 @@ use std::path::{Path};
 pub fn file_open(ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("file_open()\n");
-    rsrc::Event::Success(Val::Void, None)
+    rsrc::Event::Result(Val::Void, None)
 }
 
 pub fn file_read_file(mut ctx: rsrc::IopCtx) -> rsrc::Event
@@ -23,13 +23,13 @@ pub fn file_read_file(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let mut f = File::open(path).unwrap();
     let mut s = String::new();
     f.read_to_string(&mut s);
-    rsrc::Event::Success(Val::new_str(s), None)
+    rsrc::Event::Result(Val::new_str(s), None)
 }
 
 pub fn file_write(ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("file_write()\n");
-    rsrc::Event::Success(Val::Void, None)
+    rsrc::Event::Result(Val::Void, None)
 }
 
 pub fn file_write_file(mut ctx: rsrc::IopCtx) -> rsrc::Event
@@ -44,7 +44,7 @@ pub fn file_write_file(mut ctx: rsrc::IopCtx) -> rsrc::Event
         .truncate(true)
         .open(path).unwrap();
     f.write_all(output.str().as_bytes());
-    rsrc::Event::Success(Val::Void, None)
+    rsrc::Event::Result(Val::Void, None)
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>

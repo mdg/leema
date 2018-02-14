@@ -222,19 +222,15 @@ println!("run_iop");
         , rsrc_id: Option<i64>, ev: Event)
     {
         match ev {
-            Event::NewRsrc(rsrc) => {
+            Event::NewRsrc(rsrc, prev_rsrc) => {
 println!("do something with this new resource!");
-                let rsrc_id = self.new_rsrc(rsrc);
-                let result = Val::ResourceRef(rsrc_id);
+                self.return_rsrc(rsrc_id, prev_rsrc);
+                let new_rsrc_id = self.new_rsrc(rsrc);
+                let result = Val::ResourceRef(new_rsrc_id);
                 self.send_result(worker_id, fiber_id, result);
             }
-            Event::Success(result, rsrc) => {
+            Event::Result(result, rsrc) => {
 println!("handle Event::Success");
-                self.return_rsrc(rsrc_id, rsrc);
-                self.send_result(worker_id, fiber_id, result);
-            }
-            Event::Failure(result, rsrc) => {
-println!("handle Event::Failure");
                 self.return_rsrc(rsrc_id, rsrc);
                 self.send_result(worker_id, fiber_id, result);
             }
