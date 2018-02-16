@@ -39,17 +39,17 @@ impl LibVal for server::Response
     }
 }
 
-#[derive(Debug)]
-struct Conn
+struct Conn<I>
 {
-    c: server::Connection<server::AddrIncoming, LeemaHttp>,
+    c: server::Connection<I, LeemaHttp>,
 }
 
-impl Conn
+impl<I> Conn<I>
 {
 }
 
-impl rsrc::Rsrc for Conn
+impl<I> rsrc::Rsrc for Conn<I>
+    where I: 'static
 {
     fn get_type(&self) -> Type
     {
@@ -57,7 +57,7 @@ impl rsrc::Rsrc for Conn
     }
 }
 
-impl Future for Conn
+impl<I> Future for Conn<I>
 {
     type Item = rsrc::Event;
     type Error = rsrc::Event;
@@ -74,6 +74,14 @@ impl Future for Conn
                 rsrc::Event::Success(Val::Int(7), None)
             })
             */
+    }
+}
+
+impl<I> fmt::Debug for Conn<I>
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "Conn")
     }
 }
 
