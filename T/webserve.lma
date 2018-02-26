@@ -7,8 +7,10 @@ func action(req: http::Request): http::Response ->
 
 func main() ->
    let s := http::bind("0.0.0.0", 3999)
-   let a := http::accept(s)
-   cout("started http on 3999\n")
-   cout("s,a: $s,$a\n")
+   cout("started http on 3999: $s\n")
+   let tx := http::accept(s)
+   cout("accepted: $tx\n")
+   let req := http::request(tx)
+   cout("request: $req\n")
 --
 

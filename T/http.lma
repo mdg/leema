@@ -13,12 +13,26 @@ struct Response
 .status: Int
 --
 
+struct Transaction
+.req: Request
+.req_body: Str
+.resp: Response
+--
+
 func bind(addr: Str, port: Int): HttpServer -RUST-
 
 func accept(
     sock: HttpServer,
     ## action: http::Request > http::Response,
-    ): Void -RUST-
+): Transaction -RUST-
+
+func request(
+    tx: Transaction,
+): Request -RUST-
+
+func request_body(
+    tx: Transaction,
+): Str -RUST-
 
 func ok200(): http::Response ->
     Response(200)

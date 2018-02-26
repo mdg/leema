@@ -269,11 +269,18 @@ pub fn http_accept(mut ctx: rsrc::IopCtx) -> rsrc::Event
     rsrc::Event::Future(Box::new(fut))
 }
 
+pub fn http_request(mut ctx: rsrc::IopCtx) -> rsrc::Event
+{
+    let tx: Conn = ctx.take_rsrc();
+    rsrc::Event::Result(Val::Int(0), None)
+}
+
 pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
         "bind" => Some(Code::Iop(http_bind, None)),
         "accept" => Some(Code::Iop(http_accept, Some(0))),
+        "request" => Some(Code::Iop(http_request, Some(0))),
         _ => None,
     }
 }
