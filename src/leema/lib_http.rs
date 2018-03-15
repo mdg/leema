@@ -21,6 +21,7 @@ use futures::stream::Stream;
 use futures::task;
 use hyper;
 use hyper::server::{self, Http, Service, Serve};
+use hyper::proto::dispatch::{Dispatch};
 
 
 impl LibVal for server::Request
@@ -39,49 +40,77 @@ impl LibVal for server::Response
     }
 }
 
-struct Conn<I>
+struct Transaction
 {
-    c: server::Connection<I, LeemaHttp>,
+    c: server::Connection<hyper::server::addr_stream::AddrStream, LeemaHttp>,
+    req: Option<server::Request>,
 }
 
-impl<I> Conn<I>
+impl Transaction
 {
-}
-
-impl<I> rsrc::Rsrc for Conn<I>
-    where I: 'static
-{
-    fn get_type(&self) -> Type
+    pub fn new_box(
+        c: server::Connection<hyper::server::addr_stream::AddrStream, LeemaHttp>
+        ) -> Box<Transaction>
     {
-        Type::Resource(Rc::new("Conn".to_string()))
+        Box::new(Transaction{
+            c: c,
+            req: None,
+        })
     }
 }
 
-impl<I> Future for Conn<I>
+impl rsrc::Rsrc for Transaction
+{
+    fn get_type(&self) -> Type
+    {
+        Type::Resource(Rc::new("Transaction".to_string()))
+    }
+}
+
+impl Future for Transaction
 {
     type Item = rsrc::Event;
     type Error = rsrc::Event;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error>
     {
+println!("Transaction::poll");
         Ok(Async::NotReady)
         /*
         self.c.poll()
             .map(|opaq| {
+println!("transaction future map");
                 rsrc::Event::Success(Val::Int(0), None)
             })
             .map_err(|e| {
+println!("transaction future err");
                 rsrc::Event::Success(Val::Int(7), None)
             })
             */
     }
 }
 
-impl<I> fmt::Debug for Conn<I>
+impl fmt::Debug for Transaction
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        write!(f, "Conn")
+        write!(f, "Transaction")
+    }
+}
+
+struct Tx2
+{
+    pub req: server::Request,
+}
+
+impl future::Future for Tx2
+{
+    type Item = server::Response;
+    type Error = hyper::Error;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error>
+    {
+        Ok(Async::NotReady)
     }
 }
 
@@ -108,13 +137,14 @@ impl Service for LeemaHttp
     fn call(&self, req: Self::Request) -> Self::Future
     {
 println!("LeemaHttp.call({:?})", req);
+panic!("where am i?");
         let resp = server::Response::new()
                 .with_body("tacos\n");
         // .map(|resp| {
         //     rsrc::Event::Success(Val::Lib(Arc::new(resp)), None)
         // });
         // Box::new(future::ok(rsrc::Event::Success(Val::Int(8), None)))
-        Box::new(future::ok(resp))
+        Box::new(Tx2{req: req})
     }
 }
 
@@ -155,6 +185,7 @@ impl Future for HttpServer
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error>
     {
+println!("http server future poll");
         task::current().notify();
         let mut pollstate = self.serve.poll();
         match &mut pollstate {
@@ -162,6 +193,7 @@ impl Future for HttpServer
                 Ok(Async::NotReady)
             }
             &mut Ok(Async::Ready(ref mut opt_conn)) => {
+println!("pollstate ok: {:?}", opt_conn);
                 let conn = opt_conn.take().unwrap();
                 /*
                 Ok(Async::Ready(rsrc::Event::NewRsrc(
@@ -254,13 +286,17 @@ pub fn http_accept(mut ctx: rsrc::IopCtx) -> rsrc::Event
     vout!("http_accept()\n");
 
     let srv: HttpServer = ctx.take_rsrc();
+println!("server: {:?}", srv);
 
     let fut = srv.serve.into_future()
         .map(|(opt_item, isrv)| {
             let item = opt_item.unwrap();
-            let conn = Box::new(Conn{c: item});
+println!("received a: {:?}", item);
+let sp = item.should_poll();
+println!("should poll? {}", sp);
+            let tx = Transaction::new_box(item);
             let srv_result = Box::new(HttpServer{serve: isrv});
-            rsrc::Event::NewRsrc(conn, Some(srv_result))
+            rsrc::Event::NewRsrc(tx, Some(srv_result))
         })
         .map_err(|(err, isrv)| {
             let srv_result = Box::new(HttpServer{serve: isrv});
@@ -271,7 +307,9 @@ pub fn http_accept(mut ctx: rsrc::IopCtx) -> rsrc::Event
 
 pub fn http_request(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
-    let tx: Conn = ctx.take_rsrc();
+    let tx: Transaction = ctx.take_rsrc();
+println!("tx is what? '{:?}'", tx);
+    Dispatch::recv_req(tx.c);
     rsrc::Event::Result(Val::Int(0), None)
 }
 
