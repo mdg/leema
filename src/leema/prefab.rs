@@ -9,6 +9,7 @@ use std::fs::File;
 use std::io::{stdin, stderr, Read, Write};
 use std::fmt::{self, Display, Debug};
 use std::sync::{Mutex};
+use std::time::{Duration};
 
 use rand;
 
@@ -229,6 +230,16 @@ pub fn get_type(f: &mut Fiber) -> Event
 }
 
 
+pub fn leema_sleep(f: &mut Fiber) -> Event
+{
+    use std::thread::sleep;
+
+    let tval = f.head.get_param(0);
+    let tint = tval.to_int();
+    sleep(Duration::from_millis(tint as u64));
+    Event::success()
+}
+
 /**
  * cin
  */
@@ -411,6 +422,7 @@ pub fn source_code() -> &'static str
     func int_random(): Int -RUST-
     func equal(a, b): Bool -RUST-
     func less_than(a, b): Bool -RUST-
+    func leema_sleep(d: Int): Void -RUST-
     func cin(): Str -RUST-
     func cout(txt: Str): Void -RUST-
     func list_cons(head: $A, tail: [$A]): [$A] -RUST-
@@ -456,6 +468,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         greater_than,
         greater_than_equal,
         get_type,
+        leema_sleep,
         cin,
         cout,
         create_failure,
