@@ -8,9 +8,6 @@ rustc-link-lib = ["leemalex"]
 [[bin]]
 name = "leema"
 
-[[bin]]
-name = "leemaw"
-
 [dependencies]
 actix = "0.4.5"
 actix-web = "0.3.3"
