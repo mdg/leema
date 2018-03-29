@@ -10,7 +10,6 @@ func main() ->
    cout("started http on 3999: $s\n")
    let tx := http::accept(s)
    cout("accepted: $tx\n")
-   let req := http::request(tx)
-   cout("request: $req\n")
+   leema_sleep(10000)
 --
 

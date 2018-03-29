@@ -30,6 +30,10 @@ func request(
     tx: Transaction,
 ): Request -RUST-
 
+## func respond(
+##     tx: Transaction,
+## ): Request -RUST-
+
 func request_body(
     tx: Transaction,
 ): Str -RUST-

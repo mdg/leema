@@ -21,7 +21,6 @@ use futures::stream::Stream;
 use futures::task;
 use hyper;
 use hyper::server::{self, Http, Service, Serve};
-use hyper::proto::dispatch::{Dispatch};
 
 
 impl LibVal for server::Request
@@ -75,18 +74,22 @@ impl Future for Transaction
     fn poll(&mut self) -> Poll<Self::Item, Self::Error>
     {
 println!("Transaction::poll");
-        Ok(Async::NotReady)
-        /*
+        // Ok(Async::NotReady)
         self.c.poll()
-            .map(|opaq| {
-println!("transaction future map");
-                rsrc::Event::Success(Val::Int(0), None)
+            .map(|async_opaq| {
+                // Async::Ready(rsrc::Event::Result(Val::Int(0), None))
+                match async_opaq {
+                    Async::Ready(opaq) => {
+                        Async::NotReady
+                    }
+                    Async::NotReady => {
+                        Async::NotReady
+                    }
+                }
             })
             .map_err(|e| {
-println!("transaction future err");
-                rsrc::Event::Success(Val::Int(7), None)
+                rsrc::Event::Result(Val::Int(7), None)
             })
-            */
     }
 }
 
@@ -110,6 +113,7 @@ impl future::Future for Tx2
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error>
     {
+        task::current().notify();
         Ok(Async::NotReady)
     }
 }
@@ -137,9 +141,6 @@ impl Service for LeemaHttp
     fn call(&self, req: Self::Request) -> Self::Future
     {
 println!("LeemaHttp.call({:?})", req);
-panic!("where am i?");
-        let resp = server::Response::new()
-                .with_body("tacos\n");
         // .map(|resp| {
         //     rsrc::Event::Success(Val::Lib(Arc::new(resp)), None)
         // });
@@ -277,7 +278,6 @@ println!("failed http connection, maybe? {:?}", e);
         });
         */
     let future_loop = HttpServer{serve: serve};
-    vout!("end http_bind\n");
     rsrc::Event::NewRsrc(Box::new(future_loop), None)
 }
 
@@ -295,8 +295,9 @@ println!("received a: {:?}", item);
 let sp = item.should_poll();
 println!("should poll? {}", sp);
             let tx = Transaction::new_box(item);
-            let srv_result = Box::new(HttpServer{serve: isrv});
-            rsrc::Event::NewRsrc(tx, Some(srv_result))
+            // let srv_result = Box::new(HttpServer{serve: isrv});
+            // rsrc::Event::NewRsrc(tx, Some(srv_result))
+            rsrc::Event::Future(tx)
         })
         .map_err(|(err, isrv)| {
             let srv_result = Box::new(HttpServer{serve: isrv});
@@ -309,9 +310,17 @@ pub fn http_request(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     let tx: Transaction = ctx.take_rsrc();
 println!("tx is what? '{:?}'", tx);
-    Dispatch::recv_req(tx.c);
     rsrc::Event::Result(Val::Int(0), None)
 }
+
+/*
+pub fn http_respond(mut ctx: rsrc::IopCtx) -> rsrc::Event
+{
+    let tx2: Tx2 = ctx.take_rsrc();
+println!("tx2 is what? '{:?}'", tx2);
+    rsrc::Event::Result(Val::Int(0), None)
+}
+*/
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
@@ -319,6 +328,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         "bind" => Some(Code::Iop(http_bind, None)),
         "accept" => Some(Code::Iop(http_accept, Some(0))),
         "request" => Some(Code::Iop(http_request, Some(0))),
+        // "respond" => Some(Code::Iop(http_respond, Some(0))),
         _ => None,
     }
 }
