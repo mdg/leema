@@ -395,13 +395,13 @@ impl Rsrc for MockRsrc
 
 fn mock_iop_action(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
-    rsrc::Event::Success(Val::Int(8), None)
+    rsrc::Event::Result(Val::Int(8), None)
 }
 
 fn mock_rsrc_action(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     let rsrc: MockRsrc = ctx.take_rsrc();
-    rsrc::Event::Success(Val::Int(18), Some(Box::new(rsrc)))
+    rsrc::Event::Result(Val::Int(18), Some(Box::new(rsrc)))
 }
 
 pub fn exercise_iop_action(action: rsrc::IopAction, params: Vec<Val>)
