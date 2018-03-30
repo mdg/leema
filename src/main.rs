@@ -9,7 +9,6 @@ extern crate futures;
 #[macro_use]
 extern crate tokio_core;
 extern crate tokio_io;
-extern crate hyper;
 
 #[macro_use]
 mod leema;
