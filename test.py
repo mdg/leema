@@ -29,6 +29,11 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(0, result['code'])
         self.assertEqual(b"hello \"quotes\"\n", result['output'])
 
+    def test_pmatch_tuples(self):
+        result = run_leema('pmatch_tuples')
+        self.assertEqual(0, result['code'])
+        self.assertEqual(b"both\nfirst\nsecond\nneither\n", result['output'])
+
     def test_fact_match(self):
         result = run_leema('fact_match')
         self.assertEqual(0, result['code'])

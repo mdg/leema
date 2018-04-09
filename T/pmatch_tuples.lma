@@ -1,0 +1,16 @@
+func match_zero(x, y): Str ->
+    match (x, y)
+    |(0, 0) -> "both"
+    |(0, _) -> "first"
+    |(_, 0) -> "second"
+    |_ -> "neither"
+    --
+--
+
+
+func main() ->
+    cout(match_zero(0, 0) \n)
+    cout(match_zero(0, 1) \n)
+    cout(match_zero(2, 0) \n)
+    cout(match_zero(4, 3) \n)
+--

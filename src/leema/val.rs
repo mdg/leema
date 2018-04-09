@@ -2716,4 +2716,17 @@ fn test_pattern_match_list_cons_wildcard_tail()
     assert!(pmatch.is_some());
 }
 
+#[test]
+fn test_pattern_match_wildcard_inside_tuple()
+{
+    let patt = Val::Tuple(vec![
+        Val::Int(1), Val::Wildcard
+        ]);
+    let input = Val::Tuple(vec![
+        Val::Int(1), Val::Int(4)
+        ]);
+    let pmatch = Val::pattern_match(&patt, &input);
+    assert!(pmatch.is_some());
+}
+
 }

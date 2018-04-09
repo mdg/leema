@@ -496,7 +496,8 @@ pub fn make_matchfailure_ops(rt: &mut RegTable, x: &Ixpr, cases: &Ixpr) -> Oxpr
     let xops = make_sub_ops(rt, x);
     rt.pop_dst();
     let failtag = rt.id("leema#failure");
-    let mut case_ops = make_matchcase_ops(rt, cases, &failtag);
+    let mut case_ops =
+        make_matchcase_ops(rt, xops.dst.clone(), cases, &failtag);
 
     let faillen = case_ops.ops.len() + 1;
     let mut failops = Vec::with_capacity(faillen);
@@ -512,23 +513,25 @@ pub fn make_matchfailure_ops(rt: &mut RegTable, x: &Ixpr, cases: &Ixpr) -> Oxpr
 
 pub fn make_matchexpr_ops(rt: &mut RegTable, x: &Ixpr, cases: &Ixpr) -> Oxpr
 {
-vout!("make_matchexpr_ops({:?},{:?})", x, cases);
+    let dst = rt.dst().clone();
+    vout!("make_matchexpr_ops({:?},{:?}) -> {:?}\n", x, cases, dst);
     rt.push_dst();
     let mut xops = make_sub_ops(rt, &x);
-    rt.pop_dst();
 
-    let mut case_ops = make_matchcase_ops(rt, cases, &xops.dst);
+    let mut case_ops = make_matchcase_ops(rt, dst.clone(), cases, &xops.dst);
     vout!("made matchcase_ops =\n{:?}\n", case_ops);
+    rt.pop_dst();
 
     xops.ops.append(&mut case_ops.ops);
     Oxpr{
         ops: xops.ops,
-        dst: rt.dst().clone(),
+        dst: dst,
     }
 }
 
-pub fn make_matchcase_ops(rt: &mut RegTable, matchcase: &Ixpr, xreg: &Reg
-            ) -> Oxpr
+pub fn make_matchcase_ops(rt: &mut RegTable, dstreg: Reg
+    , matchcase: &Ixpr, xreg: &Reg
+    ) -> Oxpr
 {
     let (patt, code, next) = match matchcase.src {
         Source::MatchCase(ref patt, ref code, ref next) => (patt, code, next),
@@ -546,9 +549,11 @@ pub fn make_matchcase_ops(rt: &mut RegTable, matchcase: &Ixpr, xreg: &Reg
     };
     // push reg scope
     let patt_val = assign_pattern_registers(rt, patt);
+    rt.push_dst_reg(dstreg.clone());
     let mut code_ops = make_sub_ops(rt, code);
+    rt.pop_dst_reg();
     // pop reg scope
-    let mut next_ops = make_matchcase_ops(rt, next, &xreg);
+    let mut next_ops = make_matchcase_ops(rt, dstreg.clone(), next, &xreg);
 
     let next_len = next_ops.ops.len();
     if next_len > 0 {
@@ -579,7 +584,7 @@ pub fn make_matchcase_ops(rt: &mut RegTable, matchcase: &Ixpr, xreg: &Reg
     patt_ops.append(&mut next_ops.ops);
     Oxpr{
         ops: patt_ops,
-        dst: Reg::Undecided,
+        dst: dstreg,
     }
 }
 
