@@ -761,7 +761,7 @@ fn test_parse_nested_type_param()
 fn test_parse_function_type_param()
 {
     let input = "
-    func call_func(i: Int, f: Int >> Str >> Int): Str >> Int ->
+    func call_func(i: Int, f: Int > Str > Int): Str > Int ->
         f(i)
     --
     ";

@@ -26,7 +26,6 @@ use std::rc::{Rc};
 %type EQ1 { SrcLoc }
 %type Fork { SrcLoc }
 %type GT { SrcLoc }
-%type GT2 { SrcLoc }
 %type GTEQ { SrcLoc }
 %type HASHTAG { TokenData<String> }
 %type ID { TokenData<String> }
@@ -311,10 +310,10 @@ typex(A) ::= mod_type(B) SquareL tuple_types(C) SquareR. {
     A = Type::Texpr(Box::new(B), params);
 }
 
-arrow_typex(A) ::= type_term(B) GT2 type_term(C). {
+arrow_typex(A) ::= type_term(B) GT type_term(C). {
     A = vec![B, C];
 }
-arrow_typex(A) ::= arrow_typex(B) GT2 type_term(C). {
+arrow_typex(A) ::= arrow_typex(B) GT type_term(C). {
     let mut tmp = B;
     tmp.push(C);
     A = tmp;

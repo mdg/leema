@@ -203,9 +203,6 @@ impl Token
                 parse::TOKEN_GT => {
                     Token::GT(tl)
                 }
-                parse::TOKEN_GT2 => {
-                    Token::GT2(tl)
-                }
                 parse::TOKEN_GTEQ => {
                     Token::GTEQ(tl)
                 }
