@@ -757,4 +757,17 @@ fn test_parse_nested_type_param()
     assert!(true); // didn't panic!
 }
 
+#[test]
+fn test_parse_function_type_param()
+{
+    let input = "
+    func call_func(i: Int, f: Int >> Str >> Int): Str >> Int ->
+        f(i)
+    --
+    ";
+    let root = ast::parse(lex(input));
+
+    assert!(true); // didn't panic!
+}
+
 }

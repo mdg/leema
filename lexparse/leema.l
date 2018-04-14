@@ -110,6 +110,10 @@ void	{ return set_token(yyg, TOKEN_VOID); }
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_NEQ);
 }
+">>"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_GT2);
+}
 <INITIAL>"("	{
     return set_token(yyg, TOKEN_LPAREN);
 }
