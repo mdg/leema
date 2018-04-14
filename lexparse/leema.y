@@ -303,6 +303,12 @@ typex(A) ::= arrow_typex(B). {
     let last = items.remove(argc);
     A = Type::Func(items, Box::new(last));
 }
+typex(A) ::= mod_type(B) SquareL tuple_types(C) SquareR. {
+    let params = list::map_ref_to_vec(&C, |v| {
+        v.to_type()
+    });
+    A = Type::Texpr(Box::new(B), params);
+}
 
 arrow_typex(A) ::= type_term(B) GT type_term(C). {
     A = vec![B, C];
@@ -331,9 +337,6 @@ type_term(A) ::= TYPE_VOID. {
 type_term(A) ::= TYPE_VAR(B). {
 	A = Type::Var(Rc::new(B.data));
 }
-type_term(A) ::= ID(B). {
-	A = Type::Id(Rc::new(B.data));
-}
 type_term(A) ::= mod_type(B). {
     A = B;
 }
@@ -355,9 +358,8 @@ tuple_types(A) ::= typex(B) COMMA tuple_types(C). {
     A = list::cons(Val::Type(B), C);
 }
 
-mod_type(A) ::= ID(B) DBLCOLON ID(C). {
-    let base_name = Type::Id(Rc::new(C.data));
-    A = Type::ModPrefix(Rc::new(B.data), Rc::new(base_name));
+mod_type(A) ::= ID(B). {
+    A = Type::Id(Rc::new(B.data));
 }
 mod_type(A) ::= ID(B) DBLCOLON mod_type(C). {
     A = Type::ModPrefix(Rc::new(B.data), Rc::new(C));

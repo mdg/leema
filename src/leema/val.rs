@@ -70,7 +70,7 @@ pub enum Type
     Unknown,
     Id(Rc<String>),
     ModPrefix(Rc<String>, Rc<Type>),
-    Texpr(Rc<String>, Vec<Type>),
+    Texpr(Box<Type>, Vec<Type>),
     Var(Rc<String>),
     AnonVar,
 }

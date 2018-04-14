@@ -730,4 +730,31 @@ fn test_parse_function_hashtag_tuple()
     assert!(true); // didn't panic!
 }
 
+#[test]
+fn test_parse_def_type_param()
+{
+    let input = "
+    enum Foo[A, B]
+    |Bar(A)
+    |Baz(B)
+    --
+    ";
+    let root = ast::parse(lex(input));
+
+    assert!(true); // didn't panic!
+}
+
+#[test]
+fn test_parse_nested_type_param()
+{
+    let input = "
+    func foo(bar: Map[Int, opt::Option[V]]): opt::Option[V] ->
+        option::None
+    --
+    ";
+    let root = ast::parse(lex(input));
+
+    assert!(true); // didn't panic!
+}
+
 }
