@@ -1,6 +1,7 @@
 use leema::reg::{self, Reg, Ireg, Iregistry};
 use leema::sxpr;
 use leema::list;
+use leema::lri::{Lri};
 use leema::frame::{FrameTrace};
 use leema::log;
 
@@ -70,7 +71,7 @@ pub enum Type
     Unknown,
     Id(Rc<String>),
     ModPrefix(Rc<String>, Rc<Type>),
-    Texpr(Box<Type>, Vec<Type>),
+    Txpr(Box<Type>, Vec<Type>),
     Var(Rc<String>),
     AnonVar,
 }
@@ -95,6 +96,9 @@ impl Type
             &Type::ModPrefix(_, _) => {
                 let str = format!("{}", self);
                 Rc::new(str)
+            }
+            &Type::Txpr(ref name, ref _args) => {
+                name.full_typename()
             }
             _ => {
                 panic!("No typename for {:?}", self);
@@ -365,7 +369,7 @@ impl fmt::Display for Type
             &Type::ModPrefix(ref prefix, ref sub) => {
                 write!(f, "{}::{}", prefix, sub)
             }
-            &Type::Texpr(ref base, ref args) => write!(f, "Texpr"),
+            &Type::Txpr(ref base, ref args) => write!(f, "Txpr"),
             &Type::Var(ref name) => {
                 write!(f, "Type::Var({})", name)
             }
@@ -421,7 +425,7 @@ impl fmt::Debug for Type
             &Type::ModPrefix(ref prefix, ref sub) => {
                 write!(f, "Module({})::{:?}", prefix, sub)
             }
-            &Type::Texpr(ref base, ref args) => write!(f, "Texpr"),
+            &Type::Txpr(ref base, ref args) => write!(f, "Txpr"),
             &Type::Var(ref name) => {
                 write!(f, "Type::Var({})", name)
             }
@@ -617,6 +621,7 @@ pub enum Val {
         i8, // status
     ),
     Id(Rc<String>),
+    Lri(Lri),
     ModPrefix(Rc<String>, Rc<Val>),
     TypedId(Rc<String>, Type),
     Type(Type),
@@ -682,7 +687,7 @@ impl Val
         match self {
             &Val::Id(ref name) => name.clone(),
             &Val::TypedId(ref name, ref typ) => name.clone(),
-            &Val::Type(Type::Id(ref name)) => name.clone(),
+            &Val::Type(ref typ) => typ.full_typename(),
             &Val::Loc(ref v, _) => v.id_name(),
             _ => {
                 panic!("not an id {:?}", self);
@@ -990,6 +995,7 @@ impl Val
             &Val::Wildcard => Type::Unknown,
             &Val::PatternVar(_) => Type::Unknown,
             &Val::Id(_) => Type::AnonVar,
+            &Val::Lri(_) => Type::AnonVar,
             &Val::TypedId(_, ref typ) => typ.clone(),
             &Val::Sxpr(SxprType::DefFunc, _, _) => sxpr::defunc_type(self),
             &Val::Sxpr(SxprType::StrExpr, _, _) => Type::Str,
@@ -1535,6 +1541,9 @@ impl fmt::Display for Val {
             Val::ModPrefix(ref module, ref next) => {
                 write!(f, "{}::{}", module, next)
             }
+            Val::Lri(ref name) => {
+                write!(f, "{}", name)
+            }
             Val::Id(ref name) => {
                 write!(f, "{}", name)
             }
@@ -1637,6 +1646,9 @@ impl fmt::Debug for Val {
             }
             Val::ModPrefix(ref head, ref tail) => {
                 write!(f, "Id({}::{})", head, tail)
+            }
+            Val::Lri(ref name) => {
+                write!(f, "{:?}", name)
             }
             Val::Id(ref id) => {
                 write!(f, "Id({})", id)

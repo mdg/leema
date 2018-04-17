@@ -1,5 +1,6 @@
 use leema::val::{Val, SxprType, Type, SrcLoc};
 use leema::list;
+use leema::lri::{Lri};
 
 use std::rc::{Rc};
 
@@ -223,12 +224,12 @@ pub fn def_struct(name: Val, fields: Val, loc: SrcLoc) -> Val
     )
 }
 
-pub fn def_enum(name: Type, fields: Val, loc: SrcLoc) -> Val
+pub fn def_enum(name: Lri, fields: Val, loc: SrcLoc) -> Val
 {
     Val::Sxpr(
         SxprType::DefEnum,
         Rc::new(
-            list::cons(Val::Type(name), fields)
+            list::cons(Val::Lri(name), fields)
         ),
         loc,
     )
@@ -245,12 +246,12 @@ pub fn defnamedtuple(name: Type, fields: Val, loc: SrcLoc) -> Val
     )
 }
 
-pub fn new_import(name: Val, loc: SrcLoc) -> Val
+pub fn new_import(name: Lri, loc: SrcLoc) -> Val
 {
     Val::Sxpr(
         SxprType::Import,
         Rc::new(
-            list::singleton(name)
+            list::singleton(Val::Lri(name))
         ),
         loc,
     )

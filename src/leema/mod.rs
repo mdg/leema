@@ -9,6 +9,8 @@ pub mod val;
 pub mod io;
 pub mod list;
 pub mod loader;
+pub mod lri;
+pub mod lstr;
 pub mod module;
 pub mod msg;
 pub mod phase0;

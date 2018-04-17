@@ -3,6 +3,8 @@ use leema::ast::{TokenData};
 use leema::val::{Val, SxprType, Type, SrcLoc};
 use leema::list;
 use leema::log;
+use leema::lri::{Lri};
+use leema::lstr::{Lstr};
 use leema::sxpr;
 use std::io::{Write};
 use std::rc::{Rc};
@@ -78,6 +80,9 @@ use std::rc::{Rc};
 %type else_if { Val }
 %type if_expr { Val }
 %type if_case { Val }
+%type lri { Lri }
+%type lri_modules { Lstr }
+%type lri_params { Vec<Lri> }
 %type match_expr { Val }
 %type match_case { Val }
 %type match_pattern { Val }
@@ -96,7 +101,6 @@ use std::rc::{Rc};
 %type arrow_typex { Vec<Type> }
 %type type_term { Type }
 %type mod_type { Type }
-%type mod_prefix { Val }
 %type tuple_types { Val }
 
 %type list { Val }
@@ -164,10 +168,7 @@ block(A) ::= BLOCKARROW(C) stmts(B). {
 stmt(A) ::= defstruct(B). { A = B; }
 stmt(A) ::= defenum(B). { A = B; }
 stmt(A) ::= defnamedtuple(B). { A = B; }
-stmt(A) ::= IMPORT ID(B). {
-    A = sxpr::new_import(Val::id(B.data), B.loc);
-}
-stmt(A) ::= IMPORT(C) mod_prefix(B). {
+stmt(A) ::= IMPORT(C) lri(B). {
     A = sxpr::new_import(B, C);
 }
 stmt(A) ::= let_stmt(B). { A = B; }
@@ -200,7 +201,7 @@ defstruct_field(A) ::= DOT ID(B) COLON typex(C). {
 }
 
 /** Enum Definitions */
-defenum(A) ::= ENUM(D) typex(B) defenum_fields(C) DOUBLEDASH. {
+defenum(A) ::= ENUM(D) lri(B) defenum_fields(C) DOUBLEDASH. {
     A = sxpr::def_enum(B, C, D);
 }
 defenum_fields(A) ::= defenum_field(B) defenum_fields(C). {
@@ -303,12 +304,6 @@ typex(A) ::= arrow_typex(B). {
     let last = items.remove(argc);
     A = Type::Func(items, Box::new(last));
 }
-typex(A) ::= mod_type(B) SquareL tuple_types(C) SquareR. {
-    let params = list::map_ref_to_vec(&C, |v| {
-        v.to_type()
-    });
-    A = Type::Texpr(Box::new(B), params);
-}
 
 arrow_typex(A) ::= type_term(B) GT type_term(C). {
     A = vec![B, C];
@@ -318,7 +313,6 @@ arrow_typex(A) ::= arrow_typex(B) GT type_term(C). {
     tmp.push(C);
     A = tmp;
 }
-
 
 type_term(A) ::= TYPE_INT. {
 	A = Type::Int;
@@ -587,11 +581,8 @@ expr(A) ::= expr(B) LTEQ expr(C) LTEQ expr(D). {
 term(A) ::= tuple(B). {
     A = B;
 }
-term(A) ::= ID(B). {
-    A = Val::loc(Val::id(B.data), B.loc);
-}
-term(A) ::= mod_prefix(B). {
-    A = B;
+term(A) ::= lri(B). {
+    A = Val::Lri(B);
 }
 term(A) ::= VOID. {
 	A = Val::Void;
@@ -613,13 +604,6 @@ term(A) ::= term(B) DOT ID(C). {
     A = Val::DotAccess(Box::new(B), Rc::new(C.data));
 }
 
-mod_prefix(A) ::= ID(B) DBLCOLON ID(C). {
-    A = Val::ModPrefix(Rc::new(B.data), Rc::new(Val::id(C.data)));
-}
-mod_prefix(A) ::= ID(B) DBLCOLON mod_prefix(C). {
-    A = Val::ModPrefix(Rc::new(B.data), Rc::new(C));
-}
-
 list(A) ::= SquareL SquareR. {
 	A = list::empty();
 }
@@ -638,6 +622,20 @@ list_items(A) ::= expr(B) COMMA list_items(C). {
  */
 tuple(A) ::= LPAREN call_args(B) RPAREN. {
 	A = Val::tuple_from_list(&B);
+}
+
+
+lri(A) ::= lri_modules(B) DBLCOLON ID(C). {
+    A = Lri::with_modules(B, Lstr::from_string(C.data));
+}
+lri_modules(A) ::= ID(B) DBLCOLON. {
+    A = Lstr::from_string(B.data);
+}
+lri_modules(A) ::= lri_modules(B) ID(C) DBLCOLON. {
+    A = Lstr::cat(
+        B,
+        Lstr::cat(Lstr::from_sref("::"), Lstr::from_string(C.data))
+    );
 }
 
 strexpr(A) ::= StrOpen(C) strlist(B) StrClose. {

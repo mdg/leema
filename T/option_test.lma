@@ -3,10 +3,16 @@
 
 import option
 
+func print_opt(opt: option::Option[Int]) ->
+    cout("option is $opt\n")
+--
+
 func main() ->
     let option_a := option::None
     cout("option a? $option_a\n")
 
     let option_b := option::Some(4)
     cout("option b? $option_b\n")
+
+    print_opt(option_b)
 --
