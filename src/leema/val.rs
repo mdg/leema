@@ -71,7 +71,6 @@ pub enum Type
     Unknown,
     Id(Rc<String>),
     ModPrefix(Rc<String>, Rc<Type>),
-    Txpr(Box<Type>, Vec<Type>),
     Var(Rc<String>),
     AnonVar,
 }
@@ -96,9 +95,6 @@ impl Type
             &Type::ModPrefix(_, _) => {
                 let str = format!("{}", self);
                 Rc::new(str)
-            }
-            &Type::Txpr(ref name, ref _args) => {
-                name.full_typename()
             }
             _ => {
                 panic!("No typename for {:?}", self);
@@ -369,7 +365,6 @@ impl fmt::Display for Type
             &Type::ModPrefix(ref prefix, ref sub) => {
                 write!(f, "{}::{}", prefix, sub)
             }
-            &Type::Txpr(ref base, ref args) => write!(f, "Txpr"),
             &Type::Var(ref name) => {
                 write!(f, "Type::Var({})", name)
             }
@@ -425,7 +420,6 @@ impl fmt::Debug for Type
             &Type::ModPrefix(ref prefix, ref sub) => {
                 write!(f, "Module({})::{:?}", prefix, sub)
             }
-            &Type::Txpr(ref base, ref args) => write!(f, "Txpr"),
             &Type::Var(ref name) => {
                 write!(f, "Type::Var({})", name)
             }
