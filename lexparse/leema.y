@@ -80,9 +80,9 @@ use std::rc::{Rc};
 %type else_if { Val }
 %type if_expr { Val }
 %type if_case { Val }
-%type lri { Lri }
-%type lri_modules { Lstr }
-%type lri_params { Vec<Lri> }
+%type lri { Val }
+%type lri_base { Val }
+%type lri_type_param_list { Val }
 %type match_expr { Val }
 %type match_case { Val }
 %type match_pattern { Val }
@@ -625,17 +625,27 @@ tuple(A) ::= LPAREN call_args(B) RPAREN. {
 }
 
 
-lri(A) ::= lri_modules(B) DBLCOLON ID(C). {
-    A = Lri::with_modules(B, Lstr::from_string(C.data));
+lri(A) ::= lri_base(B). {
+    A = B;
 }
-lri_modules(A) ::= ID(B) DBLCOLON. {
-    A = Lstr::from_string(B.data);
+lri(A) ::= lri_base(B) SquareL lri_type_param_list SquareR. {
+    let base = sxpr::lri(Val::new_str(B.data));
+    A = sxpr::type_params(
 }
-lri_modules(A) ::= lri_modules(B) ID(C) DBLCOLON. {
-    A = Lstr::cat(
-        B,
-        Lstr::cat(Lstr::from_sref("::"), Lstr::from_string(C.data))
-    );
+lri_base(A) ::= ID(B). {
+    A = sxpr::lri(Val::new_str(B.data));
+}
+lri_base(A) ::= ID(B) DBLCOLON lri(C). {
+    A = list::cons(B, C);
+}
+lri_type_param_list(A) ::= . {
+    A = sxpr::new(SxprType::TypeParams, list::empty());
+}
+lri_type_param_list(A) ::= lri(B). {
+    A = sxpr::new(SxprType::TypeParams, list::singleton(Val::Lri(B)));
+}
+lri_type_param_list(A) ::= lri(B) COMMA lri_type_param_list(C). {
+    A = list::cons(Val::Lri(B), C);
 }
 
 strexpr(A) ::= StrOpen(C) strlist(B) StrClose. {

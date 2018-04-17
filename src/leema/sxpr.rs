@@ -91,6 +91,11 @@ pub fn strexpr(strs: Val, loc: SrcLoc) -> Val
     }
 }
 
+pub fn lri(id: Val, loc: SrcLoc) -> Val
+{
+    Val::Sxpr(SxprType::Lri, Rc::new(list::singleton(id)), loc)
+}
+
 pub fn call(callid: Val, args: Val, loc: SrcLoc) -> Val
 {
     let callargs = list::cons(callid, args);
