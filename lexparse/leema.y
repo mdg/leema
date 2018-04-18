@@ -3,8 +3,6 @@ use leema::ast::{TokenData};
 use leema::val::{Val, SxprType, Type, SrcLoc};
 use leema::list;
 use leema::log;
-use leema::lri::{Lri};
-use leema::lstr::{Lstr};
 use leema::sxpr;
 use std::io::{Write};
 use std::rc::{Rc};
@@ -27,6 +25,7 @@ use std::rc::{Rc};
 %type EQ { SrcLoc }
 %type EQ1 { SrcLoc }
 %type Fork { SrcLoc }
+%type Func { SrcLoc }
 %type GT { SrcLoc }
 %type GTEQ { SrcLoc }
 %type HASHTAG { TokenData<String> }
@@ -53,6 +52,7 @@ use std::rc::{Rc};
 %type SEMICOLON { SrcLoc }
 %type SLASH { SrcLoc }
 %type SquareL { SrcLoc }
+%type SquareCall { SrcLoc }
 %type SquareR { SrcLoc }
 %type StrLit { String }
 %type StrOpen { SrcLoc }
@@ -582,7 +582,7 @@ term(A) ::= tuple(B). {
     A = B;
 }
 term(A) ::= lri(B). {
-    A = Val::Lri(B);
+    A = B;
 }
 term(A) ::= VOID. {
 	A = Val::Void;
@@ -628,24 +628,24 @@ tuple(A) ::= LPAREN call_args(B) RPAREN. {
 lri(A) ::= lri_base(B). {
     A = B;
 }
-lri(A) ::= lri_base(B) SquareL lri_type_param_list SquareR. {
-    let base = sxpr::lri(Val::new_str(B.data));
-    A = sxpr::type_params(
+lri(A) ::= lri_base(B) SquareCall(D) lri_type_param_list(C) SquareR. {
+    A = sxpr::type_params(B, C, D);
 }
 lri_base(A) ::= ID(B). {
-    A = sxpr::lri(Val::new_str(B.data));
+println!("found lri: {}", B.data);
+    A = sxpr::lri(Val::new_str(B.data), B.loc);
 }
-lri_base(A) ::= ID(B) DBLCOLON lri(C). {
-    A = list::cons(B, C);
+lri_base(A) ::= ID(B) DBLCOLON lri_base(C). {
+    A = list::cons(Val::new_str(B.data), C);
 }
 lri_type_param_list(A) ::= . {
-    A = sxpr::new(SxprType::TypeParams, list::empty());
+    A = list::empty();
 }
 lri_type_param_list(A) ::= lri(B). {
-    A = sxpr::new(SxprType::TypeParams, list::singleton(Val::Lri(B)));
+    A = list::singleton(B);
 }
 lri_type_param_list(A) ::= lri(B) COMMA lri_type_param_list(C). {
-    A = list::cons(Val::Lri(B), C);
+    A = list::cons(B, C);
 }
 
 strexpr(A) ::= StrOpen(C) strlist(B) StrClose. {

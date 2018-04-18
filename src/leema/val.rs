@@ -564,9 +564,11 @@ pub enum SxprType {
     DefNamedTuple,
     IfExpr,
     Import,
+    Lri,
     MatchExpr,
     MatchFailed,
     Return,
+    TypeParams,
     Comparison,
     /*
     LessThan3(bool, bool),

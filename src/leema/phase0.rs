@@ -1,6 +1,6 @@
 use leema::program::{Lib};
 use leema::val::{SxprType, Val, Type, SrcLoc};
-use leema::module::{ModKey, ModulePreface};
+use leema::module::{ModKey, ModulePreface, MacroDef};
 use leema::list;
 use leema::log;
 use leema::sxpr;
@@ -202,7 +202,7 @@ impl Protomod
                     Some(&(ref arg_names, ref body)) => {
                         let macrod =
                             Protomod::apply_macro(
-                                &**id, body, arg_names, args, loc);
+                                callx, body, arg_names, args, loc);
                         // do it again to make sure there's not a wrapped
                         // macro
                         Protomod::preproc_expr(prog, mp, &macrod, loc)
@@ -210,7 +210,7 @@ impl Protomod
                     None => {
                         match prog.get_macro("prefab", &**id) {
                             Some(&(ref arg_names, ref body)) => {
-                                let macrod = Protomod::apply_macro(&**id
+                                let macrod = Protomod::apply_macro(callx
                                     , body, arg_names, args, loc);
                                 // do it again to make sure there's
                                 // not a wrapped macro
@@ -234,8 +234,25 @@ impl Protomod
                 }
                 let &(ref arg_names, ref body) = mac.unwrap();
                 let result = Protomod::apply_macro(
-                        &**inner_id, body, arg_names, args, loc);
+                        callx, body, arg_names, args, loc);
                 Protomod::preproc_expr(prog, mp, &result, loc)
+            }
+            &Val::Sxpr(SxprType::Lri, ref lri, ref loc) => {
+                let mac = Protomod::get_macro(prog, lri);
+                if mac.is_none() {
+                    let pplri = Protomod::preproc_sxpr(prog, mp
+                        , SxprType::Lri, lri, loc);
+                    return sxpr::call(pplri, pp_args, *loc);
+                }
+                let &(ref arg_names, ref body) = mac.unwrap();
+                let result = Protomod::apply_macro(
+                        lri, body, arg_names, args, loc);
+                Protomod::preproc_expr(prog, mp, &result, loc)
+            }
+            &Val::Sxpr(SxprType::TypeParams, ref params, ref loc) => {
+                // nothing with type parameters is going to be a macro. proceed.
+                Protomod::preproc_sxpr(prog, mp
+                    , SxprType::TypeParams, params, loc)
             }
             &Val::DotAccess(ref outer, ref inner) => {
                 match &**outer {
@@ -249,7 +266,7 @@ impl Protomod
                         }
                         let &(ref arg_names, ref body) = mac.unwrap();
                         let result = Protomod::apply_macro(
-                                &**inner, body, arg_names, args, loc);
+                                callx, body, arg_names, args, loc);
                         Protomod::preproc_expr(prog, mp, &result, loc)
                     }
                     _ => {
@@ -266,7 +283,13 @@ impl Protomod
         }
     }
 
-    pub fn apply_macro(macro_name: &str, body: &Val
+    pub fn get_macro<'a, 'b>(prog: &'a Lib, lri_items: &'b Val
+        ) -> Option<&'a MacroDef>
+    {
+        None
+    }
+
+    pub fn apply_macro(macro_name: &Val, body: &Val
         , arg_names: &Vec<Rc<String>>, args: &Rc<Val>, loc: &SrcLoc
         ) -> Val
     {

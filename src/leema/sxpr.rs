@@ -1,6 +1,5 @@
 use leema::val::{Val, SxprType, Type, SrcLoc};
 use leema::list;
-use leema::lri::{Lri};
 
 use std::rc::{Rc};
 
@@ -94,6 +93,12 @@ pub fn strexpr(strs: Val, loc: SrcLoc) -> Val
 pub fn lri(id: Val, loc: SrcLoc) -> Val
 {
     Val::Sxpr(SxprType::Lri, Rc::new(list::singleton(id)), loc)
+}
+
+pub fn type_params(obj: Val, types: Val, loc: SrcLoc) -> Val
+{
+    let sxlist = list::cons(obj, types);
+    Val::Sxpr(SxprType::TypeParams, Rc::new(sxlist), loc)
 }
 
 pub fn call(callid: Val, args: Val, loc: SrcLoc) -> Val
@@ -229,12 +234,12 @@ pub fn def_struct(name: Val, fields: Val, loc: SrcLoc) -> Val
     )
 }
 
-pub fn def_enum(name: Lri, fields: Val, loc: SrcLoc) -> Val
+pub fn def_enum(name: Val, fields: Val, loc: SrcLoc) -> Val
 {
     Val::Sxpr(
         SxprType::DefEnum,
         Rc::new(
-            list::cons(Val::Lri(name), fields)
+            list::cons(name, fields)
         ),
         loc,
     )
@@ -251,12 +256,12 @@ pub fn defnamedtuple(name: Type, fields: Val, loc: SrcLoc) -> Val
     )
 }
 
-pub fn new_import(name: Lri, loc: SrcLoc) -> Val
+pub fn new_import(name: Val, loc: SrcLoc) -> Val
 {
     Val::Sxpr(
         SxprType::Import,
         Rc::new(
-            list::singleton(Val::Lri(name))
+            list::singleton(name)
         ),
         loc,
     )

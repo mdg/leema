@@ -62,7 +62,7 @@ impl Token
                 parse::TOKEN_BLOCKARROW => Token::BLOCKARROW(tl),
                 parse::TOKEN_DOUBLEDASH => Token::DOUBLEDASH(tl),
                 parse::TOKEN_Func => {
-                    Token::Func
+                    Token::Func(tl)
                 }
                 parse::TOKEN_MACRO => {
                     Token::MACRO
@@ -119,6 +119,9 @@ impl Token
                 }
                 parse::TOKEN_SquareL => {
                     Token::SquareL(tl)
+                }
+                parse::TOKEN_SquareCall => {
+                    Token::SquareCall(tl)
                 }
                 parse::TOKEN_SquareR => {
                     Token::SquareR(tl)

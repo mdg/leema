@@ -121,9 +121,13 @@ void	{ return set_token(yyg, TOKEN_VOID); }
     BEGIN(CALLPAREN);
     return set_token(yyg, TOKEN_RPAREN);
 }
-"["	{
+<INITIAL>"["	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_SquareL);
+}
+<CALLPAREN>"["	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_SquareCall);
 }
 "]"	{
     BEGIN(INITIAL);

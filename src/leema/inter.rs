@@ -379,6 +379,9 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val
         SxprType::BlockExpr => {
             compile_block(scope, &sx, loc)
         }
+        SxprType::Lri => {
+            compile_lri(scope, sx, loc)
+        }
         SxprType::Call => {
             let (callx, args) = list::take_ref(sx);
             let icall = compile_expr(scope, callx, loc);
@@ -453,7 +456,7 @@ pub fn compile_sxpr(scope: &mut Interscope, st: SxprType, sx: &Val
             panic!("cannot return as an expression: {}", result);
         }
         _ => {
-            panic!("Cannot compile sxpr: {:?} {:?}", st, sx);
+            panic!("Cannot compile sxpr: {:?} {:?} @ {:?}", st, sx, loc);
         }
     }
 }
@@ -466,6 +469,29 @@ pub fn compile_id(scope: &mut Interscope, id: &Rc<String>, loc: &SrcLoc) -> Ixpr
         }
         None => {
             compile_local_id(scope, id, loc)
+        }
+    }
+}
+
+pub fn compile_lri(scope: &mut Interscope, lri: &Val, loc: &SrcLoc) -> Ixpr
+{
+    match lri {
+        &Val::Cons(ref head, ref tail) => {
+            match &**tail {
+                &Val::Nil => {
+                    let id = head.to_str();
+                    compile_local_id(scope, &id, loc)
+                }
+                _ => {
+                    panic!("module lris not supported: {:?}", lri);
+                }
+            }
+        }
+        &Val::Nil => {
+            panic!("cannot compile nil lri");
+        }
+        _ => {
+            panic!("cannot compile unknown lri: {:?}", lri);
         }
     }
 }
