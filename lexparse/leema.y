@@ -246,34 +246,31 @@ let_stmt ::= Let match_pattern EQ1(A) expr. {
 }
 
 /* rust func declaration */
-func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(D) RPAREN COLON typex(E)
+func_stmt(A) ::= Func(Z) lri(B) PARENCALL dfunc_args(D) RPAREN COLON typex(E)
     RUSTBLOCK.
 {
-	let id = Val::loc(Val::id(B.data), B.loc);
 	let typ = Val::Type(E);
-	A = sxpr::defunc(id, D, typ, Val::RustBlock, B.loc)
+	A = sxpr::defunc(B, D, typ, Val::RustBlock, Z)
 }
 
 /* func one case, no matching */
-func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(D) RPAREN opt_typex(E)
+func_stmt(A) ::= Func(Z) lri(B) PARENCALL dfunc_args(D) RPAREN opt_typex(E)
     block(C) DOUBLEDASH.
 {
-	let id = Val::loc(Val::id(B.data), B.loc);
 	let typ = Val::Type(E);
-	A = sxpr::defunc(id, D, typ, C, B.loc)
+	A = sxpr::defunc(B, D, typ, C, Z)
 }
 /* func w/ pattern matching */
-func_stmt(A) ::= Func ID(B) PARENCALL dfunc_args(C) RPAREN opt_typex(D)
+func_stmt(A) ::= Func(Z) lri(B) PARENCALL dfunc_args(C) RPAREN opt_typex(D)
     match_case(E) DOUBLEDASH.
 {
-    let id = Val::id(B.data);
     let typ = Val::Type(D);
     // extract field names from args to pass them through to match expr
     let args = Val::Tuple(list::map_ref_to_vec(&C, |arg| {
         Val::Id(arg.id_name())
     }));
-    let body = sxpr::match_expr(args, E, B.loc);
-    A = sxpr::defunc(id, C, typ, body, B.loc)
+    let body = sxpr::match_expr(args, E, Z);
+    A = sxpr::defunc(B, C, typ, body, Z)
 }
 
 dfunc_args(A) ::= . {
@@ -332,8 +329,9 @@ type_term(A) ::= TYPE_VOID. {
 type_term(A) ::= TYPE_VAR(B). {
 	A = Type::Var(Rc::new(B.data));
 }
-type_term(A) ::= mod_type(B). {
-    A = B;
+type_term(A) ::= lri(B). {
+    // A = Type::from_lri(B);
+    A = Type::Unknown;
 }
 type_term(A) ::= SquareL typex(B) SquareR. {
 	A = Type::StrictList(Box::new(B));
@@ -351,13 +349,6 @@ tuple_types(A) ::= typex(B). {
 }
 tuple_types(A) ::= typex(B) COMMA tuple_types(C). {
     A = list::cons(Val::Type(B), C);
-}
-
-mod_type(A) ::= ID(B). {
-    A = Type::Id(Rc::new(B.data));
-}
-mod_type(A) ::= ID(B) DBLCOLON mod_type(C). {
-    A = Type::ModPrefix(Rc::new(B.data), Rc::new(C));
 }
 
 
