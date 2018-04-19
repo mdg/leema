@@ -4,27 +4,32 @@ enum Method
 |Post
 --
 
+struct RequestBody
+|Params(Map<Str, Str>)
+|Stream(TcpSocket)
+--
+
 struct Request
 .path: Str
 .method: Method
+.bytes: Int
+.header: Map<Str, Str>
+.body: RequestBody
 --
 
 struct Response
 .status: Int
+.body: Str
 --
 
 struct Transaction
-.req: Request
-.req_body: Str
-.resp: Response
+.req: RequestHeaders
+.conn: TcpSocket
 --
 
-func bind(addr: Str, port: Int): HttpServer -RUST-
-
-func accept(
-    sock: HttpServer,
-    ## action: http::Request > http::Response,
-): Transaction -RUST-
+func read_request(s: TcpSocket): Request ->
+    let (headers, body)
+--
 
 func request(
     tx: Transaction,
@@ -40,5 +45,16 @@ func request_body(
 
 func ok200(): http::Response ->
     Response(200)
+--
+
+func read_request_headers(s: TcpSocket): (RequestHeaders, RequestBody) ->
+   let header_lines := _read_req_headers([], s)
+--
+
+func _read_req_headers(lines: [Str], s: TcpSocket) -> [Str] ->
+    match tcp::recv(sock)
+    |"" -> list::reverse(lines)
+    |newline -> _read_req_headers(newline;lines, s)
+    --
 --
 
