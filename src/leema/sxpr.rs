@@ -1,6 +1,5 @@
 use leema::val::{Val, SxprType, Type, SrcLoc};
 use leema::list;
-use leema::lstr::{Lstr};
 
 use std::rc::{Rc};
 
@@ -37,92 +36,22 @@ use std::rc::{Rc};
  * Ast -> Sxpr
  */
 
-#[derive(Clone)]
-#[derive(Copy)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
-pub enum LetType
-{
-    Forked,
-    Inline,
-}
-
-#[derive(Clone)]
-#[derive(Copy)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
-pub enum DataType
-{
-    Enum,
-    NamedTuple,
-    Struct,
-}
-
-#[derive(Clone)]
-#[derive(Copy)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
-pub enum FuncType
-{
-    Macro,
-    Func,
-}
-
-#[derive(Clone)]
-#[derive(Copy)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
-pub enum IfType
-{
-    If,
-    Match,
-    MatchFailure,
-    TypeCast,
-}
-
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
+/*
+pub struct SxprTerm(SxprType, Box<Sxpr>)
+pub struct Sxpr(SxprType, Box<Sxpr>)
 pub enum Sxpr
 {
-    BlockExpr(Vec<Sxpr>),
-    Call(Box<Sxpr>, Vec<Sxpr>),
-    Comparison,
+    Call,
     Cons(Box<Sxpr>, Box<Sxpr>),
-    ConstBool(bool),
-    ConstHashtag(Lstr),
     ConstInt(i64),
-    ConstStr(Lstr),
-    ConstVoid,
-    DefData(DataType, Box<Sxpr>, Box<Sxpr>),
-    DefFunc(FuncType, Box<Sxpr>, Box<Sxpr>, Box<Sxpr>),
-    DefStruct,
-    DefEnum,
-    DefNamedTuple,
-    EmptyList,
-    IfExpr(IfType, Box<Sxpr>, Box<Sxpr>),
-    IfCase(Box<Sxpr>, Box<Sxpr>, Box<Sxpr>),
-    Import(Box<Sxpr>),
-    Let(LetType, Box<Sxpr>, Box<Sxpr>),
-    List(Vec<Sxpr>),
-    Lri(Vec<Sxpr>, Option<Box<Sxpr>>),
-    Return(Box<Sxpr>),
-    StrExpr(Vec<Sxpr>),
-    Tuple(Vec<Sxpr>),
-    TypeBool,
-    TypeInt,
-    TypeHashtag,
+    Lri,
     TypeStr,
-    TypeVoid,
-    /*
-    LessThan3(bool, bool),
-    */
+    Term(SxprType, Box<Sxpr>),
+    Cons(SxprType, Box<Sxpr>, Box<Sxpr>),
+    Tail( Box<Sxpr>, Box<Sxpr>),
+    Nil,
 }
+*/
 
 pub fn new(t: SxprType, v: Val, loc: SrcLoc) -> Val
 {

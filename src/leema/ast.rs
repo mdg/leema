@@ -1,5 +1,6 @@
 use leema::val::{Val, SrcLoc};
 use leema::log;
+use leema::lstr::{Lstr};
 use leema::parse::{Parser, Token};
 
 /*
@@ -34,6 +35,92 @@ impl<T> TokenData<T>
             loc: tl,
         }
     }
+}
+
+
+#[derive(Clone)]
+#[derive(Copy)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+pub enum LetType
+{
+    Forked,
+    Inline,
+}
+
+#[derive(Clone)]
+#[derive(Copy)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+pub enum DataType
+{
+    Enum,
+    NamedTuple,
+    Struct,
+}
+
+#[derive(Clone)]
+#[derive(Copy)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+pub enum FuncType
+{
+    Macro,
+    Func,
+}
+
+#[derive(Clone)]
+#[derive(Copy)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+pub enum IfType
+{
+    If,
+    Match,
+    MatchFailure,
+    TypeCast,
+}
+
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+pub enum Ast
+{
+    BlockExpr(Vec<Ast>),
+    Call(Box<Ast>, Vec<Ast>),
+    ConstBool(bool),
+    ConstHashtag(Lstr),
+    ConstInt(i64),
+    ConstStr(Lstr),
+    ConstVoid,
+    DefData(DataType, Box<Ast>, Box<Ast>),
+    DefFunc(FuncType, Box<Ast>, Box<Ast>, Box<Ast>),
+    DefStruct,
+    DefEnum,
+    DefNamedTuple,
+    EmptyList,
+    IfExpr(IfType, Box<Ast>, Box<Ast>),
+    IfCase(Box<Ast>, Box<Ast>, Box<Ast>),
+    Import(Box<Ast>),
+    Let(LetType, Box<Ast>, Box<Ast>),
+    List(Vec<Ast>),
+    Lri(Vec<Lstr>, Option<Box<Ast>>),
+    Return(Box<Ast>),
+    StrExpr(Vec<Ast>),
+    Tuple(Vec<Ast>),
+    TypeBool,
+    TypeInt,
+    TypeHashtag,
+    TypeStr,
+    TypeVoid,
+    /*
+    LessThan3(Box<Ast>, Box<Ast>, Box<Ast>),
+    */
 }
 
 
