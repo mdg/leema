@@ -91,27 +91,26 @@ pub enum IfType
 #[derive(PartialOrd)]
 pub enum Ast
 {
-    BlockExpr(Vec<Ast>),
+    Block(Vec<Ast>),
     Call(Box<Ast>, Vec<Ast>),
     ConstBool(bool),
     ConstHashtag(Lstr),
     ConstInt(i64),
     ConstStr(Lstr),
     ConstVoid,
-    DefData(DataType, Box<Ast>, Box<Ast>),
+    DefData(DataType, Box<Ast>, Vec<Ast>, SrcLoc),
     DefFunc(FuncType, Box<Ast>, Box<Ast>, Box<Ast>),
-    DefStruct,
-    DefEnum,
-    DefNamedTuple,
+    DotAccess(Box<Ast>, Lstr),
     EmptyList,
     IfExpr(IfType, Box<Ast>, Box<Ast>),
     IfCase(Box<Ast>, Box<Ast>, Box<Ast>),
     Import(Box<Ast>),
-    Let(LetType, Box<Ast>, Box<Ast>),
+    Let(LetType, Box<Ast>, Box<Ast>, SrcLoc),
     List(Vec<Ast>),
-    Lri(Vec<Lstr>, Option<Box<Ast>>),
-    Return(Box<Ast>),
-    StrExpr(Vec<Ast>),
+    Lri(Vec<Lstr>, Option<Vec<Ast>>),
+    PatternWildcard,
+    Return(Box<Ast>, SrcLoc),
+    StrExpr(Vec<Ast>, SrcLoc),
     Tuple(Vec<Ast>),
     TypeBool,
     TypeInt,
@@ -123,8 +122,16 @@ pub enum Ast
     */
 }
 
+impl Ast
+{
+    pub fn binaryop(callname: Vec<Lstr>, a: Ast, b: Ast, loc: SrcLoc) -> Ast
+    {
+        Ast::Call(Ast::lri(callname), vec![a, b], loc)
+    }
+}
 
-pub fn parse(toks: Vec<Token>) -> Val
+
+pub fn parse(toks: Vec<Token>) -> Ast
 {
     let e = Err(0);
     let mut p = Parser::new(e);
