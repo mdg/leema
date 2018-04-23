@@ -85,6 +85,8 @@ pub enum IfType
     TypeCast,
 }
 
+struct IfCase(Ast, Ast, Option<Box<IfCase>>, SrcLoc);
+
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
@@ -92,7 +94,8 @@ pub enum IfType
 pub enum Ast
 {
     Block(Vec<Ast>),
-    Call(Box<Ast>, Vec<Ast>),
+    Call(Box<Ast>, Vec<Ast>, SrcLoc),
+    Cons(Box<Ast>, Box<Ast>),
     ConstBool(bool),
     ConstHashtag(Lstr),
     ConstInt(i64),
@@ -101,22 +104,23 @@ pub enum Ast
     DefData(DataType, Box<Ast>, Vec<Ast>, SrcLoc),
     DefFunc(FuncType, Box<Ast>, Box<Ast>, Box<Ast>),
     DotAccess(Box<Ast>, Lstr),
-    EmptyList,
-    IfExpr(IfType, Box<Ast>, Box<Ast>),
-    IfCase(Box<Ast>, Box<Ast>, Box<Ast>),
-    Import(Box<Ast>),
+    IfExpr(IfType, Box<Ast>, Box<IfCase>, SrcLoc),
+    Import(Box<Ast>, SrcLoc),
+    KeyedExpr(Lstr, Box<Ast>, SrcLoc),
     Let(LetType, Box<Ast>, Box<Ast>, SrcLoc),
-    List(Vec<Ast>),
+    List(LinkedList<Ast>),
+    Localid(Lstr, SrcLoc),
     Lri(Vec<Lstr>, Option<Vec<Ast>>),
-    PatternWildcard,
     Return(Box<Ast>, SrcLoc),
     StrExpr(Vec<Ast>, SrcLoc),
     Tuple(Vec<Ast>),
+    TypeAnon,
     TypeBool,
     TypeInt,
     TypeHashtag,
     TypeStr,
     TypeVoid,
+    Wildcard,
     /*
     LessThan3(Box<Ast>, Box<Ast>, Box<Ast>),
     */
