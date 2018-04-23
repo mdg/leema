@@ -67,23 +67,19 @@ use std::rc::{Rc};
 %type stmt { Ast }
 %type block { Ast }
 %type func_stmt { Ast }
-%type dfunc_args { Vec<Ast> }
 %type dfunc_one { Ast }
 %type dfunc_many { Ast }
 %type failed_stmt { Ast }
 %type macro_stmt { Ast }
 %type call_expr { Ast }
-%type call_args { Vec<Ast> }
-%type call_arg { Ast }
 %type if_stmt { Ast }
 %type else_if { Ast }
+%type expr_list { LinkedList<Ast> }
+%type id_list { LinkedList<Ast> }
 %type if_expr { Ast }
 %type if_case { ast::IfCase }
-%type keyed_lris { Vec<Ast> }
-%type keyed_types { Vec<Ast> }
 %type lri { Ast }
 %type lri_base { Vec<Lstr> }
-%type lri_list { Vec<Ast> }
 %type match_expr { Ast }
 %type defstruct { Ast }
 %type defstruct_fields { Vec<Ast> }
@@ -102,7 +98,6 @@ use std::rc::{Rc};
 %type mod_type { Ast }
 
 %type list { Ast }
-%type list_items { Vec<Ast> }
 %type tuple { Ast }
 %type strexpr { Ast }
 %type strlist { Vec<Ast> }
@@ -206,7 +201,7 @@ defenum_variants(A) ::= defenum_variants(B) defenum_variant(C). {
 defenum_variants(A) ::= defenum_variant(B). {
     A = vec![B];
 }
-defenum_variant(A) ::= PIPE(D) ID(B) PARENCALL lri_list(C) RPAREN. {
+defenum_variant(A) ::= PIPE(D) ID(B) PARENCALL expr_list(C) RPAREN. {
     A = Ast::DefData(ast::DataType::NamedTuple, B, C, D);
 }
 defenum_variant(A) ::= PIPE(D) ID(B) defstruct_fields(C). {
@@ -215,7 +210,7 @@ defenum_variant(A) ::= PIPE(D) ID(B) defstruct_fields(C). {
 }
 
 /** named tuple definition **/
-defnamedtuple(A) ::= STRUCT(B) typex(C) PARENCALL lri_list(D) RPAREN.
+defnamedtuple(A) ::= STRUCT(B) typex(C) PARENCALL expr_list(D) RPAREN.
 {
     A = sxpr::defnamedtuple(C, D, B);
 }
@@ -237,7 +232,7 @@ let_stmt ::= Let expr EQ1(A) expr. {
 }
 
 /* rust func declaration */
-func_stmt(A) ::= Func(Z) lri(B) PARENCALL dfunc_args(D) RPAREN COLON typex(E)
+func_stmt(A) ::= Func(Z) lri(B) PARENCALL id_list(D) RPAREN COLON typex(E)
     RUSTBLOCK.
 {
 	let typ = Val::Type(E);
@@ -245,14 +240,14 @@ func_stmt(A) ::= Func(Z) lri(B) PARENCALL dfunc_args(D) RPAREN COLON typex(E)
 }
 
 /* func one case, no matching */
-func_stmt(A) ::= Func(Z) lri(B) PARENCALL dfunc_args(D) RPAREN opt_typex(E)
+func_stmt(A) ::= Func(Z) lri(B) PARENCALL id_list(D) RPAREN opt_typex(E)
     block(C) DOUBLEDASH.
 {
 	let typ = Val::Type(E);
 	A = sxpr::defunc(B, D, typ, C, Z)
 }
 /* func w/ pattern matching */
-func_stmt(A) ::= Func(Z) lri(B) PARENCALL dfunc_args(C) RPAREN opt_typex(D)
+func_stmt(A) ::= Func(Z) lri(B) PARENCALL id_list(C) RPAREN opt_typex(D)
     if_case(E) DOUBLEDASH.
 {
     let typ = Val::Type(D);
@@ -264,22 +259,12 @@ func_stmt(A) ::= Func(Z) lri(B) PARENCALL dfunc_args(C) RPAREN opt_typex(D)
     A = sxpr::defunc(B, C, typ, body, Z)
 }
 
-dfunc_args(A) ::= . {
-	A = list::empty();
-}
-dfunc_args(A) ::= ID(B) opt_typex(C). {
-	A = list::singleton(Val::typed_id(&B.data, C));
-}
-dfunc_args(A) ::= ID(B) opt_typex(C) COMMA dfunc_args(D). {
-	A = list::cons(Val::typed_id(&B.data, C), D);
-}
-
 
 opt_typex(A) ::= . {
-	A = Type::AnonVar;
+    A = Ast::TypeAnon;
 }
 opt_typex(A) ::= COLON typex(B). {
-	A = B;
+    A = B;
 }
 
 typex(A) ::= type_term(B). {
@@ -326,7 +311,7 @@ type_term(A) ::= lri(B). {
 type_term(A) ::= SquareL typex(B) SquareR. {
 	A = Type::StrictList(Box::new(B));
 }
-type_term(A) ::= LPAREN lri_list(B) RPAREN. {
+type_term(A) ::= LPAREN expr_list(B) RPAREN. {
     A = Type::Tuple(list::map_ref_to_vec(&B, |v| {
         v.to_type()
     }));
@@ -334,7 +319,7 @@ type_term(A) ::= LPAREN lri_list(B) RPAREN. {
 
 
 /* defining a macro */
-macro_stmt(A) ::= MACRO ID(B) PARENCALL call_args(D) RPAREN block(C) DOUBLEDASH. {
+macro_stmt(A) ::= MACRO ID(B) PARENCALL id_list(D) RPAREN block(C) DOUBLEDASH. {
     vout!("found macro {:?}\n", B);
     A = sxpr::new(SxprType::DefMacro,
         list::cons(Val::id(B.data),
@@ -380,43 +365,27 @@ expr(A) ::= term(B). { A = B; }
 */
 if_stmt(A) ::= IF(D) expr(B) block(C) DOUBLEDASH. {
     /* if-only style */
-    A = sxpr::ifx(B, C, Val::Void, D);
+    let case = ast::IfCase(B, C, None, D.clone());
+    A = Ast::IfExpr(ast::IfType::If, Box::new(Ast::ConstVoid), case, D);
 }
-if_stmt(A) ::= IF(E) expr(B) block(C) else_if(D) DOUBLEDASH. {
+if_stmt(A) ::= IF(L) expr(B) block(C) else_if(D) DOUBLEDASH. {
     /* if-else style */
-    A = sxpr::ifx(B, C, D, E);
+    A = ast::IfCase(B, C, Some(D), L);
 }
-else_if(A) ::= ELSE IF(E) expr(B) block(C) else_if(D). {
-    A = sxpr::ifx(B, C, D, E);
+else_if(A) ::= ELSE IF(L) expr(B) block(C) else_if(D). {
+    A = ast::IfCase(B, C, Some(D), L);
 }
-else_if(A) ::= ELSE IF(D) expr(B) block(C). {
-    A = sxpr::ifx(B, C, Val::Void, D);
+else_if(A) ::= ELSE IF(L) expr(B) block(C). {
+    A = ast::IfCase(B, C, None, L);
 }
-else_if(A) ::= ELSE block(B). {
-    A = B;
+else_if(A) ::= ELSE(L) block(B). {
+    A = ast::IfCase(Ast::Wildcard, B, None, L);
 }
 
 
 /* regular function call */
-call_expr(A) ::= term(B) PARENCALL(D) call_args(C) RPAREN. {
-	A = sxpr::call(B, C, D);
-}
-
-call_arg(A) ::= expr(B). {
-    A = B;
-}
-call_arg(A) ::= ID(B) COLON expr(C). {
-    let name = Val::id(B.data);
-    A = sxpr::named_param(name, C, B.loc);
-}
-call_args(A) ::= . {
-    A = list::empty();
-}
-call_args(A) ::= call_arg(B). {
-    A = list::singleton(B);
-}
-call_args(A) ::= call_arg(B) COMMA call_args(C). {
-    A = list::cons(B, C);
+call_expr(A) ::= term(B) PARENCALL(D) expr_list(C) RPAREN. {
+    A = Ast::Call(Box::new(B), C, D);
 }
 
 expr(A) ::= term(B) DOLLAR term(C). {
@@ -574,24 +543,14 @@ term(A) ::= term(B) DOT ID(C). {
     A = Ast::DotAccess(Box::new(B), Lstr::new_str(C.data));
 }
 
-list(A) ::= SquareL SquareR. {
-    A = Ast::List(Vec::with_capacity(0));
-}
-list(A) ::= SquareL list_items(B) SquareR. {
+list(A) ::= SquareL expr_list(B) SquareR. {
     A = Ast::List(B);
-}
-list_items(A) ::= expr(B). {
-    A = vec![B];
-}
-list_items(A) ::= list_items(B) COMMA expr(C). {
-    A = B;
-    A.push(C);
 }
 
 /* tuple
  * (4 + 4, 6 - 7)
  */
-tuple(A) ::= LPAREN call_args(B) RPAREN. {
+tuple(A) ::= LPAREN expr_list(B) RPAREN. {
     A = Ast::Tuple(B);
 }
 
@@ -599,7 +558,7 @@ tuple(A) ::= LPAREN call_args(B) RPAREN. {
 lri(A) ::= lri_base(B). {
     A = Ast::Lri(B, None);
 }
-lri(A) ::= lri_base(B) SquareCall(D) lri_list(C) SquareR. {
+lri(A) ::= lri_base(B) SquareCall(D) expr_list(C) SquareR. {
     A = Ast::Lri(B, Some(C)); // , D);
 }
 lri_base(A) ::= ID(B). {
@@ -611,9 +570,6 @@ lri_base(A) ::= lri_base(B) DBLCOLON ID(C). {
     A.push(Lstr::new_str(C.data));
 }
 
-
-key w/ optional expr
-expr w/ optional key
 
 id_list(A) ::= . {
     A = LinkedList::new();
@@ -642,35 +598,6 @@ expr_list(A) ::= keyed_expr(B) COMMA expr_list(C). {
 }
 keyed_expr(A) ::= ID(B) COLON expr(C). {
     A = Ast::KeyedExpr(Lstr::from_string(B.data), Box::new(C), B.loc);
-}
-
-
-lri_list(A) ::= . {
-    A = Vec::new();
-}
-lri_list(A) ::= lri(B). {
-    A = vec![B];
-}
-lri_list(A) ::= lri_list(B) COMMA lri(C). {
-    A = B;
-    A.push(C);
-}
-
-keyed_lri_list(A) ::= . {
-    A = Vec::new();
-}
-keyed_lri_list(A) ::= keyed_lri(B). {
-    A = vec![B];
-}
-keyed_lri_list(A) ::= keyed_lri_list(B) COMMA. {
-    A = B;
-}
-keyed_lri_list(A) ::= keyed_lri_list(B) COMMA keyed_lri(C). {
-    A = B;
-    B.push(C);
-}
-keyed_lri(A) ::= ID(B) COLON lri(C). {
-    A = vec![B];
 }
 
 
