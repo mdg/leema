@@ -78,13 +78,13 @@ use std::rc::{Rc};
 %type if_stmt { Ast }
 %type else_if { Ast }
 %type if_expr { Ast }
-%type if_case { Ast }
+%type if_case { ast::IfCase }
+%type keyed_lris { Vec<Ast> }
+%type keyed_types { Vec<Ast> }
 %type lri { Ast }
 %type lri_base { Vec<Lstr> }
-%type lri_type_param_list { Vec<Ast> }
+%type lri_list { Vec<Ast> }
 %type match_expr { Ast }
-%type match_case { Ast }
-%type match_pattern { Ast }
 %type defstruct { Ast }
 %type defstruct_fields { Vec<Ast> }
 %type defstruct_field { Ast }
@@ -100,7 +100,6 @@ use std::rc::{Rc};
 %type arrow_typex { Vec<Ast> }
 %type type_term { Ast }
 %type mod_type { Ast }
-%type tuple_types { Vec<Ast> }
 
 %type list { Ast }
 %type list_items { Vec<Ast> }
@@ -147,7 +146,7 @@ program(A) ::= stmts(B). {
     // ignore A, it doesn't really go anywhere for program
     A = Ast::ConstVoid;
     // we're done, so put B in extra
-    self.extra = Ok(Ast::Block(B));
+    self.extra = Ok(Ast::Block(B)); // , SrcLoc::default()));
 }
 
 stmts(A) ::= . {
@@ -160,7 +159,7 @@ stmts(A) ::= stmts(B) stmt(C). {
 }
 
 block(A) ::= BLOCKARROW(C) stmts(B). {
-    A = Ast::Block(B);
+    A = Ast::Block(B); // , C);
 }
 
 
@@ -207,7 +206,7 @@ defenum_variants(A) ::= defenum_variants(B) defenum_variant(C). {
 defenum_variants(A) ::= defenum_variant(B). {
     A = vec![B];
 }
-defenum_variant(A) ::= PIPE(D) ID(B) PARENCALL tuple_types(C) RPAREN. {
+defenum_variant(A) ::= PIPE(D) ID(B) PARENCALL lri_list(C) RPAREN. {
     A = Ast::DefData(ast::DataType::NamedTuple, B, C, D);
 }
 defenum_variant(A) ::= PIPE(D) ID(B) defstruct_fields(C). {
@@ -216,24 +215,24 @@ defenum_variant(A) ::= PIPE(D) ID(B) defstruct_fields(C). {
 }
 
 /** named tuple definition **/
-defnamedtuple(A) ::= STRUCT(B) typex(C) PARENCALL tuple_types(D) RPAREN.
+defnamedtuple(A) ::= STRUCT(B) typex(C) PARENCALL lri_list(D) RPAREN.
 {
     A = sxpr::defnamedtuple(C, D, B);
 }
 
 
-failed_stmt(A) ::= FAILED ID(B) match_case(C) DOUBLEDASH. {
+failed_stmt(A) ::= FAILED ID(B) if_case(C) DOUBLEDASH. {
     let var = Val::id(B.data);
     A = sxpr::match_failed(var, C, B.loc);
 }
 
-let_stmt(A) ::= Let(D) match_pattern(B) ASSIGN expr(C). {
+let_stmt(A) ::= Let(D) expr(B) ASSIGN expr(C). {
     A = Ast::Let(ast::LetType::Inline, B, C, D);
 }
-let_stmt(A) ::= Fork(D) match_pattern(B) ASSIGN expr(C). {
+let_stmt(A) ::= Fork(D) expr(B) ASSIGN expr(C). {
     A = Ast::Let(ast::LetType::Forked, B, C, D);
 }
-let_stmt ::= Let match_pattern EQ1(A) expr. {
+let_stmt ::= Let expr EQ1(A) expr. {
     panic!("Found let x =... @ {:?}\ninstead it should be let x := ...\n", A);
 }
 
@@ -254,7 +253,7 @@ func_stmt(A) ::= Func(Z) lri(B) PARENCALL dfunc_args(D) RPAREN opt_typex(E)
 }
 /* func w/ pattern matching */
 func_stmt(A) ::= Func(Z) lri(B) PARENCALL dfunc_args(C) RPAREN opt_typex(D)
-    match_case(E) DOUBLEDASH.
+    if_case(E) DOUBLEDASH.
 {
     let typ = Val::Type(D);
     // extract field names from args to pass them through to match expr
@@ -274,7 +273,6 @@ dfunc_args(A) ::= ID(B) opt_typex(C). {
 dfunc_args(A) ::= ID(B) opt_typex(C) COMMA dfunc_args(D). {
 	A = list::cons(Val::typed_id(&B.data, C), D);
 }
-
 
 
 opt_typex(A) ::= . {
@@ -304,19 +302,19 @@ arrow_typex(A) ::= arrow_typex(B) GT type_term(C). {
 }
 
 type_term(A) ::= TYPE_INT. {
-	A = Type::Int;
+    A = Ast::TypeInt;
 }
 type_term(A) ::= TYPE_STR. {
-	A = Type::Str;
+    A = Ast::TypeStr;
 }
 type_term(A) ::= TYPE_HASHTAG. {
-	A = Type::Hashtag;
+    A = Ast::TypeHashtag;
 }
 type_term(A) ::= TYPE_BOOL. {
-	A = Type::Bool;
+    A = Ast::TypeBool;
 }
 type_term(A) ::= TYPE_VOID. {
-	A = Type::Void;
+    A = Ast::TypeVoid;
 }
 type_term(A) ::= TYPE_VAR(B). {
 	A = Type::Var(Rc::new(B.data));
@@ -328,19 +326,10 @@ type_term(A) ::= lri(B). {
 type_term(A) ::= SquareL typex(B) SquareR. {
 	A = Type::StrictList(Box::new(B));
 }
-type_term(A) ::= LPAREN tuple_types(B) RPAREN. {
+type_term(A) ::= LPAREN lri_list(B) RPAREN. {
     A = Type::Tuple(list::map_ref_to_vec(&B, |v| {
         v.to_type()
     }));
-}
-tuple_types(A) ::= . {
-    A = Val::Nil;
-}
-tuple_types(A) ::= typex(B). {
-    A = list::singleton(Val::Type(B));
-}
-tuple_types(A) ::= typex(B) COMMA tuple_types(C). {
-    A = list::cons(Val::Type(B), C);
 }
 
 
@@ -431,81 +420,79 @@ call_args(A) ::= call_arg(B) COMMA call_args(C). {
 }
 
 expr(A) ::= term(B) DOLLAR term(C). {
-	/* A = Val::binaryop(B, C, D); */
-	A = Val::Void;
+    /* A = Val::binaryop(B, C, D); */
+    A = Ast::ConstVoid;
 }
 
 /* IF expression */
-if_expr(A) ::= IF if_case(B) DOUBLEDASH. {
+if_expr(A) ::= IF(L) if_case(B) DOUBLEDASH. {
     /* case-expr style */
-    A = B;
+    A = Ast::IfExpr(ast::IfType::If, Box::new(Ast::ConstVoid), Box::new(B), L);
 }
-if_case(A) ::= PIPE(D) expr(B) block(C). {
-    A = sxpr::ifx(B, C, Val::Void, D);
+if_case(A) ::= PIPE(L) expr(B) block(C). {
+    A = ast::IfCase(B, C, None, L);
 }
-if_case(A) ::= PIPE(E) expr(B) block(C) if_case(D). {
-    A = sxpr::ifx(B, C, D, E);
+if_case(A) ::= PIPE(L) expr(B) block(C) if_case(D). {
+    A = ast::IfCase(B, C, Some(Box::new(D)), L);
 }
-if_case(A) ::= PIPE ELSE block(B). {
-    A = B;
+if_case(A) ::= PIPE ELSE(L) block(B). {
+    A = ast::IfCase(Ast::Wildcard, B, None);
 }
 
 /* match expression */
-match_expr(A) ::= MATCH(D) expr(B) match_case(C) DOUBLEDASH. {
-    A = sxpr::match_expr(B, C, D);
-}
-match_case(A) ::= PIPE match_pattern(B) block(C) match_case(D). {
-    A = list::from3(B, C, D);
-}
-match_case(A) ::= PIPE match_pattern(B) block(C). {
-    A = list::from2(B, C);
-}
-
-match_pattern(A) ::= expr(B). {
-    A = B;
+match_expr(A) ::= MATCH(D) expr(B) if_case(C) DOUBLEDASH. {
+    A = Ast::IfExpr(ast::IfType::Match, Box::new(B), Box::new(C), D);
 }
 
 
 expr(A) ::= list(B). { A = B; }
 
 expr(A) ::= NOT(C) expr(B). {
-	A = sxpr::call(Val::id("bool_not".to_string()), list::singleton(B), C);
+    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("bool_not")];
+    A = Ast::Call(Box::new(Ast::Lri(call, None)), vec![B], C);
 }
 expr(A) ::= expr(B) ConcatNewline(C). {
-	let newline = Val::new_str("\n".to_string());
-	let args = list::cons(B, list::singleton(newline));
-	A = sxpr::new(SxprType::StrExpr, args, C)
+    A = Ast::StrExpr(vec![B, Ast::ConstStr(Lstr::from_str("\n"))], C);
 }
 /* arithmetic */
 expr(A) ::= NEGATE(C) term(B). {
-    A = sxpr::call(Val::id("int_negate".to_string()), list::singleton(B), C);
+    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("int_negate")];
+    A = Ast::Call(Box::new(Ast::Lri(call, None)), vec![B], C);
 }
 expr(A) ::= expr(B) PLUS(D) expr(C). {
-    A = sxpr::binaryop("int_add".to_string(), B, C, D);
+    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("int_add")];
+    A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) MINUS(D) expr(C). {
-    A = sxpr::binaryop("int_sub".to_string(), B, C, D);
+    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("int_sub")];
+    A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) TIMES(D) expr(C). {
-    A = sxpr::binaryop("int_mult".to_string(), B, C, D);
+    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("int_mult")];
+    A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) SLASH(D) expr(C). {
-    A = sxpr::binaryop("int_div".to_string(), B, C, D);
+    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("int_div")];
+    A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) MOD(D) expr(C). {
-    A = sxpr::binaryop("int_mod".to_string(), B, C, D);
+    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("int_mod")];
+    A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) SEMICOLON expr(C). {
-    A = list::cons(B, C);
+    A = Ast::Cons(Box::new(B), Box::new(C));
 }
 expr(A) ::= expr(B) AND(D) expr(C). {
-    A = sxpr::binaryop("boolean_and".to_string(), B, C, D);
+    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("boolean_and")];
+    A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) OR(D) expr(C). {
-    A = sxpr::binaryop("boolean_or".to_string(), B, C, D);
+    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("boolean_or")];
+    A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) XOR(D) expr(C). {
-    A = sxpr::binaryop("boolean_xor".to_string(),B, C, D);
+    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("boolean_xor")];
+    A = Ast::binaryop(call, B, C, D);
 }
 
 /* comparisons */
@@ -534,8 +521,8 @@ expr(A) ::= expr(B) EQ(P) expr(C). {
 expr(A) ::= expr(B) NEQ(P) expr(C). {
     let inner_call = vec![Lstr::from_str("prefab"), Lstr::from_str("equal")];
     let inner_op = Ast::binaryop(inner_call, B, C, P);
-    let not_call = Ast::Lri(vec![Lstr::from_str("bool_not")]);
-    A = Ast::Call(not_call, vec![inner_op], P);
+    let not_call = Ast::Lri(vec![Lstr::from_str("bool_not")], None);
+    A = Ast::Call(Box::new(not_call), vec![inner_op], P);
 }
 /*
 expr(A) ::= expr(B) LT expr(C) LT expr(D). {
@@ -567,18 +554,19 @@ term(A) ::= lri(B). {
     A = B;
 }
 term(A) ::= VOID. {
-	A = Val::Void;
+    A = Ast::ConstVoid;
 }
 term(A) ::= DollarQuestion. {
-	A = Val::id("$".to_string());
+    // A = Ast::id("$".to_string());
+    A = Ast::ConstVoid;
 }
 term(A) ::= INT(B). {
-	A = Val::Int(B);
+    A = Ast::ConstInt(B);
 }
-term(A) ::= True. { A = Val::Bool(true); }
-term(A) ::= False. { A = Val::Bool(false); }
+term(A) ::= True. { A = Ast::ConstBool(true); }
+term(A) ::= False. { A = Ast::ConstBool(false); }
 term(A) ::= HASHTAG(B). {
-	A = Val::Hashtag(Rc::new(B.data));
+    A = Ast::ConstHashtag(Lstr::from_string(B.data));
 }
 term(A) ::= strexpr(B). { A = B; }
 term(A) ::= UNDERSCORE. { A = Ast::Wildcard; }
@@ -611,7 +599,7 @@ tuple(A) ::= LPAREN call_args(B) RPAREN. {
 lri(A) ::= lri_base(B). {
     A = Ast::Lri(B, None);
 }
-lri(A) ::= lri_base(B) SquareCall(D) lri_type_param_list(C) SquareR. {
+lri(A) ::= lri_base(B) SquareCall(D) lri_list(C) SquareR. {
     A = Ast::Lri(B, Some(C)); // , D);
 }
 lri_base(A) ::= ID(B). {
@@ -622,16 +610,69 @@ lri_base(A) ::= lri_base(B) DBLCOLON ID(C). {
     A = B;
     A.push(Lstr::new_str(C.data));
 }
-lri_type_param_list(A) ::= . {
+
+
+key w/ optional expr
+expr w/ optional key
+
+id_list(A) ::= . {
+    A = LinkedList::new();
+}
+id_list(A) ::= id_item(B) COMMA id_list(C). {
+    A = C;
+    A.push_front(B);
+}
+id_item(A) ::= ID(B). {
+    A = Ast::Localid(Lstr::from_string(B.data), B.loc);
+}
+id_item(A) ::= ID(B) COLON expr(C). {
+    A = Ast::KeyedExpr(Lstr::from_string(B.data), Box::new(C), B.loc);
+}
+
+expr_list(A) ::= . {
+    A = LinkedList::new();
+}
+expr_list(A) ::= expr(B) COMMA expr_list(C). {
+    A = C;
+    A.push_front(B);
+}
+expr_list(A) ::= keyed_expr(B) COMMA expr_list(C). {
+    A = C;
+    A.push_front(B);
+}
+keyed_expr(A) ::= ID(B) COLON expr(C). {
+    A = Ast::KeyedExpr(Lstr::from_string(B.data), Box::new(C), B.loc);
+}
+
+
+lri_list(A) ::= . {
     A = Vec::new();
 }
-lri_type_param_list(A) ::= lri(B). {
+lri_list(A) ::= lri(B). {
     A = vec![B];
 }
-lri_type_param_list(A) ::= lri_type_param_list(B) COMMA lri(C). {
+lri_list(A) ::= lri_list(B) COMMA lri(C). {
     A = B;
     A.push(C);
 }
+
+keyed_lri_list(A) ::= . {
+    A = Vec::new();
+}
+keyed_lri_list(A) ::= keyed_lri(B). {
+    A = vec![B];
+}
+keyed_lri_list(A) ::= keyed_lri_list(B) COMMA. {
+    A = B;
+}
+keyed_lri_list(A) ::= keyed_lri_list(B) COMMA keyed_lri(C). {
+    A = B;
+    B.push(C);
+}
+keyed_lri(A) ::= ID(B) COLON lri(C). {
+    A = vec![B];
+}
+
 
 strexpr(A) ::= StrOpen(C) strlist(B) StrClose. {
     A = Ast::StrExpr(B, C);
@@ -648,4 +689,3 @@ strlist(A) ::= strlist(B) term(C). {
     A = B;
     A.push(C);
 }
-
