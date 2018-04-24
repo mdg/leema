@@ -79,7 +79,7 @@ use std::rc::{Rc};
 %type if_expr { Ast }
 %type if_case { ast::IfCase }
 %type lri { Ast }
-%type lri_base { Vec<Lstr> }
+%type lri_base { (Vec<Lstr>, SrcLoc) }
 %type match_expr { Ast }
 %type defstruct { Ast }
 %type defstruct_fields { Vec<Ast> }
@@ -186,8 +186,8 @@ defstruct_fields(A) ::= defstruct_fields(B) defstruct_field(C). {
 defstruct_fields(A) ::= . {
     A = Vec::new();
 }
-defstruct_field(A) ::= DOT ID(B) COLON typex(C). {
-    A = Val::typed_id(&B.data, C);
+defstruct_field(A) ::= DOT ID(B) COLON term(C). {
+    A = Ast::KeyedExpr(Lstr::from_string(B.data), C, B.loc);
 }
 
 /** Enum Definitions */
@@ -267,68 +267,29 @@ opt_typex(A) ::= COLON typex(B). {
     A = B;
 }
 
-typex(A) ::= type_term(B). {
+typex(A) ::= term(B). {
     A = B;
 }
 typex(A) ::= arrow_typex(B). {
-    let argc = B.len() - 1;
-    let mut items = B;
-    let last = items.remove(argc);
-    A = Type::Func(items, Box::new(last));
+    A = Ast::TypeFunc(items.0, items.1);
 }
 
-arrow_typex(A) ::= type_term(B) GT type_term(C). {
+arrow_typex(A) ::= term(B) GT term(C). {
     A = vec![B, C];
 }
-arrow_typex(A) ::= arrow_typex(B) GT type_term(C). {
+arrow_typex(A) ::= arrow_typex(B) GT term(C). {
     let mut tmp = B;
     tmp.push(C);
     A = tmp;
-}
-
-type_term(A) ::= TYPE_INT. {
-    A = Ast::TypeInt;
-}
-type_term(A) ::= TYPE_STR. {
-    A = Ast::TypeStr;
-}
-type_term(A) ::= TYPE_HASHTAG. {
-    A = Ast::TypeHashtag;
-}
-type_term(A) ::= TYPE_BOOL. {
-    A = Ast::TypeBool;
-}
-type_term(A) ::= TYPE_VOID. {
-    A = Ast::TypeVoid;
-}
-type_term(A) ::= TYPE_VAR(B). {
-	A = Type::Var(Rc::new(B.data));
-}
-type_term(A) ::= lri(B). {
-    // A = Type::from_lri(B);
-    A = Type::Unknown;
-}
-type_term(A) ::= SquareL typex(B) SquareR. {
-	A = Type::StrictList(Box::new(B));
-}
-type_term(A) ::= LPAREN expr_list(B) RPAREN. {
-    A = Type::Tuple(list::map_ref_to_vec(&B, |v| {
-        v.to_type()
-    }));
 }
 
 
 /* defining a macro */
 macro_stmt(A) ::= MACRO ID(B) PARENCALL id_list(D) RPAREN block(C) DOUBLEDASH. {
     vout!("found macro {:?}\n", B);
-    A = sxpr::new(SxprType::DefMacro,
-        list::cons(Val::id(B.data),
-            list::cons(D,
-            list::cons(C,
-            Val::Nil
-        ))),
-        B.loc,
-    );
+    let name = Ast::Lri(vec![Lstr::from_string(B.data)], None, B.loc.clone());
+    A = Ast::DefFunc(ast::FuncType::Macro
+        , Box::new(name), D, Box::new(C), B.loc);
 }
 
 expr(A) ::= if_expr(B). { A = B; }
@@ -392,6 +353,9 @@ expr(A) ::= term(B) DOLLAR term(C). {
     /* A = Val::binaryop(B, C, D); */
     A = Ast::ConstVoid;
 }
+expr(A) ::= term(B) DOT ID(C). {
+    A = Ast::DotAccess(Box::new(B), Lstr::new_str(C.data));
+}
 
 /* IF expression */
 if_expr(A) ::= IF(L) if_case(B) DOUBLEDASH. {
@@ -414,11 +378,9 @@ match_expr(A) ::= MATCH(D) expr(B) if_case(C) DOUBLEDASH. {
 }
 
 
-expr(A) ::= list(B). { A = B; }
-
 expr(A) ::= NOT(C) expr(B). {
     let call = vec![Lstr::from_str("prefab"), Lstr::from_str("bool_not")];
-    A = Ast::Call(Box::new(Ast::Lri(call, None)), vec![B], C);
+    A = Ast::Call(Box::new(Ast::Lri(call, None, C.clone())), vec![B], C);
 }
 expr(A) ::= expr(B) ConcatNewline(C). {
     A = Ast::StrExpr(vec![B, Ast::ConstStr(Lstr::from_str("\n"))], C);
@@ -426,7 +388,7 @@ expr(A) ::= expr(B) ConcatNewline(C). {
 /* arithmetic */
 expr(A) ::= NEGATE(C) term(B). {
     let call = vec![Lstr::from_str("prefab"), Lstr::from_str("int_negate")];
-    A = Ast::Call(Box::new(Ast::Lri(call, None)), vec![B], C);
+    A = Ast::Call(Box::new(Ast::Lri(call, None, C.clone())), vec![B], C);
 }
 expr(A) ::= expr(B) PLUS(D) expr(C). {
     let call = vec![Lstr::from_str("prefab"), Lstr::from_str("int_add")];
@@ -490,7 +452,7 @@ expr(A) ::= expr(B) EQ(P) expr(C). {
 expr(A) ::= expr(B) NEQ(P) expr(C). {
     let inner_call = vec![Lstr::from_str("prefab"), Lstr::from_str("equal")];
     let inner_op = Ast::binaryop(inner_call, B, C, P);
-    let not_call = Ast::Lri(vec![Lstr::from_str("bool_not")], None);
+    let not_call = Ast::Lri(vec![Lstr::from_str("bool_not")], None, P.clone());
     A = Ast::Call(Box::new(not_call), vec![inner_op], P);
 }
 /*
@@ -519,6 +481,9 @@ expr(A) ::= expr(B) LTEQ expr(C) LTEQ expr(D). {
 term(A) ::= tuple(B). {
     A = B;
 }
+term(A) ::= list(B). {
+    A = B;
+}
 term(A) ::= lri(B). {
     A = B;
 }
@@ -539,8 +504,27 @@ term(A) ::= HASHTAG(B). {
 }
 term(A) ::= strexpr(B). { A = B; }
 term(A) ::= UNDERSCORE. { A = Ast::Wildcard; }
-term(A) ::= term(B) DOT ID(C). {
-    A = Ast::DotAccess(Box::new(B), Lstr::new_str(C.data));
+term(A) ::= type_term(B). {
+    A = B;
+}
+
+type_term(A) ::= TYPE_INT. {
+    A = Ast::TypeInt;
+}
+type_term(A) ::= TYPE_STR. {
+    A = Ast::TypeStr;
+}
+type_term(A) ::= TYPE_HASHTAG. {
+    A = Ast::TypeHashtag;
+}
+type_term(A) ::= TYPE_BOOL. {
+    A = Ast::TypeBool;
+}
+type_term(A) ::= TYPE_VOID. {
+    A = Ast::TypeVoid;
+}
+type_term(A) ::= TYPE_VAR(B). {
+    A = Ast::TypeVar(Lstr::from_string(B.data), B.loc);
 }
 
 list(A) ::= SquareL expr_list(B) SquareR. {
@@ -556,18 +540,18 @@ tuple(A) ::= LPAREN expr_list(B) RPAREN. {
 
 
 lri(A) ::= lri_base(B). {
-    A = Ast::Lri(B, None);
+    A = Ast::Lri(B.0, None, B.1);
 }
-lri(A) ::= lri_base(B) SquareCall(D) expr_list(C) SquareR. {
-    A = Ast::Lri(B, Some(C)); // , D);
+lri(A) ::= lri_base(B) SquareCall expr_list(C) SquareR. {
+    A = Ast::Lri(B.0, Some(C), B.1);
 }
 lri_base(A) ::= ID(B). {
 println!("found lri: {}", B.data);
-    A = vec![Lstr::new_str(B.data)];
+    A = (vec![Lstr::new_str(B.data)], B.loc);
 }
 lri_base(A) ::= lri_base(B) DBLCOLON ID(C). {
     A = B;
-    A.push(Lstr::new_str(C.data));
+    A.0.push(Lstr::new_str(C.data));
 }
 
 
