@@ -235,28 +235,25 @@ let_stmt ::= Let expr EQ1(A) expr. {
 func_stmt(A) ::= Func(Z) lri(B) PARENCALL id_list(D) RPAREN COLON typex(E)
     RUSTBLOCK.
 {
-	let typ = Val::Type(E);
-	A = sxpr::defunc(B, D, typ, Val::RustBlock, Z)
+    A = Ast::DefFunc(ast::FuncType::Func
+        , Box::new(B), D, Box::new(E), Box::new(Ast::RustBlock), Z);
 }
 
 /* func one case, no matching */
 func_stmt(A) ::= Func(Z) lri(B) PARENCALL id_list(D) RPAREN opt_typex(E)
     block(C) DOUBLEDASH.
 {
-	let typ = Val::Type(E);
-	A = sxpr::defunc(B, D, typ, C, Z)
+    A = Ast::DefFunc(ast::FuncType::Func
+        , Box::new(B), D, Box::new(E), Box::new(C), Z);
 }
 /* func w/ pattern matching */
 func_stmt(A) ::= Func(Z) lri(B) PARENCALL id_list(C) RPAREN opt_typex(D)
     if_case(E) DOUBLEDASH.
 {
-    let typ = Val::Type(D);
     // extract field names from args to pass them through to match expr
-    let args = Val::Tuple(list::map_ref_to_vec(&C, |arg| {
-        Val::Id(arg.id_name())
-    }));
-    let body = sxpr::match_expr(args, E, Z);
-    A = sxpr::defunc(B, C, typ, body, Z)
+    let body = Ast::matchfunc_body(&C, E, Z);
+    A = Ast::DefFunc(ast::FuncType::Func
+        , Box::new(B), C, Box::new(D), Box::new(body), Z);
 }
 
 
@@ -289,7 +286,7 @@ macro_stmt(A) ::= MACRO ID(B) PARENCALL id_list(D) RPAREN block(C) DOUBLEDASH. {
     vout!("found macro {:?}\n", B);
     let name = Ast::Lri(vec![Lstr::from_string(B.data)], None, B.loc.clone());
     A = Ast::DefFunc(ast::FuncType::Macro
-        , Box::new(name), D, Box::new(C), B.loc);
+        , Box::new(name), D, Box::new(Ast::TypeAnon), Box::new(C), B.loc);
 }
 
 expr(A) ::= if_expr(B). { A = B; }

@@ -102,7 +102,7 @@ pub enum Ast
     ConstStr(Lstr),
     ConstVoid,
     DefData(DataType, Box<Ast>, Vec<Ast>, SrcLoc),
-    DefFunc(FuncType, Box<Ast>, Box<Ast>, Box<Ast>, SrcLoc),
+    DefFunc(FuncType, Box<Ast>, Box<Ast>, Box<Ast>, Box<Ast>, SrcLoc),
     DotAccess(Box<Ast>, Lstr),
     IfExpr(IfType, Box<Ast>, Box<IfCase>, SrcLoc),
     Import(Box<Ast>, SrcLoc),
@@ -112,6 +112,7 @@ pub enum Ast
     Localid(Lstr, SrcLoc),
     Lri(Vec<Lstr>, Option<Vec<Ast>>, SrcLoc),
     Return(Box<Ast>, SrcLoc),
+    RustBlock,
     StrExpr(Vec<Ast>, SrcLoc),
     Tuple(Vec<Ast>),
     TypeAnon,
@@ -133,6 +134,25 @@ impl Ast
     pub fn binaryop(callname: Vec<Lstr>, a: Ast, b: Ast, loc: SrcLoc) -> Ast
     {
         Ast::Call(Ast::lri(callname), vec![a, b], loc)
+    }
+
+    pub fn matchfunc_body(ids: &LinkedList<Ast>, body: Ast, loc: SrcLoc) -> Ast
+    {
+        let match_args = ids.map(|idx| {
+            match idx {
+                &Ast::KeyedExpr(ref id, _, loc) => {
+                    Ast::Lri(vec![id.clone()], loc)
+                }
+                &Ast::Lri(_) => {
+                    idx.clone()
+                }
+                _ => {
+                    panic!("unknown argument value");
+                }
+            }
+        });
+        let test = Ast::Tuple(match_args);
+        Ast::match_func_body(test, body, loc)
     }
 }
 
