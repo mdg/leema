@@ -61,7 +61,7 @@ impl<'a> From<&'a Lstr> for String
             &Lstr::Rc(ref s) => (**s).clone(),
             &Lstr::Arc(ref s) => (**s).clone(),
             &Lstr::Sref(ref s) => s.to_string(),
-            &Lstr::Cons(ref a, ref b) => {
+            &Lstr::Cat(ref a, ref b) => {
                 format!("{}{}", a, b)
             }
         }
@@ -72,7 +72,7 @@ impl From<String> for Lstr
 {
     fn from(s: String) -> Lstr
     {
-        Lstr::Rc(s)
+        Lstr::Rc(Rc::new(s))
     }
 }
 
@@ -80,7 +80,7 @@ impl<'a> From<&'a String> for Lstr
 {
     fn from(s: &'a String) -> Lstr
     {
-        Lstr::Rc(s.clone())
+        Lstr::Rc(Rc::new(s.clone()))
     }
 }
 

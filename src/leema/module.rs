@@ -1,8 +1,8 @@
 use leema::ast::{self, Ast};
 use leema::val::{Val, Type, SxprType};
-use leema::list;
 use leema::lex::{lex};
 use leema::lri::{Lri};
+use leema::lstr::{Lstr};
 use leema::parse::{Token};
 
 use std::collections::{HashMap, HashSet};
@@ -40,7 +40,7 @@ impl ModKey
     }
 }
 
-pub type MacroDef = (Vec<Rc<String>>, Val);
+pub type MacroDef = (Vec<Lstr>, Ast);
 type MacroMap = HashMap<String, MacroDef>;
 
 #[derive(Debug)]
@@ -119,21 +119,21 @@ impl ModulePreface
         }
     }
 
-    pub fn split_ast_block_item(mp: &mut ModulePreface, item: &Val)
+    pub fn split_ast_block_item(mp: &mut ModulePreface, item: &Ast)
     {
         match item {
-            &Val::Sxpr(SxprType::Import, ref imp, ref loc) => {
-                let iname = list::head_ref(imp);
-                mp.imports.insert(String::from(iname.str()));
+            &Ast::Import(ref i, ref loc) => {
+                let imp_string = (**i).localid_str().to_string();
+                mp.imports.insert(imp_string);
             }
-            &Val::Sxpr(SxprType::DefMacro, ref dm, ref loc) => {
-                let (mname_val, args_val, body) = list::to_ref_tuple3(dm);
-                let mname = mname_val.str();
-                let mut args = vec![];
-                list::fold_mut_ref(&mut args, args_val, |acc, a| {
-                    acc.push(a.to_str().clone());
-                });
-                mp.macros.insert(String::from(mname), (args, body.clone()));
+            &Ast::DefFunc(ast::FuncType::Macro, ref name, ref args
+                    , _, ref body, ref loc
+                ) => {
+                let name_string = String::from(&**name);
+                let arg_strings = args.iter().map(|a| {
+                    From::from(a)
+                }).collect();
+                mp.macros.insert(name_string, (arg_strings, (**body).clone()));
             }
             _ => {
                 // ignore everything else, it will be handled in a later phase

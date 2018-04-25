@@ -203,8 +203,37 @@ impl<'a> From<&'a Ast> for String
     fn from(a: &'a Ast) -> String
     {
         match a {
-            &Ast::Localid(ref ls) => {
+            &Ast::Localid(ref ls, _) => {
                 String::from(ls)
+            }
+            &Ast::Lri(ref items, ref types, _) => {
+                format!("{:?}<{:?}>", items, types)
+            }
+            _ => {
+                panic!("cannot convert to string: {:?}", a);
+            }
+        }
+    }
+}
+
+impl<'a> From<&'a Ast> for Lstr
+{
+    fn from(a: &'a Ast) -> Lstr
+    {
+        match a {
+            &Ast::Localid(ref ls, _) => {
+                ls.clone()
+            }
+            &Ast::Lri(ref items, ref types, _) => {
+                if items.len() == 1 && types.is_none() {
+                    items.first().unwrap().clone()
+                } else {
+                    let new_str = format!("{:?}<{:?}>", items, types);
+                    Lstr::from_string(new_str)
+                }
+            }
+            _ => {
+                panic!("cannot convert to string: {:?}", a);
             }
         }
     }
