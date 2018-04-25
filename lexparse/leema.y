@@ -328,24 +328,24 @@ expr(A) ::= term(B). { A = B; }
 */
 if_stmt(A) ::= IF(D) expr(B) block(C) DOUBLEDASH. {
     /* if-only style */
-    let case = ast::IfCase(B, C, None, D.clone());
+    let case = ast::IfCase::new(B, C, None, D.clone());
     A = Ast::IfExpr(ast::IfType::If
         , Box::new(Ast::ConstVoid), Box::new(case), D);
 }
 if_stmt(A) ::= IF(L) expr(B) block(C) else_if(D) DOUBLEDASH. {
     /* if-else style */
-    let case = ast::IfCase(B, C, Some(Box::new(D)), L);
+    let case = ast::IfCase::new(B, C, Some(D), L);
     A = Ast::IfExpr(ast::IfType::If
         , Box::new(Ast::ConstVoid), Box::new(case), L);
 }
 else_if(A) ::= ELSE IF(L) expr(B) block(C) else_if(D). {
-    A = ast::IfCase(B, C, Some(Box::new(D)), L);
+    A = ast::IfCase::new(B, C, Some(D), L);
 }
 else_if(A) ::= ELSE IF(L) expr(B) block(C). {
-    A = ast::IfCase(B, C, None, L);
+    A = ast::IfCase::new(B, C, None, L);
 }
 else_if(A) ::= ELSE(L) block(B). {
-    A = ast::IfCase(Ast::Wildcard, B, None, L);
+    A = ast::IfCase::new(Ast::Wildcard, B, None, L);
 }
 
 
@@ -368,13 +368,13 @@ if_expr(A) ::= IF(L) if_case(B) DOUBLEDASH. {
     A = Ast::IfExpr(ast::IfType::If, Box::new(Ast::ConstVoid), Box::new(B), L);
 }
 if_case(A) ::= PIPE(L) expr(B) block(C). {
-    A = ast::IfCase(B, C, None, L);
+    A = ast::IfCase::new(B, C, None, L);
 }
 if_case(A) ::= PIPE(L) expr(B) block(C) if_case(D). {
-    A = ast::IfCase(B, C, Some(Box::new(D)), L);
+    A = ast::IfCase::new(B, C, Some(D), L);
 }
 if_case(A) ::= PIPE ELSE(L) block(B). {
-    A = ast::IfCase(Ast::Wildcard, B, None, L);
+    A = ast::IfCase::new(Ast::Wildcard, B, None, L);
 }
 
 /* match expression */

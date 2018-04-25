@@ -90,7 +90,27 @@ pub enum IfType
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
-pub struct IfCase(Ast, Ast, Option<Box<IfCase>>, SrcLoc);
+pub struct IfCase
+{
+    cond: Ast,
+    body: Ast,
+    else_case: Option<Box<IfCase>>,
+    loc: SrcLoc,
+}
+
+impl IfCase
+{
+    pub fn new(cond: Ast, body: Ast, else_case: Option<IfCase>, loc: SrcLoc
+        ) -> IfCase
+    {
+        IfCase{
+            cond: cond,
+            body: body,
+            else_case: else_case.map(|ic| { Box::new(ic) }),
+            loc: loc,
+        }
+    }
+}
 
 #[derive(Clone)]
 #[derive(Debug)]
