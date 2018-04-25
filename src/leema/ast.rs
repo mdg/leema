@@ -136,14 +136,18 @@ impl Ast
         Ast::Call(Ast::lri(callname), vec![a, b], loc)
     }
 
-    pub fn matchfunc_body(ids: &LinkedList<Ast>, body: Ast, loc: SrcLoc) -> Ast
+    pub fn matchfunc_body(ids: &LinkedList<Ast>, cases: IfCase, loc: SrcLoc
+        ) -> Ast
     {
         let match_args = ids.map(|idx| {
             match idx {
                 &Ast::KeyedExpr(ref id, _, loc) => {
-                    Ast::Lri(vec![id.clone()], loc)
+                    Ast::Localid(id.clone(), loc)
                 }
-                &Ast::Lri(_) => {
+                &Ast::Lri(_, _, _) => {
+                    idx.clone()
+                }
+                &Ast::Localid(_, _) => {
                     idx.clone()
                 }
                 _ => {
@@ -152,7 +156,7 @@ impl Ast
             }
         });
         let test = Ast::Tuple(match_args);
-        Ast::match_func_body(test, body, loc)
+        Ast::IfExpr(IfType::Match, Box::new(test), Box::new(cases), loc)
     }
 }
 

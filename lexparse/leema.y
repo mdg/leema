@@ -78,6 +78,7 @@ use std::rc::{Rc};
 %type id_list { LinkedList<Ast> }
 %type if_expr { Ast }
 %type if_case { ast::IfCase }
+%type localid { Ast }
 %type lri { Ast }
 %type lri_base { (Vec<Lstr>, SrcLoc) }
 %type match_expr { Ast }
@@ -162,7 +163,7 @@ stmt(A) ::= defstruct(B). { A = B; }
 stmt(A) ::= defenum(B). { A = B; }
 stmt(A) ::= defnamedtuple(B). { A = B; }
 stmt(A) ::= IMPORT(C) lri(B). {
-    A = sxpr::new_import(B, C);
+    A = Ast::Import(Box::new(B), C);
 }
 stmt(A) ::= let_stmt(B). { A = B; }
 stmt(A) ::= failed_stmt(B). { A = B; }
@@ -171,13 +172,13 @@ stmt(A) ::= macro_stmt(B). { A = B; }
 stmt(A) ::= if_stmt(B). { A = B; }
 stmt(A) ::= expr(B). { A = B; }
 stmt(A) ::= RETURN(C) expr(B). {
-    A = Ast::Return(B, C);
+    A = Ast::Return(Box::new(B), C);
 }
 
 
 /** Data Structures */
 defstruct(A) ::= STRUCT(D) lri(B) defstruct_fields(C) DOUBLEDASH. {
-    A = Ast::DefData(ast::DataType::Struct, B, C, D);
+    A = Ast::DefData(ast::DataType::Struct, Box::new(B), C, D);
 }
 defstruct_fields(A) ::= defstruct_fields(B) defstruct_field(C). {
     A = B;
@@ -187,12 +188,12 @@ defstruct_fields(A) ::= . {
     A = Vec::new();
 }
 defstruct_field(A) ::= DOT ID(B) COLON term(C). {
-    A = Ast::KeyedExpr(Lstr::from_string(B.data), C, B.loc);
+    A = Ast::KeyedExpr(Lstr::from_string(B.data), Box::new(C), B.loc);
 }
 
 /** Enum Definitions */
 defenum(A) ::= ENUM(D) lri(B) defenum_variants(C) DOUBLEDASH. {
-    A = Ast::DefData(ast::DataType::Enum, B, C, D);
+    A = Ast::DefData(ast::DataType::Enum, Box::new(B), C, D);
 }
 defenum_variants(A) ::= defenum_variants(B) defenum_variant(C). {
     A = B;
@@ -201,31 +202,30 @@ defenum_variants(A) ::= defenum_variants(B) defenum_variant(C). {
 defenum_variants(A) ::= defenum_variant(B). {
     A = vec![B];
 }
-defenum_variant(A) ::= PIPE(D) ID(B) PARENCALL expr_list(C) RPAREN. {
-    A = Ast::DefData(ast::DataType::NamedTuple, B, C, D);
+defenum_variant(A) ::= PIPE(D) localid(B) PARENCALL expr_list(C) RPAREN. {
+    A = Ast::DefData(ast::DataType::NamedTuple, Box::new(B), C, D);
 }
-defenum_variant(A) ::= PIPE(D) ID(B) defstruct_fields(C). {
-    let variant_name = Ast::Lri(vec![Lstr::new_str(B.data)], None);
-    A = Ast::DefData(ast::DataType::Enum, variant_name, C, D);
+defenum_variant(A) ::= PIPE(D) localid(B) defstruct_fields(C). {
+    A = Ast::DefData(ast::DataType::Enum, Box::new(B), C, D);
 }
 
 /** named tuple definition **/
-defnamedtuple(A) ::= STRUCT(B) typex(C) PARENCALL expr_list(D) RPAREN.
+defnamedtuple(A) ::= STRUCT(L) lri(C) PARENCALL expr_list(D) RPAREN.
 {
-    A = sxpr::defnamedtuple(C, D, B);
+    A = Ast::DefData(ast::DataType::NamedTuple, Box::new(C), D, L);
 }
 
 
-failed_stmt(A) ::= FAILED ID(B) if_case(C) DOUBLEDASH. {
-    let var = Val::id(B.data);
-    A = sxpr::match_failed(var, C, B.loc);
+failed_stmt(A) ::= FAILED(L) localid(B) if_case(C) DOUBLEDASH. {
+    A = Ast::IfExpr(ast::IfType::MatchFailure
+        , Box::new(B), Box::new(C), L);
 }
 
 let_stmt(A) ::= Let(D) expr(B) ASSIGN expr(C). {
-    A = Ast::Let(ast::LetType::Inline, B, C, D);
+    A = Ast::Let(ast::LetType::Inline, Box::new(B), Box::new(C), D);
 }
 let_stmt(A) ::= Fork(D) expr(B) ASSIGN expr(C). {
-    A = Ast::Let(ast::LetType::Forked, B, C, D);
+    A = Ast::Let(ast::LetType::Forked, Box::new(B), Box::new(C), D);
 }
 let_stmt ::= Let expr EQ1(A) expr. {
     panic!("Found let x =... @ {:?}\ninstead it should be let x := ...\n", A);
@@ -535,6 +535,9 @@ tuple(A) ::= LPAREN expr_list(B) RPAREN. {
     A = Ast::Tuple(B);
 }
 
+localid(A) ::= ID(B). {
+    A = Ast::Localid(Lstr::from_string(B.data), B.loc);
+}
 
 lri(A) ::= lri_base(B). {
     A = Ast::Lri(B.0, None, B.1);
