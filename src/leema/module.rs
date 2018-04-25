@@ -1,7 +1,8 @@
-use leema::ast;
+use leema::ast::{self, Ast};
 use leema::val::{Val, Type, SxprType};
 use leema::list;
 use leema::lex::{lex};
+use leema::lri::{Lri};
 use leema::parse::{Token};
 
 use std::collections::{HashMap, HashSet};
@@ -47,7 +48,7 @@ pub struct ModuleSource
 {
     pub key: Rc<ModKey>,
     pub txt: String,
-    pub ast: Val,
+    pub ast: Ast,
 }
 
 impl ModuleSource
@@ -104,12 +105,13 @@ impl ModulePreface
         mp
     }
 
-    pub fn split_ast(&mut self, ast: &Val)
+    pub fn split_ast(&mut self, ast: &Ast)
     {
         match ast {
-            &Val::Sxpr(SxprType::BlockExpr, ref sx, ref loc) => {
-                list::fold_mut_ref(self, sx
-                    , ModulePreface::split_ast_block_item);
+            &Ast::Block(ref lines) => {
+                for l in lines.iter() {
+                    ModulePreface::split_ast_block_item(self, l);
+                }
             }
             _ => {
                 panic!("what's that doing in the ast? {:?}", ast);

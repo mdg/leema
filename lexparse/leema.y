@@ -1,10 +1,8 @@
 %include {
 use leema::ast::{self, Ast, TokenData};
-use leema::val::{Val, SxprType, Type, SrcLoc};
+use leema::val::{SrcLoc};
 use leema::lstr::{Lstr};
-use leema::list;
 use leema::log;
-use leema::sxpr;
 
 use std::collections::linked_list::{LinkedList};
 use std::io::{Write};
@@ -167,7 +165,7 @@ block(A) ::= BLOCKARROW(C) stmts(B). {
 stmt(A) ::= defstruct(B). { A = B; }
 stmt(A) ::= defenum(B). { A = B; }
 stmt(A) ::= defnamedtuple(B). { A = B; }
-stmt(A) ::= IMPORT(C) lri(B). {
+stmt(A) ::= IMPORT(C) localid(B). {
     A = Ast::Import(Box::new(B), C);
 }
 stmt(A) ::= let_stmt(B). { A = B; }

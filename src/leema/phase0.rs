@@ -1,4 +1,5 @@
 use leema::program::{Lib};
+use leema::ast::{Ast};
 use leema::val::{SxprType, Val, Type, SrcLoc};
 use leema::module::{ModKey, ModulePreface, MacroDef};
 use leema::list;
@@ -48,7 +49,7 @@ impl Protomod
     }
 
     pub fn preproc_module_expr(&mut self, prog: &Lib
-            , mp: &ModulePreface, x: &Val
+            , mp: &ModulePreface, x: &Ast
     ) {
         match x {
             &Val::Sxpr(SxprType::DefFunc, ref parts, ref loc) => {
@@ -744,22 +745,22 @@ impl Protomod
     }
 }
 
-pub fn preproc(prog: &mut Lib, mp: &ModulePreface, ast: &Val) -> Protomod
+pub fn preproc(prog: &mut Lib, mp: &ModulePreface, ast: &Ast) -> Protomod
 {
     let mk = mp.key.clone();
-    let mut p0 = Protomod::new(mk);
+    let mut p = Protomod::new(mk);
     match ast {
-        &Val::Sxpr(SxprType::BlockExpr, ref exprs, ref loc) => {
-            list::fold_mut_ref(&mut p0, exprs, |p, x| {
+        &Ast::Block(ref lines) => {
+            for x in lines.iter() {
                 p.preproc_module_expr(prog, mp, x);
-            });
+            }
         }
         _ => {
             println!("preproc(something_else, {:?})", ast);
-            p0.preproc_module_expr(prog, mp, ast);
+            p.preproc_module_expr(prog, mp, ast);
         }
     }
-    p0
+    p
 }
 
 

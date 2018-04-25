@@ -1,4 +1,4 @@
-use leema::val::{Val, SrcLoc};
+use leema::val::{SrcLoc};
 use leema::log;
 use leema::lstr::{Lstr};
 use leema::parse::{Parser, Token};
@@ -185,6 +185,28 @@ impl Ast
         }).collect();
         let test = Ast::Tuple(match_args);
         Ast::IfExpr(IfType::Match, Box::new(test), Box::new(cases), loc)
+    }
+
+    pub fn localid_str(&self) -> &Lstr
+    {
+        match self {
+            &Ast::Localid(ref name, _) => name,
+            _ => {
+                panic!("not a localid: {:?}", self);
+            }
+        }
+    }
+}
+
+impl<'a> From<&'a Ast> for String
+{
+    fn from(a: &'a Ast) -> String
+    {
+        match a {
+            &Ast::Localid(ref ls) => {
+                String::from(ls)
+            }
+        }
     }
 }
 

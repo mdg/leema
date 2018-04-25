@@ -39,6 +39,49 @@ impl Lstr
     {
         Lstr::Cat(Box::new(a), Box::new(b))
     }
+
+    pub fn str(&self) -> &str
+    {
+        match self {
+            &Lstr::Rc(ref s) => &(**s),
+            &Lstr::Arc(ref s) => &(**s),
+            &Lstr::Sref(ref s) => s,
+            _ => {
+                panic!("not a str: {:?}", self);
+            }
+        }
+    }
+}
+
+impl<'a> From<&'a Lstr> for String
+{
+    fn from(ls: &'a Lstr) -> String
+    {
+        match ls {
+            &Lstr::Rc(ref s) => (**s).clone(),
+            &Lstr::Arc(ref s) => (**s).clone(),
+            &Lstr::Sref(ref s) => s.to_string(),
+            &Lstr::Cons(ref a, ref b) => {
+                format!("{}{}", a, b)
+            }
+        }
+    }
+}
+
+impl From<String> for Lstr
+{
+    fn from(s: String) -> Lstr
+    {
+        Lstr::Rc(s)
+    }
+}
+
+impl<'a> From<&'a String> for Lstr
+{
+    fn from(s: &'a String) -> Lstr
+    {
+        Lstr::Rc(s.clone())
+    }
 }
 
 impl fmt::Display for Lstr
@@ -62,3 +105,17 @@ impl fmt::Display for Lstr
     }
 }
 
+
+#[cfg(test)]
+mod tests {
+    use leema::lstr::{Lstr};
+    use std::collections::{HashSet, HashMap};
+
+#[test]
+fn test_hashset_contains_sref() {
+    let mut s = HashSet::new();
+    s.insert(Lstr::from_sref("tacos"));
+    assert!(s.contains(Lstr::from_sref("tacos")));
+}
+
+}
