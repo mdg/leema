@@ -73,7 +73,7 @@ impl ModuleSource
         lex(txt)
     }
 
-    pub fn read_ast(txt: &str) -> Ast
+    pub fn read_ast(txt: &str) -> ast::Ast
     {
         let toks = ModuleSource::read_tokens(txt);
         ast::parse(toks)

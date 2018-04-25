@@ -159,7 +159,7 @@ impl Token
                     Token::ELSE(tl)
                 }
                 parse::TOKEN_FAILED => {
-                    Token::FAILED
+                    Token::FAILED(tl)
                 }
                 parse::TOKEN_PLUS => {
                     Token::PLUS(tl)

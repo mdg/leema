@@ -1,11 +1,13 @@
 %include {
-use leema::ast::{Ast, TokenData};
+use leema::ast::{self, Ast, TokenData};
 use leema::val::{Val, SxprType, Type, SrcLoc};
+use leema::lstr::{Lstr};
 use leema::list;
 use leema::log;
 use leema::sxpr;
+
+use std::collections::linked_list::{LinkedList};
 use std::io::{Write};
-use std::rc::{Rc};
 }
 
 %start_symbol {program}
@@ -24,6 +26,7 @@ use std::rc::{Rc};
 %type ENUM { SrcLoc }
 %type EQ { SrcLoc }
 %type EQ1 { SrcLoc }
+%type FAILED { SrcLoc }
 %type Fork { SrcLoc }
 %type Func { SrcLoc }
 %type GT { SrcLoc }
@@ -73,20 +76,22 @@ use std::rc::{Rc};
 %type macro_stmt { Ast }
 %type call_expr { Ast }
 %type if_stmt { Ast }
-%type else_if { Ast }
+%type else_if { ast::IfCase }
 %type expr_list { LinkedList<Ast> }
+%type id_item { Ast }
 %type id_list { LinkedList<Ast> }
 %type if_expr { Ast }
 %type if_case { ast::IfCase }
+%type keyed_expr { Ast }
 %type localid { Ast }
 %type lri { Ast }
 %type lri_base { (Vec<Lstr>, SrcLoc) }
 %type match_expr { Ast }
 %type defstruct { Ast }
-%type defstruct_fields { Vec<Ast> }
+%type defstruct_fields { LinkedList<Ast> }
 %type defstruct_field { Ast }
 %type defenum { Ast }
-%type defenum_variants { Vec<Ast> }
+%type defenum_variants { LinkedList<Ast> }
 %type defenum_variant { Ast }
 %type defnamedtuple { Ast }
 %type let_stmt { Ast }
@@ -94,7 +99,7 @@ use std::rc::{Rc};
 %type expr { Ast }
 %type typex { Ast }
 %type opt_typex { Ast }
-%type arrow_typex { Vec<Ast> }
+%type arrow_typex { (Vec<Ast>, SrcLoc) }
 %type type_term { Ast }
 %type mod_type { Ast }
 
@@ -182,10 +187,10 @@ defstruct(A) ::= STRUCT(D) lri(B) defstruct_fields(C) DOUBLEDASH. {
 }
 defstruct_fields(A) ::= defstruct_fields(B) defstruct_field(C). {
     A = B;
-    A.push(C);
+    A.push_back(C);
 }
 defstruct_fields(A) ::= . {
-    A = Vec::new();
+    A = LinkedList::new();
 }
 defstruct_field(A) ::= DOT ID(B) COLON term(C). {
     A = Ast::KeyedExpr(Lstr::from_string(B.data), Box::new(C), B.loc);
@@ -197,10 +202,11 @@ defenum(A) ::= ENUM(D) lri(B) defenum_variants(C) DOUBLEDASH. {
 }
 defenum_variants(A) ::= defenum_variants(B) defenum_variant(C). {
     A = B;
-    A.push(C);
+    A.push_back(C);
 }
 defenum_variants(A) ::= defenum_variant(B). {
-    A = vec![B];
+    A = LinkedList::new();
+    A.push_back(B);
 }
 defenum_variant(A) ::= PIPE(D) localid(B) PARENCALL expr_list(C) RPAREN. {
     A = Ast::DefData(ast::DataType::NamedTuple, Box::new(B), C, D);
@@ -268,16 +274,15 @@ typex(A) ::= term(B). {
     A = B;
 }
 typex(A) ::= arrow_typex(B). {
-    A = Ast::TypeFunc(items.0, items.1);
+    A = Ast::TypeFunc(B.0, B.1);
 }
 
-arrow_typex(A) ::= term(B) GT term(C). {
-    A = vec![B, C];
+arrow_typex(A) ::= term(B) GT(L) term(C). {
+    A = (vec![B, C], L);
 }
 arrow_typex(A) ::= arrow_typex(B) GT term(C). {
-    let mut tmp = B;
-    tmp.push(C);
-    A = tmp;
+    A = B;
+    A.0.push(C);
 }
 
 
@@ -324,14 +329,17 @@ expr(A) ::= term(B). { A = B; }
 if_stmt(A) ::= IF(D) expr(B) block(C) DOUBLEDASH. {
     /* if-only style */
     let case = ast::IfCase(B, C, None, D.clone());
-    A = Ast::IfExpr(ast::IfType::If, Box::new(Ast::ConstVoid), case, D);
+    A = Ast::IfExpr(ast::IfType::If
+        , Box::new(Ast::ConstVoid), Box::new(case), D);
 }
 if_stmt(A) ::= IF(L) expr(B) block(C) else_if(D) DOUBLEDASH. {
     /* if-else style */
-    A = ast::IfCase(B, C, Some(D), L);
+    let case = ast::IfCase(B, C, Some(Box::new(D)), L);
+    A = Ast::IfExpr(ast::IfType::If
+        , Box::new(Ast::ConstVoid), Box::new(case), L);
 }
 else_if(A) ::= ELSE IF(L) expr(B) block(C) else_if(D). {
-    A = ast::IfCase(B, C, Some(D), L);
+    A = ast::IfCase(B, C, Some(Box::new(D)), L);
 }
 else_if(A) ::= ELSE IF(L) expr(B) block(C). {
     A = ast::IfCase(B, C, None, L);
@@ -351,7 +359,7 @@ expr(A) ::= term(B) DOLLAR term(C). {
     A = Ast::ConstVoid;
 }
 expr(A) ::= term(B) DOT ID(C). {
-    A = Ast::DotAccess(Box::new(B), Lstr::new_str(C.data));
+    A = Ast::DotAccess(Box::new(B), Lstr::from_string(C.data));
 }
 
 /* IF expression */
@@ -366,7 +374,7 @@ if_case(A) ::= PIPE(L) expr(B) block(C) if_case(D). {
     A = ast::IfCase(B, C, Some(Box::new(D)), L);
 }
 if_case(A) ::= PIPE ELSE(L) block(B). {
-    A = ast::IfCase(Ast::Wildcard, B, None);
+    A = ast::IfCase(Ast::Wildcard, B, None, L);
 }
 
 /* match expression */
@@ -376,81 +384,86 @@ match_expr(A) ::= MATCH(D) expr(B) if_case(C) DOUBLEDASH. {
 
 
 expr(A) ::= NOT(C) expr(B). {
-    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("bool_not")];
-    A = Ast::Call(Box::new(Ast::Lri(call, None, C.clone())), vec![B], C);
+    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("bool_not")];
+    let mut args = LinkedList::new();
+    args.push_back(B);
+    A = Ast::Call(Box::new(Ast::Lri(call, None, C.clone())), args, C);
 }
 expr(A) ::= expr(B) ConcatNewline(C). {
-    A = Ast::StrExpr(vec![B, Ast::ConstStr(Lstr::from_str("\n"))], C);
+    A = Ast::StrExpr(vec![B, Ast::ConstStr(Lstr::from_sref("\n"))], C);
 }
 /* arithmetic */
 expr(A) ::= NEGATE(C) term(B). {
-    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("int_negate")];
-    A = Ast::Call(Box::new(Ast::Lri(call, None, C.clone())), vec![B], C);
+    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("int_negate")];
+    let mut args = LinkedList::new();
+    args.push_back(B);
+    A = Ast::Call(Box::new(Ast::Lri(call, None, C.clone())), args, C);
 }
 expr(A) ::= expr(B) PLUS(D) expr(C). {
-    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("int_add")];
+    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("int_add")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) MINUS(D) expr(C). {
-    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("int_sub")];
+    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("int_sub")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) TIMES(D) expr(C). {
-    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("int_mult")];
+    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("int_mult")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) SLASH(D) expr(C). {
-    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("int_div")];
+    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("int_div")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) MOD(D) expr(C). {
-    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("int_mod")];
+    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("int_mod")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) SEMICOLON expr(C). {
     A = Ast::Cons(Box::new(B), Box::new(C));
 }
 expr(A) ::= expr(B) AND(D) expr(C). {
-    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("boolean_and")];
+    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("boolean_and")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) OR(D) expr(C). {
-    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("boolean_or")];
+    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("boolean_or")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) XOR(D) expr(C). {
-    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("boolean_xor")];
+    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("boolean_xor")];
     A = Ast::binaryop(call, B, C, D);
 }
 
 /* comparisons */
 expr(A) ::= expr(B) LT(D) expr(C). {
-    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("less_than")];
+    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("less_than")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) LTEQ(D) expr(C). {
     let call =
-        vec![Lstr::from_str("prefab"), Lstr::from_str("less_than_equal")];
+        vec![Lstr::from_sref("prefab"), Lstr::from_sref("less_than_equal")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) GT(D) expr(C). {
-    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("greater_than")];
+    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("greater_than")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) GTEQ(D) expr(C). {
     let call =
-        vec![Lstr::from_str("prefab"), Lstr::from_str("greater_than_equal")];
+        vec![Lstr::from_sref("prefab"), Lstr::from_sref("greater_than_equal")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) EQ(P) expr(C). {
-    let call = vec![Lstr::from_str("prefab"), Lstr::from_str("equal")];
+    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("equal")];
     A = Ast::binaryop(call, B, C, P);
 }
 expr(A) ::= expr(B) NEQ(P) expr(C). {
-    let inner_call = vec![Lstr::from_str("prefab"), Lstr::from_str("equal")];
-    let inner_op = Ast::binaryop(inner_call, B, C, P);
-    let not_call = Ast::Lri(vec![Lstr::from_str("bool_not")], None, P.clone());
-    A = Ast::Call(Box::new(not_call), vec![inner_op], P);
+    let inner_call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("equal")];
+    let mut inner_op = LinkedList::new();
+    inner_op.push_back(Ast::binaryop(inner_call, B, C, P));
+    let not_call = Ast::Lri(vec![Lstr::from_sref("bool_not")], None, P.clone());
+    A = Ast::Call(Box::new(not_call), inner_op, P);
 }
 /*
 expr(A) ::= expr(B) LT expr(C) LT expr(D). {
@@ -547,11 +560,11 @@ lri(A) ::= lri_base(B) SquareCall expr_list(C) SquareR. {
 }
 lri_base(A) ::= ID(B). {
 println!("found lri: {}", B.data);
-    A = (vec![Lstr::new_str(B.data)], B.loc);
+    A = (vec![Lstr::from_string(B.data)], B.loc);
 }
 lri_base(A) ::= lri_base(B) DBLCOLON ID(C). {
     A = B;
-    A.0.push(Lstr::new_str(C.data));
+    A.0.push(Lstr::from_string(C.data));
 }
 
 
@@ -594,7 +607,7 @@ strlist(A) ::= . {
 }
 strlist(A) ::= strlist(B) StrLit(C). {
     A = B;
-    A.push(Ast::ConstStr(Lstr::new(C)));
+    A.push(Ast::ConstStr(Lstr::from_string(C)));
 }
 strlist(A) ::= strlist(B) term(C). {
     A = B;

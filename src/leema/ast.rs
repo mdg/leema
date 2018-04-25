@@ -3,6 +3,8 @@ use leema::log;
 use leema::lstr::{Lstr};
 use leema::parse::{Parser, Token};
 
+use std::collections::LinkedList;
+
 /*
 #[derive(Clone)]
 #[derive(Debug)]
@@ -85,24 +87,26 @@ pub enum IfType
     TypeCast,
 }
 
-struct IfCase(Ast, Ast, Option<Box<IfCase>>, SrcLoc);
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+pub struct IfCase(Ast, Ast, Option<Box<IfCase>>, SrcLoc);
 
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
-#[derive(PartialOrd)]
 pub enum Ast
 {
     Block(Vec<Ast>),
-    Call(Box<Ast>, Vec<Ast>, SrcLoc),
+    Call(Box<Ast>, LinkedList<Ast>, SrcLoc),
     Cons(Box<Ast>, Box<Ast>),
     ConstBool(bool),
     ConstHashtag(Lstr),
     ConstInt(i64),
     ConstStr(Lstr),
     ConstVoid,
-    DefData(DataType, Box<Ast>, Vec<Ast>, SrcLoc),
-    DefFunc(FuncType, Box<Ast>, Box<Ast>, Box<Ast>, Box<Ast>, SrcLoc),
+    DefData(DataType, Box<Ast>, LinkedList<Ast>, SrcLoc),
+    DefFunc(FuncType, Box<Ast>, LinkedList<Ast>, Box<Ast>, Box<Ast>, SrcLoc),
     DotAccess(Box<Ast>, Lstr),
     IfExpr(IfType, Box<Ast>, Box<IfCase>, SrcLoc),
     Import(Box<Ast>, SrcLoc),
@@ -110,11 +114,11 @@ pub enum Ast
     Let(LetType, Box<Ast>, Box<Ast>, SrcLoc),
     List(LinkedList<Ast>),
     Localid(Lstr, SrcLoc),
-    Lri(Vec<Lstr>, Option<Vec<Ast>>, SrcLoc),
+    Lri(Vec<Lstr>, Option<LinkedList<Ast>>, SrcLoc),
     Return(Box<Ast>, SrcLoc),
     RustBlock,
     StrExpr(Vec<Ast>, SrcLoc),
-    Tuple(Vec<Ast>),
+    Tuple(LinkedList<Ast>),
     TypeAnon,
     TypeBool,
     TypeFunc(Vec<Ast>, SrcLoc),
@@ -133,13 +137,17 @@ impl Ast
 {
     pub fn binaryop(callname: Vec<Lstr>, a: Ast, b: Ast, loc: SrcLoc) -> Ast
     {
-        Ast::Call(Ast::lri(callname), vec![a, b], loc)
+        let name_lri = Ast::Lri(callname, None, loc.clone());
+        let mut args = LinkedList::new();
+        args.push_back(a);
+        args.push_back(b);
+        Ast::Call(Box::new(name_lri), args, loc)
     }
 
     pub fn matchfunc_body(ids: &LinkedList<Ast>, cases: IfCase, loc: SrcLoc
         ) -> Ast
     {
-        let match_args = ids.map(|idx| {
+        let match_args = ids.iter().map(|idx| {
             match idx {
                 &Ast::KeyedExpr(ref id, _, loc) => {
                     Ast::Localid(id.clone(), loc)
@@ -154,7 +162,7 @@ impl Ast
                     panic!("unknown argument value");
                 }
             }
-        });
+        }).collect();
         let test = Ast::Tuple(match_args);
         Ast::IfExpr(IfType::Match, Box::new(test), Box::new(cases), loc)
     }
