@@ -1,5 +1,6 @@
 use leema::program::{Lib};
-use leema::ast::{Ast};
+use leema::ast::{self, Ast};
+use leema::lstr::{Lstr};
 use leema::val::{SxprType, Val, Type, SrcLoc};
 use leema::module::{ModKey, ModulePreface, MacroDef};
 use leema::list;
@@ -52,36 +53,21 @@ impl Protomod
             , mp: &ModulePreface, x: &Ast
     ) {
         match x {
-            &Val::Sxpr(SxprType::DefFunc, ref parts, ref loc) => {
-                let (fname, args, fresult, body) = list::to_ref_tuple4(parts);
-                let rcname = fname.id_name().clone();
-                let strname = String::from(fname.str());
-                let pp_args = Protomod::preproc_list(prog, mp, args, loc);
-                let pp_fresult = Protomod::preproc_expr(prog, mp, fresult, loc);
-                let pp_body = Protomod::preproc_expr(prog, mp, body, loc);
-                let pp_func = sxpr::defunc(
-                        fname.clone(), pp_args, pp_fresult, pp_body, *loc);
-
-                let ftype = sxpr::defunc_type(&pp_func);
-
-                self.funcseq.push_back(rcname);
-                self.funcsrc.insert(strname.clone(), pp_func);
-                self.valtypes.insert(strname, ftype);
-            }
-            &Val::Sxpr(SxprType::DefStruct, ref parts, ref loc) => {
-                self.preproc_struct(parts, loc);
-            }
-            &Val::Sxpr(SxprType::DefEnum, ref parts, ref loc) => {
-                self.preproc_enum(parts, loc);
-            }
-            &Val::Sxpr(SxprType::DefNamedTuple, ref parts, ref loc) => {
-                self.preproc_namedtuple(parts, loc);
-            }
-            &Val::Sxpr(SxprType::DefMacro, _, ref loc) => {
+            &Ast::DefFunc(ast::FuncClass::Macro, _, _, _, _, _) => {
                 // do nothing. the macro definition will have been handled
                 // in the file read
             }
-            &Val::Sxpr(SxprType::Import, _, _) => {
+            &Ast::DefFunc(
+                fclass, ref name, ref args, ref result_type, ref body, ref loc
+            ) => {
+                self.preproc_defunc(prog, mp, fclass, name
+                    , args, result_type, body, loc);
+            }
+            &Ast::DefData(data_type, ref name, ref fields, ref loc
+            ) => {
+                self.preproc_data(data_type, name, fields, loc);
+            }
+            &Ast::Import(imports, _) => {
                 // do nothing. imports handled in file read
             }
             _ => {
@@ -90,10 +76,41 @@ impl Protomod
         }
     }
 
-    pub fn preproc_expr(prog: &Lib, mp: &ModulePreface, x: &Val, loc: &SrcLoc
-        ) -> Val
+    pub fn preproc_expr(prog: &Lib, mp: &ModulePreface, x: &Ast, loc: &SrcLoc
+        ) -> Ast
     {
         match x {
+            &Ast::Block(ref items, ref loc) => {
+                let pp_items = items.iter().map(|i| {
+                    Protomod::preproc_expr(prog, mp, i, loc)
+                });
+                Ast::Block(pp_items, loc)
+            }
+            &Ast::Cons(ref head, ref tail, ref loc) => {
+                let pp_head = Protomod::preproc_expr(prog, mp, head, loc);
+                let pp_tail = Protomod::preproc_expr(prog, mp, tail, loc);
+                Ast::Cons(pp_head, pp_tail, loc)
+            }
+            &Ast::ConstBool(b) => Ast::ConstBool(b),
+            &Ast::ConstHashtag(_) => x.clone(),
+            &Ast::ConstInt(i) => Ast::ConstInt(i),
+            &Ast::ConstStr(_) => x.clone(),
+            &Ast::ConstVoid => Ast::ConstVoid,
+            &Ast::DotAccess(ref base, ref fld) => {
+                let ppbase = Protomod::preproc_expr(prog, mp, base, loc);
+                Ast::DotAccess(Box::new(ppbase), fld.clone())
+            }
+            &Ast::IfExpr(iftype, ref input, ref case, ref loc) => {
+                let pp_input = Protomod::preproc_expr(prog, mp, input, loc);
+                let pp_case =
+                    Protomod::preproc_ifcase(prog, mp, iftype, case, loc);
+                Ast::IfExpr(iftype, pp_input, pp_case, loc)
+            }
+            &Ast::Let(let_type, ref left, ref right, ref loc) => {
+                let pp_left = Protomod::preproc_pattern(prog, mp, left, loc);
+                let pp_right = Protomod::preproc_expr(prog, mp, right, loc);
+                Ast::Let(let_type, pp_left, pp_right, loc)
+            }
             &Val::Sxpr(SxprType::Call, ref call_info, ref loc) => {
                 let (ref callx, ref args) = list::take_ref(call_info);
                 Protomod::preproc_call(prog, mp, callx, args, loc)
@@ -101,23 +118,10 @@ impl Protomod
             &Val::Id(_) => {
                 x.clone()
             }
-            &Val::Sxpr(sxpr_type, ref sx, ref sxloc) => {
-                Protomod::preproc_sxpr(prog, mp, sxpr_type, sx, sxloc)
-            }
-            &Val::Int(i) => {
-                Val::Int(i)
-            }
-            &Val::Str(_) => {
-                x.clone()
-            }
-            &Val::Bool(b) => {
-                Val::Bool(b)
-            }
             &Val::Cons(ref head, ref tail) => {
                 Protomod::preproc_cons(prog, mp, head, tail, loc)
             }
             &Val::Nil => Val::Nil,
-            &Val::Hashtag(ref ht) => Val::Hashtag(ht.clone()),
             &Val::Type(ref typ) => {
                 Val::Type(Protomod::preproc_type(prog, mp, typ))
             }
@@ -125,18 +129,15 @@ impl Protomod
                 let pptyp = Protomod::preproc_type(prog, mp, typ);
                 Val::TypedId(id.clone(), pptyp)
             }
-            &Val::Tuple(ref items) if items.len() == 1 => {
-                // one tuples are compiled to just the value
-                Protomod::preproc_expr(prog, mp, items.get(0).unwrap(), loc)
+            &Ast::Tuple(ref items) if items.len() == 1 => {
+                // one-tuples are compiled to just the value
+                Protomod::preproc_expr(prog, mp, items.first().unwrap(), loc)
             }
-            &Val::Tuple(ref items) => {
-                Val::Tuple(items.iter().map(|i| {
+            &Ast::Tuple(ref items) => {
+                let pp_items = items.iter().map(|i| {
                     Protomod::preproc_expr(prog, mp, i, loc)
-                }).collect())
-            }
-            &Val::DotAccess(ref base, ref fld) => {
-                let ppbase = Protomod::preproc_expr(prog, mp, base, loc);
-                Val::DotAccess(Box::new(ppbase), fld.clone())
+                }).collect();
+                Ast::Tuple(pp_items)
             }
             &Val::ModPrefix(ref prefix, ref name) => {
                 if !mp.imports.contains(&**prefix) {
@@ -145,12 +146,9 @@ impl Protomod
                 let ppname = Protomod::preproc_expr(prog, mp, name, loc);
                 Val::ModPrefix(prefix.clone(), Rc::new(ppname))
             }
-            &Val::Wildcard => Val::Wildcard,
-            &Val::RustBlock => Val::RustBlock,
-            &Val::Void => Val::Void,
-            &Val::Loc(ref v, ref l) => {
-                Protomod::preproc_expr(prog, mp, v, l)
-            }
+            &Ast::RustBlock => Ast::RustBlock,
+            &Ast::TypeVoid => Ast::TypeVoid,
+            &Ast::Wildcard => Ast::Wildcard,
             _ => {
                 println!("preproc_unknown_expr({:?})", x);
                 x.clone()
@@ -159,7 +157,7 @@ impl Protomod
     }
 
     pub fn preproc_cons(prog: &Lib, mp: &ModulePreface
-            , head: &Val, tail: &Val, loc: &SrcLoc) -> Val
+            , head: &Ast, tail: &Ast, loc: &SrcLoc) -> Ast
     {
         let pphead = Protomod::preproc_expr(prog, mp, head, loc);
         match tail {
@@ -191,6 +189,36 @@ impl Protomod
                 panic!("cannot preproc cons: {:?};{:?}", head, tail)
             }
         }
+    }
+
+    pub fn preproc_defunc(&mut self, prog: &Lib, mp: &ModulePreface
+        , fclass: ast::FuncClass, name: &Ast, args: &LinkedList<Ast>
+        , rtype: &Ast, body: &Ast, loc: &SrcLoc
+        )
+    {
+        let lstr_name = Lstr::from(name);
+        let pp_args = args.iter().map(|a| {
+            Protomod::preproc_expr(prog, mp, a, loc)
+        });
+        let pp_rtype = Protomod::preproc_expr(prog, mp, rtype, loc);
+        let pp_body = Protomod::preproc_expr(prog, mp, body, loc);
+        let pp_func =
+            Ast::DefFunc(fclass, name.clone(), pp_args, pp_rtype, pp_body, loc);
+        let lstr_name = Lstr::from(name);
+        let rcname: Rc<String> = From::from(lstr_name);
+        let strname = String::from(rcname);
+
+        let ftype_parts =
+            pp_args.iter().map(|a| {
+                a.get_type()
+            })
+            .collect()
+            .push(pp_rtype.clone());
+        let ftype = Ast::TypeFunc(ftype_parts, loc);
+
+        self.funcseq.push_back(rcname);
+        self.funcsrc.insert(strname.clone(), pp_func);
+        self.valtypes.insert(strname, ftype);
     }
 
     pub fn preproc_call(prog: &Lib, mp: &ModulePreface
@@ -351,45 +379,29 @@ impl Protomod
         }
     }
 
-    pub fn preproc_sxpr(prog: &Lib, mp: &ModulePreface
-            , st: SxprType, sx: &Val, loc: &SrcLoc) -> Val
+    pub fn preproc_ifcase(prog: &Lib, mp: &ModulePreface, iftype: ast::IfType
+        , case: &ast::IfCase, loc: &SrcLoc
+        ) -> ast::IfCase
     {
-        match st {
-            SxprType::Let => {
-                let (patt, src) = list::to_ref_tuple2(sx);
-                let ppatt = Protomod::preproc_pattern(prog, mp, patt);
-                let psrc = Protomod::preproc_expr(prog, mp, src, loc);
-                sxpr::new(
-                    st,
-                    list::from2(ppatt, psrc),
-                    *loc
-                )
-            }
-            SxprType::MatchExpr => {
-                let (mx, cases) = list::to_ref_tuple2(sx);
-                let pmx = Protomod::preproc_expr(prog, mp, mx, loc);
-                let pcases = Protomod::preproc_matchcase(prog, mp, cases, loc);
-                sxpr::new(
-                    st,
-                    list::from2(pmx, pcases),
-                    *loc,
-                )
-            }
-            SxprType::MatchFailed => {
-                let (fx, cases) = list::to_ref_tuple2(sx);
-                let pfx = Protomod::preproc_expr(prog, mp, fx, loc);
-                let pcases = Protomod::preproc_matchcase(prog, mp, cases, loc);
-                sxpr::new(
-                    SxprType::MatchFailed,
-                    list::from2(pfx, pcases),
-                    *loc,
-                )
-            }
-            _ => {
-                let pp_sx = Protomod::preproc_list(prog, mp, sx, loc);
-                sxpr::new(st, pp_sx, *loc)
-            }
-        }
+        let pp_cond =
+            match iftype {
+                ast::IfType::If => {
+                    Protomod::preproc_expr(prog, mp, case.cond, case.loc);
+                }
+                ast::IfType::Match => {
+                    Protomod::preproc_pattern(prog, mp, case.cond, case.loc);
+                }
+                ast::IfType::MatchFailure => {
+                    Protomod::preproc_pattern(prog, mp, case.cond, case.loc);
+                }
+                ast::IfType::TypeCast => {
+                    panic!("typecast not ready yet");
+                }
+            };
+        let pp_body = Protomod::preproc_expr(prog, mp, case.body, case.loc);
+        let pp_else =
+            Protomod::preproc_ifcase(prog, mp, case.else_case, case.loc);
+        ast::IfCase::new(pp_cond, pp_body, pp_else, loc)
     }
 
     pub fn preproc_matchcase(prog: &Lib, mp: &ModulePreface, case: &Val
@@ -505,17 +517,28 @@ impl Protomod
         }
     }
 
-    pub fn preproc_struct(&mut self, sp: &Val, loc: &SrcLoc)
+    pub fn preproc_data(&mut self, datatype: ast::DataType, name: &Ast
+        , fields: Vec<Ast>, loc: &SrcLoc
+        )
     {
-        let (ref name, ref src_fields) = list::take_ref(sp);
-        if list::is_empty(src_fields) {
-            self.preproc_token_struct(name, loc);
-        } else {
-            self.preproc_struct_with_fields(name, src_fields, loc);
+        match datatype {
+            ast::DataType::Struct => {
+                if fields.is_empty() {
+                    self.preproc_token_struct(name, loc);
+                } else {
+                    self.preproc_struct_with_fields(name, fields, loc);
+                }
+            }
+            ast::DataType::Enum => {
+                self.preproc_enum(name, fields, loc);
+            }
+            ast::DataType::NamedTuple => {
+                self.preproc_namedtuple(name, fields, loc);
+            }
         }
     }
 
-    pub fn preproc_token_struct(&mut self, name: &Val, loc: &SrcLoc)
+    pub fn preproc_token_struct(&mut self, name: &Ast, loc: &SrcLoc)
     {
         let rc_name = name.id_name().clone();
         let local_type = Type::Token(rc_name.clone());
@@ -532,8 +555,8 @@ impl Protomod
         self.newtypes.insert(mod_type);
     }
 
-    pub fn preproc_struct_with_fields(&mut self, name: &Val, src_fields: &Val
-        , loc: &SrcLoc
+    pub fn preproc_struct_with_fields(&mut self, name: &Ast
+        , src_fields: &Vec<Ast>, loc: &SrcLoc
         )
     {
         let rc_name = name.id_name().clone();
@@ -549,8 +572,8 @@ impl Protomod
         self.newtypes.insert(local_type);
     }
 
-    pub fn preproc_struct_fields(&mut self, typ: &Type, mod_name: &Rc<String>
-        , name: &Val, src_fields: &Val, loc: &SrcLoc
+    pub fn preproc_struct_fields(&mut self, typ: &Type, mod_name: &Lstr
+        , name: &Ast, src_fields: &Vec<Ast>, loc: &SrcLoc
         )
     {
         let rc_name = name.id_name();
@@ -607,9 +630,9 @@ impl Protomod
         })
     }
 
-    pub fn preproc_enum(&mut self, sp: &Val, loc: &SrcLoc)
+    pub fn preproc_enum(&mut self, name: &Ast, variants: &Vec<Ast>
+        , loc: &SrcLoc)
     {
-        let (ref name, ref src_variants) = list::take_ref(sp);
         let rc_name = name.id_name().clone();
         let local_type = Type::Enum(rc_name.clone());
         let mod_type = Type::ModPrefix(
@@ -630,7 +653,7 @@ impl Protomod
         self.constants.insert((*rc_name).clone(), Val::Type(mod_type));
     }
 
-    pub fn preproc_enum_variant(&mut self, typ: &Type, i: i16, var: &Val
+    pub fn preproc_enum_variant(&mut self, typ: &Type, i: i16, var: &Ast
         , loc: &SrcLoc
         ) -> Rc<String>
     {
@@ -669,10 +692,10 @@ impl Protomod
         }
     }
 
-    pub fn preproc_namedtuple(&mut self, pieces: &Val, loc: &SrcLoc)
+    pub fn preproc_namedtuple(&mut self, name: &Ast, fields: &Vec<Ast>
+        , loc: &SrcLoc)
     {
-        let (name_id, fields) = list::take_ref(pieces);
-        let name_str = name_id.id_name();
+        let name_str = String::from(name);
         let field_types: Vec<Type> = list::iter(fields).map(|f| {
             f.to_type()
         }).collect();

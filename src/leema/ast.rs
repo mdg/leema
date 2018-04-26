@@ -9,7 +9,7 @@ use std::collections::LinkedList;
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
-pub enum FuncType {
+pub enum FuncClass {
     Pure,
     //Query,
     //Cmd,
@@ -68,7 +68,7 @@ pub enum DataType
 #[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
-pub enum FuncType
+pub enum FuncClass
 {
     Macro,
     Func,
@@ -126,7 +126,7 @@ pub enum Ast
     ConstStr(Lstr),
     ConstVoid,
     DefData(DataType, Box<Ast>, LinkedList<Ast>, SrcLoc),
-    DefFunc(FuncType, Box<Ast>, LinkedList<Ast>, Box<Ast>, Box<Ast>, SrcLoc),
+    DefFunc(FuncClass, Box<Ast>, LinkedList<Ast>, Box<Ast>, Box<Ast>, SrcLoc),
     DotAccess(Box<Ast>, Lstr),
     IfExpr(IfType, Box<Ast>, Box<IfCase>, SrcLoc),
     Import(Box<Ast>, SrcLoc),

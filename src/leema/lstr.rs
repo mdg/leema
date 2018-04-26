@@ -68,6 +68,21 @@ impl<'a> From<&'a Lstr> for String
     }
 }
 
+impl<'a> From<&'a Lstr> for Rc<String>
+{
+    fn from(ls: &'a Lstr) -> Rc<String>
+    {
+        match ls {
+            &Lstr::Rc(ref s) => s.clone(),
+            &Lstr::Arc(ref s) => Rc::new((**s).clone()),
+            &Lstr::Sref(ref s) => Rc::new(s.to_string()),
+            &Lstr::Cat(ref a, ref b) => {
+                Rc::new(format!("{}{}", a, b))
+            }
+        }
+    }
+}
+
 impl From<String> for Lstr
 {
     fn from(s: String) -> Lstr

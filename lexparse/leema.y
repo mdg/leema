@@ -239,7 +239,7 @@ let_stmt ::= Let expr EQ1(A) expr. {
 func_stmt(A) ::= Func(Z) lri(B) PARENCALL id_list(D) RPAREN COLON typex(E)
     RUSTBLOCK.
 {
-    A = Ast::DefFunc(ast::FuncType::Func
+    A = Ast::DefFunc(ast::FuncClass::Func
         , Box::new(B), D, Box::new(E), Box::new(Ast::RustBlock), Z);
 }
 
@@ -247,7 +247,7 @@ func_stmt(A) ::= Func(Z) lri(B) PARENCALL id_list(D) RPAREN COLON typex(E)
 func_stmt(A) ::= Func(Z) lri(B) PARENCALL id_list(D) RPAREN opt_typex(E)
     block(C) DOUBLEDASH.
 {
-    A = Ast::DefFunc(ast::FuncType::Func
+    A = Ast::DefFunc(ast::FuncClass::Func
         , Box::new(B), D, Box::new(E), Box::new(C), Z);
 }
 /* func w/ pattern matching */
@@ -256,7 +256,7 @@ func_stmt(A) ::= Func(Z) lri(B) PARENCALL id_list(C) RPAREN opt_typex(D)
 {
     // extract field names from args to pass them through to match expr
     let body = Ast::matchfunc_body(&C, E, Z);
-    A = Ast::DefFunc(ast::FuncType::Func
+    A = Ast::DefFunc(ast::FuncClass::Func
         , Box::new(B), C, Box::new(D), Box::new(body), Z);
 }
 
@@ -288,7 +288,7 @@ arrow_typex(A) ::= arrow_typex(B) GT term(C). {
 macro_stmt(A) ::= MACRO ID(B) PARENCALL id_list(D) RPAREN block(C) DOUBLEDASH. {
     vout!("found macro {:?}\n", B);
     let name = Ast::Lri(vec![Lstr::from_string(B.data)], None, B.loc.clone());
-    A = Ast::DefFunc(ast::FuncType::Macro
+    A = Ast::DefFunc(ast::FuncClass::Macro
         , Box::new(name), D, Box::new(Ast::TypeAnon), Box::new(C), B.loc);
 }
 

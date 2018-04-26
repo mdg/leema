@@ -126,7 +126,7 @@ impl ModulePreface
                 let imp_string = (**i).localid_str().to_string();
                 mp.imports.insert(imp_string);
             }
-            &Ast::DefFunc(ast::FuncType::Macro, ref name, ref args
+            &Ast::DefFunc(ast::FuncClass::Macro, ref name, ref args
                     , _, ref body, ref loc
                 ) => {
                 let name_string = String::from(&**name);
