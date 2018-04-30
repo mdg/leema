@@ -92,10 +92,10 @@ pub enum IfType
 #[derive(PartialEq)]
 pub struct IfCase
 {
-    cond: Ast,
-    body: Ast,
-    else_case: Option<Box<IfCase>>,
-    loc: SrcLoc,
+    pub cond: Ast,
+    pub body: Ast,
+    pub else_case: Option<Box<IfCase>>,
+    pub loc: SrcLoc,
 }
 
 impl IfCase
@@ -120,6 +120,7 @@ pub enum Ast
     Block(Vec<Ast>),
     Call(Box<Ast>, LinkedList<Ast>, SrcLoc),
     Cons(Box<Ast>, Box<Ast>),
+    ConstructData(DataType, Box<Ast>, Vec<Ast>),
     ConstBool(bool),
     ConstHashtag(Lstr),
     ConstInt(i64),
@@ -193,6 +194,17 @@ impl Ast
             &Ast::Localid(ref name, _) => name,
             _ => {
                 panic!("not a localid: {:?}", self);
+            }
+        }
+    }
+
+    pub fn loc(&self) -> &SrcLoc
+    {
+        match self {
+            &Ast::Localid(_, ref loc) => loc,
+            &Ast::Lri(_, _, ref loc) => loc,
+            _ => {
+                panic!("cannot find SrcLoc for: {:?}", self);
             }
         }
     }
