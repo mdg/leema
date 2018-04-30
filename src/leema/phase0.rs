@@ -63,9 +63,8 @@ impl Protomod
                 self.preproc_defunc(prog, mp, fclass, name
                     , args, result_type, body, loc);
             }
-            &Ast::DefData(data_type, ref name, ref fields, ref loc
-            ) => {
-                self.preproc_data(data_type, name, fields, loc);
+            &Ast::DefData(data_type, ref name, ref fields, ref loc) => {
+                self.preproc_data(prog, mp, data_type, name, fields, loc);
             }
             &Ast::Import(imports, _) => {
                 // do nothing. imports handled in file read
@@ -80,16 +79,16 @@ impl Protomod
         ) -> Ast
     {
         match x {
-            &Ast::Block(ref items, ref iloc) => {
+            &Ast::Block(ref items) => {
                 let pp_items = items.iter().map(|i| {
-                    Protomod::preproc_expr(prog, mp, i, iloc)
-                });
-                Ast::Block(pp_items, iloc)
+                    Protomod::preproc_expr(prog, mp, i, loc)
+                }).collect();
+                Ast::Block(pp_items)
             }
-            &Ast::Cons(ref head, ref tail, ref iloc) => {
-                let pp_head = Protomod::preproc_expr(prog, mp, head, iloc);
-                let pp_tail = Protomod::preproc_expr(prog, mp, tail, iloc);
-                Ast::Cons(pp_head, pp_tail, loc)
+            &Ast::Cons(ref head, ref tail) => {
+                let pp_head = Protomod::preproc_expr(prog, mp, head, loc);
+                let pp_tail = Protomod::preproc_expr(prog, mp, tail, loc);
+                Ast::Cons(Box::new(pp_head), Box::new(pp_tail))
             }
             &Ast::ConstBool(b) => Ast::ConstBool(b),
             &Ast::ConstHashtag(_) => x.clone(),
@@ -104,12 +103,13 @@ impl Protomod
                 let pp_input = Protomod::preproc_expr(prog, mp, input, iloc);
                 let pp_case =
                     Protomod::preproc_ifcase(prog, mp, iftype, case, iloc);
-                Ast::IfExpr(iftype, pp_input, pp_case, iloc)
+                Ast::IfExpr(iftype
+                    , Box::new(pp_input), Box::new(pp_case), *iloc)
             }
             &Ast::Let(let_type, ref left, ref right, ref iloc) => {
                 let pp_left = Protomod::preproc_pattern(prog, mp, left, iloc);
                 let pp_right = Protomod::preproc_expr(prog, mp, right, iloc);
-                Ast::Let(let_type, pp_left, pp_right, iloc)
+                Ast::Let(let_type, Box::new(pp_left), Box::new(pp_right), *iloc)
             }
             &Ast::Call(ref callx, ref args, ref iloc) => {
                 Protomod::preproc_call(prog, mp, callx, args, iloc)
@@ -117,12 +117,18 @@ impl Protomod
             &Ast::Localid(_, _) => {
                 x.clone()
             }
-            &Ast::Cons(ref head, ref tail) => {
-                Protomod::preproc_cons(prog, mp, head, tail, loc)
+            &Ast::Lri(ref mods, ref typs, ref iloc) => {
+                let pp_types = typs.map(|itypes| {
+                    itypes.iter().map(|t| {
+                        Protomod::preproc_expr(prog, mp, t, iloc)
+                    }).collect()
+                });
+                Ast::Lri(mods.clone(), pp_types, *iloc)
             }
-            &Val::TypedId(ref id, ref typ) => {
-                let pptyp = Protomod::preproc_type(prog, mp, typ);
-                Val::TypedId(id.clone(), pptyp)
+            &Ast::Cons(ref head, ref tail) => {
+                let pp_head = Protomod::preproc_expr(prog, mp, head, loc);
+                let pp_tail = Protomod::preproc_expr(prog, mp, tail, loc);
+                Ast::Cons(Box::new(pp_head), Box::new(pp_tail))
             }
             &Ast::Tuple(ref items) if items.len() == 1 => {
                 // one-tuples are compiled to just the value
@@ -134,54 +140,12 @@ impl Protomod
                 }).collect();
                 Ast::Tuple(pp_items)
             }
-            &Val::ModPrefix(ref prefix, ref name) => {
-                if !mp.imports.contains(&**prefix) {
-                    panic!("cannot find {} module. maybe import it?", prefix);
-                }
-                let ppname = Protomod::preproc_expr(prog, mp, name, loc);
-                Val::ModPrefix(prefix.clone(), Rc::new(ppname))
-            }
             &Ast::RustBlock => Ast::RustBlock,
             &Ast::TypeVoid => Ast::TypeVoid,
             &Ast::Wildcard => Ast::Wildcard,
             _ => {
                 println!("preproc_unknown_expr({:?})", x);
                 x.clone()
-            }
-        }
-    }
-
-    pub fn preproc_cons(prog: &Lib, mp: &ModulePreface
-            , head: &Ast, tail: &Ast, loc: &SrcLoc) -> Ast
-    {
-        let pphead = Protomod::preproc_expr(prog, mp, head, loc);
-        match tail {
-            &Val::Cons(ref next_head, ref next_tail) => {
-                let pptail =
-                    Protomod::preproc_cons(prog, mp, next_head, next_tail, loc);
-                sxpr::call(
-                    Val::id("list_cons".to_string()),
-                    list::from2(pphead, pptail),
-                    *loc,
-                )
-            }
-            &Val::Nil => {
-                list::singleton(pphead)
-            }
-            &Val::Id(_) => {
-                let pptail = Protomod::preproc_expr(prog, mp, tail, loc);
-                sxpr::call(
-                    Val::id("list_cons".to_string()),
-                    list::from2(pphead, pptail),
-                    *loc,
-                )
-            }
-            &Val::Loc(ref v, ref lloc) => {
-                let v2 = Protomod::preproc_cons(prog, mp, head, v, lloc);
-                Val::loc(v2, *loc)
-            }
-            _ => {
-                panic!("cannot preproc cons: {:?};{:?}", head, tail)
             }
         }
     }
@@ -194,22 +158,27 @@ impl Protomod
         let lstr_name = Lstr::from(name);
         let pp_args = args.iter().map(|a| {
             Protomod::preproc_expr(prog, mp, a, loc)
-        });
-        let pp_rtype = Protomod::preproc_expr(prog, mp, rtype, loc);
+        }).collect();
+        let pp_rtype_ast = Protomod::preproc_expr(prog, mp, rtype, loc);
         let pp_body = Protomod::preproc_expr(prog, mp, body, loc);
         let pp_func =
-            Ast::DefFunc(fclass, name.clone(), pp_args, pp_rtype, pp_body, loc);
+            Ast::DefFunc(fclass, Box::new(name.clone())
+                , pp_args, Box::new(pp_rtype_ast)
+                , Box::new(pp_body), *loc
+            );
         let lstr_name = Lstr::from(name);
-        let rcname: Rc<String> = From::from(lstr_name);
-        let strname = String::from(rcname);
+        let rcname: Rc<String> = From::from(&lstr_name);
+        let strname = (*rcname).clone();
 
-        let ftype_parts =
+        let mut ftype_parts: Vec<Ast> =
             pp_args.iter().map(|a| {
-                a.get_type()
+                // Protomod::preproc_type(prog, mp, a, loc)
+                a.clone()
             })
-            .collect()
-            .push(pp_rtype.clone());
-        let ftype = Ast::TypeFunc(ftype_parts, loc);
+            .collect();
+        ftype_parts.push(pp_rtype_ast);
+        let ftype_ast = Ast::TypeFunc(ftype_parts, *loc);
+        let ftype = Protomod::preproc_type(prog, mp, &ftype_ast, loc);
 
         self.funcseq.push_back(rcname);
         self.funcsrc.insert(strname.clone(), pp_func);
@@ -217,91 +186,25 @@ impl Protomod
     }
 
     pub fn preproc_call(prog: &Lib, mp: &ModulePreface
-            , callx: &Ast, args: &LinkedList<Ast>, loc: &SrcLoc) -> Val
+            , callx: &Ast, args: &LinkedList<Ast>, loc: &SrcLoc) -> Ast
     {
         let pp_args = args.iter().map(|arg| {
             Protomod::preproc_expr(prog, mp, arg, loc)
-        });
-        match callx {
-            &Val::Id(ref id) => {
-                match mp.macros.get(&**id) {
-                    Some(&(ref arg_names, ref body)) => {
-                        let macrod =
-                            Protomod::apply_macro(
-                                callx, body, arg_names, args, loc);
-                        // do it again to make sure there's not a wrapped
-                        // macro
-                        Protomod::preproc_expr(prog, mp, &macrod, loc)
-                    }
-                    None => {
-                        match prog.get_macro("prefab", &**id) {
-                            Some(&(ref arg_names, ref body)) => {
-                                let macrod = Protomod::apply_macro(callx
-                                    , body, arg_names, args, loc);
-                                // do it again to make sure there's
-                                // not a wrapped macro
-                                Protomod::preproc_expr(prog, mp, &macrod, loc)
-                            }
-                            None => {
-                                sxpr::call(callx.clone(), pp_args, *loc)
-                            }
-                        }
-                    }
-                }
-            }
-            &Val::ModPrefix(ref prefix, ref inner) => {
-                if !mp.imports.contains(&**prefix) {
-                    panic!("module not found: {}", prefix);
-                }
-                let inner_id = inner.to_str();
-                let mac = prog.get_macro(prefix, &*inner_id);
-                if mac.is_none() {
-                    return sxpr::call(callx.clone(), pp_args, *loc);
-                }
-                let &(ref arg_names, ref body) = mac.unwrap();
-                let result = Protomod::apply_macro(
-                        callx, body, arg_names, args, loc);
-                Protomod::preproc_expr(prog, mp, &result, loc)
-            }
-            &Val::Sxpr(SxprType::Lri, ref lri, ref loc) => {
-                let mac = Protomod::get_macro(prog, lri);
-                if mac.is_none() {
-                    let pplri = Protomod::preproc_sxpr(prog, mp
-                        , SxprType::Lri, lri, loc);
-                    return sxpr::call(pplri, pp_args, *loc);
-                }
-                let &(ref arg_names, ref body) = mac.unwrap();
-                let result = Protomod::apply_macro(
-                        lri, body, arg_names, args, loc);
-                Protomod::preproc_expr(prog, mp, &result, loc)
-            }
-            &Val::Sxpr(SxprType::TypeParams, ref params, ref loc) => {
-                // nothing with type parameters is going to be a macro. proceed.
-                Protomod::preproc_sxpr(prog, mp
-                    , SxprType::TypeParams, params, loc)
-            }
-            &Val::DotAccess(ref outer, ref inner) => {
-                match &**outer {
-                    &Val::Id(ref outer_id) => {
-                        if !mp.imports.contains(&**outer_id) {
-                            return sxpr::call(callx.clone(), pp_args, *loc);
-                        }
-                        let mac = prog.get_macro(outer_id, inner);
-                        if mac.is_none() {
-                            return sxpr::call(callx.clone(), pp_args, *loc);
-                        }
-                        let &(ref arg_names, ref body) = mac.unwrap();
-                        let result = Protomod::apply_macro(
-                                callx, body, arg_names, args, loc);
-                        Protomod::preproc_expr(prog, mp, &result, loc)
-                    }
-                    _ => {
-                        sxpr::call(callx.clone(), pp_args, *loc)
-                    }
-                }
+        }).collect();
+        let pp_callx = Protomod::preproc_expr(prog, mp, callx, loc);
+        match pp_callx {
+            Ast::DefFunc(ast::FuncClass::Macro, mname, margs, _
+                    , body, _
+            ) => {
+                let macrod =
+                    Protomod::apply_macro(
+                        &mname, &body, &margs, args, loc);
+                // do it again to make sure there's not a wrapped
+                // macro
+                Protomod::preproc_expr(prog, mp, &macrod, loc)
             }
             _ => {
-                panic!("function call is what? {:?}@{:?}", callx, loc);
+                Ast::Call(Box::new(pp_callx), pp_args, *loc)
             }
         }
     }
@@ -310,64 +213,69 @@ impl Protomod
         ) -> Option<&'a MacroDef>
     {
         None
+        /*
+        let
+        match lri_items
+        if !mp.imports.contains(&**prefix) {
+            panic!("module not found: {}", prefix);
+        }
+        let inner_id = inner.to_str();
+        let mac = prog.get_macro(prefix, &*inner_id);
+        if mac.is_none() {
+            return sxpr::call(callx.clone(), pp_args, *loc);
+        }
+        */
     }
 
-    pub fn apply_macro(macro_name: &Val, body: &Val
-        , arg_names: &Vec<Rc<String>>, args: &Rc<Val>, loc: &SrcLoc
-        ) -> Val
+    pub fn apply_macro(macro_name: &Ast, body: &Ast
+        , arg_names: &LinkedList<Ast>, args: &LinkedList<Ast>, loc: &SrcLoc
+        ) -> Ast
     {
         let mut arg_map = HashMap::new();
-        let mut arg_it = args;
-        for n in arg_names {
-            if **arg_it == Val::Nil {
-                panic!("Too few arguments passed to macro {}, expected {}"
-                        , macro_name, arg_names.len());
+        match (arg_names.len(), args.len()) {
+            (a, b) if a < b => {
+                panic!("Too many arguments passed to macro {:?}, expected {}"
+                    , macro_name, a);
             }
-            let (arg_val, arg_tail) = list::take_ref(&**arg_it);
-            arg_map.insert(n.clone(), arg_val);
-            arg_it = arg_tail;
+            (a, b) if a > b => {
+                panic!("Too few arguments passed to macro {:?}, expected {}"
+                    , macro_name, a);
+            }
+            _ => {
+                // a == b. cool, proceed
+            }
         }
-        if **arg_it != Val::Nil {
-            panic!("Too many arguments passed to macro {}, expected {}"
-                    , macro_name, arg_names.len());
+        for (n, arg_val) in arg_names.iter().zip(args.iter()) {
+            let n_lstr = Lstr::from(n);
+            arg_map.insert(n_lstr, arg_val);
         }
         Protomod::replace_ids(body, &arg_map, loc)
     }
 
-    pub fn replace_ids(node: &Val, idvals: &HashMap<Rc<String>, &Val>
+    pub fn replace_ids(node: &Ast, idvals: &HashMap<Lstr, &Ast>
         , loc: &SrcLoc
-        ) -> Val
+        ) -> Ast
     {
         match node {
-            &Val::Cons(_, _) => {
-                let f = |v: &Val| -> Val {
-                    Protomod::replace_ids(v, idvals, loc)
-                };
-                list::map_ref(node, f)
+            &Ast::Cons(ref head, ref tail) => {
+                let rhead = Protomod::replace_ids(head, idvals, loc);
+                let rtail = Protomod::replace_ids(tail, idvals, loc);
+                Ast::Cons(Box::new(rhead), Box::new(rtail))
             }
-            &Val::Tuple(ref t) => {
-                let mut result = vec![];
-                for tv in t {
-                    let rv = Protomod::replace_ids(tv, idvals, loc);
-                    result.push(rv);
-                }
-                Val::Tuple(result)
+            &Ast::Tuple(ref t) => {
+                let result = t.iter().map(|tv| {
+                    Protomod::replace_ids(tv, idvals, loc)
+                }).collect();
+                Ast::Tuple(result)
             }
-            &Val::Id(ref name) => {
+            &Ast::Localid(ref name, ref iloc) => {
                 match idvals.get(&*name) {
                     Some(newx) => (*newx).clone(),
                     None => node.clone(),
                 }
             }
-            &Val::Loc(ref v, ref _oldloc) => {
-                Protomod::replace_ids(v, idvals, loc)
-            }
-            &Val::Sxpr(stype, ref sdata, ref _oldloc) => {
-                sxpr::new(
-                    stype,
-                    Protomod::replace_ids(sdata, idvals, loc),
-                    *loc,
-                )
+            &Ast::Lri(ref names, ref types, ref iloc) => {
+                node.clone()
             }
             _ => node.clone(),
         }
@@ -515,9 +423,9 @@ impl Protomod
 
         let struct_fields: Vec<(Rc<String>, Type)> =
             src_fields.iter().map(|f| {
-                if let &Ast::KeyedExpr(ref key, ref x, ref loc) = f {
+                if let &Ast::KeyedExpr(ref key, ref x, ref iloc) = f {
                     let key_rc: Rc<String> = From::from(key);
-                    let xtype = Protomod::preproc_type(prog, mp, x);
+                    let xtype = Protomod::preproc_type(prog, mp, x, iloc);
                     (key_rc, xtype)
                 } else {
                     panic!("struct field must have a name and a type: {:?}", f);
@@ -532,7 +440,7 @@ impl Protomod
             ftype.clone()
         }).collect();
 
-        let result_type = Protomod::preproc_type(prog, mp, &typename);
+        let result_type = Protomod::preproc_type(prog, mp, &typename, loc);
         let func_type = Type::Func(field_type_vec, Box::new(result_type));
 
         let srcblk = Ast::ConstructData(ast::DataType::Struct
@@ -613,7 +521,7 @@ impl Protomod
         )
     {
         let mod_name = self.key.name.clone();
-        let typ = Protomod::preproc_type(prog, mp, typename);
+        let typ = Protomod::preproc_type(prog, mp, typename, loc);
         let variant_name = Lstr::from(name);
         if dataclass == ast::DataType::Struct {
             if fields.is_empty() {
@@ -630,9 +538,6 @@ impl Protomod
                     , &mod_name, name, fields, loc);
             }
         } else if dataclass == ast::DataType::NamedTuple {
-            let field_vec = fields.iter().map(|f| {
-                Protomod::preproc_type(prog, mp, f)
-            }).collect();
             self.preproc_namedtuple_func(prog, mp
                 , typename, name, fields, loc);
         } else {
@@ -646,7 +551,7 @@ impl Protomod
         let name_lstr = Lstr::from(name);
         let name_rcstr: Rc<String> = From::from(&name_lstr);
         let field_types: Vec<Type> = fields.iter().map(|f| {
-            Protomod::preproc_type(prog, mp, f)
+            Protomod::preproc_type(prog, mp, f, loc)
         }).collect();
         let local_type =
             Type::NamedTuple(name_rcstr, field_types.clone());
@@ -672,7 +577,7 @@ impl Protomod
             })
             .collect();
         let field_type_vec: Vec<Type> = field_types.iter().map(|ft| {
-            Protomod::preproc_type(prog, mp, ft)
+            Protomod::preproc_type(prog, mp, ft, loc)
         }).collect();
         let named_type =
             Type::NamedTuple(name_str.clone(), field_type_vec.clone());
@@ -694,7 +599,8 @@ impl Protomod
         self.funcseq.push_back(name_str);
     }
 
-    pub fn preproc_type(prog: &Lib, mp: &ModulePreface, t: &Ast) -> Type
+    pub fn preproc_type(prog: &Lib, mp: &ModulePreface, t: &Ast, loc: &SrcLoc
+        ) -> Type
     {
         match t {
             &Ast::TypeInt => Type::Int,

@@ -128,7 +128,7 @@ impl ModulePreface
             }
             &Ast::DefFunc(ast::FuncClass::Macro, ref name, ref args
                     , _, ref body, ref loc
-                ) => {
+            ) => {
                 let name_string = String::from(&**name);
                 let arg_strings = args.iter().map(|a| {
                     From::from(a)
