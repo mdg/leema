@@ -31,7 +31,6 @@ impl Lib
 {
     pub fn new(mut l: Interloader) -> Lib
     {
-        l.set_mod_txt("prefab", String::from(prefab::source_code()));
         let mut proglib = Lib{
             loader: l,
             modsrc: HashMap::new(),

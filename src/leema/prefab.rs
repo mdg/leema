@@ -383,61 +383,6 @@ println!("read from file: '{}'", input);
     Event::success()
 }
 
-pub fn source_code() -> &'static str
-{
-    "macro boolean_and(a, b) ->
-        if
-        |a -> b
-        |else -> false
-        --
-    --
-
-    macro boolean_or(a, b) ->
-        if
-        |a -> true
-        |else -> b
-        --
-    --
-
-    macro fail(ft, msg) ->
-        return create_failure(ft, msg)
-    --
-
-    macro refail(f) ->
-        return f
-    --
-
-    ## recover from a failure w/ a new valid value
-    macro unfail(new_val) ->
-        new_val
-    --
-
-    func bool_not(v: Bool): Bool -RUST-
-
-    func int_add(a: Int, b: Int): Int -RUST-
-    func int_sub(a: Int, b: Int): Int -RUST-
-    func int_mult(a: Int, b: Int): Int -RUST-
-    func int_mod(a: Int, b: Int): Int -RUST-
-    func int_negate(a: Int): Int -RUST-
-    func int_random(): Int -RUST-
-    func equal(a, b): Bool -RUST-
-    func less_than(a, b): Bool -RUST-
-    func leema_sleep(d: Int): Void -RUST-
-    func cin(): Str -RUST-
-    func cout(txt: Str): Void -RUST-
-    func list_cons(head: $A, tail: [$A]): [$A] -RUST-
-
-    func int_abs(a: Int): Int ->
-        if
-        |a < 0 -> ~a
-        |else -> a
-        --
-    --
-
-    func create_failure(failure_tag: #, msg: Str): Failure -RUST-
-    "
-}
-
 macro_rules! load_rust_funcs {
     ( $fname:ident, $( $f:ident ),* ) => {
         match $fname {
