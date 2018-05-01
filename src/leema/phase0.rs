@@ -66,7 +66,7 @@ impl Protomod
             &Ast::DefData(data_type, ref name, ref fields, ref loc) => {
                 self.preproc_data(prog, mp, data_type, name, fields, loc);
             }
-            &Ast::Import(imports, _) => {
+            &Ast::Import(ref imports, _) => {
                 // do nothing. imports handled in file read
             }
             _ => {
@@ -118,10 +118,11 @@ impl Protomod
                 x.clone()
             }
             &Ast::Lri(ref mods, ref typs, ref iloc) => {
-                let pp_types = typs.map(|itypes| {
-                    itypes.iter().map(|t| {
+                let pp_types = typs.as_ref().map(|itypes| {
+                    let pp_typ: LinkedList<Ast> = itypes.iter().map(|t| {
                         Protomod::preproc_expr(prog, mp, t, iloc)
-                    }).collect()
+                    }).collect();
+                    pp_typ
                 });
                 Ast::Lri(mods.clone(), pp_types, *iloc)
             }
@@ -156,14 +157,14 @@ impl Protomod
         )
     {
         let lstr_name = Lstr::from(name);
-        let pp_args = args.iter().map(|a| {
+        let pp_args: LinkedList<Ast> = args.iter().map(|a| {
             Protomod::preproc_expr(prog, mp, a, loc)
         }).collect();
         let pp_rtype_ast = Protomod::preproc_expr(prog, mp, rtype, loc);
         let pp_body = Protomod::preproc_expr(prog, mp, body, loc);
         let pp_func =
             Ast::DefFunc(fclass, Box::new(name.clone())
-                , pp_args, Box::new(pp_rtype_ast)
+                , pp_args.clone(), Box::new(pp_rtype_ast.clone())
                 , Box::new(pp_body), *loc
             );
         let lstr_name = Lstr::from(name);
@@ -301,7 +302,7 @@ impl Protomod
                 }
             };
         let pp_body = Protomod::preproc_expr(prog, mp, &case.body, &case.loc);
-        let pp_else = case.else_case.map(|else_case| {
+        let pp_else = case.else_case.as_ref().map(|else_case| {
             Protomod::preproc_ifcase(prog, mp, iftype, &*else_case, &case.loc)
         });
         ast::IfCase::new(pp_cond, pp_body, pp_else, *loc)
@@ -433,10 +434,10 @@ impl Protomod
             }).collect();
 
         let field_id_vec: Vec<Ast> =
-            struct_fields.iter().map(|&(fname, ft)| {
+            struct_fields.iter().map(|&(ref fname, ref ft)| {
                 Ast::Localid(Lstr::Rc(fname.clone()), SrcLoc::default())
             }).collect();
-        let field_type_vec = struct_fields.iter().map(|&(_, ftype)| {
+        let field_type_vec = struct_fields.iter().map(|&(_, ref ftype)| {
             ftype.clone()
         }).collect();
 

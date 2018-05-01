@@ -153,8 +153,9 @@ stmts(A) ::= . {
     A = Vec::new();
 }
 stmts(A) ::= stmts(B) stmt(C). {
-    A = B;
-    A.push(C);
+    let mut tmp = B;
+    tmp.push(C);
+    A = tmp;
 }
 
 block(A) ::= BLOCKARROW(C) stmts(B). {
@@ -184,8 +185,9 @@ defstruct(A) ::= STRUCT(D) lri(B) defstruct_fields(C) DOUBLEDASH. {
     A = Ast::DefData(ast::DataType::Struct, Box::new(B), C, D);
 }
 defstruct_fields(A) ::= defstruct_fields(B) defstruct_field(C). {
-    A = B;
-    A.push_back(C);
+    let mut tmp = B;
+    tmp.push_back(C);
+    A = tmp;
 }
 defstruct_fields(A) ::= . {
     A = LinkedList::new();
@@ -199,12 +201,14 @@ defenum(A) ::= ENUM(D) lri(B) defenum_variants(C) DOUBLEDASH. {
     A = Ast::DefData(ast::DataType::Enum, Box::new(B), C, D);
 }
 defenum_variants(A) ::= defenum_variants(B) defenum_variant(C). {
-    A = B;
-    A.push_back(C);
+    let mut tmp = B;
+    tmp.push_back(C);
+    A = tmp;
 }
 defenum_variants(A) ::= defenum_variant(B). {
-    A = LinkedList::new();
-    A.push_back(B);
+    let mut tmp = LinkedList::new();
+    tmp.push_back(B);
+    A = tmp;
 }
 defenum_variant(A) ::= PIPE(D) localid(B) PARENCALL expr_list(C) RPAREN. {
     A = Ast::DefData(ast::DataType::NamedTuple, Box::new(B), C, D);
@@ -279,8 +283,9 @@ arrow_typex(A) ::= term(B) GT(L) term(C). {
     A = (vec![B, C], L);
 }
 arrow_typex(A) ::= arrow_typex(B) GT term(C). {
-    A = B;
-    A.0.push(C);
+    let mut tmp = B;
+    tmp.0.push(C);
+    A = tmp;
 }
 
 
@@ -561,8 +566,9 @@ println!("found lri: {}", B.data);
     A = (vec![Lstr::from_string(B.data)], B.loc);
 }
 lri_base(A) ::= lri_base(B) DBLCOLON ID(C). {
-    A = B;
-    A.0.push(Lstr::from_string(C.data));
+    let mut tmp = B;
+    tmp.0.push(Lstr::from_string(C.data));
+    A = tmp;
 }
 
 
@@ -570,8 +576,9 @@ id_list(A) ::= . {
     A = LinkedList::new();
 }
 id_list(A) ::= id_item(B) COMMA id_list(C). {
-    A = C;
-    A.push_front(B);
+    let mut tmp = C;
+    tmp.push_front(B);
+    A = tmp;
 }
 id_item(A) ::= ID(B). {
     A = Ast::Localid(Lstr::from_string(B.data), B.loc);
@@ -584,12 +591,14 @@ expr_list(A) ::= . {
     A = LinkedList::new();
 }
 expr_list(A) ::= expr(B) COMMA expr_list(C). {
-    A = C;
-    A.push_front(B);
+    let mut tmp = C;
+    tmp.push_front(B);
+    A = tmp;
 }
 expr_list(A) ::= keyed_expr(B) COMMA expr_list(C). {
-    A = C;
-    A.push_front(B);
+    let mut tmp = C;
+    tmp.push_front(B);
+    A = tmp;
 }
 keyed_expr(A) ::= ID(B) COLON expr(C). {
     A = Ast::KeyedExpr(Lstr::from_string(B.data), Box::new(C), B.loc);
@@ -604,10 +613,12 @@ strlist(A) ::= . {
     A = Vec::new();
 }
 strlist(A) ::= strlist(B) StrLit(C). {
-    A = B;
-    A.push(Ast::ConstStr(Lstr::from_string(C)));
+    let mut tmp = B;
+    tmp.push(Ast::ConstStr(Lstr::from_string(C)));
+    A = tmp;
 }
 strlist(A) ::= strlist(B) term(C). {
-    A = B;
-    A.push(C);
+    let mut tmp = B;
+    tmp.push(C);
+    A = tmp;
 }
