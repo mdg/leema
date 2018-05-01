@@ -575,6 +575,11 @@ lri_base(A) ::= lri_base(B) DBLCOLON ID(C). {
 id_list(A) ::= . {
     A = LinkedList::new();
 }
+id_list(A) ::= id_item(B). {
+    let mut tmp = LinkedList::new();
+    tmp.push_back(B);
+    A = tmp;
+}
 id_list(A) ::= id_item(B) COMMA id_list(C). {
     let mut tmp = C;
     tmp.push_front(B);
