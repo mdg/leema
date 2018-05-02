@@ -595,8 +595,8 @@ id_item(A) ::= ID(B) COLON expr(C). {
 expr_list(A) ::= . {
     A = LinkedList::new();
 }
-expr_list(A) ::= expr(B) COMMA expr_list(C). {
-    let mut tmp = C;
+expr_list(A) ::= keyed_expr(B). {
+    let mut tmp = LinkedList::new();
     tmp.push_front(B);
     A = tmp;
 }
@@ -604,6 +604,9 @@ expr_list(A) ::= keyed_expr(B) COMMA expr_list(C). {
     let mut tmp = C;
     tmp.push_front(B);
     A = tmp;
+}
+keyed_expr(A) ::= expr(B). {
+    A = B;
 }
 keyed_expr(A) ::= ID(B) COLON expr(C). {
     A = Ast::KeyedExpr(Lstr::from_string(B.data), Box::new(C), B.loc);
