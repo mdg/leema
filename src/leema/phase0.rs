@@ -90,6 +90,13 @@ impl Protomod
                 let pp_tail = Protomod::preproc_expr(prog, mp, tail, loc);
                 Ast::Cons(Box::new(pp_head), Box::new(pp_tail))
             }
+            &Ast::ConstructData(datat, ref name, ref data) => {
+                let ppname = Protomod::preproc_expr(prog, mp, name, loc);
+                let ppdata = data.iter().map(|i| {
+                    Protomod::preproc_expr(prog, mp, i, loc)
+                }).collect();
+                Ast::ConstructData(datat, Box::new(ppname), ppdata)
+            }
             &Ast::ConstBool(b) => Ast::ConstBool(b),
             &Ast::ConstHashtag(_) => x.clone(),
             &Ast::ConstInt(i) => Ast::ConstInt(i),
@@ -114,6 +121,15 @@ impl Protomod
             &Ast::Call(ref callx, ref args, ref iloc) => {
                 Protomod::preproc_call(prog, mp, callx, args, iloc)
             }
+            &Ast::KeyedExpr(ref id, ref x, ref loc) => {
+                let pp_x = Protomod::preproc_expr(prog, mp, x, loc);
+                Ast::KeyedExpr(id.clone(), Box::new(pp_x), *loc)
+            }
+            &Ast::List(ref items) => {
+                Ast::List(items.iter().map(|i| {
+                    Protomod::preproc_expr(prog, mp, i, loc)
+                }).collect())
+            }
             &Ast::Localid(_, _) => {
                 x.clone()
             }
@@ -126,10 +142,15 @@ impl Protomod
                 });
                 Ast::Lri(mods.clone(), pp_types, *iloc)
             }
-            &Ast::Cons(ref head, ref tail) => {
-                let pp_head = Protomod::preproc_expr(prog, mp, head, loc);
-                let pp_tail = Protomod::preproc_expr(prog, mp, tail, loc);
-                Ast::Cons(Box::new(pp_head), Box::new(pp_tail))
+            &Ast::Return(ref x, ref loc) => {
+                let px = Protomod::preproc_expr(prog, mp, x, loc);
+                Ast::Return(Box::new(px), *loc)
+            }
+            &Ast::StrExpr(ref xs, ref loc) => {
+                let pxs = xs.iter().map(|x| {
+                    Protomod::preproc_expr(prog, mp, x, loc)
+                }).collect();
+                Ast::StrExpr(pxs, *loc)
             }
             &Ast::Tuple(ref items) if items.len() == 1 => {
                 // one-tuples are compiled to just the value
@@ -141,13 +162,36 @@ impl Protomod
                 }).collect();
                 Ast::Tuple(pp_items)
             }
+            &Ast::TypeFunc(ref parts, ref loc) => {
+                let ppp = parts.iter().map(|p| {
+                    Protomod::preproc_expr(prog, mp, p, loc)
+                }).collect();
+                Ast::TypeFunc(ppp, *loc)
+            }
             &Ast::RustBlock => Ast::RustBlock,
+            &Ast::TypeAnon => Ast::TypeAnon,
+            &Ast::TypeBool => Ast::TypeBool,
+            &Ast::TypeHashtag => Ast::TypeHashtag,
+            &Ast::TypeInt => Ast::TypeInt,
+            &Ast::TypeStr => Ast::TypeStr,
+            &Ast::TypeVar(ref v, ref loc) => Ast::TypeVar(v.clone(), *loc),
             &Ast::TypeVoid => Ast::TypeVoid,
             &Ast::Wildcard => Ast::Wildcard,
+            &Ast::DefData(_, _, _, _) => {
+                panic!("cannot preproc: {:?}", x);
+            }
+            &Ast::DefFunc(_, _, _, _, _, _) => {
+                panic!("cannot preproc: {:?}", x);
+            }
+            &Ast::Import(_, _) => {
+                panic!("cannot preproc: {:?}", x);
+            }
+            /*
             _ => {
                 println!("preproc_unknown_expr({:?})", x);
                 x.clone()
             }
+            */
         }
     }
 
@@ -608,7 +652,30 @@ impl Protomod
             &Ast::TypeBool => Type::Bool,
             &Ast::TypeHashtag => Type::Hashtag,
             &Ast::TypeStr => Type::Str,
+            &Ast::TypeVar(ref v, ref loc) => {
+                let vrc: Rc<String> = From::from(v);
+                Type::Var(vrc)
+            }
             &Ast::TypeVoid => Type::Void,
+            &Ast::TypeFunc(ref parts, ref loc) => {
+                let mut ppp: Vec<Type> = parts.iter().map(|p| {
+                    Protomod::preproc_type(prog, mp, p, loc)
+                }).collect();
+                let result = ppp.pop().unwrap();
+                Type::Func(ppp, Box::new(result))
+            }
+            &Ast::KeyedExpr(_, ref expr, ref loc) => {
+                Protomod::preproc_type(prog, mp, expr, loc)
+            }
+            &Ast::List(ref items) => {
+                let type_items = items.iter().map(|i| {
+                    Protomod::preproc_type(prog, mp, i, loc)
+                }).collect();
+                Type::MixedList(type_items)
+            }
+            &Ast::Localid(_, ref loc) => {
+                Type::AnonVar
+            }
             &Ast::Lri(ref names, ref types, ref loc) => {
                 Type::Void // Type::Lri(lri.clone()),
             }
