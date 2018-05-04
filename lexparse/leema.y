@@ -193,7 +193,7 @@ defstruct_fields(A) ::= . {
     A = LinkedList::new();
 }
 defstruct_field(A) ::= DOT ID(B) COLON term(C). {
-    A = Ast::KeyedExpr(Lstr::from_string(B.data), Box::new(C), B.loc);
+    A = Ast::KeyedExpr(Lstr::from(B.data), Box::new(C), B.loc);
 }
 
 /** Enum Definitions */
@@ -294,7 +294,7 @@ macro_stmt(A) ::=
     MACRO ID(B) PARENCALL id_type_list(D) RPAREN block(C) DOUBLEDASH.
 {
     vout!("found macro {:?}\n", B);
-    let name = Ast::Lri(vec![Lstr::from_string(B.data)], None, B.loc.clone());
+    let name = Ast::Lri(vec![Lstr::from(B.data)], None, B.loc.clone());
     A = Ast::DefFunc(ast::FuncClass::Macro
         , Box::new(name), D, Box::new(Ast::TypeAnon), Box::new(C), B.loc);
 }
@@ -364,7 +364,7 @@ expr(A) ::= term(B) DOLLAR term(C). {
     A = Ast::ConstVoid;
 }
 expr(A) ::= expr(B) DOT ID(C). {
-    A = Ast::DotAccess(Box::new(B), Lstr::from_string(C.data));
+    A = Ast::DotAccess(Box::new(B), Lstr::from(C.data));
 }
 
 /* IF expression */
@@ -389,85 +389,85 @@ match_expr(A) ::= MATCH(D) expr(B) if_case(C) DOUBLEDASH. {
 
 
 expr(A) ::= NOT(C) expr(B). {
-    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("bool_not")];
+    let call = vec![Lstr::from("prefab"), Lstr::from("bool_not")];
     let mut args = LinkedList::new();
     args.push_back(B);
     A = Ast::Call(Box::new(Ast::Lri(call, None, C.clone())), args, C);
 }
 expr(A) ::= expr(B) ConcatNewline(C). {
-    A = Ast::StrExpr(vec![B, Ast::ConstStr(Lstr::from_sref("\n"))], C);
+    A = Ast::StrExpr(vec![B, Ast::ConstStr(Lstr::from("\n"))], C);
 }
 /* arithmetic */
 expr(A) ::= NEGATE(C) term(B). {
-    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("int_negate")];
+    let call = vec![Lstr::from("prefab"), Lstr::from("int_negate")];
     let mut args = LinkedList::new();
     args.push_back(B);
     A = Ast::Call(Box::new(Ast::Lri(call, None, C.clone())), args, C);
 }
 expr(A) ::= expr(B) PLUS(D) expr(C). {
-    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("int_add")];
+    let call = vec![Lstr::from("prefab"), Lstr::from("int_add")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) MINUS(D) expr(C). {
-    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("int_sub")];
+    let call = vec![Lstr::from("prefab"), Lstr::from("int_sub")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) TIMES(D) expr(C). {
-    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("int_mult")];
+    let call = vec![Lstr::from("prefab"), Lstr::from("int_mult")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) SLASH(D) expr(C). {
-    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("int_div")];
+    let call = vec![Lstr::from("prefab"), Lstr::from("int_div")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) MOD(D) expr(C). {
-    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("int_mod")];
+    let call = vec![Lstr::from("prefab"), Lstr::from("int_mod")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) SEMICOLON expr(C). {
     A = Ast::Cons(Box::new(B), Box::new(C));
 }
 expr(A) ::= expr(B) AND(D) expr(C). {
-    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("boolean_and")];
+    let call = vec![Lstr::from("prefab"), Lstr::from("boolean_and")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) OR(D) expr(C). {
-    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("boolean_or")];
+    let call = vec![Lstr::from("prefab"), Lstr::from("boolean_or")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) XOR(D) expr(C). {
-    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("boolean_xor")];
+    let call = vec![Lstr::from("prefab"), Lstr::from("boolean_xor")];
     A = Ast::binaryop(call, B, C, D);
 }
 
 /* comparisons */
 expr(A) ::= expr(B) LT(D) expr(C). {
-    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("less_than")];
+    let call = vec![Lstr::from("prefab"), Lstr::from("less_than")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) LTEQ(D) expr(C). {
     let call =
-        vec![Lstr::from_sref("prefab"), Lstr::from_sref("less_than_equal")];
+        vec![Lstr::from("prefab"), Lstr::from("less_than_equal")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) GT(D) expr(C). {
-    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("greater_than")];
+    let call = vec![Lstr::from("prefab"), Lstr::from("greater_than")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) GTEQ(D) expr(C). {
     let call =
-        vec![Lstr::from_sref("prefab"), Lstr::from_sref("greater_than_equal")];
+        vec![Lstr::from("prefab"), Lstr::from("greater_than_equal")];
     A = Ast::binaryop(call, B, C, D);
 }
 expr(A) ::= expr(B) EQ(P) expr(C). {
-    let call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("equal")];
+    let call = vec![Lstr::from("prefab"), Lstr::from("equal")];
     A = Ast::binaryop(call, B, C, P);
 }
 expr(A) ::= expr(B) NEQ(P) expr(C). {
-    let inner_call = vec![Lstr::from_sref("prefab"), Lstr::from_sref("equal")];
+    let inner_call = vec![Lstr::from("prefab"), Lstr::from("equal")];
     let mut inner_op = LinkedList::new();
     inner_op.push_back(Ast::binaryop(inner_call, B, C, P));
-    let not_call = Ast::Lri(vec![Lstr::from_sref("bool_not")], None, P.clone());
+    let not_call = Ast::Lri(vec![Lstr::from("bool_not")], None, P.clone());
     A = Ast::Call(Box::new(not_call), inner_op, P);
 }
 /*
@@ -611,20 +611,29 @@ keyed_expr(A) ::= expr(B). {
     A = B;
 }
 keyed_expr(A) ::= ID(B) COLON expr(C). {
-    A = Ast::KeyedExpr(Lstr::from_string(B.data), Box::new(C), B.loc);
+    A = Ast::KeyedExpr(Lstr::from(B.data), Box::new(C), B.loc);
 }
 
 
+strexpr(A) ::= StrOpen(L) StrClose. {
+    A = Ast::ConstStr(Lstr::empty());
+}
+strexpr(A) ::= StrOpen(L) StrLit(B) StrClose. {
+    A = Ast::ConstStr(Lstr::from(B));
+}
 strexpr(A) ::= StrOpen(C) strlist(B) StrClose. {
     A = Ast::StrExpr(B, C);
     vout!("strexpr({:?})\n", A);
 }
-strlist(A) ::= . {
-    A = Vec::new();
+strlist(A) ::= expr(B). {
+    A = vec![B];
+}
+strlist(A) ::= StrLit(B) expr(C). {
+    A = vec![Ast::ConstStr(Lstr::from(B)), C];
 }
 strlist(A) ::= strlist(B) StrLit(C). {
     let mut tmp = B;
-    tmp.push(Ast::ConstStr(Lstr::from_string(C)));
+    tmp.push(Ast::ConstStr(Lstr::from(C)));
     A = tmp;
 }
 strlist(A) ::= strlist(B) expr(C). {
