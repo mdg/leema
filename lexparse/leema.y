@@ -76,8 +76,8 @@ use std::io::{Write};
 %type if_stmt { Ast }
 %type else_if { ast::IfCase }
 %type expr_list { LinkedList<Ast> }
-%type id_item { Ast }
-%type id_list { LinkedList<Ast> }
+%type id_type { Ast }
+%type id_type_list { LinkedList<Ast> }
 %type if_expr { Ast }
 %type if_case { ast::IfCase }
 %type keyed_expr { Ast }
@@ -240,22 +240,22 @@ let_stmt ::= Let expr EQ1(A) expr. {
 }
 
 /* rust func declaration */
-func_stmt(A) ::= Func(Z) lri(B) PARENCALL id_list(D) RPAREN COLON typex(E)
-    RUSTBLOCK.
+func_stmt(A) ::=
+    Func(Z) lri(B) PARENCALL id_type_list(D) RPAREN COLON typex(E) RUSTBLOCK.
 {
     A = Ast::DefFunc(ast::FuncClass::Func
         , Box::new(B), D, Box::new(E), Box::new(Ast::RustBlock), Z);
 }
 
 /* func one case, no matching */
-func_stmt(A) ::= Func(Z) lri(B) PARENCALL id_list(D) RPAREN opt_typex(E)
+func_stmt(A) ::= Func(Z) lri(B) PARENCALL id_type_list(D) RPAREN opt_typex(E)
     block(C) DOUBLEDASH.
 {
     A = Ast::DefFunc(ast::FuncClass::Func
         , Box::new(B), D, Box::new(E), Box::new(C), Z);
 }
 /* func w/ pattern matching */
-func_stmt(A) ::= Func(Z) lri(B) PARENCALL id_list(C) RPAREN opt_typex(D)
+func_stmt(A) ::= Func(Z) lri(B) PARENCALL id_type_list(C) RPAREN opt_typex(D)
     if_case(E) DOUBLEDASH.
 {
     // extract field names from args to pass them through to match expr
@@ -290,7 +290,9 @@ arrow_typex(A) ::= arrow_typex(B) GT term(C). {
 
 
 /* defining a macro */
-macro_stmt(A) ::= MACRO ID(B) PARENCALL id_list(D) RPAREN block(C) DOUBLEDASH. {
+macro_stmt(A) ::=
+    MACRO ID(B) PARENCALL id_type_list(D) RPAREN block(C) DOUBLEDASH.
+{
     vout!("found macro {:?}\n", B);
     let name = Ast::Lri(vec![Lstr::from_string(B.data)], None, B.loc.clone());
     A = Ast::DefFunc(ast::FuncClass::Macro
@@ -572,23 +574,23 @@ lri_base(A) ::= lri_base(B) DBLCOLON ID(C). {
 }
 
 
-id_list(A) ::= . {
+id_type_list(A) ::= . {
     A = LinkedList::new();
 }
-id_list(A) ::= id_item(B). {
+id_type_list(A) ::= id_type(B). {
     let mut tmp = LinkedList::new();
     tmp.push_back(B);
     A = tmp;
 }
-id_list(A) ::= id_item(B) COMMA id_list(C). {
+id_type_list(A) ::= id_type(B) COMMA id_type_list(C). {
     let mut tmp = C;
     tmp.push_front(B);
     A = tmp;
 }
-id_item(A) ::= ID(B). {
+id_type(A) ::= ID(B). {
     A = Ast::Localid(Lstr::from_string(B.data), B.loc);
 }
-id_item(A) ::= ID(B) COLON expr(C). {
+id_type(A) ::= ID(B) COLON typex(C). {
     A = Ast::KeyedExpr(Lstr::from_string(B.data), Box::new(C), B.loc);
 }
 
