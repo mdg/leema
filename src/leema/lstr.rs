@@ -40,6 +40,18 @@ impl Lstr
             }
         }
     }
+
+    pub fn rc(&self) -> Rc<String>
+    {
+        match self {
+            &Lstr::Rc(ref s) => s.clone(),
+            &Lstr::Arc(ref s) => Rc::new(String::from(self.str())),
+            &Lstr::Sref(ref s) => Rc::new(String::from(*s)),
+            _ => {
+                panic!("not a str: {:?}", self);
+            }
+        }
+    }
 }
 
 impl<'a> From<&'a Lstr> for String

@@ -1,8 +1,10 @@
 
+use leema::ast::{self, Ast};
 use leema::ixpr::{Ixpr, Source};
 use leema::infer::{Inferator};
 use leema::list;
 use leema::log;
+use leema::lstr::{Lstr};
 use leema::module::{ModKey};
 use leema::phase0::{Protomod};
 use leema::sxpr;
@@ -146,7 +148,7 @@ pub struct Interscope<'a>
     mod_locals: &'a HashMap<String, Type>,
     // types of locally defined labels
     T: Inferator<'a>,
-    argnames: Vec<Rc<String>>,
+    argnames: Vec<Lstr>,
     argt: Type,
 }
 
@@ -155,13 +157,13 @@ impl<'a> Interscope<'a>
     pub fn new(proto: &'a Protomod, imports: &'a HashMap<String, Rc<Protomod>>
             , locals: &'a HashMap<String, Type>
             , fname: &'a str, lineno: i16
-            , args: &Vec<Rc<String>>, argt: &Vec<Type>
+            , args: &Vec<Lstr>, argt: &Vec<Type>
             ) -> Interscope<'a>
     {
         let mut t = Inferator::new(&proto.key.name, fname);
         for (an, at) in args.iter().zip(argt) {
             vout!("bind func param as {}: {}\n", an, at);
-            t.bind_vartype(an, at, lineno)
+            t.bind_vartype(an.str(), at, lineno)
                 .map_err(|e| {
                     TypeErr::Error(Rc::new(format!(
                         "args type mismatch: {:?} != {:?}", args, argt
@@ -268,12 +270,12 @@ impl<'a> Interscope<'a>
 pub fn compile_function<'a>(proto: &'a Protomod
         , imports: &'a HashMap<String, Rc<Protomod>>
         , locals: &'a HashMap<String, Type>, fname: &'a str
-        , ftype: &Type, args: &Vec<Rc<String>>, body: &Val
+        , ftype: &Type, args: &Vec<Lstr>, body: &Ast
         , loc: &SrcLoc
         ) -> Ixpr
 {
     vout!("compile {}({:?})\n", fname, args);
-    if *body == Val::RustBlock {
+    if *body == Ast::RustBlock {
         return Ixpr{
             typ: ftype.clone(),
             src: Source::RustBlock,
@@ -300,9 +302,12 @@ pub fn compile_function<'a>(proto: &'a Protomod
     }
     vout!("\t<result>: {}\n", ibody2.typ);
     vout!("inferences: {:?}\n", scope.T);
+    let rc_args = args.iter().map(|a| {
+        a.rc()
+    }).collect();
     Ixpr{
         typ: final_ftype,
-        src: Source::Func(args.clone(), Box::new(ibody2)),
+        src: Source::Func(rc_args, Box::new(ibody2)),
         line: loc.lineno,
     }
 }
@@ -867,14 +872,18 @@ pub fn compile_match_failed(scope: &mut Interscope, failure: &Val, loc: &SrcLoc
     Ixpr::match_failure(ix, ccase)
 }
 
-pub fn split_func_args_body(defunc: &Val) -> (Vec<Rc<String>>, &Val, &SrcLoc)
+pub fn split_func_args_body(defunc: &Ast) -> (Vec<Lstr>, &Ast, &SrcLoc)
 {
-    let (st, sx, loc) = sxpr::split_ref(defunc);
-    let (_, args, _, body) = list::to_ref_tuple4(sx);
-    let arg_names = list::map_ref_to_vec(args, |a| {
-        a.to_str()
-    });
-    (arg_names, body, loc)
+    if let &Ast::DefFunc(ast::FuncClass::Func
+        , ref name, ref args, ref result, ref body, ref loc) = defunc
+    {
+        let arg_names = args.iter().map(|a| {
+            Lstr::from(a)
+        }).collect();
+        (arg_names, body, loc)
+    } else {
+        panic!("func is not a func: {:?}", defunc);
+    }
 }
 
 impl fmt::Debug for Intermod
