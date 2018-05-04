@@ -6,7 +6,6 @@ use std::sync::Arc;
 
 #[derive(Debug)]
 #[derive(Clone)]
-#[derive(PartialEq)]
 #[derive(PartialOrd)]
 #[derive(Eq)]
 #[derive(Hash)]
@@ -107,6 +106,14 @@ impl<'a> From<&'static str> for Lstr
     }
 }
 
+impl PartialEq for Lstr
+{
+    fn eq(&self, b: &Lstr) -> bool
+    {
+        PartialEq::eq(self.str(), b.str())
+    }
+}
+
 impl fmt::Display for Lstr
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
@@ -132,7 +139,52 @@ impl fmt::Display for Lstr
 #[cfg(test)]
 mod tests {
     use leema::lstr::{Lstr};
+
     use std::collections::{HashSet, HashMap};
+    use std::rc::{Rc};
+    use std::sync::{Arc};
+
+#[test]
+fn test_eq_rc_rc() {
+    let a = Lstr::Rc(Rc::new(String::from("aaa")));
+    let b = Lstr::Rc(Rc::new(String::from("aaa")));
+    assert_eq!(a, b);
+}
+
+#[test]
+fn test_eq_rc_sref() {
+    let a = Lstr::Rc(Rc::new(String::from("aaa")));
+    let b = Lstr::from("aaa");
+    assert_eq!(a, b);
+}
+
+#[test]
+fn test_eq_arc_sref() {
+    let a = Lstr::Arc(Arc::new(String::from("aaa")));
+    let b = Lstr::from("aaa");
+    assert_eq!(a, b);
+}
+
+#[test]
+fn test_ne_rc_rc() {
+    let a = Lstr::Rc(Rc::new(String::from("aaa")));
+    let b = Lstr::Rc(Rc::new(String::from("bbb")));
+    assert_ne!(a, b);
+}
+
+#[test]
+fn test_ne_rc_sref() {
+    let a = Lstr::Rc(Rc::new(String::from("aaa")));
+    let b = Lstr::from("bbb");
+    assert_ne!(a, b);
+}
+
+#[test]
+fn test_ne_arc_sref() {
+    let a = Lstr::Arc(Arc::new(String::from("aaa")));
+    let b = Lstr::from("bbb");
+    assert_ne!(a, b);
+}
 
 #[test]
 fn test_hashset_contains_sref() {
