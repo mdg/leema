@@ -4,6 +4,7 @@ use leema::lstr::{Lstr};
 use leema::parse::{Parser, Token};
 
 use std::collections::LinkedList;
+use std::rc::Rc;
 
 /*
 #[derive(Clone)]
@@ -241,7 +242,7 @@ impl<'a> From<&'a Ast> for Lstr
                     items.first().unwrap().clone()
                 } else {
                     let new_str = format!("{:?}<{:?}>", items, types);
-                    Lstr::from_string(new_str)
+                    Lstr::Rc(Rc::new(new_str))
                 }
             }
             _ => {

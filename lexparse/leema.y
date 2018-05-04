@@ -515,7 +515,7 @@ term(A) ::= INT(B). {
 term(A) ::= True. { A = Ast::ConstBool(true); }
 term(A) ::= False. { A = Ast::ConstBool(false); }
 term(A) ::= HASHTAG(B). {
-    A = Ast::ConstHashtag(Lstr::from_string(B.data));
+    A = Ast::ConstHashtag(Lstr::from(B.data));
 }
 term(A) ::= strexpr(B). { A = B; }
 term(A) ::= UNDERSCORE. { A = Ast::Wildcard; }
@@ -539,7 +539,7 @@ type_term(A) ::= TYPE_VOID. {
     A = Ast::TypeVoid;
 }
 type_term(A) ::= TYPE_VAR(B). {
-    A = Ast::TypeVar(Lstr::from_string(B.data), B.loc);
+    A = Ast::TypeVar(Lstr::from(B.data), B.loc);
 }
 
 list(A) ::= SquareL expr_list(B) SquareR. {
@@ -554,7 +554,7 @@ tuple(A) ::= LPAREN expr_list(B) RPAREN. {
 }
 
 localid(A) ::= ID(B). {
-    A = Ast::Localid(Lstr::from_string(B.data), B.loc);
+    A = Ast::Localid(Lstr::from(B.data), B.loc);
 }
 
 lri(A) ::= lri_base(B). {
@@ -564,12 +564,11 @@ lri(A) ::= lri_base(B) SquareCall expr_list(C) SquareR. {
     A = Ast::Lri(B.0, Some(C), B.1);
 }
 lri_base(A) ::= ID(B). {
-println!("found lri: {}", B.data);
-    A = (vec![Lstr::from_string(B.data)], B.loc);
+    A = (vec![Lstr::from(B.data)], B.loc);
 }
 lri_base(A) ::= lri_base(B) DBLCOLON ID(C). {
     let mut tmp = B;
-    tmp.0.push(Lstr::from_string(C.data));
+    tmp.0.push(Lstr::from(C.data));
     A = tmp;
 }
 
@@ -588,10 +587,10 @@ id_type_list(A) ::= id_type(B) COMMA id_type_list(C). {
     A = tmp;
 }
 id_type(A) ::= ID(B). {
-    A = Ast::Localid(Lstr::from_string(B.data), B.loc);
+    A = Ast::Localid(Lstr::from(B.data), B.loc);
 }
 id_type(A) ::= ID(B) COLON typex(C). {
-    A = Ast::KeyedExpr(Lstr::from_string(B.data), Box::new(C), B.loc);
+    A = Ast::KeyedExpr(Lstr::from(B.data), Box::new(C), B.loc);
 }
 
 expr_list(A) ::= . {

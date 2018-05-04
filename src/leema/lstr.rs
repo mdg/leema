@@ -24,16 +24,6 @@ impl Lstr
         Lstr::Sref("")
     }
 
-    pub fn from_string(s: String) -> Lstr
-    {
-        Lstr::Rc(Rc::new(s))
-    }
-
-    pub fn from_sref(sref: &'static str) -> Lstr
-    {
-        Lstr::Sref(sref)
-    }
-
     pub fn cat(a: Lstr, b: Lstr) -> Lstr
     {
         Lstr::Cat(Box::new(a), Box::new(b))
@@ -189,8 +179,8 @@ fn test_ne_arc_sref() {
 #[test]
 fn test_hashset_contains_sref() {
     let mut s = HashSet::new();
-    s.insert(Lstr::from_sref("tacos"));
-    assert!(s.contains(&Lstr::from_sref("tacos")));
+    s.insert(Lstr::from("tacos"));
+    assert!(s.contains(&Lstr::from("tacos")));
 }
 
 }
