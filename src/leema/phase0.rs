@@ -712,7 +712,9 @@ pub fn preproc(prog: &mut Lib, mp: &ModulePreface, ast: &Ast) -> Protomod
 
 #[cfg(test)]
 mod tests {
+    use leema::ast::{self, Ast};
     use leema::list;
+    use leema::lstr::{Lstr};
     use leema::log;
     use leema::loader::{Interloader};
     use leema::module::{ModKey};
@@ -746,10 +748,20 @@ fn test_preproc_list_pattern()
     assert_eq!(2, pmod.funcsrc.len());
 
     let foo_func = pmod.funcsrc.get("foo").unwrap();
-    assert!(sxpr::is_type(foo_func, SxprType::DefFunc));
+    if let &Ast::DefFunc(foo_ft, ref foo_name, _, _, _, _) = foo_func {
+        assert_eq!(ast::FuncClass::Func, foo_ft);
+        assert_eq!("foo", Lstr::from(&**foo_name).str());
+    } else {
+        panic!("foo is not a function definition");
+    }
 
     let main_func = pmod.funcsrc.get("main").unwrap();
-    assert!(sxpr::is_type(main_func, SxprType::DefFunc));
+    if let &Ast::DefFunc(main_ft, ref main_name, _, _, _, _) = main_func {
+        assert_eq!(ast::FuncClass::Func, main_ft);
+        assert_eq!("main", Lstr::from(&**main_name).str());
+    } else {
+        panic!("main is not a function definition");
+    }
 }
 
 #[test]
@@ -880,7 +892,7 @@ fn test_enum_types()
     assert_eq!(exp_giraffe_const, *giraffe_const);
 
     // verify constant string formatting
-    let dog_str = format!("{}", dog_const);
+    let dog_str = format!("{:?}", dog_const);
     assert_eq!("Dog", dog_str);
 
     // verify newtypes
@@ -987,37 +999,38 @@ fn test_preproc_namedtuple()
 #[test]
 fn test_new_struct_newtypes()
 {
-    let mk = Rc::new(ModKey::name_only("tacos"));
-    let mut proto = Protomod::new(mk);
-    let struct_name = Rc::new("Burrito".to_string());
-    let raw_fields = list::from3(
-        Val::Id(struct_name.clone()),
-        Val::typed_id("lettuce", Type::Bool),
-        Val::typed_id("buns", Type::Int),
-    );
-    let loc = SrcLoc::new(8, 9);
-    proto.preproc_struct(&raw_fields, &loc);
+    let input = "
+    struct Burrito
+    .lettuce: Bool
+    .buns: Int
+    --
+    ".to_string();
+    let mut loader = Interloader::new("tacos.lma");
+    loader.set_mod_txt("tacos", input);
+    let mut prog = program::Lib::new(loader);
+    let pmod = prog.read_proto("tacos");
 
-    assert!(proto.newtypes.contains(&Type::Struct(struct_name.clone())));
+    let s = Type::Struct(Rc::new(String::from("Burrito")));
+    assert!(pmod.newtypes.contains(&s));
 }
 
 #[test]
 fn test_new_struct_fields()
 {
-    let mk = Rc::new(ModKey::name_only("tacos"));
-    let mut proto = Protomod::new(mk);
-    let struct_name = Rc::new("Burrito".to_string());
-    let raw_fields = list::from3(
-        Val::Id(struct_name.clone()),
-        Val::typed_id("lettuce", Type::Bool),
-        Val::typed_id("buns", Type::Int),
-    );
-    let loc = SrcLoc::new(8, 9);
-    proto.preproc_struct(&raw_fields, &loc);
+    let input = "
+    struct Burrito
+    .lettuce: Bool
+    .buns: Int
+    --
+    ".to_string();
+    let mut loader = Interloader::new("tacos.lma");
+    loader.set_mod_txt("tacos", input);
+    let mut prog = program::Lib::new(loader);
+    let pmod = prog.read_proto("tacos");
 
-    assert!(proto.structfields.contains_key("Burrito"));
+    assert!(pmod.structfields.contains_key("Burrito"));
 
-    let structfields = proto.structfields.get("Burrito").unwrap();
+    let structfields = pmod.structfields.get("Burrito").unwrap();
     assert_eq!(2, structfields.len());
 
     let lettuce = structfields.get(0).unwrap();
@@ -1032,20 +1045,20 @@ fn test_new_struct_fields()
 #[test]
 fn test_new_struct_constructor_valtype()
 {
-    let mk = Rc::new(ModKey::name_only("tacos"));
-    let mut proto = Protomod::new(mk);
-    let struct_name = Rc::new("Burrito".to_string());
-    let raw_fields = list::from3(
-        Val::Id(struct_name.clone()),
-        Val::typed_id("lettuce", Type::Bool),
-        Val::typed_id("buns", Type::Int),
-    );
-    let loc = SrcLoc::new(8, 9);
-    proto.preproc_struct(&raw_fields, &loc);
+    let input = "
+    struct Burrito
+    .lettuce: Bool
+    .buns: Int
+    --
+    ".to_string();
+    let mut loader = Interloader::new("tacos.lma");
+    loader.set_mod_txt("tacos", input);
+    let mut prog = program::Lib::new(loader);
+    let pmod = prog.read_proto("tacos");
 
-    assert!(proto.valtypes.contains_key(&*struct_name));
+    assert!(pmod.valtypes.contains_key("Burrito"));
 
-    let constructor = proto.valtypes.get(&*struct_name).unwrap();
+    let constructor = pmod.valtypes.get("Burrito").unwrap();
 
     if let &Type::Func(ref params, ref result) = constructor {
         assert_eq!(2, params.len());

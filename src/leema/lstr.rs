@@ -99,6 +99,14 @@ impl<'a> From<&'a String> for Lstr
     }
 }
 
+impl<'a> From<&'static str> for Lstr
+{
+    fn from(s: &'static str) -> Lstr
+    {
+        Lstr::Sref(s)
+    }
+}
+
 impl fmt::Display for Lstr
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
@@ -130,7 +138,7 @@ mod tests {
 fn test_hashset_contains_sref() {
     let mut s = HashSet::new();
     s.insert(Lstr::from_sref("tacos"));
-    assert!(s.contains(Lstr::from_sref("tacos")));
+    assert!(s.contains(&Lstr::from_sref("tacos")));
 }
 
 }
