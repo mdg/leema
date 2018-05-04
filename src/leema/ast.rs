@@ -208,14 +208,6 @@ impl Ast
             }
         }
     }
-
-    pub fn static_lri(items: Vec<&'static str>) -> Ast
-    {
-        let strs = items.iter().map(|i| {
-            Lstr::from(*i)
-        }).collect();
-        Ast::Lri(strs, None, SrcLoc::default())
-    }
 }
 
 impl<'a> From<&'a Ast> for String
@@ -284,6 +276,16 @@ mod tests {
     use std::collections::LinkedList;
     use std::rc::Rc;
 
+
+fn test_lri(item: &'static str, line: i16, col: i8) -> Ast
+{
+    Ast::Lri(
+        vec![Lstr::from(item)].into_iter().collect(),
+        None,
+        SrcLoc::new(line, col),
+    )
+}
+
 #[test]
 fn test_ast_parse_plus() {
     let input = "5 + 3\n";
@@ -291,7 +293,7 @@ fn test_ast_parse_plus() {
     let root = ast::parse(lexed);
     let xargs = list::from2(Val::Int(5), Val::Int(3));
     let expected = Ast::Block(vec![
-        Ast::Call(Box::new(Ast::static_lri(vec!["int_add"])), vec![
+        Ast::Call(Box::new(test_lri("int_add", 0, 0)), vec![
             Ast::ConstInt(5),
             Ast::ConstInt(3),
         ].into_iter().collect(),
@@ -318,7 +320,7 @@ fn test_ast_parse_string_id() {
 
     let expected = Ast::Block(vec![
         Ast::StrExpr(vec![
-            Ast::static_lri(vec!["var"]),
+            test_lri("var", 0, 0),
         ], SrcLoc::default()),
     ]);
     assert_eq!(expected, root);
@@ -330,7 +332,7 @@ fn test_ast_parse_string_list() {
     let root = ast::parse(lex(input));
 
     let part1 = Ast::ConstStr(Lstr::from("hello "));
-    let part2 = Ast::static_lri(vec!["name"]);
+    let part2 = test_lri("name", 0, 0);
     let part3 = Ast::ConstStr(Lstr::from("\n"));
     let expected = Ast::Block(vec![
         Ast::StrExpr(vec![
@@ -348,7 +350,7 @@ fn test_ast_parse_plus_twice() {
     let root = ast::parse(lex(input));
 
     let inner = Ast::Call(
-        Box::new(Ast::static_lri(vec!["int_add"])),
+        Box::new(test_lri("int_add", 0, 0)),
         vec![
             Ast::ConstInt(5),
             Ast::ConstInt(3),
@@ -356,7 +358,7 @@ fn test_ast_parse_plus_twice() {
         SrcLoc::new(1, 3),
     );
     let outer = Ast::Call(
-        Box::new(Ast::static_lri(vec!["int_add"])),
+        Box::new(test_lri("int_add", 0, 0)),
         vec![
             inner,
             Ast::ConstInt(2),
@@ -375,13 +377,13 @@ fn test_ast_parse_call_one_param()
     let root = ast::parse(lex(input));
 
     let neg4 = Ast::Call(
-        Box::new(Ast::static_lri(vec!["int_negate"])),
+        Box::new(test_lri("int_negate", 0, 0)),
         vec![Ast::ConstInt(4)].into_iter().collect(),
         SrcLoc::default(),
     );
     let expected = Ast::Block(vec![
         Ast::Call(
-            Box::new(Ast::static_lri(vec!["inc"])),
+            Box::new(test_lri("inc", 0, 0)),
             vec![neg4].into_iter().collect(),
             SrcLoc::default(),
         ),
@@ -396,7 +398,7 @@ fn test_ast_parse_function_call() {
 
     let xargs = vec![Ast::ConstInt(7), Ast::ConstInt(2)].into_iter().collect();
     let expected = Ast::Block(vec![Ast::Call(
-        Box::new(Ast::static_lri(vec!["foo"])),
+        Box::new(test_lri("foo", 0, 0)),
         xargs,
         SrcLoc::default(),
     )]);
@@ -435,7 +437,7 @@ fn test_ast_parse_list() {
     let xlist = Ast::List(vec![
         Ast::ConstInt(1),
         Ast::ConstInt(2),
-        Ast::static_lri(vec!["x"]),
+        test_lri("x", 0, 0),
     ].into_iter().collect());
     let expected = Ast::Block(vec![xlist]);
     assert_eq!(expected, root);
@@ -448,7 +450,7 @@ fn test_ast_parse_list_cons() {
 
     let inner = Ast::Cons(
         Box::new(Ast::ConstInt(2)),
-        Box::new(Ast::static_lri(vec!["x"])),
+        Box::new(test_lri("x", 0, 0)),
     );
     let outer = Ast::Cons(
         Box::new(Ast::ConstInt(1)),
@@ -562,8 +564,8 @@ fn test_ast_parse_if_no_else()
     let root = ast::parse(lex(input));
 
     let blocka = ast::IfCase::new(
-        Ast::static_lri(vec!["x"]),
-        Ast::static_lri(vec!["y"]),
+        test_lri("x", 0, 0),
+        test_lri("y", 0, 0),
         None,
         SrcLoc::default(),
     );
@@ -612,15 +614,15 @@ fn test_parse_call_function_call_result()
 
     let foo_call = Ast::Tuple(vec![
         Ast::Call(
-            Box::new(Ast::static_lri(vec!["foo"])),
+            Box::new(test_lri("foo", 1, 2)),
             vec![Ast::ConstInt(5)].into_iter().collect(),
-            SrcLoc::default(),
+            SrcLoc::new(1, 5),
         ),
     ].into_iter().collect());
 
     let p_call = Ast::Call(Box::new(foo_call),
         vec![Ast::ConstInt(6)].into_iter().collect(),
-        SrcLoc::default(),
+        SrcLoc::new(1, 9),
     );
 
     let expected = Ast::Block(vec![p_call]);
@@ -643,7 +645,7 @@ fn test_parse_defstruct()
         if let &Ast::DefData(ast::DataType::Struct
             , ref name, ref vars, _) = first
         {
-            assert_eq!(Ast::static_lri(vec!["Taco"]), **name);
+            assert_eq!(test_lri("Taco", 2, 7), **name);
         } else {
             panic!("struct is not a struct: {:?}", first);
         }
@@ -671,7 +673,7 @@ fn test_parse_enum_variants()
         let first = lines.first().unwrap();
         if let &Ast::DefData(ast::DataType::Enum, ref name, ref vars, _) = first
         {
-            assert_eq!(Ast::static_lri(vec!["Animal"]), **name);
+            assert_eq!(test_lri("Animal", 2, 5), **name);
         } else {
             panic!("enum is not an enum: {:?}", first);
         }
@@ -689,7 +691,7 @@ fn test_parse_named_tuple()
     let root = ast::parse(lex(input));
 
     let def = Ast::DefData(ast::DataType::NamedTuple
-        , Box::new(Ast::static_lri(vec!["Taco"]))
+        , Box::new(test_lri("Taco", 0, 0))
         , vec![Ast::TypeInt, Ast::TypeStr].into_iter().collect()
         , SrcLoc::default()
         );
@@ -713,10 +715,11 @@ fn test_parse_match_list()
         panic!("match is not a block");
     };
 
-    if let &Ast::IfExpr(ast::IfType::If, ref ifx, ref cases, _) = match_line {
-        assert_eq!(Ast::static_lri(vec!["x"]), **ifx);
+    if let &Ast::IfExpr(ast::IfType::Match, ref ifx, ref cases, _) = match_line
+    {
+        assert_eq!(test_lri("x", 2, 6), **ifx);
     } else {
-        panic!("match line not an if statement");
+        panic!("match line not an if statement: {:?}", match_line);
     }
 }
 
@@ -727,12 +730,12 @@ fn test_parse_constructor_call()
     let root = ast::parse(lex(input));
 
     let call = Ast::Call(
-        Box::new(Ast::static_lri(vec!["Taco"])),
+        Box::new(test_lri("Taco", 1, 1)),
         vec![
             Ast::ConstInt(1),
             Ast::ConstInt(2),
         ].into_iter().collect(),
-        SrcLoc::default(),
+        SrcLoc::new(1, 5),
     );
     let expected = Ast::Block(vec![call]);
     assert_eq!(expected, root);
@@ -747,10 +750,10 @@ fn test_parse_strlit_field_access()
     let strx = Ast::StrExpr(vec![
         Ast::ConstStr(Lstr::from("hello ")),
         Ast::DotAccess(
-            Box::new(Ast::static_lri(vec!["dog"])),
+            Box::new(test_lri("dog", 1, 8)),
             Lstr::from("name"),
         ),
-    ], SrcLoc::default());
+    ], SrcLoc::new(1, 1));
     let expected = Ast::Block(vec![strx]);
     assert_eq!(expected, root);
 }

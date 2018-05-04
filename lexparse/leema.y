@@ -361,7 +361,7 @@ expr(A) ::= term(B) DOLLAR term(C). {
     /* A = Val::binaryop(B, C, D); */
     A = Ast::ConstVoid;
 }
-expr(A) ::= term(B) DOT ID(C). {
+expr(A) ::= expr(B) DOT ID(C). {
     A = Ast::DotAccess(Box::new(B), Lstr::from_string(C.data));
 }
 
@@ -625,7 +625,7 @@ strlist(A) ::= strlist(B) StrLit(C). {
     tmp.push(Ast::ConstStr(Lstr::from_string(C)));
     A = tmp;
 }
-strlist(A) ::= strlist(B) term(C). {
+strlist(A) ::= strlist(B) expr(C). {
     let mut tmp = B;
     tmp.push(C);
     A = tmp;
