@@ -1,5 +1,6 @@
 
 use leema::log;
+use leema::ast::{self, Ast};
 use leema::val::{Val, Type, SrcLoc, TypeResult, TypeErr};
 
 use std::collections::{HashMap};
@@ -11,7 +12,7 @@ use std::rc::{Rc};
 #[derive(Debug)]
 pub struct VarData
 {
-    failure: Option<Val>,
+    failure: Option<Ast>,
     assignment: Option<i16>,
     first_usage: Option<SrcLoc>,
     must_check_failure: bool,
@@ -52,7 +53,7 @@ pub struct Blockscope
 
 impl Blockscope
 {
-    pub fn new(failures: HashMap<String, Val>) -> Blockscope
+    pub fn new(failures: HashMap<String, Ast>) -> Blockscope
     {
         let vars: HashMap<String, VarData> =
             failures.into_iter().map(|(v, fail)| {
@@ -319,7 +320,7 @@ impl<'b> Inferator<'b>
         })
     }
 
-    pub fn get_failure(&self, name: &str) -> Option<&Val>
+    pub fn get_failure(&self, name: &str) -> Option<&Ast>
     {
         for b in self.blocks.iter() {
             if b.vars.contains_key(name) {
