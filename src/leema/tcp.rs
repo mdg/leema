@@ -194,7 +194,7 @@ pub fn tcp_listen(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let ip_str = ctx.take_param(0).unwrap();
     let port = ctx.take_param(1).unwrap().to_int() as u16;
     let sock_addr = SocketAddr::new(
-        IpAddr::from_str((ip_str.str())).unwrap(), port
+        IpAddr::from_str(ip_str.str()).unwrap(), port
     );
     let handle = ctx.handle().clone();
     let listen_result = TcpListener::bind(&sock_addr, &handle);
