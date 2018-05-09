@@ -42,7 +42,7 @@ impl Lib
             code: HashMap::new(),
         };
         proglib.rust_load.insert("prefab".to_string(), prefab::load_rust_func);
-        proglib.load_inter("prefab");
+        proglib.load_proto("prefab");
         proglib.rust_load.insert("file".to_string(), file::load_rust_func);
         proglib.rust_load.insert("str".to_string(), lib_str::load_rust_func);
         proglib.rust_load.insert("tcp".to_string(), tcp::load_rust_func);
@@ -137,6 +137,7 @@ impl Lib
 
     pub fn read_inter(&mut self, modname: &str) -> Intermod
     {
+        vout!("read_inter({})\n", modname);
         self.load_proto(modname);
         let preface = self.preface.get(modname).unwrap().clone();
         let imports = self.import_protos(modname, &preface.imports);
@@ -146,6 +147,7 @@ impl Lib
 
     pub fn read_code(&mut self, modname: &str, funcname: &str) -> Code
     {
+        vout!("read_code({}.{})\n", modname, funcname);
         self.load_inter(modname);
 
         let inter = self.inter.get(modname).unwrap();

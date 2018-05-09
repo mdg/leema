@@ -648,6 +648,7 @@ impl Protomod
         ) -> Type
     {
         match t {
+            &Ast::TypeAnon => Type::AnonVar,
             &Ast::TypeInt => Type::Int,
             &Ast::TypeBool => Type::Bool,
             &Ast::TypeHashtag => Type::Hashtag,
