@@ -37,6 +37,7 @@ use std::io::{Write};
 %type Let { SrcLoc }
 %type LT { SrcLoc }
 %type LTEQ { SrcLoc }
+%type MACRO { SrcLoc }
 %type MATCH { SrcLoc }
 %type MINUS { SrcLoc }
 %type MOD { SrcLoc }
@@ -291,12 +292,11 @@ arrow_typex(A) ::= arrow_typex(B) GT term(C). {
 
 /* defining a macro */
 macro_stmt(A) ::=
-    MACRO ID(B) PARENCALL id_type_list(D) RPAREN block(C) DOUBLEDASH.
+    MACRO(Z) localid(B) PARENCALL id_type_list(D) RPAREN block(C) DOUBLEDASH.
 {
     vout!("found macro {:?}\n", B);
-    let name = Ast::Lri(vec![Lstr::from(B.data)], None, B.loc.clone());
     A = Ast::DefFunc(ast::FuncClass::Macro
-        , Box::new(name), D, Box::new(Ast::TypeAnon), Box::new(C), B.loc);
+        , Box::new(B), D, Box::new(Ast::TypeAnon), Box::new(C), Z);
 }
 
 expr(A) ::= if_expr(B). { A = B; }
@@ -502,9 +502,6 @@ term(A) ::= list(B). {
 term(A) ::= lri(B). {
     A = B;
 }
-term(A) ::= localid(B). {
-    A = B;
-}
 term(A) ::= VOID. {
     A = Ast::ConstVoid;
 }
@@ -560,6 +557,9 @@ localid(A) ::= ID(B). {
     A = Ast::Localid(Lstr::from(B.data), B.loc);
 }
 
+lri(A) ::= localid(B). {
+    A = B;
+}
 lri(A) ::= lri_base(B). {
     A = Ast::Lri(B.0, None, B.1);
 }

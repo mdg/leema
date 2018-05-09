@@ -65,7 +65,7 @@ impl Token
                     Token::Func(tl)
                 }
                 parse::TOKEN_MACRO => {
-                    Token::MACRO
+                    Token::MACRO(tl)
                 }
                 parse::TOKEN_STRUCT => {
                     Token::STRUCT(tl)
