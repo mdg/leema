@@ -245,6 +245,9 @@ impl<'a> From<&'a Ast> for Lstr
                     Lstr::Rc(Rc::new(new_str))
                 }
             }
+            &Ast::KeyedExpr(ref id, _, _) => {
+                id.clone()
+            }
             _ => {
                 panic!("cannot convert to string: {:?}", a);
             }
