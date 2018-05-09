@@ -106,6 +106,7 @@ use std::io::{Write};
 %type tuple { Ast }
 %type strexpr { Ast }
 %type strlist { Vec<Ast> }
+%type strconst { String }
 
 
 %nonassoc ASSIGN BLOCKARROW RETURN.
@@ -624,7 +625,7 @@ keyed_expr(A) ::= ID(B) COLON expr(C). {
 strexpr(A) ::= StrOpen(L) StrClose. {
     A = Ast::ConstStr(Lstr::empty());
 }
-strexpr(A) ::= StrOpen(L) StrLit(B) StrClose. {
+strexpr(A) ::= StrOpen(L) strconst(B) StrClose. {
     A = Ast::ConstStr(Lstr::from(B));
 }
 strexpr(A) ::= StrOpen(C) strlist(B) StrClose. {
@@ -634,7 +635,7 @@ strexpr(A) ::= StrOpen(C) strlist(B) StrClose. {
 strlist(A) ::= expr(B). {
     A = vec![B];
 }
-strlist(A) ::= StrLit(B) expr(C). {
+strlist(A) ::= strconst(B) expr(C). {
     A = vec![Ast::ConstStr(Lstr::from(B)), C];
 }
 strlist(A) ::= strlist(B) StrLit(C). {
@@ -645,5 +646,13 @@ strlist(A) ::= strlist(B) StrLit(C). {
 strlist(A) ::= strlist(B) expr(C). {
     let mut tmp = B;
     tmp.push(C);
+    A = tmp;
+}
+strconst(A) ::= StrLit(B). {
+    A = B;
+}
+strconst(A) ::= strconst(B) StrLit(C). {
+    let mut tmp = B;
+    tmp.push_str(&C);
     A = tmp;
 }
