@@ -4,9 +4,9 @@ use leema::inter::{Intermod};
 use leema::module::{ModuleSource, ModulePreface, MacroDef};
 use leema::loader::{Interloader};
 use leema::log;
+use leema::lstr::{Lstr};
 use leema::phase0::{self, Protomod};
 use leema::{prefab, file, udp, tcp};
-use leema::typecheck::{self, CallOp, CallFrame, Typescope, Typemod};
 use leema::val::{Type};
 use leema::{lib_str};
 
@@ -21,8 +21,7 @@ pub struct Lib
     modsrc: HashMap<String, ModuleSource>,
     preface: HashMap<String, Rc<ModulePreface>>,
     proto: HashMap<String, Rc<Protomod>>,
-    inter: HashMap<String, Rc<Intermod>>,
-    typed: HashMap<String, Typemod>,
+    interfunc: HashMap<(Lstr, Lstr), Ixpr>,
     rust_load: HashMap<String, fn(&str) -> Option<code::Code>>,
     code: HashMap<String, HashMap<String, Code>>,
 }
@@ -36,8 +35,7 @@ impl Lib
             modsrc: HashMap::new(),
             preface: HashMap::new(),
             proto: HashMap::new(),
-            inter: HashMap::new(),
-            typed: HashMap::new(),
+            interfunc: HashMap::new(),
             rust_load: HashMap::new(),
             code: HashMap::new(),
         };
@@ -83,14 +81,25 @@ impl Lib
         self.code.get(modname).unwrap().get(funcname).unwrap()
     }
 
-    pub fn load_inter(&mut self, modname: &str)
+    pub fn find_preface(&self, modname: &str) -> Option<&Rc<ModulePreface>>
     {
-        if !self.inter.contains_key(modname) {
-            let inter = self.read_inter(modname);
-            let modkey = inter.key.clone();
-            self.inter.insert(String::from(modname), Rc::new(inter));
-            let typemod = Typemod::new(modkey);
-            self.typed.insert(String::from(modname), typemod);
+        self.preface.get(modname)
+    }
+
+    pub fn find_interfunc(&self, modname: &Lstr, funcname: &Lstr
+        ) -> Option<&Ixpr>
+    {
+        let modfunc = (modname.clone(), funcname.clone());
+        self.interfunc.get(&modfunc)
+    }
+
+    pub fn load_inter(&mut self, modname: &str, funcname: &str)
+    {
+        let mod_lstr = Lstr::from(String::from(modname));
+        let modfunc = (mod_lstr.clone(), Lstr::from(String::from(funcname)));
+        if !self.interfunc.contains_key(&modfunc) {
+            let fix = self.read_inter(modname, funcname);
+            self.interfunc.insert(modfunc, fix);
         }
     }
 
@@ -135,29 +144,31 @@ impl Lib
         proto
     }
 
-    pub fn read_inter(&mut self, modname: &str) -> Intermod
+    pub fn read_inter(&mut self, modname: &str, funcname: &str) -> Ixpr
     {
-        vout!("read_inter({})\n", modname);
+        vout!("read_inter({}.{})\n", modname, funcname);
         self.load_proto(modname);
         let preface = self.preface.get(modname).unwrap().clone();
         let imports = self.import_protos(modname, &preface.imports);
         let proto = self.proto.get(modname).unwrap();
-        Intermod::compile(&proto, &imports)
+        Intermod::compile(&proto, &imports, funcname)
     }
 
     pub fn read_code(&mut self, modname: &str, funcname: &str) -> Code
     {
         vout!("read_code({}.{})\n", modname, funcname);
-        self.load_inter(modname);
+        self.load_inter(modname, funcname);
 
-        let inter = self.inter.get(modname).unwrap();
-        let fix = inter.interfunc.get(funcname)
+        let modfunc = (
+            Lstr::from(String::from(modname)),
+            Lstr::from(String::from(funcname)),
+        );
+        let fix = self.interfunc.get(&modfunc)
             .or_else(|| {
                 panic!("Cannot find function {}::{}", modname, funcname);
             })
             .unwrap();
         if modname == "prefab" {
-            vout!("prefab inter: {:?}\n", inter);
             vout!("prefab.{} fix: {:?}\n", funcname, fix);
         }
         if fix.src == Source::RustBlock {
@@ -177,66 +188,6 @@ impl Lib
             }
             Code::Leema(ops)
         }
-    }
-
-    pub fn deep_typecheck<'a, 'b>(&'a mut self, modname: &'b str, funcname: &'b str)
-    {
-        vout!("deep_");
-        println!("typecheck {}::{}", modname, funcname);
-        self.load_inter(modname);
-
-        let inter = self.inter.get(modname).unwrap().clone();
-        let fix = inter.interfunc.get(funcname).unwrap();
-        let mut cf = CallFrame::new(modname, funcname);
-        cf.collect_calls(fix);
-        for c in cf.calls.iter() {
-            match c {
-                &CallOp::LocalCall(ref call_name) => {
-                    if inter.interfunc.contains_key(&**call_name) {
-                        if *funcname != **call_name {
-                            self.deep_typecheck(modname, call_name);
-                        }
-                    } else {
-                        self.deep_typecheck("prefab", call_name);
-                    }
-                }
-                &CallOp::ExternalCall(ref extmod, ref extfunc)
-                    if modname == &**extmod && funcname == &**extfunc
-                => {
-                    // do nothing, it's recursive, we're already doing it
-                }
-                &CallOp::ExternalCall(ref extmod, ref extfunc) => {
-                    self.deep_typecheck(extmod, extfunc);
-                }
-            }
-        }
-
-        self.typed.get_mut(modname).unwrap().func.insert(
-            String::from(funcname), fix.typ.clone());
-        let ftype = self.deep_typecheck_function(modname, funcname, fix);
-        let mutyped = self.typed.get_mut(modname).unwrap();
-        mutyped.func.insert(String::from(funcname), ftype);
-    }
-
-    pub fn deep_typecheck_function<'a, 'b>(&'a mut self
-        , modname: &'b str, funcname: &'b str, fix: &Ixpr) -> Type
-    {
-        let typed = self.typed.get(modname).unwrap();
-
-        let pref = self.preface.get(modname).unwrap().clone();
-        let prefab = self.typed.get("prefab").unwrap();
-        let mut imports: HashMap<String, &'a Typemod> = HashMap::new();
-        imports.insert(String::from("prefab"), prefab);
-        for i in pref.imports.iter() {
-            let iii: Option<&'a Typemod> = self.typed.get(i);
-            if iii.is_none() {
-                panic!("cannot find intermod in imports: {}", i);
-            }
-            imports.insert(i.clone(), iii.unwrap());
-        }
-
-        let mut scope = Typescope::new(typed, funcname, &imports);
-        typecheck::typecheck_function(&mut scope, fix).unwrap()
     }
 
     fn load_imports(&mut self, modname: &str, imports: &HashSet<String>)

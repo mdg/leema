@@ -21,6 +21,7 @@ use leema::module::{ModuleSource};
 use leema::program;
 use leema::application::{Application};
 use leema::val::{Val};
+use leema::typecheck;
 
 use std::io::{Write};
 use docopt::{Docopt};
@@ -102,11 +103,15 @@ fn real_main() -> i32
         println!("\n{:?}\n", proto);
     } else if args.arg_cmd == "inter" {
         let mut prog = program::Lib::new(inter);
-        let imod = prog.read_inter(&modkey.name);
+        let imod = match args.flag_func {
+            Some(func) => prog.read_inter(&modkey.name, &func),
+            None => prog.read_inter(&modkey.name, "main"),
+        };
         println!("\n{:?}\n", imod);
     } else if args.arg_cmd == "typecheck" {
         let mut prog = program::Lib::new(inter);
-        prog.deep_typecheck(&modkey.name, "main");
+        let mut tlib = typecheck::Typelib::new();
+        tlib.deep_typecheck(&mut prog, &modkey.name, "main");
     } else if args.arg_cmd == "code" {
         let mut prog = program::Lib::new(inter);
         let code = match args.flag_func {

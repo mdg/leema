@@ -195,4 +195,11 @@ fn test_hashset_contains_sref() {
     assert!(s.contains(&Lstr::from("tacos")));
 }
 
+#[test]
+fn test_hashset_constains_str() {
+    let mut s = HashSet::new();
+    s.insert(Lstr::from("tacos"));
+    assert!(s.contains("tacos"));
+}
+
 }

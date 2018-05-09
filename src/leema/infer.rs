@@ -78,7 +78,7 @@ pub struct Inferator<'b>
 
 impl<'b> Inferator<'b>
 {
-    pub fn new(modname: &str, funcname: &'b str) -> Inferator<'b>
+    pub fn new(funcname: &'b str) -> Inferator<'b>
     {
         Inferator{
             funcname: funcname,
