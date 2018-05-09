@@ -1,6 +1,6 @@
 
 use leema::log;
-use leema::ast::{self, Ast};
+use leema::ast::{Ast};
 use leema::val::{Val, Type, SrcLoc, TypeResult, TypeErr};
 
 use std::collections::{HashMap};
@@ -20,7 +20,7 @@ pub struct VarData
 
 impl VarData
 {
-    pub fn new(failures: Val) -> VarData
+    pub fn new(failures: Ast) -> VarData
     {
         VarData{
             failure: Some(failures),
@@ -226,9 +226,6 @@ impl<'b> Inferator<'b>
             }
             &Val::Nil => {}
             &Val::Wildcard => {}
-            &Val::Loc(ref lv, loc) => {
-                self.match_list_pattern(lv, inner_type, loc.lineno);
-            }
             _ => {
                 panic!("match_list_pattern on not a list: {:?}", l);
             }
@@ -263,7 +260,7 @@ impl<'b> Inferator<'b>
         self.blocks.len() == 1
     }
 
-    pub fn push_block(&mut self, failures: HashMap<String, Val>)
+    pub fn push_block(&mut self, failures: HashMap<String, Ast>)
     {
         self.blocks.push(Blockscope::new(failures));
     }

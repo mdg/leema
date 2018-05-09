@@ -16,6 +16,7 @@ pub enum Source
     BooleanAnd(Box<Ixpr>, Box<Ixpr>),
     BooleanOr(Box<Ixpr>, Box<Ixpr>),
     Call(Box<Ixpr>, Box<Ixpr>),
+    Cons(Box<Ixpr>, Box<Ixpr>),
     Constructor(Type, i8),
     ConstVal(Val),
     EnumConstructor(Type, i16, Box<Ixpr>),
@@ -140,6 +141,15 @@ impl Ixpr
             typ: Type::Tuple(tuptyp),
             src: Source::Tuple(items),
             line: lineno,
+        }
+    }
+
+    pub fn cons(head: Ixpr, tail: Ixpr, typ: Type, line: i16) -> Ixpr
+    {
+        Ixpr{
+            typ: typ,
+            src: Source::Cons(Box::new(head), Box::new(tail)),
+            line: line,
         }
     }
 

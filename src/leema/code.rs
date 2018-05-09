@@ -299,6 +299,20 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::Call(ref f, ref args) => {
             make_call_ops(rt, f, args, &input.typ)
         }
+        Source::Cons(ref h, ref t) => {
+            let mut hops = make_sub_ops(rt, h);
+            let mut tops = make_sub_ops(rt, t);
+            let dst = rt.dst();
+            hops.ops.append(&mut tops.ops);
+            hops.ops.push((
+                Op::ListCons(dst.clone(), hops.dst, tops.dst),
+                input.line,
+            ));
+            Oxpr{
+                ops: hops.ops,
+                dst: dst.clone(),
+            }
+        }
         Source::Constructor(ref typ, nflds) => {
             vout!("make_constructor_ops({:?})\n", input);
             make_constructor_ops(rt, typ, nflds, input.line)
@@ -618,9 +632,6 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
                 assign_pattern_registers(rt, v)
             }).collect();
             Val::Struct(typ.clone(), reg_items)
-        }
-        &Val::Loc(ref pv, _) => {
-            assign_pattern_registers(rt, pv)
         }
         _ => {
             panic!("pattern type unsupported: {:?}", pattern);

@@ -643,7 +643,6 @@ pub enum Val {
     Void,
     Wildcard,
     PatternVar(Reg),
-    Loc(Box<Val>, SrcLoc),
 }
 
 const NIL: Val = Val::Nil;
@@ -684,7 +683,6 @@ impl Val
         match self {
             &Val::Id(_) => true,
             &Val::TypedId(_, _) => true,
-            &Val::Loc(ref v, _) => v.is_id(),
             _ => false,
         }
     }
@@ -695,7 +693,6 @@ impl Val
             &Val::Id(ref name) => name.clone(),
             &Val::TypedId(ref name, ref typ) => name.clone(),
             &Val::Type(ref typ) => typ.full_typename(),
-            &Val::Loc(ref v, _) => v.id_name(),
             _ => {
                 panic!("not an id {:?}", self);
             }
@@ -803,7 +800,6 @@ impl Val
             &Val::Id(ref id) => id,
             &Val::TypedId(ref id, ref typ) => id,
             &Val::Str(ref s) => s,
-            &Val::Loc(ref v, _) => v.str(),
             _ => {
                 panic!("Cannot convert to string: {:?}", self);
             }
@@ -821,7 +817,6 @@ impl Val
                 let s = format!("{}::{}", prefix, name_str);
                 Rc::new(s)
             }
-            &Val::Loc(ref v, _) => v.to_str(),
             _ => {
                 panic!("Cannot convert to string: {:?}", self);
             }
@@ -832,7 +827,6 @@ impl Val
     {
         match self {
             &Val::Int(i) => i,
-            &Val::Loc(ref v, _) => v.to_int(),
             _ => {
                 panic!("Not an int: {:?}", self);
             }
@@ -866,7 +860,6 @@ impl Val
                 let tbase = base.to_type();
                 Type::ModPrefix(prefix.clone(), Rc::new(tbase))
             }
-            &Val::Loc(ref v, _) => v.to_type(),
             _ => {
                 panic!("Cannot unwrap not-type as type {:?}", self);
             }
@@ -881,7 +874,6 @@ impl Val
                 Val::Id(tid.clone()),
                 typ.clone(),
             ),
-            &Val::Loc(ref v, _) => v.split_typed_id(),
             _ => {
                 panic!("not a TypedId: {:?}", self);
             }
@@ -928,14 +920,6 @@ impl Val
             trace,
             status,
         )
-    }
-
-    pub fn loc(v: Val, l: SrcLoc) -> Val
-    {
-        if let Val::Loc(_, _) = v {
-            panic!("don't put a loc around a loc! {:?}", v);
-        }
-        Val::Loc(Box::new(v), l)
     }
 
     pub fn resource_ref(&self) -> i64
@@ -1058,7 +1042,6 @@ impl Val
             &Val::Future(_) => {
                 panic!("cannot get type of Future: {:?}", self);
             }
-            &Val::Loc(ref v, _) => v.get_type(),
         }
     }
 
@@ -1152,10 +1135,6 @@ impl Val
                     None => node.clone()
                 }
             }
-            &Val::Loc(ref v, ref loc) => {
-                let v2 = Val::replace_ids(v, idvals);
-                Val::loc(v2, *loc)
-            }
             &Val::Sxpr(stype, ref sdata, ref loc) => {
                 sxpr::new(
                     stype,
@@ -1245,13 +1224,6 @@ impl Val
             }
             &Val::PatternVar(_) => {
                 write!(f, ";{:?}", l)
-            }
-            &Val::Loc(ref v, ref loc) => {
-                if dbg {
-                    write!(f, "{:?}@{:?}", v, loc)
-                } else {
-                    write!(f, "{}", v)
-                }
             }
             _ => {
                 panic!("Not a list: {:?}", l);
@@ -1581,9 +1553,6 @@ impl fmt::Display for Val {
             Val::Wildcard => {
                 write!(f, "_")
             }
-            Val::Loc(ref v, _) => {
-                write!(f, "{}", v)
-            }
         }
     }
 }
@@ -1686,9 +1655,6 @@ impl fmt::Debug for Val {
             }
             Val::Wildcard => {
                 write!(f, "_Wildcard")
-            }
-            Val::Loc(ref v, ref loc) => {
-                write!(f, "{:?}@{:?}", v, loc)
             }
         }
     }
@@ -1989,14 +1955,6 @@ impl PartialOrd for Val
                 PartialOrd::partial_cmp(b1, b2)
             }
 
-            // don't compare loc directly, just pass through to
-            // compare the inner values
-            (&Val::Loc(ref v1, _), _) => {
-                PartialOrd::partial_cmp(&**v1, other)
-            }
-            (_, &Val::Loc(ref v2, _)) => {
-                PartialOrd::partial_cmp(self, &**v2)
-            }
             // start comparing mixed types
             (&Val::Bool(false), _) => {
                 Some(Ordering::Less)
