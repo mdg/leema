@@ -502,6 +502,9 @@ term(A) ::= list(B). {
 term(A) ::= lri(B). {
     A = B;
 }
+term(A) ::= localid(B). {
+    A = B;
+}
 term(A) ::= VOID. {
     A = Ast::ConstVoid;
 }
@@ -563,8 +566,12 @@ lri(A) ::= lri_base(B). {
 lri(A) ::= lri_base(B) SquareCall expr_list(C) SquareR. {
     A = Ast::Lri(B.0, Some(C), B.1);
 }
-lri_base(A) ::= ID(B). {
-    A = (vec![Lstr::from(B.data)], B.loc);
+lri(A) ::= ID(B) SquareCall expr_list(C) SquareR. {
+    let one_name = vec![Lstr::from(B.data)];
+    A = Ast::Lri(one_name, Some(C), B.loc);
+}
+lri_base(A) ::= ID(B) DBLCOLON ID(C). {
+    A = (vec![Lstr::from(B.data), Lstr::from(C.data)], B.loc);
 }
 lri_base(A) ::= lri_base(B) DBLCOLON ID(C). {
     let mut tmp = B;
