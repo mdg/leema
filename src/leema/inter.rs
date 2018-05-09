@@ -378,6 +378,12 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
             }).collect();
             Ixpr::new_str_mash(strvec, iloc.lineno)
         }
+        &Ast::List(ref items) => {
+            let c_items = items.iter().map(|i| {
+                compile_expr(scope, i, loc)
+            }).collect();
+            Ixpr::new_list(c_items, loc.lineno)
+        }
         &Ast::Tuple(ref items) => {
             let c_items = items.iter().map(|i| {
                 compile_expr(scope, i, loc)

@@ -300,9 +300,13 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             make_call_ops(rt, f, args, &input.typ)
         }
         Source::Cons(ref h, ref t) => {
+            let dst = rt.dst().clone();
+            rt.push_dst();
             let mut hops = make_sub_ops(rt, h);
+            rt.push_dst();
             let mut tops = make_sub_ops(rt, t);
-            let dst = rt.dst();
+            rt.pop_dst();
+            rt.pop_dst();
             hops.ops.append(&mut tops.ops);
             hops.ops.push((
                 Op::ListCons(dst.clone(), hops.dst, tops.dst),
@@ -310,7 +314,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             ));
             Oxpr{
                 ops: hops.ops,
-                dst: dst.clone(),
+                dst: dst,
             }
         }
         Source::Constructor(ref typ, nflds) => {
