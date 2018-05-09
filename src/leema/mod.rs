@@ -22,7 +22,6 @@ pub mod ixpr;
 pub mod infer;
 pub mod inter;
 pub mod rsrc;
-pub mod sxpr;
 pub mod parse;
 pub mod tcp;
 pub mod typecheck;

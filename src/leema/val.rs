@@ -1,5 +1,4 @@
 use leema::reg::{self, Reg, Ireg, Iregistry};
-use leema::sxpr;
 use leema::list;
 use leema::lri::{Lri};
 use leema::frame::{FrameTrace};
@@ -617,7 +616,6 @@ pub enum Val {
     Nil,
     Tuple(Vec<Val>),
     NamedTuple(Type, Vec<Val>),
-    Sxpr(SxprType, Rc<Val>, SrcLoc),
     Struct(Type, Vec<Val>),
     Enum(Type, i16, Rc<String>, Box<Val>),
     Token(Type),
@@ -652,22 +650,6 @@ pub const TRUE: Val = Val::Bool(true);
 
 impl Val
 {
-    pub fn is_sxpr(&self) -> bool
-    {
-        match self {
-            &Val::Sxpr(_, _, _) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_sxpr_type(&self, st: SxprType) -> bool
-    {
-        match self {
-            &Val::Sxpr(st, _, _) => true,
-            _ => false,
-        }
-    }
-
     pub fn id(s: String) -> Val
     {
         Val::Id(Rc::new(s))
@@ -988,22 +970,6 @@ impl Val
             &Val::Id(_) => Type::AnonVar,
             &Val::Lri(_) => Type::AnonVar,
             &Val::TypedId(_, ref typ) => typ.clone(),
-            &Val::Sxpr(SxprType::DefFunc, _, _) => sxpr::defunc_type(self),
-            &Val::Sxpr(SxprType::StrExpr, _, _) => Type::Str,
-            &Val::Sxpr(SxprType::BlockExpr, ref exprs, _) => {
-                match list::last(exprs) {
-                    Some(last) => {
-                        last.get_type()
-                    }
-                    None => {
-                        Type::Void
-                    }
-                }
-            }
-            &Val::Sxpr(SxprType::Call, _, _) => Type::Unknown,
-            &Val::Sxpr(st, _, ref loc) => {
-                panic!("cannot find type for: {:?}@{:?}", st, loc);
-            }
             &Val::RustBlock => Type::RustBlock,
             &Val::Struct(ref typ, _) => {
                 typ.clone()
@@ -1135,13 +1101,6 @@ impl Val
                     None => node.clone()
                 }
             }
-            &Val::Sxpr(stype, ref sdata, ref loc) => {
-                sxpr::new(
-                    stype,
-                    Val::replace_ids(&**sdata, idvals),
-                    *loc,
-                )
-            }
             _ => node.clone(),
         }
     }
@@ -1162,9 +1121,6 @@ impl Val
             &Val::Nil => Val::Nil,
             &Val::Tuple(ref items) => {
                 Val::Tuple(items.iter().map(|i| i.deep_clone()).collect())
-            }
-            &Val::Sxpr(st, ref sx, ref loc) => {
-                Val::Sxpr(st, Rc::new(sx.deep_clone()), *loc)
             }
             &Val::Struct(ref typ, ref flds) => {
                 Val::Struct(typ.deep_clone(), flds.iter().map(|f| {
@@ -1242,125 +1198,6 @@ impl Val
             }
         }
         f.write_str(")")
-    }
-
-    fn fmt_sxpr(f: &mut fmt::Formatter, st: SxprType, x: &Val, loc: &SrcLoc
-        , dbg: bool
-        ) -> fmt::Result
-    {
-        match (st, x) {
-            (SxprType::Let, b) => {
-                let (id, exprtail) = list::take_ref(b);
-                let (expr, _) = list::take_ref(&*exprtail);
-                if dbg {
-                    write!(f, "let {:?} @ {:?} := {:?}", id, expr, loc)
-                } else {
-                    write!(f, "let {} := {}", id, expr)
-                }
-            }
-            (SxprType::Fork, b) => {
-                let (id, exprtail) = list::take_ref(b);
-                let (expr, _) = list::take_ref(&*exprtail);
-                if dbg {
-                    write!(f, "fork {:?} @ {:?} := {:?}", id, loc, expr)
-                } else {
-                    write!(f, "fork {} := {}", id, expr)
-                }
-            }
-            (SxprType::BlockExpr, lines) => {
-                if dbg {
-                    write!(f, "B@{:?}{{", loc);
-                    Val::fmt_list(f, lines, dbg);
-                    write!(f, "}}")
-                } else {
-                    write!(f, "block-expr")
-                }
-            }
-            (SxprType::Call, &Val::Cons(ref id, ref args)) => {
-                if dbg {
-                    write!(f, "{:?}@{:?}({:?})", id, loc, args)
-                } else {
-                    write!(f, "{}({})", id, args)
-                }
-            }
-            (SxprType::StrExpr, strs) => {
-                if dbg {
-                    write!(f, "\"{}\"@{:?}", strs, loc)
-                } else {
-                    write!(f, "\"{}\"", strs)
-                }
-            }
-            (SxprType::MatchExpr, mc) => {
-                let (x, m2) = list::take_ref(mc);
-                let (cases, _) = list::take_ref(&*m2);
-                if dbg {
-                    write!(f, "match({:?}@{:?},{:?})", x, loc, cases)
-                } else {
-                    write!(f, "match({},{})", x, cases)
-                }
-            }
-            (SxprType::MatchFailed, ref sx) => {
-                let (name, m2) = list::take_ref(sx);
-                let (cases, _) = list::take_ref(&*m2);
-                if dbg {
-                    write!(f, "MatchFailed({}@{:?}, {:?})", name, loc, cases)
-                } else {
-                    write!(f, "failed {} cases({})", name, cases)
-                }
-            }
-            (SxprType::IfExpr, casex) => {
-                if dbg {
-                    write!(f, "if@{:?}({:?})", loc, casex)
-                } else {
-                    write!(f, "if({:?})", casex)
-                }
-            }
-            (SxprType::DefFunc, ref func) => {
-                let (name, f2) = list::take_ref(func);
-                let (args, f3) = list::take_ref(&*f2);
-                let (rtype, f4) = list::take_ref(&*f3);
-                let (body, _) = list::take_ref(&*f4);
-                write!(f, "DefFunc({}({:?}):{:?} {:?})",
-                    name,
-                    args,
-                    rtype,
-                    body,
-                )
-            }
-            (SxprType::DefMacro, ref mac) => {
-                let (name, m2) = list::take_ref(mac);
-                let (args, m3) = list::take_ref(&*m2);
-                let (body, _) = list::take_ref(&*m3);
-                write!(f, "DefMacro({},{:?},{:?})", name, args, body)
-            }
-            (SxprType::DefStruct, ref ds) => {
-                let (name, fields) = list::take_ref(ds);
-                if **fields == Val::Nil {
-                    write!(f, "struct({})", name)
-                } else {
-                    write!(f, "struct({},{:?})", name, fields)
-                }
-            }
-            (SxprType::Import, ref filelist) => {
-                let file = list::head_ref(filelist);
-                if dbg {
-                    write!(f, "(import {:?} @ {:?})", file, loc)
-                } else {
-                    write!(f, "(import {:?})", file)
-                }
-            }
-            (SxprType::Return, ref result_list) => {
-                let result_item = list::head_ref(result_list);
-                if dbg {
-                    write!(f, "(Return {:?} @ {:?})", result_item, loc)
-                } else {
-                    write!(f, "return {}", result_item)
-                }
-            }
-            _ => {
-                write!(f, "something else: {:?}/{:?} @ {:?}", st, x, loc)
-            }
-        }
     }
 
     pub fn to_msg(&self) -> MsgVal
@@ -1514,9 +1351,6 @@ impl fmt::Display for Val {
             Val::Failure(ref tag, ref msg, ref stack, status) => {
                 write!(f, "Failure({}, {}\n{})", tag, msg, **stack)
             }
-            Val::Sxpr(ref t, ref head, ref loc) => {
-                Val::fmt_sxpr(f, *t, head, loc, false)
-            }
             Val::ModPrefix(ref module, ref next) => {
                 write!(f, "{}::{}", module, next)
             }
@@ -1616,9 +1450,6 @@ impl fmt::Debug for Val {
             }
             Val::Failure(ref tag, ref msg, ref stack, status) => {
                 write!(f, "Failure({}, {}, {}, {:?})", tag, status, msg, stack)
-            }
-            Val::Sxpr(ref t, ref head, ref loc) => {
-                Val::fmt_sxpr(f, *t, head, loc, true)
             }
             Val::ModPrefix(ref head, ref tail) => {
                 write!(f, "Id({}::{})", head, tail)
@@ -1929,17 +1760,6 @@ impl PartialOrd for Val
             (&Val::ResourceRef(rra), &Val::ResourceRef(rrb)) => {
                 PartialOrd::partial_cmp(&rra, &rrb)
             }
-            (&Val::Sxpr(t1, ref x1, _), &Val::Sxpr(t2, ref x2, _)) => {
-                let cmp = PartialOrd::partial_cmp(&t1, &t2);
-                match cmp {
-                    Some(Ordering::Equal) => {
-                        PartialOrd::partial_cmp(
-                            &*x1, &*x2
-                        )
-                    }
-                    _ => cmp,
-                }
-            }
             (&Val::DotAccess(ref base1, ref sub1),
                     &Val::DotAccess(ref base2, ref sub2)) =>
             {
@@ -2048,8 +1868,6 @@ impl PartialOrd for Val
             }
             (&Val::RustBlock, _) => Some(Ordering::Less),
             (_, &Val::RustBlock) => Some(Ordering::Greater),
-            (&Val::Sxpr(_, _, _), _) => Some(Ordering::Less),
-            (_, &Val::Sxpr(_, _, _)) => Some(Ordering::Greater),
             (&Val::Wildcard, _) => Some(Ordering::Less),
             (_, &Val::Wildcard) => Some(Ordering::Greater),
             _ => {

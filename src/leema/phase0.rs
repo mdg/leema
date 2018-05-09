@@ -5,7 +5,6 @@ use leema::val::{SxprType, Val, Type, SrcLoc};
 use leema::module::{ModKey, ModulePreface, MacroDef};
 use leema::list;
 use leema::log;
-use leema::sxpr;
 
 use std::collections::{HashMap, HashSet, LinkedList};
 use std::rc::Rc;
