@@ -720,7 +720,6 @@ mod tests {
     use leema::module::{ModKey};
     use leema::phase0::{Protomod};
     use leema::program;
-    use leema::sxpr;
     use leema::val::{Val, Type, SxprType, SrcLoc};
 
     use std::collections::{HashSet};

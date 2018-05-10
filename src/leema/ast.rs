@@ -273,7 +273,6 @@ mod tests {
     use leema::val::{Val, SxprType, Type, SrcLoc};
     use leema::ast::{self, Ast};
     use leema::lstr::{Lstr};
-    use leema::sxpr;
     use leema::list;
     use leema::lex::{lex};
 
@@ -858,5 +857,39 @@ fn test_parse_function_type_param()
 
     assert!(true); // didn't panic!
 }
+
+/*
+#[test]
+fn test_replace_ids_if()
+{
+    let loc = SrcLoc::new(3, 4);
+    let body = Ast::IfExpr(
+        Ast::Id(Lstr::from("a")),
+        Ast::Block(vec![
+            list::cons(Val::id("b".to_string()),
+        ]),
+            list::cons(Val::Bool(false),
+            Val::Nil,
+            ))),
+        loc,
+    );
+    let mut ids = HashMap::new();
+    ids.insert(Rc::new("a".to_string()), Val::Bool(true));
+    ids.insert(Rc::new("b".to_string()), Val::Bool(false));
+
+    let result = Val::replace_ids(&body, &ids);
+
+    let expected = sxpr::new(
+        SxprType::IfExpr,
+        list::cons(Val::Bool(true),
+            list::cons(Val::Bool(false),
+            list::cons(Val::Bool(false),
+            Val::Nil,
+            ))),
+        loc,
+    );
+    assert_eq!(expected, result);
+}
+*/
 
 }

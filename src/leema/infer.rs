@@ -489,7 +489,7 @@ mod tests {
 #[test]
 fn test_add_and_find()
 {
-    let mut t = Inferator::new("tacos", "burritos");
+    let mut t = Inferator::new("burritos");
     t.bind_vartype("a", &Type::Int, 18);
     assert_eq!(Type::Int, t.vartype("a").unwrap());
 }
@@ -497,7 +497,7 @@ fn test_add_and_find()
 #[test]
 fn test_merge_strict_list_unknown()
 {
-    let mut t = Inferator::new("tacos", "burritos");
+    let mut t = Inferator::new("burritos");
     let mtype = t.merge_types(
         &Type::StrictList(Box::new(Type::Unknown)),
         &Type::StrictList(Box::new(Type::Int)),
@@ -509,7 +509,7 @@ fn test_merge_strict_list_unknown()
 #[test]
 fn test_merge_types_via_tvar()
 {
-    let mut t = Inferator::new("eat", "burritos");
+    let mut t = Inferator::new("burritos");
     let intlist = Type::StrictList(Box::new(Type::Int));
     let unknownlist = Type::StrictList(Box::new(Type::Unknown));
     let tvar = Type::Var(Rc::new("Taco".to_string()));
@@ -524,7 +524,7 @@ fn test_merge_types_via_tvar()
 #[test]
 fn test_take_current_module()
 {
-    let mut t = Inferator::new("tacos", "burritos");
+    let mut t = Inferator::new("burritos");
     assert_eq!(None, t.take_current_module());
     t.push_module(Rc::new(String::from("torta")));
     assert_eq!("torta", &*t.take_current_module().unwrap());
@@ -534,7 +534,7 @@ fn test_take_current_module()
 #[test]
 fn test_match_pattern_empty_list()
 {
-    let mut t = Inferator::new("eat", "burritos");
+    let mut t = Inferator::new("burritos");
     let tvar = Type::Var(Rc::new("Taco".to_string()));
     t.match_pattern(&Val::Nil, &tvar, 55);
 
@@ -545,7 +545,7 @@ fn test_match_pattern_empty_list()
 #[test]
 fn test_match_pattern_empty_and_full_lists()
 {
-    let mut t = Inferator::new("eat", "burritos");
+    let mut t = Inferator::new("burritos");
     let tvar = Type::Var(Rc::new("Taco".to_string()));
     t.match_pattern(&Val::Nil, &tvar, 32);
     t.match_pattern(&list::singleton(Val::Int(5)), &tvar, 99);
@@ -557,7 +557,7 @@ fn test_match_pattern_empty_and_full_lists()
 #[test]
 fn test_match_pattern_hashtag_list_inside_tuple()
 {
-    let mut t = Inferator::new("abc", "burritos");
+    let mut t = Inferator::new("burritos");
     let tvar = Type::Tuple(vec![
         Type::Var(Rc::new("Taco".to_string()))
     ]);

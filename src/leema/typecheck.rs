@@ -519,6 +519,7 @@ mod tests {
     use leema::program;
     use leema::loader::{Interloader};
     use leema::log;
+    use leema::typecheck::{self, Typelib};
 
     use std::io::{Write};
 
@@ -544,7 +545,8 @@ fn test_pattern_type_inferred_mismatch()
     let mut loader = Interloader::new("tacos.lma");
     loader.set_mod_txt("tacos", input);
     let mut prog = program::Lib::new(loader);
-    prog.deep_typecheck("tacos", "main");
+    let mut tlib = Typelib::new();
+    tlib.deep_typecheck(&mut prog, "tacos", "main");
 }
 
 }

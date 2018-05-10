@@ -900,6 +900,7 @@ impl fmt::Debug for Intermod
 #[cfg(test)]
 mod tests {
     use leema::inter::{self, ScopeLevel, Interscope};
+    use leema::ixpr::{Ixpr};
     use leema::log;
     use leema::loader::{Interloader};
     use leema::module::{ModKey};
@@ -979,7 +980,7 @@ fn test_new_vars_from_id_pattern()
         , "foo", 103, &args, &argt);
 
     let mut new_vars = Vec::default();
-    let patt = Val::id("x".to_string());
+    let patt = Ast::Localid(Lstr::from("x"));
 
     inter::compile_pattern(&mut scope, &mut new_vars, &patt);
 
@@ -1000,7 +1001,8 @@ fn test_too_many_args()
     let mut loader = Interloader::new("tacos.lma");
     loader.set_mod_txt("tacos", input);
     let mut prog = program::Lib::new(loader);
-    let imod = prog.read_inter("tacos");
+    let ixmain = prog.read_inter("tacos", "main");
+    assert_eq!(Ixpr::noop(), ixmain);
 }
 
 #[test]
@@ -1022,7 +1024,7 @@ fn test_pattern_declaration()
     let mut loader = Interloader::new("tacos.lma");
     loader.set_mod_txt("tacos", input);
     let mut prog = program::Lib::new(loader);
-    let imod = prog.read_inter("tacos");
+    let imod = prog.read_inter("tacos", "main");
     assert!(true); // didn't panic earlier
 }
 
@@ -1040,7 +1042,7 @@ fn test_named_tuple_constructor()
     let mut loader = Interloader::new("greeting.lma");
     loader.set_mod_txt("greeting", input);
     let mut prog = program::Lib::new(loader);
-    let imod = prog.read_inter("greeting");
+    let imod = prog.read_inter("greeting", "main");
     assert!(true); // didn't panic earlier
 }
 
@@ -1067,7 +1069,7 @@ fn test_enum_constructors()
     let mut loader = Interloader::new("animals.lma");
     loader.set_mod_txt("animals", input);
     let mut prog = program::Lib::new(loader);
-    let imod = prog.read_inter("animals");
+    let imod = prog.read_inter("animals", "main");
     assert!(true); // didn't panic earlier
 }
 
@@ -1091,7 +1093,7 @@ fn test_pattern_type_explicit_mismatch()
     let mut loader = Interloader::new("tacos.lma");
     loader.set_mod_txt("tacos", input);
     let mut prog = program::Lib::new(loader);
-    let imod = prog.read_inter("tacos");
+    let imod = prog.read_inter("tacos", "foo");
 }
 
 #[test]
@@ -1115,7 +1117,7 @@ fn test_pattern_type_inferred_mismatch()
     let mut loader = Interloader::new("tacos.lma");
     loader.set_mod_txt("tacos", input);
     let mut prog = program::Lib::new(loader);
-    let imod = prog.read_inter("tacos");
+    let imod = prog.read_inter("tacos", "main");
 }
 
 }

@@ -108,6 +108,14 @@ impl<'a> From<&'static str> for Lstr
     }
 }
 
+impl AsRef<str> for Lstr
+{
+    fn as_ref(&self) -> &str
+    {
+        self.str()
+    }
+}
+
 impl PartialEq for Lstr
 {
     fn eq(&self, b: &Lstr) -> bool
