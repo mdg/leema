@@ -144,11 +144,19 @@ impl PartialEq for Lstr
     }
 }
 
-impl<'a, 'b> PartialEq<Lstr> for &'a str
+impl<'a, 'b> PartialEq<&'b Lstr> for &'a str
 {
-    fn eq(&self, other: &Lstr) -> bool
+    fn eq(&self, other: &&Lstr) -> bool
     {
-        *self == other.str()
+        *self == (*other).str()
+    }
+}
+
+impl<'a, 'b> PartialEq<str> for Lstr
+{
+    fn eq(&self, other: &str) -> bool
+    {
+        self.str() == other
     }
 }
 
@@ -197,6 +205,18 @@ fn test_eq_rc_sref() {
 }
 
 #[test]
+fn test_eq_str_lstr() {
+    let a = Lstr::from("abc");
+    assert_eq!("abc", &a);
+}
+
+#[test]
+fn test_eq_lstr_str() {
+    let a = Lstr::from("abc");
+    assert_eq!(&a, "abc");
+}
+
+#[test]
 fn test_eq_arc_sref() {
     let a = Lstr::Arc(Arc::new(String::from("aaa")));
     let b = Lstr::from("aaa");
@@ -232,10 +252,9 @@ fn test_hashset_contains_sref() {
 }
 
 #[test]
-fn test_hashset_constains_lstr() {
+fn test_hashset_contains_str() {
     let mut s = HashSet::new();
     s.insert(Lstr::from("tacos"));
-    assert!(s.contains(&Lstr::from("tacos")));
     assert!(s.contains("tacos"));
 }
 
