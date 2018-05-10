@@ -1,5 +1,7 @@
 
+use std::borrow::{Borrow};
 use std::fmt;
+use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -116,11 +118,37 @@ impl AsRef<str> for Lstr
     }
 }
 
+impl Deref for Lstr
+{
+    type Target = str;
+
+    fn deref(&self) -> &str
+    {
+        self.str()
+    }
+}
+
+impl Borrow<str> for Lstr
+{
+    fn borrow(&self) -> &str
+    {
+        self.str()
+    }
+}
+
 impl PartialEq for Lstr
 {
     fn eq(&self, b: &Lstr) -> bool
     {
         PartialEq::eq(self.str(), b.str())
+    }
+}
+
+impl<'a, 'b> PartialEq<Lstr> for &'a str
+{
+    fn eq(&self, other: &Lstr) -> bool
+    {
+        *self == other.str()
     }
 }
 
@@ -204,9 +232,10 @@ fn test_hashset_contains_sref() {
 }
 
 #[test]
-fn test_hashset_constains_str() {
+fn test_hashset_constains_lstr() {
     let mut s = HashSet::new();
     s.insert(Lstr::from("tacos"));
+    assert!(s.contains(&Lstr::from("tacos")));
     assert!(s.contains("tacos"));
 }
 

@@ -899,14 +899,16 @@ impl fmt::Debug for Intermod
 
 #[cfg(test)]
 mod tests {
+    use leema::ast::{self, Ast};
     use leema::inter::{self, ScopeLevel, Interscope};
     use leema::ixpr::{Ixpr};
     use leema::log;
     use leema::loader::{Interloader};
+    use leema::lstr::{Lstr};
     use leema::module::{ModKey};
     use leema::phase0::{Protomod};
     use leema::program;
-    use leema::val::{Type, Val};
+    use leema::val::{Type, Val, SrcLoc};
 
     use std::rc::{Rc};
     use std::collections::{HashMap};
@@ -980,7 +982,7 @@ fn test_new_vars_from_id_pattern()
         , "foo", 103, &args, &argt);
 
     let mut new_vars = Vec::default();
-    let patt = Ast::Localid(Lstr::from("x"));
+    let patt = Ast::Localid(Lstr::from("x"), SrcLoc::default());
 
     inter::compile_pattern(&mut scope, &mut new_vars, &patt);
 
