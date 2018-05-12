@@ -1,6 +1,7 @@
 
 use std::borrow::{Borrow};
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -10,7 +11,6 @@ use std::sync::Arc;
 #[derive(Clone)]
 #[derive(PartialOrd)]
 #[derive(Eq)]
-#[derive(Hash)]
 pub enum Lstr
 {
     Rc(Rc<String>),
@@ -181,6 +181,17 @@ impl fmt::Display for Lstr
     }
 }
 
+/**
+ * delegate hash to the str version of the Lstr
+ */
+impl Hash for Lstr
+{
+    fn hash<H: Hasher>(&self, state: &mut H)
+    {
+        self.str().hash(state)
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -249,6 +260,13 @@ fn test_hashset_contains_sref() {
     let mut s = HashSet::new();
     s.insert(Lstr::from("tacos"));
     assert!(s.contains(&Lstr::from("tacos")));
+}
+
+#[test]
+fn test_hashset_with_sref_contains_rc() {
+    let mut s = HashSet::new();
+    s.insert(Lstr::from("tacos"));
+    assert!(s.contains(&Lstr::from(String::from("tacos"))));
 }
 
 #[test]
