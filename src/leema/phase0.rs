@@ -194,6 +194,35 @@ impl Protomod
         }
     }
 
+    pub fn preproc_func_arg(prog: &Lib, mp: &ModulePreface, func_name: &Lstr,
+        arg: &Ast, loc: &SrcLoc
+        ) -> Ast
+    {
+        match arg {
+            &Ast::Localid(ref id, ref iloc) => {
+                let type_name = Lstr::from(
+                    format!("{}_{}_{}", mp.key.name, func_name.str(), id)
+                );
+                let typ2 = Ast::TypeVar(type_name, *iloc);
+                Ast::KeyedExpr(id.clone(), Box::new(typ2), *iloc)
+            }
+            &Ast::KeyedExpr(ref id, ref typ, ref iloc) => {
+                if let Ast::TypeAnon = **typ {
+                    let type_name = Lstr::from(
+                        format!("{}_{}_{}", mp.key.name, func_name.str(), id)
+                    );
+                    let new_typ = Ast::TypeVar(type_name, *iloc);
+                    Ast::KeyedExpr(id.clone(), Box::new(new_typ), *iloc)
+                } else {
+                    arg.clone()
+                }
+            }
+            _ => {
+                panic!("unexpected function arg: {:?}", arg);
+            }
+        }
+    }
+
     pub fn preproc_defunc(&mut self, prog: &Lib, mp: &ModulePreface
         , fclass: ast::FuncClass, name: &Ast, args: &LinkedList<Ast>
         , rtype: &Ast, body: &Ast, loc: &SrcLoc
@@ -201,7 +230,7 @@ impl Protomod
     {
         let lstr_name = Lstr::from(name);
         let pp_args: LinkedList<Ast> = args.iter().map(|a| {
-            Protomod::preproc_expr(prog, mp, a, loc)
+            Protomod::preproc_func_arg(prog, mp, &lstr_name, a, loc)
         }).collect();
         let pp_rtype_ast = Protomod::preproc_expr(prog, mp, rtype, loc);
         let pp_body = Protomod::preproc_expr(prog, mp, body, loc);
@@ -371,6 +400,11 @@ impl Protomod
                         Protomod::preproc_pattern(prog, mp, i, loc)
                     }).collect()
                 )
+            }
+            &Ast::List(ref items) => {
+                Ast::List(items.iter().map(|i| {
+                    Protomod::preproc_pattern(prog, mp, i, loc)
+                }).collect())
             }
             &Ast::Call(ref name, ref args, ref iloc) => {
                 let pp_callx =

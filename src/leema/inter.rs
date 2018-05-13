@@ -649,6 +649,7 @@ pub fn compile_match_case(scope: &mut Interscope
     ) -> Ixpr
 {
     let mut new_vars = Vec::new();
+    scope.T.push_block(HashMap::new());
     let cpatt = compile_pattern(scope, &mut new_vars, &case.cond);
     scope.T.match_pattern(&cpatt, xtyp, case.loc.lineno);
     let iblk = compile_expr(scope, &case.body, &case.loc);
@@ -680,11 +681,20 @@ pub fn compile_pattern(scope: &mut Interscope, new_vars: &mut Vec<Rc<String>>
                 &Ast::Cons(_, _) => {
                     compile_pattern(scope, new_vars, &**tail)
                 }
+                &Ast::List(_) => {
+                    compile_pattern(scope, new_vars, &**tail)
+                }
                 _ => {
                     panic!("invalid pattern tail: {:?}", tail);
                 }
             };
             Val::Cons(Box::new(chead), Rc::new(ctail))
+        }
+        &Ast::List(ref items) => {
+            let c_items: Vec<Val> = items.iter().map(|i| {
+                compile_pattern(scope, new_vars, i)
+            }).collect();
+            list::from_vec(&c_items)
         }
         &Ast::Tuple(ref items) => {
             let citems = items.iter().map(|i| {
