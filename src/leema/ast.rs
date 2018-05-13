@@ -398,7 +398,7 @@ fn test_ast_parse_call_one_param()
     );
     let expected = Ast::Block(vec![
         Ast::Call(
-            Box::new(test_lri("inc", 1, 1)),
+            Box::new(Ast::Localid(Lstr::from("inc"), SrcLoc::new(1, 1))),
             vec![neg4].into_iter().collect(),
             SrcLoc::new(1, 4),
         ),
@@ -413,7 +413,7 @@ fn test_ast_parse_function_call() {
 
     let xargs = vec![Ast::ConstInt(7), Ast::ConstInt(2)].into_iter().collect();
     let expected = Ast::Block(vec![Ast::Call(
-        Box::new(test_lri("foo", 1, 1)),
+        Box::new(Ast::Localid(Lstr::from("foo"), SrcLoc::new(1, 1))),
         xargs,
         SrcLoc::new(1, 4),
     )]);
@@ -579,8 +579,8 @@ fn test_ast_parse_if_no_else()
     let root = ast::parse(lex(input));
 
     let blocka = ast::IfCase::new(
-        test_lri("x", 1, 3),
-        Ast::Block(vec![test_lri("y", 1, 6)]),
+        Ast::Localid(Lstr::from("x"), SrcLoc::new(1, 3)),
+        Ast::Block(vec![Ast::Localid(Lstr::from("y"), SrcLoc::new(1, 6))]),
         None,
         SrcLoc::new(1, 1),
     );
