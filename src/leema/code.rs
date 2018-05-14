@@ -325,10 +325,6 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             vout!("make_enum_constructor_ops({:?})\n", input);
             make_enum_constructor_ops(rt, typ, idx, &**val, input.line)
         }
-        Source::Fork(ref dst, ref f, ref args) => {
-            // make_fork_ops(rt, f, args)
-            Oxpr{ ops: vec![], dst: Reg::Undecided }
-        }
         Source::Let(ref patt, ref x, ref fails) => {
             let pval = assign_pattern_registers(rt, patt);
             let mut xops = make_sub_ops(rt, x);
@@ -398,12 +394,6 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         }
         Source::List(ref items) => {
             make_list_ops(rt, items, input.line)
-        }
-        Source::BooleanAnd(ref _a, ref _b) => {
-            panic!("maybe AND should just be a macro");
-        }
-        Source::BooleanOr(ref _a, ref _b) => {
-            panic!("maybe OR should just be a macro");
         }
         Source::ModuleAccess(ref module, ref name) => {
             let modval = Val::Str(module.clone());

@@ -13,15 +13,12 @@ use std::rc::{Rc};
 pub enum Source
 {
     Block(Vec<Ixpr>, HashMap<String, Ixpr>, bool),
-    BooleanAnd(Box<Ixpr>, Box<Ixpr>),
-    BooleanOr(Box<Ixpr>, Box<Ixpr>),
     Call(Box<Ixpr>, Box<Ixpr>),
     Cons(Box<Ixpr>, Box<Ixpr>),
     Constructor(Type, i8),
     ConstVal(Val),
     EnumConstructor(Type, i16, Box<Ixpr>),
     FieldAccess(Box<Ixpr>, i8),
-    Fork(Box<Ixpr>, Box<Ixpr>, Box<Ixpr>),
     Func(Vec<Rc<String>>, Box<Ixpr>),
     Let(Val, Box<Ixpr>, Vec<(Rc<String>, Ixpr)>),
     MatchFailure(Box<Ixpr>, Box<Ixpr>),
@@ -186,16 +183,6 @@ impl Ixpr
         Ixpr{
             typ: t,
             src: src,
-            line: lineno,
-        }
-    }
-
-    fn fork(dst: Ixpr, t: Type, f: Ixpr, args: Ixpr) -> Ixpr
-    {
-        let lineno = dst.line;
-        Ixpr{
-            typ: t,
-            src: Source::Fork(Box::new(dst), Box::new(f), Box::new(args)),
             line: lineno,
         }
     }

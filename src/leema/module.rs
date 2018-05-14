@@ -98,9 +98,6 @@ impl ModulePreface
             imports: HashSet::new(),
             macros: HashMap::new(),
         };
-        if &*ms.key.name != "prefab" {
-            mp.imports.insert(String::from("prefab"));
-        }
         mp.split_ast(&ms.ast);
         mp
     }
@@ -162,4 +159,13 @@ impl ModuleInterface
             newtypes: HashMap::new(),
         }
     }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use leema::module::{ModulePreface};
+    use leema::lex::{lex};
+    use std::rc::Rc;
+
 }

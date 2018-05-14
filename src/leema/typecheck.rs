@@ -107,15 +107,28 @@ impl<'a> CallFrame<'a>
                 self.collect_calls(truth);
                 self.collect_calls(lies);
             }
-            Source::RustBlock => {
-                // nothing to do. not calls.
+            Source::MatchFailure(ref x, ref cases) => {
+                self.collect_calls(cases);
+            }
+            Source::Return(ref result) => {
+                self.collect_calls(result);
             }
             Source::Func(ref _args, ref body) => {
                 self.collect_calls(body);
             }
-            _ => {
-                panic!("Cannot collect calls: {:?}", ix);
+            Source::Cons(ref head, ref tail) => {
+                self.collect_calls(head);
+                self.collect_calls(tail);
             }
+            Source::FieldAccess(ref base, _) => {
+                self.collect_calls(base);
+            }
+            // nothing to do for these, not calls.
+            Source::RustBlock => {}
+            Source::Constructor(_, _) => {}
+            Source::EnumConstructor(_, _, _) => {}
+            Source::ModuleAccess(_, _) => {}
+            Source::PropagateFailure(_, _) => {}
         }
     }
 
@@ -266,15 +279,18 @@ impl Typelib
         , modname: &str, funcname: &str
         ) -> Type
     {
+        vout!("deep_typecheck_function({}::{})\n", modname, funcname);
         let modlstr = Lstr::from(String::from(modname));
         let funclstr = Lstr::from(String::from(funcname));
         let fix = prog.find_interfunc(&modlstr, &funclstr).unwrap();
         let typed = self.typed.get(modname).unwrap();
 
         let pref = prog.find_preface(modname).unwrap().clone();
-        let prefab = self.typed.get("prefab").unwrap();
+        let prefab = self.typed.get("prefab");
         let mut imports: HashMap<String, &Typemod> = HashMap::new();
-        imports.insert(String::from("prefab"), prefab);
+        if prefab.is_some() {
+            imports.insert(String::from("prefab"), prefab.unwrap());
+        }
         for i in pref.imports.iter() {
             let iii: Option<&Typemod> = self.typed.get(i);
             if iii.is_none() {
