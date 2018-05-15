@@ -306,13 +306,16 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
         &Ast::Localid(ref id, ref loc) => {
             compile_local_id(scope, id, loc)
         }
+        &Ast::Lri(ref names, None, ref loc) => {
+            compile_lri(scope, names, loc)
+        }
         &Ast::Lri(ref names, ref types, ref loc) => {
             /*
             if !scope.imports_module(names) {
                 panic!("module not found: {:?}", names);
             }
             */
-            panic!("not ready for lri: {:?}", x);
+            panic!("cannot handle typed lri");
         }
         &Ast::DotAccess(ref outer, ref inner) => {
             compile_dot_access(scope, outer, inner, loc)
@@ -418,9 +421,23 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
     }
 }
 
-/*
-pub fn compile_lri(scope: &mut Interscope, lri: &Ast, loc: &SrcLoc) -> Ixpr
+pub fn compile_lri(scope: &mut Interscope, names: &Vec<Lstr>, loc: &SrcLoc
+    ) -> Ixpr
 {
+    if names.len() != 2 {
+        panic!("too many modules: {:?}", names);
+    }
+    let modname = names.first().unwrap();
+    if !scope.imports_module(modname) {
+        panic!("module not found: {:?}", names);
+    }
+    let id = names.last().unwrap();
+    let vartype = scope.import_vartype(modname, id).unwrap();
+
+    let fref = Val::FuncRef(modname.rc(), id.rc(), vartype.clone());
+    Ixpr::const_val(fref, loc.lineno)
+}
+/*
     match lri {
         &Val::Cons(ref head, ref tail) => {
             match &**tail {
@@ -454,7 +471,6 @@ pub fn compile_lri(scope: &mut Interscope, lri: &Ast, loc: &SrcLoc) -> Ixpr
             let mod_result = compile_expr(scope, inner, loc);
             scope.T.pop_module();
             mod_result
-}
             */
 
 pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc
@@ -630,18 +646,32 @@ pub fn compile_ifx(scope: &mut Interscope, ifx: &Ast, loc: &SrcLoc) -> Ixpr
 
 pub fn compile_if_case(scope: &mut Interscope, case: &ast::IfCase) -> Ixpr
 {
-    let ix = compile_expr(scope, &case.cond, &case.loc);
+    let ix =
+        if case.cond == Ast::Wildcard {
+            if case.else_case.is_some() {
+                panic!("cannot have else case for else case: {:?}", case);
+            }
+            Ixpr::const_val(Val::Bool(true), case.loc.lineno)
+        } else {
+            compile_expr(scope, &case.cond, &case.loc)
+        };
     scope.T.push_block(HashMap::new());
     let ibody = compile_expr(scope, &case.body, &case.loc);
     scope.T.pop_block();
-    let inext = case.else_case.as_ref().map_or(Ixpr::noop(), |else_case| {
-        compile_if_case(scope, &*else_case)
-    });
-    let if_result_type = scope.T.merge_types(&ibody.typ, &inext.typ)
-        .map_err(|e| {
-            e.add_context("if/else types do not match".to_string())
-        });
-    Ixpr::new_if(ix, ibody, inext, if_result_type.unwrap())
+    let (if_result_type, inext) = match case.else_case.as_ref() {
+        Some(else_case) => {
+            let iinext = compile_if_case(scope, &*else_case);
+            let mtype = scope.T.merge_types(&ibody.typ, &iinext.typ)
+                .map_err(|e| {
+                    e.add_context("if/else types do not match".to_string())
+                });
+            (mtype.unwrap(), iinext)
+        }
+        None => {
+            (ibody.typ.clone(), Ixpr::noop())
+        }
+    };
+    Ixpr::new_if(ix, ibody, inext, if_result_type)
 }
 
 pub fn compile_match_case(scope: &mut Interscope
