@@ -18,7 +18,6 @@ pub struct Protomod
     pub funcseq: LinkedList<Rc<String>>,
     pub funcsrc: HashMap<String, Ast>,
     pub valtypes: HashMap<String, Type>,
-    pub newtypes: HashSet<Type>,
     pub constants: HashMap<String, Val>,
     pub structfields: HashMap<String, Vec<(Rc<String>, Type)>>,
 }
@@ -32,7 +31,6 @@ impl Protomod
             funcseq: LinkedList::new(),
             funcsrc: HashMap::new(),
             valtypes: HashMap::new(),
-            newtypes: HashSet::new(),
             constants: HashMap::new(),
             structfields: HashMap::new(),
         }
@@ -471,7 +469,6 @@ impl Protomod
         let constval = Val::Token(mod_type.clone());
         self.constants.insert((*rc_name).clone(), constval);
         self.valtypes.insert((*rc_name).clone(), mod_type.clone());
-        self.newtypes.insert(mod_type);
     }
 
     pub fn preproc_struct_with_fields(&mut self, prog: &Lib
@@ -487,7 +484,6 @@ impl Protomod
 
         self.preproc_struct_fields(prog, mp, &name, &mod_name
             , name, src_fields, loc);
-        self.newtypes.insert(local_type);
     }
 
     pub fn preproc_struct_fields(&mut self, prog: &Lib, mp: &ModulePreface
@@ -588,7 +584,6 @@ impl Protomod
             }
         }
 
-        self.newtypes.insert(local_type);
         self.structfields.insert((*rc_name).clone(), variant_fields);
         self.constants.insert((*rc_name).clone(), Val::Type(mod_type));
     }
@@ -637,7 +632,6 @@ impl Protomod
 
         self.preproc_namedtuple_func(prog, mp, typename, name
             , fields, loc);
-        self.newtypes.insert(mod_type);
     }
 
     pub fn preproc_namedtuple_func(&mut self, prog: &Lib, mp: &ModulePreface
@@ -821,9 +815,6 @@ fn test_preproc_enum_colors()
     let expected_full_type =
         Type::ModPrefix(modname.clone(), Rc::new(expected_local_type.clone()));
 
-    assert_eq!(1, pmod.newtypes.len());
-    assert!(pmod.newtypes.contains(&expected_local_type));
-
     let expected_red =
         Val::Enum(expected_full_type.clone(), 0, Rc::new("Red".to_string())
             , Box::new(Val::Void));
@@ -928,10 +919,6 @@ fn test_enum_types()
     let dog_str = format!("{:?}", dog_const);
     assert_eq!("Dog", dog_str);
 
-    // verify newtypes
-    assert_eq!(1, pmod.newtypes.len());
-    assert!(pmod.newtypes.contains(&expected_local_type));
-
     // verify function sequence
     assert_eq!(3, pmod.funcseq.len());
     let mut fseq_it = pmod.funcseq.iter();
@@ -1005,12 +992,6 @@ fn test_preproc_namedtuple()
         Box::new(mod_greeting_ntt.clone()),
     );
 
-    // assert newtypes
-    let gnewtype: HashSet<Type> =
-        vec![mod_greeting_ntt.clone()].into_iter().collect();
-    assert_eq!(gnewtype, pmod.newtypes);
-    assert_eq!(1, pmod.newtypes.len());
-
     // constants
     assert_eq!(
         Val::FuncRef(greet.clone(), greeting_str.clone(), xfunctyp.clone()),
@@ -1027,24 +1008,6 @@ fn test_preproc_namedtuple()
 
     // verify valtypes
     assert_eq!(1, pmod.valtypes.len());
-}
-
-#[test]
-fn test_new_struct_newtypes()
-{
-    let input = "
-    struct Burrito
-    .lettuce: Bool
-    .buns: Int
-    --
-    ".to_string();
-    let mut loader = Interloader::new("tacos.lma");
-    loader.set_mod_txt("tacos", input);
-    let mut prog = program::Lib::new(loader);
-    let pmod = prog.read_proto("tacos");
-
-    let s = Type::Struct(Rc::new(String::from("Burrito")));
-    assert!(pmod.newtypes.contains(&s));
 }
 
 #[test]
@@ -1117,12 +1080,6 @@ fn test_token_type()
         Rc::new("tok".to_string()),
         Rc::new(Type::Token(name_rc.clone())),
     );
-
-    // verify newtypes
-    let expset: HashSet<Type> = vec![exptype.clone()].into_iter().collect();
-    assert_eq!(expset, pmod.newtypes);
-    assert!(pmod.newtypes.contains(&exptype));
-    assert_eq!(1, pmod.newtypes.len());
 
     // verify valtypes
     assert_eq!(exptype, *pmod.valtypes.get("Burrito").unwrap());

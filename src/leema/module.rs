@@ -145,7 +145,6 @@ pub struct ModuleInterface
     pub key: Rc<ModKey>,
     pub funcs: HashMap<String, Option<Val>>,
     pub valtypes: HashMap<String, Type>,
-    pub newtypes: HashMap<Type, Val>,
 }
 
 impl ModuleInterface
@@ -156,7 +155,6 @@ impl ModuleInterface
             key: ms.key.clone(),
             funcs: HashMap::new(),
             valtypes: HashMap::new(),
-            newtypes: HashMap::new(),
         }
     }
 }
