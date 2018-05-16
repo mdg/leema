@@ -11,7 +11,6 @@ use std::collections::{HashMap, LinkedList};
 use std::io::{Write};
 use std::rc::{Rc};
 
-
 #[derive(Debug)]
 pub enum CallOp
 {
@@ -172,11 +171,36 @@ impl<'a> CallFrame<'a>
     }
 }
 
+#[derive(Copy)]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+pub enum Depth
+{
+    Preface,
+    D0,
+    D1,
+    Full,
+}
+
+/**
+ * Typemod
+ *
+ * Function scoped type checking
+ * Type from preface
+ * Type from first compilation
+ * Type from one deep compilations
+ * Type from full depth compilation
+ */
 #[derive(Debug)]
 pub struct Typemod
 {
     pub modname: Lstr,
-    pub func: HashMap<String, Type>,
+    preface: HashMap<Lstr, Type>,
+    depth_0: HashMap<Lstr, Type>,
+    depth_1: HashMap<Lstr, Type>,
+    depth_full: HashMap<Lstr, Type>,
 }
 
 impl Typemod
@@ -185,7 +209,10 @@ impl Typemod
     {
         Typemod{
             modname: modname,
-            func: HashMap::new(),
+            preface: HashMap::new(),
+            depth_0: HashMap::new(),
+            depth_1: HashMap::new(),
+            depth_full: HashMap::new(),
         }
     }
 
@@ -194,113 +221,38 @@ impl Typemod
         self.modname.str()
     }
 
-    pub fn function_type(&self, fname: &str) -> Option<&Type>
+    pub fn set_type(&mut self, fname: Lstr, d: Depth, typ: Type)
     {
-        self.func.get(fname)
-    }
-}
-
-pub struct Typelib
-{
-    typed: HashMap<String, Typemod>,
-}
-
-impl Typelib
-{
-    pub fn new() -> Typelib
-    {
-        Typelib{
-            typed: HashMap::new(),
-        }
+        match d {
+            Depth::Preface => self.preface.insert(fname, typ),
+            Depth::D0 => self.depth_0.insert(fname, typ),
+            Depth::D1 => self.depth_1.insert(fname, typ),
+            Depth::Full => self.depth_full.insert(fname, typ),
+        };
     }
 
-    /**
-     * Idempotent function to initialize a Typemod for a given module
-     */
-    pub fn init_module(&mut self, modname: Lstr)
+    pub fn function_type(&self, fname: &Lstr) -> Option<&Type>
     {
-        if !self.typed.contains_key(modname.str()) {
-            self.typed.insert(
-                String::from(modname.str()),
-                Typemod::new(modname),
-            );
-        }
+        self.function_depth_type(fname, Depth::Full)
+        .or_else(|| {
+            self.function_depth_type(fname, Depth::D1)
+        })
+        .or_else(|| {
+            self.function_depth_type(fname, Depth::D0)
+        })
+        .or_else(|| {
+            self.function_depth_type(fname, Depth::Preface)
+        })
     }
 
-    pub fn deep_typecheck(&mut self, prog: &mut program::Lib
-        , modname: &str, funcname: &str
-        )
+    pub fn function_depth_type(&self, fname: &Lstr, d: Depth) -> Option<&Type>
     {
-        vout!("deep_");
-
-        self.init_module(Lstr::from(String::from(modname)));
-
-        println!("typecheck {}::{}", modname, funcname);
-        prog.load_inter(modname, funcname);
-
-        let modlstr = Lstr::from(String::from(modname));
-        let funclstr = Lstr::from(String::from(funcname));
-        let fix = prog.find_interfunc(&modlstr, &funclstr).unwrap().clone();
-        let mut cf = CallFrame::new(modname, funcname);
-        cf.collect_calls(&fix);
-        for c in cf.calls.iter() {
-            match c {
-                &CallOp::LocalCall(ref call_name) => {
-                    let callstr = Lstr::from(&**call_name);
-                    if prog.find_interfunc(&modlstr, &callstr).is_some() {
-                        if *funcname != **call_name {
-                            self.deep_typecheck(prog, modname, call_name);
-                        }
-                    } else {
-                        self.deep_typecheck(prog
-                            , "prefab", &**call_name);
-                    }
-                }
-                &CallOp::ExternalCall(ref extmod, ref extfunc)
-                    if modname == &**extmod && funcname == &**extfunc
-                => {
-                    // do nothing, it's recursive, we're already doing it
-                }
-                &CallOp::ExternalCall(ref extmod, ref extfunc) => {
-                    self.deep_typecheck(prog, extmod, extfunc);
-                }
-            }
+        match d {
+            Depth::Preface => self.preface.get(fname),
+            Depth::D0 => self.depth_0.get(fname),
+            Depth::D1 => self.depth_1.get(fname),
+            Depth::Full => self.depth_full.get(fname),
         }
-
-        self.typed.get_mut(modname).unwrap().func.insert(
-            String::from(funcname), fix.typ.clone());
-
-        let ftype = self.deep_typecheck_function(prog, modname, funcname);
-        let mutyped = self.typed.get_mut(modname).unwrap();
-        mutyped.func.insert(String::from(funcname), ftype);
-    }
-
-    pub fn deep_typecheck_function(&mut self, prog: &mut program::Lib
-        , modname: &str, funcname: &str
-        ) -> Type
-    {
-        vout!("deep_typecheck_function({}::{})\n", modname, funcname);
-        let modlstr = Lstr::from(String::from(modname));
-        let funclstr = Lstr::from(String::from(funcname));
-        let fix = prog.find_interfunc(&modlstr, &funclstr).unwrap();
-        let typed = self.typed.get(modname).unwrap();
-
-        let pref = prog.find_preface(modname).unwrap().clone();
-        let prefab = self.typed.get("prefab");
-        let mut imports: HashMap<String, &Typemod> = HashMap::new();
-        if prefab.is_some() {
-            imports.insert(String::from("prefab"), prefab.unwrap());
-        }
-        for i in pref.imports.iter() {
-            let iii: Option<&Typemod> = self.typed.get(i);
-            if iii.is_none() {
-                panic!("cannot find intermod in imports: {}", i);
-            }
-            imports.insert(i.clone(), iii.unwrap());
-        }
-
-        let mut scope = Typescope::new(typed, funcname, &imports);
-        typecheck_function(&mut scope, fix).unwrap()
     }
 }
 
@@ -380,8 +332,9 @@ impl<'a, 'b> Typescope<'a, 'b>
 
     pub fn functype(&self, modname: &str, funcname: &str) -> Type
     {
+        let funclstr = Lstr::from(String::from(funcname));
         if modname == self.inter.name() {
-            self.inter.func.get(funcname)
+            self.inter.function_type(&funclstr)
             .unwrap()
             .clone()
         } else {
@@ -389,7 +342,7 @@ impl<'a, 'b> Typescope<'a, 'b>
                 self.imports.get(modname)
                 .expect(&format!("cannot find module {} in {:?}"
                     , modname, self.imports));
-            m.func.get(funcname)
+            m.function_type(&funclstr)
                 .expect(&format!("cannot find function {}::{} in {:?}"
                     , modname, funcname, m))
                 .clone()
