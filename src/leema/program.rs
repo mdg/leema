@@ -246,7 +246,7 @@ impl Lib
         }
 
         self.typed.get_mut(modname).unwrap().set_type(
-            funclstr.clone(), typecheck::Depth::D1, fix.typ.clone());
+            funclstr.clone(), typecheck::Depth::One, fix.typ.clone());
 
         let ftype = self.deep_typecheck_function(modname, funcname);
         let mutyped = self.typed.get_mut(modname).unwrap();

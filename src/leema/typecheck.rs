@@ -178,9 +178,9 @@ impl<'a> CallFrame<'a>
 #[derive(PartialOrd)]
 pub enum Depth
 {
-    Preface,
-    D0,
-    D1,
+    Phase0,
+    Inter,
+    One,
     Full,
 }
 
@@ -197,8 +197,8 @@ pub enum Depth
 pub struct Typemod
 {
     pub modname: Lstr,
-    preface: HashMap<Lstr, Type>,
-    depth_0: HashMap<Lstr, Type>,
+    phase0: HashMap<Lstr, Type>,
+    inter: HashMap<Lstr, Type>,
     depth_1: HashMap<Lstr, Type>,
     depth_full: HashMap<Lstr, Type>,
 }
@@ -209,8 +209,8 @@ impl Typemod
     {
         Typemod{
             modname: modname,
-            preface: HashMap::new(),
-            depth_0: HashMap::new(),
+            phase0: HashMap::new(),
+            inter: HashMap::new(),
             depth_1: HashMap::new(),
             depth_full: HashMap::new(),
         }
@@ -224,9 +224,9 @@ impl Typemod
     pub fn set_type(&mut self, fname: Lstr, d: Depth, typ: Type)
     {
         match d {
-            Depth::Preface => self.preface.insert(fname, typ),
-            Depth::D0 => self.depth_0.insert(fname, typ),
-            Depth::D1 => self.depth_1.insert(fname, typ),
+            Depth::Phase0 => self.phase0.insert(fname, typ),
+            Depth::Inter => self.inter.insert(fname, typ),
+            Depth::One => self.depth_1.insert(fname, typ),
             Depth::Full => self.depth_full.insert(fname, typ),
         };
     }
@@ -235,22 +235,22 @@ impl Typemod
     {
         self.function_depth_type(fname, Depth::Full)
         .or_else(|| {
-            self.function_depth_type(fname, Depth::D1)
+            self.function_depth_type(fname, Depth::One)
         })
         .or_else(|| {
-            self.function_depth_type(fname, Depth::D0)
+            self.function_depth_type(fname, Depth::Inter)
         })
         .or_else(|| {
-            self.function_depth_type(fname, Depth::Preface)
+            self.function_depth_type(fname, Depth::Phase0)
         })
     }
 
     pub fn function_depth_type(&self, fname: &Lstr, d: Depth) -> Option<&Type>
     {
         match d {
-            Depth::Preface => self.preface.get(fname),
-            Depth::D0 => self.depth_0.get(fname),
-            Depth::D1 => self.depth_1.get(fname),
+            Depth::Phase0 => self.phase0.get(fname),
+            Depth::Inter => self.inter.get(fname),
+            Depth::One => self.depth_1.get(fname),
             Depth::Full => self.depth_full.get(fname),
         }
     }
