@@ -125,6 +125,11 @@ impl Lib
     {
         if !self.proto.contains_key(modname) {
             let proto = self.read_proto(modname);
+
+            let mut tmod = Typemod::new(Lstr::from(String::from(modname)));
+            tmod.import_phase0(&proto.valtypes);
+            self.typed.insert(String::from(modname), tmod);
+
             self.proto.insert(String::from(modname), Rc::new(proto));
         }
     }

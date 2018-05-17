@@ -280,8 +280,20 @@ impl Type
                     }).collect(),
                 )
             }
+            &Type::Tuple(ref items) => {
+                let dc_items = items.iter().map(|t| {
+                    t.deep_clone()
+                }).collect();
+                Type::Tuple(dc_items)
+            }
             &Type::Token(ref t) => {
                 Type::Token(Rc::new((**t).clone()))
+            }
+            &Type::Func(ref args, ref result) => {
+                let dc_args = args.iter().map(|t| {
+                    t.deep_clone()
+                }).collect();
+                Type::Func(dc_args, Box::new(result.deep_clone()))
             }
             &Type::Id(ref id) => {
                 let old_str: &str = &**id;
@@ -1130,6 +1142,13 @@ impl Val
             &Val::Enum(ref typ, idx, ref vname, ref flds) => {
                 Val::Enum(typ.deep_clone(), idx, vname.clone(),
                     Box::new(flds.deep_clone()),
+                )
+            }
+            &Val::FuncRef(ref modname, ref fname, ref typ) => {
+                Val::FuncRef(
+                    Rc::new((**modname).clone()),
+                    Rc::new((**fname).clone()),
+                    typ.deep_clone()
                 )
             }
             &Val::Token(ref typ) => {

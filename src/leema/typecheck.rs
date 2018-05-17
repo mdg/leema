@@ -216,6 +216,13 @@ impl Typemod
         }
     }
 
+    pub fn import_phase0(&mut self, valtypes: &HashMap<String, Type>)
+    {
+        for (name, typ) in valtypes.iter() {
+            self.phase0.insert(Lstr::from(name.clone()), typ.clone());
+        }
+    }
+
     pub fn name(&self) -> &str
     {
         self.modname.str()
@@ -488,7 +495,6 @@ mod tests {
     use leema::program;
     use leema::loader::{Interloader};
     use leema::log;
-    use leema::typecheck::{self, Typelib};
 
     use std::io::{Write};
 
@@ -514,8 +520,7 @@ fn test_pattern_type_inferred_mismatch()
     let mut loader = Interloader::new("tacos.lma");
     loader.set_mod_txt("tacos", input);
     let mut prog = program::Lib::new(loader);
-    let mut tlib = Typelib::new();
-    tlib.deep_typecheck(&mut prog, "tacos", "main");
+    prog.deep_typecheck("tacos", "main");
 }
 
 }

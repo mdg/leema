@@ -322,10 +322,10 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
         }
         &Ast::Call(ref callx, ref args, ref iloc) => {
             let icall = compile_expr(scope, callx, iloc);
-            let iargs = args.iter().map(|i| {
+            let iargs: Vec<Ixpr> = args.iter().map(|i| {
                 compile_expr(scope, i, iloc)
             }).collect();
-            let ftype_result = Some(Type::Void); /* {
+            let ftype_result = {
                 let iargst: Vec<&Type> = iargs.iter().map(|ia| {
                     &ia.typ
                 }).collect();
@@ -337,7 +337,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
                             )),
                         )
                     })
-            }; */
+            };
             let argsix = Ixpr::new_tuple(iargs, loc.lineno);
             Ixpr{
                 typ: ftype_result.unwrap(),
@@ -1028,6 +1028,26 @@ fn test_new_vars_from_id_pattern()
 
     assert_eq!(1, new_vars.len());
     assert_eq!("x", &**(new_vars.first().unwrap()));
+}
+
+#[test]
+fn test_compile_matched_if_branches()
+{
+    let input = String::from("
+    func factf(i): Int ->
+        if
+        |i == 1 -> 1
+        |else -> i * factf(i-1)
+        --
+    --
+    ");
+
+    let mut loader = Interloader::new("fact.lma");
+    loader.set_mod_txt("fact", input);
+    let mut prog = program::Lib::new(loader);
+    let ixfact = prog.read_inter("fact", "factf");
+    // assert that it didn't panic
+    assert!(true);
 }
 
 #[test]
