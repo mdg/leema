@@ -706,6 +706,8 @@ pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Ixpr>) -> Oxpr
 mod tests {
     use leema::code::{self, Op};
     use leema::ixpr::{Ixpr};
+    use leema::loader::{Interloader};
+    use leema::program;
     use leema::reg::{Reg};
     use leema::val::{Val, SrcLoc};
 
@@ -722,6 +724,30 @@ fn test_code_constval()
         (Op::Return, 8),
     ];
     assert_eq!(x, code);
+}
+
+#[test]
+#[should_panic]
+fn test_load_code_fails_for_func_type_infer_mismatch()
+{
+    let input = String::from("
+
+    ## foo should take [#] and return a #
+    func foo(inputs)
+    |([]) -> #empty
+    |(#whatever;more) -> #whatever
+    |(_;more) -> foo(more)
+    --
+
+    func main() ->
+        foo([5, 3, 4])
+    --
+    ");
+
+    let mut loader = Interloader::new("tacos.lma");
+    loader.set_mod_txt("tacos", input);
+    let mut prog = program::Lib::new(loader);
+    prog.load_code("tacos", "main");
 }
 
 }
