@@ -1165,8 +1165,7 @@ fn test_pattern_type_explicit_mismatch()
 }
 
 #[test]
-#[should_panic]
-fn test_pattern_type_inferred_mismatch()
+fn test_pattern_type_mismatch_not_inferred()
 {
     let input = String::from("
 
@@ -1185,7 +1184,10 @@ fn test_pattern_type_inferred_mismatch()
     let mut loader = Interloader::new("tacos.lma");
     loader.set_mod_txt("tacos", input);
     let mut prog = program::Lib::new(loader);
-    let imod = prog.read_inter("tacos");
+    prog.read_inter("tacos");
+    // we don't expect this to fail in this phase.
+    // the typechecking should catch it later.
+    assert!(true);
 }
 
 }

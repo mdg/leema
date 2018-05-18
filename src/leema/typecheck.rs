@@ -292,8 +292,10 @@ impl<'a, 'b> Typescope<'a, 'b>
     {
         match &case.src {
             &Source::MatchCase(ref patt, ref truth, ref lies) => {
+                self.T.push_block(HashMap::new());
                 self.T.match_pattern(patt, valtype, case.line);
                 let ttype = typecheck_expr(self, truth).unwrap();
+                self.T.pop_block();
                 let ftype = self.typecheck_matchcase(valtype, lies).unwrap();
 
                 self.T.merge_types(&ttype, &ftype)

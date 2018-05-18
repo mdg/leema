@@ -273,7 +273,7 @@ impl Lib
         let modlstr = Lstr::from(String::from(modname));
         let funclstr = Lstr::from(String::from(funcname));
         let inter = self.inter.get(&modlstr).unwrap();
-        let fix = inter.interfunc.get(modlstr.str()).unwrap();
+        let fix = inter.interfunc.get(funclstr.str()).unwrap();
         let typed = self.typed.get(modname).unwrap();
 
         let pref = self.find_preface(modname).unwrap().clone();
