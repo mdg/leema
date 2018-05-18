@@ -107,18 +107,25 @@ impl Intermod
 
     pub fn compile(proto: &Protomod
         , imports: &HashMap<String, Rc<Protomod>>
-        , funcname: &str
-        ) -> Ixpr
+        ) -> Intermod
     {
-        let opt_defunc = proto.funcsrc.get(funcname);
-        if opt_defunc.is_none() {
-            panic!("No function source found for {}::{}",
-                proto.key.name, funcname);
+        let mod_lstr = Lstr::Rc(proto.key.name.clone());
+        let mut inter = Intermod::new(mod_lstr.clone());
+        for fname in proto.funcseq.iter() {
+            let flstr = Lstr::Rc(fname.clone());
+            let opt_defunc = proto.funcsrc.get(flstr.str());
+            if opt_defunc.is_none() {
+                panic!("No function source found for {}::{}",
+                    proto.key.name, flstr);
+            }
+            let defunc = opt_defunc.unwrap();
+            let (args, body, loc) = split_func_args_body(defunc);
+            let ftype = proto.valtypes.get(flstr.str()).unwrap();
+            let ifunc = compile_function(proto
+                , imports, fname, ftype, &args, body, loc);
+            inter.interfunc.insert(flstr.to_string(), ifunc);
         }
-        let defunc = opt_defunc.unwrap();
-        let (args, body, loc) = split_func_args_body(defunc);
-        let ftype = proto.valtypes.get(funcname).unwrap();
-        compile_function(proto, imports, funcname, ftype, &args, body, loc)
+        inter
     }
 }
 
@@ -270,7 +277,7 @@ pub fn compile_function<'a>(proto: &'a Protomod
     let (argt, _result) = Type::split_func(ftype);
     let mut scope =
         Interscope::new(proto, imports, fname, loc.lineno, args, argt);
-    let mut ibody = compile_expr(&mut scope, body, loc);
+    let ibody = compile_expr(&mut scope, body, loc);
     let argt2: Vec<Type> = argt.iter().map(|a| {
         scope.T.inferred_type(a).clone()
     }).collect();

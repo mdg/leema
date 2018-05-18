@@ -22,7 +22,7 @@ pub struct Lib
     modsrc: HashMap<String, ModuleSource>,
     preface: HashMap<String, Rc<ModulePreface>>,
     proto: HashMap<String, Rc<Protomod>>,
-    interfunc: HashMap<(Lstr, Lstr), Ixpr>,
+    inter: HashMap<Lstr, Intermod>,
     typed: HashMap<String, Typemod>,
     rust_load: HashMap<String, fn(&str) -> Option<code::Code>>,
     code: HashMap<String, HashMap<String, Code>>,
@@ -37,7 +37,7 @@ impl Lib
             modsrc: HashMap::new(),
             preface: HashMap::new(),
             proto: HashMap::new(),
-            interfunc: HashMap::new(),
+            inter: HashMap::new(),
             typed: HashMap::new(),
             rust_load: HashMap::new(),
             code: HashMap::new(),
@@ -54,13 +54,19 @@ impl Lib
     /**
      * Idempotent function to initialize a Typemod for a given module
      */
-    pub fn init_typed(&mut self, modname: Lstr)
+    pub fn init_typed(&mut self, inter: &Intermod)
     {
-        if !self.typed.contains_key(modname.str()) {
+        if !self.typed.contains_key(inter.modname.str()) {
             self.typed.insert(
-                String::from(modname.str()),
-                Typemod::new(modname),
+                String::from(&inter.modname),
+                Typemod::new(inter.modname.clone()),
             );
+        }
+        let typed = self.typed.get_mut(inter.modname.str()).unwrap();
+
+        for (name, fix) in inter.interfunc.iter() {
+            let name_lstr = Lstr::from(name.clone());
+            typed.set_type(name_lstr, typecheck::Depth::Inter, fix.typ.clone());
         }
     }
 
@@ -85,7 +91,7 @@ impl Lib
             }
 
             if has_mod {
-                let mut old_mod = self.code.get_mut(modname).unwrap();
+                let old_mod = self.code.get_mut(modname).unwrap();
                 old_mod.insert(String::from(funcname), new_code);
             } else {
                 let mut new_mod = HashMap::new();
@@ -102,22 +108,13 @@ impl Lib
         self.preface.get(modname)
     }
 
-    pub fn find_interfunc(&self, modname: &Lstr, funcname: &Lstr
-        ) -> Option<&Ixpr>
+    pub fn load_inter(&mut self, modname: &str)
     {
-        let modfunc = (modname.clone(), funcname.clone());
-        self.interfunc.get(&modfunc)
-    }
-
-    pub fn load_inter(&mut self, modname: &str, funcname: &str)
-    {
-        let mod_lstr = Lstr::from(String::from(modname));
-        let modfunc = (mod_lstr.clone(), Lstr::from(String::from(funcname)));
-        if !self.interfunc.contains_key(&modfunc) {
-            let fix = self.read_inter(modname, funcname);
-            self.interfunc.insert(modfunc, fix);
-
-            self.init_typed(Lstr::from(String::from(modname)));
+        if !self.inter.contains_key(modname) {
+            let inter = self.read_inter(modname);
+            let mod_lstr = Lstr::from(String::from(modname));
+            self.init_typed(&inter);
+            self.inter.insert(mod_lstr.clone(), inter);
         }
     }
 
@@ -167,28 +164,30 @@ impl Lib
         proto
     }
 
-    pub fn read_inter(&mut self, modname: &str, funcname: &str) -> Ixpr
+    pub fn read_inter(&mut self, modname: &str) -> Intermod
     {
-        vout!("read_inter({}.{})\n", modname, funcname);
+        vout!("read_inter({})\n", modname);
         self.load_proto(modname);
         let preface = self.preface.get(modname).unwrap().clone();
         let imports = self.import_protos(modname, &preface.imports);
         let proto = self.proto.get(modname).unwrap();
-        Intermod::compile(&proto, &imports, funcname)
+        Intermod::compile(&proto, &imports)
     }
 
     pub fn read_code(&mut self, modname: &str, funcname: &str) -> Code
     {
-        vout!("read_code({}.{})\n", modname, funcname);
-        self.load_inter(modname, funcname);
+        vout!("read_code({}::{})\n", modname, funcname);
+        self.load_inter(modname);
 
-        let modfunc = (
-            Lstr::from(String::from(modname)),
-            Lstr::from(String::from(funcname)),
-        );
-        let fix = self.interfunc.get(&modfunc)
+        let inter = self.inter.get(modname)
             .or_else(|| {
-                panic!("Cannot find function {}::{}", modname, funcname);
+                panic!("cannot compile missing module {}", modname);
+            })
+            .unwrap();
+        let fix = inter.interfunc.get(funcname)
+            .or_else(|| {
+                panic!("cannot compile missing function {}::{}"
+                    , modname, funcname);
             })
             .unwrap();
         if modname == "prefab" {
@@ -220,18 +219,29 @@ impl Lib
         vout!("deep_");
 
         println!("typecheck {}::{}", modname, funcname);
-        self.load_inter(modname, funcname);
+        self.load_inter(modname);
 
         let modlstr = Lstr::from(String::from(modname));
         let funclstr = Lstr::from(String::from(funcname));
-        let fix = self.find_interfunc(&modlstr, &funclstr).unwrap().clone();
-        let mut cf = CallFrame::new(modname, funcname);
-        cf.collect_calls(&fix);
+
+        let cf = {
+            let inter = self.inter.get(modname).unwrap();
+            let fix = inter.interfunc.get(funcname).unwrap();
+
+            let mut icf = CallFrame::new(modname, funcname);
+            icf.collect_calls(&fix);
+            icf
+        };
         for c in cf.calls.iter() {
             match c {
                 &CallOp::LocalCall(ref call_name) => {
                     let callstr = Lstr::from(&**call_name);
-                    if self.find_interfunc(&modlstr, &callstr).is_some() {
+                    let contains_local = {
+                        let local_inter =
+                            self.inter.get(modlstr.str()).unwrap();
+                        local_inter.interfunc.contains_key(funclstr.str())
+                    };
+                    if contains_local {
                         if *funcname != **call_name {
                             self.deep_typecheck(modname, call_name);
                         }
@@ -250,9 +260,6 @@ impl Lib
             }
         }
 
-        self.typed.get_mut(modname).unwrap().set_type(
-            funclstr.clone(), typecheck::Depth::One, fix.typ.clone());
-
         let ftype = self.deep_typecheck_function(modname, funcname);
         let mutyped = self.typed.get_mut(modname).unwrap();
         mutyped.set_type(funclstr, typecheck::Depth::Full, ftype);
@@ -265,7 +272,8 @@ impl Lib
         vout!("deep_typecheck_function({}::{})\n", modname, funcname);
         let modlstr = Lstr::from(String::from(modname));
         let funclstr = Lstr::from(String::from(funcname));
-        let fix = self.find_interfunc(&modlstr, &funclstr).unwrap();
+        let inter = self.inter.get(&modlstr).unwrap();
+        let fix = inter.interfunc.get(modlstr.str()).unwrap();
         let typed = self.typed.get(modname).unwrap();
 
         let pref = self.find_preface(modname).unwrap().clone();
@@ -316,8 +324,8 @@ impl Lib
         imported_protos
     }
 
-    pub fn get_macro(&self, modname: &str, macname: &str)
-            -> Option<&MacroDef>
+    pub fn get_macro<'a>(&'a self, modname: &str, macname: &str)
+            -> Option<&'a MacroDef>
     {
         match self.preface.get(modname) {
             Some(pref) => pref.macros.get(macname),

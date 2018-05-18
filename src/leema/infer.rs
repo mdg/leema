@@ -242,7 +242,7 @@ impl<'b> Inferator<'b>
         }
         // safe to unwrap these 2 directly b/c we already found it above
         let b = b_opt.unwrap();
-        let mut var_data = b.vars.get_mut(name).unwrap();
+        let var_data = b.vars.get_mut(name).unwrap();
         if var_data.first_usage.is_some() {
             return false;
         }

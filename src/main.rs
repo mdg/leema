@@ -102,11 +102,12 @@ fn real_main() -> i32
         println!("\n{:?}\n", proto);
     } else if args.arg_cmd == "inter" {
         let mut prog = program::Lib::new(inter);
-        let imod = match args.flag_func {
-            Some(func) => prog.read_inter(&modkey.name, &func),
-            None => prog.read_inter(&modkey.name, "main"),
+        let imod = prog.read_inter(&modkey.name);
+        let fix = match args.flag_func {
+            Some(func) => imod.interfunc.get(&func),
+            None => imod.interfunc.get("main"),
         };
-        println!("\n{:?}\n", imod);
+        println!("\n{:?}\n", fix);
     } else if args.arg_cmd == "typecheck" {
         let mut prog = program::Lib::new(inter);
         prog.deep_typecheck(&modkey.name, "main");
