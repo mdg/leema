@@ -207,14 +207,12 @@ impl Fiber
             let ref fname_val = self.head.e.get_reg(freg);
             match *fname_val {
                 &Val::Str(ref name_str) => {
-                    vout!("execute_call({})\n", name_str);
                     // pass in args
                     (Rc::new("".to_string()), name_str.clone())
                 }
                 &Val::Tuple(ref modfunc) if modfunc.len() == 2 => {
                     let modnm = modfunc.get(0).unwrap();
                     let funcnm = modfunc.get(1).unwrap();
-                    vout!("execute_call({}.{})\n", modnm, funcnm);
                     match (modnm, funcnm) {
                         (&Val::Str(ref m), &Val::Str(ref f)) => {
                             (m.clone(), f.clone())
@@ -224,11 +222,15 @@ impl Fiber
                         }
                     }
                 }
+                &Val::FuncRef(ref modnm, ref funcnm, _) => {
+                    (modnm.clone(), funcnm.clone())
+                }
                 _ => {
                     panic!("That's not a function! {:?}", fname_val);
                 }
             }
         };
+        vout!("execute_call({}::{})\n", modname, funcname);
 
         let opt_failure =
             Fiber::call_arg_failure(self.head.e.get_reg(argreg))
