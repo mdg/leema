@@ -696,10 +696,20 @@ impl Protomod
                 Protomod::preproc_type(prog, mp, expr, loc)
             }
             &Ast::List(ref items) => {
-                let type_items = items.iter().map(|i| {
-                    Protomod::preproc_type(prog, mp, i, loc)
-                }).collect();
-                Type::MixedList(type_items)
+                match items.len() {
+                    1 => {
+                        let inner_item = items.front().unwrap();
+                        let inner_type =
+                            Protomod::preproc_type(prog, mp, inner_item, loc);
+                        Type::StrictList(Box::new(inner_type))
+                    }
+                    0 => {
+                        panic!("dunno what to do with an empty type list");
+                    }
+                    _ => {
+                        panic!("list types can have only 1 type");
+                    }
+                }
             }
             &Ast::Localid(_, ref loc) => {
                 Type::AnonVar

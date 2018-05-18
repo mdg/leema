@@ -204,8 +204,9 @@ impl<'b> Inferator<'b>
                 self.merge_types(&ptype, valtype)
                     .map_err(|e| {
                         e.add_context(format!(
-                            "pattern type mismatch: {:?}", patt
-                        ));
+                            "pattern type mismatch: {:?} != {:?}"
+                                , patt, valtype
+                        ))
                     })
                     .unwrap();
             }

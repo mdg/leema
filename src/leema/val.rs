@@ -56,7 +56,6 @@ pub enum Type
     // base interface/type should probably be iterator
     // and then it should be a protocol, not type
     StrictList(Box<Type>),
-    MixedList(Vec<Type>),
     Lib(String),
     Resource(Rc<String>),
     RustBlock,
@@ -365,13 +364,6 @@ impl fmt::Display for Type
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
-            &Type::MixedList(ref items) => {
-                write!(f, "[").ok();
-                for i in items {
-                    write!(f, "{},", i).ok();
-                }
-                write!(f, "]")
-            }
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
             &Type::Resource(ref name) => write!(f, "{}", &name),
             &Type::RustBlock => write!(f, "RustBlock"),
@@ -427,9 +419,6 @@ impl fmt::Debug for Type
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
-            &Type::MixedList(ref items) => {
-                write!(f, "MixedList<{:?}>", items)
-            }
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
             &Type::Resource(ref name) => write!(f, "Resource({})", &name),
             &Type::RustBlock => write!(f, "RustBlock"),
