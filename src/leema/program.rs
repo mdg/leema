@@ -89,7 +89,9 @@ impl Lib
             if modname == "prefab" {
                 vout!("code for {}::{} is {:?}\n", modname, funcname, new_code);
             }
-            let typed = self.typecheck(
+            let modlstr = Lstr::from(String::from(modname));
+            let funclstr = Lstr::from(String::from(funcname));
+            self.typecheck(&modlstr, &funclstr, typecheck::Depth::One);
 
             if has_mod {
                 let old_mod = self.code.get_mut(modname).unwrap();
@@ -214,29 +216,27 @@ impl Lib
     }
 
     pub fn typecheck(&mut self, modname: &Lstr, funcname: &Lstr
-        , depth: typecheck::CheckDepth
+        , depth: typecheck::Depth
         )
     {
+        vout!("typecheck({:?}::{:?}, {:?})", modname, funcname, depth);
         if depth.one_deeper() {
-            deeper_typecheck(modname, funcname, depth.next());
-            vout!("shallow_typecheck({:?}::{:?})", modname, funcname);
-        } else {
-            vout!("deep_typecheck({:?}::{:?})", modname, funcname);
+            self.deeper_typecheck(modname, funcname, depth.next());
         }
 
         let ftype = self.local_typecheck(modname, funcname);
-        let mutyped = self.typed.get_mut(modname).unwrap();
-        mutyped.set_type(funclstr, depth, ftype);
+        let mutyped = self.typed.get_mut(modname.str()).unwrap();
+        mutyped.set_type(funcname.clone(), depth, ftype);
     }
 
     pub fn deeper_typecheck(&mut self, modname: &Lstr, funcname: &Lstr
-        , depth: typecheck::CheckDepth
+        , depth: typecheck::Depth
         )
     {
         let cf = {
             let mut icf = CallFrame::new(modname, funcname);
-            let inter = self.inter.get(modname);
-            let fix = inter.interfunc.get(funcname);
+            let inter = self.inter.get(modname).unwrap();
+            let fix = inter.interfunc.get(funcname.str()).unwrap();
             icf.collect_calls(&fix);
             icf
         };
@@ -246,24 +246,37 @@ impl Lib
                     let callstr = Lstr::from(&**call_name);
                     let contains_local = {
                         let local_inter =
-                            self.inter.get(modlstr.str()).unwrap();
-                        local_inter.interfunc.contains_key(funclstr.str())
+                            self.inter.get(modname.str()).unwrap();
+                        local_inter.interfunc.contains_key(funcname.str())
                     };
                     if contains_local {
-                        if *funcname != **call_name {
-                            self.shallow_typecheck(modname, call_name);
+                        if funcname.str() != &**call_name {
+                            self.typecheck(
+                                modname,
+                                &Lstr::Rc(call_name.clone()),
+                                depth.next(),
+                            );
                         }
                     } else {
-                        self.shallow_typecheck("prefab", &**call_name);
+                        self.typecheck(
+                            &Lstr::from("prefab"),
+                            &Lstr::Rc(call_name.clone()),
+                            depth.next(),
+                        );
                     }
                 }
-                &CallOp::ExternalCall(ref extmod, ref extfunc)
-                    if modname == &**extmod && funcname == &**extfunc
-                => {
-                    // do nothing, it's recursive, we're already doing it
-                }
                 &CallOp::ExternalCall(ref extmod, ref extfunc) => {
-                    self.shallow_typecheck(extmod, extfunc, false);
+                    if modname.str() == &**extmod
+                        && funcname.str() == &**extfunc
+                    {
+                        // do nothing, it's recursive, we're already doing it
+                    } else {
+                        self.typecheck(
+                            &Lstr::Rc(extmod.clone()),
+                            &Lstr::Rc(extfunc.clone()),
+                            depth.next(),
+                        );
+                    }
                 }
             }
         }

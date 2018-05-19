@@ -184,6 +184,35 @@ pub enum Depth
     Full,
 }
 
+impl Depth
+{
+    pub fn one_deeper(&self) -> bool
+    {
+        match self {
+            &Depth::Inter => false,
+            &Depth::One => true,
+            &Depth::Full => true,
+            &Depth::Phase0 => {
+                panic!("cannot check one_deeper for Depth::Phase0")
+            }
+        }
+    }
+
+    pub fn next(&self) -> Depth
+    {
+        match self {
+            &Depth::One => Depth::Inter,
+            &Depth::Full => Depth::Full,
+            &Depth::Phase0 => {
+                panic!("cannot get next for Depth::Phase0")
+            }
+            &Depth::Inter => {
+                panic!("cannot get next for Depth::Inter")
+            }
+        }
+    }
+}
+
 /**
  * Typemod
  *
