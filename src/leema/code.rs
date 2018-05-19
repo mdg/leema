@@ -360,8 +360,11 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             let src = rt.id(id);
             Oxpr{ ops: vec![], dst: src }
         }
+        Source::IfExpr(ref test, ref truth, None) => {
+            make_if_ops(rt, &*test, &*truth)
+        }
         Source::IfExpr(ref test, ref truth, ref lies) => {
-            make_if_ops(rt, &*test, &*truth, &*lies)
+            make_if_else_ops(rt, &*test, &*truth, lies.as_ref().unwrap())
         }
         Source::StrMash(ref items) => {
             make_str_ops(rt, items)
@@ -633,7 +636,28 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
     }
 }
 
-pub fn make_if_ops(rt: &mut RegTable, test: &Ixpr, truth: &Ixpr, lies: &Ixpr) -> Oxpr
+pub fn make_if_ops(rt: &mut RegTable, test: &Ixpr, truth: &Ixpr) -> Oxpr
+{
+    rt.push_dst();
+    let mut if_ops = make_sub_ops(rt, &test);
+    rt.pop_dst();
+    let mut truth_ops = make_sub_ops(rt, &truth);
+
+    if_ops.ops.push((
+        Op::JumpIfNot((truth_ops.ops.len() + 1) as i16, if_ops.dst),
+        test.line,
+    ));
+
+    if_ops.ops.append(&mut truth_ops.ops);
+    Oxpr{
+        ops: if_ops.ops,
+        dst: truth_ops.dst,
+    }
+}
+
+pub fn make_if_else_ops(rt: &mut RegTable, test: &Ixpr, truth: &Ixpr
+    , lies: &Ixpr
+    ) -> Oxpr
 {
     rt.push_dst();
     let mut if_ops = make_sub_ops(rt, &test);

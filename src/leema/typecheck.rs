@@ -80,7 +80,9 @@ impl<'a> CallFrame<'a>
             Source::IfExpr(ref cond, ref truth, ref lies) => {
                 self.collect_calls(cond);
                 self.collect_calls(truth);
-                self.collect_calls(lies);
+                if lies.is_some() {
+                    self.collect_calls(lies.as_ref().unwrap());
+                }
             }
             Source::List(ref items) => {
                 for i in items {
@@ -357,8 +359,11 @@ impl<'a, 'b> Typescope<'a, 'b>
                     &Val::Str(ref strname) => {
                         Ok(Type::Void)
                     }
+                    &Val::FuncRef(_, _, ref typ) => {
+                        Ok(typ.clone())
+                    }
                     _ => {
-                        panic!("whateval is in typecheck_call? {:?}", fval);
+                        panic!("what val is in typecheck_call? {:?}", fval);
                     }
                 }
             }
@@ -446,10 +451,15 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             scope.T.merge_types(&cond_t, &Type::Bool);
 
             let truth_result = typecheck_expr(scope, truth);
-            let truth_t = truth_result.unwrap();
-            let lies_result = typecheck_expr(scope, lies);
-            let lies_t = lies_result.unwrap();
-            scope.T.merge_types(&truth_t, &lies_t)
+            match lies {
+                &None => truth_result,
+                &Some(ref some_lies) => {
+                    let lies_result = typecheck_expr(scope, some_lies);
+                    let truth_t = truth_result.unwrap();
+                    let lies_t = lies_result.unwrap();
+                    scope.T.merge_types(&truth_t, &lies_t)
+                }
+            }
         }
         &Source::StrMash(ref items) => {
             for i in items {

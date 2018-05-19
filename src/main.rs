@@ -17,9 +17,11 @@ use leema::log;
 
 use leema::list;
 use leema::loader::{Interloader};
+use leema::lstr::{Lstr};
 use leema::module::{ModuleSource};
 use leema::program;
 use leema::application::{Application};
+use leema::typecheck;
 use leema::val::{Val};
 
 use std::io::{Write};
@@ -110,7 +112,9 @@ fn real_main() -> i32
         println!("\n{:?}\n", fix);
     } else if args.arg_cmd == "typecheck" {
         let mut prog = program::Lib::new(inter);
-        prog.deep_typecheck(&modkey.name, "main");
+        let mod_name = Lstr::Rc(modkey.name.clone());
+        let func_name = Lstr::Sref("main");
+        prog.typecheck(&mod_name, &func_name, typecheck::Depth::Full);
     } else if args.arg_cmd == "code" {
         let mut prog = program::Lib::new(inter);
         let code = match args.flag_func {

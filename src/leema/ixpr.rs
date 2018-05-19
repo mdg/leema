@@ -28,7 +28,7 @@ pub enum Source
     PropagateFailure(Rc<String>, i16),
     RustBlock,
     Id(Rc<String>, i16),
-    IfExpr(Box<Ixpr>, Box<Ixpr>, Box<Ixpr>),
+    IfExpr(Box<Ixpr>, Box<Ixpr>, Option<Box<Ixpr>>),
     List(Vec<Ixpr>),
     StrMash(Vec<Ixpr>),
     Tuple(Vec<Ixpr>),
@@ -227,7 +227,8 @@ impl Ixpr
         }
     }
 
-    pub fn new_if(test: Ixpr, truth: Ixpr, lies: Ixpr, typ: Type) -> Ixpr
+    pub fn new_if(test: Ixpr, truth: Ixpr, lies: Option<Ixpr>, typ: Type
+        ) -> Ixpr
     {
         let lineno = test.line;
         Ixpr{
@@ -235,7 +236,7 @@ impl Ixpr
             src: Source::IfExpr(
                 Box::new(test),
                 Box::new(truth),
-                Box::new(lies),
+                lies.map(|l| { Box::new(l) }),
             ),
             line: lineno,
         }

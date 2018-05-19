@@ -672,10 +672,10 @@ pub fn compile_if_case(scope: &mut Interscope, case: &ast::IfCase) -> Ixpr
                 .map_err(|e| {
                     e.add_context("if/else types do not match".to_string())
                 });
-            (mtype.unwrap(), iinext)
+            (mtype.unwrap(), Some(iinext))
         }
         None => {
-            (ibody.typ.clone(), Ixpr::noop())
+            (ibody.typ.clone(), None)
         }
     };
     Ixpr::new_if(ix, ibody, inext, if_result_type)

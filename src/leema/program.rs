@@ -221,7 +221,7 @@ impl Lib
     {
         vout!("typecheck({:?}::{:?}, {:?})", modname, funcname, depth);
         if depth.one_deeper() {
-            self.deeper_typecheck(modname, funcname, depth.next());
+            self.deeper_typecheck(modname, funcname, depth);
         }
 
         let ftype = self.local_typecheck(modname, funcname);
@@ -234,6 +234,7 @@ impl Lib
         )
     {
         let cf = {
+            self.load_inter(modname);
             let mut icf = CallFrame::new(modname, funcname);
             let inter = self.inter.get(modname).unwrap();
             let fix = inter.interfunc.get(funcname.str()).unwrap();
@@ -287,88 +288,6 @@ impl Lib
         ) -> Type
     {
         vout!("local_typecheck({}::{})\n", modname, funcname);
-        let modlstr = Lstr::from(String::from(modname));
-        let funclstr = Lstr::from(String::from(funcname));
-        let inter = self.inter.get(&modlstr).unwrap();
-        let fix = inter.interfunc.get(funclstr.str()).unwrap();
-        let typed = self.typed.get(modname).unwrap();
-
-        let pref = self.find_preface(modname).unwrap().clone();
-        let prefab = self.typed.get("prefab");
-        let mut imports: HashMap<String, &Typemod> = HashMap::new();
-        if prefab.is_some() {
-            imports.insert(String::from("prefab"), prefab.unwrap());
-        }
-        for i in pref.imports.iter() {
-            let iii: Option<&Typemod> = self.typed.get(i);
-            if iii.is_none() {
-                panic!("cannot find intermod in imports: {}", i);
-            }
-            imports.insert(i.clone(), iii.unwrap());
-        }
-
-        let mut scope = Typescope::new(typed, funcname, &imports);
-        typecheck::typecheck_function(&mut scope, fix).unwrap()
-    }
-
-    pub fn deep_typecheck(&mut self
-        , modname: &str, funcname: &str
-        )
-    {
-        vout!("deep_");
-
-        println!("typecheck {}::{}", modname, funcname);
-        self.load_inter(modname);
-
-        let modlstr = Lstr::from(String::from(modname));
-        let funclstr = Lstr::from(String::from(funcname));
-
-        let cf = {
-            let inter = self.inter.get(modname).unwrap();
-            let fix = inter.interfunc.get(funcname).unwrap();
-
-            let mut icf = CallFrame::new(modname, funcname);
-            icf.collect_calls(&fix);
-            icf
-        };
-        for c in cf.calls.iter() {
-            match c {
-                &CallOp::LocalCall(ref call_name) => {
-                    let callstr = Lstr::from(&**call_name);
-                    let contains_local = {
-                        let local_inter =
-                            self.inter.get(modlstr.str()).unwrap();
-                        local_inter.interfunc.contains_key(funclstr.str())
-                    };
-                    if contains_local {
-                        if *funcname != **call_name {
-                            self.deep_typecheck(modname, call_name);
-                        }
-                    } else {
-                        self.deep_typecheck("prefab", &**call_name);
-                    }
-                }
-                &CallOp::ExternalCall(ref extmod, ref extfunc)
-                    if modname == &**extmod && funcname == &**extfunc
-                => {
-                    // do nothing, it's recursive, we're already doing it
-                }
-                &CallOp::ExternalCall(ref extmod, ref extfunc) => {
-                    self.deep_typecheck(extmod, extfunc);
-                }
-            }
-        }
-
-        let ftype = self.deep_typecheck_function(modname, funcname);
-        let mutyped = self.typed.get_mut(modname).unwrap();
-        mutyped.set_type(funclstr, typecheck::Depth::Full, ftype);
-    }
-
-    pub fn deep_typecheck_function(&mut self
-        , modname: &str, funcname: &str
-        ) -> Type
-    {
-        vout!("deep_typecheck_function({}::{})\n", modname, funcname);
         let modlstr = Lstr::from(String::from(modname));
         let funclstr = Lstr::from(String::from(funcname));
         let inter = self.inter.get(&modlstr).unwrap();
