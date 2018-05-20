@@ -154,8 +154,14 @@ impl<'a> CallFrame<'a>
                             modfunc.get(1).unwrap().to_str(),
                         ));
                     }
+                    &Val::FuncRef(ref modnm, ref funcnm, _) => {
+                        self.push_call(CallOp::ExternalCall(
+                            modnm.clone(),
+                            funcnm.clone(),
+                        ));
+                    }
                     _ => {
-                        panic!("Const val is not a call: {:?}", val);
+                        panic!("const val is not a call: {:?}", val);
                     }
                 }
             }

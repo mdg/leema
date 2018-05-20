@@ -443,7 +443,7 @@ impl<'b> Inferator<'b>
                     ))
             }
         };
-        vout!("mashed to -> {:?}\n", mtype);
+        vout!("\tmashed to -> {:?}\n", mtype);
         mtype
     }
 

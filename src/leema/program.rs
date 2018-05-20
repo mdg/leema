@@ -43,7 +43,7 @@ impl Lib
             code: HashMap::new(),
         };
         proglib.rust_load.insert("prefab".to_string(), prefab::load_rust_func);
-        proglib.load_proto("prefab");
+        proglib.load_inter("prefab");
         proglib.rust_load.insert("file".to_string(), file::load_rust_func);
         proglib.rust_load.insert("str".to_string(), lib_str::load_rust_func);
         proglib.rust_load.insert("tcp".to_string(), tcp::load_rust_func);
@@ -194,7 +194,7 @@ impl Lib
             })
             .unwrap();
         if modname == "prefab" {
-            vout!("prefab.{} fix: {:?}\n", funcname, fix);
+            vout!("prefab::{} fix: {:?}\n", funcname, fix);
         }
         if fix.src == Source::RustBlock {
             let rust_loader = self.rust_load.get(modname);
@@ -209,7 +209,7 @@ impl Lib
         } else {
             let ops = code::make_ops(fix);
             if modname == "prefab" {
-                vout!("prefab.{} ops: {:?}\n", funcname, ops);
+                vout!("prefab::{} ops: {:?}\n", funcname, ops);
             }
             Code::Leema(ops)
         }
@@ -219,7 +219,8 @@ impl Lib
         , depth: typecheck::Depth
         )
     {
-        vout!("typecheck({:?}::{:?}, {:?})", modname, funcname, depth);
+        vout!("typecheck({}::{}, {:?})\n", modname, funcname, depth);
+        self.load_inter(modname);
         if depth.one_deeper() {
             self.deeper_typecheck(modname, funcname, depth);
         }
@@ -227,6 +228,7 @@ impl Lib
         let ftype = self.local_typecheck(modname, funcname);
         let mutyped = self.typed.get_mut(modname.str()).unwrap();
         mutyped.set_type(funcname.clone(), depth, ftype);
+        vout!("\tfinish typecheck({}::{})\n", modname, funcname);
     }
 
     pub fn deeper_typecheck(&mut self, modname: &Lstr, funcname: &Lstr
@@ -234,7 +236,6 @@ impl Lib
         )
     {
         let cf = {
-            self.load_inter(modname);
             let mut icf = CallFrame::new(modname, funcname);
             let inter = self.inter.get(modname).unwrap();
             let fix = inter.interfunc.get(funcname.str()).unwrap();
@@ -290,7 +291,11 @@ impl Lib
         vout!("local_typecheck({}::{})\n", modname, funcname);
         let modlstr = Lstr::from(String::from(modname));
         let funclstr = Lstr::from(String::from(funcname));
-        let inter = self.inter.get(&modlstr).unwrap();
+        let opt_inter = self.inter.get(&modlstr);
+        if opt_inter.is_none() {
+            panic!("cannot find inter for {}::{}", modname, funcname);
+        }
+        let inter = opt_inter.unwrap();
         let fix = inter.interfunc.get(funclstr.str()).unwrap();
         let typed = self.typed.get(modname).unwrap();
 
