@@ -25,6 +25,7 @@ use leema::typecheck;
 use leema::val::{Val};
 
 use std::io::{Write};
+use std::env;
 use docopt::{Docopt};
 
 
@@ -63,6 +64,7 @@ fn main()
 
 fn real_main() -> i32
 {
+    vout!("cmd: {:?}", env::current_exe());
     let args: Args = Docopt::new(USAGE)
         .and_then(|d| d.decode())
         .unwrap_or_else(|e| e.exit());
