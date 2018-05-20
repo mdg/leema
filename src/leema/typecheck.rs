@@ -508,13 +508,13 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             for (an, at) in arg_names.iter().zip(arg_types.iter()) {
                 scope.T.bind_vartype(an, at, ix.line);
             }
-            println!("f({:?}) =>\n{:?}", arg_names, body);
+            vout!("f({:?}) =>\n{:?}", arg_names, body);
             let result_type = typecheck_expr(scope, &*body).unwrap();
-            println!("type is: {}", result_type);
-            println!("vars:");
+            vout!("type is: {}", result_type);
+            vout!("vars:");
             for var in scope.T.vars() {
                 let typ = scope.T.vartype(var);
-                println!("\t{}: {}", var, typ.unwrap());
+                vout!("\t{}: {}", var, typ.unwrap());
             }
             let final_args = arg_types.iter().map(|at| {
                 scope.T.inferred_type(at).clone()

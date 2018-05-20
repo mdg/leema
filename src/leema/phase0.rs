@@ -711,6 +711,12 @@ impl Protomod
                     }
                 }
             }
+            &Ast::Tuple(ref items) => {
+                let pp_items = items.iter().map(|i| {
+                    Protomod::preproc_type(prog, mp, i, loc)
+                }).collect();
+                Type::Tuple(pp_items)
+            }
             &Ast::Localid(_, ref loc) => {
                 Type::AnonVar
             }

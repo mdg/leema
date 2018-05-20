@@ -378,7 +378,6 @@ pub fn file_stream_read(f: &mut Fiber) -> Event
         let mut result = rawf.read_to_string(&mut input);
         //let result = myf.f.lock().unwrap().read_to_string(&mut input);
     }
-println!("read from file: '{}'", input);
     f.head.parent.set_result(Val::new_str(input));
     Event::success()
 }
