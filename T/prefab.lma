@@ -1,14 +1,14 @@
-macro boolean_and(a, b) ->
+macro boolean_and(and_a, and_b) ->
     if
-    |a -> b
+    |and_a -> and_b
     |else -> false
     --
 --
 
-macro boolean_or(a, b) ->
+macro boolean_or(or_a, or_b) ->
     if
-    |a -> true
-    |else -> b
+    |or_a -> true
+    |else -> or_b
     --
 --
 
@@ -40,10 +40,10 @@ func cin(): Str -RUST-
 func cout(txt: Str): Void -RUST-
 func list_cons(head: $A, tail: [$A]): [$A] -RUST-
 
-func int_abs(a: Int): Int ->
+func int_abs(abs_a: Int): Int ->
     if
-    |a < 0 -> ~a
-    |else -> a
+    |abs_a < 0 -> ~abs_a
+    |else -> abs_a
     --
 --
 
