@@ -1,7 +1,8 @@
+use leema::ast::{Ast};
 use leema::code::{self, Code};
 use leema::ixpr::{Ixpr, Source};
 use leema::inter::{Intermod};
-use leema::module::{ModuleSource, ModulePreface, MacroDef};
+use leema::module::{ModuleSource, ModulePreface};
 use leema::loader::{Interloader};
 use leema::log;
 use leema::lstr::{Lstr};
@@ -348,7 +349,7 @@ impl Lib
     }
 
     pub fn get_macro<'a>(&'a self, modname: &str, macname: &str)
-            -> Option<&'a MacroDef>
+            -> Option<&'a Ast>
     {
         match self.preface.get(modname) {
             Some(pref) => pref.macros.get(macname),

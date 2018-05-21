@@ -2,7 +2,7 @@ use leema::program::{Lib};
 use leema::ast::{self, Ast};
 use leema::lstr::{Lstr};
 use leema::val::{SxprType, Val, Type, SrcLoc};
-use leema::module::{ModKey, ModulePreface, MacroDef};
+use leema::module::{ModKey, ModulePreface};
 use leema::list;
 use leema::log;
 
@@ -130,14 +130,11 @@ impl Protomod
             &Ast::Localid(_, _) => {
                 x.clone()
             }
-            &Ast::Lri(ref mods, ref typs, ref iloc) => {
-                let pp_types = typs.as_ref().map(|itypes| {
-                    let pp_typ: LinkedList<Ast> = itypes.iter().map(|t| {
-                        Protomod::preproc_expr(prog, mp, t, iloc)
-                    }).collect();
-                    pp_typ
-                });
-                Ast::Lri(mods.clone(), pp_types, *iloc)
+            &Ast::Lri(ref mods, None, ref iloc) => {
+                Protomod::preproc_lri(prog, mp, mods, iloc)
+            }
+            &Ast::Lri(ref mods, Some(ref typs), ref iloc) => {
+                Protomod::preproc_lri_with_types(prog, mp, mods, typs, iloc)
             }
             &Ast::Return(ref x, ref loc) => {
                 let px = Protomod::preproc_expr(prog, mp, x, loc);
@@ -270,32 +267,13 @@ impl Protomod
                 let macrod =
                     Protomod::apply_macro(
                         &mname, &body, &margs, args, loc);
-                // do it again to make sure there's not a wrapped
-                // macro
+                // do it again to make sure there's not a wrapped macro
                 Protomod::preproc_expr(prog, mp, &macrod, loc)
             }
             _ => {
                 Ast::Call(Box::new(pp_callx), pp_args, *loc)
             }
         }
-    }
-
-    pub fn get_macro<'a, 'b>(prog: &'a Lib, lri_items: &'b Val
-        ) -> Option<&'a MacroDef>
-    {
-        None
-        /*
-        let
-        match lri_items
-        if !mp.imports.contains(&**prefix) {
-            panic!("module not found: {}", prefix);
-        }
-        let inner_id = inner.to_str();
-        let mac = prog.get_macro(prefix, &*inner_id);
-        if mac.is_none() {
-            return sxpr::call(callx.clone(), pp_args, *loc);
-        }
-        */
     }
 
     pub fn apply_macro(macro_name: &Ast, body: &Ast
@@ -350,6 +328,35 @@ impl Protomod
             }
             _ => node.clone(),
         }
+    }
+
+    pub fn preproc_lri(prog: &Lib, mp: &ModulePreface, mods: &Vec<Lstr>
+        , loc: &SrcLoc
+        ) -> Ast
+    {
+        let mod_name = mods.first().unwrap();
+        if !mp.imports.contains(mod_name.str()) {
+            panic!("module not found: {}", mod_name);
+        }
+        let val_name = mods.last().unwrap();
+        match prog.get_macro(mod_name, val_name) {
+            Some(mac) => {
+                mac.clone()
+            }
+            None => {
+                Ast::Lri(mods.clone(), None, *loc)
+            }
+        }
+    }
+
+    pub fn preproc_lri_with_types(prog: &Lib, mp: &ModulePreface
+        , mods: &Vec<Lstr>, typs: &LinkedList<Ast>, loc: &SrcLoc
+        ) -> Ast
+    {
+        let pp_types = typs.iter().map(|t| {
+            Protomod::preproc_expr(prog, mp, t, loc)
+        }).collect();
+        Ast::Lri(mods.clone(), Some(pp_types), *loc)
     }
 
     pub fn preproc_ifcase(prog: &Lib, mp: &ModulePreface, iftype: ast::IfType

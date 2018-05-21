@@ -439,7 +439,11 @@ pub fn compile_lri(scope: &mut Interscope, names: &Vec<Lstr>, loc: &SrcLoc
         panic!("module not found: {:?}", names);
     }
     let id = names.last().unwrap();
-    let vartype = scope.import_vartype(modname, id).unwrap();
+    let opt_vartype = scope.import_vartype(modname, id);
+    if opt_vartype.is_none() {
+        panic!("failure for import_vartype({}, {})", modname, id);
+    }
+    let vartype = opt_vartype.unwrap();
 
     let fref = Val::FuncRef(modname.rc(), id.rc(), vartype.clone());
     Ixpr::const_val(fref, loc.lineno)

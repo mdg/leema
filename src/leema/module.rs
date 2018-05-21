@@ -40,8 +40,7 @@ impl ModKey
     }
 }
 
-pub type MacroDef = (Vec<Lstr>, Ast);
-type MacroMap = HashMap<String, MacroDef>;
+type MacroMap = HashMap<String, Ast>;
 
 #[derive(Debug)]
 pub struct ModuleSource
@@ -127,10 +126,7 @@ impl ModulePreface
                     , _, ref body, ref loc
             ) => {
                 let name_string = String::from(&**name);
-                let arg_strings = args.iter().map(|a| {
-                    From::from(a)
-                }).collect();
-                mp.macros.insert(name_string, (arg_strings, (**body).clone()));
+                mp.macros.insert(name_string, item.clone());
             }
             _ => {
                 // ignore everything else, it will be handled in a later phase
