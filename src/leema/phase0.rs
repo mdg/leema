@@ -335,8 +335,10 @@ impl Protomod
         ) -> Ast
     {
         let mod_name = mods.first().unwrap();
-        if !mp.imports.contains(mod_name.str()) {
-            panic!("module not found: {}", mod_name);
+        if mod_name.str() != *mp.key.name
+                && !mp.imports.contains(mod_name.str())
+        {
+            panic!("module not found: {:?}", mods);
         }
         let val_name = mods.last().unwrap();
         match prog.get_macro(mod_name, val_name) {

@@ -97,6 +97,11 @@ impl ModulePreface
             imports: HashSet::new(),
             macros: HashMap::new(),
         };
+        // everything imports prefab by default
+        // should probably get rid of this eventually tho
+        if &*ms.key.name != "prefab" {
+            mp.imports.insert(String::from("prefab"));
+        }
         mp.split_ast(&ms.ast);
         mp
     }
