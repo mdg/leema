@@ -418,6 +418,12 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             }
             scope.T.make_call_type(&tfunc, &targs_ref)
         }
+        &Source::Cons(ref head, ref tail) => {
+            let head_t = typecheck_expr(scope, head).unwrap();
+            let tail_t = typecheck_expr(scope, tail).unwrap();
+            let head_list_t = Type::StrictList(Box::new(head_t));
+            scope.T.merge_types(&head_list_t, &tail_t)
+        }
         &Source::ConstVal(ref cv) => {
             Ok(ix.typ.clone())
         }
