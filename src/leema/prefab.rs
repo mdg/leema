@@ -372,10 +372,10 @@ pub fn file_stream_read(f: &mut Fiber) -> Event
     {
         let mut streamval = f.head.e.get_param_mut(0);
         let mut optf = streamval.libval_as();
-        let mut myfref: &LeemaFile = optf.unwrap();
-        let mut lockf = myfref.f.lock();
+        let myfref: &LeemaFile = optf.unwrap();
+        let lockf = myfref.f.lock();
         let mut rawf = lockf.unwrap();
-        let mut result = rawf.read_to_string(&mut input);
+        let result = rawf.read_to_string(&mut input);
         //let result = myf.f.lock().unwrap().read_to_string(&mut input);
     }
     f.head.parent.set_result(Val::new_str(input));

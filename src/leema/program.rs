@@ -31,7 +31,7 @@ pub struct Lib
 
 impl Lib
 {
-    pub fn new(mut l: Interloader) -> Lib
+    pub fn new(l: Interloader) -> Lib
     {
         let mut proglib = Lib{
             loader: l,

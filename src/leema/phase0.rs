@@ -264,6 +264,7 @@ impl Protomod
             Ast::DefFunc(ast::FuncClass::Macro, mname, margs, _
                     , body, _
             ) => {
+                vout!("apply_macro({:?}, {:?})\n", mname, args);
                 let macrod =
                     Protomod::apply_macro(
                         &mname, &body, &margs, args, loc);
@@ -298,6 +299,7 @@ impl Protomod
             let n_lstr = Lstr::from(n);
             arg_map.insert(n_lstr, arg_val);
         }
+        vout!("replace_ids({:?})\n", arg_map);
         Protomod::replace_ids(body, &arg_map, loc)
     }
 
@@ -306,6 +308,12 @@ impl Protomod
         ) -> Ast
     {
         match node {
+            &Ast::Block(ref items) => {
+                let m_items = items.iter().map(|i| {
+                    Protomod::replace_ids(i, idvals, loc)
+                }).collect();
+                Ast::Block(m_items)
+            }
             &Ast::Cons(ref head, ref tail) => {
                 let rhead = Protomod::replace_ids(head, idvals, loc);
                 let rtail = Protomod::replace_ids(tail, idvals, loc);
@@ -317,17 +325,36 @@ impl Protomod
                 }).collect();
                 Ast::Tuple(result)
             }
+            &Ast::IfExpr(ift, ref input, ref if_case, _) => {
+                let m_input = Protomod::replace_ids(input, idvals, loc);
+                let m_case = Protomod::replace_ifcase_ids(if_case, idvals, loc);
+                Ast::IfExpr(ift, Box::new(m_input), Box::new(m_case), *loc)
+            }
             &Ast::Localid(ref name, ref iloc) => {
                 match idvals.get(&*name) {
                     Some(newx) => (*newx).clone(),
                     None => node.clone(),
                 }
             }
-            &Ast::Lri(ref names, ref types, ref iloc) => {
+            &Ast::Lri(ref names, ref types, _) => {
                 node.clone()
             }
-            _ => node.clone(),
+            _ => {
+                node.clone()
+            }
         }
+    }
+
+    pub fn replace_ifcase_ids(case: &ast::IfCase, idvals: &HashMap<Lstr, &Ast>
+        , loc: &SrcLoc
+        ) -> ast::IfCase
+    {
+        let m_cond = Protomod::replace_ids(&case.cond, idvals, loc);
+        let m_body = Protomod::replace_ids(&case.body, idvals, loc);
+        let m_else = case.else_case.as_ref().map(|else_case| {
+            Protomod::replace_ifcase_ids(&else_case, idvals, loc)
+        });
+        ast::IfCase::new(m_cond, m_body, m_else, *loc)
     }
 
     pub fn preproc_lri(prog: &Lib, mp: &ModulePreface, mods: &Vec<Lstr>
