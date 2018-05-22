@@ -970,6 +970,7 @@ mod tests {
     use leema::module::{ModKey};
     use leema::phase0::{Protomod};
     use leema::program;
+    use leema::typecheck::{Typemod, Depth};
     use leema::val::{Type, Val, SrcLoc};
 
     use std::rc::{Rc};
@@ -980,12 +981,13 @@ mod tests {
 fn test_scope_add_vartype()
 {
     let mk = Rc::new(ModKey::name_only("tacos"));
+    let typed = Typemod::new(Lstr::Rc(mk.name.clone()));
     let proto = Protomod::new(mk);
     let imps = HashMap::new();
     let args = vec![];
     let argt = vec![];
     let mut scope = Interscope::new(&proto, &imps
-        , "foo", 105, &args, &argt);
+        , &typed, "foo", 105, &args, &argt);
     scope.T.bind_vartype("hello", &Type::Int, 17);
 
     let (scope_lvl, typ) = scope.vartype("hello").unwrap();
@@ -997,12 +999,13 @@ fn test_scope_add_vartype()
 fn test_scope_push_block()
 {
     let mk = Rc::new(ModKey::name_only("tacos"));
+    let typed = Typemod::new(Lstr::Rc(mk.name.clone()));
     let proto = Protomod::new(mk);
     let imps = HashMap::new();
     let args = vec![];
     let argt = vec![];
     let mut scope = Interscope::new(&proto, &imps
-        , "foo", 104, &args, &argt);
+        , &typed, "foo", 104, &args, &argt);
     scope.T.bind_vartype("hello", &Type::Int, 18);
     println!("add_var(hello) -> {:?}", scope);
 
@@ -1036,12 +1039,14 @@ fn test_scope_push_block()
 fn test_new_vars_from_id_pattern()
 {
     let mk = Rc::new(ModKey::name_only("tacos"));
+    let mod_lstr = Lstr::Rc(mk.name.clone());
     let proto = Protomod::new(mk);
+    let typed = Typemod::new(mod_lstr.clone());
     let imps = HashMap::new();
     let args = vec![];
     let argt = vec![];
     let mut scope = Interscope::new(&proto, &imps
-        , "foo", 103, &args, &argt);
+        , &typed, "foo", 103, &args, &argt);
 
     let mut new_vars = Vec::default();
     let patt = Ast::Localid(Lstr::from("x"), SrcLoc::default());
@@ -1180,6 +1185,7 @@ fn test_pattern_type_explicit_mismatch()
 }
 
 #[test]
+#[should_panic]
 fn test_pattern_type_mismatch_not_inferred()
 {
     let input = String::from("
@@ -1200,9 +1206,6 @@ fn test_pattern_type_mismatch_not_inferred()
     loader.set_mod_txt("tacos", input);
     let mut prog = program::Lib::new(loader);
     prog.read_inter("tacos");
-    // we don't expect this to fail in this phase.
-    // the typechecking should catch it later.
-    assert!(true);
 }
 
 }
