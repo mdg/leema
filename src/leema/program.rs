@@ -175,7 +175,14 @@ impl Lib
         let preface = self.preface.get(modname).unwrap().clone();
         let imports = self.import_protos(modname, &preface.imports);
         let proto = self.proto.get(modname).unwrap();
-        Intermod::compile(&proto, &imports)
+        let mod_lstr = Lstr::from(String::from(modname));
+        let mut typed = Typemod::new(mod_lstr.clone());
+        let inter = Intermod::compile(&proto, &imports, &mut typed);
+        self.typed.insert(
+            String::from(modname),
+            Typemod::new(mod_lstr.clone()),
+        );
+        inter
     }
 
     pub fn read_code(&mut self, modname: &str, funcname: &str) -> Code

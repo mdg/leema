@@ -7,6 +7,7 @@ use leema::log;
 use leema::lstr::{Lstr};
 use leema::module::{ModKey};
 use leema::phase0::{Protomod};
+use leema::typecheck::{self, Typemod};
 use leema::val::{Val, SxprType, Type, SrcLoc, TypeErr};
 
 use std::collections::{HashMap, LinkedList};
@@ -107,6 +108,7 @@ impl Intermod
 
     pub fn compile(proto: &Protomod
         , imports: &HashMap<String, Rc<Protomod>>
+        , typed: &mut Typemod
         ) -> Intermod
     {
         let mod_lstr = Lstr::Rc(proto.key.name.clone());
@@ -122,7 +124,9 @@ impl Intermod
             let (args, body, loc) = split_func_args_body(defunc);
             let ftype = proto.valtypes.get(flstr.str()).unwrap();
             let ifunc = compile_function(proto
-                , imports, fname, ftype, &args, body, loc);
+                , imports, &typed, fname, ftype, &args, body, loc);
+            typed.set_type(
+                flstr.clone(), typecheck::Depth::Inter, ifunc.typ.clone());
             inter.interfunc.insert(flstr.to_string(), ifunc);
         }
         inter
@@ -144,6 +148,7 @@ pub struct Interscope<'a>
     fname: &'a str,
     proto: &'a Protomod,
     imports: &'a HashMap<String, Rc<Protomod>>,
+    typed: &'a Typemod,
     // types of locally defined labels
     T: Inferator<'a>,
     argnames: Vec<Lstr>,
@@ -153,7 +158,7 @@ pub struct Interscope<'a>
 impl<'a> Interscope<'a>
 {
     pub fn new(proto: &'a Protomod, imports: &'a HashMap<String, Rc<Protomod>>
-            , fname: &'a str, lineno: i16
+            , typed: &'a Typemod, fname: &'a str, lineno: i16
             , args: &Vec<Lstr>, argt: &Vec<Type>
             ) -> Interscope<'a>
     {
@@ -173,6 +178,7 @@ impl<'a> Interscope<'a>
             fname: fname,
             proto: proto,
             imports: imports,
+            typed: typed,
             T: t,
             argnames: args.clone(),
             argt: Type::Tuple(argt.clone()),
@@ -184,6 +190,10 @@ impl<'a> Interscope<'a>
         let local = self.T.vartype(name);
         if local.is_some() && self.T.var_is_in_scope(name) {
             return Some((ScopeLevel::Local, local.unwrap()));
+        }
+        let ftype = self.typed.function_type(&Lstr::from(String::from(name)));
+        if ftype.is_some() {
+            return Some((ScopeLevel::Module, ftype.unwrap().clone()));
         }
         if let Some(modtyp) = self.proto.valtype(name) {
             return Some((ScopeLevel::Module, modtyp.clone()));
@@ -261,7 +271,8 @@ impl<'a> Interscope<'a>
 
 
 pub fn compile_function<'a>(proto: &'a Protomod
-        , imports: &'a HashMap<String, Rc<Protomod>>, fname: &'a str
+        , imports: &'a HashMap<String, Rc<Protomod>>
+        , typed: &Typemod, fname: &'a str
         , ftype: &Type, args: &Vec<Lstr>, body: &Ast
         , loc: &SrcLoc
         ) -> Ixpr
@@ -276,7 +287,7 @@ pub fn compile_function<'a>(proto: &'a Protomod
     }
     let (argt, _result) = Type::split_func(ftype);
     let mut scope =
-        Interscope::new(proto, imports, fname, loc.lineno, args, argt);
+        Interscope::new(proto, imports, typed, fname, loc.lineno, args, argt);
     let ibody = compile_expr(&mut scope, body, loc);
     let argt2: Vec<Type> = argt.iter().map(|a| {
         scope.T.inferred_type(a).clone()
@@ -287,7 +298,7 @@ pub fn compile_function<'a>(proto: &'a Protomod
         line: loc.lineno,
     };
     let final_ftype = Type::Func(argt2, Box::new(ibody2.typ.clone()));
-    vout!("compile function {}: {}\n", fname, ftype);
+    vout!("compile function {}: {}\n", fname, final_ftype);
     for v in scope.T.vars() {
         let vtyp = scope.T.vartype(v);
         vout!("\t{}: {}\n", v, vtyp.unwrap());
@@ -580,7 +591,7 @@ pub fn compile_let_stmt(scope: &mut Interscope, lettype: ast::LetType
     let irhs = compile_expr(scope, rhs, loc);
     let mut new_vars = Vec::new();
     let cpatt = compile_pattern(scope, &mut new_vars, lhs);
-    vout!("new vars in let: {:?}\n", new_vars);
+    vout!("new vars in let: {:?} = {:?}\n", new_vars, irhs.typ);
     scope.T.match_pattern(&cpatt, &irhs.typ, loc.lineno);
     let failed = new_vars.iter().map(|v| {
         (v.clone(), compile_failed_var(scope, v, loc))
