@@ -20,6 +20,7 @@ pub struct Protomod
     pub funcsrc: HashMap<String, Ast>,
     pub valtypes: HashMap<String, Type>,
     pub constants: HashMap<String, Val>,
+    pub struple_flds: HashMap<Lstr, Vec<(Option<Lstr>, Type)>>,
     pub structfields: HashMap<String, Vec<(Rc<String>, Type)>>,
 }
 
@@ -33,6 +34,7 @@ impl Protomod
             funcsrc: HashMap::new(),
             valtypes: HashMap::new(),
             constants: HashMap::new(),
+            struple_flds: HashMap::new(),
             structfields: HashMap::new(),
         }
     }
@@ -545,18 +547,19 @@ impl Protomod
         , src_fields: &LinkedList<Ast>, loc: &SrcLoc
         )
     {
-        let struct_fields: Vec<(Option<Lstr>, Type)> =
+        let struple_fields: Vec<(Option<Lstr>, Type)> =
             src_fields.iter().map(|f| {
                 Protomod::preproc_struple_field_type(
                     prog, mp, &mod_name, f, loc)
             }).collect();
 
-        let field_type_vec = struct_fields.iter().map(|&(_, ref ftype)| {
+        let field_type_vec = struple_fields.iter().map(|&(_, ref ftype)| {
             ftype.clone()
         }).collect();
 
-        let result_type = Type::Stoken(
-            Lri::with_modules(mod_name.clone(), local_typename.clone()));
+        let struple_lri =
+            Lri::with_modules(mod_name.clone(), local_typename.clone());
+        let result_type = Type::Stoken(struple_lri.clone());
         let func_type = Type::Func(field_type_vec, Box::new(result_type));
 
         let src_typename = Ast::Lri(vec![mod_name.clone(), local_typename]
@@ -575,6 +578,7 @@ impl Protomod
         self.funcseq.push_back(local_name.rc());
         self.funcsrc.insert(String::from(&local_name), srcxpr);
         self.valtypes.insert(String::from(&local_name), func_type);
+        self.struple_flds.insert(local_name, struple_fields);
     }
 
     pub fn preproc_struct_fields(&mut self, prog: &Lib, mp: &ModulePreface
@@ -1142,12 +1146,13 @@ fn preproc_defstruple_mixed_keys()
         panic!("constructor valtype is not a func");
     }
 
+    let xtyperef = Type::Stoken(Lri::with_modules(
+        Lstr::from("tacos"),
+        Lstr::from("Burrito"),
+    ));
     let xfunctype = Type::Func(
         vec![Type::Bool, Type::Int],
-        Box::new(Type::Stoken(Lri::with_modules(
-            Lstr::from("tacos"),
-            Lstr::from("Burrito"),
-        ))),
+        Box::new(xtyperef.clone()),
     );
 
     // assert constants
@@ -1171,6 +1176,15 @@ fn preproc_defstruple_mixed_keys()
     // assert funcsrc
     assert!(pmod.funcsrc.contains_key("Burrito"));
     assert_eq!(1, pmod.funcsrc.len());
+
+    // assert struple fields
+    let strupfs = pmod.struple_flds.get("Burrito").unwrap();
+    assert_eq!((None, Type::Bool), *strupfs.get(0).unwrap());
+    assert_eq!((Some(Lstr::from("buns")), Type::Int), *strupfs.get(1).unwrap());
+    assert_eq!(1, pmod.struple_flds.len());
+
+    // assert empty struct fields
+    assert_eq!(0, pmod.structfields.len());
 }
 
 #[test]
