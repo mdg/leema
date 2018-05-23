@@ -20,6 +20,7 @@ pub struct Protomod
     pub funcsrc: HashMap<String, Ast>,
     pub valtypes: HashMap<String, Type>,
     pub constants: HashMap<String, Val>,
+    pub deftypes: HashMap<Lstr, Type>,
     pub struple_flds: HashMap<Lstr, Vec<(Option<Lstr>, Type)>>,
     pub structfields: HashMap<String, Vec<(Rc<String>, Type)>>,
 }
@@ -34,6 +35,7 @@ impl Protomod
             funcsrc: HashMap::new(),
             valtypes: HashMap::new(),
             constants: HashMap::new(),
+            deftypes: HashMap::new(),
             struple_flds: HashMap::new(),
             structfields: HashMap::new(),
         }
@@ -560,10 +562,13 @@ impl Protomod
         let struple_lri =
             Lri::with_modules(mod_name.clone(), local_typename.clone());
         let result_type = Type::Stoken(struple_lri.clone());
+        let full_type =
+            Type::Struple(Some(struple_lri), struple_fields.clone());
         let func_type = Type::Func(field_type_vec, Box::new(result_type));
 
-        let src_typename = Ast::Lri(vec![mod_name.clone(), local_typename]
-            , None, *loc);
+        let src_typename =
+            Ast::Lri(vec![mod_name.clone(), local_typename.clone()]
+                , None, *loc);
         let srcblk = Ast::ConstructData(ast::DataType::Struct
             , Box::new(src_typename.clone()), Vec::with_capacity(0)
             );
@@ -578,6 +583,7 @@ impl Protomod
         self.funcseq.push_back(local_name.rc());
         self.funcsrc.insert(String::from(&local_name), srcxpr);
         self.valtypes.insert(String::from(&local_name), func_type);
+        self.deftypes.insert(local_typename, full_type);
         self.struple_flds.insert(local_name, struple_fields);
     }
 
