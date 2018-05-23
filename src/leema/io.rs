@@ -117,7 +117,7 @@ impl Io
     pub fn new(app_tx: Sender<AppMsg>, msg_rx: Receiver<IoMsg>)
         -> (Rc<RefCell<Io>>, reactor::Core)
     {
-        let mut core = reactor::Core::new().unwrap();
+        let core = reactor::Core::new().unwrap();
         let h = core.handle();
         let io = Io{
             resource: HashMap::new(),

@@ -257,7 +257,7 @@ impl Token
 }
 
 
-pub fn lex(mut str_input: &str) -> Vec<Token>
+pub fn lex(str_input: &str) -> Vec<Token>
 {
     // need to append \0 so C library knows where the string stops
     let input = format!("{}\0", str_input);

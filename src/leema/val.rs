@@ -1,6 +1,7 @@
 use leema::reg::{self, Reg, Ireg, Iregistry};
 use leema::list;
 use leema::lri::{Lri};
+use leema::lstr::{Lstr};
 use leema::frame::{FrameTrace};
 use leema::log;
 
@@ -45,8 +46,8 @@ pub enum Type
     Str,
     Bool,
     Hashtag,
-    Struple(Option<Lri>, Vec<Type>),
     Stoken(Lri),
+    Struple(Option<Lri>, Vec<(Option<Lstr>, Type)>),
     Tuple(Vec<Type>),
     Struct(Rc<String>),
     Enum(Rc<String>),
@@ -271,8 +272,8 @@ impl Type
                 let dci = opt_i.as_ref().map(|i| {
                     i.deep_clone()
                 });
-                let dc_fields = fields.iter().map(|f| {
-                    f.deep_clone()
+                let dc_fields = fields.iter().map(|&(ref k, ref t)| {
+                    (k.as_ref().map(|ik| { ik.deep_clone() }), t.deep_clone())
                 }).collect();
                 Type::Struple(dci, dc_fields)
             }
@@ -357,7 +358,7 @@ impl fmt::Display for Type
             &Type::Struple(None, ref fields) => {
                 write!(f, "(").ok();
                 for fld in fields {
-                    write!(f, "{},", fld).ok();
+                    write!(f, "{:?},", fld).ok();
                 }
                 write!(f, ")")
             }
@@ -702,7 +703,7 @@ impl Val
         if !l.is_list() {
             panic!("Cannot make tuple from not-list: {:?}", l);
         }
-        let mut empties: Vec<Val> = Vec::with_capacity(list::len(l));
+        let empties: Vec<Val> = Vec::with_capacity(list::len(l));
         let items = list::fold_ref(empties, l, |mut res, item| {
             res.push(item.clone());
             res

@@ -475,7 +475,7 @@ impl Protomod
                 if fields.is_empty() {
                     self.preproc_struple_token(prog, mp, name, loc);
                 } else {
-                    self.preproc_struct_with_fields(
+                    self.preproc_struple_with_fields(
                         prog, mp, name, fields, loc);
                 }
             }
@@ -507,14 +507,79 @@ impl Protomod
 
         // a token struct is stored as a constant with no constructor
         let constval = Val::Token(type_name.clone());
-        self.constants.insert(String::from(name), constval);
-        self.valtypes.insert(String::from(name), type_name);
+        self.constants.insert(String::from(&name_lstr), constval);
+        self.valtypes.insert(String::from(&name_lstr), type_name);
     }
 
     pub fn preproc_enum_token(&mut self, prog: &Lib, mp: &ModulePreface
         , name: &Ast, loc: &SrcLoc
         )
     {
+    }
+
+    pub fn preproc_struple_with_fields(&mut self, prog: &Lib
+        , mp: &ModulePreface, name: &Ast
+        , src_fields: &LinkedList<Ast>, loc: &SrcLoc
+        )
+    {
+        let name_lstr = Lstr::from(name);
+        let mod_lstr = Lstr::Rc(self.key.name.clone());
+
+        let type_lri = Lri::with_modules(mod_lstr.clone(), name_lstr.clone());
+
+        self.preproc_struple_fields(prog, mp, name_lstr.clone()
+            , mod_lstr, name_lstr, src_fields, loc);
+    }
+
+    pub fn preproc_struple_field_type(prog: &Lib, mp: &ModulePreface
+        , mod_name: &Lstr, fld: &Ast, loc: &SrcLoc
+        ) -> (Option<Lstr>, Type)
+    {
+        match fld {
+            &Ast::KeyedExpr(ref key, ref x, ref iloc) => {
+                (Some(key.clone()), Protomod::preproc_type(prog, mp, x, iloc))
+            }
+            _ => {
+                (None, Protomod::preproc_type(prog, mp, fld, loc))
+            }
+        }
+    }
+
+    pub fn preproc_struple_fields(&mut self, prog: &Lib, mp: &ModulePreface
+        , local_typename: Lstr, mod_name: Lstr, local_name: Lstr
+        , src_fields: &LinkedList<Ast>, loc: &SrcLoc
+        )
+    {
+        let struct_fields: Vec<(Option<Lstr>, Type)> =
+            src_fields.iter().map(|f| {
+                Protomod::preproc_struple_field_type(
+                    prog, mp, &mod_name, f, loc)
+            }).collect();
+
+        let field_type_vec = struct_fields.iter().map(|&(_, ref ftype)| {
+            ftype.clone()
+        }).collect();
+
+        let result_type = Type::Stoken(
+            Lri::with_modules(mod_name.clone(), local_typename.clone()));
+        let func_type = Type::Func(field_type_vec, Box::new(result_type));
+
+        let src_typename = Ast::Lri(vec![mod_name.clone(), local_typename]
+            , None, *loc);
+        let srcblk = Ast::ConstructData(ast::DataType::Struct
+            , Box::new(src_typename.clone()), Vec::with_capacity(0)
+            );
+        let srcxpr = Ast::DefFunc(ast::FuncClass::Func
+            , Box::new(Ast::Localid(local_name.clone(), *loc))
+            , (*src_fields).clone(), Box::new(src_typename)
+            , Box::new(srcblk), *loc);
+
+        let funcref =
+            Val::FuncRef(mod_name.rc(), local_name.rc(), func_type.clone());
+        self.constants.insert(String::from(&local_name), funcref);
+        self.funcseq.push_back(local_name.rc());
+        self.funcsrc.insert(String::from(&local_name), srcxpr);
+        self.valtypes.insert(String::from(&local_name), func_type);
     }
 
     pub fn preproc_struct_with_fields(&mut self, prog: &Lib
@@ -1074,55 +1139,46 @@ fn test_preproc_namedtuple()
 }
 
 #[test]
-fn test_new_struct_fields()
+fn preproc_defstruple_mixed_keys()
 {
     let input = "
-    struct Burrito
-    .lettuce: Bool
-    .buns: Int
-    --
+    struple Burrito(Bool, buns: Int)
     ".to_string();
     let mut loader = Interloader::new("tacos.lma");
     loader.set_mod_txt("tacos", input);
     let mut prog = program::Lib::new(loader);
     let pmod = prog.read_proto("tacos");
 
-    assert!(pmod.structfields.contains_key("Burrito"));
-
-    let structfields = pmod.structfields.get("Burrito").unwrap();
-    assert_eq!(2, structfields.len());
-
-    let lettuce = structfields.get(0).unwrap();
-    assert_eq!("lettuce", &*lettuce.0);
-    assert_eq!(Type::Bool, lettuce.1);
-
-    let buns = structfields.get(1).unwrap();
-    assert_eq!("buns", &*buns.0);
-    assert_eq!(Type::Int, buns.1);
-}
-
-#[test]
-fn test_new_struct_constructor_valtype()
-{
-    let input = "
-    struct Burrito
-    .lettuce: Bool
-    .buns: Int
-    --
-    ".to_string();
-    let mut loader = Interloader::new("tacos.lma");
-    loader.set_mod_txt("tacos", input);
-    let mut prog = program::Lib::new(loader);
-    let pmod = prog.read_proto("tacos");
-
+    // assert valtypes
     assert!(pmod.valtypes.contains_key("Burrito"));
-
     let constructor = pmod.valtypes.get("Burrito").unwrap();
-
     if let &Type::Func(ref params, ref result) = constructor {
         assert_eq!(2, params.len());
+        let exp_result = Type::Stoken(Lri::with_modules(
+            Lstr::from("tacos"), Lstr::from("Burrito")
+        ));
+        assert_eq!(exp_result, **result);
     } else {
         panic!("constructor valtype is not a func");
+    }
+
+    // assert constants
+    let xfuncref = pmod.constants.get("Burrito").unwrap();
+    if let &Val::FuncRef(ref mod_nm, ref func_nm, ref ftype) = xfuncref {
+        assert_eq!("tacos", &**mod_nm);
+        assert_eq!("Burrito", &**func_nm);
+        if let &Type::Func(ref args, ref fresult) = ftype {
+            assert_eq!(
+                Type::Stoken(Lri::with_modules(
+                    Lstr::from("tacos"),
+                    Lstr::from("Burrito"),
+                )),
+                **fresult);
+        } else {
+            panic!("Burrito FuncRef type is not a func: {:?}", ftype);
+        }
+    } else {
+        panic!("Burrito constant is not a FuncRef: {:?}", xfuncref);
     }
 }
 
