@@ -1,5 +1,6 @@
 
 use std::borrow::{Borrow};
+use std::cmp::{PartialEq, PartialOrd, Ordering};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
@@ -9,12 +10,11 @@ use std::sync::Arc;
 
 #[derive(Debug)]
 #[derive(Clone)]
-#[derive(PartialOrd)]
 #[derive(Eq)]
 pub enum Lstr
 {
     Rc(Rc<String>),
-    Arc(Arc<String>),
+    Arc(Arc<Rc<String>>),
     Sref(&'static str),
     Cat(Box<Lstr>, Box<Lstr>),
 }
@@ -35,7 +35,7 @@ impl Lstr
     {
         match self {
             &Lstr::Rc(ref s) => &(**s),
-            &Lstr::Arc(ref s) => &(**s),
+            &Lstr::Arc(ref s) => &(***s),
             &Lstr::Sref(ref s) => s,
             _ => {
                 panic!("not a str: {:?}", self);
@@ -54,6 +54,20 @@ impl Lstr
             }
         }
     }
+
+    pub fn deep_clone(&self) -> Lstr
+    {
+        match self {
+            &Lstr::Rc(ref s) => {
+                Lstr::Arc(Arc::new(s.clone()))
+            }
+            &Lstr::Arc(ref s) => Lstr::Arc(s.clone()),
+            &Lstr::Sref(ref s) => Lstr::Sref(s),
+            _ => {
+                panic!("cannot deep_clone: {:?}", self);
+            }
+        }
+    }
 }
 
 impl<'a> From<&'a Lstr> for String
@@ -62,7 +76,7 @@ impl<'a> From<&'a Lstr> for String
     {
         match ls {
             &Lstr::Rc(ref s) => (**s).clone(),
-            &Lstr::Arc(ref s) => (**s).clone(),
+            &Lstr::Arc(ref s) => (***s).clone(),
             &Lstr::Sref(ref s) => s.to_string(),
             &Lstr::Cat(ref a, ref b) => {
                 format!("{}{}", a, b)
@@ -75,14 +89,7 @@ impl<'a> From<&'a Lstr> for Rc<String>
 {
     fn from(ls: &'a Lstr) -> Rc<String>
     {
-        match ls {
-            &Lstr::Rc(ref s) => s.clone(),
-            &Lstr::Arc(ref s) => Rc::new((**s).clone()),
-            &Lstr::Sref(ref s) => Rc::new(s.to_string()),
-            &Lstr::Cat(ref a, ref b) => {
-                Rc::new(format!("{}{}", a, b))
-            }
-        }
+        ls.rc()
     }
 }
 
@@ -157,6 +164,14 @@ impl<'a, 'b> PartialEq<str> for Lstr
     fn eq(&self, other: &str) -> bool
     {
         self.str() == other
+    }
+}
+
+impl PartialOrd for Lstr
+{
+    fn partial_cmp(&self, other: &Lstr) -> Option<Ordering>
+    {
+        PartialOrd::partial_cmp(self.str(), other.str())
     }
 }
 

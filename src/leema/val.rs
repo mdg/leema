@@ -45,6 +45,7 @@ pub enum Type
     Str,
     Bool,
     Hashtag,
+    Stoken(Lri),
     Tuple(Vec<Type>),
     Struct(Rc<String>),
     Enum(Rc<String>),
@@ -285,6 +286,9 @@ impl Type
                 }).collect();
                 Type::Tuple(dc_items)
             }
+            &Type::Stoken(ref t) => {
+                Type::Stoken(t.deep_clone())
+            }
             &Type::Token(ref t) => {
                 Type::Token(Rc::new((**t).clone()))
             }
@@ -349,6 +353,7 @@ impl fmt::Display for Type
             }
             &Type::Struct(ref name) => write!(f, "{}", name),
             &Type::Enum(ref name) => write!(f, "{}", name),
+            &Type::Stoken(ref name) => write!(f, "{}", name),
             &Type::Token(ref name) => write!(f, "{}", name),
             &Type::NamedTuple(ref name, ref flds) => {
                 write!(f, "{}", name)
@@ -404,6 +409,7 @@ impl fmt::Debug for Type
                 write!(f, "StructType({})", name)
             }
             &Type::Enum(ref name) => write!(f, "Enum({})", name),
+            &Type::Stoken(ref name) => write!(f, "Stoken({})", name),
             &Type::Token(ref name) => write!(f, "Token({})", name),
             &Type::NamedTuple(ref name, ref flds) => {
                 write!(f, "NamedTuple({}, {:?})", name, flds)
@@ -584,7 +590,7 @@ pub enum Val
     Buffer(Vec<u8>),
     Cons(Box<Val>, Rc<Val>),
     Nil,
-    Struple(Rc<Type>, Vec<Val>),
+    Struple(Type, Vec<Val>),
     Tuple(Vec<Val>),
     NamedTuple(Type, Vec<Val>),
     Struct(Type, Vec<Val>),
@@ -943,7 +949,7 @@ impl Val
             &Val::TypedId(_, ref typ) => typ.clone(),
             &Val::RustBlock => Type::RustBlock,
             &Val::Struple(ref typ, _) => {
-                (**typ).clone()
+                (*typ).clone()
             }
             &Val::Struct(ref typ, _) => {
                 typ.clone()
@@ -1421,7 +1427,7 @@ impl fmt::Debug for Val {
                 write!(f, "enum({:?}.{}.{}:{:?})", name, var_idx, var_name, val)
             }
             Val::Token(ref name) => {
-                write!(f, "Token({})", name)
+                write!(f, "Token({:?})", name)
             }
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv)

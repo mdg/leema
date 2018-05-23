@@ -1,5 +1,6 @@
 use leema::program::{Lib};
 use leema::ast::{self, Ast};
+use leema::lri::{Lri};
 use leema::lstr::{Lstr};
 use leema::val::{Val, Type, SrcLoc};
 use leema::module::{ModKey, ModulePreface};
@@ -472,7 +473,7 @@ impl Protomod
         match datatype {
             ast::DataType::Struple => {
                 if fields.is_empty() {
-                    self.preproc_token_struct(prog, mp, name, loc);
+                    self.preproc_struple_token(prog, mp, name, loc);
                 } else {
                     self.preproc_struct_with_fields(
                         prog, mp, name, fields, loc);
@@ -493,6 +494,27 @@ impl Protomod
                 self.preproc_namedtuple(prog, mp, name, name, fields, loc);
             }
         }
+    }
+
+    pub fn preproc_struple_token(&mut self, prog: &Lib, mp: &ModulePreface
+        , name: &Ast, loc: &SrcLoc
+        )
+    {
+        let name_lstr = Lstr::from(name);
+        let mod_lstr = Lstr::Rc(mp.key.name.clone());
+        let name_lri = Lri::with_modules(mod_lstr, name_lstr.clone());
+        let type_name = Type::Stoken(name_lri);
+
+        // a token struct is stored as a constant with no constructor
+        let constval = Val::Token(type_name.clone());
+        self.constants.insert(String::from(name), constval);
+        self.valtypes.insert(String::from(name), type_name);
+    }
+
+    pub fn preproc_enum_token(&mut self, prog: &Lib, mp: &ModulePreface
+        , name: &Ast, loc: &SrcLoc
+        )
+    {
     }
 
     pub fn preproc_token_struct(&mut self, prog: &Lib, mp: &ModulePreface
@@ -802,6 +824,7 @@ pub fn preproc(prog: &mut Lib, mp: &ModulePreface, ast: &Ast) -> Protomod
 mod tests {
     use leema::ast::{self, Ast};
     use leema::list;
+    use leema::lri::{Lri};
     use leema::lstr::{Lstr};
     use leema::log;
     use leema::loader::{Interloader};
@@ -1124,7 +1147,40 @@ fn test_new_struct_constructor_valtype()
 }
 
 #[test]
-fn test_token_type()
+fn preproc_defstruple_token()
+{
+    let input = String::from("
+    struple Burrito --
+    ");
+
+    let mut loader = Interloader::new("tok.lma");
+    loader.set_mod_txt("tok", input);
+    let mut prog = program::Lib::new(loader);
+    let pmod = prog.read_proto("tok");
+
+    let name_rc = Rc::new("Burrito".to_string());
+    let exptype = Type::Stoken(Lri::with_modules(
+        Lstr::from("tok"),
+        Lstr::from("Burrito"),
+    ));
+
+    // verify valtypes
+    assert_eq!(exptype, *pmod.valtypes.get("Burrito").unwrap());
+    assert_eq!(1, pmod.valtypes.len());
+
+    // verify constants
+    assert_eq!(Val::Token(exptype.clone())
+        , *pmod.constants.get("Burrito").unwrap());
+    assert_eq!(1, pmod.constants.len());
+
+    // assert on fields that shouldn't have changed
+    assert_eq!(0, pmod.funcseq.len());
+    assert_eq!(0, pmod.funcsrc.len());
+    assert_eq!(0, pmod.structfields.len());
+}
+
+#[test]
+fn test_old_token_type()
 {
     let input = String::from("
     struct Burrito --
