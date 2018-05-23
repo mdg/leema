@@ -470,6 +470,14 @@ impl Protomod
         )
     {
         match datatype {
+            ast::DataType::Struple => {
+                if fields.is_empty() {
+                    self.preproc_token_struct(prog, mp, name, loc);
+                } else {
+                    self.preproc_struct_with_fields(
+                        prog, mp, name, fields, loc);
+                }
+            }
             ast::DataType::Struct => {
                 if fields.is_empty() {
                     self.preproc_token_struct(prog, mp, name, loc);

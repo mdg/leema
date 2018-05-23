@@ -59,6 +59,7 @@ use std::io::{Write};
 %type StrLit { String }
 %type StrOpen { SrcLoc }
 %type STRUCT { SrcLoc }
+%type STRUPLE { SrcLoc }
 %type TIMES { SrcLoc }
 %type TYPE_VAR { TokenData<String> }
 %type XOR { SrcLoc }
@@ -86,6 +87,9 @@ use std::io::{Write};
 %type lri { Ast }
 %type lri_base { (Vec<Lstr>, SrcLoc) }
 %type match_expr { Ast }
+%type defstruple { Ast }
+%type defstruple_block { LinkedList<Ast> }
+%type defstruple_block_field { Ast }
 %type defstruct { Ast }
 %type defstruct_fields { LinkedList<Ast> }
 %type defstruct_field { Ast }
@@ -165,6 +169,7 @@ block(A) ::= BLOCKARROW(C) stmts(B). {
 }
 
 
+stmt(A) ::= defstruple(B). { A = B; }
 stmt(A) ::= defstruct(B). { A = B; }
 stmt(A) ::= defenum(B). { A = B; }
 stmt(A) ::= defnamedtuple(B). { A = B; }
@@ -181,6 +186,28 @@ stmt(A) ::= RETURN(C) expr(B). {
     A = Ast::Return(Box::new(B), C);
 }
 
+
+/** Struple Definitions */
+
+defstruple(A) ::= STRUPLE(L) lri(C) PARENCALL expr_list(D) RPAREN.
+{
+    A = Ast::DefData(ast::DataType::Struple, Box::new(C), D, L);
+}
+
+defstruple(A) ::= STRUPLE(D) lri(B) defstruple_block(C) DOUBLEDASH. {
+    A = Ast::DefData(ast::DataType::Struple, Box::new(B), C, D);
+}
+defstruple_block(A) ::= . {
+    A = LinkedList::new();
+}
+defstruple_block(A) ::= defstruple_block(B) defstruple_block_field(C). {
+    let mut tmp = B;
+    tmp.push_back(C);
+    A = tmp;
+}
+defstruple_block_field(A) ::= DOT ID(B) COLON term(C). {
+    A = Ast::KeyedExpr(Lstr::from(B.data), Box::new(C), B.loc);
+}
 
 /** Data Structures */
 defstruct(A) ::= STRUCT(D) lri(B) defstruct_fields(C) DOUBLEDASH. {

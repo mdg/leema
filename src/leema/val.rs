@@ -605,7 +605,8 @@ pub enum MsgVal
 }
 
 #[derive(Clone)]
-pub enum Val {
+pub enum Val
+{
     Int(i64),
     Str(Rc<String>),
     // StrCat(Rc<Val>, Box<Val>),
@@ -615,6 +616,7 @@ pub enum Val {
     Buffer(Vec<u8>),
     Cons(Box<Val>, Rc<Val>),
     Nil,
+    Struple(Rc<Type>, Vec<Val>),
     Tuple(Vec<Val>),
     NamedTuple(Type, Vec<Val>),
     Struct(Type, Vec<Val>),
@@ -972,6 +974,9 @@ impl Val
             &Val::Lri(_) => Type::AnonVar,
             &Val::TypedId(_, ref typ) => typ.clone(),
             &Val::RustBlock => Type::RustBlock,
+            &Val::Struple(ref typ, _) => {
+                (**typ).clone()
+            }
             &Val::Struct(ref typ, _) => {
                 typ.clone()
             }
@@ -1310,6 +1315,9 @@ impl fmt::Display for Val {
             Val::Hashtag(ref s) => {
                 write!(f, "#{}", s)
             }
+            Val::Struple(ref typ, ref fields) => {
+                write!(f, "{}{:?}", typ, fields)
+            }
             Val::Tuple(ref t) => {
                 Val::fmt_tuple(f, t, false)
             }
@@ -1425,6 +1433,9 @@ impl fmt::Debug for Val {
             }
             Val::Buffer(ref buf) => {
                 write!(f, "Buffer<{:?}>", buf)
+            }
+            Val::Struple(ref typ, ref fields) => {
+                write!(f, "struple {}{:?}", typ, fields)
             }
             Val::Tuple(ref t) => {
                 write!(f, "T").ok();

@@ -126,6 +126,9 @@ impl Token
                 parse::TOKEN_SquareR => {
                     Token::SquareR(tl)
                 }
+                parse::TOKEN_STRUPLE => {
+                    Token::STRUPLE(tl)
+                }
                 parse::TOKEN_TIMES => Token::TIMES(tl),
                 parse::TOKEN_SLASH => Token::SLASH(tl),
                 parse::TOKEN_PIPE => Token::PIPE(tl),

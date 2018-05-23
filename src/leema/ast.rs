@@ -62,6 +62,7 @@ pub enum DataType
     Enum,
     NamedTuple,
     Struct,
+    Struple,
 }
 
 #[derive(Clone)]
@@ -206,6 +207,16 @@ impl Ast
             &Ast::Lri(_, _, ref loc) => loc,
             _ => {
                 panic!("cannot find SrcLoc for: {:?}", self);
+            }
+        }
+    }
+
+    pub fn inner_vec(&self) -> &Vec<Ast>
+    {
+        match self {
+            &Ast::Block(ref items) => items,
+            _ => {
+                panic!("does not have inner vec: {:?}", self);
             }
         }
     }
@@ -718,6 +729,102 @@ fn test_parse_named_tuple()
         , SrcLoc::default()
         );
     let expected = Ast::Block(vec![def]);
+}
+
+#[test]
+fn test_parse_defstruple_tuple()
+{
+    let input = "
+    struple Taco(Int, Str)
+    ";
+    let root = ast::parse(lex(input));
+
+    let def = Ast::DefData(ast::DataType::Struple
+        , Box::new(test_localid("Taco", 2, 8))
+        , vec![Ast::TypeInt, Ast::TypeStr].into_iter().collect()
+        , SrcLoc::new(2, 1)
+        );
+    assert_eq!(&def, root.inner_vec().get(0).unwrap());
+}
+
+#[test]
+fn test_parse_defstruple_keyed_params()
+{
+    let input = "
+    struple Taco(number: Int, style: Str)
+    ";
+    let root = ast::parse(lex(input));
+
+    let def = Ast::DefData(ast::DataType::Struple
+        , Box::new(test_localid("Taco", 2, 8))
+        , vec![
+            Ast::KeyedExpr(
+                Lstr::from("number"),
+                Box::new(Ast::TypeInt),
+                SrcLoc::new(2, 13),
+                ),
+            Ast::KeyedExpr(
+                Lstr::from("style"),
+                Box::new(Ast::TypeStr),
+                SrcLoc::new(2, 24),
+                ),
+            ].into_iter().collect()
+        , SrcLoc::new(2, 1)
+        );
+    assert_eq!(&def, root.inner_vec().get(0).unwrap());
+}
+
+#[test]
+fn test_parse_defstruple_mixed_keys()
+{
+    let input = "
+    struple Taco(Int, style: Str)
+    ";
+    let root = ast::parse(lex(input));
+
+    let def = Ast::DefData(ast::DataType::Struple
+        , Box::new(test_localid("Taco", 2, 8))
+        , vec![
+            Ast::TypeInt,
+            Ast::KeyedExpr(
+                Lstr::from("style"),
+                Box::new(Ast::TypeStr),
+                SrcLoc::new(2, 17),
+                ),
+            ].into_iter().collect()
+        , SrcLoc::new(2, 1)
+        );
+    assert_eq!(&def, root.inner_vec().get(0).unwrap());
+}
+
+#[test]
+fn test_parse_defstruple_block()
+{
+    let input = "
+    struple Taco
+    .number: Int
+    .style: Str
+    --
+    ";
+    let root = ast::parse(lex(input));
+
+    let def = Ast::DefData(ast::DataType::Struple
+        , Box::new(test_localid("Taco", 2, 8))
+        , vec![
+            Ast::KeyedExpr(
+                Lstr::from("number"),
+                Box::new(Ast::TypeInt),
+                SrcLoc::new(3, 2),
+                ),
+            Ast::KeyedExpr(
+                Lstr::from("style"),
+                Box::new(Ast::TypeStr),
+                SrcLoc::new(4, 2),
+                ),
+            ].into_iter().collect()
+        , SrcLoc::new(2, 1)
+        );
+    assert_eq!(&def, root.inner_vec().get(0).unwrap());
 }
 
 #[test]
