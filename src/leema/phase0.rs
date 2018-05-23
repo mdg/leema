@@ -1,7 +1,7 @@
 use leema::program::{Lib};
 use leema::ast::{self, Ast};
 use leema::lstr::{Lstr};
-use leema::val::{SxprType, Val, Type, SrcLoc};
+use leema::val::{Val, Type, SrcLoc};
 use leema::module::{ModKey, ModulePreface};
 use leema::list;
 use leema::log;
@@ -808,7 +808,7 @@ mod tests {
     use leema::module::{ModKey};
     use leema::phase0::{Protomod};
     use leema::program;
-    use leema::val::{Val, Type, SxprType, SrcLoc};
+    use leema::val::{Val, Type, SrcLoc};
 
     use std::collections::{HashSet};
     use std::rc::{Rc};

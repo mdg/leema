@@ -8,7 +8,7 @@ use leema::lstr::{Lstr};
 use leema::module::{ModKey};
 use leema::phase0::{Protomod};
 use leema::typecheck::{self, Typemod};
-use leema::val::{Val, SxprType, Type, SrcLoc, TypeErr};
+use leema::val::{Val, Type, SrcLoc, TypeErr};
 
 use std::collections::{HashMap, LinkedList};
 use std::fmt;

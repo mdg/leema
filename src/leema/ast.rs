@@ -281,7 +281,7 @@ pub fn parse(toks: Vec<Token>) -> Ast
 
 #[cfg(test)]
 mod tests {
-    use leema::val::{Val, SxprType, Type, SrcLoc};
+    use leema::val::{Val, Type, SrcLoc};
     use leema::ast::{self, Ast};
     use leema::lstr::{Lstr};
     use leema::list;

@@ -556,38 +556,6 @@ pub const FAILURE_INTERNAL : i8         = -7;
 pub const FAILURE_TYPE : i8             = -8;
 
 
-#[derive(Copy)]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
-pub enum SxprType {
-    Let,
-    Fork,
-    StrExpr,
-    BlockExpr,
-    Call,
-    NamedParam,
-    DefFunc,
-    DefMacro,
-    DefStruct,
-    DefEnum,
-    DefNamedTuple,
-    IfExpr,
-    Import,
-    Lri,
-    MatchExpr,
-    MatchFailed,
-    Return,
-    TypeParams,
-    Comparison,
-    /*
-    LessThan3(bool, bool),
-    BooleanAnd,
-    BooleanOr,
-    */
-}
-
 #[derive(Debug)]
 pub enum MsgVal
 {
@@ -2143,7 +2111,7 @@ impl reg::Iregistry for Env
 
 #[cfg(test)]
 mod tests {
-    use leema::val::{Type, Val, SxprType, SrcLoc};
+    use leema::val::{Type, Val, SrcLoc};
     use leema::list;
     use leema::reg::{Reg};
 

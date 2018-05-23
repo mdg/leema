@@ -1,5 +1,5 @@
 use leema::ast::{self, Ast};
-use leema::val::{Val, Type, SxprType};
+use leema::val::{Val, Type};
 use leema::lex::{lex};
 use leema::lri::{Lri};
 use leema::lstr::{Lstr};
