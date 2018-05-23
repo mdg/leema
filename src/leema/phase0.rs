@@ -480,12 +480,7 @@ impl Protomod
                 }
             }
             ast::DataType::Struct => {
-                if fields.is_empty() {
-                    panic!("use struple instead of struct: {:?}", loc);
-                } else {
-                    self.preproc_struct_with_fields(
-                        prog, mp, name, fields, loc);
-                }
+                panic!("use struple instead of struct: {:?}", loc);
             }
             ast::DataType::Enum => {
                 self.preproc_enum(prog, mp, name, fields, loc);
@@ -580,21 +575,6 @@ impl Protomod
         self.funcseq.push_back(local_name.rc());
         self.funcsrc.insert(String::from(&local_name), srcxpr);
         self.valtypes.insert(String::from(&local_name), func_type);
-    }
-
-    pub fn preproc_struct_with_fields(&mut self, prog: &Lib
-        , mp: &ModulePreface, name: &Ast
-        , src_fields: &LinkedList<Ast>, loc: &SrcLoc
-        )
-    {
-        let name_lstr = Lstr::from(name);
-        let rc_name: Rc<String> = From::from(&name_lstr);
-
-        let local_type = Type::Struct(rc_name.clone());
-        let mod_name = self.key.name.clone();
-
-        self.preproc_struct_fields(prog, mp, &name, &mod_name
-            , name, src_fields, loc);
     }
 
     pub fn preproc_struct_fields(&mut self, prog: &Lib, mp: &ModulePreface
@@ -1162,24 +1142,35 @@ fn preproc_defstruple_mixed_keys()
         panic!("constructor valtype is not a func");
     }
 
+    let xfunctype = Type::Func(
+        vec![Type::Bool, Type::Int],
+        Box::new(Type::Stoken(Lri::with_modules(
+            Lstr::from("tacos"),
+            Lstr::from("Burrito"),
+        ))),
+    );
+
     // assert constants
-    let xfuncref = pmod.constants.get("Burrito").unwrap();
-    if let &Val::FuncRef(ref mod_nm, ref func_nm, ref ftype) = xfuncref {
+    let funcref = pmod.constants.get("Burrito").unwrap();
+    if let &Val::FuncRef(ref mod_nm, ref func_nm, ref ftype) = funcref {
         assert_eq!("tacos", &**mod_nm);
         assert_eq!("Burrito", &**func_nm);
-        if let &Type::Func(ref args, ref fresult) = ftype {
-            assert_eq!(
-                Type::Stoken(Lri::with_modules(
-                    Lstr::from("tacos"),
-                    Lstr::from("Burrito"),
-                )),
-                **fresult);
-        } else {
-            panic!("Burrito FuncRef type is not a func: {:?}", ftype);
-        }
+        assert_eq!(xfunctype, *ftype);
     } else {
-        panic!("Burrito constant is not a FuncRef: {:?}", xfuncref);
+        panic!("Burrito constant is not a FuncRef: {:?}", funcref);
     }
+
+    // assert funcseq contents
+    assert_eq!("Burrito", **pmod.funcseq.front().unwrap());
+    assert_eq!(1, pmod.funcseq.len());
+
+    // assert valtypes
+    assert_eq!(xfunctype, *pmod.valtypes.get("Burrito").unwrap());
+    assert_eq!(1, pmod.valtypes.len());
+
+    // assert funcsrc
+    assert!(pmod.funcsrc.contains_key("Burrito"));
+    assert_eq!(1, pmod.funcsrc.len());
 }
 
 #[test]
