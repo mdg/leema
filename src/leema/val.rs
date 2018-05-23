@@ -45,6 +45,7 @@ pub enum Type
     Str,
     Bool,
     Hashtag,
+    Struple(Option<Lri>, Vec<Type>),
     Stoken(Lri),
     Tuple(Vec<Type>),
     Struct(Rc<String>),
@@ -266,6 +267,15 @@ impl Type
             &Type::Bool => Type::Bool,
             &Type::Int => Type::Int,
             &Type::Hashtag => Type::Hashtag,
+            &Type::Struple(ref opt_i, ref fields) => {
+                let dci = opt_i.as_ref().map(|i| {
+                    i.deep_clone()
+                });
+                let dc_fields = fields.iter().map(|f| {
+                    f.deep_clone()
+                }).collect();
+                Type::Struple(dci, dc_fields)
+            }
             &Type::Struct(ref s) => {
                 Type::Struct(Rc::new((**s).clone()))
             }
@@ -286,8 +296,8 @@ impl Type
                 }).collect();
                 Type::Tuple(dc_items)
             }
-            &Type::Stoken(ref t) => {
-                Type::Stoken(t.deep_clone())
+            &Type::Stoken(ref i) => {
+                Type::Stoken(i.deep_clone())
             }
             &Type::Token(ref t) => {
                 Type::Token(Rc::new((**t).clone()))
@@ -344,6 +354,16 @@ impl fmt::Display for Type
             &Type::Str => write!(f, "Str"),
             &Type::Bool => write!(f, "Bool"),
             &Type::Hashtag => write!(f, "Hashtag"),
+            &Type::Struple(None, ref fields) => {
+                write!(f, "(").ok();
+                for fld in fields {
+                    write!(f, "{},", fld).ok();
+                }
+                write!(f, ")")
+            }
+            &Type::Struple(Some(ref name), ref fields) => {
+                write!(f, "{}{:?}", name, fields)
+            }
             &Type::Tuple(ref items) => {
                 write!(f, "(");
                 for i in items {
@@ -398,6 +418,9 @@ impl fmt::Debug for Type
             &Type::Str => write!(f, "Str"),
             &Type::Bool => write!(f, "Bool"),
             &Type::Hashtag => write!(f, "Hashtag"),
+            &Type::Struple(ref name, ref fields) => {
+                write!(f, "struple {:?}{:?}", name, fields)
+            }
             &Type::Tuple(ref items) => {
                 write!(f, "T(");
                 for i in items {
@@ -590,7 +613,7 @@ pub enum Val
     Buffer(Vec<u8>),
     Cons(Box<Val>, Rc<Val>),
     Nil,
-    Struple(Type, Vec<Val>),
+    Struple(Type, Option<Vec<Val>>),
     Tuple(Vec<Val>),
     NamedTuple(Type, Vec<Val>),
     Struct(Type, Vec<Val>),
