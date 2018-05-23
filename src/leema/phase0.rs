@@ -481,7 +481,7 @@ impl Protomod
             }
             ast::DataType::Struct => {
                 if fields.is_empty() {
-                    self.preproc_token_struct(prog, mp, name, loc);
+                    panic!("use struple instead of struct: {:?}", loc);
                 } else {
                     self.preproc_struct_with_fields(
                         prog, mp, name, fields, loc);
@@ -515,26 +515,6 @@ impl Protomod
         , name: &Ast, loc: &SrcLoc
         )
     {
-    }
-
-    pub fn preproc_token_struct(&mut self, prog: &Lib, mp: &ModulePreface
-        , name: &Ast, loc: &SrcLoc
-        )
-    {
-        let name_lstr = Lstr::from(name);
-        let rc_name: Rc<String> = From::from(&name_lstr);
-
-        let local_type = Type::Token(rc_name.clone());
-        let mod_name = self.key.name.clone();
-        let mod_type = Type::ModPrefix(
-            mod_name.clone(),
-            Rc::new(local_type.clone()),
-        );
-
-        // a token struct is stored as a constant with no constructor
-        let constval = Val::Token(mod_type.clone());
-        self.constants.insert((*rc_name).clone(), constval);
-        self.valtypes.insert((*rc_name).clone(), mod_type.clone());
     }
 
     pub fn preproc_struct_with_fields(&mut self, prog: &Lib
@@ -1180,8 +1160,10 @@ fn preproc_defstruple_token()
 }
 
 #[test]
+#[should_panic]
 fn test_old_token_type()
 {
+    // empty structs are no longer supported
     let input = String::from("
     struct Burrito --
     ");
@@ -1189,27 +1171,7 @@ fn test_old_token_type()
     let mut loader = Interloader::new("tok.lma");
     loader.set_mod_txt("tok", input);
     let mut prog = program::Lib::new(loader);
-    let pmod = prog.read_proto("tok");
-
-    let name_rc = Rc::new("Burrito".to_string());
-    let exptype = Type::ModPrefix(
-        Rc::new("tok".to_string()),
-        Rc::new(Type::Token(name_rc.clone())),
-    );
-
-    // verify valtypes
-    assert_eq!(exptype, *pmod.valtypes.get("Burrito").unwrap());
-    assert_eq!(1, pmod.valtypes.len());
-
-    // verify constants
-    assert_eq!(Val::Token(exptype.clone())
-        , *pmod.constants.get("Burrito").unwrap());
-    assert_eq!(1, pmod.constants.len());
-
-    // assert on fields that shouldn't have changed
-    assert_eq!(0, pmod.funcseq.len());
-    assert_eq!(0, pmod.funcsrc.len());
-    assert_eq!(0, pmod.structfields.len());
+    prog.read_proto("tok");
 }
 
 }

@@ -250,14 +250,16 @@ fn test_eq_arc_sref() {
 }
 
 #[test]
-fn test_ne_rc_rc() {
+fn test_ne_rc_rc()
+{
     let a = Lstr::Rc(Rc::new(String::from("aaa")));
     let b = Lstr::Rc(Rc::new(String::from("bbb")));
     assert_ne!(a, b);
 }
 
 #[test]
-fn test_ne_rc_sref() {
+fn test_ne_rc_sref()
+{
     let a = Lstr::Rc(Rc::new(String::from("aaa")));
     let b = Lstr::from("bbb");
     assert_ne!(a, b);
