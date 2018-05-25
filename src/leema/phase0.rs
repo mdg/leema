@@ -569,7 +569,7 @@ impl Protomod
         let src_typename =
             Ast::Lri(vec![mod_name.clone(), local_typename.clone()]
                 , None, *loc);
-        let srcblk = Ast::ConstructData(ast::DataType::Struct
+        let srcblk = Ast::ConstructData(ast::DataType::Struple
             , Box::new(src_typename.clone()), Vec::with_capacity(0)
             );
         let srcxpr = Ast::DefFunc(ast::FuncClass::Func
@@ -615,7 +615,7 @@ impl Protomod
             ftype.clone()
         }).collect();
 
-        let result_type = Protomod::preproc_type(prog, mp, &typename, loc);
+        let result_type = Type::from(typename);
         let func_type = Type::Func(field_type_vec, Box::new(result_type));
 
         let srcblk = Ast::ConstructData(ast::DataType::Struct
@@ -695,7 +695,7 @@ impl Protomod
         )
     {
         let mod_name = self.key.name.clone();
-        let typ = Protomod::preproc_type(prog, mp, typename, loc);
+        let typ = Type::from(typename);
         let variant_name = Lstr::from(name);
         if dataclass == ast::DataType::Struct {
             if fields.is_empty() {
@@ -725,7 +725,7 @@ impl Protomod
         let name_lstr = Lstr::from(name);
         let name_rcstr: Rc<String> = From::from(&name_lstr);
         let field_types: Vec<Type> = fields.iter().map(|f| {
-            Protomod::preproc_type(prog, mp, f, loc)
+            Type::from(f)
         }).collect();
         let local_type =
             Type::NamedTuple(name_rcstr, field_types.clone());
@@ -750,7 +750,7 @@ impl Protomod
             })
             .collect();
         let field_type_vec: Vec<Type> = field_types.iter().map(|ft| {
-            Protomod::preproc_type(prog, mp, ft, loc)
+            Type::from(ft)
         }).collect();
         let named_type =
             Type::NamedTuple(name_str.clone(), field_type_vec.clone());

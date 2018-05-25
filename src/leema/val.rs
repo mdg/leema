@@ -98,6 +98,7 @@ impl Type
                 let str = format!("{}", self);
                 Rc::new(str)
             }
+            &Type::Void => Rc::new(String::from("Void")),
             _ => {
                 panic!("No typename for {:?}", self);
             }
@@ -198,6 +199,17 @@ impl Type
             _ => {
                 panic!("cannot convert to enum type: {:?}", self);
             }
+        }
+    }
+
+    /**
+     * Check if this type is a struple
+     */
+    pub fn is_struple(&self) -> bool
+    {
+        match self {
+            &Type::Struple(_, _) => true,
+            _ => false,
         }
     }
 
@@ -1991,7 +2003,8 @@ impl Env
         }
     }
 
-    pub fn with_args(v: Val) -> Env {
+    pub fn with_args(v: Val) -> Env
+    {
         Env{
             params: v,
             result: None,

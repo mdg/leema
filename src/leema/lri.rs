@@ -28,6 +28,15 @@ impl Lri
         }
     }
 
+    pub fn full(mods: Option<Lstr>, id: Lstr, params: Option<Vec<Lri>>) -> Lri
+    {
+        Lri{
+            modules: mods,
+            localid: id,
+            params: params,
+        }
+    }
+
     pub fn with_modules(mods: Lstr, local: Lstr) -> Lri
     {
         Lri{

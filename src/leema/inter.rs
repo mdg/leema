@@ -277,7 +277,7 @@ pub fn compile_function<'a>(proto: &'a Protomod
         , loc: &SrcLoc
         ) -> Ixpr
 {
-    vout!("compile {}({:?})\n", fname, args);
+    vout!("compile {}({:?}): {:?}\n", fname, args, ftype);
     if *body == Ast::RustBlock {
         return Ixpr{
             typ: ftype.clone(),
@@ -411,6 +411,10 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
             }).collect();
             Ixpr::new_tuple(c_items, loc.lineno)
         }
+        &Ast::ConstructData(ast::DataType::Struple, ref ast_typ, ref args) => {
+            let stype = Type::from(&**ast_typ);
+            Ixpr::construple(stype, loc.lineno)
+        }
         &Ast::ConstructData(ast::DataType::NamedTuple, ref typ, ref args) => {
             /*
             let c_items = args.iter().map(|i| {
@@ -422,7 +426,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
                 lineno: loc.lineno,
             }
             */
-            let ctype = compile_type(scope, typ, loc);
+            let ctype = Type::from(&**typ);
             Ixpr::constructor(ctype, args.len() as i8, loc.lineno)
         }
         &Ast::ConstructData(ast::DataType::Struct, ref typ, ref args) => {
@@ -577,11 +581,6 @@ pub fn compile_module_id(scope: &mut Interscope, module: Rc<String>
     }
 }
 
-pub fn compile_type(scope: &mut Interscope, typ: &Ast, loc: &SrcLoc) -> Type
-{
-    Type::Void
-}
-
 pub fn compile_let_stmt(scope: &mut Interscope, lettype: ast::LetType
     , lhs: &Ast, rhs: &Ast
     , loc: &SrcLoc
@@ -616,7 +615,7 @@ pub fn compile_dot_access(scope: &mut Interscope, base_val: &Ast
         let val = Val::Enum(ix_base.typ, variant_idx, field.rc()
             , Box::new(estruct_val));
         Ixpr::const_val(val, loc.lineno)
-    } else {
+    } else if ix_base.typ.is_struple() {
         if let Some((field_idx, field_typ)) =
             scope.struct_field_idx(&ix_base.typ, field.str())
         {
@@ -624,6 +623,17 @@ pub fn compile_dot_access(scope: &mut Interscope, base_val: &Ast
         } else {
             panic!("no field: {:?}.{}", base_val, field);
         }
+    } else if ix_base.typ.is_struct() {
+        if let Some((field_idx, field_typ)) =
+            scope.struct_field_idx(&ix_base.typ, field.str())
+        {
+            Ixpr::new_field_access(ix_base, field_idx as i8, field_typ.clone())
+        } else {
+            panic!("no field: {:?}.{}", base_val, field);
+        }
+    } else {
+        vout!("finding {} field in expression:\n\t{:?}\n", field, ix_base.src);
+        panic!("cannot access field for type: {:?}.{}", ix_base.typ, field);
     }
 }
 

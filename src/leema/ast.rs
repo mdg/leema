@@ -1,7 +1,9 @@
 use leema::val::{SrcLoc};
 use leema::log;
+use leema::lri::{Lri};
 use leema::lstr::{Lstr};
 use leema::parse::{Parser, Token};
+use leema::val::Type;
 
 use std::collections::LinkedList;
 use std::rc::Rc;
@@ -261,6 +263,92 @@ impl<'a> From<&'a Ast> for Lstr
             }
             _ => {
                 panic!("cannot convert to string: {:?}", a);
+            }
+        }
+    }
+}
+
+impl<'a> From<&'a Ast> for Lri
+{
+    fn from(a: &'a Ast) -> Lri
+    {
+        match a {
+            &Ast::Localid(ref id, _) => {
+                Lri::new(id.clone())
+            }
+            &Ast::Lri(ref names, ref types, _) => {
+                let param_array = types.as_ref().map(|param_list| {
+                    param_list.iter().map(|p| {
+                        Lri::from(p)
+                    }).collect()
+                });
+                Lri::full(
+                    Some(names.first().unwrap().clone()),
+                    names.last().unwrap().clone(),
+                    param_array,
+                )
+            }
+            _ => {
+                panic!("cannot convert Ast to Lri: {:?}", a);
+            }
+        }
+    }
+}
+
+impl<'a> From<&'a Ast> for Type
+{
+    fn from(a: &'a Ast) -> Type
+    {
+        match a {
+            &Ast::TypeAnon => Type::AnonVar,
+            &Ast::TypeInt => Type::Int,
+            &Ast::TypeBool => Type::Bool,
+            &Ast::TypeHashtag => Type::Hashtag,
+            &Ast::TypeStr => Type::Str,
+            &Ast::TypeVar(ref v, _) => {
+                let vrc: Rc<String> = From::from(v);
+                Type::Var(vrc)
+            }
+            &Ast::TypeVoid => Type::Void,
+            &Ast::TypeFunc(ref parts, _) => {
+                let mut ppp: Vec<Type> = parts.iter().map(|p| {
+                    Type::from(p)
+                }).collect();
+                let result = ppp.pop().unwrap();
+                Type::Func(ppp, Box::new(result))
+            }
+            &Ast::KeyedExpr(_, ref expr, _) => {
+                Type::from(&**expr)
+            }
+            &Ast::List(ref items) => {
+                match items.len() {
+                    1 => {
+                        let inner_item = items.front().unwrap();
+                        let inner_type = Type::from(inner_item);
+                        Type::StrictList(Box::new(inner_type))
+                    }
+                    0 => {
+                        panic!("dunno what to do with an empty type list");
+                    }
+                    _ => {
+                        panic!("list types can have only 1 type");
+                    }
+                }
+            }
+            &Ast::Tuple(ref items) => {
+                let pp_items = items.iter().map(|i| {
+                    Type::from(i)
+                }).collect();
+                Type::Tuple(pp_items)
+            }
+            &Ast::Localid(_, ref loc) => {
+                Type::AnonVar
+            }
+            &Ast::Lri(_, _, _) => {
+                Type::Stoken(Lri::from(a))
+            }
+            _ => {
+                panic!("cannot convert Ast to Type: {:?}", a);
             }
         }
     }

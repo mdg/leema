@@ -43,6 +43,7 @@ pub enum Op
     SetResult(Reg),
     PropagateFailure(Reg, i16),
     ConstVal(Reg, Val),
+    Construple(Reg, Type),
     Constructor(Reg, Type, i8),
     Copy(Reg, Reg),
     Fork(Reg, Reg, Reg),
@@ -88,6 +89,9 @@ impl Clone for Op
             }
             &Op::ConstVal(ref dst, ref src) => {
                 Op::ConstVal(dst.clone(), src.deep_clone())
+            }
+            &Op::Construple(ref dst, ref typ) => {
+                Op::Construple(dst.clone(), typ.deep_clone())
             }
             &Op::Constructor(ref dst, ref src, nflds) => {
                 Op::Constructor(dst.clone(), src.deep_clone(), nflds)
@@ -317,6 +321,10 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 dst: dst,
             }
         }
+        Source::Construple(ref typ) => {
+            vout!("make_construple_ops({:?})\n", typ);
+            make_construple_ops(rt, typ, input.line)
+        }
         Source::Constructor(ref typ, nflds) => {
             vout!("make_constructor_ops({:?})\n", input);
             make_constructor_ops(rt, typ, nflds, input.line)
@@ -444,6 +452,21 @@ pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr
     rt.pop_dst();
     fops.dst = dst;
     fops
+}
+
+pub fn make_construple_ops(rt: &mut RegTable, typ: &Type, line: i16) -> Oxpr
+{
+    let dst = rt.dst();
+
+    let ops: Vec<(Op, i16)> = vec![(
+        Op::Construple(dst.clone(), typ.clone()),
+        line,
+    )];
+
+    Oxpr{
+        ops: ops,
+        dst: dst.clone(),
+    }
 }
 
 pub fn make_constructor_ops(rt: &mut RegTable, typ: &Type, nflds: i8

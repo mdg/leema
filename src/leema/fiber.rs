@@ -80,6 +80,9 @@ impl Fiber
             &Op::ConstVal(ref dst, ref v) => {
                 self.execute_const_val(dst, v)
             }
+            &Op::Construple(ref dst, ref typ) => {
+                self.execute_construple(dst, typ)
+            }
             &Op::Constructor(ref dst, ref typ, nflds) => {
                 self.execute_constructor(dst, typ, nflds)
             }
@@ -266,6 +269,24 @@ impl Fiber
     {
         self.head.e.set_reg(reg, v.clone());
         self.head.pc += 1;
+        Event::Uneventful
+    }
+
+    pub fn execute_construple(&mut self, reg: &Reg, new_typ: &Type) -> Event
+    {
+        let construple = match self.head.e.get_params() {
+            &Val::Struple(ref old_typ, ref items) => {
+                Val::Struple(new_typ.clone(), items.clone())
+            }
+            &Val::Tuple(ref items) => {
+                Val::Struple(new_typ.clone(), Some(items.clone()))
+            }
+            what => {
+                panic!("cannot construct a not construple: {:?}", what);
+            }
+        };
+        self.head.e.set_reg(reg, construple);
+        self.head.pc = self.head.pc + 1;
         Event::Uneventful
     }
 
