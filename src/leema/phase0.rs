@@ -251,7 +251,7 @@ impl Protomod
             .collect();
         ftype_parts.push(pp_rtype_ast);
         let ftype_ast = Ast::TypeFunc(ftype_parts, *loc);
-        let ftype = Protomod::preproc_type(prog, mp, &ftype_ast, loc);
+        let ftype = Type::from(&ftype_ast);
 
         self.funcseq.push_back(rcname);
         self.funcsrc.insert(strname.clone(), pp_func);
@@ -536,10 +536,10 @@ impl Protomod
     {
         match fld {
             &Ast::KeyedExpr(ref key, ref x, ref iloc) => {
-                (Some(key.clone()), Protomod::preproc_type(prog, mp, x, iloc))
+                (Some(key.clone()), Type::from(&**x))
             }
             _ => {
-                (None, Protomod::preproc_type(prog, mp, fld, loc))
+                (None, Type::from(fld))
             }
         }
     }
@@ -600,7 +600,7 @@ impl Protomod
             src_fields.iter().map(|f| {
                 if let &Ast::KeyedExpr(ref key, ref x, ref iloc) = f {
                     let key_rc: Rc<String> = From::from(key);
-                    let xtype = Protomod::preproc_type(prog, mp, x, iloc);
+                    let xtype = Type::from(&**x);
                     (key_rc, xtype)
                 } else {
                     panic!("struct field must have a name and a type: {:?}", f);
@@ -770,64 +770,6 @@ impl Protomod
         self.funcsrc.insert((*name_str).clone(), srcxpr);
         self.valtypes.insert((*name_str).clone(), func_type);
         self.funcseq.push_back(name_str);
-    }
-
-    pub fn preproc_type(prog: &Lib, mp: &ModulePreface, t: &Ast, loc: &SrcLoc
-        ) -> Type
-    {
-        match t {
-            &Ast::TypeAnon => Type::AnonVar,
-            &Ast::TypeInt => Type::Int,
-            &Ast::TypeBool => Type::Bool,
-            &Ast::TypeHashtag => Type::Hashtag,
-            &Ast::TypeStr => Type::Str,
-            &Ast::TypeVar(ref v, ref loc) => {
-                let vrc: Rc<String> = From::from(v);
-                Type::Var(vrc)
-            }
-            &Ast::TypeVoid => Type::Void,
-            &Ast::TypeFunc(ref parts, ref loc) => {
-                let mut ppp: Vec<Type> = parts.iter().map(|p| {
-                    Protomod::preproc_type(prog, mp, p, loc)
-                }).collect();
-                let result = ppp.pop().unwrap();
-                Type::Func(ppp, Box::new(result))
-            }
-            &Ast::KeyedExpr(_, ref expr, ref loc) => {
-                Protomod::preproc_type(prog, mp, expr, loc)
-            }
-            &Ast::List(ref items) => {
-                match items.len() {
-                    1 => {
-                        let inner_item = items.front().unwrap();
-                        let inner_type =
-                            Protomod::preproc_type(prog, mp, inner_item, loc);
-                        Type::StrictList(Box::new(inner_type))
-                    }
-                    0 => {
-                        panic!("dunno what to do with an empty type list");
-                    }
-                    _ => {
-                        panic!("list types can have only 1 type");
-                    }
-                }
-            }
-            &Ast::Tuple(ref items) => {
-                let pp_items = items.iter().map(|i| {
-                    Protomod::preproc_type(prog, mp, i, loc)
-                }).collect();
-                Type::Tuple(pp_items)
-            }
-            &Ast::Localid(_, ref loc) => {
-                Type::AnonVar
-            }
-            &Ast::Lri(ref names, ref types, ref loc) => {
-                Type::Void // Type::Lri(lri.clone()),
-            }
-            _ => {
-                panic!("cannot preproc type: {:?}", t);
-            }
-        }
     }
 
     fn modtype(&self, t: Type) -> Type
