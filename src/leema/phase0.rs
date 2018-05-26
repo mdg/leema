@@ -637,6 +637,30 @@ impl Protomod
         self.structfields.insert((*rc_name).clone(), struct_fields);
     }
 
+    pub fn struple_field_idx(&self, typename: &str, fld: &str
+        ) -> Option<(i16, &Type)>
+    {
+        vout!("field index for struple: {:?}.{}\n", typename, fld);
+        let opt_typ = self.deftypes.get(typename);
+        if opt_typ.is_none() {
+            panic!("cannot find struple type: {} in {:?}"
+                , typename, self.deftypes);
+        }
+        match opt_typ.unwrap() {
+            &Type::Struple(_, ref inner_types) => {
+                for (i, t) in inner_types.iter().enumerate() {
+                    if t.0.is_some() && t.0.as_ref().unwrap() == fld {
+                        return Some((i as i16, &t.1))
+                    }
+                }
+            }
+            what => {
+                panic!("cannot get fields from not struple");
+            }
+        }
+        None
+    }
+
     pub fn struct_field_idx(&self, typename: &str, fld: &str
         ) -> Option<(i16, &Type)>
     {

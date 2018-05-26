@@ -243,6 +243,13 @@ impl<'a> Interscope<'a>
         self.imports.contains_key(name)
     }
 
+    pub fn struple_field_idx(&self, typ: &Type, fld: &str
+        ) -> Option<(i16, &Type)>
+    {
+        let proto = self.type_module(typ);
+        proto.struple_field_idx(&*typ.local_typename(), fld)
+    }
+
     pub fn struct_field_idx(&self, typ: &Type, fld: &str
         ) -> Option<(i16, &Type)>
     {
@@ -622,7 +629,7 @@ pub fn compile_dot_access(scope: &mut Interscope, base_val: &Ast
         Ixpr::const_val(val, loc.lineno)
     } else if ix_base.typ.is_struple() {
         if let Some((field_idx, field_typ)) =
-            scope.struct_field_idx(&ix_base.typ, field.str())
+            scope.struple_field_idx(&ix_base.typ, field.str())
         {
             Ixpr::new_field_access(ix_base, field_idx as i8, field_typ.clone())
         } else {
