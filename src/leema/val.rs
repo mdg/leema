@@ -92,6 +92,14 @@ impl Type
         match self {
             &Type::Int => Rc::new("Int".to_string()),
             &Type::Id(ref name) => name.clone(),
+            &Type::Struple(None, ref types) => {
+                let result = format!("Tuple({:?})", types);
+                Rc::new(result)
+            }
+            &Type::Struple(Some(ref name), _) => {
+                let result = format!("{}", name);
+                Rc::new(result)
+            }
             &Type::Struct(ref name) => name.clone(),
             &Type::Enum(ref name) => name.clone(),
             &Type::ModPrefix(_, _) => {
@@ -100,7 +108,7 @@ impl Type
             }
             &Type::Void => Rc::new(String::from("Void")),
             _ => {
-                panic!("No typename for {:?}", self);
+                panic!("no typename for {:?}", self);
             }
         }
     }

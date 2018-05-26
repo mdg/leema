@@ -93,6 +93,7 @@ impl Protomod
                 Ast::Cons(Box::new(pp_head), Box::new(pp_tail))
             }
             &Ast::ConstructData(datat, ref name, ref data) => {
+                vout!("how did this construct data get here? {:?}", x);
                 let ppname = Protomod::preproc_expr(prog, mp, name, loc);
                 let ppdata = data.iter().map(|i| {
                     Protomod::preproc_expr(prog, mp, i, loc)
@@ -569,8 +570,9 @@ impl Protomod
         let src_typename =
             Ast::Lri(vec![mod_name.clone(), local_typename.clone()]
                 , None, *loc);
+        let localid_ast = Ast::Localid(local_name.clone(), *loc);
         let srcblk = Ast::ConstructData(ast::DataType::Struple
-            , Box::new(src_typename.clone()), Vec::with_capacity(0)
+            , Box::new(localid_ast), Vec::with_capacity(0)
             );
         let srcxpr = Ast::DefFunc(ast::FuncClass::Func
             , Box::new(Ast::Localid(local_name.clone(), *loc))

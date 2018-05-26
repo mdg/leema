@@ -412,8 +412,13 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
             Ixpr::new_tuple(c_items, loc.lineno)
         }
         &Ast::ConstructData(ast::DataType::Struple, ref ast_typ, ref args) => {
-            let stype = Type::from(&**ast_typ);
-            Ixpr::construple(stype, loc.lineno)
+            let type_str = Lstr::from(&**ast_typ);
+            let opt_full_type = scope.proto.deftypes.get(&type_str);
+            if opt_full_type.is_none() {
+                panic!("cannot find full type for: {:?} in {:?}"
+                    , type_str, scope.proto.deftypes);
+            }
+            Ixpr::construple(opt_full_type.unwrap().clone(), loc.lineno)
         }
         &Ast::ConstructData(ast::DataType::NamedTuple, ref typ, ref args) => {
             /*
