@@ -503,7 +503,7 @@ impl Protomod
         let name_lstr = Lstr::from(name);
         let mod_lstr = Lstr::Rc(mp.key.name.clone());
         let name_lri = Lri::with_modules(mod_lstr, name_lstr.clone());
-        let type_name = Type::Stoken(name_lri);
+        let type_name = Type::Ref(name_lri);
 
         // a token struct is stored as a constant with no constructor
         let constval = Val::Token(type_name.clone());
@@ -562,7 +562,7 @@ impl Protomod
 
         let struple_lri =
             Lri::with_modules(mod_name.clone(), local_typename.clone());
-        let result_type = Type::Stoken(struple_lri.clone());
+        let result_type = Type::Ref(struple_lri.clone());
         let full_type =
             Type::Struple(Some(struple_lri), struple_fields.clone());
         let func_type = Type::Func(field_type_vec, Box::new(result_type));
@@ -1112,7 +1112,7 @@ fn preproc_defstruple_mixed_keys()
     let constructor = pmod.valtypes.get("Burrito").unwrap();
     if let &Type::Func(ref params, ref result) = constructor {
         assert_eq!(2, params.len());
-        let exp_result = Type::Stoken(Lri::with_modules(
+        let exp_result = Type::Ref(Lri::with_modules(
             Lstr::from("tacos"), Lstr::from("Burrito")
         ));
         assert_eq!(exp_result, **result);
@@ -1120,7 +1120,7 @@ fn preproc_defstruple_mixed_keys()
         panic!("constructor valtype is not a func");
     }
 
-    let xtyperef = Type::Stoken(Lri::with_modules(
+    let xtyperef = Type::Ref(Lri::with_modules(
         Lstr::from("tacos"),
         Lstr::from("Burrito"),
     ));
@@ -1174,7 +1174,7 @@ fn preproc_defstruple_token()
     let pmod = prog.read_proto("tok");
 
     let name_rc = Rc::new("Burrito".to_string());
-    let exptype = Type::Stoken(Lri::with_modules(
+    let exptype = Type::Ref(Lri::with_modules(
         Lstr::from("tok"),
         Lstr::from("Burrito"),
     ));

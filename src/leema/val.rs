@@ -46,7 +46,7 @@ pub enum Type
     Str,
     Bool,
     Hashtag,
-    Stoken(Lri),
+    Ref(Lri),
     Struple(Option<Lri>, Vec<(Option<Lstr>, Type)>),
     Tuple(Vec<Type>),
     Struct(Rc<String>),
@@ -317,8 +317,8 @@ impl Type
                 }).collect();
                 Type::Tuple(dc_items)
             }
-            &Type::Stoken(ref i) => {
-                Type::Stoken(i.deep_clone())
+            &Type::Ref(ref i) => {
+                Type::Ref(i.deep_clone())
             }
             &Type::Token(ref t) => {
                 Type::Token(Rc::new((**t).clone()))
@@ -394,7 +394,7 @@ impl fmt::Display for Type
             }
             &Type::Struct(ref name) => write!(f, "{}", name),
             &Type::Enum(ref name) => write!(f, "{}", name),
-            &Type::Stoken(ref name) => write!(f, "{}", name),
+            &Type::Ref(ref name) => write!(f, "{}", name),
             &Type::Token(ref name) => write!(f, "{}", name),
             &Type::NamedTuple(ref name, ref flds) => {
                 write!(f, "{}", name)
@@ -453,7 +453,7 @@ impl fmt::Debug for Type
                 write!(f, "StructType({})", name)
             }
             &Type::Enum(ref name) => write!(f, "Enum({})", name),
-            &Type::Stoken(ref name) => write!(f, "Stoken({})", name),
+            &Type::Ref(ref name) => write!(f, "Ref({})", name),
             &Type::Token(ref name) => write!(f, "Token({})", name),
             &Type::NamedTuple(ref name, ref flds) => {
                 write!(f, "NamedTuple({}, {:?})", name, flds)

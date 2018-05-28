@@ -345,7 +345,7 @@ impl<'a> From<&'a Ast> for Type
                 Type::AnonVar
             }
             &Ast::Lri(_, _, _) => {
-                Type::Stoken(Lri::from(a))
+                Type::Ref(Lri::from(a))
             }
             _ => {
                 panic!("cannot convert Ast to Type: {:?}", a);
