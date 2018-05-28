@@ -452,6 +452,9 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             }
             Ok(ix.typ.clone())
         }
+        &Source::Construple(ref typ) => {
+            Ok(typ.clone())
+        }
         &Source::Tuple(ref items) => {
             let mut tuptyp = vec![];
             for i in items {
@@ -499,7 +502,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             panic!("typecheck matchcase in a specific function: {:?}", ix);
         }
         _ => {
-            panic!("Could not typecheck_expr({:?})", ix);
+            panic!("could not typecheck_expr({:?})", ix);
         }
     }
 }
