@@ -78,8 +78,11 @@ impl fmt::Display for Lri
             &Lri{modules: None, localid: ref lid, params: None} => {
                 write!(f, "{}", lid)
             }
-            &Lri{modules: _, localid: ref lid, params: _} => {
-                write!(f, "{}", lid)
+            &Lri{modules: Some(ref mods), localid: ref lid, params: None} => {
+                write!(f, "{}::{}", mods, lid)
+            }
+            &Lri{modules: _, localid: ref lid, params: Some(ref typs)} => {
+                panic!("cannot display Lri with types: {:?}", self);
             }
         }
     }

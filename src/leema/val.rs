@@ -120,6 +120,12 @@ impl Type
     {
         match self {
             &Type::ModPrefix(_, ref inner) => inner.local_typename(),
+            &Type::Ref(ref i) => {
+                i.local().rc()
+            }
+            &Type::Struple(Some(ref i), _) => {
+                i.local().rc()
+            }
             _ => self.full_typename(),
         }
     }
