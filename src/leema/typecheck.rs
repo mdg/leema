@@ -3,6 +3,7 @@ use leema::ixpr::{Ixpr, Source};
 use leema::infer::{Inferator};
 use leema::lstr::{Lstr};
 use leema::module::{ModKey};
+use leema::phase0::{Protomod};
 use leema::program;
 use leema::val::{Val, Type, TypeResult, TypeErr};
 use leema::log;
@@ -254,9 +255,9 @@ impl Typemod
         }
     }
 
-    pub fn import_phase0(&mut self, valtypes: &HashMap<String, Type>)
+    pub fn import_phase0(&mut self, proto: &Protomod)
     {
-        for (name, typ) in valtypes.iter() {
+        for (name, typ) in proto.valtypes.iter() {
             self.phase0.insert(Lstr::from(name.clone()), typ.clone());
         }
     }
@@ -305,6 +306,7 @@ impl Typemod
 pub struct Typescope<'a, 'b>
 {
     pub fname: &'b str,
+    proto: &'a Protomod,
     inter: &'a Typemod,
     imports: &'a HashMap<String, &'a Typemod>,
     T: Inferator<'b>,
@@ -312,13 +314,14 @@ pub struct Typescope<'a, 'b>
 
 impl<'a, 'b> Typescope<'a, 'b>
 {
-    pub fn new(inter: &'a Typemod, func: &'b str
+    pub fn new(inter: &'a Typemod, proto: &'a Protomod, func: &'b str
             , imps: &'a HashMap<String, &'a Typemod>
             ) -> Typescope<'a, 'b>
     {
         Typescope
         {
             fname: func,
+            proto: proto,
             inter: inter,
             imports: imps,
             T: Inferator::new(func),
@@ -443,6 +446,10 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             }
             last_type
         }
+        &Source::FieldAccess(ref x, sub) => {
+            let xtyp = typecheck_expr(scope, x);
+            typecheck_field_access(scope, xtyp.as_ref().unwrap(), sub)
+        }
         &Source::Id(_, _) => {
             Ok(ix.typ.clone())
         }
@@ -544,6 +551,37 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
     /*
     scope.add_parameters(fix)
     */
+}
+
+pub fn typecheck_field_access(scope: &mut Typescope, xtyp: &Type, fld: i8
+    ) -> TypeResult
+{
+    vout!("typecheck_field_access({:?}.{})", xtyp, fld);
+    match xtyp {
+        &Type::Ref(ref name) => {
+            match scope.proto.deftypes.get(name.local()) {
+                Some(ityp) => {
+                    typecheck_field_access(scope, ityp, fld)
+                }
+                None => {
+                    panic!("cannot find defined type for: {}", name);
+                }
+            }
+        }
+        &Type::Struple(_, ref types) => {
+            match types.get(fld as usize) {
+                Some(&(_, ref ityp)) => {
+                    Ok(ityp.clone())
+                }
+                None => {
+                    panic!("field access overflow: {:?}.{}", xtyp, fld);
+                }
+            }
+        }
+        _ => {
+            panic!("cannot access field for type: {:?}.{}", xtyp, fld);
+        }
+    }
 }
 
 

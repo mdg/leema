@@ -1542,6 +1542,19 @@ impl reg::Iregistry for Val
     fn ireg_get(&self, i: &Ireg) -> &Val
     {
         match (i, self) {
+            // get reg on struple
+            (&Ireg::Reg(p), &Val::Struple(_, Some(ref items))) => {
+                if p as usize >= items.len() {
+                    panic!("{:?} too big for {:?}", i, items);
+                }
+                &items[p as usize]
+            }
+            (&Ireg::Sub(p, ref s), &Val::Struple(_, Some(ref items))) => {
+                if p as usize >= items.len() {
+                    panic!("{:?} too big for {:?}", i, items);
+                }
+                items[p as usize].ireg_get(&*s)
+            }
             // get reg on tuple
             (&Ireg::Reg(p), &Val::Tuple(ref tup)) => {
                 if p as usize >= tup.len() {
@@ -1578,7 +1591,7 @@ impl reg::Iregistry for Val
                 panic!("Cannot access sub data for Failure {} {}", tag, msg);
             }
             _ => {
-                panic!("Unsupported registry value {:?}{:?}",
+                panic!("unsupported registry value {:?}{:?}",
                     self, i);
             }
         }

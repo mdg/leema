@@ -502,7 +502,7 @@ pub fn make_enum_constructor_ops(rt: &mut RegTable, typ: &Type, index: i16
     let dst = rt.dst();
     let etype = typ.to_enum();
 
-    let mut ops: Vec<(Op, i16)> = Vec::with_capacity(3);
+    let ops: Vec<(Op, i16)> = Vec::with_capacity(3);
     /*
     ops.push((
         Op::Constructor(dst.clone(), etype.clone(), nflds),

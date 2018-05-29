@@ -128,7 +128,7 @@ impl Lib
             let proto = self.read_proto(modname);
 
             let mut tmod = Typemod::new(Lstr::from(String::from(modname)));
-            tmod.import_phase0(&proto.valtypes);
+            tmod.import_phase0(&proto);
             self.typed.insert(String::from(modname), tmod);
 
             self.proto.insert(String::from(modname), Rc::new(proto));
@@ -321,7 +321,9 @@ impl Lib
             imports.insert(i.clone(), iii.unwrap());
         }
 
-        let mut scope = Typescope::new(typed, funcname, &imports);
+        let opt_proto = self.proto.get(modlstr.str());
+        let mut scope =
+            Typescope::new(typed, opt_proto.unwrap(), funcname, &imports);
         typecheck::typecheck_function(&mut scope, fix).unwrap()
     }
 

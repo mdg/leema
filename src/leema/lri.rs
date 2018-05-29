@@ -46,6 +46,11 @@ impl Lri
         }
     }
 
+    pub fn local(&self) -> &Lstr
+    {
+        &self.localid
+    }
+
     pub fn deep_clone(&self) -> Lri
     {
         let new_mods = self.modules.as_ref().map(|m| {
