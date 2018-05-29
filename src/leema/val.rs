@@ -1237,6 +1237,36 @@ impl Val
         f.write_str(")")
     }
 
+    fn fmt_struple(f: &mut fmt::Formatter, tname: Option<&Lri>
+        , ftypes: &Vec<(Option<Lstr>, Type)>, fvals: &Vec<Val>, dbg: bool
+        ) -> fmt::Result
+    {
+        if tname.is_some() {
+            let inner_tname = tname.unwrap();
+            if dbg {
+                write!(f, "{:?}", inner_tname)?;
+            } else {
+                write!(f, "{}", inner_tname)?;
+            }
+        }
+        f.write_str("(")?;
+        if ftypes.len() != fvals.len() {
+            panic!("mismatch of field type and value length: {:?} / {:?}"
+                , ftypes, fvals);
+        }
+        for (&(ref opt_name, _), ref x) in ftypes.iter().zip(fvals.iter()) {
+            if opt_name.is_some() {
+                write!(f, "{}:", opt_name.as_ref().unwrap());
+            }
+            if dbg {
+                write!(f, "{:?},", x)?;
+            } else {
+                write!(f, "{},", x)?;
+            }
+        }
+        f.write_str(")")
+    }
+
     pub fn to_msg(&self) -> MsgVal
     {
         match self {
@@ -1339,8 +1369,16 @@ impl fmt::Display for Val {
             Val::Hashtag(ref s) => {
                 write!(f, "#{}", s)
             }
-            Val::Struple(ref typ, ref fields) => {
-                write!(f, "{}{:?}", typ, fields)
+            Val::Struple(Type::Struple(Some(ref tname), _), None) => {
+                write!(f, "{}", tname)
+            }
+            Val::Struple(Type::Struple(ref tname, ref ftypes)
+                , Some(ref fvals)) =>
+            {
+                Val::fmt_struple(f, tname.as_ref(), ftypes, fvals, false)
+            }
+            Val::Struple(_, _) => {
+                panic!("cannot format struple: {:?}", self);
             }
             Val::Tuple(ref t) => {
                 Val::fmt_tuple(f, t, false)
