@@ -1,5 +1,6 @@
 
 use leema::lstr::Lstr;
+use leema::val::{Type};
 
 use std::fmt;
 
@@ -14,7 +15,7 @@ pub struct Lri
 {
     modules: Option<Lstr>,
     localid: Lstr,
-    params: Option<Vec<Lri>>,
+    params: Option<Vec<Type>>,
 }
 
 impl Lri
@@ -28,7 +29,7 @@ impl Lri
         }
     }
 
-    pub fn full(mods: Option<Lstr>, id: Lstr, params: Option<Vec<Lri>>) -> Lri
+    pub fn full(mods: Option<Lstr>, id: Lstr, params: Option<Vec<Type>>) -> Lri
     {
         Lri{
             modules: mods,

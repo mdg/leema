@@ -641,6 +641,7 @@ pub enum Val
     Cons(Box<Val>, Rc<Val>),
     Nil,
     Struple(Type, Option<Vec<Val>>),
+    // Keyed(Lstr, Box<Val>),
     Tuple(Vec<Val>),
     NamedTuple(Type, Vec<Val>),
     Struct(Type, Vec<Val>),

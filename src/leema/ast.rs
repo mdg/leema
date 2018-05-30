@@ -279,7 +279,7 @@ impl<'a> From<&'a Ast> for Lri
             &Ast::Lri(ref names, ref types, _) => {
                 let param_array = types.as_ref().map(|param_list| {
                     param_list.iter().map(|p| {
-                        Lri::from(p)
+                        Type::from(p)
                     }).collect()
                 });
                 Lri::full(
