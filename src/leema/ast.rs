@@ -339,8 +339,8 @@ impl<'a> From<&'a Ast> for Type
                 }).collect();
                 Type::Tuple(pp_items)
             }
-            &Ast::Localid(_, ref loc) => {
-                Type::AnonVar
+            &Ast::Localid(_, _) => {
+                Type::Ref(Lri::from(a))
             }
             &Ast::Lri(_, _, _) => {
                 Type::Ref(Lri::from(a))

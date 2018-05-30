@@ -641,7 +641,7 @@ impl Protomod
                     f.clone()
                 }).collect();
                 self.preproc_enum_variant(prog, mp, &name, i
-                    , vdatatype, name, &field_vec, loc);
+                    , vdatatype, vname, &field_vec, loc);
                 let variant_lstr = Lstr::from(&**vname);
                 let variant_name: Rc<String> = From::from(&variant_lstr);
                 let vf = (variant_name, mod_type.clone());
@@ -665,11 +665,14 @@ impl Protomod
         let typ = Type::from(typename);
         let type_lstr = Lstr::from(typename);
         let variant_name = Lstr::from(name);
+        vout!("preproc_enum_variant({}::{}::{})\n"
+            , mod_lstr, type_lstr, variant_name);
         if dataclass == ast::DataType::Struple {
             if fields.is_empty() {
-                let variant_name_rc: Rc<String> = From::from(&variant_name);
-                let var_struct_type = Type::Struct(variant_name_rc.clone());
-                let const_val = Val::Enum(typ.clone(), i, variant_name_rc
+                let variant_lri =
+                    Lri::with_modules(mod_lstr.clone(), variant_name.clone());
+                let var_struct_type = Type::Ref(variant_lri);
+                let const_val = Val::Enum(typ.clone(), i, variant_name.rc()
                     , Box::new(Val::Void)
                     );
                 let variant_name_string = String::from(&variant_name);

@@ -202,8 +202,8 @@ impl<'a> Interscope<'a>
             Some(ref proto) => {
                 let valtype_opt = proto.valtype(name);
                 if valtype_opt.is_none() {
-                    vout!("cannot find variable: {} in {:?}\n",
-                        name, self.T);
+                    vout!("cannot find variable: {} in\n{:?}\n{:?}\n",
+                        name, self.T, self.proto);
                     panic!("undefined variable: {} in {:?}", name, self.T);
                 }
                 Some((ScopeLevel::External, valtype_opt.unwrap().clone()))
@@ -469,18 +469,10 @@ pub fn compile_lri(scope: &mut Interscope, names: &Vec<Lstr>, loc: &SrcLoc
                 }
             }
         }
-        &Val::Nil => {
-            panic!("cannot compile nil lri");
-        }
-        _ => {
-            panic!("cannot compile unknown lri: {:?}", lri);
-        }
     }
     match scope.T.take_current_module() {
         Some(modname) => {
             compile_module_id(scope, modname, id, loc)
-        }
-        None => {
         }
     }
             if !scope.imports_module(prefix) {
@@ -495,6 +487,7 @@ pub fn compile_lri(scope: &mut Interscope, names: &Vec<Lstr>, loc: &SrcLoc
 pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc
     ) -> Ixpr
 {
+    vout!("compile_local_id({})\n", id);
     match scope.vartype(id.str()) {
         Some((ScopeLevel::Local, typ)) => {
             scope.T.mark_usage(id.str(), loc);
@@ -583,7 +576,7 @@ pub fn compile_let_stmt(scope: &mut Interscope, lettype: ast::LetType
     let irhs = compile_expr(scope, rhs, loc);
     let mut new_vars = Vec::new();
     let cpatt = compile_pattern(scope, &mut new_vars, lhs);
-    vout!("new vars in let: {:?} = {:?}\n", new_vars, irhs.typ);
+    vout!("new vars in let: {:?} = {:?}\n", new_vars, irhs);
     scope.T.match_pattern(&cpatt, &irhs.typ, loc.lineno);
     let failed = new_vars.iter().map(|v| {
         (v.clone(), compile_failed_var(scope, v, loc))
