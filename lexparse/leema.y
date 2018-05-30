@@ -90,13 +90,9 @@ use std::io::{Write};
 %type defstruple { Ast }
 %type defstruple_block { LinkedList<Ast> }
 %type defstruple_block_field { Ast }
-%type defstruct { Ast }
-%type defstruct_fields { LinkedList<Ast> }
-%type defstruct_field { Ast }
 %type defenum { Ast }
 %type defenum_variants { LinkedList<Ast> }
 %type defenum_variant { Ast }
-%type defnamedtuple { Ast }
 %type let_stmt { Ast }
 %type term { Ast }
 %type expr { Ast }
@@ -170,9 +166,7 @@ block(A) ::= BLOCKARROW(C) stmts(B). {
 
 
 stmt(A) ::= defstruple(B). { A = B; }
-stmt(A) ::= defstruct(B). { A = B; }
 stmt(A) ::= defenum(B). { A = B; }
-stmt(A) ::= defnamedtuple(B). { A = B; }
 stmt(A) ::= IMPORT(C) localid(B). {
     A = Ast::Import(Box::new(B), C);
 }
@@ -209,22 +203,6 @@ defstruple_block_field(A) ::= DOT ID(B) COLON term(C). {
     A = Ast::KeyedExpr(Lstr::from(B.data), Box::new(C), B.loc);
 }
 
-/** Data Structures */
-defstruct(A) ::= STRUCT(D) lri(B) defstruct_fields(C) DOUBLEDASH. {
-    A = Ast::DefData(ast::DataType::Struct, Box::new(B), C, D);
-}
-defstruct_fields(A) ::= defstruct_fields(B) defstruct_field(C). {
-    let mut tmp = B;
-    tmp.push_back(C);
-    A = tmp;
-}
-defstruct_fields(A) ::= . {
-    A = LinkedList::new();
-}
-defstruct_field(A) ::= DOT ID(B) COLON term(C). {
-    A = Ast::KeyedExpr(Lstr::from(B.data), Box::new(C), B.loc);
-}
-
 /** Enum Definitions */
 defenum(A) ::= ENUM(D) lri(B) defenum_variants(C) DOUBLEDASH. {
     A = Ast::DefData(ast::DataType::Enum, Box::new(B), C, D);
@@ -240,16 +218,10 @@ defenum_variants(A) ::= defenum_variant(B). {
     A = tmp;
 }
 defenum_variant(A) ::= PIPE(D) localid(B) PARENCALL expr_list(C) RPAREN. {
-    A = Ast::DefData(ast::DataType::NamedTuple, Box::new(B), C, D);
+    A = Ast::DefData(ast::DataType::Struple, Box::new(B), C, D);
 }
-defenum_variant(A) ::= PIPE(D) localid(B) defstruct_fields(C). {
-    A = Ast::DefData(ast::DataType::Enum, Box::new(B), C, D);
-}
-
-/** named tuple definition **/
-defnamedtuple(A) ::= STRUCT(L) lri(C) PARENCALL expr_list(D) RPAREN.
-{
-    A = Ast::DefData(ast::DataType::NamedTuple, Box::new(C), D, L);
+defenum_variant(A) ::= PIPE(D) localid(B) defstruple_block(C). {
+    A = Ast::DefData(ast::DataType::Struple, Box::new(B), C, D);
 }
 
 

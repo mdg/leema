@@ -186,12 +186,6 @@ impl Protomod
             &Ast::Import(_, _) => {
                 panic!("cannot preproc: {:?}", x);
             }
-            /*
-            _ => {
-                println!("preproc_unknown_expr({:?})", x);
-                x.clone()
-            }
-            */
         }
     }
 
@@ -484,14 +478,8 @@ impl Protomod
                         prog, mp, name, fields, loc);
                 }
             }
-            ast::DataType::Struct => {
-                panic!("use struple instead of struct: {:?}", loc);
-            }
             ast::DataType::Enum => {
                 self.preproc_enum(prog, mp, name, fields, loc);
-            }
-            ast::DataType::NamedTuple => {
-                self.preproc_namedtuple(prog, mp, name, name, fields, loc);
             }
         }
     }
@@ -589,54 +577,6 @@ impl Protomod
         self.struple_flds.insert(local_name, struple_fields);
     }
 
-    pub fn preproc_struct_fields(&mut self, prog: &Lib, mp: &ModulePreface
-        , typename: &Ast
-        , mod_name: &Rc<String>
-        , name: &Ast, src_fields: &LinkedList<Ast>, loc: &SrcLoc
-        )
-    {
-        let name_lstr = Lstr::from(name);
-        let rc_name: Rc<String> = From::from(&name_lstr);
-
-        let struct_fields: Vec<(Rc<String>, Type)> =
-            src_fields.iter().map(|f| {
-                if let &Ast::KeyedExpr(ref key, ref x, ref iloc) = f {
-                    let key_rc: Rc<String> = From::from(key);
-                    let xtype = Type::from(&**x);
-                    (key_rc, xtype)
-                } else {
-                    panic!("struct field must have a name and a type: {:?}", f);
-                }
-            }).collect();
-
-        let field_id_vec: Vec<Ast> =
-            struct_fields.iter().map(|&(ref fname, ref ft)| {
-                Ast::Localid(Lstr::Rc(fname.clone()), SrcLoc::default())
-            }).collect();
-        let field_type_vec = struct_fields.iter().map(|&(_, ref ftype)| {
-            ftype.clone()
-        }).collect();
-
-        let result_type = Type::from(typename);
-        let func_type = Type::Func(field_type_vec, Box::new(result_type));
-
-        let srcblk = Ast::ConstructData(ast::DataType::Struct
-            , Box::new(typename.clone()), field_id_vec
-            );
-        let srcxpr = Ast::DefFunc(ast::FuncClass::Func
-            , Box::new((*name).clone())
-            , (*src_fields).clone(), Box::new(typename.clone())
-            , Box::new(srcblk), *loc);
-
-        let funcref =
-            Val::FuncRef(mod_name.clone(), rc_name.clone(), func_type.clone());
-        self.constants.insert((*rc_name).clone(), funcref);
-        self.funcseq.push_back(rc_name.clone());
-        self.funcsrc.insert((*rc_name).clone(), srcxpr);
-        self.valtypes.insert((*rc_name).clone(), func_type);
-        self.structfields.insert((*rc_name).clone(), struct_fields);
-    }
-
     pub fn struple_field_idx(&self, typename: &str, fld: &str
         ) -> Option<(i16, &Type)>
     {
@@ -721,9 +661,11 @@ impl Protomod
         )
     {
         let mod_name = self.key.name.clone();
+        let mod_lstr = Lstr::Rc(mod_name.clone());
         let typ = Type::from(typename);
+        let type_lstr = Lstr::from(typename);
         let variant_name = Lstr::from(name);
-        if dataclass == ast::DataType::Struct {
+        if dataclass == ast::DataType::Struple {
             if fields.is_empty() {
                 let variant_name_rc: Rc<String> = From::from(&variant_name);
                 let var_struct_type = Type::Struct(variant_name_rc.clone());
@@ -734,68 +676,12 @@ impl Protomod
                 self.constants.insert(variant_name_string.clone(), const_val);
                 self.valtypes.insert(variant_name_string, typ);
             } else {
-                self.preproc_struct_fields(prog, mp, typename
-                    , &mod_name, name, fields, loc);
+                self.preproc_struple_fields(prog, mp, type_lstr
+                    , mod_lstr, variant_name, fields, loc);
             }
-        } else if dataclass == ast::DataType::NamedTuple {
-            self.preproc_namedtuple_func(prog, mp
-                , typename, name, fields, loc);
         } else {
             panic!("unknown enum variant type: {:?}", dataclass);
         }
-    }
-
-    pub fn preproc_namedtuple(&mut self, prog: &Lib, mp: &ModulePreface
-        , typename: &Ast, name: &Ast, fields: &LinkedList<Ast>, loc: &SrcLoc)
-    {
-        let name_lstr = Lstr::from(name);
-        let name_rcstr: Rc<String> = From::from(&name_lstr);
-        let field_types: Vec<Type> = fields.iter().map(|f| {
-            Type::from(f)
-        }).collect();
-        let local_type =
-            Type::NamedTuple(name_rcstr, field_types.clone());
-        let mod_type = self.modtype(local_type);
-
-        self.preproc_namedtuple_func(prog, mp, typename, name
-            , fields, loc);
-    }
-
-    pub fn preproc_namedtuple_func(&mut self, prog: &Lib, mp: &ModulePreface
-        , typename: &Ast, name: &Ast, field_types: &LinkedList<Ast>
-        , loc: &SrcLoc)
-    {
-        let name_lstr = Lstr::from(name);
-        let name_str: Rc<String> = From::from(&name_lstr);
-
-        let field_id_vec: Vec<Ast> = field_types.iter().enumerate()
-            .map(|(i, ft)| {
-                let idx: i8 = i as i8;
-                let fname = Rc::new(format!("field_{}", i));
-                Ast::Localid(Lstr::Rc(fname), *ft.loc())
-            })
-            .collect();
-        let field_type_vec: Vec<Type> = field_types.iter().map(|ft| {
-            Type::from(ft)
-        }).collect();
-        let named_type =
-            Type::NamedTuple(name_str.clone(), field_type_vec.clone());
-        let func_type =
-            Type::Func(field_type_vec, Box::new(named_type.clone()));
-        let srcblk = Ast::ConstructData(ast::DataType::NamedTuple
-            , Box::new(typename.clone()), field_id_vec);
-        let srcxpr = Ast::DefFunc(ast::FuncClass::Func
-            , Box::new(name.clone()), field_types.clone()
-            , Box::new(typename.clone())
-            , Box::new(srcblk), loc.clone()
-            );
-
-        self.constants.insert((*name_str).clone(),
-            Val::FuncRef(self.key.name.clone(), name_str.clone(),
-                func_type.clone()));
-        self.funcsrc.insert((*name_str).clone(), srcxpr);
-        self.valtypes.insert((*name_str).clone(), func_type);
-        self.funcseq.push_back(name_str);
     }
 
     fn modtype(&self, t: Type) -> Type
@@ -921,7 +807,7 @@ fn test_preproc_enum_colors()
     assert_eq!("Yellow", &*yfld.0);
     assert_eq!("Blue", &*bfld.0);
 
-    let rfld_idx = pmod.struct_field_idx("PrimaryColor", "Red");
+    let rfld_idx = pmod.struple_field_idx("PrimaryColor", "Red");
 }
 
 #[test]
@@ -1058,7 +944,7 @@ fn test_enum_types()
 fn test_preproc_namedtuple()
 {
     let input = "
-    struct Greeting(Str, Str)
+    struple Greeting(Str, Str)
     ".to_string();
     let mut loader = Interloader::new("greet.lma");
     loader.set_mod_txt("greet", input);
@@ -1067,7 +953,7 @@ fn test_preproc_namedtuple()
 
     let greet = Rc::new("greet".to_string());
     let greeting_str = Rc::new("Greeting".to_string());
-    let greeting_ntt = Type::NamedTuple(greeting_str.clone(), vec![
+    let greeting_ntt = Type::Struple(greeting_str.clone(), vec![
         Type::Str, Type::Str]);
     let mod_greeting_ntt = Type::ModPrefix(
         greet.clone(),

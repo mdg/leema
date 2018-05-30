@@ -427,25 +427,6 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
             }
             Ixpr::construple(opt_full_type.unwrap().clone(), loc.lineno)
         }
-        &Ast::ConstructData(ast::DataType::NamedTuple, ref typ, ref args) => {
-            /*
-            let c_items = args.iter().map(|i| {
-                compile_expr(scope, i, loc)
-            }).collect();
-            Ixpr{
-                typ: named_tuple,
-                src: Source::Tuple(c_items),
-                lineno: loc.lineno,
-            }
-            */
-            let ctype = Type::from(&**typ);
-            Ixpr::constructor(ctype, args.len() as i8, loc.lineno)
-        }
-        &Ast::ConstructData(ast::DataType::Struct, ref typ, ref args) => {
-            // Ixpr::constructor(typ.clone(), flds.len() as i8, loc.lineno)
-            // Ixpr::enum_constructor(typ.clone(), idx, var, vval, loc.lineno)
-            Ixpr::noop()
-        }
         &Ast::Let(ltype, ref lhs, ref rhs, ref iloc) => {
             compile_let_stmt(scope, ltype, lhs, rhs, iloc)
         }

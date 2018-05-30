@@ -62,8 +62,6 @@ pub enum LetType
 pub enum DataType
 {
     Enum,
-    NamedTuple,
-    Struct,
     Struple,
 }
 
@@ -749,32 +747,6 @@ fn test_parse_call_function_call_result()
 }
 
 #[test]
-fn test_parse_defstruct()
-{
-    let input = "
-    struct Taco
-    .id: Int
-    .name: Str
-    --
-    ";
-    let root = ast::parse(lex(input));
-
-    if let Ast::Block(lines) = root {
-        let first = lines.first().unwrap();
-        if let &Ast::DefData(ast::DataType::Struct
-            , ref name, ref vars, _) = first
-        {
-            assert_eq!(Ast::Localid(Lstr::from("Taco"), SrcLoc::new(2, 7))
-                , **name);
-        } else {
-            panic!("struct is not a struct: {:?}", first);
-        }
-    } else {
-        panic!("struct is not a block: {:?}", root);
-    }
-}
-
-#[test]
 fn test_parse_enum_variants()
 {
     let input = "
@@ -801,22 +773,6 @@ fn test_parse_enum_variants()
     } else {
         panic!("enum is not a block: {:?}", root);
     }
-}
-
-#[test]
-fn test_parse_named_tuple()
-{
-    let input = "
-    struct Taco(Int, Str)
-    ";
-    let root = ast::parse(lex(input));
-
-    let def = Ast::DefData(ast::DataType::NamedTuple
-        , Box::new(test_lri("Taco", 0, 0))
-        , vec![Ast::TypeInt, Ast::TypeStr].into_iter().collect()
-        , SrcLoc::default()
-        );
-    let expected = Ast::Block(vec![def]);
 }
 
 #[test]
