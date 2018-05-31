@@ -1,6 +1,7 @@
 
 use leema::log;
 use leema::ast::{Ast};
+use leema::lstr::{Lstr};
 use leema::val::{Val, Type, SrcLoc, TypeResult, TypeErr};
 
 use std::collections::{HashMap};
@@ -105,6 +106,43 @@ impl<'b> Inferator<'b>
                 Some(self.inferred_type(argt))
             }
         }
+    }
+
+    pub fn init_param(&mut self, argi: i16, argn: Option<&Lstr>
+        , argt: Type, line: i16
+        ) -> TypeResult
+    {
+        vout!("bind_vartype({}, #{} {:?}: {:?})\n"
+            , self.funcname, argi, argn, argt);
+        let b = self.blocks.last_mut().unwrap();
+        if argn.is_some() {
+            // just assign the var b/c it's a new param
+            let mut vdata = VarData::default();
+            vdata.assignment = Some(line);
+            b.vars.insert(String::from(argn.unwrap()), vdata);
+        }
+
+        let realt = match argt {
+            Type::Unknown => {
+                let arg_typename = format!("T_param_{}", argi);
+                Type::Var(Rc::new(arg_typename))
+            }
+            Type::AnonVar => {
+                let arg_typename = format!("T_param_{}", argi);
+                Type::Var(Rc::new(arg_typename))
+            }
+            a => a,
+        };
+        if argn.is_some() {
+            let argn_u = argn.unwrap();
+            if !self.T.contains_key(argn_u.str()) {
+                let oldargt = self.T.get(argn_u.str()).unwrap();
+                return Inferator::mash(&mut self.inferences, oldargt, &realt);
+            }
+
+            self.T.insert(String::from(argn_u), realt.clone());
+        }
+        Ok(realt)
     }
 
     pub fn bind_vartype(&mut self, argn: &str, argt: &Type, line: i16

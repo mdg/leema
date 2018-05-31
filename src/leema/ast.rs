@@ -121,35 +121,31 @@ pub struct Kxpr
 {
     k: Option<Lstr>,
     x: Option<Box<Ast>>,
-    pub loc: SrcLoc,
 }
 
 impl Kxpr
 {
-    pub fn new(k: Lstr, x: Ast, loc: SrcLoc) -> Kxpr
+    pub fn new(k: Lstr, x: Ast) -> Kxpr
     {
         Kxpr{
             k: Some(k),
             x: Some(Box::new(x)),
-            loc: loc,
         }
     }
 
-    pub fn new_k(k: Lstr, loc: SrcLoc) -> Kxpr
+    pub fn new_k(k: Lstr) -> Kxpr
     {
         Kxpr{
             k: Some(k),
             x: None,
-            loc: loc,
         }
     }
 
-    pub fn new_x(x: Ast, loc: SrcLoc) -> Kxpr
+    pub fn new_x(x: Ast) -> Kxpr
     {
         Kxpr{
             k: None,
             x: Some(Box::new(x)),
-            loc: loc,
         }
     }
 
@@ -160,9 +156,14 @@ impl Kxpr
 
     pub fn x_ref(&self) -> Option<&Ast>
     {
-        self.x.map(|x| {
-            &*x
+        self.x.as_ref().map(|x| {
+            &**x
         })
+    }
+
+    pub fn k_clone(&self) -> Option<Lstr>
+    {
+        self.k.clone()
     }
 }
 
@@ -180,13 +181,12 @@ pub enum Ast
     ConstInt(i64),
     ConstStr(Lstr),
     ConstVoid,
-    DefData(DataType, Box<Ast>, LinkedList<Ast>, SrcLoc),
+    DefData(DataType, Box<Ast>, LinkedList<Kxpr>, SrcLoc),
     DefFunc(FuncClass
         , Box<Ast>, LinkedList<Kxpr>, Box<Ast>, Box<Ast>, SrcLoc),
     DotAccess(Box<Ast>, Lstr),
     IfExpr(IfType, Box<Ast>, Box<IfCase>, SrcLoc),
     Import(Box<Ast>, SrcLoc),
-    KeyedExpr(Lstr, Box<Ast>, SrcLoc),
     Let(LetType, Box<Ast>, Box<Ast>, SrcLoc),
     List(LinkedList<Ast>),
     Localid(Lstr, SrcLoc),
@@ -230,7 +230,7 @@ impl Ast
                         , ids);
                 }
                 Some(id) => {
-                    Ast::Localid(id.clone(), idx.loc)
+                    Ast::Localid(id.clone(), loc)
                 }
             }
         }).collect();
@@ -304,9 +304,6 @@ impl<'a> From<&'a Ast> for Lstr
                     Lstr::Rc(Rc::new(new_str))
                 }
             }
-            &Ast::KeyedExpr(ref id, _, _) => {
-                id.clone()
-            }
             _ => {
                 panic!("cannot convert to string: {:?}", a);
             }
@@ -362,9 +359,6 @@ impl<'a> From<&'a Ast> for Type
                 }).collect();
                 let result = ppp.pop().unwrap();
                 Type::Func(ppp, Box::new(result))
-            }
-            &Ast::KeyedExpr(_, ref expr, _) => {
-                Type::from(&**expr)
             }
             &Ast::List(ref items) => {
                 match items.len() {
@@ -877,11 +871,10 @@ fn test_parse_defstruple_mixed_keys()
     let def = Ast::DefData(ast::DataType::Struple
         , Box::new(test_localid("Taco", 2, 8))
         , vec![
-            Ast::TypeInt,
-            Ast::KeyedExpr(
+            Kxpr::new_x(Ast::TypeInt),
+            Kxpr::new(
                 Lstr::from("style"),
                 Box::new(Ast::TypeStr),
-                SrcLoc::new(2, 17),
                 ),
             ].into_iter().collect()
         , SrcLoc::new(2, 1)
@@ -903,15 +896,13 @@ fn test_parse_defstruple_block()
     let def = Ast::DefData(ast::DataType::Struple
         , Box::new(test_localid("Taco", 2, 8))
         , vec![
-            Ast::KeyedExpr(
+            Kxpr::new(
                 Lstr::from("number"),
                 Box::new(Ast::TypeInt),
-                SrcLoc::new(3, 2),
                 ),
-            Ast::KeyedExpr(
+            Kxpr::new(
                 Lstr::from("style"),
                 Box::new(Ast::TypeStr),
-                SrcLoc::new(4, 2),
                 ),
             ].into_iter().collect()
         , SrcLoc::new(2, 1)

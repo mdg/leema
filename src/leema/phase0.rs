@@ -124,10 +124,6 @@ impl Protomod
             &Ast::Call(ref callx, ref args, ref iloc) => {
                 Protomod::preproc_call(prog, mp, callx, args, iloc)
             }
-            &Ast::KeyedExpr(ref id, ref x, ref loc) => {
-                let pp_x = Protomod::preproc_expr(prog, mp, x, loc);
-                Ast::KeyedExpr(id.clone(), Box::new(pp_x), *loc)
-            }
             &Ast::List(ref items) => {
                 Ast::List(items.iter().map(|i| {
                     Protomod::preproc_expr(prog, mp, i, loc)
@@ -165,7 +161,7 @@ impl Protomod
             &Ast::TypeFunc(ref parts, ref loc) => {
                 let ppp = parts.iter().map(|p| {
                     Protomod::preproc_func_arg(prog, mp
-                        , &Lstr::Sref("anon_func_type"), p)
+                        , &Lstr::Sref("anon_func_type"), p, loc)
                 }).collect();
                 Ast::TypeFunc(ppp, *loc)
             }
@@ -191,38 +187,38 @@ impl Protomod
     }
 
     pub fn preproc_func_arg(prog: &Lib, mp: &ModulePreface
-        , func_name: &Lstr, arg: &Kxpr
+        , func_name: &Lstr, arg: &Kxpr, loc: &SrcLoc
         ) -> Kxpr
     {
         match (arg.k_ref(), arg.x_ref()) {
             (None, None) => {
-                panic!("cannot preproc arg with no id or type: {:?}", arg.loc);
+                panic!("cannot preproc arg with no id or type: {:?}", loc);
             }
             (None, Some(&Ast::TypeAnon)) => {
                 panic!("cannot preproc arg with no id and anonymous type: {:?}"
-                    , arg.loc);
+                    , loc);
             }
             (None, Some(typ)) => {
-                let pp_typ = Protomod::preproc_expr(prog, mp, typ, &arg.loc);
-                Kxpr::new_x(pp_typ, arg.loc)
+                let pp_typ = Protomod::preproc_expr(prog, mp, typ, &loc);
+                Kxpr::new_x(pp_typ)
             }
             (Some(id), None) => {
                 let type_name = Lstr::from(
                     format!("{}_{}_{}", mp.key.name, func_name.str(), id)
                 );
-                let typ = Ast::TypeVar(type_name, arg.loc);
-                Kxpr::new(id.clone(), typ, arg.loc)
+                let typ = Ast::TypeVar(type_name, *loc);
+                Kxpr::new(id.clone(), typ)
             }
             (Some(id), Some(&Ast::TypeAnon)) => {
                 let type_name = Lstr::from(
                     format!("{}_{}_{}", mp.key.name, func_name.str(), id)
                 );
-                let new_typ = Ast::TypeVar(type_name, arg.loc);
-                Kxpr::new(id.clone(), new_typ, arg.loc)
+                let new_typ = Ast::TypeVar(type_name, *loc);
+                Kxpr::new(id.clone(), new_typ)
             }
             (Some(id), Some(typ)) => {
-                let pp_typ = Protomod::preproc_expr(prog, mp, typ, &arg.loc);
-                Kxpr::new(id.clone(), pp_typ, arg.loc)
+                let pp_typ = Protomod::preproc_expr(prog, mp, typ, &loc);
+                Kxpr::new(id.clone(), pp_typ)
             }
         }
     }
@@ -234,7 +230,7 @@ impl Protomod
     {
         let lstr_name = Lstr::from(name);
         let pp_args: LinkedList<Kxpr> = args.iter().map(|a| {
-            Protomod::preproc_func_arg(prog, mp, &lstr_name, a)
+            Protomod::preproc_func_arg(prog, mp, &lstr_name, a, loc)
         }).collect();
         let pp_rtype_ast = Protomod::preproc_expr(prog, mp, rtype, loc);
         let pp_body = Protomod::preproc_expr(prog, mp, body, loc);
@@ -253,7 +249,7 @@ impl Protomod
                 a.clone()
             })
             .collect();
-        ftype_parts.push(Kxpr::new_x(pp_rtype_ast, *loc));
+        ftype_parts.push(Kxpr::new_x(pp_rtype_ast));
         let ftype_ast = Ast::TypeFunc(ftype_parts, *loc);
         let ftype = Type::from(&ftype_ast);
 
@@ -480,7 +476,7 @@ impl Protomod
 
     pub fn preproc_data(&mut self, prog: &Lib, mp: &ModulePreface
         , datatype: ast::DataType, name: &Ast
-        , fields: &LinkedList<Ast>, loc: &SrcLoc
+        , fields: &LinkedList<Kxpr>, loc: &SrcLoc
         )
     {
         match datatype {
@@ -521,7 +517,7 @@ impl Protomod
 
     pub fn preproc_struple_with_fields(&mut self, prog: &Lib
         , mp: &ModulePreface, name: &Ast
-        , src_fields: &LinkedList<Ast>, loc: &SrcLoc
+        , src_fields: &LinkedList<Kxpr>, loc: &SrcLoc
         )
     {
         let name_lstr = Lstr::from(name);
@@ -533,29 +529,19 @@ impl Protomod
             , mod_lstr, name_lstr, src_fields, loc);
     }
 
-    pub fn preproc_struple_field_type(prog: &Lib, mp: &ModulePreface
-        , mod_name: &Lstr, fld: &Ast, loc: &SrcLoc
-        ) -> (Option<Lstr>, Type)
-    {
-        match fld {
-            &Ast::KeyedExpr(ref key, ref x, ref iloc) => {
-                (Some(key.clone()), Type::from(&**x))
-            }
-            _ => {
-                (None, Type::from(fld))
-            }
-        }
-    }
-
     pub fn preproc_struple_fields(&mut self, prog: &Lib, mp: &ModulePreface
         , local_typename: Lstr, mod_name: Lstr, local_name: Lstr
-        , src_fields: &LinkedList<Ast>, loc: &SrcLoc
+        , src_fields: &LinkedList<Kxpr>, loc: &SrcLoc
         )
     {
         let struple_fields: Vec<(Option<Lstr>, Type)> =
             src_fields.iter().map(|f| {
-                Protomod::preproc_struple_field_type(
-                    prog, mp, &mod_name, f, loc)
+                // struple fields are made w/ an x_list,
+                // x_ref will always be there
+                let pp_x = Protomod::preproc_expr(prog, mp
+                    , f.x_ref().unwrap(), loc);
+                let pp_type = Type::from(&pp_x);
+                (f.k_clone(), pp_type)
             }).collect();
 
         let field_type_vec = struple_fields.iter().map(|&(_, ref ftype)| {
@@ -634,7 +620,7 @@ impl Protomod
     }
 
     pub fn preproc_enum(&mut self, prog: &Lib, mp: &ModulePreface
-        , name: &Ast, src_variants: &LinkedList<Ast>
+        , name: &Ast, src_variants: &LinkedList<Kxpr>
         , loc: &SrcLoc)
     {
         let name_lstr = Lstr::from(name);
@@ -646,16 +632,12 @@ impl Protomod
         );
 
         let mut variant_fields = Vec::with_capacity(src_variants.len());
-        for (bigi, v) in src_variants.iter().enumerate() {
+        for (bigi, kx) in src_variants.iter().enumerate() {
             let i = bigi as i16;
+            let v = kx.x_ref().unwrap();
             if let &Ast::DefData(vdatatype, ref vname, ref fields, ref loc) = v {
-                // would be nice if this wasn't necessary
-                // maybe make all of the fields LinkedLists?
-                let field_vec = fields.iter().map(|f| {
-                    f.clone()
-                }).collect();
                 self.preproc_enum_variant(prog, mp, &name, i
-                    , vdatatype, vname, &field_vec, loc);
+                    , vdatatype, vname, fields, loc);
                 let variant_lstr = Lstr::from(&**vname);
                 let variant_name: Rc<String> = From::from(&variant_lstr);
                 let vf = (variant_name, mod_type.clone());
@@ -671,7 +653,7 @@ impl Protomod
 
     pub fn preproc_enum_variant(&mut self, prog: &Lib, mp: &ModulePreface
         , typename: &Ast, i: i16, dataclass: ast::DataType
-        , name: &Ast, fields: &LinkedList<Ast>, loc: &SrcLoc
+        , name: &Ast, fields: &LinkedList<Kxpr>, loc: &SrcLoc
         )
     {
         let mod_name = self.key.name.clone();

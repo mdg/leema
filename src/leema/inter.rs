@@ -1,5 +1,5 @@
 
-use leema::ast::{self, Ast};
+use leema::ast::{self, Ast, Kxpr};
 use leema::ixpr::{Ixpr, Source};
 use leema::infer::{Inferator};
 use leema::list;
@@ -151,7 +151,7 @@ pub struct Interscope<'a>
     typed: &'a Typemod,
     // types of locally defined labels
     T: Inferator<'a>,
-    argnames: Vec<Lstr>,
+    argnames: LinkedList<Kxpr>,
     argt: Type,
 }
 
@@ -159,19 +159,22 @@ impl<'a> Interscope<'a>
 {
     pub fn new(proto: &'a Protomod, imports: &'a HashMap<String, Rc<Protomod>>
             , typed: &'a Typemod, fname: &'a str, lineno: i16
-            , args: &Vec<Lstr>, argt: &Vec<Type>
+            , args: &LinkedList<Kxpr>
             ) -> Interscope<'a>
     {
         let mut t = Inferator::new(fname);
-        for (an, at) in args.iter().zip(argt) {
-            vout!("bind func param as {}: {}\n", an, at);
-            t.bind_vartype(an.str(), at, lineno)
+        let mut argt = Vec::new();
+        for (i, a) in args.iter().enumerate() {
+            vout!("bind func param as: #{} {:?}\n", i, a);
+            let at = Type::from(a.x_ref().unwrap());
+            let at2 = t.init_param(i as i16, a.k_ref(), at, lineno)
                 .map_err(|e| {
                     TypeErr::Error(Rc::new(format!(
-                        "args type mismatch: {:?} != {:?}", args, argt
+                        "args type mismatch: {:?}", args
                     )))
                 })
                 .unwrap();
+            argt.push(at2);
         }
 
         Interscope{
@@ -181,7 +184,7 @@ impl<'a> Interscope<'a>
             typed: typed,
             T: t,
             argnames: args.clone(),
-            argt: Type::Tuple(argt.clone()),
+            argt: Type::Tuple(argt),
         }
     }
 
@@ -280,7 +283,7 @@ impl<'a> Interscope<'a>
 pub fn compile_function<'a>(proto: &'a Protomod
         , imports: &'a HashMap<String, Rc<Protomod>>
         , typed: &Typemod, fname: &'a str
-        , ftype: &Type, args: &Vec<Lstr>, body: &Ast
+        , ftype: &Type, args: &LinkedList<Kxpr>, body: &Ast
         , loc: &SrcLoc
         ) -> Ixpr
 {
@@ -294,7 +297,7 @@ pub fn compile_function<'a>(proto: &'a Protomod
     }
     let (argt, _result) = Type::split_func(ftype);
     let mut scope =
-        Interscope::new(proto, imports, typed, fname, loc.lineno, args, argt);
+        Interscope::new(proto, imports, typed, fname, loc.lineno, args);
     let ibody = compile_expr(&mut scope, body, loc);
     let argt2: Vec<Type> = argt.iter().map(|a| {
         scope.T.inferred_type(a).clone()
@@ -312,8 +315,13 @@ pub fn compile_function<'a>(proto: &'a Protomod
     }
     vout!("\t<result>: {}\n", ibody2.typ);
     vout!("inferences: {:?}\n", scope.T);
-    let rc_args = args.iter().map(|a| {
-        a.rc()
+    let rc_args = args.iter().enumerate().map(|(argi, a)| {
+        a
+        .k_clone()
+        .unwrap_or_else(|| {
+            Lstr::Rc(Rc::new(format!("T_param_{}", argi)))
+        })
+        .rc()
     }).collect();
     Ixpr{
         typ: final_ftype,
@@ -920,16 +928,13 @@ pub fn compile_failed_var(scope: &mut Interscope, v: &Rc<String>, loc: &SrcLoc
     }
 }
 
-pub fn split_func_args_body(defunc: &Ast) -> (Vec<Lstr>, &Ast, &SrcLoc)
+pub fn split_func_args_body(defunc: &Ast) -> (&LinkedList<Kxpr>, &Ast, &SrcLoc)
 {
     if let &Ast::DefFunc(ast::FuncClass::Func
         , ref name, ref args, ref result, ref body, ref loc) = defunc
     {
         vout!("split_func_args({:?})\n", name);
-        let arg_names = args.iter().map(|a| {
-            Lstr::from(a)
-        }).collect();
-        (arg_names, body, loc)
+        (args, body, loc)
     } else {
         panic!("func is not a func: {:?}", defunc);
     }

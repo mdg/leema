@@ -90,16 +90,16 @@ use std::io::{Write};
 %type lri_base { (Vec<Lstr>, SrcLoc) }
 %type match_expr { Ast }
 %type defstruple { Ast }
-%type defstruple_block { LinkedList<Ast> }
-%type defstruple_block_field { Ast }
+%type defstruple_block { LinkedList<Kxpr> }
+%type defstruple_block_field { Kxpr }
 %type defenum { Ast }
-%type defenum_variants { LinkedList<Ast> }
-%type defenum_variant { Ast }
+%type defenum_variants { LinkedList<Kxpr> }
+%type defenum_variant { Kxpr }
 %type let_stmt { Ast }
 %type term { Ast }
 %type expr { Ast }
 %type opt_typex { Ast }
-%type arrow_expr { (Vec<Ast>, SrcLoc) }
+%type arrow_expr { (Vec<Kxpr>, SrcLoc) }
 %type type_term { Ast }
 %type mod_type { Ast }
 
@@ -201,7 +201,7 @@ defstruple_block(A) ::= defstruple_block(B) defstruple_block_field(C). {
     A = tmp;
 }
 defstruple_block_field(A) ::= DOT ID(B) COLON term(C). {
-    A = Ast::KeyedExpr(Lstr::from(B.data), Box::new(C), B.loc);
+    A = Kxpr::new(Lstr::from(B.data), C);
 }
 
 /** Enum Definitions */
@@ -218,11 +218,17 @@ defenum_variants(A) ::= defenum_variant(B). {
     tmp.push_back(B);
     A = tmp;
 }
-defenum_variant(A) ::= PIPE(D) localid(B) PARENCALL x_list(C) RPAREN. {
-    A = Ast::DefData(ast::DataType::Struple, Box::new(B), C, D);
+defenum_variant(A) ::= PIPE(D) ID(B) PARENCALL x_list(C) RPAREN. {
+    let name = Lstr::from(B.data);
+    let name_ast = Box::new(Ast::Localid(name.clone(), B.loc));
+    let ds = Ast::DefData(ast::DataType::Struple, name_ast, C, D);
+    A = Kxpr::new(name, ds);
 }
-defenum_variant(A) ::= PIPE(D) localid(B) defstruple_block(C). {
-    A = Ast::DefData(ast::DataType::Struple, Box::new(B), C, D);
+defenum_variant(A) ::= PIPE(D) ID(B) defstruple_block(C). {
+    let name = Lstr::from(B.data);
+    let name_ast = Box::new(Ast::Localid(name.clone(), B.loc));
+    let ds = Ast::DefData(ast::DataType::Struple, name_ast, C, D);
+    A = Kxpr::new(name, ds);
 }
 
 
@@ -287,7 +293,6 @@ macro_stmt(A) ::=
 expr(A) ::= if_expr(B). { A = B; }
 expr(A) ::= match_expr(B). { A = B; }
 expr(A) ::= call_expr(B). { A = B; }
-expr(A) ::= arrow_expr(B). { A = Ast::TypeFunc(B.0); }
 expr(A) ::= block(B) DOUBLEDASH. { A = B; }
 expr(A) ::= term(B). { A = B; }
 
@@ -346,12 +351,15 @@ call_expr(A) ::= term(B) PARENCALL(D) expr_list(C) RPAREN. {
     A = Ast::Call(Box::new(B), C, D);
 }
 
-arrow_expr(A) ::= term(B) TYPEARROW(L) term(C). {
-    A = (vec![B, C], L);
+expr(A) ::= arrow_expr(B). {
+    A = Ast::TypeFunc(B.0, B.1);
 }
-arrow_expr(A) ::= arrow_expr(B) TYPEARROW term(C). {
+arrow_expr(A) ::= term(B) TYPEARROW(L) term(C). {
+    A = (vec![Kxpr::new_x(B), Kxpr::new_x(C)], L);
+}
+arrow_expr(A) ::= arrow_expr(B) TYPEARROW(L) term(C). {
     let mut tmp = B;
-    tmp.0.push(C);
+    tmp.0.push(Kxpr::new_x(C));
     A = tmp;
 }
 
@@ -611,10 +619,10 @@ k_list(A) ::= k_maybe_x(B) COMMA k_list(C). {
     A = tmp;
 }
 k_maybe_x(A) ::= ID(B). {
-    A = Kxpr::new_k(Lstr::from(B.data), B.loc);
+    A = Kxpr::new_k(Lstr::from(B.data));
 }
 k_maybe_x(A) ::= ID(B) COLON expr(C). {
-    A = Kxpr::new(Lstr::from(B.data), C, B.loc);
+    A = Kxpr::new(Lstr::from(B.data), C);
 }
 
 x_list(A) ::= . {
@@ -631,10 +639,10 @@ x_list(A) ::= x_maybe_k(B) COMMA x_list(C). {
     A = tmp;
 }
 x_maybe_k(A) ::= expr(B). {
-    A = Kxpr::new_x(B, SrcLoc::default());
+    A = Kxpr::new_x(B);
 }
 x_maybe_k(A) ::= ID(B) COLON expr(C). {
-    A = Kxpr::new(Lstr::from(B.data), C, B.loc);
+    A = Kxpr::new(Lstr::from(B.data), C);
 }
 
 
