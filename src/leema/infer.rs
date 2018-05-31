@@ -135,7 +135,7 @@ impl<'b> Inferator<'b>
         };
         if argn.is_some() {
             let argn_u = argn.unwrap();
-            if !self.T.contains_key(argn_u.str()) {
+            if self.T.contains_key(argn_u.str()) {
                 let oldargt = self.T.get(argn_u.str()).unwrap();
                 return Inferator::mash(&mut self.inferences, oldargt, &realt);
             }
