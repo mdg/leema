@@ -1,5 +1,5 @@
 %include {
-use leema::ast::{self, Ast, TokenData, TypedId};
+use leema::ast::{self, Ast, TokenData, Kxpr};
 use leema::val::{SrcLoc};
 use leema::lstr::{Lstr};
 use leema::log;
@@ -61,6 +61,7 @@ use std::io::{Write};
 %type STRUCT { SrcLoc }
 %type STRUPLE { SrcLoc }
 %type TIMES { SrcLoc }
+%type TYPEARROW { SrcLoc }
 %type TYPE_VAR { TokenData<String> }
 %type XOR { SrcLoc }
 
@@ -78,11 +79,12 @@ use std::io::{Write};
 %type if_stmt { Ast }
 %type else_if { ast::IfCase }
 %type expr_list { LinkedList<Ast> }
-%type id_type { TypedId }
-%type id_type_list { LinkedList<TypedId> }
+%type k_maybe_x { Kxpr }
+%type k_list { LinkedList<Kxpr> }
+%type x_maybe_k { Kxpr }
+%type x_list { LinkedList<Kxpr> }
 %type if_expr { Ast }
 %type if_case { ast::IfCase }
-%type keyed_expr { Ast }
 %type localid { Ast }
 %type lri { Ast }
 %type lri_base { (Vec<Lstr>, SrcLoc) }
@@ -96,9 +98,8 @@ use std::io::{Write};
 %type let_stmt { Ast }
 %type term { Ast }
 %type expr { Ast }
-%type typex { Ast }
 %type opt_typex { Ast }
-%type arrow_typex { (Vec<Ast>, SrcLoc) }
+%type arrow_expr { (Vec<Ast>, SrcLoc) }
 %type type_term { Ast }
 %type mod_type { Ast }
 
@@ -183,7 +184,7 @@ stmt(A) ::= RETURN(C) expr(B). {
 
 /** Struple Definitions */
 
-defstruple(A) ::= STRUPLE(L) lri(C) PARENCALL expr_list(D) RPAREN.
+defstruple(A) ::= STRUPLE(L) lri(C) PARENCALL x_list(D) RPAREN.
 {
     A = Ast::DefData(ast::DataType::Struple, Box::new(C), D, L);
 }
@@ -217,7 +218,7 @@ defenum_variants(A) ::= defenum_variant(B). {
     tmp.push_back(B);
     A = tmp;
 }
-defenum_variant(A) ::= PIPE(D) localid(B) PARENCALL expr_list(C) RPAREN. {
+defenum_variant(A) ::= PIPE(D) localid(B) PARENCALL x_list(C) RPAREN. {
     A = Ast::DefData(ast::DataType::Struple, Box::new(B), C, D);
 }
 defenum_variant(A) ::= PIPE(D) localid(B) defstruple_block(C). {
@@ -242,21 +243,21 @@ let_stmt ::= Let expr EQ1(A) expr. {
 
 /* rust func declaration */
 func_stmt(A) ::=
-    Func(Z) lri(B) PARENCALL id_type_list(D) RPAREN COLON typex(E) RUSTBLOCK.
+    Func(Z) lri(B) PARENCALL k_list(D) RPAREN COLON expr(E) RUSTBLOCK.
 {
     A = Ast::DefFunc(ast::FuncClass::Func
         , Box::new(B), D, Box::new(E), Box::new(Ast::RustBlock), Z);
 }
 
 /* func one case, no matching */
-func_stmt(A) ::= Func(Z) lri(B) PARENCALL id_type_list(D) RPAREN opt_typex(E)
+func_stmt(A) ::= Func(Z) lri(B) PARENCALL k_list(D) RPAREN opt_typex(E)
     block(C) DOUBLEDASH.
 {
     A = Ast::DefFunc(ast::FuncClass::Func
         , Box::new(B), D, Box::new(E), Box::new(C), Z);
 }
 /* func w/ pattern matching */
-func_stmt(A) ::= Func(Z) lri(B) PARENCALL id_type_list(C) RPAREN opt_typex(D)
+func_stmt(A) ::= Func(Z) lri(B) PARENCALL k_list(C) RPAREN opt_typex(D)
     if_case(E) DOUBLEDASH.
 {
     // extract field names from args to pass them through to match expr
@@ -269,30 +270,14 @@ func_stmt(A) ::= Func(Z) lri(B) PARENCALL id_type_list(C) RPAREN opt_typex(D)
 opt_typex(A) ::= . {
     A = Ast::TypeAnon;
 }
-opt_typex(A) ::= COLON typex(B). {
+opt_typex(A) ::= COLON expr(B). {
     A = B;
-}
-
-typex(A) ::= term(B). {
-    A = B;
-}
-typex(A) ::= arrow_typex(B). {
-    A = Ast::TypeFunc(B.0, B.1);
-}
-
-arrow_typex(A) ::= term(B) GT(L) term(C). {
-    A = (vec![B, C], L);
-}
-arrow_typex(A) ::= arrow_typex(B) GT term(C). {
-    let mut tmp = B;
-    tmp.0.push(C);
-    A = tmp;
 }
 
 
 /* defining a macro */
 macro_stmt(A) ::=
-    MACRO(Z) localid(B) PARENCALL id_type_list(D) RPAREN block(C) DOUBLEDASH.
+    MACRO(Z) localid(B) PARENCALL k_list(D) RPAREN block(C) DOUBLEDASH.
 {
     vout!("found macro {:?}\n", B);
     A = Ast::DefFunc(ast::FuncClass::Macro
@@ -302,6 +287,7 @@ macro_stmt(A) ::=
 expr(A) ::= if_expr(B). { A = B; }
 expr(A) ::= match_expr(B). { A = B; }
 expr(A) ::= call_expr(B). { A = B; }
+expr(A) ::= arrow_expr(B). { A = Ast::TypeFunc(B.0); }
 expr(A) ::= block(B) DOUBLEDASH. { A = B; }
 expr(A) ::= term(B). { A = B; }
 
@@ -356,7 +342,17 @@ else_if(A) ::= ELSE(L) block(B). {
 
 /* regular function call */
 call_expr(A) ::= term(B) PARENCALL(D) expr_list(C) RPAREN. {
+    /* TODO: convert this expr_list to an x_list */
     A = Ast::Call(Box::new(B), C, D);
+}
+
+arrow_expr(A) ::= term(B) TYPEARROW(L) term(C). {
+    A = (vec![B, C], L);
+}
+arrow_expr(A) ::= arrow_expr(B) TYPEARROW term(C). {
+    let mut tmp = B;
+    tmp.0.push(C);
+    A = tmp;
 }
 
 expr(A) ::= term(B) DOLLAR term(C). {
@@ -550,6 +546,7 @@ list(A) ::= SquareL expr_list(B) SquareR. {
  * (4 + 4, 6 - 7)
  */
 tuple(A) ::= LPAREN expr_list(B) RPAREN. {
+    /* TODO: convert this expr_list to an x_list */
     A = Ast::Tuple(B);
 }
 
@@ -580,44 +577,64 @@ lri_base(A) ::= lri_base(B) DBLCOLON ID(C). {
 }
 
 
-id_type_list(A) ::= . {
-    A = LinkedList::new();
-}
-id_type_list(A) ::= id_type(B). {
-    let mut tmp = LinkedList::new();
-    tmp.push_back(B);
-    A = tmp;
-}
-id_type_list(A) ::= id_type(B) COMMA id_type_list(C). {
-    let mut tmp = C;
-    tmp.push_front(B);
-    A = tmp;
-}
-id_type(A) ::= ID(B). {
-    A = TypedId::new_id(Lstr::from(B.data), B.loc);
-}
-id_type(A) ::= ID(B) COLON typex(C). {
-    A = TypedId::new(Lstr::from(B.data), C, B.loc);
-}
+/** 3 list types
+expr_list: list of bare expressions
+k_list: list of keys, each key might have an expr
+x_list: list of expressions, each expr might have a key
+*/
 
 expr_list(A) ::= . {
     A = LinkedList::new();
 }
-expr_list(A) ::= keyed_expr(B). {
+expr_list(A) ::= expr(B). {
     let mut tmp = LinkedList::new();
     tmp.push_front(B);
     A = tmp;
 }
-expr_list(A) ::= keyed_expr(B) COMMA expr_list(C). {
+expr_list(A) ::= expr(B) COMMA expr_list(C). {
     let mut tmp = C;
     tmp.push_front(B);
     A = tmp;
 }
-keyed_expr(A) ::= expr(B). {
-    A = B;
+
+k_list(A) ::= . {
+    A = LinkedList::new();
 }
-keyed_expr(A) ::= ID(B) COLON expr(C). {
-    A = Ast::KeyedExpr(Lstr::from(B.data), Box::new(C), B.loc);
+k_list(A) ::= k_maybe_x(B). {
+    let mut tmp = LinkedList::new();
+    tmp.push_back(B);
+    A = tmp;
+}
+k_list(A) ::= k_maybe_x(B) COMMA k_list(C). {
+    let mut tmp = C;
+    tmp.push_front(B);
+    A = tmp;
+}
+k_maybe_x(A) ::= ID(B). {
+    A = Kxpr::new_k(Lstr::from(B.data), B.loc);
+}
+k_maybe_x(A) ::= ID(B) COLON expr(C). {
+    A = Kxpr::new(Lstr::from(B.data), C, B.loc);
+}
+
+x_list(A) ::= . {
+    A = LinkedList::new();
+}
+x_list(A) ::= x_maybe_k(B). {
+    let mut tmp = LinkedList::new();
+    tmp.push_front(B);
+    A = tmp;
+}
+x_list(A) ::= x_maybe_k(B) COMMA x_list(C). {
+    let mut tmp = C;
+    tmp.push_front(B);
+    A = tmp;
+}
+x_maybe_k(A) ::= expr(B). {
+    A = Kxpr::new_x(B, SrcLoc::default());
+}
+x_maybe_k(A) ::= ID(B) COLON expr(C). {
+    A = Kxpr::new(Lstr::from(B.data), C, B.loc);
 }
 
 

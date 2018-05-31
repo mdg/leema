@@ -925,6 +925,7 @@ pub fn split_func_args_body(defunc: &Ast) -> (Vec<Lstr>, &Ast, &SrcLoc)
     if let &Ast::DefFunc(ast::FuncClass::Func
         , ref name, ref args, ref result, ref body, ref loc) = defunc
     {
+        vout!("split_func_args({:?})\n", name);
         let arg_names = args.iter().map(|a| {
             Lstr::from(a)
         }).collect();

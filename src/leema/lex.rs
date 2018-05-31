@@ -61,6 +61,9 @@ impl Token
             match (*tok).tok {
                 parse::TOKEN_BLOCKARROW => Token::BLOCKARROW(tl),
                 parse::TOKEN_DOUBLEDASH => Token::DOUBLEDASH(tl),
+                parse::TOKEN_TYPEARROW => {
+                    Token::TYPEARROW(tl)
+                }
                 parse::TOKEN_Func => {
                     Token::Func(tl)
                 }
