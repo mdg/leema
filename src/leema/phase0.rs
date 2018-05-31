@@ -475,10 +475,16 @@ impl Protomod
     }
 
     pub fn preproc_data(&mut self, prog: &Lib, mp: &ModulePreface
-        , datatype: ast::DataType, name: &Ast
+        , datatype: ast::DataType, name_ast: &Ast
         , fields: &LinkedList<Kxpr>, loc: &SrcLoc
         )
     {
+        let name = Lri::from(name_ast);
+        if name.mod_ref().is_some() {
+            panic!("no modules in data definitions: {}"
+                , name);
+        }
+
         match datatype {
             ast::DataType::Struple => {
                 if fields.is_empty() {
@@ -489,24 +495,27 @@ impl Protomod
                 }
             }
             ast::DataType::Enum => {
-                self.preproc_enum(prog, mp, name, fields, loc);
+                self.preproc_enum(prog, mp, name_ast, fields, loc);
             }
         }
     }
 
     pub fn preproc_struple_token(&mut self, prog: &Lib, mp: &ModulePreface
-        , name: &Ast, loc: &SrcLoc
+        , name: Lri, loc: &SrcLoc
         )
     {
-        let name_lstr = Lstr::from(name);
+        if name.param_ref().is_some() {
+            panic!("no type params for tokens: {}", name);
+        }
+        let name_lstr = name.local_ref();
         let mod_lstr = Lstr::Rc(mp.key.name.clone());
-        let name_lri = Lri::with_modules(mod_lstr, name_lstr.clone());
-        let type_name = Type::Ref(name_lri);
+        let full_lri = name.add_modules(mod_lstr);
+        let type_name = Type::Ref(full_lri);
 
         // a token struct is stored as a constant with no constructor
         let constval = Val::Token(type_name.clone());
-        self.constants.insert(String::from(&name_lstr), constval);
-        self.valtypes.insert(String::from(&name_lstr), type_name);
+        self.constants.insert(String::from(name_lstr.str()), constval);
+        self.valtypes.insert(String::from(name_lstr.str()), type_name);
     }
 
     pub fn preproc_enum_token(&mut self, prog: &Lib, mp: &ModulePreface
@@ -516,17 +525,17 @@ impl Protomod
     }
 
     pub fn preproc_struple_with_fields(&mut self, prog: &Lib
-        , mp: &ModulePreface, name: &Ast
+        , mp: &ModulePreface, name: Lri
         , src_fields: &LinkedList<Kxpr>, loc: &SrcLoc
         )
     {
-        let name_lstr = Lstr::from(name);
+        let name_lstr = name.local_ref();
         let mod_lstr = Lstr::Rc(self.key.name.clone());
 
         let type_lri = Lri::with_modules(mod_lstr.clone(), name_lstr.clone());
 
         self.preproc_struple_fields(prog, mp, name_lstr.clone()
-            , mod_lstr, name_lstr, src_fields, loc);
+            , mod_lstr, name_lstr.clone(), src_fields, loc);
     }
 
     pub fn preproc_struple_fields(&mut self, prog: &Lib, mp: &ModulePreface

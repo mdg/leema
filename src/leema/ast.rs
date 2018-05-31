@@ -325,8 +325,13 @@ impl<'a> From<&'a Ast> for Lri
                         Type::from(p)
                     }).collect()
                 });
+                let modname = if names.len() == 1 {
+                    None
+                } else {
+                    Some(names.first().unwrap().clone())
+                };
                 Lri::full(
-                    Some(names.first().unwrap().clone()),
+                    modname,
                     names.last().unwrap().clone(),
                     param_array,
                 )

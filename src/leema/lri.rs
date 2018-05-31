@@ -47,9 +47,36 @@ impl Lri
         }
     }
 
+    pub fn add_modules(&self, mods: Lstr) -> Lri
+    {
+        Lri{
+            modules: Some(mods),
+            localid: self.localid.clone(),
+            params: self.params.clone(),
+        }
+    }
+
+    pub fn mod_ref(&self) -> Option<&Lstr>
+    {
+        self.modules.as_ref()
+    }
+
+    /**
+     * deprecated
+     */
     pub fn local(&self) -> &Lstr
     {
         &self.localid
+    }
+
+    pub fn local_ref(&self) -> &Lstr
+    {
+        &self.localid
+    }
+
+    pub fn param_ref(&self) -> Option<&Vec<Type>>
+    {
+        self.params.as_ref()
     }
 
     pub fn deep_clone(&self) -> Lri
@@ -75,16 +102,14 @@ impl fmt::Display for Lri
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        match self {
-            &Lri{modules: None, localid: ref lid, params: None} => {
-                write!(f, "{}", lid)
-            }
-            &Lri{modules: Some(ref mods), localid: ref lid, params: None} => {
-                write!(f, "{}::{}", mods, lid)
-            }
-            &Lri{modules: _, localid: ref lid, params: Some(ref typs)} => {
-                panic!("cannot display Lri with types: {:?}", self);
-            }
+        if self.modules.is_some() {
+            write!(f, "{}::", self.modules.as_ref().unwrap())?;
+        }
+        if self.params.is_none() {
+            write!(f, "{}", self.localid)
+        } else {
+            write!(f, "{}", self.localid)?;
+            write!(f, "{:?}", &self.params.as_ref().unwrap())
         }
     }
 }
