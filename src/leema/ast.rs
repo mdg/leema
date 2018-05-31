@@ -117,6 +117,58 @@ impl IfCase
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
+pub struct TypedId
+{
+    id: Option<Lstr>,
+    typ: Option<Box<Ast>>,
+    pub loc: SrcLoc,
+}
+
+impl TypedId
+{
+    pub fn new(id: Lstr, typ: Ast, loc: SrcLoc) -> TypedId
+    {
+        TypedId{
+            id: Some(id),
+            typ: Some(Box::new(typ)),
+            loc: loc,
+        }
+    }
+
+    pub fn new_id(id: Lstr, loc: SrcLoc) -> TypedId
+    {
+        TypedId{
+            id: Some(id),
+            typ: None,
+            loc: loc,
+        }
+    }
+
+    pub fn new_typ(typ: Ast, loc: SrcLoc) -> TypedId
+    {
+        TypedId{
+            id: None,
+            typ: Some(Box::new(typ)),
+            loc: loc,
+        }
+    }
+
+    pub fn id_ref(&self) -> Option<&Lstr>
+    {
+        self.id.as_ref()
+    }
+
+    pub fn typ_ref(&self) -> Option<&Ast>
+    {
+        self.typ.map(|t| {
+            &*t
+        })
+    }
+}
+
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
 pub enum Ast
 {
     Block(Vec<Ast>),
@@ -129,7 +181,8 @@ pub enum Ast
     ConstStr(Lstr),
     ConstVoid,
     DefData(DataType, Box<Ast>, LinkedList<Ast>, SrcLoc),
-    DefFunc(FuncClass, Box<Ast>, LinkedList<Ast>, Box<Ast>, Box<Ast>, SrcLoc),
+    DefFunc(FuncClass
+        , Box<Ast>, LinkedList<TypedId>, Box<Ast>, Box<Ast>, SrcLoc),
     DotAccess(Box<Ast>, Lstr),
     IfExpr(IfType, Box<Ast>, Box<IfCase>, SrcLoc),
     Import(Box<Ast>, SrcLoc),
@@ -144,7 +197,7 @@ pub enum Ast
     Tuple(LinkedList<Ast>),
     TypeAnon,
     TypeBool,
-    TypeFunc(Vec<Ast>, SrcLoc),
+    TypeFunc(Vec<TypedId>, SrcLoc),
     TypeInt,
     TypeHashtag,
     TypeStr,
@@ -167,22 +220,17 @@ impl Ast
         Ast::Call(Box::new(name_lri), args, loc)
     }
 
-    pub fn matchfunc_body(ids: &LinkedList<Ast>, cases: IfCase, loc: SrcLoc
+    pub fn matchfunc_body(ids: &LinkedList<TypedId>, cases: IfCase, loc: SrcLoc
         ) -> Ast
     {
         let match_args = ids.iter().map(|idx| {
-            match idx {
-                &Ast::KeyedExpr(ref id, _, loc) => {
-                    Ast::Localid(id.clone(), loc)
+            match idx.id_ref() {
+                None => {
+                    panic!("cannot match function with unnamed parameter: {:?}"
+                        , ids);
                 }
-                &Ast::Lri(_, _, _) => {
-                    idx.clone()
-                }
-                &Ast::Localid(_, _) => {
-                    idx.clone()
-                }
-                _ => {
-                    panic!("unknown argument value");
+                Some(id) => {
+                    Ast::Localid(id.clone(), idx.loc)
                 }
             }
         }).collect();
@@ -310,7 +358,7 @@ impl<'a> From<&'a Ast> for Type
             &Ast::TypeVoid => Type::Void,
             &Ast::TypeFunc(ref parts, _) => {
                 let mut ppp: Vec<Type> = parts.iter().map(|p| {
-                    Type::from(p)
+                    Type::from(p.typ_ref().unwrap())
                 }).collect();
                 let result = ppp.pop().unwrap();
                 Type::Func(ppp, Box::new(result))

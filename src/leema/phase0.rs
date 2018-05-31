@@ -1,5 +1,5 @@
 use leema::program::{Lib};
-use leema::ast::{self, Ast};
+use leema::ast::{self, Ast, TypedId};
 use leema::lri::{Lri};
 use leema::lstr::{Lstr};
 use leema::val::{Val, Type, SrcLoc};
@@ -164,7 +164,8 @@ impl Protomod
             }
             &Ast::TypeFunc(ref parts, ref loc) => {
                 let ppp = parts.iter().map(|p| {
-                    Protomod::preproc_expr(prog, mp, p, loc)
+                    Protomod::preproc_func_arg(prog, mp
+                        , &Lstr::Sref("anon_func_type"), p)
                 }).collect();
                 Ast::TypeFunc(ppp, *loc)
             }
@@ -189,43 +190,51 @@ impl Protomod
         }
     }
 
-    pub fn preproc_func_arg(prog: &Lib, mp: &ModulePreface, func_name: &Lstr,
-        arg: &Ast, loc: &SrcLoc
-        ) -> Ast
+    pub fn preproc_func_arg(prog: &Lib, mp: &ModulePreface
+        , func_name: &Lstr, arg: &TypedId
+        ) -> TypedId
     {
-        match arg {
-            &Ast::Localid(ref id, ref iloc) => {
+        match (arg.id_ref(), arg.typ_ref()) {
+            (None, None) => {
+                panic!("cannot preproc arg with no id or type: {:?}", arg.loc);
+            }
+            (None, Some(&Ast::TypeAnon)) => {
+                panic!("cannot preproc arg with no id and anonymous type: {:?}"
+                    , arg.loc);
+            }
+            (None, Some(typ)) => {
+                let pp_typ = Protomod::preproc_expr(prog, mp, typ, &arg.loc);
+                TypedId::new_typ(pp_typ, arg.loc)
+            }
+            (Some(id), None) => {
                 let type_name = Lstr::from(
                     format!("{}_{}_{}", mp.key.name, func_name.str(), id)
                 );
-                let typ2 = Ast::TypeVar(type_name, *iloc);
-                Ast::KeyedExpr(id.clone(), Box::new(typ2), *iloc)
+                let typ = Ast::TypeVar(type_name, arg.loc);
+                TypedId::new(id.clone(), typ, arg.loc)
             }
-            &Ast::KeyedExpr(ref id, ref typ, ref iloc) => {
-                if let Ast::TypeAnon = **typ {
-                    let type_name = Lstr::from(
-                        format!("{}_{}_{}", mp.key.name, func_name.str(), id)
-                    );
-                    let new_typ = Ast::TypeVar(type_name, *iloc);
-                    Ast::KeyedExpr(id.clone(), Box::new(new_typ), *iloc)
-                } else {
-                    arg.clone()
-                }
+            (Some(id), Some(&Ast::TypeAnon)) => {
+                let type_name = Lstr::from(
+                    format!("{}_{}_{}", mp.key.name, func_name.str(), id)
+                );
+                let new_typ = Ast::TypeVar(type_name, arg.loc);
+                TypedId::new(id.clone(), new_typ, arg.loc)
             }
-            _ => {
-                panic!("unexpected function arg: {:?}", arg);
+            (Some(id), Some(typ)) => {
+                let pp_typ = Protomod::preproc_expr(prog, mp, typ, &arg.loc);
+                TypedId::new(id.clone(), pp_typ, arg.loc)
             }
         }
     }
 
     pub fn preproc_defunc(&mut self, prog: &Lib, mp: &ModulePreface
-        , fclass: ast::FuncClass, name: &Ast, args: &LinkedList<Ast>
+        , fclass: ast::FuncClass, name: &Ast, args: &LinkedList<TypedId>
         , rtype: &Ast, body: &Ast, loc: &SrcLoc
         )
     {
         let lstr_name = Lstr::from(name);
-        let pp_args: LinkedList<Ast> = args.iter().map(|a| {
-            Protomod::preproc_func_arg(prog, mp, &lstr_name, a, loc)
+        let pp_args: LinkedList<TypedId> = args.iter().map(|a| {
+            Protomod::preproc_func_arg(prog, mp, &lstr_name, a)
         }).collect();
         let pp_rtype_ast = Protomod::preproc_expr(prog, mp, rtype, loc);
         let pp_body = Protomod::preproc_expr(prog, mp, body, loc);
@@ -238,13 +247,13 @@ impl Protomod
         let rcname: Rc<String> = From::from(&lstr_name);
         let strname = (*rcname).clone();
 
-        let mut ftype_parts: Vec<Ast> =
+        let mut ftype_parts: Vec<TypedId> =
             pp_args.iter().map(|a| {
                 // Protomod::preproc_type(prog, mp, a, loc)
                 a.clone()
             })
             .collect();
-        ftype_parts.push(pp_rtype_ast);
+        ftype_parts.push(TypedId::new_typ(pp_rtype_ast, *loc));
         let ftype_ast = Ast::TypeFunc(ftype_parts, *loc);
         let ftype = Type::from(&ftype_ast);
 
@@ -278,7 +287,7 @@ impl Protomod
     }
 
     pub fn apply_macro(macro_name: &Ast, body: &Ast
-        , arg_names: &LinkedList<Ast>, args: &LinkedList<Ast>, loc: &SrcLoc
+        , arg_names: &LinkedList<TypedId>, args: &LinkedList<Ast>, loc: &SrcLoc
         ) -> Ast
     {
         let mut arg_map = HashMap::new();
@@ -296,7 +305,12 @@ impl Protomod
             }
         }
         for (n, arg_val) in arg_names.iter().zip(args.iter()) {
-            let n_lstr = Lstr::from(n);
+            let n_opt = n.id_ref();
+            if n_opt.is_none() {
+                panic!("macro has unnamed args: {:?} -> {:?}"
+                    , macro_name, arg_names);
+            }
+            let n_lstr = n_opt.unwrap().clone();
             arg_map.insert(n_lstr, arg_val);
         }
         vout!("replace_ids({:?})\n", arg_map);

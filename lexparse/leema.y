@@ -1,5 +1,5 @@
 %include {
-use leema::ast::{self, Ast, TokenData};
+use leema::ast::{self, Ast, TokenData, TypedId};
 use leema::val::{SrcLoc};
 use leema::lstr::{Lstr};
 use leema::log;
@@ -78,8 +78,8 @@ use std::io::{Write};
 %type if_stmt { Ast }
 %type else_if { ast::IfCase }
 %type expr_list { LinkedList<Ast> }
-%type id_type { Ast }
-%type id_type_list { LinkedList<Ast> }
+%type id_type { TypedId }
+%type id_type_list { LinkedList<TypedId> }
 %type if_expr { Ast }
 %type if_case { ast::IfCase }
 %type keyed_expr { Ast }
@@ -594,10 +594,10 @@ id_type_list(A) ::= id_type(B) COMMA id_type_list(C). {
     A = tmp;
 }
 id_type(A) ::= ID(B). {
-    A = Ast::Localid(Lstr::from(B.data), B.loc);
+    A = TypedId::new_id(Lstr::from(B.data), B.loc);
 }
 id_type(A) ::= ID(B) COLON typex(C). {
-    A = Ast::KeyedExpr(Lstr::from(B.data), Box::new(C), B.loc);
+    A = TypedId::new(Lstr::from(B.data), C, B.loc);
 }
 
 expr_list(A) ::= . {
