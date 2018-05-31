@@ -221,7 +221,7 @@ class TestScripts(unittest.TestCase):
     def test_named_tuple(self):
         result = run_leema('named_tuple')
         self.assertEqual(0, result['code'])
-        expected = b"""greeting is: "Greeting(hello,world,)"\n"""
+        expected = b"""greeting is: "named_tuple::Greeting(hello,world,)"\n"""
         self.assertEqual(expected, result['output'])
 
     def test_color_enum(self):
