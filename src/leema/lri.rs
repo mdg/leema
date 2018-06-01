@@ -56,6 +56,16 @@ impl Lri
         }
     }
 
+    pub fn local_only(&self) -> bool
+    {
+        self.modules.is_none() && self.params.is_none()
+    }
+
+    pub fn has_modules(&self) -> bool
+    {
+        self.modules.is_some()
+    }
+
     pub fn mod_ref(&self) -> Option<&Lstr>
     {
         self.modules.as_ref()

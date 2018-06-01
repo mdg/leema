@@ -220,6 +220,20 @@ impl Ast
         Ast::Call(Box::new(name_lri), args, loc)
     }
 
+    pub fn from_lri(l: Lri, loc: &SrcLoc) -> Ast
+    {
+        if l.local_only() {
+            Ast::Localid(l.local_ref().clone(), *loc)
+        } else {
+            let mods = if l.has_modules() {
+                vec![l.mod_ref().unwrap().clone(), l.local_ref().clone()]
+            } else {
+                vec![l.local_ref().clone()]
+            };
+            Ast::Lri(mods, None, *loc)
+        }
+    }
+
     pub fn matchfunc_body(ids: &LinkedList<Kxpr>, cases: IfCase, loc: SrcLoc
         ) -> Ast
     {
@@ -386,8 +400,8 @@ impl<'a> From<&'a Ast> for Type
                 }).collect();
                 Type::Tuple(pp_items)
             }
-            &Ast::Localid(_, _) => {
-                Type::Ref(Lri::from(a))
+            &Ast::Localid(ref id, _) => {
+                Type::Id(id.rc())
             }
             &Ast::Lri(_, _, _) => {
                 Type::Ref(Lri::from(a))

@@ -529,17 +529,17 @@ impl Protomod
         , src_fields: &LinkedList<Kxpr>, loc: &SrcLoc
         )
     {
-        let name_lstr = name.local_ref();
+        let name_lstr = name.local_ref().clone();
         let mod_lstr = Lstr::Rc(self.key.name.clone());
 
         let type_lri = Lri::with_modules(mod_lstr.clone(), name_lstr.clone());
 
-        self.preproc_struple_fields(prog, mp, name_lstr.clone()
-            , mod_lstr, name_lstr.clone(), src_fields, loc);
+        self.preproc_struple_fields(prog, mp, name
+            , mod_lstr, name_lstr, src_fields, loc);
     }
 
     pub fn preproc_struple_fields(&mut self, prog: &Lib, mp: &ModulePreface
-        , local_typename: Lstr, mod_name: Lstr, local_name: Lstr
+        , local_type: Lri, mod_name: Lstr, local_name: Lstr
         , src_fields: &LinkedList<Kxpr>, loc: &SrcLoc
         )
     {
@@ -557,16 +557,13 @@ impl Protomod
             ftype.clone()
         }).collect();
 
-        let struple_lri =
-            Lri::with_modules(mod_name.clone(), local_typename.clone());
+        let struple_lri = local_type.add_modules(mod_name.clone());
         let result_type = Type::Ref(struple_lri.clone());
         let full_type =
-            Type::Struple(Some(struple_lri), struple_fields.clone());
+            Type::Struple(Some(struple_lri.clone()), struple_fields.clone());
         let func_type = Type::Func(field_type_vec, Box::new(result_type));
 
-        let src_typename =
-            Ast::Lri(vec![mod_name.clone(), local_typename.clone()]
-                , None, *loc);
+        let src_typename = Ast::from_lri(struple_lri.clone(), loc);
         let localid_ast = Ast::Localid(local_name.clone(), *loc);
         let srcblk = Ast::ConstructData(ast::DataType::Struple
             , Box::new(localid_ast), Vec::with_capacity(0)
@@ -582,7 +579,7 @@ impl Protomod
         self.funcseq.push_back(local_name.rc());
         self.funcsrc.insert(String::from(&local_name), srcxpr);
         self.valtypes.insert(String::from(&local_name), func_type);
-        self.deftypes.insert(local_typename, full_type);
+        self.deftypes.insert(struple_lri.local_ref().clone(), full_type);
         self.struple_flds.insert(local_name, struple_fields);
     }
 
@@ -640,13 +637,14 @@ impl Protomod
             Rc::new(local_type.clone()),
         );
 
+        let mut type_params: HashSet<Lstr> = HashSet::new();
         let mut variant_fields = Vec::with_capacity(src_variants.len());
         for (bigi, kx) in src_variants.iter().enumerate() {
             let i = bigi as i16;
             let v = kx.x_ref().unwrap();
             if let &Ast::DefData(vdatatype, ref vname, ref fields, ref loc) = v {
                 self.preproc_enum_variant(prog, mp, &name, i
-                    , vdatatype, vname, fields, loc);
+                    , vdatatype, vname, &type_params, fields, loc);
                 let variant_lstr = Lstr::from(&**vname);
                 let variant_name: Rc<String> = From::from(&variant_lstr);
                 let vf = (variant_name, mod_type.clone());
@@ -662,11 +660,13 @@ impl Protomod
 
     pub fn preproc_enum_variant(&mut self, prog: &Lib, mp: &ModulePreface
         , typename: &Ast, i: i16, dataclass: ast::DataType
-        , name: &Ast, fields: &LinkedList<Kxpr>, loc: &SrcLoc
+        , name: &Ast, type_params: &HashSet<Lstr>
+        , fields: &LinkedList<Kxpr>, loc: &SrcLoc
         )
     {
         let mod_name = self.key.name.clone();
         let mod_lstr = Lstr::Rc(mod_name.clone());
+        let typ_lri = Lri::from(typename);
         let typ = Type::from(typename);
         let type_lstr = Lstr::from(typename);
         let variant_name = Lstr::from(name);
@@ -684,7 +684,7 @@ impl Protomod
                 self.constants.insert(variant_name_string.clone(), const_val);
                 self.valtypes.insert(variant_name_string, typ);
             } else {
-                self.preproc_struple_fields(prog, mp, type_lstr
+                self.preproc_struple_fields(prog, mp, typ_lri
                     , mod_lstr, variant_name, fields, loc);
             }
         } else {
