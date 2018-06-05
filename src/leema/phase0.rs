@@ -474,6 +474,44 @@ impl Protomod
         }
     }
 
+    pub fn preproc_type(prog: &Lib, mp: &ModulePreface
+        , opt_type_params: Option<&Vec<Type>>, typ: &Ast, loc: &SrcLoc
+        ) -> Type
+    {
+        let pp_x = Protomod::preproc_expr(prog, mp, typ, loc);
+        match (&pp_x, opt_type_params) {
+            (&Ast::Localid(ref name, ref iloc), None) => {
+                Type::Id(name.rc())
+            }
+            (&Ast::Localid(ref name, ref iloc), Some(ref type_params)) => {
+                Protomod::find_type_param(type_params, name)
+                .map(|i| {
+                    Type::Param(i)
+                })
+                .unwrap_or_else(|| {
+                    Type::Id(name.rc())
+                })
+            }
+            (&Ast::TypeVar(ref name, ref iloc), _) => {
+                Type::Id(name.rc())
+            }
+            _ => {
+                Type::from(&pp_x)
+            }
+        }
+    }
+
+    pub fn find_type_param(params: &Vec<Type>, name: &str) -> Option<i8>
+    {
+        for (i, p) in params.iter().enumerate() {
+            let p_rc = p.local_typename();
+            if &**p_rc == name {
+                return Some(i as i8)
+            }
+        }
+        None
+    }
+
     pub fn preproc_data(&mut self, prog: &Lib, mp: &ModulePreface
         , datatype: ast::DataType, name_ast: &Ast
         , fields: &LinkedList<Kxpr>, loc: &SrcLoc
@@ -544,12 +582,12 @@ impl Protomod
         )
     {
         let struple_fields: Vec<(Option<Lstr>, Type)> =
-            src_fields.iter().map(|f| {
+            src_fields.iter()
+            .map(|f| {
                 // struple fields are made w/ an x_list,
                 // x_ref will always be there
-                let pp_x = Protomod::preproc_expr(prog, mp
-                    , f.x_ref().unwrap(), loc);
-                let pp_type = Type::from(&pp_x);
+                let pp_type = Protomod::preproc_type(prog, mp
+                    , local_type.param_ref(), f.x_ref().unwrap(), loc);
                 (f.k_clone(), pp_type)
             }).collect();
 

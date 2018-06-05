@@ -62,6 +62,7 @@ pub enum Type
     Lib(String),
     Resource(Rc<String>),
     RustBlock,
+    Param(i8),
     // Future(Box<Type>),
     Void,
     /*
@@ -428,6 +429,9 @@ impl fmt::Display for Type
             &Type::ModPrefix(ref prefix, ref sub) => {
                 write!(f, "{}::{}", prefix, sub)
             }
+            &Type::Param(index) => {
+                write!(f, "Type::Param({})", index)
+            }
             &Type::Var(ref name) => {
                 write!(f, "Type::Var({})", name)
             }
@@ -489,6 +493,9 @@ impl fmt::Debug for Type
             }
             &Type::Var(ref name) => {
                 write!(f, "Type::Var({})", name)
+            }
+            &Type::Param(index) => {
+                write!(f, "Type::Param({})", index)
             }
             &Type::AnonVar => write!(f, "TypeAnonymous"),
         }
