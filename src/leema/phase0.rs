@@ -1000,16 +1000,19 @@ fn test_preproc_namedtuple()
     let greet = Rc::new("greet".to_string());
     let greeting_str = Rc::new("Greeting".to_string());
     let greeting_lstr = Lstr::Rc(greeting_str.clone());
-    let greeting_lri = Lri::new(greeting_lstr);
-    let greeting_ntt = Type::Struple(Some(greeting_lri), vec![
+    let greeting_local = Lri::new(greeting_lstr.clone());
+    let greeting_fullri = Lri::with_modules(
+        Lstr::Rc(greet.clone()), greeting_lstr);
+    let greeting_ntt = Type::Struple(Some(greeting_local), vec![
         (None, Type::Str), (None, Type::Str)]);
+    let greeting_typref = Type::Ref(greeting_fullri);
     let mod_greeting_ntt = Type::ModPrefix(
         greet.clone(),
         Rc::new(greeting_ntt.clone()),
     );
     let xfunctyp = Type::Func(
         vec![Type::Str, Type::Str],
-        Box::new(mod_greeting_ntt.clone()),
+        Box::new(greeting_typref.clone()),
     );
 
     // constants
