@@ -429,7 +429,7 @@ pub fn parse(toks: Vec<Token>) -> Ast
 #[cfg(test)]
 mod tests {
     use leema::val::{Val, Type, SrcLoc};
-    use leema::ast::{self, Ast};
+    use leema::ast::{self, Ast, Kxpr};
     use leema::lstr::{Lstr};
     use leema::list;
     use leema::lex::{lex};
@@ -846,7 +846,10 @@ fn test_parse_defstruple_tuple()
 
     let def = Ast::DefData(ast::DataType::Struple
         , Box::new(test_localid("Taco", 2, 8))
-        , vec![Ast::TypeInt, Ast::TypeStr].into_iter().collect()
+        , vec![
+            Kxpr::new_x(Ast::TypeInt),
+            Kxpr::new_x(Ast::TypeStr)
+            ].into_iter().collect()
         , SrcLoc::new(2, 1)
         );
     assert_eq!(&def, root.inner_vec().get(0).unwrap());
@@ -863,15 +866,13 @@ fn test_parse_defstruple_keyed_params()
     let def = Ast::DefData(ast::DataType::Struple
         , Box::new(test_localid("Taco", 2, 8))
         , vec![
-            Ast::KeyedExpr(
+            Kxpr::new(
                 Lstr::from("number"),
-                Box::new(Ast::TypeInt),
-                SrcLoc::new(2, 13),
+                Ast::TypeInt,
                 ),
-            Ast::KeyedExpr(
+            Kxpr::new(
                 Lstr::from("style"),
-                Box::new(Ast::TypeStr),
-                SrcLoc::new(2, 24),
+                Ast::TypeStr,
                 ),
             ].into_iter().collect()
         , SrcLoc::new(2, 1)
@@ -893,7 +894,7 @@ fn test_parse_defstruple_mixed_keys()
             Kxpr::new_x(Ast::TypeInt),
             Kxpr::new(
                 Lstr::from("style"),
-                Box::new(Ast::TypeStr),
+                Ast::TypeStr,
                 ),
             ].into_iter().collect()
         , SrcLoc::new(2, 1)
@@ -917,11 +918,11 @@ fn test_parse_defstruple_block()
         , vec![
             Kxpr::new(
                 Lstr::from("number"),
-                Box::new(Ast::TypeInt),
+                Ast::TypeInt,
                 ),
             Kxpr::new(
                 Lstr::from("style"),
-                Box::new(Ast::TypeStr),
+                Ast::TypeStr,
                 ),
             ].into_iter().collect()
         , SrcLoc::new(2, 1)

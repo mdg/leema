@@ -999,8 +999,10 @@ fn test_preproc_namedtuple()
 
     let greet = Rc::new("greet".to_string());
     let greeting_str = Rc::new("Greeting".to_string());
-    let greeting_ntt = Type::Struple(greeting_str.clone(), vec![
-        Type::Str, Type::Str]);
+    let greeting_lstr = Lstr::Rc(greeting_str.clone());
+    let greeting_lri = Lri::new(greeting_lstr);
+    let greeting_ntt = Type::Struple(Some(greeting_lri), vec![
+        (None, Type::Str), (None, Type::Str)]);
     let mod_greeting_ntt = Type::ModPrefix(
         greet.clone(),
         Rc::new(greeting_ntt.clone()),
