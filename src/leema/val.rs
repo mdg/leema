@@ -50,7 +50,7 @@ pub enum Type
     Struple(Option<Lri>, Vec<(Option<Lstr>, Type)>),
     Tuple(Vec<Type>),
     Struct(Rc<String>),
-    Enum(Rc<String>),
+    Enum(Lri),
     Token(Rc<String>),
     NamedTuple(Rc<String>, Vec<Type>),
     Failure,
@@ -102,7 +102,10 @@ impl Type
                 Rc::new(result)
             }
             &Type::Struct(ref name) => name.clone(),
-            &Type::Enum(ref name) => name.clone(),
+            &Type::Enum(ref name) => {
+                let ls = Lstr::from(name);
+                ls.rc()
+            }
             &Type::ModPrefix(_, _) => {
                 let str = format!("{}", self);
                 Rc::new(str)
@@ -206,7 +209,9 @@ impl Type
     pub fn to_enum(&self) -> Type
     {
         match self {
-            &Type::Id(ref name) => Type::Enum(name.clone()),
+            &Type::Id(ref name) => {
+                Type::Enum(Lri::new(Lstr::Rc(name.clone())))
+            }
             &Type::Enum(ref name) => Type::Enum(name.clone()),
             &Type::ModPrefix(ref module, ref local) => {
                 Type::ModPrefix(module.clone(), Rc::new(local.to_enum()))
@@ -308,7 +313,7 @@ impl Type
                 Type::Struct(Rc::new((**s).clone()))
             }
             &Type::Enum(ref s) => {
-                Type::Enum(Rc::new((**s).clone()))
+                Type::Enum(s.deep_clone())
             }
             &Type::NamedTuple(ref name, ref flds) => {
                 Type::NamedTuple(
@@ -2229,6 +2234,8 @@ impl reg::Iregistry for Env
 mod tests {
     use leema::val::{Type, Val, SrcLoc};
     use leema::list;
+    use leema::lri::{Lri};
+    use leema::lstr::{Lstr};
     use leema::reg::{Reg};
 
     use std::collections::{HashMap};
@@ -2373,11 +2380,10 @@ fn test_struct_lt_val() {
 
 #[test]
 fn test_enum_eq() {
-    let etype =
-        Type::ModPrefix(
-            Rc::new("animals".to_string()),
-            Rc::new(Type::Enum(Rc::new("Animal".to_string()))),
-        );
+    let etype = Type::Enum(Lri::with_modules(
+        Lstr::Sref("animals"),
+        Lstr::Sref("Animal"),
+    ));
 
     let a =
         Val::Enum(
@@ -2398,16 +2404,17 @@ fn test_enum_eq() {
 
 #[test]
 fn test_enum_lt_type() {
+    let typ = Type::Enum(Lri::new(Lstr::Sref("Taco")));
     let a =
         Val::Enum(
-            Type::Enum(Rc::new("Burrito".to_string())),
+            typ.clone(),
             0,
             Rc::new(String::from("Torta")),
             Box::new(Val::Void),
         );
     let b =
         Val::Enum(
-            Type::Enum(Rc::new("Taco".to_string())),
+            typ,
             0,
             Rc::new(String::from("Quesadilla")),
             Box::new(Val::Void),
@@ -2417,16 +2424,17 @@ fn test_enum_lt_type() {
 
 #[test]
 fn test_enum_lt_variant() {
+    let typ = Type::Enum(Lri::new(Lstr::Sref("Taco")));
     let a =
         Val::Enum(
-            Type::Enum(Rc::new("Taco".to_string())),
+            typ.clone(),
             1,
             Rc::new(String::from("Burrito")),
             Box::new(Val::Void),
         );
     let b =
         Val::Enum(
-            Type::Enum(Rc::new("Taco".to_string())),
+            typ,
             2,
             Rc::new(String::from("Torta")),
             Box::new(Val::Void),
@@ -2436,16 +2444,17 @@ fn test_enum_lt_variant() {
 
 #[test]
 fn test_enum_lt_val() {
+    let typ = Type::Enum(Lri::new(Lstr::Sref("Taco")));
     let a =
         Val::Enum(
-            Type::Enum(Rc::new("Taco".to_string())),
+            typ.clone(),
             0,
             Rc::new(String::from("Burrito")),
             Box::new(Val::Int(5)),
         );
     let b =
         Val::Enum(
-            Type::Enum(Rc::new("Taco".to_string())),
+            typ,
             0,
             Rc::new(String::from("Burrito")),
             Box::new(Val::Int(9)),
@@ -2468,7 +2477,7 @@ fn test_format_struct_empty()
 fn test_format_enum_empty()
 {
     let e = Val::Enum(
-        Type::Enum(Rc::new("Taco".to_string())),
+        Type::Enum(Lri::new(Lstr::Sref("Taco"))),
         7,
         Rc::new("Burrito".to_string()),
         Box::new(Val::Void),
@@ -2482,11 +2491,12 @@ fn test_format_enum_empty()
 fn test_format_enum_namedtuple()
 {
     let burrito_str = Rc::new(String::from("Burrito"));
+    let stype = Type::Enum(Lri::with_modules(
+        Lstr::Sref("tortas"),
+        Lstr::Sref("Taco"),
+    ));
     let s = Val::Enum(
-        Type::ModPrefix(
-            Rc::new("tortas".to_string()),
-            Rc::new(Type::Enum(Rc::new("Taco".to_string()))),
-        ),
+        stype,
         1,
         burrito_str.clone(),
         Box::new(Val::NamedTuple(
@@ -2509,8 +2519,9 @@ fn test_format_enum_two_fields()
             Val::Int(8),
         ],
     );
+    let etype = Type::Enum(Lri::new(Lstr::Sref("Taco")));
     let e = Val::Enum(
-        Type::Enum(Rc::new("Taco".to_string())),
+        etype,
         1,
         Rc::new("Burrito".to_string()),
         Box::new(s),
@@ -2531,7 +2542,7 @@ fn test_compare_across_types() {
         vec![Val::Int(2), Val::Bool(true)],
     );
     let enm = Val::Enum(
-        Type::Enum(Rc::new("Taco".to_string())),
+        Type::Enum(Lri::new(Lstr::Sref("Taco"))),
         1,
         Rc::new("Burrito".to_string()),
         Box::new(Val::Struct(

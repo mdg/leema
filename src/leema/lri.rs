@@ -3,6 +3,7 @@ use leema::lstr::Lstr;
 use leema::val::{Type};
 
 use std::fmt;
+use std::rc::{Rc};
 
 
 #[derive(Debug)]
@@ -105,6 +106,18 @@ impl Lri
             localid: new_id,
             params: new_params,
         }
+    }
+}
+
+impl<'a> From<&'a Lri> for Lstr
+{
+    fn from(i: &'a Lri) -> Lstr
+    {
+        if i.local_only() {
+            return i.local_ref().clone();
+        }
+        let str = format!("{}", i);
+        Lstr::Rc(Rc::new(str))
     }
 }
 

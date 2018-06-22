@@ -669,11 +669,10 @@ impl Protomod
     {
         let name_lstr = Lstr::from(name);
         let rc_name: Rc<String> = From::from(&name_lstr);
-        let local_type = Type::Enum(rc_name.clone());
-        let mod_type = Type::ModPrefix(
-            self.key.name.clone(),
-            Rc::new(local_type.clone()),
-        );
+        let mod_type = Type::Enum(Lri::with_modules(
+            Lstr::Rc(self.key.name.clone()),
+            Lstr::Rc(rc_name.clone()),
+            ));
 
         let mut type_params: HashSet<Lstr> = HashSet::new();
         let mut variant_fields = Vec::with_capacity(src_variants.len());
@@ -705,7 +704,8 @@ impl Protomod
         let mod_name = self.key.name.clone();
         let mod_lstr = Lstr::Rc(mod_name.clone());
         let typ_lri = Lri::from(typename);
-        let typ = Type::from(typename);
+        let full_lri = typ_lri.add_modules(mod_lstr.clone());
+        let typ = Type::Enum(full_lri);
         let type_lstr = Lstr::from(typename);
         let variant_name = Lstr::from(name);
         vout!("preproc_enum_variant({}::{}::{})\n"
@@ -829,12 +829,14 @@ fn test_preproc_enum_colors()
 
     let modname = Rc::new("colors".to_string());
     let local_typename = Rc::new("PrimaryColor".to_string());
-    let expected_local_type = Type::Enum(local_typename.clone());
-    let expected_full_type =
-        Type::ModPrefix(modname.clone(), Rc::new(expected_local_type.clone()));
+    let type_lri = Lri::with_modules(
+        Lstr::Rc(modname.clone()),
+        Lstr::Rc(local_typename.clone()),
+    );
+    let expected_type = Type::Enum(type_lri.clone());
 
     let expected_red =
-        Val::Enum(expected_full_type.clone(), 0, Rc::new("Red".to_string())
+        Val::Enum(expected_type.clone(), 0, Rc::new("Red".to_string())
             , Box::new(Val::Void));
     let red = pmod.constants.get("Red").unwrap();
     assert_eq!(expected_red, *red);
@@ -852,8 +854,6 @@ fn test_preproc_enum_colors()
     assert_eq!("Red", &*rfld.0);
     assert_eq!("Yellow", &*yfld.0);
     assert_eq!("Blue", &*bfld.0);
-
-    let rfld_idx = pmod.struple_field_idx("PrimaryColor", "Red");
 }
 
 #[test]
@@ -876,17 +876,16 @@ fn test_enum_types()
 
     let modname = Rc::new("animals".to_string());
     let local_typename = Rc::new("Animal".to_string());
-    let expected_local_type = Type::Enum(local_typename.clone());
+    let type_lri = Lri::with_modules(
+        Lstr::Rc(modname.clone()),
+        Lstr::Rc(local_typename.clone()),
+    );
+    let expected_type = Type::Enum(type_lri.clone());
     let typevar_a = Type::Var(Rc::new("$A".to_string()));
     let dog_name = Rc::new("Dog".to_string());
     let cat_name = Rc::new("Cat".to_string());
     let mouse_name = Rc::new("Mouse".to_string());
     let giraffe_name = Rc::new("Giraffe".to_string());
-    let expected_type =
-        Type::ModPrefix(
-            Rc::new("animals".to_string()),
-            Rc::new(Type::Enum(Rc::new("Animal".to_string()))),
-        );
     let cat_func_type =
         Type::Func(
             vec![
