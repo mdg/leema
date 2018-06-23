@@ -393,7 +393,7 @@ impl fmt::Display for Type
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
-                    write!(f, "{} > ", a).ok();
+                    write!(f, "{} => ", a).ok();
                 }
                 write!(f, "{}", result)
             }
@@ -452,9 +452,9 @@ impl fmt::Debug for Type
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
-                    write!(f, "{}->", a).ok();
+                    write!(f, "{:?}>", a).ok();
                 }
-                write!(f, "{}", result)
+                write!(f, "{:?}", result)
             }
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator
