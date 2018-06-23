@@ -263,14 +263,16 @@ impl<'a> Interscope<'a>
     pub fn type_module(&self, typ: &Type) -> &Protomod
     {
         match typ {
-            &Type::ModPrefix(ref module, ref modtype) => {
-                if **module == *self.proto.key.name {
-                    self.proto
-                } else if self.imports_module(&**module) {
-                    self.imports.get(&**module).unwrap()
-                } else {
-                    panic!("module for type cannot be found: {}", typ);
-                }
+            &Type::Enum(ref i) => {
+                i.mod_ref()
+                .map(|mods| {
+                    let imp = self.imports.get(mods.str());
+                    if imp.is_none() {
+                        panic!("module for type cannot be found: {}", typ);
+                    }
+                    &**imp.unwrap()
+                })
+                .unwrap_or(self.proto)
             }
             _ => {
                 self.proto

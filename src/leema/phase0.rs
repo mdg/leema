@@ -729,11 +729,6 @@ impl Protomod
             panic!("unknown enum variant type: {:?}", dataclass);
         }
     }
-
-    fn modtype(&self, t: Type) -> Type
-    {
-        Type::ModPrefix(self.key.name.clone(), Rc::new(t))
-    }
 }
 
 pub fn preproc(prog: &mut Lib, mp: &ModulePreface, ast: &Ast) -> Protomod
@@ -1005,10 +1000,6 @@ fn test_preproc_namedtuple()
     let greeting_ntt = Type::Struple(Some(greeting_local), vec![
         (None, Type::Str), (None, Type::Str)]);
     let greeting_typref = Type::Ref(greeting_fullri);
-    let mod_greeting_ntt = Type::ModPrefix(
-        greet.clone(),
-        Rc::new(greeting_ntt.clone()),
-    );
     let xfunctyp = Type::Func(
         vec![Type::Str, Type::Str],
         Box::new(greeting_typref.clone()),

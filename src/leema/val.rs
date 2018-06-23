@@ -73,7 +73,6 @@ pub enum Type
 
     Unknown,
     Id(Rc<String>),
-    ModPrefix(Rc<String>, Rc<Type>),
     Var(Rc<String>),
     AnonVar,
 }
@@ -106,10 +105,6 @@ impl Type
                 let ls = Lstr::from(name);
                 ls.rc()
             }
-            &Type::ModPrefix(_, _) => {
-                let str = format!("{}", self);
-                Rc::new(str)
-            }
             &Type::Void => Rc::new(String::from("Void")),
             _ => {
                 panic!("no typename for {:?}", self);
@@ -123,7 +118,6 @@ impl Type
     pub fn local_typename(&self) -> Rc<String>
     {
         match self {
-            &Type::ModPrefix(_, ref inner) => inner.local_typename(),
             &Type::Ref(ref i) => {
                 i.local().rc()
             }
@@ -194,9 +188,6 @@ impl Type
         match self {
             &Type::Id(ref name) => Type::Struct(name.clone()),
             &Type::Struct(ref name) => Type::Struct(name.clone()),
-            &Type::ModPrefix(ref module, ref local) => {
-                Type::ModPrefix(module.clone(), Rc::new(local.to_struct()))
-            }
             _ => {
                 panic!("cannot convert to struct type: {:?}", self);
             }
@@ -213,9 +204,6 @@ impl Type
                 Type::Enum(Lri::new(Lstr::Rc(name.clone())))
             }
             &Type::Enum(ref name) => Type::Enum(name.clone()),
-            &Type::ModPrefix(ref module, ref local) => {
-                Type::ModPrefix(module.clone(), Rc::new(local.to_enum()))
-            }
             _ => {
                 panic!("cannot convert to enum type: {:?}", self);
             }
@@ -240,7 +228,6 @@ impl Type
     {
         match self {
             &Type::Struct(_) => true,
-            &Type::ModPrefix(_, ref local) => local.is_struct(),
             _ => false,
         }
     }
@@ -252,7 +239,6 @@ impl Type
     {
         match self {
             &Type::Enum(_) => true,
-            &Type::ModPrefix(_, ref local) => local.is_enum(),
             _ => false,
         }
     }
@@ -264,7 +250,6 @@ impl Type
     {
         match self {
             &Type::NamedTuple(_, _) => true,
-            &Type::ModPrefix(_, ref local) => local.is_namedtuple(),
             _ => false,
         }
     }
@@ -278,7 +263,6 @@ impl Type
             &Type::Struct(_) => true,
             &Type::Enum(_) => true,
             &Type::NamedTuple(_, _) => true,
-            &Type::ModPrefix(_, ref local) => local.is_constructable(),
             _ => false,
         }
     }
@@ -344,11 +328,6 @@ impl Type
             &Type::Id(ref id) => {
                 let old_str: &str = &**id;
                 Type::Id(Rc::new(old_str.to_string()))
-            }
-            &Type::ModPrefix(ref prefix, ref base) => {
-                let new_prefix = (&**prefix).to_string();
-                let new_base = base.deep_clone();
-                Type::ModPrefix(Rc::new(new_prefix), Rc::new(new_base))
             }
             &Type::Var(ref id) => {
                 let old_str: &str = &**id;
@@ -431,9 +410,6 @@ impl fmt::Display for Type
 
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::Id(ref name) => write!(f, "{}", name),
-            &Type::ModPrefix(ref prefix, ref sub) => {
-                write!(f, "{}::{}", prefix, sub)
-            }
             &Type::Param(index) => {
                 write!(f, "Type::Param({})", index)
             }
@@ -493,9 +469,6 @@ impl fmt::Debug for Type
 
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::Id(ref name) => write!(f, "TypeId({})", name),
-            &Type::ModPrefix(ref prefix, ref sub) => {
-                write!(f, "Module({})::{:?}", prefix, sub)
-            }
             &Type::Var(ref name) => {
                 write!(f, "Type::Var({})", name)
             }
@@ -667,7 +640,6 @@ pub enum Val
     ),
     Id(Rc<String>),
     Lri(Lri),
-    ModPrefix(Rc<String>, Rc<Val>),
     TypedId(Rc<String>, Type),
     Type(Type),
     Kind(u8),
@@ -834,11 +806,6 @@ impl Val
             &Val::Id(ref id) => id.clone(),
             &Val::TypedId(ref id, ref typ) => id.clone(),
             &Val::Str(ref s) => s.clone(),
-            &Val::ModPrefix(ref prefix, ref name) => {
-                let name_str = name.to_str();
-                let s = format!("{}::{}", prefix, name_str);
-                Rc::new(s)
-            }
             _ => {
                 panic!("Cannot convert to string: {:?}", self);
             }
@@ -878,10 +845,6 @@ impl Val
         match self {
             &Val::Type(ref t) => t.clone(),
             &Val::Id(ref id) => Type::Id(id.clone()),
-            &Val::ModPrefix(ref prefix, ref base) => {
-                let tbase = base.to_type();
-                Type::ModPrefix(prefix.clone(), Rc::new(tbase))
-            }
             _ => {
                 panic!("Cannot unwrap not-type as type {:?}", self);
             }
@@ -1027,9 +990,6 @@ impl Val
                 typ.clone()
             }
             &Val::Buffer(_) => Type::Str,
-            &Val::ModPrefix(_, _) => {
-                panic!("module prefixes have no type");
-            }
             &Val::Kind(_) => {
                 panic!("is kind even a thing here?");
             }
@@ -1442,9 +1402,6 @@ impl fmt::Display for Val {
             Val::Failure(ref tag, ref msg, ref stack, status) => {
                 write!(f, "Failure({}, {}\n{})", tag, msg, **stack)
             }
-            Val::ModPrefix(ref module, ref next) => {
-                write!(f, "{}::{}", module, next)
-            }
             Val::Lri(ref name) => {
                 write!(f, "{}", name)
             }
@@ -1544,9 +1501,6 @@ impl fmt::Debug for Val {
             }
             Val::Failure(ref tag, ref msg, ref stack, status) => {
                 write!(f, "Failure({}, {}, {}, {:?})", tag, status, msg, stack)
-            }
-            Val::ModPrefix(ref head, ref tail) => {
-                write!(f, "Id({}::{})", head, tail)
             }
             Val::Lri(ref name) => {
                 write!(f, "{:?}", name)
@@ -2259,19 +2213,6 @@ fn test_type_id_to_struct()
     assert_eq!(
         Type::Struct(typename.clone()),
         Type::Id(typename.clone()).to_struct()
-    );
-}
-
-#[test]
-fn test_type_module_id_to_struct()
-{
-    let module = Rc::new("Foo".to_string());
-    let typname = Rc::new("Taco".to_string());
-    let input =
-        Type::ModPrefix(module.clone(), Rc::new(Type::Id(typname.clone())));
-    assert_eq!(
-        Type::ModPrefix(module.clone(), Rc::new(Type::Struct(typname.clone()))),
-        input.to_struct()
     );
 }
 
