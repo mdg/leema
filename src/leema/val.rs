@@ -1780,22 +1780,23 @@ impl PartialOrd for Val
             (&Val::Enum(ref at, ai, ref an, ref av)
                     , &Val::Enum(ref bt, bi, ref bn, ref bv)) =>
             {
-                match PartialOrd::partial_cmp(&*at, &*bt) {
-                    Some(Ordering::Equal) => {
-                        match PartialOrd::partial_cmp(&ai, &bi) {
-                            Some(Ordering::Equal) => {
-                                PartialOrd::partial_cmp(av, bv)
-                            }
-                            icmp => icmp,
-                        }
-                    }
-                    tcmp => tcmp,
-                }
+                Some(PartialOrd::partial_cmp(&*at, &*bt).unwrap()
+                    .then_with(|| {
+                        PartialOrd::partial_cmp(&ai, &bi).unwrap()
+                    })
+                    .then_with(|| {
+                        PartialOrd::partial_cmp(an, bn).unwrap()
+                    })
+                    .then_with(|| {
+                        PartialOrd::partial_cmp(av, bv).unwrap()
+                    })
+                )
             }
             // token to token comparison
             (&Val::Token(ref at), &Val::Token(ref bt)) => {
                 PartialOrd::partial_cmp(&*at, &*bt)
             }
+            // func ref to func ref comparison
             (&Val::FuncRef(ref m1, ref n1, ref t1)
                     , &Val::FuncRef(ref m2, ref n2, ref t2)) =>
             {
@@ -2344,27 +2345,29 @@ fn test_enum_eq() {
 }
 
 #[test]
-fn test_enum_lt_type() {
+fn test_enum_lt_type()
+{
     let typ = Type::Enum(Lri::new(Lstr::Sref("Taco")));
     let a =
         Val::Enum(
             typ.clone(),
             0,
-            Rc::new(String::from("Torta")),
+            Rc::new(String::from("Quesadilla")),
             Box::new(Val::Void),
         );
     let b =
         Val::Enum(
             typ,
             0,
-            Rc::new(String::from("Quesadilla")),
+            Rc::new(String::from("Torta")),
             Box::new(Val::Void),
         );
     assert!(a < b);
 }
 
 #[test]
-fn test_enum_lt_variant() {
+fn test_enum_lt_variant()
+{
     let typ = Type::Enum(Lri::new(Lstr::Sref("Taco")));
     let a =
         Val::Enum(
