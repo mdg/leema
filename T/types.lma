@@ -1,0 +1,13 @@
+
+import option
+
+
+struple TypeValField
+.name: option::T[Str]
+.field_type: TypeVal
+--
+
+struple TypeVal
+.types: [TypeValField]
+--
+
