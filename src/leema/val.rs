@@ -643,7 +643,6 @@ pub enum Val
     TypedId(Rc<String>, Type),
     Type(Type),
     Kind(u8),
-    DotAccess(Box<Val>, Rc<String>),
     Lib(Arc<LibVal>),
     LibRc(Rc<LibVal>),
     FuncRef(Rc<String>, Rc<String>, Type),
@@ -827,11 +826,6 @@ impl Val
         Val::Hashtag(Rc::new(s))
     }
 
-    pub fn dot_access(base: Val, sub: String) -> Val
-    {
-        Val::DotAccess(Box::new(base), Rc::new(sub))
-    }
-
     pub fn is_type(&self) -> bool
     {
         match self {
@@ -993,9 +987,6 @@ impl Val
             &Val::Kind(_) => {
                 panic!("is kind even a thing here?");
             }
-            &Val::DotAccess(_, _) => {
-                panic!("maybe DotAccess should be an sxpr?");
-            }
             &Val::FuncRef(_, _, ref typ) => {
                 typ.clone()
             }
@@ -1150,7 +1141,6 @@ impl Val
             // &Val::TypedId(Rc<String>, Type),
             &Val::Type(ref t) => Val::Type(t.deep_clone()),
             &Val::Kind(k) => Val::Kind(k),
-            // &Val::DotAccess(Box<Val>, Rc<String>),
             // &Val::Lib(LibVal),
             // &Val::RustBlock,
             // &Val::Future(FutureVal),
@@ -1423,9 +1413,6 @@ impl fmt::Display for Val {
             Val::Future(_) => {
                 write!(f, "Future")
             }
-            Val::DotAccess(ref outer, ref inner) => {
-                write!(f, "{}.{}", outer, inner)
-            }
             Val::Void => {
                 write!(f, "Void")
             }
@@ -1516,9 +1503,6 @@ impl fmt::Debug for Val {
             }
             Val::Kind(c) => {
                 write!(f, "Kind{:?}", c)
-            }
-            Val::DotAccess(ref outer, ref inner) => {
-                write!(f, "{:?}.{}", outer, inner)
             }
             Val::FuncRef(ref module, ref name, ref typ) => {
                 write!(f, "FuncRef({}::{} : {})", module, name, typ)
@@ -1821,17 +1805,6 @@ impl PartialOrd for Val
             }
             (&Val::ResourceRef(rra), &Val::ResourceRef(rrb)) => {
                 PartialOrd::partial_cmp(&rra, &rrb)
-            }
-            (&Val::DotAccess(ref base1, ref sub1),
-                    &Val::DotAccess(ref base2, ref sub2)) =>
-            {
-                let cmp = PartialOrd::partial_cmp(&base1, &base2);
-                match cmp {
-                    Some(Ordering::Equal) => {
-                        PartialOrd::partial_cmp(&sub1, &sub2)
-                    }
-                    _ => cmp,
-                }
             }
             (&Val::Buffer(ref b1), &Val::Buffer(ref b2)) => {
                 PartialOrd::partial_cmp(b1, b2)
