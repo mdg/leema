@@ -586,7 +586,6 @@ pub enum Val
     ),
     Id(Rc<String>),
     Lri(Lri),
-    TypedId(Rc<String>, Type),
     Type(Type),
     Kind(u8),
     Lib(Arc<LibVal>),
@@ -612,16 +611,10 @@ impl Val
         Val::Id(Rc::new(s))
     }
 
-    pub fn typed_id(s: &str, t: Type) -> Val
-    {
-        Val::TypedId(Rc::new(String::from(s)), t)
-    }
-
     pub fn is_id(&self) -> bool
     {
         match self {
             &Val::Id(_) => true,
-            &Val::TypedId(_, _) => true,
             _ => false,
         }
     }
@@ -630,7 +623,6 @@ impl Val
     {
         match self {
             &Val::Id(ref name) => name.clone(),
-            &Val::TypedId(ref name, ref typ) => name.clone(),
             &Val::Type(ref typ) => typ.full_typename(),
             _ => {
                 panic!("not an id {:?}", self);
@@ -737,7 +729,6 @@ impl Val
     {
         match self {
             &Val::Id(ref id) => id,
-            &Val::TypedId(ref id, ref typ) => id,
             &Val::Str(ref s) => s,
             _ => {
                 panic!("Cannot convert to string: {:?}", self);
@@ -749,7 +740,6 @@ impl Val
     {
         match self {
             &Val::Id(ref id) => id.clone(),
-            &Val::TypedId(ref id, ref typ) => id.clone(),
             &Val::Str(ref s) => s.clone(),
             _ => {
                 panic!("Cannot convert to string: {:?}", self);
@@ -787,20 +777,6 @@ impl Val
             &Val::Id(ref id) => Type::Id(id.clone()),
             _ => {
                 panic!("Cannot unwrap not-type as type {:?}", self);
-            }
-        }
-    }
-
-    pub fn split_typed_id(&self) -> (Val, Type)
-    {
-        match self {
-            &Val::Id(ref id) => (self.clone(), Type::AnonVar),
-            &Val::TypedId(ref tid, ref typ) => (
-                Val::Id(tid.clone()),
-                typ.clone(),
-            ),
-            _ => {
-                panic!("not a TypedId: {:?}", self);
             }
         }
     }
@@ -912,7 +888,6 @@ impl Val
             &Val::PatternVar(_) => Type::Unknown,
             &Val::Id(_) => Type::AnonVar,
             &Val::Lri(_) => Type::AnonVar,
-            &Val::TypedId(_, ref typ) => typ.clone(),
             &Val::RustBlock => Type::RustBlock,
             &Val::Struple(ref typ, _) => {
                 (*typ).clone()
@@ -1084,7 +1059,6 @@ impl Val
             }
             // &Val::Failure(ref tag, ref msg, ref ft),
             &Val::Id(ref s) => Val::id((**s).clone()),
-            // &Val::TypedId(Rc<String>, Type),
             &Val::Type(ref t) => Val::Type(t.deep_clone()),
             &Val::Kind(k) => Val::Kind(k),
             // &Val::Lib(LibVal),
@@ -1344,9 +1318,6 @@ impl fmt::Display for Val {
             Val::Id(ref name) => {
                 write!(f, "{}", name)
             }
-            Val::TypedId(ref name, ref typ) => {
-                write!(f, "{}:{}", name, typ)
-            }
             Val::Type(ref t) => {
                 write!(f, "{}", t)
             }
@@ -1440,9 +1411,6 @@ impl fmt::Debug for Val {
             }
             Val::Id(ref id) => {
                 write!(f, "Id({})", id)
-            }
-            Val::TypedId(ref id, ref typ) => {
-                write!(f, "TypedId({}, {:?})", id, typ)
             }
             Val::Type(ref t) => {
                 write!(f, "TypeVal({:?})", t)
@@ -1739,16 +1707,6 @@ impl PartialOrd for Val
                     })
                 )
             }
-            (&Val::TypedId(ref ida, ref typa),
-                    &Val::TypedId(ref idb, ref typb)) => {
-                let cmp = PartialOrd::partial_cmp(&ida, &idb);
-                match cmp {
-                    Some(Ordering::Equal) => {
-                        PartialOrd::partial_cmp(&typa, &typb)
-                    }
-                    _ => cmp,
-                }
-            }
             (&Val::ResourceRef(rra), &Val::ResourceRef(rrb)) => {
                 PartialOrd::partial_cmp(&rra, &rrb)
             }
@@ -1797,12 +1755,6 @@ impl PartialOrd for Val
                 Some(Ordering::Less)
             }
             (_, &Val::Id(_)) => {
-                Some(Ordering::Greater)
-            }
-            (&Val::TypedId(_, _), _) => {
-                Some(Ordering::Less)
-            }
-            (_, &Val::TypedId(_, _)) => {
                 Some(Ordering::Greater)
             }
             (&Val::ResourceRef(_), _) => {
