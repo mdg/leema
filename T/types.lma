@@ -8,6 +8,7 @@ struple TypeValField
 --
 
 struple TypeVal
+.name: Str
 .types: [TypeValField]
 --
 

@@ -3,7 +3,7 @@
 
 import option
 
-func print_opt(opt: option::Option[Int]) ->
+func print_opt(opt: option::T[Int]) ->
     cout("option is $opt\n")
 --
 

@@ -1,5 +1,5 @@
 
-enum Option[V]
+enum T[V]
 |Some(V)
 |None
 --
