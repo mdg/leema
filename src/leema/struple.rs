@@ -1,8 +1,22 @@
 
 use leema::lstr::{Lstr};
+use leema::val::{Val};
 
+pub struct Struple(Vec<(Option<Lstr>, Val)>);
 
-pub enum Struple
+pub struct Struple1
 {
-    Token(Lstr)
+    indexed: Option<Vec<Val>>,
+    keyed: Option<Vec<(Lstr, Val)>>,
+}
+
+impl Struple
+{
+    pub fn new_tuple2(a: Val, b: Val) -> Struple
+    {
+        Struple(vec![
+            (None, a),
+            (None, b),
+        ])
+    }
 }
