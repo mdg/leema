@@ -4,6 +4,7 @@ use leema::lri::{Lri};
 use leema::lstr::{Lstr};
 use leema::frame::{FrameTrace};
 use leema::log;
+use leema::struple::{Struple};
 
 use std::fmt::{self};
 use std::collections::{BTreeMap, HashMap};
@@ -46,13 +47,10 @@ pub enum Type
     Str,
     Bool,
     Hashtag,
-    Ref(Lri),
     Struple(Option<Lri>, Vec<(Option<Lstr>, Type)>),
-    Tuple(Vec<Type>),
-    Struct(Rc<String>),
+    Ref(Lri),
     Enum(Lri),
-    Token(Rc<String>),
-    NamedTuple(Rc<String>, Vec<Type>),
+    Token(Lri),
     Failure,
     Func(Vec<Type>, Box<Type>),
     // different from base collection/map interfaces?
@@ -72,7 +70,6 @@ pub enum Type
     Any,
 
     Unknown,
-    Id(Rc<String>),
     Var(Rc<String>),
     AnonVar,
 }
@@ -100,7 +97,6 @@ impl Type
                 let result = format!("{}", name);
                 Rc::new(result)
             }
-            &Type::Struct(ref name) => name.clone(),
             &Type::Enum(ref name) => {
                 let ls = Lstr::from(name);
                 ls.rc()
@@ -222,17 +218,6 @@ impl Type
     }
 
     /**
-     * Check if this type is a structure
-     */
-    pub fn is_struct(&self) -> bool
-    {
-        match self {
-            &Type::Struct(_) => true,
-            _ => false,
-        }
-    }
-
-    /**
      * Check if this type is an enum
      */
     pub fn is_enum(&self) -> bool
@@ -240,40 +225,6 @@ impl Type
         match self {
             &Type::Enum(_) => true,
             _ => false,
-        }
-    }
-
-    /**
-     * Check if this type is a named tuple
-     */
-    pub fn is_namedtuple(&self) -> bool
-    {
-        match self {
-            &Type::NamedTuple(_, _) => true,
-            _ => false,
-        }
-    }
-
-    /**
-     * Check if this type can be created with a normal constructor
-     */
-    pub fn is_constructable(&self) -> bool
-    {
-        match self {
-            &Type::Struct(_) => true,
-            &Type::Enum(_) => true,
-            &Type::NamedTuple(_, _) => true,
-            _ => false,
-        }
-    }
-
-    pub fn tuple_items(self) -> Vec<Type>
-    {
-        match self {
-            Type::Tuple(items) => items,
-            _ => {
-                panic!("No items in not tuple type {:?}", self);
-            }
         }
     }
 
@@ -625,13 +576,8 @@ pub enum Val
     Buffer(Vec<u8>),
     Cons(Box<Val>, Rc<Val>),
     Nil,
-    Struple(Type, Option<Vec<Val>>),
-    // Keyed(Lstr, Box<Val>),
-    Tuple(Vec<Val>),
-    NamedTuple(Type, Vec<Val>),
-    Struct(Type, Vec<Val>),
-    Enum(Type, i16, Rc<String>, Box<Val>),
-    Token(Type),
+    Struple(Box<Val>, Struple),
+    EnumVariant(Box<Val>, i16, Struple),
     Failure(
         Box<Val>, // tag
         Box<Val>, // msg

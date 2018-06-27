@@ -4,6 +4,7 @@ use leema::ixpr::{Ixpr, Source};
 use leema::infer::{Inferator};
 use leema::list;
 use leema::log;
+use leema::lri::{Lri};
 use leema::lstr::{Lstr};
 use leema::module::{ModKey};
 use leema::phase0::{Protomod};
@@ -174,7 +175,10 @@ impl<'a> Interscope<'a>
                     )))
                 })
                 .unwrap();
-            argt.push(at2);
+            let opt_k = a.k_ref().map(|k| {
+                k.clone()
+            });
+            argt.push((opt_k, at2));
         }
 
         Interscope{
@@ -184,7 +188,7 @@ impl<'a> Interscope<'a>
             typed: typed,
             T: t,
             argnames: args.clone(),
-            argt: Type::Tuple(argt),
+            argt: Type::Struple(None, argt),
         }
     }
 
@@ -603,33 +607,12 @@ pub fn compile_dot_access(scope: &mut Interscope, base_val: &Ast
     ) -> Ixpr
 {
     let ix_base = compile_expr(scope, base_val, loc);
-    if ix_base.typ.is_enum() {
-        let opt_variant_idx = scope.struct_field_idx(&ix_base.typ, field.str());
-        let variant_idx = opt_variant_idx.unwrap().0;
-        let estruct_type = Type::Struct(field.rc());
-        let estruct_val = Val::Struct(estruct_type, Vec::with_capacity(0));
-        let val = Val::Enum(ix_base.typ, variant_idx, field.rc()
-            , Box::new(estruct_val));
-        Ixpr::const_val(val, loc.lineno)
-    } else if ix_base.typ.is_struple() {
-        if let Some((field_idx, field_typ)) =
-            scope.struple_field_idx(&ix_base.typ, field.str())
-        {
-            Ixpr::new_field_access(ix_base, field_idx as i8, field_typ.clone())
-        } else {
-            panic!("no field: {:?}.{}", base_val, field);
-        }
-    } else if ix_base.typ.is_struct() {
-        if let Some((field_idx, field_typ)) =
-            scope.struct_field_idx(&ix_base.typ, field.str())
-        {
-            Ixpr::new_field_access(ix_base, field_idx as i8, field_typ.clone())
-        } else {
-            panic!("no field: {:?}.{}", base_val, field);
-        }
+    if let Some((field_idx, field_typ)) =
+        scope.struple_field_idx(&ix_base.typ, field.str())
+    {
+        Ixpr::new_field_access(ix_base, field_idx as i8, field_typ.clone())
     } else {
-        vout!("finding {} field in expression:\n\t{:?}\n", field, ix_base.src);
-        panic!("cannot access field for type: {:?}.{}", ix_base.typ, field);
+        panic!("no field: {:?}.{}", base_val, field);
     }
 }
 

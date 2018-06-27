@@ -150,12 +150,6 @@ impl<'a> CallFrame<'a>
                     &Val::Str(ref name) => {
                         self.push_call(CallOp::LocalCall(name.clone()));
                     }
-                    &Val::Tuple(ref modfunc) if modfunc.len() == 2 => {
-                        self.push_call(CallOp::ExternalCall(
-                            modfunc.get(0).unwrap().to_str(),
-                            modfunc.get(1).unwrap().to_str(),
-                        ));
-                    }
                     &Val::FuncRef(ref modnm, ref funcnm, _) => {
                         self.push_call(CallOp::ExternalCall(
                             modnm.clone(),
@@ -361,11 +355,6 @@ impl<'a, 'b> Typescope<'a, 'b>
             }
             &Source::ConstVal(ref fval) => {
                 match fval {
-                    &Val::Tuple(ref items) => {
-                        let ref modname = items[0];
-                        let ref funcname = items[1];
-                        Ok(self.functype(modname.str(), funcname.str()))
-                    }
                     &Val::Str(ref strname) => {
                         Ok(Type::Void)
                     }
@@ -461,13 +450,6 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
         }
         &Source::Construple(ref typ) => {
             Ok(typ.clone())
-        }
-        &Source::Tuple(ref items) => {
-            let mut tuptyp = vec![];
-            for i in items {
-                tuptyp.push(typecheck_expr(scope, i).unwrap());
-            }
-            Ok(Type::Tuple(tuptyp))
         }
         &Source::IfExpr(ref cond, ref truth, ref lies) => {
             let cond_t = typecheck_expr(scope, cond).unwrap();

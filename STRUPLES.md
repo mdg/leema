@@ -19,7 +19,6 @@ enum type
 
 ### enum data in val
 
-token val
 struple val
 enum val
 struple type
@@ -29,7 +28,8 @@ enum type
 
 token val
 struple val
-enum val
+enum struple val -> struple val
+enum token val -> token val
 user type
 typeval constant
 
@@ -48,6 +48,7 @@ struple TypeValueField
 
 struple TypeValue
 .name: Str
+-
 .fields: [TypeValueField]
 --
 ```

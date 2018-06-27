@@ -196,15 +196,6 @@ impl<'b> Inferator<'b>
             (&Val::Id(ref id), _) => {
                 self.bind_vartype(id, valtype, lineno);
             }
-            (&Val::Tuple(ref p_items), &Type::Tuple(ref t_items)) => {
-                if p_items.len() != t_items.len() {
-                    panic!("tuple pattern size mismatch: {:?} != {:?}"
-                        , p_items, t_items);
-                }
-                for (pi, ti) in p_items.iter().zip(t_items.iter()) {
-                    self.match_pattern(pi, ti, lineno);
-                }
-            }
             (&Val::Nil, _) => {
                 self.merge_types(
                     &Type::StrictList(Box::new(Type::Unknown)),
@@ -221,15 +212,53 @@ impl<'b> Inferator<'b>
                 self.merge_types(&valtype,
                     &Type::StrictList(Box::new(tvar_inner.clone())));
             }
-            (&Val::Struct(ref typ1, ref flds1),
-                &Type::Struct(ref typename2)
+            (&Val::Struple(None, ref flds1),
+                &Type::Struple(None, ref flds2)
             ) => {
+                for (fp, ft) in flds1.iter().zip(flds2.iter()) {
+                    self.match_pattern(fp, ft, lineno);
+                }
+            }
+            (&Val::Struple(ref typ1, None),
+                &Type::Struple(ref typename2, ref flds2)
+            ) => {
+                if flds2.len() > 0 {
+                    panic!("type struple has too many fields: {:?}", flds2);
+                }
                 let type_match = match typ1 {
-                    &Type::Struct(ref typename1) => {
-                        typename1 == typename2 // && nflds1 == nflds2
+                    &Type::Struple(ref typename1) => {
+                        if typename1 != typename2 {
+                            panic!("struple pattern mismatch: {} != {}"
+                                , typename1, typename2);
+                        }
                     }
                     _ => {
-                        panic!("struct pattern type mismatch: {:?} != {:?}"
+                        panic!("struple pattern type mismatch: {:?} != {:?}"
+                            , patt, valtype);
+                    }
+                };
+            }
+            (&Val::Struple(ref typ1, ref flds1),
+                &Type::Struple(ref typename2, ref flds2)
+            ) => {
+                let type_match = match typ1 {
+                    &Type::Struple(ref typename1) => {
+                        if typename1 != typename2 {
+                            panic!("struple pattern mismatch: {} != {}"
+                                , typename1, typename2);
+                        }
+                        let nflds1 = flds1.len();
+                        let nflds2 = flds2.len();
+                        if nflds1 != nflds2 {
+                            panic!("struple pattern mismatch: {:?} != {:?}"
+                                , patt, valtype);
+                        }
+                        for (fp, ft) in flds1.iter().zip(flds2.iter()) {
+                            self.match_pattern(fp, ft, lineno);
+                        }
+                    }
+                    _ => {
+                        panic!("struple pattern type mismatch: {:?} != {:?}"
                             , patt, valtype);
                     }
                 };
@@ -385,11 +414,11 @@ impl<'b> Inferator<'b>
             &Type::StrictList(ref inner) => {
                 Type::StrictList(Box::new(self.inferred_type(inner)))
             }
-            &Type::Tuple(ref inners) => {
+            &Type::Struple(ref strname, ref inners) => {
                 let infers = inners.iter().map(|i| {
-                    self.inferred_type(i)
+                    (i.0.clone(), self.inferred_type(&i.1))
                 }).collect();
-                Type::Tuple(infers)
+                Type::Struple(strname.clone(), infers)
             }
             _ => typ.clone()
         }
@@ -431,19 +460,6 @@ impl<'b> Inferator<'b>
                 inferences.insert(newtname.clone(), oldt.clone());
                 Ok(oldt.clone())
             }
-            (&Type::Tuple(ref oldi), &Type::Tuple(ref newi)) => {
-                let oldlen = oldi.len();
-                if oldlen != newi.len() {
-                    panic!("tuple size mismatch: {:?}!={:?}", oldt, newt);
-                }
-                let mut masht = Vec::with_capacity(oldlen);
-                for (oldit, newit) in oldi.iter().zip(newi.iter()) {
-                    let mashit = Inferator::mash(inferences, oldit, newit)
-                        .expect("tuple type mismatch");
-                    masht.push(mashit);
-                }
-                Ok(Type::Tuple(masht))
-            }
             (&Type::Func(ref oldargs, ref oldresult),
                     &Type::Func(ref newargs, ref newresult)
             ) => {
@@ -463,16 +479,6 @@ impl<'b> Inferator<'b>
                     Inferator::mash(inferences, oldresult, newresult)
                         .expect("function result mismatch");
                 Ok(Type::Func(masht, Box::new(mashresult)))
-            }
-            (&Type::Struct(ref oldname), &Type::Id(ref newname))
-                    if **oldname == **newname =>
-            {
-                Ok(oldt.clone())
-            }
-            (&Type::Id(ref oldname), &Type::Struct(ref newname))
-                    if **oldname == **newname =>
-            {
-                Ok(newt.clone())
             }
             (_, _) => {
                 Err(TypeErr::Mismatch(
