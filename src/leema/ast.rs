@@ -396,15 +396,15 @@ impl<'a> From<&'a Ast> for Type
             }
             &Ast::Tuple(ref items) => {
                 let pp_items = items.iter().map(|i| {
-                    Type::from(i)
+                    (None, Type::from(i))
                 }).collect();
                 Type::Tuple(pp_items)
             }
             &Ast::Localid(ref id, _) => {
-                Type::Id(id.rc())
+                Type::UserDef(Lri::new(id.clone()))
             }
             &Ast::Lri(_, _, _) => {
-                Type::Ref(Lri::from(a))
+                Type::UserDef(Lri::from(a))
             }
             _ => {
                 panic!("cannot convert Ast to Type: {:?}", a);

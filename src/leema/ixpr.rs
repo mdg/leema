@@ -133,7 +133,7 @@ impl Ixpr
                 lineno = i.line;
                 set_lineno = true;
             }
-            tuptyp.push(i.typ.clone());
+            tuptyp.push((None, i.typ.clone()));
         }
         Ixpr{
             typ: Type::Tuple(tuptyp),
@@ -169,26 +169,21 @@ impl Ixpr
         }
     }
 
-    pub fn enum_constructor(t: Type, idx: i16, varname: &Rc<String>
+    pub fn enum_constructor(t: Type, varname: &Rc<String>
         , vval: &Val, lineno: i16
         ) -> Ixpr
     {
         let (variant_type, nflds) =
             match *vval {
-                Val::Struct(ref vartyp, ref flds) => {
-                    (vartyp.clone(), flds.len() as i8)
-                }
-                Val::NamedTuple(ref vartyp, ref flds) => {
-                    (vartyp.clone(), flds.len() as i8)
+                Val::Struple(ref vartyp, ref flds) => {
+                    (vartyp.clone(), flds.0.len() as i8)
                 }
                 _ => {
                     panic!("unknown val for enum: {:?}", vval);
                 }
             };
-        let construct = Ixpr::constructor(
-            variant_type, nflds, lineno
-        );
-        let src = Source::EnumConstructor(t.clone(), idx, Box::new(construct));
+        let construct = Ixpr::construple(variant_type.unwrap(), lineno);
+        let src = Source::EnumConstructor(t.clone(), 0, Box::new(construct));
 
         Ixpr{
             typ: t,

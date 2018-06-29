@@ -26,10 +26,12 @@ enum type
 
 ### single type
 
-token val
-struple val
-enum struple val -> struple val
-enum token val -> token val
+**winner?**
+
+token val(typeval)
+struple val(Opt<typeval>, struple)
+enum token val -> (typeval, lstr)
+enum struple val -> (typeval, lstr, struple)
 user type
 typeval constant
 

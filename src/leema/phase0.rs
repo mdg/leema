@@ -481,7 +481,7 @@ impl Protomod
         let pp_x = Protomod::preproc_expr(prog, mp, typ, loc);
         match (&pp_x, opt_type_params) {
             (&Ast::Localid(ref name, ref iloc), None) => {
-                Type::Id(name.rc())
+                Type::UserDef(Lri::new(name.clone()))
             }
             (&Ast::Localid(ref name, ref iloc), Some(ref type_params)) => {
                 Protomod::find_type_param(type_params, name)
@@ -489,11 +489,11 @@ impl Protomod
                     Type::Param(i)
                 })
                 .unwrap_or_else(|| {
-                    Type::Id(name.rc())
+                    Type::UserDef(Lri::new(name.clone()))
                 })
             }
             (&Ast::TypeVar(ref name, ref iloc), _) => {
-                Type::Id(name.rc())
+                Type::UserDef(Lri::new(name.clone()))
             }
             _ => {
                 Type::from(&pp_x)
@@ -548,7 +548,7 @@ impl Protomod
         let name_lstr = name.local_ref();
         let mod_lstr = Lstr::Rc(mp.key.name.clone());
         let full_lri = name.add_modules(mod_lstr);
-        let type_name = Type::Ref(full_lri);
+        let type_name = Type::UserDef(full_lri);
 
         // a token struct is stored as a constant with no constructor
         let constval = Val::Token(type_name.clone());
@@ -597,8 +597,7 @@ impl Protomod
 
         let struple_lri = local_type.add_modules(mod_name.clone());
         let result_type = Type::Ref(struple_lri.clone());
-        let full_type =
-            Type::Struple(Some(struple_lri.clone()), struple_fields.clone());
+        let full_type = Type::UserDef(struple_lri.clone());
         let func_type = Type::Func(field_type_vec, Box::new(result_type));
 
         let src_typename = Ast::from_lri(struple_lri.clone(), loc);
@@ -625,18 +624,14 @@ impl Protomod
         ) -> Option<(i16, &Type)>
     {
         vout!("field index for struple: {:?}.{}\n", typename, fld);
-        let opt_typ = self.deftypes.get(typename);
+        let opt_typ = self.constants.get(typename);
         if opt_typ.is_none() {
             panic!("cannot find struple type: {} in {:?}"
-                , typename, self.deftypes);
+                , typename, self.constants);
         }
         match opt_typ.unwrap() {
-            &Type::Struple(_, ref inner_types) => {
-                for (i, t) in inner_types.iter().enumerate() {
-                    if t.0.is_some() && t.0.as_ref().unwrap() == fld {
-                        return Some((i as i16, &t.1))
-                    }
-                }
+            &Val::Struple(_, ref items) => {
+                panic!("need to get the field still");
             }
             what => {
                 panic!("cannot get fields from not struple");
@@ -669,7 +664,7 @@ impl Protomod
     {
         let name_lstr = Lstr::from(name);
         let rc_name: Rc<String> = From::from(&name_lstr);
-        let mod_type = Type::Enum(Lri::with_modules(
+        let mod_type = Type::UserDef(Lri::with_modules(
             Lstr::Rc(self.key.name.clone()),
             Lstr::Rc(rc_name.clone()),
             ));
@@ -705,7 +700,7 @@ impl Protomod
         let mod_lstr = Lstr::Rc(mod_name.clone());
         let typ_lri = Lri::from(typename);
         let full_lri = typ_lri.add_modules(mod_lstr.clone());
-        let typ = Type::Enum(full_lri);
+        let typ = Type::UserDef(full_lri);
         let type_lstr = Lstr::from(typename);
         let variant_name = Lstr::from(name);
         vout!("preproc_enum_variant({}::{}::{})\n"
@@ -714,8 +709,8 @@ impl Protomod
             if fields.is_empty() {
                 let variant_lri =
                     Lri::with_modules(mod_lstr.clone(), variant_name.clone());
-                let var_struct_type = Type::Ref(variant_lri);
-                let const_val = Val::Enum(typ.clone(), i, variant_name.rc()
+                let var_struct_type = Type::UserDef(variant_lri);
+                let const_val = Val::EnumStruple(typ.clone(), variant_name.rc()
                     , Box::new(Val::Void)
                     );
                 let variant_name_string = String::from(&variant_name);
@@ -828,7 +823,7 @@ fn test_preproc_enum_colors()
         Lstr::Rc(modname.clone()),
         Lstr::Rc(local_typename.clone()),
     );
-    let expected_type = Type::Enum(type_lri.clone());
+    let expected_type = Type::UserDef(type_lri.clone());
 
     let expected_red =
         Val::Enum(expected_type.clone(), 0, Rc::new("Red".to_string())
@@ -875,7 +870,7 @@ fn test_enum_types()
         Lstr::Rc(modname.clone()),
         Lstr::Rc(local_typename.clone()),
     );
-    let expected_type = Type::Enum(type_lri.clone());
+    let expected_type = Type::UserDef(type_lri.clone());
     let typevar_a = Type::Var(Rc::new("$A".to_string()));
     let dog_name = Rc::new("Dog".to_string());
     let cat_name = Rc::new("Cat".to_string());

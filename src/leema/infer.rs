@@ -262,9 +262,6 @@ impl<'b> Inferator<'b>
                             , patt, valtype);
                     }
                 };
-                for fld in flds1 {
-                    // do something w/ flds1
-                }
             }
             _ => {
                 let ptype = patt.get_type();
@@ -414,11 +411,11 @@ impl<'b> Inferator<'b>
             &Type::StrictList(ref inner) => {
                 Type::StrictList(Box::new(self.inferred_type(inner)))
             }
-            &Type::Struple(ref strname, ref inners) => {
+            &Type::Tuple(ref inners) => {
                 let infers = inners.iter().map(|i| {
                     (i.0.clone(), self.inferred_type(&i.1))
                 }).collect();
-                Type::Struple(strname.clone(), infers)
+                Type::Tuple(infers)
             }
             _ => typ.clone()
         }

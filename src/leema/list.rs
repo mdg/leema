@@ -115,22 +115,6 @@ pub fn empty() -> Val
     Val::Nil
 }
 
-pub fn from_tuple(t: &Val) -> Val
-{
-    let mut result = empty();
-    match t {
-        &Val::Tuple(ref items) => {
-            for i in items.iter().rev() {
-                result = cons(i.clone(), result);
-            }
-        }
-        _ => {
-            panic!("cannot create list from not tuple: {:?}", t);
-        }
-    }
-    result
-}
-
 pub fn ref_to_vec(it: &Val) -> Vec<Val>
 {
     map_ref_to_vec(it, |i| {

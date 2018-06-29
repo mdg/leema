@@ -540,23 +540,13 @@ pub fn typecheck_field_access(scope: &mut Typescope, xtyp: &Type, fld: i8
 {
     vout!("typecheck_field_access({:?}.{})", xtyp, fld);
     match xtyp {
-        &Type::Ref(ref name) => {
+        &Type::UserDef(ref name) => {
             match scope.proto.deftypes.get(name.local()) {
                 Some(ityp) => {
                     typecheck_field_access(scope, ityp, fld)
                 }
                 None => {
                     panic!("cannot find defined type for: {}", name);
-                }
-            }
-        }
-        &Type::Struple(_, ref types) => {
-            match types.get(fld as usize) {
-                Some(&(_, ref ityp)) => {
-                    Ok(ityp.clone())
-                }
-                None => {
-                    panic!("field access overflow: {:?}.{}", xtyp, fld);
                 }
             }
         }

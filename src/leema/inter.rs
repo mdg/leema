@@ -8,6 +8,7 @@ use leema::lri::{Lri};
 use leema::lstr::{Lstr};
 use leema::module::{ModKey};
 use leema::phase0::{Protomod};
+use leema::struple::{Struple};
 use leema::typecheck::{self, Typemod};
 use leema::val::{Val, Type, SrcLoc, TypeErr};
 
@@ -188,7 +189,7 @@ impl<'a> Interscope<'a>
             typed: typed,
             T: t,
             argnames: args.clone(),
-            argt: Type::Struple(None, argt),
+            argt: Type::Tuple(argt),
         }
     }
 
@@ -267,7 +268,7 @@ impl<'a> Interscope<'a>
     pub fn type_module(&self, typ: &Type) -> &Protomod
     {
         match typ {
-            &Type::Enum(ref i) => {
+            &Type::UserDef(ref i) => {
                 i.mod_ref()
                 .map(|mods| {
                     let imp = self.imports.get(mods.str());
@@ -514,10 +515,12 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc
         Some((ScopeLevel::Module, typ)) => {
             if typ.is_func() {
                 Ixpr{
-                    src: Source::ConstVal(Val::Tuple(vec![
-                        Val::Str(scope.proto.key.name.clone()),
-                        Val::Str(id.rc()),
-                    ])),
+                    src: Source::ConstVal(Val::Struple(None,
+                        Struple::new_tuple2(
+                            Val::Str(scope.proto.key.name.clone()),
+                            Val::Str(id.rc()),
+                        ),
+                    )),
                     typ: typ.clone(),
                     line: loc.lineno,
                 }
@@ -536,10 +539,10 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc
             // a better way to make this work
             Ixpr{
                 src: Source::ConstVal(
-                    Val::Tuple(vec![
+                    Val::Struple(None, Struple::new_tuple2(
                         Val::Str(Rc::new("prefab".to_string())),
                         Val::Str(id.rc()),
-                    ])
+                    ))
                 ),
                 typ: typ.clone(),
                 line: loc.lineno,
@@ -558,10 +561,13 @@ pub fn compile_module_id(scope: &mut Interscope, module: Rc<String>
     match scope.import_vartype(&*module, &**id) {
         Some(typ) if typ.is_func() => {
             Ixpr{
-                src: Source::ConstVal(Val::Tuple(vec![
-                    Val::Str(module.clone()),
-                    Val::Str(id.clone()),
-                ])),
+                src: Source::ConstVal(Val::Struple(
+                    None,
+                    Struple::new_tuple2(
+                        Val::Str(module.clone()),
+                        Val::Str(id.clone()),
+                    ),
+                )),
                 typ: typ.clone(),
                 line: loc.lineno,
             }
@@ -741,7 +747,7 @@ pub fn compile_pattern(scope: &mut Interscope, new_vars: &mut Vec<Rc<String>>
             let citems = items.iter().map(|i| {
                 compile_pattern(scope, new_vars, i)
             }).collect();
-            Val::Tuple(citems)
+            Val::Struple(None, Struple::new_indexed(citems))
         }
         &Ast::ConstInt(i) => {
             Val::Int(i)
