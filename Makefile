@@ -34,7 +34,7 @@ target/debug/deps:
 	mkdir -p target/debug/deps
 
 lexparse/lex.o: lexparse/lex.c lexparse/leema.h lexparse/leema.h
-	gcc -c -o lexparse/lex.o lexparse/lex.c
+	gcc -c -fPIC -o lexparse/lex.o lexparse/lex.c
 
 lexparse/libleemalex.o: lexparse/libleemalex.c lexparse/leema.h
 	gcc -c -fPIC -o lexparse/libleemalex.o lexparse/libleemalex.c
