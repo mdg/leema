@@ -1043,7 +1043,7 @@ impl Val
     }
 
     fn fmt_struple(f: &mut fmt::Formatter, tname: Option<&Lri>
-        , ftypes: &Vec<(Option<Lstr>, Type)>, fvals: &Vec<Val>, dbg: bool
+        , fields: &Struple, dbg: bool
         ) -> fmt::Result
     {
         if tname.is_some() {
@@ -1174,16 +1174,11 @@ impl fmt::Display for Val {
             Val::Hashtag(ref s) => {
                 write!(f, "#{}", s)
             }
-            Val::Struple(ref typename, ref items) => {
-                write!(f, "{}", typename).ok();
-                Val::fmt_struple(items)
+            Val::Struple(Some(Type::UserDef(ref typename)), ref items) => {
+                Val::fmt_struple(typename, items)
             }
-            Val::Struple(None, Some(ref fvals)) =>
-            {
-                Val::fmt_struple(f, tname.as_ref(), ftypes, fvals, false)
-            }
-            Val::EnumStruple(ref _typename, ref var_name, ref val) => {
-                write!(f, "{}({})", var_name, val)
+            Val::EnumStruple(None, ref var_name, ref items) => {
+                Val::fmt_struple(Lri::new(var_name.clone()), items)
             }
             Val::EnumToken(ref _typename, ref var_name) => {
                 write!(f, "{}", var_name)
