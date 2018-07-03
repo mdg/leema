@@ -596,9 +596,8 @@ impl Protomod
         }).collect();
 
         let struple_lri = local_type.add_modules(mod_name.clone());
-        let result_type = Type::Ref(struple_lri.clone());
         let full_type = Type::UserDef(struple_lri.clone());
-        let func_type = Type::Func(field_type_vec, Box::new(result_type));
+        let func_type = Type::Func(field_type_vec, Box::new(full_type));
 
         let src_typename = Ast::from_lri(struple_lri.clone(), loc);
         let localid_ast = Ast::Localid(local_name.clone(), *loc);
@@ -637,7 +636,6 @@ impl Protomod
                 panic!("cannot get fields from not struple");
             }
         }
-        None
     }
 
     pub fn struct_field_idx(&self, typename: &str, fld: &str
@@ -710,9 +708,7 @@ impl Protomod
                 let variant_lri =
                     Lri::with_modules(mod_lstr.clone(), variant_name.clone());
                 let var_struct_type = Type::UserDef(variant_lri);
-                let const_val = Val::EnumStruple(typ.clone(), variant_name.rc()
-                    , Box::new(Val::Void)
-                    );
+                let const_val = Val::EnumToken(typ.clone(), variant_name);
                 let variant_name_string = String::from(&variant_name);
                 self.constants.insert(variant_name_string.clone(), const_val);
                 self.valtypes.insert(variant_name_string, typ);

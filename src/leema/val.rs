@@ -82,24 +82,14 @@ impl Type
     /**
      * Get the typename including the module
      */
-    pub fn full_typename(&self) -> Rc<String>
+    pub fn full_typename(&self) -> Lstr
     {
         match self {
-            &Type::Int => Rc::new("Int".to_string()),
-            &Type::Id(ref name) => name.clone(),
-            &Type::Struple(None, ref types) => {
-                let result = format!("Tuple({:?})", types);
-                Rc::new(result)
+            &Type::Int => Lstr::Sref("Int"),
+            &Type::UserDef(ref name) => {
+                Lstr::from(name)
             }
-            &Type::Struple(Some(ref name), _) => {
-                let result = format!("{}", name);
-                Rc::new(result)
-            }
-            &Type::Enum(ref name) => {
-                let ls = Lstr::from(name);
-                ls.rc()
-            }
-            &Type::Void => Rc::new(String::from("Void")),
+            &Type::Void => Lstr::Sref("Void"),
             _ => {
                 panic!("no typename for {:?}", self);
             }
@@ -112,13 +102,12 @@ impl Type
     pub fn local_typename(&self) -> Rc<String>
     {
         match self {
-            &Type::Ref(ref i) => {
+            &Type::UserDef(ref i) => {
                 i.local().rc()
             }
-            &Type::Struple(Some(ref i), _) => {
-                i.local().rc()
+            _ => {
+                self.full_typename().rc()
             }
-            _ => self.full_typename(),
         }
     }
 
@@ -174,58 +163,6 @@ impl Type
         }
     }
 
-    /**
-     * Convert this ID type to a struct type
-     */
-    pub fn to_struct(&self) -> Type
-    {
-        match self {
-            &Type::Id(ref name) => Type::Struct(name.clone()),
-            &Type::Struct(ref name) => Type::Struct(name.clone()),
-            _ => {
-                panic!("cannot convert to struct type: {:?}", self);
-            }
-        }
-    }
-
-    /**
-     * Convert this ID type to an enum type
-     */
-    pub fn to_enum(&self) -> Type
-    {
-        match self {
-            &Type::Id(ref name) => {
-                Type::Enum(Lri::new(Lstr::Rc(name.clone())))
-            }
-            &Type::Enum(ref name) => Type::Enum(name.clone()),
-            _ => {
-                panic!("cannot convert to enum type: {:?}", self);
-            }
-        }
-    }
-
-    /**
-     * Check if this type is a struple
-     */
-    pub fn is_struple(&self) -> bool
-    {
-        match self {
-            &Type::Struple(_, _) => true,
-            _ => false,
-        }
-    }
-
-    /**
-     * Check if this type is an enum
-     */
-    pub fn is_enum(&self) -> bool
-    {
-        match self {
-            &Type::Enum(_) => true,
-            _ => false,
-        }
-    }
-
     pub fn deep_clone(&self) -> Type
     {
         match self {
@@ -233,50 +170,23 @@ impl Type
             &Type::Bool => Type::Bool,
             &Type::Int => Type::Int,
             &Type::Hashtag => Type::Hashtag,
-            &Type::Struple(ref opt_i, ref fields) => {
-                let dci = opt_i.as_ref().map(|i| {
-                    i.deep_clone()
-                });
-                let dc_fields = fields.iter().map(|&(ref k, ref t)| {
-                    (k.as_ref().map(|ik| { ik.deep_clone() }), t.deep_clone())
-                }).collect();
-                Type::Struple(dci, dc_fields)
-            }
-            &Type::Struct(ref s) => {
-                Type::Struct(Rc::new((**s).clone()))
-            }
-            &Type::Enum(ref s) => {
-                Type::Enum(s.deep_clone())
-            }
-            &Type::NamedTuple(ref name, ref flds) => {
-                Type::NamedTuple(
-                    Rc::new((**name).clone()),
-                    flds.iter().map(|f| {
-                        f.deep_clone()
-                    }).collect(),
-                )
-            }
             &Type::Tuple(ref items) => {
                 let dc_items = items.iter().map(|t| {
-                    t.deep_clone()
+                    let newt = t.0.map(|ti| {
+                        ti.deep_clone()
+                    });
+                    (newt, t.1.deep_clone())
                 }).collect();
                 Type::Tuple(dc_items)
             }
-            &Type::Ref(ref i) => {
-                Type::Ref(i.deep_clone())
-            }
-            &Type::Token(ref t) => {
-                Type::Token(Rc::new((**t).clone()))
+            &Type::UserDef(ref i) => {
+                Type::UserDef(i.deep_clone())
             }
             &Type::Func(ref args, ref result) => {
                 let dc_args = args.iter().map(|t| {
                     t.deep_clone()
                 }).collect();
                 Type::Func(dc_args, Box::new(result.deep_clone()))
-            }
-            &Type::Id(ref id) => {
-                let old_str: &str = &**id;
-                Type::Id(Rc::new(old_str.to_string()))
             }
             &Type::Var(ref id) => {
                 let old_str: &str = &**id;
@@ -315,30 +225,21 @@ impl fmt::Display for Type
             &Type::Str => write!(f, "Str"),
             &Type::Bool => write!(f, "Bool"),
             &Type::Hashtag => write!(f, "Hashtag"),
-            &Type::Struple(None, ref fields) => {
-                write!(f, "(").ok();
-                for fld in fields {
-                    write!(f, "{:?},", fld).ok();
-                }
-                write!(f, ")")
-            }
-            &Type::Struple(Some(ref name), ref fields) => {
-                write!(f, "{}{:?}", name, fields)
-            }
             &Type::Tuple(ref items) => {
                 write!(f, "(");
                 for i in items {
-                    write!(f, "{},", i);
+                    match &i.0 {
+                        &Some(ref iname) => {
+                            write!(f, "{}: {},", iname, i.1);
+                        }
+                        &None => {
+                            write!(f, "{},", i.1);
+                        }
+                    }
                 }
                 write!(f, ")")
             }
-            &Type::Struct(ref name) => write!(f, "{}", name),
-            &Type::Enum(ref name) => write!(f, "{}", name),
-            &Type::Ref(ref name) => write!(f, "{}", name),
-            &Type::Token(ref name) => write!(f, "{}", name),
-            &Type::NamedTuple(ref name, ref flds) => {
-                write!(f, "{}", name)
-            }
+            &Type::UserDef(ref name) => write!(f, "{}", name),
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
@@ -358,7 +259,6 @@ impl fmt::Display for Type
             &Type::Any => write!(f, "Any"),
 
             &Type::Unknown => write!(f, "TypeUnknown"),
-            &Type::Id(ref name) => write!(f, "{}", name),
             &Type::Param(index) => {
                 write!(f, "Type::Param({})", index)
             }
@@ -406,7 +306,6 @@ impl fmt::Debug for Type
             &Type::Any => write!(f, "Any"),
 
             &Type::Unknown => write!(f, "TypeUnknown"),
-            &Type::Id(ref name) => write!(f, "TypeId({})", name),
             &Type::Var(ref name) => {
                 write!(f, "Type::Var({})", name)
             }
@@ -543,7 +442,7 @@ pub enum MsgVal
     Bool(bool),
     Hashtag(String),
     Cons(Box<MsgVal>, Box<MsgVal>),
-    Tuple(Vec<MsgVal>),
+    Struple(Vec<MsgVal>),
     Buffer(Vec<u8>),
     Nil,
     Void,
@@ -612,7 +511,9 @@ impl Val
     {
         match self {
             &Val::Id(ref name) => name.clone(),
-            &Val::Type(ref typ) => typ.full_typename(),
+            &Val::Type(ref typ) => {
+                typ.full_typename().rc()
+            }
             _ => {
                 panic!("not an id {:?}", self);
             }
@@ -629,10 +530,10 @@ impl Val
         let mut t = Vec::with_capacity(*sz);
         let mut i: usize = *sz;
         while i > 0 {
-            t.push(VOID);
+            t.push((None, VOID));
             i = i - 1;
         }
-        Val::Tuple(t)
+        Val::Struple(None, Struple(t))
     }
 
     pub fn tuple_from_list(l: &Val) -> Val
@@ -641,12 +542,13 @@ impl Val
         if !l.is_list() {
             panic!("Cannot make tuple from not-list: {:?}", l);
         }
-        let empties: Vec<Val> = Vec::with_capacity(list::len(l));
+        let empties: Vec<(Option<Lstr>, Val)> =
+            Vec::with_capacity(list::len(l));
         let items = list::fold_ref(empties, l, |mut res, item| {
-            res.push(item.clone());
+            res.push((None, item.clone()));
             res
         });
-        Val::Tuple(items)
+        Val::Struple(None, Struple(items))
     }
 
     pub fn is_list(&self) -> bool
@@ -812,15 +714,15 @@ impl Val
             &Val::Lri(_) => Type::AnonVar,
             &Val::RustBlock => Type::RustBlock,
             &Val::Struple(None, ref items) if items.0.len() == 1 => {
-                items.0.get(0).unwrap().get_type()
+                items.0.get(0).unwrap().1.get_type()
             }
             &Val::Struple(None, ref items) => {
-                let tuptypes = items.iter().map(|i| {
-                    i.get_type()
+                let tuptypes = items.0.iter().map(|i| {
+                    (i.0.clone(), i.1.get_type())
                 }).collect();
                 Type::Tuple(tuptypes)
             }
-            &Val::Struple(ref typ, _) => {
+            &Val::Struple(Some(ref typ), _) => {
                 (*typ).clone()
             }
             &Val::EnumStruple(ref typ, _, _) => {
@@ -882,11 +784,10 @@ impl Val
                 Val::_pattern_match_list(assigns, patt, input)
             }
             (&Val::Struple(ref pt, ref pv), &Val::Struple(ref it, ref iv))
-                if pt.len() == it.len() && pv.len() == iv.len() =>
+                if pv.0.len() == iv.0.len() =>
             {
-                let it = pv.iter().zip(iv.iter());
-                it.fold(true, |m, (p_item, i_item)| {
-                    m && Val::_pattern_match(assigns, p_item.1, i_item.1)
+                pv.0.iter().zip(iv.0.iter()).all(|(p_item, i_item)| {
+                    Val::_pattern_match(assigns, &p_item.1, &i_item.1)
                 })
             }
             (&Val::Nil, &Val::Nil) => true,
@@ -924,13 +825,11 @@ impl Val
                 };
                 list::map_ref(&node, f)
             }
-            &Val::Tuple(ref t) => {
-                let mut result = Vec::with_capacity(t.len());
-                for tv in t.iter() {
-                    let rv = Val::replace_ids(tv, idvals);
-                    result.push(rv);
-                }
-                Val::Tuple(result)
+            &Val::Struple(ref st, ref t) => {
+                let new_items = t.0.iter().map(|i| {
+                    (i.0.clone(), Val::replace_ids(&i.1, idvals))
+                }).collect();
+                Val::Struple(st.clone(), Struple(new_items))
             }
             &Val::Id(ref name) => {
                 match idvals.get(&*name) {
@@ -957,17 +856,21 @@ impl Val
             }
             &Val::Nil => Val::Nil,
             &Val::Struple(ref typ, ref flds) => {
-                Val::Struple(typ.deep_clone(), flds.iter().map(|f| {
-                    f.deep_clone()
-                }).collect())
+                let new_typ = typ.map(|t| {
+                    t.deep_clone()
+                });
+                let new_flds = flds.0.iter().map(|f| {
+                    (None, f.1.deep_clone())
+                }).collect();
+                Val::Struple(new_typ, Struple(new_flds))
             }
             &Val::EnumStruple(ref typ, ref vname, ref flds) => {
-                Val::EnumStruple(typ.deep_clone(), vname.clone(),
-                    Box::new(flds.deep_clone()),
+                Val::EnumStruple(typ.deep_clone(), vname.deep_clone(),
+                    flds.deep_clone(),
                 )
             }
             &Val::EnumToken(ref typ, ref vname) => {
-                Val::Enum(typ.deep_clone(), vname.clone())
+                Val::EnumToken(typ.deep_clone(), vname.deep_clone())
             }
             &Val::Token(ref typ) => {
                 Val::Token(typ.deep_clone())
@@ -1055,11 +958,7 @@ impl Val
             }
         }
         f.write_str("(")?;
-        if ftypes.len() != fvals.len() {
-            panic!("mismatch of field type and value length: {:?} / {:?}"
-                , ftypes, fvals);
-        }
-        for (&(ref opt_name, _), ref x) in ftypes.iter().zip(fvals.iter()) {
+        for &(ref opt_name, ref x) in fields.0.iter() {
             if opt_name.is_some() {
                 write!(f, "{}:", opt_name.as_ref().unwrap());
             }
@@ -1084,9 +983,12 @@ impl Val
                 let msgtail = Box::new(tail.to_msg());
                 MsgVal::Cons(msghead, msgtail)
             }
-            &Val::Tuple(ref items) => {
-                MsgVal::Tuple(items.iter().map(|iv| {
-                    iv.to_msg()
+            &Val::Struple(ref typ, ref items) => {
+                let new_type = typ.map(|t| {
+                    t.deep_clone()
+                });
+                MsgVal::Struple(items.0.iter().map(|iv| {
+                    iv.1.to_msg()
                 }).collect())
             }
             &Val::Buffer(ref buf) => MsgVal::Buffer(buf.clone()),
@@ -1119,10 +1021,11 @@ impl Val
                 let tail = Val::from_msg(*mtail);
                 Val::Cons(Box::new(head), Rc::new(tail))
             }
-            MsgVal::Tuple(items) => {
-                Val::Tuple(items.into_iter().map(|mv| {
-                    Val::from_msg(mv)
-                }).collect())
+            MsgVal::Struple(items) => {
+                let new_items = items.into_iter().map(|mv| {
+                    (None, Val::from_msg(mv))
+                }).collect();
+                Val::Struple(None, Struple(new_items))
             }
             MsgVal::Buffer(buf) => Val::Buffer(buf),
             MsgVal::Failure(tag, msg, trace, status) => {
@@ -1175,10 +1078,14 @@ impl fmt::Display for Val {
                 write!(f, "#{}", s)
             }
             Val::Struple(Some(Type::UserDef(ref typename)), ref items) => {
-                Val::fmt_struple(typename, items)
+                Val::fmt_struple(f, Some(typename), items, false)
             }
-            Val::EnumStruple(None, ref var_name, ref items) => {
-                Val::fmt_struple(Lri::new(var_name.clone()), items)
+            Val::Struple(None, ref items) => {
+                Val::fmt_struple(f, None, items, false)
+            }
+            Val::EnumStruple(Type::UserDef(ref tname), ref var, ref items) => {
+                write!(f, "{}", tname).ok();
+                Val::fmt_struple(f, Some(&Lri::new(var.clone())), items, false)
             }
             Val::EnumToken(ref _typename, ref var_name) => {
                 write!(f, "{}", var_name)
@@ -1265,7 +1172,7 @@ impl fmt::Debug for Val {
             Val::Struple(None, ref fields) => {
                 write!(f, "struple {:?}", fields)
             }
-            Val::Struple(ref typ, ref fields) => {
+            Val::Struple(Some(ref typ), ref fields) => {
                 write!(f, "struple {}{:?}", typ, fields)
             }
             Val::EnumStruple(ref name, ref var_name, ref val) => {
@@ -1360,7 +1267,7 @@ impl reg::Iregistry for Val
     fn ireg_get_mut<'a, 'b>(&'a mut self, i: &'b Ireg) -> &'a mut Val
     {
         match (i, self) {
-            (_, Val::Struple(_, items)) => {
+            (_, &mut Val::Struple(_, ref mut items)) => {
                 items.ireg_get_mut(i)
             }
             _ => {

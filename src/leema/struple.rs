@@ -26,6 +26,17 @@ impl Struple
             (None, b),
         ])
     }
+
+    pub fn deep_clone(&self) -> Struple
+    {
+        let new_items = self.0.iter().map(|i| {
+            let new_key = i.0.map(|ik| {
+                ik.deep_clone()
+            });
+            (new_key, i.1.deep_clone())
+        }).collect();
+        Struple(new_items)
+    }
 }
 
 impl reg::Iregistry for Struple
@@ -54,14 +65,14 @@ impl reg::Iregistry for Struple
         match i {
             // set reg on struple
             &Ireg::Reg(p) => {
-                if p as usize >= tup.len() {
-                    panic!("{:?} too big for {:?}", i, tup);
+                if p as usize >= self.0.len() {
+                    panic!("{:?} too big for {:?}", i, self.0);
                 }
                 &mut self.0[p as usize].1
             }
             &Ireg::Sub(p, ref s) => {
-                if p as usize >= tup.len() {
-                    panic!("{:?} too big for {:?}", i, tup);
+                if p as usize >= self.0.len() {
+                    panic!("{:?} too big for {:?}", i, self.0);
                 }
                 self.0[p as usize].1.ireg_get_mut(&*s)
             }
@@ -73,14 +84,14 @@ impl reg::Iregistry for Struple
         match i {
             // get reg on struple
             &Ireg::Reg(p) => {
-                if p as usize >= fields.len() {
+                if p as usize >= self.0.len() {
                     panic!("{:?} too big for struple {:?}"
                         , i, self);
                 }
                 self.0[p as usize].1 = v;
             }
             &Ireg::Sub(p, ref s) => {
-                if p as usize >= fld.0.len() {
+                if p as usize >= self.0.len() {
                     panic!("{:?} too big for strtuple {:?}", i, self);
                 }
                 self.0[p as usize].1.ireg_set(&*s, v);

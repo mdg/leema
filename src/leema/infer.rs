@@ -212,9 +212,8 @@ impl<'b> Inferator<'b>
                 self.merge_types(&valtype,
                     &Type::StrictList(Box::new(tvar_inner.clone())));
             }
-            (&Val::Struple(None, ref flds1),
-                &Type::Struple(None, ref flds2)
-            ) => {
+            (&Val::Struple(None, ref flds1), Type::UserDef(ref uname)) => {
+                let flds2 = lookup_type(uname);
                 for (fp, ft) in flds1.iter().zip(flds2.iter()) {
                     self.match_pattern(fp, ft, lineno);
                 }
@@ -253,7 +252,7 @@ impl<'b> Inferator<'b>
                             panic!("struple pattern mismatch: {:?} != {:?}"
                                 , patt, valtype);
                         }
-                        for (fp, ft) in flds1.iter().zip(flds2.iter()) {
+                        for (fp, ft) in flds1.0.iter().zip(flds2.iter()) {
                             self.match_pattern(fp, ft, lineno);
                         }
                     }
