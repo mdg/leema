@@ -5,6 +5,7 @@ use leema::log;
 use leema::ixpr::{Ixpr, Source};
 use leema::frame;
 use leema::rsrc;
+use leema::struple::{Struple};
 
 use std::fmt;
 use std::io::{Write};
@@ -44,7 +45,6 @@ pub enum Op
     PropagateFailure(Reg, i16),
     ConstVal(Reg, Val),
     Construple(Reg, Type),
-    Constructor(Reg, Type, i8),
     Copy(Reg, Reg),
     Fork(Reg, Reg, Reg),
     //IfFail(Reg, i16),
@@ -92,9 +92,6 @@ impl Clone for Op
             }
             &Op::Construple(ref dst, ref typ) => {
                 Op::Construple(dst.clone(), typ.deep_clone())
-            }
-            &Op::Constructor(ref dst, ref src, nflds) => {
-                Op::Constructor(dst.clone(), src.deep_clone(), nflds)
             }
             &Op::Copy(ref dst, ref src) => {
                 Op::Copy(dst.clone(), src.clone())
@@ -466,32 +463,6 @@ pub fn make_construple_ops(rt: &mut RegTable, typ: &Type, line: i16) -> Oxpr
     }
 }
 
-pub fn make_constructor_ops(rt: &mut RegTable, typ: &Type, nflds: i8
-    , line: i16
-    ) -> Oxpr
-{
-    let dst = rt.dst();
-
-    let mut ops: Vec<(Op, i16)> = Vec::with_capacity((nflds + 1) as usize);
-    ops.push((
-        Op::Constructor(dst.clone(), typ.clone(), nflds),
-        line,
-        ));
-    let mut i = 0;
-    while i < nflds {
-        ops.push((
-            Op::Copy(dst.sub(i), Reg::param(i)),
-            line,
-            ));
-        i += 1;
-    }
-
-    Oxpr{
-        ops: ops,
-        dst: dst.clone(),
-    }
-}
-
 pub fn make_enum_constructor_ops(rt: &mut RegTable, typ: &Type, index: i16
     , data: &Ixpr, line: i16
     ) -> Oxpr
@@ -637,7 +608,7 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
             let pr_tail = assign_pattern_registers(rt, tail);
             Val::Cons(Box::new(pr_head), Rc::new(pr_tail))
         }
-        &Val::Struple(_, ref vars) => {
+        &Val::Struple(ref typ, ref vars) => {
             let reg_items = vars.0.iter().map(|v| {
                 (v.0.clone(), assign_pattern_registers(rt, &v.1))
             }).collect();
