@@ -1080,12 +1080,18 @@ impl fmt::Display for Val {
             Val::Struple(Some(Type::UserDef(ref typename)), ref items) => {
                 Val::fmt_struple(f, Some(typename), items, false)
             }
+            Val::Struple(Some(other_type), _) => {
+                panic!("not a struple type: {:?}", other_type);
+            }
             Val::Struple(None, ref items) => {
                 Val::fmt_struple(f, None, items, false)
             }
             Val::EnumStruple(Type::UserDef(ref tname), ref var, ref items) => {
                 write!(f, "{}", tname).ok();
                 Val::fmt_struple(f, Some(&Lri::new(var.clone())), items, false)
+            }
+            Val::EnumStruple(ref other_type, _, _) => {
+                panic!("not an EnumStruple type: {:?}", other_type)
             }
             Val::EnumToken(ref _typename, ref var_name) => {
                 write!(f, "{}", var_name)

@@ -212,34 +212,23 @@ impl<'b> Inferator<'b>
                 self.merge_types(&valtype,
                     &Type::StrictList(Box::new(tvar_inner.clone())));
             }
-            (&Val::Struple(None, ref flds1), Type::UserDef(ref uname)) => {
+            (&Val::Struple(None, ref flds1), &Type::Tuple(ref item_types)) => {
+                for (fp, ft) in flds1.0.iter().zip(item_types.iter()) {
+                    self.match_pattern(&fp.1, &ft.1, lineno);
+                }
+            }
+            (&Val::Struple(None, ref flds1), &Type::UserDef(ref uname)) => {
+                /*
                 let flds2 = lookup_type(uname);
                 for (fp, ft) in flds1.iter().zip(flds2.iter()) {
                     self.match_pattern(fp, ft, lineno);
                 }
+                */
             }
-            (&Val::Struple(ref typ1, None),
-                &Type::Struple(ref typename2, ref flds2)
-            ) => {
-                if flds2.len() > 0 {
-                    panic!("type struple has too many fields: {:?}", flds2);
-                }
-                let type_match = match typ1 {
-                    &Type::Struple(ref typename1) => {
-                        if typename1 != typename2 {
-                            panic!("struple pattern mismatch: {} != {}"
-                                , typename1, typename2);
-                        }
-                    }
-                    _ => {
-                        panic!("struple pattern type mismatch: {:?} != {:?}"
-                            , patt, valtype);
-                    }
-                };
-            }
-            (&Val::Struple(ref typ1, ref flds1),
-                &Type::Struple(ref typename2, ref flds2)
-            ) => {
+            (&Val::Struple(ref typ1, ref flds1)
+                , &Type::UserDef(ref typename2)) =>
+            {
+                /*
                 let type_match = match typ1 {
                     &Type::Struple(ref typename1) => {
                         if typename1 != typename2 {
@@ -261,6 +250,7 @@ impl<'b> Inferator<'b>
                             , patt, valtype);
                     }
                 };
+                */
             }
             _ => {
                 let ptype = patt.get_type();

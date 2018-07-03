@@ -128,7 +128,6 @@ impl<'a> CallFrame<'a>
             // nothing to do for these, not calls.
             Source::RustBlock => {}
             Source::Construple(_) => {}
-            Source::Constructor(_, _) => {}
             Source::EnumConstructor(_, _, _) => {}
             Source::ModuleAccess(_, _) => {}
             Source::PropagateFailure(_, _) => {}

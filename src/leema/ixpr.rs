@@ -16,7 +16,6 @@ pub enum Source
     Call(Box<Ixpr>, Box<Ixpr>),
     Cons(Box<Ixpr>, Box<Ixpr>),
     Construple(Type),
-    Constructor(Type, i8),
     ConstVal(Val),
     EnumConstructor(Type, i16, Box<Ixpr>),
     FieldAccess(Box<Ixpr>, i8),
@@ -156,15 +155,6 @@ impl Ixpr
         Ixpr{
             typ: t.clone(),
             src: Source::Construple(t),
-            line: lineno,
-        }
-    }
-
-    pub fn constructor(t: Type, nflds: i8, lineno: i16) -> Ixpr
-    {
-        Ixpr{
-            typ: t.clone(),
-            src: Source::Constructor(t, nflds),
             line: lineno,
         }
     }
