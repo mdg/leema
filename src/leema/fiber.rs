@@ -83,9 +83,6 @@ impl Fiber
             &Op::Construple(ref dst, ref typ) => {
                 self.execute_construple(dst, typ)
             }
-            &Op::Constructor(ref dst, ref typ, nflds) => {
-                self.execute_constructor(dst, typ, nflds)
-            }
             &Op::Copy(ref dst, ref src) => {
                 self.execute_copy(dst, src)
             }
@@ -213,9 +210,9 @@ impl Fiber
                     // pass in args
                     (Rc::new("".to_string()), name_str.clone())
                 }
-                &Val::Tuple(ref modfunc) if modfunc.len() == 2 => {
-                    let modnm = modfunc.get(0).unwrap();
-                    let funcnm = modfunc.get(1).unwrap();
+                &Val::Struple(None, ref modfunc) if modfunc.0.len() == 2 => {
+                    let modnm = &modfunc.0.get(0).unwrap().1;
+                    let funcnm = &modfunc.0.get(1).unwrap().1;
                     match (modnm, funcnm) {
                         (&Val::Str(ref m), &Val::Str(ref f)) => {
                             (m.clone(), f.clone())
@@ -275,11 +272,12 @@ impl Fiber
     pub fn execute_construple(&mut self, reg: &Reg, new_typ: &Type) -> Event
     {
         let construple = match self.head.e.get_params() {
-            &Val::Struple(ref old_typ, ref items) => {
-                Val::Struple(new_typ.clone(), items.clone())
+            &Val::Struple(None, ref items) => {
+                Val::Struple(Some(new_typ.clone()), items.clone())
             }
-            &Val::Tuple(ref items) => {
-                Val::Struple(new_typ.clone(), Some(items.clone()))
+            &Val::Struple(Some(ref old_typ), ref items) => {
+                panic!("cannot construple when type already set: {} <- {}"
+                    , old_typ, new_typ);
             }
             what => {
                 panic!("cannot construct a not construple: {:?}", what);
@@ -391,10 +389,10 @@ impl Fiber
 
     fn call_arg_failure(args: &Val) -> Option<&Val>
     {
-        if let &Val::Tuple(ref items) = args {
-            for i in items {
-                if i.is_failure() {
-                    return Some(i);
+        if let &Val::Struple(_, ref items) = args {
+            for i in items.0 {
+                if i.1.is_failure() {
+                    return Some(&i.1);
                 }
             }
         } else {

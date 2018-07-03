@@ -325,10 +325,6 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             vout!("make_construple_ops({:?})\n", typ);
             make_construple_ops(rt, typ, input.line)
         }
-        Source::Constructor(ref typ, nflds) => {
-            vout!("make_constructor_ops({:?})\n", input);
-            make_constructor_ops(rt, typ, nflds, input.line)
-        }
         Source::EnumConstructor(ref typ, idx, ref val) => {
             vout!("make_enum_constructor_ops({:?})\n", input);
             make_enum_constructor_ops(rt, typ, idx, &**val, input.line)
@@ -409,7 +405,8 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::ModuleAccess(ref module, ref name) => {
             let modval = Val::Str(module.clone());
             let idval = Val::Str(name.clone());
-            let modname = Val::Tuple(vec![modval, idval]);
+            let modname =
+                Val::Struple(None, Struple::new_tuple2(modval, idval));
             let dst = rt.dst();
             Oxpr{
                 ops: vec![(Op::ConstVal(dst.clone(), modname), input.line)],
@@ -500,7 +497,6 @@ pub fn make_enum_constructor_ops(rt: &mut RegTable, typ: &Type, index: i16
     ) -> Oxpr
 {
     let dst = rt.dst();
-    let etype = typ.to_enum();
 
     let ops: Vec<(Op, i16)> = Vec::with_capacity(3);
     /*
@@ -641,17 +637,11 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
             let pr_tail = assign_pattern_registers(rt, tail);
             Val::Cons(Box::new(pr_head), Rc::new(pr_tail))
         }
-        &Val::Tuple(ref items) => {
-            let reg_items = items.iter().map(|p| {
-                assign_pattern_registers(rt, p)
+        &Val::Struple(_, ref vars) => {
+            let reg_items = vars.0.iter().map(|v| {
+                (v.0.clone(), assign_pattern_registers(rt, &v.1))
             }).collect();
-            Val::Tuple(reg_items)
-        }
-        &Val::Struct(ref typ, ref vars) => {
-            let reg_items = vars.iter().map(|v| {
-                assign_pattern_registers(rt, v)
-            }).collect();
-            Val::Struct(typ.clone(), reg_items)
+            Val::Struple(typ.clone(), Struple(reg_items))
         }
         _ => {
             panic!("pattern type unsupported: {:?}", pattern);
