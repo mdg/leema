@@ -3,23 +3,25 @@ use leema::lstr::{Lstr};
 use leema::reg::{self, Ireg};
 use leema::val::{Val};
 
+use std::fmt;
+
+
 #[derive(Clone)]
-#[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
-pub struct Struple(pub Vec<(Option<Lstr>, Val)>);
+pub struct Struple<T>(pub Vec<(Option<Lstr>, T)>);
 
-impl Struple
+impl<T> Struple<T>
 {
-    pub fn new_indexed(items: Vec<Val>) -> Struple
+    pub fn new_indexed(items: Vec<T>) -> Struple<T>
     {
-        let new_items: Vec<(Option<Lstr>, Val)> = items.into_iter().map(|i| {
+        let new_items: Vec<(Option<Lstr>, T)> = items.into_iter().map(|i| {
             (None, i)
         }).collect();
         Struple(new_items)
     }
 
-    pub fn new_tuple2(a: Val, b: Val) -> Struple
+    pub fn new_tuple2(a: T, b: T) -> Struple<T>
     {
         Struple(vec![
             (None, a),
@@ -27,7 +29,7 @@ impl Struple
         ])
     }
 
-    pub fn deep_clone(&self) -> Struple
+    pub fn deep_clone(&self) -> Struple<T>
     {
         let new_items = self.0.iter().map(|i| {
             let new_key = i.0.as_ref().map(|ik| {
@@ -39,7 +41,40 @@ impl Struple
     }
 }
 
-impl reg::Iregistry for Struple
+
+impl<T> fmt::Display for Struple<T>
+    where T: fmt::Display
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        f.write_str("(")?;
+        for &(ref opt_name, ref x) in self.0.iter() {
+            if let &Some(ref name) = opt_name {
+                write!(f, "{}:", name)?;
+            }
+            write!(f, "{},", x)?;
+        }
+        f.write_str(")")
+    }
+}
+
+impl<T> fmt::Debug for Struple<T>
+    where T: fmt::Debug
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        f.write_str("(")?;
+        for &(ref opt_name, ref x) in self.0.iter() {
+            if let &Some(ref name) = opt_name {
+                write!(f, "{}:", name)?;
+            }
+            write!(f, "{:?},", x)?;
+        }
+        f.write_str(")")
+    }
+}
+
+impl reg::Iregistry for Struple<Val>
 {
     fn ireg_get(&self, i: &Ireg) -> &Val
     {

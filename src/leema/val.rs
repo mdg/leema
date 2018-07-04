@@ -47,7 +47,7 @@ pub enum Type
     Str,
     Bool,
     Hashtag,
-    Tuple(Vec<(Option<Lstr>, Type)>),
+    Tuple(Struple<Type>),
     Failure,
     Func(Vec<Type>, Box<Type>),
     // different from base collection/map interfaces?
@@ -462,10 +462,11 @@ pub enum Val
     Buffer(Vec<u8>),
     Cons(Box<Val>, Rc<Val>),
     Nil,
-    Struple(Option<Type>, Struple),
-    EnumStruple(Type, Lstr, Struple),
-    EnumToken(Type, Lstr),
-    Token(Type),
+    Tuple(Struple<Val>),
+    Struct(Lri, Struple<Val>),
+    EnumStruct(Lri, Lstr, Struple<Val>),
+    EnumToken(Lri, Lstr),
+    Token(Lri),
     Failure(
         Box<Val>, // tag
         Box<Val>, // msg
@@ -940,32 +941,6 @@ impl Val
                 write!(f, "{:?},", x).ok();
             } else {
                 write!(f, "{},", x).ok();
-            }
-        }
-        f.write_str(")")
-    }
-
-    fn fmt_struple(f: &mut fmt::Formatter, tname: Option<&Lri>
-        , fields: &Struple, dbg: bool
-        ) -> fmt::Result
-    {
-        if tname.is_some() {
-            let inner_tname = tname.unwrap();
-            if dbg {
-                write!(f, "{:?}", inner_tname)?;
-            } else {
-                write!(f, "{}", inner_tname)?;
-            }
-        }
-        f.write_str("(")?;
-        for &(ref opt_name, ref x) in fields.0.iter() {
-            if opt_name.is_some() {
-                write!(f, "{}:", opt_name.as_ref().unwrap());
-            }
-            if dbg {
-                write!(f, "{:?},", x)?;
-            } else {
-                write!(f, "{},", x)?;
             }
         }
         f.write_str(")")
