@@ -189,7 +189,7 @@ impl<'a> Interscope<'a>
             typed: typed,
             T: t,
             argnames: args.clone(),
-            argt: Type::Tuple(argt),
+            argt: Type::Tuple(Struple(argt)),
         }
     }
 
@@ -515,7 +515,7 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc
         Some((ScopeLevel::Module, typ)) => {
             if typ.is_func() {
                 Ixpr{
-                    src: Source::ConstVal(Val::Struple(None,
+                    src: Source::ConstVal(Val::Tuple(
                         Struple::new_tuple2(
                             Val::Str(scope.proto.key.name.clone()),
                             Val::Str(id.rc()),
@@ -539,7 +539,7 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc
             // a better way to make this work
             Ixpr{
                 src: Source::ConstVal(
-                    Val::Struple(None, Struple::new_tuple2(
+                    Val::Tuple(Struple::new_tuple2(
                         Val::Str(Rc::new("prefab".to_string())),
                         Val::Str(id.rc()),
                     ))
@@ -561,8 +561,7 @@ pub fn compile_module_id(scope: &mut Interscope, module: Rc<String>
     match scope.import_vartype(&*module, &**id) {
         Some(typ) if typ.is_func() => {
             Ixpr{
-                src: Source::ConstVal(Val::Struple(
-                    None,
+                src: Source::ConstVal(Val::Tuple(
                     Struple::new_tuple2(
                         Val::Str(module.clone()),
                         Val::Str(id.clone()),
@@ -747,7 +746,7 @@ pub fn compile_pattern(scope: &mut Interscope, new_vars: &mut Vec<Rc<String>>
             let citems = items.iter().map(|i| {
                 compile_pattern(scope, new_vars, i)
             }).collect();
-            Val::Struple(None, Struple::new_indexed(citems))
+            Val::Tuple(Struple::new_indexed(citems))
         }
         &Ast::ConstInt(i) => {
             Val::Int(i)

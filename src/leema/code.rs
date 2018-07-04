@@ -403,7 +403,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             let modval = Val::Str(module.clone());
             let idval = Val::Str(name.clone());
             let modname =
-                Val::Struple(None, Struple::new_tuple2(modval, idval));
+                Val::Tuple(Struple::new_tuple2(modval, idval));
             let dst = rt.dst();
             Oxpr{
                 ops: vec![(Op::ConstVal(dst.clone(), modname), input.line)],
@@ -608,11 +608,11 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
             let pr_tail = assign_pattern_registers(rt, tail);
             Val::Cons(Box::new(pr_head), Rc::new(pr_tail))
         }
-        &Val::Struple(ref typ, ref vars) => {
+        &Val::Tuple(ref vars) => {
             let reg_items = vars.0.iter().map(|v| {
                 (v.0.clone(), assign_pattern_registers(rt, &v.1))
             }).collect();
-            Val::Struple(typ.clone(), Struple(reg_items))
+            Val::Tuple(Struple(reg_items))
         }
         _ => {
             panic!("pattern type unsupported: {:?}", pattern);

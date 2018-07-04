@@ -210,7 +210,7 @@ impl Fiber
                     // pass in args
                     (Rc::new("".to_string()), name_str.clone())
                 }
-                &Val::Struple(None, ref modfunc) if modfunc.0.len() == 2 => {
+                &Val::Tuple(ref modfunc) if modfunc.0.len() == 2 => {
                     let modnm = &modfunc.0.get(0).unwrap().1;
                     let funcnm = &modfunc.0.get(1).unwrap().1;
                     match (modnm, funcnm) {
@@ -272,12 +272,12 @@ impl Fiber
     pub fn execute_construple(&mut self, reg: &Reg, new_typ: &Type) -> Event
     {
         let construple = match self.head.e.get_params() {
-            &Val::Struple(None, ref items) => {
-                Val::Struple(Some(new_typ.clone()), items.clone())
-            }
-            &Val::Struple(Some(ref old_typ), ref items) => {
-                panic!("cannot construple when type already set: {} <- {}"
-                    , old_typ, new_typ);
+            &Val::Struct(ref old_typ, ref items) => {
+                if let &Type::UserDef(ref i_new_typ) = new_typ {
+                    Val::Struct(i_new_typ.clone(), items.clone())
+                } else {
+                    panic!("struct type is not user defined: {:?}", new_typ);
+                }
             }
             what => {
                 panic!("cannot construct a not construple: {:?}", what);
@@ -389,7 +389,7 @@ impl Fiber
 
     fn call_arg_failure(args: &Val) -> Option<&Val>
     {
-        if let &Val::Struple(_, ref items) = args {
+        if let &Val::Tuple(ref items) = args {
             for i in items.0.iter() {
                 if i.1.is_failure() {
                     return Some(&i.1);

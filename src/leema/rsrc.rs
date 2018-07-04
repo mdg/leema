@@ -68,7 +68,7 @@ impl IopCtx
         -> IopCtx
     {
         let params = match param_val {
-            Val::Struple(None, items) => {
+            Val::Tuple(items) => {
                 items.0.into_iter().map(|i| {
                     Some(i.1)
                 }).collect()

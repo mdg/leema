@@ -4,11 +4,14 @@ use leema::reg::{self, Ireg};
 use leema::val::{Val};
 
 use std::fmt;
+use std::iter::{FromIterator};
 
 
 #[derive(Clone)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Hash)]
 pub struct Struple<T>(pub Vec<(Option<Lstr>, T)>);
 
 impl<T> Struple<T>
@@ -41,6 +44,17 @@ impl<T> Struple<T>
     }
 }
 
+impl<T> FromIterator<(Option<Lstr>, T)> for Struple<T>
+{
+    fn from_iter<I: IntoIterator<Item=(Option<Lstr>, T)>>(iter: I) -> Struple<T>
+    {
+        let items = Vec::new();
+        for item in iter {
+            items.push(item);
+        }
+        Struple(items)
+    }
+}
 
 impl<T> fmt::Display for Struple<T>
     where T: fmt::Display

@@ -1,6 +1,7 @@
 
-use leema::val::{Val, Type};
 use leema::log;
+use leema::struple::{Struple};
+use leema::val::{Val, Type};
 
 use std::collections::HashMap;
 use std::io::{Write};
@@ -135,7 +136,7 @@ impl Ixpr
             tuptyp.push((None, i.typ.clone()));
         }
         Ixpr{
-            typ: Type::Tuple(tuptyp),
+            typ: Type::Tuple(Struple(tuptyp)),
             src: Source::Tuple(items),
             line: lineno,
         }
@@ -155,29 +156,6 @@ impl Ixpr
         Ixpr{
             typ: t.clone(),
             src: Source::Construple(t),
-            line: lineno,
-        }
-    }
-
-    pub fn enum_constructor(t: Type, varname: &Rc<String>
-        , vval: &Val, lineno: i16
-        ) -> Ixpr
-    {
-        let (variant_type, nflds) =
-            match *vval {
-                Val::Struple(ref vartyp, ref flds) => {
-                    (vartyp.clone(), flds.0.len() as i8)
-                }
-                _ => {
-                    panic!("unknown val for enum: {:?}", vval);
-                }
-            };
-        let construct = Ixpr::construple(variant_type.unwrap(), lineno);
-        let src = Source::EnumConstructor(t.clone(), 0, Box::new(construct));
-
-        Ixpr{
-            typ: t,
-            src: src,
             line: lineno,
         }
     }

@@ -548,10 +548,10 @@ impl Protomod
         let name_lstr = name.local_ref();
         let mod_lstr = Lstr::Rc(mp.key.name.clone());
         let full_lri = name.add_modules(mod_lstr);
-        let type_name = Type::UserDef(full_lri);
+        let type_name = Type::UserDef(full_lri.clone());
 
         // a token struct is stored as a constant with no constructor
-        let constval = Val::Token(type_name.clone());
+        let constval = Val::Token(full_lri);
         self.constants.insert(String::from(name_lstr.str()), constval);
         self.valtypes.insert(String::from(name_lstr.str()), type_name);
     }
@@ -629,8 +629,8 @@ impl Protomod
                 , typename, self.constants);
         }
         match opt_typ.unwrap() {
-            &Val::Struple(_, ref items) => {
-                panic!("need to get the field still");
+            &Val::Struct(_, ref items) => {
+                panic!("need to get the struct field still");
             }
             what => {
                 panic!("cannot get fields from not struple");
@@ -709,7 +709,7 @@ impl Protomod
                     Lri::with_modules(mod_lstr.clone(), variant_name.clone());
                 let var_struct_type = Type::UserDef(variant_lri);
                 let const_val =
-                    Val::EnumToken(typ.clone(), variant_name.clone());
+                    Val::EnumToken(full_lri, variant_name.clone());
                 let variant_name_string = String::from(&variant_name);
                 self.constants.insert(variant_name_string.clone(), const_val);
                 self.valtypes.insert(variant_name_string, typ);

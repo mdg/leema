@@ -212,20 +212,12 @@ impl<'b> Inferator<'b>
                 self.merge_types(&valtype,
                     &Type::StrictList(Box::new(tvar_inner.clone())));
             }
-            (&Val::Struple(None, ref flds1), &Type::Tuple(ref item_types)) => {
-                for (fp, ft) in flds1.0.iter().zip(item_types.iter()) {
+            (&Val::Tuple(ref flds1), &Type::Tuple(ref item_types)) => {
+                for (fp, ft) in flds1.0.iter().zip(item_types.0.iter()) {
                     self.match_pattern(&fp.1, &ft.1, lineno);
                 }
             }
-            (&Val::Struple(None, ref flds1), &Type::UserDef(ref uname)) => {
-                /*
-                let flds2 = lookup_type(uname);
-                for (fp, ft) in flds1.iter().zip(flds2.iter()) {
-                    self.match_pattern(fp, ft, lineno);
-                }
-                */
-            }
-            (&Val::Struple(ref typ1, ref flds1)
+            (&Val::Struct(ref typ1, ref flds1)
                 , &Type::UserDef(ref typename2)) =>
             {
                 /*
@@ -251,6 +243,18 @@ impl<'b> Inferator<'b>
                     }
                 };
                 */
+            }
+            (&Val::EnumStruct(ref typ1, ref var1, ref flds1)
+                , &Type::UserDef(ref typename2)) =>
+            {
+            }
+            (&Val::EnumToken(ref typ1, ref var1)
+                , &Type::UserDef(ref typename2)) =>
+            {
+            }
+            (&Val::Token(ref typ1)
+                , &Type::UserDef(ref typename2)) =>
+            {
             }
             _ => {
                 let ptype = patt.get_type();
@@ -401,7 +405,7 @@ impl<'b> Inferator<'b>
                 Type::StrictList(Box::new(self.inferred_type(inner)))
             }
             &Type::Tuple(ref inners) => {
-                let infers = inners.iter().map(|i| {
+                let infers = inners.0.iter().map(|i| {
                     (i.0.clone(), self.inferred_type(&i.1))
                 }).collect();
                 Type::Tuple(infers)
