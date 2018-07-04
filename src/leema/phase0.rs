@@ -823,8 +823,7 @@ fn test_preproc_enum_colors()
     let expected_type = Type::UserDef(type_lri.clone());
 
     let expected_red =
-        Val::Enum(expected_type.clone(), 0, Rc::new("Red".to_string())
-            , Box::new(Val::Void));
+        Val::EnumToken(expected_type.clone(), Lstr::Sref("Red"));
     let red = pmod.constants.get("Red").unwrap();
     assert_eq!(expected_red, *red);
     assert!(pmod.constants.get("Yellow").is_some());
@@ -869,8 +868,8 @@ fn test_enum_types()
     );
     let expected_type = Type::UserDef(type_lri.clone());
     let typevar_a = Type::Var(Rc::new("$A".to_string()));
-    let dog_name = Rc::new("Dog".to_string());
-    let cat_name = Rc::new("Cat".to_string());
+    let dog_name = Lstr::Sref("Dog");
+    let cat_name = Lstr::Sref("Cat");
     let mouse_name = Rc::new("Mouse".to_string());
     let giraffe_name = Rc::new("Giraffe".to_string());
     let cat_func_type =
@@ -901,13 +900,10 @@ fn test_enum_types()
     let giraffe_const =
         pmod.constants.get("Giraffe").expect("missing constant: Giraffe");
 
-    let exp_dog_const = Val::Enum(expected_type.clone(), 0,
-        dog_name.clone(),
-        Box::new(Val::Void),
-    );
+    let exp_dog_const = Val::EnumToken(expected_type.clone(), dog_name);
     let exp_cat_const = Val::FuncRef(
         Rc::new("animals".to_string()),
-        cat_name.clone(),
+        cat_name.rc(),
         cat_func_type.clone(),
     );
     let exp_giraffe_const = Val::FuncRef(
@@ -989,9 +985,7 @@ fn test_preproc_namedtuple()
     let greeting_local = Lri::new(greeting_lstr.clone());
     let greeting_fullri = Lri::with_modules(
         Lstr::Rc(greet.clone()), greeting_lstr);
-    let greeting_ntt = Type::Struple(Some(greeting_local), vec![
-        (None, Type::Str), (None, Type::Str)]);
-    let greeting_typref = Type::Ref(greeting_fullri);
+    let greeting_typref = Type::UserDef(greeting_fullri);
     let xfunctyp = Type::Func(
         vec![Type::Str, Type::Str],
         Box::new(greeting_typref.clone()),
@@ -1031,7 +1025,7 @@ fn preproc_defstruple_mixed_keys()
     let constructor = pmod.valtypes.get("Burrito").unwrap();
     if let &Type::Func(ref params, ref result) = constructor {
         assert_eq!(2, params.len());
-        let exp_result = Type::Ref(Lri::with_modules(
+        let exp_result = Type::UserDef(Lri::with_modules(
             Lstr::from("tacos"), Lstr::from("Burrito")
         ));
         assert_eq!(exp_result, **result);
@@ -1039,7 +1033,7 @@ fn preproc_defstruple_mixed_keys()
         panic!("constructor valtype is not a func");
     }
 
-    let xtyperef = Type::Ref(Lri::with_modules(
+    let xtyperef = Type::UserDef(Lri::with_modules(
         Lstr::from("tacos"),
         Lstr::from("Burrito"),
     ));
@@ -1093,7 +1087,7 @@ fn preproc_defstruple_token()
     let pmod = prog.read_proto("tok");
 
     let name_rc = Rc::new("Burrito".to_string());
-    let exptype = Type::Ref(Lri::with_modules(
+    let exptype = Type::UserDef(Lri::with_modules(
         Lstr::from("tok"),
         Lstr::from("Burrito"),
     ));

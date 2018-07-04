@@ -1,7 +1,9 @@
 
 use leema::log;
+use leema::lstr::{Lstr};
 use leema::msg::{WorkerMsg, AppMsg, IoMsg};
 use leema::rsrc::{self, Rsrc, Event, IopCtx};
+use leema::struple::{Struple};
 use leema::val::{Val};
 
 use std;
@@ -375,8 +377,10 @@ impl Future for IoLoop
 pub mod tests
 {
     use leema::io::{Io, IoLoop};
+    use leema::lstr::{Lstr};
     use leema::msg;
     use leema::rsrc::{self, Rsrc};
+    use leema::struple::{Struple};
     use leema::val::{Val, Type};
 
     use std::rc::{Rc};
@@ -404,8 +408,9 @@ fn mock_rsrc_action(mut ctx: rsrc::IopCtx) -> rsrc::Event
     rsrc::Event::Result(Val::Int(18), Some(Box::new(rsrc)))
 }
 
-pub fn exercise_iop_action(action: rsrc::IopAction, params: Vec<Val>)
-    -> Result<(i64, Val), mpsc::TryRecvError>
+pub fn exercise_iop_action(action: rsrc::IopAction
+    , params: Vec<(Option<Lstr>, Val)>
+    ) -> Result<(i64, Val), mpsc::TryRecvError>
 {
     let (msg_tx, msg_rx) = mpsc::channel::<msg::IoMsg>();
     let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
@@ -413,7 +418,7 @@ pub fn exercise_iop_action(action: rsrc::IopAction, params: Vec<Val>)
 
     let (io, core) = Io::new(app_tx, msg_rx);
 
-    let msg_params = Val::Tuple(params).to_msg();
+    let msg_params = Val::Struple(None, Struple(params)).to_msg();
     msg_tx.send(msg::IoMsg::NewWorker(11, worker_tx));
     msg_tx.send(msg::IoMsg::Iop{
         worker_id: 11,

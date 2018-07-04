@@ -512,6 +512,7 @@ mod tests {
     use leema::infer::{Inferator};
     use leema::list;
     use leema::log;
+    use leema::struple::{Struple};
     use leema::val::{Val, Type};
 
     use std::rc::{Rc};
@@ -590,16 +591,16 @@ fn test_match_pattern_hashtag_list_inside_tuple()
 {
     let mut t = Inferator::new("burritos");
     let tvar = Type::Tuple(vec![
-        Type::Var(Rc::new("Taco".to_string()))
+        (None, Type::Var(Rc::new("Taco".to_string())))
     ]);
-    let listpatt = Val::Tuple(vec![list::cons(
+    let listpatt = Val::Struple(None, Struple::new_tuple2(
         Val::hashtag("leema".to_string()),
-        Val::id("tail".to_string())
-    )]);
+        Val::id("tail".to_string()),
+    ));
     t.match_pattern(&listpatt, &tvar, 14);
 
     let exp = Type::Tuple(vec![
-        Type::StrictList(Box::new(Type::Hashtag)),
+        (None, Type::StrictList(Box::new(Type::Hashtag))),
     ]);
     assert_eq!(exp, t.inferred_type(&tvar));
 }
