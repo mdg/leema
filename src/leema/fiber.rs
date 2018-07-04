@@ -390,7 +390,7 @@ impl Fiber
     fn call_arg_failure(args: &Val) -> Option<&Val>
     {
         if let &Val::Struple(_, ref items) = args {
-            for i in items.0 {
+            for i in items.0.iter() {
                 if i.1.is_failure() {
                     return Some(&i.1);
                 }

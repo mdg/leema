@@ -30,7 +30,7 @@ impl Struple
     pub fn deep_clone(&self) -> Struple
     {
         let new_items = self.0.iter().map(|i| {
-            let new_key = i.0.map(|ik| {
+            let new_key = i.0.as_ref().map(|ik| {
                 ik.deep_clone()
             });
             (new_key, i.1.deep_clone())

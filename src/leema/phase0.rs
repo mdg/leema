@@ -597,7 +597,7 @@ impl Protomod
 
         let struple_lri = local_type.add_modules(mod_name.clone());
         let full_type = Type::UserDef(struple_lri.clone());
-        let func_type = Type::Func(field_type_vec, Box::new(full_type));
+        let func_type = Type::Func(field_type_vec, Box::new(full_type.clone()));
 
         let src_typename = Ast::from_lri(struple_lri.clone(), loc);
         let localid_ast = Ast::Localid(local_name.clone(), *loc);
@@ -667,7 +667,7 @@ impl Protomod
             Lstr::Rc(rc_name.clone()),
             ));
 
-        let mut type_params: HashSet<Lstr> = HashSet::new();
+        let type_params: HashSet<Lstr> = HashSet::new();
         let mut variant_fields = Vec::with_capacity(src_variants.len());
         for (bigi, kx) in src_variants.iter().enumerate() {
             let i = bigi as i16;
@@ -708,7 +708,8 @@ impl Protomod
                 let variant_lri =
                     Lri::with_modules(mod_lstr.clone(), variant_name.clone());
                 let var_struct_type = Type::UserDef(variant_lri);
-                let const_val = Val::EnumToken(typ.clone(), variant_name);
+                let const_val =
+                    Val::EnumToken(typ.clone(), variant_name.clone());
                 let variant_name_string = String::from(&variant_name);
                 self.constants.insert(variant_name_string.clone(), const_val);
                 self.valtypes.insert(variant_name_string, typ);

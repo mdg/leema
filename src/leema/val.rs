@@ -172,7 +172,7 @@ impl Type
             &Type::Hashtag => Type::Hashtag,
             &Type::Tuple(ref items) => {
                 let dc_items = items.iter().map(|t| {
-                    let newt = t.0.map(|ti| {
+                    let newt = t.0.as_ref().map(|ti| {
                         ti.deep_clone()
                     });
                     (newt, t.1.deep_clone())
@@ -856,7 +856,7 @@ impl Val
             }
             &Val::Nil => Val::Nil,
             &Val::Struple(ref typ, ref flds) => {
-                let new_typ = typ.map(|t| {
+                let new_typ = typ.as_ref().map(|t| {
                     t.deep_clone()
                 });
                 let new_flds = flds.0.iter().map(|f| {
@@ -984,7 +984,7 @@ impl Val
                 MsgVal::Cons(msghead, msgtail)
             }
             &Val::Struple(ref typ, ref items) => {
-                let new_type = typ.map(|t| {
+                let new_type = typ.as_ref().map(|t| {
                     t.deep_clone()
                 });
                 MsgVal::Struple(items.0.iter().map(|iv| {
@@ -1080,7 +1080,7 @@ impl fmt::Display for Val {
             Val::Struple(Some(Type::UserDef(ref typename)), ref items) => {
                 Val::fmt_struple(f, Some(typename), items, false)
             }
-            Val::Struple(Some(other_type), _) => {
+            Val::Struple(Some(ref other_type), _) => {
                 panic!("not a struple type: {:?}", other_type);
             }
             Val::Struple(None, ref items) => {
