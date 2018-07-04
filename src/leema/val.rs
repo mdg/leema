@@ -1790,6 +1790,7 @@ mod tests {
     use leema::lri::{Lri};
     use leema::lstr::{Lstr};
     use leema::reg::{Reg};
+    use leema::struple::{Struple};
 
     use std::collections::{HashMap};
     use std::rc::{Rc};
@@ -2080,18 +2081,14 @@ fn test_compare_across_types() {
     let t = Val::Bool(true);
     let i = Val::Int(7);
     let s = Val::new_str("hello".to_string());
-    let strct = Val::Struct(
-        Type::Struct(Rc::new("Foo".to_string())),
-        vec![Val::Int(2), Val::Bool(true)],
+    let strct = Val::Struple(
+        Some(Type::UserDef(Lri::new(Lstr::Sref("Foo")))),
+        Struple::new_tuple2(Val::Int(2), Val::Bool(true)),
     );
-    let enm = Val::Enum(
-        Type::Enum(Lri::new(Lstr::Sref("Taco"))),
-        1,
-        Rc::new("Burrito".to_string()),
-        Box::new(Val::Struct(
-            Type::Struct(Rc::new("Burrito".to_string())),
-            vec![Val::Int(8), Val::Int(6)],
-        ))
+    let enm = Val::EnumStruple(
+        Type::UserDef(Lri::new(Lstr::Sref("Taco"))),
+        Lstr::Sref("Burrito"),
+        Struple::new_tuple2(Val::Int(8), Val::Int(6)),
     );
 
     assert!(f < t);
@@ -2139,12 +2136,12 @@ fn test_pattern_match_list_cons_wildcard_tail()
 #[test]
 fn test_pattern_match_wildcard_inside_tuple()
 {
-    let patt = Val::Tuple(vec![
+    let patt = Val::Struple(None, Struple::new_tuple2(
         Val::Int(1), Val::Wildcard
-        ]);
-    let input = Val::Tuple(vec![
+        ));
+    let input = Val::Struple(None, Struple::new_tuple2(
         Val::Int(1), Val::Int(4)
-        ]);
+        ));
     let pmatch = Val::pattern_match(&patt, &input);
     assert!(pmatch.is_some());
 }
