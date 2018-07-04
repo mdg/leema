@@ -23,6 +23,7 @@ pub mod infer;
 pub mod inter;
 pub mod rsrc;
 pub mod parse;
+pub mod safesend;
 pub mod struple;
 pub mod tcp;
 pub mod typecheck;

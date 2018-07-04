@@ -4,6 +4,7 @@ use leema::lri::{Lri};
 use leema::lstr::{Lstr};
 use leema::frame::{FrameTrace};
 use leema::log;
+use leema::safesend::{self, SendClone};
 use leema::struple::{Struple};
 
 use std::fmt::{self};
@@ -12,8 +13,6 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{self, AtomicBool};
 use std::rc::{Rc};
 use std::cmp::{PartialEq, PartialOrd, Ordering};
-use std::clone::Clone;
-use std::fmt::{Debug};
 use std::io::{Write, Error};
 
 use ::futures::sync::mpsc::{Receiver};
@@ -171,7 +170,7 @@ impl Type
             &Type::Int => Type::Int,
             &Type::Hashtag => Type::Hashtag,
             &Type::Tuple(ref items) => {
-                Type::Tuple(items.deep_clone())
+                Type::Tuple(items.clone_for_send())
             }
             &Type::UserDef(ref i) => {
                 Type::UserDef(i.deep_clone())
@@ -207,6 +206,16 @@ impl Type
     pub fn wrap_in_list(inner: Type) -> Type
     {
         Type::StrictList(Box::new(inner))
+    }
+}
+
+impl safesend::SendClone for Type
+{
+    type Item = Type;
+
+    fn clone_for_send(&self) -> Type
+    {
+        self.deep_clone()
     }
 }
 
@@ -335,7 +344,7 @@ pub type TypeResult = Result<Type, TypeErr>;
 
 pub trait LibVal
     : mopa::Any
-    + Debug
+    + fmt::Debug
 {
     fn get_type(&self) -> Type;
 }
@@ -345,7 +354,7 @@ mopafy!(LibVal);
 #[derive(Clone)]
 pub struct FutureVal(pub Arc<AtomicBool>, pub Arc<Mutex<Receiver<MsgVal>>>);
 
-impl Debug for FutureVal
+impl fmt::Debug for FutureVal
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
@@ -413,24 +422,7 @@ pub const FAILURE_INTERNAL : i8         = -7;
 pub const FAILURE_TYPE : i8             = -8;
 
 
-#[derive(Debug)]
-pub struct MsgVal(Val);
-
-impl MsgVal
-{
-    pub fn new(v: &Val) -> MsgVal
-    {
-        MsgVal(v.deep_clone())
-    }
-
-    pub fn take(self) -> Val
-    {
-        self.0
-    }
-}
-
-unsafe impl Send for MsgVal {}
-
+pub type MsgVal = safesend::SafeToSend<Val>;
 
 #[derive(Clone)]
 pub enum Val
@@ -879,14 +871,14 @@ impl Val
             }
             &Val::Nil => Val::Nil,
             &Val::Tuple(ref flds) => {
-                Val::Tuple(flds.deep_clone())
+                Val::Tuple(flds.clone_for_send())
             }
             &Val::Struct(ref typ, ref flds) => {
-                Val::Struct(typ.deep_clone(), flds.deep_clone())
+                Val::Struct(typ.deep_clone(), flds.clone_for_send())
             }
             &Val::EnumStruct(ref typ, ref vname, ref flds) => {
                 Val::EnumStruct(typ.deep_clone(), vname.deep_clone(),
-                    flds.deep_clone(),
+                    flds.clone_for_send(),
                 )
             }
             &Val::EnumToken(ref typ, ref vname) => {
@@ -971,6 +963,16 @@ impl From<Error> for Val
     fn from(e: Error) -> Val
     {
         Val::Void
+    }
+}
+
+impl safesend::SendClone for Val
+{
+    type Item = Val;
+
+    fn clone_for_send(&self) -> Val
+    {
+        self.deep_clone()
     }
 }
 

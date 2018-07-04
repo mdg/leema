@@ -4,7 +4,7 @@ use leema::fiber::{Fiber};
 use leema::frame::{Event, Frame, Parent};
 use leema::log;
 use leema::msg::{AppMsg, WorkerMsg, IoMsg};
-use leema::val::{Val};
+use leema::val::{Val, MsgVal};
 
 use std::collections::{HashMap, LinkedList};
 use std::io::{Write};
@@ -253,7 +253,7 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
             }
             Parent::Main(res) => {
                 vout!("finished main func\n");
-                let msg = AppMsg::MainResult(MsgVal::new(res));
+                let msg = AppMsg::MainResult(MsgVal::new(&res));
                 self.done = true;
                 self.app_tx.send(msg);
             }

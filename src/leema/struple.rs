@@ -1,6 +1,7 @@
 
 use leema::lstr::{Lstr};
 use leema::reg::{self, Ireg};
+use leema::safesend;
 use leema::val::{Val};
 
 use std::fmt;
@@ -31,17 +32,6 @@ impl<T> Struple<T>
             (None, b),
         ])
     }
-
-    pub fn deep_clone(&self) -> Struple<T>
-    {
-        let new_items = self.0.iter().map(|i| {
-            let new_key = i.0.as_ref().map(|ik| {
-                ik.deep_clone()
-            });
-            (new_key, i.1.deep_clone())
-        }).collect();
-        Struple(new_items)
-    }
 }
 
 impl<T> FromIterator<(Option<Lstr>, T)> for Struple<T>
@@ -53,6 +43,23 @@ impl<T> FromIterator<(Option<Lstr>, T)> for Struple<T>
             items.push(item);
         }
         Struple(items)
+    }
+}
+
+impl<T> safesend::SendClone for Struple<T>
+    where T: safesend::SendClone<Item = T>
+{
+    type Item = Struple<T>;
+
+    fn clone_for_send(&self) -> Struple<T>
+    {
+        let safe_items = self.0.iter().map(|i| {
+            let new_key = i.0.as_ref().map(|ik| {
+                ik.deep_clone()
+            });
+            (new_key, i.1.clone_for_send())
+        }).collect();
+        Struple(safe_items)
     }
 }
 

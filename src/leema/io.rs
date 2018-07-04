@@ -4,7 +4,7 @@ use leema::lstr::{Lstr};
 use leema::msg::{WorkerMsg, AppMsg, IoMsg};
 use leema::rsrc::{self, Rsrc, Event, IopCtx};
 use leema::struple::{Struple};
-use leema::val::{Val};
+use leema::val::{Val, MsgVal};
 
 use std;
 use std::cell::{RefCell};
@@ -302,7 +302,7 @@ impl Io
     {
         vout!("send_result({},{},{:?})\n", worker_id, fiber_id, result);
         let tx = self.worker_tx.get(&worker_id).unwrap();
-        tx.send(WorkerMsg::IopResult(fiber_id, MsgVal::new(result)));
+        tx.send(WorkerMsg::IopResult(fiber_id, MsgVal::new(&result)));
     }
 
     pub fn return_rsrc(&mut self, rsrc_id: Option<i64>, rsrc: Option<Box<Rsrc>>)
