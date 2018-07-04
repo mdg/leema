@@ -414,20 +414,23 @@ pub const FAILURE_TYPE : i8             = -8;
 
 
 #[derive(Debug)]
-pub enum MsgVal
+pub struct MsgVal(Val);
+
+impl MsgVal
 {
-    Int(i64),
-    Str(String),
-    Bool(bool),
-    Hashtag(String),
-    Cons(Box<MsgVal>, Box<MsgVal>),
-    Tuple(Vec<MsgVal>),
-    Buffer(Vec<u8>),
-    Nil,
-    Void,
-    ResourceRef(i64),
-    Failure(Box<MsgVal>, Box<MsgVal>, Arc<FrameTrace>, i8),
+    pub fn new(v: &Val) -> MsgVal
+    {
+        MsgVal(v.deep_clone())
+    }
+
+    pub fn take(self) -> Val
+    {
+        self.0
+    }
 }
+
+unsafe impl Send for MsgVal {}
+
 
 #[derive(Clone)]
 pub enum Val
@@ -960,74 +963,6 @@ impl Val
             }
         }
         f.write_str(")")
-    }
-
-    pub fn to_msg(&self) -> MsgVal
-    {
-        match self {
-            &Val::Int(i) => MsgVal::Int(i),
-            &Val::Bool(b) => MsgVal::Bool(b),
-            &Val::Str(ref s) => MsgVal::Str((**s).clone()),
-            &Val::Hashtag(ref t) => MsgVal::Hashtag((**t).clone()),
-            &Val::Cons(ref head, ref tail) => {
-                let msghead = Box::new(head.to_msg());
-                let msgtail = Box::new(tail.to_msg());
-                MsgVal::Cons(msghead, msgtail)
-            }
-            &Val::Tuple(ref items) => {
-                MsgVal::Tuple(items.0.iter().map(|iv| {
-                    iv.1.to_msg()
-                }).collect())
-            }
-            &Val::Buffer(ref buf) => MsgVal::Buffer(buf.clone()),
-            &Val::Nil => MsgVal::Nil,
-            &Val::Void => MsgVal::Void,
-            &Val::ResourceRef(rsrc_id) => MsgVal::ResourceRef(rsrc_id),
-            &Val::Failure(ref tag, ref msg, ref stack, status) => {
-                MsgVal::Failure(
-                    Box::new(tag.to_msg()),
-                    Box::new(msg.to_msg()),
-                    stack.clone(),
-                    status,
-                )
-            }
-            _ => {
-                panic!("Not yet convertable to a msg: {:?}", self);
-            }
-        }
-    }
-
-    pub fn from_msg(mv: MsgVal) -> Val
-    {
-        match mv {
-            MsgVal::Int(i) => Val::Int(i),
-            MsgVal::Bool(b) => Val::Bool(b),
-            MsgVal::Str(s) => Val::new_str(s),
-            MsgVal::Hashtag(s) => Val::hashtag(s),
-            MsgVal::Cons(mhead, mtail) => {
-                let head = Val::from_msg(*mhead);
-                let tail = Val::from_msg(*mtail);
-                Val::Cons(Box::new(head), Rc::new(tail))
-            }
-            MsgVal::Tuple(items) => {
-                let new_items = items.into_iter().map(|mv| {
-                    (None, Val::from_msg(mv))
-                }).collect();
-                Val::Tuple(Struple(new_items))
-            }
-            MsgVal::Buffer(buf) => Val::Buffer(buf),
-            MsgVal::Failure(tag, msg, trace, status) => {
-                Val::Failure(
-                    Box::new(Val::from_msg(*tag)),
-                    Box::new(Val::from_msg(*msg)),
-                    trace,
-                    status,
-                )
-            }
-            MsgVal::Nil => Val::Nil,
-            MsgVal::Void => Val::Void,
-            MsgVal::ResourceRef(rsrc_id) => Val::ResourceRef(rsrc_id),
-        }
     }
 }
 

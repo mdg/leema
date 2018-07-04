@@ -162,7 +162,7 @@ impl Io
             } => {
                 vout!("iop incoming: {:?}:{:?}:{:?} {:?}\n",
                     wid, fid, rsrc_id, params);
-                let param_vals = Val::from_msg(params);
+                let param_vals = params.take();
                 self.handle_iop_action(wid, fid, action, rsrc_id, param_vals);
             }
             IoMsg::NewWorker(worker_id, worker_tx) => {
@@ -302,7 +302,7 @@ impl Io
     {
         vout!("send_result({},{},{:?})\n", worker_id, fiber_id, result);
         let tx = self.worker_tx.get(&worker_id).unwrap();
-        tx.send(WorkerMsg::IopResult(fiber_id, result.to_msg()));
+        tx.send(WorkerMsg::IopResult(fiber_id, MsgVal::new(result)));
     }
 
     pub fn return_rsrc(&mut self, rsrc_id: Option<i64>, rsrc: Option<Box<Rsrc>>)

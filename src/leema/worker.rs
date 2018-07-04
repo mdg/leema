@@ -253,7 +253,7 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
             }
             Parent::Main(res) => {
                 vout!("finished main func\n");
-                let msg = AppMsg::MainResult(res.to_msg());
+                let msg = AppMsg::MainResult(MsgVal::new(res));
                 self.done = true;
                 self.app_tx.send(msg);
             }
@@ -284,7 +284,7 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
             }
             WorkerMsg::IopResult(fiber_id, result_msg) => {
                 vout!("iop_result({}, {:?})\n", fiber_id, result_msg);
-                let result_val = Val::from_msg(result_msg);
+                let result_val = result_msg.take();
                 let wait = self.waiting.remove(&fiber_id).unwrap();
                 if let FiberWait::Io(mut fib) = wait {
                     fib.head.parent.set_result(result_val);
@@ -314,7 +314,7 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
                     None
                 }
             });
-            let msg_val = fib.head.e.get_params().to_msg();
+            let msg_val = MsgVal::new(fib.head.e.get_params());
             self.io_tx.send(IoMsg::Iop{
                 worker_id: self.id,
                 fiber_id: fiber_id,
