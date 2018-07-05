@@ -698,7 +698,7 @@ impl Protomod
         let mod_lstr = Lstr::Rc(mod_name.clone());
         let typ_lri = Lri::from(typename);
         let full_lri = typ_lri.add_modules(mod_lstr.clone());
-        let typ = Type::UserDef(full_lri);
+        let typ = Type::UserDef(full_lri.clone());
         let type_lstr = Lstr::from(typename);
         let variant_name = Lstr::from(name);
         vout!("preproc_enum_variant({}::{}::{})\n"

@@ -38,7 +38,7 @@ impl<T> FromIterator<(Option<Lstr>, T)> for Struple<T>
 {
     fn from_iter<I: IntoIterator<Item=(Option<Lstr>, T)>>(iter: I) -> Struple<T>
     {
-        let items = Vec::new();
+        let mut items = Vec::new();
         for item in iter {
             items.push(item);
         }
