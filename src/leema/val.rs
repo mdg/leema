@@ -4,7 +4,8 @@ use leema::lri::{Lri};
 use leema::lstr::{Lstr};
 use leema::frame::{FrameTrace};
 use leema::log;
-use leema::safesend::{self, SendClone};
+use leema::msg;
+use leema::sendclone::{self, SendClone};
 use leema::struple::{Struple};
 
 use std::fmt::{self};
@@ -209,7 +210,7 @@ impl Type
     }
 }
 
-impl safesend::SendClone for Type
+impl sendclone::SendClone for Type
 {
     type Item = Type;
 
@@ -422,7 +423,7 @@ pub const FAILURE_INTERNAL : i8         = -7;
 pub const FAILURE_TYPE : i8             = -8;
 
 
-pub type MsgVal = safesend::SafeToSend<Val>;
+pub type MsgVal = msg::MsgItem<Val>;
 
 #[derive(Clone)]
 pub enum Val
@@ -966,7 +967,7 @@ impl From<Error> for Val
     }
 }
 
-impl safesend::SendClone for Val
+impl sendclone::SendClone for Val
 {
     type Item = Val;
 

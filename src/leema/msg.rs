@@ -1,11 +1,31 @@
 
 use leema::code::{Code};
 use leema::rsrc::{IopAction};
+use leema::sendclone::{SendClone};
 use leema::val::{MsgVal};
 
 use std::fmt;
 use std::sync::mpsc;
 
+
+#[derive(Debug)]
+pub struct MsgItem<T>(T);
+
+impl<T> MsgItem<T>
+    where T: SendClone<Item = T>
+{
+    pub fn new(i: &T) -> MsgItem<T>
+    {
+        MsgItem(i.clone_for_send() as T)
+    }
+
+    pub fn take(self) -> T
+    {
+        self.0
+    }
+}
+
+unsafe impl<T> Send for MsgItem<T> {}
 
 #[derive(Debug)]
 pub enum AppMsg

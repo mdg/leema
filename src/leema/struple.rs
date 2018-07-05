@@ -1,7 +1,7 @@
 
 use leema::lstr::{Lstr};
 use leema::reg::{self, Ireg};
-use leema::safesend;
+use leema::sendclone;
 use leema::val::{Val};
 
 use std::fmt;
@@ -46,8 +46,8 @@ impl<T> FromIterator<(Option<Lstr>, T)> for Struple<T>
     }
 }
 
-impl<T> safesend::SendClone for Struple<T>
-    where T: safesend::SendClone<Item = T>
+impl<T> sendclone::SendClone for Struple<T>
+    where T: sendclone::SendClone<Item = T>
 {
     type Item = Struple<T>;
 
