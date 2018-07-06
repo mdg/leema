@@ -381,7 +381,7 @@ pub mod tests
     use leema::msg;
     use leema::rsrc::{self, Rsrc};
     use leema::struple::{Struple};
-    use leema::val::{Val, Type};
+    use leema::val::{Val, Type, MsgVal};
 
     use std::rc::{Rc};
     use std::sync::mpsc;
@@ -418,7 +418,7 @@ pub fn exercise_iop_action(action: rsrc::IopAction
 
     let (io, core) = Io::new(app_tx, msg_rx);
 
-    let msg_params = Val::Struple(None, Struple(params)).to_msg();
+    let msg_params = MsgVal::new(&Val::Tuple(Struple(params)));
     msg_tx.send(msg::IoMsg::NewWorker(11, worker_tx));
     msg_tx.send(msg::IoMsg::Iop{
         worker_id: 11,
@@ -435,7 +435,7 @@ pub fn exercise_iop_action(action: rsrc::IopAction
         .map(|result_msg| {
             match result_msg {
                 msg::WorkerMsg::IopResult(fiber_id, msg_val) => {
-                    (fiber_id, Val::from_msg(msg_val))
+                    (fiber_id, msg_val.take())
                 }
                 _ => {
                     (0, Val::new_str("that didn't work".to_string()))
@@ -477,7 +477,7 @@ fn test_rsrc_action_flow()
         fiber_id: 7,
         action: mock_rsrc_action,
         rsrc_id: Some(rsrc_id),
-        params: Val::empty_tuple().to_msg(),
+        params: MsgVal::new(&Val::empty_tuple()),
     });
     msg_tx.send(msg::IoMsg::Done);
     IoLoop::run(core, io);

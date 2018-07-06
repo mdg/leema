@@ -823,7 +823,7 @@ fn test_preproc_enum_colors()
     let expected_type = Type::UserDef(type_lri.clone());
 
     let expected_red =
-        Val::EnumToken(expected_type.clone(), Lstr::Sref("Red"));
+        Val::EnumToken(type_lri.clone(), Lstr::Sref("Red"));
     let red = pmod.constants.get("Red").unwrap();
     assert_eq!(expected_red, *red);
     assert!(pmod.constants.get("Yellow").is_some());
@@ -900,7 +900,7 @@ fn test_enum_types()
     let giraffe_const =
         pmod.constants.get("Giraffe").expect("missing constant: Giraffe");
 
-    let exp_dog_const = Val::EnumToken(expected_type.clone(), dog_name);
+    let exp_dog_const = Val::EnumToken(type_lri.clone(), dog_name);
     let exp_cat_const = Val::FuncRef(
         Rc::new("animals".to_string()),
         cat_name.rc(),
@@ -1087,17 +1087,18 @@ fn preproc_defstruple_token()
     let pmod = prog.read_proto("tok");
 
     let name_rc = Rc::new("Burrito".to_string());
-    let exptype = Type::UserDef(Lri::with_modules(
+    let exptype_lri = Lri::with_modules(
         Lstr::from("tok"),
         Lstr::from("Burrito"),
-    ));
+    );
+    let exptype = Type::UserDef(exptype_lri);
 
     // verify valtypes
     assert_eq!(exptype, *pmod.valtypes.get("Burrito").unwrap());
     assert_eq!(1, pmod.valtypes.len());
 
     // verify constants
-    assert_eq!(Val::Token(exptype.clone())
+    assert_eq!(Val::Token(exptype_lri.clone())
         , *pmod.constants.get("Burrito").unwrap());
     assert_eq!(1, pmod.constants.len());
 

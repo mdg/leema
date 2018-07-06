@@ -594,18 +594,18 @@ fn test_match_pattern_empty_and_full_lists()
 fn test_match_pattern_hashtag_list_inside_tuple()
 {
     let mut t = Inferator::new("burritos");
-    let tvar = Type::Tuple(vec![
+    let tvar = Type::Tuple(Struple(vec![
         (None, Type::Var(Rc::new("Taco".to_string())))
-    ]);
-    let listpatt = Val::Struple(None, Struple::new_tuple2(
+    ]));
+    let listpatt = Val::Tuple(Struple::new_tuple2(
         Val::hashtag("leema".to_string()),
         Val::id("tail".to_string()),
     ));
     t.match_pattern(&listpatt, &tvar, 14);
 
-    let exp = Type::Tuple(vec![
+    let exp = Type::Tuple(Struple(vec![
         (None, Type::StrictList(Box::new(Type::Hashtag))),
-    ]);
+    ]));
     assert_eq!(exp, t.inferred_type(&tvar));
 }
 

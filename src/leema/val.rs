@@ -1961,13 +1961,12 @@ fn test_format_struct_empty()
 }
 
 #[test]
-fn test_format_enum_empty()
+fn test_format_enum_token()
 {
-    let e = Val::Enum(
-        Type::Enum(Lri::new(Lstr::Sref("Taco"))),
-        7,
-        Rc::new("Burrito".to_string()),
-        Box::new(Val::Void),
+    let type_lri = Lri::new(Lstr::Sref("Taco"));
+    let e = Val::EnumToken(
+        type_lri,
+        Lstr::Sref("Burrito"),
     );
 
     let e_str = format!("{}", e);
@@ -1977,19 +1976,16 @@ fn test_format_enum_empty()
 #[test]
 fn test_format_enum_namedtuple()
 {
-    let burrito_str = Rc::new(String::from("Burrito"));
-    let stype = Type::Enum(Lri::with_modules(
+    let burrito_str = Lstr::Sref("Burrito");
+    let stype_lri = Lri::with_modules(
         Lstr::Sref("tortas"),
         Lstr::Sref("Taco"),
-    ));
-    let s = Val::Enum(
-        stype,
-        1,
+    );
+    let stype = Type::UserDef(stype_lri.clone());
+    let s = Val::EnumStruct(
+        stype_lri,
         burrito_str.clone(),
-        Box::new(Val::NamedTuple(
-            Type::NamedTuple(burrito_str, vec![Type::Int, Type::Int]),
-            vec![Val::Int(5), Val::Int(8)],
-        )),
+        Struple::new_tuple2(Val::Int(5), Val::Int(8)),
     );
 
     let s_str = format!("{}", s);
@@ -1999,19 +1995,12 @@ fn test_format_enum_namedtuple()
 #[test]
 fn test_format_enum_two_fields()
 {
-    let s = Val::Struct(
-        Type::Struct(Rc::new("Burrito".to_string())),
-        vec![
-            Val::Int(4),
-            Val::Int(8),
-        ],
-    );
-    let etype = Type::Enum(Lri::new(Lstr::Sref("Taco")));
-    let e = Val::Enum(
-        etype,
-        1,
-        Rc::new("Burrito".to_string()),
-        Box::new(s),
+    let s = Struple::new_tuple2(Val::Int(4), Val::Int(8));
+    let etype_lri = Lri::new(Lstr::Sref("Taco"));
+    let e = Val::EnumStruct(
+        etype_lri,
+        Lstr::Sref("Burrito"),
+        s,
     );
 
     let e_str = format!("{}", e);
@@ -2024,12 +2013,12 @@ fn test_compare_across_types() {
     let t = Val::Bool(true);
     let i = Val::Int(7);
     let s = Val::new_str("hello".to_string());
-    let strct = Val::Struple(
-        Some(Type::UserDef(Lri::new(Lstr::Sref("Foo")))),
+    let strct = Val::Struct(
+        Lri::new(Lstr::Sref("Foo")),
         Struple::new_tuple2(Val::Int(2), Val::Bool(true)),
     );
-    let enm = Val::EnumStruple(
-        Type::UserDef(Lri::new(Lstr::Sref("Taco"))),
+    let enm = Val::EnumStruct(
+        Lri::new(Lstr::Sref("Taco")),
         Lstr::Sref("Burrito"),
         Struple::new_tuple2(Val::Int(8), Val::Int(6)),
     );
@@ -2079,10 +2068,10 @@ fn test_pattern_match_list_cons_wildcard_tail()
 #[test]
 fn test_pattern_match_wildcard_inside_tuple()
 {
-    let patt = Val::Struple(None, Struple::new_tuple2(
+    let patt = Val::Tuple(Struple::new_tuple2(
         Val::Int(1), Val::Wildcard
         ));
-    let input = Val::Struple(None, Struple::new_tuple2(
+    let input = Val::Tuple(Struple::new_tuple2(
         Val::Int(1), Val::Int(4)
         ));
     let pmatch = Val::pattern_match(&patt, &input);
