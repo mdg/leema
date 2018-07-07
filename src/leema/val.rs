@@ -1750,21 +1750,11 @@ fn test_equal_type_int() {
 }
 
 #[test]
-fn test_type_id_to_struct()
-{
-    let typename = Rc::new("Taco".to_string());
-    assert_eq!(
-        Type::Struct(typename.clone()),
-        Type::Id(typename.clone()).to_struct()
-    );
-}
-
-#[test]
 fn test_tuple_from_list() {
     let origl = list::cons(Val::Int(4), list::singleton(Val::Int(7)));
     let tuple = Val::tuple_from_list(&origl);
     print!("wtf?({:?})", tuple);
-    let exp = Val::Tuple(vec![Val::Int(4), Val::Int(7)]);
+    let exp = Val::Tuple(Struple::new_tuple2(Val::Int(4), Val::Int(7)));
     assert_eq!(exp, tuple);
 }
 
@@ -1798,8 +1788,8 @@ fn test_equal_false() {
 
 #[test]
 fn test_tuple() {
-    let a = Val::Tuple(vec![Val::Int(3), Val::Int(7)]);
-    let b = Val::Tuple(vec![Val::Int(3), Val::Int(7)]);
+    let a = Val::Tuple(Struple::new_tuple2(Val::Int(3), Val::Int(7)));
+    let b = Val::Tuple(Struple::new_tuple2(Val::Int(3), Val::Int(7)));
     assert!(a == b);
 }
 
@@ -1819,70 +1809,73 @@ fn test_compare_true_false() {
 
 #[test]
 fn test_struct_eq() {
-    let t = Type::UserDef(Lri::new(Lstr::Sref("Taco")));
+    let t = Lri::new(Lstr::Sref("Taco"));
     let a =
-        Val::Struple(t.clone(), vec![
+        Val::Struct(t.clone(), Struple::new_tuple2(
             Val::Int(3),
             Val::Bool(false),
-        ]);
+        ));
     let b =
-        Val::Struple(t, vec![
+        Val::Struct(t, Struple::new_tuple2(
             Val::Int(3),
             Val::Bool(false),
-        ]);
+        ));
     assert_eq!(a, b);
 }
 
 #[test]
 fn test_struct_lt_type() {
     let a =
-        Val::Struct(Type::Id(Rc::new("Burrito".to_string())), vec![
-            Val::Int(3),
-            Val::Bool(false),
-        ]);
+        Val::Struct(
+            Lri::new(Lstr::Sref("Burrito")),
+            Struple::new_tuple2(
+                Val::Int(3),
+                Val::Bool(false),
+            ),
+        );
     let b =
-        Val::Struct(Type::Id(Rc::new("Taco".to_string())), vec![
-            Val::Int(3),
-            Val::Bool(false),
-        ]);
+        Val::Struct(
+            Lri::new(Lstr::Sref("Taco")),
+            Struple::new_tuple2(
+                Val::Int(3),
+                Val::Bool(false),
+            ),
+        );
     assert!(a < b);
 }
 
 #[test]
 fn test_struct_lt_val() {
+    let typ = Lri::new(Lstr::Sref("Taco"));
     let a =
-        Val::Struct(Type::Id(Rc::new("Taco".to_string())), vec![
+        Val::Struct(typ.clone(), Struple::new_tuple2(
             Val::Bool(false),
             Val::Int(3),
-        ]);
+        ));
     let b =
-        Val::Struct(Type::Id(Rc::new("Taco".to_string())), vec![
+        Val::Struct(typ.clone(), Struple::new_tuple2(
             Val::Bool(false),
             Val::Int(7),
-        ]);
+        ));
     assert!(a < b);
 }
 
 #[test]
 fn test_enum_eq() {
-    let etype = Type::Enum(Lri::with_modules(
+    let etype = Lri::with_modules(
         Lstr::Sref("animals"),
         Lstr::Sref("Animal"),
-    ));
+    );
 
     let a =
-        Val::Enum(
+        Val::EnumToken(
             etype.clone(),
-            0,
-            Rc::new(String::from("Dog".to_string())),
-            Box::new(Val::Void),
+            Lstr::Sref("Dog"),
         );
     let b =
-        Val::Enum(
+        Val::EnumToken(
             etype.clone(),
-            0,
-            Rc::new(String::from("Dog".to_string())),
-            Box::new(Val::Void),
+            Lstr::Sref("Dog"),
         );
     assert_eq!(a, b);
 }
@@ -1890,20 +1883,16 @@ fn test_enum_eq() {
 #[test]
 fn test_enum_lt_type()
 {
-    let typ = Type::Enum(Lri::new(Lstr::Sref("Taco")));
+    let typ = Lri::new(Lstr::Sref("Taco"));
     let a =
-        Val::Enum(
+        Val::EnumToken(
             typ.clone(),
-            0,
-            Rc::new(String::from("Quesadilla")),
-            Box::new(Val::Void),
+            Lstr::Sref("Quesadilla"),
         );
     let b =
-        Val::Enum(
+        Val::EnumToken(
             typ,
-            0,
-            Rc::new(String::from("Torta")),
-            Box::new(Val::Void),
+            Lstr::Sref("Torta"),
         );
     assert!(a < b);
 }
@@ -1911,40 +1900,35 @@ fn test_enum_lt_type()
 #[test]
 fn test_enum_lt_variant()
 {
-    let typ = Type::Enum(Lri::new(Lstr::Sref("Taco")));
+    let typ = Lri::new(Lstr::Sref("Taco"));
     let a =
-        Val::Enum(
+        Val::EnumToken(
             typ.clone(),
-            1,
-            Rc::new(String::from("Burrito")),
-            Box::new(Val::Void),
+            Lstr::Sref("Burrito"),
         );
     let b =
-        Val::Enum(
+        Val::EnumToken(
             typ,
-            2,
-            Rc::new(String::from("Torta")),
-            Box::new(Val::Void),
+            Lstr::Sref("Torta"),
         );
     assert!(a < b);
 }
 
 #[test]
-fn test_enum_lt_val() {
-    let typ = Type::Enum(Lri::new(Lstr::Sref("Taco")));
+fn test_enum_lt_val()
+{
+    let typ = Lri::new(Lstr::Sref("Taco"));
     let a =
-        Val::Enum(
+        Val::EnumStruct(
             typ.clone(),
-            0,
-            Rc::new(String::from("Burrito")),
-            Box::new(Val::Int(5)),
+            Lstr::Sref("Burrito"),
+            Struple::new_tuple2(Val::Int(5), Val::Int(8)),
         );
     let b =
-        Val::Enum(
+        Val::EnumStruct(
             typ,
-            0,
-            Rc::new(String::from("Burrito")),
-            Box::new(Val::Int(9)),
+            Lstr::Sref("Burrito"),
+            Struple::new_tuple2(Val::Int(9), Val::Int(8)),
         );
     assert!(a < b);
 }
@@ -1952,9 +1936,7 @@ fn test_enum_lt_val() {
 #[test]
 fn test_format_struct_empty()
 {
-    let s = Val::Struct(
-        Type::Struct(Rc::new("Taco".to_string())), Vec::with_capacity(0)
-    );
+    let s = Val::Token(Lri::new(Lstr::Sref("Taco")));
 
     let s_str = format!("{}", s);
     assert_eq!("Taco", s_str);

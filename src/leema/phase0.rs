@@ -1091,7 +1091,7 @@ fn preproc_defstruple_token()
         Lstr::from("tok"),
         Lstr::from("Burrito"),
     );
-    let exptype = Type::UserDef(exptype_lri);
+    let exptype = Type::UserDef(exptype_lri.clone());
 
     // verify valtypes
     assert_eq!(exptype, *pmod.valtypes.get("Burrito").unwrap());
