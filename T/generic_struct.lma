@@ -1,0 +1,12 @@
+
+struple Taco[T]
+.filling: T
+.qty: Int
+--
+
+func main() ->
+    let chk := Taco(#chicken, 1)
+    let beans := Taco("beans", 2)
+    cout("chicken: $chk\n")
+    cout("beans: $beans\n")
+--
