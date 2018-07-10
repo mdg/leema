@@ -368,8 +368,7 @@ impl<'a> From<&'a Ast> for Type
             &Ast::TypeHashtag => Type::Hashtag,
             &Ast::TypeStr => Type::Str,
             &Ast::TypeVar(ref v, _) => {
-                let vrc: Rc<String> = From::from(v);
-                Type::Var(vrc)
+                Type::Var(v.clone())
             }
             &Ast::TypeVoid => Type::Void,
             &Ast::TypeFunc(ref parts, _) => {

@@ -68,7 +68,7 @@ pub enum Type
     Any,
 
     Unknown,
-    Var(Rc<String>),
+    Var(Lstr),
     AnonVar,
 }
 
@@ -141,22 +141,11 @@ impl Type
         }
     }
 
-    pub fn var_name(&self) -> Rc<String>
+    pub fn var_name(&self) -> Lstr
     {
         match self {
             &Type::Var(ref id) => id.clone(),
-            &Type::AnonVar => Rc::new("anon".to_string()),
-            _ => {
-                panic!("Not a Type::Var {:?}", self);
-            }
-        }
-    }
-
-    pub fn var_name_str(&self) -> &str
-    {
-        match self {
-            &Type::Var(ref id) => id,
-            &Type::AnonVar => "anon",
+            &Type::AnonVar => Lstr::Sref("anon"),
             _ => {
                 panic!("Not a Type::Var {:?}", self);
             }
@@ -183,8 +172,7 @@ impl Type
                 Type::Func(dc_args, Box::new(result.deep_clone()))
             }
             &Type::Var(ref id) => {
-                let old_str: &str = &**id;
-                Type::Var(Rc::new(old_str.to_string()))
+                Type::Var(id.deep_clone())
             }
             _ => {
                 panic!("cannot deep_clone Type: {:?}", self);

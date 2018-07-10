@@ -846,13 +846,13 @@ fn test_preproc_enum_colors()
 fn test_enum_types()
 {
     let input = "
-    enum Animal
+    enum Animal[A]
     |Dog
     |Cat(Int)
-    |Mouse($A)
+    |Mouse(A)
     |Giraffe
         .height: Int
-        .weight: $A
+        .weight: A
     --
     ".to_string();
     let mut loader = Interloader::new("animals.lma");
@@ -860,14 +860,13 @@ fn test_enum_types()
     let mut prog = program::Lib::new(loader);
     let pmod = prog.read_proto("animals");
 
-    let modname = Rc::new("animals".to_string());
-    let local_typename = Rc::new("Animal".to_string());
-    let type_lri = Lri::with_modules(
-        Lstr::Rc(modname.clone()),
-        Lstr::Rc(local_typename.clone()),
+    let type_lri = Lri::full(
+        Some(Lstr::Sref("animals")),
+        Lstr::Sref("Animal"),
+        Some(vec![Type::Var(Lstr::Sref("A"))]),
     );
     let expected_type = Type::UserDef(type_lri.clone());
-    let typevar_a = Type::Var(Rc::new("$A".to_string()));
+    let typevar_a = Type::Var(Lstr::Sref("$A"));
     let dog_name = Lstr::Sref("Dog");
     let cat_name = Lstr::Sref("Cat");
     let mouse_name = Rc::new("Mouse".to_string());

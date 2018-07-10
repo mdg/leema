@@ -73,7 +73,7 @@ pub struct Inferator<'b>
     funcname: &'b str,
     T: HashMap<String, Type>,
     blocks: Vec<Blockscope>,
-    inferences: HashMap<Rc<String>, Type>,
+    inferences: HashMap<Lstr, Type>,
     module: Option<Rc<String>>,
 }
 
@@ -125,11 +125,11 @@ impl<'b> Inferator<'b>
         let realt = match argt {
             Type::Unknown => {
                 let arg_typename = format!("T_param_{}", argi);
-                Type::Var(Rc::new(arg_typename))
+                Type::Var(Lstr::from(arg_typename))
             }
             Type::AnonVar => {
                 let arg_typename = format!("T_param_{}", argi);
-                Type::Var(Rc::new(arg_typename))
+                Type::Var(Lstr::from(arg_typename))
             }
             a => a,
         };
@@ -165,7 +165,7 @@ impl<'b> Inferator<'b>
         let realt = match argt {
             &Type::Unknown => {
                 let arg_typename = format!("T_local_{}", argn);
-                Type::Var(Rc::new(arg_typename))
+                Type::Var(Lstr::from(arg_typename))
             }
             &Type::AnonVar => {
                 panic!("cannot bind var to anonymous type: {}", argn);
@@ -207,7 +207,7 @@ impl<'b> Inferator<'b>
             }
             (&Val::Cons(ref head, ref tail), &Type::Var(ref tvar_name)) => {
                 let tvar_inner_name = format!("{}_inner", tvar_name);
-                let tvar_inner = Type::Var(Rc::new(tvar_inner_name));
+                let tvar_inner = Type::Var(Lstr::from(tvar_inner_name));
                 self.match_list_pattern(patt, &tvar_inner, lineno);
                 self.merge_types(&valtype,
                     &Type::StrictList(Box::new(tvar_inner.clone())));
@@ -414,7 +414,7 @@ impl<'b> Inferator<'b>
         }
     }
 
-    fn mash(inferences: &mut HashMap<Rc<String>, Type>
+    fn mash(inferences: &mut HashMap<Lstr, Type>
         , oldt: &Type, newt: &Type
         ) -> TypeResult
     {
@@ -516,6 +516,7 @@ mod tests {
     use leema::infer::{Inferator};
     use leema::list;
     use leema::log;
+    use leema::lstr::{Lstr};
     use leema::struple::{Struple};
     use leema::val::{Val, Type};
 
@@ -548,7 +549,7 @@ fn test_merge_types_via_tvar()
     let mut t = Inferator::new("burritos");
     let intlist = Type::StrictList(Box::new(Type::Int));
     let unknownlist = Type::StrictList(Box::new(Type::Unknown));
-    let tvar = Type::Var(Rc::new("Taco".to_string()));
+    let tvar = Type::Var(Lstr::Sref("Taco"));
 
     let mtype0 = t.merge_types(&unknownlist, &tvar);
     assert_eq!(Ok(unknownlist), mtype0);
@@ -571,7 +572,7 @@ fn test_take_current_module()
 fn test_match_pattern_empty_list()
 {
     let mut t = Inferator::new("burritos");
-    let tvar = Type::Var(Rc::new("Taco".to_string()));
+    let tvar = Type::Var(Lstr::Sref("Taco"));
     t.match_pattern(&Val::Nil, &tvar, 55);
 
     assert_eq!(Type::StrictList(Box::new(Type::Unknown)),
@@ -582,7 +583,7 @@ fn test_match_pattern_empty_list()
 fn test_match_pattern_empty_and_full_lists()
 {
     let mut t = Inferator::new("burritos");
-    let tvar = Type::Var(Rc::new("Taco".to_string()));
+    let tvar = Type::Var(Lstr::Sref("Taco"));
     t.match_pattern(&Val::Nil, &tvar, 32);
     t.match_pattern(&list::singleton(Val::Int(5)), &tvar, 99);
 
@@ -595,7 +596,7 @@ fn test_match_pattern_hashtag_list_inside_tuple()
 {
     let mut t = Inferator::new("burritos");
     let tvar = Type::Tuple(Struple(vec![
-        (None, Type::Var(Rc::new("Taco".to_string())))
+        (None, Type::Var(Lstr::Sref("Taco")))
     ]));
     let listpatt = Val::Tuple(Struple::new_tuple2(
         Val::hashtag("leema".to_string()),
