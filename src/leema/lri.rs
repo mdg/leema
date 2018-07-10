@@ -128,11 +128,14 @@ impl fmt::Display for Lri
         if self.modules.is_some() {
             write!(f, "{}::", self.modules.as_ref().unwrap())?;
         }
-        if self.params.is_none() {
-            write!(f, "{}", self.localid)
+        if let Some(ref params) = self.params.as_ref() {
+            write!(f, "{}[", self.localid)?;
+            for p in params.iter() {
+                write!(f, "{},", p)?;
+            }
+            write!(f, "]")
         } else {
-            write!(f, "{}", self.localid)?;
-            write!(f, "{:?}", &self.params.as_ref().unwrap())
+            write!(f, "{}", self.localid)
         }
     }
 }

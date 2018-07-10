@@ -863,10 +863,11 @@ fn test_enum_types()
     let type_lri = Lri::full(
         Some(Lstr::Sref("animals")),
         Lstr::Sref("Animal"),
-        Some(vec![Type::Var(Lstr::Sref("A"))]),
+        Some(vec![Type::UserDef(Lri::new(Lstr::Sref("A")))]),
     );
     let expected_type = Type::UserDef(type_lri.clone());
     let typevar_a = Type::Var(Lstr::Sref("$A"));
+    let typeparam_a = Type::Param(0);
     let dog_name = Lstr::Sref("Dog");
     let cat_name = Lstr::Sref("Cat");
     let mouse_name = Rc::new("Mouse".to_string());
@@ -887,7 +888,7 @@ fn test_enum_types()
         Type::Func(
             vec![
                 Type::Int,
-                typevar_a.clone(),
+                typeparam_a.clone(),
             ],
             Box::new(expected_type.clone()),
         );
@@ -915,7 +916,7 @@ fn test_enum_types()
     assert_eq!(exp_giraffe_const, *giraffe_const);
 
     // verify constant string formatting
-    let dog_str = format!("{:?}", dog_const);
+    let dog_str = format!("{}", dog_const);
     assert_eq!("Dog", dog_str);
 
     // verify function sequence
@@ -933,9 +934,9 @@ fn test_enum_types()
     assert_eq!(3, pmod.funcsrc.len());
 
     // verify value types
-    assert_eq!("animals::Animal",
+    assert_eq!("animals::Animal[A,]",
         format!("{}", *pmod.valtypes.get("Dog").unwrap()));
-    assert_eq!("Int > animals::Animal",
+    assert_eq!("Int => animals::Animal[A,]",
         format!("{}", *pmod.valtypes.get("Cat").unwrap()));
     assert_eq!(*pmod.valtypes.get("Mouse").unwrap(), mouse_func_type);
     assert_eq!(*pmod.valtypes.get("Giraffe").unwrap(), giraffe_func_type);

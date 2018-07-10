@@ -1000,8 +1000,8 @@ impl fmt::Display for Val {
             Val::EnumStruct(ref tname, ref var, ref items) => {
                 write!(f, "{}.{}{}", tname, var, items)
             }
-            Val::EnumToken(ref type_name, ref var_name) => {
-                write!(f, "{}.{}", type_name, var_name)
+            Val::EnumToken(_, ref var_name) => {
+                write!(f, "{}", var_name)
             }
             Val::Token(ref typename) => {
                 write!(f, "{}", typename)
