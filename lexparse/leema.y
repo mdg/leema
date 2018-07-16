@@ -363,6 +363,10 @@ arrow_expr(A) ::= arrow_expr(B) TYPEARROW(L) term(C). {
     A = tmp;
 }
 
+expr(A) ::= BACKTICK term(C). {
+    A = Ast::Deref(Box::new(C));
+}
+
 expr(A) ::= term(B) DOLLAR term(C). {
     /* A = Val::binaryop(B, C, D); */
     A = Ast::ConstVoid;

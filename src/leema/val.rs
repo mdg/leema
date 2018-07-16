@@ -70,6 +70,8 @@ pub enum Type
     Unknown,
     Var(Lstr),
     AnonVar,
+    // the inner type, dereferenced
+    Deref(Box<Type>),
 }
 
 impl Type
@@ -247,6 +249,9 @@ impl fmt::Display for Type
                 write!(f, "Type::Var({})", name)
             }
             &Type::AnonVar => write!(f, "TypeAnonymous"),
+            &Type::Deref(ref inner) => {
+                write!(f, "`{}", inner)
+            }
         }
     }
 }
@@ -290,6 +295,9 @@ impl fmt::Debug for Type
                 write!(f, "Type::Param({})", index)
             }
             &Type::AnonVar => write!(f, "TypeAnonymous"),
+            &Type::Deref(ref inner) => {
+                write!(f, "TypeDeref({:?})", inner)
+            }
         }
     }
 }

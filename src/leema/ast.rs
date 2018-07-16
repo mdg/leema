@@ -184,6 +184,8 @@ pub enum Ast
     DefData(DataType, Box<Ast>, LinkedList<Kxpr>, SrcLoc),
     DefFunc(FuncClass
         , Box<Ast>, LinkedList<Kxpr>, Box<Ast>, Box<Ast>, SrcLoc),
+    // dereference another expression
+    Deref(Box<Ast>),
     DotAccess(Box<Ast>, Lstr),
     IfExpr(IfType, Box<Ast>, Box<IfCase>, SrcLoc),
     Import(Box<Ast>, SrcLoc),

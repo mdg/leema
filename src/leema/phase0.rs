@@ -106,6 +106,11 @@ impl Protomod
             &Ast::ConstInt(i) => Ast::ConstInt(i),
             &Ast::ConstStr(_) => x.clone(),
             &Ast::ConstVoid => Ast::ConstVoid,
+            &Ast::Deref(ref inner) => {
+                Ast::Deref(Box::new(
+                    Protomod::preproc_expr(prog, mp, inner, loc)
+                ))
+            }
             &Ast::DotAccess(ref base, ref fld) => {
                 let ppbase = Protomod::preproc_expr(prog, mp, base, loc);
                 Ast::DotAccess(Box::new(ppbase), fld.clone())

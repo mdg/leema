@@ -301,6 +301,10 @@ ${ID}	{
     BEGIN(INITIAL);
     return set_token_val(yyg, TOKEN_TYPE_VAR, yytext);
 }
+`	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_BACKTICK);
+}
 "$\?"	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_DollarQuestion);

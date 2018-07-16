@@ -2,19 +2,13 @@
 import option
 
 
-struple TypeValField
+struple StructFieldVal
 .name: option::T[Str]
 .field_type: TypeVal
 --
 
 struple TypeVal
 .name: Str
-.types: [TypeValField]
+.parameters: [Str]
+.fields: [StructFieldVal]
 --
-
-struple StructVal[T]
-.name: Str
-.new: *T => T
-.fields: [TypeVal]
---
-
