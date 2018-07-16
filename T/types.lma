@@ -12,3 +12,9 @@ struple TypeVal
 .types: [TypeValField]
 --
 
+struple StructVal[T]
+.name: Str
+.new: *T => T
+.fields: [TypeVal]
+--
+

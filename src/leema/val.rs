@@ -1951,7 +1951,6 @@ fn test_format_enum_namedtuple()
         Lstr::Sref("tortas"),
         Lstr::Sref("Taco"),
     );
-    let stype = Type::UserDef(stype_lri.clone());
     let s = Val::EnumStruct(
         stype_lri,
         burrito_str.clone(),
@@ -1959,22 +1958,7 @@ fn test_format_enum_namedtuple()
     );
 
     let s_str = format!("{}", s);
-    assert_eq!("Burrito(5,8,)", s_str);
-}
-
-#[test]
-fn test_format_enum_two_fields()
-{
-    let s = Struple::new_tuple2(Val::Int(4), Val::Int(8));
-    let etype_lri = Lri::new(Lstr::Sref("Taco"));
-    let e = Val::EnumStruct(
-        etype_lri,
-        Lstr::Sref("Burrito"),
-        s,
-    );
-
-    let e_str = format!("{}", e);
-    assert_eq!("Burrito(4,8,)", e_str);
+    assert_eq!("tortas::Taco.Burrito(5,8,)", s_str);
 }
 
 #[test]

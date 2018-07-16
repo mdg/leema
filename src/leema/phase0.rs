@@ -2,6 +2,7 @@ use leema::program::{Lib};
 use leema::ast::{self, Ast, Kxpr};
 use leema::lri::{Lri};
 use leema::lstr::{Lstr};
+use leema::struple::{Struple};
 use leema::val::{Val, Type, SrcLoc};
 use leema::module::{ModKey, ModulePreface};
 use leema::list;
@@ -486,7 +487,8 @@ impl Protomod
             (&Ast::Localid(ref name, ref iloc), Some(ref type_params)) => {
                 Protomod::find_type_param(type_params, name)
                 .map(|i| {
-                    Type::Param(i)
+                    // Type::Param(i)
+                    Type::Var(name.clone())
                 })
                 .unwrap_or_else(|| {
                     Type::UserDef(Lri::new(name.clone()))
@@ -556,12 +558,6 @@ impl Protomod
         self.valtypes.insert(String::from(name_lstr.str()), type_name);
     }
 
-    pub fn preproc_enum_token(&mut self, prog: &Lib, mp: &ModulePreface
-        , name: &Ast, loc: &SrcLoc
-        )
-    {
-    }
-
     pub fn preproc_struple_with_fields(&mut self, prog: &Lib
         , mp: &ModulePreface, name: Lri
         , src_fields: &LinkedList<Kxpr>, loc: &SrcLoc
@@ -611,7 +607,16 @@ impl Protomod
 
         let funcref =
             Val::FuncRef(mod_name.rc(), local_name.rc(), func_type.clone());
-        self.constants.insert(String::from(&local_name), funcref);
+        let struct_type_lri = Lri::full(
+                Some(Lstr::Sref("types")),
+                Lstr::Sref("StructVal"),
+                Some(vec![full_type.clone()]),
+            );
+        let struct_type_struple = Struple(vec![
+            (Some(Lstr::Sref("new")), funcref),
+        ]);
+        let struct_type_val = Val::Struct(struct_type_lri.clone(), struct_type_struple);
+        self.constants.insert(String::from(&local_name), struct_type_val);
         self.funcseq.push_back(local_name.rc());
         self.funcsrc.insert(String::from(&local_name), srcxpr);
         self.valtypes.insert(String::from(&local_name), func_type);
@@ -657,10 +662,12 @@ impl Protomod
     }
 
     pub fn preproc_enum(&mut self, prog: &Lib, mp: &ModulePreface
-        , name: &Ast, src_variants: &LinkedList<Kxpr>
+        , name_ast: &Ast, src_variants: &LinkedList<Kxpr>
         , loc: &SrcLoc)
     {
-        let name_lstr = Lstr::from(name);
+        let local_name = Lri::from(name_ast);
+        let enum_lri = local_name.add_modules(Lstr::Rc(self.key.name.clone()));
+        let name_lstr = Lstr::from(name_ast);
         let rc_name: Rc<String> = From::from(&name_lstr);
         let mod_type = Type::UserDef(Lri::with_modules(
             Lstr::Rc(self.key.name.clone()),
@@ -673,7 +680,7 @@ impl Protomod
             let i = bigi as i16;
             let v = kx.x_ref().unwrap();
             if let &Ast::DefData(vdatatype, ref vname, ref fields, ref loc) = v {
-                self.preproc_enum_variant(prog, mp, &name, i
+                self.preproc_enum_variant(prog, mp, &name_ast, i
                     , vdatatype, vname, &type_params, fields, loc);
                 let variant_lstr = Lstr::from(&**vname);
                 let variant_name: Rc<String> = From::from(&variant_lstr);
@@ -866,7 +873,7 @@ fn test_enum_types()
         Some(vec![Type::UserDef(Lri::new(Lstr::Sref("A")))]),
     );
     let expected_type = Type::UserDef(type_lri.clone());
-    let typevar_a = Type::Var(Lstr::Sref("$A"));
+    let typevar_a = Type::Var(Lstr::Sref("A"));
     let typeparam_a = Type::Param(0);
     let dog_name = Lstr::Sref("Dog");
     let cat_name = Lstr::Sref("Cat");
@@ -888,7 +895,7 @@ fn test_enum_types()
         Type::Func(
             vec![
                 Type::Int,
-                typeparam_a.clone(),
+                typevar_a.clone(),
             ],
             Box::new(expected_type.clone()),
         );
@@ -938,8 +945,8 @@ fn test_enum_types()
         format!("{}", *pmod.valtypes.get("Dog").unwrap()));
     assert_eq!("Int => animals::Animal[A,]",
         format!("{}", *pmod.valtypes.get("Cat").unwrap()));
-    assert_eq!(*pmod.valtypes.get("Mouse").unwrap(), mouse_func_type);
-    assert_eq!(*pmod.valtypes.get("Giraffe").unwrap(), giraffe_func_type);
+    assert_eq!(mouse_func_type, *pmod.valtypes.get("Mouse").unwrap());
+    assert_eq!(giraffe_func_type, *pmod.valtypes.get("Giraffe").unwrap());
     assert_eq!(4, pmod.valtypes.len());
 
     // verify struct fields
@@ -1068,6 +1075,82 @@ fn preproc_defstruple_mixed_keys()
     let strupfs = pmod.struple_flds.get("Burrito").unwrap();
     assert_eq!((None, Type::Bool), *strupfs.get(0).unwrap());
     assert_eq!((Some(Lstr::from("buns")), Type::Int), *strupfs.get(1).unwrap());
+    assert_eq!(1, pmod.struple_flds.len());
+
+    // assert empty struct fields
+    assert_eq!(0, pmod.structfields.len());
+}
+
+#[test]
+fn preproc_defstruple_keyed()
+{
+    let input = "
+    struple Burrito
+    .large: Bool
+    .buns: Int
+    --
+    ".to_string();
+    let mut loader = Interloader::new("tacos.lma");
+    loader.set_mod_txt("tacos", input);
+    let mut prog = program::Lib::new(loader);
+    let pmod = prog.read_proto("tacos");
+
+    // assert valtypes
+    assert!(pmod.valtypes.contains_key("Burrito"));
+    let constructor = pmod.valtypes.get("Burrito").unwrap();
+    if let &Type::Func(ref params, ref result) = constructor {
+        assert_eq!(2, params.len());
+        let exp_result = Type::UserDef(Lri::with_modules(
+            Lstr::from("tacos"), Lstr::from("Burrito")
+        ));
+        assert_eq!(exp_result, **result);
+    } else {
+        panic!("constructor valtype is not a func");
+    }
+
+    let xtyperef = Type::UserDef(Lri::with_modules(
+        Lstr::from("tacos"),
+        Lstr::from("Burrito"),
+    ));
+    let xfunctype = Type::Func(
+        vec![Type::Bool, Type::Int],
+        Box::new(xtyperef.clone()),
+    );
+
+    // assert constants
+    assert_eq!(1, pmod.constants.len());
+    let stype_val = pmod.constants.get("Burrito").unwrap();
+    if let &Val::Struct(ref stype, ref sfields) = stype_val {
+        assert_eq!("types::StructVal[tacos::Burrito,]", format!("{}", stype));
+    } else {
+        panic!("Burrito constant is not a struct: {:?}", stype_val);
+    }
+    /*
+    if let &Val::FuncRef(ref mod_nm, ref func_nm, ref ftype) = funcref {
+        assert_eq!("tacos", &**mod_nm);
+        assert_eq!("Burrito", &**func_nm);
+        assert_eq!(xfunctype, *ftype);
+    } else {
+        panic!("Burrito constant is not a FuncRef: {:?}", funcref);
+    }
+    */
+
+    // assert funcseq contents
+    assert_eq!("Burrito", **pmod.funcseq.front().unwrap());
+    assert_eq!(1, pmod.funcseq.len());
+
+    // assert valtypes
+    assert_eq!(xfunctype, *pmod.valtypes.get("Burrito").unwrap());
+    assert_eq!(1, pmod.valtypes.len());
+
+    // assert funcsrc
+    assert!(pmod.funcsrc.contains_key("Burrito"));
+    assert_eq!(1, pmod.funcsrc.len());
+
+    // assert struple fields
+    let strupfs = pmod.struple_flds.get("Burrito").unwrap();
+    assert_eq!((Some(Lstr::Sref("large")), Type::Bool), *strupfs.get(0).unwrap());
+    assert_eq!((Some(Lstr::Sref("buns")), Type::Int), *strupfs.get(1).unwrap());
     assert_eq!(1, pmod.struple_flds.len());
 
     // assert empty struct fields
