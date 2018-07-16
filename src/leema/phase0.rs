@@ -618,10 +618,10 @@ impl Protomod
                 Some(vec![full_type.clone()]),
             );
         let struct_type_struple = Struple(vec![
-            (Some(Lstr::Sref("new")), funcref),
+            (Some(Lstr::Sref("new")), funcref.clone()),
         ]);
         let struct_type_val = Val::Struct(struct_type_lri.clone(), struct_type_struple);
-        self.constants.insert(String::from(&local_name), struct_type_val);
+        self.constants.insert(String::from(&local_name), funcref);
         self.funcseq.push_back(local_name.rc());
         self.funcsrc.insert(String::from(&local_name), srcxpr);
         self.valtypes.insert(String::from(&local_name), func_type);
@@ -643,7 +643,7 @@ impl Protomod
                 panic!("need to get the struct field still");
             }
             what => {
-                panic!("cannot get fields from not struple");
+                panic!("cannot get fields from not struple: {:?}", what);
             }
         }
     }
@@ -1091,8 +1091,8 @@ fn preproc_defstruple_keyed()
 {
     let input = "
     struple Burrito
-    .large: Bool
-    .buns: Int
+    .filling: Str
+    .number: Int
     --
     ".to_string();
     let mut loader = Interloader::new("tacos.lma");
@@ -1118,19 +1118,21 @@ fn preproc_defstruple_keyed()
         Lstr::from("Burrito"),
     ));
     let xfunctype = Type::Func(
-        vec![Type::Bool, Type::Int],
+        vec![Type::Str, Type::Int],
         Box::new(xtyperef.clone()),
     );
 
     // assert constants
     assert_eq!(1, pmod.constants.len());
+    /*
     let stype_val = pmod.constants.get("Burrito").unwrap();
     if let &Val::Struct(ref stype, ref sfields) = stype_val {
         assert_eq!("types::StructVal[tacos::Burrito,]", format!("{}", stype));
     } else {
         panic!("Burrito constant is not a struct: {:?}", stype_val);
     }
-    /*
+    */
+    let funcref = pmod.constants.get("Burrito").unwrap();
     if let &Val::FuncRef(ref mod_nm, ref func_nm, ref ftype) = funcref {
         assert_eq!("tacos", &**mod_nm);
         assert_eq!("Burrito", &**func_nm);
@@ -1138,7 +1140,6 @@ fn preproc_defstruple_keyed()
     } else {
         panic!("Burrito constant is not a FuncRef: {:?}", funcref);
     }
-    */
 
     // assert funcseq contents
     assert_eq!("Burrito", **pmod.funcseq.front().unwrap());
@@ -1154,8 +1155,8 @@ fn preproc_defstruple_keyed()
 
     // assert struple fields
     let strupfs = pmod.struple_flds.get("Burrito").unwrap();
-    assert_eq!((Some(Lstr::Sref("large")), Type::Bool), *strupfs.get(0).unwrap());
-    assert_eq!((Some(Lstr::Sref("buns")), Type::Int), *strupfs.get(1).unwrap());
+    assert_eq!((Some(Lstr::Sref("filling")), Type::Str), *strupfs.get(0).unwrap());
+    assert_eq!((Some(Lstr::Sref("number")), Type::Int), *strupfs.get(1).unwrap());
     assert_eq!(1, pmod.struple_flds.len());
 
     // assert empty struct fields

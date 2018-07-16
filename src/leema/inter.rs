@@ -270,12 +270,15 @@ impl<'a> Interscope<'a>
         match typ {
             &Type::UserDef(ref i) => {
                 i.mod_ref()
-                .map(|mods| {
+                .and_then(|mods| {
+                    if mods == &**self.proto.key.name {
+                        return None;
+                    }
                     let imp = self.imports.get(mods.str());
                     if imp.is_none() {
                         panic!("module for type cannot be found: {}", typ);
                     }
-                    &**imp.unwrap()
+                    Some(&**imp.unwrap())
                 })
                 .unwrap_or(self.proto)
             }
