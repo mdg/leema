@@ -27,6 +27,7 @@ pub mod sendclone;
 pub mod struple;
 pub mod tcp;
 pub mod typecheck;
+pub mod types;
 pub mod udp;
 pub mod worker;
 

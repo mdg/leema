@@ -14,9 +14,9 @@ use std::rc::{Rc};
 #[derive(Hash)]
 pub struct Lri
 {
-    modules: Option<Lstr>,
-    localid: Lstr,
-    params: Option<Vec<Type>>,
+    pub modules: Option<Lstr>,
+    pub localid: Lstr,
+    pub params: Option<Vec<Type>>,
 }
 
 impl Lri
