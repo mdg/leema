@@ -3,6 +3,7 @@ use leema::ast::{self, Ast, Kxpr};
 use leema::lri::{Lri};
 use leema::lstr::{Lstr};
 use leema::struple::{Struple};
+use leema::types;
 use leema::val::{Val, Type, SrcLoc};
 use leema::module::{ModKey, ModulePreface};
 use leema::list;
@@ -30,12 +31,14 @@ impl Protomod
 {
     pub fn new(mk: Rc<ModKey>) -> Protomod
     {
+        let mut empty_consts = HashMap::new();
+        empty_consts.insert("TYPES".to_string(), Val::Nil);
         Protomod{
             key: mk,
             funcseq: LinkedList::new(),
             funcsrc: HashMap::new(),
             valtypes: HashMap::new(),
-            constants: HashMap::new(),
+            constants: empty_consts,
             deftypes: HashMap::new(),
             struple_flds: HashMap::new(),
             structfields: HashMap::new(),
@@ -591,7 +594,6 @@ impl Protomod
                     , local_type.param_ref(), f.x_ref().unwrap(), loc);
                 (f.k_clone(), pp_type)
             }).collect();
-
         let field_type_vec = struple_fields.iter().map(|&(_, ref ftype)| {
             ftype.clone()
         }).collect();
@@ -610,18 +612,15 @@ impl Protomod
             , (*src_fields).clone(), Box::new(src_typename)
             , Box::new(srcblk), *loc);
 
+        let struct_type_val = types::new_type_val(struple_lri.clone(), &struple_fields);
+        let new_types_list = list::cons(struct_type_val
+            , self.constants.remove("TYPES").expect("missing TYPES constant").clone());
+        self.constants.insert(String::from("TYPES"), new_types_list);
+
         let funcref =
             Val::FuncRef(mod_name.rc(), local_name.rc(), func_type.clone());
-        let struct_type_lri = Lri::full(
-                Some(Lstr::Sref("types")),
-                Lstr::Sref("StructVal"),
-                Some(vec![full_type.clone()]),
-            );
-        let struct_type_struple = Struple(vec![
-            (Some(Lstr::Sref("new")), funcref.clone()),
-        ]);
-        let struct_type_val = Val::Struct(struct_type_lri.clone(), struct_type_struple);
         self.constants.insert(String::from(&local_name), funcref);
+
         self.funcseq.push_back(local_name.rc());
         self.funcsrc.insert(String::from(&local_name), srcxpr);
         self.valtypes.insert(String::from(&local_name), func_type);
@@ -765,6 +764,7 @@ mod tests {
     use leema::module::{ModKey};
     use leema::phase0::{Protomod};
     use leema::program;
+    use leema::types;
     use leema::val::{Val, Type, SrcLoc};
 
     use std::collections::{HashSet};
@@ -1123,15 +1123,6 @@ fn preproc_defstruple_keyed()
     );
 
     // assert constants
-    assert_eq!(1, pmod.constants.len());
-    /*
-    let stype_val = pmod.constants.get("Burrito").unwrap();
-    if let &Val::Struct(ref stype, ref sfields) = stype_val {
-        assert_eq!("types::StructVal[tacos::Burrito,]", format!("{}", stype));
-    } else {
-        panic!("Burrito constant is not a struct: {:?}", stype_val);
-    }
-    */
     let funcref = pmod.constants.get("Burrito").unwrap();
     if let &Val::FuncRef(ref mod_nm, ref func_nm, ref ftype) = funcref {
         assert_eq!("tacos", &**mod_nm);
@@ -1140,6 +1131,19 @@ fn preproc_defstruple_keyed()
     } else {
         panic!("Burrito constant is not a FuncRef: {:?}", funcref);
     }
+    let type_vals = pmod.constants.get("TYPES").unwrap();
+    assert_eq!(1, list::len(type_vals));
+    let burrito_typeval = list::head_ref(type_vals);
+    if let &Val::Struct(ref stype, ref sfields) = burrito_typeval {
+        assert_eq!("types::TypeVal", format!("{}", stype));
+    } else {
+        panic!("Burrito constant is not a struct: {:?}", burrito_typeval);
+    }
+    assert_eq!(2, pmod.constants.len());
+
+    // assert burrito field types
+    let burrito_filling_field =
+        types::get_field_val(burrito_typeval, &Lstr::Sref("filling"));
 
     // assert funcseq contents
     assert_eq!("Burrito", **pmod.funcseq.front().unwrap());

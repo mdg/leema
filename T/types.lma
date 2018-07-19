@@ -4,7 +4,7 @@ import option
 
 struple StructFieldVal
 .name: option::T[Str]
-.field_type: TypeVal
+.field_type: TypeRef
 --
 
 struple TypeVal
