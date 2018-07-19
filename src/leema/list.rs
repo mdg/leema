@@ -383,21 +383,6 @@ pub fn head_ref(l: &Val) -> &Val
     }
 }
 
-pub fn set_head(l: &mut Val, v: Val)
-{
-    match l {
-        &mut Val::Nil => {
-            panic!("cannot set head for empty list");
-        }
-        &mut Val::Cons(ref mut head, _) => {
-            *head = Box::new(v);
-        }
-        _ => {
-            panic!("Cannot set head on a not list: {:?}", l);
-        }
-    }
-}
-
 
 #[cfg(test)]
 mod tests {
