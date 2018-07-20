@@ -1097,7 +1097,7 @@ impl fmt::Debug for Val {
                 write!(f, "struct({}{:?})", typ, fields)
             }
             Val::EnumStruct(ref name, ref var_name, ref val) => {
-                write!(f, "enum({:?}.{}::{:?})", name, var_name, val)
+                write!(f, "enum({:?}.{}{:?})", name, var_name, val)
             }
             Val::EnumToken(ref typ, ref var_name) => {
                 write!(f, "EnumToken({:?}.{:?})", typ, var_name)

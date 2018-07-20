@@ -6,7 +6,6 @@ use std::fmt;
 use std::rc::{Rc};
 
 
-#[derive(Debug)]
 #[derive(Clone)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
@@ -137,5 +136,13 @@ impl fmt::Display for Lri
         } else {
             write!(f, "{}", self.localid)
         }
+    }
+}
+
+impl fmt::Debug for Lri
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        fmt::Display::fmt(self, f)
     }
 }
