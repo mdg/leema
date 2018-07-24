@@ -258,13 +258,6 @@ impl<'a> Interscope<'a>
         proto.struple_field_idx(&*typ.local_typename(), fld)
     }
 
-    pub fn struct_field_idx(&self, typ: &Type, fld: &str
-        ) -> Option<(i16, &Type)>
-    {
-        let proto = self.type_module(typ);
-        proto.struct_field_idx(&*typ.local_typename(), fld)
-    }
-
     pub fn type_module(&self, typ: &Type) -> &Protomod
     {
         match typ {
