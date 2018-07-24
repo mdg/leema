@@ -94,7 +94,7 @@ pub fn get_field_type<'a, 'b>(sv: &'a Val, name: &'b Lstr) -> Option<(i16, &'a T
 {
     let fields = get_named_struct_field(sv, &Lstr::Sref("fields"))
         .expect("cannot find 'fields' field in structure");
-    for f in list::iter(&fields.1) {
+    for (fld_index, f) in list::iter(&fields.1).enumerate() {
         let opt_fld_name = get_named_struct_field(f, &Lstr::Sref("name"));
         if opt_fld_name.is_none() {
             // this struct has no name field? wtf!
@@ -114,8 +114,8 @@ pub fn get_field_type<'a, 'b>(sv: &'a Val, name: &'b Lstr) -> Option<(i16, &'a T
         if opt_typeval.is_none() {
             panic!("not type field in struct field object");
         }
-        if let (fld_index, Val::Type(ref found_type)) = opt_typeval.unwrap() {
-            return Some((fld_index, found_type));
+        if let (_, Val::Type(ref found_type)) = opt_typeval.unwrap() {
+            return Some((fld_index as i16, found_type));
         } else {
             panic!("typeval is not a type");
         }
@@ -179,6 +179,12 @@ fn test_type_val()
 
     let filling = types::get_field_type(&tv, &Lstr::Sref("filling"))
         .expect("cannot find the burrito filling field");
+    let has_rice = types::get_field_type(&tv, &Lstr::Sref("has_rice"))
+        .expect("cannot find the burrito filling field");
+    assert_eq!(Type::Str, *filling.1);
+    assert_eq!(Type::Bool, *has_rice.1);
+    assert_eq!(0, filling.0);
+    assert_eq!(1, has_rice.0);
 }
 
 }

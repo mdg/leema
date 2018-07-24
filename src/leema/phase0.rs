@@ -1142,12 +1142,16 @@ fn preproc_defstruple_keyed()
     assert_eq!(2, pmod.constants.len());
 
     // assert burrito field types
-    let burrito_filling_field =
+    let burrito_filling_type =
         types::get_field_type(burrito_typeval, &Lstr::Sref("filling"))
         .expect("cannot find Burrito filling field");
-    let burrito_number_field =
+    let burrito_number_type =
         types::get_field_type(burrito_typeval, &Lstr::Sref("number"))
         .expect("cannot find Burrito number field");
+    assert_eq!(Type::Str, *burrito_filling_type.1);
+    assert_eq!(Type::Int, *burrito_number_type.1);
+    assert_eq!(0, burrito_filling_type.0);
+    assert_eq!(1, burrito_number_type.0);
 
     // assert funcseq contents
     assert_eq!("Burrito", **pmod.funcseq.front().unwrap());
