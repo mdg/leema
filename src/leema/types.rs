@@ -92,10 +92,10 @@ pub fn is_enum_variant(v: &Val, test_variant: &Lstr) -> bool
  */
 pub fn get_field_type<'a, 'b>(sv: &'a Val, name: &'b Lstr) -> Option<(i16, &'a Type)>
 {
-    let fields = get_named_struct_field(sv, &Lstr::from("fields"))
+    let fields = get_named_struct_field(sv, &Lstr::Sref("fields"))
         .expect("cannot find 'fields' field in structure");
     for f in list::iter(&fields.1) {
-        let opt_fld_name = get_named_struct_field(f, &Lstr::from("name"));
+        let opt_fld_name = get_named_struct_field(f, &Lstr::Sref("name"));
         if opt_fld_name.is_none() {
             // this struct has no name field? wtf!
             panic!("field type val has no name field");
@@ -107,6 +107,18 @@ pub fn get_field_type<'a, 'b>(sv: &'a Val, name: &'b Lstr) -> Option<(i16, &'a T
         }
         let some_fld_name = get_indexed_struct_field(fld_name_val, 0)
             .expect("some value is not found");
+        if name != some_fld_name.1.str() {
+            continue;
+        }
+        let opt_typeval = get_named_struct_field(f, &Lstr::Sref("type"));
+        if opt_typeval.is_none() {
+            panic!("not type field in struct field object");
+        }
+        if let (fld_index, Val::Type(ref found_type)) = opt_typeval.unwrap() {
+            return Some((fld_index, found_type));
+        } else {
+            panic!("typeval is not a type");
+        }
     }
     None
 }
@@ -162,7 +174,7 @@ fn test_type_val()
     let tv_lri = Lri::with_modules(Lstr::Sref("tacos"), Lstr::Sref("Burrito"));
     let tv = types::new_type_val(tv_lri, &vec![
         (Some(Lstr::Sref("filling")), Type::Str),
-        (Some(Lstr::Sref("rice")), Type::Bool),
+        (Some(Lstr::Sref("has_rice")), Type::Bool),
     ]);
 
     let filling = types::get_field_type(&tv, &Lstr::Sref("filling"))
