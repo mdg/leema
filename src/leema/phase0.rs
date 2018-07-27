@@ -841,7 +841,7 @@ fn test_preproc_enum_colors()
     assert!(pmod.constants.get("Yellow").is_some());
     assert!(pmod.constants.get("Blue").is_some());
     assert!(pmod.constants.get("PrimaryColor").is_some());
-    assert_eq!(4, pmod.constants.len());
+    assert_eq!(5, pmod.constants.len());
 
     assert_eq!(1, pmod.structfields.len());
     let color_flds = pmod.structfields.get("PrimaryColor").unwrap();
@@ -1008,7 +1008,7 @@ fn test_preproc_namedtuple()
         Val::FuncRef(greet.clone(), greeting_str.clone(), xfunctyp.clone()),
         *pmod.constants.get("Greeting").unwrap()
     );
-    assert_eq!(1, pmod.constants.len());
+    assert_eq!(2, pmod.constants.len());
 
     // assert funcsrc
     assert_eq!(1, pmod.funcsrc.len());
@@ -1201,7 +1201,8 @@ fn preproc_defstruple_token()
     // verify constants
     assert_eq!(Val::Token(exptype_lri.clone())
         , *pmod.constants.get("Burrito").unwrap());
-    assert_eq!(1, pmod.constants.len());
+    pmod.constants.get("TYPES").expect("tok constants not found");
+    assert_eq!(2, pmod.constants.len());
 
     // assert on fields that shouldn't have changed
     assert_eq!(0, pmod.funcseq.len());
