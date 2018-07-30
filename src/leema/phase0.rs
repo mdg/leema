@@ -642,6 +642,20 @@ impl Protomod
         }
     }
 
+    pub fn func_result_type(&self, func_name: &Lstr) -> Type
+    {
+        let func_type = self.valtypes.get(func_name.str())
+            .expect("cannot find type for value");
+        match func_type {
+            Type::Func(_, ref result_type) => {
+                (**result_type).clone()
+            }
+            _ => {
+                panic!("cannot get result type from not func: {:?}", func_type);
+            }
+        }
+    }
+
     pub fn preproc_enum(&mut self, prog: &Lib, mp: &ModulePreface
         , name_ast: &Ast, src_variants: &LinkedList<Kxpr>
         , loc: &SrcLoc)
@@ -650,10 +664,7 @@ impl Protomod
         let enum_lri = local_name.add_modules(Lstr::Rc(self.key.name.clone()));
         let name_lstr = Lstr::from(name_ast);
         let rc_name: Rc<String> = From::from(&name_lstr);
-        let mod_type = Type::UserDef(Lri::with_modules(
-            Lstr::Rc(self.key.name.clone()),
-            Lstr::Rc(rc_name.clone()),
-            ));
+        let mod_type = Type::UserDef(enum_lri.clone());
 
         let type_params: HashSet<Lstr> = HashSet::new();
         let mut variant_fields = Vec::with_capacity(src_variants.len());
