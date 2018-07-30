@@ -431,7 +431,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
         }
         &Ast::ConstructData(ast::DataType::Struple, ref ast_typ, ref args) => {
             let type_str = Lstr::from(&**ast_typ);
-            let opt_full_type = scope.proto.deftypes.get(&type_str);
+            let opt_full_type = scope.proto.func_result_type(&type_str);
             if opt_full_type.is_none() {
                 panic!("cannot find full type for: {:?} in {:?}"
                     , type_str, scope.proto.deftypes);

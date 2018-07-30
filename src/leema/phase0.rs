@@ -569,11 +569,11 @@ impl Protomod
     {
         let name_lstr = name.local_ref().clone();
         let mod_lstr = Lstr::Rc(self.key.name.clone());
-
         let type_lri = Lri::with_modules(mod_lstr.clone(), name_lstr.clone());
 
-        self.preproc_struple_fields(prog, mp, name
-            , mod_lstr, name_lstr, src_fields, loc);
+        self.preproc_struple_fields(prog, mp, name.clone()
+            , mod_lstr, name_lstr.clone(), src_fields, loc);
+        self.deftypes.insert(name_lstr.clone(), Type::UserDef(type_lri));
     }
 
     pub fn preproc_struple_fields(&mut self, prog: &Lib, mp: &ModulePreface
@@ -620,7 +620,6 @@ impl Protomod
         self.funcseq.push_back(local_name.rc());
         self.funcsrc.insert(String::from(&local_name), srcxpr);
         self.valtypes.insert(String::from(&local_name), func_type);
-        self.deftypes.insert(struple_lri.local_ref().clone(), full_type);
     }
 
     pub fn struple_field_idx(&self, typename: &str, fld: &str
@@ -642,18 +641,16 @@ impl Protomod
         }
     }
 
-    pub fn func_result_type(&self, func_name: &Lstr) -> Type
+    pub fn func_result_type(&self, func_name: &Lstr) -> Option<Type>
     {
-        let func_type = self.valtypes.get(func_name.str())
-            .expect("cannot find type for value");
-        match func_type {
-            Type::Func(_, ref result_type) => {
-                (**result_type).clone()
-            }
-            _ => {
-                panic!("cannot get result type from not func: {:?}", func_type);
-            }
-        }
+        self.valtypes.get(func_name.str())
+            .and_then(|func_type| {
+                if let Type::Func(_, ref result_type) = func_type {
+                    Some((**result_type).clone())
+                } else {
+                    None
+                }
+            })
     }
 
     pub fn preproc_enum(&mut self, prog: &Lib, mp: &ModulePreface
@@ -683,7 +680,8 @@ impl Protomod
             }
         }
 
-        self.constants.insert((*rc_name).clone(), Val::Type(mod_type));
+        self.constants.insert((*rc_name).clone(), Val::Type(mod_type.clone()));
+        self.deftypes.insert(enum_lri.local_ref().clone(), mod_type.clone());
     }
 
     pub fn preproc_enum_variant(&mut self, prog: &Lib, mp: &ModulePreface
