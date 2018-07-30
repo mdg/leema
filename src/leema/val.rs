@@ -894,6 +894,7 @@ impl Val
             // &Val::Failure(ref tag, ref msg, ref ft),
             &Val::Id(ref s) => Val::id((**s).clone()),
             &Val::Type(ref t) => Val::Type(t.deep_clone()),
+            &Val::ResourceRef(r) => Val::ResourceRef(r),
             &Val::Kind(k) => Val::Kind(k),
             // &Val::Lib(LibVal),
             // &Val::RustBlock,
