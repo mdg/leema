@@ -1105,7 +1105,7 @@ fn test_pattern_declaration()
 fn test_named_tuple_constructor()
 {
     let input = String::from("
-    struct Greeting(Str, Str)
+    struple Greeting(Str, Str)
 
     func main() ->
         let g := Greeting(\"hello\", \"world\")
