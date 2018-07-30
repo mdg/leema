@@ -23,8 +23,6 @@ pub struct Protomod
     pub valtypes: HashMap<String, Type>,
     pub constants: HashMap<String, Val>,
     pub deftypes: HashMap<Lstr, Type>,
-    pub struple_flds: HashMap<Lstr, Vec<(Option<Lstr>, Type)>>,
-    pub structfields: HashMap<String, Vec<(Rc<String>, Type)>>,
 }
 
 impl Protomod
@@ -40,8 +38,6 @@ impl Protomod
             valtypes: HashMap::new(),
             constants: empty_consts,
             deftypes: HashMap::new(),
-            struple_flds: HashMap::new(),
-            structfields: HashMap::new(),
         }
     }
 
@@ -625,7 +621,6 @@ impl Protomod
         self.funcsrc.insert(String::from(&local_name), srcxpr);
         self.valtypes.insert(String::from(&local_name), func_type);
         self.deftypes.insert(struple_lri.local_ref().clone(), full_type);
-        self.struple_flds.insert(local_name, struple_fields);
     }
 
     pub fn struple_field_idx(&self, typename: &str, fld: &str
@@ -645,24 +640,6 @@ impl Protomod
                 panic!("cannot get fields from not struple: {:?}", what);
             }
         }
-    }
-
-    pub fn struct_field_idx(&self, typename: &str, fld: &str
-        ) -> Option<(i16, &Type)>
-    {
-        vout!("field index for struct: {:?}.{}\n", typename, fld);
-        let opt_structfields = self.structfields.get(typename);
-        if opt_structfields.is_none() {
-            panic!("cannot find struct fields for: {} in {:?}"
-                , typename, self.structfields);
-        }
-        let structfields = opt_structfields.unwrap();
-        structfields.iter().enumerate().find(|&(_, &(ref fname, _))| {
-            &**fname == fld
-        })
-        .map(|(idx, &(_, ref ftype))| {
-            (idx as i16, ftype)
-        })
     }
 
     pub fn preproc_enum(&mut self, prog: &Lib, mp: &ModulePreface
@@ -695,7 +672,6 @@ impl Protomod
             }
         }
 
-        self.structfields.insert((*rc_name).clone(), variant_fields);
         self.constants.insert((*rc_name).clone(), Val::Type(mod_type));
     }
 
@@ -842,16 +818,6 @@ fn test_preproc_enum_colors()
     assert!(pmod.constants.get("Blue").is_some());
     assert!(pmod.constants.get("PrimaryColor").is_some());
     assert_eq!(5, pmod.constants.len());
-
-    assert_eq!(1, pmod.structfields.len());
-    let color_flds = pmod.structfields.get("PrimaryColor").unwrap();
-    assert_eq!(3, color_flds.len());
-    let rfld = color_flds.get(0).unwrap();
-    let yfld = color_flds.get(1).unwrap();
-    let bfld = color_flds.get(2).unwrap();
-    assert_eq!("Red", &*rfld.0);
-    assert_eq!("Yellow", &*yfld.0);
-    assert_eq!("Blue", &*bfld.0);
 }
 
 #[test]
@@ -1050,15 +1016,6 @@ fn preproc_defstruple_mixed_keys()
     // assert funcsrc
     assert!(pmod.funcsrc.contains_key("Burrito"));
     assert_eq!(1, pmod.funcsrc.len());
-
-    // assert struple fields
-    let strupfs = pmod.struple_flds.get("Burrito").unwrap();
-    assert_eq!((None, Type::Bool), *strupfs.get(0).unwrap());
-    assert_eq!((Some(Lstr::from("buns")), Type::Int), *strupfs.get(1).unwrap());
-    assert_eq!(1, pmod.struple_flds.len());
-
-    // assert empty struct fields
-    assert_eq!(0, pmod.structfields.len());
 }
 
 #[test]
@@ -1139,15 +1096,6 @@ fn preproc_defstruple_keyed()
     // assert funcsrc
     assert!(pmod.funcsrc.contains_key("Burrito"));
     assert_eq!(1, pmod.funcsrc.len());
-
-    // assert struple fields
-    let strupfs = pmod.struple_flds.get("Burrito").unwrap();
-    assert_eq!((Some(Lstr::Sref("filling")), Type::Str), *strupfs.get(0).unwrap());
-    assert_eq!((Some(Lstr::Sref("number")), Type::Int), *strupfs.get(1).unwrap());
-    assert_eq!(1, pmod.struple_flds.len());
-
-    // assert empty struct fields
-    assert_eq!(0, pmod.structfields.len());
 }
 
 #[test]
@@ -1182,7 +1130,6 @@ fn preproc_defstruple_token()
     // assert on fields that shouldn't have changed
     assert_eq!(0, pmod.funcseq.len());
     assert_eq!(0, pmod.funcsrc.len());
-    assert_eq!(0, pmod.structfields.len());
 }
 
 #[test]
