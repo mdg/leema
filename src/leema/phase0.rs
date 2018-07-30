@@ -906,7 +906,7 @@ fn test_enum_types()
         );
 
     // verify constants
-    assert_eq!(5, pmod.constants.len());
+    assert_eq!(6, pmod.constants.len());
     let dog_const = pmod.constants.get("Dog").expect("missing constant: Dog");
     let cat_const = pmod.constants.get("Cat").expect("missing constant: Cat");
     let giraffe_const =
@@ -953,31 +953,6 @@ fn test_enum_types()
     assert_eq!(mouse_func_type, *pmod.valtypes.get("Mouse").unwrap());
     assert_eq!(giraffe_func_type, *pmod.valtypes.get("Giraffe").unwrap());
     assert_eq!(4, pmod.valtypes.len());
-
-    // verify struct fields
-    assert_eq!(2, pmod.structfields.len());
-    let variants = pmod.structfields.get("Animal").unwrap();
-    let variant_dog = variants.get(0).unwrap();
-    let variant_cat = variants.get(1).unwrap();
-    let variant_mouse = variants.get(2).unwrap();
-    let variant_giraffe = variants.get(3).unwrap();
-    let giraffe_fields = pmod.structfields.get("Giraffe").unwrap();
-    let giraffe_field_height = giraffe_fields.get(0).unwrap();
-    let giraffe_field_weight = giraffe_fields.get(1).unwrap();
-    assert_eq!(4, variants.len());
-    assert_eq!("Dog", *variant_dog.0);
-    assert_eq!("Cat", *variant_cat.0);
-    assert_eq!("Mouse", *variant_mouse.0);
-    assert_eq!("Giraffe", *variant_giraffe.0);
-    assert_eq!(expected_type, variant_dog.1);
-    assert_eq!(expected_type, variant_cat.1);
-    assert_eq!(expected_type, variant_mouse.1);
-    assert_eq!(expected_type, variant_giraffe.1);
-    assert_eq!(2, giraffe_fields.len());
-    assert_eq!("height", *giraffe_field_height.0);
-    assert_eq!("weight", *giraffe_field_weight.0);
-    assert_eq!(Type::Int, giraffe_field_height.1);
-    assert_eq!(typevar_a, giraffe_field_weight.1);
 }
 
 #[test]
