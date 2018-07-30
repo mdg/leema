@@ -213,6 +213,9 @@ impl<'b> Inferator<'b>
                     &Type::StrictList(Box::new(tvar_inner.clone())));
             }
             (&Val::Tuple(ref flds1), &Type::Tuple(ref item_types)) => {
+                if flds1.0.len() != item_types.0.len() {
+                    panic!("pattern tuple size mismatch: {} != {}", patt, valtype);
+                }
                 for (fp, ft) in flds1.0.iter().zip(item_types.0.iter()) {
                     self.match_pattern(&fp.1, &ft.1, lineno);
                 }
@@ -598,16 +601,34 @@ fn test_match_pattern_hashtag_list_inside_tuple()
     let tvar = Type::Tuple(Struple(vec![
         (None, Type::Var(Lstr::Sref("Taco")))
     ]));
-    let listpatt = Val::Tuple(Struple::new_tuple2(
+    let ilistpatt = list::cons(
         Val::hashtag("leema".to_string()),
         Val::id("tail".to_string()),
-    ));
+    );
+    let listpatt = Val::Tuple(Struple(vec![
+        (None, ilistpatt),
+    ]));
     t.match_pattern(&listpatt, &tvar, 14);
 
     let exp = Type::Tuple(Struple(vec![
         (None, Type::StrictList(Box::new(Type::Hashtag))),
     ]));
     assert_eq!(exp, t.inferred_type(&tvar));
+}
+
+#[test]
+#[should_panic]
+fn test_match_pattern_tuple_size_mismatch()
+{
+    let mut t = Inferator::new("burritos");
+    let tvar = Type::Tuple(Struple(vec![
+        (None, Type::Var(Lstr::Sref("Taco")))
+    ]));
+    let listpatt = Val::Tuple(Struple::new_tuple2(
+        Val::hashtag("leema".to_string()),
+        Val::id("tail".to_string()),
+    ));
+    t.match_pattern(&listpatt, &tvar, 14);
 }
 
 }
