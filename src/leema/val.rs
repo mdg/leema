@@ -167,6 +167,9 @@ impl Type
             &Type::UserDef(ref i) => {
                 Type::UserDef(i.deep_clone())
             }
+            &Type::StrictList(ref i) => {
+                Type::StrictList(Box::new(i.deep_clone()))
+            }
             &Type::Func(ref args, ref result) => {
                 let dc_args = args.iter().map(|t| {
                     t.deep_clone()
