@@ -176,6 +176,7 @@ impl Type
             &Type::Var(ref id) => {
                 Type::Var(id.deep_clone())
             }
+            &Type::Void => Type::Void,
             _ => {
                 panic!("cannot deep_clone Type: {:?}", self);
             }

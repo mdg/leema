@@ -510,13 +510,10 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc
         }
         Some((ScopeLevel::Module, typ)) => {
             if typ.is_func() {
+                let fref =
+                    Val::FuncRef(scope.proto.key.name.clone(), id.rc(), typ.clone());
                 Ixpr{
-                    src: Source::ConstVal(Val::Tuple(
-                        Struple::new_tuple2(
-                            Val::Str(scope.proto.key.name.clone()),
-                            Val::Str(id.rc()),
-                        ),
-                    )),
+                    src: Source::ConstVal(fref),
                     typ: typ.clone(),
                     line: loc.lineno,
                 }
@@ -533,13 +530,9 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc
             // if it's external and no module prefix,
             // it's almost certainly prefab. probably
             // a better way to make this work
+            let fref = Val::FuncRef(Rc::new("prefab".to_string()), id.rc(), typ.clone());
             Ixpr{
-                src: Source::ConstVal(
-                    Val::Tuple(Struple::new_tuple2(
-                        Val::Str(Rc::new("prefab".to_string())),
-                        Val::Str(id.rc()),
-                    ))
-                ),
+                src: Source::ConstVal(fref),
                 typ: typ.clone(),
                 line: loc.lineno,
             }
@@ -550,6 +543,7 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc
     }
 }
 
+/*
 pub fn compile_module_id(scope: &mut Interscope, module: Rc<String>
     , id: &Rc<String>, loc: &SrcLoc
     ) -> Ixpr
@@ -581,6 +575,7 @@ pub fn compile_module_id(scope: &mut Interscope, module: Rc<String>
         }
     }
 }
+*/
 
 pub fn compile_let_stmt(scope: &mut Interscope, lettype: ast::LetType
     , lhs: &Ast, rhs: &Ast
