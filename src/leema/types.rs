@@ -90,7 +90,7 @@ pub fn is_enum_variant(v: &Val, test_variant: &Lstr) -> bool
 /**
  * Get the value of a struct field if given a name
  */
-pub fn get_field_type<'a, 'b>(sv: &'a Val, name: &'b Lstr) -> Option<(i16, &'a Type)>
+pub fn get_field_type<'a, 'b>(sv: &'a Val, fld_name: &'b str) -> Option<(i16, &'a Type)>
 {
     let fields = get_named_struct_field(sv, &Lstr::Sref("fields"))
         .expect("cannot find 'fields' field in structure");
@@ -107,7 +107,7 @@ pub fn get_field_type<'a, 'b>(sv: &'a Val, name: &'b Lstr) -> Option<(i16, &'a T
         }
         let some_fld_name = get_indexed_struct_field(fld_name_val, 0)
             .expect("some value is not found");
-        if name != some_fld_name.1.str() {
+        if fld_name != some_fld_name.1.str() {
             continue;
         }
         let opt_typeval = get_named_struct_field(f, &Lstr::Sref("type"));
@@ -152,6 +152,7 @@ pub fn new_type_val(name: Lri, fields: &Vec<(Option<Lstr>, Type)>) -> Val
     let struct_type_lri =
         Lri::with_modules(Lstr::Sref("types"), Lstr::Sref("TypeVal"));
     let struct_fields_struple = Struple(vec![
+        (Some(Lstr::Sref("name")), Val::Str(name.local_ref().rc())),
         (Some(Lstr::Sref("fields")), struct_field_vals),
     ]);
 

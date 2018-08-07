@@ -626,19 +626,20 @@ impl Protomod
         ) -> Option<(i16, &Type)>
     {
         vout!("field index for struple: {:?}.{}\n", typename, fld);
-        let opt_typ = self.constants.get(typename);
-        if opt_typ.is_none() {
-            panic!("cannot find struple type: {} in {:?}"
-                , typename, self.constants);
-        }
-        match opt_typ.unwrap() {
-            &Val::Struct(_, ref items) => {
-                panic!("need to get the struct field still");
+        let types_list = self.constants.get("TYPES")
+            .expect("cannot find TYPES constant");
+        for typ in list::iter(types_list) {
+            let opt_iter_name = types::get_named_struct_field(typ, &Lstr::Sref("name"));
+            if opt_iter_name.is_none() {
+                continue;
             }
-            what => {
-                panic!("cannot get fields from not struple: {:?}", what);
+            let iter_name = opt_iter_name.unwrap();
+            if typename != iter_name.1.str() {
+                continue;
             }
+            return types::get_field_type(typ, fld);
         }
+        None
     }
 
     pub fn func_result_type(&self, func_name: &Lstr) -> Option<Type>
@@ -1105,6 +1106,12 @@ fn preproc_defstruple_keyed()
     // assert funcsrc
     assert!(pmod.funcsrc.contains_key("Burrito"));
     assert_eq!(1, pmod.funcsrc.len());
+
+    // field indexes
+    let burrito_filling_idx = pmod.struple_field_idx("Burrito", "filling");
+    let burrito_number_idx = pmod.struple_field_idx("Burrito", "number");
+    burrito_filling_idx.expect("burrito filling idx");
+    burrito_number_idx.expect("burrito number idx");
 }
 
 #[test]
