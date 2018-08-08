@@ -1,6 +1,7 @@
 
-use leema::val::{Val, Type};
 use leema::log;
+use leema::struple::{Struple};
+use leema::val::{Val, Type};
 
 use std::collections::HashMap;
 use std::io::{Write};
@@ -13,14 +14,12 @@ use std::rc::{Rc};
 pub enum Source
 {
     Block(Vec<Ixpr>, HashMap<String, Ixpr>, bool),
-    BooleanAnd(Box<Ixpr>, Box<Ixpr>),
-    BooleanOr(Box<Ixpr>, Box<Ixpr>),
     Call(Box<Ixpr>, Box<Ixpr>),
-    Constructor(Type, i8),
+    Cons(Box<Ixpr>, Box<Ixpr>),
+    Construple(Type),
     ConstVal(Val),
     EnumConstructor(Type, i16, Box<Ixpr>),
     FieldAccess(Box<Ixpr>, i8),
-    Fork(Box<Ixpr>, Box<Ixpr>, Box<Ixpr>),
     Func(Vec<Rc<String>>, Box<Ixpr>),
     Let(Val, Box<Ixpr>, Vec<(Rc<String>, Ixpr)>),
     MatchFailure(Box<Ixpr>, Box<Ixpr>),
@@ -30,7 +29,7 @@ pub enum Source
     PropagateFailure(Rc<String>, i16),
     RustBlock,
     Id(Rc<String>, i16),
-    IfExpr(Box<Ixpr>, Box<Ixpr>, Box<Ixpr>),
+    IfExpr(Box<Ixpr>, Box<Ixpr>, Option<Box<Ixpr>>),
     List(Vec<Ixpr>),
     StrMash(Vec<Ixpr>),
     Tuple(Vec<Ixpr>),
@@ -134,58 +133,29 @@ impl Ixpr
                 lineno = i.line;
                 set_lineno = true;
             }
-            tuptyp.push(i.typ.clone());
+            tuptyp.push((None, i.typ.clone()));
         }
         Ixpr{
-            typ: Type::Tuple(tuptyp),
+            typ: Type::Tuple(Struple(tuptyp)),
             src: Source::Tuple(items),
             line: lineno,
         }
     }
 
-    pub fn constructor(t: Type, nflds: i8, lineno: i16) -> Ixpr
+    pub fn cons(head: Ixpr, tail: Ixpr, typ: Type, line: i16) -> Ixpr
+    {
+        Ixpr{
+            typ: typ,
+            src: Source::Cons(Box::new(head), Box::new(tail)),
+            line: line,
+        }
+    }
+
+    pub fn construple(t: Type, lineno: i16) -> Ixpr
     {
         Ixpr{
             typ: t.clone(),
-            src: Source::Constructor(t, nflds),
-            line: lineno,
-        }
-    }
-
-    pub fn enum_constructor(t: Type, idx: i16, varname: &Rc<String>
-        , vval: &Val, lineno: i16
-        ) -> Ixpr
-    {
-        let (variant_type, nflds) =
-            match *vval {
-                Val::Struct(ref vartyp, ref flds) => {
-                    (vartyp.clone(), flds.len() as i8)
-                }
-                Val::NamedTuple(ref vartyp, ref flds) => {
-                    (vartyp.clone(), flds.len() as i8)
-                }
-                _ => {
-                    panic!("unknown val for enum: {:?}", vval);
-                }
-            };
-        let construct = Ixpr::constructor(
-            variant_type, nflds, lineno
-        );
-        let src = Source::EnumConstructor(t.clone(), idx, Box::new(construct));
-
-        Ixpr{
-            typ: t,
-            src: src,
-            line: lineno,
-        }
-    }
-
-    fn fork(dst: Ixpr, t: Type, f: Ixpr, args: Ixpr) -> Ixpr
-    {
-        let lineno = dst.line;
-        Ixpr{
-            typ: t,
-            src: Source::Fork(Box::new(dst), Box::new(f), Box::new(args)),
+            src: Source::Construple(t),
             line: lineno,
         }
     }
@@ -230,7 +200,8 @@ impl Ixpr
         }
     }
 
-    pub fn new_if(test: Ixpr, truth: Ixpr, lies: Ixpr, typ: Type) -> Ixpr
+    pub fn new_if(test: Ixpr, truth: Ixpr, lies: Option<Ixpr>, typ: Type
+        ) -> Ixpr
     {
         let lineno = test.line;
         Ixpr{
@@ -238,7 +209,7 @@ impl Ixpr
             src: Source::IfExpr(
                 Box::new(test),
                 Box::new(truth),
-                Box::new(lies),
+                lies.map(|l| { Box::new(l) }),
             ),
             line: lineno,
         }

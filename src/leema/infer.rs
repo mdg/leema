@@ -1,5 +1,7 @@
 
 use leema::log;
+use leema::ast::{Ast};
+use leema::lstr::{Lstr};
 use leema::val::{Val, Type, SrcLoc, TypeResult, TypeErr};
 
 use std::collections::{HashMap};
@@ -11,7 +13,7 @@ use std::rc::{Rc};
 #[derive(Debug)]
 pub struct VarData
 {
-    failure: Option<Val>,
+    failure: Option<Ast>,
     assignment: Option<i16>,
     first_usage: Option<SrcLoc>,
     must_check_failure: bool,
@@ -19,7 +21,7 @@ pub struct VarData
 
 impl VarData
 {
-    pub fn new(failures: Val) -> VarData
+    pub fn new(failures: Ast) -> VarData
     {
         VarData{
             failure: Some(failures),
@@ -52,7 +54,7 @@ pub struct Blockscope
 
 impl Blockscope
 {
-    pub fn new(failures: HashMap<String, Val>) -> Blockscope
+    pub fn new(failures: HashMap<String, Ast>) -> Blockscope
     {
         let vars: HashMap<String, VarData> =
             failures.into_iter().map(|(v, fail)| {
@@ -71,13 +73,13 @@ pub struct Inferator<'b>
     funcname: &'b str,
     T: HashMap<String, Type>,
     blocks: Vec<Blockscope>,
-    inferences: HashMap<Rc<String>, Type>,
+    inferences: HashMap<Lstr, Type>,
     module: Option<Rc<String>>,
 }
 
 impl<'b> Inferator<'b>
 {
-    pub fn new(modname: &str, funcname: &'b str) -> Inferator<'b>
+    pub fn new(funcname: &'b str) -> Inferator<'b>
     {
         Inferator{
             funcname: funcname,
@@ -106,6 +108,43 @@ impl<'b> Inferator<'b>
         }
     }
 
+    pub fn init_param(&mut self, argi: i16, argn: Option<&Lstr>
+        , argt: Type, line: i16
+        ) -> TypeResult
+    {
+        vout!("bind_vartype({}, #{} {:?}: {:?})\n"
+            , self.funcname, argi, argn, argt);
+        let b = self.blocks.last_mut().unwrap();
+        if argn.is_some() {
+            // just assign the var b/c it's a new param
+            let mut vdata = VarData::default();
+            vdata.assignment = Some(line);
+            b.vars.insert(String::from(argn.unwrap()), vdata);
+        }
+
+        let realt = match argt {
+            Type::Unknown => {
+                let arg_typename = format!("T_param_{}", argi);
+                Type::Var(Lstr::from(arg_typename))
+            }
+            Type::AnonVar => {
+                let arg_typename = format!("T_param_{}", argi);
+                Type::Var(Lstr::from(arg_typename))
+            }
+            a => a,
+        };
+        if argn.is_some() {
+            let argn_u = argn.unwrap();
+            if self.T.contains_key(argn_u.str()) {
+                let oldargt = self.T.get(argn_u.str()).unwrap();
+                return Inferator::mash(&mut self.inferences, oldargt, &realt);
+            }
+
+            self.T.insert(String::from(argn_u), realt.clone());
+        }
+        Ok(realt)
+    }
+
     pub fn bind_vartype(&mut self, argn: &str, argt: &Type, line: i16
         ) -> TypeResult
     {
@@ -126,7 +165,7 @@ impl<'b> Inferator<'b>
         let realt = match argt {
             &Type::Unknown => {
                 let arg_typename = format!("T_local_{}", argn);
-                Type::Var(Rc::new(arg_typename))
+                Type::Var(Lstr::from(arg_typename))
             }
             &Type::AnonVar => {
                 panic!("cannot bind var to anonymous type: {}", argn);
@@ -157,15 +196,6 @@ impl<'b> Inferator<'b>
             (&Val::Id(ref id), _) => {
                 self.bind_vartype(id, valtype, lineno);
             }
-            (&Val::Tuple(ref p_items), &Type::Tuple(ref t_items)) => {
-                if p_items.len() != t_items.len() {
-                    panic!("tuple pattern size mismatch: {:?} != {:?}"
-                        , p_items, t_items);
-                }
-                for (pi, ti) in p_items.iter().zip(t_items.iter()) {
-                    self.match_pattern(pi, ti, lineno);
-                }
-            }
             (&Val::Nil, _) => {
                 self.merge_types(
                     &Type::StrictList(Box::new(Type::Unknown)),
@@ -177,34 +207,66 @@ impl<'b> Inferator<'b>
             }
             (&Val::Cons(ref head, ref tail), &Type::Var(ref tvar_name)) => {
                 let tvar_inner_name = format!("{}_inner", tvar_name);
-                let tvar_inner = Type::Var(Rc::new(tvar_inner_name));
+                let tvar_inner = Type::Var(Lstr::from(tvar_inner_name));
                 self.match_list_pattern(patt, &tvar_inner, lineno);
                 self.merge_types(&valtype,
                     &Type::StrictList(Box::new(tvar_inner.clone())));
             }
-            (&Val::Struct(ref typ1, ref flds1),
-                &Type::Struct(ref typename2)
-            ) => {
+            (&Val::Tuple(ref flds1), &Type::Tuple(ref item_types)) => {
+                if flds1.0.len() != item_types.0.len() {
+                    panic!("pattern tuple size mismatch: {} != {}", patt, valtype);
+                }
+                for (fp, ft) in flds1.0.iter().zip(item_types.0.iter()) {
+                    self.match_pattern(&fp.1, &ft.1, lineno);
+                }
+            }
+            (&Val::Struct(ref typ1, ref flds1)
+                , &Type::UserDef(ref typename2)) =>
+            {
+                /*
                 let type_match = match typ1 {
-                    &Type::Struct(ref typename1) => {
-                        typename1 == typename2 // && nflds1 == nflds2
+                    &Type::Struple(ref typename1) => {
+                        if typename1 != typename2 {
+                            panic!("struple pattern mismatch: {} != {}"
+                                , typename1, typename2);
+                        }
+                        let nflds1 = flds1.len();
+                        let nflds2 = flds2.len();
+                        if nflds1 != nflds2 {
+                            panic!("struple pattern mismatch: {:?} != {:?}"
+                                , patt, valtype);
+                        }
+                        for (fp, ft) in flds1.0.iter().zip(flds2.iter()) {
+                            self.match_pattern(fp, ft, lineno);
+                        }
                     }
                     _ => {
-                        panic!("struct pattern type mismatch: {:?} != {:?}"
+                        panic!("struple pattern type mismatch: {:?} != {:?}"
                             , patt, valtype);
                     }
                 };
-                for fld in flds1 {
-                    // do something w/ flds1
-                }
+                */
+            }
+            (&Val::EnumStruct(ref typ1, ref var1, ref flds1)
+                , &Type::UserDef(ref typename2)) =>
+            {
+            }
+            (&Val::EnumToken(ref typ1, ref var1)
+                , &Type::UserDef(ref typename2)) =>
+            {
+            }
+            (&Val::Token(ref typ1)
+                , &Type::UserDef(ref typename2)) =>
+            {
             }
             _ => {
                 let ptype = patt.get_type();
                 self.merge_types(&ptype, valtype)
                     .map_err(|e| {
                         e.add_context(format!(
-                            "pattern type mismatch: {:?}", patt
-                        ));
+                            "pattern type mismatch: {:?} != {:?}"
+                                , patt, valtype
+                        ))
                     })
                     .unwrap();
             }
@@ -225,9 +287,6 @@ impl<'b> Inferator<'b>
             }
             &Val::Nil => {}
             &Val::Wildcard => {}
-            &Val::Loc(ref lv, loc) => {
-                self.match_list_pattern(lv, inner_type, loc.lineno);
-            }
             _ => {
                 panic!("match_list_pattern on not a list: {:?}", l);
             }
@@ -244,7 +303,7 @@ impl<'b> Inferator<'b>
         }
         // safe to unwrap these 2 directly b/c we already found it above
         let b = b_opt.unwrap();
-        let mut var_data = b.vars.get_mut(name).unwrap();
+        let var_data = b.vars.get_mut(name).unwrap();
         if var_data.first_usage.is_some() {
             return false;
         }
@@ -262,7 +321,7 @@ impl<'b> Inferator<'b>
         self.blocks.len() == 1
     }
 
-    pub fn push_block(&mut self, failures: HashMap<String, Val>)
+    pub fn push_block(&mut self, failures: HashMap<String, Ast>)
     {
         self.blocks.push(Blockscope::new(failures));
     }
@@ -319,7 +378,7 @@ impl<'b> Inferator<'b>
         })
     }
 
-    pub fn get_failure(&self, name: &str) -> Option<&Val>
+    pub fn get_failure(&self, name: &str) -> Option<&Ast>
     {
         for b in self.blocks.iter() {
             if b.vars.contains_key(name) {
@@ -349,8 +408,8 @@ impl<'b> Inferator<'b>
                 Type::StrictList(Box::new(self.inferred_type(inner)))
             }
             &Type::Tuple(ref inners) => {
-                let infers = inners.iter().map(|i| {
-                    self.inferred_type(i)
+                let infers = inners.0.iter().map(|i| {
+                    (i.0.clone(), self.inferred_type(&i.1))
                 }).collect();
                 Type::Tuple(infers)
             }
@@ -358,7 +417,7 @@ impl<'b> Inferator<'b>
         }
     }
 
-    fn mash(inferences: &mut HashMap<Rc<String>, Type>
+    fn mash(inferences: &mut HashMap<Lstr, Type>
         , oldt: &Type, newt: &Type
         ) -> TypeResult
     {
@@ -394,19 +453,6 @@ impl<'b> Inferator<'b>
                 inferences.insert(newtname.clone(), oldt.clone());
                 Ok(oldt.clone())
             }
-            (&Type::Tuple(ref oldi), &Type::Tuple(ref newi)) => {
-                let oldlen = oldi.len();
-                if oldlen != newi.len() {
-                    panic!("tuple size mismatch: {:?}!={:?}", oldt, newt);
-                }
-                let mut masht = Vec::with_capacity(oldlen);
-                for (oldit, newit) in oldi.iter().zip(newi.iter()) {
-                    let mashit = Inferator::mash(inferences, oldit, newit)
-                        .expect("tuple type mismatch");
-                    masht.push(mashit);
-                }
-                Ok(Type::Tuple(masht))
-            }
             (&Type::Func(ref oldargs, ref oldresult),
                     &Type::Func(ref newargs, ref newresult)
             ) => {
@@ -427,16 +473,6 @@ impl<'b> Inferator<'b>
                         .expect("function result mismatch");
                 Ok(Type::Func(masht, Box::new(mashresult)))
             }
-            (&Type::Struct(ref oldname), &Type::Id(ref newname))
-                    if **oldname == **newname =>
-            {
-                Ok(oldt.clone())
-            }
-            (&Type::Id(ref oldname), &Type::Struct(ref newname))
-                    if **oldname == **newname =>
-            {
-                Ok(newt.clone())
-            }
             (_, _) => {
                 Err(TypeErr::Mismatch(
                     oldt.clone(),
@@ -444,7 +480,7 @@ impl<'b> Inferator<'b>
                     ))
             }
         };
-        vout!("mashed to -> {:?}\n", mtype);
+        vout!("\tmashed to -> {:?}\n", mtype);
         mtype
     }
 
@@ -483,6 +519,8 @@ mod tests {
     use leema::infer::{Inferator};
     use leema::list;
     use leema::log;
+    use leema::lstr::{Lstr};
+    use leema::struple::{Struple};
     use leema::val::{Val, Type};
 
     use std::rc::{Rc};
@@ -491,7 +529,7 @@ mod tests {
 #[test]
 fn test_add_and_find()
 {
-    let mut t = Inferator::new("tacos", "burritos");
+    let mut t = Inferator::new("burritos");
     t.bind_vartype("a", &Type::Int, 18);
     assert_eq!(Type::Int, t.vartype("a").unwrap());
 }
@@ -499,7 +537,7 @@ fn test_add_and_find()
 #[test]
 fn test_merge_strict_list_unknown()
 {
-    let mut t = Inferator::new("tacos", "burritos");
+    let mut t = Inferator::new("burritos");
     let mtype = t.merge_types(
         &Type::StrictList(Box::new(Type::Unknown)),
         &Type::StrictList(Box::new(Type::Int)),
@@ -511,10 +549,10 @@ fn test_merge_strict_list_unknown()
 #[test]
 fn test_merge_types_via_tvar()
 {
-    let mut t = Inferator::new("eat", "burritos");
+    let mut t = Inferator::new("burritos");
     let intlist = Type::StrictList(Box::new(Type::Int));
     let unknownlist = Type::StrictList(Box::new(Type::Unknown));
-    let tvar = Type::Var(Rc::new("Taco".to_string()));
+    let tvar = Type::Var(Lstr::Sref("Taco"));
 
     let mtype0 = t.merge_types(&unknownlist, &tvar);
     assert_eq!(Ok(unknownlist), mtype0);
@@ -526,7 +564,7 @@ fn test_merge_types_via_tvar()
 #[test]
 fn test_take_current_module()
 {
-    let mut t = Inferator::new("tacos", "burritos");
+    let mut t = Inferator::new("burritos");
     assert_eq!(None, t.take_current_module());
     t.push_module(Rc::new(String::from("torta")));
     assert_eq!("torta", &*t.take_current_module().unwrap());
@@ -536,8 +574,8 @@ fn test_take_current_module()
 #[test]
 fn test_match_pattern_empty_list()
 {
-    let mut t = Inferator::new("eat", "burritos");
-    let tvar = Type::Var(Rc::new("Taco".to_string()));
+    let mut t = Inferator::new("burritos");
+    let tvar = Type::Var(Lstr::Sref("Taco"));
     t.match_pattern(&Val::Nil, &tvar, 55);
 
     assert_eq!(Type::StrictList(Box::new(Type::Unknown)),
@@ -547,8 +585,8 @@ fn test_match_pattern_empty_list()
 #[test]
 fn test_match_pattern_empty_and_full_lists()
 {
-    let mut t = Inferator::new("eat", "burritos");
-    let tvar = Type::Var(Rc::new("Taco".to_string()));
+    let mut t = Inferator::new("burritos");
+    let tvar = Type::Var(Lstr::Sref("Taco"));
     t.match_pattern(&Val::Nil, &tvar, 32);
     t.match_pattern(&list::singleton(Val::Int(5)), &tvar, 99);
 
@@ -559,20 +597,38 @@ fn test_match_pattern_empty_and_full_lists()
 #[test]
 fn test_match_pattern_hashtag_list_inside_tuple()
 {
-    let mut t = Inferator::new("abc", "burritos");
-    let tvar = Type::Tuple(vec![
-        Type::Var(Rc::new("Taco".to_string()))
-    ]);
-    let listpatt = Val::Tuple(vec![list::cons(
+    let mut t = Inferator::new("burritos");
+    let tvar = Type::Tuple(Struple(vec![
+        (None, Type::Var(Lstr::Sref("Taco")))
+    ]));
+    let ilistpatt = list::cons(
         Val::hashtag("leema".to_string()),
-        Val::id("tail".to_string())
-    )]);
+        Val::id("tail".to_string()),
+    );
+    let listpatt = Val::Tuple(Struple(vec![
+        (None, ilistpatt),
+    ]));
     t.match_pattern(&listpatt, &tvar, 14);
 
-    let exp = Type::Tuple(vec![
-        Type::StrictList(Box::new(Type::Hashtag)),
-    ]);
+    let exp = Type::Tuple(Struple(vec![
+        (None, Type::StrictList(Box::new(Type::Hashtag))),
+    ]));
     assert_eq!(exp, t.inferred_type(&tvar));
+}
+
+#[test]
+#[should_panic]
+fn test_match_pattern_tuple_size_mismatch()
+{
+    let mut t = Inferator::new("burritos");
+    let tvar = Type::Tuple(Struple(vec![
+        (None, Type::Var(Lstr::Sref("Taco")))
+    ]));
+    let listpatt = Val::Tuple(Struple::new_tuple2(
+        Val::hashtag("leema".to_string()),
+        Val::id("tail".to_string()),
+    ));
+    t.match_pattern(&listpatt, &tvar, 14);
 }
 
 }

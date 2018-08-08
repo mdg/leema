@@ -77,6 +77,10 @@ void	{ return set_token(yyg, TOKEN_VOID); }
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_DOUBLEDASH);
 }
+"=>"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_TYPEARROW);
+}
 ":="	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_ASSIGN);
@@ -121,9 +125,13 @@ void	{ return set_token(yyg, TOKEN_VOID); }
     BEGIN(CALLPAREN);
     return set_token(yyg, TOKEN_RPAREN);
 }
-"["	{
+<INITIAL>"["	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_SquareL);
+}
+<CALLPAREN>"["	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_SquareCall);
 }
 "]"	{
     BEGIN(INITIAL);
@@ -229,6 +237,10 @@ mod	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_MOD);
 }
+struple	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_STRUPLE);
+}
 struct	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_STRUCT);
@@ -288,6 +300,10 @@ Void	{
 ${ID}	{
     BEGIN(INITIAL);
     return set_token_val(yyg, TOKEN_TYPE_VAR, yytext);
+}
+`	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_BACKTICK);
 }
 "$\?"	{
     BEGIN(INITIAL);

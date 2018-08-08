@@ -1,14 +1,16 @@
 
 use leema::ixpr::{Ixpr, Source};
 use leema::infer::{Inferator};
+use leema::lstr::{Lstr};
 use leema::module::{ModKey};
+use leema::phase0::{Protomod};
+use leema::program;
 use leema::val::{Val, Type, TypeResult, TypeErr};
 use leema::log;
 
 use std::collections::{HashMap, LinkedList};
 use std::io::{Write};
 use std::rc::{Rc};
-
 
 #[derive(Debug)]
 pub enum CallOp
@@ -33,7 +35,7 @@ impl<'a> CallFrame<'a>
         CallFrame{
             modname: modname,
             fname: fname,
-            T: Inferator::new(modname, fname),
+            T: Inferator::new(fname),
             calls: LinkedList::new(),
         }
     }
@@ -79,7 +81,9 @@ impl<'a> CallFrame<'a>
             Source::IfExpr(ref cond, ref truth, ref lies) => {
                 self.collect_calls(cond);
                 self.collect_calls(truth);
-                self.collect_calls(lies);
+                if lies.is_some() {
+                    self.collect_calls(lies.as_ref().unwrap());
+                }
             }
             Source::List(ref items) => {
                 for i in items {
@@ -105,15 +109,28 @@ impl<'a> CallFrame<'a>
                 self.collect_calls(truth);
                 self.collect_calls(lies);
             }
-            Source::RustBlock => {
-                // nothing to do. not calls.
+            Source::MatchFailure(ref x, ref cases) => {
+                self.collect_calls(cases);
+            }
+            Source::Return(ref result) => {
+                self.collect_calls(result);
             }
             Source::Func(ref _args, ref body) => {
                 self.collect_calls(body);
             }
-            _ => {
-                panic!("Cannot collect calls: {:?}", ix);
+            Source::Cons(ref head, ref tail) => {
+                self.collect_calls(head);
+                self.collect_calls(tail);
             }
+            Source::FieldAccess(ref base, _) => {
+                self.collect_calls(base);
+            }
+            // nothing to do for these, not calls.
+            Source::RustBlock => {}
+            Source::Construple(_) => {}
+            Source::EnumConstructor(_, _, _) => {}
+            Source::ModuleAccess(_, _) => {}
+            Source::PropagateFailure(_, _) => {}
         }
     }
 
@@ -132,14 +149,14 @@ impl<'a> CallFrame<'a>
                     &Val::Str(ref name) => {
                         self.push_call(CallOp::LocalCall(name.clone()));
                     }
-                    &Val::Tuple(ref modfunc) if modfunc.len() == 2 => {
+                    &Val::FuncRef(ref modnm, ref funcnm, _) => {
                         self.push_call(CallOp::ExternalCall(
-                            modfunc.get(0).unwrap().to_str(),
-                            modfunc.get(1).unwrap().to_str(),
+                            modnm.clone(),
+                            funcnm.clone(),
                         ));
                     }
                     _ => {
-                        panic!("Const val is not a call: {:?}", val);
+                        panic!("const val is not a call: {:?}", val);
                     }
                 }
             }
@@ -157,31 +174,124 @@ impl<'a> CallFrame<'a>
     }
 }
 
+#[derive(Copy)]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+pub enum Depth
+{
+    Phase0,
+    Inter,
+    One,
+    Full,
+}
+
+impl Depth
+{
+    pub fn one_deeper(&self) -> bool
+    {
+        match self {
+            &Depth::Inter => false,
+            &Depth::One => true,
+            &Depth::Full => true,
+            &Depth::Phase0 => {
+                panic!("cannot check one_deeper for Depth::Phase0")
+            }
+        }
+    }
+
+    pub fn next(&self) -> Depth
+    {
+        match self {
+            &Depth::One => Depth::Inter,
+            &Depth::Full => Depth::Full,
+            &Depth::Phase0 => {
+                panic!("cannot get next for Depth::Phase0")
+            }
+            &Depth::Inter => {
+                panic!("cannot get next for Depth::Inter")
+            }
+        }
+    }
+}
+
+/**
+ * Typemod
+ *
+ * Function scoped type checking
+ * Type from preface
+ * Type from first compilation
+ * Type from one deep compilations
+ * Type from full depth compilation
+ */
 #[derive(Debug)]
 pub struct Typemod
 {
-    pub key: Rc<ModKey>,
-    pub func: HashMap<String, Type>,
+    pub modname: Lstr,
+    phase0: HashMap<Lstr, Type>,
+    inter: HashMap<Lstr, Type>,
+    depth_1: HashMap<Lstr, Type>,
+    depth_full: HashMap<Lstr, Type>,
 }
 
 impl Typemod
 {
-    pub fn new(key: Rc<ModKey>) -> Typemod
+    pub fn new(modname: Lstr) -> Typemod
     {
         Typemod{
-            key: key,
-            func: HashMap::new(),
+            modname: modname,
+            phase0: HashMap::new(),
+            inter: HashMap::new(),
+            depth_1: HashMap::new(),
+            depth_full: HashMap::new(),
+        }
+    }
+
+    pub fn import_phase0(&mut self, proto: &Protomod)
+    {
+        for (name, typ) in proto.valtypes.iter() {
+            self.phase0.insert(Lstr::from(name.clone()), typ.clone());
         }
     }
 
     pub fn name(&self) -> &str
     {
-        &self.key.name
+        self.modname.str()
     }
 
-    pub fn function_type(&self, fname: &str) -> Option<&Type>
+    pub fn set_type(&mut self, fname: Lstr, d: Depth, typ: Type)
     {
-        self.func.get(fname)
+        match d {
+            Depth::Phase0 => self.phase0.insert(fname, typ),
+            Depth::Inter => self.inter.insert(fname, typ),
+            Depth::One => self.depth_1.insert(fname, typ),
+            Depth::Full => self.depth_full.insert(fname, typ),
+        };
+    }
+
+    pub fn function_type(&self, fname: &Lstr) -> Option<&Type>
+    {
+        self.function_depth_type(fname, Depth::Full)
+        .or_else(|| {
+            self.function_depth_type(fname, Depth::One)
+        })
+        .or_else(|| {
+            self.function_depth_type(fname, Depth::Inter)
+        })
+        .or_else(|| {
+            self.function_depth_type(fname, Depth::Phase0)
+        })
+    }
+
+    pub fn function_depth_type(&self, fname: &Lstr, d: Depth) -> Option<&Type>
+    {
+        match d {
+            Depth::Phase0 => self.phase0.get(fname),
+            Depth::Inter => self.inter.get(fname),
+            Depth::One => self.depth_1.get(fname),
+            Depth::Full => self.depth_full.get(fname),
+        }
     }
 }
 
@@ -189,6 +299,7 @@ impl Typemod
 pub struct Typescope<'a, 'b>
 {
     pub fname: &'b str,
+    proto: &'a Protomod,
     inter: &'a Typemod,
     imports: &'a HashMap<String, &'a Typemod>,
     T: Inferator<'b>,
@@ -196,16 +307,17 @@ pub struct Typescope<'a, 'b>
 
 impl<'a, 'b> Typescope<'a, 'b>
 {
-    pub fn new(inter: &'a Typemod, func: &'b str
+    pub fn new(inter: &'a Typemod, proto: &'a Protomod, func: &'b str
             , imps: &'a HashMap<String, &'a Typemod>
             ) -> Typescope<'a, 'b>
     {
         Typescope
         {
             fname: func,
+            proto: proto,
             inter: inter,
             imports: imps,
-            T: Inferator::new(&inter.key.name, func),
+            T: Inferator::new(func),
         }
     }
 
@@ -214,8 +326,10 @@ impl<'a, 'b> Typescope<'a, 'b>
     {
         match &case.src {
             &Source::MatchCase(ref patt, ref truth, ref lies) => {
+                self.T.push_block(HashMap::new());
                 self.T.match_pattern(patt, valtype, case.line);
                 let ttype = typecheck_expr(self, truth).unwrap();
+                self.T.pop_block();
                 let ftype = self.typecheck_matchcase(valtype, lies).unwrap();
 
                 self.T.merge_types(&ttype, &ftype)
@@ -240,16 +354,14 @@ impl<'a, 'b> Typescope<'a, 'b>
             }
             &Source::ConstVal(ref fval) => {
                 match fval {
-                    &Val::Tuple(ref items) => {
-                        let ref modname = items[0];
-                        let ref funcname = items[1];
-                        Ok(self.functype(modname.str(), funcname.str()))
-                    }
                     &Val::Str(ref strname) => {
                         Ok(Type::Void)
                     }
+                    &Val::FuncRef(_, _, ref typ) => {
+                        Ok(typ.clone())
+                    }
                     _ => {
-                        panic!("whateval is in typecheck_call? {:?}", fval);
+                        panic!("what val is in typecheck_call? {:?}", fval);
                     }
                 }
             }
@@ -261,8 +373,9 @@ impl<'a, 'b> Typescope<'a, 'b>
 
     pub fn functype(&self, modname: &str, funcname: &str) -> Type
     {
-        if modname == *self.inter.key.name {
-            self.inter.func.get(funcname)
+        let funclstr = Lstr::from(String::from(funcname));
+        if modname == self.inter.name() {
+            self.inter.function_type(&funclstr)
             .unwrap()
             .clone()
         } else {
@@ -270,7 +383,7 @@ impl<'a, 'b> Typescope<'a, 'b>
                 self.imports.get(modname)
                 .expect(&format!("cannot find module {} in {:?}"
                     , modname, self.imports));
-            m.func.get(funcname)
+            m.function_type(&funclstr)
                 .expect(&format!("cannot find function {}::{} in {:?}"
                     , modname, funcname, m))
                 .clone()
@@ -297,6 +410,12 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             }
             scope.T.make_call_type(&tfunc, &targs_ref)
         }
+        &Source::Cons(ref head, ref tail) => {
+            let head_t = typecheck_expr(scope, head).unwrap();
+            let tail_t = typecheck_expr(scope, tail).unwrap();
+            let head_list_t = Type::StrictList(Box::new(head_t));
+            scope.T.merge_types(&head_list_t, &tail_t)
+        }
         &Source::ConstVal(ref cv) => {
             Ok(ix.typ.clone())
         }
@@ -315,6 +434,10 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             }
             last_type
         }
+        &Source::FieldAccess(ref x, sub) => {
+            let xtyp = typecheck_expr(scope, x);
+            typecheck_field_access(scope, xtyp.as_ref().unwrap(), sub)
+        }
         &Source::Id(_, _) => {
             Ok(ix.typ.clone())
         }
@@ -324,22 +447,23 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             }
             Ok(ix.typ.clone())
         }
-        &Source::Tuple(ref items) => {
-            let mut tuptyp = vec![];
-            for i in items {
-                tuptyp.push(typecheck_expr(scope, i).unwrap());
-            }
-            Ok(Type::Tuple(tuptyp))
+        &Source::Construple(ref typ) => {
+            Ok(typ.clone())
         }
         &Source::IfExpr(ref cond, ref truth, ref lies) => {
             let cond_t = typecheck_expr(scope, cond).unwrap();
             scope.T.merge_types(&cond_t, &Type::Bool);
 
             let truth_result = typecheck_expr(scope, truth);
-            let truth_t = truth_result.unwrap();
-            let lies_result = typecheck_expr(scope, lies);
-            let lies_t = lies_result.unwrap();
-            scope.T.merge_types(&truth_t, &lies_t)
+            match lies {
+                &None => truth_result,
+                &Some(ref some_lies) => {
+                    let lies_result = typecheck_expr(scope, some_lies);
+                    let truth_t = truth_result.unwrap();
+                    let lies_t = lies_result.unwrap();
+                    scope.T.merge_types(&truth_t, &lies_t)
+                }
+            }
         }
         &Source::StrMash(ref items) => {
             for i in items {
@@ -366,7 +490,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             panic!("typecheck matchcase in a specific function: {:?}", ix);
         }
         _ => {
-            panic!("Could not typecheck_expr({:?})", ix);
+            panic!("could not typecheck_expr({:?})", ix);
         }
     }
 }
@@ -382,13 +506,20 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             for (an, at) in arg_names.iter().zip(arg_types.iter()) {
                 scope.T.bind_vartype(an, at, ix.line);
             }
-            println!("f({:?}) =>\n{:?}", arg_names, body);
-            let result_type = typecheck_expr(scope, &*body).unwrap();
-            println!("type is: {}", result_type);
-            println!("vars:");
+            vout!("f({:?}) =>\n{:?}", arg_names, body);
+            let result_type = typecheck_expr(scope, &*body)
+                .map_err(|e| {
+                    let err_msg =
+                        format!("function result type error for: {}", scope.fname);
+                    e.add_context(err_msg)
+                })
+                .unwrap();
+
+            vout!("type is: {}", result_type);
+            vout!("vars:");
             for var in scope.T.vars() {
                 let typ = scope.T.vartype(var);
-                println!("\t{}: {}", var, typ.unwrap());
+                vout!("\t{}: {}", var, typ.unwrap());
             }
             let final_args = arg_types.iter().map(|at| {
                 scope.T.inferred_type(at).clone()
@@ -410,12 +541,35 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
     */
 }
 
+pub fn typecheck_field_access(scope: &mut Typescope, xtyp: &Type, fld: i8
+    ) -> TypeResult
+{
+    vout!("typecheck_field_access({:?}.{})", xtyp, fld);
+    match xtyp {
+        &Type::UserDef(ref name) => {
+            match scope.proto.deftypes.get(name.local()) {
+                Some(ityp) => {
+                    typecheck_field_access(scope, ityp, fld)
+                }
+                None => {
+                    panic!("cannot find defined type for: {}", name);
+                }
+            }
+        }
+        _ => {
+            panic!("cannot access field for type: {:?}.{}", xtyp, fld);
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
     use leema::program;
     use leema::loader::{Interloader};
     use leema::log;
+    use leema::lstr::{Lstr};
+    use leema::typecheck::{Depth};
 
     use std::io::{Write};
 
@@ -441,7 +595,7 @@ fn test_pattern_type_inferred_mismatch()
     let mut loader = Interloader::new("tacos.lma");
     loader.set_mod_txt("tacos", input);
     let mut prog = program::Lib::new(loader);
-    prog.deep_typecheck("tacos", "main");
+    prog.typecheck(&Lstr::from("tacos"), &Lstr::from("main"), Depth::Full);
 }
 
 }

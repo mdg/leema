@@ -1,0 +1,14 @@
+
+import option
+
+
+struple StructFieldVal
+.name: option::T[Str]
+.field_type: TypeRef
+--
+
+struple TypeVal
+.name: Str
+.parameters: [Str]
+.fields: [StructFieldVal]
+--

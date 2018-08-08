@@ -1,6 +1,6 @@
 
-enum Option
-|Some($V)
+enum T[V]
+|Some(V)
 |None
 --
 

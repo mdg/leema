@@ -61,11 +61,14 @@ impl Token
             match (*tok).tok {
                 parse::TOKEN_BLOCKARROW => Token::BLOCKARROW(tl),
                 parse::TOKEN_DOUBLEDASH => Token::DOUBLEDASH(tl),
+                parse::TOKEN_TYPEARROW => {
+                    Token::TYPEARROW(tl)
+                }
                 parse::TOKEN_Func => {
-                    Token::Func
+                    Token::Func(tl)
                 }
                 parse::TOKEN_MACRO => {
-                    Token::MACRO
+                    Token::MACRO(tl)
                 }
                 parse::TOKEN_STRUCT => {
                     Token::STRUCT(tl)
@@ -120,8 +123,14 @@ impl Token
                 parse::TOKEN_SquareL => {
                     Token::SquareL(tl)
                 }
+                parse::TOKEN_SquareCall => {
+                    Token::SquareCall(tl)
+                }
                 parse::TOKEN_SquareR => {
                     Token::SquareR(tl)
+                }
+                parse::TOKEN_STRUPLE => {
+                    Token::STRUPLE(tl)
                 }
                 parse::TOKEN_TIMES => Token::TIMES(tl),
                 parse::TOKEN_SLASH => Token::SLASH(tl),
@@ -156,7 +165,7 @@ impl Token
                     Token::ELSE(tl)
                 }
                 parse::TOKEN_FAILED => {
-                    Token::FAILED
+                    Token::FAILED(tl)
                 }
                 parse::TOKEN_PLUS => {
                     Token::PLUS(tl)
@@ -251,7 +260,7 @@ impl Token
 }
 
 
-pub fn lex(mut str_input: &str) -> Vec<Token>
+pub fn lex(str_input: &str) -> Vec<Token>
 {
     // need to append \0 so C library knows where the string stops
     let input = format!("{}\0", str_input);

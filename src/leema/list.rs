@@ -39,13 +39,17 @@ pub fn iter<'a>(head: &'a Val) -> ListIterator<'a>
     ListIterator{cursor: head}
 }
 
+pub fn from_vec(items: &Vec<Val>) -> Val
+{
+    let new_items = items.iter().fold(Val::Nil, |acc, i| {
+        cons(i.clone(), acc)
+    });
+    reverse(&new_items)
+}
+
 pub fn cons(head: Val, tail: Val) -> Val
 {
     match tail {
-        Val::Sxpr(sxtype, tail, loc) => {
-            let new_tail = Val::Cons(Box::new(head), tail.clone());
-            Val::Sxpr(sxtype, Rc::new(new_tail), loc)
-        }
         Val::Cons(_, _) => {
             Val::Cons(Box::new(head), Rc::new(tail))
         }
@@ -60,9 +64,6 @@ pub fn cons(head: Val, tail: Val) -> Val
             Val::Cons(Box::new(head), Rc::new(tail))
         }
         Val::PatternVar(_) => {
-            Val::Cons(Box::new(head), Rc::new(tail))
-        }
-        Val::Loc(_, _) => {
             Val::Cons(Box::new(head), Rc::new(tail))
         }
         _ => {
@@ -114,22 +115,6 @@ pub fn empty() -> Val
     Val::Nil
 }
 
-pub fn from_tuple(t: &Val) -> Val
-{
-    let mut result = empty();
-    match t {
-        &Val::Tuple(ref items) => {
-            for i in items.iter().rev() {
-                result = cons(i.clone(), result);
-            }
-        }
-        _ => {
-            panic!("cannot create list from not tuple: {:?}", t);
-        }
-    }
-    result
-}
-
 pub fn ref_to_vec(it: &Val) -> Vec<Val>
 {
     map_ref_to_vec(it, |i| {
@@ -142,12 +127,6 @@ pub fn is_empty(l: &Val) -> bool
     match l {
         &Val::Nil => true,
         &Val::Cons(_, _) => false,
-        &Val::Sxpr(_, ref head, _) => {
-            match **head {
-                Val::Nil => true,
-                _ => false,
-            }
-        }
         _ => {
             panic!("is_empty parameter is not list");
         }
@@ -400,21 +379,6 @@ pub fn head_ref(l: &Val) -> &Val
         }
         _ => {
             panic!("Cannot take_head from not a list: {:?}", l);
-        }
-    }
-}
-
-pub fn set_head(l: &mut Val, v: Val)
-{
-    match l {
-        &mut Val::Nil => {
-            panic!("cannot set head for empty list");
-        }
-        &mut Val::Cons(ref mut head, _) => {
-            *head = Box::new(v);
-        }
-        _ => {
-            panic!("Cannot set head on a not list: {:?}", l);
         }
     }
 }

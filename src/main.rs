@@ -17,12 +17,15 @@ use leema::log;
 
 use leema::list;
 use leema::loader::{Interloader};
+use leema::lstr::{Lstr};
 use leema::module::{ModuleSource};
 use leema::program;
 use leema::application::{Application};
+use leema::typecheck;
 use leema::val::{Val};
 
 use std::io::{Write};
+use std::env;
 use docopt::{Docopt};
 
 
@@ -61,6 +64,7 @@ fn main()
 
 fn real_main() -> i32
 {
+    vout!("cmd: {:?}", env::current_exe());
     let args: Args = Docopt::new(USAGE)
         .and_then(|d| d.decode())
         .unwrap_or_else(|e| e.exit());
@@ -103,10 +107,16 @@ fn real_main() -> i32
     } else if args.arg_cmd == "inter" {
         let mut prog = program::Lib::new(inter);
         let imod = prog.read_inter(&modkey.name);
-        println!("\n{:?}\n", imod);
+        let fix = match args.flag_func {
+            Some(func) => imod.interfunc.get(&func),
+            None => imod.interfunc.get("main"),
+        };
+        println!("\n{:?}\n", fix);
     } else if args.arg_cmd == "typecheck" {
         let mut prog = program::Lib::new(inter);
-        prog.deep_typecheck(&modkey.name, "main");
+        let mod_name = Lstr::Rc(modkey.name.clone());
+        let func_name = Lstr::Sref("main");
+        prog.typecheck(&mod_name, &func_name, typecheck::Depth::Full);
     } else if args.arg_cmd == "code" {
         let mut prog = program::Lib::new(inter);
         let code = match args.flag_func {

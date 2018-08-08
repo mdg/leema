@@ -5,6 +5,7 @@ use leema::log;
 use leema::ixpr::{Ixpr, Source};
 use leema::frame;
 use leema::rsrc;
+use leema::struple::{Struple};
 
 use std::fmt;
 use std::io::{Write};
@@ -43,7 +44,7 @@ pub enum Op
     SetResult(Reg),
     PropagateFailure(Reg, i16),
     ConstVal(Reg, Val),
-    Constructor(Reg, Type, i8),
+    Construple(Reg, Type),
     Copy(Reg, Reg),
     Fork(Reg, Reg, Reg),
     //IfFail(Reg, i16),
@@ -89,8 +90,8 @@ impl Clone for Op
             &Op::ConstVal(ref dst, ref src) => {
                 Op::ConstVal(dst.clone(), src.deep_clone())
             }
-            &Op::Constructor(ref dst, ref src, nflds) => {
-                Op::Constructor(dst.clone(), src.deep_clone(), nflds)
+            &Op::Construple(ref dst, ref typ) => {
+                Op::Construple(dst.clone(), typ.deep_clone())
             }
             &Op::Copy(ref dst, ref src) => {
                 Op::Copy(dst.clone(), src.clone())
@@ -299,17 +300,31 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::Call(ref f, ref args) => {
             make_call_ops(rt, f, args, &input.typ)
         }
-        Source::Constructor(ref typ, nflds) => {
-            vout!("make_constructor_ops({:?})\n", input);
-            make_constructor_ops(rt, typ, nflds, input.line)
+        Source::Cons(ref h, ref t) => {
+            let dst = rt.dst().clone();
+            rt.push_dst();
+            let mut hops = make_sub_ops(rt, h);
+            rt.push_dst();
+            let mut tops = make_sub_ops(rt, t);
+            rt.pop_dst();
+            rt.pop_dst();
+            hops.ops.append(&mut tops.ops);
+            hops.ops.push((
+                Op::ListCons(dst.clone(), hops.dst, tops.dst),
+                input.line,
+            ));
+            Oxpr{
+                ops: hops.ops,
+                dst: dst,
+            }
+        }
+        Source::Construple(ref typ) => {
+            vout!("make_construple_ops({:?})\n", typ);
+            make_construple_ops(rt, typ, input.line)
         }
         Source::EnumConstructor(ref typ, idx, ref val) => {
             vout!("make_enum_constructor_ops({:?})\n", input);
             make_enum_constructor_ops(rt, typ, idx, &**val, input.line)
-        }
-        Source::Fork(ref dst, ref f, ref args) => {
-            // make_fork_ops(rt, f, args)
-            Oxpr{ ops: vec![], dst: Reg::Undecided }
         }
         Source::Let(ref patt, ref x, ref fails) => {
             let pval = assign_pattern_registers(rt, patt);
@@ -346,8 +361,11 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             let src = rt.id(id);
             Oxpr{ ops: vec![], dst: src }
         }
+        Source::IfExpr(ref test, ref truth, None) => {
+            make_if_ops(rt, &*test, &*truth)
+        }
         Source::IfExpr(ref test, ref truth, ref lies) => {
-            make_if_ops(rt, &*test, &*truth, &*lies)
+            make_if_else_ops(rt, &*test, &*truth, lies.as_ref().unwrap())
         }
         Source::StrMash(ref items) => {
             make_str_ops(rt, items)
@@ -381,16 +399,11 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::List(ref items) => {
             make_list_ops(rt, items, input.line)
         }
-        Source::BooleanAnd(ref _a, ref _b) => {
-            panic!("maybe AND should just be a macro");
-        }
-        Source::BooleanOr(ref _a, ref _b) => {
-            panic!("maybe OR should just be a macro");
-        }
         Source::ModuleAccess(ref module, ref name) => {
             let modval = Val::Str(module.clone());
             let idval = Val::Str(name.clone());
-            let modname = Val::Tuple(vec![modval, idval]);
+            let modname =
+                Val::Tuple(Struple::new_tuple2(modval, idval));
             let dst = rt.dst();
             Oxpr{
                 ops: vec![(Op::ConstVal(dst.clone(), modname), input.line)],
@@ -435,25 +448,14 @@ pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr
     fops
 }
 
-pub fn make_constructor_ops(rt: &mut RegTable, typ: &Type, nflds: i8
-    , line: i16
-    ) -> Oxpr
+pub fn make_construple_ops(rt: &mut RegTable, typ: &Type, line: i16) -> Oxpr
 {
     let dst = rt.dst();
 
-    let mut ops: Vec<(Op, i16)> = Vec::with_capacity((nflds + 1) as usize);
-    ops.push((
-        Op::Constructor(dst.clone(), typ.clone(), nflds),
+    let ops: Vec<(Op, i16)> = vec![(
+        Op::Construple(dst.clone(), typ.clone()),
         line,
-        ));
-    let mut i = 0;
-    while i < nflds {
-        ops.push((
-            Op::Copy(dst.sub(i), Reg::param(i)),
-            line,
-            ));
-        i += 1;
-    }
+    )];
 
     Oxpr{
         ops: ops,
@@ -466,9 +468,8 @@ pub fn make_enum_constructor_ops(rt: &mut RegTable, typ: &Type, index: i16
     ) -> Oxpr
 {
     let dst = rt.dst();
-    let etype = typ.to_enum();
 
-    let mut ops: Vec<(Op, i16)> = Vec::with_capacity(3);
+    let ops: Vec<(Op, i16)> = Vec::with_capacity(3);
     /*
     ops.push((
         Op::Constructor(dst.clone(), etype.clone(), nflds),
@@ -607,20 +608,11 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
             let pr_tail = assign_pattern_registers(rt, tail);
             Val::Cons(Box::new(pr_head), Rc::new(pr_tail))
         }
-        &Val::Tuple(ref items) => {
-            let reg_items = items.iter().map(|p| {
-                assign_pattern_registers(rt, p)
+        &Val::Tuple(ref vars) => {
+            let reg_items = vars.0.iter().map(|v| {
+                (v.0.clone(), assign_pattern_registers(rt, &v.1))
             }).collect();
-            Val::Tuple(reg_items)
-        }
-        &Val::Struct(ref typ, ref vars) => {
-            let reg_items = vars.iter().map(|v| {
-                assign_pattern_registers(rt, v)
-            }).collect();
-            Val::Struct(typ.clone(), reg_items)
-        }
-        &Val::Loc(ref pv, _) => {
-            assign_pattern_registers(rt, pv)
+            Val::Tuple(Struple(reg_items))
         }
         _ => {
             panic!("pattern type unsupported: {:?}", pattern);
@@ -628,7 +620,28 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
     }
 }
 
-pub fn make_if_ops(rt: &mut RegTable, test: &Ixpr, truth: &Ixpr, lies: &Ixpr) -> Oxpr
+pub fn make_if_ops(rt: &mut RegTable, test: &Ixpr, truth: &Ixpr) -> Oxpr
+{
+    rt.push_dst();
+    let mut if_ops = make_sub_ops(rt, &test);
+    rt.pop_dst();
+    let mut truth_ops = make_sub_ops(rt, &truth);
+
+    if_ops.ops.push((
+        Op::JumpIfNot((truth_ops.ops.len() + 1) as i16, if_ops.dst),
+        test.line,
+    ));
+
+    if_ops.ops.append(&mut truth_ops.ops);
+    Oxpr{
+        ops: if_ops.ops,
+        dst: truth_ops.dst,
+    }
+}
+
+pub fn make_if_else_ops(rt: &mut RegTable, test: &Ixpr, truth: &Ixpr
+    , lies: &Ixpr
+    ) -> Oxpr
 {
     rt.push_dst();
     let mut if_ops = make_sub_ops(rt, &test);
@@ -701,6 +714,8 @@ pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Ixpr>) -> Oxpr
 mod tests {
     use leema::code::{self, Op};
     use leema::ixpr::{Ixpr};
+    use leema::loader::{Interloader};
+    use leema::program;
     use leema::reg::{Reg};
     use leema::val::{Val, SrcLoc};
 
@@ -717,6 +732,30 @@ fn test_code_constval()
         (Op::Return, 8),
     ];
     assert_eq!(x, code);
+}
+
+#[test]
+#[should_panic]
+fn test_load_code_fails_for_func_type_infer_mismatch()
+{
+    let input = String::from("
+
+    ## foo should take [#] and return a #
+    func foo(inputs)
+    |([]) -> #empty
+    |(#whatever;more) -> #whatever
+    |(_;more) -> foo(more)
+    --
+
+    func main() ->
+        foo([5, 3, 4])
+    --
+    ");
+
+    let mut loader = Interloader::new("tacos.lma");
+    loader.set_mod_txt("tacos", input);
+    let mut prog = program::Lib::new(loader);
+    prog.load_code("tacos", "main");
 }
 
 }

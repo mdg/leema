@@ -133,7 +133,7 @@ impl Application
                 );
             }
             AppMsg::MainResult(mv) => {
-                self.result = Some(Val::from_msg(mv));
+                self.result = Some(mv.take());
                 self.done = true;
             }
             AppMsg::Spawn(module, call) => {

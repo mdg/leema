@@ -1,0 +1,157 @@
+
+use leema::lstr::{Lstr};
+use leema::reg::{self, Ireg};
+use leema::sendclone;
+use leema::val::{Val};
+
+use std::fmt;
+use std::iter::{FromIterator};
+
+
+#[derive(Clone)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Hash)]
+pub struct Struple<T>(pub Vec<(Option<Lstr>, T)>);
+
+impl<T> Struple<T>
+{
+    pub fn new_indexed(items: Vec<T>) -> Struple<T>
+    {
+        let new_items: Vec<(Option<Lstr>, T)> = items.into_iter().map(|i| {
+            (None, i)
+        }).collect();
+        Struple(new_items)
+    }
+
+    pub fn new_tuple2(a: T, b: T) -> Struple<T>
+    {
+        Struple(vec![
+            (None, a),
+            (None, b),
+        ])
+    }
+}
+
+impl<T> FromIterator<(Option<Lstr>, T)> for Struple<T>
+{
+    fn from_iter<I: IntoIterator<Item=(Option<Lstr>, T)>>(iter: I) -> Struple<T>
+    {
+        let mut items = Vec::new();
+        for item in iter {
+            items.push(item);
+        }
+        Struple(items)
+    }
+}
+
+impl<T> sendclone::SendClone for Struple<T>
+    where T: sendclone::SendClone<Item = T>
+{
+    type Item = Struple<T>;
+
+    fn clone_for_send(&self) -> Struple<T>
+    {
+        let safe_items = self.0.iter().map(|i| {
+            let new_key = i.0.as_ref().map(|ik| {
+                ik.deep_clone()
+            });
+            (new_key, i.1.clone_for_send())
+        }).collect();
+        Struple(safe_items)
+    }
+}
+
+impl<T> fmt::Display for Struple<T>
+    where T: fmt::Display
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        f.write_str("(")?;
+        for &(ref opt_name, ref x) in self.0.iter() {
+            if let &Some(ref name) = opt_name {
+                write!(f, "{}:", name)?;
+            }
+            write!(f, "{},", x)?;
+        }
+        f.write_str(")")
+    }
+}
+
+impl<T> fmt::Debug for Struple<T>
+    where T: fmt::Debug
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        f.write_str("(")?;
+        for &(ref opt_name, ref x) in self.0.iter() {
+            if let &Some(ref name) = opt_name {
+                write!(f, "{}:", name)?;
+            }
+            write!(f, "{:?},", x)?;
+        }
+        f.write_str(")")
+    }
+}
+
+impl reg::Iregistry for Struple<Val>
+{
+    fn ireg_get(&self, i: &Ireg) -> &Val
+    {
+        match i {
+            // get reg on struple
+            &Ireg::Reg(p) => {
+                if p as usize >= self.0.len() {
+                    panic!("{:?} too big for {:?}", i, self.0);
+                }
+                &self.0[p as usize].1
+            }
+            &Ireg::Sub(p, ref s) => {
+                if p as usize >= self.0.len() {
+                    panic!("{:?} too big for {:?}", i, self.0);
+                }
+                self.0[p as usize].1.ireg_get(&*s)
+            }
+        }
+    }
+
+    fn ireg_get_mut(&mut self, i: &Ireg) -> &mut Val
+    {
+        match i {
+            // set reg on struple
+            &Ireg::Reg(p) => {
+                if p as usize >= self.0.len() {
+                    panic!("{:?} too big for {:?}", i, self.0);
+                }
+                &mut self.0[p as usize].1
+            }
+            &Ireg::Sub(p, ref s) => {
+                if p as usize >= self.0.len() {
+                    panic!("{:?} too big for {:?}", i, self.0);
+                }
+                self.0[p as usize].1.ireg_get_mut(&*s)
+            }
+        }
+    }
+
+    fn ireg_set(&mut self, i: &Ireg, v: Val)
+    {
+        match i {
+            // get reg on struple
+            &Ireg::Reg(p) => {
+                if p as usize >= self.0.len() {
+                    panic!("{:?} too big for struple {:?}"
+                        , i, self);
+                }
+                self.0[p as usize].1 = v;
+            }
+            &Ireg::Sub(p, ref s) => {
+                if p as usize >= self.0.len() {
+                    panic!("{:?} too big for strtuple {:?}", i, self);
+                }
+                self.0[p as usize].1.ireg_set(&*s, v);
+            }
+        }
+    }
+}

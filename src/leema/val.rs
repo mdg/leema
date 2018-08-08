@@ -1,8 +1,12 @@
 use leema::reg::{self, Reg, Ireg, Iregistry};
-use leema::sxpr;
 use leema::list;
+use leema::lri::{Lri};
+use leema::lstr::{Lstr};
 use leema::frame::{FrameTrace};
 use leema::log;
+use leema::msg;
+use leema::sendclone::{self, SendClone};
+use leema::struple::{Struple};
 
 use std::fmt::{self};
 use std::collections::{BTreeMap, HashMap};
@@ -10,8 +14,6 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{self, AtomicBool};
 use std::rc::{Rc};
 use std::cmp::{PartialEq, PartialOrd, Ordering};
-use std::clone::Clone;
-use std::fmt::{Debug};
 use std::io::{Write, Error};
 
 use ::futures::sync::mpsc::{Receiver};
@@ -45,20 +47,18 @@ pub enum Type
     Str,
     Bool,
     Hashtag,
-    Tuple(Vec<Type>),
-    Struct(Rc<String>),
-    Enum(Rc<String>),
-    Token(Rc<String>),
-    NamedTuple(Rc<String>, Vec<Type>),
+    Tuple(Struple<Type>),
     Failure,
     Func(Vec<Type>, Box<Type>),
     // different from base collection/map interfaces?
     // base interface/type should probably be iterator
     // and then it should be a protocol, not type
     StrictList(Box<Type>),
+    UserDef(Lri),
     Lib(String),
     Resource(Rc<String>),
     RustBlock,
+    Param(i8),
     // Future(Box<Type>),
     Void,
     /*
@@ -68,11 +68,10 @@ pub enum Type
     Any,
 
     Unknown,
-    Id(Rc<String>),
-    ModPrefix(Rc<String>, Rc<Type>),
-    Texpr(Box<Type>, Vec<Type>),
-    Var(Rc<String>),
+    Var(Lstr),
     AnonVar,
+    // the inner type, dereferenced
+    Deref(Box<Type>),
 }
 
 impl Type
@@ -85,19 +84,16 @@ impl Type
     /**
      * Get the typename including the module
      */
-    pub fn full_typename(&self) -> Rc<String>
+    pub fn full_typename(&self) -> Lstr
     {
         match self {
-            &Type::Int => Rc::new("Int".to_string()),
-            &Type::Id(ref name) => name.clone(),
-            &Type::Struct(ref name) => name.clone(),
-            &Type::Enum(ref name) => name.clone(),
-            &Type::ModPrefix(_, _) => {
-                let str = format!("{}", self);
-                Rc::new(str)
+            &Type::Int => Lstr::Sref("Int"),
+            &Type::UserDef(ref name) => {
+                Lstr::from(name)
             }
+            &Type::Void => Lstr::Sref("Void"),
             _ => {
-                panic!("No typename for {:?}", self);
+                panic!("no typename for {:?}", self);
             }
         }
     }
@@ -108,8 +104,12 @@ impl Type
     pub fn local_typename(&self) -> Rc<String>
     {
         match self {
-            &Type::ModPrefix(_, ref inner) => inner.local_typename(),
-            _ => self.full_typename(),
+            &Type::UserDef(ref i) => {
+                i.local().rc()
+            }
+            _ => {
+                self.full_typename().rc()
+            }
         }
     }
 
@@ -143,118 +143,13 @@ impl Type
         }
     }
 
-    pub fn var_name(&self) -> Rc<String>
+    pub fn var_name(&self) -> Lstr
     {
         match self {
             &Type::Var(ref id) => id.clone(),
-            &Type::AnonVar => Rc::new("anon".to_string()),
+            &Type::AnonVar => Lstr::Sref("anon"),
             _ => {
                 panic!("Not a Type::Var {:?}", self);
-            }
-        }
-    }
-
-    pub fn var_name_str(&self) -> &str
-    {
-        match self {
-            &Type::Var(ref id) => id,
-            &Type::AnonVar => "anon",
-            _ => {
-                panic!("Not a Type::Var {:?}", self);
-            }
-        }
-    }
-
-    /**
-     * Convert this ID type to a struct type
-     */
-    pub fn to_struct(&self) -> Type
-    {
-        match self {
-            &Type::Id(ref name) => Type::Struct(name.clone()),
-            &Type::Struct(ref name) => Type::Struct(name.clone()),
-            &Type::ModPrefix(ref module, ref local) => {
-                Type::ModPrefix(module.clone(), Rc::new(local.to_struct()))
-            }
-            _ => {
-                panic!("cannot convert to struct type: {:?}", self);
-            }
-        }
-    }
-
-    /**
-     * Convert this ID type to an enum type
-     */
-    pub fn to_enum(&self) -> Type
-    {
-        match self {
-            &Type::Id(ref name) => Type::Enum(name.clone()),
-            &Type::Enum(ref name) => Type::Enum(name.clone()),
-            &Type::ModPrefix(ref module, ref local) => {
-                Type::ModPrefix(module.clone(), Rc::new(local.to_enum()))
-            }
-            _ => {
-                panic!("cannot convert to enum type: {:?}", self);
-            }
-        }
-    }
-
-    /**
-     * Check if this type is a structure
-     */
-    pub fn is_struct(&self) -> bool
-    {
-        match self {
-            &Type::Struct(_) => true,
-            &Type::ModPrefix(_, ref local) => local.is_struct(),
-            _ => false,
-        }
-    }
-
-    /**
-     * Check if this type is an enum
-     */
-    pub fn is_enum(&self) -> bool
-    {
-        match self {
-            &Type::Enum(_) => true,
-            &Type::ModPrefix(_, ref local) => local.is_enum(),
-            _ => false,
-        }
-    }
-
-    /**
-     * Check if this type is a named tuple
-     */
-    pub fn is_namedtuple(&self) -> bool
-    {
-        match self {
-            &Type::NamedTuple(_, _) => true,
-            &Type::ModPrefix(_, ref local) => local.is_namedtuple(),
-            _ => false,
-        }
-    }
-
-    /**
-     * Check if this type can be created with a normal constructor
-     */
-    pub fn is_constructable(&self) -> bool
-    {
-        match self {
-            &Type::Struct(_) => true,
-            &Type::Enum(_) => true,
-            &Type::NamedTuple(_, _) => true,
-            &Type::ModPrefix(_, ref local) => local.is_constructable(),
-            _ => false,
-        }
-    }
-
-    pub fn tuple_items(self) -> Vec<Type>
-    {
-        match self {
-            Type::Tuple(items) => items,
-            _ => {
-                panic!("No items in not tuple type {:?}", self);
             }
         }
     }
@@ -266,36 +161,25 @@ impl Type
             &Type::Bool => Type::Bool,
             &Type::Int => Type::Int,
             &Type::Hashtag => Type::Hashtag,
-            &Type::Struct(ref s) => {
-                Type::Struct(Rc::new((**s).clone()))
+            &Type::Tuple(ref items) => {
+                Type::Tuple(items.clone_for_send())
             }
-            &Type::Enum(ref s) => {
-                Type::Enum(Rc::new((**s).clone()))
+            &Type::UserDef(ref i) => {
+                Type::UserDef(i.deep_clone())
             }
-            &Type::NamedTuple(ref name, ref flds) => {
-                Type::NamedTuple(
-                    Rc::new((**name).clone()),
-                    flds.iter().map(|f| {
-                        f.deep_clone()
-                    }).collect(),
-                )
+            &Type::StrictList(ref i) => {
+                Type::StrictList(Box::new(i.deep_clone()))
             }
-            &Type::Token(ref t) => {
-                Type::Token(Rc::new((**t).clone()))
-            }
-            &Type::Id(ref id) => {
-                let old_str: &str = &**id;
-                Type::Id(Rc::new(old_str.to_string()))
-            }
-            &Type::ModPrefix(ref prefix, ref base) => {
-                let new_prefix = (&**prefix).to_string();
-                let new_base = base.deep_clone();
-                Type::ModPrefix(Rc::new(new_prefix), Rc::new(new_base))
+            &Type::Func(ref args, ref result) => {
+                let dc_args = args.iter().map(|t| {
+                    t.deep_clone()
+                }).collect();
+                Type::Func(dc_args, Box::new(result.deep_clone()))
             }
             &Type::Var(ref id) => {
-                let old_str: &str = &**id;
-                Type::Var(Rc::new(old_str.to_string()))
+                Type::Var(id.deep_clone())
             }
+            &Type::Void => Type::Void,
             _ => {
                 panic!("cannot deep_clone Type: {:?}", self);
             }
@@ -320,6 +204,16 @@ impl Type
     }
 }
 
+impl sendclone::SendClone for Type
+{
+    type Item = Type;
+
+    fn clone_for_send(&self) -> Type
+    {
+        self.deep_clone()
+    }
+}
+
 impl fmt::Display for Type
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
@@ -330,22 +224,13 @@ impl fmt::Display for Type
             &Type::Bool => write!(f, "Bool"),
             &Type::Hashtag => write!(f, "Hashtag"),
             &Type::Tuple(ref items) => {
-                write!(f, "(");
-                for i in items {
-                    write!(f, "{},", i);
-                }
-                write!(f, ")")
+                write!(f, "{}", items)
             }
-            &Type::Struct(ref name) => write!(f, "{}", name),
-            &Type::Enum(ref name) => write!(f, "{}", name),
-            &Type::Token(ref name) => write!(f, "{}", name),
-            &Type::NamedTuple(ref name, ref flds) => {
-                write!(f, "{}", name)
-            }
+            &Type::UserDef(ref name) => write!(f, "{}", name),
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
-                    write!(f, "{} > ", a).ok();
+                    write!(f, "{} => ", a).ok();
                 }
                 write!(f, "{}", result)
             }
@@ -361,15 +246,16 @@ impl fmt::Display for Type
             &Type::Any => write!(f, "Any"),
 
             &Type::Unknown => write!(f, "TypeUnknown"),
-            &Type::Id(ref name) => write!(f, "{}", name),
-            &Type::ModPrefix(ref prefix, ref sub) => {
-                write!(f, "{}::{}", prefix, sub)
+            &Type::Param(index) => {
+                write!(f, "Type::Param({})", index)
             }
-            &Type::Texpr(ref base, ref args) => write!(f, "Texpr"),
             &Type::Var(ref name) => {
                 write!(f, "Type::Var({})", name)
             }
             &Type::AnonVar => write!(f, "TypeAnonymous"),
+            &Type::Deref(ref inner) => {
+                write!(f, "`{}", inner)
+            }
         }
     }
 }
@@ -384,26 +270,15 @@ impl fmt::Debug for Type
             &Type::Bool => write!(f, "Bool"),
             &Type::Hashtag => write!(f, "Hashtag"),
             &Type::Tuple(ref items) => {
-                write!(f, "T(");
-                for i in items {
-                    write!(f, "{:?},", i);
-                }
-                write!(f, ")")
+                write!(f, "T{}", items)
             }
-            &Type::Struct(ref name) => {
-                write!(f, "StructType({})", name)
-            }
-            &Type::Enum(ref name) => write!(f, "Enum({})", name),
-            &Type::Token(ref name) => write!(f, "Token({})", name),
-            &Type::NamedTuple(ref name, ref flds) => {
-                write!(f, "NamedTuple({}, {:?})", name, flds)
-            }
+            &Type::UserDef(ref name) => write!(f, "UserDef({})", name),
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
-                    write!(f, "{}->", a).ok();
+                    write!(f, "{:?}>", a).ok();
                 }
-                write!(f, "{}", result)
+                write!(f, "{:?}", result)
             }
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator
@@ -417,15 +292,16 @@ impl fmt::Debug for Type
             &Type::Any => write!(f, "Any"),
 
             &Type::Unknown => write!(f, "TypeUnknown"),
-            &Type::Id(ref name) => write!(f, "TypeId({})", name),
-            &Type::ModPrefix(ref prefix, ref sub) => {
-                write!(f, "Module({})::{:?}", prefix, sub)
-            }
-            &Type::Texpr(ref base, ref args) => write!(f, "Texpr"),
             &Type::Var(ref name) => {
                 write!(f, "Type::Var({})", name)
             }
+            &Type::Param(index) => {
+                write!(f, "Type::Param({})", index)
+            }
             &Type::AnonVar => write!(f, "TypeAnonymous"),
+            &Type::Deref(ref inner) => {
+                write!(f, "TypeDeref({:?})", inner)
+            }
         }
     }
 }
@@ -469,7 +345,7 @@ pub type TypeResult = Result<Type, TypeErr>;
 
 pub trait LibVal
     : mopa::Any
-    + Debug
+    + fmt::Debug
 {
     fn get_type(&self) -> Type;
 }
@@ -479,7 +355,7 @@ mopafy!(LibVal);
 #[derive(Clone)]
 pub struct FutureVal(pub Arc<AtomicBool>, pub Arc<Mutex<Receiver<MsgVal>>>);
 
-impl Debug for FutureVal
+impl fmt::Debug for FutureVal
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
@@ -547,54 +423,11 @@ pub const FAILURE_INTERNAL : i8         = -7;
 pub const FAILURE_TYPE : i8             = -8;
 
 
-#[derive(Copy)]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
-pub enum SxprType {
-    Let,
-    Fork,
-    StrExpr,
-    BlockExpr,
-    Call,
-    NamedParam,
-    DefFunc,
-    DefMacro,
-    DefStruct,
-    DefEnum,
-    DefNamedTuple,
-    IfExpr,
-    Import,
-    MatchExpr,
-    MatchFailed,
-    Return,
-    Comparison,
-    /*
-    LessThan3(bool, bool),
-    BooleanAnd,
-    BooleanOr,
-    */
-}
+pub type MsgVal = msg::MsgItem<Val>;
 
-#[derive(Debug)]
-pub enum MsgVal
+#[derive(Clone)]
+pub enum Val
 {
-    Int(i64),
-    Str(String),
-    Bool(bool),
-    Hashtag(String),
-    Cons(Box<MsgVal>, Box<MsgVal>),
-    Tuple(Vec<MsgVal>),
-    Buffer(Vec<u8>),
-    Nil,
-    Void,
-    ResourceRef(i64),
-    Failure(Box<MsgVal>, Box<MsgVal>, Arc<FrameTrace>, i8),
-}
-
-#[derive(Clone)]
-pub enum Val {
     Int(i64),
     Str(Rc<String>),
     // StrCat(Rc<Val>, Box<Val>),
@@ -604,12 +437,11 @@ pub enum Val {
     Buffer(Vec<u8>),
     Cons(Box<Val>, Rc<Val>),
     Nil,
-    Tuple(Vec<Val>),
-    NamedTuple(Type, Vec<Val>),
-    Sxpr(SxprType, Rc<Val>, SrcLoc),
-    Struct(Type, Vec<Val>),
-    Enum(Type, i16, Rc<String>, Box<Val>),
-    Token(Type),
+    Tuple(Struple<Val>),
+    Struct(Lri, Struple<Val>),
+    EnumStruct(Lri, Lstr, Struple<Val>),
+    EnumToken(Lri, Lstr),
+    Token(Lri),
     Failure(
         Box<Val>, // tag
         Box<Val>, // msg
@@ -617,11 +449,9 @@ pub enum Val {
         i8, // status
     ),
     Id(Rc<String>),
-    ModPrefix(Rc<String>, Rc<Val>),
-    TypedId(Rc<String>, Type),
+    Lri(Lri),
     Type(Type),
     Kind(u8),
-    DotAccess(Box<Val>, Rc<String>),
     Lib(Arc<LibVal>),
     LibRc(Rc<LibVal>),
     FuncRef(Rc<String>, Rc<String>, Type),
@@ -631,7 +461,6 @@ pub enum Val {
     Void,
     Wildcard,
     PatternVar(Reg),
-    Loc(Box<Val>, SrcLoc),
 }
 
 const NIL: Val = Val::Nil;
@@ -641,38 +470,15 @@ pub const TRUE: Val = Val::Bool(true);
 
 impl Val
 {
-    pub fn is_sxpr(&self) -> bool
-    {
-        match self {
-            &Val::Sxpr(_, _, _) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_sxpr_type(&self, st: SxprType) -> bool
-    {
-        match self {
-            &Val::Sxpr(st, _, _) => true,
-            _ => false,
-        }
-    }
-
     pub fn id(s: String) -> Val
     {
         Val::Id(Rc::new(s))
-    }
-
-    pub fn typed_id(s: &str, t: Type) -> Val
-    {
-        Val::TypedId(Rc::new(String::from(s)), t)
     }
 
     pub fn is_id(&self) -> bool
     {
         match self {
             &Val::Id(_) => true,
-            &Val::TypedId(_, _) => true,
-            &Val::Loc(ref v, _) => v.is_id(),
             _ => false,
         }
     }
@@ -681,9 +487,9 @@ impl Val
     {
         match self {
             &Val::Id(ref name) => name.clone(),
-            &Val::TypedId(ref name, ref typ) => name.clone(),
-            &Val::Type(Type::Id(ref name)) => name.clone(),
-            &Val::Loc(ref v, _) => v.id_name(),
+            &Val::Type(ref typ) => {
+                typ.full_typename().rc()
+            }
             _ => {
                 panic!("not an id {:?}", self);
             }
@@ -695,14 +501,15 @@ impl Val
         Val::new_tuple(0)
     }
 
-    pub fn new_tuple(ref sz: usize) -> Val {
+    pub fn new_tuple(ref sz: usize) -> Val
+    {
         let mut t = Vec::with_capacity(*sz);
         let mut i: usize = *sz;
         while i > 0 {
-            t.push(VOID);
+            t.push((None, VOID));
             i = i - 1;
         }
-        Val::Tuple(t)
+        Val::Tuple(Struple(t))
     }
 
     pub fn tuple_from_list(l: &Val) -> Val
@@ -711,12 +518,13 @@ impl Val
         if !l.is_list() {
             panic!("Cannot make tuple from not-list: {:?}", l);
         }
-        let mut empties: Vec<Val> = Vec::with_capacity(list::len(l));
+        let empties: Vec<(Option<Lstr>, Val)> =
+            Vec::with_capacity(list::len(l));
         let items = list::fold_ref(empties, l, |mut res, item| {
-            res.push(item.clone());
+            res.push((None, item.clone()));
             res
         });
-        Val::Tuple(items)
+        Val::Tuple(Struple(items))
     }
 
     pub fn is_list(&self) -> bool
@@ -727,53 +535,6 @@ impl Val
             _ => false,
         }
     }
-
-    pub fn is_tuple(&self) -> bool
-    {
-        match self {
-            &Val::Tuple(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn tuple_items(tup: Val) -> Vec<Val>
-    {
-        match tup {
-            Val::Tuple(items) => items,
-            _ => {
-                panic!("No items in not tuple {:?}", tup);
-            }
-        }
-    }
-
-    pub fn tuple_items_ref(&self) -> &Vec<Val>
-    {
-        match self {
-            &Val::Tuple(ref items) => items,
-            _ => {
-                panic!("No items in not tuple type {:?}", self);
-            }
-        }
-    }
-
-    /*
-    pub fn take_tuple_vals(&mut self) -> Vec<Val>
-    {
-        match self {
-            &mut Sxpr::Val(ref mut tv) => {
-                let mut tmp = Box::new(Val::Void);
-                mem::swap(&mut *tv, &mut tmp);
-                match *tmp {
-                    Val::Tuple(vals) => {
-                        vals
-                    }
-                    _ => panic!("sxpr val is not a tuple"),
-                }
-            }
-            _ => panic!("tuple sxpr not a val"),
-        }
-    }
-    */
 
     pub fn new_str(s: String) -> Val
     {
@@ -789,9 +550,7 @@ impl Val
     {
         match self {
             &Val::Id(ref id) => id,
-            &Val::TypedId(ref id, ref typ) => id,
             &Val::Str(ref s) => s,
-            &Val::Loc(ref v, _) => v.str(),
             _ => {
                 panic!("Cannot convert to string: {:?}", self);
             }
@@ -802,14 +561,7 @@ impl Val
     {
         match self {
             &Val::Id(ref id) => id.clone(),
-            &Val::TypedId(ref id, ref typ) => id.clone(),
             &Val::Str(ref s) => s.clone(),
-            &Val::ModPrefix(ref prefix, ref name) => {
-                let name_str = name.to_str();
-                let s = format!("{}::{}", prefix, name_str);
-                Rc::new(s)
-            }
-            &Val::Loc(ref v, _) => v.to_str(),
             _ => {
                 panic!("Cannot convert to string: {:?}", self);
             }
@@ -820,7 +572,6 @@ impl Val
     {
         match self {
             &Val::Int(i) => i,
-            &Val::Loc(ref v, _) => v.to_int(),
             _ => {
                 panic!("Not an int: {:?}", self);
             }
@@ -832,47 +583,11 @@ impl Val
         Val::Hashtag(Rc::new(s))
     }
 
-    pub fn dot_access(base: Val, sub: String) -> Val
-    {
-        Val::DotAccess(Box::new(base), Rc::new(sub))
-    }
-
     pub fn is_type(&self) -> bool
     {
         match self {
             &Val::Type(_) => true,
             _ => false,
-        }
-    }
-
-    pub fn to_type(&self) -> Type
-    {
-        match self {
-            &Val::Type(ref t) => t.clone(),
-            &Val::Id(ref id) => Type::Id(id.clone()),
-            &Val::ModPrefix(ref prefix, ref base) => {
-                let tbase = base.to_type();
-                Type::ModPrefix(prefix.clone(), Rc::new(tbase))
-            }
-            &Val::Loc(ref v, _) => v.to_type(),
-            _ => {
-                panic!("Cannot unwrap not-type as type {:?}", self);
-            }
-        }
-    }
-
-    pub fn split_typed_id(&self) -> (Val, Type)
-    {
-        match self {
-            &Val::Id(ref id) => (self.clone(), Type::AnonVar),
-            &Val::TypedId(ref tid, ref typ) => (
-                Val::Id(tid.clone()),
-                typ.clone(),
-            ),
-            &Val::Loc(ref v, _) => v.split_typed_id(),
-            _ => {
-                panic!("not a TypedId: {:?}", self);
-            }
         }
     }
 
@@ -918,14 +633,6 @@ impl Val
         )
     }
 
-    pub fn loc(v: Val, l: SrcLoc) -> Val
-    {
-        if let Val::Loc(_, _) = v {
-            panic!("don't put a loc around a loc! {:?}", v);
-        }
-        Val::Loc(Box::new(v), l)
-    }
-
     pub fn resource_ref(&self) -> i64
     {
         match self {
@@ -969,16 +676,6 @@ impl Val
             &Val::Int(_) => Type::Int,
             &Val::Str(_) => Type::Str,
             &Val::Hashtag(_) => Type::Hashtag,
-            &Val::Tuple(ref items) if items.len() == 1 => {
-                items.get(0).unwrap().get_type()
-            }
-            &Val::Tuple(ref items) => {
-                let mut tuptypes = vec![];
-                for i in items {
-                    tuptypes.push(i.get_type());
-                }
-                Type::Tuple(tuptypes)
-            }
             &Val::Cons(ref head, ref tail) => {
                 let inner = head.get_type();
                 Type::StrictList(Box::new(inner))
@@ -990,45 +687,32 @@ impl Val
             &Val::Wildcard => Type::Unknown,
             &Val::PatternVar(_) => Type::Unknown,
             &Val::Id(_) => Type::AnonVar,
-            &Val::TypedId(_, ref typ) => typ.clone(),
-            &Val::Sxpr(SxprType::DefFunc, _, _) => sxpr::defunc_type(self),
-            &Val::Sxpr(SxprType::StrExpr, _, _) => Type::Str,
-            &Val::Sxpr(SxprType::BlockExpr, ref exprs, _) => {
-                match list::last(exprs) {
-                    Some(last) => {
-                        last.get_type()
-                    }
-                    None => {
-                        Type::Void
-                    }
-                }
-            }
-            &Val::Sxpr(SxprType::Call, _, _) => Type::Unknown,
-            &Val::Sxpr(st, _, ref loc) => {
-                panic!("cannot find type for: {:?}@{:?}", st, loc);
-            }
+            &Val::Lri(_) => Type::AnonVar,
             &Val::RustBlock => Type::RustBlock,
+            &Val::Tuple(ref items) if items.0.len() == 1 => {
+                items.0.get(0).unwrap().1.get_type()
+            }
+            &Val::Tuple(ref items) => {
+                let tuptypes = items.0.iter().map(|i| {
+                    (i.0.clone(), i.1.get_type())
+                }).collect();
+                Type::Tuple(Struple(tuptypes))
+            }
             &Val::Struct(ref typ, _) => {
-                typ.clone()
+                Type::UserDef(typ.clone())
             }
-            &Val::Enum(ref typ, _, _, _) => {
-                typ.clone()
+            &Val::EnumStruct(ref typ, _, _) => {
+                Type::UserDef(typ.clone())
             }
-            &Val::NamedTuple(ref typ, _) => {
-                typ.clone()
+            &Val::EnumToken(ref typ, _) => {
+                Type::UserDef(typ.clone())
             }
             &Val::Token(ref typ) => {
-                typ.clone()
+                Type::UserDef(typ.clone())
             }
             &Val::Buffer(_) => Type::Str,
-            &Val::ModPrefix(_, _) => {
-                panic!("module prefixes have no type");
-            }
             &Val::Kind(_) => {
                 panic!("is kind even a thing here?");
-            }
-            &Val::DotAccess(_, _) => {
-                panic!("maybe DotAccess should be an sxpr?");
             }
             &Val::FuncRef(_, _, ref typ) => {
                 typ.clone()
@@ -1045,7 +729,6 @@ impl Val
             &Val::Future(_) => {
                 panic!("cannot get type of Future: {:?}", self);
             }
-            &Val::Loc(ref v, _) => v.get_type(),
         }
     }
 
@@ -1076,19 +759,39 @@ impl Val
             (&Val::Cons(_, _), &Val::Cons(_, _)) => {
                 Val::_pattern_match_list(assigns, patt, input)
             }
-            (&Val::Tuple(ref p), &Val::Tuple(ref i)) if p.len() == i.len() => {
-                let it = p.iter().zip(i.iter());
-                let m = it.fold(true, |m, (p_item, i_item)| {
-                    m && Val::_pattern_match(assigns, p_item, i_item)
-                });
-                m
+            (&Val::Tuple(ref pv), &Val::Tuple(ref iv))
+                if pv.0.len() == iv.0.len() =>
+            {
+                pv.0.iter().zip(iv.0.iter()).all(|(p_item, i_item)| {
+                    Val::_pattern_match(assigns, &p_item.1, &i_item.1)
+                })
             }
-            (&Val::Struct(_, ref dst), &Val::Struct(_, ref src)) => {
-                let mut m = true;
-                for (idst, isrc) in dst.iter().zip(src.iter()) {
-                    m = m && Val::_pattern_match(assigns, idst, isrc);
+            (&Val::Struct(ref pt, ref pv), &Val::Struct(ref it, ref iv))
+                if pv.0.len() == iv.0.len() =>
+            {
+                pv.0.iter().zip(iv.0.iter()).all(|(p_item, i_item)| {
+                    Val::_pattern_match(assigns, &p_item.1, &i_item.1)
+                })
+            }
+            (&Val::EnumStruct(ref pt, ref pname, ref pv)
+                    , &Val::EnumStruct(ref it, ref iname, ref iv))
+                if pv.0.len() == iv.0.len() =>
+            {
+                if pt != it || pname != iname {
+                    return false;
                 }
-                m
+                pv.0.iter().zip(iv.0.iter()).all(|(p_item, i_item)| {
+                    Val::_pattern_match(assigns, &p_item.1, &i_item.1)
+                })
+            }
+            (&Val::EnumToken(ref pt, ref pname)
+                    , &Val::EnumToken(ref it, ref iname)) =>
+            {
+                pt == it && pname == iname
+            }
+            (&Val::Token(ref pt), &Val::Token(ref it)) =>
+            {
+                pt == it
             }
             (&Val::Nil, &Val::Nil) => true,
             _ => false,
@@ -1126,29 +829,29 @@ impl Val
                 list::map_ref(&node, f)
             }
             &Val::Tuple(ref t) => {
-                let mut result = Vec::with_capacity(t.len());
-                for tv in t.iter() {
-                    let rv = Val::replace_ids(tv, idvals);
-                    result.push(rv);
-                }
-                Val::Tuple(result)
+                let new_items = t.0.iter().map(|i| {
+                    (i.0.clone(), Val::replace_ids(&i.1, idvals))
+                }).collect();
+                Val::Tuple(Struple(new_items))
             }
+            &Val::Struct(ref st, ref t) => {
+                let new_items = t.0.iter().map(|i| {
+                    (i.0.clone(), Val::replace_ids(&i.1, idvals))
+                }).collect();
+                Val::Struct(st.clone(), Struple(new_items))
+            }
+            &Val::EnumStruct(ref st, ref vname, ref t) => {
+                let new_items = t.0.iter().map(|i| {
+                    (i.0.clone(), Val::replace_ids(&i.1, idvals))
+                }).collect();
+                Val::EnumStruct(st.clone(), vname.clone(), Struple(new_items))
+            }
+            // tokens are fine to just clone
             &Val::Id(ref name) => {
                 match idvals.get(&*name) {
                     Some(newx) => newx.clone(),
                     None => node.clone()
                 }
-            }
-            &Val::Loc(ref v, ref loc) => {
-                let v2 = Val::replace_ids(v, idvals);
-                Val::loc(v2, *loc)
-            }
-            &Val::Sxpr(stype, ref sdata, ref loc) => {
-                sxpr::new(
-                    stype,
-                    Val::replace_ids(&**sdata, idvals),
-                    *loc,
-                )
             }
             _ => node.clone(),
         }
@@ -1168,31 +871,35 @@ impl Val
                 )
             }
             &Val::Nil => Val::Nil,
-            &Val::Tuple(ref items) => {
-                Val::Tuple(items.iter().map(|i| i.deep_clone()).collect())
-            }
-            &Val::Sxpr(st, ref sx, ref loc) => {
-                Val::Sxpr(st, Rc::new(sx.deep_clone()), *loc)
+            &Val::Tuple(ref flds) => {
+                Val::Tuple(flds.clone_for_send())
             }
             &Val::Struct(ref typ, ref flds) => {
-                Val::Struct(typ.deep_clone(), flds.iter().map(|f| {
-                    f.deep_clone()
-                }).collect())
+                Val::Struct(typ.deep_clone(), flds.clone_for_send())
             }
-            &Val::Enum(ref typ, idx, ref vname, ref flds) => {
-                Val::Enum(typ.deep_clone(), idx, vname.clone(),
-                    Box::new(flds.deep_clone()),
+            &Val::EnumStruct(ref typ, ref vname, ref flds) => {
+                Val::EnumStruct(typ.deep_clone(), vname.deep_clone(),
+                    flds.clone_for_send(),
                 )
+            }
+            &Val::EnumToken(ref typ, ref vname) => {
+                Val::EnumToken(typ.deep_clone(), vname.deep_clone())
             }
             &Val::Token(ref typ) => {
                 Val::Token(typ.deep_clone())
             }
+            &Val::FuncRef(ref modname, ref fname, ref typ) => {
+                Val::FuncRef(
+                    Rc::new((**modname).clone()),
+                    Rc::new((**fname).clone()),
+                    typ.deep_clone()
+                )
+            }
             // &Val::Failure(ref tag, ref msg, ref ft),
             &Val::Id(ref s) => Val::id((**s).clone()),
-            // &Val::TypedId(Rc<String>, Type),
             &Val::Type(ref t) => Val::Type(t.deep_clone()),
+            &Val::ResourceRef(r) => Val::ResourceRef(r),
             &Val::Kind(k) => Val::Kind(k),
-            // &Val::DotAccess(Box<Val>, Rc<String>),
             // &Val::Lib(LibVal),
             // &Val::RustBlock,
             // &Val::Future(FutureVal),
@@ -1233,13 +940,6 @@ impl Val
             &Val::PatternVar(_) => {
                 write!(f, ";{:?}", l)
             }
-            &Val::Loc(ref v, ref loc) => {
-                if dbg {
-                    write!(f, "{:?}@{:?}", v, loc)
-                } else {
-                    write!(f, "{}", v)
-                }
-            }
             _ => {
                 panic!("Not a list: {:?}", l);
             }
@@ -1258,192 +958,6 @@ impl Val
         }
         f.write_str(")")
     }
-
-    fn fmt_sxpr(f: &mut fmt::Formatter, st: SxprType, x: &Val, loc: &SrcLoc
-        , dbg: bool
-        ) -> fmt::Result
-    {
-        match (st, x) {
-            (SxprType::Let, b) => {
-                let (id, exprtail) = list::take_ref(b);
-                let (expr, _) = list::take_ref(&*exprtail);
-                if dbg {
-                    write!(f, "let {:?} @ {:?} := {:?}", id, expr, loc)
-                } else {
-                    write!(f, "let {} := {}", id, expr)
-                }
-            }
-            (SxprType::Fork, b) => {
-                let (id, exprtail) = list::take_ref(b);
-                let (expr, _) = list::take_ref(&*exprtail);
-                if dbg {
-                    write!(f, "fork {:?} @ {:?} := {:?}", id, loc, expr)
-                } else {
-                    write!(f, "fork {} := {}", id, expr)
-                }
-            }
-            (SxprType::BlockExpr, lines) => {
-                if dbg {
-                    write!(f, "B@{:?}{{", loc);
-                    Val::fmt_list(f, lines, dbg);
-                    write!(f, "}}")
-                } else {
-                    write!(f, "block-expr")
-                }
-            }
-            (SxprType::Call, &Val::Cons(ref id, ref args)) => {
-                if dbg {
-                    write!(f, "{:?}@{:?}({:?})", id, loc, args)
-                } else {
-                    write!(f, "{}({})", id, args)
-                }
-            }
-            (SxprType::StrExpr, strs) => {
-                if dbg {
-                    write!(f, "\"{}\"@{:?}", strs, loc)
-                } else {
-                    write!(f, "\"{}\"", strs)
-                }
-            }
-            (SxprType::MatchExpr, mc) => {
-                let (x, m2) = list::take_ref(mc);
-                let (cases, _) = list::take_ref(&*m2);
-                if dbg {
-                    write!(f, "match({:?}@{:?},{:?})", x, loc, cases)
-                } else {
-                    write!(f, "match({},{})", x, cases)
-                }
-            }
-            (SxprType::MatchFailed, ref sx) => {
-                let (name, m2) = list::take_ref(sx);
-                let (cases, _) = list::take_ref(&*m2);
-                if dbg {
-                    write!(f, "MatchFailed({}@{:?}, {:?})", name, loc, cases)
-                } else {
-                    write!(f, "failed {} cases({})", name, cases)
-                }
-            }
-            (SxprType::IfExpr, casex) => {
-                if dbg {
-                    write!(f, "if@{:?}({:?})", loc, casex)
-                } else {
-                    write!(f, "if({:?})", casex)
-                }
-            }
-            (SxprType::DefFunc, ref func) => {
-                let (name, f2) = list::take_ref(func);
-                let (args, f3) = list::take_ref(&*f2);
-                let (rtype, f4) = list::take_ref(&*f3);
-                let (body, _) = list::take_ref(&*f4);
-                write!(f, "DefFunc({}({:?}):{:?} {:?})",
-                    name,
-                    args,
-                    rtype,
-                    body,
-                )
-            }
-            (SxprType::DefMacro, ref mac) => {
-                let (name, m2) = list::take_ref(mac);
-                let (args, m3) = list::take_ref(&*m2);
-                let (body, _) = list::take_ref(&*m3);
-                write!(f, "DefMacro({},{:?},{:?})", name, args, body)
-            }
-            (SxprType::DefStruct, ref ds) => {
-                let (name, fields) = list::take_ref(ds);
-                if **fields == Val::Nil {
-                    write!(f, "struct({})", name)
-                } else {
-                    write!(f, "struct({},{:?})", name, fields)
-                }
-            }
-            (SxprType::Import, ref filelist) => {
-                let file = list::head_ref(filelist);
-                if dbg {
-                    write!(f, "(import {:?} @ {:?})", file, loc)
-                } else {
-                    write!(f, "(import {:?})", file)
-                }
-            }
-            (SxprType::Return, ref result_list) => {
-                let result_item = list::head_ref(result_list);
-                if dbg {
-                    write!(f, "(Return {:?} @ {:?})", result_item, loc)
-                } else {
-                    write!(f, "return {}", result_item)
-                }
-            }
-            _ => {
-                write!(f, "something else: {:?}/{:?} @ {:?}", st, x, loc)
-            }
-        }
-    }
-
-    pub fn to_msg(&self) -> MsgVal
-    {
-        match self {
-            &Val::Int(i) => MsgVal::Int(i),
-            &Val::Bool(b) => MsgVal::Bool(b),
-            &Val::Str(ref s) => MsgVal::Str((**s).clone()),
-            &Val::Hashtag(ref t) => MsgVal::Hashtag((**t).clone()),
-            &Val::Cons(ref head, ref tail) => {
-                let msghead = Box::new(head.to_msg());
-                let msgtail = Box::new(tail.to_msg());
-                MsgVal::Cons(msghead, msgtail)
-            }
-            &Val::Tuple(ref items) => {
-                MsgVal::Tuple(items.iter().map(|iv| {
-                    iv.to_msg()
-                }).collect())
-            }
-            &Val::Buffer(ref buf) => MsgVal::Buffer(buf.clone()),
-            &Val::Nil => MsgVal::Nil,
-            &Val::Void => MsgVal::Void,
-            &Val::ResourceRef(rsrc_id) => MsgVal::ResourceRef(rsrc_id),
-            &Val::Failure(ref tag, ref msg, ref stack, status) => {
-                MsgVal::Failure(
-                    Box::new(tag.to_msg()),
-                    Box::new(msg.to_msg()),
-                    stack.clone(),
-                    status,
-                )
-            }
-            _ => {
-                panic!("Not yet convertable to a msg: {:?}", self);
-            }
-        }
-    }
-
-    pub fn from_msg(mv: MsgVal) -> Val
-    {
-        match mv {
-            MsgVal::Int(i) => Val::Int(i),
-            MsgVal::Bool(b) => Val::Bool(b),
-            MsgVal::Str(s) => Val::new_str(s),
-            MsgVal::Hashtag(s) => Val::hashtag(s),
-            MsgVal::Cons(mhead, mtail) => {
-                let head = Val::from_msg(*mhead);
-                let tail = Val::from_msg(*mtail);
-                Val::Cons(Box::new(head), Rc::new(tail))
-            }
-            MsgVal::Tuple(items) => {
-                Val::Tuple(items.into_iter().map(|mv| {
-                    Val::from_msg(mv)
-                }).collect())
-            }
-            MsgVal::Buffer(buf) => Val::Buffer(buf),
-            MsgVal::Failure(tag, msg, trace, status) => {
-                Val::Failure(
-                    Box::new(Val::from_msg(*tag)),
-                    Box::new(Val::from_msg(*msg)),
-                    trace,
-                    status,
-                )
-            }
-            MsgVal::Nil => Val::Nil,
-            MsgVal::Void => Val::Void,
-            MsgVal::ResourceRef(rsrc_id) => Val::ResourceRef(rsrc_id),
-        }
-    }
 }
 
 impl From<Error> for Val
@@ -1451,6 +965,16 @@ impl From<Error> for Val
     fn from(e: Error) -> Val
     {
         Val::Void
+    }
+}
+
+impl sendclone::SendClone for Val
+{
+    type Item = Val;
+
+    fn clone_for_send(&self) -> Val
+    {
+        self.deep_clone()
     }
 }
 
@@ -1480,36 +1004,20 @@ impl fmt::Display for Val {
             Val::Hashtag(ref s) => {
                 write!(f, "#{}", s)
             }
-            Val::Tuple(ref t) => {
-                Val::fmt_tuple(f, t, false)
+            Val::Tuple(ref items) => {
+                write!(f, "{}", items)
             }
-            Val::NamedTuple(ref name, ref t) => {
-                write!(f, "{}", name);
-                Val::fmt_tuple(f, t, false)
+            Val::Struct(ref typename, ref items) => {
+                write!(f, "{}{}", typename, items)
             }
-            Val::Struct(ref name, ref fields) => {
-                write!(f, "{}", name)
-                    .and_then(|prev_result| {
-                        if !fields.is_empty() {
-                            Val::fmt_tuple(f, fields, false)
-                        } else {
-                            Ok(prev_result)
-                        }
-                    })
+            Val::EnumStruct(ref tname, ref var, ref items) => {
+                write!(f, "{}.{}{}", tname, var, items)
             }
-            Val::Enum(ref _typename, _variant_idx, ref var_name, ref val) => {
-                if let Val::Struct(_, _) = **val {
-                    write!(f, "{}", val)
-                } else if let Val::NamedTuple(_, _) = **val {
-                    write!(f, "{}", val)
-                } else if **val == Val::Void {
-                    write!(f, "{}", var_name)
-                } else {
-                    write!(f, "{}({})", var_name, val)
-                }
+            Val::EnumToken(_, ref var_name) => {
+                write!(f, "{}", var_name)
             }
-            Val::Token(ref name) => {
-                write!(f, "{}", name)
+            Val::Token(ref typename) => {
+                write!(f, "{}", typename)
             }
             Val::Buffer(ref buf) => {
                 write!(f, "Buffer")
@@ -1529,17 +1037,11 @@ impl fmt::Display for Val {
             Val::Failure(ref tag, ref msg, ref stack, status) => {
                 write!(f, "Failure({}, {}\n{})", tag, msg, **stack)
             }
-            Val::Sxpr(ref t, ref head, ref loc) => {
-                Val::fmt_sxpr(f, *t, head, loc, false)
-            }
-            Val::ModPrefix(ref module, ref next) => {
-                write!(f, "{}::{}", module, next)
+            Val::Lri(ref name) => {
+                write!(f, "{}", name)
             }
             Val::Id(ref name) => {
                 write!(f, "{}", name)
-            }
-            Val::TypedId(ref name, ref typ) => {
-                write!(f, "{}:{}", name, typ)
             }
             Val::Type(ref t) => {
                 write!(f, "{}", t)
@@ -1553,9 +1055,6 @@ impl fmt::Display for Val {
             Val::Future(_) => {
                 write!(f, "Future")
             }
-            Val::DotAccess(ref outer, ref inner) => {
-                write!(f, "{}.{}", outer, inner)
-            }
             Val::Void => {
                 write!(f, "Void")
             }
@@ -1564,9 +1063,6 @@ impl fmt::Display for Val {
             }
             Val::Wildcard => {
                 write!(f, "_")
-            }
-            Val::Loc(ref v, _) => {
-                write!(f, "{}", v)
             }
         }
     }
@@ -1599,23 +1095,20 @@ impl fmt::Debug for Val {
             Val::Buffer(ref buf) => {
                 write!(f, "Buffer<{:?}>", buf)
             }
-            Val::Tuple(ref t) => {
-                write!(f, "T").ok();
-                Val::fmt_tuple(f, t, true)
+            Val::Tuple(ref fields) => {
+                write!(f, "struple {:?}", fields)
             }
-            Val::NamedTuple(ref name, ref t) => {
-                write!(f, "{}", name);
-                Val::fmt_tuple(f, t, true)
+            Val::Struct(ref typ, ref fields) => {
+                write!(f, "struct({}{:?})", typ, fields)
             }
-            Val::Struct(ref name, ref fields) => {
-                write!(f, "struct {}", name).ok();
-                Val::fmt_tuple(f, fields, false)
+            Val::EnumStruct(ref name, ref var_name, ref val) => {
+                write!(f, "enum({:?}.{}{:?})", name, var_name, val)
             }
-            Val::Enum(ref name, var_idx, ref var_name, ref val) => {
-                write!(f, "enum({:?}.{}.{}:{:?})", name, var_idx, var_name, val)
+            Val::EnumToken(ref typ, ref var_name) => {
+                write!(f, "EnumToken({:?}.{:?})", typ, var_name)
             }
             Val::Token(ref name) => {
-                write!(f, "Token({})", name)
+                write!(f, "Token({:?})", name)
             }
             Val::Lib(ref lv) => {
                 write!(f, "LibVal({:?})", lv)
@@ -1632,26 +1125,17 @@ impl fmt::Debug for Val {
             Val::Failure(ref tag, ref msg, ref stack, status) => {
                 write!(f, "Failure({}, {}, {}, {:?})", tag, status, msg, stack)
             }
-            Val::Sxpr(ref t, ref head, ref loc) => {
-                Val::fmt_sxpr(f, *t, head, loc, true)
-            }
-            Val::ModPrefix(ref head, ref tail) => {
-                write!(f, "Id({}::{})", head, tail)
+            Val::Lri(ref name) => {
+                write!(f, "{:?}", name)
             }
             Val::Id(ref id) => {
                 write!(f, "Id({})", id)
-            }
-            Val::TypedId(ref id, ref typ) => {
-                write!(f, "TypedId({}, {:?})", id, typ)
             }
             Val::Type(ref t) => {
                 write!(f, "TypeVal({:?})", t)
             }
             Val::Kind(c) => {
                 write!(f, "Kind{:?}", c)
-            }
-            Val::DotAccess(ref outer, ref inner) => {
-                write!(f, "{:?}.{}", outer, inner)
             }
             Val::FuncRef(ref module, ref name, ref typ) => {
                 write!(f, "FuncRef({}::{} : {})", module, name, typ)
@@ -1667,9 +1151,6 @@ impl fmt::Debug for Val {
             }
             Val::Wildcard => {
                 write!(f, "_Wildcard")
-            }
-            Val::Loc(ref v, ref loc) => {
-                write!(f, "{:?}@{:?}", v, loc)
             }
         }
     }
@@ -1690,30 +1171,12 @@ impl reg::Iregistry for Val
     {
         match (i, self) {
             // get reg on tuple
-            (&Ireg::Reg(p), &Val::Tuple(ref tup)) => {
-                if p as usize >= tup.len() {
-                    panic!("{:?} too big for {:?}", i, tup);
-                }
-                &tup[p as usize]
-            }
-            (&Ireg::Sub(p, ref s), &Val::Tuple(ref tup)) => {
-                if p as usize >= tup.len() {
-                    panic!("{:?} too big for {:?}", i, tup);
-                }
-                tup[p as usize].ireg_get(&*s)
+            (_, &Val::Tuple(ref items)) => {
+                items.ireg_get(i)
             }
             // get reg on struct
-            (&Ireg::Reg(p), &Val::Struct(_, ref fields)) => {
-                if p as usize >= fields.len() {
-                    panic!("{:?} too big for {:?}", i, fields);
-                }
-                &fields[p as usize]
-            }
-            (&Ireg::Sub(p, ref s), &Val::Struct(_, ref fields)) => {
-                if p as usize >= fields.len() {
-                    panic!("{:?} too big for {:?}", i, fields);
-                }
-                fields[p as usize].ireg_get(&*s)
+            (_, &Val::Struct(_, ref items)) => {
+                items.ireg_get(i)
             }
             // Failures
             (&Ireg::Reg(0), &Val::Failure(ref tag, _, _, _)) => tag,
@@ -1725,7 +1188,7 @@ impl reg::Iregistry for Val
                 panic!("Cannot access sub data for Failure {} {}", tag, msg);
             }
             _ => {
-                panic!("Unsupported registry value {:?}{:?}",
+                panic!("unsupported registry value {:?}{:?}",
                     self, i);
             }
         }
@@ -1734,19 +1197,8 @@ impl reg::Iregistry for Val
     fn ireg_get_mut<'a, 'b>(&'a mut self, i: &'b Ireg) -> &'a mut Val
     {
         match (i, self) {
-            // set reg on tuple
-            (&Ireg::Reg(p), &mut Val::Tuple(ref mut tup)) => {
-                if p as usize >= tup.len() {
-                    panic!("{:?} too big for {:?}", i, tup);
-                }
-                tup.get_mut(p as usize).unwrap()
-            }
-            (&Ireg::Sub(p, ref s), &mut Val::Tuple(ref mut tup)) => {
-                if p as usize >= tup.len() {
-                    panic!("{:?} too big for {:?}", i, tup);
-                }
-                let ch = tup.get_mut(p as usize).unwrap();
-                ch.ireg_get_mut(&*s)
+            (_, &mut Val::Tuple(ref mut items)) => {
+                items.ireg_get_mut(i)
             }
             _ => {
                 panic!("Tuple is only mut registry value");
@@ -1757,47 +1209,23 @@ impl reg::Iregistry for Val
     fn ireg_set(&mut self, i: &Ireg, v: Val)
     {
         match (i, self) {
-            // set reg on tuple
-            (&Ireg::Reg(p), &mut Val::Tuple(ref mut tup)) => {
-                if p as usize >= tup.len() {
-                    panic!("{:?} too big for {:?}", i, tup);
-                }
-                tup[p as usize] = v;
+            // set reg on tuples
+            (_, &mut Val::Tuple(ref mut fields)) => {
+                fields.ireg_set(i, v);
             }
-            (&Ireg::Sub(p, ref s), &mut Val::Tuple(ref mut tup)) => {
-                if p as usize >= tup.len() {
-                    panic!("{:?} too big for {:?}", i, tup);
-                }
-                tup[p as usize].ireg_set(&*s, v);
-            }
-            // set reg on structs
-            (&Ireg::Reg(p), &mut Val::Struct(ref name, ref mut fields)) => {
-                if p as usize >= fields.len() {
-                    panic!("{:?} too big for struct {}({:?})", i, name, fields);
-                }
-                fields[p as usize] = v;
-            }
-            (&Ireg::Sub(p, ref s), &mut Val::Struct(ref name, ref mut fld)) => {
-                if p as usize >= fld.len() {
-                    panic!("{:?} too big for struct {:?}", i, name);
-                }
-                fld[p as usize].ireg_set(&*s, v);
-            }
-            // set reg on namedtuples
-            (&Ireg::Reg(p), &mut Val::NamedTuple(ref name, ref mut fields)) => {
-                if p as usize >= fields.len() {
-                    panic!("{:?} too big for named tuple {}({:?})"
-                        , i, name, fields);
-                }
-                fields[p as usize] = v;
-            }
-            (&Ireg::Sub(p, ref s), &mut Val::NamedTuple(ref name, ref mut fld)
+            (&Ireg::Sub(p, ref s), &mut Val::Tuple(ref mut fld)
                 ) =>
             {
-                if p as usize >= fld.len() {
-                    panic!("{:?} too big for named tuple {:?}", i, name);
-                }
-                fld[p as usize].ireg_set(&*s, v);
+                fld.ireg_set(s, v);
+            }
+            // set reg on structs
+            (_, &mut Val::Struct(_, ref mut fields)) => {
+                fields.ireg_set(i, v);
+            }
+            (&Ireg::Sub(p, ref s), &mut Val::Struct(ref name, ref mut fld)
+                ) =>
+            {
+                fld.ireg_set(s, v);
             }
             // set reg on lists
             (&Ireg::Reg(0), &mut Val::Cons(ref mut head, _)) => {
@@ -1887,8 +1315,9 @@ impl PartialOrd for Val
             (&Val::Void, &Val::Void) => {
                 Some(Ordering::Equal)
             }
-            (&Val::Tuple(ref a), &Val::Tuple(ref b)) => {
-                PartialOrd::partial_cmp(&*a, &*b)
+            // tuple to tuple comparison
+            (&Val::Tuple(ref av), &Val::Tuple(ref bv)) => {
+                PartialOrd::partial_cmp(av, bv)
             }
             // struct to struct comparison
             (&Val::Struct(ref at, ref av), &Val::Struct(ref bt, ref bv)) => {
@@ -1900,25 +1329,31 @@ impl PartialOrd for Val
                 }
             }
             // enum to enum comparison
-            (&Val::Enum(ref at, ai, ref an, ref av)
-                    , &Val::Enum(ref bt, bi, ref bn, ref bv)) =>
+            (&Val::EnumStruct(ref at, ref an, ref av)
+                    , &Val::EnumStruct(ref bt, ref bn, ref bv)) =>
             {
-                match PartialOrd::partial_cmp(&*at, &*bt) {
-                    Some(Ordering::Equal) => {
-                        match PartialOrd::partial_cmp(&ai, &bi) {
-                            Some(Ordering::Equal) => {
-                                PartialOrd::partial_cmp(av, bv)
-                            }
-                            icmp => icmp,
-                        }
-                    }
-                    tcmp => tcmp,
-                }
+                Some(PartialOrd::partial_cmp(&*at, &*bt).unwrap()
+                    .then_with(|| {
+                        PartialOrd::partial_cmp(an, bn).unwrap()
+                    })
+                    .then_with(|| {
+                        PartialOrd::partial_cmp(av, bv).unwrap()
+                    })
+                )
+            }
+            // enumtoken to enumtoken comparison
+            (&Val::EnumToken(ref at, ref an), &Val::EnumToken(ref bt, ref bn)) => {
+                Some(PartialOrd::partial_cmp(&*at, &*bt).unwrap()
+                    .then_with(|| {
+                        PartialOrd::partial_cmp(&*an, &*bn).unwrap()
+                    })
+                )
             }
             // token to token comparison
             (&Val::Token(ref at), &Val::Token(ref bt)) => {
                 PartialOrd::partial_cmp(&*at, &*bt)
             }
+            // func ref to func ref comparison
             (&Val::FuncRef(ref m1, ref n1, ref t1)
                     , &Val::FuncRef(ref m2, ref n2, ref t2)) =>
             {
@@ -1931,53 +1366,13 @@ impl PartialOrd for Val
                     })
                 )
             }
-            (&Val::TypedId(ref ida, ref typa),
-                    &Val::TypedId(ref idb, ref typb)) => {
-                let cmp = PartialOrd::partial_cmp(&ida, &idb);
-                match cmp {
-                    Some(Ordering::Equal) => {
-                        PartialOrd::partial_cmp(&typa, &typb)
-                    }
-                    _ => cmp,
-                }
-            }
             (&Val::ResourceRef(rra), &Val::ResourceRef(rrb)) => {
                 PartialOrd::partial_cmp(&rra, &rrb)
-            }
-            (&Val::Sxpr(t1, ref x1, _), &Val::Sxpr(t2, ref x2, _)) => {
-                let cmp = PartialOrd::partial_cmp(&t1, &t2);
-                match cmp {
-                    Some(Ordering::Equal) => {
-                        PartialOrd::partial_cmp(
-                            &*x1, &*x2
-                        )
-                    }
-                    _ => cmp,
-                }
-            }
-            (&Val::DotAccess(ref base1, ref sub1),
-                    &Val::DotAccess(ref base2, ref sub2)) =>
-            {
-                let cmp = PartialOrd::partial_cmp(&base1, &base2);
-                match cmp {
-                    Some(Ordering::Equal) => {
-                        PartialOrd::partial_cmp(&sub1, &sub2)
-                    }
-                    _ => cmp,
-                }
             }
             (&Val::Buffer(ref b1), &Val::Buffer(ref b2)) => {
                 PartialOrd::partial_cmp(b1, b2)
             }
 
-            // don't compare loc directly, just pass through to
-            // compare the inner values
-            (&Val::Loc(ref v1, _), _) => {
-                PartialOrd::partial_cmp(&**v1, other)
-            }
-            (_, &Val::Loc(ref v2, _)) => {
-                PartialOrd::partial_cmp(self, &**v2)
-            }
             // start comparing mixed types
             (&Val::Bool(false), _) => {
                 Some(Ordering::Less)
@@ -2021,12 +1416,6 @@ impl PartialOrd for Val
             (_, &Val::Id(_)) => {
                 Some(Ordering::Greater)
             }
-            (&Val::TypedId(_, _), _) => {
-                Some(Ordering::Less)
-            }
-            (_, &Val::TypedId(_, _)) => {
-                Some(Ordering::Greater)
-            }
             (&Val::ResourceRef(_), _) => {
                 Some(Ordering::Less)
             }
@@ -2045,16 +1434,28 @@ impl PartialOrd for Val
             (_, &Val::Cons(_, _)) => {
                 Some(Ordering::Greater)
             }
+            (&Val::Tuple(_), _) => {
+                Some(Ordering::Less)
+            }
+            (_, &Val::Tuple(_)) => {
+                Some(Ordering::Greater)
+            }
             (&Val::Struct(_, _), _) => {
                 Some(Ordering::Less)
             }
             (_, &Val::Struct(_, _)) => {
                 Some(Ordering::Greater)
             }
-            (&Val::Enum(_, _, _, _), _) => {
+            (&Val::EnumStruct(_, _, _), _) => {
                 Some(Ordering::Less)
             }
-            (_, &Val::Enum(_, _, _, _)) => {
+            (_, &Val::EnumStruct(_, _, _)) => {
+                Some(Ordering::Greater)
+            }
+            (&Val::EnumToken(_, _), _) => {
+                Some(Ordering::Less)
+            }
+            (_, &Val::EnumToken(_, _)) => {
                 Some(Ordering::Greater)
             }
             (&Val::Token(_), _) => {
@@ -2071,8 +1472,6 @@ impl PartialOrd for Val
             }
             (&Val::RustBlock, _) => Some(Ordering::Less),
             (_, &Val::RustBlock) => Some(Ordering::Greater),
-            (&Val::Sxpr(_, _, _), _) => Some(Ordering::Less),
-            (_, &Val::Sxpr(_, _, _)) => Some(Ordering::Greater),
             (&Val::Wildcard, _) => Some(Ordering::Less),
             (_, &Val::Wildcard) => Some(Ordering::Greater),
             _ => {
@@ -2179,7 +1578,8 @@ impl Env
         }
     }
 
-    pub fn with_args(v: Val) -> Env {
+    pub fn with_args(v: Val) -> Env
+    {
         Env{
             params: v,
             result: None,
@@ -2329,10 +1729,12 @@ impl reg::Iregistry for Env
 
 #[cfg(test)]
 mod tests {
-    use leema::val::{Type, Val, SxprType, SrcLoc};
+    use leema::val::{Type, Val, SrcLoc};
     use leema::list;
+    use leema::lri::{Lri};
+    use leema::lstr::{Lstr};
     use leema::reg::{Reg};
-    use leema::sxpr;
+    use leema::struple::{Struple};
 
     use std::collections::{HashMap};
     use std::rc::{Rc};
@@ -2349,34 +1751,11 @@ fn test_equal_type_int() {
 }
 
 #[test]
-fn test_type_id_to_struct()
-{
-    let typename = Rc::new("Taco".to_string());
-    assert_eq!(
-        Type::Struct(typename.clone()),
-        Type::Id(typename.clone()).to_struct()
-    );
-}
-
-#[test]
-fn test_type_module_id_to_struct()
-{
-    let module = Rc::new("Foo".to_string());
-    let typname = Rc::new("Taco".to_string());
-    let input =
-        Type::ModPrefix(module.clone(), Rc::new(Type::Id(typname.clone())));
-    assert_eq!(
-        Type::ModPrefix(module.clone(), Rc::new(Type::Struct(typname.clone()))),
-        input.to_struct()
-    );
-}
-
-#[test]
 fn test_tuple_from_list() {
     let origl = list::cons(Val::Int(4), list::singleton(Val::Int(7)));
     let tuple = Val::tuple_from_list(&origl);
     print!("wtf?({:?})", tuple);
-    let exp = Val::Tuple(vec![Val::Int(4), Val::Int(7)]);
+    let exp = Val::Tuple(Struple::new_tuple2(Val::Int(4), Val::Int(7)));
     assert_eq!(exp, tuple);
 }
 
@@ -2410,8 +1789,8 @@ fn test_equal_false() {
 
 #[test]
 fn test_tuple() {
-    let a = Val::Tuple(vec![Val::Int(3), Val::Int(7)]);
-    let b = Val::Tuple(vec![Val::Int(3), Val::Int(7)]);
+    let a = Val::Tuple(Struple::new_tuple2(Val::Int(3), Val::Int(7)));
+    let b = Val::Tuple(Struple::new_tuple2(Val::Int(3), Val::Int(7)));
     assert!(a == b);
 }
 
@@ -2431,127 +1810,126 @@ fn test_compare_true_false() {
 
 #[test]
 fn test_struct_eq() {
+    let t = Lri::new(Lstr::Sref("Taco"));
     let a =
-        Val::Struct(Type::Id(Rc::new("Taco".to_string())), vec![
+        Val::Struct(t.clone(), Struple::new_tuple2(
             Val::Int(3),
             Val::Bool(false),
-        ]);
+        ));
     let b =
-        Val::Struct(Type::Id(Rc::new("Taco".to_string())), vec![
+        Val::Struct(t, Struple::new_tuple2(
             Val::Int(3),
             Val::Bool(false),
-        ]);
+        ));
     assert_eq!(a, b);
 }
 
 #[test]
 fn test_struct_lt_type() {
     let a =
-        Val::Struct(Type::Id(Rc::new("Burrito".to_string())), vec![
-            Val::Int(3),
-            Val::Bool(false),
-        ]);
+        Val::Struct(
+            Lri::new(Lstr::Sref("Burrito")),
+            Struple::new_tuple2(
+                Val::Int(3),
+                Val::Bool(false),
+            ),
+        );
     let b =
-        Val::Struct(Type::Id(Rc::new("Taco".to_string())), vec![
-            Val::Int(3),
-            Val::Bool(false),
-        ]);
+        Val::Struct(
+            Lri::new(Lstr::Sref("Taco")),
+            Struple::new_tuple2(
+                Val::Int(3),
+                Val::Bool(false),
+            ),
+        );
     assert!(a < b);
 }
 
 #[test]
 fn test_struct_lt_val() {
+    let typ = Lri::new(Lstr::Sref("Taco"));
     let a =
-        Val::Struct(Type::Id(Rc::new("Taco".to_string())), vec![
+        Val::Struct(typ.clone(), Struple::new_tuple2(
             Val::Bool(false),
             Val::Int(3),
-        ]);
+        ));
     let b =
-        Val::Struct(Type::Id(Rc::new("Taco".to_string())), vec![
+        Val::Struct(typ.clone(), Struple::new_tuple2(
             Val::Bool(false),
             Val::Int(7),
-        ]);
+        ));
     assert!(a < b);
 }
 
 #[test]
 fn test_enum_eq() {
-    let etype =
-        Type::ModPrefix(
-            Rc::new("animals".to_string()),
-            Rc::new(Type::Enum(Rc::new("Animal".to_string()))),
-        );
+    let etype = Lri::with_modules(
+        Lstr::Sref("animals"),
+        Lstr::Sref("Animal"),
+    );
 
     let a =
-        Val::Enum(
+        Val::EnumToken(
             etype.clone(),
-            0,
-            Rc::new(String::from("Dog".to_string())),
-            Box::new(Val::Void),
+            Lstr::Sref("Dog"),
         );
     let b =
-        Val::Enum(
+        Val::EnumToken(
             etype.clone(),
-            0,
-            Rc::new(String::from("Dog".to_string())),
-            Box::new(Val::Void),
+            Lstr::Sref("Dog"),
         );
     assert_eq!(a, b);
 }
 
 #[test]
-fn test_enum_lt_type() {
+fn test_enum_lt_type()
+{
+    let typ = Lri::new(Lstr::Sref("Taco"));
     let a =
-        Val::Enum(
-            Type::Enum(Rc::new("Burrito".to_string())),
-            0,
-            Rc::new(String::from("Torta")),
-            Box::new(Val::Void),
+        Val::EnumToken(
+            typ.clone(),
+            Lstr::Sref("Quesadilla"),
         );
     let b =
-        Val::Enum(
-            Type::Enum(Rc::new("Taco".to_string())),
-            0,
-            Rc::new(String::from("Quesadilla")),
-            Box::new(Val::Void),
+        Val::EnumToken(
+            typ,
+            Lstr::Sref("Torta"),
         );
     assert!(a < b);
 }
 
 #[test]
-fn test_enum_lt_variant() {
+fn test_enum_lt_variant()
+{
+    let typ = Lri::new(Lstr::Sref("Taco"));
     let a =
-        Val::Enum(
-            Type::Enum(Rc::new("Taco".to_string())),
-            1,
-            Rc::new(String::from("Burrito")),
-            Box::new(Val::Void),
+        Val::EnumToken(
+            typ.clone(),
+            Lstr::Sref("Burrito"),
         );
     let b =
-        Val::Enum(
-            Type::Enum(Rc::new("Taco".to_string())),
-            2,
-            Rc::new(String::from("Torta")),
-            Box::new(Val::Void),
+        Val::EnumToken(
+            typ,
+            Lstr::Sref("Torta"),
         );
     assert!(a < b);
 }
 
 #[test]
-fn test_enum_lt_val() {
+fn test_enum_lt_val()
+{
+    let typ = Lri::new(Lstr::Sref("Taco"));
     let a =
-        Val::Enum(
-            Type::Enum(Rc::new("Taco".to_string())),
-            0,
-            Rc::new(String::from("Burrito")),
-            Box::new(Val::Int(5)),
+        Val::EnumStruct(
+            typ.clone(),
+            Lstr::Sref("Burrito"),
+            Struple::new_tuple2(Val::Int(5), Val::Int(8)),
         );
     let b =
-        Val::Enum(
-            Type::Enum(Rc::new("Taco".to_string())),
-            0,
-            Rc::new(String::from("Burrito")),
-            Box::new(Val::Int(9)),
+        Val::EnumStruct(
+            typ,
+            Lstr::Sref("Burrito"),
+            Struple::new_tuple2(Val::Int(9), Val::Int(8)),
         );
     assert!(a < b);
 }
@@ -2559,22 +1937,19 @@ fn test_enum_lt_val() {
 #[test]
 fn test_format_struct_empty()
 {
-    let s = Val::Struct(
-        Type::Struct(Rc::new("Taco".to_string())), Vec::with_capacity(0)
-    );
+    let s = Val::Token(Lri::new(Lstr::Sref("Taco")));
 
     let s_str = format!("{}", s);
     assert_eq!("Taco", s_str);
 }
 
 #[test]
-fn test_format_enum_empty()
+fn test_format_enum_token()
 {
-    let e = Val::Enum(
-        Type::Enum(Rc::new("Taco".to_string())),
-        7,
-        Rc::new("Burrito".to_string()),
-        Box::new(Val::Void),
+    let type_lri = Lri::new(Lstr::Sref("Taco"));
+    let e = Val::EnumToken(
+        type_lri,
+        Lstr::Sref("Burrito"),
     );
 
     let e_str = format!("{}", e);
@@ -2584,43 +1959,19 @@ fn test_format_enum_empty()
 #[test]
 fn test_format_enum_namedtuple()
 {
-    let burrito_str = Rc::new(String::from("Burrito"));
-    let s = Val::Enum(
-        Type::ModPrefix(
-            Rc::new("tortas".to_string()),
-            Rc::new(Type::Enum(Rc::new("Taco".to_string()))),
-        ),
-        1,
+    let burrito_str = Lstr::Sref("Burrito");
+    let stype_lri = Lri::with_modules(
+        Lstr::Sref("tortas"),
+        Lstr::Sref("Taco"),
+    );
+    let s = Val::EnumStruct(
+        stype_lri,
         burrito_str.clone(),
-        Box::new(Val::NamedTuple(
-            Type::NamedTuple(burrito_str, vec![Type::Int, Type::Int]),
-            vec![Val::Int(5), Val::Int(8)],
-        )),
+        Struple::new_tuple2(Val::Int(5), Val::Int(8)),
     );
 
     let s_str = format!("{}", s);
-    assert_eq!("Burrito(5,8,)", s_str);
-}
-
-#[test]
-fn test_format_enum_two_fields()
-{
-    let s = Val::Struct(
-        Type::Struct(Rc::new("Burrito".to_string())),
-        vec![
-            Val::Int(4),
-            Val::Int(8),
-        ],
-    );
-    let e = Val::Enum(
-        Type::Enum(Rc::new("Taco".to_string())),
-        1,
-        Rc::new("Burrito".to_string()),
-        Box::new(s),
-    );
-
-    let e_str = format!("{}", e);
-    assert_eq!("Burrito(4,8,)", e_str);
+    assert_eq!("tortas::Taco.Burrito(5,8,)", s_str);
 }
 
 #[test]
@@ -2630,17 +1981,13 @@ fn test_compare_across_types() {
     let i = Val::Int(7);
     let s = Val::new_str("hello".to_string());
     let strct = Val::Struct(
-        Type::Struct(Rc::new("Foo".to_string())),
-        vec![Val::Int(2), Val::Bool(true)],
+        Lri::new(Lstr::Sref("Foo")),
+        Struple::new_tuple2(Val::Int(2), Val::Bool(true)),
     );
-    let enm = Val::Enum(
-        Type::Enum(Rc::new("Taco".to_string())),
-        1,
-        Rc::new("Burrito".to_string()),
-        Box::new(Val::Struct(
-            Type::Struct(Rc::new("Burrito".to_string())),
-            vec![Val::Int(8), Val::Int(6)],
-        ))
+    let enm = Val::EnumStruct(
+        Lri::new(Lstr::Sref("Taco")),
+        Lstr::Sref("Burrito"),
+        Struple::new_tuple2(Val::Int(8), Val::Int(6)),
     );
 
     assert!(f < t);
@@ -2668,37 +2015,6 @@ fn test_get_type_int_list()
 }
 
 #[test]
-fn test_replace_ids_if()
-{
-    let loc = SrcLoc::new(3, 4);
-    let body = sxpr::new(
-        SxprType::IfExpr,
-        list::cons(Val::id("a".to_string()),
-            list::cons(Val::id("b".to_string()),
-            list::cons(Val::Bool(false),
-            Val::Nil,
-            ))),
-        loc,
-    );
-    let mut ids = HashMap::new();
-    ids.insert(Rc::new("a".to_string()), Val::Bool(true));
-    ids.insert(Rc::new("b".to_string()), Val::Bool(false));
-
-    let result = Val::replace_ids(&body, &ids);
-
-    let expected = sxpr::new(
-        SxprType::IfExpr,
-        list::cons(Val::Bool(true),
-            list::cons(Val::Bool(false),
-            list::cons(Val::Bool(false),
-            Val::Nil,
-            ))),
-        loc,
-    );
-    assert_eq!(expected, result);
-}
-
-#[test]
 fn test_pattern_match_list_cons_wildcard_head()
 {
     let patt = list::cons(Val::Wildcard, Val::PatternVar(Reg::local(1)));
@@ -2719,12 +2035,12 @@ fn test_pattern_match_list_cons_wildcard_tail()
 #[test]
 fn test_pattern_match_wildcard_inside_tuple()
 {
-    let patt = Val::Tuple(vec![
+    let patt = Val::Tuple(Struple::new_tuple2(
         Val::Int(1), Val::Wildcard
-        ]);
-    let input = Val::Tuple(vec![
+        ));
+    let input = Val::Tuple(Struple::new_tuple2(
         Val::Int(1), Val::Int(4)
-        ]);
+        ));
     let pmatch = Val::pattern_match(&patt, &input);
     assert!(pmatch.is_some());
 }

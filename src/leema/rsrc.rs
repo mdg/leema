@@ -69,8 +69,8 @@ impl IopCtx
     {
         let params = match param_val {
             Val::Tuple(items) => {
-                items.into_iter().map(|i| {
-                    Some(i)
+                items.0.into_iter().map(|i| {
+                    Some(i.1)
                 }).collect()
             }
             _ => {

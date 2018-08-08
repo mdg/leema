@@ -1,7 +1,8 @@
-use leema::ast;
-use leema::val::{Val, Type, SxprType};
-use leema::list;
+use leema::ast::{self, Ast};
+use leema::val::{Val, Type};
 use leema::lex::{lex};
+use leema::lri::{Lri};
+use leema::lstr::{Lstr};
 use leema::parse::{Token};
 
 use std::collections::{HashMap, HashSet};
@@ -39,15 +40,14 @@ impl ModKey
     }
 }
 
-pub type MacroDef = (Vec<Rc<String>>, Val);
-type MacroMap = HashMap<String, MacroDef>;
+type MacroMap = HashMap<String, Ast>;
 
 #[derive(Debug)]
 pub struct ModuleSource
 {
     pub key: Rc<ModKey>,
     pub txt: String,
-    pub ast: Val,
+    pub ast: Ast,
 }
 
 impl ModuleSource
@@ -73,7 +73,7 @@ impl ModuleSource
         lex(txt)
     }
 
-    pub fn read_ast(txt: &str) -> Val
+    pub fn read_ast(txt: &str) -> ast::Ast
     {
         let toks = ModuleSource::read_tokens(txt);
         ast::parse(toks)
@@ -97,6 +97,8 @@ impl ModulePreface
             imports: HashSet::new(),
             macros: HashMap::new(),
         };
+        // everything imports prefab by default
+        // should probably get rid of this eventually tho
         if &*ms.key.name != "prefab" {
             mp.imports.insert(String::from("prefab"));
         }
@@ -104,12 +106,13 @@ impl ModulePreface
         mp
     }
 
-    pub fn split_ast(&mut self, ast: &Val)
+    pub fn split_ast(&mut self, ast: &Ast)
     {
         match ast {
-            &Val::Sxpr(SxprType::BlockExpr, ref sx, ref loc) => {
-                list::fold_mut_ref(self, sx
-                    , ModulePreface::split_ast_block_item);
+            &Ast::Block(ref lines) => {
+                for l in lines.iter() {
+                    ModulePreface::split_ast_block_item(self, l);
+                }
             }
             _ => {
                 panic!("what's that doing in the ast? {:?}", ast);
@@ -117,21 +120,18 @@ impl ModulePreface
         }
     }
 
-    pub fn split_ast_block_item(mp: &mut ModulePreface, item: &Val)
+    pub fn split_ast_block_item(mp: &mut ModulePreface, item: &Ast)
     {
         match item {
-            &Val::Sxpr(SxprType::Import, ref imp, ref loc) => {
-                let iname = list::head_ref(imp);
-                mp.imports.insert(String::from(iname.str()));
+            &Ast::Import(ref i, ref loc) => {
+                let imp_string = (**i).localid_str().to_string();
+                mp.imports.insert(imp_string);
             }
-            &Val::Sxpr(SxprType::DefMacro, ref dm, ref loc) => {
-                let (mname_val, args_val, body) = list::to_ref_tuple3(dm);
-                let mname = mname_val.str();
-                let mut args = vec![];
-                list::fold_mut_ref(&mut args, args_val, |acc, a| {
-                    acc.push(a.to_str().clone());
-                });
-                mp.macros.insert(String::from(mname), (args, body.clone()));
+            &Ast::DefFunc(ast::FuncClass::Macro, ref name, ref args
+                    , _, ref body, ref loc
+            ) => {
+                let name_string = String::from(&**name);
+                mp.macros.insert(name_string, item.clone());
             }
             _ => {
                 // ignore everything else, it will be handled in a later phase
@@ -146,7 +146,6 @@ pub struct ModuleInterface
     pub key: Rc<ModKey>,
     pub funcs: HashMap<String, Option<Val>>,
     pub valtypes: HashMap<String, Type>,
-    pub newtypes: HashMap<Type, Val>,
 }
 
 impl ModuleInterface
@@ -157,7 +156,15 @@ impl ModuleInterface
             key: ms.key.clone(),
             funcs: HashMap::new(),
             valtypes: HashMap::new(),
-            newtypes: HashMap::new(),
         }
     }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use leema::module::{ModulePreface};
+    use leema::lex::{lex};
+    use std::rc::Rc;
+
 }

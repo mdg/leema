@@ -80,8 +80,8 @@ impl Fiber
             &Op::ConstVal(ref dst, ref v) => {
                 self.execute_const_val(dst, v)
             }
-            &Op::Constructor(ref dst, ref typ, nflds) => {
-                self.execute_constructor(dst, typ, nflds)
+            &Op::Construple(ref dst, ref typ) => {
+                self.execute_construple(dst, typ)
             }
             &Op::Copy(ref dst, ref src) => {
                 self.execute_copy(dst, src)
@@ -207,14 +207,12 @@ impl Fiber
             let ref fname_val = self.head.e.get_reg(freg);
             match *fname_val {
                 &Val::Str(ref name_str) => {
-                    vout!("execute_call({})\n", name_str);
                     // pass in args
                     (Rc::new("".to_string()), name_str.clone())
                 }
-                &Val::Tuple(ref modfunc) if modfunc.len() == 2 => {
-                    let modnm = modfunc.get(0).unwrap();
-                    let funcnm = modfunc.get(1).unwrap();
-                    vout!("execute_call({}.{})\n", modnm, funcnm);
+                &Val::Tuple(ref modfunc) if modfunc.0.len() == 2 => {
+                    let modnm = &modfunc.0.get(0).unwrap().1;
+                    let funcnm = &modfunc.0.get(1).unwrap().1;
                     match (modnm, funcnm) {
                         (&Val::Str(ref m), &Val::Str(ref f)) => {
                             (m.clone(), f.clone())
@@ -224,11 +222,15 @@ impl Fiber
                         }
                     }
                 }
+                &Val::FuncRef(ref modnm, ref funcnm, _) => {
+                    (modnm.clone(), funcnm.clone())
+                }
                 _ => {
                     panic!("That's not a function! {:?}", fname_val);
                 }
             }
         };
+        vout!("execute_call({}::{})\n", modname, funcname);
 
         let opt_failure =
             Fiber::call_arg_failure(self.head.e.get_reg(argreg))
@@ -267,23 +269,21 @@ impl Fiber
         Event::Uneventful
     }
 
-    pub fn execute_constructor(&mut self, reg: &Reg, typ: &Type, nfields: i8
-        ) -> Event
+    pub fn execute_construple(&mut self, reg: &Reg, new_typ: &Type) -> Event
     {
-        if !typ.is_constructable() {
-            panic!("Cannot construct not structure: {:?}", typ);
-        }
-        let mut fields = Vec::with_capacity(nfields as usize);
-        fields.resize(nfields as usize, Val::Void);
-        let construction =
-            if typ.is_struct() {
-                Val::Struct(typ.clone(), fields)
-            } else if typ.is_namedtuple() {
-                Val::NamedTuple(typ.clone(), fields)
-            } else {
-                panic!("cannot construct unknown type: {:?}", typ);
-            };
-        self.head.e.set_reg(reg, construction);
+        let construple = match self.head.e.get_params() {
+            &Val::Struct(ref old_typ, ref items) => {
+                if let &Type::UserDef(ref i_new_typ) = new_typ {
+                    Val::Struct(i_new_typ.clone(), items.clone())
+                } else {
+                    panic!("struct type is not user defined: {:?}", new_typ);
+                }
+            }
+            what => {
+                panic!("cannot construct a not construple: {:?}", what);
+            }
+        };
+        self.head.e.set_reg(reg, construple);
         self.head.pc = self.head.pc + 1;
         Event::Uneventful
     }
@@ -390,9 +390,9 @@ impl Fiber
     fn call_arg_failure(args: &Val) -> Option<&Val>
     {
         if let &Val::Tuple(ref items) = args {
-            for i in items {
-                if i.is_failure() {
-                    return Some(i);
+            for i in items.0.iter() {
+                if i.1.is_failure() {
+                    return Some(&i.1);
                 }
             }
         } else {

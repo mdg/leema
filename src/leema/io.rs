@@ -1,8 +1,10 @@
 
 use leema::log;
+use leema::lstr::{Lstr};
 use leema::msg::{WorkerMsg, AppMsg, IoMsg};
 use leema::rsrc::{self, Rsrc, Event, IopCtx};
-use leema::val::{Val};
+use leema::struple::{Struple};
+use leema::val::{Val, MsgVal};
 
 use std;
 use std::cell::{RefCell};
@@ -117,7 +119,7 @@ impl Io
     pub fn new(app_tx: Sender<AppMsg>, msg_rx: Receiver<IoMsg>)
         -> (Rc<RefCell<Io>>, reactor::Core)
     {
-        let mut core = reactor::Core::new().unwrap();
+        let core = reactor::Core::new().unwrap();
         let h = core.handle();
         let io = Io{
             resource: HashMap::new(),
@@ -160,7 +162,7 @@ impl Io
             } => {
                 vout!("iop incoming: {:?}:{:?}:{:?} {:?}\n",
                     wid, fid, rsrc_id, params);
-                let param_vals = Val::from_msg(params);
+                let param_vals = params.take();
                 self.handle_iop_action(wid, fid, action, rsrc_id, param_vals);
             }
             IoMsg::NewWorker(worker_id, worker_tx) => {
@@ -300,7 +302,7 @@ impl Io
     {
         vout!("send_result({},{},{:?})\n", worker_id, fiber_id, result);
         let tx = self.worker_tx.get(&worker_id).unwrap();
-        tx.send(WorkerMsg::IopResult(fiber_id, result.to_msg()));
+        tx.send(WorkerMsg::IopResult(fiber_id, MsgVal::new(&result)));
     }
 
     pub fn return_rsrc(&mut self, rsrc_id: Option<i64>, rsrc: Option<Box<Rsrc>>)
@@ -375,9 +377,11 @@ impl Future for IoLoop
 pub mod tests
 {
     use leema::io::{Io, IoLoop};
+    use leema::lstr::{Lstr};
     use leema::msg;
     use leema::rsrc::{self, Rsrc};
-    use leema::val::{Val, Type};
+    use leema::struple::{Struple};
+    use leema::val::{Val, Type, MsgVal};
 
     use std::rc::{Rc};
     use std::sync::mpsc;
@@ -404,8 +408,9 @@ fn mock_rsrc_action(mut ctx: rsrc::IopCtx) -> rsrc::Event
     rsrc::Event::Result(Val::Int(18), Some(Box::new(rsrc)))
 }
 
-pub fn exercise_iop_action(action: rsrc::IopAction, params: Vec<Val>)
-    -> Result<(i64, Val), mpsc::TryRecvError>
+pub fn exercise_iop_action(action: rsrc::IopAction
+    , params: Vec<(Option<Lstr>, Val)>
+    ) -> Result<(i64, Val), mpsc::TryRecvError>
 {
     let (msg_tx, msg_rx) = mpsc::channel::<msg::IoMsg>();
     let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
@@ -413,7 +418,7 @@ pub fn exercise_iop_action(action: rsrc::IopAction, params: Vec<Val>)
 
     let (io, core) = Io::new(app_tx, msg_rx);
 
-    let msg_params = Val::Tuple(params).to_msg();
+    let msg_params = MsgVal::new(&Val::Tuple(Struple(params)));
     msg_tx.send(msg::IoMsg::NewWorker(11, worker_tx));
     msg_tx.send(msg::IoMsg::Iop{
         worker_id: 11,
@@ -430,7 +435,7 @@ pub fn exercise_iop_action(action: rsrc::IopAction, params: Vec<Val>)
         .map(|result_msg| {
             match result_msg {
                 msg::WorkerMsg::IopResult(fiber_id, msg_val) => {
-                    (fiber_id, Val::from_msg(msg_val))
+                    (fiber_id, msg_val.take())
                 }
                 _ => {
                     (0, Val::new_str("that didn't work".to_string()))
@@ -472,7 +477,7 @@ fn test_rsrc_action_flow()
         fiber_id: 7,
         action: mock_rsrc_action,
         rsrc_id: Some(rsrc_id),
-        params: Val::empty_tuple().to_msg(),
+        params: MsgVal::new(&Val::empty_tuple()),
     });
     msg_tx.send(msg::IoMsg::Done);
     IoLoop::run(core, io);
