@@ -507,7 +507,14 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
                 scope.T.bind_vartype(an, at, ix.line);
             }
             vout!("f({:?}) =>\n{:?}", arg_names, body);
-            let result_type = typecheck_expr(scope, &*body).unwrap();
+            let result_type = typecheck_expr(scope, &*body)
+                .map_err(|e| {
+                    let err_msg =
+                        format!("function result type error for: {}", scope.fname);
+                    e.add_context(err_msg)
+                })
+                .unwrap();
+
             vout!("type is: {}", result_type);
             vout!("vars:");
             for var in scope.T.vars() {
