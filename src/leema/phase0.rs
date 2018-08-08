@@ -228,6 +228,20 @@ impl Protomod
         }
     }
 
+    pub fn preproc_func_result(prog: &Lib, mp: &ModulePreface
+        , result_type: &Ast, loc: &SrcLoc
+        ) -> Ast
+    {
+        match result_type {
+            Ast::TypeAnon => {
+                Ast::TypeVar(Lstr::Sref("T_result"), *loc)
+            }
+            _ => {
+                Protomod::preproc_expr(prog, mp, result_type, &loc)
+            }
+        }
+    }
+
     pub fn preproc_defunc(&mut self, prog: &Lib, mp: &ModulePreface
         , fclass: ast::FuncClass, name: &Ast, args: &LinkedList<Kxpr>
         , rtype: &Ast, body: &Ast, loc: &SrcLoc
@@ -237,7 +251,7 @@ impl Protomod
         let pp_args: LinkedList<Kxpr> = args.iter().map(|a| {
             Protomod::preproc_func_arg(prog, mp, &lstr_name, a, loc)
         }).collect();
-        let pp_rtype_ast = Protomod::preproc_expr(prog, mp, rtype, loc);
+        let pp_rtype_ast = Protomod::preproc_func_result(prog, mp, rtype, loc);
         let pp_body = Protomod::preproc_expr(prog, mp, body, loc);
         let pp_func =
             Ast::DefFunc(fclass, Box::new(name.clone())
