@@ -1,0 +1,50 @@
+macro boolean_and(and_a, and_b) ->
+    if
+    |and_a -> and_b
+    |else -> false
+    --
+--
+
+macro boolean_or(or_a, or_b) ->
+    if
+    |or_a -> true
+    |else -> or_b
+    --
+--
+
+macro fail(ft, msg) ->
+    return create_failure(ft, msg)
+--
+
+macro refail(f) ->
+    return f
+--
+
+## recover from a failure w/ a new valid value
+macro unfail(new_val) ->
+    new_val
+--
+
+func bool_not(v: Bool): Bool -RUST-
+
+func int_add(a: Int, b: Int): Int -RUST-
+func int_sub(a: Int, b: Int): Int -RUST-
+func int_mult(a: Int, b: Int): Int -RUST-
+func int_mod(a: Int, b: Int): Int -RUST-
+func int_negate(a: Int): Int -RUST-
+func int_random(): Int -RUST-
+func equal(a, b): Bool -RUST-
+func less_than(a, b): Bool -RUST-
+func leema_sleep(d: Int): Void -RUST-
+func cin(): Str -RUST-
+func cout(txt: Str): Void -RUST-
+func list_cons(head: $A, tail: [$A]): [$A] -RUST-
+
+func int_abs(abs_a: Int): Int ->
+    if
+    |abs_a < 0 -> ~abs_a
+    |else -> abs_a
+    --
+--
+
+func create_failure(failure_tag: #, msg: Str): Failure -RUST-
