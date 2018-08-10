@@ -1,4 +1,4 @@
-struct Date
+struple Date
 .year: Int
 .month: Int
 .day: Int
