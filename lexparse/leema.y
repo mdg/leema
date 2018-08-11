@@ -346,8 +346,7 @@ else_if(A) ::= ELSE(L) block(B). {
 
 
 /* regular function call */
-call_expr(A) ::= term(B) PARENCALL(D) expr_list(C) RPAREN. {
-    /* TODO: convert this expr_list to an x_list */
+call_expr(A) ::= term(B) PARENCALL(D) x_list(C) RPAREN. {
     A = Ast::Call(Box::new(B), C, D);
 }
 
@@ -399,7 +398,7 @@ match_expr(A) ::= MATCH(D) expr(B) if_case(C) DOUBLEDASH. {
 expr(A) ::= NOT(C) expr(B). {
     let call = vec![Lstr::from("prefab"), Lstr::from("bool_not")];
     let mut args = LinkedList::new();
-    args.push_back(B);
+    args.push_back(Kxpr::new_x(B));
     A = Ast::Call(Box::new(Ast::Lri(call, None, C.clone())), args, C);
 }
 expr(A) ::= expr(B) ConcatNewline(C). {
@@ -409,7 +408,7 @@ expr(A) ::= expr(B) ConcatNewline(C). {
 expr(A) ::= NEGATE(C) term(B). {
     let call = vec![Lstr::from("prefab"), Lstr::from("int_negate")];
     let mut args = LinkedList::new();
-    args.push_back(B);
+    args.push_back(Kxpr::new_x(B));
     A = Ast::Call(Box::new(Ast::Lri(call, None, C.clone())), args, C);
 }
 expr(A) ::= expr(B) PLUS(D) expr(C). {
@@ -474,7 +473,7 @@ expr(A) ::= expr(B) EQ(P) expr(C). {
 expr(A) ::= expr(B) NEQ(P) expr(C). {
     let inner_call = vec![Lstr::from("prefab"), Lstr::from("equal")];
     let mut inner_op = LinkedList::new();
-    inner_op.push_back(Ast::binaryop(inner_call, B, C, P));
+    inner_op.push_back(Kxpr::new_x(Ast::binaryop(inner_call, B, C, P)));
     let not_call = Ast::Lri(vec![Lstr::from("bool_not")], None, P.clone());
     A = Ast::Call(Box::new(not_call), inner_op, P);
 }
@@ -557,8 +556,7 @@ list(A) ::= SquareL expr_list(B) SquareR. {
 /* tuple
  * (4 + 4, 6 - 7)
  */
-tuple(A) ::= LPAREN expr_list(B) RPAREN. {
-    /* TODO: convert this expr_list to an x_list */
+tuple(A) ::= LPAREN x_list(B) RPAREN. {
     A = Ast::Tuple(B);
 }
 

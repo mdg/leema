@@ -165,6 +165,18 @@ impl Kxpr
     {
         self.k.clone()
     }
+
+    pub fn map_x<F>(&self, op: F) -> Kxpr
+        where F: FnOnce(&Ast) -> Ast
+    {
+        let new_x = self.x.as_ref().map(|bx| {
+            Box::new(op(&**bx))
+        });
+        Kxpr{
+            k: self.k.clone(),
+            x: new_x,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -173,7 +185,7 @@ impl Kxpr
 pub enum Ast
 {
     Block(Vec<Ast>),
-    Call(Box<Ast>, LinkedList<Ast>, SrcLoc),
+    Call(Box<Ast>, LinkedList<Kxpr>, SrcLoc),
     Cons(Box<Ast>, Box<Ast>),
     ConstructData(DataType, Box<Ast>, Vec<Ast>),
     ConstBool(bool),
@@ -196,7 +208,7 @@ pub enum Ast
     Return(Box<Ast>, SrcLoc),
     RustBlock,
     StrExpr(Vec<Ast>, SrcLoc),
-    Tuple(LinkedList<Ast>),
+    Tuple(LinkedList<Kxpr>),
     TypeAnon,
     TypeBool,
     TypeFunc(Vec<Kxpr>, SrcLoc),
@@ -217,8 +229,8 @@ impl Ast
     {
         let name_lri = Ast::Lri(callname, None, loc.clone());
         let mut args = LinkedList::new();
-        args.push_back(a);
-        args.push_back(b);
+        args.push_back(Kxpr::new_x(a));
+        args.push_back(Kxpr::new_x(b));
         Ast::Call(Box::new(name_lri), args, loc)
     }
 
@@ -246,7 +258,7 @@ impl Ast
                         , ids);
                 }
                 Some(id) => {
-                    Ast::Localid(id.clone(), loc)
+                    Kxpr::new_x(Ast::Localid(id.clone(), loc))
                 }
             }
         }).collect();
@@ -397,7 +409,8 @@ impl<'a> From<&'a Ast> for Type
             }
             &Ast::Tuple(ref items) => {
                 let pp_items = items.iter().map(|i| {
-                    (None, Type::from(i))
+                    let new_k = i.k_ref().map(|kr| { kr.clone() });
+                    (new_k, Type::from(i.x_ref().unwrap()))
                 }).collect();
                 Type::Tuple(pp_items)
             }

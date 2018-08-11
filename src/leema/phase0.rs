@@ -155,11 +155,14 @@ impl Protomod
             }
             &Ast::Tuple(ref items) if items.len() == 1 => {
                 // one-tuples are compiled to just the value
-                Protomod::preproc_expr(prog, mp, items.front().unwrap(), loc)
+                let first_x = items.front().unwrap().x_ref().unwrap();
+                Protomod::preproc_expr(prog, mp, first_x, loc)
             }
             &Ast::Tuple(ref items) => {
                 let pp_items = items.iter().map(|i| {
-                    Protomod::preproc_expr(prog, mp, i, loc)
+                    i.map_x(|x| {
+                        Protomod::preproc_expr(prog, mp, x, loc)
+                    })
                 }).collect();
                 Ast::Tuple(pp_items)
             }
@@ -278,10 +281,12 @@ impl Protomod
     }
 
     pub fn preproc_call(prog: &Lib, mp: &ModulePreface
-            , callx: &Ast, args: &LinkedList<Ast>, loc: &SrcLoc) -> Ast
+            , callx: &Ast, args: &LinkedList<Kxpr>, loc: &SrcLoc) -> Ast
     {
-        let pp_args = args.iter().map(|arg| {
-            Protomod::preproc_expr(prog, mp, arg, loc)
+        let pp_args: LinkedList<Kxpr> = args.iter().map(|arg| {
+            arg.map_x(|x| {
+                Protomod::preproc_expr(prog, mp, x, loc)
+            })
         }).collect();
         let pp_callx = Protomod::preproc_expr(prog, mp, callx, loc);
         match pp_callx {
@@ -291,7 +296,7 @@ impl Protomod
                 vout!("apply_macro({:?}, {:?})\n", mname, args);
                 let macrod =
                     Protomod::apply_macro(
-                        &mname, &body, &margs, args, loc);
+                        &mname, &body, &margs, &pp_args, loc);
                 // do it again to make sure there's not a wrapped macro
                 Protomod::preproc_expr(prog, mp, &macrod, loc)
             }
@@ -302,7 +307,7 @@ impl Protomod
     }
 
     pub fn apply_macro(macro_name: &Ast, body: &Ast
-        , arg_names: &LinkedList<Kxpr>, args: &LinkedList<Ast>, loc: &SrcLoc
+        , arg_names: &LinkedList<Kxpr>, args: &LinkedList<Kxpr>, loc: &SrcLoc
         ) -> Ast
     {
         let mut arg_map = HashMap::new();
@@ -326,7 +331,7 @@ impl Protomod
                     , macro_name, arg_names);
             }
             let n_lstr = n_opt.unwrap().clone();
-            arg_map.insert(n_lstr, arg_val);
+            arg_map.insert(n_lstr, arg_val.x_ref().unwrap());
         }
         vout!("replace_ids({:?})\n", arg_map);
         Protomod::replace_ids(body, &arg_map, loc)
@@ -350,7 +355,9 @@ impl Protomod
             }
             &Ast::Tuple(ref t) => {
                 let result = t.iter().map(|tv| {
-                    Protomod::replace_ids(tv, idvals, loc)
+                    tv.map_x(|x| {
+                        Protomod::replace_ids(x, idvals, loc)
+                    })
                 }).collect();
                 Ast::Tuple(result)
             }
@@ -455,12 +462,14 @@ impl Protomod
             }
             &Ast::Tuple(ref items) if items.len() == 1 => {
                 let first = items.front().unwrap();
-                Protomod::preproc_pattern(prog, mp, first, loc)
+                Protomod::preproc_pattern(prog, mp, first.x_ref().unwrap(), loc)
             }
             &Ast::Tuple(ref items) => {
                 Ast::Tuple(
                     items.iter().map(|i| {
-                        Protomod::preproc_pattern(prog, mp, i, loc)
+                        i.map_x(|x| {
+                            Protomod::preproc_pattern(prog, mp, x, loc)
+                        })
                     }).collect()
                 )
             }
@@ -473,7 +482,9 @@ impl Protomod
                 let pp_callx =
                     Protomod::preproc_pattern(prog, mp, name, iloc);
                 let pp_args = args.iter().map(|px| {
-                    Protomod::preproc_pattern(prog, mp, px, iloc)
+                    px.map_x(|x| {
+                        Protomod::preproc_pattern(prog, mp, x, iloc)
+                    })
                 }).collect();
                 Ast::Call(Box::new(pp_callx), pp_args, *loc)
             }

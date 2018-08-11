@@ -359,7 +359,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
         &Ast::Call(ref callx, ref args, ref iloc) => {
             let icall = compile_expr(scope, callx, iloc);
             let iargs: Vec<Ixpr> = args.iter().map(|i| {
-                compile_expr(scope, i, iloc)
+                compile_expr(scope, i.x_ref().unwrap(), iloc)
             }).collect();
             let ftype_result = {
                 let iargst: Vec<&Type> = iargs.iter().map(|ia| {
@@ -425,7 +425,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
         }
         &Ast::Tuple(ref items) => {
             let c_items = items.iter().map(|i| {
-                compile_expr(scope, i, loc)
+                compile_expr(scope, i.x_ref().unwrap(), loc)
             }).collect();
             Ixpr::new_tuple(c_items, loc.lineno)
         }
@@ -586,7 +586,7 @@ pub fn compile_let_stmt(scope: &mut Interscope, lettype: ast::LetType
     let irhs = compile_expr(scope, rhs, loc);
     let mut new_vars = Vec::new();
     let cpatt = compile_pattern(scope, &mut new_vars, lhs);
-    vout!("new vars in let: {:?} = {:?}\n", new_vars, irhs);
+    vout!("new vars in let: {:?} = {:?} = {:?}\n", new_vars, lhs, irhs);
     scope.T.match_pattern(&cpatt, &irhs.typ, loc.lineno);
     let failed = new_vars.iter().map(|v| {
         (v.clone(), compile_failed_var(scope, v, loc))
@@ -735,7 +735,7 @@ pub fn compile_pattern(scope: &mut Interscope, new_vars: &mut Vec<Rc<String>>
         }
         &Ast::Tuple(ref items) => {
             let citems = items.iter().map(|i| {
-                compile_pattern(scope, new_vars, i)
+                compile_pattern(scope, new_vars, i.x_ref().unwrap())
             }).collect();
             Val::Tuple(Struple::new_indexed(citems))
         }
@@ -764,7 +764,7 @@ pub fn compile_pattern(scope: &mut Interscope, new_vars: &mut Vec<Rc<String>>
 }
 
 pub fn compile_pattern_call(scope: &mut Interscope
-    , new_vars: &mut Vec<Rc<String>>, callx: &Ast, args: &LinkedList<Ast>
+    , new_vars: &mut Vec<Rc<String>>, callx: &Ast, args: &LinkedList<Kxpr>
     , loc: &SrcLoc
     ) -> Val
 {
