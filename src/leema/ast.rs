@@ -486,8 +486,8 @@ fn test_ast_parse_plus() {
 
     let expected = Ast::Block(vec![
         Ast::Call(Box::new(test_mod_lri("prefab", "int_add", 1, 2)), vec![
-            Ast::ConstInt(5),
-            Ast::ConstInt(3),
+            Kxpr::new_x(Ast::ConstInt(5)),
+            Kxpr::new_x(Ast::ConstInt(3)),
         ].into_iter().collect(),
         SrcLoc::new(1, 2)),
     ]);
@@ -544,16 +544,16 @@ fn test_ast_parse_plus_twice() {
     let inner = Ast::Call(
         Box::new(test_mod_lri("prefab", "int_add", 1, 2)),
         vec![
-            Ast::ConstInt(5),
-            Ast::ConstInt(3),
+            Kxpr::new_x(Ast::ConstInt(5)),
+            Kxpr::new_x(Ast::ConstInt(3)),
         ].into_iter().collect(),
         SrcLoc::new(1, 2),
     );
     let outer = Ast::Call(
         Box::new(test_mod_lri("prefab", "int_add", 1, 4)),
         vec![
-            inner,
-            Ast::ConstInt(2),
+            Kxpr::new_x(inner),
+            Kxpr::new_x(Ast::ConstInt(2)),
         ].into_iter().collect(),
         SrcLoc::new(1, 4),
     );
@@ -570,13 +570,13 @@ fn test_ast_parse_call_one_param()
 
     let neg4 = Ast::Call(
         Box::new(test_mod_lri("prefab", "int_negate", 1, 5)),
-        vec![Ast::ConstInt(4)].into_iter().collect(),
+        vec![Kxpr::new_x(Ast::ConstInt(4))].into_iter().collect(),
         SrcLoc::new(1, 5),
     );
     let expected = Ast::Block(vec![
         Ast::Call(
             Box::new(Ast::Localid(Lstr::from("inc"), SrcLoc::new(1, 1))),
-            vec![neg4].into_iter().collect(),
+            vec![Kxpr::new_x(neg4)].into_iter().collect(),
             SrcLoc::new(1, 4),
         ),
     ]);
@@ -588,7 +588,10 @@ fn test_ast_parse_function_call() {
     let input = "foo(7, 2)\n";
     let root = ast::parse(lex(input));
 
-    let xargs = vec![Ast::ConstInt(7), Ast::ConstInt(2)].into_iter().collect();
+    let xargs = vec![
+        Kxpr::new_x(Ast::ConstInt(7)),
+        Kxpr::new_x(Ast::ConstInt(2)),
+    ].into_iter().collect();
     let expected = Ast::Block(vec![Ast::Call(
         Box::new(Ast::Localid(Lstr::from("foo"), SrcLoc::new(1, 1))),
         xargs,
@@ -603,9 +606,9 @@ fn test_ast_parse_tuple() {
     let root = ast::parse(lex(input));
 
     let xtup = Ast::Tuple(vec![
-        Ast::ConstInt(3),
-        Ast::ConstStr(Lstr::from("taco")),
-        Ast::ConstBool(true),
+        Kxpr::new_x(Ast::ConstInt(3)),
+        Kxpr::new_x(Ast::ConstStr(Lstr::from("taco"))),
+        Kxpr::new_x(Ast::ConstBool(true)),
     ].into_iter().collect());
     let expected = Ast::Block(vec![xtup]);
     assert_eq!(expected, root);
@@ -684,7 +687,7 @@ fn test_parse_one_tuple() {
     let input = "(5)";
     let root = ast::parse(lex(input));
 
-    let tuple_items = vec![Ast::ConstInt(5)].into_iter().collect();
+    let tuple_items = vec![Kxpr::new_x(Ast::ConstInt(5))].into_iter().collect();
     let expected = Ast::Block(vec![Ast::Tuple(tuple_items)]);
 
     assert_eq!(expected, root);
@@ -804,16 +807,16 @@ fn test_parse_call_function_call_result()
     let input = "(foo(5))(6)";
     let root = ast::parse(lex(input));
 
-    let foo_call = Ast::Tuple(vec![
+    let foo_call = Ast::Tuple(vec![Kxpr::new_x(
         Ast::Call(
             Box::new(test_localid("foo", 1, 2)),
-            vec![Ast::ConstInt(5)].into_iter().collect(),
+            vec![Kxpr::new_x(Ast::ConstInt(5))].into_iter().collect(),
             SrcLoc::new(1, 5),
         ),
-    ].into_iter().collect());
+    )].into_iter().collect());
 
     let p_call = Ast::Call(Box::new(foo_call),
-        vec![Ast::ConstInt(6)].into_iter().collect(),
+        vec![Kxpr::new_x(Ast::ConstInt(6))].into_iter().collect(),
         SrcLoc::new(1, 9),
     );
 
@@ -978,8 +981,8 @@ fn test_parse_constructor_call()
     let call = Ast::Call(
         Box::new(test_localid("Taco", 1, 1)),
         vec![
-            Ast::ConstInt(1),
-            Ast::ConstInt(2),
+            Kxpr::new_x(Ast::ConstInt(1)),
+            Kxpr::new_x(Ast::ConstInt(2)),
         ].into_iter().collect(),
         SrcLoc::new(1, 5),
     );
