@@ -311,7 +311,7 @@ impl fmt::Debug for Type
 #[derive(PartialEq)]
 pub enum TypeErr
 {
-    Error(Rc<String>),
+    Error(Lstr),
     Mismatch(Type, Type),
     Context(Box<TypeErr>, Rc<String>),
 }
@@ -337,6 +337,14 @@ impl fmt::Display for TypeErr
                 write!(f, "({}, '{}')", inner_e, ctx)
             }
         }
+    }
+}
+
+impl<'a> From<&'a TypeErr> for String
+{
+    fn from(e: &'a TypeErr) -> String
+    {
+        format!("{}", e)
     }
 }
 

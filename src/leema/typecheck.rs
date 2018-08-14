@@ -476,7 +476,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
         }
         &Source::Func(ref _args, ref body) => {
             // typecheck_expr(scope, body)
-            Err(TypeErr::Error(Rc::new(
+            Err(TypeErr::Error(Lstr::from(
                 format!("unexpected func in typecheck: {:?}", body)
                 )))
         }

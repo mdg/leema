@@ -171,7 +171,7 @@ impl<'a> Interscope<'a>
             let at = Type::from(a.x_ref().unwrap());
             let at2 = t.init_param(i as i16, a.k_ref(), at, lineno)
                 .map_err(|e| {
-                    TypeErr::Error(Rc::new(format!(
+                    TypeErr::Error(Lstr::from(format!(
                         "args type mismatch: {:?}", args
                     )))
                 })
@@ -180,6 +180,11 @@ impl<'a> Interscope<'a>
                 k.clone()
             });
             argt.push((opt_k, at2));
+        }
+
+        t.import_user_types(&Lstr::Rc(proto.key.name.clone()), &proto.struple_fields);
+        for (_, imp) in imports.iter() {
+            t.import_user_types(&Lstr::Rc(imp.key.name.clone()), &imp.struple_fields);
         }
 
         Interscope{

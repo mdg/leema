@@ -1,7 +1,9 @@
 
 use leema::log;
 use leema::ast::{Ast};
+use leema::lri::{Lri};
 use leema::lstr::{Lstr};
+use leema::struple::{Struple};
 use leema::val::{Val, Type, SrcLoc, TypeResult, TypeErr};
 
 use std::collections::{HashMap};
@@ -75,6 +77,7 @@ pub struct Inferator<'b>
     blocks: Vec<Blockscope>,
     inferences: HashMap<Lstr, Type>,
     module: Option<Rc<String>>,
+    typedef: HashMap<Lstr, &'b HashMap<Lstr, Struple<Type>>>,
 }
 
 impl<'b> Inferator<'b>
@@ -87,6 +90,7 @@ impl<'b> Inferator<'b>
             blocks: vec![Blockscope::new(HashMap::new())],
             inferences: HashMap::new(),
             module: None,
+            typedef: HashMap::new(),
         }
     }
 
@@ -106,6 +110,35 @@ impl<'b> Inferator<'b>
                 Some(self.inferred_type(argt))
             }
         }
+    }
+
+    pub fn get_typedef(&self, i: &Lri) -> Result<&Struple<Type>, TypeErr>
+    {
+        // switch all this to use Option/Result combinators
+        if !i.has_modules() {
+            return Result::Err(TypeErr::Error(Lstr::from(
+                format!("cannot get type without including module name: {}", i)
+            )));
+        }
+        let i_modname = i.modules.as_ref().unwrap();
+        let opt_modtypes = self.typedef.get(i_modname);
+        if opt_modtypes.is_none() {
+            return Result::Err(TypeErr::Error(Lstr::from(
+                format!("module {} is not imported for {}", i_modname, self.funcname)
+            )));
+        }
+        opt_modtypes.unwrap().get(&i.localid)
+            .ok_or_else(|| {
+                TypeErr::Error(Lstr::from(
+                    format!("cannot find type {} in module {}", i.localid, i_modname)
+                ))
+            })
+    }
+
+    pub fn import_user_types(&mut self, modname: &Lstr
+        , types: &'b HashMap<Lstr, Struple<Type>>)
+    {
+        self.typedef.insert(modname.clone(), types);
     }
 
     pub fn init_param(&mut self, argi: i16, argn: Option<&Lstr>
@@ -223,41 +256,42 @@ impl<'b> Inferator<'b>
             (&Val::Struct(ref typ1, ref flds1)
                 , &Type::UserDef(ref typename2)) =>
             {
-                /*
-                let type_match = match typ1 {
-                    &Type::Struple(ref typename1) => {
-                        if typename1 != typename2 {
-                            panic!("struple pattern mismatch: {} != {}"
-                                , typename1, typename2);
-                        }
-                        let nflds1 = flds1.len();
-                        let nflds2 = flds2.len();
-                        if nflds1 != nflds2 {
-                            panic!("struple pattern mismatch: {:?} != {:?}"
-                                , patt, valtype);
-                        }
-                        for (fp, ft) in flds1.0.iter().zip(flds2.iter()) {
-                            self.match_pattern(fp, ft, lineno);
-                        }
+                if typ1 != typename2 {
+                    panic!("struct type mismatch: {:?} != {:?}", typ1, typename2);
+                }
+                let flds2 = match self.get_typedef(typename2) {
+                    Result::Err(e) => {
+                        panic!("{}", e);
                     }
-                    _ => {
-                        panic!("struple pattern type mismatch: {:?} != {:?}"
-                            , patt, valtype);
-                    }
+                    Result::Ok(r_type_struple) => r_type_struple,
                 };
-                */
+                if flds1.0.len() > flds2.0.len() {
+                    panic!("too many fields in pattern for: {}", typ1);
+                }
+                for (fp, ft) in flds1.0.iter().zip(flds2.0.iter()) {
+                    self.match_pattern(&fp.1, &ft.1, lineno);
+                }
             }
             (&Val::EnumStruct(ref typ1, ref var1, ref flds1)
                 , &Type::UserDef(ref typename2)) =>
             {
+                if typ1 != typename2 {
+                    panic!("enum struct type mismatch: {:?} != {:?}", typ1, typename2);
+                }
             }
             (&Val::EnumToken(ref typ1, ref var1)
                 , &Type::UserDef(ref typename2)) =>
             {
+                if typ1 != typename2 {
+                    panic!("enum token type mismatch: {:?} != {:?}", typ1, typename2);
+                }
             }
             (&Val::Token(ref typ1)
                 , &Type::UserDef(ref typename2)) =>
             {
+                if typ1 != typename2 {
+                    panic!("token type mismatch: {:?} != {:?}", typ1, typename2);
+                }
             }
             _ => {
                 let ptype = patt.get_type();

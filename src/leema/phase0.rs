@@ -23,6 +23,7 @@ pub struct Protomod
     pub valtypes: HashMap<String, Type>,
     pub constants: HashMap<String, Val>,
     pub deftypes: HashMap<Lstr, Type>,
+    pub struple_fields: HashMap<Lstr, Struple<Type>>,
 }
 
 impl Protomod
@@ -38,6 +39,7 @@ impl Protomod
             valtypes: HashMap::new(),
             constants: empty_consts,
             deftypes: HashMap::new(),
+            struple_fields: HashMap::new(),
         }
     }
 
@@ -637,6 +639,7 @@ impl Protomod
         let new_types_list = list::cons(struct_type_val
             , self.constants.remove("TYPES").expect("missing TYPES constant").clone());
         self.constants.insert(String::from("TYPES"), new_types_list);
+        self.struple_fields.insert(local_name.clone(), Struple(struple_fields));
 
         let funcref =
             Val::FuncRef(mod_name.rc(), local_name.rc(), func_type.clone());
