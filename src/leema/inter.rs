@@ -768,72 +768,11 @@ pub fn compile_pattern_call(scope: &mut Interscope
     , loc: &SrcLoc
     ) -> Val
 {
-    Val::Void
-    /*
-    let struct_flds = pattern_call_fields(scope.proto, scope.imports, callx);
-    let args_vec: Vec<Val> = args.iter().map(|a| {
-        compile_pattern(scope, new_vars, a)
+    let args_vec: Vec<(Option<Lstr>, Val)> = args.iter().map(|a| {
+        (a.k_clone(), compile_pattern(scope, new_vars, a.x_ref().unwrap()))
     }).collect();
-    if args_vec.len() < struct_flds.len() {
-        panic!("too few fields in struct pattern for: {:?}", callx);
-    }
-    if args_vec.len() > struct_flds.len() {
-        panic!("too many fields in struct pattern for: {:?}", callx);
-    }
-    for (arg, fld) in args_vec.iter().zip(struct_flds.iter()) {
-        let &(_, ref fldtype) = fld;
-        scope.T.bind_vartype(arg.str(), fldtype, loc.lineno);
-    }
-    let calltyp = Rc::new(callx.to_type());
-    let struct_type = calltyp.to_struct();
-    Val::Struct(struct_type, args_vec.clone())
-    */
-}
-
-pub fn pattern_call_fields<'a, 'b>(proto: &'a Protomod
-    , imports: &'a HashMap<String, Rc<Protomod>>, callx: &'b Ast
-    ) -> &'a Vec<(Rc<String>, Type)>
-{
-    match callx {
-        &Ast::Localid(ref name, ref loc) => {
-            /*
-            let flds = proto.structfields.get(name.str());
-            if flds.is_none() {
-                panic!("Unknown type: {:?}", callx);
-            }
-            flds.unwrap()
-            */
-            panic!("pattern_call_fields not implemented for localid");
-        }
-        &Ast::Lri(ref names, ref types, ref loc) => {
-            /*
-            let opt_flds = if *proto.key.name == **prefix {
-                let iflds = proto.structfields.get(name.str());
-                if iflds.is_some() {
-                    iflds
-                } else {
-                    let prefix_lstr = Lstr::from(callx);
-                    proto.structfields.get(prefix_lstr.str())
-                }
-            } else {
-                let opt_imp = imports.get(&**prefix);
-                if opt_imp.is_none() {
-                    panic!("missing import: {}", prefix);
-                }
-                let imp = opt_imp.unwrap();
-                imp.structfields.get(name.str())
-            };
-            if opt_flds.is_none() {
-                panic!("unknown type: {}", name.str());
-            }
-            opt_flds.unwrap()
-            */
-            panic!("pattern_call_fields not implemented for lri");
-        }
-        _ => {
-            panic!("cannot match pattern call: {:?}", callx);
-        }
-    }
+    let struct_lri = Lri::from(callx);
+    Val::Struct(struct_lri, Struple(args_vec))
 }
 
 pub fn push_block(scope: &mut Interscope, stmts: &Vec<Ast>) -> Vec<Ast>
