@@ -1,7 +1,7 @@
 
 use leema::ast::{self, Ast, Kxpr};
 use leema::ixpr::{Ixpr, Source};
-use leema::infer::{Inferator};
+use leema::infer::{Inferator, TypeSet};
 use leema::list;
 use leema::log;
 use leema::lri::{Lri};
@@ -153,6 +153,7 @@ pub struct Interscope<'a>
     typed: &'a Typemod,
     // types of locally defined labels
     T: Inferator<'a>,
+    typeset: TypeSet<'a>,
     argnames: LinkedList<Kxpr>,
     argt: Type,
 }
@@ -165,6 +166,7 @@ impl<'a> Interscope<'a>
             ) -> Interscope<'a>
     {
         let mut t = Inferator::new(fname);
+        let mut ts = TypeSet::new();
         let mut argt = Vec::new();
         for (i, a) in args.iter().enumerate() {
             vout!("bind func param as: #{} {:?}\n", i, a);
@@ -182,9 +184,9 @@ impl<'a> Interscope<'a>
             argt.push((opt_k, at2));
         }
 
-        t.import_user_types(&Lstr::Rc(proto.key.name.clone()), &proto.struple_fields);
+        ts.import_user_types(&Lstr::Rc(proto.key.name.clone()), &proto.struple_fields);
         for (_, imp) in imports.iter() {
-            t.import_user_types(&Lstr::Rc(imp.key.name.clone()), &imp.struple_fields);
+            ts.import_user_types(&Lstr::Rc(imp.key.name.clone()), &imp.struple_fields);
         }
 
         Interscope{
@@ -193,6 +195,7 @@ impl<'a> Interscope<'a>
             imports: imports,
             typed: typed,
             T: t,
+            typeset: ts,
             argnames: args.clone(),
             argt: Type::Tuple(Struple(argt)),
         }
@@ -592,7 +595,7 @@ pub fn compile_let_stmt(scope: &mut Interscope, lettype: ast::LetType
     let mut new_vars = Vec::new();
     let cpatt = compile_pattern(scope, &mut new_vars, lhs);
     vout!("new vars in let: {:?} = {:?} = {:?}\n", new_vars, lhs, irhs);
-    scope.T.match_pattern(&cpatt, &irhs.typ, loc.lineno);
+    scope.T.match_pattern(&scope.typeset, &cpatt, &irhs.typ, loc.lineno);
     let failed = new_vars.iter().map(|v| {
         (v.clone(), compile_failed_var(scope, v, loc))
     }).collect();
@@ -693,7 +696,7 @@ pub fn compile_match_case(scope: &mut Interscope
     let mut new_vars = Vec::new();
     scope.T.push_block(HashMap::new());
     let cpatt = compile_pattern(scope, &mut new_vars, &case.cond);
-    scope.T.match_pattern(&cpatt, xtyp, case.loc.lineno);
+    scope.T.match_pattern(&scope.typeset, &cpatt, xtyp, case.loc.lineno);
     let iblk = compile_expr(scope, &case.body, &case.loc);
     scope.T.pop_block();
     let inext = case.else_case.as_ref().map_or(Ixpr::noop(), |else_case| {

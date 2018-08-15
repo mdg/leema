@@ -1,6 +1,6 @@
 
 use leema::ixpr::{Ixpr, Source};
-use leema::infer::{Inferator};
+use leema::infer::{Inferator, TypeSet};
 use leema::lstr::{Lstr};
 use leema::module::{ModKey};
 use leema::phase0::{Protomod};
@@ -303,6 +303,7 @@ pub struct Typescope<'a, 'b>
     inter: &'a Typemod,
     imports: &'a HashMap<String, &'a Typemod>,
     T: Inferator<'b>,
+    typeset: TypeSet<'a>,
 }
 
 impl<'a, 'b> Typescope<'a, 'b>
@@ -311,6 +312,14 @@ impl<'a, 'b> Typescope<'a, 'b>
             , imps: &'a HashMap<String, &'a Typemod>
             ) -> Typescope<'a, 'b>
     {
+        let mut ts = TypeSet::new();
+        ts.import_user_types(&Lstr::Rc(proto.key.name.clone()), &proto.struple_fields);
+        /*
+        for (_, imp) in imports.iter() {
+            ts.import_user_types(&Lstr::Rc(imp.key.name.clone()), &imp.struple_fields);
+        }
+        */
+
         Typescope
         {
             fname: func,
@@ -318,6 +327,7 @@ impl<'a, 'b> Typescope<'a, 'b>
             inter: inter,
             imports: imps,
             T: Inferator::new(func),
+            typeset: ts,
         }
     }
 
@@ -327,7 +337,7 @@ impl<'a, 'b> Typescope<'a, 'b>
         match &case.src {
             &Source::MatchCase(ref patt, ref truth, ref lies) => {
                 self.T.push_block(HashMap::new());
-                self.T.match_pattern(patt, valtype, case.line);
+                self.T.match_pattern(&self.typeset, patt, valtype, case.line);
                 let ttype = typecheck_expr(self, truth).unwrap();
                 self.T.pop_block();
                 let ftype = self.typecheck_matchcase(valtype, lies).unwrap();
@@ -421,7 +431,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
         }
         &Source::Let(ref lhs, ref rhs, _) => {
             let rhs_type = typecheck_expr(scope, rhs).unwrap();
-            scope.T.match_pattern(lhs, &rhs_type, ix.line);
+            scope.T.match_pattern(&scope.typeset, lhs, &rhs_type, ix.line);
             Ok(Type::Void)
         }
         &Source::Block(ref elems, ref fails, _is_root) => {

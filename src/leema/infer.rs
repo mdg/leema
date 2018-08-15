@@ -70,6 +70,51 @@ impl Blockscope
 }
 
 #[derive(Debug)]
+pub struct TypeSet<'b>
+{
+    typedef: HashMap<Lstr, &'b HashMap<Lstr, Struple<Type>>>,
+}
+
+impl<'b> TypeSet<'b>
+{
+    pub fn new() -> TypeSet<'b>
+    {
+        TypeSet{
+            typedef: HashMap::new(),
+        }
+    }
+
+    pub fn get_typedef(&self, i: &Lri) -> Result<&Struple<Type>, TypeErr>
+    {
+        // switch all this to use Option/Result combinators
+        if !i.has_modules() {
+            return Result::Err(TypeErr::Error(Lstr::from(
+                format!("cannot get type without including module name: {}", i)
+            )));
+        }
+        let i_modname = i.modules.as_ref().unwrap();
+        let opt_modtypes = self.typedef.get(i_modname);
+        if opt_modtypes.is_none() {
+            return Result::Err(TypeErr::Error(Lstr::from(
+                format!("module {} is not imported", i_modname)
+            )));
+        }
+        opt_modtypes.unwrap().get(&i.localid)
+            .ok_or_else(|| {
+                TypeErr::Error(Lstr::from(
+                    format!("cannot find type {} in module {}", i.localid, i_modname)
+                ))
+            })
+    }
+
+    pub fn import_user_types(&mut self, modname: &Lstr
+        , types: &'b HashMap<Lstr, Struple<Type>>)
+    {
+        self.typedef.insert(modname.clone(), types);
+    }
+}
+
+#[derive(Debug)]
 pub struct Inferator<'b>
 {
     funcname: &'b str,
@@ -77,7 +122,6 @@ pub struct Inferator<'b>
     blocks: Vec<Blockscope>,
     inferences: HashMap<Lstr, Type>,
     module: Option<Rc<String>>,
-    typedef: HashMap<Lstr, &'b HashMap<Lstr, Struple<Type>>>,
 }
 
 impl<'b> Inferator<'b>
@@ -90,7 +134,6 @@ impl<'b> Inferator<'b>
             blocks: vec![Blockscope::new(HashMap::new())],
             inferences: HashMap::new(),
             module: None,
-            typedef: HashMap::new(),
         }
     }
 
@@ -110,35 +153,6 @@ impl<'b> Inferator<'b>
                 Some(self.inferred_type(argt))
             }
         }
-    }
-
-    pub fn get_typedef(&self, i: &Lri) -> Result<&Struple<Type>, TypeErr>
-    {
-        // switch all this to use Option/Result combinators
-        if !i.has_modules() {
-            return Result::Err(TypeErr::Error(Lstr::from(
-                format!("cannot get type without including module name: {}", i)
-            )));
-        }
-        let i_modname = i.modules.as_ref().unwrap();
-        let opt_modtypes = self.typedef.get(i_modname);
-        if opt_modtypes.is_none() {
-            return Result::Err(TypeErr::Error(Lstr::from(
-                format!("module {} is not imported for {}", i_modname, self.funcname)
-            )));
-        }
-        opt_modtypes.unwrap().get(&i.localid)
-            .ok_or_else(|| {
-                TypeErr::Error(Lstr::from(
-                    format!("cannot find type {} in module {}", i.localid, i_modname)
-                ))
-            })
-    }
-
-    pub fn import_user_types(&mut self, modname: &Lstr
-        , types: &'b HashMap<Lstr, Struple<Type>>)
-    {
-        self.typedef.insert(modname.clone(), types);
     }
 
     pub fn init_param(&mut self, argi: i16, argn: Option<&Lstr>
@@ -219,7 +233,7 @@ impl<'b> Inferator<'b>
         Inferator::mash(&mut self.inferences, a, b)
     }
 
-    pub fn match_pattern(&mut self, patt: &Val, valtype: &Type, lineno: i16)
+    pub fn match_pattern(&mut self, typeset: &TypeSet, patt: &Val, valtype: &Type, lineno: i16)
     {
         match (patt, valtype) {
             (_, &Type::AnonVar) => {
@@ -236,12 +250,12 @@ impl<'b> Inferator<'b>
                 );
             }
             (&Val::Cons(ref head, _), &Type::StrictList(ref subt)) => {
-                self.match_list_pattern(patt, subt, lineno);
+                self.match_list_pattern(typeset, patt, subt, lineno);
             }
             (&Val::Cons(ref head, ref tail), &Type::Var(ref tvar_name)) => {
                 let tvar_inner_name = format!("{}_inner", tvar_name);
                 let tvar_inner = Type::Var(Lstr::from(tvar_inner_name));
-                self.match_list_pattern(patt, &tvar_inner, lineno);
+                self.match_list_pattern(typeset, patt, &tvar_inner, lineno);
                 self.merge_types(&valtype,
                     &Type::StrictList(Box::new(tvar_inner.clone())));
             }
@@ -250,7 +264,7 @@ impl<'b> Inferator<'b>
                     panic!("pattern tuple size mismatch: {} != {}", patt, valtype);
                 }
                 for (fp, ft) in flds1.0.iter().zip(item_types.0.iter()) {
-                    self.match_pattern(&fp.1, &ft.1, lineno);
+                    self.match_pattern(typeset, &fp.1, &ft.1, lineno);
                 }
             }
             (&Val::Struct(ref typ1, ref flds1)
@@ -259,7 +273,7 @@ impl<'b> Inferator<'b>
                 if typ1 != typename2 {
                     panic!("struct type mismatch: {:?} != {:?}", typ1, typename2);
                 }
-                let flds2 = match self.get_typedef(typename2) {
+                let flds2 = match typeset.get_typedef(typename2) {
                     Result::Err(e) => {
                         panic!("{}", e);
                     }
@@ -269,7 +283,7 @@ impl<'b> Inferator<'b>
                     panic!("too many fields in pattern for: {}", typ1);
                 }
                 for (fp, ft) in flds1.0.iter().zip(flds2.0.iter()) {
-                    self.match_pattern(&fp.1, &ft.1, lineno);
+                    self.match_pattern(typeset, &fp.1, &ft.1, lineno);
                 }
             }
             (&Val::EnumStruct(ref typ1, ref var1, ref flds1)
@@ -307,13 +321,13 @@ impl<'b> Inferator<'b>
         }
     }
 
-    pub fn match_list_pattern(&mut self, l: &Val, inner_type: &Type
+    pub fn match_list_pattern(&mut self, typeset: &TypeSet, l: &Val, inner_type: &Type
         , lineno: i16)
     {
         match l {
             &Val::Cons(ref head, ref tail) => {
-                self.match_pattern(head, inner_type, lineno);
-                self.match_list_pattern(tail, inner_type, lineno);
+                self.match_pattern(typeset, head, inner_type, lineno);
+                self.match_list_pattern(typeset, tail, inner_type, lineno);
             }
             &Val::Id(ref idname) => {
                 let ltype = Type::StrictList(Box::new(inner_type.clone()));
@@ -550,7 +564,7 @@ impl<'b> Inferator<'b>
 
 #[cfg(test)]
 mod tests {
-    use leema::infer::{Inferator};
+    use leema::infer::{Inferator, TypeSet};
     use leema::list;
     use leema::log;
     use leema::lstr::{Lstr};
@@ -610,7 +624,8 @@ fn test_match_pattern_empty_list()
 {
     let mut t = Inferator::new("burritos");
     let tvar = Type::Var(Lstr::Sref("Taco"));
-    t.match_pattern(&Val::Nil, &tvar, 55);
+    let ts = TypeSet::new();
+    t.match_pattern(&ts, &Val::Nil, &tvar, 55);
 
     assert_eq!(Type::StrictList(Box::new(Type::Unknown)),
         t.inferred_type(&tvar));
@@ -621,8 +636,9 @@ fn test_match_pattern_empty_and_full_lists()
 {
     let mut t = Inferator::new("burritos");
     let tvar = Type::Var(Lstr::Sref("Taco"));
-    t.match_pattern(&Val::Nil, &tvar, 32);
-    t.match_pattern(&list::singleton(Val::Int(5)), &tvar, 99);
+    let ts = TypeSet::new();
+    t.match_pattern(&ts, &Val::Nil, &tvar, 32);
+    t.match_pattern(&ts, &list::singleton(Val::Int(5)), &tvar, 99);
 
     assert_eq!(Type::StrictList(Box::new(Type::Int)),
         t.inferred_type(&tvar));
@@ -642,7 +658,8 @@ fn test_match_pattern_hashtag_list_inside_tuple()
     let listpatt = Val::Tuple(Struple(vec![
         (None, ilistpatt),
     ]));
-    t.match_pattern(&listpatt, &tvar, 14);
+    let ts = TypeSet::new();
+    t.match_pattern(&ts, &listpatt, &tvar, 14);
 
     let exp = Type::Tuple(Struple(vec![
         (None, Type::StrictList(Box::new(Type::Hashtag))),
@@ -662,7 +679,8 @@ fn test_match_pattern_tuple_size_mismatch()
         Val::hashtag("leema".to_string()),
         Val::id("tail".to_string()),
     ));
-    t.match_pattern(&listpatt, &tvar, 14);
+    let ts = TypeSet::new();
+    t.match_pattern(&ts, &listpatt, &tvar, 14);
 }
 
 }
