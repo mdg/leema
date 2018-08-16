@@ -184,7 +184,7 @@ class TestScripts(unittest.TestCase):
         result = run_leema('destruct')
         self.assertEqual(0, result['code'])
         self.assertEqual(
-            b"date is: destruct::Date(2010,9,8,)\n" +
+            b"date is: destruct::Date(year:2010,month:9,day:8,)\n" +
             b"year: 2010 / month: 9 / day: 8\n",
             result['output'])
 
