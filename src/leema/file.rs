@@ -22,7 +22,7 @@ pub fn file_read_file(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let path = Path::new(pathval.str());
     let mut f = File::open(path).unwrap();
     let mut s = String::new();
-    f.read_to_string(&mut s);
+    f.read_to_string(&mut s).expect("read_to_string failure");
     rsrc::Event::Result(Val::new_str(s), None)
 }
 
@@ -43,7 +43,7 @@ pub fn file_write_file(mut ctx: rsrc::IopCtx) -> rsrc::Event
         .create(true)
         .truncate(true)
         .open(path).unwrap();
-    f.write_all(output.str().as_bytes());
+    f.write_all(output.str().as_bytes()).expect("write_all failure");
     rsrc::Event::Result(Val::Void, None)
 }
 

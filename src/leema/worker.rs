@@ -87,7 +87,8 @@ impl Worker
             }
             Some(ReadyFiber::Ready(mut f, code)) => {
                 let ev = Worker::execute_frame(&mut f, &*code);
-                self.handle_event(f, ev, code);
+                self.handle_event(f, ev, code)
+                    .expect("failure handling event");
             }
             None => {}
         }
@@ -114,7 +115,8 @@ impl Worker
             let msg = AppMsg::RequestCode(self.id, curf.fiber_id
                 , curf.module_name().to_string()
                 , curf.function_name().to_string());
-            self.app_tx.send(msg);
+            self.app_tx.send(msg)
+                .expect("failure sending load code message to app");
             let fiber_id = curf.fiber_id;
             let fw = FiberWait::Code(curf);
             self.waiting.insert(fiber_id, fw);
@@ -255,7 +257,8 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
                 vout!("finished main func\n");
                 let msg = AppMsg::MainResult(MsgVal::new(&res));
                 self.done = true;
-                self.app_tx.send(msg);
+                self.app_tx.send(msg)
+                    .expect("app message send failure");
             }
             Parent::Null => {
                 // this shouldn't have happened
@@ -321,7 +324,7 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
                 rsrc_id: rsrc_id,
                 action: iopf,
                 params: msg_val,
-            });
+            }).expect("io send failure");
             self.waiting.insert(fiber_id, FiberWait::Io(fib));
         } else {
             panic!("code is what type? {:?}", *code);

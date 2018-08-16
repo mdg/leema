@@ -24,7 +24,7 @@ pub struct CallFrame<'a>
 {
     modname: &'a str,
     fname: &'a str,
-    T: Inferator<'a>,
+    infer: Inferator<'a>,
     pub calls: LinkedList<CallOp>,
 }
 
@@ -35,7 +35,7 @@ impl<'a> CallFrame<'a>
         CallFrame{
             modname: modname,
             fname: fname,
-            T: Inferator::new(fname),
+            infer: Inferator::new(fname),
             calls: LinkedList::new(),
         }
     }
@@ -302,7 +302,7 @@ pub struct Typescope<'a, 'b>
     proto: &'a Protomod,
     inter: &'a Typemod,
     imports: &'a HashMap<String, &'a Typemod>,
-    T: Inferator<'b>,
+    infer: Inferator<'b>,
     typeset: TypeSet<'a>,
 }
 
@@ -326,7 +326,7 @@ impl<'a, 'b> Typescope<'a, 'b>
             proto: proto,
             inter: inter,
             imports: imps,
-            T: Inferator::new(func),
+            infer: Inferator::new(func),
             typeset: ts,
         }
     }
@@ -336,13 +336,14 @@ impl<'a, 'b> Typescope<'a, 'b>
     {
         match &case.src {
             &Source::MatchCase(ref patt, ref truth, ref lies) => {
-                self.T.push_block(HashMap::new());
-                self.T.match_pattern(&self.typeset, patt, valtype, case.line);
+                self.infer.push_block(HashMap::new());
+                self.infer.match_pattern(
+                    &self.typeset, patt, valtype, case.line);
                 let ttype = typecheck_expr(self, truth).unwrap();
-                self.T.pop_block();
+                self.infer.pop_block();
                 let ftype = self.typecheck_matchcase(valtype, lies).unwrap();
 
-                self.T.merge_types(&ttype, &ftype)
+                self.infer.merge_types(&ttype, &ftype)
             }
             &Source::ConstVal(Val::Void) => Ok(Type::Unknown),
             _ => {
@@ -418,20 +419,20 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             for ta in targs.iter() {
                 targs_ref.push(ta);
             }
-            scope.T.make_call_type(&tfunc, &targs_ref)
+            scope.infer.make_call_type(&tfunc, &targs_ref)
         }
         &Source::Cons(ref head, ref tail) => {
             let head_t = typecheck_expr(scope, head).unwrap();
             let tail_t = typecheck_expr(scope, tail).unwrap();
             let head_list_t = Type::StrictList(Box::new(head_t));
-            scope.T.merge_types(&head_list_t, &tail_t)
+            scope.infer.merge_types(&head_list_t, &tail_t)
         }
         &Source::ConstVal(ref cv) => {
             Ok(ix.typ.clone())
         }
         &Source::Let(ref lhs, ref rhs, _) => {
             let rhs_type = typecheck_expr(scope, rhs).unwrap();
-            scope.T.match_pattern(&scope.typeset, lhs, &rhs_type, ix.line);
+            scope.infer.match_pattern(&scope.typeset, lhs, &rhs_type, ix.line);
             Ok(Type::Void)
         }
         &Source::Block(ref elems, ref fails, _is_root) => {
@@ -440,20 +441,20 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
                 last_type = typecheck_expr(scope, e);
             }
             for f in fails.values() {
-                typecheck_expr(scope, f);
+                typecheck_expr(scope, f)?;
             }
             last_type
         }
         &Source::FieldAccess(ref x, sub) => {
-            let xtyp = typecheck_expr(scope, x);
-            typecheck_field_access(scope, xtyp.as_ref().unwrap(), sub)
+            let xtyp = typecheck_expr(scope, x)?;
+            typecheck_field_access(scope, &xtyp, sub)
         }
         &Source::Id(_, _) => {
             Ok(ix.typ.clone())
         }
         &Source::List(ref items) => {
             for i in items {
-                typecheck_expr(scope, i);
+                typecheck_expr(scope, i)?;
             }
             Ok(ix.typ.clone())
         }
@@ -462,13 +463,13 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
         }
         &Source::Tuple(ref items) => {
             for i in items {
-                typecheck_expr(scope, i);
+                typecheck_expr(scope, i)?;
             }
             Ok(ix.typ.clone())
         }
         &Source::IfExpr(ref cond, ref truth, ref lies) => {
             let cond_t = typecheck_expr(scope, cond).unwrap();
-            scope.T.merge_types(&cond_t, &Type::Bool);
+            scope.infer.merge_types(&cond_t, &Type::Bool)?;
 
             let truth_result = typecheck_expr(scope, truth);
             match lies {
@@ -477,16 +478,16 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
                     let lies_result = typecheck_expr(scope, some_lies);
                     let truth_t = truth_result.unwrap();
                     let lies_t = lies_result.unwrap();
-                    scope.T.merge_types(&truth_t, &lies_t)
+                    scope.infer.merge_types(&truth_t, &lies_t)
                 }
             }
         }
         &Source::StrMash(ref items) => {
             for i in items {
-                typecheck_expr(scope, i);
+                typecheck_expr(scope, i)?;
                 // TODO: check that this supports the stringification interface
                 // let it = typecheck_expr(scope, i);
-                // scope.T.match_types(&it, &Type::Str);
+                // scope.infer.match_types(&it, &Type::Str);
             }
             Ok(Type::Str)
         }
@@ -520,27 +521,28 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
                 , &Type::Func(ref arg_types, ref declared_result_type)) =>
         {
             for (an, at) in arg_names.iter().zip(arg_types.iter()) {
-                scope.T.bind_vartype(an, at, ix.line);
+                scope.infer.bind_vartype(an, at, ix.line)?;
             }
             vout!("f({:?}) =>\n{:?}", arg_names, body);
             let result_type = typecheck_expr(scope, &*body)
                 .map_err(|e| {
                     let err_msg =
-                        format!("function result type error for: {}", scope.fname);
+                        format!("function result type error for: {}"
+                               , scope.fname);
                     e.add_context(err_msg)
                 })
                 .unwrap();
 
             vout!("type is: {}", result_type);
             vout!("vars:");
-            for var in scope.T.vars() {
-                let typ = scope.T.vartype(var);
+            for var in scope.infer.vars() {
+                let typ = scope.infer.vartype(var);
                 vout!("\t{}: {}", var, typ.unwrap());
             }
             let final_args = arg_types.iter().map(|at| {
-                scope.T.inferred_type(at).clone()
+                scope.infer.inferred_type(at).clone()
             }).collect();
-            scope.T.merge_types(&result_type, declared_result_type)
+            scope.infer.merge_types(&result_type, declared_result_type)
                 .map(|final_type| {
                     Type::Func(final_args, Box::new(final_type))
                 })
