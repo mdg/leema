@@ -1,5 +1,5 @@
 
-use leema::code::{CodeKey, Code};
+use leema::code::{Code};
 use leema::fiber::{Fiber};
 use leema::frame::{Event, Frame, Parent};
 use leema::log;
@@ -349,10 +349,5 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
     fn push_fresh(&mut self, f: ReadyFiber)
     {
         self.fresh.push_back(f)
-    }
-
-    fn add_fork(&mut self, _key: &CodeKey, _newf: Frame)
-    {
-vout!("lock app, add_fork\n");
     }
 }

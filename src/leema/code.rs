@@ -11,7 +11,6 @@ use leema::struple::{Struple};
 use std::fmt;
 use std::io::{Write};
 use std::rc::{Rc};
-use std::sync::Arc;
 use std::marker;
 
 
@@ -46,7 +45,7 @@ pub enum Op
     ConstVal(Reg, Val),
     Construple(Reg, Type, Struple<Type>),
     Copy(Reg, Reg),
-    Fork(Reg, Reg, Reg),
+    // Fork(Reg, Reg, Reg),
     //IfFail(Reg, i16),
     Jump(i16),
     JumpIfNot(i16, Reg),
@@ -62,16 +61,6 @@ pub enum Op
 
 unsafe impl marker::Send for Op {}
 unsafe impl marker::Sync for Op {}
-
-impl Op
-{
-    pub fn print_list(ops: &OpVec)
-    {
-        for op in ops {
-            println!("{:?}", op);
-        }
-    }
-}
 
 impl Clone for Op
 {
@@ -97,9 +86,6 @@ impl Clone for Op
                 Op::Copy(dst.clone(), src.clone())
             }
             &Op::Jump(j) => Op::Jump(j),
-            &Op::Fork(_, _, _) => {
-                panic!("you can't fork yet, relax");
-            }
             &Op::JumpIfNot(j, ref tst) => Op::JumpIfNot(j, tst.clone()),
             &Op::IfFailure(ref dst, ref src, j) => {
                 Op::IfFailure(dst.clone(), src.clone(), j)
@@ -145,15 +131,6 @@ pub enum Code
 
 impl Code
 {
-    pub fn type_name(&self) -> &'static str
-    {
-        match self {
-            &Code::Leema(_) => "LeemaCode",
-            &Code::Rust(_) => "RustCode",
-            &Code::Iop(_, _) => "IopCode",
-        }
-    }
-
     pub fn is_leema(&self) -> bool
     {
         if let &Code::Leema(_) = self {
@@ -228,21 +205,6 @@ impl Clone for Code
             }
         }
     }
-}
-
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
-#[derive(Hash)]
-#[derive(Eq)]
-#[derive(Ord)]
-pub enum CodeKey
-{
-    Main,
-    Script,
-    Name(Arc<String>),
-    Repl(isize),
 }
 
 pub fn make_ops(input: &Ixpr) -> OpVec

@@ -1,4 +1,3 @@
-#[macro_use]
 use leema::log;
 use leema::frame::{Frame, Event, Parent, FrameTrace};
 use leema::val::{Val, Env, Type};
@@ -27,11 +26,6 @@ impl Fiber
             fiber_id: id,
             head: root,
         }
-    }
-
-    pub fn id(&self) -> i64
-    {
-        self.fiber_id
     }
 
     pub fn module_name(&self) -> &str
@@ -84,10 +78,6 @@ impl Fiber
             }
             &Op::Copy(ref dst, ref src) => {
                 self.execute_copy(dst, src)
-            }
-            &Op::Fork(ref _dst, ref _freg, ref _args) => {
-                // frame::execute_fork(self, curf, dst, freg, args);
-                Event::Uneventful
             }
             &Op::Jump(jmp) => {
                 self.execute_jump(jmp)

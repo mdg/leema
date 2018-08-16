@@ -1,4 +1,3 @@
-#[macro_use]
 use leema::val::{Val, Env};
 use leema::reg::{Reg, Ireg};
 use leema::code::{Code};

@@ -4,7 +4,7 @@ use leema::lex::{lex};
 use leema::ast::{Ast};
 use leema::val::{Val};
 use leema::compile::{StaticSpace};
-use leema::code::{CodeKey, Code, Op, make_ops};
+use leema::code::{Code, Op, make_ops};
 
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -59,8 +59,7 @@ pub fn push_eval(app: &Mutex<Application>, i: isize, function: Code, e: Env)
     let frm = Frame::new_root(e);
 //println!("repl.push_eval: app.lock().unwrap()");
     let mut _app = app.lock().unwrap();
-    let ckey = CodeKey::Repl(i);
-    _app.push_new_frame(&ckey, frm);
+    _app.push_new_frame(frm);
     _app.add_code(ckey, function);
 }
 

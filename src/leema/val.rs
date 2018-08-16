@@ -938,9 +938,9 @@ impl Val
         match l {
             &Val::Cons(ref head, ref tail) => {
                 if dbg {
-                    write!(f, "{:?},", head);
+                    write!(f, "{:?},", head)?;
                 } else {
-                    write!(f, "{},", head);
+                    write!(f, "{},", head)?;
                 }
                 Val::fmt_list(f, tail, dbg)
             }
@@ -969,12 +969,12 @@ impl Val
 
     fn fmt_tuple(f: &mut fmt::Formatter, t: &Vec<Val>, dbg: bool) -> fmt::Result
     {
-        f.write_str("(").ok();
+        f.write_str("(")?;
         for x in t {
             if dbg {
-                write!(f, "{:?},", x).ok();
+                write!(f, "{:?},", x)?;
             } else {
-                write!(f, "{},", x).ok();
+                write!(f, "{},", x)?;
             }
         }
         f.write_str(")")
