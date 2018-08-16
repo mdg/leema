@@ -1,5 +1,4 @@
 
-use leema::inter::{Version};
 use leema::module::{ModKey};
 
 use std::fs::File;
@@ -11,7 +10,6 @@ use std::collections::{HashMap};
 #[derive(Debug)]
 pub struct Interloader
 {
-    version: Option<Version>,
     pub root_path: PathBuf,
     pub main_mod: String,
     modtxt: HashMap<String, String>,
@@ -35,7 +33,6 @@ impl Interloader
         }
 
         Interloader{
-            version: None,
             root_path: path.parent().unwrap().to_path_buf(),
             main_mod: modname.unwrap().to_str().unwrap().to_string(),
             modtxt: HashMap::new(),

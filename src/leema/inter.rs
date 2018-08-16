@@ -17,20 +17,6 @@ use std::io::{Write};
 use std::rc::{Rc};
 
 
-#[derive(PartialEq)]
-#[derive(Eq)]
-#[derive(PartialOrd)]
-#[derive(Ord)]
-#[derive(Clone)]
-#[derive(Copy)]
-#[derive(Debug)]
-pub enum Version
-{
-    Sin,
-    Cos,
-}
-
-
 /*
 calling push leema code from rust
 string module
