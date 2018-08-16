@@ -438,13 +438,15 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
             Ixpr::new_tuple(c_items, loc.lineno)
         }
         &Ast::ConstructData(ast::DataType::Struple, ref ast_typ, ref args) => {
-            let type_str = Lstr::from(&**ast_typ);
-            let opt_full_type = scope.proto.func_result_type(&type_str);
+            let type_lri = Lri::from(&**ast_typ);
+            let local_type_name = &type_lri.localid;
+            let opt_full_type = scope.proto.func_result_type(&type_lri.localid);
             if opt_full_type.is_none() {
                 panic!("cannot find full type for: {:?} in {:?}"
-                    , type_str, scope.proto.deftypes);
+                    , type_lri.localid, scope.proto.deftypes);
             }
-            Ixpr::construple(opt_full_type.unwrap().clone(), loc.lineno)
+            let flds = scope.typeset.get_typedef(&type_lri).unwrap();
+            Ixpr::construple(opt_full_type.unwrap().clone(), flds, loc.lineno)
         }
         &Ast::Let(ltype, ref lhs, ref rhs, ref iloc) => {
             compile_let_stmt(scope, ltype, lhs, rhs, iloc)

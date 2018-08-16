@@ -626,9 +626,13 @@ impl Protomod
         let func_type = Type::Func(field_type_vec, Box::new(full_type.clone()));
 
         let src_typename = Ast::from_lri(struple_lri.clone(), loc);
-        let localid_ast = Ast::Localid(local_name.clone(), *loc);
+        let full_type_ast = Ast::Lri(
+            vec![mod_name.clone(), local_name.clone()],
+            None,
+            *loc,
+        );
         let srcblk = Ast::ConstructData(ast::DataType::Struple
-            , Box::new(localid_ast), Vec::with_capacity(0)
+            , Box::new(full_type_ast), Vec::with_capacity(0)
             );
         let srcxpr = Ast::DefFunc(ast::FuncClass::Func
             , Box::new(Ast::Localid(local_name.clone(), *loc))

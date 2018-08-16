@@ -5,6 +5,7 @@ use leema::log;
 use leema::ixpr::{Ixpr, Source};
 use leema::frame;
 use leema::rsrc;
+use leema::sendclone::{SendClone};
 use leema::struple::{Struple};
 
 use std::fmt;
@@ -44,7 +45,7 @@ pub enum Op
     SetResult(Reg),
     PropagateFailure(Reg, i16),
     ConstVal(Reg, Val),
-    Construple(Reg, Type),
+    Construple(Reg, Type, Struple<Type>),
     Copy(Reg, Reg),
     Fork(Reg, Reg, Reg),
     //IfFail(Reg, i16),
@@ -90,8 +91,9 @@ impl Clone for Op
             &Op::ConstVal(ref dst, ref src) => {
                 Op::ConstVal(dst.clone(), src.deep_clone())
             }
-            &Op::Construple(ref dst, ref typ) => {
-                Op::Construple(dst.clone(), typ.deep_clone())
+            &Op::Construple(ref dst, ref typ, ref flds) => {
+                Op::Construple(dst.clone(), typ.deep_clone()
+                    , flds.clone_for_send())
             }
             &Op::Copy(ref dst, ref src) => {
                 Op::Copy(dst.clone(), src.clone())
@@ -318,9 +320,9 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 dst: dst,
             }
         }
-        Source::Construple(ref typ) => {
+        Source::Construple(ref typ, ref flds) => {
             vout!("make_construple_ops({:?})\n", typ);
-            make_construple_ops(rt, typ, input.line)
+            make_construple_ops(rt, typ, flds, input.line)
         }
         Source::EnumConstructor(ref typ, idx, ref val) => {
             vout!("make_enum_constructor_ops({:?})\n", input);
@@ -448,12 +450,14 @@ pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr
     fops
 }
 
-pub fn make_construple_ops(rt: &mut RegTable, typ: &Type, line: i16) -> Oxpr
+pub fn make_construple_ops(rt: &mut RegTable, typ: &Type, flds: &Struple<Type>
+        , line: i16
+        ) -> Oxpr
 {
     let dst = rt.dst();
 
     let ops: Vec<(Op, i16)> = vec![(
-        Op::Construple(dst.clone(), typ.clone()),
+        Op::Construple(dst.clone(), typ.clone(), flds.clone()),
         line,
     )];
 

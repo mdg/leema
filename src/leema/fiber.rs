@@ -5,6 +5,7 @@ use leema::val::{Val, Env, Type};
 use leema::reg::{Reg};
 use leema::code::{Code, Op, OpVec, ModSym};
 use leema::list;
+use leema::struple::{Struple};
 
 use std::rc::{Rc};
 use std::mem;
@@ -80,8 +81,8 @@ impl Fiber
             &Op::ConstVal(ref dst, ref v) => {
                 self.execute_const_val(dst, v)
             }
-            &Op::Construple(ref dst, ref typ) => {
-                self.execute_construple(dst, typ)
+            &Op::Construple(ref dst, ref typ, ref flds) => {
+                self.execute_construple(dst, typ, flds)
             }
             &Op::Copy(ref dst, ref src) => {
                 self.execute_copy(dst, src)
@@ -269,7 +270,9 @@ impl Fiber
         Event::Uneventful
     }
 
-    pub fn execute_construple(&mut self, reg: &Reg, new_typ: &Type) -> Event
+    pub fn execute_construple(&mut self, reg: &Reg, new_typ: &Type
+            , flds: &Struple<Type>
+            ) -> Event
     {
         let construple = match self.head.e.get_params() {
             &Val::Struct(_, ref items) => {
@@ -281,7 +284,16 @@ impl Fiber
             }
             &Val::Tuple(ref items) => {
                 if let &Type::UserDef(ref i_new_typ) = new_typ {
-                    Val::Struct(i_new_typ.clone(), items.clone())
+                    let new_items = items.0.iter().zip(flds.0.iter()).map(
+                        |(i, f)| {
+                            if i.0.is_some() {
+                                (i.0.clone(), i.1.clone())
+                            } else {
+                                (f.0.clone(), i.1.clone())
+                            }
+                        }
+                    ).collect();
+                    Val::Struct(i_new_typ.clone(), Struple(new_items))
                 } else {
                     panic!("struct type is not user defined: {:?}", new_typ);
                 }

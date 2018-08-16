@@ -127,7 +127,7 @@ impl<'a> CallFrame<'a>
             }
             // nothing to do for these, not calls.
             Source::RustBlock => {}
-            Source::Construple(_) => {}
+            Source::Construple(_, _) => {}
             Source::EnumConstructor(_, _, _) => {}
             Source::ModuleAccess(_, _) => {}
             Source::PropagateFailure(_, _) => {}
@@ -457,7 +457,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             }
             Ok(ix.typ.clone())
         }
-        &Source::Construple(ref typ) => {
+        &Source::Construple(ref typ, _) => {
             Ok(typ.clone())
         }
         &Source::Tuple(ref items) => {
@@ -560,15 +560,21 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
 pub fn typecheck_field_access(scope: &mut Typescope, xtyp: &Type, fld: i8
     ) -> TypeResult
 {
-    vout!("typecheck_field_access({:?}.{})", xtyp, fld);
+    vout!("typecheck_field_access({:?}.{})\n", xtyp, fld);
     match xtyp {
         &Type::UserDef(ref name) => {
-            match scope.proto.deftypes.get(name.local()) {
-                Some(ityp) => {
-                    typecheck_field_access(scope, ityp, fld)
+            match scope.typeset.get_typedef(name) {
+                Result::Ok(ref ityp) => {
+                    ityp.0.get(fld as usize)
+                        .map(|ft| {
+                            ft.1.clone()
+                        })
+                        .ok_or_else(|| {
+                            TypeErr::Error(Lstr::Sref("invalid field index"))
+                        })
                 }
-                None => {
-                    panic!("cannot find defined type for: {}", name);
+                Result::Err(ref e) => {
+                    panic!("cannot find defined type for: {}", e);
                 }
             }
         }

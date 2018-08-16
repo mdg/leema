@@ -16,7 +16,7 @@ pub enum Source
     Block(Vec<Ixpr>, HashMap<String, Ixpr>, bool),
     Call(Box<Ixpr>, Box<Ixpr>),
     Cons(Box<Ixpr>, Box<Ixpr>),
-    Construple(Type),
+    Construple(Type, Struple<Type>),
     ConstVal(Val),
     EnumConstructor(Type, i16, Box<Ixpr>),
     FieldAccess(Box<Ixpr>, i8),
@@ -151,11 +151,11 @@ impl Ixpr
         }
     }
 
-    pub fn construple(t: Type, lineno: i16) -> Ixpr
+    pub fn construple(t: Type, flds: &Struple<Type>, lineno: i16) -> Ixpr
     {
         Ixpr{
             typ: t.clone(),
-            src: Source::Construple(t),
+            src: Source::Construple(t, flds.clone()),
             line: lineno,
         }
     }
