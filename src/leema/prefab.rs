@@ -248,11 +248,11 @@ pub fn cin(f: &mut Fiber) -> Event
     vout!("cin()\n");
     let mut input = String::new();
     match stdin().read_line(&mut input) {
-        Ok(n) => {
+        Ok(_) => {
             f.head.parent.set_result(Val::new_str(input));
             Event::success()
         }
-        Err(err) => {
+        Err(_) => {
             f.head.parent.set_result(Val::failure(
                 Val::hashtag("console_read_fail".to_string()),
                 Val::hashtag("".to_string()),
@@ -375,7 +375,8 @@ pub fn file_stream_read(f: &mut Fiber) -> Event
         let myfref: &LeemaFile = optf.unwrap();
         let lockf = myfref.f.lock();
         let mut rawf = lockf.unwrap();
-        let result = rawf.read_to_string(&mut input);
+        rawf.read_to_string(&mut input)
+            .expect("failed to read from file to string");
         //let result = myf.f.lock().unwrap().read_to_string(&mut input);
     }
     f.head.parent.set_result(Val::new_str(input));

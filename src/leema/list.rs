@@ -138,7 +138,7 @@ pub fn is_singleton(l: &Val) -> bool
     if is_empty(l) {
         return false;
     }
-    let (head, tail) = take_ref(l);
+    let (_, tail) = take_ref(l);
     is_empty(&*tail)
 }
 
@@ -152,7 +152,7 @@ pub fn last<'a>(l: &'a Val) -> Option<&'a Val>
     match l {
         &Val::Nil => None,
         &Val::Cons(ref head, ref tail) if **tail == Val::Nil => Some(head),
-        &Val::Cons(ref head, ref tail) => last(tail),
+        &Val::Cons(_, ref tail) => last(tail),
         _ => {
             panic!("cannot get last of a not list: {:?}", l);
         }
@@ -347,7 +347,7 @@ pub fn to_ref_tuple4(l1: &Val) -> (&Val, &Val, &Val, &Val)
 pub fn head(l: Val) -> Val
 {
     match l {
-        Val::Cons(head, tail) => *head,
+        Val::Cons(head, _) => *head,
         Val::Nil => {
             panic!("Cannot take_head from empty list");
         }
@@ -360,7 +360,7 @@ pub fn head(l: Val) -> Val
 pub fn head_or(l: Val, orval: Val) -> Val
 {
     match l {
-        Val::Cons(head, tail) => *head,
+        Val::Cons(head, _) => *head,
         Val::Nil => {
             orval
         }

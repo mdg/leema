@@ -801,8 +801,8 @@ pub fn compile_block(scope: &mut Interscope, blk: &Vec<Ast>, loc: &SrcLoc
     for line in stmts.iter() {
         compile_block_stmt(&mut result, &mut fails, scope, line, loc);
     }
-    let is_root = scope.infer.pop_block();
-    Ixpr::new_block(result, fails, is_root, loc.lineno)
+    scope.infer.pop_block();
+    Ixpr::new_block(result, fails, loc.lineno)
 }
 
 pub fn compile_block_stmt(istmts: &mut Vec<Ixpr>

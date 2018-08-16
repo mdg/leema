@@ -11,7 +11,7 @@ use std::rc::{Rc};
 #[derive(PartialEq)]
 pub enum Source
 {
-    Block(Vec<Ixpr>, HashMap<String, Ixpr>, bool),
+    Block(Vec<Ixpr>, HashMap<String, Ixpr>),
     Call(Box<Ixpr>, Box<Ixpr>),
     Cons(Box<Ixpr>, Box<Ixpr>),
     Construple(Type, Struple<Type>),
@@ -68,7 +68,7 @@ impl Ixpr
     }
 
     pub fn new_block(code: Vec<Ixpr>, fails: HashMap<String, Ixpr>
-        , is_root: bool, line: i16
+        , line: i16
         ) -> Ixpr
     {
         let block_type = match code.last() {
@@ -81,7 +81,7 @@ impl Ixpr
         };
         Ixpr{
             typ: block_type,
-            src: Source::Block(code, fails, is_root),
+            src: Source::Block(code, fails),
             line: line,
         }
     }

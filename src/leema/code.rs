@@ -260,7 +260,7 @@ pub fn make_ops(input: &Ixpr) -> OpVec
 pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
 {
     match input.src {
-        Source::Block(ref lines, ref fails, ref is_root) => {
+        Source::Block(ref lines, ref _fails) => {
             let mut oxprs = Vec::with_capacity(lines.len());
             for i in lines.iter().rev() {
                 oxprs.push(make_sub_ops(rt, i));
@@ -349,7 +349,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::MatchExpr(ref x, ref cases) => {
             make_matchexpr_ops(rt, &*x, &*cases)
         }
-        Source::MatchCase(ref patt, ref code, ref next) => {
+        Source::MatchCase(_, _, _) => {
             panic!("matchcase ops not generated directly");
         }
         Source::PropagateFailure(ref id, usage_line) => {
@@ -465,8 +465,8 @@ pub fn make_construple_ops(rt: &mut RegTable, typ: &Type, flds: &Struple<Type>
     }
 }
 
-pub fn make_enum_constructor_ops(rt: &mut RegTable, typ: &Type, index: i16
-    , data: &Ixpr, line: i16
+pub fn make_enum_constructor_ops(rt: &mut RegTable, _typ: &Type, _index: i16
+    , _data: &Ixpr, _line: i16
     ) -> Oxpr
 {
     let dst = rt.dst();
