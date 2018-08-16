@@ -1,0 +1,48 @@
+
+
+struple Trie
+.complete: Bool
+.a: Trie?
+.b: Trie?
+.c: Option[Trie]
+.d: Option[Trie]
+.e: Option[Trie]
+.f: Option[Trie]
+.g: Trie?
+--
+
+func insert(t: Trie, word: Str): Trie
+|(Trie(complete: true), "") ->
+    cout("huh, this word already exists")
+    t
+|(t: Trie(complete: false), "") ->
+    cout("complete this word")
+    let t2 := t << (complete: true)
+|(t, word) ->
+    let (head, tail) := str::split(word, 1)
+    insert_char(t, head, tail)
+--
+
+func insert_char(t: Trie, letter: Str, rem: Str) -> Trie
+    match (letter, t)
+    |("a", Trie(a: None)) ->
+        let subt := insert(Trie(), rem)
+        t << (a: Some(subt))
+    |("b", Trie(b: None)) ->
+        let subt := insert(Trie(), rem)
+        t << (b: Some(subt))
+    |("a", Trie(a: Some(subt))) ->
+        let subt2 := insert(subt, rem)
+        t << (a: Some(subt))
+    --
+--
+
+func main() ->
+    let t1 := Trie()
+    let t2 := insert(t1, "apple")
+    cout(search(t2, "apple"))
+    cout(search(t2, "app"))
+    cout(startswith(t2, "app"))
+    let t3 := insert(t2, "app")
+    cout(search(t3, "app"))
+--
