@@ -397,6 +397,14 @@ impl Default for SrcLoc
     }
 }
 
+impl fmt::Display for SrcLoc
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "line {}", self.lineno)
+    }
+}
+
 pub const DEFAULT_SRC_LOC: SrcLoc = SrcLoc{lineno: 0, column: 0};
 
 #[derive(Copy)]

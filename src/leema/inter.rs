@@ -338,12 +338,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
         &Ast::Lri(ref names, None, ref loc) => {
             compile_lri(scope, names, loc)
         }
-        &Ast::Lri(ref names, ref types, ref loc) => {
-            /*
-            if !scope.imports_module(names) {
-                panic!("module not found: {:?}", names);
-            }
-            */
+        &Ast::Lri(_, ref _types, _) => {
             panic!("cannot handle typed lri");
         }
         &Ast::DotAccess(ref outer, ref inner) => {
@@ -402,7 +397,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
             Ixpr::cons(chead, ctail, list_type.unwrap(), loc.lineno)
         }
         &Ast::IfExpr(_, _, _, _) => {
-            compile_ifx(scope, x, loc)
+            compile_ifx(scope, x)
         }
         &Ast::StrExpr(ref items, ref iloc) => {
             let strvec = items.iter().map(|i| {
@@ -422,9 +417,8 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
             }).collect();
             Ixpr::new_tuple(c_items, loc.lineno)
         }
-        &Ast::ConstructData(ast::DataType::Struple, ref ast_typ, ref args) => {
+        &Ast::ConstructData(ast::DataType::Struple, ref ast_typ) => {
             let type_lri = Lri::from(&**ast_typ);
-            let local_type_name = &type_lri.localid;
             let opt_full_type = scope.proto.func_result_type(&type_lri.localid);
             if opt_full_type.is_none() {
                 panic!("cannot find full type for: {:?} in {:?}"
@@ -572,7 +566,7 @@ pub fn compile_module_id(scope: &mut Interscope, module: Rc<String>
 }
 */
 
-pub fn compile_let_stmt(scope: &mut Interscope, lettype: ast::LetType
+pub fn compile_let_stmt(scope: &mut Interscope, _lettype: ast::LetType
     , lhs: &Ast, rhs: &Ast
     , loc: &SrcLoc
     ) -> Ixpr
@@ -622,13 +616,13 @@ pub fn compile_match_failed(scope: &mut Interscope, failure: &Ast, loc: &SrcLoc
 }
 */
 
-pub fn compile_ifx(scope: &mut Interscope, ifx: &Ast, loc: &SrcLoc) -> Ixpr
+pub fn compile_ifx(scope: &mut Interscope, ifx: &Ast) -> Ixpr
 {
-    let empty_blk = scope.infer.push_block(HashMap::new());
-    match ifx {
+    scope.infer.push_block(HashMap::new());
+    let ix = match ifx {
         &Ast::IfExpr(ast::IfType::If, ref const_void, ref case, ref iloc) => {
             if **const_void != Ast::ConstVoid {
-                panic!("if input is not void? {:?}", const_void);
+                panic!("if input is not void? {:?} @ {}", const_void, iloc);
             }
             compile_if_case(scope, case)
         }
@@ -637,14 +631,15 @@ pub fn compile_ifx(scope: &mut Interscope, ifx: &Ast, loc: &SrcLoc) -> Ixpr
             let ixcase = compile_match_case(scope, ifcase, &ix.typ);
             Ixpr::new_match_expr(ix, ixcase)
         }
-        &Ast::IfExpr(ast::IfType::MatchFailure, ref x, ref case, ref iloc) =>
-        {
+        &Ast::IfExpr(ast::IfType::MatchFailure, _, _, _) => {
             panic!("what's a MatchFailed doing here?");
         }
         _ => {
             panic!("not an expected if expression: {:?}", ifx);
         }
-    }
+    };
+    scope.infer.pop_block();
+    ix
 }
 
 pub fn compile_if_case(scope: &mut Interscope, case: &ast::IfCase) -> Ixpr
@@ -699,7 +694,7 @@ pub fn compile_pattern(scope: &mut Interscope, new_vars: &mut Vec<Rc<String>>
     ) -> Val
 {
     match patt {
-        &Ast::Localid(ref name, ref iloc) => {
+        &Ast::Localid(ref name, _) => {
             if !scope.infer.var_is_in_scope(name.str()) {
                 new_vars.push(name.rc());
             }
@@ -762,7 +757,7 @@ pub fn compile_pattern(scope: &mut Interscope, new_vars: &mut Vec<Rc<String>>
 
 pub fn compile_pattern_call(scope: &mut Interscope
     , new_vars: &mut Vec<Rc<String>>, callx: &Ast, args: &LinkedList<Kxpr>
-    , loc: &SrcLoc
+    , _loc: &SrcLoc
     ) -> Val
 {
     let args_vec: Vec<(Option<Lstr>, Val)> = args.iter().map(|a| {
@@ -783,7 +778,7 @@ pub fn push_block(scope: &mut Interscope, stmts: &Vec<Ast>) -> Vec<Ast>
     let mut lines: Vec<Ast> = Vec::with_capacity(stmts.len());
     for s in stmts.iter() {
         if let &Ast::IfExpr(ast::IfType::MatchFailure
-            , ref name, ref case, ref iloc) = s
+            , ref name, ref _case, _iloc) = s
         {
             let name_lstr = Lstr::from(&**name);
             keyed_failures.insert(String::from(&name_lstr), s.clone());
@@ -811,7 +806,7 @@ pub fn compile_block(scope: &mut Interscope, blk: &Vec<Ast>, loc: &SrcLoc
 }
 
 pub fn compile_block_stmt(istmts: &mut Vec<Ixpr>
-    , ifails: &mut HashMap<String, Ixpr>
+    , _ifails: &mut HashMap<String, Ixpr>
     , scope: &mut Interscope
     , stmt: &Ast
     , loc: &SrcLoc
@@ -840,7 +835,7 @@ pub fn compile_failed_var(scope: &mut Interscope, v: &Rc<String>, loc: &SrcLoc
         scope.infer.push_block(HashMap::new());
         let ixfailure = {
             let failure = scope.infer.get_failure(&**v).unwrap().clone();
-            compile_ifx(scope, &failure, loc)
+            compile_ifx(scope, &failure)
         };
         scope.infer.pop_block();
         ixfailure
@@ -853,7 +848,7 @@ pub fn compile_failed_var(scope: &mut Interscope, v: &Rc<String>, loc: &SrcLoc
 pub fn split_func_args_body(defunc: &Ast) -> (&LinkedList<Kxpr>, &Ast, &SrcLoc)
 {
     if let &Ast::DefFunc(ast::FuncClass::Func
-        , ref name, ref args, ref result, ref body, ref loc) = defunc
+        , ref name, ref args, ref _result, ref body, ref loc) = defunc
     {
         vout!("split_func_args({:?})\n", name);
         (args, body, loc)

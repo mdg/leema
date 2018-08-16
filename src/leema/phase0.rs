@@ -94,13 +94,9 @@ impl Protomod
                 let pp_tail = Protomod::preproc_expr(prog, mp, tail, loc);
                 Ast::Cons(Box::new(pp_head), Box::new(pp_tail))
             }
-            &Ast::ConstructData(datat, ref name, ref data) => {
-                vout!("how did this construct data get here? {:?}", x);
+            &Ast::ConstructData(datat, ref name) => {
                 let ppname = Protomod::preproc_expr(prog, mp, name, loc);
-                let ppdata = data.iter().map(|i| {
-                    Protomod::preproc_expr(prog, mp, i, loc)
-                }).collect();
-                Ast::ConstructData(datat, Box::new(ppname), ppdata)
+                Ast::ConstructData(datat, Box::new(ppname))
             }
             &Ast::ConstBool(b) => Ast::ConstBool(b),
             &Ast::ConstHashtag(_) => x.clone(),
@@ -632,7 +628,7 @@ impl Protomod
             *loc,
         );
         let srcblk = Ast::ConstructData(ast::DataType::Struple
-            , Box::new(full_type_ast), Vec::with_capacity(0)
+            , Box::new(full_type_ast)
             );
         let srcxpr = Ast::DefFunc(ast::FuncClass::Func
             , Box::new(Ast::Localid(local_name.clone(), *loc))

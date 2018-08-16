@@ -48,8 +48,6 @@ impl Fiber
         , module: Rc<String>, func: Rc<String>, args: Val
         )
     {
-        let trace = self.head.trace.clone();
-        let new_trace = self.head.push_frame_trace(line);
         let mut newf = Frame{
             parent: Parent::Null,
             module: module.clone(),
@@ -87,7 +85,7 @@ impl Fiber
             &Op::Copy(ref dst, ref src) => {
                 self.execute_copy(dst, src)
             }
-            &Op::Fork(ref dst, ref freg, ref args) => {
+            &Op::Fork(ref _dst, ref _freg, ref _args) => {
                 // frame::execute_fork(self, curf, dst, freg, args);
                 Event::Uneventful
             }
@@ -151,7 +149,7 @@ impl Fiber
                     // oops, not ready to do this yet, let's bail and wait
                     return Event::FutureWait(srcreg.clone())
                 }
-                (ref a, ref b) => {
+                _ => {
                     Val::new_str(format!("{}{}", dst, src))
                 }
             }
@@ -183,7 +181,7 @@ impl Fiber
                 }
                 self.head.e.set_reg(dst, Val::Bool(true));
             }
-            Nothing => {
+            None => {
                 self.head.e.set_reg(dst, Val::Bool(false));
             }
         }

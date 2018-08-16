@@ -59,7 +59,8 @@ pub fn get_named_struct_field<'a, 'b>(sv: &'a Val, name: &'b Lstr
     None
 }
 
-pub fn get_indexed_struct_field(sv: &Val, idx: i16) -> Option<&(Option<Lstr>, Val)>
+pub fn get_indexed_struct_field(sv: &Val, idx: i16
+        ) -> Option<&(Option<Lstr>, Val)>
 {
     let fields = match sv {
         &Val::Struct(_, ref fld_struple) => fld_struple,
@@ -68,7 +69,7 @@ pub fn get_indexed_struct_field(sv: &Val, idx: i16) -> Option<&(Option<Lstr>, Va
             return None;
         }
     };
-    fields.0.get(0)
+    fields.0.get(idx as usize)
 }
 
 /**

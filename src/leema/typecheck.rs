@@ -425,7 +425,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             let head_list_t = Type::StrictList(Box::new(head_t));
             scope.infer.merge_types(&head_list_t, &tail_t)
         }
-        &Source::ConstVal(ref cv) => {
+        &Source::ConstVal(_) => {
             Ok(ix.typ.clone())
         }
         &Source::Let(ref lhs, ref rhs, _) => {

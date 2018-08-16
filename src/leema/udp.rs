@@ -51,7 +51,7 @@ pub fn udp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let buffer: Vec<u8> = Vec::with_capacity(2048);
     let sock: UdpSocket = ctx.take_rsrc();
     let fut = sock.recv_dgram(buffer)
-        .map(|(isock, ibuf, nbytes, src_addr)| {
+        .map(|(isock, ibuf, _nbytes, _src_addr)| {
             let utf8_result = String::from_utf8(ibuf);
             let result_val = Val::new_str(utf8_result.unwrap());
             let irsrc: Box<Rsrc> = Box::new(isock);
@@ -81,11 +81,11 @@ pub fn udp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
     );
     let fut = Box::new(
         sock.send_dgram(msg, dst_addr)
-        .map(move |(sock2, buff)| {
+        .map(move |(sock2, _buff)| {
             let sockr: Box<Rsrc> = Box::new(sock2) as Box<Rsrc>;
             rsrc::Event::Result(Val::Int(0), Some(sockr))
         })
-        .map_err(|e| {
+        .map_err(|_| {
             rsrc::Event::Result(
                 Val::new_str(
                     "send dgram didn't work. socket is gone".to_string()

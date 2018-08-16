@@ -179,7 +179,7 @@ pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
             let framed = AsyncRead::framed(box_sock, codec);
             rsrc::Event::NewRsrc(Box::new(framed), None)
         })
-        .map_err(move |e| {
+        .map_err(move |_| {
             rsrc::Event::Result(
                 Val::new_str("Failure to connect".to_string()),
                 None,
@@ -211,10 +211,10 @@ pub fn tcp_accept(mut ctx: rsrc::IopCtx) -> rsrc::Event
             listener: Some(listener),
             handle: ctx.handle().clone(),
         }
-        .map(|(ilistener, sock, addr)| {
+        .map(|(_ilistener, sock, _addr)| {
             rsrc::Event::NewRsrc(Box::new(sock), None)
         })
-        .map_err(|e| {
+        .map_err(|_| {
             rsrc::Event::Result(Val::new_str("accept error".to_string()), None)
         });
     rsrc::Event::Future(Box::new(acc))
@@ -236,7 +236,7 @@ pub fn tcp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
         .map(|(isock, data)| {
             rsrc::Event::Result(data, Some(Box::new(isock)))
         })
-        .map_err(|(isock, err)| {
+        .map_err(|(isock, _err)| {
             let errval = Val::new_str("recv failure".to_string());
             rsrc::Event::Result(errval, Some(Box::new(isock)))
         });
@@ -253,7 +253,7 @@ pub fn tcp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
         .map(|sock2| {
             rsrc::Event::Result(Val::Int(0), Some(Box::new(sock2)))
         })
-        .map_err(|e| {
+        .map_err(|_| {
             rsrc::Event::Result(Val::new_str("send failure".to_string()), None)
         }));
     rsrc::Event::Future(fut)

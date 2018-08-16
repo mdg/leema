@@ -1,5 +1,5 @@
 #[macro_use]
-use leema::val::{Val, Env, FutureVal};
+use leema::val::{Val, Env};
 use leema::reg::{Reg, Ireg};
 use leema::code::{Code};
 use leema::rsrc::{self};
@@ -296,27 +296,6 @@ impl Frame
     pub fn function_name(&self) -> &str
     {
         &(**self.function)
-    }
-
-    pub fn receive_future(&mut self, r: &Reg) -> Option<Val>
-    {
-        let fval = self.e.get_reg(&r);
-        if !fval.is_future() {
-            panic!("This isn't even a future {:?}", fval);
-        }
-        if !fval.is_future_ready() {
-            return None;
-        }
-        match fval {
-            &Val::Future(FutureVal(_, ref amrx)) => {
-                /*
-                let rx = amrx.lock().unwrap();
-                Some(Val::from_msg(rx.recv().unwrap()))
-                */
-                Some(Val::Int(277))
-            },
-            _ => panic!("Not a future val? {:?}", fval),
-        }
     }
 
     /**
