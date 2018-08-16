@@ -460,6 +460,12 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
         &Source::Construple(ref typ) => {
             Ok(typ.clone())
         }
+        &Source::Tuple(ref items) => {
+            for i in items {
+                typecheck_expr(scope, i);
+            }
+            Ok(ix.typ.clone())
+        }
         &Source::IfExpr(ref cond, ref truth, ref lies) => {
             let cond_t = typecheck_expr(scope, cond).unwrap();
             scope.T.merge_types(&cond_t, &Type::Bool);
