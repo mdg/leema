@@ -173,7 +173,7 @@ impl Lib
         vout!("read_inter({})\n", modname);
         self.load_proto(modname);
         let preface = self.preface.get(modname).unwrap().clone();
-        let imports = self.import_protos(modname, &preface.imports);
+        let imports = self.import_protos(&preface.imports);
         let proto = self.proto.get(modname).unwrap();
         let mod_lstr = Lstr::from(String::from(modname));
         let mut typed = Typemod::new(mod_lstr.clone());
@@ -253,7 +253,6 @@ impl Lib
         for c in cf.calls.iter() {
             match c {
                 &CallOp::LocalCall(ref call_name) => {
-                    let callstr = Lstr::from(&**call_name);
                     let contains_local = {
                         let local_inter =
                             self.inter.get(modname.str()).unwrap();
@@ -343,7 +342,7 @@ impl Lib
         }
     }
 
-    fn import_protos(&mut self, modname: &str, imports: &HashSet<String>)
+    fn import_protos(&mut self, imports: &HashSet<String>)
             -> HashMap<String, Rc<Protomod>>
     {
         let mut imported_protos = HashMap::new();

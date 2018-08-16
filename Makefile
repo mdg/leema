@@ -24,6 +24,9 @@ unit: lexer parser
 T: build test.py
 	${NOSETESTS} --with-xunit
 
+warnings: lexer parser
+	cargo rustc --bin leema -- -D warnings
+
 # lexer
 lexer: target/debug/deps/libleemalex.a
 

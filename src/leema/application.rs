@@ -59,9 +59,9 @@ impl Application
 
     pub fn run(&mut self)
     {
-        let iot = self.start_io();
-        let t1 = self.start_worker();
-        let t2 = self.start_worker();
+        self.start_io();
+        self.start_worker();
+        self.start_worker();
     }
 
     fn start_io(&mut self) -> thread::JoinHandle<()>
@@ -87,7 +87,8 @@ impl Application
             Worker::run(w);
         });
         self.worker.insert(worker_id, worker_send.clone());
-        self.io_send.send(IoMsg::NewWorker(worker_id, worker_send));
+        self.io_send.send(IoMsg::NewWorker(worker_id, worker_send))
+            .expect("fail to send worker to io thread");
         handle
     }
 
@@ -113,7 +114,8 @@ impl Application
         while let Some((module, call)) = self.calls.pop_front() {
             vout!("application call {}.{}()\n", module, call);
             let w = self.worker.values().next().unwrap();
-            w.send(WorkerMsg::Spawn(module, call));
+            w.send(WorkerMsg::Spawn(module, call))
+                .expect("fail sending spawn call to worker");
         }
 
         while let Result::Ok(msg) = self.app_recv.try_recv() {
@@ -130,13 +132,13 @@ impl Application
                 let worker = self.worker.get(&worker_id).unwrap();
                 worker.send(
                     WorkerMsg::FoundCode(frame, module, func, code.clone())
-                );
+                ).expect("fail to send found code to worker");
             }
             AppMsg::MainResult(mv) => {
                 self.result = Some(mv.take());
                 self.done = true;
             }
-            AppMsg::Spawn(module, call) => {
+            AppMsg::Spawn(_, _) => {
                 panic!("whoa a spawn msg sent to Application");
             }
         }
@@ -145,36 +147,6 @@ impl Application
     pub fn take_result(&mut self) -> Option<Val>
     {
         self.result.take()
-    }
-
-    // pub fn get_interface_code(module: &str, func: &str, typ: &Type) {}
-    // pub fn get_protocol_code(module: &str, func: &str, typ: &Vec<Type>) {}
-    /*
-    pub fn load_code(&mut self, module: &str, func: &str) -> OpVec
-    {
-        if self.lib.contains(module, func) {
-            return self.lib.get((module, func))
-        }
-        / *
-        let ifunc = self.inter.load_func(module, func);
-        let tfunc = self.inter.resolve_types(ifunc);
-        let new_code = code::make_ops(tfunc);
-        self.lib.insert((module, func), new_code);
-        new_code
-        * /
-        vec![]
-    }
-    */
-
-    pub fn type_mod(module: &str, func: &str) // -> FuncType
-    {
-        /*
-        imod = interload.load_mod(module);
-        ifunc = load_func(imod, func);
-        tfunc = self.type_check(ifunc);
-        self.ftypes.insert((module, func), tfunc);
-        tfunc
-        */
     }
 
     pub fn handle_result(result: Option<Val>) -> i8

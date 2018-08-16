@@ -39,7 +39,6 @@ impl fmt::Display for ModSym
 #[derive(PartialEq)]
 pub enum Op
 {
-    LoadFunc(Reg, ModSym),
     ApplyFunc(Reg, Reg, Reg),
     Return,
     SetResult(Reg),
@@ -79,7 +78,6 @@ impl Clone for Op
     fn clone(&self) -> Op
     {
         match self {
-            &Op::LoadFunc(ref r, ref ms) => Op::LoadFunc(r.clone(), ms.clone()),
             &Op::ApplyFunc(ref dst, ref f, ref args) => {
                 Op::ApplyFunc(dst.clone(), f.clone(), args.clone())
             }

@@ -9,7 +9,7 @@ use leema::module::{ModKey, ModulePreface};
 use leema::list;
 use leema::log;
 
-use std::collections::{HashMap, HashSet, LinkedList};
+use std::collections::{HashMap, LinkedList};
 use std::rc::Rc;
 use std::io::{Write};
 
@@ -70,7 +70,7 @@ impl Protomod
             &Ast::DefData(data_type, ref name, ref fields, ref loc) => {
                 self.preproc_data(prog, mp, data_type, name, fields, loc);
             }
-            &Ast::Import(ref imports, _) => {
+            &Ast::Import(ref _imports, _) => {
                 // do nothing. imports handled in file read
             }
             _ => {
@@ -368,13 +368,13 @@ impl Protomod
                 let m_case = Protomod::replace_ifcase_ids(if_case, idvals, loc);
                 Ast::IfExpr(ift, Box::new(m_input), Box::new(m_case), *loc)
             }
-            &Ast::Localid(ref name, ref iloc) => {
+            &Ast::Localid(ref name, ref _iloc) => {
                 match idvals.get(&*name) {
                     Some(newx) => (*newx).clone(),
                     None => node.clone(),
                 }
             }
-            &Ast::Lri(ref names, ref types, _) => {
+            &Ast::Lri(_, _, _) => {
                 node.clone()
             }
             _ => {
@@ -512,12 +512,12 @@ impl Protomod
     {
         let pp_x = Protomod::preproc_expr(prog, mp, typ, loc);
         match (&pp_x, opt_type_params) {
-            (&Ast::Localid(ref name, ref iloc), None) => {
+            (&Ast::Localid(ref name, _), None) => {
                 Type::UserDef(Lri::new(name.clone()))
             }
-            (&Ast::Localid(ref name, ref iloc), Some(ref type_params)) => {
+            (&Ast::Localid(ref name, _), Some(ref type_params)) => {
                 Protomod::find_type_param(type_params, name)
-                .map(|i| {
+                .map(|_i| {
                     // Type::Param(i)
                     Type::Var(name.clone())
                 })
@@ -525,7 +525,7 @@ impl Protomod
                     Type::UserDef(Lri::new(name.clone()))
                 })
             }
-            (&Ast::TypeVar(ref name, ref iloc), _) => {
+            (&Ast::TypeVar(ref name, _), _) => {
                 Type::UserDef(Lri::new(name.clone()))
             }
             _ => {
@@ -566,13 +566,13 @@ impl Protomod
                 }
             }
             ast::DataType::Enum => {
-                self.preproc_enum(prog, mp, name_ast, fields, loc);
+                self.preproc_enum(prog, mp, name_ast, fields);
             }
         }
     }
 
-    pub fn preproc_struple_token(&mut self, prog: &Lib, mp: &ModulePreface
-        , name: Lri, loc: &SrcLoc
+    pub fn preproc_struple_token(&mut self, _prog: &Lib, mp: &ModulePreface
+        , name: Lri, _loc: &SrcLoc
         )
     {
         if name.param_ref().is_some() {
@@ -688,7 +688,7 @@ impl Protomod
 
     pub fn preproc_enum(&mut self, prog: &Lib, mp: &ModulePreface
         , name_ast: &Ast, src_variants: &LinkedList<Kxpr>
-        , loc: &SrcLoc)
+        )
     {
         let local_name = Lri::from(name_ast);
         let enum_lri = local_name.add_modules(Lstr::Rc(self.key.name.clone()));
@@ -696,14 +696,13 @@ impl Protomod
         let rc_name: Rc<String> = From::from(&name_lstr);
         let mod_type = Type::UserDef(enum_lri.clone());
 
-        let type_params: HashSet<Lstr> = HashSet::new();
         let mut variant_fields = Vec::with_capacity(src_variants.len());
-        for (bigi, kx) in src_variants.iter().enumerate() {
-            let i = bigi as i16;
+        for kx in src_variants.iter() {
             let v = kx.x_ref().unwrap();
-            if let &Ast::DefData(vdatatype, ref vname, ref fields, ref loc) = v {
-                self.preproc_enum_variant(prog, mp, &name_ast, i
-                    , vdatatype, vname, &type_params, fields, loc);
+            if let &Ast::DefData(vdatatype, ref vname, ref fields, ref iloc) = v
+            {
+                self.preproc_enum_variant(prog, mp, &name_ast
+                    , vdatatype, vname, fields, iloc);
                 let variant_lstr = Lstr::from(&**vname);
                 let variant_name: Rc<String> = From::from(&variant_lstr);
                 let vf = (variant_name, mod_type.clone());
@@ -718,8 +717,8 @@ impl Protomod
     }
 
     pub fn preproc_enum_variant(&mut self, prog: &Lib, mp: &ModulePreface
-        , typename: &Ast, i: i16, dataclass: ast::DataType
-        , name: &Ast, type_params: &HashSet<Lstr>
+        , typename: &Ast, dataclass: ast::DataType
+        , name: &Ast
         , fields: &LinkedList<Kxpr>, loc: &SrcLoc
         )
     {
@@ -734,9 +733,6 @@ impl Protomod
             , mod_lstr, type_lstr, variant_name);
         if dataclass == ast::DataType::Struple {
             if fields.is_empty() {
-                let variant_lri =
-                    Lri::with_modules(mod_lstr.clone(), variant_name.clone());
-                let var_struct_type = Type::UserDef(variant_lri);
                 let const_val =
                     Val::EnumToken(full_lri, variant_name.clone());
                 let variant_name_string = String::from(&variant_name);

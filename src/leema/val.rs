@@ -684,7 +684,7 @@ impl Val
             &Val::Int(_) => Type::Int,
             &Val::Str(_) => Type::Str,
             &Val::Hashtag(_) => Type::Hashtag,
-            &Val::Cons(ref head, ref tail) => {
+            &Val::Cons(ref head, _) => {
                 let inner = head.get_type();
                 Type::StrictList(Box::new(inner))
             }
@@ -777,6 +777,11 @@ impl Val
             (&Val::Struct(ref pt, ref pv), &Val::Struct(ref it, ref iv))
                 if pv.0.len() == iv.0.len() =>
             {
+                // this type check shouldn't be necessary
+                // if the type checking was right
+                if pt != it {
+                    return false;
+                }
                 pv.0.iter().zip(iv.0.iter()).all(|(p_item, i_item)| {
                     Val::_pattern_match(assigns, &p_item.1, &i_item.1)
                 })
@@ -970,7 +975,7 @@ impl Val
 
 impl From<Error> for Val
 {
-    fn from(e: Error) -> Val
+    fn from(_e: Error) -> Val
     {
         Val::Void
     }
@@ -1001,10 +1006,14 @@ impl fmt::Display for Val {
             Val::Bool(true) => {
                 write!(f, "true")
             }
-            Val::Cons(ref head, ref tail) => {
-                write!(f, "[");
-                Val::fmt_list(f, self, false);
-                write!(f, "]")
+            Val::Cons(_, _) => {
+                write!(f, "[")
+                    .and_then(|_| {
+                        Val::fmt_list(f, self, false)
+                    })
+                    .and_then(|_| {
+                        write!(f, "]")
+                    })
             }
             Val::Nil => {
                 write!(f, "[]")
@@ -1027,7 +1036,7 @@ impl fmt::Display for Val {
             Val::Token(ref typename) => {
                 write!(f, "{}", typename)
             }
-            Val::Buffer(ref buf) => {
+            Val::Buffer(ref _buf) => {
                 write!(f, "Buffer")
             }
             Val::Lib(ref lv) => {
@@ -1042,7 +1051,7 @@ impl fmt::Display for Val {
             Val::RustBlock => {
                 write!(f, "RustBlock")
             }
-            Val::Failure(ref tag, ref msg, ref stack, status) => {
+            Val::Failure(ref tag, ref msg, ref stack, _status) => {
                 write!(f, "Failure({}, {}\n{})", tag, msg, **stack)
             }
             Val::Lri(ref name) => {
@@ -1089,10 +1098,14 @@ impl fmt::Debug for Val {
             Val::Bool(b) => {
                 write!(f, "Bool({:?})", b)
             }
-            Val::Cons(ref head, ref tail) => {
-                write!(f, "L[");
-                Val::fmt_list(f, self, true);
-                write!(f, "]")
+            Val::Cons(_, _) => {
+                write!(f, "L[")
+                    .and_then(|_| {
+                        Val::fmt_list(f, self, true)
+                    })
+                    .and_then(|_| {
+                        write!(f, "]")
+                    })
             }
             Val::Nil => {
                 write!(f, "L[]")
@@ -1232,11 +1245,8 @@ impl reg::Iregistry for Val
             (&Ireg::Sub(0, ref s), &mut Val::Cons(ref mut head, _)) => {
                 head.ireg_set(&*s, v);
             }
-            (&Ireg::Reg(p), &mut Val::Cons(_, ref mut tail)) => {
+            (_, &mut Val::Cons(_, _)) => {
                 panic!("Cannot set a register on a list");
-            }
-            (&Ireg::Sub(p, ref s), &mut Val::Cons(_, ref mut tail)) => {
-                panic!("Cannot set a subregister on a list");
             }
             (_, &mut Val::Nil) => {
                 panic!("cannot set reg on empty list: {:?}", i);
@@ -1656,17 +1666,6 @@ impl Env
     pub fn get_param_mut(&mut self, reg: i8) -> &mut Val
     {
         self.get_reg_mut(&Reg::Param(Ireg::Reg(reg)))
-    }
-
-    pub fn takeResult(&mut self) -> Val {
-        match self.result.take() {
-            None => {
-                Val::Void
-            }
-            Some(v) => {
-                v
-            }
-        }
     }
 }
 

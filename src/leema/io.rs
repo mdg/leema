@@ -261,14 +261,14 @@ impl Io
                 let rcio_err = rcio.clone();
                 let iostream = libstream
                     .into_future()
-                    .map(move |(ev2, str2)| {
+                    .map(move |(ev2, _str2)| {
                         let mut bio = rcio.borrow_mut();
                         bio.handle_event(
                             worker_id, fiber_id, rsrc_id, ev2.unwrap()
                         );
                         ()
                     })
-                    .map_err(move |(ev2, str2)| {
+                    .map_err(move |(ev2, _str2)| {
                         let mut bio = rcio_err.borrow_mut();
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
@@ -282,9 +282,11 @@ impl Io
         , rsrc_id: Option<i64>, rsrc: Option<Box<Rsrc>>, param_val: Val)
         -> IopCtx
     {
-        let h = self.handle.clone();
         let rcio = self.io.clone().unwrap();
-        // let tx = self.worker_tx.clone();
+        /*
+        let h = self.handle.clone();
+        let tx = self.worker_tx.clone();
+        */
         IopCtx::new(rcio, src_worker_id, src_fiber_id, rsrc_id, rsrc, param_val)
     }
 
@@ -300,7 +302,8 @@ impl Io
     {
         vout!("send_result({},{},{:?})\n", worker_id, fiber_id, result);
         let tx = self.worker_tx.get(&worker_id).unwrap();
-        tx.send(WorkerMsg::IopResult(fiber_id, MsgVal::new(&result)));
+        tx.send(WorkerMsg::IopResult(fiber_id, MsgVal::new(&result)))
+            .expect("failed sending iop result to worker");
     }
 
     pub fn return_rsrc(&mut self, rsrc_id: Option<i64>, rsrc: Option<Box<Rsrc>>)

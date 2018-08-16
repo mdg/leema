@@ -121,12 +121,12 @@ impl ModulePreface
     pub fn split_ast_block_item(mp: &mut ModulePreface, item: &Ast)
     {
         match item {
-            &Ast::Import(ref i, ref loc) => {
+            &Ast::Import(ref i, _) => {
                 let imp_string = (**i).localid_str().to_string();
                 mp.imports.insert(imp_string);
             }
-            &Ast::DefFunc(ast::FuncClass::Macro, ref name, ref args
-                    , _, ref body, ref loc
+            &Ast::DefFunc(ast::FuncClass::Macro, ref name, ref _args
+                    , _, ref _body, ref _loc
             ) => {
                 let name_string = String::from(&**name);
                 mp.macros.insert(name_string, item.clone());

@@ -279,7 +279,7 @@ pub fn cerr(f: &mut Fiber) -> Event
 {
     {
         let va = f.head.get_param(0);
-        write!(stderr(), "{}", va);
+        write!(stderr(), "{}", va).expect("fail writing to stderr");
     }
     f.head.parent.set_result(Val::Void);
     Event::success()

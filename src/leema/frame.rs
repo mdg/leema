@@ -100,7 +100,7 @@ impl fmt::Debug for Event {
             &Event::Fork => write!(f, "Event::Fork"),
             &Event::FutureWait(ref r) => write!(f, "Event::FutureWait({})", r),
             &Event::IOWait => write!(f, "Event::IOWait"),
-            &Event::Iop(wrid, ref iopf, ref iopargs) => {
+            &Event::Iop(wrid, _, ref iopargs) => {
                 write!(f, "Event::Iop({:?}, f, {:?})", wrid, iopargs)
             }
             &Event::Complete(c) => {
@@ -309,8 +309,10 @@ impl Frame
         }
         match fval {
             &Val::Future(FutureVal(_, ref amrx)) => {
+                /*
                 let rx = amrx.lock().unwrap();
-                // Some(Val::from_msg(rx.recv().unwrap()))
+                Some(Val::from_msg(rx.recv().unwrap()))
+                */
                 Some(Val::Int(277))
             },
             _ => panic!("Not a future val? {:?}", fval),

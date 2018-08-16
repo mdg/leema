@@ -253,10 +253,10 @@ impl<'b> Inferator<'b>
                     )
                     .map(|_| ())
             }
-            (&Val::Cons(ref head, _), &Type::StrictList(ref subt)) => {
+            (&Val::Cons(_, _), &Type::StrictList(ref subt)) => {
                 self.match_list_pattern(typeset, patt, subt, lineno)
             }
-            (&Val::Cons(ref head, ref tail), &Type::Var(ref tvar_name)) => {
+            (&Val::Cons(_, _), &Type::Var(ref tvar_name)) => {
                 let tvar_inner_name = format!("{}_inner", tvar_name);
                 let tvar_inner = Type::Var(Lstr::from(tvar_inner_name));
                 self.match_list_pattern(typeset, patt, &tvar_inner, lineno)?;
@@ -294,7 +294,7 @@ impl<'b> Inferator<'b>
                 }
                 Ok(())
             }
-            (&Val::EnumStruct(ref typ1, ref var1, ref flds1)
+            (&Val::EnumStruct(ref typ1, ref _var1, ref _flds1)
                 , &Type::UserDef(ref typename2)) =>
             {
                 if typ1 != typename2 {
@@ -302,7 +302,7 @@ impl<'b> Inferator<'b>
                 }
                 Ok(())
             }
-            (&Val::EnumToken(ref typ1, ref var1)
+            (&Val::EnumToken(ref typ1, ref _var1)
                 , &Type::UserDef(ref typename2)) =>
             {
                 if typ1 != typename2 {

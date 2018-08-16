@@ -157,7 +157,7 @@ impl<'a> Interscope<'a>
             vout!("bind func param as: #{} {:?}\n", i, a);
             let at = Type::from(a.x_ref().unwrap());
             let at2 = t.init_param(i as i16, a.k_ref(), at, lineno)
-                .map_err(|e| {
+                .map_err(|_| {
                     TypeErr::Error(Lstr::from(format!(
                         "args type mismatch: {:?}", args
                     )))

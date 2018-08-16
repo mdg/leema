@@ -47,7 +47,7 @@ impl Lstr
     {
         match self {
             &Lstr::Rc(ref s) => s.clone(),
-            &Lstr::Arc(ref s) => Rc::new(String::from(self.str())),
+            &Lstr::Arc(_) => Rc::new(String::from(self.str())),
             &Lstr::Sref(ref s) => Rc::new(String::from(*s)),
             _ => {
                 panic!("not a str: {:?}", self);

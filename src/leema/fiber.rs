@@ -3,7 +3,7 @@ use leema::log;
 use leema::frame::{Frame, Event, Parent, FrameTrace};
 use leema::val::{Val, Env, Type};
 use leema::reg::{Reg};
-use leema::code::{Code, Op, OpVec, ModSym};
+use leema::code::{Code, Op, OpVec};
 use leema::list;
 use leema::struple::{Struple};
 
@@ -114,9 +114,6 @@ impl Fiber
             }
             &Op::StrCat(ref dst, ref src) => {
                 self.execute_strcat(dst, src)
-            }
-            &Op::LoadFunc(ref reg, ref modsym) => {
-                self.execute_load_func(reg, modsym)
             }
             &Op::ApplyFunc(ref dst, ref func, ref args) => {
                 self.execute_call(dst, func, args, line)
@@ -374,12 +371,6 @@ impl Fiber
         };
         self.head.e.set_reg(dst, *dst_val);
         self.head.pc += 1;
-        Event::Uneventful
-    }
-
-    pub fn execute_load_func(&mut self, dst: &Reg, ms: &ModSym) -> Event
-    {
-        self.head.pc = self.head.pc + 1;
         Event::Uneventful
     }
 

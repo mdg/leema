@@ -76,7 +76,8 @@ impl Interloader
         }
         let mut f = File::open(path).ok().unwrap();
         let mut result = String::new();
-        f.read_to_string(&mut result);
+        f.read_to_string(&mut result)
+            .expect("failed reading file to text");
         result
     }
 }
