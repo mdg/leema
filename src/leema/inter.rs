@@ -152,7 +152,7 @@ pub struct Interscope<'a>
     imports: &'a HashMap<String, Rc<Protomod>>,
     typed: &'a Typemod,
     // types of locally defined labels
-    T: Inferator<'a>,
+    infer: Inferator<'a>,
     typeset: TypeSet<'a>,
     argnames: LinkedList<Kxpr>,
     argt: Type,
@@ -194,7 +194,7 @@ impl<'a> Interscope<'a>
             proto: proto,
             imports: imports,
             typed: typed,
-            T: t,
+            infer: t,
             typeset: ts,
             argnames: args.clone(),
             argt: Type::Tuple(Struple(argt)),
@@ -203,8 +203,8 @@ impl<'a> Interscope<'a>
 
     pub fn vartype(&self, name: &str) -> Option<(ScopeLevel, Type)>
     {
-        let local = self.T.vartype(name);
-        if local.is_some() && self.T.var_is_in_scope(name) {
+        let local = self.infer.vartype(name);
+        if local.is_some() && self.infer.var_is_in_scope(name) {
             return Some((ScopeLevel::Local, local.unwrap()));
         }
         let ftype = self.typed.function_type(&Lstr::from(String::from(name)));
@@ -219,8 +219,8 @@ impl<'a> Interscope<'a>
                 let valtype_opt = proto.valtype(name);
                 if valtype_opt.is_none() {
                     vout!("cannot find variable: {} in\n{:?}\n{:?}\n",
-                        name, self.T, self.proto);
-                    panic!("undefined variable: {} in {:?}", name, self.T);
+                        name, self.infer, self.proto);
+                    panic!("undefined variable: {} in {:?}", name, self.infer);
                 }
                 Some((ScopeLevel::External, valtype_opt.unwrap().clone()))
             }
@@ -240,7 +240,7 @@ impl<'a> Interscope<'a>
 
     pub fn contains_id(&self, name: &str) -> bool
     {
-        if self.T.var_is_in_scope(name) {
+        if self.infer.var_is_in_scope(name) {
             true
         } else if self.proto.contains_val(name) {
             true
@@ -311,21 +311,21 @@ pub fn compile_function<'a>(proto: &'a Protomod
         Interscope::new(proto, imports, typed, fname, loc.lineno, args);
     let ibody = compile_expr(&mut scope, body, loc);
     let argt2: Vec<Type> = argt.iter().map(|a| {
-        scope.T.inferred_type(a).clone()
+        scope.infer.inferred_type(a).clone()
     }).collect();
     let ibody2 = Ixpr{
-        typ: scope.T.inferred_type(&ibody.typ).clone(),
+        typ: scope.infer.inferred_type(&ibody.typ).clone(),
         src: ibody.src,
         line: loc.lineno,
     };
     let final_ftype = Type::Func(argt2, Box::new(ibody2.typ.clone()));
     vout!("compile function {}: {}\n", fname, final_ftype);
-    for v in scope.T.vars() {
-        let vtyp = scope.T.vartype(v);
+    for v in scope.infer.vars() {
+        let vtyp = scope.infer.vartype(v);
         vout!("\t{}: {}\n", v, vtyp.unwrap());
     }
     vout!("\t<result>: {}\n", ibody2.typ);
-    vout!("inferences: {:?}\n", scope.T);
+    vout!("inferences: {:?}\n", scope.infer);
     let rc_args = args.iter().enumerate().map(|(argi, a)| {
         a
         .k_clone()
@@ -373,7 +373,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
                 let iargst: Vec<&Type> = iargs.iter().map(|ia| {
                     &ia.typ
                 }).collect();
-                scope.T.make_call_type(&icall.typ, &iargst)
+                scope.infer.make_call_type(&icall.typ, &iargst)
                     .map_err(|e| {
                         TypeErr::Context(Box::new(e),
                             Rc::new(format!(
@@ -407,7 +407,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
         &Ast::Cons(ref head, ref tail) => {
             let chead = compile_expr(scope, head, loc);
             let ctail = compile_expr(scope, tail, loc);
-            let list_type = scope.T.merge_types(
+            let list_type = scope.infer.merge_types(
                     &Type::StrictList(Box::new(chead.typ.clone())),
                     &ctail.typ,
                 )
@@ -491,7 +491,7 @@ pub fn compile_lri(scope: &mut Interscope, names: &Vec<Lstr>, loc: &SrcLoc
             }
         }
     }
-    match scope.T.take_current_module() {
+    match scope.infer.take_current_module() {
         Some(modname) => {
             compile_module_id(scope, modname, id, loc)
         }
@@ -499,9 +499,9 @@ pub fn compile_lri(scope: &mut Interscope, names: &Vec<Lstr>, loc: &SrcLoc
             if !scope.imports_module(prefix) {
                 panic!("module not found: {}", prefix);
             }
-            scope.T.push_module(prefix.clone());
+            scope.infer.push_module(prefix.clone());
             let mod_result = compile_expr(scope, inner, loc);
-            scope.T.pop_module();
+            scope.infer.pop_module();
             mod_result
             */
 
@@ -511,7 +511,7 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc
     vout!("compile_local_id({})\n", id);
     match scope.vartype(id.str()) {
         Some((ScopeLevel::Local, typ)) => {
-            scope.T.mark_usage(id.str(), loc);
+            scope.infer.mark_usage(id.str(), loc);
             Ixpr{
                 src: Source::Id(id.rc(), loc.lineno),
                 typ: typ.clone(),
@@ -597,7 +597,8 @@ pub fn compile_let_stmt(scope: &mut Interscope, lettype: ast::LetType
     let mut new_vars = Vec::new();
     let cpatt = compile_pattern(scope, &mut new_vars, lhs);
     vout!("new vars in let: {:?} = {:?} = {:?}\n", new_vars, lhs, irhs);
-    scope.T.match_pattern(&scope.typeset, &cpatt, &irhs.typ, loc.lineno);
+    scope.infer.match_pattern(&scope.typeset, &cpatt, &irhs.typ, loc.lineno)
+        .unwrap();
     let failed = new_vars.iter().map(|v| {
         (v.clone(), compile_failed_var(scope, v, loc))
     }).collect();
@@ -638,7 +639,7 @@ pub fn compile_match_failed(scope: &mut Interscope, failure: &Ast, loc: &SrcLoc
 
 pub fn compile_ifx(scope: &mut Interscope, ifx: &Ast, loc: &SrcLoc) -> Ixpr
 {
-    let empty_blk = scope.T.push_block(HashMap::new());
+    let empty_blk = scope.infer.push_block(HashMap::new());
     match ifx {
         &Ast::IfExpr(ast::IfType::If, ref const_void, ref case, ref iloc) => {
             if **const_void != Ast::ConstVoid {
@@ -672,13 +673,13 @@ pub fn compile_if_case(scope: &mut Interscope, case: &ast::IfCase) -> Ixpr
         } else {
             compile_expr(scope, &case.cond, &case.loc)
         };
-    scope.T.push_block(HashMap::new());
+    scope.infer.push_block(HashMap::new());
     let ibody = compile_expr(scope, &case.body, &case.loc);
-    scope.T.pop_block();
+    scope.infer.pop_block();
     let (if_result_type, inext) = match case.else_case.as_ref() {
         Some(else_case) => {
             let iinext = compile_if_case(scope, &*else_case);
-            let mtype = scope.T.merge_types(&ibody.typ, &iinext.typ)
+            let mtype = scope.infer.merge_types(&ibody.typ, &iinext.typ)
                 .map_err(|e| {
                     e.add_context("if/else types do not match".to_string())
                 });
@@ -696,11 +697,12 @@ pub fn compile_match_case(scope: &mut Interscope
     ) -> Ixpr
 {
     let mut new_vars = Vec::new();
-    scope.T.push_block(HashMap::new());
+    scope.infer.push_block(HashMap::new());
     let cpatt = compile_pattern(scope, &mut new_vars, &case.cond);
-    scope.T.match_pattern(&scope.typeset, &cpatt, xtyp, case.loc.lineno);
+    scope.infer.match_pattern(&scope.typeset, &cpatt, xtyp, case.loc.lineno)
+        .unwrap();
     let iblk = compile_expr(scope, &case.body, &case.loc);
-    scope.T.pop_block();
+    scope.infer.pop_block();
     let inext = case.else_case.as_ref().map_or(Ixpr::noop(), |else_case| {
         compile_match_case(scope, &else_case, xtyp)
     });
@@ -713,7 +715,7 @@ pub fn compile_pattern(scope: &mut Interscope, new_vars: &mut Vec<Rc<String>>
 {
     match patt {
         &Ast::Localid(ref name, ref iloc) => {
-            if !scope.T.var_is_in_scope(name.str()) {
+            if !scope.infer.var_is_in_scope(name.str()) {
                 new_vars.push(name.rc());
             }
             Val::Id(name.rc())
@@ -805,7 +807,7 @@ pub fn push_block(scope: &mut Interscope, stmts: &Vec<Ast>) -> Vec<Ast>
         }
     }
 
-    scope.T.push_block(keyed_failures);
+    scope.infer.push_block(keyed_failures);
     lines
 }
 
@@ -819,7 +821,7 @@ pub fn compile_block(scope: &mut Interscope, blk: &Vec<Ast>, loc: &SrcLoc
     for line in stmts.iter() {
         compile_block_stmt(&mut result, &mut fails, scope, line, loc);
     }
-    let is_root = scope.T.pop_block();
+    let is_root = scope.infer.pop_block();
     Ixpr::new_block(result, fails, is_root, loc.lineno)
 }
 
@@ -848,14 +850,14 @@ pub fn compile_block_stmt(istmts: &mut Vec<Ixpr>
 pub fn compile_failed_var(scope: &mut Interscope, v: &Rc<String>, loc: &SrcLoc
     ) -> Ixpr
 {
-    if scope.T.handles_failure(&**v) {
+    if scope.infer.handles_failure(&**v) {
         vout!("compile failure handling for {}\n", **v);
-        scope.T.push_block(HashMap::new());
+        scope.infer.push_block(HashMap::new());
         let ixfailure = {
-            let failure = scope.T.get_failure(&**v).unwrap().clone();
+            let failure = scope.infer.get_failure(&**v).unwrap().clone();
             compile_ifx(scope, &failure, loc)
         };
-        scope.T.pop_block();
+        scope.infer.pop_block();
         ixfailure
     } else {
         Ixpr::new(Source::PropagateFailure(
@@ -924,7 +926,7 @@ fn test_scope_add_vartype()
     let args = LinkedList::new();
     let mut scope = Interscope::new(&proto, &imps
         , &typed, "foo", 105, &args);
-    scope.T.bind_vartype("hello", &Type::Int, 17);
+    scope.infer.bind_vartype("hello", &Type::Int, 17);
 
     let (scope_lvl, typ) = scope.vartype("hello").unwrap();
     assert_eq!(ScopeLevel::Local, scope_lvl);
@@ -941,7 +943,7 @@ fn test_scope_push_block()
     let args = LinkedList::new();
     let mut scope = Interscope::new(&proto, &imps
         , &typed, "foo", 104, &args);
-    scope.T.bind_vartype("hello", &Type::Int, 18);
+    scope.infer.bind_vartype("hello", &Type::Int, 18);
     println!("add_var(hello) -> {:?}", scope);
 
     {
@@ -950,8 +952,8 @@ fn test_scope_push_block()
         assert_eq!(Type::Int, hello_typ);
     }
 
-    scope.T.push_block(HashMap::new());
-    scope.T.bind_vartype("world", &Type::Str, 33);
+    scope.infer.push_block(HashMap::new());
+    scope.infer.bind_vartype("world", &Type::Str, 33);
     println!("push_block().add_var(world) -> {:?}", scope);
 
     {
@@ -964,7 +966,7 @@ fn test_scope_push_block()
         assert_eq!(Type::Int, hello_typ);
     }
 
-    scope.T.pop_block();
+    scope.infer.pop_block();
 
     assert_eq!(None, scope.vartype("world"));
     assert!(scope.vartype("hello").is_some());

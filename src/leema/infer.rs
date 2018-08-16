@@ -118,7 +118,7 @@ impl<'b> TypeSet<'b>
 pub struct Inferator<'b>
 {
     funcname: &'b str,
-    T: HashMap<String, Type>,
+    vartypes: HashMap<String, Type>,
     blocks: Vec<Blockscope>,
     inferences: HashMap<Lstr, Type>,
     module: Option<Rc<String>>,
@@ -130,7 +130,7 @@ impl<'b> Inferator<'b>
     {
         Inferator{
             funcname: funcname,
-            T: HashMap::new(),
+            vartypes: HashMap::new(),
             blocks: vec![Blockscope::new(HashMap::new())],
             inferences: HashMap::new(),
             module: None,
@@ -139,12 +139,12 @@ impl<'b> Inferator<'b>
 
     pub fn vars(&self) -> Keys<String, Type>
     {
-        self.T.keys()
+        self.vartypes.keys()
     }
 
     pub fn vartype(&self, argn: &str) -> Option<Type>
     {
-        match self.T.get(argn) {
+        match self.vartypes.get(argn) {
             None => None,
             Some(&Type::AnonVar) => {
                 panic!("Can't infer AnonVar");
@@ -182,12 +182,12 @@ impl<'b> Inferator<'b>
         };
         if argn.is_some() {
             let argn_u = argn.unwrap();
-            if self.T.contains_key(argn_u.str()) {
-                let oldargt = self.T.get(argn_u.str()).unwrap();
+            if self.vartypes.contains_key(argn_u.str()) {
+                let oldargt = self.vartypes.get(argn_u.str()).unwrap();
                 return Inferator::mash(&mut self.inferences, oldargt, &realt);
             }
 
-            self.T.insert(String::from(argn_u), realt.clone());
+            self.vartypes.insert(String::from(argn_u), realt.clone());
         }
         Ok(realt)
     }
@@ -219,12 +219,12 @@ impl<'b> Inferator<'b>
             }
             _ => argt.clone(),
         };
-        if !self.T.contains_key(argn) {
-            self.T.insert(String::from(argn), realt.clone());
+        if !self.vartypes.contains_key(argn) {
+            self.vartypes.insert(String::from(argn), realt.clone());
             return Ok(realt)
         }
 
-        let oldargt = self.T.get(argn).unwrap();
+        let oldargt = self.vartypes.get(argn).unwrap();
         Inferator::mash(&mut self.inferences, oldargt, &realt)
     }
 
@@ -233,7 +233,9 @@ impl<'b> Inferator<'b>
         Inferator::mash(&mut self.inferences, a, b)
     }
 
-    pub fn match_pattern(&mut self, typeset: &TypeSet, patt: &Val, valtype: &Type, lineno: i16)
+    pub fn match_pattern(&mut self, typeset: &TypeSet, patt: &Val
+             , valtype: &Type, lineno: i16
+             ) -> Result<(), TypeErr>
     {
         match (patt, valtype) {
             (_, &Type::AnonVar) => {
@@ -241,31 +243,36 @@ impl<'b> Inferator<'b>
                         , patt);
             }
             (&Val::Id(ref id), _) => {
-                self.bind_vartype(id, valtype, lineno);
+                self.bind_vartype(id, valtype, lineno)
+                    .map(|_| ())
             }
             (&Val::Nil, _) => {
                 self.merge_types(
-                    &Type::StrictList(Box::new(Type::Unknown)),
-                    valtype,
-                );
+                        &Type::StrictList(Box::new(Type::Unknown)),
+                        valtype,
+                    )
+                    .map(|_| ())
             }
             (&Val::Cons(ref head, _), &Type::StrictList(ref subt)) => {
-                self.match_list_pattern(typeset, patt, subt, lineno);
+                self.match_list_pattern(typeset, patt, subt, lineno)
             }
             (&Val::Cons(ref head, ref tail), &Type::Var(ref tvar_name)) => {
                 let tvar_inner_name = format!("{}_inner", tvar_name);
                 let tvar_inner = Type::Var(Lstr::from(tvar_inner_name));
-                self.match_list_pattern(typeset, patt, &tvar_inner, lineno);
+                self.match_list_pattern(typeset, patt, &tvar_inner, lineno)?;
                 self.merge_types(&valtype,
-                    &Type::StrictList(Box::new(tvar_inner.clone())));
+                    &Type::StrictList(Box::new(tvar_inner.clone()))
+                    )
+                    .map(|_| ())
             }
             (&Val::Tuple(ref flds1), &Type::Tuple(ref item_types)) => {
                 if flds1.0.len() != item_types.0.len() {
                     panic!("pattern tuple size mismatch: {} != {}", patt, valtype);
                 }
                 for (fp, ft) in flds1.0.iter().zip(item_types.0.iter()) {
-                    self.match_pattern(typeset, &fp.1, &ft.1, lineno);
+                    self.match_pattern(typeset, &fp.1, &ft.1, lineno)?;
                 }
+                Ok(())
             }
             (&Val::Struct(ref typ1, ref flds1)
                 , &Type::UserDef(ref typename2)) =>
@@ -283,8 +290,9 @@ impl<'b> Inferator<'b>
                     panic!("too many fields in pattern for: {}", typ1);
                 }
                 for (fp, ft) in flds1.0.iter().zip(flds2.0.iter()) {
-                    self.match_pattern(typeset, &fp.1, &ft.1, lineno);
+                    self.match_pattern(typeset, &fp.1, &ft.1, lineno)?;
                 }
+                Ok(())
             }
             (&Val::EnumStruct(ref typ1, ref var1, ref flds1)
                 , &Type::UserDef(ref typename2)) =>
@@ -292,6 +300,7 @@ impl<'b> Inferator<'b>
                 if typ1 != typename2 {
                     panic!("enum struct type mismatch: {:?} != {:?}", typ1, typename2);
                 }
+                Ok(())
             }
             (&Val::EnumToken(ref typ1, ref var1)
                 , &Type::UserDef(ref typename2)) =>
@@ -299,6 +308,7 @@ impl<'b> Inferator<'b>
                 if typ1 != typename2 {
                     panic!("enum token type mismatch: {:?} != {:?}", typ1, typename2);
                 }
+                Ok(())
             }
             (&Val::Token(ref typ1)
                 , &Type::UserDef(ref typename2)) =>
@@ -306,35 +316,42 @@ impl<'b> Inferator<'b>
                 if typ1 != typename2 {
                     panic!("token type mismatch: {:?} != {:?}", typ1, typename2);
                 }
+                Ok(())
             }
             _ => {
                 let ptype = patt.get_type();
                 self.merge_types(&ptype, valtype)
+                    .map(|_| ())
                     .map_err(|e| {
                         e.add_context(format!(
                             "pattern type mismatch: {:?} != {:?}"
                                 , patt, valtype
                         ))
                     })
-                    .unwrap();
             }
         }
     }
 
-    pub fn match_list_pattern(&mut self, typeset: &TypeSet, l: &Val, inner_type: &Type
-        , lineno: i16)
+    pub fn match_list_pattern(&mut self, typeset: &TypeSet, l: &Val
+        , inner_type: &Type, lineno: i16
+        ) -> Result<(), TypeErr>
     {
         match l {
             &Val::Cons(ref head, ref tail) => {
-                self.match_pattern(typeset, head, inner_type, lineno);
-                self.match_list_pattern(typeset, tail, inner_type, lineno);
+                self.match_pattern(typeset, head, inner_type, lineno)?;
+                self.match_list_pattern(typeset, tail, inner_type, lineno)
             }
             &Val::Id(ref idname) => {
                 let ltype = Type::StrictList(Box::new(inner_type.clone()));
-                self.bind_vartype(idname, &ltype, lineno);
+                self.bind_vartype(idname, &ltype, lineno)
+                    .map(|_| () )
             }
-            &Val::Nil => {}
-            &Val::Wildcard => {}
+            &Val::Nil => {
+                Ok(())
+            }
+            &Val::Wildcard => {
+                Ok(())
+            }
             _ => {
                 panic!("match_list_pattern on not a list: {:?}", l);
             }

@@ -338,7 +338,7 @@ impl<'a, 'b> Typescope<'a, 'b>
             &Source::MatchCase(ref patt, ref truth, ref lies) => {
                 self.infer.push_block(HashMap::new());
                 self.infer.match_pattern(
-                    &self.typeset, patt, valtype, case.line);
+                    &self.typeset, patt, valtype, case.line)?;
                 let ttype = typecheck_expr(self, truth).unwrap();
                 self.infer.pop_block();
                 let ftype = self.typecheck_matchcase(valtype, lies).unwrap();
@@ -432,8 +432,8 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
         }
         &Source::Let(ref lhs, ref rhs, _) => {
             let rhs_type = typecheck_expr(scope, rhs).unwrap();
-            scope.infer.match_pattern(&scope.typeset, lhs, &rhs_type, ix.line);
-            Ok(Type::Void)
+            scope.infer.match_pattern(&scope.typeset, lhs, &rhs_type, ix.line)
+                .map(|_| { Type::Void })
         }
         &Source::Block(ref elems, ref fails, _is_root) => {
             let mut last_type = Ok(Type::Void);
