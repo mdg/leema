@@ -614,6 +614,12 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
             }).collect();
             Val::Tuple(Struple(reg_items))
         }
+        &Val::Struct(ref styp, ref vars) => {
+            let reg_items = vars.0.iter().map(|v| {
+                (v.0.clone(), assign_pattern_registers(rt, &v.1))
+            }).collect();
+            Val::Struct(styp.clone(), Struple(reg_items))
+        }
         _ => {
             panic!("pattern type unsupported: {:?}", pattern);
         }

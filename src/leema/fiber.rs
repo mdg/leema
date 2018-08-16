@@ -272,7 +272,14 @@ impl Fiber
     pub fn execute_construple(&mut self, reg: &Reg, new_typ: &Type) -> Event
     {
         let construple = match self.head.e.get_params() {
-            &Val::Struct(ref old_typ, ref items) => {
+            &Val::Struct(_, ref items) => {
+                if let &Type::UserDef(ref i_new_typ) = new_typ {
+                    Val::Struct(i_new_typ.clone(), items.clone())
+                } else {
+                    panic!("struct type is not user defined: {:?}", new_typ);
+                }
+            }
+            &Val::Tuple(ref items) => {
                 if let &Type::UserDef(ref i_new_typ) = new_typ {
                     Val::Struct(i_new_typ.clone(), items.clone())
                 } else {

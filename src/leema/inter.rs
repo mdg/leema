@@ -779,7 +779,12 @@ pub fn compile_pattern_call(scope: &mut Interscope
     let args_vec: Vec<(Option<Lstr>, Val)> = args.iter().map(|a| {
         (a.k_clone(), compile_pattern(scope, new_vars, a.x_ref().unwrap()))
     }).collect();
-    let struct_lri = Lri::from(callx);
+
+    let mut struct_lri = Lri::from(callx);
+    if !struct_lri.has_modules() {
+        struct_lri =
+            struct_lri.add_modules(Lstr::Rc(scope.proto.key.name.clone()));
+    }
     Val::Struct(struct_lri, Struple(args_vec))
 }
 
