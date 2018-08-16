@@ -1,6 +1,6 @@
 use leema::ast::{Ast};
 use leema::code::{self, Code};
-use leema::ixpr::{Ixpr, Source};
+use leema::ixpr::{Source};
 use leema::inter::{Intermod};
 use leema::module::{ModuleSource, ModulePreface};
 use leema::loader::{Interloader};

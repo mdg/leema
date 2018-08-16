@@ -243,9 +243,6 @@ let_stmt(A) ::= Let(D) expr(B) ASSIGN expr(C). {
 let_stmt(A) ::= Fork(D) expr(B) ASSIGN expr(C). {
     A = Ast::Let(ast::LetType::Forked, Box::new(B), Box::new(C), D);
 }
-let_stmt ::= Let expr EQ1(A) expr. {
-    panic!("Found let x =... @ {:?}\ninstead it should be let x := ...\n", A);
-}
 
 /* rust func declaration */
 func_stmt(A) ::=

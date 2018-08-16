@@ -2,9 +2,7 @@
 use leema::ixpr::{Ixpr, Source};
 use leema::infer::{Inferator, TypeSet};
 use leema::lstr::{Lstr};
-use leema::module::{ModKey};
 use leema::phase0::{Protomod};
-use leema::program;
 use leema::val::{Val, Type, TypeResult, TypeErr};
 use leema::log;
 
@@ -65,7 +63,7 @@ impl<'a> CallFrame<'a>
                     self.collect_calls(case);
                 }
             }
-            Source::Let(ref lhs, ref rhs, ref failed) => {
+            Source::Let(ref _lhs, ref rhs, ref failed) => {
                 self.collect_calls(rhs);
                 // would be better to pass the iterator directly instead
                 // of creating a new vector, but I don't know how to do
@@ -95,7 +93,7 @@ impl<'a> CallFrame<'a>
                     self.collect_calls(i);
                 }
             }
-            Source::ConstVal(ref val) => {
+            Source::ConstVal(_) => {
                 // nothing to do. constants aren't calls.
             }
             Source::Id(ref _id, _) => {
@@ -109,7 +107,7 @@ impl<'a> CallFrame<'a>
                 self.collect_calls(truth);
                 self.collect_calls(lies);
             }
-            Source::MatchFailure(ref x, ref cases) => {
+            Source::MatchFailure(_, ref cases) => {
                 self.collect_calls(cases);
             }
             Source::Return(ref result) => {
@@ -359,13 +357,13 @@ impl<'a, 'b> Typescope<'a, 'b>
                 if items.len() != 2 {
                     panic!("call tuples should have 2 items: {:?}", items);
                 }
-                let ref modname = items[0];
-                let ref funcname = items[1];
+                let ref _modname = items[0];
+                let ref _funcname = items[1];
                 Ok(Type::Void)
             }
             &Source::ConstVal(ref fval) => {
                 match fval {
-                    &Val::Str(ref strname) => {
+                    &Val::Str(_) => {
                         Ok(Type::Void)
                     }
                     &Val::FuncRef(_, _, ref typ) => {

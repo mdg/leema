@@ -1,5 +1,4 @@
 use leema::val::{SrcLoc};
-use leema::log;
 use leema::lri::{Lri};
 use leema::lstr::{Lstr};
 use leema::parse::{Parser, Token};

@@ -1221,19 +1221,9 @@ impl reg::Iregistry for Val
             (_, &mut Val::Tuple(ref mut fields)) => {
                 fields.ireg_set(i, v);
             }
-            (&Ireg::Sub(p, ref s), &mut Val::Tuple(ref mut fld)
-                ) =>
-            {
-                fld.ireg_set(s, v);
-            }
             // set reg on structs
             (_, &mut Val::Struct(_, ref mut fields)) => {
                 fields.ireg_set(i, v);
-            }
-            (&Ireg::Sub(p, ref s), &mut Val::Struct(ref name, ref mut fld)
-                ) =>
-            {
-                fld.ireg_set(s, v);
             }
             // set reg on lists
             (&Ireg::Reg(0), &mut Val::Cons(ref mut head, _)) => {

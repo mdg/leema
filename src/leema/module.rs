@@ -1,8 +1,6 @@
 use leema::ast::{self, Ast};
 use leema::val::{Val, Type};
 use leema::lex::{lex};
-use leema::lri::{Lri};
-use leema::lstr::{Lstr};
 use leema::parse::{Token};
 
 use std::collections::{HashMap, HashSet};

@@ -6,7 +6,6 @@ use leema::list;
 use leema::log;
 use leema::lri::{Lri};
 use leema::lstr::{Lstr};
-use leema::module::{ModKey};
 use leema::phase0::{Protomod};
 use leema::struple::{Struple};
 use leema::typecheck::{self, Typemod};

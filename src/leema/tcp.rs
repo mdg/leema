@@ -44,7 +44,7 @@ impl Decoder for TcpValCodec
     type Item = Val;
     type Error = Val;
 
-    fn decode(&mut self, src: &mut BytesMut) ->
+    fn decode(&mut self, _src: &mut BytesMut) ->
         Result<Option<Val>, Self::Error>
     {
         Ok(Some(Val::Void))
@@ -131,7 +131,7 @@ impl Future for Receiver
         let mut buf = BytesMut::new();
         let read_result = self.sock.as_ref().unwrap().read_buf(&mut buf);
         match read_result {
-            Ok(Async::Ready(sz)) => {
+            Ok(Async::Ready(_sz)) => {
                 let isock = self.sock.take().unwrap();
                 let rstr = String::from_utf8(buf.to_vec()).unwrap();
                 let rval = Val::new_str(rstr);

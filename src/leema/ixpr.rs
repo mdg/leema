@@ -1,10 +1,8 @@
 
-use leema::log;
 use leema::struple::{Struple};
 use leema::val::{Val, Type};
 
 use std::collections::HashMap;
-use std::io::{Write};
 use std::rc::{Rc};
 
 

@@ -189,7 +189,7 @@ impl Worker
                 println!("wait for future {:?}", reg);
                 Result::Ok(Async::NotReady)
             }
-            Event::Iop((rsrc_worker_id, rsrc_id), iopf, iopargs) => {
+            Event::Iop((rsrc_worker_id, rsrc_id), _iopf, _iopargs) => {
                 if self.id == rsrc_worker_id {
 println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
                     /*
@@ -251,7 +251,7 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
                 vout!(" result: {}\n", dst);
                 self.push_fresh(ReadyFiber::Ready(fbr, old_code));
             }
-            Parent::Repl(res) => {
+            Parent::Repl(_) => {
             }
             Parent::Main(res) => {
                 vout!("finished main func\n");
@@ -351,7 +351,7 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
         self.fresh.push_back(f)
     }
 
-    fn add_fork(&mut self, key: &CodeKey, newf: Frame)
+    fn add_fork(&mut self, _key: &CodeKey, _newf: Frame)
     {
 vout!("lock app, add_fork\n");
     }

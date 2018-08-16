@@ -1,5 +1,4 @@
 #[macro_use]
-use leema::log;
 use leema::val::{Val, Env, FutureVal};
 use leema::reg::{Reg, Ireg};
 use leema::code::{Code};
@@ -9,7 +8,6 @@ use std::rc::{Rc};
 use std::sync::{Arc};
 use std::mem;
 use std::fmt::{self, Debug};
-use std::io::{Write};
 
 
 pub enum Parent

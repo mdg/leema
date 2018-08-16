@@ -1,9 +1,7 @@
 
 use leema::log;
-use leema::lstr::{Lstr};
 use leema::msg::{WorkerMsg, AppMsg, IoMsg};
 use leema::rsrc::{self, Rsrc, Event, IopCtx};
-use leema::struple::{Struple};
 use leema::val::{Val, MsgVal};
 
 use std;
