@@ -1,6 +1,8 @@
 
 NOSETESTS=nosetests
 
+WARNS=-D warnings -A dead-code -A non-camel-case-types -A non-upper-case-globals
+
 
 default: build
 
@@ -25,7 +27,7 @@ T: build test.py
 	${NOSETESTS} --with-xunit
 
 warnings: lexer parser
-	cargo rustc --bin leema -- -D warnings
+	cargo rustc --bin leema -- ${WARNS}
 
 # lexer
 lexer: target/debug/deps/libleemalex.a

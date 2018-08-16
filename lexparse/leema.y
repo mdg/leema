@@ -1,4 +1,7 @@
 %include {
+#![allow(non_camel_case_types)]
+#![allow(non_upper_case_globals)]
+
 use leema::ast::{self, Ast, TokenData, Kxpr};
 use leema::val::{SrcLoc};
 use leema::lstr::{Lstr};
