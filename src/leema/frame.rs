@@ -1,12 +1,12 @@
-use leema::val::{Val, Env};
-use leema::reg::{Reg, Ireg};
-use leema::code::{Code};
-use leema::rsrc::{self};
+use leema::code::Code;
+use leema::reg::{Ireg, Reg};
+use leema::rsrc;
+use leema::val::{Env, Val};
 
-use std::rc::{Rc};
-use std::sync::{Arc};
-use std::mem;
 use std::fmt::{self, Debug};
+use std::mem;
+use std::rc::Rc;
+use std::sync::Arc;
 
 
 pub enum Parent
@@ -45,10 +45,7 @@ impl Debug for Parent
         match self {
             &Parent::Null => write!(f, "Parent::Null"),
             &Parent::Caller(ref code, ref pf, ref dst) => {
-                write!(f,
-                    "Parent::Caller({:?}, {}, {:?})",
-                    dst, code, pf
-                )
+                write!(f, "Parent::Caller({:?}, {}, {:?})", dst, code, pf)
             }
             /*
             &Parent::Fork(ref ready, _) => {
@@ -88,13 +85,18 @@ impl Event
     }
 }
 
-impl fmt::Debug for Event {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl fmt::Debug for Event
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
         match self {
             &Event::Uneventful => write!(f, "Uneventful"),
             &Event::Call(ref r, line, ref cmod, ref cfunc, ref cargs) => {
-                write!(f, "Event::Call({:?}@{}, {}::{}, {:?})"
-                    , r, line, cmod, cfunc, cargs)
+                write!(
+                    f,
+                    "Event::Call({:?}@{}, {}::{}, {:?})",
+                    r, line, cmod, cfunc, cargs
+                )
             }
             &Event::Fork => write!(f, "Event::Fork"),
             &Event::FutureWait(ref r) => write!(f, "Event::FutureWait({})", r),
@@ -102,9 +104,7 @@ impl fmt::Debug for Event {
             &Event::Iop(wrid, _, ref iopargs) => {
                 write!(f, "Event::Iop({:?}, f, {:?})", wrid, iopargs)
             }
-            &Event::Complete(c) => {
-                write!(f, "Event::Complete({})", c)
-            }
+            &Event::Complete(c) => write!(f, "Event::Complete({})", c),
             &Event::Success => write!(f, "Event::Success"),
             &Event::Failure => write!(f, "Event::Failure"),
         }
@@ -117,11 +117,10 @@ impl PartialEq for Event
     {
         match (self, other) {
             (&Event::Uneventful, &Event::Uneventful) => true,
-            (&Event::Call(ref r1, line1, ref m1, ref f1, ref a1),
-                    &Event::Call(ref r2, line2, ref m2, ref f2, ref a2)) =>
-            {
-                r1 == r2 && line1 == line2 && m1 == m2 && f1 == f2 && a1 == a2
-            }
+            (
+                &Event::Call(ref r1, line1, ref m1, ref f1, ref a1),
+                &Event::Call(ref r2, line2, ref m2, ref f2, ref a2),
+            ) => r1 == r2 && line1 == line2 && m1 == m2 && f1 == f2 && a1 == a2,
             (&Event::Fork, &Event::Fork) => true,
             (&Event::FutureWait(ref r1), &Event::FutureWait(ref r2)) => {
                 r1 == r2
@@ -156,7 +155,7 @@ impl FrameTrace
 {
     pub fn new_root() -> Arc<FrameTrace>
     {
-        Arc::new(FrameTrace{
+        Arc::new(FrameTrace {
             direction: FrameTraceDirection::CallUp,
             function: "__init__".to_string(),
             line: 0,
@@ -164,10 +163,13 @@ impl FrameTrace
         })
     }
 
-    pub fn push_call(parent: &Arc<FrameTrace>, func: &str, line: i16
-        ) -> Arc<FrameTrace>
+    pub fn push_call(
+        parent: &Arc<FrameTrace>,
+        func: &str,
+        line: i16,
+    ) -> Arc<FrameTrace>
     {
-        Arc::new(FrameTrace{
+        Arc::new(FrameTrace {
             direction: FrameTraceDirection::CallUp,
             function: func.to_string(),
             line: line,
@@ -175,10 +177,13 @@ impl FrameTrace
         })
     }
 
-    pub fn propagate_down(trace: &Arc<FrameTrace>, func: &str, line: i16)
-        -> Arc<FrameTrace>
+    pub fn propagate_down(
+        trace: &Arc<FrameTrace>,
+        func: &str,
+        line: i16,
+    ) -> Arc<FrameTrace>
     {
-        Arc::new(FrameTrace{
+        Arc::new(FrameTrace {
             direction: FrameTraceDirection::ReturnDown,
             function: String::from(func),
             line: line,
@@ -188,7 +193,7 @@ impl FrameTrace
 
     pub fn fail_here(&self) -> Arc<FrameTrace>
     {
-        Arc::new(FrameTrace{
+        Arc::new(FrameTrace {
             direction: FrameTraceDirection::FailHere,
             function: self.function.clone(),
             line: self.line,
@@ -212,12 +217,8 @@ impl fmt::Display for FrameTrace
             write!(f, ":{}", self.line).ok();
         }
         match self.parent {
-            None => {
-                write!(f, "\n")
-            }
-            Some(ref p) => {
-                write!(f, "\n{}", p)
-            }
+            None => write!(f, "\n"),
+            Some(ref p) => write!(f, "\n{}", p),
         }
     }
 }
@@ -240,7 +241,7 @@ impl Frame
         let env = Env::new();
         let modname = Rc::new(m);
         let fname = Rc::new(f);
-        Frame{
+        Frame {
             parent: Parent::Main(Val::Void),
             trace: FrameTrace::new_root(),
             module: modname,

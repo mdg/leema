@@ -1,21 +1,20 @@
-
 use leema::log;
-use leema::msg::{WorkerMsg, AppMsg, IoMsg};
-use leema::rsrc::{self, Rsrc, Event, IopCtx};
-use leema::val::{Val, MsgVal};
+use leema::msg::{AppMsg, IoMsg, WorkerMsg};
+use leema::rsrc::{self, Event, IopCtx, Rsrc};
+use leema::val::{MsgVal, Val};
 
 use std;
-use std::cell::{RefCell};
-use std::io::{Write};
-use std::rc::{Rc};
-use std::sync::mpsc::{Sender, Receiver};
+use std::cell::RefCell;
 use std::collections::{HashMap, LinkedList};
+use std::io::Write;
+use std::rc::Rc;
+use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 
-use futures::{Poll, Async};
-use futures::future::{Future};
-use futures::stream::{Stream};
+use futures::future::Future;
+use futures::stream::Stream;
 use futures::task;
+use futures::{Async, Poll};
 use tokio_core::reactor;
 
 /*
@@ -55,7 +54,7 @@ impl RsrcQueue
 {
     pub fn new(rsrc_id: i64, resource: Box<Rsrc>) -> RsrcQueue
     {
-        RsrcQueue{
+        RsrcQueue {
             rsrc_id: rsrc_id,
             rsrc: Some(resource),
             queue: LinkedList::new(),
@@ -87,9 +86,7 @@ impl RsrcQueue
     pub fn checkin(&mut self, r: Box<Rsrc>) -> Option<(Iop, Box<Rsrc>)>
     {
         match self.queue.pop_front() {
-            Some(iop) => {
-                Some((iop, r))
-            }
+            Some(iop) => Some((iop, r)),
             None => {
                 self.rsrc = Some(r);
                 None
@@ -109,17 +106,19 @@ pub struct Io
     worker_tx: HashMap<i64, std::sync::mpsc::Sender<WorkerMsg>>,
     next_rsrc_id: i64,
     io: Option<Rc<RefCell<Io>>>,
-    done: bool
+    done: bool,
 }
 
 impl Io
 {
-    pub fn new(app_tx: Sender<AppMsg>, msg_rx: Receiver<IoMsg>)
-        -> (Rc<RefCell<Io>>, reactor::Core)
+    pub fn new(
+        app_tx: Sender<AppMsg>,
+        msg_rx: Receiver<IoMsg>,
+    ) -> (Rc<RefCell<Io>>, reactor::Core)
     {
         let core = reactor::Core::new().unwrap();
         let h = core.handle();
-        let io = Io{
+        let io = Io {
             resource: HashMap::new(),
             handle: h,
             next: LinkedList::new(),
@@ -151,15 +150,20 @@ impl Io
     pub fn handle_incoming(&mut self, incoming: IoMsg)
     {
         match incoming {
-            IoMsg::Iop{
+            IoMsg::Iop {
                 worker_id: wid,
                 fiber_id: fid,
                 action,
                 rsrc_id,
                 params,
             } => {
-                vout!("iop incoming: {:?}:{:?}:{:?} {:?}\n",
-                    wid, fid, rsrc_id, params);
+                vout!(
+                    "iop incoming: {:?}:{:?}:{:?} {:?}\n",
+                    wid,
+                    fid,
+                    rsrc_id,
+                    params
+                );
                 let param_vals = params.take();
                 self.handle_iop_action(wid, fid, action, rsrc_id, param_vals);
             }
@@ -172,14 +176,30 @@ impl Io
         }
     }
 
-    fn handle_iop_action(&mut self, worker_id: i64, fiber_id: i64
-        , action: rsrc::IopAction, opt_rsrc_id: Option<i64>, params: Val)
+    fn handle_iop_action(
+        &mut self,
+        worker_id: i64,
+        fiber_id: i64,
+        action: rsrc::IopAction,
+        opt_rsrc_id: Option<i64>,
+        params: Val,
+    )
     {
-        vout!("handle_iop_action({},{},{:?},{:?})\n",
-            worker_id, fiber_id, opt_rsrc_id, params);
-        let ctx = self.create_iop_ctx(worker_id, fiber_id
-            , opt_rsrc_id.clone(), None, params);
-        let iop = Iop{
+        vout!(
+            "handle_iop_action({},{},{:?},{:?})\n",
+            worker_id,
+            fiber_id,
+            opt_rsrc_id,
+            params
+        );
+        let ctx = self.create_iop_ctx(
+            worker_id,
+            fiber_id,
+            opt_rsrc_id.clone(),
+            None,
+            params,
+        );
+        let iop = Iop {
             ctx: ctx,
             action: action,
             src_worker_id: worker_id,
@@ -220,8 +240,13 @@ impl Io
         self.next.pop_front()
     }
 
-    pub fn handle_event(&mut self, worker_id: i64, fiber_id: i64
-        , rsrc_id: Option<i64>, ev: Event)
+    pub fn handle_event(
+        &mut self,
+        worker_id: i64,
+        fiber_id: i64,
+        rsrc_id: Option<i64>,
+        ev: Event,
+    )
     {
         match ev {
             Event::NewRsrc(rsrc, prev_rsrc) => {
@@ -264,11 +289,13 @@ impl Io
                     .map(move |(ev2, _str2)| {
                         let mut bio = rcio.borrow_mut();
                         bio.handle_event(
-                            worker_id, fiber_id, rsrc_id, ev2.unwrap()
+                            worker_id,
+                            fiber_id,
+                            rsrc_id,
+                            ev2.unwrap(),
                         );
                         ()
-                    })
-                    .map_err(move |(ev2, _str2)| {
+                    }).map_err(move |(ev2, _str2)| {
                         let mut bio = rcio_err.borrow_mut();
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
@@ -278,9 +305,14 @@ impl Io
         }
     }
 
-    fn create_iop_ctx<'a>(&'a mut self, src_worker_id: i64, src_fiber_id: i64
-        , rsrc_id: Option<i64>, rsrc: Option<Box<Rsrc>>, param_val: Val)
-        -> IopCtx
+    fn create_iop_ctx<'a>(
+        &'a mut self,
+        src_worker_id: i64,
+        src_fiber_id: i64,
+        rsrc_id: Option<i64>,
+        rsrc: Option<Box<Rsrc>>,
+        param_val: Val,
+    ) -> IopCtx
     {
         let rcio = self.io.clone().unwrap();
         /*
@@ -343,7 +375,7 @@ impl IoLoop
     pub fn run(mut core: reactor::Core, rcio: Rc<RefCell<Io>>)
     {
         let my_handle = rcio.borrow().handle.clone();
-        let my_loop = IoLoop{
+        let my_loop = IoLoop {
             io: rcio,
             handle: my_handle,
         };
@@ -365,8 +397,12 @@ impl Future for IoLoop
         let opt_iop = self.io.borrow_mut().take_next_iop();
         if let Some(iop) = opt_iop {
             let ev = (iop.action)(iop.ctx);
-            self.io.borrow_mut().handle_event(iop.src_worker_id
-                , iop.src_fiber_id, iop.rsrc_id, ev);
+            self.io.borrow_mut().handle_event(
+                iop.src_worker_id,
+                iop.src_fiber_id,
+                iop.rsrc_id,
+                ev,
+            );
         }
         thread::yield_now();
         poll_result
@@ -378,113 +414,113 @@ impl Future for IoLoop
 pub mod tests
 {
     use leema::io::{Io, IoLoop};
-    use leema::lstr::{Lstr};
+    use leema::lstr::Lstr;
     use leema::msg;
     use leema::rsrc::{self, Rsrc};
-    use leema::struple::{Struple};
-    use leema::val::{Val, Type, MsgVal};
+    use leema::struple::Struple;
+    use leema::val::{MsgVal, Type, Val};
 
-    use std::rc::{Rc};
+    use std::rc::Rc;
     use std::sync::mpsc;
 
-#[derive(Debug)]
-struct MockRsrc {}
+    #[derive(Debug)]
+    struct MockRsrc {}
 
-impl Rsrc for MockRsrc
-{
-    fn get_type(&self) -> Type
+    impl Rsrc for MockRsrc
     {
-        Type::Resource(Rc::new("MockRsrc".to_string()))
+        fn get_type(&self) -> Type
+        {
+            Type::Resource(Rc::new("MockRsrc".to_string()))
+        }
     }
-}
 
-fn mock_iop_action(_ctx: rsrc::IopCtx) -> rsrc::Event
-{
-    rsrc::Event::Result(Val::Int(8), None)
-}
+    fn mock_iop_action(_ctx: rsrc::IopCtx) -> rsrc::Event
+    {
+        rsrc::Event::Result(Val::Int(8), None)
+    }
 
-fn mock_rsrc_action(mut ctx: rsrc::IopCtx) -> rsrc::Event
-{
-    let rsrc: MockRsrc = ctx.take_rsrc();
-    rsrc::Event::Result(Val::Int(18), Some(Box::new(rsrc)))
-}
+    fn mock_rsrc_action(mut ctx: rsrc::IopCtx) -> rsrc::Event
+    {
+        let rsrc: MockRsrc = ctx.take_rsrc();
+        rsrc::Event::Result(Val::Int(18), Some(Box::new(rsrc)))
+    }
 
-pub fn exercise_iop_action(action: rsrc::IopAction
-    , params: Vec<(Option<Lstr>, Val)>
+    pub fn exercise_iop_action(
+        action: rsrc::IopAction,
+        params: Vec<(Option<Lstr>, Val)>,
     ) -> Result<(i64, Val), mpsc::TryRecvError>
-{
-    let (msg_tx, msg_rx) = mpsc::channel::<msg::IoMsg>();
-    let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
-    let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
+    {
+        let (msg_tx, msg_rx) = mpsc::channel::<msg::IoMsg>();
+        let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
+        let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
 
-    let (io, core) = Io::new(app_tx, msg_rx);
+        let (io, core) = Io::new(app_tx, msg_rx);
 
-    let msg_params = MsgVal::new(&Val::Tuple(Struple(params)));
-    msg_tx.send(msg::IoMsg::NewWorker(11, worker_tx)).unwrap();
-    msg_tx.send(msg::IoMsg::Iop{
-        worker_id: 11,
-        fiber_id: 21,
-        action: action,
-        rsrc_id: None,
-        params: msg_params,
-    }).unwrap();
-    msg_tx.send(msg::IoMsg::Done).unwrap();
+        let msg_params = MsgVal::new(&Val::Tuple(Struple(params)));
+        msg_tx.send(msg::IoMsg::NewWorker(11, worker_tx)).unwrap();
+        msg_tx
+            .send(msg::IoMsg::Iop {
+                worker_id: 11,
+                fiber_id: 21,
+                action: action,
+                rsrc_id: None,
+                params: msg_params,
+            }).unwrap();
+        msg_tx.send(msg::IoMsg::Done).unwrap();
 
-    IoLoop::run(core, io);
+        IoLoop::run(core, io);
 
-    worker_rx.try_recv()
-        .map(|result_msg| {
+        worker_rx.try_recv().map(|result_msg| {
             match result_msg {
                 msg::WorkerMsg::IopResult(fiber_id, msg_val) => {
                     (fiber_id, msg_val.take())
                 }
-                _ => {
-                    (0, Val::new_str("that didn't work".to_string()))
-                }
+                _ => (0, Val::new_str("that didn't work".to_string())),
             }
         })
-}
+    }
 
-#[test]
-fn test_io_constructor()
-{
-    let (_, msg_rx) = mpsc::channel::<msg::IoMsg>();
-    let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
-    // let worker_tx = HashMap::new();
+    #[test]
+    fn test_io_constructor()
+    {
+        let (_, msg_rx) = mpsc::channel::<msg::IoMsg>();
+        let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
+        // let worker_tx = HashMap::new();
 
-    let (_, _) = Io::new(app_tx, msg_rx);
-}
+        let (_, _) = Io::new(app_tx, msg_rx);
+    }
 
-#[test]
-fn test_iop_action_flow()
-{
-    let resp = exercise_iop_action(mock_iop_action, vec![]);
-    assert!(resp.is_ok());
-}
+    #[test]
+    fn test_iop_action_flow()
+    {
+        let resp = exercise_iop_action(mock_iop_action, vec![]);
+        assert!(resp.is_ok());
+    }
 
-#[test]
-fn test_rsrc_action_flow()
-{
-    let (msg_tx, msg_rx) = mpsc::channel::<msg::IoMsg>();
-    let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
-    let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
+    #[test]
+    fn test_rsrc_action_flow()
+    {
+        let (msg_tx, msg_rx) = mpsc::channel::<msg::IoMsg>();
+        let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
+        let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
 
-    let (io, core) = Io::new(app_tx, msg_rx);
-    let rsrc_id = io.borrow_mut().new_rsrc(Box::new(MockRsrc{}));
+        let (io, core) = Io::new(app_tx, msg_rx);
+        let rsrc_id = io.borrow_mut().new_rsrc(Box::new(MockRsrc {}));
 
-    msg_tx.send(msg::IoMsg::NewWorker(8, worker_tx)).unwrap();
-    msg_tx.send(msg::IoMsg::Iop{
-        worker_id: 8,
-        fiber_id: 7,
-        action: mock_rsrc_action,
-        rsrc_id: Some(rsrc_id),
-        params: MsgVal::new(&Val::empty_tuple()),
-    }).unwrap();
-    msg_tx.send(msg::IoMsg::Done).unwrap();
-    IoLoop::run(core, io);
+        msg_tx.send(msg::IoMsg::NewWorker(8, worker_tx)).unwrap();
+        msg_tx
+            .send(msg::IoMsg::Iop {
+                worker_id: 8,
+                fiber_id: 7,
+                action: mock_rsrc_action,
+                rsrc_id: Some(rsrc_id),
+                params: MsgVal::new(&Val::empty_tuple()),
+            }).unwrap();
+        msg_tx.send(msg::IoMsg::Done).unwrap();
+        IoLoop::run(core, io);
 
-    let resp = worker_rx.try_recv();
-    assert!(resp.is_ok());
-}
+        let resp = worker_rx.try_recv();
+        assert!(resp.is_ok());
+    }
 
 }

@@ -1,38 +1,39 @@
-use leema::code::{Code};
+use leema::code::Code;
 use leema::log;
 use leema::rsrc::{self, Rsrc};
-use leema::val::{Val, Type};
+use leema::val::{Type, Val};
 
+use bytes::buf::BufMut;
+use bytes::BytesMut;
 use std;
-use std::net::{IpAddr, SocketAddr};
-use std::rc::{Rc};
-use std::str::{FromStr};
 use std::io::{self, Write};
-use bytes::{BytesMut};
-use bytes::buf::{BufMut};
+use std::net::{IpAddr, SocketAddr};
+use std::rc::Rc;
+use std::str::FromStr;
 
-use ::tokio_core::net::{TcpStream, TcpListener};
-use ::tokio_core::reactor::{Handle};
-use ::tokio_io::{AsyncRead};
-use ::tokio_io::codec::{Framed, Encoder, Decoder};
-use futures::{Async, Poll};
-use futures::future::{Future};
-use futures::sink::{Sink};
+use futures::future::Future;
+use futures::sink::Sink;
 use futures::task;
+use futures::{Async, Poll};
+use tokio_core::net::{TcpListener, TcpStream};
+use tokio_core::reactor::Handle;
+use tokio_io::codec::{Decoder, Encoder, Framed};
+use tokio_io::AsyncRead;
 
 
 #[derive(Debug)]
-struct TcpValCodec
-{
-}
+struct TcpValCodec {}
 
 impl Encoder for TcpValCodec
 {
     type Item = Val;
     type Error = Val;
 
-    fn encode(&mut self, item: Val, dst: &mut BytesMut)
-        -> Result<(), Self::Error>
+    fn encode(
+        &mut self,
+        item: Val,
+        dst: &mut BytesMut,
+    ) -> Result<(), Self::Error>
     {
         BufMut::put_slice(dst, item.str().as_bytes());
         Ok(())
@@ -44,8 +45,10 @@ impl Decoder for TcpValCodec
     type Item = Val;
     type Error = Val;
 
-    fn decode(&mut self, _src: &mut BytesMut) ->
-        Result<Option<Val>, Self::Error>
+    fn decode(
+        &mut self,
+        _src: &mut BytesMut,
+    ) -> Result<Option<Val>, Self::Error>
     {
         Ok(Some(Val::Void))
     }
@@ -86,13 +89,11 @@ impl Future for Acceptor
     type Item = (TcpListener, TcpStream, SocketAddr);
     type Error = (TcpListener, std::io::Error);
 
-    fn poll(&mut self)
-        -> Poll<(TcpListener, TcpStream, SocketAddr),
-                (TcpListener, std::io::Error)>
+    fn poll(
+        &mut self,
+    ) -> Poll<(TcpListener, TcpStream, SocketAddr), (TcpListener, std::io::Error)>
     {
-        let accept_result = {
-            self.listener.as_mut().unwrap().accept()
-        };
+        let accept_result = { self.listener.as_mut().unwrap().accept() };
         match accept_result {
             Ok((sock, addr)) => {
                 let listener = self.listener.take().unwrap();
@@ -124,9 +125,7 @@ impl Future for Receiver
     type Item = (TcpStream, Val);
     type Error = (TcpStream, std::io::Error);
 
-    fn poll(&mut self)
-        -> Poll<(TcpStream, Val),
-                (TcpStream, std::io::Error)>
+    fn poll(&mut self) -> Poll<(TcpStream, Val), (TcpStream, std::io::Error)>
     {
         let mut buf = BytesMut::new();
         let read_result = self.sock.as_ref().unwrap().read_buf(&mut buf);
@@ -164,22 +163,18 @@ pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let sock_addr = {
         let sock_addr_str = ctx.take_param(0).unwrap();
         let port = ctx.take_param(1).unwrap().to_int() as u16;
-        SocketAddr::new(
-            IpAddr::from_str(sock_addr_str.str()).unwrap(), port
-        )
+        SocketAddr::new(IpAddr::from_str(sock_addr_str.str()).unwrap(), port)
     };
 
     let handle = ctx.handle().clone();
-    let fut =
-        TcpStream::connect(&sock_addr, &handle)
+    let fut = TcpStream::connect(&sock_addr, &handle)
         .map(move |sock| {
             vout!("tcp connected");
-            let codec = TcpValCodec{};
+            let codec = TcpValCodec {};
             let box_sock = Box::new(sock);
             let framed = AsyncRead::framed(box_sock, codec);
             rsrc::Event::NewRsrc(Box::new(framed), None)
-        })
-        .map_err(move |_| {
+        }).map_err(move |_| {
             rsrc::Event::Result(
                 Val::new_str("Failure to connect".to_string()),
                 None,
@@ -193,9 +188,8 @@ pub fn tcp_listen(mut ctx: rsrc::IopCtx) -> rsrc::Event
     vout!("tcp_listen()\n");
     let ip_str = ctx.take_param(0).unwrap();
     let port = ctx.take_param(1).unwrap().to_int() as u16;
-    let sock_addr = SocketAddr::new(
-        IpAddr::from_str(ip_str.str()).unwrap(), port
-    );
+    let sock_addr =
+        SocketAddr::new(IpAddr::from_str(ip_str.str()).unwrap(), port);
     let handle = ctx.handle().clone();
     let listen_result = TcpListener::bind(&sock_addr, &handle);
     let listener: TcpListener = listen_result.unwrap();
@@ -207,14 +201,12 @@ pub fn tcp_accept(mut ctx: rsrc::IopCtx) -> rsrc::Event
     vout!("tcp_accept()\n");
     let listener: TcpListener = ctx.take_rsrc();
     let acc =
-        Acceptor{
+        Acceptor {
             listener: Some(listener),
             handle: ctx.handle().clone(),
-        }
-        .map(|(_ilistener, sock, _addr)| {
+        }.map(|(_ilistener, sock, _addr)| {
             rsrc::Event::NewRsrc(Box::new(sock), None)
-        })
-        .map_err(|_| {
+        }).map_err(|_| {
             rsrc::Event::Result(Val::new_str("accept error".to_string()), None)
         });
     rsrc::Event::Future(Box::new(acc))
@@ -229,13 +221,8 @@ pub fn tcp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
     vout!("tcp_recv()\n");
 
     let sock: TcpStream = ctx.take_rsrc();
-    let fut =
-        Receiver{
-            sock: Some(sock),
-        }
-        .map(|(isock, data)| {
-            rsrc::Event::Result(data, Some(Box::new(isock)))
-        })
+    let fut = Receiver { sock: Some(sock) }
+        .map(|(isock, data)| rsrc::Event::Result(data, Some(Box::new(isock))))
         .map_err(|(isock, _err)| {
             let errval = Val::new_str("recv failure".to_string());
             rsrc::Event::Result(errval, Some(Box::new(isock)))
@@ -249,13 +236,17 @@ pub fn tcp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let sock: Framed<Box<TcpStream>, TcpValCodec> = ctx.take_rsrc();
     let msg = ctx.take_param(1).unwrap();
 
-    let fut = Box::new(Sink::send(sock, msg)
-        .map(|sock2| {
-            rsrc::Event::Result(Val::Int(0), Some(Box::new(sock2)))
-        })
-        .map_err(|_| {
-            rsrc::Event::Result(Val::new_str("send failure".to_string()), None)
-        }));
+    let fut = Box::new(
+        Sink::send(sock, msg)
+            .map(|sock2| {
+                rsrc::Event::Result(Val::Int(0), Some(Box::new(sock2)))
+            }).map_err(|_| {
+                rsrc::Event::Result(
+                    Val::new_str("send failure".to_string()),
+                    None,
+                )
+            }),
+    );
     rsrc::Event::Future(fut)
 }
 

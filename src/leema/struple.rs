@@ -1,11 +1,10 @@
-
-use leema::lstr::{Lstr};
+use leema::lstr::Lstr;
 use leema::reg::{self, Ireg};
 use leema::sendclone;
-use leema::val::{Val};
+use leema::val::Val;
 
 use std::fmt;
-use std::iter::{FromIterator};
+use std::iter::FromIterator;
 
 
 #[derive(Clone)]
@@ -19,24 +18,22 @@ impl<T> Struple<T>
 {
     pub fn new_indexed(items: Vec<T>) -> Struple<T>
     {
-        let new_items: Vec<(Option<Lstr>, T)> = items.into_iter().map(|i| {
-            (None, i)
-        }).collect();
+        let new_items: Vec<(Option<Lstr>, T)> =
+            items.into_iter().map(|i| (None, i)).collect();
         Struple(new_items)
     }
 
     pub fn new_tuple2(a: T, b: T) -> Struple<T>
     {
-        Struple(vec![
-            (None, a),
-            (None, b),
-        ])
+        Struple(vec![(None, a), (None, b)])
     }
 }
 
 impl<T> FromIterator<(Option<Lstr>, T)> for Struple<T>
 {
-    fn from_iter<I: IntoIterator<Item=(Option<Lstr>, T)>>(iter: I) -> Struple<T>
+    fn from_iter<I: IntoIterator<Item = (Option<Lstr>, T)>>(
+        iter: I,
+    ) -> Struple<T>
     {
         let mut items = Vec::new();
         for item in iter {
@@ -47,24 +44,27 @@ impl<T> FromIterator<(Option<Lstr>, T)> for Struple<T>
 }
 
 impl<T> sendclone::SendClone for Struple<T>
-    where T: sendclone::SendClone<Item = T>
+where
+    T: sendclone::SendClone<Item = T>,
 {
     type Item = Struple<T>;
 
     fn clone_for_send(&self) -> Struple<T>
     {
-        let safe_items = self.0.iter().map(|i| {
-            let new_key = i.0.as_ref().map(|ik| {
-                ik.deep_clone()
-            });
-            (new_key, i.1.clone_for_send())
-        }).collect();
+        let safe_items = self
+            .0
+            .iter()
+            .map(|i| {
+                let new_key = i.0.as_ref().map(|ik| ik.deep_clone());
+                (new_key, i.1.clone_for_send())
+            }).collect();
         Struple(safe_items)
     }
 }
 
 impl<T> fmt::Display for Struple<T>
-    where T: fmt::Display
+where
+    T: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
@@ -80,7 +80,8 @@ impl<T> fmt::Display for Struple<T>
 }
 
 impl<T> fmt::Debug for Struple<T>
-    where T: fmt::Debug
+where
+    T: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
@@ -141,8 +142,7 @@ impl reg::Iregistry for Struple<Val>
             // get reg on struple
             &Ireg::Reg(p) => {
                 if p as usize >= self.0.len() {
-                    panic!("{:?} too big for struple {:?}"
-                        , i, self);
+                    panic!("{:?} too big for struple {:?}", i, self);
                 }
                 self.0[p as usize].1 = v;
             }

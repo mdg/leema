@@ -1,11 +1,11 @@
 use leema::ast::{self, Ast};
-use leema::val::{Val, Type};
-use leema::lex::{lex};
-use leema::parse::{Token};
+use leema::lex::lex;
+use leema::parse::Token;
+use leema::val::{Type, Val};
 
 use std::collections::{HashMap, HashSet};
-use std::path::{PathBuf};
-use std::rc::{Rc};
+use std::path::PathBuf;
+use std::rc::Rc;
 
 
 // Textmod -> Preface -> Protomod -> Intermod -> Code
@@ -23,7 +23,7 @@ impl ModKey
 {
     pub fn new(name: &str, path: PathBuf) -> ModKey
     {
-        ModKey{
+        ModKey {
             name: Rc::new(String::from(name)),
             file: Some(path),
         }
@@ -31,7 +31,7 @@ impl ModKey
 
     pub fn name_only(name: &str) -> ModKey
     {
-        ModKey{
+        ModKey {
             name: Rc::new(String::from(name)),
             file: None,
         }
@@ -53,7 +53,7 @@ impl ModuleSource
     pub fn new(mk: ModKey, txt: String) -> ModuleSource
     {
         let ast = ModuleSource::read_ast(&txt);
-        ModuleSource{
+        ModuleSource {
             key: Rc::new(mk),
             txt: txt,
             ast: ast,
@@ -90,7 +90,7 @@ impl ModulePreface
 {
     pub fn new(ms: &ModuleSource) -> ModulePreface
     {
-        let mut mp = ModulePreface{
+        let mut mp = ModulePreface {
             key: ms.key.clone(),
             imports: HashSet::new(),
             macros: HashMap::new(),
@@ -125,8 +125,13 @@ impl ModulePreface
                 let imp_string = (**i).localid_str().to_string();
                 mp.imports.insert(imp_string);
             }
-            &Ast::DefFunc(ast::FuncClass::Macro, ref name, ref _args
-                    , _, ref _body, ref _loc
+            &Ast::DefFunc(
+                ast::FuncClass::Macro,
+                ref name,
+                ref _args,
+                _,
+                ref _body,
+                ref _loc,
             ) => {
                 let name_string = String::from(&**name);
                 mp.macros.insert(name_string, item.clone());
@@ -150,7 +155,7 @@ impl ModuleInterface
 {
     pub fn new(ms: &ModuleSource) -> ModuleInterface
     {
-        ModuleInterface{
+        ModuleInterface {
             key: ms.key.clone(),
             funcs: HashMap::new(),
             valtypes: HashMap::new(),

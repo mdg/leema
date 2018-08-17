@@ -1,12 +1,11 @@
-
 use leema::list;
-use leema::lri::{Lri};
-use leema::lstr::{Lstr};
-use leema::struple::{Struple};
+use leema::lri::Lri;
+use leema::lstr::Lstr;
+use leema::struple::Struple;
 use leema::val::{Type, Val};
 
 
-pub const STRUCT_FIELD_LRI: Lri = Lri{
+pub const STRUCT_FIELD_LRI: Lri = Lri {
     modules: Some(Lstr::Sref("types")),
     localid: Lstr::Sref("StructFieldVal"),
     params: None,
@@ -15,11 +14,7 @@ pub const STRUCT_FIELD_LRI: Lri = Lri{
 
 pub fn option_type(t: Type) -> Lri
 {
-    Lri::full(
-        Some(Lstr::Sref("option")),
-        Lstr::Sref("T"),
-        Some(vec![t]),
-    )
+    Lri::full(Some(Lstr::Sref("option")), Lstr::Sref("T"), Some(vec![t]))
 }
 
 pub fn new_some(v: Val) -> Val
@@ -36,8 +31,10 @@ pub fn new_none(t: Type) -> Val
     Val::EnumToken(optype, Lstr::Sref("None"))
 }
 
-pub fn get_named_struct_field<'a, 'b>(sv: &'a Val, name: &'b Lstr
-    ) -> Option<(i16, &'a Val)>
+pub fn get_named_struct_field<'a, 'b>(
+    sv: &'a Val,
+    name: &'b Lstr,
+) -> Option<(i16, &'a Val)>
 {
     let fields = match sv {
         &Val::Struct(_, ref fld_struple) => fld_struple,
@@ -59,8 +56,10 @@ pub fn get_named_struct_field<'a, 'b>(sv: &'a Val, name: &'b Lstr
     None
 }
 
-pub fn get_indexed_struct_field(sv: &Val, idx: i16
-        ) -> Option<&(Option<Lstr>, Val)>
+pub fn get_indexed_struct_field(
+    sv: &Val,
+    idx: i16,
+) -> Option<&(Option<Lstr>, Val)>
 {
     let fields = match sv {
         &Val::Struct(_, ref fld_struple) => fld_struple,
@@ -78,12 +77,8 @@ pub fn get_indexed_struct_field(sv: &Val, idx: i16
 pub fn is_enum_variant(v: &Val, test_variant: &Lstr) -> bool
 {
     match v {
-        Val::EnumToken(_, ref val_variant) => {
-            test_variant == val_variant
-        }
-        Val::EnumStruct(_, ref val_variant, _) => {
-            test_variant == val_variant
-        }
+        Val::EnumToken(_, ref val_variant) => test_variant == val_variant,
+        Val::EnumStruct(_, ref val_variant, _) => test_variant == val_variant,
         _ => false,
     }
 }
@@ -91,7 +86,10 @@ pub fn is_enum_variant(v: &Val, test_variant: &Lstr) -> bool
 /**
  * Get the value of a struct field if given a name
  */
-pub fn get_field_type<'a, 'b>(sv: &'a Val, fld_name: &'b str) -> Option<(i16, &'a Type)>
+pub fn get_field_type<'a, 'b>(
+    sv: &'a Val,
+    fld_name: &'b str,
+) -> Option<(i16, &'a Type)>
 {
     let fields = get_named_struct_field(sv, &Lstr::Sref("fields"))
         .expect("cannot find 'fields' field in structure");
@@ -127,12 +125,8 @@ pub fn get_field_type<'a, 'b>(sv: &'a Val, fld_name: &'b str) -> Option<(i16, &'
 pub fn new_struct_field(name: Option<Lstr>, typ: &Type) -> Val
 {
     let name_val = match name {
-        Some(inner_name) => {
-            new_some(Val::Str(inner_name.rc()))
-        }
-        None => {
-            new_none(Type::Str)
-        }
+        Some(inner_name) => new_some(Val::Str(inner_name.rc())),
+        None => new_none(Type::Str),
     };
     let fields = Struple(vec![
         (Some(Lstr::Sref("name")), name_val),
@@ -162,30 +156,35 @@ pub fn new_type_val(name: Lri, fields: &Vec<(Option<Lstr>, Type)>) -> Val
 
 
 #[cfg(test)]
-mod tests {
-    use leema::lri::{Lri};
-    use leema::lstr::{Lstr};
-    use leema::types;
-    use leema::val::{Type};
-
-
-#[test]
-fn test_type_val()
+mod tests
 {
-    let tv_lri = Lri::with_modules(Lstr::Sref("tacos"), Lstr::Sref("Burrito"));
-    let tv = types::new_type_val(tv_lri, &vec![
-        (Some(Lstr::Sref("filling")), Type::Str),
-        (Some(Lstr::Sref("has_rice")), Type::Bool),
-    ]);
+    use leema::lri::Lri;
+    use leema::lstr::Lstr;
+    use leema::types;
+    use leema::val::Type;
 
-    let filling = types::get_field_type(&tv, &Lstr::Sref("filling"))
-        .expect("cannot find the burrito filling field");
-    let has_rice = types::get_field_type(&tv, &Lstr::Sref("has_rice"))
-        .expect("cannot find the burrito filling field");
-    assert_eq!(Type::Str, *filling.1);
-    assert_eq!(Type::Bool, *has_rice.1);
-    assert_eq!(0, filling.0);
-    assert_eq!(1, has_rice.0);
-}
+
+    #[test]
+    fn test_type_val()
+    {
+        let tv_lri =
+            Lri::with_modules(Lstr::Sref("tacos"), Lstr::Sref("Burrito"));
+        let tv = types::new_type_val(
+            tv_lri,
+            &vec![
+                (Some(Lstr::Sref("filling")), Type::Str),
+                (Some(Lstr::Sref("has_rice")), Type::Bool),
+            ],
+        );
+
+        let filling = types::get_field_type(&tv, &Lstr::Sref("filling"))
+            .expect("cannot find the burrito filling field");
+        let has_rice = types::get_field_type(&tv, &Lstr::Sref("has_rice"))
+            .expect("cannot find the burrito filling field");
+        assert_eq!(Type::Str, *filling.1);
+        assert_eq!(Type::Bool, *has_rice.1);
+        assert_eq!(0, filling.0);
+        assert_eq!(1, has_rice.0);
+    }
 
 }

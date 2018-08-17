@@ -1,20 +1,20 @@
-use leema::ast::{Ast};
+use leema::ast::Ast;
 use leema::code::{self, Code};
-use leema::ixpr::{Source};
-use leema::inter::{Intermod};
-use leema::module::{ModuleSource, ModulePreface};
-use leema::loader::{Interloader};
+use leema::inter::Intermod;
+use leema::ixpr::Source;
+use leema::lib_str;
+use leema::loader::Interloader;
 use leema::log;
-use leema::lstr::{Lstr};
+use leema::lstr::Lstr;
+use leema::module::{ModulePreface, ModuleSource};
 use leema::phase0::{self, Protomod};
-use leema::{prefab, file, udp, tcp};
-use leema::typecheck::{self, Typemod, CallFrame, CallOp, Typescope};
-use leema::val::{Type};
-use leema::{lib_str};
+use leema::typecheck::{self, CallFrame, CallOp, Typemod, Typescope};
+use leema::val::Type;
+use leema::{file, prefab, tcp, udp};
 
-use std::io::{Write};
-use std::rc::{Rc};
 use std::collections::{HashMap, HashSet};
+use std::io::Write;
+use std::rc::Rc;
 
 
 pub struct Lib
@@ -33,7 +33,7 @@ impl Lib
 {
     pub fn new(l: Interloader) -> Lib
     {
-        let mut proglib = Lib{
+        let mut proglib = Lib {
             loader: l,
             modsrc: HashMap::new(),
             preface: HashMap::new(),
@@ -43,12 +43,22 @@ impl Lib
             rust_load: HashMap::new(),
             code: HashMap::new(),
         };
-        proglib.rust_load.insert("prefab".to_string(), prefab::load_rust_func);
+        proglib
+            .rust_load
+            .insert("prefab".to_string(), prefab::load_rust_func);
         proglib.load_inter("prefab");
-        proglib.rust_load.insert("file".to_string(), file::load_rust_func);
-        proglib.rust_load.insert("str".to_string(), lib_str::load_rust_func);
-        proglib.rust_load.insert("tcp".to_string(), tcp::load_rust_func);
-        proglib.rust_load.insert("udp".to_string(), udp::load_rust_func);
+        proglib
+            .rust_load
+            .insert("file".to_string(), file::load_rust_func);
+        proglib
+            .rust_load
+            .insert("str".to_string(), lib_str::load_rust_func);
+        proglib
+            .rust_load
+            .insert("tcp".to_string(), tcp::load_rust_func);
+        proglib
+            .rust_load
+            .insert("udp".to_string(), udp::load_rust_func);
         proglib
     }
 
@@ -178,10 +188,8 @@ impl Lib
         let mod_lstr = Lstr::from(String::from(modname));
         let mut typed = Typemod::new(mod_lstr.clone());
         let inter = Intermod::compile(&proto, &imports, &mut typed);
-        self.typed.insert(
-            String::from(modname),
-            Typemod::new(mod_lstr.clone()),
-        );
+        self.typed
+            .insert(String::from(modname), Typemod::new(mod_lstr.clone()));
         inter
     }
 
@@ -190,17 +198,21 @@ impl Lib
         vout!("read_code({}::{})\n", modname, funcname);
         self.load_inter(modname);
 
-        let inter = self.inter.get(modname)
+        let inter = self
+            .inter
+            .get(modname)
             .or_else(|| {
                 panic!("cannot compile missing module {}", modname);
-            })
-            .unwrap();
-        let fix = inter.interfunc.get(funcname)
+            }).unwrap();
+        let fix = inter
+            .interfunc
+            .get(funcname)
             .or_else(|| {
-                panic!("cannot compile missing function {}::{}"
-                    , modname, funcname);
-            })
-            .unwrap();
+                panic!(
+                    "cannot compile missing function {}::{}",
+                    modname, funcname
+                );
+            }).unwrap();
         if modname == "prefab" {
             vout!("prefab::{} fix: {:?}\n", funcname, fix);
         }
@@ -223,9 +235,12 @@ impl Lib
         }
     }
 
-    pub fn typecheck(&mut self, modname: &Lstr, funcname: &Lstr
-        , depth: typecheck::Depth
-        )
+    pub fn typecheck(
+        &mut self,
+        modname: &Lstr,
+        funcname: &Lstr,
+        depth: typecheck::Depth,
+    )
     {
         vout!("typecheck({}::{}, {:?})\n", modname, funcname, depth);
         self.load_inter(modname);
@@ -239,9 +254,12 @@ impl Lib
         vout!("\tfinish typecheck({}::{})\n", modname, funcname);
     }
 
-    pub fn deeper_typecheck(&mut self, modname: &Lstr, funcname: &Lstr
-        , depth: typecheck::Depth
-        )
+    pub fn deeper_typecheck(
+        &mut self,
+        modname: &Lstr,
+        funcname: &Lstr,
+        depth: typecheck::Depth,
+    )
     {
         let cf = {
             let mut icf = CallFrame::new(modname, funcname);
@@ -291,9 +309,7 @@ impl Lib
         }
     }
 
-    pub fn local_typecheck(&mut self
-        , modname: &str, funcname: &str
-        ) -> Type
+    pub fn local_typecheck(&mut self, modname: &str, funcname: &str) -> Type
     {
         vout!("local_typecheck({}::{})\n", modname, funcname);
         let modlstr = Lstr::from(String::from(modname));
@@ -342,12 +358,16 @@ impl Lib
         }
     }
 
-    fn import_protos(&mut self, imports: &HashSet<String>)
-            -> HashMap<String, Rc<Protomod>>
+    fn import_protos(
+        &mut self,
+        imports: &HashSet<String>,
+    ) -> HashMap<String, Rc<Protomod>>
     {
         let mut imported_protos = HashMap::new();
-        imported_protos.insert(String::from("prefab")
-                , self.proto.get("prefab").unwrap().clone());
+        imported_protos.insert(
+            String::from("prefab"),
+            self.proto.get("prefab").unwrap().clone(),
+        );
         for i in imports {
             self.load_proto(i);
             let p = self.proto.get(i).unwrap().clone();
@@ -356,8 +376,11 @@ impl Lib
         imported_protos
     }
 
-    pub fn get_macro<'a>(&'a self, modname: &str, macname: &str)
-            -> Option<&'a Ast>
+    pub fn get_macro<'a>(
+        &'a self,
+        modname: &str,
+        macname: &str,
+    ) -> Option<&'a Ast>
     {
         match self.preface.get(modname) {
             Some(pref) => pref.macros.get(macname),

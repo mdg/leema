@@ -1,20 +1,17 @@
+use leema::io::Io;
+use leema::val::{Type, Val};
 
-use leema::val::{Val, Type};
-use leema::io::{Io};
-
+use std::cell::RefCell;
 use std::fmt;
-use std::rc::{Rc};
-use std::cell::{RefCell};
+use std::rc::Rc;
 
 use futures::future;
 use futures::stream;
-use tokio_core::reactor;
 use mopa;
+use tokio_core::reactor;
 
 
-pub trait Rsrc
-    : mopa::Any
-    + fmt::Debug
+pub trait Rsrc: mopa::Any + fmt::Debug
 {
     fn get_type(&self) -> Type;
 }
@@ -23,8 +20,8 @@ mopafy!(Rsrc);
 
 pub enum Event
 {
-    Future(Box<future::Future<Item=Event, Error=Event>>),
-    Stream(Box<stream::Stream<Item=Event, Error=Event>>),
+    Future(Box<future::Future<Item = Event, Error = Event>>),
+    Stream(Box<stream::Stream<Item = Event, Error = Event>>),
     NewRsrc(Box<Rsrc>, Option<Box<Rsrc>>),
     Result(Val, Option<Box<Rsrc>>),
 }
@@ -34,12 +31,8 @@ impl fmt::Debug for Event
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match *self {
-            Event::Future(_) => {
-                write!(f, "Event::Future")
-            }
-            Event::Stream(_) => {
-                write!(f, "Event::Future")
-            }
+            Event::Future(_) => write!(f, "Event::Future"),
+            Event::Stream(_) => write!(f, "Event::Future"),
             Event::NewRsrc(ref r, ref prevr) => {
                 write!(f, "Event::Rsrc({:?}, {:?})", r, prevr)
             }
@@ -62,22 +55,24 @@ pub struct IopCtx
 
 impl IopCtx
 {
-    pub fn new(rcio: Rc<RefCell<Io>>, wid: i64, fid: i64
-        , rsrc_id: Option<i64>, rsrc: Option<Box<Rsrc>>
-        , param_val: Val)
-        -> IopCtx
+    pub fn new(
+        rcio: Rc<RefCell<Io>>,
+        wid: i64,
+        fid: i64,
+        rsrc_id: Option<i64>,
+        rsrc: Option<Box<Rsrc>>,
+        param_val: Val,
+    ) -> IopCtx
     {
         let params = match param_val {
             Val::Tuple(items) => {
-                items.0.into_iter().map(|i| {
-                    Some(i.1)
-                }).collect()
+                items.0.into_iter().map(|i| Some(i.1)).collect()
             }
             _ => {
                 panic!("IopCtx params not a tuple");
             }
         };
-        IopCtx{
+        IopCtx {
             rcio: rcio,
             src_worker_id: wid,
             src_fiber_id: fid,
@@ -104,7 +99,8 @@ impl IopCtx
     }
 
     pub fn take_rsrc<T>(&mut self) -> T
-        where T: Rsrc
+    where
+        T: Rsrc,
     {
         let opt_rsrc = self.rsrc.take();
         match opt_rsrc {

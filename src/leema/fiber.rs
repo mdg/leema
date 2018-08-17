@@ -1,14 +1,14 @@
-use leema::log;
-use leema::frame::{Frame, Event, Parent, FrameTrace};
-use leema::val::{Val, Env, Type};
-use leema::reg::{Reg};
 use leema::code::{Code, Op, OpVec};
+use leema::frame::{Event, Frame, FrameTrace, Parent};
 use leema::list;
-use leema::struple::{Struple};
+use leema::log;
+use leema::reg::Reg;
+use leema::struple::Struple;
+use leema::val::{Env, Type, Val};
 
-use std::rc::{Rc};
+use std::io::Write;
 use std::mem;
-use std::io::{Write};
+use std::rc::Rc;
 
 
 #[derive(Debug)]
@@ -22,7 +22,7 @@ impl Fiber
 {
     pub fn spawn(id: i64, root: Frame) -> Fiber
     {
-        Fiber{
+        Fiber {
             fiber_id: id,
             head: root,
         }
@@ -38,11 +38,17 @@ impl Fiber
         self.head.function_name()
     }
 
-    pub fn push_call(&mut self, code: Rc<Code>, dst: Reg, line: i16
-        , module: Rc<String>, func: Rc<String>, args: Val
-        )
+    pub fn push_call(
+        &mut self,
+        code: Rc<Code>,
+        dst: Reg,
+        line: i16,
+        module: Rc<String>,
+        func: Rc<String>,
+        args: Val,
+    )
     {
-        let mut newf = Frame{
+        let mut newf = Frame {
             parent: Parent::Null,
             module: module.clone(),
             function: func.clone(),
@@ -70,21 +76,13 @@ impl Fiber
         let line = op.1;
         vout!("exec: {:?}\n", op);
         match &op.0 {
-            &Op::ConstVal(ref dst, ref v) => {
-                self.execute_const_val(dst, v)
-            }
+            &Op::ConstVal(ref dst, ref v) => self.execute_const_val(dst, v),
             &Op::Construple(ref dst, ref typ, ref flds) => {
                 self.execute_construple(dst, typ, flds)
             }
-            &Op::Copy(ref dst, ref src) => {
-                self.execute_copy(dst, src)
-            }
-            &Op::Jump(jmp) => {
-                self.execute_jump(jmp)
-            }
-            &Op::JumpIfNot(jmp, ref reg) => {
-                self.execute_jump_if_not(jmp, reg)
-            }
+            &Op::Copy(ref dst, ref src) => self.execute_copy(dst, src),
+            &Op::Jump(jmp) => self.execute_jump(jmp),
+            &Op::JumpIfNot(jmp, ref reg) => self.execute_jump_if_not(jmp, reg),
             &Op::IfFailure(ref dst, ref src, jmp) => {
                 self.execute_if_failure(dst, src, jmp)
             }
@@ -94,26 +92,22 @@ impl Fiber
             &Op::ListCons(ref dst, ref head, ref tail) => {
                 self.execute_cons_list(dst, head, tail)
             }
-            &Op::ListCreate(ref dst) => {
-                self.execute_create_list(dst)
-            }
+            &Op::ListCreate(ref dst) => self.execute_create_list(dst),
             &Op::TupleCreate(ref dst, ref sz) => {
                 self.execute_create_tuple(dst, *sz)
             }
-            &Op::StrCat(ref dst, ref src) => {
-                self.execute_strcat(dst, src)
-            }
+            &Op::StrCat(ref dst, ref src) => self.execute_strcat(dst, src),
             &Op::ApplyFunc(ref dst, ref func, ref args) => {
                 self.execute_call(dst, func, args, line)
             }
-            &Op::Return => {
-                Event::Complete(true)
-            }
+            &Op::Return => Event::Complete(true),
             &Op::SetResult(ref dst) => {
                 if *dst == Reg::Void {
                     panic!("return void at {} in {:?}", self.head.pc, ops);
                 }
-                self.head.parent.set_result(self.head.e.get_reg(dst).clone());
+                self.head
+                    .parent
+                    .set_result(self.head.e.get_reg(dst).clone());
                 self.head.pc += 1;
                 Event::Uneventful
             }
@@ -133,15 +127,13 @@ impl Fiber
             match (dst, src) {
                 (&Val::Future(_), _) => {
                     // oops, not ready to do this yet, let's bail and wait
-                    return Event::FutureWait(dstreg.clone())
+                    return Event::FutureWait(dstreg.clone());
                 }
                 (_, &Val::Future(_)) => {
                     // oops, not ready to do this yet, let's bail and wait
-                    return Event::FutureWait(srcreg.clone())
+                    return Event::FutureWait(srcreg.clone());
                 }
-                _ => {
-                    Val::new_str(format!("{}{}", dst, src))
-                }
+                _ => Val::new_str(format!("{}{}", dst, src)),
             }
         };
         self.head.e.set_reg(dstreg, result);
@@ -149,10 +141,19 @@ impl Fiber
         Event::Uneventful
     }
 
-    pub fn execute_match_pattern(&mut self, dst: &Reg, patt: &Val, input: &Reg)
-        -> Event
+    pub fn execute_match_pattern(
+        &mut self,
+        dst: &Reg,
+        patt: &Val,
+        input: &Reg,
+    ) -> Event
     {
-        vout!("execute_match_pattern({:?}, {:?}, {:?})\n", dst, patt, input);
+        vout!(
+            "execute_match_pattern({:?}, {:?}, {:?})\n",
+            dst,
+            patt,
+            input
+        );
         let matches = {
             let ival = self.head.e.get_reg(&input);
             Val::pattern_match(patt, ival)
@@ -180,14 +181,19 @@ impl Fiber
     }
 
     /**
-    * get code from func
-    * make an Env from the args
-    * make a new frame state
-    * create a new frame w/ func code and new frame state
-    * set curf.flag to Called(new_frame)
-    */
-    pub fn execute_call(&mut self, dst: &Reg
-        , freg: &Reg, argreg: &Reg, line: i16) -> Event
+     * get code from func
+     * make an Env from the args
+     * make a new frame state
+     * create a new frame w/ func code and new frame state
+     * set curf.flag to Called(new_frame)
+     */
+    pub fn execute_call(
+        &mut self,
+        dst: &Reg,
+        freg: &Reg,
+        argreg: &Reg,
+        line: i16,
+    ) -> Event
     {
         let (modname, funcname) = {
             let ref fname_val = self.head.e.get_reg(freg);
@@ -218,11 +224,8 @@ impl Fiber
         };
         vout!("execute_call({}::{})\n", modname, funcname);
 
-        let opt_failure =
-            Fiber::call_arg_failure(self.head.e.get_reg(argreg))
-                .map(|argv| {
-                    argv.clone()
-                });
+        let opt_failure = Fiber::call_arg_failure(self.head.e.get_reg(argreg))
+            .map(|argv| argv.clone());
         match opt_failure {
             Some(mut failur) => {
                 if let &mut Val::Failure(_, _, ref mut trace, _) = &mut failur {
@@ -237,13 +240,7 @@ impl Fiber
             }
             None => {
                 let args_copy = self.head.e.get_reg(argreg).clone();
-                Event::Call(
-                    dst.clone(),
-                    line,
-                    modname,
-                    funcname,
-                    args_copy,
-                )
+                Event::Call(dst.clone(), line, modname, funcname, args_copy)
             }
         }
     }
@@ -255,9 +252,12 @@ impl Fiber
         Event::Uneventful
     }
 
-    pub fn execute_construple(&mut self, reg: &Reg, new_typ: &Type
-            , flds: &Struple<Type>
-            ) -> Event
+    pub fn execute_construple(
+        &mut self,
+        reg: &Reg,
+        new_typ: &Type,
+        flds: &Struple<Type>,
+    ) -> Event
     {
         let construple = match self.head.e.get_params() {
             &Val::Struct(_, ref items) => {
@@ -269,15 +269,17 @@ impl Fiber
             }
             &Val::Tuple(ref items) => {
                 if let &Type::UserDef(ref i_new_typ) = new_typ {
-                    let new_items = items.0.iter().zip(flds.0.iter()).map(
-                        |(i, f)| {
+                    let new_items = items
+                        .0
+                        .iter()
+                        .zip(flds.0.iter())
+                        .map(|(i, f)| {
                             if i.0.is_some() {
                                 (i.0.clone(), i.1.clone())
                             } else {
                                 (f.0.clone(), i.1.clone())
                             }
-                        }
-                    ).collect();
+                        }).collect();
                     Val::Struct(i_new_typ.clone(), Struple(new_items))
                 } else {
                     panic!("struct type is not user defined: {:?}", new_typ);
@@ -292,8 +294,12 @@ impl Fiber
         Event::Uneventful
     }
 
-    pub fn execute_cons_list(&mut self, dst: &Reg, head: &Reg, tail: &Reg)
-        -> Event
+    pub fn execute_cons_list(
+        &mut self,
+        dst: &Reg,
+        head: &Reg,
+        tail: &Reg,
+    ) -> Event
     {
         let new_list = {
             let headval = self.head.e.get_reg(&head).clone();
@@ -347,7 +353,12 @@ impl Fiber
         Event::Uneventful
     }
 
-    pub fn execute_if_failure(&mut self, dst: &Reg, src: &Reg, jmp: i16) -> Event
+    pub fn execute_if_failure(
+        &mut self,
+        dst: &Reg,
+        src: &Reg,
+        jmp: i16,
+    ) -> Event
     {
         let dst_val = {
             if let &Val::Failure(ref tag, _, _, _) = self.head.e.get_reg(src) {
@@ -402,25 +413,27 @@ impl Fiber
 
 
 #[cfg(test)]
-mod tests {
-    use leema::frame::{Frame, Event};
-    use leema::fiber::{Fiber};
-    use leema::reg::{Reg};
-    use leema::val::{Val};
-
-
-#[test]
-fn test_normal_strcat()
+mod tests
 {
-    let r1 = Reg::local(1);
-    let r2 = Reg::local(2);
-    let mut frame = Frame::new_root(String::from("foo"), String::from("bar"));
-    frame.e.set_reg(&r1, Val::new_str(String::from("i like ")));
-    frame.e.set_reg(&r2, Val::new_str(String::from("burritos")));
-    let mut fib = Fiber::spawn(1, frame);
+    use leema::fiber::Fiber;
+    use leema::frame::{Event, Frame};
+    use leema::reg::Reg;
+    use leema::val::Val;
 
-    let event = fib.execute_strcat(&r1, &r2);
-    assert_eq!(Event::Uneventful, event);
-}
+
+    #[test]
+    fn test_normal_strcat()
+    {
+        let r1 = Reg::local(1);
+        let r2 = Reg::local(2);
+        let mut frame =
+            Frame::new_root(String::from("foo"), String::from("bar"));
+        frame.e.set_reg(&r1, Val::new_str(String::from("i like ")));
+        frame.e.set_reg(&r2, Val::new_str(String::from("burritos")));
+        let mut fib = Fiber::spawn(1, frame);
+
+        let event = fib.execute_strcat(&r1, &r2);
+        assert_eq!(Event::Uneventful, event);
+    }
 
 }

@@ -1,15 +1,15 @@
-use leema::val::{self, Val, Type, LibVal};
-use leema::code::{Code};
-use leema::fiber::{Fiber};
-use leema::frame::{Event};
+use leema::code::Code;
+use leema::fiber::Fiber;
+use leema::frame::Event;
 use leema::list;
 use leema::log;
+use leema::val::{self, LibVal, Type, Val};
 
+use std::fmt::{self, Debug, Display};
 use std::fs::File;
-use std::io::{stdin, stderr, Read, Write};
-use std::fmt::{self, Display, Debug};
-use std::sync::{Mutex};
-use std::time::{Duration};
+use std::io::{stderr, stdin, Read, Write};
+use std::sync::Mutex;
+use std::time::Duration;
 
 use rand;
 
@@ -20,12 +20,12 @@ pub fn int_add(f: &mut Fiber) -> Event
     {
         let a = f.head.get_param(0);
         let b = f.head.get_param(1);
-        match (a,b) {
+        match (a, b) {
             (&Val::Int(ia), &Val::Int(ib)) => {
                 ic = ia + ib;
             }
             _ => {
-                panic!("wtf is all that? {:?}", (a,b));
+                panic!("wtf is all that? {:?}", (a, b));
             }
         }
     }
@@ -39,12 +39,12 @@ pub fn int_sub(f: &mut Fiber) -> Event
     {
         let a = f.head.get_param(0);
         let b = f.head.get_param(1);
-        match (a,b) {
+        match (a, b) {
             (&Val::Int(ia), &Val::Int(ib)) => {
                 ic = ia - ib;
             }
             _ => {
-                panic!("wtf is all that? {:?}", (a,b));
+                panic!("wtf is all that? {:?}", (a, b));
             }
         }
     }
@@ -58,12 +58,12 @@ pub fn int_mult(f: &mut Fiber) -> Event
     {
         let a = f.head.get_param(0);
         let b = f.head.get_param(1);
-        match (a,b) {
+        match (a, b) {
             (&Val::Int(ia), &Val::Int(ib)) => {
                 ic = ia * ib;
             }
             _ => {
-                panic!("can't multiply that! {:?}", (a,b));
+                panic!("can't multiply that! {:?}", (a, b));
             }
         }
     }
@@ -77,12 +77,12 @@ pub fn int_mod(f: &mut Fiber) -> Event
     {
         let a = f.head.get_param(0);
         let b = f.head.get_param(1);
-        match (a,b) {
+        match (a, b) {
             (&Val::Int(ia), &Val::Int(ib)) => {
                 ic = ia % ib;
             }
             _ => {
-                panic!("can't mod that! {:?}", (a,b));
+                panic!("can't mod that! {:?}", (a, b));
             }
         }
     }
@@ -123,9 +123,8 @@ pub fn bool_not(f: &mut Fiber) -> Event
         Event::success()
     } else {
         let tag = Val::hashtag("invalid_type".to_string());
-        let msg = Val::new_str(
-            format!("input to not must be a boolean: {:?}", i)
-        );
+        let msg =
+            Val::new_str(format!("input to not must be a boolean: {:?}", i));
         let fail =
             Val::failure(tag, msg, f.head.trace.clone(), val::FAILURE_TYPE);
         f.head.parent.set_result(fail);
@@ -139,12 +138,12 @@ pub fn bool_xor(f: &mut Fiber) -> Event
     {
         let va = f.head.get_param(0);
         let vb = f.head.get_param(1);
-        match (va,vb) {
+        match (va, vb) {
             (&Val::Bool(a), &Val::Bool(b)) => {
                 result = a && !b || b && !a;
             }
             _ => {
-                panic!("wtf is all that? {:?}", (va,vb));
+                panic!("wtf is all that? {:?}", (va, vb));
             }
         }
     }
@@ -300,7 +299,8 @@ pub fn create_failure(f: &mut Fiber) -> Event
 }
 
 
-struct LeemaFile {
+struct LeemaFile
+{
     f: Mutex<File>,
 }
 
@@ -308,7 +308,7 @@ impl LeemaFile
 {
     pub fn new(f: File) -> LeemaFile
     {
-        LeemaFile{f: Mutex::new(f)}
+        LeemaFile { f: Mutex::new(f) }
     }
 }
 
@@ -342,25 +342,22 @@ pub fn file_read(f: &mut Fiber) -> Event
     let open_result = {
         let fnval = f.head.get_param(0);
         match fnval {
-            &Val::Str(ref fnstr) => {
-                File::open(&**fnstr)
-            }
+            &Val::Str(ref fnstr) => File::open(&**fnstr),
             _ => {
-                panic!("Can't open file with not string {:?}"
-                    , fnval);
+                panic!("Can't open file with not string {:?}", fnval);
             }
         }
     };
     let openf = match open_result {
-        Ok(file) => {
-            Val::libval(LeemaFile::new(file))
-        }
-        Err(_) => Val::failure(
-            Val::hashtag("file_open_fail".to_string()),
-            Val::new_str("Failed to open file".to_string()),
-            f.head.trace.fail_here(),
-            val::FAILURE_INTERNAL,
+        Ok(file) => Val::libval(LeemaFile::new(file)),
+        Err(_) => {
+            Val::failure(
+                Val::hashtag("file_open_fail".to_string()),
+                Val::new_str("Failed to open file".to_string()),
+                f.head.trace.fail_here(),
+                val::FAILURE_INTERNAL,
             )
+        }
     };
     f.head.parent.set_result(openf);
     Event::success()

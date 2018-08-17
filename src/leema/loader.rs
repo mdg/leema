@@ -1,10 +1,9 @@
+use leema::module::ModKey;
 
-use leema::module::{ModKey};
-
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::collections::{HashMap};
 
 
 #[derive(Debug)]
@@ -32,7 +31,7 @@ impl Interloader
             panic!("Is that not a real file? {}", mainfile);
         }
 
-        Interloader{
+        Interloader {
             root_path: path.parent().unwrap().to_path_buf(),
             main_mod: modname.unwrap().to_str().unwrap().to_string(),
             modtxt: HashMap::new(),
@@ -86,24 +85,24 @@ impl Interloader
 #[cfg(test)]
 mod tests
 {
-    use leema::loader::{Interloader};
-    use std::path::{Path};
+    use leema::loader::Interloader;
+    use std::path::Path;
 
-#[test]
-fn test_root_path()
-{
-    let i = Interloader::new("hello/world.lma");
+    #[test]
+    fn test_root_path()
+    {
+        let i = Interloader::new("hello/world.lma");
 
-    let expected = Path::new("hello");
-    assert_eq!(expected, i.root_path);
-}
+        let expected = Path::new("hello");
+        assert_eq!(expected, i.root_path);
+    }
 
-#[test]
-fn test_main_mod()
-{
-    let i = Interloader::new("hello/world.lma");
+    #[test]
+    fn test_main_mod()
+    {
+        let i = Interloader::new("hello/world.lma");
 
-    assert_eq!("world", i.main_mod);
-}
+        assert_eq!("world", i.main_mod);
+    }
 
 }

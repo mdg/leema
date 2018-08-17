@@ -1,7 +1,7 @@
-use leema::val::{SrcLoc};
-use leema::lri::{Lri};
-use leema::lstr::{Lstr};
+use leema::lri::Lri;
+use leema::lstr::Lstr;
 use leema::parse::{Parser, Token};
+use leema::val::SrcLoc;
 use leema::val::Type;
 
 use std::collections::LinkedList;
@@ -34,10 +34,7 @@ impl<T> TokenData<T>
 {
     pub fn new(d: T, tl: SrcLoc) -> TokenData<T>
     {
-        TokenData{
-            data: d,
-            loc: tl,
-        }
+        TokenData { data: d, loc: tl }
     }
 }
 
@@ -101,13 +98,17 @@ pub struct IfCase
 
 impl IfCase
 {
-    pub fn new(cond: Ast, body: Ast, else_case: Option<IfCase>, loc: SrcLoc
-        ) -> IfCase
+    pub fn new(
+        cond: Ast,
+        body: Ast,
+        else_case: Option<IfCase>,
+        loc: SrcLoc,
+    ) -> IfCase
     {
-        IfCase{
+        IfCase {
             cond: cond,
             body: body,
-            else_case: else_case.map(|ic| { Box::new(ic) }),
+            else_case: else_case.map(|ic| Box::new(ic)),
             loc: loc,
         }
     }
@@ -126,7 +127,7 @@ impl Kxpr
 {
     pub fn new(k: Lstr, x: Ast) -> Kxpr
     {
-        Kxpr{
+        Kxpr {
             k: Some(k),
             x: Some(Box::new(x)),
         }
@@ -134,7 +135,7 @@ impl Kxpr
 
     pub fn new_k(k: Lstr) -> Kxpr
     {
-        Kxpr{
+        Kxpr {
             k: Some(k),
             x: None,
         }
@@ -142,7 +143,7 @@ impl Kxpr
 
     pub fn new_x(x: Ast) -> Kxpr
     {
-        Kxpr{
+        Kxpr {
             k: None,
             x: Some(Box::new(x)),
         }
@@ -155,9 +156,7 @@ impl Kxpr
 
     pub fn x_ref(&self) -> Option<&Ast>
     {
-        self.x.as_ref().map(|x| {
-            &**x
-        })
+        self.x.as_ref().map(|x| &**x)
     }
 
     pub fn k_clone(&self) -> Option<Lstr>
@@ -166,12 +165,11 @@ impl Kxpr
     }
 
     pub fn map_x<F>(&self, op: F) -> Kxpr
-        where F: FnOnce(&Ast) -> Ast
+    where
+        F: FnOnce(&Ast) -> Ast,
     {
-        let new_x = self.x.as_ref().map(|bx| {
-            Box::new(op(&**bx))
-        });
-        Kxpr{
+        let new_x = self.x.as_ref().map(|bx| Box::new(op(&**bx)));
+        Kxpr {
             k: self.k.clone(),
             x: new_x,
         }
@@ -193,8 +191,14 @@ pub enum Ast
     ConstStr(Lstr),
     ConstVoid,
     DefData(DataType, Box<Ast>, LinkedList<Kxpr>, SrcLoc),
-    DefFunc(FuncClass
-        , Box<Ast>, LinkedList<Kxpr>, Box<Ast>, Box<Ast>, SrcLoc),
+    DefFunc(
+        FuncClass,
+        Box<Ast>,
+        LinkedList<Kxpr>,
+        Box<Ast>,
+        Box<Ast>,
+        SrcLoc,
+    ),
     // dereference another expression
     Deref(Box<Ast>),
     DotAccess(Box<Ast>, Lstr),
@@ -247,8 +251,11 @@ impl Ast
         }
     }
 
-    pub fn matchfunc_body(ids: &LinkedList<Kxpr>, cases: IfCase, loc: SrcLoc
-        ) -> Ast
+    pub fn matchfunc_body(
+        ids: &LinkedList<Kxpr>,
+        cases: IfCase,
+        loc: SrcLoc,
+    ) -> Ast
     {
         let match_args = ids.iter().map(|idx| {
             match idx.k_ref() {
@@ -302,9 +309,7 @@ impl<'a> From<&'a Ast> for String
     fn from(a: &'a Ast) -> String
     {
         match a {
-            &Ast::Localid(ref ls, _) => {
-                String::from(ls)
-            }
+            &Ast::Localid(ref ls, _) => String::from(ls),
             &Ast::Lri(ref items, ref types, _) => {
                 format!("{:?}<{:?}>", items, types)
             }
@@ -320,9 +325,7 @@ impl<'a> From<&'a Ast> for Lstr
     fn from(a: &'a Ast) -> Lstr
     {
         match a {
-            &Ast::Localid(ref ls, _) => {
-                ls.clone()
-            }
+            &Ast::Localid(ref ls, _) => ls.clone(),
             &Ast::Lri(ref items, ref types, _) => {
                 if items.len() == 1 && types.is_none() {
                     items.first().unwrap().clone()
@@ -343,25 +346,17 @@ impl<'a> From<&'a Ast> for Lri
     fn from(a: &'a Ast) -> Lri
     {
         match a {
-            &Ast::Localid(ref id, _) => {
-                Lri::new(id.clone())
-            }
+            &Ast::Localid(ref id, _) => Lri::new(id.clone()),
             &Ast::Lri(ref names, ref types, _) => {
                 let param_array = types.as_ref().map(|param_list| {
-                    param_list.iter().map(|p| {
-                        Type::from(p)
-                    }).collect()
+                    param_list.iter().map(|p| Type::from(p)).collect()
                 });
                 let modname = if names.len() == 1 {
                     None
                 } else {
                     Some(names.first().unwrap().clone())
                 };
-                Lri::full(
-                    modname,
-                    names.last().unwrap().clone(),
-                    param_array,
-                )
+                Lri::full(modname, names.last().unwrap().clone(), param_array)
             }
             _ => {
                 panic!("cannot convert Ast to Lri: {:?}", a);
@@ -380,14 +375,13 @@ impl<'a> From<&'a Ast> for Type
             &Ast::TypeBool => Type::Bool,
             &Ast::TypeHashtag => Type::Hashtag,
             &Ast::TypeStr => Type::Str,
-            &Ast::TypeVar(ref v, _) => {
-                Type::Var(v.clone())
-            }
+            &Ast::TypeVar(ref v, _) => Type::Var(v.clone()),
             &Ast::TypeVoid => Type::Void,
             &Ast::TypeFunc(ref parts, _) => {
-                let mut ppp: Vec<Type> = parts.iter().map(|p| {
-                    Type::from(p.x_ref().unwrap())
-                }).collect();
+                let mut ppp: Vec<Type> = parts
+                    .iter()
+                    .map(|p| Type::from(p.x_ref().unwrap()))
+                    .collect();
                 let result = ppp.pop().unwrap();
                 Type::Func(ppp, Box::new(result))
             }
@@ -407,18 +401,16 @@ impl<'a> From<&'a Ast> for Type
                 }
             }
             &Ast::Tuple(ref items) => {
-                let pp_items = items.iter().map(|i| {
-                    let new_k = i.k_ref().map(|kr| { kr.clone() });
-                    (new_k, Type::from(i.x_ref().unwrap()))
-                }).collect();
+                let pp_items = items
+                    .iter()
+                    .map(|i| {
+                        let new_k = i.k_ref().map(|kr| kr.clone());
+                        (new_k, Type::from(i.x_ref().unwrap()))
+                    }).collect();
                 Type::Tuple(pp_items)
             }
-            &Ast::Localid(ref id, _) => {
-                Type::UserDef(Lri::new(id.clone()))
-            }
-            &Ast::Lri(_, _, _) => {
-                Type::UserDef(Lri::from(a))
-            }
+            &Ast::Localid(ref id, _) => Type::UserDef(Lri::new(id.clone())),
+            &Ast::Lri(_, _, _) => Type::UserDef(Lri::from(a)),
             _ => {
                 panic!("cannot convert Ast to Type: {:?}", a);
             }
@@ -440,288 +432,298 @@ pub fn parse(toks: Vec<Token>) -> Ast
 
 
 #[cfg(test)]
-mod tests {
-    use leema::val::{SrcLoc};
+mod tests
+{
     use leema::ast::{self, Ast, Kxpr};
-    use leema::lstr::{Lstr};
-    use leema::lex::{lex};
+    use leema::lex::lex;
+    use leema::lstr::Lstr;
+    use leema::val::SrcLoc;
 
     use std::collections::LinkedList;
 
 
-fn test_lri(item: &'static str, line: i16, col: i8) -> Ast
-{
-    Ast::Lri(
-        vec![Lstr::from(item)].into_iter().collect(),
-        None,
-        SrcLoc::new(line, col),
-    )
-}
+    fn test_lri(item: &'static str, line: i16, col: i8) -> Ast
+    {
+        Ast::Lri(
+            vec![Lstr::from(item)].into_iter().collect(),
+            None,
+            SrcLoc::new(line, col),
+        )
+    }
 
-fn test_localid(id: &'static str, line: i16, col: i8) -> Ast
-{
-    Ast::Localid(Lstr::from(id), SrcLoc::new(line, col))
-}
+    fn test_localid(id: &'static str, line: i16, col: i8) -> Ast
+    {
+        Ast::Localid(Lstr::from(id), SrcLoc::new(line, col))
+    }
 
-fn test_mod_lri(m: &'static str, item: &'static str, line: i16, col: i8) -> Ast
-{
-    Ast::Lri(
-        vec![
-            Lstr::from(m),
-            Lstr::from(item),
-        ].into_iter().collect(),
-        None,
-        SrcLoc::new(line, col),
-    )
-}
+    fn test_mod_lri(
+        m: &'static str,
+        item: &'static str,
+        line: i16,
+        col: i8,
+    ) -> Ast
+    {
+        Ast::Lri(
+            vec![Lstr::from(m), Lstr::from(item)].into_iter().collect(),
+            None,
+            SrcLoc::new(line, col),
+        )
+    }
 
-#[test]
-fn test_ast_parse_plus() {
-    let input = "5 + 3\n";
-    let lexed = lex(input);
-    let root = ast::parse(lexed);
+    #[test]
+    fn test_ast_parse_plus()
+    {
+        let input = "5 + 3\n";
+        let lexed = lex(input);
+        let root = ast::parse(lexed);
 
-    let expected = Ast::Block(vec![
-        Ast::Call(Box::new(test_mod_lri("prefab", "int_add", 1, 2)), vec![
-            Kxpr::new_x(Ast::ConstInt(5)),
-            Kxpr::new_x(Ast::ConstInt(3)),
-        ].into_iter().collect(),
-        SrcLoc::new(1, 2)),
-    ]);
-    assert_eq!(expected, root);
-}
+        let expected = Ast::Block(vec![Ast::Call(
+            Box::new(test_mod_lri("prefab", "int_add", 1, 2)),
+            vec![Kxpr::new_x(Ast::ConstInt(5)), Kxpr::new_x(Ast::ConstInt(3))]
+                .into_iter()
+                .collect(),
+            SrcLoc::new(1, 2),
+        )]);
+        assert_eq!(expected, root);
+    }
 
-#[test]
-fn test_ast_parse_strlit() {
-    let input = "\"taco\"\n";
-    let root = ast::parse(lex(input));
+    #[test]
+    fn test_ast_parse_strlit()
+    {
+        let input = "\"taco\"\n";
+        let root = ast::parse(lex(input));
 
-    let expected = Ast::Block(vec![
-        Ast::ConstStr(Lstr::from("taco")),
-    ]);
-    assert_eq!(expected, root);
-}
+        let expected = Ast::Block(vec![Ast::ConstStr(Lstr::from("taco"))]);
+        assert_eq!(expected, root);
+    }
 
-#[test]
-fn test_ast_parse_string_id() {
-    let input = "\"$var\"\n";
-    let root = ast::parse(lex(input));
+    #[test]
+    fn test_ast_parse_string_id()
+    {
+        let input = "\"$var\"\n";
+        let root = ast::parse(lex(input));
 
-    let expected = Ast::Block(vec![
-        Ast::StrExpr(vec![
-            Ast::Localid(Lstr::from("var"), SrcLoc::new(1, 3)),
-        ], SrcLoc::new(1, 1)),
-    ]);
-    assert_eq!(expected, root);
-}
+        let expected = Ast::Block(vec![Ast::StrExpr(
+            vec![Ast::Localid(Lstr::from("var"), SrcLoc::new(1, 3))],
+            SrcLoc::new(1, 1),
+        )]);
+        assert_eq!(expected, root);
+    }
 
-#[test]
-fn test_ast_parse_string_list() {
-    let input = "\"hello $name\n\"\n";
-    let root = ast::parse(lex(input));
+    #[test]
+    fn test_ast_parse_string_list()
+    {
+        let input = "\"hello $name\n\"\n";
+        let root = ast::parse(lex(input));
 
-    let part1 = Ast::ConstStr(Lstr::from("hello "));
-    let part2 = Ast::Localid(Lstr::from("name"), SrcLoc::new(1, 9));
-    let part3 = Ast::ConstStr(Lstr::from("\n"));
-    let expected = Ast::Block(vec![
-        Ast::StrExpr(vec![
-            part1,
-            part2,
-            part3,
-        ], SrcLoc::new(1, 1)),
-    ]);
-    assert_eq!(expected, root);
-}
+        let part1 = Ast::ConstStr(Lstr::from("hello "));
+        let part2 = Ast::Localid(Lstr::from("name"), SrcLoc::new(1, 9));
+        let part3 = Ast::ConstStr(Lstr::from("\n"));
+        let expected = Ast::Block(vec![Ast::StrExpr(
+            vec![part1, part2, part3],
+            SrcLoc::new(1, 1),
+        )]);
+        assert_eq!(expected, root);
+    }
 
-#[test]
-fn test_ast_parse_plus_twice() {
-    let input = "5 + 3 + 2\n";
-    let root = ast::parse(lex(input));
+    #[test]
+    fn test_ast_parse_plus_twice()
+    {
+        let input = "5 + 3 + 2\n";
+        let root = ast::parse(lex(input));
 
-    let inner = Ast::Call(
-        Box::new(test_mod_lri("prefab", "int_add", 1, 2)),
-        vec![
-            Kxpr::new_x(Ast::ConstInt(5)),
-            Kxpr::new_x(Ast::ConstInt(3)),
-        ].into_iter().collect(),
-        SrcLoc::new(1, 2),
-    );
-    let outer = Ast::Call(
-        Box::new(test_mod_lri("prefab", "int_add", 1, 4)),
-        vec![
-            Kxpr::new_x(inner),
-            Kxpr::new_x(Ast::ConstInt(2)),
-        ].into_iter().collect(),
-        SrcLoc::new(1, 4),
-    );
+        let inner = Ast::Call(
+            Box::new(test_mod_lri("prefab", "int_add", 1, 2)),
+            vec![Kxpr::new_x(Ast::ConstInt(5)), Kxpr::new_x(Ast::ConstInt(3))]
+                .into_iter()
+                .collect(),
+            SrcLoc::new(1, 2),
+        );
+        let outer = Ast::Call(
+            Box::new(test_mod_lri("prefab", "int_add", 1, 4)),
+            vec![Kxpr::new_x(inner), Kxpr::new_x(Ast::ConstInt(2))]
+                .into_iter()
+                .collect(),
+            SrcLoc::new(1, 4),
+        );
 
-    let expected = Ast::Block(vec![outer]);
-    assert_eq!(expected, root);
-}
+        let expected = Ast::Block(vec![outer]);
+        assert_eq!(expected, root);
+    }
 
-#[test]
-fn test_ast_parse_call_one_param()
-{
-    let input = "inc(~4)\n";
-    let root = ast::parse(lex(input));
+    #[test]
+    fn test_ast_parse_call_one_param()
+    {
+        let input = "inc(~4)\n";
+        let root = ast::parse(lex(input));
 
-    let neg4 = Ast::Call(
-        Box::new(test_mod_lri("prefab", "int_negate", 1, 5)),
-        vec![Kxpr::new_x(Ast::ConstInt(4))].into_iter().collect(),
-        SrcLoc::new(1, 5),
-    );
-    let expected = Ast::Block(vec![
-        Ast::Call(
+        let neg4 = Ast::Call(
+            Box::new(test_mod_lri("prefab", "int_negate", 1, 5)),
+            vec![Kxpr::new_x(Ast::ConstInt(4))].into_iter().collect(),
+            SrcLoc::new(1, 5),
+        );
+        let expected = Ast::Block(vec![Ast::Call(
             Box::new(Ast::Localid(Lstr::from("inc"), SrcLoc::new(1, 1))),
             vec![Kxpr::new_x(neg4)].into_iter().collect(),
             SrcLoc::new(1, 4),
-        ),
-    ]);
-    assert_eq!(expected, root);
-}
+        )]);
+        assert_eq!(expected, root);
+    }
 
-#[test]
-fn test_ast_parse_function_call() {
-    let input = "foo(7, 2)\n";
-    let root = ast::parse(lex(input));
+    #[test]
+    fn test_ast_parse_function_call()
+    {
+        let input = "foo(7, 2)\n";
+        let root = ast::parse(lex(input));
 
-    let xargs = vec![
-        Kxpr::new_x(Ast::ConstInt(7)),
-        Kxpr::new_x(Ast::ConstInt(2)),
-    ].into_iter().collect();
-    let expected = Ast::Block(vec![Ast::Call(
-        Box::new(Ast::Localid(Lstr::from("foo"), SrcLoc::new(1, 1))),
-        xargs,
-        SrcLoc::new(1, 4),
-    )]);
-    assert_eq!(expected, root);
-}
+        let xargs =
+            vec![Kxpr::new_x(Ast::ConstInt(7)), Kxpr::new_x(Ast::ConstInt(2))]
+                .into_iter()
+                .collect();
+        let expected = Ast::Block(vec![Ast::Call(
+            Box::new(Ast::Localid(Lstr::from("foo"), SrcLoc::new(1, 1))),
+            xargs,
+            SrcLoc::new(1, 4),
+        )]);
+        assert_eq!(expected, root);
+    }
 
-#[test]
-fn test_ast_parse_tuple() {
-    let input = "(3, \"taco\", true)\n";
-    let root = ast::parse(lex(input));
+    #[test]
+    fn test_ast_parse_tuple()
+    {
+        let input = "(3, \"taco\", true)\n";
+        let root = ast::parse(lex(input));
 
-    let xtup = Ast::Tuple(vec![
-        Kxpr::new_x(Ast::ConstInt(3)),
-        Kxpr::new_x(Ast::ConstStr(Lstr::from("taco"))),
-        Kxpr::new_x(Ast::ConstBool(true)),
-    ].into_iter().collect());
-    let expected = Ast::Block(vec![xtup]);
-    assert_eq!(expected, root);
-}
+        let xtup = Ast::Tuple(
+            vec![
+                Kxpr::new_x(Ast::ConstInt(3)),
+                Kxpr::new_x(Ast::ConstStr(Lstr::from("taco"))),
+                Kxpr::new_x(Ast::ConstBool(true)),
+            ].into_iter()
+            .collect(),
+        );
+        let expected = Ast::Block(vec![xtup]);
+        assert_eq!(expected, root);
+    }
 
-#[test]
-fn test_ast_parse_list_empty() {
-    let input = "[]\n";
-    let root = ast::parse(lex(input));
+    #[test]
+    fn test_ast_parse_list_empty()
+    {
+        let input = "[]\n";
+        let root = ast::parse(lex(input));
 
-    let xlist = Ast::List(vec![].into_iter().collect());
-    let expected = Ast::Block(vec![xlist]);
-    assert_eq!(expected, root);
-}
+        let xlist = Ast::List(vec![].into_iter().collect());
+        let expected = Ast::Block(vec![xlist]);
+        assert_eq!(expected, root);
+    }
 
-#[test]
-fn test_ast_parse_const_list() {
-    let input = "[1, 2, x]\n";
-    let root = ast::parse(lex(input));
+    #[test]
+    fn test_ast_parse_const_list()
+    {
+        let input = "[1, 2, x]\n";
+        let root = ast::parse(lex(input));
 
-    let xlist = Ast::List(vec![
-        Ast::ConstInt(1),
-        Ast::ConstInt(2),
-        Ast::Localid(Lstr::from("x"), SrcLoc::new(1, 6)),
-    ].into_iter().collect());
-    let expected = Ast::Block(vec![xlist]);
-    assert_eq!(expected, root);
-}
+        let xlist = Ast::List(
+            vec![
+                Ast::ConstInt(1),
+                Ast::ConstInt(2),
+                Ast::Localid(Lstr::from("x"), SrcLoc::new(1, 6)),
+            ].into_iter()
+            .collect(),
+        );
+        let expected = Ast::Block(vec![xlist]);
+        assert_eq!(expected, root);
+    }
 
-#[test]
-fn test_ast_parse_list_cons() {
-    let input = "1;2;x\n";
-    let root = ast::parse(lex(input));
+    #[test]
+    fn test_ast_parse_list_cons()
+    {
+        let input = "1;2;x\n";
+        let root = ast::parse(lex(input));
 
-    let inner = Ast::Cons(
-        Box::new(Ast::ConstInt(2)),
-        Box::new(Ast::Localid(Lstr::from("x"), SrcLoc::new(1, 5))),
-    );
-    let outer = Ast::Cons(
-        Box::new(Ast::ConstInt(1)),
-        Box::new(inner),
-    );
+        let inner = Ast::Cons(
+            Box::new(Ast::ConstInt(2)),
+            Box::new(Ast::Localid(Lstr::from("x"), SrcLoc::new(1, 5))),
+        );
+        let outer = Ast::Cons(Box::new(Ast::ConstInt(1)), Box::new(inner));
 
-    let expected = Ast::Block(vec![outer]);
-    assert_eq!(expected, root);
-}
+        let expected = Ast::Block(vec![outer]);
+        assert_eq!(expected, root);
+    }
 
-#[test]
-fn test_call_function_plus_comma()
-{
-    let input = "
+    #[test]
+    fn test_call_function_plus_comma()
+    {
+        let input = "
     func main() ->
         foo(x+1, 40)
     --
     ";
-    let root = ast::parse(lex(input));
-    if let Ast::Block(items) = root {
-        assert_eq!(1, items.len());
-    } else {
-        panic!("func def is not a block");
+        let root = ast::parse(lex(input));
+        if let Ast::Block(items) = root {
+            assert_eq!(1, items.len());
+        } else {
+            panic!("func def is not a block");
+        }
     }
-}
 
-#[test]
-fn test_parse_empty_tuple() {
-    let input = "()";
-    let root = ast::parse(lex(input));
+    #[test]
+    fn test_parse_empty_tuple()
+    {
+        let input = "()";
+        let root = ast::parse(lex(input));
 
-    let xtuple = Ast::Tuple(LinkedList::new());
-    let expected = Ast::Block(vec![xtuple]);
-    assert_eq!(expected, root);
-}
+        let xtuple = Ast::Tuple(LinkedList::new());
+        let expected = Ast::Block(vec![xtuple]);
+        assert_eq!(expected, root);
+    }
 
-#[test]
-fn test_parse_one_tuple() {
-    let input = "(5)";
-    let root = ast::parse(lex(input));
+    #[test]
+    fn test_parse_one_tuple()
+    {
+        let input = "(5)";
+        let root = ast::parse(lex(input));
 
-    let tuple_items = vec![Kxpr::new_x(Ast::ConstInt(5))].into_iter().collect();
-    let expected = Ast::Block(vec![Ast::Tuple(tuple_items)]);
+        let tuple_items =
+            vec![Kxpr::new_x(Ast::ConstInt(5))].into_iter().collect();
+        let expected = Ast::Block(vec![Ast::Tuple(tuple_items)]);
 
-    assert_eq!(expected, root);
-}
+        assert_eq!(expected, root);
+    }
 
-#[test]
-fn test_parse_match_empty_list() {
-    let input = "
+    #[test]
+    fn test_parse_match_empty_list()
+    {
+        let input = "
     func is_empty(l)
     |([]) -> true
     |(_) -> false
     --
     ";
-    ast::parse(lex(input));
+        ast::parse(lex(input));
 
-    // didn't crash
-    assert_eq!(2, 2);
-}
+        // didn't crash
+        assert_eq!(2, 2);
+    }
 
-#[test]
-fn test_call_function_comma_plus()
-{
-    let input = "
+    #[test]
+    fn test_call_function_comma_plus()
+    {
+        let input = "
     func main() ->
         foo(40, x+1)
     --
     ";
-    ast::parse(lex(input));
+        ast::parse(lex(input));
 
-    // didn't crash
-    assert_eq!(3, 3);
-}
+        // didn't crash
+        assert_eq!(3, 3);
+    }
 
-#[test]
-fn test_parse_multiple_param_func()
-{
-    let input = "
+    #[test]
+    fn test_parse_multiple_param_func()
+    {
+        let input = "
     func doubles(x, x2) ->
         x + x == x2
     --
@@ -730,52 +732,51 @@ fn test_parse_multiple_param_func()
         doubles(5, 10)
     --
     ";
-    ast::parse(lex(input));
-}
+        ast::parse(lex(input));
+    }
 
-#[test]
-fn test_ast_parse_if()
-{
-    let input = "
+    #[test]
+    fn test_ast_parse_if()
+    {
+        let input = "
     if x ->
         y
     else ->
         z
     --
     ";
-    ast::parse(lex(input));
+        ast::parse(lex(input));
 
-    // didn't crash
-    assert_eq!(1, 1);
-}
+        // didn't crash
+        assert_eq!(1, 1);
+    }
 
-#[test]
-fn test_ast_parse_if_no_else()
-{
-    let input = "if x -> y --";
-    let root = ast::parse(lex(input));
+    #[test]
+    fn test_ast_parse_if_no_else()
+    {
+        let input = "if x -> y --";
+        let root = ast::parse(lex(input));
 
-    let blocka = ast::IfCase::new(
-        Ast::Localid(Lstr::from("x"), SrcLoc::new(1, 3)),
-        Ast::Block(vec![Ast::Localid(Lstr::from("y"), SrcLoc::new(1, 6))]),
-        None,
-        SrcLoc::new(1, 1),
-    );
+        let blocka = ast::IfCase::new(
+            Ast::Localid(Lstr::from("x"), SrcLoc::new(1, 3)),
+            Ast::Block(vec![Ast::Localid(Lstr::from("y"), SrcLoc::new(1, 6))]),
+            None,
+            SrcLoc::new(1, 1),
+        );
 
-    let expected = Ast::Block(vec![
-        Ast::IfExpr(ast::IfType::If,
+        let expected = Ast::Block(vec![Ast::IfExpr(
+            ast::IfType::If,
             Box::new(Ast::ConstVoid),
             Box::new(blocka),
             SrcLoc::new(1, 1),
-        ),
-    ]);
-    assert_eq!(expected, root);
-}
+        )]);
+        assert_eq!(expected, root);
+    }
 
-#[test]
-fn test_ast_parse_macro()
-{
-    let input = "
+    #[test]
+    fn test_ast_parse_macro()
+    {
+        let input = "
     macro mand(a, b) ->
         if
         |a -> b
@@ -783,49 +784,58 @@ fn test_ast_parse_macro()
         --
     --
     ";
-    let root = ast::parse(lex(input));
+        let root = ast::parse(lex(input));
 
-    if let Ast::Block(lines) = root {
-        let f = lines.first().unwrap();
-        if let &Ast::DefFunc(ast::FuncClass::Macro, ref name, ref args, _, _, _) = f
-        {
-            assert_eq!("mand", Lstr::from(&**name).str());
-            assert_eq!(2, args.len());
+        if let Ast::Block(lines) = root {
+            let f = lines.first().unwrap();
+            if let &Ast::DefFunc(
+                ast::FuncClass::Macro,
+                ref name,
+                ref args,
+                _,
+                _,
+                _,
+            ) = f
+            {
+                assert_eq!("mand", Lstr::from(&**name).str());
+                assert_eq!(2, args.len());
+            } else {
+                panic!("mand is not a macro");
+            }
         } else {
-            panic!("mand is not a macro");
+            panic!("mand does not have a block");
         }
-    } else {
-        panic!("mand does not have a block");
     }
-}
 
-#[test]
-fn test_parse_call_function_call_result()
-{
-    let input = "(foo(5))(6)";
-    let root = ast::parse(lex(input));
+    #[test]
+    fn test_parse_call_function_call_result()
+    {
+        let input = "(foo(5))(6)";
+        let root = ast::parse(lex(input));
 
-    let foo_call = Ast::Tuple(vec![Kxpr::new_x(
-        Ast::Call(
-            Box::new(test_localid("foo", 1, 2)),
-            vec![Kxpr::new_x(Ast::ConstInt(5))].into_iter().collect(),
-            SrcLoc::new(1, 5),
-        ),
-    )].into_iter().collect());
+        let foo_call = Ast::Tuple(
+            vec![Kxpr::new_x(Ast::Call(
+                Box::new(test_localid("foo", 1, 2)),
+                vec![Kxpr::new_x(Ast::ConstInt(5))].into_iter().collect(),
+                SrcLoc::new(1, 5),
+            ))].into_iter()
+            .collect(),
+        );
 
-    let p_call = Ast::Call(Box::new(foo_call),
-        vec![Kxpr::new_x(Ast::ConstInt(6))].into_iter().collect(),
-        SrcLoc::new(1, 9),
-    );
+        let p_call = Ast::Call(
+            Box::new(foo_call),
+            vec![Kxpr::new_x(Ast::ConstInt(6))].into_iter().collect(),
+            SrcLoc::new(1, 9),
+        );
 
-    let expected = Ast::Block(vec![p_call]);
-    assert_eq!(expected, root);
-}
+        let expected = Ast::Block(vec![p_call]);
+        assert_eq!(expected, root);
+    }
 
-#[test]
-fn test_parse_enum_variants()
-{
-    let input = "
+    #[test]
+    fn test_parse_enum_variants()
+    {
+        let input = "
         enum Animal
         |Dog
         |Cat(Int)
@@ -835,264 +845,261 @@ fn test_parse_enum_variants()
             .weight: $A
         --
     ";
-    let root = ast::parse(lex(input));
+        let root = ast::parse(lex(input));
 
-    if let Ast::Block(lines) = root {
-        let first = lines.first().unwrap();
-        if let &Ast::DefData(ast::DataType::Enum, ref name, ref vars, _) = first
-        {
-            assert_eq!(Ast::Localid(Lstr::from("Animal"), SrcLoc::new(2, 5))
-                , **name);
-            assert_eq!(4, vars.len());
+        if let Ast::Block(lines) = root {
+            let first = lines.first().unwrap();
+            if let &Ast::DefData(ast::DataType::Enum, ref name, ref vars, _) =
+                first
+            {
+                assert_eq!(
+                    Ast::Localid(Lstr::from("Animal"), SrcLoc::new(2, 5)),
+                    **name
+                );
+                assert_eq!(4, vars.len());
+            } else {
+                panic!("enum is not an enum: {:?}", first);
+            }
         } else {
-            panic!("enum is not an enum: {:?}", first);
+            panic!("enum is not a block: {:?}", root);
         }
-    } else {
-        panic!("enum is not a block: {:?}", root);
     }
-}
 
-#[test]
-fn test_parse_defstruple_tuple()
-{
-    let input = "
+    #[test]
+    fn test_parse_defstruple_tuple()
+    {
+        let input = "
     struple Taco(Int, Str)
     ";
-    let root = ast::parse(lex(input));
+        let root = ast::parse(lex(input));
 
-    let def = Ast::DefData(ast::DataType::Struple
-        , Box::new(test_localid("Taco", 2, 8))
-        , vec![
-            Kxpr::new_x(Ast::TypeInt),
-            Kxpr::new_x(Ast::TypeStr)
-            ].into_iter().collect()
-        , SrcLoc::new(2, 1)
+        let def = Ast::DefData(
+            ast::DataType::Struple,
+            Box::new(test_localid("Taco", 2, 8)),
+            vec![Kxpr::new_x(Ast::TypeInt), Kxpr::new_x(Ast::TypeStr)]
+                .into_iter()
+                .collect(),
+            SrcLoc::new(2, 1),
         );
-    assert_eq!(&def, root.inner_vec().get(0).unwrap());
-}
+        assert_eq!(&def, root.inner_vec().get(0).unwrap());
+    }
 
-#[test]
-fn test_parse_defstruple_keyed_params()
-{
-    let input = "
+    #[test]
+    fn test_parse_defstruple_keyed_params()
+    {
+        let input = "
     struple Taco(number: Int, style: Str)
     ";
-    let root = ast::parse(lex(input));
+        let root = ast::parse(lex(input));
 
-    let def = Ast::DefData(ast::DataType::Struple
-        , Box::new(test_localid("Taco", 2, 8))
-        , vec![
-            Kxpr::new(
-                Lstr::from("number"),
-                Ast::TypeInt,
-                ),
-            Kxpr::new(
-                Lstr::from("style"),
-                Ast::TypeStr,
-                ),
-            ].into_iter().collect()
-        , SrcLoc::new(2, 1)
+        let def = Ast::DefData(
+            ast::DataType::Struple,
+            Box::new(test_localid("Taco", 2, 8)),
+            vec![
+                Kxpr::new(Lstr::from("number"), Ast::TypeInt),
+                Kxpr::new(Lstr::from("style"), Ast::TypeStr),
+            ].into_iter()
+            .collect(),
+            SrcLoc::new(2, 1),
         );
-    assert_eq!(&def, root.inner_vec().get(0).unwrap());
-}
+        assert_eq!(&def, root.inner_vec().get(0).unwrap());
+    }
 
-#[test]
-fn test_parse_defstruple_mixed_keys()
-{
-    let input = "
+    #[test]
+    fn test_parse_defstruple_mixed_keys()
+    {
+        let input = "
     struple Taco(Int, style: Str)
     ";
-    let root = ast::parse(lex(input));
+        let root = ast::parse(lex(input));
 
-    let def = Ast::DefData(ast::DataType::Struple
-        , Box::new(test_localid("Taco", 2, 8))
-        , vec![
-            Kxpr::new_x(Ast::TypeInt),
-            Kxpr::new(
-                Lstr::from("style"),
-                Ast::TypeStr,
-                ),
-            ].into_iter().collect()
-        , SrcLoc::new(2, 1)
+        let def = Ast::DefData(
+            ast::DataType::Struple,
+            Box::new(test_localid("Taco", 2, 8)),
+            vec![
+                Kxpr::new_x(Ast::TypeInt),
+                Kxpr::new(Lstr::from("style"), Ast::TypeStr),
+            ].into_iter()
+            .collect(),
+            SrcLoc::new(2, 1),
         );
-    assert_eq!(&def, root.inner_vec().get(0).unwrap());
-}
+        assert_eq!(&def, root.inner_vec().get(0).unwrap());
+    }
 
-#[test]
-fn test_parse_defstruple_block()
-{
-    let input = "
+    #[test]
+    fn test_parse_defstruple_block()
+    {
+        let input = "
     struple Taco
     .number: Int
     .style: Str
     --
     ";
-    let root = ast::parse(lex(input));
+        let root = ast::parse(lex(input));
 
-    let def = Ast::DefData(ast::DataType::Struple
-        , Box::new(test_localid("Taco", 2, 8))
-        , vec![
-            Kxpr::new(
-                Lstr::from("number"),
-                Ast::TypeInt,
-                ),
-            Kxpr::new(
-                Lstr::from("style"),
-                Ast::TypeStr,
-                ),
-            ].into_iter().collect()
-        , SrcLoc::new(2, 1)
+        let def = Ast::DefData(
+            ast::DataType::Struple,
+            Box::new(test_localid("Taco", 2, 8)),
+            vec![
+                Kxpr::new(Lstr::from("number"), Ast::TypeInt),
+                Kxpr::new(Lstr::from("style"), Ast::TypeStr),
+            ].into_iter()
+            .collect(),
+            SrcLoc::new(2, 1),
         );
-    assert_eq!(&def, root.inner_vec().get(0).unwrap());
-}
+        assert_eq!(&def, root.inner_vec().get(0).unwrap());
+    }
 
-#[test]
-fn test_parse_match_list()
-{
-    let input = "
+    #[test]
+    fn test_parse_match_list()
+    {
+        let input = "
     match x
     |(h;t) -> h
     |(_) -> false
     --
     ";
-    let root = ast::parse(lex(input));
+        let root = ast::parse(lex(input));
 
-    let match_line = if let &Ast::Block(ref items) = &root {
-        items.first().unwrap()
-    } else {
-        panic!("match is not a block");
-    };
+        let match_line = if let &Ast::Block(ref items) = &root {
+            items.first().unwrap()
+        } else {
+            panic!("match is not a block");
+        };
 
-    if let &Ast::IfExpr(ast::IfType::Match, ref ifx, ref cases, _) = match_line
-    {
-        assert_eq!(Ast::Localid(Lstr::from("x"), SrcLoc::new(2, 6)), **ifx);
-        assert!(cases.else_case.is_some());
-    } else {
-        panic!("match line not an if statement: {:?}", match_line);
+        if let &Ast::IfExpr(ast::IfType::Match, ref ifx, ref cases, _) =
+            match_line
+        {
+            assert_eq!(Ast::Localid(Lstr::from("x"), SrcLoc::new(2, 6)), **ifx);
+            assert!(cases.else_case.is_some());
+        } else {
+            panic!("match line not an if statement: {:?}", match_line);
+        }
     }
-}
 
-#[test]
-fn test_parse_constructor_call()
-{
-    let input = "Taco(1, 2)";
-    let root = ast::parse(lex(input));
+    #[test]
+    fn test_parse_constructor_call()
+    {
+        let input = "Taco(1, 2)";
+        let root = ast::parse(lex(input));
 
-    let call = Ast::Call(
-        Box::new(test_localid("Taco", 1, 1)),
-        vec![
-            Kxpr::new_x(Ast::ConstInt(1)),
-            Kxpr::new_x(Ast::ConstInt(2)),
-        ].into_iter().collect(),
-        SrcLoc::new(1, 5),
-    );
-    let expected = Ast::Block(vec![call]);
-    assert_eq!(expected, root);
-}
+        let call = Ast::Call(
+            Box::new(test_localid("Taco", 1, 1)),
+            vec![Kxpr::new_x(Ast::ConstInt(1)), Kxpr::new_x(Ast::ConstInt(2))]
+                .into_iter()
+                .collect(),
+            SrcLoc::new(1, 5),
+        );
+        let expected = Ast::Block(vec![call]);
+        assert_eq!(expected, root);
+    }
 
-#[test]
-fn test_parse_strlit_field_access()
-{
-    let input = "\"hello ${dog.name}\"";
-    let root = ast::parse(lex(input));
+    #[test]
+    fn test_parse_strlit_field_access()
+    {
+        let input = "\"hello ${dog.name}\"";
+        let root = ast::parse(lex(input));
 
-    let strx = Ast::StrExpr(vec![
-        Ast::ConstStr(Lstr::from("hello ")),
-        Ast::DotAccess(
-            Box::new(test_localid("dog", 1, 8)),
-            Lstr::from("name"),
-        ),
-    ], SrcLoc::new(1, 1));
-    let expected = Ast::Block(vec![strx]);
-    assert_eq!(expected, root);
-}
+        let strx = Ast::StrExpr(
+            vec![
+                Ast::ConstStr(Lstr::from("hello ")),
+                Ast::DotAccess(
+                    Box::new(test_localid("dog", 1, 8)),
+                    Lstr::from("name"),
+                ),
+            ],
+            SrcLoc::new(1, 1),
+        );
+        let expected = Ast::Block(vec![strx]);
+        assert_eq!(expected, root);
+    }
 
-#[test]
-fn test_parse_let_plus_negation()
-{
-    let input = "
+    #[test]
+    fn test_parse_let_plus_negation()
+    {
+        let input = "
     let x := 4 + 8
     ~x
     ";
-    let root = ast::parse(lex(input));
+        let root = ast::parse(lex(input));
 
-    if let Ast::Block(lines) = root {
-        assert_eq!(2, lines.len());
-    } else {
-        panic!("root is not a block");
+        if let Ast::Block(lines) = root {
+            assert_eq!(2, lines.len());
+        } else {
+            panic!("root is not a block");
+        }
     }
-}
 
-#[test]
-fn test_parse_let_plus_tuple()
-{
-    let input = "
+    #[test]
+    fn test_parse_let_plus_tuple()
+    {
+        let input = "
     let x := 4 + y
     (x, z)
     ";
-    let root = ast::parse(lex(input));
+        let root = ast::parse(lex(input));
 
-    if let Ast::Block(items) = root {
-        assert_eq!(2, items.len());
-    } else {
-        panic!("root is not a block");
+        if let Ast::Block(items) = root {
+            assert_eq!(2, items.len());
+        } else {
+            panic!("root is not a block");
+        }
     }
-}
 
-#[test]
-fn test_parse_function_hashtag_tuple()
-{
-    let input = "
+    #[test]
+    fn test_parse_function_hashtag_tuple()
+    {
+        let input = "
     func foo(input: [(Int, #)]): [#] ->
         [#tacos, #burritos]
     --
     ";
-    ast::parse(lex(input));
+        ast::parse(lex(input));
 
-    assert!(true); // didn't panic!
-}
+        assert!(true); // didn't panic!
+    }
 
-#[test]
-fn test_parse_def_type_param()
-{
-    let input = "
+    #[test]
+    fn test_parse_def_type_param()
+    {
+        let input = "
     enum Foo[A, B]
     |Bar(A)
     |Baz(B)
     --
     ";
-    ast::parse(lex(input));
+        ast::parse(lex(input));
 
-    assert!(true); // didn't panic!
-}
+        assert!(true); // didn't panic!
+    }
 
-#[test]
-fn test_parse_nested_type_param()
-{
-    let input = "
+    #[test]
+    fn test_parse_nested_type_param()
+    {
+        let input = "
     func foo(bar: Map[Int, opt::Option[V]]): opt::Option[V] ->
         option::None
     --
     ";
-    ast::parse(lex(input));
+        ast::parse(lex(input));
 
-    assert!(true); // didn't panic!
-}
+        assert!(true); // didn't panic!
+    }
 
-#[test]
-fn test_parse_function_type_param()
-{
-    let input = "
+    #[test]
+    fn test_parse_function_type_param()
+    {
+        let input = "
     func call_func(i: Int, f: Int => Str => Int): Str => Int ->
         f(i)
     --
     ";
-    ast::parse(lex(input));
+        ast::parse(lex(input));
 
-    assert!(true); // didn't panic!
-}
+        assert!(true); // didn't panic!
+    }
 
-/*
+    /*
 #[test]
 fn test_replace_ids_if()
 {

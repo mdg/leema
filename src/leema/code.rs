@@ -1,17 +1,17 @@
 use leema::fiber;
-use leema::reg::{Reg, RegTable};
-use leema::val::{Val, Type};
-use leema::log;
-use leema::ixpr::{Ixpr, Source};
 use leema::frame;
+use leema::ixpr::{Ixpr, Source};
+use leema::log;
+use leema::reg::{Reg, RegTable};
 use leema::rsrc;
-use leema::sendclone::{SendClone};
-use leema::struple::{Struple};
+use leema::sendclone::SendClone;
+use leema::struple::Struple;
+use leema::val::{Type, Val};
 
 use std::fmt;
-use std::io::{Write};
-use std::rc::{Rc};
+use std::io::Write;
 use std::marker;
+use std::rc::Rc;
 
 
 #[derive(Debug)]
@@ -20,7 +20,7 @@ use std::marker;
 #[derive(PartialOrd)]
 #[derive(Ord)]
 #[derive(Clone)]
-pub struct ModSym (pub String, pub String);
+pub struct ModSym(pub String, pub String);
 
 impl fmt::Display for ModSym
 {
@@ -79,12 +79,13 @@ impl Clone for Op
                 Op::ConstVal(dst.clone(), src.deep_clone())
             }
             &Op::Construple(ref dst, ref typ, ref flds) => {
-                Op::Construple(dst.clone(), typ.deep_clone()
-                    , flds.clone_for_send())
+                Op::Construple(
+                    dst.clone(),
+                    typ.deep_clone(),
+                    flds.clone_for_send(),
+                )
             }
-            &Op::Copy(ref dst, ref src) => {
-                Op::Copy(dst.clone(), src.clone())
-            }
+            &Op::Copy(ref dst, ref src) => Op::Copy(dst.clone(), src.clone()),
             &Op::Jump(j) => Op::Jump(j),
             &Op::JumpIfNot(j, ref tst) => Op::JumpIfNot(j, tst.clone()),
             &Op::IfFailure(ref dst, ref src, j) => {
@@ -173,7 +174,8 @@ impl fmt::Display for Code
 
 impl fmt::Debug for Code
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
         match self {
             &Code::Leema(ref ops) => {
                 let mut result;
@@ -185,9 +187,7 @@ impl fmt::Debug for Code
                 }
                 result
             }
-            &Code::Rust(_) => {
-                write!(f, "Code::Rust")
-            }
+            &Code::Rust(_) => write!(f, "Code::Rust"),
             &Code::Iop(_, _) => write!(f, "Code::Iop"),
         }
     }
@@ -236,21 +236,21 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             if *rt.dst() != last_dst {
                 ops.push((Op::Copy(rt.dst().clone(), last_dst), input.line));
             }
-            Oxpr{
+            Oxpr {
                 ops: ops,
                 dst: rt.dst().clone(),
             }
         }
         Source::ConstVal(ref v) => {
             let dst = rt.dst();
-            Oxpr{
+            Oxpr {
                 ops: vec![(Op::ConstVal(dst.clone(), v.clone()), input.line)],
                 dst: dst.clone(),
             }
         }
         Source::FieldAccess(ref base, fld_idx) => {
             let mut base_ops = make_sub_ops(rt, base);
-            Oxpr{
+            Oxpr {
                 ops: base_ops.ops,
                 dst: base_ops.dst.sub(fld_idx),
             }
@@ -259,9 +259,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             rt.def_args(argnames);
             make_sub_ops(rt, &body)
         }
-        Source::Call(ref f, ref args) => {
-            make_call_ops(rt, f, args, &input.typ)
-        }
+        Source::Call(ref f, ref args) => make_call_ops(rt, f, args, &input.typ),
         Source::Cons(ref h, ref t) => {
             let dst = rt.dst().clone();
             rt.push_dst();
@@ -275,7 +273,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 Op::ListCons(dst.clone(), hops.dst, tops.dst),
                 input.line,
             ));
-            Oxpr{
+            Oxpr {
                 ops: hops.ops,
                 dst: dst,
             }
@@ -291,8 +289,9 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::Let(ref patt, ref x, ref fails) => {
             let pval = assign_pattern_registers(rt, patt);
             let mut xops = make_sub_ops(rt, x);
-            let mut failops: Vec<(Op, i16)> =
-                fails.iter().flat_map(|&(ref fail_name, ref f1)| {
+            let mut failops: Vec<(Op, i16)> = fails
+                .iter()
+                .flat_map(|&(ref fail_name, ref f1)| {
                     rt.push_id(fail_name);
                     let ox = make_sub_ops(rt, f1);
                     rt.pop_id();
@@ -301,9 +300,12 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             xops.ops.push((
                 Op::MatchPattern(rt.dst().clone(), pval, xops.dst),
                 input.line,
-                ));
+            ));
             xops.ops.append(&mut failops);
-            Oxpr{ ops: xops.ops, dst: rt.dst().clone() }
+            Oxpr {
+                ops: xops.ops,
+                dst: rt.dst().clone(),
+            }
         }
         Source::MatchFailure(ref x, ref cases) => {
             make_matchfailure_ops(rt, &*x, &*cases)
@@ -317,11 +319,17 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::PropagateFailure(ref id, usage_line) => {
             let src = rt.id(id);
             let propagate = Op::PropagateFailure(src.clone(), usage_line);
-            Oxpr{ ops: vec![(propagate, input.line)], dst: src }
+            Oxpr {
+                ops: vec![(propagate, input.line)],
+                dst: src,
+            }
         }
         Source::Id(ref id, _) => {
             let src = rt.id(id);
-            Oxpr{ ops: vec![], dst: src }
+            Oxpr {
+                ops: vec![],
+                dst: src,
+            }
         }
         Source::IfExpr(ref test, ref truth, None) => {
             make_if_ops(rt, &*test, &*truth)
@@ -329,15 +337,10 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::IfExpr(ref test, ref truth, ref lies) => {
             make_if_else_ops(rt, &*test, &*truth, lies.as_ref().unwrap())
         }
-        Source::StrMash(ref items) => {
-            make_str_ops(rt, items)
-        }
+        Source::StrMash(ref items) => make_str_ops(rt, items),
         Source::Tuple(ref items) => {
             let dst = rt.dst().clone();
-            let newtup = Op::TupleCreate(
-                dst.clone(),
-                items.len() as i8,
-                );
+            let newtup = Op::TupleCreate(dst.clone(), items.len() as i8);
             let mut ops: Vec<(Op, i16)> = vec![(newtup, input.line)];
             rt.push_sub();
             for i in items {
@@ -345,29 +348,20 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 let mut iops = make_sub_ops(rt, i);
                 ops.append(&mut iops.ops);
                 if *rt.dst() != iops.dst {
-                    ops.push((
-                        Op::Copy(rt.dst().clone(), iops.dst),
-                        i.line,
-                        ));
+                    ops.push((Op::Copy(rt.dst().clone(), iops.dst), i.line));
                 }
                 rt.next_sub();
             }
             rt.pop_dst();
-            Oxpr{
-                ops: ops,
-                dst: dst,
-            }
+            Oxpr { ops: ops, dst: dst }
         }
-        Source::List(ref items) => {
-            make_list_ops(rt, items, input.line)
-        }
+        Source::List(ref items) => make_list_ops(rt, items, input.line),
         Source::ModuleAccess(ref module, ref name) => {
             let modval = Val::Str(module.clone());
             let idval = Val::Str(name.clone());
-            let modname =
-                Val::Tuple(Struple::new_tuple2(modval, idval));
+            let modname = Val::Tuple(Struple::new_tuple2(modval, idval));
             let dst = rt.dst();
-            Oxpr{
+            Oxpr {
                 ops: vec![(Op::ConstVal(dst.clone(), modname), input.line)],
                 dst: dst.clone(),
             }
@@ -379,7 +373,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             rops
         }
         Source::RustBlock => {
-            Oxpr{
+            Oxpr {
                 ops: vec![],
                 dst: rt.dst().clone(),
             }
@@ -387,8 +381,12 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
     }
 }
 
-pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr
-    , args: &Ixpr, ftyp: &Type) -> Oxpr
+pub fn make_call_ops(
+    rt: &mut RegTable,
+    f: &Ixpr,
+    args: &Ixpr,
+    ftyp: &Type,
+) -> Oxpr
 {
     let dst = rt.dst().clone();
     vout!("make_call_ops: {:?} = {:?} : {:?}\n", dst, f, ftyp);
@@ -402,7 +400,7 @@ pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr
     fops.ops.push((
         Op::ApplyFunc(dst.clone(), fops.dst.clone(), argops.dst),
         f.line,
-        ));
+    ));
 
     rt.pop_dst();
     rt.pop_dst();
@@ -410,26 +408,31 @@ pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr
     fops
 }
 
-pub fn make_construple_ops(rt: &mut RegTable, typ: &Type, flds: &Struple<Type>
-        , line: i16
-        ) -> Oxpr
+pub fn make_construple_ops(
+    rt: &mut RegTable,
+    typ: &Type,
+    flds: &Struple<Type>,
+    line: i16,
+) -> Oxpr
 {
     let dst = rt.dst();
 
-    let ops: Vec<(Op, i16)> = vec![(
-        Op::Construple(dst.clone(), typ.clone(), flds.clone()),
-        line,
-    )];
+    let ops: Vec<(Op, i16)> =
+        vec![(Op::Construple(dst.clone(), typ.clone(), flds.clone()), line)];
 
-    Oxpr{
+    Oxpr {
         ops: ops,
         dst: dst.clone(),
     }
 }
 
-pub fn make_enum_constructor_ops(rt: &mut RegTable, _typ: &Type, _index: i16
-    , _data: &Ixpr, _line: i16
-    ) -> Oxpr
+pub fn make_enum_constructor_ops(
+    rt: &mut RegTable,
+    _typ: &Type,
+    _index: i16,
+    _data: &Ixpr,
+    _line: i16,
+) -> Oxpr
 {
     let dst = rt.dst();
 
@@ -449,13 +452,14 @@ pub fn make_enum_constructor_ops(rt: &mut RegTable, _typ: &Type, _index: i16
     }
     */
 
-    Oxpr{
+    Oxpr {
         ops: ops,
         dst: dst.clone(),
     }
 }
 
-pub fn make_matchfailure_ops(rt: &mut RegTable, x: &Ixpr, cases: &Ixpr) -> Oxpr
+pub fn make_matchfailure_ops(rt: &mut RegTable, x: &Ixpr, cases: &Ixpr)
+    -> Oxpr
 {
     rt.push_dst();
     let xops = make_sub_ops(rt, x);
@@ -466,11 +470,13 @@ pub fn make_matchfailure_ops(rt: &mut RegTable, x: &Ixpr, cases: &Ixpr) -> Oxpr
 
     let faillen = case_ops.ops.len() + 1;
     let mut failops = Vec::with_capacity(faillen);
-    failops.push(
-        (Op::IfFailure(failtag, xops.dst.clone(), faillen as i16), x.line));
+    failops.push((
+        Op::IfFailure(failtag, xops.dst.clone(), faillen as i16),
+        x.line,
+    ));
     failops.append(&mut case_ops.ops);
 
-    Oxpr{
+    Oxpr {
         ops: failops,
         dst: xops.dst,
     }
@@ -488,22 +494,25 @@ pub fn make_matchexpr_ops(rt: &mut RegTable, x: &Ixpr, cases: &Ixpr) -> Oxpr
     rt.pop_dst();
 
     xops.ops.append(&mut case_ops.ops);
-    Oxpr{
+    Oxpr {
         ops: xops.ops,
         dst: dst,
     }
 }
 
-pub fn make_matchcase_ops(rt: &mut RegTable, dstreg: Reg
-    , matchcase: &Ixpr, xreg: &Reg
-    ) -> Oxpr
+pub fn make_matchcase_ops(
+    rt: &mut RegTable,
+    dstreg: Reg,
+    matchcase: &Ixpr,
+    xreg: &Reg,
+) -> Oxpr
 {
     let (patt, code, next) = match matchcase.src {
         Source::MatchCase(ref patt, ref code, ref next) => (patt, code, next),
         Source::ConstVal(Val::Void) => {
             // this is here when there's no else case
             vout!("empty_matchcase_ops\n");
-            return Oxpr{
+            return Oxpr {
                 ops: vec![],
                 dst: Reg::Void,
             };
@@ -522,32 +531,24 @@ pub fn make_matchcase_ops(rt: &mut RegTable, dstreg: Reg
 
     let next_len = next_ops.ops.len();
     if next_len > 0 {
-        code_ops.ops.push((
-            Op::Jump((next_len + 1) as i16),
-            matchcase.line,
-            ));
+        code_ops
+            .ops
+            .push((Op::Jump((next_len + 1) as i16), matchcase.line));
     }
     rt.push_dst();
     let mut patt_ops: Vec<(Op, i16)> = vec![(
-        Op::MatchPattern(
-            rt.dst().clone(),
-            patt_val,
-            xreg.clone(),
-            ),
+        Op::MatchPattern(rt.dst().clone(), patt_val, xreg.clone()),
         matchcase.line,
     )];
     patt_ops.push((
-        Op::JumpIfNot(
-            code_ops.ops.len() as i16 + 1,
-            rt.dst().clone(),
-            ),
+        Op::JumpIfNot(code_ops.ops.len() as i16 + 1, rt.dst().clone()),
         matchcase.line,
     ));
     rt.pop_dst();
 
     patt_ops.append(&mut code_ops.ops);
     patt_ops.append(&mut next_ops.ops);
-    Oxpr{
+    Oxpr {
         ops: patt_ops,
         dst: dstreg,
     }
@@ -573,15 +574,19 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
             Val::Cons(Box::new(pr_head), Rc::new(pr_tail))
         }
         &Val::Tuple(ref vars) => {
-            let reg_items = vars.0.iter().map(|v| {
-                (v.0.clone(), assign_pattern_registers(rt, &v.1))
-            }).collect();
+            let reg_items = vars
+                .0
+                .iter()
+                .map(|v| (v.0.clone(), assign_pattern_registers(rt, &v.1)))
+                .collect();
             Val::Tuple(Struple(reg_items))
         }
         &Val::Struct(ref styp, ref vars) => {
-            let reg_items = vars.0.iter().map(|v| {
-                (v.0.clone(), assign_pattern_registers(rt, &v.1))
-            }).collect();
+            let reg_items = vars
+                .0
+                .iter()
+                .map(|v| (v.0.clone(), assign_pattern_registers(rt, &v.1)))
+                .collect();
             Val::Struct(styp.clone(), Struple(reg_items))
         }
         _ => {
@@ -603,15 +608,18 @@ pub fn make_if_ops(rt: &mut RegTable, test: &Ixpr, truth: &Ixpr) -> Oxpr
     ));
 
     if_ops.ops.append(&mut truth_ops.ops);
-    Oxpr{
+    Oxpr {
         ops: if_ops.ops,
         dst: truth_ops.dst,
     }
 }
 
-pub fn make_if_else_ops(rt: &mut RegTable, test: &Ixpr, truth: &Ixpr
-    , lies: &Ixpr
-    ) -> Oxpr
+pub fn make_if_else_ops(
+    rt: &mut RegTable,
+    test: &Ixpr,
+    truth: &Ixpr,
+    lies: &Ixpr,
+) -> Oxpr
 {
     rt.push_dst();
     let mut if_ops = make_sub_ops(rt, &test);
@@ -619,7 +627,9 @@ pub fn make_if_else_ops(rt: &mut RegTable, test: &Ixpr, truth: &Ixpr
     let mut truth_ops = make_sub_ops(rt, &truth);
     let mut lies_ops = make_sub_ops(rt, &lies);
 
-    truth_ops.ops.push((Op::Jump((lies_ops.ops.len() + 1) as i16), truth.line));
+    truth_ops
+        .ops
+        .push((Op::Jump((lies_ops.ops.len() + 1) as i16), truth.line));
     if_ops.ops.push((
         Op::JumpIfNot((truth_ops.ops.len() + 1) as i16, if_ops.dst),
         lies.line,
@@ -627,7 +637,7 @@ pub fn make_if_else_ops(rt: &mut RegTable, test: &Ixpr, truth: &Ixpr
 
     if_ops.ops.append(&mut truth_ops.ops);
     if_ops.ops.append(&mut lies_ops.ops);
-    Oxpr{
+    Oxpr {
         ops: if_ops.ops,
         dst: truth_ops.dst,
     }
@@ -655,7 +665,7 @@ pub fn make_list_ops(rt: &mut RegTable, items: &Vec<Ixpr>, line: i16) -> Oxpr
         ops.push((Op::ListCons(dst.clone(), listops.dst, dst.clone()), i.line));
     }
     rt.pop_dst();
-    Oxpr{ ops: ops, dst: dst }
+    Oxpr { ops: ops, dst: dst }
 }
 
 pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Ixpr>) -> Oxpr
@@ -663,10 +673,7 @@ pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Ixpr>) -> Oxpr
     let dst = rt.dst().clone();
     let mut ops: Vec<(Op, i16)> = Vec::with_capacity(items.len());
     ops.push((
-        Op::ConstVal(
-            dst.clone(),
-            Val::empty_str(),
-        ),
+        Op::ConstVal(dst.clone(), Val::empty_str()),
         items.first().unwrap().line,
     ));
     rt.push_dst();
@@ -676,39 +683,41 @@ pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Ixpr>) -> Oxpr
         ops.push((Op::StrCat(dst.clone(), strops.dst), i.line));
     }
     rt.pop_dst();
-    Oxpr{ ops: ops, dst: dst }
+    Oxpr { ops: ops, dst: dst }
 }
 
 
 #[cfg(test)]
-mod tests {
+mod tests
+{
     use leema::code::{self, Op};
-    use leema::ixpr::{Ixpr};
-    use leema::loader::{Interloader};
+    use leema::ixpr::Ixpr;
+    use leema::loader::Interloader;
     use leema::program;
-    use leema::reg::{Reg};
-    use leema::val::{Val};
+    use leema::reg::Reg;
+    use leema::val::Val;
 
-#[test]
-fn test_code_constval()
-{
-    let ic = Ixpr::const_val(Val::Int(9), 8);
-    let code = code::make_ops(&ic);
+    #[test]
+    fn test_code_constval()
+    {
+        let ic = Ixpr::const_val(Val::Int(9), 8);
+        let code = code::make_ops(&ic);
 
-    assert_eq!(3, code.len());
-    let x = vec![
-        (Op::ConstVal(Reg::local(0), Val::Int(9)), 8),
-        (Op::SetResult(Reg::local(0)), 8),
-        (Op::Return, 8),
-    ];
-    assert_eq!(x, code);
-}
+        assert_eq!(3, code.len());
+        let x = vec![
+            (Op::ConstVal(Reg::local(0), Val::Int(9)), 8),
+            (Op::SetResult(Reg::local(0)), 8),
+            (Op::Return, 8),
+        ];
+        assert_eq!(x, code);
+    }
 
-#[test]
-#[should_panic]
-fn test_load_code_fails_for_func_type_infer_mismatch()
-{
-    let input = String::from("
+    #[test]
+    #[should_panic]
+    fn test_load_code_fails_for_func_type_infer_mismatch()
+    {
+        let input = String::from(
+            "
 
     ## foo should take [#] and return a #
     func foo(inputs)
@@ -720,12 +729,13 @@ fn test_load_code_fails_for_func_type_infer_mismatch()
     func main() ->
         foo([5, 3, 4])
     --
-    ");
+    ",
+        );
 
-    let mut loader = Interloader::new("tacos.lma");
-    loader.set_mod_txt("tacos", input);
-    let mut prog = program::Lib::new(loader);
-    prog.load_code("tacos", "main");
-}
+        let mut loader = Interloader::new("tacos.lma");
+        loader.set_mod_txt("tacos", input);
+        let mut prog = program::Lib::new(loader);
+        prog.load_code("tacos", "main");
+    }
 
 }

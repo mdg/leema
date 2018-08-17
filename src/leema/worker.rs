@@ -1,17 +1,16 @@
-
-use leema::code::{Code};
-use leema::fiber::{Fiber};
+use leema::code::Code;
+use leema::fiber::Fiber;
 use leema::frame::{Event, Frame, Parent};
 use leema::log;
-use leema::msg::{AppMsg, WorkerMsg, IoMsg};
-use leema::val::{Val, MsgVal};
+use leema::msg::{AppMsg, IoMsg, WorkerMsg};
+use leema::val::{MsgVal, Val};
 
 use std::collections::{HashMap, LinkedList};
-use std::io::{Write};
-use std::rc::{Rc};
-use std::sync::mpsc::{Sender, Receiver};
+use std::io::Write;
+use std::rc::Rc;
+use std::sync::mpsc::{Receiver, Sender};
 
-use futures::{Poll, Async};
+use futures::{Async, Poll};
 
 
 #[derive(Debug)]
@@ -52,10 +51,14 @@ pub struct Worker
  */
 impl Worker
 {
-    pub fn init(wid: i64, send: Sender<AppMsg>, io: Sender<IoMsg>
-        , recv: Receiver<WorkerMsg>) -> Worker
+    pub fn init(
+        wid: i64,
+        send: Sender<AppMsg>,
+        io: Sender<IoMsg>,
+        recv: Receiver<WorkerMsg>,
+    ) -> Worker
     {
-        Worker{
+        Worker {
             fresh: LinkedList::new(),
             waiting: HashMap::new(),
             code: HashMap::new(),
@@ -94,16 +97,17 @@ impl Worker
         }
     }
 
-    fn find_code<'a>(&'a self, modname: &str, funcname: &str)
-        -> Option<Rc<Code>>
+    fn find_code<'a>(
+        &'a self,
+        modname: &str,
+        funcname: &str,
+    ) -> Option<Rc<Code>>
     {
-        self.code.get(modname)
-        .and_then(|module: &'a HashMap<String, Rc<Code>>| {
-            module.get(funcname)
-        })
-        .map(|func: &'a Rc<Code>| {
-            (*func).clone()
-        })
+        self.code
+            .get(modname)
+            .and_then(|module: &'a HashMap<String, Rc<Code>>| {
+                module.get(funcname)
+            }).map(|func: &'a Rc<Code>| (*func).clone())
     }
 
     fn load_code(&mut self, curf: Fiber)
@@ -112,10 +116,14 @@ impl Worker
         if let Some(func) = opt_code {
             self.push_coded_fiber(curf, func);
         } else {
-            let msg = AppMsg::RequestCode(self.id, curf.fiber_id
-                , curf.module_name().to_string()
-                , curf.function_name().to_string());
-            self.app_tx.send(msg)
+            let msg = AppMsg::RequestCode(
+                self.id,
+                curf.fiber_id,
+                curf.module_name().to_string(),
+                curf.function_name().to_string(),
+            );
+            self.app_tx
+                .send(msg)
                 .expect("failure sending load code message to app");
             let fiber_id = curf.fiber_id;
             let fw = FiberWait::Code(curf);
@@ -140,13 +148,10 @@ impl Worker
     }
     */
 
-    pub fn execute_frame(f: &mut Fiber, code: &Code
-        ) -> Event
+    pub fn execute_frame(f: &mut Fiber, code: &Code) -> Event
     {
         let ev = match code {
-            &Code::Leema(ref ops) => {
-                f.execute_leema_frame(ops)
-            }
+            &Code::Leema(ref ops) => f.execute_leema_frame(ops),
             &Code::Rust(ref rf) => {
                 vout!("execute rust code\n");
                 rf(f)
@@ -158,8 +163,12 @@ impl Worker
         ev
     }
 
-    pub fn handle_event(&mut self, mut fbr: Fiber, e: Event, code: Rc<Code>)
-        -> Poll<Val, Val>
+    pub fn handle_event(
+        &mut self,
+        mut fbr: Fiber,
+        e: Event,
+        code: Rc<Code>,
+    ) -> Poll<Val, Val>
     {
         match e {
             Event::Complete(success) => {
@@ -191,8 +200,11 @@ impl Worker
             }
             Event::Iop((rsrc_worker_id, rsrc_id), _iopf, _iopargs) => {
                 if self.id == rsrc_worker_id {
-println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
-                    /*
+                    println!(
+                        "Run Iop on worker with resource: {}/{}",
+                        rsrc_worker_id, rsrc_id
+                    );
+                /*
                     let opt_ioq = self.resource.get_mut(&rsrc_id);
                     if opt_ioq.is_none() {
                         panic!("Iop resource not found: {}", rsrc_id);
@@ -216,8 +228,10 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
                     }
                     */
                 } else {
-                    panic!("cannot send iop from worker({}) to worker({})",
-                        self.id, rsrc_worker_id);
+                    panic!(
+                        "cannot send iop from worker({}) to worker({})",
+                        self.id, rsrc_worker_id
+                    );
                 }
                 Result::Ok(Async::NotReady)
             }
@@ -244,21 +258,20 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
             Parent::Caller(old_code, mut pf, dst) => {
                 pf.pc += 1;
                 fbr.head = *pf;
-                vout!("return to caller: {}::{}()\n"
-                    , fbr.head.module_name()
-                    , fbr.head.function_name()
-                    );
+                vout!(
+                    "return to caller: {}::{}()\n",
+                    fbr.head.module_name(),
+                    fbr.head.function_name()
+                );
                 vout!(" result: {}\n", dst);
                 self.push_fresh(ReadyFiber::Ready(fbr, old_code));
             }
-            Parent::Repl(_) => {
-            }
+            Parent::Repl(_) => {}
             Parent::Main(res) => {
                 vout!("finished main func\n");
                 let msg = AppMsg::MainResult(MsgVal::new(&res));
                 self.done = true;
-                self.app_tx.send(msg)
-                    .expect("app message send failure");
+                self.app_tx.send(msg).expect("app message send failure");
             }
             Parent::Null => {
                 // this shouldn't have happened
@@ -309,22 +322,21 @@ println!("Run Iop on worker with resource: {}/{}", rsrc_worker_id, rsrc_id);
         } else if let Some((iopf, rsrc_idx)) = code.get_iop() {
             let fiber_id = fib.fiber_id;
             let rsrc_id = rsrc_idx.and_then(|idx| {
-                if let &Val::ResourceRef(rid) =
-                    fib.head.e.get_param(idx)
-                {
+                if let &Val::ResourceRef(rid) = fib.head.e.get_param(idx) {
                     Some(rid)
                 } else {
                     None
                 }
             });
             let msg_val = MsgVal::new(fib.head.e.get_params());
-            self.io_tx.send(IoMsg::Iop{
-                worker_id: self.id,
-                fiber_id: fiber_id,
-                rsrc_id: rsrc_id,
-                action: iopf,
-                params: msg_val,
-            }).expect("io send failure");
+            self.io_tx
+                .send(IoMsg::Iop {
+                    worker_id: self.id,
+                    fiber_id: fiber_id,
+                    rsrc_id: rsrc_id,
+                    action: iopf,
+                    params: msg_val,
+                }).expect("io send failure");
             self.waiting.insert(fiber_id, FiberWait::Io(fib));
         } else {
             panic!("code is what type? {:?}", *code);

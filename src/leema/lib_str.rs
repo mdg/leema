@@ -1,9 +1,8 @@
-
-use leema::code::{Code};
-use leema::fiber::{Fiber};
+use leema::code::Code;
+use leema::fiber::Fiber;
 use leema::frame;
 use leema::list;
-use leema::val::{Val};
+use leema::val::Val;
 
 
 pub fn len(f: &mut Fiber) -> frame::Event
@@ -27,9 +26,7 @@ pub fn is_empty(f: &mut Fiber) -> frame::Event
 pub fn join(f: &mut Fiber) -> frame::Event
 {
     let src = f.head.e.get_param(0);
-    let total_len = list::fold_ref(0, src, |tlen, s| {
-        tlen + s.str().len()
-    });
+    let total_len = list::fold_ref(0, src, |tlen, s| tlen + s.str().len());
     f.head.parent.set_result(Val::Int(total_len as i64));
     frame::Event::success()
 }
@@ -39,13 +36,9 @@ pub fn split(f: &mut Fiber) -> frame::Event
     let result = {
         let src = f.head.e.get_param(0);
         let div = f.head.e.get_param(1);
-        let subs =
-            src.str().rsplit(div.str()).fold(Val::Nil, |acc, s| {
-                list::cons(
-                    Val::new_str(s.to_string()),
-                    acc
-                )
-            });
+        let subs = src.str().rsplit(div.str()).fold(Val::Nil, |acc, s| {
+            list::cons(Val::new_str(s.to_string()), acc)
+        });
         subs
     };
     f.head.parent.set_result(result);

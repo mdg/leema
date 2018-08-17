@@ -1,9 +1,8 @@
-
-use leema::struple::{Struple};
-use leema::val::{Val, Type};
+use leema::struple::Struple;
+use leema::val::{Type, Val};
 
 use std::collections::HashMap;
-use std::rc::{Rc};
+use std::rc::Rc;
 
 
 #[derive(Clone)]
@@ -60,26 +59,24 @@ impl Ixpr
 {
     pub fn new(src: Source, line: i16) -> Ixpr
     {
-        Ixpr{
+        Ixpr {
             typ: Source::type_of(&src),
             src: src,
             line: line,
         }
     }
 
-    pub fn new_block(code: Vec<Ixpr>, fails: HashMap<String, Ixpr>
-        , line: i16
-        ) -> Ixpr
+    pub fn new_block(
+        code: Vec<Ixpr>,
+        fails: HashMap<String, Ixpr>,
+        line: i16,
+    ) -> Ixpr
     {
         let block_type = match code.last() {
-            None => {
-                Type::Void
-            }
-            Some(ix) => {
-                ix.typ.clone()
-            }
+            None => Type::Void,
+            Some(ix) => ix.typ.clone(),
         };
-        Ixpr{
+        Ixpr {
             typ: block_type,
             src: Source::Block(code, fails),
             line: line,
@@ -88,7 +85,7 @@ impl Ixpr
 
     pub fn noop() -> Ixpr
     {
-        Ixpr{
+        Ixpr {
             typ: Type::Void,
             src: Source::ConstVal(Val::Void),
             line: 0,
@@ -97,7 +94,7 @@ impl Ixpr
 
     pub fn const_val(src: Val, lineno: i16) -> Ixpr
     {
-        Ixpr{
+        Ixpr {
             typ: src.get_type(),
             src: Source::ConstVal(src),
             line: lineno,
@@ -115,7 +112,7 @@ impl Ixpr
                 panic!("Mixed list types: {:?} != {:?}", old_t, new_x);
             }
         });
-        Ixpr{
+        Ixpr {
             typ: Type::StrictList(Box::new(item_type)),
             src: Source::List(items),
             line: line,
@@ -133,7 +130,7 @@ impl Ixpr
             }
             tuptyp.push((None, i.typ.clone()));
         }
-        Ixpr{
+        Ixpr {
             typ: Type::Tuple(Struple(tuptyp)),
             src: Source::Tuple(items),
             line: lineno,
@@ -142,7 +139,7 @@ impl Ixpr
 
     pub fn cons(head: Ixpr, tail: Ixpr, typ: Type, line: i16) -> Ixpr
     {
-        Ixpr{
+        Ixpr {
             typ: typ,
             src: Source::Cons(Box::new(head), Box::new(tail)),
             line: line,
@@ -151,7 +148,7 @@ impl Ixpr
 
     pub fn construple(t: Type, flds: &Struple<Type>, lineno: i16) -> Ixpr
     {
-        Ixpr{
+        Ixpr {
             typ: t.clone(),
             src: Source::Construple(t, flds.clone()),
             line: lineno,
@@ -161,12 +158,9 @@ impl Ixpr
     pub fn match_failure(var: Ixpr, cases: Ixpr) -> Ixpr
     {
         let lineno = var.line;
-        Ixpr{
+        Ixpr {
             typ: cases.typ.clone(),
-            src: Source::MatchFailure(
-                Box::new(var),
-                Box::new(cases),
-            ),
+            src: Source::MatchFailure(Box::new(var), Box::new(cases)),
             line: lineno,
         }
     }
@@ -174,12 +168,9 @@ impl Ixpr
     pub fn new_match_expr(input: Ixpr, cases: Ixpr) -> Ixpr
     {
         let lineno = input.line;
-        Ixpr{
+        Ixpr {
             typ: cases.typ.clone(),
-            src: Source::MatchExpr(
-                Box::new(input),
-                Box::new(cases),
-            ),
+            src: Source::MatchExpr(Box::new(input), Box::new(cases)),
             line: lineno,
         }
     }
@@ -187,27 +178,27 @@ impl Ixpr
     pub fn new_match_case(pattern: Val, code: Ixpr, next: Ixpr) -> Ixpr
     {
         let lineno = code.line;
-        Ixpr{
+        Ixpr {
             typ: code.typ.clone(),
-            src: Source::MatchCase(
-                pattern,
-                Box::new(code),
-                Box::new(next),
-            ),
+            src: Source::MatchCase(pattern, Box::new(code), Box::new(next)),
             line: lineno,
         }
     }
 
-    pub fn new_if(test: Ixpr, truth: Ixpr, lies: Option<Ixpr>, typ: Type
-        ) -> Ixpr
+    pub fn new_if(
+        test: Ixpr,
+        truth: Ixpr,
+        lies: Option<Ixpr>,
+        typ: Type,
+    ) -> Ixpr
     {
         let lineno = test.line;
-        Ixpr{
+        Ixpr {
             typ: typ,
             src: Source::IfExpr(
                 Box::new(test),
                 Box::new(truth),
-                lies.map(|l| { Box::new(l) }),
+                lies.map(|l| Box::new(l)),
             ),
             line: lineno,
         }
@@ -216,19 +207,16 @@ impl Ixpr
     pub fn new_field_access(base: Ixpr, fld_idx: i8, fld_typ: Type) -> Ixpr
     {
         let lineno = base.line;
-        Ixpr{
+        Ixpr {
             typ: fld_typ,
-            src: Source::FieldAccess(
-                Box::new(base),
-                fld_idx,
-            ),
+            src: Source::FieldAccess(Box::new(base), fld_idx),
             line: lineno,
         }
     }
 
     pub fn new_str_mash(items: Vec<Ixpr>, lineno: i16) -> Ixpr
     {
-        Ixpr{
+        Ixpr {
             typ: Type::Str,
             src: Source::StrMash(items),
             line: lineno,
@@ -240,37 +228,37 @@ impl Ixpr
 #[cfg(test)]
 mod tests
 {
-use leema::ixpr::{Ixpr, Source};
-use leema::val::{Val, Type};
+    use leema::ixpr::{Ixpr, Source};
+    use leema::val::{Type, Val};
 
 
-#[test]
-fn test_new_const_str()
-{
-    let hello = Val::new_str(String::from("hello"));
-    let actual = Ixpr::const_val(hello.clone(), 7);
-    let expected = Ixpr{
-        src: Source::ConstVal(hello),
-        typ: Type::Str,
-        line: 7,
-    };
-    assert_eq!(expected, actual);
-}
-
-#[test]
-fn test_new_str_mash_const()
-{
-    let strs = vec![
-        Ixpr::const_val(Val::new_str(String::from("hello")), 16),
-        Ixpr::const_val(Val::new_str(String::from(" mash")), 17),
-    ];
-    let strmash = Ixpr::new_str_mash(strs, 18);
-    if let Source::StrMash(ss) = strmash.src {
-        assert_eq!(2, ss.len());
-        // println!("{:?}", ss);
-    } else {
-        assert_eq!("failed", "strmash pattern");
+    #[test]
+    fn test_new_const_str()
+    {
+        let hello = Val::new_str(String::from("hello"));
+        let actual = Ixpr::const_val(hello.clone(), 7);
+        let expected = Ixpr {
+            src: Source::ConstVal(hello),
+            typ: Type::Str,
+            line: 7,
+        };
+        assert_eq!(expected, actual);
     }
-}
+
+    #[test]
+    fn test_new_str_mash_const()
+    {
+        let strs = vec![
+            Ixpr::const_val(Val::new_str(String::from("hello")), 16),
+            Ixpr::const_val(Val::new_str(String::from(" mash")), 17),
+        ];
+        let strmash = Ixpr::new_str_mash(strs, 18);
+        if let Source::StrMash(ss) = strmash.src {
+            assert_eq!(2, ss.len());
+        // println!("{:?}", ss);
+        } else {
+            assert_eq!("failed", "strmash pattern");
+        }
+    }
 
 }

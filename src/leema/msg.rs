@@ -1,8 +1,7 @@
-
-use leema::code::{Code};
-use leema::rsrc::{IopAction};
-use leema::sendclone::{SendClone};
-use leema::val::{MsgVal};
+use leema::code::Code;
+use leema::rsrc::IopAction;
+use leema::sendclone::SendClone;
+use leema::val::MsgVal;
 
 use std::fmt;
 use std::sync::mpsc;
@@ -12,7 +11,8 @@ use std::sync::mpsc;
 pub struct MsgItem<T>(T);
 
 impl<T> MsgItem<T>
-    where T: SendClone<Item = T>
+where
+    T: SendClone<Item = T>,
 {
     pub fn new(i: &T) -> MsgItem<T>
     {
@@ -51,7 +51,8 @@ pub enum WorkerMsg
 
 pub enum IoMsg
 {
-    Iop{
+    Iop
+    {
         worker_id: i64,
         fiber_id: i64,
         action: IopAction,
@@ -67,16 +68,22 @@ impl fmt::Debug for IoMsg
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
-            &IoMsg::Iop{worker_id, fiber_id, ref params, ..} => {
-                write!(f, "IoMsg::Iop({}:{}, {:?})"
-                    , worker_id, fiber_id, params)
+            &IoMsg::Iop {
+                worker_id,
+                fiber_id,
+                ref params,
+                ..
+            } => {
+                write!(
+                    f,
+                    "IoMsg::Iop({}:{}, {:?})",
+                    worker_id, fiber_id, params
+                )
             }
             &IoMsg::NewWorker(worker_id, _) => {
                 write!(f, "IoMsg::NewWorker({})", worker_id)
             }
-            &IoMsg::Done => {
-                write!(f, "IoMsg::Done")
-            }
+            &IoMsg::Done => write!(f, "IoMsg::Done"),
         }
     }
 }

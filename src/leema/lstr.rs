@@ -1,6 +1,5 @@
-
-use std::borrow::{Borrow};
-use std::cmp::{PartialEq, PartialOrd, Ordering};
+use std::borrow::Borrow;
+use std::cmp::{Ordering, PartialEq, PartialOrd};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
@@ -58,9 +57,7 @@ impl Lstr
     pub fn deep_clone(&self) -> Lstr
     {
         match self {
-            &Lstr::Rc(ref s) => {
-                Lstr::Arc(Arc::new(s.clone()))
-            }
+            &Lstr::Rc(ref s) => Lstr::Arc(Arc::new(s.clone())),
             &Lstr::Arc(ref s) => Lstr::Arc(s.clone()),
             &Lstr::Sref(ref s) => Lstr::Sref(s),
             _ => {
@@ -78,9 +75,7 @@ impl<'a> From<&'a Lstr> for String
             &Lstr::Rc(ref s) => (**s).clone(),
             &Lstr::Arc(ref s) => (***s).clone(),
             &Lstr::Sref(ref s) => s.to_string(),
-            &Lstr::Cat(ref a, ref b) => {
-                format!("{}{}", a, b)
-            }
+            &Lstr::Cat(ref a, ref b) => format!("{}{}", a, b),
         }
     }
 }
@@ -180,18 +175,10 @@ impl fmt::Display for Lstr
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
-            &Lstr::Rc(ref s) => {
-                write!(f, "{}", s)
-            }
-            &Lstr::Arc(ref s) => {
-                write!(f, "{}", s)
-            }
-            &Lstr::Sref(ref s) => {
-                write!(f, "{}", s)
-            }
-            &Lstr::Cat(ref a, ref b) => {
-                write!(f, "{}{}", a, b)
-            }
+            &Lstr::Rc(ref s) => write!(f, "{}", s),
+            &Lstr::Arc(ref s) => write!(f, "{}", s),
+            &Lstr::Sref(ref s) => write!(f, "{}", s),
+            &Lstr::Cat(ref a, ref b) => write!(f, "{}{}", a, b),
         }
     }
 }
@@ -209,88 +196,98 @@ impl Hash for Lstr
 
 
 #[cfg(test)]
-mod tests {
-    use leema::lstr::{Lstr};
-
-    use std::collections::{HashSet};
-    use std::rc::{Rc};
-    use std::sync::{Arc};
-
-#[test]
-fn test_eq_rc_rc() {
-    let a = Lstr::Rc(Rc::new(String::from("aaa")));
-    let b = Lstr::Rc(Rc::new(String::from("aaa")));
-    assert_eq!(a, b);
-}
-
-#[test]
-fn test_eq_rc_sref() {
-    let a = Lstr::Rc(Rc::new(String::from("aaa")));
-    let b = Lstr::from("aaa");
-    assert_eq!(a, b);
-}
-
-#[test]
-fn test_eq_str_lstr() {
-    let a = Lstr::from("abc");
-    assert_eq!("abc", &a);
-}
-
-#[test]
-fn test_eq_lstr_str() {
-    let a = Lstr::from("abc");
-    assert_eq!(&a, "abc");
-}
-
-#[test]
-fn test_eq_arc_sref() {
-    let a = Lstr::Arc(Arc::new(Rc::new(String::from("aaa"))));
-    let b = Lstr::from("aaa");
-    assert_eq!(a, b);
-}
-
-#[test]
-fn test_ne_rc_rc()
+mod tests
 {
-    let a = Lstr::Rc(Rc::new(String::from("aaa")));
-    let b = Lstr::Rc(Rc::new(String::from("bbb")));
-    assert_ne!(a, b);
-}
+    use leema::lstr::Lstr;
 
-#[test]
-fn test_ne_rc_sref()
-{
-    let a = Lstr::Rc(Rc::new(String::from("aaa")));
-    let b = Lstr::from("bbb");
-    assert_ne!(a, b);
-}
+    use std::collections::HashSet;
+    use std::rc::Rc;
+    use std::sync::Arc;
 
-#[test]
-fn test_ne_arc_sref() {
-    let a = Lstr::Arc(Arc::new(Rc::new(String::from("aaa"))));
-    let b = Lstr::from("bbb");
-    assert_ne!(a, b);
-}
+    #[test]
+    fn test_eq_rc_rc()
+    {
+        let a = Lstr::Rc(Rc::new(String::from("aaa")));
+        let b = Lstr::Rc(Rc::new(String::from("aaa")));
+        assert_eq!(a, b);
+    }
 
-#[test]
-fn test_hashset_contains_sref() {
-    let mut s = HashSet::new();
-    s.insert(Lstr::from("tacos"));
-    assert!(s.contains(&Lstr::from("tacos")));
-}
+    #[test]
+    fn test_eq_rc_sref()
+    {
+        let a = Lstr::Rc(Rc::new(String::from("aaa")));
+        let b = Lstr::from("aaa");
+        assert_eq!(a, b);
+    }
 
-#[test]
-fn test_hashset_with_sref_contains_rc() {
-    let mut s = HashSet::new();
-    s.insert(Lstr::from("tacos"));
-    assert!(s.contains(&Lstr::from(String::from("tacos"))));
-}
+    #[test]
+    fn test_eq_str_lstr()
+    {
+        let a = Lstr::from("abc");
+        assert_eq!("abc", &a);
+    }
 
-#[test]
-fn test_hashset_contains_str() {
-    let mut s = HashSet::new();
-    s.insert(Lstr::from("tacos"));
-    assert!(s.contains("tacos"));
-}
+    #[test]
+    fn test_eq_lstr_str()
+    {
+        let a = Lstr::from("abc");
+        assert_eq!(&a, "abc");
+    }
+
+    #[test]
+    fn test_eq_arc_sref()
+    {
+        let a = Lstr::Arc(Arc::new(Rc::new(String::from("aaa"))));
+        let b = Lstr::from("aaa");
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_ne_rc_rc()
+    {
+        let a = Lstr::Rc(Rc::new(String::from("aaa")));
+        let b = Lstr::Rc(Rc::new(String::from("bbb")));
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_ne_rc_sref()
+    {
+        let a = Lstr::Rc(Rc::new(String::from("aaa")));
+        let b = Lstr::from("bbb");
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_ne_arc_sref()
+    {
+        let a = Lstr::Arc(Arc::new(Rc::new(String::from("aaa"))));
+        let b = Lstr::from("bbb");
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_hashset_contains_sref()
+    {
+        let mut s = HashSet::new();
+        s.insert(Lstr::from("tacos"));
+        assert!(s.contains(&Lstr::from("tacos")));
+    }
+
+    #[test]
+    fn test_hashset_with_sref_contains_rc()
+    {
+        let mut s = HashSet::new();
+        s.insert(Lstr::from("tacos"));
+        assert!(s.contains(&Lstr::from(String::from("tacos"))));
+    }
+
+    #[test]
+    fn test_hashset_contains_str()
+    {
+        let mut s = HashSet::new();
+        s.insert(Lstr::from("tacos"));
+        assert!(s.contains("tacos"));
+    }
 
 }

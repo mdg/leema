@@ -1,11 +1,11 @@
-use leema::val::{Val};
+use leema::val::Val;
 
-use std::cmp::{Eq};
-use std::collections::{HashMap};
-use std::fmt::{Debug};
-use std::hash::{Hash};
-use std::iter::{Iterator};
-use std::rc::{Rc};
+use std::cmp::Eq;
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::hash::Hash;
+use std::iter::Iterator;
+use std::rc::Rc;
 
 
 #[derive(Debug)]
@@ -23,7 +23,7 @@ impl<'a> Iterator for ListIterator<'a>
         let c = self.cursor;
         match c {
             &Val::Cons(ref head, ref tail) => {
-                *self = ListIterator{cursor: &**tail};
+                *self = ListIterator { cursor: &**tail };
                 Some(head)
             }
             &Val::Nil => None,
@@ -36,36 +36,26 @@ impl<'a> Iterator for ListIterator<'a>
 
 pub fn iter<'a>(head: &'a Val) -> ListIterator<'a>
 {
-    ListIterator{cursor: head}
+    ListIterator { cursor: head }
 }
 
 pub fn from_vec(items: &Vec<Val>) -> Val
 {
-    let new_items = items.iter().fold(Val::Nil, |acc, i| {
-        cons(i.clone(), acc)
-    });
+    let new_items = items.iter().fold(Val::Nil, |acc, i| cons(i.clone(), acc));
     reverse(&new_items)
 }
 
 pub fn cons(head: Val, tail: Val) -> Val
 {
     match tail {
-        Val::Cons(_, _) => {
-            Val::Cons(Box::new(head), Rc::new(tail))
-        }
-        Val::Nil => {
-            Val::Cons(Box::new(head), Rc::new(Val::Nil))
-        }
+        Val::Cons(_, _) => Val::Cons(Box::new(head), Rc::new(tail)),
+        Val::Nil => Val::Cons(Box::new(head), Rc::new(Val::Nil)),
         Val::Id(_) => {
             // this is used when parsing list patterns
             Val::Cons(Box::new(head), Rc::new(tail))
         }
-        Val::Wildcard => {
-            Val::Cons(Box::new(head), Rc::new(tail))
-        }
-        Val::PatternVar(_) => {
-            Val::Cons(Box::new(head), Rc::new(tail))
-        }
+        Val::Wildcard => Val::Cons(Box::new(head), Rc::new(tail)),
+        Val::PatternVar(_) => Val::Cons(Box::new(head), Rc::new(tail)),
         _ => {
             panic!("Can't cons to a not list {:?}", tail);
         }
@@ -82,9 +72,7 @@ pub fn concat(l1: &Val, l2: &Val) -> Val
     }
 
     match l1 {
-        &Val::Nil => {
-            l2.clone()
-        }
+        &Val::Nil => l2.clone(),
         &Val::Cons(ref head, ref tail) => {
             let new_tail = concat(tail, l2);
             cons((**head).clone(), new_tail)
@@ -117,9 +105,7 @@ pub fn empty() -> Val
 
 pub fn ref_to_vec(it: &Val) -> Vec<Val>
 {
-    map_ref_to_vec(it, |i| {
-        i.clone()
-    })
+    map_ref_to_vec(it, |i| i.clone())
 }
 
 pub fn is_empty(l: &Val) -> bool
@@ -144,7 +130,7 @@ pub fn is_singleton(l: &Val) -> bool
 
 pub fn len(l: &Val) -> usize
 {
-    fold_ref(0, l, |res, _| { res + 1 })
+    fold_ref(0, l, |res, _| res + 1)
 }
 
 pub fn last<'a>(l: &'a Val) -> Option<&'a Val>
@@ -160,7 +146,8 @@ pub fn last<'a>(l: &'a Val) -> Option<&'a Val>
 }
 
 pub fn map_ref<F>(mut l: &Val, mut op: F) -> Val
-    where F: FnMut(&Val) -> Val
+where
+    F: FnMut(&Val) -> Val,
 {
     let mut result = Val::Nil;
     while *l != Val::Nil {
@@ -173,7 +160,8 @@ pub fn map_ref<F>(mut l: &Val, mut op: F) -> Val
 }
 
 pub fn map_ref_to_vec<F, T>(l: &Val, mut op: F) -> Vec<T>
-    where F: FnMut(&Val) -> T
+where
+    F: FnMut(&Val) -> T,
 {
     let mut it = l;
     let list_len = len(l);
@@ -188,7 +176,8 @@ pub fn map_ref_to_vec<F, T>(l: &Val, mut op: F) -> Vec<T>
 }
 
 pub fn fold_ref<R, F>(init: R, l: &Val, op: F) -> R
-    where F: Fn(R, &Val) -> R
+where
+    F: Fn(R, &Val) -> R,
 {
     let mut result = init;
     let mut curr = l;
@@ -201,7 +190,8 @@ pub fn fold_ref<R, F>(init: R, l: &Val, op: F) -> R
 }
 
 pub fn fold_mut_ref<R, F>(init: &mut R, l: &Val, op: F)
-    where F: Fn(&mut R, &Val)
+where
+    F: Fn(&mut R, &Val),
 {
     let mut it = l;
     while *it != Val::Nil {
@@ -215,7 +205,8 @@ pub fn fold_mut_ref<R, F>(init: &mut R, l: &Val, op: F)
 }
 
 pub fn merge_adjacent<F>(l: &Val, op: F) -> Val
-    where F: Fn(&Val, &Val) -> Option<Val>
+where
+    F: Fn(&Val, &Val) -> Option<Val>,
 {
     if *l == Val::Nil {
         return Val::Nil;
@@ -244,7 +235,8 @@ pub fn merge_adjacent<F>(l: &Val, op: F) -> Val
 }
 
 pub fn partition<F>(l: &Val, pred: F) -> (Val, Val)
-    where F: Fn(&Val) -> bool
+where
+    F: Fn(&Val) -> bool,
 {
     let mut it = l;
     let mut truth = Val::Nil;
@@ -264,8 +256,9 @@ pub fn partition<F>(l: &Val, pred: F) -> (Val, Val)
 }
 
 pub fn keyed_by<K, F>(l: &Val, keyf: F) -> HashMap<K, Val>
-    where K: Eq + Hash + Debug
-        , F: Fn(&Val) -> K
+where
+    K: Eq + Hash + Debug,
+    F: Fn(&Val) -> K,
 {
     let mut it = l;
     let mut result: HashMap<K, Val> = HashMap::with_capacity(len(l));
@@ -361,9 +354,7 @@ pub fn head_or(l: Val, orval: Val) -> Val
 {
     match l {
         Val::Cons(head, _) => *head,
-        Val::Nil => {
-            orval
-        }
+        Val::Nil => orval,
         _ => {
             panic!("Cannot take head from not a list: {:?}", l);
         }
@@ -385,114 +376,109 @@ pub fn head_ref(l: &Val) -> &Val
 
 
 #[cfg(test)]
-mod tests {
+mod tests
+{
     use leema::list;
-    use leema::val::{Val};
+    use leema::val::Val;
 
-#[test]
-fn test_concat()
-{
-    let l1 = list::from2(Val::Int(1), Val::Int(2));
-    let l2 = list::from2(Val::Int(3), Val::Int(4));
+    #[test]
+    fn test_concat()
+    {
+        let l1 = list::from2(Val::Int(1), Val::Int(2));
+        let l2 = list::from2(Val::Int(3), Val::Int(4));
 
-    let lc = list::concat(&l1, &l2);
+        let lc = list::concat(&l1, &l2);
 
-    let exp =
-        list::cons(Val::Int(1),
-        list::cons(Val::Int(2),
-        list::cons(Val::Int(3),
-        list::cons(Val::Int(4),
-        Val::Nil
-        ))));
-    assert_eq!(exp, lc);
-}
+        let exp = list::cons(
+            Val::Int(1),
+            list::cons(
+                Val::Int(2),
+                list::cons(Val::Int(3), list::cons(Val::Int(4), Val::Nil)),
+            ),
+        );
+        assert_eq!(exp, lc);
+    }
 
-#[test]
-fn test_map_ref()
-{
-    let l =
-        list::cons(Val::Bool(true),
-        list::cons(Val::Bool(false),
-        list::cons(Val::Bool(true),
-        Val::Nil,
-    )));
+    #[test]
+    fn test_map_ref()
+    {
+        let l = list::cons(
+            Val::Bool(true),
+            list::cons(Val::Bool(false), list::cons(Val::Bool(true), Val::Nil)),
+        );
 
-    let not_l = list::map_ref(&l, |v| {
-        if let &Val::Bool(b) = v {
-            Val::Bool(!b)
-        } else {
-            Val::Void
-        }
-    });
-
-    let expected =
-        list::cons(Val::Bool(false),
-        list::cons(Val::Bool(true),
-        list::cons(Val::Bool(false),
-        Val::Nil,
-    )));
-
-    assert_eq!(expected, not_l);
-}
-
-#[test]
-fn test_len()
-{
-    let l =
-        list::cons(Val::Int(2),
-        list::cons(Val::Int(3),
-        list::cons(Val::Int(5),
-        Val::Nil,
-        )));
-    assert_eq!(3, list::len(&l));
-}
-
-#[test]
-fn test_merge_adjacent()
-{
-    let l =
-        list::cons(Val::Int(2),
-        list::cons(Val::Int(3),
-        list::cons(Val::Int(2),
-        list::cons(Val::Int(4),
-        list::cons(Val::Int(4),
-        Val::Nil,
-        )))));
-
-    let m = list::merge_adjacent(&l, |a, b| {
-        if a == b {
-            Some(a.clone())
-        } else {
-            None
-        }
-    });
-
-    let expected =
-        list::cons(Val::Int(2),
-        list::cons(Val::Int(3),
-        list::cons(Val::Int(2),
-        list::cons(Val::Int(4),
-        Val::Nil
-        ))));
-
-    assert_eq!(expected, m);
-}
-
-#[test]
-fn test_iterator_sum()
-{
-    let l = list::from3(Val::Int(2), Val::Int(3), Val::Int(4));
-    let actual = list::iter(&l).fold(Val::Int(0), |sumval, ival| {
-        match (sumval, ival) {
-            (Val::Int(sum), &Val::Int(i)) => {
-                Val::Int(sum + i)
+        let not_l = list::map_ref(&l, |v| {
+            if let &Val::Bool(b) = v {
+                Val::Bool(!b)
+            } else {
+                Val::Void
             }
-            _ => {
-                panic!("cannot add not-integers");
+        });
+
+        let expected = list::cons(
+            Val::Bool(false),
+            list::cons(Val::Bool(true), list::cons(Val::Bool(false), Val::Nil)),
+        );
+
+        assert_eq!(expected, not_l);
+    }
+
+    #[test]
+    fn test_len()
+    {
+        let l = list::cons(
+            Val::Int(2),
+            list::cons(Val::Int(3), list::cons(Val::Int(5), Val::Nil)),
+        );
+        assert_eq!(3, list::len(&l));
+    }
+
+    #[test]
+    fn test_merge_adjacent()
+    {
+        let l = list::cons(
+            Val::Int(2),
+            list::cons(
+                Val::Int(3),
+                list::cons(
+                    Val::Int(2),
+                    list::cons(Val::Int(4), list::cons(Val::Int(4), Val::Nil)),
+                ),
+            ),
+        );
+
+        let m = list::merge_adjacent(&l, |a, b| {
+            if a == b {
+                Some(a.clone())
+            } else {
+                None
             }
-        }
-    });
-    assert_eq!(Val::Int(9), actual);
-}
+        });
+
+        let expected = list::cons(
+            Val::Int(2),
+            list::cons(
+                Val::Int(3),
+                list::cons(Val::Int(2), list::cons(Val::Int(4), Val::Nil)),
+            ),
+        );
+
+        assert_eq!(expected, m);
+    }
+
+    #[test]
+    fn test_iterator_sum()
+    {
+        let l = list::from3(Val::Int(2), Val::Int(3), Val::Int(4));
+        let actual = list::iter(&l).fold(Val::Int(0), |sumval, ival| {
+            match (sumval, ival) {
+                (Val::Int(sum), &Val::Int(i)) => Val::Int(sum + i),
+                _ => {
+                    panic!("cannot add not-integers");
+                }
+            }
+        });
+        assert_eq!(Val::Int(9), actual);
+    }
 
 }

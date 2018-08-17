@@ -1,12 +1,11 @@
-
-use leema::code::{Code};
+use leema::code::Code;
 use leema::log;
 use leema::rsrc;
-use leema::val::{Val};
+use leema::val::Val;
 
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
-use std::path::{Path};
+use std::path::Path;
 
 
 pub fn file_open(_ctx: rsrc::IopCtx) -> rsrc::Event
@@ -42,8 +41,10 @@ pub fn file_write_file(mut ctx: rsrc::IopCtx) -> rsrc::Event
         .write(true)
         .create(true)
         .truncate(true)
-        .open(path).unwrap();
-    f.write_all(output.str().as_bytes()).expect("write_all failure");
+        .open(path)
+        .unwrap();
+    f.write_all(output.str().as_bytes())
+        .expect("write_all failure");
     rsrc::Event::Result(Val::Void, None)
 }
 

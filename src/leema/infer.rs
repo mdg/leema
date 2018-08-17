@@ -1,15 +1,14 @@
-
+use leema::ast::Ast;
 use leema::log;
-use leema::ast::{Ast};
-use leema::lri::{Lri};
-use leema::lstr::{Lstr};
-use leema::struple::{Struple};
-use leema::val::{Val, Type, SrcLoc, TypeResult, TypeErr};
+use leema::lri::Lri;
+use leema::lstr::Lstr;
+use leema::struple::Struple;
+use leema::val::{SrcLoc, Type, TypeErr, TypeResult, Val};
 
-use std::collections::{HashMap};
 use std::collections::hash_map::Keys;
-use std::io::{Write};
-use std::rc::{Rc};
+use std::collections::HashMap;
+use std::io::Write;
+use std::rc::Rc;
 
 
 #[derive(Debug)]
@@ -25,7 +24,7 @@ impl VarData
 {
     pub fn new(failures: Ast) -> VarData
     {
-        VarData{
+        VarData {
             failure: Some(failures),
             assignment: None,
             first_usage: None,
@@ -38,7 +37,7 @@ impl Default for VarData
 {
     fn default() -> VarData
     {
-        VarData{
+        VarData {
             failure: None,
             assignment: None,
             first_usage: None,
@@ -58,11 +57,11 @@ impl Blockscope
 {
     pub fn new(failures: HashMap<String, Ast>) -> Blockscope
     {
-        let vars: HashMap<String, VarData> =
-            failures.into_iter().map(|(v, fail)| {
-                (v, VarData::new(fail))
-            }).collect();
-        Blockscope{
+        let vars: HashMap<String, VarData> = failures
+            .into_iter()
+            .map(|(v, fail)| (v, VarData::new(fail)))
+            .collect();
+        Blockscope {
             vars: vars,
             failing: false,
         }
@@ -79,7 +78,7 @@ impl<'b> TypeSet<'b>
 {
     pub fn new() -> TypeSet<'b>
     {
-        TypeSet{
+        TypeSet {
             typedef: HashMap::new(),
         }
     }
@@ -88,27 +87,32 @@ impl<'b> TypeSet<'b>
     {
         // switch all this to use Option/Result combinators
         if !i.has_modules() {
-            return Result::Err(TypeErr::Error(Lstr::from(
-                format!("cannot get type without including module name: {}", i)
-            )));
+            return Result::Err(TypeErr::Error(Lstr::from(format!(
+                "cannot get type without including module name: {}",
+                i
+            ))));
         }
         let i_modname = i.modules.as_ref().unwrap();
         let opt_modtypes = self.typedef.get(i_modname);
         if opt_modtypes.is_none() {
-            return Result::Err(TypeErr::Error(Lstr::from(
-                format!("module {} is not imported", i_modname)
-            )));
+            return Result::Err(TypeErr::Error(Lstr::from(format!(
+                "module {} is not imported",
+                i_modname
+            ))));
         }
-        opt_modtypes.unwrap().get(&i.localid)
-            .ok_or_else(|| {
-                TypeErr::Error(Lstr::from(
-                    format!("cannot find type {} in module {}", i.localid, i_modname)
-                ))
-            })
+        opt_modtypes.unwrap().get(&i.localid).ok_or_else(|| {
+            TypeErr::Error(Lstr::from(format!(
+                "cannot find type {} in module {}",
+                i.localid, i_modname
+            )))
+        })
     }
 
-    pub fn import_user_types(&mut self, modname: &Lstr
-        , types: &'b HashMap<Lstr, Struple<Type>>)
+    pub fn import_user_types(
+        &mut self,
+        modname: &Lstr,
+        types: &'b HashMap<Lstr, Struple<Type>>,
+    )
     {
         self.typedef.insert(modname.clone(), types);
     }
@@ -128,7 +132,7 @@ impl<'b> Inferator<'b>
 {
     pub fn new(funcname: &'b str) -> Inferator<'b>
     {
-        Inferator{
+        Inferator {
             funcname: funcname,
             vartypes: HashMap::new(),
             blocks: vec![Blockscope::new(HashMap::new())],
@@ -149,18 +153,25 @@ impl<'b> Inferator<'b>
             Some(&Type::AnonVar) => {
                 panic!("Can't infer AnonVar");
             }
-            Some(ref argt) => {
-                Some(self.inferred_type(argt))
-            }
+            Some(ref argt) => Some(self.inferred_type(argt)),
         }
     }
 
-    pub fn init_param(&mut self, argi: i16, argn: Option<&Lstr>
-        , argt: Type, line: i16
-        ) -> TypeResult
+    pub fn init_param(
+        &mut self,
+        argi: i16,
+        argn: Option<&Lstr>,
+        argt: Type,
+        line: i16,
+    ) -> TypeResult
     {
-        vout!("bind_vartype({}, #{} {:?}: {:?})\n"
-            , self.funcname, argi, argn, argt);
+        vout!(
+            "bind_vartype({}, #{} {:?}: {:?})\n",
+            self.funcname,
+            argi,
+            argn,
+            argt
+        );
         let b = self.blocks.last_mut().unwrap();
         if argn.is_some() {
             // just assign the var b/c it's a new param
@@ -192,8 +203,12 @@ impl<'b> Inferator<'b>
         Ok(realt)
     }
 
-    pub fn bind_vartype(&mut self, argn: &str, argt: &Type, line: i16
-        ) -> TypeResult
+    pub fn bind_vartype(
+        &mut self,
+        argn: &str,
+        argt: &Type,
+        line: i16,
+    ) -> TypeResult
     {
         vout!("bind_vartype({}, {}: {:?})\n", self.funcname, argn, argt);
         let b = self.blocks.last_mut().unwrap();
@@ -221,7 +236,7 @@ impl<'b> Inferator<'b>
         };
         if !self.vartypes.contains_key(argn) {
             self.vartypes.insert(String::from(argn), realt.clone());
-            return Ok(realt)
+            return Ok(realt);
         }
 
         let oldargt = self.vartypes.get(argn).unwrap();
@@ -233,25 +248,26 @@ impl<'b> Inferator<'b>
         Inferator::mash(&mut self.inferences, a, b)
     }
 
-    pub fn match_pattern(&mut self, typeset: &TypeSet, patt: &Val
-             , valtype: &Type, lineno: i16
-             ) -> Result<(), TypeErr>
+    pub fn match_pattern(
+        &mut self,
+        typeset: &TypeSet,
+        patt: &Val,
+        valtype: &Type,
+        lineno: i16,
+    ) -> Result<(), TypeErr>
     {
         match (patt, valtype) {
             (_, &Type::AnonVar) => {
-                panic!("pattern value type cannot be anonymous: {:?}"
-                        , patt);
+                panic!("pattern value type cannot be anonymous: {:?}", patt);
             }
             (&Val::Id(ref id), _) => {
-                self.bind_vartype(id, valtype, lineno)
-                    .map(|_| ())
+                self.bind_vartype(id, valtype, lineno).map(|_| ())
             }
             (&Val::Nil, _) => {
                 self.merge_types(
-                        &Type::StrictList(Box::new(Type::Unknown)),
-                        valtype,
-                    )
-                    .map(|_| ())
+                    &Type::StrictList(Box::new(Type::Unknown)),
+                    valtype,
+                ).map(|_| ())
             }
             (&Val::Cons(_, _), &Type::StrictList(ref subt)) => {
                 self.match_list_pattern(typeset, patt, subt, lineno)
@@ -260,25 +276,32 @@ impl<'b> Inferator<'b>
                 let tvar_inner_name = format!("{}_inner", tvar_name);
                 let tvar_inner = Type::Var(Lstr::from(tvar_inner_name));
                 self.match_list_pattern(typeset, patt, &tvar_inner, lineno)?;
-                self.merge_types(&valtype,
-                    &Type::StrictList(Box::new(tvar_inner.clone()))
-                    )
-                    .map(|_| ())
+                self.merge_types(
+                    &valtype,
+                    &Type::StrictList(Box::new(tvar_inner.clone())),
+                ).map(|_| ())
             }
             (&Val::Tuple(ref flds1), &Type::Tuple(ref item_types)) => {
                 if flds1.0.len() != item_types.0.len() {
-                    panic!("pattern tuple size mismatch: {} != {}", patt, valtype);
+                    panic!(
+                        "pattern tuple size mismatch: {} != {}",
+                        patt, valtype
+                    );
                 }
                 for (fp, ft) in flds1.0.iter().zip(item_types.0.iter()) {
                     self.match_pattern(typeset, &fp.1, &ft.1, lineno)?;
                 }
                 Ok(())
             }
-            (&Val::Struct(ref typ1, ref flds1)
-                , &Type::UserDef(ref typename2)) =>
-            {
+            (
+                &Val::Struct(ref typ1, ref flds1),
+                &Type::UserDef(ref typename2),
+            ) => {
                 if typ1 != typename2 {
-                    panic!("struct type mismatch: {:?} != {:?}", typ1, typename2);
+                    panic!(
+                        "struct type mismatch: {:?} != {:?}",
+                        typ1, typename2
+                    );
                 }
                 let flds2 = match typeset.get_typedef(typename2) {
                     Result::Err(e) => {
@@ -294,47 +317,58 @@ impl<'b> Inferator<'b>
                 }
                 Ok(())
             }
-            (&Val::EnumStruct(ref typ1, ref _var1, ref _flds1)
-                , &Type::UserDef(ref typename2)) =>
-            {
+            (
+                &Val::EnumStruct(ref typ1, ref _var1, ref _flds1),
+                &Type::UserDef(ref typename2),
+            ) => {
                 if typ1 != typename2 {
-                    panic!("enum struct type mismatch: {:?} != {:?}", typ1, typename2);
+                    panic!(
+                        "enum struct type mismatch: {:?} != {:?}",
+                        typ1, typename2
+                    );
                 }
                 Ok(())
             }
-            (&Val::EnumToken(ref typ1, ref _var1)
-                , &Type::UserDef(ref typename2)) =>
-            {
+            (
+                &Val::EnumToken(ref typ1, ref _var1),
+                &Type::UserDef(ref typename2),
+            ) => {
                 if typ1 != typename2 {
-                    panic!("enum token type mismatch: {:?} != {:?}", typ1, typename2);
+                    panic!(
+                        "enum token type mismatch: {:?} != {:?}",
+                        typ1, typename2
+                    );
                 }
                 Ok(())
             }
-            (&Val::Token(ref typ1)
-                , &Type::UserDef(ref typename2)) =>
-            {
+            (&Val::Token(ref typ1), &Type::UserDef(ref typename2)) => {
                 if typ1 != typename2 {
-                    panic!("token type mismatch: {:?} != {:?}", typ1, typename2);
+                    panic!(
+                        "token type mismatch: {:?} != {:?}",
+                        typ1, typename2
+                    );
                 }
                 Ok(())
             }
             _ => {
                 let ptype = patt.get_type();
-                self.merge_types(&ptype, valtype)
-                    .map(|_| ())
-                    .map_err(|e| {
-                        e.add_context(format!(
-                            "pattern type mismatch: {:?} != {:?}"
-                                , patt, valtype
-                        ))
-                    })
+                self.merge_types(&ptype, valtype).map(|_| ()).map_err(|e| {
+                    e.add_context(format!(
+                        "pattern type mismatch: {:?} != {:?}",
+                        patt, valtype
+                    ))
+                })
             }
         }
     }
 
-    pub fn match_list_pattern(&mut self, typeset: &TypeSet, l: &Val
-        , inner_type: &Type, lineno: i16
-        ) -> Result<(), TypeErr>
+    pub fn match_list_pattern(
+        &mut self,
+        typeset: &TypeSet,
+        l: &Val,
+        inner_type: &Type,
+        lineno: i16,
+    ) -> Result<(), TypeErr>
     {
         match l {
             &Val::Cons(ref head, ref tail) => {
@@ -343,15 +377,10 @@ impl<'b> Inferator<'b>
             }
             &Val::Id(ref idname) => {
                 let ltype = Type::StrictList(Box::new(inner_type.clone()));
-                self.bind_vartype(idname, &ltype, lineno)
-                    .map(|_| () )
+                self.bind_vartype(idname, &ltype, lineno).map(|_| ())
             }
-            &Val::Nil => {
-                Ok(())
-            }
-            &Val::Wildcard => {
-                Ok(())
-            }
+            &Val::Nil => Ok(()),
+            &Val::Wildcard => Ok(()),
             _ => {
                 panic!("match_list_pattern on not a list: {:?}", l);
             }
@@ -360,9 +389,11 @@ impl<'b> Inferator<'b>
 
     pub fn mark_usage(&mut self, name: &str, loc: &SrcLoc) -> bool
     {
-        let b_opt = self.blocks.iter_mut().rev().find(|iblock| {
-            iblock.vars.contains_key(name)
-        });
+        let b_opt = self
+            .blocks
+            .iter_mut()
+            .rev()
+            .find(|iblock| iblock.vars.contains_key(name));
         if b_opt.is_none() {
             panic!("cannot mark usage on undefined var: {}", name);
         }
@@ -403,12 +434,9 @@ impl<'b> Inferator<'b>
 
     pub fn var_is_in_scope(&self, name: &str) -> bool
     {
-        self.blocks.iter().any(|b| {
-            b.vars.get(name)
-                .map_or(false, |v| {
-                    v.assignment.is_some()
-                })
-        })
+        self.blocks
+            .iter()
+            .any(|b| b.vars.get(name).map_or(false, |v| v.assignment.is_some()))
     }
 
     pub fn take_current_module(&mut self) -> Option<Rc<String>>
@@ -419,16 +447,18 @@ impl<'b> Inferator<'b>
     pub fn push_module(&mut self, m: Rc<String>)
     {
         if self.module.is_some() {
-            panic!("cannot push {} on top of {}"
-                , m, self.module.as_ref().unwrap());
+            panic!(
+                "cannot push {} on top of {}",
+                m,
+                self.module.as_ref().unwrap()
+            );
         }
         self.module = Some(m);
     }
 
     pub fn pop_module(&mut self)
     {
-        if self.module.is_none() {
-        }
+        if self.module.is_none() {}
         self.module = None;
     }
 
@@ -463,9 +493,7 @@ impl<'b> Inferator<'b>
         match typ {
             &Type::Var(ref varname) => {
                 match self.inferences.get(&**varname) {
-                    Some(ref other_type) => {
-                        self.inferred_type(other_type)
-                    }
+                    Some(ref other_type) => self.inferred_type(other_type),
                     None => typ.clone(),
                 }
             }
@@ -473,18 +501,22 @@ impl<'b> Inferator<'b>
                 Type::StrictList(Box::new(self.inferred_type(inner)))
             }
             &Type::Tuple(ref inners) => {
-                let infers = inners.0.iter().map(|i| {
-                    (i.0.clone(), self.inferred_type(&i.1))
-                }).collect();
+                let infers = inners
+                    .0
+                    .iter()
+                    .map(|i| (i.0.clone(), self.inferred_type(&i.1)))
+                    .collect();
                 Type::Tuple(infers)
             }
-            _ => typ.clone()
+            _ => typ.clone(),
         }
     }
 
-    fn mash(inferences: &mut HashMap<Lstr, Type>
-        , oldt: &Type, newt: &Type
-        ) -> TypeResult
+    fn mash(
+        inferences: &mut HashMap<Lstr, Type>,
+        oldt: &Type,
+        newt: &Type,
+    ) -> TypeResult
     {
         if oldt == newt {
             // all good
@@ -506,9 +538,8 @@ impl<'b> Inferator<'b>
                 }
             }
             (&Type::StrictList(ref oldit), &Type::StrictList(ref newit)) => {
-                Inferator::mash(inferences, oldit, newit).and_then(|t| {
-                    Ok(Type::StrictList(Box::new(t)))
-                })
+                Inferator::mash(inferences, oldit, newit)
+                    .and_then(|t| Ok(Type::StrictList(Box::new(t))))
             }
             (&Type::Var(ref oldtname), _) => {
                 inferences.insert(oldtname.clone(), newt.clone());
@@ -518,14 +549,17 @@ impl<'b> Inferator<'b>
                 inferences.insert(newtname.clone(), oldt.clone());
                 Ok(oldt.clone())
             }
-            (&Type::Func(ref oldargs, ref oldresult),
-                    &Type::Func(ref newargs, ref newresult)
+            (
+                &Type::Func(ref oldargs, ref oldresult),
+                &Type::Func(ref newargs, ref newresult),
             ) => {
                 let oldlen = oldargs.len();
                 let newlen = newargs.len();
                 if oldlen != newlen {
-                    panic!("function arg count mismatch: {}!={}",
-                        oldlen, newlen);
+                    panic!(
+                        "function arg count mismatch: {}!={}",
+                        oldlen, newlen
+                    );
                 }
                 let mut masht = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
@@ -542,8 +576,7 @@ impl<'b> Inferator<'b>
                 let oldlen = olditems.0.len();
                 let newlen = newitems.0.len();
                 if oldlen != newlen {
-                    panic!("tuple size mismatch: {}!={}",
-                        oldlen, newlen);
+                    panic!("tuple size mismatch: {}!={}", oldlen, newlen);
                 }
                 let mut mashitems = Vec::with_capacity(oldlen);
                 for (oi, ni) in olditems.0.iter().zip(newitems.0.iter()) {
@@ -552,20 +585,18 @@ impl<'b> Inferator<'b>
                 }
                 Ok(Type::Tuple(Struple(mashitems)))
             }
-            (_, _) => {
-                Err(TypeErr::Mismatch(
-                    oldt.clone(),
-                    newt.clone(),
-                    ))
-            }
+            (_, _) => Err(TypeErr::Mismatch(oldt.clone(), newt.clone())),
         };
         vout!("\tmashed to -> {:?}\n", mtype);
         mtype
     }
 
 
-    pub fn make_call_type(&mut self, ftype: &Type, argst: &Vec<&Type>
-        ) -> TypeResult
+    pub fn make_call_type(
+        &mut self,
+        ftype: &Type,
+        argst: &Vec<&Type>,
+    ) -> TypeResult
     {
         let (defargst, defresult) = Type::split_func(ftype);
 
@@ -585,8 +616,7 @@ impl<'b> Inferator<'b>
                         "expected function args in {}: {:?} found {:?}",
                         self.funcname, defargst, argst,
                     ))
-                })
-                .unwrap();
+                }).unwrap();
         }
         Ok(self.inferred_type(defresult))
     }
@@ -594,141 +624,142 @@ impl<'b> Inferator<'b>
 
 
 #[cfg(test)]
-mod tests {
+mod tests
+{
     use leema::infer::{Inferator, TypeSet};
     use leema::list;
-    use leema::lstr::{Lstr};
-    use leema::struple::{Struple};
-    use leema::val::{Val, Type};
+    use leema::lstr::Lstr;
+    use leema::struple::Struple;
+    use leema::val::{Type, Val};
 
-    use std::collections::{HashMap};
-    use std::rc::{Rc};
+    use std::collections::HashMap;
+    use std::rc::Rc;
 
 
-#[test]
-fn test_add_and_find()
-{
-    let mut t = Inferator::new("burritos");
-    t.bind_vartype("a", &Type::Int, 18).unwrap();
-    assert_eq!(Type::Int, t.vartype("a").unwrap());
-}
+    #[test]
+    fn test_add_and_find()
+    {
+        let mut t = Inferator::new("burritos");
+        t.bind_vartype("a", &Type::Int, 18).unwrap();
+        assert_eq!(Type::Int, t.vartype("a").unwrap());
+    }
 
-#[test]
-fn test_merge_strict_list_unknown()
-{
-    let mut t = Inferator::new("burritos");
-    let mtype = t.merge_types(
-        &Type::StrictList(Box::new(Type::Unknown)),
-        &Type::StrictList(Box::new(Type::Int)),
-    );
+    #[test]
+    fn test_merge_strict_list_unknown()
+    {
+        let mut t = Inferator::new("burritos");
+        let mtype = t.merge_types(
+            &Type::StrictList(Box::new(Type::Unknown)),
+            &Type::StrictList(Box::new(Type::Int)),
+        );
 
-    assert_eq!(Ok(Type::StrictList(Box::new(Type::Int))), mtype);
-}
+        assert_eq!(Ok(Type::StrictList(Box::new(Type::Int))), mtype);
+    }
 
-#[test]
-fn test_merge_types_via_tvar()
-{
-    let mut t = Inferator::new("burritos");
-    let intlist = Type::StrictList(Box::new(Type::Int));
-    let unknownlist = Type::StrictList(Box::new(Type::Unknown));
-    let tvar = Type::Var(Lstr::Sref("Taco"));
+    #[test]
+    fn test_merge_types_via_tvar()
+    {
+        let mut t = Inferator::new("burritos");
+        let intlist = Type::StrictList(Box::new(Type::Int));
+        let unknownlist = Type::StrictList(Box::new(Type::Unknown));
+        let tvar = Type::Var(Lstr::Sref("Taco"));
 
-    let mtype0 = t.merge_types(&unknownlist, &tvar);
-    assert_eq!(Ok(unknownlist), mtype0);
+        let mtype0 = t.merge_types(&unknownlist, &tvar);
+        assert_eq!(Ok(unknownlist), mtype0);
 
-    let mtype1 = t.merge_types(&intlist, &tvar);
-    assert_eq!(Ok(intlist), mtype1);
-}
+        let mtype1 = t.merge_types(&intlist, &tvar);
+        assert_eq!(Ok(intlist), mtype1);
+    }
 
-#[test]
-fn test_take_current_module()
-{
-    let mut t = Inferator::new("burritos");
-    assert_eq!(None, t.take_current_module());
-    t.push_module(Rc::new(String::from("torta")));
-    assert_eq!("torta", &*t.take_current_module().unwrap());
-    assert_eq!(None, t.take_current_module());
-}
+    #[test]
+    fn test_take_current_module()
+    {
+        let mut t = Inferator::new("burritos");
+        assert_eq!(None, t.take_current_module());
+        t.push_module(Rc::new(String::from("torta")));
+        assert_eq!("torta", &*t.take_current_module().unwrap());
+        assert_eq!(None, t.take_current_module());
+    }
 
-#[test]
-fn test_match_pattern_empty_list()
-{
-    let mut t = Inferator::new("burritos");
-    let tvar = Type::Var(Lstr::Sref("Taco"));
-    let ts = TypeSet::new();
-    t.match_pattern(&ts, &Val::Nil, &tvar, 55).unwrap();
+    #[test]
+    fn test_match_pattern_empty_list()
+    {
+        let mut t = Inferator::new("burritos");
+        let tvar = Type::Var(Lstr::Sref("Taco"));
+        let ts = TypeSet::new();
+        t.match_pattern(&ts, &Val::Nil, &tvar, 55).unwrap();
 
-    assert_eq!(Type::StrictList(Box::new(Type::Unknown)),
-        t.inferred_type(&tvar));
-}
+        assert_eq!(
+            Type::StrictList(Box::new(Type::Unknown)),
+            t.inferred_type(&tvar)
+        );
+    }
 
-#[test]
-fn test_match_pattern_empty_and_full_lists()
-{
-    let mut t = Inferator::new("burritos");
-    let tvar = Type::Var(Lstr::Sref("Taco"));
-    let ts = TypeSet::new();
-    t.match_pattern(&ts, &Val::Nil, &tvar, 32).unwrap();
-    t.match_pattern(&ts, &list::singleton(Val::Int(5)), &tvar, 99).unwrap();
+    #[test]
+    fn test_match_pattern_empty_and_full_lists()
+    {
+        let mut t = Inferator::new("burritos");
+        let tvar = Type::Var(Lstr::Sref("Taco"));
+        let ts = TypeSet::new();
+        t.match_pattern(&ts, &Val::Nil, &tvar, 32).unwrap();
+        t.match_pattern(&ts, &list::singleton(Val::Int(5)), &tvar, 99)
+            .unwrap();
 
-    assert_eq!(Type::StrictList(Box::new(Type::Int)),
-        t.inferred_type(&tvar));
-}
+        assert_eq!(
+            Type::StrictList(Box::new(Type::Int)),
+            t.inferred_type(&tvar)
+        );
+    }
 
-#[test]
-fn test_match_pattern_hashtag_list_inside_tuple()
-{
-    let mut t = Inferator::new("burritos");
-    let tvar = Type::Tuple(Struple(vec![
-        (None, Type::Var(Lstr::Sref("Taco")))
-    ]));
-    let ilistpatt = list::cons(
-        Val::hashtag("leema".to_string()),
-        Val::id("tail".to_string()),
-    );
-    let listpatt = Val::Tuple(Struple(vec![
-        (None, ilistpatt),
-    ]));
-    let ts = TypeSet::new();
-    t.match_pattern(&ts, &listpatt, &tvar, 14).unwrap();
+    #[test]
+    fn test_match_pattern_hashtag_list_inside_tuple()
+    {
+        let mut t = Inferator::new("burritos");
+        let tvar =
+            Type::Tuple(Struple(vec![(None, Type::Var(Lstr::Sref("Taco")))]));
+        let ilistpatt = list::cons(
+            Val::hashtag("leema".to_string()),
+            Val::id("tail".to_string()),
+        );
+        let listpatt = Val::Tuple(Struple(vec![(None, ilistpatt)]));
+        let ts = TypeSet::new();
+        t.match_pattern(&ts, &listpatt, &tvar, 14).unwrap();
 
-    let exp = Type::Tuple(Struple(vec![
-        (None, Type::StrictList(Box::new(Type::Hashtag))),
-    ]));
-    assert_eq!(exp, t.inferred_type(&tvar));
-}
+        let exp = Type::Tuple(Struple(vec![(
+            None,
+            Type::StrictList(Box::new(Type::Hashtag)),
+        )]));
+        assert_eq!(exp, t.inferred_type(&tvar));
+    }
 
-#[test]
-#[should_panic]
-fn test_match_pattern_tuple_size_mismatch()
-{
-    let mut t = Inferator::new("burritos");
-    let tvar = Type::Tuple(Struple(vec![
-        (None, Type::Var(Lstr::Sref("Taco")))
-    ]));
-    let listpatt = Val::Tuple(Struple::new_tuple2(
-        Val::hashtag("leema".to_string()),
-        Val::id("tail".to_string()),
-    ));
-    let ts = TypeSet::new();
-    t.match_pattern(&ts, &listpatt, &tvar, 14).unwrap();
-}
+    #[test]
+    #[should_panic]
+    fn test_match_pattern_tuple_size_mismatch()
+    {
+        let mut t = Inferator::new("burritos");
+        let tvar =
+            Type::Tuple(Struple(vec![(None, Type::Var(Lstr::Sref("Taco")))]));
+        let listpatt = Val::Tuple(Struple::new_tuple2(
+            Val::hashtag("leema".to_string()),
+            Val::id("tail".to_string()),
+        ));
+        let ts = TypeSet::new();
+        t.match_pattern(&ts, &listpatt, &tvar, 14).unwrap();
+    }
 
-#[test]
-fn test_mash_tuples_containing_vars()
-{
-    let mut inferences = HashMap::new();
-    let oldt = Type::Tuple(Struple(vec![
-        (None, Type::Var(Lstr::Sref("A"))),
-        (None, Type::Var(Lstr::Sref("B"))),
-    ]));
-    let newt = Type::Tuple(Struple(vec![
-        (None, Type::Int),
-        (None, Type::Str),
-    ]));
+    #[test]
+    fn test_mash_tuples_containing_vars()
+    {
+        let mut inferences = HashMap::new();
+        let oldt = Type::Tuple(Struple(vec![
+            (None, Type::Var(Lstr::Sref("A"))),
+            (None, Type::Var(Lstr::Sref("B"))),
+        ]));
+        let newt =
+            Type::Tuple(Struple(vec![(None, Type::Int), (None, Type::Str)]));
 
-    let result = Inferator::mash(&mut inferences, &oldt, &newt);
-    result.unwrap();
-}
+        let result = Inferator::mash(&mut inferences, &oldt, &newt);
+        result.unwrap();
+    }
 
 }

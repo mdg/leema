@@ -1,14 +1,14 @@
 #![deny(warnings)]
 #![allow(dead_code)]
 
-extern crate libc;
 extern crate docopt;
+extern crate libc;
 #[macro_use]
 extern crate mopa;
 extern crate bytes;
+extern crate futures;
 extern crate rand;
 extern crate rustc_serialize;
-extern crate futures;
 extern crate tokio_core;
 extern crate tokio_io;
 
@@ -17,23 +17,24 @@ mod leema;
 
 use leema::log;
 
+use leema::application::Application;
 use leema::list;
-use leema::loader::{Interloader};
-use leema::lstr::{Lstr};
-use leema::module::{ModuleSource};
+use leema::loader::Interloader;
+use leema::lstr::Lstr;
+use leema::module::ModuleSource;
 use leema::program;
-use leema::application::{Application};
 use leema::typecheck;
-use leema::val::{Val};
+use leema::val::Val;
 
-use std::io::{Write};
+use docopt::Docopt;
 use std::env;
-use docopt::{Docopt};
+use std::io::Write;
 
 
 #[derive(Debug)]
 #[derive(RustcDecodable)]
-struct Args {
+struct Args
+{
     arg_cmd: String,
     arg_script: Vec<String>,
     flag_verbose: bool,

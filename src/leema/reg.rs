@@ -1,10 +1,10 @@
 use leema::log;
-use leema::val::{Val};
+use leema::val::Val;
 
+use std::collections::HashMap;
 use std::fmt;
-use std::io::{Write};
-use std::collections::{HashMap};
-use std::rc::{Rc};
+use std::io::Write;
+use std::rc::Rc;
 
 
 #[derive(PartialEq)]
@@ -12,7 +12,8 @@ use std::rc::{Rc};
 #[derive(PartialOrd)]
 #[derive(Ord)]
 #[derive(Clone)]
-pub enum Ireg {
+pub enum Ireg
+{
     Reg(i8),
     Sub(i8, Box<Ireg>),
 }
@@ -47,7 +48,7 @@ impl Ireg
     {
         match self {
             &Ireg::Sub(r, ref s) => Ireg::Sub(r, Box::new(s.next_sibling())),
-            &Ireg::Reg(r) => Ireg::Reg(r+1),
+            &Ireg::Reg(r) => Ireg::Reg(r + 1),
         }
     }
 
@@ -91,7 +92,8 @@ pub trait Iregistry
 #[derive(PartialOrd)]
 #[derive(Ord)]
 #[derive(Clone)]
-pub enum Reg {
+pub enum Reg
+{
     Param(Ireg),
     Local(Ireg),
     Lib,
@@ -104,12 +106,8 @@ impl Reg
     pub fn sub(&self, sub: i8) -> Reg
     {
         match self {
-            &Reg::Param(ref ir) => {
-                Reg::Param(ir.sub(sub))
-            }
-            &Reg::Local(ref r) => {
-                Reg::Local(r.sub(sub))
-            }
+            &Reg::Param(ref ir) => Reg::Param(ir.sub(sub)),
+            &Reg::Local(ref r) => Reg::Local(r.sub(sub)),
             &Reg::Void => Reg::Void,
             _ => {
                 panic!("Can't make a subreg for {:?}", self);
@@ -200,7 +198,7 @@ impl RegTable
 {
     pub fn new() -> RegTable
     {
-        RegTable{
+        RegTable {
             dstack: vec![Reg::local(0)],
             labels: HashMap::new(),
             free: Vec::new(),
@@ -299,84 +297,85 @@ impl RegTable
 
 
 #[cfg(test)]
-mod tests {
+mod tests
+{
     use leema::reg::{Reg, RegTable};
 
-#[test]
-fn test_init()
-{
-    let rt = RegTable::new();
-    assert_eq!(Reg::local(0), *rt.dst());
-}
+    #[test]
+    fn test_init()
+    {
+        let rt = RegTable::new();
+        assert_eq!(Reg::local(0), *rt.dst());
+    }
 
-#[test]
-fn test_next()
-{
-    let mut rt = RegTable::new();
+    #[test]
+    fn test_next()
+    {
+        let mut rt = RegTable::new();
 
-    let r1 = rt.next();
-    let r2 = rt.next();
+        let r1 = rt.next();
+        let r2 = rt.next();
 
-    assert_eq!(Reg::local(1), r1);
-    assert_eq!(Reg::local(2), r2);
-}
+        assert_eq!(Reg::local(1), r1);
+        assert_eq!(Reg::local(2), r2);
+    }
 
-#[test]
-fn test_push_dst()
-{
-    let mut rt = RegTable::new();
+    #[test]
+    fn test_push_dst()
+    {
+        let mut rt = RegTable::new();
 
-    assert_eq!(Reg::local(1), *rt.push_dst());
-    assert_eq!(Reg::local(2), *rt.push_dst());
-}
+        assert_eq!(Reg::local(1), *rt.push_dst());
+        assert_eq!(Reg::local(2), *rt.push_dst());
+    }
 
-#[test]
-fn test_push_then_dst()
-{
-    let mut rt = RegTable::new();
+    #[test]
+    fn test_push_then_dst()
+    {
+        let mut rt = RegTable::new();
 
-    rt.push_dst();
-    assert_eq!(Reg::local(1), *rt.dst());
+        rt.push_dst();
+        assert_eq!(Reg::local(1), *rt.dst());
 
-    rt.push_dst();
-    assert_eq!(Reg::local(2), *rt.dst());
-}
+        rt.push_dst();
+        assert_eq!(Reg::local(2), *rt.dst());
+    }
 
-#[test]
-fn test_pop_back()
-{
-    let mut rt = RegTable::new();
+    #[test]
+    fn test_pop_back()
+    {
+        let mut rt = RegTable::new();
 
-    rt.push_dst();
-    rt.push_dst();
+        rt.push_dst();
+        rt.push_dst();
 
-    assert_eq!(Reg::local(2), *rt.dst());
+        assert_eq!(Reg::local(2), *rt.dst());
 
-    rt.pop_dst();
-    assert_eq!(Reg::local(1), *rt.dst());
+        rt.pop_dst();
+        assert_eq!(Reg::local(1), *rt.dst());
 
-    rt.pop_dst();
-    assert_eq!(Reg::local(0), *rt.dst());
-}
+        rt.pop_dst();
+        assert_eq!(Reg::local(0), *rt.dst());
+    }
 
-#[test]
-fn test_pop_push_free()
-{
-    let mut rt = RegTable::new();
+    #[test]
+    fn test_pop_push_free()
+    {
+        let mut rt = RegTable::new();
 
-    rt.push_dst();
-    assert_eq!(Reg::local(1), *rt.dst());
+        rt.push_dst();
+        assert_eq!(Reg::local(1), *rt.dst());
 
-    rt.push_dst();
-    assert_eq!(Reg::local(2), *rt.dst());
+        rt.push_dst();
+        assert_eq!(Reg::local(2), *rt.dst());
 
-    rt.pop_dst();
-    rt.pop_dst();
+        rt.pop_dst();
+        rt.pop_dst();
 
-    assert_eq!(Reg::local(1), *rt.push_dst());
-    assert_eq!(Reg::local(2), *rt.push_dst());
-    assert_eq!(Reg::local(3), *rt.push_dst());
-    assert_eq!(Reg::local(3), *rt.dst());
-}
+        assert_eq!(Reg::local(1), *rt.push_dst());
+        assert_eq!(Reg::local(2), *rt.push_dst());
+        assert_eq!(Reg::local(3), *rt.push_dst());
+        assert_eq!(Reg::local(3), *rt.dst());
+    }
 
 }

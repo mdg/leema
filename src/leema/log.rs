@@ -1,4 +1,3 @@
-
 static mut VERBOSE: bool = false;
 
 
@@ -11,9 +10,7 @@ pub fn set_verbose()
 
 pub fn is_verbose() -> bool
 {
-    unsafe {
-        VERBOSE
-    }
+    unsafe { VERBOSE }
 }
 
 #[macro_export]

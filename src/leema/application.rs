@@ -1,14 +1,14 @@
-use leema::program;
 use leema::io::{Io, IoLoop};
-use leema::msg::{AppMsg, WorkerMsg, IoMsg};
-use leema::worker::{Worker};
-use leema::val::{Val};
 use leema::log;
+use leema::msg::{AppMsg, IoMsg, WorkerMsg};
+use leema::program;
+use leema::val::Val;
+use leema::worker::Worker;
 
 use std::collections::{HashMap, LinkedList};
-use std::sync::mpsc::{channel, Sender, Receiver};
+use std::io::Write;
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
-use std::io::{Write};
 
 
 pub struct Application
@@ -32,7 +32,7 @@ impl Application
     {
         let (tx, rx) = channel();
         let (iotx, iorx) = channel();
-        Application{
+        Application {
             prog: prog,
             app_recv: rx,
             app_send: tx,
@@ -54,7 +54,8 @@ impl Application
 
     pub fn push_call(&mut self, module: &str, func: &str)
     {
-        self.calls.push_back((String::from(module), String::from(func)));
+        self.calls
+            .push_back((String::from(module), String::from(func)));
     }
 
     pub fn run(&mut self)
@@ -87,7 +88,8 @@ impl Application
             Worker::run(w);
         });
         self.worker.insert(worker_id, worker_send.clone());
-        self.io_send.send(IoMsg::NewWorker(worker_id, worker_send))
+        self.io_send
+            .send(IoMsg::NewWorker(worker_id, worker_send))
             .expect("fail to send worker to io thread");
         handle
     }
@@ -130,9 +132,13 @@ impl Application
             AppMsg::RequestCode(worker_id, frame, module, func) => {
                 let code = self.prog.load_code(&module, &func);
                 let worker = self.worker.get(&worker_id).unwrap();
-                worker.send(
-                    WorkerMsg::FoundCode(frame, module, func, code.clone())
-                ).expect("fail to send found code to worker");
+                worker
+                    .send(WorkerMsg::FoundCode(
+                        frame,
+                        module,
+                        func,
+                        code.clone(),
+                    )).expect("fail to send found code to worker");
             }
             AppMsg::MainResult(mv) => {
                 self.result = Some(mv.take());
@@ -211,33 +217,36 @@ enum Ixpr
 
 
 #[cfg(test)]
-mod tests {
-    use leema::application::{Application};
-    use leema::loader::{Interloader};
-    use leema::program;
-    use leema::val::{Val};
-
-    use std::io::{stderr, Write};
-    use libc::{getpid};
-
-
-#[test]
-fn test_main_func_finishes()
+mod tests
 {
-let p = unsafe { getpid(); };
-write!(stderr(), "test_main_func_finishes {:?}\n", p).unwrap();
-    let input = "func main() -> 3 --".to_string();
-    let mut inter = Interloader::new("test.lma");
-    inter.set_mod_txt("test", input);
-    let prog = program::Lib::new(inter);
+    use leema::application::Application;
+    use leema::loader::Interloader;
+    use leema::program;
+    use leema::val::Val;
 
-    let mut app = Application::new(prog);
-    app.push_call("test", "main");
-    app.run();
+    use libc::getpid;
+    use std::io::{stderr, Write};
 
-write!(stderr(), "Application::wait_until_done\n").unwrap();
-    let result = app.wait_for_result();
-    assert_eq!(Some(Val::Int(3)), result);
-}
+
+    #[test]
+    fn test_main_func_finishes()
+    {
+        let p = unsafe {
+            getpid();
+        };
+        write!(stderr(), "test_main_func_finishes {:?}\n", p).unwrap();
+        let input = "func main() -> 3 --".to_string();
+        let mut inter = Interloader::new("test.lma");
+        inter.set_mod_txt("test", input);
+        let prog = program::Lib::new(inter);
+
+        let mut app = Application::new(prog);
+        app.push_call("test", "main");
+        app.run();
+
+        write!(stderr(), "Application::wait_until_done\n").unwrap();
+        let result = app.wait_for_result();
+        assert_eq!(Some(Val::Int(3)), result);
+    }
 
 }
