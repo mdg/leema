@@ -420,15 +420,15 @@ pub fn exercise_iop_action(action: rsrc::IopAction
     let (io, core) = Io::new(app_tx, msg_rx);
 
     let msg_params = MsgVal::new(&Val::Tuple(Struple(params)));
-    msg_tx.send(msg::IoMsg::NewWorker(11, worker_tx));
+    msg_tx.send(msg::IoMsg::NewWorker(11, worker_tx)).unwrap();
     msg_tx.send(msg::IoMsg::Iop{
         worker_id: 11,
         fiber_id: 21,
         action: action,
         rsrc_id: None,
         params: msg_params,
-    });
-    msg_tx.send(msg::IoMsg::Done);
+    }).unwrap();
+    msg_tx.send(msg::IoMsg::Done).unwrap();
 
     IoLoop::run(core, io);
 
@@ -469,18 +469,18 @@ fn test_rsrc_action_flow()
     let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
     let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
 
-    let (mut io, core) = Io::new(app_tx, msg_rx);
+    let (io, core) = Io::new(app_tx, msg_rx);
     let rsrc_id = io.borrow_mut().new_rsrc(Box::new(MockRsrc{}));
 
-    msg_tx.send(msg::IoMsg::NewWorker(8, worker_tx));
+    msg_tx.send(msg::IoMsg::NewWorker(8, worker_tx)).unwrap();
     msg_tx.send(msg::IoMsg::Iop{
         worker_id: 8,
         fiber_id: 7,
         action: mock_rsrc_action,
         rsrc_id: Some(rsrc_id),
         params: MsgVal::new(&Val::empty_tuple()),
-    });
-    msg_tx.send(msg::IoMsg::Done);
+    }).unwrap();
+    msg_tx.send(msg::IoMsg::Done).unwrap();
     IoLoop::run(core, io);
 
     let resp = worker_rx.try_recv();

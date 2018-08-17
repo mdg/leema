@@ -225,7 +225,7 @@ mod tests {
 fn test_main_func_finishes()
 {
 let p = unsafe { getpid(); };
-write!(stderr(), "test_main_func_finishes {:?}\n", p);
+write!(stderr(), "test_main_func_finishes {:?}\n", p).unwrap();
     let input = "func main() -> 3 --".to_string();
     let mut inter = Interloader::new("test.lma");
     inter.set_mod_txt("test", input);
@@ -235,7 +235,7 @@ write!(stderr(), "test_main_func_finishes {:?}\n", p);
     app.push_call("test", "main");
     app.run();
 
-write!(stderr(), "Application::wait_until_done\n");
+write!(stderr(), "Application::wait_until_done\n").unwrap();
     let result = app.wait_for_result();
     assert_eq!(Some(Val::Int(3)), result);
 }

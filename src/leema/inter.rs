@@ -904,7 +904,7 @@ fn test_scope_add_vartype()
     let args = LinkedList::new();
     let mut scope = Interscope::new(&proto, &imps
         , &typed, "foo", 105, &args);
-    scope.infer.bind_vartype("hello", &Type::Int, 17);
+    scope.infer.bind_vartype("hello", &Type::Int, 17).unwrap();
 
     let (scope_lvl, typ) = scope.vartype("hello").unwrap();
     assert_eq!(ScopeLevel::Local, scope_lvl);
@@ -921,7 +921,7 @@ fn test_scope_push_block()
     let args = LinkedList::new();
     let mut scope = Interscope::new(&proto, &imps
         , &typed, "foo", 104, &args);
-    scope.infer.bind_vartype("hello", &Type::Int, 18);
+    scope.infer.bind_vartype("hello", &Type::Int, 18).unwrap();
     println!("add_var(hello) -> {:?}", scope);
 
     {
@@ -931,7 +931,7 @@ fn test_scope_push_block()
     }
 
     scope.infer.push_block(HashMap::new());
-    scope.infer.bind_vartype("world", &Type::Str, 33);
+    scope.infer.bind_vartype("world", &Type::Str, 33).unwrap();
     println!("push_block().add_var(world) -> {:?}", scope);
 
     {

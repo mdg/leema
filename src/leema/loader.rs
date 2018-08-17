@@ -92,7 +92,7 @@ mod tests
 #[test]
 fn test_root_path()
 {
-    let mut i = Interloader::new("hello/world.lma");
+    let i = Interloader::new("hello/world.lma");
 
     let expected = Path::new("hello");
     assert_eq!(expected, i.root_path);
@@ -101,7 +101,7 @@ fn test_root_path()
 #[test]
 fn test_main_mod()
 {
-    let mut i = Interloader::new("hello/world.lma");
+    let i = Interloader::new("hello/world.lma");
 
     assert_eq!("world", i.main_mod);
 }

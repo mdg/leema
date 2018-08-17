@@ -594,7 +594,7 @@ mod tests {
 fn test_add_and_find()
 {
     let mut t = Inferator::new("burritos");
-    t.bind_vartype("a", &Type::Int, 18);
+    t.bind_vartype("a", &Type::Int, 18).unwrap();
     assert_eq!(Type::Int, t.vartype("a").unwrap());
 }
 
@@ -641,7 +641,7 @@ fn test_match_pattern_empty_list()
     let mut t = Inferator::new("burritos");
     let tvar = Type::Var(Lstr::Sref("Taco"));
     let ts = TypeSet::new();
-    t.match_pattern(&ts, &Val::Nil, &tvar, 55);
+    t.match_pattern(&ts, &Val::Nil, &tvar, 55).unwrap();
 
     assert_eq!(Type::StrictList(Box::new(Type::Unknown)),
         t.inferred_type(&tvar));
@@ -653,8 +653,8 @@ fn test_match_pattern_empty_and_full_lists()
     let mut t = Inferator::new("burritos");
     let tvar = Type::Var(Lstr::Sref("Taco"));
     let ts = TypeSet::new();
-    t.match_pattern(&ts, &Val::Nil, &tvar, 32);
-    t.match_pattern(&ts, &list::singleton(Val::Int(5)), &tvar, 99);
+    t.match_pattern(&ts, &Val::Nil, &tvar, 32).unwrap();
+    t.match_pattern(&ts, &list::singleton(Val::Int(5)), &tvar, 99).unwrap();
 
     assert_eq!(Type::StrictList(Box::new(Type::Int)),
         t.inferred_type(&tvar));
@@ -675,7 +675,7 @@ fn test_match_pattern_hashtag_list_inside_tuple()
         (None, ilistpatt),
     ]));
     let ts = TypeSet::new();
-    t.match_pattern(&ts, &listpatt, &tvar, 14);
+    t.match_pattern(&ts, &listpatt, &tvar, 14).unwrap();
 
     let exp = Type::Tuple(Struple(vec![
         (None, Type::StrictList(Box::new(Type::Hashtag))),
@@ -696,7 +696,7 @@ fn test_match_pattern_tuple_size_mismatch()
         Val::id("tail".to_string()),
     ));
     let ts = TypeSet::new();
-    t.match_pattern(&ts, &listpatt, &tvar, 14);
+    t.match_pattern(&ts, &listpatt, &tvar, 14).unwrap();
 }
 
 }
