@@ -18,7 +18,7 @@ leemaw: lexer parser
 lib: lexer parser
 	cargo build --lib
 
-test: unit T
+test: unit T format
 
 unit: lexer parser
 	cargo test --bin leema
@@ -28,6 +28,12 @@ T: build test.py
 
 warnings: lexer parser
 	cargo rustc --bin leema -- ${WARNS}
+
+format:
+	cargo +nightly fmt -- --check
+
+reformat:
+	cargo +nightly fmt
 
 # lexer
 lexer: target/debug/deps/libleemalex.a
