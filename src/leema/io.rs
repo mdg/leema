@@ -398,7 +398,7 @@ impl Rsrc for MockRsrc
     }
 }
 
-fn mock_iop_action(mut ctx: rsrc::IopCtx) -> rsrc::Event
+fn mock_iop_action(_ctx: rsrc::IopCtx) -> rsrc::Event
 {
     rsrc::Event::Result(Val::Int(8), None)
 }
@@ -452,7 +452,7 @@ fn test_io_constructor()
     let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
     // let worker_tx = HashMap::new();
 
-    let (io, core) = Io::new(app_tx, msg_rx);
+    let (_, _) = Io::new(app_tx, msg_rx);
 }
 
 #[test]

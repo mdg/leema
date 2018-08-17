@@ -698,7 +698,7 @@ fn test_parse_match_empty_list() {
     |(_) -> false
     --
     ";
-    let root = ast::parse(lex(input));
+    ast::parse(lex(input));
 
     // didn't crash
     assert_eq!(2, 2);
@@ -743,7 +743,7 @@ fn test_ast_parse_if()
         z
     --
     ";
-    let root = ast::parse(lex(input));
+    ast::parse(lex(input));
 
     // didn't crash
     assert_eq!(1, 1);
@@ -787,9 +787,10 @@ fn test_ast_parse_macro()
 
     if let Ast::Block(lines) = root {
         let f = lines.first().unwrap();
-        if let &Ast::DefFunc(ast::FuncClass::Macro, ref name, ref args, _, ref body, _) = f
+        if let &Ast::DefFunc(ast::FuncClass::Macro, ref name, ref args, _, _, _) = f
         {
             assert_eq!("mand", Lstr::from(&**name).str());
+            assert_eq!(2, args.len());
         } else {
             panic!("mand is not a macro");
         }
@@ -842,6 +843,7 @@ fn test_parse_enum_variants()
         {
             assert_eq!(Ast::Localid(Lstr::from("Animal"), SrcLoc::new(2, 5))
                 , **name);
+            assert_eq!(4, vars.len());
         } else {
             panic!("enum is not an enum: {:?}", first);
         }
@@ -964,6 +966,7 @@ fn test_parse_match_list()
     if let &Ast::IfExpr(ast::IfType::Match, ref ifx, ref cases, _) = match_line
     {
         assert_eq!(Ast::Localid(Lstr::from("x"), SrcLoc::new(2, 6)), **ifx);
+        assert!(cases.else_case.is_some());
     } else {
         panic!("match line not an if statement: {:?}", match_line);
     }
@@ -1044,7 +1047,7 @@ fn test_parse_function_hashtag_tuple()
         [#tacos, #burritos]
     --
     ";
-    let root = ast::parse(lex(input));
+    ast::parse(lex(input));
 
     assert!(true); // didn't panic!
 }
@@ -1058,7 +1061,7 @@ fn test_parse_def_type_param()
     |Baz(B)
     --
     ";
-    let root = ast::parse(lex(input));
+    ast::parse(lex(input));
 
     assert!(true); // didn't panic!
 }
@@ -1071,7 +1074,7 @@ fn test_parse_nested_type_param()
         option::None
     --
     ";
-    let root = ast::parse(lex(input));
+    ast::parse(lex(input));
 
     assert!(true); // didn't panic!
 }
@@ -1084,7 +1087,7 @@ fn test_parse_function_type_param()
         f(i)
     --
     ";
-    let root = ast::parse(lex(input));
+    ast::parse(lex(input));
 
     assert!(true); // didn't panic!
 }

@@ -986,7 +986,7 @@ fn test_compile_matched_if_branches()
     let mut loader = Interloader::new("fact.lma");
     loader.set_mod_txt("fact", input);
     let mut prog = program::Lib::new(loader);
-    let ixfact = prog.read_inter("fact");
+    prog.read_inter("fact");
     // assert that it didn't panic
     assert!(true);
 }
@@ -1026,7 +1026,7 @@ fn test_pattern_declaration()
     let mut loader = Interloader::new("tacos.lma");
     loader.set_mod_txt("tacos", input);
     let mut prog = program::Lib::new(loader);
-    let imod = prog.read_inter("tacos");
+    prog.read_inter("tacos");
     assert!(true); // didn't panic earlier
 }
 
@@ -1044,7 +1044,7 @@ fn test_named_tuple_constructor()
     let mut loader = Interloader::new("greeting.lma");
     loader.set_mod_txt("greeting", input);
     let mut prog = program::Lib::new(loader);
-    let imod = prog.read_inter("greeting");
+    prog.read_inter("greeting");
     assert!(true); // didn't panic earlier
 }
 
@@ -1071,7 +1071,7 @@ fn test_enum_constructors()
     let mut loader = Interloader::new("animals.lma");
     loader.set_mod_txt("animals", input);
     let mut prog = program::Lib::new(loader);
-    let imod = prog.read_inter("animals");
+    prog.read_inter("animals");
     assert!(true); // didn't panic earlier
 }
 
@@ -1095,7 +1095,7 @@ fn test_pattern_type_explicit_mismatch()
     let mut loader = Interloader::new("tacos.lma");
     loader.set_mod_txt("tacos", input);
     let mut prog = program::Lib::new(loader);
-    let imod = prog.read_inter("tacos");
+    prog.read_inter("tacos");
 }
 
 #[test]

@@ -837,7 +837,6 @@ fn test_preproc_enum_colors()
         Lstr::Rc(modname.clone()),
         Lstr::Rc(local_typename.clone()),
     );
-    let expected_type = Type::UserDef(type_lri.clone());
 
     let expected_red =
         Val::EnumToken(type_lri.clone(), Lstr::Sref("Red"));
@@ -874,10 +873,8 @@ fn test_enum_types()
     );
     let expected_type = Type::UserDef(type_lri.clone());
     let typevar_a = Type::Var(Lstr::Sref("A"));
-    let typeparam_a = Type::Param(0);
     let dog_name = Lstr::Sref("Dog");
     let cat_name = Lstr::Sref("Cat");
-    let mouse_name = Rc::new("Mouse".to_string());
     let giraffe_name = Rc::new("Giraffe".to_string());
     let cat_func_type =
         Type::Func(
@@ -964,7 +961,6 @@ fn test_preproc_namedtuple()
     let greet = Rc::new("greet".to_string());
     let greeting_str = Rc::new("Greeting".to_string());
     let greeting_lstr = Lstr::Rc(greeting_str.clone());
-    let greeting_local = Lri::new(greeting_lstr.clone());
     let greeting_fullri = Lri::with_modules(
         Lstr::Rc(greet.clone()), greeting_lstr);
     let greeting_typref = Type::UserDef(greeting_fullri);
@@ -1097,6 +1093,7 @@ fn preproc_defstruple_keyed()
     let burrito_typeval = list::head_ref(type_vals);
     if let &Val::Struct(ref stype, ref sfields) = burrito_typeval {
         assert_eq!("types::TypeVal", format!("{}", stype));
+        assert_eq!(2, sfields.0.len());
     } else {
         panic!("Burrito constant is not a struct: {:?}", burrito_typeval);
     }
@@ -1145,7 +1142,6 @@ fn preproc_defstruple_token()
     let mut prog = program::Lib::new(loader);
     let pmod = prog.read_proto("tok");
 
-    let name_rc = Rc::new("Burrito".to_string());
     let exptype_lri = Lri::with_modules(
         Lstr::from("tok"),
         Lstr::from("Burrito"),
