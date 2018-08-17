@@ -769,17 +769,12 @@ mod tests {
     use leema::list;
     use leema::lri::{Lri};
     use leema::lstr::{Lstr};
-    use leema::log;
     use leema::loader::{Interloader};
-    use leema::module::{ModKey};
-    use leema::phase0::{Protomod};
     use leema::program;
     use leema::types;
-    use leema::val::{Val, Type, SrcLoc};
+    use leema::val::{Val, Type};
 
-    use std::collections::{HashSet};
     use std::rc::{Rc};
-    use std::io::{Write};
 
 
 #[test]

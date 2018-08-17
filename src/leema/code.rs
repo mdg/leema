@@ -687,7 +687,7 @@ mod tests {
     use leema::loader::{Interloader};
     use leema::program;
     use leema::reg::{Reg};
-    use leema::val::{Val, SrcLoc};
+    use leema::val::{Val};
 
 #[test]
 fn test_code_constval()

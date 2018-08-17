@@ -880,17 +880,15 @@ impl fmt::Debug for Intermod
 
 #[cfg(test)]
 mod tests {
-    use leema::ast::{self, Ast};
+    use leema::ast::{Ast};
     use leema::inter::{self, ScopeLevel, Interscope};
-    use leema::ixpr::{Ixpr};
-    use leema::log;
     use leema::loader::{Interloader};
     use leema::lstr::{Lstr};
     use leema::module::{ModKey};
     use leema::phase0::{Protomod};
     use leema::program;
-    use leema::typecheck::{Typemod, Depth};
-    use leema::val::{Type, Val, SrcLoc};
+    use leema::typecheck::{Typemod};
+    use leema::val::{Type, SrcLoc};
 
     use std::rc::{Rc};
     use std::collections::{HashMap, LinkedList};

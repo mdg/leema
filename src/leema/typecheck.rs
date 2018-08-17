@@ -589,11 +589,8 @@ pub fn typecheck_field_access(scope: &mut Typescope, xtyp: &Type, fld: i8
 mod tests {
     use leema::program;
     use leema::loader::{Interloader};
-    use leema::log;
     use leema::lstr::{Lstr};
     use leema::typecheck::{Depth};
-
-    use std::io::{Write};
 
 
 #[test]

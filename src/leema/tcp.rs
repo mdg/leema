@@ -270,13 +270,3 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         _ => None,
     }
 }
-
-
-#[cfg(test)]
-mod tests
-{
-    use leema::io::tests::{exercise_iop_action};
-    use leema::val::{Val};
-
-}
-

@@ -1734,15 +1734,12 @@ impl reg::Iregistry for Env
 
 #[cfg(test)]
 mod tests {
-    use leema::val::{Type, Val, SrcLoc};
+    use leema::val::{Type, Val};
     use leema::list;
     use leema::lri::{Lri};
     use leema::lstr::{Lstr};
     use leema::reg::{Reg};
     use leema::struple::{Struple};
-
-    use std::collections::{HashMap};
-    use std::rc::{Rc};
 
 
 #[test]

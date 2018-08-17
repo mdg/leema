@@ -403,7 +403,6 @@ impl Fiber
 
 #[cfg(test)]
 mod tests {
-    use leema::log;
     use leema::frame::{Frame, Event};
     use leema::fiber::{Fiber};
     use leema::reg::{Reg};

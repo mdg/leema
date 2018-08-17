@@ -212,7 +212,6 @@ enum Ixpr
 
 #[cfg(test)]
 mod tests {
-    use leema::log;
     use leema::application::{Application};
     use leema::loader::{Interloader};
     use leema::program;

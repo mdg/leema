@@ -441,14 +441,12 @@ pub fn parse(toks: Vec<Token>) -> Ast
 
 #[cfg(test)]
 mod tests {
-    use leema::val::{Val, Type, SrcLoc};
+    use leema::val::{SrcLoc};
     use leema::ast::{self, Ast, Kxpr};
     use leema::lstr::{Lstr};
-    use leema::list;
     use leema::lex::{lex};
 
     use std::collections::LinkedList;
-    use std::rc::Rc;
 
 
 fn test_lri(item: &'static str, line: i16, col: i8) -> Ast

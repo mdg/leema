@@ -157,12 +157,3 @@ impl ModuleInterface
         }
     }
 }
-
-
-#[cfg(test)]
-mod tests {
-    use leema::module::{ModulePreface};
-    use leema::lex::{lex};
-    use std::rc::Rc;
-
-}

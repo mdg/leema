@@ -583,7 +583,6 @@ impl<'b> Inferator<'b>
 mod tests {
     use leema::infer::{Inferator, TypeSet};
     use leema::list;
-    use leema::log;
     use leema::lstr::{Lstr};
     use leema::struple::{Struple};
     use leema::val::{Val, Type};

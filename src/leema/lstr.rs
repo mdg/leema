@@ -212,7 +212,7 @@ impl Hash for Lstr
 mod tests {
     use leema::lstr::{Lstr};
 
-    use std::collections::{HashSet, HashMap};
+    use std::collections::{HashSet};
     use std::rc::{Rc};
     use std::sync::{Arc};
 

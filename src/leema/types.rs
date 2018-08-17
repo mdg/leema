@@ -163,11 +163,10 @@ pub fn new_type_val(name: Lri, fields: &Vec<(Option<Lstr>, Type)>) -> Val
 
 #[cfg(test)]
 mod tests {
-    use leema::list;
     use leema::lri::{Lri};
     use leema::lstr::{Lstr};
     use leema::types;
-    use leema::val::{Val, Type};
+    use leema::val::{Type};
 
 
 #[test]
