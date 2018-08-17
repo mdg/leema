@@ -628,7 +628,7 @@ impl Protomod
         loc: &SrcLoc,
     )
     {
-        let name = Lri::from(name_ast);
+        let name = Protomod::replace_type_names_with_vars(Lri::from(name_ast));
         if name.mod_ref().is_some() {
             panic!("no modules in data definitions: {}", name);
         }
@@ -647,6 +647,28 @@ impl Protomod
                 self.preproc_enum(prog, mp, name_ast, fields);
             }
         }
+    }
+
+    pub fn replace_type_names_with_vars(mut i: Lri) -> Lri
+    {
+        if !i.has_params() {
+            return i;
+        }
+        let var_params = i.params.take().unwrap().into_iter().map(|p| {
+            match p {
+                Type::Var(_) => p,
+                Type::UserDef(lri) => {
+                    if lri.local_only() {
+                        Type::Var(lri.localid)
+                    } else {
+                        Type::UserDef(lri)
+                    }
+                }
+                _ => p,
+            }
+        }).collect();
+        i.params = Some(var_params);
+        i
     }
 
     pub fn preproc_struple_token(

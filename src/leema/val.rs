@@ -90,6 +90,7 @@ impl Type
             &Type::Int => Lstr::Sref("Int"),
             &Type::UserDef(ref name) => Lstr::from(name),
             &Type::Void => Lstr::Sref("Void"),
+            &Type::Var(ref name) => Lstr::from(format!("${}", name)),
             _ => {
                 panic!("no typename for {:?}", self);
             }

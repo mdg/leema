@@ -75,6 +75,11 @@ impl Lri
         self.modules.is_some()
     }
 
+    pub fn has_params(&self) -> bool
+    {
+        self.params.is_some()
+    }
+
     pub fn mod_ref(&self) -> Option<&Lstr>
     {
         self.modules.as_ref()
