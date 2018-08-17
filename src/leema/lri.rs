@@ -56,6 +56,15 @@ impl Lri
         }
     }
 
+    pub fn replace_params(&self, params: Vec<Type>) -> Lri
+    {
+        Lri {
+            modules: self.modules.clone(),
+            localid: self.localid.clone(),
+            params: Some(params),
+        }
+    }
+
     pub fn local_only(&self) -> bool
     {
         self.modules.is_none() && self.params.is_none()

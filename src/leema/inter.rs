@@ -360,33 +360,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
             compile_dot_access(scope, outer, inner, loc)
         }
         &Ast::Call(ref callx, ref args, ref iloc) => {
-            let icall = compile_expr(scope, callx, iloc);
-            let iargs: Vec<Ixpr> = args
-                .iter()
-                .map(|i| compile_expr(scope, i.x_ref().unwrap(), iloc))
-                .collect();
-            let ftype_result = {
-                let iargst: Vec<&Type> =
-                    iargs.iter().map(|ia| &ia.typ).collect();
-                scope
-                    .infer
-                    .make_call_type(&icall.typ, &iargst)
-                    .map_err(|e| {
-                        TypeErr::Context(
-                            Box::new(e),
-                            Rc::new(format!(
-                                "type error in function call: {:?}",
-                                callx
-                            )),
-                        )
-                    })
-            };
-            let argsix = Ixpr::new_tuple(iargs, loc.lineno);
-            Ixpr {
-                typ: ftype_result.unwrap(),
-                src: Source::Call(Box::new(icall), Box::new(argsix)),
-                line: loc.lineno,
-            }
+            compile_call(scope, callx, args, iloc)
         }
         &Ast::ConstBool(b) => Ixpr::const_val(Val::Bool(b), loc.lineno),
         &Ast::ConstInt(i) => Ixpr::const_val(Val::Int(i), loc.lineno),
@@ -550,6 +524,33 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
         None => {
             panic!("untyped variable: {} not in {:?}", id, scope);
         }
+    }
+}
+
+pub fn compile_call(
+    scope: &mut Interscope, callx: &Ast, args: &LinkedList<Kxpr>, loc: &SrcLoc
+    ) -> Ixpr
+{
+    let icall = compile_expr(scope, callx, loc);
+    let iargs: Vec<Ixpr> = args
+        .iter()
+        .map(|i| compile_expr(scope, i.x_ref().unwrap(), loc))
+        .collect();
+    let ftype_result = {
+        let iargst: Vec<&Type> =
+            iargs.iter().map(|ia| &ia.typ).collect();
+        scope
+            .infer
+            .make_call_type(&icall.typ, &iargst)
+            .map_err(|e| {
+                e.add_context(format!("type error in function call: {:?}", callx))
+            })
+    };
+    let argsix = Ixpr::new_tuple(iargs, loc.lineno);
+    Ixpr {
+        typ: ftype_result.unwrap(),
+        src: Source::Call(Box::new(icall), Box::new(argsix)),
+        line: loc.lineno,
     }
 }
 

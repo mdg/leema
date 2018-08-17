@@ -508,6 +508,12 @@ impl<'b> Inferator<'b>
                     .collect();
                 Type::Tuple(infers)
             }
+            &Type::UserDef(ref udlri) if udlri.params.is_some() => {
+                let iparams = udlri.params.as_ref().unwrap().iter().map(|p| {
+                    self.inferred_type(&p)
+                }).collect();
+                Type::UserDef(udlri.replace_params(iparams))
+            }
             _ => typ.clone(),
         }
     }
