@@ -592,20 +592,17 @@ impl Protomod
     ) -> Type
     {
         let pp_x = Protomod::preproc_expr(prog, mp, typ, loc);
+        let make_local = |name: &Lstr| Type::UserDef(Lri::new(name.clone()));
         match (&pp_x, opt_type_params) {
-            (&Ast::Localid(ref name, _), None) => {
-                Type::UserDef(Lri::new(name.clone()))
-            }
+            (&Ast::Localid(ref name, _), None) => make_local(name),
             (&Ast::Localid(ref name, _), Some(ref type_params)) => {
                 Protomod::find_type_param(type_params, name)
                     .map(|_i| {
                         // Type::Param(i)
                         Type::Var(name.clone())
-                    }).unwrap_or_else(|| Type::UserDef(Lri::new(name.clone())))
+                    }).unwrap_or_else(|| make_local(name))
             }
-            (&Ast::TypeVar(ref name, _), _) => {
-                Type::UserDef(Lri::new(name.clone()))
-            }
+            (&Ast::TypeVar(ref name, _), _) => Type::Var(name.clone()),
             _ => Type::from(&pp_x),
         }
     }

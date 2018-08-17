@@ -522,6 +522,8 @@ impl<'b> Inferator<'b>
             // all good
             return Ok(oldt.clone());
         }
+        let match_err = || Err(TypeErr::Mismatch(oldt.clone(), newt.clone()));
+
         vout!("mash({:?}, {:?})\n", oldt, newt);
         let mtype: TypeResult = match (oldt, newt) {
             // anything is better than Unknown
@@ -556,10 +558,7 @@ impl<'b> Inferator<'b>
                 let oldlen = oldargs.len();
                 let newlen = newargs.len();
                 if oldlen != newlen {
-                    panic!(
-                        "function arg count mismatch: {}!={}",
-                        oldlen, newlen
-                    );
+                    return match_err();
                 }
                 let mut masht = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
@@ -576,7 +575,7 @@ impl<'b> Inferator<'b>
                 let oldlen = olditems.0.len();
                 let newlen = newitems.0.len();
                 if oldlen != newlen {
-                    panic!("tuple size mismatch: {}!={}", oldlen, newlen);
+                    return match_err();
                 }
                 let mut mashitems = Vec::with_capacity(oldlen);
                 for (oi, ni) in olditems.0.iter().zip(newitems.0.iter()) {
@@ -585,7 +584,35 @@ impl<'b> Inferator<'b>
                 }
                 Ok(Type::Tuple(Struple(mashitems)))
             }
-            (_, _) => Err(TypeErr::Mismatch(oldt.clone(), newt.clone())),
+            (&Type::UserDef(ref oldlri), &Type::UserDef(ref newlri)) => {
+                if oldlri.modules != newlri.modules {
+                    return match_err();
+                }
+                if oldlri.localid != newlri.localid {
+                    return match_err();
+                }
+                if oldlri.params.is_none() || oldlri.params.is_none() {
+                    return match_err();
+                }
+                let oldparams = oldlri.params.as_ref().unwrap();
+                let newparams = newlri.params.as_ref().unwrap();
+                let oldlen = oldparams.len();
+                if oldlen != newparams.len() {
+                    return match_err();
+                }
+                let mut mashparams = Vec::with_capacity(oldlen);
+                for (op, np) in oldparams.iter().zip(newparams.iter()) {
+                    let mp = Inferator::mash(inferences, &op, &np)?;
+                    mashparams.push(mp);
+                }
+                let mashlri = Lri::full(
+                    oldlri.modules.clone(),
+                    oldlri.localid.clone(),
+                    Some(mashparams),
+                );
+                Ok(Type::UserDef(mashlri))
+            }
+            (_, _) => match_err(),
         };
         vout!("\tmashed to -> {:?}\n", mtype);
         mtype
@@ -628,6 +655,7 @@ mod tests
 {
     use leema::infer::{Inferator, TypeSet};
     use leema::list;
+    use leema::lri::Lri;
     use leema::lstr::Lstr;
     use leema::struple::Struple;
     use leema::val::{Type, Val};
@@ -757,6 +785,25 @@ mod tests
         ]));
         let newt =
             Type::Tuple(Struple(vec![(None, Type::Int), (None, Type::Str)]));
+
+        let result = Inferator::mash(&mut inferences, &oldt, &newt);
+        result.unwrap();
+    }
+
+    #[test]
+    fn test_mash_userdefs_containing_vars()
+    {
+        let mut inferences = HashMap::new();
+        let oldt = Type::UserDef(Lri::full(
+            Some(Lstr::from("option")),
+            Lstr::from("T"),
+            Some(vec![Type::Var(Lstr::from("A"))]),
+        ));
+        let newt = Type::UserDef(Lri::full(
+            Some(Lstr::from("option")),
+            Lstr::from("T"),
+            Some(vec![Type::Int]),
+        ));
 
         let result = Inferator::mash(&mut inferences, &oldt, &newt);
         result.unwrap();
