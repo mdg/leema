@@ -1,3 +1,6 @@
+#![deny(warnings)]
+#![allow(dead_code)]
+
 extern crate libc;
 extern crate docopt;
 #[macro_use]
