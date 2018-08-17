@@ -299,7 +299,7 @@ Void	{
 }
 ${ID}	{
     BEGIN(INITIAL);
-    return set_token_val(yyg, TOKEN_TYPE_VAR, yytext);
+    return set_token_val(yyg, TOKEN_TYPE_VAR, yytext+1);
 }
 `	{
     BEGIN(INITIAL);

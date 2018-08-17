@@ -229,7 +229,7 @@ impl fmt::Display for Type
 
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::Param(index) => write!(f, "Type::Param({})", index),
-            &Type::Var(ref name) => write!(f, "Type::Var({})", name),
+            &Type::Var(ref name) => write!(f, "${}", name),
             &Type::AnonVar => write!(f, "TypeAnonymous"),
             &Type::Deref(ref inner) => write!(f, "`{}", inner),
         }
@@ -266,7 +266,7 @@ impl fmt::Debug for Type
             &Type::Any => write!(f, "Any"),
 
             &Type::Unknown => write!(f, "TypeUnknown"),
-            &Type::Var(ref name) => write!(f, "Type::Var({})", name),
+            &Type::Var(ref name) => write!(f, "${}", name),
             &Type::Param(index) => write!(f, "Type::Param({})", index),
             &Type::AnonVar => write!(f, "TypeAnonymous"),
             &Type::Deref(ref inner) => write!(f, "TypeDeref({:?})", inner),
