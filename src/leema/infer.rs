@@ -538,6 +538,20 @@ impl<'b> Inferator<'b>
                         .expect("function result mismatch");
                 Ok(Type::Func(masht, Box::new(mashresult)))
             }
+            (&Type::Tuple(ref olditems), &Type::Tuple(ref newitems)) => {
+                let oldlen = olditems.0.len();
+                let newlen = newitems.0.len();
+                if oldlen != newlen {
+                    panic!("tuple size mismatch: {}!={}",
+                        oldlen, newlen);
+                }
+                let mut mashitems = Vec::with_capacity(oldlen);
+                for (oi, ni) in olditems.0.iter().zip(newitems.0.iter()) {
+                    let mi = Inferator::mash(inferences, &oi.1, &ni.1)?;
+                    mashitems.push((None, mi));
+                }
+                Ok(Type::Tuple(Struple(mashitems)))
+            }
             (_, _) => {
                 Err(TypeErr::Mismatch(
                     oldt.clone(),
@@ -587,6 +601,7 @@ mod tests {
     use leema::struple::{Struple};
     use leema::val::{Val, Type};
 
+    use std::collections::{HashMap};
     use std::rc::{Rc};
 
 
@@ -697,6 +712,23 @@ fn test_match_pattern_tuple_size_mismatch()
     ));
     let ts = TypeSet::new();
     t.match_pattern(&ts, &listpatt, &tvar, 14).unwrap();
+}
+
+#[test]
+fn test_mash_tuples_containing_vars()
+{
+    let mut inferences = HashMap::new();
+    let oldt = Type::Tuple(Struple(vec![
+        (None, Type::Var(Lstr::Sref("A"))),
+        (None, Type::Var(Lstr::Sref("B"))),
+    ]));
+    let newt = Type::Tuple(Struple(vec![
+        (None, Type::Int),
+        (None, Type::Str),
+    ]));
+
+    let result = Inferator::mash(&mut inferences, &oldt, &newt);
+    result.unwrap();
 }
 
 }
