@@ -411,7 +411,10 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             for ta in targs.iter() {
                 targs_ref.push(ta);
             }
-            scope.infer.make_call_type(&tfunc, &targs_ref)
+            let full_call_type = scope.infer.make_call_type(&tfunc, &targs_ref)
+                .unwrap();
+            let (_, call_result) = Type::split_func(full_call_type);
+            Ok(call_result.clone())
         }
         &Source::Cons(ref head, ref tail) => {
             let head_t = typecheck_expr(scope, head).unwrap();
@@ -535,7 +538,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             scope
                 .infer
                 .merge_types(&result_type, declared_result_type)
-                .map(|final_type| Type::Func(final_args, Box::new(final_type)))
+                .map(|final_type| Type::f(final_args, final_type))
         }
         (&Source::RustBlock, _) => Ok(ix.typ.clone()),
         _ => {

@@ -310,7 +310,7 @@ pub fn compile_function<'a>(
             line: loc.lineno,
         };
     }
-    let (argt, _result) = Type::split_func(ftype);
+    let (argt, _result) = Type::split_func_ref(ftype);
     let mut scope =
         Interscope::new(proto, imports, typed, fname, loc.lineno, args);
     let ibody = compile_expr(&mut scope, body, loc);
@@ -531,12 +531,12 @@ pub fn compile_call(
     scope: &mut Interscope, callx: &Ast, args: &LinkedList<Kxpr>, loc: &SrcLoc
     ) -> Ixpr
 {
-    let icall = compile_expr(scope, callx, loc);
+    let mut icall = compile_expr(scope, callx, loc);
     let iargs: Vec<Ixpr> = args
         .iter()
         .map(|i| compile_expr(scope, i.x_ref().unwrap(), loc))
         .collect();
-    let ftype_result = {
+    let ftype = {
         let iargst: Vec<&Type> =
             iargs.iter().map(|ia| &ia.typ).collect();
         scope
@@ -545,10 +545,13 @@ pub fn compile_call(
             .map_err(|e| {
                 e.add_context(format!("type error in function call: {:?}", callx))
             })
+            .unwrap()
     };
+    icall.typ = ftype.clone();
+    let (_, ftype_result) = Type::split_func(ftype);
     let argsix = Ixpr::new_tuple(iargs, loc.lineno);
     Ixpr {
-        typ: ftype_result.unwrap(),
+        typ: ftype_result.clone(),
         src: Source::Call(Box::new(icall), Box::new(argsix)),
         line: loc.lineno,
     }

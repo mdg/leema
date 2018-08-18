@@ -108,7 +108,17 @@ impl Type
         }
     }
 
-    pub fn split_func(t: &Type) -> (&Vec<Type>, &Type)
+    pub fn split_func(t: Type) -> (Vec<Type>, Type)
+    {
+        match t {
+            Type::Func(args, result) => (args, *result),
+            _ => {
+                panic!("Not a func type {:?}", t);
+            }
+        }
+    }
+
+    pub fn split_func_ref(t: &Type) -> (&Vec<Type>, &Type)
     {
         match t {
             &Type::Func(ref args, ref result) => (args, &*result),

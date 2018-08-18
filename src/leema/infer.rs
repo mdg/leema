@@ -631,7 +631,7 @@ impl<'b> Inferator<'b>
         argst: &Vec<&Type>,
     ) -> TypeResult
     {
-        let (defargst, defresult) = Type::split_func(ftype);
+        let (defargst, defresult) = Type::split_func_ref(ftype);
 
         let defargslen = defargst.len();
         let argslen = argst.len();
@@ -642,16 +642,19 @@ impl<'b> Inferator<'b>
             panic!("it's so much fun to curry, but not supported yet");
         }
 
-        for (defargt, argt) in defargst.iter().zip(argst.iter()) {
-            Inferator::mash(&mut self.inferences, defargt, argt)
-                .map_err(|e| {
-                    e.add_context(format!(
-                        "expected function args in {}: {:?} found {:?}",
-                        self.funcname, defargst, argst,
-                    ))
-                }).unwrap();
-        }
-        Ok(self.inferred_type(defresult))
+        let mashed_args = defargst.iter().zip(argst.iter()).map(
+            |(defargt, argt)| {
+                Inferator::mash(&mut self.inferences, defargt, argt)
+                    .map_err(|e| {
+                        e.add_context(format!(
+                            "expected function args in {}: {:?} found {:?}",
+                            self.funcname, defargst, argst,
+                        ))
+                    })
+                    .unwrap()
+            }
+        ).collect();
+        Ok(Type::f(mashed_args, self.inferred_type(defresult)))
     }
 }
 
@@ -713,6 +716,25 @@ mod tests
         t.push_module(Rc::new(String::from("torta")));
         assert_eq!("torta", &*t.take_current_module().unwrap());
         assert_eq!(None, t.take_current_module());
+    }
+
+#[test]
+    fn test_make_call_type_with_vars()
+    {
+        let mut t = Inferator::new("burritos");
+        let defargst = Type::f(
+            vec![Type::Var(Lstr::from("A")), Type::Int],
+            Type::Var(Lstr::from("A")),
+        );
+        let argvalt = vec![&Type::Hashtag, &Type::Int];
+
+        let mct = t.make_call_type(&defargst, &argvalt).unwrap();
+
+        let (func_args, func_result) = Type::split_func(&mct);
+        assert_eq!(2, func_args.len());
+        assert_eq!(Type::Hashtag, func_args[0]);
+        assert_eq!(Type::Int, func_args[1]);
+        assert_eq!(Type::Hashtag, *func_result);
     }
 
     #[test]
