@@ -33,7 +33,7 @@ impl Application
         let (tx, rx) = channel();
         let (iotx, iorx) = channel();
         Application {
-            prog: prog,
+            prog,
             app_recv: rx,
             app_send: tx,
             io_recv: Some(iorx),
@@ -234,7 +234,7 @@ mod tests
         let p = unsafe {
             getpid();
         };
-        write!(stderr(), "test_main_func_finishes {:?}\n", p).unwrap();
+        writeln!(stderr(), "test_main_func_finishes {:?}", p).unwrap();
         let input = "func main() -> 3 --".to_string();
         let mut inter = Interloader::new("test.lma");
         inter.set_mod_txt("test", input);
