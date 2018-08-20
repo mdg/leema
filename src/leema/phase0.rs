@@ -744,7 +744,8 @@ impl Protomod
                     loc,
                 );
                 (f.k_clone(), pp_type)
-            }).collect();
+            })
+            .collect();
         let field_type_vec = struple_fields
             .iter()
             .map(|&(_, ref ftype)| ftype.clone())

@@ -409,8 +409,9 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
                     type_lri.localid, scope.proto.deftypes
                 );
             }
+            let full_type = opt_full_type.unwrap();
             let flds = scope.typeset.get_typedef(&type_lri).unwrap();
-            Ixpr::construple(opt_full_type.unwrap().clone(), flds, loc.lineno)
+            Ixpr::construple(full_type.clone(), flds, loc.lineno)
         }
         &Ast::Let(ltype, ref lhs, ref rhs, ref iloc) => {
             compile_let_stmt(scope, ltype, lhs, rhs, iloc)
@@ -538,7 +539,10 @@ pub fn compile_call(
         .collect();
     let ftype = {
         let iargst: Vec<&Type> =
-            iargs.iter().map(|ia| &ia.typ).collect();
+            iargs
+                .iter()
+                .map(|ia| &ia.typ)
+                .collect();
         scope
             .infer
             .make_call_type(&icall.typ, &iargst)
@@ -556,40 +560,6 @@ pub fn compile_call(
         line: loc.lineno,
     }
 }
-
-/*
-pub fn compile_module_id(scope: &mut Interscope, module: Rc<String>
-    , id: &Rc<String>, loc: &SrcLoc
-    ) -> Ixpr
-{
-    match scope.import_vartype(&*module, &**id) {
-        Some(typ) if typ.is_func() => {
-            Ixpr{
-                src: Source::ConstVal(Val::Tuple(
-                    Struple::new_tuple2(
-                        Val::Str(module.clone()),
-                        Val::Str(id.clone()),
-                    ),
-                )),
-                typ: typ.clone(),
-                line: loc.lineno,
-            }
-        }
-        Some(typ) => {
-            let mod_proto = scope.imports.get(&*module).unwrap();
-            let c = mod_proto.constants.get(&**id).unwrap();
-            Ixpr{
-                src: Source::ConstVal(c.clone()),
-                typ: typ.clone(),
-                line: loc.lineno,
-            }
-        }
-        None => {
-            panic!("undefined module id: {}::{}", module, id);
-        }
-    }
-}
-*/
 
 pub fn compile_let_stmt(
     scope: &mut Interscope,
