@@ -446,33 +446,6 @@ pub fn compile_lri(
     let fref = Val::FuncRef(lri, vartype.clone());
     Ixpr::const_val(fref, loc.lineno)
 }
-/*
-    match lri {
-        &Val::Cons(ref head, ref tail) => {
-            match &**tail {
-                &Val::Nil => {
-                    let id = head.to_str();
-                    compile_local_id(scope, &id, loc)
-                }
-                _ => {
-                    panic!("module lris not supported: {:?}", lri);
-                }
-            }
-        }
-    }
-    match scope.infer.take_current_module() {
-        Some(modname) => {
-            compile_module_id(scope, modname, id, loc)
-        }
-    }
-            if !scope.imports_module(prefix) {
-                panic!("module not found: {}", prefix);
-            }
-            scope.infer.push_module(prefix.clone());
-            let mod_result = compile_expr(scope, inner, loc);
-            scope.infer.pop_module();
-            mod_result
-            */
 
 pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
     -> Ixpr
