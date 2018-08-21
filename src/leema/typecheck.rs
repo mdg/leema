@@ -1,6 +1,7 @@
 use leema::infer::{Inferator, TypeSet};
 use leema::ixpr::{Ixpr, Source};
 use leema::log;
+use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::phase0::Protomod;
 use leema::val::{Type, TypeErr, TypeResult, Val};
@@ -13,7 +14,7 @@ use std::rc::Rc;
 pub enum CallOp
 {
     LocalCall(Rc<String>),
-    ExternalCall(Rc<String>, Rc<String>),
+    ExternalCall(Lri),
 }
 
 #[derive(Debug)]
@@ -139,11 +140,8 @@ impl<'a> CallFrame<'a>
                     &Val::Str(ref name) => {
                         self.push_call(CallOp::LocalCall(name.clone()));
                     }
-                    &Val::FuncRef(ref modnm, ref funcnm, _) => {
-                        self.push_call(CallOp::ExternalCall(
-                            modnm.clone(),
-                            funcnm.clone(),
-                        ));
+                    &Val::FuncRef(ref i, _) => {
+                        self.push_call(CallOp::ExternalCall(i.clone()));
                     }
                     _ => {
                         panic!("const val is not a call: {:?}", val);
@@ -356,7 +354,7 @@ impl<'a, 'b> Typescope<'a, 'b>
             &Source::ConstVal(ref fval) => {
                 match fval {
                     &Val::Str(_) => Ok(Type::Void),
-                    &Val::FuncRef(_, _, ref typ) => Ok(typ.clone()),
+                    &Val::FuncRef(_, ref typ) => Ok(typ.clone()),
                     _ => {
                         panic!("what val is in typecheck_call? {:?}", fval);
                     }

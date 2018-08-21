@@ -214,8 +214,8 @@ impl Fiber
                         }
                     }
                 }
-                &Val::FuncRef(ref modnm, ref funcnm, _) => {
-                    (modnm.clone(), funcnm.clone())
+                &Val::FuncRef(ref callri, _) => {
+                    (callri.mod_ref().unwrap().rc(), callri.localid.rc())
                 }
                 _ => {
                     panic!("That's not a function! {:?}", fname_val);

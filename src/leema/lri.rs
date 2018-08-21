@@ -75,14 +75,30 @@ impl Lri
         self.modules.is_some()
     }
 
-    pub fn has_params(&self) -> bool
+    pub fn matches_modules(&self, mods: &str) -> bool
     {
-        self.params.is_some()
+        match self.modules {
+            None => false,
+            Some(ref imod) => imod == mods,
+        }
     }
 
     pub fn mod_ref(&self) -> Option<&Lstr>
     {
         self.modules.as_ref()
+    }
+
+    pub fn safe_mod(&self) -> Lstr
+    {
+        match &self.modules {
+            &Some(ref mods) => mods.clone(),
+            &None => Lstr::Sref(""),
+        }
+    }
+
+    pub fn has_params(&self) -> bool
+    {
+        self.params.is_some()
     }
 
     /**

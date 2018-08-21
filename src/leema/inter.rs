@@ -441,8 +441,9 @@ pub fn compile_lri(
         panic!("failure for import_vartype({}, {})", modname, id);
     }
     let vartype = opt_vartype.unwrap();
+    let lri = Lri::with_modules(modname.clone(), id.clone());
 
-    let fref = Val::FuncRef(modname.rc(), id.rc(), vartype.clone());
+    let fref = Val::FuncRef(lri, vartype.clone());
     Ixpr::const_val(fref, loc.lineno)
 }
 /*
@@ -489,8 +490,10 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
         Some((ScopeLevel::Module, typ)) => {
             if typ.is_func() {
                 let fref = Val::FuncRef(
-                    scope.proto.key.name.clone(),
-                    id.rc(),
+                    Lri::with_modules(
+                        Lstr::Rc(scope.proto.key.name.clone()),
+                        id.clone(),
+                    ),
                     typ.clone(),
                 );
                 Ixpr {
@@ -512,8 +515,7 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
             // it's almost certainly prefab. probably
             // a better way to make this work
             let fref = Val::FuncRef(
-                Rc::new("prefab".to_string()),
-                id.rc(),
+                Lri::with_modules(Lstr::from("prefab"), id.clone()),
                 typ.clone(),
             );
             Ixpr {

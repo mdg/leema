@@ -780,7 +780,7 @@ impl Protomod
             .insert(local_name.clone(), Struple(struple_fields));
 
         let funcref =
-            Val::FuncRef(self.key.name.clone(), local_name.rc(), func_type.clone());
+            Val::FuncRef(struple_lri, func_type.clone());
         self.constants.insert(String::from(&local_name), funcref);
 
         self.funcseq.push_back(local_name.rc());

@@ -5,6 +5,7 @@ use leema::ixpr::Source;
 use leema::lib_str;
 use leema::loader::Interloader;
 use leema::log;
+use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::module::{ModulePreface, ModuleSource};
 use leema::phase0::{self, Protomod};
@@ -102,7 +103,8 @@ impl Lib
             }
             let modlstr = Lstr::from(String::from(modname));
             let funclstr = Lstr::from(String::from(funcname));
-            self.typecheck(&modlstr, &funclstr, typecheck::Depth::One);
+            let funcri = Lri::with_modules(modlstr, funclstr);
+            self.typecheck(&funcri, typecheck::Depth::One);
 
             if has_mod {
                 let old_mod = self.code.get_mut(modname).unwrap();
@@ -237,34 +239,36 @@ impl Lib
 
     pub fn typecheck(
         &mut self,
-        modname: &Lstr,
-        funcname: &Lstr,
+        funcri: &Lri,
         depth: typecheck::Depth,
     )
     {
-        vout!("typecheck({}::{}, {:?})\n", modname, funcname, depth);
-        self.load_inter(modname);
+        vout!("typecheck({}, {:?})\n", funcri, depth);
+        self.load_inter(
+            funcri.mod_ref().expect("no typecheck module name").str()
+        );
         if depth.one_deeper() {
-            self.deeper_typecheck(modname, funcname, depth);
+            self.deeper_typecheck(funcri, depth);
         }
 
-        let ftype = self.local_typecheck(modname, funcname);
-        let mutyped = self.typed.get_mut(modname.str()).unwrap();
-        mutyped.set_type(funcname.clone(), depth, ftype);
-        vout!("\tfinish typecheck({}::{})\n", modname, funcname);
+        let ftype = self.local_typecheck(funcri);
+        let modstr = funcri.mod_ref().unwrap().str();
+        let mutyped = self.typed.get_mut(modstr).unwrap();
+        mutyped.set_type(funcri.localid.clone(), depth, ftype);
+        vout!("\tfinish typecheck({})\n", funcri);
     }
 
     pub fn deeper_typecheck(
         &mut self,
-        modname: &Lstr,
-        funcname: &Lstr,
+        funcri: &Lri,
         depth: typecheck::Depth,
     )
     {
         let cf = {
-            let mut icf = CallFrame::new(modname, funcname);
-            let inter = self.inter.get(modname).unwrap();
-            let fix = inter.interfunc.get(funcname.str()).unwrap();
+            let mod_str = funcri.mod_ref().expect("typecheck module name");
+            let mut icf = CallFrame::new(mod_str, funcri.localid.str());
+            let inter = self.inter.get(mod_str).unwrap();
+            let fix = inter.interfunc.get(funcri.localid.str()).unwrap();
             icf.collect_calls(&fix);
             icf
         };
@@ -273,56 +277,55 @@ impl Lib
                 &CallOp::LocalCall(ref call_name) => {
                     let contains_local = {
                         let local_inter =
-                            self.inter.get(modname.str()).unwrap();
-                        local_inter.interfunc.contains_key(funcname.str())
+                            self.inter.get(funcri.localid.str()).unwrap();
+                        local_inter.interfunc.contains_key(&**call_name)
                     };
                     if contains_local {
-                        if funcname.str() != &**call_name {
+                        if funcri.localid.str() != &**call_name {
                             self.typecheck(
-                                modname,
-                                &Lstr::Rc(call_name.clone()),
+                                &Lri::full(
+                                    funcri.modules.clone(),
+                                    Lstr::Rc(call_name.clone()),
+                                    None,
+                                ),
                                 depth.next(),
                             );
                         }
                     } else {
                         self.typecheck(
-                            &Lstr::from("prefab"),
-                            &Lstr::Rc(call_name.clone()),
+                            &Lri::with_modules(
+                                Lstr::from("prefab"),
+                                Lstr::Rc(call_name.clone()),
+                            ),
                             depth.next(),
                         );
                     }
                 }
-                &CallOp::ExternalCall(ref extmod, ref extfunc) => {
-                    if modname.str() == &**extmod
-                        && funcname.str() == &**extfunc
-                    {
+                &CallOp::ExternalCall(ref ext) => {
+                    if funcri == ext {
                         // do nothing, it's recursive, we're already doing it
                     } else {
-                        self.typecheck(
-                            &Lstr::Rc(extmod.clone()),
-                            &Lstr::Rc(extfunc.clone()),
-                            depth.next(),
-                        );
+                        self.typecheck(&ext, depth.next());
                     }
                 }
             }
         }
     }
 
-    pub fn local_typecheck(&mut self, modname: &str, funcname: &str) -> Type
+    pub fn local_typecheck(&mut self, funcri: &Lri) -> Type
     {
-        vout!("local_typecheck({}::{})\n", modname, funcname);
-        let modlstr = Lstr::from(String::from(modname));
-        let funclstr = Lstr::from(String::from(funcname));
-        let opt_inter = self.inter.get(&modlstr);
+        vout!("local_typecheck({})\n", funcri);
+        let modlstr = funcri.mod_ref().unwrap();
+        let funclstr = &funcri.localid;
+        let opt_inter = self.inter.get(modlstr);
         if opt_inter.is_none() {
-            panic!("cannot find inter for {}::{}", modname, funcname);
+            panic!("cannot find inter for {}", funcri);
         }
         let inter = opt_inter.unwrap();
         let fix = inter.interfunc.get(funclstr.str()).unwrap();
-        let typed = self.typed.get(modname).unwrap();
+        let typed = self.typed.get(modlstr.str()).unwrap();
 
-        let pref = self.find_preface(modname).unwrap().clone();
+        let pref = self.find_preface(modlstr).unwrap().clone();
         let prefab = self.typed.get("prefab");
         let mut imports: HashMap<String, &Typemod> = HashMap::new();
         if prefab.is_some() {
@@ -338,7 +341,7 @@ impl Lib
 
         let opt_proto = self.proto.get(modlstr.str());
         let mut scope =
-            Typescope::new(typed, opt_proto.unwrap(), funcname, &imports);
+            Typescope::new(typed, opt_proto.unwrap(), funclstr.str(), &imports);
         typecheck::typecheck_function(&mut scope, fix).unwrap()
     }
 

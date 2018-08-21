@@ -454,7 +454,7 @@ pub enum Val
     Kind(u8),
     Lib(Arc<LibVal>),
     LibRc(Rc<LibVal>),
-    FuncRef(Rc<String>, Rc<String>, Type),
+    FuncRef(Lri, Type),
     ResourceRef(i64),
     RustBlock,
     Future(FutureVal),
@@ -704,7 +704,7 @@ impl Val
             &Val::Kind(_) => {
                 panic!("is kind even a thing here?");
             }
-            &Val::FuncRef(_, _, ref typ) => typ.clone(),
+            &Val::FuncRef(_, ref typ) => typ.clone(),
             &Val::Lib(ref lv) => lv.get_type(),
             &Val::LibRc(ref lv) => lv.get_type(),
             &Val::ResourceRef(_) => {
@@ -879,10 +879,9 @@ impl Val
                 Val::EnumToken(typ.deep_clone(), vname.deep_clone())
             }
             &Val::Token(ref typ) => Val::Token(typ.deep_clone()),
-            &Val::FuncRef(ref modname, ref fname, ref typ) => {
+            &Val::FuncRef(ref fi, ref typ) => {
                 Val::FuncRef(
-                    Rc::new((**modname).clone()),
-                    Rc::new((**fname).clone()),
+                    fi.deep_clone(),
                     typ.deep_clone(),
                 )
             }
@@ -1003,8 +1002,8 @@ impl fmt::Display for Val
             Val::Id(ref name) => write!(f, "{}", name),
             Val::Type(ref t) => write!(f, "{}", t),
             Val::Kind(c) => write!(f, "Kind({})", c),
-            Val::FuncRef(ref module, ref name, ref typ) => {
-                write!(f, "{}::{} : {}", module, name, typ)
+            Val::FuncRef(ref id, ref typ) => {
+                write!(f, "{} : {}", id, typ)
             }
             Val::Future(_) => write!(f, "Future"),
             Val::Void => write!(f, "Void"),
@@ -1055,8 +1054,8 @@ impl fmt::Debug for Val
             Val::Id(ref id) => write!(f, "Id({})", id),
             Val::Type(ref t) => write!(f, "TypeVal({:?})", t),
             Val::Kind(c) => write!(f, "Kind{:?}", c),
-            Val::FuncRef(ref module, ref name, ref typ) => {
-                write!(f, "FuncRef({}::{} : {})", module, name, typ)
+            Val::FuncRef(ref id, ref typ) => {
+                write!(f, "FuncRef({} : {})", id, typ)
             }
             Val::Future(_) => write!(f, "Future"),
             Val::PatternVar(ref r) => write!(f, "pvar:{:?}", r),
@@ -1221,13 +1220,12 @@ impl PartialOrd for Val
             }
             // func ref to func ref comparison
             (
-                &Val::FuncRef(ref m1, ref n1, ref t1),
-                &Val::FuncRef(ref m2, ref n2, ref t2),
+                &Val::FuncRef(ref f1, ref t1),
+                &Val::FuncRef(ref f2, ref t2),
             ) => {
                 Some(
-                    PartialOrd::partial_cmp(m1, m2)
+                    PartialOrd::partial_cmp(f1, f2)
                         .unwrap()
-                        .then_with(|| PartialOrd::partial_cmp(n1, n2).unwrap())
                         .then_with(|| PartialOrd::partial_cmp(t1, t2).unwrap()),
                 )
             }
