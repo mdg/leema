@@ -200,9 +200,11 @@ impl Fiber
             match *fname_val {
                 &Val::Str(ref name_str) => {
                     // pass in args
+                    println!("found a string for function call: {}", name_str);
                     (Rc::new("".to_string()), name_str.clone())
                 }
                 &Val::Tuple(ref modfunc) if modfunc.0.len() == 2 => {
+                    println!("found tuple for func call: {:?}", modfunc);
                     let modnm = &modfunc.0.get(0).unwrap().1;
                     let funcnm = &modfunc.0.get(1).unwrap().1;
                     match (modnm, funcnm) {
