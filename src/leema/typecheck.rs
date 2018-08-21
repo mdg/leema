@@ -124,7 +124,6 @@ impl<'a> CallFrame<'a>
             Source::RustBlock => {}
             Source::Construple(_, _) => {}
             Source::EnumConstructor(_, _, _) => {}
-            Source::ModuleAccess(_, _) => {}
             Source::PropagateFailure(_, _) => {}
         }
     }
@@ -134,12 +133,6 @@ impl<'a> CallFrame<'a>
         match callx.src {
             Source::Id(ref callname, _) => {
                 self.push_call(CallOp::LocalCall(callname.clone()));
-            }
-            Source::ModuleAccess(ref modname, ref callname) => {
-                self.push_call(CallOp::ExternalCall(
-                    modname.clone(),
-                    callname.clone(),
-                ));
             }
             Source::ConstVal(ref val) => {
                 match val {
