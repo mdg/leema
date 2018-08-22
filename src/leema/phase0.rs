@@ -160,7 +160,9 @@ impl Protomod
                         .collect(),
                 )
             }
-            &Ast::Localid(_, _) => x.clone(),
+            &Ast::Localid(ref id, ref iloc) => {
+                Protomod::preproc_localid(prog, mp, id, iloc)
+            }
             &Ast::Lri(ref mods, None, ref iloc) => {
                 Protomod::preproc_lri(prog, mp, mods, iloc)
             }
@@ -430,14 +432,30 @@ impl Protomod
                 let m_case = Protomod::replace_ifcase_ids(if_case, idvals, loc);
                 Ast::IfExpr(ift, Box::new(m_input), Box::new(m_case), *loc)
             }
+            &Ast::Call(ref callx, ref args, _) => {
+                let new_callx = Protomod::replace_ids(callx, idvals, loc);
+                let new_args = args.iter().map(|arg| {
+                    arg.map_x(|x| {
+                        Protomod::replace_ids(x, idvals, loc)
+                    })
+                }).collect();
+                Ast::Call(Box::new(new_callx), new_args, *loc)
+            }
             &Ast::Localid(ref name, ref _iloc) => {
                 match idvals.get(&*name) {
                     Some(newx) => (*newx).clone(),
                     None => node.clone(),
                 }
             }
+            &Ast::Return(ref result, _) => {
+                let new_result = Protomod::replace_ids(result, idvals, loc);
+                Ast::Return(Box::new(new_result), *loc)
+            }
             &Ast::Lri(_, _, _) => node.clone(),
-            _ => node.clone(),
+            _ => {
+                println!("cannot replace_ids for expression: {:?}", node);
+                node.clone()
+            }
         }
     }
 
@@ -453,6 +471,24 @@ impl Protomod
             Protomod::replace_ifcase_ids(&else_case, idvals, loc)
         });
         ast::IfCase::new(m_cond, m_body, m_else, *loc)
+    }
+
+    pub fn preproc_localid(
+        prog: &Lib,
+        mp: &ModulePreface,
+        id: &Lstr,
+        loc: &SrcLoc,
+    ) -> Ast
+    {
+        let mac =
+            prog.get_macro(&mp.key.name, id)
+                .or_else(|| {
+                    prog.get_macro(&Lstr::Sref("prefab"), id)
+                });
+        match mac {
+            Some(imac) => imac.clone(),
+            None => Ast::Localid(id.clone(), *loc),
+        }
     }
 
     pub fn preproc_lri(
