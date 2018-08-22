@@ -78,14 +78,14 @@ fn real_main() -> i32
     }
     vout!("verbose mode\nargs:{:?}\n", args);
 
-    let file = args.arg_script.first().unwrap();
+    let file = Lstr::from(args.arg_script.first().unwrap());
     let leema_args: Val =
         args.arg_script.iter().skip(1).fold(Val::Nil, |acc, a| {
             let strval = Val::Str(Lstr::from(a.to_string()));
             list::cons(strval, acc)
         });
     let inter = Interloader::new(file);
-    let modkey = inter.mod_name_to_key(&inter.main_mod);
+    let modkey = inter.mod_name_to_key(inter.main_mod.clone());
     vout!("{} {}\n", args.arg_cmd, inter.main_mod);
 
     if args.arg_cmd == "tokens" {
@@ -112,28 +112,34 @@ fn real_main() -> i32
         let mut prog = program::Lib::new(inter);
         let imod = prog.read_inter(&modkey.name);
         let fix = match args.flag_func {
-            Some(func) => imod.interfunc.get(&func),
+            Some(func) => {
+                let lfunc = Lstr::from(func);
+                imod.interfunc.get(&lfunc)
+            }
             None => imod.interfunc.get("main"),
         };
         println!("\n{:?}\n", fix);
     } else if args.arg_cmd == "typecheck" {
         let mut prog = program::Lib::new(inter);
-        let mod_name = Lstr::Rc(modkey.name.clone());
+        let mod_name = modkey.name.clone();
         let func_name = Lstr::Sref("main");
         let funcri = Lri::with_modules(mod_name, func_name);
         prog.typecheck(&funcri, typecheck::Depth::Full);
     } else if args.arg_cmd == "code" {
         let mut prog = program::Lib::new(inter);
         let code = match args.flag_func {
-            Some(func) => prog.load_code(&modkey.name, &func),
-            None => prog.load_code(&modkey.name, "main"),
+            Some(func) => {
+                let func_name = Lstr::from(func);
+                prog.load_code(&modkey.name, &func_name)
+            }
+            None => prog.load_code(&modkey.name, &Lstr::Sref("main")),
         };
         println!("code: {:?}", code);
     } else if args.arg_cmd == "run" {
         let prog = program::Lib::new(inter);
         let mut app = Application::new(prog);
         app.set_args(leema_args);
-        app.push_call(Lstr::Rc(modkey.name.clone()), Lstr::Sref("main"));
+        app.push_call(modkey.name.clone(), Lstr::Sref("main"));
         app.run();
         let result = app.wait_for_result();
         return Application::handle_result(result) as i32;

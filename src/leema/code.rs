@@ -2,6 +2,7 @@ use leema::fiber;
 use leema::frame;
 use leema::ixpr::{Ixpr, Source};
 use leema::log;
+use leema::lstr::Lstr;
 use leema::reg::{Reg, RegTable};
 use leema::rsrc;
 use leema::sendclone::SendClone;
@@ -454,7 +455,7 @@ pub fn make_matchfailure_ops(rt: &mut RegTable, x: &Ixpr, cases: &Ixpr)
     rt.push_dst();
     let xops = make_sub_ops(rt, x);
     rt.pop_dst();
-    let failtag = rt.id("leema#failure");
+    let failtag = rt.id(&Lstr::Sref("leema#failure"));
     let mut case_ops =
         make_matchcase_ops(rt, xops.dst.clone(), cases, &failtag);
 

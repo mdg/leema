@@ -74,7 +74,7 @@ typecheck_module(mod) ->
 pub struct Intermod
 {
     pub modname: Lstr,
-    pub interfunc: HashMap<String, Ixpr>,
+    pub interfunc: HashMap<Lstr, Ixpr>,
 }
 
 impl Intermod
@@ -94,33 +94,32 @@ impl Intermod
 
     pub fn compile(
         proto: &Protomod,
-        imports: &HashMap<String, Rc<Protomod>>,
+        imports: &HashMap<Lstr, Rc<Protomod>>,
         typed: &mut Typemod,
     ) -> Intermod
     {
-        let mod_lstr = Lstr::Rc(proto.key.name.clone());
+        let mod_lstr = &proto.key.name;
         let mut inter = Intermod::new(mod_lstr.clone());
         for fname in proto.funcseq.iter() {
-            let flstr = Lstr::Rc(fname.clone());
-            let opt_defunc = proto.funcsrc.get(flstr.str());
+            let opt_defunc = proto.funcsrc.get(fname);
             if opt_defunc.is_none() {
                 panic!(
                     "No function source found for {}::{}",
-                    proto.key.name, flstr
+                    proto.key.name, fname
                 );
             }
             let defunc = opt_defunc.unwrap();
             let (args, body, loc) = split_func_args_body(defunc);
-            let ftype = proto.valtypes.get(flstr.str()).unwrap();
+            let ftype = proto.valtypes.get(fname).unwrap();
             let ifunc = compile_function(
-                proto, imports, &typed, fname, ftype, &args, body, loc,
+                proto, imports, &typed, fname.str(), ftype, &args, body, loc,
             );
             typed.set_type(
-                flstr.clone(),
+                fname.clone(),
                 typecheck::Depth::Inter,
                 ifunc.typ.clone(),
             );
-            inter.interfunc.insert(flstr.to_string(), ifunc);
+            inter.interfunc.insert(fname.clone(), ifunc);
         }
         inter
     }
@@ -140,7 +139,7 @@ pub struct Interscope<'a>
 {
     fname: &'a str,
     proto: &'a Protomod,
-    imports: &'a HashMap<String, Rc<Protomod>>,
+    imports: &'a HashMap<Lstr, Rc<Protomod>>,
     typed: &'a Typemod,
     // types of locally defined labels
     infer: Inferator<'a>,
@@ -153,7 +152,7 @@ impl<'a> Interscope<'a>
 {
     pub fn new(
         proto: &'a Protomod,
-        imports: &'a HashMap<String, Rc<Protomod>>,
+        imports: &'a HashMap<Lstr, Rc<Protomod>>,
         typed: &'a Typemod,
         fname: &'a str,
         lineno: i16,
@@ -179,21 +178,21 @@ impl<'a> Interscope<'a>
         }
 
         ts.import_user_types(
-            &Lstr::Rc(proto.key.name.clone()),
+            &proto.key.name,
             &proto.struple_fields,
         );
         for (_, imp) in imports.iter() {
             ts.import_user_types(
-                &Lstr::Rc(imp.key.name.clone()),
+                &imp.key.name,
                 &imp.struple_fields,
             );
         }
 
         Interscope {
-            fname: fname,
-            proto: proto,
-            imports: imports,
-            typed: typed,
+            fname,
+            proto,
+            imports,
+            typed,
             infer: t,
             typeset: ts,
             argnames: args.clone(),
@@ -275,7 +274,7 @@ impl<'a> Interscope<'a>
             &Type::UserDef(ref i) => {
                 i.mod_ref()
                     .and_then(|mods| {
-                        if mods == &**self.proto.key.name {
+                        if *mods == self.proto.key.name {
                             return None;
                         }
                         let imp = self.imports.get(mods.str());
@@ -293,7 +292,7 @@ impl<'a> Interscope<'a>
 
 pub fn compile_function<'a>(
     proto: &'a Protomod,
-    imports: &'a HashMap<String, Rc<Protomod>>,
+    imports: &'a HashMap<Lstr, Rc<Protomod>>,
     typed: &Typemod,
     fname: &'a str,
     ftype: &Type,
@@ -337,8 +336,8 @@ pub fn compile_function<'a>(
         .map(|(argi, a)| {
             a.k_clone()
                 .unwrap_or_else(|| {
-                    Lstr::Rc(Rc::new(format!("T_param_{}", argi)))
-                }).rc()
+                    Lstr::from(format!("T_param_{}", argi))
+                })
         }).collect();
     Ixpr {
         typ: final_ftype,
@@ -466,7 +465,7 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
             if typ.is_func() {
                 let fref = Val::FuncRef(
                     Lri::with_modules(
-                        Lstr::Rc(scope.proto.key.name.clone()),
+                        scope.proto.key.name.clone(),
                         id.clone(),
                     ),
                     typ.clone(),
@@ -745,8 +744,7 @@ pub fn compile_pattern_call(
 
     let mut struct_lri = Lri::from(callx);
     if !struct_lri.has_modules() {
-        struct_lri =
-            struct_lri.add_modules(Lstr::Rc(scope.proto.key.name.clone()));
+        struct_lri = struct_lri.add_modules(scope.proto.key.name.clone());
     }
     Val::Struct(struct_lri, Struple(args_vec))
 }

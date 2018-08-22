@@ -18,10 +18,10 @@ use std::rc::Rc;
 pub struct Protomod
 {
     pub key: Rc<ModKey>,
-    pub funcseq: LinkedList<Rc<String>>,
-    pub funcsrc: HashMap<String, Ast>,
-    pub valtypes: HashMap<String, Type>,
-    pub constants: HashMap<String, Val>,
+    pub funcseq: LinkedList<Lstr>,
+    pub funcsrc: HashMap<Lstr, Ast>,
+    pub valtypes: HashMap<Lstr, Type>,
+    pub constants: HashMap<Lstr, Val>,
     pub deftypes: HashMap<Lstr, Type>,
     pub struple_fields: HashMap<Lstr, Struple<Type>>,
 }
@@ -31,7 +31,7 @@ impl Protomod
     pub fn new(mk: Rc<ModKey>) -> Protomod
     {
         let mut empty_consts = HashMap::new();
-        empty_consts.insert("TYPES".to_string(), Val::Nil);
+        empty_consts.insert(Lstr::Sref("TYPES"), Val::Nil);
         Protomod {
             key: mk,
             funcseq: LinkedList::new(),
@@ -317,8 +317,6 @@ impl Protomod
             *loc,
         );
         let lstr_name = Lstr::from(name);
-        let rcname: Rc<String> = From::from(&lstr_name);
-        let strname = (*rcname).clone();
 
         let mut ftype_parts: Vec<Kxpr> = pp_args
             .iter()
@@ -330,9 +328,9 @@ impl Protomod
         let ftype_ast = Ast::TypeFunc(ftype_parts, *loc);
         let ftype = Type::from(&ftype_ast);
 
-        self.funcseq.push_back(rcname);
-        self.funcsrc.insert(strname.clone(), pp_func);
-        self.valtypes.insert(strname, ftype);
+        self.funcseq.push_back(lstr_name.clone());
+        self.funcsrc.insert(lstr_name.clone(), pp_func);
+        self.valtypes.insert(lstr_name, ftype);
     }
 
     pub fn preproc_call(
@@ -466,8 +464,8 @@ impl Protomod
     ) -> Ast
     {
         let mod_name = mods.first().unwrap();
-        if mod_name.str() != *mp.key.name
-            && !mp.imports.contains(mod_name.str())
+        if *mod_name != *mp.key.name
+            && !mp.imports.contains(mod_name)
         {
             panic!("module not found: {:?}", mods);
         }
@@ -634,7 +632,7 @@ impl Protomod
             panic!("no modules in data definitions: {}", base_name);
         }
         let name = Protomod::replace_type_names_with_vars(
-            base_name.add_modules(Lstr::Rc(mp.key.name.clone())),
+            base_name.add_modules(mp.key.name.clone()),
         );
 
         match datatype {
@@ -690,10 +688,8 @@ impl Protomod
 
         // a token struct is stored as a constant with no constructor
         let constval = Val::Token(full_lri);
-        self.constants
-            .insert(String::from(name_lstr.str()), constval);
-        self.valtypes
-            .insert(String::from(name_lstr.str()), type_name);
+        self.constants.insert(name_lstr.clone(), constval);
+        self.valtypes.insert(name_lstr, type_name);
     }
 
     pub fn preproc_struple_with_fields(
@@ -775,16 +771,16 @@ impl Protomod
                 .expect("missing TYPES constant")
                 .clone(),
         );
-        self.constants.insert(String::from("TYPES"), new_types_list);
+        self.constants.insert(Lstr::Sref("TYPES"), new_types_list);
         self.struple_fields
             .insert(local_name.clone(), Struple(struple_fields));
 
         let funcref = Val::FuncRef(struple_lri, func_type.clone());
-        self.constants.insert(String::from(&local_name), funcref);
+        self.constants.insert(local_name.clone(), funcref);
 
-        self.funcseq.push_back(local_name.rc());
-        self.funcsrc.insert(String::from(&local_name), srcxpr);
-        self.valtypes.insert(String::from(&local_name), func_type);
+        self.funcseq.push_back(local_name.clone());
+        self.funcsrc.insert(local_name.clone(), srcxpr);
+        self.valtypes.insert(local_name, func_type);
     }
 
     pub fn struple_field_idx(
@@ -833,9 +829,7 @@ impl Protomod
     )
     {
         let local_name = Lri::from(name_ast);
-        let enum_lri = local_name.add_modules(Lstr::Rc(self.key.name.clone()));
-        let name_lstr = Lstr::from(name_ast);
-        let rc_name: Rc<String> = From::from(&name_lstr);
+        let enum_lri = local_name.add_modules(self.key.name.clone());
         let mod_type = Type::UserDef(enum_lri.clone());
 
         let mut variant_fields = Vec::with_capacity(src_variants.len());
@@ -847,18 +841,15 @@ impl Protomod
                     prog, mp, &name_ast, vdatatype, vname, fields, iloc,
                 );
                 let variant_lstr = Lstr::from(&**vname);
-                let variant_name: Rc<String> = From::from(&variant_lstr);
-                let vf = (variant_name, mod_type.clone());
+                let vf = (variant_lstr, mod_type.clone());
                 variant_fields.push(vf);
             } else {
                 panic!("variant data is not DefData: {:?}", v);
             }
         }
 
-        self.constants
-            .insert((*rc_name).clone(), Val::Type(mod_type.clone()));
-        self.deftypes
-            .insert(enum_lri.local_ref().clone(), mod_type.clone());
+        // self.constants.insert(name_lstr.clone(), Val::Type(mod_type.clone()));
+        self.deftypes.insert(enum_lri.local_ref().clone(), mod_type.clone());
     }
 
     pub fn preproc_enum_variant(
@@ -872,26 +863,23 @@ impl Protomod
         loc: &SrcLoc,
     )
     {
-        let mod_name = self.key.name.clone();
-        let mod_lstr = Lstr::Rc(mod_name.clone());
         let typ_lri = Lri::from(typename);
-        let full_lri = typ_lri.add_modules(mod_lstr.clone());
+        let full_lri = typ_lri.add_modules(self.key.name.clone());
         let typ = Type::UserDef(full_lri.clone());
         let type_lstr = Lstr::from(typename);
         let variant_name = Lstr::from(name);
         vout!(
             "preproc_enum_variant({}::{}::{})\n",
-            mod_lstr,
+            self.key.name,
             type_lstr,
             variant_name
         );
         if dataclass == ast::DataType::Struple {
             if fields.is_empty() {
                 let const_val = Val::EnumToken(full_lri, variant_name.clone());
-                let variant_name_string = String::from(&variant_name);
                 self.constants
-                    .insert(variant_name_string.clone(), const_val);
-                self.valtypes.insert(variant_name_string, typ);
+                    .insert(variant_name.clone(), const_val);
+                self.valtypes.insert(variant_name, typ);
             } else {
                 self.preproc_struple_fields(
                     prog,

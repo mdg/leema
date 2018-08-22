@@ -1,3 +1,4 @@
+use leema::lstr::Lstr;
 use leema::module::ModKey;
 
 use std::collections::HashMap;
@@ -10,15 +11,15 @@ use std::path::{Path, PathBuf};
 pub struct Interloader
 {
     pub root_path: PathBuf,
-    pub main_mod: String,
-    modtxt: HashMap<String, String>,
+    pub main_mod: Lstr,
+    modtxt: HashMap<Lstr, String>,
 }
 
 impl Interloader
 {
-    pub fn new(mainfile: &str) -> Interloader
+    pub fn new(mainfile: Lstr) -> Interloader
     {
-        let path = Path::new(&mainfile);
+        let path = Path::new(mainfile.str());
         let ext = path.extension();
         if ext.is_none() {
             panic!("Main file has no extension: {}", mainfile);
@@ -31,26 +32,28 @@ impl Interloader
             panic!("Is that not a real file? {}", mainfile);
         }
 
+        let mod_str =
+            Lstr::from(modname.unwrap().to_str().unwrap().to_string());
         Interloader {
             root_path: path.parent().unwrap().to_path_buf(),
-            main_mod: modname.unwrap().to_str().unwrap().to_string(),
+            main_mod: mod_str,
             modtxt: HashMap::new(),
         }
     }
 
-    pub fn set_mod_txt(&mut self, modname: &str, content: String)
+    pub fn set_mod_txt(&mut self, modname: Lstr, content: String)
     {
-        self.modtxt.insert(String::from(modname), content);
+        self.modtxt.insert(modname, content);
     }
 
-    pub fn mod_name_to_key(&self, mod_name: &str) -> ModKey
+    pub fn mod_name_to_key(&self, mod_name: Lstr) -> ModKey
     {
-        if self.modtxt.contains_key(mod_name) {
+        if self.modtxt.contains_key(&mod_name) {
             ModKey::name_only(mod_name)
         } else {
             let mut path = PathBuf::new();
             path.push(self.root_path.as_path());
-            path.push(mod_name);
+            path.push(mod_name.str());
             path.set_extension("lma");
             ModKey::new(mod_name, path)
         }

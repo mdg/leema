@@ -278,7 +278,7 @@ pub struct Typescope<'a, 'b>
     pub fname: &'b str,
     proto: &'a Protomod,
     inter: &'a Typemod,
-    imports: &'a HashMap<String, &'a Typemod>,
+    imports: &'a HashMap<Lstr, &'a Typemod>,
     infer: Inferator<'b>,
     typeset: TypeSet<'a>,
 }
@@ -289,12 +289,12 @@ impl<'a, 'b> Typescope<'a, 'b>
         inter: &'a Typemod,
         proto: &'a Protomod,
         func: &'b str,
-        imps: &'a HashMap<String, &'a Typemod>,
+        imps: &'a HashMap<Lstr, &'a Typemod>,
     ) -> Typescope<'a, 'b>
     {
         let mut ts = TypeSet::new();
         ts.import_user_types(
-            &Lstr::Rc(proto.key.name.clone()),
+            &proto.key.name,
             &proto.struple_fields,
         );
         /*
@@ -505,7 +505,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             for (an, at) in arg_names.iter().zip(arg_types.iter()) {
                 scope
                     .infer
-                    .bind_vartype(&Lstr::Rc(an.clone()), at, ix.line)?;
+                    .bind_vartype(&an, at, ix.line)?;
             }
             vout!("f({:?}) =>\n{:?}", arg_names, body);
             let result_type = typecheck_expr(scope, &*body)

@@ -1,5 +1,6 @@
 use leema::ast::{self, Ast};
 use leema::lex::lex;
+use leema::lstr::Lstr;
 use leema::parse::Token;
 use leema::val::{Type, Val};
 
@@ -14,31 +15,31 @@ use std::rc::Rc;
 #[derive(Clone)]
 pub struct ModKey
 {
-    pub name: Rc<String>,
+    pub name: Lstr,
     pub file: Option<PathBuf>,
     // version: Option<Version>,
 }
 
 impl ModKey
 {
-    pub fn new(name: &str, path: PathBuf) -> ModKey
+    pub fn new(name: Lstr, path: PathBuf) -> ModKey
     {
         ModKey {
-            name: Rc::new(String::from(name)),
+            name,
             file: Some(path),
         }
     }
 
-    pub fn name_only(name: &str) -> ModKey
+    pub fn name_only(name: Lstr) -> ModKey
     {
         ModKey {
-            name: Rc::new(String::from(name)),
+            name,
             file: None,
         }
     }
 }
 
-type MacroMap = HashMap<String, Ast>;
+type MacroMap = HashMap<Lstr, Ast>;
 
 #[derive(Debug)]
 pub struct ModuleSource
@@ -62,7 +63,7 @@ impl ModuleSource
 
     pub fn init() -> ModuleSource
     {
-        let init_key = ModKey::name_only("__init__");
+        let init_key = ModKey::name_only(Lstr::Sref("__init__"));
         ModuleSource::new(init_key, String::from(""))
     }
 
@@ -82,7 +83,7 @@ impl ModuleSource
 pub struct ModulePreface
 {
     pub key: Rc<ModKey>,
-    pub imports: HashSet<String>,
+    pub imports: HashSet<Lstr>,
     pub macros: MacroMap,
 }
 
@@ -98,7 +99,7 @@ impl ModulePreface
         // everything imports prefab by default
         // should probably get rid of this eventually tho
         if &*ms.key.name != "prefab" {
-            mp.imports.insert(String::from("prefab"));
+            mp.imports.insert(Lstr::Sref("prefab"));
         }
         mp.split_ast(&ms.ast);
         mp
@@ -122,8 +123,8 @@ impl ModulePreface
     {
         match item {
             &Ast::Import(ref i, _) => {
-                let imp_string = (**i).localid_str().to_string();
-                mp.imports.insert(imp_string);
+                let imp_string = (**i).localid_str();
+                mp.imports.insert(imp_string.clone());
             }
             &Ast::DefFunc(
                 ast::FuncClass::Macro,
@@ -133,7 +134,7 @@ impl ModulePreface
                 ref _body,
                 ref _loc,
             ) => {
-                let name_string = String::from(&**name);
+                let name_string = Lstr::from(&**name);
                 mp.macros.insert(name_string, item.clone());
             }
             _ => {

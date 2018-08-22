@@ -21,13 +21,13 @@ use std::rc::Rc;
 pub struct Lib
 {
     loader: Interloader,
-    modsrc: HashMap<String, ModuleSource>,
-    preface: HashMap<String, Rc<ModulePreface>>,
-    proto: HashMap<String, Rc<Protomod>>,
+    modsrc: HashMap<Lstr, ModuleSource>,
+    preface: HashMap<Lstr, Rc<ModulePreface>>,
+    proto: HashMap<Lstr, Rc<Protomod>>,
     inter: HashMap<Lstr, Intermod>,
-    typed: HashMap<String, Typemod>,
-    rust_load: HashMap<String, fn(&str) -> Option<code::Code>>,
-    code: HashMap<String, HashMap<String, Code>>,
+    typed: HashMap<Lstr, Typemod>,
+    rust_load: HashMap<Lstr, fn(&str) -> Option<code::Code>>,
+    code: HashMap<Lstr, HashMap<Lstr, Code>>,
 }
 
 impl Lib
@@ -46,20 +46,20 @@ impl Lib
         };
         proglib
             .rust_load
-            .insert("prefab".to_string(), prefab::load_rust_func);
-        proglib.load_inter("prefab");
+            .insert(Lstr::Sref("prefab"), prefab::load_rust_func);
+        proglib.load_inter(&Lstr::Sref("prefab"));
         proglib
             .rust_load
-            .insert("file".to_string(), file::load_rust_func);
+            .insert(Lstr::Sref("file"), file::load_rust_func);
         proglib
             .rust_load
-            .insert("str".to_string(), lib_str::load_rust_func);
+            .insert(Lstr::Sref("str"), lib_str::load_rust_func);
         proglib
             .rust_load
-            .insert("tcp".to_string(), tcp::load_rust_func);
+            .insert(Lstr::Sref("tcp"), tcp::load_rust_func);
         proglib
             .rust_load
-            .insert("udp".to_string(), udp::load_rust_func);
+            .insert(Lstr::Sref("udp"), udp::load_rust_func);
         proglib
     }
 
@@ -68,17 +68,16 @@ impl Lib
      */
     pub fn init_typed(&mut self, inter: &Intermod)
     {
-        if !self.typed.contains_key(inter.modname.str()) {
+        if !self.typed.contains_key(&inter.modname) {
             self.typed.insert(
-                String::from(&inter.modname),
+                inter.modname.clone(),
                 Typemod::new(inter.modname.clone()),
             );
         }
-        let typed = self.typed.get_mut(inter.modname.str()).unwrap();
+        let typed = self.typed.get_mut(&inter.modname).unwrap();
 
         for (name, fix) in inter.interfunc.iter() {
-            let name_lstr = Lstr::from(name.clone());
-            typed.set_type(name_lstr, typecheck::Depth::Inter, fix.typ.clone());
+            typed.set_type(name.clone(), typecheck::Depth::Inter, fix.typ.clone());
         }
     }
 
@@ -87,7 +86,7 @@ impl Lib
         &self.loader.main_mod
     }
 
-    pub fn load_code(&mut self, modname: &str, funcname: &str) -> &Code
+    pub fn load_code(&mut self, modname: &Lstr, funcname: &Lstr) -> &Code
     {
         let (has_mod, has_func) = if self.code.contains_key(modname) {
             let old_mod = self.code.get(modname).unwrap();
@@ -101,101 +100,96 @@ impl Lib
             if modname == "prefab" {
                 vout!("code for {}::{} is {:?}\n", modname, funcname, new_code);
             }
-            let modlstr = Lstr::from(String::from(modname));
-            let funclstr = Lstr::from(String::from(funcname));
-            let funcri = Lri::with_modules(modlstr, funclstr);
+            let funcri = Lri::with_modules(modname.clone(), funcname.clone());
             self.typecheck(&funcri, typecheck::Depth::One);
 
             if has_mod {
                 let old_mod = self.code.get_mut(modname).unwrap();
-                old_mod.insert(String::from(funcname), new_code);
+                old_mod.insert(funcname.clone(), new_code);
             } else {
                 let mut new_mod = HashMap::new();
-                new_mod.insert(String::from(funcname), new_code);
-                self.code.insert(String::from(modname), new_mod);
+                new_mod.insert(funcname.clone(), new_code);
+                self.code.insert(modname.clone(), new_mod);
             }
         }
 
         self.code.get(modname).unwrap().get(funcname).unwrap()
     }
 
-    pub fn find_preface(&self, modname: &str) -> Option<&Rc<ModulePreface>>
+    pub fn find_preface(&self, modname: &Lstr) -> Option<&Rc<ModulePreface>>
     {
         self.preface.get(modname)
     }
 
-    pub fn load_inter(&mut self, modname: &str)
+    pub fn load_inter(&mut self, modname: &Lstr)
     {
         if !self.inter.contains_key(modname) {
             let inter = self.read_inter(modname);
-            let mod_lstr = Lstr::from(String::from(modname));
             self.init_typed(&inter);
-            self.inter.insert(mod_lstr.clone(), inter);
+            self.inter.insert(modname.clone(), inter);
         }
     }
 
-    pub fn load_proto(&mut self, modname: &str)
+    pub fn load_proto(&mut self, modname: &Lstr)
     {
         if !self.proto.contains_key(modname) {
             let proto = self.read_proto(modname);
 
-            let mut tmod = Typemod::new(Lstr::from(String::from(modname)));
+            let mut tmod = Typemod::new(modname.clone());
             tmod.import_phase0(&proto);
-            self.typed.insert(String::from(modname), tmod);
+            self.typed.insert(modname.clone(), tmod);
 
-            self.proto.insert(String::from(modname), Rc::new(proto));
+            self.proto.insert(modname.clone(), Rc::new(proto));
         }
     }
 
-    pub fn load_preface(&mut self, modname: &str)
+    pub fn load_preface(&mut self, modname: &Lstr)
     {
         if !self.preface.contains_key(modname) {
             let (msrc, mpref) = self.read_preface(modname);
-            self.modsrc.insert(String::from(modname), msrc);
-            self.preface.insert(String::from(modname), Rc::new(mpref));
+            self.modsrc.insert(modname.clone(), msrc);
+            self.preface.insert(modname.clone(), Rc::new(mpref));
         }
     }
 
-    pub fn read_modsrc(&self, modname: &str) -> ModuleSource
+    pub fn read_modsrc(&self, modname: &Lstr) -> ModuleSource
     {
-        let modkey = self.loader.mod_name_to_key(modname);
+        let modkey = self.loader.mod_name_to_key(modname.clone());
         let modtxt = self.loader.read_module(&modkey);
         ModuleSource::new(modkey, modtxt)
     }
 
-    pub fn read_preface(&self, modname: &str) -> (ModuleSource, ModulePreface)
+    pub fn read_preface(&self, modname: &Lstr) -> (ModuleSource, ModulePreface)
     {
         let ms = self.read_modsrc(modname);
         let pref = ModulePreface::new(&ms);
         (ms, pref)
     }
 
-    pub fn read_proto(&mut self, modname: &str) -> Protomod
+    pub fn read_proto(&mut self, modname: &Lstr) -> Protomod
     {
         let (ms, pref) = self.read_preface(modname);
         self.load_imports(modname, &pref.imports);
         let proto = phase0::preproc(self, &pref, &ms.ast);
-        self.modsrc.insert(String::from(modname), ms);
-        self.preface.insert(String::from(modname), Rc::new(pref));
+        self.modsrc.insert(modname.clone(), ms);
+        self.preface.insert(modname.clone(), Rc::new(pref));
         proto
     }
 
-    pub fn read_inter(&mut self, modname: &str) -> Intermod
+    pub fn read_inter(&mut self, modname: &Lstr) -> Intermod
     {
         vout!("read_inter({})\n", modname);
         self.load_proto(modname);
         let preface = self.preface.get(modname).unwrap().clone();
         let imports = self.import_protos(&preface.imports);
         let proto = self.proto.get(modname).unwrap();
-        let mod_lstr = Lstr::from(String::from(modname));
-        let mut typed = Typemod::new(mod_lstr.clone());
+        let mut typed = Typemod::new(modname.clone());
         let inter = Intermod::compile(&proto, &imports, &mut typed);
-        self.typed
-            .insert(String::from(modname), Typemod::new(mod_lstr.clone()));
+        self.typed.insert(modname.clone(), Typemod::new(modname.clone()));
         inter
     }
 
-    pub fn read_code(&mut self, modname: &str, funcname: &str) -> Code
+    pub fn read_code(&mut self, modname: &Lstr, funcname: &Lstr) -> Code
     {
         vout!("read_code({}::{})\n", modname, funcname);
         self.load_inter(modname);
@@ -241,7 +235,7 @@ impl Lib
     {
         vout!("typecheck({}, {:?})\n", funcri, depth);
         self.load_inter(
-            funcri.mod_ref().expect("no typecheck module name").str(),
+            funcri.mod_ref().expect("no typecheck module name"),
         );
         if depth.one_deeper() {
             self.deeper_typecheck(funcri, depth);
@@ -319,9 +313,9 @@ impl Lib
 
         let pref = self.find_preface(modlstr).unwrap().clone();
         let prefab = self.typed.get("prefab");
-        let mut imports: HashMap<String, &Typemod> = HashMap::new();
+        let mut imports: HashMap<Lstr, &Typemod> = HashMap::new();
         if prefab.is_some() {
-            imports.insert(String::from("prefab"), prefab.unwrap());
+            imports.insert(Lstr::Sref("prefab"), prefab.unwrap());
         }
         for i in pref.imports.iter() {
             let iii: Option<&Typemod> = self.typed.get(i);
@@ -337,7 +331,7 @@ impl Lib
         typecheck::typecheck_function(&mut scope, fix).unwrap()
     }
 
-    fn load_imports(&mut self, modname: &str, imports: &HashSet<String>)
+    fn load_imports(&mut self, modname: &Lstr, imports: &HashSet<Lstr>)
     {
         for i in imports {
             if i == modname {
@@ -355,12 +349,12 @@ impl Lib
 
     fn import_protos(
         &mut self,
-        imports: &HashSet<String>,
-    ) -> HashMap<String, Rc<Protomod>>
+        imports: &HashSet<Lstr>,
+    ) -> HashMap<Lstr, Rc<Protomod>>
     {
-        let mut imported_protos = HashMap::new();
+        let mut imported_protos: HashMap<Lstr, Rc<Protomod>> = HashMap::new();
         imported_protos.insert(
-            String::from("prefab"),
+            Lstr::Sref("prefab"),
             self.proto.get("prefab").unwrap().clone(),
         );
         for i in imports {

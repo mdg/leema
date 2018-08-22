@@ -1,10 +1,10 @@
 use leema::log;
+use leema::lstr::Lstr;
 use leema::val::Val;
 
 use std::collections::HashMap;
 use std::fmt;
 use std::io::Write;
-use std::rc::Rc;
 
 
 #[derive(PartialEq)]
@@ -189,7 +189,7 @@ impl fmt::Debug for Reg
 pub struct RegTable
 {
     dstack: Vec<Reg>,
-    labels: HashMap<String, Reg>,
+    labels: HashMap<Lstr, Reg>,
     free: Vec<i8>,
     _lastreg: i8,
 }
@@ -211,11 +211,11 @@ impl RegTable
         self.dstack.last().unwrap()
     }
 
-    pub fn def_args(&mut self, args: &Vec<Rc<String>>)
+    pub fn def_args(&mut self, args: &Vec<Lstr>)
     {
         let mut r: i8 = 0;
         for a in args {
-            self.labels.insert((&**a).clone(), Reg::param(r));
+            self.labels.insert(a.clone(), Reg::param(r));
             r += 1;
         }
     }
@@ -246,7 +246,7 @@ impl RegTable
         self.dstack.pop();
     }
 
-    pub fn push_id(&mut self, name: &str) -> &Reg
+    pub fn push_id(&mut self, name: &Lstr) -> &Reg
     {
         let dst = self.id(name);
         self.dstack.push(dst);
@@ -273,12 +273,12 @@ impl RegTable
         dst
     }
 
-    pub fn id(&mut self, name: &str) -> Reg
+    pub fn id(&mut self, name: &Lstr) -> Reg
     {
         if !self.labels.contains_key(name) {
             let dst = self.next();
             vout!("assign {} to {}\n", dst, name);
-            self.labels.insert(String::from(name), dst);
+            self.labels.insert(name.clone(), dst);
         }
         self.labels.get(name).unwrap().clone()
     }

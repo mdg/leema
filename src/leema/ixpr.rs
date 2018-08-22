@@ -3,7 +3,6 @@ use leema::struple::Struple;
 use leema::val::{Type, Val};
 
 use std::collections::HashMap;
-use std::rc::Rc;
 
 
 #[derive(Clone)]
@@ -18,7 +17,7 @@ pub enum Source
     ConstVal(Val),
     EnumConstructor(Type, i16, Box<Ixpr>),
     FieldAccess(Box<Ixpr>, i8),
-    Func(Vec<Rc<String>>, Box<Ixpr>),
+    Func(Vec<Lstr>, Box<Ixpr>),
     Let(Val, Box<Ixpr>, Vec<(Lstr, Ixpr)>),
     MatchFailure(Box<Ixpr>, Box<Ixpr>),
     MatchExpr(Box<Ixpr>, Box<Ixpr>),
