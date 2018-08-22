@@ -1,5 +1,6 @@
 use leema::code::Code;
 use leema::log;
+use leema::lstr::Lstr;
 use leema::rsrc::{self, Rsrc};
 use leema::val::{Type, Val};
 
@@ -133,7 +134,7 @@ impl Future for Receiver
             Ok(Async::Ready(_sz)) => {
                 let isock = self.sock.take().unwrap();
                 let rstr = String::from_utf8(buf.to_vec()).unwrap();
-                let rval = Val::new_str(rstr);
+                let rval = Val::Str(Lstr::from(rstr));
                 Ok(Async::Ready((isock, rval)))
             }
             Ok(Async::NotReady) => {
@@ -176,7 +177,7 @@ pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
             rsrc::Event::NewRsrc(Box::new(framed), None)
         }).map_err(move |_| {
             rsrc::Event::Result(
-                Val::new_str("Failure to connect".to_string()),
+                Val::Str(Lstr::Sref("Failure to connect")),
                 None,
             )
         });
@@ -207,7 +208,7 @@ pub fn tcp_accept(mut ctx: rsrc::IopCtx) -> rsrc::Event
         }.map(|(_ilistener, sock, _addr)| {
             rsrc::Event::NewRsrc(Box::new(sock), None)
         }).map_err(|_| {
-            rsrc::Event::Result(Val::new_str("accept error".to_string()), None)
+            rsrc::Event::Result(Val::Str(Lstr::Sref("accept error")), None)
         });
     rsrc::Event::Future(Box::new(acc))
 }
@@ -224,7 +225,7 @@ pub fn tcp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let fut = Receiver { sock: Some(sock) }
         .map(|(isock, data)| rsrc::Event::Result(data, Some(Box::new(isock))))
         .map_err(|(isock, _err)| {
-            let errval = Val::new_str("recv failure".to_string());
+            let errval = Val::Str(Lstr::Sref("recv failure"));
             rsrc::Event::Result(errval, Some(Box::new(isock)))
         });
     rsrc::Event::Future(Box::new(fut))
@@ -242,7 +243,7 @@ pub fn tcp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
                 rsrc::Event::Result(Val::Int(0), Some(Box::new(sock2)))
             }).map_err(|_| {
                 rsrc::Event::Result(
-                    Val::new_str("send failure".to_string()),
+                    Val::Str(Lstr::Sref("send failure")),
                     None,
                 )
             }),

@@ -364,9 +364,11 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
         }
         &Ast::ConstBool(b) => Ixpr::const_val(Val::Bool(b), loc.lineno),
         &Ast::ConstInt(i) => Ixpr::const_val(Val::Int(i), loc.lineno),
-        &Ast::ConstStr(ref s) => Ixpr::const_val(Val::Str(s.rc()), loc.lineno),
+        &Ast::ConstStr(ref s) => {
+            Ixpr::const_val(Val::Str(s.clone()), loc.lineno)
+        }
         &Ast::ConstHashtag(ref s) => {
-            Ixpr::const_val(Val::Hashtag(s.rc()), loc.lineno)
+            Ixpr::const_val(Val::Hashtag(s.clone()), loc.lineno)
         }
         &Ast::ConstVoid => Ixpr::const_val(Val::Void, loc.lineno),
         &Ast::Cons(ref head, ref tail) => {
@@ -455,7 +457,7 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
         Some((ScopeLevel::Local, typ)) => {
             scope.infer.mark_usage(id.str(), loc);
             Ixpr {
-                src: Source::Id(id.rc(), loc.lineno),
+                src: Source::Id(id.clone(), loc.lineno),
                 typ: typ.clone(),
                 line: loc.lineno,
             }
@@ -553,7 +555,7 @@ pub fn compile_let_stmt(
         .infer
         .match_pattern(&scope.typeset, &cpatt, &irhs.typ, loc.lineno)
         .unwrap();
-    let failed = new_vars
+    let failed: Vec<(Lstr, Ixpr)> = new_vars
         .iter()
         .map(|v| (v.clone(), compile_failed_var(scope, v, loc)))
         .collect();
@@ -669,16 +671,16 @@ pub fn compile_match_case(
 
 pub fn compile_pattern(
     scope: &mut Interscope,
-    new_vars: &mut Vec<Rc<String>>,
+    new_vars: &mut Vec<Lstr>,
     patt: &Ast,
 ) -> Val
 {
     match patt {
         &Ast::Localid(ref name, _) => {
             if !scope.infer.var_is_in_scope(name.str()) {
-                new_vars.push(name.rc());
+                new_vars.push(name.clone());
             }
-            Val::Id(name.rc())
+            Val::Id(name.clone())
         }
         &Ast::Cons(ref head, ref tail) => {
             let chead = compile_pattern(scope, new_vars, head);
@@ -711,8 +713,8 @@ pub fn compile_pattern(
         }
         &Ast::ConstInt(i) => Val::Int(i),
         &Ast::ConstBool(b) => Val::Bool(b),
-        &Ast::ConstStr(ref s) => Val::Str(s.rc()),
-        &Ast::ConstHashtag(ref h) => Val::Hashtag(h.rc()),
+        &Ast::ConstStr(ref s) => Val::Str(s.clone()),
+        &Ast::ConstHashtag(ref h) => Val::Hashtag(h.clone()),
         &Ast::Wildcard => Val::Wildcard,
         &Ast::Call(ref callx, ref args, ref iloc) => {
             compile_pattern_call(scope, new_vars, callx, args, iloc)
@@ -725,7 +727,7 @@ pub fn compile_pattern(
 
 pub fn compile_pattern_call(
     scope: &mut Interscope,
-    new_vars: &mut Vec<Rc<String>>,
+    new_vars: &mut Vec<Lstr>,
     callx: &Ast,
     args: &LinkedList<Kxpr>,
     _loc: &SrcLoc,
@@ -813,12 +815,12 @@ pub fn compile_block_stmt(
 
 pub fn compile_failed_var(
     scope: &mut Interscope,
-    v: &Rc<String>,
+    v: &Lstr,
     loc: &SrcLoc,
 ) -> Ixpr
 {
     if scope.infer.handles_failure(&**v) {
-        vout!("compile failure handling for {}\n", **v);
+        vout!("compile failure handling for {}\n", v);
         scope.infer.push_block(HashMap::new());
         let ixfailure = {
             let failure = scope.infer.get_failure(&**v).unwrap().clone();

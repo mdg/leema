@@ -1,5 +1,6 @@
 use leema::code::Code;
 use leema::log;
+use leema::lstr::Lstr;
 use leema::rsrc;
 use leema::val::Val;
 
@@ -22,7 +23,7 @@ pub fn file_read_file(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let mut f = File::open(path).unwrap();
     let mut s = String::new();
     f.read_to_string(&mut s).expect("read_to_string failure");
-    rsrc::Event::Result(Val::new_str(s), None)
+    rsrc::Event::Result(Val::Str(Lstr::from(s)), None)
 }
 
 pub fn file_write(_ctx: rsrc::IopCtx) -> rsrc::Event

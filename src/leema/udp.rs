@@ -1,5 +1,6 @@
 use leema::code::Code;
 use leema::log;
+use leema::lstr::Lstr;
 use leema::rsrc::{self, Rsrc};
 use leema::val::{Type, Val};
 
@@ -52,13 +53,13 @@ pub fn udp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
         .recv_dgram(buffer)
         .map(|(isock, ibuf, _nbytes, _src_addr)| {
             let utf8_result = String::from_utf8(ibuf);
-            let result_val = Val::new_str(utf8_result.unwrap());
+            let result_val = Val::Str(Lstr::from(utf8_result.unwrap()));
             let irsrc: Box<Rsrc> = Box::new(isock);
             rsrc::Event::Result(result_val, Some(irsrc))
         }).map_err(|e| {
             println!("error receiving UdpSocket bytes: {:?}", e);
             rsrc::Event::Result(
-                Val::new_str("error receiving UdpSocket str".to_string()),
+                Val::Str(Lstr::Sref("error receiving UdpSocket str")),
                 None,
             )
         });
@@ -82,9 +83,9 @@ pub fn udp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
                 rsrc::Event::Result(Val::Int(0), Some(sockr))
             }).map_err(|_| {
                 rsrc::Event::Result(
-                    Val::new_str(
-                        "send dgram didn't work. socket is gone".to_string(),
-                    ),
+                    Val::Str(Lstr::Sref(
+                        "send dgram didn't work. socket is gone"
+                    )),
                     None,
                 )
             }),

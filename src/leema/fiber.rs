@@ -2,6 +2,7 @@ use leema::code::{Code, Op, OpVec};
 use leema::frame::{Event, Frame, FrameTrace, Parent};
 use leema::list;
 use leema::log;
+use leema::lstr::Lstr;
 use leema::reg::Reg;
 use leema::struple::Struple;
 use leema::val::{Env, Type, Val};
@@ -28,14 +29,14 @@ impl Fiber
         }
     }
 
-    pub fn module_name(&self) -> &str
+    pub fn module_name(&self) -> &Lstr
     {
-        self.head.module_name()
+        &self.head.module
     }
 
-    pub fn function_name(&self) -> &str
+    pub fn function_name(&self) -> &Lstr
     {
-        self.head.function_name()
+        &self.head.function
     }
 
     pub fn push_call(
@@ -43,8 +44,8 @@ impl Fiber
         code: Rc<Code>,
         dst: Reg,
         line: i16,
-        module: Rc<String>,
-        func: Rc<String>,
+        module: Lstr,
+        func: Lstr,
         args: Val,
     )
     {
@@ -133,7 +134,7 @@ impl Fiber
                     // oops, not ready to do this yet, let's bail and wait
                     return Event::FutureWait(srcreg.clone());
                 }
-                _ => Val::new_str(format!("{}{}", dst, src)),
+                _ => Val::Str(Lstr::from(format!("{}{}", dst, src))),
             }
         };
         self.head.e.set_reg(dstreg, result);
@@ -201,7 +202,7 @@ impl Fiber
                 &Val::Str(ref name_str) => {
                     // pass in args
                     println!("found a string for function call: {}", name_str);
-                    (Rc::new("".to_string()), name_str.clone())
+                    (Lstr::Sref(""), name_str.clone())
                 }
                 &Val::Tuple(ref modfunc) if modfunc.0.len() == 2 => {
                     println!("found tuple for func call: {:?}", modfunc);
@@ -217,7 +218,7 @@ impl Fiber
                     }
                 }
                 &Val::FuncRef(ref callri, _) => {
-                    (callri.mod_ref().unwrap().rc(), callri.localid.rc())
+                    (callri.mod_ref().unwrap().clone(), callri.localid.clone())
                 }
                 _ => {
                     panic!("That's not a function! {:?}", fname_val);
@@ -233,7 +234,7 @@ impl Fiber
                 if let &mut Val::Failure(_, _, ref mut trace, _) = &mut failur {
                     *trace = FrameTrace::propagate_down(
                         trace,
-                        self.head.function_name(),
+                        &self.head.function,
                         0,
                     );
                 }
@@ -388,7 +389,7 @@ impl Fiber
         let srcval = self.head.e.get_reg(src);
         if let &Val::Failure(ref tag, ref msg, ref trace, status) = srcval {
             let new_trace =
-                FrameTrace::propagate_down(trace, &*self.head.function, line);
+                FrameTrace::propagate_down(trace, &self.head.function, line);
             let new_fail =
                 Val::Failure(tag.clone(), msg.clone(), new_trace, status);
             self.head.parent.set_result(new_fail);

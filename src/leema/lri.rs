@@ -1,4 +1,5 @@
 use leema::lstr::Lstr;
+use leema::sendclone::SendClone;
 use leema::val::Type;
 
 use std::fmt;
@@ -121,8 +122,8 @@ impl Lri
 
     pub fn deep_clone(&self) -> Lri
     {
-        let new_mods = self.modules.as_ref().map(|m| m.deep_clone());
-        let new_id = self.localid.deep_clone();
+        let new_mods = self.modules.as_ref().map(|m| m.clone_for_send());
+        let new_id = self.localid.clone_for_send();
         let new_params = self
             .params
             .as_ref()

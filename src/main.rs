@@ -81,7 +81,7 @@ fn real_main() -> i32
     let file = args.arg_script.first().unwrap();
     let leema_args: Val =
         args.arg_script.iter().skip(1).fold(Val::Nil, |acc, a| {
-            let strval = Val::new_str(a.to_string());
+            let strval = Val::Str(Lstr::from(a.to_string()));
             list::cons(strval, acc)
         });
     let inter = Interloader::new(file);
@@ -133,7 +133,7 @@ fn real_main() -> i32
         let prog = program::Lib::new(inter);
         let mut app = Application::new(prog);
         app.set_args(leema_args);
-        app.push_call(&modkey.name, "main");
+        app.push_call(Lstr::Rc(modkey.name.clone()), Lstr::Sref("main"));
         app.run();
         let result = app.wait_for_result();
         return Application::handle_result(result) as i32;

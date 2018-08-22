@@ -173,7 +173,7 @@ impl Type
                 let dc_args = args.iter().map(|t| t.deep_clone()).collect();
                 Type::Func(dc_args, Box::new(result.deep_clone()))
             }
-            &Type::Var(ref id) => Type::Var(id.deep_clone()),
+            &Type::Var(ref id) => Type::Var(id.clone_for_send()),
             &Type::Void => Type::Void,
             _ => {
                 panic!("cannot deep_clone Type: {:?}", self);
@@ -429,11 +429,10 @@ pub type MsgVal = msg::MsgItem<Val>;
 pub enum Val
 {
     Int(i64),
-    Str(Rc<String>),
+    Str(Lstr),
     // StrCat(Rc<Val>, Box<Val>),
-    // EmptyStr,
     Bool(bool),
-    Hashtag(Rc<String>),
+    Hashtag(Lstr),
     Buffer(Vec<u8>),
     Cons(Box<Val>, Rc<Val>),
     Nil,
@@ -448,7 +447,7 @@ pub enum Val
         Arc<FrameTrace>,
         i8, // status
     ),
-    Id(Rc<String>),
+    Id(Lstr),
     Lri(Lri),
     Type(Type),
     Kind(u8),
@@ -470,27 +469,11 @@ pub const TRUE: Val = Val::Bool(true);
 
 impl Val
 {
-    pub fn id(s: String) -> Val
-    {
-        Val::Id(Rc::new(s))
-    }
-
     pub fn is_id(&self) -> bool
     {
         match self {
             &Val::Id(_) => true,
             _ => false,
-        }
-    }
-
-    pub fn id_name(&self) -> Rc<String>
-    {
-        match self {
-            &Val::Id(ref name) => name.clone(),
-            &Val::Type(ref typ) => typ.full_typename().rc(),
-            _ => {
-                panic!("not an id {:?}", self);
-            }
         }
     }
 
@@ -534,32 +517,16 @@ impl Val
         }
     }
 
-    pub fn new_str(s: String) -> Val
-    {
-        Val::Str(Rc::new(s))
-    }
-
     pub fn empty_str() -> Val
     {
-        Val::Str(Rc::new("".to_string()))
+        Val::Str(Lstr::Sref(""))
     }
 
     pub fn str(&self) -> &str
     {
         match self {
-            &Val::Id(ref id) => id,
-            &Val::Str(ref s) => s,
-            _ => {
-                panic!("Cannot convert to string: {:?}", self);
-            }
-        }
-    }
-
-    pub fn to_str(&self) -> Rc<String>
-    {
-        match self {
-            &Val::Id(ref id) => id.clone(),
-            &Val::Str(ref s) => s.clone(),
+            &Val::Id(ref id) => id.str(),
+            &Val::Str(ref s) => s.str(),
             _ => {
                 panic!("Cannot convert to string: {:?}", self);
             }
@@ -574,11 +541,6 @@ impl Val
                 panic!("Not an int: {:?}", self);
             }
         }
-    }
-
-    pub fn hashtag(s: String) -> Val
-    {
-        Val::Hashtag(Rc::new(s))
     }
 
     pub fn is_type(&self) -> bool
@@ -811,7 +773,7 @@ impl Val
         result
     }
 
-    pub fn replace_ids(node: &Val, idvals: &HashMap<Rc<String>, Val>) -> Val
+    pub fn replace_ids(node: &Val, idvals: &HashMap<Lstr, Val>) -> Val
     {
         match node {
             &Val::Cons(_, _) => {
@@ -854,9 +816,9 @@ impl Val
     {
         match self {
             &Val::Int(i) => Val::Int(i),
-            &Val::Str(ref s) => Val::new_str((**s).clone()),
+            &Val::Str(ref s) => Val::Str(s.clone_for_send()),
             &Val::Bool(b) => Val::Bool(b),
-            &Val::Hashtag(ref s) => Val::hashtag((**s).clone()),
+            &Val::Hashtag(ref s) => Val::Hashtag(s.clone_for_send()),
             &Val::Cons(ref head, ref tail) => {
                 Val::Cons(
                     Box::new(head.deep_clone()),
@@ -871,12 +833,12 @@ impl Val
             &Val::EnumStruct(ref typ, ref vname, ref flds) => {
                 Val::EnumStruct(
                     typ.deep_clone(),
-                    vname.deep_clone(),
+                    vname.clone_for_send(),
                     flds.clone_for_send(),
                 )
             }
             &Val::EnumToken(ref typ, ref vname) => {
-                Val::EnumToken(typ.deep_clone(), vname.deep_clone())
+                Val::EnumToken(typ.deep_clone(), vname.clone_for_send())
             }
             &Val::Token(ref typ) => Val::Token(typ.deep_clone()),
             &Val::FuncRef(ref fi, ref typ) => {
@@ -886,7 +848,7 @@ impl Val
                 )
             }
             // &Val::Failure(ref tag, ref msg, ref ft),
-            &Val::Id(ref s) => Val::id((**s).clone()),
+            &Val::Id(ref s) => Val::Id(s.clone_for_send()),
             &Val::Type(ref t) => Val::Type(t.deep_clone()),
             &Val::ResourceRef(r) => Val::ResourceRef(r),
             &Val::Kind(k) => Val::Kind(k),

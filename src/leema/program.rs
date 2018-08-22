@@ -285,7 +285,7 @@ impl Lib
                             self.typecheck(
                                 &Lri::full(
                                     funcri.modules.clone(),
-                                    Lstr::Rc(call_name.clone()),
+                                    call_name.clone(),
                                     None,
                                 ),
                                 depth.next(),
@@ -294,8 +294,8 @@ impl Lib
                     } else {
                         self.typecheck(
                             &Lri::with_modules(
-                                Lstr::from("prefab"),
-                                Lstr::Rc(call_name.clone()),
+                                Lstr::Sref("prefab"),
+                                call_name.clone(),
                             ),
                             depth.next(),
                         );

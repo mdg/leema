@@ -1,3 +1,4 @@
+use leema::lstr::Lstr;
 use leema::struple::Struple;
 use leema::val::{Type, Val};
 
@@ -18,13 +19,13 @@ pub enum Source
     EnumConstructor(Type, i16, Box<Ixpr>),
     FieldAccess(Box<Ixpr>, i8),
     Func(Vec<Rc<String>>, Box<Ixpr>),
-    Let(Val, Box<Ixpr>, Vec<(Rc<String>, Ixpr)>),
+    Let(Val, Box<Ixpr>, Vec<(Lstr, Ixpr)>),
     MatchFailure(Box<Ixpr>, Box<Ixpr>),
     MatchExpr(Box<Ixpr>, Box<Ixpr>),
     MatchCase(Val, Box<Ixpr>, Box<Ixpr>),
-    PropagateFailure(Rc<String>, i16),
+    PropagateFailure(Lstr, i16),
     RustBlock,
-    Id(Rc<String>, i16),
+    Id(Lstr, i16),
     IfExpr(Box<Ixpr>, Box<Ixpr>, Option<Box<Ixpr>>),
     List(Vec<Ixpr>),
     StrMash(Vec<Ixpr>),

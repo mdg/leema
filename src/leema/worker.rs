@@ -2,7 +2,8 @@ use leema::code::Code;
 use leema::fiber::Fiber;
 use leema::frame::{Event, Frame, Parent};
 use leema::log;
-use leema::msg::{AppMsg, IoMsg, WorkerMsg};
+use leema::lstr::Lstr;
+use leema::msg::{AppMsg, IoMsg, WorkerMsg, MsgItem};
 use leema::val::{MsgVal, Val};
 
 use std::collections::{HashMap, LinkedList};
@@ -33,7 +34,7 @@ pub struct Worker
 {
     fresh: LinkedList<ReadyFiber>,
     waiting: HashMap<i64, FiberWait>,
-    code: HashMap<String, HashMap<String, Rc<Code>>>,
+    code: HashMap<Lstr, HashMap<Lstr, Rc<Code>>>,
     app_tx: Sender<AppMsg>,
     io_tx: Sender<IoMsg>,
     msg_rx: Receiver<WorkerMsg>,
@@ -105,7 +106,7 @@ impl Worker
     {
         self.code
             .get(modname)
-            .and_then(|module: &'a HashMap<String, Rc<Code>>| {
+            .and_then(|module: &'a HashMap<Lstr, Rc<Code>>| {
                 module.get(funcname)
             }).map(|func: &'a Rc<Code>| (*func).clone())
     }
@@ -119,8 +120,8 @@ impl Worker
             let msg = AppMsg::RequestCode(
                 self.id,
                 curf.fiber_id,
-                curf.module_name().to_string(),
-                curf.function_name().to_string(),
+                MsgItem::new(curf.module_name()),
+                MsgItem::new(curf.function_name()),
             );
             self.app_tx
                 .send(msg)
@@ -130,23 +131,6 @@ impl Worker
             self.waiting.insert(fiber_id, fw);
         }
     }
-
-    /*
-    pub fn execute_frame(mut f: Fiber, code: Rc<Code>
-        ) -> (Event, Rc<Code>)
-    {
-        let ev = match &*code {
-            &Code::Leema(ref ops) => {
-                f.execute_leema_frame(ops)
-            }
-            &Code::Rust(ref rf) => {
-                vout!("execute rust code\n");
-                rf(f)
-            }
-        };
-        (ev, code)
-    }
-    */
 
     pub fn execute_frame(f: &mut Fiber, code: &Code) -> Event
     {
@@ -260,8 +244,8 @@ impl Worker
                 fbr.head = *pf;
                 vout!(
                     "return to caller: {}::{}()\n",
-                    fbr.head.module_name(),
-                    fbr.head.function_name()
+                    fbr.head.module,
+                    fbr.head.function
                 );
                 vout!(" result: {}\n", dst);
                 self.push_fresh(ReadyFiber::Ready(fbr, old_code));
@@ -283,14 +267,14 @@ impl Worker
     {
         match msg {
             WorkerMsg::Spawn(module, call) => {
-                vout!("worker call {}.{}()\n", module, call);
-                self.spawn_fiber(module, call);
+                vout!("worker call {}.{}()\n", *module, *call);
+                self.spawn_fiber(module.take(), call.take());
             }
             WorkerMsg::FoundCode(fiber_id, module, func, code) => {
                 let rc_code = Rc::new(code);
                 let mut new_mod = HashMap::new();
-                new_mod.insert(func, rc_code.clone());
-                self.code.insert(module, new_mod);
+                new_mod.insert(func.take(), rc_code.clone());
+                self.code.insert(module.take(), new_mod);
                 let opt_fiber = self.waiting.remove(&fiber_id);
                 if let Some(FiberWait::Code(fib)) = opt_fiber {
                     self.push_coded_fiber(fib, rc_code);
@@ -343,7 +327,7 @@ impl Worker
         }
     }
 
-    pub fn spawn_fiber(&mut self, module: String, func: String)
+    pub fn spawn_fiber(&mut self, module: Lstr, func: Lstr)
     {
         vout!("spawn_fiber({}::{})\n", module, func);
         let id = self.next_fiber_id;

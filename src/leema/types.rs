@@ -125,7 +125,7 @@ pub fn get_field_type<'a, 'b>(
 pub fn new_struct_field(name: Option<Lstr>, typ: &Type) -> Val
 {
     let name_val = match name {
-        Some(inner_name) => new_some(Val::Str(inner_name.rc())),
+        Some(inner_name) => new_some(Val::Str(inner_name.clone())),
         None => new_none(Type::Str),
     };
     let fields = Struple(vec![
@@ -147,7 +147,7 @@ pub fn new_type_val(name: Lri, fields: &Vec<(Option<Lstr>, Type)>) -> Val
     let struct_type_lri =
         Lri::with_modules(Lstr::Sref("types"), Lstr::Sref("TypeVal"));
     let struct_fields_struple = Struple(vec![
-        (Some(Lstr::Sref("name")), Val::Str(name.local_ref().rc())),
+        (Some(Lstr::Sref("name")), Val::Str(name.localid.clone())),
         (Some(Lstr::Sref("fields")), struct_field_vals),
     ]);
 

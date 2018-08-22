@@ -8,12 +8,11 @@ use leema::val::{Type, TypeErr, TypeResult, Val};
 
 use std::collections::{HashMap, LinkedList};
 use std::io::Write;
-use std::rc::Rc;
 
 #[derive(Debug)]
 pub enum CallOp
 {
-    LocalCall(Rc<String>),
+    LocalCall(Lstr),
     ExternalCall(Lri),
 }
 
