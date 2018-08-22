@@ -8,7 +8,6 @@ use leema::val::{SrcLoc, Type, TypeErr, TypeResult, Val};
 use std::collections::hash_map::Keys;
 use std::collections::HashMap;
 use std::io::Write;
-use std::rc::Rc;
 
 
 #[derive(Debug)]
@@ -49,15 +48,15 @@ impl Default for VarData
 #[derive(Debug)]
 pub struct Blockscope
 {
-    vars: HashMap<String, VarData>,
+    vars: HashMap<Lstr, VarData>,
     failing: bool,
 }
 
 impl Blockscope
 {
-    pub fn new(failures: HashMap<String, Ast>) -> Blockscope
+    pub fn new(failures: HashMap<Lstr, Ast>) -> Blockscope
     {
-        let vars: HashMap<String, VarData> = failures
+        let vars: HashMap<Lstr, VarData> = failures
             .into_iter()
             .map(|(v, fail)| (v, VarData::new(fail)))
             .collect();
@@ -122,10 +121,9 @@ impl<'b> TypeSet<'b>
 pub struct Inferator<'b>
 {
     funcname: &'b str,
-    vartypes: HashMap<String, Type>,
+    vartypes: HashMap<Lstr, Type>,
     blocks: Vec<Blockscope>,
     inferences: HashMap<Lstr, Type>,
-    module: Option<Rc<String>>,
 }
 
 impl<'b> Inferator<'b>
@@ -137,11 +135,10 @@ impl<'b> Inferator<'b>
             vartypes: HashMap::new(),
             blocks: vec![Blockscope::new(HashMap::new())],
             inferences: HashMap::new(),
-            module: None,
         }
     }
 
-    pub fn vars(&self) -> Keys<String, Type>
+    pub fn vars(&self) -> Keys<Lstr, Type>
     {
         self.vartypes.keys()
     }
@@ -177,7 +174,7 @@ impl<'b> Inferator<'b>
             // just assign the var b/c it's a new param
             let mut vdata = VarData::default();
             vdata.assignment = Some(line);
-            b.vars.insert(String::from(argn.unwrap()), vdata);
+            b.vars.insert(argn.unwrap().clone(), vdata);
         }
 
         let realt = match argt {
@@ -198,14 +195,14 @@ impl<'b> Inferator<'b>
                 return Inferator::mash(&mut self.inferences, oldargt, &realt);
             }
 
-            self.vartypes.insert(String::from(argn_u), realt.clone());
+            self.vartypes.insert(argn_u.clone(), realt.clone());
         }
         Ok(realt)
     }
 
     pub fn bind_vartype(
         &mut self,
-        argn: &str,
+        argn: &Lstr,
         argt: &Type,
         line: i16,
     ) -> TypeResult
@@ -215,7 +212,7 @@ impl<'b> Inferator<'b>
         if !b.vars.contains_key(argn) {
             let mut vdata = VarData::default();
             vdata.assignment = Some(line);
-            b.vars.insert(argn.to_string(), vdata);
+            b.vars.insert(argn.clone(), vdata);
         } else {
             let vdata = b.vars.get_mut(argn).unwrap();
             if vdata.assignment.is_some() {
@@ -235,7 +232,7 @@ impl<'b> Inferator<'b>
             _ => argt.clone(),
         };
         if !self.vartypes.contains_key(argn) {
-            self.vartypes.insert(String::from(argn), realt.clone());
+            self.vartypes.insert(argn.clone(), realt.clone());
             return Ok(realt);
         }
 
@@ -417,7 +414,7 @@ impl<'b> Inferator<'b>
         self.blocks.len() == 1
     }
 
-    pub fn push_block(&mut self, failures: HashMap<String, Ast>)
+    pub fn push_block(&mut self, failures: HashMap<Lstr, Ast>)
     {
         self.blocks.push(Blockscope::new(failures));
     }
@@ -437,29 +434,6 @@ impl<'b> Inferator<'b>
         self.blocks
             .iter()
             .any(|b| b.vars.get(name).map_or(false, |v| v.assignment.is_some()))
-    }
-
-    pub fn take_current_module(&mut self) -> Option<Rc<String>>
-    {
-        self.module.take()
-    }
-
-    pub fn push_module(&mut self, m: Rc<String>)
-    {
-        if self.module.is_some() {
-            panic!(
-                "cannot push {} on top of {}",
-                m,
-                self.module.as_ref().unwrap()
-            );
-        }
-        self.module = Some(m);
-    }
-
-    pub fn pop_module(&mut self)
-    {
-        if self.module.is_none() {}
-        self.module = None;
     }
 
     pub fn handles_failure(&self, name: &str) -> bool
@@ -670,14 +644,13 @@ mod tests
     use leema::val::{Type, Val};
 
     use std::collections::HashMap;
-    use std::rc::Rc;
 
 
     #[test]
     fn test_add_and_find()
     {
         let mut t = Inferator::new("burritos");
-        t.bind_vartype("a", &Type::Int, 18).unwrap();
+        t.bind_vartype(&Lstr::Sref("a"), &Type::Int, 18).unwrap();
         assert_eq!(Type::Int, t.vartype("a").unwrap());
     }
 
@@ -709,16 +682,6 @@ mod tests
     }
 
     #[test]
-    fn test_take_current_module()
-    {
-        let mut t = Inferator::new("burritos");
-        assert_eq!(None, t.take_current_module());
-        t.push_module(Rc::new(String::from("torta")));
-        assert_eq!("torta", &*t.take_current_module().unwrap());
-        assert_eq!(None, t.take_current_module());
-    }
-
-#[test]
     fn test_make_call_type_with_vars()
     {
         let mut t = Inferator::new("burritos");

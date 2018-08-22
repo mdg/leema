@@ -752,7 +752,7 @@ pub fn compile_pattern_call(
 
 pub fn push_block(scope: &mut Interscope, stmts: &Vec<Ast>) -> Vec<Ast>
 {
-    let mut keyed_failures: HashMap<String, Ast> = HashMap::new();
+    let mut keyed_failures: HashMap<Lstr, Ast> = HashMap::new();
     let mut lines: Vec<Ast> = Vec::with_capacity(stmts.len());
     for s in stmts.iter() {
         if let &Ast::IfExpr(
@@ -763,7 +763,7 @@ pub fn push_block(scope: &mut Interscope, stmts: &Vec<Ast>) -> Vec<Ast>
         ) = s
         {
             let name_lstr = Lstr::from(&**name);
-            keyed_failures.insert(String::from(&name_lstr), s.clone());
+            keyed_failures.insert(name_lstr, s.clone());
         } else {
             lines.push(s.clone());
         }
@@ -900,7 +900,7 @@ mod tests
         let args = LinkedList::new();
         let mut scope =
             Interscope::new(&proto, &imps, &typed, "foo", 105, &args);
-        scope.infer.bind_vartype("hello", &Type::Int, 17).unwrap();
+        scope.infer.bind_vartype(&Lstr::Sref("hello"), &Type::Int, 17).unwrap();
 
         let (scope_lvl, typ) = scope.vartype("hello").unwrap();
         assert_eq!(ScopeLevel::Local, scope_lvl);
@@ -917,7 +917,7 @@ mod tests
         let args = LinkedList::new();
         let mut scope =
             Interscope::new(&proto, &imps, &typed, "foo", 104, &args);
-        scope.infer.bind_vartype("hello", &Type::Int, 18).unwrap();
+        scope.infer.bind_vartype(&Lstr::Sref("hello"), &Type::Int, 18).unwrap();
         println!("add_var(hello) -> {:?}", scope);
 
         {
@@ -927,7 +927,7 @@ mod tests
         }
 
         scope.infer.push_block(HashMap::new());
-        scope.infer.bind_vartype("world", &Type::Str, 33).unwrap();
+        scope.infer.bind_vartype(&Lstr::Sref("world"), &Type::Str, 33).unwrap();
         println!("push_block().add_var(world) -> {:?}", scope);
 
         {
