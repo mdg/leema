@@ -1,3 +1,5 @@
+use leema::sendclone::SendClone;
+
 use std::borrow::Borrow;
 use std::cmp::{Ordering, PartialEq, PartialOrd};
 use std::fmt;
@@ -53,15 +55,20 @@ impl Lstr
             }
         }
     }
+}
 
-    pub fn deep_clone(&self) -> Lstr
+impl SendClone for Lstr
+{
+    type Item = Lstr;
+
+    fn clone_for_send(&self) -> Lstr
     {
         match self {
             &Lstr::Rc(ref s) => Lstr::Arc(Arc::new(s.clone())),
             &Lstr::Arc(ref s) => Lstr::Arc(s.clone()),
             &Lstr::Sref(ref s) => Lstr::Sref(s),
             _ => {
-                panic!("cannot deep_clone: {:?}", self);
+                panic!("cannot Lstr::clone_for_send: {:?}", self);
             }
         }
     }

@@ -1,4 +1,5 @@
 use leema::code::Code;
+use leema::lstr::Lstr;
 use leema::reg::{Ireg, Reg};
 use leema::rsrc;
 use leema::val::{Env, Val};
@@ -61,7 +62,7 @@ impl Debug for Parent
 pub enum Event
 {
     Uneventful,
-    Call(Reg, i16, Rc<String>, Rc<String>, Val),
+    Call(Reg, i16, Lstr, Lstr, Val),
     Fork,
     FutureWait(Reg),
     IOWait,
@@ -146,7 +147,7 @@ pub struct FrameTrace
 {
     // TODO: Implement this in leema later
     direction: FrameTraceDirection,
-    function: String,
+    function: Lstr,
     line: i16,
     parent: Option<Arc<FrameTrace>>,
 }
@@ -157,7 +158,7 @@ impl FrameTrace
     {
         Arc::new(FrameTrace {
             direction: FrameTraceDirection::CallUp,
-            function: "__init__".to_string(),
+            function: Lstr::Sref("__init__"),
             line: 0,
             parent: None,
         })
@@ -165,13 +166,13 @@ impl FrameTrace
 
     pub fn push_call(
         parent: &Arc<FrameTrace>,
-        func: &str,
+        func: &Lstr,
         line: i16,
     ) -> Arc<FrameTrace>
     {
         Arc::new(FrameTrace {
             direction: FrameTraceDirection::CallUp,
-            function: func.to_string(),
+            function: func.clone(),
             line: line,
             parent: Some(parent.clone()),
         })
@@ -179,13 +180,13 @@ impl FrameTrace
 
     pub fn propagate_down(
         trace: &Arc<FrameTrace>,
-        func: &str,
+        func: &Lstr,
         line: i16,
     ) -> Arc<FrameTrace>
     {
         Arc::new(FrameTrace {
             direction: FrameTraceDirection::ReturnDown,
-            function: String::from(func),
+            function: func.clone(),
             line: line,
             parent: Some(trace.clone()),
         })
@@ -227,8 +228,8 @@ impl fmt::Display for FrameTrace
 pub struct Frame
 {
     pub parent: Parent,
-    pub module: Rc<String>,
-    pub function: Rc<String>,
+    pub module: Lstr,
+    pub function: Lstr,
     pub trace: Arc<FrameTrace>,
     pub e: Env,
     pub pc: i32,
@@ -236,16 +237,14 @@ pub struct Frame
 
 impl Frame
 {
-    pub fn new_root(m: String, f: String) -> Frame
+    pub fn new_root(module: Lstr, function: Lstr) -> Frame
     {
         let env = Env::new();
-        let modname = Rc::new(m);
-        let fname = Rc::new(f);
         Frame {
             parent: Parent::Main(Val::Void),
             trace: FrameTrace::new_root(),
-            module: modname,
-            function: fname,
+            module,
+            function,
             e: env,
             pc: 0,
         }
@@ -278,7 +277,7 @@ impl Frame
 
     pub fn push_frame_trace(&self, line: i16) -> Arc<FrameTrace>
     {
-        FrameTrace::push_call(&self.trace, &*self.function, line)
+        FrameTrace::push_call(&self.trace, &self.function, line)
     }
 
     pub fn take_env(&mut self) -> Env
@@ -286,16 +285,6 @@ impl Frame
         let mut e = Env::new();
         mem::swap(&mut e, &mut self.e);
         e
-    }
-
-    pub fn module_name(&self) -> &str
-    {
-        &(**self.module)
-    }
-
-    pub fn function_name(&self) -> &str
-    {
-        &(**self.function)
     }
 
     /**

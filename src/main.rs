@@ -20,6 +20,7 @@ use leema::log;
 use leema::application::Application;
 use leema::list;
 use leema::loader::Interloader;
+use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::module::ModuleSource;
 use leema::program;
@@ -80,7 +81,7 @@ fn real_main() -> i32
     let file = args.arg_script.first().unwrap();
     let leema_args: Val =
         args.arg_script.iter().skip(1).fold(Val::Nil, |acc, a| {
-            let strval = Val::new_str(a.to_string());
+            let strval = Val::Str(Lstr::from(a.to_string()));
             list::cons(strval, acc)
         });
     let inter = Interloader::new(file);
@@ -119,7 +120,8 @@ fn real_main() -> i32
         let mut prog = program::Lib::new(inter);
         let mod_name = Lstr::Rc(modkey.name.clone());
         let func_name = Lstr::Sref("main");
-        prog.typecheck(&mod_name, &func_name, typecheck::Depth::Full);
+        let funcri = Lri::with_modules(mod_name, func_name);
+        prog.typecheck(&funcri, typecheck::Depth::Full);
     } else if args.arg_cmd == "code" {
         let mut prog = program::Lib::new(inter);
         let code = match args.flag_func {
@@ -131,7 +133,7 @@ fn real_main() -> i32
         let prog = program::Lib::new(inter);
         let mut app = Application::new(prog);
         app.set_args(leema_args);
-        app.push_call(&modkey.name, "main");
+        app.push_call(Lstr::Rc(modkey.name.clone()), Lstr::Sref("main"));
         app.run();
         let result = app.wait_for_result();
         return Application::handle_result(result) as i32;

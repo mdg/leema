@@ -2,6 +2,7 @@ use leema::code::Code;
 use leema::fiber::Fiber;
 use leema::frame;
 use leema::list;
+use leema::lstr::Lstr;
 use leema::val::Val;
 
 
@@ -37,7 +38,7 @@ pub fn split(f: &mut Fiber) -> frame::Event
         let src = f.head.e.get_param(0);
         let div = f.head.e.get_param(1);
         let subs = src.str().rsplit(div.str()).fold(Val::Nil, |acc, s| {
-            list::cons(Val::new_str(s.to_string()), acc)
+            list::cons(Val::Str(Lstr::from(s.to_string())), acc)
         });
         subs
     };

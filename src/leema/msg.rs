@@ -1,9 +1,11 @@
 use leema::code::Code;
+use leema::lstr::Lstr;
 use leema::rsrc::IopAction;
 use leema::sendclone::SendClone;
 use leema::val::MsgVal;
 
 use std::fmt;
+use std::ops::Deref;
 use std::sync::mpsc;
 
 
@@ -25,15 +27,27 @@ where
     }
 }
 
+impl<T> Deref for MsgItem<T>
+{
+    type Target = T;
+
+    fn deref(&self) -> &T
+    {
+        &self.0
+    }
+}
+
 unsafe impl<T> Send for MsgItem<T> {}
+
+type MsgLstr = MsgItem<Lstr>;
 
 #[derive(Debug)]
 pub enum AppMsg
 {
     // Spawn(module, function)
-    Spawn(String, String),
+    Spawn(MsgLstr, MsgLstr),
     // RequestCode(worker_id, fiber_id, module, function)
-    RequestCode(i64, i64, String, String),
+    RequestCode(i64, i64, MsgLstr, MsgLstr),
     MainResult(MsgVal),
 }
 
@@ -41,9 +55,9 @@ pub enum AppMsg
 pub enum WorkerMsg
 {
     // Spawn(module, function)
-    Spawn(String, String),
+    Spawn(MsgLstr, MsgLstr),
     // FoundCode(fiber_id, module, function, code)
-    FoundCode(i64, String, String, Code),
+    FoundCode(i64, MsgLstr, MsgLstr, Code),
     // IopResult(fiber_id, MsgVal)
     IopResult(i64, MsgVal),
     Done,

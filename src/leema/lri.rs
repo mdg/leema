@@ -1,4 +1,5 @@
 use leema::lstr::Lstr;
+use leema::sendclone::SendClone;
 use leema::val::Type;
 
 use std::fmt;
@@ -56,6 +57,15 @@ impl Lri
         }
     }
 
+    pub fn replace_params(&self, params: Vec<Type>) -> Lri
+    {
+        Lri {
+            modules: self.modules.clone(),
+            localid: self.localid.clone(),
+            params: Some(params),
+        }
+    }
+
     pub fn local_only(&self) -> bool
     {
         self.modules.is_none() && self.params.is_none()
@@ -66,9 +76,30 @@ impl Lri
         self.modules.is_some()
     }
 
+    pub fn matches_modules(&self, mods: &str) -> bool
+    {
+        match self.modules {
+            None => false,
+            Some(ref imod) => imod == mods,
+        }
+    }
+
     pub fn mod_ref(&self) -> Option<&Lstr>
     {
         self.modules.as_ref()
+    }
+
+    pub fn safe_mod(&self) -> Lstr
+    {
+        match &self.modules {
+            &Some(ref mods) => mods.clone(),
+            &None => Lstr::Sref(""),
+        }
+    }
+
+    pub fn has_params(&self) -> bool
+    {
+        self.params.is_some()
     }
 
     /**
@@ -91,8 +122,8 @@ impl Lri
 
     pub fn deep_clone(&self) -> Lri
     {
-        let new_mods = self.modules.as_ref().map(|m| m.deep_clone());
-        let new_id = self.localid.deep_clone();
+        let new_mods = self.modules.as_ref().map(|m| m.clone_for_send());
+        let new_id = self.localid.clone_for_send();
         let new_params = self
             .params
             .as_ref()

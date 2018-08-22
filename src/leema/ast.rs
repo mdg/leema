@@ -240,14 +240,63 @@ impl Ast
     pub fn from_lri(l: Lri, loc: &SrcLoc) -> Ast
     {
         if l.local_only() {
-            Ast::Localid(l.local_ref().clone(), *loc)
+            return Ast::Localid(l.local_ref().clone(), *loc);
+        }
+        let mods = if l.has_modules() {
+            vec![l.mod_ref().unwrap().clone(), l.local_ref().clone()]
         } else {
-            let mods = if l.has_modules() {
-                vec![l.mod_ref().unwrap().clone(), l.local_ref().clone()]
-            } else {
-                vec![l.local_ref().clone()]
-            };
-            Ast::Lri(mods, None, *loc)
+            vec![l.local_ref().clone()]
+        };
+        let new_params: Option<LinkedList<Ast>> = l.params.map(|params| {
+            params.into_iter().map(|p| Ast::from_type(p, loc)).collect()
+        });
+        Ast::Lri(mods, new_params, *loc)
+    }
+
+    pub fn from_type(t: Type, loc: &SrcLoc) -> Ast
+    {
+        match t {
+            Type::UserDef(lri) => Ast::from_lri(lri, loc),
+            Type::Bool => Ast::TypeBool,
+            Type::Int => Ast::TypeInt,
+            Type::Str => Ast::TypeStr,
+            Type::Hashtag => Ast::TypeHashtag,
+            Type::Void => Ast::TypeVoid,
+            Type::Tuple(items) => {
+                let new_items = items
+                    .0
+                    .into_iter()
+                    .map(|it| {
+                        let newt = Ast::from_type(it.1, loc);
+                        if it.0.is_some() {
+                            Kxpr::new(it.0.unwrap(), newt)
+                        } else {
+                            Kxpr::new_x(newt)
+                        }
+                    }).collect();
+                Ast::Tuple(new_items)
+            }
+            Type::Func(params, result) => {
+                let kx_result = Kxpr::new_x(Ast::from_type(*result, loc));
+                let mut new_params: Vec<Kxpr> = params
+                    .into_iter()
+                    .map(|it| {
+                        let newt = Ast::from_type(it, loc);
+                        Kxpr::new_x(newt)
+                    }).collect();
+                new_params.push(kx_result);
+                Ast::TypeFunc(new_params, *loc)
+            }
+            Type::StrictList(inner) => {
+                let mut items = LinkedList::new();
+                items.push_back(Ast::from_type(*inner, loc));
+                Ast::List(items)
+            }
+            Type::Var(name) => Ast::TypeVar(name, *loc),
+            Type::AnonVar => Ast::TypeAnon,
+            _ => {
+                panic!("cannot convert from type to ast");
+            }
         }
     }
 
@@ -434,8 +483,9 @@ pub fn parse(toks: Vec<Token>) -> Ast
 #[cfg(test)]
 mod tests
 {
-    use leema::ast::{self, Ast, Kxpr};
+    use leema::ast::{self, Ast, Kxpr, Type};
     use leema::lex::lex;
+    use leema::lri::Lri;
     use leema::lstr::Lstr;
     use leema::val::SrcLoc;
 
@@ -468,6 +518,53 @@ mod tests
             None,
             SrcLoc::new(line, col),
         )
+    }
+
+    #[test]
+    fn test_from_lri_local_only()
+    {
+        let lri = Lri::new(Lstr::from("Tacos"));
+        let ast = Ast::from_lri(lri.clone(), &SrcLoc::default());
+        assert_eq!(lri, Lri::from(&ast));
+    }
+
+    #[test]
+    fn test_from_lri_with_modules()
+    {
+        let i = Lri::with_modules(Lstr::from("burritos"), Lstr::from("Tacos"));
+        let ast = Ast::from_lri(i.clone(), &SrcLoc::default());
+        assert_eq!(i, Lri::from(&ast));
+    }
+
+    #[test]
+    fn test_from_lri_with_params()
+    {
+        let inner_lri = Lri::full(
+            Some(Lstr::from("option")),
+            Lstr::from("T"),
+            Some(vec![Type::Var(Lstr::from("U"))]),
+        );
+        let params = vec![
+            Type::Int,
+            Type::Var(Lstr::from("A")),
+            Type::UserDef(inner_lri),
+        ];
+        let i = Lri::full(None, Lstr::from("Tacos"), Some(params));
+        let ast = Ast::from_lri(i.clone(), &SrcLoc::default());
+        assert_eq!(i, Lri::from(&ast));
+    }
+
+    #[test]
+    fn test_from_lri_full()
+    {
+        let params = vec![Type::Var(Lstr::from("A"))];
+        let i = Lri::full(
+            Some(Lstr::from("burritos")),
+            Lstr::from("Tacos"),
+            Some(params),
+        );
+        let ast = Ast::from_lri(i.clone(), &SrcLoc::default());
+        assert_eq!(i, Lri::from(&ast));
     }
 
     #[test]

@@ -356,16 +356,6 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             Oxpr { ops: ops, dst: dst }
         }
         Source::List(ref items) => make_list_ops(rt, items, input.line),
-        Source::ModuleAccess(ref module, ref name) => {
-            let modval = Val::Str(module.clone());
-            let idval = Val::Str(name.clone());
-            let modname = Val::Tuple(Struple::new_tuple2(modval, idval));
-            let dst = rt.dst();
-            Oxpr {
-                ops: vec![(Op::ConstVal(dst.clone(), modname), input.line)],
-                dst: dst.clone(),
-            }
-        }
         Source::Return(ref result) => {
             let mut rops = make_sub_ops(rt, result);
             rops.ops.push((Op::SetResult(rops.dst.clone()), input.line));

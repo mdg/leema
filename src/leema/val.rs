@@ -90,6 +90,7 @@ impl Type
             &Type::Int => Lstr::Sref("Int"),
             &Type::UserDef(ref name) => Lstr::from(name),
             &Type::Void => Lstr::Sref("Void"),
+            &Type::Var(ref name) => Lstr::from(format!("${}", name)),
             _ => {
                 panic!("no typename for {:?}", self);
             }
@@ -107,7 +108,17 @@ impl Type
         }
     }
 
-    pub fn split_func(t: &Type) -> (&Vec<Type>, &Type)
+    pub fn split_func(t: Type) -> (Vec<Type>, Type)
+    {
+        match t {
+            Type::Func(args, result) => (args, *result),
+            _ => {
+                panic!("Not a func type {:?}", t);
+            }
+        }
+    }
+
+    pub fn split_func_ref(t: &Type) -> (&Vec<Type>, &Type)
     {
         match t {
             &Type::Func(ref args, ref result) => (args, &*result),
@@ -162,7 +173,7 @@ impl Type
                 let dc_args = args.iter().map(|t| t.deep_clone()).collect();
                 Type::Func(dc_args, Box::new(result.deep_clone()))
             }
-            &Type::Var(ref id) => Type::Var(id.deep_clone()),
+            &Type::Var(ref id) => Type::Var(id.clone_for_send()),
             &Type::Void => Type::Void,
             _ => {
                 panic!("cannot deep_clone Type: {:?}", self);
@@ -229,7 +240,7 @@ impl fmt::Display for Type
 
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::Param(index) => write!(f, "Type::Param({})", index),
-            &Type::Var(ref name) => write!(f, "Type::Var({})", name),
+            &Type::Var(ref name) => write!(f, "${}", name),
             &Type::AnonVar => write!(f, "TypeAnonymous"),
             &Type::Deref(ref inner) => write!(f, "`{}", inner),
         }
@@ -266,7 +277,7 @@ impl fmt::Debug for Type
             &Type::Any => write!(f, "Any"),
 
             &Type::Unknown => write!(f, "TypeUnknown"),
-            &Type::Var(ref name) => write!(f, "Type::Var({})", name),
+            &Type::Var(ref name) => write!(f, "${}", name),
             &Type::Param(index) => write!(f, "Type::Param({})", index),
             &Type::AnonVar => write!(f, "TypeAnonymous"),
             &Type::Deref(ref inner) => write!(f, "TypeDeref({:?})", inner),
@@ -418,11 +429,10 @@ pub type MsgVal = msg::MsgItem<Val>;
 pub enum Val
 {
     Int(i64),
-    Str(Rc<String>),
+    Str(Lstr),
     // StrCat(Rc<Val>, Box<Val>),
-    // EmptyStr,
     Bool(bool),
-    Hashtag(Rc<String>),
+    Hashtag(Lstr),
     Buffer(Vec<u8>),
     Cons(Box<Val>, Rc<Val>),
     Nil,
@@ -437,13 +447,13 @@ pub enum Val
         Arc<FrameTrace>,
         i8, // status
     ),
-    Id(Rc<String>),
+    Id(Lstr),
     Lri(Lri),
     Type(Type),
     Kind(u8),
     Lib(Arc<LibVal>),
     LibRc(Rc<LibVal>),
-    FuncRef(Rc<String>, Rc<String>, Type),
+    FuncRef(Lri, Type),
     ResourceRef(i64),
     RustBlock,
     Future(FutureVal),
@@ -459,27 +469,11 @@ pub const TRUE: Val = Val::Bool(true);
 
 impl Val
 {
-    pub fn id(s: String) -> Val
-    {
-        Val::Id(Rc::new(s))
-    }
-
     pub fn is_id(&self) -> bool
     {
         match self {
             &Val::Id(_) => true,
             _ => false,
-        }
-    }
-
-    pub fn id_name(&self) -> Rc<String>
-    {
-        match self {
-            &Val::Id(ref name) => name.clone(),
-            &Val::Type(ref typ) => typ.full_typename().rc(),
-            _ => {
-                panic!("not an id {:?}", self);
-            }
         }
     }
 
@@ -523,32 +517,16 @@ impl Val
         }
     }
 
-    pub fn new_str(s: String) -> Val
-    {
-        Val::Str(Rc::new(s))
-    }
-
     pub fn empty_str() -> Val
     {
-        Val::Str(Rc::new("".to_string()))
+        Val::Str(Lstr::Sref(""))
     }
 
     pub fn str(&self) -> &str
     {
         match self {
-            &Val::Id(ref id) => id,
-            &Val::Str(ref s) => s,
-            _ => {
-                panic!("Cannot convert to string: {:?}", self);
-            }
-        }
-    }
-
-    pub fn to_str(&self) -> Rc<String>
-    {
-        match self {
-            &Val::Id(ref id) => id.clone(),
-            &Val::Str(ref s) => s.clone(),
+            &Val::Id(ref id) => id.str(),
+            &Val::Str(ref s) => s.str(),
             _ => {
                 panic!("Cannot convert to string: {:?}", self);
             }
@@ -563,11 +541,6 @@ impl Val
                 panic!("Not an int: {:?}", self);
             }
         }
-    }
-
-    pub fn hashtag(s: String) -> Val
-    {
-        Val::Hashtag(Rc::new(s))
     }
 
     pub fn is_type(&self) -> bool
@@ -693,7 +666,7 @@ impl Val
             &Val::Kind(_) => {
                 panic!("is kind even a thing here?");
             }
-            &Val::FuncRef(_, _, ref typ) => typ.clone(),
+            &Val::FuncRef(_, ref typ) => typ.clone(),
             &Val::Lib(ref lv) => lv.get_type(),
             &Val::LibRc(ref lv) => lv.get_type(),
             &Val::ResourceRef(_) => {
@@ -800,7 +773,7 @@ impl Val
         result
     }
 
-    pub fn replace_ids(node: &Val, idvals: &HashMap<Rc<String>, Val>) -> Val
+    pub fn replace_ids(node: &Val, idvals: &HashMap<Lstr, Val>) -> Val
     {
         match node {
             &Val::Cons(_, _) => {
@@ -843,9 +816,9 @@ impl Val
     {
         match self {
             &Val::Int(i) => Val::Int(i),
-            &Val::Str(ref s) => Val::new_str((**s).clone()),
+            &Val::Str(ref s) => Val::Str(s.clone_for_send()),
             &Val::Bool(b) => Val::Bool(b),
-            &Val::Hashtag(ref s) => Val::hashtag((**s).clone()),
+            &Val::Hashtag(ref s) => Val::Hashtag(s.clone_for_send()),
             &Val::Cons(ref head, ref tail) => {
                 Val::Cons(
                     Box::new(head.deep_clone()),
@@ -860,23 +833,19 @@ impl Val
             &Val::EnumStruct(ref typ, ref vname, ref flds) => {
                 Val::EnumStruct(
                     typ.deep_clone(),
-                    vname.deep_clone(),
+                    vname.clone_for_send(),
                     flds.clone_for_send(),
                 )
             }
             &Val::EnumToken(ref typ, ref vname) => {
-                Val::EnumToken(typ.deep_clone(), vname.deep_clone())
+                Val::EnumToken(typ.deep_clone(), vname.clone_for_send())
             }
             &Val::Token(ref typ) => Val::Token(typ.deep_clone()),
-            &Val::FuncRef(ref modname, ref fname, ref typ) => {
-                Val::FuncRef(
-                    Rc::new((**modname).clone()),
-                    Rc::new((**fname).clone()),
-                    typ.deep_clone(),
-                )
+            &Val::FuncRef(ref fi, ref typ) => {
+                Val::FuncRef(fi.deep_clone(), typ.deep_clone())
             }
             // &Val::Failure(ref tag, ref msg, ref ft),
-            &Val::Id(ref s) => Val::id((**s).clone()),
+            &Val::Id(ref s) => Val::Id(s.clone_for_send()),
             &Val::Type(ref t) => Val::Type(t.deep_clone()),
             &Val::ResourceRef(r) => Val::ResourceRef(r),
             &Val::Kind(k) => Val::Kind(k),
@@ -992,9 +961,7 @@ impl fmt::Display for Val
             Val::Id(ref name) => write!(f, "{}", name),
             Val::Type(ref t) => write!(f, "{}", t),
             Val::Kind(c) => write!(f, "Kind({})", c),
-            Val::FuncRef(ref module, ref name, ref typ) => {
-                write!(f, "{}::{} : {}", module, name, typ)
-            }
+            Val::FuncRef(ref id, ref typ) => write!(f, "{} : {}", id, typ),
             Val::Future(_) => write!(f, "Future"),
             Val::Void => write!(f, "Void"),
             Val::PatternVar(ref r) => write!(f, "pvar:{:?}", r),
@@ -1044,8 +1011,8 @@ impl fmt::Debug for Val
             Val::Id(ref id) => write!(f, "Id({})", id),
             Val::Type(ref t) => write!(f, "TypeVal({:?})", t),
             Val::Kind(c) => write!(f, "Kind{:?}", c),
-            Val::FuncRef(ref module, ref name, ref typ) => {
-                write!(f, "FuncRef({}::{} : {})", module, name, typ)
+            Val::FuncRef(ref id, ref typ) => {
+                write!(f, "FuncRef({} : {})", id, typ)
             }
             Val::Future(_) => write!(f, "Future"),
             Val::PatternVar(ref r) => write!(f, "pvar:{:?}", r),
@@ -1209,14 +1176,10 @@ impl PartialOrd for Val
                 PartialOrd::partial_cmp(&*at, &*bt)
             }
             // func ref to func ref comparison
-            (
-                &Val::FuncRef(ref m1, ref n1, ref t1),
-                &Val::FuncRef(ref m2, ref n2, ref t2),
-            ) => {
+            (&Val::FuncRef(ref f1, ref t1), &Val::FuncRef(ref f2, ref t2)) => {
                 Some(
-                    PartialOrd::partial_cmp(m1, m2)
+                    PartialOrd::partial_cmp(f1, f2)
                         .unwrap()
-                        .then_with(|| PartialOrd::partial_cmp(n1, n2).unwrap())
                         .then_with(|| PartialOrd::partial_cmp(t1, t2).unwrap()),
                 )
             }
@@ -1540,8 +1503,8 @@ mod tests
     #[test]
     fn test_equal_str()
     {
-        let a = Val::new_str("hello".to_string());
-        let b = Val::new_str("hello".to_string());
+        let a = Val::Str(Lstr::Sref("hello"));
+        let b = Val::Str(Lstr::Sref("hello"));
         assert!(a == b);
     }
 
@@ -1714,7 +1677,7 @@ mod tests
         let f = Val::Bool(false);
         let t = Val::Bool(true);
         let i = Val::Int(7);
-        let s = Val::new_str("hello".to_string());
+        let s = Val::Str(Lstr::Sref("hello"));
         let strct = Val::Struct(
             Lri::new(Lstr::Sref("Foo")),
             Struple::new_tuple2(Val::Int(2), Val::Bool(true)),

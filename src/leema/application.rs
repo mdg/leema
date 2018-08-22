@@ -1,6 +1,7 @@
 use leema::io::{Io, IoLoop};
 use leema::log;
-use leema::msg::{AppMsg, IoMsg, WorkerMsg};
+use leema::lstr::Lstr;
+use leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use leema::program;
 use leema::val::Val;
 use leema::worker::Worker;
@@ -19,7 +20,7 @@ pub struct Application
     io_recv: Option<Receiver<IoMsg>>,
     io_send: Sender<IoMsg>,
     worker: HashMap<i64, Sender<WorkerMsg>>,
-    calls: LinkedList<(String, String)>,
+    calls: LinkedList<(Lstr, Lstr)>,
     args: Val,
     result: Option<Val>,
     done: bool,
@@ -52,10 +53,9 @@ impl Application
         self.args = args;
     }
 
-    pub fn push_call(&mut self, module: &str, func: &str)
+    pub fn push_call(&mut self, module: Lstr, func: Lstr)
     {
-        self.calls
-            .push_back((String::from(module), String::from(func)));
+        self.calls.push_back((module, func));
     }
 
     pub fn run(&mut self)
@@ -116,8 +116,10 @@ impl Application
         while let Some((module, call)) = self.calls.pop_front() {
             vout!("application call {}.{}()\n", module, call);
             let w = self.worker.values().next().unwrap();
-            w.send(WorkerMsg::Spawn(module, call))
-                .expect("fail sending spawn call to worker");
+            w.send(WorkerMsg::Spawn(
+                MsgItem::new(&module),
+                MsgItem::new(&call),
+            )).expect("fail sending spawn call to worker");
         }
 
         while let Result::Ok(msg) = self.app_recv.try_recv() {
@@ -129,14 +131,16 @@ impl Application
     {
         vout!("Received a message! {:?}\n", msg);
         match msg {
-            AppMsg::RequestCode(worker_id, frame, module, func) => {
+            AppMsg::RequestCode(worker_id, frame, mmodule, mfunc) => {
+                let module = mmodule.take();
+                let func = mfunc.take();
                 let code = self.prog.load_code(&module, &func);
                 let worker = self.worker.get(&worker_id).unwrap();
                 worker
                     .send(WorkerMsg::FoundCode(
                         frame,
-                        module,
-                        func,
+                        MsgItem::new(&module),
+                        MsgItem::new(&func),
                         code.clone(),
                     )).expect("fail to send found code to worker");
             }
@@ -221,6 +225,7 @@ mod tests
 {
     use leema::application::Application;
     use leema::loader::Interloader;
+    use leema::lstr::Lstr;
     use leema::program;
     use leema::val::Val;
 
@@ -241,7 +246,7 @@ mod tests
         let prog = program::Lib::new(inter);
 
         let mut app = Application::new(prog);
-        app.push_call("test", "main");
+        app.push_call(Lstr::Sref("test"), Lstr::Sref("main"));
         app.run();
 
         write!(stderr(), "Application::wait_until_done\n").unwrap();

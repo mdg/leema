@@ -55,7 +55,7 @@ where
             .0
             .iter()
             .map(|i| {
-                let new_key = i.0.as_ref().map(|ik| ik.deep_clone());
+                let new_key = i.0.as_ref().map(|ik| ik.clone_for_send());
                 (new_key, i.1.clone_for_send())
             }).collect();
         Struple(safe_items)

@@ -1,19 +1,19 @@
 use leema::infer::{Inferator, TypeSet};
 use leema::ixpr::{Ixpr, Source};
 use leema::log;
+use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::phase0::Protomod;
 use leema::val::{Type, TypeErr, TypeResult, Val};
 
 use std::collections::{HashMap, LinkedList};
 use std::io::Write;
-use std::rc::Rc;
 
 #[derive(Debug)]
 pub enum CallOp
 {
-    LocalCall(Rc<String>),
-    ExternalCall(Rc<String>, Rc<String>),
+    LocalCall(Lstr),
+    ExternalCall(Lri),
 }
 
 #[derive(Debug)]
@@ -124,7 +124,6 @@ impl<'a> CallFrame<'a>
             Source::RustBlock => {}
             Source::Construple(_, _) => {}
             Source::EnumConstructor(_, _, _) => {}
-            Source::ModuleAccess(_, _) => {}
             Source::PropagateFailure(_, _) => {}
         }
     }
@@ -135,22 +134,13 @@ impl<'a> CallFrame<'a>
             Source::Id(ref callname, _) => {
                 self.push_call(CallOp::LocalCall(callname.clone()));
             }
-            Source::ModuleAccess(ref modname, ref callname) => {
-                self.push_call(CallOp::ExternalCall(
-                    modname.clone(),
-                    callname.clone(),
-                ));
-            }
             Source::ConstVal(ref val) => {
                 match val {
                     &Val::Str(ref name) => {
                         self.push_call(CallOp::LocalCall(name.clone()));
                     }
-                    &Val::FuncRef(ref modnm, ref funcnm, _) => {
-                        self.push_call(CallOp::ExternalCall(
-                            modnm.clone(),
-                            funcnm.clone(),
-                        ));
+                    &Val::FuncRef(ref i, _) => {
+                        self.push_call(CallOp::ExternalCall(i.clone()));
                     }
                     _ => {
                         panic!("const val is not a call: {:?}", val);
@@ -363,7 +353,7 @@ impl<'a, 'b> Typescope<'a, 'b>
             &Source::ConstVal(ref fval) => {
                 match fval {
                     &Val::Str(_) => Ok(Type::Void),
-                    &Val::FuncRef(_, _, ref typ) => Ok(typ.clone()),
+                    &Val::FuncRef(_, ref typ) => Ok(typ.clone()),
                     _ => {
                         panic!("what val is in typecheck_call? {:?}", fval);
                     }
@@ -411,7 +401,10 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             for ta in targs.iter() {
                 targs_ref.push(ta);
             }
-            scope.infer.make_call_type(&tfunc, &targs_ref)
+            let full_call_type =
+                scope.infer.make_call_type(&tfunc, &targs_ref).unwrap();
+            let (_, call_result) = Type::split_func(full_call_type);
+            Ok(call_result.clone())
         }
         &Source::Cons(ref head, ref tail) => {
             let head_t = typecheck_expr(scope, head).unwrap();
@@ -510,7 +503,9 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             &Type::Func(ref arg_types, ref declared_result_type),
         ) => {
             for (an, at) in arg_names.iter().zip(arg_types.iter()) {
-                scope.infer.bind_vartype(an, at, ix.line)?;
+                scope
+                    .infer
+                    .bind_vartype(&Lstr::Rc(an.clone()), at, ix.line)?;
             }
             vout!("f({:?}) =>\n{:?}", arg_names, body);
             let result_type = typecheck_expr(scope, &*body)
@@ -535,7 +530,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             scope
                 .infer
                 .merge_types(&result_type, declared_result_type)
-                .map(|final_type| Type::Func(final_args, Box::new(final_type)))
+                .map(|final_type| Type::f(final_args, final_type))
         }
         (&Source::RustBlock, _) => Ok(ix.typ.clone()),
         _ => {
@@ -578,6 +573,7 @@ pub fn typecheck_field_access(
 mod tests
 {
     use leema::loader::Interloader;
+    use leema::lri::Lri;
     use leema::lstr::Lstr;
     use leema::program;
     use leema::typecheck::Depth;
@@ -606,7 +602,8 @@ mod tests
         let mut loader = Interloader::new("tacos.lma");
         loader.set_mod_txt("tacos", input);
         let mut prog = program::Lib::new(loader);
-        prog.typecheck(&Lstr::from("tacos"), &Lstr::from("main"), Depth::Full);
+        let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("main"));
+        prog.typecheck(&fri, Depth::Full);
     }
 
 }

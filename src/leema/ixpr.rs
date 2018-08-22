@@ -1,3 +1,4 @@
+use leema::lstr::Lstr;
 use leema::struple::Struple;
 use leema::val::{Type, Val};
 
@@ -18,14 +19,13 @@ pub enum Source
     EnumConstructor(Type, i16, Box<Ixpr>),
     FieldAccess(Box<Ixpr>, i8),
     Func(Vec<Rc<String>>, Box<Ixpr>),
-    Let(Val, Box<Ixpr>, Vec<(Rc<String>, Ixpr)>),
+    Let(Val, Box<Ixpr>, Vec<(Lstr, Ixpr)>),
     MatchFailure(Box<Ixpr>, Box<Ixpr>),
     MatchExpr(Box<Ixpr>, Box<Ixpr>),
     MatchCase(Val, Box<Ixpr>, Box<Ixpr>),
-    ModuleAccess(Rc<String>, Rc<String>),
-    PropagateFailure(Rc<String>, i16),
+    PropagateFailure(Lstr, i16),
     RustBlock,
-    Id(Rc<String>, i16),
+    Id(Lstr, i16),
     IfExpr(Box<Ixpr>, Box<Ixpr>, Option<Box<Ixpr>>),
     List(Vec<Ixpr>),
     StrMash(Vec<Ixpr>),
@@ -229,13 +229,14 @@ impl Ixpr
 mod tests
 {
     use leema::ixpr::{Ixpr, Source};
+    use leema::lstr::Lstr;
     use leema::val::{Type, Val};
 
 
     #[test]
     fn test_new_const_str()
     {
-        let hello = Val::new_str(String::from("hello"));
+        let hello = Val::Str(Lstr::Sref("hello"));
         let actual = Ixpr::const_val(hello.clone(), 7);
         let expected = Ixpr {
             src: Source::ConstVal(hello),
@@ -249,8 +250,8 @@ mod tests
     fn test_new_str_mash_const()
     {
         let strs = vec![
-            Ixpr::const_val(Val::new_str(String::from("hello")), 16),
-            Ixpr::const_val(Val::new_str(String::from(" mash")), 17),
+            Ixpr::const_val(Val::Str(Lstr::Sref("hello")), 16),
+            Ixpr::const_val(Val::Str(Lstr::Sref(" mash")), 17),
         ];
         let strmash = Ixpr::new_str_mash(strs, 18);
         if let Source::StrMash(ss) = strmash.src {

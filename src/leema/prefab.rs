@@ -3,6 +3,7 @@ use leema::fiber::Fiber;
 use leema::frame::Event;
 use leema::list;
 use leema::log;
+use leema::lstr::Lstr;
 use leema::val::{self, LibVal, Type, Val};
 
 use std::fmt::{self, Debug, Display};
@@ -122,9 +123,12 @@ pub fn bool_not(f: &mut Fiber) -> Event
         f.head.parent.set_result(Val::Bool(!b));
         Event::success()
     } else {
-        let tag = Val::hashtag("invalid_type".to_string());
-        let msg =
-            Val::new_str(format!("input to not must be a boolean: {:?}", i));
+        let tag = Val::Hashtag(Lstr::Sref("invalid_type"));
+        let msg = Val::Str(Lstr::from(format!(
+            "input to not must be a boolean: {:?}",
+            i
+        )));
+
         let fail =
             Val::failure(tag, msg, f.head.trace.clone(), val::FAILURE_TYPE);
         f.head.parent.set_result(fail);
@@ -248,13 +252,13 @@ pub fn cin(f: &mut Fiber) -> Event
     let mut input = String::new();
     match stdin().read_line(&mut input) {
         Ok(_) => {
-            f.head.parent.set_result(Val::new_str(input));
+            f.head.parent.set_result(Val::Str(Lstr::from(input)));
             Event::success()
         }
         Err(_) => {
             f.head.parent.set_result(Val::failure(
-                Val::hashtag("console_read_fail".to_string()),
-                Val::hashtag("".to_string()),
+                Val::Hashtag(Lstr::Sref("console_read_fail")),
+                Val::Str(Lstr::Sref("")),
                 f.head.trace.fail_here(),
                 val::FAILURE_INTERNAL,
             ));
@@ -352,8 +356,8 @@ pub fn file_read(f: &mut Fiber) -> Event
         Ok(file) => Val::libval(LeemaFile::new(file)),
         Err(_) => {
             Val::failure(
-                Val::hashtag("file_open_fail".to_string()),
-                Val::new_str("Failed to open file".to_string()),
+                Val::Hashtag(Lstr::Sref("file_open_fail")),
+                Val::Str(Lstr::Sref("Failed to open file")),
                 f.head.trace.fail_here(),
                 val::FAILURE_INTERNAL,
             )
@@ -376,7 +380,7 @@ pub fn file_stream_read(f: &mut Fiber) -> Event
             .expect("failed to read from file to string");
         //let result = myf.f.lock().unwrap().read_to_string(&mut input);
     }
-    f.head.parent.set_result(Val::new_str(input));
+    f.head.parent.set_result(Val::Str(Lstr::from(input)));
     Event::success()
 }
 
