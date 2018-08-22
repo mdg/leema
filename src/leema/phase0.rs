@@ -453,6 +453,9 @@ impl Protomod
                 Ast::Return(Box::new(new_result), *loc)
             }
             &Ast::Lri(_, _, _) => node.clone(),
+            &Ast::ConstBool(b) => Ast::ConstBool(b),
+            &Ast::ConstVoid => Ast::ConstVoid,
+            &Ast::Wildcard => Ast::Wildcard,
             _ => {
                 println!("cannot replace_ids for expression: {:?}", node);
                 node.clone()
