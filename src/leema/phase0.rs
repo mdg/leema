@@ -435,11 +435,11 @@ impl Protomod
             }
             &Ast::Call(ref callx, ref args, _) => {
                 let new_callx = Protomod::replace_ids(callx, idvals, loc);
-                let new_args = args.iter().map(|arg| {
-                    arg.map_x(|x| {
-                        Protomod::replace_ids(x, idvals, loc)
-                    })
-                }).collect();
+                let new_args = args
+                    .iter()
+                    .map(|arg| {
+                        arg.map_x(|x| Protomod::replace_ids(x, idvals, loc))
+                    }).collect();
                 Ast::Call(Box::new(new_callx), new_args, *loc)
             }
             &Ast::Localid(ref name, ref _iloc) => {
@@ -481,11 +481,9 @@ impl Protomod
         loc: &SrcLoc,
     ) -> Ast
     {
-        let mac =
-            prog.get_macro(&mp.key.name, id)
-                .or_else(|| {
-                    prog.get_macro(&Lstr::Sref("prefab"), id)
-                });
+        let mac = prog
+            .get_macro(&mp.key.name, id)
+            .or_else(|| prog.get_macro(&Lstr::Sref("prefab"), id));
         match mac {
             Some(imac) => imac.clone(),
             None => Ast::Localid(id.clone(), *loc),
