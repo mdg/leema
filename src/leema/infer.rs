@@ -350,10 +350,10 @@ impl<'b> Inferator<'b>
             _ => {
                 let ptype = patt.get_type();
                 self.merge_types(&ptype, valtype).map(|_| ()).map_err(|e| {
-                    e.add_context(format!(
+                    e.add_context(Lstr::from(format!(
                         "pattern type mismatch: {:?} != {:?}",
                         patt, valtype
-                    ))
+                    )))
                 })
             }
         }
@@ -626,10 +626,10 @@ impl<'b> Inferator<'b>
             .map(|(defargt, argt)| {
                 Inferator::mash(&mut self.inferences, defargt, argt)
                     .map_err(|e| {
-                        e.add_context(format!(
+                        e.add_context(Lstr::from(format!(
                             "expected function args in {}: {:?} found {:?}",
                             self.funcname, defargst, argst,
-                        ))
+                        )))
                     }).unwrap()
             }).collect();
         Ok(Type::f(mashed_args, self.inferred_type(defresult)))

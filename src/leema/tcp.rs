@@ -9,7 +9,6 @@ use bytes::BytesMut;
 use std;
 use std::io::{self, Write};
 use std::net::{IpAddr, SocketAddr};
-use std::rc::Rc;
 use std::str::FromStr;
 
 use futures::future::Future;
@@ -59,7 +58,7 @@ impl Rsrc for Framed<Box<TcpStream>, TcpValCodec>
 {
     fn get_type(&self) -> Type
     {
-        Type::Resource(Rc::new(String::from("TcpSocket")))
+        Type::Resource(Lstr::Sref("TcpSocket"))
     }
 }
 
@@ -67,7 +66,7 @@ impl Rsrc for TcpStream
 {
     fn get_type(&self) -> Type
     {
-        Type::Resource(Rc::new(String::from("TcpSocket")))
+        Type::Resource(Lstr::Sref("TcpSocket"))
     }
 }
 
@@ -75,7 +74,7 @@ impl Rsrc for TcpListener
 {
     fn get_type(&self) -> Type
     {
-        Type::Resource(Rc::new(String::from("TcpListener")))
+        Type::Resource(Lstr::Sref("TcpListener"))
     }
 }
 

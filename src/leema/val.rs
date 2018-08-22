@@ -56,7 +56,7 @@ pub enum Type
     StrictList(Box<Type>),
     UserDef(Lri),
     Lib(String),
-    Resource(Rc<String>),
+    Resource(Lstr),
     RustBlock,
     Param(i8),
     // Future(Box<Type>),
@@ -100,11 +100,11 @@ impl Type
     /**
      * Get the typename without any module information
      */
-    pub fn local_typename(&self) -> Rc<String>
+    pub fn local_typename(&self) -> Lstr
     {
         match self {
-            &Type::UserDef(ref i) => i.local().rc(),
-            _ => self.full_typename().rc(),
+            &Type::UserDef(ref i) => i.localid.clone(),
+            _ => self.full_typename(),
         }
     }
 
@@ -292,14 +292,14 @@ pub enum TypeErr
 {
     Error(Lstr),
     Mismatch(Type, Type),
-    Context(Box<TypeErr>, Rc<String>),
+    Context(Box<TypeErr>, Lstr),
 }
 
 impl TypeErr
 {
-    pub fn add_context(self, ctx: String) -> TypeErr
+    pub fn add_context(self, ctx: Lstr) -> TypeErr
     {
-        TypeErr::Context(Box::new(self), Rc::new(ctx))
+        TypeErr::Context(Box::new(self), ctx)
     }
 }
 

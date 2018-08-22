@@ -514,7 +514,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
                         "function result type error for: {}",
                         scope.fname
                     );
-                    e.add_context(err_msg)
+                    e.add_context(Lstr::from(err_msg))
                 }).unwrap();
 
             vout!("type is: {}", result_type);

@@ -420,7 +420,6 @@ pub mod tests
     use leema::struple::Struple;
     use leema::val::{MsgVal, Type, Val};
 
-    use std::rc::Rc;
     use std::sync::mpsc;
 
     #[derive(Debug)]
@@ -430,7 +429,7 @@ pub mod tests
     {
         fn get_type(&self) -> Type
         {
-            Type::Resource(Rc::new("MockRsrc".to_string()))
+            Type::Resource(Lstr::Sref("MockRsrc"))
         }
     }
 

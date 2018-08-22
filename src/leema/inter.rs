@@ -380,7 +380,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
                     &Type::StrictList(Box::new(chead.typ.clone())),
                     &ctail.typ,
                 ).map_err(|e| {
-                    e.add_context("const types do not match".to_string())
+                    e.add_context(Lstr::Sref("const types do not match"))
                 });
             Ixpr::cons(chead, ctail, list_type.unwrap(), loc.lineno)
         }
@@ -523,10 +523,10 @@ pub fn compile_call(
             .infer
             .make_call_type(&icall.typ, &iargst)
             .map_err(|e| {
-                e.add_context(format!(
+                e.add_context(Lstr::from(format!(
                     "type error in function call: {:?}",
                     callx
-                ))
+                )))
             }).unwrap()
     };
     icall.typ = ftype.clone();
@@ -640,7 +640,7 @@ pub fn compile_if_case(scope: &mut Interscope, case: &ast::IfCase) -> Ixpr
                 .infer
                 .merge_types(&ibody.typ, &iinext.typ)
                 .map_err(|e| {
-                    e.add_context("if/else types do not match".to_string())
+                    e.add_context(Lstr::Sref("if/else types do not match"))
                 });
             (mtype.unwrap(), Some(iinext))
         }

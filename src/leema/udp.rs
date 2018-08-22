@@ -6,7 +6,6 @@ use leema::val::{Type, Val};
 
 use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
-use std::rc::Rc;
 use std::str::FromStr;
 
 use futures::future::Future;
@@ -17,7 +16,7 @@ impl Rsrc for UdpSocket
 {
     fn get_type(&self) -> Type
     {
-        Type::Resource(Rc::new(String::from("UdpSocket")))
+        Type::Resource(Lstr::Sref("UdpSocket"))
     }
 }
 
