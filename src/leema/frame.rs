@@ -1,5 +1,5 @@
 use leema::code::Code;
-use leema::lstr::{Lstr};
+use leema::lstr::Lstr;
 use leema::reg::{Ireg, Reg};
 use leema::rsrc;
 use leema::val::{Env, Val};

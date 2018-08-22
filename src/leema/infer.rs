@@ -483,9 +483,13 @@ impl<'b> Inferator<'b>
                 Type::Tuple(infers)
             }
             &Type::UserDef(ref udlri) if udlri.params.is_some() => {
-                let iparams = udlri.params.as_ref().unwrap().iter().map(|p| {
-                    self.inferred_type(&p)
-                }).collect();
+                let iparams = udlri
+                    .params
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .map(|p| self.inferred_type(&p))
+                    .collect();
                 Type::UserDef(udlri.replace_params(iparams))
             }
             _ => typ.clone(),
@@ -616,18 +620,18 @@ impl<'b> Inferator<'b>
             panic!("it's so much fun to curry, but not supported yet");
         }
 
-        let mashed_args = defargst.iter().zip(argst.iter()).map(
-            |(defargt, argt)| {
+        let mashed_args = defargst
+            .iter()
+            .zip(argst.iter())
+            .map(|(defargt, argt)| {
                 Inferator::mash(&mut self.inferences, defargt, argt)
                     .map_err(|e| {
                         e.add_context(format!(
                             "expected function args in {}: {:?} found {:?}",
                             self.funcname, defargst, argst,
                         ))
-                    })
-                    .unwrap()
-            }
-        ).collect();
+                    }).unwrap()
+            }).collect();
         Ok(Type::f(mashed_args, self.inferred_type(defresult)))
     }
 }

@@ -248,9 +248,7 @@ impl Ast
             vec![l.local_ref().clone()]
         };
         let new_params: Option<LinkedList<Ast>> = l.params.map(|params| {
-            params.into_iter().map(|p| {
-                Ast::from_type(p, loc)
-            }).collect()
+            params.into_iter().map(|p| Ast::from_type(p, loc)).collect()
         });
         Ast::Lri(mods, new_params, *loc)
     }
@@ -265,14 +263,17 @@ impl Ast
             Type::Hashtag => Ast::TypeHashtag,
             Type::Void => Ast::TypeVoid,
             Type::Tuple(items) => {
-                let new_items = items.0.into_iter().map(|it| {
-                    let newt = Ast::from_type(it.1, loc);
-                    if it.0.is_some() {
-                        Kxpr::new(it.0.unwrap(), newt)
-                    } else {
-                        Kxpr::new_x(newt)
-                    }
-                }).collect();
+                let new_items = items
+                    .0
+                    .into_iter()
+                    .map(|it| {
+                        let newt = Ast::from_type(it.1, loc);
+                        if it.0.is_some() {
+                            Kxpr::new(it.0.unwrap(), newt)
+                        } else {
+                            Kxpr::new_x(newt)
+                        }
+                    }).collect();
                 Ast::Tuple(new_items)
             }
             Type::Func(params, result) => {
@@ -282,8 +283,7 @@ impl Ast
                     .map(|it| {
                         let newt = Ast::from_type(it, loc);
                         Kxpr::new_x(newt)
-                    })
-                    .collect();
+                    }).collect();
                 new_params.push(kx_result);
                 Ast::TypeFunc(new_params, *loc)
             }
@@ -521,21 +521,24 @@ mod tests
     }
 
     #[test]
-    fn test_from_lri_local_only() {
+    fn test_from_lri_local_only()
+    {
         let lri = Lri::new(Lstr::from("Tacos"));
         let ast = Ast::from_lri(lri.clone(), &SrcLoc::default());
         assert_eq!(lri, Lri::from(&ast));
     }
 
     #[test]
-    fn test_from_lri_with_modules() {
+    fn test_from_lri_with_modules()
+    {
         let i = Lri::with_modules(Lstr::from("burritos"), Lstr::from("Tacos"));
         let ast = Ast::from_lri(i.clone(), &SrcLoc::default());
         assert_eq!(i, Lri::from(&ast));
     }
 
     #[test]
-    fn test_from_lri_with_params() {
+    fn test_from_lri_with_params()
+    {
         let inner_lri = Lri::full(
             Some(Lstr::from("option")),
             Lstr::from("T"),
@@ -552,7 +555,8 @@ mod tests
     }
 
     #[test]
-    fn test_from_lri_full() {
+    fn test_from_lri_full()
+    {
         let params = vec![Type::Var(Lstr::from("A"))];
         let i = Lri::full(
             Some(Lstr::from("burritos")),

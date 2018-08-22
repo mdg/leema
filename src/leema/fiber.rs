@@ -430,8 +430,7 @@ mod tests
     {
         let r1 = Reg::local(1);
         let r2 = Reg::local(2);
-        let mut frame =
-            Frame::new_root(Lstr::Sref("foo"), Lstr::Sref("bar"));
+        let mut frame = Frame::new_root(Lstr::Sref("foo"), Lstr::Sref("bar"));
         frame.e.set_reg(&r1, Val::Str(Lstr::Sref("i like ")));
         frame.e.set_reg(&r2, Val::Str(Lstr::Sref("burritos")));
         let mut fib = Fiber::spawn(1, frame);

@@ -242,10 +242,7 @@ pub fn tcp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
             .map(|sock2| {
                 rsrc::Event::Result(Val::Int(0), Some(Box::new(sock2)))
             }).map_err(|_| {
-                rsrc::Event::Result(
-                    Val::Str(Lstr::Sref("send failure")),
-                    None,
-                )
+                rsrc::Event::Result(Val::Str(Lstr::Sref("send failure")), None)
             }),
     );
     rsrc::Event::Future(fut)

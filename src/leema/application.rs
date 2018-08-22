@@ -1,7 +1,7 @@
 use leema::io::{Io, IoLoop};
 use leema::log;
 use leema::lstr::Lstr;
-use leema::msg::{AppMsg, IoMsg, WorkerMsg, MsgItem};
+use leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use leema::program;
 use leema::val::Val;
 use leema::worker::Worker;
@@ -116,8 +116,10 @@ impl Application
         while let Some((module, call)) = self.calls.pop_front() {
             vout!("application call {}.{}()\n", module, call);
             let w = self.worker.values().next().unwrap();
-            w.send(WorkerMsg::Spawn(MsgItem::new(&module), MsgItem::new(&call)))
-                .expect("fail sending spawn call to worker");
+            w.send(WorkerMsg::Spawn(
+                MsgItem::new(&module),
+                MsgItem::new(&call),
+            )).expect("fail sending spawn call to worker");
         }
 
         while let Result::Ok(msg) = self.app_recv.try_recv() {

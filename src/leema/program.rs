@@ -237,15 +237,11 @@ impl Lib
         }
     }
 
-    pub fn typecheck(
-        &mut self,
-        funcri: &Lri,
-        depth: typecheck::Depth,
-    )
+    pub fn typecheck(&mut self, funcri: &Lri, depth: typecheck::Depth)
     {
         vout!("typecheck({}, {:?})\n", funcri, depth);
         self.load_inter(
-            funcri.mod_ref().expect("no typecheck module name").str()
+            funcri.mod_ref().expect("no typecheck module name").str(),
         );
         if depth.one_deeper() {
             self.deeper_typecheck(funcri, depth);
@@ -258,11 +254,7 @@ impl Lib
         vout!("\tfinish typecheck({})\n", funcri);
     }
 
-    pub fn deeper_typecheck(
-        &mut self,
-        funcri: &Lri,
-        depth: typecheck::Depth,
-    )
+    pub fn deeper_typecheck(&mut self, funcri: &Lri, depth: typecheck::Depth)
     {
         let cf = {
             let mod_str = funcri.mod_ref().expect("typecheck module name");

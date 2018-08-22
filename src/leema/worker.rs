@@ -3,7 +3,7 @@ use leema::fiber::Fiber;
 use leema::frame::{Event, Frame, Parent};
 use leema::log;
 use leema::lstr::Lstr;
-use leema::msg::{AppMsg, IoMsg, WorkerMsg, MsgItem};
+use leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use leema::val::{MsgVal, Val};
 
 use std::collections::{HashMap, LinkedList};

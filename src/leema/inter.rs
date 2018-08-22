@@ -506,8 +506,11 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
 }
 
 pub fn compile_call(
-    scope: &mut Interscope, callx: &Ast, args: &LinkedList<Kxpr>, loc: &SrcLoc
-    ) -> Ixpr
+    scope: &mut Interscope,
+    callx: &Ast,
+    args: &LinkedList<Kxpr>,
+    loc: &SrcLoc,
+) -> Ixpr
 {
     let mut icall = compile_expr(scope, callx, loc);
     let iargs: Vec<Ixpr> = args
@@ -515,18 +518,16 @@ pub fn compile_call(
         .map(|i| compile_expr(scope, i.x_ref().unwrap(), loc))
         .collect();
     let ftype = {
-        let iargst: Vec<&Type> =
-            iargs
-                .iter()
-                .map(|ia| &ia.typ)
-                .collect();
+        let iargst: Vec<&Type> = iargs.iter().map(|ia| &ia.typ).collect();
         scope
             .infer
             .make_call_type(&icall.typ, &iargst)
             .map_err(|e| {
-                e.add_context(format!("type error in function call: {:?}", callx))
-            })
-            .unwrap()
+                e.add_context(format!(
+                    "type error in function call: {:?}",
+                    callx
+                ))
+            }).unwrap()
     };
     icall.typ = ftype.clone();
     let (_, ftype_result) = Type::split_func(ftype);
@@ -900,7 +901,10 @@ mod tests
         let args = LinkedList::new();
         let mut scope =
             Interscope::new(&proto, &imps, &typed, "foo", 105, &args);
-        scope.infer.bind_vartype(&Lstr::Sref("hello"), &Type::Int, 17).unwrap();
+        scope
+            .infer
+            .bind_vartype(&Lstr::Sref("hello"), &Type::Int, 17)
+            .unwrap();
 
         let (scope_lvl, typ) = scope.vartype("hello").unwrap();
         assert_eq!(ScopeLevel::Local, scope_lvl);
@@ -917,7 +921,10 @@ mod tests
         let args = LinkedList::new();
         let mut scope =
             Interscope::new(&proto, &imps, &typed, "foo", 104, &args);
-        scope.infer.bind_vartype(&Lstr::Sref("hello"), &Type::Int, 18).unwrap();
+        scope
+            .infer
+            .bind_vartype(&Lstr::Sref("hello"), &Type::Int, 18)
+            .unwrap();
         println!("add_var(hello) -> {:?}", scope);
 
         {
@@ -927,7 +934,10 @@ mod tests
         }
 
         scope.infer.push_block(HashMap::new());
-        scope.infer.bind_vartype(&Lstr::Sref("world"), &Type::Str, 33).unwrap();
+        scope
+            .infer
+            .bind_vartype(&Lstr::Sref("world"), &Type::Str, 33)
+            .unwrap();
         println!("push_block().add_var(world) -> {:?}", scope);
 
         {

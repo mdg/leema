@@ -84,7 +84,7 @@ pub fn udp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
             }).map_err(|_| {
                 rsrc::Event::Result(
                     Val::Str(Lstr::Sref(
-                        "send dgram didn't work. socket is gone"
+                        "send dgram didn't work. socket is gone",
                     )),
                     None,
                 )

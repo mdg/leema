@@ -124,9 +124,10 @@ pub fn bool_not(f: &mut Fiber) -> Event
         Event::success()
     } else {
         let tag = Val::Hashtag(Lstr::Sref("invalid_type"));
-        let msg = Val::Str(Lstr::from(
-            format!("input to not must be a boolean: {:?}", i)
-            ));
+        let msg = Val::Str(Lstr::from(format!(
+            "input to not must be a boolean: {:?}",
+            i
+        )));
 
         let fail =
             Val::failure(tag, msg, f.head.trace.clone(), val::FAILURE_TYPE);

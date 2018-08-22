@@ -401,8 +401,8 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             for ta in targs.iter() {
                 targs_ref.push(ta);
             }
-            let full_call_type = scope.infer.make_call_type(&tfunc, &targs_ref)
-                .unwrap();
+            let full_call_type =
+                scope.infer.make_call_type(&tfunc, &targs_ref).unwrap();
             let (_, call_result) = Type::split_func(full_call_type);
             Ok(call_result.clone())
         }
@@ -503,7 +503,9 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             &Type::Func(ref arg_types, ref declared_result_type),
         ) => {
             for (an, at) in arg_names.iter().zip(arg_types.iter()) {
-                scope.infer.bind_vartype(&Lstr::Rc(an.clone()), at, ix.line)?;
+                scope
+                    .infer
+                    .bind_vartype(&Lstr::Rc(an.clone()), at, ix.line)?;
             }
             vout!("f({:?}) =>\n{:?}", arg_names, body);
             let result_type = typecheck_expr(scope, &*body)
@@ -571,8 +573,8 @@ pub fn typecheck_field_access(
 mod tests
 {
     use leema::loader::Interloader;
-    use leema::lstr::Lstr;
     use leema::lri::Lri;
+    use leema::lstr::Lstr;
     use leema::program;
     use leema::typecheck::Depth;
 

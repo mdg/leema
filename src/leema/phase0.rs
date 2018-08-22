@@ -600,10 +600,7 @@ impl Protomod
                     .map(|_i| {
                         // Type::Param(i)
                         Type::Var(name.clone())
-                    })
-                    .unwrap_or_else(|| {
-                        make_local(name)
-                    })
+                    }).unwrap_or_else(|| make_local(name))
             }
             (&Ast::TypeVar(ref name, _), _) => Type::Var(name.clone()),
             _ => Type::from(&pp_x),
@@ -637,7 +634,7 @@ impl Protomod
             panic!("no modules in data definitions: {}", base_name);
         }
         let name = Protomod::replace_type_names_with_vars(
-            base_name.add_modules(Lstr::Rc(mp.key.name.clone()))
+            base_name.add_modules(Lstr::Rc(mp.key.name.clone())),
         );
 
         match datatype {
@@ -661,28 +658,29 @@ impl Protomod
         if !i.has_params() {
             return i;
         }
-        let var_params = i.params.take().unwrap().into_iter().map(|p| {
-            match p {
-                Type::Var(_) => p,
-                Type::UserDef(lri) => {
-                    if lri.local_only() {
-                        Type::Var(lri.localid)
-                    } else {
-                        Type::UserDef(lri)
+        let var_params = i
+            .params
+            .take()
+            .unwrap()
+            .into_iter()
+            .map(|p| {
+                match p {
+                    Type::Var(_) => p,
+                    Type::UserDef(lri) => {
+                        if lri.local_only() {
+                            Type::Var(lri.localid)
+                        } else {
+                            Type::UserDef(lri)
+                        }
                     }
+                    _ => p,
                 }
-                _ => p,
-            }
-        }).collect();
+            }).collect();
         i.params = Some(var_params);
         i
     }
 
-    pub fn preproc_struple_token(
-        &mut self,
-        full_lri: Lri,
-        _loc: &SrcLoc,
-    )
+    pub fn preproc_struple_token(&mut self, full_lri: Lri, _loc: &SrcLoc)
     {
         if full_lri.param_ref().is_some() {
             panic!("no type params for tokens: {}", full_lri);
@@ -744,8 +742,7 @@ impl Protomod
                     loc,
                 );
                 (f.k_clone(), pp_type)
-            })
-            .collect();
+            }).collect();
         let field_type_vec = struple_fields
             .iter()
             .map(|&(_, ref ftype)| ftype.clone())
@@ -755,7 +752,10 @@ impl Protomod
         let func_type = Type::Func(field_type_vec, Box::new(full_type.clone()));
 
         let full_type_ast = Ast::from_lri(struple_lri.clone(), loc);
-        let srcblk = Ast::ConstructData(ast::DataType::Struple, Box::new(full_type_ast.clone()));
+        let srcblk = Ast::ConstructData(
+            ast::DataType::Struple,
+            Box::new(full_type_ast.clone()),
+        );
 
         let srcxpr = Ast::DefFunc(
             ast::FuncClass::Func,
@@ -779,8 +779,7 @@ impl Protomod
         self.struple_fields
             .insert(local_name.clone(), Struple(struple_fields));
 
-        let funcref =
-            Val::FuncRef(struple_lri, func_type.clone());
+        let funcref = Val::FuncRef(struple_lri, func_type.clone());
         self.constants.insert(String::from(&local_name), funcref);
 
         self.funcseq.push_back(local_name.rc());

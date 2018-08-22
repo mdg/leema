@@ -842,10 +842,7 @@ impl Val
             }
             &Val::Token(ref typ) => Val::Token(typ.deep_clone()),
             &Val::FuncRef(ref fi, ref typ) => {
-                Val::FuncRef(
-                    fi.deep_clone(),
-                    typ.deep_clone(),
-                )
+                Val::FuncRef(fi.deep_clone(), typ.deep_clone())
             }
             // &Val::Failure(ref tag, ref msg, ref ft),
             &Val::Id(ref s) => Val::Id(s.clone_for_send()),
@@ -964,9 +961,7 @@ impl fmt::Display for Val
             Val::Id(ref name) => write!(f, "{}", name),
             Val::Type(ref t) => write!(f, "{}", t),
             Val::Kind(c) => write!(f, "Kind({})", c),
-            Val::FuncRef(ref id, ref typ) => {
-                write!(f, "{} : {}", id, typ)
-            }
+            Val::FuncRef(ref id, ref typ) => write!(f, "{} : {}", id, typ),
             Val::Future(_) => write!(f, "Future"),
             Val::Void => write!(f, "Void"),
             Val::PatternVar(ref r) => write!(f, "pvar:{:?}", r),
@@ -1181,10 +1176,7 @@ impl PartialOrd for Val
                 PartialOrd::partial_cmp(&*at, &*bt)
             }
             // func ref to func ref comparison
-            (
-                &Val::FuncRef(ref f1, ref t1),
-                &Val::FuncRef(ref f2, ref t2),
-            ) => {
+            (&Val::FuncRef(ref f1, ref t1), &Val::FuncRef(ref f2, ref t2)) => {
                 Some(
                     PartialOrd::partial_cmp(f1, f2)
                         .unwrap()
