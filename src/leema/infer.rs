@@ -513,6 +513,9 @@ impl<'b> Inferator<'b>
             // anything is better than Unknown
             (&Type::Unknown, _) => Ok(newt.clone()),
             (_, &Type::Unknown) => Ok(oldt.clone()),
+            // failures aren't typechecked, keep the other type
+            (&Type::Failure, _) => Ok(newt.clone()),
+            (_, &Type::Failure) => Ok(oldt.clone()),
             // handle variables
             (&Type::Var(ref oldtname), &Type::Var(ref newtname)) => {
                 if oldtname < newtname {

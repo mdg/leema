@@ -130,6 +130,7 @@ impl Token
                 parse::TOKEN_RETURN => Token::RETURN(tl),
                 parse::TOKEN_RUSTBLOCK => Token::RUSTBLOCK,
                 parse::TOKEN_TYPE_BOOL => Token::TYPE_BOOL,
+                parse::TOKEN_TYPE_FAILURE => Token::TYPE_FAILURE,
                 parse::TOKEN_TYPE_INT => Token::TYPE_INT,
                 parse::TOKEN_TYPE_STR => Token::TYPE_STR,
                 parse::TOKEN_TYPE_HASHTAG => Token::TYPE_HASHTAG,

@@ -210,6 +210,7 @@ impl Protomod
             &Ast::RustBlock => Ast::RustBlock,
             &Ast::TypeAnon => Ast::TypeAnon,
             &Ast::TypeBool => Ast::TypeBool,
+            &Ast::TypeFailure => Ast::TypeFailure,
             &Ast::TypeHashtag => Ast::TypeHashtag,
             &Ast::TypeInt => Ast::TypeInt,
             &Ast::TypeStr => Ast::TypeStr,

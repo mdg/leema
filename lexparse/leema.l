@@ -265,6 +265,10 @@ not	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_NOT);
 }
+Failure	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_TYPE_FAILURE);
+}
 Int	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_TYPE_INT);

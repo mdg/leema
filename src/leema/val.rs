@@ -162,6 +162,7 @@ impl Type
         match self {
             &Type::Str => Type::Str,
             &Type::Bool => Type::Bool,
+            &Type::Failure => Type::Failure,
             &Type::Int => Type::Int,
             &Type::Hashtag => Type::Hashtag,
             &Type::Tuple(ref items) => Type::Tuple(items.clone_for_send()),
@@ -173,6 +174,7 @@ impl Type
                 let dc_args = args.iter().map(|t| t.deep_clone()).collect();
                 Type::Func(dc_args, Box::new(result.deep_clone()))
             }
+            &Type::Unknown => Type::Unknown,
             &Type::Var(ref id) => Type::Var(id.clone_for_send()),
             &Type::Void => Type::Void,
             _ => {
@@ -844,7 +846,14 @@ impl Val
             &Val::FuncRef(ref fi, ref typ) => {
                 Val::FuncRef(fi.deep_clone(), typ.deep_clone())
             }
-            // &Val::Failure(ref tag, ref msg, ref ft),
+            &Val::Failure(ref tag, ref msg, ref ft, status) => {
+                Val::Failure(
+                    Box::new(tag.deep_clone()),
+                    Box::new(msg.deep_clone()),
+                    ft.clone(),
+                    status,
+                )
+            }
             &Val::Id(ref s) => Val::Id(s.clone_for_send()),
             &Val::Type(ref t) => Val::Type(t.deep_clone()),
             &Val::ResourceRef(r) => Val::ResourceRef(r),

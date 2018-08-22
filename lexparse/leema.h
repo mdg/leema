@@ -61,9 +61,10 @@
 #define TOKEN_True                    60
 #define TOKEN_False                   61
 #define TOKEN_UNDERSCORE              62
-#define TOKEN_TYPE_INT                63
-#define TOKEN_TYPE_STR                64
-#define TOKEN_TYPE_HASHTAG            65
-#define TOKEN_TYPE_BOOL               66
-#define TOKEN_TYPE_VOID               67
-#define TOKEN_StrClose                68
+#define TOKEN_TYPE_FAILURE            63
+#define TOKEN_TYPE_INT                64
+#define TOKEN_TYPE_STR                65
+#define TOKEN_TYPE_HASHTAG            66
+#define TOKEN_TYPE_BOOL               67
+#define TOKEN_TYPE_VOID               68
+#define TOKEN_StrClose                69

@@ -481,6 +481,9 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
                 scope.typecheck_matchcase(&subject_type, cases)
             })
         }
+        &Source::Return(ref result) => {
+            typecheck_expr(scope, result)
+        }
         &Source::MatchCase(_, _, _) => {
             panic!("typecheck matchcase in a specific function: {:?}", ix);
         }

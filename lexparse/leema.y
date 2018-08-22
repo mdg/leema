@@ -530,6 +530,9 @@ term(A) ::= type_term(B). {
     A = B;
 }
 
+type_term(A) ::= TYPE_FAILURE. {
+    A = Ast::TypeFailure;
+}
 type_term(A) ::= TYPE_INT. {
     A = Ast::TypeInt;
 }
