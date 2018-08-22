@@ -684,6 +684,7 @@ mod tests
     use leema::code::{self, Op};
     use leema::ixpr::Ixpr;
     use leema::loader::Interloader;
+    use leema::lstr::Lstr;
     use leema::program;
     use leema::reg::Reg;
     use leema::val::Val;
@@ -723,10 +724,10 @@ mod tests
     ",
         );
 
-        let mut loader = Interloader::new("tacos.lma");
-        loader.set_mod_txt("tacos", input);
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
-        prog.load_code("tacos", "main");
+        prog.load_code(&Lstr::Sref("tacos"), &Lstr::Sref("main"));
     }
 
 }

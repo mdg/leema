@@ -886,14 +886,13 @@ mod tests
     use leema::val::{SrcLoc, Type};
 
     use std::collections::{HashMap, LinkedList};
-    use std::rc::Rc;
 
 
     #[test]
     fn test_scope_add_vartype()
     {
-        let mk = Rc::new(ModKey::name_only("tacos"));
-        let typed = Typemod::new(Lstr::Rc(mk.name.clone()));
+        let mk = ModKey::name_only(Lstr::Sref("tacos"));
+        let typed = Typemod::new(mk.name.clone());
         let proto = Protomod::new(mk);
         let imps = HashMap::new();
         let args = LinkedList::new();
@@ -912,8 +911,8 @@ mod tests
     #[test]
     fn test_scope_push_block()
     {
-        let mk = Rc::new(ModKey::name_only("tacos"));
-        let typed = Typemod::new(Lstr::Rc(mk.name.clone()));
+        let mk = ModKey::name_only(Lstr::Sref("tacos"));
+        let typed = Typemod::new(mk.name.clone());
         let proto = Protomod::new(mk);
         let imps = HashMap::new();
         let args = LinkedList::new();
@@ -957,10 +956,9 @@ mod tests
     #[test]
     fn test_new_vars_from_id_pattern()
     {
-        let mk = Rc::new(ModKey::name_only("tacos"));
-        let mod_lstr = Lstr::Rc(mk.name.clone());
-        let proto = Protomod::new(mk);
-        let typed = Typemod::new(mod_lstr.clone());
+        let mk = ModKey::name_only(Lstr::Sref("tacos"));
+        let proto = Protomod::new(mk.clone());
+        let typed = Typemod::new(mk.name.clone());
         let imps = HashMap::new();
         let args = LinkedList::new();
         let mut scope =
@@ -989,10 +987,10 @@ mod tests
     ",
         );
 
-        let mut loader = Interloader::new("fact.lma");
-        loader.set_mod_txt("fact", input);
+        let mut loader = Interloader::new(Lstr::Sref("fact.lma"));
+        loader.set_mod_txt(Lstr::Sref("fact"), input);
         let mut prog = program::Lib::new(loader);
-        prog.read_inter("fact");
+        prog.read_inter(&Lstr::Sref("fact"));
         // assert that it didn't panic
         assert!(true);
     }
@@ -1009,10 +1007,10 @@ mod tests
     ",
         );
 
-        let mut loader = Interloader::new("tacos.lma");
-        loader.set_mod_txt("tacos", input);
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
-        prog.read_inter("tacos");
+        prog.read_inter(&Lstr::Sref("tacos"));
     }
 
     #[test]
@@ -1033,10 +1031,10 @@ mod tests
     ",
         );
 
-        let mut loader = Interloader::new("tacos.lma");
-        loader.set_mod_txt("tacos", input);
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
-        prog.read_inter("tacos");
+        prog.read_inter(&Lstr::Sref("tacos"));
         assert!(true); // didn't panic earlier
     }
 
@@ -1045,18 +1043,19 @@ mod tests
     {
         let input = String::from(
             "
-    struple Greeting(Str, Str)
+            struple Greeting(Str, Str)
 
-    func main() ->
-        let g := Greeting(\"hello\", \"world\")
-    --
-    ",
+            func main() ->
+                let g := Greeting(\"hello\", \"world\")
+            --
+            ",
         );
 
-        let mut loader = Interloader::new("greeting.lma");
-        loader.set_mod_txt("greeting", input);
+        let greeting_str = Lstr::Sref("greeting");
+        let mut loader = Interloader::new(Lstr::Sref("greeting.lma"));
+        loader.set_mod_txt(greeting_str.clone(), input);
         let mut prog = program::Lib::new(loader);
-        prog.read_inter("greeting");
+        prog.read_inter(&greeting_str);
         assert!(true); // didn't panic earlier
     }
 
@@ -1064,29 +1063,27 @@ mod tests
     #[ignore] // unignore this once enums are working again
     fn test_enum_constructors()
     {
-        let input = String::from(
+        let input =
             "
+            enum Animal
+            |Dog
+            |Cat(Int)
+            |Mouse
+                .whiskers: Int
+                .color: Str
+            --
 
-    enum Animal
-    |Dog
-    |Cat(Int)
-    |Mouse
-        .whiskers: Int
-        .color: Str
-    --
+            func main() ->
+                let d := Dog
+                let c := Cat(3)
+                let m := Mouse(9, \"red\")
+            --
+            ".to_string();
 
-    func main() ->
-        let d := Dog
-        let c := Cat(3)
-        let m := Mouse(9, \"red\")
-    --
-    ",
-        );
-
-        let mut loader = Interloader::new("animals.lma");
-        loader.set_mod_txt("animals", input);
+        let mut loader = Interloader::new(Lstr::Sref("animals.lma"));
+        loader.set_mod_txt(Lstr::Sref("animals"), input);
         let mut prog = program::Lib::new(loader);
-        prog.read_inter("animals");
+        prog.read_inter(&Lstr::Sref("animals"));
         assert!(true); // didn't panic earlier
     }
 
@@ -1096,23 +1093,21 @@ mod tests
     {
         let input = String::from(
             "
+            func foo(inputs: [#])
+            |([]) -> #empty
+            |([#whatever;more]) -> #whatever
+            |([_;more]) -> foo(more)
+            --
 
-    func foo(inputs: [#])
-    |([]) -> #empty
-    |([#whatever;more]) -> #whatever
-    |([_;more]) -> foo(more)
-    --
+            func main() ->
+                foo([5, 3, 4])
+            --
+            ");
 
-    func main() ->
-        foo([5, 3, 4])
-    --
-    ",
-        );
-
-        let mut loader = Interloader::new("tacos.lma");
-        loader.set_mod_txt("tacos", input);
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
-        prog.read_inter("tacos");
+        prog.read_inter(&Lstr::Sref("tacos"));
     }
 
     #[test]
@@ -1121,24 +1116,23 @@ mod tests
     {
         let input = String::from(
             "
+            ## foo should return a #
+            func foo(inputs)
+            |([]) -> #empty
+            |(#whatever;more) -> #whatever
+            |(_;more) -> foo(more)
+            --
 
-    ## foo should return a #
-    func foo(inputs)
-    |([]) -> #empty
-    |(#whatever;more) -> #whatever
-    |(_;more) -> foo(more)
-    --
-
-    func main() ->
-        foo([5, 3, 4])
-    --
-    ",
+            func main() ->
+                foo([5, 3, 4])
+            --
+            "
         );
 
-        let mut loader = Interloader::new("tacos.lma");
-        loader.set_mod_txt("tacos", input);
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
-        prog.read_inter("tacos");
+        prog.read_inter(&Lstr::Sref("tacos"));
     }
 
 }

@@ -6,7 +6,6 @@ use leema::val::{Type, Val};
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::rc::Rc;
 
 
 // Textmod -> Preface -> Protomod -> Intermod -> Code
@@ -44,7 +43,7 @@ type MacroMap = HashMap<Lstr, Ast>;
 #[derive(Debug)]
 pub struct ModuleSource
 {
-    pub key: Rc<ModKey>,
+    pub key: ModKey,
     pub txt: String,
     pub ast: Ast,
 }
@@ -55,9 +54,9 @@ impl ModuleSource
     {
         let ast = ModuleSource::read_ast(&txt);
         ModuleSource {
-            key: Rc::new(mk),
-            txt: txt,
-            ast: ast,
+            key: mk,
+            txt,
+            ast,
         }
     }
 
@@ -82,7 +81,7 @@ impl ModuleSource
 #[derive(Debug)]
 pub struct ModulePreface
 {
-    pub key: Rc<ModKey>,
+    pub key: ModKey,
     pub imports: HashSet<Lstr>,
     pub macros: MacroMap,
 }
@@ -147,9 +146,9 @@ impl ModulePreface
 #[derive(Debug)]
 pub struct ModuleInterface
 {
-    pub key: Rc<ModKey>,
-    pub funcs: HashMap<String, Option<Val>>,
-    pub valtypes: HashMap<String, Type>,
+    pub key: ModKey,
+    pub funcs: HashMap<Lstr, Option<Val>>,
+    pub valtypes: HashMap<Lstr, Type>,
 }
 
 impl ModuleInterface

@@ -599,8 +599,8 @@ mod tests
     ",
         );
 
-        let mut loader = Interloader::new("tacos.lma");
-        loader.set_mod_txt("tacos", input);
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
         let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("main"));
         prog.typecheck(&fri, Depth::Full);

@@ -89,12 +89,14 @@ impl Interloader
 mod tests
 {
     use leema::loader::Interloader;
+    use leema::lstr::Lstr;
+
     use std::path::Path;
 
     #[test]
     fn test_root_path()
     {
-        let i = Interloader::new("hello/world.lma");
+        let i = Interloader::new(Lstr::Sref("hello/world.lma"));
 
         let expected = Path::new("hello");
         assert_eq!(expected, i.root_path);
@@ -103,9 +105,9 @@ mod tests
     #[test]
     fn test_main_mod()
     {
-        let i = Interloader::new("hello/world.lma");
+        let i = Interloader::new(Lstr::Sref("hello/world.lma"));
 
-        assert_eq!("world", i.main_mod);
+        assert_eq!("world", i.main_mod.str());
     }
 
 }

@@ -11,13 +11,12 @@ use leema::val::{SrcLoc, Type, Val};
 
 use std::collections::{HashMap, LinkedList};
 use std::io::Write;
-use std::rc::Rc;
 
 
 #[derive(Debug)]
 pub struct Protomod
 {
-    pub key: Rc<ModKey>,
+    pub key: ModKey,
     pub funcseq: LinkedList<Lstr>,
     pub funcsrc: HashMap<Lstr, Ast>,
     pub valtypes: HashMap<Lstr, Type>,
@@ -28,7 +27,7 @@ pub struct Protomod
 
 impl Protomod
 {
-    pub fn new(mk: Rc<ModKey>) -> Protomod
+    pub fn new(mk: ModKey) -> Protomod
     {
         let mut empty_consts = HashMap::new();
         empty_consts.insert(Lstr::Sref("TYPES"), Val::Nil);
@@ -927,27 +926,24 @@ mod tests
     use leema::types;
     use leema::val::{Type, Val};
 
-    use std::rc::Rc;
-
 
     #[test]
     fn test_preproc_list_pattern()
     {
         let input = String::from(
             "
+            func foo(a)
+            |(h;t) -> cout(\"head: $h, tail: $t\n\")
+            --
 
-    func foo(a)
-    |(h;t) -> cout(\"head: $h, tail: $t\n\")
-    --
-
-    func main() -> foo([3, 4, 5]) --
-    ",
+            func main() -> foo([3, 4, 5]) --
+            ",
         );
 
-        let mut loader = Interloader::new("tacos.lma");
-        loader.set_mod_txt("tacos", input);
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
-        let pmod = prog.read_proto("tacos");
+        let pmod = prog.read_proto(&Lstr::Sref("tacos"));
 
         assert_eq!(2, pmod.funcsrc.len());
 
@@ -973,26 +969,26 @@ mod tests
     {
         let input = String::from(
             "
-    enum PrimaryColor
-    |Red
-    |Yellow
-    |Blue
-    --
-    ",
+            enum PrimaryColor
+            |Red
+            |Yellow
+            |Blue
+            --
+            ",
         );
 
-        let mut loader = Interloader::new("colors.lma");
-        loader.set_mod_txt("colors", input);
+        let colors_str = Lstr::Sref("colors");
+        let mut loader = Interloader::new(Lstr::Sref("colors.lma"));
+        loader.set_mod_txt(colors_str.clone(), input);
         let mut prog = program::Lib::new(loader);
-        let pmod = prog.read_proto("colors");
+        let pmod = prog.read_proto(&colors_str);
 
         assert_eq!(0, pmod.funcsrc.len());
 
-        let modname = Rc::new("colors".to_string());
-        let local_typename = Rc::new("PrimaryColor".to_string());
+        let local_typename = Lstr::Sref("PrimaryColor");
         let type_lri = Lri::with_modules(
-            Lstr::Rc(modname.clone()),
-            Lstr::Rc(local_typename.clone()),
+            colors_str.clone(),
+            local_typename.clone(),
         );
 
         let expected_red = Val::EnumToken(type_lri.clone(), Lstr::Sref("Red"));
@@ -1000,8 +996,7 @@ mod tests
         assert_eq!(expected_red, *red);
         assert!(pmod.constants.get("Yellow").is_some());
         assert!(pmod.constants.get("Blue").is_some());
-        assert!(pmod.constants.get("PrimaryColor").is_some());
-        assert_eq!(5, pmod.constants.len());
+        assert_eq!(4, pmod.constants.len());
     }
 
     #[test]
@@ -1009,22 +1004,23 @@ mod tests
     fn test_enum_types()
     {
         let input = "
-    enum Animal[A]
-    |Dog
-    |Cat(Int)
-    |Mouse(A)
-    |Giraffe
-        .height: Int
-        .weight: A
-    --
-    ".to_string();
-        let mut loader = Interloader::new("animals.lma");
-        loader.set_mod_txt("animals", input);
+        enum Animal[A]
+        |Dog
+        |Cat(Int)
+        |Mouse(A)
+        |Giraffe
+            .height: Int
+            .weight: A
+        --
+        ".to_string();
+        let animals_str = Lstr::Sref("animals");
+        let mut loader = Interloader::new(Lstr::Sref("animals.lma"));
+        loader.set_mod_txt(animals_str.clone(), input);
         let mut prog = program::Lib::new(loader);
-        let pmod = prog.read_proto("animals");
+        let pmod = prog.read_proto(&animals_str);
 
         let type_lri = Lri::full(
-            Some(Lstr::Sref("animals")),
+            Some(animals_str.clone()),
             Lstr::Sref("Animal"),
             Some(vec![Type::UserDef(Lri::new(Lstr::Sref("A")))]),
         );
@@ -1055,11 +1051,11 @@ mod tests
 
         let exp_dog_const = Val::EnumToken(type_lri.clone(), dog_name);
         let exp_cat_const = Val::FuncRef(
-            Lri::with_modules(Lstr::Sref("animals"), Lstr::Sref("Cat")),
+            Lri::with_modules(animals_str.clone(), Lstr::Sref("Cat")),
             cat_func_type.clone(),
         );
         let exp_giraffe_const = Val::FuncRef(
-            Lri::with_modules(Lstr::Sref("animals"), Lstr::Sref("Giraffe")),
+            Lri::with_modules(animals_str.clone(), Lstr::Sref("Giraffe")),
             giraffe_func_type.clone(),
         );
         assert_eq!(exp_dog_const, *dog_const);
@@ -1073,9 +1069,9 @@ mod tests
         // verify function sequence
         assert_eq!(3, pmod.funcseq.len());
         let mut fseq_it = pmod.funcseq.iter();
-        assert_eq!("Cat", **fseq_it.next().unwrap());
-        assert_eq!("Mouse", **fseq_it.next().unwrap());
-        assert_eq!("Giraffe", **fseq_it.next().unwrap());
+        assert_eq!("Cat", fseq_it.next().unwrap().str());
+        assert_eq!("Mouse", fseq_it.next().unwrap().str());
+        assert_eq!("Giraffe", fseq_it.next().unwrap().str());
 
         // verify function source
         assert!(pmod.funcsrc.get("Dog").is_none());
@@ -1104,16 +1100,15 @@ mod tests
         let input = "
     struple Greeting(Str, Str)
     ".to_string();
-        let mut loader = Interloader::new("greet.lma");
-        loader.set_mod_txt("greet", input);
+        let greet = Lstr::Sref("greet");
+        let mut loader = Interloader::new(Lstr::Sref("greet.lma"));
+        loader.set_mod_txt(greet.clone(), input);
         let mut prog = program::Lib::new(loader);
-        let pmod = prog.read_proto("greet");
+        let pmod = prog.read_proto(&greet);
 
-        let greet = Rc::new("greet".to_string());
-        let greeting_str = Rc::new("Greeting".to_string());
-        let greeting_lstr = Lstr::Rc(greeting_str.clone());
+        let greeting_lstr = Lstr::Sref("Greeting");
         let greeting_fullri =
-            Lri::with_modules(Lstr::Rc(greet.clone()), greeting_lstr);
+            Lri::with_modules(greet.clone(), greeting_lstr);
         let greeting_typref = Type::UserDef(greeting_fullri);
         let xfunctyp = Type::Func(
             vec![Type::Str, Type::Str],
@@ -1139,7 +1134,7 @@ mod tests
 
         // assert funcseq
         assert_eq!(1, pmod.funcseq.len());
-        assert_eq!("Greeting", **pmod.funcseq.front().unwrap());
+        assert_eq!("Greeting", pmod.funcseq.front().unwrap().str());
 
         // verify valtypes
         assert_eq!(1, pmod.valtypes.len());
@@ -1149,12 +1144,12 @@ mod tests
     fn preproc_defstruple_mixed_keys()
     {
         let input = "
-    struple Burrito(Bool, buns: Int)
-    ".to_string();
-        let mut loader = Interloader::new("tacos.lma");
-        loader.set_mod_txt("tacos", input);
+            struple Burrito(Bool, buns: Int)
+            ".to_string();
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
-        let pmod = prog.read_proto("tacos");
+        let pmod = prog.read_proto(&Lstr::Sref("tacos"));
 
         // assert valtypes
         assert!(pmod.valtypes.contains_key("Burrito"));
@@ -1188,7 +1183,7 @@ mod tests
         }
 
         // assert funcseq contents
-        assert_eq!("Burrito", **pmod.funcseq.front().unwrap());
+        assert_eq!("Burrito", &*pmod.funcseq.front().unwrap());
         assert_eq!(1, pmod.funcseq.len());
 
         // assert valtypes
@@ -1209,10 +1204,10 @@ mod tests
     .number: Int
     --
     ".to_string();
-        let mut loader = Interloader::new("tacos.lma");
-        loader.set_mod_txt("tacos", input);
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
-        let pmod = prog.read_proto("tacos");
+        let pmod = prog.read_proto(&Lstr::Sref("tacos"));
 
         // assert valtypes
         assert!(pmod.valtypes.contains_key("Burrito"));
@@ -1268,7 +1263,7 @@ mod tests
         assert_eq!(1, burrito_number_type.0);
 
         // assert funcseq contents
-        assert_eq!("Burrito", **pmod.funcseq.front().unwrap());
+        assert_eq!("Burrito", *&pmod.funcseq.front().unwrap());
         assert_eq!(1, pmod.funcseq.len());
 
         // assert valtypes
@@ -1295,10 +1290,10 @@ mod tests
     ",
         );
 
-        let mut loader = Interloader::new("tok.lma");
-        loader.set_mod_txt("tok", input);
+        let mut loader = Interloader::new(Lstr::Sref("tok.lma"));
+        loader.set_mod_txt(Lstr::Sref("tok"), input);
         let mut prog = program::Lib::new(loader);
-        let pmod = prog.read_proto("tok");
+        let pmod = prog.read_proto(&Lstr::Sref("tok"));
 
         let exptype_lri =
             Lri::with_modules(Lstr::from("tok"), Lstr::from("Burrito"));
@@ -1334,10 +1329,10 @@ mod tests
     ",
         );
 
-        let mut loader = Interloader::new("tok.lma");
-        loader.set_mod_txt("tok", input);
+        let mut loader = Interloader::new(Lstr::Sref("tok.lma"));
+        loader.set_mod_txt(Lstr::Sref("tok"), input);
         let mut prog = program::Lib::new(loader);
-        prog.read_proto("tok");
+        prog.read_proto(&Lstr::Sref("tok"));
     }
 
 }
