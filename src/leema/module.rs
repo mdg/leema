@@ -31,10 +31,7 @@ impl ModKey
 
     pub fn name_only(name: Lstr) -> ModKey
     {
-        ModKey {
-            name,
-            file: None,
-        }
+        ModKey { name, file: None }
     }
 }
 
@@ -53,11 +50,7 @@ impl ModuleSource
     pub fn new(mk: ModKey, txt: String) -> ModuleSource
     {
         let ast = ModuleSource::read_ast(&txt);
-        ModuleSource {
-            key: mk,
-            txt,
-            ast,
-        }
+        ModuleSource { key: mk, txt, ast }
     }
 
     pub fn init() -> ModuleSource

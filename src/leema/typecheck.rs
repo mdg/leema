@@ -293,10 +293,7 @@ impl<'a, 'b> Typescope<'a, 'b>
     ) -> Typescope<'a, 'b>
     {
         let mut ts = TypeSet::new();
-        ts.import_user_types(
-            &proto.key.name,
-            &proto.struple_fields,
-        );
+        ts.import_user_types(&proto.key.name, &proto.struple_fields);
         /*
         for (_, imp) in imports.iter() {
             ts.import_user_types(&Lstr::Rc(imp.key.name.clone()), &imp.struple_fields);
@@ -503,9 +500,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             &Type::Func(ref arg_types, ref declared_result_type),
         ) => {
             for (an, at) in arg_names.iter().zip(arg_types.iter()) {
-                scope
-                    .infer
-                    .bind_vartype(&an, at, ix.line)?;
+                scope.infer.bind_vartype(&an, at, ix.line)?;
             }
             vout!("f({:?}) =>\n{:?}", arg_names, body);
             let result_type = typecheck_expr(scope, &*body)

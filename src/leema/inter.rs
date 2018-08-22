@@ -112,7 +112,14 @@ impl Intermod
             let (args, body, loc) = split_func_args_body(defunc);
             let ftype = proto.valtypes.get(fname).unwrap();
             let ifunc = compile_function(
-                proto, imports, &typed, fname.str(), ftype, &args, body, loc,
+                proto,
+                imports,
+                &typed,
+                fname.str(),
+                ftype,
+                &args,
+                body,
+                loc,
             );
             typed.set_type(
                 fname.clone(),
@@ -177,15 +184,9 @@ impl<'a> Interscope<'a>
             argt.push((opt_k, at2));
         }
 
-        ts.import_user_types(
-            &proto.key.name,
-            &proto.struple_fields,
-        );
+        ts.import_user_types(&proto.key.name, &proto.struple_fields);
         for (_, imp) in imports.iter() {
-            ts.import_user_types(
-                &imp.key.name,
-                &imp.struple_fields,
-            );
+            ts.import_user_types(&imp.key.name, &imp.struple_fields);
         }
 
         Interscope {
@@ -335,9 +336,7 @@ pub fn compile_function<'a>(
         .enumerate()
         .map(|(argi, a)| {
             a.k_clone()
-                .unwrap_or_else(|| {
-                    Lstr::from(format!("T_param_{}", argi))
-                })
+                .unwrap_or_else(|| Lstr::from(format!("T_param_{}", argi)))
         }).collect();
     Ixpr {
         typ: final_ftype,
@@ -464,10 +463,7 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
         Some((ScopeLevel::Module, typ)) => {
             if typ.is_func() {
                 let fref = Val::FuncRef(
-                    Lri::with_modules(
-                        scope.proto.key.name.clone(),
-                        id.clone(),
-                    ),
+                    Lri::with_modules(scope.proto.key.name.clone(), id.clone()),
                     typ.clone(),
                 );
                 Ixpr {
@@ -1063,8 +1059,7 @@ mod tests
     #[ignore] // unignore this once enums are working again
     fn test_enum_constructors()
     {
-        let input =
-            "
+        let input = "
             enum Animal
             |Dog
             |Cat(Int)
@@ -1102,7 +1097,8 @@ mod tests
             func main() ->
                 foo([5, 3, 4])
             --
-            ");
+            ",
+        );
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
@@ -1126,7 +1122,7 @@ mod tests
             func main() ->
                 foo([5, 3, 4])
             --
-            "
+            ",
         );
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));

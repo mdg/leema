@@ -77,7 +77,11 @@ impl Lib
         let typed = self.typed.get_mut(&inter.modname).unwrap();
 
         for (name, fix) in inter.interfunc.iter() {
-            typed.set_type(name.clone(), typecheck::Depth::Inter, fix.typ.clone());
+            typed.set_type(
+                name.clone(),
+                typecheck::Depth::Inter,
+                fix.typ.clone(),
+            );
         }
     }
 
@@ -159,7 +163,8 @@ impl Lib
         ModuleSource::new(modkey, modtxt)
     }
 
-    pub fn read_preface(&self, modname: &Lstr) -> (ModuleSource, ModulePreface)
+    pub fn read_preface(&self, modname: &Lstr)
+        -> (ModuleSource, ModulePreface)
     {
         let ms = self.read_modsrc(modname);
         let pref = ModulePreface::new(&ms);
@@ -185,7 +190,8 @@ impl Lib
         let proto = self.proto.get(modname).unwrap();
         let mut typed = Typemod::new(modname.clone());
         let inter = Intermod::compile(&proto, &imports, &mut typed);
-        self.typed.insert(modname.clone(), Typemod::new(modname.clone()));
+        self.typed
+            .insert(modname.clone(), Typemod::new(modname.clone()));
         inter
     }
 
@@ -234,9 +240,7 @@ impl Lib
     pub fn typecheck(&mut self, funcri: &Lri, depth: typecheck::Depth)
     {
         vout!("typecheck({}, {:?})\n", funcri, depth);
-        self.load_inter(
-            funcri.mod_ref().expect("no typecheck module name"),
-        );
+        self.load_inter(funcri.mod_ref().expect("no typecheck module name"));
         if depth.one_deeper() {
             self.deeper_typecheck(funcri, depth);
         }

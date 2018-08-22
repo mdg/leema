@@ -463,9 +463,7 @@ impl Protomod
     ) -> Ast
     {
         let mod_name = mods.first().unwrap();
-        if *mod_name != *mp.key.name
-            && !mp.imports.contains(mod_name)
-        {
+        if *mod_name != *mp.key.name && !mp.imports.contains(mod_name) {
             panic!("module not found: {:?}", mods);
         }
         let val_name = mods.last().unwrap();
@@ -848,7 +846,8 @@ impl Protomod
         }
 
         // self.constants.insert(name_lstr.clone(), Val::Type(mod_type.clone()));
-        self.deftypes.insert(enum_lri.local_ref().clone(), mod_type.clone());
+        self.deftypes
+            .insert(enum_lri.local_ref().clone(), mod_type.clone());
     }
 
     pub fn preproc_enum_variant(
@@ -876,8 +875,7 @@ impl Protomod
         if dataclass == ast::DataType::Struple {
             if fields.is_empty() {
                 let const_val = Val::EnumToken(full_lri, variant_name.clone());
-                self.constants
-                    .insert(variant_name.clone(), const_val);
+                self.constants.insert(variant_name.clone(), const_val);
                 self.valtypes.insert(variant_name, typ);
             } else {
                 self.preproc_struple_fields(
@@ -986,10 +984,8 @@ mod tests
         assert_eq!(0, pmod.funcsrc.len());
 
         let local_typename = Lstr::Sref("PrimaryColor");
-        let type_lri = Lri::with_modules(
-            colors_str.clone(),
-            local_typename.clone(),
-        );
+        let type_lri =
+            Lri::with_modules(colors_str.clone(), local_typename.clone());
 
         let expected_red = Val::EnumToken(type_lri.clone(), Lstr::Sref("Red"));
         let red = pmod.constants.get("Red").unwrap();
@@ -1107,8 +1103,7 @@ mod tests
         let pmod = prog.read_proto(&greet);
 
         let greeting_lstr = Lstr::Sref("Greeting");
-        let greeting_fullri =
-            Lri::with_modules(greet.clone(), greeting_lstr);
+        let greeting_fullri = Lri::with_modules(greet.clone(), greeting_lstr);
         let greeting_typref = Type::UserDef(greeting_fullri);
         let xfunctyp = Type::Func(
             vec![Type::Str, Type::Str],
