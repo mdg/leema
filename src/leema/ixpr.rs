@@ -229,13 +229,14 @@ impl Ixpr
 mod tests
 {
     use leema::ixpr::{Ixpr, Source};
+    use leema::lstr::Lstr;
     use leema::val::{Type, Val};
 
 
     #[test]
     fn test_new_const_str()
     {
-        let hello = Val::new_str(String::from("hello"));
+        let hello = Val::Str(Lstr::Sref("hello"));
         let actual = Ixpr::const_val(hello.clone(), 7);
         let expected = Ixpr {
             src: Source::ConstVal(hello),
@@ -249,8 +250,8 @@ mod tests
     fn test_new_str_mash_const()
     {
         let strs = vec![
-            Ixpr::const_val(Val::new_str(String::from("hello")), 16),
-            Ixpr::const_val(Val::new_str(String::from(" mash")), 17),
+            Ixpr::const_val(Val::Str(Lstr::Sref("hello")), 16),
+            Ixpr::const_val(Val::Str(Lstr::Sref(" mash")), 17),
         ];
         let strmash = Ixpr::new_str_mash(strs, 18);
         if let Source::StrMash(ss) = strmash.src {

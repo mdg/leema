@@ -420,6 +420,7 @@ mod tests
 {
     use leema::fiber::Fiber;
     use leema::frame::{Event, Frame};
+    use leema::lstr::Lstr;
     use leema::reg::Reg;
     use leema::val::Val;
 
@@ -430,9 +431,9 @@ mod tests
         let r1 = Reg::local(1);
         let r2 = Reg::local(2);
         let mut frame =
-            Frame::new_root(String::from("foo"), String::from("bar"));
-        frame.e.set_reg(&r1, Val::new_str(String::from("i like ")));
-        frame.e.set_reg(&r2, Val::new_str(String::from("burritos")));
+            Frame::new_root(Lstr::Sref("foo"), Lstr::Sref("bar"));
+        frame.e.set_reg(&r1, Val::Str(Lstr::Sref("i like ")));
+        frame.e.set_reg(&r2, Val::Str(Lstr::Sref("burritos")));
         let mut fib = Fiber::spawn(1, frame);
 
         let event = fib.execute_strcat(&r1, &r2);

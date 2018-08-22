@@ -730,11 +730,11 @@ mod tests
 
         let mct = t.make_call_type(&defargst, &argvalt).unwrap();
 
-        let (func_args, func_result) = Type::split_func(&mct);
+        let (func_args, func_result) = Type::split_func(mct);
         assert_eq!(2, func_args.len());
         assert_eq!(Type::Hashtag, func_args[0]);
         assert_eq!(Type::Int, func_args[1]);
-        assert_eq!(Type::Hashtag, *func_result);
+        assert_eq!(Type::Hashtag, func_result);
     }
 
     #[test]
@@ -774,8 +774,8 @@ mod tests
         let tvar =
             Type::Tuple(Struple(vec![(None, Type::Var(Lstr::Sref("Taco")))]));
         let ilistpatt = list::cons(
-            Val::hashtag("leema".to_string()),
-            Val::id("tail".to_string()),
+            Val::Hashtag(Lstr::Sref("leema")),
+            Val::Id(Lstr::Sref("tail")),
         );
         let listpatt = Val::Tuple(Struple(vec![(None, ilistpatt)]));
         let ts = TypeSet::new();
@@ -796,8 +796,8 @@ mod tests
         let tvar =
             Type::Tuple(Struple(vec![(None, Type::Var(Lstr::Sref("Taco")))]));
         let listpatt = Val::Tuple(Struple::new_tuple2(
-            Val::hashtag("leema".to_string()),
-            Val::id("tail".to_string()),
+            Val::Hashtag(Lstr::Sref("leema")),
+            Val::Id(Lstr::Sref("tail")),
         ));
         let ts = TypeSet::new();
         t.match_pattern(&ts, &listpatt, &tvar, 14).unwrap();

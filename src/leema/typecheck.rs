@@ -572,6 +572,7 @@ mod tests
 {
     use leema::loader::Interloader;
     use leema::lstr::Lstr;
+    use leema::lri::Lri;
     use leema::program;
     use leema::typecheck::Depth;
 
@@ -599,7 +600,8 @@ mod tests
         let mut loader = Interloader::new("tacos.lma");
         loader.set_mod_txt("tacos", input);
         let mut prog = program::Lib::new(loader);
-        prog.typecheck(&Lstr::from("tacos"), &Lstr::from("main"), Depth::Full);
+        let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("main"));
+        prog.typecheck(&fri, Depth::Full);
     }
 
 }

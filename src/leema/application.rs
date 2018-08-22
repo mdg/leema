@@ -223,6 +223,7 @@ mod tests
 {
     use leema::application::Application;
     use leema::loader::Interloader;
+    use leema::lstr::Lstr;
     use leema::program;
     use leema::val::Val;
 
@@ -243,7 +244,7 @@ mod tests
         let prog = program::Lib::new(inter);
 
         let mut app = Application::new(prog);
-        app.push_call("test", "main");
+        app.push_call(Lstr::Sref("test"), Lstr::Sref("main"));
         app.run();
 
         write!(stderr(), "Application::wait_until_done\n").unwrap();

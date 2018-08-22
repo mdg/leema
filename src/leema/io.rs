@@ -475,7 +475,7 @@ pub mod tests
                 msg::WorkerMsg::IopResult(fiber_id, msg_val) => {
                     (fiber_id, msg_val.take())
                 }
-                _ => (0, Val::new_str("that didn't work".to_string())),
+                _ => (0, Val::Str(Lstr::Sref("that didn't work"))),
             }
         })
     }

@@ -1511,8 +1511,8 @@ mod tests
     #[test]
     fn test_equal_str()
     {
-        let a = Val::new_str("hello".to_string());
-        let b = Val::new_str("hello".to_string());
+        let a = Val::Str(Lstr::Sref("hello"));
+        let b = Val::Str(Lstr::Sref("hello"));
         assert!(a == b);
     }
 
@@ -1685,7 +1685,7 @@ mod tests
         let f = Val::Bool(false);
         let t = Val::Bool(true);
         let i = Val::Int(7);
-        let s = Val::new_str("hello".to_string());
+        let s = Val::Str(Lstr::Sref("hello"));
         let strct = Val::Struct(
             Lri::new(Lstr::Sref("Foo")),
             Struple::new_tuple2(Val::Int(2), Val::Bool(true)),
