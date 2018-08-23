@@ -133,6 +133,31 @@ impl Protomod
                 let ppbase = Protomod::preproc_expr(prog, mp, base, loc);
                 Ast::DotAccess(Box::new(ppbase), fld.clone())
             }
+            &Ast::IfExpr(
+                ast::IfType::MatchFailure,
+                ref input,
+                ref case,
+                ref iloc,
+            ) => {
+                if let Ast::Localid(_, _) = **input {
+                    // this localid shouldn't need further processing
+                } else {
+                    panic!("match failed input must be a variable name");
+                }
+                let pp_case = Protomod::preproc_ifcase(
+                    prog,
+                    mp,
+                    ast::IfType::MatchFailure,
+                    case,
+                    iloc,
+                );
+                Ast::IfExpr(
+                    ast::IfType::MatchFailure,
+                    input.clone(),
+                    Box::new(pp_case),
+                    *iloc,
+                )
+            }
             &Ast::IfExpr(iftype, ref input, ref case, ref iloc) => {
                 let pp_input = Protomod::preproc_expr(prog, mp, input, iloc);
                 let pp_case =
@@ -542,7 +567,13 @@ impl Protomod
                 Protomod::preproc_pattern(prog, mp, &case.cond, &case.loc)
             }
             ast::IfType::MatchFailure => {
-                Protomod::preproc_pattern(prog, mp, &case.cond, &case.loc)
+                match &case.cond {
+                    &Ast::ConstHashtag(ref ht) => Ast::ConstHashtag(ht.clone()),
+                    &Ast::Wildcard => Ast::Wildcard,
+                    _ => {
+                        panic!("match failure case pattern must be a hashtag or an underscore: {:?}", case.cond);
+                    }
+                }
             }
             ast::IfType::TypeCast => {
                 panic!("typecast not ready yet");
