@@ -9,7 +9,7 @@ use leema::sendclone::{self, SendClone};
 use leema::struple::Struple;
 
 use std::cmp::{Ordering, PartialEq, PartialOrd};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::fmt;
 use std::io::{Error, Write};
 use std::rc::Rc;
@@ -773,45 +773,6 @@ impl Val
             _ => false,
         };
         result
-    }
-
-    pub fn replace_ids(node: &Val, idvals: &HashMap<Lstr, Val>) -> Val
-    {
-        match node {
-            &Val::Cons(_, _) => {
-                let f = |v: &Val| -> Val { Val::replace_ids(v, idvals) };
-                list::map_ref(&node, f)
-            }
-            &Val::Tuple(ref t) => {
-                let new_items =
-                    t.0.iter()
-                        .map(|i| (i.0.clone(), Val::replace_ids(&i.1, idvals)))
-                        .collect();
-                Val::Tuple(Struple(new_items))
-            }
-            &Val::Struct(ref st, ref t) => {
-                let new_items =
-                    t.0.iter()
-                        .map(|i| (i.0.clone(), Val::replace_ids(&i.1, idvals)))
-                        .collect();
-                Val::Struct(st.clone(), Struple(new_items))
-            }
-            &Val::EnumStruct(ref st, ref vname, ref t) => {
-                let new_items =
-                    t.0.iter()
-                        .map(|i| (i.0.clone(), Val::replace_ids(&i.1, idvals)))
-                        .collect();
-                Val::EnumStruct(st.clone(), vname.clone(), Struple(new_items))
-            }
-            // tokens are fine to just clone
-            &Val::Id(ref name) => {
-                match idvals.get(&*name) {
-                    Some(newx) => newx.clone(),
-                    None => node.clone(),
-                }
-            }
-            _ => node.clone(),
-        }
     }
 
     pub fn deep_clone(&self) -> Val
