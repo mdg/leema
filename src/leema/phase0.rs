@@ -445,7 +445,7 @@ impl Protomod
             &Ast::Localid(ref name, ref _iloc) => {
                 match idvals.get(&*name) {
                     Some(newx) => (*newx).clone(),
-                    None => node.clone(),
+                    None => Ast::Localid(name.clone(), *loc),
                 }
             }
             &Ast::Return(ref result, _) => {
