@@ -575,20 +575,6 @@ pub fn compile_dot_access(
     }
 }
 
-/*
-pub fn compile_match_failed(scope: &mut Interscope, failure: &Ast, loc: &SrcLoc
-    ) -> Ixpr
-{
-    vout!("compile_match_failed({:?})\n", failure);
-
-    let (x, cases) = list::to_ref_tuple2(mfsx);
-    let ix = compile_expr(scope, x, mfloc);
-    let ccase =
-        compile_matchcase(scope, cases, &Type::Hashtag, mfloc);
-    Ixpr::match_failure(ix, ccase)
-}
-*/
-
 pub fn compile_ifx(scope: &mut Interscope, ifx: &Ast) -> Ixpr
 {
     scope.infer.push_block(HashMap::new());
