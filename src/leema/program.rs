@@ -101,9 +101,6 @@ impl Lib
 
         if !has_func {
             let new_code = self.read_code(modname, funcname);
-            if modname == "prefab" {
-                vout!("code for {}::{} is {:?}\n", modname, funcname, new_code);
-            }
             let funcri = Lri::with_modules(modname.clone(), funcname.clone());
             self.typecheck(&funcri, typecheck::Depth::One);
 
@@ -188,11 +185,7 @@ impl Lib
         let preface = self.preface.get(modname).unwrap().clone();
         let imports = self.import_protos(&preface.imports);
         let proto = self.proto.get(modname).unwrap();
-        let mut typed = Typemod::new(modname.clone());
-        let inter = Intermod::compile(&proto, &imports, &mut typed);
-        self.typed
-            .insert(modname.clone(), Typemod::new(modname.clone()));
-        inter
+        Intermod::compile(&proto, &imports)
     }
 
     pub fn read_code(&mut self, modname: &Lstr, funcname: &Lstr) -> Code

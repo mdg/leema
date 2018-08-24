@@ -136,10 +136,10 @@ impl Ixpr
         }
     }
 
-    pub fn cons(head: Ixpr, tail: Ixpr, typ: Type, line: i16) -> Ixpr
+    pub fn cons(head: Ixpr, tail: Ixpr, line: i16) -> Ixpr
     {
         Ixpr {
-            typ: typ,
+            typ: tail.typ.clone(),
             src: Source::Cons(Box::new(head), Box::new(tail)),
             line: line,
         }
@@ -188,12 +188,11 @@ impl Ixpr
         test: Ixpr,
         truth: Ixpr,
         lies: Option<Ixpr>,
-        typ: Type,
     ) -> Ixpr
     {
         let lineno = test.line;
         Ixpr {
-            typ: typ,
+            typ: truth.typ.clone(),
             src: Source::IfExpr(
                 Box::new(test),
                 Box::new(truth),
