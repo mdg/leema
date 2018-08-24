@@ -2,13 +2,10 @@
 
 struple Trie
 .complete: Bool
-.a: Trie?
-.b: Trie?
+.a: Option[Trie]
+.b: Option[Trie]
 .c: Option[Trie]
 .d: Option[Trie]
-.e: Option[Trie]
-.f: Option[Trie]
-.g: Trie?
 --
 
 func insert(t: Trie, word: Str): Trie
@@ -38,11 +35,11 @@ func insert_char(t: Trie, letter: Str, rem: Str) -> Trie
 --
 
 func main() ->
-    let t1 := Trie()
-    let t2 := insert(t1, "apple")
-    cout(search(t2, "apple"))
-    cout(search(t2, "app"))
-    cout(startswith(t2, "app"))
-    let t3 := insert(t2, "app")
-    cout(search(t3, "app"))
+    let t := Trie()
+    insert(t, "apple")
+    cout(search(t, "apple"))
+    cout(search(t, "app"))
+    cout(startswith(t, "app"))
+    insert(t, "app")
+    cout(search(t, "app"))
 --
