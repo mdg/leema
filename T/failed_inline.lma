@@ -1,27 +1,30 @@
-func foo(x: Int): String ->
-    if x = 4 ->
+func foo(x: Int): Str ->
+    if x == 4 ->
         fail(#xis4, "tacos are delicious")
     --
     "not 4"
 --
 
-func handle_inline(x: Int, prop: Bool): String ->
+func handle_inline(x: Int, prop: Bool): Str ->
    let c := foo(x)
-   failed c
+   match failed c
    |#xis4 ->
       if prop ->
          cout("c failed. log and propagate\n")
          return c
       else ->
          cout("c failed. no propagate.\n")
-         let c := "yikes-linear!"
+         "yikes-linear!"
       --
    |_ ->
       cout("no match on failure hashtag\n")
    --
-   let d := foo(x+1)
-   failed d
-   |#
+
+    let d := foo(x+1)
+    match failed d
+    |_ ->
+        cout("d failed too")
+    --
 
    "str interp: $c"
 --

@@ -8,9 +8,17 @@ func foo(x): Str ->
 func handle_nonlinear(x: Int, prop: Bool): Str ->
    let c := foo(x)
    "str interp: $c"
+   if
+   |c == "tacos" ->
+      let d := bar(x)
+      cout("tacos are: $d")
+   |else ->
+      let d := bar(x+1)
+      cout("burritos are: $d")
+   --
 
    failed c
-   |#xis4 ->
+   |(#xis4, f) ->
       if
       |prop ->
          cout("c failed. log and propagate\n")
@@ -22,6 +30,12 @@ func handle_nonlinear(x: Int, prop: Bool): Str ->
    |_ ->
       cout("no match on failure hashtag\n")
       refail(c)
+   --
+
+   failed d
+   |#xis4 ->
+      cout("handle d the same no matter what")
+      "whatever"
    --
 --
 
