@@ -3,6 +3,7 @@ rust:
   - 1.28.0
 install:
   - sudo pip install nose
+  - rustup install nightly
   - rustup component add rustfmt-preview --toolchain nightly
 script: make test
 sudo: required
