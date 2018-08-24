@@ -47,10 +47,10 @@ pub enum Op
     Construple(Reg, Type, Struple<Type>),
     Copy(Reg, Reg),
     // Fork(Reg, Reg, Reg),
-    //IfFail(Reg, i16),
     Jump(i16),
     JumpIfNot(i16, Reg),
     // if failure, copy hashtag, else jump
+    // JumpOnFail(i16, Reg),
     IfFailure(Reg, Reg, i16),
     // jump if no match, pattern reg, input reg
     MatchPattern(Reg, Val, Reg),

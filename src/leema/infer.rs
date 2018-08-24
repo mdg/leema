@@ -16,7 +16,6 @@ pub struct VarData
     failure: Option<Ast>,
     assignment: Option<i16>,
     first_usage: Option<SrcLoc>,
-    must_check_failure: bool,
 }
 
 impl VarData
@@ -27,7 +26,6 @@ impl VarData
             failure: Some(failures),
             assignment: None,
             first_usage: None,
-            must_check_failure: false,
         }
     }
 }
@@ -40,7 +38,6 @@ impl Default for VarData
             failure: None,
             assignment: None,
             first_usage: None,
-            must_check_failure: false,
         }
     }
 }
