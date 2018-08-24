@@ -8,7 +8,7 @@ use leema::phase0::Protomod;
 use leema::struple::Struple;
 use leema::val::{SrcLoc, Type, Val};
 
-use std::collections::{HashMap, LinkedList};
+use std::collections::{HashMap, HashSet, LinkedList};
 use std::fmt;
 use std::io::Write;
 use std::rc::Rc;
@@ -121,6 +121,29 @@ impl Intermod
         }
         inter
     }
+}
+
+type Blockscope = HashSet<Lstr>;
+
+#[derive(Debug)]
+pub struct LocalVar
+{
+    name: Lstr,
+    num_assignments: i16,
+    num_scopes: i16,
+    num_reassignments: i16,
+    first_line: i16,
+    last_line: i16,
+    handler: Option<Ast>,
+}
+
+#[derive(Debug)]
+pub struct Blockstack
+{
+    params: HashSet<Lstr>,
+    scopestack: Vec<Blockscope>,
+    locals: HashMap<Lstr, LocalVar>,
+    in_failed: bool,
 }
 
 #[derive(Debug)]
