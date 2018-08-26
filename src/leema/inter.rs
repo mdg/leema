@@ -1,4 +1,4 @@
-use leema::ast::{self, Ast, Kxpr};
+use leema::ast::{self, Ast, IfCase, Kxpr};
 use leema::ixpr::{Ixpr, Source};
 use leema::list;
 use leema::log;
@@ -123,7 +123,20 @@ impl Intermod
     }
 }
 
-type Blockscope = HashSet<Lstr>;
+#[derive(Debug)]
+pub struct Blockscope
+{
+    failures: HashMap<Lstr, IfCase>,
+    vars: HashSet<Lstr>,
+}
+
+impl Blockscope
+{
+    pub fn add_failure(&mut self, var: &Lstr, cases: IfCase)
+    {
+        self.failures.insert(var.clone(), cases);
+    }
+}
 
 #[derive(Debug)]
 pub struct LocalVar
@@ -134,16 +147,51 @@ pub struct LocalVar
     num_reassignments: i16,
     first_line: i16,
     last_line: i16,
-    handler: Option<Ast>,
 }
 
 #[derive(Debug)]
 pub struct Blockstack
 {
+    stack: Vec<Blockscope>,
     params: HashSet<Lstr>,
-    scopestack: Vec<Blockscope>,
     locals: HashMap<Lstr, LocalVar>,
     in_failed: bool,
+}
+
+impl Blockstack
+{
+    pub fn new() -> Blockstack
+    {
+        Blockstack{
+            stack: Vec::new(),
+            params: HashSet::new(),
+            locals: HashMap::new(),
+            in_failed: false,
+        }
+    }
+
+    pub fn collect_failures<'a>(&mut self, stmt: &'a Ast, _loc: &SrcLoc) -> Option<&'a Ast>
+    {
+        match stmt {
+            &Ast::IfExpr(ast::IfType::MatchFailure, ref input, ref cases, ref _iloc) => {
+                if let Ast::Localid(ref name, ref _loc2) = **input {
+                    let b = self.current_block_mut();
+                    b.add_failure(name, (**cases).clone());
+                } else {
+                    panic!("match failure input must be a local variable: {:?}", input);
+                }
+                None
+            }
+            _ => {
+                Some(stmt)
+            }
+        }
+    }
+
+    pub fn current_block_mut(&mut self) -> &mut Blockscope
+    {
+        self.stack.last_mut().unwrap()
+    }
 }
 
 #[derive(Debug)]
@@ -161,6 +209,7 @@ pub struct Interscope<'a>
     fname: &'a str,
     proto: &'a Protomod,
     imports: &'a HashMap<Lstr, Rc<Protomod>>,
+    blocks: Blockstack,
     argnames: LinkedList<Kxpr>,
     argt: Type,
 }
@@ -174,6 +223,7 @@ impl<'a> Interscope<'a>
         args: &LinkedList<Kxpr>,
     ) -> Interscope<'a>
     {
+        let blocks = Blockstack::new();
         let mut argt = Vec::new();
         for (i, a) in args.iter().enumerate() {
             vout!("bind func param as: #{} {:?}\n", i, a);
@@ -186,6 +236,7 @@ impl<'a> Interscope<'a>
             fname,
             proto,
             imports,
+            blocks,
             argnames: args.clone(),
             argt: Type::Tuple(Struple(argt)),
         }
@@ -665,22 +716,23 @@ pub fn compile_block(
     loc: &SrcLoc,
 ) -> Ixpr
 {
-    let block_len = blk.len();
-    let mut result: Vec<Ixpr> = Vec::with_capacity(block_len);
-    let mut fails = HashMap::new();
-    for line in blk.iter() {
-        compile_block_stmt(&mut result, &mut fails, scope, line, loc);
-    }
-    Ixpr::new_block(result, fails, loc.lineno)
+    let non_failures: Vec<&Ast> = blk.iter()
+        .filter_map(|stmt| {
+            scope.blocks.collect_failures(stmt, loc)
+        }).collect();
+    let ixs: Vec<Ixpr> = non_failures.iter()
+        .map(|stmt| {
+            compile_block_stmt(scope, stmt, loc)
+        })
+        .collect();
+    Ixpr::new_block(ixs, HashMap::new(), loc.lineno)
 }
 
 pub fn compile_block_stmt(
-    istmts: &mut Vec<Ixpr>,
-    _ifails: &mut HashMap<String, Ixpr>,
     scope: &mut Interscope,
     stmt: &Ast,
     loc: &SrcLoc,
-)
+) -> Ixpr
 {
     match stmt {
         &Ast::IfExpr(ast::IfType::MatchFailure, ref input, _, _) => {
@@ -688,11 +740,10 @@ pub fn compile_block_stmt(
         }
         &Ast::Return(ref result, ref iloc) => {
             let cresult = compile_expr(scope, result, iloc);
-            let ret = Ixpr::new(Source::Return(Box::new(cresult)), iloc.lineno);
-            istmts.push(ret);
+            Ixpr::new(Source::Return(Box::new(cresult)), iloc.lineno)
         }
         _ => {
-            istmts.push(compile_expr(scope, stmt, loc));
+            compile_expr(scope, stmt, loc)
         }
     }
 }

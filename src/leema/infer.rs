@@ -401,16 +401,6 @@ impl<'b> Inferator<'b>
         true
     }
 
-    pub fn mark_failing(&mut self)
-    {
-        self.blocks.last_mut().unwrap().failing = true;
-    }
-
-    pub fn is_root_block(&self) -> bool
-    {
-        self.blocks.len() == 1
-    }
-
     pub fn push_block(&mut self, failures: HashMap<Lstr, Ast>)
     {
         self.blocks.push(Blockscope::new(failures));
