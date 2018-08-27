@@ -382,9 +382,10 @@ impl<'a> Interscope<'a>
         } else {
             self.proto.constants.get(id)
                 .or_else(|| {
-                    let prefab = self.imports.get("prefab")
-                        .expect("prefab module is undefined");
-                    prefab.constants.get(id)
+                    self.imports.get("prefab")
+                        .and_then(|prefab| {
+                            prefab.constants.get(id)
+                        })
                 })
                 .map(|val| {
                     ScopeLevel::Module(val.clone())
@@ -725,13 +726,19 @@ pub fn compile_match_case(
     xtyp: &Type,
 ) -> Ixpr
 {
-    let mut new_vars = Vec::new();
-    let cpatt = compile_pattern(scope, &mut new_vars, &case.cond);
-    let iblk = compile_expr(scope, &case.body, &case.loc);
+    let (patt, iblk) = {
+        let new_block = scope.push_blockscope();
+        let mut new_vars = Vec::new();
+        let cpatt = compile_pattern(new_block.scope, &mut new_vars, &case.cond);
+        for nv in new_vars.iter() {
+            new_block.scope.blocks.assign_var(nv, LocalType::Match);
+        }
+        (cpatt, compile_expr(new_block.scope, &case.body, &case.loc))
+    };
     let inext = case.else_case.as_ref().map_or(Ixpr::noop(), |else_case| {
         compile_match_case(scope, &else_case, xtyp)
     });
-    Ixpr::new_match_case(cpatt, iblk, inext)
+    Ixpr::new_match_case(patt, iblk, inext)
 }
 
 pub fn compile_pattern(
@@ -742,7 +749,6 @@ pub fn compile_pattern(
 {
     match patt {
         &Ast::Localid(ref name, _) => {
-// if !scope.infer.var_is_in_scope(name.str()) {
             new_vars.push(name.clone());
             Val::Id(name.clone())
         }
@@ -979,22 +985,28 @@ mod tests
             Interscope::new(&proto, &imps, "foo", &args);
         scope.blocks.assign_var(&Lstr::Sref("hello"), inter::LocalType::Let);
 
-        {
-            let hello_lvl = scope.scope_level(&Lstr::from("hello")).unwrap();
-            assert_eq!(ScopeLevel::Local, hello_lvl);
-        }
-
-        let new_block = scope.push_blockscope();
-        new_block.scope.blocks
-            .assign_var(&Lstr::Sref("world"), inter::LocalType::Let);
+        assert!(scope.blocks.var_in_scope(&Lstr::from("hello")));
+        let hello_lvl = scope.scope_level(&Lstr::from("hello")).unwrap();
+        assert_eq!(ScopeLevel::Local, hello_lvl);
 
         {
-            let world_lvl = new_block.scope.scope_level(&Lstr::from("world")).unwrap();
+            let new_block = scope.push_blockscope();
+            new_block.scope.blocks
+                .assign_var(&Lstr::Sref("world"), inter::LocalType::Let);
+
+            assert!(new_block.scope.blocks.var_in_scope(&Lstr::from("world")));
+            let world_lvl =
+                new_block.scope.scope_level(&Lstr::from("world")).unwrap();
             assert_eq!(ScopeLevel::Local, world_lvl);
 
-            let hello_lvl = new_block.scope.scope_level(&Lstr::from("hello")).unwrap();
+            assert!(new_block.scope.blocks.var_in_scope(&Lstr::from("hello")));
+            let hello_lvl =
+                new_block.scope.scope_level(&Lstr::from("hello")).unwrap();
             assert_eq!(ScopeLevel::Local, hello_lvl);
         }
+
+        assert!(!scope.blocks.var_in_scope(&Lstr::from("world")));
+        assert_eq!(None, scope.scope_level(&Lstr::from("world")));
     }
 
     #[test]
@@ -1058,20 +1070,18 @@ mod tests
     #[test]
     fn test_pattern_declaration()
     {
-        let input = String::from(
+        let input =
             "
+            func foo(inputs: [#])
+            |[] -> #empty
+            |#whatever;more -> #whatever
+            |_;more -> foo(more)
+            --
 
-    func foo(inputs: [#])
-    |[] -> #empty
-    |#whatever;more -> #whatever
-    |_;more -> foo(more)
-    --
-
-    func main() ->
-        foo([#a, #b, #c])
-    --
-    ",
-        );
+            func main() ->
+                foo([#a, #b, #c])
+            --
+            ".to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
