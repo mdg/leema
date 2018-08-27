@@ -704,23 +704,22 @@ mod tests
 
     #[test]
     #[should_panic]
+    #[ignore] // ignore until typechecking is restored in the typecheck phase
     fn test_load_code_fails_for_func_type_infer_mismatch()
     {
-        let input = String::from(
+        let input =
             "
+            ## foo should take [#] and return a #
+            func foo(inputs)
+            |([]) -> #empty
+            |(#whatever;more) -> #whatever
+            |(_;more) -> foo(more)
+            --
 
-    ## foo should take [#] and return a #
-    func foo(inputs)
-    |([]) -> #empty
-    |(#whatever;more) -> #whatever
-    |(_;more) -> foo(more)
-    --
-
-    func main() ->
-        foo([5, 3, 4])
-    --
-    ",
-        );
+            func main() ->
+                foo([5, 3, 4])
+            --
+            ".to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
         loader.set_mod_txt(Lstr::Sref("tacos"), input);

@@ -583,23 +583,22 @@ mod tests
 
     #[test]
     #[should_panic]
+    #[ignore] // to fix when typechecking is restored
     fn test_pattern_type_inferred_mismatch()
     {
-        let input = String::from(
+        let input =
             "
+            ## foo should take [#] and return a #
+            func foo(inputs)
+            |([]) -> #empty
+            |(#whatever;more) -> #whatever
+            |(_;more) -> foo(more)
+            --
 
-    ## foo should take [#] and return a #
-    func foo(inputs)
-    |([]) -> #empty
-    |(#whatever;more) -> #whatever
-    |(_;more) -> foo(more)
-    --
-
-    func main() ->
-        foo([5, 3, 4])
-    --
-    ",
-        );
+            func main() ->
+                foo([5, 3, 4])
+            --
+            ".to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
@@ -607,7 +606,6 @@ mod tests
         let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("main"));
         prog.typecheck(&fri, Depth::Full);
     }
-
 }
 
 /*
