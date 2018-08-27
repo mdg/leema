@@ -585,6 +585,7 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
             }
         }
         None => {
+            vout!("undefined variable {} in {:?}\n", id, scope.proto.constants);
             panic!("undefined variable: {}", id);
         }
     }
@@ -934,8 +935,7 @@ mod tests
     use leema::module::ModKey;
     use leema::phase0::Protomod;
     use leema::program;
-    use leema::typecheck::Typemod;
-    use leema::val::{SrcLoc, Type};
+    use leema::val::{SrcLoc};
 
     use std::collections::{HashMap, LinkedList};
 
@@ -944,65 +944,44 @@ mod tests
     fn test_scope_add_vartype()
     {
         let mk = ModKey::name_only(Lstr::Sref("tacos"));
-        let typed = Typemod::new(mk.name.clone());
         let proto = Protomod::new(mk);
         let imps = HashMap::new();
         let args = LinkedList::new();
         let mut scope =
-            Interscope::new(&proto, &imps, &typed, "foo", 105, &args);
-        scope
-            .infer
-            .bind_vartype(&Lstr::Sref("hello"), &Type::Int, 17)
-            .unwrap();
+            Interscope::new(&proto, &imps, "foo", &args);
+        scope.blocks.assign_var(&Lstr::Sref("hello"), inter::LocalType::Param);
 
-        let (scope_lvl, typ) = scope.vartype("hello").unwrap();
+        let scope_lvl = scope.scope_level(&Lstr::from("hello")).unwrap();
         assert_eq!(ScopeLevel::Local, scope_lvl);
-        assert_eq!(Type::Int, typ);
     }
 
     #[test]
     fn test_scope_push_block()
     {
         let mk = ModKey::name_only(Lstr::Sref("tacos"));
-        let typed = Typemod::new(mk.name.clone());
         let proto = Protomod::new(mk);
         let imps = HashMap::new();
         let args = LinkedList::new();
         let mut scope =
-            Interscope::new(&proto, &imps, &typed, "foo", 104, &args);
-        scope
-            .infer
-            .bind_vartype(&Lstr::Sref("hello"), &Type::Int, 18)
-            .unwrap();
-        println!("add_var(hello) -> {:?}", scope);
+            Interscope::new(&proto, &imps, "foo", &args);
+        scope.blocks.assign_var(&Lstr::Sref("hello"), inter::LocalType::Let);
 
         {
-            let (hello_lvl, hello_typ) = scope.vartype("hello").unwrap();
+            let hello_lvl = scope.scope_level(&Lstr::from("hello")).unwrap();
             assert_eq!(ScopeLevel::Local, hello_lvl);
-            assert_eq!(Type::Int, hello_typ);
         }
 
-        scope.infer.push_block(HashMap::new());
-        scope
-            .infer
-            .bind_vartype(&Lstr::Sref("world"), &Type::Str, 33)
-            .unwrap();
-        println!("push_block().add_var(world) -> {:?}", scope);
+        let new_block = scope.push_blockscope();
+        new_block.scope.blocks
+            .assign_var(&Lstr::Sref("world"), inter::LocalType::Let);
 
         {
-            let (world_lvl, world_typ) = scope.vartype("world").unwrap();
+            let world_lvl = new_block.scope.scope_level(&Lstr::from("world")).unwrap();
             assert_eq!(ScopeLevel::Local, world_lvl);
-            assert_eq!(Type::Str, world_typ);
 
-            let (hello_lvl, hello_typ) = scope.vartype("hello").unwrap();
+            let hello_lvl = new_block.scope.scope_level(&Lstr::from("hello")).unwrap();
             assert_eq!(ScopeLevel::Local, hello_lvl);
-            assert_eq!(Type::Int, hello_typ);
         }
-
-        scope.infer.pop_block();
-
-        assert_eq!(None, scope.vartype("world"));
-        assert!(scope.vartype("hello").is_some());
     }
 
     #[test]
@@ -1010,11 +989,10 @@ mod tests
     {
         let mk = ModKey::name_only(Lstr::Sref("tacos"));
         let proto = Protomod::new(mk.clone());
-        let typed = Typemod::new(mk.name.clone());
         let imps = HashMap::new();
         let args = LinkedList::new();
         let mut scope =
-            Interscope::new(&proto, &imps, &typed, "foo", 103, &args);
+            Interscope::new(&proto, &imps, "foo", &args);
 
         let mut new_vars = Vec::default();
         let patt = Ast::Localid(Lstr::from("x"), SrcLoc::default());

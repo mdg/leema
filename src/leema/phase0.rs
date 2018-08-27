@@ -1021,6 +1021,7 @@ mod tests
         } else {
             panic!("foo is not a function definition");
         }
+        pmod.constants.get("foo").unwrap();
 
         let main_func = pmod.funcsrc.get("main").unwrap();
         if let &Ast::DefFunc(main_ft, ref main_name, _, _, _, _) = main_func {
@@ -1029,6 +1030,7 @@ mod tests
         } else {
             panic!("main is not a function definition");
         }
+        pmod.constants.get("main").unwrap();
     }
 
     #[test]
