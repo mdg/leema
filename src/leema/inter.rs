@@ -1,5 +1,5 @@
 use leema::ast::{self, Ast, IfCase, Kxpr};
-use leema::ixpr::{Ixpr, Source};
+use leema::ixpr::{Ixpr, Source, MatchFailure};
 use leema::list;
 use leema::log;
 use leema::lri::Lri;
@@ -260,6 +260,16 @@ impl Blockstack
         self.stack.iter().any(|bs| {
             bs.vars.contains(id)
         })
+    }
+
+    pub fn get_failure(&self, name: &Lstr) -> Option<&IfCase>
+    {
+        for b in self.stack.iter().rev() {
+            if b.failures.contains_key(name) {
+                return b.failures.get(name);
+            }
+        }
+        None
     }
 }
 
@@ -641,11 +651,14 @@ pub fn compile_let_stmt(
     let mut new_vars = Vec::new();
     let cpatt = compile_pattern(scope, &mut new_vars, lhs);
     vout!("new vars in let: {:?} = {:?} = {:?}\n", new_vars, lhs, irhs);
-    let failed: Vec<(Lstr, Ixpr)> = new_vars
+    let failures: Vec<MatchFailure> = new_vars
         .iter()
-        .map(|v| (v.clone(), compile_failed_var(scope, v, loc)))
+        .map(|v| {
+            scope.blocks.assign_var(v, LocalType::Let);
+            compile_failed_var(scope, v, loc)
+        })
         .collect();
-    Ixpr::new(Source::Let(cpatt, Box::new(irhs), failed), loc.lineno)
+    Ixpr::new(Source::Let(cpatt, Box::new(irhs), failures), loc.lineno)
 }
 
 pub fn compile_dot_access(
@@ -865,24 +878,24 @@ pub fn compile_block_stmt(
 }
 
 pub fn compile_failed_var(
-    _scope: &mut Interscope,
-    _v: &Lstr,
-    _loc: &SrcLoc,
-) -> Ixpr
+    scope: &mut Interscope,
+    v: &Lstr,
+    loc: &SrcLoc,
+) -> MatchFailure
 {
-    /*
-    if scope.infer.handles_failure(&**v) {
-        vout!("compile failure handling for {}\n", v);
-        let ixfailure = {
-            let failure = scope.infer.get_failure(&**v).unwrap().clone();
-            compile_ifx(scope, &failure)
-        };
-        ixfailure
-    } else {
-        Ixpr::new(Source::PropagateFailure(v.clone(), loc.lineno), loc.lineno)
+    let var_failure = scope.blocks.get_failure(v).map(|f| f.clone());
+    let mf = match var_failure {
+        Some(fail_case) => {
+            vout!("compile failure handling for {}\n", v);
+            Some(compile_match_case(scope, &fail_case, &Type::Hashtag))
+        }
+        None => None,
+    };
+    MatchFailure{
+        var: v.clone(),
+        case: mf,
+        line: loc.lineno,
     }
-    */
-    Ixpr::noop()
 }
 
 pub fn split_func_args_body(defunc: &Ast)
@@ -1031,10 +1044,9 @@ mod tests
     {
         let input = String::from(
             "
-
-    func sum(a, b) -> a + b --
-    func main() -> sum(3, 4, 5) --
-    ",
+            func sum(a, b) -> a + b --
+            func main() -> sum(3, 4, 5) --
+            ",
         );
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));

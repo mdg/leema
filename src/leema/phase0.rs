@@ -328,6 +328,8 @@ impl Protomod
         loc: &SrcLoc,
     )
     {
+        let name_lri = Lri::from(name);
+        let full_lri = name_lri.add_modules(mp.key.name.clone());
         let lstr_name = Lstr::from(name);
         let pp_args: LinkedList<Kxpr> = args
             .iter()
@@ -355,9 +357,12 @@ impl Protomod
         let ftype_ast = Ast::TypeFunc(ftype_parts, *loc);
         let ftype = Type::from(&ftype_ast);
 
+        let funcref = Val::FuncRef(full_lri, ftype.clone());
+
         self.funcseq.push_back(lstr_name.clone());
         self.funcsrc.insert(lstr_name.clone(), pp_func);
-        self.valtypes.insert(lstr_name, ftype);
+        self.valtypes.insert(lstr_name.clone(), ftype);
+        self.constants.insert(lstr_name, funcref);
     }
 
     pub fn preproc_call(

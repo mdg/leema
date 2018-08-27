@@ -110,7 +110,7 @@ impl Reg
             &Reg::Local(ref r) => Reg::Local(r.sub(sub)),
             &Reg::Void => Reg::Void,
             _ => {
-                panic!("Can't make a subreg for {:?}", self);
+                panic!("Can't make a sub reg for {:?}", self);
             }
         }
     }

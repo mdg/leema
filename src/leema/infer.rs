@@ -423,32 +423,6 @@ impl<'b> Inferator<'b>
             .any(|b| b.vars.get(name).map_or(false, |v| v.assignment.is_some()))
     }
 
-    pub fn handles_failure(&self, name: &str) -> bool
-    {
-        self.blocks.iter().any(|b| {
-            let optv = b.vars.get(name);
-            if optv.is_none() {
-                return false;
-            }
-            optv.unwrap().failure.is_some()
-        })
-    }
-
-    pub fn get_failure(&self, name: &str) -> Option<&Ast>
-    {
-        for b in self.blocks.iter() {
-            if b.vars.contains_key(name) {
-                let v_opt: Option<&VarData> = b.vars.get(name);
-                if v_opt.is_none() {
-                    continue;
-                }
-                let v: &VarData = v_opt.as_ref().unwrap();
-                return v.failure.as_ref();
-            }
-        }
-        None
-    }
-
     pub fn inferred_type<'a>(&'a self, typ: &'a Type) -> Type
     {
         match typ {

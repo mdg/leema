@@ -8,6 +8,16 @@ use std::collections::HashMap;
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
+pub struct MatchFailure
+{
+    pub var: Lstr,
+    pub case: Option<Ixpr>,
+    pub line: i16,
+}
+
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
 pub enum Source
 {
     Block(Vec<Ixpr>, HashMap<String, Ixpr>),
@@ -18,11 +28,9 @@ pub enum Source
     EnumConstructor(Type, i16, Box<Ixpr>),
     FieldAccess(Box<Ixpr>, i8),
     Func(Vec<Lstr>, Box<Ixpr>),
-    Let(Val, Box<Ixpr>, Vec<(Lstr, Ixpr)>),
-    MatchFailure(Box<Ixpr>, Box<Ixpr>),
+    Let(Val, Box<Ixpr>, Vec<MatchFailure>),
     MatchExpr(Box<Ixpr>, Box<Ixpr>),
     MatchCase(Val, Box<Ixpr>, Box<Ixpr>),
-    PropagateFailure(Lstr, i16),
     RustBlock,
     Id(Lstr, i16),
     IfExpr(Box<Ixpr>, Box<Ixpr>, Option<Box<Ixpr>>),
@@ -150,16 +158,6 @@ impl Ixpr
         Ixpr {
             typ: t.clone(),
             src: Source::Construple(t, flds.clone()),
-            line: lineno,
-        }
-    }
-
-    pub fn match_failure(var: Ixpr, cases: Ixpr) -> Ixpr
-    {
-        let lineno = var.line;
-        Ixpr {
-            typ: cases.typ.clone(),
-            src: Source::MatchFailure(Box::new(var), Box::new(cases)),
             line: lineno,
         }
     }

@@ -49,8 +49,6 @@ pub enum Op
     // Fork(Reg, Reg, Reg),
     Jump(i16),
     JumpIfNot(i16, Reg),
-    // if failure, copy hashtag, else jump
-    // JumpOnFail(i16, Reg),
     IfFailure(Reg, Reg, i16),
     // jump if no match, pattern reg, input reg
     MatchPattern(Reg, Val, Reg),
@@ -292,9 +290,9 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             let mut xops = make_sub_ops(rt, x);
             let mut failops: Vec<(Op, i16)> = fails
                 .iter()
-                .flat_map(|&(ref fail_name, ref f1)| {
-                    rt.push_id(fail_name);
-                    let ox = make_sub_ops(rt, f1);
+                .flat_map(|mf| {
+                    rt.push_id(&mf.var);
+                    let ox = make_matchfailure_ops(rt, &mf.var, &mf.case, mf.line);
                     rt.pop_id();
                     ox.ops.into_iter()
                 }).collect();
@@ -308,22 +306,11 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 dst: rt.dst().clone(),
             }
         }
-        Source::MatchFailure(ref x, ref cases) => {
-            make_matchfailure_ops(rt, &*x, &*cases)
-        }
         Source::MatchExpr(ref x, ref cases) => {
             make_matchexpr_ops(rt, &*x, &*cases)
         }
         Source::MatchCase(_, _, _) => {
             panic!("matchcase ops not generated directly");
-        }
-        Source::PropagateFailure(ref id, usage_line) => {
-            let src = rt.id(id);
-            let propagate = Op::PropagateFailure(src.clone(), usage_line);
-            Oxpr {
-                ops: vec![(propagate, input.line)],
-                dst: src,
-            }
         }
         Source::Id(ref id, _) => {
             let src = rt.id(id);
@@ -449,27 +436,38 @@ pub fn make_enum_constructor_ops(
     }
 }
 
-pub fn make_matchfailure_ops(rt: &mut RegTable, x: &Ixpr, cases: &Ixpr)
-    -> Oxpr
+pub fn make_matchfailure_ops(rt: &mut RegTable, var: &Lstr
+    , opt_cases: &Option<Ixpr>, line: i16
+    ) -> Oxpr
 {
     rt.push_dst();
-    let xops = make_sub_ops(rt, x);
+    let vreg = rt.id(var);
     rt.pop_dst();
-    let failtag = rt.id(&Lstr::Sref("leema#failure"));
+    // if no case, generate default propagation
+    if opt_cases.is_none() {
+        let propagate = Op::PropagateFailure(vreg.clone(), line);
+        return Oxpr {
+            ops: vec![(propagate, line)],
+            dst: vreg,
+        };
+    }
+
+    let cases = opt_cases.as_ref().unwrap();
+    let failtag = vreg.sub(0);
     let mut case_ops =
-        make_matchcase_ops(rt, xops.dst.clone(), cases, &failtag);
+        make_matchcase_ops(rt, vreg.clone(), cases, &failtag);
 
     let faillen = case_ops.ops.len() + 1;
     let mut failops = Vec::with_capacity(faillen);
     failops.push((
-        Op::IfFailure(failtag, xops.dst.clone(), faillen as i16),
-        x.line,
+        Op::IfFailure(failtag, vreg.clone(), faillen as i16),
+        cases.line,
     ));
     failops.append(&mut case_ops.ops);
 
     Oxpr {
         ops: failops,
-        dst: xops.dst,
+        dst: vreg,
     }
 }
 

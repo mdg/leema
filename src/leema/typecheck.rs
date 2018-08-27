@@ -67,8 +67,12 @@ impl<'a> CallFrame<'a>
                 // would be better to pass the iterator directly instead
                 // of creating a new vector, but I don't know how to do
                 // that right now and I'm only at this cafe for so long today
-                let fails_only = failed.iter().map(|f| f.1.clone()).collect();
-                self.collect_calls_vec(&fails_only);
+                for f in failed.iter() {
+                    if f.case.is_none() {
+                        continue;
+                    }
+                    self.collect_calls(f.case.as_ref().unwrap())
+                }
             }
             Source::StrMash(ref items) => {
                 self.collect_calls_vec(items);
@@ -104,9 +108,6 @@ impl<'a> CallFrame<'a>
                 self.collect_calls(truth);
                 self.collect_calls(lies);
             }
-            Source::MatchFailure(_, ref cases) => {
-                self.collect_calls(cases);
-            }
             Source::Return(ref result) => {
                 self.collect_calls(result);
             }
@@ -124,7 +125,6 @@ impl<'a> CallFrame<'a>
             Source::RustBlock => {}
             Source::Construple(_, _) => {}
             Source::EnumConstructor(_, _, _) => {}
-            Source::PropagateFailure(_, _) => {}
         }
     }
 
@@ -410,8 +410,14 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             scope.infer.merge_types(&head_list_t, &tail_t)
         }
         &Source::ConstVal(_) => Ok(ix.typ.clone()),
-        &Source::Let(ref lhs, ref rhs, _) => {
-            let rhs_type = typecheck_expr(scope, rhs).unwrap();
+        &Source::Let(ref lhs, ref rhs, ref fails) => {
+            let rhs_type = typecheck_expr(scope, rhs)?;
+            for f in fails.iter() {
+                if f.case.is_none() {
+                    continue;
+                }
+                typecheck_expr(scope, f.case.as_ref().unwrap())?;
+            }
             scope
                 .infer
                 .match_pattern(&scope.typeset, lhs, &rhs_type, ix.line)
