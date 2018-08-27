@@ -146,22 +146,51 @@ impl Blockscope
     }
 }
 
+#[derive(Copy)]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+pub enum LocalType
+{
+    Param,
+    Match,
+    Let,
+}
+
 #[derive(Debug)]
 pub struct LocalVar
 {
     name: Lstr,
-    num_assignments: i16,
+    var_type: LocalType,
     num_scopes: i16,
     num_reassignments: i16,
-    first_line: i16,
-    last_line: i16,
+    first_assign: i16,
+    first_access: i16,
+    last_assign: i16,
+    last_access: i16,
+}
+
+impl LocalVar
+{
+    pub fn new(name: Lstr, vt: LocalType) -> LocalVar
+    {
+        LocalVar{
+            name,
+            var_type: vt,
+            num_scopes: 1,
+            num_reassignments: 0,
+            first_assign: 0,
+            first_access: 0,
+            last_assign: 0,
+            last_access: 0,
+        }
+    }
 }
 
 #[derive(Debug)]
 pub struct Blockstack
 {
     stack: Vec<Blockscope>,
-    params: HashSet<Lstr>,
     locals: HashMap<Lstr, LocalVar>,
     in_failed: bool,
 }
@@ -171,8 +200,7 @@ impl Blockstack
     pub fn new() -> Blockstack
     {
         Blockstack{
-            stack: Vec::new(),
-            params: HashSet::new(),
+            stack: vec![Blockscope::new()],
             locals: HashMap::new(),
             in_failed: false,
         }
@@ -192,8 +220,39 @@ impl Blockstack
     {
         self.stack.last_mut().unwrap()
     }
+
+    pub fn assign_var(&mut self, id: &Lstr, vt: LocalType)
+    {
+        if self.var_in_scope(id) {
+            let var_data = self.locals.get_mut(id).unwrap();
+            match var_data.var_type {
+                LocalType::Let => {
+                    var_data.num_reassignments += 1;
+                }
+                LocalType::Param => {
+                    panic!("cannot reassign a function parameter");
+                }
+                LocalType::Match => {
+                    panic!("cannot reassign a pattern variable");
+                }
+            }
+        } else {
+            let new_var = LocalVar::new(id.clone(), vt);
+            self.locals.insert(id.clone(), new_var);
+            self.current_block_mut().vars.insert(id.clone());
+        }
+    }
+
+    pub fn var_in_scope(&self, id: &Lstr) -> bool
+    {
+        self.stack.iter().any(|bs| {
+            bs.vars.contains(id)
+        })
+    }
 }
 
+#[derive(Copy)]
+#[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub enum ScopeLevel
@@ -223,12 +282,17 @@ impl<'a> Interscope<'a>
         args: &LinkedList<Kxpr>,
     ) -> Interscope<'a>
     {
-        let blocks = Blockstack::new();
+        let mut blocks = Blockstack::new();
         let mut argt = Vec::new();
         for (i, a) in args.iter().enumerate() {
             vout!("bind func param as: #{} {:?}\n", i, a);
             let at = Type::from(a.x_ref().unwrap());
-            let opt_k = a.k_ref().map(|k| k.clone());
+            let opt_k = a.k_ref().map(|k| {
+                blocks.assign_var(k, LocalType::Param);
+                k.clone()
+            });
+            if opt_k.is_some() {
+            }
             argt.push((opt_k, at));
         }
 
@@ -288,6 +352,15 @@ impl<'a> Interscope<'a>
                     }).unwrap_or(self.proto)
             }
             _ => self.proto,
+        }
+    }
+
+    pub fn scope_level(&self, id: &Lstr) -> Option<ScopeLevel>
+    {
+        if self.blocks.var_in_scope(id) {
+            Some(ScopeLevel::Local)
+        } else {
+            None
         }
     }
 }
@@ -472,10 +545,23 @@ pub fn compile_lri(
     Ixpr::const_val(fref, loc.lineno)
 }
 
-pub fn compile_local_id(_scope: &mut Interscope, id: &Lstr, _loc: &SrcLoc)
+pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
     -> Ixpr
 {
     vout!("compile_local_id({})\n", id);
+    match scope.scope_level(id) {
+        Some(_) => {
+            // scope.blocks.mark_usage(id);
+            Ixpr {
+                src: Source::Id(id.clone(), loc.lineno),
+                typ: Type::Unknown,
+                line: loc.lineno,
+            }
+        }
+        None => {
+            panic!("undefined variable: {}", id);
+        }
+    }
     /*
         Some(ScopeLevel::Local) => {
 // scope.infer.mark_usage(id.str(), loc);
@@ -519,12 +605,7 @@ pub fn compile_local_id(_scope: &mut Interscope, id: &Lstr, _loc: &SrcLoc)
                 line: loc.lineno,
             }
         }
-        None => {
-            panic!("untyped variable: {} not in {:?}", id, scope);
-        }
-    }
     */
-    Ixpr::noop()
 }
 
 pub fn compile_call(
