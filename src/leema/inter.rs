@@ -132,6 +132,14 @@ pub struct Blockscope
 
 impl Blockscope
 {
+    pub fn new() -> Blockscope
+    {
+        Blockscope{
+            failures: HashMap::new(),
+            vars: HashSet::new(),
+        }
+    }
+
     pub fn add_failure(&mut self, var: &Lstr, cases: IfCase)
     {
         self.failures.insert(var.clone(), cases);
@@ -167,24 +175,6 @@ impl Blockstack
             params: HashSet::new(),
             locals: HashMap::new(),
             in_failed: false,
-        }
-    }
-
-    pub fn collect_failures<'a>(&mut self, stmt: &'a Ast, _loc: &SrcLoc) -> Option<&'a Ast>
-    {
-        match stmt {
-            &Ast::IfExpr(ast::IfType::MatchFailure, ref input, ref cases, ref _iloc) => {
-                if let Ast::Localid(ref name, ref _loc2) = **input {
-                    let b = self.current_block_mut();
-                    b.add_failure(name, (**cases).clone());
-                } else {
-                    panic!("match failure input must be a local variable: {:?}", input);
-                }
-                None
-            }
-            _ => {
-                Some(stmt)
-            }
         }
     }
 
@@ -283,6 +273,50 @@ impl<'a> Interscope<'a>
             }
             _ => self.proto,
         }
+    }
+}
+
+pub struct NewBlockscope<'a, 'b>
+    where 'a: 'b
+{
+    block: Blockscope,
+    pub scope: &'b mut Interscope<'a>,
+}
+
+impl<'a, 'b> NewBlockscope<'a, 'b>
+{
+    pub fn push(scope: &'b mut Interscope<'a>) -> NewBlockscope<'a, 'b>
+    {
+        NewBlockscope{
+            block: Blockscope::new(),
+            scope: scope,
+        }
+    }
+
+    pub fn collect_failures<'c>(&mut self, stmt: &'c Ast) -> Option<&'c Ast>
+    {
+        match stmt {
+            &Ast::IfExpr(ast::IfType::MatchFailure, ref input, ref cases, ref _iloc) => {
+                if let Ast::Localid(ref name, ref _loc2) = **input {
+                    let b = self.scope.blocks.current_block_mut();
+                    b.add_failure(name, (**cases).clone());
+                } else {
+                    panic!("match failure input must be a local variable: {:?}", input);
+                }
+                None
+            }
+            _ => {
+                Some(stmt)
+            }
+        }
+    }
+}
+
+impl<'a, 'b> Drop for NewBlockscope<'a, 'b>
+{
+    fn drop(&mut self)
+    {
+        // self.scope.blocks.push_new
     }
 }
 
@@ -716,13 +750,17 @@ pub fn compile_block(
     loc: &SrcLoc,
 ) -> Ixpr
 {
-    let non_failures: Vec<&Ast> = blk.iter()
+    let mut new_block = NewBlockscope::push(scope);
+    let non_failures: Vec<&Ast> =
+        blk.iter()
         .filter_map(|stmt| {
-            scope.blocks.collect_failures(stmt, loc)
-        }).collect();
-    let ixs: Vec<Ixpr> = non_failures.iter()
+            new_block.collect_failures(stmt)
+        })
+        .collect();
+    let ixs: Vec<Ixpr> =
+        non_failures.iter()
         .map(|stmt| {
-            compile_block_stmt(scope, stmt, loc)
+            compile_block_stmt(&mut new_block.scope, stmt, loc)
         })
         .collect();
     Ixpr::new_block(ixs, HashMap::new(), loc.lineno)
