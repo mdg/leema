@@ -178,6 +178,16 @@ impl Blockstack
         }
     }
 
+    pub fn push_blockscope(&mut self)
+    {
+        self.stack.push(Blockscope::new());
+    }
+
+    pub fn pop_blockscope(&mut self)
+    {
+        self.stack.pop();
+    }
+
     pub fn current_block_mut(&mut self) -> &mut Blockscope
     {
         self.stack.last_mut().unwrap()
@@ -245,6 +255,12 @@ impl<'a> Interscope<'a>
         self.imports.contains_key(name)
     }
 
+    pub fn push_blockscope<'b>(&'b mut self) -> NewBlockscope<'a, 'b>
+    {
+        self.blocks.push_blockscope();
+        NewBlockscope::new(self)
+    }
+
     pub fn struple_field_idx(
         &self,
         typ: &Type,
@@ -279,16 +295,14 @@ impl<'a> Interscope<'a>
 pub struct NewBlockscope<'a, 'b>
     where 'a: 'b
 {
-    block: Blockscope,
     pub scope: &'b mut Interscope<'a>,
 }
 
 impl<'a, 'b> NewBlockscope<'a, 'b>
 {
-    pub fn push(scope: &'b mut Interscope<'a>) -> NewBlockscope<'a, 'b>
+    pub fn new(scope: &'b mut Interscope<'a>) -> NewBlockscope<'a, 'b>
     {
         NewBlockscope{
-            block: Blockscope::new(),
             scope: scope,
         }
     }
@@ -316,7 +330,7 @@ impl<'a, 'b> Drop for NewBlockscope<'a, 'b>
 {
     fn drop(&mut self)
     {
-        // self.scope.blocks.push_new
+        self.scope.blocks.pop_blockscope()
     }
 }
 
@@ -750,7 +764,7 @@ pub fn compile_block(
     loc: &SrcLoc,
 ) -> Ixpr
 {
-    let mut new_block = NewBlockscope::push(scope);
+    let mut new_block = scope.push_blockscope();
     let non_failures: Vec<&Ast> =
         blk.iter()
         .filter_map(|stmt| {
