@@ -165,9 +165,9 @@ pub struct LocalVar
     num_scopes: i16,
     num_reassignments: i16,
     first_assign: i16,
-    first_access: i16,
+    first_access: Option<i16>,
     last_assign: i16,
-    last_access: i16,
+    last_access: Option<i16>,
 }
 
 impl LocalVar
@@ -180,9 +180,9 @@ impl LocalVar
             num_scopes: 1,
             num_reassignments: 0,
             first_assign: 0,
-            first_access: 0,
+            first_access: None,
             last_assign: 0,
-            last_access: 0,
+            last_access: None,
         }
     }
 }
@@ -243,6 +243,18 @@ impl Blockstack
         }
     }
 
+    pub fn access_var(&mut self, id: &Lstr, lineno: i16)
+    {
+        let vi = self.locals.get_mut(id)
+            .unwrap_or_else(|| {
+                panic!("cannot access undefined var: {}", id);
+            });
+        if vi.first_access.is_none() {
+            vi.first_access = Some(lineno)
+        }
+        vi.last_access = Some(lineno)
+    }
+
     pub fn var_in_scope(&self, id: &Lstr) -> bool
     {
         self.stack.iter().any(|bs| {
@@ -251,15 +263,13 @@ impl Blockstack
     }
 }
 
-#[derive(Copy)]
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub enum ScopeLevel
 {
     Local,
-    Module,
-    External,
+    Module(Val),
 }
 
 #[derive(Debug)]
@@ -360,7 +370,15 @@ impl<'a> Interscope<'a>
         if self.blocks.var_in_scope(id) {
             Some(ScopeLevel::Local)
         } else {
-            None
+            self.proto.constants.get(id)
+                .or_else(|| {
+                    let prefab = self.imports.get("prefab")
+                        .expect("prefab module is undefined");
+                    prefab.constants.get(id)
+                })
+                .map(|val| {
+                    ScopeLevel::Module(val.clone())
+                })
         }
     }
 }
@@ -550,11 +568,19 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
 {
     vout!("compile_local_id({})\n", id);
     match scope.scope_level(id) {
-        Some(_) => {
-            // scope.blocks.mark_usage(id);
+        Some(ScopeLevel::Local) => {
+            scope.blocks.access_var(id, loc.lineno);
             Ixpr {
                 src: Source::Id(id.clone(), loc.lineno),
                 typ: Type::Unknown,
+                line: loc.lineno,
+            }
+        }
+        Some(ScopeLevel::Module(val)) => {
+            let mod_type = val.get_type();
+            Ixpr {
+                src: Source::ConstVal(val),
+                typ: mod_type,
                 line: loc.lineno,
             }
         }
@@ -562,50 +588,6 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
             panic!("undefined variable: {}", id);
         }
     }
-    /*
-        Some(ScopeLevel::Local) => {
-// scope.infer.mark_usage(id.str(), loc);
-            Ixpr {
-                src: Source::Id(id.clone(), loc.lineno),
-                typ: Type::Unknown,
-                line: loc.lineno,
-            }
-        }
-        Some(ScopeLevel::Module) => {
-            if typ.is_func() {
-                let fref = Val::FuncRef(
-                    Lri::with_modules(scope.proto.key.name.clone(), id.clone()),
-                    typ.clone(),
-                );
-                Ixpr {
-                    src: Source::ConstVal(fref),
-                    typ: typ.clone(),
-                    line: loc.lineno,
-                }
-            } else {
-                let c = scope.proto.constants.get(id.str()).unwrap();
-                Ixpr {
-                    src: Source::ConstVal(c.clone()),
-                    typ: typ.clone(),
-                    line: loc.lineno,
-                }
-            }
-        }
-        Some((ScopeLevel::External, typ)) => {
-            // if it's external and no module prefix,
-            // it's almost certainly prefab. probably
-            // a better way to make this work
-            let fref = Val::FuncRef(
-                Lri::with_modules(Lstr::from("prefab"), id.clone()),
-                typ.clone(),
-            );
-            Ixpr {
-                src: Source::ConstVal(fref),
-                typ: typ.clone(),
-                line: loc.lineno,
-            }
-        }
-    */
 }
 
 pub fn compile_call(
