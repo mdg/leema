@@ -62,7 +62,6 @@ use std::io::{Write};
 %type StrLit { String }
 %type StrOpen { SrcLoc }
 %type STRUCT { SrcLoc }
-%type STRUPLE { SrcLoc }
 %type TIMES { SrcLoc }
 %type TYPEARROW { SrcLoc }
 %type TYPE_VAR { TokenData<String> }
@@ -185,14 +184,14 @@ stmt(A) ::= RETURN(C) expr(B). {
 }
 
 
-/** Struple Definitions */
+/** Struct Definitions */
 
-defstruple(A) ::= STRUPLE(L) lri(C) PARENCALL x_list(D) RPAREN.
+defstruple(A) ::= STRUCT(L) lri(C) PARENCALL x_list(D) RPAREN.
 {
     A = Ast::DefData(ast::DataType::Struple, Box::new(C), D, L);
 }
 
-defstruple(A) ::= STRUPLE(D) lri(B) defstruple_block(C) DOUBLEDASH. {
+defstruple(A) ::= STRUCT(D) lri(B) defstruple_block(C) DOUBLEDASH. {
     A = Ast::DefData(ast::DataType::Struple, Box::new(B), C, D);
 }
 defstruple_block(A) ::= . {

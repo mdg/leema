@@ -237,10 +237,6 @@ mod	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_MOD);
 }
-struple	{
-    BEGIN(INITIAL);
-    return set_token(yyg, TOKEN_STRUPLE);
-}
 struct	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_STRUCT);
