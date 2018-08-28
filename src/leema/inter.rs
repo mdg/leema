@@ -355,7 +355,11 @@ impl<'a> Interscope<'a>
     ) -> Option<(i16, &Type)>
     {
         let proto = self.type_module(typ);
-        proto.struple_field_idx(&*typ.local_typename(), fld)
+        if let &Type::UserDef(ref typi) = typ {
+            proto.struple_field_idx(&typi.localid, fld)
+        } else {
+            panic!("cannot get field index for not user def");
+        }
     }
 
     pub fn type_module(&self, typ: &Type) -> &Protomod
@@ -1099,7 +1103,7 @@ mod tests
     {
         let input = String::from(
             "
-            struple Greeting(Str, Str)
+            struct Greeting(Str, Str)
 
             func main() ->
                 let g := Greeting(\"hello\", \"world\")

@@ -1170,7 +1170,7 @@ mod tests
     fn test_preproc_namedtuple()
     {
         let input = "
-    struple Greeting(Str, Str)
+    struct Greeting(Str, Str)
     ".to_string();
         let greet = Lstr::Sref("greet");
         let mut loader = Interloader::new(Lstr::Sref("greet.lma"));
@@ -1215,8 +1215,9 @@ mod tests
     fn preproc_defstruple_mixed_keys()
     {
         let input = "
-            struple Burrito(Bool, buns: Int)
+            struct Burrito(Bool, buns: Int)
             ".to_string();
+
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
@@ -1270,11 +1271,11 @@ mod tests
     fn preproc_defstruple_keyed()
     {
         let input = "
-    struple Burrito
-    .filling: Str
-    .number: Int
-    --
-    ".to_string();
+            struct Burrito
+            .filling: Str
+            .number: Int
+            --
+            ".to_string();
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
@@ -1355,11 +1356,9 @@ mod tests
     #[test]
     fn preproc_defstruple_token()
     {
-        let input = String::from(
-            "
-    struple Burrito --
-    ",
-        );
+        let input = "
+            struct Burrito --
+            ".to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("tok.lma"));
         loader.set_mod_txt(Lstr::Sref("tok"), input);
@@ -1388,22 +1387,4 @@ mod tests
         assert_eq!(0, pmod.funcseq.len());
         assert_eq!(0, pmod.funcsrc.len());
     }
-
-    #[test]
-    #[should_panic]
-    fn test_old_token_type()
-    {
-        // empty structs are no longer supported
-        let input = String::from(
-            "
-    struct Burrito --
-    ",
-        );
-
-        let mut loader = Interloader::new(Lstr::Sref("tok.lma"));
-        loader.set_mod_txt(Lstr::Sref("tok"), input);
-        let mut prog = program::Lib::new(loader);
-        prog.read_proto(&Lstr::Sref("tok"));
-    }
-
 }

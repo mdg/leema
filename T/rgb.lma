@@ -1,5 +1,5 @@
 
-struple Rgb
+struct Rgb
 .red: Int
 .green: Int
 .blue: Int

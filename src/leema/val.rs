@@ -97,17 +97,6 @@ impl Type
         }
     }
 
-    /**
-     * Get the typename without any module information
-     */
-    pub fn local_typename(&self) -> Lstr
-    {
-        match self {
-            &Type::UserDef(ref i) => i.localid.clone(),
-            _ => self.full_typename(),
-        }
-    }
-
     pub fn split_func(t: Type) -> (Vec<Type>, Type)
     {
         match t {
