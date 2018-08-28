@@ -40,6 +40,15 @@ pub enum Source
 
 impl Source
 {
+    pub fn is_matchcase(&self) -> bool
+    {
+        if let Source::MatchCase(_, _, _) = self {
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn type_of(src: &Source) -> Type
     {
         match src {

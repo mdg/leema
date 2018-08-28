@@ -302,12 +302,12 @@ impl Lib
         vout!("local_typecheck({})\n", funcri);
         let modlstr = funcri.mod_ref().unwrap();
         let funclstr = &funcri.localid;
-        let opt_inter = self.inter.get(modlstr);
+        let opt_inter = self.inter.get_mut(modlstr);
         if opt_inter.is_none() {
             panic!("cannot find inter for {}", funcri);
         }
         let inter = opt_inter.unwrap();
-        let fix = inter.interfunc.get(funclstr).unwrap();
+        let mut fix = inter.interfunc.get_mut(funclstr).unwrap();
         let typed = self.typed.get(modlstr).unwrap();
 
         let mut typeset = TypeSet::new();
@@ -318,7 +318,7 @@ impl Lib
             );
         }
 
-        let pref = self.find_preface(modlstr).unwrap().clone();
+        let pref = self.preface.get(modlstr).unwrap().clone();
         let mut imports: HashMap<Lstr, &Typemod> = HashMap::new();
         let prefab_typed = self.typed.get("prefab");
         if prefab_typed.is_some() {
@@ -347,7 +347,7 @@ impl Lib
             &imports,
             &typeset,
         );
-        typecheck::typecheck_function(&mut scope, fix).unwrap()
+        typecheck::typecheck_function(&mut scope, &mut fix).unwrap()
     }
 
     fn load_imports(&mut self, modname: &Lstr, imports: &HashSet<Lstr>)

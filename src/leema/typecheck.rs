@@ -303,11 +303,17 @@ impl<'a, 'b> Typescope<'a, 'b>
     pub fn typecheck_matchcase(
         &mut self,
         valtype: &Type,
-        case: &Ixpr,
+        case: &mut Ixpr,
     ) -> TypeResult
     {
-        match &case.src {
-            &Source::MatchCase(ref patt, ref truth, ref lies) => {
+        // this is_matchcase check is a borrow-checker workaround
+        // b/c i had trouble calling typecheck_expr in the
+        // else clause b/c case was still held
+        // as being borrowed from the if check
+        if case.src.is_matchcase() {
+            if let &mut Source::MatchCase(
+                    ref patt, ref mut truth, ref mut lies) = &mut case.src
+            {
                 self.infer.push_block(HashMap::new());
                 self.infer.match_pattern(
                     &self.typeset,
@@ -320,9 +326,11 @@ impl<'a, 'b> Typescope<'a, 'b>
                 let ftype = self.typecheck_matchcase(valtype, lies).unwrap();
 
                 self.infer.merge_types(&ttype, &ftype)
+            } else {
+                panic!("not a matchcase somehow");
             }
-            &Source::ConstVal(Val::Void) => Ok(Type::Unknown),
-            _ => typecheck_expr(self, case),
+        } else {
+            typecheck_expr(self, case)
         }
     }
 
@@ -371,15 +379,15 @@ impl<'a, 'b> Typescope<'a, 'b>
     }
 }
 
-pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
+pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
 {
-    match &ix.src {
-        &Source::Call(ref func, ref args) => {
+    match &mut ix.src {
+        &mut Source::Call(ref mut func, ref mut args) => {
             let tfunc = scope.typecheck_call_func(&func.src).unwrap();
             let mut targs = vec![];
-            if let Source::Tuple(ref argstup) = args.src {
-                for a in argstup {
-                    targs.push(typecheck_expr(scope, a).unwrap());
+            if let Source::Tuple(ref mut argstup) = args.src {
+                for mut a in argstup {
+                    targs.push(typecheck_expr(scope, &mut a).unwrap());
                 }
             } else {
                 println!("args are not a tuple");
@@ -393,59 +401,65 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             let (_, call_result) = Type::split_func(full_call_type);
             Ok(call_result.clone())
         }
-        &Source::Cons(ref head, ref tail) => {
+        &mut Source::Cons(ref mut head, ref mut tail) => {
             let head_t = typecheck_expr(scope, head).unwrap();
             let tail_t = typecheck_expr(scope, tail).unwrap();
             let head_list_t = Type::StrictList(Box::new(head_t));
             scope.infer.merge_types(&head_list_t, &tail_t)
         }
-        &Source::ConstVal(_) => Ok(ix.typ.clone()),
-        &Source::Let(ref lhs, ref rhs, ref fails) => {
+        &mut Source::ConstVal(_) => Ok(ix.typ.clone()),
+        &mut Source::Let(ref lhs, ref mut rhs, ref mut fails) => {
             let rhs_type = typecheck_expr(scope, rhs)?;
-            for f in fails.iter() {
+            for mut f in fails {
                 if f.case.is_none() {
                     continue;
                 }
-                typecheck_expr(scope, f.case.as_ref().unwrap())?;
+                typecheck_expr(scope, f.case.as_mut().unwrap())?;
             }
             scope
                 .infer
                 .match_pattern(&scope.typeset, lhs, &rhs_type, ix.line)
                 .map(|_| Type::Void)
         }
-        &Source::Block(ref elems) => {
+        &mut Source::Block(ref mut elems) => {
             let mut last_type = Ok(Type::Void);
             for e in elems {
                 last_type = typecheck_expr(scope, e);
             }
             last_type
         }
-        &Source::FieldAccess(ref x, ref sub) => {
+        &mut Source::FieldAccess(ref mut x, ref sub) => {
             let xtyp = typecheck_expr(scope, x)?;
             typecheck_field_access(scope, &xtyp, sub)
         }
-        &Source::Id(ref id, _) => scope.infer.vartype(id),
-        &Source::List(ref items) => {
+        &mut Source::Id(ref id, _) => {
+            let result = scope.infer.vartype(id);
+            if result.is_ok() {
+                ix.typ = result.as_ref().unwrap().clone();
+            }
+            result
+        }
+        &mut Source::List(ref mut items) => {
             for i in items {
                 typecheck_expr(scope, i)?;
             }
             Ok(ix.typ.clone())
         }
-        &Source::Construple(ref typ, _) => Ok(typ.clone()),
-        &Source::Tuple(ref items) => {
+        &mut Source::Construple(ref typ, _) => Ok(typ.clone()),
+        &mut Source::Tuple(ref mut items) => {
             for i in items {
                 typecheck_expr(scope, i)?;
             }
             Ok(ix.typ.clone())
         }
-        &Source::IfExpr(ref cond, ref truth, ref lies) => {
+        &mut Source::IfExpr(ref mut cond, ref mut truth, ref mut lies) => {
             let cond_t = typecheck_expr(scope, cond).unwrap();
             scope.infer.merge_types(&cond_t, &Type::Bool)?;
 
             let truth_result = typecheck_expr(scope, truth);
             match lies {
-                &None => truth_result,
-                &Some(ref some_lies) => {
+                &mut None => truth_result,
+                &mut Some(ref mut some_lies) => {
                     let lies_result = typecheck_expr(scope, some_lies);
                     let truth_t = truth_result.unwrap();
                     let lies_t = lies_result.unwrap();
@@ -453,7 +467,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
                 }
             }
         }
-        &Source::StrMash(ref items) => {
+        &mut Source::StrMash(ref mut items) => {
             for i in items {
                 typecheck_expr(scope, i)?;
                 // TODO: check that this supports the stringification interface
@@ -462,42 +476,42 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             }
             Ok(Type::Str)
         }
-        &Source::Func(ref _args, ref body) => {
+        &mut Source::Func(ref _args, ref body) => {
             // typecheck_expr(scope, body)
             Err(TypeErr::Error(Lstr::from(format!(
                 "unexpected func in typecheck: {:?}",
                 body
             ))))
         }
-        &Source::MatchExpr(ref subject, ref cases) => {
+        &mut Source::MatchExpr(ref mut subject, ref mut cases) => {
             typecheck_expr(scope, subject).and_then(|subject_type| {
                 scope.typecheck_matchcase(&subject_type, cases)
             })
         }
-        &Source::Return(ref result) => typecheck_expr(scope, result),
-        &Source::MatchCase(_, _, _) => {
-            panic!("typecheck matchcase in a specific function: {:?}", ix);
+        &mut Source::Return(ref mut result) => typecheck_expr(scope, result),
+        &mut Source::MatchCase(ref pattern, _, _) => {
+            panic!("cannot directly typecheck matchcase: {}", pattern);
         }
-        _ => {
-            panic!("could not typecheck_expr({:?})", ix);
+        src => {
+            panic!("could not typecheck_expr({:?})", src);
         }
     }
 }
 
-pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
+pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
 {
     vout!("typecheck function({:?}: {:?})", scope.fname, ix.typ);
     vout!("typescope: {:?}\n", scope);
-    match (&ix.src, &ix.typ) {
+    match (&mut ix.src, &ix.typ) {
         (
-            &Source::Func(ref arg_names, ref body),
+            &mut Source::Func(ref arg_names, ref mut body),
             &Type::Func(ref arg_types, ref declared_result_type),
         ) => {
             for (an, at) in arg_names.iter().zip(arg_types.iter()) {
                 scope.infer.bind_vartype(&an, at, ix.line)?;
             }
             vout!("f({:?}) =>\n{:?}", arg_names, body);
-            let result_type = typecheck_expr(scope, &*body)
+            let result_type = typecheck_expr(scope, &mut *body)
                 .map_err(|e| {
                     let err_msg = format!(
                         "function result type error for: {}",
@@ -521,9 +535,9 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
                 .merge_types(&result_type, declared_result_type)
                 .map(|final_type| Type::f(final_args, final_type))
         }
-        (&Source::RustBlock, _) => Ok(ix.typ.clone()),
-        _ => {
-            panic!("Cannot typecheck_function a not function: {:?}", ix);
+        (&mut Source::RustBlock, _) => Ok(ix.typ.clone()),
+        (ref mut src, _) => {
+            panic!("Cannot typecheck_function a not function: {:?}", src);
         }
     }
     /*
