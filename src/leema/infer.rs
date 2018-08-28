@@ -144,14 +144,16 @@ impl<'b> Inferator<'b>
     {
         match self.vartypes.get(argn) {
             None => {
-                Err(TypeErr::Error(Lstr::from(
-                    format!("no type for unkonwn var: {}", argn)
-                )))
+                Err(TypeErr::Error(Lstr::from(format!(
+                    "no type for unkonwn var: {}",
+                    argn
+                ))))
             }
             Some(&Type::AnonVar) => {
-                Err(TypeErr::Error(Lstr::from(
-                    format!("cannot infer AnonVar for var: {}", argn)
-                )))
+                Err(TypeErr::Error(Lstr::from(format!(
+                    "cannot infer AnonVar for var: {}",
+                    argn
+                ))))
             }
             Some(ref argt) => Ok(self.inferred_type(argt)),
         }

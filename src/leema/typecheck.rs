@@ -430,9 +430,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             let xtyp = typecheck_expr(scope, x)?;
             typecheck_field_access(scope, &xtyp, sub)
         }
-        &Source::Id(ref id, _) => {
-            scope.infer.vartype(id)
-        }
+        &Source::Id(ref id, _) => scope.infer.vartype(id),
         &Source::List(ref items) => {
             for i in items {
                 typecheck_expr(scope, i)?;
