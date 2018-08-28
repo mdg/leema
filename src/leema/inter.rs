@@ -545,7 +545,8 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
                 );
             }
             let full_type = opt_full_type.unwrap();
-            Ixpr::construple(full_type.clone(), &Struple(vec![]), loc.lineno)
+            let fields = scope.proto.get_struple_fields(&type_lri.localid);
+            Ixpr::construple(full_type.clone(), fields, loc.lineno)
         }
         &Ast::Let(ltype, ref lhs, ref rhs, ref iloc) => {
             compile_let_stmt(scope, ltype, lhs, rhs, iloc)

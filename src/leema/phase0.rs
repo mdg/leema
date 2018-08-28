@@ -880,6 +880,11 @@ impl Protomod
         None
     }
 
+    pub fn get_struple_fields(&self, typename: &Lstr) -> &Struple<Type>
+    {
+        self.struple_fields.get(typename).unwrap()
+    }
+
     pub fn func_result_type(&self, func_name: &Lstr) -> Option<Type>
     {
         self.valtypes.get(func_name.str()).and_then(|func_type| {
