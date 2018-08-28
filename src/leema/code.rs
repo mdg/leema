@@ -221,7 +221,7 @@ pub fn make_ops(input: &Ixpr) -> OpVec
 pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
 {
     match input.src {
-        Source::Block(ref lines, ref _fails) => {
+        Source::Block(ref lines) => {
             let mut oxprs = Vec::with_capacity(lines.len());
             for i in lines.iter().rev() {
                 oxprs.push(make_sub_ops(rt, i));

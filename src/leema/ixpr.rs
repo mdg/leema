@@ -2,8 +2,6 @@ use leema::lstr::Lstr;
 use leema::struple::Struple;
 use leema::val::{Type, Val};
 
-use std::collections::HashMap;
-
 
 #[derive(Clone)]
 #[derive(Debug)]
@@ -20,7 +18,7 @@ pub struct MatchFailure
 #[derive(PartialEq)]
 pub enum Source
 {
-    Block(Vec<Ixpr>, HashMap<String, Ixpr>),
+    Block(Vec<Ixpr>),
     Call(Box<Ixpr>, Box<Ixpr>),
     Cons(Box<Ixpr>, Box<Ixpr>),
     Construple(Type, Struple<Type>),
@@ -75,7 +73,6 @@ impl Ixpr
 
     pub fn new_block(
         code: Vec<Ixpr>,
-        fails: HashMap<String, Ixpr>,
         line: i16,
     ) -> Ixpr
     {
@@ -85,7 +82,7 @@ impl Ixpr
         };
         Ixpr {
             typ: block_type,
-            src: Source::Block(code, fails),
+            src: Source::Block(code),
             line: line,
         }
     }

@@ -856,7 +856,7 @@ pub fn compile_block(
         .iter()
         .map(|stmt| compile_block_stmt(&mut new_block.scope, stmt, loc))
         .collect();
-    Ixpr::new_block(ixs, HashMap::new(), loc.lineno)
+    Ixpr::new_block(ixs, loc.lineno)
 }
 
 pub fn compile_block_stmt(

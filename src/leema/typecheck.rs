@@ -56,11 +56,8 @@ impl<'a> CallFrame<'a>
                     self.collect_callexpr(callx);
                 }
             }
-            Source::Block(ref expressions, ref fails) => {
+            Source::Block(ref expressions) => {
                 self.collect_calls_vec(expressions);
-                for case in fails.values() {
-                    self.collect_calls(case);
-                }
             }
             Source::Let(ref _lhs, ref rhs, ref failed) => {
                 self.collect_calls(rhs);
@@ -416,13 +413,10 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
                 .match_pattern(&scope.typeset, lhs, &rhs_type, ix.line)
                 .map(|_| Type::Void)
         }
-        &Source::Block(ref elems, ref fails) => {
+        &Source::Block(ref elems) => {
             let mut last_type = Ok(Type::Void);
             for e in elems {
                 last_type = typecheck_expr(scope, e);
-            }
-            for f in fails.values() {
-                typecheck_expr(scope, f)?;
             }
             last_type
         }
