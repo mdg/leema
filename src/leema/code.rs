@@ -247,11 +247,11 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 dst: dst.clone(),
             }
         }
-        Source::FieldAccess(ref base, fld_idx) => {
+        Source::FieldAccess(ref base, ref _fld_name) => {
             let mut base_ops = make_sub_ops(rt, base);
             Oxpr {
                 ops: base_ops.ops,
-                dst: base_ops.dst.sub(fld_idx),
+                dst: base_ops.dst.sub(0), // fld_name),
             }
         }
         Source::Func(ref argnames, ref body) => {

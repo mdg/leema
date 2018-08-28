@@ -27,6 +27,22 @@ impl<T> Struple<T>
     {
         Struple(vec![(None, a), (None, b)])
     }
+
+    /**
+     * Find a value with the given key
+     */
+    pub fn find(&self, key: &str) -> Option<&T>
+    {
+        self.0.iter()
+            .find(|i| {
+                i.0.as_ref().map_or(false, |ik| {
+                    ik.str() == key
+                })
+            })
+            .map(|item| {
+                &item.1
+            })
+    }
 }
 
 impl<T> FromIterator<(Option<Lstr>, T)> for Struple<T>
@@ -153,5 +169,28 @@ impl reg::Iregistry for Struple<Val>
                 self.0[p as usize].1.ireg_set(&*s, v);
             }
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests
+{
+    use leema::lstr::Lstr;
+    use leema::struple::Struple;
+    use leema::val::Val;
+
+
+    #[test]
+    fn test_struple_find()
+    {
+        let s = Struple(vec![
+            (Some(Lstr::from("taco")), Val::Int(2)),
+            (None, Val::Int(3)),
+            (Some(Lstr::from("burrito")), Val::Int(4)),
+        ]);
+
+        let actual = s.find(&Lstr::from("burrito"));
+        assert_eq!(Val::Int(4), *actual.expect("burrito value"));
     }
 }

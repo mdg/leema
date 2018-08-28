@@ -358,7 +358,7 @@ impl<'a> Interscope<'a>
         if let &Type::UserDef(ref typi) = typ {
             proto.struple_field_idx(&typi.localid, fld)
         } else {
-            panic!("cannot get field index for not user def");
+            panic!("cannot get field index for not user def: {:?}", typ);
         }
     }
 
@@ -678,13 +678,7 @@ pub fn compile_dot_access(
 ) -> Ixpr
 {
     let ix_base = compile_expr(scope, base_val, loc);
-    if let Some((field_idx, field_typ)) =
-        scope.struple_field_idx(&ix_base.typ, field.str())
-    {
-        Ixpr::new_field_access(ix_base, field_idx as i8, field_typ.clone())
-    } else {
-        panic!("no field: {:?}.{}", base_val, field);
-    }
+    Ixpr::new_field_access(ix_base, field.clone())
 }
 
 pub fn compile_ifx(scope: &mut Interscope, ifx: &Ast) -> Ixpr

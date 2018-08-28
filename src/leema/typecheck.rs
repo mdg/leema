@@ -433,7 +433,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
             }
             last_type
         }
-        &Source::FieldAccess(ref x, sub) => {
+        &Source::FieldAccess(ref x, ref sub) => {
             let xtyp = typecheck_expr(scope, x)?;
             typecheck_field_access(scope, &xtyp, sub)
         }
@@ -547,7 +547,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &Ixpr) -> TypeResult
 pub fn typecheck_field_access(
     scope: &mut Typescope,
     xtyp: &Type,
-    fld: i8,
+    fld: &Lstr,
 ) -> TypeResult
 {
     vout!("typecheck_field_access({:?}.{})\n", xtyp, fld);
@@ -555,9 +555,15 @@ pub fn typecheck_field_access(
         &Type::UserDef(ref name) => {
             match scope.typeset.get_typedef(name) {
                 Result::Ok(ref ityp) => {
-                    ityp.0.get(fld as usize).map(|ft| ft.1.clone()).ok_or_else(
-                        || TypeErr::Error(Lstr::Sref("invalid field index")),
-                    )
+                    ityp.find(fld)
+                        .map(|ft| ft.clone())
+                        .ok_or_else(
+                            || {
+                                TypeErr::Error(Lstr::Sref(
+                                    "invalid field index"
+                                ))
+                            }
+                        )
                 }
                 Result::Err(ref e) => {
                     panic!("cannot find defined type for: {}", e);
