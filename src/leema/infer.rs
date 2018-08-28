@@ -106,11 +106,11 @@ impl<'b> TypeSet<'b>
 
     pub fn import_user_types(
         &mut self,
-        modname: &Lstr,
+        modname: Lstr,
         types: &'b HashMap<Lstr, Struple<Type>>,
     )
     {
-        self.typedef.insert(modname.clone(), types);
+        self.typedef.insert(modname, types);
     }
 }
 

@@ -280,7 +280,7 @@ pub struct Typescope<'a, 'b>
     inter: &'a Typemod,
     imports: &'a HashMap<Lstr, &'a Typemod>,
     infer: Inferator<'b>,
-    typeset: TypeSet<'a>,
+    typeset: &'a TypeSet<'a>,
 }
 
 impl<'a, 'b> Typescope<'a, 'b>
@@ -290,23 +290,16 @@ impl<'a, 'b> Typescope<'a, 'b>
         proto: &'a Protomod,
         func: &'b str,
         imps: &'a HashMap<Lstr, &'a Typemod>,
+        typeset: &'a TypeSet<'a>
     ) -> Typescope<'a, 'b>
     {
-        let mut ts = TypeSet::new();
-        ts.import_user_types(&proto.key.name, &proto.struple_fields);
-        /*
-        for (_, imp) in imports.iter() {
-            ts.import_user_types(&Lstr::Rc(imp.key.name.clone()), &imp.struple_fields);
-        }
-        */
-
         Typescope {
             fname: func,
-            proto: proto,
-            inter: inter,
+            proto,
+            inter,
             imports: imps,
             infer: Inferator::new(func),
-            typeset: ts,
+            typeset,
         }
     }
 

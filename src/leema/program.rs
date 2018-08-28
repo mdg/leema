@@ -1,5 +1,6 @@
 use leema::ast::Ast;
 use leema::code::{self, Code};
+use leema::infer::TypeSet;
 use leema::inter::Intermod;
 use leema::ixpr::Source;
 use leema::lib_str;
@@ -230,7 +231,7 @@ impl Lib
         }
     }
 
-    pub fn typecheck(&mut self, funcri: &Lri, depth: typecheck::Depth)
+    pub fn typecheck(&mut self, funcri: &Lri, depth: typecheck::Depth) -> Type
     {
         vout!("typecheck({}, {:?})\n", funcri, depth);
         self.load_inter(funcri.mod_ref().expect("no typecheck module name"));
@@ -241,8 +242,9 @@ impl Lib
         let ftype = self.local_typecheck(funcri);
         let modstr = funcri.mod_ref().unwrap().str();
         let mutyped = self.typed.get_mut(modstr).unwrap();
-        mutyped.set_type(funcri.localid.clone(), depth, ftype);
+        mutyped.set_type(funcri.localid.clone(), depth, ftype.clone());
         vout!("\tfinish typecheck({})\n", funcri);
+        ftype
     }
 
     pub fn deeper_typecheck(&mut self, funcri: &Lri, depth: typecheck::Depth)
@@ -305,14 +307,21 @@ impl Lib
             panic!("cannot find inter for {}", funcri);
         }
         let inter = opt_inter.unwrap();
-        let fix = inter.interfunc.get(funclstr.str()).unwrap();
-        let typed = self.typed.get(modlstr.str()).unwrap();
+        let fix = inter.interfunc.get(funclstr).unwrap();
+        let typed = self.typed.get(modlstr).unwrap();
+
+        let mut typeset = TypeSet::new();
+        if self.proto.contains_key("prefab") {
+            typeset.import_user_types(Lstr::Sref("prefab"),
+                &self.proto.get("prefab").unwrap().struple_fields
+            ); 
+        }
 
         let pref = self.find_preface(modlstr).unwrap().clone();
-        let prefab = self.typed.get("prefab");
         let mut imports: HashMap<Lstr, &Typemod> = HashMap::new();
-        if prefab.is_some() {
-            imports.insert(Lstr::Sref("prefab"), prefab.unwrap());
+        let prefab_typed = self.typed.get("prefab");
+        if prefab_typed.is_some() {
+            imports.insert(Lstr::Sref("prefab"), prefab_typed.unwrap());
         }
         for i in pref.imports.iter() {
             let iii: Option<&Typemod> = self.typed.get(i);
@@ -320,11 +329,15 @@ impl Lib
                 panic!("cannot find intermod in imports: {}", i);
             }
             imports.insert(i.clone(), iii.unwrap());
+
+            let improto = self.proto.get(i).unwrap();
+            typeset.import_user_types(i.clone(), &improto.struple_fields);
         }
 
-        let opt_proto = self.proto.get(modlstr.str());
+        let opt_proto = self.proto.get(modlstr);
+        typeset.import_user_types(modlstr.clone(), &opt_proto.unwrap().struple_fields);
         let mut scope =
-            Typescope::new(typed, opt_proto.unwrap(), funclstr.str(), &imports);
+            Typescope::new(typed, opt_proto.unwrap(), funclstr.str(), &imports, &typeset);
         typecheck::typecheck_function(&mut scope, fix).unwrap()
     }
 
