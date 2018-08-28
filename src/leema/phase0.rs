@@ -1349,8 +1349,7 @@ mod tests
     #[test]
     fn preproc_defstruple_token()
     {
-        let input =
-            "
+        let input = "
             struct Burrito --
             ".to_string();
 
