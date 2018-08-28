@@ -140,14 +140,20 @@ impl<'b> Inferator<'b>
         self.vartypes.keys()
     }
 
-    pub fn vartype(&self, argn: &str) -> Option<Type>
+    pub fn vartype(&self, argn: &str) -> TypeResult
     {
         match self.vartypes.get(argn) {
-            None => None,
-            Some(&Type::AnonVar) => {
-                panic!("Can't infer AnonVar");
+            None => {
+                Err(TypeErr::Error(Lstr::from(
+                    format!("no type for unkonwn var: {}", argn)
+                )))
             }
-            Some(ref argt) => Some(self.inferred_type(argt)),
+            Some(&Type::AnonVar) => {
+                Err(TypeErr::Error(Lstr::from(
+                    format!("cannot infer AnonVar for var: {}", argn)
+                )))
+            }
+            Some(ref argt) => Ok(self.inferred_type(argt)),
         }
     }
 
