@@ -1,5 +1,5 @@
 
-struple Empty --
+struct Empty --
 
 func main() ->
     let e := Empty
