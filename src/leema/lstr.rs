@@ -297,4 +297,18 @@ mod tests
         assert!(s.contains("tacos"));
     }
 
+    fn str_identity(ls: &str) -> &str
+    {
+        ls
+    }
+
+    #[test]
+    fn test_borrow_lstr_as_str()
+    {
+        let s1 = str_identity("tacos");
+        let s2 = str_identity(&Lstr::Sref("tacos"));
+
+        assert_eq!(s1, s2);
+    }
+
 }

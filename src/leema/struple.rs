@@ -190,7 +190,7 @@ mod tests
             (Some(Lstr::from("burrito")), Val::Int(4)),
         ]);
 
-        let actual = s.find(&Lstr::from("burrito"));
+        let actual = s.find("burrito");
         assert_eq!(Val::Int(4), *actual.expect("burrito value"));
     }
 }
