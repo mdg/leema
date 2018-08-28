@@ -292,7 +292,8 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 .iter()
                 .flat_map(|mf| {
                     rt.push_id(&mf.var);
-                    let ox = make_matchfailure_ops(rt, &mf.var, &mf.case, mf.line);
+                    let ox =
+                        make_matchfailure_ops(rt, &mf.var, &mf.case, mf.line);
                     rt.pop_id();
                     ox.ops.into_iter()
                 }).collect();
@@ -436,9 +437,12 @@ pub fn make_enum_constructor_ops(
     }
 }
 
-pub fn make_matchfailure_ops(rt: &mut RegTable, var: &Lstr
-    , opt_cases: &Option<Ixpr>, line: i16
-    ) -> Oxpr
+pub fn make_matchfailure_ops(
+    rt: &mut RegTable,
+    var: &Lstr,
+    opt_cases: &Option<Ixpr>,
+    line: i16,
+) -> Oxpr
 {
     rt.push_dst();
     let vreg = rt.id(var);
@@ -454,8 +458,7 @@ pub fn make_matchfailure_ops(rt: &mut RegTable, var: &Lstr
 
     let cases = opt_cases.as_ref().unwrap();
     let failtag = vreg.sub(0);
-    let mut case_ops =
-        make_matchcase_ops(rt, vreg.clone(), cases, &failtag);
+    let mut case_ops = make_matchcase_ops(rt, vreg.clone(), cases, &failtag);
 
     let faillen = case_ops.ops.len() + 1;
     let mut failops = Vec::with_capacity(faillen);
@@ -707,8 +710,7 @@ mod tests
     #[ignore] // ignore until typechecking is restored in the typecheck phase
     fn test_load_code_fails_for_func_type_infer_mismatch()
     {
-        let input =
-            "
+        let input = "
             ## foo should take [#] and return a #
             func foo(inputs)
             |([]) -> #empty

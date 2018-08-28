@@ -1,5 +1,5 @@
 use leema::ast::{self, Ast, IfCase, Kxpr};
-use leema::ixpr::{Ixpr, Source, MatchFailure};
+use leema::ixpr::{Ixpr, MatchFailure, Source};
 use leema::list;
 use leema::log;
 use leema::lri::Lri;
@@ -134,7 +134,7 @@ impl Blockscope
 {
     pub fn new() -> Blockscope
     {
-        Blockscope{
+        Blockscope {
             failures: HashMap::new(),
             vars: HashSet::new(),
         }
@@ -174,7 +174,7 @@ impl LocalVar
 {
     pub fn new(name: Lstr, vt: LocalType) -> LocalVar
     {
-        LocalVar{
+        LocalVar {
             name,
             var_type: vt,
             num_scopes: 1,
@@ -199,7 +199,7 @@ impl Blockstack
 {
     pub fn new() -> Blockstack
     {
-        Blockstack{
+        Blockstack {
             stack: vec![Blockscope::new()],
             locals: HashMap::new(),
             in_failed: false,
@@ -248,10 +248,9 @@ impl Blockstack
 
     pub fn access_var(&mut self, id: &Lstr, lineno: i16)
     {
-        let vi = self.locals.get_mut(id)
-            .unwrap_or_else(|| {
-                panic!("cannot access undefined var: {}", id);
-            });
+        let vi = self.locals.get_mut(id).unwrap_or_else(|| {
+            panic!("cannot access undefined var: {}", id);
+        });
         if vi.first_access.is_none() {
             vi.first_access = Some(lineno)
         }
@@ -260,9 +259,7 @@ impl Blockstack
 
     pub fn var_in_scope(&self, id: &Lstr) -> bool
     {
-        self.stack.iter().any(|bs| {
-            bs.vars.contains(id)
-        })
+        self.stack.iter().any(|bs| bs.vars.contains(id))
     }
 
     pub fn get_failure(&self, name: &Lstr) -> Option<&IfCase>
@@ -314,8 +311,7 @@ impl<'a> Interscope<'a>
                 blocks.assign_var(k, LocalType::Param);
                 k.clone()
             });
-            if opt_k.is_some() {
-            }
+            if opt_k.is_some() {}
             argt.push((opt_k, at));
         }
 
@@ -387,22 +383,21 @@ impl<'a> Interscope<'a>
         if self.blocks.var_in_scope(id) {
             Some(ScopeLevel::Local)
         } else {
-            self.proto.constants.get(id)
+            self.proto
+                .constants
+                .get(id)
                 .or_else(|| {
-                    self.imports.get("prefab")
-                        .and_then(|prefab| {
-                            prefab.constants.get(id)
-                        })
-                })
-                .map(|val| {
-                    ScopeLevel::Module(val.clone())
-                })
+                    self.imports
+                        .get("prefab")
+                        .and_then(|prefab| prefab.constants.get(id))
+                }).map(|val| ScopeLevel::Module(val.clone()))
         }
     }
 }
 
 pub struct NewBlockscope<'a, 'b>
-    where 'a: 'b
+where
+    'a: 'b,
 {
     pub scope: &'b mut Interscope<'a>,
 }
@@ -411,26 +406,30 @@ impl<'a, 'b> NewBlockscope<'a, 'b>
 {
     pub fn new(scope: &'b mut Interscope<'a>) -> NewBlockscope<'a, 'b>
     {
-        NewBlockscope{
-            scope: scope,
-        }
+        NewBlockscope { scope: scope }
     }
 
     pub fn collect_failures<'c>(&mut self, stmt: &'c Ast) -> Option<&'c Ast>
     {
         match stmt {
-            &Ast::IfExpr(ast::IfType::MatchFailure, ref input, ref cases, ref _iloc) => {
+            &Ast::IfExpr(
+                ast::IfType::MatchFailure,
+                ref input,
+                ref cases,
+                ref _iloc,
+            ) => {
                 if let Ast::Localid(ref name, ref _loc2) = **input {
                     let b = self.scope.blocks.current_block_mut();
                     b.add_failure(name, (**cases).clone());
                 } else {
-                    panic!("match failure input must be a local variable: {:?}", input);
+                    panic!(
+                        "match failure input must be a local variable: {:?}",
+                        input
+                    );
                 }
                 None
             }
-            _ => {
-                Some(stmt)
-            }
+            _ => Some(stmt),
         }
     }
 }
@@ -463,8 +462,7 @@ pub fn compile_function<'a>(
         };
     }
     let (argt, _result) = Type::split_func_ref(ftype);
-    let mut scope =
-        Interscope::new(proto, imports, fname, args);
+    let mut scope = Interscope::new(proto, imports, fname, args);
     let ibody = compile_expr(&mut scope, body, loc);
     let ibody2 = Ixpr {
         typ: ibody.typ,
@@ -665,8 +663,7 @@ pub fn compile_let_stmt(
         .map(|v| {
             scope.blocks.assign_var(v, LocalType::Let);
             compile_failed_var(scope, v, loc)
-        })
-        .collect();
+        }).collect();
     Ixpr::new(Source::Let(cpatt, Box::new(irhs), failures), loc.lineno)
 }
 
@@ -716,9 +713,10 @@ pub fn compile_if_case(scope: &mut Interscope, case: &ast::IfCase) -> Ixpr
         compile_expr(scope, &case.cond, &case.loc)
     };
     let ibody = compile_expr(scope, &case.body, &case.loc);
-    let inext = case.else_case.as_ref().map(|else_case| {
-        compile_if_case(scope, else_case)
-    });
+    let inext = case
+        .else_case
+        .as_ref()
+        .map(|else_case| compile_if_case(scope, else_case));
     Ixpr::new_if(ix, ibody, inext)
 }
 
@@ -850,17 +848,13 @@ pub fn compile_block(
 ) -> Ixpr
 {
     let mut new_block = scope.push_blockscope();
-    let non_failures: Vec<&Ast> =
-        blk.iter()
-        .filter_map(|stmt| {
-            new_block.collect_failures(stmt)
-        })
+    let non_failures: Vec<&Ast> = blk
+        .iter()
+        .filter_map(|stmt| new_block.collect_failures(stmt))
         .collect();
-    let ixs: Vec<Ixpr> =
-        non_failures.iter()
-        .map(|stmt| {
-            compile_block_stmt(&mut new_block.scope, stmt, loc)
-        })
+    let ixs: Vec<Ixpr> = non_failures
+        .iter()
+        .map(|stmt| compile_block_stmt(&mut new_block.scope, stmt, loc))
         .collect();
     Ixpr::new_block(ixs, HashMap::new(), loc.lineno)
 }
@@ -879,9 +873,7 @@ pub fn compile_block_stmt(
             let cresult = compile_expr(scope, result, iloc);
             Ixpr::new(Source::Return(Box::new(cresult)), iloc.lineno)
         }
-        _ => {
-            compile_expr(scope, stmt, loc)
-        }
+        _ => compile_expr(scope, stmt, loc),
     }
 }
 
@@ -899,7 +891,7 @@ pub fn compile_failed_var(
         }
         None => None,
     };
-    MatchFailure{
+    MatchFailure {
         var: v.clone(),
         case: mf,
         line: loc.lineno,
@@ -956,7 +948,7 @@ mod tests
     use leema::module::ModKey;
     use leema::phase0::Protomod;
     use leema::program;
-    use leema::val::{SrcLoc};
+    use leema::val::SrcLoc;
 
     use std::collections::{HashMap, LinkedList};
 
@@ -968,9 +960,10 @@ mod tests
         let proto = Protomod::new(mk);
         let imps = HashMap::new();
         let args = LinkedList::new();
-        let mut scope =
-            Interscope::new(&proto, &imps, "foo", &args);
-        scope.blocks.assign_var(&Lstr::Sref("hello"), inter::LocalType::Param);
+        let mut scope = Interscope::new(&proto, &imps, "foo", &args);
+        scope
+            .blocks
+            .assign_var(&Lstr::Sref("hello"), inter::LocalType::Param);
 
         let scope_lvl = scope.scope_level(&Lstr::from("hello")).unwrap();
         assert_eq!(ScopeLevel::Local, scope_lvl);
@@ -983,9 +976,10 @@ mod tests
         let proto = Protomod::new(mk);
         let imps = HashMap::new();
         let args = LinkedList::new();
-        let mut scope =
-            Interscope::new(&proto, &imps, "foo", &args);
-        scope.blocks.assign_var(&Lstr::Sref("hello"), inter::LocalType::Let);
+        let mut scope = Interscope::new(&proto, &imps, "foo", &args);
+        scope
+            .blocks
+            .assign_var(&Lstr::Sref("hello"), inter::LocalType::Let);
 
         assert!(scope.blocks.var_in_scope(&Lstr::from("hello")));
         let hello_lvl = scope.scope_level(&Lstr::from("hello")).unwrap();
@@ -993,7 +987,9 @@ mod tests
 
         {
             let new_block = scope.push_blockscope();
-            new_block.scope.blocks
+            new_block
+                .scope
+                .blocks
                 .assign_var(&Lstr::Sref("world"), inter::LocalType::Let);
 
             assert!(new_block.scope.blocks.var_in_scope(&Lstr::from("world")));
@@ -1018,8 +1014,7 @@ mod tests
         let proto = Protomod::new(mk.clone());
         let imps = HashMap::new();
         let args = LinkedList::new();
-        let mut scope =
-            Interscope::new(&proto, &imps, "foo", &args);
+        let mut scope = Interscope::new(&proto, &imps, "foo", &args);
 
         let mut new_vars = Vec::default();
         let patt = Ast::Localid(Lstr::from("x"), SrcLoc::default());
@@ -1073,8 +1068,7 @@ mod tests
     #[test]
     fn test_pattern_declaration()
     {
-        let input =
-            "
+        let input = "
             func foo(inputs: [#])
             |[] -> #empty
             |#whatever;more -> #whatever

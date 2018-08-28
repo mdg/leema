@@ -312,9 +312,10 @@ impl Lib
 
         let mut typeset = TypeSet::new();
         if self.proto.contains_key("prefab") {
-            typeset.import_user_types(Lstr::Sref("prefab"),
-                &self.proto.get("prefab").unwrap().struple_fields
-            ); 
+            typeset.import_user_types(
+                Lstr::Sref("prefab"),
+                &self.proto.get("prefab").unwrap().struple_fields,
+            );
         }
 
         let pref = self.find_preface(modlstr).unwrap().clone();
@@ -335,9 +336,17 @@ impl Lib
         }
 
         let opt_proto = self.proto.get(modlstr);
-        typeset.import_user_types(modlstr.clone(), &opt_proto.unwrap().struple_fields);
-        let mut scope =
-            Typescope::new(typed, opt_proto.unwrap(), funclstr.str(), &imports, &typeset);
+        typeset.import_user_types(
+            modlstr.clone(),
+            &opt_proto.unwrap().struple_fields,
+        );
+        let mut scope = Typescope::new(
+            typed,
+            opt_proto.unwrap(),
+            funclstr.str(),
+            &imports,
+            &typeset,
+        );
         typecheck::typecheck_function(&mut scope, fix).unwrap()
     }
 

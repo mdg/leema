@@ -290,7 +290,7 @@ impl<'a, 'b> Typescope<'a, 'b>
         proto: &'a Protomod,
         func: &'b str,
         imps: &'a HashMap<Lstr, &'a Typemod>,
-        typeset: &'a TypeSet<'a>
+        typeset: &'a TypeSet<'a>,
     ) -> Typescope<'a, 'b>
     {
         Typescope {
@@ -548,15 +548,9 @@ pub fn typecheck_field_access(
         &Type::UserDef(ref name) => {
             match scope.typeset.get_typedef(name) {
                 Result::Ok(ref ityp) => {
-                    ityp.find(fld)
-                        .map(|ft| ft.clone())
-                        .ok_or_else(
-                            || {
-                                TypeErr::Error(Lstr::Sref(
-                                    "invalid field index"
-                                ))
-                            }
-                        )
+                    ityp.find(fld).map(|ft| ft.clone()).ok_or_else(|| {
+                        TypeErr::Error(Lstr::Sref("invalid field index"))
+                    })
                 }
                 Result::Err(ref e) => {
                     panic!("cannot find defined type for: {}", e);
@@ -585,8 +579,7 @@ mod tests
     #[ignore] // to fix when typechecking is restored
     fn test_pattern_type_inferred_mismatch()
     {
-        let input =
-            "
+        let input = "
             ## foo should take [#] and return a #
             func foo(inputs)
             |([]) -> #empty

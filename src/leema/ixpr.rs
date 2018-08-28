@@ -182,11 +182,7 @@ impl Ixpr
         }
     }
 
-    pub fn new_if(
-        test: Ixpr,
-        truth: Ixpr,
-        lies: Option<Ixpr>,
-    ) -> Ixpr
+    pub fn new_if(test: Ixpr, truth: Ixpr, lies: Option<Ixpr>) -> Ixpr
     {
         let lineno = test.line;
         Ixpr {

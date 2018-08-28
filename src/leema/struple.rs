@@ -33,15 +33,10 @@ impl<T> Struple<T>
      */
     pub fn find(&self, key: &str) -> Option<&T>
     {
-        self.0.iter()
-            .find(|i| {
-                i.0.as_ref().map_or(false, |ik| {
-                    ik.str() == key
-                })
-            })
-            .map(|item| {
-                &item.1
-            })
+        self.0
+            .iter()
+            .find(|i| i.0.as_ref().map_or(false, |ik| ik.str() == key))
+            .map(|item| &item.1)
     }
 }
 
