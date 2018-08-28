@@ -124,7 +124,8 @@ fn real_main() -> i32
         let mod_name = modkey.name.clone();
         let func_name = Lstr::Sref("main");
         let funcri = Lri::with_modules(mod_name, func_name);
-        prog.typecheck(&funcri, typecheck::Depth::Full);
+        let ftype = prog.typecheck(&funcri, typecheck::Depth::Full);
+        println!("type: {}", ftype);
     } else if args.arg_cmd == "code" {
         let mut prog = program::Lib::new(inter);
         let code = match args.flag_func {
