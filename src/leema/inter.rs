@@ -1029,7 +1029,7 @@ mod tests
     {
         let input = String::from(
             "
-            struple Greeting(Str, Str)
+            struct Greeting(Str, Str)
 
             func main() ->
                 let g := Greeting(\"hello\", \"world\")

@@ -968,13 +968,13 @@ mod tests
     fn test_parse_defstruple_tuple()
     {
         let input = "
-    struple Taco(Int, Str)
+    struct Taco(Int, Str)
     ";
         let root = ast::parse(lex(input));
 
         let def = Ast::DefData(
             ast::DataType::Struple,
-            Box::new(test_localid("Taco", 2, 8)),
+            Box::new(test_localid("Taco", 2, 7)),
             vec![Kxpr::new_x(Ast::TypeInt), Kxpr::new_x(Ast::TypeStr)]
                 .into_iter()
                 .collect(),
@@ -987,13 +987,13 @@ mod tests
     fn test_parse_defstruple_keyed_params()
     {
         let input = "
-    struple Taco(number: Int, style: Str)
+    struct Taco(number: Int, style: Str)
     ";
         let root = ast::parse(lex(input));
 
         let def = Ast::DefData(
             ast::DataType::Struple,
-            Box::new(test_localid("Taco", 2, 8)),
+            Box::new(test_localid("Taco", 2, 7)),
             vec![
                 Kxpr::new(Lstr::from("number"), Ast::TypeInt),
                 Kxpr::new(Lstr::from("style"), Ast::TypeStr),
@@ -1008,13 +1008,13 @@ mod tests
     fn test_parse_defstruple_mixed_keys()
     {
         let input = "
-    struple Taco(Int, style: Str)
+    struct Taco(Int, style: Str)
     ";
         let root = ast::parse(lex(input));
 
         let def = Ast::DefData(
             ast::DataType::Struple,
-            Box::new(test_localid("Taco", 2, 8)),
+            Box::new(test_localid("Taco", 2, 7)),
             vec![
                 Kxpr::new_x(Ast::TypeInt),
                 Kxpr::new(Lstr::from("style"), Ast::TypeStr),
@@ -1029,7 +1029,7 @@ mod tests
     fn test_parse_defstruple_block()
     {
         let input = "
-    struple Taco
+    struct Taco
     .number: Int
     .style: Str
     --
@@ -1038,7 +1038,7 @@ mod tests
 
         let def = Ast::DefData(
             ast::DataType::Struple,
-            Box::new(test_localid("Taco", 2, 8)),
+            Box::new(test_localid("Taco", 2, 7)),
             vec![
                 Kxpr::new(Lstr::from("number"), Ast::TypeInt),
                 Kxpr::new(Lstr::from("style"), Ast::TypeStr),
