@@ -225,15 +225,18 @@ impl Blockstack
     {
         if self.var_in_scope(id) {
             let var_data = self.locals.get_mut(id).unwrap();
-            match var_data.var_type {
-                LocalType::Let => {
+            match (var_data.var_type, vt) {
+                (LocalType::Let, LocalType::Let) => {
                     var_data.num_reassignments += 1;
                 }
-                LocalType::Param => {
-                    panic!("cannot reassign a function parameter");
+                (LocalType::Param, LocalType::Let) => {
+                    panic!("cannot reassign a function parameter: {}", id);
                 }
-                LocalType::Match => {
-                    panic!("cannot reassign a pattern variable");
+                (LocalType::Match, LocalType::Let) => {
+                    panic!("cannot reassign a pattern variable: {}", id);
+                }
+                _ => {
+                    // matching on an existing variable, that's cool
                 }
             }
         } else {
