@@ -146,8 +146,13 @@ impl<'b> Inferator<'b>
         line: i16,
     ) -> TypeResult
     {
-        vout!("bind_vartype({}, {}: {:?}, {})\n"
-            , self.funcname, argn, argt, line);
+        vout!(
+            "bind_vartype({}, {}: {:?}, {})\n",
+            self.funcname,
+            argn,
+            argt,
+            line
+        );
 
         let realt = match argt {
             &Type::Unknown => {

@@ -363,22 +363,18 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
 {
     match &mut ix.src {
         &mut Source::Call(ref mut func, ref mut args) => {
-            let tfunc = scope.typecheck_call_func(&func.src)
-                .map_err(|e| {
-                    e.add_context(Lstr::from(
-                        format!("function: {:?}", func.src)
-                    ))
-                })?;
+            let tfunc = scope.typecheck_call_func(&func.src).map_err(|e| {
+                e.add_context(Lstr::from(format!("function: {:?}", func.src)))
+            })?;
             let mut targs = vec![];
             if let Source::Tuple(ref mut argstup) = args.src {
                 for mut a in &mut argstup.0 {
                     let atype =
-                        typecheck_expr(scope, &mut a.1)
-                        .map_err(|e| {
-                            e.add_context(Lstr::from(
-                                format!("function args for: {:?} on line {}"
-                                    , func.src, func.line)
-                            ))
+                        typecheck_expr(scope, &mut a.1).map_err(|e| {
+                            e.add_context(Lstr::from(format!(
+                                "function args for: {:?} on line {}",
+                                func.src, func.line
+                            )))
                         })?;
                     targs.push(atype);
                 }
