@@ -392,16 +392,28 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
         &mut Source::ConstVal(_) => Ok(ix.typ.clone()),
         &mut Source::Let(ref lhs, ref mut rhs, ref mut fails) => {
             let rhs_type = typecheck_expr(scope, rhs)?;
+            scope.infer.match_pattern(
+                &scope.typeset,
+                lhs,
+                &rhs_type,
+                ix.line,
+            )?;
             for mut f in fails {
                 if f.case.is_none() {
                     continue;
                 }
-                typecheck_expr(scope, f.case.as_mut().unwrap())?;
+                let recovery_type = scope.typecheck_matchcase(
+                    &Type::Hashtag,
+                    f.case.as_mut().unwrap(),
+                )?;
+                // check that whatever type comes out of the
+                // failed block matches what was supposed to go into
+                // the variable originally
+                if recovery_type != Type::Failure {
+                    scope.infer.merge_types(&rhs_type, &recovery_type)?;
+                }
             }
-            scope
-                .infer
-                .match_pattern(&scope.typeset, lhs, &rhs_type, ix.line)
-                .map(|_| Type::Void)
+            Ok(Type::Void)
         }
         &mut Source::Block(ref mut elems) => {
             let mut last_type = Ok(Type::Void);

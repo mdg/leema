@@ -5,6 +5,10 @@ func foo(x): Str ->
     "not 4"
 --
 
+func bar(x): Int ->
+    x * 2
+--
+
 func handle_nonlinear(x: Int, prop: Bool): Str ->
    let c := foo(x)
    "str interp: $c"
@@ -18,17 +22,17 @@ func handle_nonlinear(x: Int, prop: Bool): Str ->
    --
 
    failed c
-   |(#xis4, f) ->
+   |#xis4 ->
       if
       |prop ->
          print("c failed. log and propagate\n")
          refail(c)
       |else ->
          print("c failed. no propagate.\n")
-         unfail("whoa - not linear!")
+         "whoa - not linear!"
       --
    |_ ->
-      print("no match on failure hashtag\n")
+      print("no match on failure tag\n")
       refail(c)
    --
 
