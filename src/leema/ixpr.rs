@@ -80,10 +80,7 @@ impl Ixpr
         }
     }
 
-    pub fn new_block(
-        code: Vec<Ixpr>,
-        line: i16,
-    ) -> Ixpr
+    pub fn new_block(code: Vec<Ixpr>, line: i16) -> Ixpr
     {
         let block_type = match code.last() {
             None => Type::Void,

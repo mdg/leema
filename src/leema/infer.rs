@@ -260,9 +260,7 @@ impl<'b> Inferator<'b>
             (&Val::Id(ref id), _) => {
                 self.bind_vartype(id, valtype, lineno).map(|_| ())
             }
-            (&Val::Wildcard, _) => {
-                Ok(())
-            }
+            (&Val::Wildcard, _) => Ok(()),
             (&Val::Nil, _) => {
                 self.merge_types(
                     &Type::StrictList(Box::new(Type::Unknown)),

@@ -311,7 +311,10 @@ impl<'a, 'b> Typescope<'a, 'b>
         // as being borrowed from the if check
         if case.src.is_matchcase() {
             if let &mut Source::MatchCase(
-                    ref patt, ref mut truth, ref mut lies) = &mut case.src
+                ref patt,
+                ref mut truth,
+                ref mut lies,
+            ) = &mut case.src
             {
                 self.infer.push_block(HashMap::new());
                 self.infer.match_pattern(
@@ -565,13 +568,12 @@ pub fn typecheck_field_access(
             match scope.typeset.get_typedef(name) {
                 Result::Ok(ref ityp) => {
                     ityp.find(fld)
-                    .map(|(i, ft)| {
-                        *fldidx = Some(i as i8);
-                        ft.clone()
-                    })
-                    .ok_or_else(|| {
-                        TypeErr::Error(Lstr::Sref("invalid field index"))
-                    })
+                        .map(|(i, ft)| {
+                            *fldidx = Some(i as i8);
+                            ft.clone()
+                        }).ok_or_else(|| {
+                            TypeErr::Error(Lstr::Sref("invalid field index"))
+                        })
                 }
                 Result::Err(ref e) => {
                     panic!("cannot find defined type for: {}", e);

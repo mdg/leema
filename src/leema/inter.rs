@@ -532,8 +532,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
                 .map(|i| {
                     let ix = compile_expr(scope, i.x_ref().unwrap(), loc);
                     (i.k_clone(), ix)
-                })
-                .collect();
+                }).collect();
             Ixpr::new_tuple(Struple(c_items), loc.lineno)
         }
         &Ast::ConstructData(ast::DataType::Struple, ref ast_typ) => {
@@ -621,11 +620,7 @@ pub fn compile_call(
     let icall = compile_expr(scope, callx, loc);
     let iargs: Vec<(Option<Lstr>, Ixpr)> = args
         .iter()
-        .map(|i| {
-            i.map_1(|x| {
-                compile_expr(scope, x, loc)
-            })
-        })
+        .map(|i| i.map_1(|x| compile_expr(scope, x, loc)))
         .collect();
     let (_, ftype_result) = Type::split_func(icall.typ.clone());
     let argsix = Ixpr::new_tuple(Struple(iargs), loc.lineno);
