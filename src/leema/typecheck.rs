@@ -208,10 +208,7 @@ impl Depth
 pub struct Typemod
 {
     pub modname: Lstr,
-    phase0: HashMap<Lstr, Type>,
-    inter: HashMap<Lstr, Type>,
-    depth_1: HashMap<Lstr, Type>,
-    depth_full: HashMap<Lstr, Type>,
+    functions: HashMap<Lstr, Type>,
 }
 
 impl Typemod
@@ -219,18 +216,8 @@ impl Typemod
     pub fn new(modname: Lstr) -> Typemod
     {
         Typemod {
-            modname: modname,
-            phase0: HashMap::new(),
-            inter: HashMap::new(),
-            depth_1: HashMap::new(),
-            depth_full: HashMap::new(),
-        }
-    }
-
-    pub fn import_phase0(&mut self, proto: &Protomod)
-    {
-        for (name, typ) in proto.valtypes.iter() {
-            self.phase0.insert(Lstr::from(name.clone()), typ.clone());
+            modname,
+            functions: HashMap::new(),
         }
     }
 
@@ -239,32 +226,14 @@ impl Typemod
         self.modname.str()
     }
 
-    pub fn set_type(&mut self, fname: Lstr, d: Depth, typ: Type)
+    pub fn set_function_type(&mut self, fname: Lstr, typ: Type)
     {
-        match d {
-            Depth::Phase0 => self.phase0.insert(fname, typ),
-            Depth::Inter => self.inter.insert(fname, typ),
-            Depth::One => self.depth_1.insert(fname, typ),
-            Depth::Full => self.depth_full.insert(fname, typ),
-        };
+        self.functions.insert(fname, typ);
     }
 
-    pub fn function_type(&self, fname: &Lstr) -> Option<&Type>
+    pub fn get_function_type(&self, fname: &str) -> Option<&Type>
     {
-        self.function_depth_type(fname, Depth::Full)
-            .or_else(|| self.function_depth_type(fname, Depth::One))
-            .or_else(|| self.function_depth_type(fname, Depth::Inter))
-            .or_else(|| self.function_depth_type(fname, Depth::Phase0))
-    }
-
-    pub fn function_depth_type(&self, fname: &Lstr, d: Depth) -> Option<&Type>
-    {
-        match d {
-            Depth::Phase0 => self.phase0.get(fname),
-            Depth::Inter => self.inter.get(fname),
-            Depth::One => self.depth_1.get(fname),
-            Depth::Full => self.depth_full.get(fname),
-        }
+        self.functions.get(fname)
     }
 }
 
@@ -371,13 +340,13 @@ impl<'a, 'b> Typescope<'a, 'b>
     {
         let funclstr = Lstr::from(String::from(funcname));
         if modname == self.inter.name() {
-            self.inter.function_type(&funclstr).unwrap().clone()
+            self.inter.get_function_type(&funclstr).unwrap().clone()
         } else {
             let m = self.imports.get(modname).expect(&format!(
                 "cannot find module {} in {:?}",
                 modname, self.imports
             ));
-            m.function_type(&funclstr)
+            m.get_function_type(&funclstr)
                 .expect(&format!(
                     "cannot find function {}::{} in {:?}",
                     modname, funcname, m

@@ -64,28 +64,6 @@ impl Lib
         proglib
     }
 
-    /**
-     * Idempotent function to initialize a Typemod for a given module
-     */
-    pub fn init_typed(&mut self, inter: &Intermod)
-    {
-        if !self.typed.contains_key(&inter.modname) {
-            self.typed.insert(
-                inter.modname.clone(),
-                Typemod::new(inter.modname.clone()),
-            );
-        }
-        let typed = self.typed.get_mut(&inter.modname).unwrap();
-
-        for (name, fix) in inter.interfunc.iter() {
-            typed.set_type(
-                name.clone(),
-                typecheck::Depth::Inter,
-                fix.typ.clone(),
-            );
-        }
-    }
-
     pub fn main_module(&self) -> &str
     {
         &self.loader.main_mod
@@ -125,7 +103,6 @@ impl Lib
     {
         if !self.inter.contains_key(modname) {
             let inter = self.read_inter(modname);
-            self.init_typed(&inter);
             self.inter.insert(modname.clone(), inter);
         }
     }
@@ -134,11 +111,6 @@ impl Lib
     {
         if !self.proto.contains_key(modname) {
             let proto = self.read_proto(modname);
-
-            let mut tmod = Typemod::new(modname.clone());
-            tmod.import_phase0(&proto);
-            self.typed.insert(modname.clone(), tmod);
-
             self.proto.insert(modname.clone(), Rc::new(proto));
         }
     }
@@ -244,7 +216,7 @@ impl Lib
         let ftype = self.local_typecheck(funcri);
         let modstr = funcri.mod_ref().unwrap().str();
         let mutyped = self.typed.get_mut(modstr).unwrap();
-        mutyped.set_type(funcri.localid.clone(), depth, ftype.clone());
+        mutyped.set_function_type(funcri.localid.clone(), ftype.clone());
         vout!("\tfinish typecheck({})\n", funcri);
         ftype
     }

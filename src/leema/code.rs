@@ -710,7 +710,6 @@ mod tests
 
     #[test]
     #[should_panic]
-    #[ignore] // ignore until typechecking is restored in the typecheck phase
     fn test_load_code_fails_for_func_type_infer_mismatch()
     {
         let input = "
