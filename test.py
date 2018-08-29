@@ -24,8 +24,8 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(0, result['code'])
         self.assertEqual(b"z is: 36\n", result['output'])
 
-    def test_cout(self):
-        result = run_leema('cout_quotes')
+    def test_print(self):
+        result = run_leema('print_quotes')
         self.assertEqual(0, result['code'])
         self.assertEqual(b"hello \"quotes\"\n", result['output'])
 
