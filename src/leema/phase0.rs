@@ -1010,7 +1010,7 @@ mod tests
         let input = String::from(
             "
             func foo(a)
-            |(h;t) -> cout(\"head: $h, tail: $t\n\")
+            |(h;t) -> print(\"head: $h, tail: $t\n\")
             --
 
             func main() -> foo([3, 4, 5]) --

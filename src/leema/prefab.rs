@@ -268,7 +268,7 @@ pub fn cin(f: &mut Fiber) -> Event
     }
 }
 
-pub fn cout(f: &mut Fiber) -> Event
+pub fn print(f: &mut Fiber) -> Event
 {
     {
         let v = f.head.e.get_param(0);
@@ -278,7 +278,7 @@ pub fn cout(f: &mut Fiber) -> Event
     Event::success()
 }
 
-pub fn cerr(f: &mut Fiber) -> Event
+pub fn printerr(f: &mut Fiber) -> Event
 {
     {
         let va = f.head.get_param(0);
@@ -416,7 +416,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         get_type,
         leema_sleep,
         cin,
-        cout,
+        print,
         create_failure,
         file_read,
         file_stream_read
