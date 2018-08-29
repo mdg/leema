@@ -529,9 +529,12 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
         &Ast::Tuple(ref items) => {
             let c_items = items
                 .iter()
-                .map(|i| compile_expr(scope, i.x_ref().unwrap(), loc))
+                .map(|i| {
+                    let ix = compile_expr(scope, i.x_ref().unwrap(), loc);
+                    (i.k_clone(), ix)
+                })
                 .collect();
-            Ixpr::new_tuple(c_items, loc.lineno)
+            Ixpr::new_tuple(Struple(c_items), loc.lineno)
         }
         &Ast::ConstructData(ast::DataType::Struple, ref ast_typ) => {
             let type_lri = Lri::from(&**ast_typ);
@@ -615,29 +618,17 @@ pub fn compile_call(
     loc: &SrcLoc,
 ) -> Ixpr
 {
-    let mut icall = compile_expr(scope, callx, loc);
-    let iargs: Vec<Ixpr> = args
+    let icall = compile_expr(scope, callx, loc);
+    let iargs: Vec<(Option<Lstr>, Ixpr)> = args
         .iter()
-        .map(|i| compile_expr(scope, i.x_ref().unwrap(), loc))
+        .map(|i| {
+            i.map_1(|x| {
+                compile_expr(scope, x, loc)
+            })
+        })
         .collect();
-    let ftype = {
-        /*
-        let iargst: Vec<&Type> = iargs.iter().map(|ia| &ia.typ).collect();
-        scope
-            .infer
-            .make_call_type(&icall.typ, &iargst)
-            .map_err(|e| {
-                e.add_context(Lstr::from(format!(
-                    "type error in function call: {:?}",
-                    callx
-                )))
-            }).unwrap()
-            */
-        icall.typ.clone()
-    };
-    icall.typ = ftype.clone();
-    let (_, ftype_result) = Type::split_func(ftype);
-    let argsix = Ixpr::new_tuple(iargs, loc.lineno);
+    let (_, ftype_result) = Type::split_func(icall.typ.clone());
+    let argsix = Ixpr::new_tuple(Struple(iargs), loc.lineno);
     Ixpr {
         typ: ftype_result.clone(),
         src: Source::Call(Box::new(icall), Box::new(argsix)),

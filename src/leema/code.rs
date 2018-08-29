@@ -332,15 +332,15 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::StrMash(ref items) => make_str_ops(rt, items),
         Source::Tuple(ref items) => {
             let dst = rt.dst().clone();
-            let newtup = Op::TupleCreate(dst.clone(), items.len() as i8);
+            let newtup = Op::TupleCreate(dst.clone(), items.0.len() as i8);
             let mut ops: Vec<(Op, i16)> = vec![(newtup, input.line)];
             rt.push_sub();
-            for i in items {
+            for i in items.0.iter() {
                 // set dst to dst.child
-                let mut iops = make_sub_ops(rt, i);
+                let mut iops = make_sub_ops(rt, &i.1);
                 ops.append(&mut iops.ops);
                 if *rt.dst() != iops.dst {
-                    ops.push((Op::Copy(rt.dst().clone(), iops.dst), i.line));
+                    ops.push((Op::Copy(rt.dst().clone(), iops.dst), i.1.line));
                 }
                 rt.next_sub();
             }

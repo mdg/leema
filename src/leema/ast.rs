@@ -174,6 +174,15 @@ impl Kxpr
             x: new_x,
         }
     }
+
+    pub fn map_1<F, T>(&self, op: F) -> (Option<Lstr>, T)
+    where
+        F: FnOnce(&Ast) -> T,
+    {
+        let x_u = self.x.as_ref().unwrap();
+        let x_new = op(x_u);
+        (self.k.clone(), x_new)
+    }
 }
 
 #[derive(Clone)]

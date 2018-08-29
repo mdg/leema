@@ -4,6 +4,7 @@ use leema::log;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::phase0::Protomod;
+use leema::struple::Struple;
 use leema::val::{Type, TypeErr, TypeResult, Val};
 
 use std::collections::{HashMap, LinkedList};
@@ -51,10 +52,8 @@ impl<'a> CallFrame<'a>
     {
         match ix.src {
             Source::Call(ref callx, ref args) => {
-                if let Source::Tuple(ref argsix) = args.src {
-                    self.collect_calls_vec(argsix);
-                    self.collect_callexpr(callx);
-                }
+                self.collect_callexpr(callx);
+                self.collect_calls(args);
             }
             Source::Block(ref expressions) => {
                 self.collect_calls_vec(expressions);
@@ -87,8 +86,8 @@ impl<'a> CallFrame<'a>
                 }
             }
             Source::Tuple(ref items) => {
-                for i in items {
-                    self.collect_calls(i);
+                for i in items.0.iter() {
+                    self.collect_calls(&i.1);
                 }
             }
             Source::ConstVal(_) => {
@@ -152,7 +151,7 @@ impl<'a> CallFrame<'a>
 
     pub fn collect_calls_vec<'b>(&mut self, xvec: &'b Vec<Ixpr>)
     {
-        for x in xvec {
+        for x in xvec.iter() {
             self.collect_calls(x);
         }
     }
@@ -323,9 +322,13 @@ impl<'a, 'b> Typescope<'a, 'b>
                 )?;
                 let ttype = typecheck_expr(self, truth).unwrap();
                 self.infer.pop_block();
-                let ftype = self.typecheck_matchcase(valtype, lies).unwrap();
-
-                self.infer.merge_types(&ttype, &ftype)
+                if lies.src != Source::ConstVal(Val::Void) {
+                    let ftype =
+                        self.typecheck_matchcase(valtype, lies).unwrap();
+                    self.infer.merge_types(&ttype, &ftype)
+                } else {
+                    Ok(ttype)
+                }
             } else {
                 panic!("not a matchcase somehow");
             }
@@ -338,11 +341,12 @@ impl<'a, 'b> Typescope<'a, 'b>
     {
         match src {
             &Source::Tuple(ref items) => {
-                if items.len() != 2 {
+                println!("tuples as calls are deprecated: {:?}", items);
+                if items.0.len() != 2 {
                     panic!("call tuples should have 2 items: {:?}", items);
                 }
-                let ref _modname = items[0];
-                let ref _funcname = items[1];
+                let ref _modname = items.0[0];
+                let ref _funcname = items.0[1];
                 Ok(Type::Void)
             }
             &Source::ConstVal(ref fval) => {
@@ -386,8 +390,8 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             let tfunc = scope.typecheck_call_func(&func.src).unwrap();
             let mut targs = vec![];
             if let Source::Tuple(ref mut argstup) = args.src {
-                for mut a in argstup {
-                    targs.push(typecheck_expr(scope, &mut a).unwrap());
+                for mut a in &mut argstup.0 {
+                    targs.push(typecheck_expr(scope, &mut a.1).unwrap());
                 }
             } else {
                 println!("args are not a tuple");
@@ -447,10 +451,12 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
         }
         &mut Source::Construple(ref typ, _) => Ok(typ.clone()),
         &mut Source::Tuple(ref mut items) => {
-            for i in items {
-                typecheck_expr(scope, i)?;
+            let mut item_types = Vec::with_capacity(items.0.len());
+            for mut i in &mut items.0 {
+                let xt = typecheck_expr(scope, &mut i.1)?;
+                item_types.push((i.0.clone(), xt));
             }
-            Ok(ix.typ.clone())
+            Ok(Type::Tuple(Struple(item_types)))
         }
         &mut Source::IfExpr(ref mut cond, ref mut truth, ref mut lies) => {
             let cond_t = typecheck_expr(scope, cond).unwrap();

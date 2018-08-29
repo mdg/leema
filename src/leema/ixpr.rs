@@ -34,7 +34,7 @@ pub enum Source
     IfExpr(Box<Ixpr>, Box<Ixpr>, Option<Box<Ixpr>>),
     List(Vec<Ixpr>),
     StrMash(Vec<Ixpr>),
-    Tuple(Vec<Ixpr>),
+    Tuple(Struple<Ixpr>),
     Return(Box<Ixpr>),
 }
 
@@ -132,16 +132,16 @@ impl Ixpr
         }
     }
 
-    pub fn new_tuple(items: Vec<Ixpr>, mut lineno: i16) -> Ixpr
+    pub fn new_tuple(items: Struple<Ixpr>, mut lineno: i16) -> Ixpr
     {
         let mut set_lineno = false;
-        let mut tuptyp = Vec::with_capacity(items.len());
-        for i in items.iter() {
+        let mut tuptyp = Vec::with_capacity(items.0.len());
+        for i in items.0.iter() {
             if !set_lineno {
-                lineno = i.line;
+                lineno = i.1.line;
                 set_lineno = true;
             }
-            tuptyp.push((None, i.typ.clone()));
+            tuptyp.push((i.0.clone(), i.1.typ.clone()));
         }
         Ixpr {
             typ: Type::Tuple(Struple(tuptyp)),
