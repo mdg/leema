@@ -507,8 +507,9 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             &mut Source::Func(ref arg_names, ref mut body),
             &Type::Func(ref arg_types, ref declared_result_type),
         ) => {
-            for (an, at) in arg_names.iter().zip(arg_types.iter()) {
-                scope.infer.bind_vartype(&an, at, ix.line)?;
+            let zips = arg_names.iter().zip(arg_types.iter());
+            for (i, (an, at)) in zips.enumerate() {
+                scope.infer.init_param(i as i16, an, at, ix.line)?;
             }
             vout!("f({:?}) =>\n{:?}", arg_names, body);
             let result_type = typecheck_expr(scope, &mut *body)

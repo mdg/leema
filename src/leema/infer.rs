@@ -162,25 +162,23 @@ impl<'b> Inferator<'b>
     pub fn init_param(
         &mut self,
         argi: i16,
-        argn: Option<&Lstr>,
-        argt: Type,
+        argn: &Lstr,
+        argt: &Type,
         line: i16,
     ) -> TypeResult
     {
         vout!(
-            "bind_vartype({}, #{} {:?}: {:?})\n",
+            "init_param({}, #{} {:?}: {:?})\n",
             self.funcname,
             argi,
             argn,
             argt
         );
         let b = self.blocks.last_mut().unwrap();
-        if argn.is_some() {
-            // just assign the var b/c it's a new param
-            let mut vdata = VarData::default();
-            vdata.assignment = Some(line);
-            b.vars.insert(argn.unwrap().clone(), vdata);
-        }
+        // just assign the var b/c it's a new param
+        let mut vdata = VarData::default();
+        vdata.assignment = Some(line);
+        b.vars.insert(argn.clone(), vdata);
 
         let realt = match argt {
             Type::Unknown => {
@@ -191,17 +189,14 @@ impl<'b> Inferator<'b>
                 let arg_typename = format!("T_param_{}", argi);
                 Type::Var(Lstr::from(arg_typename))
             }
-            a => a,
+            _ => argt.clone(),
         };
-        if argn.is_some() {
-            let argn_u = argn.unwrap();
-            if self.vartypes.contains_key(argn_u.str()) {
-                let oldargt = self.vartypes.get(argn_u.str()).unwrap();
-                return Inferator::mash(&mut self.inferences, oldargt, &realt);
-            }
-
-            self.vartypes.insert(argn_u.clone(), realt.clone());
+        if self.vartypes.contains_key(argn.str()) {
+            let oldargt = self.vartypes.get(argn).unwrap();
+            return Inferator::mash(&mut self.inferences, oldargt, &realt);
         }
+
+        self.vartypes.insert(argn.clone(), realt.clone());
         Ok(realt)
     }
 
