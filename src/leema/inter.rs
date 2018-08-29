@@ -1034,24 +1034,6 @@ mod tests
     }
 
     #[test]
-    #[should_panic]
-    #[ignore] // ignoring, maybe typechecker should handle this?
-    fn test_too_many_args()
-    {
-        let input = String::from(
-            "
-            func sum(a, b) -> a + b --
-            func main() -> sum(3, 4, 5) --
-            ",
-        );
-
-        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
-        loader.set_mod_txt(Lstr::Sref("tacos"), input);
-        let mut prog = program::Lib::new(loader);
-        prog.read_inter(&Lstr::Sref("tacos"));
-    }
-
-    #[test]
     fn test_pattern_declaration()
     {
         let input = "

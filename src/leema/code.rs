@@ -710,6 +710,23 @@ mod tests
 
     #[test]
     #[should_panic]
+    fn test_too_many_args()
+    {
+        let input = String::from(
+            "
+            func sum(a, b) -> a + b --
+            func main() -> sum(3, 4, 5) --
+            ",
+        );
+
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        loader.set_mod_txt(Lstr::Sref("tacos"), input);
+        let mut prog = program::Lib::new(loader);
+        prog.load_code(&Lstr::Sref("tacos"), &Lstr::Sref("main"));
+    }
+
+    #[test]
+    #[should_panic]
     fn test_load_code_fails_for_func_type_infer_mismatch()
     {
         let input = "
