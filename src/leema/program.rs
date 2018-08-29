@@ -61,6 +61,10 @@ impl Lib
         proglib
             .rust_load
             .insert(Lstr::Sref("udp"), udp::load_rust_func);
+
+        proglib.typed
+            .insert(Lstr::Sref("prefab"), Typemod::new(Lstr::Sref("prefab")));
+
         proglib
     }
 
@@ -282,6 +286,9 @@ impl Lib
         }
         let inter = opt_inter.unwrap();
         let mut fix = inter.interfunc.get_mut(funclstr).unwrap();
+        if !self.typed.contains_key(modlstr) {
+            self.typed.insert(modlstr.clone(), Typemod::new(modlstr.clone()));
+        }
         let typed = self.typed.get(modlstr).unwrap();
 
         let mut typeset = TypeSet::new();
