@@ -574,7 +574,6 @@ mod tests
 
     #[test]
     #[should_panic]
-    #[ignore] // to fix when typechecking is restored
     fn test_pattern_type_inferred_mismatch()
     {
         let input = "
