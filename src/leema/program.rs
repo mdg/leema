@@ -289,6 +289,12 @@ impl Lib
         if !self.typed.contains_key(modlstr) {
             self.typed.insert(modlstr.clone(), Typemod::new(modlstr.clone()));
         }
+        {
+            let mutyped = self.typed.get_mut(modlstr).unwrap();
+            if mutyped.get_function_type(funclstr).is_none() {
+                mutyped.set_function_type(funclstr.clone(), fix.typ.clone());
+            }
+        }
         let typed = self.typed.get(modlstr).unwrap();
 
         let mut typeset = TypeSet::new();

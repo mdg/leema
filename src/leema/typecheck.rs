@@ -324,7 +324,11 @@ impl<'a, 'b> Typescope<'a, 'b>
             &Source::ConstVal(ref fval) => {
                 match fval {
                     &Val::Str(_) => Ok(Type::Void),
-                    &Val::FuncRef(_, ref typ) => Ok(typ.clone()),
+                    &Val::FuncRef(ref fri, ref typ) => {
+                        let typed = self.functype(
+                            fri.mod_ref().unwrap(), &fri.localid);
+                        self.infer.merge_types(typ, &typed)
+                    }
                     _ => {
                         panic!("what val is in typecheck_call? {:?}", fval);
                     }
@@ -338,15 +342,16 @@ impl<'a, 'b> Typescope<'a, 'b>
 
     pub fn functype(&self, modname: &str, funcname: &str) -> Type
     {
-        let funclstr = Lstr::from(String::from(funcname));
         if modname == self.inter.name() {
-            self.inter.get_function_type(&funclstr).unwrap().clone()
+            self.inter.get_function_type(funcname)
+                .expect("missing typed object for module")
+                .clone()
         } else {
             let m = self.imports.get(modname).expect(&format!(
                 "cannot find module {} in {:?}",
                 modname, self.imports
             ));
-            m.get_function_type(&funclstr)
+            m.get_function_type(funcname)
                 .expect(&format!(
                     "cannot find function {}::{} in {:?}",
                     modname, funcname, m
