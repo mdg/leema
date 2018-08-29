@@ -2,7 +2,7 @@ use leema::ast::Ast;
 use leema::code::{self, Code};
 use leema::infer::TypeSet;
 use leema::inter::Intermod;
-use leema::ixpr::Source;
+use leema::ixpr::{Ixpr, Source};
 use leema::lib_str;
 use leema::loader::Interloader;
 use leema::log;
@@ -63,10 +63,6 @@ impl Lib
             .insert(Lstr::Sref("udp"), udp::load_rust_func);
 
         proglib
-            .typed
-            .insert(Lstr::Sref("prefab"), Typemod::new(Lstr::Sref("prefab")));
-
-        proglib
     }
 
     pub fn main_module(&self) -> &str
@@ -108,7 +104,19 @@ impl Lib
     {
         if !self.inter.contains_key(modname) {
             let inter = self.read_inter(modname);
+            self.init_typed(modname, &inter.interfunc);
             self.inter.insert(modname.clone(), inter);
+        }
+    }
+
+    pub fn init_typed(&mut self, modname: &Lstr, funcs: &HashMap<Lstr, Ixpr>)
+    {
+        if !self.typed.contains_key(modname) {
+            self.typed.insert(modname.clone(), Typemod::new(modname.clone()));
+        }
+        let typmod = self.typed.get_mut(modname).unwrap();
+        for (fname, fix) in funcs.iter() {
+            typmod.set_function_type(fname.clone(), fix.typ.clone());
         }
     }
 
