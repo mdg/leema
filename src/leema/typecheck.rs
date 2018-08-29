@@ -285,7 +285,6 @@ impl<'a, 'b> Typescope<'a, 'b>
                 ref mut lies,
             ) = &mut case.src
             {
-                self.infer.push_block(HashMap::new());
                 self.infer.match_pattern(
                     &self.typeset,
                     patt,
@@ -293,7 +292,6 @@ impl<'a, 'b> Typescope<'a, 'b>
                     case.line,
                 )?;
                 let ttype = typecheck_expr(self, truth).unwrap();
-                self.infer.pop_block();
                 if lies.src != Source::ConstVal(Val::Void) {
                     let ftype =
                         self.typecheck_matchcase(valtype, lies).unwrap();
@@ -365,11 +363,24 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
 {
     match &mut ix.src {
         &mut Source::Call(ref mut func, ref mut args) => {
-            let tfunc = scope.typecheck_call_func(&func.src).unwrap();
+            let tfunc = scope.typecheck_call_func(&func.src)
+                .map_err(|e| {
+                    e.add_context(Lstr::from(
+                        format!("function: {:?}", func.src)
+                    ))
+                })?;
             let mut targs = vec![];
             if let Source::Tuple(ref mut argstup) = args.src {
                 for mut a in &mut argstup.0 {
-                    targs.push(typecheck_expr(scope, &mut a.1).unwrap());
+                    let atype =
+                        typecheck_expr(scope, &mut a.1)
+                        .map_err(|e| {
+                            e.add_context(Lstr::from(
+                                format!("function args for: {:?} on line {}"
+                                    , func.src, func.line)
+                            ))
+                        })?;
+                    targs.push(atype);
                 }
             } else {
                 println!("args are not a tuple");

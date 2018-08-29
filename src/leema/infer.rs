@@ -1,68 +1,13 @@
-use leema::ast::Ast;
 use leema::log;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::struple::Struple;
-use leema::val::{SrcLoc, Type, TypeErr, TypeResult, Val};
+use leema::val::{Type, TypeErr, TypeResult, Val};
 
 use std::collections::hash_map::Keys;
 use std::collections::HashMap;
 use std::io::Write;
 
-
-#[derive(Debug)]
-pub struct VarData
-{
-    failure: Option<Ast>,
-    assignment: Option<i16>,
-    first_usage: Option<SrcLoc>,
-}
-
-impl VarData
-{
-    pub fn new(failures: Ast) -> VarData
-    {
-        VarData {
-            failure: Some(failures),
-            assignment: None,
-            first_usage: None,
-        }
-    }
-}
-
-impl Default for VarData
-{
-    fn default() -> VarData
-    {
-        VarData {
-            failure: None,
-            assignment: None,
-            first_usage: None,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Blockscope
-{
-    vars: HashMap<Lstr, VarData>,
-    failing: bool,
-}
-
-impl Blockscope
-{
-    pub fn new(failures: HashMap<Lstr, Ast>) -> Blockscope
-    {
-        let vars: HashMap<Lstr, VarData> = failures
-            .into_iter()
-            .map(|(v, fail)| (v, VarData::new(fail)))
-            .collect();
-        Blockscope {
-            vars: vars,
-            failing: false,
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct TypeSet<'b>
@@ -119,7 +64,6 @@ pub struct Inferator<'b>
 {
     funcname: &'b str,
     vartypes: HashMap<Lstr, Type>,
-    blocks: Vec<Blockscope>,
     inferences: HashMap<Lstr, Type>,
 }
 
@@ -128,9 +72,8 @@ impl<'b> Inferator<'b>
     pub fn new(funcname: &'b str) -> Inferator<'b>
     {
         Inferator {
-            funcname: funcname,
+            funcname,
             vartypes: HashMap::new(),
-            blocks: vec![Blockscope::new(HashMap::new())],
             inferences: HashMap::new(),
         }
     }
@@ -145,7 +88,7 @@ impl<'b> Inferator<'b>
         match self.vartypes.get(argn) {
             None => {
                 Err(TypeErr::Error(Lstr::from(format!(
-                    "no type for unkonwn var: {}",
+                    "no type for unknown var: {}",
                     argn
                 ))))
             }
@@ -168,17 +111,13 @@ impl<'b> Inferator<'b>
     ) -> TypeResult
     {
         vout!(
-            "init_param({}, #{} {:?}: {:?})\n",
+            "init_param({}, #{} {:?}: {:?} #{})\n",
             self.funcname,
             argi,
             argn,
-            argt
+            argt,
+            line,
         );
-        let b = self.blocks.last_mut().unwrap();
-        // just assign the var b/c it's a new param
-        let mut vdata = VarData::default();
-        vdata.assignment = Some(line);
-        b.vars.insert(argn.clone(), vdata);
 
         let realt = match argt {
             Type::Unknown => {
@@ -207,19 +146,8 @@ impl<'b> Inferator<'b>
         line: i16,
     ) -> TypeResult
     {
-        vout!("bind_vartype({}, {}: {:?})\n", self.funcname, argn, argt);
-        let b = self.blocks.last_mut().unwrap();
-        if !b.vars.contains_key(argn) {
-            let mut vdata = VarData::default();
-            vdata.assignment = Some(line);
-            b.vars.insert(argn.clone(), vdata);
-        } else {
-            let vdata = b.vars.get_mut(argn).unwrap();
-            if vdata.assignment.is_some() {
-                panic!("rebinding {}. previously bound at line {}", argn, line);
-            }
-            vdata.assignment = Some(line);
-        }
+        vout!("bind_vartype({}, {}: {:?}, {})\n"
+            , self.funcname, argn, argt, line);
 
         let realt = match argt {
             &Type::Unknown => {
@@ -385,48 +313,6 @@ impl<'b> Inferator<'b>
         }
     }
 
-    pub fn mark_usage(&mut self, name: &str, loc: &SrcLoc) -> bool
-    {
-        let b_opt = self
-            .blocks
-            .iter_mut()
-            .rev()
-            .find(|iblock| iblock.vars.contains_key(name));
-        if b_opt.is_none() {
-            panic!("cannot mark usage on undefined var: {}", name);
-        }
-        // safe to unwrap these 2 directly b/c we already found it above
-        let b = b_opt.unwrap();
-        let var_data = b.vars.get_mut(name).unwrap();
-        if var_data.first_usage.is_some() {
-            return false;
-        }
-        var_data.first_usage = Some(loc.clone());
-        true
-    }
-
-    pub fn push_block(&mut self, failures: HashMap<Lstr, Ast>)
-    {
-        self.blocks.push(Blockscope::new(failures));
-    }
-
-    /**
-     * Pop a block off of the stack
-     * Return true if the new block is the root block (only 1 left)
-     */
-    pub fn pop_block(&mut self) -> bool
-    {
-        self.blocks.pop();
-        self.blocks.len() == 1
-    }
-
-    pub fn var_is_in_scope(&self, name: &str) -> bool
-    {
-        self.blocks
-            .iter()
-            .any(|b| b.vars.get(name).map_or(false, |v| v.assignment.is_some()))
-    }
-
     pub fn inferred_type<'a>(&'a self, typ: &'a Type) -> Type
     {
         match typ {
@@ -514,13 +400,11 @@ impl<'b> Inferator<'b>
                 }
                 let mut masht = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
-                    let mashit = Inferator::mash(inferences, oldit, newit)
-                        .expect("function args mismatch");
+                    let mashit = Inferator::mash(inferences, oldit, newit)?;
                     masht.push(mashit);
                 }
                 let mashresult =
-                    Inferator::mash(inferences, oldresult, newresult)
-                        .expect("function result mismatch");
+                    Inferator::mash(inferences, oldresult, newresult)?;
                 Ok(Type::Func(masht, Box::new(mashresult)))
             }
             (&Type::Tuple(ref olditems), &Type::Tuple(ref newitems)) => {
