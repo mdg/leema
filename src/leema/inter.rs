@@ -1014,16 +1014,14 @@ mod tests
     #[test]
     fn test_compile_matched_if_branches()
     {
-        let input = String::from(
-            "
-    func factf(i): Int ->
-        if
-        |i == 1 -> 1
-        |else -> i * factf(i-1)
-        --
-    --
-    ",
-        );
+        let input = "
+            func factf(i): Int ->
+                if
+                |i == 1 -> 1
+                |else -> i * factf(i-1)
+                --
+            --
+            ".to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("fact.lma"));
         loader.set_mod_txt(Lstr::Sref("fact"), input);
@@ -1101,5 +1099,26 @@ mod tests
         let mut prog = program::Lib::new(loader);
         prog.read_inter(&Lstr::Sref("animals"));
         assert!(true); // didn't panic earlier
+    }
+
+    #[test]
+    fn test_compile_match_existing_var()
+    {
+        let input = "
+            func foo(): Int ->
+                let a := 5
+                let b := 8
+                match b
+                |a -> a + 1
+                |_ -> a - 1
+                --
+            --
+            ".to_string();
+
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        loader.set_mod_txt(Lstr::Sref("foo"), input);
+        let mut prog = program::Lib::new(loader);
+        prog.read_inter(&Lstr::Sref("foo"));
+        assert!(true); // assert that it didn't panic
     }
 }
