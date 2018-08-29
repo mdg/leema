@@ -31,12 +31,13 @@ impl<T> Struple<T>
     /**
      * Find a value with the given key
      */
-    pub fn find(&self, key: &str) -> Option<&T>
+    pub fn find(&self, key: &str) -> Option<(usize, &T)>
     {
         self.0
             .iter()
-            .find(|i| i.0.as_ref().map_or(false, |ik| ik.str() == key))
-            .map(|item| &item.1)
+            .enumerate()
+            .find(|(_, i)| i.0.as_ref().map_or(false, |ik| ik.str() == key))
+            .map(|(idx, item)| (idx, &item.1))
     }
 }
 

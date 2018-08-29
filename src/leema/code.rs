@@ -247,11 +247,14 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 dst: dst.clone(),
             }
         }
-        Source::FieldAccess(ref base, ref _fld_name) => {
+        Source::FieldAccess(_, ref fldname, None) => {
+            panic!("cannot access a field with no index: {}", fldname);
+        }
+        Source::FieldAccess(ref base, _, Some(fld_idx)) => {
             let mut base_ops = make_sub_ops(rt, base);
             Oxpr {
                 ops: base_ops.ops,
-                dst: base_ops.dst.sub(0), // fld_name),
+                dst: base_ops.dst.sub(fld_idx),
             }
         }
         Source::Func(ref argnames, ref body) => {

@@ -102,8 +102,6 @@ impl Lib
 
         if !has_func {
             let new_code = self.read_code(modname, funcname);
-            let funcri = Lri::with_modules(modname.clone(), funcname.clone());
-            self.typecheck(&funcri, typecheck::Depth::One);
 
             if has_mod {
                 let old_mod = self.code.get_mut(modname).unwrap();
@@ -194,6 +192,9 @@ impl Lib
         vout!("read_code({}::{})\n", modname, funcname);
         self.load_inter(modname);
 
+        let funcri = Lri::with_modules(modname.clone(), funcname.clone());
+        self.typecheck(&funcri, typecheck::Depth::One);
+
         let inter = self
             .inter
             .get(modname)
@@ -212,6 +213,7 @@ impl Lib
         if modname == "prefab" {
             vout!("prefab::{} fix: {:?}\n", funcname, fix);
         }
+
         if fix.src == Source::RustBlock {
             let rust_loader = self.rust_load.get(modname);
             if rust_loader.is_none() {

@@ -115,7 +115,7 @@ impl<'a> CallFrame<'a>
                 self.collect_calls(head);
                 self.collect_calls(tail);
             }
-            Source::FieldAccess(ref base, _) => {
+            Source::FieldAccess(ref base, _, _) => {
                 self.collect_calls(base);
             }
             // nothing to do for these, not calls.
@@ -428,9 +428,9 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             }
             last_type
         }
-        &mut Source::FieldAccess(ref mut x, ref sub) => {
+        &mut Source::FieldAccess(ref mut x, ref sub, ref mut subidx) => {
             let xtyp = typecheck_expr(scope, x)?;
-            typecheck_field_access(scope, &xtyp, sub)
+            typecheck_field_access(scope, subidx, &xtyp, sub)
         }
         &mut Source::Id(ref id, _) => {
             let result = scope.infer.vartype(id);
@@ -547,6 +547,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
 
 pub fn typecheck_field_access(
     scope: &mut Typescope,
+    fldidx: &mut Option<i8>,
     xtyp: &Type,
     fld: &Lstr,
 ) -> TypeResult
@@ -556,7 +557,12 @@ pub fn typecheck_field_access(
         &Type::UserDef(ref name) => {
             match scope.typeset.get_typedef(name) {
                 Result::Ok(ref ityp) => {
-                    ityp.find(fld).map(|ft| ft.clone()).ok_or_else(|| {
+                    ityp.find(fld)
+                    .map(|(i, ft)| {
+                        *fldidx = Some(i as i8);
+                        ft.clone()
+                    })
+                    .ok_or_else(|| {
                         TypeErr::Error(Lstr::Sref("invalid field index"))
                     })
                 }

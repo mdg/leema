@@ -24,7 +24,7 @@ pub enum Source
     Construple(Type, Struple<Type>),
     ConstVal(Val),
     EnumConstructor(Type, i16, Box<Ixpr>),
-    FieldAccess(Box<Ixpr>, Lstr),
+    FieldAccess(Box<Ixpr>, Lstr, Option<i8>),
     Func(Vec<Lstr>, Box<Ixpr>),
     Let(Val, Box<Ixpr>, Vec<MatchFailure>),
     MatchExpr(Box<Ixpr>, Box<Ixpr>),
@@ -207,7 +207,7 @@ impl Ixpr
         let lineno = base.line;
         Ixpr {
             typ: Type::Unknown,
-            src: Source::FieldAccess(Box::new(base), sub),
+            src: Source::FieldAccess(Box::new(base), sub, None),
             line: lineno,
         }
     }
