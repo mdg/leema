@@ -112,7 +112,8 @@ impl Lib
     pub fn init_typed(&mut self, modname: &Lstr, funcs: &HashMap<Lstr, Ixpr>)
     {
         if !self.typed.contains_key(modname) {
-            self.typed.insert(modname.clone(), Typemod::new(modname.clone()));
+            self.typed
+                .insert(modname.clone(), Typemod::new(modname.clone()));
         }
         let typmod = self.typed.get_mut(modname).unwrap();
         for (fname, fix) in funcs.iter() {
