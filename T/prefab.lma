@@ -37,7 +37,7 @@ func equal(a, b): Bool -RUST-
 func less_than(a, b): Bool -RUST-
 func leema_sleep(d: Int): Void -RUST-
 func cin(): Str -RUST-
-func cout(txt: Str): Void -RUST-
+func print(txt: Str): Void -RUST-
 func list_cons(head: $A, tail: [$A]): [$A] -RUST-
 
 func int_abs(abs_a: Int): Int ->

@@ -6,5 +6,5 @@ func merge(a, b)
 
 func main() ->
     let m := merge([], [4, 5, 6])
-    cout("$m\n")
+    print("$m\n")
 --

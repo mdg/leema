@@ -8,6 +8,6 @@ func read_data(): Str ->
 
 func main() ->
    let input := read_data()
-   cout("received ping (${input})\n")
+   print("received ping (${input})\n")
 --
 

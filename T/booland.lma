@@ -1,7 +1,7 @@
 func main() ->
   let a := true
   let b := false
-  cout("a is $a\nb is $b\n")
+  print("a is $a\nb is $b\n")
   let c := a and b
-  cout("a and b is $c\n")
+  print("a and b is $c\n")
 --

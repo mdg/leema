@@ -9,8 +9,8 @@ func match_zero(x, y): Str ->
 
 
 func main() ->
-    cout(match_zero(0, 0) \n)
-    cout(match_zero(0, 1) \n)
-    cout(match_zero(2, 0) \n)
-    cout(match_zero(4, 3) \n)
+    print(match_zero(0, 0) \n)
+    print(match_zero(0, 1) \n)
+    print(match_zero(2, 0) \n)
+    print(match_zero(4, 3) \n)
 --

@@ -1,4 +1,4 @@
 func main() ->
     ## print a message to the console
-    cout("hello \"quotes\"\n")
+    print("hello \"quotes\"\n")
 --

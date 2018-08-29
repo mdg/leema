@@ -117,7 +117,7 @@ supertype FullOrd <: Ord {
     |(a, b) | a < b => 
         match Ord::cmp(a, b) {
             None {
-... cout("hello\n")
+... print("hello\n")
                 FullOrd::cmp_full(
                     FullOrd::cmp_priority(a),
                     FullOrd::cmp_priority(b),

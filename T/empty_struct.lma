@@ -3,7 +3,7 @@ struct Empty --
 
 func main() ->
     let e := Empty
-    cout("empty: $e\n")
+    print("empty: $e\n")
 --
 
 

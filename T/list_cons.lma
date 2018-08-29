@@ -1,8 +1,8 @@
 func main() ->
     let l1 := [3, 2, 8]
-    cout("l1: $l1\n")
+    print("l1: $l1\n")
 
     let l2 := 4;6;l1
-    cout("l2: $l2\n")
+    print("l2: $l2\n")
 --
 

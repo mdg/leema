@@ -6,5 +6,5 @@ func main() ->
     let z := ->
         x * 3
     --
-    cout("z is: $z\n")
+    print("z is: $z\n")
 --

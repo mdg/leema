@@ -11,35 +11,35 @@ func handle_nonlinear(x: Int, prop: Bool): Str ->
    if
    |c == "tacos" ->
       let d := bar(x)
-      cout("tacos are: $d")
+      print("tacos are: $d")
    |else ->
       let d := bar(x+1)
-      cout("burritos are: $d")
+      print("burritos are: $d")
    --
 
    failed c
    |(#xis4, f) ->
       if
       |prop ->
-         cout("c failed. log and propagate\n")
+         print("c failed. log and propagate\n")
          refail(c)
       |else ->
-         cout("c failed. no propagate.\n")
+         print("c failed. no propagate.\n")
          unfail("whoa - not linear!")
       --
    |_ ->
-      cout("no match on failure hashtag\n")
+      print("no match on failure hashtag\n")
       refail(c)
    --
 
    failed d
    |#xis4 ->
-      cout("handle d the same no matter what")
+      print("handle d the same no matter what")
       "whatever"
    --
 --
 
 func main() ->
    let d := handle_nonlinear(4, false)
-   cout("d: $d\n")
+   print("d: $d\n")
 --

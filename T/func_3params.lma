@@ -2,5 +2,5 @@ func sum(x, y, z) -> x + y + z --
 
 func main() ->
     let s := sum(3, 8, 2)
-    cout("sum(3, 8, 2) = $s\n")
+    print("sum(3, 8, 2) = $s\n")
 --

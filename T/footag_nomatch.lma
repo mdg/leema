@@ -2,10 +2,10 @@ func footag() -> #foot --
 
 func main() ->
     let h := footag()
-    cout("h is $h\n")
+    print("h is $h\n")
 
     match h
-    |#foo -> cout("matched #foo\n")
-    |_ -> cout("some other thing? $h\n")
+    |#foo -> print("matched #foo\n")
+    |_ -> print("some other thing? $h\n")
     --
 --

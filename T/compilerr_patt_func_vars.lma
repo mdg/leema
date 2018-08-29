@@ -7,5 +7,5 @@ func factorial(a)
 
 func main() ->
     let f := factorial(5)
-    cout("fact(5) is $f\n")
+    print("fact(5) is $f\n")
 --

@@ -3,5 +3,5 @@ func main() ->
     |true -> 5
     |else -> 3
     --
-    cout("a = $a\n")
+    print("a = $a\n")
 --

@@ -12,6 +12,6 @@ func main() ->
     let f := first(p)
     let s := second(p)
 
-    cout("first: $f, second: $s\n")
+    print("first: $f, second: $s\n")
 --
 

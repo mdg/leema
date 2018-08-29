@@ -1,14 +1,14 @@
 
 func foo(a: [#])
-|([]) -> cout("done\n")
+|([]) -> print("done\n")
 |(#c;t) ->
-    cout("found c.\n")
+    print("found c.\n")
     foo(t)
 |(h;t) ->
     match h
-    |#a -> cout("found a! what else is in $t ?\n")
-    |#b -> cout("found b! what else is in $t ?\n")
-    |#c -> cout("found c! what else is in $t ?\n")
+    |#a -> print("found a! what else is in $t ?\n")
+    |#b -> print("found b! what else is in $t ?\n")
+    |#c -> print("found c! what else is in $t ?\n")
     --
     foo(t)
 --

@@ -3,10 +3,10 @@ func fizzbuzz(x, max): Void ->
     let xm50 := (x mod 5) == 0
 
     if
-    |xm30 and xm50 -> cout("fizzbuzz\n")
-    |xm30 -> cout("fizz\n")
-    |xm50 -> cout("buzz\n")
-    |else -> cout("$x\n")
+    |xm30 and xm50 -> print("fizzbuzz\n")
+    |xm30 -> print("fizz\n")
+    |xm50 -> print("buzz\n")
+    |else -> print("$x\n")
     --
 
     if x < max ->

@@ -1,14 +1,14 @@
 func inspect_list(l: [Int])
 |(0;_) ->
-    cout("l has a 0\n")
+    print("l has a 0\n")
 |(h;t) ->
-    cout("l is a list with head $h and tail $t\n")
+    print("l is a list with head $h and tail $t\n")
 |(_) ->
-    cout("l is not a list with at least 1 element\n")
+    print("l is not a list with at least 1 element\n")
 --
 
 func main() ->
     let l := [3, 2, 8]
-    cout("l: $l\n")
+    print("l: $l\n")
     inspect_list(l)
 --

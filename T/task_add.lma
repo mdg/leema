@@ -7,7 +7,7 @@ import str
 func print_task(t) ->
     match t
     |task::Task(txt, created, first_due, due, np) ->
-        cout("Task: \"$txt\"\n")
+        print("Task: \"$txt\"\n")
     --
 --
 
@@ -45,6 +45,6 @@ func main() ->
     let new_list := new_task;tasks
     let task_str := format_task_list(new_list)
 
-    cout("added: ")
+    print("added: ")
     print_task(new_task)
 --

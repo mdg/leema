@@ -7,9 +7,9 @@ macro m_and(a, b) ->
 
 func main() ->
     if m_and(true, false) ->
-        cout("is true\n")
+        print("is true\n")
     else ->
-        cout("is false\n")
+        print("is false\n")
     --
     0
 --

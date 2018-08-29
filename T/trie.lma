@@ -10,10 +10,10 @@ struple Trie
 
 func insert(t: Trie, word: Str): Trie
 |(Trie(complete: true), "") ->
-    cout("huh, this word already exists")
+    print("huh, this word already exists")
     t
 |(t: Trie(complete: false), "") ->
-    cout("complete this word")
+    print("complete this word")
     let t2 := t << (complete: true)
 |(t, word) ->
     let (head, tail) := str::split(word, 1)
@@ -37,9 +37,9 @@ func insert_char(t: Trie, letter: Str, rem: Str) -> Trie
 func main() ->
     let t := Trie()
     insert(t, "apple")
-    cout(search(t, "apple"))
-    cout(search(t, "app"))
-    cout(startswith(t, "app"))
+    print(search(t, "apple"))
+    print(search(t, "app"))
+    print(startswith(t, "app"))
     insert(t, "app")
-    cout(search(t, "app"))
+    print(search(t, "app"))
 --

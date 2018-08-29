@@ -9,7 +9,7 @@ func main() ->
     let r := Red
     let b := Blue
     let y := Yellow
-    cout("red: $r\n")
-    cout("blue: $b\n")
-    cout("yellow: $y\n")
+    print("red: $r\n")
+    print("blue: $b\n")
+    print("yellow: $y\n")
 --

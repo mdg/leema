@@ -12,6 +12,6 @@ func add5(dx): Int ->
 
 func main() ->
     let d := add5(4)
-    cout("strcat propagated: $d\n")
+    print("strcat propagated: $d\n")
 --
 

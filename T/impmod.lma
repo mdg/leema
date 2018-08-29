@@ -4,9 +4,9 @@ import inclib
 
 func main() ->
     if macs.m_and(true, false) ->
-        cout("is true\n")
+        print("is true\n")
     else ->
-        cout("is false\n")
+        print("is false\n")
     --
     inclib.inc(5)
 --

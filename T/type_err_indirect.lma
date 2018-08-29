@@ -2,6 +2,6 @@ func inc(x: t): t -> x + 1 --
 
 func main() ->
     let i := inc("hello")
-    cout("inc(4) = $i\n")
+    print("inc(4) = $i\n")
     i
 --

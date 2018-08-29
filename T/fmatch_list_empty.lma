@@ -6,5 +6,5 @@ func is_empty(l: [Int])
 func main() ->
     let l := [3, 2, 8]
     let e := is_empty(l)
-    cout("is_empty? $e\n")
+    print("is_empty? $e\n")
 --

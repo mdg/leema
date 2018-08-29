@@ -7,5 +7,5 @@ func last_tag(input)
 
 func main() ->
     let last := last_tag([4, 5, 6])
-    cout("last tag is $last\n")
+    print("last tag is $last\n")
 --

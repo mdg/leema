@@ -5,5 +5,5 @@ func fmatch_fact(i): Int
 
 func main() ->
     let f := fmatch_fact(4)
-    cout("factorial(4) = $f\n")
+    print("factorial(4) = $f\n")
 --

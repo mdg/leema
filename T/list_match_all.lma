@@ -1,12 +1,12 @@
 func main() ->
     let l := [3, 2, 8]
-    cout("l: $l\n")
+    print("l: $l\n")
 
     match l
     |[x, y, z] ->
-        cout("l is a list with 3 elements [$x, $y, $z]\n")
+        print("l is a list with 3 elements [$x, $y, $z]\n")
     |_ ->
-        cout("l is not a list with 3 elements\n")
+        print("l is not a list with 3 elements\n")
     --
 --
 

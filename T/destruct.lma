@@ -6,7 +6,7 @@ struct Date
 
 func main() ->
     let d := Date(2010, 9, 8)
-    cout("date is: $d\n")
+    print("date is: $d\n")
     let Date(y, mon, day) := d
-    cout("year: $y / month: $mon / day: $day\n")
+    print("year: $y / month: $mon / day: $day\n")
 --

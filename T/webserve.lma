@@ -1,7 +1,7 @@
 import http
 
 func action(req: http::Request): http::Response ->
-    cout("wow, handling http!")
+    print("wow, handling http!")
     http::ok200()
 --
 
@@ -9,9 +9,9 @@ func main() >>
    let listener := tcp::listen("0.0.0.0", 3999)
    let sock := tcp::accept(listener)
 
-   cout("started http on 3999: $s\n")
+   print("started http on 3999: $s\n")
    let tx := http::accept(s)
-   cout("accepted: $tx\n")
+   print("accepted: $tx\n")
    leema_sleep(10000)
 
 --

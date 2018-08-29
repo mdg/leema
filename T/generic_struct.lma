@@ -7,6 +7,6 @@ struple Taco[T]
 func main() ->
     let chk := Taco(#chicken, 1)
     let beans := Taco("beans", 2)
-    cout("chicken: $chk\n")
-    cout("beans: $beans\n")
+    print("chicken: $chk\n")
+    print("beans: $beans\n")
 --

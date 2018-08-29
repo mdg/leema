@@ -7,7 +7,7 @@ struct Rgb
 
 func main() ->
     let c := Rgb(10, 20, 30)
-    cout("color: $c\n")
-    cout("red: ${c.red}\n")
-    cout("blue: ${c.blue}\n")
+    print("color: $c\n")
+    print("red: ${c.red}\n")
+    print("blue: ${c.blue}\n")
 --
