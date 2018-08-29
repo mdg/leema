@@ -325,8 +325,8 @@ impl<'a, 'b> Typescope<'a, 'b>
                 match fval {
                     &Val::Str(_) => Ok(Type::Void),
                     &Val::FuncRef(ref fri, ref typ) => {
-                        let typed = self.functype(
-                            fri.mod_ref().unwrap(), &fri.localid);
+                        let typed =
+                            self.functype(fri.mod_ref().unwrap(), &fri.localid);
                         self.infer.merge_types(typ, &typed)
                     }
                     _ => {
@@ -343,7 +343,8 @@ impl<'a, 'b> Typescope<'a, 'b>
     pub fn functype(&self, modname: &str, funcname: &str) -> Type
     {
         if modname == self.inter.name() {
-            self.inter.get_function_type(funcname)
+            self.inter
+                .get_function_type(funcname)
                 .expect("missing typed object for module")
                 .clone()
         } else {
