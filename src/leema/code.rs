@@ -87,9 +87,7 @@ impl Clone for Op
             &Op::Copy(ref dst, ref src) => Op::Copy(dst.clone(), src.clone()),
             &Op::Jump(j) => Op::Jump(j),
             &Op::JumpIfNot(j, ref tst) => Op::JumpIfNot(j, tst.clone()),
-            &Op::IfFailure(ref src, j) => {
-                Op::IfFailure(src.clone(), j)
-            }
+            &Op::IfFailure(ref src, j) => Op::IfFailure(src.clone(), j),
             &Op::MatchPattern(ref dst, ref patt, ref input) => {
                 Op::MatchPattern(dst.clone(), patt.deep_clone(), input.clone())
             }
@@ -359,11 +357,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
     }
 }
 
-pub fn make_call_ops(
-    rt: &mut RegTable,
-    f: &Ixpr,
-    args: &Ixpr,
-) -> Oxpr
+pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr, args: &Ixpr) -> Oxpr
 {
     let dst = rt.dst().clone();
     vout!("make_call_ops: {:?} = {:?}\n", dst, f);
@@ -459,10 +453,7 @@ pub fn make_matchfailure_ops(
 
     let faillen = case_ops.ops.len() + 2;
     let mut failops = Vec::with_capacity(faillen);
-    failops.push((
-        Op::IfFailure(vreg.clone(), faillen as i16),
-        cases.line,
-    ));
+    failops.push((Op::IfFailure(vreg.clone(), faillen as i16), cases.line));
     failops.append(&mut case_ops.ops);
     failops.push((Op::Copy(vreg.clone(), dst), cases.line));
 

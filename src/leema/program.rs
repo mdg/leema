@@ -2,7 +2,7 @@ use leema::ast::Ast;
 use leema::code::{self, Code};
 use leema::infer::TypeSet;
 use leema::inter::Intermod;
-use leema::ixpr::{Source};
+use leema::ixpr::Source;
 use leema::lib_str;
 use leema::loader::Interloader;
 use leema::log;

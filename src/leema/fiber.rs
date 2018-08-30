@@ -84,9 +84,7 @@ impl Fiber
             &Op::Copy(ref dst, ref src) => self.execute_copy(dst, src),
             &Op::Jump(jmp) => self.execute_jump(jmp),
             &Op::JumpIfNot(jmp, ref reg) => self.execute_jump_if_not(jmp, reg),
-            &Op::IfFailure(ref src, jmp) => {
-                self.execute_if_failure(src, jmp)
-            }
+            &Op::IfFailure(ref src, jmp) => self.execute_if_failure(src, jmp),
             &Op::MatchPattern(ref dst, ref patt, ref input) => {
                 self.execute_match_pattern(dst, patt, input)
             }
@@ -355,11 +353,7 @@ impl Fiber
         Event::Uneventful
     }
 
-    pub fn execute_if_failure(
-        &mut self,
-        src: &Reg,
-        jmp: i16,
-    ) -> Event
+    pub fn execute_if_failure(&mut self, src: &Reg, jmp: i16) -> Event
     {
         if self.head.e.get_reg(src).is_failure() {
             self.head.pc += 1;

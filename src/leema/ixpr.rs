@@ -196,7 +196,7 @@ mod tests
 {
     use leema::ixpr::{Ixpr, Source};
     use leema::lstr::Lstr;
-    use leema::val::{Val};
+    use leema::val::Val;
 
 
     #[test]

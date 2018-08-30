@@ -433,9 +433,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             let xtyp = typecheck_expr(scope, x)?;
             typecheck_field_access(scope, subidx, &xtyp, sub)
         }
-        &mut Source::Id(ref id, _) => {
-            scope.infer.vartype(id)
-        }
+        &mut Source::Id(ref id, _) => scope.infer.vartype(id),
         &mut Source::List(ref mut items) => {
             let mut last_type = Type::Unknown;
             for i in items {
@@ -500,9 +498,12 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
 pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
 {
     match &mut ix.src {
-        &mut Source::Func(ref arg_names, ref mut arg_types
-                , ref mut declared_result_type, ref mut body) =>
-        {
+        &mut Source::Func(
+            ref arg_names,
+            ref mut arg_types,
+            ref mut declared_result_type,
+            ref mut body,
+        ) => {
             let zips = arg_names.iter().zip(arg_types.iter());
             for (i, (an, at)) in zips.enumerate() {
                 scope.infer.init_param(i as i16, an, at, ix.line)?;

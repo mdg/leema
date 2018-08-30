@@ -461,7 +461,12 @@ pub fn compile_function<'a>(
             a.k_clone()
                 .unwrap_or_else(|| Lstr::from(format!("T_param_{}", argi)))
         }).collect();
-    let src = Source::Func(rc_args, argt.clone(), result_type.clone(), Box::new(ibody2));
+    let src = Source::Func(
+        rc_args,
+        argt.clone(),
+        result_type.clone(),
+        Box::new(ibody2),
+    );
     Ixpr {
         src,
         line: loc.lineno,
@@ -683,10 +688,7 @@ pub fn compile_if_case(scope: &mut Interscope, case: &ast::IfCase) -> Ixpr
     Ixpr::new_if(ix, ibody, inext)
 }
 
-pub fn compile_match_case(
-    scope: &mut Interscope,
-    case: &ast::IfCase,
-) -> Ixpr
+pub fn compile_match_case(scope: &mut Interscope, case: &ast::IfCase) -> Ixpr
 {
     let (patt, iblk) = {
         let new_block = scope.push_blockscope();
