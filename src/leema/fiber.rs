@@ -84,9 +84,7 @@ impl Fiber
             &Op::Copy(ref dst, ref src) => self.execute_copy(dst, src),
             &Op::Jump(jmp) => self.execute_jump(jmp),
             &Op::JumpIfNot(jmp, ref reg) => self.execute_jump_if_not(jmp, reg),
-            &Op::IfFailure(ref dst, ref src, jmp) => {
-                self.execute_if_failure(dst, src, jmp)
-            }
+            &Op::IfFailure(ref src, jmp) => self.execute_if_failure(src, jmp),
             &Op::MatchPattern(ref dst, ref patt, ref input) => {
                 self.execute_match_pattern(dst, patt, input)
             }
@@ -106,9 +104,8 @@ impl Fiber
                 if *dst == Reg::Void {
                     panic!("return void at {} in {:?}", self.head.pc, ops);
                 }
-                self.head
-                    .parent
-                    .set_result(self.head.e.get_reg(dst).clone());
+                let result = self.head.e.get_reg(dst).clone();
+                self.head.parent.set_result(result);
                 self.head.pc += 1;
                 Event::Uneventful
             }
@@ -356,23 +353,14 @@ impl Fiber
         Event::Uneventful
     }
 
-    pub fn execute_if_failure(
-        &mut self,
-        dst: &Reg,
-        src: &Reg,
-        jmp: i16,
-    ) -> Event
+    pub fn execute_if_failure(&mut self, src: &Reg, jmp: i16) -> Event
     {
-        let dst_val = {
-            if let &Val::Failure(ref tag, _, _, _) = self.head.e.get_reg(src) {
-                tag.clone()
-            } else {
-                self.head.pc += jmp as i32;
-                return Event::Uneventful;
-            }
-        };
-        self.head.e.set_reg(dst, *dst_val);
-        self.head.pc += 1;
+        if self.head.e.get_reg(src).is_failure() {
+            self.head.pc += 1;
+        } else {
+            self.head.pc += jmp as i32;
+            return Event::Uneventful;
+        }
         Event::Uneventful
     }
 

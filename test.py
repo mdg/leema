@@ -172,13 +172,28 @@ class TestScripts(unittest.TestCase):
             b"\n",
             result['output'])
 
-    @unittest.skip("still reimplementing matching failures")
-    def test_failed_nonlinear(self):
-        result = run_leema('failed_nonlinear')
+    def test_failed_handled(self):
+        result = run_leema('failed_handled')
         self.assertEqual(0, result['code'])
         self.assertEqual(
             b"c failed. no propagate.\n" +
-            b"d: str interp: whoa - not linear!\n",
+            b"e: str interp: whoa - not linear!\n",
+            result['output'])
+
+    def test_failed_propagated(self):
+        result = run_leema('failed_propagated')
+        self.assertEqual(249, result['code'])
+        self.assertEqual(
+            b"c failed. log and propagate\n" +
+            b"Failure: #xis4\n" +
+            b"Message: tacos are delicious\n" +
+            b"Stack Trace:\n" +
+            b"<  main:33\n" +
+            b"<> foo:3\n" +
+            b" > handle_nonlinear:13\n" +
+            b" > main:33\n" +
+            b" > __init__\n" +
+            b"\n",
             result['output'])
 
     def test_destruct(self):

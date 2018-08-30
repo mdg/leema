@@ -2,7 +2,7 @@ use leema::ast::Ast;
 use leema::code::{self, Code};
 use leema::infer::TypeSet;
 use leema::inter::Intermod;
-use leema::ixpr::{Ixpr, Source};
+use leema::ixpr::Source;
 use leema::lib_str;
 use leema::loader::Interloader;
 use leema::log;
@@ -104,20 +104,23 @@ impl Lib
     {
         if !self.inter.contains_key(modname) {
             let inter = self.read_inter(modname);
-            self.init_typed(modname, &inter.interfunc);
             self.inter.insert(modname.clone(), inter);
+            // maybe this shouldn't happen until typechecking?
+            self.init_typemod(modname);
         }
     }
 
-    pub fn init_typed(&mut self, modname: &Lstr, funcs: &HashMap<Lstr, Ixpr>)
+    pub fn init_typemod(&mut self, modname: &Lstr)
     {
         if !self.typed.contains_key(modname) {
             self.typed
                 .insert(modname.clone(), Typemod::new(modname.clone()));
         }
+
         let typmod = self.typed.get_mut(modname).unwrap();
-        for (fname, fix) in funcs.iter() {
-            typmod.set_function_type(fname.clone(), fix.typ.clone());
+        let proto = self.proto.get(modname).unwrap();
+        for (fname, ftype) in proto.valtypes.iter() {
+            typmod.set_function_type(fname.clone(), ftype.clone());
         }
     }
 
@@ -200,7 +203,7 @@ impl Lib
             vout!("prefab::{} fix: {:?}\n", funcname, fix);
         }
 
-        if fix.src == Source::RustBlock {
+        if let Source::RustBlock(_, _) = fix.src {
             let rust_loader = self.rust_load.get(modname);
             if rust_loader.is_none() {
                 panic!("no rust loader for: {}", modname);
@@ -303,7 +306,9 @@ impl Lib
         {
             let mutyped = self.typed.get_mut(modlstr).unwrap();
             if mutyped.get_function_type(funclstr).is_none() {
-                mutyped.set_function_type(funclstr.clone(), fix.typ.clone());
+                let proto = self.proto.get(modlstr).unwrap();
+                let decltype = proto.valtypes.get(funclstr).unwrap();
+                mutyped.set_function_type(funclstr.clone(), decltype.clone());
             }
         }
         let typed = self.typed.get(modlstr).unwrap();

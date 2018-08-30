@@ -49,7 +49,7 @@ pub enum Op
     // Fork(Reg, Reg, Reg),
     Jump(i16),
     JumpIfNot(i16, Reg),
-    IfFailure(Reg, Reg, i16),
+    IfFailure(Reg, i16),
     // jump if no match, pattern reg, input reg
     MatchPattern(Reg, Val, Reg),
     ListCons(Reg, Reg, Reg),
@@ -87,9 +87,7 @@ impl Clone for Op
             &Op::Copy(ref dst, ref src) => Op::Copy(dst.clone(), src.clone()),
             &Op::Jump(j) => Op::Jump(j),
             &Op::JumpIfNot(j, ref tst) => Op::JumpIfNot(j, tst.clone()),
-            &Op::IfFailure(ref dst, ref src, j) => {
-                Op::IfFailure(dst.clone(), src.clone(), j)
-            }
+            &Op::IfFailure(ref src, j) => Op::IfFailure(src.clone(), j),
             &Op::MatchPattern(ref dst, ref patt, ref input) => {
                 Op::MatchPattern(dst.clone(), patt.deep_clone(), input.clone())
             }
@@ -211,9 +209,7 @@ pub fn make_ops(input: &Ixpr) -> OpVec
     vout!("make_ops({:?})\n", input);
     let mut regtbl = RegTable::new();
     let mut ops = make_sub_ops(&mut regtbl, input);
-    if input.typ != Type::Void {
-        ops.ops.push((Op::SetResult(Reg::local(0)), input.line));
-    }
+    ops.ops.push((Op::SetResult(Reg::local(0)), input.line));
     ops.ops.push((Op::Return, input.line));
     ops.ops
 }
@@ -257,11 +253,11 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 dst: base_ops.dst.sub(fld_idx),
             }
         }
-        Source::Func(ref argnames, ref body) => {
+        Source::Func(ref argnames, ref _argt, ref _frtype, ref body) => {
             rt.def_args(argnames);
             make_sub_ops(rt, &body)
         }
-        Source::Call(ref f, ref args) => make_call_ops(rt, f, args, &input.typ),
+        Source::Call(ref f, ref args) => make_call_ops(rt, f, args),
         Source::Cons(ref h, ref t) => {
             let dst = rt.dst().clone();
             rt.push_dst();
@@ -294,10 +290,8 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             let mut failops: Vec<(Op, i16)> = fails
                 .iter()
                 .flat_map(|mf| {
-                    rt.push_id(&mf.var);
                     let ox =
                         make_matchfailure_ops(rt, &mf.var, &mf.case, mf.line);
-                    rt.pop_id();
                     ox.ops.into_iter()
                 }).collect();
             xops.ops.push((
@@ -354,7 +348,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             rops.ops.push((Op::Return, input.line));
             rops
         }
-        Source::RustBlock => {
+        Source::RustBlock(_, _) => {
             Oxpr {
                 ops: vec![],
                 dst: rt.dst().clone(),
@@ -363,15 +357,10 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
     }
 }
 
-pub fn make_call_ops(
-    rt: &mut RegTable,
-    f: &Ixpr,
-    args: &Ixpr,
-    ftyp: &Type,
-) -> Oxpr
+pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr, args: &Ixpr) -> Oxpr
 {
     let dst = rt.dst().clone();
-    vout!("make_call_ops: {:?} = {:?} : {:?}\n", dst, f, ftyp);
+    vout!("make_call_ops: {:?} = {:?}\n", dst, f);
 
     rt.push_dst();
     let mut fops = make_sub_ops(rt, f);
@@ -447,9 +436,8 @@ pub fn make_matchfailure_ops(
     line: i16,
 ) -> Oxpr
 {
-    rt.push_dst();
+    let dst = rt.push_dst().clone();
     let vreg = rt.id(var);
-    rt.pop_dst();
     // if no case, generate default propagation
     if opt_cases.is_none() {
         let propagate = Op::PropagateFailure(vreg.clone(), line);
@@ -461,16 +449,15 @@ pub fn make_matchfailure_ops(
 
     let cases = opt_cases.as_ref().unwrap();
     let failtag = vreg.sub(0);
-    let mut case_ops = make_matchcase_ops(rt, vreg.clone(), cases, &failtag);
+    let mut case_ops = make_matchcase_ops(rt, dst.clone(), cases, &failtag);
 
-    let faillen = case_ops.ops.len() + 1;
+    let faillen = case_ops.ops.len() + 2;
     let mut failops = Vec::with_capacity(faillen);
-    failops.push((
-        Op::IfFailure(failtag, vreg.clone(), faillen as i16),
-        cases.line,
-    ));
+    failops.push((Op::IfFailure(vreg.clone(), faillen as i16), cases.line));
     failops.append(&mut case_ops.ops);
+    failops.push((Op::Copy(vreg.clone(), dst), cases.line));
 
+    rt.pop_dst();
     Oxpr {
         ops: failops,
         dst: vreg,

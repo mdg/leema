@@ -11,14 +11,6 @@ func bar(x): Int ->
 
 func handle_nonlinear(x: Int, prop: Bool): Str ->
    let c := foo(x)
-   if
-   |c == "tacos" ->
-      let d := bar(x)
-      print("tacos are: $d\n")
-   |else ->
-      let d := bar(x+1)
-      print("burritos are: $d\n")
-   --
    "str interp: $c"
 
    failed c
@@ -26,20 +18,14 @@ func handle_nonlinear(x: Int, prop: Bool): Str ->
       if
       |prop ->
          print("c failed. log and propagate\n")
-         refail(c)
+         return c
       |else ->
          print("c failed. no propagate.\n")
          "whoa - not linear!"
       --
    |_ ->
       print("no match on failure tag\n")
-      refail(c)
-   --
-
-   failed d
-   |#xis4 ->
-      print("handle d the same no matter what")
-      "whatever"
+      return c
    --
 --
 
