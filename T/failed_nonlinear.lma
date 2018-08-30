@@ -44,6 +44,6 @@ func handle_nonlinear(x: Int, prop: Bool): Str ->
 --
 
 func main() ->
-   let d := handle_nonlinear(4, false)
-   print("d: $d\n")
+   let e := handle_nonlinear(4, false)
+   print("e: $e\n")
 --
