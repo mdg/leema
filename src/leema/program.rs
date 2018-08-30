@@ -104,8 +104,9 @@ impl Lib
     {
         if !self.inter.contains_key(modname) {
             let inter = self.read_inter(modname);
-            self.init_typed(modname, &inter.interfunc);
             self.inter.insert(modname.clone(), inter);
+            // maybe this shouldn't happen until typechecking?
+            self.init_typemod(modname);
         }
     }
 
