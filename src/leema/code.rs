@@ -261,7 +261,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             rt.def_args(argnames);
             make_sub_ops(rt, &body)
         }
-        Source::Call(ref f, ref args) => make_call_ops(rt, f, args, &input.typ),
+        Source::Call(ref f, ref args) => make_call_ops(rt, f, args),
         Source::Cons(ref h, ref t) => {
             let dst = rt.dst().clone();
             rt.push_dst();
@@ -367,11 +367,10 @@ pub fn make_call_ops(
     rt: &mut RegTable,
     f: &Ixpr,
     args: &Ixpr,
-    ftyp: &Type,
 ) -> Oxpr
 {
     let dst = rt.dst().clone();
-    vout!("make_call_ops: {:?} = {:?} : {:?}\n", dst, f, ftyp);
+    vout!("make_call_ops: {:?} = {:?}\n", dst, f);
 
     rt.push_dst();
     let mut fops = make_sub_ops(rt, f);

@@ -344,20 +344,6 @@ impl<'a> Interscope<'a>
         NewBlockscope::new(self)
     }
 
-    pub fn struple_field_idx(
-        &self,
-        typ: &Type,
-        fld: &str,
-    ) -> Option<(i16, &Type)>
-    {
-        let proto = self.type_module(typ);
-        if let &Type::UserDef(ref typi) = typ {
-            proto.struple_field_idx(&typi.localid, fld)
-        } else {
-            panic!("cannot get field index for not user def: {:?}", typ);
-        }
-    }
-
     pub fn type_module(&self, typ: &Type) -> &Protomod
     {
         match typ {
@@ -456,22 +442,17 @@ pub fn compile_function<'a>(
     vout!("compile {}({:?}): {:?}\n", fname, args, ftype);
     if *body == Ast::RustBlock {
         return Ixpr {
-            typ: ftype.clone(),
             src: Source::RustBlock,
             line: loc.lineno,
         };
     }
-    let (argt, _result) = Type::split_func_ref(ftype);
     let mut scope = Interscope::new(proto, imports, fname, args);
     let ibody = compile_expr(&mut scope, body, loc);
     let ibody2 = Ixpr {
-        typ: ibody.typ,
         src: ibody.src,
         line: loc.lineno,
     };
-    let final_ftype = Type::Func(argt.clone(), Box::new(ibody2.typ.clone()));
-    vout!("compile function {}: {}\n", fname, final_ftype);
-    vout!("\t<result>: {}\n", ibody2.typ);
+    vout!("compile function {}\n", fname);
     let rc_args = args
         .iter()
         .enumerate()
@@ -480,7 +461,6 @@ pub fn compile_function<'a>(
                 .unwrap_or_else(|| Lstr::from(format!("T_param_{}", argi)))
         }).collect();
     Ixpr {
-        typ: final_ftype,
         src: Source::Func(rc_args, Box::new(ibody2)),
         line: loc.lineno,
     }
@@ -591,15 +571,12 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
             scope.blocks.access_var(id, loc.lineno);
             Ixpr {
                 src: Source::Id(id.clone(), loc.lineno),
-                typ: Type::Unknown,
                 line: loc.lineno,
             }
         }
         Some(ScopeLevel::Module(val)) => {
-            let mod_type = val.get_type();
             Ixpr {
                 src: Source::ConstVal(val),
-                typ: mod_type,
                 line: loc.lineno,
             }
         }
@@ -622,10 +599,8 @@ pub fn compile_call(
         .iter()
         .map(|i| i.map_1(|x| compile_expr(scope, x, loc)))
         .collect();
-    let (_, ftype_result) = Type::split_func(icall.typ.clone());
     let argsix = Ixpr::new_tuple(Struple(iargs), loc.lineno);
     Ixpr {
-        typ: ftype_result.clone(),
         src: Source::Call(Box::new(icall), Box::new(argsix)),
         line: loc.lineno,
     }
@@ -675,7 +650,7 @@ pub fn compile_ifx(scope: &mut Interscope, ifx: &Ast) -> Ixpr
         }
         &Ast::IfExpr(ast::IfType::Match, ref x, ref ifcase, ref iloc) => {
             let ix = compile_expr(scope, x, iloc);
-            let ixcase = compile_match_case(scope, ifcase, &ix.typ);
+            let ixcase = compile_match_case(scope, ifcase);
             Ixpr::new_match_expr(ix, ixcase)
         }
         &Ast::IfExpr(ast::IfType::MatchFailure, _, _, _) => {
@@ -709,7 +684,6 @@ pub fn compile_if_case(scope: &mut Interscope, case: &ast::IfCase) -> Ixpr
 pub fn compile_match_case(
     scope: &mut Interscope,
     case: &ast::IfCase,
-    xtyp: &Type,
 ) -> Ixpr
 {
     let (patt, iblk) = {
@@ -722,7 +696,7 @@ pub fn compile_match_case(
         (cpatt, compile_expr(new_block.scope, &case.body, &case.loc))
     };
     let inext = case.else_case.as_ref().map_or(Ixpr::noop(), |else_case| {
-        compile_match_case(scope, &else_case, xtyp)
+        compile_match_case(scope, &else_case)
     });
     Ixpr::new_match_case(patt, iblk, inext)
 }
@@ -873,7 +847,7 @@ pub fn compile_failed_var(
     let mf = match var_failure {
         Some(fail_case) => {
             vout!("compile failure handling for {}\n", v);
-            Some(compile_match_case(scope, &fail_case, &Type::Hashtag))
+            Some(compile_match_case(scope, &fail_case))
         }
         None => None,
     };

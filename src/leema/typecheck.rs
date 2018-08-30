@@ -396,7 +396,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             let head_list_t = Type::StrictList(Box::new(head_t));
             scope.infer.merge_types(&head_list_t, &tail_t)
         }
-        &mut Source::ConstVal(_) => Ok(ix.typ.clone()),
+        &mut Source::ConstVal(ref val) => Ok(val.get_type()),
         &mut Source::Let(ref lhs, ref mut rhs, ref mut fails) => {
             let rhs_type = typecheck_expr(scope, rhs)?;
             scope.infer.match_pattern(
@@ -434,17 +434,15 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             typecheck_field_access(scope, subidx, &xtyp, sub)
         }
         &mut Source::Id(ref id, _) => {
-            let result = scope.infer.vartype(id);
-            if result.is_ok() {
-                ix.typ = result.as_ref().unwrap().clone();
-            }
-            result
+            scope.infer.vartype(id)
         }
         &mut Source::List(ref mut items) => {
+            let mut last_type = Type::Unknown;
             for i in items {
-                typecheck_expr(scope, i)?;
+                let this_type = typecheck_expr(scope, i)?;
+                last_type = scope.infer.merge_types(&last_type, &this_type)?;
             }
-            Ok(ix.typ.clone())
+            Ok(Type::StrictList(Box::new(last_type)))
         }
         &mut Source::Construple(ref typ, _) => Ok(typ.clone()),
         &mut Source::Tuple(ref mut items) => {
@@ -501,16 +499,13 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
     }
 }
 
-pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
+pub fn typecheck_function(_scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
 {
-    match (&mut ix.src, &ix.typ) {
-        (
-            &mut Source::Func(ref arg_names, ref mut body),
-            &Type::Func(ref arg_types, ref declared_result_type),
-        ) => {
-            let zips = arg_names.iter().zip(arg_types.iter());
-            for (i, (an, at)) in zips.enumerate() {
-                scope.infer.init_param(i as i16, an, at, ix.line)?;
+    match &mut ix.src {
+        &mut Source::Func(ref _arg_names, ref mut _body) => {
+            let zips = arg_names.iter().zip(arg_types.zip());
+            for (i, an) in arg_names.iter().enumerate() {
+                scope.infer.init_param(i as i16, an, ix.line)?;
             }
             vout!("f({:?}) =>\n{:?}\n", arg_names, body);
             let result_type = typecheck_expr(scope, &mut *body)
@@ -536,9 +531,10 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
                 .infer
                 .merge_types(&result_type, declared_result_type)
                 .map(|final_type| Type::f(final_args, final_type))
+            Err(TypeErr::Unknowable)
         }
-        (&mut Source::RustBlock, _) => Ok(ix.typ.clone()),
-        (ref mut src, _) => {
+        &mut Source::RustBlock => Err(TypeErr::Unknowable),
+        ref mut src => {
             panic!("Cannot typecheck_function a not function: {:?}", src);
         }
     }
