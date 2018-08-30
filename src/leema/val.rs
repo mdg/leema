@@ -279,6 +279,7 @@ pub enum TypeErr
 {
     Error(Lstr),
     Mismatch(Type, Type),
+    Unknowable,
     Context(Box<TypeErr>, Lstr),
 }
 
@@ -299,6 +300,7 @@ impl fmt::Display for TypeErr
             &TypeErr::Mismatch(ref a, ref b) => {
                 write!(f, "TypeMismatch({},{})", a, b)
             }
+            &TypeErr::Unknowable => write!(f, "UnknowableType"),
             &TypeErr::Context(ref inner_e, ref ctx) => {
                 write!(f, "({}, '{}')", inner_e, ctx)
             }
