@@ -25,11 +25,11 @@ pub enum Source
     ConstVal(Val),
     EnumConstructor(Type, i16, Box<Ixpr>),
     FieldAccess(Box<Ixpr>, Lstr, Option<i8>),
-    Func(Vec<Lstr>, Box<Ixpr>),
+    Func(Vec<Lstr>, Vec<Type>, Type, Box<Ixpr>),
     Let(Val, Box<Ixpr>, Vec<MatchFailure>),
     MatchExpr(Box<Ixpr>, Box<Ixpr>),
     MatchCase(Val, Box<Ixpr>, Box<Ixpr>),
-    RustBlock,
+    RustBlock(Vec<Type>, Type),
     Id(Lstr, i16),
     IfExpr(Box<Ixpr>, Box<Ixpr>, Option<Box<Ixpr>>),
     List(Vec<Ixpr>),
@@ -196,7 +196,7 @@ mod tests
 {
     use leema::ixpr::{Ixpr, Source};
     use leema::lstr::Lstr;
-    use leema::val::{Type, Val};
+    use leema::val::{Val};
 
 
     #[test]

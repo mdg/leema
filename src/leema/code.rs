@@ -257,7 +257,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 dst: base_ops.dst.sub(fld_idx),
             }
         }
-        Source::Func(ref argnames, ref body) => {
+        Source::Func(ref argnames, ref _argt, ref _frtype, ref body) => {
             rt.def_args(argnames);
             make_sub_ops(rt, &body)
         }
@@ -354,7 +354,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             rops.ops.push((Op::Return, input.line));
             rops
         }
-        Source::RustBlock => {
+        Source::RustBlock(_, _) => {
             Oxpr {
                 ops: vec![],
                 dst: rt.dst().clone(),

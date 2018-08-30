@@ -203,7 +203,7 @@ impl Lib
             vout!("prefab::{} fix: {:?}\n", funcname, fix);
         }
 
-        if fix.src == Source::RustBlock {
+        if let Source::RustBlock(_, _) = fix.src {
             let rust_loader = self.rust_load.get(modname);
             if rust_loader.is_none() {
                 panic!("no rust loader for: {}", modname);

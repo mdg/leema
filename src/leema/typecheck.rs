@@ -107,7 +107,7 @@ impl<'a> CallFrame<'a>
             Source::Return(ref result) => {
                 self.collect_calls(result);
             }
-            Source::Func(ref _args, ref body) => {
+            Source::Func(ref _args, _, _, ref body) => {
                 self.collect_calls(body);
             }
             Source::Cons(ref head, ref tail) => {
@@ -118,7 +118,7 @@ impl<'a> CallFrame<'a>
                 self.collect_calls(base);
             }
             // nothing to do for these, not calls.
-            Source::RustBlock => {}
+            Source::RustBlock(_, _) => {}
             Source::Construple(_, _) => {}
             Source::EnumConstructor(_, _, _) => {}
         }
@@ -477,13 +477,6 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             }
             Ok(Type::Str)
         }
-        &mut Source::Func(ref _args, ref body) => {
-            // typecheck_expr(scope, body)
-            Err(TypeErr::Error(Lstr::from(format!(
-                "unexpected func in typecheck: {:?}",
-                body
-            ))))
-        }
         &mut Source::MatchExpr(ref mut subject, ref mut cases) => {
             typecheck_expr(scope, subject).and_then(|subject_type| {
                 scope.typecheck_matchcase(&subject_type, cases)
@@ -493,19 +486,26 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
         &mut Source::MatchCase(ref pattern, _, _) => {
             panic!("cannot directly typecheck matchcase: {}", pattern);
         }
+        &mut Source::Func(ref _args, _, _, ref _body) => {
+            Err(TypeErr::Error(Lstr::from(format!(
+                "unexpected func in typecheck",
+            ))))
+        }
         src => {
             panic!("could not typecheck_expr({:?})", src);
         }
     }
 }
 
-pub fn typecheck_function(_scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
+pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
 {
     match &mut ix.src {
-        &mut Source::Func(ref _arg_names, ref mut _body) => {
-            let zips = arg_names.iter().zip(arg_types.zip());
-            for (i, an) in arg_names.iter().enumerate() {
-                scope.infer.init_param(i as i16, an, ix.line)?;
+        &mut Source::Func(ref arg_names, ref mut arg_types
+                , ref mut declared_result_type, ref mut body) =>
+        {
+            let zips = arg_names.iter().zip(arg_types.iter());
+            for (i, (an, at)) in zips.enumerate() {
+                scope.infer.init_param(i as i16, an, at, ix.line)?;
             }
             vout!("f({:?}) =>\n{:?}\n", arg_names, body);
             let result_type = typecheck_expr(scope, &mut *body)
@@ -531,9 +531,29 @@ pub fn typecheck_function(_scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
                 .infer
                 .merge_types(&result_type, declared_result_type)
                 .map(|final_type| Type::f(final_args, final_type))
-            Err(TypeErr::Unknowable)
         }
-        &mut Source::RustBlock => Err(TypeErr::Unknowable),
+        &mut Source::RustBlock(ref arg_types, ref result_type) => {
+            if *result_type == Type::Unknown {
+                vout!("rust function result types must be known");
+                return Err(TypeErr::Unknowable);
+            }
+
+            let mut derivable_result = !result_type.is_var();
+            for arg in arg_types.iter() {
+                if *arg == Type::Unknown {
+                    vout!("rust function arg types must be known");
+                    return Err(TypeErr::Unknowable);
+                }
+                if !derivable_result && *arg == *result_type {
+                    derivable_result = true;
+                }
+            }
+            if !derivable_result {
+                vout!("rust func result types must be derivable from inputs");
+                return Err(TypeErr::Unknowable);
+            }
+            Ok(Type::f(arg_types.clone(), result_type.clone()))
+        }
         ref mut src => {
             panic!("Cannot typecheck_function a not function: {:?}", src);
         }

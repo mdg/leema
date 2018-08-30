@@ -440,9 +440,10 @@ pub fn compile_function<'a>(
 ) -> Ixpr
 {
     vout!("compile {}({:?}): {:?}\n", fname, args, ftype);
+    let (argt, result_type) = Type::split_func_ref(ftype);
     if *body == Ast::RustBlock {
         return Ixpr {
-            src: Source::RustBlock,
+            src: Source::RustBlock(argt.clone(), result_type.clone()),
             line: loc.lineno,
         };
     }
@@ -452,7 +453,7 @@ pub fn compile_function<'a>(
         src: ibody.src,
         line: loc.lineno,
     };
-    vout!("compile function {}\n", fname);
+    vout!("compile function {}({:?}): {}\n", fname, argt, result_type);
     let rc_args = args
         .iter()
         .enumerate()
@@ -460,8 +461,9 @@ pub fn compile_function<'a>(
             a.k_clone()
                 .unwrap_or_else(|| Lstr::from(format!("T_param_{}", argi)))
         }).collect();
+    let src = Source::Func(rc_args, argt.clone(), result_type.clone(), Box::new(ibody2));
     Ixpr {
-        src: Source::Func(rc_args, Box::new(ibody2)),
+        src,
         line: loc.lineno,
     }
 }
