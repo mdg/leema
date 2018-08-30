@@ -11,15 +11,15 @@ func bar(x): Int ->
 
 func handle_nonlinear(x: Int, prop: Bool): Str ->
    let c := foo(x)
-   "str interp: $c"
    if
    |c == "tacos" ->
       let d := bar(x)
-      print("tacos are: $d")
+      print("tacos are: $d\n")
    |else ->
       let d := bar(x+1)
-      print("burritos are: $d")
+      print("burritos are: $d\n")
    --
+   "str interp: $c"
 
    failed c
    |#xis4 ->

@@ -517,11 +517,11 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
                     e.add_context(Lstr::from(err_msg))
                 }).unwrap();
 
-            vout!("type is: {}", result_type);
+            vout!("type is: {}\n", result_type);
             vout!("vars:");
             for var in scope.infer.vars() {
                 let typ = scope.infer.vartype(var);
-                vout!("\t{}: {}", var, typ.unwrap());
+                vout!("\t{}: {}\n", var, typ.unwrap());
             }
             let final_args = arg_types
                 .iter()
