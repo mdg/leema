@@ -503,8 +503,6 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
 
 pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
 {
-    vout!("typecheck function({:?}: {:?})", scope.fname, ix.typ);
-    vout!("typescope: {:?}\n", scope);
     match (&mut ix.src, &ix.typ) {
         (
             &mut Source::Func(ref arg_names, ref mut body),
@@ -514,11 +512,11 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             for (i, (an, at)) in zips.enumerate() {
                 scope.infer.init_param(i as i16, an, at, ix.line)?;
             }
-            vout!("f({:?}) =>\n{:?}", arg_names, body);
+            vout!("f({:?}) =>\n{:?}\n", arg_names, body);
             let result_type = typecheck_expr(scope, &mut *body)
                 .map_err(|e| {
                     let err_msg = format!(
-                        "function result type error for: {}",
+                        "function result type error in: {}",
                         scope.fname
                     );
                     e.add_context(Lstr::from(err_msg))
