@@ -8,7 +8,7 @@ use std::rc::Rc;
 use futures::future;
 use futures::stream;
 use mopa;
-use tokio_core::reactor;
+use tokio::reactor;
 
 
 pub trait Rsrc: mopa::Any + fmt::Debug

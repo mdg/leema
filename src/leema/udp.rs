@@ -9,7 +9,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
 use futures::future::Future;
-use tokio_core::net::UdpSocket;
+use tokio::net::UdpSocket;
 
 
 impl Rsrc for UdpSocket

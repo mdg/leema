@@ -9,8 +9,7 @@ extern crate bytes;
 extern crate futures;
 extern crate rand;
 extern crate rustc_serialize;
-extern crate tokio_core;
-extern crate tokio_io;
+extern crate tokio;
 
 #[macro_use]
 mod leema;

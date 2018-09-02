@@ -15,7 +15,7 @@ use futures::future::Future;
 use futures::stream::Stream;
 use futures::task;
 use futures::{Async, Poll};
-use tokio_core::reactor;
+use tokio::reactor;
 
 /*
 Rsrc
@@ -380,7 +380,7 @@ impl IoLoop
             handle: my_handle,
         };
 
-        let result = core.run(my_loop).unwrap();
+        let result = tokio::run(my_loop).unwrap();
         println!("io is done with: {:?}", result);
     }
 }

@@ -15,10 +15,10 @@ use futures::future::Future;
 use futures::sink::Sink;
 use futures::task;
 use futures::{Async, Poll};
-use tokio_core::net::{TcpListener, TcpStream};
-use tokio_core::reactor::Handle;
-use tokio_io::codec::{Decoder, Encoder, Framed};
-use tokio_io::AsyncRead;
+use tokio::net::{TcpListener, TcpStream};
+use tokio::reactor::Handle;
+use tokio::codec::{Decoder, Encoder, Framed};
+use tokio::io::AsyncRead;
 
 
 #[derive(Debug)]
