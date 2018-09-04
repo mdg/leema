@@ -1,8 +1,8 @@
 use leema::code::{Code, Op, OpVec};
 use leema::frame::{Event, Frame, FrameTrace, Parent};
 use leema::list;
-use leema::log;
 use leema::lmap::Lmap;
+use leema::log;
 use leema::lstr::Lstr;
 use leema::reg::Reg;
 use leema::struple::Struple;

@@ -448,9 +448,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             Ok(Type::StrictList(Box::new(last_type)))
         }
         &mut Source::Construple(ref typ, _) => Ok(typ.clone()),
-        &mut Source::Map(_) => {
-            Ok(Type::Map)
-        }
+        &mut Source::Map(_) => Ok(Type::Map),
         &mut Source::Tuple(ref mut items) => {
             let mut item_types = Vec::with_capacity(items.0.len());
             for mut i in &mut items.0 {

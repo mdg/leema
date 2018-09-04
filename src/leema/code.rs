@@ -653,7 +653,11 @@ pub fn make_list_ops(rt: &mut RegTable, items: &Vec<Ixpr>, line: i16) -> Oxpr
     Oxpr { ops: ops, dst: dst }
 }
 
-pub fn make_map_ops(rt: &mut RegTable, _items: &Struple<Ixpr>, line: i16) -> Oxpr
+pub fn make_map_ops(
+    rt: &mut RegTable,
+    _items: &Struple<Ixpr>,
+    line: i16,
+) -> Oxpr
 {
     let dst = rt.dst().clone();
     let ops = vec![(Op::MapCreate(dst.clone()), line)];
