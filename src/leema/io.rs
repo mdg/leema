@@ -4,10 +4,9 @@ use leema::rsrc::{self, Event, IopCtx, Rsrc};
 use leema::val::{MsgVal, Val};
 
 use std;
-use std::cell::RefCell;
 use std::collections::{HashMap, LinkedList};
 use std::io::Write;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 
@@ -104,7 +103,7 @@ pub struct Io
     app_tx: std::sync::mpsc::Sender<AppMsg>,
     worker_tx: HashMap<i64, std::sync::mpsc::Sender<WorkerMsg>>,
     next_rsrc_id: i64,
-    io: Option<Arc<RefCell<Io>>>,
+    io: Option<Arc<Mutex<Io>>>,
     done: bool,
 }
 
@@ -113,7 +112,7 @@ impl Io
     pub fn new(
         app_tx: Sender<AppMsg>,
         msg_rx: Receiver<IoMsg>,
-    ) -> Arc<RefCell<Io>>
+    ) -> Arc<Mutex<Io>>
     {
         let io = Io {
             resource: HashMap::new(),
@@ -125,10 +124,10 @@ impl Io
             io: None,
             done: false,
         };
-        let rcio = Arc::new(RefCell::new(io));
-        let rcio2 = rcio.clone();
-        rcio.borrow_mut().io = Some(rcio2);
-        rcio
+        let mutexio = Arc::new(Mutex::new(io));
+        let mutexio2 = mutexio.clone();
+        mutexio.lock().unwrap().io = Some(mutexio2);
+        mutexio
     }
 
     pub fn run_once(&mut self) -> Poll<MsgVal, MsgVal>
@@ -259,17 +258,17 @@ impl Io
             }
             Event::Future(libfut) => {
                 vout!("handle Event::Future\n");
-                let rcio: Arc<RefCell<Io>> = self.io.clone().unwrap();
+                let rcio: Arc<Mutex<Io>> = self.io.clone().unwrap();
                 let rcio_err = rcio.clone();
                 let iofut = libfut
                     .map(move |ev2| {
                         vout!("handle Event::Future ok\n");
-                        let mut bio = rcio.borrow_mut();
+                        let mut bio = rcio.lock().unwrap();
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
                     }).map_err(move |ev2| {
                         vout!("handle Event::Future map_err\n");
-                        let mut bio = rcio_err.borrow_mut();
+                        let mut bio = rcio_err.lock().unwrap();
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
                     });
@@ -277,12 +276,12 @@ impl Io
             }
             Event::Stream(libstream) => {
                 vout!("handle Event::Stream\n");
-                let rcio: Arc<RefCell<Io>> = self.io.clone().unwrap();
+                let rcio: Arc<Mutex<Io>> = self.io.clone().unwrap();
                 let rcio_err = rcio.clone();
                 let iostream = libstream
                     .into_future()
                     .map(move |(ev2, _str2)| {
-                        let mut bio = rcio.borrow_mut();
+                        let mut bio = rcio.lock().unwrap();
                         bio.handle_event(
                             worker_id,
                             fiber_id,
@@ -291,7 +290,7 @@ impl Io
                         );
                         ()
                     }).map_err(move |(ev2, _str2)| {
-                        let mut bio = rcio_err.borrow_mut();
+                        let mut bio = rcio_err.lock().unwrap();
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
                     });
@@ -360,12 +359,12 @@ impl Io
 
 pub struct IoLoop
 {
-    io: Arc<RefCell<Io>>,
+    io: Arc<Mutex<Io>>,
 }
 
 impl IoLoop
 {
-    pub fn run(rcio: Arc<RefCell<Io>>)
+    pub fn run(rcio: Arc<Mutex<Io>>)
     {
         let my_loop = IoLoop {
             io: rcio,

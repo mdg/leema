@@ -1,10 +1,8 @@
 use leema::io::Io;
 use leema::val::{Type, Val};
 
-use std::cell::RefCell;
 use std::fmt;
-use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use futures::future;
 use futures::stream;
@@ -45,7 +43,7 @@ impl fmt::Debug for Event
 
 pub struct IopCtx
 {
-    rcio: Rc<RefCell<Io>>,
+    rcio: Arc<Mutex<Io>>,
     src_worker_id: i64,
     src_fiber_id: i64,
     rsrc_id: Option<i64>,
@@ -56,7 +54,7 @@ pub struct IopCtx
 impl IopCtx
 {
     pub fn new(
-        rcio: Arc<RefCell<Io>>,
+        rcio: Arc<Mutex<Io>>,
         wid: i64,
         fid: i64,
         rsrc_id: Option<i64>,
