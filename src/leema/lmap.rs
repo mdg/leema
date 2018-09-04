@@ -4,10 +4,7 @@ use std::sync::Arc;
 
 pub type LmapNode = Option<Arc<Lmap>>;
 
-pub struct Lmap
-(
-    Option<Arc<Lmap>>, (Val, Val), Option<Arc<Lmap>>
-);
+pub struct Lmap(Option<Arc<Lmap>>, (Val, Val), Option<Arc<Lmap>>);
 
 impl Lmap
 {
@@ -26,16 +23,18 @@ impl Lmap
             Lmap(ref left, (ref nkey, ref nval), ref right) => {
                 if k < *nkey {
                     let newleft = Lmap::insert(left, k, v);
-                    Some(Arc::new(
-                        Lmap(newleft,
-                            (nkey.clone(), nval.clone()), right.clone())
-                    ))
+                    Some(Arc::new(Lmap(
+                        newleft,
+                        (nkey.clone(), nval.clone()),
+                        right.clone(),
+                    )))
                 } else if k > *nkey {
                     let newright = Lmap::insert(right, k, v);
-                    Some(Arc::new(
-                        Lmap(left.clone(),
-                            (nkey.clone(), nval.clone()), newright)
-                    ))
+                    Some(Arc::new(Lmap(
+                        left.clone(),
+                        (nkey.clone(), nval.clone()),
+                        newright,
+                    )))
                 } else {
                     tree.clone()
                 }
@@ -46,7 +45,7 @@ impl Lmap
     pub fn get<'a>(tree: &'a LmapNode, k: &Val) -> Option<&'a Val>
     {
         if tree.is_none() {
-            return None
+            return None;
         }
         match **tree.as_ref().unwrap() {
             Lmap(ref left, (ref nkey, ref nval), ref right) => {
@@ -61,4 +60,3 @@ impl Lmap
         }
     }
 }
-

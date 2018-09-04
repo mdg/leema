@@ -6,8 +6,8 @@ use leema::val::{MsgVal, Val};
 use std;
 use std::collections::{HashMap, LinkedList};
 use std::io::Write;
-use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{Receiver, Sender};
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use futures::future::Future;
@@ -368,9 +368,7 @@ impl IoLoop
 {
     pub fn run(rcio: Arc<Mutex<Io>>)
     {
-        let my_loop = IoLoop {
-            io: rcio,
-        };
+        let my_loop = IoLoop { io: rcio };
 
         let mut rt = Runtime::new().unwrap();
         let result = rt.block_on(my_loop);
