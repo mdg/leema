@@ -4,17 +4,18 @@ use leema::rsrc::{self, Event, IopCtx, Rsrc};
 use leema::val::{MsgVal, Val};
 
 use std;
+use std::cell::RefCell;
 use std::collections::{HashMap, LinkedList};
 use std::io::Write;
+use std::rc::Rc;
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::{Arc, Mutex};
 use std::thread;
 
 use futures::future::Future;
 use futures::stream::Stream;
 use futures::task;
 use futures::{Async, Poll};
-use tokio::runtime::Runtime;
+use tokio::runtime::current_thread::Runtime;
 
 /*
 Rsrc
@@ -103,7 +104,7 @@ pub struct Io
     app_tx: std::sync::mpsc::Sender<AppMsg>,
     worker_tx: HashMap<i64, std::sync::mpsc::Sender<WorkerMsg>>,
     next_rsrc_id: i64,
-    io: Option<Arc<Mutex<Io>>>,
+    io: Option<Rc<RefCell<Io>>>,
     done: bool,
 }
 
@@ -112,7 +113,7 @@ impl Io
     pub fn new(
         app_tx: Sender<AppMsg>,
         msg_rx: Receiver<IoMsg>,
-    ) -> Arc<Mutex<Io>>
+    ) -> Rc<RefCell<Io>>
     {
         let io = Io {
             resource: HashMap::new(),
@@ -124,10 +125,10 @@ impl Io
             io: None,
             done: false,
         };
-        let mutexio = Arc::new(Mutex::new(io));
-        let mutexio2 = mutexio.clone();
-        mutexio.lock().unwrap().io = Some(mutexio2);
-        mutexio
+        let rcio = Rc::new(RefCell::new(io));
+        let rcio2 = rcio.clone();
+        rcio.borrow_mut().io = Some(rcio2);
+        rcio
     }
 
     pub fn run_once(&mut self) -> Poll<MsgVal, MsgVal>
@@ -258,17 +259,17 @@ impl Io
             }
             Event::Future(libfut) => {
                 vout!("handle Event::Future\n");
-                let rcio: Arc<Mutex<Io>> = self.io.clone().unwrap();
+                let rcio: Rc<RefCell<Io>> = self.io.clone().unwrap();
                 let rcio_err = rcio.clone();
                 let _iofut = libfut
                     .map(move |ev2| {
                         vout!("handle Event::Future ok\n");
-                        let mut bio = rcio.lock().unwrap();
+                        let mut bio = rcio.borrow_mut();
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
                     }).map_err(move |ev2| {
                         vout!("handle Event::Future map_err\n");
-                        let mut bio = rcio_err.lock().unwrap();
+                        let mut bio = rcio_err.borrow_mut();
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
                     });
@@ -277,12 +278,12 @@ impl Io
             }
             Event::Stream(libstream) => {
                 vout!("handle Event::Stream\n");
-                let rcio: Arc<Mutex<Io>> = self.io.clone().unwrap();
+                let rcio: Rc<RefCell<Io>> = self.io.clone().unwrap();
                 let rcio_err = rcio.clone();
                 let _iostream = libstream
                     .into_future()
                     .map(move |(ev2, _str2)| {
-                        let mut bio = rcio.lock().unwrap();
+                        let mut bio = rcio.borrow_mut();
                         bio.handle_event(
                             worker_id,
                             fiber_id,
@@ -291,7 +292,7 @@ impl Io
                         );
                         ()
                     }).map_err(move |(ev2, _str2)| {
-                        let mut bio = rcio_err.lock().unwrap();
+                        let mut bio = rcio_err.borrow_mut();
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
                     });
@@ -361,12 +362,12 @@ impl Io
 
 pub struct IoLoop
 {
-    io: Arc<Mutex<Io>>,
+    io: Rc<RefCell<Io>>,
 }
 
 impl IoLoop
 {
-    pub fn run(rcio: Arc<Mutex<Io>>)
+    pub fn run(rcio: Rc<RefCell<Io>>)
     {
         let my_loop = IoLoop { io: rcio };
 
@@ -384,11 +385,11 @@ impl Future for IoLoop
     fn poll(&mut self) -> Poll<MsgVal, MsgVal>
     {
         task::current().notify();
-        let poll_result = self.io.lock().unwrap().run_once();
-        let opt_iop = self.io.lock().unwrap().take_next_iop();
+        let poll_result = self.io.borrow_mut().run_once();
+        let opt_iop = self.io.borrow_mut().take_next_iop();
         if let Some(iop) = opt_iop {
             let ev = (iop.action)(iop.ctx);
-            self.io.lock().unwrap().handle_event(
+            self.io.borrow_mut().handle_event(
                 iop.src_worker_id,
                 iop.src_fiber_id,
                 iop.rsrc_id,
@@ -444,7 +445,7 @@ pub mod tests
         let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
         let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
 
-        let io = Io::new(app_tx, msg_rx);
+        let rcio = Io::new(app_tx, msg_rx);
 
         let msg_params = MsgVal::new(&Val::Tuple(Struple(params)));
         msg_tx.send(msg::IoMsg::NewWorker(11, worker_tx)).unwrap();
@@ -458,7 +459,7 @@ pub mod tests
             }).unwrap();
         msg_tx.send(msg::IoMsg::Done).unwrap();
 
-        IoLoop::run(io);
+        IoLoop::run(rcio);
 
         worker_rx.try_recv().map(|result_msg| {
             match result_msg {
