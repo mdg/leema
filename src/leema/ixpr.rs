@@ -35,6 +35,7 @@ pub enum Source
     List(Vec<Ixpr>),
     StrMash(Vec<Ixpr>),
     Tuple(Struple<Ixpr>),
+    Map(Struple<Ixpr>),
     Return(Box<Ixpr>),
 }
 
@@ -121,6 +122,14 @@ impl Ixpr
         }
         Ixpr {
             src: Source::Tuple(items),
+            line: lineno,
+        }
+    }
+
+    pub fn new_map(items: Struple<Ixpr>, lineno: i16) -> Ixpr
+    {
+        Ixpr {
+            src: Source::Map(items),
             line: lineno,
         }
     }

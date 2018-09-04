@@ -194,6 +194,14 @@ impl Protomod
             &Ast::Lri(ref mods, Some(ref typs), ref iloc) => {
                 Protomod::preproc_lri_with_types(prog, mp, mods, typs, iloc)
             }
+            &Ast::Map(ref items) => {
+                let pp_items = items
+                    .iter()
+                    .map(|i| {
+                        i.map_x(|x| Protomod::preproc_expr(prog, mp, x, loc))
+                    }).collect();
+                Ast::Map(pp_items)
+            }
             &Ast::Return(ref x, ref loc) => {
                 let px = Protomod::preproc_expr(prog, mp, x, loc);
                 Ast::Return(Box::new(px), *loc)

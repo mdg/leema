@@ -54,6 +54,7 @@ pub enum Op
     MatchPattern(Reg, Val, Reg),
     ListCons(Reg, Reg, Reg),
     ListCreate(Reg),
+    MapCreate(Reg),
     StrCat(Reg, Reg),
     TupleCreate(Reg, i8),
 }
@@ -95,6 +96,7 @@ impl Clone for Op
                 Op::ListCons(dst.clone(), head.clone(), tail.clone())
             }
             &Op::ListCreate(ref dst) => Op::ListCreate(dst.clone()),
+            &Op::MapCreate(ref dst) => Op::MapCreate(dst.clone()),
             &Op::StrCat(ref dst, ref src) => {
                 Op::StrCat(dst.clone(), src.clone())
             }
@@ -342,6 +344,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             Oxpr { ops: ops, dst: dst }
         }
         Source::List(ref items) => make_list_ops(rt, items, input.line),
+        Source::Map(ref items) => make_map_ops(rt, items, input.line),
         Source::Return(ref result) => {
             let mut rops = make_sub_ops(rt, result);
             rops.ops.push((Op::SetResult(rops.dst.clone()), input.line));
@@ -647,6 +650,13 @@ pub fn make_list_ops(rt: &mut RegTable, items: &Vec<Ixpr>, line: i16) -> Oxpr
         ops.push((Op::ListCons(dst.clone(), listops.dst, dst.clone()), i.line));
     }
     rt.pop_dst();
+    Oxpr { ops: ops, dst: dst }
+}
+
+pub fn make_map_ops(rt: &mut RegTable, _items: &Struple<Ixpr>, line: i16) -> Oxpr
+{
+    let dst = rt.dst().clone();
+    let ops = vec![(Op::MapCreate(dst.clone()), line)];
     Oxpr { ops: ops, dst: dst }
 }
 

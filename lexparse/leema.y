@@ -21,6 +21,8 @@ use std::io::{Write};
 %type COLON { SrcLoc }
 %type COMMA { SrcLoc }
 %type ConcatNewline { SrcLoc }
+%type CurlyL { SrcLoc }
+%type CurlyR { SrcLoc }
 %type DBLCOLON { SrcLoc }
 %type DOUBLEDASH { SrcLoc }
 %type ELSE { SrcLoc }
@@ -106,6 +108,7 @@ use std::io::{Write};
 %type mod_type { Ast }
 
 %type list { Ast }
+%type map { Ast }
 %type tuple { Ast }
 %type strexpr { Ast }
 %type strlist { Vec<Ast> }
@@ -508,6 +511,9 @@ term(A) ::= list(B). {
 term(A) ::= lri(B). {
     A = B;
 }
+term(A) ::= map(B). {
+    A = B;
+}
 term(A) ::= VOID. {
     A = Ast::ConstVoid;
 }
@@ -549,6 +555,13 @@ type_term(A) ::= TYPE_VOID. {
 }
 type_term(A) ::= TYPE_VAR(B). {
     A = Ast::TypeVar(Lstr::from(B.data), B.loc);
+}
+
+/* map
+ * {}
+ */
+map(A) ::= CurlyL x_list(B) CurlyR. {
+    A = Ast::Map(B);
 }
 
 list(A) ::= SquareL expr_list(B) SquareR. {

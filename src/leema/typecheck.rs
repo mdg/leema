@@ -90,6 +90,11 @@ impl<'a> CallFrame<'a>
                     self.collect_calls(&i.1);
                 }
             }
+            Source::Map(ref items) => {
+                for i in items.0.iter() {
+                    self.collect_calls(&i.1);
+                }
+            }
             Source::ConstVal(_) => {
                 // nothing to do. constants aren't calls.
             }
@@ -443,6 +448,9 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             Ok(Type::StrictList(Box::new(last_type)))
         }
         &mut Source::Construple(ref typ, _) => Ok(typ.clone()),
+        &mut Source::Map(_) => {
+            Ok(Type::Map)
+        }
         &mut Source::Tuple(ref mut items) => {
             let mut item_types = Vec::with_capacity(items.0.len());
             for mut i in &mut items.0 {

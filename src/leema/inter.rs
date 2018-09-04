@@ -522,6 +522,15 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
                 }).collect();
             Ixpr::new_tuple(Struple(c_items), loc.lineno)
         }
+        &Ast::Map(ref items) => {
+            let c_items = items
+                .iter()
+                .map(|i| {
+                    let ix = compile_expr(scope, i.x_ref().unwrap(), loc);
+                    (i.k_clone(), ix)
+                }).collect();
+            Ixpr::new_map(Struple(c_items), loc.lineno)
+        }
         &Ast::ConstructData(ast::DataType::Struple, ref ast_typ) => {
             let type_lri = Lri::from(&**ast_typ);
             let opt_full_type = scope.proto.func_result_type(&type_lri.localid);

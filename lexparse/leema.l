@@ -137,6 +137,14 @@ void	{ return set_token(yyg, TOKEN_VOID); }
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_SquareR);
 }
+"{"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_CurlyL);
+}
+"}"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_CurlyR);
+}
 ","	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_COMMA);

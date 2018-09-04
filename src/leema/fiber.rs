@@ -2,6 +2,7 @@ use leema::code::{Code, Op, OpVec};
 use leema::frame::{Event, Frame, FrameTrace, Parent};
 use leema::list;
 use leema::log;
+use leema::lmap::Lmap;
 use leema::lstr::Lstr;
 use leema::reg::Reg;
 use leema::struple::Struple;
@@ -92,6 +93,7 @@ impl Fiber
                 self.execute_cons_list(dst, head, tail)
             }
             &Op::ListCreate(ref dst) => self.execute_create_list(dst),
+            &Op::MapCreate(ref dst) => self.execute_create_map(dst),
             &Op::TupleCreate(ref dst, ref sz) => {
                 self.execute_create_tuple(dst, *sz)
             }
@@ -314,6 +316,13 @@ impl Fiber
     pub fn execute_create_list(&mut self, dst: &Reg) -> Event
     {
         self.head.e.set_reg(&dst, list::empty());
+        self.head.pc = self.head.pc + 1;
+        Event::Uneventful
+    }
+
+    pub fn execute_create_map(&mut self, dst: &Reg) -> Event
+    {
+        self.head.e.set_reg(&dst, Val::Map(Lmap::new()));
         self.head.pc = self.head.pc + 1;
         Event::Uneventful
     }

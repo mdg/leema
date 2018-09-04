@@ -217,6 +217,7 @@ pub enum Ast
     List(LinkedList<Ast>),
     Localid(Lstr, SrcLoc),
     Lri(Vec<Lstr>, Option<LinkedList<Ast>>, SrcLoc),
+    Map(LinkedList<Kxpr>),
     Return(Box<Ast>, SrcLoc),
     RustBlock,
     StrExpr(Vec<Ast>, SrcLoc),

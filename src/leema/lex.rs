@@ -77,6 +77,8 @@ impl Token
                 parse::TOKEN_LPAREN => Token::LPAREN(tl),
                 parse::TOKEN_PARENCALL => Token::PARENCALL(tl),
                 parse::TOKEN_COLON => Token::COLON(tl),
+                parse::TOKEN_CurlyL => Token::CurlyL(tl),
+                parse::TOKEN_CurlyR => Token::CurlyR(tl),
                 parse::TOKEN_DBLCOLON => Token::DBLCOLON(tl),
                 parse::TOKEN_COMMA => Token::COMMA(tl),
                 parse::TOKEN_DOT => Token::DOT,
