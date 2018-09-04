@@ -11,6 +11,7 @@ pub mod io;
 pub mod ixpr;
 pub mod lex;
 pub mod list;
+pub mod lmap;
 pub mod loader;
 pub mod lri;
 pub mod lstr;
