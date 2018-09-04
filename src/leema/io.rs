@@ -384,11 +384,11 @@ impl Future for IoLoop
     fn poll(&mut self) -> Poll<MsgVal, MsgVal>
     {
         task::current().notify();
-        let poll_result = self.io.borrow_mut().run_once();
-        let opt_iop = self.io.borrow_mut().take_next_iop();
+        let poll_result = self.io.lock().unwrap().run_once();
+        let opt_iop = self.io.lock().unwrap().take_next_iop();
         if let Some(iop) = opt_iop {
             let ev = (iop.action)(iop.ctx);
-            self.io.borrow_mut().handle_event(
+            self.io.lock().unwrap().handle_event(
                 iop.src_worker_id,
                 iop.src_fiber_id,
                 iop.rsrc_id,

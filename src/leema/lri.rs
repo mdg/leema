@@ -3,7 +3,6 @@ use leema::sendclone::SendClone;
 use leema::val::Type;
 
 use std::fmt;
-use std::rc::Rc;
 
 
 #[derive(Clone)]
@@ -143,8 +142,7 @@ impl<'a> From<&'a Lri> for Lstr
         if i.local_only() {
             return i.local_ref().clone();
         }
-        let str = format!("{}", i);
-        Lstr::Rc(Rc::new(str))
+        Lstr::from(format!("{}", i))
     }
 }
 

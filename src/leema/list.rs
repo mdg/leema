@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::iter::Iterator;
-use std::rc::Rc;
+use std::sync::Arc;
 
 
 #[derive(Debug)]
@@ -48,14 +48,14 @@ pub fn from_vec(items: &Vec<Val>) -> Val
 pub fn cons(head: Val, tail: Val) -> Val
 {
     match tail {
-        Val::Cons(_, _) => Val::Cons(Box::new(head), Rc::new(tail)),
-        Val::Nil => Val::Cons(Box::new(head), Rc::new(Val::Nil)),
+        Val::Cons(_, _) => Val::Cons(Box::new(head), Arc::new(tail)),
+        Val::Nil => Val::Cons(Box::new(head), Arc::new(Val::Nil)),
         Val::Id(_) => {
             // this is used when parsing list patterns
-            Val::Cons(Box::new(head), Rc::new(tail))
+            Val::Cons(Box::new(head), Arc::new(tail))
         }
-        Val::Wildcard => Val::Cons(Box::new(head), Rc::new(tail)),
-        Val::PatternVar(_) => Val::Cons(Box::new(head), Rc::new(tail)),
+        Val::Wildcard => Val::Cons(Box::new(head), Arc::new(tail)),
+        Val::PatternVar(_) => Val::Cons(Box::new(head), Arc::new(tail)),
         _ => {
             panic!("Can't cons to a not list {:?}", tail);
         }
@@ -287,7 +287,7 @@ pub fn reverse(l: &Val) -> Val
     result
 }
 
-pub fn take(l: Val) -> (Val, Rc<Val>)
+pub fn take(l: Val) -> (Val, Arc<Val>)
 {
     match l {
         Val::Cons(head, tail) => (*head, tail),
@@ -300,7 +300,7 @@ pub fn take(l: Val) -> (Val, Rc<Val>)
     }
 }
 
-pub fn take_ref(l: &Val) -> (&Val, &Rc<Val>)
+pub fn take_ref(l: &Val) -> (&Val, &Arc<Val>)
 {
     match l {
         &Val::Cons(ref head, ref tail) => (head, tail),

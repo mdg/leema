@@ -12,7 +12,6 @@ use std::cmp::{Ordering, PartialEq, PartialOrd};
 use std::collections::BTreeMap;
 use std::fmt;
 use std::io::{Error, Write};
-use std::rc::Rc;
 use std::sync::atomic::{self, AtomicBool};
 use std::sync::{Arc, Mutex};
 
@@ -419,11 +418,11 @@ pub enum Val
 {
     Int(i64),
     Str(Lstr),
-    // StrCat(Rc<Val>, Box<Val>),
+    // StrCat(Arc<Val>, Box<Val>),
     Bool(bool),
     Hashtag(Lstr),
     Buffer(Vec<u8>),
-    Cons(Box<Val>, Rc<Val>),
+    Cons(Box<Val>, Arc<Val>),
     Nil,
     Tuple(Struple<Val>),
     Struct(Lri, Struple<Val>),
@@ -441,7 +440,6 @@ pub enum Val
     Type(Type),
     Kind(u8),
     Lib(Arc<LibVal>),
-    LibRc(Rc<LibVal>),
     FuncRef(Lri, Type),
     ResourceRef(i64),
     RustBlock,
@@ -592,11 +590,6 @@ impl Val
         Val::Lib(Arc::new(lv))
     }
 
-    pub fn libval_rc<T: LibVal>(lv: T) -> Val
-    {
-        Val::LibRc(Rc::new(lv))
-    }
-
     pub fn libval_as<T>(&self) -> Option<&T>
     where
         T: LibVal,
@@ -606,10 +599,6 @@ impl Val
                 vout!("lvarc: {:?}\n", lvarc);
                 let lvref: &LibVal = &**lvarc;
                 vout!("lvref: {:?}\n", lvref);
-                lvref.downcast_ref::<T>()
-            }
-            &Val::LibRc(ref lvrc) => {
-                let lvref: &LibVal = &**lvrc;
                 lvref.downcast_ref::<T>()
             }
             _ => None,
@@ -657,7 +646,6 @@ impl Val
             }
             &Val::FuncRef(_, ref typ) => typ.clone(),
             &Val::Lib(ref lv) => lv.get_type(),
-            &Val::LibRc(ref lv) => lv.get_type(),
             &Val::ResourceRef(_) => {
                 panic!("cannot get type of ResourceRef: {:?}", self);
             }
@@ -772,7 +760,7 @@ impl Val
             &Val::Cons(ref head, ref tail) => {
                 Val::Cons(
                     Box::new(head.deep_clone()),
-                    Rc::new(tail.deep_clone()),
+                    Arc::new(tail.deep_clone()),
                 )
             }
             &Val::Nil => Val::Nil,
@@ -908,7 +896,6 @@ impl fmt::Display for Val
             Val::Token(ref typename) => write!(f, "{}", typename),
             Val::Buffer(ref _buf) => write!(f, "Buffer"),
             Val::Lib(ref lv) => write!(f, "LibVal({:?})", lv),
-            Val::LibRc(ref lv) => write!(f, "LibValRc({:?})", lv),
             Val::ResourceRef(rid) => write!(f, "ResourceRef({})", rid),
             Val::RustBlock => write!(f, "RustBlock"),
             Val::Failure(ref tag, ref msg, ref stack, _status) => {
@@ -958,7 +945,6 @@ impl fmt::Debug for Val
             }
             Val::Token(ref name) => write!(f, "Token({:?})", name),
             Val::Lib(ref lv) => write!(f, "LibVal({:?})", lv),
-            Val::LibRc(ref lv) => write!(f, "LibValRc({:?})", lv),
             Val::ResourceRef(rid) => write!(f, "ResourceRef({})", rid),
             Val::RustBlock => write!(f, "RustBlock"),
             Val::Failure(ref tag, ref msg, ref stack, status) => {

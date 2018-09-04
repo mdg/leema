@@ -12,6 +12,7 @@ use std::collections::{HashMap, HashSet, LinkedList};
 use std::fmt;
 use std::io::Write;
 use std::rc::Rc;
+use std::sync::Arc;
 
 
 /*
@@ -729,7 +730,7 @@ pub fn compile_pattern(
                     panic!("invalid pattern tail: {:?}", tail);
                 }
             };
-            Val::Cons(Box::new(chead), Rc::new(ctail))
+            Val::Cons(Box::new(chead), Arc::new(ctail))
         }
         &Ast::List(ref items) => {
             let c_items: Vec<Val> = items
