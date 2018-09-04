@@ -318,7 +318,7 @@ impl<'a> From<&'a TypeErr> for String
 pub type TypeResult = Result<Type, TypeErr>;
 
 
-pub trait LibVal: mopa::Any + fmt::Debug
+pub trait LibVal: mopa::Any + fmt::Debug + Send + Sync
 {
     fn get_type(&self) -> Type;
 }

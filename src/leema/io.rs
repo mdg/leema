@@ -260,7 +260,7 @@ impl Io
                 vout!("handle Event::Future\n");
                 let rcio: Arc<Mutex<Io>> = self.io.clone().unwrap();
                 let rcio_err = rcio.clone();
-                let iofut = libfut
+                let _iofut = libfut
                     .map(move |ev2| {
                         vout!("handle Event::Future ok\n");
                         let mut bio = rcio.lock().unwrap();
@@ -273,12 +273,13 @@ impl Io
                         ()
                     });
                 vout!("spawn new future\n");
+                println!("how to spawn new futures?");
             }
             Event::Stream(libstream) => {
                 vout!("handle Event::Stream\n");
                 let rcio: Arc<Mutex<Io>> = self.io.clone().unwrap();
                 let rcio_err = rcio.clone();
-                let iostream = libstream
+                let _iostream = libstream
                     .into_future()
                     .map(move |(ev2, _str2)| {
                         let mut bio = rcio.lock().unwrap();
@@ -294,6 +295,7 @@ impl Io
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
                     });
+                println!("how to spawn new streams?");
             }
         }
     }
@@ -370,7 +372,7 @@ impl IoLoop
             io: rcio,
         };
 
-        let rt = Runtime::new().unwrap();
+        let mut rt = Runtime::new().unwrap();
         let result = rt.block_on(my_loop);
         println!("io is done: {:?}", result);
     }

@@ -21,7 +21,7 @@ impl Rsrc for UdpSocket
 }
 
 
-pub fn udp_socket(ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn udp_socket(_ctx: rsrc::IopCtx) -> rsrc::Event
 {
     let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
     let rsock = UdpSocket::bind(&sock_addr).unwrap();

@@ -9,7 +9,7 @@ use futures::stream;
 use mopa;
 
 
-pub trait Rsrc: mopa::Any + fmt::Debug
+pub trait Rsrc: mopa::Any + fmt::Debug + Send + Sync
 {
     fn get_type(&self) -> Type;
 }
