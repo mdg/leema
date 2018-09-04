@@ -24,7 +24,7 @@ impl Rsrc for UdpSocket
 pub fn udp_socket(ctx: rsrc::IopCtx) -> rsrc::Event
 {
     let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
-    let rsock = UdpSocket::bind(&sock_addr, &ctx.handle()).unwrap();
+    let rsock = UdpSocket::bind(&sock_addr).unwrap();
     rsrc::Event::NewRsrc(Box::new(rsock), None)
 }
 
@@ -35,7 +35,7 @@ pub fn udp_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let port = ctx.take_param(1).unwrap().to_int() as u16;
     let sock_addr =
         SocketAddr::new(IpAddr::from_str(sock_addr_str.str()).unwrap(), port);
-    let rsock = UdpSocket::bind(&sock_addr, &ctx.handle()).unwrap();
+    let rsock = UdpSocket::bind(&sock_addr).unwrap();
     rsrc::Event::NewRsrc(Box::new(rsock), None)
 }
 
@@ -76,7 +76,7 @@ pub fn udp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let dst_addr =
         SocketAddr::new(IpAddr::from_str(dst_ip.str()).unwrap(), dst_port);
     let fut = Box::new(
-        sock.send_dgram(msg, dst_addr)
+        sock.send_dgram(msg, &dst_addr)
             .map(move |(sock2, _buff)| {
                 let sockr: Box<Rsrc> = Box::new(sock2) as Box<Rsrc>;
                 rsrc::Event::Result(Val::Int(0), Some(sockr))

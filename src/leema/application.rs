@@ -70,8 +70,8 @@ impl Application
         let app_send = self.app_send.clone();
         let io_recv = self.io_recv.take().unwrap();
         let handle = thread::spawn(move || {
-            let (rcio, core) = Io::new(app_send, io_recv);
-            IoLoop::run(core, rcio);
+            let rcio = Io::new(app_send, io_recv);
+            IoLoop::run(rcio);
         });
         handle
     }

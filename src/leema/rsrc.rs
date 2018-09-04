@@ -4,11 +4,11 @@ use leema::val::{Type, Val};
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use futures::future;
 use futures::stream;
 use mopa;
-use tokio::reactor;
 
 
 pub trait Rsrc: mopa::Any + fmt::Debug
@@ -56,7 +56,7 @@ pub struct IopCtx
 impl IopCtx
 {
     pub fn new(
-        rcio: Rc<RefCell<Io>>,
+        rcio: Arc<RefCell<Io>>,
         wid: i64,
         fid: i64,
         rsrc_id: Option<i64>,
@@ -80,11 +80,6 @@ impl IopCtx
             rsrc: rsrc,
             params: params,
         }
-    }
-
-    pub fn handle(&self) -> reactor::Handle
-    {
-        self.rcio.borrow().handle.clone()
     }
 
     pub fn init_rsrc(&mut self, rsrc: Box<Rsrc>)

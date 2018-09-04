@@ -7,7 +7,7 @@ use std;
 use std::cell::RefCell;
 use std::collections::{HashMap, LinkedList};
 use std::io::Write;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 
@@ -15,7 +15,7 @@ use futures::future::Future;
 use futures::stream::Stream;
 use futures::task;
 use futures::{Async, Poll};
-use tokio::reactor;
+use tokio::runtime::Runtime;
 
 /*
 Rsrc
@@ -99,13 +99,12 @@ impl RsrcQueue
 pub struct Io
 {
     resource: HashMap<i64, RsrcQueue>,
-    pub handle: reactor::Handle,
     next: LinkedList<Iop>,
     msg_rx: std::sync::mpsc::Receiver<IoMsg>,
     app_tx: std::sync::mpsc::Sender<AppMsg>,
     worker_tx: HashMap<i64, std::sync::mpsc::Sender<WorkerMsg>>,
     next_rsrc_id: i64,
-    io: Option<Rc<RefCell<Io>>>,
+    io: Option<Arc<RefCell<Io>>>,
     done: bool,
 }
 
@@ -114,13 +113,10 @@ impl Io
     pub fn new(
         app_tx: Sender<AppMsg>,
         msg_rx: Receiver<IoMsg>,
-    ) -> (Rc<RefCell<Io>>, reactor::Core)
+    ) -> Arc<RefCell<Io>>
     {
-        let core = reactor::Core::new().unwrap();
-        let h = core.handle();
         let io = Io {
             resource: HashMap::new(),
-            handle: h,
             next: LinkedList::new(),
             msg_rx: msg_rx,
             app_tx: app_tx,
@@ -129,19 +125,19 @@ impl Io
             io: None,
             done: false,
         };
-        let rcio = Rc::new(RefCell::new(io));
+        let rcio = Arc::new(RefCell::new(io));
         let rcio2 = rcio.clone();
         rcio.borrow_mut().io = Some(rcio2);
-        (rcio, core)
+        rcio
     }
 
-    pub fn run_once(&mut self) -> Poll<Val, Val>
+    pub fn run_once(&mut self) -> Poll<MsgVal, MsgVal>
     {
         if let Ok(incoming) = self.msg_rx.try_recv() {
             self.handle_incoming(incoming);
         }
         if self.done {
-            Ok(Async::Ready(Val::Int(1)))
+            Ok(Async::Ready(MsgVal::new(&Val::Int(0))))
         } else {
             Ok(Async::NotReady)
         }
@@ -263,7 +259,7 @@ impl Io
             }
             Event::Future(libfut) => {
                 vout!("handle Event::Future\n");
-                let rcio: Rc<RefCell<Io>> = self.io.clone().unwrap();
+                let rcio: Arc<RefCell<Io>> = self.io.clone().unwrap();
                 let rcio_err = rcio.clone();
                 let iofut = libfut
                     .map(move |ev2| {
@@ -278,11 +274,10 @@ impl Io
                         ()
                     });
                 vout!("spawn new future\n");
-                self.handle.spawn(iofut);
             }
             Event::Stream(libstream) => {
                 vout!("handle Event::Stream\n");
-                let rcio: Rc<RefCell<Io>> = self.io.clone().unwrap();
+                let rcio: Arc<RefCell<Io>> = self.io.clone().unwrap();
                 let rcio_err = rcio.clone();
                 let iostream = libstream
                     .into_future()
@@ -300,7 +295,6 @@ impl Io
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
                     });
-                self.handle.spawn(iostream);
             }
         }
     }
@@ -366,31 +360,29 @@ impl Io
 
 pub struct IoLoop
 {
-    handle: reactor::Handle,
-    io: Rc<RefCell<Io>>,
+    io: Arc<RefCell<Io>>,
 }
 
 impl IoLoop
 {
-    pub fn run(mut core: reactor::Core, rcio: Rc<RefCell<Io>>)
+    pub fn run(rcio: Arc<RefCell<Io>>)
     {
-        let my_handle = rcio.borrow().handle.clone();
         let my_loop = IoLoop {
             io: rcio,
-            handle: my_handle,
         };
 
-        let result = tokio::run(my_loop).unwrap();
-        println!("io is done with: {:?}", result);
+        let rt = Runtime::new().unwrap();
+        let result = rt.block_on(my_loop);
+        println!("io is done: {:?}", result);
     }
 }
 
 impl Future for IoLoop
 {
-    type Item = Val;
-    type Error = Val;
+    type Item = MsgVal;
+    type Error = MsgVal;
 
-    fn poll(&mut self) -> Poll<Val, Val>
+    fn poll(&mut self) -> Poll<MsgVal, MsgVal>
     {
         task::current().notify();
         let poll_result = self.io.borrow_mut().run_once();
