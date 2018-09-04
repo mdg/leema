@@ -143,6 +143,17 @@ fn real_main() -> i32
         app.run();
         let result = app.wait_for_result();
         return Application::handle_result(result) as i32;
+    } else if args.arg_cmd == "http" {
+        /*
+        let prog = program::Lib::new(inter);
+        let mut app = Application::new(prog);
+        app.set_args(leema_args);
+        app.run();
+        let http = Http::new();
+        let result = app.wait_for_result();
+        return Application::handle_result(result) as i32;
+        */
+        return 1;
     } else {
         println!("invalid command: {:?}", args.arg_cmd);
         return 1;
