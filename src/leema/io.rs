@@ -446,7 +446,7 @@ pub mod tests
         let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
         let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
 
-        let (io, core) = Io::new(app_tx, msg_rx);
+        let io = Io::new(app_tx, msg_rx);
 
         let msg_params = MsgVal::new(&Val::Tuple(Struple(params)));
         msg_tx.send(msg::IoMsg::NewWorker(11, worker_tx)).unwrap();
@@ -460,7 +460,7 @@ pub mod tests
             }).unwrap();
         msg_tx.send(msg::IoMsg::Done).unwrap();
 
-        IoLoop::run(core, io);
+        IoLoop::run(io);
 
         worker_rx.try_recv().map(|result_msg| {
             match result_msg {
@@ -479,7 +479,7 @@ pub mod tests
         let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
         // let worker_tx = HashMap::new();
 
-        let (_, _) = Io::new(app_tx, msg_rx);
+        Io::new(app_tx, msg_rx);
     }
 
     #[test]
@@ -496,8 +496,8 @@ pub mod tests
         let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
         let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
 
-        let (io, core) = Io::new(app_tx, msg_rx);
-        let rsrc_id = io.borrow_mut().new_rsrc(Box::new(MockRsrc {}));
+        let io = Io::new(app_tx, msg_rx);
+        let rsrc_id = io.lock().unwrap().new_rsrc(Box::new(MockRsrc {}));
 
         msg_tx.send(msg::IoMsg::NewWorker(8, worker_tx)).unwrap();
         msg_tx
@@ -509,7 +509,7 @@ pub mod tests
                 params: MsgVal::new(&Val::empty_tuple()),
             }).unwrap();
         msg_tx.send(msg::IoMsg::Done).unwrap();
-        IoLoop::run(core, io);
+        IoLoop::run(io);
 
         let resp = worker_rx.try_recv();
         assert!(resp.is_ok());
