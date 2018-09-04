@@ -1,5 +1,6 @@
 use leema::frame::FrameTrace;
 use leema::list;
+use leema::lmap::LmapNode;
 use leema::log;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
@@ -54,6 +55,7 @@ pub enum Type
     // base interface/type should probably be iterator
     // and then it should be a protocol, not type
     StrictList(Box<Type>),
+    Map,
     UserDef(Lri),
     Lib(String),
     Resource(Lstr),
@@ -61,9 +63,6 @@ pub enum Type
     Param(i8),
     // Future(Box<Type>),
     Void,
-    /*
-    Map(Box<Type>, Box<Type>),
-    */
     Kind,
     Any,
 
@@ -220,6 +219,7 @@ impl fmt::Display for Type
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
+            &Type::Map => write!(f, "Map"),
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
             &Type::Resource(ref name) => write!(f, "{}", &name),
             &Type::RustBlock => write!(f, "RustBlock"),
@@ -257,6 +257,7 @@ impl fmt::Debug for Type
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
+            &Type::Map => write!(f, "Map"),
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
             &Type::Resource(ref name) => write!(f, "Resource({})", &name),
             &Type::RustBlock => write!(f, "RustBlock"),
@@ -430,6 +431,7 @@ pub enum Val
     EnumStruct(Lri, Lstr, Struple<Val>),
     EnumToken(Lri, Lstr),
     Token(Lri),
+    Map(LmapNode),
     Failure(
         Box<Val>, // tag
         Box<Val>, // msg
@@ -636,6 +638,7 @@ impl Val
             &Val::Id(_) => Type::AnonVar,
             &Val::Lri(_) => Type::AnonVar,
             &Val::RustBlock => Type::RustBlock,
+            &Val::Map(_) => Type::Map,
             &Val::Tuple(ref items) if items.0.len() == 1 => {
                 items.0.get(0).unwrap().1.get_type()
             }
@@ -906,6 +909,7 @@ impl fmt::Display for Val
             }
             Val::EnumToken(_, ref var_name) => write!(f, "{}", var_name),
             Val::Token(ref typename) => write!(f, "{}", typename),
+            Val::Map(ref map) => write!(f, "Map({:?})", map),
             Val::Buffer(ref _buf) => write!(f, "Buffer"),
             Val::Lib(ref lv) => write!(f, "LibVal({:?})", lv),
             Val::LibRc(ref lv) => write!(f, "LibValRc({:?})", lv),
@@ -957,6 +961,7 @@ impl fmt::Debug for Val
                 write!(f, "EnumToken({:?}.{:?})", typ, var_name)
             }
             Val::Token(ref name) => write!(f, "Token({:?})", name),
+            Val::Map(ref map) => write!(f, "Map({:?})", map),
             Val::Lib(ref lv) => write!(f, "LibVal({:?})", lv),
             Val::LibRc(ref lv) => write!(f, "LibValRc({:?})", lv),
             Val::ResourceRef(rid) => write!(f, "ResourceRef({})", rid),

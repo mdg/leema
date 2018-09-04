@@ -4,6 +4,8 @@ use std::sync::Arc;
 
 pub type LmapNode = Option<Arc<Lmap>>;
 
+#[derive(Clone)]
+#[derive(Debug)]
 pub struct Lmap
 (
     Option<Arc<Lmap>>, (Val, Val), Option<Arc<Lmap>>
