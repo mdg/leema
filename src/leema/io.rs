@@ -501,7 +501,7 @@ pub mod tests
         let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
 
         let io = Io::new(app_tx, msg_rx);
-        let rsrc_id = io.lock().unwrap().new_rsrc(Box::new(MockRsrc {}));
+        let rsrc_id = io.borrow_mut().new_rsrc(Box::new(MockRsrc {}));
 
         msg_tx.send(msg::IoMsg::NewWorker(8, worker_tx)).unwrap();
         msg_tx
