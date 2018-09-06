@@ -283,7 +283,7 @@ impl Io
                 vout!("handle Event::Stream\n");
                 let rcio: Rc<RefCell<Io>> = self.io.clone().unwrap();
                 let rcio_err = rcio.clone();
-                let _iostream = libstream
+                let iostream = libstream
                     .into_future()
                     .map(move |(ev2, _str2)| {
                         let mut bio = rcio.borrow_mut();
@@ -299,7 +299,9 @@ impl Io
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
                     });
-                println!("how to spawn new streams?");
+                vout!("spawn new stream\n");
+                TaskExecutor::current().spawn_local(Box::new(iostream))
+                    .expect("spawn local failure");
             }
         }
     }
@@ -374,7 +376,7 @@ impl IoLoop
     {
         let my_loop = IoLoop { io: rcio };
 
-        let mut rt = Runtime::new().unwrap();
+        let mut rt = current_thread::Runtime::new().unwrap();
         let result = rt.block_on(my_loop);
         println!("io is done: {:?}", result);
     }

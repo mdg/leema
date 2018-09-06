@@ -31,7 +31,7 @@ impl fmt::Debug for Event
     {
         match *self {
             Event::Future(_) => write!(f, "Event::Future"),
-            Event::Stream(_) => write!(f, "Event::Future"),
+            Event::Stream(_) => write!(f, "Event::Stream"),
             Event::NewRsrc(ref r, ref prevr) => {
                 write!(f, "Event::Rsrc({:?}, {:?})", r, prevr)
             }

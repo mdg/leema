@@ -55,7 +55,8 @@ pub fn udp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
             let result_val = Val::Str(Lstr::from(utf8_result.unwrap()));
             let irsrc: Box<Rsrc> = Box::new(isock);
             rsrc::Event::Result(result_val, Some(irsrc))
-        }).map_err(|e| {
+        })
+        .map_err(|e| {
             println!("error receiving UdpSocket bytes: {:?}", e);
             rsrc::Event::Result(
                 Val::Str(Lstr::Sref("error receiving UdpSocket str")),
