@@ -268,15 +268,15 @@ impl Io
                         let mut bio = rcio.borrow_mut();
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
-                    })
-                    .map_err(move |ev2| {
+                    }).map_err(move |ev2| {
                         vout!("handle Event::Future map_err\n");
                         let mut bio = rcio_err.borrow_mut();
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
                     });
                 vout!("spawn new future\n");
-                TaskExecutor::current().spawn_local(Box::new(iofut))
+                TaskExecutor::current()
+                    .spawn_local(Box::new(iofut))
                     .expect("spawn local failure");
             }
             Event::Stream(libstream) => {
@@ -300,7 +300,8 @@ impl Io
                         ()
                     });
                 vout!("spawn new stream\n");
-                TaskExecutor::current().spawn_local(Box::new(iostream))
+                TaskExecutor::current()
+                    .spawn_local(Box::new(iostream))
                     .expect("spawn local failure");
             }
         }
