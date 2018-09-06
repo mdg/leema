@@ -10,6 +10,7 @@ extern crate futures;
 extern crate rand;
 extern crate rustc_serialize;
 extern crate tokio;
+extern crate tokio_current_thread;
 
 #[macro_use]
 mod leema;

@@ -15,7 +15,8 @@ use futures::future::Future;
 use futures::stream::Stream;
 use futures::task;
 use futures::{Async, Poll};
-use tokio::runtime::current_thread::Runtime;
+use tokio::runtime::current_thread;
+use tokio_current_thread::TaskExecutor;
 
 /*
 Rsrc
@@ -261,20 +262,22 @@ impl Io
                 vout!("handle Event::Future\n");
                 let rcio: Rc<RefCell<Io>> = self.io.clone().unwrap();
                 let rcio_err = rcio.clone();
-                let _iofut = libfut
+                let iofut = libfut
                     .map(move |ev2| {
                         vout!("handle Event::Future ok\n");
                         let mut bio = rcio.borrow_mut();
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
-                    }).map_err(move |ev2| {
+                    })
+                    .map_err(move |ev2| {
                         vout!("handle Event::Future map_err\n");
                         let mut bio = rcio_err.borrow_mut();
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
                     });
                 vout!("spawn new future\n");
-                println!("how to spawn new futures?");
+                TaskExecutor::current().spawn_local(Box::new(iofut))
+                    .expect("spawn local failure");
             }
             Event::Stream(libstream) => {
                 vout!("handle Event::Stream\n");
