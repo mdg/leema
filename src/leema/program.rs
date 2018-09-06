@@ -103,8 +103,6 @@ impl Lib
         if !self.inter.contains_key(modname) {
             let inter = self.read_inter(modname);
             self.inter.insert(modname.clone(), inter);
-            // maybe this shouldn't happen until typechecking?
-            self.init_typemod(modname);
         }
     }
 
@@ -127,6 +125,7 @@ impl Lib
         if !self.proto.contains_key(modname) {
             let proto = self.read_proto(modname);
             self.proto.insert(modname.clone(), Rc::new(proto));
+            self.init_typemod(modname);
         }
     }
 
