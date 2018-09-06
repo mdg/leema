@@ -67,10 +67,10 @@ pub fn udp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
 
 pub fn udp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
-    vout!("udp_send()\n");
     let sock: UdpSocket = ctx.take_rsrc();
     let dst_ip = ctx.take_param(1).unwrap();
     let dst_port = ctx.take_param(2).unwrap().to_int() as u16;
+    vout!("udp_send({}, {})\n", dst_ip, dst_port);
     let msg = ctx.take_param(3).unwrap().to_string();
 
     let dst_addr =
