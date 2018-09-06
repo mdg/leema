@@ -15,10 +15,9 @@ use futures::future::Future;
 use futures::sink::Sink;
 use futures::task;
 use futures::{Async, Poll};
-use tokio_core::net::{TcpListener, TcpStream};
-use tokio_core::reactor::Handle;
-use tokio_io::codec::{Decoder, Encoder, Framed};
-use tokio_io::AsyncRead;
+use tokio::net::{TcpListener, TcpStream};
+use tokio::codec::{Decoder, Encoder, Framed};
+use tokio::io::AsyncRead;
 
 
 #[derive(Debug)]
@@ -54,6 +53,25 @@ impl Decoder for TcpValCodec
     }
 }
 
+/*
+impl io::Read for TcpValCodec
+{
+    fn(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error>
+    {
+        l
+        match self {
+            _ => {
+                panic!("cannot read into not buffer: {:?}", self);
+            }
+        }
+    }
+}
+
+impl AsyncRead for TcpValCodec
+{
+}
+*/
+
 impl Rsrc for Framed<Box<TcpStream>, TcpValCodec>
 {
     fn get_type(&self) -> Type
@@ -81,7 +99,6 @@ impl Rsrc for TcpListener
 struct Acceptor
 {
     listener: Option<TcpListener>,
-    handle: Handle,
 }
 
 impl Future for Acceptor
@@ -93,23 +110,15 @@ impl Future for Acceptor
         &mut self,
     ) -> Poll<(TcpListener, TcpStream, SocketAddr), (TcpListener, std::io::Error)>
     {
-        let accept_result = { self.listener.as_mut().unwrap().accept() };
+        let accept_result = { self.listener.as_mut().unwrap().poll_accept() };
         match accept_result {
-            Ok((sock, addr)) => {
+            Async::Ready((sock, addr)) => {
                 let listener = self.listener.take().unwrap();
                 Ok(Async::Ready((listener, sock, addr)))
             }
-            Err(e) => {
-                match e.kind() {
-                    io::ErrorKind::WouldBlock => {
-                        task::current().notify();
-                        Ok(Async::NotReady)
-                    }
-                    _ => {
-                        let listener = self.listener.take().unwrap();
-                        Err((listener, e))
-                    }
-                }
+            Async::NotReady => {
+                task::current().notify();
+                Ok(Async::NotReady)
             }
         }
     }
@@ -166,13 +175,12 @@ pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
         SocketAddr::new(IpAddr::from_str(sock_addr_str.str()).unwrap(), port)
     };
 
-    let handle = ctx.handle().clone();
-    let fut = TcpStream::connect(&sock_addr, &handle)
+    let fut = TcpStream::connect(&sock_addr)
         .map(move |sock| {
             vout!("tcp connected");
             let codec = TcpValCodec {};
             let box_sock = Box::new(sock);
-            let framed = AsyncRead::framed(box_sock, codec);
+            let framed = Decoder::framed(box_sock, codec);
             rsrc::Event::NewRsrc(Box::new(framed), None)
         }).map_err(move |_| {
             rsrc::Event::Result(
@@ -190,8 +198,7 @@ pub fn tcp_listen(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let port = ctx.take_param(1).unwrap().to_int() as u16;
     let sock_addr =
         SocketAddr::new(IpAddr::from_str(ip_str.str()).unwrap(), port);
-    let handle = ctx.handle().clone();
-    let listen_result = TcpListener::bind(&sock_addr, &handle);
+    let listen_result = TcpListener::bind(&sock_addr);
     let listener: TcpListener = listen_result.unwrap();
     rsrc::Event::NewRsrc(Box::new(listener), None)
 }
@@ -203,7 +210,6 @@ pub fn tcp_accept(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let acc =
         Acceptor {
             listener: Some(listener),
-            handle: ctx.handle().clone(),
         }.map(|(_ilistener, sock, _addr)| {
             rsrc::Event::NewRsrc(Box::new(sock), None)
         }).map_err(|_| {

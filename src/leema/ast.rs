@@ -5,7 +5,6 @@ use leema::val::SrcLoc;
 use leema::val::Type;
 
 use std::collections::LinkedList;
-use std::rc::Rc;
 
 /*
 #[derive(Clone)]
@@ -391,7 +390,7 @@ impl<'a> From<&'a Ast> for Lstr
                     items.first().unwrap().clone()
                 } else {
                     let new_str = format!("{:?}<{:?}>", items, types);
-                    Lstr::Rc(Rc::new(new_str))
+                    Lstr::from(new_str)
                 }
             }
             _ => {

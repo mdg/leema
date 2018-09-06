@@ -8,10 +8,9 @@ use std::rc::Rc;
 use futures::future;
 use futures::stream;
 use mopa;
-use tokio_core::reactor;
 
 
-pub trait Rsrc: mopa::Any + fmt::Debug
+pub trait Rsrc: mopa::Any + fmt::Debug + Send + Sync
 {
     fn get_type(&self) -> Type;
 }
@@ -32,7 +31,7 @@ impl fmt::Debug for Event
     {
         match *self {
             Event::Future(_) => write!(f, "Event::Future"),
-            Event::Stream(_) => write!(f, "Event::Future"),
+            Event::Stream(_) => write!(f, "Event::Stream"),
             Event::NewRsrc(ref r, ref prevr) => {
                 write!(f, "Event::Rsrc({:?}, {:?})", r, prevr)
             }
@@ -80,11 +79,6 @@ impl IopCtx
             rsrc: rsrc,
             params: params,
         }
-    }
-
-    pub fn handle(&self) -> reactor::Handle
-    {
-        self.rcio.borrow().handle.clone()
     }
 
     pub fn init_rsrc(&mut self, rsrc: Box<Rsrc>)

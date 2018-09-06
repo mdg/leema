@@ -12,7 +12,7 @@ use leema::module::{ModulePreface, ModuleSource};
 use leema::phase0::{self, Protomod};
 use leema::typecheck::{self, CallFrame, CallOp, Typemod, Typescope};
 use leema::val::Type;
-use leema::{file, prefab, tcp, udp};
+use leema::{file, prefab, udp};
 
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
@@ -55,9 +55,7 @@ impl Lib
         proglib
             .rust_load
             .insert(Lstr::Sref("str"), lib_str::load_rust_func);
-        proglib
-            .rust_load
-            .insert(Lstr::Sref("tcp"), tcp::load_rust_func);
+        // proglib.rust_load.insert(Lstr::Sref("tcp"), tcp::load_rust_func);
         proglib
             .rust_load
             .insert(Lstr::Sref("udp"), udp::load_rust_func);

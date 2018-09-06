@@ -12,7 +12,7 @@ use leema::val::{Type, Val};
 use std::fmt;
 use std::io::Write;
 use std::marker;
-use std::rc::Rc;
+use std::sync::Arc;
 
 
 #[derive(Debug)]
@@ -556,7 +556,7 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
         &Val::Cons(ref head, ref tail) => {
             let pr_head = assign_pattern_registers(rt, head);
             let pr_tail = assign_pattern_registers(rt, tail);
-            Val::Cons(Box::new(pr_head), Rc::new(pr_tail))
+            Val::Cons(Box::new(pr_head), Arc::new(pr_tail))
         }
         &Val::Tuple(ref vars) => {
             let reg_items = vars

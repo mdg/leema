@@ -15,7 +15,8 @@ use futures::future::Future;
 use futures::stream::Stream;
 use futures::task;
 use futures::{Async, Poll};
-use tokio_core::reactor;
+use tokio::runtime::current_thread;
+use tokio_current_thread::TaskExecutor;
 
 /*
 Rsrc
@@ -99,7 +100,6 @@ impl RsrcQueue
 pub struct Io
 {
     resource: HashMap<i64, RsrcQueue>,
-    pub handle: reactor::Handle,
     next: LinkedList<Iop>,
     msg_rx: std::sync::mpsc::Receiver<IoMsg>,
     app_tx: std::sync::mpsc::Sender<AppMsg>,
@@ -114,13 +114,10 @@ impl Io
     pub fn new(
         app_tx: Sender<AppMsg>,
         msg_rx: Receiver<IoMsg>,
-    ) -> (Rc<RefCell<Io>>, reactor::Core)
+    ) -> Rc<RefCell<Io>>
     {
-        let core = reactor::Core::new().unwrap();
-        let h = core.handle();
         let io = Io {
             resource: HashMap::new(),
-            handle: h,
             next: LinkedList::new(),
             msg_rx: msg_rx,
             app_tx: app_tx,
@@ -132,16 +129,16 @@ impl Io
         let rcio = Rc::new(RefCell::new(io));
         let rcio2 = rcio.clone();
         rcio.borrow_mut().io = Some(rcio2);
-        (rcio, core)
+        rcio
     }
 
-    pub fn run_once(&mut self) -> Poll<Val, Val>
+    pub fn run_once(&mut self) -> Poll<MsgVal, MsgVal>
     {
         if let Ok(incoming) = self.msg_rx.try_recv() {
             self.handle_incoming(incoming);
         }
         if self.done {
-            Ok(Async::Ready(Val::Int(1)))
+            Ok(Async::Ready(MsgVal::new(&Val::Int(0))))
         } else {
             Ok(Async::NotReady)
         }
@@ -278,7 +275,9 @@ impl Io
                         ()
                     });
                 vout!("spawn new future\n");
-                self.handle.spawn(iofut);
+                TaskExecutor::current()
+                    .spawn_local(Box::new(iofut))
+                    .expect("spawn local failure");
             }
             Event::Stream(libstream) => {
                 vout!("handle Event::Stream\n");
@@ -300,7 +299,10 @@ impl Io
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
                     });
-                self.handle.spawn(iostream);
+                vout!("spawn new stream\n");
+                TaskExecutor::current()
+                    .spawn_local(Box::new(iostream))
+                    .expect("spawn local failure");
             }
         }
     }
@@ -366,31 +368,27 @@ impl Io
 
 pub struct IoLoop
 {
-    handle: reactor::Handle,
     io: Rc<RefCell<Io>>,
 }
 
 impl IoLoop
 {
-    pub fn run(mut core: reactor::Core, rcio: Rc<RefCell<Io>>)
+    pub fn run(rcio: Rc<RefCell<Io>>)
     {
-        let my_handle = rcio.borrow().handle.clone();
-        let my_loop = IoLoop {
-            io: rcio,
-            handle: my_handle,
-        };
+        let my_loop = IoLoop { io: rcio };
 
-        let result = core.run(my_loop).unwrap();
-        println!("io is done with: {:?}", result);
+        let mut rt = current_thread::Runtime::new().unwrap();
+        let result = rt.block_on(my_loop);
+        println!("io is done: {:?}", result);
     }
 }
 
 impl Future for IoLoop
 {
-    type Item = Val;
-    type Error = Val;
+    type Item = MsgVal;
+    type Error = MsgVal;
 
-    fn poll(&mut self) -> Poll<Val, Val>
+    fn poll(&mut self) -> Poll<MsgVal, MsgVal>
     {
         task::current().notify();
         let poll_result = self.io.borrow_mut().run_once();
@@ -453,7 +451,7 @@ pub mod tests
         let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
         let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
 
-        let (io, core) = Io::new(app_tx, msg_rx);
+        let rcio = Io::new(app_tx, msg_rx);
 
         let msg_params = MsgVal::new(&Val::Tuple(Struple(params)));
         msg_tx.send(msg::IoMsg::NewWorker(11, worker_tx)).unwrap();
@@ -467,7 +465,7 @@ pub mod tests
             }).unwrap();
         msg_tx.send(msg::IoMsg::Done).unwrap();
 
-        IoLoop::run(core, io);
+        IoLoop::run(rcio);
 
         worker_rx.try_recv().map(|result_msg| {
             match result_msg {
@@ -486,7 +484,7 @@ pub mod tests
         let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
         // let worker_tx = HashMap::new();
 
-        let (_, _) = Io::new(app_tx, msg_rx);
+        Io::new(app_tx, msg_rx);
     }
 
     #[test]
@@ -503,7 +501,7 @@ pub mod tests
         let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
         let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
 
-        let (io, core) = Io::new(app_tx, msg_rx);
+        let io = Io::new(app_tx, msg_rx);
         let rsrc_id = io.borrow_mut().new_rsrc(Box::new(MockRsrc {}));
 
         msg_tx.send(msg::IoMsg::NewWorker(8, worker_tx)).unwrap();
@@ -516,7 +514,7 @@ pub mod tests
                 params: MsgVal::new(&Val::empty_tuple()),
             }).unwrap();
         msg_tx.send(msg::IoMsg::Done).unwrap();
-        IoLoop::run(core, io);
+        IoLoop::run(io);
 
         let resp = worker_rx.try_recv();
         assert!(resp.is_ok());

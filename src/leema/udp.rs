@@ -9,7 +9,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
 use futures::future::Future;
-use tokio_core::net::UdpSocket;
+use tokio::net::UdpSocket;
 
 
 impl Rsrc for UdpSocket
@@ -21,10 +21,10 @@ impl Rsrc for UdpSocket
 }
 
 
-pub fn udp_socket(ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn udp_socket(_ctx: rsrc::IopCtx) -> rsrc::Event
 {
     let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
-    let rsock = UdpSocket::bind(&sock_addr, &ctx.handle()).unwrap();
+    let rsock = UdpSocket::bind(&sock_addr).unwrap();
     rsrc::Event::NewRsrc(Box::new(rsock), None)
 }
 
@@ -35,7 +35,7 @@ pub fn udp_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let port = ctx.take_param(1).unwrap().to_int() as u16;
     let sock_addr =
         SocketAddr::new(IpAddr::from_str(sock_addr_str.str()).unwrap(), port);
-    let rsock = UdpSocket::bind(&sock_addr, &ctx.handle()).unwrap();
+    let rsock = UdpSocket::bind(&sock_addr).unwrap();
     rsrc::Event::NewRsrc(Box::new(rsock), None)
 }
 
@@ -67,16 +67,16 @@ pub fn udp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
 
 pub fn udp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
-    vout!("udp_send()\n");
     let sock: UdpSocket = ctx.take_rsrc();
     let dst_ip = ctx.take_param(1).unwrap();
     let dst_port = ctx.take_param(2).unwrap().to_int() as u16;
+    vout!("udp_send({}, {})\n", dst_ip, dst_port);
     let msg = ctx.take_param(3).unwrap().to_string();
 
     let dst_addr =
         SocketAddr::new(IpAddr::from_str(dst_ip.str()).unwrap(), dst_port);
     let fut = Box::new(
-        sock.send_dgram(msg, dst_addr)
+        sock.send_dgram(msg, &dst_addr)
             .map(move |(sock2, _buff)| {
                 let sockr: Box<Rsrc> = Box::new(sock2) as Box<Rsrc>;
                 rsrc::Event::Result(Val::Int(0), Some(sockr))
