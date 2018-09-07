@@ -8,7 +8,7 @@ use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
-use futures::{Async, Future, Poll, task};
+use futures::{Async, Future, Poll};
 use tokio::net::UdpSocket;
 
 
@@ -71,14 +71,14 @@ pub fn udp_recv_future(ctx: rsrc::IopCtx) -> rsrc::Event
 println!("udp_recv_future");
     rsrc::Event::Future(Box::new(UdpRecv{
         ctx,
-        buffer: Vec::with_capacity(2048),
+        buffer: Some(vec![0; 2048]),
     }))
 }
 
 struct UdpRecv
 {
     ctx: rsrc::IopCtx,
-    buffer: Vec<u8>,
+    buffer: Option<Vec<u8>>,
 }
 
 impl Future for UdpRecv
@@ -90,7 +90,7 @@ impl Future for UdpRecv
     {
 print!("UdpRecv::poll()\n");
         let mut sock: UdpSocket = self.ctx.take_rsrc();
-        let result = match sock.poll_recv_from(&mut self.buffer) {
+        let result = match sock.poll_recv_from(self.buffer.as_mut().unwrap()) {
             Ok(Async::Ready(ready_result)) => {
 println!("poll_recv_from ready: {:?}", ready_result);
                 ready_result
@@ -98,7 +98,6 @@ println!("poll_recv_from ready: {:?}", ready_result);
             Ok(Async::NotReady) => {
 println!("poll_recv_from notready");
                 self.ctx.init_rsrc(Box::new(sock));
-                task::current().notify();
                 return Ok(Async::NotReady);
             }
             Err(e) => {
@@ -107,7 +106,7 @@ println!("poll_recv_from notready");
         };
         let (nbytes, addr) = result;
         println!("received {} bytes from {}", nbytes, addr);
-        let utf8 = String::from_utf8(self.buffer.clone()).unwrap();
+        let utf8 = String::from_utf8(self.buffer.take().unwrap()).unwrap();
         let str_result = Val::Str(Lstr::from(utf8));
         Ok(Async::Ready(rsrc::Event::Result(str_result, Some(Box::new(sock)))))
     }
