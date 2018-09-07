@@ -138,6 +138,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
     match func_name {
         "udp_bind" => Some(Code::Iop(udp_bind, None)),
         "udp_recv" => Some(Code::Iop(udp_recv, Some(0))),
+        "recv_future" => Some(Code::Iop(udp_recv_future, Some(0))),
         "udp_send" => Some(Code::Iop(udp_send, Some(0))),
         "udp_socket" => Some(Code::Iop(udp_socket, None)),
         _ => None,
