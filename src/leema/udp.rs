@@ -50,7 +50,8 @@ pub fn udp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let sock: UdpSocket = ctx.take_rsrc();
     let fut = sock
         .recv_dgram(buffer)
-        .map(|(isock, ibuf, _nbytes, _src_addr)| {
+        .map(|(isock, ibuf, nbytes, src_addr)| {
+println!("udp_recv.map({:?}, {}, {})", ibuf, nbytes, src_addr);
             let utf8_result = String::from_utf8(ibuf);
             let result_val = Val::Str(Lstr::from(utf8_result.unwrap()));
             let irsrc: Box<Rsrc> = Box::new(isock);
@@ -67,6 +68,7 @@ pub fn udp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
 
 pub fn udp_recv_future(ctx: rsrc::IopCtx) -> rsrc::Event
 {
+println!("udp_recv_future");
     rsrc::Event::Future(Box::new(UdpRecv{
         ctx,
         buffer: Vec::with_capacity(2048),
@@ -86,12 +88,15 @@ impl Future for UdpRecv
 
     fn poll(&mut self) -> Poll<rsrc::Event, rsrc::Event>
     {
+print!("UdpRecv::poll()\n");
         let mut sock: UdpSocket = self.ctx.take_rsrc();
         let result = match sock.poll_recv_from(&mut self.buffer) {
             Ok(Async::Ready(ready_result)) => {
+println!("poll_recv_from ready: {:?}", ready_result);
                 ready_result
             }
             Ok(Async::NotReady) => {
+println!("poll_recv_from notready");
                 self.ctx.init_rsrc(Box::new(sock));
                 task::current().notify();
                 return Ok(Async::NotReady);
@@ -100,6 +105,8 @@ impl Future for UdpRecv
                 panic!("io error: {:?}", e);
             }
         };
+        let (nbytes, addr) = result;
+        println!("received {} bytes from {}", nbytes, addr);
         let utf8 = String::from_utf8(self.buffer.clone()).unwrap();
         let str_result = Val::Str(Lstr::from(utf8));
         Ok(Async::Ready(rsrc::Event::Result(str_result, Some(Box::new(sock)))))
