@@ -3,7 +3,7 @@ import udp
 
 func read_data(): Str ->
    let sock := udp::udp_bind("0.0.0.0", 3999)
-   udp::udp_recv(sock)
+   udp::recv(sock)
 --
 
 func main() ->

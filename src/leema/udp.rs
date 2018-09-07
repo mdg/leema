@@ -39,36 +39,9 @@ pub fn udp_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
     rsrc::Event::NewRsrc(Box::new(rsock), None)
 }
 
-/**
- * udp_recv(sock)
- */
-pub fn udp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn udp_recv(ctx: rsrc::IopCtx) -> rsrc::Event
 {
-    vout!("udp_recv()\n");
-
-    let buffer: Vec<u8> = Vec::with_capacity(2048);
-    let sock: UdpSocket = ctx.take_rsrc();
-    let fut = sock
-        .recv_dgram(buffer)
-        .map(|(isock, ibuf, nbytes, src_addr)| {
-println!("udp_recv.map({:?}, {}, {})", ibuf, nbytes, src_addr);
-            let utf8_result = String::from_utf8(ibuf);
-            let result_val = Val::Str(Lstr::from(utf8_result.unwrap()));
-            let irsrc: Box<Rsrc> = Box::new(isock);
-            rsrc::Event::Result(result_val, Some(irsrc))
-        }).map_err(|e| {
-            println!("error receiving UdpSocket bytes: {:?}", e);
-            rsrc::Event::Result(
-                Val::Str(Lstr::Sref("error receiving UdpSocket str")),
-                None,
-            )
-        });
-    rsrc::Event::Future(Box::new(fut))
-}
-
-pub fn udp_recv_future(ctx: rsrc::IopCtx) -> rsrc::Event
-{
-println!("udp_recv_future");
+    vout!("udp_recv");
     rsrc::Event::Future(Box::new(UdpRecv{
         ctx,
         buffer: Some(vec![0; 2048]),
@@ -88,24 +61,22 @@ impl Future for UdpRecv
 
     fn poll(&mut self) -> Poll<rsrc::Event, rsrc::Event>
     {
-print!("UdpRecv::poll()\n");
+        vout!("UdpRecv::poll()\n");
         let mut sock: UdpSocket = self.ctx.take_rsrc();
-        let result = match sock.poll_recv_from(self.buffer.as_mut().unwrap()) {
+        match sock.poll_recv_from(self.buffer.as_mut().unwrap()) {
             Ok(Async::Ready(ready_result)) => {
-println!("poll_recv_from ready: {:?}", ready_result);
+                vout!("poll_recv_from ready: {:?}", ready_result);
                 ready_result
             }
             Ok(Async::NotReady) => {
-println!("poll_recv_from notready");
+                vout!("poll_recv_from notready");
                 self.ctx.init_rsrc(Box::new(sock));
                 return Ok(Async::NotReady);
             }
             Err(e) => {
-                panic!("io error: {:?}", e);
+                panic!("UdpRecv error: {:?}", e);
             }
         };
-        let (nbytes, addr) = result;
-        println!("received {} bytes from {}", nbytes, addr);
         let utf8 = String::from_utf8(self.buffer.take().unwrap()).unwrap();
         let str_result = Val::Str(Lstr::from(utf8));
         Ok(Async::Ready(rsrc::Event::Result(str_result, Some(Box::new(sock)))))
@@ -143,8 +114,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
         "udp_bind" => Some(Code::Iop(udp_bind, None)),
-        "udp_recv" => Some(Code::Iop(udp_recv, Some(0))),
-        "recv_future" => Some(Code::Iop(udp_recv_future, Some(0))),
+        "recv" => Some(Code::Iop(udp_recv, Some(0))),
         "udp_send" => Some(Code::Iop(udp_send, Some(0))),
         "udp_socket" => Some(Code::Iop(udp_socket, None)),
         _ => None,

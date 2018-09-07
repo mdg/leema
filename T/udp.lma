@@ -7,8 +7,7 @@ func udp_socket(): UdpSocket -RUST-
 ## create a udp socket on the given address and port
 func udp_bind(addr: Str, port: Int): UdpSocket -RUST-
 
-func udp_recv(s: UdpSocket): Str -RUST-
-func recv_future(s: UdpSocket): Str -RUST-
+func recv(s: UdpSocket): Str -RUST-
 
 func udp_send(s: UdpSocket, addr: Str, port: Int, output: Str): Void -RUST-
 
