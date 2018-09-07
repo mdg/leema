@@ -25,6 +25,7 @@ pub mod reg;
 pub mod rsrc;
 pub mod sendclone;
 pub mod struple;
+pub mod tcp;
 pub mod typecheck;
 pub mod types;
 pub mod udp;
