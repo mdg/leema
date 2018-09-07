@@ -42,7 +42,7 @@ pub fn udp_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
 pub fn udp_recv(ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("udp_recv");
-    rsrc::Event::Future(Box::new(UdpRecv{
+    rsrc::Event::Future(Box::new(UdpRecv {
         ctx,
         buffer: Some(vec![0; 2048]),
     }))
@@ -79,7 +79,10 @@ impl Future for UdpRecv
         };
         let utf8 = String::from_utf8(self.buffer.take().unwrap()).unwrap();
         let str_result = Val::Str(Lstr::from(utf8));
-        Ok(Async::Ready(rsrc::Event::Result(str_result, Some(Box::new(sock)))))
+        Ok(Async::Ready(rsrc::Event::Result(
+            str_result,
+            Some(Box::new(sock)),
+        )))
     }
 }
 
