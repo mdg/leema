@@ -108,6 +108,20 @@ impl IopCtx
         }
     }
 
+    pub fn borrow_rsrc<T>(&mut self) -> Option<&T>
+    where
+        T: Rsrc,
+    {
+        self.rsrc.as_ref()
+            .and_then(|rsrc| {
+                rsrc.downcast::<T>()
+                    .ok()
+                    .map(|r| {
+                        &*r
+                    })
+            })
+    }
+
     /**
      * Take a parameter from the context
      */

@@ -6,6 +6,7 @@ extern crate libc;
 #[macro_use]
 extern crate mopa;
 extern crate bytes;
+// #[macro_use]
 extern crate futures;
 extern crate rand;
 extern crate rustc_serialize;

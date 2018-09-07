@@ -8,7 +8,7 @@ use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
-use futures::future::Future;
+use futures::{Async, Future, Poll, task};
 use tokio::net::UdpSocket;
 
 
@@ -50,7 +50,8 @@ pub fn udp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let sock: UdpSocket = ctx.take_rsrc();
     let fut = sock
         .recv_dgram(buffer)
-        .map(|(isock, ibuf, _nbytes, _src_addr)| {
+        .map(|(isock, ibuf, nbytes, src_addr)| {
+println!("udp_recv.map({:?}, {}, {})", ibuf, nbytes, src_addr);
             let utf8_result = String::from_utf8(ibuf);
             let result_val = Val::Str(Lstr::from(utf8_result.unwrap()));
             let irsrc: Box<Rsrc> = Box::new(isock);
@@ -63,6 +64,51 @@ pub fn udp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
             )
         });
     rsrc::Event::Future(Box::new(fut))
+}
+
+pub fn udp_recv_future(ctx: rsrc::IopCtx) -> rsrc::Event
+{
+println!("udp_recv_future");
+    rsrc::Event::Future(Box::new(UdpRecv{
+        ctx,
+        buffer: Vec::with_capacity(2048),
+    }))
+}
+
+struct UdpRecv
+{
+    ctx: rsrc::IopCtx,
+    buffer: Vec<u8>,
+}
+
+impl Future for UdpRecv
+{
+    type Item = rsrc::Event;
+    type Error = rsrc::Event;
+
+    fn poll(&mut self) -> Poll<rsrc::Event, rsrc::Event>
+    {
+print!("UdpRecv::poll()\n");
+        let mut sock: &mut UdpSocket = self.ctx.borrow_rsrc().unwrap();
+        let result = match sock.poll_recv_from(&mut self.buffer) {
+            Ok(Async::Ready(ready_result)) => {
+println!("poll_recv_from ready: {:?}", ready_result);
+                ready_result
+            }
+            Ok(Async::NotReady) => {
+println!("poll_recv_from notready");
+                task::current().notify();
+                return Ok(Async::NotReady);
+            }
+            Err(e) => {
+                panic!("io error: {:?}", e);
+            }
+        };
+        let (nbytes, addr) = result; // try_ready!(result);
+        println!("received {} bytes from {}", nbytes, addr);
+        // ctx.set_result(buffer);
+        Ok(Async::Ready(rsrc::Event::Result(Val::Int(nbytes as i64), Some(Box::new(sock)))))
+    }
 }
 
 pub fn udp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
@@ -96,7 +142,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
         "udp_bind" => Some(Code::Iop(udp_bind, None)),
-        "udp_recv" => Some(Code::Iop(udp_recv, Some(0))),
+        "udp_recv" => Some(Code::Iop(udp_recv_future, Some(0))),
         "udp_send" => Some(Code::Iop(udp_send, Some(0))),
         "udp_socket" => Some(Code::Iop(udp_socket, None)),
         _ => None,
