@@ -63,7 +63,7 @@ impl Future for UdpRecv
     {
         vout!("UdpRecv::poll()\n");
         let mut sock: UdpSocket = self.ctx.take_rsrc();
-        match sock.poll_recv_from(self.buffer.as_mut().unwrap()) {
+        let result = match sock.poll_recv_from(self.buffer.as_mut().unwrap()) {
             Ok(Async::Ready(ready_result)) => {
                 vout!("poll_recv_from ready: {:?}", ready_result);
                 ready_result
@@ -77,7 +77,12 @@ impl Future for UdpRecv
                 panic!("UdpRecv error: {:?}", e);
             }
         };
-        let utf8 = String::from_utf8(self.buffer.take().unwrap()).unwrap();
+        let (nbytes, _addr) = result;
+        let mut buf = self.buffer.take().unwrap();
+        unsafe {
+            buf.set_len(nbytes);
+        }
+        let utf8 = String::from_utf8(buf).unwrap();
         let str_result = Val::Str(Lstr::from(utf8));
         Ok(Async::Ready(rsrc::Event::Result(
             str_result,
