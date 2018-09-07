@@ -8,7 +8,7 @@ use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
-use futures::future::Future;
+use futures::{Async, Future, Poll, task};
 use tokio::net::UdpSocket;
 
 
@@ -63,6 +63,47 @@ pub fn udp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
             )
         });
     rsrc::Event::Future(Box::new(fut))
+}
+
+pub fn udp_recv_future(ctx: rsrc::IopCtx) -> rsrc::Event
+{
+    rsrc::Event::Future(Box::new(UdpRecv{
+        ctx,
+        buffer: Vec::with_capacity(2048),
+    }))
+}
+
+struct UdpRecv
+{
+    ctx: rsrc::IopCtx,
+    buffer: Vec<u8>,
+}
+
+impl Future for UdpRecv
+{
+    type Item = rsrc::Event;
+    type Error = rsrc::Event;
+
+    fn poll(&mut self) -> Poll<rsrc::Event, rsrc::Event>
+    {
+        let mut sock: UdpSocket = self.ctx.take_rsrc();
+        let result = match sock.poll_recv_from(&mut self.buffer) {
+            Ok(Async::Ready(ready_result)) => {
+                ready_result
+            }
+            Ok(Async::NotReady) => {
+                self.ctx.init_rsrc(Box::new(sock));
+                task::current().notify();
+                return Ok(Async::NotReady);
+            }
+            Err(e) => {
+                panic!("io error: {:?}", e);
+            }
+        };
+        let utf8 = String::from_utf8(self.buffer.clone()).unwrap();
+        let str_result = Val::Str(Lstr::from(utf8));
+        Ok(Async::Ready(rsrc::Event::Result(str_result, Some(Box::new(sock)))))
+    }
 }
 
 pub fn udp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
