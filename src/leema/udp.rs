@@ -113,10 +113,10 @@ pub fn udp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
 pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
-        "udp_bind" => Some(Code::Iop(udp_bind, None)),
+        "bind" => Some(Code::Iop(udp_bind, None)),
         "recv" => Some(Code::Iop(udp_recv, Some(0))),
-        "udp_send" => Some(Code::Iop(udp_send, Some(0))),
-        "udp_socket" => Some(Code::Iop(udp_socket, None)),
+        "send" => Some(Code::Iop(udp_send, Some(0))),
+        "socket" => Some(Code::Iop(udp_socket, None)),
         _ => None,
     }
 }
