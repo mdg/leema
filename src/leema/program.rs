@@ -55,7 +55,9 @@ impl Lib
         proglib
             .rust_load
             .insert(Lstr::Sref("str"), lib_str::load_rust_func);
-        proglib.rust_load.insert(Lstr::Sref("tcp"), tcp::load_rust_func);
+        proglib
+            .rust_load
+            .insert(Lstr::Sref("tcp"), tcp::load_rust_func);
         proglib
             .rust_load
             .insert(Lstr::Sref("udp"), udp::load_rust_func);

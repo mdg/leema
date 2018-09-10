@@ -14,8 +14,8 @@ use std::str::FromStr;
 use futures::future::Future;
 use futures::task;
 use futures::{Async, Poll};
-use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::net::{TcpListener, TcpStream};
 
 
 impl Rsrc for TcpStream
@@ -210,7 +210,7 @@ pub fn tcp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
 pub fn tcp_send(ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("tcp_send()\n");
-    let fut = Sender{ ctx };
+    let fut = Sender { ctx };
     rsrc::Event::Future(Box::new(fut))
 }
 
