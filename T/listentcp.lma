@@ -1,7 +1,7 @@
 import tcp
 
 func main() ->
-   let listener := tcp::listen("0.0.0.0", 3999)
+   let listener := tcp::listen("0.0.0.0", 3997)
    let sock := tcp::accept(listener)
    let line := tcp::recv(sock)
    print("received: $line\n")

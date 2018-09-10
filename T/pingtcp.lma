@@ -1,6 +1,6 @@
 import tcp
 
 func main() ->
-   let sock := tcp::connect("127.0.0.1", 3999)
+   let sock := tcp::connect("127.0.0.1", 3997)
    tcp::send(sock, "hello tcp world\n")
 --
