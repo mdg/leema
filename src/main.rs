@@ -7,6 +7,7 @@ extern crate libc;
 extern crate mopa;
 extern crate bytes;
 extern crate futures;
+extern crate hyper;
 extern crate rand;
 extern crate rustc_serialize;
 extern crate tokio;
@@ -30,6 +31,10 @@ use leema::val::Val;
 use docopt::Docopt;
 use std::env;
 use std::io::Write;
+
+use hyper::{Body, Response, Server};
+use hyper::rt::Future;
+use hyper::service::service_fn_ok;
 
 
 #[derive(Debug)]
@@ -145,35 +150,31 @@ fn real_main() -> i32
         let result = app.wait_for_result();
         return Application::handle_result(result) as i32;
     } else if args.arg_cmd == "http" {
-        /*
+        let addr = ([127, 0, 0, 1], 3000).into();
+
+        let new_svc = || {
+            service_fn_ok(|_req|{
+                Response::new(Body::from("hello world"))
+            })
+        };
+
+        let server = Server::bind(&addr)
+            .serve(new_svc)
+            .map_err(|e| eprintln!("server error: {}", e));
+
+        let _http_result = hyper::rt::run(server);
+
         let prog = program::Lib::new(inter);
         let mut app = Application::new(prog);
         app.set_args(leema_args);
         app.run();
-        let http = Http::new();
+        // let http = Http::new();
         let result = app.wait_for_result();
         return Application::handle_result(result) as i32;
-        */
-        return 1;
     } else {
         println!("invalid command: {:?}", args.arg_cmd);
         return 1;
     }
 
-    /*
-    let app = Application::new(program);
-    app.push_call(&modname, "main");
-    let result = app.run();
-    match result {
-        Val::Int(resulti) => {
-            return resulti as i32;
-        }
-        Val::Failure(tag, msg, stack) => {
-            println!("Uncaught Failure: {} \"{}\"\n{}", tag, msg, stack);
-            return leema::CLI_UNCAUGHT_FAILURE;
-        }
-        _ => {}
-    }
-    */
     return 0;
 }
