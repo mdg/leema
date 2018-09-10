@@ -15,7 +15,7 @@ use futures::future::Future;
 use futures::task;
 use futures::{Async, Poll};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::io::AsyncRead;
+use tokio::io::{AsyncRead, AsyncWrite};
 
 
 impl Rsrc for TcpStream
@@ -106,6 +106,41 @@ impl Future for Receiver
     }
 }
 
+struct Sender
+{
+    ctx: rsrc::IopCtx,
+}
+
+impl Future for Sender
+{
+    type Item = rsrc::Event;
+    type Error = rsrc::Event;
+
+    fn poll(&mut self) -> Poll<rsrc::Event, rsrc::Event>
+    {
+        let mut sock: TcpStream = self.ctx.take_rsrc();
+        let msg = self.ctx.take_param(1).unwrap();
+        vout!("tcp::Sender::poll({})\n", msg);
+
+        let write_result = sock.poll_write(msg.str().as_bytes());
+        let nbytes = match write_result {
+            Ok(Async::Ready(nb)) => {
+                nb as i64
+            }
+            Ok(Async::NotReady) => {
+                self.ctx.init_rsrc(Box::new(sock));
+                return Ok(Async::NotReady);
+            }
+            Err(e) => {
+                panic!("failed writing to socket: {:?}", e);
+            }
+        };
+        let result =
+            rsrc::Event::Result(Val::Int(nbytes), Some(Box::new(sock)));
+        Ok(Async::Ready(result))
+    }
+}
+
 
 pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
@@ -174,13 +209,11 @@ pub fn tcp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
     rsrc::Event::Future(Box::new(fut))
 }
 
-pub fn tcp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn tcp_send(ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("tcp_send()\n");
-    let _sock: TcpStream = ctx.take_rsrc();
-    let _msg = ctx.take_param(1).unwrap();
-
-    rsrc::Event::Result(Val::Int(-99), None) // Future(fut)
+    let fut = Sender{ ctx };
+    rsrc::Event::Future(Box::new(fut))
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>
