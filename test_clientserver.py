@@ -59,6 +59,17 @@ class TestScripts(unittest.TestCase):
             result['server_output'],
         )
 
+    def test_tcp(self):
+        result = self.clientserver_success('pingtcp', 'listentcp')
+        self.assertEqual(
+            b"received: hello tcp world\n\n",
+            result['server_output'],
+        )
+        self.assertEqual(
+            b"sent 16 bytes\n",
+            result['client_output'],
+        )
+
     def clientserver_success(self, client, server):
         result = run_clientserver(client, server)
         self.assertEqual(0, result['client_code'])

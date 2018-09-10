@@ -124,9 +124,7 @@ impl Future for Sender
 
         let write_result = sock.poll_write(msg.str().as_bytes());
         let nbytes = match write_result {
-            Ok(Async::Ready(nb)) => {
-                nb as i64
-            }
+            Ok(Async::Ready(nb)) => nb as i64,
             Ok(Async::NotReady) => {
                 self.ctx.init_rsrc(Box::new(sock));
                 return Ok(Async::NotReady);
