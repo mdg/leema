@@ -4,7 +4,7 @@ use leema::lstr::Lstr;
 use leema::rsrc::{self, Rsrc};
 use leema::val::{Type, Val};
 
-use bytes::buf::BufMut;
+// use bytes::buf::BufMut;
 use bytes::BytesMut;
 use std;
 use std::io::{self, Write};
@@ -12,73 +12,11 @@ use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
 use futures::future::Future;
-use futures::sink::Sink;
 use futures::task;
 use futures::{Async, Poll};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::codec::{Decoder, Encoder, Framed};
 use tokio::io::AsyncRead;
 
-
-#[derive(Debug)]
-struct TcpValCodec {}
-
-impl Encoder for TcpValCodec
-{
-    type Item = Val;
-    type Error = Val;
-
-    fn encode(
-        &mut self,
-        item: Val,
-        dst: &mut BytesMut,
-    ) -> Result<(), Self::Error>
-    {
-        BufMut::put_slice(dst, item.str().as_bytes());
-        Ok(())
-    }
-}
-
-impl Decoder for TcpValCodec
-{
-    type Item = Val;
-    type Error = Val;
-
-    fn decode(
-        &mut self,
-        _src: &mut BytesMut,
-    ) -> Result<Option<Val>, Self::Error>
-    {
-        Ok(Some(Val::Void))
-    }
-}
-
-/*
-impl io::Read for TcpValCodec
-{
-    fn(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error>
-    {
-        l
-        match self {
-            _ => {
-                panic!("cannot read into not buffer: {:?}", self);
-            }
-        }
-    }
-}
-
-impl AsyncRead for TcpValCodec
-{
-}
-*/
-
-impl Rsrc for Framed<Box<TcpStream>, TcpValCodec>
-{
-    fn get_type(&self) -> Type
-    {
-        Type::Resource(Lstr::Sref("TcpSocket"))
-    }
-}
 
 impl Rsrc for TcpStream
 {
@@ -112,13 +50,16 @@ impl Future for Acceptor
     {
         let accept_result = { self.listener.as_mut().unwrap().poll_accept() };
         match accept_result {
-            Async::Ready((sock, addr)) => {
+            Ok(Async::Ready((sock, addr))) => {
                 let listener = self.listener.take().unwrap();
                 Ok(Async::Ready((listener, sock, addr)))
             }
-            Async::NotReady => {
+            Ok(Async::NotReady) => {
                 task::current().notify();
                 Ok(Async::NotReady)
+            }
+            Err(e) => {
+                panic!("failure accepting new tcp connection: {:?}", e);
             }
         }
     }
@@ -178,10 +119,7 @@ pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let fut = TcpStream::connect(&sock_addr)
         .map(move |sock| {
             vout!("tcp connected");
-            let codec = TcpValCodec {};
-            let box_sock = Box::new(sock);
-            let framed = Decoder::framed(box_sock, codec);
-            rsrc::Event::NewRsrc(Box::new(framed), None)
+            rsrc::Event::NewRsrc(Box::new(sock), None)
         }).map_err(move |_| {
             rsrc::Event::Result(
                 Val::Str(Lstr::Sref("Failure to connect")),
@@ -239,18 +177,10 @@ pub fn tcp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
 pub fn tcp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("tcp_send()\n");
-    let sock: Framed<Box<TcpStream>, TcpValCodec> = ctx.take_rsrc();
-    let msg = ctx.take_param(1).unwrap();
+    let _sock: TcpStream = ctx.take_rsrc();
+    let _msg = ctx.take_param(1).unwrap();
 
-    let fut = Box::new(
-        Sink::send(sock, msg)
-            .map(|sock2| {
-                rsrc::Event::Result(Val::Int(0), Some(Box::new(sock2)))
-            }).map_err(|_| {
-                rsrc::Event::Result(Val::Str(Lstr::Sref("send failure")), None)
-            }),
-    );
-    rsrc::Event::Future(fut)
+    rsrc::Event::Result(Val::Int(-99), None) // Future(fut)
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>
