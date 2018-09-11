@@ -9,18 +9,31 @@ use std::mem;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use futures::sync::oneshot::Sender as FutureSender;
+
 
 pub enum Parent
 {
     Null,
     Caller(Rc<Code>, Box<Frame>, Reg),
     // Fork(Arc<AtomicBool>, mpsc::Sender<Msg>),
+    Future(FutureSender<Val>, Val),
     Repl(Val),
     Main(Val),
 }
 
 impl Parent
 {
+    pub fn new_main() -> Parent
+    {
+        Parent::Main(Val::Void)
+    }
+
+    pub fn new_future(dst: FutureSender<Val>) -> Parent
+    {
+        Parent::Future(dst, Val::Void)
+    }
+
     pub fn set_result(&mut self, r: Val)
     {
         match self {
@@ -35,6 +48,9 @@ impl Parent
                 *res = r;
             }
             &mut Parent::Null => {}
+            &mut Parent::Future(_, ref mut dst) => {
+                *dst = r;
+            }
         }
     }
 }
@@ -55,6 +71,9 @@ impl Debug for Parent
             */
             &Parent::Repl(ref res) => write!(f, "Parent::Repl({:?})", res),
             &Parent::Main(ref res) => write!(f, "Parent::Main({:?})", res),
+            &Parent::Future(_, ref res) => {
+                write!(f, "Parent::Future({:?})", res)
+            }
         }
     }
 }
@@ -237,11 +256,11 @@ pub struct Frame
 
 impl Frame
 {
-    pub fn new_root(module: Lstr, function: Lstr) -> Frame
+    pub fn new_root(parent: Parent, module: Lstr, function: Lstr) -> Frame
     {
         let env = Env::new();
         Frame {
-            parent: Parent::Main(Val::Void),
+            parent,
             trace: FrameTrace::new_root(),
             module,
             function,

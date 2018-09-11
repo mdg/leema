@@ -47,9 +47,14 @@ pub fn handle_request(caller: AppCaller, req: Request<Body>) -> BoxFut
             &Lstr::Sref("http"), &Lstr::Sref("test_handle")
         )
         .and_then(|v| {
-            let msg = format!("hello world: {}\n", v);
+            let msg = format!("{}", v);
+            println!("response msg: {}", msg);
             // future::ok(Response::new(Body::from(msg)))
             future::ok(Response::new(Body::from(msg)))
+        })
+        .map_err(|e| {
+            println!("request error: {:?}", e);
+            e
         })
     );
     response_future

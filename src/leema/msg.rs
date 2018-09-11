@@ -8,7 +8,7 @@ use std::fmt;
 use std::ops::Deref;
 use std::sync::mpsc;
 
-use futures::sync::oneshot::Sender as FuturesSender;
+use futures::sync::oneshot::Sender as FutureSender;
 
 
 #[derive(Debug)]
@@ -48,7 +48,7 @@ pub enum AppMsg
 {
     // Spawn(module, function)
     Spawn(MsgLstr, MsgLstr),
-    ResultSpawn(FuturesSender<Val>, MsgLstr, MsgLstr),
+    ResultSpawn(FutureSender<Val>, MsgLstr, MsgLstr),
     // RequestCode(worker_id, fiber_id, module, function)
     RequestCode(i64, i64, MsgLstr, MsgLstr),
     MainResult(MsgVal),
@@ -59,6 +59,7 @@ pub enum WorkerMsg
 {
     // Spawn(module, function)
     Spawn(MsgLstr, MsgLstr),
+    ResultSpawn(FutureSender<Val>, MsgLstr, MsgLstr),
     // FoundCode(fiber_id, module, function, code)
     FoundCode(i64, MsgLstr, MsgLstr, Code),
     // IopResult(fiber_id, MsgVal)

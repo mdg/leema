@@ -257,6 +257,9 @@ impl Worker
                 self.done = true;
                 self.app_tx.send(msg).expect("app message send failure");
             }
+            Parent::Future(result_dst, result) => {
+                result_dst.send(result).expect("fail sending future result");
+            }
             Parent::Null => {
                 // this shouldn't have happened
             }
@@ -268,7 +271,15 @@ impl Worker
         match msg {
             WorkerMsg::Spawn(module, call) => {
                 vout!("worker call {}.{}()\n", *module, *call);
-                self.spawn_fiber(module.take(), call.take());
+                let parent = Parent::new_main();
+                let root = Frame::new_root(parent, module.take(), call.take());
+                self.spawn_fiber(root);
+            }
+            WorkerMsg::ResultSpawn(result_dst, module, call) => {
+                vout!("worker call w/return {}.{}()\n", *module, *call);
+                let parent = Parent::new_future(result_dst);
+                let root = Frame::new_root(parent, module.take(), call.take());
+                self.spawn_fiber(root);
             }
             WorkerMsg::FoundCode(fiber_id, module, func, code) => {
                 let rc_code = Rc::new(code);
@@ -327,12 +338,11 @@ impl Worker
         }
     }
 
-    pub fn spawn_fiber(&mut self, module: Lstr, func: Lstr)
+    pub fn spawn_fiber(&mut self, frame: Frame)
     {
-        vout!("spawn_fiber({}::{})\n", module, func);
+        vout!("spawn_fiber({}::{})\n", frame.module, frame.function);
         let id = self.next_fiber_id;
         self.next_fiber_id += 1;
-        let frame = Frame::new_root(module, func);
         let fib = Fiber::spawn(id, frame);
         self.fresh.push_back(ReadyFiber::New(fib));
     }

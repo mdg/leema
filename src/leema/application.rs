@@ -22,7 +22,7 @@ pub struct Application
     io_recv: Option<Receiver<IoMsg>>,
     io_send: Sender<IoMsg>,
     worker: HashMap<i64, Sender<WorkerMsg>>,
-    calls: LinkedList<(Lstr, Lstr)>,
+    calls: LinkedList<(Option<futures_oneshot::Sender<Val>>, Lstr, Lstr)>,
     args: Val,
     result: Option<Val>,
     done: bool,
@@ -64,7 +64,7 @@ impl Application
 
     pub fn push_call(&mut self, module: Lstr, func: Lstr)
     {
-        self.calls.push_back((module, func));
+        self.calls.push_back((None, module, func));
     }
 
     pub fn run(&mut self)
@@ -122,13 +122,25 @@ impl Application
 
     pub fn iterate(&mut self)
     {
-        while let Some((module, call)) = self.calls.pop_front() {
+        while let Some((dst, module, call)) = self.calls.pop_front() {
             vout!("application call {}.{}()\n", module, call);
             let w = self.worker.values().next().unwrap();
-            w.send(WorkerMsg::Spawn(
-                MsgItem::new(&module),
-                MsgItem::new(&call),
-            )).expect("fail sending spawn call to worker");
+            let msg = match dst {
+                Some(idst) => {
+                    WorkerMsg::ResultSpawn(
+                        idst,
+                        MsgItem::new(&module),
+                        MsgItem::new(&call),
+                    )
+                }
+                None => {
+                    WorkerMsg::Spawn(
+                        MsgItem::new(&module),
+                        MsgItem::new(&call),
+                    )
+                }
+            };
+            w.send(msg).expect("fail sending spawn call to worker");
         }
 
         while let Result::Ok(msg) = self.app_recv.try_recv() {
@@ -160,8 +172,8 @@ impl Application
             AppMsg::Spawn(_, _) => {
                 panic!("whoa a spawn msg sent to Application");
             }
-            AppMsg::ResultSpawn(_result_dst, modname, funcname) => {
-                self.calls.push_back((modname.take(), funcname.take()));
+            AppMsg::ResultSpawn(result_dst, modname, funcname) => {
+                self.calls.push_back((Some(result_dst), modname.take(), funcname.take()));
             }
         }
     }
