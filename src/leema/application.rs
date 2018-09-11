@@ -11,11 +11,7 @@ use std::io::Write;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 
-/*
 use futures::sync::oneshot as futures_oneshot;
-use futures::sync::oneshot::Receiver as FutureReceiver;
-*/
-use futures::sync::oneshot::Sender as FutureSender;
 
 
 pub struct Application
@@ -59,14 +55,12 @@ impl Application
         self.args = args;
     }
 
-    /*
     pub fn caller(&self) -> AppCaller
     {
         AppCaller {
             app_send: self.app_send.clone(),
         }
     }
-    */
 
     pub fn push_call(&mut self, module: Lstr, func: Lstr)
     {
@@ -217,16 +211,16 @@ impl Future for CallHandle
 }
 */
 
+#[derive(Clone)]
 #[derive(Debug)]
 pub struct AppCaller
 {
-    app_send: FutureSender<AppMsg>,
+    app_send: Sender<AppMsg>,
 }
 
 impl AppCaller
 {
-    /*
-    pub fn push_call(&self, modname: &Lstr, fname: &Lstr) -> FutureReceiver<Val>
+    pub fn push_call(&self, modname: &Lstr, fname: &Lstr) -> futures_oneshot::Receiver<Val>
     {
         let (result_send, result_recv) = futures_oneshot::channel();
         self.app_send.send(AppMsg::ResultSpawn(
@@ -236,8 +230,10 @@ impl AppCaller
         )).unwrap();
         result_recv
     }
-    */
 }
+
+unsafe impl Send for AppCaller {}
+unsafe impl Sync for AppCaller {}
 
 /*
 struct FunctionLib

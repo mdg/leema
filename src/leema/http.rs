@@ -1,4 +1,5 @@
-use leema::application::Application;
+use leema::application::{Application, AppCaller};
+// use leema::lstr::Lstr;
 use leema::val::Val;
 
 use futures::future;
@@ -7,14 +8,20 @@ use hyper::service::service_fn;
 use hyper::{self, Body, Request, Response, Server};
 
 
+type HttpFut = Future<Item = Response<Body>, Error = hyper::Error>;
 type BoxFut = Box<Future<Item = Response<Body>, Error = hyper::Error> + Send>;
 
 pub fn run(app: &mut Application) -> Val
 {
     let addr = ([0, 0, 0, 0], 3000).into();
-    // let caller = app.caller();
+    let caller = app.caller();
 
-    let new_svc = || service_fn(|req| handle_request(req));
+    let new_svc = move || {
+        let icaller = caller.clone();
+        service_fn(move |req| {
+            handle_request(icaller.clone(), req)
+        })
+    };
 
     let server = Server::bind(&addr)
         .serve(new_svc)
@@ -26,18 +33,23 @@ pub fn run(app: &mut Application) -> Val
     app.wait_for_result().unwrap()
 }
 
-pub fn handle_request(/*caller: AppCaller,*/ _req: Request<Body>) -> BoxFut
+pub fn handle_request(_caller: AppCaller, req: Request<Body>) -> BoxFut
 {
-    /*
     println!("handle_request({:?})", req);
-    let result_receiver = caller.push_call("http", "test_handle");
-    result_receiver.map(|v| {
-        let msg = format!("hello world: {}\n", v);
-        println!("{}", msg);
-        Box::new(Response::new(Body::from(msg)))
-    })
+    /*
+    let response_future: BoxFut = Box::new(
+        caller.push_call(
+            &Lstr::Sref("http"), &Lstr::Sref("test_handle")
+        )
+        .and_then(|v| {
+            let msg = format!("hello world: {}\n", v);
+            println!("{}", msg);
+            // future::ok(Response::new(Body::from(msg)))
+            future::ok(Response::new(Body::from(msg)))
+        }).into_future()
+    );
     */
-    Box::new(future::ok(Response::new(Body::from("tacos"))))
+    Box::new(future::ok(Response::new(Body::from("tacos\n"))))
 }
 
 /*
