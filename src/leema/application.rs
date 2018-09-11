@@ -160,8 +160,8 @@ impl Application
             AppMsg::Spawn(_, _) => {
                 panic!("whoa a spawn msg sent to Application");
             }
-            AppMsg::ResultSpawn(_, _, _) => {
-                panic!("whoa a result spawn msg sent to Application");
+            AppMsg::ResultSpawn(_result_dst, modname, funcname) => {
+                self.calls.push_back((modname.take(), funcname.take()));
             }
         }
     }

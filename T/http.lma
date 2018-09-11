@@ -4,17 +4,12 @@ enum Method
 |Post
 --
 
-struct RequestBody
-|Params(Map<Str, Str>)
-|Stream(TcpSocket)
---
-
 struct Request
-.method: Method
+.method: Str
 .path: Str
 .bytes: Int
-.header: Map<Str, Str>
-.body: RequestBody
+.header: Map
+.body: Str
 --
 
 struct Response
@@ -22,8 +17,7 @@ struct Response
 .body: Str
 --
 
-func ok200: http::Response
->>
-    Response(200)
+func test_handle(req: Request) ->
+    print("leema test_handle!\n")
 --
 
