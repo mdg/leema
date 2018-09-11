@@ -162,7 +162,9 @@ fn real_main() -> i32
         app.set_args(leema_args);
         app.run();
 
-        http::run(&mut app)
+        http::spawn_thread(app.caller());
+
+        app.wait_for_result().unwrap()
     } else {
         println!("invalid command: {:?}", args.arg_cmd);
         Val::Int(1)

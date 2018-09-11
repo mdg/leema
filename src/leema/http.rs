@@ -1,6 +1,7 @@
-use leema::application::{Application, AppCaller};
+use leema::application::{AppCaller};
 use leema::lstr::Lstr;
-use leema::val::Val;
+
+use std::thread;
 
 use futures::Future;
 use futures::future;
@@ -12,15 +13,21 @@ use hyper::service::service_fn;
 type HttpFut = Future<Item = Response<Body>, Error = Canceled>;
 type BoxFut = Box<Future<Item = Response<Body>, Error = Canceled> + Send>;
 
-pub fn run(app: &mut Application) -> Val
+pub fn spawn_thread(app: AppCaller) -> thread::JoinHandle<()>
+{
+    thread::spawn(move || {
+        run(app);
+    })
+}
+
+pub fn run(app: AppCaller)
 {
     let addr = ([0, 0, 0, 0], 3000).into();
-    let caller = app.caller();
 
     let new_svc = move || {
-        let icaller = caller.clone();
+        let iapp = app.clone();
         service_fn(move |req| {
-            handle_request(icaller.clone(), req)
+            handle_request(iapp.clone(), req)
         })
     };
 
@@ -30,8 +37,6 @@ pub fn run(app: &mut Application) -> Val
 
     let http_result = ::hyper::rt::run(server);
     println!("hyper finished with: {:?}", http_result);
-
-    app.wait_for_result().unwrap()
 }
 
 pub fn handle_request(caller: AppCaller, req: Request<Body>) -> BoxFut
