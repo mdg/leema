@@ -111,6 +111,7 @@ impl Application
 
     pub fn wait_for_result(&mut self) -> Option<Val>
     {
+        vout!("wait_for_result\n");
         while !self.done {
             self.iterate();
             thread::yield_now();

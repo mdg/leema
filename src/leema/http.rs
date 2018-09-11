@@ -64,18 +64,3 @@ struct LeemaService
 {
     app: AppCaller,
 }
-
-/*
-impl hyper::service::Service for LeemaService
-{
-    type ReqBody = Body;
-    type ResBody = Body;
-    type Error = hyper::Error;
-    type Future = Future<Item=Response<Body>, Error=hyper::Error>;
-
-    fn call(&mut self, req: Request<Body>) -> Self::Future
-    {
-        future::ok(Response::new(Body::from("taco service\n")))
-    }
-}
-*/
