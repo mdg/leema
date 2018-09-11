@@ -3,6 +3,7 @@ use leema::log;
 use leema::lstr::Lstr;
 use leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use leema::program;
+use leema::rsrc;
 use leema::val::Val;
 use leema::worker::Worker;
 
@@ -10,6 +11,10 @@ use std::collections::{HashMap, LinkedList};
 use std::io::Write;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
+
+use futures::{Async, Future, Poll};
+use futures::sync::oneshot as futures_oneshot;
+use futures::sync::oneshot::Receiver as FutureReceiver;
 
 
 pub struct Application
@@ -51,6 +56,13 @@ impl Application
     pub fn set_args(&mut self, args: Val)
     {
         self.args = args;
+    }
+
+    pub fn caller(&mut self) -> AppCaller
+    {
+        AppCaller {
+            app_send: self.app_send.clone(),
+        }
     }
 
     pub fn push_call(&mut self, module: Lstr, func: Lstr)
@@ -151,6 +163,9 @@ impl Application
             AppMsg::Spawn(_, _) => {
                 panic!("whoa a spawn msg sent to Application");
             }
+            AppMsg::ResultSpawn(_, _, _) => {
+                panic!("whoa a result spawn msg sent to Application");
+            }
         }
     }
 
@@ -177,6 +192,41 @@ impl Application
             }
         };
         code
+    }
+}
+
+pub struct CallHandle
+{
+    result: FutureReceiver<Val>,
+}
+
+impl Future for CallHandle
+{
+    type Item = rsrc::Event;
+    type Error = rsrc::Event;
+
+    fn poll(&mut self) -> Poll<rsrc::Event, rsrc::Event>
+    {
+        Ok(Async::NotReady)
+    }
+}
+
+pub struct AppCaller
+{
+    app_send: Sender<AppMsg>,
+}
+
+impl AppCaller
+{
+    pub fn push_call(&self, modname: &Lstr, fname: &Lstr) -> CallHandle
+    {
+        let (result_send, result_recv) = futures_oneshot::channel();
+        self.app_send.send(AppMsg::ResultSpawn(
+            result_send,
+            MsgItem::new(modname),
+            MsgItem::new(fname),
+        )).unwrap();
+        CallHandle { result: result_recv }
     }
 }
 
