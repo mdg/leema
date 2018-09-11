@@ -26,6 +26,11 @@ unit: lexer parser
 T: build test.py
 	${NOSETESTS} --with-xunit
 
+travis: unit travisT format
+
+travisT: build test.py
+	${NOSETESTS} --with-xunit --ignore-files=test_clientserver
+
 warnings: lexer parser
 	cargo rustc --bin leema -- ${WARNS}
 
