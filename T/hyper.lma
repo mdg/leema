@@ -1,0 +1,11 @@
+
+
+struct Request
+.method: Str
+.path: Str
+
+func init_server
+.handler: Request => Str
+-RUST-
+
+func init_server(handler: Request => Str) -RUST-
