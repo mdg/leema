@@ -13,20 +13,21 @@ use hyper::{Body, Request, Response, Server};
 type HttpFut = Future<Item = Response<Body>, Error = Canceled>;
 type BoxFut = Box<Future<Item = Response<Body>, Error = Canceled> + Send>;
 
-pub fn spawn_thread(app: AppCaller) -> thread::JoinHandle<()>
+pub fn spawn_thread(app: AppCaller, module: Lstr) -> thread::JoinHandle<()>
 {
     thread::spawn(move || {
-        run(app);
+        run(app, module);
     })
 }
 
-pub fn run(app: AppCaller)
+pub fn run(app: AppCaller, module: Lstr)
 {
     let addr = ([0, 0, 0, 0], 3000).into();
 
     let new_svc = move || {
         let iapp = app.clone();
-        service_fn(move |req| handle_request(iapp.clone(), req))
+        let imod = module.clone();
+        service_fn(move |req| handle_request(iapp.clone(), imod.clone(), req))
     };
 
     let server = Server::bind(&addr)
@@ -37,12 +38,16 @@ pub fn run(app: AppCaller)
     println!("hyper finished with: {:?}", http_result);
 }
 
-pub fn handle_request(caller: AppCaller, req: Request<Body>) -> BoxFut
+pub fn handle_request(
+    caller: AppCaller,
+    module: Lstr,
+    req: Request<Body>,
+) -> BoxFut
 {
-    println!("handle_request({:?})", req);
+    println!("handle_request({},\n\t{:?})", module, req);
     let response_future: BoxFut = Box::new(
         caller
-            .push_call(&Lstr::Sref("http"), &Lstr::Sref("test_handle"))
+            .push_call(&module, &Lstr::Sref("http_main"))
             .and_then(|v| {
                 let msg = format!("{}", v);
                 println!("response msg: {}", msg);

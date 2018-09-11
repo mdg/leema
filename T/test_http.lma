@@ -1,0 +1,6 @@
+
+import http
+
+func http_main(req: http::Request): Str ->
+    "tacos are delicious\n"
+--

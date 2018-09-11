@@ -162,7 +162,7 @@ fn real_main() -> i32
         app.set_args(leema_args);
         app.run();
 
-        http::spawn_thread(app.caller());
+        http::spawn_thread(app.caller(), modkey.name.clone());
 
         app.wait_for_result().unwrap()
     } else {
