@@ -1,15 +1,16 @@
 use leema::application::{Application, AppCaller};
-// use leema::lstr::Lstr;
+use leema::lstr::Lstr;
 use leema::val::Val;
 
+use futures::Future;
 use futures::future;
-use hyper::rt::Future;
+use futures::sync::oneshot::Canceled;
+use hyper::{Body, Request, Response, Server};
 use hyper::service::service_fn;
-use hyper::{self, Body, Request, Response, Server};
 
 
-type HttpFut = Future<Item = Response<Body>, Error = hyper::Error>;
-type BoxFut = Box<Future<Item = Response<Body>, Error = hyper::Error> + Send>;
+type HttpFut = Future<Item = Response<Body>, Error = Canceled>;
+type BoxFut = Box<Future<Item = Response<Body>, Error = Canceled> + Send>;
 
 pub fn run(app: &mut Application) -> Val
 {
@@ -33,32 +34,38 @@ pub fn run(app: &mut Application) -> Val
     app.wait_for_result().unwrap()
 }
 
-pub fn handle_request(_caller: AppCaller, req: Request<Body>) -> BoxFut
+pub fn handle_request(caller: AppCaller, req: Request<Body>) -> BoxFut
 {
     println!("handle_request({:?})", req);
-    /*
     let response_future: BoxFut = Box::new(
         caller.push_call(
             &Lstr::Sref("http"), &Lstr::Sref("test_handle")
         )
         .and_then(|v| {
             let msg = format!("hello world: {}\n", v);
-            println!("{}", msg);
             // future::ok(Response::new(Body::from(msg)))
             future::ok(Response::new(Body::from(msg)))
-        }).into_future()
+        })
     );
-    */
-    Box::new(future::ok(Response::new(Body::from("tacos\n"))))
+    response_future
 }
 
-/*
 struct LeemaService
 {
     app: AppCaller,
 }
 
-impl Service for LeemaService
+/*
+impl hyper::service::Service for LeemaService
 {
+    type ReqBody = Body;
+    type ResBody = Body;
+    type Error = hyper::Error;
+    type Future = Future<Item=Response<Body>, Error=hyper::Error>;
+
+    fn call(&mut self, req: Request<Body>) -> Self::Future
+    {
+        future::ok(Response::new(Body::from("taco service\n")))
+    }
 }
 */

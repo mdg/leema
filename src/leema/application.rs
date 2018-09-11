@@ -232,23 +232,6 @@ impl AppCaller
     }
 }
 
-unsafe impl Send for AppCaller {}
-unsafe impl Sync for AppCaller {}
-
-/*
-struct FunctionLib
-{
-    code: HashMap<String, Code>,
-}
-
-struct TypeLoad
-{
-}
-
-struct RunLoad
-{
-}
-*/
 
 /*
 enum Stype
@@ -261,13 +244,6 @@ enum Itype
 | Complete(Type),
 | Var(String),
 | Infernode(Itype, Itype),
---
-
-enum Ixpr
-| Val(Val, Itype)
-| Id(String, Itype)
-| Call(Ixpr, Vec<Ixpr>, Itype)
-| Ixpr(IxprType, Ival)
 --
 */
 
