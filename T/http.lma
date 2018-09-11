@@ -10,8 +10,8 @@ struct RequestBody
 --
 
 struct Request
-.path: Str
 .method: Method
+.path: Str
 .bytes: Int
 .header: Map<Str, Str>
 .body: RequestBody
@@ -22,39 +22,8 @@ struct Response
 .body: Str
 --
 
-struct Transaction
-.req: RequestHeaders
-.conn: TcpSocket
---
-
-func read_request(s: TcpSocket): Request ->
-    let (headers, body)
---
-
-func request(
-    tx: Transaction,
-): Request -RUST-
-
-## func respond(
-##     tx: Transaction,
-## ): Request -RUST-
-
-func request_body(
-    tx: Transaction,
-): Str -RUST-
-
-func ok200(): http::Response ->
+func ok200: http::Response
+>>
     Response(200)
---
-
-func read_request_headers(s: TcpSocket): (RequestHeaders, RequestBody) ->
-   let header_lines := _read_req_headers([], s)
---
-
-func _read_req_headers(lines: [Str], s: TcpSocket) -> [Str] ->
-    match tcp::recv(sock)
-    |"" -> list::reverse(lines)
-    |newline -> _read_req_headers(newline;lines, s)
-    --
 --
 

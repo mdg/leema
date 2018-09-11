@@ -3,7 +3,6 @@ use leema::log;
 use leema::lstr::Lstr;
 use leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use leema::program;
-use leema::rsrc;
 use leema::val::Val;
 use leema::worker::Worker;
 
@@ -12,9 +11,11 @@ use std::io::Write;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 
-use futures::{Async, Future, Poll};
+/*
 use futures::sync::oneshot as futures_oneshot;
 use futures::sync::oneshot::Receiver as FutureReceiver;
+*/
+use futures::sync::oneshot::Sender as FutureSender;
 
 
 pub struct Application
@@ -58,12 +59,14 @@ impl Application
         self.args = args;
     }
 
-    pub fn caller(&mut self) -> AppCaller
+    /*
+    pub fn caller(&self) -> AppCaller
     {
         AppCaller {
             app_send: self.app_send.clone(),
         }
     }
+    */
 
     pub fn push_call(&mut self, module: Lstr, func: Lstr)
     {
@@ -195,6 +198,8 @@ impl Application
     }
 }
 
+/*
+#[derive(Debug)]
 pub struct CallHandle
 {
     result: FutureReceiver<Val>,
@@ -210,15 +215,18 @@ impl Future for CallHandle
         Ok(Async::NotReady)
     }
 }
+*/
 
+#[derive(Debug)]
 pub struct AppCaller
 {
-    app_send: Sender<AppMsg>,
+    app_send: FutureSender<AppMsg>,
 }
 
 impl AppCaller
 {
-    pub fn push_call(&self, modname: &Lstr, fname: &Lstr) -> CallHandle
+    /*
+    pub fn push_call(&self, modname: &Lstr, fname: &Lstr) -> FutureReceiver<Val>
     {
         let (result_send, result_recv) = futures_oneshot::channel();
         self.app_send.send(AppMsg::ResultSpawn(
@@ -226,8 +234,9 @@ impl AppCaller
             MsgItem::new(modname),
             MsgItem::new(fname),
         )).unwrap();
-        CallHandle { result: result_recv }
+        result_recv
     }
+    */
 }
 
 /*
