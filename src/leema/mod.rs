@@ -5,6 +5,7 @@ pub mod ast;
 pub mod code;
 pub mod fiber;
 pub mod frame;
+pub mod http;
 pub mod infer;
 pub mod inter;
 pub mod io;

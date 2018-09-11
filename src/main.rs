@@ -19,6 +19,7 @@ mod leema;
 use leema::log;
 
 use leema::application::Application;
+use leema::http;
 use leema::list;
 use leema::loader::Interloader;
 use leema::lri::Lri;
@@ -31,10 +32,6 @@ use leema::val::Val;
 use docopt::Docopt;
 use std::env;
 use std::io::Write;
-
-use hyper::{Body, Response, Server};
-use hyper::rt::Future;
-use hyper::service::service_fn_ok;
 
 
 #[derive(Debug)]
@@ -93,26 +90,31 @@ fn real_main() -> i32
     let modkey = inter.mod_name_to_key(inter.main_mod.clone());
     vout!("{} {}\n", args.arg_cmd, inter.main_mod);
 
-    if args.arg_cmd == "tokens" {
+    let main_result = if args.arg_cmd == "tokens" {
         let modtxt = inter.read_module(&modkey);
         let toks = ModuleSource::read_tokens(&modtxt);
         println!("{:?}\n", toks);
+        Val::Int(0)
     } else if args.arg_cmd == "ast" {
         let modtxt = inter.read_module(&modkey);
         let ast = ModuleSource::read_ast(&modtxt);
         println!("{:?}\n", ast);
+        Val::Int(0)
     } else if args.arg_cmd == "modsrc" {
         let prog = program::Lib::new(inter);
         let src = prog.read_modsrc(&modkey.name);
         println!("{:?}\n", src);
+        Val::Int(0)
     } else if args.arg_cmd == "preface" {
         let prog = program::Lib::new(inter);
         let (_, pref) = prog.read_preface(&modkey.name);
         println!("{:?}\n", pref);
+        Val::Int(0)
     } else if args.arg_cmd == "proto" {
         let mut prog = program::Lib::new(inter);
         let proto = prog.read_proto(&modkey.name);
         println!("\n{:?}\n", proto);
+        Val::Int(0)
     } else if args.arg_cmd == "inter" {
         let mut prog = program::Lib::new(inter);
         let imod = prog.read_inter(&modkey.name);
@@ -124,6 +126,7 @@ fn real_main() -> i32
             None => imod.interfunc.get("main"),
         };
         println!("\n{:?}\n", fix);
+        Val::Int(0)
     } else if args.arg_cmd == "typecheck" {
         let mut prog = program::Lib::new(inter);
         let mod_name = modkey.name.clone();
@@ -131,6 +134,7 @@ fn real_main() -> i32
         let funcri = Lri::with_modules(mod_name, func_name);
         let ftype = prog.typecheck(&funcri, typecheck::Depth::Full);
         println!("type: {}", ftype);
+        Val::Int(0)
     } else if args.arg_cmd == "code" {
         let mut prog = program::Lib::new(inter);
         let code = match args.flag_func {
@@ -141,40 +145,28 @@ fn real_main() -> i32
             None => prog.load_code(&modkey.name, &Lstr::Sref("main")),
         };
         println!("code: {:?}", code);
+        Val::Int(0)
+    } else if args.arg_cmd == "repl" {
+        println!("wouldn't it be cool if there was a repl?");
+        Val::Int(2)
     } else if args.arg_cmd == "run" {
         let prog = program::Lib::new(inter);
         let mut app = Application::new(prog);
         app.set_args(leema_args);
         app.push_call(modkey.name.clone(), Lstr::Sref("main"));
         app.run();
-        let result = app.wait_for_result();
-        return Application::handle_result(result) as i32;
+        app.wait_for_result().unwrap()
     } else if args.arg_cmd == "http" {
-        let addr = ([127, 0, 0, 1], 3000).into();
-
-        let new_svc = || {
-            service_fn_ok(|_req|{
-                Response::new(Body::from("hello world"))
-            })
-        };
-
-        let server = Server::bind(&addr)
-            .serve(new_svc)
-            .map_err(|e| eprintln!("server error: {}", e));
-
-        let _http_result = hyper::rt::run(server);
-
         let prog = program::Lib::new(inter);
         let mut app = Application::new(prog);
         app.set_args(leema_args);
         app.run();
-        // let http = Http::new();
-        let result = app.wait_for_result();
-        return Application::handle_result(result) as i32;
+
+        http::run(&mut app)
     } else {
         println!("invalid command: {:?}", args.arg_cmd);
-        return 1;
-    }
+        Val::Int(1)
+    };
 
-    return 0;
+    Application::handle_result(main_result) as i32
 }

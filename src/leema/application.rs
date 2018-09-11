@@ -159,13 +159,10 @@ impl Application
         self.result.take()
     }
 
-    pub fn handle_result(result: Option<Val>) -> i8
+    pub fn handle_result(result: Val) -> i8
     {
         vout!("Result = {:?}\n", result);
-        if result.is_none() {
-            return -4;
-        }
-        let code: i8 = match result.unwrap() {
+        let code: i8 = match result {
             Val::Int(i) => i as i8,
             Val::Void => 0,
             Val::Failure(ref tag, ref msg, ref trace, status) => {
