@@ -135,10 +135,7 @@ impl Application
                     )
                 }
                 None => {
-                    WorkerMsg::Spawn(
-                        MsgItem::new(&module),
-                        MsgItem::new(&call),
-                    )
+                    WorkerMsg::Spawn(MsgItem::new(&module), MsgItem::new(&call))
                 }
             };
             w.send(msg).expect("fail sending spawn call to worker");
@@ -174,7 +171,11 @@ impl Application
                 panic!("whoa a spawn msg sent to Application");
             }
             AppMsg::ResultSpawn(result_dst, modname, funcname) => {
-                self.calls.push_back((Some(result_dst), modname.take(), funcname.take()));
+                self.calls.push_back((
+                    Some(result_dst),
+                    modname.take(),
+                    funcname.take(),
+                ));
             }
         }
     }
@@ -233,14 +234,19 @@ pub struct AppCaller
 
 impl AppCaller
 {
-    pub fn push_call(&self, modname: &Lstr, fname: &Lstr) -> futures_oneshot::Receiver<Val>
+    pub fn push_call(
+        &self,
+        modname: &Lstr,
+        fname: &Lstr,
+    ) -> futures_oneshot::Receiver<Val>
     {
         let (result_send, result_recv) = futures_oneshot::channel();
-        self.app_send.send(AppMsg::ResultSpawn(
-            result_send,
-            MsgItem::new(modname),
-            MsgItem::new(fname),
-        )).unwrap();
+        self.app_send
+            .send(AppMsg::ResultSpawn(
+                result_send,
+                MsgItem::new(modname),
+                MsgItem::new(fname),
+            )).unwrap();
         result_recv
     }
 }

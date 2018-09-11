@@ -1,13 +1,13 @@
-use leema::application::{AppCaller};
+use leema::application::AppCaller;
 use leema::lstr::Lstr;
 
 use std::thread;
 
-use futures::Future;
 use futures::future;
 use futures::sync::oneshot::Canceled;
-use hyper::{Body, Request, Response, Server};
+use futures::Future;
 use hyper::service::service_fn;
+use hyper::{Body, Request, Response, Server};
 
 
 type HttpFut = Future<Item = Response<Body>, Error = Canceled>;
@@ -26,9 +26,7 @@ pub fn run(app: AppCaller)
 
     let new_svc = move || {
         let iapp = app.clone();
-        service_fn(move |req| {
-            handle_request(iapp.clone(), req)
-        })
+        service_fn(move |req| handle_request(iapp.clone(), req))
     };
 
     let server = Server::bind(&addr)
@@ -43,19 +41,17 @@ pub fn handle_request(caller: AppCaller, req: Request<Body>) -> BoxFut
 {
     println!("handle_request({:?})", req);
     let response_future: BoxFut = Box::new(
-        caller.push_call(
-            &Lstr::Sref("http"), &Lstr::Sref("test_handle")
-        )
-        .and_then(|v| {
-            let msg = format!("{}", v);
-            println!("response msg: {}", msg);
-            // future::ok(Response::new(Body::from(msg)))
-            future::ok(Response::new(Body::from(msg)))
-        })
-        .map_err(|e| {
-            println!("request error: {:?}", e);
-            e
-        })
+        caller
+            .push_call(&Lstr::Sref("http"), &Lstr::Sref("test_handle"))
+            .and_then(|v| {
+                let msg = format!("{}", v);
+                println!("response msg: {}", msg);
+                // future::ok(Response::new(Body::from(msg)))
+                future::ok(Response::new(Body::from(msg)))
+            }).map_err(|e| {
+                println!("request error: {:?}", e);
+                e
+            }),
     );
     response_future
 }

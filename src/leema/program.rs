@@ -243,11 +243,12 @@ impl Lib
             let mod_str = funcri.mod_ref().expect("typecheck module name");
             let mut icf = CallFrame::new(mod_str, funcri.localid.str());
             let inter = self.inter.get(mod_str).unwrap();
-            let fix = inter.interfunc.get(funcri.localid.str())
+            let fix = inter
+                .interfunc
+                .get(funcri.localid.str())
                 .or_else(|| {
                     panic!("cannot find function inter: {}", funcri);
-                })
-                .unwrap();
+                }).unwrap();
             icf.collect_calls(&fix);
             icf
         };
