@@ -691,14 +691,31 @@ impl Protomod
                     Type::UserDef(id)
                 }
             }
-            Type::Func(args, result) => {
-                let mut args2 = Vec::with_capacity(args.len());
-                for a in args {
-                    args2.push(self.replace_typeids(type_params, a));
-                }
+            Type::Func(mut args, result) => {
+                let args2 = args.drain(..).map(|a| {
+                    self.replace_typeids(type_params, a)
+                }).collect();
                 let result2 = self.replace_typeids(type_params, *result);
                 Type::Func(args2, Box::new(result2))
             }
+            Type::StrictList(subtype) => {
+                let sub2 = self.replace_typeids(type_params, *subtype);
+                Type::StrictList(Box::new(sub2))
+            }
+            Type::Tuple(mut items) => {
+                let items2 = items.0.drain(..).map(|mut i| {
+                    i.1 = self.replace_typeids(type_params, i.1);
+                    i
+                }).collect();
+                Type::Tuple(Struple(items2))
+            }
+            Type::Map => Type::Map,
+            // primitive types
+            Type::Bool => Type::Bool,
+            Type::Hashtag => Type::Hashtag,
+            Type::Failure => Type::Failure,
+            Type::Int => Type::Int,
+            Type::Str => Type::Str,
             id => id,
         }
     }
