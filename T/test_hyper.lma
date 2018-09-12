@@ -3,7 +3,7 @@ import hyper_server
 
 
 func web_handler(req: hyper_server::Request): Str ->
-    "tacos"
+    "<html><big>eat more tacos</big></html>\n"
 --
 
 func main() ->
