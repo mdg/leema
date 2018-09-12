@@ -275,6 +275,13 @@ impl Worker
                 let root = Frame::new_root(parent, module.take(), call.take());
                 self.spawn_fiber(root);
             }
+            WorkerMsg::Spawn2(result_dst, func) => {
+                vout!("worker spawn2 {}\n", func);
+                let parent = Parent::new_future(result_dst);
+                let module = func.modules.unwrap();
+                let root = Frame::new_root(parent, module, func.localid);
+                self.spawn_fiber(root);
+            }
             WorkerMsg::ResultSpawn(result_dst, module, call) => {
                 vout!("worker call w/return {}.{}()\n", *module, *call);
                 let parent = Parent::new_future(result_dst);

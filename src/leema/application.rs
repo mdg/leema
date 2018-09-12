@@ -170,6 +170,13 @@ impl Application
             AppMsg::Spawn(_, _) => {
                 panic!("whoa a spawn msg sent to Application");
             }
+            AppMsg::Spawn2(result_dst, func) => {
+                self.calls.push_back((
+                    Some(result_dst),
+                    func.mod_ref().unwrap().clone(),
+                    func.localid,
+                ));
+            }
             AppMsg::ResultSpawn(result_dst, modname, funcname) => {
                 self.calls.push_back((
                     Some(result_dst),

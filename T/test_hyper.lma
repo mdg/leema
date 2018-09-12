@@ -1,11 +1,12 @@
 
-import hyper
+import hyper_server
 
 
-func web_handler(req: hyper::Request): Str ->
+func web_handler(req: hyper_server::Request): Str ->
     "tacos"
 --
 
 func main() ->
-    hyper::init_server(web_handler)
+    let s := hyper_server::bind(3998, web_handler)
+    hyper_server::run(s)
 --

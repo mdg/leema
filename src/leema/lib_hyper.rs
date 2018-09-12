@@ -9,6 +9,8 @@ use leema::val::{Val, Type};
 use std::fmt;
 use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
+use std::thread;
+use std::time::Duration;
 
 use futures::{future, Future};
 use futures::sync::oneshot as futures_oneshot;
@@ -32,16 +34,17 @@ hyper_server::close(s)
 
 
 type BoxFut = Box<Future<Item = Response<Body>, Error = futures_oneshot::Canceled> + Send>;
+type Graceful = Box<Future<Item=(), Error=()> + Send>;
 
 struct ServerHandle
 {
-    server: Option<BoxFut>,
+    server: Option<Graceful>,
     closer: futures_oneshot::Sender<()>,
 }
 
 impl ServerHandle
 {
-    pub fn new(server: BoxFut, closer: futures_oneshot::Sender<()>) -> Box<ServerHandle>
+    pub fn new(server: Graceful, closer: futures_oneshot::Sender<()>) -> Box<ServerHandle>
     {
         Box::new(ServerHandle { server: Some(server), closer })
     }
@@ -86,16 +89,17 @@ pub fn server_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let app = ctx.clone_run_queue();
     let new_svc = move || {
         let iapp = app.clone();
-        service_fn(move |req| handle_request(funcri, req, iapp.clone()))
+        let ifuncri = funcri.clone();
+        service_fn(move |req| {
+            handle_request(ifuncri.clone(), req, iapp.clone())
+        })
     };
 
-    let (closer, close_recv_1) = futures_oneshot::channel();
-    let close_recv = close_recv_1.map_err(|e| {
-    });
+    let (closer, _close_recv) = futures_oneshot::channel();
 
     let server = Server::bind(&sock_addr)
         .serve(new_svc)
-        .with_graceful_shutdown(close_recv)
+        // .with_graceful_shutdown(close_recv)
         .map_err(|e| {
             eprintln!("server error: {}", e);
         });
@@ -105,10 +109,11 @@ pub fn server_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
 
 pub fn server_run(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
-    let server_handle: ServerHandle = ctx.take_rsrc();
+    let mut server_handle: ServerHandle = ctx.take_rsrc();
     let server = server_handle.server.take().unwrap();
-    let http_result = ::hyper::rt::spawn(server);
-println!("hyper finished with: {:?}", http_result);
+    thread::spawn(move || {
+        ::hyper::rt::run(server);
+    });
     rsrc::Event::Result(Val::Int(0), Some(Box::new(server_handle)))
 }
 
@@ -119,7 +124,7 @@ pub fn handle_request(
 ) -> BoxFut
 {
     println!("handle_request({},\n\t{:?})", func, req);
-    let response_future: BoxFut = Box::new(
+    let response_future = Box::new(
         caller
             .spawn(func)
             .and_then(|v| {
