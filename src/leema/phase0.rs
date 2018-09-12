@@ -355,12 +355,19 @@ impl Protomod
         let mut ftype_parts: Vec<Kxpr> = pp_args
             .iter()
             .map(|a| {
-                // Protomod::preproc_type(prog, mp, a, loc)
                 a.clone()
             }).collect();
+        let ftype_part_types: Vec<Type> = {
+            let lri_params = full_lri.params.as_ref();
+            ftype_parts
+                .iter()
+                .map(|argt| {
+                    self.preproc_type(prog, mp, lri_params, argt.x_ref().unwrap(), loc)
+                }).collect()
+        };
+        let rtype = Type::from(&pp_rtype_ast);
         ftype_parts.push(Kxpr::new_x(pp_rtype_ast));
-        let ftype_ast = Ast::TypeFunc(ftype_parts, *loc);
-        let ftype = Type::from(&ftype_ast);
+        let ftype = Type::Func(ftype_part_types, Box::new(rtype));
 
         let funcref = Val::FuncRef(full_lri, ftype.clone());
 
@@ -658,6 +665,7 @@ impl Protomod
     }
 
     pub fn preproc_type(
+        &self,
         prog: &Lib,
         mp: &ModulePreface,
         opt_type_params: Option<&Vec<Type>>,
@@ -666,24 +674,41 @@ impl Protomod
     ) -> Type
     {
         let pp_x = Protomod::preproc_expr(prog, mp, typ, loc);
-        let make_local = |name: &Lstr| Type::UserDef(Lri::new(name.clone()));
-        match (&pp_x, opt_type_params) {
-            (&Ast::Localid(ref name, _), None) => make_local(name),
-            (&Ast::Localid(ref name, _), Some(ref type_params)) => {
-                Protomod::find_type_param(type_params, name)
-                    .map(|_i| {
-                        // Type::Param(i)
-                        Type::Var(name.clone())
-                    }).unwrap_or_else(|| make_local(name))
+        let local_type = Type::from(&pp_x);
+        self.replace_typeids(opt_type_params, local_type)
+    }
+
+    pub fn replace_typeids(&self, type_params: Option<&Vec<Type>>, t: Type) -> Type
+    {
+        // rewrite the modules if necessary
+        match t {
+            Type::UserDef(id) => {
+                if id.local_only() && Protomod::find_type_param(type_params, &id.localid).is_some() {
+                    Type::Var(id.localid.clone())
+                } else if !id.has_modules() && self.deftypes.contains_key(&id.localid) {
+                    Type::UserDef(id.add_modules(self.key.name.clone()))
+                } else {
+                    Type::UserDef(id)
+                }
             }
-            (&Ast::TypeVar(ref name, _), _) => Type::Var(name.clone()),
-            _ => Type::from(&pp_x),
+            Type::Func(args, result) => {
+                let mut args2 = Vec::with_capacity(args.len());
+                for a in args {
+                    args2.push(self.replace_typeids(type_params, a));
+                }
+                let result2 = self.replace_typeids(type_params, *result);
+                Type::Func(args2, Box::new(result2))
+            }
+            id => id,
         }
     }
 
-    pub fn find_type_param(params: &Vec<Type>, name: &str) -> Option<i8>
+    pub fn find_type_param(params: Option<&Vec<Type>>, name: &str) -> Option<i8>
     {
-        for (i, p) in params.iter().enumerate() {
+        if params.is_none() {
+            return None;
+        }
+        for (i, p) in params.unwrap().iter().enumerate() {
             if let &Type::Var(ref pname) = p {
                 if pname == name {
                     return Some(i as i8);
@@ -806,7 +831,7 @@ impl Protomod
             .map(|f| {
                 // struple fields are made w/ an x_list,
                 // x_ref will always be there
-                let pp_type = Protomod::preproc_type(
+                let pp_type = self.preproc_type(
                     prog,
                     mp,
                     struple_lri.param_ref(),
