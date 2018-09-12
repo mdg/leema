@@ -280,10 +280,6 @@ impl Protomod
                     loc
                 );
             }
-            (None, Some(typ)) => {
-                let pp_typ = Protomod::preproc_expr(prog, mp, typ, &loc);
-                Kxpr::new_x(pp_typ)
-            }
             (Some(id), None) => {
                 let type_name = Lstr::from(format!(
                     "{}_{}_{}",
@@ -304,9 +300,10 @@ impl Protomod
                 let new_typ = Ast::TypeVar(type_name, *loc);
                 Kxpr::new(id.clone(), new_typ)
             }
-            (Some(id), Some(typ)) => {
-                let pp_typ = Protomod::preproc_expr(prog, mp, typ, &loc);
-                Kxpr::new(id.clone(), pp_typ)
+            (_, Some(_)) => {
+                arg.map_x(|typ| {
+                    Protomod::preproc_expr(prog, mp, typ, &loc)
+                })
             }
         }
     }
