@@ -10,7 +10,6 @@ use std::fmt;
 use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
 use std::thread;
-use std::time::Duration;
 
 use futures::{future, Future};
 use futures::sync::oneshot as futures_oneshot;
@@ -38,15 +37,14 @@ type Graceful = Box<Future<Item=(), Error=()> + Send>;
 
 struct ServerHandle
 {
-    server: Option<Graceful>,
     closer: futures_oneshot::Sender<()>,
 }
 
 impl ServerHandle
 {
-    pub fn new(server: Graceful, closer: futures_oneshot::Sender<()>) -> Box<ServerHandle>
+    pub fn new(closer: futures_oneshot::Sender<()>) -> Box<ServerHandle>
     {
-        Box::new(ServerHandle { server: Some(server), closer })
+        Box::new(ServerHandle { closer })
     }
 }
 
@@ -62,22 +60,14 @@ impl fmt::Debug for ServerHandle
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        let server_str = if self.server.is_some() {
-            "server"
-        } else {
-            "empty"
-        };
-        write!(f, "ServerHandle({})", server_str)
+        write!(f, "ServerHandle")
     }
 }
 
-pub fn server_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn server_run(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("hyper_server::bind()\n");
-    let sock_addr = {
-        let port = ctx.take_param(0).unwrap().to_int() as u16;
-        SocketAddr::new(IpAddr::from([0, 0, 0, 0]), port)
-    };
+    let port = ctx.take_param(0).unwrap().to_int() as u16;
     let func = ctx.take_param(1).unwrap();
     let funcri = match func {
         Val::FuncRef(ref lri, _) => lri.clone(),
@@ -86,35 +76,37 @@ pub fn server_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
         }
     };
 
-    let app = ctx.clone_run_queue();
-    let new_svc = move || {
-        let iapp = app.clone();
-        let ifuncri = funcri.clone();
-        service_fn(move |req| {
-            handle_request(ifuncri.clone(), req, iapp.clone())
-        })
-    };
+    let runq = ctx.clone_run_queue();
+    let (closer, close_recv) = futures_oneshot::channel::<()>();
+    let handle = ServerHandle::new(closer);
 
-    let (closer, _close_recv) = futures_oneshot::channel();
+    thread::spawn(move || {
+        server_run_on_thread(port, funcri, runq, close_recv);
+    });
 
-    let server = Server::bind(&sock_addr)
-        .serve(new_svc)
-        // .with_graceful_shutdown(close_recv)
-        .map_err(|e| {
-            eprintln!("server error: {}", e);
-        });
-    let handle = ServerHandle::new(Box::new(server), closer);
     rsrc::Event::NewRsrc(handle, None)
 }
 
-pub fn server_run(mut ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn server_run_on_thread(port: u16, func: Lri, runq: RunQueue, close_recv: futures_oneshot::Receiver<()>)
 {
-    let mut server_handle: ServerHandle = ctx.take_rsrc();
-    let server = server_handle.server.take().unwrap();
-    thread::spawn(move || {
-        ::hyper::rt::run(server);
-    });
-    rsrc::Event::Result(Val::Int(0), Some(Box::new(server_handle)))
+    println!("server_run_on_thread({}, {})", port, func);
+    let sock_addr = SocketAddr::new(IpAddr::from([0, 0, 0, 0]), port);
+
+    let new_svc = move || {
+        let irunq = runq.clone();
+        let ifuncri = func.clone();
+        service_fn(move |req| {
+            handle_request(ifuncri.clone(), req, irunq.clone())
+        })
+    };
+
+    let server = Server::bind(&sock_addr)
+        .serve(new_svc)
+        .with_graceful_shutdown(close_recv)
+        .map_err(|e| {
+            eprintln!("server error: {}", e);
+        });
+    ::hyper::rt::run(server);
 }
 
 pub fn handle_request(
@@ -143,8 +135,7 @@ pub fn handle_request(
 pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
-        "bind" => Some(Code::Iop(server_bind, None)),
-        "run" => Some(Code::Iop(server_run, Some(0))),
+        "run" => Some(Code::Iop(server_run, None)),
         _ => None,
     }
 }

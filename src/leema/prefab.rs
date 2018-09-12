@@ -4,13 +4,17 @@ use leema::frame::Event;
 use leema::list;
 use leema::log;
 use leema::lstr::Lstr;
+use leema::rsrc;
 use leema::val::{self, LibVal, Type, Val};
 
 use std::fmt::{self, Debug, Display};
 use std::fs::File;
 use std::io::{stderr, stdin, Read, Write};
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+use tokio::timer::Delay;
+use futures::Future;
 
 use rand;
 
@@ -233,14 +237,16 @@ pub fn get_type(f: &mut Fiber) -> Event
 }
 
 
-pub fn leema_sleep(f: &mut Fiber) -> Event
+pub fn leema_sleep(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
-    use std::thread::sleep;
-
-    let tval = f.head.get_param(0);
-    let tint = tval.to_int();
-    sleep(Duration::from_millis(tint as u64));
-    Event::success()
+    let tint = ctx.take_param(0).unwrap().to_int() as u64;
+    let i = Instant::now() + Duration::from_millis(tint);
+    let d = Delay::new(i)
+        .map(|_| rsrc::Event::Result(Val::Void, None))
+        .map_err(|_e| {
+            rsrc::Event::Result(Val::Int(5), None)
+        });
+    rsrc::Event::Future(Box::new(d))
 }
 
 /**
@@ -384,6 +390,7 @@ pub fn file_stream_read(f: &mut Fiber) -> Event
     Event::success()
 }
 
+/*
 macro_rules! load_rust_funcs {
     ( $fname:ident, $( $f:ident ),* ) => {
         match $fname {
@@ -394,31 +401,32 @@ macro_rules! load_rust_funcs {
         }
     }
 }
+*/
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
-    load_rust_funcs!(
-        func_name,
-        int_add,
-        int_sub,
-        int_mult,
-        int_mod,
-        int_negate,
-        int_random,
-        bool_not,
-        bool_xor,
-        list_cons,
-        less_than,
-        less_than_equal,
-        equal,
-        greater_than,
-        greater_than_equal,
-        get_type,
-        leema_sleep,
-        cin,
-        print,
-        create_failure,
-        file_read,
-        file_stream_read
-    )
+    match func_name {
+        "int_add" => Some(Code::Rust(int_add)),
+        "int_sub" => Some(Code::Rust(int_sub)),
+        "int_mult" => Some(Code::Rust(int_mult)),
+        "int_mod" => Some(Code::Rust(int_mod)),
+        "int_negate" => Some(Code::Rust(int_negate)),
+        "int_random" => Some(Code::Rust(int_random)),
+        "bool_not" => Some(Code::Rust(bool_not)),
+        "bool_xor" => Some(Code::Rust(bool_xor)),
+        "list_cons" => Some(Code::Rust(list_cons)),
+        "sleep" => Some(Code::Iop(leema_sleep, None)),
+        "less_than" => Some(Code::Rust(less_than)),
+        "less_than_equal" => Some(Code::Rust(less_than_equal)),
+        "equal" => Some(Code::Rust(equal)),
+        "greater_than" => Some(Code::Rust(greater_than)),
+        "greater_than_equal" => Some(Code::Rust(greater_than_equal)),
+        "get_type" => Some(Code::Rust(get_type)),
+        "cin" => Some(Code::Rust(cin)),
+        "print" => Some(Code::Rust(print)),
+        "create_failure" => Some(Code::Rust(create_failure)),
+        "file_read" => Some(Code::Rust(file_read)),
+        "file_stream_read" => Some(Code::Rust(file_stream_read)),
+        _ => None,
+    }
 }

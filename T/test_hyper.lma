@@ -7,6 +7,6 @@ func web_handler(req: hyper_server::Request): Str ->
 --
 
 func main() ->
-    let s := hyper_server::bind(3998, web_handler)
-    hyper_server::run(s)
+    hyper_server::run(3998, web_handler)
+    sleep(10000)
 --

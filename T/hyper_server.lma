@@ -8,9 +8,7 @@ struct Request
 struct Server --
 
 
-func bind(port: Int, handler: Request => Str): Server -RUST-
-
-func run(s: Server): Void -RUST-
+func run(port: Int, handler: Request => Str): Server -RUST-
 
 func shutdown(s: Server): Void -RUST-
 
