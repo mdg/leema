@@ -5,7 +5,13 @@ struct Request
 .path: Str
 --
 
-func init_server(handler: Request => Str): Void -RUST-
+struct Server --
 
+
+func bind(port: Int, handler: Request => Str): Server -RUST-
+
+func run(s: Server): Void -RUST-
+
+func shutdown(s: Server): Void -RUST-
 
 
