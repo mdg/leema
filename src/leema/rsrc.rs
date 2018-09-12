@@ -1,4 +1,5 @@
 use leema::io::Io;
+pub use leema::io::RunQueue;
 use leema::val::{Type, Val};
 
 use std::cell::RefCell;
@@ -10,7 +11,7 @@ use futures::stream;
 use mopa;
 
 
-pub trait Rsrc: mopa::Any + fmt::Debug + Send + Sync
+pub trait Rsrc: mopa::Any + fmt::Debug
 {
     fn get_type(&self) -> Type;
 }
@@ -47,6 +48,7 @@ pub struct IopCtx
     rcio: Rc<RefCell<Io>>,
     src_worker_id: i64,
     src_fiber_id: i64,
+    run_queue: RunQueue,
     rsrc_id: Option<i64>,
     rsrc: Option<Box<Rsrc>>,
     params: Vec<Option<Val>>,
@@ -58,6 +60,7 @@ impl IopCtx
         rcio: Rc<RefCell<Io>>,
         wid: i64,
         fid: i64,
+        run_queue: RunQueue,
         rsrc_id: Option<i64>,
         rsrc: Option<Box<Rsrc>>,
         param_val: Val,
@@ -75,6 +78,7 @@ impl IopCtx
             rcio: rcio,
             src_worker_id: wid,
             src_fiber_id: fid,
+            run_queue,
             rsrc_id: rsrc_id,
             rsrc: rsrc,
             params: params,
@@ -114,6 +118,11 @@ impl IopCtx
     pub fn take_param(&mut self, i: i8) -> Option<Val>
     {
         self.params.get_mut(i as usize).unwrap().take()
+    }
+
+    pub fn clone_run_queue(&self) -> RunQueue
+    {
+        self.run_queue.clone()
     }
 }
 

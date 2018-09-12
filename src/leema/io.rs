@@ -1,4 +1,5 @@
 use leema::log;
+use leema::lri::Lri;
 use leema::msg::{AppMsg, IoMsg, WorkerMsg};
 use leema::rsrc::{self, Event, IopCtx, Rsrc};
 use leema::val::{MsgVal, Val};
@@ -15,6 +16,7 @@ use futures::future::Future;
 use futures::stream::Stream;
 use futures::task;
 use futures::{Async, Poll};
+use futures::sync::oneshot as futures_oneshot;
 use tokio::runtime::current_thread;
 use tokio_current_thread::TaskExecutor;
 
@@ -93,6 +95,27 @@ impl RsrcQueue
                 None
             }
         }
+    }
+}
+
+
+#[derive(Clone)]
+pub struct RunQueue
+{
+    app_send: Sender<AppMsg>,
+}
+
+impl RunQueue
+{
+    pub fn spawn(&self, func: Lri) -> futures_oneshot::Receiver<Val>
+    {
+        let (result_send, result_recv) = futures_oneshot::channel();
+        self.app_send
+            .send(AppMsg::Spawn2(
+                result_send,
+                func,
+            )).unwrap();
+        result_recv
     }
 }
 
@@ -321,7 +344,8 @@ impl Io
         let h = self.handle.clone();
         let tx = self.worker_tx.clone();
         */
-        IopCtx::new(rcio, src_worker_id, src_fiber_id, rsrc_id, rsrc, param_val)
+        let run_queue = RunQueue{ app_send: self.app_tx.clone() };
+        IopCtx::new(rcio, src_worker_id, src_fiber_id, run_queue, rsrc_id, rsrc, param_val)
     }
 
     pub fn new_rsrc(&mut self, rsrc: Box<Rsrc>) -> i64

@@ -1,0 +1,11 @@
+
+import hyper
+
+
+func web_handler(req: hyper::Request): Str ->
+    "tacos"
+--
+
+func main() ->
+    hyper::init_server(web_handler)
+--

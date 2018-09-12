@@ -35,4 +35,5 @@ pub mod worker;
 
 // libraries
 pub mod file;
+pub mod lib_hyper;
 pub mod lib_str;
