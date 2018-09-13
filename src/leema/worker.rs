@@ -88,7 +88,7 @@ impl Worker
                 did_nothing = min(did_nothing + 1, 10000);
             }
             if did_nothing > 50 {
-                thread::sleep(Duration::from_micros(did_nothing * 10));
+                thread::sleep(Duration::from_micros(did_nothing * 100));
             }
         }
     }
