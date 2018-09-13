@@ -73,10 +73,7 @@ impl Ixpr
 {
     pub fn new(src: Source, line: i16) -> Ixpr
     {
-        Ixpr {
-            src,
-            line,
-        }
+        Ixpr { src, line }
     }
 
     pub fn new_block(code: Vec<Ixpr>, line: i16) -> Ixpr

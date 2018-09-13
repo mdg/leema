@@ -273,10 +273,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 Op::ListCons(dst.clone(), hops.dst, tops.dst),
                 input.line,
             ));
-            Oxpr {
-                ops: hops.ops,
-                dst,
-            }
+            Oxpr { ops: hops.ops, dst }
         }
         Source::Construple(ref typ, ref flds) => {
             vout!("make_construple_ops({:?})\n", typ);
@@ -394,10 +391,7 @@ pub fn make_construple_ops(
     let ops: Vec<(Op, i16)> =
         vec![(Op::Construple(dst.clone(), typ.clone(), flds.clone()), line)];
 
-    Oxpr {
-        ops,
-        dst,
-    }
+    Oxpr { ops, dst }
 }
 
 pub fn make_enum_constructor_ops(
@@ -426,10 +420,7 @@ pub fn make_enum_constructor_ops(
     }
     */
 
-    Oxpr {
-        ops,
-        dst,
-    }
+    Oxpr { ops, dst }
 }
 
 pub fn make_matchfailure_ops(
@@ -479,10 +470,7 @@ pub fn make_matchexpr_ops(rt: &mut RegTable, x: &Ixpr, cases: &Ixpr) -> Oxpr
     rt.pop_dst();
 
     xops.ops.append(&mut case_ops.ops);
-    Oxpr {
-        ops: xops.ops,
-        dst,
-    }
+    Oxpr { ops: xops.ops, dst }
 }
 
 pub fn make_matchcase_ops(

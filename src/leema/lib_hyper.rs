@@ -101,9 +101,7 @@ pub fn server_run_on_thread(
     let new_svc = move || {
         let irunq = runq.clone();
         let ifuncri = func.clone();
-        service_fn(move |req| {
-            handle_request(ifuncri.clone(), req, &irunq)
-        })
+        service_fn(move |req| handle_request(ifuncri.clone(), req, &irunq))
     };
 
     let server = Server::bind(&sock_addr)
@@ -115,8 +113,11 @@ pub fn server_run_on_thread(
     ::hyper::rt::run(server);
 }
 
-pub fn handle_request(func: Lri, req: Request<Body>, caller: &RunQueue)
-    -> BoxFut
+pub fn handle_request(
+    func: Lri,
+    req: Request<Body>,
+    caller: &RunQueue,
+) -> BoxFut
 {
     vout!("handle_request({},\n\t{:?})", func, req);
     Box::new(
