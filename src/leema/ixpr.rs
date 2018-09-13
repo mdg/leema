@@ -74,8 +74,8 @@ impl Ixpr
     pub fn new(src: Source, line: i16) -> Ixpr
     {
         Ixpr {
-            src: src,
-            line: line,
+            src,
+            line,
         }
     }
 
@@ -83,7 +83,7 @@ impl Ixpr
     {
         Ixpr {
             src: Source::Block(code),
-            line: line,
+            line,
         }
     }
 
@@ -107,7 +107,7 @@ impl Ixpr
     {
         Ixpr {
             src: Source::List(items),
-            line: line,
+            line,
         }
     }
 
@@ -138,7 +138,7 @@ impl Ixpr
     {
         Ixpr {
             src: Source::Cons(Box::new(head), Box::new(tail)),
-            line: line,
+            line,
         }
     }
 

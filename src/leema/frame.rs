@@ -192,7 +192,7 @@ impl FrameTrace
         Arc::new(FrameTrace {
             direction: FrameTraceDirection::CallUp,
             function: func.clone(),
-            line: line,
+            line,
             parent: Some(parent.clone()),
         })
     }
@@ -206,7 +206,7 @@ impl FrameTrace
         Arc::new(FrameTrace {
             direction: FrameTraceDirection::ReturnDown,
             function: func.clone(),
-            line: line,
+            line,
             parent: Some(trace.clone()),
         })
     }
@@ -237,7 +237,7 @@ impl fmt::Display for FrameTrace
             write!(f, ":{}", self.line).ok();
         }
         match self.parent {
-            None => write!(f, "\n"),
+            None => writeln!(f),
             Some(ref p) => write!(f, "\n{}", p),
         }
     }

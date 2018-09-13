@@ -675,7 +675,7 @@ impl Val
         input: &Val,
     ) -> bool
     {
-        let result = match (patt, input) {
+        match (patt, input) {
             (&Val::Wildcard, _) => true,
             (&Val::PatternVar(ref dst), _) => {
                 // should put something in assigns vector here
@@ -728,8 +728,7 @@ impl Val
             (&Val::Token(ref pt), &Val::Token(ref it)) => pt == it,
             (&Val::Nil, &Val::Nil) => true,
             _ => false,
-        };
-        result
+        }
     }
 
     fn _pattern_match_list(
@@ -738,7 +737,7 @@ impl Val
         input: &Val,
     ) -> bool
     {
-        let result = match (patt, input) {
+        match (patt, input) {
             (&Val::Cons(ref ph, ref pt), &Val::Cons(ref ih, ref it)) => {
                 Val::_pattern_match(assigns, ph, ih)
                     && Val::_pattern_match_list(assigns, pt, it)
@@ -750,8 +749,7 @@ impl Val
             }
             (&Val::Nil, &Val::Nil) => true,
             _ => false,
-        };
-        result
+        }
     }
 
     pub fn deep_clone(&self) -> Val

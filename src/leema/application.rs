@@ -80,11 +80,10 @@ impl Application
     {
         let app_send = self.app_send.clone();
         let io_recv = self.io_recv.take().unwrap();
-        let handle = thread::spawn(move || {
+        thread::spawn(move || {
             let rcio = Io::new(app_send, io_recv);
             IoLoop::run(rcio);
-        });
-        handle
+        })
     }
 
     fn start_worker(&mut self) -> thread::JoinHandle<()>
@@ -119,7 +118,7 @@ impl Application
             if self.iterate() {
                 did_nothing = 0;
             } else {
-                did_nothing = min(did_nothing + 1, 100000);
+                did_nothing = min(did_nothing + 1, 100_000);
                 if did_nothing > 1000 {
                     thread::sleep(Duration::from_micros(did_nothing));
                 }
@@ -315,7 +314,7 @@ mod tests
         app.push_call(Lstr::Sref("test"), Lstr::Sref("main"));
         app.run();
 
-        write!(stderr(), "Application::wait_until_done\n").unwrap();
+        writeln!(stderr(), "Application::wait_until_done").unwrap();
         let result = app.wait_for_result();
         assert_eq!(Some(Val::Int(3)), result);
     }

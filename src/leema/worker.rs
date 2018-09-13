@@ -85,7 +85,7 @@ impl Worker
             if did_something {
                 did_nothing = 0;
             } else {
-                did_nothing = min(did_nothing + 1, 100000);
+                did_nothing = min(did_nothing + 1, 100_000);
             }
             if did_nothing > 1000 {
                 thread::sleep(Duration::from_micros(did_nothing));
@@ -153,7 +153,7 @@ impl Worker
 
     pub fn execute_frame(f: &mut Fiber, code: &Code) -> Event
     {
-        let ev = match code {
+        match code {
             &Code::Leema(ref ops) => f.execute_leema_frame(ops),
             &Code::Rust(ref rf) => {
                 vout!("execute rust code\n");
@@ -162,8 +162,7 @@ impl Worker
             &Code::Iop(_, _) => {
                 panic!("cannot execute iop in a worker\n");
             }
-        };
-        ev
+        }
     }
 
     pub fn handle_event(
@@ -353,8 +352,8 @@ impl Worker
             self.io_tx
                 .send(IoMsg::Iop {
                     worker_id: self.id,
-                    fiber_id: fiber_id,
-                    rsrc_id: rsrc_id,
+                    fiber_id,
+                    rsrc_id,
                     action: iopf,
                     params: msg_val,
                 }).expect("io send failure");

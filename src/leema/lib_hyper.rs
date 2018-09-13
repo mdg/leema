@@ -102,7 +102,7 @@ pub fn server_run_on_thread(
         let irunq = runq.clone();
         let ifuncri = func.clone();
         service_fn(move |req| {
-            handle_request(ifuncri.clone(), req, irunq.clone())
+            handle_request(ifuncri.clone(), req, &irunq)
         })
     };
 
@@ -115,11 +115,11 @@ pub fn server_run_on_thread(
     ::hyper::rt::run(server);
 }
 
-pub fn handle_request(func: Lri, req: Request<Body>, caller: RunQueue)
+pub fn handle_request(func: Lri, req: Request<Body>, caller: &RunQueue)
     -> BoxFut
 {
     vout!("handle_request({},\n\t{:?})", func, req);
-    let response_future = Box::new(
+    Box::new(
         caller
             .spawn(func)
             .and_then(|v| {
@@ -130,8 +130,7 @@ pub fn handle_request(func: Lri, req: Request<Body>, caller: RunQueue)
                 println!("request error: {:?}", e);
                 e
             }),
-    );
-    response_future
+    )
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>

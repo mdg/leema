@@ -44,7 +44,7 @@ struct Args
     flag_func: Option<String>,
 }
 
-const USAGE: &'static str = "
+static USAGE: &'static str = "
 leema interpreter
 
 Usage:
@@ -170,5 +170,5 @@ fn real_main() -> i32
         Val::Int(1)
     };
 
-    Application::handle_result(main_result) as i32
+    i32::from(Application::handle_result(main_result))
 }

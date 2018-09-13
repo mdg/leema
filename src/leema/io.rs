@@ -60,7 +60,7 @@ impl RsrcQueue
     pub fn new(rsrc_id: i64, resource: Box<Rsrc>) -> RsrcQueue
     {
         RsrcQueue {
-            rsrc_id: rsrc_id,
+            rsrc_id,
             rsrc: Some(resource),
             queue: LinkedList::new(),
         }
@@ -142,8 +142,8 @@ impl Io
         let io = Io {
             resource: HashMap::new(),
             next: LinkedList::new(),
-            msg_rx: msg_rx,
-            app_tx: app_tx,
+            msg_rx,
+            app_tx,
             worker_tx: HashMap::new(),
             next_rsrc_id: 1,
             io: None,
@@ -220,8 +220,8 @@ impl Io
             params,
         );
         let iop = Iop {
-            ctx: ctx,
-            action: action,
+            ctx,
+            action,
             src_worker_id: worker_id,
             src_fiber_id: fiber_id,
             rsrc_id: opt_rsrc_id.clone(),
@@ -441,7 +441,7 @@ impl Future for IoLoop
             );
             self.did_nothing = 0;
         } else {
-            self.did_nothing = min(self.did_nothing + 1, 100000);
+            self.did_nothing = min(self.did_nothing + 1, 100_000);
             if self.did_nothing > 1000 {
                 thread::sleep(Duration::from_micros(self.did_nothing));
             }
@@ -502,7 +502,7 @@ pub mod tests
             .send(msg::IoMsg::Iop {
                 worker_id: 11,
                 fiber_id: 21,
-                action: action,
+                action,
                 rsrc_id: None,
                 params: msg_params,
             }).unwrap();

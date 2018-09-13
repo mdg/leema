@@ -31,8 +31,8 @@ impl<'a> CallFrame<'a>
     pub fn new(modname: &'a str, fname: &'a str) -> CallFrame<'a>
     {
         CallFrame {
-            modname: modname,
-            fname: fname,
+            modname,
+            fname,
             infer: Inferator::new(fname),
             calls: LinkedList::new(),
         }

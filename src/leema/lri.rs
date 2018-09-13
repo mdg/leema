@@ -35,7 +35,7 @@ impl Lri
         Lri {
             modules: mods,
             localid: id,
-            params: params,
+            params,
         }
     }
 

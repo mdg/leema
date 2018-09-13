@@ -105,10 +105,10 @@ impl IfCase
     ) -> IfCase
     {
         IfCase {
-            cond: cond,
-            body: body,
+            cond,
+            body,
             else_case: else_case.map(|ic| Box::new(ic)),
-            loc: loc,
+            loc,
         }
     }
 }

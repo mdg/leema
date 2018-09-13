@@ -81,7 +81,7 @@ impl Intermod
     pub fn new(modname: Lstr) -> Intermod
     {
         Intermod {
-            modname: modname,
+            modname,
             interfunc: HashMap::new(),
         }
     }
@@ -393,7 +393,7 @@ impl<'a, 'b> NewBlockscope<'a, 'b>
 {
     pub fn new(scope: &'b mut Interscope<'a>) -> NewBlockscope<'a, 'b>
     {
-        NewBlockscope { scope: scope }
+        NewBlockscope { scope }
     }
 
     pub fn collect_failures<'c>(&mut self, stmt: &'c Ast) -> Option<&'c Ast>
@@ -658,7 +658,7 @@ pub fn compile_dot_access(
 
 pub fn compile_ifx(scope: &mut Interscope, ifx: &Ast) -> Ixpr
 {
-    let ix = match ifx {
+    match ifx {
         &Ast::IfExpr(ast::IfType::If, ref const_void, ref case, ref iloc) => {
             if **const_void != Ast::ConstVoid {
                 panic!("if input is not void? {:?} @ {}", const_void, iloc);
@@ -676,8 +676,7 @@ pub fn compile_ifx(scope: &mut Interscope, ifx: &Ast) -> Ixpr
         _ => {
             panic!("not an expected if expression: {:?}", ifx);
         }
-    };
-    ix
+    }
 }
 
 pub fn compile_if_case(scope: &mut Interscope, case: &ast::IfCase) -> Ixpr
@@ -895,19 +894,13 @@ impl fmt::Debug for Intermod
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        write!(f, "Intermod{{\n").ok();
-        write!(f, "\tname: {}\n", self.modname).ok();
-        write!(f, "\tinterfunc:\n").ok();
+        writeln!(f, "Intermod{{")?;
+        writeln!(f, "\tname: {}", self.modname)?;
+        writeln!(f, "\tinterfunc:")?;
         for (fname, fix) in self.interfunc.iter() {
-            write!(f, "\t\t{}: {:?}\n", fname, fix).ok();
+            writeln!(f, "\t\t{}: {:?}", fname, fix)?;
         }
-        write!(f, "}}\n")
-        /*
-    imports: HashSet<String>,
-    macros: HashMap<String, Val>,
-    srcfunc: HashMap<String, Val>,
-    interfunc: HashMap<String, Ixpr>,
-    */
+        writeln!(f, "}}")
     }
 }
 

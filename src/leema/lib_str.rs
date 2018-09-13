@@ -37,10 +37,9 @@ pub fn split(f: &mut Fiber) -> frame::Event
     let result = {
         let src = f.head.e.get_param(0);
         let div = f.head.e.get_param(1);
-        let subs = src.str().rsplit(div.str()).fold(Val::Nil, |acc, s| {
+        src.str().rsplit(div.str()).fold(Val::Nil, |acc, s| {
             list::cons(Val::Str(Lstr::from(s.to_string())), acc)
-        });
-        subs
+        })
     };
     f.head.parent.set_result(result);
     frame::Event::success()

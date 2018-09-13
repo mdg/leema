@@ -178,10 +178,10 @@ impl fmt::Debug for Code
         match self {
             &Code::Leema(ref ops) => {
                 let mut result;
-                result = write!(f, "Code::Leema\n");
+                result = writeln!(f, "Code::Leema");
                 let mut i = 0;
                 for op in &**ops {
-                    result = write!(f, "{:3} {:?}\n", i, op);
+                    result = writeln!(f, "{:3} {:?}", i, op);
                     i += 1;
                 }
                 result
@@ -234,7 +234,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 ops.push((Op::Copy(rt.dst().clone(), last_dst), input.line));
             }
             Oxpr {
-                ops: ops,
+                ops,
                 dst: rt.dst().clone(),
             }
         }
@@ -275,7 +275,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             ));
             Oxpr {
                 ops: hops.ops,
-                dst: dst,
+                dst,
             }
         }
         Source::Construple(ref typ, ref flds) => {
@@ -341,7 +341,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 rt.next_sub();
             }
             rt.pop_dst();
-            Oxpr { ops: ops, dst: dst }
+            Oxpr { ops, dst }
         }
         Source::List(ref items) => make_list_ops(rt, items, input.line),
         Source::Map(ref items) => make_map_ops(rt, items, input.line),
@@ -389,14 +389,14 @@ pub fn make_construple_ops(
     line: i16,
 ) -> Oxpr
 {
-    let dst = rt.dst();
+    let dst = rt.dst().clone();
 
     let ops: Vec<(Op, i16)> =
         vec![(Op::Construple(dst.clone(), typ.clone(), flds.clone()), line)];
 
     Oxpr {
-        ops: ops,
-        dst: dst.clone(),
+        ops,
+        dst,
     }
 }
 
@@ -408,7 +408,7 @@ pub fn make_enum_constructor_ops(
     _line: i16,
 ) -> Oxpr
 {
-    let dst = rt.dst();
+    let dst = rt.dst().clone();
 
     let ops: Vec<(Op, i16)> = Vec::with_capacity(3);
     /*
@@ -427,8 +427,8 @@ pub fn make_enum_constructor_ops(
     */
 
     Oxpr {
-        ops: ops,
-        dst: dst.clone(),
+        ops,
+        dst,
     }
 }
 
@@ -481,7 +481,7 @@ pub fn make_matchexpr_ops(rt: &mut RegTable, x: &Ixpr, cases: &Ixpr) -> Oxpr
     xops.ops.append(&mut case_ops.ops);
     Oxpr {
         ops: xops.ops,
-        dst: dst,
+        dst,
     }
 }
 
@@ -650,7 +650,7 @@ pub fn make_list_ops(rt: &mut RegTable, items: &Vec<Ixpr>, line: i16) -> Oxpr
         ops.push((Op::ListCons(dst.clone(), listops.dst, dst.clone()), i.line));
     }
     rt.pop_dst();
-    Oxpr { ops: ops, dst: dst }
+    Oxpr { ops, dst }
 }
 
 pub fn make_map_ops(
@@ -661,7 +661,7 @@ pub fn make_map_ops(
 {
     let dst = rt.dst().clone();
     let ops = vec![(Op::MapCreate(dst.clone()), line)];
-    Oxpr { ops: ops, dst: dst }
+    Oxpr { ops, dst }
 }
 
 pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Ixpr>) -> Oxpr
@@ -679,7 +679,7 @@ pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Ixpr>) -> Oxpr
         ops.push((Op::StrCat(dst.clone(), strops.dst), i.line));
     }
     rt.pop_dst();
-    Oxpr { ops: ops, dst: dst }
+    Oxpr { ops, dst }
 }
 
 

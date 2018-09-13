@@ -75,13 +75,13 @@ impl IopCtx
             }
         };
         IopCtx {
-            rcio: rcio,
+            rcio,
             src_worker_id: wid,
             src_fiber_id: fid,
             run_queue,
-            rsrc_id: rsrc_id,
-            rsrc: rsrc,
-            params: params,
+            rsrc_id,
+            rsrc,
+            params,
         }
     }
 
