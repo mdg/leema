@@ -12,7 +12,7 @@ use leema::module::{ModulePreface, ModuleSource};
 use leema::phase0::{self, Protomod};
 use leema::typecheck::{self, CallFrame, CallOp, Typemod, Typescope};
 use leema::val::Type;
-use leema::{file, prefab, tcp, udp, lib_hyper};
+use leema::{file, lib_hyper, prefab, tcp, udp};
 
 use std::collections::{HashMap, HashSet};
 use std::io::Write;

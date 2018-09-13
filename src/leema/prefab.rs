@@ -13,9 +13,9 @@ use std::io::{stderr, stdin, Read, Write};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use tokio::timer::Delay;
-use futures::Future;
 use futures::future::empty;
+use futures::Future;
+use tokio::timer::Delay;
 
 use rand;
 
@@ -244,9 +244,7 @@ pub fn leema_sleep(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let i = Instant::now() + Duration::from_millis(tint);
     let d = Delay::new(i)
         .map(|_| rsrc::Event::Result(Val::Void, None))
-        .map_err(|_e| {
-            rsrc::Event::Result(Val::Int(5), None)
-        });
+        .map_err(|_e| rsrc::Event::Result(Val::Int(5), None));
     rsrc::Event::Future(Box::new(d))
 }
 

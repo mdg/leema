@@ -301,9 +301,7 @@ impl Protomod
                 Kxpr::new(id.clone(), new_typ)
             }
             (_, Some(_)) => {
-                arg.map_x(|typ| {
-                    Protomod::preproc_expr(prog, mp, typ, &loc)
-                })
+                arg.map_x(|typ| Protomod::preproc_expr(prog, mp, typ, &loc))
             }
         }
     }
@@ -352,17 +350,20 @@ impl Protomod
         );
         let lstr_name = Lstr::from(name);
 
-        let mut ftype_parts: Vec<Kxpr> = pp_args
-            .iter()
-            .map(|a| {
-                a.clone()
-            }).collect();
+        let mut ftype_parts: Vec<Kxpr> =
+            pp_args.iter().map(|a| a.clone()).collect();
         let ftype_part_types: Vec<Type> = {
             let lri_params = full_lri.params.as_ref();
             ftype_parts
                 .iter()
                 .map(|argt| {
-                    self.preproc_type(prog, mp, lri_params, argt.x_ref().unwrap(), loc)
+                    self.preproc_type(
+                        prog,
+                        mp,
+                        lri_params,
+                        argt.x_ref().unwrap(),
+                        loc,
+                    )
                 }).collect()
         };
         let rtype = Type::from(&pp_rtype_ast);
@@ -678,23 +679,34 @@ impl Protomod
         self.replace_typeids(opt_type_params, local_type)
     }
 
-    pub fn replace_typeids(&self, type_params: Option<&Vec<Type>>, t: Type) -> Type
+    pub fn replace_typeids(
+        &self,
+        type_params: Option<&Vec<Type>>,
+        t: Type,
+    ) -> Type
     {
         // rewrite the modules if necessary
         match t {
             Type::UserDef(id) => {
-                if id.local_only() && Protomod::find_type_param(type_params, &id.localid).is_some() {
+                if id.local_only() && Protomod::find_type_param(
+                    type_params,
+                    &id.localid,
+                ).is_some()
+                {
                     Type::Var(id.localid.clone())
-                } else if !id.has_modules() && self.deftypes.contains_key(&id.localid) {
+                } else if !id.has_modules()
+                    && self.deftypes.contains_key(&id.localid)
+                {
                     Type::UserDef(id.add_modules(self.key.name.clone()))
                 } else {
                     Type::UserDef(id)
                 }
             }
             Type::Func(mut args, result) => {
-                let args2 = args.drain(..).map(|a| {
-                    self.replace_typeids(type_params, a)
-                }).collect();
+                let args2 = args
+                    .drain(..)
+                    .map(|a| self.replace_typeids(type_params, a))
+                    .collect();
                 let result2 = self.replace_typeids(type_params, *result);
                 Type::Func(args2, Box::new(result2))
             }
@@ -703,10 +715,13 @@ impl Protomod
                 Type::StrictList(Box::new(sub2))
             }
             Type::Tuple(mut items) => {
-                let items2 = items.0.drain(..).map(|mut i| {
-                    i.1 = self.replace_typeids(type_params, i.1);
-                    i
-                }).collect();
+                let items2 = items
+                    .0
+                    .drain(..)
+                    .map(|mut i| {
+                        i.1 = self.replace_typeids(type_params, i.1);
+                        i
+                    }).collect();
                 Type::Tuple(Struple(items2))
             }
             Type::Map => Type::Map,
@@ -720,7 +735,8 @@ impl Protomod
         }
     }
 
-    pub fn find_type_param(params: Option<&Vec<Type>>, name: &str) -> Option<i8>
+    pub fn find_type_param(params: Option<&Vec<Type>>, name: &str)
+        -> Option<i8>
     {
         if params.is_none() {
             return None;

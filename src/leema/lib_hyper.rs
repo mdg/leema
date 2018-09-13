@@ -1,20 +1,19 @@
-
 use leema::code::Code;
 use leema::log;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::rsrc::{self, Rsrc, RunQueue};
-use leema::val::{Val, Type};
+use leema::val::{Type, Val};
 
 use std::fmt;
 use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
 use std::thread;
 
-use futures::{future, Future};
 use futures::sync::oneshot as futures_oneshot;
-use hyper::{Body, Request, Response, Server};
+use futures::{future, Future};
 use hyper::service::service_fn;
+use hyper::{Body, Request, Response, Server};
 
 /*
 http handle
@@ -32,8 +31,10 @@ hyper_server::close(s)
 */
 
 
-type BoxFut = Box<Future<Item = Response<Body>, Error = futures_oneshot::Canceled> + Send>;
-type Graceful = Box<Future<Item=(), Error=()> + Send>;
+type BoxFut = Box<
+    Future<Item = Response<Body>, Error = futures_oneshot::Canceled> + Send,
+>;
+type Graceful = Box<Future<Item = (), Error = ()> + Send>;
 
 struct ServerHandle
 {
@@ -87,7 +88,12 @@ pub fn server_run(mut ctx: rsrc::IopCtx) -> rsrc::Event
     rsrc::Event::NewRsrc(handle, None)
 }
 
-pub fn server_run_on_thread(port: u16, func: Lri, runq: RunQueue, close_recv: futures_oneshot::Receiver<()>)
+pub fn server_run_on_thread(
+    port: u16,
+    func: Lri,
+    runq: RunQueue,
+    close_recv: futures_oneshot::Receiver<()>,
+)
 {
     println!("server_run_on_thread({}, {})", port, func);
     let sock_addr = SocketAddr::new(IpAddr::from([0, 0, 0, 0]), port);
@@ -109,11 +115,8 @@ pub fn server_run_on_thread(port: u16, func: Lri, runq: RunQueue, close_recv: fu
     ::hyper::rt::run(server);
 }
 
-pub fn handle_request(
-    func: Lri,
-    req: Request<Body>,
-    caller: RunQueue,
-) -> BoxFut
+pub fn handle_request(func: Lri, req: Request<Body>, caller: RunQueue)
+    -> BoxFut
 {
     println!("handle_request({},\n\t{:?})", func, req);
     let response_future = Box::new(
