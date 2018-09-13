@@ -6,11 +6,13 @@ use leema::val::{MsgVal, Val};
 
 use std;
 use std::cell::RefCell;
+use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
 use std::io::Write;
 use std::rc::Rc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
+use std::time::Duration;
 
 use futures::future::Future;
 use futures::stream::Stream;
@@ -401,13 +403,14 @@ impl Io
 pub struct IoLoop
 {
     io: Rc<RefCell<Io>>,
+    did_nothing: u64,
 }
 
 impl IoLoop
 {
     pub fn run(rcio: Rc<RefCell<Io>>)
     {
-        let my_loop = IoLoop { io: rcio };
+        let my_loop = IoLoop { io: rcio, did_nothing: 0 };
 
         let mut rt = current_thread::Runtime::new().unwrap();
         let result = rt.block_on(my_loop);
@@ -433,8 +436,13 @@ impl Future for IoLoop
                 iop.rsrc_id,
                 ev,
             );
+            self.did_nothing = 0;
+        } else {
+            self.did_nothing = min(self.did_nothing + 1, 10000);
+            if self.did_nothing > 50 {
+                thread::sleep(Duration::from_micros(self.did_nothing * 10));
+            }
         }
-        thread::yield_now();
         poll_result
     }
 }

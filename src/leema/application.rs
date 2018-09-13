@@ -6,10 +6,13 @@ use leema::program;
 use leema::val::Val;
 use leema::worker::Worker;
 
+use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
 use std::io::Write;
+use std::process;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
+use std::time::Duration;
 
 use futures::sync::oneshot as futures_oneshot;
 
@@ -112,17 +115,24 @@ impl Application
     pub fn wait_for_result(&mut self) -> Option<Val>
     {
         vout!("wait_for_result\n");
+        let mut did_nothing = 0;
         while !self.done {
-            self.iterate();
-            thread::yield_now();
-            // self.done.store(true, Ordering::Relaxed);
+            if self.iterate() {
+                did_nothing = 0;
+            } else {
+                did_nothing = min(did_nothing + 1, 10000);
+                if did_nothing > 100 {
+                    thread::sleep(Duration::from_micros(did_nothing * 100));
+                }
+            }
         }
         vout!("application done\n");
         self.result.take()
     }
 
-    pub fn iterate(&mut self)
+    pub fn iterate(&mut self) -> bool
     {
+        let mut did_something = false;
         while let Some((dst, module, call)) = self.calls.pop_front() {
             vout!("application call {}.{}()\n", module, call);
             let w = self.worker.values().next().unwrap();
@@ -139,11 +149,14 @@ impl Application
                 }
             };
             w.send(msg).expect("fail sending spawn call to worker");
+            did_something = true;
         }
 
         while let Result::Ok(msg) = self.app_recv.try_recv() {
             self.process_msg(msg);
+            did_something = true;
         }
+        did_something
     }
 
     pub fn process_msg(&mut self, msg: AppMsg)

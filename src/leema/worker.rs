@@ -6,10 +6,13 @@ use leema::lstr::Lstr;
 use leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use leema::val::{MsgVal, Val};
 
+use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
 use std::io::Write;
 use std::rc::Rc;
 use std::sync::mpsc::{Receiver, Sender};
+use std::thread;
+use std::time::Duration;
 
 use futures::{Async, Poll};
 
@@ -40,6 +43,7 @@ pub struct Worker
     msg_rx: Receiver<WorkerMsg>,
     id: i64,
     next_fiber_id: i64,
+    did_nothing: i32,
     done: bool,
 }
 
@@ -68,34 +72,49 @@ impl Worker
             msg_rx: recv,
             id: wid,
             next_fiber_id: 0,
+            did_nothing: 0,
             done: false,
         }
     }
 
     pub fn run(mut self)
     {
+        let mut did_nothing = 0;
         while !self.done {
-            self.run_once();
+            let did_something = self.run_once();
+            if did_something {
+                did_nothing = 0;
+            } else {
+                did_nothing = min(did_nothing + 1, 10000);
+            }
+            if did_nothing > 50 {
+                thread::sleep(Duration::from_micros(did_nothing * 10));
+            }
         }
     }
 
-    pub fn run_once(&mut self)
+    pub fn run_once(&mut self) -> bool
     {
+        let mut did_something = false;
         while let Result::Ok(msg) = self.msg_rx.try_recv() {
+            did_something = true;
             self.process_msg(msg);
         }
 
         match self.pop_fresh() {
             Some(ReadyFiber::New(f)) => {
+                did_something = true;
                 self.load_code(f);
             }
             Some(ReadyFiber::Ready(mut f, code)) => {
+                did_something = true;
                 let ev = Worker::execute_frame(&mut f, &*code);
                 self.handle_event(f, ev, code)
                     .expect("failure handling event");
             }
             None => {}
         }
+        did_something
     }
 
     fn find_code<'a>(
