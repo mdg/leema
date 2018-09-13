@@ -11,6 +11,7 @@ use std::sync::Arc;
 #[derive(Debug)]
 #[derive(Clone)]
 #[derive(Eq)]
+#[derive(Ord)]
 pub enum Lstr
 {
     Arc(Arc<String>),

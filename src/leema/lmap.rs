@@ -6,6 +6,10 @@ pub type LmapNode = Option<Arc<Lmap>>;
 
 #[derive(Clone)]
 #[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Ord)]
 pub struct Lmap(Option<Arc<Lmap>>, (Val, Val), Option<Arc<Lmap>>);
 
 impl Lmap

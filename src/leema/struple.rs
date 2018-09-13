@@ -11,6 +11,7 @@ use std::iter::FromIterator;
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
 #[derive(Eq)]
+#[derive(Ord)]
 #[derive(Hash)]
 pub struct Struple<T>(pub Vec<(Option<Lstr>, T)>);
 

@@ -145,6 +145,17 @@ pub fn last<'a>(l: &'a Val) -> Option<&'a Val>
     }
 }
 
+pub fn sort(l: &Val) -> Val
+{
+    let mut v = ref_to_vec(l);
+    v.sort_unstable();
+    let mut result = Val::Nil;
+    for i in v.drain(..).rev() {
+        result = cons(i, result);
+    }
+    result
+}
+
 pub fn map_ref<F>(mut l: &Val, mut op: F) -> Val
 where
     F: FnMut(&Val) -> Val,

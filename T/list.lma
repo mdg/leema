@@ -16,6 +16,8 @@ func reverse(items: [$E]): [$E] ->
     _reverse([], items)
 --
 
+func sort(items: [$J]): [$J] -RUST-
+
 func _filter(acc: [$G], in: [$G], pred: $G => Bool): [$G]
 |(acc, [], _) -> reverse(acc)
 |(acc, h;t, f) ->

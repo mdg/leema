@@ -41,6 +41,7 @@ pub enum FuncType
 #[derive(PartialOrd)]
 #[derive(Eq)]
 #[derive(Hash)]
+#[derive(Ord)]
 pub enum Type
 {
     Int,
@@ -1052,6 +1053,14 @@ impl reg::Iregistry for Val
     }
 }
 
+impl Ord for Val
+{
+    fn cmp(&self, other: &Val) -> Ordering
+    {
+        PartialOrd::partial_cmp(self, other).expect("values weren't comparable")
+    }
+}
+
 impl PartialOrd for Val
 {
     fn partial_cmp(&self, other: &Val) -> Option<Ordering>
@@ -1194,6 +1203,8 @@ impl PartialEq for Val
         }
     }
 }
+
+impl Eq for Val {}
 
 impl AsMut<[u8]> for Val
 {

@@ -9,6 +9,7 @@ use std::fmt;
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
 #[derive(Eq)]
+#[derive(Ord)]
 #[derive(Hash)]
 pub struct Lri
 {
