@@ -15,6 +15,7 @@ use std::time::{Duration, Instant};
 
 use tokio::timer::Delay;
 use futures::Future;
+use futures::future::empty;
 
 use rand;
 
@@ -249,6 +250,11 @@ pub fn leema_sleep(mut ctx: rsrc::IopCtx) -> rsrc::Event
     rsrc::Event::Future(Box::new(d))
 }
 
+pub fn leema_sleep_forever(_ctx: rsrc::IopCtx) -> rsrc::Event
+{
+    rsrc::Event::Future(Box::new(empty()))
+}
+
 /**
  * cin
  */
@@ -416,6 +422,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         "bool_xor" => Some(Code::Rust(bool_xor)),
         "list_cons" => Some(Code::Rust(list_cons)),
         "sleep" => Some(Code::Iop(leema_sleep, None)),
+        "sleep_forever" => Some(Code::Iop(leema_sleep_forever, None)),
         "less_than" => Some(Code::Rust(less_than)),
         "less_than_equal" => Some(Code::Rust(less_than_equal)),
         "equal" => Some(Code::Rust(equal)),

@@ -36,6 +36,7 @@ func int_random(): Int -RUST-
 func equal(a, b): Bool -RUST-
 func less_than(a, b): Bool -RUST-
 func sleep(d: Int): Void -RUST-
+func sleep_forever(): Void -RUST-
 func cin(): Str -RUST-
 func print(txt: Str): Void -RUST-
 func list_cons(head: $A, tail: [$A]): [$A] -RUST-
