@@ -438,9 +438,9 @@ impl Future for IoLoop
             );
             self.did_nothing = 0;
         } else {
-            self.did_nothing = min(self.did_nothing + 1, 10000);
-            if self.did_nothing > 50 {
-                thread::sleep(Duration::from_micros(self.did_nothing * 10));
+            self.did_nothing = min(self.did_nothing + 1, 100000);
+            if self.did_nothing > 1000 {
+                thread::sleep(Duration::from_micros(self.did_nothing));
             }
         }
         poll_result
