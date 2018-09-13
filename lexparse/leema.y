@@ -133,12 +133,12 @@ use std::io::{Write};
 }
 
 %syntax_error {
-    match token {
-        &Token::EOI => {
+    match yymajor {
+        TOKEN_EOI => {
 	        panic!("Unexpected end of file. Maybe add newline?");
         }
         _ => {
-	        println!("syntax error at token {:?}\n", token);
+	        println!("syntax error at token {:?}\n", yymajor);
 	        panic!("Syntax error. wtf? @ <line,column>?");
         }
     }
