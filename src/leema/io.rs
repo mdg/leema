@@ -410,7 +410,10 @@ impl IoLoop
 {
     pub fn run(rcio: Rc<RefCell<Io>>)
     {
-        let my_loop = IoLoop { io: rcio, did_nothing: 0 };
+        let my_loop = IoLoop {
+            io: rcio,
+            did_nothing: 0,
+        };
 
         let mut rt = current_thread::Runtime::new().unwrap();
         let result = rt.block_on(my_loop);
