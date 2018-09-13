@@ -118,14 +118,13 @@ pub fn server_run_on_thread(
 pub fn handle_request(func: Lri, req: Request<Body>, caller: RunQueue)
     -> BoxFut
 {
-    println!("handle_request({},\n\t{:?})", func, req);
+    vout!("handle_request({},\n\t{:?})", func, req);
     let response_future = Box::new(
         caller
             .spawn(func)
             .and_then(|v| {
                 let msg = format!("{}", v);
-                println!("response msg: {}", msg);
-                // future::ok(Response::new(Body::from(msg)))
+                vout!("response msg: {}", msg);
                 future::ok(Response::new(Body::from(msg)))
             }).map_err(|e| {
                 println!("request error: {:?}", e);
