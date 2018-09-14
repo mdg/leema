@@ -1,8 +1,10 @@
 use leema::code::Code;
+use leema::frame::FrameTrace;
 use leema::log;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::rsrc::{self, Rsrc, RunQueue};
+use leema::struple::Struple;
 use leema::val::{Type, Val};
 
 use std::fmt;
@@ -13,7 +15,7 @@ use std::thread;
 use futures::sync::oneshot as futures_oneshot;
 use futures::{future, Future};
 use hyper::service::service_fn;
-use hyper::{Body, Request, Response, Server, StatusCode};
+use hyper::{Body, Method, Request, Response, Server, StatusCode};
 
 /*
 http handle
@@ -29,6 +31,12 @@ hyper_server::run(s)
 
 hyper_server::close(s)
 */
+
+const REQUEST_LRI: Lri = Lri {
+    modules: Some(Lstr::Sref("hyper_server")),
+    localid: Lstr::Sref("Request"),
+    params: None,
+};
 
 
 type BoxFut = Box<
@@ -113,6 +121,32 @@ pub fn server_run_on_thread(
     ::hyper::rt::run(server);
 }
 
+pub fn new_leema_request(req: &Request<Body>) -> Val
+{
+    let method_str = match *req.method() {
+        Method::GET => "GET",
+        Method::POST => "POST",
+        Method::PUT => "PUT",
+        Method::DELETE => "DELETE",
+        _ => {
+            return Val::failure(
+                Val::Hashtag(Lstr::Sref("unsupported_method")),
+                Val::Str(Lstr::from(req.method().as_str().to_string())),
+                FrameTrace::new_root(),
+                0,
+            )
+        }
+    };
+    let leema_method = Val::Str(Lstr::Sref(method_str));
+    let leema_path = Val::Str(Lstr::from(req.uri().path().to_string()));
+
+    let fields = vec![
+        (Some(Lstr::Sref("method")), leema_method),
+        (Some(Lstr::Sref("path")), leema_path),
+    ];
+    Val::Struct(REQUEST_LRI, Struple(fields))
+}
+
 pub fn handle_request(
     func: Lri,
     req: Request<Body>,
@@ -120,9 +154,11 @@ pub fn handle_request(
 ) -> BoxFut
 {
     vout!("handle_request({},\n\t{:?})", func, req);
+    let leema_req = new_leema_request(&req);
+    let args = Struple(vec![(Some(Lstr::Sref("req")), leema_req)]);
     Box::new(
         caller
-            .spawn(func)
+            .spawn(func, args)
             .and_then(|v| {
                 let msg = format!("{}", v);
                 vout!("response msg: {}", msg);

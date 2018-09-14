@@ -1,12 +1,22 @@
 
 import hyper_server
+import chess960
 
 
-func web_handler(req: hyper_server::Request): Str ->
+func intro(): Str ->
     let headline := "eat more tacos"
     let blog := "<a href='https://leema.org'>leema</a>"
     let github := "<a href='https://github.com/mdg/leema'>github</a>"
     "<html><big>$headline</big><br/>$blog $github</html>\n"
+--
+
+func web_handler(req: hyper_server::Request): Str ->
+    match req.path
+    |"" -> intro()
+    |"chess960" ->
+        let lineup := chess960::chess960()
+        "$lineup"
+    --
 --
 
 func main() ->

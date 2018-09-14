@@ -996,6 +996,9 @@ impl reg::Iregistry for Val
             (&Ireg::Sub(_, _), &Val::Failure(ref tag, ref msg, _, _)) => {
                 panic!("Cannot access sub data for Failure {} {}", tag, msg);
             }
+            (_, &Val::Void) => {
+                panic!("cannot access a register on void")
+            }
             _ => {
                 panic!("unsupported registry value {:?}{:?}", self, i);
             }

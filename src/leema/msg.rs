@@ -3,6 +3,7 @@ use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::rsrc::IopAction;
 use leema::sendclone::SendClone;
+use leema::struple::Struple;
 use leema::val::{MsgVal, Val};
 
 use std::fmt;
@@ -49,7 +50,7 @@ pub enum AppMsg
 {
     // Spawn(module, function)
     Spawn(MsgLstr, MsgLstr),
-    Spawn2(FutureSender<Val>, Lri),
+    Spawn2(FutureSender<Val>, Lri, Struple<Val>),
     ResultSpawn(FutureSender<Val>, MsgLstr, MsgLstr),
     // RequestCode(worker_id, fiber_id, module, function)
     RequestCode(i64, i64, MsgLstr, MsgLstr),
