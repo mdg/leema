@@ -13,7 +13,7 @@ use std::thread;
 use futures::sync::oneshot as futures_oneshot;
 use futures::{future, Future};
 use hyper::service::service_fn;
-use hyper::{Body, Request, Response, Server};
+use hyper::{Body, Request, Response, Server, StatusCode};
 
 /*
 http handle
@@ -127,9 +127,13 @@ pub fn handle_request(
                 let msg = format!("{}", v);
                 vout!("response msg: {}", msg);
                 future::ok(Response::new(Body::from(msg)))
-            }).map_err(|e| {
+            }).or_else(|e| {
                 println!("request error: {:?}", e);
-                e
+                let resp: Response<Body> = Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(Body::from("server error\n"))
+                    .unwrap();
+                future::ok(resp)
             }),
     )
 }
