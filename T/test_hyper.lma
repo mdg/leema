@@ -3,7 +3,10 @@ import hyper_server
 
 
 func web_handler(req: hyper_server::Request): Str ->
-    "<html><big>eat more tacos</big></html>\n"
+    let headline := "eat more tacos"
+    let blog := "<a href='https://leema.org'>leema</a>"
+    let github := "<a href='https://github.com/mdg/leema'>github</a>"
+    "<html><big>$headline</big><br/>$blog $github</html>\n"
 --
 
 func main() ->
