@@ -80,10 +80,12 @@ impl Application
     {
         let app_send = self.app_send.clone();
         let io_recv = self.io_recv.take().unwrap();
-        thread::spawn(move || {
-            let rcio = Io::new(app_send, io_recv);
-            IoLoop::run(rcio);
-        })
+        thread::Builder::new()
+            .name("leema-io".to_string())
+            .spawn(move || {
+                let rcio = Io::new(app_send, io_recv);
+                IoLoop::run(rcio);
+            }).unwrap()
     }
 
     fn start_worker(&mut self) -> thread::JoinHandle<()>
