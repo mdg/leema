@@ -1,7 +1,9 @@
 use leema::code::Code;
+use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::reg::{Ireg, Reg};
 use leema::rsrc;
+use leema::struple::Struple;
 use leema::val::{Env, Val};
 
 use std::fmt::{self, Debug};
@@ -81,7 +83,7 @@ impl Debug for Parent
 pub enum Event
 {
     Uneventful,
-    Call(Reg, i16, Lstr, Lstr, Val),
+    Call(Reg, i16, Lri, Val),
     Fork,
     FutureWait(Reg),
     IOWait,
@@ -111,11 +113,11 @@ impl fmt::Debug for Event
     {
         match self {
             &Event::Uneventful => write!(f, "Uneventful"),
-            &Event::Call(ref r, line, ref cmod, ref cfunc, ref cargs) => {
+            &Event::Call(ref r, line, ref cfunc, ref cargs) => {
                 write!(
                     f,
-                    "Event::Call({:?}@{}, {}::{}, {:?})",
-                    r, line, cmod, cfunc, cargs
+                    "Event::Call({:?}@{}, {}, {:?})",
+                    r, line, cfunc, cargs
                 )
             }
             &Event::Fork => write!(f, "Event::Fork"),
@@ -138,9 +140,9 @@ impl PartialEq for Event
         match (self, other) {
             (&Event::Uneventful, &Event::Uneventful) => true,
             (
-                &Event::Call(ref r1, line1, ref m1, ref f1, ref a1),
-                &Event::Call(ref r2, line2, ref m2, ref f2, ref a2),
-            ) => r1 == r2 && line1 == line2 && m1 == m2 && f1 == f2 && a1 == a2,
+                &Event::Call(ref r1, line1, ref f1, ref a1),
+                &Event::Call(ref r2, line2, ref f2, ref a2),
+            ) => r1 == r2 && line1 == line2 && f1 == f2 && a1 == a2,
             (&Event::Fork, &Event::Fork) => true,
             (&Event::FutureWait(ref r1), &Event::FutureWait(ref r2)) => {
                 r1 == r2
@@ -166,7 +168,7 @@ pub struct FrameTrace
 {
     // TODO: Implement this in leema later
     direction: FrameTraceDirection,
-    function: Lstr,
+    function: Lri,
     line: i16,
     parent: Option<Arc<FrameTrace>>,
 }
@@ -177,7 +179,7 @@ impl FrameTrace
     {
         Arc::new(FrameTrace {
             direction: FrameTraceDirection::CallUp,
-            function: Lstr::Sref("__init__"),
+            function: Lri::new(Lstr::Sref("__init__")),
             line: 0,
             parent: None,
         })
@@ -185,7 +187,7 @@ impl FrameTrace
 
     pub fn push_call(
         parent: &Arc<FrameTrace>,
-        func: &Lstr,
+        func: &Lri,
         line: i16,
     ) -> Arc<FrameTrace>
     {
@@ -199,7 +201,7 @@ impl FrameTrace
 
     pub fn propagate_down(
         trace: &Arc<FrameTrace>,
-        func: &Lstr,
+        func: &Lri,
         line: i16,
     ) -> Arc<FrameTrace>
     {
@@ -247,8 +249,7 @@ impl fmt::Display for FrameTrace
 pub struct Frame
 {
     pub parent: Parent,
-    pub module: Lstr,
-    pub function: Lstr,
+    pub function: Lri,
     pub trace: Arc<FrameTrace>,
     pub e: Env,
     pub pc: i32,
@@ -256,13 +257,12 @@ pub struct Frame
 
 impl Frame
 {
-    pub fn new_root(parent: Parent, module: Lstr, function: Lstr) -> Frame
+    pub fn new_root(parent: Parent, function: Lri, args: Struple<Val>) -> Frame
     {
         let env = Env::new();
         Frame {
             parent,
             trace: FrameTrace::new_root(),
-            module,
             function,
             e: env,
             pc: 0,

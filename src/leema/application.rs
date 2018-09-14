@@ -1,8 +1,10 @@
 use leema::io::{Io, IoLoop};
 use leema::log;
+use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use leema::program;
+use leema::struple::Struple;
 use leema::val::Val;
 use leema::worker::Worker;
 
@@ -24,7 +26,7 @@ pub struct Application
     io_recv: Option<Receiver<IoMsg>>,
     io_send: Sender<IoMsg>,
     worker: HashMap<i64, Sender<WorkerMsg>>,
-    calls: LinkedList<(Option<futures_oneshot::Sender<Val>>, Lstr, Lstr)>,
+    calls: LinkedList<(futures_oneshot::Sender<Val>, Lri, Struple<Val>)>,
     args: Val,
     result: Option<Val>,
     done: bool,
@@ -64,9 +66,9 @@ impl Application
         }
     }
 
-    pub fn push_call(&mut self, module: Lstr, func: Lstr)
+    pub fn push_call(&mut self, dst: futures_oneshot::Sender<Val>, call: Lri, args: Struple<Val>)
     {
-        self.calls.push_back((None, module, func));
+        self.calls.push_back((dst, call, args));
     }
 
     pub fn run(&mut self)
@@ -133,21 +135,10 @@ impl Application
     pub fn iterate(&mut self) -> bool
     {
         let mut did_something = false;
-        while let Some((dst, module, call)) = self.calls.pop_front() {
-            vout!("application call {}.{}()\n", module, call);
+        while let Some((dst, call, args)) = self.calls.pop_front() {
+            vout!("application call {}({:?})\n", call, args);
             let w = self.worker.values().next().unwrap();
-            let msg = match dst {
-                Some(idst) => {
-                    WorkerMsg::ResultSpawn(
-                        idst,
-                        MsgItem::new(&module),
-                        MsgItem::new(&call),
-                    )
-                }
-                None => {
-                    WorkerMsg::Spawn(MsgItem::new(&module), MsgItem::new(&call))
-                }
-            };
+            let msg = WorkerMsg::Spawn(dst, call, args);
             w.send(msg).expect("fail sending spawn call to worker");
             did_something = true;
         }
@@ -180,21 +171,11 @@ impl Application
                 self.result = Some(mv.take());
                 self.done = true;
             }
-            AppMsg::Spawn(_, _) => {
-                panic!("whoa a spawn msg sent to Application");
-            }
-            AppMsg::Spawn2(result_dst, func, _args) => {
+            AppMsg::Spawn(result_dst, func, args) => {
                 self.calls.push_back((
-                    Some(result_dst),
-                    func.mod_ref().unwrap().clone(),
-                    func.localid,
-                ));
-            }
-            AppMsg::ResultSpawn(result_dst, modname, funcname) => {
-                self.calls.push_back((
-                    Some(result_dst),
-                    modname.take(),
-                    funcname.take(),
+                    result_dst,
+                    func,
+                    args,
                 ));
             }
         }
@@ -262,10 +243,10 @@ impl AppCaller
     {
         let (result_send, result_recv) = futures_oneshot::channel();
         self.app_send
-            .send(AppMsg::ResultSpawn(
+            .send(AppMsg::Spawn(
                 result_send,
-                MsgItem::new(modname),
-                MsgItem::new(fname),
+                Lri::with_modules(modname.clone(), fname.clone()),
+                Struple(Vec::new()),
             )).unwrap();
         result_recv
     }

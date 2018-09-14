@@ -114,7 +114,7 @@ impl RunQueue
     {
         let (result_send, result_recv) = futures_oneshot::channel();
         self.app_send
-            .send(AppMsg::Spawn2(result_send, func, args))
+            .send(AppMsg::Spawn(result_send, func, args))
             .unwrap();
         result_recv
     }
