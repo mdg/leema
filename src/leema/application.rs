@@ -1,7 +1,6 @@
 use leema::io::{Io, IoLoop};
 use leema::log;
 use leema::lri::Lri;
-use leema::lstr::Lstr;
 use leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use leema::program;
 use leema::struple::Struple;
@@ -237,15 +236,14 @@ impl AppCaller
 {
     pub fn push_call(
         &self,
-        modname: &Lstr,
-        fname: &Lstr,
+        call: Lri,
     ) -> futures_oneshot::Receiver<Val>
     {
         let (result_send, result_recv) = futures_oneshot::channel();
         self.app_send
             .send(AppMsg::Spawn(
                 result_send,
-                Lri::with_modules(modname.clone(), fname.clone()),
+                call,
                 Struple(Vec::new()),
             )).unwrap();
         result_recv

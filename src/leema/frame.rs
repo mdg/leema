@@ -259,7 +259,7 @@ impl Frame
 {
     pub fn new_root(parent: Parent, function: Lri, args: Struple<Val>) -> Frame
     {
-        let env = Env::new();
+        let env = Env::with_args(Val::Tuple(args));
         Frame {
             parent,
             trace: FrameTrace::new_root(),

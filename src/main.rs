@@ -153,8 +153,13 @@ fn real_main() -> i32
         let prog = program::Lib::new(inter);
         let mut app = Application::new(prog);
         app.set_args(leema_args);
-        app.push_call(modkey.name.clone(), Lstr::Sref("main"));
+        let caller = app.caller();
+        let main_lri = Lri::with_modules(
+            modkey.name.clone(),
+            Lstr::Sref("main"),
+        );
         app.run();
+        let _result_recv = caller.push_call(main_lri);
         app.wait_for_result().unwrap()
     } else if args.arg_cmd == "http" {
         let prog = program::Lib::new(inter);

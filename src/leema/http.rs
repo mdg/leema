@@ -1,4 +1,5 @@
 use leema::application::AppCaller;
+use leema::lri::Lri;
 use leema::lstr::Lstr;
 
 use std::thread;
@@ -45,9 +46,10 @@ pub fn handle_request(
 ) -> BoxFut
 {
     println!("handle_request({},\n\t{:?})", module, req);
+    let call_lri = Lri::with_modules(module, Lstr::Sref("http_main"));
     let response_future: BoxFut = Box::new(
         caller
-            .push_call(&module, &Lstr::Sref("http_main"))
+            .push_call(call_lri)
             .and_then(|v| {
                 let msg = format!("{}", v);
                 println!("response msg: {}", msg);
