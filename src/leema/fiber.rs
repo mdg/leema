@@ -416,8 +416,10 @@ mod tests
 {
     use leema::fiber::Fiber;
     use leema::frame::{Event, Frame, Parent};
+    use leema::lri::Lri;
     use leema::lstr::Lstr;
     use leema::reg::Reg;
+    use leema::struple::Struple;
     use leema::val::Val;
 
 
@@ -427,8 +429,8 @@ mod tests
         let r1 = Reg::local(1);
         let r2 = Reg::local(2);
         let main_parent = Parent::new_main();
-        let mut frame =
-            Frame::new_root(main_parent, Lstr::Sref("foo"), Lstr::Sref("bar"));
+        let callri = Lri::with_modules(Lstr::Sref("foo"), Lstr::Sref("bar"));
+        let mut frame = Frame::new_root(main_parent, callri, Struple(Vec::new()));
         frame.e.set_reg(&r1, Val::Str(Lstr::Sref("i like ")));
         frame.e.set_reg(&r2, Val::Str(Lstr::Sref("burritos")));
         let mut fib = Fiber::spawn(1, frame);
