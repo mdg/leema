@@ -305,14 +305,14 @@ mod tests
 
         let mut app = Application::new(prog);
         let caller = app.caller();
-        let _recv = caller.push_call(Lri::with_modules(
+        let recv = caller.push_call(Lri::with_modules(
             Lstr::Sref("test"),
             Lstr::Sref("main"),
         ));
         app.run();
 
         writeln!(stderr(), "Application::wait_until_done").unwrap();
-        let result = app.wait_for_result();
+        let result = app.wait_for_result(recv);
         assert_eq!(Some(Val::Int(3)), result);
     }
 

@@ -163,11 +163,11 @@ class TestScripts(unittest.TestCase):
             b"Failure: #xis4\n" +
             b"Message: tacos are delicious\n" +
             b"Stack Trace:\n" +
-            b"<  main:14\n" +
-            b"<  add5:9\n" +
-            b"<> add4:3\n" +
-            b" > add5:9\n" +
-            b" > main:14\n" +
+            b"<  failure::main:14\n" +
+            b"<  failure::add5:9\n" +
+            b"<> failure::add4:3\n" +
+            b" > failure::add5:9\n" +
+            b" > failure::main:14\n" +
             b" > __init__\n" +
             b"\n",
             result['output'])
@@ -188,10 +188,10 @@ class TestScripts(unittest.TestCase):
             b"Failure: #xis4\n" +
             b"Message: tacos are delicious\n" +
             b"Stack Trace:\n" +
-            b"<  main:33\n" +
-            b"<> foo:3\n" +
-            b" > handle_nonlinear:13\n" +
-            b" > main:33\n" +
+            b"<  failed_propagated::main:33\n" +
+            b"<> failed_propagated::foo:3\n" +
+            b" > failed_propagated::handle_nonlinear:13\n" +
+            b" > failed_propagated::main:33\n" +
             b" > __init__\n" +
             b"\n",
             result['output'])
