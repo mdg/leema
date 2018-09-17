@@ -30,6 +30,7 @@ func bool_not(v: Bool): Bool -RUST-
 func int_add(a: Int, b: Int): Int -RUST-
 func int_sub(a: Int, b: Int): Int -RUST-
 func int_mult(a: Int, b: Int): Int -RUST-
+func int_div(a: Int, b: Int): Int -RUST-
 func int_mod(a: Int, b: Int): Int -RUST-
 func int_negate(a: Int): Int -RUST-
 func int_random(): Int -RUST-

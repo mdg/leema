@@ -1,0 +1,32 @@
+func min(a: Int, b: Int) : Int ->
+	if
+	|a < b -> a
+	|else -> b
+	--
+--
+
+func gcd(a: Int, b: Int) : Int ->
+	if
+	|b == 0 -> int_abs(a)
+	|else -> 
+		let r := a mod b
+		gcd(b, min(r, b - r))
+	--
+--
+
+func euclidean_algorithm(a: Int, b: Int) ->
+	let q := a / b
+	let r := a mod b
+	print("$a = $q * $b + $r\n")
+	if
+	|not (r == 0) -> euclidean_algorithm(b, r)
+	--
+--
+
+func main() ->
+	let a := 1234567890
+	let b := 345678901
+	let d := gcd(a, b)
+	euclidean_algorithm(a, b)
+	print("\ngcd($a, $b) = $d\n")
+--
