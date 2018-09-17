@@ -77,6 +77,25 @@ pub fn int_mult(f: &mut Fiber) -> Event
     Event::success()
 }
 
+pub fn int_div(f: &mut Fiber) -> Event
+{
+    let ic;
+    {
+        let a = f.head.get_param(0);
+        let b = f.head.get_param(1);
+        match (a, b) {
+            (&Val::Int(ia), &Val::Int(ib)) => {
+                ic = ia / ib;
+            }
+            _ => {
+                panic!("can't divide that! {:?}", (a, b));
+            }
+        }
+    }
+    f.head.parent.set_result(Val::Int(ic));
+    Event::success()
+}
+
 pub fn int_mod(f: &mut Fiber) -> Event
 {
     let ic;
@@ -413,6 +432,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         "int_add" => Some(Code::Rust(int_add)),
         "int_sub" => Some(Code::Rust(int_sub)),
         "int_mult" => Some(Code::Rust(int_mult)),
+        "int_div" => Some(Code::Rust(int_div)),
         "int_mod" => Some(Code::Rust(int_mod)),
         "int_negate" => Some(Code::Rust(int_negate)),
         "int_random" => Some(Code::Rust(int_random)),
