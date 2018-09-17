@@ -10,8 +10,7 @@ use std::fmt::{self, Debug};
 use std::mem;
 use std::rc::Rc;
 use std::sync::Arc;
-
-use futures::sync::oneshot::Sender as FutureSender;
+use std::sync::mpsc::{Sender};
 
 
 pub enum Parent
@@ -19,7 +18,7 @@ pub enum Parent
     Null,
     Caller(Rc<Code>, Box<Frame>, Reg),
     // Fork(Arc<AtomicBool>, mpsc::Sender<Msg>),
-    Future(FutureSender<Val>, Val),
+    Future(Sender<Val>, Val),
     Repl(Val),
     Main(Val),
 }
@@ -31,7 +30,7 @@ impl Parent
         Parent::Main(Val::Void)
     }
 
-    pub fn new_future(dst: FutureSender<Val>) -> Parent
+    pub fn new_future(dst: Sender<Val>) -> Parent
     {
         Parent::Future(dst, Val::Void)
     }

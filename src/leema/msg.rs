@@ -10,8 +10,6 @@ use std::fmt;
 use std::ops::Deref;
 use std::sync::mpsc;
 
-use futures::sync::oneshot::Sender as FutureSender;
-
 
 #[derive(Debug)]
 pub struct MsgItem<T>(T);
@@ -49,7 +47,7 @@ type MsgLstr = MsgItem<Lstr>;
 pub enum AppMsg
 {
     // Spawn(module, function)
-    Spawn(FutureSender<Val>, Lri, Struple<Val>),
+    Spawn(mpsc::Sender<Val>, Lri, Struple<Val>),
     // RequestCode(worker_id, fiber_id, module, function)
     RequestCode(i64, i64, MsgLstr, MsgLstr),
     MainResult(MsgVal),
@@ -59,7 +57,7 @@ pub enum AppMsg
 pub enum WorkerMsg
 {
     // Spawn(module, function)
-    Spawn(FutureSender<Val>, Lri, Struple<Val>),
+    Spawn(mpsc::Sender<Val>, Lri, Struple<Val>),
     // FoundCode(fiber_id, module, function, code)
     FoundCode(i64, MsgLstr, MsgLstr, Code),
     // IopResult(fiber_id, MsgVal)

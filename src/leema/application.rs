@@ -10,11 +10,9 @@ use leema::worker::Worker;
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
 use std::io::Write;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::thread;
 use std::time::Duration;
-
-use futures::sync::oneshot as futures_oneshot;
 
 
 pub struct Application
@@ -25,7 +23,7 @@ pub struct Application
     io_recv: Option<Receiver<IoMsg>>,
     io_send: Sender<IoMsg>,
     worker: HashMap<i64, Sender<WorkerMsg>>,
-    calls: LinkedList<(futures_oneshot::Sender<Val>, Lri, Struple<Val>)>,
+    calls: LinkedList<(Sender<Val>, Lri, Struple<Val>)>,
     args: Val,
     result: Option<Val>,
     done: bool,
@@ -67,7 +65,7 @@ impl Application
 
     pub fn push_call(
         &mut self,
-        dst: futures_oneshot::Sender<Val>,
+        dst: Sender<Val>,
         call: Lri,
         args: Struple<Val>,
     )
@@ -118,7 +116,7 @@ impl Application
         self.last_worker_id
     }
 
-    pub fn wait_for_result(&mut self, mut result_recv: futures_oneshot::Receiver<Val>) -> Option<Val>
+    pub fn wait_for_result(&mut self, mut result_recv: Receiver<Val>) -> Option<Val>
     {
         vout!("wait_for_result\n");
         // this name is a little off. it's # of cycles when nothing was done
@@ -138,18 +136,20 @@ impl Application
         self.result.take()
     }
 
-    pub fn try_recv_result(&mut self, result_recv: &mut futures_oneshot::Receiver<Val>)
+    pub fn try_recv_result(&mut self, result_recv: &mut Receiver<Val>)
     {
         match result_recv.try_recv() {
-            Ok(Some(result)) => {
+            Ok(result) => {
                 self.result = Some(result);
                 self.done = true;
             }
-            Ok(None) => {
-                // no result yet, do nothing
+            Err(TryRecvError::Empty) => {
+                // do nothing, not finished yet
             }
-            Err(e) => {
-                panic!("received result error: {:?}", e);
+            Err(TryRecvError::Disconnected) => {
+                println!("error receiving application result");
+                self.result = Some(Val::Int(3));
+                self.done = true;
             }
         }
     }
@@ -253,9 +253,9 @@ pub struct AppCaller
 
 impl AppCaller
 {
-    pub fn push_call(&self, call: Lri) -> futures_oneshot::Receiver<Val>
+    pub fn push_call(&self, call: Lri) -> Receiver<Val>
     {
-        let (result_send, result_recv) = futures_oneshot::channel();
+        let (result_send, result_recv) = channel();
         self.app_send
             .send(AppMsg::Spawn(result_send, call, Struple(Vec::new())))
             .unwrap();
