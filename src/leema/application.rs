@@ -118,13 +118,15 @@ impl Application
         self.last_worker_id
     }
 
-    pub fn wait_for_result(&mut self) -> Option<Val>
+    pub fn wait_for_result(&mut self, mut result_recv: futures_oneshot::Receiver<Val>) -> Option<Val>
     {
         vout!("wait_for_result\n");
+        // this name is a little off. it's # of cycles when nothing was done
         let mut did_nothing = 0;
         while !self.done {
             if self.iterate() {
                 did_nothing = 0;
+                self.try_recv_result(&mut result_recv);
             } else {
                 did_nothing = min(did_nothing + 1, 100_000);
                 if did_nothing > 1000 {
@@ -134,6 +136,24 @@ impl Application
         }
         vout!("application done\n");
         self.result.take()
+    }
+
+    pub fn try_recv_result(&mut self, _result_recv: &mut futures_oneshot::Receiver<Val>)
+    {
+        /*
+        match result_recv.try_recv() {
+            Ok(Some(result)) => {
+                self.result = Some(result);
+                self.done = true;
+            }
+            Ok(None) => {
+                println!("received None result. what?");
+            }
+            Err(e) => {
+                panic!("received result error");
+            }
+        }
+        */
     }
 
     pub fn iterate(&mut self) -> bool

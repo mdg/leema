@@ -156,8 +156,8 @@ fn real_main() -> i32
         let main_lri =
             Lri::with_modules(modkey.name.clone(), Lstr::Sref("main"));
         app.run();
-        let _result_recv = caller.push_call(main_lri);
-        app.wait_for_result().unwrap()
+        let result_recv = caller.push_call(main_lri);
+        app.wait_for_result(result_recv).unwrap()
     } else {
         println!("invalid command: {:?}", args.arg_cmd);
         Val::Int(1)
