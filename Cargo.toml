@@ -20,6 +20,3 @@ rand = "0.3"
 rustc-serialize = "0.3"
 tokio = "0.1"
 tokio-current-thread = "0.1"
-
-[patch.crates-io]
-futures = { git = "git://github.com/mdg/futures-rs", branch = "v01_oneshot_tryrecv" }
