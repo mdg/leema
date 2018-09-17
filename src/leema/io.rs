@@ -112,11 +112,7 @@ pub struct RunQueueReceiver(Receiver<Val>);
 
 impl RunQueue
 {
-    pub fn spawn(
-        &self,
-        func: Lri,
-        args: Struple<Val>,
-    ) -> RunQueueReceiver
+    pub fn spawn(&self, func: Lri, args: Struple<Val>) -> RunQueueReceiver
     {
         let (result_send, result_recv) = channel();
         self.app_send
@@ -141,7 +137,9 @@ impl Future for RunQueueReceiver
             }
             Err(TryRecvError::Disconnected) => {
                 println!("RunQueueReceiver disconnected");
-                Ok(Async::Ready(Val::Str(Lstr::Sref("RunQueueReceiver disconnected"))))
+                Ok(Async::Ready(Val::Str(Lstr::Sref(
+                    "RunQueueReceiver disconnected",
+                ))))
             }
         }
     }

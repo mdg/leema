@@ -63,12 +63,7 @@ impl Application
         }
     }
 
-    pub fn push_call(
-        &mut self,
-        dst: Sender<Val>,
-        call: Lri,
-        args: Struple<Val>,
-    )
+    pub fn push_call(&mut self, dst: Sender<Val>, call: Lri, args: Struple<Val>)
     {
         self.calls.push_back((dst, call, args));
     }
@@ -116,7 +111,10 @@ impl Application
         self.last_worker_id
     }
 
-    pub fn wait_for_result(&mut self, mut result_recv: Receiver<Val>) -> Option<Val>
+    pub fn wait_for_result(
+        &mut self,
+        mut result_recv: Receiver<Val>,
+    ) -> Option<Val>
     {
         vout!("wait_for_result\n");
         // this name is a little off. it's # of cycles when nothing was done

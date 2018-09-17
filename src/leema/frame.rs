@@ -9,8 +9,8 @@ use leema::val::{Env, Val};
 use std::fmt::{self, Debug};
 use std::mem;
 use std::rc::Rc;
+use std::sync::mpsc::Sender;
 use std::sync::Arc;
-use std::sync::mpsc::{Sender};
 
 
 pub enum Parent
