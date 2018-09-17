@@ -110,7 +110,11 @@ pub struct RunQueue
 
 impl RunQueue
 {
-    pub fn spawn(&self, func: Lri, args: Struple<Val>) -> futures_oneshot::Receiver<Val>
+    pub fn spawn(
+        &self,
+        func: Lri,
+        args: Struple<Val>,
+    ) -> futures_oneshot::Receiver<Val>
     {
         let (result_send, result_recv) = futures_oneshot::channel();
         self.app_send

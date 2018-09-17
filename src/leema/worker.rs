@@ -260,10 +260,7 @@ impl Worker
             Parent::Caller(old_code, mut pf, dst) => {
                 pf.pc += 1;
                 fbr.head = *pf;
-                vout!(
-                    "return to caller: {}()\n",
-                    fbr.head.function
-                );
+                vout!("return to caller: {}()\n", fbr.head.function);
                 vout!(" result: {}\n", dst);
                 self.push_fresh(ReadyFiber::Ready(fbr, old_code));
             }

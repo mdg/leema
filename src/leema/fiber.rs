@@ -215,9 +215,7 @@ impl Fiber
                         }
                     }
                 }
-                &Val::FuncRef(ref callri, _) => {
-                    callri.clone()
-                }
+                &Val::FuncRef(ref callri, _) => callri.clone(),
                 _ => {
                     panic!("That's not a function! {:?}", fname_val);
                 }
@@ -430,7 +428,8 @@ mod tests
         let r2 = Reg::local(2);
         let main_parent = Parent::new_main();
         let callri = Lri::with_modules(Lstr::Sref("foo"), Lstr::Sref("bar"));
-        let mut frame = Frame::new_root(main_parent, callri, Struple(Vec::new()));
+        let mut frame =
+            Frame::new_root(main_parent, callri, Struple(Vec::new()));
         frame.e.set_reg(&r1, Val::Str(Lstr::Sref("i like ")));
         frame.e.set_reg(&r2, Val::Str(Lstr::Sref("burritos")));
         let mut fib = Fiber::spawn(1, frame);

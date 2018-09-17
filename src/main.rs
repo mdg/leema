@@ -154,10 +154,8 @@ fn real_main() -> i32
         let mut app = Application::new(prog);
         app.set_args(leema_args);
         let caller = app.caller();
-        let main_lri = Lri::with_modules(
-            modkey.name.clone(),
-            Lstr::Sref("main"),
-        );
+        let main_lri =
+            Lri::with_modules(modkey.name.clone(), Lstr::Sref("main"));
         app.run();
         let _result_recv = caller.push_call(main_lri);
         app.wait_for_result().unwrap()

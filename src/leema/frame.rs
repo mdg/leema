@@ -257,7 +257,8 @@ pub struct Frame
 
 impl Frame
 {
-    pub fn new_root(parent: Parent, function: Lri, args: Struple<Val>) -> Frame
+    pub fn new_root(parent: Parent, function: Lri, args: Struple<Val>)
+        -> Frame
     {
         let env = Env::with_args(Val::Tuple(args));
         Frame {

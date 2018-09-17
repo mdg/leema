@@ -65,7 +65,12 @@ impl Application
         }
     }
 
-    pub fn push_call(&mut self, dst: futures_oneshot::Sender<Val>, call: Lri, args: Struple<Val>)
+    pub fn push_call(
+        &mut self,
+        dst: futures_oneshot::Sender<Val>,
+        call: Lri,
+        args: Struple<Val>,
+    )
     {
         self.calls.push_back((dst, call, args));
     }
@@ -171,11 +176,7 @@ impl Application
                 self.done = true;
             }
             AppMsg::Spawn(result_dst, func, args) => {
-                self.calls.push_back((
-                    result_dst,
-                    func,
-                    args,
-                ));
+                self.calls.push_back((result_dst, func, args));
             }
         }
     }
@@ -234,18 +235,12 @@ pub struct AppCaller
 
 impl AppCaller
 {
-    pub fn push_call(
-        &self,
-        call: Lri,
-    ) -> futures_oneshot::Receiver<Val>
+    pub fn push_call(&self, call: Lri) -> futures_oneshot::Receiver<Val>
     {
         let (result_send, result_recv) = futures_oneshot::channel();
         self.app_send
-            .send(AppMsg::Spawn(
-                result_send,
-                call,
-                Struple(Vec::new()),
-            )).unwrap();
+            .send(AppMsg::Spawn(result_send, call, Struple(Vec::new())))
+            .unwrap();
         result_recv
     }
 }
@@ -294,7 +289,10 @@ mod tests
 
         let mut app = Application::new(prog);
         let caller = app.caller();
-        let _recv = caller.push_call(Lri::with_modules(Lstr::Sref("test"), Lstr::Sref("main")));
+        let _recv = caller.push_call(Lri::with_modules(
+            Lstr::Sref("test"),
+            Lstr::Sref("main"),
+        ));
         app.run();
 
         writeln!(stderr(), "Application::wait_until_done").unwrap();
