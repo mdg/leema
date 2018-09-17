@@ -126,13 +126,13 @@ impl Application
         while !self.done {
             if self.iterate() {
                 did_nothing = 0;
-                self.try_recv_result(&mut result_recv);
             } else {
                 did_nothing = min(did_nothing + 1, 100_000);
                 if did_nothing > 1000 {
                     thread::sleep(Duration::from_micros(did_nothing));
                 }
             }
+            self.try_recv_result(&mut result_recv);
         }
         vout!("application done\n");
         self.result.take()
