@@ -138,22 +138,20 @@ impl Application
         self.result.take()
     }
 
-    pub fn try_recv_result(&mut self, _result_recv: &mut futures_oneshot::Receiver<Val>)
+    pub fn try_recv_result(&mut self, result_recv: &mut futures_oneshot::Receiver<Val>)
     {
-        /*
         match result_recv.try_recv() {
             Ok(Some(result)) => {
                 self.result = Some(result);
                 self.done = true;
             }
             Ok(None) => {
-                println!("received None result. what?");
+                // no result yet, do nothing
             }
             Err(e) => {
-                panic!("received result error");
+                panic!("received result error: {:?}", e);
             }
         }
-        */
     }
 
     pub fn iterate(&mut self) -> bool
