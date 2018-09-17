@@ -19,7 +19,6 @@ mod leema;
 use leema::log;
 
 use leema::application::Application;
-use leema::http;
 use leema::list;
 use leema::loader::Interloader;
 use leema::lri::Lri;
@@ -158,15 +157,6 @@ fn real_main() -> i32
             Lri::with_modules(modkey.name.clone(), Lstr::Sref("main"));
         app.run();
         let _result_recv = caller.push_call(main_lri);
-        app.wait_for_result().unwrap()
-    } else if args.arg_cmd == "http" {
-        let prog = program::Lib::new(inter);
-        let mut app = Application::new(prog);
-        app.set_args(leema_args);
-        app.run();
-
-        http::spawn_thread(app.caller(), modkey.name.clone());
-
         app.wait_for_result().unwrap()
     } else {
         println!("invalid command: {:?}", args.arg_cmd);
