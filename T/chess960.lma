@@ -22,26 +22,28 @@ func assign(line: [#], col: Int, rkr: #, bb: Int, bw: Int, pcs: [#]): [#]
     --
 --
 
+func piece_str(piece: #): Str
+|#rook -> "R"
+|#knight -> "N"
+|#bishop -> "B"
+|#queen -> "Q"
+|#king -> "K"
+|p -> fail(#unknown_piece, "$p")
+--
+
 func print_pieces(all_ppcs: [#])
 |[] ->
     print("\n")
-|#rook;ppcs ->
-    print("R")
+|p;ppcs ->
+    print(piece_str(p))
     print_pieces(ppcs)
-|#knight;ppcs ->
-    print("N")
-    print_pieces(ppcs)
-|#bishop;ppcs ->
-    print("B")
-    print_pieces(ppcs)
-|#queen;ppcs ->
-    print("Q")
-    print_pieces(ppcs)
-|#king;ppcs ->
-    print("K")
-    print_pieces(ppcs)
-|all_ppcs ->
-    print("no match? $all_ppcs\n")
+--
+
+func pieces_to_str(acc: Str, all_pieces: [#]): Str
+|(acc, []) -> acc
+|(acc, h;t) ->
+    let pstr := piece_str(h)
+    pieces_to_str("$acc$pstr", t)
 --
 
 func take_pieces(outs: [#], input: [(Int, #)]): [#]
@@ -49,7 +51,7 @@ func take_pieces(outs: [#], input: [(Int, #)]): [#]
 |(outs, (_, head);tail) -> take_pieces(head;outs, tail)
 --
 
-func chess960(): [#] ->
+func chess960(): Str ->
     let bb := 2 * (int_abs(int_random()) mod 4) + 1
     let bw := 2 * (int_abs(int_random()) mod 4) + 2
     let pieces := [
@@ -62,11 +64,11 @@ func chess960(): [#] ->
         ]
     let sorted_pieces := list::sort(pieces)
     let just_pieces := take_pieces([], sorted_pieces)
-    assign([], 1, #rook, bb, bw, just_pieces)
+    let alignment := assign([], 1, #rook, bb, bw, just_pieces)
+    pieces_to_str("", alignment)
 --
 
 func main() ->
     let backline := chess960()
-    print_pieces(backline)
-    0
+    print("$backline\n")
 --

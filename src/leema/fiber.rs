@@ -3,6 +3,7 @@ use leema::frame::{Event, Frame, FrameTrace, Parent};
 use leema::list;
 use leema::lmap::Lmap;
 use leema::log;
+use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::reg::Reg;
 use leema::struple::Struple;
@@ -32,12 +33,12 @@ impl Fiber
 
     pub fn module_name(&self) -> &Lstr
     {
-        &self.head.module
+        self.head.function.mod_ref().unwrap()
     }
 
     pub fn function_name(&self) -> &Lstr
     {
-        &self.head.function
+        &self.head.function.localid
     }
 
     pub fn push_call(
@@ -45,14 +46,12 @@ impl Fiber
         code: Rc<Code>,
         dst: Reg,
         line: i16,
-        module: Lstr,
-        func: Lstr,
+        func: Lri,
         args: Val,
     )
     {
         let mut newf = Frame {
             parent: Parent::Null,
-            module: module.clone(),
             function: func.clone(),
             trace: self.head.push_frame_trace(line),
             e: Env::with_args(args),
@@ -195,13 +194,13 @@ impl Fiber
         line: i16,
     ) -> Event
     {
-        let (modname, funcname) = {
+        let funcri: Lri = {
             let ref fname_val = self.head.e.get_reg(freg);
             match *fname_val {
                 &Val::Str(ref name_str) => {
                     // pass in args
                     println!("found a string for function call: {}", name_str);
-                    (Lstr::Sref(""), name_str.clone())
+                    Lri::with_modules(Lstr::Sref(""), name_str.clone())
                 }
                 &Val::Tuple(ref modfunc) if modfunc.0.len() == 2 => {
                     println!("found tuple for func call: {:?}", modfunc);
@@ -209,22 +208,20 @@ impl Fiber
                     let funcnm = &modfunc.0.get(1).unwrap().1;
                     match (modnm, funcnm) {
                         (&Val::Str(ref m), &Val::Str(ref f)) => {
-                            (m.clone(), f.clone())
+                            Lri::with_modules(m.clone(), f.clone())
                         }
                         _ => {
                             panic!("That's not a function! {:?}", fname_val);
                         }
                     }
                 }
-                &Val::FuncRef(ref callri, _) => {
-                    (callri.mod_ref().unwrap().clone(), callri.localid.clone())
-                }
+                &Val::FuncRef(ref callri, _) => callri.clone(),
                 _ => {
                     panic!("That's not a function! {:?}", fname_val);
                 }
             }
         };
-        vout!("execute_call({}::{})\n", modname, funcname);
+        vout!("execute_call({})\n", funcri);
 
         let opt_failure = Fiber::call_arg_failure(self.head.e.get_reg(argreg))
             .map(|argv| argv.clone());
@@ -242,7 +239,7 @@ impl Fiber
             }
             None => {
                 let args_copy = self.head.e.get_reg(argreg).clone();
-                Event::Call(dst.clone(), line, modname, funcname, args_copy)
+                Event::Call(dst.clone(), line, funcri, args_copy)
             }
         }
     }
@@ -417,8 +414,10 @@ mod tests
 {
     use leema::fiber::Fiber;
     use leema::frame::{Event, Frame, Parent};
+    use leema::lri::Lri;
     use leema::lstr::Lstr;
     use leema::reg::Reg;
+    use leema::struple::Struple;
     use leema::val::Val;
 
 
@@ -428,8 +427,9 @@ mod tests
         let r1 = Reg::local(1);
         let r2 = Reg::local(2);
         let main_parent = Parent::new_main();
+        let callri = Lri::with_modules(Lstr::Sref("foo"), Lstr::Sref("bar"));
         let mut frame =
-            Frame::new_root(main_parent, Lstr::Sref("foo"), Lstr::Sref("bar"));
+            Frame::new_root(main_parent, callri, Struple(Vec::new()));
         frame.e.set_reg(&r1, Val::Str(Lstr::Sref("i like ")));
         frame.e.set_reg(&r2, Val::Str(Lstr::Sref("burritos")));
         let mut fib = Fiber::spawn(1, frame);

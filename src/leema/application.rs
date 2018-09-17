@@ -1,19 +1,18 @@
 use leema::io::{Io, IoLoop};
 use leema::log;
-use leema::lstr::Lstr;
+use leema::lri::Lri;
 use leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use leema::program;
+use leema::struple::Struple;
 use leema::val::Val;
 use leema::worker::Worker;
 
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
 use std::io::Write;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::thread;
 use std::time::Duration;
-
-use futures::sync::oneshot as futures_oneshot;
 
 
 pub struct Application
@@ -24,7 +23,7 @@ pub struct Application
     io_recv: Option<Receiver<IoMsg>>,
     io_send: Sender<IoMsg>,
     worker: HashMap<i64, Sender<WorkerMsg>>,
-    calls: LinkedList<(Option<futures_oneshot::Sender<Val>>, Lstr, Lstr)>,
+    calls: LinkedList<(Sender<Val>, Lri, Struple<Val>)>,
     args: Val,
     result: Option<Val>,
     done: bool,
@@ -64,9 +63,9 @@ impl Application
         }
     }
 
-    pub fn push_call(&mut self, module: Lstr, func: Lstr)
+    pub fn push_call(&mut self, dst: Sender<Val>, call: Lri, args: Struple<Val>)
     {
-        self.calls.push_back((None, module, func));
+        self.calls.push_back((dst, call, args));
     }
 
     pub fn run(&mut self)
@@ -112,9 +111,13 @@ impl Application
         self.last_worker_id
     }
 
-    pub fn wait_for_result(&mut self) -> Option<Val>
+    pub fn wait_for_result(
+        &mut self,
+        mut result_recv: Receiver<Val>,
+    ) -> Option<Val>
     {
         vout!("wait_for_result\n");
+        // this name is a little off. it's # of cycles when nothing was done
         let mut did_nothing = 0;
         while !self.done {
             if self.iterate() {
@@ -125,29 +128,37 @@ impl Application
                     thread::sleep(Duration::from_micros(did_nothing));
                 }
             }
+            self.try_recv_result(&mut result_recv);
         }
         vout!("application done\n");
         self.result.take()
     }
 
+    pub fn try_recv_result(&mut self, result_recv: &mut Receiver<Val>)
+    {
+        match result_recv.try_recv() {
+            Ok(result) => {
+                self.result = Some(result);
+                self.done = true;
+            }
+            Err(TryRecvError::Empty) => {
+                // do nothing, not finished yet
+            }
+            Err(TryRecvError::Disconnected) => {
+                println!("error receiving application result");
+                self.result = Some(Val::Int(3));
+                self.done = true;
+            }
+        }
+    }
+
     pub fn iterate(&mut self) -> bool
     {
         let mut did_something = false;
-        while let Some((dst, module, call)) = self.calls.pop_front() {
-            vout!("application call {}.{}()\n", module, call);
+        while let Some((dst, call, args)) = self.calls.pop_front() {
+            vout!("application call {}({:?})\n", call, args);
             let w = self.worker.values().next().unwrap();
-            let msg = match dst {
-                Some(idst) => {
-                    WorkerMsg::ResultSpawn(
-                        idst,
-                        MsgItem::new(&module),
-                        MsgItem::new(&call),
-                    )
-                }
-                None => {
-                    WorkerMsg::Spawn(MsgItem::new(&module), MsgItem::new(&call))
-                }
-            };
+            let msg = WorkerMsg::Spawn(dst, call, args);
             w.send(msg).expect("fail sending spawn call to worker");
             did_something = true;
         }
@@ -180,22 +191,8 @@ impl Application
                 self.result = Some(mv.take());
                 self.done = true;
             }
-            AppMsg::Spawn(_, _) => {
-                panic!("whoa a spawn msg sent to Application");
-            }
-            AppMsg::Spawn2(result_dst, func) => {
-                self.calls.push_back((
-                    Some(result_dst),
-                    func.mod_ref().unwrap().clone(),
-                    func.localid,
-                ));
-            }
-            AppMsg::ResultSpawn(result_dst, modname, funcname) => {
-                self.calls.push_back((
-                    Some(result_dst),
-                    modname.take(),
-                    funcname.take(),
-                ));
+            AppMsg::Spawn(result_dst, func, args) => {
+                self.calls.push_back((result_dst, func, args));
             }
         }
     }
@@ -254,19 +251,12 @@ pub struct AppCaller
 
 impl AppCaller
 {
-    pub fn push_call(
-        &self,
-        modname: &Lstr,
-        fname: &Lstr,
-    ) -> futures_oneshot::Receiver<Val>
+    pub fn push_call(&self, call: Lri) -> Receiver<Val>
     {
-        let (result_send, result_recv) = futures_oneshot::channel();
+        let (result_send, result_recv) = channel();
         self.app_send
-            .send(AppMsg::ResultSpawn(
-                result_send,
-                MsgItem::new(modname),
-                MsgItem::new(fname),
-            )).unwrap();
+            .send(AppMsg::Spawn(result_send, call, Struple(Vec::new())))
+            .unwrap();
         result_recv
     }
 }
@@ -292,6 +282,7 @@ mod tests
 {
     use leema::application::Application;
     use leema::loader::Interloader;
+    use leema::lri::Lri;
     use leema::lstr::Lstr;
     use leema::program;
     use leema::val::Val;
@@ -313,11 +304,15 @@ mod tests
         let prog = program::Lib::new(inter);
 
         let mut app = Application::new(prog);
-        app.push_call(Lstr::Sref("test"), Lstr::Sref("main"));
+        let caller = app.caller();
+        let recv = caller.push_call(Lri::with_modules(
+            Lstr::Sref("test"),
+            Lstr::Sref("main"),
+        ));
         app.run();
 
         writeln!(stderr(), "Application::wait_until_done").unwrap();
-        let result = app.wait_for_result();
+        let result = app.wait_for_result(recv);
         assert_eq!(Some(Val::Int(3)), result);
     }
 

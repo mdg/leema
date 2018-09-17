@@ -190,9 +190,9 @@ impl Worker
                 vout!("function call failure\n");
                 Result::Ok(Async::NotReady)
             }
-            Event::Call(dst, line, module, func, args) => {
-                vout!("push_call({} {}.{}, {:?})\n", line, module, func, args);
-                fbr.push_call(code.clone(), dst, line, module, func, args);
+            Event::Call(dst, line, func, args) => {
+                vout!("push_call({} {}, {:?})\n", line, func, args);
+                fbr.push_call(code.clone(), dst, line, func, args);
                 self.load_code(fbr);
                 Result::Ok(Async::NotReady)
             }
@@ -260,11 +260,7 @@ impl Worker
             Parent::Caller(old_code, mut pf, dst) => {
                 pf.pc += 1;
                 fbr.head = *pf;
-                vout!(
-                    "return to caller: {}::{}()\n",
-                    fbr.head.module,
-                    fbr.head.function
-                );
+                vout!("return to caller: {}()\n", fbr.head.function);
                 vout!(" result: {}\n", dst);
                 self.push_fresh(ReadyFiber::Ready(fbr, old_code));
             }
@@ -287,23 +283,10 @@ impl Worker
     pub fn process_msg(&mut self, msg: WorkerMsg)
     {
         match msg {
-            WorkerMsg::Spawn(module, call) => {
-                vout!("worker call {}.{}()\n", *module, *call);
-                let parent = Parent::new_main();
-                let root = Frame::new_root(parent, module.take(), call.take());
-                self.spawn_fiber(root);
-            }
-            WorkerMsg::Spawn2(result_dst, func) => {
+            WorkerMsg::Spawn(result_dst, func, args) => {
                 vout!("worker spawn2 {}\n", func);
                 let parent = Parent::new_future(result_dst);
-                let module = func.modules.unwrap();
-                let root = Frame::new_root(parent, module, func.localid);
-                self.spawn_fiber(root);
-            }
-            WorkerMsg::ResultSpawn(result_dst, module, call) => {
-                vout!("worker call w/return {}.{}()\n", *module, *call);
-                let parent = Parent::new_future(result_dst);
-                let root = Frame::new_root(parent, module.take(), call.take());
+                let root = Frame::new_root(parent, func, args);
                 self.spawn_fiber(root);
             }
             WorkerMsg::FoundCode(fiber_id, module, func, code) => {
@@ -365,7 +348,7 @@ impl Worker
 
     pub fn spawn_fiber(&mut self, frame: Frame)
     {
-        vout!("spawn_fiber({}::{})\n", frame.module, frame.function);
+        vout!("spawn_fiber({})\n", frame.function);
         let id = self.next_fiber_id;
         self.next_fiber_id += 1;
         let fib = Fiber::spawn(id, frame);

@@ -1,7 +1,9 @@
 use leema::log;
 use leema::lri::Lri;
+use leema::lstr::Lstr;
 use leema::msg::{AppMsg, IoMsg, WorkerMsg};
 use leema::rsrc::{self, Event, IopCtx, Rsrc};
+use leema::struple::Struple;
 use leema::val::{MsgVal, Val};
 
 use std;
@@ -10,13 +12,12 @@ use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
 use std::io::Write;
 use std::rc::Rc;
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::thread;
 use std::time::Duration;
 
 use futures::future::Future;
 use futures::stream::Stream;
-use futures::sync::oneshot as futures_oneshot;
 use futures::task;
 use futures::{Async, Poll};
 use tokio::runtime::current_thread;
@@ -107,15 +108,40 @@ pub struct RunQueue
     app_send: Sender<AppMsg>,
 }
 
+pub struct RunQueueReceiver(Receiver<Val>);
+
 impl RunQueue
 {
-    pub fn spawn(&self, func: Lri) -> futures_oneshot::Receiver<Val>
+    pub fn spawn(&self, func: Lri, args: Struple<Val>) -> RunQueueReceiver
     {
-        let (result_send, result_recv) = futures_oneshot::channel();
+        let (result_send, result_recv) = channel();
         self.app_send
-            .send(AppMsg::Spawn2(result_send, func))
+            .send(AppMsg::Spawn(result_send, func, args))
             .unwrap();
-        result_recv
+        RunQueueReceiver(result_recv)
+    }
+}
+
+impl Future for RunQueueReceiver
+{
+    type Item = Val;
+    type Error = Val;
+
+    fn poll(&mut self) -> Poll<Val, Val>
+    {
+        match self.0.try_recv() {
+            Ok(result) => Ok(Async::Ready(result)),
+            Err(TryRecvError::Empty) => {
+                task::current().notify();
+                Ok(Async::NotReady)
+            }
+            Err(TryRecvError::Disconnected) => {
+                println!("RunQueueReceiver disconnected");
+                Ok(Async::Ready(Val::Str(Lstr::Sref(
+                    "RunQueueReceiver disconnected",
+                ))))
+            }
+        }
     }
 }
 
