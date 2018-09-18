@@ -1,6 +1,6 @@
 
-## rust type TcpListener
-## rust type TcpSocket
+struct Listener --
+struct TcpSocket --
 
 ## open a tcp connection to a remote port
 func connect(addr: Str, port: Int): TcpSocket -RUST-

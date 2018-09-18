@@ -353,9 +353,9 @@ impl Protomod
 
         let mut ftype_parts: Vec<Kxpr> =
             pp_args.iter().map(|a| a.clone()).collect();
-        let ftype_part_types: Vec<Type> = {
+        let (ftype_part_types, rtype): (Vec<Type>, Type) = {
             let lri_params = full_lri.params.as_ref();
-            ftype_parts
+            let pp_ftype_parts = ftype_parts
                 .iter()
                 .map(|argt| {
                     self.preproc_type(
@@ -365,9 +365,10 @@ impl Protomod
                         argt.x_ref().unwrap(),
                         loc,
                     )
-                }).collect()
+                }).collect();
+            let pp_rtype = self.preproc_type(prog, mp, lri_params, &pp_rtype_ast, loc);
+            (pp_ftype_parts, pp_rtype)
         };
-        let rtype = Type::from(&pp_rtype_ast);
         ftype_parts.push(Kxpr::new_x(pp_rtype_ast));
         let ftype = Type::Func(ftype_part_types, Box::new(rtype));
 
@@ -824,6 +825,7 @@ impl Protomod
         // a token struct is stored as a constant with no constructor
         let constval = Val::Token(full_lri);
         self.constants.insert(name_lstr.clone(), constval);
+        self.deftypes.insert(name_lstr.clone(), type_name.clone());
         self.valtypes.insert(name_lstr, type_name);
     }
 
@@ -1137,6 +1139,33 @@ mod tests
             panic!("main is not a function definition");
         }
         pmod.constants.get("main").unwrap();
+    }
+
+    #[test]
+    fn test_preproc_prepend_module_name()
+    {
+        let input =
+            "struct Foo --
+
+            func open_foo(): Foo -RUST-
+            func close_foo(f: Foo): Void -RUST-
+            ".to_string();
+
+        let foo_str = Lstr::Sref("foo");
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        loader.set_mod_txt(foo_str.clone(), input);
+        let mut prog = program::Lib::new(loader);
+        let pmod = prog.read_proto(&foo_str);
+
+        let open_valtype = pmod.valtypes.get("open_foo").unwrap();
+        if let Type::Func(open_args, open_result_type) = open_valtype {
+            assert!(open_args.is_empty());
+            assert_eq!("foo::Foo", &open_result_type.full_typename());
+        } else {
+            panic!("open_valtype is not a func type: {:?}", open_valtype);
+        }
+
+        let _close_valtype = pmod.valtypes.get("close_foo").unwrap();
     }
 
     #[test]
