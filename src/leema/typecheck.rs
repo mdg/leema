@@ -98,6 +98,9 @@ impl<'a> CallFrame<'a>
             Source::ConstVal(_) => {
                 // nothing to do. constants aren't calls.
             }
+            Source::Fork(ref sub) => {
+                self.collect_calls(sub);
+            }
             Source::Id(ref _id, _) => {
                 // nothing to do. not calls.
             }
@@ -437,6 +440,10 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
         &mut Source::FieldAccess(ref mut x, ref sub, ref mut subidx) => {
             let xtyp = typecheck_expr(scope, x)?;
             typecheck_field_access(scope, subidx, &xtyp, sub)
+        }
+        &mut Source::Fork(ref mut x) => {
+            let xtyp = typecheck_expr(scope, x)?;
+            Ok(Type::Future(Box::new(xtyp)))
         }
         &mut Source::Id(ref id, _) => scope.infer.vartype(id),
         &mut Source::List(ref mut items) => {
