@@ -1,0 +1,43 @@
+
+import tcp
+import list
+
+
+func open_server(): tcp::Listener ->
+    tcp::listen("0.0.0.0", 4008)
+--
+
+func run_client(msg: Str): Str ->
+    let c := tcp::connect("127.0.0.1", 4008)
+    tcp::send(c, msg)
+    tcp::recv(c)
+--
+
+func run_async_client(msg: Str): Str ->
+    run_client(msg)
+--
+
+func run_server(server: tcp::Listener) ->
+    let sock := tcp::accept(server)
+    handle_request(sock)
+    run_server(server)
+--
+
+func handle_request(sock: tcp::TcpSocket) ->
+    let req := tcp::recv(sock)
+    print("I heard you say, ($req)\n")
+    tcp::send(sock, "I heard you say, ($req)\n")
+--
+
+func print_result(msg: Str) ->
+    let server_msg := msg
+    print("server received: $server_msg")
+--
+
+func main() ->
+    let server := open_server()
+    run_server(server)
+    let msgs := ["tacos", "burritos", "pizza", "pasta", "fish", "eggs"]
+    let results := list::map(msgs, run_async_client)
+    list::map(results, print_result)
+--
