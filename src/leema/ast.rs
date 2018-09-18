@@ -43,17 +43,6 @@ impl<T> TokenData<T>
 #[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
-pub enum LetType
-{
-    Forked,
-    Inline,
-}
-
-#[derive(Clone)]
-#[derive(Copy)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
 pub enum DataType
 {
     Enum,
@@ -210,9 +199,10 @@ pub enum Ast
     // dereference another expression
     Deref(Box<Ast>),
     DotAccess(Box<Ast>, Lstr),
+    Fork(Box<Ast>),
     IfExpr(IfType, Box<Ast>, Box<IfCase>, SrcLoc),
     Import(Box<Ast>, SrcLoc),
-    Let(LetType, Box<Ast>, Box<Ast>, SrcLoc),
+    Let(Box<Ast>, Box<Ast>, SrcLoc),
     List(LinkedList<Ast>),
     Localid(Lstr, SrcLoc),
     Lri(Vec<Lstr>, Option<LinkedList<Kxpr>>, SrcLoc),

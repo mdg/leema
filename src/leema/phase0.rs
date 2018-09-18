@@ -134,6 +134,10 @@ impl Protomod
                 let ppbase = Protomod::preproc_expr(prog, mp, base, loc);
                 Ast::DotAccess(Box::new(ppbase), fld.clone())
             }
+            &Ast::Fork(ref fx) => {
+                let ppfx = Protomod::preproc_expr(prog, mp, fx, loc);
+                Ast::Fork(Box::new(ppfx))
+            }
             &Ast::IfExpr(
                 ast::IfType::MatchFailure,
                 ref input,
@@ -170,10 +174,10 @@ impl Protomod
                     *iloc,
                 )
             }
-            &Ast::Let(let_type, ref left, ref right, ref iloc) => {
+            &Ast::Let(ref left, ref right, ref iloc) => {
                 let pp_left = Protomod::preproc_pattern(prog, mp, left, iloc);
                 let pp_right = Protomod::preproc_expr(prog, mp, right, iloc);
-                Ast::Let(let_type, Box::new(pp_left), Box::new(pp_right), *iloc)
+                Ast::Let(Box::new(pp_left), Box::new(pp_right), *iloc)
             }
             &Ast::Call(ref callx, ref args, ref iloc) => {
                 Protomod::preproc_call(prog, mp, callx, args, iloc)

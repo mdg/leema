@@ -30,7 +30,7 @@ use std::io::{Write};
 %type EQ { SrcLoc }
 %type EQ1 { SrcLoc }
 %type FAILED { SrcLoc }
-%type Fork { SrcLoc }
+%type FORK { SrcLoc }
 %type Func { SrcLoc }
 %type GT { SrcLoc }
 %type GTEQ { SrcLoc }
@@ -119,6 +119,7 @@ use std::io::{Write};
 
 
 %nonassoc ASSIGN BLOCKARROW RETURN.
+%right FORK.
 %left OR XOR.
 %left AND.
 %right ConcatNewline NOT.
@@ -247,10 +248,7 @@ failed_stmt(A) ::= FAILED(L) localid(B) if_case(C) DOUBLEDASH. {
 }
 
 let_stmt(A) ::= Let(D) expr(B) ASSIGN expr(C). {
-    A = Ast::Let(ast::LetType::Inline, Box::new(B), Box::new(C), D);
-}
-let_stmt(A) ::= Fork(D) expr(B) ASSIGN expr(C). {
-    A = Ast::Let(ast::LetType::Forked, Box::new(B), Box::new(C), D);
+    A = Ast::Let(Box::new(B), Box::new(C), D);
 }
 
 /* rust func declaration */
@@ -304,6 +302,9 @@ expr(A) ::= match_expr(B). { A = B; }
 expr(A) ::= call_expr(B). { A = B; }
 expr(A) ::= block(B) DOUBLEDASH. { A = B; }
 expr(A) ::= term(B). { A = B; }
+expr(A) ::= FORK(B) expr(C). {
+    A = Ast::Fork(Box::new(C));
+}
 
 /* if statements can go 3 different ways
 * might be that one of these should be the only one, but I'm not sure

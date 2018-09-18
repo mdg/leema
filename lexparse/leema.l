@@ -228,7 +228,7 @@ false	{
 }
 fork	{
     BEGIN(INITIAL);
-    return set_token(yyg, TOKEN_Fork);
+    return set_token(yyg, TOKEN_FORK);
 }
 let	{
     BEGIN(INITIAL);

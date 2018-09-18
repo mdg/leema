@@ -545,8 +545,8 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
             let fields = scope.proto.get_struple_fields(&type_lri.localid);
             Ixpr::construple(full_type.clone(), fields, loc.lineno)
         }
-        &Ast::Let(ltype, ref lhs, ref rhs, ref iloc) => {
-            compile_let_stmt(scope, ltype, lhs, rhs, iloc)
+        &Ast::Let(ref lhs, ref rhs, ref iloc) => {
+            compile_let_stmt(scope, lhs, rhs, iloc)
         }
         _ => {
             panic!("Cannot compile expr: {:?}", x);
@@ -625,7 +625,6 @@ pub fn compile_call(
 
 pub fn compile_let_stmt(
     scope: &mut Interscope,
-    _lettype: ast::LetType,
     lhs: &Ast,
     rhs: &Ast,
     loc: &SrcLoc,
