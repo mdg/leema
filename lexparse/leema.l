@@ -91,6 +91,7 @@ void	{ return set_token(yyg, TOKEN_VOID); }
 }
 "="	{
     // only here to make it easier to report errors that it cannot be used
+    printf("= is an invalid token. use := or ==\n");
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_EQ1);
 }
