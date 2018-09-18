@@ -1,11 +1,29 @@
-func min(a: Int, b: Int) : Int ->
+
+struct Point2D
+.x: Int
+.y: Int
+--
+
+struct Point3D
+.x: Int
+.y: Int
+.z: Int
+--
+
+func min: Int
+.a: Int
+.b: Int
+>>
 	if
 	|a < b -> a
 	|else -> b
 	--
 --
 
-func gcd(a: Int, b: Int) : Int ->
+func gcd: Int
+.a: Int
+.b: Int
+>>
 	if
 	|b == 0 -> int_abs(a)
 	|else -> 
@@ -14,7 +32,10 @@ func gcd(a: Int, b: Int) : Int ->
 	--
 --
 
-func euclidean_algorithm(a: Int, b: Int) ->
+func euclidean_algorithm
+.a: Int
+.b: Int
+>>
 	let q := a / b
 	let r := a mod b
 	print("$a = $q * $b + $r\n")
@@ -23,7 +44,8 @@ func euclidean_algorithm(a: Int, b: Int) ->
 	--
 --
 
-func main() ->
+func main
+>>
 	let a := 1234567890
 	let b := 345678901
 	let d := gcd(a, b)
