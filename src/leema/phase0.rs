@@ -558,13 +558,13 @@ impl Protomod
         prog: &Lib,
         mp: &ModulePreface,
         mods: &Vec<Lstr>,
-        typs: &LinkedList<Ast>,
+        typs: &LinkedList<Kxpr>,
         loc: &SrcLoc,
     ) -> Ast
     {
         let pp_types = typs
             .iter()
-            .map(|t| Protomod::preproc_expr(prog, mp, t, loc))
+            .map(|t| t.map_x(|tx| Protomod::preproc_expr(prog, mp, tx, loc)))
             .collect();
         Ast::Lri(mods.clone(), Some(pp_types), *loc)
     }

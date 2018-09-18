@@ -75,8 +75,6 @@ use std::io::{Write};
 %type stmt { Ast }
 %type block { Ast }
 %type func_stmt { Ast }
-%type dfunc_one { Ast }
-%type dfunc_many { Ast }
 %type failed_stmt { Ast }
 %type macro_stmt { Ast }
 %type call_expr { Ast }
@@ -87,6 +85,10 @@ use std::io::{Write};
 %type k_list { LinkedList<Kxpr> }
 %type x_maybe_k { Kxpr }
 %type x_list { LinkedList<Kxpr> }
+%type ktype_list { LinkedList<Kxpr> }
+%type k_maybe_type { Kxpr }
+%type typex_list { LinkedList<Kxpr> }
+%type typex_maybe_k { Kxpr }
 %type if_expr { Ast }
 %type if_case { ast::IfCase }
 %type localid { Ast }
@@ -103,6 +105,7 @@ use std::io::{Write};
 %type term { Ast }
 %type expr { Ast }
 %type opt_typex { Ast }
+%type typex { Ast }
 %type arrow_expr { (Vec<Kxpr>, SrcLoc) }
 %type type_term { Ast }
 %type mod_type { Ast }
@@ -121,11 +124,12 @@ use std::io::{Write};
 %right ConcatNewline NOT.
 %nonassoc EQ NEQ GT GTEQ.
 %left LT LTEQ.
+%right TYPEARROW.
 %right SEMICOLON.
 %left PLUS MINUS.
 %left TIMES SLASH MOD.
 %right DOLLAR.
-%left DOT.
+%left DOT PCT.
 %left LPAREN RPAREN.
 
 %parse_accept {
@@ -189,7 +193,7 @@ stmt(A) ::= RETURN(C) expr(B). {
 
 /** Struct Definitions */
 
-defstruple(A) ::= STRUCT(L) lri(C) PARENCALL x_list(D) RPAREN.
+defstruple(A) ::= STRUCT(L) lri(C) PARENCALL typex_list(D) RPAREN.
 {
     A = Ast::DefData(ast::DataType::Struple, Box::new(C), D, L);
 }
@@ -205,7 +209,7 @@ defstruple_block(A) ::= defstruple_block(B) defstruple_block_field(C). {
     tmp.push_back(C);
     A = tmp;
 }
-defstruple_block_field(A) ::= DOT ID(B) COLON term(C). {
+defstruple_block_field(A) ::= DOT ID(B) COLON typex(C). {
     A = Kxpr::new(Lstr::from(B.data), C);
 }
 
@@ -223,7 +227,7 @@ defenum_variants(A) ::= defenum_variant(B). {
     tmp.push_back(B);
     A = tmp;
 }
-defenum_variant(A) ::= PIPE(D) ID(B) PARENCALL x_list(C) RPAREN. {
+defenum_variant(A) ::= PIPE(D) ID(B) PARENCALL typex_list(C) RPAREN. {
     let name = Lstr::from(B.data);
     let name_ast = Box::new(Ast::Localid(name.clone(), B.loc));
     let ds = Ast::DefData(ast::DataType::Struple, name_ast, C, D);
@@ -251,23 +255,26 @@ let_stmt(A) ::= Fork(D) expr(B) ASSIGN expr(C). {
 
 /* rust func declaration */
 func_stmt(A) ::=
-    Func(Z) lri(B) PARENCALL k_list(D) RPAREN COLON expr(E) RUSTBLOCK.
+    Func(Z) lri(B) PARENCALL ktype_list(D) RPAREN COLON typex(E) RUSTBLOCK.
 {
+    vout!("parse rust func {:?}\n", B);
     A = Ast::DefFunc(ast::FuncClass::Func
         , Box::new(B), D, Box::new(E), Box::new(Ast::RustBlock), Z);
 }
 
 /* func one case, no matching */
-func_stmt(A) ::= Func(Z) lri(B) PARENCALL k_list(D) RPAREN opt_typex(E)
+func_stmt(A) ::= Func(Z) lri(B) PARENCALL ktype_list(D) RPAREN opt_typex(E)
     block(C) DOUBLEDASH.
 {
+    vout!("parse func {:?}\n", B);
     A = Ast::DefFunc(ast::FuncClass::Func
         , Box::new(B), D, Box::new(E), Box::new(C), Z);
 }
 /* func w/ pattern matching */
-func_stmt(A) ::= Func(Z) lri(B) PARENCALL k_list(C) RPAREN opt_typex(D)
+func_stmt(A) ::= Func(Z) lri(B) PARENCALL ktype_list(C) RPAREN opt_typex(D)
     if_case(E) DOUBLEDASH.
 {
+    vout!("parse pattern func {:?}\n", B);
     // extract field names from args to pass them through to match expr
     let body = Ast::matchfunc_body(&C, E, Z);
     A = Ast::DefFunc(ast::FuncClass::Func
@@ -278,7 +285,7 @@ func_stmt(A) ::= Func(Z) lri(B) PARENCALL k_list(C) RPAREN opt_typex(D)
 opt_typex(A) ::= . {
     A = Ast::TypeAnon;
 }
-opt_typex(A) ::= COLON expr(B). {
+opt_typex(A) ::= COLON typex(B). {
     A = B;
 }
 
@@ -352,21 +359,105 @@ call_expr(A) ::= term(B) PARENCALL(D) x_list(C) RPAREN. {
     A = Ast::Call(Box::new(B), C, D);
 }
 
-expr(A) ::= arrow_expr(B). {
+typex(A) ::= type_term(B). {
+    A = B;
+}
+type_term(A) ::= lri(B). {
+    A = B;
+}
+type_term(A) ::= TYPE_FAILURE. {
+    A = Ast::TypeFailure;
+}
+type_term(A) ::= TYPE_INT. {
+    A = Ast::TypeInt;
+}
+type_term(A) ::= TYPE_STR. {
+    A = Ast::TypeStr;
+}
+type_term(A) ::= TYPE_HASHTAG. {
+    A = Ast::TypeHashtag;
+}
+type_term(A) ::= TYPE_BOOL. {
+    A = Ast::TypeBool;
+}
+type_term(A) ::= TYPE_VOID. {
+    A = Ast::TypeVoid;
+}
+type_term(A) ::= TYPE_VAR(B). {
+    A = Ast::TypeVar(Lstr::from(B.data), B.loc);
+}
+type_term(A) ::= SquareL typex(B) SquareR. {
+    let mut inner = LinkedList::new();
+    inner.push_back(B);
+    A = Ast::List(inner);
+}
+type_term(A) ::= LPAREN typex_list(B) RPAREN. {
+    A = Ast::Tuple(B);
+}
+type_term(A) ::= type_term(B) PCT. {
+    // A = Ast::TypeFuture(Box::new(B));
+    A = Ast::TypeVoid;
+}
+type_term(A) ::= type_term(B) MULT. {
+    // A = Ast::TypeFuture(Box::new(B));
+    A = Ast::TypeVoid;
+}
+type_term(A) ::= type_term(B) QUESTION. {
+    // A = Ast::TypeFuture(Box::new(B));
+    A = Ast::TypeVoid;
+}
+typex(A) ::= arrow_expr(B). {
     A = Ast::TypeFunc(B.0, B.1);
 }
-arrow_expr(A) ::= term(B) TYPEARROW(L) term(C). {
+arrow_expr(A) ::= type_term(B) TYPEARROW(L) type_term(C). {
     A = (vec![Kxpr::new_x(B), Kxpr::new_x(C)], L);
 }
-arrow_expr(A) ::= arrow_expr(B) TYPEARROW(L) term(C). {
+arrow_expr(A) ::= arrow_expr(B) TYPEARROW(L) type_term(C). {
     let mut tmp = B;
     tmp.0.push(Kxpr::new_x(C));
     A = tmp;
 }
 
-expr(A) ::= BACKTICK term(C). {
-    A = Ast::Deref(Box::new(C));
+ktype_list(A) ::= . {
+    A = LinkedList::new();
 }
+ktype_list(A) ::= k_maybe_type(B). {
+    let mut tmp = LinkedList::new();
+    tmp.push_back(B);
+    A = tmp;
+}
+ktype_list(A) ::= k_maybe_type(B) COMMA ktype_list(C). {
+    let mut tmp = C;
+    tmp.push_front(B);
+    A = tmp;
+}
+k_maybe_type(A) ::= ID(B). {
+    A = Kxpr::new_k(Lstr::from(B.data));
+}
+k_maybe_type(A) ::= ID(B) COLON typex(C). {
+    A = Kxpr::new(Lstr::from(B.data), C);
+}
+
+typex_list(A) ::= . {
+    A = LinkedList::new();
+}
+typex_list(A) ::= typex_maybe_k(B). {
+    let mut tmp = LinkedList::new();
+    tmp.push_front(B);
+    A = tmp;
+}
+typex_list(A) ::= typex_maybe_k(B) COMMA typex_list(C). {
+    let mut tmp = C;
+    tmp.push_front(B);
+    A = tmp;
+}
+typex_maybe_k(A) ::= typex(B). {
+    A = Kxpr::new_x(B);
+}
+typex_maybe_k(A) ::= ID(B) COLON typex(C). {
+    A = Kxpr::new(Lstr::from(B.data), C);
+}
+
 
 expr(A) ::= term(B) DOLLAR term(C). {
     /* A = Val::binaryop(B, C, D); */
@@ -531,31 +622,7 @@ term(A) ::= HASHTAG(B). {
 }
 term(A) ::= strexpr(B). { A = B; }
 term(A) ::= UNDERSCORE. { A = Ast::Wildcard; }
-term(A) ::= type_term(B). {
-    A = B;
-}
 
-type_term(A) ::= TYPE_FAILURE. {
-    A = Ast::TypeFailure;
-}
-type_term(A) ::= TYPE_INT. {
-    A = Ast::TypeInt;
-}
-type_term(A) ::= TYPE_STR. {
-    A = Ast::TypeStr;
-}
-type_term(A) ::= TYPE_HASHTAG. {
-    A = Ast::TypeHashtag;
-}
-type_term(A) ::= TYPE_BOOL. {
-    A = Ast::TypeBool;
-}
-type_term(A) ::= TYPE_VOID. {
-    A = Ast::TypeVoid;
-}
-type_term(A) ::= TYPE_VAR(B). {
-    A = Ast::TypeVar(Lstr::from(B.data), B.loc);
-}
 
 /* map
  * {}
@@ -585,10 +652,10 @@ lri(A) ::= localid(B). {
 lri(A) ::= lri_base(B). {
     A = Ast::Lri(B.0, None, B.1);
 }
-lri(A) ::= lri_base(B) SquareCall expr_list(C) SquareR. {
+lri(A) ::= lri_base(B) SquareCall typex_list(C) SquareR. {
     A = Ast::Lri(B.0, Some(C), B.1);
 }
-lri(A) ::= ID(B) SquareCall expr_list(C) SquareR. {
+lri(A) ::= ID(B) SquareCall typex_list(C) SquareR. {
     let one_name = vec![Lstr::from(B.data)];
     A = Ast::Lri(one_name, Some(C), B.loc);
 }

@@ -215,7 +215,7 @@ pub enum Ast
     Let(LetType, Box<Ast>, Box<Ast>, SrcLoc),
     List(LinkedList<Ast>),
     Localid(Lstr, SrcLoc),
-    Lri(Vec<Lstr>, Option<LinkedList<Ast>>, SrcLoc),
+    Lri(Vec<Lstr>, Option<LinkedList<Kxpr>>, SrcLoc),
     Map(LinkedList<Kxpr>),
     Return(Box<Ast>, SrcLoc),
     RustBlock,
@@ -257,8 +257,11 @@ impl Ast
         } else {
             vec![l.local_ref().clone()]
         };
-        let new_params: Option<LinkedList<Ast>> = l.params.map(|params| {
-            params.into_iter().map(|p| Ast::from_type(p, loc)).collect()
+        let new_params: Option<LinkedList<Kxpr>> = l.params.map(|params| {
+            params
+                .into_iter()
+                .map(|p| Kxpr::new_x(Ast::from_type(p, loc)))
+                .collect()
         });
         Ast::Lri(mods, new_params, *loc)
     }
@@ -408,7 +411,10 @@ impl<'a> From<&'a Ast> for Lri
             &Ast::Localid(ref id, _) => Lri::new(id.clone()),
             &Ast::Lri(ref names, ref types, _) => {
                 let param_array = types.as_ref().map(|param_list| {
-                    param_list.iter().map(|p| Type::from(p)).collect()
+                    param_list
+                        .iter()
+                        .map(|p| Type::from(p.x_ref().unwrap()))
+                        .collect()
                 });
                 let modname = if names.len() == 1 {
                     None
@@ -1016,20 +1022,18 @@ mod tests
     #[test]
     fn test_parse_defstruple_mixed_keys()
     {
-        let input = "
-    struct Taco(Int, style: Str)
-    ";
+        let input = "struct Taco(Int, style: Str)";
         let root = ast::parse(lex(input));
 
         let def = Ast::DefData(
             ast::DataType::Struple,
-            Box::new(test_localid("Taco", 2, 7)),
+            Box::new(test_localid("Taco", 1, 7)),
             vec![
                 Kxpr::new_x(Ast::TypeInt),
                 Kxpr::new(Lstr::from("style"), Ast::TypeStr),
             ].into_iter()
             .collect(),
-            SrcLoc::new(2, 1),
+            SrcLoc::new(1, 1),
         );
         assert_eq!(&def, root.inner_vec().get(0).unwrap());
     }
@@ -1142,9 +1146,9 @@ mod tests
     fn test_parse_let_plus_tuple()
     {
         let input = "
-    let x := 4 + y
-    (x, z)
-    ";
+        let x := 4 + y
+        (x, z)
+        ";
         let root = ast::parse(lex(input));
 
         if let Ast::Block(items) = root {
@@ -1158,10 +1162,10 @@ mod tests
     fn test_parse_function_hashtag_tuple()
     {
         let input = "
-    func foo(input: [(Int, #)]): [#] ->
-        [#tacos, #burritos]
-    --
-    ";
+        func foo(input: [(Int, #)]): [#] ->
+            [#tacos, #burritos]
+        --
+        ";
         ast::parse(lex(input));
 
         assert!(true); // didn't panic!
@@ -1171,11 +1175,11 @@ mod tests
     fn test_parse_def_type_param()
     {
         let input = "
-    enum Foo[A, B]
-    |Bar(A)
-    |Baz(B)
-    --
-    ";
+        enum Foo[A, B]
+        |Bar(A)
+        |Baz(B)
+        --
+        ";
         ast::parse(lex(input));
 
         assert!(true); // didn't panic!
@@ -1185,10 +1189,10 @@ mod tests
     fn test_parse_nested_type_param()
     {
         let input = "
-    func foo(bar: Map[Int, opt::Option[V]]): opt::Option[V] ->
-        option::None
-    --
-    ";
+        func foo(bar: Map[Int, opt::Option[V]]): opt::Option[V] ->
+            option::None
+        --
+        ";
         ast::parse(lex(input));
 
         assert!(true); // didn't panic!

@@ -310,10 +310,6 @@ ${ID}	{
     BEGIN(INITIAL);
     return set_token_val(yyg, TOKEN_TYPE_VAR, yytext+1);
 }
-`	{
-    BEGIN(INITIAL);
-    return set_token(yyg, TOKEN_BACKTICK);
-}
 "$\?"	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_DollarQuestion);
@@ -321,6 +317,14 @@ ${ID}	{
 "$"	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_DOLLAR);
+}
+"\?"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_QUESTION);
+}
+"%" {
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_PCT);
 }
 .	{
 	printf("unrecognized character: '%s'\n", yytext);
