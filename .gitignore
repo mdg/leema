@@ -8,6 +8,7 @@ test.pyc
 # More information here http://doc.crates.io/guide.html#cargotoml-vs-cargolock
 
 # generated parser files
+lexparse/leema.h
 lexparse/leema.out
 lexparse/leema.rs
 lexparse/lex.c
