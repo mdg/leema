@@ -15,8 +15,8 @@ func min: Int
 .b: Int
 >>
 	if
-	|a < b -> a
-	|else -> b
+	|a < b >> a
+	|else >> b
 	--
 --
 
@@ -25,8 +25,8 @@ func gcd: Int
 .b: Int
 >>
 	if
-	|b == 0 -> int_abs(a)
-	|else -> 
+	|b == 0 >> int_abs(a)
+	|else >>
 		let r := a mod b
 		gcd(b, min(r, b - r))
 	--
@@ -40,7 +40,7 @@ func euclidean_algorithm
 	let r := a mod b
 	print("$a = $q * $b + $r\n")
 	if
-	|not (r == 0) -> euclidean_algorithm(b, r)
+	|not (r == 0) >> euclidean_algorithm(b, r)
 	--
 --
 
