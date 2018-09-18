@@ -366,7 +366,8 @@ impl Protomod
                         loc,
                     )
                 }).collect();
-            let pp_rtype = self.preproc_type(prog, mp, lri_params, &pp_rtype_ast, loc);
+            let pp_rtype =
+                self.preproc_type(prog, mp, lri_params, &pp_rtype_ast, loc);
             (pp_ftype_parts, pp_rtype)
         };
         ftype_parts.push(Kxpr::new_x(pp_rtype_ast));
@@ -1144,8 +1145,7 @@ mod tests
     #[test]
     fn test_preproc_prepend_module_name()
     {
-        let input =
-            "struct Foo --
+        let input = "struct Foo --
 
             func open_foo(): Foo -RUST-
             func close_foo(f: Foo): Void -RUST-
