@@ -10,6 +10,7 @@ use leema::types;
 use leema::val::{SrcLoc, Type, Val};
 
 use std::collections::{HashMap, LinkedList};
+use std::fmt;
 use std::io::Write;
 
 
@@ -1051,6 +1052,38 @@ pub fn preproc(prog: &mut Lib, mp: &ModulePreface, ast: &Ast) -> Protomod
         }
     }
     p
+}
+
+impl fmt::Display for Protomod
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "Protomod: {}\n.funcseq:", self.key)?;
+        for i in self.funcseq.iter() {
+            write!(f, " {}", i)?;
+        }
+        // funcsrc
+        write!(f, "\n.funcsrc:")?;
+        for i in self.funcsrc.keys() {
+            write!(f, " {}", i)?;
+        }
+        // valtypes
+        writeln!(f, "\n.valtypes:")?;
+        for (k, v) in self.valtypes.iter() {
+            writeln!(f, "   {}: {}", k, v)?;
+        }
+        // constants
+        writeln!(f, ".constants:")?;
+        for (k, v) in self.constants.iter() {
+            writeln!(f, "   {}: {}", k, v)?;
+        }
+        // deftypes
+        writeln!(f, ".deftypes:")?;
+        for (k, v) in self.deftypes.iter() {
+            writeln!(f, "   {}: {}", k, v)?;
+        }
+        writeln!(f, ".struple_fields: {:?}", self.struple_fields)
+    }
 }
 
 

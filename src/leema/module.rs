@@ -5,6 +5,7 @@ use leema::parse::Token;
 use leema::val::{Type, Val};
 
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 use std::path::PathBuf;
 
 
@@ -32,6 +33,18 @@ impl ModKey
     pub fn name_only(name: Lstr) -> ModKey
     {
         ModKey { name, file: None }
+    }
+}
+
+impl fmt::Display for ModKey
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "{}", self.name)?;
+        if self.file.is_some() {
+            write!(f, ":{}", self.file.as_ref().unwrap().to_str().unwrap())?;
+        }
+        Ok(())
     }
 }
 

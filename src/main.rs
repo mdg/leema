@@ -112,7 +112,7 @@ fn real_main() -> i32
     } else if args.arg_cmd == "proto" {
         let mut prog = program::Lib::new(inter);
         let proto = prog.read_proto(&modkey.name);
-        println!("\n{:?}\n", proto);
+        println!("\n{}\n", proto);
         Val::Int(0)
     } else if args.arg_cmd == "inter" {
         let mut prog = program::Lib::new(inter);
