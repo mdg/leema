@@ -404,15 +404,15 @@ impl<'i> Tokenz<'i>
 #[cfg(test)]
 mod tests
 {
-    use leema::token::Tokenz;
+    use leema::token::{Token, Tokenz};
 
 
     #[test]
-    fn test_tokenize_text()
+    fn test_tokenize_func()
     {
         let input = "
         func tacos: Int
-        .meat: Str
+        .filling: Str
         .size: Int
         >>
             make_tacos(meat, size)
@@ -420,7 +420,33 @@ mod tests
         ".to_string();
 
         let toks = Tokenz::lex(&input);
-        println!("toks: {:?}", toks);
+        assert_eq!(Token::Func, toks[0]);
+        assert_eq!(Token::Colon, toks[2]);
+        assert_eq!(Token::Dot, toks[4]);
+        assert_eq!(Token::Id("filling"), toks[5]);
+        assert_eq!(Token::Colon, toks[6]);
+        assert_eq!(Token::Id("make_tacos"), toks[13]);
+        assert_eq!(Token::DoubleDash, toks[19]);
         assert_eq!(20, toks.len());
+    }
+
+    #[test]
+    fn test_tokenize_struct()
+    {
+        let input = "
+        struct Foo[T]
+        .dog: T
+        .cat: Str
+        .mouse: Int
+        --
+        ".to_string();
+
+        let toks = Tokenz::lex(&input);
+        assert_eq!(Token::Struct, toks[0]);
+        assert_eq!(Token::Id("Foo"), toks[1]);
+        assert_eq!(Token::SquareL, toks[2]);
+        assert_eq!(Token::Id("T"), toks[3]);
+        assert_eq!(Token::SquareR, toks[4]);
+        assert_eq!(18, toks.len());
     }
 }
