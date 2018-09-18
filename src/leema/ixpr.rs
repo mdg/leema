@@ -25,6 +25,7 @@ pub enum Source
     ConstVal(Val),
     EnumConstructor(Type, i16, Box<Ixpr>),
     FieldAccess(Box<Ixpr>, Lstr, Option<i8>),
+    Fork(Box<Ixpr>),
     Func(Vec<Lstr>, Vec<Type>, Type, Box<Ixpr>),
     Let(Val, Box<Ixpr>, Vec<MatchFailure>),
     MatchExpr(Box<Ixpr>, Box<Ixpr>),

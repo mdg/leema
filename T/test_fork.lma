@@ -36,7 +36,7 @@ func print_result(msg: Str) ->
 
 func main() ->
     let server := open_server()
-    run_server(server)
+    fork run_server(server)
     let msgs := ["tacos", "burritos", "pizza", "pasta", "fish", "eggs"]
     let results := list::map(msgs, run_async_client)
     list::map(results, print_result)

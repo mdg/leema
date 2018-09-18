@@ -255,6 +255,15 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 dst: base_ops.dst.sub(fld_idx),
             }
         }
+        Source::Fork(ref fx) => {
+            panic!("cannot generate code for forks yet");
+            // maybe a fork is not really a thing at this level
+            // a fork is really
+            // create a closure
+            // call it and connect it to a future
+            // return the future
+            // maybe start w/ making closures and forks will be easier
+        }
         Source::Func(ref argnames, ref _argt, ref _frtype, ref body) => {
             rt.def_args(argnames);
             make_sub_ops(rt, &body)

@@ -503,6 +503,10 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
             let ctail = compile_expr(scope, tail, loc);
             Ixpr::cons(chead, ctail, loc.lineno)
         }
+        &Ast::Fork(ref fx) => {
+            let ifx = compile_expr(scope, fx, loc);
+            Ixpr::new(Source::Fork(Box::new(ifx)), loc.lineno)
+        }
         &Ast::IfExpr(_, _, _, _) => compile_ifx(scope, x),
         &Ast::StrExpr(ref items, ref iloc) => {
             let strvec =
