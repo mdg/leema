@@ -59,6 +59,7 @@ impl Token
                 parse::TOKEN_BLOCKARROW => Token::BLOCKARROW(tl),
                 parse::TOKEN_DOUBLEDASH => Token::DOUBLEDASH(tl),
                 parse::TOKEN_TYPEARROW => Token::TYPEARROW(tl),
+                parse::TOKEN_FN => Token::FN(tl),
                 parse::TOKEN_Func => Token::Func(tl),
                 parse::TOKEN_MACRO => Token::MACRO(tl),
                 parse::TOKEN_STRUCT => Token::STRUCT(tl),

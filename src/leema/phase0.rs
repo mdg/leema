@@ -111,6 +111,9 @@ impl Protomod
                     .collect();
                 Ast::Block(pp_items)
             }
+            &Ast::Closure(ref args, ref body, ref iloc) => {
+                Protomod::preproc_closure(prog, mp, args, body, iloc)
+            }
             &Ast::Cons(ref head, ref tail) => {
                 let pp_head = Protomod::preproc_expr(prog, mp, head, loc);
                 let pp_tail = Protomod::preproc_expr(prog, mp, tail, loc);
@@ -383,6 +386,21 @@ impl Protomod
         self.funcsrc.insert(lstr_name.clone(), pp_func);
         self.valtypes.insert(lstr_name.clone(), ftype);
         self.constants.insert(lstr_name, funcref);
+    }
+
+    pub fn preproc_closure(
+        prog: &Lib,
+        mp: &ModulePreface,
+        args: &LinkedList<Kxpr>,
+        body: &Ast,
+        loc: &SrcLoc,
+    ) -> Ast
+    {
+        let pp_args = args.iter().map(|a| {
+            a.map_x(|ax| Protomod::preproc_expr(prog, mp, ax, loc))
+        }).collect();
+        let pp_body = Protomod::preproc_expr(prog, mp, body, loc);
+        Ast::Closure(pp_args, Box::new(pp_body), *loc)
     }
 
     pub fn preproc_call(

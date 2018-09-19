@@ -1,0 +1,14 @@
+
+import list
+
+func double(i) ->
+    i * 2
+--
+
+func main() ->
+    let items := [1, 2, 3, 4]
+    let i2 := list::map(items, double) 
+    print("i * 2 = $i2\n")
+    let i3 := list::map(items, fn(i) i * 3) 
+    print("i * 3 = $i3\n")
+--

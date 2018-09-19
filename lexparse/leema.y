@@ -30,6 +30,7 @@ use std::io::{Write};
 %type EQ { SrcLoc }
 %type EQ1 { SrcLoc }
 %type FAILED { SrcLoc }
+%type FN { SrcLoc }
 %type FORK { SrcLoc }
 %type Func { SrcLoc }
 %type GT { SrcLoc }
@@ -78,6 +79,7 @@ use std::io::{Write};
 %type failed_stmt { Ast }
 %type macro_stmt { Ast }
 %type call_expr { Ast }
+%type closure_expr { Ast }
 %type if_stmt { Ast }
 %type else_if { ast::IfCase }
 %type expr_list { LinkedList<Ast> }
@@ -300,6 +302,7 @@ macro_stmt(A) ::=
 expr(A) ::= if_expr(B). { A = B; }
 expr(A) ::= match_expr(B). { A = B; }
 expr(A) ::= call_expr(B). { A = B; }
+expr(A) ::= closure_expr(B). { A = B; }
 expr(A) ::= block(B) DOUBLEDASH. { A = B; }
 expr(A) ::= term(B). { A = B; }
 expr(A) ::= FORK(B) expr(C). {
@@ -358,6 +361,10 @@ else_if(A) ::= ELSE(L) block(B). {
 /* regular function call */
 call_expr(A) ::= term(B) PARENCALL(D) x_list(C) RPAREN. {
     A = Ast::Call(Box::new(B), C, D);
+}
+
+closure_expr(A) ::= FN(L) LPAREN x_list(B) RPAREN expr(C). {
+    A = Ast::Closure(B, Box::new(C), L);
 }
 
 typex(A) ::= type_term(B). {
