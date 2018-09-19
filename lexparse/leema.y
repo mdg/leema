@@ -363,7 +363,7 @@ call_expr(A) ::= term(B) PARENCALL(D) x_list(C) RPAREN. {
     A = Ast::Call(Box::new(B), C, D);
 }
 
-closure_expr(A) ::= FN(L) LPAREN x_list(B) RPAREN expr(C). {
+closure_expr(A) ::= FN(L) LPAREN ktype_list(B) RPAREN expr(C). {
     A = Ast::Closure(B, Box::new(C), L);
 }
 
