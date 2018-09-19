@@ -135,8 +135,9 @@ impl<'a> CallFrame<'a>
     pub fn collect_callexpr<'b>(&mut self, callx: &'b Ixpr)
     {
         match callx.src {
-            Source::Id(ref callname, _) => {
-                self.push_call(CallOp::LocalCall(callname.clone()));
+            Source::Id(ref _callname, _) => {
+                // this is probably a local variable that is a function
+                // self.push_call(CallOp::LocalCall(callname.clone()));
             }
             Source::ConstVal(ref val) => {
                 match val {
@@ -339,6 +340,9 @@ impl<'a, 'b> Typescope<'a, 'b>
                         panic!("what val is in typecheck_call? {:?}", fval);
                     }
                 }
+            }
+            &Source::Id(ref name, _) => {
+                self.infer.vartype(name)
             }
             _ => {
                 panic!("whatever is that in typecheck_call? {:?}", src);

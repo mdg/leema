@@ -246,10 +246,10 @@ impl Lib
 
     pub fn deeper_typecheck(&mut self, funcri: &Lri, depth: typecheck::Depth)
     {
+        let mod_str = funcri.mod_ref().expect("typecheck module name").clone();
         let cf = {
-            let mod_str = funcri.mod_ref().expect("typecheck module name");
-            let mut icf = CallFrame::new(mod_str, funcri.localid.str());
-            let inter = self.inter.get(mod_str).unwrap();
+            let mut icf = CallFrame::new(&mod_str, funcri.localid.str());
+            let inter = self.inter.get(&mod_str).unwrap();
             let fix = inter
                 .interfunc
                 .get(funcri.localid.str())
@@ -262,9 +262,16 @@ impl Lib
         for c in cf.calls.iter() {
             match c {
                 &CallOp::LocalCall(ref call_name) => {
+println!("typecheck local call: {}", call_name);
+                    /* if it's still a local call at this point,
+                     * it's probably a closure
+                     */
                     let contains_local = {
-                        let local_inter =
-                            self.inter.get(funcri.localid.str()).unwrap();
+                        let opt_local_inter = self.inter.get(&mod_str);
+                        if opt_local_inter.is_none() {
+                            panic!("inter not found for module: {}", funcri);
+                        }
+                        let local_inter = opt_local_inter.unwrap();
                         local_inter.interfunc.contains_key(&**call_name)
                     };
                     if contains_local {
@@ -303,6 +310,7 @@ impl Lib
     {
         vout!("local_typecheck({})\n", funcri);
         let modlstr = funcri.mod_ref().unwrap();
+        self.load_inter(modlstr);
         let funclstr = &funcri.localid;
         let opt_inter = self.inter.get_mut(modlstr);
         if opt_inter.is_none() {
