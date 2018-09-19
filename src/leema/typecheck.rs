@@ -344,9 +344,7 @@ impl<'a, 'b> Typescope<'a, 'b>
                     }
                 }
             }
-            &Source::Id(ref name, _) => {
-                self.infer.vartype(name)
-            }
+            &Source::Id(ref name, _) => self.infer.vartype(name),
             _ => {
                 panic!("whatever is that in typecheck_call? {:?}", src);
             }
@@ -355,8 +353,7 @@ impl<'a, 'b> Typescope<'a, 'b>
 
     pub fn typecheck_funcref(&mut self, fri: &Lri, typ: &Type) -> TypeResult
     {
-        let typed =
-            self.functype(fri.mod_ref().unwrap(), &fri.localid);
+        let typed = self.functype(fri.mod_ref().unwrap(), &fri.localid);
         self.infer.merge_types(typ, &typed)
     }
 

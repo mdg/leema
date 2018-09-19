@@ -169,9 +169,11 @@ impl Protomod
                 )
             }
             &Ast::IfExpr(iftype, ref input, ref case, ref iloc) => {
-                let pp_input = Protomod::preproc_expr(self, prog, mp, input, iloc);
-                let pp_case =
-                    Protomod::preproc_ifcase(self, prog, mp, iftype, case, iloc);
+                let pp_input =
+                    Protomod::preproc_expr(self, prog, mp, input, iloc);
+                let pp_case = Protomod::preproc_ifcase(
+                    self, prog, mp, iftype, case, iloc,
+                );
                 Ast::IfExpr(
                     iftype,
                     Box::new(pp_input),
@@ -181,7 +183,8 @@ impl Protomod
             }
             &Ast::Let(ref left, ref right, ref iloc) => {
                 let pp_left = Protomod::preproc_pattern(prog, mp, left, iloc);
-                let pp_right = Protomod::preproc_expr(self, prog, mp, right, iloc);
+                let pp_right =
+                    Protomod::preproc_expr(self, prog, mp, right, iloc);
                 Ast::Let(Box::new(pp_left), Box::new(pp_right), *iloc)
             }
             &Ast::Call(ref callx, ref args, ref iloc) => {
@@ -202,13 +205,17 @@ impl Protomod
                 Protomod::preproc_lri(prog, mp, mods, iloc)
             }
             &Ast::Lri(ref mods, Some(ref typs), ref iloc) => {
-                Protomod::preproc_lri_with_types(self, prog, mp, mods, typs, iloc)
+                Protomod::preproc_lri_with_types(
+                    self, prog, mp, mods, typs, iloc,
+                )
             }
             &Ast::Map(ref items) => {
                 let pp_items = items
                     .iter()
                     .map(|i| {
-                        i.map_x(|x| Protomod::preproc_expr(self, prog, mp, x, loc))
+                        i.map_x(|x| {
+                            Protomod::preproc_expr(self, prog, mp, x, loc)
+                        })
                     }).collect();
                 Ast::Map(pp_items)
             }
@@ -232,7 +239,9 @@ impl Protomod
                 let pp_items = items
                     .iter()
                     .map(|i| {
-                        i.map_x(|x| Protomod::preproc_expr(self, prog, mp, x, loc))
+                        i.map_x(|x| {
+                            Protomod::preproc_expr(self, prog, mp, x, loc)
+                        })
                     }).collect();
                 Ast::Tuple(pp_items)
             }
@@ -313,7 +322,9 @@ impl Protomod
                 Kxpr::new(id.clone(), new_typ)
             }
             (_, Some(_)) => {
-                arg.map_x(|typ| Protomod::preproc_expr(self, prog, mp, typ, &loc))
+                arg.map_x(|typ| {
+                    Protomod::preproc_expr(self, prog, mp, typ, &loc)
+                })
             }
         }
     }
@@ -351,9 +362,9 @@ impl Protomod
             .iter()
             .map(|a| {
                 Protomod::preproc_func_arg(self, prog, mp, &lstr_name, a, loc)
-            })
-            .collect();
-        let pp_rtype_ast = Protomod::preproc_func_result(self, prog, mp, rtype, loc);
+            }).collect();
+        let pp_rtype_ast =
+            Protomod::preproc_func_result(self, prog, mp, rtype, loc);
         let pp_body = Protomod::preproc_expr(self, prog, mp, body, loc);
         let pp_func = Ast::DefFunc(
             fclass,
@@ -404,21 +415,25 @@ impl Protomod
         loc: &SrcLoc,
     ) -> Ast
     {
-        let closure_key = Protomod::make_closure_key(&mp.key.name, loc.lineno, &args);
-        let pp_args: LinkedList<Kxpr> = args.iter().map(|a| {
-            self.preproc_func_arg(prog, mp, &closure_key, a, loc)
-        }).collect();
+        let closure_key =
+            Protomod::make_closure_key(&mp.key.name, loc.lineno, &args);
+        let pp_args: LinkedList<Kxpr> = args
+            .iter()
+            .map(|a| self.preproc_func_arg(prog, mp, &closure_key, a, loc))
+            .collect();
         let pp_body = self.preproc_expr(prog, mp, body, loc);
         let pp_result = self.preproc_func_result(prog, mp, &Ast::TypeAnon, loc);
 
-        let arg_types: Vec<Type> = pp_args.iter().map(|a| {
-            let x_ref = a.x_ref();
-            if x_ref.is_none() {
-                panic!("closure arg type is None: {}", closure_key);
-            }
-            let atype = x_ref.unwrap();
-            self.preproc_type(prog, mp, None, atype, loc)
-        }).collect();
+        let arg_types: Vec<Type> = pp_args
+            .iter()
+            .map(|a| {
+                let x_ref = a.x_ref();
+                if x_ref.is_none() {
+                    panic!("closure arg type is None: {}", closure_key);
+                }
+                let atype = x_ref.unwrap();
+                self.preproc_type(prog, mp, None, atype, loc)
+            }).collect();
         let result_type = self.preproc_type(prog, mp, None, &pp_result, loc);
         let ftype = Type::Func(arg_types, Box::new(result_type));
 
@@ -431,7 +446,8 @@ impl Protomod
             *loc,
         );
 
-        let closuri = Lri::with_modules(mp.key.name.clone(), closure_key.clone());
+        let closuri =
+            Lri::with_modules(mp.key.name.clone(), closure_key.clone());
         let funcref = Val::FuncRef(closuri, ftype.clone());
 
         self.funcsrc.insert(closure_key.clone(), pp_func);
@@ -442,7 +458,11 @@ impl Protomod
 
     /// generate a key for referencing the closure when actually
     /// trying to call it
-    pub fn make_closure_key(modname: &str, lineno: i16, args: &LinkedList<Kxpr>) -> Lstr
+    pub fn make_closure_key(
+        modname: &str,
+        lineno: i16,
+        args: &LinkedList<Kxpr>,
+    ) -> Lstr
     {
         let mut key = String::with_capacity(128);
         key.push_str(modname);
@@ -450,10 +470,9 @@ impl Protomod
         key.push_str(&format!("{}", lineno));
         for a in args.iter() {
             key.push('_');
-            let arg_name = a.k_ref()
-                .unwrap_or_else(|| {
-                    panic!("closure missing arg name at {}:{}", modname, lineno);
-                });
+            let arg_name = a.k_ref().unwrap_or_else(|| {
+                panic!("closure missing arg name at {}:{}", modname, lineno);
+            });
             key.push_str(arg_name);
         }
         Lstr::from(key)
@@ -470,10 +489,9 @@ impl Protomod
     {
         let pp_args: LinkedList<Kxpr> = args
             .iter()
-            .map(|arg| arg.map_x(|x| {
-                Protomod::preproc_expr(self, prog, mp, x, loc)
-            }))
-            .collect();
+            .map(|arg| {
+                arg.map_x(|x| Protomod::preproc_expr(self, prog, mp, x, loc))
+            }).collect();
         let pp_callx = Protomod::preproc_expr(self, prog, mp, callx, loc);
         match pp_callx {
             Ast::DefFunc(ast::FuncClass::Macro, mname, margs, _, body, _) => {
@@ -649,8 +667,9 @@ impl Protomod
     {
         let pp_types = typs
             .iter()
-            .map(|t| t.map_x(|tx| Protomod::preproc_expr(self, prog, mp, tx, loc)))
-            .collect();
+            .map(|t| {
+                t.map_x(|tx| Protomod::preproc_expr(self, prog, mp, tx, loc))
+            }).collect();
         Ast::Lri(mods.clone(), Some(pp_types), *loc)
     }
 
@@ -683,9 +702,17 @@ impl Protomod
                 panic!("typecast not ready yet");
             }
         };
-        let pp_body = Protomod::preproc_expr(self, prog, mp, &case.body, &case.loc);
+        let pp_body =
+            Protomod::preproc_expr(self, prog, mp, &case.body, &case.loc);
         let pp_else = case.else_case.as_ref().map(|else_case| {
-            Protomod::preproc_ifcase(self, prog, mp, iftype, &*else_case, &case.loc)
+            Protomod::preproc_ifcase(
+                self,
+                prog,
+                mp,
+                iftype,
+                &*else_case,
+                &case.loc,
+            )
         });
         ast::IfCase::new(pp_cond, pp_body, pp_else, *loc)
     }

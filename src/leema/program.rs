@@ -262,7 +262,7 @@ impl Lib
         for c in cf.calls.iter() {
             match c {
                 &CallOp::LocalCall(ref call_name) => {
-println!("typecheck local call: {}", call_name);
+                    println!("typecheck local call: {}", call_name);
                     /* if it's still a local call at this point,
                      * it's probably a closure
                      */
