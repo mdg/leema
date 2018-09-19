@@ -240,7 +240,7 @@ impl Lib
         let modstr = funcri.mod_ref().unwrap().str();
         let mutyped = self.typed.get_mut(modstr).unwrap();
         mutyped.set_function_type(funcri.localid.clone(), ftype.clone());
-        vout!("\tfinish typecheck({})\n", funcri);
+        vout!("\tfinish typecheck({}: {})\n", funcri, ftype);
         ftype
     }
 

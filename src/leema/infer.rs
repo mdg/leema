@@ -455,7 +455,7 @@ impl<'b> Inferator<'b>
             }
             (_, _) => match_err(),
         };
-        vout!("\tmashed to -> {:?}\n", mtype);
+        vout!("\tmashed -> {:?}\n", mtype);
         mtype
     }
 

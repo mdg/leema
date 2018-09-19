@@ -95,6 +95,9 @@ impl<'a> CallFrame<'a>
                     self.collect_calls(&i.1);
                 }
             }
+            Source::ConstVal(Val::FuncRef(ref lri, _)) => {
+                self.push_call(CallOp::ExternalCall(lri.clone()));
+            }
             Source::ConstVal(_) => {
                 // nothing to do. constants aren't calls.
             }
@@ -142,6 +145,8 @@ impl<'a> CallFrame<'a>
             Source::ConstVal(ref val) => {
                 match val {
                     &Val::Str(ref name) => {
+                        print!("where does this local call come from? ");
+                        println!("it seems suspect: {}", name);
                         self.push_call(CallOp::LocalCall(name.clone()));
                     }
                     &Val::FuncRef(ref i, _) => {
@@ -332,9 +337,7 @@ impl<'a, 'b> Typescope<'a, 'b>
                 match fval {
                     &Val::Str(_) => Ok(Type::Void),
                     &Val::FuncRef(ref fri, ref typ) => {
-                        let typed =
-                            self.functype(fri.mod_ref().unwrap(), &fri.localid);
-                        self.infer.merge_types(typ, &typed)
+                        self.typecheck_funcref(fri, typ)
                     }
                     _ => {
                         panic!("what val is in typecheck_call? {:?}", fval);
@@ -350,9 +353,16 @@ impl<'a, 'b> Typescope<'a, 'b>
         }
     }
 
+    pub fn typecheck_funcref(&mut self, fri: &Lri, typ: &Type) -> TypeResult
+    {
+        let typed =
+            self.functype(fri.mod_ref().unwrap(), &fri.localid);
+        self.infer.merge_types(typ, &typed)
+    }
+
     pub fn functype(&self, modname: &str, funcname: &str) -> Type
     {
-        if modname == self.inter.name() {
+        let result = if modname == self.inter.name() {
             self.inter
                 .get_function_type(funcname)
                 .expect("missing typed object for module")
@@ -367,7 +377,8 @@ impl<'a, 'b> Typescope<'a, 'b>
                     "cannot find function {}::{} in {:?}",
                     modname, funcname, m
                 )).clone()
-        }
+        };
+        result
     }
 }
 
@@ -407,6 +418,9 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             let tail_t = typecheck_expr(scope, tail).unwrap();
             let head_list_t = Type::StrictList(Box::new(head_t));
             scope.infer.merge_types(&head_list_t, &tail_t)
+        }
+        &mut Source::ConstVal(Val::FuncRef(ref fri, ref typ)) => {
+            scope.typecheck_funcref(fri, typ)
         }
         &mut Source::ConstVal(ref val) => Ok(val.get_type()),
         &mut Source::Let(ref lhs, ref mut rhs, ref mut fails) => {

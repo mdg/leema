@@ -97,6 +97,7 @@ impl Protomod
     }
 
     pub fn preproc_expr(
+        &mut self,
         prog: &Lib,
         mp: &ModulePreface,
         x: &Ast,
@@ -107,20 +108,20 @@ impl Protomod
             &Ast::Block(ref items) => {
                 let pp_items = items
                     .iter()
-                    .map(|i| Protomod::preproc_expr(prog, mp, i, loc))
+                    .map(|i| Protomod::preproc_expr(self, prog, mp, i, loc))
                     .collect();
                 Ast::Block(pp_items)
             }
             &Ast::Closure(ref args, ref body, ref iloc) => {
-                Protomod::preproc_closure(prog, mp, args, body, iloc)
+                Protomod::preproc_closure(self, prog, mp, args, body, iloc)
             }
             &Ast::Cons(ref head, ref tail) => {
-                let pp_head = Protomod::preproc_expr(prog, mp, head, loc);
-                let pp_tail = Protomod::preproc_expr(prog, mp, tail, loc);
+                let pp_head = Protomod::preproc_expr(self, prog, mp, head, loc);
+                let pp_tail = Protomod::preproc_expr(self, prog, mp, tail, loc);
                 Ast::Cons(Box::new(pp_head), Box::new(pp_tail))
             }
             &Ast::ConstructData(datat, ref name) => {
-                let ppname = Protomod::preproc_expr(prog, mp, name, loc);
+                let ppname = Protomod::preproc_expr(self, prog, mp, name, loc);
                 Ast::ConstructData(datat, Box::new(ppname))
             }
             &Ast::ConstBool(b) => Ast::ConstBool(b),
@@ -130,15 +131,15 @@ impl Protomod
             &Ast::ConstVoid => Ast::ConstVoid,
             &Ast::Deref(ref inner) => {
                 Ast::Deref(Box::new(Protomod::preproc_expr(
-                    prog, mp, inner, loc,
+                    self, prog, mp, inner, loc,
                 )))
             }
             &Ast::DotAccess(ref base, ref fld) => {
-                let ppbase = Protomod::preproc_expr(prog, mp, base, loc);
+                let ppbase = Protomod::preproc_expr(self, prog, mp, base, loc);
                 Ast::DotAccess(Box::new(ppbase), fld.clone())
             }
             &Ast::Fork(ref fx) => {
-                let ppfx = Protomod::preproc_expr(prog, mp, fx, loc);
+                let ppfx = Protomod::preproc_expr(self, prog, mp, fx, loc);
                 Ast::Fork(Box::new(ppfx))
             }
             &Ast::IfExpr(
@@ -153,6 +154,7 @@ impl Protomod
                     panic!("match failed input must be a variable name");
                 }
                 let pp_case = Protomod::preproc_ifcase(
+                    self,
                     prog,
                     mp,
                     ast::IfType::MatchFailure,
@@ -167,9 +169,9 @@ impl Protomod
                 )
             }
             &Ast::IfExpr(iftype, ref input, ref case, ref iloc) => {
-                let pp_input = Protomod::preproc_expr(prog, mp, input, iloc);
+                let pp_input = Protomod::preproc_expr(self, prog, mp, input, iloc);
                 let pp_case =
-                    Protomod::preproc_ifcase(prog, mp, iftype, case, iloc);
+                    Protomod::preproc_ifcase(self, prog, mp, iftype, case, iloc);
                 Ast::IfExpr(
                     iftype,
                     Box::new(pp_input),
@@ -179,17 +181,17 @@ impl Protomod
             }
             &Ast::Let(ref left, ref right, ref iloc) => {
                 let pp_left = Protomod::preproc_pattern(prog, mp, left, iloc);
-                let pp_right = Protomod::preproc_expr(prog, mp, right, iloc);
+                let pp_right = Protomod::preproc_expr(self, prog, mp, right, iloc);
                 Ast::Let(Box::new(pp_left), Box::new(pp_right), *iloc)
             }
             &Ast::Call(ref callx, ref args, ref iloc) => {
-                Protomod::preproc_call(prog, mp, callx, args, iloc)
+                Protomod::preproc_call(self, prog, mp, callx, args, iloc)
             }
             &Ast::List(ref items) => {
                 Ast::List(
                     items
                         .iter()
-                        .map(|i| Protomod::preproc_expr(prog, mp, i, loc))
+                        .map(|i| Protomod::preproc_expr(self, prog, mp, i, loc))
                         .collect(),
                 )
             }
@@ -200,37 +202,37 @@ impl Protomod
                 Protomod::preproc_lri(prog, mp, mods, iloc)
             }
             &Ast::Lri(ref mods, Some(ref typs), ref iloc) => {
-                Protomod::preproc_lri_with_types(prog, mp, mods, typs, iloc)
+                Protomod::preproc_lri_with_types(self, prog, mp, mods, typs, iloc)
             }
             &Ast::Map(ref items) => {
                 let pp_items = items
                     .iter()
                     .map(|i| {
-                        i.map_x(|x| Protomod::preproc_expr(prog, mp, x, loc))
+                        i.map_x(|x| Protomod::preproc_expr(self, prog, mp, x, loc))
                     }).collect();
                 Ast::Map(pp_items)
             }
             &Ast::Return(ref x, ref loc) => {
-                let px = Protomod::preproc_expr(prog, mp, x, loc);
+                let px = Protomod::preproc_expr(self, prog, mp, x, loc);
                 Ast::Return(Box::new(px), *loc)
             }
             &Ast::StrExpr(ref xs, ref loc) => {
                 let pxs = xs
                     .iter()
-                    .map(|x| Protomod::preproc_expr(prog, mp, x, loc))
+                    .map(|x| Protomod::preproc_expr(self, prog, mp, x, loc))
                     .collect();
                 Ast::StrExpr(pxs, *loc)
             }
             &Ast::Tuple(ref items) if items.len() == 1 => {
                 // one-tuples are compiled to just the value
                 let first_x = items.front().unwrap().x_ref().unwrap();
-                Protomod::preproc_expr(prog, mp, first_x, loc)
+                Protomod::preproc_expr(self, prog, mp, first_x, loc)
             }
             &Ast::Tuple(ref items) => {
                 let pp_items = items
                     .iter()
                     .map(|i| {
-                        i.map_x(|x| Protomod::preproc_expr(prog, mp, x, loc))
+                        i.map_x(|x| Protomod::preproc_expr(self, prog, mp, x, loc))
                     }).collect();
                 Ast::Tuple(pp_items)
             }
@@ -239,6 +241,7 @@ impl Protomod
                     .iter()
                     .map(|p| {
                         Protomod::preproc_func_arg(
+                            self,
                             prog,
                             mp,
                             &Lstr::Sref("anon_func_type"),
@@ -271,6 +274,7 @@ impl Protomod
     }
 
     pub fn preproc_func_arg(
+        &mut self,
         prog: &Lib,
         mp: &ModulePreface,
         func_name: &Lstr,
@@ -309,12 +313,13 @@ impl Protomod
                 Kxpr::new(id.clone(), new_typ)
             }
             (_, Some(_)) => {
-                arg.map_x(|typ| Protomod::preproc_expr(prog, mp, typ, &loc))
+                arg.map_x(|typ| Protomod::preproc_expr(self, prog, mp, typ, &loc))
             }
         }
     }
 
     pub fn preproc_func_result(
+        &mut self,
         prog: &Lib,
         mp: &ModulePreface,
         result_type: &Ast,
@@ -323,7 +328,7 @@ impl Protomod
     {
         match result_type {
             Ast::TypeAnon => Ast::TypeVar(Lstr::Sref("T_result"), *loc),
-            _ => Protomod::preproc_expr(prog, mp, result_type, &loc),
+            _ => Protomod::preproc_expr(self, prog, mp, result_type, &loc),
         }
     }
 
@@ -344,10 +349,12 @@ impl Protomod
         let lstr_name = Lstr::from(name);
         let pp_args: LinkedList<Kxpr> = args
             .iter()
-            .map(|a| Protomod::preproc_func_arg(prog, mp, &lstr_name, a, loc))
+            .map(|a| {
+                Protomod::preproc_func_arg(self, prog, mp, &lstr_name, a, loc)
+            })
             .collect();
-        let pp_rtype_ast = Protomod::preproc_func_result(prog, mp, rtype, loc);
-        let pp_body = Protomod::preproc_expr(prog, mp, body, loc);
+        let pp_rtype_ast = Protomod::preproc_func_result(self, prog, mp, rtype, loc);
+        let pp_body = Protomod::preproc_expr(self, prog, mp, body, loc);
         let pp_func = Ast::DefFunc(
             fclass,
             Box::new(name.clone()),
@@ -389,6 +396,7 @@ impl Protomod
     }
 
     pub fn preproc_closure(
+        &mut self,
         prog: &Lib,
         mp: &ModulePreface,
         args: &LinkedList<Kxpr>,
@@ -396,14 +404,63 @@ impl Protomod
         loc: &SrcLoc,
     ) -> Ast
     {
-        let pp_args = args.iter().map(|a| {
-            a.map_x(|ax| Protomod::preproc_expr(prog, mp, ax, loc))
+        let closure_key = Protomod::make_closure_key(&mp.key.name, loc.lineno, &args);
+        let pp_args: LinkedList<Kxpr> = args.iter().map(|a| {
+            self.preproc_func_arg(prog, mp, &closure_key, a, loc)
         }).collect();
-        let pp_body = Protomod::preproc_expr(prog, mp, body, loc);
-        Ast::Closure(pp_args, Box::new(pp_body), *loc)
+        let pp_body = self.preproc_expr(prog, mp, body, loc);
+        let pp_result = self.preproc_func_result(prog, mp, &Ast::TypeAnon, loc);
+
+        let arg_types: Vec<Type> = pp_args.iter().map(|a| {
+            let x_ref = a.x_ref();
+            if x_ref.is_none() {
+                panic!("closure arg type is None: {}", closure_key);
+            }
+            let atype = x_ref.unwrap();
+            self.preproc_type(prog, mp, None, atype, loc)
+        }).collect();
+        let result_type = self.preproc_type(prog, mp, None, &pp_result, loc);
+        let ftype = Type::Func(arg_types, Box::new(result_type));
+
+        let pp_func = Ast::DefFunc(
+            ast::FuncClass::Func,
+            Box::new(Ast::Lri(vec![closure_key.clone()], None, *loc)),
+            pp_args,
+            Box::new(pp_result.clone()),
+            Box::new(pp_body),
+            *loc,
+        );
+
+        let closuri = Lri::with_modules(mp.key.name.clone(), closure_key.clone());
+        let funcref = Val::FuncRef(closuri, ftype.clone());
+
+        self.funcsrc.insert(closure_key.clone(), pp_func);
+        self.valtypes.insert(closure_key.clone(), ftype);
+        self.constants.insert(closure_key.clone(), funcref);
+        Ast::Localid(closure_key, *loc)
+    }
+
+    /// generate a key for referencing the closure when actually
+    /// trying to call it
+    pub fn make_closure_key(modname: &str, lineno: i16, args: &LinkedList<Kxpr>) -> Lstr
+    {
+        let mut key = String::with_capacity(128);
+        key.push_str(modname);
+        key.push('_');
+        key.push_str(&format!("{}", lineno));
+        for a in args.iter() {
+            key.push('_');
+            let arg_name = a.k_ref()
+                .unwrap_or_else(|| {
+                    panic!("closure missing arg name at {}:{}", modname, lineno);
+                });
+            key.push_str(arg_name);
+        }
+        Lstr::from(key)
     }
 
     pub fn preproc_call(
+        &mut self,
         prog: &Lib,
         mp: &ModulePreface,
         callx: &Ast,
@@ -413,16 +470,18 @@ impl Protomod
     {
         let pp_args: LinkedList<Kxpr> = args
             .iter()
-            .map(|arg| arg.map_x(|x| Protomod::preproc_expr(prog, mp, x, loc)))
+            .map(|arg| arg.map_x(|x| {
+                Protomod::preproc_expr(self, prog, mp, x, loc)
+            }))
             .collect();
-        let pp_callx = Protomod::preproc_expr(prog, mp, callx, loc);
+        let pp_callx = Protomod::preproc_expr(self, prog, mp, callx, loc);
         match pp_callx {
             Ast::DefFunc(ast::FuncClass::Macro, mname, margs, _, body, _) => {
                 vout!("apply_macro({:?}, {:?})\n", mname, args);
                 let macrod =
                     Protomod::apply_macro(&mname, &body, &margs, &pp_args, loc);
                 // do it again to make sure there's not a wrapped macro
-                Protomod::preproc_expr(prog, mp, &macrod, loc)
+                Protomod::preproc_expr(self, prog, mp, &macrod, loc)
             }
             _ => Ast::Call(Box::new(pp_callx), pp_args, *loc),
         }
@@ -580,6 +639,7 @@ impl Protomod
     }
 
     pub fn preproc_lri_with_types(
+        &mut self,
         prog: &Lib,
         mp: &ModulePreface,
         mods: &Vec<Lstr>,
@@ -589,12 +649,13 @@ impl Protomod
     {
         let pp_types = typs
             .iter()
-            .map(|t| t.map_x(|tx| Protomod::preproc_expr(prog, mp, tx, loc)))
+            .map(|t| t.map_x(|tx| Protomod::preproc_expr(self, prog, mp, tx, loc)))
             .collect();
         Ast::Lri(mods.clone(), Some(pp_types), *loc)
     }
 
     pub fn preproc_ifcase(
+        &mut self,
         prog: &Lib,
         mp: &ModulePreface,
         iftype: ast::IfType,
@@ -604,7 +665,7 @@ impl Protomod
     {
         let pp_cond = match iftype {
             ast::IfType::If => {
-                Protomod::preproc_expr(prog, mp, &case.cond, &case.loc)
+                Protomod::preproc_expr(self, prog, mp, &case.cond, &case.loc)
             }
             ast::IfType::Match => {
                 Protomod::preproc_pattern(prog, mp, &case.cond, &case.loc)
@@ -622,9 +683,9 @@ impl Protomod
                 panic!("typecast not ready yet");
             }
         };
-        let pp_body = Protomod::preproc_expr(prog, mp, &case.body, &case.loc);
+        let pp_body = Protomod::preproc_expr(self, prog, mp, &case.body, &case.loc);
         let pp_else = case.else_case.as_ref().map(|else_case| {
-            Protomod::preproc_ifcase(prog, mp, iftype, &*else_case, &case.loc)
+            Protomod::preproc_ifcase(self, prog, mp, iftype, &*else_case, &case.loc)
         });
         ast::IfCase::new(pp_cond, pp_body, pp_else, *loc)
     }
@@ -691,7 +752,7 @@ impl Protomod
     }
 
     pub fn preproc_type(
-        &self,
+        &mut self,
         prog: &Lib,
         mp: &ModulePreface,
         opt_type_params: Option<&Vec<Type>>,
@@ -699,7 +760,7 @@ impl Protomod
         loc: &SrcLoc,
     ) -> Type
     {
-        let pp_x = Protomod::preproc_expr(prog, mp, typ, loc);
+        let pp_x = Protomod::preproc_expr(self, prog, mp, typ, loc);
         let local_type = Type::from(&pp_x);
         self.replace_typeids(opt_type_params, local_type)
     }
