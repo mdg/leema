@@ -79,6 +79,8 @@ use std::io::{Write};
 %type failed_stmt { Ast }
 %type macro_stmt { Ast }
 %type call_expr { Ast }
+%type curry_expr { Ast }
+%type curry_args { LinkedList<Kxpr> }
 %type closure_expr { Ast }
 %type if_stmt { Ast }
 %type else_if { ast::IfCase }
@@ -302,6 +304,7 @@ macro_stmt(A) ::=
 expr(A) ::= if_expr(B). { A = B; }
 expr(A) ::= match_expr(B). { A = B; }
 expr(A) ::= call_expr(B). { A = B; }
+expr(A) ::= curry_expr(B). { A = B; }
 expr(A) ::= closure_expr(B). { A = B; }
 expr(A) ::= block(B) DOUBLEDASH. { A = B; }
 expr(A) ::= term(B). { A = B; }
@@ -361,6 +364,25 @@ else_if(A) ::= ELSE(L) block(B). {
 /* regular function call */
 call_expr(A) ::= term(B) PARENCALL(D) x_list(C) RPAREN. {
     A = Ast::Call(Box::new(B), C, D);
+}
+curry_expr(A) ::= term(B) PARENCALL(L) curry_args(C) RPAREN. {
+    A = Ast::Curry(Box::new(B), C, L);
+}
+
+curry_args(A) ::= x_list(B) COMMA QUESTION. {
+    let mut tmp = B;
+    tmp.push_back(Kxpr::new_x(Ast::Question));
+    A = tmp;
+}
+curry_args(A) ::= curry_args(B) COMMA QUESTION. {
+    let mut tmp = B;
+    tmp.push_back(Kxpr::new_x(Ast::Question));
+    A = tmp;
+}
+curry_args(A) ::= curry_args(B) COMMA x_maybe_k(C). {
+    let mut tmp = B;
+    tmp.push_back(C);
+    A = tmp;
 }
 
 closure_expr(A) ::= FN(L) LPAREN ktype_list(B) RPAREN expr(C). {
