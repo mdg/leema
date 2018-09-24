@@ -504,52 +504,49 @@ impl Protomod
                 let macrod =
                     Protomod::apply_macro(&mname, &body, &margs, &pp_args, loc);
                 // do it again to make sure there's not a wrapped macro
-                return Protomod::preproc_expr(self, prog, mp, &macrod, loc);
+                return self.preproc_expr(prog, mp, &macrod, loc);
             }
             _ => {
                 // fall through
             }
         }
         let is_curried = args.iter().any(|a| a.x_ref() == Some(&Ast::Question));
-        let ast_c = if is_curried {
-            self.add_curry_call(&mp.key.name, &pp_callx, &pp_args);
-            Ast::CallCurry
+        if is_curried {
+            self.preproc_curry(prog, mp, &pp_callx, &pp_args, loc)
         } else {
-            Ast::Call
-        };
-        ast_c(Box::new(pp_callx), pp_args, *loc)
+            Ast::Call(Box::new(pp_callx), pp_args, *loc)
+        }
     }
 
-    pub fn add_curry_call(&mut self, module: &Lstr, callx: &Ast, args: &LinkedList<Kxpr>)
+    pub fn preproc_curry(&mut self,
+        prog: &Lib,
+        mp: &ModulePreface,
+        callx: &Ast, args: &LinkedList<Kxpr>, loc: &SrcLoc) -> Ast
     {
-        // do whatever
-        let (call_name, cloc) = match callx {
-            &Ast::Localid(ref name, ref iloc) => {
-                (format!("curried_{}_{}_{}", name, module, iloc.lineno), *iloc)
-            }
-            &Ast::Lri(ref names, ref _tparams, ref _iloc) => {
-                panic!("lri currying is not yet supported: {:?}", names);
-            }
-            _ => {
-                panic!("cannot curry for call expressions: {:?}", callx);
-            }
-        };
-        let mut new_closed = LinkedList::new();
-        let mut new_args = LinkedList::new();
-        let inner_args: LinkedList<Kxpr>;
-        inner_args = args.iter().enumerate().map(|(i, ref a)| {
-            let new_arg_name = Lstr::from(format!("{}_arg_{}", call_name, i));
+        // set arguments passed to curry in a new block
+        // to be later included in the closure
+        let mut new_block = Vec::new();
+        let mut outer_args: LinkedList<Kxpr> = LinkedList::new();
+        let mut inner_args = LinkedList::new();
+        for (i, a) in args.iter().enumerate() {
             if Some(&Ast::Question) == a.x_ref() {
-                let type_name = Lstr::from(format!("T_{}", new_arg_name));
-                let arg_type = Ast::TypeVar(type_name, cloc);
-                new_args.push_back(Kxpr::new(new_arg_name, arg_type));
+                let argn = Lstr::from(format!("curryarg_{}_{}__{}", mp.key.name, loc.lineno, i));
+                outer_args.push_back(Kxpr::new_k(argn.clone()));
+                inner_args.push_back(Kxpr::new_x(Ast::Localid(argn, *loc)));
             } else {
-                new_closed.push_back(a.clone());
+                let argn = Lstr::from(format!("curryclosed_{}_{}__{}", mp.key.name, loc.lineno, i));
+                let argn_ast = Ast::Localid(argn, *loc);
+                let new_x = Box::new(a.x_clone().unwrap());
+                new_block.push(Ast::Let(Box::new(argn_ast.clone()), new_x, *loc));
+                inner_args.push_back(Kxpr::new_x(argn_ast));
             }
-            (*a).clone()
-        }).collect();
-
-        let _new_body = Ast::Call(Box::new(callx.clone()), inner_args, cloc);
+        }
+        // make closure
+        let clbody = Ast::Call(Box::new(callx.clone()), inner_args, *loc);
+        let clos = Ast::Closure(outer_args, Box::new(clbody), *loc);
+        // add closure as result of block
+        new_block.push(clos);
+        self.preproc_expr(prog, mp, &Ast::Block(new_block), loc)
     }
 
     pub fn apply_macro(

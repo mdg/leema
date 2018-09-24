@@ -152,6 +152,11 @@ impl Kxpr
         self.k.clone()
     }
 
+    pub fn x_clone(&self) -> Option<Ast>
+    {
+        self.x.as_ref().map(|ref x| (***x).clone())
+    }
+
     pub fn map_x<F>(&self, op: F) -> Kxpr
     where
         F: FnOnce(&Ast) -> Ast,
