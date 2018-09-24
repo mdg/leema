@@ -449,12 +449,13 @@ impl Protomod
 
         let closuri =
             Lri::with_modules(mp.key.name.clone(), closure_key.clone());
-        let funcref = Val::FuncRef(closuri, ftype.clone());
+        let closed_vars = Struple(Vec::with_capacity(0));
+        let funcref = Val::Closure(closuri, closed_vars, ftype.clone());
 
         self.funcsrc.insert(closure_key.clone(), pp_func);
         self.valtypes.insert(closure_key.clone(), ftype);
         self.constants.insert(closure_key.clone(), funcref);
-        Ast::Lri(vec![mp.key.name.clone(), closure_key.clone()], None, *loc)
+        Ast::Localid(closure_key, *loc)
     }
 
     /// generate a key for referencing the closure when actually

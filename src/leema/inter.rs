@@ -596,9 +596,23 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
             }
         }
         Some(ScopeLevel::Module(val)) => {
-            Ixpr {
-                src: Source::ConstVal(val),
-                line: loc.lineno,
+            match val {
+                // Val::FuncRef(fri, ftype) => {
+                Val::FuncRef(_, _) => {
+                    Ixpr {
+                        src: Source::ConstVal(val),
+                        line: loc.lineno,
+                    }
+                }
+                Val::Closure(_fri, _, _ftype) => {
+                    panic!("how do I compile a closure?");
+                }
+                _ => {
+                    Ixpr {
+                        src: Source::ConstVal(val),
+                        line: loc.lineno,
+                    }
+                }
             }
         }
         None => {

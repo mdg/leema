@@ -446,6 +446,7 @@ pub enum Val
     Kind(u8),
     Lib(Arc<LibVal>),
     FuncRef(Lri, Type),
+    Closure(Lri, Struple<Val>, Type),
     ResourceRef(i64),
     RustBlock,
     Future(FutureVal),
@@ -651,6 +652,7 @@ impl Val
                 panic!("is kind even a thing here?");
             }
             &Val::FuncRef(_, ref typ) => typ.clone(),
+            &Val::Closure(_, _, ref typ) => typ.clone(),
             &Val::Lib(ref lv) => lv.get_type(),
             &Val::ResourceRef(_) => {
                 panic!("cannot get type of ResourceRef: {:?}", self);
@@ -911,6 +913,9 @@ impl fmt::Display for Val
             Val::Type(ref t) => write!(f, "{}", t),
             Val::Kind(c) => write!(f, "Kind({})", c),
             Val::FuncRef(ref id, ref typ) => write!(f, "{} : {}", id, typ),
+            Val::Closure(ref id, ref vals, ref typ) => {
+                write!(f, "{}()<{}> : {}", id, vals, typ)
+            }
             Val::Future(_) => write!(f, "Future"),
             Val::Void => write!(f, "Void"),
             Val::PatternVar(ref r) => write!(f, "pvar:{:?}", r),
@@ -962,6 +967,9 @@ impl fmt::Debug for Val
             Val::Kind(c) => write!(f, "Kind{:?}", c),
             Val::FuncRef(ref id, ref typ) => {
                 write!(f, "FuncRef({} : {})", id, typ)
+            }
+            Val::Closure(ref id, ref vals, ref typ) => {
+                write!(f, "{}()<{}> : {}", id, vals, typ)
             }
             Val::Future(_) => write!(f, "Future"),
             Val::PatternVar(ref r) => write!(f, "pvar:{:?}", r),
