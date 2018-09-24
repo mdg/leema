@@ -322,6 +322,7 @@ impl Lib
             self.typed
                 .insert(modlstr.clone(), Typemod::new(modlstr.clone()));
         }
+
         {
             let mutyped = self.typed.get_mut(modlstr).unwrap();
             if mutyped.get_function_type(funclstr).is_none() {

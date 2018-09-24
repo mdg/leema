@@ -185,7 +185,6 @@ pub enum Ast
 {
     Block(Vec<Ast>),
     Call(Box<Ast>, LinkedList<Kxpr>, SrcLoc),
-    CallCurry(Box<Ast>, LinkedList<Kxpr>, SrcLoc),
     Closure(LinkedList<Kxpr>, Box<Ast>, SrcLoc),
     Cons(Box<Ast>, Box<Ast>),
     ConstructData(DataType, Box<Ast>),

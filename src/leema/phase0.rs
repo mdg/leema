@@ -115,9 +115,6 @@ impl Protomod
             &Ast::Call(ref callx, ref args, ref iloc) => {
                 Protomod::preproc_call(self, prog, mp, callx, args, iloc)
             }
-            &Ast::CallCurry(_, _, _) => {
-                panic!("curried calls shouldn't be here");
-            }
             &Ast::Closure(ref args, ref body, ref iloc) => {
                 Protomod::preproc_closure(self, prog, mp, args, body, iloc)
             }
@@ -457,7 +454,7 @@ impl Protomod
         self.funcsrc.insert(closure_key.clone(), pp_func);
         self.valtypes.insert(closure_key.clone(), ftype);
         self.constants.insert(closure_key.clone(), funcref);
-        Ast::Localid(closure_key, *loc)
+        Ast::Lri(vec![mp.key.name.clone(), closure_key.clone()], None, *loc)
     }
 
     /// generate a key for referencing the closure when actually
