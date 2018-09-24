@@ -180,6 +180,7 @@ pub enum Ast
 {
     Block(Vec<Ast>),
     Call(Box<Ast>, LinkedList<Kxpr>, SrcLoc),
+    CallCurry(Box<Ast>, LinkedList<Kxpr>, SrcLoc),
     Closure(LinkedList<Kxpr>, Box<Ast>, SrcLoc),
     Cons(Box<Ast>, Box<Ast>),
     ConstructData(DataType, Box<Ast>),
@@ -208,6 +209,7 @@ pub enum Ast
     Localid(Lstr, SrcLoc),
     Lri(Vec<Lstr>, Option<LinkedList<Kxpr>>, SrcLoc),
     Map(LinkedList<Kxpr>),
+    Question,
     Return(Box<Ast>, SrcLoc),
     RustBlock,
     StrExpr(Vec<Ast>, SrcLoc),

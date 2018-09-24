@@ -112,6 +112,12 @@ impl Protomod
                     .collect();
                 Ast::Block(pp_items)
             }
+            &Ast::Call(ref callx, ref args, ref iloc) => {
+                Protomod::preproc_call(self, prog, mp, callx, args, iloc)
+            }
+            &Ast::CallCurry(_, _, _) => {
+                panic!("curried calls shouldn't be here");
+            }
             &Ast::Closure(ref args, ref body, ref iloc) => {
                 Protomod::preproc_closure(self, prog, mp, args, body, iloc)
             }
@@ -187,9 +193,6 @@ impl Protomod
                     Protomod::preproc_expr(self, prog, mp, right, iloc);
                 Ast::Let(Box::new(pp_left), Box::new(pp_right), *iloc)
             }
-            &Ast::Call(ref callx, ref args, ref iloc) => {
-                Protomod::preproc_call(self, prog, mp, callx, args, iloc)
-            }
             &Ast::List(ref items) => {
                 Ast::List(
                     items
@@ -260,6 +263,7 @@ impl Protomod
                     }).collect();
                 Ast::TypeFunc(ppp, *loc)
             }
+            &Ast::Question => Ast::Question,
             &Ast::RustBlock => Ast::RustBlock,
             &Ast::TypeAnon => Ast::TypeAnon,
             &Ast::TypeBool => Ast::TypeBool,
@@ -303,7 +307,7 @@ impl Protomod
             }
             (Some(id), None) => {
                 let type_name = Lstr::from(format!(
-                    "{}_{}_{}",
+                    "T_{}_{}_{}",
                     mp.key.name,
                     func_name.str(),
                     id
@@ -313,7 +317,7 @@ impl Protomod
             }
             (Some(id), Some(&Ast::TypeAnon)) => {
                 let type_name = Lstr::from(format!(
-                    "{}_{}_{}",
+                    "T_{}_{}_{}",
                     mp.key.name,
                     func_name.str(),
                     id
@@ -493,16 +497,59 @@ impl Protomod
                 arg.map_x(|x| Protomod::preproc_expr(self, prog, mp, x, loc))
             }).collect();
         let pp_callx = Protomod::preproc_expr(self, prog, mp, callx, loc);
+
         match pp_callx {
             Ast::DefFunc(ast::FuncClass::Macro, mname, margs, _, body, _) => {
                 vout!("apply_macro({:?}, {:?})\n", mname, args);
                 let macrod =
                     Protomod::apply_macro(&mname, &body, &margs, &pp_args, loc);
                 // do it again to make sure there's not a wrapped macro
-                Protomod::preproc_expr(self, prog, mp, &macrod, loc)
+                return Protomod::preproc_expr(self, prog, mp, &macrod, loc);
             }
-            _ => Ast::Call(Box::new(pp_callx), pp_args, *loc),
+            _ => {
+                // fall through
+            }
         }
+        let is_curried = args.iter().any(|a| a.x_ref() == Some(&Ast::Question));
+        let ast_c = if is_curried {
+            self.add_curry_call(&mp.key.name, &pp_callx, &pp_args);
+            Ast::CallCurry
+        } else {
+            Ast::Call
+        };
+        ast_c(Box::new(pp_callx), pp_args, *loc)
+    }
+
+    pub fn add_curry_call(&mut self, module: &Lstr, callx: &Ast, args: &LinkedList<Kxpr>)
+    {
+        // do whatever
+        let (call_name, cloc) = match callx {
+            &Ast::Localid(ref name, ref iloc) => {
+                (format!("curried_{}_{}_{}", name, module, iloc.lineno), *iloc)
+            }
+            &Ast::Lri(ref names, ref _tparams, ref _iloc) => {
+                panic!("lri currying is not yet supported: {:?}", names);
+            }
+            _ => {
+                panic!("cannot curry for call expressions: {:?}", callx);
+            }
+        };
+        let mut new_closed = LinkedList::new();
+        let mut new_args = LinkedList::new();
+        let inner_args: LinkedList<Kxpr>;
+        inner_args = args.iter().enumerate().map(|(i, ref a)| {
+            let new_arg_name = Lstr::from(format!("{}_arg_{}", call_name, i));
+            if Some(&Ast::Question) == a.x_ref() {
+                let type_name = Lstr::from(format!("T_{}", new_arg_name));
+                let arg_type = Ast::TypeVar(type_name, cloc);
+                new_args.push_back(Kxpr::new(new_arg_name, arg_type));
+            } else {
+                new_closed.push_back(a.clone());
+            }
+            (*a).clone()
+        }).collect();
+
+        let _new_body = Ast::Call(Box::new(callx.clone()), inner_args, cloc);
     }
 
     pub fn apply_macro(

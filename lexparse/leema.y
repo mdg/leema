@@ -629,6 +629,7 @@ term(A) ::= HASHTAG(B). {
     A = Ast::ConstHashtag(Lstr::from(B.data));
 }
 term(A) ::= strexpr(B). { A = B; }
+term(A) ::= QUESTION. { A = Ast::Question; }
 term(A) ::= UNDERSCORE. { A = Ast::Wildcard; }
 
 
