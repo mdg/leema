@@ -518,10 +518,14 @@ impl Protomod
         }
     }
 
-    pub fn preproc_curry(&mut self,
+    pub fn preproc_curry(
+        &mut self,
         prog: &Lib,
         mp: &ModulePreface,
-        callx: &Ast, args: &LinkedList<Kxpr>, loc: &SrcLoc) -> Ast
+        callx: &Ast,
+        args: &LinkedList<Kxpr>,
+        loc: &SrcLoc,
+    ) -> Ast
     {
         // set arguments passed to curry in a new block
         // to be later included in the closure
@@ -530,14 +534,24 @@ impl Protomod
         let mut inner_args = LinkedList::new();
         for (i, a) in args.iter().enumerate() {
             if Some(&Ast::Question) == a.x_ref() {
-                let argn = Lstr::from(format!("curryarg_{}_{}__{}", mp.key.name, loc.lineno, i));
+                let argn = Lstr::from(format!(
+                    "curryarg_{}_{}__{}",
+                    mp.key.name, loc.lineno, i
+                ));
                 outer_args.push_back(Kxpr::new_k(argn.clone()));
                 inner_args.push_back(Kxpr::new_x(Ast::Localid(argn, *loc)));
             } else {
-                let argn = Lstr::from(format!("curryclosed_{}_{}__{}", mp.key.name, loc.lineno, i));
+                let argn = Lstr::from(format!(
+                    "curryclosed_{}_{}__{}",
+                    mp.key.name, loc.lineno, i
+                ));
                 let argn_ast = Ast::Localid(argn, *loc);
                 let new_x = Box::new(a.x_clone().unwrap());
-                new_block.push(Ast::Let(Box::new(argn_ast.clone()), new_x, *loc));
+                new_block.push(Ast::Let(
+                    Box::new(argn_ast.clone()),
+                    new_x,
+                    *loc,
+                ));
                 inner_args.push_back(Kxpr::new_x(argn_ast));
             }
         }
