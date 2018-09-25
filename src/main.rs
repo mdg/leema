@@ -58,6 +58,8 @@ Options:
   --repl           Launch the REPL
 ";
 
+const ENV_VERBOSE: &'static str = "LEEMA_VERBOSE";
+
 
 fn main()
 {
@@ -74,10 +76,12 @@ fn real_main() -> i32
         .and_then(|d| d.decode())
         .unwrap_or_else(|e| e.exit());
 
-    if args.flag_verbose {
+    let verbosenv = env::var_os(ENV_VERBOSE);
+    if args.flag_verbose || verbosenv.is_some() && "1" == &verbosenv.unwrap() {
         log::set_verbose();
+        vout!("verbose mode\n");
     }
-    vout!("verbose mode\nargs:{:?}\n", args);
+    vout!("args:{:?}\n", args);
 
     let file = Lstr::from(args.arg_script.first().unwrap());
     let leema_args: Val =
