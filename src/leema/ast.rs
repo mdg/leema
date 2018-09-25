@@ -504,9 +504,7 @@ impl fmt::Display for Ast
             &Ast::Let(ref lhs, ref rhs, _) => {
                 write!(f, "(let {} = {})", lhs, rhs)
             }
-            &Ast::Localid(ref id, _) => {
-                write!(f, "{}", id)
-            }
+            &Ast::Localid(ref id, _) => write!(f, "{}", id),
             &Ast::Lri(ref id, ref types, _) => {
                 let mut use_sep = false;
                 for i in id {
@@ -526,9 +524,7 @@ impl fmt::Display for Ast
                 writeln!(f, "({:?} {}({:?}): {}", ft, name, args, rtype)?;
                 writeln!(f, "\t{})", body)
             }
-            _ => {
-                write!(f, "{:?}", self)
-            }
+            _ => write!(f, "{:?}", self),
         }
     }
 }
@@ -788,12 +784,19 @@ mod tests
 
         let mut cargs = LinkedList::new();
         cargs.push_back(Kxpr::new_k(Lstr::Sref("x")));
-        let multri =
-            Ast::Lri(vec![Lstr::Sref("prefab"), Lstr::Sref("int_mult")], None, SrcLoc::new(1, 7));
+        let multri = Ast::Lri(
+            vec![Lstr::Sref("prefab"), Lstr::Sref("int_mult")],
+            None,
+            SrcLoc::new(1, 7),
+        );
         let mut mult_args = LinkedList::new();
-        mult_args.push_back(Kxpr::new_x(Ast::Localid(Lstr::Sref("x"), SrcLoc::new(1, 6))));
+        mult_args.push_back(Kxpr::new_x(Ast::Localid(
+            Lstr::Sref("x"),
+            SrcLoc::new(1, 6),
+        )));
         mult_args.push_back(Kxpr::new_x(Ast::ConstInt(3)));
-        let mult_call = Ast::Call(Box::new(multri), mult_args, SrcLoc::new(1, 7));
+        let mult_call =
+            Ast::Call(Box::new(multri), mult_args, SrcLoc::new(1, 7));
         let clos = Ast::Closure(cargs, Box::new(mult_call), SrcLoc::new(1, 1));
         let expected = Ast::Block(vec![clos]);
         assert_eq!(expected, root);
