@@ -18,6 +18,7 @@ use std::io::Write;
 pub struct Protomod
 {
     pub key: ModKey,
+    pub closures: LinkedList<Lstr>,
     pub funcseq: LinkedList<Lstr>,
     pub funcsrc: HashMap<Lstr, Ast>,
     pub valtypes: HashMap<Lstr, Type>,
@@ -34,6 +35,7 @@ impl Protomod
         empty_consts.insert(Lstr::Sref("TYPES"), Val::Nil);
         Protomod {
             key: mk,
+            closures: LinkedList::new(),
             funcseq: LinkedList::new(),
             funcsrc: HashMap::new(),
             valtypes: HashMap::new(),
@@ -452,6 +454,7 @@ impl Protomod
         let closed_vars = Struple(Vec::with_capacity(0));
         let funcref = Val::Closure(closuri, closed_vars, ftype.clone());
 
+        self.closures.push_back(closure_key.clone());
         self.funcsrc.insert(closure_key.clone(), pp_func);
         self.valtypes.insert(closure_key.clone(), ftype);
         self.constants.insert(closure_key.clone(), funcref);
@@ -1332,6 +1335,27 @@ mod tests
         }
 
         let _close_valtype = pmod.valtypes.get("close_foo").unwrap();
+    }
+
+    #[test]
+    fn test_preproc_closures()
+    {
+        let input = "
+            func main() ->
+                let items := [1, 2]
+                let items2 := map(items, fn(i) i * 2)
+            --
+            ".to_string();
+
+        let foo_str = Lstr::Sref("foo");
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        loader.set_mod_txt(foo_str.clone(), input);
+        let mut prog = program::Lib::new(loader);
+        let pmod = prog.read_proto(&foo_str);
+
+        let closure0 = pmod.closures.front().unwrap();
+        assert_eq!("foo_4_i", closure0);
+        assert_eq!(1, pmod.closures.len());
     }
 
     #[test]
