@@ -1207,6 +1207,24 @@ mod tests
     }
 
     #[test]
+    #[should_panic]
+    fn test_compile_undefined_closure_var()
+    {
+        let input = "
+            func foo(j) ->
+                let times_i := fn(x) -> x * i --
+                let result := times_i(5)
+                \"result := $result\"
+            --
+            ".to_string();
+
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        loader.set_mod_txt(Lstr::Sref("foo"), input);
+        let mut prog = program::Lib::new(loader);
+        prog.read_inter(&Lstr::Sref("foo"));
+    }
+
+    #[test]
     fn test_compile_matched_if_branches()
     {
         let input = "
