@@ -74,6 +74,7 @@ pub struct Intermod
 {
     pub modname: Lstr,
     pub interfunc: HashMap<Lstr, Ixpr>,
+    closed_vars: HashMap<Lstr, Vec<Lstr>>,
 }
 
 impl Intermod
@@ -83,12 +84,18 @@ impl Intermod
         Intermod {
             modname,
             interfunc: HashMap::new(),
+            closed_vars: HashMap::new(),
         }
     }
 
     pub fn name(&self) -> &str
     {
         &self.modname.str()
+    }
+
+    pub fn get_closed_vars(&self, name: &str) -> Option<&Vec<Lstr>>
+    {
+        self.closed_vars.get(name)
     }
 
     pub fn compile(
@@ -101,17 +108,74 @@ impl Intermod
 
         // compile closures first
         for fname in proto.closures.iter() {
-            let mut closed = HashSet::new();
-            let ifunc = compile_function(proto, imports, fname, Some(&mut closed));
+            let ifunc = inter.compile_function(proto, imports, fname, true);
             inter.interfunc.insert(fname.clone(), ifunc);
         }
 
         // compile regular functions next
         for fname in proto.funcseq.iter() {
-            let ifunc = compile_function(proto, imports, fname, None);
+            let ifunc = inter.compile_function(proto, imports, fname, false);
             inter.interfunc.insert(fname.clone(), ifunc);
         }
         inter
+    }
+
+    pub fn compile_function<'a>(
+        &mut self,
+        proto: &'a Protomod,
+        imports: &'a HashMap<Lstr, Rc<Protomod>>,
+        fname: &'a Lstr,
+        is_closure: bool,
+    ) -> Ixpr
+    {
+        vout!("compile {}()\n", fname);
+        let opt_defunc = proto.funcsrc.get(fname);
+        if opt_defunc.is_none() {
+            panic!(
+                "No function source found for {}::{}",
+                proto.key.name, fname
+            );
+        }
+        let defunc = opt_defunc.unwrap();
+        let (args, body, loc) = split_func_args_body(defunc);
+        let ftype = proto.valtypes.get(fname).unwrap();
+        vout!("\t{}({:?}): {:?}\n", fname, args, ftype);
+
+        let (argt, result_type) = Type::split_func_ref(ftype);
+        if *body == Ast::RustBlock {
+            return Ixpr {
+                src: Source::RustBlock(argt.clone(), result_type.clone()),
+                line: loc.lineno,
+            };
+        }
+        let mut scope = Interscope::new(proto, imports, fname, args, is_closure);
+        let ibody = compile_expr(&mut scope, body, loc);
+        let ibody2 = Ixpr {
+            src: ibody.src,
+            line: loc.lineno,
+        };
+        vout!("compile function {}({:?}): {}\n", fname, argt, result_type);
+        let rc_args = args
+            .iter()
+            .enumerate()
+            .map(|(argi, a)| {
+                a.k_clone()
+                    .unwrap_or_else(|| Lstr::from(format!("T_param_{}", argi)))
+            }).collect();
+        let src = Source::Func(
+            rc_args,
+            argt.clone(),
+            result_type.clone(),
+            Box::new(ibody2),
+        );
+        if is_closure && !scope.is_closed_empty() {
+            let closed_vars = scope.take_closed();
+            self.closed_vars.insert(fname.clone(), closed_vars);
+        }
+        Ixpr {
+            src,
+            line: loc.lineno,
+        }
     }
 }
 
@@ -180,25 +244,20 @@ impl LocalVar
 }
 
 #[derive(Debug)]
-pub struct Blockstack<'a>
+pub struct Blockstack
 {
     stack: Vec<Blockscope>,
     locals: HashMap<Lstr, LocalVar>,
-    closed: Option<&'a mut HashSet<Lstr>>,
-    is_closure: bool,
     in_failed: bool,
 }
 
-impl<'a> Blockstack<'a>
+impl Blockstack
 {
-    pub fn new(closed: Option<&mut HashSet<Lstr>>) -> Blockstack
+    pub fn new() -> Blockstack
     {
-        let is_closure = closed.is_some();
         Blockstack {
             stack: vec![Blockscope::new()],
             locals: HashMap::new(),
-            closed,
-            is_closure,
             in_failed: false,
         }
     }
@@ -247,11 +306,7 @@ impl<'a> Blockstack<'a>
     {
         let opt_local = self.locals.get_mut(id);
         if opt_local.is_none() {
-            if self.is_closure {
-                self.closed.as_mut().unwrap().insert(id.clone());
-            } else {
-                panic!("cannot access undefined var: {}", id);
-            }
+            panic!("cannot access undefined var: {}", id);
         }
         let vi = opt_local.unwrap();
         if vi.first_access.is_none() {
@@ -286,27 +341,29 @@ pub enum ScopeLevel
 }
 
 #[derive(Debug)]
-pub struct Interscope<'a, 'c>
+pub struct Interscope<'a>
 {
-    fname: &'a str,
+    fname: &'a Lstr,
     proto: &'a Protomod,
     imports: &'a HashMap<Lstr, Rc<Protomod>>,
-    blocks: Blockstack<'c>,
+    blocks: Blockstack,
     argnames: LinkedList<Kxpr>,
     argt: Type,
+    closed: Option<HashSet<Lstr>>,
+    is_closure: bool,
 }
 
-impl<'a, 'c> Interscope<'a, 'c>
+impl<'a> Interscope<'a>
 {
     pub fn new(
         proto: &'a Protomod,
         imports: &'a HashMap<Lstr, Rc<Protomod>>,
-        fname: &'a str,
+        fname: &'a Lstr,
         args: &LinkedList<Kxpr>,
-        closed: Option<&'c mut HashSet<Lstr>>,
-    ) -> Interscope<'a, 'c>
+        is_closure: bool,
+    ) -> Interscope<'a>
     {
-        let mut blocks = Blockstack::new(closed);
+        let mut blocks = Blockstack::new();
         let mut argt = Vec::new();
         for (i, a) in args.iter().enumerate() {
             vout!("bind func param as: #{} {:?}\n", i, a);
@@ -319,6 +376,12 @@ impl<'a, 'c> Interscope<'a, 'c>
             argt.push((opt_k, at));
         }
 
+        let closed = if is_closure {
+            Some(HashSet::new())
+        } else {
+            None
+        };
+
         Interscope {
             fname,
             proto,
@@ -326,6 +389,8 @@ impl<'a, 'c> Interscope<'a, 'c>
             blocks,
             argnames: args.clone(),
             argt: Type::Tuple(Struple(argt)),
+            closed,
+            is_closure,
         }
     }
 
@@ -342,7 +407,7 @@ impl<'a, 'c> Interscope<'a, 'c>
         self.imports.contains_key(name)
     }
 
-    pub fn push_blockscope<'b>(&'b mut self) -> NewBlockscope<'a, 'b, 'c>
+    pub fn push_blockscope<'b>(&'b mut self) -> NewBlockscope<'a, 'b>
     {
         self.blocks.push_blockscope();
         NewBlockscope::new(self)
@@ -383,18 +448,31 @@ impl<'a, 'c> Interscope<'a, 'c>
                 }).map(|val| ScopeLevel::Module(val.clone()))
         }
     }
+
+    pub fn is_closed_empty(&self) -> bool
+    {
+        self.closed.as_ref().map(|s| s.is_empty()).unwrap_or(true)
+    }
+
+    pub fn take_closed(&mut self) -> Vec<Lstr>
+    {
+        self.closed
+            .take()
+            .map(|mut s| s.drain().collect())
+            .unwrap_or_else(|| Vec::with_capacity(0))
+    }
 }
 
-pub struct NewBlockscope<'a, 'b, 'd>
+pub struct NewBlockscope<'a, 'b>
 where
-    'a: 'b, 'd: 'b
+    'a: 'b
 {
-    pub scope: &'b mut Interscope<'a, 'd>,
+    pub scope: &'b mut Interscope<'a>,
 }
 
-impl<'a, 'b, 'd> NewBlockscope<'a, 'b, 'd>
+impl<'a, 'b> NewBlockscope<'a, 'b>
 {
-    pub fn new(scope: &'b mut Interscope<'a, 'd>) -> NewBlockscope<'a, 'b, 'd>
+    pub fn new(scope: &'b mut Interscope<'a>) -> NewBlockscope<'a, 'b>
     {
         NewBlockscope { scope }
     }
@@ -424,7 +502,7 @@ impl<'a, 'b, 'd> NewBlockscope<'a, 'b, 'd>
     }
 }
 
-impl<'a, 'b, 'd> Drop for NewBlockscope<'a, 'b, 'd>
+impl<'a, 'b> Drop for NewBlockscope<'a, 'b>
 {
     fn drop(&mut self)
     {
@@ -432,59 +510,6 @@ impl<'a, 'b, 'd> Drop for NewBlockscope<'a, 'b, 'd>
     }
 }
 
-
-pub fn compile_function<'a>(
-    proto: &'a Protomod,
-    imports: &'a HashMap<Lstr, Rc<Protomod>>,
-    fname: &'a str,
-    closed: Option<&mut HashSet<Lstr>>,
-) -> Ixpr
-{
-    vout!("compile {}()\n", fname);
-    let opt_defunc = proto.funcsrc.get(fname);
-    if opt_defunc.is_none() {
-        panic!(
-            "No function source found for {}::{}",
-            proto.key.name, fname
-        );
-    }
-    let defunc = opt_defunc.unwrap();
-    let (args, body, loc) = split_func_args_body(defunc);
-    let ftype = proto.valtypes.get(fname).unwrap();
-    vout!("\t{}({:?}): {:?}\n", fname, args, ftype);
-
-    let (argt, result_type) = Type::split_func_ref(ftype);
-    if *body == Ast::RustBlock {
-        return Ixpr {
-            src: Source::RustBlock(argt.clone(), result_type.clone()),
-            line: loc.lineno,
-        };
-    }
-    let mut scope = Interscope::new(proto, imports, fname, args, closed);
-    let ibody = compile_expr(&mut scope, body, loc);
-    let ibody2 = Ixpr {
-        src: ibody.src,
-        line: loc.lineno,
-    };
-    vout!("compile function {}({:?}): {}\n", fname, argt, result_type);
-    let rc_args = args
-        .iter()
-        .enumerate()
-        .map(|(argi, a)| {
-            a.k_clone()
-                .unwrap_or_else(|| Lstr::from(format!("T_param_{}", argi)))
-        }).collect();
-    let src = Source::Func(
-        rc_args,
-        argt.clone(),
-        result_type.clone(),
-        Box::new(ibody2),
-    );
-    Ixpr {
-        src,
-        line: loc.lineno,
-    }
-}
 
 pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
 {
@@ -628,8 +653,16 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
             }
         }
         None => {
-            vout!("undefined variable {} in {:?}\n", id, scope.proto.constants);
-            panic!("undefined variable: {}", id);
+            if !scope.is_closure {
+                vout!("undefined variable {} in {:?}\n", id, scope.proto.constants);
+                panic!("undefined variable: {}", id);
+            }
+            vout!("closure variable {}\n", id);
+            scope.closed.as_mut().unwrap().insert(id.clone());
+            Ixpr {
+                src: Source::Id(id.clone(), loc.lineno),
+                line: loc.lineno,
+            }
         }
     }
 }
@@ -938,7 +971,7 @@ impl fmt::Debug for Intermod
 mod tests
 {
     use leema::ast::Ast;
-    use leema::inter::{self, Interscope, ScopeLevel};
+    use leema::inter::{self, Intermod, Interscope, ScopeLevel};
     use leema::loader::Interloader;
     use leema::lstr::Lstr;
     use leema::module::ModKey;
@@ -956,7 +989,7 @@ mod tests
         let proto = Protomod::new(mk);
         let imps = HashMap::new();
         let args = LinkedList::new();
-        let mut scope = Interscope::new(&proto, &imps, "foo", &args, None);
+        let mut scope = Interscope::new(&proto, &imps, &Lstr::Sref("foo"), &args, false);
         scope
             .blocks
             .assign_var(&Lstr::Sref("hello"), inter::LocalType::Param);
@@ -972,7 +1005,7 @@ mod tests
         let proto = Protomod::new(mk);
         let imps = HashMap::new();
         let args = LinkedList::new();
-        let mut scope = Interscope::new(&proto, &imps, "foo", &args, None);
+        let mut scope = Interscope::new(&proto, &imps, &Lstr::Sref("foo"), &args, false);
         scope
             .blocks
             .assign_var(&Lstr::Sref("hello"), inter::LocalType::Let);
@@ -988,7 +1021,7 @@ mod tests
                 .blocks
                 .assign_var(&Lstr::Sref("world"), inter::LocalType::Let);
 
-            assert!(new_block.scope.blocks.var_in_scope(&Lstr::from("world")));
+            assert!(new_block.scope.blocks.var_in_scope(&Lstr::Sref("world")));
             let world_lvl =
                 new_block.scope.scope_level(&Lstr::from("world")).unwrap();
             assert_eq!(ScopeLevel::Local, world_lvl);
@@ -1010,7 +1043,7 @@ mod tests
         let proto = Protomod::new(mk.clone());
         let imps = HashMap::new();
         let args = LinkedList::new();
-        let mut scope = Interscope::new(&proto, &imps, "foo", &args, None);
+        let mut scope = Interscope::new(&proto, &imps, &Lstr::Sref("foo"), &args, false);
 
         let mut new_vars = Vec::default();
         let patt = Ast::Localid(Lstr::from("x"), SrcLoc::default());
@@ -1019,6 +1052,29 @@ mod tests
 
         assert_eq!(1, new_vars.len());
         assert_eq!("x", &**(new_vars.first().unwrap()));
+    }
+
+    #[test]
+    fn test_compile_function_closure_def()
+    {
+        let input = "
+            func foo(i) ->
+                fn(x) \"($x:$i)\"
+            --
+            ".to_string();
+
+        let foo_str = Lstr::Sref("foo");
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        loader.set_mod_txt(foo_str.clone(), input);
+        let mut prog = program::Lib::new(loader);
+        let proto = prog.read_proto(&foo_str);
+        let mut inter = Intermod::new(foo_str.clone());
+        let closure_name = proto.closures.front().unwrap();
+        inter.compile_function(&proto, &HashMap::new(), closure_name, true);
+
+        let closed = inter.get_closed_vars(closure_name).unwrap();
+        assert_eq!("i", &closed[0]);
+        assert_eq!(1, closed.len());
     }
 
     #[test]
