@@ -98,26 +98,16 @@ impl Intermod
     {
         let mod_lstr = &proto.key.name;
         let mut inter = Intermod::new(mod_lstr.clone());
+
+        // compile closures first
+        for fname in proto.closures.iter() {
+            let ifunc = compile_function(proto, imports, fname, true);
+            inter.interfunc.insert(fname.clone(), ifunc);
+        }
+
+        // compile regular functions next
         for fname in proto.funcseq.iter() {
-            let opt_defunc = proto.funcsrc.get(fname);
-            if opt_defunc.is_none() {
-                panic!(
-                    "No function source found for {}::{}",
-                    proto.key.name, fname
-                );
-            }
-            let defunc = opt_defunc.unwrap();
-            let (args, body, loc) = split_func_args_body(defunc);
-            let ftype = proto.valtypes.get(fname).unwrap();
-            let ifunc = compile_function(
-                proto,
-                imports,
-                fname.str(),
-                ftype,
-                &args,
-                body,
-                loc,
-            );
+            let ifunc = compile_function(proto, imports, fname, false);
             inter.interfunc.insert(fname.clone(), ifunc);
         }
         inter
@@ -193,16 +183,20 @@ pub struct Blockstack
 {
     stack: Vec<Blockscope>,
     locals: HashMap<Lstr, LocalVar>,
+    closed: HashSet<Lstr>,
+    is_closure: bool,
     in_failed: bool,
 }
 
 impl Blockstack
 {
-    pub fn new() -> Blockstack
+    pub fn new(closure: bool) -> Blockstack
     {
         Blockstack {
             stack: vec![Blockscope::new()],
             locals: HashMap::new(),
+            closed: HashSet::new(),
+            is_closure: closure,
             in_failed: false,
         }
     }
@@ -249,9 +243,15 @@ impl Blockstack
 
     pub fn access_var(&mut self, id: &Lstr, lineno: i16)
     {
-        let vi = self.locals.get_mut(id).unwrap_or_else(|| {
-            panic!("cannot access undefined var: {}", id);
-        });
+        let opt_local = self.locals.get_mut(id);
+        if opt_local.is_none() {
+            if self.is_closure {
+                self.closed.insert(id.clone());
+            } else {
+                panic!("cannot access undefined var: {}", id);
+            }
+        }
+        let vi = opt_local.unwrap();
         if vi.first_access.is_none() {
             vi.first_access = Some(lineno)
         }
@@ -301,9 +301,10 @@ impl<'a> Interscope<'a>
         imports: &'a HashMap<Lstr, Rc<Protomod>>,
         fname: &'a str,
         args: &LinkedList<Kxpr>,
+        closure: bool,
     ) -> Interscope<'a>
     {
-        let mut blocks = Blockstack::new();
+        let mut blocks = Blockstack::new(closure);
         let mut argt = Vec::new();
         for (i, a) in args.iter().enumerate() {
             vout!("bind func param as: #{} {:?}\n", i, a);
@@ -434,13 +435,22 @@ pub fn compile_function<'a>(
     proto: &'a Protomod,
     imports: &'a HashMap<Lstr, Rc<Protomod>>,
     fname: &'a str,
-    ftype: &Type,
-    args: &LinkedList<Kxpr>,
-    body: &Ast,
-    loc: &SrcLoc,
+    closure: bool,
 ) -> Ixpr
 {
-    vout!("compile {}({:?}): {:?}\n", fname, args, ftype);
+    vout!("compile {}()\n", fname);
+    let opt_defunc = proto.funcsrc.get(fname);
+    if opt_defunc.is_none() {
+        panic!(
+            "No function source found for {}::{}",
+            proto.key.name, fname
+        );
+    }
+    let defunc = opt_defunc.unwrap();
+    let (args, body, loc) = split_func_args_body(defunc);
+    let ftype = proto.valtypes.get(fname).unwrap();
+    vout!("\t{}({:?}): {:?}\n", fname, args, ftype);
+
     let (argt, result_type) = Type::split_func_ref(ftype);
     if *body == Ast::RustBlock {
         return Ixpr {
@@ -448,7 +458,7 @@ pub fn compile_function<'a>(
             line: loc.lineno,
         };
     }
-    let mut scope = Interscope::new(proto, imports, fname, args);
+    let mut scope = Interscope::new(proto, imports, fname, args, closure);
     let ibody = compile_expr(&mut scope, body, loc);
     let ibody2 = Ixpr {
         src: ibody.src,
@@ -944,7 +954,7 @@ mod tests
         let proto = Protomod::new(mk);
         let imps = HashMap::new();
         let args = LinkedList::new();
-        let mut scope = Interscope::new(&proto, &imps, "foo", &args);
+        let mut scope = Interscope::new(&proto, &imps, "foo", &args, false);
         scope
             .blocks
             .assign_var(&Lstr::Sref("hello"), inter::LocalType::Param);
@@ -960,7 +970,7 @@ mod tests
         let proto = Protomod::new(mk);
         let imps = HashMap::new();
         let args = LinkedList::new();
-        let mut scope = Interscope::new(&proto, &imps, "foo", &args);
+        let mut scope = Interscope::new(&proto, &imps, "foo", &args, false);
         scope
             .blocks
             .assign_var(&Lstr::Sref("hello"), inter::LocalType::Let);
@@ -998,7 +1008,7 @@ mod tests
         let proto = Protomod::new(mk.clone());
         let imps = HashMap::new();
         let args = LinkedList::new();
-        let mut scope = Interscope::new(&proto, &imps, "foo", &args);
+        let mut scope = Interscope::new(&proto, &imps, "foo", &args, false);
 
         let mut new_vars = Vec::default();
         let patt = Ast::Localid(Lstr::from("x"), SrcLoc::default());
@@ -1007,6 +1017,23 @@ mod tests
 
         assert_eq!(1, new_vars.len());
         assert_eq!("x", &**(new_vars.first().unwrap()));
+    }
+
+    #[test]
+    fn test_compile_anon_func()
+    {
+        let input = "
+            func foo(i) ->
+                let double := fn(x) x * 2
+                let ten := double(5)
+                print(\"5 * 2 == $ten\")
+            --
+            ".to_string();
+
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        loader.set_mod_txt(Lstr::Sref("foo"), input);
+        let mut prog = program::Lib::new(loader);
+        let _inter = prog.read_inter(&Lstr::Sref("foo"));
     }
 
     #[test]
