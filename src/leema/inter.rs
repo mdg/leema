@@ -149,7 +149,14 @@ impl Intermod
             };
         }
         let (ibody, closed_vars) = {
-            let mut scope = Interscope::new(proto, imports, &self.closed_vars, fname, args, is_closure);
+            let mut scope = Interscope::new(
+                proto,
+                imports,
+                &self.closed_vars,
+                fname,
+                args,
+                is_closure,
+            );
             let inner_body = compile_expr(&mut scope, body, loc);
             (inner_body, scope.take_closed())
         };
@@ -476,7 +483,7 @@ impl<'a> Interscope<'a>
 
 pub struct NewBlockscope<'a, 'b>
 where
-    'a: 'b
+    'a: 'b,
 {
     pub scope: &'b mut Interscope<'a>,
 }
@@ -655,15 +662,15 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
                 Val::Closure(fri, cargs, ftype) => {
                     let cval = match scope.get_closed_vars(&fri.localid) {
                         Some(ref vars) if !vars.is_empty() => {
-                            let cvars = vars.iter().map(|v| {
-                                scope.blocks.access_var(v, loc.lineno);
-                                (None, Val::Id(v.clone()))
-                            }).collect();
+                            let cvars = vars
+                                .iter()
+                                .map(|v| {
+                                    scope.blocks.access_var(v, loc.lineno);
+                                    (None, Val::Id(v.clone()))
+                                }).collect();
                             Val::Closure(fri, Struple(cvars), ftype)
                         }
-                        _ => {
-                            Val::Closure(fri, cargs, ftype)
-                        }
+                        _ => Val::Closure(fri, cargs, ftype),
                     };
                     Ixpr {
                         src: Source::ConstVal(cval),
@@ -680,7 +687,11 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
         }
         None => {
             if !scope.is_closure {
-                vout!("undefined variable {} in {:?}\n", id, scope.proto.constants);
+                vout!(
+                    "undefined variable {} in {:?}\n",
+                    id,
+                    scope.proto.constants
+                );
                 panic!("undefined variable: {}", id);
             }
             vout!("closure variable {}\n", id);
@@ -1016,7 +1027,14 @@ mod tests
         let imps = HashMap::new();
         let closed_vars = HashMap::new();
         let args = LinkedList::new();
-        let mut scope = Interscope::new(&proto, &imps, &closed_vars, &Lstr::Sref("foo"), &args, false);
+        let mut scope = Interscope::new(
+            &proto,
+            &imps,
+            &closed_vars,
+            &Lstr::Sref("foo"),
+            &args,
+            false,
+        );
         scope
             .blocks
             .assign_var(&Lstr::Sref("hello"), inter::LocalType::Param);
@@ -1033,7 +1051,14 @@ mod tests
         let imps = HashMap::new();
         let closed_vars = HashMap::new();
         let args = LinkedList::new();
-        let mut scope = Interscope::new(&proto, &imps, &closed_vars, &Lstr::Sref("foo"), &args, false);
+        let mut scope = Interscope::new(
+            &proto,
+            &imps,
+            &closed_vars,
+            &Lstr::Sref("foo"),
+            &args,
+            false,
+        );
         scope
             .blocks
             .assign_var(&Lstr::Sref("hello"), inter::LocalType::Let);
@@ -1072,7 +1097,14 @@ mod tests
         let imps = HashMap::new();
         let closed_vars = HashMap::new();
         let args = LinkedList::new();
-        let mut scope = Interscope::new(&proto, &imps, &closed_vars, &Lstr::Sref("foo"), &args, false);
+        let mut scope = Interscope::new(
+            &proto,
+            &imps,
+            &closed_vars,
+            &Lstr::Sref("foo"),
+            &args,
+            false,
+        );
 
         let mut new_vars = Vec::default();
         let patt = Ast::Localid(Lstr::from("x"), SrcLoc::default());
