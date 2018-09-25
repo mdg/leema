@@ -185,6 +185,15 @@ impl Type
     {
         Type::StrictList(Box::new(inner))
     }
+
+    pub fn fmt_func_item(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        if let &Type::Func(_, _) = self {
+            write!(f, "({})", self)
+        } else {
+            write!(f, "{}", self)
+        }
+    }
 }
 
 impl sendclone::SendClone for Type
@@ -211,9 +220,10 @@ impl fmt::Display for Type
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
-                    write!(f, "{} => ", a).ok();
+                    a.fmt_func_item(f)?;
+                    write!(f, " => ")?;
                 }
-                write!(f, "{}", result)
+                result.fmt_func_item(f)
             }
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator

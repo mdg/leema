@@ -5,6 +5,7 @@ use leema::val::SrcLoc;
 use leema::val::Type;
 
 use std::collections::LinkedList;
+use std::fmt;
 
 /*
 #[derive(Clone)]
@@ -481,6 +482,57 @@ impl<'a> From<&'a Ast> for Type
     }
 }
 
+impl fmt::Display for Ast
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        match self {
+            &Ast::Block(ref items) => {
+                writeln!(f, "block(")?;
+                for i in items {
+                    writeln!(f, "\t{}", i)?;
+                }
+                writeln!(f, ")")
+            }
+            &Ast::Call(ref callx, ref args, _) => {
+                write!(f, "(call {} [", callx)?;
+                for a in args {
+                    write!(f, "{},", a.x_ref().unwrap())?;
+                }
+                write!(f, "])")
+            }
+            &Ast::Let(ref lhs, ref rhs, _) => {
+                write!(f, "(let {} = {})", lhs, rhs)
+            }
+            &Ast::Localid(ref id, _) => {
+                write!(f, "{}", id)
+            }
+            &Ast::Lri(ref id, ref types, _) => {
+                let mut use_sep = false;
+                for i in id {
+                    if use_sep {
+                        write!(f, "::{}", i)?;
+                    } else {
+                        write!(f, "{}", i)?;
+                        use_sep = true;
+                    }
+                }
+                if types.is_some() {
+                    write!(f, "{:?}", types.as_ref().unwrap())?;
+                }
+                Ok(())
+            }
+            &Ast::DefFunc(ft, ref name, ref args, ref rtype, ref body, _) => {
+                writeln!(f, "({:?} {}({:?}): {}", ft, name, args, rtype)?;
+                writeln!(f, "\t{})", body)
+            }
+            _ => {
+                write!(f, "{:?}", self)
+            }
+        }
+    }
+}
+
 
 pub fn parse(toks: Vec<Token>) -> Ast
 {
@@ -725,6 +777,25 @@ mod tests
 
         let xlist = Ast::List(vec![].into_iter().collect());
         let expected = Ast::Block(vec![xlist]);
+        assert_eq!(expected, root);
+    }
+
+    #[test]
+    fn test_ast_parse_closure_with_mult()
+    {
+        let input = "fn(x) x * 3\n";
+        let root = ast::parse(lex(input));
+
+        let mut cargs = LinkedList::new();
+        cargs.push_back(Kxpr::new_k(Lstr::Sref("x")));
+        let multri =
+            Ast::Lri(vec![Lstr::Sref("prefab"), Lstr::Sref("int_mult")], None, SrcLoc::new(1, 1));
+        let mut mult_args = LinkedList::new();
+        mult_args.push_back(Kxpr::new_x(Ast::Localid(Lstr::Sref("x"), SrcLoc::new(1, 6))));
+        mult_args.push_back(Kxpr::new_x(Ast::ConstInt(3)));
+        let mult_call = Ast::Call(Box::new(multri), mult_args, SrcLoc::new(1, 8));
+        let clos = Ast::Closure(cargs, Box::new(Ast::Block(vec![mult_call])), SrcLoc::new(1, 1));
+        let expected = Ast::Block(vec![clos]);
         assert_eq!(expected, root);
     }
 

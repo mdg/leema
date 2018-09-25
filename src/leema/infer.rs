@@ -466,6 +466,7 @@ impl<'b> Inferator<'b>
         argst: &Vec<&Type>,
     ) -> TypeResult
     {
+        vout!("make_call_type({}, {:?})\n", ftype, argst);
         let (defargst, defresult) = Type::split_func_ref(ftype);
 
         let defargslen = defargst.len();

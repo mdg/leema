@@ -96,12 +96,15 @@ fn real_main() -> i32
     let main_result = if args.arg_cmd == "tokens" {
         let modtxt = inter.read_module(&modkey);
         let toks = ModuleSource::read_tokens(&modtxt);
-        println!("{:?}\n", toks);
+        println!("tokens:");
+        for t in &toks {
+            println!("\t{:?}", t);
+        }
         Val::Int(0)
     } else if args.arg_cmd == "ast" {
         let modtxt = inter.read_module(&modkey);
         let ast = ModuleSource::read_ast(&modtxt);
-        println!("{:?}\n", ast);
+        println!("{}\n", ast);
         Val::Int(0)
     } else if args.arg_cmd == "modsrc" {
         let prog = program::Lib::new(inter);
