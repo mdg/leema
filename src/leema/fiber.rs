@@ -197,6 +197,10 @@ impl Fiber
         let funcri: Lri = {
             let ref fname_val = self.head.e.get_reg(freg);
             match *fname_val {
+                &Val::FuncRef(ref callri, _) => callri.clone(),
+                &Val::Closure(ref callri, ref _args, _) => {
+                    callri.clone()
+                }
                 &Val::Str(ref name_str) => {
                     // pass in args
                     println!("found a string for function call: {}", name_str);
@@ -215,7 +219,6 @@ impl Fiber
                         }
                     }
                 }
-                &Val::FuncRef(ref callri, _) => callri.clone(),
                 _ => {
                     panic!("That's not a function! {:?}", fname_val);
                 }

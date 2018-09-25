@@ -788,6 +788,12 @@ impl Val
             &Val::FuncRef(ref fi, ref typ) => {
                 Val::FuncRef(fi.deep_clone(), typ.deep_clone())
             }
+            &Val::Closure(ref fi, ref args, ref typ) => {
+                let fi2 = fi.deep_clone();
+                let args2 = args.clone_for_send();
+                let typ2 = typ.deep_clone();
+                Val::Closure(fi2, args2, typ2)
+            }
             &Val::Failure(ref tag, ref msg, ref ft, status) => {
                 Val::Failure(
                     Box::new(tag.deep_clone()),
