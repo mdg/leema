@@ -101,9 +101,14 @@ impl Lib
         self.code.get(modname).unwrap().get(funcname).unwrap()
     }
 
-    pub fn find_preface(&self, modname: &Lstr) -> Option<&Rc<ModulePreface>>
+    pub fn find_preface(&self, modname: &str) -> Option<&Rc<ModulePreface>>
     {
         self.preface.get(modname)
+    }
+
+    pub fn find_proto(&self, modname: &str) -> Option<&Protomod>
+    {
+        self.proto.get(modname).map(|p| &**p)
     }
 
     pub fn load_inter(&mut self, modname: &Lstr)

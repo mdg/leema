@@ -148,8 +148,14 @@ impl Intermod
                 line: loc.lineno,
             };
         }
-        let mut scope = Interscope::new(proto, imports, fname, args, is_closure);
-        let ibody = compile_expr(&mut scope, body, loc);
+        let (ibody, closed_vars) = {
+            let mut scope = Interscope::new(proto, imports, &self.closed_vars, fname, args, is_closure);
+            let inner_body = compile_expr(&mut scope, body, loc);
+            (inner_body, scope.take_closed())
+        };
+        if !closed_vars.is_empty() {
+            self.closed_vars.insert(fname.clone(), closed_vars);
+        }
         let ibody2 = Ixpr {
             src: ibody.src,
             line: loc.lineno,
@@ -168,10 +174,6 @@ impl Intermod
             result_type.clone(),
             Box::new(ibody2),
         );
-        if is_closure && !scope.is_closed_empty() {
-            let closed_vars = scope.take_closed();
-            self.closed_vars.insert(fname.clone(), closed_vars);
-        }
         Ixpr {
             src,
             line: loc.lineno,
@@ -346,6 +348,7 @@ pub struct Interscope<'a>
     fname: &'a Lstr,
     proto: &'a Protomod,
     imports: &'a HashMap<Lstr, Rc<Protomod>>,
+    closure_vars: &'a HashMap<Lstr, Vec<Lstr>>,
     blocks: Blockstack,
     argnames: LinkedList<Kxpr>,
     argt: Type,
@@ -358,6 +361,7 @@ impl<'a> Interscope<'a>
     pub fn new(
         proto: &'a Protomod,
         imports: &'a HashMap<Lstr, Rc<Protomod>>,
+        closure_vars: &'a HashMap<Lstr, Vec<Lstr>>,
         fname: &'a Lstr,
         args: &LinkedList<Kxpr>,
         is_closure: bool,
@@ -386,6 +390,7 @@ impl<'a> Interscope<'a>
             fname,
             proto,
             imports,
+            closure_vars,
             blocks,
             argnames: args.clone(),
             argt: Type::Tuple(Struple(argt)),
@@ -447,6 +452,12 @@ impl<'a> Interscope<'a>
                         .and_then(|prefab| prefab.constants.get(id))
                 }).map(|val| ScopeLevel::Module(val.clone()))
         }
+    }
+
+    /// get closed variables for the named closure
+    pub fn get_closed_vars(&self, name: &str) -> Option<&'a Vec<Lstr>>
+    {
+        self.closure_vars.get(name)
     }
 
     pub fn is_closed_empty(&self) -> bool
@@ -641,8 +652,23 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
                         line: loc.lineno,
                     }
                 }
-                Val::Closure(_fri, _, _ftype) => {
-                    panic!("how do I compile a closure?");
+                Val::Closure(fri, cargs, ftype) => {
+                    let cval = match scope.get_closed_vars(&fri.localid) {
+                        Some(ref vars) if !vars.is_empty() => {
+                            let cvars = vars.iter().map(|v| {
+                                scope.blocks.access_var(v, loc.lineno);
+                                (None, Val::Id(v.clone()))
+                            }).collect();
+                            Val::Closure(fri, Struple(cvars), ftype)
+                        }
+                        _ => {
+                            Val::Closure(fri, cargs, ftype)
+                        }
+                    };
+                    Ixpr {
+                        src: Source::ConstVal(cval),
+                        line: loc.lineno,
+                    }
                 }
                 _ => {
                     Ixpr {
@@ -988,8 +1014,9 @@ mod tests
         let mk = ModKey::name_only(Lstr::Sref("tacos"));
         let proto = Protomod::new(mk);
         let imps = HashMap::new();
+        let closed_vars = HashMap::new();
         let args = LinkedList::new();
-        let mut scope = Interscope::new(&proto, &imps, &Lstr::Sref("foo"), &args, false);
+        let mut scope = Interscope::new(&proto, &imps, &closed_vars, &Lstr::Sref("foo"), &args, false);
         scope
             .blocks
             .assign_var(&Lstr::Sref("hello"), inter::LocalType::Param);
@@ -1004,8 +1031,9 @@ mod tests
         let mk = ModKey::name_only(Lstr::Sref("tacos"));
         let proto = Protomod::new(mk);
         let imps = HashMap::new();
+        let closed_vars = HashMap::new();
         let args = LinkedList::new();
-        let mut scope = Interscope::new(&proto, &imps, &Lstr::Sref("foo"), &args, false);
+        let mut scope = Interscope::new(&proto, &imps, &closed_vars, &Lstr::Sref("foo"), &args, false);
         scope
             .blocks
             .assign_var(&Lstr::Sref("hello"), inter::LocalType::Let);
@@ -1042,8 +1070,9 @@ mod tests
         let mk = ModKey::name_only(Lstr::Sref("tacos"));
         let proto = Protomod::new(mk.clone());
         let imps = HashMap::new();
+        let closed_vars = HashMap::new();
         let args = LinkedList::new();
-        let mut scope = Interscope::new(&proto, &imps, &Lstr::Sref("foo"), &args, false);
+        let mut scope = Interscope::new(&proto, &imps, &closed_vars, &Lstr::Sref("foo"), &args, false);
 
         let mut new_vars = Vec::default();
         let patt = Ast::Localid(Lstr::from("x"), SrcLoc::default());
@@ -1099,17 +1128,50 @@ mod tests
     fn test_compile_anon_func()
     {
         let input = "
-            func foo(i) ->
+            func foo() ->
                 let double := fn(x) x * 2
                 let ten := double(5)
-                print(\"5 * 2 == $ten\")
+                \"5 * 2 == $ten\"
             --
             ".to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
         loader.set_mod_txt(Lstr::Sref("foo"), input);
         let mut prog = program::Lib::new(loader);
-        let _inter = prog.read_inter(&Lstr::Sref("foo"));
+        let inter = prog.read_inter(&Lstr::Sref("foo"));
+        let proto = prog.find_proto("foo").unwrap();
+        let closure_name = proto.closures.front().unwrap();
+
+        assert!(inter.get_closed_vars(closure_name).is_none());
+        assert!(inter.interfunc.contains_key(closure_name));
+        assert!(inter.interfunc.contains_key("foo"));
+        assert_eq!(2, inter.interfunc.len());
+    }
+
+    #[test]
+    fn test_compile_closure()
+    {
+        let input = "
+            func foo(i) ->
+                let times_i := fn(x) -> x * i --
+                let result := times_i(5)
+                \"result := $result\"
+            --
+            ".to_string();
+
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        loader.set_mod_txt(Lstr::Sref("foo"), input);
+        let mut prog = program::Lib::new(loader);
+        let inter = prog.read_inter(&Lstr::Sref("foo"));
+        let proto = prog.find_proto("foo").unwrap();
+        let closure_name = proto.closures.front().unwrap();
+
+        let closed_vars = inter.get_closed_vars(closure_name).unwrap();
+        assert_eq!("i", &closed_vars[0]);
+        assert_eq!(1, closed_vars.len());
+        assert!(inter.interfunc.contains_key(closure_name));
+        assert!(inter.interfunc.contains_key("foo"));
+        assert_eq!(2, inter.interfunc.len());
     }
 
     #[test]
