@@ -789,12 +789,12 @@ mod tests
         let mut cargs = LinkedList::new();
         cargs.push_back(Kxpr::new_k(Lstr::Sref("x")));
         let multri =
-            Ast::Lri(vec![Lstr::Sref("prefab"), Lstr::Sref("int_mult")], None, SrcLoc::new(1, 1));
+            Ast::Lri(vec![Lstr::Sref("prefab"), Lstr::Sref("int_mult")], None, SrcLoc::new(1, 7));
         let mut mult_args = LinkedList::new();
         mult_args.push_back(Kxpr::new_x(Ast::Localid(Lstr::Sref("x"), SrcLoc::new(1, 6))));
         mult_args.push_back(Kxpr::new_x(Ast::ConstInt(3)));
-        let mult_call = Ast::Call(Box::new(multri), mult_args, SrcLoc::new(1, 8));
-        let clos = Ast::Closure(cargs, Box::new(Ast::Block(vec![mult_call])), SrcLoc::new(1, 1));
+        let mult_call = Ast::Call(Box::new(multri), mult_args, SrcLoc::new(1, 7));
+        let clos = Ast::Closure(cargs, Box::new(mult_call), SrcLoc::new(1, 1));
         let expected = Ast::Block(vec![clos]);
         assert_eq!(expected, root);
     }

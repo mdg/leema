@@ -121,7 +121,7 @@ use std::io::{Write};
 
 
 %nonassoc ASSIGN BLOCKARROW RETURN.
-%right FORK.
+%right FN FORK.
 %left OR XOR.
 %left AND.
 %right ConcatNewline NOT.
