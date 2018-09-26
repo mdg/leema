@@ -729,9 +729,8 @@ pub fn compile_call(
         .iter()
         .map(|i| i.map_1(|x| compile_expr(scope, x, loc)))
         .collect();
-    let argsix = Ixpr::new_tuple(Struple(iargs), loc.lineno);
     Ixpr {
-        src: Source::Call(Box::new(icall), Box::new(argsix)),
+        src: Source::Call(Box::new(icall), Struple(iargs)),
         line: loc.lineno,
     }
 }

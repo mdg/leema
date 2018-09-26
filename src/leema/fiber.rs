@@ -96,8 +96,8 @@ impl Fiber
                 self.execute_create_tuple(dst, *sz)
             }
             &Op::StrCat(ref dst, ref src) => self.execute_strcat(dst, src),
-            &Op::ApplyFunc(ref dst, ref func, ref args) => {
-                self.execute_call(dst, func, args, line)
+            &Op::ApplyFunc(ref dst, ref func) => {
+                self.execute_call(dst, func, line)
             }
             &Op::Return => Event::Complete(true),
             &Op::SetResult(ref dst) => {
@@ -189,32 +189,13 @@ impl Fiber
         &mut self,
         dst: &Reg,
         freg: &Reg,
-        argreg: &Reg,
         line: i16,
     ) -> Event
     {
-        let funcri: Lri = {
+        let (funcri, args): (&Lri, &Struple<Val>) = {
             let ref fname_val = self.head.e.get_reg(freg);
             match *fname_val {
-                &Val::FuncRef(ref callri, _, _) => callri.clone(),
-                &Val::Str(ref name_str) => {
-                    // pass in args
-                    println!("found a string for function call: {}", name_str);
-                    Lri::with_modules(Lstr::Sref(""), name_str.clone())
-                }
-                &Val::Tuple(ref modfunc) if modfunc.0.len() == 2 => {
-                    println!("found tuple for func call: {:?}", modfunc);
-                    let modnm = &modfunc.0.get(0).unwrap().1;
-                    let funcnm = &modfunc.0.get(1).unwrap().1;
-                    match (modnm, funcnm) {
-                        (&Val::Str(ref m), &Val::Str(ref f)) => {
-                            Lri::with_modules(m.clone(), f.clone())
-                        }
-                        _ => {
-                            panic!("That's not a function! {:?}", fname_val);
-                        }
-                    }
-                }
+                &Val::FuncRef(ref callri, ref args, _) => (callri, args),
                 _ => {
                     panic!("That's not a function! {:?}", fname_val);
                 }
@@ -222,7 +203,7 @@ impl Fiber
         };
         vout!("execute_call({})\n", funcri);
 
-        let opt_failure = Fiber::call_arg_failure(self.head.e.get_reg(argreg))
+        let opt_failure = Fiber::call_arg_failure(args)
             .map(|argv| argv.clone());
         match opt_failure {
             Some(mut failur) => {
@@ -237,8 +218,8 @@ impl Fiber
                 Event::Complete(false)
             }
             None => {
-                let args_copy = self.head.e.get_reg(argreg).clone();
-                Event::Call(dst.clone(), line, funcri, args_copy)
+                let argstup = Val::Tuple(args.clone());
+                Event::Call(dst.clone(), line, funcri.clone(), argstup)
             }
         }
     }
@@ -392,16 +373,12 @@ impl Fiber
         }
     }
 
-    fn call_arg_failure(args: &Val) -> Option<&Val>
+    fn call_arg_failure(args: &Struple<Val>) -> Option<&Val>
     {
-        if let &Val::Tuple(ref items) = args {
-            for i in items.0.iter() {
-                if i.1.is_failure() {
-                    return Some(&i.1);
-                }
+        for i in args.0.iter() {
+            if i.1.is_failure() {
+                return Some(&i.1);
             }
-        } else {
-            panic!("call args are not a tuple");
         }
         None
     }

@@ -52,7 +52,9 @@ impl<'a> CallFrame<'a>
         match ix.src {
             Source::Call(ref callx, ref args) => {
                 self.collect_callexpr(callx);
-                self.collect_calls(args);
+                for a in args.0.iter() {
+                    self.collect_calls(&a.1);
+                }
             }
             Source::Block(ref expressions) => {
                 self.collect_calls_vec(expressions);
@@ -404,19 +406,15 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
                 e.add_context(Lstr::from(format!("function: {:?}", func.src)))
             })?;
             let mut targs = vec![];
-            if let Source::Tuple(ref mut argstup) = args.src {
-                for mut a in &mut argstup.0 {
-                    let atype =
-                        typecheck_expr(scope, &mut a.1).map_err(|e| {
-                            e.add_context(Lstr::from(format!(
-                                "function args for: {:?} on line {}",
-                                func.src, func.line
-                            )))
-                        })?;
-                    targs.push(atype);
-                }
-            } else {
-                println!("args are not a tuple");
+            for mut a in &mut args.0 {
+                let atype =
+                    typecheck_expr(scope, &mut a.1).map_err(|e| {
+                        e.add_context(Lstr::from(format!(
+                            "function args for: {:?} on line {}",
+                            func.src, func.line
+                        )))
+                    })?;
+                targs.push(atype);
             }
             let mut targs_ref = vec![];
             for ta in targs.iter() {

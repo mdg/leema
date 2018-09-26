@@ -38,7 +38,7 @@ impl fmt::Display for ModSym
 #[derive(PartialEq)]
 pub enum Op
 {
-    ApplyFunc(Reg, Reg, Reg),
+    ApplyFunc(Reg, Reg),
     Return,
     SetResult(Reg),
     PropagateFailure(Reg, i16),
@@ -66,8 +66,8 @@ impl Clone for Op
     fn clone(&self) -> Op
     {
         match self {
-            &Op::ApplyFunc(ref dst, ref f, ref args) => {
-                Op::ApplyFunc(dst.clone(), f.clone(), args.clone())
+            &Op::ApplyFunc(ref dst, ref f) => {
+                Op::ApplyFunc(dst.clone(), f.clone())
             }
             &Op::Return => Op::Return,
             &Op::SetResult(ref src) => Op::SetResult(src.clone()),
@@ -250,12 +250,17 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 ),
                 input.line,
             ));
-            let closed_argc = match typ {
-                &Type::Closure(_, ref closed, _) => closed.len(),
+            let argc = match typ {
+                &Type::Closure(ref args, _, _) => {
+                    args.len()
+                }
+                &Type::Func(ref args, _) => {
+                    args.len()
+                }
                 _ => 0,
             };
-            let mut i = closed_argc as i8;
-            for cv in cvs.0.iter() {
+            let mut i = argc as i8;
+            for cv in cvs.0.iter().skip(argc) {
                 if cv.0.is_none() {
                     panic!("closed variable has no name for {}", cri);
                 }
@@ -393,23 +398,26 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
     }
 }
 
-pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr, args: &Ixpr) -> Oxpr
+pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr, args: &Struple<Ixpr>) -> Oxpr
 {
     let dst = rt.dst().clone();
     vout!("make_call_ops: {:?} = {:?}\n", dst, f);
 
-    rt.push_dst();
+    let fref_dst = rt.push_dst().clone();
     let mut fops = make_sub_ops(rt, f);
 
-    rt.push_dst();
-    let mut argops = make_sub_ops(rt, args);
-    fops.ops.append(&mut argops.ops);
+    let mut argops: OpVec = args.0.iter().enumerate().flat_map(|(i, a)| {
+        rt.push_dst_reg(fref_dst.sub(i as i8));
+        let arg_ops: Oxpr = make_sub_ops(rt, &a.1);
+        rt.pop_dst_reg();
+        arg_ops.ops
+    }).collect();
+    fops.ops.append(&mut argops);
     fops.ops.push((
-        Op::ApplyFunc(dst.clone(), fops.dst.clone(), argops.dst),
+        Op::ApplyFunc(dst.clone(), fops.dst.clone()),
         f.line,
     ));
 
-    rt.pop_dst();
     rt.pop_dst();
     fops.dst = dst;
     fops
