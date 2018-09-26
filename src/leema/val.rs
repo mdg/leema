@@ -51,6 +51,7 @@ pub enum Type
     Tuple(Struple<Type>),
     Failure,
     Func(Vec<Type>, Box<Type>),
+    Closure(Vec<Type>, Vec<Type>, Box<Type>),
     // different from base collection/map interfaces?
     // base interface/type should probably be iterator
     // and then it should be a protocol, not type
@@ -225,6 +226,21 @@ impl fmt::Display for Type
                 }
                 result.fmt_func_item(f)
             }
+            &Type::Closure(ref args, ref closed, ref result) => {
+                write!(f, "Fn(")?;
+                for a in args {
+                    write!(f, "{},", a)?;
+                }
+                write!(f, ")")?;
+                if !closed.is_empty() {
+                    write!(f, "(")?;
+                    for c in closed {
+                        write!(f, "{},", c)?;
+                    }
+                    write!(f, ")")?;
+                }
+                write!(f, ":{}", result)
+            }
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
@@ -263,6 +279,21 @@ impl fmt::Debug for Type
                     write!(f, "{:?}>", a).ok();
                 }
                 write!(f, "{:?}", result)
+            }
+            &Type::Closure(ref args, ref closed, ref result) => {
+                write!(f, "Fn(")?;
+                for a in args {
+                    write!(f, "{:?},", a)?;
+                }
+                write!(f, ")")?;
+                if !closed.is_empty() {
+                    write!(f, "(")?;
+                    for c in closed {
+                        write!(f, "{:?},", c)?;
+                    }
+                    write!(f, ")")?;
+                }
+                write!(f, ":{:?}", result)
             }
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator
