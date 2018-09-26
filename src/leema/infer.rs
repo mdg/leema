@@ -411,6 +411,70 @@ impl<'b> Inferator<'b>
                     Inferator::mash(inferences, oldresult, newresult)?;
                 Ok(Type::Func(masht, Box::new(mashresult)))
             }
+            (
+                &Type::Closure(ref oldargs, ref oldclosed, ref oldresult),
+                &Type::Closure(ref newargs, ref newclosed, ref newresult),
+            ) => {
+                let oldlen = oldargs.len();
+                let newlen = newargs.len();
+                if oldlen != newlen {
+                    return match_err();
+                }
+                let coldlen = oldclosed.len();
+                let cnewlen = newclosed.len();
+                if coldlen != cnewlen {
+                    return match_err();
+                }
+                let mut masht = Vec::with_capacity(oldlen);
+                for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
+                    let mashit = Inferator::mash(inferences, oldit, newit)?;
+                    masht.push(mashit);
+                }
+                let mut mashclosed = Vec::with_capacity(oldlen);
+                for (oldit, newit) in oldclosed.iter().zip(newclosed.iter()) {
+                    let mashit = Inferator::mash(inferences, oldit, newit)?;
+                    mashclosed.push(mashit);
+                }
+                let mashresult =
+                    Inferator::mash(inferences, oldresult, newresult)?;
+                Ok(Type::Closure(masht, mashclosed, Box::new(mashresult)))
+            }
+            (
+                &Type::Func(ref oldargs, ref oldresult),
+                &Type::Closure(ref newargs, _, ref newresult),
+            ) => {
+                let oldlen = oldargs.len();
+                let newlen = newargs.len();
+                if oldlen != newlen {
+                    return match_err();
+                }
+                let mut masht = Vec::with_capacity(oldlen);
+                for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
+                    let mashit = Inferator::mash(inferences, oldit, newit)?;
+                    masht.push(mashit);
+                }
+                let mashresult =
+                    Inferator::mash(inferences, oldresult, newresult)?;
+                Ok(Type::Func(masht, Box::new(mashresult)))
+            }
+            (
+                &Type::Closure(ref oldargs, _, ref oldresult),
+                &Type::Func(ref newargs, ref newresult),
+            ) => {
+                let oldlen = oldargs.len();
+                let newlen = newargs.len();
+                if oldlen != newlen {
+                    return match_err();
+                }
+                let mut masht = Vec::with_capacity(oldlen);
+                for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
+                    let mashit = Inferator::mash(inferences, oldit, newit)?;
+                    masht.push(mashit);
+                }
+                let mashresult =
+                    Inferator::mash(inferences, oldresult, newresult)?;
+                Ok(Type::Func(masht, Box::new(mashresult)))
+            }
             (&Type::Tuple(ref olditems), &Type::Tuple(ref newitems)) => {
                 let oldlen = olditems.0.len();
                 let newlen = newitems.0.len();

@@ -237,6 +237,22 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 dst: rt.dst().clone(),
             }
         }
+        Source::ConstVal(Val::Closure(ref cri, ref cvs, ref typ)) => {
+            let mut ops = Vec::with_capacity(cvs.0.len() + 1);
+            let dst = rt.dst().clone();
+            ops.push((Op::ConstVal(dst.clone(), Val::Closure(cri.clone(), cvs.clone(), typ.clone())), input.line));
+            for (i, cv) in cvs.0.iter().enumerate() {
+                let var_name = match cv.1 {
+                    Val::Id(ref ivar_name) => ivar_name,
+                    _ => {
+                        panic!("closure var is not an Id: {}", cv.1);
+                    }
+                };
+                let var_src = rt.id(var_name);
+                ops.push((Op::Copy(dst.sub(i as i8), var_src), input.line));
+            }
+            Oxpr { ops, dst }
+        }
         Source::ConstVal(ref v) => {
             let dst = rt.dst();
             Oxpr {

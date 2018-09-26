@@ -161,6 +161,11 @@ impl Type
                 let dc_args = args.iter().map(|t| t.deep_clone()).collect();
                 Type::Func(dc_args, Box::new(result.deep_clone()))
             }
+            &Type::Closure(ref args, ref closed, ref result) => {
+                let dc_args = args.iter().map(|t| t.deep_clone()).collect();
+                let dc_clos = closed.iter().map(|t| t.deep_clone()).collect();
+                Type::Closure(dc_args, dc_clos, Box::new(result.deep_clone()))
+            }
             &Type::Unknown => Type::Unknown,
             &Type::Var(ref id) => Type::Var(id.clone_for_send()),
             &Type::Void => Type::Void,

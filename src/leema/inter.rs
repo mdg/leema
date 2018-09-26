@@ -612,6 +612,11 @@ pub fn compile_lri(
     loc: &SrcLoc,
 ) -> Ixpr
 {
+    vout!("compile_lri(");
+    for n in names.iter() {
+        vout!("{},", n);
+    }
+    vout!(")\n");
     if names.len() != 2 {
         panic!("too many modules: {:?}", names);
     }
@@ -634,9 +639,9 @@ pub fn compile_lri(
 pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
     -> Ixpr
 {
-    vout!("compile_local_id({})\n", id);
     match scope.scope_level(id) {
         Some(ScopeLevel::Local) => {
+            vout!("compile_local_id_local({})\n", id);
             scope.blocks.access_var(id, loc.lineno);
             Ixpr {
                 src: Source::Id(id.clone(), loc.lineno),
@@ -644,6 +649,7 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
             }
         }
         Some(ScopeLevel::Module(val)) => {
+            vout!("compile_local_id_module({})\n", id);
             match val {
                 // Val::FuncRef(fri, ftype) => {
                 Val::FuncRef(_, _) => {
@@ -661,7 +667,17 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
                                     scope.blocks.access_var(v, loc.lineno);
                                     (None, Val::Id(v.clone()))
                                 }).collect();
-                            Val::Closure(fri, Struple(cvars), ftype)
+                            let cvartypes = vars.iter()
+                                .map(|v| {
+                                    let tvar = format!("T_cvar_{}", v);
+                                    Type::Var(Lstr::from(tvar))
+                                }).collect();
+                            let cftype = if let Type::Func(targs, tresult) = ftype {
+                                Type::Closure(targs, cvartypes, tresult)
+                            } else {
+                                panic!("closure type not a func: {:?}", ftype);
+                            };
+                            Val::Closure(fri, Struple(cvars), cftype)
                         }
                         _ => Val::Closure(fri, cargs, ftype),
                     };
