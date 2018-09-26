@@ -8,7 +8,6 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 
-#[derive(Debug)]
 #[derive(Clone)]
 #[derive(Eq)]
 #[derive(Ord)]
@@ -161,6 +160,18 @@ impl fmt::Display for Lstr
             &Lstr::Arc(ref s) => write!(f, "{}", s),
             &Lstr::Sref(ref s) => write!(f, "{}", s),
             &Lstr::Cat(ref a, ref b) => write!(f, "{}{}", a, b),
+        }
+    }
+}
+
+impl fmt::Debug for Lstr
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        match self {
+            &Lstr::Arc(ref s) => write!(f, "\"{}\"", s),
+            &Lstr::Sref(ref s) => write!(f, "&\"{}\"", s),
+            &Lstr::Cat(ref a, ref b) => write!(f, "\"{}{}\"", a, b),
         }
     }
 }
