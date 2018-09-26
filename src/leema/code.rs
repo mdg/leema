@@ -240,7 +240,13 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::ConstVal(Val::Closure(ref cri, ref cvs, ref typ)) => {
             let mut ops = Vec::with_capacity(cvs.0.len() + 1);
             let dst = rt.dst().clone();
-            ops.push((Op::ConstVal(dst.clone(), Val::Closure(cri.clone(), cvs.clone(), typ.clone())), input.line));
+            ops.push((
+                Op::ConstVal(
+                    dst.clone(),
+                    Val::Closure(cri.clone(), cvs.clone(), typ.clone()),
+                ),
+                input.line,
+            ));
             for (i, cv) in cvs.0.iter().enumerate() {
                 let var_name = match cv.1 {
                     Val::Id(ref ivar_name) => ivar_name,

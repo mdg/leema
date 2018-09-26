@@ -667,12 +667,15 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
                                     scope.blocks.access_var(v, loc.lineno);
                                     (None, Val::Id(v.clone()))
                                 }).collect();
-                            let cvartypes = vars.iter()
+                            let cvartypes = vars
+                                .iter()
                                 .map(|v| {
                                     let tvar = format!("T_cvar_{}", v);
                                     Type::Var(Lstr::from(tvar))
                                 }).collect();
-                            let cftype = if let Type::Func(targs, tresult) = ftype {
+                            let cftype = if let Type::Func(targs, tresult) =
+                                ftype
+                            {
                                 Type::Closure(targs, cvartypes, tresult)
                             } else {
                                 panic!("closure type not a func: {:?}", ftype);
@@ -979,8 +982,9 @@ pub fn compile_failed_var(
     }
 }
 
-pub fn split_func_args_body(defunc: &Ast)
-    -> (ast::FuncClass, &LinkedList<Kxpr>, &Ast, &SrcLoc)
+pub fn split_func_args_body(
+    defunc: &Ast,
+) -> (ast::FuncClass, &LinkedList<Kxpr>, &Ast, &SrcLoc)
 {
     match defunc {
         Ast::DefFunc(fc, ref name, ref args, _, ref body, ref loc) => {

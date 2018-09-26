@@ -334,7 +334,14 @@ impl Ast
 
     pub fn closure(args: LinkedList<Kxpr>, body: Ast, loc: SrcLoc) -> Ast
     {
-        Ast::DefFunc(FuncClass::Closure, Box::new(Ast::ConstVoid), args, Box::new(Ast::TypeAnon), Box::new(body), loc)
+        Ast::DefFunc(
+            FuncClass::Closure,
+            Box::new(Ast::ConstVoid),
+            args,
+            Box::new(Ast::TypeAnon),
+            Box::new(body),
+            loc,
+        )
     }
 
     pub fn localid_str(&self) -> &Lstr

@@ -116,9 +116,14 @@ impl Protomod
             &Ast::Call(ref callx, ref args, ref iloc) => {
                 Protomod::preproc_call(self, prog, mp, callx, args, iloc)
             }
-            &Ast::DefFunc(ast::FuncClass::Closure, _, ref args, _, ref body, ref iloc) => {
-                Protomod::preproc_closure(self, prog, mp, args, body, iloc)
-            }
+            &Ast::DefFunc(
+                ast::FuncClass::Closure,
+                _,
+                ref args,
+                _,
+                ref body,
+                ref iloc,
+            ) => Protomod::preproc_closure(self, prog, mp, args, body, iloc),
             &Ast::Cons(ref head, ref tail) => {
                 let pp_head = Protomod::preproc_expr(self, prog, mp, head, loc);
                 let pp_tail = Protomod::preproc_expr(self, prog, mp, tail, loc);
