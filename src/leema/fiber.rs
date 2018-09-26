@@ -203,25 +203,8 @@ impl Fiber
         };
         vout!("execute_call({})\n", funcri);
 
-        let opt_failure = Fiber::call_arg_failure(args)
-            .map(|argv| argv.clone());
-        match opt_failure {
-            Some(mut failur) => {
-                if let &mut Val::Failure(_, _, ref mut trace, _) = &mut failur {
-                    *trace = FrameTrace::propagate_down(
-                        trace,
-                        &self.head.function,
-                        0,
-                    );
-                }
-                self.head.parent.set_result(failur);
-                Event::Complete(false)
-            }
-            None => {
-                let argstup = Val::Tuple(args.clone());
-                Event::Call(dst.clone(), line, funcri.clone(), argstup)
-            }
-        }
+        let argstup = Val::Tuple(args.clone());
+        Event::Call(dst.clone(), line, funcri.clone(), argstup)
     }
 
     pub fn execute_const_val(&mut self, reg: &Reg, v: &Val) -> Event
