@@ -632,7 +632,14 @@ pub fn compile_lri(
     let vartype = opt_vartype.unwrap();
     let lri = Lri::with_modules(modname.clone(), id.clone());
 
-    let fref = Val::FuncRef(lri, vartype.clone());
+    let num_args = match vartype {
+        &Type::Func(ref iargs, _) => iargs.len(),
+        &Type::Closure(ref iargs, ref cargs, _) => iargs.len() + cargs.len(),
+        _ => 0,
+    };
+
+    let new_args = Struple(vec![(None, Val::Void); num_args]);
+    let fref = Val::FuncRef(lri, new_args, vartype.clone());
     Ixpr::const_val(fref, loc.lineno)
 }
 
@@ -652,13 +659,7 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
             vout!("compile_local_id_module({})\n", id);
             match val {
                 // Val::FuncRef(fri, ftype) => {
-                Val::FuncRef(_, _) => {
-                    Ixpr {
-                        src: Source::ConstVal(val),
-                        line: loc.lineno,
-                    }
-                }
-                Val::Closure(fri, cargs, ftype) => {
+                Val::FuncRef(fri, cargs, ftype) => {
                     let cval = match scope.get_closed_vars(&fri.localid) {
                         Some(ref vars) if !vars.is_empty() => {
                             let cvars = vars
@@ -680,9 +681,9 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
                             } else {
                                 panic!("closure type not a func: {:?}", ftype);
                             };
-                            Val::Closure(fri, Struple(cvars), cftype)
+                            Val::FuncRef(fri, Struple(cvars), cftype)
                         }
-                        _ => Val::Closure(fri, cargs, ftype),
+                        _ => Val::FuncRef(fri, cargs, ftype),
                     };
                     Ixpr {
                         src: Source::ConstVal(cval),

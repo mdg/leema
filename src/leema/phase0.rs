@@ -404,8 +404,11 @@ impl Protomod
         };
         ftype_parts.push(Kxpr::new_x(pp_rtype_ast));
         let ftype = Type::Func(ftype_part_types, Box::new(rtype));
+        let fref_args = pp_args.iter().map(|a| {
+            (a.k_clone(), Val::Void)
+        }).collect();
 
-        let funcref = Val::FuncRef(full_lri, ftype.clone());
+        let funcref = Val::FuncRef(full_lri, fref_args, ftype.clone());
 
         self.funcseq.push_back(lstr_name.clone());
         self.funcsrc.insert(lstr_name.clone(), pp_func);
@@ -456,7 +459,7 @@ impl Protomod
         let closuri =
             Lri::with_modules(mp.key.name.clone(), closure_key.clone());
         let closed_vars = Struple(Vec::with_capacity(0));
-        let funcref = Val::Closure(closuri, closed_vars, ftype.clone());
+        let funcref = Val::FuncRef(closuri, closed_vars, ftype.clone());
 
         self.closures.push_back(closure_key.clone());
         self.funcseq.push_back(closure_key.clone());
@@ -1055,6 +1058,9 @@ impl Protomod
             .iter()
             .map(|&(_, ref ftype)| ftype.clone())
             .collect();
+        let fref_args = Struple(struple_fields.iter().map(|f| {
+            (f.0.clone(), Val::Void)
+        }).collect());
 
         let full_type = Type::UserDef(struple_lri.clone());
         let func_type = Type::Func(field_type_vec, Box::new(full_type.clone()));
@@ -1087,7 +1093,7 @@ impl Protomod
         self.struple_fields
             .insert(local_name.clone(), Struple(struple_fields));
 
-        let funcref = Val::FuncRef(struple_lri, func_type.clone());
+        let funcref = Val::FuncRef(struple_lri, fref_args, func_type.clone());
         self.constants.insert(local_name.clone(), funcref);
 
         self.funcseq.push_back(local_name.clone());
@@ -1273,6 +1279,7 @@ mod tests
     use leema::lri::Lri;
     use leema::lstr::Lstr;
     use leema::program;
+    use leema::struple::Struple;
     use leema::types;
     use leema::val::{Type, Val};
 
@@ -1449,10 +1456,15 @@ mod tests
         let exp_dog_const = Val::EnumToken(type_lri.clone(), dog_name);
         let exp_cat_const = Val::FuncRef(
             Lri::with_modules(animals_str.clone(), Lstr::Sref("Cat")),
+            Struple(vec![(None, Val::Void)]),
             cat_func_type.clone(),
         );
         let exp_giraffe_const = Val::FuncRef(
             Lri::with_modules(animals_str.clone(), Lstr::Sref("Giraffe")),
+            Struple(vec![
+                (Some(Lstr::Sref("height")), Val::Void),
+                (Some(Lstr::Sref("weight")), Val::Void),
+            ]),
             giraffe_func_type.clone(),
         );
         assert_eq!(exp_dog_const, *dog_const);
@@ -1513,9 +1525,10 @@ mod tests
 
         // constants
         match pmod.constants.get("Greeting").unwrap() {
-            Val::FuncRef(ref actual_fri, ref actual_types) => {
+            Val::FuncRef(ref actual_fri, ref actual_args, ref actual_types) => {
                 assert_eq!("greet", actual_fri.safe_mod().str());
                 assert_eq!("Greeting", actual_fri.localid.str());
+                assert_eq!(2, actual_args.0.len());
                 assert!(actual_fri.params.is_none());
                 assert_eq!(xfunctyp, *actual_types);
             }
@@ -1571,9 +1584,16 @@ mod tests
 
         // assert constants
         let funcref = pmod.constants.get("Burrito").unwrap();
-        if let &Val::FuncRef(ref fri, ref ftype) = funcref {
+        if let &Val::FuncRef(ref fri, ref args, ref ftype) = funcref {
             assert_eq!("tacos", fri.modules.as_ref().unwrap().str());
             assert_eq!("Burrito", fri.localid.str());
+            // args content
+            assert_eq!(None, args.0[0].0);
+            assert_eq!(Val::Void, args.0[0].1);
+            assert_eq!(Some(Lstr::Sref("buns")), args.0[1].0);
+            assert_eq!(Val::Void, args.0[1].1);
+            assert_eq!(2, args.0.len());
+            // function type
             assert_eq!(xfunctype, *ftype);
         } else {
             panic!("Burrito constant is not a FuncRef: {:?}", funcref);
@@ -1629,9 +1649,17 @@ mod tests
 
         // assert constants
         let funcref = pmod.constants.get("Burrito").unwrap();
-        if let &Val::FuncRef(ref funcri, ref ftype) = funcref {
+        if let &Val::FuncRef(ref funcri, ref args, ref ftype) = funcref {
+            // func lri
             assert_eq!("tacos", funcri.mod_ref().unwrap().str());
             assert_eq!("Burrito", funcri.localid.str());
+            // func args
+            assert_eq!("filling", args.0[0].0.as_ref().unwrap());
+            assert_eq!("number", args.0[1].0.as_ref().unwrap());
+            assert_eq!(Val::Void, args.0[0].1);
+            assert_eq!(Val::Void, args.0[1].1);
+            assert_eq!(2, args.0.len());
+            // func type
             assert_eq!(xfunctype, *ftype);
         } else {
             panic!("Burrito constant is not a FuncRef: {:?}", funcref);

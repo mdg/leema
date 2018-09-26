@@ -78,7 +78,7 @@ pub fn server_run(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let port = ctx.take_param(0).unwrap().to_int() as u16;
     let func = ctx.take_param(1).unwrap();
     let funcri = match func {
-        Val::FuncRef(ref lri, _) => lri.clone(),
+        Val::FuncRef(ref lri, _, _) => lri.clone(),
         _ => {
             panic!("cannot bind server to a not function: {:?}", func);
         }

@@ -94,7 +94,7 @@ impl<'a> CallFrame<'a>
                     self.collect_calls(&i.1);
                 }
             }
-            Source::ConstVal(Val::FuncRef(ref lri, _)) => {
+            Source::ConstVal(Val::FuncRef(ref lri, _, _)) => {
                 self.push_call(CallOp::ExternalCall(lri.clone()));
             }
             Source::ConstVal(_) => {
@@ -148,7 +148,7 @@ impl<'a> CallFrame<'a>
                         println!("it seems suspect: {}", name);
                         self.push_call(CallOp::LocalCall(name.clone()));
                     }
-                    &Val::FuncRef(ref i, _) => {
+                    &Val::FuncRef(ref i, _, _) => {
                         self.push_call(CallOp::ExternalCall(i.clone()));
                     }
                     _ => {
@@ -335,8 +335,8 @@ impl<'a, 'b> Typescope<'a, 'b>
             &Source::ConstVal(ref fval) => {
                 match fval {
                     &Val::Str(_) => Ok(Type::Void),
-                    &Val::FuncRef(ref fri, ref typ) => {
-                        self.typecheck_funcref(fri, typ)
+                    &Val::FuncRef(ref fri, ref args, ref typ) => {
+                        self.typecheck_funcref(fri, args, typ)
                     }
                     _ => {
                         panic!("what val is in typecheck_call? {:?}", fval);
@@ -350,10 +350,28 @@ impl<'a, 'b> Typescope<'a, 'b>
         }
     }
 
-    pub fn typecheck_funcref(&mut self, fri: &Lri, typ: &Type) -> TypeResult
+    pub fn typecheck_funcref(&mut self, fri: &Lri, args: &Struple<Val>, typ: &Type) -> TypeResult
     {
         let typed = self.functype(fri.mod_ref().unwrap(), &fri.localid);
-        self.infer.merge_types(typ, &typed)
+        let result = self.infer.merge_types(typ, &typed);
+        match typ {
+            Type::Func(ref _iargs, _) => {
+                // do nothing here for now
+            }
+            Type::Closure(ref iargs, ref cargs, _) => {
+                let argc = iargs.len();
+                for ((a, _), t) in args.0.iter().skip(argc).zip(cargs.iter()) {
+                    if a.is_none() {
+                        continue;
+                    }
+                    self.infer.bind_vartype(a.as_ref().unwrap(), t, 0)?;
+                }
+            }
+            _ => {
+                panic!("FuncRef type is not a func or closure: {:?}", typ);
+            }
+        }
+        result
     }
 
     pub fn functype(&self, modname: &str, funcname: &str) -> Type
@@ -415,8 +433,8 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             let head_list_t = Type::StrictList(Box::new(head_t));
             scope.infer.merge_types(&head_list_t, &tail_t)
         }
-        &mut Source::ConstVal(Val::FuncRef(ref fri, ref typ)) => {
-            scope.typecheck_funcref(fri, typ)
+        &mut Source::ConstVal(Val::FuncRef(ref fri, ref args, ref typ)) => {
+            scope.typecheck_funcref(fri, args, typ)
         }
         &mut Source::ConstVal(ref val) => Ok(val.get_type()),
         &mut Source::Let(ref lhs, ref mut rhs, ref mut fails) => {

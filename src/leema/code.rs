@@ -237,7 +237,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 dst: rt.dst().clone(),
             }
         }
-        Source::ConstVal(Val::Closure(ref cri, ref cvs, ref typ)) => {
+        Source::ConstVal(Val::FuncRef(ref cri, ref cvs, ref typ)) => {
             let mut ops = Vec::with_capacity(cvs.0.len() + 1);
             let dst = rt.dst().clone();
             let blanks = Struple(
@@ -246,19 +246,22 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             ops.push((
                 Op::ConstVal(
                     dst.clone(),
-                    Val::Closure(cri.clone(), blanks, typ.clone()),
+                    Val::FuncRef(cri.clone(), blanks, typ.clone()),
                 ),
                 input.line,
             ));
-            for (i, cv) in cvs.0.iter().enumerate() {
-                let var_name = match cv.1 {
-                    Val::Id(ref ivar_name) => ivar_name,
-                    _ => {
-                        panic!("closure var is not an Id: {}", cv.1);
-                    }
-                };
-                let var_src = rt.id(var_name);
-                ops.push((Op::Copy(dst.sub(i as i8), var_src), input.line));
+            let closed_argc = match typ {
+                &Type::Closure(_, ref closed, _) => closed.len(),
+                _ => 0,
+            };
+            let mut i = closed_argc as i8;
+            for cv in cvs.0.iter() {
+                if cv.0.is_none() {
+                    panic!("closed variable has no name for {}", cri);
+                }
+                let var_src = rt.id(cv.0.as_ref().unwrap());
+                ops.push((Op::Copy(dst.sub(i), var_src), input.line));
+                i += 1;
             }
             Oxpr { ops, dst }
         }

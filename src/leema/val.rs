@@ -491,8 +491,7 @@ pub enum Val
     Type(Type),
     Kind(u8),
     Lib(Arc<LibVal>),
-    FuncRef(Lri, Type),
-    Closure(Lri, Struple<Val>, Type),
+    FuncRef(Lri, Struple<Val>, Type),
     ResourceRef(i64),
     RustBlock,
     Future(FutureVal),
@@ -697,8 +696,7 @@ impl Val
             &Val::Kind(_) => {
                 panic!("is kind even a thing here?");
             }
-            &Val::FuncRef(_, ref typ) => typ.clone(),
-            &Val::Closure(_, _, ref typ) => typ.clone(),
+            &Val::FuncRef(_, _, ref typ) => typ.clone(),
             &Val::Lib(ref lv) => lv.get_type(),
             &Val::ResourceRef(_) => {
                 panic!("cannot get type of ResourceRef: {:?}", self);
@@ -831,14 +829,11 @@ impl Val
                 Val::EnumToken(typ.deep_clone(), vname.clone_for_send())
             }
             &Val::Token(ref typ) => Val::Token(typ.deep_clone()),
-            &Val::FuncRef(ref fi, ref typ) => {
-                Val::FuncRef(fi.deep_clone(), typ.deep_clone())
-            }
-            &Val::Closure(ref fi, ref args, ref typ) => {
+            &Val::FuncRef(ref fi, ref args, ref typ) => {
                 let fi2 = fi.deep_clone();
                 let args2 = args.clone_for_send();
                 let typ2 = typ.deep_clone();
-                Val::Closure(fi2, args2, typ2)
+                Val::FuncRef(fi2, args2, typ2)
             }
             &Val::Failure(ref tag, ref msg, ref ft, status) => {
                 Val::Failure(
@@ -964,10 +959,7 @@ impl fmt::Display for Val
             Val::Id(ref name) => write!(f, "{}", name),
             Val::Type(ref t) => write!(f, "{}", t),
             Val::Kind(c) => write!(f, "Kind({})", c),
-            Val::FuncRef(ref id, ref typ) => write!(f, "{} : {}", id, typ),
-            Val::Closure(ref id, ref vals, ref typ) => {
-                write!(f, "{}()<{}> : {}", id, vals, typ)
-            }
+            Val::FuncRef(ref id, ref args, ref typ) => write!(f, "{}({:?}): {}", id, args, typ),
             Val::Future(_) => write!(f, "Future"),
             Val::Void => write!(f, "Void"),
             Val::PatternVar(ref r) => write!(f, "pvar:{:?}", r),
@@ -1017,11 +1009,8 @@ impl fmt::Debug for Val
             Val::Id(ref id) => write!(f, "Id({})", id),
             Val::Type(ref t) => write!(f, "TypeVal({:?})", t),
             Val::Kind(c) => write!(f, "Kind{:?}", c),
-            Val::FuncRef(ref id, ref typ) => {
-                write!(f, "FuncRef({} : {})", id, typ)
-            }
-            Val::Closure(ref id, ref vals, ref typ) => {
-                write!(f, "{}()<{}> : {}", id, vals, typ)
+            Val::FuncRef(ref id, ref args, ref typ) => {
+                write!(f, "FuncRef({} {:?}: {})", id, args, typ)
             }
             Val::Future(_) => write!(f, "Future"),
             Val::PatternVar(ref r) => write!(f, "pvar:{:?}", r),
@@ -1099,9 +1088,9 @@ impl reg::Iregistry for Val
             (_, &mut Val::Nil) => {
                 panic!("cannot set reg on empty list: {:?}", i);
             }
-            // set reg on closure
-            (_, &mut Val::Closure(_, ref mut items, _)) => {
-                items.ireg_set(i, v);
+            // set reg on FuncRef
+            (_, &mut Val::FuncRef(_, ref mut args, _)) => {
+                args.ireg_set(i, v);
             }
             // set reg on Failures
             (&Ireg::Reg(0), &mut Val::Failure(ref mut tag, _, _, _)) => {
@@ -1198,10 +1187,11 @@ impl PartialOrd for Val
                 PartialOrd::partial_cmp(&*at, &*bt)
             }
             // func ref to func ref comparison
-            (&Val::FuncRef(ref f1, ref t1), &Val::FuncRef(ref f2, ref t2)) => {
+            (&Val::FuncRef(ref f1, ref a1, ref t1), &Val::FuncRef(ref f2, ref a2, ref t2)) => {
                 Some(
                     PartialOrd::partial_cmp(f1, f2)
                         .unwrap()
+                        .then_with(|| PartialOrd::partial_cmp(a1, a2).unwrap())
                         .then_with(|| PartialOrd::partial_cmp(t1, t2).unwrap()),
                 )
             }
