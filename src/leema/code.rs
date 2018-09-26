@@ -250,21 +250,18 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 ),
                 input.line,
             ));
-            let argc = match typ {
-                &Type::Closure(ref args, _, _) => {
-                    args.len()
-                }
-                &Type::Func(ref args, _) => {
-                    args.len()
-                }
+            let skipped_args = match typ {
+                &Type::Closure(ref args, _, _) => args.len(),
+                &Type::Func(ref args, _) => args.len(),
                 _ => 0,
             };
-            let mut i = argc as i8;
-            for cv in cvs.0.iter().skip(argc) {
+            let mut i = skipped_args as i8;
+            for cv in cvs.0.iter().skip(skipped_args) {
                 if cv.0.is_none() {
                     panic!("closed variable has no name for {}", cri);
                 }
-                let var_src = rt.id(cv.0.as_ref().unwrap());
+                let var_name = cv.0.as_ref().unwrap();
+                let var_src = rt.id(var_name);
                 ops.push((Op::Copy(dst.sub(i), var_src), input.line));
                 i += 1;
             }
@@ -350,11 +347,17 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::MatchCase(_, _, _) => {
             panic!("matchcase ops not generated directly");
         }
-        Source::Id(ref id, _) => {
+        Source::Id(ref id, line) => {
             let src = rt.id(id);
+            let dst = rt.dst().clone();
+            let ops = if dst == src {
+                Vec::with_capacity(0)
+            } else {
+                vec![(Op::Copy(dst.clone(), src), line)]
+            };
             Oxpr {
-                ops: vec![],
-                dst: src,
+                ops,
+                dst,
             }
         }
         Source::IfExpr(ref test, ref truth, None) => {
