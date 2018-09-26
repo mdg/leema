@@ -117,7 +117,7 @@ impl Protomod
             &Ast::Call(ref callx, ref args, ref iloc) => {
                 Protomod::preproc_call(self, prog, mp, callx, args, iloc)
             }
-            &Ast::Closure(ref args, ref body, ref iloc) => {
+            &Ast::DefFunc(ast::FuncClass::Closure, _, ref args, _, ref body, ref iloc) => {
                 Protomod::preproc_closure(self, prog, mp, args, body, iloc)
             }
             &Ast::Cons(ref head, ref tail) => {
@@ -441,7 +441,7 @@ impl Protomod
         let ftype = Type::Func(arg_types, Box::new(result_type));
 
         let pp_func = Ast::DefFunc(
-            ast::FuncClass::Func,
+            ast::FuncClass::Closure,
             Box::new(Ast::Lri(vec![closure_key.clone()], None, *loc)),
             pp_args,
             Box::new(pp_result.clone()),
@@ -455,6 +455,7 @@ impl Protomod
         let funcref = Val::Closure(closuri, closed_vars, ftype.clone());
 
         self.closures.push_back(closure_key.clone());
+        self.funcseq.push_back(closure_key.clone());
         self.funcsrc.insert(closure_key.clone(), pp_func);
         self.valtypes.insert(closure_key.clone(), ftype);
         self.constants.insert(closure_key.clone(), funcref);
@@ -558,7 +559,7 @@ impl Protomod
         }
         // make closure
         let clbody = Ast::Call(Box::new(callx.clone()), inner_args, *loc);
-        let clos = Ast::Closure(outer_args, Box::new(clbody), *loc);
+        let clos = Ast::closure(outer_args, clbody, *loc);
         // add closure as result of block
         new_block.push(clos);
         self.preproc_expr(prog, mp, &Ast::Block(new_block), loc)

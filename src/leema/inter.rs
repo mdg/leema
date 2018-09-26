@@ -106,15 +106,9 @@ impl Intermod
         let mod_lstr = &proto.key.name;
         let mut inter = Intermod::new(mod_lstr.clone());
 
-        // compile closures first
-        for fname in proto.closures.iter() {
-            let ifunc = inter.compile_function(proto, imports, fname, true);
-            inter.interfunc.insert(fname.clone(), ifunc);
-        }
-
         // compile regular functions next
         for fname in proto.funcseq.iter() {
-            let ifunc = inter.compile_function(proto, imports, fname, false);
+            let ifunc = inter.compile_function(proto, imports, fname);
             inter.interfunc.insert(fname.clone(), ifunc);
         }
         inter
@@ -125,7 +119,6 @@ impl Intermod
         proto: &'a Protomod,
         imports: &'a HashMap<Lstr, Rc<Protomod>>,
         fname: &'a Lstr,
-        is_closure: bool,
     ) -> Ixpr
     {
         vout!("compile {}()\n", fname);
@@ -137,7 +130,8 @@ impl Intermod
             );
         }
         let defunc = opt_defunc.unwrap();
-        let (args, body, loc) = split_func_args_body(defunc);
+        let (fclass, args, body, loc) = split_func_args_body(defunc);
+        let is_closure = fclass == ast::FuncClass::Closure;
         let ftype = proto.valtypes.get(fname).unwrap();
         vout!("\t{}({:?}): {:?}\n", fname, args, ftype);
 
@@ -971,21 +965,16 @@ pub fn compile_failed_var(
 }
 
 pub fn split_func_args_body(defunc: &Ast)
-    -> (&LinkedList<Kxpr>, &Ast, &SrcLoc)
+    -> (ast::FuncClass, &LinkedList<Kxpr>, &Ast, &SrcLoc)
 {
-    if let &Ast::DefFunc(
-        ast::FuncClass::Func,
-        ref name,
-        ref args,
-        ref _result,
-        ref body,
-        ref loc,
-    ) = defunc
-    {
-        vout!("split_func_args({:?})\n", name);
-        (args, body, loc)
-    } else {
-        panic!("func is not a func: {:?}", defunc);
+    match defunc {
+        Ast::DefFunc(fc, ref name, ref args, _, ref body, ref loc) => {
+            vout!("split_func_args({:?})\n", name);
+            (*fc, args, body, loc)
+        }
+        _ => {
+            panic!("func is not a func: {:?}", defunc);
+        }
     }
 }
 
@@ -1149,7 +1138,7 @@ mod tests
         let proto = prog.read_proto(&foo_str);
         let mut inter = Intermod::new(foo_str.clone());
         let closure_name = proto.closures.front().unwrap();
-        inter.compile_function(&proto, &HashMap::new(), closure_name, true);
+        inter.compile_function(&proto, &HashMap::new(), closure_name);
 
         let closed = inter.get_closed_vars(closure_name).unwrap();
         assert_eq!("i", &closed[0]);

@@ -59,6 +59,7 @@ pub enum FuncClass
 {
     Macro,
     Func,
+    Closure,
 }
 
 #[derive(Clone)]
@@ -186,7 +187,6 @@ pub enum Ast
 {
     Block(Vec<Ast>),
     Call(Box<Ast>, LinkedList<Kxpr>, SrcLoc),
-    Closure(LinkedList<Kxpr>, Box<Ast>, SrcLoc),
     Cons(Box<Ast>, Box<Ast>),
     ConstructData(DataType, Box<Ast>),
     ConstBool(bool),
@@ -330,6 +330,11 @@ impl Ast
         }).collect();
         let test = Ast::Tuple(match_args);
         Ast::IfExpr(IfType::Match, Box::new(test), Box::new(cases), loc)
+    }
+
+    pub fn closure(args: LinkedList<Kxpr>, body: Ast, loc: SrcLoc) -> Ast
+    {
+        Ast::DefFunc(FuncClass::Closure, Box::new(Ast::ConstVoid), args, Box::new(Ast::TypeAnon), Box::new(body), loc)
     }
 
     pub fn localid_str(&self) -> &Lstr
@@ -797,7 +802,7 @@ mod tests
         mult_args.push_back(Kxpr::new_x(Ast::ConstInt(3)));
         let mult_call =
             Ast::Call(Box::new(multri), mult_args, SrcLoc::new(1, 7));
-        let clos = Ast::Closure(cargs, Box::new(mult_call), SrcLoc::new(1, 1));
+        let clos = Ast::closure(cargs, mult_call, SrcLoc::new(1, 1));
         let expected = Ast::Block(vec![clos]);
         assert_eq!(expected, root);
     }
