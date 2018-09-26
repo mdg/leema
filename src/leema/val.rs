@@ -12,7 +12,7 @@ use leema::struple::Struple;
 use std::cmp::{Ordering, PartialEq, PartialOrd};
 use std::collections::BTreeMap;
 use std::fmt;
-use std::io::{Error, Write};
+use std::io::Error;
 use std::sync::atomic::{self, AtomicBool};
 use std::sync::{Arc, Mutex};
 

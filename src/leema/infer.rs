@@ -6,7 +6,6 @@ use leema::val::{Type, TypeErr, TypeResult, Val};
 
 use std::collections::hash_map::Keys;
 use std::collections::HashMap;
-use std::io::Write;
 
 
 #[derive(Debug)]

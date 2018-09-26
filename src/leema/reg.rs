@@ -4,7 +4,6 @@ use leema::val::Val;
 
 use std::collections::HashMap;
 use std::fmt;
-use std::io::Write;
 
 
 #[derive(PartialEq)]

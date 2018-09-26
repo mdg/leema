@@ -9,7 +9,6 @@ use leema::reg::Reg;
 use leema::struple::Struple;
 use leema::val::{Env, Type, Val};
 
-use std::io::Write;
 use std::mem;
 use std::rc::Rc;
 

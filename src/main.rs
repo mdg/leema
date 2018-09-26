@@ -30,7 +30,6 @@ use leema::val::Val;
 
 use docopt::Docopt;
 use std::env;
-use std::io::Write;
 
 
 #[derive(Debug)]

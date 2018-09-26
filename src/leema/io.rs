@@ -10,7 +10,6 @@ use std;
 use std::cell::RefCell;
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
-use std::io::Write;
 use std::rc::Rc;
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::thread;

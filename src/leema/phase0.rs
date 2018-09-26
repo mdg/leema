@@ -11,7 +11,6 @@ use leema::val::{SrcLoc, Type, Val};
 
 use std::collections::{HashMap, LinkedList};
 use std::fmt;
-use std::io::Write;
 
 
 #[derive(Debug)]

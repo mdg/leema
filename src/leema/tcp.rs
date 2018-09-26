@@ -7,7 +7,7 @@ use leema::val::{Type, Val};
 // use bytes::buf::BufMut;
 use bytes::BytesMut;
 use std;
-use std::io::{self, Write};
+use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 

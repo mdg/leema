@@ -10,7 +10,6 @@ use leema::struple::Struple;
 use leema::val::{Type, Val};
 
 use std::fmt;
-use std::io::Write;
 use std::marker;
 use std::sync::Arc;
 

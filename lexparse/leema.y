@@ -8,7 +8,6 @@ use leema::lstr::{Lstr};
 use leema::log;
 
 use std::collections::linked_list::{LinkedList};
-use std::io::{Write};
 }
 
 %start_symbol {program}

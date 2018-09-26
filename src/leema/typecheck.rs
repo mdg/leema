@@ -8,7 +8,6 @@ use leema::struple::Struple;
 use leema::val::{Type, TypeErr, TypeResult, Val};
 
 use std::collections::{HashMap, LinkedList};
-use std::io::Write;
 
 #[derive(Debug)]
 pub enum CallOp

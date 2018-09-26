@@ -9,7 +9,6 @@ use leema::worker::Worker;
 
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
-use std::io::Write;
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::thread;
 use std::time::Duration;

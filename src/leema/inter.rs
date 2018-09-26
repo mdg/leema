@@ -10,7 +10,6 @@ use leema::val::{SrcLoc, Type, Val};
 
 use std::collections::{HashMap, HashSet, LinkedList};
 use std::fmt;
-use std::io::Write;
 use std::rc::Rc;
 use std::sync::Arc;
 

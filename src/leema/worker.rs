@@ -8,7 +8,6 @@ use leema::val::{MsgVal, Val};
 
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
-use std::io::Write;
 use std::rc::Rc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;

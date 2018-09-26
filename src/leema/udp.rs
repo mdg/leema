@@ -4,7 +4,6 @@ use leema::lstr::Lstr;
 use leema::rsrc::{self, Rsrc};
 use leema::val::{Type, Val};
 
-use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
