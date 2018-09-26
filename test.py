@@ -196,6 +196,13 @@ class TestScripts(unittest.TestCase):
             b"\n",
             result['output'])
 
+    def test_closures(self):
+        result = run_leema('test_closures')
+        self.assertEqual(0, result['code'])
+        exp = b"double i = [2,4,6,8,]\n" \
+            + b"triple i = [3,6,9,12,]\n"
+        self.assertEqual(exp, result['output'])
+
     def test_destruct(self):
         result = run_leema('destruct')
         self.assertEqual(0, result['code'])
