@@ -193,9 +193,40 @@ pub struct ScopedReg<'a>
     pub stack: RegStack<'a>,
 }
 
+impl<'a> ScopedReg<'a>
+{
+    pub fn pop(mut self)
+    {
+        self._pop();
+    }
+
+    fn _pop(&mut self)
+    {
+        let rt = self.stack._rt.take().unwrap();
+        let popped = rt.dstack.pop().unwrap();
+        if let Reg::Local(Ireg::Reg(i)) = popped {
+            rt.free.push(i);
+        }
+        match self.stack.parent {
+            Some(ref mut parent) => {
+                parent._rt = Some(rt);
+            }
+            None => {}
+        }
+    }
+}
+
+impl<'a> Drop for ScopedReg<'a>
+{
+    fn drop(&mut self)
+    {
+        self._pop()
+    }
+}
+
 pub struct RegStack<'a>
 {
-    pub rt: Option<&'a mut RegTable>,
+    _rt: Option<&'a mut RegTable>,
     parent: Option<Box<RegStack<'a>>>,
 }
 
@@ -203,26 +234,19 @@ impl<'a> RegStack<'a>
 {
     pub fn new(rt: &'a mut RegTable) -> RegStack<'a>
     {
-        RegStack{ rt: Some(rt), parent: None }
+        RegStack{ _rt: Some(rt), parent: None }
     }
 
-    /*
-    pub fn rt(&'a self) -> &'a mut RegTable
+    pub fn rt(&mut self) -> &mut RegTable
     {
-        match self.rt {
-            Some(ref rt) => *rt,
-            None => {
-                panic!("cannot borrow regtable from a lower node in stack");
-            }
-        }
+        self._rt.as_mut().expect("cannot borrow from lower stack node")
     }
-    */
 
     pub fn push_dst(mut self) -> ScopedReg<'a>
     {
-        let rt = self.rt.take().unwrap();
+        let rt = self._rt.take().unwrap();
         let dst = rt.push_dst().clone();
-        let new_top = RegStack{ rt: Some(rt), parent: Some(Box::new(self)) };
+        let new_top = RegStack{ _rt: Some(rt), parent: Some(Box::new(self)) };
         ScopedReg{ r: dst, stack: new_top }
     }
 }
@@ -231,7 +255,7 @@ impl<'a> AsMut<RegTable> for RegStack<'a>
 {
     fn as_mut(&mut self) -> &mut RegTable
     {
-        self.rt.as_mut().unwrap()
+        self._rt.as_mut().unwrap()
     }
 }
 

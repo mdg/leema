@@ -617,9 +617,10 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
 
 pub fn make_if_ops(rt: &mut RegTable, test: &Ixpr, truth: &Ixpr) -> Oxpr
 {
-    rt.push_dst();
-    let mut if_ops = make_sub_ops(rt, &test);
-    rt.pop_dst();
+    let mut if_ops = {
+        let mut test_dst = rt.push_scoped();
+        make_sub_ops(test_dst.stack.rt(), &test)
+    };
     let mut truth_ops = make_sub_ops(rt, &truth);
 
     if_ops.ops.push((
