@@ -3,7 +3,6 @@ use leema::lstr::Lstr;
 use leema::val::Val;
 
 use std::collections::HashMap;
-use std::convert::AsMut;
 use std::fmt;
 
 
@@ -248,70 +247,6 @@ impl<'a> RegStack<'a>
         let dst = rt.push_dst().clone();
         let new_top = RegStack{ _rt: Some(rt), parent: Some(Box::new(self)) };
         ScopedReg{ r: dst, stack: new_top }
-    }
-}
-
-impl<'a> AsMut<RegTable> for RegStack<'a>
-{
-    fn as_mut(&mut self) -> &mut RegTable
-    {
-        self._rt.as_mut().unwrap()
-    }
-}
-
-pub struct ScopedReg1<'a>
-{
-    pub rt: &'a mut RegTable,
-    pushes: Vec<Option<Reg>>,
-}
-
-impl<'a> ScopedReg1<'a>
-{
-    pub fn init(rt: &'a mut RegTable) -> ScopedReg1<'a>
-    {
-        ScopedReg1{
-            rt,
-            pushes: vec![],
-        }
-    }
-
-    pub fn dst(&self) -> &Reg
-    {
-        self.rt.dst()
-    }
-
-    pub fn push_dst(&mut self) -> &Reg
-    {
-        let dst = self.rt.next();
-        self.rt.dstack.push(dst);
-        self.pushes.push(None);
-        self.rt.dst()
-    }
-
-    pub fn pop_dst(&mut self)
-    {
-        let popped = self.rt.dstack.pop().unwrap();
-        if let Reg::Local(Ireg::Reg(i)) = popped {
-eprintln!("recycle reg: {}", i);
-            self.rt.free.push(i);
-        }
-    }
-}
-
-impl<'a> Drop for ScopedReg1<'a>
-{
-    fn drop(&mut self)
-    {
-        for opt_r in self.pushes.drain(..).rev() {
-            match opt_r {
-                Some(_) => {
-                    self.rt.pop_dst_reg();
-                }
-                None => {
-                    self.rt.pop_dst();
-                }
-            }
-        }
     }
 }
 
