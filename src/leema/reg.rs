@@ -3,6 +3,7 @@ use leema::lstr::Lstr;
 use leema::val::Val;
 
 use std::collections::HashMap;
+use std::convert::AsMut;
 use std::fmt;
 
 
@@ -186,36 +187,51 @@ impl fmt::Debug for Reg
 }
 
 
-pub struct ScopedReg<'a, 'b>
-    where 'a: 'b
+pub struct ScopedReg<'a>
 {
     pub r: Reg,
-    pub t: RegStack<'a, 'b>,
+    pub stack: RegStack<'a>,
 }
 
-pub enum RegStack<'a, 'b>
-    where 'a: 'b
+pub struct RegStack<'a>
 {
-    Top(&'a mut RegTable, Option<&'b mut RegStack<'a, 'a>>),
-    Node(Option<&'b mut RegStack<'a, 'a>>),
+    pub rt: Option<&'a mut RegTable>,
+    parent: Option<Box<RegStack<'a>>>,
 }
 
-impl<'a, 'b> RegStack<'a, 'b>
+impl<'a> RegStack<'a>
 {
-    pub fn push_dst(&'a mut self) -> ScopedReg<'a, 'b>
+    pub fn new(rt: &'a mut RegTable) -> RegStack<'a>
     {
-        match self {
-            &mut RegStack::Top(ref mut rt, ref mut next) => {
-                let dst = rt.push_dst().clone();
-                let new_next = next.take();
-                *self = RegStack::Node(new_next);
-                let new_top = RegStack::Top(rt, Some(self));
-                ScopedReg{r: dst, t: new_top}
-            }
-            &mut RegStack::Node(_) => {
-                panic!("cannot push from a lower node in reg stack");
+        RegStack{ rt: Some(rt), parent: None }
+    }
+
+    /*
+    pub fn rt(&'a self) -> &'a mut RegTable
+    {
+        match self.rt {
+            Some(ref rt) => *rt,
+            None => {
+                panic!("cannot borrow regtable from a lower node in stack");
             }
         }
+    }
+    */
+
+    pub fn push_dst(mut self) -> ScopedReg<'a>
+    {
+        let rt = self.rt.take().unwrap();
+        let dst = rt.push_dst().clone();
+        let new_top = RegStack{ rt: Some(rt), parent: Some(Box::new(self)) };
+        ScopedReg{ r: dst, stack: new_top }
+    }
+}
+
+impl<'a> AsMut<RegTable> for RegStack<'a>
+{
+    fn as_mut(&mut self) -> &mut RegTable
+    {
+        self.rt.as_mut().unwrap()
     }
 }
 
@@ -309,10 +325,20 @@ impl RegTable
         }
     }
 
+    pub fn new_stack<'a>(&'a mut self) -> RegStack<'a>
+    {
+        RegStack::new(self)
+    }
+
+    pub fn push_scoped<'a>(&'a mut self) -> ScopedReg<'a>
+    {
+        RegStack::new(self).push_dst()
+    }
+
     pub fn push_dst(&mut self) -> &Reg
     {
         let dst = self.next();
-        self.dstack.push(dst.clone());
+        self.dstack.push(dst);
         self.dst()
     }
 

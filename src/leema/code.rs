@@ -707,13 +707,12 @@ pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Ixpr>) -> Oxpr
         Op::ConstVal(dst.clone(), Val::empty_str()),
         items.first().unwrap().line,
     ));
-    rt.push_dst();
+    let mut item_dst = rt.push_scoped();
     for i in items {
-        let mut strops = make_sub_ops(rt, i);
+        let mut strops = make_sub_ops(item_dst.stack.as_mut(), i);
         ops.append(&mut strops.ops);
         ops.push((Op::StrCat(dst.clone(), strops.dst), i.line));
     }
-    rt.pop_dst();
     Oxpr { ops, dst }
 }
 
