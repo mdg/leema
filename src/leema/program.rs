@@ -261,6 +261,7 @@ impl Lib
                     panic!("cannot find function inter: {}", funcri);
                 }).unwrap();
             icf.collect_calls(&fix);
+            vout!("collected calls: {} => {:?}", funcri, icf.calls);
             icf
         };
         for c in cf.calls.iter() {
