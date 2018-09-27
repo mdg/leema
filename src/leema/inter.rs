@@ -660,15 +660,19 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
             vout!("compile_local_id_module({})\n", id);
             match val {
                 // Val::FuncRef(fri, ftype) => {
-                Val::FuncRef(fri, cargs, ftype) => {
+                Val::FuncRef(fri, args, ftype) => {
                     let cval = match scope.get_closed_vars(&fri.localid) {
                         Some(ref vars) if !vars.is_empty() => {
-                            let cvars = vars
+                            let cvar_it = vars
                                 .iter()
                                 .map(|v| {
                                     scope.blocks.access_var(v, loc.lineno);
-                                    (None, Val::Id(v.clone()))
-                                }).collect();
+                                    (Some(v.clone()), Val::Void)
+                                });
+                            let fr_args = args.0
+                                .into_iter()
+                                .chain(cvar_it)
+                                .collect();
                             let cvartypes = vars
                                 .iter()
                                 .map(|v| {
@@ -682,9 +686,9 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
                             } else {
                                 panic!("closure type not a func: {:?}", ftype);
                             };
-                            Val::FuncRef(fri, Struple(cvars), cftype)
+                            Val::FuncRef(fri, Struple(fr_args), cftype)
                         }
-                        _ => Val::FuncRef(fri, cargs, ftype),
+                        _ => Val::FuncRef(fri, args, ftype),
                     };
                     Ixpr {
                         src: Source::ConstVal(cval),

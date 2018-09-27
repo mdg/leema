@@ -210,10 +210,10 @@ impl RegTable
         self.dstack.last().unwrap()
     }
 
-    pub fn def_args(&mut self, args: &Vec<Lstr>)
+    pub fn def_args(&mut self, args: &Vec<Lstr>, closed: &Vec<Lstr>)
     {
         let mut r: i8 = 0;
-        for a in args {
+        for a in args.iter().chain(closed.iter()) {
             self.labels.insert(a.clone(), Reg::param(r));
             r += 1;
         }

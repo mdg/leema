@@ -7,8 +7,17 @@ func double(i) ->
 
 func main() ->
     let items := [1, 2, 3, 4]
-    let i2 := list::map(items, double) 
+
+    ## a standard function as an object
+    let i2 := list::map(items, double)
     print("double i = $i2\n")
+
+    ## an anonymous function
     let i3 := list::map(items, fn(i) (i * 3))
     print("triple i = $i3\n")
+
+    ## a closure, pulling in outer scope
+    let multiplier := 4
+    let im := list::map(items, fn(i) (i * multiplier))
+    print("multiplied i = $im\n")
 --

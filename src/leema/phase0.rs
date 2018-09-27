@@ -447,6 +447,12 @@ impl Protomod
         let result_type = self.preproc_type(prog, mp, None, &pp_result, loc);
         let ftype = Type::Func(arg_types, Box::new(result_type));
 
+        let fref_args = pp_args
+            .iter()
+            .map(|a| {
+                (a.k_clone(), Val::Void)
+            }).collect();
+
         let pp_func = Ast::DefFunc(
             ast::FuncClass::Closure,
             Box::new(Ast::Lri(vec![closure_key.clone()], None, *loc)),
@@ -458,8 +464,8 @@ impl Protomod
 
         let closuri =
             Lri::with_modules(mp.key.name.clone(), closure_key.clone());
-        let closed_vars = Struple(Vec::with_capacity(0));
-        let funcref = Val::FuncRef(closuri, closed_vars, ftype.clone());
+        let fref_struple = Struple(fref_args);
+        let funcref = Val::FuncRef(closuri, fref_struple, ftype.clone());
 
         self.closures.push_back(closure_key.clone());
         self.funcseq.push_back(closure_key.clone());
