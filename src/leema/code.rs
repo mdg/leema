@@ -293,7 +293,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             // return the future
             // maybe start w/ making closures and forks will be easier
         }
-        Source::Func(ref argnames, ref _argt, ref _frtype, ref body) => {
+        Source::Func(ref argnames, _, ref _argt, ref _frtype, ref body) => {
             rt.def_args(argnames);
             make_sub_ops(rt, &body)
         }

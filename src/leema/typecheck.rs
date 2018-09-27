@@ -119,7 +119,7 @@ impl<'a> CallFrame<'a>
             Source::Return(ref result) => {
                 self.collect_calls(result);
             }
-            Source::Func(ref _args, _, _, ref body) => {
+            Source::Func(ref _args, _, _, _, ref body) => {
                 self.collect_calls(body);
             }
             Source::Cons(ref head, ref tail) => {
@@ -527,7 +527,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
         &mut Source::MatchCase(ref pattern, _, _) => {
             panic!("cannot directly typecheck matchcase: {}", pattern);
         }
-        &mut Source::Func(ref _args, _, _, ref _body) => {
+        &mut Source::Func(ref _args, _, _, _, ref _body) => {
             Err(TypeErr::Error(Lstr::from(format!(
                 "unexpected func in typecheck",
             ))))
@@ -543,6 +543,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
     match &mut ix.src {
         &mut Source::Func(
             ref arg_names,
+            ref closed_vars,
             ref mut arg_types,
             ref mut declared_result_type,
             ref mut body,
@@ -550,6 +551,11 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             let zips = arg_names.iter().zip(arg_types.iter());
             for (i, (an, at)) in zips.enumerate() {
                 scope.infer.init_param(i as i16, an, at, ix.line)?;
+            }
+            let mut ci = arg_names.len();
+            for an in closed_vars.iter() {
+                let at = Type::Var(Lstr::from(format!("T_{}_{}", an, ci)));
+                scope.infer.init_param(ci as i16, an, &at, ix.line)?;
             }
             vout!("f({:?}) =>\n{:?}\n", arg_names, body);
             let result_type = typecheck_expr(scope, &mut *body)

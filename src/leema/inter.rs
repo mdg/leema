@@ -154,7 +154,7 @@ impl Intermod
             (inner_body, scope.take_closed())
         };
         if !closed_vars.is_empty() {
-            self.closed_vars.insert(fname.clone(), closed_vars);
+            self.closed_vars.insert(fname.clone(), closed_vars.clone());
         }
         let ibody2 = Ixpr {
             src: ibody.src,
@@ -170,6 +170,7 @@ impl Intermod
             }).collect();
         let src = Source::Func(
             rc_args,
+            closed_vars,
             argt.clone(),
             result_type.clone(),
             Box::new(ibody2),
