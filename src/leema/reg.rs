@@ -185,6 +185,96 @@ impl fmt::Debug for Reg
     }
 }
 
+
+pub struct ScopedReg<'a, 'b>
+    where 'a: 'b
+{
+    pub r: Reg,
+    pub t: RegStack<'a, 'b>,
+}
+
+pub enum RegStack<'a, 'b>
+    where 'a: 'b
+{
+    Top(&'a mut RegTable, Option<&'b mut RegStack<'a, 'a>>),
+    Node(Option<&'b mut RegStack<'a, 'a>>),
+}
+
+impl<'a, 'b> RegStack<'a, 'b>
+{
+    pub fn push_dst(&'a mut self) -> ScopedReg<'a, 'b>
+    {
+        match self {
+            &mut RegStack::Top(ref mut rt, ref mut next) => {
+                let dst = rt.push_dst().clone();
+                let new_next = next.take();
+                *self = RegStack::Node(new_next);
+                let new_top = RegStack::Top(rt, Some(self));
+                ScopedReg{r: dst, t: new_top}
+            }
+            &mut RegStack::Node(_) => {
+                panic!("cannot push from a lower node in reg stack");
+            }
+        }
+    }
+}
+
+pub struct ScopedReg1<'a>
+{
+    pub rt: &'a mut RegTable,
+    pushes: Vec<Option<Reg>>,
+}
+
+impl<'a> ScopedReg1<'a>
+{
+    pub fn init(rt: &'a mut RegTable) -> ScopedReg1<'a>
+    {
+        ScopedReg1{
+            rt,
+            pushes: vec![],
+        }
+    }
+
+    pub fn dst(&self) -> &Reg
+    {
+        self.rt.dst()
+    }
+
+    pub fn push_dst(&mut self) -> &Reg
+    {
+        let dst = self.rt.next();
+        self.rt.dstack.push(dst);
+        self.pushes.push(None);
+        self.rt.dst()
+    }
+
+    pub fn pop_dst(&mut self)
+    {
+        let popped = self.rt.dstack.pop().unwrap();
+        if let Reg::Local(Ireg::Reg(i)) = popped {
+eprintln!("recycle reg: {}", i);
+            self.rt.free.push(i);
+        }
+    }
+}
+
+impl<'a> Drop for ScopedReg1<'a>
+{
+    fn drop(&mut self)
+    {
+        for opt_r in self.pushes.drain(..).rev() {
+            match opt_r {
+                Some(_) => {
+                    self.rt.pop_dst_reg();
+                }
+                None => {
+                    self.rt.pop_dst();
+                }
+            }
+        }
+    }
+}
+
 pub struct RegTable
 {
     dstack: Vec<Reg>,
