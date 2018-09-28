@@ -617,10 +617,9 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
 
 pub fn make_if_ops(rt: &mut RegTable, test: &Ixpr, truth: &Ixpr) -> Oxpr
 {
-    let mut if_ops = {
-        let mut test_dst = rt.push_scoped();
-        make_sub_ops(test_dst.stack.rt(), &test)
-    };
+    rt.push_dst();
+    let mut if_ops = make_sub_ops(rt, &test);
+    rt.pop_dst();
     let mut truth_ops = make_sub_ops(rt, &truth);
 
     if_ops.ops.push((
@@ -708,12 +707,13 @@ pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Ixpr>) -> Oxpr
         Op::ConstVal(dst.clone(), Val::empty_str()),
         items.first().unwrap().line,
     ));
-    let mut item_dst = rt.push_scoped();
+    rt.push_dst();
     for i in items {
-        let mut strops = make_sub_ops(item_dst.stack.as_mut(), i);
+        let mut strops = make_sub_ops(rt, i);
         ops.append(&mut strops.ops);
         ops.push((Op::StrCat(dst.clone(), strops.dst), i.line));
     }
+    rt.pop_dst();
     Oxpr { ops, dst }
 }
 

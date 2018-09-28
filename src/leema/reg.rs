@@ -2,6 +2,7 @@ use leema::log;
 use leema::lstr::Lstr;
 use leema::val::Val;
 
+use std::cell::RefCell;
 use std::cmp;
 use std::collections::HashMap;
 use std::fmt;
@@ -190,183 +191,182 @@ impl fmt::Debug for Reg
 
 #[derive(Clone)]
 #[derive(Debug)]
-pub struct Tree<'a>
+pub struct Tree
 {
-    zero: Option<Rc<Tree<'a>>>,
-    one:  Option<Rc<Tree<'a>>>,
-    reg:  i8,
+    zero: Option<Box<Tree>>,
+    one:  Option<Box<Tree>>,
+    reg:  Option<i8>,
     max:  i8,
-    name: Option<&'a str>,
 }
 
-impl<'a> Tree<'a>
+impl Tree
 {
-    pub fn new() -> Tree<'a>
+    pub fn new() -> Tree
     {
         Tree {
             zero: None,
             one:  None,
-            reg:  0,
-            max:  1,
-            name: None,
+            reg:  None,
+            max:  0,
         }
     }
 
-    fn with_index(index: i8) -> Tree<'a>
+    fn with_reg(reg: i8) -> Tree
     {
         Tree {
             zero: None,
             one:  None,
-            reg:  index - 1,
-            max:  index,
-            name: None,
+            reg:  Some(reg),
+            max:  reg,
         }
     }
 
-    pub fn push(&self) -> Tree<'a>
+    pub fn push(&mut self) -> i8
     {
-        self._push(1, None)
+        self._push(1)
     }
 
-    pub fn push_id(&self, id: &str) -> Tree<'a>
+    pub fn pop(&mut self, r: &Reg)
     {
-        self._push(1, Some(id))
+        let ir = match r {
+            &Reg::Local(Ireg::Reg(localreg)) => localreg,
+            _ => {
+                panic!("cannot pop a not local reg: {:?}", r);
+            }
+        };
+        if ir == 1 {
+            self.reg = None;
+            self.max = self.get_max();
+            return;
+        }
+        self._pop(ir >> 1);
     }
 
-    pub fn _push(&self, r: i8, name: Option<&str>) -> Tree<'a>
+    fn _push(&mut self, r: i8) -> i8
     {
+        if self.reg.is_none() {
+            self.reg = Some(r);
+            self.max = self.get_max();
+            return r;
+        }
         let new0x = (r << 1) & 0x7e;
         let new1x = new0x | 0x01;
-        let (new_zero, new_one) = match (&self.zero, &self.one) {
-            (&Some(ref old0), &Some(ref old1)) if old0.max < old1.max => {
-                (Some(Rc::new(old0._push(new0x, name))), self.one.clone())
+        let new_reg = match (&mut self.zero, &mut self.one) {
+            (&mut Some(ref mut old0), &mut Some(ref old1)) if old0.max < old1.max => {
+                old0._push(new0x)
             }
-            (&Some(_), &Some(ref old1)) => {
-                (self.zero.clone(), Some(Rc::new(old1._push(new1x, name))))
+            (&mut Some(_), &mut Some(ref mut old1)) => {
+                old1._push(new0x)
             }
-            (&None, _) => {
-                (Some(Rc::new(Tree::with_index(new0x))), self.one.clone())
+            (old0 @ &mut None, _) => {
+                *old0 = Some(Box::new(Tree::with_reg(new0x)));
+                new0x
             }
-            (_, &None) => {
-                (self.zero.clone(), Some(Rc::new(Tree::with_index(new1x))))
-            }
-        };
-        let new_max = match (&new_zero, &new_one) {
-            (&Some(ref izero), &Some(ref ione)) => {
-                cmp::max(izero.max, ione.max)
-            }
-            (&None, &Some(ref ione)) => ione.max,
-            (&Some(ref izero), &None) => izero.max,
-            (&None, &None) => {
-                panic!("no new zero or new one");
+            (_, old1 @ &mut None) => {
+                *old1 = Some(Box::new(Tree::with_reg(new1x)));
+                new1x
             }
         };
+        self.max = self.get_max();
+        new_reg
+    }
 
-        // new tree to replace self
-        Tree {
-            zero: new_zero,
-            one:  new_one,
-            reg:  self.reg,
-            max:  new_max,
-            name: self.name.clone(),
+    fn _pop(&mut self, r: i8)
+    {
+        if r == 1 {
+            self.reg = None;
+            self.max = self.get_max();
+            return;
+        } else {
+            let nextr = r >> 1;
+            if r & 0x01 == 0x01 {
+                self.zero.as_mut().unwrap()._pop(nextr);
+            } else {
+                self.one.as_mut().unwrap()._pop(nextr);
+            }
+        }
+    }
+
+    pub fn get_max(&mut self) -> i8
+    {
+        match (&self.zero, &self.one) {
+            (&Some(ref old0), &Some(ref old1)) => cmp::max(old0.max, old1.max),
+            (&None, &Some(ref old1)) => old1.max,
+            (&Some(ref old0), &None) => old0.max,
+            _ => self.max,
         }
     }
 }
 
-#[allow(unused_macros)]
-macro_rules! reg_pop {
-    ( $dst:expr, $src:expr ) => {
-        { $dst.stack = $src.stack.pop(); }
-    }
+pub struct RegTab
+{
+    ids: HashMap<Lstr, Reg>,
+    reg: Rc<RefCell<Tree>>,
+    pub current: Reg,
 }
 
-pub struct ScopedReg<'a>
+impl RegTab
 {
-    pub r: Reg,
-    pub stack: RegStack<'a>,
-}
-
-pub struct RegStack<'a>
-{
-    _rt: Option<&'a mut RegTable>,
-    _dst: Reg,
-    parent: Option<Box<RegStack<'a>>>,
-}
-
-impl<'a> RegStack<'a>
-{
-    pub fn new(rt: &'a mut RegTable) -> RegStack<'a>
+    pub fn new() -> RegTab
     {
-        let dst = rt.dst().clone();
-        RegStack{ _rt: Some(rt), parent: None, _dst: dst }
+        RegTab {
+            ids: HashMap::new(),
+            reg: Rc::new(RefCell::new(Tree::new())),
+            current: Reg::local(0),
+        }
     }
 
-    pub fn dst(&self) -> &Reg
+    pub fn push(&mut self) -> ScopedReg
     {
-        &self._dst
-    }
-
-    pub fn rt(&mut self) -> &mut RegTable
-    {
-        self._rt.as_mut().expect("cannot borrow from lower stack node")
-    }
-
-    pub fn push_dst(mut self) -> ScopedReg<'a>
-    {
-        let rt = self._rt.take().unwrap();
-        let dst = rt.push_dst().clone();
-        let new_top = RegStack{
-            _rt: Some(rt),
-            parent: Some(Box::new(self)),
-            _dst: dst.clone(),
-        };
-        ScopedReg{ r: dst, stack: new_top }
+        let icurrent = self.reg.borrow_mut().push();
+        self.current = Reg::local(icurrent);
+        ScopedReg{ r: self.current.clone(), tree: self.reg.clone() }
     }
 
     pub fn id(&mut self, name: &Lstr) -> Reg
     {
-        let rt = self.rt();
-        if !rt.labels.contains_key(name) {
-            let dst = rt.next();
-            vout!("assign {} to {}\n", dst, name);
-            rt.labels.insert(name.clone(), dst);
-        }
-        rt.labels.get(name).unwrap().clone()
-    }
-
-    pub fn pop(mut self) -> RegStack<'a>
-    {
-        let prev_top = self._pop();
-        prev_top.expect("RegStack underflow")
-    }
-
-    fn _pop(&mut self) -> Option<RegStack<'a>>
-    {
-        let rt = self._rt.take()
-            .unwrap_or_else(|| {
-                panic!("no RegTable for RegStack {}", self._dst);
-            });
-        let popped = rt.dstack.pop().unwrap();
-        if let Reg::Local(Ireg::Reg(i)) = popped {
-            rt.free.push(i);
-        }
-        match self.parent.take() {
-            Some(mut parent) => {
-                parent._rt = Some(rt);
-                Some(*parent)
+        {
+            let first_get = self.ids.get(name);
+            if first_get.is_some() {
+                return first_get.unwrap().clone();
             }
-            None => None,
         }
+        let ireg = self.reg.borrow_mut().push();
+        let reg = Reg::local(ireg);
+        self.ids.insert(name.clone(), reg.clone());
+        reg
     }
 }
 
-impl<'a> Drop for RegStack<'a>
+
+pub struct ScopedReg
+{
+    pub r: Reg,
+    tree: Rc<RefCell<Tree>>,
+}
+
+impl ScopedReg
+{
+    pub fn pop(mut self)
+    {
+        self._pop();
+    }
+
+    fn _pop(&mut self)
+    {
+        if self.r == Reg::Void {
+            return;
+        }
+        self.tree.borrow_mut().pop(&self.r);
+        self.r = Reg::Void;
+    }
+}
+
+impl Drop for ScopedReg
 {
     fn drop(&mut self)
     {
-        if self._rt.is_some() {
-            self._pop();
-        }
+        self._pop();
     }
 }
 
@@ -403,16 +403,6 @@ impl RegTable
             self.labels.insert(a.clone(), Reg::param(r));
             r += 1;
         }
-    }
-
-    pub fn new_stack<'a>(&'a mut self) -> RegStack<'a>
-    {
-        RegStack::new(self)
-    }
-
-    pub fn push_scoped<'a>(&'a mut self) -> ScopedReg<'a>
-    {
-        RegStack::new(self).push_dst()
     }
 
     pub fn push_dst(&mut self) -> &Reg
