@@ -236,6 +236,11 @@ impl<'a> RegStack<'a>
         RegStack{ _rt: Some(rt), parent: None }
     }
 
+    pub fn dst(&self) -> &Reg
+    {
+        self._rt.as_ref().unwrap().dst()
+    }
+
     pub fn rt(&mut self) -> &mut RegTable
     {
         self._rt.as_mut().expect("cannot borrow from lower stack node")
@@ -247,6 +252,17 @@ impl<'a> RegStack<'a>
         let dst = rt.push_dst().clone();
         let new_top = RegStack{ _rt: Some(rt), parent: Some(Box::new(self)) };
         ScopedReg{ r: dst, stack: new_top }
+    }
+
+    pub fn id(&mut self, name: &Lstr) -> Reg
+    {
+        let rt = self.rt();
+        if !rt.labels.contains_key(name) {
+            let dst = rt.next();
+            vout!("assign {} to {}\n", dst, name);
+            rt.labels.insert(name.clone(), dst);
+        }
+        rt.labels.get(name).unwrap().clone()
     }
 }
 
@@ -362,6 +378,7 @@ impl RegTable
 mod tests
 {
     use leema::reg::{Reg, RegTable};
+    use leema::lstr::Lstr;
 
     #[test]
     fn test_init()
@@ -438,6 +455,35 @@ mod tests
         assert_eq!(Reg::local(2), *rt.push_dst());
         assert_eq!(Reg::local(3), *rt.push_dst());
         assert_eq!(Reg::local(3), *rt.dst());
+    }
+
+    #[test]
+    fn test_rt_push_scoped()
+    {
+        let mut rt = RegTable::new();
+
+        let mut r0 = rt.push_scoped();
+        assert_eq!(Reg::local(0), r0.r);
+        assert_eq!(Reg::local(0), *r0.stack.dst());
+        let r_x = r0.stack.id(&Lstr::Sref("x"));
+        assert_eq!(Reg::local(1), r_x);
+        let mut r1 = r0.stack.push_dst();
+        assert_eq!(Reg::local(2), r1.r);
+        assert_eq!(Reg::local(2), *r1.stack.dst());
+        r1.pop();
+        assert_eq!(Reg::local(0), *r1.stack.dst());
+    }
+
+    #[test]
+    fn test_rt_pop_scoped_disorder()
+    {
+        let mut rt = RegTable::new();
+
+        let mut r0 = rt.push_scoped();
+        r0.stack.id(&Lstr::Sref("x"));
+        let r1 = r0.stack.push_dst();
+        r0.pop();
+        assert_eq!(Reg::local(2), r1.r);
     }
 
 }
