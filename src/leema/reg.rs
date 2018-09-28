@@ -2,8 +2,10 @@ use leema::log;
 use leema::lstr::Lstr;
 use leema::val::Val;
 
+use std::cmp;
 use std::collections::HashMap;
 use std::fmt;
+use std::rc::Rc;
 
 
 #[derive(PartialEq)]
@@ -185,6 +187,91 @@ impl fmt::Debug for Reg
     }
 }
 
+
+#[derive(Clone)]
+#[derive(Debug)]
+pub struct Tree<'a>
+{
+    zero: Option<Rc<Tree<'a>>>,
+    one:  Option<Rc<Tree<'a>>>,
+    reg:  i8,
+    max:  i8,
+    name: Option<&'a str>,
+}
+
+impl<'a> Tree<'a>
+{
+    pub fn new() -> Tree<'a>
+    {
+        Tree {
+            zero: None,
+            one:  None,
+            reg:  0,
+            max:  1,
+            name: None,
+        }
+    }
+
+    fn with_index(index: i8) -> Tree<'a>
+    {
+        Tree {
+            zero: None,
+            one:  None,
+            reg:  index - 1,
+            max:  index,
+            name: None,
+        }
+    }
+
+    pub fn push(&self) -> Tree<'a>
+    {
+        self._push(1, None)
+    }
+
+    pub fn push_id(&self, id: &str) -> Tree<'a>
+    {
+        self._push(1, Some(id))
+    }
+
+    pub fn _push(&self, r: i8, name: Option<&str>) -> Tree<'a>
+    {
+        let new0x = (r << 1) & 0x7e;
+        let new1x = new0x | 0x01;
+        let (new_zero, new_one) = match (&self.zero, &self.one) {
+            (&Some(ref old0), &Some(ref old1)) if old0.max < old1.max => {
+                (Some(Rc::new(old0._push(new0x, name))), self.one.clone())
+            }
+            (&Some(_), &Some(ref old1)) => {
+                (self.zero.clone(), Some(Rc::new(old1._push(new1x, name))))
+            }
+            (&None, _) => {
+                (Some(Rc::new(Tree::with_index(new0x))), self.one.clone())
+            }
+            (_, &None) => {
+                (self.zero.clone(), Some(Rc::new(Tree::with_index(new1x))))
+            }
+        };
+        let new_max = match (&new_zero, &new_one) {
+            (&Some(ref izero), &Some(ref ione)) => {
+                cmp::max(izero.max, ione.max)
+            }
+            (&None, &Some(ref ione)) => ione.max,
+            (&Some(ref izero), &None) => izero.max,
+            (&None, &None) => {
+                panic!("no new zero or new one");
+            }
+        };
+
+        // new tree to replace self
+        Tree {
+            zero: new_zero,
+            one:  new_one,
+            reg:  self.reg,
+            max:  new_max,
+            name: self.name.clone(),
+        }
+    }
+}
 
 #[allow(unused_macros)]
 macro_rules! reg_pop {
