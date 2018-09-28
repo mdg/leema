@@ -532,7 +532,6 @@ impl RegTable
 mod tests
 {
     use leema::reg::{Reg, RegTable};
-    use leema::lstr::Lstr;
 
     #[test]
     fn test_init()
@@ -610,62 +609,4 @@ mod tests
         assert_eq!(Reg::local(3), *rt.push_dst());
         assert_eq!(Reg::local(3), *rt.dst());
     }
-
-    #[test]
-    fn test_scopedreg_push_pop()
-    {
-        let mut rt = RegTable::new();
-        assert_eq!(Reg::local(0), *rt.dst());
-
-        let mut r0 = rt.push_scoped();
-        assert_eq!(Reg::local(1), r0.r);
-        assert_eq!(Reg::local(1), *r0.stack.dst());
-        let r_x = r0.stack.id(&Lstr::Sref("x"));
-        assert_eq!(Reg::local(2), r_x);
-        let r1 = r0.stack.push_dst();
-        assert_eq!(Reg::local(3), r1.r);
-        assert_eq!(Reg::local(3), *r1.stack.dst());
-        reg_pop!(r0, r1);
-        assert_eq!(Reg::local(1), *r0.stack.dst());
-        r0.stack.pop();
-    }
-
-    #[test]
-    fn test_scopedreg_push_in_block()
-    {
-        let mut rt = RegTable::new();
-
-        let r0 = rt.push_scoped();
-        assert_eq!(Reg::local(1), r0.r);
-        {
-            let r1 = r0.stack.push_dst();
-            assert_eq!(Reg::local(2), r1.r);
-            assert_eq!(Reg::local(2), *r1.stack.dst());
-        }
-    }
-
-    #[test]
-    fn test_scopedreg_disordered_borrow()
-    {
-        let mut rt = RegTable::new();
-
-        let r0 = rt.push_scoped();
-        let r1 = r0.stack.push_dst();
-        // can't even do this b/c of borrow checker
-        // r0.stack.pop();
-        assert_eq!(Reg::local(2), r1.r);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_scopedreg_disordered_pop()
-    {
-        let mut rt = RegTable::new();
-
-        let mut r0 = rt.push_scoped();
-        let r1 = r0.stack.push_dst();
-        let r2 = r1.stack.push_dst();
-        reg_pop!(r0, r2);
-    }
-
 }
