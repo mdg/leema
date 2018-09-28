@@ -186,46 +186,23 @@ impl fmt::Debug for Reg
 }
 
 
+#[allow(unused_macros)]
+macro_rules! reg_pop {
+    ( $dst:expr, $src:expr ) => {
+        { $dst.stack = $src.stack.pop(); }
+    }
+}
+
 pub struct ScopedReg<'a>
 {
     pub r: Reg,
     pub stack: RegStack<'a>,
 }
 
-impl<'a> ScopedReg<'a>
-{
-    pub fn pop(mut self)
-    {
-        self._pop();
-    }
-
-    fn _pop(&mut self)
-    {
-        let rt = self.stack._rt.take().unwrap();
-        let popped = rt.dstack.pop().unwrap();
-        if let Reg::Local(Ireg::Reg(i)) = popped {
-            rt.free.push(i);
-        }
-        match self.stack.parent {
-            Some(ref mut parent) => {
-                parent._rt = Some(rt);
-            }
-            None => {}
-        }
-    }
-}
-
-impl<'a> Drop for ScopedReg<'a>
-{
-    fn drop(&mut self)
-    {
-        self._pop()
-    }
-}
-
 pub struct RegStack<'a>
 {
     _rt: Option<&'a mut RegTable>,
+    _dst: Reg,
     parent: Option<Box<RegStack<'a>>>,
 }
 
@@ -233,12 +210,13 @@ impl<'a> RegStack<'a>
 {
     pub fn new(rt: &'a mut RegTable) -> RegStack<'a>
     {
-        RegStack{ _rt: Some(rt), parent: None }
+        let dst = rt.dst().clone();
+        RegStack{ _rt: Some(rt), parent: None, _dst: dst }
     }
 
     pub fn dst(&self) -> &Reg
     {
-        self._rt.as_ref().unwrap().dst()
+        &self._dst
     }
 
     pub fn rt(&mut self) -> &mut RegTable
@@ -250,7 +228,11 @@ impl<'a> RegStack<'a>
     {
         let rt = self._rt.take().unwrap();
         let dst = rt.push_dst().clone();
-        let new_top = RegStack{ _rt: Some(rt), parent: Some(Box::new(self)) };
+        let new_top = RegStack{
+            _rt: Some(rt),
+            parent: Some(Box::new(self)),
+            _dst: dst.clone(),
+        };
         ScopedReg{ r: dst, stack: new_top }
     }
 
@@ -264,7 +246,43 @@ impl<'a> RegStack<'a>
         }
         rt.labels.get(name).unwrap().clone()
     }
+
+    pub fn pop(mut self) -> RegStack<'a>
+    {
+        let prev_top = self._pop();
+        prev_top.expect("RegStack underflow")
+    }
+
+    fn _pop(&mut self) -> Option<RegStack<'a>>
+    {
+        let rt = self._rt.take()
+            .unwrap_or_else(|| {
+                panic!("no RegTable for RegStack {}", self._dst);
+            });
+        let popped = rt.dstack.pop().unwrap();
+        if let Reg::Local(Ireg::Reg(i)) = popped {
+            rt.free.push(i);
+        }
+        match self.parent.take() {
+            Some(mut parent) => {
+                parent._rt = Some(rt);
+                Some(*parent)
+            }
+            None => None,
+        }
+    }
 }
+
+impl<'a> Drop for RegStack<'a>
+{
+    fn drop(&mut self)
+    {
+        if self._rt.is_some() {
+            self._pop();
+        }
+    }
+}
+
 
 pub struct RegTable
 {
@@ -458,32 +476,60 @@ mod tests
     }
 
     #[test]
-    fn test_rt_push_scoped()
+    fn test_scopedreg_push_pop()
     {
         let mut rt = RegTable::new();
+        assert_eq!(Reg::local(0), *rt.dst());
 
         let mut r0 = rt.push_scoped();
-        assert_eq!(Reg::local(0), r0.r);
-        assert_eq!(Reg::local(0), *r0.stack.dst());
+        assert_eq!(Reg::local(1), r0.r);
+        assert_eq!(Reg::local(1), *r0.stack.dst());
         let r_x = r0.stack.id(&Lstr::Sref("x"));
-        assert_eq!(Reg::local(1), r_x);
-        let mut r1 = r0.stack.push_dst();
-        assert_eq!(Reg::local(2), r1.r);
-        assert_eq!(Reg::local(2), *r1.stack.dst());
-        r1.pop();
-        assert_eq!(Reg::local(0), *r1.stack.dst());
+        assert_eq!(Reg::local(2), r_x);
+        let r1 = r0.stack.push_dst();
+        assert_eq!(Reg::local(3), r1.r);
+        assert_eq!(Reg::local(3), *r1.stack.dst());
+        reg_pop!(r0, r1);
+        assert_eq!(Reg::local(1), *r0.stack.dst());
+        r0.stack.pop();
     }
 
     #[test]
-    fn test_rt_pop_scoped_disorder()
+    fn test_scopedreg_push_in_block()
+    {
+        let mut rt = RegTable::new();
+
+        let r0 = rt.push_scoped();
+        assert_eq!(Reg::local(1), r0.r);
+        {
+            let r1 = r0.stack.push_dst();
+            assert_eq!(Reg::local(2), r1.r);
+            assert_eq!(Reg::local(2), *r1.stack.dst());
+        }
+    }
+
+    #[test]
+    fn test_scopedreg_disordered_borrow()
+    {
+        let mut rt = RegTable::new();
+
+        let r0 = rt.push_scoped();
+        let r1 = r0.stack.push_dst();
+        // can't even do this b/c of borrow checker
+        // r0.stack.pop();
+        assert_eq!(Reg::local(2), r1.r);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_scopedreg_disordered_pop()
     {
         let mut rt = RegTable::new();
 
         let mut r0 = rt.push_scoped();
-        r0.stack.id(&Lstr::Sref("x"));
         let r1 = r0.stack.push_dst();
-        r0.pop();
-        assert_eq!(Reg::local(2), r1.r);
+        let r2 = r1.stack.push_dst();
+        reg_pop!(r0, r2);
     }
 
 }
