@@ -323,6 +323,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         }
         Source::Let(ref patt, ref x, ref fails) => {
             let pval = assign_pattern_registers(rt, patt);
+            rt.push_dst();
             let mut xops = make_sub_ops(rt, x);
             let mut failops: Vec<(Op, i16)> = fails
                 .iter()
@@ -331,6 +332,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                         make_matchfailure_ops(rt, &mf.var, &mf.case, mf.line);
                     ox.ops.into_iter()
                 }).collect();
+            rt.pop_dst();
             xops.ops.push((
                 Op::MatchPattern(rt.dst().clone(), pval, xops.dst),
                 input.line,
@@ -617,10 +619,10 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
 
 pub fn make_if_ops(rt: &mut RegTable, test: &Ixpr, truth: &Ixpr) -> Oxpr
 {
+    let mut truth_ops = make_sub_ops(rt, &truth);
     rt.push_dst();
     let mut if_ops = make_sub_ops(rt, &test);
     rt.pop_dst();
-    let mut truth_ops = make_sub_ops(rt, &truth);
 
     if_ops.ops.push((
         Op::JumpIfNot((truth_ops.ops.len() + 1) as i16, if_ops.dst),
@@ -641,11 +643,11 @@ pub fn make_if_else_ops(
     lies: &Ixpr,
 ) -> Oxpr
 {
+    let mut truth_ops = make_sub_ops(rt, &truth);
+    let mut lies_ops = make_sub_ops(rt, &lies);
     rt.push_dst();
     let mut if_ops = make_sub_ops(rt, &test);
     rt.pop_dst();
-    let mut truth_ops = make_sub_ops(rt, &truth);
-    let mut lies_ops = make_sub_ops(rt, &lies);
 
     truth_ops
         .ops
