@@ -298,10 +298,32 @@ impl Tree
     }
 }
 
+#[derive(Clone)]
+#[derive(Debug)]
+pub struct RegState
+{
+    in_use: bool,
+    prev: Option<i8>,
+    name: Option<Lstr>,
+}
+
+impl Default for RegState
+{
+    fn default() -> RegState
+    {
+        RegState {
+            in_use: false,
+            prev: None,
+            name: None,
+        }
+    }
+}
+
 pub struct RegTab
 {
     ids: HashMap<Lstr, Reg>,
     reg: Rc<RefCell<Tree>>,
+    state: Rc<RefCell<Vec<RegState>>>,
     pub current: Reg,
 }
 
@@ -312,15 +334,29 @@ impl RegTab
         RegTab {
             ids: HashMap::new(),
             reg: Rc::new(RefCell::new(Tree::new())),
+            state: Rc::new(RefCell::new(vec![RegState::default(); 8])),
             current: Reg::local(0),
         }
     }
 
-    pub fn push(&mut self) -> ScopedReg
+    pub fn push_dst(&mut self) -> ScopedReg
     {
         let icurrent = self.reg.borrow_mut().push();
         self.current = Reg::local(icurrent);
-        ScopedReg{ r: self.current.clone(), tree: self.reg.clone() }
+        ScopedReg {
+            r: self.current.clone(),
+            tree: self.reg.clone(),
+            free_on_drop: true,
+        }
+    }
+
+    pub fn push_dst_reg(&mut self, r: Reg) -> ScopedReg
+    {
+        ScopedReg {
+            r,
+            tree: self.reg.clone(),
+            free_on_drop: false,
+        }
     }
 
     pub fn id(&mut self, name: &Lstr) -> Reg
@@ -343,6 +379,7 @@ pub struct ScopedReg
 {
     pub r: Reg,
     tree: Rc<RefCell<Tree>>,
+    free_on_drop: bool,
 }
 
 impl ScopedReg
@@ -367,6 +404,28 @@ impl Drop for ScopedReg
     fn drop(&mut self)
     {
         self._pop();
+    }
+}
+
+
+pub struct StackedReg<'a>
+{
+    reg: Reg,
+    stack: RegStack<'a>,
+}
+
+
+pub enum RegStack<'a>
+{
+    Node(Reg, &'a RegStack<'a>),
+    Base(Reg, RegTab),
+}
+
+impl<'a> RegStack<'a>
+{
+    pub fn reg(&self) -> Reg
+    {
+        Reg::Void
     }
 }
 
