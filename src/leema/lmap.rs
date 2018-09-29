@@ -1,6 +1,16 @@
-use Val;
+use leema::lri::Lri;
+use leema::lstr::Lstr;
+use leema::val::{Type, Val};
 
 use std::sync::Arc;
+
+
+pub const MAP_TYPE_LRI: Lri = Lri {
+    modules: Some(Lstr::Sref("map")),
+    localid: Lstr::Sref("T"),
+    params: None,
+};
+pub const MAP_TYPE: Type = Type::UserDef(MAP_TYPE_LRI);
 
 pub type LmapNode = Option<Arc<Lmap>>;
 
@@ -64,6 +74,15 @@ impl Lmap
                 }
             }
         }
+    }
+
+    pub fn len(tree: &LmapNode) -> usize
+    {
+        if tree.is_none() {
+            return 0;
+        }
+        let itree = tree.as_ref().unwrap();
+        Lmap::len(&itree.0) + Lmap::len(&itree.2) + 1
     }
 }
 

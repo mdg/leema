@@ -229,6 +229,13 @@ class TestScripts(unittest.TestCase):
         self.assertTrue(pr1 < pk)
         self.assertTrue(pk < pr2)
 
+    def test_map(self):
+        result = run_leema('test_map')
+        self.assertEqual(0, result['code'])
+        expected = b"map contains tacos? true\n" \
+            + b"map length is 1\n"
+        self.assertEqual(expected, result['output'])
+
     def test_rgb(self):
         result = run_leema('rgb')
         self.assertEqual(0, result['code'])

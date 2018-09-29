@@ -37,4 +37,5 @@ pub mod worker;
 pub mod file;
 pub mod lib_hyper;
 pub mod lib_list;
+pub mod lib_map;
 pub mod lib_str;

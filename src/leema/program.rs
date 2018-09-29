@@ -3,6 +3,7 @@ use leema::code::{self, Code};
 use leema::infer::TypeSet;
 use leema::inter::Intermod;
 use leema::ixpr::Source;
+use leema::lib_map;
 use leema::lib_str;
 use leema::loader::Interloader;
 use leema::log;
@@ -54,6 +55,9 @@ impl Lib
         proglib
             .rust_load
             .insert(Lstr::Sref("list"), lib_list::load_rust_func);
+        proglib
+            .rust_load
+            .insert(Lstr::Sref("map"), lib_map::load_rust_func);
         proglib
             .rust_load
             .insert(Lstr::Sref("str"), lib_str::load_rust_func);

@@ -1,6 +1,6 @@
 use leema::frame::FrameTrace;
 use leema::list;
-use leema::lmap::LmapNode;
+use leema::lmap::{self, LmapNode};
 use leema::log;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
@@ -56,7 +56,6 @@ pub enum Type
     // base interface/type should probably be iterator
     // and then it should be a protocol, not type
     StrictList(Box<Type>),
-    Map,
     UserDef(Lri),
     Lib(String),
     Resource(Lstr),
@@ -250,7 +249,6 @@ impl fmt::Display for Type
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
-            &Type::Map => write!(f, "Map"),
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
             &Type::Future(ref sub) => write!(f, "{}%", sub),
             &Type::Resource(ref name) => write!(f, "{}", &name),
@@ -304,7 +302,6 @@ impl fmt::Debug for Type
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
-            &Type::Map => write!(f, "Map"),
             &Type::Future(ref sub) => write!(f, "{}%", sub),
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
             &Type::Resource(ref name) => write!(f, "Resource({})", &name),
@@ -676,7 +673,7 @@ impl Val
             &Val::Id(_) => Type::AnonVar,
             &Val::Lri(_) => Type::AnonVar,
             &Val::RustBlock => Type::RustBlock,
-            &Val::Map(_) => Type::Map,
+            &Val::Map(_) => lmap::MAP_TYPE,
             &Val::Tuple(ref items) if items.0.len() == 1 => {
                 items.0.get(0).unwrap().1.get_type()
             }

@@ -920,7 +920,6 @@ impl Protomod
                     .collect();
                 Type::Tuple(Struple(items2))
             }
-            Type::Map => Type::Map,
             // primitive types
             Type::Bool => Type::Bool,
             Type::Hashtag => Type::Hashtag,
