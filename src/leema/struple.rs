@@ -70,7 +70,8 @@ where
             .map(|i| {
                 let new_key = i.0.as_ref().map(|ik| ik.clone_for_send());
                 (new_key, i.1.clone_for_send())
-            }).collect();
+            })
+            .collect();
         Struple(safe_items)
     }
 }

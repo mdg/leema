@@ -417,7 +417,8 @@ mod tests
         >>
             make_tacos(meat, size)
         --
-        ".to_string();
+        "
+        .to_string();
 
         let toks = Tokenz::lex(&input);
         assert_eq!(Token::Func, toks[0]);
@@ -439,7 +440,8 @@ mod tests
         .cat: Str
         .mouse: Int
         --
-        ".to_string();
+        "
+        .to_string();
 
         let toks = Tokenz::lex(&input);
         assert_eq!(Token::Struct, toks[0]);

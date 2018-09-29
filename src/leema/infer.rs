@@ -197,7 +197,8 @@ impl<'b> Inferator<'b>
                 self.merge_types(
                     &Type::StrictList(Box::new(Type::Unknown)),
                     valtype,
-                ).map(|_| ())
+                )
+                .map(|_| ())
             }
             (&Val::Cons(_, _), &Type::StrictList(ref subt)) => {
                 self.match_list_pattern(typeset, patt, subt, lineno)
@@ -209,7 +210,8 @@ impl<'b> Inferator<'b>
                 self.merge_types(
                     &valtype,
                     &Type::StrictList(Box::new(tvar_inner.clone())),
-                ).map(|_| ())
+                )
+                .map(|_| ())
             }
             (&Val::Tuple(ref flds1), &Type::Tuple(ref item_types)) => {
                 if flds1.0.len() != item_types.0.len() {
@@ -551,8 +553,10 @@ impl<'b> Inferator<'b>
                             "expected function args in {}: {:?} found {:?}",
                             self.funcname, defargst, argst,
                         )))
-                    }).unwrap()
-            }).collect();
+                    })
+                    .unwrap()
+            })
+            .collect();
         Ok(Type::f(mashed_args, self.inferred_type(defresult)))
     }
 }

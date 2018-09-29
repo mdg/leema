@@ -236,7 +236,8 @@ impl Fiber
                             } else {
                                 (f.0.clone(), i.1.clone())
                             }
-                        }).collect();
+                        })
+                        .collect();
                     Val::Struct(i_new_typ.clone(), Struple(new_items))
                 } else {
                     panic!("struct type is not user defined: {:?}", new_typ);

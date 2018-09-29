@@ -397,7 +397,8 @@ impl<'a, 'b> Typescope<'a, 'b>
                 .expect(&format!(
                     "cannot find function {}::{} in {:?}",
                     modname, funcname, m
-                )).clone()
+                ))
+                .clone()
         };
         result
     }
@@ -569,7 +570,8 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
                         scope.fname
                     );
                     e.add_context(Lstr::from(err_msg))
-                }).unwrap();
+                })
+                .unwrap();
 
             vout!("type is: {}\n", result_type);
             vout!("vars:");
@@ -633,7 +635,8 @@ pub fn typecheck_field_access(
                         .map(|(i, ft)| {
                             *fldidx = Some(i as i8);
                             ft.clone()
-                        }).ok_or_else(|| {
+                        })
+                        .ok_or_else(|| {
                             TypeErr::Error(Lstr::Sref("invalid field index"))
                         })
                 }
@@ -674,7 +677,8 @@ mod tests
             func main() ->
                 foo([5, 3, 4])
             --
-            ".to_string();
+            "
+        .to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
         loader.set_mod_txt(Lstr::Sref("tacos"), input);

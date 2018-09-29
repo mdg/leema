@@ -162,7 +162,8 @@ pub fn handle_request(
                 let msg = format!("{}", v);
                 vout!("response msg: {}", msg);
                 future::ok(Response::new(Body::from(msg)))
-            }).or_else(|e| {
+            })
+            .or_else(|e| {
                 println!("request error: {:?}", e);
                 let resp: Response<Body> = Response::builder()
                     .status(StatusCode::INTERNAL_SERVER_ERROR)

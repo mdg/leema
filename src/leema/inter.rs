@@ -167,7 +167,8 @@ impl Intermod
             .map(|(argi, a)| {
                 a.k_clone()
                     .unwrap_or_else(|| Lstr::from(format!("T_param_{}", argi)))
-            }).collect();
+            })
+            .collect();
         let src = Source::Func(
             rc_args,
             closed_vars,
@@ -433,7 +434,8 @@ impl<'a> Interscope<'a>
                             panic!("module for type cannot be found: {}", typ);
                         }
                         Some(&**imp.unwrap())
-                    }).unwrap_or(self.proto)
+                    })
+                    .unwrap_or(self.proto)
             }
             _ => self.proto,
         }
@@ -451,7 +453,8 @@ impl<'a> Interscope<'a>
                     self.imports
                         .get("prefab")
                         .and_then(|prefab| prefab.constants.get(id))
-                }).map(|val| ScopeLevel::Module(val.clone()))
+                })
+                .map(|val| ScopeLevel::Module(val.clone()))
         }
     }
 
@@ -573,7 +576,8 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
                 .map(|i| {
                     let ix = compile_expr(scope, i.x_ref().unwrap(), loc);
                     (i.k_clone(), ix)
-                }).collect();
+                })
+                .collect();
             Ixpr::new_tuple(Struple(c_items), loc.lineno)
         }
         &Ast::Map(ref items) => {
@@ -582,7 +586,8 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
                 .map(|i| {
                     let ix = compile_expr(scope, i.x_ref().unwrap(), loc);
                     (i.k_clone(), ix)
-                }).collect();
+                })
+                .collect();
             Ixpr::new_map(Struple(c_items), loc.lineno)
         }
         &Ast::ConstructData(ast::DataType::Struple, ref ast_typ) => {
@@ -674,7 +679,8 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
                                 .map(|v| {
                                     let tvar = format!("T_cvar_{}", v);
                                     Type::Var(Lstr::from(tvar))
-                                }).collect();
+                                })
+                                .collect();
                             let cftype = if let Type::Func(targs, tresult) =
                                 ftype
                             {
@@ -753,7 +759,8 @@ pub fn compile_let_stmt(
         .map(|v| {
             scope.blocks.assign_var(v, LocalType::Let);
             compile_failed_var(scope, v, loc)
-        }).collect();
+        })
+        .collect();
     Ixpr::new(Source::Let(cpatt, Box::new(irhs), failures), loc.lineno)
 }
 
@@ -895,7 +902,8 @@ pub fn compile_pattern_call(
                 a.k_clone(),
                 compile_pattern(scope, new_vars, a.x_ref().unwrap()),
             )
-        }).collect();
+        })
+        .collect();
 
     let mut struct_lri = Lri::from(callx);
     if !struct_lri.has_modules() {
@@ -1132,7 +1140,8 @@ mod tests
             func foo(x) ->
                 \"($x:$y)\"
             --
-            ".to_string();
+            "
+        .to_string();
 
         let foo_str = Lstr::Sref("foo");
         let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
@@ -1149,7 +1158,8 @@ mod tests
             func foo(i) ->
                 fn(x) \"($x:$i)\"
             --
-            ".to_string();
+            "
+        .to_string();
 
         let foo_str = Lstr::Sref("foo");
         let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
@@ -1174,7 +1184,8 @@ mod tests
                 let ten := double(5)
                 \"5 * 2 == $ten\"
             --
-            ".to_string();
+            "
+        .to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
         loader.set_mod_txt(Lstr::Sref("foo"), input);
@@ -1198,7 +1209,8 @@ mod tests
                 let result := times_i(5)
                 \"result := $result\"
             --
-            ".to_string();
+            "
+        .to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
         loader.set_mod_txt(Lstr::Sref("foo"), input);
@@ -1225,7 +1237,8 @@ mod tests
                 let result := times_i(5)
                 \"result := $result\"
             --
-            ".to_string();
+            "
+        .to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
         loader.set_mod_txt(Lstr::Sref("foo"), input);
@@ -1243,7 +1256,8 @@ mod tests
                 |else -> i * factf(i-1)
                 --
             --
-            ".to_string();
+            "
+        .to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("fact.lma"));
         loader.set_mod_txt(Lstr::Sref("fact"), input);
@@ -1266,7 +1280,8 @@ mod tests
             func main() ->
                 foo([#a, #b, #c])
             --
-            ".to_string();
+            "
+        .to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
@@ -1314,7 +1329,8 @@ mod tests
                 let c := Cat(3)
                 let m := Mouse(9, \"red\")
             --
-            ".to_string();
+            "
+        .to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("animals.lma"));
         loader.set_mod_txt(Lstr::Sref("animals"), input);
@@ -1335,7 +1351,8 @@ mod tests
                 |_ -> a - 1
                 --
             --
-            ".to_string();
+            "
+        .to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
         loader.set_mod_txt(Lstr::Sref("foo"), input);

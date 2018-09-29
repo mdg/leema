@@ -316,7 +316,8 @@ impl Io
                         let mut bio = rcio.borrow_mut();
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
-                    }).map_err(move |ev2| {
+                    })
+                    .map_err(move |ev2| {
                         vout!("handle Event::Future map_err\n");
                         let mut bio = rcio_err.borrow_mut();
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
@@ -342,7 +343,8 @@ impl Io
                             ev2.unwrap(),
                         );
                         ()
-                    }).map_err(move |(ev2, _str2)| {
+                    })
+                    .map_err(move |(ev2, _str2)| {
                         let mut bio = rcio_err.borrow_mut();
                         bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
                         ()
@@ -530,7 +532,8 @@ pub mod tests
                 action,
                 rsrc_id: None,
                 params: msg_params,
-            }).unwrap();
+            })
+            .unwrap();
         msg_tx.send(msg::IoMsg::Done).unwrap();
 
         IoLoop::run(rcio);
@@ -580,7 +583,8 @@ pub mod tests
                 action: mock_rsrc_action,
                 rsrc_id: Some(rsrc_id),
                 params: MsgVal::new(&Val::empty_tuple()),
-            }).unwrap();
+            })
+            .unwrap();
         msg_tx.send(msg::IoMsg::Done).unwrap();
         IoLoop::run(io);
 

@@ -199,7 +199,8 @@ impl Lib
             .get(modname)
             .or_else(|| {
                 panic!("cannot compile missing module {}", modname);
-            }).unwrap();
+            })
+            .unwrap();
         let fix = inter
             .interfunc
             .get(funcname)
@@ -208,7 +209,8 @@ impl Lib
                     "cannot compile missing function {}::{}",
                     modname, funcname
                 );
-            }).unwrap();
+            })
+            .unwrap();
         if modname == "prefab" {
             vout!("prefab::{} fix: {:?}\n", funcname, fix);
         }
@@ -259,7 +261,8 @@ impl Lib
                 .get(funcri.localid.str())
                 .or_else(|| {
                     panic!("cannot find function inter: {}", funcri);
-                }).unwrap();
+                })
+                .unwrap();
             icf.collect_calls(&fix);
             vout!("collected calls: {} => {:?}", funcri, icf.calls);
             icf

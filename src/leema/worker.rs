@@ -126,7 +126,8 @@ impl Worker
             .get(modname)
             .and_then(|module: &'a HashMap<Lstr, Rc<Code>>| {
                 module.get(funcname)
-            }).map(|func: &'a Rc<Code>| (*func).clone())
+            })
+            .map(|func: &'a Rc<Code>| (*func).clone())
     }
 
     fn load_code(&mut self, curf: Fiber)
@@ -206,28 +207,28 @@ impl Worker
                         rsrc_worker_id, rsrc_id
                     );
                 /*
-                    let opt_ioq = self.resource.get_mut(&rsrc_id);
-                    if opt_ioq.is_none() {
-                        panic!("Iop resource not found: {}", rsrc_id);
-                    }
-                    let mut ioq = opt_ioq.unwrap();
-                    match ioq.checkout(self.id, iopf, iopargs) {
-                        // Some((iopf2, rsrc, iopargs2)) => {
-                        Some((rsrc, iop2)) => {
-                            match (iop2.action)(resp, rsrc, iop2.params) {
-                                Event::IoFuture(fut) => {
-                                    self.handle.spawn(fut);
-                                }
-                                _ => {
-                                    panic!("not a future");
-                                }
+                let opt_ioq = self.resource.get_mut(&rsrc_id);
+                if opt_ioq.is_none() {
+                    panic!("Iop resource not found: {}", rsrc_id);
+                }
+                let mut ioq = opt_ioq.unwrap();
+                match ioq.checkout(self.id, iopf, iopargs) {
+                    // Some((iopf2, rsrc, iopargs2)) => {
+                    Some((rsrc, iop2)) => {
+                        match (iop2.action)(resp, rsrc, iop2.params) {
+                            Event::IoFuture(fut) => {
+                                self.handle.spawn(fut);
+                            }
+                            _ => {
+                                panic!("not a future");
                             }
                         }
-                        None => {
-                            // resource is busy, will push it later
-                        }
                     }
-                    */
+                    None => {
+                        // resource is busy, will push it later
+                    }
+                }
+                */
                 } else {
                     panic!(
                         "cannot send iop from worker({}) to worker({})",
@@ -338,7 +339,8 @@ impl Worker
                     rsrc_id,
                     action: iopf,
                     params: msg_val,
-                }).expect("io send failure");
+                })
+                .expect("io send failure");
             self.waiting.insert(fiber_id, FiberWait::Io(fib));
         } else {
             panic!("code is what type? {:?}", *code);

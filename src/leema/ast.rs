@@ -284,7 +284,8 @@ impl Ast
                         } else {
                             Kxpr::new_x(newt)
                         }
-                    }).collect();
+                    })
+                    .collect();
                 Ast::Tuple(new_items)
             }
             Type::Func(params, result) => {
@@ -294,7 +295,8 @@ impl Ast
                     .map(|it| {
                         let newt = Ast::from_type(it, loc);
                         Kxpr::new_x(newt)
-                    }).collect();
+                    })
+                    .collect();
                 new_params.push(kx_result);
                 Ast::TypeFunc(new_params, *loc)
             }
@@ -482,7 +484,8 @@ impl<'a> From<&'a Ast> for Type
                     .map(|i| {
                         let new_k = i.k_ref().map(|kr| kr.clone());
                         (new_k, Type::from(i.x_ref().unwrap()))
-                    }).collect();
+                    })
+                    .collect();
                 Type::Tuple(pp_items)
             }
             &Ast::Localid(ref id, _) => Type::UserDef(Lri::new(id.clone())),
@@ -770,7 +773,8 @@ mod tests
                 Kxpr::new_x(Ast::ConstInt(3)),
                 Kxpr::new_x(Ast::ConstStr(Lstr::from("taco"))),
                 Kxpr::new_x(Ast::ConstBool(true)),
-            ].into_iter()
+            ]
+            .into_iter()
             .collect(),
         );
         let expected = Ast::Block(vec![xtup]);
@@ -825,7 +829,8 @@ mod tests
                 Ast::ConstInt(1),
                 Ast::ConstInt(2),
                 Ast::Localid(Lstr::from("x"), SrcLoc::new(1, 6)),
-            ].into_iter()
+            ]
+            .into_iter()
             .collect(),
         );
         let expected = Ast::Block(vec![xlist]);
@@ -1015,7 +1020,8 @@ mod tests
                 Box::new(test_localid("foo", 1, 2)),
                 vec![Kxpr::new_x(Ast::ConstInt(5))].into_iter().collect(),
                 SrcLoc::new(1, 5),
-            ))].into_iter()
+            ))]
+            .into_iter()
             .collect(),
         );
 
@@ -1095,7 +1101,8 @@ mod tests
             vec![
                 Kxpr::new(Lstr::from("number"), Ast::TypeInt),
                 Kxpr::new(Lstr::from("style"), Ast::TypeStr),
-            ].into_iter()
+            ]
+            .into_iter()
             .collect(),
             SrcLoc::new(2, 1),
         );
@@ -1114,7 +1121,8 @@ mod tests
             vec![
                 Kxpr::new_x(Ast::TypeInt),
                 Kxpr::new(Lstr::from("style"), Ast::TypeStr),
-            ].into_iter()
+            ]
+            .into_iter()
             .collect(),
             SrcLoc::new(1, 1),
         );
@@ -1138,7 +1146,8 @@ mod tests
             vec![
                 Kxpr::new(Lstr::from("number"), Ast::TypeInt),
                 Kxpr::new(Lstr::from("style"), Ast::TypeStr),
-            ].into_iter()
+            ]
+            .into_iter()
             .collect(),
             SrcLoc::new(2, 1),
         );

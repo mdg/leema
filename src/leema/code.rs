@@ -332,7 +332,8 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                     let ox =
                         make_matchfailure_ops(rt, &mf.var, &mf.case, mf.line);
                     ox.ops.into_iter()
-                }).collect();
+                })
+                .collect();
             rt.pop_dst();
             xops.ops.push((
                 Op::MatchPattern(rt.dst().clone(), pval, xops.dst),
@@ -419,7 +420,8 @@ pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr, args: &Struple<Ixpr>)
             let arg_ops: Oxpr = make_sub_ops(rt, &a.1);
             rt.pop_dst_reg();
             arg_ops.ops
-        }).collect();
+        })
+        .collect();
     fops.ops.append(&mut argops);
     fops.ops
         .push((Op::ApplyFunc(dst.clone(), fops.dst.clone()), f.line));
@@ -779,7 +781,8 @@ mod tests
             func main() ->
                 foo([5, 3, 4])
             --
-            ".to_string();
+            "
+        .to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
