@@ -185,12 +185,7 @@ impl Fiber
      * create a new frame w/ func code and new frame state
      * set curf.flag to Called(new_frame)
      */
-    pub fn execute_call(
-        &mut self,
-        dst: &Reg,
-        freg: &Reg,
-        line: i16,
-    ) -> Event
+    pub fn execute_call(&mut self, dst: &Reg, freg: &Reg, line: i16) -> Event
     {
         let (funcri, args): (&Lri, &Struple<Val>) = {
             let ref fname_val = self.head.e.get_reg(freg);

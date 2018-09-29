@@ -194,9 +194,9 @@ impl fmt::Debug for Reg
 pub struct Tree
 {
     zero: Option<Box<Tree>>,
-    one:  Option<Box<Tree>>,
-    reg:  Option<i8>,
-    max:  i8,
+    one: Option<Box<Tree>>,
+    reg: Option<i8>,
+    max: i8,
 }
 
 impl Tree
@@ -205,9 +205,9 @@ impl Tree
     {
         Tree {
             zero: None,
-            one:  None,
-            reg:  None,
-            max:  0,
+            one: None,
+            reg: None,
+            max: 0,
         }
     }
 
@@ -215,9 +215,9 @@ impl Tree
     {
         Tree {
             zero: None,
-            one:  None,
-            reg:  Some(reg),
-            max:  reg,
+            one: None,
+            reg: Some(reg),
+            max: reg,
         }
     }
 
@@ -252,12 +252,12 @@ impl Tree
         let new0x = (r << 1) & 0x7e;
         let new1x = new0x | 0x01;
         let new_reg = match (&mut self.zero, &mut self.one) {
-            (&mut Some(ref mut old0), &mut Some(ref old1)) if old0.max < old1.max => {
+            (&mut Some(ref mut old0), &mut Some(ref old1))
+                if old0.max < old1.max =>
+            {
                 old0._push(new0x)
             }
-            (&mut Some(_), &mut Some(ref mut old1)) => {
-                old1._push(new0x)
-            }
+            (&mut Some(_), &mut Some(ref mut old1)) => old1._push(new0x),
             (old0 @ &mut None, _) => {
                 *old0 = Some(Box::new(Tree::with_reg(new0x)));
                 new0x

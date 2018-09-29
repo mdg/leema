@@ -663,16 +663,12 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
                 Val::FuncRef(fri, args, ftype) => {
                     let cval = match scope.get_closed_vars(&fri.localid) {
                         Some(ref vars) if !vars.is_empty() => {
-                            let cvar_it = vars
-                                .iter()
-                                .map(|v| {
-                                    scope.blocks.access_var(v, loc.lineno);
-                                    (Some(v.clone()), Val::Void)
-                                });
-                            let fr_args = args.0
-                                .into_iter()
-                                .chain(cvar_it)
-                                .collect();
+                            let cvar_it = vars.iter().map(|v| {
+                                scope.blocks.access_var(v, loc.lineno);
+                                (Some(v.clone()), Val::Void)
+                            });
+                            let fr_args =
+                                args.0.into_iter().chain(cvar_it).collect();
                             let cvartypes = vars
                                 .iter()
                                 .map(|v| {

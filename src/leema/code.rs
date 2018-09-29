@@ -242,7 +242,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             let mut ops = Vec::with_capacity(cvs.0.len() + 1);
             let dst = rt.dst().clone();
             let blanks = Struple(
-                cvs.0.iter().map(|cv| (cv.0.clone(), Val::Void)).collect()
+                cvs.0.iter().map(|cv| (cv.0.clone(), Val::Void)).collect(),
             );
             ops.push((
                 Op::ConstVal(
@@ -358,10 +358,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             } else {
                 vec![(Op::Copy(dst.clone(), src), line)]
             };
-            Oxpr {
-                ops,
-                dst,
-            }
+            Oxpr { ops, dst }
         }
         Source::IfExpr(ref test, ref truth, None) => {
             make_if_ops(rt, &*test, &*truth)
@@ -404,7 +401,8 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
     }
 }
 
-pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr, args: &Struple<Ixpr>) -> Oxpr
+pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr, args: &Struple<Ixpr>)
+    -> Oxpr
 {
     let dst = rt.dst().clone();
     vout!("make_call_ops: {:?} = {:?}\n", dst, f);
@@ -412,17 +410,19 @@ pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr, args: &Struple<Ixpr>) -> Oxpr
     let fref_dst = rt.push_dst().clone();
     let mut fops = make_sub_ops(rt, f);
 
-    let mut argops: OpVec = args.0.iter().enumerate().flat_map(|(i, a)| {
-        rt.push_dst_reg(fref_dst.sub(i as i8));
-        let arg_ops: Oxpr = make_sub_ops(rt, &a.1);
-        rt.pop_dst_reg();
-        arg_ops.ops
-    }).collect();
+    let mut argops: OpVec = args
+        .0
+        .iter()
+        .enumerate()
+        .flat_map(|(i, a)| {
+            rt.push_dst_reg(fref_dst.sub(i as i8));
+            let arg_ops: Oxpr = make_sub_ops(rt, &a.1);
+            rt.pop_dst_reg();
+            arg_ops.ops
+        }).collect();
     fops.ops.append(&mut argops);
-    fops.ops.push((
-        Op::ApplyFunc(dst.clone(), fops.dst.clone()),
-        f.line,
-    ));
+    fops.ops
+        .push((Op::ApplyFunc(dst.clone(), fops.dst.clone()), f.line));
 
     rt.pop_dst();
     fops.dst = dst;

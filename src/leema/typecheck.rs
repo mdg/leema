@@ -352,7 +352,12 @@ impl<'a, 'b> Typescope<'a, 'b>
         }
     }
 
-    pub fn typecheck_funcref(&mut self, fri: &Lri, args: &Struple<Val>, typ: &Type) -> TypeResult
+    pub fn typecheck_funcref(
+        &mut self,
+        fri: &Lri,
+        args: &Struple<Val>,
+        typ: &Type,
+    ) -> TypeResult
     {
         let typed = self.functype(fri.mod_ref().unwrap(), &fri.localid);
         let result = self.infer.merge_types(typ, &typed);
@@ -407,13 +412,12 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             })?;
             let mut targs = vec![];
             for mut a in &mut args.0 {
-                let atype =
-                    typecheck_expr(scope, &mut a.1).map_err(|e| {
-                        e.add_context(Lstr::from(format!(
-                            "function args for: {:?} on line {}",
-                            func.src, func.line
-                        )))
-                    })?;
+                let atype = typecheck_expr(scope, &mut a.1).map_err(|e| {
+                    e.add_context(Lstr::from(format!(
+                        "function args for: {:?} on line {}",
+                        func.src, func.line
+                    )))
+                })?;
                 targs.push(atype);
             }
             let mut targs_ref = vec![];

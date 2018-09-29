@@ -404,9 +404,8 @@ impl Protomod
         };
         ftype_parts.push(Kxpr::new_x(pp_rtype_ast));
         let ftype = Type::Func(ftype_part_types, Box::new(rtype));
-        let fref_args = pp_args.iter().map(|a| {
-            (a.k_clone(), Val::Void)
-        }).collect();
+        let fref_args =
+            pp_args.iter().map(|a| (a.k_clone(), Val::Void)).collect();
 
         let funcref = Val::FuncRef(full_lri, fref_args, ftype.clone());
 
@@ -447,11 +446,8 @@ impl Protomod
         let result_type = self.preproc_type(prog, mp, None, &pp_result, loc);
         let ftype = Type::Func(arg_types, Box::new(result_type));
 
-        let fref_args = pp_args
-            .iter()
-            .map(|a| {
-                (a.k_clone(), Val::Void)
-            }).collect();
+        let fref_args =
+            pp_args.iter().map(|a| (a.k_clone(), Val::Void)).collect();
 
         let pp_func = Ast::DefFunc(
             ast::FuncClass::Closure,
@@ -1064,9 +1060,12 @@ impl Protomod
             .iter()
             .map(|&(_, ref ftype)| ftype.clone())
             .collect();
-        let fref_args = Struple(struple_fields.iter().map(|f| {
-            (f.0.clone(), Val::Void)
-        }).collect());
+        let fref_args = Struple(
+            struple_fields
+                .iter()
+                .map(|f| (f.0.clone(), Val::Void))
+                .collect(),
+        );
 
         let full_type = Type::UserDef(struple_lri.clone());
         let func_type = Type::Func(field_type_vec, Box::new(full_type.clone()));
