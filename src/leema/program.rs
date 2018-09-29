@@ -15,7 +15,6 @@ use leema::val::Type;
 use leema::{file, lib_hyper, lib_list, prefab, tcp, udp};
 
 use std::collections::{HashMap, HashSet};
-use std::io::Write;
 use std::rc::Rc;
 
 
@@ -101,9 +100,14 @@ impl Lib
         self.code.get(modname).unwrap().get(funcname).unwrap()
     }
 
-    pub fn find_preface(&self, modname: &Lstr) -> Option<&Rc<ModulePreface>>
+    pub fn find_preface(&self, modname: &str) -> Option<&Rc<ModulePreface>>
     {
         self.preface.get(modname)
+    }
+
+    pub fn find_proto(&self, modname: &str) -> Option<&Protomod>
+    {
+        self.proto.get(modname).map(|p| &**p)
     }
 
     pub fn load_inter(&mut self, modname: &Lstr)
@@ -195,7 +199,8 @@ impl Lib
             .get(modname)
             .or_else(|| {
                 panic!("cannot compile missing module {}", modname);
-            }).unwrap();
+            })
+            .unwrap();
         let fix = inter
             .interfunc
             .get(funcname)
@@ -204,7 +209,8 @@ impl Lib
                     "cannot compile missing function {}::{}",
                     modname, funcname
                 );
-            }).unwrap();
+            })
+            .unwrap();
         if modname == "prefab" {
             vout!("prefab::{} fix: {:?}\n", funcname, fix);
         }
@@ -255,8 +261,10 @@ impl Lib
                 .get(funcri.localid.str())
                 .or_else(|| {
                     panic!("cannot find function inter: {}", funcri);
-                }).unwrap();
+                })
+                .unwrap();
             icf.collect_calls(&fix);
+            vout!("collected calls: {} => {:?}", funcri, icf.calls);
             icf
         };
         for c in cf.calls.iter() {
@@ -322,6 +330,7 @@ impl Lib
             self.typed
                 .insert(modlstr.clone(), Typemod::new(modlstr.clone()));
         }
+
         {
             let mutyped = self.typed.get_mut(modlstr).unwrap();
             if mutyped.get_function_type(funclstr).is_none() {

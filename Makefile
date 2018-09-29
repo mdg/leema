@@ -40,6 +40,9 @@ format:
 reformat:
 	cargo +nightly fmt
 
+release: release_lexer parser
+	cargo build --bin leema --release
+
 # lexer
 lexer: target/debug/deps/libleemalex.a
 
@@ -47,6 +50,14 @@ target/debug/deps/libleemalex.a: target/debug/deps lexparse/lex.o lexparse/lible
 	ar cr target/debug/deps/libleemalex.a lexparse/lex.o lexparse/libleemalex.o
 
 target/debug/deps:
+	mkdir -p target/debug/deps
+
+release_lexer: target/release/deps/libleemalex.a
+
+target/release/deps/libleemalex.a: target/release/deps lexparse/lex.o lexparse/libleemalex.o
+	ar cr target/release/deps/libleemalex.a lexparse/lex.o lexparse/libleemalex.o
+
+target/release/deps:
 	mkdir -p target/debug/deps
 
 lexparse/lex.o: lexparse/lex.c lexparse/leema.h lexparse/leema.h

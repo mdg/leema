@@ -5,6 +5,7 @@ use leema::val::SrcLoc;
 use leema::val::Type;
 
 use std::collections::LinkedList;
+use std::fmt;
 
 /*
 #[derive(Clone)]
@@ -58,6 +59,7 @@ pub enum FuncClass
 {
     Macro,
     Func,
+    Closure,
 }
 
 #[derive(Clone)]
@@ -185,8 +187,6 @@ pub enum Ast
 {
     Block(Vec<Ast>),
     Call(Box<Ast>, LinkedList<Kxpr>, SrcLoc),
-    CallCurry(Box<Ast>, LinkedList<Kxpr>, SrcLoc),
-    Closure(LinkedList<Kxpr>, Box<Ast>, SrcLoc),
     Cons(Box<Ast>, Box<Ast>),
     ConstructData(DataType, Box<Ast>),
     ConstBool(bool),
@@ -284,7 +284,8 @@ impl Ast
                         } else {
                             Kxpr::new_x(newt)
                         }
-                    }).collect();
+                    })
+                    .collect();
                 Ast::Tuple(new_items)
             }
             Type::Func(params, result) => {
@@ -294,7 +295,8 @@ impl Ast
                     .map(|it| {
                         let newt = Ast::from_type(it, loc);
                         Kxpr::new_x(newt)
-                    }).collect();
+                    })
+                    .collect();
                 new_params.push(kx_result);
                 Ast::TypeFunc(new_params, *loc)
             }
@@ -330,6 +332,18 @@ impl Ast
         }).collect();
         let test = Ast::Tuple(match_args);
         Ast::IfExpr(IfType::Match, Box::new(test), Box::new(cases), loc)
+    }
+
+    pub fn closure(args: LinkedList<Kxpr>, body: Ast, loc: SrcLoc) -> Ast
+    {
+        Ast::DefFunc(
+            FuncClass::Closure,
+            Box::new(Ast::ConstVoid),
+            args,
+            Box::new(Ast::TypeAnon),
+            Box::new(body),
+            loc,
+        )
     }
 
     pub fn localid_str(&self) -> &Lstr
@@ -470,7 +484,8 @@ impl<'a> From<&'a Ast> for Type
                     .map(|i| {
                         let new_k = i.k_ref().map(|kr| kr.clone());
                         (new_k, Type::from(i.x_ref().unwrap()))
-                    }).collect();
+                    })
+                    .collect();
                 Type::Tuple(pp_items)
             }
             &Ast::Localid(ref id, _) => Type::UserDef(Lri::new(id.clone())),
@@ -478,6 +493,53 @@ impl<'a> From<&'a Ast> for Type
             _ => {
                 panic!("cannot convert Ast to Type: {:?}", a);
             }
+        }
+    }
+}
+
+impl fmt::Display for Ast
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        match self {
+            &Ast::Block(ref items) => {
+                writeln!(f, "block(")?;
+                for i in items {
+                    writeln!(f, "\t{}", i)?;
+                }
+                writeln!(f, ")")
+            }
+            &Ast::Call(ref callx, ref args, _) => {
+                write!(f, "(call {} [", callx)?;
+                for a in args {
+                    write!(f, "{},", a.x_ref().unwrap())?;
+                }
+                write!(f, "])")
+            }
+            &Ast::Let(ref lhs, ref rhs, _) => {
+                write!(f, "(let {} = {})", lhs, rhs)
+            }
+            &Ast::Localid(ref id, _) => write!(f, "{}", id),
+            &Ast::Lri(ref id, ref types, _) => {
+                let mut use_sep = false;
+                for i in id {
+                    if use_sep {
+                        write!(f, "::{}", i)?;
+                    } else {
+                        write!(f, "{}", i)?;
+                        use_sep = true;
+                    }
+                }
+                if types.is_some() {
+                    write!(f, "{:?}", types.as_ref().unwrap())?;
+                }
+                Ok(())
+            }
+            &Ast::DefFunc(ft, ref name, ref args, ref rtype, ref body, _) => {
+                writeln!(f, "({:?} {}({:?}): {}", ft, name, args, rtype)?;
+                writeln!(f, "\t{})", body)
+            }
+            _ => write!(f, "{:?}", self),
         }
     }
 }
@@ -711,7 +773,8 @@ mod tests
                 Kxpr::new_x(Ast::ConstInt(3)),
                 Kxpr::new_x(Ast::ConstStr(Lstr::from("taco"))),
                 Kxpr::new_x(Ast::ConstBool(true)),
-            ].into_iter()
+            ]
+            .into_iter()
             .collect(),
         );
         let expected = Ast::Block(vec![xtup]);
@@ -730,6 +793,32 @@ mod tests
     }
 
     #[test]
+    fn test_ast_parse_closure_with_mult()
+    {
+        let input = "fn(x) x * 3\n";
+        let root = ast::parse(lex(input));
+
+        let mut cargs = LinkedList::new();
+        cargs.push_back(Kxpr::new_k(Lstr::Sref("x")));
+        let multri = Ast::Lri(
+            vec![Lstr::Sref("prefab"), Lstr::Sref("int_mult")],
+            None,
+            SrcLoc::new(1, 7),
+        );
+        let mut mult_args = LinkedList::new();
+        mult_args.push_back(Kxpr::new_x(Ast::Localid(
+            Lstr::Sref("x"),
+            SrcLoc::new(1, 6),
+        )));
+        mult_args.push_back(Kxpr::new_x(Ast::ConstInt(3)));
+        let mult_call =
+            Ast::Call(Box::new(multri), mult_args, SrcLoc::new(1, 7));
+        let clos = Ast::closure(cargs, mult_call, SrcLoc::new(1, 1));
+        let expected = Ast::Block(vec![clos]);
+        assert_eq!(expected, root);
+    }
+
+    #[test]
     fn test_ast_parse_const_list()
     {
         let input = "[1, 2, x]\n";
@@ -740,7 +829,8 @@ mod tests
                 Ast::ConstInt(1),
                 Ast::ConstInt(2),
                 Ast::Localid(Lstr::from("x"), SrcLoc::new(1, 6)),
-            ].into_iter()
+            ]
+            .into_iter()
             .collect(),
         );
         let expected = Ast::Block(vec![xlist]);
@@ -930,7 +1020,8 @@ mod tests
                 Box::new(test_localid("foo", 1, 2)),
                 vec![Kxpr::new_x(Ast::ConstInt(5))].into_iter().collect(),
                 SrcLoc::new(1, 5),
-            ))].into_iter()
+            ))]
+            .into_iter()
             .collect(),
         );
 
@@ -1010,7 +1101,8 @@ mod tests
             vec![
                 Kxpr::new(Lstr::from("number"), Ast::TypeInt),
                 Kxpr::new(Lstr::from("style"), Ast::TypeStr),
-            ].into_iter()
+            ]
+            .into_iter()
             .collect(),
             SrcLoc::new(2, 1),
         );
@@ -1029,7 +1121,8 @@ mod tests
             vec![
                 Kxpr::new_x(Ast::TypeInt),
                 Kxpr::new(Lstr::from("style"), Ast::TypeStr),
-            ].into_iter()
+            ]
+            .into_iter()
             .collect(),
             SrcLoc::new(1, 1),
         );
@@ -1053,7 +1146,8 @@ mod tests
             vec![
                 Kxpr::new(Lstr::from("number"), Ast::TypeInt),
                 Kxpr::new(Lstr::from("style"), Ast::TypeStr),
-            ].into_iter()
+            ]
+            .into_iter()
             .collect(),
             SrcLoc::new(2, 1),
         );

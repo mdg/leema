@@ -4,7 +4,6 @@ use leema::lstr::Lstr;
 use leema::rsrc::{self, Rsrc};
 use leema::val::{Type, Val};
 
-use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
@@ -106,7 +105,8 @@ pub fn udp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
             .map(move |(sock2, _buff)| {
                 let sockr: Box<Rsrc> = Box::new(sock2) as Box<Rsrc>;
                 rsrc::Event::Result(Val::Int(0), Some(sockr))
-            }).map_err(|_| {
+            })
+            .map_err(|_| {
                 rsrc::Event::Result(
                     Val::Str(Lstr::Sref(
                         "send dgram didn't work. socket is gone",

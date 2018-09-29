@@ -6,7 +6,6 @@ use leema::val::{Type, TypeErr, TypeResult, Val};
 
 use std::collections::hash_map::Keys;
 use std::collections::HashMap;
-use std::io::Write;
 
 
 #[derive(Debug)]
@@ -198,7 +197,8 @@ impl<'b> Inferator<'b>
                 self.merge_types(
                     &Type::StrictList(Box::new(Type::Unknown)),
                     valtype,
-                ).map(|_| ())
+                )
+                .map(|_| ())
             }
             (&Val::Cons(_, _), &Type::StrictList(ref subt)) => {
                 self.match_list_pattern(typeset, patt, subt, lineno)
@@ -210,7 +210,8 @@ impl<'b> Inferator<'b>
                 self.merge_types(
                     &valtype,
                     &Type::StrictList(Box::new(tvar_inner.clone())),
-                ).map(|_| ())
+                )
+                .map(|_| ())
             }
             (&Val::Tuple(ref flds1), &Type::Tuple(ref item_types)) => {
                 if flds1.0.len() != item_types.0.len() {
@@ -412,6 +413,70 @@ impl<'b> Inferator<'b>
                     Inferator::mash(inferences, oldresult, newresult)?;
                 Ok(Type::Func(masht, Box::new(mashresult)))
             }
+            (
+                &Type::Closure(ref oldargs, ref oldclosed, ref oldresult),
+                &Type::Closure(ref newargs, ref newclosed, ref newresult),
+            ) => {
+                let oldlen = oldargs.len();
+                let newlen = newargs.len();
+                if oldlen != newlen {
+                    return match_err();
+                }
+                let coldlen = oldclosed.len();
+                let cnewlen = newclosed.len();
+                if coldlen != cnewlen {
+                    return match_err();
+                }
+                let mut masht = Vec::with_capacity(oldlen);
+                for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
+                    let mashit = Inferator::mash(inferences, oldit, newit)?;
+                    masht.push(mashit);
+                }
+                let mut mashclosed = Vec::with_capacity(oldlen);
+                for (oldit, newit) in oldclosed.iter().zip(newclosed.iter()) {
+                    let mashit = Inferator::mash(inferences, oldit, newit)?;
+                    mashclosed.push(mashit);
+                }
+                let mashresult =
+                    Inferator::mash(inferences, oldresult, newresult)?;
+                Ok(Type::Closure(masht, mashclosed, Box::new(mashresult)))
+            }
+            (
+                &Type::Func(ref oldargs, ref oldresult),
+                &Type::Closure(ref newargs, _, ref newresult),
+            ) => {
+                let oldlen = oldargs.len();
+                let newlen = newargs.len();
+                if oldlen != newlen {
+                    return match_err();
+                }
+                let mut masht = Vec::with_capacity(oldlen);
+                for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
+                    let mashit = Inferator::mash(inferences, oldit, newit)?;
+                    masht.push(mashit);
+                }
+                let mashresult =
+                    Inferator::mash(inferences, oldresult, newresult)?;
+                Ok(Type::Func(masht, Box::new(mashresult)))
+            }
+            (
+                &Type::Closure(ref oldargs, _, ref oldresult),
+                &Type::Func(ref newargs, ref newresult),
+            ) => {
+                let oldlen = oldargs.len();
+                let newlen = newargs.len();
+                if oldlen != newlen {
+                    return match_err();
+                }
+                let mut masht = Vec::with_capacity(oldlen);
+                for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
+                    let mashit = Inferator::mash(inferences, oldit, newit)?;
+                    masht.push(mashit);
+                }
+                let mashresult =
+                    Inferator::mash(inferences, oldresult, newresult)?;
+                Ok(Type::Func(masht, Box::new(mashresult)))
+            }
             (&Type::Tuple(ref olditems), &Type::Tuple(ref newitems)) => {
                 let oldlen = olditems.0.len();
                 let newlen = newitems.0.len();
@@ -466,6 +531,7 @@ impl<'b> Inferator<'b>
         argst: &Vec<&Type>,
     ) -> TypeResult
     {
+        vout!("make_call_type({}, {:?})\n", ftype, argst);
         let (defargst, defresult) = Type::split_func_ref(ftype);
 
         let defargslen = defargst.len();
@@ -487,8 +553,10 @@ impl<'b> Inferator<'b>
                             "expected function args in {}: {:?} found {:?}",
                             self.funcname, defargst, argst,
                         )))
-                    }).unwrap()
-            }).collect();
+                    })
+                    .unwrap()
+            })
+            .collect();
         Ok(Type::f(mashed_args, self.inferred_type(defresult)))
     }
 }

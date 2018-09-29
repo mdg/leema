@@ -2,9 +2,11 @@ use leema::log;
 use leema::lstr::Lstr;
 use leema::val::Val;
 
+use std::cell::RefCell;
+use std::cmp;
 use std::collections::HashMap;
 use std::fmt;
-use std::io::Write;
+use std::rc::Rc;
 
 
 #[derive(PartialEq)]
@@ -186,6 +188,248 @@ impl fmt::Debug for Reg
     }
 }
 
+
+#[derive(Clone)]
+#[derive(Debug)]
+pub struct Tree
+{
+    zero: Option<Box<Tree>>,
+    one: Option<Box<Tree>>,
+    reg: Option<i8>,
+    max: i8,
+}
+
+impl Tree
+{
+    pub fn new() -> Tree
+    {
+        Tree {
+            zero: None,
+            one: None,
+            reg: None,
+            max: 0,
+        }
+    }
+
+    fn with_reg(reg: i8) -> Tree
+    {
+        Tree {
+            zero: None,
+            one: None,
+            reg: Some(reg),
+            max: reg,
+        }
+    }
+
+    pub fn push(&mut self) -> i8
+    {
+        self._push(1)
+    }
+
+    pub fn pop(&mut self, r: &Reg)
+    {
+        let ir = match r {
+            &Reg::Local(Ireg::Reg(localreg)) => localreg,
+            _ => {
+                panic!("cannot pop a not local reg: {:?}", r);
+            }
+        };
+        if ir == 1 {
+            self.reg = None;
+            self.max = self.get_max();
+            return;
+        }
+        self._pop(ir >> 1);
+    }
+
+    fn _push(&mut self, r: i8) -> i8
+    {
+        if self.reg.is_none() {
+            self.reg = Some(r);
+            self.max = self.get_max();
+            return r;
+        }
+        let new0x = (r << 1) & 0x7e;
+        let new1x = new0x | 0x01;
+        let new_reg = match (&mut self.zero, &mut self.one) {
+            (&mut Some(ref mut old0), &mut Some(ref old1))
+                if old0.max < old1.max =>
+            {
+                old0._push(new0x)
+            }
+            (&mut Some(_), &mut Some(ref mut old1)) => old1._push(new0x),
+            (old0 @ &mut None, _) => {
+                *old0 = Some(Box::new(Tree::with_reg(new0x)));
+                new0x
+            }
+            (_, old1 @ &mut None) => {
+                *old1 = Some(Box::new(Tree::with_reg(new1x)));
+                new1x
+            }
+        };
+        self.max = self.get_max();
+        new_reg
+    }
+
+    fn _pop(&mut self, r: i8)
+    {
+        if r == 1 {
+            self.reg = None;
+            self.max = self.get_max();
+            return;
+        } else {
+            let nextr = r >> 1;
+            if r & 0x01 == 0x01 {
+                self.zero.as_mut().unwrap()._pop(nextr);
+            } else {
+                self.one.as_mut().unwrap()._pop(nextr);
+            }
+        }
+    }
+
+    pub fn get_max(&mut self) -> i8
+    {
+        match (&self.zero, &self.one) {
+            (&Some(ref old0), &Some(ref old1)) => cmp::max(old0.max, old1.max),
+            (&None, &Some(ref old1)) => old1.max,
+            (&Some(ref old0), &None) => old0.max,
+            _ => self.max,
+        }
+    }
+}
+
+#[derive(Clone)]
+#[derive(Debug)]
+pub struct RegState
+{
+    in_use: bool,
+    prev: Option<i8>,
+    name: Option<Lstr>,
+}
+
+impl Default for RegState
+{
+    fn default() -> RegState
+    {
+        RegState {
+            in_use: false,
+            prev: None,
+            name: None,
+        }
+    }
+}
+
+pub struct RegTab
+{
+    ids: HashMap<Lstr, Reg>,
+    reg: Rc<RefCell<Tree>>,
+    state: Rc<RefCell<Vec<RegState>>>,
+    pub current: Reg,
+}
+
+impl RegTab
+{
+    pub fn new() -> RegTab
+    {
+        RegTab {
+            ids: HashMap::new(),
+            reg: Rc::new(RefCell::new(Tree::new())),
+            state: Rc::new(RefCell::new(vec![RegState::default(); 8])),
+            current: Reg::local(0),
+        }
+    }
+
+    pub fn push_dst(&mut self) -> ScopedReg
+    {
+        let icurrent = self.reg.borrow_mut().push();
+        self.current = Reg::local(icurrent);
+        ScopedReg {
+            r: self.current.clone(),
+            tree: self.reg.clone(),
+            free_on_drop: true,
+        }
+    }
+
+    pub fn push_dst_reg(&mut self, r: Reg) -> ScopedReg
+    {
+        ScopedReg {
+            r,
+            tree: self.reg.clone(),
+            free_on_drop: false,
+        }
+    }
+
+    pub fn id(&mut self, name: &Lstr) -> Reg
+    {
+        {
+            let first_get = self.ids.get(name);
+            if first_get.is_some() {
+                return first_get.unwrap().clone();
+            }
+        }
+        let ireg = self.reg.borrow_mut().push();
+        let reg = Reg::local(ireg);
+        self.ids.insert(name.clone(), reg.clone());
+        reg
+    }
+}
+
+
+pub struct ScopedReg
+{
+    pub r: Reg,
+    tree: Rc<RefCell<Tree>>,
+    free_on_drop: bool,
+}
+
+impl ScopedReg
+{
+    pub fn pop(mut self)
+    {
+        self._pop();
+    }
+
+    fn _pop(&mut self)
+    {
+        if self.r == Reg::Void {
+            return;
+        }
+        self.tree.borrow_mut().pop(&self.r);
+        self.r = Reg::Void;
+    }
+}
+
+impl Drop for ScopedReg
+{
+    fn drop(&mut self)
+    {
+        self._pop();
+    }
+}
+
+
+pub struct StackedReg<'a>
+{
+    reg: Reg,
+    stack: RegStack<'a>,
+}
+
+
+pub enum RegStack<'a>
+{
+    Node(Reg, &'a RegStack<'a>),
+    Base(Reg, RegTab),
+}
+
+impl<'a> RegStack<'a>
+{
+    pub fn reg(&self) -> Reg
+    {
+        Reg::Void
+    }
+}
+
+
 pub struct RegTable
 {
     dstack: Vec<Reg>,
@@ -211,10 +455,10 @@ impl RegTable
         self.dstack.last().unwrap()
     }
 
-    pub fn def_args(&mut self, args: &Vec<Lstr>)
+    pub fn def_args(&mut self, args: &Vec<Lstr>, closed: &Vec<Lstr>)
     {
         let mut r: i8 = 0;
-        for a in args {
+        for a in args.iter().chain(closed.iter()) {
             self.labels.insert(a.clone(), Reg::param(r));
             r += 1;
         }
@@ -223,7 +467,7 @@ impl RegTable
     pub fn push_dst(&mut self) -> &Reg
     {
         let dst = self.next();
-        self.dstack.push(dst.clone());
+        self.dstack.push(dst);
         self.dst()
     }
 
@@ -365,5 +609,4 @@ mod tests
         assert_eq!(Reg::local(3), *rt.push_dst());
         assert_eq!(Reg::local(3), *rt.dst());
     }
-
 }

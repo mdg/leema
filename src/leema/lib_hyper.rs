@@ -8,7 +8,6 @@ use leema::struple::Struple;
 use leema::val::{Type, Val};
 
 use std::fmt;
-use std::io::Write;
 use std::net::{IpAddr, SocketAddr};
 use std::thread;
 
@@ -79,7 +78,7 @@ pub fn server_run(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let port = ctx.take_param(0).unwrap().to_int() as u16;
     let func = ctx.take_param(1).unwrap();
     let funcri = match func {
-        Val::FuncRef(ref lri, _) => lri.clone(),
+        Val::FuncRef(ref lri, _, _) => lri.clone(),
         _ => {
             panic!("cannot bind server to a not function: {:?}", func);
         }
@@ -163,7 +162,8 @@ pub fn handle_request(
                 let msg = format!("{}", v);
                 vout!("response msg: {}", msg);
                 future::ok(Response::new(Body::from(msg)))
-            }).or_else(|e| {
+            })
+            .or_else(|e| {
                 println!("request error: {:?}", e);
                 let resp: Response<Body> = Response::builder()
                     .status(StatusCode::INTERNAL_SERVER_ERROR)

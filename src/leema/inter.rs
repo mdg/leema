@@ -10,7 +10,6 @@ use leema::val::{SrcLoc, Type, Val};
 
 use std::collections::{HashMap, HashSet, LinkedList};
 use std::fmt;
-use std::io::Write;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -74,6 +73,7 @@ pub struct Intermod
 {
     pub modname: Lstr,
     pub interfunc: HashMap<Lstr, Ixpr>,
+    closed_vars: HashMap<Lstr, Vec<Lstr>>,
 }
 
 impl Intermod
@@ -83,12 +83,18 @@ impl Intermod
         Intermod {
             modname,
             interfunc: HashMap::new(),
+            closed_vars: HashMap::new(),
         }
     }
 
     pub fn name(&self) -> &str
     {
         &self.modname.str()
+    }
+
+    pub fn get_closed_vars(&self, name: &str) -> Option<&Vec<Lstr>>
+    {
+        self.closed_vars.get(name)
     }
 
     pub fn compile(
@@ -98,29 +104,82 @@ impl Intermod
     {
         let mod_lstr = &proto.key.name;
         let mut inter = Intermod::new(mod_lstr.clone());
+
+        // compile regular functions next
         for fname in proto.funcseq.iter() {
-            let opt_defunc = proto.funcsrc.get(fname);
-            if opt_defunc.is_none() {
-                panic!(
-                    "No function source found for {}::{}",
-                    proto.key.name, fname
-                );
-            }
-            let defunc = opt_defunc.unwrap();
-            let (args, body, loc) = split_func_args_body(defunc);
-            let ftype = proto.valtypes.get(fname).unwrap();
-            let ifunc = compile_function(
-                proto,
-                imports,
-                fname.str(),
-                ftype,
-                &args,
-                body,
-                loc,
-            );
+            let ifunc = inter.compile_function(proto, imports, fname);
             inter.interfunc.insert(fname.clone(), ifunc);
         }
         inter
+    }
+
+    pub fn compile_function<'a>(
+        &mut self,
+        proto: &'a Protomod,
+        imports: &'a HashMap<Lstr, Rc<Protomod>>,
+        fname: &'a Lstr,
+    ) -> Ixpr
+    {
+        vout!("compile {}()\n", fname);
+        let opt_defunc = proto.funcsrc.get(fname);
+        if opt_defunc.is_none() {
+            panic!(
+                "No function source found for {}::{}",
+                proto.key.name, fname
+            );
+        }
+        let defunc = opt_defunc.unwrap();
+        let (fclass, args, body, loc) = split_func_args_body(defunc);
+        let is_closure = fclass == ast::FuncClass::Closure;
+        let ftype = proto.valtypes.get(fname).unwrap();
+        vout!("\t{}({:?}): {:?}\n", fname, args, ftype);
+
+        let (argt, result_type) = Type::split_func_ref(ftype);
+        if *body == Ast::RustBlock {
+            return Ixpr {
+                src: Source::RustBlock(argt.clone(), result_type.clone()),
+                line: loc.lineno,
+            };
+        }
+        let (ibody, closed_vars) = {
+            let mut scope = Interscope::new(
+                proto,
+                imports,
+                &self.closed_vars,
+                fname,
+                args,
+                is_closure,
+            );
+            let inner_body = compile_expr(&mut scope, body, loc);
+            (inner_body, scope.take_closed())
+        };
+        if !closed_vars.is_empty() {
+            self.closed_vars.insert(fname.clone(), closed_vars.clone());
+        }
+        let ibody2 = Ixpr {
+            src: ibody.src,
+            line: loc.lineno,
+        };
+        vout!("compile function {}({:?}): {}\n", fname, argt, result_type);
+        let rc_args = args
+            .iter()
+            .enumerate()
+            .map(|(argi, a)| {
+                a.k_clone()
+                    .unwrap_or_else(|| Lstr::from(format!("T_param_{}", argi)))
+            })
+            .collect();
+        let src = Source::Func(
+            rc_args,
+            closed_vars,
+            argt.clone(),
+            result_type.clone(),
+            Box::new(ibody2),
+        );
+        Ixpr {
+            src,
+            line: loc.lineno,
+        }
     }
 }
 
@@ -249,9 +308,11 @@ impl Blockstack
 
     pub fn access_var(&mut self, id: &Lstr, lineno: i16)
     {
-        let vi = self.locals.get_mut(id).unwrap_or_else(|| {
+        let opt_local = self.locals.get_mut(id);
+        if opt_local.is_none() {
             panic!("cannot access undefined var: {}", id);
-        });
+        }
+        let vi = opt_local.unwrap();
         if vi.first_access.is_none() {
             vi.first_access = Some(lineno)
         }
@@ -286,12 +347,15 @@ pub enum ScopeLevel
 #[derive(Debug)]
 pub struct Interscope<'a>
 {
-    fname: &'a str,
+    fname: &'a Lstr,
     proto: &'a Protomod,
     imports: &'a HashMap<Lstr, Rc<Protomod>>,
+    closure_vars: &'a HashMap<Lstr, Vec<Lstr>>,
     blocks: Blockstack,
     argnames: LinkedList<Kxpr>,
     argt: Type,
+    closed: Option<HashSet<Lstr>>,
+    is_closure: bool,
 }
 
 impl<'a> Interscope<'a>
@@ -299,8 +363,10 @@ impl<'a> Interscope<'a>
     pub fn new(
         proto: &'a Protomod,
         imports: &'a HashMap<Lstr, Rc<Protomod>>,
-        fname: &'a str,
+        closure_vars: &'a HashMap<Lstr, Vec<Lstr>>,
+        fname: &'a Lstr,
         args: &LinkedList<Kxpr>,
+        is_closure: bool,
     ) -> Interscope<'a>
     {
         let mut blocks = Blockstack::new();
@@ -316,13 +382,22 @@ impl<'a> Interscope<'a>
             argt.push((opt_k, at));
         }
 
+        let closed = if is_closure {
+            Some(HashSet::new())
+        } else {
+            None
+        };
+
         Interscope {
             fname,
             proto,
             imports,
+            closure_vars,
             blocks,
             argnames: args.clone(),
             argt: Type::Tuple(Struple(argt)),
+            closed,
+            is_closure,
         }
     }
 
@@ -359,7 +434,8 @@ impl<'a> Interscope<'a>
                             panic!("module for type cannot be found: {}", typ);
                         }
                         Some(&**imp.unwrap())
-                    }).unwrap_or(self.proto)
+                    })
+                    .unwrap_or(self.proto)
             }
             _ => self.proto,
         }
@@ -377,8 +453,28 @@ impl<'a> Interscope<'a>
                     self.imports
                         .get("prefab")
                         .and_then(|prefab| prefab.constants.get(id))
-                }).map(|val| ScopeLevel::Module(val.clone()))
+                })
+                .map(|val| ScopeLevel::Module(val.clone()))
         }
+    }
+
+    /// get closed variables for the named closure
+    pub fn get_closed_vars(&self, name: &str) -> Option<&'a Vec<Lstr>>
+    {
+        self.closure_vars.get(name)
+    }
+
+    pub fn is_closed_empty(&self) -> bool
+    {
+        self.closed.as_ref().map(|s| s.is_empty()).unwrap_or(true)
+    }
+
+    pub fn take_closed(&mut self) -> Vec<Lstr>
+    {
+        self.closed
+            .take()
+            .map(|mut s| s.drain().collect())
+            .unwrap_or_else(|| Vec::with_capacity(0))
     }
 }
 
@@ -430,50 +526,6 @@ impl<'a, 'b> Drop for NewBlockscope<'a, 'b>
 }
 
 
-pub fn compile_function<'a>(
-    proto: &'a Protomod,
-    imports: &'a HashMap<Lstr, Rc<Protomod>>,
-    fname: &'a str,
-    ftype: &Type,
-    args: &LinkedList<Kxpr>,
-    body: &Ast,
-    loc: &SrcLoc,
-) -> Ixpr
-{
-    vout!("compile {}({:?}): {:?}\n", fname, args, ftype);
-    let (argt, result_type) = Type::split_func_ref(ftype);
-    if *body == Ast::RustBlock {
-        return Ixpr {
-            src: Source::RustBlock(argt.clone(), result_type.clone()),
-            line: loc.lineno,
-        };
-    }
-    let mut scope = Interscope::new(proto, imports, fname, args);
-    let ibody = compile_expr(&mut scope, body, loc);
-    let ibody2 = Ixpr {
-        src: ibody.src,
-        line: loc.lineno,
-    };
-    vout!("compile function {}({:?}): {}\n", fname, argt, result_type);
-    let rc_args = args
-        .iter()
-        .enumerate()
-        .map(|(argi, a)| {
-            a.k_clone()
-                .unwrap_or_else(|| Lstr::from(format!("T_param_{}", argi)))
-        }).collect();
-    let src = Source::Func(
-        rc_args,
-        argt.clone(),
-        result_type.clone(),
-        Box::new(ibody2),
-    );
-    Ixpr {
-        src,
-        line: loc.lineno,
-    }
-}
-
 pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
 {
     match x {
@@ -524,7 +576,8 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
                 .map(|i| {
                     let ix = compile_expr(scope, i.x_ref().unwrap(), loc);
                     (i.k_clone(), ix)
-                }).collect();
+                })
+                .collect();
             Ixpr::new_tuple(Struple(c_items), loc.lineno)
         }
         &Ast::Map(ref items) => {
@@ -533,7 +586,8 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
                 .map(|i| {
                     let ix = compile_expr(scope, i.x_ref().unwrap(), loc);
                     (i.k_clone(), ix)
-                }).collect();
+                })
+                .collect();
             Ixpr::new_map(Struple(c_items), loc.lineno)
         }
         &Ast::ConstructData(ast::DataType::Struple, ref ast_typ) => {
@@ -564,6 +618,11 @@ pub fn compile_lri(
     loc: &SrcLoc,
 ) -> Ixpr
 {
+    vout!("compile_lri(");
+    for n in names.iter() {
+        vout!("{},", n);
+    }
+    vout!(")\n");
     if names.len() != 2 {
         panic!("too many modules: {:?}", names);
     }
@@ -579,16 +638,23 @@ pub fn compile_lri(
     let vartype = opt_vartype.unwrap();
     let lri = Lri::with_modules(modname.clone(), id.clone());
 
-    let fref = Val::FuncRef(lri, vartype.clone());
+    let num_args = match vartype {
+        &Type::Func(ref iargs, _) => iargs.len(),
+        &Type::Closure(ref iargs, ref cargs, _) => iargs.len() + cargs.len(),
+        _ => 0,
+    };
+
+    let new_args = Struple(vec![(None, Val::Void); num_args]);
+    let fref = Val::FuncRef(lri, new_args, vartype.clone());
     Ixpr::const_val(fref, loc.lineno)
 }
 
 pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
     -> Ixpr
 {
-    vout!("compile_local_id({})\n", id);
     match scope.scope_level(id) {
         Some(ScopeLevel::Local) => {
+            vout!("compile_local_id_local({})\n", id);
             scope.blocks.access_var(id, loc.lineno);
             Ixpr {
                 src: Source::Id(id.clone(), loc.lineno),
@@ -596,14 +662,64 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
             }
         }
         Some(ScopeLevel::Module(val)) => {
-            Ixpr {
-                src: Source::ConstVal(val),
-                line: loc.lineno,
+            vout!("compile_local_id_module({})\n", id);
+            match val {
+                // Val::FuncRef(fri, ftype) => {
+                Val::FuncRef(fri, args, ftype) => {
+                    let cval = match scope.get_closed_vars(&fri.localid) {
+                        Some(ref vars) if !vars.is_empty() => {
+                            let cvar_it = vars.iter().map(|v| {
+                                scope.blocks.access_var(v, loc.lineno);
+                                (Some(v.clone()), Val::Void)
+                            });
+                            let fr_args =
+                                args.0.into_iter().chain(cvar_it).collect();
+                            let cvartypes = vars
+                                .iter()
+                                .map(|v| {
+                                    let tvar = format!("T_cvar_{}", v);
+                                    Type::Var(Lstr::from(tvar))
+                                })
+                                .collect();
+                            let cftype = if let Type::Func(targs, tresult) =
+                                ftype
+                            {
+                                Type::Closure(targs, cvartypes, tresult)
+                            } else {
+                                panic!("closure type not a func: {:?}", ftype);
+                            };
+                            Val::FuncRef(fri, Struple(fr_args), cftype)
+                        }
+                        _ => Val::FuncRef(fri, args, ftype),
+                    };
+                    Ixpr {
+                        src: Source::ConstVal(cval),
+                        line: loc.lineno,
+                    }
+                }
+                _ => {
+                    Ixpr {
+                        src: Source::ConstVal(val),
+                        line: loc.lineno,
+                    }
+                }
             }
         }
         None => {
-            vout!("undefined variable {} in {:?}\n", id, scope.proto.constants);
-            panic!("undefined variable: {}", id);
+            if !scope.is_closure {
+                vout!(
+                    "undefined variable {} in {:?}\n",
+                    id,
+                    scope.proto.constants
+                );
+                panic!("undefined variable: {}", id);
+            }
+            vout!("closure variable {}\n", id);
+            scope.closed.as_mut().unwrap().insert(id.clone());
+            Ixpr {
+                src: Source::Id(id.clone(), loc.lineno),
+                line: loc.lineno,
+            }
         }
     }
 }
@@ -620,9 +736,8 @@ pub fn compile_call(
         .iter()
         .map(|i| i.map_1(|x| compile_expr(scope, x, loc)))
         .collect();
-    let argsix = Ixpr::new_tuple(Struple(iargs), loc.lineno);
     Ixpr {
-        src: Source::Call(Box::new(icall), Box::new(argsix)),
+        src: Source::Call(Box::new(icall), Struple(iargs)),
         line: loc.lineno,
     }
 }
@@ -644,7 +759,8 @@ pub fn compile_let_stmt(
         .map(|v| {
             scope.blocks.assign_var(v, LocalType::Let);
             compile_failed_var(scope, v, loc)
-        }).collect();
+        })
+        .collect();
     Ixpr::new(Source::Let(cpatt, Box::new(irhs), failures), loc.lineno)
 }
 
@@ -786,7 +902,8 @@ pub fn compile_pattern_call(
                 a.k_clone(),
                 compile_pattern(scope, new_vars, a.x_ref().unwrap()),
             )
-        }).collect();
+        })
+        .collect();
 
     let mut struct_lri = Lri::from(callx);
     if !struct_lri.has_modules() {
@@ -874,22 +991,18 @@ pub fn compile_failed_var(
     }
 }
 
-pub fn split_func_args_body(defunc: &Ast)
-    -> (&LinkedList<Kxpr>, &Ast, &SrcLoc)
+pub fn split_func_args_body(
+    defunc: &Ast,
+) -> (ast::FuncClass, &LinkedList<Kxpr>, &Ast, &SrcLoc)
 {
-    if let &Ast::DefFunc(
-        ast::FuncClass::Func,
-        ref name,
-        ref args,
-        ref _result,
-        ref body,
-        ref loc,
-    ) = defunc
-    {
-        vout!("split_func_args({:?})\n", name);
-        (args, body, loc)
-    } else {
-        panic!("func is not a func: {:?}", defunc);
+    match defunc {
+        Ast::DefFunc(fc, ref name, ref args, _, ref body, ref loc) => {
+            vout!("split_func_args({:?})\n", name);
+            (*fc, args, body, loc)
+        }
+        _ => {
+            panic!("func is not a func: {:?}", defunc);
+        }
     }
 }
 
@@ -912,7 +1025,7 @@ impl fmt::Debug for Intermod
 mod tests
 {
     use leema::ast::Ast;
-    use leema::inter::{self, Interscope, ScopeLevel};
+    use leema::inter::{self, Intermod, Interscope, ScopeLevel};
     use leema::loader::Interloader;
     use leema::lstr::Lstr;
     use leema::module::ModKey;
@@ -929,8 +1042,16 @@ mod tests
         let mk = ModKey::name_only(Lstr::Sref("tacos"));
         let proto = Protomod::new(mk);
         let imps = HashMap::new();
+        let closed_vars = HashMap::new();
         let args = LinkedList::new();
-        let mut scope = Interscope::new(&proto, &imps, "foo", &args);
+        let mut scope = Interscope::new(
+            &proto,
+            &imps,
+            &closed_vars,
+            &Lstr::Sref("foo"),
+            &args,
+            false,
+        );
         scope
             .blocks
             .assign_var(&Lstr::Sref("hello"), inter::LocalType::Param);
@@ -945,8 +1066,16 @@ mod tests
         let mk = ModKey::name_only(Lstr::Sref("tacos"));
         let proto = Protomod::new(mk);
         let imps = HashMap::new();
+        let closed_vars = HashMap::new();
         let args = LinkedList::new();
-        let mut scope = Interscope::new(&proto, &imps, "foo", &args);
+        let mut scope = Interscope::new(
+            &proto,
+            &imps,
+            &closed_vars,
+            &Lstr::Sref("foo"),
+            &args,
+            false,
+        );
         scope
             .blocks
             .assign_var(&Lstr::Sref("hello"), inter::LocalType::Let);
@@ -962,7 +1091,7 @@ mod tests
                 .blocks
                 .assign_var(&Lstr::Sref("world"), inter::LocalType::Let);
 
-            assert!(new_block.scope.blocks.var_in_scope(&Lstr::from("world")));
+            assert!(new_block.scope.blocks.var_in_scope(&Lstr::Sref("world")));
             let world_lvl =
                 new_block.scope.scope_level(&Lstr::from("world")).unwrap();
             assert_eq!(ScopeLevel::Local, world_lvl);
@@ -983,8 +1112,16 @@ mod tests
         let mk = ModKey::name_only(Lstr::Sref("tacos"));
         let proto = Protomod::new(mk.clone());
         let imps = HashMap::new();
+        let closed_vars = HashMap::new();
         let args = LinkedList::new();
-        let mut scope = Interscope::new(&proto, &imps, "foo", &args);
+        let mut scope = Interscope::new(
+            &proto,
+            &imps,
+            &closed_vars,
+            &Lstr::Sref("foo"),
+            &args,
+            false,
+        );
 
         let mut new_vars = Vec::default();
         let patt = Ast::Localid(Lstr::from("x"), SrcLoc::default());
@@ -993,6 +1130,120 @@ mod tests
 
         assert_eq!(1, new_vars.len());
         assert_eq!("x", &**(new_vars.first().unwrap()));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_compile_function_undefined_var()
+    {
+        let input = "
+            func foo(x) ->
+                \"($x:$y)\"
+            --
+            "
+        .to_string();
+
+        let foo_str = Lstr::Sref("foo");
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        loader.set_mod_txt(foo_str.clone(), input);
+        let mut prog = program::Lib::new(loader);
+        // y is undefined so this should crash b/c it's not a closure
+        prog.read_inter(&foo_str);
+    }
+
+    #[test]
+    fn test_compile_function_closure_def()
+    {
+        let input = "
+            func foo(i) ->
+                fn(x) \"($x:$i)\"
+            --
+            "
+        .to_string();
+
+        let foo_str = Lstr::Sref("foo");
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        loader.set_mod_txt(foo_str.clone(), input);
+        let mut prog = program::Lib::new(loader);
+        let proto = prog.read_proto(&foo_str);
+        let mut inter = Intermod::new(foo_str.clone());
+        let closure_name = proto.closures.front().unwrap();
+        inter.compile_function(&proto, &HashMap::new(), closure_name);
+
+        let closed = inter.get_closed_vars(closure_name).unwrap();
+        assert_eq!("i", &closed[0]);
+        assert_eq!(1, closed.len());
+    }
+
+    #[test]
+    fn test_compile_anon_func()
+    {
+        let input = "
+            func foo() ->
+                let double := fn(x) x * 2
+                let ten := double(5)
+                \"5 * 2 == $ten\"
+            --
+            "
+        .to_string();
+
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        loader.set_mod_txt(Lstr::Sref("foo"), input);
+        let mut prog = program::Lib::new(loader);
+        let inter = prog.read_inter(&Lstr::Sref("foo"));
+        let proto = prog.find_proto("foo").unwrap();
+        let closure_name = proto.closures.front().unwrap();
+
+        assert!(inter.get_closed_vars(closure_name).is_none());
+        assert!(inter.interfunc.contains_key(closure_name));
+        assert!(inter.interfunc.contains_key("foo"));
+        assert_eq!(2, inter.interfunc.len());
+    }
+
+    #[test]
+    fn test_compile_closure()
+    {
+        let input = "
+            func foo(i) ->
+                let times_i := fn(x) -> x * i --
+                let result := times_i(5)
+                \"result := $result\"
+            --
+            "
+        .to_string();
+
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        loader.set_mod_txt(Lstr::Sref("foo"), input);
+        let mut prog = program::Lib::new(loader);
+        let inter = prog.read_inter(&Lstr::Sref("foo"));
+        let proto = prog.find_proto("foo").unwrap();
+        let closure_name = proto.closures.front().unwrap();
+
+        let closed_vars = inter.get_closed_vars(closure_name).unwrap();
+        assert_eq!("i", &closed_vars[0]);
+        assert_eq!(1, closed_vars.len());
+        assert!(inter.interfunc.contains_key(closure_name));
+        assert!(inter.interfunc.contains_key("foo"));
+        assert_eq!(2, inter.interfunc.len());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_compile_undefined_closure_var()
+    {
+        let input = "
+            func foo(j) ->
+                let times_i := fn(x) -> x * i --
+                let result := times_i(5)
+                \"result := $result\"
+            --
+            "
+        .to_string();
+
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        loader.set_mod_txt(Lstr::Sref("foo"), input);
+        let mut prog = program::Lib::new(loader);
+        prog.read_inter(&Lstr::Sref("foo"));
     }
 
     #[test]
@@ -1005,7 +1256,8 @@ mod tests
                 |else -> i * factf(i-1)
                 --
             --
-            ".to_string();
+            "
+        .to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("fact.lma"));
         loader.set_mod_txt(Lstr::Sref("fact"), input);
@@ -1028,7 +1280,8 @@ mod tests
             func main() ->
                 foo([#a, #b, #c])
             --
-            ".to_string();
+            "
+        .to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
@@ -1076,7 +1329,8 @@ mod tests
                 let c := Cat(3)
                 let m := Mouse(9, \"red\")
             --
-            ".to_string();
+            "
+        .to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("animals.lma"));
         loader.set_mod_txt(Lstr::Sref("animals"), input);
@@ -1097,7 +1351,8 @@ mod tests
                 |_ -> a - 1
                 --
             --
-            ".to_string();
+            "
+        .to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
         loader.set_mod_txt(Lstr::Sref("foo"), input);

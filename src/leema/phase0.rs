@@ -11,13 +11,13 @@ use leema::val::{SrcLoc, Type, Val};
 
 use std::collections::{HashMap, LinkedList};
 use std::fmt;
-use std::io::Write;
 
 
 #[derive(Debug)]
 pub struct Protomod
 {
     pub key: ModKey,
+    pub closures: LinkedList<Lstr>,
     pub funcseq: LinkedList<Lstr>,
     pub funcsrc: HashMap<Lstr, Ast>,
     pub valtypes: HashMap<Lstr, Type>,
@@ -34,6 +34,7 @@ impl Protomod
         empty_consts.insert(Lstr::Sref("TYPES"), Val::Nil);
         Protomod {
             key: mk,
+            closures: LinkedList::new(),
             funcseq: LinkedList::new(),
             funcsrc: HashMap::new(),
             valtypes: HashMap::new(),
@@ -115,12 +116,14 @@ impl Protomod
             &Ast::Call(ref callx, ref args, ref iloc) => {
                 Protomod::preproc_call(self, prog, mp, callx, args, iloc)
             }
-            &Ast::CallCurry(_, _, _) => {
-                panic!("curried calls shouldn't be here");
-            }
-            &Ast::Closure(ref args, ref body, ref iloc) => {
-                Protomod::preproc_closure(self, prog, mp, args, body, iloc)
-            }
+            &Ast::DefFunc(
+                ast::FuncClass::Closure,
+                _,
+                ref args,
+                _,
+                ref body,
+                ref iloc,
+            ) => Protomod::preproc_closure(self, prog, mp, args, body, iloc),
             &Ast::Cons(ref head, ref tail) => {
                 let pp_head = Protomod::preproc_expr(self, prog, mp, head, loc);
                 let pp_tail = Protomod::preproc_expr(self, prog, mp, tail, loc);
@@ -219,7 +222,8 @@ impl Protomod
                         i.map_x(|x| {
                             Protomod::preproc_expr(self, prog, mp, x, loc)
                         })
-                    }).collect();
+                    })
+                    .collect();
                 Ast::Map(pp_items)
             }
             &Ast::Return(ref x, ref loc) => {
@@ -245,7 +249,8 @@ impl Protomod
                         i.map_x(|x| {
                             Protomod::preproc_expr(self, prog, mp, x, loc)
                         })
-                    }).collect();
+                    })
+                    .collect();
                 Ast::Tuple(pp_items)
             }
             &Ast::TypeFunc(ref parts, ref loc) => {
@@ -260,7 +265,8 @@ impl Protomod
                             p,
                             loc,
                         )
-                    }).collect();
+                    })
+                    .collect();
                 Ast::TypeFunc(ppp, *loc)
             }
             &Ast::Question => Ast::Question,
@@ -366,7 +372,8 @@ impl Protomod
             .iter()
             .map(|a| {
                 Protomod::preproc_func_arg(self, prog, mp, &lstr_name, a, loc)
-            }).collect();
+            })
+            .collect();
         let pp_rtype_ast =
             Protomod::preproc_func_result(self, prog, mp, rtype, loc);
         let pp_body = Protomod::preproc_expr(self, prog, mp, body, loc);
@@ -394,15 +401,18 @@ impl Protomod
                         argt.x_ref().unwrap(),
                         loc,
                     )
-                }).collect();
+                })
+                .collect();
             let pp_rtype =
                 self.preproc_type(prog, mp, lri_params, &pp_rtype_ast, loc);
             (pp_ftype_parts, pp_rtype)
         };
         ftype_parts.push(Kxpr::new_x(pp_rtype_ast));
         let ftype = Type::Func(ftype_part_types, Box::new(rtype));
+        let fref_args =
+            pp_args.iter().map(|a| (a.k_clone(), Val::Void)).collect();
 
-        let funcref = Val::FuncRef(full_lri, ftype.clone());
+        let funcref = Val::FuncRef(full_lri, fref_args, ftype.clone());
 
         self.funcseq.push_back(lstr_name.clone());
         self.funcsrc.insert(lstr_name.clone(), pp_func);
@@ -437,12 +447,16 @@ impl Protomod
                 }
                 let atype = x_ref.unwrap();
                 self.preproc_type(prog, mp, None, atype, loc)
-            }).collect();
+            })
+            .collect();
         let result_type = self.preproc_type(prog, mp, None, &pp_result, loc);
         let ftype = Type::Func(arg_types, Box::new(result_type));
 
+        let fref_args =
+            pp_args.iter().map(|a| (a.k_clone(), Val::Void)).collect();
+
         let pp_func = Ast::DefFunc(
-            ast::FuncClass::Func,
+            ast::FuncClass::Closure,
             Box::new(Ast::Lri(vec![closure_key.clone()], None, *loc)),
             pp_args,
             Box::new(pp_result.clone()),
@@ -452,8 +466,11 @@ impl Protomod
 
         let closuri =
             Lri::with_modules(mp.key.name.clone(), closure_key.clone());
-        let funcref = Val::FuncRef(closuri, ftype.clone());
+        let fref_struple = Struple(fref_args);
+        let funcref = Val::FuncRef(closuri, fref_struple, ftype.clone());
 
+        self.closures.push_back(closure_key.clone());
+        self.funcseq.push_back(closure_key.clone());
         self.funcsrc.insert(closure_key.clone(), pp_func);
         self.valtypes.insert(closure_key.clone(), ftype);
         self.constants.insert(closure_key.clone(), funcref);
@@ -495,7 +512,8 @@ impl Protomod
             .iter()
             .map(|arg| {
                 arg.map_x(|x| Protomod::preproc_expr(self, prog, mp, x, loc))
-            }).collect();
+            })
+            .collect();
         let pp_callx = Protomod::preproc_expr(self, prog, mp, callx, loc);
 
         match pp_callx {
@@ -557,7 +575,7 @@ impl Protomod
         }
         // make closure
         let clbody = Ast::Call(Box::new(callx.clone()), inner_args, *loc);
-        let clos = Ast::Closure(outer_args, Box::new(clbody), *loc);
+        let clos = Ast::closure(outer_args, clbody, *loc);
         // add closure as result of block
         new_block.push(clos);
         self.preproc_expr(prog, mp, &Ast::Block(new_block), loc)
@@ -628,7 +646,8 @@ impl Protomod
                     .iter()
                     .map(|tv| {
                         tv.map_x(|x| Protomod::replace_ids(x, idvals, loc))
-                    }).collect();
+                    })
+                    .collect();
                 Ast::Tuple(result)
             }
             &Ast::IfExpr(ift, ref input, ref if_case, _) => {
@@ -642,7 +661,8 @@ impl Protomod
                     .iter()
                     .map(|arg| {
                         arg.map_x(|x| Protomod::replace_ids(x, idvals, loc))
-                    }).collect();
+                    })
+                    .collect();
                 Ast::Call(Box::new(new_callx), new_args, *loc)
             }
             &Ast::Localid(ref name, ref _iloc) => {
@@ -727,7 +747,8 @@ impl Protomod
             .iter()
             .map(|t| {
                 t.map_x(|tx| Protomod::preproc_expr(self, prog, mp, tx, loc))
-            }).collect();
+            })
+            .collect();
         Ast::Lri(mods.clone(), Some(pp_types), *loc)
     }
 
@@ -800,7 +821,8 @@ impl Protomod
                             i.map_x(|x| {
                                 Protomod::preproc_pattern(prog, mp, x, loc)
                             })
-                        }).collect(),
+                        })
+                        .collect(),
                 )
             }
             &Ast::List(ref items) => {
@@ -819,7 +841,8 @@ impl Protomod
                         px.map_x(|x| {
                             Protomod::preproc_pattern(prog, mp, x, iloc)
                         })
-                    }).collect();
+                    })
+                    .collect();
                 Ast::Call(Box::new(pp_callx), pp_args, *loc)
             }
             &Ast::Localid(_, _) => p.clone(),
@@ -862,7 +885,8 @@ impl Protomod
                 if id.local_only() && Protomod::find_type_param(
                     type_params,
                     &id.localid,
-                ).is_some()
+                )
+                .is_some()
                 {
                     Type::Var(id.localid.clone())
                 } else if !id.has_modules()
@@ -892,7 +916,8 @@ impl Protomod
                     .map(|mut i| {
                         i.1 = self.replace_typeids(type_params, i.1);
                         i
-                    }).collect();
+                    })
+                    .collect();
                 Type::Tuple(Struple(items2))
             }
             Type::Map => Type::Map,
@@ -978,7 +1003,8 @@ impl Protomod
                     }
                     _ => p,
                 }
-            }).collect();
+            })
+            .collect();
         i.params = Some(var_params);
         i
     }
@@ -1044,11 +1070,18 @@ impl Protomod
                     loc,
                 );
                 (f.k_clone(), pp_type)
-            }).collect();
+            })
+            .collect();
         let field_type_vec = struple_fields
             .iter()
             .map(|&(_, ref ftype)| ftype.clone())
             .collect();
+        let fref_args = Struple(
+            struple_fields
+                .iter()
+                .map(|f| (f.0.clone(), Val::Void))
+                .collect(),
+        );
 
         let full_type = Type::UserDef(struple_lri.clone());
         let func_type = Type::Func(field_type_vec, Box::new(full_type.clone()));
@@ -1081,7 +1114,7 @@ impl Protomod
         self.struple_fields
             .insert(local_name.clone(), Struple(struple_fields));
 
-        let funcref = Val::FuncRef(struple_lri, func_type.clone());
+        let funcref = Val::FuncRef(struple_lri, fref_args, func_type.clone());
         self.constants.insert(local_name.clone(), funcref);
 
         self.funcseq.push_back(local_name.clone());
@@ -1267,6 +1300,7 @@ mod tests
     use leema::lri::Lri;
     use leema::lstr::Lstr;
     use leema::program;
+    use leema::struple::Struple;
     use leema::types;
     use leema::val::{Type, Val};
 
@@ -1317,7 +1351,8 @@ mod tests
 
             func open_foo(): Foo -RUST-
             func close_foo(f: Foo): Void -RUST-
-            ".to_string();
+            "
+        .to_string();
 
         let foo_str = Lstr::Sref("foo");
         let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
@@ -1334,6 +1369,28 @@ mod tests
         }
 
         let _close_valtype = pmod.valtypes.get("close_foo").unwrap();
+    }
+
+    #[test]
+    fn test_preproc_closures()
+    {
+        let input = "
+            func main() ->
+                let items := [1, 2]
+                let items2 := map(items, fn(i) i * 2)
+            --
+            "
+        .to_string();
+
+        let foo_str = Lstr::Sref("foo");
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        loader.set_mod_txt(foo_str.clone(), input);
+        let mut prog = program::Lib::new(loader);
+        let pmod = prog.read_proto(&foo_str);
+
+        let closure0 = pmod.closures.front().unwrap();
+        assert_eq!("foo_4_i", closure0);
+        assert_eq!(1, pmod.closures.len());
     }
 
     #[test]
@@ -1382,7 +1439,8 @@ mod tests
             .height: Int
             .weight: A
         --
-        ".to_string();
+        "
+        .to_string();
         let animals_str = Lstr::Sref("animals");
         let mut loader = Interloader::new(Lstr::Sref("animals.lma"));
         loader.set_mod_txt(animals_str.clone(), input);
@@ -1422,10 +1480,15 @@ mod tests
         let exp_dog_const = Val::EnumToken(type_lri.clone(), dog_name);
         let exp_cat_const = Val::FuncRef(
             Lri::with_modules(animals_str.clone(), Lstr::Sref("Cat")),
+            Struple(vec![(None, Val::Void)]),
             cat_func_type.clone(),
         );
         let exp_giraffe_const = Val::FuncRef(
             Lri::with_modules(animals_str.clone(), Lstr::Sref("Giraffe")),
+            Struple(vec![
+                (Some(Lstr::Sref("height")), Val::Void),
+                (Some(Lstr::Sref("weight")), Val::Void),
+            ]),
             giraffe_func_type.clone(),
         );
         assert_eq!(exp_dog_const, *dog_const);
@@ -1469,7 +1532,8 @@ mod tests
     {
         let input = "
     struct Greeting(Str, Str)
-    ".to_string();
+    "
+        .to_string();
         let greet = Lstr::Sref("greet");
         let mut loader = Interloader::new(Lstr::Sref("greet.lma"));
         loader.set_mod_txt(greet.clone(), input);
@@ -1486,9 +1550,10 @@ mod tests
 
         // constants
         match pmod.constants.get("Greeting").unwrap() {
-            Val::FuncRef(ref actual_fri, ref actual_types) => {
+            Val::FuncRef(ref actual_fri, ref actual_args, ref actual_types) => {
                 assert_eq!("greet", actual_fri.safe_mod().str());
                 assert_eq!("Greeting", actual_fri.localid.str());
+                assert_eq!(2, actual_args.0.len());
                 assert!(actual_fri.params.is_none());
                 assert_eq!(xfunctyp, *actual_types);
             }
@@ -1514,7 +1579,8 @@ mod tests
     {
         let input = "
             struct Burrito(Bool, buns: Int)
-            ".to_string();
+            "
+        .to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
@@ -1544,9 +1610,16 @@ mod tests
 
         // assert constants
         let funcref = pmod.constants.get("Burrito").unwrap();
-        if let &Val::FuncRef(ref fri, ref ftype) = funcref {
+        if let &Val::FuncRef(ref fri, ref args, ref ftype) = funcref {
             assert_eq!("tacos", fri.modules.as_ref().unwrap().str());
             assert_eq!("Burrito", fri.localid.str());
+            // args content
+            assert_eq!(None, args.0[0].0);
+            assert_eq!(Val::Void, args.0[0].1);
+            assert_eq!(Some(Lstr::Sref("buns")), args.0[1].0);
+            assert_eq!(Val::Void, args.0[1].1);
+            assert_eq!(2, args.0.len());
+            // function type
             assert_eq!(xfunctype, *ftype);
         } else {
             panic!("Burrito constant is not a FuncRef: {:?}", funcref);
@@ -1573,7 +1646,8 @@ mod tests
             .filling: Str
             .number: Int
             --
-            ".to_string();
+            "
+        .to_string();
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
@@ -1602,9 +1676,17 @@ mod tests
 
         // assert constants
         let funcref = pmod.constants.get("Burrito").unwrap();
-        if let &Val::FuncRef(ref funcri, ref ftype) = funcref {
+        if let &Val::FuncRef(ref funcri, ref args, ref ftype) = funcref {
+            // func lri
             assert_eq!("tacos", funcri.mod_ref().unwrap().str());
             assert_eq!("Burrito", funcri.localid.str());
+            // func args
+            assert_eq!("filling", args.0[0].0.as_ref().unwrap());
+            assert_eq!("number", args.0[1].0.as_ref().unwrap());
+            assert_eq!(Val::Void, args.0[0].1);
+            assert_eq!(Val::Void, args.0[1].1);
+            assert_eq!(2, args.0.len());
+            // func type
             assert_eq!(xfunctype, *ftype);
         } else {
             panic!("Burrito constant is not a FuncRef: {:?}", funcref);
@@ -1656,7 +1738,8 @@ mod tests
     {
         let input = "
             struct Burrito --
-            ".to_string();
+            "
+        .to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("tok.lma"));
         loader.set_mod_txt(Lstr::Sref("tok"), input);

@@ -8,7 +8,6 @@ use leema::lstr::{Lstr};
 use leema::log;
 
 use std::collections::linked_list::{LinkedList};
-use std::io::{Write};
 }
 
 %start_symbol {program}
@@ -121,7 +120,7 @@ use std::io::{Write};
 
 
 %nonassoc ASSIGN BLOCKARROW RETURN.
-%right FORK.
+%right FN FORK.
 %left OR XOR.
 %left AND.
 %right ConcatNewline NOT.
@@ -364,7 +363,7 @@ call_expr(A) ::= term(B) PARENCALL(D) x_list(C) RPAREN. {
 }
 
 closure_expr(A) ::= FN(L) LPAREN ktype_list(B) RPAREN expr(C). {
-    A = Ast::Closure(B, Box::new(C), L);
+    A = Ast::closure(B, C, L);
 }
 
 typex(A) ::= type_term(B). {
