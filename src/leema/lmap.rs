@@ -66,3 +66,29 @@ impl Lmap
         }
     }
 }
+
+
+#[cfg(test)]
+mod tests
+{
+    use leema::lmap::Lmap;
+    use leema::lstr::Lstr;
+    use leema::val::Val;
+
+
+    #[test]
+    pub fn test_lmap_constructor()
+    {
+        assert_eq!(None, Lmap::new());
+    }
+
+    #[test]
+    pub fn test_lmap_insert()
+    {
+        let k = Val::Str(Lstr::Sref("tacos"));
+        let m1 = Lmap::new();
+        assert!(Lmap::get(&m1, &k).is_none());
+        let m2 = Lmap::insert(&m1, k.clone(), Val::Int(4));
+        assert_eq!(Val::Int(4), *Lmap::get(&m2, &k).unwrap());
+    }
+}
