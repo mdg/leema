@@ -8,6 +8,15 @@ func _map(result :[$C], input: [$D], f: $D => $C): [$C]
 |(result, h;t, f) -> _map(f(h);result, t, f)
 --
 
+func reduce(init: $A, items: [$B], f: $A => $B => $A): $A ->
+    match items
+    |[] -> init
+    |head;tail ->
+        let new_val := f(init, head)
+        reduce(new_val, tail, f)
+    --
+--
+
 func filter(items: [$H], f: $H => Bool): [$H] ->
     _filter([], items, f)
 --
