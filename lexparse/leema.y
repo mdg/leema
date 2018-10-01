@@ -8,7 +8,6 @@ use leema::lstr::{Lstr};
 use leema::log;
 
 use std::collections::linked_list::{LinkedList};
-use std::io::{Write};
 }
 
 %start_symbol {program}
@@ -30,7 +29,8 @@ use std::io::{Write};
 %type EQ { SrcLoc }
 %type EQ1 { SrcLoc }
 %type FAILED { SrcLoc }
-%type Fork { SrcLoc }
+%type FN { SrcLoc }
+%type FORK { SrcLoc }
 %type Func { SrcLoc }
 %type GT { SrcLoc }
 %type GTEQ { SrcLoc }
@@ -78,6 +78,7 @@ use std::io::{Write};
 %type failed_stmt { Ast }
 %type macro_stmt { Ast }
 %type call_expr { Ast }
+%type closure_expr { Ast }
 %type if_stmt { Ast }
 %type else_if { ast::IfCase }
 %type expr_list { LinkedList<Ast> }
@@ -119,6 +120,7 @@ use std::io::{Write};
 
 
 %nonassoc ASSIGN BLOCKARROW RETURN.
+%right FN FORK.
 %left OR XOR.
 %left AND.
 %right ConcatNewline NOT.
@@ -247,10 +249,7 @@ failed_stmt(A) ::= FAILED(L) localid(B) if_case(C) DOUBLEDASH. {
 }
 
 let_stmt(A) ::= Let(D) expr(B) ASSIGN expr(C). {
-    A = Ast::Let(ast::LetType::Inline, Box::new(B), Box::new(C), D);
-}
-let_stmt(A) ::= Fork(D) expr(B) ASSIGN expr(C). {
-    A = Ast::Let(ast::LetType::Forked, Box::new(B), Box::new(C), D);
+    A = Ast::Let(Box::new(B), Box::new(C), D);
 }
 
 /* rust func declaration */
@@ -302,8 +301,12 @@ macro_stmt(A) ::=
 expr(A) ::= if_expr(B). { A = B; }
 expr(A) ::= match_expr(B). { A = B; }
 expr(A) ::= call_expr(B). { A = B; }
+expr(A) ::= closure_expr(B). { A = B; }
 expr(A) ::= block(B) DOUBLEDASH. { A = B; }
 expr(A) ::= term(B). { A = B; }
+expr(A) ::= FORK(B) expr(C). {
+    A = Ast::Fork(Box::new(C));
+}
 
 /* if statements can go 3 different ways
 * might be that one of these should be the only one, but I'm not sure
@@ -359,6 +362,10 @@ call_expr(A) ::= term(B) PARENCALL(D) x_list(C) RPAREN. {
     A = Ast::Call(Box::new(B), C, D);
 }
 
+closure_expr(A) ::= FN(L) LPAREN ktype_list(B) RPAREN expr(C). {
+    A = Ast::closure(B, C, L);
+}
+
 typex(A) ::= type_term(B). {
     A = B;
 }
@@ -393,6 +400,13 @@ type_term(A) ::= SquareL typex(B) SquareR. {
 }
 type_term(A) ::= LPAREN typex_list(B) RPAREN. {
     A = Ast::Tuple(B);
+}
+type_term(A) ::= CurlyL(Z) typex(B) COLON typex(C) CurlyR. {
+    let type_mods = vec![Lstr::Sref("map"), Lstr::Sref("T")];
+    let mut type_params = LinkedList::new();
+    type_params.push_back(Kxpr::new_x(B));
+    type_params.push_back(Kxpr::new_x(C));
+    A = Ast::Lri(type_mods, Some(type_params), Z);
 }
 type_term(A) ::= type_term(B) PCT. {
     // A = Ast::TypeFuture(Box::new(B));
@@ -621,6 +635,7 @@ term(A) ::= HASHTAG(B). {
     A = Ast::ConstHashtag(Lstr::from(B.data));
 }
 term(A) ::= strexpr(B). { A = B; }
+term(A) ::= QUESTION. { A = Ast::Question; }
 term(A) ::= UNDERSCORE. { A = Ast::Wildcard; }
 
 

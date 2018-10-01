@@ -19,13 +19,14 @@ pub struct MatchFailure
 pub enum Source
 {
     Block(Vec<Ixpr>),
-    Call(Box<Ixpr>, Box<Ixpr>),
+    Call(Box<Ixpr>, Struple<Ixpr>),
     Cons(Box<Ixpr>, Box<Ixpr>),
     Construple(Type, Struple<Type>),
     ConstVal(Val),
     EnumConstructor(Type, i16, Box<Ixpr>),
     FieldAccess(Box<Ixpr>, Lstr, Option<i8>),
-    Func(Vec<Lstr>, Vec<Type>, Type, Box<Ixpr>),
+    Fork(Box<Ixpr>),
+    Func(Vec<Lstr>, Vec<Lstr>, Vec<Type>, Type, Box<Ixpr>),
     Let(Val, Box<Ixpr>, Vec<MatchFailure>),
     MatchExpr(Box<Ixpr>, Box<Ixpr>),
     MatchCase(Val, Box<Ixpr>, Box<Ixpr>),

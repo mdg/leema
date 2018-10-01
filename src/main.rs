@@ -30,7 +30,6 @@ use leema::val::Val;
 
 use docopt::Docopt;
 use std::env;
-use std::io::Write;
 
 
 #[derive(Debug)]
@@ -58,6 +57,8 @@ Options:
   --repl           Launch the REPL
 ";
 
+const ENV_VERBOSE: &'static str = "LEEMA_VERBOSE";
+
 
 fn main()
 {
@@ -74,10 +75,12 @@ fn real_main() -> i32
         .and_then(|d| d.decode())
         .unwrap_or_else(|e| e.exit());
 
-    if args.flag_verbose {
+    let verbosenv = env::var_os(ENV_VERBOSE);
+    if args.flag_verbose || verbosenv.is_some() && "1" == &verbosenv.unwrap() {
         log::set_verbose();
+        vout!("verbose mode\n");
     }
-    vout!("verbose mode\nargs:{:?}\n", args);
+    vout!("args:{:?}\n", args);
 
     let file = Lstr::from(args.arg_script.first().unwrap());
     let leema_args: Val =
@@ -92,12 +95,15 @@ fn real_main() -> i32
     let main_result = if args.arg_cmd == "tokens" {
         let modtxt = inter.read_module(&modkey);
         let toks = ModuleSource::read_tokens(&modtxt);
-        println!("{:?}\n", toks);
+        println!("tokens:");
+        for t in &toks {
+            println!("\t{:?}", t);
+        }
         Val::Int(0)
     } else if args.arg_cmd == "ast" {
         let modtxt = inter.read_module(&modkey);
         let ast = ModuleSource::read_ast(&modtxt);
-        println!("{:?}\n", ast);
+        println!("{}\n", ast);
         Val::Int(0)
     } else if args.arg_cmd == "modsrc" {
         let prog = program::Lib::new(inter);

@@ -9,7 +9,6 @@ use leema::reg::Reg;
 use leema::struple::Struple;
 use leema::val::{Env, Type, Val};
 
-use std::io::Write;
 use std::mem;
 use std::rc::Rc;
 
@@ -97,8 +96,8 @@ impl Fiber
                 self.execute_create_tuple(dst, *sz)
             }
             &Op::StrCat(ref dst, ref src) => self.execute_strcat(dst, src),
-            &Op::ApplyFunc(ref dst, ref func, ref args) => {
-                self.execute_call(dst, func, args, line)
+            &Op::ApplyFunc(ref dst, ref func) => {
+                self.execute_call(dst, func, line)
             }
             &Op::Return => Event::Complete(true),
             &Op::SetResult(ref dst) => {
@@ -186,36 +185,12 @@ impl Fiber
      * create a new frame w/ func code and new frame state
      * set curf.flag to Called(new_frame)
      */
-    pub fn execute_call(
-        &mut self,
-        dst: &Reg,
-        freg: &Reg,
-        argreg: &Reg,
-        line: i16,
-    ) -> Event
+    pub fn execute_call(&mut self, dst: &Reg, freg: &Reg, line: i16) -> Event
     {
-        let funcri: Lri = {
+        let (funcri, args): (&Lri, &Struple<Val>) = {
             let ref fname_val = self.head.e.get_reg(freg);
             match *fname_val {
-                &Val::Str(ref name_str) => {
-                    // pass in args
-                    println!("found a string for function call: {}", name_str);
-                    Lri::with_modules(Lstr::Sref(""), name_str.clone())
-                }
-                &Val::Tuple(ref modfunc) if modfunc.0.len() == 2 => {
-                    println!("found tuple for func call: {:?}", modfunc);
-                    let modnm = &modfunc.0.get(0).unwrap().1;
-                    let funcnm = &modfunc.0.get(1).unwrap().1;
-                    match (modnm, funcnm) {
-                        (&Val::Str(ref m), &Val::Str(ref f)) => {
-                            Lri::with_modules(m.clone(), f.clone())
-                        }
-                        _ => {
-                            panic!("That's not a function! {:?}", fname_val);
-                        }
-                    }
-                }
-                &Val::FuncRef(ref callri, _) => callri.clone(),
+                &Val::FuncRef(ref callri, ref args, _) => (callri, args),
                 _ => {
                     panic!("That's not a function! {:?}", fname_val);
                 }
@@ -223,25 +198,8 @@ impl Fiber
         };
         vout!("execute_call({})\n", funcri);
 
-        let opt_failure = Fiber::call_arg_failure(self.head.e.get_reg(argreg))
-            .map(|argv| argv.clone());
-        match opt_failure {
-            Some(mut failur) => {
-                if let &mut Val::Failure(_, _, ref mut trace, _) = &mut failur {
-                    *trace = FrameTrace::propagate_down(
-                        trace,
-                        &self.head.function,
-                        0,
-                    );
-                }
-                self.head.parent.set_result(failur);
-                Event::Complete(false)
-            }
-            None => {
-                let args_copy = self.head.e.get_reg(argreg).clone();
-                Event::Call(dst.clone(), line, funcri, args_copy)
-            }
-        }
+        let argstup = Val::Tuple(args.clone());
+        Event::Call(dst.clone(), line, funcri.clone(), argstup)
     }
 
     pub fn execute_const_val(&mut self, reg: &Reg, v: &Val) -> Event
@@ -278,7 +236,8 @@ impl Fiber
                             } else {
                                 (f.0.clone(), i.1.clone())
                             }
-                        }).collect();
+                        })
+                        .collect();
                     Val::Struct(i_new_typ.clone(), Struple(new_items))
                 } else {
                     panic!("struct type is not user defined: {:?}", new_typ);
@@ -393,16 +352,12 @@ impl Fiber
         }
     }
 
-    fn call_arg_failure(args: &Val) -> Option<&Val>
+    fn call_arg_failure(args: &Struple<Val>) -> Option<&Val>
     {
-        if let &Val::Tuple(ref items) = args {
-            for i in items.0.iter() {
-                if i.1.is_failure() {
-                    return Some(&i.1);
-                }
+        for i in args.0.iter() {
+            if i.1.is_failure() {
+                return Some(&i.1);
             }
-        } else {
-            panic!("call args are not a tuple");
         }
         None
     }

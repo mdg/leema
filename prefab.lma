@@ -25,19 +25,35 @@ macro unfail(new_val) ->
     new_val
 --
 
+func max(a: $T, b: $T): $T ->
+    if
+    |a < b -> b
+    |else -> a
+    --
+--
+
+func min(a: $T, b: $T): $T ->
+    if
+    |a < b -> a
+    |else -> b
+    --
+--
+
 func bool_not(v: Bool): Bool -RUST-
 
 func int_add(a: Int, b: Int): Int -RUST-
 func int_sub(a: Int, b: Int): Int -RUST-
 func int_mult(a: Int, b: Int): Int -RUST-
+func int_div(a: Int, b: Int): Int -RUST-
 func int_mod(a: Int, b: Int): Int -RUST-
 func int_negate(a: Int): Int -RUST-
 func int_random(): Int -RUST-
 func equal(a, b): Bool -RUST-
 func less_than(a, b): Bool -RUST-
-func leema_sleep(d: Int): Void -RUST-
+func sleep(d: Int): Void -RUST-
+func sleep_forever(): Void -RUST-
 func cin(): Str -RUST-
-func cout(txt: Str): Void -RUST-
+func print(txt: Str): Void -RUST-
 func list_cons(head: $A, tail: [$A]): [$A] -RUST-
 
 func int_abs(abs_a: Int): Int ->

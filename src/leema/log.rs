@@ -18,14 +18,12 @@ macro_rules! vout
 {
     ($fmt:expr) => {
         if log::is_verbose() {
-            use std::io::stderr;
-            write!(stderr(), $fmt).ok();
+            eprint!($fmt);
         }
     };
     ($fmt:expr, $($arg:tt)*) => {
         if log::is_verbose() {
-            use std::io::stderr;
-            (write!(stderr(), $fmt, $($arg)*)).ok();
+            (eprint!($fmt, $($arg)*));
         }
     };
 }

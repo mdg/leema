@@ -206,6 +206,10 @@ failed	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_FAILED);
 }
+fn	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_FN);
+}
 func	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_Func);
@@ -228,7 +232,7 @@ false	{
 }
 fork	{
     BEGIN(INITIAL);
-    return set_token(yyg, TOKEN_Fork);
+    return set_token(yyg, TOKEN_FORK);
 }
 let	{
     BEGIN(INITIAL);

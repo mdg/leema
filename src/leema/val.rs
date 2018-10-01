@@ -1,6 +1,6 @@
 use leema::frame::FrameTrace;
 use leema::list;
-use leema::lmap::LmapNode;
+use leema::lmap::{self, LmapNode};
 use leema::log;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
@@ -12,7 +12,7 @@ use leema::struple::Struple;
 use std::cmp::{Ordering, PartialEq, PartialOrd};
 use std::collections::BTreeMap;
 use std::fmt;
-use std::io::{Error, Write};
+use std::io::Error;
 use std::sync::atomic::{self, AtomicBool};
 use std::sync::{Arc, Mutex};
 
@@ -51,17 +51,17 @@ pub enum Type
     Tuple(Struple<Type>),
     Failure,
     Func(Vec<Type>, Box<Type>),
+    Closure(Vec<Type>, Vec<Type>, Box<Type>),
     // different from base collection/map interfaces?
     // base interface/type should probably be iterator
     // and then it should be a protocol, not type
     StrictList(Box<Type>),
-    Map,
     UserDef(Lri),
     Lib(String),
     Resource(Lstr),
+    Future(Box<Type>),
     RustBlock,
     Param(i8),
-    // Future(Box<Type>),
     Void,
     Kind,
     Any,
@@ -160,6 +160,11 @@ impl Type
                 let dc_args = args.iter().map(|t| t.deep_clone()).collect();
                 Type::Func(dc_args, Box::new(result.deep_clone()))
             }
+            &Type::Closure(ref args, ref closed, ref result) => {
+                let dc_args = args.iter().map(|t| t.deep_clone()).collect();
+                let dc_clos = closed.iter().map(|t| t.deep_clone()).collect();
+                Type::Closure(dc_args, dc_clos, Box::new(result.deep_clone()))
+            }
             &Type::Unknown => Type::Unknown,
             &Type::Var(ref id) => Type::Var(id.clone_for_send()),
             &Type::Void => Type::Void,
@@ -184,6 +189,15 @@ impl Type
     pub fn wrap_in_list(inner: Type) -> Type
     {
         Type::StrictList(Box::new(inner))
+    }
+
+    pub fn fmt_func_item(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        if let &Type::Func(_, _) = self {
+            write!(f, "({})", self)
+        } else {
+            write!(f, "{}", self)
+        }
     }
 }
 
@@ -211,16 +225,32 @@ impl fmt::Display for Type
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
                 for a in args {
-                    write!(f, "{} => ", a).ok();
+                    a.fmt_func_item(f)?;
+                    write!(f, " => ")?;
                 }
-                write!(f, "{}", result)
+                result.fmt_func_item(f)
+            }
+            &Type::Closure(ref args, ref closed, ref result) => {
+                write!(f, "Fn(")?;
+                for a in args {
+                    write!(f, "{},", a)?;
+                }
+                write!(f, ")")?;
+                if !closed.is_empty() {
+                    write!(f, "(")?;
+                    for c in closed {
+                        write!(f, "{},", c)?;
+                    }
+                    write!(f, ")")?;
+                }
+                write!(f, ":{}", result)
             }
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
-            &Type::Map => write!(f, "Map"),
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
+            &Type::Future(ref sub) => write!(f, "{}%", sub),
             &Type::Resource(ref name) => write!(f, "{}", &name),
             &Type::RustBlock => write!(f, "RustBlock"),
             &Type::Void => write!(f, "Void"),
@@ -253,11 +283,26 @@ impl fmt::Debug for Type
                 }
                 write!(f, "{:?}", result)
             }
+            &Type::Closure(ref args, ref closed, ref result) => {
+                write!(f, "Fn(")?;
+                for a in args {
+                    write!(f, "{:?},", a)?;
+                }
+                write!(f, ")")?;
+                if !closed.is_empty() {
+                    write!(f, "(")?;
+                    for c in closed {
+                        write!(f, "{:?},", c)?;
+                    }
+                    write!(f, ")")?;
+                }
+                write!(f, ":{:?}", result)
+            }
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
-            &Type::Map => write!(f, "Map"),
+            &Type::Future(ref sub) => write!(f, "{}%", sub),
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
             &Type::Resource(ref name) => write!(f, "Resource({})", &name),
             &Type::RustBlock => write!(f, "RustBlock"),
@@ -443,7 +488,7 @@ pub enum Val
     Type(Type),
     Kind(u8),
     Lib(Arc<LibVal>),
-    FuncRef(Lri, Type),
+    FuncRef(Lri, Struple<Val>, Type),
     ResourceRef(i64),
     RustBlock,
     Future(FutureVal),
@@ -628,7 +673,7 @@ impl Val
             &Val::Id(_) => Type::AnonVar,
             &Val::Lri(_) => Type::AnonVar,
             &Val::RustBlock => Type::RustBlock,
-            &Val::Map(_) => Type::Map,
+            &Val::Map(_) => lmap::MAP_TYPE,
             &Val::Tuple(ref items) if items.0.len() == 1 => {
                 items.0.get(0).unwrap().1.get_type()
             }
@@ -648,7 +693,7 @@ impl Val
             &Val::Kind(_) => {
                 panic!("is kind even a thing here?");
             }
-            &Val::FuncRef(_, ref typ) => typ.clone(),
+            &Val::FuncRef(_, _, ref typ) => typ.clone(),
             &Val::Lib(ref lv) => lv.get_type(),
             &Val::ResourceRef(_) => {
                 panic!("cannot get type of ResourceRef: {:?}", self);
@@ -781,8 +826,11 @@ impl Val
                 Val::EnumToken(typ.deep_clone(), vname.clone_for_send())
             }
             &Val::Token(ref typ) => Val::Token(typ.deep_clone()),
-            &Val::FuncRef(ref fi, ref typ) => {
-                Val::FuncRef(fi.deep_clone(), typ.deep_clone())
+            &Val::FuncRef(ref fi, ref args, ref typ) => {
+                let fi2 = fi.deep_clone();
+                let args2 = args.clone_for_send();
+                let typ2 = typ.deep_clone();
+                Val::FuncRef(fi2, args2, typ2)
             }
             &Val::Failure(ref tag, ref msg, ref ft, status) => {
                 Val::Failure(
@@ -908,7 +956,9 @@ impl fmt::Display for Val
             Val::Id(ref name) => write!(f, "{}", name),
             Val::Type(ref t) => write!(f, "{}", t),
             Val::Kind(c) => write!(f, "Kind({})", c),
-            Val::FuncRef(ref id, ref typ) => write!(f, "{} : {}", id, typ),
+            Val::FuncRef(ref id, ref args, ref typ) => {
+                write!(f, "{}({:?}): {}", id, args, typ)
+            }
             Val::Future(_) => write!(f, "Future"),
             Val::Void => write!(f, "Void"),
             Val::PatternVar(ref r) => write!(f, "pvar:{:?}", r),
@@ -958,8 +1008,8 @@ impl fmt::Debug for Val
             Val::Id(ref id) => write!(f, "Id({})", id),
             Val::Type(ref t) => write!(f, "TypeVal({:?})", t),
             Val::Kind(c) => write!(f, "Kind{:?}", c),
-            Val::FuncRef(ref id, ref typ) => {
-                write!(f, "FuncRef({} : {})", id, typ)
+            Val::FuncRef(ref id, ref args, ref typ) => {
+                write!(f, "FuncRef({} {:?}: {})", id, args, typ)
             }
             Val::Future(_) => write!(f, "Future"),
             Val::PatternVar(ref r) => write!(f, "pvar:{:?}", r),
@@ -987,6 +1037,8 @@ impl reg::Iregistry for Val
             (_, &Val::Tuple(ref items)) => items.ireg_get(i),
             // get reg on struct
             (_, &Val::Struct(_, ref items)) => items.ireg_get(i),
+            // Functions & Closures
+            (_, &Val::FuncRef(_, ref args, _)) => args.ireg_get(i),
             // Failures
             (&Ireg::Reg(0), &Val::Failure(ref tag, _, _, _)) => tag,
             (&Ireg::Reg(1), &Val::Failure(_, ref msg, _, _)) => msg,
@@ -1037,6 +1089,10 @@ impl reg::Iregistry for Val
             (_, &mut Val::Nil) => {
                 panic!("cannot set reg on empty list: {:?}", i);
             }
+            // set reg on FuncRef
+            (_, &mut Val::FuncRef(_, ref mut args, _)) => {
+                args.ireg_set(i, v);
+            }
             // set reg on Failures
             (&Ireg::Reg(0), &mut Val::Failure(ref mut tag, _, _, _)) => {
                 *tag = Box::new(v);
@@ -1045,8 +1101,8 @@ impl reg::Iregistry for Val
                 *msg = Box::new(v);
             }
             // values that can't act as registries
-            _ => {
-                panic!("Can't ireg_set({:?})", i);
+            (_, dst) => {
+                panic!("Can't ireg_set({:?}, {:?})", i, dst);
             }
         }
     }
@@ -1132,10 +1188,14 @@ impl PartialOrd for Val
                 PartialOrd::partial_cmp(&*at, &*bt)
             }
             // func ref to func ref comparison
-            (&Val::FuncRef(ref f1, ref t1), &Val::FuncRef(ref f2, ref t2)) => {
+            (
+                &Val::FuncRef(ref f1, ref a1, ref t1),
+                &Val::FuncRef(ref f2, ref a2, ref t2),
+            ) => {
                 Some(
                     PartialOrd::partial_cmp(f1, f2)
                         .unwrap()
+                        .then_with(|| PartialOrd::partial_cmp(a1, a2).unwrap())
                         .then_with(|| PartialOrd::partial_cmp(t1, t2).unwrap()),
                 )
             }

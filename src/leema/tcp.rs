@@ -7,7 +7,7 @@ use leema::val::{Type, Val};
 // use bytes::buf::BufMut;
 use bytes::BytesMut;
 use std;
-use std::io::{self, Write};
+use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
@@ -153,7 +153,8 @@ pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
         .map(move |sock| {
             vout!("tcp connected");
             rsrc::Event::NewRsrc(Box::new(sock), None)
-        }).map_err(move |_| {
+        })
+        .map_err(move |_| {
             rsrc::Event::Result(
                 Val::Str(Lstr::Sref("Failure to connect")),
                 None,
@@ -178,14 +179,13 @@ pub fn tcp_accept(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("tcp_accept()\n");
     let listener: TcpListener = ctx.take_rsrc();
-    let acc =
-        Acceptor {
-            listener: Some(listener),
-        }.map(|(_ilistener, sock, _addr)| {
-            rsrc::Event::NewRsrc(Box::new(sock), None)
-        }).map_err(|_| {
-            rsrc::Event::Result(Val::Str(Lstr::Sref("accept error")), None)
-        });
+    let acc = Acceptor {
+        listener: Some(listener),
+    }
+    .map(|(_ilistener, sock, _addr)| rsrc::Event::NewRsrc(Box::new(sock), None))
+    .map_err(|_| {
+        rsrc::Event::Result(Val::Str(Lstr::Sref("accept error")), None)
+    });
     rsrc::Event::Future(Box::new(acc))
 }
 

@@ -1,5 +1,6 @@
 use leema::infer::{Inferator, TypeSet};
 use leema::ixpr::{Ixpr, Source};
+use leema::lmap;
 use leema::log;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
@@ -8,7 +9,6 @@ use leema::struple::Struple;
 use leema::val::{Type, TypeErr, TypeResult, Val};
 
 use std::collections::{HashMap, LinkedList};
-use std::io::Write;
 
 #[derive(Debug)]
 pub enum CallOp
@@ -53,7 +53,9 @@ impl<'a> CallFrame<'a>
         match ix.src {
             Source::Call(ref callx, ref args) => {
                 self.collect_callexpr(callx);
-                self.collect_calls(args);
+                for a in args.0.iter() {
+                    self.collect_calls(&a.1);
+                }
             }
             Source::Block(ref expressions) => {
                 self.collect_calls_vec(expressions);
@@ -95,8 +97,14 @@ impl<'a> CallFrame<'a>
                     self.collect_calls(&i.1);
                 }
             }
+            Source::ConstVal(Val::FuncRef(ref lri, _, _)) => {
+                self.push_call(CallOp::ExternalCall(lri.clone()));
+            }
             Source::ConstVal(_) => {
                 // nothing to do. constants aren't calls.
+            }
+            Source::Fork(ref sub) => {
+                self.collect_calls(sub);
             }
             Source::Id(ref _id, _) => {
                 // nothing to do. not calls.
@@ -112,7 +120,7 @@ impl<'a> CallFrame<'a>
             Source::Return(ref result) => {
                 self.collect_calls(result);
             }
-            Source::Func(ref _args, _, _, ref body) => {
+            Source::Func(ref _args, _, _, _, ref body) => {
                 self.collect_calls(body);
             }
             Source::Cons(ref head, ref tail) => {
@@ -132,15 +140,18 @@ impl<'a> CallFrame<'a>
     pub fn collect_callexpr<'b>(&mut self, callx: &'b Ixpr)
     {
         match callx.src {
-            Source::Id(ref callname, _) => {
-                self.push_call(CallOp::LocalCall(callname.clone()));
+            Source::Id(ref _callname, _) => {
+                // this is probably a local variable that is a function
+                // self.push_call(CallOp::LocalCall(callname.clone()));
             }
             Source::ConstVal(ref val) => {
                 match val {
                     &Val::Str(ref name) => {
+                        print!("where does this local call come from? ");
+                        println!("it seems suspect: {}", name);
                         self.push_call(CallOp::LocalCall(name.clone()));
                     }
-                    &Val::FuncRef(ref i, _) => {
+                    &Val::FuncRef(ref i, _, _) => {
                         self.push_call(CallOp::ExternalCall(i.clone()));
                     }
                     _ => {
@@ -327,25 +338,53 @@ impl<'a, 'b> Typescope<'a, 'b>
             &Source::ConstVal(ref fval) => {
                 match fval {
                     &Val::Str(_) => Ok(Type::Void),
-                    &Val::FuncRef(ref fri, ref typ) => {
-                        let typed =
-                            self.functype(fri.mod_ref().unwrap(), &fri.localid);
-                        self.infer.merge_types(typ, &typed)
+                    &Val::FuncRef(ref fri, ref args, ref typ) => {
+                        self.typecheck_funcref(fri, args, typ)
                     }
                     _ => {
                         panic!("what val is in typecheck_call? {:?}", fval);
                     }
                 }
             }
+            &Source::Id(ref name, _) => self.infer.vartype(name),
             _ => {
                 panic!("whatever is that in typecheck_call? {:?}", src);
             }
         }
     }
 
+    pub fn typecheck_funcref(
+        &mut self,
+        fri: &Lri,
+        args: &Struple<Val>,
+        typ: &Type,
+    ) -> TypeResult
+    {
+        let typed = self.functype(fri.mod_ref().unwrap(), &fri.localid);
+        let result = self.infer.merge_types(typ, &typed);
+        match typ {
+            Type::Func(ref _iargs, _) => {
+                // do nothing here for now
+            }
+            Type::Closure(ref iargs, ref cargs, _) => {
+                let argc = iargs.len();
+                for ((a, _), t) in args.0.iter().skip(argc).zip(cargs.iter()) {
+                    if a.is_none() {
+                        continue;
+                    }
+                    self.infer.bind_vartype(a.as_ref().unwrap(), t, 0)?;
+                }
+            }
+            _ => {
+                panic!("FuncRef type is not a func or closure: {:?}", typ);
+            }
+        }
+        result
+    }
+
     pub fn functype(&self, modname: &str, funcname: &str) -> Type
     {
-        if modname == self.inter.name() {
+        let result = if modname == self.inter.name() {
             self.inter
                 .get_function_type(funcname)
                 .expect("missing typed object for module")
@@ -359,8 +398,10 @@ impl<'a, 'b> Typescope<'a, 'b>
                 .expect(&format!(
                     "cannot find function {}::{} in {:?}",
                     modname, funcname, m
-                )).clone()
-        }
+                ))
+                .clone()
+        };
+        result
     }
 }
 
@@ -372,19 +413,14 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
                 e.add_context(Lstr::from(format!("function: {:?}", func.src)))
             })?;
             let mut targs = vec![];
-            if let Source::Tuple(ref mut argstup) = args.src {
-                for mut a in &mut argstup.0 {
-                    let atype =
-                        typecheck_expr(scope, &mut a.1).map_err(|e| {
-                            e.add_context(Lstr::from(format!(
-                                "function args for: {:?} on line {}",
-                                func.src, func.line
-                            )))
-                        })?;
-                    targs.push(atype);
-                }
-            } else {
-                println!("args are not a tuple");
+            for mut a in &mut args.0 {
+                let atype = typecheck_expr(scope, &mut a.1).map_err(|e| {
+                    e.add_context(Lstr::from(format!(
+                        "function args for: {:?} on line {}",
+                        func.src, func.line
+                    )))
+                })?;
+                targs.push(atype);
             }
             let mut targs_ref = vec![];
             for ta in targs.iter() {
@@ -400,6 +436,9 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             let tail_t = typecheck_expr(scope, tail).unwrap();
             let head_list_t = Type::StrictList(Box::new(head_t));
             scope.infer.merge_types(&head_list_t, &tail_t)
+        }
+        &mut Source::ConstVal(Val::FuncRef(ref fri, ref args, ref typ)) => {
+            scope.typecheck_funcref(fri, args, typ)
         }
         &mut Source::ConstVal(ref val) => Ok(val.get_type()),
         &mut Source::Let(ref lhs, ref mut rhs, ref mut fails) => {
@@ -438,6 +477,10 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             let xtyp = typecheck_expr(scope, x)?;
             typecheck_field_access(scope, subidx, &xtyp, sub)
         }
+        &mut Source::Fork(ref mut x) => {
+            let xtyp = typecheck_expr(scope, x)?;
+            Ok(Type::Future(Box::new(xtyp)))
+        }
         &mut Source::Id(ref id, _) => scope.infer.vartype(id),
         &mut Source::List(ref mut items) => {
             let mut last_type = Type::Unknown;
@@ -448,7 +491,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             Ok(Type::StrictList(Box::new(last_type)))
         }
         &mut Source::Construple(ref typ, _) => Ok(typ.clone()),
-        &mut Source::Map(_) => Ok(Type::Map),
+        &mut Source::Map(_) => Ok(lmap::MAP_TYPE),
         &mut Source::Tuple(ref mut items) => {
             let mut item_types = Vec::with_capacity(items.0.len());
             for mut i in &mut items.0 {
@@ -490,7 +533,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
         &mut Source::MatchCase(ref pattern, _, _) => {
             panic!("cannot directly typecheck matchcase: {}", pattern);
         }
-        &mut Source::Func(ref _args, _, _, ref _body) => {
+        &mut Source::Func(ref _args, _, _, _, ref _body) => {
             Err(TypeErr::Error(Lstr::from(format!(
                 "unexpected func in typecheck",
             ))))
@@ -506,6 +549,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
     match &mut ix.src {
         &mut Source::Func(
             ref arg_names,
+            ref closed_vars,
             ref mut arg_types,
             ref mut declared_result_type,
             ref mut body,
@@ -513,6 +557,11 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             let zips = arg_names.iter().zip(arg_types.iter());
             for (i, (an, at)) in zips.enumerate() {
                 scope.infer.init_param(i as i16, an, at, ix.line)?;
+            }
+            let mut ci = arg_names.len();
+            for an in closed_vars.iter() {
+                let at = Type::Var(Lstr::from(format!("T_{}_{}", an, ci)));
+                scope.infer.init_param(ci as i16, an, &at, ix.line)?;
             }
             vout!("f({:?}) =>\n{:?}\n", arg_names, body);
             let result_type = typecheck_expr(scope, &mut *body)
@@ -522,7 +571,8 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
                         scope.fname
                     );
                     e.add_context(Lstr::from(err_msg))
-                }).unwrap();
+                })
+                .unwrap();
 
             vout!("type is: {}\n", result_type);
             vout!("vars:");
@@ -586,7 +636,8 @@ pub fn typecheck_field_access(
                         .map(|(i, ft)| {
                             *fldidx = Some(i as i8);
                             ft.clone()
-                        }).ok_or_else(|| {
+                        })
+                        .ok_or_else(|| {
                             TypeErr::Error(Lstr::Sref("invalid field index"))
                         })
                 }
@@ -627,7 +678,8 @@ mod tests
             func main() ->
                 foo([5, 3, 4])
             --
-            ".to_string();
+            "
+        .to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
         loader.set_mod_txt(Lstr::Sref("tacos"), input);

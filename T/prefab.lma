@@ -25,6 +25,20 @@ macro unfail(new_val) ->
     new_val
 --
 
+func max(a: $T, b: $T): $T ->
+    if
+    |a < b -> b
+    |else -> a
+    --
+--
+
+func min(a: $T, b: $T): $T ->
+    if
+    |a < b -> a
+    |else -> b
+    --
+--
+
 func bool_not(v: Bool): Bool -RUST-
 
 func int_add(a: Int, b: Int): Int -RUST-

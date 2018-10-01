@@ -1,0 +1,16 @@
+
+
+func concat3(a: Str, b: Str, c: Str): Str ->
+    "$a $b $c"
+--
+
+func main() ->
+    let concat_ab := concat3(?, ?, "end1")
+    let concat_bc := concat3("start2", ?, ?)
+
+    let result_1 := concat_ab("tacos", "burritos")
+    let result_2 := concat_bc("dog", "cat")
+
+    print("result 1: $result_1\n")
+    print("result 2: $result_2\n")
+--

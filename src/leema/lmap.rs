@@ -1,6 +1,16 @@
-use Val;
+use leema::lri::Lri;
+use leema::lstr::Lstr;
+use leema::val::{Type, Val};
 
 use std::sync::Arc;
+
+
+pub const MAP_TYPE_LRI: Lri = Lri {
+    modules: Some(Lstr::Sref("map")),
+    localid: Lstr::Sref("T"),
+    params: None,
+};
+pub const MAP_TYPE: Type = Type::UserDef(MAP_TYPE_LRI);
 
 pub type LmapNode = Option<Arc<Lmap>>;
 
@@ -64,5 +74,40 @@ impl Lmap
                 }
             }
         }
+    }
+
+    pub fn len(tree: &LmapNode) -> usize
+    {
+        if tree.is_none() {
+            return 0;
+        }
+        let itree = tree.as_ref().unwrap();
+        Lmap::len(&itree.0) + Lmap::len(&itree.2) + 1
+    }
+}
+
+
+#[cfg(test)]
+mod tests
+{
+    use leema::lmap::Lmap;
+    use leema::lstr::Lstr;
+    use leema::val::Val;
+
+
+    #[test]
+    pub fn test_lmap_constructor()
+    {
+        assert_eq!(None, Lmap::new());
+    }
+
+    #[test]
+    pub fn test_lmap_insert()
+    {
+        let k = Val::Str(Lstr::Sref("tacos"));
+        let m1 = Lmap::new();
+        assert!(Lmap::get(&m1, &k).is_none());
+        let m2 = Lmap::insert(&m1, k.clone(), Val::Int(4));
+        assert_eq!(Val::Int(4), *Lmap::get(&m2, &k).unwrap());
     }
 }

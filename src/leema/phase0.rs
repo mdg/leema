@@ -11,13 +11,13 @@ use leema::val::{SrcLoc, Type, Val};
 
 use std::collections::{HashMap, LinkedList};
 use std::fmt;
-use std::io::Write;
 
 
 #[derive(Debug)]
 pub struct Protomod
 {
     pub key: ModKey,
+    pub closures: LinkedList<Lstr>,
     pub funcseq: LinkedList<Lstr>,
     pub funcsrc: HashMap<Lstr, Ast>,
     pub valtypes: HashMap<Lstr, Type>,
@@ -34,6 +34,7 @@ impl Protomod
         empty_consts.insert(Lstr::Sref("TYPES"), Val::Nil);
         Protomod {
             key: mk,
+            closures: LinkedList::new(),
             funcseq: LinkedList::new(),
             funcsrc: HashMap::new(),
             valtypes: HashMap::new(),
@@ -97,6 +98,7 @@ impl Protomod
     }
 
     pub fn preproc_expr(
+        &mut self,
         prog: &Lib,
         mp: &ModulePreface,
         x: &Ast,
@@ -107,17 +109,28 @@ impl Protomod
             &Ast::Block(ref items) => {
                 let pp_items = items
                     .iter()
-                    .map(|i| Protomod::preproc_expr(prog, mp, i, loc))
+                    .map(|i| Protomod::preproc_expr(self, prog, mp, i, loc))
                     .collect();
                 Ast::Block(pp_items)
             }
+            &Ast::Call(ref callx, ref args, ref iloc) => {
+                Protomod::preproc_call(self, prog, mp, callx, args, iloc)
+            }
+            &Ast::DefFunc(
+                ast::FuncClass::Closure,
+                _,
+                ref args,
+                _,
+                ref body,
+                ref iloc,
+            ) => Protomod::preproc_closure(self, prog, mp, args, body, iloc),
             &Ast::Cons(ref head, ref tail) => {
-                let pp_head = Protomod::preproc_expr(prog, mp, head, loc);
-                let pp_tail = Protomod::preproc_expr(prog, mp, tail, loc);
+                let pp_head = Protomod::preproc_expr(self, prog, mp, head, loc);
+                let pp_tail = Protomod::preproc_expr(self, prog, mp, tail, loc);
                 Ast::Cons(Box::new(pp_head), Box::new(pp_tail))
             }
             &Ast::ConstructData(datat, ref name) => {
-                let ppname = Protomod::preproc_expr(prog, mp, name, loc);
+                let ppname = Protomod::preproc_expr(self, prog, mp, name, loc);
                 Ast::ConstructData(datat, Box::new(ppname))
             }
             &Ast::ConstBool(b) => Ast::ConstBool(b),
@@ -127,12 +140,16 @@ impl Protomod
             &Ast::ConstVoid => Ast::ConstVoid,
             &Ast::Deref(ref inner) => {
                 Ast::Deref(Box::new(Protomod::preproc_expr(
-                    prog, mp, inner, loc,
+                    self, prog, mp, inner, loc,
                 )))
             }
             &Ast::DotAccess(ref base, ref fld) => {
-                let ppbase = Protomod::preproc_expr(prog, mp, base, loc);
+                let ppbase = Protomod::preproc_expr(self, prog, mp, base, loc);
                 Ast::DotAccess(Box::new(ppbase), fld.clone())
+            }
+            &Ast::Fork(ref fx) => {
+                let ppfx = Protomod::preproc_expr(self, prog, mp, fx, loc);
+                Ast::Fork(Box::new(ppfx))
             }
             &Ast::IfExpr(
                 ast::IfType::MatchFailure,
@@ -146,6 +163,7 @@ impl Protomod
                     panic!("match failed input must be a variable name");
                 }
                 let pp_case = Protomod::preproc_ifcase(
+                    self,
                     prog,
                     mp,
                     ast::IfType::MatchFailure,
@@ -160,9 +178,11 @@ impl Protomod
                 )
             }
             &Ast::IfExpr(iftype, ref input, ref case, ref iloc) => {
-                let pp_input = Protomod::preproc_expr(prog, mp, input, iloc);
-                let pp_case =
-                    Protomod::preproc_ifcase(prog, mp, iftype, case, iloc);
+                let pp_input =
+                    Protomod::preproc_expr(self, prog, mp, input, iloc);
+                let pp_case = Protomod::preproc_ifcase(
+                    self, prog, mp, iftype, case, iloc,
+                );
                 Ast::IfExpr(
                     iftype,
                     Box::new(pp_input),
@@ -170,19 +190,17 @@ impl Protomod
                     *iloc,
                 )
             }
-            &Ast::Let(let_type, ref left, ref right, ref iloc) => {
+            &Ast::Let(ref left, ref right, ref iloc) => {
                 let pp_left = Protomod::preproc_pattern(prog, mp, left, iloc);
-                let pp_right = Protomod::preproc_expr(prog, mp, right, iloc);
-                Ast::Let(let_type, Box::new(pp_left), Box::new(pp_right), *iloc)
-            }
-            &Ast::Call(ref callx, ref args, ref iloc) => {
-                Protomod::preproc_call(prog, mp, callx, args, iloc)
+                let pp_right =
+                    Protomod::preproc_expr(self, prog, mp, right, iloc);
+                Ast::Let(Box::new(pp_left), Box::new(pp_right), *iloc)
             }
             &Ast::List(ref items) => {
                 Ast::List(
                     items
                         .iter()
-                        .map(|i| Protomod::preproc_expr(prog, mp, i, loc))
+                        .map(|i| Protomod::preproc_expr(self, prog, mp, i, loc))
                         .collect(),
                 )
             }
@@ -193,38 +211,57 @@ impl Protomod
                 Protomod::preproc_lri(prog, mp, mods, iloc)
             }
             &Ast::Lri(ref mods, Some(ref typs), ref iloc) => {
-                Protomod::preproc_lri_with_types(prog, mp, mods, typs, iloc)
+                Protomod::preproc_lri_with_types(
+                    self, prog, mp, mods, typs, iloc,
+                )
+            }
+            &Ast::Map(ref items) if items.is_empty() => {
+                let callmods = vec![Lstr::Sref("map"), Lstr::Sref("new")];
+                let mut tvars = LinkedList::new();
+                tvars.push_back(Kxpr::new_x(Ast::TypeVar(
+                    Lstr::Sref("K"),
+                    *loc,
+                )));
+                tvars.push_back(Kxpr::new_x(Ast::TypeVar(
+                    Lstr::Sref("V"),
+                    *loc,
+                )));
+                let callri = Ast::Lri(callmods, Some(tvars), *loc);
+                let call = Ast::Call(Box::new(callri), LinkedList::new(), *loc);
+                self.preproc_expr(prog, mp, &call, loc)
             }
             &Ast::Map(ref items) => {
                 let pp_items = items
                     .iter()
-                    .map(|i| {
-                        i.map_x(|x| Protomod::preproc_expr(prog, mp, x, loc))
-                    }).collect();
+                    .map(|i| i.map_x(|x| self.preproc_expr(prog, mp, x, loc)))
+                    .collect();
                 Ast::Map(pp_items)
             }
             &Ast::Return(ref x, ref loc) => {
-                let px = Protomod::preproc_expr(prog, mp, x, loc);
+                let px = Protomod::preproc_expr(self, prog, mp, x, loc);
                 Ast::Return(Box::new(px), *loc)
             }
             &Ast::StrExpr(ref xs, ref loc) => {
                 let pxs = xs
                     .iter()
-                    .map(|x| Protomod::preproc_expr(prog, mp, x, loc))
+                    .map(|x| Protomod::preproc_expr(self, prog, mp, x, loc))
                     .collect();
                 Ast::StrExpr(pxs, *loc)
             }
             &Ast::Tuple(ref items) if items.len() == 1 => {
                 // one-tuples are compiled to just the value
                 let first_x = items.front().unwrap().x_ref().unwrap();
-                Protomod::preproc_expr(prog, mp, first_x, loc)
+                Protomod::preproc_expr(self, prog, mp, first_x, loc)
             }
             &Ast::Tuple(ref items) => {
                 let pp_items = items
                     .iter()
                     .map(|i| {
-                        i.map_x(|x| Protomod::preproc_expr(prog, mp, x, loc))
-                    }).collect();
+                        i.map_x(|x| {
+                            Protomod::preproc_expr(self, prog, mp, x, loc)
+                        })
+                    })
+                    .collect();
                 Ast::Tuple(pp_items)
             }
             &Ast::TypeFunc(ref parts, ref loc) => {
@@ -232,15 +269,18 @@ impl Protomod
                     .iter()
                     .map(|p| {
                         Protomod::preproc_func_arg(
+                            self,
                             prog,
                             mp,
                             &Lstr::Sref("anon_func_type"),
                             p,
                             loc,
                         )
-                    }).collect();
+                    })
+                    .collect();
                 Ast::TypeFunc(ppp, *loc)
             }
+            &Ast::Question => Ast::Question,
             &Ast::RustBlock => Ast::RustBlock,
             &Ast::TypeAnon => Ast::TypeAnon,
             &Ast::TypeBool => Ast::TypeBool,
@@ -264,6 +304,7 @@ impl Protomod
     }
 
     pub fn preproc_func_arg(
+        &mut self,
         prog: &Lib,
         mp: &ModulePreface,
         func_name: &Lstr,
@@ -283,7 +324,7 @@ impl Protomod
             }
             (Some(id), None) => {
                 let type_name = Lstr::from(format!(
-                    "{}_{}_{}",
+                    "T_{}_{}_{}",
                     mp.key.name,
                     func_name.str(),
                     id
@@ -293,7 +334,7 @@ impl Protomod
             }
             (Some(id), Some(&Ast::TypeAnon)) => {
                 let type_name = Lstr::from(format!(
-                    "{}_{}_{}",
+                    "T_{}_{}_{}",
                     mp.key.name,
                     func_name.str(),
                     id
@@ -302,12 +343,15 @@ impl Protomod
                 Kxpr::new(id.clone(), new_typ)
             }
             (_, Some(_)) => {
-                arg.map_x(|typ| Protomod::preproc_expr(prog, mp, typ, &loc))
+                arg.map_x(|typ| {
+                    Protomod::preproc_expr(self, prog, mp, typ, &loc)
+                })
             }
         }
     }
 
     pub fn preproc_func_result(
+        &mut self,
         prog: &Lib,
         mp: &ModulePreface,
         result_type: &Ast,
@@ -316,7 +360,7 @@ impl Protomod
     {
         match result_type {
             Ast::TypeAnon => Ast::TypeVar(Lstr::Sref("T_result"), *loc),
-            _ => Protomod::preproc_expr(prog, mp, result_type, &loc),
+            _ => Protomod::preproc_expr(self, prog, mp, result_type, &loc),
         }
     }
 
@@ -337,10 +381,13 @@ impl Protomod
         let lstr_name = Lstr::from(name);
         let pp_args: LinkedList<Kxpr> = args
             .iter()
-            .map(|a| Protomod::preproc_func_arg(prog, mp, &lstr_name, a, loc))
+            .map(|a| {
+                Protomod::preproc_func_arg(self, prog, mp, &lstr_name, a, loc)
+            })
             .collect();
-        let pp_rtype_ast = Protomod::preproc_func_result(prog, mp, rtype, loc);
-        let pp_body = Protomod::preproc_expr(prog, mp, body, loc);
+        let pp_rtype_ast =
+            Protomod::preproc_func_result(self, prog, mp, rtype, loc);
+        let pp_body = Protomod::preproc_expr(self, prog, mp, body, loc);
         let pp_func = Ast::DefFunc(
             fclass,
             Box::new(name.clone()),
@@ -365,15 +412,18 @@ impl Protomod
                         argt.x_ref().unwrap(),
                         loc,
                     )
-                }).collect();
+                })
+                .collect();
             let pp_rtype =
                 self.preproc_type(prog, mp, lri_params, &pp_rtype_ast, loc);
             (pp_ftype_parts, pp_rtype)
         };
         ftype_parts.push(Kxpr::new_x(pp_rtype_ast));
         let ftype = Type::Func(ftype_part_types, Box::new(rtype));
+        let fref_args =
+            pp_args.iter().map(|a| (a.k_clone(), Val::Void)).collect();
 
-        let funcref = Val::FuncRef(full_lri, ftype.clone());
+        let funcref = Val::FuncRef(full_lri, fref_args, ftype.clone());
 
         self.funcseq.push_back(lstr_name.clone());
         self.funcsrc.insert(lstr_name.clone(), pp_func);
@@ -381,7 +431,87 @@ impl Protomod
         self.constants.insert(lstr_name, funcref);
     }
 
+    pub fn preproc_closure(
+        &mut self,
+        prog: &Lib,
+        mp: &ModulePreface,
+        args: &LinkedList<Kxpr>,
+        body: &Ast,
+        loc: &SrcLoc,
+    ) -> Ast
+    {
+        let closure_key =
+            Protomod::make_closure_key(&mp.key.name, loc.lineno, &args);
+        let pp_args: LinkedList<Kxpr> = args
+            .iter()
+            .map(|a| self.preproc_func_arg(prog, mp, &closure_key, a, loc))
+            .collect();
+        let pp_body = self.preproc_expr(prog, mp, body, loc);
+        let pp_result = self.preproc_func_result(prog, mp, &Ast::TypeAnon, loc);
+
+        let arg_types: Vec<Type> = pp_args
+            .iter()
+            .map(|a| {
+                let x_ref = a.x_ref();
+                if x_ref.is_none() {
+                    panic!("closure arg type is None: {}", closure_key);
+                }
+                let atype = x_ref.unwrap();
+                self.preproc_type(prog, mp, None, atype, loc)
+            })
+            .collect();
+        let result_type = self.preproc_type(prog, mp, None, &pp_result, loc);
+        let ftype = Type::Func(arg_types, Box::new(result_type));
+
+        let fref_args =
+            pp_args.iter().map(|a| (a.k_clone(), Val::Void)).collect();
+
+        let pp_func = Ast::DefFunc(
+            ast::FuncClass::Closure,
+            Box::new(Ast::Lri(vec![closure_key.clone()], None, *loc)),
+            pp_args,
+            Box::new(pp_result.clone()),
+            Box::new(pp_body),
+            *loc,
+        );
+
+        let closuri =
+            Lri::with_modules(mp.key.name.clone(), closure_key.clone());
+        let fref_struple = Struple(fref_args);
+        let funcref = Val::FuncRef(closuri, fref_struple, ftype.clone());
+
+        self.closures.push_back(closure_key.clone());
+        self.funcseq.push_back(closure_key.clone());
+        self.funcsrc.insert(closure_key.clone(), pp_func);
+        self.valtypes.insert(closure_key.clone(), ftype);
+        self.constants.insert(closure_key.clone(), funcref);
+        Ast::Localid(closure_key, *loc)
+    }
+
+    /// generate a key for referencing the closure when actually
+    /// trying to call it
+    pub fn make_closure_key(
+        modname: &str,
+        lineno: i16,
+        args: &LinkedList<Kxpr>,
+    ) -> Lstr
+    {
+        let mut key = String::with_capacity(128);
+        key.push_str(modname);
+        key.push('_');
+        key.push_str(&format!("{}", lineno));
+        for a in args.iter() {
+            key.push('_');
+            let arg_name = a.k_ref().unwrap_or_else(|| {
+                panic!("closure missing arg name at {}:{}", modname, lineno);
+            });
+            key.push_str(arg_name);
+        }
+        Lstr::from(key)
+    }
+
     pub fn preproc_call(
+        &mut self,
         prog: &Lib,
         mp: &ModulePreface,
         callx: &Ast,
@@ -391,19 +521,75 @@ impl Protomod
     {
         let pp_args: LinkedList<Kxpr> = args
             .iter()
-            .map(|arg| arg.map_x(|x| Protomod::preproc_expr(prog, mp, x, loc)))
+            .map(|arg| {
+                arg.map_x(|x| Protomod::preproc_expr(self, prog, mp, x, loc))
+            })
             .collect();
-        let pp_callx = Protomod::preproc_expr(prog, mp, callx, loc);
+        let pp_callx = Protomod::preproc_expr(self, prog, mp, callx, loc);
+
         match pp_callx {
             Ast::DefFunc(ast::FuncClass::Macro, mname, margs, _, body, _) => {
                 vout!("apply_macro({:?}, {:?})\n", mname, args);
                 let macrod =
                     Protomod::apply_macro(&mname, &body, &margs, &pp_args, loc);
                 // do it again to make sure there's not a wrapped macro
-                Protomod::preproc_expr(prog, mp, &macrod, loc)
+                return self.preproc_expr(prog, mp, &macrod, loc);
             }
-            _ => Ast::Call(Box::new(pp_callx), pp_args, *loc),
+            _ => {
+                // fall through
+            }
         }
+        let is_curried = args.iter().any(|a| a.x_ref() == Some(&Ast::Question));
+        if is_curried {
+            self.preproc_curry(prog, mp, &pp_callx, &pp_args, loc)
+        } else {
+            Ast::Call(Box::new(pp_callx), pp_args, *loc)
+        }
+    }
+
+    pub fn preproc_curry(
+        &mut self,
+        prog: &Lib,
+        mp: &ModulePreface,
+        callx: &Ast,
+        args: &LinkedList<Kxpr>,
+        loc: &SrcLoc,
+    ) -> Ast
+    {
+        // set arguments passed to curry in a new block
+        // to be later included in the closure
+        let mut new_block = Vec::new();
+        let mut outer_args: LinkedList<Kxpr> = LinkedList::new();
+        let mut inner_args = LinkedList::new();
+        for (i, a) in args.iter().enumerate() {
+            if Some(&Ast::Question) == a.x_ref() {
+                let argn = Lstr::from(format!(
+                    "curryarg_{}_{}__{}",
+                    mp.key.name, loc.lineno, i
+                ));
+                outer_args.push_back(Kxpr::new_k(argn.clone()));
+                inner_args.push_back(Kxpr::new_x(Ast::Localid(argn, *loc)));
+            } else {
+                let argn = Lstr::from(format!(
+                    "curryclosed_{}_{}__{}",
+                    mp.key.name, loc.lineno, i
+                ));
+                let argn_ast = Ast::Localid(argn, *loc);
+                let new_x = Box::new(a.x_clone().unwrap());
+                new_block.push(Ast::Let(
+                    Box::new(argn_ast.clone()),
+                    new_x,
+                    *loc,
+                ));
+                inner_args.push_back(Kxpr::new_x(argn_ast));
+            }
+        }
+        // make closure
+        let clbody = Ast::Call(Box::new(callx.clone()), inner_args, *loc);
+        let clos = Ast::closure(outer_args, clbody, *loc);
+        // add closure as result of block
+        new_block.push(clos);
+        self.preproc_expr(prog, mp, &Ast::Block(new_block), loc)
     }
 
     pub fn apply_macro(
@@ -471,7 +657,8 @@ impl Protomod
                     .iter()
                     .map(|tv| {
                         tv.map_x(|x| Protomod::replace_ids(x, idvals, loc))
-                    }).collect();
+                    })
+                    .collect();
                 Ast::Tuple(result)
             }
             &Ast::IfExpr(ift, ref input, ref if_case, _) => {
@@ -485,7 +672,8 @@ impl Protomod
                     .iter()
                     .map(|arg| {
                         arg.map_x(|x| Protomod::replace_ids(x, idvals, loc))
-                    }).collect();
+                    })
+                    .collect();
                 Ast::Call(Box::new(new_callx), new_args, *loc)
             }
             &Ast::Localid(ref name, ref _iloc) => {
@@ -558,7 +746,8 @@ impl Protomod
     }
 
     pub fn preproc_lri_with_types(
-        prog: &Lib,
+        &mut self,
+        _prog: &Lib,
         mp: &ModulePreface,
         mods: &Vec<Lstr>,
         typs: &LinkedList<Kxpr>,
@@ -567,12 +756,28 @@ impl Protomod
     {
         let pp_types = typs
             .iter()
-            .map(|t| t.map_x(|tx| Protomod::preproc_expr(prog, mp, tx, loc)))
+            .map(|t| {
+                t.map_x(|tx| {
+                    match tx {
+                        Ast::Localid(ref id, ref iloc) => {
+                            if self.deftypes.contains_key(id) {
+                                let tri = vec![mp.key.name.clone(), id.clone()];
+                                Ast::Lri(tri, None, *iloc)
+                            } else {
+                                Ast::TypeVar(id.clone(), *iloc)
+                            }
+                        }
+                        Ast::TypeVar(_, _) => tx.clone(),
+                        _ => tx.clone(),
+                    }
+                })
+            })
             .collect();
         Ast::Lri(mods.clone(), Some(pp_types), *loc)
     }
 
     pub fn preproc_ifcase(
+        &mut self,
         prog: &Lib,
         mp: &ModulePreface,
         iftype: ast::IfType,
@@ -582,7 +787,7 @@ impl Protomod
     {
         let pp_cond = match iftype {
             ast::IfType::If => {
-                Protomod::preproc_expr(prog, mp, &case.cond, &case.loc)
+                Protomod::preproc_expr(self, prog, mp, &case.cond, &case.loc)
             }
             ast::IfType::Match => {
                 Protomod::preproc_pattern(prog, mp, &case.cond, &case.loc)
@@ -600,9 +805,17 @@ impl Protomod
                 panic!("typecast not ready yet");
             }
         };
-        let pp_body = Protomod::preproc_expr(prog, mp, &case.body, &case.loc);
+        let pp_body =
+            Protomod::preproc_expr(self, prog, mp, &case.body, &case.loc);
         let pp_else = case.else_case.as_ref().map(|else_case| {
-            Protomod::preproc_ifcase(prog, mp, iftype, &*else_case, &case.loc)
+            Protomod::preproc_ifcase(
+                self,
+                prog,
+                mp,
+                iftype,
+                &*else_case,
+                &case.loc,
+            )
         });
         ast::IfCase::new(pp_cond, pp_body, pp_else, *loc)
     }
@@ -632,7 +845,8 @@ impl Protomod
                             i.map_x(|x| {
                                 Protomod::preproc_pattern(prog, mp, x, loc)
                             })
-                        }).collect(),
+                        })
+                        .collect(),
                 )
             }
             &Ast::List(ref items) => {
@@ -651,7 +865,8 @@ impl Protomod
                         px.map_x(|x| {
                             Protomod::preproc_pattern(prog, mp, x, iloc)
                         })
-                    }).collect();
+                    })
+                    .collect();
                 Ast::Call(Box::new(pp_callx), pp_args, *loc)
             }
             &Ast::Localid(_, _) => p.clone(),
@@ -669,7 +884,7 @@ impl Protomod
     }
 
     pub fn preproc_type(
-        &self,
+        &mut self,
         prog: &Lib,
         mp: &ModulePreface,
         opt_type_params: Option<&Vec<Type>>,
@@ -677,7 +892,7 @@ impl Protomod
         loc: &SrcLoc,
     ) -> Type
     {
-        let pp_x = Protomod::preproc_expr(prog, mp, typ, loc);
+        let pp_x = Protomod::preproc_expr(self, prog, mp, typ, loc);
         let local_type = Type::from(&pp_x);
         self.replace_typeids(opt_type_params, local_type)
     }
@@ -694,7 +909,8 @@ impl Protomod
                 if id.local_only() && Protomod::find_type_param(
                     type_params,
                     &id.localid,
-                ).is_some()
+                )
+                .is_some()
                 {
                     Type::Var(id.localid.clone())
                 } else if !id.has_modules()
@@ -724,10 +940,10 @@ impl Protomod
                     .map(|mut i| {
                         i.1 = self.replace_typeids(type_params, i.1);
                         i
-                    }).collect();
+                    })
+                    .collect();
                 Type::Tuple(Struple(items2))
             }
-            Type::Map => Type::Map,
             // primitive types
             Type::Bool => Type::Bool,
             Type::Hashtag => Type::Hashtag,
@@ -810,16 +1026,14 @@ impl Protomod
                     }
                     _ => p,
                 }
-            }).collect();
+            })
+            .collect();
         i.params = Some(var_params);
         i
     }
 
     pub fn preproc_struple_token(&mut self, full_lri: Lri, _loc: &SrcLoc)
     {
-        if full_lri.param_ref().is_some() {
-            panic!("no type params for tokens: {}", full_lri);
-        }
         let name_lstr = full_lri.localid.clone();
         let type_name = Type::UserDef(full_lri.clone());
 
@@ -876,11 +1090,18 @@ impl Protomod
                     loc,
                 );
                 (f.k_clone(), pp_type)
-            }).collect();
+            })
+            .collect();
         let field_type_vec = struple_fields
             .iter()
             .map(|&(_, ref ftype)| ftype.clone())
             .collect();
+        let fref_args = Struple(
+            struple_fields
+                .iter()
+                .map(|f| (f.0.clone(), Val::Void))
+                .collect(),
+        );
 
         let full_type = Type::UserDef(struple_lri.clone());
         let func_type = Type::Func(field_type_vec, Box::new(full_type.clone()));
@@ -913,7 +1134,7 @@ impl Protomod
         self.struple_fields
             .insert(local_name.clone(), Struple(struple_fields));
 
-        let funcref = Val::FuncRef(struple_lri, func_type.clone());
+        let funcref = Val::FuncRef(struple_lri, fref_args, func_type.clone());
         self.constants.insert(local_name.clone(), funcref);
 
         self.funcseq.push_back(local_name.clone());
@@ -1099,6 +1320,7 @@ mod tests
     use leema::lri::Lri;
     use leema::lstr::Lstr;
     use leema::program;
+    use leema::struple::Struple;
     use leema::types;
     use leema::val::{Type, Val};
 
@@ -1149,7 +1371,8 @@ mod tests
 
             func open_foo(): Foo -RUST-
             func close_foo(f: Foo): Void -RUST-
-            ".to_string();
+            "
+        .to_string();
 
         let foo_str = Lstr::Sref("foo");
         let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
@@ -1166,6 +1389,28 @@ mod tests
         }
 
         let _close_valtype = pmod.valtypes.get("close_foo").unwrap();
+    }
+
+    #[test]
+    fn test_preproc_closures()
+    {
+        let input = "
+            func main() ->
+                let items := [1, 2]
+                let items2 := map(items, fn(i) i * 2)
+            --
+            "
+        .to_string();
+
+        let foo_str = Lstr::Sref("foo");
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        loader.set_mod_txt(foo_str.clone(), input);
+        let mut prog = program::Lib::new(loader);
+        let pmod = prog.read_proto(&foo_str);
+
+        let closure0 = pmod.closures.front().unwrap();
+        assert_eq!("foo_4_i", closure0);
+        assert_eq!(1, pmod.closures.len());
     }
 
     #[test]
@@ -1214,7 +1459,8 @@ mod tests
             .height: Int
             .weight: A
         --
-        ".to_string();
+        "
+        .to_string();
         let animals_str = Lstr::Sref("animals");
         let mut loader = Interloader::new(Lstr::Sref("animals.lma"));
         loader.set_mod_txt(animals_str.clone(), input);
@@ -1254,10 +1500,15 @@ mod tests
         let exp_dog_const = Val::EnumToken(type_lri.clone(), dog_name);
         let exp_cat_const = Val::FuncRef(
             Lri::with_modules(animals_str.clone(), Lstr::Sref("Cat")),
+            Struple(vec![(None, Val::Void)]),
             cat_func_type.clone(),
         );
         let exp_giraffe_const = Val::FuncRef(
             Lri::with_modules(animals_str.clone(), Lstr::Sref("Giraffe")),
+            Struple(vec![
+                (Some(Lstr::Sref("height")), Val::Void),
+                (Some(Lstr::Sref("weight")), Val::Void),
+            ]),
             giraffe_func_type.clone(),
         );
         assert_eq!(exp_dog_const, *dog_const);
@@ -1301,7 +1552,8 @@ mod tests
     {
         let input = "
     struct Greeting(Str, Str)
-    ".to_string();
+    "
+        .to_string();
         let greet = Lstr::Sref("greet");
         let mut loader = Interloader::new(Lstr::Sref("greet.lma"));
         loader.set_mod_txt(greet.clone(), input);
@@ -1318,9 +1570,10 @@ mod tests
 
         // constants
         match pmod.constants.get("Greeting").unwrap() {
-            Val::FuncRef(ref actual_fri, ref actual_types) => {
+            Val::FuncRef(ref actual_fri, ref actual_args, ref actual_types) => {
                 assert_eq!("greet", actual_fri.safe_mod().str());
                 assert_eq!("Greeting", actual_fri.localid.str());
+                assert_eq!(2, actual_args.0.len());
                 assert!(actual_fri.params.is_none());
                 assert_eq!(xfunctyp, *actual_types);
             }
@@ -1346,7 +1599,8 @@ mod tests
     {
         let input = "
             struct Burrito(Bool, buns: Int)
-            ".to_string();
+            "
+        .to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
@@ -1376,9 +1630,16 @@ mod tests
 
         // assert constants
         let funcref = pmod.constants.get("Burrito").unwrap();
-        if let &Val::FuncRef(ref fri, ref ftype) = funcref {
+        if let &Val::FuncRef(ref fri, ref args, ref ftype) = funcref {
             assert_eq!("tacos", fri.modules.as_ref().unwrap().str());
             assert_eq!("Burrito", fri.localid.str());
+            // args content
+            assert_eq!(None, args.0[0].0);
+            assert_eq!(Val::Void, args.0[0].1);
+            assert_eq!(Some(Lstr::Sref("buns")), args.0[1].0);
+            assert_eq!(Val::Void, args.0[1].1);
+            assert_eq!(2, args.0.len());
+            // function type
             assert_eq!(xfunctype, *ftype);
         } else {
             panic!("Burrito constant is not a FuncRef: {:?}", funcref);
@@ -1405,7 +1666,8 @@ mod tests
             .filling: Str
             .number: Int
             --
-            ".to_string();
+            "
+        .to_string();
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
@@ -1434,9 +1696,17 @@ mod tests
 
         // assert constants
         let funcref = pmod.constants.get("Burrito").unwrap();
-        if let &Val::FuncRef(ref funcri, ref ftype) = funcref {
+        if let &Val::FuncRef(ref funcri, ref args, ref ftype) = funcref {
+            // func lri
             assert_eq!("tacos", funcri.mod_ref().unwrap().str());
             assert_eq!("Burrito", funcri.localid.str());
+            // func args
+            assert_eq!("filling", args.0[0].0.as_ref().unwrap());
+            assert_eq!("number", args.0[1].0.as_ref().unwrap());
+            assert_eq!(Val::Void, args.0[0].1);
+            assert_eq!(Val::Void, args.0[1].1);
+            assert_eq!(2, args.0.len());
+            // func type
             assert_eq!(xfunctype, *ftype);
         } else {
             panic!("Burrito constant is not a FuncRef: {:?}", funcref);
@@ -1488,7 +1758,8 @@ mod tests
     {
         let input = "
             struct Burrito --
-            ".to_string();
+            "
+        .to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("tok.lma"));
         loader.set_mod_txt(Lstr::Sref("tok"), input);

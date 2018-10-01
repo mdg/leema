@@ -9,7 +9,6 @@ use leema::worker::Worker;
 
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
-use std::io::Write;
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::thread;
 use std::time::Duration;
@@ -84,7 +83,8 @@ impl Application
             .spawn(move || {
                 let rcio = Io::new(app_send, io_recv);
                 IoLoop::run(rcio);
-            }).unwrap()
+            })
+            .unwrap()
     }
 
     fn start_worker(&mut self) -> thread::JoinHandle<()>
@@ -185,7 +185,8 @@ impl Application
                         MsgItem::new(&module),
                         MsgItem::new(&func),
                         code.clone(),
-                    )).expect("fail to send found code to worker");
+                    ))
+                    .expect("fail to send found code to worker");
             }
             AppMsg::MainResult(mv) => {
                 self.result = Some(mv.take());

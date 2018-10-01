@@ -196,6 +196,14 @@ class TestScripts(unittest.TestCase):
             b"\n",
             result['output'])
 
+    def test_closures(self):
+        result = run_leema('test_closures')
+        self.assertEqual(0, result['code'])
+        exp = b"double i = [2,4,6,8,]\n" \
+            + b"triple i = [3,6,9,12,]\n" \
+            + b"multiplied i = [4,8,12,16,]\n"
+        self.assertEqual(exp, result['output'])
+
     def test_destruct(self):
         result = run_leema('destruct')
         self.assertEqual(0, result['code'])
@@ -220,6 +228,13 @@ class TestScripts(unittest.TestCase):
         pk = output.index("K")
         self.assertTrue(pr1 < pk)
         self.assertTrue(pk < pr2)
+
+    def test_map(self):
+        result = run_leema('test_map')
+        self.assertEqual(0, result['code'])
+        expected = b"map contains tacos? true\n" \
+            + b"map length is 1\n"
+        self.assertEqual(expected, result['output'])
 
     def test_rgb(self):
         result = run_leema('rgb')

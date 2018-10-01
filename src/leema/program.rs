@@ -3,6 +3,7 @@ use leema::code::{self, Code};
 use leema::infer::TypeSet;
 use leema::inter::Intermod;
 use leema::ixpr::Source;
+use leema::lib_map;
 use leema::lib_str;
 use leema::loader::Interloader;
 use leema::log;
@@ -15,7 +16,6 @@ use leema::val::Type;
 use leema::{file, lib_hyper, lib_list, prefab, tcp, udp};
 
 use std::collections::{HashMap, HashSet};
-use std::io::Write;
 use std::rc::Rc;
 
 
@@ -55,6 +55,9 @@ impl Lib
         proglib
             .rust_load
             .insert(Lstr::Sref("list"), lib_list::load_rust_func);
+        proglib
+            .rust_load
+            .insert(Lstr::Sref("map"), lib_map::load_rust_func);
         proglib
             .rust_load
             .insert(Lstr::Sref("str"), lib_str::load_rust_func);
@@ -101,9 +104,14 @@ impl Lib
         self.code.get(modname).unwrap().get(funcname).unwrap()
     }
 
-    pub fn find_preface(&self, modname: &Lstr) -> Option<&Rc<ModulePreface>>
+    pub fn find_preface(&self, modname: &str) -> Option<&Rc<ModulePreface>>
     {
         self.preface.get(modname)
+    }
+
+    pub fn find_proto(&self, modname: &str) -> Option<&Protomod>
+    {
+        self.proto.get(modname).map(|p| &**p)
     }
 
     pub fn load_inter(&mut self, modname: &Lstr)
@@ -195,7 +203,8 @@ impl Lib
             .get(modname)
             .or_else(|| {
                 panic!("cannot compile missing module {}", modname);
-            }).unwrap();
+            })
+            .unwrap();
         let fix = inter
             .interfunc
             .get(funcname)
@@ -204,7 +213,8 @@ impl Lib
                     "cannot compile missing function {}::{}",
                     modname, funcname
                 );
-            }).unwrap();
+            })
+            .unwrap();
         if modname == "prefab" {
             vout!("prefab::{} fix: {:?}\n", funcname, fix);
         }
@@ -240,31 +250,40 @@ impl Lib
         let modstr = funcri.mod_ref().unwrap().str();
         let mutyped = self.typed.get_mut(modstr).unwrap();
         mutyped.set_function_type(funcri.localid.clone(), ftype.clone());
-        vout!("\tfinish typecheck({})\n", funcri);
+        vout!("\tfinish typecheck({}: {})\n", funcri, ftype);
         ftype
     }
 
     pub fn deeper_typecheck(&mut self, funcri: &Lri, depth: typecheck::Depth)
     {
+        let mod_str = funcri.mod_ref().expect("typecheck module name").clone();
         let cf = {
-            let mod_str = funcri.mod_ref().expect("typecheck module name");
-            let mut icf = CallFrame::new(mod_str, funcri.localid.str());
-            let inter = self.inter.get(mod_str).unwrap();
+            let mut icf = CallFrame::new(&mod_str, funcri.localid.str());
+            let inter = self.inter.get(&mod_str).unwrap();
             let fix = inter
                 .interfunc
                 .get(funcri.localid.str())
                 .or_else(|| {
                     panic!("cannot find function inter: {}", funcri);
-                }).unwrap();
+                })
+                .unwrap();
             icf.collect_calls(&fix);
+            vout!("collected calls: {} => {:?}", funcri, icf.calls);
             icf
         };
         for c in cf.calls.iter() {
             match c {
                 &CallOp::LocalCall(ref call_name) => {
+                    println!("typecheck local call: {}", call_name);
+                    /* if it's still a local call at this point,
+                     * it's probably a closure
+                     */
                     let contains_local = {
-                        let local_inter =
-                            self.inter.get(funcri.localid.str()).unwrap();
+                        let opt_local_inter = self.inter.get(&mod_str);
+                        if opt_local_inter.is_none() {
+                            panic!("inter not found for module: {}", funcri);
+                        }
+                        let local_inter = opt_local_inter.unwrap();
                         local_inter.interfunc.contains_key(&**call_name)
                     };
                     if contains_local {
@@ -303,6 +322,7 @@ impl Lib
     {
         vout!("local_typecheck({})\n", funcri);
         let modlstr = funcri.mod_ref().unwrap();
+        self.load_inter(modlstr);
         let funclstr = &funcri.localid;
         let opt_inter = self.inter.get_mut(modlstr);
         if opt_inter.is_none() {
@@ -314,6 +334,7 @@ impl Lib
             self.typed
                 .insert(modlstr.clone(), Typemod::new(modlstr.clone()));
         }
+
         {
             let mutyped = self.typed.get_mut(modlstr).unwrap();
             if mutyped.get_function_type(funclstr).is_none() {
