@@ -1,0 +1,58 @@
+
+import list
+
+
+struct Node
+.value: Int
+.nchildren: Int
+.children: {Int: Node}
+--
+
+func depth_max(a: Int, b: Int): Int ->
+    if
+    |a < b -> b
+    |else -> a
+    --
+--
+
+func count_depth(max_depth: Int, node: $A): Int ->
+    match node
+    |(val, []) ->
+        max_depth
+    |(val, children) ->
+        let children_depth := list::map(children, count_depth(max_depth + 1, ?))
+        list::reduce(0, children_depth, depth_max)
+    --
+--
+
+func make_data() ->
+    (1, [
+        (2, [
+            (5, []),
+            (6, [
+                (8, []),
+            ]),
+        ]),
+        (3, []),
+        (4, [
+            (2, [
+                (5, []),
+                (6, [
+                    (8, []),
+                ]),
+            ]),
+            (5, []),
+            (6, [
+                (8, []),
+            ]),
+        ]),
+    ])
+--
+
+
+func main() ->
+    let d := make_data()
+    print("data is $d\n")
+    let depth := count_depth(1, d)
+    print("depth is $depth\n")
+--
