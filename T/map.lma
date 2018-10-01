@@ -1,18 +1,18 @@
 
-struct T --
+struct T[K, V] --
 
 ## create a new map
-func new(): T -RUST-
+func new(): T[K, V] -RUST-
 
 ## set a key/value in the map
-func set(m: T, k: $K, v: $V): T -RUST-
+func set(m: T[K, V], k: $K, v: $V): T[K, V] -RUST-
 
 ## get the value in a map for a given key
-func get(m: T, k: $K): $V -RUST-
+func get(m: T[K, V], k: $K): V -RUST-
 
 ## check if the given key is in the map
-func has_key(m: T, k: $K): bool -RUST-
+func has_key(m: T[K, V], k: $K): bool -RUST-
 
 ## get the number of items in a map
-func len(m: T): Int -RUST-
+func len(m: T[K, V]): Int -RUST-
 
