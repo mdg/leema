@@ -8,20 +8,13 @@ struct Node
 .children: {Int: Node}
 --
 
-func depth_max(a: Int, b: Int): Int ->
-    if
-    |a < b -> b
-    |else -> a
-    --
---
-
 func count_depth(max_depth: Int, node: $A): Int ->
     match node
     |(val, []) ->
         max_depth
     |(val, children) ->
         let children_depth := list::map(children, count_depth(max_depth + 1, ?))
-        list::reduce(0, children_depth, depth_max)
+        list::reduce(0, children_depth, max)
     --
 --
 
