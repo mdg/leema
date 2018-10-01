@@ -401,6 +401,13 @@ type_term(A) ::= SquareL typex(B) SquareR. {
 type_term(A) ::= LPAREN typex_list(B) RPAREN. {
     A = Ast::Tuple(B);
 }
+type_term(A) ::= CurlyL(Z) typex(B) COLON typex(C) CurlyR. {
+    let type_mods = vec![Lstr::Sref("map"), Lstr::Sref("T")];
+    let mut type_params = LinkedList::new();
+    type_params.push_back(Kxpr::new_x(B));
+    type_params.push_back(Kxpr::new_x(C));
+    A = Ast::Lri(type_mods, Some(type_params), Z);
+}
 type_term(A) ::= type_term(B) PCT. {
     // A = Ast::TypeFuture(Box::new(B));
     A = Ast::TypeVoid;

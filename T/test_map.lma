@@ -3,8 +3,8 @@ import map
 
 
 func main() ->
-    let m := {}
-    let m2 := map::set(m, "tacos", 4)
+    let m1 := {}
+    let m2 := map::set(m1, "tacos", 4)
     let cont := map::has_key(m2, "tacos")
     print("map contains tacos? $cont\n")
     let l := map::len(m2)

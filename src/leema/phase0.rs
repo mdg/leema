@@ -215,12 +215,21 @@ impl Protomod
                     self, prog, mp, mods, typs, iloc,
                 )
             }
+            &Ast::Map(ref items) if items.is_empty() => {
+                let callmods = vec![Lstr::Sref("map"), Lstr::Sref("new")];
+                let mut tvars = LinkedList::new();
+                tvars.push_back(Kxpr::new_x(Ast::TypeVar(Lstr::Sref("K"), *loc)));
+                tvars.push_back(Kxpr::new_x(Ast::TypeVar(Lstr::Sref("V"), *loc)));
+                let callri = Ast::Lri(callmods, Some(tvars), *loc);
+                let call = Ast::Call(Box::new(callri), LinkedList::new(), *loc);
+                self.preproc_expr(prog, mp, &call, loc)
+            }
             &Ast::Map(ref items) => {
                 let pp_items = items
                     .iter()
                     .map(|i| {
                         i.map_x(|x| {
-                            Protomod::preproc_expr(self, prog, mp, x, loc)
+                            self.preproc_expr(prog, mp, x, loc)
                         })
                     })
                     .collect();
@@ -736,7 +745,7 @@ impl Protomod
 
     pub fn preproc_lri_with_types(
         &mut self,
-        prog: &Lib,
+        _prog: &Lib,
         mp: &ModulePreface,
         mods: &Vec<Lstr>,
         typs: &LinkedList<Kxpr>,
@@ -746,7 +755,24 @@ impl Protomod
         let pp_types = typs
             .iter()
             .map(|t| {
-                t.map_x(|tx| Protomod::preproc_expr(self, prog, mp, tx, loc))
+                t.map_x(|tx| {
+                    match tx {
+                        Ast::Localid(ref id, ref iloc) => {
+                            if self.deftypes.contains_key(id) {
+                                let tri = vec![mp.key.name.clone(), id.clone()];
+                                Ast::Lri(tri, None, *iloc)
+                            } else {
+                                Ast::TypeVar(id.clone(), *iloc)
+                            }
+                        }
+                        Ast::TypeVar(_, _) => {
+                            tx.clone()
+                        }
+                        _ => {
+                            tx.clone()
+                        }
+                    }
+                })
             })
             .collect();
         Ast::Lri(mods.clone(), Some(pp_types), *loc)
@@ -1010,9 +1036,6 @@ impl Protomod
 
     pub fn preproc_struple_token(&mut self, full_lri: Lri, _loc: &SrcLoc)
     {
-        if full_lri.param_ref().is_some() {
-            panic!("no type params for tokens: {}", full_lri);
-        }
         let name_lstr = full_lri.localid.clone();
         let type_name = Type::UserDef(full_lri.clone());
 

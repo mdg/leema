@@ -531,9 +531,8 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
     match x {
         &Ast::Block(ref lines) => compile_block(scope, lines, loc),
         &Ast::Localid(ref id, ref loc) => compile_local_id(scope, id, loc),
-        &Ast::Lri(ref names, None, ref loc) => compile_lri(scope, names, loc),
-        &Ast::Lri(_, ref _types, _) => {
-            panic!("cannot handle typed lri");
+        &Ast::Lri(ref names, ref tvars, ref loc) => {
+            compile_lri(scope, names, tvars, loc)
         }
         &Ast::DotAccess(ref outer, ref inner) => {
             compile_dot_access(scope, outer, inner, loc)
@@ -615,6 +614,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
 pub fn compile_lri(
     scope: &mut Interscope,
     names: &Vec<Lstr>,
+    tvars: &Option<LinkedList<Kxpr>>,
     loc: &SrcLoc,
 ) -> Ixpr
 {
@@ -631,13 +631,22 @@ pub fn compile_lri(
         panic!("module not found: {:?}", names);
     }
     let id = names.last().unwrap();
+    let ctvars: Option<Vec<Type>> = tvars.as_ref().map(|itvars| {
+        itvars.iter().map(|itv| {
+            compile_type(scope, itv.x_ref().unwrap(), loc)
+        }).collect()
+    });
+    let lri = Lri::full(
+        Some(modname.clone()),
+        id.clone(),
+        ctvars,
+    );
+
     let opt_vartype = scope.import_vartype(modname, id);
     if opt_vartype.is_none() {
         panic!("failure for import_vartype({}, {})", modname, id);
     }
     let vartype = opt_vartype.unwrap();
-    let lri = Lri::with_modules(modname.clone(), id.clone());
-
     let num_args = match vartype {
         &Type::Func(ref iargs, _) => iargs.len(),
         &Type::Closure(ref iargs, ref cargs, _) => iargs.len() + cargs.len(),
@@ -647,6 +656,11 @@ pub fn compile_lri(
     let new_args = Struple(vec![(None, Val::Void); num_args]);
     let fref = Val::FuncRef(lri, new_args, vartype.clone());
     Ixpr::const_val(fref, loc.lineno)
+}
+
+pub fn compile_type(_scope: &mut Interscope, _typ: &Ast, _loc: &SrcLoc) -> Type
+{
+    Type::Void
 }
 
 pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
