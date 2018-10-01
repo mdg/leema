@@ -218,8 +218,14 @@ impl Protomod
             &Ast::Map(ref items) if items.is_empty() => {
                 let callmods = vec![Lstr::Sref("map"), Lstr::Sref("new")];
                 let mut tvars = LinkedList::new();
-                tvars.push_back(Kxpr::new_x(Ast::TypeVar(Lstr::Sref("K"), *loc)));
-                tvars.push_back(Kxpr::new_x(Ast::TypeVar(Lstr::Sref("V"), *loc)));
+                tvars.push_back(Kxpr::new_x(Ast::TypeVar(
+                    Lstr::Sref("K"),
+                    *loc,
+                )));
+                tvars.push_back(Kxpr::new_x(Ast::TypeVar(
+                    Lstr::Sref("V"),
+                    *loc,
+                )));
                 let callri = Ast::Lri(callmods, Some(tvars), *loc);
                 let call = Ast::Call(Box::new(callri), LinkedList::new(), *loc);
                 self.preproc_expr(prog, mp, &call, loc)
@@ -227,11 +233,7 @@ impl Protomod
             &Ast::Map(ref items) => {
                 let pp_items = items
                     .iter()
-                    .map(|i| {
-                        i.map_x(|x| {
-                            self.preproc_expr(prog, mp, x, loc)
-                        })
-                    })
+                    .map(|i| i.map_x(|x| self.preproc_expr(prog, mp, x, loc)))
                     .collect();
                 Ast::Map(pp_items)
             }
@@ -765,12 +767,8 @@ impl Protomod
                                 Ast::TypeVar(id.clone(), *iloc)
                             }
                         }
-                        Ast::TypeVar(_, _) => {
-                            tx.clone()
-                        }
-                        _ => {
-                            tx.clone()
-                        }
+                        Ast::TypeVar(_, _) => tx.clone(),
+                        _ => tx.clone(),
                     }
                 })
             })

@@ -632,15 +632,12 @@ pub fn compile_lri(
     }
     let id = names.last().unwrap();
     let ctvars: Option<Vec<Type>> = tvars.as_ref().map(|itvars| {
-        itvars.iter().map(|itv| {
-            compile_type(scope, itv.x_ref().unwrap(), loc)
-        }).collect()
+        itvars
+            .iter()
+            .map(|itv| compile_type(scope, itv.x_ref().unwrap(), loc))
+            .collect()
     });
-    let lri = Lri::full(
-        Some(modname.clone()),
-        id.clone(),
-        ctvars,
-    );
+    let lri = Lri::full(Some(modname.clone()), id.clone(), ctvars);
 
     let opt_vartype = scope.import_vartype(modname, id);
     if opt_vartype.is_none() {
@@ -658,7 +655,8 @@ pub fn compile_lri(
     Ixpr::const_val(fref, loc.lineno)
 }
 
-pub fn compile_type(_scope: &mut Interscope, _typ: &Ast, _loc: &SrcLoc) -> Type
+pub fn compile_type(_scope: &mut Interscope, _typ: &Ast, _loc: &SrcLoc)
+    -> Type
 {
     Type::Void
 }
