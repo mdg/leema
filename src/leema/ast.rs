@@ -505,6 +505,9 @@ impl fmt::Display for Ast
                 }
                 write!(f, "])")
             }
+            &Ast::DotAccess(ref base, ref fld) => {
+                write!(f, "({} . {})", base, fld)
+            }
             &Ast::Let(ref lhs, ref rhs, _) => {
                 write!(f, "(let {} = {})", lhs, rhs)
             }
@@ -1261,6 +1264,28 @@ mod tests
         } else {
             panic!("root is not a block");
         }
+    }
+
+    #[test]
+    fn test_parse_fieldaccess_addition()
+    {
+        let input = "Foo(a.b + c, d)";
+        let root = ast::parse(lex(input));
+
+        let result = format!("{}", root);
+        /*
+        let items = match root {
+            Ast::Block(block_items) => {
+                assert_eq!(1, block_items.len());
+                block_items
+            }
+            not_block => {
+                panic!("root is not a block: {:?}", not_block);
+            }
+        };
+        */
+        let expected = "block(\n\t(call Foo [(call prefab::int_add [(a . b),c,]),d,])\n)\n";
+        assert_eq!(expected, result);
     }
 
     #[test]
