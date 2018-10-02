@@ -366,9 +366,10 @@ impl Protomod
         loc: &SrcLoc,
     )
     {
-        let name_lri = Lri::from(name);
+        let mut name_lri = Lri::from(name);
+        name_lri.make_params_typevars();
         let full_lri = name_lri.add_modules(mp.key.name.clone());
-        let lstr_name = Lstr::from(name);
+        let lstr_name = name_lri.localid;
         let pp_args: LinkedList<Kxpr> = args
             .iter()
             .map(|a| {
@@ -402,7 +403,7 @@ impl Protomod
                 if let &Ast::TypeAnon = rtype {
                     panic!(
                         "return type must be defined for Rust functions: {}",
-                        name_lri
+                        full_lri
                     );
                 }
                 Ast::RustBlock
@@ -418,7 +419,6 @@ impl Protomod
             loc: *loc,
         };
         let pp_func = Ast::DefFunc(fclass, Box::new(decl), Box::new(pp_body));
-        let lstr_name = Lstr::from(name);
 
         let mut ftype_parts: Vec<Kxpr> =
             pp_args.iter().map(|a| a.clone()).collect();

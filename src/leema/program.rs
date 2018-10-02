@@ -268,7 +268,7 @@ impl Lib
                 })
                 .unwrap();
             icf.collect_calls(&fix);
-            vout!("collected calls: {} => {:?}", funcri, icf.calls);
+            vout!("collected calls: {} => {:?}\n", funcri, icf.calls);
             icf
         };
         for c in cf.calls.iter() {

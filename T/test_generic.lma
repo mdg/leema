@@ -1,0 +1,21 @@
+
+func swap[A, B]: (B, A)
+.a: A
+.b: B
+>>
+    (b, a)
+--
+
+func main
+>>
+    let a := "taco"
+    let b := #burrito
+    let c := 3
+    let d := true
+
+    let x := swap(a, b)
+    let y := swap(c, d)
+    let z := swap(b, c)
+
+    print("x: $x\ny: $y\nz: $z\n")
+--

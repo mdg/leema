@@ -89,6 +89,14 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(b"h is #foot\nsome other thing? #foot\n",
                 result['output'])
 
+    def test_generic_func(self):
+        result = run_leema('test_generic')
+        self.assertEqual(0, result['code'])
+        self.assertEqual(b"x: (#burrito,taco,)\n" \
+            + b"y: (true,3,)\n" \
+            + b"z: (3,#burrito,)\n"
+            , result['output'])
+
     def test_if_else_true(self):
         result = run_leema('if_else_true')
         self.assertEqual(0, result['code'])
