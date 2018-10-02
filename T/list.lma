@@ -3,7 +3,7 @@ func map(items: [$A], f: $A => $B): [$B] ->
     _map([], items, f)
 --
 
-func _map(result :[$C], input: [$D], f: $D => $C): [$C]
+func _map(result :[$C], input: [$D], f: $D => $C): [$C] >>
 |(result, [], _f) -> reverse(result)
 |(result, h;t, f) -> _map(f(h);result, t, f)
 --
@@ -27,7 +27,7 @@ func reverse(items: [$E]): [$E] ->
 
 func sort(items: [$J]): [$J] -RUST-
 
-func _filter(acc: [$G], in: [$G], pred: $G => Bool): [$G]
+func _filter(acc: [$G], in: [$G], pred: $G => Bool): [$G] >>
 |(acc, [], _) -> reverse(acc)
 |(acc, h;t, f) ->
     let matcher := f(h)
@@ -39,7 +39,7 @@ func _filter(acc: [$G], in: [$G], pred: $G => Bool): [$G]
     _filter(new_acc, t, f)
 --
 
-func _reverse(out: [$F], in: [$F]): [$F]
+func _reverse(out: [$F], in: [$F]): [$F] >>
 |(out, []) -> out
 |(out, h;t) -> _reverse(h;out, t)
 --

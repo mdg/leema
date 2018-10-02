@@ -1,4 +1,4 @@
-func is_empty(l: [Int])
+func is_empty(l: [Int]) >>
 |([]) -> true
 |(_) -> false
 --

@@ -1,5 +1,5 @@
 
-func foo(a: [#])
+func foo(a: [#]) >>
 |([]) -> print("done\n")
 |(#c;t) ->
     print("found c.\n")

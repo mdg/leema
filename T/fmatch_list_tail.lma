@@ -1,4 +1,4 @@
-func inspect_list(l: [Int])
+func inspect_list(l: [Int]) >>
 |(0;_) ->
     print("l has a 0\n")
 |(h;t) ->
