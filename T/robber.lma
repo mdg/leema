@@ -12,11 +12,9 @@ func count_money: (HouseList, HouseList, #)
 .next_money: Int
 >>
 |((even, odd, #even), next) ->
-    let total := even.total
-    (HouseList(total + next, next;even.houses), odd, #odd)
+    (HouseList(even.total + next, next;even.houses), odd, #odd)
 |((even, odd, #odd), next) ->
-    let total := odd.total
-    let new_odd := HouseList(total + next, next;odd.houses)
+    let new_odd := HouseList(odd.total + next, next;odd.houses)
     (even, new_odd, #even)
 --
 
