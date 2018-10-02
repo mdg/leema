@@ -1,11 +1,14 @@
-func fact(i): Int ->
+func fact: Int
+.i: Int
+>>
     if
-    |i == 1 -> 1
-    |else -> i * fact(i-1)
+    |i == 1 >> 1
+    |else >> i * fact(i-1)
     --
 --
 
-func main() ->
+func main
+>>
     let f := fact(4)
     print("factorial(4) = $f\n")
 --

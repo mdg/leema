@@ -1008,9 +1008,9 @@ pub fn split_func_args_body(
 ) -> (ast::FuncClass, &LinkedList<Kxpr>, &Ast, &SrcLoc)
 {
     match defunc {
-        Ast::DefFunc(fc, ref name, ref args, _, ref body, ref loc) => {
-            vout!("split_func_args({:?})\n", name);
-            (*fc, args, body, loc)
+        Ast::DefFunc(fc, ref decl, ref body) => {
+            vout!("split_func_args({:?})\n", decl.name);
+            (*fc, &decl.args, body, &decl.loc)
         }
         _ => {
             panic!("func is not a func: {:?}", defunc);

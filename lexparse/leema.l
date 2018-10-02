@@ -69,6 +69,10 @@ void	{ return set_token(yyg, TOKEN_VOID); }
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_RUSTBLOCK);
 }
+">>"	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_DOUBLEARROW);
+}
 "->"	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_BLOCKARROW);

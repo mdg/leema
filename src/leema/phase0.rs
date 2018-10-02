@@ -62,27 +62,20 @@ impl Protomod
     )
     {
         match x {
-            &Ast::DefFunc(ast::FuncClass::Macro, _, _, _, _, _) => {
+            &Ast::DefFunc(ast::FuncClass::Macro, _, _) => {
                 // do nothing. the macro definition will have been handled
                 // in the file read
             }
-            &Ast::DefFunc(
-                fclass,
-                ref name,
-                ref args,
-                ref result_type,
-                ref body,
-                ref loc,
-            ) => {
+            &Ast::DefFunc(fclass, ref decl, ref body) => {
                 self.preproc_defunc(
                     prog,
                     mp,
                     fclass,
-                    name,
-                    args,
-                    result_type,
+                    &decl.name,
+                    &decl.args,
+                    &decl.result,
                     body,
-                    loc,
+                    &decl.loc,
                 );
             }
             &Ast::DefData(data_type, ref name, ref fields, ref loc) => {
@@ -116,14 +109,9 @@ impl Protomod
             &Ast::Call(ref callx, ref args, ref iloc) => {
                 Protomod::preproc_call(self, prog, mp, callx, args, iloc)
             }
-            &Ast::DefFunc(
-                ast::FuncClass::Closure,
-                _,
-                ref args,
-                _,
-                ref body,
-                ref iloc,
-            ) => Protomod::preproc_closure(self, prog, mp, args, body, iloc),
+            &Ast::DefFunc(ast::FuncClass::Closure, ref decl, ref body) => {
+                Protomod::preproc_closure(self, prog, mp, &decl.args, body, &decl.loc)
+            }
             &Ast::Cons(ref head, ref tail) => {
                 let pp_head = Protomod::preproc_expr(self, prog, mp, head, loc);
                 let pp_tail = Protomod::preproc_expr(self, prog, mp, tail, loc);
@@ -294,7 +282,7 @@ impl Protomod
             &Ast::DefData(_, _, _, _) => {
                 panic!("cannot preproc: {:?}", x);
             }
-            &Ast::DefFunc(_, _, _, _, _, _) => {
+            &Ast::DefFunc(_, _, _) => {
                 panic!("cannot preproc: {:?}", x);
             }
             &Ast::Import(_, _) => {
@@ -387,14 +375,42 @@ impl Protomod
             .collect();
         let pp_rtype_ast =
             Protomod::preproc_func_result(self, prog, mp, rtype, loc);
-        let pp_body = Protomod::preproc_expr(self, prog, mp, body, loc);
+        let pp_body = match body {
+            // normal function body
+            Ast::Block(_) => {
+                Protomod::preproc_expr(self, prog, mp, body, loc)
+            }
+            // match func body
+            Ast::IfExpr(ast::IfType::MatchFunc, _, ref cases, ref iloc) => {
+                let match_args = pp_args.iter().map(|a| {
+                    let argn = a.k_clone().unwrap();
+                    Kxpr::new_x(Ast::Localid(argn, *iloc))
+                }).collect();
+                let match_arg_tuple = Box::new(Ast::Tuple(match_args));
+                let ifx = &Ast::IfExpr(ast::IfType::Match, match_arg_tuple, cases.clone(), *iloc);
+                self.preproc_expr(prog, mp, ifx, iloc)
+            }
+            Ast::RustBlock => {
+                if let &Ast::TypeAnon = rtype {
+                    panic!("return type must be defined for Rust functions: {}"
+                        , name_lri);
+                }
+                Ast::RustBlock
+            }
+            _ => {
+                panic!("invalid function body: {:?}", body);
+            }
+        };
+        let decl = ast::FuncDecl {
+            name: name.clone(),
+            args: pp_args.clone(),
+            result: pp_rtype_ast.clone(),
+            loc: *loc,
+        };
         let pp_func = Ast::DefFunc(
             fclass,
-            Box::new(name.clone()),
-            pp_args.clone(),
-            Box::new(pp_rtype_ast.clone()),
+            Box::new(decl),
             Box::new(pp_body),
-            *loc,
         );
         let lstr_name = Lstr::from(name);
 
@@ -466,13 +482,16 @@ impl Protomod
         let fref_args =
             pp_args.iter().map(|a| (a.k_clone(), Val::Void)).collect();
 
+        let decl = ast::FuncDecl {
+            name: Ast::Lri(vec![closure_key.clone()], None, *loc),
+            args: pp_args,
+            result: pp_result.clone(),
+            loc: *loc,
+        };
         let pp_func = Ast::DefFunc(
             ast::FuncClass::Closure,
-            Box::new(Ast::Lri(vec![closure_key.clone()], None, *loc)),
-            pp_args,
-            Box::new(pp_result.clone()),
+            Box::new(decl),
             Box::new(pp_body),
-            *loc,
         );
 
         let closuri =
@@ -528,12 +547,13 @@ impl Protomod
         let pp_callx = Protomod::preproc_expr(self, prog, mp, callx, loc);
 
         match pp_callx {
-            Ast::DefFunc(ast::FuncClass::Macro, mname, margs, _, body, _) => {
-                vout!("apply_macro({:?}, {:?})\n", mname, args);
+            Ast::DefFunc(ast::FuncClass::Macro, decl, body) => {
+                vout!("apply_macro({:?}, {:?})\n", decl.name, decl.args);
                 let macrod =
-                    Protomod::apply_macro(&mname, &body, &margs, &pp_args, loc);
+                    Protomod::apply_macro(&decl.name, &body,
+                        &decl.args, &pp_args, loc);
                 // do it again to make sure there's not a wrapped macro
-                return self.preproc_expr(prog, mp, &macrod, loc);
+                return self.preproc_expr(prog, mp, &macrod, &decl.loc);
             }
             _ => {
                 // fall through
@@ -800,6 +820,9 @@ impl Protomod
                         panic!("match failure case pattern must be a hashtag or an underscore: {:?}", case.cond);
                     }
                 }
+            }
+            ast::IfType::MatchFunc => {
+                panic!("cannot have matchfunc in normal code");
             }
             ast::IfType::TypeCast => {
                 panic!("typecast not ready yet");
@@ -1112,13 +1135,16 @@ impl Protomod
             Box::new(full_type_ast.clone()),
         );
 
+        let decl = ast::FuncDecl {
+            name: Ast::Localid(local_name.clone(), *loc),
+            args: (*src_fields).clone(),
+            result: full_type_ast,
+            loc: *loc,
+        };
         let srcxpr = Ast::DefFunc(
             ast::FuncClass::Func,
-            Box::new(Ast::Localid(local_name.clone(), *loc)),
-            (*src_fields).clone(),
-            Box::new(full_type_ast),
+            Box::new(decl),
             Box::new(srcblk),
-            *loc,
         );
 
         let struct_type_val =
@@ -1346,18 +1372,18 @@ mod tests
         assert_eq!(2, pmod.funcsrc.len());
 
         let foo_func = pmod.funcsrc.get("foo").unwrap();
-        if let &Ast::DefFunc(foo_ft, ref foo_name, _, _, _, _) = foo_func {
+        if let &Ast::DefFunc(foo_ft, ref foo_decl, _) = foo_func {
             assert_eq!(ast::FuncClass::Func, foo_ft);
-            assert_eq!("foo", Lstr::from(&**foo_name).str());
+            assert_eq!("foo", &Lstr::from(&foo_decl.name));
         } else {
             panic!("foo is not a function definition");
         }
         pmod.constants.get("foo").unwrap();
 
         let main_func = pmod.funcsrc.get("main").unwrap();
-        if let &Ast::DefFunc(main_ft, ref main_name, _, _, _, _) = main_func {
+        if let &Ast::DefFunc(main_ft, ref main_decl, _) = main_func {
             assert_eq!(ast::FuncClass::Func, main_ft);
-            assert_eq!("main", Lstr::from(&**main_name).str());
+            assert_eq!("main", &Lstr::from(&main_decl.name));
         } else {
             panic!("main is not a function definition");
         }

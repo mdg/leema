@@ -1,9 +1,12 @@
-func fmatch_fact(i): Int
-|(1) -> 1
-|(_) -> i * fmatch_fact(i-1)
+func fmatch_fact: Int
+.i: Int
+>>
+|1 -> 1
+|_ -> i * fmatch_fact(i-1)
 --
 
-func main() ->
+func main
+>>
     let f := fmatch_fact(4)
     print("factorial(4) = $f\n")
 --

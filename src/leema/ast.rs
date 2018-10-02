@@ -63,6 +63,17 @@ pub enum FuncClass
 }
 
 #[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+pub struct FuncDecl
+{
+    pub name: Ast,
+    pub args: LinkedList<Kxpr>,
+    pub result: Ast,
+    pub loc: SrcLoc,
+}
+
+#[derive(Clone)]
 #[derive(Copy)]
 #[derive(Debug)]
 #[derive(PartialEq)]
@@ -72,6 +83,7 @@ pub enum IfType
     If,
     Match,
     MatchFailure,
+    MatchFunc,
     TypeCast,
 }
 
@@ -197,11 +209,8 @@ pub enum Ast
     DefData(DataType, Box<Ast>, LinkedList<Kxpr>, SrcLoc),
     DefFunc(
         FuncClass,
-        Box<Ast>,
-        LinkedList<Kxpr>,
-        Box<Ast>,
-        Box<Ast>,
-        SrcLoc,
+        Box<FuncDecl>,
+        Box<Ast>
     ),
     // dereference another expression
     Deref(Box<Ast>),
@@ -313,36 +322,24 @@ impl Ast
         }
     }
 
-    pub fn matchfunc_body(
-        ids: &LinkedList<Kxpr>,
-        cases: IfCase,
-        loc: SrcLoc,
-    ) -> Ast
+    pub fn matchfunc_body(cases: IfCase, loc: SrcLoc) -> Ast
     {
-        let match_args = ids.iter().map(|idx| {
-            match idx.k_ref() {
-                None => {
-                    panic!("cannot match function with unnamed parameter: {:?}"
-                        , ids);
-                }
-                Some(id) => {
-                    Kxpr::new_x(Ast::Localid(id.clone(), loc))
-                }
-            }
-        }).collect();
-        let test = Ast::Tuple(match_args);
-        Ast::IfExpr(IfType::Match, Box::new(test), Box::new(cases), loc)
+        let test = Box::new(Ast::ConstVoid);
+        Ast::IfExpr(IfType::MatchFunc, test, Box::new(cases), loc)
     }
 
     pub fn closure(args: LinkedList<Kxpr>, body: Ast, loc: SrcLoc) -> Ast
     {
+        let decl = FuncDecl {
+            name: Ast::ConstVoid,
+            args,
+            result: Ast::TypeAnon,
+            loc,
+        };
         Ast::DefFunc(
             FuncClass::Closure,
-            Box::new(Ast::ConstVoid),
-            args,
-            Box::new(Ast::TypeAnon),
+            Box::new(decl),
             Box::new(body),
-            loc,
         )
     }
 
@@ -535,8 +532,8 @@ impl fmt::Display for Ast
                 }
                 Ok(())
             }
-            &Ast::DefFunc(ft, ref name, ref args, ref rtype, ref body, _) => {
-                writeln!(f, "({:?} {}({:?}): {}", ft, name, args, rtype)?;
+            &Ast::DefFunc(ft, ref decl, ref body) => {
+                writeln!(f, "({:?} {:?}", ft, decl)?;
                 writeln!(f, "\t{})", body)
             }
             _ => write!(f, "{:?}", self),
@@ -857,16 +854,64 @@ mod tests
     fn test_call_function_plus_comma()
     {
         let input = "
-    func main() ->
-        foo(x+1, 40)
-    --
-    ";
+            func main() ->
+                foo(x+1, 40)
+            --
+            ";
         let root = ast::parse(lex(input));
         if let Ast::Block(items) = root {
             assert_eq!(1, items.len());
         } else {
             panic!("func def is not a block");
         }
+    }
+
+    #[test]
+    fn test_struct_style_func()
+    {
+        let input = "
+            func tacos: Bool
+            .filling: Str
+            .number: Int
+            >>
+                foo(x+1, 40)
+            --
+            ";
+        let root = ast::parse(lex(input));
+        let funcdef = if let &Ast::Block(ref block_items) = &root {
+            &block_items[0]
+        } else {
+            panic!("func def is not a block");
+        };
+        if let Ast::DefFunc(fc, _, _) = funcdef {
+            assert_eq!(ast::FuncClass::Func, *fc);
+        } else {
+            panic!("func def is not a func");
+        };
+    }
+
+    #[test]
+    fn test_struct_style_matchfunc()
+    {
+        let input = "
+            func fact: Int
+            .i: Int
+            >>
+            |1 -> 1
+            |n -> n * fact(n-1)
+            --
+            ";
+        let root = ast::parse(lex(input));
+        let funcdef = if let &Ast::Block(ref block_items) = &root {
+            &block_items[0]
+        } else {
+            panic!("func def is not a block");
+        };
+        if let Ast::DefFunc(fc, _, _) = funcdef {
+            assert_eq!(ast::FuncClass::Func, *fc);
+        } else {
+            panic!("func def is not a func");
+        };
     }
 
     #[test]
@@ -979,28 +1024,25 @@ mod tests
     fn test_ast_parse_macro()
     {
         let input = "
-    macro mand(a, b) ->
-        if
-        |a -> b
-        |else -> false
-        --
-    --
-    ";
+            macro mand(a, b) ->
+                if
+                |a -> b
+                |else -> false
+                --
+            --
+            ";
         let root = ast::parse(lex(input));
 
         if let Ast::Block(lines) = root {
             let f = lines.first().unwrap();
             if let &Ast::DefFunc(
                 ast::FuncClass::Macro,
-                ref name,
-                ref args,
-                _,
-                _,
+                ref decl,
                 _,
             ) = f
             {
-                assert_eq!("mand", Lstr::from(&**name).str());
-                assert_eq!(2, args.len());
+                assert_eq!("mand", Lstr::from(&decl.name).str());
+                assert_eq!(2, decl.args.len());
             } else {
                 panic!("mand is not a macro");
             }
@@ -1039,15 +1081,15 @@ mod tests
     fn test_parse_enum_variants()
     {
         let input = "
-        enum Animal
-        |Dog
-        |Cat(Int)
-        |Mouse($A)
-        |Giraffe
-            .height: Int
-            .weight: $A
-        --
-    ";
+            enum Animal
+            |Dog
+            |Cat(Int)
+            |Mouse($A)
+            |Giraffe
+                .height: Int
+                .weight: $A
+            --
+            ";
         let root = ast::parse(lex(input));
 
         if let Ast::Block(lines) = root {
@@ -1072,8 +1114,8 @@ mod tests
     fn test_parse_defstruple_tuple()
     {
         let input = "
-    struct Taco(Int, Str)
-    ";
+            struct Taco(Int, Str)
+            ";
         let root = ast::parse(lex(input));
 
         let def = Ast::DefData(

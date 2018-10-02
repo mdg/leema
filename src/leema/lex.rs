@@ -57,6 +57,7 @@ impl Token
                 SrcLoc::new((*tok).lineno as i16, (*tok).token_column as i8);
             match (*tok).tok {
                 parse::TOKEN_BLOCKARROW => Token::BLOCKARROW(tl),
+                parse::TOKEN_DOUBLEARROW => Token::DOUBLEARROW(tl),
                 parse::TOKEN_DOUBLEDASH => Token::DOUBLEDASH(tl),
                 parse::TOKEN_TYPEARROW => Token::TYPEARROW(tl),
                 parse::TOKEN_FN => Token::FN(tl),

@@ -133,13 +133,10 @@ impl ModulePreface
             }
             &Ast::DefFunc(
                 ast::FuncClass::Macro,
-                ref name,
-                ref _args,
-                _,
+                ref decl,
                 ref _body,
-                ref _loc,
             ) => {
-                let name_string = Lstr::from(&**name);
+                let name_string = Lstr::from(&decl.name);
                 mp.macros.insert(name_string, item.clone());
             }
             _ => {

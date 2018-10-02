@@ -23,6 +23,7 @@ use std::collections::linked_list::{LinkedList};
 %type CurlyL { SrcLoc }
 %type CurlyR { SrcLoc }
 %type DBLCOLON { SrcLoc }
+%type DOUBLEARROW { SrcLoc }
 %type DOUBLEDASH { SrcLoc }
 %type ELSE { SrcLoc }
 %type ENUM { SrcLoc }
@@ -75,6 +76,8 @@ use std::collections::linked_list::{LinkedList};
 %type stmt { Ast }
 %type block { Ast }
 %type func_stmt { Ast }
+%type func_decl { ast::FuncDecl }
+%type func_body { Ast }
 %type failed_stmt { Ast }
 %type macro_stmt { Ast }
 %type call_expr { Ast }
@@ -119,7 +122,7 @@ use std::collections::linked_list::{LinkedList};
 %type strconst { String }
 
 
-%nonassoc ASSIGN BLOCKARROW RETURN.
+%nonassoc ASSIGN BLOCKARROW DOUBLEARROW RETURN.
 %right FN FORK.
 %left OR XOR.
 %left AND.
@@ -172,9 +175,12 @@ stmts(A) ::= stmts(B) stmt(C). {
     A = tmp;
 }
 
-block(A) ::= BLOCKARROW(C) stmts(B). {
+block(A) ::= block_arrow(C) stmts(B). {
     A = Ast::Block(B); // , C);
 }
+
+block_arrow ::= BLOCKARROW. {}
+block_arrow ::= DOUBLEARROW. {}
 
 
 stmt(A) ::= defstruple(B). { A = B; }
@@ -252,32 +258,40 @@ let_stmt(A) ::= Let(D) expr(B) ASSIGN expr(C). {
     A = Ast::Let(Box::new(B), Box::new(C), D);
 }
 
-/* rust func declaration */
-func_stmt(A) ::=
-    Func(Z) lri(B) PARENCALL ktype_list(D) RPAREN COLON typex(E) RUSTBLOCK.
+func_stmt(A) ::= func_decl(B) func_body(C). {
+    A = Ast::DefFunc(ast::FuncClass::Func, Box::new(B), Box::new(C));
+}
+
+/* traditional parens func declaration */
+func_decl(A) ::=
+    Func(Z) lri(B) PARENCALL ktype_list(D) RPAREN opt_typex(E).
 {
-    vout!("parse rust func {:?}\n", B);
-    A = Ast::DefFunc(ast::FuncClass::Func
-        , Box::new(B), D, Box::new(E), Box::new(Ast::RustBlock), Z);
+    vout!("declare paren func {}\n", B);
+    A = ast::FuncDecl{ name: B, args: D, result: E, loc: Z };
+}
+
+/* struct-style func declaration */
+func_decl(A) ::= Func(Z) lri(B) opt_typex(C) defstruple_block(D). {
+    vout!("declare struct func {}\n", B);
+    A = ast::FuncDecl{ name: B, args: D, result: C, loc: Z };
 }
 
 /* func one case, no matching */
-func_stmt(A) ::= Func(Z) lri(B) PARENCALL ktype_list(D) RPAREN opt_typex(E)
-    block(C) DOUBLEDASH.
-{
-    vout!("parse func {:?}\n", B);
-    A = Ast::DefFunc(ast::FuncClass::Func
-        , Box::new(B), D, Box::new(E), Box::new(C), Z);
+func_body(A) ::= block(B) DOUBLEDASH. {
+    vout!("parse func block body {}\n", B);
+    A = B;
 }
-/* func w/ pattern matching */
-func_stmt(A) ::= Func(Z) lri(B) PARENCALL ktype_list(C) RPAREN opt_typex(D)
-    if_case(E) DOUBLEDASH.
-{
+
+/* match func declaration */
+func_body(A) ::= DOUBLEARROW(Z) if_case(B) DOUBLEDASH. {
     vout!("parse pattern func {:?}\n", B);
     // extract field names from args to pass them through to match expr
-    let body = Ast::matchfunc_body(&C, E, Z);
-    A = Ast::DefFunc(ast::FuncClass::Func
-        , Box::new(B), C, Box::new(D), Box::new(body), Z);
+    A = Ast::matchfunc_body(B, Z);
+}
+
+/* rust func declaration */
+func_body(A) ::= RUSTBLOCK. {
+    A = Ast::RustBlock;
 }
 
 
@@ -294,8 +308,13 @@ macro_stmt(A) ::=
     MACRO(Z) localid(B) PARENCALL k_list(D) RPAREN block(C) DOUBLEDASH.
 {
     vout!("found macro {:?}\n", B);
-    A = Ast::DefFunc(ast::FuncClass::Macro
-        , Box::new(B), D, Box::new(Ast::TypeAnon), Box::new(C), Z);
+    let decl = ast::FuncDecl {
+        name: B,
+        args: D,
+        result: Ast::TypeAnon,
+        loc: Z,
+    };
+    A = Ast::DefFunc(ast::FuncClass::Macro, Box::new(decl), Box::new(C));
 }
 
 expr(A) ::= if_expr(B). { A = B; }
@@ -329,9 +348,9 @@ expr(A) ::= FORK(B) expr(C). {
 *
 * case expr style:
 *     if
-*     |x -- y
-*     |y -- z
-*     |z -- whatever
+*     |x -> y
+*     |y -> z
+*     |else -> whatever
 *     --
 */
 if_stmt(A) ::= IF(D) expr(B) block(C) DOUBLEDASH. {

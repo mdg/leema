@@ -156,7 +156,7 @@ impl Lib
 
     pub fn read_modsrc(&self, modname: &Lstr) -> ModuleSource
     {
-        vout!("reat_modsrc: {}\n", modname);
+        vout!("read_modsrc: {}\n", modname);
         let modkey = self.loader.mod_name_to_key(modname.clone());
         let modtxt = self.loader.read_module(&modkey);
         ModuleSource::new(modkey, modtxt)
