@@ -2,7 +2,7 @@
 import list
 
 
-struct Node(Int, [maxdepth::Node])
+struct Node(Int, [Node])
 
 func count_depth(max_depth: Int, node: Node): Int ->
     match node

@@ -1017,6 +1017,9 @@ impl Protomod
             base_name.add_modules(mp.key.name.clone()),
         );
 
+        let type_name = Type::UserDef(name.clone());
+        self.deftypes.insert(base_name.localid, type_name);
+
         match datatype {
             ast::DataType::Struple => {
                 if fields.is_empty() {
@@ -1069,7 +1072,6 @@ impl Protomod
         // a token struct is stored as a constant with no constructor
         let constval = Val::Token(full_lri);
         self.constants.insert(name_lstr.clone(), constval);
-        self.deftypes.insert(name_lstr.clone(), type_name.clone());
         self.valtypes.insert(name_lstr, type_name);
     }
 
@@ -1092,8 +1094,6 @@ impl Protomod
             src_fields,
             loc,
         );
-        self.deftypes
-            .insert(name_lstr.clone(), Type::UserDef(type_lri));
     }
 
     pub fn preproc_struple_fields(
@@ -1245,8 +1245,6 @@ impl Protomod
         }
 
         // self.constants.insert(name_lstr.clone(), Val::Type(mod_type.clone()));
-        self.deftypes
-            .insert(enum_lri.local_ref().clone(), mod_type.clone());
     }
 
     pub fn preproc_enum_variant(
