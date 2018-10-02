@@ -353,7 +353,10 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         }
         Source::Id(ref id, _line) => {
             let src = rt.id(id);
-            Oxpr { ops: vec![], dst: src }
+            Oxpr {
+                ops: vec![],
+                dst: src,
+            }
         }
         Source::IfExpr(ref test, ref truth, None) => {
             make_if_ops(rt, &*test, &*truth)
@@ -405,7 +408,8 @@ pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr, args: &Struple<Ixpr>)
     let fref_dst = rt.push_dst().clone();
     let mut fops = make_sub_ops(rt, f);
     if fops.dst != fref_dst {
-        fops.ops.push((Op::Copy(fref_dst.clone(), fops.dst), f.line));
+        fops.ops
+            .push((Op::Copy(fref_dst.clone(), fops.dst), f.line));
         fops.dst = fref_dst.clone();
     }
 
@@ -418,7 +422,9 @@ pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr, args: &Struple<Ixpr>)
             rt.push_dst_reg(argdst.clone());
             let mut arg_ops: Oxpr = make_sub_ops(rt, &a.1);
             if arg_ops.dst != argdst {
-                arg_ops.ops.push((Op::Copy(argdst.clone(), arg_ops.dst), a.1.line));
+                arg_ops
+                    .ops
+                    .push((Op::Copy(argdst.clone(), arg_ops.dst), a.1.line));
                 arg_ops.dst = argdst.clone();
             }
             rt.pop_dst_reg();
