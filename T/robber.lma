@@ -1,0 +1,36 @@
+
+import list
+
+
+struct HouseList
+.total: Int
+.houses: [Int]
+--
+
+func count_money: (HouseList, HouseList, #)
+.acc: (HouseList, HouseList, #)
+.next_money: Int
+>>
+|((even, odd, #even), next) ->
+    let total := even.total
+    (HouseList(total + next, next;even.houses), odd, #odd)
+|((even, odd, #odd), next) ->
+    let total := odd.total
+    let new_odd := HouseList(total + next, next;odd.houses)
+    (even, new_odd, #even)
+--
+
+func main() ->
+    let d := [2,7,9,3,1]
+    let even_init := HouseList(0, [])
+    let odd_init := HouseList(0, [])
+    let (even, odd, _) :=
+        list::reduce((even_init, odd_init, #even), d, count_money)
+    let houses :=
+        if
+        |even.total < odd.total -> odd.houses
+        |else -> even.houses
+        --
+    let total := max(odd.total, even.total)
+    print("Rob houses $houses = $total\n")
+--
