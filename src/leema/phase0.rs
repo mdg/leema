@@ -110,7 +110,9 @@ impl Protomod
                 Protomod::preproc_call(self, prog, mp, callx, args, iloc)
             }
             &Ast::DefFunc(ast::FuncClass::Closure, ref decl, ref body) => {
-                Protomod::preproc_closure(self, prog, mp, &decl.args, body, &decl.loc)
+                Protomod::preproc_closure(
+                    self, prog, mp, &decl.args, body, &decl.loc,
+                )
             }
             &Ast::Cons(ref head, ref tail) => {
                 let pp_head = Protomod::preproc_expr(self, prog, mp, head, loc);
@@ -377,23 +379,31 @@ impl Protomod
             Protomod::preproc_func_result(self, prog, mp, rtype, loc);
         let pp_body = match body {
             // normal function body
-            Ast::Block(_) => {
-                Protomod::preproc_expr(self, prog, mp, body, loc)
-            }
+            Ast::Block(_) => Protomod::preproc_expr(self, prog, mp, body, loc),
             // match func body
             Ast::IfExpr(ast::IfType::MatchFunc, _, ref cases, ref iloc) => {
-                let match_args = pp_args.iter().map(|a| {
-                    let argn = a.k_clone().unwrap();
-                    Kxpr::new_x(Ast::Localid(argn, *iloc))
-                }).collect();
+                let match_args = pp_args
+                    .iter()
+                    .map(|a| {
+                        let argn = a.k_clone().unwrap();
+                        Kxpr::new_x(Ast::Localid(argn, *iloc))
+                    })
+                    .collect();
                 let match_arg_tuple = Box::new(Ast::Tuple(match_args));
-                let ifx = &Ast::IfExpr(ast::IfType::Match, match_arg_tuple, cases.clone(), *iloc);
+                let ifx = &Ast::IfExpr(
+                    ast::IfType::Match,
+                    match_arg_tuple,
+                    cases.clone(),
+                    *iloc,
+                );
                 self.preproc_expr(prog, mp, ifx, iloc)
             }
             Ast::RustBlock => {
                 if let &Ast::TypeAnon = rtype {
-                    panic!("return type must be defined for Rust functions: {}"
-                        , name_lri);
+                    panic!(
+                        "return type must be defined for Rust functions: {}",
+                        name_lri
+                    );
                 }
                 Ast::RustBlock
             }
@@ -407,11 +417,7 @@ impl Protomod
             result: pp_rtype_ast.clone(),
             loc: *loc,
         };
-        let pp_func = Ast::DefFunc(
-            fclass,
-            Box::new(decl),
-            Box::new(pp_body),
-        );
+        let pp_func = Ast::DefFunc(fclass, Box::new(decl), Box::new(pp_body));
         let lstr_name = Lstr::from(name);
 
         let mut ftype_parts: Vec<Kxpr> =
@@ -549,9 +555,9 @@ impl Protomod
         match pp_callx {
             Ast::DefFunc(ast::FuncClass::Macro, decl, body) => {
                 vout!("apply_macro({:?}, {:?})\n", decl.name, decl.args);
-                let macrod =
-                    Protomod::apply_macro(&decl.name, &body,
-                        &decl.args, &pp_args, loc);
+                let macrod = Protomod::apply_macro(
+                    &decl.name, &body, &decl.args, &pp_args, loc,
+                );
                 // do it again to make sure there's not a wrapped macro
                 return self.preproc_expr(prog, mp, &macrod, &decl.loc);
             }

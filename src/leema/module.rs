@@ -131,11 +131,7 @@ impl ModulePreface
                 let imp_string = (**i).localid_str();
                 mp.imports.insert(imp_string.clone());
             }
-            &Ast::DefFunc(
-                ast::FuncClass::Macro,
-                ref decl,
-                ref _body,
-            ) => {
+            &Ast::DefFunc(ast::FuncClass::Macro, ref decl, ref _body) => {
                 let name_string = Lstr::from(&decl.name);
                 mp.macros.insert(name_string, item.clone());
             }

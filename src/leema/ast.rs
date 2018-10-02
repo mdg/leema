@@ -207,11 +207,7 @@ pub enum Ast
     ConstStr(Lstr),
     ConstVoid,
     DefData(DataType, Box<Ast>, LinkedList<Kxpr>, SrcLoc),
-    DefFunc(
-        FuncClass,
-        Box<FuncDecl>,
-        Box<Ast>
-    ),
+    DefFunc(FuncClass, Box<FuncDecl>, Box<Ast>),
     // dereference another expression
     Deref(Box<Ast>),
     DotAccess(Box<Ast>, Lstr),
@@ -336,11 +332,7 @@ impl Ast
             result: Ast::TypeAnon,
             loc,
         };
-        Ast::DefFunc(
-            FuncClass::Closure,
-            Box::new(decl),
-            Box::new(body),
-        )
+        Ast::DefFunc(FuncClass::Closure, Box::new(decl), Box::new(body))
     }
 
     pub fn localid_str(&self) -> &Lstr
@@ -1035,12 +1027,7 @@ mod tests
 
         if let Ast::Block(lines) = root {
             let f = lines.first().unwrap();
-            if let &Ast::DefFunc(
-                ast::FuncClass::Macro,
-                ref decl,
-                _,
-            ) = f
-            {
+            if let &Ast::DefFunc(ast::FuncClass::Macro, ref decl, _) = f {
                 assert_eq!("mand", Lstr::from(&decl.name).str());
                 assert_eq!(2, decl.args.len());
             } else {
