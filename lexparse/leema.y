@@ -263,9 +263,7 @@ func_stmt(A) ::= func_decl(B) func_body(C). {
 }
 
 /* traditional parens func declaration */
-func_decl(A) ::=
-    Func(Z) lri(B) PARENCALL ktype_list(D) RPAREN opt_typex(E).
-{
+func_decl(A) ::= Func(Z) lri(B) PARENCALL ktype_list(D) RPAREN opt_typex(E). {
     vout!("declare paren func {}\n", B);
     A = ast::FuncDecl{ name: B, args: D, result: E, loc: Z };
 }

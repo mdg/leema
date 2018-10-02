@@ -1283,7 +1283,7 @@ mod tests
     fn test_pattern_declaration()
     {
         let input = "
-            func foo(inputs: [#])
+            func foo(inputs: [#]) >>
             |[] -> #empty
             |#whatever;more -> #whatever
             |_;more -> foo(more)

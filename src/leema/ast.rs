@@ -934,11 +934,11 @@ mod tests
     fn test_parse_match_empty_list()
     {
         let input = "
-    func is_empty(l)
-    |([]) -> true
-    |(_) -> false
-    --
-    ";
+            func is_empty(l) >>
+            |[] -> true
+            |_ -> false
+            --
+            ";
         ast::parse(lex(input));
 
         // didn't crash

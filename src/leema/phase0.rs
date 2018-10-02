@@ -1362,7 +1362,7 @@ mod tests
     {
         let input = String::from(
             "
-            func foo(a)
+            func foo(a) >>
             |(h;t) -> print(\"head: $h, tail: $t\n\")
             --
 
