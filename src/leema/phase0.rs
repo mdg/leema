@@ -1422,6 +1422,26 @@ mod tests
     }
 
     #[test]
+    fn test_preproc_func_returns_func()
+    {
+        let input = "
+            func foo(): F(x: Int): F(): Bool -RUST-
+            func bar(): (F(x: Int): (F(): Bool)) -RUST-
+            "
+        .to_string();
+
+        let foo_str = Lstr::Sref("foo");
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        loader.set_mod_txt(foo_str.clone(), input);
+        let mut prog = program::Lib::new(loader);
+        let pmod = prog.read_proto(&foo_str);
+
+        let type_foo = pmod.valtypes.get("foo").unwrap();
+        let type_bar = pmod.valtypes.get("bar").unwrap();
+        assert_eq!(type_foo, type_bar);
+    }
+
+    #[test]
     fn test_preproc_closures()
     {
         let input = "

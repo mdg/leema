@@ -73,6 +73,18 @@ pub struct FuncDecl
     pub loc: SrcLoc,
 }
 
+impl fmt::Display for FuncDecl
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "{}(", self.name)?;
+        for a in &self.args {
+            write!(f, "{},", a.x_ref().unwrap())?;
+        }
+        write!(f, "):{}", self.result)
+    }
+}
+
 #[derive(Clone)]
 #[derive(Copy)]
 #[derive(Debug)]
@@ -191,6 +203,22 @@ impl Kxpr
         (self.k.clone(), x_new)
     }
 }
+
+impl fmt::Display for Kxpr
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        match (&self.k, &self.x) {
+            (&Some(ref ik), &Some(ref ix)) => write!(f, "{}:{}", ik, ix),
+            (&None, &Some(ref ix)) => write!(f, "{}", ix),
+            (&Some(ref ik), &None) => write!(f, "{}", ik),
+            (None, None) => {
+                panic!("cannot format kxpr w/ no values");
+            }
+        }
+    }
+}
+
 
 #[derive(Clone)]
 #[derive(Debug)]
@@ -528,8 +556,15 @@ impl fmt::Display for Ast
                 Ok(())
             }
             &Ast::DefFunc(ft, ref decl, ref body) => {
-                writeln!(f, "({:?} {:?}", ft, decl)?;
+                writeln!(f, "({:?} {}", ft, decl)?;
                 writeln!(f, "\t{})", body)
+            }
+            &Ast::TypeFunc(ref args, _) => {
+                write!(f, "(Fn ")?;
+                for a in &args[..args.len() - 1] {
+                    write!(f, "{},", a)?;
+                }
+                write!(f, "): {})", args.last().unwrap())
             }
             _ => write!(f, "{:?}", self),
         }

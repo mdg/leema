@@ -139,7 +139,7 @@ void	{ return set_token(yyg, TOKEN_VOID); }
     return set_token(yyg, TOKEN_SquareCall);
 }
 "]"	{
-    BEGIN(INITIAL);
+    BEGIN(CALLPAREN);
     return set_token(yyg, TOKEN_SquareR);
 }
 "{"	{
@@ -213,6 +213,10 @@ failed	{
 fn	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_FN);
+}
+F	{
+    BEGIN(CALLPAREN);
+    return set_token(yyg, TOKEN_FTYPE);
 }
 func	{
     BEGIN(INITIAL);

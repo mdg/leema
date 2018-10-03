@@ -31,6 +31,7 @@ use std::collections::linked_list::{LinkedList};
 %type EQ1 { SrcLoc }
 %type FAILED { SrcLoc }
 %type FN { SrcLoc }
+%type FTYPE { SrcLoc }
 %type FORK { SrcLoc }
 %type Func { SrcLoc }
 %type GT { SrcLoc }
@@ -122,8 +123,9 @@ use std::collections::linked_list::{LinkedList};
 %type strconst { String }
 
 
-%nonassoc ASSIGN BLOCKARROW DOUBLEARROW RETURN.
-%right FN FORK.
+%nonassoc ASSIGN COMMA RETURN.
+%right BLOCKARROW DOUBLEARROW.
+%right COLON FN FORK FTYPE.
 %left OR XOR.
 %left AND.
 %right ConcatNewline NOT.
@@ -436,6 +438,11 @@ type_term(A) ::= type_term(B) MULT. {
 type_term(A) ::= type_term(B) QUESTION. {
     // A = Ast::TypeFuture(Box::new(B));
     A = Ast::TypeVoid;
+}
+typex(A) ::= FTYPE(Z) PARENCALL typex_list(B) RPAREN COLON typex(C). {
+    let mut typevec: Vec<Kxpr> = B.into_iter().collect();
+    typevec.push(Kxpr::new_x(C));
+    A = Ast::TypeFunc(typevec, Z);
 }
 typex(A) ::= arrow_expr(B). {
     A = Ast::TypeFunc(B.0, B.1);
