@@ -1,0 +1,26 @@
+
+struct Key(Int)
+
+struct AsyncTask[T]
+.future: T%
+.key: task::Key
+--
+
+macro detach(x)
+>>
+    task::detach_f(fn() x)
+--
+
+macro fork(x)
+>>
+    task::fork_f(fn() x).future
+--
+
+func detach_f[T]: Key
+.action: F(): T
+-RUST-
+
+func fork_f[T]: AsyncTask[T]
+.action: F(): T
+-RUST-
+

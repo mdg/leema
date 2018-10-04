@@ -238,7 +238,7 @@ false	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_False);
 }
-fork	{
+forq	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_FORK);
 }

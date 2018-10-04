@@ -323,8 +323,8 @@ expr(A) ::= call_expr(B). { A = B; }
 expr(A) ::= closure_expr(B). { A = B; }
 expr(A) ::= block(B) DOUBLEDASH. { A = B; }
 expr(A) ::= term(B). { A = B; }
-expr(A) ::= FORK(B) expr(C). {
-    A = Ast::Fork(Box::new(C));
+expr(A) ::= FORK(Z) expr(C). {
+    A = Ast::fork(C, Z);
 }
 
 /* if statements can go 3 different ways

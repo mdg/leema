@@ -39,3 +39,4 @@ pub mod lib_hyper;
 pub mod lib_list;
 pub mod lib_map;
 pub mod lib_str;
+pub mod lib_task;

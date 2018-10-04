@@ -1,6 +1,7 @@
 
 import tcp
 import list
+import task
 
 
 func open_server(): tcp::Listener ->
@@ -18,6 +19,7 @@ func run_async_client(msg: Str): Str ->
 --
 
 func run_server(server: tcp::Listener) ->
+    print("leema run_server\n")
     let sock := tcp::accept(server)
     handle_request(sock)
     run_server(server)
@@ -36,7 +38,7 @@ func print_result(msg: Str) ->
 
 func main() ->
     let server := open_server()
-    fork run_server(server)
+    task::detach(run_server(server))
     let msgs := ["tacos", "burritos", "pizza", "pasta", "fish", "eggs"]
     let results := list::map(msgs, run_async_client)
     list::map(results, print_result)

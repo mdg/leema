@@ -278,6 +278,16 @@ impl Ast
         Ast::Call(Box::new(name_lri), args, loc)
     }
 
+    pub fn fork(x: Ast, loc: SrcLoc) -> Ast
+    {
+        let clos = Ast::closure(LinkedList::new(), x.clone(), loc);
+        let lrimods = vec![Lstr::Sref("task"), Lstr::Sref("spawn")];
+        let call = Ast::Lri(lrimods, None, loc);
+        let mut args = LinkedList::new();
+        args.push_back(Kxpr::new_x(clos));
+        Ast::Call(Box::new(call), args, loc)
+    }
+
     pub fn from_lri(l: Lri, loc: &SrcLoc) -> Ast
     {
         if l.local_only() {

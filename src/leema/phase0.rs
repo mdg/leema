@@ -708,6 +708,25 @@ impl Protomod
                     None => Ast::Localid(name.clone(), *loc),
                 }
             }
+            &Ast::DefFunc(fc, ref decl, ref body) => {
+                let r_name = Protomod::replace_ids(&decl.name, idvals, loc);
+                let r_args = decl
+                    .args
+                    .iter()
+                    .map(|a| {
+                        a.map_x(|ia| Protomod::replace_ids(ia, idvals, loc))
+                    })
+                    .collect();
+                let r_result = Protomod::replace_ids(&decl.result, idvals, loc);
+                let r_decl = ast::FuncDecl {
+                    name: r_name,
+                    args: r_args,
+                    result: r_result,
+                    loc: *loc,
+                };
+                let r_body = Protomod::replace_ids(body, idvals, loc);
+                Ast::DefFunc(fc, Box::new(r_decl), Box::new(r_body))
+            }
             &Ast::Return(ref result, _) => {
                 let new_result = Protomod::replace_ids(result, idvals, loc);
                 Ast::Return(Box::new(new_result), *loc)
@@ -715,10 +734,10 @@ impl Protomod
             &Ast::Lri(_, _, _) => node.clone(),
             &Ast::ConstBool(b) => Ast::ConstBool(b),
             &Ast::ConstVoid => Ast::ConstVoid,
+            &Ast::TypeAnon => Ast::TypeAnon,
             &Ast::Wildcard => Ast::Wildcard,
             _ => {
-                println!("cannot replace_ids for expression: {:?}", node);
-                node.clone()
+                panic!("cannot replace_ids for expression: {:?}", node);
             }
         }
     }
