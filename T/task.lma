@@ -1,10 +1,19 @@
 
+struct Future[T](T)
+
+func new_future[T](): (T%, FutureSend[T]) -RUST-
+
+func set_future[T](dst: FutureSend[T], val: T): Void -RUST-
+
+
 struct Key(Int)
+
 
 struct AsyncTask[T]
 .future: T%
 .key: task::Key
 --
+
 
 macro detach(x)
 >>
@@ -20,7 +29,22 @@ func detach_f[T]: Key
 .action: F(): T
 -RUST-
 
-func fork_f[T]: AsyncTask[T]
-.action: F(): T
+
+func start: Key
+.action: F(): Void
 -RUST-
 
+
+func join[T](fut: AsyncTask[T]): T -RUST-
+
+
+func fork_f[T]: AsyncTask[T]
+.action: F(): T
+>>
+    let (fut, fusend) := task::new_future[T]();
+    let tkey := task::start(fn() >>
+        let result := action()
+        task::set_future(fusend, result)
+    --)
+    AsyncTask(fut, tkey)
+--
