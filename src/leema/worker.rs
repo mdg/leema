@@ -241,7 +241,7 @@ impl Worker
                 println!("do I/O");
                 Result::Ok(Async::NotReady)
             }
-            Event::Fork => {
+            Event::Detach(_call) => {
                 // self.fresh.push_back((code, curf));
                 // end this iteration,
                 Result::Ok(Async::NotReady)

@@ -3,9 +3,11 @@ use leema::fiber::Fiber;
 use leema::frame::Event;
 
 
-pub fn detach(_f: &mut Fiber) -> Event
+pub fn detach(f: &mut Fiber) -> Event
 {
-    Event::success()
+    // let child_key = f.new_task_key();
+    let call = f.head.e.get_param(0);
+    Event::Detach(call.clone())
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>

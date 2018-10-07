@@ -83,7 +83,8 @@ pub enum Event
 {
     Uneventful,
     Call(Reg, i16, Lri, Val),
-    Fork,
+    Detach(Val),
+    // Fork(Reg, Val),
     FutureWait(Reg),
     IOWait,
     Iop((i64, i64), rsrc::IopAction, Vec<Val>),
@@ -119,7 +120,7 @@ impl fmt::Debug for Event
                     r, line, cfunc, cargs
                 )
             }
-            &Event::Fork => write!(f, "Event::Fork"),
+            &Event::Detach(ref call) => write!(f, "Event::Detach({})", call),
             &Event::FutureWait(ref r) => write!(f, "Event::FutureWait({})", r),
             &Event::IOWait => write!(f, "Event::IOWait"),
             &Event::Iop(wrid, _, ref iopargs) => {
@@ -142,7 +143,9 @@ impl PartialEq for Event
                 &Event::Call(ref r1, line1, ref f1, ref a1),
                 &Event::Call(ref r2, line2, ref f2, ref a2),
             ) => r1 == r2 && line1 == line2 && f1 == f2 && a1 == a2,
-            (&Event::Fork, &Event::Fork) => true,
+            (&Event::Detach(ref c1), &Event::Detach(ref c2)) => {
+                c1 == c2
+            }
             (&Event::FutureWait(ref r1), &Event::FutureWait(ref r2)) => {
                 r1 == r2
             }
