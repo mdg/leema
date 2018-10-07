@@ -4,12 +4,13 @@ use leema::frame::{Event, Frame, Parent};
 use leema::log;
 use leema::lstr::Lstr;
 use leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
+use leema::struple::Struple;
 use leema::val::{MsgVal, Val};
 
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
 use std::rc::Rc;
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use std::time::Duration;
 
@@ -196,6 +197,22 @@ impl Worker
                 self.load_code(fbr);
                 Result::Ok(Async::NotReady)
             }
+            Event::NewTask(Val::FuncRef(callri, callargs, _)) => {
+                let (sender, _receiver) = channel();
+                let msg = AppMsg::Spawn(sender, callri, callargs);
+                self.app_tx.send(msg).expect("new task msg send failure");
+                let (new_child, new_parent) = fbr.new_task_key();
+                let new_task_key = Val::Tuple(Struple(vec![
+                    (None, Val::Int(new_child)),
+                    (None, Val::Int(new_parent)),
+                ]));
+                fbr.head.parent.set_result(new_task_key);
+                self.return_from_call(fbr);
+                Result::Ok(Async::NotReady)
+            }
+            Event::NewTask(p) => {
+                panic!("Event::NewTask parameter must be a FuncRef: {:?}", p);
+            }
             Event::FutureWait(reg) => {
                 println!("wait for future {:?}", reg);
                 Result::Ok(Async::NotReady)
@@ -235,15 +252,6 @@ impl Worker
                         self.id, rsrc_worker_id
                     );
                 }
-                Result::Ok(Async::NotReady)
-            }
-            Event::IOWait => {
-                println!("do I/O");
-                Result::Ok(Async::NotReady)
-            }
-            Event::Detach(_call) => {
-                // self.fresh.push_back((code, curf));
-                // end this iteration,
                 Result::Ok(Async::NotReady)
             }
             Event::Uneventful => {

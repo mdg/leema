@@ -33,7 +33,7 @@ func handle_request(sock: tcp::TcpSocket) ->
 
 func print_result(msg: Str) ->
     let server_msg := msg
-    print("server received: $server_msg")
+    print("client received: $server_msg")
 --
 
 func main() ->

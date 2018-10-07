@@ -18,47 +18,20 @@ func set_future[T](dst: FutureSend[T], val: T): Void -RUST-
 
 macro detach(x)
 >>
-    task::detach_f(fn() x)
+    task::start(fn() x)
 --
 
 macro fork(x)
 >>
-    task::fork_f(fn() x)
+    task::start_fork(fn() x)
 --
-
-func detach_f[T]: Key
-.action: F(): T
--RUST-
 
 
 func start: Key
 .action: F(): Void
-.timeout: Duration?
 -RUST-
 
 func start_fork: Future[T]
-.action: F(): T
-.timeout: Duration?
--RUST-
-
-
-func join[T](fut: T%, timeout: Duration?): T -RUST-
-func select[T](fut: [T%], timeout: Duration?): [T] -RUST-
-
-#>>
-join
-|what >>
-    do_whatever(what)
-|when >>
-    do_whenever(when)
-|which >>
-    do_whichever(which)
-|timeout: 34 >>
-    damnit()
-#--
-
-
-func fork_f[T]: AsyncTask[T]
 .action: F(): T
 >>
     let (fut, fusend) := task::new_future[T]()

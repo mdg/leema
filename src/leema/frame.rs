@@ -83,12 +83,9 @@ pub enum Event
 {
     Uneventful,
     Call(Reg, i16, Lri, Val),
-    Detach(Val),
-    // Fork(Reg, Val),
+    NewTask(Val),
     FutureWait(Reg),
-    IOWait,
     Iop((i64, i64), rsrc::IopAction, Vec<Val>),
-    // IoFuture(Box<future::Future<Item=(), Error=()>>),
     Complete(bool),
     Success,
     Failure,
@@ -120,9 +117,8 @@ impl fmt::Debug for Event
                     r, line, cfunc, cargs
                 )
             }
-            &Event::Detach(ref call) => write!(f, "Event::Detach({})", call),
+            &Event::NewTask(ref call) => write!(f, "Event::NewTask({})", call),
             &Event::FutureWait(ref r) => write!(f, "Event::FutureWait({})", r),
-            &Event::IOWait => write!(f, "Event::IOWait"),
             &Event::Iop(wrid, _, ref iopargs) => {
                 write!(f, "Event::Iop({:?}, f, {:?})", wrid, iopargs)
             }
@@ -143,13 +139,12 @@ impl PartialEq for Event
                 &Event::Call(ref r1, line1, ref f1, ref a1),
                 &Event::Call(ref r2, line2, ref f2, ref a2),
             ) => r1 == r2 && line1 == line2 && f1 == f2 && a1 == a2,
-            (&Event::Detach(ref c1), &Event::Detach(ref c2)) => {
+            (&Event::NewTask(ref c1), &Event::NewTask(ref c2)) => {
                 c1 == c2
             }
             (&Event::FutureWait(ref r1), &Event::FutureWait(ref r2)) => {
                 r1 == r2
             }
-            (&Event::IOWait, &Event::IOWait) => true,
             (&Event::Success, &Event::Success) => true,
             (&Event::Failure, &Event::Failure) => true,
             _ => false,
