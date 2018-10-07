@@ -403,6 +403,9 @@ impl<'a> Interscope<'a>
 
     pub fn import_vartype(&self, modnm: &str, valnm: &str) -> Option<&Type>
     {
+        if modnm == &self.proto.key.name {
+            return self.proto.valtype(valnm);
+        }
         match self.imports.get(modnm) {
             None => None,
             Some(ref proto) => proto.valtype(valnm),
@@ -628,7 +631,9 @@ pub fn compile_lri(
     }
     let modname = names.first().unwrap();
     if !scope.imports_module(modname) {
-        panic!("module not found: {:?}", names);
+        if *modname != scope.proto.key.name {
+            panic!("module not found: {:?}", names);
+        }
     }
     let id = names.last().unwrap();
     let ctvars: Option<Vec<Type>> = tvars.as_ref().map(|itvars| {
