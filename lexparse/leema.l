@@ -58,6 +58,11 @@ EOI	\0
 }
 void	{ return set_token(yyg, TOKEN_VOID); }
 
+"#>>"	{
+	add_block_comment_depth(yyg, +1);
+	BEGIN(BLOCKCOMMENT);
+}
+
 {SPACE}+	{
     BEGIN(INITIAL);
 }
@@ -302,10 +307,6 @@ Void	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_TYPE_VOID);
 }
-"#:"	{
-	add_block_comment_depth(yyg, +1);
-	BEGIN(BLOCKCOMMENT);
-}
 {LINECOMMENT}	{
 	// have to update the cursor info here? hopefully not
 }
@@ -376,12 +377,12 @@ ${ID}	{
 }
 
 
-<BLOCKCOMMENT>"#:" {
+<BLOCKCOMMENT>"#>>" {
 	// go another level deeper in the nested comments
 	add_block_comment_depth(yyg, +1);
 	//return set_token_val(yyg, TOKEN_Comment, yytext);
 }
-<BLOCKCOMMENT>"#;" {
+<BLOCKCOMMENT>"#--" {
 	// go up a level in the nested comments
 	if (add_block_comment_depth(yyg, -1) == 0) {
 		// if at level 0, exit block comment context
