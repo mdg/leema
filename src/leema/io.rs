@@ -367,10 +367,6 @@ impl Io
     ) -> IopCtx
     {
         let rcio = self.io.clone().unwrap();
-        /*
-        let h = self.handle.clone();
-        let tx = self.worker_tx.clone();
-        */
         let run_queue = RunQueue {
             app_send: self.app_tx.clone(),
         };
