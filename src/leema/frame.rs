@@ -17,7 +17,6 @@ pub enum Parent
 {
     Null,
     Caller(Rc<Code>, Box<Frame>, Reg),
-    // Fork(Arc<AtomicBool>, mpsc::Sender<Msg>),
     Future(Sender<Val>, Val),
     Repl(Val),
     Main(Val),

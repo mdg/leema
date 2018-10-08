@@ -139,10 +139,9 @@ impl Code
 
     pub fn is_rust(&self) -> bool
     {
-        if let &Code::Rust(_) = self {
-            true
-        } else {
-            false
+        match self {
+            &Code::Rust(_) | &Code::Rust2(_) => true,
+            _ => false,
         }
     }
 

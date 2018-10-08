@@ -33,8 +33,8 @@ pub fn start_fork(mut ctx: RustFuncContext) -> Event
         }
     };
     let result = Val::Tuple(Struple(vec![
-        (None, Val::Int(7)),
         (None, Val::future(receiver)),
+        (None, Val::Int(7)),
     ]));
     ctx.set_result(result);
     Event::success()

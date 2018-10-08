@@ -1,19 +1,7 @@
 
-struct Key(Int, Int)
+struct Key(Int)
 
-struct FutureRecv[T] --
-
-struct FutureSend[T] --
-
-struct Future[T]
-.future: FutureRecv[T]
-.key: Key
---
-
-
-func new_future[T](): (FutureRecv[T], FutureSend[T]) -RUST-
-
-func set_future[T](dst: FutureSend[T], val: T): Void -RUST-
+struct Future[T](Key)
 
 
 macro detach(x)
@@ -31,13 +19,6 @@ func start: Key
 .action: F(): Void
 -RUST-
 
-func start_fork: Future[T]
+func start_fork: T%
 .action: F(): T
->>
-    let (fut, fusend) := task::new_future[T]()
-    let tkey := start(fn() >>
-        let result := action()
-        set_future(fusend, result)
-    --)
-    Future(fut, tkey)
---
+-RUST-

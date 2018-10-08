@@ -21,7 +21,7 @@ func run_async_client(msg: Str): Str ->
 func run_server(server: tcp::Listener) ->
     print("leema run_server\n")
     let sock := tcp::accept(server)
-    handle_request(sock)
+    task::detach(handle_request(sock))
     run_server(server)
 --
 
