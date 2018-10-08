@@ -49,7 +49,10 @@ impl Parent
                 *res = r;
             }
             &mut Parent::Fork(ref mut dst) => {
-                dst.send(r).expect("fail sending future result");
+                let send_result = dst.send(r.clone());
+                if send_result.is_err() {
+                    panic!("fail sending fork result: {}", r);
+                }
             }
             &mut Parent::Task => {}
             &mut Parent::Null => {}

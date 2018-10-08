@@ -408,7 +408,7 @@ impl Io
                 self.run_iop(next_op);
             }
             (Some(irsrc_id), None) => {
-                vout!("rsrc was not returned for {}\n", irsrc_id);
+                panic!("rsrc was not returned for {}\n", irsrc_id);
                 // TODO: maybe should clear the ioq?
             }
             (None, None) => {
