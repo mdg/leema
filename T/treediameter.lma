@@ -2,7 +2,6 @@
 
 import list
 
-
 struct Node(Int, [Node], [Node])
 
 func get_diameter(root: Node): (Int, Int) ->
@@ -26,6 +25,13 @@ func get_diameter(root: Node): (Int, Int) ->
     --
 --
 
+func main() ->
+    let d := make_data()
+    print("data is $d\n")
+    let (max_path, _) := get_diameter(d)
+    print("max_path is $max_path\n")
+--
+
 func make_data(): Node ->
     Node(1,
         [Node(2,
@@ -42,12 +48,4 @@ func make_data(): Node ->
         )],
         [Node(3, [], [])],
     )
---
-
-
-func main() ->
-    let d := make_data()
-    print("data is $d\n")
-    let (max_path, _) := get_diameter(d)
-    print("max_path is $max_path\n")
 --
