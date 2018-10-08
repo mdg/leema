@@ -1,8 +1,10 @@
 use leema::code::Code;
 use leema::fiber::Fiber;
 use leema::frame::{Event, Frame, Parent};
+use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
+use leema::reg::Reg;
 use leema::struple::Struple;
 use leema::val::{MsgVal, Val};
 
@@ -29,6 +31,56 @@ enum FiberWait
     Code(Fiber),
     Io(Fiber),
     Future(Fiber, Rc<Code>),
+}
+
+
+pub struct RustFuncContext<'a>
+{
+    worker: &'a Worker,
+    task: &'a mut Fiber,
+}
+
+impl<'a> RustFuncContext<'a>
+{
+    pub fn new(w: &'a Worker, t: &'a mut Fiber) -> RustFuncContext<'a>
+    {
+        RustFuncContext {
+            worker: w,
+            task: t,
+        }
+    }
+
+    pub fn get_param(&self, i: i8) -> &Val
+    {
+        self.task.head.e.get_param(i)
+    }
+
+    pub fn get_reg(&self, r: &Reg) -> &Val
+    {
+        self.task.head.e.get_reg(r)
+    }
+
+    pub fn set_result(&mut self, r: Val)
+    {
+        self.task.head.parent.set_result(r);
+    }
+
+    pub fn new_task(&self, fri: Lri, args: Struple<Val>)
+    {
+        let (send, _) = channel();
+        let spawn_msg = AppMsg::Spawn(send, fri, args);
+        self.worker.app_tx.send(spawn_msg)
+            .expect("failed sending new_task msg");
+    }
+
+    pub fn new_fork(&self, fri: Lri, args: Struple<Val>) -> Receiver<Val>
+    {
+        let (send, recv) = channel();
+        let spawn_msg = AppMsg::Spawn(send, fri, args);
+        self.worker.app_tx.send(spawn_msg)
+            .expect("failed sending new_fork msg");
+        recv
+    }
 }
 
 
@@ -107,7 +159,7 @@ impl Worker
             }
             Some(ReadyFiber::Ready(mut f, code)) => {
                 did_something = true;
-                let ev = Worker::execute_frame(&mut f, &*code);
+                let ev = self.execute_frame(&mut f, &*code);
                 self.handle_event(f, ev, code)
                     .expect("failure handling event");
             }
@@ -151,13 +203,18 @@ impl Worker
         }
     }
 
-    pub fn execute_frame(f: &mut Fiber, code: &Code) -> Event
+    pub fn execute_frame(&self, f: &mut Fiber, code: &Code) -> Event
     {
         match code {
             &Code::Leema(ref ops) => f.execute_leema_frame(ops),
             &Code::Rust(ref rf) => {
                 vout!("execute rust code\n");
                 rf(f)
+            }
+            &Code::Rust2(ref rf) => {
+                vout!("execute rust code2\n");
+                let ctx = RustFuncContext::new(self, f);
+                rf(ctx)
             }
             &Code::Iop(_, _) => {
                 panic!("cannot execute iop in a worker\n");

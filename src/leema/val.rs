@@ -12,10 +12,8 @@ use std::cmp::{Ordering, PartialEq, PartialOrd};
 use std::collections::BTreeMap;
 use std::fmt;
 use std::io::Error;
-use std::sync::atomic::{self, AtomicBool};
 use std::sync::{Arc, Mutex};
-
-use futures::sync::mpsc::Receiver;
+use std::sync::mpsc::Receiver;
 
 use mopa;
 
@@ -371,17 +369,6 @@ pub trait LibVal: mopa::Any + fmt::Debug + Send + Sync
 
 mopafy!(LibVal);
 
-#[derive(Clone)]
-pub struct FutureVal(pub Arc<AtomicBool>, pub Arc<Mutex<Receiver<MsgVal>>>);
-
-impl fmt::Debug for FutureVal
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        write!(f, "FutureVal({:?})", self.0)
-    }
-}
-
 #[derive(Copy)]
 #[derive(Clone)]
 #[derive(Debug)]
@@ -490,7 +477,7 @@ pub enum Val
     FuncRef(Lri, Struple<Val>, Type),
     ResourceRef(i64),
     RustBlock,
-    Future(FutureVal),
+    Future(Arc<Mutex<Receiver<Val>>>),
     Void,
     Wildcard,
     PatternVar(Reg),
@@ -585,23 +572,15 @@ impl Val
         }
     }
 
-    pub fn future(ready: Arc<AtomicBool>, r: Receiver<MsgVal>) -> Val
+    pub fn future(r: Receiver<Val>) -> Val
     {
-        Val::Future(FutureVal(ready, Arc::new(Mutex::new(r))))
+        Val::Future(Arc::new(Mutex::new(r)))
     }
 
     pub fn is_future(&self) -> bool
     {
         match self {
             &Val::Future(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_future_ready(&self) -> bool
-    {
-        match self {
-            &Val::Future(ref fv) => fv.0.load(atomic::Ordering::Relaxed),
             _ => false,
         }
     }
@@ -845,7 +824,7 @@ impl Val
             &Val::Kind(k) => Val::Kind(k),
             // &Val::Lib(LibVal),
             // &Val::RustBlock,
-            // &Val::Future(FutureVal),
+            &Val::Future(ref f) => Val::Future(f.clone()),
             &Val::Void => Val::Void,
             &Val::Wildcard => Val::Wildcard,
             &Val::PatternVar(ref r) => Val::PatternVar(r.clone()),
