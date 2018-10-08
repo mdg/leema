@@ -2,7 +2,6 @@ use leema::code::{Code, Op, OpVec};
 use leema::frame::{Event, Frame, FrameTrace, Parent};
 use leema::list;
 use leema::lmap::Lmap;
-use leema::log;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::reg::Reg;

@@ -6,7 +6,6 @@ use leema::ixpr::Source;
 use leema::lib_map;
 use leema::lib_str;
 use leema::loader::Interloader;
-use leema::log;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::module::{ModulePreface, ModuleSource};

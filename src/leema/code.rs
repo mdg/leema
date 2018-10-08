@@ -1,7 +1,6 @@
 use leema::fiber;
 use leema::frame;
 use leema::ixpr::{Ixpr, Source};
-use leema::log;
 use leema::lstr::Lstr;
 use leema::reg::{Reg, RegTable};
 use leema::rsrc;

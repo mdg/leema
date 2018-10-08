@@ -16,8 +16,6 @@ extern crate tokio_current_thread;
 #[macro_use]
 mod leema;
 
-use leema::log;
-
 use leema::application::Application;
 use leema::list;
 use leema::loader::Interloader;
@@ -77,7 +75,7 @@ fn real_main() -> i32
 
     let verbosenv = env::var_os(ENV_VERBOSE);
     if args.flag_verbose || verbosenv.is_some() && "1" == &verbosenv.unwrap() {
-        log::set_verbose();
+        ::leema::log::set_verbose();
         vout!("verbose mode\n");
     }
     vout!("args:{:?}\n", args);

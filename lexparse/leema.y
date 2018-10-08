@@ -5,7 +5,6 @@
 use leema::ast::{self, Ast, TokenData, Kxpr};
 use leema::val::{SrcLoc};
 use leema::lstr::{Lstr};
-use leema::log;
 
 use std::collections::linked_list::{LinkedList};
 }

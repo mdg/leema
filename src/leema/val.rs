@@ -1,7 +1,6 @@
 use leema::frame::FrameTrace;
 use leema::list;
 use leema::lmap::{self, LmapNode};
-use leema::log;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::msg;

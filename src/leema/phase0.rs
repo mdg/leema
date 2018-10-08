@@ -1,6 +1,5 @@
 use leema::ast::{self, Ast, Kxpr};
 use leema::list;
-use leema::log;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::module::{ModKey, ModulePreface};

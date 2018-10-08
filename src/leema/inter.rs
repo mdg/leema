@@ -1,7 +1,6 @@
 use leema::ast::{self, Ast, IfCase, Kxpr};
 use leema::ixpr::{Ixpr, MatchFailure, Source};
 use leema::list;
-use leema::log;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::phase0::Protomod;

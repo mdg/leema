@@ -2,7 +2,6 @@ use leema::code::Code;
 use leema::fiber::Fiber;
 use leema::frame::Event;
 use leema::list;
-use leema::log;
 use leema::lstr::Lstr;
 use leema::rsrc;
 use leema::val::{self, LibVal, Type, Val};

@@ -1,7 +1,6 @@
 use leema::infer::{Inferator, TypeSet};
 use leema::ixpr::{Ixpr, Source};
 use leema::lmap;
-use leema::log;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::phase0::Protomod;

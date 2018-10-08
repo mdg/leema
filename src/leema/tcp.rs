@@ -1,6 +1,5 @@
 use leema::code::Code;
 use leema::frame::FrameTrace;
-use leema::log;
 use leema::lstr::Lstr;
 use leema::rsrc::{self, Rsrc};
 use leema::val::{self, Type, Val};
