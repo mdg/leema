@@ -1,8 +1,9 @@
 use leema::code::Code;
+use leema::frame::FrameTrace;
 use leema::log;
 use leema::lstr::Lstr;
 use leema::rsrc::{self, Rsrc};
-use leema::val::{Type, Val};
+use leema::val::{self, Type, Val};
 
 // use bytes::buf::BufMut;
 use bytes::BytesMut;
@@ -151,12 +152,17 @@ pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
 
     let fut = TcpStream::connect(&sock_addr)
         .map(move |sock| {
-            vout!("tcp connected");
+            vout!("tcp connected\n");
             rsrc::Event::NewRsrc(Box::new(sock), None)
         })
         .map_err(move |_| {
             rsrc::Event::Result(
-                Val::Str(Lstr::Sref("Failure to connect")),
+                Val::Failure(
+                    Box::new(Val::Hashtag(Lstr::Sref("connection_failure"))),
+                    Box::new(Val::Str(Lstr::Sref("Failure to connect"))),
+                    FrameTrace::new_root(),
+                    val::FAILURE_MISSINGDATA,
+                ),
                 None,
             )
         });
