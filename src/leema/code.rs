@@ -210,7 +210,7 @@ pub fn make_ops(input: &Ixpr) -> OpVec
     vout!("make_ops({:?})\n", input);
     let mut regtbl = RegTable::new();
     let mut ops = make_sub_ops(&mut regtbl, input);
-    ops.ops.push((Op::SetResult(Reg::local(0)), input.line));
+    ops.ops.push((Op::SetResult(ops.dst), input.line));
     ops.ops.push((Op::Return, input.line));
     ops.ops
 }

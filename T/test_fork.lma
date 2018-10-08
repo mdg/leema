@@ -15,7 +15,9 @@ func run_client(msg: Str): Str ->
 --
 
 func run_async_client(msg: Str): Str ->
-    run_client(msg)
+    let result := run_client(msg)
+    print("client received: $result\n")
+    result
 --
 
 func run_server(server: tcp::Listener) ->
@@ -32,8 +34,7 @@ func handle_request(sock: tcp::TcpSocket) ->
 --
 
 func print_result(msg: Str) ->
-    let server_msg := msg
-    print("client received: $server_msg\n")
+    print("client received: $msg\n")
 --
 
 func main() ->
@@ -43,4 +44,5 @@ func main() ->
     let msgs := ["tacos", "burritos", "pizza", "pasta", "fish", "eggs"]
     let results := list::map(msgs, run_async_client)
     list::map(results, print_result)
+    0
 --

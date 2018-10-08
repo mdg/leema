@@ -233,9 +233,6 @@ impl Lib
             rustfunc.unwrap()
         } else {
             let ops = code::make_ops(fix);
-            if modname == "prefab" {
-                vout!("prefab::{} ops: {:?}\n", funcname, ops);
-            }
             Code::Leema(ops)
         }
     }
