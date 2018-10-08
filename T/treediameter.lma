@@ -1,31 +1,44 @@
+## https://leetcode.com/problems/diameter-of-binary-tree/description/
 
 import list
 
 
 struct Node(Int, [Node], [Node])
 
-func get_diameter(root: Node, max_depth: Int): (Int, Int) ->
+func get_diameter(root: Node): (Int, Int) ->
     match root
     |Node(_, [], []) ->
-        (0, max_depth)
+        (0, 0)
     |Node(_, [left], []) ->
-        get_diameter(left, max_depth + 1)
+        let (l_diameter, l_depth) := get_diameter(left)
+        (l_diameter, l_depth + 1)
     |Node(_, [], [right]) ->
-        get_diameter(right, max_depth + 1)
+        let (r_diameter, r_depth) := get_diameter(right)
+        (r_diameter, r_depth + 1)
     |Node(_, [left], [right]) ->
-        let (l_diameter, l_depth) := get_diameter(left, max_depth + 1)
-        let (r_diameter, r_depth) := get_diameter(right, max_depth + 1)
+        let (l_diameter, l_depth) := get_diameter(left)
+        let (r_diameter, r_depth) := get_diameter(right)
+        let l_depth_2 := l_depth + 1
+        let r_depth_2 := r_depth + 1
         let max_diameter_children := max(l_diameter, r_diameter)
-        let max_diameter := l_depth + r_depth
-        (max(max_diameter, max_diameter_children), max(l_depth, r_depth))
+        let max_diameter := l_depth_2 + r_depth_2
+        (max(max_diameter, max_diameter_children), max(l_depth_2, r_depth_2))
     --
 --
 
 func make_data(): Node ->
     Node(1,
         [Node(2,
-            [Node(4, [], [])],
-            [Node(5, [], [])],
+            [Node(4, [], [
+                Node(8, [], [
+                    Node(9, [], []),
+                ]),
+            ])],
+            [Node(5, [], [
+                Node(6, [], [
+                    Node(7, [], []),
+                ]),
+            ])],
         )],
         [Node(3, [], [])],
     )
@@ -35,6 +48,6 @@ func make_data(): Node ->
 func main() ->
     let d := make_data()
     print("data is $d\n")
-    let (max_path, _) := get_diameter(d, 0)
+    let (max_path, _) := get_diameter(d)
     print("max_path is $max_path\n")
 --
