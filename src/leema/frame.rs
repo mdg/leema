@@ -17,7 +17,8 @@ pub enum Parent
 {
     Null,
     Caller(Rc<Code>, Box<Frame>, Reg),
-    Future(Sender<Val>, Val),
+    Fork(Sender<Val>),
+    Task,
     Repl(Val),
     Main(Val),
 }
@@ -29,9 +30,9 @@ impl Parent
         Parent::Main(Val::Void)
     }
 
-    pub fn new_future(dst: Sender<Val>) -> Parent
+    pub fn new_fork(dst: Sender<Val>) -> Parent
     {
-        Parent::Future(dst, Val::Void)
+        Parent::Fork(dst)
     }
 
     pub fn set_result(&mut self, r: Val)
@@ -47,10 +48,11 @@ impl Parent
             &mut Parent::Repl(ref mut res) => {
                 *res = r;
             }
-            &mut Parent::Null => {}
-            &mut Parent::Future(_, ref mut dst) => {
-                *dst = r;
+            &mut Parent::Fork(ref mut dst) => {
+                dst.send(r).expect("fail sending future result");
             }
+            &mut Parent::Task => {}
+            &mut Parent::Null => {}
         }
     }
 }
@@ -64,16 +66,10 @@ impl Debug for Parent
             &Parent::Caller(ref code, ref pf, ref dst) => {
                 write!(f, "Parent::Caller({:?}, {}, {:?})", dst, code, pf)
             }
-            /*
-            &Parent::Fork(ref ready, _) => {
-                write!(f, "Parent::Fork({:?})", ready)
-            }
-            */
             &Parent::Repl(ref res) => write!(f, "Parent::Repl({:?})", res),
             &Parent::Main(ref res) => write!(f, "Parent::Main({:?})", res),
-            &Parent::Future(_, ref res) => {
-                write!(f, "Parent::Future({:?})", res)
-            }
+            &Parent::Fork(_) => write!(f, "Parent::Fork"),
+            &Parent::Task => write!(f, "Parent::Task"),
         }
     }
 }

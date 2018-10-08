@@ -335,9 +335,10 @@ impl Worker
                 self.done = true;
                 self.app_tx.send(msg).expect("app message send failure");
             }
-            Parent::Future(result_dst, result) => {
-                result_dst.send(result).expect("fail sending future result");
+            Parent::Fork(_) => {
+                // this should have already happened
             }
+            Parent::Task => {} // nothing to do
             Parent::Null => {
                 // this shouldn't have happened
             }
@@ -349,7 +350,7 @@ impl Worker
         match msg {
             WorkerMsg::Spawn(result_dst, func, args) => {
                 vout!("worker spawn2 {}\n", func);
-                let parent = Parent::new_future(result_dst);
+                let parent = Parent::new_fork(result_dst);
                 let root = Frame::new_root(parent, func, args);
                 self.spawn_fiber(root);
             }
