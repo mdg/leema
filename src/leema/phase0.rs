@@ -253,7 +253,8 @@ impl Protomod
                     .collect();
                 Ast::Tuple(pp_items)
             }
-            &Ast::TypeFunc(ref parts, ref loc) => {
+            &Ast::TypeFunc(ref parts, ref result, ref loc) => {
+                let anon_type = Lstr::Sref("anon_func_type");
                 let ppp = parts
                     .iter()
                     .map(|p| {
@@ -261,13 +262,16 @@ impl Protomod
                             self,
                             prog,
                             mp,
-                            &Lstr::Sref("anon_func_type"),
-                            p,
+                            &anon_type,
+                            p.k_ref(),
+                            p.x_ref(),
                             loc,
                         )
                     })
                     .collect();
-                Ast::TypeFunc(ppp, *loc)
+                let pp_result =
+                    self.preproc_func_arg(prog, mp, &anon_type, None, Some(result), loc);
+                Ast::TypeFunc(ppp, pp_result.x.unwrap(), *loc)
             }
             &Ast::Question => Ast::Question,
             &Ast::RustBlock => Ast::RustBlock,
@@ -297,11 +301,12 @@ impl Protomod
         prog: &Lib,
         mp: &ModulePreface,
         func_name: &Lstr,
-        arg: &Kxpr,
+        arg_name: Option<&Lstr>,
+        arg_type: Option<&Ast>,
         loc: &SrcLoc,
     ) -> Kxpr
     {
-        match (arg.k_ref(), arg.x_ref()) {
+        match (arg_name, arg_type) {
             (None, None) => {
                 panic!("cannot preproc arg with no id or type: {:?}", loc);
             }
@@ -331,10 +336,13 @@ impl Protomod
                 let new_typ = Ast::TypeVar(type_name, *loc);
                 Kxpr::new(id.clone(), new_typ)
             }
-            (_, Some(_)) => {
-                arg.map_x(|typ| {
-                    Protomod::preproc_expr(self, prog, mp, typ, &loc)
-                })
+            (ref k, Some(ref argt)) => {
+                Kxpr {
+                    k: k.map(|ik| ik.clone()),
+                    x: Some(Box::new(
+                        Protomod::preproc_expr(self, prog, mp, argt, &loc)
+                    )),
+                }
             }
         }
     }
@@ -372,7 +380,7 @@ impl Protomod
         let pp_args: LinkedList<Kxpr> = args
             .iter()
             .map(|a| {
-                Protomod::preproc_func_arg(self, prog, mp, &lstr_name, a, loc)
+                Protomod::preproc_func_arg(self, prog, mp, &lstr_name, a.k_ref(), a.x_ref(), loc)
             })
             .collect();
         let pp_rtype_ast =
@@ -465,7 +473,7 @@ impl Protomod
             Protomod::make_closure_key(&mp.key.name, loc.lineno, &args);
         let pp_args: LinkedList<Kxpr> = args
             .iter()
-            .map(|a| self.preproc_func_arg(prog, mp, &closure_key, a, loc))
+            .map(|a| self.preproc_func_arg(prog, mp, &closure_key, a.k_ref(), a.x_ref(), loc))
             .collect();
         let pp_body = self.preproc_expr(prog, mp, body, loc);
         let pp_result = self.preproc_func_result(prog, mp, &Ast::TypeAnon, loc);

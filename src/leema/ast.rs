@@ -133,8 +133,8 @@ impl IfCase
 #[derive(PartialEq)]
 pub struct Kxpr
 {
-    k: Option<Lstr>,
-    x: Option<Box<Ast>>,
+    pub k: Option<Lstr>,
+    pub x: Option<Box<Ast>>,
 }
 
 impl Kxpr
@@ -255,7 +255,7 @@ pub enum Ast
     TypeAnon,
     TypeBool,
     TypeFailure,
-    TypeFunc(Vec<Kxpr>, SrcLoc),
+    TypeFunc(Vec<Kxpr>, Box<Ast>, SrcLoc),
     TypeInt,
     TypeHashtag,
     TypeStr,
@@ -332,16 +332,15 @@ impl Ast
                 Ast::Tuple(new_items)
             }
             Type::Func(params, result) => {
-                let kx_result = Kxpr::new_x(Ast::from_type(*result, loc));
-                let mut new_params: Vec<Kxpr> = params
+                let kx_result = Ast::from_type(*result, loc);
+                let new_params: Vec<Kxpr> = params
                     .into_iter()
                     .map(|it| {
                         let newt = Ast::from_type(it, loc);
                         Kxpr::new_x(newt)
                     })
                     .collect();
-                new_params.push(kx_result);
-                Ast::TypeFunc(new_params, *loc)
+                Ast::TypeFunc(new_params, Box::new(kx_result), *loc)
             }
             Type::StrictList(inner) => {
                 let mut items = LinkedList::new();
@@ -482,13 +481,13 @@ impl<'a> From<&'a Ast> for Type
             &Ast::TypeStr => Type::Str,
             &Ast::TypeVar(ref v, _) => Type::Var(v.clone()),
             &Ast::TypeVoid => Type::Void,
-            &Ast::TypeFunc(ref parts, _) => {
+            &Ast::TypeFunc(ref parts, ref result, _) => {
                 let mut ppp: Vec<Type> = parts
                     .iter()
                     .map(|p| Type::from(p.x_ref().unwrap()))
                     .collect();
-                let result = ppp.pop().unwrap();
-                Type::Func(ppp, Box::new(result))
+                let result_type = Type::from(&**result);
+                Type::Func(ppp, Box::new(result_type))
             }
             &Ast::List(ref items) => {
                 match items.len() {
@@ -569,12 +568,12 @@ impl fmt::Display for Ast
                 writeln!(f, "({:?} {}", ft, decl)?;
                 writeln!(f, "\t{})", body)
             }
-            &Ast::TypeFunc(ref args, _) => {
+            &Ast::TypeFunc(ref args, ref result, _) => {
                 write!(f, "(Fn ")?;
-                for a in &args[..args.len() - 1] {
+                for a in args {
                     write!(f, "{},", a)?;
                 }
-                write!(f, "): {})", args.last().unwrap())
+                write!(f, "): {})", result)
             }
             _ => write!(f, "{:?}", self),
         }
@@ -1393,10 +1392,10 @@ mod tests
     fn test_parse_function_type_param()
     {
         let input = "
-    func call_func(i: Int, f: Int => Str => Int): Str => Int ->
-        f(i)
-    --
-    ";
+            func call_func(i: Int, f: F(Int, Str): Int): F(Str): Int ->
+                f(i)
+            --
+            ";
         ast::parse(lex(input));
 
         assert!(true); // didn't panic!
