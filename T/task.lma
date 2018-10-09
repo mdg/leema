@@ -1,7 +1,7 @@
 
 struct Key(Int)
 
-struct Future[T](Key)
+struct Future[T] --
 
 
 macro detach(x)

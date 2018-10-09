@@ -14,8 +14,8 @@ func run_client(msg: Str): Str ->
     tcp::recv(c)
 --
 
-func run_async_client(msg: Str): Str ->
-    run_client(msg)
+func run_async_client(msg: Str): Str% ->
+    task::fork(run_client(msg))
 --
 
 func run_server(server: tcp::Listener) ->
@@ -30,7 +30,8 @@ func handle_request(sock: tcp::TcpSocket) ->
     tcp::send(sock, "I heard you say, ($req)\n")
 --
 
-func print_result(msg: Str) ->
+func print_result(fmsg: Str%) ->
+    let msg := task::join_fork(fmsg)
     print("client received: $msg\n")
 --
 
