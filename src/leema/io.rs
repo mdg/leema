@@ -106,6 +106,7 @@ pub struct RunQueue
     app_send: Sender<AppMsg>,
 }
 
+#[derive(Debug)]
 pub struct RunQueueReceiver(Receiver<Val>);
 
 impl RunQueue
