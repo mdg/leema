@@ -478,7 +478,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
         }
         &mut Source::Fork(ref mut x) => {
             let xtyp = typecheck_expr(scope, x)?;
-            Ok(Type::Future(Box::new(xtyp)))
+            Ok(Type::future(xtyp))
         }
         &mut Source::Id(ref id, _) => scope.infer.vartype(id),
         &mut Source::List(ref mut items) => {

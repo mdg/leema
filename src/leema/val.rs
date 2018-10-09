@@ -56,7 +56,6 @@ pub enum Type
     UserDef(Lri),
     Lib(String),
     Resource(Lstr),
-    Future(Box<Type>),
     RustBlock,
     Param(i8),
     Void,
@@ -73,6 +72,15 @@ impl Type
     pub fn f(inputs: Vec<Type>, result: Type) -> Type
     {
         Type::Func(inputs, Box::new(result))
+    }
+
+    pub fn future(inner: Type) -> Type
+    {
+        Type::UserDef(Lri::full(
+            Some(Lstr::Sref("task")),
+            Lstr::Sref("Future"),
+            Some(vec![inner]),
+        ))
     }
 
     /**
@@ -247,7 +255,6 @@ impl fmt::Display for Type
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
-            &Type::Future(ref sub) => write!(f, "{}%", sub),
             &Type::Resource(ref name) => write!(f, "{}", &name),
             &Type::RustBlock => write!(f, "RustBlock"),
             &Type::Void => write!(f, "Void"),
@@ -299,7 +306,6 @@ impl fmt::Debug for Type
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
-            &Type::Future(ref sub) => write!(f, "{}%", sub),
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
             &Type::Resource(ref name) => write!(f, "Resource({})", &name),
             &Type::RustBlock => write!(f, "RustBlock"),

@@ -269,10 +269,6 @@ impl Protomod
                     .collect();
                 Ast::TypeFunc(ppp, *loc)
             }
-            &Ast::TypeFuture(ref sub) => {
-                let pp_sub = self.preproc_expr(prog, mp, sub, loc);
-                Ast::TypeFuture(Box::new(pp_sub))
-            }
             &Ast::Question => Ast::Question,
             &Ast::RustBlock => Ast::RustBlock,
             &Ast::TypeAnon => Ast::TypeAnon,
@@ -1002,10 +998,6 @@ impl Protomod
                     })
                     .collect();
                 Type::Tuple(Struple(items2))
-            }
-            Type::Future(subtype) => {
-                let subtype2 = self.replace_typeids(type_params, *subtype);
-                Type::Future(Box::new(subtype2))
             }
             Type::Var(varname) => Type::Var(varname),
             // primitive types

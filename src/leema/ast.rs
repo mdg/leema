@@ -256,7 +256,6 @@ pub enum Ast
     TypeBool,
     TypeFailure,
     TypeFunc(Vec<Kxpr>, SrcLoc),
-    TypeFuture(Box<Ast>),
     TypeInt,
     TypeHashtag,
     TypeStr,
@@ -490,10 +489,6 @@ impl<'a> From<&'a Ast> for Type
                     .collect();
                 let result = ppp.pop().unwrap();
                 Type::Func(ppp, Box::new(result))
-            }
-            &Ast::TypeFuture(ref sub) => {
-                let subtype = Type::from(&**sub);
-                Type::Future(Box::new(subtype))
             }
             &Ast::List(ref items) => {
                 match items.len() {
