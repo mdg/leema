@@ -269,6 +269,10 @@ impl Protomod
                     .collect();
                 Ast::TypeFunc(ppp, *loc)
             }
+            &Ast::TypeFuture(ref sub) => {
+                let pp_sub = self.preproc_expr(prog, mp, sub, loc);
+                Ast::TypeFuture(Box::new(pp_sub))
+            }
             &Ast::Question => Ast::Question,
             &Ast::RustBlock => Ast::RustBlock,
             &Ast::TypeAnon => Ast::TypeAnon,
@@ -730,7 +734,15 @@ impl Protomod
                 let new_result = Protomod::replace_ids(result, idvals, loc);
                 Ast::Return(Box::new(new_result), *loc)
             }
-            &Ast::Lri(_, _, _) => node.clone(),
+            &Ast::Lri(_, None, _) => node.clone(),
+            &Ast::Lri(ref mods, Some(ref tparams), ref iloc) => {
+                let tparams2 = tparams.iter().map(|tp| {
+                    tp.map_x(|x| {
+                        Protomod::replace_ids(x, idvals, loc)
+                    })
+                }).collect();
+                Ast::Lri(mods.clone(), Some(tparams2), *iloc)
+            }
             &Ast::ConstBool(b) => Ast::ConstBool(b),
             &Ast::ConstVoid => Ast::ConstVoid,
             &Ast::TypeAnon => Ast::TypeAnon,
@@ -991,13 +1003,21 @@ impl Protomod
                     .collect();
                 Type::Tuple(Struple(items2))
             }
+            Type::Future(subtype) => {
+                let subtype2 = self.replace_typeids(type_params, *subtype);
+                Type::Future(Box::new(subtype2))
+            }
+            Type::Var(varname) => Type::Var(varname),
             // primitive types
             Type::Bool => Type::Bool,
             Type::Hashtag => Type::Hashtag,
             Type::Failure => Type::Failure,
             Type::Int => Type::Int,
             Type::Str => Type::Str,
-            id => id,
+            Type::Void => Type::Void,
+            typ => {
+                panic!("cannot replace_typeids for: {}", typ);
+            }
         }
     }
 

@@ -427,8 +427,7 @@ type_term(A) ::= CurlyL(Z) typex(B) COLON typex(C) CurlyR. {
     A = Ast::Lri(type_mods, Some(type_params), Z);
 }
 type_term(A) ::= type_term(B) PCT. {
-    // A = Ast::TypeFuture(Box::new(B));
-    A = Ast::TypeVoid;
+    A = Ast::TypeFuture(Box::new(B));
 }
 type_term(A) ::= type_term(B) MULT. {
     // A = Ast::TypeFuture(Box::new(B));

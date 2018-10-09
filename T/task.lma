@@ -22,3 +22,7 @@ func start: Key
 func start_fork: T%
 .action: F(): T
 -RUST-
+
+func join_fork: T
+.forked: T%
+-RUST-

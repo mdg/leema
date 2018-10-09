@@ -517,6 +517,10 @@ impl<'b> Inferator<'b>
                 );
                 Ok(Type::UserDef(mashlri))
             }
+            (&Type::Future(ref sub1), &Type::Future(ref sub2)) => {
+                let masht = Inferator::mash(inferences, sub1, sub2)?;
+                Ok(Type::Future(Box::new(masht)))
+            }
             (_, _) => match_err(),
         };
         vout!("\tmashed -> {:?}\n", mtype);
