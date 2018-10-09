@@ -54,6 +54,7 @@ use std::collections::linked_list::{LinkedList};
 %type LPAREN { SrcLoc }
 %type RPAREN { SrcLoc }
 %type PARENCALL { SrcLoc }
+%type PCT { SrcLoc }
 %type PIPE { SrcLoc }
 %type PLUS { SrcLoc }
 %type RETURN { SrcLoc }
@@ -426,11 +427,14 @@ type_term(A) ::= CurlyL(Z) typex(B) COLON typex(C) CurlyR. {
     type_params.push_back(Kxpr::new_x(C));
     A = Ast::Lri(type_mods, Some(type_params), Z);
 }
-type_term(A) ::= type_term(B) PCT. {
-    A = Ast::TypeFuture(Box::new(B));
+type_term(A) ::= type_term(B) PCT(Z). {
+    let mods = vec![Lstr::Sref("task"), Lstr::Sref("Future")];
+    let mut tparam = LinkedList::new();
+    tparam.push_back(Kxpr::new_x(B));
+    A = Ast::Lri(mods, Some(tparam), Z);
 }
 type_term(A) ::= type_term(B) MULT. {
-    // A = Ast::TypeFuture(Box::new(B));
+    // A = Ast::TypeSequence(Box::new(B));
     A = Ast::TypeVoid;
 }
 type_term(A) ::= type_term(B) QUESTION. {

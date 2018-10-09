@@ -118,7 +118,7 @@ impl Token
                 parse::TOKEN_MINUS => Token::MINUS(tl),
                 parse::TOKEN_NEGATE => Token::NEGATE(tl),
                 parse::TOKEN_MOD => Token::MOD(tl),
-                parse::TOKEN_PCT => Token::PCT,
+                parse::TOKEN_PCT => Token::PCT(tl),
                 parse::TOKEN_QUESTION => Token::QUESTION,
                 parse::TOKEN_False => Token::False,
                 parse::TOKEN_True => Token::True,
