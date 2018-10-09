@@ -100,6 +100,9 @@ impl IopCtx
     where
         T: Rsrc,
     {
+        if self.rsrc_id.is_none() {
+            panic!("cannot take uninitialized resource");
+        }
         let opt_rsrc = self.rsrc.take();
         match opt_rsrc {
             Some(rsrc) => {
@@ -107,7 +110,8 @@ impl IopCtx
                 *(result.unwrap())
             }
             None => {
-                panic!("no resource to take");
+                let rsrc_id = self.rsrc_id.unwrap();
+                panic!("resource is missing: {}", rsrc_id);
             }
         }
     }

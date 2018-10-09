@@ -1,14 +1,14 @@
 
-func map(items: [$A], f: $A => $B): [$B] ->
+func map(items: [$A], f: F($A): $B): [$B] ->
     _map([], items, f)
 --
 
-func _map(result :[$C], input: [$D], f: $D => $C): [$C] >>
+func _map(result :[$C], input: [$D], f: F($D): $C): [$C] >>
 |(result, [], _f) -> reverse(result)
 |(result, h;t, f) -> _map(f(h);result, t, f)
 --
 
-func reduce(init: $A, items: [$B], f: $A => $B => $A): $A ->
+func reduce(init: $A, items: [$B], f: F($A, $B): $A): $A ->
     match items
     |[] -> init
     |head;tail ->
@@ -17,7 +17,7 @@ func reduce(init: $A, items: [$B], f: $A => $B => $A): $A ->
     --
 --
 
-func filter(items: [$H], f: $H => Bool): [$H] ->
+func filter(items: [$H], f: F($H): Bool): [$H] ->
     _filter([], items, f)
 --
 
@@ -27,7 +27,7 @@ func reverse(items: [$E]): [$E] ->
 
 func sort(items: [$J]): [$J] -RUST-
 
-func _filter(acc: [$G], in: [$G], pred: $G => Bool): [$G] >>
+func _filter(acc: [$G], in: [$G], pred: F($G): Bool): [$G] >>
 |(acc, [], _) -> reverse(acc)
 |(acc, h;t, f) ->
     let matcher := f(h)

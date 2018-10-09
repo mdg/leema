@@ -1,4 +1,3 @@
-use leema::log;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::struple::Struple;

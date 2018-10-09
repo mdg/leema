@@ -1,5 +1,4 @@
 use leema::code::Code;
-use leema::log;
 use leema::lstr::Lstr;
 use leema::rsrc::{self, Rsrc};
 use leema::val::{Type, Val};

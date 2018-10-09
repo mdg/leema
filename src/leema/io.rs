@@ -1,4 +1,3 @@
-use leema::log;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::msg::{AppMsg, IoMsg, WorkerMsg};
@@ -107,6 +106,7 @@ pub struct RunQueue
     app_send: Sender<AppMsg>,
 }
 
+#[derive(Debug)]
 pub struct RunQueueReceiver(Receiver<Val>);
 
 impl RunQueue
@@ -367,10 +367,6 @@ impl Io
     ) -> IopCtx
     {
         let rcio = self.io.clone().unwrap();
-        /*
-        let h = self.handle.clone();
-        let tx = self.worker_tx.clone();
-        */
         let run_queue = RunQueue {
             app_send: self.app_tx.clone(),
         };
@@ -413,7 +409,7 @@ impl Io
                 self.run_iop(next_op);
             }
             (Some(irsrc_id), None) => {
-                vout!("rsrc was not returned for {}\n", irsrc_id);
+                panic!("rsrc was not returned for {}\n", irsrc_id);
                 // TODO: maybe should clear the ioq?
             }
             (None, None) => {

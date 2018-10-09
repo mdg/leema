@@ -14,26 +14,25 @@ func run_client(msg: Str): Str ->
     tcp::recv(c)
 --
 
-func run_async_client(msg: Str): Str ->
-    run_client(msg)
+func run_async_client(msg: Str): Str% ->
+    task::fork(run_client(msg))
 --
 
 func run_server(server: tcp::Listener) ->
-    print("leema run_server\n")
     let sock := tcp::accept(server)
-    handle_request(sock)
+    task::fork(handle_request(sock))
     run_server(server)
 --
 
 func handle_request(sock: tcp::TcpSocket) ->
     let req := tcp::recv(sock)
-    print("I heard you say, ($req)\n")
+    print("server heard: ($req)\n")
     tcp::send(sock, "I heard you say, ($req)\n")
 --
 
-func print_result(msg: Str) ->
-    let server_msg := msg
-    print("server received: $server_msg")
+func print_result(fmsg: Str%) ->
+    let msg := task::join_fork(fmsg)
+    print("client received: $msg\n")
 --
 
 func main() ->
@@ -42,4 +41,5 @@ func main() ->
     let msgs := ["tacos", "burritos", "pizza", "pasta", "fish", "eggs"]
     let results := list::map(msgs, run_async_client)
     list::map(results, print_result)
+    0
 --

@@ -1,7 +1,6 @@
 use leema::frame::FrameTrace;
 use leema::list;
 use leema::lmap::{self, LmapNode};
-use leema::log;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::msg;
@@ -13,10 +12,8 @@ use std::cmp::{Ordering, PartialEq, PartialOrd};
 use std::collections::BTreeMap;
 use std::fmt;
 use std::io::Error;
-use std::sync::atomic::{self, AtomicBool};
+use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
-
-use futures::sync::mpsc::Receiver;
 
 use mopa;
 
@@ -59,7 +56,6 @@ pub enum Type
     UserDef(Lri),
     Lib(String),
     Resource(Lstr),
-    Future(Box<Type>),
     RustBlock,
     Param(i8),
     Void,
@@ -76,6 +72,15 @@ impl Type
     pub fn f(inputs: Vec<Type>, result: Type) -> Type
     {
         Type::Func(inputs, Box::new(result))
+    }
+
+    pub fn future(inner: Type) -> Type
+    {
+        Type::UserDef(Lri::full(
+            Some(Lstr::Sref("task")),
+            Lstr::Sref("Future"),
+            Some(vec![inner]),
+        ))
     }
 
     /**
@@ -250,7 +255,6 @@ impl fmt::Display for Type
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
-            &Type::Future(ref sub) => write!(f, "{}%", sub),
             &Type::Resource(ref name) => write!(f, "{}", &name),
             &Type::RustBlock => write!(f, "RustBlock"),
             &Type::Void => write!(f, "Void"),
@@ -302,7 +306,6 @@ impl fmt::Debug for Type
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
-            &Type::Future(ref sub) => write!(f, "{}%", sub),
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
             &Type::Resource(ref name) => write!(f, "Resource({})", &name),
             &Type::RustBlock => write!(f, "RustBlock"),
@@ -371,17 +374,6 @@ pub trait LibVal: mopa::Any + fmt::Debug + Send + Sync
 }
 
 mopafy!(LibVal);
-
-#[derive(Clone)]
-pub struct FutureVal(pub Arc<AtomicBool>, pub Arc<Mutex<Receiver<MsgVal>>>);
-
-impl fmt::Debug for FutureVal
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        write!(f, "FutureVal({:?})", self.0)
-    }
-}
 
 #[derive(Copy)]
 #[derive(Clone)]
@@ -491,7 +483,7 @@ pub enum Val
     FuncRef(Lri, Struple<Val>, Type),
     ResourceRef(i64),
     RustBlock,
-    Future(FutureVal),
+    Future(Arc<Mutex<Receiver<Val>>>),
     Void,
     Wildcard,
     PatternVar(Reg),
@@ -586,23 +578,15 @@ impl Val
         }
     }
 
-    pub fn future(ready: Arc<AtomicBool>, r: Receiver<MsgVal>) -> Val
+    pub fn future(r: Receiver<Val>) -> Val
     {
-        Val::Future(FutureVal(ready, Arc::new(Mutex::new(r))))
+        Val::Future(Arc::new(Mutex::new(r)))
     }
 
     pub fn is_future(&self) -> bool
     {
         match self {
             &Val::Future(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_future_ready(&self) -> bool
-    {
-        match self {
-            &Val::Future(ref fv) => fv.0.load(atomic::Ordering::Relaxed),
             _ => false,
         }
     }
@@ -846,7 +830,7 @@ impl Val
             &Val::Kind(k) => Val::Kind(k),
             // &Val::Lib(LibVal),
             // &Val::RustBlock,
-            // &Val::Future(FutureVal),
+            &Val::Future(ref f) => Val::Future(f.clone()),
             &Val::Void => Val::Void,
             &Val::Wildcard => Val::Wildcard,
             &Val::PatternVar(ref r) => Val::PatternVar(r.clone()),

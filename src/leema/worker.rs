@@ -1,15 +1,17 @@
 use leema::code::Code;
 use leema::fiber::Fiber;
 use leema::frame::{Event, Frame, Parent};
-use leema::log;
+use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
+use leema::reg::Reg;
+use leema::struple::Struple;
 use leema::val::{MsgVal, Val};
 
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
 use std::rc::Rc;
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use std::time::Duration;
 
@@ -29,6 +31,57 @@ enum FiberWait
     Code(Fiber),
     Io(Fiber),
     Future(Fiber, Rc<Code>),
+}
+
+
+pub struct RustFuncContext<'a>
+{
+    worker: &'a Worker,
+    task: &'a mut Fiber,
+}
+
+impl<'a> RustFuncContext<'a>
+{
+    pub fn new(w: &'a Worker, t: &'a mut Fiber) -> RustFuncContext<'a>
+    {
+        RustFuncContext { worker: w, task: t }
+    }
+
+    pub fn get_param(&self, i: i8) -> &Val
+    {
+        self.task.head.e.get_param(i)
+    }
+
+    pub fn get_reg(&self, r: &Reg) -> &Val
+    {
+        self.task.head.e.get_reg(r)
+    }
+
+    pub fn set_result(&mut self, r: Val)
+    {
+        self.task.head.parent.set_result(r);
+    }
+
+    pub fn new_task(&self, fri: Lri, args: Struple<Val>)
+    {
+        let (send, _) = channel();
+        let spawn_msg = AppMsg::Spawn(send, fri, args);
+        self.worker
+            .app_tx
+            .send(spawn_msg)
+            .expect("failed sending new_task msg");
+    }
+
+    pub fn new_fork(&self, fri: Lri, args: Struple<Val>) -> Receiver<Val>
+    {
+        let (send, recv) = channel();
+        let spawn_msg = AppMsg::Spawn(send, fri, args);
+        self.worker
+            .app_tx
+            .send(spawn_msg)
+            .expect("failed sending new_fork msg");
+        recv
+    }
 }
 
 
@@ -107,7 +160,7 @@ impl Worker
             }
             Some(ReadyFiber::Ready(mut f, code)) => {
                 did_something = true;
-                let ev = Worker::execute_frame(&mut f, &*code);
+                let ev = self.execute_frame(&mut f, &*code);
                 self.handle_event(f, ev, code)
                     .expect("failure handling event");
             }
@@ -151,13 +204,18 @@ impl Worker
         }
     }
 
-    pub fn execute_frame(f: &mut Fiber, code: &Code) -> Event
+    pub fn execute_frame(&self, f: &mut Fiber, code: &Code) -> Event
     {
         match code {
             &Code::Leema(ref ops) => f.execute_leema_frame(ops),
             &Code::Rust(ref rf) => {
                 vout!("execute rust code\n");
                 rf(f)
+            }
+            &Code::Rust2(ref rf) => {
+                vout!("execute rust code2\n");
+                let ctx = RustFuncContext::new(self, f);
+                rf(ctx)
             }
             &Code::Iop(_, _) => {
                 panic!("cannot execute iop in a worker\n");
@@ -195,6 +253,22 @@ impl Worker
                 fbr.push_call(code.clone(), dst, line, func, args);
                 self.load_code(fbr);
                 Result::Ok(Async::NotReady)
+            }
+            Event::NewTask(Val::FuncRef(callri, callargs, _)) => {
+                let (sender, _receiver) = channel();
+                let msg = AppMsg::Spawn(sender, callri, callargs);
+                self.app_tx.send(msg).expect("new task msg send failure");
+                let (new_child, new_parent) = fbr.new_task_key();
+                let new_task_key = Val::Tuple(Struple(vec![
+                    (None, Val::Int(new_child)),
+                    (None, Val::Int(new_parent)),
+                ]));
+                fbr.head.parent.set_result(new_task_key);
+                self.return_from_call(fbr);
+                Result::Ok(Async::NotReady)
+            }
+            Event::NewTask(p) => {
+                panic!("Event::NewTask parameter must be a FuncRef: {:?}", p);
             }
             Event::FutureWait(reg) => {
                 println!("wait for future {:?}", reg);
@@ -237,15 +311,6 @@ impl Worker
                 }
                 Result::Ok(Async::NotReady)
             }
-            Event::IOWait => {
-                println!("do I/O");
-                Result::Ok(Async::NotReady)
-            }
-            Event::Fork => {
-                // self.fresh.push_back((code, curf));
-                // end this iteration,
-                Result::Ok(Async::NotReady)
-            }
             Event::Uneventful => {
                 println!("We shouldn't be here with uneventful");
                 panic!("code: {:?}, pc: {:?}", code, fbr.head.pc);
@@ -271,9 +336,10 @@ impl Worker
                 self.done = true;
                 self.app_tx.send(msg).expect("app message send failure");
             }
-            Parent::Future(result_dst, result) => {
-                result_dst.send(result).expect("fail sending future result");
+            Parent::Fork(_) => {
+                // this should have already happened
             }
+            Parent::Task => {} // nothing to do
             Parent::Null => {
                 // this shouldn't have happened
             }
@@ -285,7 +351,7 @@ impl Worker
         match msg {
             WorkerMsg::Spawn(result_dst, func, args) => {
                 vout!("worker spawn2 {}\n", func);
-                let parent = Parent::new_future(result_dst);
+                let parent = Parent::new_fork(result_dst);
                 let root = Frame::new_root(parent, func, args);
                 self.spawn_fiber(root);
             }

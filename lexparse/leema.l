@@ -86,10 +86,6 @@ void	{ return set_token(yyg, TOKEN_VOID); }
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_DOUBLEDASH);
 }
-"=>"	{
-    BEGIN(INITIAL);
-    return set_token(yyg, TOKEN_TYPEARROW);
-}
 ":="	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_ASSIGN);

@@ -1,5 +1,4 @@
 use leema::io::{Io, IoLoop};
-use leema::log;
 use leema::lri::Lri;
 use leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use leema::program;

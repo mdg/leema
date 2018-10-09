@@ -1,13 +1,13 @@
 use leema::fiber;
 use leema::frame;
 use leema::ixpr::{Ixpr, Source};
-use leema::log;
 use leema::lstr::Lstr;
 use leema::reg::{Reg, RegTable};
 use leema::rsrc;
 use leema::sendclone::SendClone;
 use leema::struple::Struple;
 use leema::val::{Type, Val};
+use leema::worker::RustFuncContext;
 
 use std::fmt;
 use std::marker;
@@ -116,15 +116,13 @@ pub struct Oxpr
 
 pub type RustFunc = fn(&mut fiber::Fiber) -> frame::Event;
 
-trait RustFunc2
-{
-    fn call(&mut self, env: &mut frame::Frame) -> frame::Event;
-}
+pub type RustFunc2 = fn(RustFuncContext) -> frame::Event;
 
 pub enum Code
 {
     Leema(OpVec),
     Rust(RustFunc),
+    Rust2(RustFunc2),
     Iop(rsrc::IopAction, Option<i8>),
 }
 
@@ -141,10 +139,9 @@ impl Code
 
     pub fn is_rust(&self) -> bool
     {
-        if let &Code::Rust(_) = self {
-            true
-        } else {
-            false
+        match self {
+            &Code::Rust(_) | &Code::Rust2(_) => true,
+            _ => false,
         }
     }
 
@@ -165,6 +162,7 @@ impl fmt::Display for Code
         match self {
             &Code::Leema(_) => write!(f, "LeemaCode"),
             &Code::Rust(_) => write!(f, "RustCode"),
+            &Code::Rust2(_) => write!(f, "RustCode2"),
             &Code::Iop(_, _) => write!(f, "IopCode"),
         }
     }
@@ -186,6 +184,7 @@ impl fmt::Debug for Code
                 result
             }
             &Code::Rust(_) => write!(f, "Code::Rust"),
+            &Code::Rust2(_) => write!(f, "Code::Rust2"),
             &Code::Iop(_, _) => write!(f, "Code::Iop"),
         }
     }
@@ -198,6 +197,7 @@ impl Clone for Code
         match self {
             &Code::Leema(ref ops) => Code::Leema(ops.clone()),
             &Code::Rust(rf) => Code::Rust(rf),
+            &Code::Rust2(rf) => Code::Rust2(rf),
             &Code::Iop(ref iopf, ref rsrc_idx) => {
                 Code::Iop(*iopf, rsrc_idx.clone())
             }
@@ -210,7 +210,7 @@ pub fn make_ops(input: &Ixpr) -> OpVec
     vout!("make_ops({:?})\n", input);
     let mut regtbl = RegTable::new();
     let mut ops = make_sub_ops(&mut regtbl, input);
-    ops.ops.push((Op::SetResult(Reg::local(0)), input.line));
+    ops.ops.push((Op::SetResult(ops.dst), input.line));
     ops.ops.push((Op::Return, input.line));
     ops.ops
 }

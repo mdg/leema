@@ -2,7 +2,6 @@ use leema::code::{Code, Op, OpVec};
 use leema::frame::{Event, Frame, FrameTrace, Parent};
 use leema::list;
 use leema::lmap::Lmap;
-use leema::log;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::reg::Reg;
@@ -17,6 +16,7 @@ use std::rc::Rc;
 pub struct Fiber
 {
     pub fiber_id: i64,
+    pub next_task_id: i64,
     pub head: Frame,
 }
 
@@ -26,6 +26,7 @@ impl Fiber
     {
         Fiber {
             fiber_id: id,
+            next_task_id: 1,
             head: root,
         }
     }
@@ -38,6 +39,13 @@ impl Fiber
     pub fn function_name(&self) -> &Lstr
     {
         &self.head.function.localid
+    }
+
+    pub fn new_task_key(&mut self) -> (i64, i64)
+    {
+        let child = self.next_task_id;
+        self.next_task_id += 1;
+        (child, self.fiber_id)
     }
 
     pub fn push_call(

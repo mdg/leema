@@ -17,8 +17,8 @@ pub enum Parent
 {
     Null,
     Caller(Rc<Code>, Box<Frame>, Reg),
-    // Fork(Arc<AtomicBool>, mpsc::Sender<Msg>),
-    Future(Sender<Val>, Val),
+    Fork(Sender<Val>),
+    Task,
     Repl(Val),
     Main(Val),
 }
@@ -30,9 +30,9 @@ impl Parent
         Parent::Main(Val::Void)
     }
 
-    pub fn new_future(dst: Sender<Val>) -> Parent
+    pub fn new_fork(dst: Sender<Val>) -> Parent
     {
-        Parent::Future(dst, Val::Void)
+        Parent::Fork(dst)
     }
 
     pub fn set_result(&mut self, r: Val)
@@ -48,10 +48,14 @@ impl Parent
             &mut Parent::Repl(ref mut res) => {
                 *res = r;
             }
-            &mut Parent::Null => {}
-            &mut Parent::Future(_, ref mut dst) => {
-                *dst = r;
+            &mut Parent::Fork(ref mut dst) => {
+                let send_result = dst.send(r.clone());
+                if send_result.is_err() {
+                    panic!("fail sending fork result: {}", r);
+                }
             }
+            &mut Parent::Task => {}
+            &mut Parent::Null => {}
         }
     }
 }
@@ -65,16 +69,10 @@ impl Debug for Parent
             &Parent::Caller(ref code, ref pf, ref dst) => {
                 write!(f, "Parent::Caller({:?}, {}, {:?})", dst, code, pf)
             }
-            /*
-            &Parent::Fork(ref ready, _) => {
-                write!(f, "Parent::Fork({:?})", ready)
-            }
-            */
             &Parent::Repl(ref res) => write!(f, "Parent::Repl({:?})", res),
             &Parent::Main(ref res) => write!(f, "Parent::Main({:?})", res),
-            &Parent::Future(_, ref res) => {
-                write!(f, "Parent::Future({:?})", res)
-            }
+            &Parent::Fork(_) => write!(f, "Parent::Fork"),
+            &Parent::Task => write!(f, "Parent::Task"),
         }
     }
 }
@@ -83,11 +81,9 @@ pub enum Event
 {
     Uneventful,
     Call(Reg, i16, Lri, Val),
-    Fork,
+    NewTask(Val),
     FutureWait(Reg),
-    IOWait,
     Iop((i64, i64), rsrc::IopAction, Vec<Val>),
-    // IoFuture(Box<future::Future<Item=(), Error=()>>),
     Complete(bool),
     Success,
     Failure,
@@ -119,9 +115,8 @@ impl fmt::Debug for Event
                     r, line, cfunc, cargs
                 )
             }
-            &Event::Fork => write!(f, "Event::Fork"),
+            &Event::NewTask(ref call) => write!(f, "Event::NewTask({})", call),
             &Event::FutureWait(ref r) => write!(f, "Event::FutureWait({})", r),
-            &Event::IOWait => write!(f, "Event::IOWait"),
             &Event::Iop(wrid, _, ref iopargs) => {
                 write!(f, "Event::Iop({:?}, f, {:?})", wrid, iopargs)
             }
@@ -142,11 +137,10 @@ impl PartialEq for Event
                 &Event::Call(ref r1, line1, ref f1, ref a1),
                 &Event::Call(ref r2, line2, ref f2, ref a2),
             ) => r1 == r2 && line1 == line2 && f1 == f2 && a1 == a2,
-            (&Event::Fork, &Event::Fork) => true,
+            (&Event::NewTask(ref c1), &Event::NewTask(ref c2)) => c1 == c2,
             (&Event::FutureWait(ref r1), &Event::FutureWait(ref r2)) => {
                 r1 == r2
             }
-            (&Event::IOWait, &Event::IOWait) => true,
             (&Event::Success, &Event::Success) => true,
             (&Event::Failure, &Event::Failure) => true,
             _ => false,

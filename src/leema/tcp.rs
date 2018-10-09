@@ -1,8 +1,8 @@
 use leema::code::Code;
-use leema::log;
+use leema::frame::FrameTrace;
 use leema::lstr::Lstr;
 use leema::rsrc::{self, Rsrc};
-use leema::val::{Type, Val};
+use leema::val::{self, Type, Val};
 
 // use bytes::buf::BufMut;
 use bytes::BytesMut;
@@ -44,9 +44,7 @@ impl Future for Acceptor
     type Item = (TcpListener, TcpStream, SocketAddr);
     type Error = (TcpListener, std::io::Error);
 
-    fn poll(
-        &mut self,
-    ) -> Poll<(TcpListener, TcpStream, SocketAddr), (TcpListener, std::io::Error)>
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error>
     {
         let accept_result = { self.listener.as_mut().unwrap().poll_accept() };
         match accept_result {
@@ -75,7 +73,7 @@ impl Future for Receiver
     type Item = (TcpStream, Val);
     type Error = (TcpStream, std::io::Error);
 
-    fn poll(&mut self) -> Poll<(TcpStream, Val), (TcpStream, std::io::Error)>
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error>
     {
         let mut buf = BytesMut::new();
         let read_result = self.sock.as_ref().unwrap().read_buf(&mut buf);
@@ -151,12 +149,17 @@ pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
 
     let fut = TcpStream::connect(&sock_addr)
         .map(move |sock| {
-            vout!("tcp connected");
+            vout!("tcp connected\n");
             rsrc::Event::NewRsrc(Box::new(sock), None)
         })
         .map_err(move |_| {
             rsrc::Event::Result(
-                Val::Str(Lstr::Sref("Failure to connect")),
+                Val::Failure(
+                    Box::new(Val::Hashtag(Lstr::Sref("connection_failure"))),
+                    Box::new(Val::Str(Lstr::Sref("Failure to connect"))),
+                    FrameTrace::new_root(),
+                    val::FAILURE_MISSINGDATA,
+                ),
                 None,
             )
         });
@@ -182,7 +185,9 @@ pub fn tcp_accept(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let acc = Acceptor {
         listener: Some(listener),
     }
-    .map(|(_ilistener, sock, _addr)| rsrc::Event::NewRsrc(Box::new(sock), None))
+    .map(|(ilistener, sock, _addr)| {
+        rsrc::Event::NewRsrc(Box::new(sock), Some(Box::new(ilistener)))
+    })
     .map_err(|_| {
         rsrc::Event::Result(Val::Str(Lstr::Sref("accept error")), None)
     });
