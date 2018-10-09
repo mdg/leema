@@ -57,7 +57,6 @@ pub enum Type
     Lib(String),
     Resource(Lstr),
     RustBlock,
-    Param(i8),
     Void,
     Kind,
     Any,
@@ -125,26 +124,6 @@ impl Type
             true
         } else {
             false
-        }
-    }
-
-    pub fn is_var(&self) -> bool
-    {
-        match self {
-            &Type::Var(_) => true,
-            &Type::AnonVar => true,
-            _ => false,
-        }
-    }
-
-    pub fn var_name(&self) -> Lstr
-    {
-        match self {
-            &Type::Var(ref id) => id.clone(),
-            &Type::AnonVar => Lstr::Sref("anon"),
-            _ => {
-                panic!("Not a Type::Var {:?}", self);
-            }
         }
     }
 
@@ -262,7 +241,6 @@ impl fmt::Display for Type
             &Type::Any => write!(f, "Any"),
 
             &Type::Unknown => write!(f, "TypeUnknown"),
-            &Type::Param(index) => write!(f, "Type::Param({})", index),
             &Type::Var(ref name) => write!(f, "${}", name),
             &Type::AnonVar => write!(f, "TypeAnonymous"),
         }
@@ -315,7 +293,6 @@ impl fmt::Debug for Type
 
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::Var(ref name) => write!(f, "${}", name),
-            &Type::Param(index) => write!(f, "Type::Param({})", index),
             &Type::AnonVar => write!(f, "TypeAnonymous"),
         }
     }

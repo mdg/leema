@@ -4,7 +4,7 @@ use leema::struple::Struple;
 use leema::val::{Type, TypeErr, TypeResult, Val};
 
 use std::collections::hash_map::Keys;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 
 #[derive(Debug)]
@@ -61,6 +61,7 @@ impl<'b> TypeSet<'b>
 pub struct Inferator<'b>
 {
     funcname: &'b str,
+    typevars: HashSet<Lstr>,
     vartypes: HashMap<Lstr, Type>,
     inferences: HashMap<Lstr, Type>,
 }
@@ -71,6 +72,7 @@ impl<'b> Inferator<'b>
     {
         Inferator {
             funcname,
+            typevars: HashSet::new(),
             vartypes: HashMap::new(),
             inferences: HashMap::new(),
         }
@@ -98,6 +100,11 @@ impl<'b> Inferator<'b>
             }
             Some(ref argt) => Ok(self.inferred_type(argt)),
         }
+    }
+
+    pub fn is_typevar(&self, t: &Lstr) -> bool
+    {
+        self.typevars.contains(t)
     }
 
     pub fn init_param(

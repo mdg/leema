@@ -283,6 +283,38 @@ impl<'a, 'b> Typescope<'a, 'b>
         }
     }
 
+    pub fn is_typevar(&self, t: &Type) -> bool
+    {
+        match t {
+            &Type::Var(_) => true,
+            &Type::AnonVar => true,
+            &Type::Unknown => true,
+            &Type::UserDef(ref tri) if tri.local_only() => {
+                self.infer.is_typevar(&tri.localid)
+            }
+            // if a UserDef is not local only, it's definitely not a typevar
+            &Type::UserDef(ref tri) if tri.has_params() => {
+                tri.params.as_ref().unwrap().iter().any(|t| {
+                    self.is_typevar(t)
+                })
+            }
+            &Type::Tuple(ref items) => {
+                items.0.iter().any(|i| self.is_typevar(&i.1))
+            }
+            &Type::Func(ref args, ref result) => {
+                args.iter().any(|a| self.is_typevar(a))
+                    || self.is_typevar(result)
+            }
+            &Type::Closure(ref args, ref closed, ref result) => {
+                args.iter().any(|a| self.is_typevar(a))
+                    || closed.iter().any(|c| self.is_typevar(c))
+                    || self.is_typevar(result)
+            }
+            &Type::StrictList(ref inner) => self.is_typevar(inner),
+            _ => false,
+        }
+    }
+
     pub fn typecheck_matchcase(
         &mut self,
         valtype: &Type,
@@ -594,7 +626,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
                 return Err(TypeErr::Unknowable);
             }
 
-            let mut derivable_result = !result_type.is_var();
+            let mut derivable_result = !scope.is_typevar(result_type);
             for arg in arg_types.iter() {
                 if *arg == Type::Unknown {
                     vout!("rust function arg types must be known");
