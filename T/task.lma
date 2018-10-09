@@ -26,3 +26,13 @@ func start_fork: T%
 func join_fork: T
 .forked: T%
 -RUST-
+
+#>>
+func map[T, U]: [U]
+.items: [T]
+.f: F(T): U
+>>
+    let ifunc := fn(i) >> start_fork(fn() f(i)) --
+    let futs := list::map(items, ifunc)
+    list::map(futs, fn(fut) join_fork(fut))
+#--
