@@ -44,10 +44,7 @@ impl<'a> RustFuncContext<'a>
 {
     pub fn new(w: &'a Worker, t: &'a mut Fiber) -> RustFuncContext<'a>
     {
-        RustFuncContext {
-            worker: w,
-            task: t,
-        }
+        RustFuncContext { worker: w, task: t }
     }
 
     pub fn get_param(&self, i: i8) -> &Val
@@ -69,7 +66,9 @@ impl<'a> RustFuncContext<'a>
     {
         let (send, _) = channel();
         let spawn_msg = AppMsg::Spawn(send, fri, args);
-        self.worker.app_tx.send(spawn_msg)
+        self.worker
+            .app_tx
+            .send(spawn_msg)
             .expect("failed sending new_task msg");
     }
 
@@ -77,7 +76,9 @@ impl<'a> RustFuncContext<'a>
     {
         let (send, recv) = channel();
         let spawn_msg = AppMsg::Spawn(send, fri, args);
-        self.worker.app_tx.send(spawn_msg)
+        self.worker
+            .app_tx
+            .send(spawn_msg)
             .expect("failed sending new_fork msg");
         recv
     }

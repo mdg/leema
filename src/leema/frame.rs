@@ -137,9 +137,7 @@ impl PartialEq for Event
                 &Event::Call(ref r1, line1, ref f1, ref a1),
                 &Event::Call(ref r2, line2, ref f2, ref a2),
             ) => r1 == r2 && line1 == line2 && f1 == f2 && a1 == a2,
-            (&Event::NewTask(ref c1), &Event::NewTask(ref c2)) => {
-                c1 == c2
-            }
+            (&Event::NewTask(ref c1), &Event::NewTask(ref c2)) => c1 == c2,
             (&Event::FutureWait(ref r1), &Event::FutureWait(ref r2)) => {
                 r1 == r2
             }

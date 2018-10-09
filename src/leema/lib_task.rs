@@ -59,13 +59,10 @@ pub fn start_fork(mut ctx: rsrc::IopCtx) -> rsrc::Event
 pub fn join_fork(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     let receiver: Lfuture = ctx.take_rsrc();
-    let rfut = receiver.receiver
-        .map(|result| {
-            rsrc::Event::Result(result, None)
-        })
-        .map_err(|e| {
-            rsrc::Event::Result(e, None)
-        });
+    let rfut = receiver
+        .receiver
+        .map(|result| rsrc::Event::Result(result, None))
+        .map_err(|e| rsrc::Event::Result(e, None));
     rsrc::Event::Future(Box::new(rfut))
 }
 

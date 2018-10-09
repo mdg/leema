@@ -12,8 +12,8 @@ use std::cmp::{Ordering, PartialEq, PartialOrd};
 use std::collections::BTreeMap;
 use std::fmt;
 use std::io::Error;
-use std::sync::{Arc, Mutex};
 use std::sync::mpsc::Receiver;
+use std::sync::{Arc, Mutex};
 
 use mopa;
 
