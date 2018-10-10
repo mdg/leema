@@ -1624,7 +1624,6 @@ mod tests
     }
 
     #[test]
-    #[ignore] // unignore this once enums are working again
     fn test_enum_types()
     {
         let input = "

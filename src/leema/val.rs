@@ -512,6 +512,14 @@ impl Val
         Val::Tuple(Struple(items))
     }
 
+    pub fn is_funcref(&self) -> bool
+    {
+        match self {
+            &Val::FuncRef(_, _, _) => true,
+            _ => false,
+        }
+    }
+
     pub fn is_list(&self) -> bool
     {
         match self {
