@@ -659,10 +659,11 @@ pub fn compile_lri(
     Ixpr::const_val(fref, loc.lineno)
 }
 
-pub fn compile_type(_scope: &mut Interscope, _typ: &Ast, _loc: &SrcLoc)
+pub fn compile_type(_scope: &mut Interscope, typ: &Ast, _loc: &SrcLoc)
     -> Type
 {
-    Type::Void
+    // this should probably be more, but good enough for now
+    Type::from(typ)
 }
 
 pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)

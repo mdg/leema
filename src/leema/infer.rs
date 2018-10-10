@@ -127,7 +127,7 @@ impl<'b> Inferator<'b>
      * Are these args valid for a Rust function that has limited
      * ability to infer data types and needs more specific type inputs
      */
-    pub fn validate_rust_args(&mut self, args: &Vec<Type>) -> TypeResult
+    pub fn validate_rust_args(&mut self, args: &Vec<Type>, result: &Type) -> TypeResult
     {
         if self.typevars.is_empty() {
             // if there are no type parameters, then this should be fine
@@ -137,9 +137,10 @@ impl<'b> Inferator<'b>
         for a in args {
             self.mark_used_typevars(a)?;
         }
+        self.mark_used_typevars(result)?;
         for tv in self.typevars.values() {
             if !tv {
-                vout!("rust function type params must be used in arguments");
+                vout!("rust function type params must be used in arguments\n");
                 return Err(TypeErr::Unknowable);
             }
         }

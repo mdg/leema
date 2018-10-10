@@ -629,7 +629,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
                 _ => {} // everything's fine
             }
 
-            scope.infer.validate_rust_args(arg_types)?;
+            scope.infer.validate_rust_args(arg_types, result_type)?;
             Ok(Type::f(arg_types.clone(), result_type.clone()))
         }
         ref mut src => {
