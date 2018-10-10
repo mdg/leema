@@ -112,6 +112,14 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(0, result['code'])
         self.assertEqual(b"x = 1, y = 2\n", result['output'])
 
+    def test_str(self):
+        result = run_leema('test_str')
+        self.assertEqual(0, result['code'])
+        self.assertEqual(b"a: aBcDeFg\n" \
+            + b"upper: ABCDEFG\n" \
+            + b"lower: abcdefg\n"
+            , result['output'])
+
     def test_typevar(self):
         result = run_leema('typevar')
         self.assertEqual(0, result['code'])

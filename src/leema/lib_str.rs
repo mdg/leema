@@ -4,6 +4,7 @@ use leema::frame;
 use leema::list;
 use leema::lstr::Lstr;
 use leema::val::Val;
+use leema::worker::RustFuncContext;
 
 
 pub fn len(f: &mut Fiber) -> frame::Event
@@ -45,6 +46,30 @@ pub fn split(f: &mut Fiber) -> frame::Event
     frame::Event::success()
 }
 
+pub fn to_lowercase(mut ctx: RustFuncContext) -> frame::Event
+{
+    let result = match ctx.get_param(0) {
+        Val::Str(ref istr) => istr.to_lowercase(),
+        not_str => {
+            panic!("cannot lowercase a not-string: {}", not_str);
+        }
+    };
+    ctx.set_result(Val::Str(Lstr::from(result)));
+    frame::Event::success()
+}
+
+pub fn to_uppercase(mut ctx: RustFuncContext) -> frame::Event
+{
+    let result = match ctx.get_param(0) {
+        Val::Str(ref istr) => istr.to_uppercase(),
+        not_str => {
+            panic!("cannot uppercase a not-string: {}", not_str);
+        }
+    };
+    ctx.set_result(Val::Str(Lstr::from(result)));
+    frame::Event::success()
+}
+
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
@@ -53,6 +78,8 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         "join" => Some(Code::Rust(join)),
         "len" => Some(Code::Rust(len)),
         "split" => Some(Code::Rust(split)),
+        "to_lowercase" => Some(Code::Rust2(to_lowercase)),
+        "to_uppercase" => Some(Code::Rust2(to_uppercase)),
         _ => None,
     }
 }
