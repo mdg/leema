@@ -1198,7 +1198,7 @@ impl Protomod
         let full_type = Type::UserDef(struple_lri.clone());
         let func_type = Type::Func(field_type_vec, Box::new(full_type.clone()));
 
-        let srcblk = Ast::ConstructData(struple_lri.clone(), variant);
+        let srcblk = Ast::ConstructData(struple_lri.clone(), variant.clone());
 
         let decl = ast::FuncDecl {
             name: Ast::Localid(local_name.clone(), *loc),
@@ -1230,7 +1230,11 @@ impl Protomod
 
         self.funcseq.push_back(local_name.clone());
         self.funcsrc.insert(local_name.clone(), srcxpr);
-        self.valtypes.insert(local_name, func_type);
+
+        { // add to valtypes
+            let valtype_name = variant.unwrap_or(local_name);
+            self.valtypes.insert(valtype_name, func_type);
+        }
     }
 
     pub fn struple_field_idx(
