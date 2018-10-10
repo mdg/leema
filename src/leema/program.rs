@@ -257,7 +257,7 @@ impl Lib
     {
         let mod_str = funcri.mod_ref().expect("typecheck module name").clone();
         let cf = {
-            let mut icf = CallFrame::new(&mod_str, funcri.localid.str());
+            let mut icf = CallFrame::new(funcri);
             let inter = self.inter.get(&mod_str).unwrap();
             let fix = inter
                 .interfunc
@@ -377,7 +377,7 @@ impl Lib
         let mut scope = Typescope::new(
             typed,
             opt_proto.unwrap(),
-            funclstr.str(),
+            &funcri,
             &imports,
             &typeset,
         );

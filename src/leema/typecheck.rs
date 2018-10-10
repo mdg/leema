@@ -19,20 +19,18 @@ pub enum CallOp
 #[derive(Debug)]
 pub struct CallFrame<'a>
 {
-    modname: &'a str,
-    fname: &'a str,
+    fri: &'a Lri,
     infer: Inferator<'a>,
     pub calls: LinkedList<CallOp>,
 }
 
 impl<'a> CallFrame<'a>
 {
-    pub fn new(modname: &'a str, fname: &'a str) -> CallFrame<'a>
+    pub fn new(fri: &'a Lri) -> CallFrame<'a>
     {
         CallFrame {
-            modname,
-            fname,
-            infer: Inferator::new(fname),
+            fri,
+            infer: Inferator::new(fri),
             calls: LinkedList::new(),
         }
     }
@@ -256,6 +254,7 @@ impl Typemod
 pub struct Typescope<'a, 'b>
 {
     pub fname: &'b str,
+    fri: &'b Lri,
     proto: &'a Protomod,
     inter: &'a Typemod,
     imports: &'a HashMap<Lstr, &'a Typemod>,
@@ -268,13 +267,14 @@ impl<'a, 'b> Typescope<'a, 'b>
     pub fn new(
         inter: &'a Typemod,
         proto: &'a Protomod,
-        func: &'b str,
+        func: &'b Lri,
         imps: &'a HashMap<Lstr, &'a Typemod>,
         typeset: &'a TypeSet<'a>,
     ) -> Typescope<'a, 'b>
     {
         Typescope {
-            fname: func,
+            fname: &func.localid,
+            fri: func,
             proto,
             inter,
             imports: imps,
@@ -621,25 +621,15 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
                 .map(|final_type| Type::f(final_args, final_type))
         }
         &mut Source::RustBlock(ref arg_types, ref result_type) => {
-            if *result_type == Type::Unknown {
-                vout!("rust function result types must be known");
-                return Err(TypeErr::Unknowable);
-            }
-
-            let mut derivable_result = !scope.is_typevar(result_type);
-            for arg in arg_types.iter() {
-                if *arg == Type::Unknown {
-                    vout!("rust function arg types must be known");
+            match *result_type {
+                Type::Unknown | Type::AnonVar => {
+                    vout!("rust function result types must be known");
                     return Err(TypeErr::Unknowable);
                 }
-                if !derivable_result && *arg == *result_type {
-                    derivable_result = true;
-                }
+                _ => {} // everything's fine
             }
-            if !derivable_result {
-                vout!("rust func result types must be derivable from inputs");
-                return Err(TypeErr::Unknowable);
-            }
+
+            scope.infer.validate_rust_args(arg_types)?;
             Ok(Type::f(arg_types.clone(), result_type.clone()))
         }
         ref mut src => {

@@ -4,7 +4,7 @@ use leema::struple::Struple;
 use leema::val::{Type, TypeErr, TypeResult, Val};
 
 use std::collections::hash_map::Keys;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 
 #[derive(Debug)]
@@ -61,18 +61,34 @@ impl<'b> TypeSet<'b>
 pub struct Inferator<'b>
 {
     funcname: &'b str,
-    typevars: HashSet<Lstr>,
+    fri: &'b Lri,
+    typevars: HashMap<&'b Lstr, bool>,
     vartypes: HashMap<Lstr, Type>,
     inferences: HashMap<Lstr, Type>,
 }
 
 impl<'b> Inferator<'b>
 {
-    pub fn new(funcname: &'b str) -> Inferator<'b>
+    pub fn new(funcri: &'b Lri) -> Inferator<'b>
     {
+        let mut typevars = HashMap::new();
+        if funcri.params.is_some() {
+            for fp in funcri.params.as_ref().unwrap().iter() {
+                let tvar = match fp {
+                    &Type::Var(ref vname) => vname,
+                    &Type::UserDef(ref vri) if vri.local_only() => &vri.localid,
+                    _ => {
+                        panic!("invalid type parameter: {}", fp);
+                    }
+                };
+                typevars.insert(tvar, false);
+            }
+        }
+
         Inferator {
-            funcname,
-            typevars: HashSet::new(),
+            funcname: &funcri.localid,
+            fri: funcri,
+            typevars,
             vartypes: HashMap::new(),
             inferences: HashMap::new(),
         }
@@ -104,7 +120,92 @@ impl<'b> Inferator<'b>
 
     pub fn is_typevar(&self, t: &Lstr) -> bool
     {
-        self.typevars.contains(t)
+        self.typevars.contains_key(t)
+    }
+
+    /**
+     * Are these args valid for a Rust function that has limited
+     * ability to infer data types and needs more specific type inputs
+     */
+    pub fn validate_rust_args(&mut self, args: &Vec<Type>) -> TypeResult
+    {
+        if self.typevars.is_empty() {
+            // if there are no type parameters, then this should be fine
+            return Ok(Type::Void);
+        }
+
+        for a in args {
+            self.mark_used_typevars(a)?;
+        }
+        for tv in self.typevars.values() {
+            if !tv {
+                vout!("rust function type params must be used in arguments");
+                return Err(TypeErr::Unknowable);
+            }
+        }
+        Ok(Type::Void)
+    }
+
+    pub fn mark_used_typevars(&mut self, arg: &Type) -> TypeResult
+    {
+        match arg {
+            &Type::Var(ref vname) => {
+                let mv = self.typevars.get_mut(vname);
+                if mv.is_none() {
+                    Err(TypeErr::Error(Lstr::from(format!(
+                        "undefined type var: {}", vname
+                    ))))
+                } else {
+                    *mv.unwrap() = true;
+                    Ok(Type::Void)
+                }
+            }
+            &Type::AnonVar | &Type::Unknown => {
+                vout!("rust typevars must be identifiable");
+                Err(TypeErr::Unknowable)
+            }
+            &Type::UserDef(ref tri) if tri.local_only() => {
+                let mv = self.typevars.get_mut(&tri.localid);
+                if mv.is_none() {
+                    Err(TypeErr::Error(Lstr::from(format!(
+                        "undefined type var: {}", tri
+                    ))))
+                } else {
+                    *mv.unwrap() = true;
+                    Ok(Type::Void)
+                }
+            }
+            // if a UserDef is not local only, it's definitely not a typevar
+            &Type::UserDef(ref tri) if tri.has_params() => {
+                for p in tri.params.as_ref().unwrap().iter() {
+                    self.mark_used_typevars(p)?;
+                }
+                Ok(Type::Void)
+            }
+            &Type::Tuple(ref items) => {
+                for i in items.0.iter() {
+                    self.mark_used_typevars(&i.1)?;
+                }
+                Ok(Type::Void)
+            }
+            &Type::Func(ref args, ref result) => {
+                for a in args {
+                    self.mark_used_typevars(a)?;
+                }
+                self.mark_used_typevars(result)
+            }
+            &Type::Closure(ref args, ref closed, ref result) => {
+                for a in args {
+                    self.mark_used_typevars(a)?;
+                }
+                for c in closed {
+                    self.mark_used_typevars(c)?;
+                }
+                self.mark_used_typevars(result)
+            }
+            &Type::StrictList(ref inner) => self.mark_used_typevars(inner),
+            _ => Ok(Type::Void)
+        }
     }
 
     pub fn init_param(
