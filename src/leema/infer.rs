@@ -78,7 +78,7 @@ impl<'b> Inferator<'b>
                     &Type::Var(ref vname) => vname,
                     &Type::UserDef(ref vri) if vri.local_only() => &vri.localid,
                     _ => {
-                        panic!("invalid type parameter: {}", fp);
+                        panic!("invalid type parameter for {}: {}", funcri, fp);
                     }
                 };
                 typevars.insert(tvar, false);
@@ -694,7 +694,8 @@ mod tests
     #[test]
     fn test_add_and_find()
     {
-        let mut t = Inferator::new("burritos");
+        let fri = Lri::new(Lstr::Sref("burritos"));
+        let mut t = Inferator::new(&fri);
         t.bind_vartype(&Lstr::Sref("a"), &Type::Int, 18).unwrap();
         assert_eq!(Type::Int, t.vartype("a").unwrap());
     }
@@ -702,7 +703,8 @@ mod tests
     #[test]
     fn test_merge_strict_list_unknown()
     {
-        let mut t = Inferator::new("burritos");
+        let fri = Lri::new(Lstr::Sref("burritos"));
+        let mut t = Inferator::new(&fri);
         let mtype = t.merge_types(
             &Type::StrictList(Box::new(Type::Unknown)),
             &Type::StrictList(Box::new(Type::Int)),
@@ -714,7 +716,8 @@ mod tests
     #[test]
     fn test_merge_types_via_tvar()
     {
-        let mut t = Inferator::new("burritos");
+        let fri = Lri::new(Lstr::Sref("burritos"));
+        let mut t = Inferator::new(&fri);
         let intlist = Type::StrictList(Box::new(Type::Int));
         let unknownlist = Type::StrictList(Box::new(Type::Unknown));
         let tvar = Type::Var(Lstr::Sref("Taco"));
@@ -729,7 +732,8 @@ mod tests
     #[test]
     fn test_make_call_type_with_vars()
     {
-        let mut t = Inferator::new("burritos");
+        let fri = Lri::new(Lstr::Sref("burritos"));
+        let mut t = Inferator::new(&fri);
         let defargst = Type::f(
             vec![Type::Var(Lstr::from("A")), Type::Int],
             Type::Var(Lstr::from("A")),
@@ -748,7 +752,8 @@ mod tests
     #[test]
     fn test_match_pattern_empty_list()
     {
-        let mut t = Inferator::new("burritos");
+        let fri = Lri::new(Lstr::Sref("burritos"));
+        let mut t = Inferator::new(&fri);
         let tvar = Type::Var(Lstr::Sref("Taco"));
         let ts = TypeSet::new();
         t.match_pattern(&ts, &Val::Nil, &tvar, 55).unwrap();
@@ -762,7 +767,8 @@ mod tests
     #[test]
     fn test_match_pattern_empty_and_full_lists()
     {
-        let mut t = Inferator::new("burritos");
+        let fri = Lri::new(Lstr::Sref("burritos"));
+        let mut t = Inferator::new(&fri);
         let tvar = Type::Var(Lstr::Sref("Taco"));
         let ts = TypeSet::new();
         t.match_pattern(&ts, &Val::Nil, &tvar, 32).unwrap();
@@ -778,7 +784,8 @@ mod tests
     #[test]
     fn test_match_pattern_hashtag_list_inside_tuple()
     {
-        let mut t = Inferator::new("burritos");
+        let fri = Lri::new(Lstr::Sref("burritos"));
+        let mut t = Inferator::new(&fri);
         let tvar =
             Type::Tuple(Struple(vec![(None, Type::Var(Lstr::Sref("Taco")))]));
         let ilistpatt = list::cons(
@@ -800,7 +807,8 @@ mod tests
     #[should_panic]
     fn test_match_pattern_tuple_size_mismatch()
     {
-        let mut t = Inferator::new("burritos");
+        let fri = Lri::new(Lstr::Sref("burritos"));
+        let mut t = Inferator::new(&fri);
         let tvar =
             Type::Tuple(Struple(vec![(None, Type::Var(Lstr::Sref("Taco")))]));
         let listpatt = Val::Tuple(Struple::new_tuple2(

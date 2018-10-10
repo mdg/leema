@@ -261,8 +261,8 @@ pub fn leema_sleep(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let tint = ctx.take_param(0).unwrap().to_int() as u64;
     let i = Instant::now() + Duration::from_millis(tint);
     let d = Delay::new(i)
-        .map(|_| rsrc::Event::Result(Val::Void, None))
-        .map_err(|_e| rsrc::Event::Result(Val::Int(5), None));
+        .map(|_| rsrc::Event::Result(Val::Void))
+        .map_err(|_e| rsrc::Event::Result(Val::Int(5)));
     rsrc::Event::Future(Box::new(d))
 }
 

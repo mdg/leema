@@ -23,7 +23,7 @@ pub fn udp_socket(_ctx: rsrc::IopCtx) -> rsrc::Event
 {
     let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
     let rsock = UdpSocket::bind(&sock_addr).unwrap();
-    rsrc::Event::NewRsrc(Box::new(rsock), None)
+    rsrc::Event::NewRsrc(Box::new(rsock))
 }
 
 pub fn udp_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
@@ -34,7 +34,7 @@ pub fn udp_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let sock_addr =
         SocketAddr::new(IpAddr::from_str(sock_addr_str.str()).unwrap(), port);
     let rsock = UdpSocket::bind(&sock_addr).unwrap();
-    rsrc::Event::NewRsrc(Box::new(rsock), None)
+    rsrc::Event::NewRsrc(Box::new(rsock))
 }
 
 pub fn udp_recv(ctx: rsrc::IopCtx) -> rsrc::Event
@@ -82,9 +82,9 @@ impl Future for UdpRecv
         }
         let utf8 = String::from_utf8(buf).unwrap();
         let str_result = Val::Str(Lstr::from(utf8));
-        Ok(Async::Ready(rsrc::Event::Result(
-            str_result,
-            Some(Box::new(sock)),
+        Ok(Async::Ready(rsrc::Event::seq(
+            rsrc::Event::ReturnRsrc(Box::new(sock)),
+            rsrc::Event::Result(str_result),
         )))
     }
 }
@@ -103,14 +103,16 @@ pub fn udp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
         sock.send_dgram(msg, &dst_addr)
             .map(move |(sock2, _buff)| {
                 let sockr: Box<Rsrc> = Box::new(sock2) as Box<Rsrc>;
-                rsrc::Event::Result(Val::Int(0), Some(sockr))
+                rsrc::Event::seq(
+                    rsrc::Event::ReturnRsrc(sockr),
+                    rsrc::Event::Result(Val::Int(0)),
+                )
             })
             .map_err(|_| {
                 rsrc::Event::Result(
                     Val::Str(Lstr::Sref(
                         "send dgram didn't work. socket is gone",
                     )),
-                    None,
                 )
             }),
     );

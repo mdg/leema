@@ -53,7 +53,7 @@ pub fn start_fork(mut ctx: rsrc::IopCtx) -> rsrc::Event
         }
     };
     let future_rsrc = Lfuture { receiver };
-    rsrc::Event::NewRsrc(Box::new(future_rsrc), None)
+    rsrc::Event::NewRsrc(Box::new(future_rsrc))
 }
 
 pub fn join_fork(mut ctx: rsrc::IopCtx) -> rsrc::Event
@@ -61,8 +61,18 @@ pub fn join_fork(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let receiver: Lfuture = ctx.take_rsrc();
     let rfut = receiver
         .receiver
-        .map(|result| rsrc::Event::Result(result, None))
-        .map_err(|e| rsrc::Event::Result(e, None));
+        .map(|result| {
+            rsrc::Event::seq(
+                rsrc::Event::DropRsrc,
+                rsrc::Event::Result(result),
+            )
+        })
+        .map_err(|e| {
+            rsrc::Event::seq(
+                rsrc::Event::DropRsrc,
+                rsrc::Event::Result(e),
+            )
+        });
     rsrc::Event::Future(Box::new(rfut))
 }
 

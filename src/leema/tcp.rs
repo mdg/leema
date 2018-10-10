@@ -131,8 +131,11 @@ impl Future for Sender
                 panic!("failed writing to socket: {:?}", e);
             }
         };
-        let result =
-            rsrc::Event::Result(Val::Int(nbytes), Some(Box::new(sock)));
+
+        let result = rsrc::Event::seq(
+            rsrc::Event::ReturnRsrc(Box::new(sock)),
+            rsrc::Event::Result(Val::Int(nbytes)),
+        );
         Ok(Async::Ready(result))
     }
 }
@@ -150,7 +153,7 @@ pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let fut = TcpStream::connect(&sock_addr)
         .map(move |sock| {
             vout!("tcp connected\n");
-            rsrc::Event::NewRsrc(Box::new(sock), None)
+            rsrc::Event::NewRsrc(Box::new(sock))
         })
         .map_err(move |_| {
             rsrc::Event::Result(
@@ -160,7 +163,6 @@ pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
                     FrameTrace::new_root(),
                     val::FAILURE_MISSINGDATA,
                 ),
-                None,
             )
         });
     rsrc::Event::Future(Box::new(fut))
@@ -175,7 +177,7 @@ pub fn tcp_listen(mut ctx: rsrc::IopCtx) -> rsrc::Event
         SocketAddr::new(IpAddr::from_str(ip_str.str()).unwrap(), port);
     let listen_result = TcpListener::bind(&sock_addr);
     let listener: TcpListener = listen_result.unwrap();
-    rsrc::Event::NewRsrc(Box::new(listener), None)
+    rsrc::Event::NewRsrc(Box::new(listener))
 }
 
 pub fn tcp_accept(mut ctx: rsrc::IopCtx) -> rsrc::Event
@@ -186,10 +188,13 @@ pub fn tcp_accept(mut ctx: rsrc::IopCtx) -> rsrc::Event
         listener: Some(listener),
     }
     .map(|(ilistener, sock, _addr)| {
-        rsrc::Event::NewRsrc(Box::new(sock), Some(Box::new(ilistener)))
+        rsrc::Event::seq(
+            rsrc::Event::ReturnRsrc(Box::new(ilistener)),
+            rsrc::Event::NewRsrc(Box::new(sock)),
+        )
     })
     .map_err(|_| {
-        rsrc::Event::Result(Val::Str(Lstr::Sref("accept error")), None)
+        rsrc::Event::Result(Val::Str(Lstr::Sref("accept error")))
     });
     rsrc::Event::Future(Box::new(acc))
 }
@@ -204,10 +209,18 @@ pub fn tcp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
 
     let sock: TcpStream = ctx.take_rsrc();
     let fut = Receiver { sock: Some(sock) }
-        .map(|(isock, data)| rsrc::Event::Result(data, Some(Box::new(isock))))
+        .map(|(isock, data)| {
+            rsrc::Event::seq(
+                rsrc::Event::ReturnRsrc(Box::new(isock)),
+                rsrc::Event::Result(data),
+            )
+        })
         .map_err(|(isock, _err)| {
             let errval = Val::Str(Lstr::Sref("recv failure"));
-            rsrc::Event::Result(errval, Some(Box::new(isock)))
+            rsrc::Event::seq(
+                rsrc::Event::ReturnRsrc(Box::new(isock)),
+                rsrc::Event::Result(errval),
+            )
         });
     rsrc::Event::Future(Box::new(fut))
 }

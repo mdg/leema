@@ -22,8 +22,19 @@ pub enum Event
 {
     Future(Box<future::Future<Item = Event, Error = Event>>),
     Stream(Box<stream::Stream<Item = Event, Error = Event>>),
-    NewRsrc(Box<Rsrc>, Option<Box<Rsrc>>),
-    Result(Val, Option<Box<Rsrc>>),
+    NewRsrc(Box<Rsrc>),
+    ReturnRsrc(Box<Rsrc>),
+    DropRsrc,
+    Result(Val),
+    Sequence(Box<Event>, Box<Event>),
+}
+
+impl Event
+{
+    pub fn seq(first: Event, second: Event) -> Event
+    {
+        Event::Sequence(Box::new(first), Box::new(second))
+    }
 }
 
 impl fmt::Debug for Event
@@ -33,11 +44,18 @@ impl fmt::Debug for Event
         match *self {
             Event::Future(_) => write!(f, "Event::Future"),
             Event::Stream(_) => write!(f, "Event::Stream"),
-            Event::NewRsrc(ref r, ref prevr) => {
-                write!(f, "Event::Rsrc({:?}, {:?})", r, prevr)
+            Event::NewRsrc(ref r) => {
+                write!(f, "Event::Rsrc({:?})", r)
             }
-            Event::Result(ref rv, ref r) => {
-                write!(f, "Event::Result({:?}, {:?})", rv, r)
+            Event::ReturnRsrc(ref r) => {
+                write!(f, "Event::ReturnRsrc({:?})", r)
+            }
+            Event::DropRsrc => write!(f, "Event::ReturnRsrc"),
+            Event::Result(ref r) => {
+                write!(f, "Event::Result({:?})", r)
+            }
+            Event::Sequence(ref first, ref second) => {
+                write!(f, "Event::Seq({:?}, {:?})", first, second)
             }
         }
     }

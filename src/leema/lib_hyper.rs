@@ -91,7 +91,7 @@ pub fn server_run(mut ctx: rsrc::IopCtx) -> rsrc::Event
         server_run_on_thread(port, funcri, runq, close_recv);
     });
 
-    rsrc::Event::NewRsrc(handle, None)
+    rsrc::Event::NewRsrc(handle)
 }
 
 pub fn server_run_on_thread(

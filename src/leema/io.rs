@@ -294,16 +294,25 @@ impl Io
     )
     {
         match ev {
-            Event::NewRsrc(rsrc, prev_rsrc) => {
+            Event::NewRsrc(rsrc) => {
                 vout!("handle Event::NewRsrc\n");
-                self.return_rsrc(rsrc_id, prev_rsrc);
                 let new_rsrc_id = self.new_rsrc(rsrc);
                 let result = Val::ResourceRef(new_rsrc_id);
                 self.send_result(worker_id, fiber_id, result);
             }
-            Event::Result(result, rsrc) => {
-                vout!("handle Event::Result\n");
+            Event::ReturnRsrc(rsrc) => {
+                vout!("handle Event::ReturnRsrc\n");
                 self.return_rsrc(rsrc_id, rsrc);
+            }
+            Event::DropRsrc => {
+                vout!("handle Event::DropRsrc\n");
+                if rsrc_id.is_none() {
+                    panic!("cannot drop rsrc with no id");
+                }
+                self.resource.remove(&rsrc_id.unwrap());
+            }
+            Event::Result(result) => {
+                vout!("handle Event::Result\n");
                 self.send_result(worker_id, fiber_id, result);
             }
             Event::Future(libfut) => {
@@ -354,6 +363,11 @@ impl Io
                     .spawn_local(Box::new(iostream))
                     .expect("spawn local failure");
             }
+            Event::Sequence(first, second) => {
+                vout!("handle Event::Sequence\n");
+                self.handle_event(worker_id, fiber_id, rsrc_id, *first);
+                self.handle_event(worker_id, fiber_id, rsrc_id, *second);
+            }
         }
     }
 
@@ -397,29 +411,17 @@ impl Io
             .expect("failed sending iop result to worker");
     }
 
-    pub fn return_rsrc(&mut self, rsrc_id: Option<i64>, rsrc: Option<Box<Rsrc>>)
+    pub fn return_rsrc(&mut self, rsrc_id: Option<i64>, rsrc: Box<Rsrc>)
     {
         vout!("return_rsrc({:?})\n", rsrc_id);
-        match (rsrc_id, rsrc) {
-            (Some(irsrc_id), Some(real_rsrc)) => {
-                let next_op = {
-                    let ioq = self.resource.get_mut(&irsrc_id).unwrap();
-                    ioq.checkin(real_rsrc)
-                };
-                self.run_iop(next_op);
-            }
-            (Some(irsrc_id), None) => {
-                panic!("rsrc was not returned for {}\n", irsrc_id);
-                // TODO: maybe should clear the ioq?
-            }
-            (None, None) => {
-                // TODO: maybe should clear the ioq?
-            }
-            (None, _) => {
-                panic!("cannot return resource without id");
-                // TODO: maybe should clear the ioq?
-            }
+        if rsrc_id.is_none() {
+            panic!("cannot return resource without id");
         }
+        let next_op = {
+            let ioq = self.resource.get_mut(&rsrc_id.unwrap()).unwrap();
+            ioq.checkin(rsrc)
+        };
+        self.run_iop(next_op);
     }
 }
 
@@ -499,13 +501,16 @@ pub mod tests
 
     fn mock_iop_action(_ctx: rsrc::IopCtx) -> rsrc::Event
     {
-        rsrc::Event::Result(Val::Int(8), None)
+        rsrc::Event::Result(Val::Int(8))
     }
 
     fn mock_rsrc_action(mut ctx: rsrc::IopCtx) -> rsrc::Event
     {
         let rsrc: MockRsrc = ctx.take_rsrc();
-        rsrc::Event::Result(Val::Int(18), Some(Box::new(rsrc)))
+        rsrc::Event::seq(
+            rsrc::Event::ReturnRsrc(Box::new(rsrc)),
+            rsrc::Event::Result(Val::Int(18)),
+        )
     }
 
     pub fn exercise_iop_action(
