@@ -10,7 +10,6 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 #[derive(Eq)]
-#[derive(Ord)]
 pub enum Lstr
 {
     Arc(Arc<String>),
@@ -152,6 +151,14 @@ impl PartialOrd for Lstr
     }
 }
 
+impl Ord for Lstr
+{
+    fn cmp(&self, other: &Lstr) -> Ordering
+    {
+        Ord::cmp(self.str(), other.str())
+    }
+}
+
 impl fmt::Display for Lstr
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
@@ -193,6 +200,7 @@ mod tests
 {
     use leema::lstr::Lstr;
 
+    use std::cmp::{Ord, Ordering};
     use std::collections::HashSet;
     use std::sync::Arc;
 
@@ -242,6 +250,30 @@ mod tests
         let a = Lstr::Arc(Arc::new(String::from("aaa")));
         let b = Lstr::from("bbb");
         assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_cmp_arc_sref_equal()
+    {
+        let a = Lstr::Arc(Arc::new(String::from("aaa")));
+        let b = Lstr::from("aaa");
+        assert_eq!(Ordering::Equal, Ord::cmp(&a, &b));
+    }
+
+    #[test]
+    fn test_cmp_arc_sref_lt()
+    {
+        let a = Lstr::Arc(Arc::new(String::from("aaa")));
+        let b = Lstr::from("bbb");
+        assert_eq!(Ordering::Less, Ord::cmp(&a, &b));
+    }
+
+    #[test]
+    fn test_cmp_arc_sref_gt()
+    {
+        let a = Lstr::Arc(Arc::new(String::from("bbb")));
+        let b = Lstr::from("aaa");
+        assert_eq!(Ordering::Greater, Ord::cmp(&a, &b));
     }
 
     #[test]
