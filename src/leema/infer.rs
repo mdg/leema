@@ -238,7 +238,7 @@ impl<'b> Inferator<'b>
         };
         if self.vartypes.contains_key(argn.str()) {
             let oldargt = self.vartypes.get(argn).unwrap();
-            return Inferator::mash(&mut self.inferences, oldargt, &realt);
+            return Inferator::mash(&mut self.inferences, &self.typevars, oldargt, &realt);
         }
 
         self.vartypes.insert(argn.clone(), realt.clone());
@@ -276,12 +276,12 @@ impl<'b> Inferator<'b>
         }
 
         let oldargt = self.vartypes.get(argn).unwrap();
-        Inferator::mash(&mut self.inferences, oldargt, &realt)
+        Inferator::mash(&mut self.inferences, &self.typevars, oldargt, &realt)
     }
 
     pub fn merge_types(&mut self, a: &Type, b: &Type) -> TypeResult
     {
-        Inferator::mash(&mut self.inferences, a, b)
+        Inferator::mash(&mut self.inferences, &self.typevars, a, b)
     }
 
     pub fn match_pattern(
@@ -462,6 +462,7 @@ impl<'b> Inferator<'b>
 
     fn mash(
         inferences: &mut HashMap<Lstr, Type>,
+        typevars: &HashMap<&Lstr, bool>,
         oldt: &Type,
         newt: &Type,
     ) -> TypeResult
@@ -472,7 +473,7 @@ impl<'b> Inferator<'b>
         }
         let match_err = || Err(TypeErr::Mismatch(oldt.clone(), newt.clone()));
 
-        vout!("mash({:?}, {:?})\n", oldt, newt);
+        vout!("mash({:?}, {:?}) where {:?}\n", oldt, newt, typevars);
         let mtype: TypeResult = match (oldt, newt) {
             // anything is better than Unknown
             (&Type::Unknown, _) => Ok(newt.clone()),
@@ -491,7 +492,7 @@ impl<'b> Inferator<'b>
                 }
             }
             (&Type::StrictList(ref oldit), &Type::StrictList(ref newit)) => {
-                Inferator::mash(inferences, oldit, newit)
+                Inferator::mash(inferences, typevars, oldit, newit)
                     .and_then(|t| Ok(Type::StrictList(Box::new(t))))
             }
             (&Type::Var(ref oldtname), _) => {
@@ -500,6 +501,14 @@ impl<'b> Inferator<'b>
             }
             (_, &Type::Var(ref newtname)) => {
                 inferences.insert(newtname.clone(), oldt.clone());
+                Ok(oldt.clone())
+            }
+            (&Type::UserDef(ref oldtname), _) if oldtname.local_only() && typevars.contains_key(&oldtname.localid) => {
+                inferences.insert(oldtname.localid.clone(), newt.clone());
+                Ok(newt.clone())
+            }
+            (_, &Type::UserDef(ref newtname)) if newtname.local_only() && typevars.contains_key(&newtname.localid) => {
+                inferences.insert(newtname.localid.clone(), oldt.clone());
                 Ok(oldt.clone())
             }
             (
@@ -513,11 +522,11 @@ impl<'b> Inferator<'b>
                 }
                 let mut masht = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
-                    let mashit = Inferator::mash(inferences, oldit, newit)?;
+                    let mashit = Inferator::mash(inferences, typevars, oldit, newit)?;
                     masht.push(mashit);
                 }
                 let mashresult =
-                    Inferator::mash(inferences, oldresult, newresult)?;
+                    Inferator::mash(inferences, typevars, oldresult, newresult)?;
                 Ok(Type::Func(masht, Box::new(mashresult)))
             }
             (
@@ -536,16 +545,16 @@ impl<'b> Inferator<'b>
                 }
                 let mut masht = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
-                    let mashit = Inferator::mash(inferences, oldit, newit)?;
+                    let mashit = Inferator::mash(inferences, typevars, oldit, newit)?;
                     masht.push(mashit);
                 }
                 let mut mashclosed = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldclosed.iter().zip(newclosed.iter()) {
-                    let mashit = Inferator::mash(inferences, oldit, newit)?;
+                    let mashit = Inferator::mash(inferences, typevars, oldit, newit)?;
                     mashclosed.push(mashit);
                 }
                 let mashresult =
-                    Inferator::mash(inferences, oldresult, newresult)?;
+                    Inferator::mash(inferences, typevars, oldresult, newresult)?;
                 Ok(Type::Closure(masht, mashclosed, Box::new(mashresult)))
             }
             (
@@ -559,11 +568,11 @@ impl<'b> Inferator<'b>
                 }
                 let mut masht = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
-                    let mashit = Inferator::mash(inferences, oldit, newit)?;
+                    let mashit = Inferator::mash(inferences, typevars, oldit, newit)?;
                     masht.push(mashit);
                 }
                 let mashresult =
-                    Inferator::mash(inferences, oldresult, newresult)?;
+                    Inferator::mash(inferences, typevars, oldresult, newresult)?;
                 Ok(Type::Func(masht, Box::new(mashresult)))
             }
             (
@@ -577,11 +586,11 @@ impl<'b> Inferator<'b>
                 }
                 let mut masht = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
-                    let mashit = Inferator::mash(inferences, oldit, newit)?;
+                    let mashit = Inferator::mash(inferences, typevars, oldit, newit)?;
                     masht.push(mashit);
                 }
                 let mashresult =
-                    Inferator::mash(inferences, oldresult, newresult)?;
+                    Inferator::mash(inferences, typevars, oldresult, newresult)?;
                 Ok(Type::Func(masht, Box::new(mashresult)))
             }
             (&Type::Tuple(ref olditems), &Type::Tuple(ref newitems)) => {
@@ -592,7 +601,7 @@ impl<'b> Inferator<'b>
                 }
                 let mut mashitems = Vec::with_capacity(oldlen);
                 for (oi, ni) in olditems.0.iter().zip(newitems.0.iter()) {
-                    let mi = Inferator::mash(inferences, &oi.1, &ni.1)?;
+                    let mi = Inferator::mash(inferences, typevars, &oi.1, &ni.1)?;
                     mashitems.push((None, mi));
                 }
                 Ok(Type::Tuple(Struple(mashitems)))
@@ -615,7 +624,7 @@ impl<'b> Inferator<'b>
                 }
                 let mut mashparams = Vec::with_capacity(oldlen);
                 for (op, np) in oldparams.iter().zip(newparams.iter()) {
-                    let mp = Inferator::mash(inferences, &op, &np)?;
+                    let mp = Inferator::mash(inferences, typevars, &op, &np)?;
                     mashparams.push(mp);
                 }
                 let mashlri = Lri::full(
@@ -654,7 +663,7 @@ impl<'b> Inferator<'b>
             .iter()
             .zip(argst.iter())
             .map(|(defargt, argt)| {
-                Inferator::mash(&mut self.inferences, defargt, argt)
+                Inferator::mash(&mut self.inferences, &self.typevars, defargt, argt)
                     .map_err(|e| {
                         e.add_context(Lstr::from(format!(
                             "expected function args in {}: {:?} found {:?}",
@@ -806,6 +815,7 @@ mod tests
     fn test_mash_tuples_containing_vars()
     {
         let mut inferences = HashMap::new();
+        let typevars = HashMap::new();
         let oldt = Type::Tuple(Struple(vec![
             (None, Type::Var(Lstr::Sref("A"))),
             (None, Type::Var(Lstr::Sref("B"))),
@@ -813,7 +823,7 @@ mod tests
         let newt =
             Type::Tuple(Struple(vec![(None, Type::Int), (None, Type::Str)]));
 
-        let result = Inferator::mash(&mut inferences, &oldt, &newt);
+        let result = Inferator::mash(&mut inferences, &typevars, &oldt, &newt);
         result.unwrap();
     }
 
@@ -821,6 +831,7 @@ mod tests
     fn test_mash_userdefs_containing_vars()
     {
         let mut inferences = HashMap::new();
+        let tvars = HashMap::new();
         let oldt = Type::UserDef(Lri::full(
             Some(Lstr::from("option")),
             Lstr::from("T"),
@@ -832,7 +843,7 @@ mod tests
             Some(vec![Type::Int]),
         ));
 
-        let result = Inferator::mash(&mut inferences, &oldt, &newt);
+        let result = Inferator::mash(&mut inferences, &tvars, &oldt, &newt);
         result.unwrap();
     }
 
