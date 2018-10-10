@@ -1340,7 +1340,7 @@ impl Protomod
                 self.preproc_struple_fields(
                     prog,
                     mp,
-                    typ_lri,
+                    full_lri,
                     variant_name,
                     fields,
                     loc,
@@ -1523,6 +1523,71 @@ mod tests
         let closure0 = pmod.closures.front().unwrap();
         assert_eq!("foo_4_i", closure0);
         assert_eq!(1, pmod.closures.len());
+    }
+
+    #[test]
+    fn test_preproc_enum_tree()
+    {
+        let input = String::from(
+            "
+            enum Tree
+            |Node(Tree, Int, Tree)
+            |Empty
+            --
+            ",
+        );
+
+        let tacos_str = Lstr::Sref("tacos");
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        loader.set_mod_txt(tacos_str.clone(), input);
+        let mut prog = program::Lib::new(loader);
+        let pmod = prog.read_proto(&tacos_str);
+
+        let local_typename = Lstr::Sref("Tree");
+        let type_lri =
+            Lri::with_modules(tacos_str.clone(), local_typename.clone());
+        let tree_type = Type::UserDef(type_lri.clone());
+
+        // closures are empty
+        assert!(pmod.closures.is_empty());
+
+        // constants
+        let exp_empty = Val::EnumToken(type_lri.clone(), Lstr::Sref("Empty"));
+        let empty = pmod.constants.get("Empty").unwrap();
+        assert_eq!(exp_empty, *empty);
+        let node_const = pmod.constants.get("Node").unwrap();
+        assert!(node_const.is_funcref());
+        assert_eq!(3, pmod.constants.len());
+
+        // deftypes
+        assert_eq!(tree_type, *pmod.deftypes.get("Tree").unwrap());
+        assert_eq!(1, pmod.deftypes.len());
+
+        // funcseq has Node
+        assert_eq!("Node", pmod.funcseq.front().unwrap());
+        assert_eq!(1, pmod.funcseq.len());
+
+        // funcsrc
+        assert!(pmod.funcsrc.get("Node").is_some());
+        assert_eq!(1, pmod.funcsrc.len());
+
+        // struple fields for Node
+        let node_flds = pmod.struple_fields.get("Node").unwrap();
+        assert_eq!(tree_type, node_flds.0[0].1);
+        assert_eq!(Type::Int, node_flds.0[1].1);
+        assert_eq!(tree_type, node_flds.0[2].1);
+        assert_eq!(3, node_flds.0.len());
+        assert_eq!(1, pmod.struple_fields.len());
+
+        // valtypes
+        assert_eq!(tree_type, *pmod.valtypes.get("Empty").unwrap());
+        let node_funct = Type::Func(vec![
+            tree_type.clone(),
+            Type::Int,
+            tree_type.clone(),
+        ], Box::new(tree_type.clone()));
+        assert_eq!(node_funct, *pmod.valtypes.get("Node").unwrap());
+        assert_eq!(2, pmod.valtypes.len());
     }
 
     #[test]
