@@ -43,6 +43,7 @@ pub enum Op
     SetResult(Reg),
     PropagateFailure(Reg, i16),
     ConstVal(Reg, Val),
+    ConstructEnum(Reg, Type, Lstr, Struple<Type>),
     Construple(Reg, Type, Struple<Type>),
     Copy(Reg, Reg),
     // Fork(Reg, Reg, Reg),
@@ -76,6 +77,14 @@ impl Clone for Op
             }
             &Op::ConstVal(ref dst, ref src) => {
                 Op::ConstVal(dst.clone(), src.deep_clone())
+            }
+            &Op::ConstructEnum(ref dst, ref typ, ref var, ref flds) => {
+                Op::ConstructEnum(
+                    dst.clone(),
+                    typ.deep_clone(),
+                    var.clone(),
+                    flds.clone_for_send(),
+                )
             }
             &Op::Construple(ref dst, ref typ, ref flds) => {
                 Op::Construple(
@@ -314,13 +323,9 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             ));
             Oxpr { ops: hops.ops, dst }
         }
-        Source::Construple(ref typ, ref flds) => {
+        Source::Construple(ref typ, ref variant, ref flds) => {
             vout!("make_construple_ops({:?})\n", typ);
-            make_construple_ops(rt, typ, flds, input.line)
-        }
-        Source::EnumConstructor(ref typ, idx, ref val) => {
-            vout!("make_enum_constructor_ops({:?})\n", input);
-            make_enum_constructor_ops(rt, typ, idx, &**val, input.line)
+            make_construple_ops(rt, typ, variant, flds, input.line)
         }
         Source::Let(ref patt, ref x, ref fails) => {
             let pval = assign_pattern_registers(rt, patt);
@@ -443,43 +448,22 @@ pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr, args: &Struple<Ixpr>)
 pub fn make_construple_ops(
     rt: &mut RegTable,
     typ: &Type,
+    variant: &Option<Lstr>,
     flds: &Struple<Type>,
     line: i16,
 ) -> Oxpr
 {
     let dst = rt.dst().clone();
-
-    let ops: Vec<(Op, i16)> =
-        vec![(Op::Construple(dst.clone(), typ.clone(), flds.clone()), line)];
-
-    Oxpr { ops, dst }
-}
-
-pub fn make_enum_constructor_ops(
-    rt: &mut RegTable,
-    _typ: &Type,
-    _index: i16,
-    _data: &Ixpr,
-    _line: i16,
-) -> Oxpr
-{
-    let dst = rt.dst().clone();
-
-    let ops: Vec<(Op, i16)> = Vec::with_capacity(3);
-    /*
-    ops.push((
-        Op::Constructor(dst.clone(), etype.clone(), nflds),
-        line,
-        ));
-    let mut i = 0;
-    while i < nflds {
-        ops.push((
-            Op::Copy(dst.sub(i), Reg::param(i)),
-            line,
-            ));
-        i += 1;
-    }
-    */
+    let construct = match variant {
+        Some(ref ivar) => {
+            let var = ivar.clone();
+            Op::ConstructEnum(dst.clone(), typ.clone(), var, flds.clone())
+        }
+        None => {
+            Op::Construple(dst.clone(), typ.clone(), flds.clone())
+        }
+    };
+    let ops: Vec<(Op, i16)> = vec![(construct, line)];
 
     Oxpr { ops, dst }
 }

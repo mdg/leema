@@ -85,6 +85,9 @@ impl Fiber
         vout!("exec: {:?}\n", op);
         match &op.0 {
             &Op::ConstVal(ref dst, ref v) => self.execute_const_val(dst, v),
+            &Op::ConstructEnum(ref dst, ref typ, ref var, ref flds) => {
+                self.execute_construct_enum(dst, typ, var, flds)
+            }
             &Op::Construple(ref dst, ref typ, ref flds) => {
                 self.execute_construple(dst, typ, flds)
             }
@@ -214,6 +217,50 @@ impl Fiber
     {
         self.head.e.set_reg(reg, v.clone());
         self.head.pc += 1;
+        Event::Uneventful
+    }
+
+    pub fn execute_construct_enum(
+        &mut self,
+        reg: &Reg,
+        new_typ: &Type,
+        variant: &Lstr,
+        flds: &Struple<Type>,
+    ) -> Event
+    {
+        let construple = match self.head.e.get_params() {
+            &Val::Struct(_, ref items) => {
+                if let &Type::UserDef(ref i_new_typ) = new_typ {
+                    Val::EnumStruct(i_new_typ.clone(), variant.clone(), items.clone())
+                } else {
+                    panic!("struct type is not user defined: {:?}", new_typ);
+                }
+            }
+            &Val::Tuple(ref items) => {
+                if let &Type::UserDef(ref i_new_typ) = new_typ {
+                    let new_items = items
+                        .0
+                        .iter()
+                        .zip(flds.0.iter())
+                        .map(|(i, f)| {
+                            if i.0.is_some() {
+                                (i.0.clone(), i.1.clone())
+                            } else {
+                                (f.0.clone(), i.1.clone())
+                            }
+                        })
+                        .collect();
+                    Val::EnumStruct(i_new_typ.clone(), variant.clone(), Struple(new_items))
+                } else {
+                    panic!("struct type is not user defined: {:?}", new_typ);
+                }
+            }
+            what => {
+                panic!("cannot construct a not construple: {:?}", what);
+            }
+        };
+        self.head.e.set_reg(reg, construple);
+        self.head.pc = self.head.pc + 1;
         Event::Uneventful
     }
 

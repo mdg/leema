@@ -591,8 +591,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
                 .collect();
             Ixpr::new_map(Struple(c_items), loc.lineno)
         }
-        &Ast::ConstructData(ast::DataType::Struple, ref ast_typ) => {
-            let type_lri = Lri::from(&**ast_typ);
+        &Ast::ConstructData(ref type_lri, None) => {
             let opt_full_type = scope.proto.func_result_type(&type_lri.localid);
             if opt_full_type.is_none() {
                 panic!(
@@ -602,7 +601,19 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
             }
             let full_type = opt_full_type.unwrap();
             let fields = scope.proto.get_struple_fields(&type_lri.localid);
-            Ixpr::construple(full_type.clone(), fields, loc.lineno)
+            Ixpr::construple(full_type.clone(), None, fields, loc.lineno)
+        }
+        &Ast::ConstructData(ref type_lri, Some(ref variant)) => {
+            let opt_full_type = scope.proto.func_result_type(variant);
+            if opt_full_type.is_none() {
+                panic!(
+                    "cannot find full type for: {:?} in {:?}",
+                    type_lri.localid, scope.proto.valtypes
+                );
+            }
+            let full_type = opt_full_type.unwrap();
+            let fields = scope.proto.get_struple_fields(variant);
+            Ixpr::construple(full_type.clone(), Some(variant.clone()), fields, loc.lineno)
         }
         &Ast::Let(ref lhs, ref rhs, ref iloc) => {
             compile_let_stmt(scope, lhs, rhs, iloc)

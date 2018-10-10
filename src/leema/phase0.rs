@@ -118,9 +118,8 @@ impl Protomod
                 let pp_tail = Protomod::preproc_expr(self, prog, mp, tail, loc);
                 Ast::Cons(Box::new(pp_head), Box::new(pp_tail))
             }
-            &Ast::ConstructData(datat, ref name) => {
-                let ppname = Protomod::preproc_expr(self, prog, mp, name, loc);
-                Ast::ConstructData(datat, Box::new(ppname))
+            &Ast::ConstructData(ref name, ref variant) => {
+                Ast::ConstructData(name.clone(), variant.clone())
             }
             &Ast::ConstBool(b) => Ast::ConstBool(b),
             &Ast::ConstHashtag(_) => x.clone(),
@@ -1088,12 +1087,12 @@ impl Protomod
                     self.preproc_struple_token(name, loc);
                 } else {
                     self.preproc_struple_with_fields(
-                        prog, mp, name, fields, loc,
+                        prog, mp, name_ast.clone(), name, fields, loc,
                     );
                 }
             }
             ast::DataType::Enum => {
-                self.preproc_enum(prog, mp, name_ast, fields);
+                self.preproc_enum(prog, mp, name_ast, &name, fields);
             }
         }
     }
@@ -1141,18 +1140,18 @@ impl Protomod
         &mut self,
         prog: &Lib,
         mp: &ModulePreface,
+        type_ast: Ast,
         type_lri: Lri,
         src_fields: &LinkedList<Kxpr>,
         loc: &SrcLoc,
     )
     {
-        let name_lstr = type_lri.local_ref().clone();
-
         self.preproc_struple_fields(
             prog,
             mp,
+            type_ast,
             type_lri.clone(),
-            name_lstr.clone(),
+            None,
             src_fields,
             loc,
         );
@@ -1162,12 +1161,14 @@ impl Protomod
         &mut self,
         prog: &Lib,
         mp: &ModulePreface,
+        type_ast: Ast,
         struple_lri: Lri,
-        local_name: Lstr,
+        variant: Option<Lstr>,
         src_fields: &LinkedList<Kxpr>,
         loc: &SrcLoc,
     )
     {
+        let local_name = struple_lri.localid.clone();
         let struple_fields: Vec<(Option<Lstr>, Type)> = src_fields
             .iter()
             .map(|f| {
@@ -1197,16 +1198,12 @@ impl Protomod
         let full_type = Type::UserDef(struple_lri.clone());
         let func_type = Type::Func(field_type_vec, Box::new(full_type.clone()));
 
-        let full_type_ast = Ast::from_lri(struple_lri.clone(), loc);
-        let srcblk = Ast::ConstructData(
-            ast::DataType::Struple,
-            Box::new(full_type_ast.clone()),
-        );
+        let srcblk = Ast::ConstructData(struple_lri.clone(), variant);
 
         let decl = ast::FuncDecl {
             name: Ast::Localid(local_name.clone(), *loc),
             args: (*src_fields).clone(),
-            result: full_type_ast,
+            result: type_ast,
             loc: *loc,
         };
         let srcxpr = Ast::DefFunc(
@@ -1282,21 +1279,20 @@ impl Protomod
         &mut self,
         prog: &Lib,
         mp: &ModulePreface,
-        name_ast: &Ast,
+        type_ast: &Ast,
+        enum_lri: &Lri,
         src_variants: &LinkedList<Kxpr>,
     )
     {
-        let local_name = Lri::from(name_ast);
-        let enum_lri = local_name.add_modules(self.key.name.clone());
         let mod_type = Type::UserDef(enum_lri.clone());
 
         let mut variant_fields = Vec::with_capacity(src_variants.len());
         for kx in src_variants.iter() {
             let v = kx.x_ref().unwrap();
-            if let &Ast::DefData(vdatatype, ref vname, ref fields, ref iloc) = v
+            if let &Ast::DefData(_, ref vname, ref fields, ref iloc) = v
             {
                 self.preproc_enum_variant(
-                    prog, mp, &name_ast, vdatatype, vname, fields, iloc,
+                    prog, mp, type_ast.clone(), enum_lri.clone(), vname, fields, iloc,
                 );
                 let variant_lstr = Lstr::from(&**vname);
                 let vf = (variant_lstr, mod_type.clone());
@@ -1313,41 +1309,31 @@ impl Protomod
         &mut self,
         prog: &Lib,
         mp: &ModulePreface,
-        typename: &Ast,
-        dataclass: ast::DataType,
+        type_ast: Ast,
+        full_lri: Lri,
         name: &Ast,
         fields: &LinkedList<Kxpr>,
         loc: &SrcLoc,
     )
     {
-        let typ_lri = Lri::from(typename);
-        let full_lri = typ_lri.add_modules(self.key.name.clone());
         let typ = Type::UserDef(full_lri.clone());
-        let type_lstr = Lstr::from(typename);
         let variant_name = Lstr::from(name);
-        vout!(
-            "preproc_enum_variant({}::{}::{})\n",
-            self.key.name,
-            type_lstr,
-            variant_name
-        );
-        if dataclass == ast::DataType::Struple {
-            if fields.is_empty() {
-                let const_val = Val::EnumToken(full_lri, variant_name.clone());
-                self.constants.insert(variant_name.clone(), const_val);
-                self.valtypes.insert(variant_name, typ);
-            } else {
-                self.preproc_struple_fields(
-                    prog,
-                    mp,
-                    full_lri,
-                    variant_name,
-                    fields,
-                    loc,
-                );
-            }
+        vout!("preproc_enum_variant({}.{})\n", full_lri, variant_name);
+
+        if fields.is_empty() {
+            let const_val = Val::EnumToken(full_lri.clone(), variant_name.clone());
+            self.constants.insert(variant_name.clone(), const_val);
+            self.valtypes.insert(variant_name, typ);
         } else {
-            panic!("unknown enum variant type: {:?}", dataclass);
+            self.preproc_struple_fields(
+                prog,
+                mp,
+                type_ast,
+                full_lri.clone(),
+                Some(variant_name),
+                fields,
+                loc,
+            );
         }
     }
 }
@@ -1559,6 +1545,10 @@ mod tests
         assert!(node_const.is_funcref());
         assert_eq!(3, pmod.constants.len());
 
+        // type constants; these aren't really used I think
+        let types = pmod.constants.get("TYPES").unwrap();
+        assert_eq!(1, list::len(types));
+
         // deftypes
         assert_eq!(tree_type, *pmod.deftypes.get("Tree").unwrap());
         assert_eq!(1, pmod.deftypes.len());
@@ -1646,32 +1636,38 @@ mod tests
         let type_lri = Lri::full(
             Some(animals_str.clone()),
             Lstr::Sref("Animal"),
-            Some(vec![Type::UserDef(Lri::new(Lstr::Sref("A")))]),
+            Some(vec![Type::Var(Lstr::Sref("A"))]),
         );
-        let expected_type = Type::UserDef(type_lri.clone());
+        let animal_type = Type::UserDef(type_lri.clone());
         let typevar_a = Type::Var(Lstr::Sref("A"));
-        let dog_name = Lstr::Sref("Dog");
+        let dog_name = Lstr::from("Dog".to_string());
         let cat_func_type =
-            Type::Func(vec![Type::Int], Box::new(expected_type.clone()));
+            Type::Func(vec![Type::Int], Box::new(animal_type.clone()));
         let mouse_func_type = Type::Func(
             vec![typevar_a.clone()],
-            Box::new(expected_type.clone()),
+            Box::new(animal_type.clone()),
         );
         let giraffe_func_type = Type::Func(
             vec![Type::Int, typevar_a.clone()],
-            Box::new(expected_type.clone()),
+            Box::new(animal_type.clone()),
         );
 
+        // no closures
+        assert!(pmod.closures.is_empty());
+
         // verify constants
-        assert_eq!(6, pmod.constants.len());
         let dog_const =
             pmod.constants.get("Dog").expect("missing constant: Dog");
         let cat_const =
             pmod.constants.get("Cat").expect("missing constant: Cat");
+        let mouse_const =
+            pmod.constants.get("Mouse").expect("missing constant: Mouse");
+        assert!(mouse_const.is_funcref());
         let giraffe_const = pmod
             .constants
             .get("Giraffe")
             .expect("missing constant: Giraffe");
+        assert_eq!(5, pmod.constants.len());
 
         let exp_dog_const = Val::EnumToken(type_lri.clone(), dog_name);
         let exp_cat_const = Val::FuncRef(
@@ -1695,19 +1691,24 @@ mod tests
         let dog_str = format!("{}", dog_const);
         assert_eq!("Dog", dog_str);
 
+        // verify deftypes
+        assert_eq!(animal_type, *pmod.deftypes.get("Animal").unwrap());
+        assert_eq!(1, pmod.deftypes.len());
+
         // verify function sequence
-        assert_eq!(3, pmod.funcseq.len());
         let mut fseq_it = pmod.funcseq.iter();
         assert_eq!("Cat", fseq_it.next().unwrap().str());
         assert_eq!("Mouse", fseq_it.next().unwrap().str());
         assert_eq!("Giraffe", fseq_it.next().unwrap().str());
+        assert_eq!(3, pmod.funcseq.len());
 
         // verify function source
-        assert!(pmod.funcsrc.get("Dog").is_none());
         assert!(pmod.funcsrc.get("Cat").is_some());
         assert!(pmod.funcsrc.get("Mouse").is_some());
         assert!(pmod.funcsrc.get("Giraffe").is_some());
         assert_eq!(3, pmod.funcsrc.len());
+
+        // verify struple fields
 
         // verify value types
         assert_eq!(
@@ -1715,7 +1716,7 @@ mod tests
             format!("{}", *pmod.valtypes.get("Dog").unwrap())
         );
         assert_eq!(
-            "Int => animals::Animal[A,]",
+            "F(Int):animals::Animal[A,]",
             format!("{}", *pmod.valtypes.get("Cat").unwrap())
         );
         assert_eq!(mouse_func_type, *pmod.valtypes.get("Mouse").unwrap());

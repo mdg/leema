@@ -199,3 +199,29 @@ impl fmt::Debug for Lri
         fmt::Display::fmt(self, f)
     }
 }
+
+
+#[cfg(test)]
+mod tests
+{
+    use leema::lri::Lri;
+    use leema::lstr::Lstr;
+    use leema::val::Type;
+
+    #[test]
+    fn test_lri_equality()
+    {
+        let sref = Lri::full(
+            Some(Lstr::Sref("A")),
+            Lstr::Sref("B"),
+            Some(vec![Type::UserDef(Lri::new(Lstr::Sref("C")))]),
+        );
+        let smem = Lri::full(
+            Some(Lstr::from("A".to_string())),
+            Lstr::from("B".to_string()),
+            Some(vec![Type::UserDef(Lri::new(Lstr::from("C".to_string())))]),
+        );
+
+        assert!(PartialEq::eq(&sref, &smem));
+    }
+}

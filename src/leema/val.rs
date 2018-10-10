@@ -174,15 +174,6 @@ impl Type
     {
         Type::StrictList(Box::new(inner))
     }
-
-    pub fn fmt_func_item(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        if let &Type::Func(_, _) = self {
-            write!(f, "({})", self)
-        } else {
-            write!(f, "{}", self)
-        }
-    }
 }
 
 impl sendclone::SendClone for Type
@@ -208,14 +199,14 @@ impl fmt::Display for Type
             &Type::UserDef(ref name) => write!(f, "{}", name),
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
+                write!(f, "F(")?;
                 for a in args {
-                    a.fmt_func_item(f)?;
-                    write!(f, " => ")?;
+                    write!(f, "{},", a)?
                 }
-                result.fmt_func_item(f)
+                write!(f, "):{}", result)
             }
             &Type::Closure(ref args, ref closed, ref result) => {
-                write!(f, "Fn(")?;
+                write!(f, "F(")?;
                 for a in args {
                     write!(f, "{},", a)?;
                 }
@@ -1583,7 +1574,7 @@ mod tests
         let etype =
             Lri::with_modules(Lstr::Sref("animals"), Lstr::Sref("Animal"));
 
-        let a = Val::EnumToken(etype.clone(), Lstr::Sref("Dog"));
+        let a = Val::EnumToken(etype.clone(), Lstr::from("Dog".to_string()));
         let b = Val::EnumToken(etype.clone(), Lstr::Sref("Dog"));
         assert_eq!(a, b);
     }

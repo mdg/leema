@@ -228,7 +228,7 @@ pub enum Ast
     Block(Vec<Ast>),
     Call(Box<Ast>, LinkedList<Kxpr>, SrcLoc),
     Cons(Box<Ast>, Box<Ast>),
-    ConstructData(DataType, Box<Ast>),
+    ConstructData(Lri, Option<Lstr>),
     ConstBool(bool),
     ConstHashtag(Lstr),
     ConstInt(i64),
