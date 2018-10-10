@@ -127,7 +127,11 @@ impl<'b> Inferator<'b>
      * Are these args valid for a Rust function that has limited
      * ability to infer data types and needs more specific type inputs
      */
-    pub fn validate_rust_args(&mut self, args: &Vec<Type>, result: &Type) -> TypeResult
+    pub fn validate_rust_args(
+        &mut self,
+        args: &Vec<Type>,
+        result: &Type,
+    ) -> TypeResult
     {
         if self.typevars.is_empty() {
             // if there are no type parameters, then this should be fine
@@ -154,7 +158,8 @@ impl<'b> Inferator<'b>
                 let mv = self.typevars.get_mut(vname);
                 if mv.is_none() {
                     Err(TypeErr::Error(Lstr::from(format!(
-                        "undefined type var: {}", vname
+                        "undefined type var: {}",
+                        vname
                     ))))
                 } else {
                     *mv.unwrap() = true;
@@ -169,7 +174,8 @@ impl<'b> Inferator<'b>
                 let mv = self.typevars.get_mut(&tri.localid);
                 if mv.is_none() {
                     Err(TypeErr::Error(Lstr::from(format!(
-                        "undefined type var: {}", tri
+                        "undefined type var: {}",
+                        tri
                     ))))
                 } else {
                     *mv.unwrap() = true;
@@ -205,7 +211,7 @@ impl<'b> Inferator<'b>
                 self.mark_used_typevars(result)
             }
             &Type::StrictList(ref inner) => self.mark_used_typevars(inner),
-            _ => Ok(Type::Void)
+            _ => Ok(Type::Void),
         }
     }
 
@@ -239,7 +245,12 @@ impl<'b> Inferator<'b>
         };
         if self.vartypes.contains_key(argn.str()) {
             let oldargt = self.vartypes.get(argn).unwrap();
-            return Inferator::mash(&mut self.inferences, &self.typevars, oldargt, &realt);
+            return Inferator::mash(
+                &mut self.inferences,
+                &self.typevars,
+                oldargt,
+                &realt,
+            );
         }
 
         self.vartypes.insert(argn.clone(), realt.clone());
@@ -504,11 +515,17 @@ impl<'b> Inferator<'b>
                 inferences.insert(newtname.clone(), oldt.clone());
                 Ok(oldt.clone())
             }
-            (&Type::UserDef(ref oldtname), _) if oldtname.local_only() && typevars.contains_key(&oldtname.localid) => {
+            (&Type::UserDef(ref oldtname), _)
+                if oldtname.local_only()
+                    && typevars.contains_key(&oldtname.localid) =>
+            {
                 inferences.insert(oldtname.localid.clone(), newt.clone());
                 Ok(newt.clone())
             }
-            (_, &Type::UserDef(ref newtname)) if newtname.local_only() && typevars.contains_key(&newtname.localid) => {
+            (_, &Type::UserDef(ref newtname))
+                if newtname.local_only()
+                    && typevars.contains_key(&newtname.localid) =>
+            {
                 inferences.insert(newtname.localid.clone(), oldt.clone());
                 Ok(oldt.clone())
             }
@@ -523,11 +540,13 @@ impl<'b> Inferator<'b>
                 }
                 let mut masht = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
-                    let mashit = Inferator::mash(inferences, typevars, oldit, newit)?;
+                    let mashit =
+                        Inferator::mash(inferences, typevars, oldit, newit)?;
                     masht.push(mashit);
                 }
-                let mashresult =
-                    Inferator::mash(inferences, typevars, oldresult, newresult)?;
+                let mashresult = Inferator::mash(
+                    inferences, typevars, oldresult, newresult,
+                )?;
                 Ok(Type::Func(masht, Box::new(mashresult)))
             }
             (
@@ -546,16 +565,19 @@ impl<'b> Inferator<'b>
                 }
                 let mut masht = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
-                    let mashit = Inferator::mash(inferences, typevars, oldit, newit)?;
+                    let mashit =
+                        Inferator::mash(inferences, typevars, oldit, newit)?;
                     masht.push(mashit);
                 }
                 let mut mashclosed = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldclosed.iter().zip(newclosed.iter()) {
-                    let mashit = Inferator::mash(inferences, typevars, oldit, newit)?;
+                    let mashit =
+                        Inferator::mash(inferences, typevars, oldit, newit)?;
                     mashclosed.push(mashit);
                 }
-                let mashresult =
-                    Inferator::mash(inferences, typevars, oldresult, newresult)?;
+                let mashresult = Inferator::mash(
+                    inferences, typevars, oldresult, newresult,
+                )?;
                 Ok(Type::Closure(masht, mashclosed, Box::new(mashresult)))
             }
             (
@@ -569,11 +591,13 @@ impl<'b> Inferator<'b>
                 }
                 let mut masht = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
-                    let mashit = Inferator::mash(inferences, typevars, oldit, newit)?;
+                    let mashit =
+                        Inferator::mash(inferences, typevars, oldit, newit)?;
                     masht.push(mashit);
                 }
-                let mashresult =
-                    Inferator::mash(inferences, typevars, oldresult, newresult)?;
+                let mashresult = Inferator::mash(
+                    inferences, typevars, oldresult, newresult,
+                )?;
                 Ok(Type::Func(masht, Box::new(mashresult)))
             }
             (
@@ -587,11 +611,13 @@ impl<'b> Inferator<'b>
                 }
                 let mut masht = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
-                    let mashit = Inferator::mash(inferences, typevars, oldit, newit)?;
+                    let mashit =
+                        Inferator::mash(inferences, typevars, oldit, newit)?;
                     masht.push(mashit);
                 }
-                let mashresult =
-                    Inferator::mash(inferences, typevars, oldresult, newresult)?;
+                let mashresult = Inferator::mash(
+                    inferences, typevars, oldresult, newresult,
+                )?;
                 Ok(Type::Func(masht, Box::new(mashresult)))
             }
             (&Type::Tuple(ref olditems), &Type::Tuple(ref newitems)) => {
@@ -602,7 +628,8 @@ impl<'b> Inferator<'b>
                 }
                 let mut mashitems = Vec::with_capacity(oldlen);
                 for (oi, ni) in olditems.0.iter().zip(newitems.0.iter()) {
-                    let mi = Inferator::mash(inferences, typevars, &oi.1, &ni.1)?;
+                    let mi =
+                        Inferator::mash(inferences, typevars, &oi.1, &ni.1)?;
                     mashitems.push((None, mi));
                 }
                 Ok(Type::Tuple(Struple(mashitems)))
@@ -664,14 +691,19 @@ impl<'b> Inferator<'b>
             .iter()
             .zip(argst.iter())
             .map(|(defargt, argt)| {
-                Inferator::mash(&mut self.inferences, &self.typevars, defargt, argt)
-                    .map_err(|e| {
-                        e.add_context(Lstr::from(format!(
-                            "expected function args in {}: {:?} found {:?}",
-                            self.funcname, defargst, argst,
-                        )))
-                    })
-                    .unwrap()
+                Inferator::mash(
+                    &mut self.inferences,
+                    &self.typevars,
+                    defargt,
+                    argt,
+                )
+                .map_err(|e| {
+                    e.add_context(Lstr::from(format!(
+                        "expected function args in {}: {:?} found {:?}",
+                        self.funcname, defargst, argst,
+                    )))
+                })
+                .unwrap()
             })
             .collect();
         Ok(Type::f(mashed_args, self.inferred_type(defresult)))

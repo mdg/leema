@@ -294,9 +294,11 @@ impl<'a, 'b> Typescope<'a, 'b>
             }
             // if a UserDef is not local only, it's definitely not a typevar
             &Type::UserDef(ref tri) if tri.has_params() => {
-                tri.params.as_ref().unwrap().iter().any(|t| {
-                    self.is_typevar(t)
-                })
+                tri.params
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .any(|t| self.is_typevar(t))
             }
             &Type::Tuple(ref items) => {
                 items.0.iter().any(|i| self.is_typevar(&i.1))

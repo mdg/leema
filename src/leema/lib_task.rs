@@ -62,16 +62,10 @@ pub fn join_fork(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let rfut = receiver
         .receiver
         .map(|result| {
-            rsrc::Event::seq(
-                rsrc::Event::DropRsrc,
-                rsrc::Event::Result(result),
-            )
+            rsrc::Event::seq(rsrc::Event::DropRsrc, rsrc::Event::Result(result))
         })
         .map_err(|e| {
-            rsrc::Event::seq(
-                rsrc::Event::DropRsrc,
-                rsrc::Event::Result(e),
-            )
+            rsrc::Event::seq(rsrc::Event::DropRsrc, rsrc::Event::Result(e))
         });
     rsrc::Event::Future(Box::new(rfut))
 }

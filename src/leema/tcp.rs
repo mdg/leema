@@ -156,14 +156,12 @@ pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
             rsrc::Event::NewRsrc(Box::new(sock))
         })
         .map_err(move |_| {
-            rsrc::Event::Result(
-                Val::Failure(
-                    Box::new(Val::Hashtag(Lstr::Sref("connection_failure"))),
-                    Box::new(Val::Str(Lstr::Sref("Failure to connect"))),
-                    FrameTrace::new_root(),
-                    val::FAILURE_MISSINGDATA,
-                ),
-            )
+            rsrc::Event::Result(Val::Failure(
+                Box::new(Val::Hashtag(Lstr::Sref("connection_failure"))),
+                Box::new(Val::Str(Lstr::Sref("Failure to connect"))),
+                FrameTrace::new_root(),
+                val::FAILURE_MISSINGDATA,
+            ))
         });
     rsrc::Event::Future(Box::new(fut))
 }
@@ -193,9 +191,7 @@ pub fn tcp_accept(mut ctx: rsrc::IopCtx) -> rsrc::Event
             rsrc::Event::NewRsrc(Box::new(sock)),
         )
     })
-    .map_err(|_| {
-        rsrc::Event::Result(Val::Str(Lstr::Sref("accept error")))
-    });
+    .map_err(|_| rsrc::Event::Result(Val::Str(Lstr::Sref("accept error"))));
     rsrc::Event::Future(Box::new(acc))
 }
 

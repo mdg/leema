@@ -659,8 +659,7 @@ pub fn compile_lri(
     Ixpr::const_val(fref, loc.lineno)
 }
 
-pub fn compile_type(_scope: &mut Interscope, typ: &Ast, _loc: &SrcLoc)
-    -> Type
+pub fn compile_type(_scope: &mut Interscope, typ: &Ast, _loc: &SrcLoc) -> Type
 {
     // this should probably be more, but good enough for now
     Type::from(typ)

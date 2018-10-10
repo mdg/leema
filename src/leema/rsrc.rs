@@ -44,16 +44,10 @@ impl fmt::Debug for Event
         match *self {
             Event::Future(_) => write!(f, "Event::Future"),
             Event::Stream(_) => write!(f, "Event::Stream"),
-            Event::NewRsrc(ref r) => {
-                write!(f, "Event::Rsrc({:?})", r)
-            }
-            Event::ReturnRsrc(ref r) => {
-                write!(f, "Event::ReturnRsrc({:?})", r)
-            }
+            Event::NewRsrc(ref r) => write!(f, "Event::Rsrc({:?})", r),
+            Event::ReturnRsrc(ref r) => write!(f, "Event::ReturnRsrc({:?})", r),
             Event::DropRsrc => write!(f, "Event::ReturnRsrc"),
-            Event::Result(ref r) => {
-                write!(f, "Event::Result({:?})", r)
-            }
+            Event::Result(ref r) => write!(f, "Event::Result({:?})", r),
             Event::Sequence(ref first, ref second) => {
                 write!(f, "Event::Seq({:?}, {:?})", first, second)
             }
