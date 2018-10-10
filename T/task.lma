@@ -19,11 +19,11 @@ func start: Key
 .action: F(): Void
 -RUST-
 
-func start_fork: T%
+func start_fork[T]: T%
 .action: F(): T
 -RUST-
 
-func join_fork: T
+func join_fork[T]: T
 .forked: T%
 -RUST-
 
