@@ -43,3 +43,20 @@ func main() ->
     list::map(results, print_result)
     0
 --
+
+#>>
+func print_result(msg1: Str%, msg2: Str%) ->
+    join
+    |msg1 >>
+        whatever
+        print("client received: $msg1\n")
+        let y := recv(something else)
+    |msg2 >>
+        othter stuff
+        print("client received: $msg2\n")
+        send(y)
+        let x := recv(something else)
+    --
+
+    print("$x")
+#--

@@ -21,7 +21,7 @@ func fetch_tacos_or_burritos(user_id: Int): Str ->
       "found tacos for $user_id!\n"
    |else ->
       let b := fetch_burritos(user_id)
-      "found burritos instead\n"
+      "found burritos instead: $b\n"
    --
 
    failed t
@@ -30,6 +30,6 @@ func fetch_tacos_or_burritos(user_id: Int): Str ->
 --
 
 func main() ->
-   let food := fetch_tacos_or_burritos(4)
+   let food := fetch_tacos_or_burritos(10)
    print("food: $food\n")
 --
