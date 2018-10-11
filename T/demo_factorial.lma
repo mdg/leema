@@ -1,6 +1,5 @@
 
-func fact: Int
-.i: Int
+func fact(i: Int): Int
 >>
     if
     |i == 1 >> 1
@@ -12,16 +11,16 @@ func match_fact: Int
 .i: Int
 >>
     match i
-    |1 -> 1
-    |_ -> i * match_fact(i-1)
+    |1 >> 1
+    |_ >> i * match_fact(i-1)
     --
 --
 
 func fmatch_fact: Int
 .i: Int
 >>
-|1 -> 1
-|_ -> i * fmatch_fact(i-1)
+|1 >> 1
+|_ >> i * fmatch_fact(i-1)
 --
 
 func main
