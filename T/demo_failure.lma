@@ -1,49 +1,34 @@
-func tacos(x): Str ->
-    if x == 4 ->
-        fail(#xis4, "tacos are delicious")
+func fetch_tacos(user_id: Int): Str ->
+    ## fetching tacos is an error prone query for some users
+    if user_id < 11 ->
+        fail(#no_tacos, "cannot find tacos")
     --
-    "not tacos"
+    "tacos!"
 --
 
-func foo(x): Int ->
-    x * 2
+func fetch_burritos(user_id: Int): Str ->
+    if user_id == 10 ->
+        fail(#no_burritos, "cannot find burritos")
+    --
+    "burritos!"
 --
 
-func check_for_tacos(x: Int, prop: Bool): Str ->
-   let c := tacos(x)
+func fetch_tacos_or_burritos(user_id: Int): Str ->
+   let t := fetch_tacos(user_id)
+
    if
-   |c == "tacos" ->
-      let d := foo(x)
-      print("tacos are: $d\n")
+   |t == "tacos!" ->
+      "found tacos for $user_id!\n"
    |else ->
-      let d := foo(x+1)
-      print("burritos are: $d\n")
-   --
-   "str interp: $c"
-
-   failed c
-   |#xis4 ->
-      if
-      |prop ->
-         print("c failed. log and propagate\n")
-         refail(c)
-      |else ->
-         print("c failed. no propagate.\n")
-         "whoa - not linear!"
-      --
-   |_ ->
-      print("no match on failure tag\n")
-      refail(c)
+      "found burritos instead\n"
    --
 
-   failed d
-   |#xis4 ->
-      print("handle d the same no matter what")
-      "whatever"
+   failed t
+   |#no_tacos -> fetch_burritos(user_id)
    --
 --
 
 func main() ->
-   let e := check_for_tacos(4, true)
-   print("e: $e\n")
+   let food := fetch_tacos_or_burritos(10)
+   print("food: $food\n")
 --
