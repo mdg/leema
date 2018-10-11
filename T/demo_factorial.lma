@@ -1,0 +1,38 @@
+
+func fact: Int
+.i: Int
+>>
+    if
+    |i == 1 >> 1
+    |else >> i * fact(i-1)
+    --
+--
+
+func match_fact: Int
+.i: Int
+>>
+    match i
+    |1 -> 1
+    |_ -> i * match_fact(i-1)
+    --
+--
+
+func fmatch_fact: Int
+.i: Int
+>>
+|1 -> 1
+|_ -> i * fmatch_fact(i-1)
+--
+
+func main
+>>
+    let f := fact(4)
+    print("if factorial(4) = $f\n")
+
+    let mf := match_fact(5)
+    print("match factorial(5) = $mf\n")
+
+    let mff := fmatch_fact(6)
+    print("function match factorial(6) = $mff\n")
+--
+

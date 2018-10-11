@@ -1,0 +1,49 @@
+func tacos(x): Str ->
+    if x == 4 ->
+        fail(#xis4, "tacos are delicious")
+    --
+    "not tacos"
+--
+
+func foo(x): Int ->
+    x * 2
+--
+
+func check_for_tacos(x: Int, prop: Bool): Str ->
+   let c := tacos(x)
+   if
+   |c == "tacos" ->
+      let d := foo(x)
+      print("tacos are: $d\n")
+   |else ->
+      let d := foo(x+1)
+      print("burritos are: $d\n")
+   --
+   "str interp: $c"
+
+   failed c
+   |#xis4 ->
+      if
+      |prop ->
+         print("c failed. log and propagate\n")
+         refail(c)
+      |else ->
+         print("c failed. no propagate.\n")
+         "whoa - not linear!"
+      --
+   |_ ->
+      print("no match on failure tag\n")
+      refail(c)
+   --
+
+   failed d
+   |#xis4 ->
+      print("handle d the same no matter what")
+      "whatever"
+   --
+--
+
+func main() ->
+   let e := check_for_tacos(4, true)
+   print("e: $e\n")
+--
