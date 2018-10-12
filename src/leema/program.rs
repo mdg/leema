@@ -328,7 +328,11 @@ impl Lib
             panic!("cannot find inter for {}", funcri);
         }
         let inter = opt_inter.unwrap();
-        let mut fix = inter.interfunc.get_mut(funclstr).unwrap();
+        let opt_fix = inter.interfunc.get_mut(funclstr);
+        if opt_fix.is_none() {
+            panic!("cannot find function: {}", funclstr);
+        }
+        let mut fix = opt_fix.unwrap();
         if !self.typed.contains_key(modlstr) {
             self.typed
                 .insert(modlstr.clone(), Typemod::new(modlstr.clone()));

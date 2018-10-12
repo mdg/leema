@@ -53,6 +53,11 @@ impl Protomod
         self.valtypes.get(valnm)
     }
 
+    pub fn constant(&self, valnm: &str) -> Option<&Val>
+    {
+        self.constants.get(valnm)
+    }
+
     pub fn preproc_module_expr(
         &mut self,
         prog: &Lib,
@@ -1168,7 +1173,9 @@ impl Protomod
         loc: &SrcLoc,
     )
     {
-        let local_name = struple_lri.localid.clone();
+        let opt_variant = variant.clone();
+        let local_func_name = variant.unwrap_or(struple_lri.localid.clone());
+
         let struple_fields: Vec<(Option<Lstr>, Type)> = src_fields
             .iter()
             .map(|f| {
@@ -1198,10 +1205,10 @@ impl Protomod
         let full_type = Type::UserDef(struple_lri.clone());
         let func_type = Type::Func(field_type_vec, Box::new(full_type.clone()));
 
-        let srcblk = Ast::ConstructData(struple_lri.clone(), variant.clone());
+        let srcblk = Ast::ConstructData(struple_lri.clone(), opt_variant);
 
         let decl = ast::FuncDecl {
-            name: Ast::Localid(local_name.clone(), *loc),
+            name: Ast::Localid(local_func_name.clone(), *loc),
             args: (*src_fields).clone(),
             result: type_ast,
             loc: *loc,
@@ -1223,18 +1230,15 @@ impl Protomod
         );
         self.constants.insert(Lstr::Sref("TYPES"), new_types_list);
         self.struple_fields
-            .insert(local_name.clone(), Struple(struple_fields));
+            .insert(local_func_name.clone(), Struple(struple_fields));
 
         let funcref = Val::FuncRef(struple_lri, fref_args, func_type.clone());
-        self.constants.insert(local_name.clone(), funcref);
+        self.constants.insert(local_func_name.clone(), funcref);
 
-        self.funcseq.push_back(local_name.clone());
-        self.funcsrc.insert(local_name.clone(), srcxpr);
+        self.funcseq.push_back(local_func_name.clone());
+        self.funcsrc.insert(local_func_name.clone(), srcxpr);
 
-        { // add to valtypes
-            let valtype_name = variant.unwrap_or(local_name);
-            self.valtypes.insert(valtype_name, func_type);
-        }
+        self.valtypes.insert(local_func_name, func_type);
     }
 
     pub fn struple_field_idx(

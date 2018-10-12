@@ -665,20 +665,13 @@ pub fn compile_lri(
     });
     let lri = Lri::full(Some(modname.clone()), id.clone(), ctvars);
 
-    let opt_vartype = scope.import_vartype(modname, id);
-    if opt_vartype.is_none() {
-        panic!("failure for import_vartype({}, {})", modname, id);
+    let opt_constval = scope.import_constval(modname, id);
+    if opt_constval.is_none() {
+        panic!("cannot find imported value: {}::{}", modname, id);
     }
-    let vartype = opt_vartype.unwrap();
-    let num_args = match vartype {
-        &Type::Func(ref iargs, _) => iargs.len(),
-        &Type::Closure(ref iargs, ref cargs, _) => iargs.len() + cargs.len(),
-        _ => 0,
-    };
-
-    let new_args = Struple(vec![(None, Val::Void); num_args]);
-    let fref = Val::FuncRef(lri, new_args, vartype.clone());
-    Ixpr::const_val(fref, loc.lineno)
+    let constval = opt_constval.unwrap();
+    let special = constval.map(|v| Val::specialize_lri_params(v, &lri));
+    Ixpr::const_val(special, loc.lineno)
 }
 
 pub fn compile_type(_scope: &mut Interscope, typ: &Ast, _loc: &SrcLoc) -> Type
