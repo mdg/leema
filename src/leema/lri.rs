@@ -57,6 +57,15 @@ impl Lri
         }
     }
 
+    pub fn replace_local(&self, new_local: Lstr) -> Lri
+    {
+        Lri {
+            modules: self.modules.clone(),
+            localid: new_local,
+            params: self.params.clone(),
+        }
+    }
+
     pub fn replace_params(&self, params: Vec<Type>) -> Lri
     {
         Lri {

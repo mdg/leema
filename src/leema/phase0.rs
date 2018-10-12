@@ -1204,6 +1204,7 @@ impl Protomod
 
         let full_type = Type::UserDef(struple_lri.clone());
         let func_type = Type::Func(field_type_vec, Box::new(full_type.clone()));
+        let construct_ri = struple_lri.replace_local(local_func_name.clone());
 
         let srcblk = Ast::ConstructData(struple_lri.clone(), opt_variant);
 
@@ -1232,7 +1233,7 @@ impl Protomod
         self.struple_fields
             .insert(local_func_name.clone(), Struple(struple_fields));
 
-        let funcref = Val::FuncRef(struple_lri, fref_args, func_type.clone());
+        let funcref = Val::FuncRef(construct_ri, fref_args, func_type.clone());
         self.constants.insert(local_func_name.clone(), funcref);
 
         self.funcseq.push_back(local_func_name.clone());
@@ -1541,6 +1542,11 @@ mod tests
         let type_lri =
             Lri::with_modules(tacos_str.clone(), local_typename.clone());
         let tree_type = Type::UserDef(type_lri.clone());
+        let node_funct = Type::Func(vec![
+            tree_type.clone(),
+            Type::Int,
+            tree_type.clone(),
+        ], Box::new(tree_type.clone()));
 
         // closures are empty
         assert!(pmod.closures.is_empty());
@@ -1550,7 +1556,14 @@ mod tests
         let empty = pmod.constants.get("Empty").unwrap();
         assert_eq!(exp_empty, *empty);
         let node_const = pmod.constants.get("Node").unwrap();
-        assert!(node_const.is_funcref());
+        if let Val::FuncRef(node_fri, node_args, act_node_ftype) = node_const {
+            assert_eq!("tacos", node_fri.modules.as_ref().unwrap());
+            assert_eq!("Node", &node_fri.localid);
+            assert_eq!(node_funct, *act_node_ftype);
+            assert_eq!(Val::Void, node_args.0[0].1);
+        } else {
+            panic!("Node func const is not a FuncRef: {}", node_const);
+        }
         assert_eq!(3, pmod.constants.len());
 
         // type constants; these aren't really used I think
@@ -1579,11 +1592,6 @@ mod tests
 
         // valtypes
         assert_eq!(tree_type, *pmod.valtypes.get("Empty").unwrap());
-        let node_funct = Type::Func(vec![
-            tree_type.clone(),
-            Type::Int,
-            tree_type.clone(),
-        ], Box::new(tree_type.clone()));
         assert_eq!(node_funct, *pmod.valtypes.get("Node").unwrap());
         assert_eq!(2, pmod.valtypes.len());
     }
