@@ -670,7 +670,12 @@ pub fn compile_lri(
         panic!("cannot find imported value: {}::{}", modname, id);
     }
     let constval = opt_constval.unwrap();
-    let special = constval.map(|v| Val::specialize_lri_params(v, &lri));
+    let special = if lri.has_params() {
+        constval.map(&|v| Val::specialize_lri_params(v, &lri))
+    } else {
+        // no params to override with, skip the specialization
+        constval.clone()
+    };
     Ixpr::const_val(special, loc.lineno)
 }
 

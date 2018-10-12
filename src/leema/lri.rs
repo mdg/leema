@@ -1,6 +1,6 @@
 use leema::lstr::Lstr;
 use leema::sendclone::SendClone;
-use leema::val::Type;
+use leema::val::{Type, Val};
 
 use std::fmt;
 
@@ -66,6 +66,23 @@ impl Lri
         }
     }
 
+    /// specialize the parameters for this Lri w/ the given ones
+    pub fn specialize_params(&self, other: &Vec<Type>) -> Result<Lri, Val>
+    {
+        if self.params.is_none() {
+            return Err(Val::Str(Lstr::Sref(
+                "cannot specialize Lri w/ no params"
+            )));
+        }
+        let self_p = self.params.as_ref().unwrap();
+        if self_p.len() != other.len() {
+            return Err(Val::Str(Lstr::Sref(
+                "cannot specialize wrong number of Lri params"
+            )));
+        }
+        Ok(self.replace_params(other.clone()))
+    }
+
     pub fn make_params_typevars(&mut self)
     {
         self.params.as_mut().map(|params| {
@@ -126,6 +143,11 @@ impl Lri
     pub fn has_params(&self) -> bool
     {
         self.params.is_some()
+    }
+
+    pub fn nominal_eq(a: &Lri, b: &Lri) -> bool
+    {
+        a.modules == b.modules && a.localid == b.localid
     }
 
     /**

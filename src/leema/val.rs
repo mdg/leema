@@ -127,7 +127,7 @@ impl Type
         }
     }
 
-    pub fn map<Op>(&self, op: Op) -> Type
+    pub fn map<Op>(&self, op: &Op) -> Type
         where Op: Fn(&Type) -> Option<Type>
     {
         if let Some(m_self) = op(self) {
@@ -156,18 +156,6 @@ impl Type
             }
 
             _ => self.clone(),
-        }
-    }
-
-    pub fn specialize_lri_params(&self, _lri: &Lri) -> Option<Type>
-    {
-        match self {
-            /*
-            Type::UserDef(ref curr) => {
-                Type::UserDef(Lri::merge(curr, lri))
-            }
-            */
-            _ => None,
         }
     }
 
@@ -795,19 +783,50 @@ impl Val
     pub fn specialize_lri_params(&self, lri: &Lri) -> Option<Val>
     {
         match self {
-            &Val::Struct(ref tri, ref flds) => {
-                let m_tri = Lri::merge(tri, lri);
+            &Val::Struct(ref tri, ref flds) if Lri::nominal_eq(tri, lri) => {
+                let params = lri.params.as_ref().unwrap();
+                let m_tri = tri.specialize_params(params).unwrap();
                 let m_flds: Struple<Val> = {
                     let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
-                    flds.map(|f: &Val| f.map(apply_f))
+                    flds.map(|f: &Val| f.map(&apply_f))
                 };
                 Some(Val::Struct(m_tri, m_flds))
+            }
+            &Val::EnumStruct(ref tri, ref variant, ref flds)
+                if Lri::nominal_eq(tri, lri) =>
+            {
+                let params = lri.params.as_ref().unwrap();
+                let m_tri = tri.specialize_params(params).unwrap();
+                let m_flds: Struple<Val> = {
+                    let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
+                    flds.map(|f: &Val| f.map(&apply_f))
+                };
+                Some(Val::EnumStruct(m_tri, variant.clone(), m_flds))
+            }
+            &Val::EnumToken(ref tri, ref variant) if Lri::nominal_eq(tri, lri) => {
+                let params = lri.params.as_ref().unwrap();
+                let m_tri = tri.specialize_params(params).unwrap();
+                Some(Val::EnumToken(m_tri, variant.clone()))
+            }
+            &Val::Token(ref tri) if Lri::nominal_eq(tri, lri) => {
+                let params = lri.params.as_ref().unwrap();
+                let m_tri = tri.specialize_params(params).unwrap();
+                Some(Val::Token(m_tri))
+            }
+            &Val::FuncRef(ref tri, ref args, ref typ) if Lri::nominal_eq(tri, lri) => {
+                let params = lri.params.as_ref().unwrap();
+                let m_tri = tri.specialize_params(params).unwrap();
+                let m_args: Struple<Val> = {
+                    let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
+                    args.map(|f: &Val| f.map(&apply_f))
+                };
+                Some(Val::FuncRef(m_tri, m_args, typ.clone()))
             }
             _ => None,
         }
     }
 
-    pub fn map<Op>(&self, op: Op) -> Val
+    pub fn map<Op>(&self, op: &Op) -> Val
         where Op: Fn(&Val) -> Option<Val>
     {
         if let Some(m_self) = op(self) {
