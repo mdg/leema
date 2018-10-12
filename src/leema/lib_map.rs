@@ -41,12 +41,8 @@ pub fn get(mut ctx: RustFuncContext) -> frame::Event
         }
     };
     let result = match map_val {
-        Some(inner_val) => {
-            types::new_some(inner_val)
-        }
-        None => {
-            types::new_none(Type::Void)
-        }
+        Some(inner_val) => types::new_some(inner_val),
+        None => types::new_none(Type::Void),
     };
     ctx.set_result(result);
     frame::Event::success()
