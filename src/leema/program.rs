@@ -53,6 +53,12 @@ impl Lib
             .insert(Lstr::Sref("file"), file::load_rust_func);
         proglib
             .rust_load
+            .insert(Lstr::Sref("hyper_client"), lib_hyper::load_client_func);
+        proglib
+            .rust_load
+            .insert(Lstr::Sref("hyper_server"), lib_hyper::load_rust_func);
+        proglib
+            .rust_load
             .insert(Lstr::Sref("list"), lib_list::load_rust_func);
         proglib
             .rust_load
@@ -69,9 +75,6 @@ impl Lib
         proglib
             .rust_load
             .insert(Lstr::Sref("udp"), udp::load_rust_func);
-        proglib
-            .rust_load
-            .insert(Lstr::Sref("hyper_server"), lib_hyper::load_rust_func);
 
         proglib
     }

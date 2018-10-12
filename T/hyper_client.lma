@@ -1,0 +1,9 @@
+
+struct Response
+.status: Int
+.body: Str
+--
+
+func get(url: Str): Response -RUST-
+func post(url: Str, body: Str): Response -RUST-
+

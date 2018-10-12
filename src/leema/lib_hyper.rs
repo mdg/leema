@@ -12,8 +12,9 @@ use std::thread;
 
 use futures::sync::oneshot as futures_oneshot;
 use futures::{future, Future};
+use hyper::rt::Stream;
 use hyper::service::service_fn;
-use hyper::{Body, Method, Request, Response, Server, StatusCode};
+use hyper::{Body, Client, Method, Request, Response, Server, StatusCode, Uri};
 
 /*
 http handle
@@ -177,6 +178,56 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
         "run" => Some(Code::Iop(server_run, None)),
+        _ => None,
+    }
+}
+
+
+pub fn client_get(mut ctx: rsrc::IopCtx) -> rsrc::Event
+{
+    let url = {
+        match ctx.take_param(0).unwrap() {
+            Val::Str(url_str) => url_str.parse::<Uri>().unwrap(),
+            not_str => {
+                /*
+                return rsrc::Event::Result(Val::failure(
+                    Val::Hashtag(Lstr::from("type_error")),
+                    Val::Str(Lstr::from(format!(
+                        "url parameter is not a string: {}", not_str
+                    ))),
+                    None,
+                ));
+                */
+                panic!("url parameter is not a string: {}", not_str);
+            }
+        }
+    };
+    let client = Client::new();
+    let get_fut = client
+        .get(url)
+        .and_then(|res| Stream::collect(res.into_body()))
+        .map(|chunks| {
+            let text_vec: Vec<String> = chunks
+                .into_iter()
+                .map(|chunk| {
+                    String::from_utf8(chunk.into_bytes().as_ref().to_vec())
+                        .unwrap()
+                })
+                .collect();
+            let text: String = text_vec.concat();
+            rsrc::Event::Result(Val::Str(Lstr::from(text)))
+        })
+        .map_err(|_err| {
+            rsrc::Event::Result(Val::Str(Lstr::Sref("client_failure")))
+        });
+    rsrc::Event::Future(Box::new(get_fut))
+}
+
+pub fn load_client_func(func_name: &str) -> Option<Code>
+{
+    match func_name {
+        "get" => Some(Code::Iop(client_get, None)),
+        // "post" => Some(Code::Iop(client_post, None)),
         _ => None,
     }
 }
