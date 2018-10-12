@@ -9,4 +9,7 @@ func main() ->
     print("map contains tacos? $cont\n")
     let len := map::len(m2)
     print("map length is $len\n")
+
+    let v4 := map::get(m2, "tacos")
+    print("map[tacos] = $v4\n")
 --

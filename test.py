@@ -249,7 +249,8 @@ class TestScripts(unittest.TestCase):
         result = run_leema('test_map')
         self.assertEqual(0, result['code'])
         expected = b"map contains tacos? true\n" \
-            + b"map length is 1\n"
+            + b"map length is 1\n" \
+            + b"map[tacos] = option::T[Int,].Some(4,)\n"
         self.assertEqual(expected, result['output'])
 
     def test_rgb(self):

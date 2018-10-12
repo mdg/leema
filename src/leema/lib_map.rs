@@ -2,7 +2,9 @@ use leema::code::Code;
 use leema::fiber::Fiber;
 use leema::frame;
 use leema::lmap::Lmap;
-use leema::val::Val;
+use leema::types;
+use leema::val::{Type, Val};
+use leema::worker::RustFuncContext;
 
 
 pub fn new(f: &mut Fiber) -> frame::Event
@@ -24,6 +26,29 @@ pub fn set(f: &mut Fiber) -> frame::Event
         }
     };
     f.head.parent.set_result(Val::Map(mresult));
+    frame::Event::success()
+}
+
+pub fn get(mut ctx: RustFuncContext) -> frame::Event
+{
+    let map_val = {
+        let p0 = ctx.get_param(0);
+        if let &Val::Map(ref m) = p0 {
+            let k = ctx.get_param(1);
+            Lmap::get(m, k).map(|v| v.clone())
+        } else {
+            panic!("first param to map::has is not a map: {:?}", p0);
+        }
+    };
+    let result = match map_val {
+        Some(inner_val) => {
+            types::new_some(inner_val)
+        }
+        None => {
+            types::new_none(Type::Void)
+        }
+    };
+    ctx.set_result(result);
     frame::Event::success()
 }
 
@@ -61,6 +86,7 @@ pub fn len(f: &mut Fiber) -> frame::Event
 pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
+        "get" => Some(Code::Rust2(get)),
         "has_key" => Some(Code::Rust(has_key)),
         "len" => Some(Code::Rust(len)),
         "new" => Some(Code::Rust(new)),
