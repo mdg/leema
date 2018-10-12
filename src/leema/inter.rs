@@ -400,6 +400,17 @@ impl<'a> Interscope<'a>
         }
     }
 
+    pub fn import_constval(&self, modnm: &str, valnm: &str) -> Option<&Val>
+    {
+        if modnm == &self.proto.key.name {
+            return self.proto.constant(valnm);
+        }
+        match self.imports.get(modnm) {
+            None => None,
+            Some(ref proto) => proto.constant(valnm),
+        }
+    }
+
     pub fn import_vartype(&self, modnm: &str, valnm: &str) -> Option<&Type>
     {
         if modnm == &self.proto.key.name {
