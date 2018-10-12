@@ -11,7 +11,7 @@ func set[K, V](m: T[K, V], k: K, v: V): T[K, V] -RUST-
 func get[K, V](m: T[K, V], k: K): V -RUST-
 
 ## check if the given key is in the map
-func has_key[K, V](m: T[K, V], k: K): bool -RUST-
+func has_key[K, V](m: T[K, V], k: K): Bool -RUST-
 
 ## get the number of items in a map
 func len[K, V](m: T[K, V]): Int -RUST-
