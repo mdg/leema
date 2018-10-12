@@ -416,7 +416,7 @@ impl<'a, 'b> Typescope<'a, 'b>
 
     pub fn functype(&self, modname: &str, funcname: &str) -> Type
     {
-        let result = if modname == self.inter.name() {
+        if modname == self.inter.name() {
             self.inter
                 .get_function_type(funcname)
                 .expect("missing typed object for module")
@@ -432,8 +432,7 @@ impl<'a, 'b> Typescope<'a, 'b>
                     modname, funcname, m
                 ))
                 .clone()
-        };
-        result
+        }
     }
 }
 

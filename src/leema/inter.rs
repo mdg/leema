@@ -656,10 +656,8 @@ pub fn compile_lri(
         panic!("too many modules: {:?}", names);
     }
     let modname = names.first().unwrap();
-    if !scope.imports_module(modname) {
-        if *modname != scope.proto.key.name {
-            panic!("module not found: {:?}", names);
-        }
+    if !scope.imports_module(modname) && *modname != scope.proto.key.name {
+        panic!("module not found: {:?}", names);
     }
     let id = names.last().unwrap();
     let ctvars: Option<Vec<Type>> = tvars.as_ref().map(|itvars| {

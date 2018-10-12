@@ -55,7 +55,7 @@ Options:
   --repl           Launch the REPL
 ";
 
-const ENV_VERBOSE: &'static str = "LEEMA_VERBOSE";
+const ENV_VERBOSE: &str = "LEEMA_VERBOSE";
 
 
 fn main()
