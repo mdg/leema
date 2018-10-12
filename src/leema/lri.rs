@@ -1,6 +1,6 @@
 use leema::lstr::Lstr;
 use leema::sendclone::SendClone;
-use leema::val::Type;
+use leema::val::{Type, Val};
 
 use std::fmt;
 
@@ -57,6 +57,15 @@ impl Lri
         }
     }
 
+    pub fn replace_local(&self, new_local: Lstr) -> Lri
+    {
+        Lri {
+            modules: self.modules.clone(),
+            localid: new_local,
+            params: self.params.clone(),
+        }
+    }
+
     pub fn replace_params(&self, params: Vec<Type>) -> Lri
     {
         Lri {
@@ -64,6 +73,23 @@ impl Lri
             localid: self.localid.clone(),
             params: Some(params),
         }
+    }
+
+    /// specialize the parameters for this Lri w/ the given ones
+    pub fn specialize_params(&self, other: &Vec<Type>) -> Result<Lri, Val>
+    {
+        if self.params.is_none() {
+            return Err(Val::Str(Lstr::Sref(
+                "cannot specialize Lri w/ no params",
+            )));
+        }
+        let self_p = self.params.as_ref().unwrap();
+        if self_p.len() != other.len() {
+            return Err(Val::Str(Lstr::Sref(
+                "cannot specialize wrong number of Lri params",
+            )));
+        }
+        Ok(self.replace_params(other.clone()))
     }
 
     pub fn make_params_typevars(&mut self)
@@ -126,6 +152,11 @@ impl Lri
     pub fn has_params(&self) -> bool
     {
         self.params.is_some()
+    }
+
+    pub fn nominal_eq(a: &Lri, b: &Lri) -> bool
+    {
+        a.modules == b.modules && a.localid == b.localid
     }
 
     /**
@@ -197,5 +228,31 @@ impl fmt::Debug for Lri
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         fmt::Display::fmt(self, f)
+    }
+}
+
+
+#[cfg(test)]
+mod tests
+{
+    use leema::lri::Lri;
+    use leema::lstr::Lstr;
+    use leema::val::Type;
+
+    #[test]
+    fn test_lri_equality()
+    {
+        let sref = Lri::full(
+            Some(Lstr::Sref("A")),
+            Lstr::Sref("B"),
+            Some(vec![Type::UserDef(Lri::new(Lstr::Sref("C")))]),
+        );
+        let smem = Lri::full(
+            Some(Lstr::from("A".to_string())),
+            Lstr::from("B".to_string()),
+            Some(vec![Type::UserDef(Lri::new(Lstr::from("C".to_string())))]),
+        );
+
+        assert!(PartialEq::eq(&sref, &smem));
     }
 }

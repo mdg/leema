@@ -127,6 +127,39 @@ impl Type
         }
     }
 
+    pub fn map<Op>(&self, op: &Op) -> Type
+    where
+        Op: Fn(&Type) -> Option<Type>,
+    {
+        if let Some(m_self) = op(self) {
+            return m_self;
+        }
+
+        match self {
+            &Type::Tuple(ref items) => {
+                let m_items = items.map(|i| i.map(op));
+                Type::Tuple(m_items)
+            }
+            &Type::StrictList(ref inner) => {
+                let m_inner = inner.map(op);
+                Type::StrictList(Box::new(m_inner))
+            }
+            &Type::Func(ref args, ref result) => {
+                let m_args = args.iter().map(|a| a.map(op)).collect();
+                let m_result = result.map(op);
+                Type::Func(m_args, Box::new(m_result))
+            }
+            &Type::Closure(ref args, ref closed, ref result) => {
+                let m_args = args.iter().map(|a| a.map(op)).collect();
+                let m_closed = closed.iter().map(|a| a.map(op)).collect();
+                let m_result = Box::new(result.map(op));
+                Type::Closure(m_args, m_closed, m_result)
+            }
+
+            _ => self.clone(),
+        }
+    }
+
     pub fn deep_clone(&self) -> Type
     {
         match self {
@@ -169,20 +202,6 @@ impl Type
             }
         }
     }
-
-    pub fn wrap_in_list(inner: Type) -> Type
-    {
-        Type::StrictList(Box::new(inner))
-    }
-
-    pub fn fmt_func_item(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        if let &Type::Func(_, _) = self {
-            write!(f, "({})", self)
-        } else {
-            write!(f, "{}", self)
-        }
-    }
 }
 
 impl sendclone::SendClone for Type
@@ -208,14 +227,14 @@ impl fmt::Display for Type
             &Type::UserDef(ref name) => write!(f, "{}", name),
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref args, ref result) => {
+                write!(f, "F(")?;
                 for a in args {
-                    a.fmt_func_item(f)?;
-                    write!(f, " => ")?;
+                    write!(f, "{},", a)?
                 }
-                result.fmt_func_item(f)
+                write!(f, "):{}", result)
             }
             &Type::Closure(ref args, ref closed, ref result) => {
-                write!(f, "Fn(")?;
+                write!(f, "F(")?;
                 for a in args {
                     write!(f, "{},", a)?;
                 }
@@ -455,7 +474,6 @@ pub enum Val
     Id(Lstr),
     Lri(Lri),
     Type(Type),
-    Kind(u8),
     Lib(Arc<LibVal>),
     FuncRef(Lri, Struple<Val>, Type),
     ResourceRef(i64),
@@ -510,6 +528,14 @@ impl Val
             res
         });
         Val::Tuple(Struple(items))
+    }
+
+    pub fn is_funcref(&self) -> bool
+    {
+        match self {
+            &Val::FuncRef(_, _, _) => true,
+            _ => false,
+        }
     }
 
     pub fn is_list(&self) -> bool
@@ -651,9 +677,6 @@ impl Val
             &Val::EnumToken(ref typ, _) => Type::UserDef(typ.clone()),
             &Val::Token(ref typ) => Type::UserDef(typ.clone()),
             &Val::Buffer(_) => Type::Str,
-            &Val::Kind(_) => {
-                panic!("is kind even a thing here?");
-            }
             &Val::FuncRef(_, _, ref typ) => typ.clone(),
             &Val::Lib(ref lv) => lv.get_type(),
             &Val::ResourceRef(_) => {
@@ -758,6 +781,106 @@ impl Val
         }
     }
 
+    pub fn specialize_lri_params(&self, lri: &Lri) -> Option<Val>
+    {
+        match self {
+            &Val::Struct(ref tri, ref flds) if Lri::nominal_eq(tri, lri) => {
+                let params = lri.params.as_ref().unwrap();
+                let m_tri = tri.specialize_params(params).unwrap();
+                let m_flds: Struple<Val> = {
+                    let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
+                    flds.map(|f: &Val| f.map(&apply_f))
+                };
+                Some(Val::Struct(m_tri, m_flds))
+            }
+            &Val::EnumStruct(ref tri, ref variant, ref flds)
+                if Lri::nominal_eq(tri, lri) =>
+            {
+                let params = lri.params.as_ref().unwrap();
+                let m_tri = tri.specialize_params(params).unwrap();
+                let m_flds: Struple<Val> = {
+                    let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
+                    flds.map(|f: &Val| f.map(&apply_f))
+                };
+                Some(Val::EnumStruct(m_tri, variant.clone(), m_flds))
+            }
+            &Val::EnumToken(ref tri, ref variant)
+                if Lri::nominal_eq(tri, lri) =>
+            {
+                let params = lri.params.as_ref().unwrap();
+                let m_tri = tri.specialize_params(params).unwrap();
+                Some(Val::EnumToken(m_tri, variant.clone()))
+            }
+            &Val::Token(ref tri) if Lri::nominal_eq(tri, lri) => {
+                let params = lri.params.as_ref().unwrap();
+                let m_tri = tri.specialize_params(params).unwrap();
+                Some(Val::Token(m_tri))
+            }
+            &Val::FuncRef(ref tri, ref args, ref typ)
+                if Lri::nominal_eq(tri, lri) =>
+            {
+                let params = lri.params.as_ref().unwrap();
+                let m_tri = tri.specialize_params(params).unwrap();
+                let m_args: Struple<Val> = {
+                    let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
+                    args.map(|f: &Val| f.map(&apply_f))
+                };
+                Some(Val::FuncRef(m_tri, m_args, typ.clone()))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn map<Op>(&self, op: &Op) -> Val
+    where
+        Op: Fn(&Val) -> Option<Val>,
+    {
+        if let Some(m_self) = op(self) {
+            return m_self;
+        }
+
+        match self {
+            &Val::Cons(ref head, ref tail) => {
+                let m_head = head.map(op);
+                let m_tail = tail.map(op);
+                Val::Cons(Box::new(m_head), Arc::new(m_tail))
+            }
+            &Val::Tuple(ref flds) => {
+                let m_flds = flds.map(|f: &Val| f.map(op));
+                Val::Tuple(m_flds)
+            }
+            &Val::Struct(ref typ, ref flds) => {
+                let m_flds = flds.map(|f: &Val| f.map(op));
+                Val::Struct(typ.clone(), m_flds)
+            }
+            &Val::EnumStruct(ref typ, ref vname, ref flds) => {
+                let m_flds = flds.map(|f: &Val| f.map(op));
+                Val::EnumStruct(typ.clone(), vname.clone(), m_flds)
+            }
+            &Val::EnumToken(ref typ, ref vname) => {
+                Val::EnumToken(typ.clone(), vname.clone())
+            }
+            &Val::Token(ref typ) => Val::Token(typ.clone()),
+            &Val::FuncRef(ref fi, ref args, ref typ) => {
+                let m_fi = fi.clone();
+                let m_args = args.map(|a| a.map(op));
+                let m_typ = typ.clone();
+                Val::FuncRef(m_fi, m_args, m_typ)
+            }
+            &Val::Failure(ref tag, ref msg, ref ft, status) => {
+                let m_tag = tag.map(op);
+                let m_msg = msg.map(op);
+                Val::Failure(
+                    Box::new(m_tag),
+                    Box::new(m_msg),
+                    ft.clone(),
+                    status,
+                )
+            }
+            _ => self.clone(),
+        }
+    }
+
     pub fn deep_clone(&self) -> Val
     {
         match self {
@@ -804,7 +927,6 @@ impl Val
             &Val::Id(ref s) => Val::Id(s.clone_for_send()),
             &Val::Type(ref t) => Val::Type(t.deep_clone()),
             &Val::ResourceRef(r) => Val::ResourceRef(r),
-            &Val::Kind(k) => Val::Kind(k),
             // &Val::Lib(LibVal),
             // &Val::RustBlock,
             &Val::Future(ref f) => Val::Future(f.clone()),
@@ -916,7 +1038,6 @@ impl fmt::Display for Val
             Val::Lri(ref name) => write!(f, "{}", name),
             Val::Id(ref name) => write!(f, "{}", name),
             Val::Type(ref t) => write!(f, "{}", t),
-            Val::Kind(c) => write!(f, "Kind({})", c),
             Val::FuncRef(ref id, ref args, ref typ) => {
                 write!(f, "{}({:?}): {}", id, args, typ)
             }
@@ -968,7 +1089,6 @@ impl fmt::Debug for Val
             Val::Lri(ref name) => write!(f, "{:?}", name),
             Val::Id(ref id) => write!(f, "Id({})", id),
             Val::Type(ref t) => write!(f, "TypeVal({:?})", t),
-            Val::Kind(c) => write!(f, "Kind{:?}", c),
             Val::FuncRef(ref id, ref args, ref typ) => {
                 write!(f, "FuncRef({} {:?}: {})", id, args, typ)
             }
@@ -1575,7 +1695,7 @@ mod tests
         let etype =
             Lri::with_modules(Lstr::Sref("animals"), Lstr::Sref("Animal"));
 
-        let a = Val::EnumToken(etype.clone(), Lstr::Sref("Dog"));
+        let a = Val::EnumToken(etype.clone(), Lstr::from("Dog".to_string()));
         let b = Val::EnumToken(etype.clone(), Lstr::Sref("Dog"));
         assert_eq!(a, b);
     }

@@ -279,12 +279,12 @@ class TestScripts(unittest.TestCase):
             + b"yellow: Yellow\n"
         self.assertEqual(exp, result['output'])
 
-    @unittest.skip("enums aren't working right now")
     def test_option(self):
-        result = run_leema('option_test')
+        result = run_leema('test_option')
         self.assertEqual(0, result['code'])
         exp = b"option a? None\n" \
-            + b"option b? Some(4,)\n"
+            + b"option b? option::T[$V,].Some(4,)\n" \
+            + b"option is option::T[$V,].Some(4,)\n"
         self.assertEqual(exp, result['output'])
 
     def test_read_file(self):

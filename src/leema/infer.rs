@@ -158,7 +158,7 @@ impl<'b> Inferator<'b>
                 let mv = self.typevars.get_mut(vname);
                 if mv.is_none() {
                     Err(TypeErr::Error(Lstr::from(format!(
-                        "undefined type var: {}",
+                        "undefined type: {}",
                         vname
                     ))))
                 } else {
@@ -174,7 +174,7 @@ impl<'b> Inferator<'b>
                 let mv = self.typevars.get_mut(&tri.localid);
                 if mv.is_none() {
                     Err(TypeErr::Error(Lstr::from(format!(
-                        "undefined type var: {}",
+                        "undefined type: {}",
                         tri
                     ))))
                 } else {

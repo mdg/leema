@@ -129,8 +129,7 @@ impl<'a> CallFrame<'a>
             }
             // nothing to do for these, not calls.
             Source::RustBlock(_, _) => {}
-            Source::Construple(_, _) => {}
-            Source::EnumConstructor(_, _, _) => {}
+            Source::Construple(_, _, _) => {}
         }
     }
 
@@ -523,7 +522,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             }
             Ok(Type::StrictList(Box::new(last_type)))
         }
-        &mut Source::Construple(ref typ, _) => Ok(typ.clone()),
+        &mut Source::Construple(ref typ, _, _) => Ok(typ.clone()),
         &mut Source::Map(_) => Ok(lmap::MAP_TYPE),
         &mut Source::Tuple(ref mut items) => {
             let mut item_types = Vec::with_capacity(items.0.len());

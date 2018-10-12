@@ -29,6 +29,14 @@ impl<T> Struple<T>
         Struple(vec![(None, a), (None, b)])
     }
 
+    pub fn map<C>(&self, f: C) -> Struple<T>
+    where
+        C: Fn(&T) -> T,
+    {
+        let m_items = self.0.iter().map(|i| (i.0.clone(), f(&i.1))).collect();
+        Struple(m_items)
+    }
+
     /**
      * Find a value with the given key
      */

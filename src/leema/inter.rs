@@ -400,6 +400,17 @@ impl<'a> Interscope<'a>
         }
     }
 
+    pub fn import_constval(&self, modnm: &str, valnm: &str) -> Option<&Val>
+    {
+        if modnm == &self.proto.key.name {
+            return self.proto.constant(valnm);
+        }
+        match self.imports.get(modnm) {
+            None => None,
+            Some(ref proto) => proto.constant(valnm),
+        }
+    }
+
     pub fn import_vartype(&self, modnm: &str, valnm: &str) -> Option<&Type>
     {
         if modnm == &self.proto.key.name {
@@ -591,8 +602,7 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
                 .collect();
             Ixpr::new_map(Struple(c_items), loc.lineno)
         }
-        &Ast::ConstructData(ast::DataType::Struple, ref ast_typ) => {
-            let type_lri = Lri::from(&**ast_typ);
+        &Ast::ConstructData(ref type_lri, None) => {
             let opt_full_type = scope.proto.func_result_type(&type_lri.localid);
             if opt_full_type.is_none() {
                 panic!(
@@ -602,7 +612,24 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
             }
             let full_type = opt_full_type.unwrap();
             let fields = scope.proto.get_struple_fields(&type_lri.localid);
-            Ixpr::construple(full_type.clone(), fields, loc.lineno)
+            Ixpr::construple(full_type.clone(), None, fields, loc.lineno)
+        }
+        &Ast::ConstructData(ref type_lri, Some(ref variant)) => {
+            let opt_full_type = scope.proto.func_result_type(variant);
+            if opt_full_type.is_none() {
+                panic!(
+                    "cannot find full type for: {:?} in {:?}",
+                    type_lri.localid, scope.proto.valtypes
+                );
+            }
+            let full_type = opt_full_type.unwrap();
+            let fields = scope.proto.get_struple_fields(variant);
+            Ixpr::construple(
+                full_type.clone(),
+                Some(variant.clone()),
+                fields,
+                loc.lineno,
+            )
         }
         &Ast::Let(ref lhs, ref rhs, ref iloc) => {
             compile_let_stmt(scope, lhs, rhs, iloc)
@@ -643,20 +670,18 @@ pub fn compile_lri(
     });
     let lri = Lri::full(Some(modname.clone()), id.clone(), ctvars);
 
-    let opt_vartype = scope.import_vartype(modname, id);
-    if opt_vartype.is_none() {
-        panic!("failure for import_vartype({}, {})", modname, id);
+    let opt_constval = scope.import_constval(modname, id);
+    if opt_constval.is_none() {
+        panic!("cannot find imported value: {}::{}", modname, id);
     }
-    let vartype = opt_vartype.unwrap();
-    let num_args = match vartype {
-        &Type::Func(ref iargs, _) => iargs.len(),
-        &Type::Closure(ref iargs, ref cargs, _) => iargs.len() + cargs.len(),
-        _ => 0,
+    let constval = opt_constval.unwrap();
+    let special = if lri.has_params() {
+        constval.map(&|v| Val::specialize_lri_params(v, &lri))
+    } else {
+        // no params to override with, skip the specialization
+        constval.clone()
     };
-
-    let new_args = Struple(vec![(None, Val::Void); num_args]);
-    let fref = Val::FuncRef(lri, new_args, vartype.clone());
-    Ixpr::const_val(fref, loc.lineno)
+    Ixpr::const_val(special, loc.lineno)
 }
 
 pub fn compile_type(_scope: &mut Interscope, typ: &Ast, _loc: &SrcLoc) -> Type
@@ -1328,7 +1353,6 @@ mod tests
     }
 
     #[test]
-    #[ignore] // unignore this once enums are working again
     fn test_enum_constructors()
     {
         let input = "

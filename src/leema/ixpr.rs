@@ -21,9 +21,8 @@ pub enum Source
     Block(Vec<Ixpr>),
     Call(Box<Ixpr>, Struple<Ixpr>),
     Cons(Box<Ixpr>, Box<Ixpr>),
-    Construple(Type, Struple<Type>),
+    Construple(Type, Option<Lstr>, Struple<Type>),
     ConstVal(Val),
-    EnumConstructor(Type, i16, Box<Ixpr>),
     FieldAccess(Box<Ixpr>, Lstr, Option<i8>),
     Fork(Box<Ixpr>),
     Func(Vec<Lstr>, Vec<Lstr>, Vec<Type>, Type, Box<Ixpr>),
@@ -140,12 +139,15 @@ impl Ixpr
         }
     }
 
-    pub fn construple(t: Type, flds: &Struple<Type>, lineno: i16) -> Ixpr
+    pub fn construple(
+        t: Type,
+        variant: Option<Lstr>,
+        flds: &Struple<Type>,
+        line: i16,
+    ) -> Ixpr
     {
-        Ixpr {
-            src: Source::Construple(t, flds.clone()),
-            line: lineno,
-        }
+        let src = Source::Construple(t, variant, flds.clone());
+        Ixpr { src, line }
     }
 
     pub fn new_match_expr(input: Ixpr, cases: Ixpr) -> Ixpr
