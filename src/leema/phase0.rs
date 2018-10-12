@@ -1687,12 +1687,12 @@ mod tests
 
         let exp_dog_const = Val::EnumToken(type_lri.clone(), dog_name);
         let exp_cat_const = Val::FuncRef(
-            Lri::with_modules(animals_str.clone(), Lstr::Sref("Cat")),
+            type_lri.replace_local(Lstr::Sref("Cat")),
             Struple(vec![(None, Val::Void)]),
             cat_func_type.clone(),
         );
         let exp_giraffe_const = Val::FuncRef(
-            Lri::with_modules(animals_str.clone(), Lstr::Sref("Giraffe")),
+            type_lri.replace_local(Lstr::Sref("Giraffe")),
             Struple(vec![
                 (Some(Lstr::Sref("height")), Val::Void),
                 (Some(Lstr::Sref("weight")), Val::Void),
@@ -1725,14 +1725,32 @@ mod tests
         assert_eq!(3, pmod.funcsrc.len());
 
         // verify struple fields
+        // cat fields
+        let cat_flds = pmod.struple_fields.get("Cat").unwrap();
+        assert!(cat_flds.0[0].0.is_none());
+        assert_eq!(Type::Int, cat_flds.0[0].1);
+        assert_eq!(1, cat_flds.0.len());
+        // mouse fields
+        let mouse_flds = pmod.struple_fields.get("Mouse").unwrap();
+        assert!(mouse_flds.0[0].0.is_none());
+        assert_eq!(Type::Var(Lstr::Sref("A")), mouse_flds.0[0].1);
+        assert_eq!(1, mouse_flds.0.len());
+        // giraffe fields
+        let giraffe_flds = pmod.struple_fields.get("Giraffe").unwrap();
+        assert_eq!(Some(Lstr::Sref("height")), giraffe_flds.0[0].0);
+        assert_eq!(Type::Int, giraffe_flds.0[0].1);
+        assert_eq!(Some(Lstr::Sref("weight")), giraffe_flds.0[1].0);
+        assert_eq!(Type::Var(Lstr::Sref("A")), giraffe_flds.0[1].1);
+        assert_eq!(2, giraffe_flds.0.len());
+        assert_eq!(3, pmod.struple_fields.len());
 
         // verify value types
         assert_eq!(
-            "animals::Animal[A,]",
+            "animals::Animal[$A,]",
             format!("{}", *pmod.valtypes.get("Dog").unwrap())
         );
         assert_eq!(
-            "F(Int):animals::Animal[A,]",
+            "F(Int,):animals::Animal[$A,]",
             format!("{}", *pmod.valtypes.get("Cat").unwrap())
         );
         assert_eq!(mouse_func_type, *pmod.valtypes.get("Mouse").unwrap());
