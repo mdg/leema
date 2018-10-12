@@ -213,11 +213,6 @@ impl Type
             }
         }
     }
-
-    pub fn wrap_in_list(inner: Type) -> Type
-    {
-        Type::StrictList(Box::new(inner))
-    }
 }
 
 impl sendclone::SendClone for Type
@@ -490,7 +485,6 @@ pub enum Val
     Id(Lstr),
     Lri(Lri),
     Type(Type),
-    Kind(u8),
     Lib(Arc<LibVal>),
     FuncRef(Lri, Struple<Val>, Type),
     ResourceRef(i64),
@@ -694,9 +688,6 @@ impl Val
             &Val::EnumToken(ref typ, _) => Type::UserDef(typ.clone()),
             &Val::Token(ref typ) => Type::UserDef(typ.clone()),
             &Val::Buffer(_) => Type::Str,
-            &Val::Kind(_) => {
-                panic!("is kind even a thing here?");
-            }
             &Val::FuncRef(_, _, ref typ) => typ.clone(),
             &Val::Lib(ref lv) => lv.get_type(),
             &Val::ResourceRef(_) => {
@@ -916,7 +907,6 @@ impl Val
             &Val::Id(ref s) => Val::Id(s.clone_for_send()),
             &Val::Type(ref t) => Val::Type(t.deep_clone()),
             &Val::ResourceRef(r) => Val::ResourceRef(r),
-            &Val::Kind(k) => Val::Kind(k),
             // &Val::Lib(LibVal),
             // &Val::RustBlock,
             &Val::Future(ref f) => Val::Future(f.clone()),
@@ -1028,7 +1018,6 @@ impl fmt::Display for Val
             Val::Lri(ref name) => write!(f, "{}", name),
             Val::Id(ref name) => write!(f, "{}", name),
             Val::Type(ref t) => write!(f, "{}", t),
-            Val::Kind(c) => write!(f, "Kind({})", c),
             Val::FuncRef(ref id, ref args, ref typ) => {
                 write!(f, "{}({:?}): {}", id, args, typ)
             }
@@ -1080,7 +1069,6 @@ impl fmt::Debug for Val
             Val::Lri(ref name) => write!(f, "{:?}", name),
             Val::Id(ref id) => write!(f, "Id({})", id),
             Val::Type(ref t) => write!(f, "TypeVal({:?})", t),
-            Val::Kind(c) => write!(f, "Kind{:?}", c),
             Val::FuncRef(ref id, ref args, ref typ) => {
                 write!(f, "FuncRef({} {:?}: {})", id, args, typ)
             }
