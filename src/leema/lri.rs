@@ -80,13 +80,13 @@ impl Lri
     {
         if self.params.is_none() {
             return Err(Val::Str(Lstr::Sref(
-                "cannot specialize Lri w/ no params"
+                "cannot specialize Lri w/ no params",
             )));
         }
         let self_p = self.params.as_ref().unwrap();
         if self_p.len() != other.len() {
             return Err(Val::Str(Lstr::Sref(
-                "cannot specialize wrong number of Lri params"
+                "cannot specialize wrong number of Lri params",
             )));
         }
         Ok(self.replace_params(other.clone()))

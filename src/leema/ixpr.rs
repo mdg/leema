@@ -139,7 +139,12 @@ impl Ixpr
         }
     }
 
-    pub fn construple(t: Type, variant: Option<Lstr>, flds: &Struple<Type>, line: i16) -> Ixpr
+    pub fn construple(
+        t: Type,
+        variant: Option<Lstr>,
+        flds: &Struple<Type>,
+        line: i16,
+    ) -> Ixpr
     {
         let src = Source::Construple(t, variant, flds.clone());
         Ixpr { src, line }

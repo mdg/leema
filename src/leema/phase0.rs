@@ -1092,7 +1092,12 @@ impl Protomod
                     self.preproc_struple_token(name, loc);
                 } else {
                     self.preproc_struple_with_fields(
-                        prog, mp, name_ast.clone(), name, fields, loc,
+                        prog,
+                        mp,
+                        name_ast.clone(),
+                        name,
+                        fields,
+                        loc,
                     );
                 }
             }
@@ -1298,10 +1303,15 @@ impl Protomod
         let mut variant_fields = Vec::with_capacity(src_variants.len());
         for kx in src_variants.iter() {
             let v = kx.x_ref().unwrap();
-            if let &Ast::DefData(_, ref vname, ref fields, ref iloc) = v
-            {
+            if let &Ast::DefData(_, ref vname, ref fields, ref iloc) = v {
                 self.preproc_enum_variant(
-                    prog, mp, type_ast.clone(), enum_lri.clone(), vname, fields, iloc,
+                    prog,
+                    mp,
+                    type_ast.clone(),
+                    enum_lri.clone(),
+                    vname,
+                    fields,
+                    iloc,
                 );
                 let variant_lstr = Lstr::from(&**vname);
                 let vf = (variant_lstr, mod_type.clone());
@@ -1330,7 +1340,8 @@ impl Protomod
         vout!("preproc_enum_variant({}.{})\n", full_lri, variant_name);
 
         if fields.is_empty() {
-            let const_val = Val::EnumToken(full_lri.clone(), variant_name.clone());
+            let const_val =
+                Val::EnumToken(full_lri.clone(), variant_name.clone());
             self.constants.insert(variant_name.clone(), const_val);
             self.valtypes.insert(variant_name, typ);
         } else {
@@ -1542,11 +1553,10 @@ mod tests
         let type_lri =
             Lri::with_modules(tacos_str.clone(), local_typename.clone());
         let tree_type = Type::UserDef(type_lri.clone());
-        let node_funct = Type::Func(vec![
-            tree_type.clone(),
-            Type::Int,
-            tree_type.clone(),
-        ], Box::new(tree_type.clone()));
+        let node_funct = Type::Func(
+            vec![tree_type.clone(), Type::Int, tree_type.clone()],
+            Box::new(tree_type.clone()),
+        );
 
         // closures are empty
         assert!(pmod.closures.is_empty());
@@ -1659,10 +1669,8 @@ mod tests
         let dog_name = Lstr::from("Dog".to_string());
         let cat_func_type =
             Type::Func(vec![Type::Int], Box::new(animal_type.clone()));
-        let mouse_func_type = Type::Func(
-            vec![typevar_a.clone()],
-            Box::new(animal_type.clone()),
-        );
+        let mouse_func_type =
+            Type::Func(vec![typevar_a.clone()], Box::new(animal_type.clone()));
         let giraffe_func_type = Type::Func(
             vec![Type::Int, typevar_a.clone()],
             Box::new(animal_type.clone()),
@@ -1676,8 +1684,10 @@ mod tests
             pmod.constants.get("Dog").expect("missing constant: Dog");
         let cat_const =
             pmod.constants.get("Cat").expect("missing constant: Cat");
-        let mouse_const =
-            pmod.constants.get("Mouse").expect("missing constant: Mouse");
+        let mouse_const = pmod
+            .constants
+            .get("Mouse")
+            .expect("missing constant: Mouse");
         assert!(mouse_const.is_funcref());
         let giraffe_const = pmod
             .constants

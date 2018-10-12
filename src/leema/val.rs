@@ -128,7 +128,8 @@ impl Type
     }
 
     pub fn map<Op>(&self, op: &Op) -> Type
-        where Op: Fn(&Type) -> Option<Type>
+    where
+        Op: Fn(&Type) -> Option<Type>,
     {
         if let Some(m_self) = op(self) {
             return m_self;
@@ -803,7 +804,9 @@ impl Val
                 };
                 Some(Val::EnumStruct(m_tri, variant.clone(), m_flds))
             }
-            &Val::EnumToken(ref tri, ref variant) if Lri::nominal_eq(tri, lri) => {
+            &Val::EnumToken(ref tri, ref variant)
+                if Lri::nominal_eq(tri, lri) =>
+            {
                 let params = lri.params.as_ref().unwrap();
                 let m_tri = tri.specialize_params(params).unwrap();
                 Some(Val::EnumToken(m_tri, variant.clone()))
@@ -813,7 +816,9 @@ impl Val
                 let m_tri = tri.specialize_params(params).unwrap();
                 Some(Val::Token(m_tri))
             }
-            &Val::FuncRef(ref tri, ref args, ref typ) if Lri::nominal_eq(tri, lri) => {
+            &Val::FuncRef(ref tri, ref args, ref typ)
+                if Lri::nominal_eq(tri, lri) =>
+            {
                 let params = lri.params.as_ref().unwrap();
                 let m_tri = tri.specialize_params(params).unwrap();
                 let m_args: Struple<Val> = {
@@ -827,7 +832,8 @@ impl Val
     }
 
     pub fn map<Op>(&self, op: &Op) -> Val
-        where Op: Fn(&Val) -> Option<Val>
+    where
+        Op: Fn(&Val) -> Option<Val>,
     {
         if let Some(m_self) = op(self) {
             return m_self;
@@ -837,10 +843,7 @@ impl Val
             &Val::Cons(ref head, ref tail) => {
                 let m_head = head.map(op);
                 let m_tail = tail.map(op);
-                Val::Cons(
-                    Box::new(m_head),
-                    Arc::new(m_tail),
-                )
+                Val::Cons(Box::new(m_head), Arc::new(m_tail))
             }
             &Val::Tuple(ref flds) => {
                 let m_flds = flds.map(|f: &Val| f.map(op));
@@ -857,9 +860,7 @@ impl Val
             &Val::EnumToken(ref typ, ref vname) => {
                 Val::EnumToken(typ.clone(), vname.clone())
             }
-            &Val::Token(ref typ) => {
-                Val::Token(typ.clone())
-            }
+            &Val::Token(ref typ) => Val::Token(typ.clone()),
             &Val::FuncRef(ref fi, ref args, ref typ) => {
                 let m_fi = fi.clone();
                 let m_args = args.map(|a| a.map(op));

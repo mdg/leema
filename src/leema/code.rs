@@ -459,9 +459,7 @@ pub fn make_construple_ops(
             let var = ivar.clone();
             Op::ConstructEnum(dst.clone(), typ.clone(), var, flds.clone())
         }
-        None => {
-            Op::Construple(dst.clone(), typ.clone(), flds.clone())
-        }
+        None => Op::Construple(dst.clone(), typ.clone(), flds.clone()),
     };
     let ops: Vec<(Op, i16)> = vec![(construct, line)];
 

@@ -624,7 +624,12 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
             }
             let full_type = opt_full_type.unwrap();
             let fields = scope.proto.get_struple_fields(variant);
-            Ixpr::construple(full_type.clone(), Some(variant.clone()), fields, loc.lineno)
+            Ixpr::construple(
+                full_type.clone(),
+                Some(variant.clone()),
+                fields,
+                loc.lineno,
+            )
         }
         &Ast::Let(ref lhs, ref rhs, ref iloc) => {
             compile_let_stmt(scope, lhs, rhs, iloc)

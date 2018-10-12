@@ -231,7 +231,11 @@ impl Fiber
         let construple = match self.head.e.get_params() {
             &Val::Struct(_, ref items) => {
                 if let &Type::UserDef(ref i_new_typ) = new_typ {
-                    Val::EnumStruct(i_new_typ.clone(), variant.clone(), items.clone())
+                    Val::EnumStruct(
+                        i_new_typ.clone(),
+                        variant.clone(),
+                        items.clone(),
+                    )
                 } else {
                     panic!("struct type is not user defined: {:?}", new_typ);
                 }
@@ -250,7 +254,11 @@ impl Fiber
                             }
                         })
                         .collect();
-                    Val::EnumStruct(i_new_typ.clone(), variant.clone(), Struple(new_items))
+                    Val::EnumStruct(
+                        i_new_typ.clone(),
+                        variant.clone(),
+                        Struple(new_items),
+                    )
                 } else {
                     panic!("struct type is not user defined: {:?}", new_typ);
                 }
