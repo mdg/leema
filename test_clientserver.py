@@ -50,6 +50,14 @@ def run_clientserver(client, server):
         'server_code': server_result, 'server_output': server_output,
     }
 
+def run_leema(f):
+    args = ["target/debug/leema", "run", "T/"+f+".lma"]
+    print(args)
+    proc = subprocess.Popen(args, stdout=subprocess.PIPE)
+    result = proc.wait()
+    output = proc.stdout.read()
+    return {'code': result, 'output': output}
+
 class TestScripts(unittest.TestCase):
 
     def test_udp(self):
@@ -69,6 +77,21 @@ class TestScripts(unittest.TestCase):
             b"sent 16 bytes\n",
             result['client_output'],
         )
+
+    def test_hyper_http(self):
+        result = run_leema('test_hyper')
+        self.assertEqual(0, result['code'])
+
+        lines = result['output'].strip().splitlines()
+        line2parts = lines[1].split(b":")
+        client_received = line2parts[0]
+        lineup = ''.join(sorted(line2parts[1].decode('utf-8')))
+
+        self.assertEqual(
+            b"server_run(3998, test_hyper::web_handler)",
+            lines[0])
+        self.assertEqual(b"client_received", client_received)
+        self.assertEqual("BBKNNQRR", lineup)
 
     def clientserver_success(self, client, server):
         result = run_clientserver(client, server)

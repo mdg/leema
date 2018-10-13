@@ -30,7 +30,7 @@ func run_server() >>
 
 func run_client() >>
     let lineup := hyper_client::get("http://localhost:3998/chess960")
-    print("client received: $lineup\n")
+    print("client_received:$lineup\n")
 --
 
 func main() >>

@@ -102,7 +102,7 @@ pub fn server_run_on_thread(
     close_recv: futures_oneshot::Receiver<()>,
 )
 {
-    println!("server_run_on_thread({}, {})", port, func);
+    println!("server_run({}, {})", port, func);
     let sock_addr = SocketAddr::new(IpAddr::from([0, 0, 0, 0]), port);
 
     let new_svc = move || {
