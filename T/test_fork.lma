@@ -4,38 +4,38 @@ import list
 import task
 
 
-func open_server(): tcp::Listener ->
+func open_server(): tcp::Listener >>
     tcp::listen("0.0.0.0", 4008)
 --
 
-func run_client(msg: Str): Str ->
+func run_client(msg: Str): Str >>
     let c := tcp::connect("127.0.0.1", 4008)
     tcp::send(c, msg)
     tcp::recv(c)
 --
 
-func run_async_client(msg: Str): Str% ->
+func run_async_client(msg: Str): Str% >>
     task::fork(run_client(msg))
 --
 
-func run_server(server: tcp::Listener) ->
+func run_server(server: tcp::Listener) >>
     let sock := tcp::accept(server)
     task::fork(handle_request(sock))
     run_server(server)
 --
 
-func handle_request(sock: tcp::TcpSocket) ->
+func handle_request(sock: tcp::TcpSocket) >>
     let req := tcp::recv(sock)
     print("server heard: ($req)\n")
     tcp::send(sock, "I heard you say, ($req)\n")
 --
 
-func print_result(fmsg: Str%) ->
+func print_result(fmsg: Str%) >>
     let msg := task::join_fork(fmsg)
     print("client received: $msg\n")
 --
 
-func main() ->
+func main() >>
     let server := open_server()
     task::detach(run_server(server))
     let msgs := ["tacos", "burritos", "pizza", "pasta", "fish", "eggs"]
@@ -45,7 +45,7 @@ func main() ->
 --
 
 #>>
-func print_result(msg1: Str%, msg2: Str%) ->
+func print_result(msg1: Str%, msg2: Str%) >>
     join
     |msg1 >>
         whatever

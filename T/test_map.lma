@@ -2,7 +2,7 @@
 import map
 
 
-func main() ->
+func main() >>
     let m1 := {}
     let m2 := map::set(m1, "tacos", 4)
     let cont := map::has_key(m2, "tacos")

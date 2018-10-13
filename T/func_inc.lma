@@ -1,6 +1,6 @@
-func inc(x: $T): $T -> x + 1 --
+func inc(x: $T): $T >> x + 1 --
 
-func main() ->
+func main() >>
     let i := inc(~4)
     print("inc(-4) = $i\n")
     inc(4)

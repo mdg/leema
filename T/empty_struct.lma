@@ -1,7 +1,7 @@
 
 struct Empty --
 
-func main() ->
+func main() >>
     let e := Empty
     print("empty: $e\n")
 --

@@ -1,11 +1,11 @@
 
 import list
 
-func double(i) ->
+func double(i) >>
     i * 2
 --
 
-func main() ->
+func main() >>
     let items := [1, 2, 3, 4]
 
     ## a standard function as an object

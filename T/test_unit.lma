@@ -1,12 +1,12 @@
 
 struct Unit --
 
-func main() ->
+func main() >>
     let u := Unit
     let v := Unit
 
     if
-    |u == v -> print("units match: $u\n")
-    |else -> print("unit mismatch\n")
+    |u == v >> print("units match: $u\n")
+    |else >> print("unit mismatch\n")
     --
 --

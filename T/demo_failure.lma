@@ -1,35 +1,35 @@
-func fetch_tacos(user_id: Int): Str ->
+func fetch_tacos(user_id: Int): Str >>
     ## fetching tacos is an error prone query for some users
-    if user_id < 11 ->
+    if user_id < 11 >>
         fail(#no_tacos, "cannot find tacos")
     --
     "tacos!"
 --
 
-func fetch_burritos(user_id: Int): Str ->
-    if user_id == 10 ->
+func fetch_burritos(user_id: Int): Str >>
+    if user_id == 10 >>
         fail(#no_burritos, "cannot find burritos")
     --
     "burritos!"
 --
 
-func fetch_tacos_or_burritos(user_id: Int): Str ->
+func fetch_tacos_or_burritos(user_id: Int): Str >>
    let t := fetch_tacos(user_id)
 
    if
-   |t == "tacos!" ->
+   |t == "tacos!" >>
       "found tacos for $user_id!\n"
-   |else ->
+   |else >>
       let b := fetch_burritos(user_id)
       "found burritos instead: $b\n"
    --
 
    failed t
-   |#no_tacos -> "sorry, no tacos"
+   |#no_tacos >> "sorry, no tacos"
    --
 --
 
-func main() ->
+func main() >>
    let food := fetch_tacos_or_burritos(10)
    print("food: $food\n")
 --

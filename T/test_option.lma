@@ -3,11 +3,11 @@
 
 import option
 
-func print_opt(opt: option::T[Int]) ->
+func print_opt(opt: option::T[Int]) >>
     print("option is $opt\n")
 --
 
-func main() ->
+func main() >>
     let option_a := option::None
     print("option a? $option_a\n")
 

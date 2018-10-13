@@ -14,11 +14,11 @@ func intro(): Str >>
 
 func web_handler(req: hyper_server::Request): Str >>
     match req.path
-    |"/" -> intro()
-    |"/chess960" ->
+    |"/" >> intro()
+    |"/chess960" >>
         let lineup := chess960::chess960()
         "$lineup\n"
-    |path ->
+    |path >>
         "no matching pattern: $path\n"
     --
 --

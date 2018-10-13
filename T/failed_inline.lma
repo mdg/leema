@@ -1,35 +1,37 @@
-func foo(x: Int): Str ->
-    if x == 4 ->
+func foo(x: Int): Str
+>>
+    if x == 4 >>
         fail(#xis4, "tacos are delicious")
     --
     "not 4"
 --
 
-func handle_inline(x: Int, prop: Bool): Str ->
+func handle_inline(x: Int, prop: Bool): Str >>
    let c := foo(x)
    match failed c
-   |#xis4 ->
-      if prop ->
+   |#xis4 >>
+      if prop >>
          print("c failed. log and propagate\n")
          return c
-      else ->
+      else >>
          print("c failed. no propagate.\n")
          "yikes-linear!"
       --
-   |_ ->
+   |_ >>
       print("no match on failure hashtag\n")
    --
 
     let d := foo(x+1)
     match failed d
-    |_ ->
+    |_ >>
         print("d failed too")
     --
 
    "str interp: $c"
 --
 
-func main() ->
+func main()
+>>
    let d := handle_inline(4, false)
    print("d: $d\n")
 --

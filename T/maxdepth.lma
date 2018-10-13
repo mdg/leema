@@ -4,17 +4,17 @@ import list
 
 struct Node(Int, [Node])
 
-func count_depth(max_depth: Int, node: Node): Int ->
+func count_depth(max_depth: Int, node: Node): Int >>
     match node
-    |Node(val, []) ->
+    |Node(val, []) >>
         max_depth
-    |Node(val, children) ->
+    |Node(val, children) >>
         let children_depth := list::map(children, count_depth(max_depth + 1, ?))
         list::reduce(0, children_depth, max)
     --
 --
 
-func make_data(): Node ->
+func make_data(): Node >>
     Node(1, [
         Node(2, [
             Node(5, []),
@@ -39,7 +39,7 @@ func make_data(): Node ->
 --
 
 
-func main() ->
+func main() >>
     let d := make_data()
     print("data is $d\n")
     let depth := count_depth(1, d)
