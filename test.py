@@ -288,6 +288,13 @@ class TestScripts(unittest.TestCase):
             + b"option is option::T[$V,].Some(4,)\n"
         self.assertEqual(exp, result['output'])
 
+    def test_json(self):
+        result = run_leema('test_json')
+        self.assertEqual(0, result['code'])
+        exp = b'6\nfalse\n"hello"\n"#world"\n' \
+            + b'{}\n["a","b"]\n'
+        self.assertEqual(exp, result['output'])
+
     def test_read_file(self):
         result = run_leema('read_file')
         self.assertEqual(0, result['code'])

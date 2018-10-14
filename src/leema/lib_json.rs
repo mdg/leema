@@ -1,10 +1,12 @@
 use leema::code::Code;
 use leema::frame::Event;
+use leema::list;
+use leema::lmap::Lmap;
 use leema::lstr::Lstr;
 use leema::val::Val;
 use leema::worker::RustFuncContext;
 
-use serde::ser::Serialize;
+use serde::ser::{Serialize, SerializeMap, SerializeSeq};
 use serde::Serializer;
 use serde_json;
 
@@ -16,8 +18,30 @@ impl Serialize for Val
         S: Serializer,
     {
         match self {
-            Val::Int(i) => ser.serialize_i64(*i),
             Val::Bool(b) => ser.serialize_bool(*b),
+            Val::Int(i) => ser.serialize_i64(*i),
+            Val::Str(s) => ser.serialize_str(s),
+            Val::Hashtag(s) => {
+                let tag = format!("#{}", s);
+                ser.serialize_str(&tag)
+            }
+            Val::Map(m) => {
+                let maplen = Lmap::len(m);
+                let mser = ser.serialize_map(Some(maplen))?;
+                mser.end()
+            }
+            Val::Cons(_, _) => {
+                let list_len = list::len(self);
+                let mut ss = ser.serialize_seq(Some(list_len))?;
+                for i in list::iter(self) {
+                    ss.serialize_element(i)?;
+                }
+                ss.end()
+            }
+            Val::Nil => {
+                let ss = ser.serialize_seq(Some(0))?;
+                ss.end()
+            }
             _ => {
                 panic!("cannot json serialize: {:?}", self);
             }

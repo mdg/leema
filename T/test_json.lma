@@ -1,8 +1,17 @@
 
 import json
+import map
 
+
+func test_encode() >>
+    print(json::encode(6) \n)
+    print(json::encode(false) \n)
+    print(json::encode("hello") \n)
+    print(json::encode(#world) \n)
+    print(json::encode({}) \n)
+    print(json::encode(["a", "b"]) \n)
+--
 
 func main() >>
-    let text := json::encode(6)
-    print("json is $text\n")
+    test_encode()
 --
