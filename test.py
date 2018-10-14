@@ -292,7 +292,8 @@ class TestScripts(unittest.TestCase):
         result = run_leema('test_json')
         self.assertEqual(0, result['code'])
         exp = b'6\nfalse\n"hello"\n"#world"\n' \
-            + b'{}\n["a","b"]\n'
+            + b'["a","b"]\n' \
+            + b'{"x":4}\n'
         self.assertEqual(exp, result['output'])
 
     def test_read_file(self):

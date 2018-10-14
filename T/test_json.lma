@@ -8,8 +8,9 @@ func test_encode() >>
     print(json::encode(false) \n)
     print(json::encode("hello") \n)
     print(json::encode(#world) \n)
-    print(json::encode({}) \n)
     print(json::encode(["a", "b"]) \n)
+    let m := map::set({}, "x", 4)
+    print(json::encode(m) \n)
 --
 
 func main() >>

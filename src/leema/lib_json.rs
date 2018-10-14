@@ -1,7 +1,7 @@
 use leema::code::Code;
 use leema::frame::Event;
 use leema::list;
-use leema::lmap::Lmap;
+use leema::lmap::{Lmap, LmapNode};
 use leema::lstr::Lstr;
 use leema::val::Val;
 use leema::worker::RustFuncContext;
@@ -26,24 +26,38 @@ impl Serialize for Val
                 ser.serialize_str(&tag)
             }
             Val::Map(m) => {
-                let maplen = Lmap::len(m);
-                let mser = ser.serialize_map(Some(maplen))?;
+                let mut mser = ser.serialize_map(None)?;
+                serialize_lmap(m, &mut mser)?;
                 mser.end()
             }
-            Val::Cons(_, _) => {
-                let list_len = list::len(self);
-                let mut ss = ser.serialize_seq(Some(list_len))?;
-                for i in list::iter(self) {
-                    ss.serialize_element(i)?;
-                }
-                ss.end()
-            }
+            Val::Cons(_, _) => ser.collect_seq(list::iter(self)),
             Val::Nil => {
                 let ss = ser.serialize_seq(Some(0))?;
                 ss.end()
             }
             _ => {
                 panic!("cannot json serialize: {:?}", self);
+            }
+        }
+    }
+}
+
+fn serialize_lmap<S>(m: &LmapNode, s: &mut S) -> Result<(), S::Error>
+where
+    S: SerializeMap,
+{
+    match m {
+        None => {
+            // all done
+            Ok(())
+        }
+        Some(lm) => {
+            match **lm {
+                Lmap(ref left, (ref key, ref val), ref right) => {
+                    serialize_lmap(left, s)?;
+                    s.serialize_entry(key, val)?;
+                    serialize_lmap(right, s)
+                }
             }
         }
     }
