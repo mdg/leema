@@ -1,0 +1,5 @@
+
+func encode[T](val: T): Str -RUST-
+
+func decode[T](input: Str): T -RUST-
+

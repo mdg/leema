@@ -10,6 +10,8 @@ extern crate futures;
 extern crate hyper;
 extern crate rand;
 extern crate rustc_serialize;
+extern crate serde;
+extern crate serde_json;
 extern crate tokio;
 extern crate tokio_current_thread;
 

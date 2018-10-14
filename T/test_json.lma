@@ -1,0 +1,8 @@
+
+import json
+
+
+func main() >>
+    let text := json::encode(6)
+    print("json is $text\n")
+--

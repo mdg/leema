@@ -12,7 +12,7 @@ use leema::module::{ModulePreface, ModuleSource};
 use leema::phase0::{self, Protomod};
 use leema::typecheck::{self, CallFrame, CallOp, Typemod, Typescope};
 use leema::val::Type;
-use leema::{file, lib_hyper, lib_list, lib_task, prefab, tcp, udp};
+use leema::{file, lib_hyper, lib_json, lib_list, lib_task, prefab, tcp, udp};
 
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -57,6 +57,9 @@ impl Lib
         proglib
             .rust_load
             .insert(Lstr::Sref("hyper_server"), lib_hyper::load_rust_func);
+        proglib
+            .rust_load
+            .insert(Lstr::Sref("json"), lib_json::load_rust_func);
         proglib
             .rust_load
             .insert(Lstr::Sref("list"), lib_list::load_rust_func);
