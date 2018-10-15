@@ -63,8 +63,13 @@ where
     }
 }
 
-pub fn decode(_ctx: RustFuncContext) -> Event
+pub fn decode(mut ctx: RustFuncContext) -> Event
 {
+    let result: String = {
+        let text = ctx.get_param(0);
+        serde_json::from_str(text.str()).unwrap()
+    };
+    ctx.set_result(Val::Str(Lstr::from(result)));
     Event::success()
 }
 

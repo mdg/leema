@@ -3,6 +3,11 @@ import json
 import map
 
 
+func test_decode() >>
+    let i := json::decode("\"coded  '\"")
+    print(i \n)
+--
+
 func test_encode() >>
     print(json::encode(6) \n)
     print(json::encode(false) \n)
@@ -14,5 +19,6 @@ func test_encode() >>
 --
 
 func main() >>
+    test_decode()
     test_encode()
 --
