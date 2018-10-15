@@ -1,0 +1,30 @@
+
+
+func permutations(items: [Int]): [[Int]]
+>>
+    inner_permutations([], [], items)
+--
+
+func inner_permutations: [[Int]]
+.all: [[Int]]
+.so_far: [Int]
+.remaining: [Int]
+>>
+    match (so_far, remaining)
+    |(_, []) >> so_far;all
+    |([], head;tail) >> inner_permutations(all, [head], tail)
+    |(so_far_h;so_far_t, rem_head;rem_tail) >>
+        print("\npermute for $so_far\n")
+        let so_far1 := rem_head;so_far_h;so_far_t
+        let so_far2 := so_far_h;rem_head;so_far_t
+        print("so_far1: $so_far1\n")
+        print("so_far2: $so_far2\n")
+        let first := inner_permutations(all, so_far1, rem_tail)
+        inner_permutations(first, so_far2, rem_tail)
+    --
+--
+
+func main() >>
+    let permuts := permutations([1, 2, 3])
+    println("$permuts")
+--
