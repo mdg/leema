@@ -25,6 +25,9 @@ macro unfail(new_val) ->
     new_val
 --
 
+macro println(x) >> print(x \n) --
+
+
 func max(a: $T, b: $T): $T ->
     if
     |a < b -> b

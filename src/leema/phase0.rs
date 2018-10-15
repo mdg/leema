@@ -742,6 +742,13 @@ impl Protomod
                     None => Ast::Localid(name.clone(), *loc),
                 }
             }
+            &Ast::StrExpr(ref items, ref iloc) => {
+                let new_items = items
+                    .iter()
+                    .map(|i| Protomod::replace_ids(i, idvals, iloc))
+                    .collect();
+                Ast::StrExpr(new_items, *iloc)
+            }
             &Ast::DefFunc(fc, ref decl, ref body) => {
                 let r_name = Protomod::replace_ids(&decl.name, idvals, loc);
                 let r_args = decl
@@ -776,6 +783,9 @@ impl Protomod
                 Ast::Lri(mods.clone(), Some(tparams2), *iloc)
             }
             &Ast::ConstBool(b) => Ast::ConstBool(b),
+            &Ast::ConstInt(i) => Ast::ConstInt(i),
+            &Ast::ConstHashtag(ref s) => Ast::ConstHashtag(s.clone()),
+            &Ast::ConstStr(ref s) => Ast::ConstStr(s.clone()),
             &Ast::ConstVoid => Ast::ConstVoid,
             &Ast::TypeAnon => Ast::TypeAnon,
             &Ast::Wildcard => Ast::Wildcard,
