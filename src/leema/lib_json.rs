@@ -3,7 +3,7 @@ use leema::frame::Event;
 use leema::list;
 use leema::lmap::{Lmap, LmapNode};
 use leema::lstr::Lstr;
-use leema::val::Val;
+use leema::val::{Type, Val};
 use leema::worker::RustFuncContext;
 
 use serde::ser::{Serialize, SerializeMap, SerializeSeq};
@@ -65,11 +65,34 @@ where
 
 pub fn decode(mut ctx: RustFuncContext) -> Event
 {
-    let result: String = {
-        let text = ctx.get_param(0);
-        serde_json::from_str(text.str()).unwrap()
+    let result: Val = {
+        let text = ctx.get_param(0).str();
+        let fri = ctx.current_fri();
+        // previous typechecking should assure that the type param is
+        // there and that there will be exactly 1
+        match fri.params.as_ref().unwrap()[0] {
+            Type::Bool => {
+                let b = serde_json::from_str(text).unwrap();
+                Val::Bool(b)
+            }
+            Type::Int => {
+                let i = serde_json::from_str(text).unwrap();
+                Val::Int(i)
+            }
+            Type::Str => {
+                let v: String = serde_json::from_str(text).unwrap();
+                Val::Str(Lstr::from(v))
+            }
+            Type::Hashtag => {
+                let s: String = serde_json::from_str(text).unwrap();
+                Val::Hashtag(Lstr::from(s))
+            }
+            ref bad_type => {
+                panic!("cannot decode json into type: {}", bad_type);
+            }
+        }
     };
-    ctx.set_result(Val::Str(Lstr::from(result)));
+    ctx.set_result(result);
     Event::success()
 }
 

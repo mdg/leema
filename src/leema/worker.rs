@@ -47,6 +47,11 @@ impl<'a> RustFuncContext<'a>
         RustFuncContext { worker: w, task: t }
     }
 
+    pub fn current_fri(&self) -> &Lri
+    {
+        &self.task.head.function
+    }
+
     pub fn get_param(&self, i: i8) -> &Val
     {
         self.task.head.e.get_param(i)

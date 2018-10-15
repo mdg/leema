@@ -4,13 +4,15 @@ import map
 
 
 func test_decode() >>
-    let i := json::decode("\"coded  '\"")
-    print(i \n)
+    let s := json::decode[Str]("\"coded  '\"")
+    ## let i := json::decode[Int](6)
+    ## let b := json::decode[Bool](true)
+    println("$s")
 --
 
 func test_encode() >>
-    print(json::encode(6) \n)
-    print(json::encode(false) \n)
+    println(json::encode(6))
+    println(json::encode(false))
     print(json::encode("hello") \n)
     print(json::encode(#world) \n)
     print(json::encode(["a", "b"]) \n)
@@ -19,6 +21,6 @@ func test_encode() >>
 --
 
 func main() >>
-    test_decode()
     test_encode()
+    test_decode()
 --

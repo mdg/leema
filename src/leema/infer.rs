@@ -77,9 +77,7 @@ impl<'b> Inferator<'b>
                 let tvar = match fp {
                     &Type::Var(ref vname) => vname,
                     &Type::UserDef(ref vri) if vri.local_only() => &vri.localid,
-                    _ => {
-                        panic!("invalid type parameter for {}: {}", funcri, fp);
-                    }
+                    _ => continue,
                 };
                 typevars.insert(tvar, false);
             }

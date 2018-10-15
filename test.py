@@ -293,7 +293,8 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(0, result['code'])
         exp = b'6\nfalse\n"hello"\n"#world"\n' \
             + b'["a","b"]\n' \
-            + b'{"x":4}\n'
+            + b'{"x":4}\n' \
+            + b'coded  \'\n'
         self.assertEqual(exp, result['output'])
 
     def test_read_file(self):
