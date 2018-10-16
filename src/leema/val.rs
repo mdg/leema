@@ -473,7 +473,6 @@ pub enum Val
         i8, // status
     ),
     Id(Lstr),
-    Lri(Lri),
     Type(Type),
     Lib(Arc<LibVal>),
     FuncRef(Lri, Struple<Val>, Type),
@@ -659,7 +658,6 @@ impl Val
             &Val::Wildcard => Type::Unknown,
             &Val::PatternVar(_) => Type::Unknown,
             &Val::Id(_) => Type::AnonVar,
-            &Val::Lri(_) => Type::AnonVar,
             &Val::RustBlock => Type::RustBlock,
             &Val::Map(_) => lmap::MAP_TYPE,
             &Val::Tuple(ref items) if items.0.len() == 1 => {
@@ -1036,7 +1034,6 @@ impl fmt::Display for Val
             Val::Failure(ref tag, ref msg, ref stack, _status) => {
                 write!(f, "Failure({}, {}\n{})", tag, msg, **stack)
             }
-            Val::Lri(ref name) => write!(f, "{}", name),
             Val::Id(ref name) => write!(f, "{}", name),
             Val::Type(ref t) => write!(f, "{}", t),
             Val::FuncRef(ref id, ref args, ref typ) => {
@@ -1087,7 +1084,6 @@ impl fmt::Debug for Val
             Val::Failure(ref tag, ref msg, ref stack, status) => {
                 write!(f, "Failure({}, {}, {}, {:?})", tag, status, msg, stack)
             }
-            Val::Lri(ref name) => write!(f, "{:?}", name),
             Val::Id(ref id) => write!(f, "Id({})", id),
             Val::Type(ref t) => write!(f, "TypeVal({:?})", t),
             Val::FuncRef(ref id, ref args, ref typ) => {
