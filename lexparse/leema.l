@@ -15,8 +15,8 @@ int add_block_comment_depth(yyscan_t, int delta);
 
 DIGIT	[0-9]
 INT	[0-9]+
-ID      [a-zA-Z_][a-zA-Z_0-9]*[?']?
-HASHTAG	#[a-zA-Z_0-9]+[?!]?
+ID      [a-zA-Z_][a-zA-Z_0-9]*
+HASHTAG	#[a-zA-Z_0-9]+
 LINECOMMENT	##.*
 STRC	[^\$\\\"]
 SPACE	[ \t]

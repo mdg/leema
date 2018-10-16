@@ -57,6 +57,7 @@ use std::collections::linked_list::{LinkedList};
 %type PCT { SrcLoc }
 %type PIPE { SrcLoc }
 %type PLUS { SrcLoc }
+%type QUESTION { SrcLoc }
 %type RETURN { SrcLoc }
 %type SEMICOLON { SrcLoc }
 %type SLASH { SrcLoc }
@@ -432,11 +433,14 @@ type_term(A) ::= type_term(B) PCT(Z). {
 }
 type_term(A) ::= type_term(B) MULT. {
     // A = Ast::TypeSequence(Box::new(B));
+    eprintln!("cannot yet parse type {}*", B);
     A = Ast::TypeVoid;
 }
-type_term(A) ::= type_term(B) QUESTION. {
-    // A = Ast::TypeFuture(Box::new(B));
-    A = Ast::TypeVoid;
+type_term(A) ::= type_term(B) QUESTION(Z). {
+    let mods = vec![Lstr::Sref("option"), Lstr::Sref("T")];
+    let mut tparam = LinkedList::new();
+    tparam.push_back(Kxpr::new_x(B));
+    A = Ast::Lri(mods, Some(tparam), Z);
 }
 typex(A) ::= FTYPE(Z) PARENCALL typex_list(B) RPAREN COLON typex(C). {
     let typevec: Vec<Kxpr> = B.into_iter().collect();
