@@ -7,11 +7,10 @@ use std::collections::hash_map::Keys;
 use std::collections::HashMap;
 
 
-macro_rules! match_err
-{
+macro_rules! match_err {
     ($a:expr, $b:expr) => {
         Err(TypeErr::Mismatch($a.clone(), $b.clone(), line!()))
-    }
+    };
 }
 
 
@@ -313,12 +312,11 @@ impl<'b> Inferator<'b>
         match (patt, valtype) {
             (_, &Type::AnonVar) => {
                 Err(TypeErr::Error(Lstr::from(format!(
-                    "pattern value type cannot be anonymous: {:?}", patt
+                    "pattern value type cannot be anonymous: {:?}",
+                    patt
                 ))))
             }
-            (&Val::Id(ref id), _) => {
-                self.bind_vartype(id, valtype, lineno)
-            }
+            (&Val::Id(ref id), _) => self.bind_vartype(id, valtype, lineno),
             (&Val::Wildcard, _) => Ok(Type::Unknown),
             (&Val::Nil, _) => {
                 self.merge_types(
@@ -375,7 +373,9 @@ impl<'b> Inferator<'b>
                 }
                 let mut tparams = vec![];
                 for (fp, ft) in flds1.0.iter().zip(flds2.0.iter()) {
-                    tparams.push(self.match_pattern(typeset, &fp.1, &ft.1, lineno)?);
+                    tparams.push(
+                        self.match_pattern(typeset, &fp.1, &ft.1, lineno)?,
+                    );
                 }
                 Ok(Type::UserDef(typ1.replace_params(tparams)))
             }
@@ -400,7 +400,9 @@ impl<'b> Inferator<'b>
                 }
                 let mut tparams = vec![];
                 for (fp, ft) in flds1.0.iter().zip(flds2.0.iter()) {
-                    tparams.push(self.match_pattern(typeset, &fp.1, &ft.1, lineno)?);
+                    tparams.push(
+                        self.match_pattern(typeset, &fp.1, &ft.1, lineno)?,
+                    );
                 }
                 Ok(Type::UserDef(typ1.replace_params(tparams)))
             }
@@ -469,7 +471,8 @@ impl<'b> Inferator<'b>
             &Val::Wildcard => Ok(Type::Unknown),
             _ => {
                 Err(TypeErr::Error(Lstr::from(format!(
-                    "match_list_pattern on not a list: {:?}", l
+                    "match_list_pattern on not a list: {:?}",
+                    l
                 ))))
             }
         }

@@ -923,10 +923,8 @@ pub fn compile_pattern(
         &Ast::Lri(_, _, _) => {
             // this should be a const token
             let tokenri = Lri::from(patt);
-            let constval = scope.import_constval(
-                &tokenri.modules.unwrap(),
-                &tokenri.localid,
-            );
+            let constval = scope
+                .import_constval(&tokenri.modules.unwrap(), &tokenri.localid);
             if constval.is_none() {
                 panic!("unknown module value in pattern: {}", patt)
             }

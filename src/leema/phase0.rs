@@ -973,11 +973,14 @@ impl Protomod
             &Ast::Lri(ref mods, ref opt_params, ref iloc) => {
                 let pp_mods = mods.clone();
                 let pp_params = opt_params.as_ref().map(|params| {
-                    params.iter().map(|pkx| {
-                        pkx.map_x(|p| {
-                            Protomod::preproc_pattern(prog, mp, p, iloc)
+                    params
+                        .iter()
+                        .map(|pkx| {
+                            pkx.map_x(|p| {
+                                Protomod::preproc_pattern(prog, mp, p, iloc)
+                            })
                         })
-                    }).collect()
+                        .collect()
                 });
                 Ast::Lri(pp_mods, pp_params, *iloc)
             }
