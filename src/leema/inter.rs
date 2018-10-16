@@ -663,10 +663,16 @@ pub fn compile_lri(
         vout!("{},", n);
     }
     vout!(")\n");
-    if names.len() != 2 {
+    if names.len() > 2 {
         panic!("too many modules: {:?}", names);
     }
-    let modname = names.first().unwrap();
+    let modname: &Lstr = if names.len() == 2 {
+        names.first().as_ref().unwrap().clone()
+    } else if tvars.is_some() {
+        &scope.proto.key.name
+    } else {
+        panic!("cannot compile this Lri: {:?}/{:?}", names, tvars);
+    };
     if !scope.imports_module(modname) && *modname != scope.proto.key.name {
         panic!("module not found: {:?}", names);
     }
