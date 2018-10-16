@@ -27,6 +27,8 @@ func reverse(items: [$E]): [$E] ->
 
 func sort(items: [$J]): [$J] -RUST-
 
+func cat[T](a: [T], b: [T]): [T] -RUST-
+
 func _filter(acc: [$G], in: [$G], pred: F($G): Bool): [$G] >>
 |(acc, [], _) -> reverse(acc)
 |(acc, h;t, f) ->

@@ -1,3 +1,5 @@
+## a leetcode problem #46
+## https://leetcode.com/problems/permutations/
 
 import list
 import option
@@ -5,30 +7,41 @@ import option
 
 func permutations(items: [Int]): [[Int]]
 >>
-    let picks := pick_items([], option::None, [], items)
+    let picks := pick_items([], [], [], items)
+    let ppicks := list::map(picks, permute_picks)
     #>>
     let splits_a := list::map(splits, fn(s: (Int, Int)) >>
         match s
         |(a, b) >> a
         --
     #--
-    print("picks: $picks\n")
+    print("perms for $items: $ppicks\n")
     []
+--
+
+func permute_picks(picks: (Int, [Int])): [[Int]] >>
+    match picks
+    |(pick, []) >> [[pick]]
+    |(pick, rem) >>
+        let prem := permutations(rem)
+        ## print("perms of $rem: $prem\n")
+        list::map(prem, fn(rem_items) >> pick;rem_items --)
+    --
 --
 
 func pick_items: [(Int, [Int])]
 .all: [(Int, [Int])]
-.first: Int?
+.first: [Int]
 .last: [Int]
 .input: [Int]
 >>
     match (first, last, input)
-    |(option::None, _, []) >> all
-    |(option::Some(some_first), _, []) >> (some_first, last);all
+    |([], _, []) >> all
+    |([some_first], _, []) >> (some_first, last);all
     |([], _, head;tail) >>
-        let all2 := pick_items(all, option::Some(head), last, tail)
-        pick_items(all2, option::None, head;last, tail)
-    |(option::Some(_), _, head;tail) >>
+        let all2 := pick_items(all, [head], last, tail)
+        pick_items(all2, [], head;last, tail)
+    |([_], _, head;tail) >>
         pick_items(all, first, head;last, tail)
     --
 --
