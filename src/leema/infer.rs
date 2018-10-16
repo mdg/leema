@@ -380,16 +380,29 @@ impl<'b> Inferator<'b>
                 Ok(Type::UserDef(typ1.replace_params(tparams)))
             }
             (
-                &Val::EnumStruct(ref typ1, ref _var1, ref flds1),
+                &Val::EnumStruct(ref typ1, ref var1, ref flds1),
                 &Type::UserDef(ref typename2),
             ) => {
-                if typ1 != typename2 {
-                    panic!(
-                        "struct type mismatch: {:?} != {:?}",
-                        typ1, typename2
-                    );
+                if !Lri::nominal_eq(typ1, typename2) {
+                    return Err(TypeErr::Mismatch(
+                        Type::UserDef(typ1.clone()),
+                        valtype.clone(),
+                        line!(),
+                    ));
                 }
-                let flds2 = match typeset.get_typedef(typename2) {
+                if typ1.params.is_none() && typename2.params.is_none() {
+                    return Ok(valtype.clone());
+                }
+                let iter1 = typ1.params.as_ref().unwrap().iter();
+                let iter2 = typename2.params.as_ref().unwrap().iter();
+                let mut tparams = vec![];
+                for (t1, t2) in iter1.zip(iter2) {
+                    tparams.push(self.merge_types(t1, t2)?);
+                }
+
+                // look at the struct fields
+                let variant_lri = typ1.replace_local(var1.clone());
+                let flds2 = match typeset.get_typedef(&variant_lri) {
                     Result::Err(e) => {
                         panic!("{}", e);
                     }
@@ -398,11 +411,8 @@ impl<'b> Inferator<'b>
                 if flds1.0.len() > flds2.0.len() {
                     panic!("too many fields in pattern for: {}", typ1);
                 }
-                let mut tparams = vec![];
                 for (fp, ft) in flds1.0.iter().zip(flds2.0.iter()) {
-                    tparams.push(
-                        self.match_pattern(typeset, &fp.1, &ft.1, lineno)?,
-                    );
+                    self.match_pattern(typeset, &fp.1, &ft.1, lineno)?;
                 }
                 Ok(Type::UserDef(typ1.replace_params(tparams)))
             }

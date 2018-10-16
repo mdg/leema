@@ -285,7 +285,7 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(0, result['code'])
         exp = b"option a? None\n" \
             + b"option b? option::T[$V,].Some(4,)\n" \
-            + b"option is option::T[$V,].Some(4,)\n"
+            + b"option is 4\n"
         self.assertEqual(exp, result['output'])
 
     def test_json(self):

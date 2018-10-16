@@ -411,6 +411,17 @@ impl<'a> Interscope<'a>
         }
     }
 
+    pub fn module(&self, opt_mod: &Option<Lstr>) -> &Protomod
+    {
+        match opt_mod {
+            None => &self.proto,
+            Some(ref self_mod) if self_mod == &self.proto.key.name => {
+                &self.proto
+            }
+            Some(ref import) => self.imports.get(import).unwrap(),
+        }
+    }
+
     pub fn import_vartype(&self, modnm: &str, valnm: &str) -> Option<&Type>
     {
         if modnm == &self.proto.key.name {
@@ -958,7 +969,27 @@ pub fn compile_pattern_call(
     if !struct_lri.has_modules() {
         struct_lri = struct_lri.add_modules(scope.proto.key.name.clone());
     }
-    Val::Struct(struct_lri, Struple(args_vec))
+    let dtype = scope
+        .module(&struct_lri.modules)
+        .deftypes
+        .get(&struct_lri.localid);
+    if dtype.is_some() {
+        return Val::Struct(struct_lri, Struple(args_vec));
+    }
+    let ftype = scope
+        .module(&struct_lri.modules)
+        .func_result_type(&struct_lri.localid)
+        .unwrap()
+        .clone();
+    if let Type::UserDef(ref ftype_ri) = ftype {
+        Val::EnumStruct(
+            ftype_ri.clone(),
+            struct_lri.localid.clone(),
+            Struple(args_vec),
+        )
+    } else {
+        panic!("constructor type is not a structure: {:?}", ftype);
+    }
 }
 
 pub fn push_block(_scope: &mut Interscope, stmts: &Vec<Ast>) -> Vec<Ast>

@@ -605,6 +605,17 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
                 .collect();
             Val::Struct(styp.clone(), Struple(reg_items))
         }
+        &Val::EnumStruct(ref styp, ref variant, ref vars) => {
+            let reg_items = vars
+                .0
+                .iter()
+                .map(|v| (v.0.clone(), assign_pattern_registers(rt, &v.1)))
+                .collect();
+            Val::EnumStruct(styp.clone(), variant.clone(), Struple(reg_items))
+        }
+        &Val::EnumToken(ref styp, ref variant) => {
+            Val::EnumToken(styp.clone(), variant.clone())
+        }
         _ => {
             panic!("pattern type unsupported: {:?}", pattern);
         }

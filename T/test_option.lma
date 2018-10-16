@@ -4,7 +4,8 @@
 import option
 
 func print_opt(opt: option::T[Int]) >>
-    print("option is $opt\n")
+|option::Some(i) >> print("option is $i\n")
+|option::None >> print("no option\n")
 --
 
 func main() >>
