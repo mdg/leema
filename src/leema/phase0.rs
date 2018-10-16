@@ -970,6 +970,17 @@ impl Protomod
                     .collect();
                 Ast::Call(Box::new(pp_callx), pp_args, *loc)
             }
+            &Ast::Lri(ref mods, ref opt_params, ref iloc) => {
+                let pp_mods = mods.clone();
+                let pp_params = opt_params.as_ref().map(|params| {
+                    params.iter().map(|pkx| {
+                        pkx.map_x(|p| {
+                            Protomod::preproc_pattern(prog, mp, p, iloc)
+                        })
+                    }).collect()
+                });
+                Ast::Lri(pp_mods, pp_params, *iloc)
+            }
             &Ast::Localid(_, _) => p.clone(),
             &Ast::Wildcard => Ast::Wildcard,
             &Ast::ConstInt(i) => Ast::ConstInt(i),

@@ -920,6 +920,18 @@ pub fn compile_pattern(
         &Ast::Call(ref callx, ref args, ref iloc) => {
             compile_pattern_call(scope, new_vars, callx, args, iloc)
         }
+        &Ast::Lri(_, _, _) => {
+            // this should be a const token
+            let tokenri = Lri::from(patt);
+            let constval = scope.import_constval(
+                &tokenri.modules.unwrap(),
+                &tokenri.localid,
+            );
+            if constval.is_none() {
+                panic!("unknown module value in pattern: {}", patt)
+            }
+            (*constval.as_ref().unwrap()).clone()
+        }
         _ => {
             panic!("invalid pattern: {:?}", patt);
         }
