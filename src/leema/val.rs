@@ -323,10 +323,11 @@ impl fmt::Debug for Type
 pub enum TypeErr
 {
     Error(Lstr),
-    Mismatch(Type, Type),
+    Mismatch(Type, Type, u32),
     Unknowable,
     Context(Box<TypeErr>, Lstr),
 }
+
 
 impl TypeErr
 {
@@ -342,8 +343,8 @@ impl fmt::Display for TypeErr
     {
         match self {
             &TypeErr::Error(ref estr) => write!(f, "TypeError({})", estr),
-            &TypeErr::Mismatch(ref a, ref b) => {
-                write!(f, "TypeMismatch({},{})", a, b)
+            &TypeErr::Mismatch(ref a, ref b, line) => {
+                write!(f, "TypeMismatch({},{} @ {})", a, b, line)
             }
             &TypeErr::Unknowable => write!(f, "UnknowableType"),
             &TypeErr::Context(ref inner_e, ref ctx) => {

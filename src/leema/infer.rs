@@ -7,6 +7,14 @@ use std::collections::hash_map::Keys;
 use std::collections::HashMap;
 
 
+macro_rules! match_err
+{
+    ($a:expr, $b:expr) => {
+        Err(TypeErr::Mismatch($a.clone(), $b.clone(), line!()))
+    }
+}
+
+
 #[derive(Debug)]
 pub struct TypeSet<'b>
 {
@@ -300,22 +308,23 @@ impl<'b> Inferator<'b>
         patt: &Val,
         valtype: &Type,
         lineno: i16,
-    ) -> Result<(), TypeErr>
+    ) -> TypeResult
     {
         match (patt, valtype) {
             (_, &Type::AnonVar) => {
-                panic!("pattern value type cannot be anonymous: {:?}", patt);
+                Err(TypeErr::Error(Lstr::from(format!(
+                    "pattern value type cannot be anonymous: {:?}", patt
+                ))))
             }
             (&Val::Id(ref id), _) => {
-                self.bind_vartype(id, valtype, lineno).map(|_| ())
+                self.bind_vartype(id, valtype, lineno)
             }
-            (&Val::Wildcard, _) => Ok(()),
+            (&Val::Wildcard, _) => Ok(Type::Unknown),
             (&Val::Nil, _) => {
                 self.merge_types(
                     &Type::StrictList(Box::new(Type::Unknown)),
                     valtype,
                 )
-                .map(|_| ())
             }
             (&Val::Cons(_, _), &Type::StrictList(ref subt)) => {
                 self.match_list_pattern(typeset, patt, subt, lineno)
@@ -328,7 +337,6 @@ impl<'b> Inferator<'b>
                     &valtype,
                     &Type::StrictList(Box::new(tvar_inner.clone())),
                 )
-                .map(|_| ())
             }
             (&Val::Tuple(ref flds1), &Type::Tuple(ref item_types)) => {
                 if flds1.0.len() != item_types.0.len() {
@@ -337,10 +345,14 @@ impl<'b> Inferator<'b>
                         patt, valtype
                     );
                 }
+                let mut tfld_types = vec![];
                 for (fp, ft) in flds1.0.iter().zip(item_types.0.iter()) {
-                    self.match_pattern(typeset, &fp.1, &ft.1, lineno)?;
+                    tfld_types.push((
+                        ft.0.clone(),
+                        self.match_pattern(typeset, &fp.1, &ft.1, lineno)?,
+                    ));
                 }
-                Ok(())
+                Ok(Type::Tuple(Struple(tfld_types)))
             }
             (
                 &Val::Struct(ref typ1, ref flds1),
@@ -361,47 +373,72 @@ impl<'b> Inferator<'b>
                 if flds1.0.len() > flds2.0.len() {
                     panic!("too many fields in pattern for: {}", typ1);
                 }
+                let mut tparams = vec![];
                 for (fp, ft) in flds1.0.iter().zip(flds2.0.iter()) {
-                    self.match_pattern(typeset, &fp.1, &ft.1, lineno)?;
+                    tparams.push(self.match_pattern(typeset, &fp.1, &ft.1, lineno)?);
                 }
-                Ok(())
+                Ok(Type::UserDef(typ1.replace_params(tparams)))
             }
             (
-                &Val::EnumStruct(ref typ1, ref _var1, ref _flds1),
+                &Val::EnumStruct(ref typ1, ref _var1, ref flds1),
                 &Type::UserDef(ref typename2),
             ) => {
                 if typ1 != typename2 {
                     panic!(
-                        "enum struct type mismatch: {:?} != {:?}",
+                        "struct type mismatch: {:?} != {:?}",
                         typ1, typename2
                     );
                 }
-                Ok(())
+                let flds2 = match typeset.get_typedef(typename2) {
+                    Result::Err(e) => {
+                        panic!("{}", e);
+                    }
+                    Result::Ok(r_type_struple) => r_type_struple,
+                };
+                if flds1.0.len() > flds2.0.len() {
+                    panic!("too many fields in pattern for: {}", typ1);
+                }
+                let mut tparams = vec![];
+                for (fp, ft) in flds1.0.iter().zip(flds2.0.iter()) {
+                    tparams.push(self.match_pattern(typeset, &fp.1, &ft.1, lineno)?);
+                }
+                Ok(Type::UserDef(typ1.replace_params(tparams)))
             }
             (
                 &Val::EnumToken(ref typ1, ref _var1),
                 &Type::UserDef(ref typename2),
             ) => {
-                if typ1 != typename2 {
-                    panic!(
-                        "enum token type mismatch: {:?} != {:?}",
-                        typ1, typename2
-                    );
+                if !Lri::nominal_eq(typ1, typename2) {
+                    return Err(TypeErr::Mismatch(
+                        Type::UserDef(typ1.clone()),
+                        valtype.clone(),
+                        line!(),
+                    ));
                 }
-                Ok(())
+                if typ1.params.is_none() && typename2.params.is_none() {
+                    return Ok(valtype.clone());
+                }
+                let iter1 = typ1.params.as_ref().unwrap().iter();
+                let iter2 = typename2.params.as_ref().unwrap().iter();
+                let mut tparams = vec![];
+                for (t1, t2) in iter1.zip(iter2) {
+                    tparams.push(self.merge_types(t1, t2)?);
+                }
+                Ok(Type::UserDef(typ1.replace_params(tparams)))
             }
             (&Val::Token(ref typ1), &Type::UserDef(ref typename2)) => {
                 if typ1 != typename2 {
-                    panic!(
+                    Err(TypeErr::Error(Lstr::from(format!(
                         "token type mismatch: {:?} != {:?}",
                         typ1, typename2
-                    );
+                    ))))
+                } else {
+                    Ok(valtype.clone())
                 }
-                Ok(())
             }
             _ => {
                 let ptype = patt.get_type();
-                self.merge_types(&ptype, valtype).map(|_| ()).map_err(|e| {
+                self.merge_types(&ptype, valtype).map_err(|e| {
                     e.add_context(Lstr::from(format!(
                         "pattern type mismatch: {:?} != {:?}",
                         patt, valtype
@@ -417,7 +454,7 @@ impl<'b> Inferator<'b>
         l: &Val,
         inner_type: &Type,
         lineno: i16,
-    ) -> Result<(), TypeErr>
+    ) -> TypeResult
     {
         match l {
             &Val::Cons(ref head, ref tail) => {
@@ -426,12 +463,14 @@ impl<'b> Inferator<'b>
             }
             &Val::Id(ref idname) => {
                 let ltype = Type::StrictList(Box::new(inner_type.clone()));
-                self.bind_vartype(idname, &ltype, lineno).map(|_| ())
+                self.bind_vartype(idname, &ltype, lineno)
             }
-            &Val::Nil => Ok(()),
-            &Val::Wildcard => Ok(()),
+            &Val::Nil => Ok(Type::StrictList(Box::new(Type::Unknown))),
+            &Val::Wildcard => Ok(Type::Unknown),
             _ => {
-                panic!("match_list_pattern on not a list: {:?}", l);
+                Err(TypeErr::Error(Lstr::from(format!(
+                    "match_list_pattern on not a list: {:?}", l
+                ))))
             }
         }
     }
@@ -481,7 +520,6 @@ impl<'b> Inferator<'b>
             // all good
             return Ok(oldt.clone());
         }
-        let match_err = || Err(TypeErr::Mismatch(oldt.clone(), newt.clone()));
 
         vout!("mash({:?}, {:?}) where {:?}\n", oldt, newt, typevars);
         let mtype: TypeResult = match (oldt, newt) {
@@ -534,7 +572,7 @@ impl<'b> Inferator<'b>
                 let oldlen = oldargs.len();
                 let newlen = newargs.len();
                 if oldlen != newlen {
-                    return match_err();
+                    return match_err!(oldt, newt);
                 }
                 let mut masht = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
@@ -554,12 +592,12 @@ impl<'b> Inferator<'b>
                 let oldlen = oldargs.len();
                 let newlen = newargs.len();
                 if oldlen != newlen {
-                    return match_err();
+                    return match_err!(oldt, newt);
                 }
                 let coldlen = oldclosed.len();
                 let cnewlen = newclosed.len();
                 if coldlen != cnewlen {
-                    return match_err();
+                    return match_err!(oldt, newt);
                 }
                 let mut masht = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
@@ -585,7 +623,7 @@ impl<'b> Inferator<'b>
                 let oldlen = oldargs.len();
                 let newlen = newargs.len();
                 if oldlen != newlen {
-                    return match_err();
+                    return match_err!(oldt, newt);
                 }
                 let mut masht = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
@@ -605,7 +643,7 @@ impl<'b> Inferator<'b>
                 let oldlen = oldargs.len();
                 let newlen = newargs.len();
                 if oldlen != newlen {
-                    return match_err();
+                    return match_err!(oldt, newt);
                 }
                 let mut masht = Vec::with_capacity(oldlen);
                 for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
@@ -622,7 +660,7 @@ impl<'b> Inferator<'b>
                 let oldlen = olditems.0.len();
                 let newlen = newitems.0.len();
                 if oldlen != newlen {
-                    return match_err();
+                    return match_err!(oldt, newt);
                 }
                 let mut mashitems = Vec::with_capacity(oldlen);
                 for (oi, ni) in olditems.0.iter().zip(newitems.0.iter()) {
@@ -634,19 +672,19 @@ impl<'b> Inferator<'b>
             }
             (&Type::UserDef(ref oldlri), &Type::UserDef(ref newlri)) => {
                 if oldlri.modules != newlri.modules {
-                    return match_err();
+                    return match_err!(oldt, newt);
                 }
                 if oldlri.localid != newlri.localid {
-                    return match_err();
+                    return match_err!(oldt, newt);
                 }
                 if oldlri.params.is_none() || oldlri.params.is_none() {
-                    return match_err();
+                    return match_err!(oldt, newt);
                 }
                 let oldparams = oldlri.params.as_ref().unwrap();
                 let newparams = newlri.params.as_ref().unwrap();
                 let oldlen = oldparams.len();
                 if oldlen != newparams.len() {
-                    return match_err();
+                    return match_err!(oldt, newt);
                 }
                 let mut mashparams = Vec::with_capacity(oldlen);
                 for (op, np) in oldparams.iter().zip(newparams.iter()) {
@@ -660,7 +698,7 @@ impl<'b> Inferator<'b>
                 );
                 Ok(Type::UserDef(mashlri))
             }
-            (_, _) => match_err(),
+            (_, _) => match_err!(oldt, newt),
         };
         vout!("\tmashed -> {:?}\n", mtype);
         mtype
