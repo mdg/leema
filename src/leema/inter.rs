@@ -1252,7 +1252,7 @@ mod tests
         let mut new_vars = Vec::default();
         let patt = Ast::Localid(Lstr::from("x"), SrcLoc::default());
 
-        inter::compile_pattern(&mut scope, &mut new_vars, &patt);
+        inter::compile_pattern(&mut scope, &mut new_vars, &patt).unwrap();
 
         assert_eq!(1, new_vars.len());
         assert_eq!("x", &**(new_vars.first().unwrap()));
@@ -1294,7 +1294,7 @@ mod tests
         let proto = prog.read_proto(&foo_str);
         let mut inter = Intermod::new(foo_str.clone());
         let closure_name = proto.closures.front().unwrap();
-        inter.compile_function(&proto, &HashMap::new(), closure_name);
+        inter.compile_function(&proto, &HashMap::new(), closure_name).unwrap();
 
         let closed = inter.get_closed_vars(closure_name).unwrap();
         assert_eq!("i", &closed[0]);

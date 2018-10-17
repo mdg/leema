@@ -1,4 +1,3 @@
-use leema::failure::Failure;
 use leema::infer::{Inferator, TypeSet};
 use leema::ixpr::{Ixpr, Source};
 use leema::lmap;
@@ -177,7 +176,6 @@ impl<'a> CallFrame<'a>
 #[derive(PartialOrd)]
 pub enum Depth
 {
-    Phase0,
     Inter,
     One,
     Full,
@@ -191,9 +189,6 @@ impl Depth
             &Depth::Inter => false,
             &Depth::One => true,
             &Depth::Full => true,
-            &Depth::Phase0 => {
-                panic!("cannot check one_deeper for Depth::Phase0")
-            }
         }
     }
 
@@ -202,7 +197,6 @@ impl Depth
         match self {
             &Depth::One => Depth::Inter,
             &Depth::Full => Depth::Full,
-            &Depth::Phase0 => panic!("cannot get next for Depth::Phase0"),
             &Depth::Inter => panic!("cannot get next for Depth::Inter"),
         }
     }
@@ -415,11 +409,13 @@ impl<'a, 'b> Typescope<'a, 'b>
                 .clone()
         };
         if let Type::Func(ref args, ref self_result) = &ftype {
-            // if !Lri::nominal_eq(selfri, fri) {
+            /*
+            if !Lri::nominal_eq(selfri, fri) {
             return Err(TypeErr::Failure(Failure::new(
                 "type_error",
                 Lstr::from(format!("what to match this Lri to: {}", fri)),
             )));
+            */
         }
         Ok(ftype)
     }
