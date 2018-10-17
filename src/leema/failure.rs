@@ -1,8 +1,9 @@
-
 use leema::frame::FrameTrace;
+use leema::lmap::LmapNode;
+use leema::lstr::Lstr;
 use leema::val::Val;
 
-use std::collections::HashMap;
+use std::fmt;
 use std::sync::Arc;
 
 
@@ -11,7 +12,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
-struct Status
+pub enum Status
 {
     None,
     // end-user input errors
@@ -29,16 +30,18 @@ struct Status
     RuntimeLeemaFailure,
 }
 
-struct Failure
+#[derive(Clone)]
+#[derive(Debug)]
+pub struct Failure
 {
     tag: Val,
     msg: Val,
     trace: Option<Arc<FrameTrace>>,
     status: Status,
-    meta: Lmap,
+    meta: LmapNode,
 }
 
-type Lresult<T> = Result<T, Failure>;
+pub type Lresult<T> = Result<T, Failure>;
 
 impl Failure
 {
@@ -48,8 +51,35 @@ impl Failure
             tag: Val::Hashtag(Lstr::Sref(tag)),
             msg: Val::Str(msg),
             trace: None,
-            status: None,
+            status: Status::None,
             meta: None,
         }
+    }
+
+    // duplicating a capability that's currently in nightly but not yet
+    // in stable. Get rid of this once it's in stable
+    pub fn transpose<T>(optr: Option<Lresult<T>>) -> Lresult<Option<T>>
+    {
+        match optr {
+            Some(Ok(res)) => Ok(Some(res)),
+            Some(Err(err)) => Err(err),
+            None => Ok(None),
+        }
+    }
+}
+
+impl fmt::Display for Failure
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "Failure(#{} '{}')", self.tag, self.msg)
+    }
+}
+
+impl PartialEq for Failure
+{
+    fn eq(&self, b: &Failure) -> bool
+    {
+        self.tag == b.tag
     }
 }

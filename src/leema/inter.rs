@@ -1,4 +1,5 @@
 use leema::ast::{self, Ast, IfCase, Kxpr};
+use leema::failure::{Failure, Lresult};
 use leema::ixpr::{Ixpr, MatchFailure, Source};
 use leema::list;
 use leema::lri::Lri;
@@ -9,6 +10,7 @@ use leema::val::{SrcLoc, Type, Val};
 
 use std::collections::{HashMap, HashSet, LinkedList};
 use std::fmt;
+use std::iter::FromIterator;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -107,7 +109,7 @@ impl Intermod
         // compile regular functions next
         for fname in proto.funcseq.iter() {
             let ifunc = inter.compile_function(proto, imports, fname);
-            inter.interfunc.insert(fname.clone(), ifunc);
+            inter.interfunc.insert(fname.clone(), ifunc.unwrap());
         }
         inter
     }
@@ -117,7 +119,7 @@ impl Intermod
         proto: &'a Protomod,
         imports: &'a HashMap<Lstr, Rc<Protomod>>,
         fname: &'a Lstr,
-    ) -> Ixpr
+    ) -> Lresult<Ixpr>
     {
         vout!("compile {}()\n", fname);
         let opt_defunc = proto.funcsrc.get(fname);
@@ -135,10 +137,10 @@ impl Intermod
 
         let (argt, result_type) = Type::split_func_ref(ftype);
         if *body == Ast::RustBlock {
-            return Ixpr {
+            return Ok(Ixpr {
                 src: Source::RustBlock(argt.clone(), result_type.clone()),
                 line: loc.lineno,
-            };
+            });
         }
         let (ibody, closed_vars) = {
             let mut scope = Interscope::new(
@@ -149,7 +151,7 @@ impl Intermod
                 args,
                 is_closure,
             );
-            let inner_body = compile_expr(&mut scope, body, loc);
+            let inner_body = compile_expr(&mut scope, body, loc)?;
             (inner_body, scope.take_closed())
         };
         if !closed_vars.is_empty() {
@@ -175,10 +177,10 @@ impl Intermod
             result_type.clone(),
             Box::new(ibody2),
         );
-        Ixpr {
+        Ok(Ixpr {
             src,
             line: loc.lineno,
-        }
+        })
     }
 }
 
@@ -550,7 +552,11 @@ impl<'a, 'b> Drop for NewBlockscope<'a, 'b>
 }
 
 
-pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
+pub fn compile_expr(
+    scope: &mut Interscope,
+    x: &Ast,
+    loc: &SrcLoc,
+) -> Lresult<Ixpr>
 {
     match x {
         &Ast::Block(ref lines) => compile_block(scope, lines, loc),
@@ -564,54 +570,50 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
         &Ast::Call(ref callx, ref args, ref iloc) => {
             compile_call(scope, callx, args, iloc)
         }
-        &Ast::ConstBool(b) => Ixpr::const_val(Val::Bool(b), loc.lineno),
-        &Ast::ConstInt(i) => Ixpr::const_val(Val::Int(i), loc.lineno),
+        &Ast::ConstBool(b) => Ok(Ixpr::const_val(Val::Bool(b), loc.lineno)),
+        &Ast::ConstInt(i) => Ok(Ixpr::const_val(Val::Int(i), loc.lineno)),
         &Ast::ConstStr(ref s) => {
-            Ixpr::const_val(Val::Str(s.clone()), loc.lineno)
+            Ok(Ixpr::const_val(Val::Str(s.clone()), loc.lineno))
         }
         &Ast::ConstHashtag(ref s) => {
-            Ixpr::const_val(Val::Hashtag(s.clone()), loc.lineno)
+            Ok(Ixpr::const_val(Val::Hashtag(s.clone()), loc.lineno))
         }
-        &Ast::ConstVoid => Ixpr::const_val(Val::Void, loc.lineno),
+        &Ast::ConstVoid => Ok(Ixpr::const_val(Val::Void, loc.lineno)),
         &Ast::Cons(ref head, ref tail) => {
-            let chead = compile_expr(scope, head, loc);
-            let ctail = compile_expr(scope, tail, loc);
-            Ixpr::cons(chead, ctail, loc.lineno)
+            let chead = compile_expr(scope, head, loc)?;
+            let ctail = compile_expr(scope, tail, loc)?;
+            Ok(Ixpr::cons(chead, ctail, loc.lineno))
         }
         &Ast::Fork(ref fx) => {
-            let ifx = compile_expr(scope, fx, loc);
-            Ixpr::new(Source::Fork(Box::new(ifx)), loc.lineno)
+            let ifx = compile_expr(scope, fx, loc)?;
+            Ok(Ixpr::new(Source::Fork(Box::new(ifx)), loc.lineno))
         }
         &Ast::IfExpr(_, _, _, _) => compile_ifx(scope, x),
         &Ast::StrExpr(ref items, ref iloc) => {
-            let strvec =
+            let strvec: Lresult<Vec<Ixpr>> =
                 items.iter().map(|i| compile_expr(scope, i, iloc)).collect();
-            Ixpr::new_str_mash(strvec, iloc.lineno)
+            Ok(Ixpr::new_str_mash(strvec?, iloc.lineno))
         }
         &Ast::List(ref items) => {
-            let c_items =
-                items.iter().map(|i| compile_expr(scope, i, loc)).collect();
-            Ixpr::new_list(c_items, loc.lineno)
+            let m_items = items.iter().map(|i| compile_expr(scope, i, loc));
+            let c_items = Lresult::from_iter(m_items)?;
+            Ok(Ixpr::new_list(c_items, loc.lineno))
         }
         &Ast::Tuple(ref items) => {
-            let c_items = items
-                .iter()
-                .map(|i| {
-                    let ix = compile_expr(scope, i.x_ref().unwrap(), loc);
-                    (i.k_clone(), ix)
-                })
-                .collect();
-            Ixpr::new_tuple(Struple(c_items), loc.lineno)
+            let m_items = items.iter().map(|i| {
+                let ix = compile_expr(scope, i.x_ref().unwrap(), loc)?;
+                Ok((i.k_clone(), ix))
+            });
+            let c_items = Lresult::from_iter(m_items)?;
+            Ok(Ixpr::new_tuple(Struple(c_items), loc.lineno))
         }
         &Ast::Map(ref items) => {
-            let c_items = items
-                .iter()
-                .map(|i| {
-                    let ix = compile_expr(scope, i.x_ref().unwrap(), loc);
-                    (i.k_clone(), ix)
-                })
-                .collect();
-            Ixpr::new_map(Struple(c_items), loc.lineno)
+            let m_items = items.iter().map(|i| {
+                let ix = compile_expr(scope, i.x_ref().unwrap(), loc)?;
+                Ok((i.k_clone(), ix))
+            });
+            let c_items = Lresult::from_iter(m_items)?;
+            Ok(Ixpr::new_map(Struple(c_items), loc.lineno))
         }
         &Ast::ConstructData(ref type_lri, None) => {
             let opt_full_type = scope.proto.func_result_type(&type_lri.localid);
@@ -623,30 +625,41 @@ pub fn compile_expr(scope: &mut Interscope, x: &Ast, loc: &SrcLoc) -> Ixpr
             }
             let full_type = opt_full_type.unwrap();
             let fields = scope.proto.get_struple_fields(&type_lri.localid);
-            Ixpr::construple(full_type.clone(), None, fields, loc.lineno)
+            Ok(Ixpr::construple(
+                full_type.clone(),
+                None,
+                fields,
+                loc.lineno,
+            ))
         }
         &Ast::ConstructData(ref type_lri, Some(ref variant)) => {
             let opt_full_type = scope.proto.func_result_type(variant);
             if opt_full_type.is_none() {
-                panic!(
-                    "cannot find full type for: {:?} in {:?}",
-                    type_lri.localid, scope.proto.valtypes
-                );
+                return Err(Failure::new(
+                    "type_error",
+                    Lstr::from(format!(
+                        "cannot find full type for: {:?} in {:?}",
+                        type_lri.localid, scope.proto.valtypes
+                    )),
+                ));
             }
             let full_type = opt_full_type.unwrap();
             let fields = scope.proto.get_struple_fields(variant);
-            Ixpr::construple(
+            Ok(Ixpr::construple(
                 full_type.clone(),
                 Some(variant.clone()),
                 fields,
                 loc.lineno,
-            )
+            ))
         }
         &Ast::Let(ref lhs, ref rhs, ref iloc) => {
             compile_let_stmt(scope, lhs, rhs, iloc)
         }
         _ => {
-            panic!("Cannot compile expr: {:?}", x);
+            Err(Failure::new(
+                "compile_error",
+                Lstr::from(format!("cannot compile expr: {:?}", x)),
+            ))
         }
     }
 }
@@ -656,7 +669,7 @@ pub fn compile_lri(
     names: &Vec<Lstr>,
     tvars: &Option<LinkedList<Kxpr>>,
     loc: &SrcLoc,
-) -> Ixpr
+) -> Lresult<Ixpr>
 {
     vout!("compile_lri(");
     for n in names.iter() {
@@ -685,18 +698,18 @@ pub fn compile_lri(
     });
     let lri = Lri::full(Some(modname.clone()), id.clone(), ctvars);
 
-    let opt_constval = scope.import_constval(modname, id);
+    let opt_constval: Option<&Val> = scope.import_constval(modname, id);
     if opt_constval.is_none() {
         panic!("cannot find imported value: {}::{}", modname, id);
     }
-    let constval = opt_constval.unwrap();
-    let special = if lri.has_params() {
-        constval.map(&|v| Val::specialize_lri_params(v, &lri))
+    let constval: &Val = opt_constval.unwrap();
+    let special: Val = if lri.has_params() {
+        constval.map(&|v| Val::specialize_lri_params(v, &lri))?
     } else {
         // no params to override with, skip the specialization
         constval.clone()
     };
-    Ixpr::const_val(special, loc.lineno)
+    Ok(Ixpr::const_val(special, loc.lineno))
 }
 
 pub fn compile_type(_scope: &mut Interscope, typ: &Ast, _loc: &SrcLoc) -> Type
@@ -705,10 +718,13 @@ pub fn compile_type(_scope: &mut Interscope, typ: &Ast, _loc: &SrcLoc) -> Type
     Type::from(typ)
 }
 
-pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
-    -> Ixpr
+pub fn compile_local_id(
+    scope: &mut Interscope,
+    id: &Lstr,
+    loc: &SrcLoc,
+) -> Lresult<Ixpr>
 {
-    match scope.scope_level(id) {
+    let ix = match scope.scope_level(id) {
         Some(ScopeLevel::Local) => {
             vout!("compile_local_id_local({})\n", id);
             scope.blocks.access_var(id, loc.lineno);
@@ -777,7 +793,8 @@ pub fn compile_local_id(scope: &mut Interscope, id: &Lstr, loc: &SrcLoc)
                 line: loc.lineno,
             }
         }
-    }
+    };
+    Ok(ix)
 }
 
 pub fn compile_call(
@@ -785,17 +802,18 @@ pub fn compile_call(
     callx: &Ast,
     args: &LinkedList<Kxpr>,
     loc: &SrcLoc,
-) -> Ixpr
+) -> Lresult<Ixpr>
 {
-    let icall = compile_expr(scope, callx, loc);
-    let iargs: Vec<(Option<Lstr>, Ixpr)> = args
-        .iter()
-        .map(|i| i.map_1(|x| compile_expr(scope, x, loc)))
-        .collect();
-    Ixpr {
+    let icall = compile_expr(scope, callx, loc)?;
+    let margs = args.iter().map(|i| {
+        let ix = compile_expr(scope, i.x_ref().unwrap(), loc)?;
+        Ok((i.k_clone(), ix))
+    });
+    let iargs = Lresult::from_iter(margs)?;
+    Ok(Ixpr {
         src: Source::Call(Box::new(icall), Struple(iargs)),
         line: loc.lineno,
-    }
+    })
 }
 
 pub fn compile_let_stmt(
@@ -803,21 +821,22 @@ pub fn compile_let_stmt(
     lhs: &Ast,
     rhs: &Ast,
     loc: &SrcLoc,
-) -> Ixpr
+) -> Lresult<Ixpr>
 {
     vout!("compile let {:?} := {:?}\n", lhs, rhs);
-    let irhs = compile_expr(scope, rhs, loc);
+    let irhs = compile_expr(scope, rhs, loc)?;
     let mut new_vars = Vec::new();
-    let cpatt = compile_pattern(scope, &mut new_vars, lhs);
+    let cpatt = compile_pattern(scope, &mut new_vars, lhs)?;
     vout!("new vars in let: {:?} = {:?} = {:?}\n", new_vars, lhs, irhs);
-    let failures: Vec<MatchFailure> = new_vars
-        .iter()
-        .map(|v| {
-            scope.blocks.assign_var(v, LocalType::Let);
-            compile_failed_var(scope, v, loc)
-        })
-        .collect();
-    Ixpr::new(Source::Let(cpatt, Box::new(irhs), failures), loc.lineno)
+    let m_failures = new_vars.iter().map(|v| {
+        scope.blocks.assign_var(v, LocalType::Let);
+        compile_failed_var(scope, v, loc)
+    });
+    let failures: Vec<MatchFailure> = Lresult::from_iter(m_failures)?;
+    Ok(Ixpr::new(
+        Source::Let(cpatt, Box::new(irhs), failures),
+        loc.lineno,
+    ))
 }
 
 pub fn compile_dot_access(
@@ -825,13 +844,13 @@ pub fn compile_dot_access(
     base_val: &Ast,
     field: &Lstr,
     loc: &SrcLoc,
-) -> Ixpr
+) -> Lresult<Ixpr>
 {
-    let ix_base = compile_expr(scope, base_val, loc);
-    Ixpr::new_field_access(ix_base, field.clone())
+    let ix_base = compile_expr(scope, base_val, loc)?;
+    Ok(Ixpr::new_field_access(ix_base, field.clone()))
 }
 
-pub fn compile_ifx(scope: &mut Interscope, ifx: &Ast) -> Ixpr
+pub fn compile_ifx(scope: &mut Interscope, ifx: &Ast) -> Lresult<Ixpr>
 {
     match ifx {
         &Ast::IfExpr(ast::IfType::If, ref const_void, ref case, ref iloc) => {
@@ -841,9 +860,9 @@ pub fn compile_ifx(scope: &mut Interscope, ifx: &Ast) -> Ixpr
             compile_if_case(scope, case)
         }
         &Ast::IfExpr(ast::IfType::Match, ref x, ref ifcase, ref iloc) => {
-            let ix = compile_expr(scope, x, iloc);
-            let ixcase = compile_match_case(scope, ifcase);
-            Ixpr::new_match_expr(ix, ixcase)
+            let ix = compile_expr(scope, x, iloc)?;
+            let ixcase = compile_match_case(scope, ifcase)?;
+            Ok(Ixpr::new_match_expr(ix, ixcase))
         }
         &Ast::IfExpr(ast::IfType::MatchFailure, _, _, _) => {
             panic!("what's a MatchFailed doing here?");
@@ -854,7 +873,10 @@ pub fn compile_ifx(scope: &mut Interscope, ifx: &Ast) -> Ixpr
     }
 }
 
-pub fn compile_if_case(scope: &mut Interscope, case: &ast::IfCase) -> Ixpr
+pub fn compile_if_case(
+    scope: &mut Interscope,
+    case: &ast::IfCase,
+) -> Lresult<Ixpr>
 {
     let ix = if case.cond == Ast::Wildcard {
         if case.else_case.is_some() {
@@ -862,71 +884,81 @@ pub fn compile_if_case(scope: &mut Interscope, case: &ast::IfCase) -> Ixpr
         }
         Ixpr::const_val(Val::Bool(true), case.loc.lineno)
     } else {
-        compile_expr(scope, &case.cond, &case.loc)
+        compile_expr(scope, &case.cond, &case.loc)?
     };
-    let ibody = compile_expr(scope, &case.body, &case.loc);
-    let inext = case
+    let ibody = compile_expr(scope, &case.body, &case.loc)?;
+    let mnext: Option<Lresult<Ixpr>> = case
         .else_case
         .as_ref()
         .map(|else_case| compile_if_case(scope, else_case));
-    Ixpr::new_if(ix, ibody, inext)
+    let inext = Failure::transpose(mnext)?;
+    Ok(Ixpr::new_if(ix, ibody, inext))
 }
 
-pub fn compile_match_case(scope: &mut Interscope, case: &ast::IfCase) -> Ixpr
+pub fn compile_match_case(
+    scope: &mut Interscope,
+    case: &ast::IfCase,
+) -> Lresult<Ixpr>
 {
     let (patt, iblk) = {
         let new_block = scope.push_blockscope();
         let mut new_vars = Vec::new();
-        let cpatt = compile_pattern(new_block.scope, &mut new_vars, &case.cond);
+        let cpatt =
+            compile_pattern(new_block.scope, &mut new_vars, &case.cond)?;
         for nv in new_vars.iter() {
             new_block.scope.blocks.assign_var(nv, LocalType::Match);
         }
-        (cpatt, compile_expr(new_block.scope, &case.body, &case.loc))
+        (cpatt, compile_expr(new_block.scope, &case.body, &case.loc)?)
     };
-    let inext = case.else_case.as_ref().map_or(Ixpr::noop(), |else_case| {
-        compile_match_case(scope, &else_case)
-    });
-    Ixpr::new_match_case(patt, iblk, inext)
+    let inext = case
+        .else_case
+        .as_ref()
+        .map_or(Ok(Ixpr::noop()), |else_case| {
+            compile_match_case(scope, &else_case)
+        })?;
+    Ok(Ixpr::new_match_case(patt, iblk, inext))
 }
 
 pub fn compile_pattern(
     scope: &mut Interscope,
     new_vars: &mut Vec<Lstr>,
     patt: &Ast,
-) -> Val
+) -> Lresult<Val>
 {
-    match patt {
+    let cpatt = match patt {
         &Ast::Localid(ref name, _) => {
             new_vars.push(name.clone());
             Val::Id(name.clone())
         }
         &Ast::Cons(ref head, ref tail) => {
-            let chead = compile_pattern(scope, new_vars, head);
+            let chead = compile_pattern(scope, new_vars, head)?;
             let ctail = match &**tail {
                 &Ast::Localid(_, _) => {
-                    compile_pattern(scope, new_vars, &**tail)
+                    compile_pattern(scope, new_vars, &**tail)?
                 }
                 &Ast::Wildcard => Val::Wildcard,
-                &Ast::Cons(_, _) => compile_pattern(scope, new_vars, &**tail),
-                &Ast::List(_) => compile_pattern(scope, new_vars, &**tail),
+                &Ast::Cons(_, _) => compile_pattern(scope, new_vars, &**tail)?,
+                &Ast::List(_) => compile_pattern(scope, new_vars, &**tail)?,
                 _ => {
-                    panic!("invalid pattern tail: {:?}", tail);
+                    return Err(Failure::new(
+                        "invalid_pattern",
+                        Lstr::from(format!("invalid pattern tail: {:?}", tail)),
+                    ))
                 }
             };
             Val::Cons(Box::new(chead), Arc::new(ctail))
         }
         &Ast::List(ref items) => {
-            let c_items: Vec<Val> = items
-                .iter()
-                .map(|i| compile_pattern(scope, new_vars, i))
-                .collect();
+            let m_items =
+                items.iter().map(|i| compile_pattern(scope, new_vars, i));
+            let c_items = Lresult::from_iter(m_items)?;
             list::from_vec(&c_items)
         }
         &Ast::Tuple(ref items) => {
-            let citems = items
+            let mitems = items
                 .iter()
-                .map(|i| compile_pattern(scope, new_vars, i.x_ref().unwrap()))
-                .collect();
+                .map(|i| compile_pattern(scope, new_vars, i.x_ref().unwrap()));
+            let citems = Lresult::from_iter(mitems)?;
             Val::Tuple(Struple::new_indexed(citems))
         }
         &Ast::ConstInt(i) => Val::Int(i),
@@ -935,7 +967,7 @@ pub fn compile_pattern(
         &Ast::ConstHashtag(ref h) => Val::Hashtag(h.clone()),
         &Ast::Wildcard => Val::Wildcard,
         &Ast::Call(ref callx, ref args, ref iloc) => {
-            compile_pattern_call(scope, new_vars, callx, args, iloc)
+            compile_pattern_call(scope, new_vars, callx, args, iloc)?
         }
         &Ast::Lri(_, _, _) => {
             // this should be a const token
@@ -948,9 +980,13 @@ pub fn compile_pattern(
             (*constval.as_ref().unwrap()).clone()
         }
         _ => {
-            panic!("invalid pattern: {:?}", patt);
+            return Err(Failure::new(
+                "invalid_pattern",
+                Lstr::from(format!("invalid pattern: {:?}", patt)),
+            ));
         }
-    }
+    };
+    Ok(cpatt)
 }
 
 pub fn compile_pattern_call(
@@ -959,17 +995,15 @@ pub fn compile_pattern_call(
     callx: &Ast,
     args: &LinkedList<Kxpr>,
     _loc: &SrcLoc,
-) -> Val
+) -> Lresult<Val>
 {
-    let args_vec: Vec<(Option<Lstr>, Val)> = args
-        .iter()
-        .map(|a| {
-            (
-                a.k_clone(),
-                compile_pattern(scope, new_vars, a.x_ref().unwrap()),
-            )
-        })
-        .collect();
+    let args_vec: Vec<(Option<Lstr>, Val)> = {
+        let m_args = args.iter().map(|a| {
+            let cp = compile_pattern(scope, new_vars, a.x_ref().unwrap())?;
+            Ok((a.k_clone(), cp))
+        });
+        Lresult::from_iter(m_args)?
+    };
 
     let mut struct_lri = Lri::from(callx);
     if !struct_lri.has_modules() {
@@ -980,7 +1014,7 @@ pub fn compile_pattern_call(
         .deftypes
         .get(&struct_lri.localid);
     if dtype.is_some() {
-        return Val::Struct(struct_lri, Struple(args_vec));
+        return Ok(Val::Struct(struct_lri, Struple(args_vec)));
     }
     let ftype = scope
         .module(&struct_lri.modules)
@@ -988,13 +1022,19 @@ pub fn compile_pattern_call(
         .unwrap()
         .clone();
     if let Type::UserDef(ref ftype_ri) = ftype {
-        Val::EnumStruct(
+        Ok(Val::EnumStruct(
             ftype_ri.clone(),
             struct_lri.localid.clone(),
             Struple(args_vec),
-        )
+        ))
     } else {
-        panic!("constructor type is not a structure: {:?}", ftype);
+        Err(Failure::new(
+            "leema_failure",
+            Lstr::from(format!(
+                "constructor type is not a structure: {:?}",
+                ftype
+            )),
+        ))
     }
 }
 
@@ -1024,33 +1064,33 @@ pub fn compile_block(
     scope: &mut Interscope,
     blk: &Vec<Ast>,
     loc: &SrcLoc,
-) -> Ixpr
+) -> Lresult<Ixpr>
 {
     let mut new_block = scope.push_blockscope();
     let non_failures: Vec<&Ast> = blk
         .iter()
         .filter_map(|stmt| new_block.collect_failures(stmt))
         .collect();
-    let ixs: Vec<Ixpr> = non_failures
+    let mixs = non_failures
         .iter()
-        .map(|stmt| compile_block_stmt(&mut new_block.scope, stmt, loc))
-        .collect();
-    Ixpr::new_block(ixs, loc.lineno)
+        .map(|stmt| compile_block_stmt(&mut new_block.scope, stmt, loc));
+    let ixs = Lresult::from_iter(mixs)?;
+    Ok(Ixpr::new_block(ixs, loc.lineno))
 }
 
 pub fn compile_block_stmt(
     scope: &mut Interscope,
     stmt: &Ast,
     loc: &SrcLoc,
-) -> Ixpr
+) -> Lresult<Ixpr>
 {
     match stmt {
         &Ast::IfExpr(ast::IfType::MatchFailure, ref input, _, _) => {
             panic!("MatchFailed should be removed from blocks: {:?}", input);
         }
         &Ast::Return(ref result, ref iloc) => {
-            let cresult = compile_expr(scope, result, iloc);
-            Ixpr::new(Source::Return(Box::new(cresult)), iloc.lineno)
+            let cresult = compile_expr(scope, result, iloc)?;
+            Ok(Ixpr::new(Source::Return(Box::new(cresult)), iloc.lineno))
         }
         _ => compile_expr(scope, stmt, loc),
     }
@@ -1060,21 +1100,21 @@ pub fn compile_failed_var(
     scope: &mut Interscope,
     v: &Lstr,
     loc: &SrcLoc,
-) -> MatchFailure
+) -> Lresult<MatchFailure>
 {
     let var_failure = scope.blocks.get_failure(v).map(|f| f.clone());
     let mf = match var_failure {
         Some(fail_case) => {
             vout!("compile failure handling for {}\n", v);
-            Some(compile_match_case(scope, &fail_case))
+            Some(compile_match_case(scope, &fail_case)?)
         }
         None => None,
     };
-    MatchFailure {
+    Ok(MatchFailure {
         var: v.clone(),
         case: mf,
         line: loc.lineno,
-    }
+    })
 }
 
 pub fn split_func_args_body(

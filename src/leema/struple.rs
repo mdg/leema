@@ -1,3 +1,4 @@
+use leema::failure::Lresult;
 use leema::lstr::Lstr;
 use leema::reg::{self, Ireg};
 use leema::sendclone;
@@ -29,12 +30,16 @@ impl<T> Struple<T>
         Struple(vec![(None, a), (None, b)])
     }
 
-    pub fn map<C>(&self, f: C) -> Struple<T>
+    pub fn map<C>(&self, f: C) -> Lresult<Struple<T>>
     where
-        C: Fn(&T) -> T,
+        C: Fn(&T) -> Lresult<T>,
     {
-        let m_items = self.0.iter().map(|i| (i.0.clone(), f(&i.1))).collect();
-        Struple(m_items)
+        let inner_f = |i: &(Option<Lstr>, T)| {
+            let i_result = f(&i.1)?;
+            Ok((i.0.clone(), i_result))
+        };
+        let m_items = self.0.iter().map(inner_f);
+        Ok(Struple(Lresult::from_iter(m_items)?))
     }
 
     /**

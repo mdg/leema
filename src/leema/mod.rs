@@ -3,6 +3,7 @@ pub mod log;
 pub mod application;
 pub mod ast;
 pub mod code;
+pub mod failure;
 pub mod fiber;
 pub mod frame;
 pub mod infer;

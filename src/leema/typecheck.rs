@@ -1,3 +1,4 @@
+use leema::failure::Failure;
 use leema::infer::{Inferator, TypeSet};
 use leema::ixpr::{Ixpr, Source};
 use leema::lmap;
@@ -358,27 +359,9 @@ impl<'a, 'b> Typescope<'a, 'b>
     pub fn typecheck_call_func(&mut self, src: &Source) -> TypeResult
     {
         match src {
-            &Source::Tuple(ref items) => {
-                println!("tuples as calls are deprecated: {:?}", items);
-                if items.0.len() != 2 {
-                    panic!("call tuples should have 2 items: {:?}", items);
-                }
-                let ref _modname = items.0[0];
-                let ref _funcname = items.0[1];
-                Ok(Type::Void)
+            &Source::ConstVal(Val::FuncRef(ref fri, ref args, ref typ)) => {
+                self.typecheck_funcref(fri, args, typ)
             }
-            &Source::ConstVal(ref fval) => {
-                match fval {
-                    &Val::Str(_) => Ok(Type::Void),
-                    &Val::FuncRef(ref fri, ref args, ref typ) => {
-                        self.typecheck_funcref(fri, args, typ)
-                    }
-                    _ => {
-                        panic!("what val is in typecheck_call? {:?}", fval);
-                    }
-                }
-            }
-            &Source::Id(ref name, _) => self.infer.vartype(name),
             _ => {
                 panic!("whatever is that in typecheck_call? {:?}", src);
             }
@@ -392,7 +375,7 @@ impl<'a, 'b> Typescope<'a, 'b>
         typ: &Type,
     ) -> TypeResult
     {
-        let typed = self.functype(fri.mod_ref().unwrap(), &fri.localid);
+        let typed = self.functype(&fri)?;
         let result = self.infer.merge_types(typ, &typed);
         match typ {
             Type::Func(ref _iargs, _) => {
@@ -414,11 +397,12 @@ impl<'a, 'b> Typescope<'a, 'b>
         result
     }
 
-    pub fn functype(&self, modname: &str, funcname: &str) -> Type
+    pub fn functype(&self, fri: &Lri) -> TypeResult
     {
-        if modname == self.inter.name() {
+        let modname = fri.mod_ref().unwrap();
+        let ftype = if modname == self.inter.name() {
             self.inter
-                .get_function_type(funcname)
+                .get_function_type(&fri.localid)
                 .expect("missing typed object for module")
                 .clone()
         } else {
@@ -426,13 +410,18 @@ impl<'a, 'b> Typescope<'a, 'b>
                 "cannot find module {} in {:?}",
                 modname, self.imports
             ));
-            m.get_function_type(funcname)
-                .expect(&format!(
-                    "cannot find function {}::{} in {:?}",
-                    modname, funcname, m
-                ))
+            m.get_function_type(&fri.localid)
+                .expect(&format!("cannot find function {} in {:?}", fri, m))
                 .clone()
+        };
+        if let Type::Func(ref args, ref self_result) = &ftype {
+            // if !Lri::nominal_eq(selfri, fri) {
+            return Err(TypeErr::Failure(Failure::new(
+                "type_error",
+                Lstr::from(format!("what to match this Lri to: {}", fri)),
+            )));
         }
+        Ok(ftype)
     }
 }
 
@@ -712,6 +701,30 @@ mod tests
     }
 
     #[test]
+    #[should_panic]
+    fn test_typevar_parameter_mismatch()
+    {
+        let input = r#"
+            func swap[T, U](a: T, b: U): (U, T) >>
+                (b, a)
+            --
+
+            func main() ->
+                let (a, b) := swap[Int, #]("x", #y)
+                let (c, d) := swap[Int, Str](8, true)
+                print("swapped: $a $b $c $d\n")
+            --
+            "#
+        .to_string();
+
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        loader.set_mod_txt(Lstr::Sref("tacos"), input);
+        let mut prog = program::Lib::new(loader);
+        let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("main"));
+        prog.typecheck(&fri, Depth::Full);
+    }
+
+    #[test]
     fn test_typevar_used_two_ways()
     {
         let input = r#"
@@ -750,91 +763,6 @@ mod tests
 }
 
 /*
-mod -> prog
-imps -> libs
-
-load_func(mn, fn) {
-    mod = prog.load_module(prog, mn)
-    import_mods(mod)
-    if !mod_sourced(mn)
-        source_mod(mn)
-    if !mod_loaded(mn)
-        load_mod(mn)
-    mod = get_mod(mn)
-    if !mod.imports_loaded
-        load_imports(mod.imports)
-    src_func = get_func(mod, fn)
-    pfunc = preprocess(src_func)
-    tfunc = type_func(pfunc)
-    if !func_preprocessed(mod, fn)
-        src_func
-        preprocess(src_func)
-    if !func_processed(mod, fn)
-}
-
-for f in mod.funcs {
-    typecheck_func(f)
-}
-
-typecheck_call(m, f, args) {
-    tfd = typecheck_func(m, f)
-    typecheck(args, tfd.args)
-}
-
-typecheck_func(m, f) {
-    fd = getf(m, f)
-    for e in fd {
-        typecheck_expr(e)
-    }
-}
-
-typecheck_expr(e) {
-    if e == call {
-        typecheck_call(call.module, call.func, call.args)
-    }
-}
-*/
-
-/*
-pub fn module(prog: &mut program::Lib, inter: &Interloader, modname: &str)
-{
-    vout!("typecheck.module({})\n", modname);
-    let imported_mods = {
-        let m = prog.get_mod_mut(modname);
-        println!("loaded module:\n{:?}\n", m);
-
-        let mut imods = Vec::with_capacity(m.src.imports.len());
-        for i in &m.src.imports {
-            println!("import({})", i);
-            let ikey = inter.mod_name_to_key(&i);
-            let mut im = inter.init_module(ikey);
-            im.load();
-            imods.push(im);
-        }
-        m.imports_loaded = true;
-        imods
-    };
-
-    for i in imported_mods {
-        println!("imported({:?})", i);
-        prog.add_mod(i);
-    }
-
-    let funcs: Vec<String> = {
-        prog.get_mod(modname).src.funcs.keys().map(|im| {
-            im.clone()
-        }).collect()
-    };
-    // let mut ts = new TypeSpace();
-    // ts.add_imports(&m.src.imports);
-
-    for fname in funcs {
-        func(prog, inter, &fname);
-    }
-}
-*/
-
-/*
 thing that reads files
 
 thing that holds imported files, ntyped functions
@@ -846,21 +774,4 @@ thing that holds complete type info
 view of visible type-complete stuff
 
 library of typed code
-
-
-pub fn function(prog: &mut program::Lib, inter: &Interloader,
-        modname: &str, fname: &str) -> Ixpr
-{
-    let mut m = prog.load_module(modname);
-    let mut tf = m.typed_func(fname);
-    if tf.is_none() {
-        sf = m.src_func(fname);
-        tf = preprocess(sf, prog);
-    }
-    match m.typed_func(fname) {
-        None => j
-    }
-    let tfunc = prog.typed_func(
-    let fsrc = prog.get_func(modname, fname);
-}
 */

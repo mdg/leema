@@ -1,3 +1,4 @@
+use leema::failure::{Failure, Lresult};
 use leema::frame::FrameTrace;
 use leema::list;
 use leema::lmap::{self, LmapNode};
@@ -12,6 +13,7 @@ use std::cmp::{Ordering, PartialEq, PartialOrd};
 use std::collections::BTreeMap;
 use std::fmt;
 use std::io::Error;
+use std::iter::FromIterator;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 
@@ -127,37 +129,41 @@ impl Type
         }
     }
 
-    pub fn map<Op>(&self, op: &Op) -> Type
+    pub fn map<Op>(&self, op: &Op) -> Lresult<Type>
     where
-        Op: Fn(&Type) -> Option<Type>,
+        Op: Fn(&Type) -> Lresult<Option<Type>>,
     {
-        if let Some(m_self) = op(self) {
-            return m_self;
+        if let Some(m_self) = op(self)? {
+            return Ok(m_self);
         }
 
-        match self {
+        let res = match self {
             &Type::Tuple(ref items) => {
-                let m_items = items.map(|i| i.map(op));
+                let m_items = items.map(|i| i.map(op))?;
                 Type::Tuple(m_items)
             }
             &Type::StrictList(ref inner) => {
-                let m_inner = inner.map(op);
+                let m_inner = inner.map(op)?;
                 Type::StrictList(Box::new(m_inner))
             }
             &Type::Func(ref args, ref result) => {
-                let m_args = args.iter().map(|a| a.map(op)).collect();
-                let m_result = result.map(op);
-                Type::Func(m_args, Box::new(m_result))
+                let m_args = args.iter().map(|a| a.map(op));
+                let ok_args = Lresult::from_iter(m_args)?;
+                let m_result = result.map(op)?;
+                Type::Func(ok_args, Box::new(m_result))
             }
             &Type::Closure(ref args, ref closed, ref result) => {
-                let m_args = args.iter().map(|a| a.map(op)).collect();
-                let m_closed = closed.iter().map(|a| a.map(op)).collect();
-                let m_result = Box::new(result.map(op));
-                Type::Closure(m_args, m_closed, m_result)
+                let m_args = args.iter().map(|a| a.map(op));
+                let m_closed = closed.iter().map(|a| a.map(op));
+                let ok_args = Lresult::from_iter(m_args)?;
+                let ok_closed = Lresult::from_iter(m_closed)?;
+                let m_result = Box::new(result.map(op)?);
+                Type::Closure(ok_args, ok_closed, m_result)
             }
 
             _ => self.clone(),
-        }
+        };
+        Ok(res)
     }
 
     pub fn deep_clone(&self) -> Type
@@ -323,6 +329,7 @@ impl fmt::Debug for Type
 pub enum TypeErr
 {
     Error(Lstr),
+    Failure(Failure),
     Mismatch(Type, Type, u32),
     Unknowable,
     Context(Box<TypeErr>, Lstr),
@@ -343,6 +350,7 @@ impl fmt::Display for TypeErr
     {
         match self {
             &TypeErr::Error(ref estr) => write!(f, "TypeError({})", estr),
+            &TypeErr::Failure(ref fail) => write!(f, "TypeFailure({})", fail),
             &TypeErr::Mismatch(ref a, ref b, line) => {
                 write!(f, "TypeMismatch({},{} @ {})", a, b, line)
             }
@@ -780,15 +788,52 @@ impl Val
         }
     }
 
-    pub fn specialize_lri_params(&self, lri: &Lri) -> Option<Val>
+    pub fn specialize_lri_params(&self, lri: &Lri) -> Lresult<Option<Val>>
     {
-        match self {
+        if let Val::FuncRef(ref selfri, ref _args, ref _typ) = self {
+            if !Lri::nominal_eq(selfri, lri) {
+                return Err(Failure::new(
+                    "function_mismatch",
+                    Lstr::from(format!(
+                        "functions do not match: {} != {}",
+                        selfri, lri
+                    )),
+                ));
+            }
+            if selfri.params.is_none() && lri.params.is_none() {}
+            let mapped_types = selfri
+                .params
+                .as_ref()
+                .unwrap()
+                .iter()
+                .zip(lri.params.as_ref().unwrap().iter())
+                .map(|(ref tvar, ref tval)| {
+                    let var_key = match tvar {
+                        Type::Var(ref name) => name.clone(),
+                        _ => {
+                            return Err(Failure::new(
+                                "type_param",
+                                Lstr::Sref("expected type parameter"),
+                            ));
+                        }
+                    };
+                    Ok((var_key, (*tval).clone()))
+                });
+            let ok_mapped_types: Vec<(Lstr, Type)> =
+                Lresult::from_iter(mapped_types)?;
+            println!("specialization is: {:?}", ok_mapped_types);
+        }
+        let result = match self {
             &Val::Struct(ref tri, ref flds) if Lri::nominal_eq(tri, lri) => {
                 let params = lri.params.as_ref().unwrap();
                 let m_tri = tri.specialize_params(params).unwrap();
                 let m_flds: Struple<Val> = {
                     let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
-                    flds.map(|f: &Val| f.map(&apply_f))
+                    let im_flds = flds
+                        .0
+                        .iter()
+                        .map(|f| Ok((f.0.clone(), f.1.map(&apply_f)?)));
+                    Lresult::from_iter(im_flds)?
                 };
                 Some(Val::Struct(m_tri, m_flds))
             }
@@ -799,7 +844,7 @@ impl Val
                 let m_tri = tri.specialize_params(params).unwrap();
                 let m_flds: Struple<Val> = {
                     let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
-                    flds.map(|f: &Val| f.map(&apply_f))
+                    flds.map(|f: &Val| f.map(&apply_f))?
                 };
                 Some(Val::EnumStruct(m_tri, variant.clone(), m_flds))
             }
@@ -822,38 +867,43 @@ impl Val
                 let m_tri = tri.specialize_params(params).unwrap();
                 let m_args: Struple<Val> = {
                     let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
-                    args.map(|f: &Val| f.map(&apply_f))
+                    let im_args = args
+                        .0
+                        .iter()
+                        .map(|f| Ok((f.0.clone(), f.1.map(&apply_f)?)));
+                    Lresult::from_iter(im_args)?
                 };
                 Some(Val::FuncRef(m_tri, m_args, typ.clone()))
             }
             _ => None,
-        }
+        };
+        Ok(result)
     }
 
-    pub fn map<Op>(&self, op: &Op) -> Val
+    pub fn map<Op>(&self, op: &Op) -> Lresult<Val>
     where
-        Op: Fn(&Val) -> Option<Val>,
+        Op: Fn(&Val) -> Lresult<Option<Val>>,
     {
-        if let Some(m_self) = op(self) {
-            return m_self;
+        if let Some(m_self) = op(self)? {
+            return Ok(m_self);
         }
 
-        match self {
+        let m_result = match self {
             &Val::Cons(ref head, ref tail) => {
-                let m_head = head.map(op);
-                let m_tail = tail.map(op);
+                let m_head = head.map(op)?;
+                let m_tail = tail.map(op)?;
                 Val::Cons(Box::new(m_head), Arc::new(m_tail))
             }
             &Val::Tuple(ref flds) => {
-                let m_flds = flds.map(|f: &Val| f.map(op));
+                let m_flds = flds.map(|f: &Val| f.map(op))?;
                 Val::Tuple(m_flds)
             }
             &Val::Struct(ref typ, ref flds) => {
-                let m_flds = flds.map(|f: &Val| f.map(op));
+                let m_flds = flds.map(|f: &Val| f.map(op))?;
                 Val::Struct(typ.clone(), m_flds)
             }
             &Val::EnumStruct(ref typ, ref vname, ref flds) => {
-                let m_flds = flds.map(|f: &Val| f.map(op));
+                let m_flds = flds.map(|f: &Val| f.map(op))?;
                 Val::EnumStruct(typ.clone(), vname.clone(), m_flds)
             }
             &Val::EnumToken(ref typ, ref vname) => {
@@ -862,13 +912,13 @@ impl Val
             &Val::Token(ref typ) => Val::Token(typ.clone()),
             &Val::FuncRef(ref fi, ref args, ref typ) => {
                 let m_fi = fi.clone();
-                let m_args = args.map(|a| a.map(op));
+                let m_args = args.map(|a| a.map(op))?;
                 let m_typ = typ.clone();
                 Val::FuncRef(m_fi, m_args, m_typ)
             }
             &Val::Failure(ref tag, ref msg, ref ft, status) => {
-                let m_tag = tag.map(op);
-                let m_msg = msg.map(op);
+                let m_tag = tag.map(op)?;
+                let m_msg = msg.map(op)?;
                 Val::Failure(
                     Box::new(m_tag),
                     Box::new(m_msg),
@@ -877,7 +927,8 @@ impl Val
                 )
             }
             _ => self.clone(),
-        }
+        };
+        Ok(m_result)
     }
 
     pub fn deep_clone(&self) -> Val
@@ -1322,7 +1373,8 @@ impl PartialOrd for Val
             (&Val::Wildcard, _) => Some(Ordering::Less),
             (_, &Val::Wildcard) => Some(Ordering::Greater),
             _ => {
-                panic!("cannot compare({:?},{:?})", self, other);
+                eprintln!("cannot compare({:?},{:?})", self, other);
+                None
             }
         }
     }
