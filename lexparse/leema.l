@@ -239,10 +239,6 @@ false	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_False);
 }
-forq	{
-    BEGIN(INITIAL);
-    return set_token(yyg, TOKEN_FORK);
-}
 let	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_Let);

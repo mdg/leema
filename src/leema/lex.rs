@@ -94,7 +94,6 @@ impl Token
                 parse::TOKEN_SLASH => Token::SLASH(tl),
                 parse::TOKEN_PIPE => Token::PIPE(tl),
                 parse::TOKEN_ASSIGN => Token::ASSIGN,
-                parse::TOKEN_FORK => Token::FORK(tl),
                 parse::TOKEN_Let => Token::Let(tl),
                 /*
                 parse::TOKEN_CurlyL => {

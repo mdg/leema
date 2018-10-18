@@ -31,7 +31,6 @@ use std::collections::linked_list::{LinkedList};
 %type FAILED { SrcLoc }
 %type FN { SrcLoc }
 %type FTYPE { SrcLoc }
-%type FORK { SrcLoc }
 %type Func { SrcLoc }
 %type GT { SrcLoc }
 %type GTEQ { SrcLoc }
@@ -97,9 +96,9 @@ use std::collections::linked_list::{LinkedList};
 %type if_expr { Ast }
 %type if_case { ast::IfCase }
 %type localid { Ast }
-%type lri { Ast }
-%type lri_base { (Vec<Lstr>, SrcLoc) }
+%type localid_spec { Ast }
 %type match_expr { Ast }
+%type modid { Ast }
 %type defstruple { Ast }
 %type defstruple_block { LinkedList<Kxpr> }
 %type defstruple_block_field { Kxpr }
@@ -124,7 +123,7 @@ use std::collections::linked_list::{LinkedList};
 
 %nonassoc ASSIGN COMMA RETURN.
 %right BLOCKARROW DOUBLEARROW.
-%right COLON FN FORK FTYPE.
+%right COLON FN FTYPE.
 %left OR XOR.
 %left AND.
 %right ConcatNewline NOT.
@@ -201,13 +200,13 @@ stmt(A) ::= RETURN(C) expr(B). {
 
 /** Struct Definitions */
 
-defstruple(A) ::= STRUCT(L) lri(C) PARENCALL typex_list(D) RPAREN.
+defstruple(A) ::= STRUCT(Z) localid_spec(B) PARENCALL typex_list(C) RPAREN.
 {
-    A = Ast::DefData(ast::DataType::Struple, Box::new(C), D, L);
+    A = Ast::DefData(ast::DataType::Struple, Box::new(B), C, Z);
 }
 
-defstruple(A) ::= STRUCT(D) lri(B) defstruple_block(C) DOUBLEDASH. {
-    A = Ast::DefData(ast::DataType::Struple, Box::new(B), C, D);
+defstruple(A) ::= STRUCT(Z) localid_spec(B) defstruple_block(C) DOUBLEDASH. {
+    A = Ast::DefData(ast::DataType::Struple, Box::new(B), C, Z);
 }
 defstruple_block(A) ::= . {
     A = LinkedList::new();
@@ -222,7 +221,7 @@ defstruple_block_field(A) ::= DOT ID(B) COLON typex(C). {
 }
 
 /** Enum Definitions */
-defenum(A) ::= ENUM(D) lri(B) defenum_variants(C) DOUBLEDASH. {
+defenum(A) ::= ENUM(D) localid_spec(B) defenum_variants(C) DOUBLEDASH. {
     A = Ast::DefData(ast::DataType::Enum, Box::new(B), C, D);
 }
 defenum_variants(A) ::= defenum_variants(B) defenum_variant(C). {
@@ -263,13 +262,13 @@ func_stmt(A) ::= func_decl(B) func_body(C). {
 }
 
 /* traditional parens func declaration */
-func_decl(A) ::= Func(Z) lri(B) PARENCALL ktype_list(D) RPAREN opt_typex(E). {
+func_decl(A) ::= Func(Z) localid_spec(B) PARENCALL ktype_list(D) RPAREN opt_typex(E). {
     vout!("declare paren func {}\n", B);
     A = ast::FuncDecl{ name: B, args: D, result: E, loc: Z };
 }
 
 /* struct-style func declaration */
-func_decl(A) ::= Func(Z) lri(B) opt_typex(C) defstruple_block(D). {
+func_decl(A) ::= Func(Z) localid_spec(B) opt_typex(C) defstruple_block(D). {
     vout!("declare struct func {}\n", B);
     A = ast::FuncDecl{ name: B, args: D, result: C, loc: Z };
 }
@@ -321,9 +320,6 @@ expr(A) ::= call_expr(B). { A = B; }
 expr(A) ::= closure_expr(B). { A = B; }
 expr(A) ::= block(B) DOUBLEDASH. { A = B; }
 expr(A) ::= term(B). { A = B; }
-expr(A) ::= FORK(Z) expr(C). {
-    A = Ast::fork(C, Z);
-}
 
 /* if statements can go 3 different ways
 * might be that one of these should be the only one, but I'm not sure
@@ -386,7 +382,7 @@ closure_expr(A) ::= FN(L) LPAREN ktype_list(B) RPAREN expr(C). {
 typex(A) ::= type_term(B). {
     A = B;
 }
-type_term(A) ::= lri(B). {
+type_term(A) ::= modid(B). {
     A = B;
 }
 type_term(A) ::= TYPE_FAILURE. {
@@ -419,28 +415,16 @@ type_term(A) ::= LPAREN typex_list(B) RPAREN. {
     A = Ast::Tuple(B);
 }
 type_term(A) ::= CurlyL(Z) typex(B) COLON typex(C) CurlyR. {
-    let type_mods = vec![Lstr::Sref("map"), Lstr::Sref("T")];
-    let mut type_params = LinkedList::new();
-    type_params.push_back(Kxpr::new_x(B));
-    type_params.push_back(Kxpr::new_x(C));
-    A = Ast::Lri(type_mods, Some(type_params), Z);
+    A = Ast::type_call("map", "T", vec![B, C], Z);
 }
 type_term(A) ::= type_term(B) PCT(Z). {
-    let mods = vec![Lstr::Sref("task"), Lstr::Sref("Future")];
-    let mut tparam = LinkedList::new();
-    tparam.push_back(Kxpr::new_x(B));
-    A = Ast::Lri(mods, Some(tparam), Z);
+    A = Ast::type_call("task", "Future", vec![B], Z);
 }
-type_term(A) ::= type_term(B) MULT. {
-    // A = Ast::TypeSequence(Box::new(B));
-    eprintln!("cannot yet parse type {}*", B);
-    A = Ast::TypeVoid;
+type_term(A) ::= type_term(B) TIMES(Z). {
+    A = Ast::type_call("seq", "T", vec![B], Z);
 }
 type_term(A) ::= type_term(B) QUESTION(Z). {
-    let mods = vec![Lstr::Sref("option"), Lstr::Sref("T")];
-    let mut tparam = LinkedList::new();
-    tparam.push_back(Kxpr::new_x(B));
-    A = Ast::Lri(mods, Some(tparam), Z);
+    A = Ast::type_call("option", "T", vec![B], Z);
 }
 typex(A) ::= FTYPE(Z) PARENCALL typex_list(B) RPAREN COLON typex(C). {
     let typevec: Vec<Kxpr> = B.into_iter().collect();
@@ -518,85 +502,70 @@ match_expr(A) ::= MATCH(D) expr(B) if_case(C) DOUBLEDASH. {
 
 
 expr(A) ::= NOT(C) expr(B). {
-    let call = vec![Lstr::from("prefab"), Lstr::from("bool_not")];
+    let call = Ast::Modid(Lstr::Sref("prefab"), Lstr::Sref("bool_not"), C);
     let mut args = LinkedList::new();
     args.push_back(Kxpr::new_x(B));
-    A = Ast::Call(Box::new(Ast::Lri(call, None, C.clone())), args, C);
+    A = Ast::Call(Box::new(call), args, C);
 }
 expr(A) ::= expr(B) ConcatNewline(C). {
     A = Ast::StrExpr(vec![B, Ast::ConstStr(Lstr::from("\n"))], C);
 }
 /* arithmetic */
 expr(A) ::= NEGATE(C) term(B). {
-    let call = vec![Lstr::from("prefab"), Lstr::from("int_negate")];
+    let call = Ast::Modid(Lstr::Sref("prefab"), Lstr::Sref("int_negate"), C);
     let mut args = LinkedList::new();
     args.push_back(Kxpr::new_x(B));
-    A = Ast::Call(Box::new(Ast::Lri(call, None, C.clone())), args, C);
+    A = Ast::Call(Box::new(call), args, C);
 }
 expr(A) ::= expr(B) PLUS(D) expr(C). {
-    let call = vec![Lstr::from("prefab"), Lstr::from("int_add")];
-    A = Ast::binaryop(call, B, C, D);
+    A = Ast::binaryop("prefab", "int_add", B, C, D);
 }
 expr(A) ::= expr(B) MINUS(D) expr(C). {
-    let call = vec![Lstr::from("prefab"), Lstr::from("int_sub")];
-    A = Ast::binaryop(call, B, C, D);
+    A = Ast::binaryop("prefab", "int_sub", B, C, D);
 }
 expr(A) ::= expr(B) TIMES(D) expr(C). {
-    let call = vec![Lstr::from("prefab"), Lstr::from("int_mult")];
-    A = Ast::binaryop(call, B, C, D);
+    A = Ast::binaryop("prefab", "int_mult", B, C, D);
 }
 expr(A) ::= expr(B) SLASH(D) expr(C). {
-    let call = vec![Lstr::from("prefab"), Lstr::from("int_div")];
-    A = Ast::binaryop(call, B, C, D);
+    A = Ast::binaryop("prefab", "int_div", B, C, D);
 }
 expr(A) ::= expr(B) MOD(D) expr(C). {
-    let call = vec![Lstr::from("prefab"), Lstr::from("int_mod")];
-    A = Ast::binaryop(call, B, C, D);
+    A = Ast::binaryop("prefab", "int_mod", B, C, D);
 }
 expr(A) ::= expr(B) SEMICOLON expr(C). {
     A = Ast::Cons(Box::new(B), Box::new(C));
 }
 expr(A) ::= expr(B) AND(D) expr(C). {
-    let call = vec![Lstr::from("prefab"), Lstr::from("boolean_and")];
-    A = Ast::binaryop(call, B, C, D);
+    A = Ast::binaryop("prefab", "boolean_and", B, C, D);
 }
 expr(A) ::= expr(B) OR(D) expr(C). {
-    let call = vec![Lstr::from("prefab"), Lstr::from("boolean_or")];
-    A = Ast::binaryop(call, B, C, D);
+    A = Ast::binaryop("prefab", "boolean_or", B, C, D);
 }
 expr(A) ::= expr(B) XOR(D) expr(C). {
-    let call = vec![Lstr::from("prefab"), Lstr::from("boolean_xor")];
-    A = Ast::binaryop(call, B, C, D);
+    A = Ast::binaryop("prefab", "boolean_xor", B, C, D);
 }
 
 /* comparisons */
 expr(A) ::= expr(B) LT(D) expr(C). {
-    let call = vec![Lstr::from("prefab"), Lstr::from("less_than")];
-    A = Ast::binaryop(call, B, C, D);
+    A = Ast::binaryop("prefab", "less_than", B, C, D);
 }
 expr(A) ::= expr(B) LTEQ(D) expr(C). {
-    let call =
-        vec![Lstr::from("prefab"), Lstr::from("less_than_equal")];
-    A = Ast::binaryop(call, B, C, D);
+    A = Ast::binaryop("prefab", "less_than_equal", B, C, D);
 }
 expr(A) ::= expr(B) GT(D) expr(C). {
-    let call = vec![Lstr::from("prefab"), Lstr::from("greater_than")];
-    A = Ast::binaryop(call, B, C, D);
+    A = Ast::binaryop("prefab", "greater_than", B, C, D);
 }
 expr(A) ::= expr(B) GTEQ(D) expr(C). {
-    let call =
-        vec![Lstr::from("prefab"), Lstr::from("greater_than_equal")];
-    A = Ast::binaryop(call, B, C, D);
+    A = Ast::binaryop("prefab", "greater_than_equal", B, C, D);
 }
 expr(A) ::= expr(B) EQ(P) expr(C). {
-    let call = vec![Lstr::from("prefab"), Lstr::from("equal")];
-    A = Ast::binaryop(call, B, C, P);
+    A = Ast::binaryop("prefab", "equal", B, C, P);
 }
 expr(A) ::= expr(B) NEQ(P) expr(C). {
-    let inner_call = vec![Lstr::from("prefab"), Lstr::from("equal")];
+    let inner_call = Ast::binaryop("prefab", "equal", B, C, P);
     let mut inner_op = LinkedList::new();
-    inner_op.push_back(Kxpr::new_x(Ast::binaryop(inner_call, B, C, P)));
-    let not_call = Ast::Lri(vec![Lstr::from("bool_not")], None, P.clone());
+    inner_op.push_back(Kxpr::new_x(inner_call));
+    let not_call = Ast::Modid(Lstr::Sref("prefab"), Lstr::Sref("bool_not"), P);
     A = Ast::Call(Box::new(not_call), inner_op, P);
 }
 /*
@@ -628,7 +597,10 @@ term(A) ::= tuple(B). {
 term(A) ::= list(B). {
     A = B;
 }
-term(A) ::= lri(B). {
+term(A) ::= localid(B). {
+    A = B;
+}
+term(A) ::= modid(B). {
     A = B;
 }
 term(A) ::= map(B). {
@@ -657,8 +629,9 @@ term(A) ::= UNDERSCORE. { A = Ast::Wildcard; }
 /* map
  * {}
  */
-map(A) ::= CurlyL x_list(B) CurlyR. {
-    A = Ast::Map(B);
+map(A) ::= CurlyL(Z) x_list(B) CurlyR. {
+    let modid = Ast::Modid(Lstr::Sref("map"), Lstr::Sref("new"), Z);
+    A = Ast::Call(Box::new(modid), B, Z);
 }
 
 list(A) ::= SquareL expr_list(B) SquareR. {
@@ -676,26 +649,15 @@ localid(A) ::= ID(B). {
     A = Ast::Localid(Lstr::from(B.data), B.loc);
 }
 
-lri(A) ::= localid(B). {
+modid(A) ::= ID(B) DBLCOLON ID(C). {
+    A = Ast::Modid(Lstr::from(B.data), Lstr::from(C.data), B.loc);
+}
+
+localid_spec(A) ::= localid(B). {
     A = B;
 }
-lri(A) ::= lri_base(B). {
-    A = Ast::Lri(B.0, None, B.1);
-}
-lri(A) ::= lri_base(B) SquareCall typex_list(C) SquareR. {
-    A = Ast::Lri(B.0, Some(C), B.1);
-}
-lri(A) ::= ID(B) SquareCall typex_list(C) SquareR. {
-    let one_name = vec![Lstr::from(B.data)];
-    A = Ast::Lri(one_name, Some(C), B.loc);
-}
-lri_base(A) ::= ID(B) DBLCOLON ID(C). {
-    A = (vec![Lstr::from(B.data), Lstr::from(C.data)], B.loc);
-}
-lri_base(A) ::= lri_base(B) DBLCOLON ID(C). {
-    let mut tmp = B;
-    tmp.0.push(Lstr::from(C.data));
-    A = tmp;
+localid_spec(A) ::= localid(B) SquareL(Z) ktype_list(C) SquareR. {
+    A = Ast::TypeCall(Box::new(B), C, Z);
 }
 
 

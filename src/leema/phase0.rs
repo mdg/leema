@@ -140,10 +140,6 @@ impl Protomod
                 let ppbase = Protomod::preproc_expr(self, prog, mp, base, loc);
                 Ast::DotAccess(Box::new(ppbase), fld.clone())
             }
-            &Ast::Fork(ref fx) => {
-                let ppfx = Protomod::preproc_expr(self, prog, mp, fx, loc);
-                Ast::Fork(Box::new(ppfx))
-            }
             &Ast::IfExpr(
                 ast::IfType::MatchFailure,
                 ref input,
@@ -200,35 +196,11 @@ impl Protomod
             &Ast::Localid(ref id, ref iloc) => {
                 Protomod::preproc_localid(prog, mp, id, iloc)
             }
-            &Ast::Lri(ref mods, None, ref iloc) => {
-                Protomod::preproc_lri(prog, mp, mods, iloc)
+            &Ast::Modid(ref module, ref localid, ref iloc) => {
+                Protomod::preproc_modid(prog, mp, module, localid, iloc)
             }
-            &Ast::Lri(ref mods, Some(ref typs), ref iloc) => {
-                Protomod::preproc_lri_with_types(
-                    self, prog, mp, mods, typs, iloc,
-                )
-            }
-            &Ast::Map(ref items) if items.is_empty() => {
-                let callmods = vec![Lstr::Sref("map"), Lstr::Sref("new")];
-                let mut tvars = LinkedList::new();
-                tvars.push_back(Kxpr::new_x(Ast::TypeVar(
-                    Lstr::Sref("K"),
-                    *loc,
-                )));
-                tvars.push_back(Kxpr::new_x(Ast::TypeVar(
-                    Lstr::Sref("V"),
-                    *loc,
-                )));
-                let callri = Ast::Lri(callmods, Some(tvars), *loc);
-                let call = Ast::Call(Box::new(callri), LinkedList::new(), *loc);
-                self.preproc_expr(prog, mp, &call, loc)
-            }
-            &Ast::Map(ref items) => {
-                let pp_items = items
-                    .iter()
-                    .map(|i| i.map_x(|x| self.preproc_expr(prog, mp, x, loc)))
-                    .collect();
-                Ast::Map(pp_items)
+            &Ast::TypeCall(ref base, ref typs, ref iloc) => {
+                self.preproc_typecall(prog, mp, base, typs, iloc)
             }
             &Ast::Return(ref x, ref loc) => {
                 let px = Protomod::preproc_expr(self, prog, mp, x, loc);
@@ -523,7 +495,7 @@ impl Protomod
             pp_args.iter().map(|a| (a.k_clone(), Val::Void)).collect();
 
         let decl = ast::FuncDecl {
-            name: Ast::Lri(vec![closure_key.clone()], None, *loc),
+            name: Ast::Localid(closure_key.clone(), *loc),
             args: pp_args,
             result: pp_result.clone(),
             loc: *loc,
@@ -736,10 +708,21 @@ impl Protomod
                     .collect();
                 Ast::Call(Box::new(new_callx), new_args, *loc)
             }
-            &Ast::Localid(ref name, ref _iloc) => {
+            &Ast::TypeCall(ref base, ref tparams, ref iloc) => {
+                let base2 = Protomod::replace_ids(base, idvals, iloc);
+                let tparams2 = tparams
+                    .iter()
+                    .map(|tp| {
+                        tp.map_x(|x| Protomod::replace_ids(x, idvals, loc))
+                    })
+                    .collect();
+                Ast::TypeCall(Box::new(base2), tparams2, *iloc)
+            }
+            &Ast::Modid(_, _, _) => node.clone(),
+            &Ast::Localid(ref name, ref iloc) => {
                 match idvals.get(&*name) {
                     Some(newx) => (*newx).clone(),
-                    None => Ast::Localid(name.clone(), *loc),
+                    None => Ast::Localid(name.clone(), *iloc),
                 }
             }
             &Ast::StrExpr(ref items, ref iloc) => {
@@ -771,16 +754,6 @@ impl Protomod
             &Ast::Return(ref result, _) => {
                 let new_result = Protomod::replace_ids(result, idvals, loc);
                 Ast::Return(Box::new(new_result), *loc)
-            }
-            &Ast::Lri(_, None, _) => node.clone(),
-            &Ast::Lri(ref mods, Some(ref tparams), ref iloc) => {
-                let tparams2 = tparams
-                    .iter()
-                    .map(|tp| {
-                        tp.map_x(|x| Protomod::replace_ids(x, idvals, loc))
-                    })
-                    .collect();
-                Ast::Lri(mods.clone(), Some(tparams2), *iloc)
             }
             &Ast::ConstBool(b) => Ast::ConstBool(b),
             &Ast::ConstInt(i) => Ast::ConstInt(i),
@@ -825,33 +798,33 @@ impl Protomod
         }
     }
 
-    pub fn preproc_lri(
+    pub fn preproc_modid(
         prog: &Lib,
         mp: &ModulePreface,
-        mods: &Vec<Lstr>,
+        mod_name: &Lstr,
+        localid: &Lstr,
         loc: &SrcLoc,
     ) -> Ast
     {
-        let mod_name = mods.first().unwrap();
         if *mod_name != *mp.key.name && !mp.imports.contains(mod_name) {
-            panic!("module not found: {:?}", mods);
+            panic!("module not found: {:?}", mod_name);
         }
-        let val_name = mods.last().unwrap();
-        match prog.get_macro(mod_name, val_name) {
+        match prog.get_macro(mod_name, localid) {
             Some(mac) => mac.clone(),
-            None => Ast::Lri(mods.clone(), None, *loc),
+            None => Ast::Modid(mod_name.clone(), localid.clone(), *loc)
         }
     }
 
-    pub fn preproc_lri_with_types(
+    pub fn preproc_typecall(
         &mut self,
-        _prog: &Lib,
+        prog: &Lib,
         mp: &ModulePreface,
-        mods: &Vec<Lstr>,
+        base: &Ast,
         typs: &LinkedList<Kxpr>,
         loc: &SrcLoc,
     ) -> Ast
     {
+        let pp_base = self.preproc_expr(prog, mp, base, loc);
         let pp_types = typs
             .iter()
             .map(|t| {
@@ -859,19 +832,18 @@ impl Protomod
                     match tx {
                         Ast::Localid(ref id, ref iloc) => {
                             if self.deftypes.contains_key(id) {
-                                let tri = vec![mp.key.name.clone(), id.clone()];
-                                Ast::Lri(tri, None, *iloc)
+                                Ast::Modid(mp.key.name.clone(), id.clone(), *iloc)
                             } else {
                                 Ast::TypeVar(id.clone(), *iloc)
                             }
                         }
                         Ast::TypeVar(_, _) => tx.clone(),
-                        _ => tx.clone(),
+                        _ => self.preproc_expr(prog, mp, tx, loc)
                     }
                 })
             })
             .collect();
-        Ast::Lri(mods.clone(), Some(pp_types), *loc)
+        Ast::TypeCall(Box::new(pp_base), pp_types, *loc)
     }
 
     pub fn preproc_ifcase(
@@ -970,20 +942,19 @@ impl Protomod
                     .collect();
                 Ast::Call(Box::new(pp_callx), pp_args, *loc)
             }
-            &Ast::Lri(ref mods, ref opt_params, ref iloc) => {
-                let pp_mods = mods.clone();
-                let pp_params = opt_params.as_ref().map(|params| {
-                    params
-                        .iter()
-                        .map(|pkx| {
-                            pkx.map_x(|p| {
-                                Protomod::preproc_pattern(prog, mp, p, iloc)
-                            })
+            &Ast::TypeCall(ref name, ref params, ref iloc) => {
+                let pp_call = Protomod::preproc_pattern(prog, mp, name, iloc);
+                let pp_params = params
+                    .iter()
+                    .map(|pkx| {
+                        pkx.map_x(|p| {
+                            Protomod::preproc_pattern(prog, mp, p, iloc)
                         })
-                        .collect()
-                });
-                Ast::Lri(pp_mods, pp_params, *iloc)
+                    })
+                    .collect();
+                Ast::TypeCall(Box::new(pp_call), pp_params, *iloc)
             }
+            &Ast::Modid(_, _, _) => p.clone(),
             &Ast::Localid(_, _) => p.clone(),
             &Ast::Wildcard => Ast::Wildcard,
             &Ast::ConstInt(i) => Ast::ConstInt(i),

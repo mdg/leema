@@ -561,13 +561,16 @@ pub fn compile_expr(
     match x {
         &Ast::Block(ref lines) => compile_block(scope, lines, loc),
         &Ast::Localid(ref id, ref loc) => compile_local_id(scope, id, loc),
-        &Ast::Lri(ref names, ref tvars, ref loc) => {
-            compile_lri(scope, names, tvars, loc)
+        &Ast::Modid(ref modules, ref id, ref loc) => {
+            compile_modid(scope, modules, id, loc)
         }
         &Ast::DotAccess(ref outer, ref inner) => {
             compile_dot_access(scope, outer, inner, loc)
         }
         &Ast::Call(ref callx, ref args, ref iloc) => {
+            compile_call(scope, callx, args, iloc)
+        }
+        &Ast::TypeCall(ref callx, ref args, ref iloc) => {
             compile_call(scope, callx, args, iloc)
         }
         &Ast::ConstBool(b) => Ok(Ixpr::const_val(Val::Bool(b), loc.lineno)),
@@ -583,10 +586,6 @@ pub fn compile_expr(
             let chead = compile_expr(scope, head, loc)?;
             let ctail = compile_expr(scope, tail, loc)?;
             Ok(Ixpr::cons(chead, ctail, loc.lineno))
-        }
-        &Ast::Fork(ref fx) => {
-            let ifx = compile_expr(scope, fx, loc)?;
-            Ok(Ixpr::new(Source::Fork(Box::new(ifx)), loc.lineno))
         }
         &Ast::IfExpr(_, _, _, _) => compile_ifx(scope, x),
         &Ast::StrExpr(ref items, ref iloc) => {
@@ -606,14 +605,6 @@ pub fn compile_expr(
             });
             let c_items = Lresult::from_iter(m_items)?;
             Ok(Ixpr::new_tuple(Struple(c_items), loc.lineno))
-        }
-        &Ast::Map(ref items) => {
-            let m_items = items.iter().map(|i| {
-                let ix = compile_expr(scope, i.x_ref().unwrap(), loc)?;
-                Ok((i.k_clone(), ix))
-            });
-            let c_items = Lresult::from_iter(m_items)?;
-            Ok(Ixpr::new_map(Struple(c_items), loc.lineno))
         }
         &Ast::ConstructData(ref type_lri, None) => {
             let opt_full_type = scope.proto.func_result_type(&type_lri.localid);
@@ -662,6 +653,27 @@ pub fn compile_expr(
             ))
         }
     }
+}
+
+pub fn compile_modid(
+    scope: &mut Interscope,
+    modname: &Lstr,
+    localid: &Lstr,
+    loc: &SrcLoc,
+) -> Lresult<Ixpr>
+{
+    vout!("compile_modid({}::{})\n", modname, localid);
+    if !scope.imports_module(modname) && *modname != scope.proto.key.name {
+        panic!("module not found: {:?}", modname);
+    }
+
+    let opt_constval: Option<&Val> = scope.import_constval(modname, localid);
+    let constval: &Val = opt_constval.ok_or_else(|| {
+        Failure::new("missing_import", Lstr::from(format!(
+            "cannot find imported value: {}::{}", modname, localid
+        )))
+    })?;
+    Ok(Ixpr::const_val(constval.clone(), loc.lineno))
 }
 
 pub fn compile_lri(
@@ -969,7 +981,7 @@ pub fn compile_pattern(
         &Ast::Call(ref callx, ref args, ref iloc) => {
             compile_pattern_call(scope, new_vars, callx, args, iloc)?
         }
-        &Ast::Lri(_, _, _) => {
+        &Ast::Modid(_, _, _) => {
             // this should be a const token
             let tokenri = Lri::from(patt);
             let constval = scope

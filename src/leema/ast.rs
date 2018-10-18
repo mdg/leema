@@ -239,19 +239,18 @@ pub enum Ast
     // dereference another expression
     Deref(Box<Ast>),
     DotAccess(Box<Ast>, Lstr),
-    Fork(Box<Ast>),
     IfExpr(IfType, Box<Ast>, Box<IfCase>, SrcLoc),
     Import(Box<Ast>, SrcLoc),
     Let(Box<Ast>, Box<Ast>, SrcLoc),
     List(LinkedList<Ast>),
     Localid(Lstr, SrcLoc),
-    Lri(Vec<Lstr>, Option<LinkedList<Kxpr>>, SrcLoc),
-    Map(LinkedList<Kxpr>),
+    Modid(Lstr, Lstr, SrcLoc),
     Question,
     Return(Box<Ast>, SrcLoc),
     RustBlock,
     StrExpr(Vec<Ast>, SrcLoc),
     Tuple(LinkedList<Kxpr>),
+    TypeCall(Box<Ast>, LinkedList<Kxpr>, SrcLoc),
     TypeAnon,
     TypeBool,
     TypeFailure,
@@ -269,42 +268,45 @@ pub enum Ast
 
 impl Ast
 {
-    pub fn binaryop(callname: Vec<Lstr>, a: Ast, b: Ast, loc: SrcLoc) -> Ast
+    pub fn binaryop(module: &'static str, id: &'static str
+        , a: Ast, b: Ast, loc: SrcLoc
+        ) -> Ast
     {
-        let name_lri = Ast::Lri(callname, None, loc.clone());
+        let name_lri = Ast::Modid(Lstr::Sref(module), Lstr::Sref(id), loc);
         let mut args = LinkedList::new();
         args.push_back(Kxpr::new_x(a));
         args.push_back(Kxpr::new_x(b));
         Ast::Call(Box::new(name_lri), args, loc)
     }
 
-    pub fn fork(x: Ast, loc: SrcLoc) -> Ast
+    pub fn type_call(module: &'static str, local: &'static str, typs: Vec<Ast>, loc: SrcLoc) -> Ast
     {
-        let clos = Ast::closure(LinkedList::new(), x.clone(), loc);
-        let lrimods = vec![Lstr::Sref("task"), Lstr::Sref("spawn")];
-        let call = Ast::Lri(lrimods, None, loc);
-        let mut args = LinkedList::new();
-        args.push_back(Kxpr::new_x(clos));
-        Ast::Call(Box::new(call), args, loc)
+        let mods = Ast::Modid(Lstr::Sref(module), Lstr::Sref(local), loc);
+        let tparams = typs.iter().map(|t| Kxpr::new_x(t.clone())).collect();
+        Ast::TypeCall(Box::new(mods), tparams, loc)
     }
 
     pub fn from_lri(l: Lri, loc: &SrcLoc) -> Ast
     {
-        if l.local_only() {
-            return Ast::Localid(l.local_ref().clone(), *loc);
-        }
-        let mods = if l.has_modules() {
-            vec![l.mod_ref().unwrap().clone(), l.local_ref().clone()]
-        } else {
-            vec![l.local_ref().clone()]
+        let base = match l.modules {
+            Some(mods) => {
+                Ast::Modid(mods, l.localid, *loc)
+            }
+            None => {
+                Ast::Localid(l.localid, *loc)
+            }
         };
-        let new_params: Option<LinkedList<Kxpr>> = l.params.map(|params| {
-            params
-                .into_iter()
-                .map(|p| Kxpr::new_x(Ast::from_type(p, loc)))
-                .collect()
-        });
-        Ast::Lri(mods, new_params, *loc)
+
+        match l.params {
+            Some(params) => {
+                let kx_params = params
+                    .into_iter()
+                    .map(|p| Kxpr::new_x(Ast::from_type(p, loc)))
+                    .collect();
+                Ast::TypeCall(Box::new(base), kx_params, *loc)
+            }
+            None => base,
+        }
     }
 
     pub fn from_type(t: Type, loc: &SrcLoc) -> Ast
@@ -386,7 +388,8 @@ impl Ast
     {
         match self {
             &Ast::Localid(_, ref loc) => loc,
-            &Ast::Lri(_, _, ref loc) => loc,
+            &Ast::Modid(_, _, ref loc) => loc,
+            &Ast::TypeCall(_, _, ref loc) => loc,
             _ => {
                 panic!("cannot find SrcLoc for: {:?}", self);
             }
@@ -404,36 +407,12 @@ impl Ast
     }
 }
 
-impl<'a> From<&'a Ast> for String
-{
-    fn from(a: &'a Ast) -> String
-    {
-        match a {
-            &Ast::Localid(ref ls, _) => String::from(ls),
-            &Ast::Lri(ref items, ref types, _) => {
-                format!("{:?}<{:?}>", items, types)
-            }
-            _ => {
-                panic!("cannot convert to string: {:?}", a);
-            }
-        }
-    }
-}
-
 impl<'a> From<&'a Ast> for Lstr
 {
     fn from(a: &'a Ast) -> Lstr
     {
         match a {
             &Ast::Localid(ref ls, _) => ls.clone(),
-            &Ast::Lri(ref items, ref types, _) => {
-                if items.len() == 1 && types.is_none() {
-                    items.first().unwrap().clone()
-                } else {
-                    let new_str = format!("{:?}<{:?}>", items, types);
-                    Lstr::from(new_str)
-                }
-            }
             _ => {
                 panic!("cannot convert to string: {:?}", a);
             }
@@ -447,19 +426,26 @@ impl<'a> From<&'a Ast> for Lri
     {
         match a {
             &Ast::Localid(ref id, _) => Lri::new(id.clone()),
-            &Ast::Lri(ref names, ref types, _) => {
-                let param_array = types.as_ref().map(|param_list| {
-                    param_list
-                        .iter()
-                        .map(|p| Type::from(p.x_ref().unwrap()))
-                        .collect()
-                });
-                let modname = if names.len() == 1 {
-                    None
-                } else {
-                    Some(names.first().unwrap().clone())
+            &Ast::Modid(ref mods, ref localid, _) => {
+                Lri::with_modules(mods.clone(), localid.clone())
+            }
+            &Ast::TypeCall(ref base, ref types, _) => {
+                let lri_base = match **base {
+                    Ast::Localid(ref id, _) => {
+                        Lri::new(id.clone())
+                    }
+                    Ast::Modid(ref mods, ref localid, _) => {
+                        Lri::with_modules(mods.clone(), localid.clone())
+                    }
+                    _ => {
+                        panic!("unknown base: {:?}", base);
+                    }
                 };
-                Lri::full(modname, names.last().unwrap().clone(), param_array)
+                let param_array = types
+                    .iter()
+                    .map(|p| Type::from(p.x_ref().unwrap()))
+                    .collect();
+                lri_base.replace_params(param_array)
             }
             _ => {
                 panic!("cannot convert Ast to Lri: {:?}", a);
@@ -515,7 +501,9 @@ impl<'a> From<&'a Ast> for Type
                 Type::Tuple(pp_items)
             }
             &Ast::Localid(ref id, _) => Type::UserDef(Lri::new(id.clone())),
-            &Ast::Lri(_, _, _) => Type::UserDef(Lri::from(a)),
+            &Ast::Modid(ref mods, ref id, _) => {
+                Type::UserDef(Lri::with_modules(mods.clone(), id.clone()))
+            }
             _ => {
                 panic!("cannot convert Ast to Type: {:?}", a);
             }
@@ -549,20 +537,15 @@ impl fmt::Display for Ast
                 write!(f, "(let {} = {})", lhs, rhs)
             }
             &Ast::Localid(ref id, _) => write!(f, "{}", id),
-            &Ast::Lri(ref id, ref types, _) => {
-                let mut use_sep = false;
-                for i in id {
-                    if use_sep {
-                        write!(f, "::{}", i)?;
-                    } else {
-                        write!(f, "{}", i)?;
-                        use_sep = true;
-                    }
+            &Ast::Modid(ref mods, ref id, _) => {
+                write!(f, "{}::{}", mods, id)
+            }
+            &Ast::TypeCall(ref base, ref types, _) => {
+                write!(f, "{}[", base)?;
+                for t in types.iter() {
+                    write!(f, "{},", t)?;
                 }
-                if types.is_some() {
-                    write!(f, "{:?}", types.as_ref().unwrap())?;
-                }
-                Ok(())
+                write!(f, "]")
             }
             &Ast::DefFunc(ft, ref decl, ref body) => {
                 writeln!(f, "({:?} {}", ft, decl)?;
