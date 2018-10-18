@@ -5,6 +5,40 @@ use leema::val::{Type, Val};
 use std::fmt;
 
 
+/*
+struct Locid(Lstr);
+
+struct Modid {
+    module: Lstr,
+    localid: Lstr,
+}
+
+struct Typid {
+    module: Lstr,
+    localid: Lstr,
+    types: Struple<FlatType>,
+}
+
+struct TypeFunc
+{
+    id: ModId,
+    args: Struple<()>,
+}
+
+struct TypeCall
+{
+    id: ModId,
+    args: Struple<Type>,
+}
+
+enum PrimitiveType;
+
+enum FlatType;
+
+enum FullType;
+*/
+
+
 #[derive(Clone)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
