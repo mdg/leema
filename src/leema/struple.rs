@@ -5,7 +5,7 @@ use leema::sendclone;
 use leema::val::Val;
 
 use std::fmt;
-use std::iter::FromIterator;
+use std::iter::{FromIterator, Iterator};
 use std::slice::Iter;
 
 
@@ -37,7 +37,18 @@ impl<K, V> StrupleKV<K, V>
     {
         self.0.iter()
     }
+
+    pub fn iter_k(&self) -> impl Iterator<Item=&K>
+    {
+        self.0.iter().map(|kv| &kv.k)
+    }
+
+    pub fn iter_v<F>(&self) -> impl Iterator<Item=&V>
+    {
+        self.0.iter().map(|kv| &kv.v)
+    }
 }
+
 
 #[derive(Clone)]
 #[derive(PartialEq)]
