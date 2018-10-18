@@ -1,36 +1,57 @@
 use leema::lstr::Lstr;
 use leema::sendclone::SendClone;
+use leema::struple::StrupleKV;
 use leema::val::{Type, Val};
 
 use std::fmt;
+use std::slice::Iter;
+
+
+struct OnlyLocalId
+{
+    local: Lstr,
+}
+
+struct ModLocalId
+{
+    module: Lstr,
+    local: Lstr,
+}
+
+struct TypId<I, T>
+{
+    id: I,
+    params: StrupleKV<Lstr, T>,
+}
+
+type GenericLocalId = TypId<OnlyLocalId, ()>;
+type GenericModId = TypId<ModLocalId, ()>;
+type SpecialLocalId = TypId<OnlyLocalId, Type>;
+type SpecialModId = TypId<ModLocalId, Type>;
+
+trait GenId<I>
+{
+    fn vars(&self) -> Iter<Lstr>;
+}
+
+trait SpecId<I>
+{
+    fn types(&self) -> Iter<Type>;
+}
+
+trait LocalId<I>
+{
+    fn local(&self) -> &Lstr;
+}
+
+trait ModId<I>
+{
+    fn id(&self) -> &ModLocalId;
+    fn module(&self) -> &Lstr;
+}
 
 
 /*
-struct Locid(Lstr);
-
-struct Modid {
-    module: Lstr,
-    localid: Lstr,
-}
-
-struct Typid {
-    module: Lstr,
-    localid: Lstr,
-    types: Struple<FlatType>,
-}
-
-struct TypeFunc
-{
-    id: ModId,
-    args: Struple<()>,
-}
-
-struct TypeCall
-{
-    id: ModId,
-    args: Struple<Type>,
-}
-
 enum PrimitiveType;
 
 enum FlatType;

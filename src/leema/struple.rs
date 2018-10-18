@@ -6,7 +6,38 @@ use leema::val::Val;
 
 use std::fmt;
 use std::iter::FromIterator;
+use std::slice::Iter;
 
+
+#[derive(Clone)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Ord)]
+#[derive(Hash)]
+pub struct StrupleItem<K, V>
+{
+    pub k: K,
+    pub v: V,
+}
+
+#[derive(Clone)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Ord)]
+#[derive(Hash)]
+pub struct StrupleKV<K, V>(Vec<StrupleItem<K, V>>);
+
+type Struple2<T> = StrupleKV<Option<Lstr>, T>;
+
+impl<K, V> StrupleKV<K, V>
+{
+    pub fn iter(&self) -> Iter<StrupleItem<K, V>>
+    {
+        self.0.iter()
+    }
+}
 
 #[derive(Clone)]
 #[derive(PartialEq)]
