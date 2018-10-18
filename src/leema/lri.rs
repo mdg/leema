@@ -4,20 +4,38 @@ use leema::struple::StrupleKV;
 use leema::val::{Type, Val};
 
 use std::fmt;
-use std::slice::Iter;
+use std::iter::Iterator;
 
 
+#[derive(Clone)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Ord)]
+#[derive(Hash)]
 struct OnlyLocalId
 {
     local: Lstr,
 }
 
+#[derive(Clone)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Ord)]
+#[derive(Hash)]
 struct ModLocalId
 {
     module: Lstr,
     local: Lstr,
 }
 
+#[derive(Clone)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Ord)]
+#[derive(Hash)]
 struct TypId<I, T>
 {
     id: I,
@@ -29,14 +47,17 @@ type GenericModId = TypId<ModLocalId, ()>;
 type SpecialLocalId = TypId<OnlyLocalId, Type>;
 type SpecialModId = TypId<ModLocalId, Type>;
 
-trait GenId<I>
+impl<I, T> TypId<I, T>
 {
-    fn vars(&self) -> Iter<Lstr>;
+    fn vars(&self) -> impl Iterator<Item=&Lstr>
+    {
+        self.params.iter_k()
+    }
 }
 
 trait SpecId<I>
 {
-    fn types(&self) -> Iter<Type>;
+    fn types(&self) -> Iterator<Item=&Type>;
 }
 
 trait LocalId<I>
