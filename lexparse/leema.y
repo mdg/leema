@@ -61,7 +61,6 @@ use std::collections::linked_list::{LinkedList};
 %type SEMICOLON { SrcLoc }
 %type SLASH { SrcLoc }
 %type SquareL { SrcLoc }
-%type SquareCall { SrcLoc }
 %type SquareR { SrcLoc }
 %type StrLit { String }
 %type StrOpen { SrcLoc }

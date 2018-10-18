@@ -500,6 +500,7 @@ impl<'a> From<&'a Ast> for Type
                     .collect();
                 Type::Tuple(pp_items)
             }
+            &Ast::TypeCall(_, _, _) => Type::UserDef(Lri::from(a)),
             &Ast::Localid(ref id, _) => Type::UserDef(Lri::new(id.clone())),
             &Ast::Modid(ref mods, ref id, _) => {
                 Type::UserDef(Lri::with_modules(mods.clone(), id.clone()))
@@ -588,32 +589,19 @@ mod tests
     use std::collections::LinkedList;
 
 
-    fn test_lri(item: &'static str, line: i16, col: i8) -> Ast
-    {
-        Ast::Lri(
-            vec![Lstr::from(item)].into_iter().collect(),
-            None,
-            SrcLoc::new(line, col),
-        )
-    }
-
     fn test_localid(id: &'static str, line: i16, col: i8) -> Ast
     {
         Ast::Localid(Lstr::from(id), SrcLoc::new(line, col))
     }
 
-    fn test_mod_lri(
+    fn test_modid(
         m: &'static str,
         item: &'static str,
         line: i16,
         col: i8,
     ) -> Ast
     {
-        Ast::Lri(
-            vec![Lstr::from(m), Lstr::from(item)].into_iter().collect(),
-            None,
-            SrcLoc::new(line, col),
-        )
+        Ast::Modid(Lstr::from(m), Lstr::from(item), SrcLoc::new(line, col))
     }
 
     #[test]
@@ -671,7 +659,7 @@ mod tests
         let root = ast::parse(lexed);
 
         let expected = Ast::Block(vec![Ast::Call(
-            Box::new(test_mod_lri("prefab", "int_add", 1, 2)),
+            Box::new(test_modid("prefab", "int_add", 1, 2)),
             vec![Kxpr::new_x(Ast::ConstInt(5)), Kxpr::new_x(Ast::ConstInt(3))]
                 .into_iter()
                 .collect(),
@@ -726,14 +714,14 @@ mod tests
         let root = ast::parse(lex(input));
 
         let inner = Ast::Call(
-            Box::new(test_mod_lri("prefab", "int_add", 1, 2)),
+            Box::new(test_modid("prefab", "int_add", 1, 2)),
             vec![Kxpr::new_x(Ast::ConstInt(5)), Kxpr::new_x(Ast::ConstInt(3))]
                 .into_iter()
                 .collect(),
             SrcLoc::new(1, 2),
         );
         let outer = Ast::Call(
-            Box::new(test_mod_lri("prefab", "int_add", 1, 4)),
+            Box::new(test_modid("prefab", "int_add", 1, 4)),
             vec![Kxpr::new_x(inner), Kxpr::new_x(Ast::ConstInt(2))]
                 .into_iter()
                 .collect(),
@@ -751,7 +739,7 @@ mod tests
         let root = ast::parse(lex(input));
 
         let neg4 = Ast::Call(
-            Box::new(test_mod_lri("prefab", "int_negate", 1, 5)),
+            Box::new(test_modid("prefab", "int_negate", 1, 5)),
             vec![Kxpr::new_x(Ast::ConstInt(4))].into_iter().collect(),
             SrcLoc::new(1, 5),
         );
@@ -819,9 +807,9 @@ mod tests
 
         let mut cargs = LinkedList::new();
         cargs.push_back(Kxpr::new_k(Lstr::Sref("x")));
-        let multri = Ast::Lri(
-            vec![Lstr::Sref("prefab"), Lstr::Sref("int_mult")],
-            None,
+        let multri = Ast::Modid(
+            Lstr::Sref("prefab"),
+            Lstr::Sref("int_mult"),
             SrcLoc::new(1, 7),
         );
         let mut mult_args = LinkedList::new();
