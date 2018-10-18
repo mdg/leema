@@ -224,6 +224,24 @@ mod tests
     }
 
     #[test]
+    fn test_tokenize_enum_params()
+    {
+        let input = "
+        enum Foo[A, B]
+        |Bar(A)
+        |Baz(B)
+        --
+        ";
+        let tokens = super::lex(input);
+        assert_eq!(Token::ENUM(SrcLoc::new(2, 1)), tokens[0]);
+        assert_eq!(
+            Token::ID(TokenData::new(String::from("Foo"), SrcLoc::new(2, 5))),
+            tokens[1],
+        );
+        assert_eq!(Token::PIPE(SrcLoc::new(3, 1)), tokens[7]);
+    }
+
+    #[test]
     fn test_lex_enum_variants()
     {
         let actual = super::lex(

@@ -12,7 +12,7 @@ use std::collections::linked_list::{LinkedList};
 %start_symbol {program}
 %derive_token {Debug,Clone,PartialEq}
 %wildcard ANY.
-%extra_argument { Result<Ast, i32> }
+%extra_argument { (Result<Ast, i32>, Ast) }
 
 %type AND { SrcLoc }
 %type BLOCKARROW { SrcLoc }
@@ -92,12 +92,14 @@ use std::collections::linked_list::{LinkedList};
 %type k_maybe_type { Kxpr }
 %type typex_list { LinkedList<Kxpr> }
 %type typex_maybe_k { Kxpr }
+%type id_spec { Ast }
 %type if_expr { Ast }
 %type if_case { ast::IfCase }
 %type localid { Ast }
 %type localid_spec { Ast }
 %type match_expr { Ast }
 %type modid { Ast }
+%type modid_spec { Ast }
 %type defstruple { Ast }
 %type defstruple_block { LinkedList<Kxpr> }
 %type defstruple_block_field { Kxpr }
@@ -144,9 +146,11 @@ use std::collections::linked_list::{LinkedList};
         TOKEN_EOI => {
 	        panic!("Unexpected end of file. Maybe add newline?");
         }
+        TOKEN_COLON => {
+            self.extra.0 = Err(1)
+        }
         _ => {
 	        println!("syntax error at token {:?}\n", yymajor);
-	        panic!("Syntax error. wtf? @ <line,column>?");
         }
     }
 }
@@ -160,7 +164,7 @@ program(A) ::= stmts(B). {
     // ignore A, it doesn't really go anywhere for program
     A = Ast::ConstVoid;
     // we're done, so put B in extra
-    self.extra = Ok(Ast::Block(B)); // , SrcLoc::default()));
+    self.extra.0 = Ok(Ast::Block(B)); // , SrcLoc::default()));
 }
 
 stmts(A) ::= . {
@@ -381,7 +385,7 @@ closure_expr(A) ::= FN(L) LPAREN ktype_list(B) RPAREN expr(C). {
 typex(A) ::= type_term(B). {
     A = B;
 }
-type_term(A) ::= modid(B). {
+type_term(A) ::= id_spec(B). {
     A = B;
 }
 type_term(A) ::= TYPE_FAILURE. {
@@ -655,8 +659,22 @@ modid(A) ::= ID(B) DBLCOLON ID(C). {
 localid_spec(A) ::= localid(B). {
     A = B;
 }
-localid_spec(A) ::= localid(B) SquareL(Z) ktype_list(C) SquareR. {
+localid_spec(A) ::= localid(B) SquareL(Z) typex_list(C) SquareR. {
     A = Ast::TypeCall(Box::new(B), C, Z);
+}
+
+modid_spec(A) ::= modid(B). {
+    A = B;
+}
+modid_spec(A) ::= modid(B) SquareL(Z) typex_list(C) SquareR. {
+    A = Ast::TypeCall(Box::new(B), C, Z);
+}
+
+id_spec(A) ::= localid_spec(B). {
+    A = B;
+}
+id_spec(A) ::= modid_spec(B). {
+    A = B;
 }
 
 

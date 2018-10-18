@@ -568,12 +568,12 @@ impl fmt::Display for Ast
 pub fn parse(toks: Vec<Token>) -> Ast
 {
     let e = Err(0);
-    let mut p = Parser::new(e);
+    let mut p = Parser::new((e, Ast::ConstVoid));
     for t in toks {
         p.parse(t);
     }
     p.parse(Token::EOI);
-    p.into_extra().unwrap()
+    p.into_extra().0.unwrap()
 }
 
 
@@ -1342,7 +1342,6 @@ mod tests
         --
         ";
         ast::parse(lex(input));
-
         assert!(true); // didn't panic!
     }
 
