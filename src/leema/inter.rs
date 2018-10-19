@@ -669,9 +669,13 @@ pub fn compile_modid(
 
     let opt_constval: Option<&Val> = scope.import_constval(modname, localid);
     let constval: &Val = opt_constval.ok_or_else(|| {
-        Failure::new("missing_import", Lstr::from(format!(
-            "cannot find imported value: {}::{}", modname, localid
-        )))
+        Failure::new(
+            "missing_import",
+            Lstr::from(format!(
+                "cannot find imported value: {}::{}",
+                modname, localid
+            )),
+        )
     })?;
     Ok(Ixpr::const_val(constval.clone(), loc.lineno))
 }
@@ -1306,7 +1310,9 @@ mod tests
         let proto = prog.read_proto(&foo_str);
         let mut inter = Intermod::new(foo_str.clone());
         let closure_name = proto.closures.front().unwrap();
-        inter.compile_function(&proto, &HashMap::new(), closure_name).unwrap();
+        inter
+            .compile_function(&proto, &HashMap::new(), closure_name)
+            .unwrap();
 
         let closed = inter.get_closed_vars(closure_name).unwrap();
         assert_eq!("i", &closed[0]);

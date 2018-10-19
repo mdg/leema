@@ -15,7 +15,7 @@ use std::iter::Iterator;
 #[derive(Hash)]
 struct OnlyLocalId
 {
-    local: Lstr,
+    pub local: Lstr,
 }
 
 #[derive(Clone)]
@@ -24,10 +24,29 @@ struct OnlyLocalId
 #[derive(Eq)]
 #[derive(Ord)]
 #[derive(Hash)]
-struct ModLocalId
+pub struct ModLocalId
 {
-    module: Lstr,
-    local: Lstr,
+    pub module: Lstr,
+    pub local: Lstr,
+}
+
+impl ModLocalId
+{
+    pub fn new(m: Lstr, l: Lstr) -> ModLocalId
+    {
+        ModLocalId {
+            module: m,
+            local: l,
+        }
+    }
+}
+
+impl fmt::Display for ModLocalId
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "{}::{}", self.module, self.local)
+    }
 }
 
 #[derive(Clone)]
@@ -36,9 +55,9 @@ struct ModLocalId
 #[derive(Eq)]
 #[derive(Ord)]
 #[derive(Hash)]
-struct TypId<I, T>
+pub struct TypId<I, T>
 {
-    id: I,
+    pub id: I,
     params: StrupleKV<Lstr, T>,
 }
 
@@ -49,7 +68,15 @@ type SpecialModId = TypId<ModLocalId, Type>;
 
 impl<I, T> TypId<I, T>
 {
-    fn vars(&self) -> impl Iterator<Item=&Lstr>
+    pub fn new(id: I) -> TypId<I, T>
+    {
+        TypId {
+            id,
+            params: StrupleKV::new(),
+        }
+    }
+
+    fn vars(&self) -> impl Iterator<Item = &Lstr>
     {
         self.params.iter_k()
     }
@@ -57,7 +84,7 @@ impl<I, T> TypId<I, T>
 
 trait SpecId<I>
 {
-    fn types(&self) -> Iterator<Item=&Type>;
+    fn types(&self) -> Iterator<Item = &Type>;
 }
 
 trait LocalId<I>

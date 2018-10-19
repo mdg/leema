@@ -137,6 +137,8 @@ pub struct Kxpr
     pub x: Option<Box<Ast>>,
 }
 
+pub type KxprList = LinkedList<Kxpr>;
+
 impl Kxpr
 {
     pub fn new(k: Lstr, x: Ast) -> Kxpr
@@ -268,9 +270,13 @@ pub enum Ast
 
 impl Ast
 {
-    pub fn binaryop(module: &'static str, id: &'static str
-        , a: Ast, b: Ast, loc: SrcLoc
-        ) -> Ast
+    pub fn binaryop(
+        module: &'static str,
+        id: &'static str,
+        a: Ast,
+        b: Ast,
+        loc: SrcLoc,
+    ) -> Ast
     {
         let name_lri = Ast::Modid(Lstr::Sref(module), Lstr::Sref(id), loc);
         let mut args = LinkedList::new();
@@ -279,7 +285,12 @@ impl Ast
         Ast::Call(Box::new(name_lri), args, loc)
     }
 
-    pub fn type_call(module: &'static str, local: &'static str, typs: Vec<Ast>, loc: SrcLoc) -> Ast
+    pub fn type_call(
+        module: &'static str,
+        local: &'static str,
+        typs: Vec<Ast>,
+        loc: SrcLoc,
+    ) -> Ast
     {
         let mods = Ast::Modid(Lstr::Sref(module), Lstr::Sref(local), loc);
         let tparams = typs.iter().map(|t| Kxpr::new_x(t.clone())).collect();
@@ -289,12 +300,8 @@ impl Ast
     pub fn from_lri(l: Lri, loc: &SrcLoc) -> Ast
     {
         let base = match l.modules {
-            Some(mods) => {
-                Ast::Modid(mods, l.localid, *loc)
-            }
-            None => {
-                Ast::Localid(l.localid, *loc)
-            }
+            Some(mods) => Ast::Modid(mods, l.localid, *loc),
+            None => Ast::Localid(l.localid, *loc),
         };
 
         match l.params {
@@ -431,9 +438,7 @@ impl<'a> From<&'a Ast> for Lri
             }
             &Ast::TypeCall(ref base, ref types, _) => {
                 let lri_base = match **base {
-                    Ast::Localid(ref id, _) => {
-                        Lri::new(id.clone())
-                    }
+                    Ast::Localid(ref id, _) => Lri::new(id.clone()),
                     Ast::Modid(ref mods, ref localid, _) => {
                         Lri::with_modules(mods.clone(), localid.clone())
                     }
@@ -538,9 +543,7 @@ impl fmt::Display for Ast
                 write!(f, "(let {} = {})", lhs, rhs)
             }
             &Ast::Localid(ref id, _) => write!(f, "{}", id),
-            &Ast::Modid(ref mods, ref id, _) => {
-                write!(f, "{}::{}", mods, id)
-            }
+            &Ast::Modid(ref mods, ref id, _) => write!(f, "{}::{}", mods, id),
             &Ast::TypeCall(ref base, ref types, _) => {
                 write!(f, "{}[", base)?;
                 for t in types.iter() {

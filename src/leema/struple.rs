@@ -33,17 +33,22 @@ type Struple2<T> = StrupleKV<Option<Lstr>, T>;
 
 impl<K, V> StrupleKV<K, V>
 {
+    pub fn new() -> StrupleKV<K, V>
+    {
+        StrupleKV(Vec::new())
+    }
+
     pub fn iter(&self) -> Iter<StrupleItem<K, V>>
     {
         self.0.iter()
     }
 
-    pub fn iter_k(&self) -> impl Iterator<Item=&K>
+    pub fn iter_k(&self) -> impl Iterator<Item = &K>
     {
         self.0.iter().map(|kv| &kv.k)
     }
 
-    pub fn iter_v<F>(&self) -> impl Iterator<Item=&V>
+    pub fn iter_v<F>(&self) -> impl Iterator<Item = &V>
     {
         self.0.iter().map(|kv| &kv.v)
     }

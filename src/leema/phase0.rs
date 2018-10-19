@@ -1,6 +1,6 @@
 use leema::ast::{self, Ast, Kxpr};
 use leema::list;
-use leema::lri::Lri;
+use leema::lri::{Lri, ModLocalId};
 use leema::lstr::Lstr;
 use leema::module::{ModKey, ModulePreface};
 use leema::program::Lib;
@@ -66,27 +66,34 @@ impl Protomod
     )
     {
         match x {
-            &Ast::DefFunc(ast::FuncClass::Macro, _, _) => {
-                // do nothing. the macro definition will have been handled
-                // in the file read
-            }
-            &Ast::DefFunc(fclass, ref decl, ref body) => {
-                self.preproc_defunc(
-                    prog,
-                    mp,
-                    fclass,
-                    &decl.name,
-                    &decl.args,
-                    &decl.result,
-                    body,
-                    &decl.loc,
-                );
+            &Ast::DefFunc(ast::FuncClass::Func, ref decl, ref body) => {
+                match decl.name {
+                    Ast::Localid(ref name, _) => {
+                        self.preproc_defunc(
+                            prog,
+                            mp,
+                            &name,
+                            &decl.args,
+                            &decl.result,
+                            body,
+                            &decl.loc,
+                        );
+                    }
+                    _ => {
+                        println!("cannot preproc function: {}", decl);
+                    }
+                }
             }
             &Ast::DefData(data_type, ref name, ref fields, ref loc) => {
                 self.preproc_data(prog, mp, data_type, name, fields, loc);
             }
             &Ast::Import(ref _imports, _) => {
                 // do nothing. imports handled in file read
+            }
+            &Ast::DefFunc(ast::FuncClass::Macro, _, _) => {
+                // do nothing. the macro definition will have been handled
+                // in the file read
+
             }
             _ => {
                 println!("Cannot phase0: {:?}", x);
@@ -347,18 +354,14 @@ impl Protomod
         &mut self,
         prog: &Lib,
         mp: &ModulePreface,
-        fclass: ast::FuncClass,
-        name: &Ast,
+        name: &Lstr,
         args: &LinkedList<Kxpr>,
         rtype: &Ast,
         body: &Ast,
         loc: &SrcLoc,
     )
     {
-        let mut name_lri = Lri::from(name);
-        name_lri.make_params_typevars();
-        let full_lri = name_lri.add_modules(mp.key.name.clone());
-        let lstr_name = name_lri.localid;
+        let modid = ModLocalId::new(mp.key.name.clone(), name.clone());
         let pp_args: LinkedList<Kxpr> = args
             .iter()
             .map(|a| {
@@ -366,7 +369,7 @@ impl Protomod
                     self,
                     prog,
                     mp,
-                    &lstr_name,
+                    &name,
                     a.k_ref(),
                     a.x_ref(),
                     loc,
@@ -400,7 +403,7 @@ impl Protomod
                 if let &Ast::TypeAnon = rtype {
                     panic!(
                         "return type must be defined for Rust functions: {}",
-                        full_lri
+                        modid
                     );
                 }
                 Ast::RustBlock
@@ -410,31 +413,34 @@ impl Protomod
             }
         };
         let decl = ast::FuncDecl {
-            name: name.clone(),
+            name: Ast::Localid(name.clone(), *loc),
             args: pp_args.clone(),
             result: pp_rtype_ast.clone(),
             loc: *loc,
         };
-        let pp_func = Ast::DefFunc(fclass, Box::new(decl), Box::new(pp_body));
+        let pp_func = Ast::DefFunc(
+            ast::FuncClass::Func,
+            Box::new(decl),
+            Box::new(pp_body),
+        );
 
         let mut ftype_parts: Vec<Kxpr> =
             pp_args.iter().map(|a| a.clone()).collect();
         let (ftype_part_types, rtype): (Vec<Type>, Type) = {
-            let lri_params = full_lri.params.as_ref();
             let pp_ftype_parts = ftype_parts
                 .iter()
                 .map(|argt| {
                     self.preproc_type(
                         prog,
                         mp,
-                        lri_params,
+                        None,
                         argt.x_ref().unwrap(),
                         loc,
                     )
                 })
                 .collect();
             let pp_rtype =
-                self.preproc_type(prog, mp, lri_params, &pp_rtype_ast, loc);
+                self.preproc_type(prog, mp, None, &pp_rtype_ast, loc);
             (pp_ftype_parts, pp_rtype)
         };
         ftype_parts.push(Kxpr::new_x(pp_rtype_ast));
@@ -442,12 +448,14 @@ impl Protomod
         let fref_args =
             pp_args.iter().map(|a| (a.k_clone(), Val::Void)).collect();
 
+        let full_lri =
+            Lri::with_modules(modid.module.clone(), modid.local.clone());
         let funcref = Val::FuncRef(full_lri, fref_args, ftype.clone());
 
-        self.funcseq.push_back(lstr_name.clone());
-        self.funcsrc.insert(lstr_name.clone(), pp_func);
-        self.valtypes.insert(lstr_name.clone(), ftype);
-        self.constants.insert(lstr_name, funcref);
+        self.funcseq.push_back(name.clone());
+        self.funcsrc.insert(name.clone(), pp_func);
+        self.valtypes.insert(name.clone(), ftype);
+        self.constants.insert(name.clone(), funcref);
     }
 
     pub fn preproc_closure(
@@ -811,7 +819,7 @@ impl Protomod
         }
         match prog.get_macro(mod_name, localid) {
             Some(mac) => mac.clone(),
-            None => Ast::Modid(mod_name.clone(), localid.clone(), *loc)
+            None => Ast::Modid(mod_name.clone(), localid.clone(), *loc),
         }
     }
 
@@ -832,13 +840,17 @@ impl Protomod
                     match tx {
                         Ast::Localid(ref id, ref iloc) => {
                             if self.deftypes.contains_key(id) {
-                                Ast::Modid(mp.key.name.clone(), id.clone(), *iloc)
+                                Ast::Modid(
+                                    mp.key.name.clone(),
+                                    id.clone(),
+                                    *iloc,
+                                )
                             } else {
                                 Ast::TypeVar(id.clone(), *iloc)
                             }
                         }
                         Ast::TypeVar(_, _) => tx.clone(),
-                        _ => self.preproc_expr(prog, mp, tx, loc)
+                        _ => self.preproc_expr(prog, mp, tx, loc),
                     }
                 })
             })
