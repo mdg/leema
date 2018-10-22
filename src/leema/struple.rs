@@ -4,55 +4,166 @@ use leema::reg::{self, Ireg};
 use leema::sendclone;
 use leema::val::Val;
 
+use std::clone::Clone;
+use std::cmp::PartialEq;
 use std::fmt;
 use std::iter::{FromIterator, Iterator};
 use std::slice::Iter;
 
 
 #[derive(Clone)]
+#[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
 #[derive(Eq)]
 #[derive(Ord)]
 #[derive(Hash)]
 pub struct StrupleItem<K, V>
+where
+    K: Clone,
+    V: Clone,
+    K: fmt::Debug,
+    V: fmt::Debug,
+    K: PartialEq,
+    V: PartialEq,
 {
     pub k: K,
     pub v: V,
 }
 
+impl<K, V> StrupleItem<K, V>
+where
+    K: Clone,
+    V: Clone,
+    K: fmt::Debug,
+    V: fmt::Debug,
+    K: PartialEq,
+    V: PartialEq,
+{
+    pub fn new(k: K, v: V) -> StrupleItem<K, V>
+    {
+        StrupleItem{ k, v }
+    }
+}
+
 #[derive(Clone)]
+#[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
 #[derive(Eq)]
 #[derive(Ord)]
 #[derive(Hash)]
-pub struct StrupleKV<K, V>(Vec<StrupleItem<K, V>>);
+pub struct StrupleKV<K, V>
+where
+    K: Clone,
+    V: Clone,
+    K: fmt::Debug,
+    V: fmt::Debug,
+    K: PartialEq,
+    V: PartialEq
+{
+    items: Option<Vec<StrupleItem<K, V>>>,
+}
 
-type Struple2<T> = StrupleKV<Option<Lstr>, T>;
+pub type Struple2<T> = StrupleKV<Option<Lstr>, T>;
 
 impl<K, V> StrupleKV<K, V>
+where
+    K: Clone,
+    V: Clone,
+    K: fmt::Debug,
+    V: fmt::Debug,
+    K: PartialEq,
+    V: PartialEq,
 {
-    pub fn new() -> StrupleKV<K, V>
+    pub fn none() -> StrupleKV<K, V>
     {
-        StrupleKV(Vec::new())
+        StrupleKV{ items: None }
     }
 
-    pub fn iter(&self) -> Iter<StrupleItem<K, V>>
+    pub fn iter<'a>(&'a self) -> StrupleIter<'a, K, V>
     {
-        self.0.iter()
+        let it = self.items.map(|inner| inner.iter());
+        StrupleIter{ it }
     }
 
     pub fn iter_k(&self) -> impl Iterator<Item = &K>
     {
-        self.0.iter().map(|kv| &kv.k)
+        self.iter().map(|kv| &kv.k)
     }
 
     pub fn iter_v<F>(&self) -> impl Iterator<Item = &V>
     {
-        self.0.iter().map(|kv| &kv.v)
+        self.iter().map(|kv| &kv.v)
+    }
+
+    pub fn map_v<F, U>(&self, f: F) -> Lresult<StrupleKV<K, U>>
+    where
+        F: Fn(&V) -> Lresult<U>,
+        U: Clone,
+        U: fmt::Debug,
+        U: PartialEq,
+    {
+        if self.items.is_none() {
+            return Ok(StrupleKV::none());
+        }
+        let m_items = self.items.as_ref().unwrap().iter().map(|kv| {
+            let u = f(&kv.v)?;
+            Ok(StrupleItem::new(kv.k.clone(), u))
+        }).collect();
+        Ok(StrupleKV::from(m_items))
     }
 }
+
+impl<K, V> From<Vec<StrupleItem<K, V>>> for StrupleKV<K, V>
+where
+    K: Clone,
+    V: Clone,
+    K: fmt::Debug,
+    V: fmt::Debug,
+    K: PartialEq,
+    V: PartialEq,
+{
+    fn from(items: Vec<StrupleItem<K, V>>) -> StrupleKV<K, V>
+    {
+        if items.is_empty() {
+            return StrupleKV::none();
+        }
+        StrupleKV { items: Some(items) }
+    }
+}
+
+struct StrupleIter<'a, K: 'a, V: 'a>
+where
+    K: Clone,
+    V: Clone,
+    K: fmt::Debug,
+    V: fmt::Debug,
+    K: PartialEq,
+    V: PartialEq,
+{
+    it: Option<Iter<'a, StrupleItem<K, V>>>,
+}
+
+impl<'a, K, V> Iterator for StrupleIter<'a, K, V>
+where
+    K: Clone,
+    V: Clone,
+    K: fmt::Debug,
+    V: fmt::Debug,
+    K: PartialEq,
+    V: PartialEq,
+{
+    type Item = &'a StrupleItem<K, V>;
+
+    fn next(&mut self) -> Option<Self::Item>
+    {
+        self.it.and_then(|inner| {
+            inner.next()
+        })
+    }
+}
+
 
 
 #[derive(Clone)]
