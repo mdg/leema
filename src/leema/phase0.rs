@@ -107,7 +107,6 @@ impl Protomod
             &Ast::DefFunc(ast::FuncClass::Macro, _, _) => {
                 // do nothing. the macro definition will have been handled
                 // in the file read
-
             }
             _ => {
                 println!("Cannot phase0: {:?}", x);
@@ -439,7 +438,8 @@ impl Protomod
         let mut ftype_parts: Vec<Kxpr> =
             pp_args.iter().map(|a| a.clone()).collect();
         let (ftype_part_types, rtype): (Struple2<Type>, Type) = {
-            let pp_ftype_parts = ftype_parts
+            let pp_ftypr: Vec<Lresult<StrupleItem<Option<Lstr>, Type>>>;
+            pp_ftypr = ftype_parts
                 .iter()
                 .map(|argt| {
                     let typ = self.preproc_type(
@@ -448,13 +448,15 @@ impl Protomod
                         None,
                         argt.x_ref().unwrap(),
                         loc,
-                    );
-                    StrupleItem::new(argt.k_clone(), typ)
+                    )?;
+                    Ok(StrupleItem::new(argt.k_clone(), typ))
                 })
                 .collect();
+            let pp_args: Vec<StrupleItem<Option<Lstr>, Type>>;
+            pp_args = Lresult::from_iter(pp_ftypr).unwrap();
             let pp_rtype =
                 self.preproc_type(prog, mp, None, &pp_rtype_ast, loc).unwrap();
-            (StrupleKV::from(pp_ftype_parts), pp_rtype)
+            (StrupleKV::from_vec(pp_args), pp_rtype)
         };
         ftype_parts.push(Kxpr::new_x(pp_rtype_ast));
         let functype = FuncType::new(ftype_part_types, rtype);
@@ -485,27 +487,32 @@ impl Protomod
     ) -> Lresult<()>
     {
         // for each type arg, make sure type IDs are converted to type vars
-        let type_var_names: Vec<Lstr> = type_args.iter().map(|targ| {
-            match targ {
-                Kxpr{k: None, x: Some(ref id)} => {
-                    match **id {
-                        Ast::Localid(ref argn, _) => {
-                            Ok(argn.clone())
-                        }
-                        _ => {
-                            Err(Failure::new("code_err", Lstr::from(format!(
-                                "unrecognized type arg: {:?}", targ
-                            ))))
+        let type_var_name_result: Vec<Lresult<Lstr>> = type_args
+            .iter()
+            .map(|targ| {
+                match targ {
+                    Kxpr{k: None, x: Some(ref id)} => {
+                        match **id {
+                            Ast::Localid(ref argn, _) => {
+                                Ok(argn.clone())
+                            }
+                            _ => {
+                                Err(Failure::new("code_err", Lstr::from(format!(
+                                    "unrecognized type arg: {:?}", targ
+                                ))))
+                            }
                         }
                     }
+                    _ => {
+                        Err(Failure::new("code_err", Lstr::from(format!(
+                            "unrecognized type arg: {:?}", targ
+                        ))))
+                    }
                 }
-                _ => {
-                    Err(Failure::new("code_err", Lstr::from(format!(
-                        "unrecognized type arg: {:?}", targ
-                    ))))
-                }
-            }
-        }).collect()?;
+            })
+            .collect();
+        let type_var_names: Vec<Lstr> =
+            Lresult::from_iter(type_var_name_result)?;
         let type_vars: Vec<Type> = type_var_names.iter().map(|tvn| {
             Type::Var(tvn.clone())
         }).collect();
@@ -554,14 +561,14 @@ impl Protomod
                             some_type_vars,
                             argt.x_ref().unwrap(),
                             loc,
-                        ),
+                        ).unwrap(),
                     )
                 })
                 .collect();
             let pp_rtype = self
                 .preproc_type(prog, mp, some_type_vars, &pp_rtype_ast, loc)
                 .unwrap();
-            (StrupleKV::from(pp_ftype_parts), pp_rtype)
+            (StrupleKV::from_vec(pp_ftype_parts), pp_rtype)
         };
         ftype_parts.push(Kxpr::new_x(pp_rtype_ast));
         let functype = FuncType::new(ftype_part_types, rtype);
@@ -1203,7 +1210,7 @@ impl Protomod
                 Type::StrictList(Box::new(sub2))
             }
             Type::Tuple(mut items) => {
-                let items2 = items
+                let items2: Vec<Lresult<(Option<Lstr>, Type)>> = items
                     .0
                     .drain(..)
                     .map(|mut i| {
@@ -1377,7 +1384,7 @@ impl Protomod
                 (f.k_clone(), pp_type)
             })
             .collect();
-        let field_type_vec = struple_fields
+        let field_type_vec: Vec<Type> = struple_fields
             .iter()
             .map(|&(_, ref ftype)| ftype.clone())
             .collect();

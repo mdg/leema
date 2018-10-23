@@ -600,10 +600,10 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
                 .zip(arg_types.iter())
                 .map(|(an, at)| {
                     let at2 = scope.infer.inferred_type(at).clone();
-                    StrupleItem::new(an.clone(), at2)
+                    StrupleItem::new(Some(an.clone()), at2)
                 })
                 .collect();
-            let final_args = StrupleKV::from(final_args_vec);
+            let final_args = StrupleKV::from_vec(final_args_vec);
             scope
                 .infer
                 .merge_types(&result_type, declared_result_type)

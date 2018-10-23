@@ -57,6 +57,14 @@ impl<K, V> StrupleKV<K, V>
         StrupleKV{ items: None }
     }
 
+    pub fn from_vec(items: Vec<StrupleItem<K, V>>) -> StrupleKV<K, V>
+    {
+        if items.is_empty() {
+            return StrupleKV::none();
+        }
+        StrupleKV { items: Some(items) }
+    }
+
     pub fn into_iter(&self) -> Option<impl IntoIterator<Item = StrupleItem<K, V>>>
     {
         self.items.map(|inner| inner.into_iter())
@@ -67,6 +75,14 @@ impl<K, V> StrupleKV<K, V>
         match self.items {
             None => true,
             Some(ref items) => items.is_empty(),
+        }
+    }
+
+    pub fn len(&self) -> usize
+    {
+        match self.items {
+            None => 0,
+            Some(ref items) => items.len(),
         }
     }
 
@@ -81,7 +97,7 @@ impl<K, V> StrupleKV<K, V>
         self.iter().map(|kv| &kv.k)
     }
 
-    pub fn iter_v<F>(&self) -> impl Iterator<Item = &V>
+    pub fn iter_v(&self) -> impl Iterator<Item = &V>
     {
         self.iter().map(|kv| &kv.v)
     }
@@ -94,11 +110,13 @@ impl<K, V> StrupleKV<K, V>
         if self.items.is_none() {
             return Ok(StrupleKV::none());
         }
-        let m_items = self.items.as_ref().unwrap().iter().map(|kv| {
-            let u = f(&kv.v)?;
-            Ok(StrupleItem::new(kv.k.clone(), u))
-        }).collect();
-        Ok(StrupleKV::from(m_items))
+        let m_result_items: Vec<Lresult<StrupleItem<K, U>>> =
+            self.items.as_ref().unwrap().iter().map(|kv| {
+                let u = f(&kv.v)?;
+                Ok(StrupleItem::new(kv.k.clone(), u))
+            }).collect();
+        let m_items = Lresult::from_iter(m_result_items)?;
+        Ok(StrupleKV::from_vec(m_items))
     }
 
     pub fn map_v_into<F, U>(self, f: F) -> Lresult<StrupleKV<K, U>>
@@ -108,11 +126,16 @@ impl<K, V> StrupleKV<K, V>
         if self.items.is_none() {
             return Ok(StrupleKV::none());
         }
-        let m_items = self.items.unwrap().into_iter().map(|kv| {
-            let u = f(kv.v)?;
-            Ok(StrupleItem::new(kv.k, u))
-        }).collect();
-        Ok(StrupleKV::from(m_items))
+        let m_result_items: Vec<Lresult<StrupleItem<K, U>>> = self.items
+            .unwrap()
+            .into_iter()
+            .map(|kv| {
+                let u = f(kv.v)?;
+                Ok(StrupleItem::new(kv.k, u))
+            })
+            .collect();
+        let m_items = Lresult::from_iter(m_result_items)?;
+        Ok(StrupleKV::from_vec(m_items))
     }
 }
 
@@ -137,10 +160,7 @@ impl<K, V> From<Vec<StrupleItem<K, V>>> for StrupleKV<K, V>
 {
     fn from(items: Vec<StrupleItem<K, V>>) -> StrupleKV<K, V>
     {
-        if items.is_empty() {
-            return StrupleKV::none();
-        }
-        StrupleKV { items: Some(items) }
+        StrupleKV::from_vec(items)
     }
 }
 

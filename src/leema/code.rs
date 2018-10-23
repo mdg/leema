@@ -261,8 +261,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 input.line,
             ));
             let skipped_args = match typ {
-                &Type::Closure(ref args, _, _) => args.len(),
-                &Type::Func(ref args, _) => args.len(),
+                &Type::Func(ref ftype) => ftype.args.len(),
                 _ => 0,
             };
             let mut i = skipped_args as i8;

@@ -763,7 +763,9 @@ pub fn compile_local_id(
                             });
                             let fr_args =
                                 args.0.into_iter().chain(cvar_it).collect();
-                            let cvartype_vec = vars
+                            let cvartype_vec:
+                                Vec<StrupleItem<Option<Lstr>, Type>>;
+                            cvartype_vec = vars
                                 .iter()
                                 .map(|v| {
                                     let tvar = format!("T_cvar_{}", v);
