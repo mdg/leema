@@ -5,7 +5,6 @@ use leema::sendclone;
 use leema::val::Val;
 
 use std::clone::Clone;
-use std::cmp::PartialEq;
 use std::fmt;
 use std::iter::{FromIterator, Iterator};
 use std::slice::Iter;
@@ -19,26 +18,12 @@ use std::slice::Iter;
 #[derive(Ord)]
 #[derive(Hash)]
 pub struct StrupleItem<K, V>
-where
-    K: Clone,
-    V: Clone,
-    K: fmt::Debug,
-    V: fmt::Debug,
-    K: PartialEq,
-    V: PartialEq,
 {
     pub k: K,
     pub v: V,
 }
 
 impl<K, V> StrupleItem<K, V>
-where
-    K: Clone,
-    V: Clone,
-    K: fmt::Debug,
-    V: fmt::Debug,
-    K: PartialEq,
-    V: PartialEq,
 {
     pub fn new(k: K, v: V) -> StrupleItem<K, V>
     {
@@ -54,27 +39,13 @@ where
 #[derive(Ord)]
 #[derive(Hash)]
 pub struct StrupleKV<K, V>
-where
-    K: Clone,
-    V: Clone,
-    K: fmt::Debug,
-    V: fmt::Debug,
-    K: PartialEq,
-    V: PartialEq
 {
-    items: Option<Vec<StrupleItem<K, V>>>,
+    pub items: Option<Vec<StrupleItem<K, V>>>,
 }
 
 pub type Struple2<T> = StrupleKV<Option<Lstr>, T>;
 
 impl<K, V> StrupleKV<K, V>
-where
-    K: Clone,
-    V: Clone,
-    K: fmt::Debug,
-    V: fmt::Debug,
-    K: PartialEq,
-    V: PartialEq,
 {
     pub fn new(items: Option<Vec<StrupleItem<K, V>>>) -> StrupleKV<K, V>
     {
@@ -110,9 +81,7 @@ where
     pub fn map_v<F, U>(&self, f: F) -> Lresult<StrupleKV<K, U>>
     where
         F: Fn(&V) -> Lresult<U>,
-        U: Clone,
-        U: fmt::Debug,
-        U: PartialEq,
+        K: Clone,
     {
         if self.items.is_none() {
             return Ok(StrupleKV::none());
@@ -127,9 +96,6 @@ where
     pub fn map_v_into<F, U>(self, f: F) -> Lresult<StrupleKV<K, U>>
     where
         F: Fn(V) -> Lresult<U>,
-        U: Clone,
-        U: fmt::Debug,
-        U: PartialEq,
     {
         if self.items.is_none() {
             return Ok(StrupleKV::none());
@@ -143,13 +109,6 @@ where
 }
 
 impl<K, V> FromIterator<StrupleItem<K, V>> for StrupleKV<K, V>
-where
-    K: Clone,
-    V: Clone,
-    K: fmt::Debug,
-    V: fmt::Debug,
-    K: PartialEq,
-    V: PartialEq,
 {
     fn from_iter<I: IntoIterator<Item = StrupleItem<K, V>>>(
         iter: I,
@@ -167,13 +126,6 @@ where
 }
 
 impl<K, V> From<Vec<StrupleItem<K, V>>> for StrupleKV<K, V>
-where
-    K: Clone,
-    V: Clone,
-    K: fmt::Debug,
-    V: fmt::Debug,
-    K: PartialEq,
-    V: PartialEq,
 {
     fn from(items: Vec<StrupleItem<K, V>>) -> StrupleKV<K, V>
     {
@@ -185,25 +137,11 @@ where
 }
 
 struct StrupleIter<'a, K: 'a, V: 'a>
-where
-    K: Clone,
-    V: Clone,
-    K: fmt::Debug,
-    V: fmt::Debug,
-    K: PartialEq,
-    V: PartialEq,
 {
     it: Option<Iter<'a, StrupleItem<K, V>>>,
 }
 
 impl<'a, K, V> Iterator for StrupleIter<'a, K, V>
-where
-    K: Clone,
-    V: Clone,
-    K: fmt::Debug,
-    V: fmt::Debug,
-    K: PartialEq,
-    V: PartialEq,
 {
     type Item = &'a StrupleItem<K, V>;
 
