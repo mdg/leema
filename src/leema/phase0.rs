@@ -1,7 +1,7 @@
 use leema::ast::{self, Ast, Kxpr, KxprList};
 use leema::failure::{Failure, Lresult};
 use leema::list;
-use leema::lri::{self, Lri, ModLocalId};
+use leema::lri::{Lri, ModLocalId};
 use leema::lstr::Lstr;
 use leema::module::{ModKey, ModulePreface};
 use leema::program::Lib;
@@ -21,7 +21,6 @@ pub struct Protomod
     pub closures: LinkedList<Lstr>,
     pub funcseq: LinkedList<Lstr>,
     pub funcsrc: HashMap<Lstr, Ast>,
-    pub genfuncsrc: HashMap<lri::GenericLocalId, Ast>,
     pub valtypes: HashMap<Lstr, Type>,
     pub constants: HashMap<Lstr, Val>,
     pub deftypes: HashMap<Lstr, Type>,
@@ -39,7 +38,6 @@ impl Protomod
             closures: LinkedList::new(),
             funcseq: LinkedList::new(),
             funcsrc: HashMap::new(),
-            genfuncsrc: HashMap::new(),
             valtypes: HashMap::new(),
             constants: empty_consts,
             deftypes: HashMap::new(),
@@ -589,13 +587,9 @@ impl Protomod
             Some(type_vars.clone()),
         );
         let funcref = Val::FuncRef(funcri, fref_args, ftype.clone());
-        let gen_local = lri::new_generic_local(
-            name.clone(),
-            type_var_names,
-        );
 
         self.funcseq.push_back(name.clone());
-        self.genfuncsrc.insert(gen_local, pp_func);
+        self.funcsrc.insert(name.clone(), pp_func);
         self.valtypes.insert(name.clone(), ftype);
         self.constants.insert(name.clone(), funcref);
         Ok(())
