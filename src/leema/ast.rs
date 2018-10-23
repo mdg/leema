@@ -1,8 +1,8 @@
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::parse::{Parser, Token};
-use leema::val::SrcLoc;
-use leema::val::Type;
+use leema::struple::{Struple2, StrupleItem};
+use leema::val::{FuncType, SrcLoc, Type};
 
 use std::collections::LinkedList;
 use std::fmt;
@@ -341,15 +341,23 @@ impl Ast
                     .collect();
                 Ast::Tuple(new_items)
             }
-            Type::Func(params, result) => {
-                let kx_result = Ast::from_type(*result, loc);
-                let new_params: Vec<Kxpr> = params
-                    .into_iter()
-                    .map(|it| {
-                        let newt = Ast::from_type(it, loc);
-                        Kxpr::new_x(newt)
-                    })
-                    .collect();
+            Type::Func(ftype) => {
+                let kx_result = Ast::from_type(*ftype.result, loc);
+                let new_params: Vec<Kxpr> = if ftype.args.is_empty() {
+                    vec![]
+                } else {
+                    ftype.args.items
+                        .unwrap()
+                        .into_iter()
+                        .map(|it| {
+                            let newt = Ast::from_type(it.v, loc);
+                            Kxpr {
+                                k: it.k,
+                                x: Some(Box::new(newt)),
+                            }
+                        })
+                        .collect()
+                };
                 Ast::TypeFunc(new_params, Box::new(kx_result), *loc)
             }
             Type::StrictList(inner) => {
@@ -474,12 +482,16 @@ impl<'a> From<&'a Ast> for Type
             &Ast::TypeVar(ref v, _) => Type::Var(v.clone()),
             &Ast::TypeVoid => Type::Void,
             &Ast::TypeFunc(ref parts, ref result, _) => {
-                let mut ppp: Vec<Type> = parts
+                let mut ppp: Struple2<Type> = parts
                     .iter()
-                    .map(|p| Type::from(p.x_ref().unwrap()))
+                    .map(|p| {
+                        let pt = Type::from(p.x_ref().unwrap());
+                        StrupleItem::new(p.k_clone(), pt)
+                    })
                     .collect();
                 let result_type = Type::from(&**result);
-                Type::Func(ppp, Box::new(result_type))
+                let functype = FuncType::new(ppp, result_type);
+                Type::Func(functype)
             }
             &Ast::List(ref items) => {
                 match items.len() {

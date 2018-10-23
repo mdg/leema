@@ -62,6 +62,14 @@ impl<K, V> StrupleKV<K, V>
         self.items.map(|inner| inner.into_iter())
     }
 
+    pub fn is_empty(&self) -> bool
+    {
+        match self.items {
+            None => true,
+            Some(ref items) => items.is_empty(),
+        }
+    }
+
     pub fn iter<'a>(&'a self) -> StrupleIter<'a, K, V>
     {
         let it = self.items.map(|inner| inner.iter());

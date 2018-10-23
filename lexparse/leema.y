@@ -666,7 +666,7 @@ modid(A) ::= ID(B) DBLCOLON ID(C). {
 }
 
 local_generic(A) ::= ID(B) SquareL(Z) typex_list(C) SquareR. {
-    A = Ast::LocalGeneric(B.data, C, B.loc);
+    A = Ast::LocalGeneric(Lstr::from(B.data), C, B.loc);
 }
 
 localid_spec(A) ::= localid(B). {

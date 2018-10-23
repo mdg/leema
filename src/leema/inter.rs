@@ -5,8 +5,8 @@ use leema::list;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::phase0::Protomod;
-use leema::struple::Struple;
-use leema::val::{SrcLoc, Type, Val};
+use leema::struple::{Struple, StrupleItem, StrupleKV};
+use leema::val::{FuncType, SrcLoc, Type, Val};
 
 use std::collections::{HashMap, HashSet, LinkedList};
 use std::fmt;
@@ -136,6 +136,7 @@ impl Intermod
         vout!("\t{}({:?}): {:?}\n", fname, args, ftype);
 
         let (argt, result_type) = Type::split_func_ref(ftype);
+        let argt_vec = argt.iter_v().map(|x| x.clone()).collect();
         if *body == Ast::RustBlock {
             return Ok(Ixpr {
                 src: Source::RustBlock(argt.clone(), result_type.clone()),
@@ -173,7 +174,7 @@ impl Intermod
         let src = Source::Func(
             rc_args,
             closed_vars,
-            argt.clone(),
+            argt_vec,
             result_type.clone(),
             Box::new(ibody2),
         );
@@ -762,17 +763,24 @@ pub fn compile_local_id(
                             });
                             let fr_args =
                                 args.0.into_iter().chain(cvar_it).collect();
-                            let cvartypes = vars
+                            let cvartype_vec = vars
                                 .iter()
                                 .map(|v| {
                                     let tvar = format!("T_cvar_{}", v);
-                                    Type::Var(Lstr::from(tvar))
+                                    StrupleItem::new(
+                                        None,
+                                        Type::Var(Lstr::from(tvar)),
+                                    )
                                 })
                                 .collect();
-                            let cftype = if let Type::Func(targs, tresult) =
+                            let cftype = if let Type::Func(i_ftype) =
                                 ftype
                             {
-                                Type::Closure(targs, cvartypes, tresult)
+                                Type::Func(FuncType {
+                                    args: i_ftype.args,
+                                    closed: StrupleKV::from(cvartype_vec),
+                                    result: i_ftype.result,
+                                })
                             } else {
                                 panic!("closure type not a func: {:?}", ftype);
                             };
