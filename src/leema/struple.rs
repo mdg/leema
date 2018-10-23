@@ -164,7 +164,7 @@ impl<K, V> From<Vec<StrupleItem<K, V>>> for StrupleKV<K, V>
     }
 }
 
-struct StrupleIter<'a, K: 'a, V: 'a>
+pub struct StrupleIter<'a, K: 'a, V: 'a>
 {
     it: Option<Iter<'a, StrupleItem<K, V>>>,
 }

@@ -363,18 +363,18 @@ impl<'a, 'b> Typescope<'a, 'b>
     pub fn typecheck_funcref(
         &mut self,
         fri: &Lri,
-        args: &Struple<Val>,
+        _args: &Struple<Val>,
         typ: &Type,
     ) -> TypeResult
     {
         let typed = self.functype(&fri)?;
         let result = self.infer.merge_types(typ, &typed);
         match typ {
-            Type::Func(ref func_type) => {
+            Type::Func(ref _func_type) => {
                 // do nothing here for now
                 result
             }
-            Type::GenericFunc(ref var_types, ref func_type) => {
+            Type::GenericFunc(ref _var_types, ref _func_type) => {
                 // do nothing here for now
                 result
             }

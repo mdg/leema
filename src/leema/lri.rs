@@ -1,6 +1,6 @@
 use leema::lstr::Lstr;
 use leema::sendclone::SendClone;
-use leema::struple::StrupleKV;
+use leema::struple::{StrupleItem, StrupleKV};
 use leema::val::{Type, Val};
 
 use std::fmt;
@@ -14,7 +14,7 @@ use std::iter::Iterator;
 #[derive(Eq)]
 #[derive(Ord)]
 #[derive(Hash)]
-struct OnlyLocalId
+pub struct OnlyLocalId
 {
     pub local: Lstr,
 }
@@ -64,7 +64,7 @@ pub struct TypId<I, T>
     params: StrupleKV<Lstr, T>,
 }
 
-pub type GenericLocalId = TypId<OnlyLocalId, ()>;
+pub type GenericLocalId = TypId<Lstr, ()>;
 pub type GenericModId = TypId<ModLocalId, ()>;
 pub type SpecialLocalId = TypId<OnlyLocalId, Type>;
 pub type SpecialModId = TypId<ModLocalId, Type>;
@@ -83,6 +83,12 @@ impl<I, T> TypId<I, T>
     {
         self.params.iter_k()
     }
+}
+
+pub fn new_generic_local(id: Lstr, names: Vec<Lstr>) -> GenericLocalId
+{
+    let params = names.into_iter().map(|n| StrupleItem::new(n, ())).collect();
+    TypId { id, params }
 }
 
 trait SpecId<I>

@@ -281,6 +281,9 @@ impl fmt::Display for Type
             &Type::Tuple(ref items) => write!(f, "{}", items),
             &Type::UserDef(ref name) => write!(f, "{}", name),
             &Type::Failure => write!(f, "Failure"),
+            &Type::Mod(ref id) => write!(f, "{}", id),
+            &Type::Generic(ref id) => write!(f, "{:?}", id),
+            &Type::Special(ref id) => write!(f, "{:?}", id),
             &Type::Func(ref ftyp) => write!(f, "F{}", ftyp),
             &Type::GenericFunc(ref params, ref ftyp) => {
                 write!(f, "F[")?;
@@ -324,6 +327,15 @@ impl fmt::Debug for Type
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
+            &Type::Mod(ref id) => {
+                write!(f, "{:?}", id)
+            }
+            &Type::Special(ref id) => {
+                write!(f, "{:?}", id)
+            }
+            &Type::Generic(ref id) => {
+                write!(f, "{:?}", id)
+            }
             &Type::GenericFunc(ref vars, ref ftype) => {
                 write!(f, "GenericFunc({:?}, {:?})", vars, ftype)
             }

@@ -1,7 +1,7 @@
 use leema::ast::{self, Ast, Kxpr, KxprList};
 use leema::failure::{Failure, Lresult};
 use leema::list;
-use leema::lri::{Lri, ModLocalId};
+use leema::lri::{self, Lri, ModLocalId};
 use leema::lstr::Lstr;
 use leema::module::{ModKey, ModulePreface};
 use leema::program::Lib;
@@ -21,6 +21,7 @@ pub struct Protomod
     pub closures: LinkedList<Lstr>,
     pub funcseq: LinkedList<Lstr>,
     pub funcsrc: HashMap<Lstr, Ast>,
+    pub genfuncsrc: HashMap<lri::GenericLocalId, Ast>,
     pub valtypes: HashMap<Lstr, Type>,
     pub constants: HashMap<Lstr, Val>,
     pub deftypes: HashMap<Lstr, Type>,
@@ -38,6 +39,7 @@ impl Protomod
             closures: LinkedList::new(),
             funcseq: LinkedList::new(),
             funcsrc: HashMap::new(),
+            genfuncsrc: HashMap::new(),
             valtypes: HashMap::new(),
             constants: empty_consts,
             deftypes: HashMap::new(),
@@ -212,6 +214,11 @@ impl Protomod
                         .map(|i| Protomod::preproc_expr(self, prog, mp, i, loc))
                         .collect(),
                 )
+            }
+            &Ast::LocalGeneric(_, _, _) => {
+                // nothing to do for generics really,
+                // since it's all just strings
+                x.clone()
             }
             &Ast::Localid(ref id, ref iloc) => {
                 Protomod::preproc_localid(prog, mp, id, iloc)
@@ -532,7 +539,7 @@ impl Protomod
             .collect();
         let pp_rtype_ast =
             Protomod::preproc_func_result(self, prog, mp, rtype, loc);
-        let pp_body = self.preproc_func_body(prog, mp, name, args, body, loc)?;
+        let pp_body = self.preproc_func_body(prog, mp, args, body, loc)?;
         if Ast::RustBlock == pp_body && Ast::TypeAnon == *rtype {
             return Err(Failure::new("bad_type", Lstr::from(format!(
                 "return type must be defined for Rust functions: {}", name
@@ -582,9 +589,13 @@ impl Protomod
             Some(type_vars.clone()),
         );
         let funcref = Val::FuncRef(funcri, fref_args, ftype.clone());
+        let gen_local = lri::new_generic_local(
+            name.clone(),
+            type_var_names,
+        );
 
         self.funcseq.push_back(name.clone());
-        // self.funcsrc.insert(name.clone(), pp_func);
+        self.genfuncsrc.insert(gen_local, pp_func);
         self.valtypes.insert(name.clone(), ftype);
         self.constants.insert(name.clone(), funcref);
         Ok(())
@@ -594,7 +605,6 @@ impl Protomod
         &mut self,
         prog: &Lib,
         mp: &ModulePreface,
-        name: &Lstr,
         args: &KxprList,
         body: &Ast,
         loc: &SrcLoc,
@@ -676,6 +686,7 @@ impl Protomod
             self.preproc_type(prog, mp, None, &pp_result, loc).unwrap();
         let func_type = FuncType::new(StrupleKV::from(arg_types), result_type);
         let ftype = Type::Func(func_type);
+        // let type_vars = ftype.collect_typevars();
 
         let fref_args =
             pp_args.iter().map(|a| (a.k_clone(), Val::Void)).collect();
@@ -1383,10 +1394,6 @@ impl Protomod
                 ).unwrap();
                 (f.k_clone(), pp_type)
             })
-            .collect();
-        let field_type_vec: Vec<Type> = struple_fields
-            .iter()
-            .map(|&(_, ref ftype)| ftype.clone())
             .collect();
         let fref_args = Struple(
             struple_fields
