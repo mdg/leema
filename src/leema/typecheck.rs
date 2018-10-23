@@ -1,10 +1,11 @@
+use leema::failure::Failure;
 use leema::infer::{Inferator, TypeSet};
 use leema::ixpr::{Ixpr, Source};
 use leema::lmap;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::phase0::Protomod;
-use leema::struple::Struple;
+use leema::struple::{Struple, StrupleItem, StrupleKV};
 use leema::val::{Type, TypeErr, TypeResult, Val};
 
 use std::collections::{HashMap, LinkedList};
@@ -297,14 +298,11 @@ impl<'a, 'b> Typescope<'a, 'b>
             &Type::Tuple(ref items) => {
                 items.0.iter().any(|i| self.is_typevar(&i.1))
             }
-            &Type::Func(ref args, ref result) => {
-                args.iter().any(|a| self.is_typevar(a))
-                    || self.is_typevar(result)
-            }
-            &Type::Closure(ref args, ref closed, ref result) => {
-                args.iter().any(|a| self.is_typevar(a))
-                    || closed.iter().any(|c| self.is_typevar(c))
-                    || self.is_typevar(result)
+            &Type::Func(ref ftype) => {
+                let is_typevar = |it| self.is_typevar(it);
+                ftype.args.iter_v().any(is_typevar)
+                    || ftype.closed.iter_v().any(is_typevar)
+                    || self.is_typevar(&ftype.result)
             }
             &Type::StrictList(ref inner) => self.is_typevar(inner),
             _ => false,
@@ -372,23 +370,23 @@ impl<'a, 'b> Typescope<'a, 'b>
         let typed = self.functype(&fri)?;
         let result = self.infer.merge_types(typ, &typed);
         match typ {
-            Type::Func(ref _iargs, _) => {
+            Type::Func(ref func_type) => {
                 // do nothing here for now
+                result
             }
-            Type::Closure(ref iargs, ref cargs, _) => {
-                let argc = iargs.len();
-                for ((a, _), t) in args.0.iter().skip(argc).zip(cargs.iter()) {
-                    if a.is_none() {
-                        continue;
-                    }
-                    self.infer.bind_vartype(a.as_ref().unwrap(), t, 0)?;
-                }
+            Type::GenericFunc(ref var_types, ref func_type) => {
+                // do nothing here for now
+                result
             }
             _ => {
-                panic!("FuncRef type is not a func or closure: {:?}", typ);
+                Err(TypeErr::Failure(Failure::new(
+                    "type_err",
+                    Lstr::from(format!(
+                        "FuncRef type is not a func: {:?}", typ
+                    )),
+                )))
             }
         }
-        result
     }
 
     pub fn functype(&self, fri: &Lri) -> TypeResult
@@ -408,7 +406,7 @@ impl<'a, 'b> Typescope<'a, 'b>
                 .expect(&format!("cannot find function {} in {:?}", fri, m))
                 .clone()
         };
-        if let Type::Func(ref _args, ref _self_result) = &ftype {
+        if let Type::Func(ref _i_ftype) = &ftype {
             /*
             if !Lri::nominal_eq(selfri, fri) {
             return Err(TypeErr::Failure(Failure::new(
@@ -444,7 +442,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             }
             let full_call_type =
                 scope.infer.make_call_type(&tfunc, &targs_ref).unwrap();
-            let (_, call_result) = Type::split_func(full_call_type);
+            let (_, call_result) = Type::split_func_ref(&full_call_type);
             Ok(call_result.clone())
         }
         &mut Source::Cons(ref mut head, ref mut tail) => {
@@ -596,10 +594,16 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
                 let typ = scope.infer.vartype(var);
                 vout!("\t{}: {}\n", var, typ.unwrap());
             }
-            let final_args = arg_types
+            let final_args_vec =
+                arg_names
                 .iter()
-                .map(|at| scope.infer.inferred_type(at).clone())
+                .zip(arg_types.iter())
+                .map(|(an, at)| {
+                    let at2 = scope.infer.inferred_type(at).clone();
+                    StrupleItem::new(an.clone(), at2)
+                })
                 .collect();
+            let final_args = StrupleKV::from(final_args_vec);
             scope
                 .infer
                 .merge_types(&result_type, declared_result_type)

@@ -8,6 +8,7 @@ use std::iter::Iterator;
 
 
 #[derive(Clone)]
+#[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
 #[derive(Eq)]
@@ -19,6 +20,7 @@ struct OnlyLocalId
 }
 
 #[derive(Clone)]
+#[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
 #[derive(Eq)]
@@ -50,23 +52,38 @@ impl fmt::Display for ModLocalId
 }
 
 #[derive(Clone)]
+#[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
 #[derive(Eq)]
 #[derive(Ord)]
 #[derive(Hash)]
 pub struct TypId<I, T>
+where
+    I: Clone,
+    T: Clone,
+    I: fmt::Debug,
+    T: fmt::Debug,
+    I: PartialEq,
+    T: PartialEq,
 {
     pub id: I,
     params: StrupleKV<Lstr, T>,
 }
 
-type GenericLocalId = TypId<OnlyLocalId, ()>;
-type GenericModId = TypId<ModLocalId, ()>;
-type SpecialLocalId = TypId<OnlyLocalId, Type>;
-type SpecialModId = TypId<ModLocalId, Type>;
+pub type GenericLocalId = TypId<OnlyLocalId, ()>;
+pub type GenericModId = TypId<ModLocalId, ()>;
+pub type SpecialLocalId = TypId<OnlyLocalId, Type>;
+pub type SpecialModId = TypId<ModLocalId, Type>;
 
 impl<I, T> TypId<I, T>
+where
+    I: Clone,
+    T: Clone,
+    I: fmt::Debug,
+    T: fmt::Debug,
+    I: PartialEq,
+    T: PartialEq,
 {
     pub fn new(id: I) -> TypId<I, T>
     {
@@ -255,6 +272,19 @@ impl Lri
     pub fn has_params(&self) -> bool
     {
         self.params.is_some()
+    }
+
+    pub fn type_var_names(&self) -> Option<Vec<Lstr>>
+    {
+        self.params.map(|some_vars| {
+            some_vars.iter().filter_map(|v| {
+                if let Type::Var(ref vname) = v {
+                    Some(vname.clone())
+                } else {
+                    None
+                }
+            }).collect()
+        })
     }
 
     pub fn nominal_eq(a: &Lri, b: &Lri) -> bool

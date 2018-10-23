@@ -76,9 +76,19 @@ where
     K: PartialEq,
     V: PartialEq,
 {
+    pub fn new(items: Option<Vec<StrupleItem<K, V>>>) -> StrupleKV<K, V>
+    {
+        StrupleKV{ items }
+    }
+
     pub fn none() -> StrupleKV<K, V>
     {
         StrupleKV{ items: None }
+    }
+
+    pub fn into_iter(&self) -> Option<impl IntoIterator<Item = StrupleItem<K, V>>>
+    {
+        self.items.map(|inner| inner.into_iter())
     }
 
     pub fn iter<'a>(&'a self) -> StrupleIter<'a, K, V>
@@ -112,6 +122,47 @@ where
             Ok(StrupleItem::new(kv.k.clone(), u))
         }).collect();
         Ok(StrupleKV::from(m_items))
+    }
+
+    pub fn map_v_into<F, U>(self, f: F) -> Lresult<StrupleKV<K, U>>
+    where
+        F: Fn(V) -> Lresult<U>,
+        U: Clone,
+        U: fmt::Debug,
+        U: PartialEq,
+    {
+        if self.items.is_none() {
+            return Ok(StrupleKV::none());
+        }
+        let m_items = self.items.unwrap().into_iter().map(|kv| {
+            let u = f(kv.v)?;
+            Ok(StrupleItem::new(kv.k, u))
+        }).collect();
+        Ok(StrupleKV::from(m_items))
+    }
+}
+
+impl<K, V> FromIterator<StrupleItem<K, V>> for StrupleKV<K, V>
+where
+    K: Clone,
+    V: Clone,
+    K: fmt::Debug,
+    V: fmt::Debug,
+    K: PartialEq,
+    V: PartialEq,
+{
+    fn from_iter<I: IntoIterator<Item = StrupleItem<K, V>>>(
+        iter: I,
+    ) -> StrupleKV<K, V>
+    {
+        let items = Vec::from_iter(iter);
+        /*
+        let mut items = Vec::new();
+        for item in iter {
+            items.push(item);
+        }
+        */
+        StrupleKV::from(items)
     }
 }
 

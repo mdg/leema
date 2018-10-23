@@ -74,6 +74,7 @@ use std::collections::linked_list::{LinkedList};
 
 %type stmt { Ast }
 %type block { Ast }
+%type defunc_id { Ast }
 %type func_stmt { Ast }
 %type func_decl { ast::FuncDecl }
 %type func_body { Ast }
@@ -95,6 +96,7 @@ use std::collections::linked_list::{LinkedList};
 %type id_spec { Ast }
 %type if_expr { Ast }
 %type if_case { ast::IfCase }
+%type local_generic { Ast }
 %type localid { Ast }
 %type localid_spec { Ast }
 %type match_expr { Ast }
@@ -265,15 +267,22 @@ func_stmt(A) ::= func_decl(B) func_body(C). {
 }
 
 /* traditional parens func declaration */
-func_decl(A) ::= Func(Z) localid_spec(B) PARENCALL ktype_list(D) RPAREN opt_typex(E). {
+func_decl(A) ::= Func(Z) defunc_id(B) PARENCALL ktype_list(D) RPAREN opt_typex(E). {
     vout!("declare paren func {}\n", B);
     A = ast::FuncDecl{ name: B, args: D, result: E, loc: Z };
 }
 
 /* struct-style func declaration */
-func_decl(A) ::= Func(Z) localid_spec(B) opt_typex(C) defstruple_block(D). {
+func_decl(A) ::= Func(Z) defunc_id(B) opt_typex(C) defstruple_block(D). {
     vout!("declare struct func {}\n", B);
     A = ast::FuncDecl{ name: B, args: D, result: C, loc: Z };
+}
+
+defunc_id(A) ::= localid(B). {
+    A = B;
+}
+defunc_id(A) ::= local_generic(B). {
+    A = B;
 }
 
 /* func one case, no matching */
@@ -654,6 +663,10 @@ localid(A) ::= ID(B). {
 
 modid(A) ::= ID(B) DBLCOLON ID(C). {
     A = Ast::Modid(Lstr::from(B.data), Lstr::from(C.data), B.loc);
+}
+
+local_generic(A) ::= ID(B) SquareL(Z) typex_list(C) SquareR. {
+    A = Ast::LocalGeneric(B.data, C, B.loc);
 }
 
 localid_spec(A) ::= localid(B). {

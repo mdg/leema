@@ -1,6 +1,6 @@
 use leema::lri::Lri;
 use leema::lstr::Lstr;
-use leema::struple::Struple;
+use leema::struple::{Struple, Struple2};
 use leema::val::{Type, TypeErr, TypeResult, Val};
 
 use std::collections::hash_map::Keys;
@@ -134,7 +134,7 @@ impl<'b> Inferator<'b>
      */
     pub fn validate_rust_args(
         &mut self,
-        args: &Vec<Type>,
+        args: &Struple2<Type>,
         result: &Type,
     ) -> TypeResult
     {
@@ -143,7 +143,7 @@ impl<'b> Inferator<'b>
             return Ok(Type::Void);
         }
 
-        for a in args {
+        for a in args.iter_v() {
             self.mark_used_typevars(a)?;
         }
         self.mark_used_typevars(result)?;
@@ -824,7 +824,7 @@ mod tests
 
         let mct = t.make_call_type(&defargst, &argvalt).unwrap();
 
-        let (func_args, func_result) = Type::split_func(mct);
+        let (func_args, func_result) = Type::split_func_ref(mct);
         assert_eq!(2, func_args.len());
         assert_eq!(Type::Hashtag, func_args[0]);
         assert_eq!(Type::Int, func_args[1]);

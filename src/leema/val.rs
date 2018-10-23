@@ -2,12 +2,12 @@ use leema::failure::{Failure, Lresult};
 use leema::frame::FrameTrace;
 use leema::list;
 use leema::lmap::{self, LmapNode};
-use leema::lri::Lri;
+use leema::lri::{GenericModId, Lri, ModLocalId, SpecialModId};
 use leema::lstr::Lstr;
 use leema::msg;
 use leema::reg::{self, Ireg, Iregistry, Reg};
 use leema::sendclone::{self, SendClone};
-use leema::struple::Struple;
+use leema::struple::{Struple, Struple2, StrupleKV};
 
 use std::cmp::{Ordering, PartialEq, PartialOrd};
 use std::collections::BTreeMap;
@@ -24,7 +24,7 @@ use mopa;
 #[derive(Clone)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
-pub enum FuncType
+pub enum FuncType2
 {
     Pure,
     Obs,
@@ -32,6 +32,41 @@ pub enum FuncType
     Query,
     Cmd,
     Main, // or Control?
+}
+
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Hash)]
+#[derive(Ord)]
+pub struct FuncType
+{
+    pub args: Struple2<Type>,
+    pub closed: Struple2<Type>,
+    pub result: Box<Type>,
+}
+
+impl FuncType
+{
+    pub fn new(args: Struple2<Type>, result: Type) -> FuncType
+    {
+        FuncType {
+            args,
+            closed: StrupleKV::none(),
+            result: Box::new(result),
+        }
+    }
+
+    pub fn new_closure(args: Struple2<Type>, closed: Struple2<Type>, result: Type) -> FuncType
+    {
+        FuncType {
+            args,
+            closed,
+            result: Box::new(result),
+        }
+    }
 }
 
 // #[derive(Debug)]
@@ -49,12 +84,16 @@ pub enum Type
     Hashtag,
     Tuple(Struple<Type>),
     Failure,
-    Func(Vec<Type>, Box<Type>),
-    Closure(Vec<Type>, Vec<Type>, Box<Type>),
+    Func(FuncType),
     // different from base collection/map interfaces?
     // base interface/type should probably be iterator
     // and then it should be a protocol, not type
     StrictList(Box<Type>),
+    Mod(ModLocalId),
+    Special(SpecialModId),
+    Generic(GenericModId),
+    GenericFunc(Vec<Lstr>, FuncType),
+    // UserDef to be deleted once everything is using Mod/Special/Generic/etc
     UserDef(Lri),
     Lib(String),
     Resource(Lstr),
@@ -70,9 +109,13 @@ pub enum Type
 
 impl Type
 {
-    pub fn f(inputs: Vec<Type>, result: Type) -> Type
+    pub fn f(inputs: Struple2<Type>, result: Type) -> Type
     {
-        Type::Func(inputs, Box::new(result))
+        Type::Func(FuncType {
+            args: inputs,
+            closed: StrupleKV::none(),
+            result: Box::new(result),
+        })
     }
 
     pub fn future(inner: Type) -> Type
@@ -100,20 +143,13 @@ impl Type
         }
     }
 
-    pub fn split_func(t: Type) -> (Vec<Type>, Type)
+    pub fn split_func_ref(t: &Type) -> (&Struple2<Type>, &Type)
     {
         match t {
-            Type::Func(args, result) => (args, *result),
-            _ => {
-                panic!("Not a func type {:?}", t);
+            &Type::Func(ref ftype) => (&ftype.args, &ftype.result),
+            &Type::GenericFunc(_, ref ftype) => {
+                (&ftype.args, &ftype.result)
             }
-        }
-    }
-
-    pub fn split_func_ref(t: &Type) -> (&Vec<Type>, &Type)
-    {
-        match t {
-            &Type::Func(ref args, ref result) => (args, &*result),
             _ => {
                 panic!("Not a func type {:?}", t);
             }
@@ -122,10 +158,10 @@ impl Type
 
     pub fn is_func(&self) -> bool
     {
-        if let &Type::Func(_, _) = self {
-            true
-        } else {
-            false
+        match self {
+            &Type::Func(_) => true,
+            &Type::GenericFunc(_, _) => true,
+            _ => false,
         }
     }
 
@@ -146,19 +182,21 @@ impl Type
                 let m_inner = inner.map(op)?;
                 Type::StrictList(Box::new(m_inner))
             }
-            &Type::Func(ref args, ref result) => {
-                let m_args = args.iter().map(|a| a.map(op));
-                let ok_args = Lresult::from_iter(m_args)?;
-                let m_result = result.map(op)?;
-                Type::Func(ok_args, Box::new(m_result))
+            &Type::Func(ref ftyp) => {
+                let mapf = |v: &Type| v.map(op);
+                let m_args = ftyp.args.map_v(mapf)?;
+                let m_closed = ftyp.closed.map_v(mapf)?;
+                let m_result = ftyp.result.map(op)?;
+                let m_ftype = FuncType::new_closure(m_args, m_closed, m_result);
+                Type::Func(m_ftype)
             }
-            &Type::Closure(ref args, ref closed, ref result) => {
-                let m_args = args.iter().map(|a| a.map(op));
-                let m_closed = closed.iter().map(|a| a.map(op));
-                let ok_args = Lresult::from_iter(m_args)?;
-                let ok_closed = Lresult::from_iter(m_closed)?;
-                let m_result = Box::new(result.map(op)?);
-                Type::Closure(ok_args, ok_closed, m_result)
+            &Type::GenericFunc(ref tparams, ref ftyp) => {
+                let mapf = |v: &Type| v.map(op);
+                let m_args = ftyp.args.map_v(mapf)?;
+                let m_closed = ftyp.closed.map_v(mapf)?;
+                let m_result = ftyp.result.map(op)?;
+                let m_ftype = FuncType::new_closure(m_args, m_closed, m_result);
+                Type::GenericFunc(tparams.clone(), m_ftype)
             }
 
             _ => self.clone(),
@@ -179,14 +217,9 @@ impl Type
             &Type::StrictList(ref i) => {
                 Type::StrictList(Box::new(i.deep_clone()))
             }
-            &Type::Func(ref args, ref result) => {
-                let dc_args = args.iter().map(|t| t.deep_clone()).collect();
-                Type::Func(dc_args, Box::new(result.deep_clone()))
-            }
-            &Type::Closure(ref args, ref closed, ref result) => {
-                let dc_args = args.iter().map(|t| t.deep_clone()).collect();
-                let dc_clos = closed.iter().map(|t| t.deep_clone()).collect();
-                Type::Closure(dc_args, dc_clos, Box::new(result.deep_clone()))
+            &Type::Func(ref ftyp) => Type::Func(ftyp.clone()),
+            &Type::GenericFunc(ref vars, ref ftyp) => {
+                Type::GenericFunc(vars.clone(), ftyp.clone())
             }
             &Type::Unknown => Type::Unknown,
             &Type::Var(ref id) => Type::Var(id.clone_for_send()),
@@ -220,6 +253,22 @@ impl sendclone::SendClone for Type
     }
 }
 
+impl fmt::Display for FuncType
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "(")?;
+        for a in self.args.iter() {
+            write!(f, "{},", a.v)?;
+        }
+        write!(f, "/")?;
+        for c in self.closed.iter() {
+            write!(f, "{},", c.v)?;
+        }
+        write!(f, "):{}", self.result)
+    }
+}
+
 impl fmt::Display for Type
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
@@ -232,27 +281,13 @@ impl fmt::Display for Type
             &Type::Tuple(ref items) => write!(f, "{}", items),
             &Type::UserDef(ref name) => write!(f, "{}", name),
             &Type::Failure => write!(f, "Failure"),
-            &Type::Func(ref args, ref result) => {
-                write!(f, "F(")?;
-                for a in args {
-                    write!(f, "{},", a)?
+            &Type::Func(ref ftyp) => write!(f, "F{}", ftyp),
+            &Type::GenericFunc(ref params, ref ftyp) => {
+                write!(f, "F[")?;
+                for p in params.iter() {
+                    write!(f, "{},", p)?;
                 }
-                write!(f, "):{}", result)
-            }
-            &Type::Closure(ref args, ref closed, ref result) => {
-                write!(f, "F(")?;
-                for a in args {
-                    write!(f, "{},", a)?;
-                }
-                write!(f, ")")?;
-                if !closed.is_empty() {
-                    write!(f, "(")?;
-                    for c in closed {
-                        write!(f, "{},", c)?;
-                    }
-                    write!(f, ")")?;
-                }
-                write!(f, ":{}", result)
+                write!(f, "]{}", ftyp)
             }
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator
@@ -284,31 +319,14 @@ impl fmt::Debug for Type
             &Type::Tuple(ref items) => write!(f, "T{}", items),
             &Type::UserDef(ref name) => write!(f, "UserDef({})", name),
             &Type::Failure => write!(f, "Failure"),
-            &Type::Func(ref args, ref result) => {
-                for a in args {
-                    write!(f, "{:?}>", a).ok();
-                }
-                write!(f, "{:?}", result)
-            }
-            &Type::Closure(ref args, ref closed, ref result) => {
-                write!(f, "Fn(")?;
-                for a in args {
-                    write!(f, "{:?},", a)?;
-                }
-                write!(f, ")")?;
-                if !closed.is_empty() {
-                    write!(f, "(")?;
-                    for c in closed {
-                        write!(f, "{:?},", c)?;
-                    }
-                    write!(f, ")")?;
-                }
-                write!(f, ":{:?}", result)
-            }
+            &Type::Func(ref ftyp) => write!(f, "{:?}", ftyp),
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
+            &Type::GenericFunc(ref vars, ref ftype) => {
+                write!(f, "GenericFunc({:?}, {:?})", vars, ftype)
+            }
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
             &Type::Resource(ref name) => write!(f, "Resource({})", &name),
             &Type::RustBlock => write!(f, "RustBlock"),

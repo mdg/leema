@@ -1,5 +1,5 @@
 use leema::lstr::Lstr;
-use leema::struple::Struple;
+use leema::struple::{Struple, Struple2};
 use leema::val::{Type, Val};
 
 
@@ -29,7 +29,7 @@ pub enum Source
     Let(Val, Box<Ixpr>, Vec<MatchFailure>),
     MatchExpr(Box<Ixpr>, Box<Ixpr>),
     MatchCase(Val, Box<Ixpr>, Box<Ixpr>),
-    RustBlock(Vec<Type>, Type),
+    RustBlock(Struple2<Type>, Type),
     Id(Lstr, i16),
     IfExpr(Box<Ixpr>, Box<Ixpr>, Option<Box<Ixpr>>),
     List(Vec<Ixpr>),
