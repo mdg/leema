@@ -93,10 +93,10 @@ impl Protomod
                             &decl.result,
                             body,
                             &decl.loc,
-                       );
+                       ).unwrap();
                     }
                     _ => {
-                        println!("cannot preproc function: {}", decl);
+                        panic!("cannot preproc function: {}", decl);
                     }
                 }
             }
@@ -579,7 +579,7 @@ impl Protomod
         };
         ftype_parts.push(Kxpr::new_x(pp_rtype_ast));
         let functype = FuncType::new(ftype_part_types, rtype);
-        let ftype = Type::GenericFunc(type_var_names, functype);
+        let ftype = Type::GenericFunc(type_var_names.clone(), functype);
         let fref_args =
             pp_args.iter().map(|a| (a.k_clone(), Val::Void)).collect();
 

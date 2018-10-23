@@ -65,7 +65,7 @@ impl<K, V> StrupleKV<K, V>
         StrupleKV { items: Some(items) }
     }
 
-    pub fn into_iter(&self) -> Option<impl IntoIterator<Item = StrupleItem<K, V>>>
+    pub fn into_iter(self) -> Option<impl IntoIterator<Item = StrupleItem<K, V>>>
     {
         self.items.map(|inner| inner.into_iter())
     }
@@ -88,7 +88,7 @@ impl<K, V> StrupleKV<K, V>
 
     pub fn iter<'a>(&'a self) -> StrupleIter<'a, K, V>
     {
-        let it = self.items.map(|inner| inner.iter());
+        let it = self.items.as_ref().map(|inner| inner.iter());
         StrupleIter{ it }
     }
 
@@ -175,7 +175,7 @@ impl<'a, K, V> Iterator for StrupleIter<'a, K, V>
 
     fn next(&mut self) -> Option<Self::Item>
     {
-        self.it.and_then(|inner| {
+        self.it.as_mut().and_then(|inner| {
             inner.next()
         })
     }

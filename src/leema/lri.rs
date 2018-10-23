@@ -268,7 +268,7 @@ impl Lri
 
     pub fn type_var_names(&self) -> Option<Vec<Lstr>>
     {
-        self.params.map(|some_vars| {
+        self.params.as_ref().map(|some_vars| {
             some_vars.iter().filter_map(|v| {
                 if let Type::Var(ref vname) = v {
                     Some(vname.clone())
