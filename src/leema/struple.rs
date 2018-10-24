@@ -7,7 +7,8 @@ use leema::val::Val;
 use std::clone::Clone;
 use std::fmt;
 use std::iter::{FromIterator, Iterator};
-use std::slice::Iter;
+use std::ops::Index;
+use std::slice::{Iter, SliceIndex};
 
 
 #[derive(Clone)]
@@ -86,6 +87,11 @@ impl<K, V> StrupleKV<K, V>
         }
     }
 
+    pub fn get(&self, idx: usize) -> Option<&StrupleItem<K, V>>
+    {
+        self.items.as_ref().and_then(|inner| inner.get(idx))
+    }
+
     pub fn iter<'a>(&'a self) -> StrupleIter<'a, K, V>
     {
         let it = self.items.as_ref().map(|inner| inner.iter());
@@ -161,6 +167,30 @@ impl<K, V> From<Vec<StrupleItem<K, V>>> for StrupleKV<K, V>
     fn from(items: Vec<StrupleItem<K, V>>) -> StrupleKV<K, V>
     {
         StrupleKV::from_vec(items)
+    }
+}
+
+impl<K, V> From<Vec<V>> for StrupleKV<Option<K>, V>
+{
+    fn from(items: Vec<V>) -> StrupleKV<Option<K>, V>
+    {
+        let full_items = items
+            .into_iter()
+            .map(|i| StrupleItem::new(None, i))
+            .collect();
+        StrupleKV::from_vec(full_items)
+    }
+}
+
+impl <K, V, I> Index<I> for StrupleKV<K, V>
+where
+    I: SliceIndex<[StrupleItem<K, V>]>,
+{
+    type Output = I::Output;
+
+    fn index(&self, idx: I) -> &Self::Output
+    {
+        &self.items.as_ref().unwrap()[idx]
     }
 }
 

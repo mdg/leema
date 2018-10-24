@@ -670,9 +670,9 @@ mod tests
     use leema::lri::Lri;
     use leema::lstr::Lstr;
     use leema::program;
-    use leema::struple::Struple;
+    use leema::struple::{Struple, StrupleItem, StrupleKV};
     use leema::typecheck::Depth;
-    use leema::val::Type;
+    use leema::val::{FuncType, Type};
 
 
     #[test]
@@ -747,20 +747,22 @@ mod tests
         let mut prog = program::Lib::new(loader);
         let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("main"));
         let main_type = prog.typecheck(&fri, Depth::Full);
-        assert_eq!(Type::Func(vec![], Box::new(Type::Void)), main_type);
+        let main_ft = FuncType::new(StrupleKV::none(), Type::Void);
+        assert_eq!(Type::Func(main_ft), main_type);
 
         let swapi = Lri::with_modules(Lstr::from("tacos"), Lstr::from("swap"));
         let swap_type = prog.typecheck(&swapi, Depth::Full);
-        assert_eq!(
-            Type::Func(
-                vec![Type::Var(Lstr::Sref("T")), Type::Var(Lstr::Sref("U")),],
-                Box::new(Type::Tuple(Struple(vec![
-                    (None, Type::Var(Lstr::Sref("U"))),
-                    (None, Type::Var(Lstr::Sref("T"))),
-                ]))),
-            ),
-            swap_type
+        let func_type = FuncType::new(
+            StrupleKV::from_vec(vec![
+                StrupleItem::new(None, Type::Var(Lstr::Sref("T"))),
+                StrupleItem::new(None, Type::Var(Lstr::Sref("U"))),
+            ]),
+            Type::Tuple(Struple(vec![
+                (None, Type::Var(Lstr::Sref("U"))),
+                (None, Type::Var(Lstr::Sref("T"))),
+            ])),
         );
+        assert_eq!(Type::Func(func_type), swap_type);
     }
 }
 

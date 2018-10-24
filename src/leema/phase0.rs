@@ -1611,9 +1611,9 @@ mod tests
     use leema::lri::Lri;
     use leema::lstr::Lstr;
     use leema::program;
-    use leema::struple::Struple;
+    use leema::struple::{Struple, StrupleItem, StrupleKV};
     use leema::types;
-    use leema::val::{Type, Val};
+    use leema::val::{FuncType, Type, Val};
 
 
     #[test]
@@ -1672,9 +1672,9 @@ mod tests
         let pmod = prog.read_proto(&foo_str);
 
         let open_valtype = pmod.valtypes.get("open_foo").unwrap();
-        if let Type::Func(open_args, open_result_type) = open_valtype {
-            assert!(open_args.is_empty());
-            assert_eq!("foo::Foo", &open_result_type.full_typename());
+        if let Type::Func(open_ft) = open_valtype {
+            assert!(open_ft.args.is_empty());
+            assert_eq!("foo::Foo", &open_ft.result.full_typename());
         } else {
             panic!("open_valtype is not a func type: {:?}", open_valtype);
         }
@@ -1766,10 +1766,10 @@ mod tests
         let type_lri =
             Lri::with_modules(tacos_str.clone(), local_typename.clone());
         let tree_type = Type::UserDef(type_lri.clone());
-        let node_funct = Type::Func(
-            vec![tree_type.clone(), Type::Int, tree_type.clone()],
-            Box::new(tree_type.clone()),
-        );
+        let node_funct = Type::Func(FuncType::new(
+            StrupleKV::from(vec![tree_type.clone(), Type::Int, tree_type.clone()]),
+            tree_type.clone(),
+        ));
 
         // closures are empty
         assert!(pmod.closures.is_empty());
@@ -1881,13 +1881,22 @@ mod tests
         let typevar_a = Type::Var(Lstr::Sref("A"));
         let dog_name = Lstr::from("Dog".to_string());
         let cat_func_type =
-            Type::Func(vec![Type::Int], Box::new(animal_type.clone()));
+            Type::Func(FuncType::new(
+                StrupleKV::from(vec![Type::Int]),
+                animal_type.clone(),
+            ));
         let mouse_func_type =
-            Type::Func(vec![typevar_a.clone()], Box::new(animal_type.clone()));
-        let giraffe_func_type = Type::Func(
-            vec![Type::Int, typevar_a.clone()],
-            Box::new(animal_type.clone()),
-        );
+            Type::Func(FuncType::new(
+                StrupleKV::from(vec![typevar_a.clone()]),
+                animal_type.clone(),
+            ));
+        let giraffe_func_type = Type::Func(FuncType::new(
+            StrupleKV::from_vec(vec![
+                StrupleItem::new(None, Type::Int),
+                StrupleItem::new(None, typevar_a.clone()),
+            ]),
+            animal_type.clone(),
+        ));
 
         // no closures
         assert!(pmod.closures.is_empty());
@@ -1997,10 +2006,13 @@ mod tests
         let greeting_lstr = Lstr::Sref("Greeting");
         let greeting_fullri = Lri::with_modules(greet.clone(), greeting_lstr);
         let greeting_typref = Type::UserDef(greeting_fullri);
-        let xfunctyp = Type::Func(
-            vec![Type::Str, Type::Str],
-            Box::new(greeting_typref.clone()),
-        );
+        let xfunctyp = Type::Func(FuncType::new(
+            StrupleKV::from_vec(vec![
+                StrupleItem::new(None, Type::Str),
+                StrupleItem::new(None, Type::Str),
+            ]),
+            greeting_typref.clone(),
+        ));
 
         // constants
         match pmod.constants.get("Greeting").unwrap() {
@@ -2044,13 +2056,13 @@ mod tests
         // assert valtypes
         assert!(pmod.valtypes.contains_key("Burrito"));
         let constructor = pmod.valtypes.get("Burrito").unwrap();
-        if let &Type::Func(ref params, ref result) = constructor {
-            assert_eq!(2, params.len());
+        if let &Type::Func(ref ft) = constructor {
+            assert_eq!(2, ft.args.len());
             let exp_result = Type::UserDef(Lri::with_modules(
                 Lstr::from("tacos"),
                 Lstr::from("Burrito"),
             ));
-            assert_eq!(exp_result, **result);
+            assert_eq!(exp_result, *ft.result);
         } else {
             panic!("constructor valtype is not a func");
         }
@@ -2060,7 +2072,13 @@ mod tests
             Lstr::from("Burrito"),
         ));
         let xfunctype =
-            Type::Func(vec![Type::Bool, Type::Int], Box::new(xtyperef.clone()));
+            Type::Func(FuncType::new(
+                StrupleKV::from_vec(vec![
+                    StrupleItem::new(None, Type::Bool),
+                    StrupleItem::new(None, Type::Int),
+                ]),
+                xtyperef.clone(),
+            ));
 
         // assert constants
         let funcref = pmod.constants.get("Burrito").unwrap();
@@ -2110,13 +2128,13 @@ mod tests
         // assert valtypes
         assert!(pmod.valtypes.contains_key("Burrito"));
         let constructor = pmod.valtypes.get("Burrito").unwrap();
-        if let &Type::Func(ref params, ref result) = constructor {
-            assert_eq!(2, params.len());
+        if let &Type::Func(ref ft) = constructor {
+            assert_eq!(2, ft.args.len());
             let exp_result = Type::UserDef(Lri::with_modules(
                 Lstr::from("tacos"),
                 Lstr::from("Burrito"),
             ));
-            assert_eq!(exp_result, **result);
+            assert_eq!(exp_result, *ft.result);
         } else {
             panic!("constructor valtype is not a func");
         }
@@ -2126,7 +2144,13 @@ mod tests
             Lstr::from("Burrito"),
         ));
         let xfunctype =
-            Type::Func(vec![Type::Str, Type::Int], Box::new(xtyperef.clone()));
+            Type::Func(FuncType::new(
+                StrupleKV::from_vec(vec![
+                    StrupleItem::new(None, Type::Str),
+                    StrupleItem::new(None, Type::Int),
+                ]),
+                xtyperef.clone(),
+            ));
 
         // assert constants
         let funcref = pmod.constants.get("Burrito").unwrap();

@@ -713,7 +713,7 @@ mod tests
     use leema::list;
     use leema::lri::Lri;
     use leema::lstr::Lstr;
-    use leema::struple::Struple;
+    use leema::struple::{Struple, StrupleKV};
     use leema::val::{Type, Val};
 
     use std::collections::HashMap;
@@ -763,18 +763,18 @@ mod tests
         let fri = Lri::new(Lstr::Sref("burritos"));
         let mut t = Inferator::new(&fri);
         let defargst = Type::f(
-            vec![Type::Var(Lstr::from("A")), Type::Int],
+            StrupleKV::from(vec![Type::Var(Lstr::from("A")), Type::Int]),
             Type::Var(Lstr::from("A")),
         );
         let argvalt = vec![&Type::Hashtag, &Type::Int];
 
         let mct = t.make_call_type(&defargst, &argvalt).unwrap();
 
-        let (func_args, func_result) = Type::split_func_ref(mct);
+        let (func_args, func_result) = Type::split_func_ref(&mct);
         assert_eq!(2, func_args.len());
-        assert_eq!(Type::Hashtag, func_args[0]);
-        assert_eq!(Type::Int, func_args[1]);
-        assert_eq!(Type::Hashtag, func_result);
+        assert_eq!(Type::Hashtag, func_args[0].v);
+        assert_eq!(Type::Int, func_args[1].v);
+        assert_eq!(Type::Hashtag, *func_result);
     }
 
     #[test]
