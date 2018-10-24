@@ -739,9 +739,7 @@ impl Val
             (
                 &Val::EnumStruct(ref pt, ref pname, ref pv),
                 &Val::EnumStruct(ref it, ref iname, ref iv),
-            )
-                if pv.0.len() == iv.0.len() =>
-            {
+            ) if pv.0.len() == iv.0.len() => {
                 if pt != it || pname != iname {
                     return false;
                 }

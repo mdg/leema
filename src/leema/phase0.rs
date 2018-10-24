@@ -1021,11 +1021,9 @@ impl Protomod
         // rewrite the modules if necessary
         match t {
             Type::UserDef(id) => {
-                if id.local_only() && Protomod::find_type_param(
-                    type_params,
-                    &id.localid,
-                )
-                .is_some()
+                if id.local_only()
+                    && Protomod::find_type_param(type_params, &id.localid)
+                        .is_some()
                 {
                     Type::Var(id.localid.clone())
                 } else if !id.has_modules()
