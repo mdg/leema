@@ -29,6 +29,7 @@ pub mod struple;
 pub mod tcp;
 pub mod token;
 pub mod typecheck;
+pub mod typephase;
 pub mod types;
 pub mod udp;
 pub mod val;
