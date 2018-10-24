@@ -1892,8 +1892,8 @@ mod tests
             ));
         let giraffe_func_type = Type::Func(FuncType::new(
             StrupleKV::from_vec(vec![
-                StrupleItem::new(None, Type::Int),
-                StrupleItem::new(None, typevar_a.clone()),
+                StrupleItem::new(Some(Lstr::Sref("height")), Type::Int),
+                StrupleItem::new(Some(Lstr::Sref("weight")), typevar_a.clone()),
             ]),
             animal_type.clone(),
         ));
@@ -1982,7 +1982,7 @@ mod tests
             format!("{}", *pmod.valtypes.get("Dog").unwrap())
         );
         assert_eq!(
-            "F(Int,):animals::Animal[$A,]",
+            "F(Int,/):animals::Animal[$A,]",
             format!("{}", *pmod.valtypes.get("Cat").unwrap())
         );
         assert_eq!(mouse_func_type, *pmod.valtypes.get("Mouse").unwrap());

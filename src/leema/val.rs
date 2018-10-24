@@ -259,11 +259,25 @@ impl fmt::Display for FuncType
     {
         write!(f, "(")?;
         for a in self.args.iter() {
-            write!(f, "{},", a.v)?;
+            match a.k {
+                Some(ref k) => {
+                    write!(f, "{}:{},", k, a.v)?;
+                }
+                None => {
+                    write!(f, "{},", a.v)?;
+                }
+            }
         }
         write!(f, "/")?;
         for c in self.closed.iter() {
-            write!(f, "{},", c.v)?;
+            match c.k {
+                Some(ref k) => {
+                    write!(f, "{}:{},", k, c.v)?;
+                }
+                None => {
+                    write!(f, "{},", c.v)?;
+                }
+            }
         }
         write!(f, "):{}", self.result)
     }
