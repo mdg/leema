@@ -1718,8 +1718,8 @@ mod tests
         let mut prog = program::Lib::new(loader);
         let pmod = prog.read_proto(&foo_str);
 
-        let _foo_type = pmod.valtypes.get("foo").unwrap();
-        let _foo_const = pmod.constants.get("foo").unwrap();
+        let _foo_type = pmod.valtypes.get("swap").unwrap();
+        let _foo_const = pmod.constants.get("swap").unwrap();
     }
 
     #[test]
@@ -2075,7 +2075,7 @@ mod tests
             Type::Func(FuncType::new(
                 StrupleKV::from_vec(vec![
                     StrupleItem::new(None, Type::Bool),
-                    StrupleItem::new(None, Type::Int),
+                    StrupleItem::new(Some(Lstr::Sref("buns")), Type::Int),
                 ]),
                 xtyperef.clone(),
             ));
@@ -2146,8 +2146,8 @@ mod tests
         let xfunctype =
             Type::Func(FuncType::new(
                 StrupleKV::from_vec(vec![
-                    StrupleItem::new(None, Type::Str),
-                    StrupleItem::new(None, Type::Int),
+                    StrupleItem::new(Some(Lstr::Sref("filling")), Type::Str),
+                    StrupleItem::new(Some(Lstr::Sref("number")), Type::Int),
                 ]),
                 xtyperef.clone(),
             ));
