@@ -93,6 +93,7 @@ pub enum Type
     Special(SpecialModId),
     Generic(GenericModId),
     GenericFunc(Vec<Lstr>, FuncType),
+    SpecialFunc(StrupleKV<Lstr, Type>, FuncType),
     // UserDef to be deleted once everything is using Mod/Special/Generic/etc
     UserDef(Lri),
     Lib(String),
@@ -306,6 +307,9 @@ impl fmt::Display for Type
                 }
                 write!(f, "]{}", ftyp)
             }
+            &Type::SpecialFunc(ref params, ref ftyp) => {
+                write!(f, "F[{:?}]{}", params, ftyp)
+            }
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
@@ -352,6 +356,9 @@ impl fmt::Debug for Type
             }
             &Type::GenericFunc(ref vars, ref ftype) => {
                 write!(f, "GenericFunc({:?}, {:?})", vars, ftype)
+            }
+            &Type::SpecialFunc(ref vars, ref ftyp) => {
+                write!(f, "SpecialFunc({:?} {:?})", vars, ftyp)
             }
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
             &Type::Resource(ref name) => write!(f, "Resource({})", &name),

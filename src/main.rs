@@ -8,6 +8,9 @@ extern crate mopa;
 extern crate bytes;
 extern crate futures;
 extern crate hyper;
+#[cfg(test)]
+#[macro_use]
+extern crate matches;
 extern crate rand;
 extern crate rustc_serialize;
 extern crate serde;
