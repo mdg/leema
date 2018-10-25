@@ -120,7 +120,7 @@ impl<'a> Semantics<'a>
 
     pub fn pass(&mut self, node: &AstNode) -> Lresult<AstNode>
     {
-        let result: AstNode = match &*node.node {
+        match &*node.node {
             Ast::Block(ref items) => {
                 if items.is_empty() {
                     let new_node = node.replace(
@@ -139,20 +139,51 @@ impl<'a> Semantics<'a>
                     let last_item = new_items.last().unwrap();
                     self.merge_types(&node.typ, &last_item.typ)?
                 };
-                node.replace(Ast::Block(new_items), last_type)
+                self.replace(node, Ast::Block(new_items), last_type)
+            }
+            Ast::ModId(ref m, ref l) => {
+                let (new_node, new_type) = self.pass_modid(m, l)?;
+                self.replace(node, new_node, new_type)
             }
             Ast::TypeCall(ref id, ref args) => {
                 let (new_node, new_type) = self.pass_typecall(id, args)?;
-                let new_type2 = self.merge_types(&node.typ, &new_type)?;
-                node.replace(new_node, new_type2)
+                self.replace(node, new_node, new_type)
             }
             unknown => {
                 return Err(Failure::new("compiler_error", Lstr::from(format!(
                     "cannot analyze: {:?}", unknown
                 ))));
             }
-        };
-        Ok(result)
+        }
+    }
+
+    pub fn pass_modid(&mut self, module: &Lstr, local: &Lstr) -> Lresult<(Ast, Type)>
+    {
+        let mod_types = self.types.get(module).ok_or_else(|| {
+            Failure::new("code_error", Lstr::from(format!(
+                "module not found: {}", module
+            )))
+        })?;
+
+        let found_type = mod_types.get(local).ok_or_else(|| {
+            Failure::new("code_error", Lstr::from(format!(
+                "{} not found in module {}", local, module
+            )))
+        })?;
+
+        match found_type {
+            Type::Func(_ft) => {
+                Err(Failure::new("debug", Lstr::Sref("is func")))
+            }
+            Type::GenericFunc(ref _tvars, ref _ft) => {
+                Err(Failure::new("debug", Lstr::Sref("is generic func")))
+            }
+            not_func => {
+                Err(Failure::new("leema_incomplete", Lstr::from(format!(
+                    "cannot compile id yet {}::{}: {}", module, local, not_func
+                ))))
+            }
+        }
     }
 
     pub fn pass_typecall(&mut self, id: &AstNode, args: &Struple2<AstNode>) -> Lresult<(Ast, Type)>
@@ -215,6 +246,13 @@ impl<'a> Semantics<'a>
         Ok((result, rtype))
     }
 
+    fn replace(&mut self, old: &AstNode, new_ast: Ast, new_typ: Type
+    ) -> Lresult<AstNode>
+    {
+        let m_type = self.merge_types(&old.typ, &new_typ)?;
+        Ok(old.replace(new_ast, m_type))
+    }
+
     pub fn merge_types(&mut self, a: &Type, b: &Type) -> Lresult<Type>
     {
         self.infer
@@ -231,7 +269,7 @@ mod tests
     use leema::lri::Lri;
     use leema::lstr::Lstr;
     use leema::struple::StrupleKV;
-    use leema::val::{SrcLoc, Type};
+    use leema::val::{FuncType, SrcLoc, Type};
 
 
     fn new_node(node: Ast) -> AstNode
@@ -243,7 +281,25 @@ mod tests
     fn test_typecall()
     {
         let lri = Lri::with_modules(Lstr::Sref("a"), Lstr::Sref("b"));
+        let t_str = Lstr::Sref("T");
+        let u_str = Lstr::Sref("U");
+        let x_str = Lstr::Sref("x");
+        let y_str = Lstr::Sref("y");
+        let dgentype = Type::GenericFunc(
+            vec![t_str.clone(), u_str.clone()],
+            FuncType::new(
+                StrupleKV::from_vec(vec![
+                    StrupleItem::new(Some(x_str), Type::Var(t_str)),
+                    StrupleItem::new(Some(y_str), Type::Var(u_str.clone())),
+                ]),
+                Type::Var(u_str),
+            ),
+        );
+        let mut mod_c = HashMap::new();
+        mod_c.insert(Lstr::Sref("d"), dgentype);
+
         let mut sem = Semantics::new(&lri);
+        sem.types.insert(Lstr::Sref("c"), mod_c);
 
         let typecall = new_node(Ast::TypeCall(
             new_node(Ast::ModId(Lstr::Sref("c"), Lstr::Sref("d"))),
@@ -252,8 +308,8 @@ mod tests
                 new_node(Ast::Type(Type::Str)),
             ]),
         ));
-        let result = sem.pass(typecall).unwrap();
+        let result = sem.pass(&typecall).unwrap();
 
-        assert_matches!(*result.node, Ast::SpecialId(_, _));
+        assert_matches!(*result.node, Ast::ConstVal(_));
     }
 }
