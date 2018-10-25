@@ -6,7 +6,7 @@ use leema::inter::Blockstack;
 use leema::lri::{Lri, ModLocalId, SpecialModId};
 use leema::lstr::Lstr;
 use leema::reg::{Reg, RegTable};
-use leema::struple::{Struple2, StrupleItem, StrupleKV};
+use leema::struple::{Struple, Struple2, StrupleItem, StrupleKV};
 use leema::val::{SrcLoc, Type, Val};
 
 use std::collections::{HashMap, HashSet};
@@ -32,6 +32,21 @@ impl AstNode
             typ: Type::Void,
             dst: Reg::Void,
         }
+    }
+
+    pub fn replace(&self, node: Ast, t: Type) -> AstNode
+    {
+        AstNode {
+            node: Box::new(node),
+            loc: self.loc.clone(),
+            typ: t,
+            dst: self.dst.clone(),
+        }
+    }
+
+    pub fn set_dst(&mut self, dst: Reg)
+    {
+        self.dst = dst;
     }
 }
 
@@ -61,7 +76,6 @@ pub enum Ast
     Return(AstNode),
     RustBlock,
     StrExpr(Vec<AstNode>),
-    SpecialId(AstNode, StrupleKV<Lstr, Type>),
     Type(Type),
     TypeCall(AstNode, Struple2<AstNode>),
     Wildcard,
@@ -104,30 +118,33 @@ impl<'a> Semantics<'a>
         }
     }
 
-    pub fn pass(&mut self, mut node: AstNode) -> Lresult<AstNode>
+    pub fn pass(&mut self, node: &AstNode) -> Lresult<AstNode>
     {
-        let inner_node = node.node;
-        let result: Ast = match *inner_node {
-            Ast::Block(items) => {
+        let result: AstNode = match &*node.node {
+            Ast::Block(ref items) => {
                 if items.is_empty() {
-                    node.node = Box::new(Ast::Block(items));
-                    return Ok(node);
+                    let new_node = node.replace(
+                        Ast::Block(Vec::with_capacity(0)),
+                        Type::Void,
+                    );
+                    return Ok(new_node);
                 }
 
                 let item_results: Vec<Lresult<AstNode>> = items
-                    .into_iter()
+                    .iter()
                     .map(|i| self.pass(i))
                     .collect();
                 let new_items: Vec<AstNode> = Lresult::from_iter(item_results)?;
-                {
+                let last_type = {
                     let last_item = new_items.last().unwrap();
-                    node.typ = self.merge_types(&node.typ, &last_item.typ)?;
-                    node.dst = last_item.dst.clone();
-                }
-                Ast::Block(new_items)
+                    self.merge_types(&node.typ, &last_item.typ)?
+                };
+                node.replace(Ast::Block(new_items), last_type)
             }
-            Ast::TypeCall(id, args) => {
-                self.pass_typecall(id, args)?
+            Ast::TypeCall(ref id, ref args) => {
+                let (new_node, new_type) = self.pass_typecall(id, args)?;
+                let new_type2 = self.merge_types(&node.typ, &new_type)?;
+                node.replace(new_node, new_type2)
             }
             unknown => {
                 return Err(Failure::new("compiler_error", Lstr::from(format!(
@@ -135,18 +152,18 @@ impl<'a> Semantics<'a>
                 ))));
             }
         };
-        node.node = Box::new(result);
-        Ok(node)
+        Ok(result)
     }
 
-    pub fn pass_typecall(&mut self, id: AstNode, args: Struple2<AstNode>) -> Lresult<Ast>
+    pub fn pass_typecall(&mut self, id: &AstNode, args: &Struple2<AstNode>) -> Lresult<(Ast, Type)>
     {
         let new_id = self.pass(id)?;
-        let new_args = args.map_v_into(|a| {
+        let new_args = args.map_v(|a| {
             self.pass(a)
         })?;
-        match &new_id.typ {
-            Type::GenericFunc(ref targs, ref _ft) => {
+
+        let (result, rtype) = match &new_id.typ {
+            Type::GenericFunc(ref targs, ref ft) => {
                 // ok, that's good
                 let targs_len = targs.len();
                 let new_args_len = new_args.len();
@@ -163,9 +180,26 @@ impl<'a> Semantics<'a>
                         StrupleItem::new(arg.0.clone(), arg.1.v.typ)
                     })
                     .collect();
+                let arg_vals: Struple<Val> = special_types
+                    .iter()
+                    .map(|i| (Some(i.k.clone()), Val::Void))
+                    .collect();
+                let fri = match *new_id.node {
+                    Ast::Id(ref localid) => Lri::new(localid.clone()),
+                    Ast::ModId(ref modid, ref localid) => {
+                        Lri::with_modules(modid.clone(), localid.clone())
+                    }
+                    not_id => {
+                        return Err(Failure::new("code_failure", Lstr::from(
+                            format!("not an id: {:?}", not_id)
+                        )));
+                    }
+                };
                 // ft.replace_types(special_types);
                 // *t = Type::SpecialFunc(special_types.clone(), ft);
-                Ok(Ast::SpecialId(new_id, special_types))
+                let spec_type = Type::SpecialFunc(special_types, ft.clone());
+                let t2 = spec_type.clone();
+                (Ast::ConstVal(Val::FuncRef(fri, arg_vals, spec_type)), t2)
             }
             Type::Func(_) => {
                 return Err(Failure::new("code_error", Lstr::from(format!(
@@ -177,7 +211,8 @@ impl<'a> Semantics<'a>
                     "typecall id must be type func: {:?}", not_func
                 ))));
             }
-        }
+        };
+        Ok((result, rtype))
     }
 
     pub fn merge_types(&mut self, a: &Type, b: &Type) -> Lresult<Type>

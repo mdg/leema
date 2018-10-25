@@ -108,9 +108,9 @@ impl<K, V> StrupleKV<K, V>
         self.iter().map(|kv| &kv.v)
     }
 
-    pub fn map_v<F, U>(&self, f: F) -> Lresult<StrupleKV<K, U>>
+    pub fn map_v<F, U>(&self, mut f: F) -> Lresult<StrupleKV<K, U>>
     where
-        F: Fn(&V) -> Lresult<U>,
+        F: FnMut(&V) -> Lresult<U>,
         K: Clone,
     {
         if self.items.is_none() {
