@@ -118,7 +118,7 @@ impl<'a> Semantics<'a>
         }
     }
 
-    pub fn pass(&mut self, node: &AstNode) -> Lresult<AstNode>
+    pub fn map_node(&mut self, node: &AstNode) -> Lresult<AstNode>
     {
         match &*node.node {
             Ast::Block(ref items) => {
@@ -132,7 +132,7 @@ impl<'a> Semantics<'a>
 
                 let item_results: Vec<Lresult<AstNode>> = items
                     .iter()
-                    .map(|i| self.pass(i))
+                    .map(|i| self.map_node(i))
                     .collect();
                 let new_items: Vec<AstNode> = Lresult::from_iter(item_results)?;
                 let last_type = {
@@ -142,11 +142,11 @@ impl<'a> Semantics<'a>
                 self.replace(node, Ast::Block(new_items), last_type)
             }
             Ast::ModId(ref m, ref l) => {
-                let (new_node, new_type) = self.pass_modid(m, l)?;
+                let (new_node, new_type) = self.map_modid(m, l)?;
                 self.replace(node, new_node, new_type)
             }
             Ast::TypeCall(ref id, ref args) => {
-                let (new_node, new_type) = self.pass_typecall(id, args)?;
+                let (new_node, new_type) = self.map_typecall(id, args)?;
                 self.replace(node, new_node, new_type)
             }
             unknown => {
@@ -157,7 +157,7 @@ impl<'a> Semantics<'a>
         }
     }
 
-    pub fn pass_modid(&mut self, module: &Lstr, local: &Lstr) -> Lresult<(Ast, Type)>
+    pub fn map_modid(&mut self, module: &Lstr, local: &Lstr) -> Lresult<(Ast, Type)>
     {
         let mod_types = self.types.get(module).ok_or_else(|| {
             Failure::new("code_error", Lstr::from(format!(
@@ -186,11 +186,11 @@ impl<'a> Semantics<'a>
         }
     }
 
-    pub fn pass_typecall(&mut self, id: &AstNode, args: &Struple2<AstNode>) -> Lresult<(Ast, Type)>
+    pub fn map_typecall(&mut self, id: &AstNode, args: &Struple2<AstNode>) -> Lresult<(Ast, Type)>
     {
-        let new_id = self.pass(id)?;
+        let new_id = self.map_node(id)?;
         let new_args = args.map_v(|a| {
-            self.pass(a)
+            self.map_node(a)
         })?;
 
         let (result, rtype) = match &new_id.typ {
@@ -308,7 +308,7 @@ mod tests
                 new_node(Ast::Type(Type::Str)),
             ]),
         ));
-        let result = sem.pass(&typecall).unwrap();
+        let result = sem.map_node(&typecall).unwrap();
 
         assert_matches!(*result.node, Ast::ConstVal(_));
     }
