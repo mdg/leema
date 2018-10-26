@@ -29,7 +29,7 @@ impl AstNode
         AstNode {
             node: Box::new(node),
             loc,
-            typ: Type::Void,
+            typ: Type::Unknown,
             dst: Reg::Void,
         }
     }
@@ -145,14 +145,19 @@ impl<'a> Semantics<'a>
                 let (new_node, new_type) = self.map_modid(m, l)?;
                 self.replace(node, new_node, new_type)
             }
+            Ast::Type(ref t) => {
+                self.replace(node, Ast::Type(t.clone()), Type::Kind)
+            }
             Ast::TypeCall(ref id, ref args) => {
                 let (new_node, new_type) = self.map_typecall(id, args)?;
                 self.replace(node, new_node, new_type)
             }
             unknown => {
-                return Err(Failure::new("compiler_error", Lstr::from(format!(
-                    "cannot analyze: {:?}", unknown
-                ))));
+                return Err(rustfail!(
+                    "incomplete_semantics",
+                    "cannot analyze: {:?}",
+                    unknown,
+                ));
             }
         }
     }
@@ -176,7 +181,8 @@ impl<'a> Semantics<'a>
                 Err(Failure::new("debug", Lstr::Sref("is func")))
             }
             Type::GenericFunc(ref _tvars, ref _ft) => {
-                Err(Failure::new("debug", Lstr::Sref("is generic func")))
+                let new_node = Ast::ModId(module.clone(), local.clone());
+                Ok((new_node, found_type.clone()))
             }
             not_func => {
                 Err(Failure::new("leema_incomplete", Lstr::from(format!(
@@ -189,8 +195,14 @@ impl<'a> Semantics<'a>
     pub fn map_typecall(&mut self, id: &AstNode, args: &Struple2<AstNode>) -> Lresult<(Ast, Type)>
     {
         let new_id = self.map_node(id)?;
-        let new_args = args.map_v(|a| {
-            self.map_node(a)
+        let new_args: Struple2<Type> = args.map_v(|a| {
+            let new_node = self.map_node(a)?;
+            match *new_node.node {
+                Ast::Type(t) => Ok(t),
+                not_type => {
+                    Err(rustfail!("leema_fail", "not a type: {:?}", not_type))
+                }
+            }
         })?;
 
         let (result, rtype) = match &new_id.typ {
@@ -208,7 +220,7 @@ impl<'a> Semantics<'a>
                     .iter()
                     .zip(new_args.into_iter().unwrap())
                     .map(|arg| {
-                        StrupleItem::new(arg.0.clone(), arg.1.v.typ)
+                        StrupleItem::new(arg.0.clone(), arg.1.v)
                     })
                     .collect();
                 let arg_vals: Struple<Val> = special_types
@@ -257,7 +269,7 @@ impl<'a> Semantics<'a>
     {
         self.infer
             .merge_types(a, b)
-            .map_err(|_e| Failure::new("type_err", Lstr::Sref("e context")))
+            .map_err(|e| rustfail!("type_err", "type info: {}", e))
     }
 }
 
@@ -311,5 +323,35 @@ mod tests
         let result = sem.map_node(&typecall).unwrap();
 
         assert_matches!(*result.node, Ast::ConstVal(_));
+        if let Ast::ConstVal(val) = &*result.node {
+            if let Val::FuncRef(fri, args, typ) = val {
+                assert_eq!("c", fri.modules.as_ref().unwrap());
+                assert_eq!("d", &fri.localid);
+                assert_eq!(2, args.0.len());
+                match typ {
+                    Type::SpecialFunc(ref targs, ref _ft) => {
+                        // field x specialized from T to Int
+                        assert_eq!("T", &targs[0].k);
+                        assert_eq!(Type::Int, targs[0].v);
+                        // field y specialized from U to Str
+                        assert_eq!("U", &targs[1].k);
+                        assert_eq!(Type::Str, targs[1].v);
+                    }
+                    Type::GenericFunc(ref _targs, ref _ft) => {
+                        panic!("found generic func, expected special func");
+                    }
+                    Type::Func(ref _ft) => {
+                        panic!("found mono func, expected special func");
+                    }
+                    not_func => {
+                        panic!("found a not func: {:?}", not_func);
+                    }
+                }
+            } else {
+                panic!("const val not a FuncRef")
+            }
+        } else {
+            panic!("not a const val");
+        }
     }
 }
