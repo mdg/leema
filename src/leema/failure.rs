@@ -7,6 +7,17 @@ use std::fmt;
 use std::sync::Arc;
 
 
+macro_rules! rustfail {
+    ($tag:expr, $msg:expr) => {
+        Failure::new(tag, Lstr::from($msg))
+            .set_rustloc(file!(), line!())
+    };
+    ($tag:expr, $fmt:expr, $($arg:tt)*) => {
+        Failure::new($tag, Lstr::from(format!($fmt, $($arg)*)))
+            .set_rustloc(file!(), line!())
+    };
+}
+
 // need to move these to leema code
 #[derive(Copy)]
 #[derive(Clone)]
@@ -38,6 +49,7 @@ pub struct Failure
     msg: Val,
     trace: Option<Arc<FrameTrace>>,
     status: Status,
+    rustloc: Option<(&'static str, u32)>,
     meta: LmapNode,
 }
 
@@ -52,8 +64,15 @@ impl Failure
             msg: Val::Str(msg),
             trace: None,
             status: Status::None,
+            rustloc: None,
             meta: None,
         }
+    }
+
+    pub fn set_rustloc(mut self, file: &'static str, line: u32) -> Self
+    {
+        self.rustloc = Some((file, line));
+        self
     }
 
     // duplicating a capability that's currently in nightly but not yet

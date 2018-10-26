@@ -3,6 +3,7 @@ pub mod log;
 pub mod application;
 pub mod ast;
 pub mod code;
+#[macro_use]
 pub mod failure;
 pub mod fiber;
 pub mod frame;
