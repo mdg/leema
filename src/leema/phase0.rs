@@ -899,29 +899,29 @@ impl Protomod
                     .collect();
                 Ast::Call(Box::new(new_callx), new_args, *loc)
             }
-            &Ast::TypeCall(ref base, ref tparams, ref iloc) => {
-                let base2 = Protomod::replace_ids(base, idvals, iloc);
+            &Ast::TypeCall(ref base, ref tparams, _) => {
+                let base2 = Protomod::replace_ids(base, idvals, loc);
                 let tparams2 = tparams
                     .iter()
                     .map(|tp| {
                         tp.map_x(|x| Protomod::replace_ids(x, idvals, loc))
                     })
                     .collect();
-                Ast::TypeCall(Box::new(base2), tparams2, *iloc)
+                Ast::TypeCall(Box::new(base2), tparams2, *loc)
             }
             &Ast::Modid(_, _, _) => node.clone(),
-            &Ast::Localid(ref name, ref iloc) => {
+            &Ast::Localid(ref name, _) => {
                 match idvals.get(&*name) {
                     Some(newx) => (*newx).clone(),
-                    None => Ast::Localid(name.clone(), *iloc),
+                    None => Ast::Localid(name.clone(), *loc),
                 }
             }
-            &Ast::StrExpr(ref items, ref iloc) => {
+            &Ast::StrExpr(ref items, _) => {
                 let new_items = items
                     .iter()
-                    .map(|i| Protomod::replace_ids(i, idvals, iloc))
+                    .map(|i| Protomod::replace_ids(i, idvals, loc))
                     .collect();
-                Ast::StrExpr(new_items, *iloc)
+                Ast::StrExpr(new_items, *loc)
             }
             &Ast::DefFunc(fc, ref decl, ref body) => {
                 let r_name = Protomod::replace_ids(&decl.name, idvals, loc);
