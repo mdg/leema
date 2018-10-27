@@ -9,11 +9,14 @@ use std::sync::Arc;
 
 macro_rules! rustfail {
     ($tag:expr, $msg:expr) => {
-        Failure::new(tag, Lstr::from($msg))
+        ::leema::failure::Failure::new(tag, Lstr::from($msg))
             .set_rustloc(file!(), line!())
     };
     ($tag:expr, $fmt:expr, $($arg:tt)*) => {
-        Failure::new($tag, Lstr::from(format!($fmt, $($arg)*)))
+        ::leema::failure::Failure::new(
+                $tag,
+                Lstr::from(format!($fmt, $($arg)*))
+            )
             .set_rustloc(file!(), line!())
     };
 }
@@ -91,7 +94,11 @@ impl fmt::Display for Failure
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        write!(f, "Failure(#{} '{}')", self.tag, self.msg)
+        write!(f, "Failure({} ", self.tag)?;
+        if let Some(ref rustloc) = self.rustloc {
+            write!(f, " @ {:?}", rustloc)?;
+        }
+        write!(f, "\n'{}')", self.msg)
     }
 }
 
