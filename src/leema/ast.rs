@@ -346,8 +346,7 @@ impl Ast
                 let new_params: Vec<Kxpr> = if ftype.args.is_empty() {
                     vec![]
                 } else {
-                    ftype.args.items
-                        .unwrap()
+                    ftype.args.0
                         .into_iter()
                         .map(|it| {
                             let newt = Ast::from_type(it.v, loc);

@@ -8,7 +8,7 @@ use std::clone::Clone;
 use std::fmt;
 use std::iter::{FromIterator, Iterator};
 use std::ops::Index;
-use std::slice::{Iter, SliceIndex};
+use std::slice::{SliceIndex};
 
 
 #[derive(Clone)]
@@ -39,63 +39,51 @@ impl<K, V> StrupleItem<K, V>
 #[derive(Eq)]
 #[derive(Ord)]
 #[derive(Hash)]
-pub struct StrupleKV<K, V>
-{
-    pub items: Option<Vec<StrupleItem<K, V>>>,
-}
+pub struct StrupleKV<K, V>(pub Vec<StrupleItem<K, V>>);
+
 
 pub type Struple2<T> = StrupleKV<Option<Lstr>, T>;
 
 impl<K, V> StrupleKV<K, V>
 {
-    pub fn new(items: Option<Vec<StrupleItem<K, V>>>) -> StrupleKV<K, V>
+    pub fn new() -> StrupleKV<K, V>
     {
-        StrupleKV{ items }
+        StrupleKV(vec![])
     }
 
     pub fn none() -> StrupleKV<K, V>
     {
-        StrupleKV{ items: None }
+        StrupleKV(vec![])
     }
 
     pub fn from_vec(items: Vec<StrupleItem<K, V>>) -> StrupleKV<K, V>
     {
-        if items.is_empty() {
-            return StrupleKV::none();
-        }
-        StrupleKV { items: Some(items) }
+        StrupleKV(items)
     }
 
-    pub fn into_iter(self) -> Option<impl IntoIterator<Item = StrupleItem<K, V>>>
+    pub fn into_iter(self) -> impl IntoIterator<Item = StrupleItem<K, V>>
     {
-        self.items.map(|inner| inner.into_iter())
+        self.0.into_iter()
     }
 
     pub fn is_empty(&self) -> bool
     {
-        match self.items {
-            None => true,
-            Some(ref items) => items.is_empty(),
-        }
+        self.0.is_empty()
     }
 
     pub fn len(&self) -> usize
     {
-        match self.items {
-            None => 0,
-            Some(ref items) => items.len(),
-        }
+        self.0.len()
     }
 
     pub fn get(&self, idx: usize) -> Option<&StrupleItem<K, V>>
     {
-        self.items.as_ref().and_then(|inner| inner.get(idx))
+        self.0.get(idx)
     }
 
-    pub fn iter<'a>(&'a self) -> StrupleIter<'a, K, V>
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &StrupleItem<K, V>>
     {
-        let it = self.items.as_ref().map(|inner| inner.iter());
-        StrupleIter{ it }
+        self.0.iter()
     }
 
     pub fn iter_k(&self) -> impl Iterator<Item = &K>
@@ -113,11 +101,8 @@ impl<K, V> StrupleKV<K, V>
         F: FnMut(&V) -> Lresult<U>,
         K: Clone,
     {
-        if self.items.is_none() {
-            return Ok(StrupleKV::none());
-        }
         let m_result_items: Vec<Lresult<StrupleItem<K, U>>> =
-            self.items.as_ref().unwrap().iter().map(|kv| {
+            self.0.iter().map(|kv| {
                 let u = f(&kv.v)?;
                 Ok(StrupleItem::new(kv.k.clone(), u))
             }).collect();
@@ -129,11 +114,7 @@ impl<K, V> StrupleKV<K, V>
     where
         F: Fn(V) -> Lresult<U>,
     {
-        if self.items.is_none() {
-            return Ok(StrupleKV::none());
-        }
-        let m_result_items: Vec<Lresult<StrupleItem<K, U>>> = self.items
-            .unwrap()
+        let m_result_items: Vec<Lresult<StrupleItem<K, U>>> = self.0
             .into_iter()
             .map(|kv| {
                 let u = f(kv.v)?;
@@ -152,13 +133,7 @@ impl<K, V> FromIterator<StrupleItem<K, V>> for StrupleKV<K, V>
     ) -> StrupleKV<K, V>
     {
         let items = Vec::from_iter(iter);
-        /*
-        let mut items = Vec::new();
-        for item in iter {
-            items.push(item);
-        }
-        */
-        StrupleKV::from(items)
+        StrupleKV::from_vec(items)
     }
 }
 
@@ -190,24 +165,7 @@ where
 
     fn index(&self, idx: I) -> &Self::Output
     {
-        &self.items.as_ref().unwrap()[idx]
-    }
-}
-
-pub struct StrupleIter<'a, K: 'a, V: 'a>
-{
-    it: Option<Iter<'a, StrupleItem<K, V>>>,
-}
-
-impl<'a, K, V> Iterator for StrupleIter<'a, K, V>
-{
-    type Item = &'a StrupleItem<K, V>;
-
-    fn next(&mut self) -> Option<Self::Item>
-    {
-        self.it.as_mut().and_then(|inner| {
-            inner.next()
-        })
+        &self.0[idx]
     }
 }
 

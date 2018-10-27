@@ -218,7 +218,7 @@ impl<'a> Semantics<'a>
                 }
                 let special_types: StrupleKV<Lstr, Type> = targs
                     .iter()
-                    .zip(new_args.into_iter().unwrap())
+                    .zip(new_args.into_iter())
                     .map(|arg| {
                         StrupleItem::new(arg.0.clone(), arg.1.v)
                     })
