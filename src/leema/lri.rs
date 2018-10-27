@@ -1,7 +1,8 @@
+use leema::failure::Lresult;
 use leema::lstr::Lstr;
 use leema::sendclone::SendClone;
 use leema::struple::{StrupleItem, StrupleKV};
-use leema::val::{Type, Val};
+use leema::val::{Type};
 
 use std::fmt;
 use std::iter::Iterator;
@@ -193,20 +194,22 @@ impl Lri
     }
 
     /// specialize the parameters for this Lri w/ the given ones
-    pub fn specialize_params(&self, other: &Vec<Type>) -> Result<Lri, Val>
+    pub fn specialize_params(&self, other: Vec<Type>) -> Lresult<Lri>
     {
         if self.params.is_none() {
-            return Err(Val::Str(Lstr::Sref(
+            return Err(rustfail!(
+                "type_failure",
                 "cannot specialize Lri w/ no params",
-            )));
+            ));
         }
         let self_p = self.params.as_ref().unwrap();
         if self_p.len() != other.len() {
-            return Err(Val::Str(Lstr::Sref(
+            return Err(rustfail!(
+                "type_failure",
                 "cannot specialize wrong number of Lri params",
-            )));
+            ));
         }
-        Ok(self.replace_params(other.clone()))
+        Ok(self.replace_params(other))
     }
 
     pub fn make_params_typevars(&mut self)

@@ -1,4 +1,3 @@
-use leema::failure::Failure;
 use leema::infer::{Inferator, TypeSet};
 use leema::ixpr::{Ixpr, Source};
 use leema::lmap;
@@ -6,7 +5,7 @@ use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::phase0::Protomod;
 use leema::struple::{Struple, StrupleItem, StrupleKV};
-use leema::val::{Type, TypeErr, TypeResult, Val};
+use leema::val::{FuncType, Type, TypeErr, TypeResult, Val};
 
 use std::collections::{HashMap, LinkedList};
 
@@ -360,11 +359,10 @@ impl<'a, 'b> Typescope<'a, 'b>
         }
     }
 
+    /// typecheck a function call with args
     pub fn typecheck_call(&mut self, func: &mut Ixpr, args: &mut Struple<Ixpr>) -> TypeResult
     {
-        let tfunc = self.typecheck_call_func(&func.src).map_err(|e| {
-            e.add_context(Lstr::from(format!("function: {:?}", func.src)))
-        })?;
+
         let mut targs = vec![];
         for mut a in &mut args.0 {
             let atype = typecheck_expr(self, &mut a.1).map_err(|e| {
@@ -375,6 +373,48 @@ impl<'a, 'b> Typescope<'a, 'b>
             })?;
             targs.push(atype);
         }
+
+        match &mut func.src {
+            Source::ConstVal(Val::FuncRef(ref mut fri, _, ref mut typ)) => {
+                if fri.has_params() {
+                    let special_type = match typ {
+                        Type::GenericFunc(ref gen_vars, ref mut ft) => {
+                            self.specialize_generic_func(ft, gen_vars, &targs)?
+                        }
+                        Type::SpecialFunc(_, _) => {
+                            typ.clone()
+                        }
+                        not_func => {
+                            return Err(TypeErr::Failure(rustfail!(
+                                "type_err", "not a func: {}", not_func
+                            )));
+                        }
+                    };
+                    *typ = special_type;
+                    if let Type::SpecialFunc(ref mut spec_vars, _) = typ {
+                        let new_types = spec_vars
+                            .iter_v()
+                            .map(|t| t.clone())
+                            .collect();
+                        *fri = fri.specialize_params(new_types)
+                            .map_err(|f| TypeErr::Failure(f))?;
+                    }
+                } else {
+                    println!("monomorphic call: {}", fri);
+                    // fine, do nothing
+                }
+            }
+            _ => {
+                println!("whoa, not a const func");
+                // should probably do something else here to handle
+                // function arguments and convert them too
+            }
+        }
+
+        let tfunc = self.typecheck_call_func(&func.src).map_err(|e| {
+            e.add_context(Lstr::from(format!("function: {:?}", func.src)))
+        })?;
+
         let mut targs_ref = vec![];
         for ta in targs.iter() {
             targs_ref.push(ta);
@@ -385,6 +425,36 @@ impl<'a, 'b> Typescope<'a, 'b>
         Ok(call_result.clone())
     }
 
+    fn specialize_generic_func(&mut self, ft: &FuncType, gen_args: &Vec<Lstr>, arg_types: &Vec<Type>
+    ) -> TypeResult
+    {
+        let mut var_map: HashMap<Lstr, &Type> = HashMap::new();
+        for (var, argtype) in ft.args.iter().zip(arg_types.iter()) {
+            match var.v {
+                Type::Var(ref varname) => {
+                    if var_map.contains_key(varname) {
+                        let prev_type = var_map.get(varname).unwrap();
+                        self.infer.merge_types(&argtype, prev_type)?;
+                    } else {
+                        var_map.insert(varname.clone(), argtype);
+                    }
+                }
+                _ => {
+                    // not a typevar, ignore it
+                }
+            }
+        }
+
+        let special_args: StrupleKV<Lstr, Type> = gen_args.iter().map(|ga| {
+            StrupleItem::new(ga.clone(), (*var_map.get(ga).unwrap()).clone())
+        }).collect();
+
+        let special_ft = ft.map(&|t| Type::replace_typevars(t, &var_map))
+            .map_err(|fail| TypeErr::Failure(fail))?;
+
+        Ok(Type::SpecialFunc(special_args, special_ft))
+    }
+
     pub fn typecheck_funcref(
         &mut self,
         fri: &Lri,
@@ -393,25 +463,26 @@ impl<'a, 'b> Typescope<'a, 'b>
     ) -> TypeResult
     {
         let typed = self.functype(&fri)?;
-        let result = self.infer.merge_types(typ, &typed);
-        match typ {
+        let result = self.infer.merge_types(typ, &typed)?;
+        match result {
             Type::Func(ref _func_type) => {
                 // do nothing here for now
-                result
             }
             Type::GenericFunc(ref _var_types, ref _func_type) => {
                 // do nothing here for now
-                result
             }
-            _ => {
-                Err(TypeErr::Failure(Failure::new(
+            Type::SpecialFunc(ref _var_types, ref _func_type) => {
+                // do nothing here for now?
+            }
+            not_func => {
+                return Err(TypeErr::Failure(rustfail!(
                     "type_err",
-                    Lstr::from(format!(
-                        "FuncRef type is not a func: {:?}", typ
-                    )),
-                )))
+                    "FuncRef type is not a func: {:?}",
+                    not_func,
+                )));
             }
         }
+        Ok(result)
     }
 
     pub fn functype(&self, fri: &Lri) -> TypeResult

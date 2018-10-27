@@ -10,7 +10,7 @@ use leema::sendclone::{self, SendClone};
 use leema::struple::{Struple, Struple2, StrupleKV};
 
 use std::cmp::{Ordering, PartialEq, PartialOrd};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::io::Error;
 use std::iter::FromIterator;
@@ -66,6 +66,17 @@ impl FuncType
             closed,
             result: Box::new(result),
         }
+    }
+
+    pub fn map<Op>(&self, op: &Op) -> Lresult<FuncType>
+    where
+        Op: Fn(&Type) -> Lresult<Option<Type>>,
+    {
+        let mapf = |v: &Type| v.map(op);
+        let m_args = self.args.map_v(mapf)?;
+        let m_closed = self.closed.map_v(mapf)?;
+        let m_result = self.result.map(op)?;
+        Ok(FuncType::new_closure(m_args, m_closed, m_result))
     }
 }
 
@@ -184,25 +195,35 @@ impl Type
                 Type::StrictList(Box::new(m_inner))
             }
             &Type::Func(ref ftyp) => {
-                let mapf = |v: &Type| v.map(op);
-                let m_args = ftyp.args.map_v(mapf)?;
-                let m_closed = ftyp.closed.map_v(mapf)?;
-                let m_result = ftyp.result.map(op)?;
-                let m_ftype = FuncType::new_closure(m_args, m_closed, m_result);
+                let m_ftype = ftyp.map(op)?;
                 Type::Func(m_ftype)
             }
             &Type::GenericFunc(ref tparams, ref ftyp) => {
-                let mapf = |v: &Type| v.map(op);
-                let m_args = ftyp.args.map_v(mapf)?;
-                let m_closed = ftyp.closed.map_v(mapf)?;
-                let m_result = ftyp.result.map(op)?;
-                let m_ftype = FuncType::new_closure(m_args, m_closed, m_result);
+                let m_ftype = ftyp.map(op)?;
                 Type::GenericFunc(tparams.clone(), m_ftype)
             }
 
             _ => self.clone(),
         };
         Ok(res)
+    }
+
+    pub fn replace_typevars(&self, vars: &HashMap<Lstr, &Type>
+    ) -> Lresult<Option<Type>>
+    {
+        match self {
+            Type::Var(ref name) => {
+                match vars.get(name) {
+                    Some(typ) => {
+                        return Ok(Some((*typ).clone()))
+                    }
+                    None => {
+                        return Ok(Some(Type::Unknown))
+                    }
+                }
+            }
+            _ => Ok(None),
+        }
     }
 
     pub fn deep_clone(&self) -> Type
@@ -884,7 +905,7 @@ impl Val
         let result = match self {
             &Val::Struct(ref tri, ref flds) if Lri::nominal_eq(tri, lri) => {
                 let params = lri.params.as_ref().unwrap();
-                let m_tri = tri.specialize_params(params).unwrap();
+                let m_tri = tri.specialize_params(params.clone()).unwrap();
                 let m_flds: Struple<Val> = {
                     let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
                     let im_flds = flds
@@ -899,7 +920,7 @@ impl Val
                 if Lri::nominal_eq(tri, lri) =>
             {
                 let params = lri.params.as_ref().unwrap();
-                let m_tri = tri.specialize_params(params).unwrap();
+                let m_tri = tri.specialize_params(params.clone()).unwrap();
                 let m_flds: Struple<Val> = {
                     let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
                     flds.map(|f: &Val| f.map(&apply_f))?
@@ -910,19 +931,19 @@ impl Val
                 if Lri::nominal_eq(tri, lri) =>
             {
                 let params = lri.params.as_ref().unwrap();
-                let m_tri = tri.specialize_params(params).unwrap();
+                let m_tri = tri.specialize_params(params.clone()).unwrap();
                 Some(Val::EnumToken(m_tri, variant.clone()))
             }
             &Val::Token(ref tri) if Lri::nominal_eq(tri, lri) => {
                 let params = lri.params.as_ref().unwrap();
-                let m_tri = tri.specialize_params(params).unwrap();
+                let m_tri = tri.specialize_params(params.clone()).unwrap();
                 Some(Val::Token(m_tri))
             }
             &Val::FuncRef(ref tri, ref args, ref typ)
                 if Lri::nominal_eq(tri, lri) =>
             {
                 let params = lri.params.as_ref().unwrap();
-                let m_tri = tri.specialize_params(params).unwrap();
+                let m_tri = tri.specialize_params(params.clone()).unwrap();
                 let m_args: Struple<Val> = {
                     let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
                     let im_args = args
