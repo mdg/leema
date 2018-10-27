@@ -360,6 +360,31 @@ impl<'a, 'b> Typescope<'a, 'b>
         }
     }
 
+    pub fn typecheck_call(&mut self, func: &mut Ixpr, args: &mut Struple<Ixpr>) -> TypeResult
+    {
+        let tfunc = self.typecheck_call_func(&func.src).map_err(|e| {
+            e.add_context(Lstr::from(format!("function: {:?}", func.src)))
+        })?;
+        let mut targs = vec![];
+        for mut a in &mut args.0 {
+            let atype = typecheck_expr(self, &mut a.1).map_err(|e| {
+                e.add_context(Lstr::from(format!(
+                    "function args for: {:?} on line {}",
+                    func.src, func.line
+                )))
+            })?;
+            targs.push(atype);
+        }
+        let mut targs_ref = vec![];
+        for ta in targs.iter() {
+            targs_ref.push(ta);
+        }
+        let full_call_type =
+            self.infer.make_call_type(&tfunc, &targs_ref).unwrap();
+        let (_, call_result) = Type::split_func_ref(&full_call_type);
+        Ok(call_result.clone())
+    }
+
     pub fn typecheck_funcref(
         &mut self,
         fri: &Lri,
@@ -423,27 +448,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
 {
     match &mut ix.src {
         &mut Source::Call(ref mut func, ref mut args) => {
-            let tfunc = scope.typecheck_call_func(&func.src).map_err(|e| {
-                e.add_context(Lstr::from(format!("function: {:?}", func.src)))
-            })?;
-            let mut targs = vec![];
-            for mut a in &mut args.0 {
-                let atype = typecheck_expr(scope, &mut a.1).map_err(|e| {
-                    e.add_context(Lstr::from(format!(
-                        "function args for: {:?} on line {}",
-                        func.src, func.line
-                    )))
-                })?;
-                targs.push(atype);
-            }
-            let mut targs_ref = vec![];
-            for ta in targs.iter() {
-                targs_ref.push(ta);
-            }
-            let full_call_type =
-                scope.infer.make_call_type(&tfunc, &targs_ref).unwrap();
-            let (_, call_result) = Type::split_func_ref(&full_call_type);
-            Ok(call_result.clone())
+            scope.typecheck_call(func, args)
         }
         &mut Source::Cons(ref mut head, ref mut tail) => {
             let head_t = typecheck_expr(scope, head).unwrap();
