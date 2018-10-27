@@ -375,7 +375,6 @@ impl fmt::Debug for Type
 }
 
 #[derive(Clone)]
-#[derive(Debug)]
 #[derive(PartialEq)]
 pub enum TypeErr
 {
@@ -407,9 +406,17 @@ impl fmt::Display for TypeErr
             }
             &TypeErr::Unknowable => write!(f, "UnknowableType"),
             &TypeErr::Context(ref inner_e, ref ctx) => {
-                write!(f, "({}, '{}')", inner_e, ctx)
+                write!(f, "({:?}\n\t'{}')", inner_e, ctx)
             }
         }
+    }
+}
+
+impl fmt::Debug for TypeErr
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        fmt::Display::fmt(self, f)
     }
 }
 

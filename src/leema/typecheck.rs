@@ -481,11 +481,11 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             Ok(Type::Void)
         }
         &mut Source::Block(ref mut elems) => {
-            let mut last_type = Ok(Type::Void);
+            let mut last_type = Type::Void;
             for e in elems {
-                last_type = typecheck_expr(scope, e);
+                last_type = typecheck_expr(scope, e)?;
             }
-            last_type
+            Ok(last_type)
         }
         &mut Source::FieldAccess(ref mut x, ref sub, ref mut subidx) => {
             let xtyp = typecheck_expr(scope, x)?;
