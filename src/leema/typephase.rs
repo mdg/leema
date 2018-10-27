@@ -230,6 +230,11 @@ impl<'a> Semantics<'a>
                 let fri = match *new_id.node {
                     Ast::Id(ref localid) => Lri::new(localid.clone()),
                     Ast::ModId(ref modid, ref localid) => {
+                        let mlid =
+                            ModLocalId::new(modid.clone(), localid.clone());
+                        let tctypes = special_types.clone();
+                        let tcid = SpecialModId::new(mlid, tctypes);
+                        self.typecalls.insert(tcid);
                         Lri::with_modules(modid.clone(), localid.clone())
                     }
                     not_id => {
@@ -353,5 +358,22 @@ mod tests
         } else {
             panic!("not a const val");
         }
+
+        // even though it's not actually called at this point, it still needs
+        // to be flagged for typechecking purposes. then the program can
+        // decide whether to typecheck deeper now or later.
+        let tcid = sem.typecalls.iter().next().unwrap();
+        assert_eq!(1, sem.typecalls.len());
+        assert_eq!("c", &tcid.id.module);
+        assert_eq!("d", &tcid.id.local);
+        let x = tcid.tparams.get(0).unwrap();
+        let y = tcid.tparams.get(1).unwrap();
+        assert_eq!(2, tcid.num_vars());
+        assert_eq!("T", &x.k);
+        assert_eq!("U", &y.k);
+        assert_eq!(Type::Int, x.v);
+        assert_eq!(Type::Str, y.v);
+
+        assert!(sem.calls.is_empty());
     }
 }

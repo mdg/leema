@@ -61,7 +61,7 @@ impl fmt::Display for ModLocalId
 pub struct TypId<I, T>
 {
     pub id: I,
-    params: StrupleKV<Lstr, T>,
+    pub tparams: StrupleKV<Lstr, T>,
 }
 
 pub type GenericLocalId = TypId<Lstr, ()>;
@@ -71,24 +71,29 @@ pub type SpecialModId = TypId<ModLocalId, Type>;
 
 impl<I, T> TypId<I, T>
 {
-    pub fn new(id: I) -> TypId<I, T>
+    pub fn new(id: I, tparams: StrupleKV<Lstr, T>) -> TypId<I, T>
     {
         TypId {
             id,
-            params: StrupleKV::none(),
+            tparams,
         }
     }
 
-    fn vars(&self) -> impl Iterator<Item = &Lstr>
+    pub fn num_vars(&self) -> usize
     {
-        self.params.iter_k()
+        self.tparams.len()
+    }
+
+    pub fn vars(&self) -> impl Iterator<Item = &Lstr>
+    {
+        self.tparams.iter_k()
     }
 }
 
 pub fn new_generic_local(id: Lstr, names: Vec<Lstr>) -> GenericLocalId
 {
-    let params = names.into_iter().map(|n| StrupleItem::new(n, ())).collect();
-    TypId { id, params }
+    let tparams = names.into_iter().map(|n| StrupleItem::new(n, ())).collect();
+    TypId { id, tparams }
 }
 
 trait SpecId<I>
