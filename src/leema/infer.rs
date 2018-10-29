@@ -1,7 +1,8 @@
+use leema::failure::Lresult;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::struple::{Struple, Struple2, StrupleItem, StrupleKV};
-use leema::val::{FuncType, Type, TypeErr, TypeResult, Val};
+use leema::val::{FuncType, Type, Val};
 
 use std::collections::hash_map::Keys;
 use std::collections::HashMap;
@@ -10,12 +11,12 @@ use std::iter::FromIterator;
 
 macro_rules! match_err {
     ($a:expr, $b:expr) => {
-        Err(TypeErr::Failure(rustfail!(
+        Err(rustfail!(
             "type_err",
             "type mismatch\n   {}\n!= {}",
             $a,
             $b,
-        )))
+        ))
     };
 }
 
@@ -35,28 +36,32 @@ impl<'b> TypeSet<'b>
         }
     }
 
-    pub fn get_typedef(&self, i: &Lri) -> Result<&Struple<Type>, TypeErr>
+    pub fn get_typedef(&self, i: &Lri) -> Lresult<&Struple<Type>>
     {
         // switch all this to use Option/Result combinators
         if !i.has_modules() {
-            return Result::Err(TypeErr::Error(Lstr::from(format!(
+            return Result::Err(rustfail!(
+                "leema_fail",
                 "cannot get type without including module name: {}",
                 i
-            ))));
+            ));
         }
         let i_modname = i.modules.as_ref().unwrap();
         let opt_modtypes = self.typedef.get(i_modname);
         if opt_modtypes.is_none() {
-            return Result::Err(TypeErr::Error(Lstr::from(format!(
+            return Err(rustfail!(
+                "missing_import",
                 "module {} is not imported",
                 i_modname
-            ))));
+            ));
         }
         opt_modtypes.unwrap().get(&i.localid).ok_or_else(|| {
-            TypeErr::Error(Lstr::from(format!(
+            rustfail!(
+                "undefined_type",
                 "cannot find type {} in module {}",
-                i.localid, i_modname
-            )))
+                i.localid,
+                i_modname,
+            )
         })
     }
 
@@ -110,20 +115,22 @@ impl<'b> Inferator<'b>
         self.vartypes.keys()
     }
 
-    pub fn vartype(&self, argn: &str) -> TypeResult
+    pub fn vartype(&self, argn: &str) -> Lresult<Type>
     {
         match self.vartypes.get(argn) {
             None => {
-                Err(TypeErr::Error(Lstr::from(format!(
+                Err(rustfail!(
+                    "leema_type_fail",
                     "no type for unknown var: {}",
                     argn
-                ))))
+                ))
             }
             Some(&Type::AnonVar) => {
-                Err(TypeErr::Error(Lstr::from(format!(
+                Err(rustfail!(
+                    "leema_type_fail",
                     "cannot infer AnonVar for var: {}",
                     argn
-                ))))
+                ))
             }
             Some(ref argt) => Ok(self.inferred_type(argt)),
         }
@@ -142,7 +149,7 @@ impl<'b> Inferator<'b>
         &mut self,
         args: &Struple2<Type>,
         result: &Type,
-    ) -> TypeResult
+    ) -> Lresult<Type>
     {
         if self.typevars.is_empty() {
             // if there are no type parameters, then this should be fine
@@ -156,22 +163,26 @@ impl<'b> Inferator<'b>
         for tv in self.typevars.values() {
             if !tv {
                 vout!("rust function type params must be used in arguments\n");
-                return Err(TypeErr::Unknowable);
+                return Err(rustfail!(
+                    "unknowable_type",
+                    "rust function type params must be used in arguments",
+                ));
             }
         }
         Ok(Type::Void)
     }
 
-    pub fn mark_used_typevars(&mut self, arg: &Type) -> TypeResult
+    pub fn mark_used_typevars(&mut self, arg: &Type) -> Lresult<Type>
     {
         match arg {
             &Type::Var(ref vname) => {
                 let mv = self.typevars.get_mut(vname);
                 if mv.is_none() {
-                    Err(TypeErr::Error(Lstr::from(format!(
+                    Err(rustfail!(
+                        "type_error",
                         "undefined type: {}",
                         vname
-                    ))))
+                    ))
                 } else {
                     *mv.unwrap() = true;
                     Ok(Type::Void)
@@ -179,15 +190,19 @@ impl<'b> Inferator<'b>
             }
             &Type::AnonVar | &Type::Unknown => {
                 vout!("rust typevars must be identifiable");
-                Err(TypeErr::Unknowable)
+                Err(rustfail!(
+                    "unknowable_type",
+                    "rust typevars must be identifiable",
+                ))
             }
             &Type::UserDef(ref tri) if tri.local_only() => {
                 let mv = self.typevars.get_mut(&tri.localid);
                 if mv.is_none() {
-                    Err(TypeErr::Error(Lstr::from(format!(
+                    Err(rustfail!(
+                        "type_error",
                         "undefined type: {}",
                         tri
-                    ))))
+                    ))
                 } else {
                     *mv.unwrap() = true;
                     Ok(Type::Void)
@@ -226,7 +241,7 @@ impl<'b> Inferator<'b>
         argn: &Lstr,
         argt: &Type,
         line: i16,
-    ) -> TypeResult
+    ) -> Lresult<Type>
     {
         vout!(
             "init_param({}, #{} {:?}: {:?} #{})\n",
@@ -267,7 +282,7 @@ impl<'b> Inferator<'b>
         argn: &Lstr,
         argt: &Type,
         line: i16,
-    ) -> TypeResult
+    ) -> Lresult<Type>
     {
         vout!(
             "bind_vartype({}, {}: {:?}, {})\n",
@@ -296,7 +311,7 @@ impl<'b> Inferator<'b>
         Inferator::mash(&mut self.inferences, &self.typevars, oldargt, &realt)
     }
 
-    pub fn merge_types(&mut self, a: &Type, b: &Type) -> TypeResult
+    pub fn merge_types(&mut self, a: &Type, b: &Type) -> Lresult<Type>
     {
         Inferator::mash(&mut self.inferences, &self.typevars, a, b)
     }
@@ -307,14 +322,15 @@ impl<'b> Inferator<'b>
         patt: &Val,
         valtype: &Type,
         lineno: i16,
-    ) -> TypeResult
+    ) -> Lresult<Type>
     {
         match (patt, valtype) {
             (_, &Type::AnonVar) => {
-                Err(TypeErr::Error(Lstr::from(format!(
+                Err(rustfail!(
+                    "leema_fail",
                     "pattern value type cannot be anonymous: {:?}",
                     patt
-                ))))
+                ))
             }
             (&Val::Id(ref id), _) => self.bind_vartype(id, valtype, lineno),
             (&Val::Wildcard, _) => Ok(Type::Unknown),
@@ -384,11 +400,7 @@ impl<'b> Inferator<'b>
                 &Type::UserDef(ref typename2),
             ) => {
                 if !Lri::nominal_eq(typ1, typename2) {
-                    return Err(TypeErr::Mismatch(
-                        Type::UserDef(typ1.clone()),
-                        valtype.clone(),
-                        line!(),
-                    ));
+                    return match_err!(&Type::UserDef(*typ1), valtype);
                 }
                 if typ1.params.is_none() && typename2.params.is_none() {
                     return Ok(valtype.clone());
@@ -421,11 +433,7 @@ impl<'b> Inferator<'b>
                 &Type::UserDef(ref typename2),
             ) => {
                 if !Lri::nominal_eq(typ1, typename2) {
-                    return Err(TypeErr::Mismatch(
-                        Type::UserDef(typ1.clone()),
-                        valtype.clone(),
-                        line!(),
-                    ));
+                    return match_err!(&Type::UserDef(*typ1), valtype);
                 }
                 if typ1.params.is_none() && typename2.params.is_none() {
                     return Ok(valtype.clone());
@@ -440,10 +448,12 @@ impl<'b> Inferator<'b>
             }
             (&Val::Token(ref typ1), &Type::UserDef(ref typename2)) => {
                 if typ1 != typename2 {
-                    Err(TypeErr::Error(Lstr::from(format!(
+                    Err(rustfail!(
+                        "type_err",
                         "token type mismatch: {:?} != {:?}",
-                        typ1, typename2
-                    ))))
+                        typ1,
+                        typename2,
+                    ))
                 } else {
                     Ok(valtype.clone())
                 }
@@ -466,7 +476,7 @@ impl<'b> Inferator<'b>
         l: &Val,
         inner_type: &Type,
         lineno: i16,
-    ) -> TypeResult
+    ) -> Lresult<Type>
     {
         match l {
             &Val::Cons(ref head, ref tail) => {
@@ -480,10 +490,11 @@ impl<'b> Inferator<'b>
             &Val::Nil => Ok(Type::StrictList(Box::new(Type::Unknown))),
             &Val::Wildcard => Ok(Type::Unknown),
             _ => {
-                Err(TypeErr::Error(Lstr::from(format!(
+                Err(rustfail!(
+                    "type_err",
                     "match_list_pattern on not a list: {:?}",
-                    l
-                ))))
+                    l,
+                ))
             }
         }
     }
@@ -527,7 +538,7 @@ impl<'b> Inferator<'b>
         typevars: &HashMap<&Lstr, bool>,
         oldt: &Type,
         newt: &Type,
-    ) -> TypeResult
+    ) -> Lresult<Type>
     {
         if oldt == newt {
             // all good
@@ -535,7 +546,7 @@ impl<'b> Inferator<'b>
         }
 
         vout!("mash({:?}, {:?}) where {:?}\n", oldt, newt, typevars);
-        let mtype: TypeResult = match (oldt, newt) {
+        let mtype: Lresult<Type> = match (oldt, newt) {
             // anything is better than Unknown
             (&Type::Unknown, _) => Ok(newt.clone()),
             (_, &Type::Unknown) => Ok(oldt.clone()),
@@ -671,7 +682,7 @@ impl<'b> Inferator<'b>
         &mut self,
         ftype: &Type,
         argst: &Vec<&Type>,
-    ) -> TypeResult
+    ) -> Lresult<Type>
     {
         vout!("make_call_type({}, {:?})\n", ftype, argst);
         let (defargst, defresult) = Type::split_func_ref(ftype);
@@ -685,7 +696,7 @@ impl<'b> Inferator<'b>
             panic!("it's so much fun to curry, but not supported yet");
         }
 
-        let mash_result: Vec<Result<StrupleItem<Option<Lstr>, Type>, TypeErr>>;
+        let mash_result: Vec<Lresult<StrupleItem<Option<Lstr>, Type>>>;
         mash_result = defargst
             .iter()
             .zip(argst.iter())

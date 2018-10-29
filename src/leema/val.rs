@@ -399,62 +399,6 @@ impl fmt::Debug for Type
     }
 }
 
-#[derive(Clone)]
-#[derive(PartialEq)]
-pub enum TypeErr
-{
-    Error(Lstr),
-    Failure(Failure),
-    Mismatch(Type, Type, u32),
-    Unknowable,
-    Context(Box<TypeErr>, Lstr),
-}
-
-
-impl TypeErr
-{
-    pub fn add_context(self, ctx: Lstr) -> TypeErr
-    {
-        TypeErr::Context(Box::new(self), ctx)
-    }
-}
-
-impl fmt::Display for TypeErr
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        match self {
-            &TypeErr::Error(ref estr) => write!(f, "TypeError({})", estr),
-            &TypeErr::Failure(ref fail) => write!(f, "TypeFailure({})", fail),
-            &TypeErr::Mismatch(ref a, ref b, line) => {
-                write!(f, "TypeMismatch({},{} @ {})", a, b, line)
-            }
-            &TypeErr::Unknowable => write!(f, "UnknowableType"),
-            &TypeErr::Context(ref inner_e, ref ctx) => {
-                write!(f, "({:?}\n\t'{}')", inner_e, ctx)
-            }
-        }
-    }
-}
-
-impl fmt::Debug for TypeErr
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        fmt::Display::fmt(self, f)
-    }
-}
-
-impl<'a> From<&'a TypeErr> for String
-{
-    fn from(e: &'a TypeErr) -> String
-    {
-        format!("{}", e)
-    }
-}
-
-pub type TypeResult = Result<Type, TypeErr>;
-
 
 pub trait LibVal: mopa::Any + fmt::Debug + Send + Sync
 {

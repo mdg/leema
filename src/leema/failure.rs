@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 macro_rules! rustfail {
     ($tag:expr, $msg:expr) => {
-        ::leema::failure::Failure::new(tag, Lstr::from($msg))
+        ::leema::failure::Failure::new($tag, Lstr::from($msg))
             .set_rustloc(file!(), line!())
     };
     ($tag:expr, $fmt:expr, $($arg:tt)*) => {
@@ -54,6 +54,7 @@ pub struct Failure
     status: Status,
     rustloc: Option<(&'static str, u32)>,
     meta: LmapNode,
+    context: Vec<Lstr>,
 }
 
 pub type Lresult<T> = Result<T, Failure>;
@@ -69,12 +70,19 @@ impl Failure
             status: Status::None,
             rustloc: None,
             meta: None,
+            context: vec![],
         }
     }
 
     pub fn set_rustloc(mut self, file: &'static str, line: u32) -> Self
     {
         self.rustloc = Some((file, line));
+        self
+    }
+
+    pub fn add_context(mut self, ctx: Lstr) -> Self
+    {
+        self.context.push(ctx);
         self
     }
 
