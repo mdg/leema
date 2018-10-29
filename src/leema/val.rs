@@ -322,14 +322,18 @@ impl fmt::Display for Type
             &Type::Special(ref id) => write!(f, "{:?}", id),
             &Type::Func(ref ftyp) => write!(f, "F{}", ftyp),
             &Type::GenericFunc(ref params, ref ftyp) => {
-                write!(f, "F[")?;
+                write!(f, "GF[")?;
                 for p in params.iter() {
                     write!(f, "{},", p)?;
                 }
                 write!(f, "]{}", ftyp)
             }
             &Type::SpecialFunc(ref params, ref ftyp) => {
-                write!(f, "F[{:?}]{}", params, ftyp)
+                write!(f, "SF[")?;
+                for p in params.iter() {
+                    write!(f, "{},", p)?;
+                }
+                write!(f, "]{}", ftyp)
             }
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator

@@ -10,7 +10,12 @@ use std::iter::FromIterator;
 
 macro_rules! match_err {
     ($a:expr, $b:expr) => {
-        Err(TypeErr::Mismatch($a.clone(), $b.clone(), line!()))
+        Err(TypeErr::Failure(rustfail!(
+            "type_err",
+            "type mismatch\n   {}\n!= {}",
+            $a,
+            $b,
+        )))
     };
 }
 

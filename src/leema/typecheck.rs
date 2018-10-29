@@ -680,10 +680,31 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
                 })
                 .collect();
             let final_args = StrupleKV::from_vec(final_args_vec);
-            scope
+            let final_result = scope
                 .infer
-                .merge_types(&result_type, declared_result_type)
-                .map(|final_type| Type::f(final_args, final_type))
+                .merge_types(&result_type, declared_result_type)?;
+            match pretype {
+                Type::Func(_) => {
+                    Ok(Type::f(final_args, final_result))
+                }
+                Type::GenericFunc(ref pre_tvars, _) => {
+                    Ok(Type::GenericFunc(
+                        pre_tvars.clone(),
+                        FuncType::new(final_args, final_result),
+                    ))
+                }
+                Type::SpecialFunc(_, _) => {
+                    Err(TypeErr::Failure(rustfail!(
+                        "leema_incomplete",
+                        "cannot typecheck a special func yet",
+                    )))
+                }
+                not_func => {
+                    Err(TypeErr::Failure(rustfail!(
+                        "leema_fail", "pre type is not a func: {}", not_func
+                    )))
+                }
+            }
         }
         &mut Source::RustBlock(ref arg_types, ref result_type) => {
             match *result_type {

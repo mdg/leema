@@ -32,6 +32,17 @@ impl<K, V> StrupleItem<K, V>
     }
 }
 
+impl<K, V> fmt::Display for StrupleItem<K, V>
+where
+    K: fmt::Display,
+    V: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "{}:{}", self.k, self.v)
+    }
+}
+
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
