@@ -162,8 +162,11 @@ impl Type
             &Type::GenericFunc(_, ref ftype) => {
                 (&ftype.args, &ftype.result)
             }
+            &Type::SpecialFunc(_, ref ftype) => {
+                (&ftype.args, &ftype.result)
+            }
             _ => {
-                panic!("Not a func type {:?}", t);
+                panic!("not a func type {:?}", t);
             }
         }
     }
@@ -242,6 +245,9 @@ impl Type
             &Type::Func(ref ftyp) => Type::Func(ftyp.clone()),
             &Type::GenericFunc(ref vars, ref ftyp) => {
                 Type::GenericFunc(vars.clone(), ftyp.clone())
+            }
+            &Type::SpecialFunc(ref vars, ref ftyp) => {
+                Type::SpecialFunc(vars.clone(), ftyp.clone())
             }
             &Type::Unknown => Type::Unknown,
             &Type::Var(ref id) => Type::Var(id.clone_for_send()),

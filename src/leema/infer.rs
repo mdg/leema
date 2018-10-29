@@ -400,7 +400,7 @@ impl<'b> Inferator<'b>
                 &Type::UserDef(ref typename2),
             ) => {
                 if !Lri::nominal_eq(typ1, typename2) {
-                    return match_err!(&Type::UserDef(*typ1), valtype);
+                    return match_err!(Type::UserDef(typ1.clone()), valtype);
                 }
                 if typ1.params.is_none() && typename2.params.is_none() {
                     return Ok(valtype.clone());
@@ -433,7 +433,7 @@ impl<'b> Inferator<'b>
                 &Type::UserDef(ref typename2),
             ) => {
                 if !Lri::nominal_eq(typ1, typename2) {
-                    return match_err!(&Type::UserDef(*typ1), valtype);
+                    return match_err!(Type::UserDef(typ1.clone()), valtype);
                 }
                 if typ1.params.is_none() && typename2.params.is_none() {
                     return Ok(valtype.clone());
@@ -629,6 +629,36 @@ impl<'b> Inferator<'b>
                 );
                 Ok(Type::Func(mashftype))
             }
+            (&Type::SpecialFunc(_, _), &Type::GenericFunc(_, _)) => {
+                Inferator::mash(inferences, typevars, newt, oldt)
+            }
+            (
+                &Type::GenericFunc(ref argnames, ref genftype),
+                &Type::SpecialFunc(ref argtypes, ref specftype),
+            ) => {
+                let genlen = argnames.len();
+                let speclen = argtypes.len();
+                if genlen != speclen {
+                    return match_err!(oldt, newt);
+                }
+                let mut tparams = HashMap::new();
+                for (argn, argt) in argnames.iter().zip(argtypes.iter()) {
+                    if *argn != argt.k {
+                        return match_err!(oldt, newt);
+                    }
+                    tparams.insert(argn.clone(), &argt.v);
+                }
+                let replaced_genft = genftype.map(&|t: &Type| {
+                    t.replace_typevars(&tparams)
+                })?;
+                let mashed_ft = Inferator::mash_ft(
+                    inferences,
+                    typevars,
+                    &replaced_genft,
+                    specftype,
+                )?;
+                Ok(Type::SpecialFunc(argtypes.clone(), mashed_ft))
+            }
             (&Type::Tuple(ref olditems), &Type::Tuple(ref newitems)) => {
                 let oldlen = olditems.0.len();
                 let newlen = newitems.0.len();
@@ -675,6 +705,50 @@ impl<'b> Inferator<'b>
         };
         vout!("\tmashed -> {:?}\n", mtype);
         mtype
+    }
+
+    fn mash_ft(
+        inferences: &mut HashMap<Lstr, Type>,
+        typevars: &HashMap<&Lstr, bool>,
+        oldt: &FuncType,
+        newt: &FuncType,
+    ) -> Lresult<FuncType>
+    {
+        let oldlen = oldt.args.len();
+        let newlen = newt.args.len();
+        if oldlen != newlen {
+            return match_err!(oldt, newt);
+        }
+        let coldlen = oldt.closed.len();
+        let cnewlen = newt.closed.len();
+        if coldlen != cnewlen {
+            return match_err!(oldt, newt);
+        }
+
+        let mut masht = Vec::with_capacity(oldlen);
+        let mashit = oldt.args.iter().zip(newt.args.iter());
+        for (oldit, newit) in mashit {
+            let mashit =
+                Inferator::mash(inferences, typevars, &oldit.v, &newit.v)?;
+            masht.push(StrupleItem::new(oldit.k.clone(), mashit));
+        }
+        let mut mashclosed = Vec::with_capacity(oldlen);
+        let close_it = oldt.closed
+            .iter()
+            .zip(newt.closed.iter());
+        for (oldit, newit) in close_it {
+            let mashit =
+                Inferator::mash(inferences, typevars, &oldit.v, &newit.v)?;
+            mashclosed.push(StrupleItem::new(oldit.k.clone(), mashit));
+        }
+        let mashresult = Inferator::mash(
+            inferences, typevars, &oldt.result, &newt.result,
+        )?;
+        Ok(FuncType::new_closure(
+            StrupleKV::from(masht),
+            StrupleKV::from(mashclosed),
+            mashresult,
+        ))
     }
 
 

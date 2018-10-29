@@ -400,7 +400,6 @@ impl<'a, 'b> Typescope<'a, 'b>
                         *fri = fri.specialize_params(new_types)?;
                     }
                 } else {
-                    println!("monomorphic call: {}", fri);
                     // fine, do nothing
                 }
             }
@@ -644,6 +643,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> Lresult<Type>
             ref mut declared_result_type,
             ref mut body,
         ) => {
+            let pretype = scope.inter.get_function_type(scope.fname).unwrap();
             let zips = arg_names.iter().zip(arg_types.iter());
             for (i, (an, at)) in zips.enumerate() {
                 scope.infer.init_param(i as i16, an, at, ix.line)?;
