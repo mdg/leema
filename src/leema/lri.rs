@@ -274,17 +274,23 @@ impl Lri
         self.params.is_some()
     }
 
-    pub fn type_var_names(&self) -> Option<Vec<Lstr>>
+    pub fn type_var_names(&self) -> Vec<Lstr>
     {
-        self.params.as_ref().map(|some_vars| {
-            some_vars.iter().filter_map(|v| {
-                if let Type::Var(ref vname) = v {
-                    Some(vname.clone())
-                } else {
-                    None
-                }
-            }).collect()
-        })
+        self.params
+            .as_ref()
+            .map(|some_vars| {
+                some_vars
+                    .iter()
+                    .filter_map(|v| {
+                        if let Type::Var(ref vname) = v {
+                            Some(vname.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     pub fn nominal_eq(a: &Lri, b: &Lri) -> bool

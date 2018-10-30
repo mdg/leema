@@ -450,7 +450,7 @@ impl Protomod
                     let typ = self.preproc_type(
                         prog,
                         mp,
-                        None,
+                        &vec![],
                         argt.x_ref().unwrap(),
                         loc,
                     )?;
@@ -460,7 +460,7 @@ impl Protomod
             let pp_args: Vec<StrupleItem<Option<Lstr>, Type>>;
             pp_args = Lresult::from_iter(pp_ftypr).unwrap();
             let pp_rtype =
-                self.preproc_type(prog, mp, None, &pp_rtype_ast, loc).unwrap();
+                self.preproc_type(prog, mp, &vec![], &pp_rtype_ast, loc).unwrap();
             (StrupleKV::from_vec(pp_args), pp_rtype)
         };
         ftype_parts.push(Kxpr::new_x(pp_rtype_ast));
@@ -554,7 +554,6 @@ impl Protomod
         let mut ftype_parts: Vec<Kxpr> =
             pp_args.iter().map(|a| a.clone()).collect();
         let (ftype_part_types, rtype): (Struple2<Type>, Type) = {
-            let some_type_vars = Some(&type_var_names);
             let pp_ftype_parts = ftype_parts
                 .iter()
                 .map(|argt| {
@@ -563,7 +562,7 @@ impl Protomod
                         self.preproc_type(
                             prog,
                             mp,
-                            some_type_vars,
+                            &type_var_names,
                             argt.x_ref().unwrap(),
                             loc,
                         ).unwrap(),
@@ -571,7 +570,7 @@ impl Protomod
                 })
                 .collect();
             let pp_rtype = self
-                .preproc_type(prog, mp, some_type_vars, &pp_rtype_ast, loc)
+                .preproc_type(prog, mp, &type_var_names, &pp_rtype_ast, loc)
                 .unwrap();
             (StrupleKV::from_vec(pp_ftype_parts), pp_rtype)
         };
@@ -672,12 +671,12 @@ impl Protomod
                 let atype = x_ref.unwrap();
                 StrupleItem::new(
                     a.k_clone(),
-                    self.preproc_type(prog, mp, None, atype, loc).unwrap(),
+                    self.preproc_type(prog, mp, &vec![], atype, loc).unwrap(),
                 )
             })
             .collect();
         let result_type =
-            self.preproc_type(prog, mp, None, &pp_result, loc).unwrap();
+            self.preproc_type(prog, mp, &vec![], &pp_result, loc).unwrap();
         let func_type = FuncType::new(StrupleKV::from(arg_types), result_type);
         let ftype = Type::Func(func_type);
         // let type_vars = ftype.collect_typevars();
@@ -1168,19 +1167,19 @@ impl Protomod
         &mut self,
         prog: &Lib,
         mp: &ModulePreface,
-        opt_type_params: Option<&Vec<Lstr>>,
+        type_params: &Vec<Lstr>,
         typ: &Ast,
         loc: &SrcLoc,
     ) -> Lresult<Type>
     {
         let pp_x = Protomod::preproc_expr(self, prog, mp, typ, loc);
         let local_type = Type::from(&pp_x);
-        self.replace_typeids(opt_type_params, local_type)
+        self.replace_typeids(type_params, local_type)
     }
 
     pub fn replace_typeids(
         &self,
-        type_params: Option<&Vec<Lstr>>,
+        type_params: &Vec<Lstr>,
         t: Type,
     ) -> Lresult<Type>
     {
@@ -1242,13 +1241,10 @@ impl Protomod
         Ok(result)
     }
 
-    pub fn find_type_param(params: Option<&Vec<Lstr>>, name: &str)
+    pub fn find_type_param(params: &Vec<Lstr>, name: &str)
         -> Option<i8>
     {
-        if params.is_none() {
-            return None;
-        }
-        for (i, p) in params.unwrap().iter().enumerate() {
+        for (i, p) in params.iter().enumerate() {
             if name == p {
                 return Some(i as i8);
             }
@@ -1372,7 +1368,6 @@ impl Protomod
         let opt_variant = variant.clone();
         let local_func_name = variant.unwrap_or(struple_lri.localid.clone());
         let type_vars = struple_lri.type_var_names();
-        let type_vars_ref = type_vars.as_ref();
 
         let struple_fields: Vec<(Option<Lstr>, Type)> = src_fields
             .iter()
@@ -1382,7 +1377,7 @@ impl Protomod
                 let pp_type = self.preproc_type(
                     prog,
                     mp,
-                    type_vars_ref,
+                    &type_vars,
                     f.x_ref().unwrap(),
                     loc,
                 ).unwrap();
@@ -1401,7 +1396,11 @@ impl Protomod
             StrupleItem::new(item.0.clone(), item.1.clone())
         }).collect();
         let ifunc_type = FuncType::new(func_args, full_type.clone());
-        let func_type = Type::Func(ifunc_type);
+        let func_type = if type_vars.is_empty() {
+            Type::Func(ifunc_type)
+        } else {
+            Type::GenericFunc(type_vars.clone(), ifunc_type)
+        };
         let construct_ri = struple_lri.replace_local(local_func_name.clone());
 
         let srcblk = Ast::ConstructData(struple_lri.clone(), opt_variant);
