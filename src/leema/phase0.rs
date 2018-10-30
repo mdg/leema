@@ -1473,10 +1473,17 @@ impl Protomod
     pub fn func_result_type(&self, func_name: &Lstr) -> Option<Type>
     {
         self.valtypes.get(func_name.str()).and_then(|func_type| {
-            if let Type::Func(ref ftype) = func_type {
-                Some((*ftype.result).clone())
-            } else {
-                None
+            match func_type {
+                Type::Func(ref ftype) => {
+                    Some((*ftype.result).clone())
+                }
+                Type::GenericFunc(_, ref ftype) => {
+                    Some((*ftype.result).clone())
+                }
+                Type::SpecialFunc(_, ref ftype) => {
+                    Some((*ftype.result).clone())
+                }
+                _ => None,
             }
         })
     }

@@ -1045,8 +1045,13 @@ pub fn compile_pattern_call(
     let ftype = scope
         .module(&struct_lri.modules)
         .func_result_type(&struct_lri.localid)
-        .unwrap()
-        .clone();
+        .ok_or_else(|| {
+            rustfail!(
+                "leema_fail",
+                "cannot find type: {}",
+                struct_lri,
+            )
+        })?;
     if let Type::UserDef(ref ftype_ri) = ftype {
         Ok(Val::EnumStruct(
             ftype_ri.clone(),
