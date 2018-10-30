@@ -1887,22 +1887,31 @@ mod tests
         let typevar_a = Type::Var(Lstr::Sref("A"));
         let dog_name = Lstr::from("Dog".to_string());
         let cat_func_type =
-            Type::Func(FuncType::new(
-                StrupleKV::from(vec![Type::Int]),
-                animal_type.clone(),
-            ));
+            Type::GenericFunc(
+                vec![Lstr::Sref("A")],
+                FuncType::new(
+                    StrupleKV::from(vec![Type::Int]),
+                    animal_type.clone(),
+                ),
+            );
         let mouse_func_type =
-            Type::Func(FuncType::new(
-                StrupleKV::from(vec![typevar_a.clone()]),
+            Type::GenericFunc(
+                vec![Lstr::Sref("A")],
+                FuncType::new(
+                    StrupleKV::from(vec![typevar_a.clone()]),
+                    animal_type.clone(),
+                ),
+            );
+        let giraffe_func_type = Type::GenericFunc(
+            vec![Lstr::Sref("A")],
+            FuncType::new(
+                StrupleKV::from_vec(vec![
+                    StrupleItem::new(Some(Lstr::Sref("height")), Type::Int),
+                    StrupleItem::new(Some(Lstr::Sref("weight")), typevar_a.clone()),
+                ]),
                 animal_type.clone(),
-            ));
-        let giraffe_func_type = Type::Func(FuncType::new(
-            StrupleKV::from_vec(vec![
-                StrupleItem::new(Some(Lstr::Sref("height")), Type::Int),
-                StrupleItem::new(Some(Lstr::Sref("weight")), typevar_a.clone()),
-            ]),
-            animal_type.clone(),
-        ));
+            ),
+        );
 
         // no closures
         assert!(pmod.closures.is_empty());
@@ -1988,7 +1997,7 @@ mod tests
             format!("{}", *pmod.valtypes.get("Dog").unwrap())
         );
         assert_eq!(
-            "F(Int,/):animals::Animal[$A,]",
+            "GF[A,](Int,/):animals::Animal[$A,]",
             format!("{}", *pmod.valtypes.get("Cat").unwrap())
         );
         assert_eq!(mouse_func_type, *pmod.valtypes.get("Mouse").unwrap());
