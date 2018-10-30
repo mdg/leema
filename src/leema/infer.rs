@@ -125,10 +125,10 @@ impl<'b> Inferator<'b>
                     argn
                 ))
             }
-            Some(&Type::AnonVar) => {
+            Some(&Type::Unknown) => {
                 Err(rustfail!(
                     "leema_type_fail",
-                    "cannot infer AnonVar for var: {}",
+                    "cannot infer unknown type for var: {}",
                     argn
                 ))
             }
@@ -188,7 +188,7 @@ impl<'b> Inferator<'b>
                     Ok(Type::Void)
                 }
             }
-            &Type::AnonVar | &Type::Unknown => {
+            &Type::Unknown => {
                 vout!("rust typevars must be identifiable");
                 Err(rustfail!(
                     "unknowable_type",
@@ -254,12 +254,7 @@ impl<'b> Inferator<'b>
 
         let realt = match argt {
             Type::Unknown => {
-                let arg_typename = format!("T_param_{}", argi);
-                Type::Var(Lstr::from(arg_typename))
-            }
-            Type::AnonVar => {
-                let arg_typename = format!("T_param_{}", argi);
-                Type::Var(Lstr::from(arg_typename))
+                Type::new_var(argn)
             }
             _ => argt.clone(),
         };
@@ -294,11 +289,7 @@ impl<'b> Inferator<'b>
 
         let realt = match argt {
             &Type::Unknown => {
-                let arg_typename = format!("T_local_{}", argn);
-                Type::Var(Lstr::from(arg_typename))
-            }
-            &Type::AnonVar => {
-                panic!("cannot bind var to anonymous type: {}", argn);
+                Type::new_var(argn)
             }
             _ => argt.clone(),
         };
@@ -325,7 +316,7 @@ impl<'b> Inferator<'b>
     ) -> Lresult<Type>
     {
         match (patt, valtype) {
-            (_, &Type::AnonVar) => {
+            (_, &Type::Unknown) => {
                 Err(rustfail!(
                     "leema_fail",
                     "pattern value type cannot be anonymous: {:?}",

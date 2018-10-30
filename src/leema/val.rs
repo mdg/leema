@@ -116,7 +116,6 @@ pub enum Type
 
     Unknown,
     Var(Lstr),
-    AnonVar,
 }
 
 impl Type
@@ -128,6 +127,11 @@ impl Type
             closed: StrupleKV::none(),
             result: Box::new(result),
         })
+    }
+
+    pub fn new_var(var_name: &str) -> Type
+    {
+        Type::Var(Lstr::from(format!("TypeOf {}", var_name)))
     }
 
     pub fn future(inner: Type) -> Type
@@ -354,7 +358,6 @@ impl fmt::Display for Type
 
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::Var(ref name) => write!(f, "${}", name),
-            &Type::AnonVar => write!(f, "TypeAnonymous"),
         }
     }
 }
@@ -400,7 +403,6 @@ impl fmt::Debug for Type
 
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::Var(ref name) => write!(f, "${}", name),
-            &Type::AnonVar => write!(f, "TypeAnonymous"),
         }
     }
 }
@@ -698,7 +700,9 @@ impl Val
             &Val::Void => Type::Void,
             &Val::Wildcard => Type::Unknown,
             &Val::PatternVar(_) => Type::Unknown,
-            &Val::Id(_) => Type::AnonVar,
+            &Val::Id(ref var_name) => {
+                Type::new_var(var_name)
+            }
             &Val::RustBlock => Type::RustBlock,
             &Val::Map(_) => lmap::MAP_TYPE,
             &Val::Tuple(ref items) if items.0.len() == 1 => {

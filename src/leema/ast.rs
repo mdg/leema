@@ -365,7 +365,7 @@ impl Ast
                 Ast::List(items)
             }
             Type::Var(name) => Ast::TypeVar(name, *loc),
-            Type::AnonVar => Ast::TypeAnon,
+            Type::Unknown => Ast::TypeAnon,
             _ => {
                 panic!("cannot convert from type to ast");
             }
@@ -472,7 +472,7 @@ impl<'a> From<&'a Ast> for Type
     fn from(a: &'a Ast) -> Type
     {
         match a {
-            &Ast::TypeAnon => Type::AnonVar,
+            &Ast::TypeAnon => Type::Unknown,
             &Ast::TypeInt => Type::Int,
             &Ast::TypeBool => Type::Bool,
             &Ast::TypeFailure => Type::Failure,

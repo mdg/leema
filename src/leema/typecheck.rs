@@ -282,7 +282,6 @@ impl<'a, 'b> Typescope<'a, 'b>
     {
         match t {
             &Type::Var(_) => true,
-            &Type::AnonVar => true,
             &Type::Unknown => true,
             &Type::UserDef(ref tri) if tri.local_only() => {
                 self.infer.is_typevar(&tri.localid)
@@ -708,7 +707,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> Lresult<Type>
         }
         &mut Source::RustBlock(ref arg_types, ref result_type) => {
             match *result_type {
-                Type::Unknown | Type::AnonVar => {
+                Type::Unknown => {
                     vout!("rust function result types must be known");
                     return Err(rustfail!(
                         "type_err",
