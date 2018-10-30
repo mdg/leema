@@ -262,7 +262,13 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             ));
             let skipped_args = match typ {
                 &Type::Func(ref ftype) => ftype.args.len(),
-                _ => 0,
+                &Type::SpecialFunc(_, ref ftype) => ftype.args.len(),
+                &Type::GenericFunc(_, _) => {
+                    panic!("unexpected generic func {}: {}", cri, typ);
+                }
+                _ => {
+                    panic!("func type is not a func: {}", typ);
+                }
             };
             let mut i = skipped_args as i8;
             for cv in cvs.0.iter().skip(skipped_args) {
