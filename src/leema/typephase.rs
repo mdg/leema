@@ -1,4 +1,3 @@
-
 use leema::ast::{IfCase, IfType};
 use leema::failure::{Failure, Lresult};
 use leema::infer::Inferator;
@@ -123,17 +122,13 @@ impl<'a> Semantics<'a>
         match &*node.node {
             Ast::Block(ref items) => {
                 if items.is_empty() {
-                    let new_node = node.replace(
-                        Ast::Block(Vec::with_capacity(0)),
-                        Type::Void,
-                    );
+                    let new_node = node
+                        .replace(Ast::Block(Vec::with_capacity(0)), Type::Void);
                     return Ok(new_node);
                 }
 
-                let item_results: Vec<Lresult<AstNode>> = items
-                    .iter()
-                    .map(|i| self.map_node(i))
-                    .collect();
+                let item_results: Vec<Lresult<AstNode>> =
+                    items.iter().map(|i| self.map_node(i)).collect();
                 let new_items: Vec<AstNode> = Lresult::from_iter(item_results)?;
                 let last_type = {
                     let last_item = new_items.last().unwrap();
@@ -162,18 +157,24 @@ impl<'a> Semantics<'a>
         }
     }
 
-    pub fn map_modid(&mut self, module: &Lstr, local: &Lstr) -> Lresult<(Ast, Type)>
+    pub fn map_modid(
+        &mut self,
+        module: &Lstr,
+        local: &Lstr,
+    ) -> Lresult<(Ast, Type)>
     {
         let mod_types = self.types.get(module).ok_or_else(|| {
-            Failure::new("code_error", Lstr::from(format!(
-                "module not found: {}", module
-            )))
+            Failure::new(
+                "code_error",
+                Lstr::from(format!("module not found: {}", module)),
+            )
         })?;
 
         let found_type = mod_types.get(local).ok_or_else(|| {
-            Failure::new("code_error", Lstr::from(format!(
-                "{} not found in module {}", local, module
-            )))
+            Failure::new(
+                "code_error",
+                Lstr::from(format!("{} not found in module {}", local, module)),
+            )
         })?;
 
         match found_type {
@@ -185,14 +186,22 @@ impl<'a> Semantics<'a>
                 Ok((new_node, found_type.clone()))
             }
             not_func => {
-                Err(Failure::new("leema_incomplete", Lstr::from(format!(
-                    "cannot compile id yet {}::{}: {}", module, local, not_func
-                ))))
+                Err(Failure::new(
+                    "leema_incomplete",
+                    Lstr::from(format!(
+                        "cannot compile id yet {}::{}: {}",
+                        module, local, not_func
+                    )),
+                ))
             }
         }
     }
 
-    pub fn map_typecall(&mut self, id: &AstNode, args: &Struple2<AstNode>) -> Lresult<(Ast, Type)>
+    pub fn map_typecall(
+        &mut self,
+        id: &AstNode,
+        args: &Struple2<AstNode>,
+    ) -> Lresult<(Ast, Type)>
     {
         let new_id = self.map_node(id)?;
         let new_args: Struple2<Type> = args.map_v(|a| {
@@ -211,17 +220,18 @@ impl<'a> Semantics<'a>
                 let targs_len = targs.len();
                 let new_args_len = new_args.len();
                 if targs_len != new_args_len {
-                    return Err(Failure::new("code_error", Lstr::from(format!(
-                        "expected {} arguments to {:?}, found {}",
-                        targs_len, new_id, new_args_len
-                    ))));
+                    return Err(Failure::new(
+                        "code_error",
+                        Lstr::from(format!(
+                            "expected {} arguments to {:?}, found {}",
+                            targs_len, new_id, new_args_len
+                        )),
+                    ));
                 }
                 let special_types: StrupleKV<Lstr, Type> = targs
                     .iter()
                     .zip(new_args.into_iter())
-                    .map(|arg| {
-                        StrupleItem::new(arg.0.clone(), arg.1.v)
-                    })
+                    .map(|arg| StrupleItem::new(arg.0.clone(), arg.1.v))
                     .collect();
                 let arg_vals: Struple<Val> = special_types
                     .iter()
@@ -238,9 +248,10 @@ impl<'a> Semantics<'a>
                         Lri::with_modules(modid.clone(), localid.clone())
                     }
                     not_id => {
-                        return Err(Failure::new("code_failure", Lstr::from(
-                            format!("not an id: {:?}", not_id)
-                        )));
+                        return Err(Failure::new(
+                            "code_failure",
+                            Lstr::from(format!("not an id: {:?}", not_id)),
+                        ));
                     }
                 };
                 // ft.replace_types(special_types);
@@ -250,20 +261,32 @@ impl<'a> Semantics<'a>
                 (Ast::ConstVal(Val::FuncRef(fri, arg_vals, spec_type)), t2)
             }
             Type::Func(_) => {
-                return Err(Failure::new("code_error", Lstr::from(format!(
-                    "cannot pass type args to regular function: {:?}", new_id
-                ))));
+                return Err(Failure::new(
+                    "code_error",
+                    Lstr::from(format!(
+                        "cannot pass type args to regular function: {:?}",
+                        new_id
+                    )),
+                ));
             }
             not_func => {
-                return Err(Failure::new("code_failure", Lstr::from(format!(
-                    "typecall id must be type func: {:?}", not_func
-                ))));
+                return Err(Failure::new(
+                    "code_failure",
+                    Lstr::from(format!(
+                        "typecall id must be type func: {:?}",
+                        not_func
+                    )),
+                ));
             }
         };
         Ok((result, rtype))
     }
 
-    fn replace(&mut self, old: &AstNode, new_ast: Ast, new_typ: Type
+    fn replace(
+        &mut self,
+        old: &AstNode,
+        new_ast: Ast,
+        new_typ: Type,
     ) -> Lresult<AstNode>
     {
         let m_type = self.merge_types(&old.typ, &new_typ)?;

@@ -367,9 +367,12 @@ impl<'a, 'b> Typescope<'a, 'b>
     }
 
     /// typecheck a function call with args
-    pub fn typecheck_call(&mut self, func: &mut Ixpr, args: &mut Struple<Ixpr>) -> Lresult<Type>
+    pub fn typecheck_call(
+        &mut self,
+        func: &mut Ixpr,
+        args: &mut Struple<Ixpr>,
+    ) -> Lresult<Type>
     {
-
         let mut targs = vec![];
         for mut a in &mut args.0 {
             let atype = typecheck_expr(self, &mut a.1).map_err(|e| {
@@ -388,21 +391,19 @@ impl<'a, 'b> Typescope<'a, 'b>
                         Type::GenericFunc(ref gen_vars, ref mut ft) => {
                             self.specialize_generic_func(ft, gen_vars, &targs)?
                         }
-                        Type::SpecialFunc(_, _) => {
-                            typ.clone()
-                        }
+                        Type::SpecialFunc(_, _) => typ.clone(),
                         not_func => {
                             return Err(rustfail!(
-                                "type_err", "not a func: {}", not_func
+                                "type_err",
+                                "not a func: {}",
+                                not_func
                             ));
                         }
                     };
                     *typ = special_type;
                     if let Type::SpecialFunc(ref mut spec_vars, _) = typ {
-                        let new_types = spec_vars
-                            .iter_v()
-                            .map(|t| t.clone())
-                            .collect();
+                        let new_types =
+                            spec_vars.iter_v().map(|t| t.clone()).collect();
                         *fri = fri.specialize_params(new_types)?;
                     }
                 } else {
@@ -433,7 +434,11 @@ impl<'a, 'b> Typescope<'a, 'b>
         Ok(call_result.clone())
     }
 
-    fn specialize_generic_func(&mut self, ft: &FuncType, gen_args: &Vec<Lstr>, arg_types: &Vec<Type>
+    fn specialize_generic_func(
+        &mut self,
+        ft: &FuncType,
+        gen_args: &Vec<Lstr>,
+        arg_types: &Vec<Type>,
     ) -> Lresult<Type>
     {
         let mut var_map: HashMap<Lstr, &Type> = HashMap::new();
@@ -453,24 +458,23 @@ impl<'a, 'b> Typescope<'a, 'b>
             }
         }
 
-        let special_args: StrupleKV<Lstr, Type> = gen_args.iter().map(|ga| {
-            let var_type = var_map.get(ga);
-            let new_type = var_type
-                .map(|t| (*t).clone())
-                .unwrap_or(Type::Unknown);
-            StrupleItem::new(ga.clone(), new_type)
-        }).collect();
+        let special_args: StrupleKV<Lstr, Type> = gen_args
+            .iter()
+            .map(|ga| {
+                let var_type = var_map.get(ga);
+                let new_type =
+                    var_type.map(|t| (*t).clone()).unwrap_or(Type::Unknown);
+                StrupleItem::new(ga.clone(), new_type)
+            })
+            .collect();
 
         let special_ft = ft.map(&|t| Type::replace_typevars(t, &var_map))?;
 
         Ok(Type::SpecialFunc(special_args, special_ft))
     }
 
-    pub fn typecheck_funcref(
-        &mut self,
-        fri: &Lri,
-        typ: &Type,
-    ) -> Lresult<Type>
+    pub fn typecheck_funcref(&mut self, fri: &Lri, typ: &Type)
+        -> Lresult<Type>
     {
         let typed = self.functype(&fri)?;
         let result = self.infer.merge_types(typ, &typed)?;
@@ -634,10 +638,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> Lresult<Type>
             panic!("cannot directly typecheck matchcase: {}", pattern);
         }
         &mut Source::Func(ref _args, _, _, _, ref _body) => {
-            Err(rustfail!(
-                "leema_fail",
-                "unexpected func in typecheck",
-            ))
+            Err(rustfail!("leema_fail", "unexpected func in typecheck",))
         }
         src => {
             panic!("could not typecheck_expr({:?})", src);
@@ -645,7 +646,8 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> Lresult<Type>
     }
 }
 
-pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> Lresult<Type>
+pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr)
+    -> Lresult<Type>
 {
     let pretype = scope.inter.get_function_type(scope.fname).unwrap();
     match &mut ix.src {
@@ -682,8 +684,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> Lresult<Type>
                 let typ = scope.infer.vartype(var);
                 vout!("\t{}: {}\n", var, typ.unwrap());
             }
-            let final_args_vec =
-                arg_names
+            let final_args_vec = arg_names
                 .iter()
                 .zip(arg_types.iter())
                 .map(|(an, at)| {
@@ -696,9 +697,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> Lresult<Type>
                 .infer
                 .merge_types(&result_type, declared_result_type)?;
             match pretype {
-                Type::Func(_) => {
-                    Ok(Type::f(final_args, final_result))
-                }
+                Type::Func(_) => Ok(Type::f(final_args, final_result)),
                 Type::GenericFunc(ref pre_tvars, _) => {
                     Ok(Type::GenericFunc(
                         pre_tvars.clone(),
@@ -713,7 +712,9 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> Lresult<Type>
                 }
                 not_func => {
                     Err(rustfail!(
-                        "leema_fail", "pre type is not a func: {}", not_func
+                        "leema_fail",
+                        "pre type is not a func: {}",
+                        not_func
                     ))
                 }
             }
@@ -738,7 +739,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> Lresult<Type>
                 Type::GenericFunc(ref pre_tvars, _) => {
                     Ok(Type::GenericFunc(
                         pre_tvars.clone(),
-                        FuncType::new(arg_types.clone(), result_type.clone())
+                        FuncType::new(arg_types.clone(), result_type.clone()),
                     ))
                 }
                 Type::SpecialFunc(_, _) => {
@@ -749,7 +750,9 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> Lresult<Type>
                 }
                 not_func => {
                     Err(rustfail!(
-                        "leema_fail", "pre type is not a func: {}", not_func
+                        "leema_fail",
+                        "pre type is not a func: {}",
+                        not_func
                     ))
                 }
             }

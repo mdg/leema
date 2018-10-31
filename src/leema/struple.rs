@@ -8,7 +8,7 @@ use std::clone::Clone;
 use std::fmt;
 use std::iter::{FromIterator, Iterator};
 use std::ops::Index;
-use std::slice::{SliceIndex};
+use std::slice::SliceIndex;
 
 
 #[derive(Clone)]
@@ -28,7 +28,7 @@ impl<K, V> StrupleItem<K, V>
 {
     pub fn new(k: K, v: V) -> StrupleItem<K, V>
     {
-        StrupleItem{ k, v }
+        StrupleItem { k, v }
     }
 }
 
@@ -112,11 +112,14 @@ impl<K, V> StrupleKV<K, V>
         F: FnMut(&V) -> Lresult<U>,
         K: Clone,
     {
-        let m_result_items: Vec<Lresult<StrupleItem<K, U>>> =
-            self.0.iter().map(|kv| {
+        let m_result_items: Vec<Lresult<StrupleItem<K, U>>> = self
+            .0
+            .iter()
+            .map(|kv| {
                 let u = f(&kv.v)?;
                 Ok(StrupleItem::new(kv.k.clone(), u))
-            }).collect();
+            })
+            .collect();
         let m_items = Lresult::from_iter(m_result_items)?;
         Ok(StrupleKV::from_vec(m_items))
     }
@@ -125,7 +128,8 @@ impl<K, V> StrupleKV<K, V>
     where
         F: Fn(V) -> Lresult<U>,
     {
-        let m_result_items: Vec<Lresult<StrupleItem<K, U>>> = self.0
+        let m_result_items: Vec<Lresult<StrupleItem<K, U>>> = self
+            .0
             .into_iter()
             .map(|kv| {
                 let u = f(kv.v)?;
@@ -168,7 +172,7 @@ impl<K, V> From<Vec<V>> for StrupleKV<Option<K>, V>
     }
 }
 
-impl <K, V, I> Index<I> for StrupleKV<K, V>
+impl<K, V, I> Index<I> for StrupleKV<K, V>
 where
     I: SliceIndex<[StrupleItem<K, V>]>,
 {

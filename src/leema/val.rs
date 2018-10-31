@@ -59,7 +59,11 @@ impl FuncType
         }
     }
 
-    pub fn new_closure(args: Struple2<Type>, closed: Struple2<Type>, result: Type) -> FuncType
+    pub fn new_closure(
+        args: Struple2<Type>,
+        closed: Struple2<Type>,
+        result: Type,
+    ) -> FuncType
     {
         FuncType {
             args,
@@ -163,12 +167,8 @@ impl Type
     {
         match t {
             &Type::Func(ref ftype) => (&ftype.args, &ftype.result),
-            &Type::GenericFunc(_, ref ftype) => {
-                (&ftype.args, &ftype.result)
-            }
-            &Type::SpecialFunc(_, ref ftype) => {
-                (&ftype.args, &ftype.result)
-            }
+            &Type::GenericFunc(_, ref ftype) => (&ftype.args, &ftype.result),
+            &Type::SpecialFunc(_, ref ftype) => (&ftype.args, &ftype.result),
             _ => {
                 panic!("not a func type {:?}", t);
             }
@@ -215,18 +215,16 @@ impl Type
         Ok(res)
     }
 
-    pub fn replace_typevars(&self, vars: &HashMap<Lstr, &Type>
+    pub fn replace_typevars(
+        &self,
+        vars: &HashMap<Lstr, &Type>,
     ) -> Lresult<Option<Type>>
     {
         match self {
             Type::Var(ref name) => {
                 match vars.get(name) {
-                    Some(typ) => {
-                        return Ok(Some((*typ).clone()))
-                    }
-                    None => {
-                        return Ok(Some(Type::Unknown))
-                    }
+                    Some(typ) => return Ok(Some((*typ).clone())),
+                    None => return Ok(Some(Type::Unknown)),
                 }
             }
             _ => Ok(None),
@@ -379,15 +377,9 @@ impl fmt::Debug for Type
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
-            &Type::Mod(ref id) => {
-                write!(f, "{:?}", id)
-            }
-            &Type::Special(ref id) => {
-                write!(f, "{:?}", id)
-            }
-            &Type::Generic(ref id) => {
-                write!(f, "{:?}", id)
-            }
+            &Type::Mod(ref id) => write!(f, "{:?}", id),
+            &Type::Special(ref id) => write!(f, "{:?}", id),
+            &Type::Generic(ref id) => write!(f, "{:?}", id),
             &Type::GenericFunc(ref vars, ref ftype) => {
                 write!(f, "GenericFunc({:?}, {:?})", vars, ftype)
             }
@@ -700,9 +692,7 @@ impl Val
             &Val::Void => Type::Void,
             &Val::Wildcard => Type::Unknown,
             &Val::PatternVar(_) => Type::Unknown,
-            &Val::Id(ref var_name) => {
-                Type::new_var(var_name)
-            }
+            &Val::Id(ref var_name) => Type::new_var(var_name),
             &Val::RustBlock => Type::RustBlock,
             &Val::Map(_) => lmap::MAP_TYPE,
             &Val::Tuple(ref items) if items.0.len() == 1 => {
@@ -784,9 +774,7 @@ impl Val
             (
                 &Val::EnumStruct(ref pt, ref pname, ref pv),
                 &Val::EnumStruct(ref it, ref iname, ref iv),
-            )
-                if pv.0.len() == iv.0.len() =>
-            {
+            ) if pv.0.len() == iv.0.len() => {
                 if pt != it || pname != iname {
                     return false;
                 }

@@ -11,12 +11,7 @@ use std::iter::FromIterator;
 
 macro_rules! match_err {
     ($a:expr, $b:expr) => {
-        Err(rustfail!(
-            "type_err",
-            "type mismatch\n   {}\n!= {}",
-            $a,
-            $b,
-        ))
+        Err(rustfail!("type_err", "type mismatch\n   {}\n!= {}", $a, $b,))
     };
 }
 
@@ -178,11 +173,7 @@ impl<'b> Inferator<'b>
             &Type::Var(ref vname) => {
                 let mv = self.typevars.get_mut(vname);
                 if mv.is_none() {
-                    Err(rustfail!(
-                        "type_error",
-                        "undefined type: {}",
-                        vname
-                    ))
+                    Err(rustfail!("type_error", "undefined type: {}", vname))
                 } else {
                     *mv.unwrap() = true;
                     Ok(Type::Void)
@@ -198,11 +189,7 @@ impl<'b> Inferator<'b>
             &Type::UserDef(ref tri) if tri.local_only() => {
                 let mv = self.typevars.get_mut(&tri.localid);
                 if mv.is_none() {
-                    Err(rustfail!(
-                        "type_error",
-                        "undefined type: {}",
-                        tri
-                    ))
+                    Err(rustfail!("type_error", "undefined type: {}", tri))
                 } else {
                     *mv.unwrap() = true;
                     Ok(Type::Void)
@@ -253,9 +240,7 @@ impl<'b> Inferator<'b>
         );
 
         let realt = match argt {
-            Type::Unknown => {
-                Type::new_var(argn)
-            }
+            Type::Unknown => Type::new_var(argn),
             _ => argt.clone(),
         };
         if self.vartypes.contains_key(argn.str()) {
@@ -288,9 +273,7 @@ impl<'b> Inferator<'b>
         );
 
         let realt = match argt {
-            &Type::Unknown => {
-                Type::new_var(argn)
-            }
+            &Type::Unknown => Type::new_var(argn),
             _ => argt.clone(),
         };
         if !self.vartypes.contains_key(argn) {
@@ -573,15 +556,9 @@ impl<'b> Inferator<'b>
                 inferences.insert(newtname.localid.clone(), oldt.clone());
                 Ok(oldt.clone())
             }
-            (
-                &Type::Func(ref oldftype),
-                &Type::Func(ref newftype),
-            ) => {
+            (&Type::Func(ref oldftype), &Type::Func(ref newftype)) => {
                 let mashftype = Inferator::mash_ft(
-                    inferences,
-                    typevars,
-                    oldftype,
-                    newftype,
+                    inferences, typevars, oldftype, newftype,
                 )?;
                 Ok(Type::Func(mashftype))
             }
@@ -604,9 +581,8 @@ impl<'b> Inferator<'b>
                     }
                     tparams.insert(argn.clone(), &argt.v);
                 }
-                let replaced_genft = genftype.map(&|t: &Type| {
-                    t.replace_typevars(&tparams)
-                })?;
+                let replaced_genft =
+                    genftype.map(&|t: &Type| t.replace_typevars(&tparams))?;
                 let mashed_ft = Inferator::mash_ft(
                     inferences,
                     typevars,
@@ -683,13 +659,9 @@ impl<'b> Inferator<'b>
             masht.push(StrupleItem::new(oldit.k.clone(), mashit));
         }
 
-        let mashresult = Inferator::mash(
-            inferences, typevars, &oldt.result, &newt.result,
-        )?;
-        Ok(FuncType::new(
-            StrupleKV::from(masht),
-            mashresult,
-        ))
+        let mashresult =
+            Inferator::mash(inferences, typevars, &oldt.result, &newt.result)?;
+        Ok(FuncType::new(StrupleKV::from(masht), mashresult))
     }
 
 
@@ -717,17 +689,17 @@ impl<'b> Inferator<'b>
             .zip(argst.iter())
             .map(|(defargt, argt)| {
                 let mash_arg = Inferator::mash(
-                        &mut self.inferences,
-                        &self.typevars,
-                        &defargt.v,
-                        argt,
-                    )
-                    .map_err(|e| {
-                        e.add_context(Lstr::from(format!(
-                            "expected function args in {}: {:?} found {:?}",
-                            self.funcname, defargst, argst,
-                        )))
-                    })?;
+                    &mut self.inferences,
+                    &self.typevars,
+                    &defargt.v,
+                    argt,
+                )
+                .map_err(|e| {
+                    e.add_context(Lstr::from(format!(
+                        "expected function args in {}: {:?} found {:?}",
+                        self.funcname, defargst, argst,
+                    )))
+                })?;
                 Ok(StrupleItem::new(defargt.k.clone(), mash_arg))
             })
             .collect();

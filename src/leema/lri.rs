@@ -2,7 +2,7 @@ use leema::failure::Lresult;
 use leema::lstr::Lstr;
 use leema::sendclone::SendClone;
 use leema::struple::{StrupleItem, StrupleKV};
-use leema::val::{Type};
+use leema::val::Type;
 
 use std::fmt;
 use std::iter::Iterator;
@@ -74,10 +74,7 @@ impl<I, T> TypId<I, T>
 {
     pub fn new(id: I, tparams: StrupleKV<Lstr, T>) -> TypId<I, T>
     {
-        TypId {
-            id,
-            tparams,
-        }
+        TypId { id, tparams }
     }
 
     pub fn num_vars(&self) -> usize

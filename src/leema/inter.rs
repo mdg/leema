@@ -763,8 +763,9 @@ pub fn compile_local_id(
                             });
                             let fr_args =
                                 args.0.into_iter().chain(cvar_it).collect();
-                            let cvartype_vec:
-                                Vec<StrupleItem<Option<Lstr>, Type>>;
+                            let cvartype_vec: Vec<
+                                StrupleItem<Option<Lstr>, Type>,
+                            >;
                             cvartype_vec = vars
                                 .iter()
                                 .map(|v| {
@@ -775,9 +776,7 @@ pub fn compile_local_id(
                                     )
                                 })
                                 .collect();
-                            let cftype = if let Type::Func(i_ftype) =
-                                ftype
-                            {
+                            let cftype = if let Type::Func(i_ftype) = ftype {
                                 Type::Func(FuncType {
                                     args: i_ftype.args,
                                     closed: StrupleKV::from(cvartype_vec),
@@ -1046,11 +1045,7 @@ pub fn compile_pattern_call(
         .module(&struct_lri.modules)
         .func_result_type(&struct_lri.localid)
         .ok_or_else(|| {
-            rustfail!(
-                "leema_fail",
-                "cannot find type: {}",
-                struct_lri,
-            )
+            rustfail!("leema_fail", "cannot find type: {}", struct_lri,)
         })?;
     if let Type::UserDef(ref ftype_ri) = ftype {
         Ok(Val::EnumStruct(
