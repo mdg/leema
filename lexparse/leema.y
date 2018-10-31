@@ -60,6 +60,7 @@ use std::collections::linked_list::{LinkedList};
 %type RETURN { SrcLoc }
 %type SEMICOLON { SrcLoc }
 %type SLASH { SrcLoc }
+%type SquareCall { SrcLoc }
 %type SquareL { SrcLoc }
 %type SquareR { SrcLoc }
 %type StrLit { String }
@@ -608,7 +609,7 @@ term(A) ::= list(B). {
 term(A) ::= localid(B). {
     A = B;
 }
-term(A) ::= modid(B). {
+term(A) ::= modid_spec(B). {
     A = B;
 }
 term(A) ::= map(B). {
@@ -661,21 +662,21 @@ modid(A) ::= ID(B) DBLCOLON ID(C). {
     A = Ast::Modid(Lstr::from(B.data), Lstr::from(C.data), B.loc);
 }
 
-local_generic(A) ::= ID(B) SquareL(Z) typex_list(C) SquareR. {
+local_generic(A) ::= ID(B) SquareCall(Z) typex_list(C) SquareR. {
     A = Ast::LocalGeneric(Lstr::from(B.data), C, B.loc);
 }
 
 localid_spec(A) ::= localid(B). {
     A = B;
 }
-localid_spec(A) ::= localid(B) SquareL(Z) typex_list(C) SquareR. {
+localid_spec(A) ::= localid(B) SquareCall(Z) typex_list(C) SquareR. {
     A = Ast::TypeCall(Box::new(B), C, Z);
 }
 
 modid_spec(A) ::= modid(B). {
     A = B;
 }
-modid_spec(A) ::= modid(B) SquareL(Z) typex_list(C) SquareR. {
+modid_spec(A) ::= modid(B) SquareCall(Z) typex_list(C) SquareR. {
     A = Ast::TypeCall(Box::new(B), C, Z);
 }
 

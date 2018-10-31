@@ -160,6 +160,18 @@ impl<K, V> From<Vec<StrupleItem<K, V>>> for StrupleKV<K, V>
     }
 }
 
+impl<K, V> From<Vec<(K, V)>> for StrupleKV<K, V>
+{
+    fn from(items: Vec<(K, V)>) -> StrupleKV<K, V>
+    {
+        let new_items = items
+            .into_iter()
+            .map(|(k, v)| StrupleItem::new(k, v))
+            .collect();
+        StrupleKV::from_vec(new_items)
+    }
+}
+
 impl<K, V> From<Vec<V>> for StrupleKV<Option<K>, V>
 {
     fn from(items: Vec<V>) -> StrupleKV<Option<K>, V>

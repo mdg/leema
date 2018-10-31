@@ -572,7 +572,7 @@ pub fn compile_expr(
             compile_call(scope, callx, args, iloc)
         }
         &Ast::TypeCall(ref callx, ref args, ref iloc) => {
-            compile_call(scope, callx, args, iloc)
+            compile_typecall(scope, callx, args, iloc)
         }
         &Ast::ConstBool(b) => Ok(Ixpr::const_val(Val::Bool(b), loc.lineno)),
         &Ast::ConstInt(i) => Ok(Ixpr::const_val(Val::Int(i), loc.lineno)),
@@ -839,6 +839,66 @@ pub fn compile_call(
         src: Source::Call(Box::new(icall), Struple(iargs)),
         line: loc.lineno,
     })
+}
+
+pub fn compile_typecall(
+    scope: &mut Interscope,
+    callx: &Ast,
+    args: &LinkedList<Kxpr>,
+    loc: &SrcLoc,
+) -> Lresult<Ixpr>
+{
+    let icall = compile_expr(scope, callx, loc)?;
+    let margs: Vec<Type> = args
+        .iter()
+        .map(|i| compile_type(scope, i.x_ref().unwrap(), loc))
+        .collect();
+
+    let new_ix = match icall.src {
+        Source::ConstVal(Val::FuncRef(fri, fref_args, typ)) => {
+            let new_type = match typ {
+                Type::GenericFunc(tvars, argt) => {
+                    // should specialize this somehow
+                    // does this happen in typecheck?
+                    // these need to consolidate again already
+                    let spec_vars: StrupleKV<Lstr, Type> = tvars
+                        .into_iter()
+                        .zip(margs.into_iter())
+                        .map(|(n, t)| StrupleItem::new(n, t))
+                        .collect();
+                    Type::SpecialFunc(spec_vars, argt)
+                }
+                Type::SpecialFunc(_, _) => {
+                    return Err(rustfail!(
+                        "type_err",
+                        "cannot give type params to specialized func: {}{:?}",
+                        fri,
+                        args,
+                    ));
+                }
+                Type::Func(_) => {
+                    return Err(rustfail!(
+                        "type_err",
+                        "cannot provide type params to normal func: {}{:?}",
+                        fri,
+                        args,
+                    ));
+                }
+                not_func => {
+                    return Err(rustfail!(
+                        "leema_fail",
+                        "func ref type not a func {}",
+                        not_func,
+                    ));
+                }
+            };
+            let new_fref = Val::FuncRef(fri, fref_args, new_type);
+            let new_src = Source::ConstVal(new_fref);
+            Ixpr::new(new_src, icall.line)
+        }
+        not_func => Ixpr::new(not_func, icall.line),
+    };
+    Ok(new_ix)
 }
 
 pub fn compile_let_stmt(

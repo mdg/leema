@@ -413,8 +413,8 @@ impl<'a, 'b> Typescope<'a, 'b>
             Source::Id(_, _) => {
                 // ids are fine, do nothing
             }
-            _ => {
-                println!("whoa, not a const func");
+            unexpected => {
+                println!("unexpected func source: {:?}", unexpected);
                 // should probably do something else here to handle
                 // function arguments and convert them too
             }

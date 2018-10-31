@@ -87,6 +87,7 @@ impl Token
                 parse::TOKEN_ENUM => Token::ENUM(tl),
                 parse::TOKEN_RPAREN => Token::RPAREN(tl),
                 parse::TOKEN_SEMICOLON => Token::SEMICOLON(tl),
+                parse::TOKEN_SquareCall => Token::SquareCall(tl),
                 parse::TOKEN_SquareL => Token::SquareL(tl),
                 parse::TOKEN_SquareR => Token::SquareR(tl),
                 parse::TOKEN_TIMES => Token::TIMES(tl),
