@@ -28,14 +28,14 @@ macro unfail(new_val) ->
 macro println(x) >> print(x \n) --
 
 
-func max(a: $T, b: $T): $T ->
+func max[T](a: T, b: T): T ->
     if
     |a < b -> b
     |else -> a
     --
 --
 
-func min(a: $T, b: $T): $T ->
+func min[T](a: T, b: T): T ->
     if
     |a < b -> a
     |else -> b
@@ -57,7 +57,7 @@ func sleep(d: Int): Void -RUST-
 func sleep_forever(): Void -RUST-
 func cin(): Str -RUST-
 func print(txt: Str): Void -RUST-
-func list_cons(head: $A, tail: [$A]): [$A] -RUST-
+func list_cons[T](head: T, tail: [T]): [T] -RUST-
 
 func int_abs(abs_a: Int): Int ->
     if

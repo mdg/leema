@@ -138,9 +138,6 @@ impl Token
                 parse::TOKEN_TYPE_STR => Token::TYPE_STR,
                 parse::TOKEN_TYPE_HASHTAG => Token::TYPE_HASHTAG,
                 parse::TOKEN_TYPE_VOID => Token::TYPE_VOID,
-                parse::TOKEN_TYPE_VAR => {
-                    Token::TYPE_VAR(TokenData::new((*tok).val(), tl))
-                }
                 parse::TOKEN_EOI => Token::EOI,
                 parse::TOKEN_ANY => Token::ANY,
                 parse::TOKEN_DollarQuestion => Token::DollarQuestion,

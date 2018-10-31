@@ -66,7 +66,6 @@ use std::collections::linked_list::{LinkedList};
 %type StrOpen { SrcLoc }
 %type STRUCT { SrcLoc }
 %type TIMES { SrcLoc }
-%type TYPE_VAR { TokenData<String> }
 %type XOR { SrcLoc }
 
 %type program { Ast }
@@ -414,9 +413,6 @@ type_term(A) ::= TYPE_BOOL. {
 }
 type_term(A) ::= TYPE_VOID. {
     A = Ast::TypeVoid;
-}
-type_term(A) ::= TYPE_VAR(B). {
-    A = Ast::TypeVar(Lstr::from(B.data), B.loc);
 }
 type_term(A) ::= SquareL typex(B) SquareR. {
     let mut inner = LinkedList::new();

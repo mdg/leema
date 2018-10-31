@@ -307,10 +307,6 @@ Void	{
     BEGIN(CALLPAREN);
     return set_token_val(yyg, TOKEN_ID, yytext);
 }
-${ID}	{
-    BEGIN(INITIAL);
-    return set_token_val(yyg, TOKEN_TYPE_VAR, yytext+1);
-}
 "$\?"	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_DollarQuestion);
