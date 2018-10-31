@@ -444,7 +444,14 @@ impl<'a, 'b> Typescope<'a, 'b>
         }
 
         let special_args: StrupleKV<Lstr, Type> = gen_args.iter().map(|ga| {
-            StrupleItem::new(ga.clone(), (*var_map.get(ga).unwrap()).clone())
+            let var_type = var_map.get(ga);
+            if var_type.is_none() {
+                println!("cannot find type for {} in {}", ga, ft);
+            }
+            let new_type = var_type
+                .map(|t| (*t).clone())
+                .unwrap_or(Type::Unknown);
+            StrupleItem::new(ga.clone(), new_type)
         }).collect();
 
         let special_ft = ft.map(&|t| Type::replace_typevars(t, &var_map))?;
