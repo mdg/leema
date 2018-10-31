@@ -3,6 +3,8 @@ pub mod log;
 pub mod application;
 pub mod ast;
 pub mod code;
+#[macro_use]
+pub mod failure;
 pub mod fiber;
 pub mod frame;
 pub mod infer;
@@ -28,6 +30,7 @@ pub mod struple;
 pub mod tcp;
 pub mod token;
 pub mod typecheck;
+pub mod typephase;
 pub mod types;
 pub mod udp;
 pub mod val;

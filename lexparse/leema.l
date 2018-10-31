@@ -131,13 +131,9 @@ void	{ return set_token(yyg, TOKEN_VOID); }
     BEGIN(CALLPAREN);
     return set_token(yyg, TOKEN_RPAREN);
 }
-<INITIAL>"["	{
+"["	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_SquareL);
-}
-<CALLPAREN>"["	{
-    BEGIN(INITIAL);
-    return set_token(yyg, TOKEN_SquareCall);
 }
 "]"	{
     BEGIN(CALLPAREN);
@@ -239,10 +235,6 @@ false	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_False);
 }
-forq	{
-    BEGIN(INITIAL);
-    return set_token(yyg, TOKEN_FORK);
-}
 let	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_Let);
@@ -314,10 +306,6 @@ Void	{
 {ID}	{
     BEGIN(CALLPAREN);
     return set_token_val(yyg, TOKEN_ID, yytext);
-}
-${ID}	{
-    BEGIN(INITIAL);
-    return set_token_val(yyg, TOKEN_TYPE_VAR, yytext+1);
 }
 "$\?"	{
     BEGIN(INITIAL);

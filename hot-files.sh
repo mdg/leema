@@ -1,7 +1,7 @@
 #! /usr/bin/env sh
 
-NCOMMITS=12
-NFILES=12
+NCOMMITS=50
+NFILES=20
 
 git diff --stat HEAD~$NCOMMITS . \
     | grep -F "src/leema/" \

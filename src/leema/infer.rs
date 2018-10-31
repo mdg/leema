@@ -1,15 +1,17 @@
+use leema::failure::Lresult;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
-use leema::struple::Struple;
-use leema::val::{Type, TypeErr, TypeResult, Val};
+use leema::struple::{Struple, Struple2, StrupleItem, StrupleKV};
+use leema::val::{FuncType, Type, Val};
 
 use std::collections::hash_map::Keys;
 use std::collections::HashMap;
+use std::iter::FromIterator;
 
 
 macro_rules! match_err {
     ($a:expr, $b:expr) => {
-        Err(TypeErr::Mismatch($a.clone(), $b.clone(), line!()))
+        Err(rustfail!("type_err", "type mismatch\n   {}\n!= {}", $a, $b,))
     };
 }
 
@@ -29,28 +31,32 @@ impl<'b> TypeSet<'b>
         }
     }
 
-    pub fn get_typedef(&self, i: &Lri) -> Result<&Struple<Type>, TypeErr>
+    pub fn get_typedef(&self, i: &Lri) -> Lresult<&Struple<Type>>
     {
         // switch all this to use Option/Result combinators
         if !i.has_modules() {
-            return Result::Err(TypeErr::Error(Lstr::from(format!(
+            return Result::Err(rustfail!(
+                "leema_fail",
                 "cannot get type without including module name: {}",
                 i
-            ))));
+            ));
         }
         let i_modname = i.modules.as_ref().unwrap();
         let opt_modtypes = self.typedef.get(i_modname);
         if opt_modtypes.is_none() {
-            return Result::Err(TypeErr::Error(Lstr::from(format!(
+            return Err(rustfail!(
+                "missing_import",
                 "module {} is not imported",
                 i_modname
-            ))));
+            ));
         }
         opt_modtypes.unwrap().get(&i.localid).ok_or_else(|| {
-            TypeErr::Error(Lstr::from(format!(
+            rustfail!(
+                "undefined_type",
                 "cannot find type {} in module {}",
-                i.localid, i_modname
-            )))
+                i.localid,
+                i_modname,
+            )
         })
     }
 
@@ -104,20 +110,22 @@ impl<'b> Inferator<'b>
         self.vartypes.keys()
     }
 
-    pub fn vartype(&self, argn: &str) -> TypeResult
+    pub fn vartype(&self, argn: &str) -> Lresult<Type>
     {
         match self.vartypes.get(argn) {
             None => {
-                Err(TypeErr::Error(Lstr::from(format!(
+                Err(rustfail!(
+                    "leema_type_fail",
                     "no type for unknown var: {}",
                     argn
-                ))))
+                ))
             }
-            Some(&Type::AnonVar) => {
-                Err(TypeErr::Error(Lstr::from(format!(
-                    "cannot infer AnonVar for var: {}",
+            Some(&Type::Unknown) => {
+                Err(rustfail!(
+                    "leema_type_fail",
+                    "cannot infer unknown type for var: {}",
                     argn
-                ))))
+                ))
             }
             Some(ref argt) => Ok(self.inferred_type(argt)),
         }
@@ -134,54 +142,54 @@ impl<'b> Inferator<'b>
      */
     pub fn validate_rust_args(
         &mut self,
-        args: &Vec<Type>,
+        args: &Struple2<Type>,
         result: &Type,
-    ) -> TypeResult
+    ) -> Lresult<Type>
     {
         if self.typevars.is_empty() {
             // if there are no type parameters, then this should be fine
             return Ok(Type::Void);
         }
 
-        for a in args {
+        for a in args.iter_v() {
             self.mark_used_typevars(a)?;
         }
         self.mark_used_typevars(result)?;
         for tv in self.typevars.values() {
             if !tv {
                 vout!("rust function type params must be used in arguments\n");
-                return Err(TypeErr::Unknowable);
+                return Err(rustfail!(
+                    "unknowable_type",
+                    "rust function type params must be used in arguments",
+                ));
             }
         }
         Ok(Type::Void)
     }
 
-    pub fn mark_used_typevars(&mut self, arg: &Type) -> TypeResult
+    pub fn mark_used_typevars(&mut self, arg: &Type) -> Lresult<Type>
     {
         match arg {
             &Type::Var(ref vname) => {
                 let mv = self.typevars.get_mut(vname);
                 if mv.is_none() {
-                    Err(TypeErr::Error(Lstr::from(format!(
-                        "undefined type: {}",
-                        vname
-                    ))))
+                    Err(rustfail!("type_error", "undefined type: {}", vname))
                 } else {
                     *mv.unwrap() = true;
                     Ok(Type::Void)
                 }
             }
-            &Type::AnonVar | &Type::Unknown => {
+            &Type::Unknown => {
                 vout!("rust typevars must be identifiable");
-                Err(TypeErr::Unknowable)
+                Err(rustfail!(
+                    "unknowable_type",
+                    "rust typevars must be identifiable",
+                ))
             }
             &Type::UserDef(ref tri) if tri.local_only() => {
                 let mv = self.typevars.get_mut(&tri.localid);
                 if mv.is_none() {
-                    Err(TypeErr::Error(Lstr::from(format!(
-                        "undefined type: {}",
-                        tri
-                    ))))
+                    Err(rustfail!("type_error", "undefined type: {}", tri))
                 } else {
                     *mv.unwrap() = true;
                     Ok(Type::Void)
@@ -200,20 +208,14 @@ impl<'b> Inferator<'b>
                 }
                 Ok(Type::Void)
             }
-            &Type::Func(ref args, ref result) => {
-                for a in args {
+            &Type::Func(ref ftype) => {
+                for a in ftype.args.iter_v() {
                     self.mark_used_typevars(a)?;
                 }
-                self.mark_used_typevars(result)
-            }
-            &Type::Closure(ref args, ref closed, ref result) => {
-                for a in args {
-                    self.mark_used_typevars(a)?;
-                }
-                for c in closed {
+                for c in ftype.closed.iter_v() {
                     self.mark_used_typevars(c)?;
                 }
-                self.mark_used_typevars(result)
+                self.mark_used_typevars(&ftype.result)
             }
             &Type::StrictList(ref inner) => self.mark_used_typevars(inner),
             _ => Ok(Type::Void),
@@ -226,7 +228,7 @@ impl<'b> Inferator<'b>
         argn: &Lstr,
         argt: &Type,
         line: i16,
-    ) -> TypeResult
+    ) -> Lresult<Type>
     {
         vout!(
             "init_param({}, #{} {:?}: {:?} #{})\n",
@@ -238,14 +240,7 @@ impl<'b> Inferator<'b>
         );
 
         let realt = match argt {
-            Type::Unknown => {
-                let arg_typename = format!("T_param_{}", argi);
-                Type::Var(Lstr::from(arg_typename))
-            }
-            Type::AnonVar => {
-                let arg_typename = format!("T_param_{}", argi);
-                Type::Var(Lstr::from(arg_typename))
-            }
+            Type::Unknown => Type::new_var(argn),
             _ => argt.clone(),
         };
         if self.vartypes.contains_key(argn.str()) {
@@ -267,7 +262,7 @@ impl<'b> Inferator<'b>
         argn: &Lstr,
         argt: &Type,
         line: i16,
-    ) -> TypeResult
+    ) -> Lresult<Type>
     {
         vout!(
             "bind_vartype({}, {}: {:?}, {})\n",
@@ -278,13 +273,7 @@ impl<'b> Inferator<'b>
         );
 
         let realt = match argt {
-            &Type::Unknown => {
-                let arg_typename = format!("T_local_{}", argn);
-                Type::Var(Lstr::from(arg_typename))
-            }
-            &Type::AnonVar => {
-                panic!("cannot bind var to anonymous type: {}", argn);
-            }
+            &Type::Unknown => Type::new_var(argn),
             _ => argt.clone(),
         };
         if !self.vartypes.contains_key(argn) {
@@ -296,7 +285,7 @@ impl<'b> Inferator<'b>
         Inferator::mash(&mut self.inferences, &self.typevars, oldargt, &realt)
     }
 
-    pub fn merge_types(&mut self, a: &Type, b: &Type) -> TypeResult
+    pub fn merge_types(&mut self, a: &Type, b: &Type) -> Lresult<Type>
     {
         Inferator::mash(&mut self.inferences, &self.typevars, a, b)
     }
@@ -307,15 +296,9 @@ impl<'b> Inferator<'b>
         patt: &Val,
         valtype: &Type,
         lineno: i16,
-    ) -> TypeResult
+    ) -> Lresult<Type>
     {
         match (patt, valtype) {
-            (_, &Type::AnonVar) => {
-                Err(TypeErr::Error(Lstr::from(format!(
-                    "pattern value type cannot be anonymous: {:?}",
-                    patt
-                ))))
-            }
             (&Val::Id(ref id), _) => self.bind_vartype(id, valtype, lineno),
             (&Val::Wildcard, _) => Ok(Type::Unknown),
             (&Val::Nil, _) => {
@@ -384,11 +367,7 @@ impl<'b> Inferator<'b>
                 &Type::UserDef(ref typename2),
             ) => {
                 if !Lri::nominal_eq(typ1, typename2) {
-                    return Err(TypeErr::Mismatch(
-                        Type::UserDef(typ1.clone()),
-                        valtype.clone(),
-                        line!(),
-                    ));
+                    return match_err!(Type::UserDef(typ1.clone()), valtype);
                 }
                 if typ1.params.is_none() && typename2.params.is_none() {
                     return Ok(valtype.clone());
@@ -421,11 +400,7 @@ impl<'b> Inferator<'b>
                 &Type::UserDef(ref typename2),
             ) => {
                 if !Lri::nominal_eq(typ1, typename2) {
-                    return Err(TypeErr::Mismatch(
-                        Type::UserDef(typ1.clone()),
-                        valtype.clone(),
-                        line!(),
-                    ));
+                    return match_err!(Type::UserDef(typ1.clone()), valtype);
                 }
                 if typ1.params.is_none() && typename2.params.is_none() {
                     return Ok(valtype.clone());
@@ -440,10 +415,12 @@ impl<'b> Inferator<'b>
             }
             (&Val::Token(ref typ1), &Type::UserDef(ref typename2)) => {
                 if typ1 != typename2 {
-                    Err(TypeErr::Error(Lstr::from(format!(
+                    Err(rustfail!(
+                        "type_err",
                         "token type mismatch: {:?} != {:?}",
-                        typ1, typename2
-                    ))))
+                        typ1,
+                        typename2,
+                    ))
                 } else {
                     Ok(valtype.clone())
                 }
@@ -466,7 +443,7 @@ impl<'b> Inferator<'b>
         l: &Val,
         inner_type: &Type,
         lineno: i16,
-    ) -> TypeResult
+    ) -> Lresult<Type>
     {
         match l {
             &Val::Cons(ref head, ref tail) => {
@@ -480,10 +457,11 @@ impl<'b> Inferator<'b>
             &Val::Nil => Ok(Type::StrictList(Box::new(Type::Unknown))),
             &Val::Wildcard => Ok(Type::Unknown),
             _ => {
-                Err(TypeErr::Error(Lstr::from(format!(
+                Err(rustfail!(
+                    "type_err",
                     "match_list_pattern on not a list: {:?}",
-                    l
-                ))))
+                    l,
+                ))
             }
         }
     }
@@ -527,7 +505,7 @@ impl<'b> Inferator<'b>
         typevars: &HashMap<&Lstr, bool>,
         oldt: &Type,
         newt: &Type,
-    ) -> TypeResult
+    ) -> Lresult<Type>
     {
         if oldt == newt {
             // all good
@@ -535,7 +513,7 @@ impl<'b> Inferator<'b>
         }
 
         vout!("mash({:?}, {:?}) where {:?}\n", oldt, newt, typevars);
-        let mtype: TypeResult = match (oldt, newt) {
+        let mtype: Lresult<Type> = match (oldt, newt) {
             // anything is better than Unknown
             (&Type::Unknown, _) => Ok(newt.clone()),
             (_, &Type::Unknown) => Ok(oldt.clone()),
@@ -578,96 +556,40 @@ impl<'b> Inferator<'b>
                 inferences.insert(newtname.localid.clone(), oldt.clone());
                 Ok(oldt.clone())
             }
-            (
-                &Type::Func(ref oldargs, ref oldresult),
-                &Type::Func(ref newargs, ref newresult),
-            ) => {
-                let oldlen = oldargs.len();
-                let newlen = newargs.len();
-                if oldlen != newlen {
-                    return match_err!(oldt, newt);
-                }
-                let mut masht = Vec::with_capacity(oldlen);
-                for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
-                    let mashit =
-                        Inferator::mash(inferences, typevars, oldit, newit)?;
-                    masht.push(mashit);
-                }
-                let mashresult = Inferator::mash(
-                    inferences, typevars, oldresult, newresult,
+            (&Type::Func(ref oldftype), &Type::Func(ref newftype)) => {
+                let mashftype = Inferator::mash_ft(
+                    inferences, typevars, oldftype, newftype,
                 )?;
-                Ok(Type::Func(masht, Box::new(mashresult)))
+                Ok(Type::Func(mashftype))
+            }
+            (&Type::SpecialFunc(_, _), &Type::GenericFunc(_, _)) => {
+                Inferator::mash(inferences, typevars, newt, oldt)
             }
             (
-                &Type::Closure(ref oldargs, ref oldclosed, ref oldresult),
-                &Type::Closure(ref newargs, ref newclosed, ref newresult),
+                &Type::GenericFunc(ref argnames, ref genftype),
+                &Type::SpecialFunc(ref argtypes, ref specftype),
             ) => {
-                let oldlen = oldargs.len();
-                let newlen = newargs.len();
-                if oldlen != newlen {
+                let genlen = argnames.len();
+                let speclen = argtypes.len();
+                if genlen != speclen {
                     return match_err!(oldt, newt);
                 }
-                let coldlen = oldclosed.len();
-                let cnewlen = newclosed.len();
-                if coldlen != cnewlen {
-                    return match_err!(oldt, newt);
+                let mut tparams = HashMap::new();
+                for (argn, argt) in argnames.iter().zip(argtypes.iter()) {
+                    if *argn != argt.k {
+                        return match_err!(oldt, newt);
+                    }
+                    tparams.insert(argn.clone(), &argt.v);
                 }
-                let mut masht = Vec::with_capacity(oldlen);
-                for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
-                    let mashit =
-                        Inferator::mash(inferences, typevars, oldit, newit)?;
-                    masht.push(mashit);
-                }
-                let mut mashclosed = Vec::with_capacity(oldlen);
-                for (oldit, newit) in oldclosed.iter().zip(newclosed.iter()) {
-                    let mashit =
-                        Inferator::mash(inferences, typevars, oldit, newit)?;
-                    mashclosed.push(mashit);
-                }
-                let mashresult = Inferator::mash(
-                    inferences, typevars, oldresult, newresult,
+                let replaced_genft =
+                    genftype.map(&|t: &Type| t.replace_typevars(&tparams))?;
+                let mashed_ft = Inferator::mash_ft(
+                    inferences,
+                    typevars,
+                    &replaced_genft,
+                    specftype,
                 )?;
-                Ok(Type::Closure(masht, mashclosed, Box::new(mashresult)))
-            }
-            (
-                &Type::Func(ref oldargs, ref oldresult),
-                &Type::Closure(ref newargs, _, ref newresult),
-            ) => {
-                let oldlen = oldargs.len();
-                let newlen = newargs.len();
-                if oldlen != newlen {
-                    return match_err!(oldt, newt);
-                }
-                let mut masht = Vec::with_capacity(oldlen);
-                for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
-                    let mashit =
-                        Inferator::mash(inferences, typevars, oldit, newit)?;
-                    masht.push(mashit);
-                }
-                let mashresult = Inferator::mash(
-                    inferences, typevars, oldresult, newresult,
-                )?;
-                Ok(Type::Func(masht, Box::new(mashresult)))
-            }
-            (
-                &Type::Closure(ref oldargs, _, ref oldresult),
-                &Type::Func(ref newargs, ref newresult),
-            ) => {
-                let oldlen = oldargs.len();
-                let newlen = newargs.len();
-                if oldlen != newlen {
-                    return match_err!(oldt, newt);
-                }
-                let mut masht = Vec::with_capacity(oldlen);
-                for (oldit, newit) in oldargs.iter().zip(newargs.iter()) {
-                    let mashit =
-                        Inferator::mash(inferences, typevars, oldit, newit)?;
-                    masht.push(mashit);
-                }
-                let mashresult = Inferator::mash(
-                    inferences, typevars, oldresult, newresult,
-                )?;
-                Ok(Type::Func(masht, Box::new(mashresult)))
+                Ok(Type::SpecialFunc(argtypes.clone(), mashed_ft))
             }
             (&Type::Tuple(ref olditems), &Type::Tuple(ref newitems)) => {
                 let oldlen = olditems.0.len();
@@ -717,12 +639,37 @@ impl<'b> Inferator<'b>
         mtype
     }
 
+    fn mash_ft(
+        inferences: &mut HashMap<Lstr, Type>,
+        typevars: &HashMap<&Lstr, bool>,
+        oldt: &FuncType,
+        newt: &FuncType,
+    ) -> Lresult<FuncType>
+    {
+        let oldlen = oldt.args.len();
+        let newlen = newt.args.len();
+        if oldlen != newlen {
+            return match_err!(oldt, newt);
+        }
+        let mut masht = Vec::with_capacity(oldlen);
+        let mashit = oldt.args.iter().zip(newt.args.iter());
+        for (oldit, newit) in mashit {
+            let mashit =
+                Inferator::mash(inferences, typevars, &oldit.v, &newit.v)?;
+            masht.push(StrupleItem::new(oldit.k.clone(), mashit));
+        }
+
+        let mashresult =
+            Inferator::mash(inferences, typevars, &oldt.result, &newt.result)?;
+        Ok(FuncType::new(StrupleKV::from(masht), mashresult))
+    }
+
 
     pub fn make_call_type(
         &mut self,
         ftype: &Type,
         argst: &Vec<&Type>,
-    ) -> TypeResult
+    ) -> Lresult<Type>
     {
         vout!("make_call_type({}, {:?})\n", ftype, argst);
         let (defargst, defresult) = Type::split_func_ref(ftype);
@@ -736,14 +683,15 @@ impl<'b> Inferator<'b>
             panic!("it's so much fun to curry, but not supported yet");
         }
 
-        let mashed_args = defargst
+        let mash_result: Vec<Lresult<StrupleItem<Option<Lstr>, Type>>>;
+        mash_result = defargst
             .iter()
             .zip(argst.iter())
             .map(|(defargt, argt)| {
-                Inferator::mash(
+                let mash_arg = Inferator::mash(
                     &mut self.inferences,
                     &self.typevars,
-                    defargt,
+                    &defargt.v,
                     argt,
                 )
                 .map_err(|e| {
@@ -751,10 +699,11 @@ impl<'b> Inferator<'b>
                         "expected function args in {}: {:?} found {:?}",
                         self.funcname, defargst, argst,
                     )))
-                })
-                .unwrap()
+                })?;
+                Ok(StrupleItem::new(defargt.k.clone(), mash_arg))
             })
             .collect();
+        let mashed_args = Result::from_iter(mash_result)?;
         Ok(Type::f(mashed_args, self.inferred_type(defresult)))
     }
 }
@@ -767,7 +716,7 @@ mod tests
     use leema::list;
     use leema::lri::Lri;
     use leema::lstr::Lstr;
-    use leema::struple::Struple;
+    use leema::struple::{Struple, StrupleKV};
     use leema::val::{Type, Val};
 
     use std::collections::HashMap;
@@ -817,18 +766,18 @@ mod tests
         let fri = Lri::new(Lstr::Sref("burritos"));
         let mut t = Inferator::new(&fri);
         let defargst = Type::f(
-            vec![Type::Var(Lstr::from("A")), Type::Int],
+            StrupleKV::from(vec![Type::Var(Lstr::from("A")), Type::Int]),
             Type::Var(Lstr::from("A")),
         );
         let argvalt = vec![&Type::Hashtag, &Type::Int];
 
         let mct = t.make_call_type(&defargst, &argvalt).unwrap();
 
-        let (func_args, func_result) = Type::split_func(mct);
+        let (func_args, func_result) = Type::split_func_ref(&mct);
         assert_eq!(2, func_args.len());
-        assert_eq!(Type::Hashtag, func_args[0]);
-        assert_eq!(Type::Int, func_args[1]);
-        assert_eq!(Type::Hashtag, func_result);
+        assert_eq!(Type::Hashtag, func_args[0].v);
+        assert_eq!(Type::Int, func_args[1].v);
+        assert_eq!(Type::Hashtag, *func_result);
     }
 
     #[test]

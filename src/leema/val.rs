@@ -1,17 +1,19 @@
+use leema::failure::{Failure, Lresult};
 use leema::frame::FrameTrace;
 use leema::list;
 use leema::lmap::{self, LmapNode};
-use leema::lri::Lri;
+use leema::lri::{GenericModId, Lri, ModLocalId, SpecialModId};
 use leema::lstr::Lstr;
 use leema::msg;
 use leema::reg::{self, Ireg, Iregistry, Reg};
 use leema::sendclone::{self, SendClone};
-use leema::struple::Struple;
+use leema::struple::{Struple, Struple2, StrupleKV};
 
 use std::cmp::{Ordering, PartialEq, PartialOrd};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::io::Error;
+use std::iter::FromIterator;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 
@@ -22,7 +24,7 @@ use mopa;
 #[derive(Clone)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
-pub enum FuncType
+pub enum FuncType2
 {
     Pure,
     Obs,
@@ -30,6 +32,56 @@ pub enum FuncType
     Query,
     Cmd,
     Main, // or Control?
+}
+
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Hash)]
+#[derive(Ord)]
+pub struct FuncType
+{
+    pub args: Struple2<Type>,
+    pub closed: Struple2<Type>,
+    pub result: Box<Type>,
+}
+
+impl FuncType
+{
+    pub fn new(args: Struple2<Type>, result: Type) -> FuncType
+    {
+        FuncType {
+            args,
+            closed: StrupleKV::none(),
+            result: Box::new(result),
+        }
+    }
+
+    pub fn new_closure(
+        args: Struple2<Type>,
+        closed: Struple2<Type>,
+        result: Type,
+    ) -> FuncType
+    {
+        FuncType {
+            args,
+            closed,
+            result: Box::new(result),
+        }
+    }
+
+    pub fn map<Op>(&self, op: &Op) -> Lresult<FuncType>
+    where
+        Op: Fn(&Type) -> Lresult<Option<Type>>,
+    {
+        let mapf = |v: &Type| v.map(op);
+        let m_args = self.args.map_v(mapf)?;
+        let m_closed = self.closed.map_v(mapf)?;
+        let m_result = self.result.map(op)?;
+        Ok(FuncType::new_closure(m_args, m_closed, m_result))
+    }
 }
 
 // #[derive(Debug)]
@@ -47,12 +99,17 @@ pub enum Type
     Hashtag,
     Tuple(Struple<Type>),
     Failure,
-    Func(Vec<Type>, Box<Type>),
-    Closure(Vec<Type>, Vec<Type>, Box<Type>),
+    Func(FuncType),
     // different from base collection/map interfaces?
     // base interface/type should probably be iterator
     // and then it should be a protocol, not type
     StrictList(Box<Type>),
+    Mod(ModLocalId),
+    Special(SpecialModId),
+    Generic(GenericModId),
+    GenericFunc(Vec<Lstr>, FuncType),
+    SpecialFunc(StrupleKV<Lstr, Type>, FuncType),
+    // UserDef to be deleted once everything is using Mod/Special/Generic/etc
     UserDef(Lri),
     Lib(String),
     Resource(Lstr),
@@ -63,14 +120,22 @@ pub enum Type
 
     Unknown,
     Var(Lstr),
-    AnonVar,
 }
 
 impl Type
 {
-    pub fn f(inputs: Vec<Type>, result: Type) -> Type
+    pub fn f(inputs: Struple2<Type>, result: Type) -> Type
     {
-        Type::Func(inputs, Box::new(result))
+        Type::Func(FuncType {
+            args: inputs,
+            closed: StrupleKV::none(),
+            result: Box::new(result),
+        })
+    }
+
+    pub fn new_var(var_name: &str) -> Type
+    {
+        Type::Var(Lstr::from(format!("TypeOf {}", var_name)))
     }
 
     pub fn future(inner: Type) -> Type
@@ -98,65 +163,71 @@ impl Type
         }
     }
 
-    pub fn split_func(t: Type) -> (Vec<Type>, Type)
+    pub fn split_func_ref(t: &Type) -> (&Struple2<Type>, &Type)
     {
         match t {
-            Type::Func(args, result) => (args, *result),
+            &Type::Func(ref ftype) => (&ftype.args, &ftype.result),
+            &Type::GenericFunc(_, ref ftype) => (&ftype.args, &ftype.result),
+            &Type::SpecialFunc(_, ref ftype) => (&ftype.args, &ftype.result),
             _ => {
-                panic!("Not a func type {:?}", t);
-            }
-        }
-    }
-
-    pub fn split_func_ref(t: &Type) -> (&Vec<Type>, &Type)
-    {
-        match t {
-            &Type::Func(ref args, ref result) => (args, &*result),
-            _ => {
-                panic!("Not a func type {:?}", t);
+                panic!("not a func type {:?}", t);
             }
         }
     }
 
     pub fn is_func(&self) -> bool
     {
-        if let &Type::Func(_, _) = self {
-            true
-        } else {
-            false
+        match self {
+            &Type::Func(_) => true,
+            &Type::GenericFunc(_, _) => true,
+            _ => false,
         }
     }
 
-    pub fn map<Op>(&self, op: &Op) -> Type
+    pub fn map<Op>(&self, op: &Op) -> Lresult<Type>
     where
-        Op: Fn(&Type) -> Option<Type>,
+        Op: Fn(&Type) -> Lresult<Option<Type>>,
     {
-        if let Some(m_self) = op(self) {
-            return m_self;
+        if let Some(m_self) = op(self)? {
+            return Ok(m_self);
         }
 
-        match self {
+        let res = match self {
             &Type::Tuple(ref items) => {
-                let m_items = items.map(|i| i.map(op));
+                let m_items = items.map(|i| i.map(op))?;
                 Type::Tuple(m_items)
             }
             &Type::StrictList(ref inner) => {
-                let m_inner = inner.map(op);
+                let m_inner = inner.map(op)?;
                 Type::StrictList(Box::new(m_inner))
             }
-            &Type::Func(ref args, ref result) => {
-                let m_args = args.iter().map(|a| a.map(op)).collect();
-                let m_result = result.map(op);
-                Type::Func(m_args, Box::new(m_result))
+            &Type::Func(ref ftyp) => {
+                let m_ftype = ftyp.map(op)?;
+                Type::Func(m_ftype)
             }
-            &Type::Closure(ref args, ref closed, ref result) => {
-                let m_args = args.iter().map(|a| a.map(op)).collect();
-                let m_closed = closed.iter().map(|a| a.map(op)).collect();
-                let m_result = Box::new(result.map(op));
-                Type::Closure(m_args, m_closed, m_result)
+            &Type::GenericFunc(ref tparams, ref ftyp) => {
+                let m_ftype = ftyp.map(op)?;
+                Type::GenericFunc(tparams.clone(), m_ftype)
             }
 
             _ => self.clone(),
+        };
+        Ok(res)
+    }
+
+    pub fn replace_typevars(
+        &self,
+        vars: &HashMap<Lstr, &Type>,
+    ) -> Lresult<Option<Type>>
+    {
+        match self {
+            Type::Var(ref name) => {
+                match vars.get(name) {
+                    Some(typ) => return Ok(Some((*typ).clone())),
+                    None => return Ok(Some(Type::Unknown)),
+                }
+            }
+            _ => Ok(None),
         }
     }
 
@@ -173,14 +244,12 @@ impl Type
             &Type::StrictList(ref i) => {
                 Type::StrictList(Box::new(i.deep_clone()))
             }
-            &Type::Func(ref args, ref result) => {
-                let dc_args = args.iter().map(|t| t.deep_clone()).collect();
-                Type::Func(dc_args, Box::new(result.deep_clone()))
+            &Type::Func(ref ftyp) => Type::Func(ftyp.clone()),
+            &Type::GenericFunc(ref vars, ref ftyp) => {
+                Type::GenericFunc(vars.clone(), ftyp.clone())
             }
-            &Type::Closure(ref args, ref closed, ref result) => {
-                let dc_args = args.iter().map(|t| t.deep_clone()).collect();
-                let dc_clos = closed.iter().map(|t| t.deep_clone()).collect();
-                Type::Closure(dc_args, dc_clos, Box::new(result.deep_clone()))
+            &Type::SpecialFunc(ref vars, ref ftyp) => {
+                Type::SpecialFunc(vars.clone(), ftyp.clone())
             }
             &Type::Unknown => Type::Unknown,
             &Type::Var(ref id) => Type::Var(id.clone_for_send()),
@@ -214,6 +283,36 @@ impl sendclone::SendClone for Type
     }
 }
 
+impl fmt::Display for FuncType
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "(")?;
+        for a in self.args.iter() {
+            match a.k {
+                Some(ref k) => {
+                    write!(f, "{}:{},", k, a.v)?;
+                }
+                None => {
+                    write!(f, "{},", a.v)?;
+                }
+            }
+        }
+        write!(f, "/")?;
+        for c in self.closed.iter() {
+            match c.k {
+                Some(ref k) => {
+                    write!(f, "{}:{},", k, c.v)?;
+                }
+                None => {
+                    write!(f, "{},", c.v)?;
+                }
+            }
+        }
+        write!(f, "):{}", self.result)
+    }
+}
+
 impl fmt::Display for Type
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
@@ -226,27 +325,23 @@ impl fmt::Display for Type
             &Type::Tuple(ref items) => write!(f, "{}", items),
             &Type::UserDef(ref name) => write!(f, "{}", name),
             &Type::Failure => write!(f, "Failure"),
-            &Type::Func(ref args, ref result) => {
-                write!(f, "F(")?;
-                for a in args {
-                    write!(f, "{},", a)?
+            &Type::Mod(ref id) => write!(f, "{}", id),
+            &Type::Generic(ref id) => write!(f, "{:?}", id),
+            &Type::Special(ref id) => write!(f, "{:?}", id),
+            &Type::Func(ref ftyp) => write!(f, "F{}", ftyp),
+            &Type::GenericFunc(ref params, ref ftyp) => {
+                write!(f, "GF[")?;
+                for p in params.iter() {
+                    write!(f, "{},", p)?;
                 }
-                write!(f, "):{}", result)
+                write!(f, "]{}", ftyp)
             }
-            &Type::Closure(ref args, ref closed, ref result) => {
-                write!(f, "F(")?;
-                for a in args {
-                    write!(f, "{},", a)?;
+            &Type::SpecialFunc(ref params, ref ftyp) => {
+                write!(f, "SF[")?;
+                for p in params.iter() {
+                    write!(f, "{},", p)?;
                 }
-                write!(f, ")")?;
-                if !closed.is_empty() {
-                    write!(f, "(")?;
-                    for c in closed {
-                        write!(f, "{},", c)?;
-                    }
-                    write!(f, ")")?;
-                }
-                write!(f, ":{}", result)
+                write!(f, "]{}", ftyp)
             }
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator
@@ -261,7 +356,6 @@ impl fmt::Display for Type
 
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::Var(ref name) => write!(f, "${}", name),
-            &Type::AnonVar => write!(f, "TypeAnonymous"),
         }
     }
 }
@@ -278,31 +372,20 @@ impl fmt::Debug for Type
             &Type::Tuple(ref items) => write!(f, "T{}", items),
             &Type::UserDef(ref name) => write!(f, "UserDef({})", name),
             &Type::Failure => write!(f, "Failure"),
-            &Type::Func(ref args, ref result) => {
-                for a in args {
-                    write!(f, "{:?}>", a).ok();
-                }
-                write!(f, "{:?}", result)
-            }
-            &Type::Closure(ref args, ref closed, ref result) => {
-                write!(f, "Fn(")?;
-                for a in args {
-                    write!(f, "{:?},", a)?;
-                }
-                write!(f, ")")?;
-                if !closed.is_empty() {
-                    write!(f, "(")?;
-                    for c in closed {
-                        write!(f, "{:?},", c)?;
-                    }
-                    write!(f, ")")?;
-                }
-                write!(f, ":{:?}", result)
-            }
+            &Type::Func(ref ftyp) => write!(f, "{:?}", ftyp),
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
+            &Type::Mod(ref id) => write!(f, "{:?}", id),
+            &Type::Special(ref id) => write!(f, "{:?}", id),
+            &Type::Generic(ref id) => write!(f, "{:?}", id),
+            &Type::GenericFunc(ref vars, ref ftype) => {
+                write!(f, "GenericFunc({:?}, {:?})", vars, ftype)
+            }
+            &Type::SpecialFunc(ref vars, ref ftyp) => {
+                write!(f, "SpecialFunc({:?} {:?})", vars, ftyp)
+            }
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
             &Type::Resource(ref name) => write!(f, "Resource({})", &name),
             &Type::RustBlock => write!(f, "RustBlock"),
@@ -312,57 +395,9 @@ impl fmt::Debug for Type
 
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::Var(ref name) => write!(f, "${}", name),
-            &Type::AnonVar => write!(f, "TypeAnonymous"),
         }
     }
 }
-
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-pub enum TypeErr
-{
-    Error(Lstr),
-    Mismatch(Type, Type, u32),
-    Unknowable,
-    Context(Box<TypeErr>, Lstr),
-}
-
-
-impl TypeErr
-{
-    pub fn add_context(self, ctx: Lstr) -> TypeErr
-    {
-        TypeErr::Context(Box::new(self), ctx)
-    }
-}
-
-impl fmt::Display for TypeErr
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        match self {
-            &TypeErr::Error(ref estr) => write!(f, "TypeError({})", estr),
-            &TypeErr::Mismatch(ref a, ref b, line) => {
-                write!(f, "TypeMismatch({},{} @ {})", a, b, line)
-            }
-            &TypeErr::Unknowable => write!(f, "UnknowableType"),
-            &TypeErr::Context(ref inner_e, ref ctx) => {
-                write!(f, "({}, '{}')", inner_e, ctx)
-            }
-        }
-    }
-}
-
-impl<'a> From<&'a TypeErr> for String
-{
-    fn from(e: &'a TypeErr) -> String
-    {
-        format!("{}", e)
-    }
-}
-
-pub type TypeResult = Result<Type, TypeErr>;
 
 
 pub trait LibVal: mopa::Any + fmt::Debug + Send + Sync
@@ -657,7 +692,7 @@ impl Val
             &Val::Void => Type::Void,
             &Val::Wildcard => Type::Unknown,
             &Val::PatternVar(_) => Type::Unknown,
-            &Val::Id(_) => Type::AnonVar,
+            &Val::Id(ref var_name) => Type::new_var(var_name),
             &Val::RustBlock => Type::RustBlock,
             &Val::Map(_) => lmap::MAP_TYPE,
             &Val::Tuple(ref items) if items.0.len() == 1 => {
@@ -778,15 +813,52 @@ impl Val
         }
     }
 
-    pub fn specialize_lri_params(&self, lri: &Lri) -> Option<Val>
+    pub fn specialize_lri_params(&self, lri: &Lri) -> Lresult<Option<Val>>
     {
-        match self {
+        if let Val::FuncRef(ref selfri, ref _args, ref _typ) = self {
+            if !Lri::nominal_eq(selfri, lri) {
+                return Err(Failure::new(
+                    "function_mismatch",
+                    Lstr::from(format!(
+                        "functions do not match: {} != {}",
+                        selfri, lri
+                    )),
+                ));
+            }
+            if selfri.params.is_none() && lri.params.is_none() {}
+            let mapped_types = selfri
+                .params
+                .as_ref()
+                .unwrap()
+                .iter()
+                .zip(lri.params.as_ref().unwrap().iter())
+                .map(|(ref tvar, ref tval)| {
+                    let var_key = match tvar {
+                        Type::Var(ref name) => name.clone(),
+                        _ => {
+                            return Err(Failure::new(
+                                "type_param",
+                                Lstr::Sref("expected type parameter"),
+                            ));
+                        }
+                    };
+                    Ok((var_key, (*tval).clone()))
+                });
+            let ok_mapped_types: Vec<(Lstr, Type)> =
+                Lresult::from_iter(mapped_types)?;
+            println!("specialization is: {:?}", ok_mapped_types);
+        }
+        let result = match self {
             &Val::Struct(ref tri, ref flds) if Lri::nominal_eq(tri, lri) => {
                 let params = lri.params.as_ref().unwrap();
-                let m_tri = tri.specialize_params(params).unwrap();
+                let m_tri = tri.specialize_params(params.clone()).unwrap();
                 let m_flds: Struple<Val> = {
                     let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
-                    flds.map(|f: &Val| f.map(&apply_f))
+                    let im_flds = flds
+                        .0
+                        .iter()
+                        .map(|f| Ok((f.0.clone(), f.1.map(&apply_f)?)));
+                    Lresult::from_iter(im_flds)?
                 };
                 Some(Val::Struct(m_tri, m_flds))
             }
@@ -794,10 +866,10 @@ impl Val
                 if Lri::nominal_eq(tri, lri) =>
             {
                 let params = lri.params.as_ref().unwrap();
-                let m_tri = tri.specialize_params(params).unwrap();
+                let m_tri = tri.specialize_params(params.clone()).unwrap();
                 let m_flds: Struple<Val> = {
                     let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
-                    flds.map(|f: &Val| f.map(&apply_f))
+                    flds.map(|f: &Val| f.map(&apply_f))?
                 };
                 Some(Val::EnumStruct(m_tri, variant.clone(), m_flds))
             }
@@ -805,53 +877,58 @@ impl Val
                 if Lri::nominal_eq(tri, lri) =>
             {
                 let params = lri.params.as_ref().unwrap();
-                let m_tri = tri.specialize_params(params).unwrap();
+                let m_tri = tri.specialize_params(params.clone()).unwrap();
                 Some(Val::EnumToken(m_tri, variant.clone()))
             }
             &Val::Token(ref tri) if Lri::nominal_eq(tri, lri) => {
                 let params = lri.params.as_ref().unwrap();
-                let m_tri = tri.specialize_params(params).unwrap();
+                let m_tri = tri.specialize_params(params.clone()).unwrap();
                 Some(Val::Token(m_tri))
             }
             &Val::FuncRef(ref tri, ref args, ref typ)
                 if Lri::nominal_eq(tri, lri) =>
             {
                 let params = lri.params.as_ref().unwrap();
-                let m_tri = tri.specialize_params(params).unwrap();
+                let m_tri = tri.specialize_params(params.clone()).unwrap();
                 let m_args: Struple<Val> = {
                     let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
-                    args.map(|f: &Val| f.map(&apply_f))
+                    let im_args = args
+                        .0
+                        .iter()
+                        .map(|f| Ok((f.0.clone(), f.1.map(&apply_f)?)));
+                    Lresult::from_iter(im_args)?
                 };
                 Some(Val::FuncRef(m_tri, m_args, typ.clone()))
             }
             _ => None,
-        }
+        };
+        Ok(result)
     }
 
-    pub fn map<Op>(&self, op: &Op) -> Val
+    pub fn map<Op>(&self, op: &Op) -> Lresult<Val>
     where
-        Op: Fn(&Val) -> Option<Val>,
+        Op: Fn(&Val) -> Lresult<Option<Val>>,
     {
-        if let Some(m_self) = op(self) {
-            return m_self;
+        if let Some(m_self) = op(self)? {
+            return Ok(m_self);
         }
 
-        match self {
+        let m_result = match self {
             &Val::Cons(ref head, ref tail) => {
-                let m_head = head.map(op);
-                let m_tail = tail.map(op);
+                let m_head = head.map(op)?;
+                let m_tail = tail.map(op)?;
                 Val::Cons(Box::new(m_head), Arc::new(m_tail))
             }
             &Val::Tuple(ref flds) => {
-                let m_flds = flds.map(|f: &Val| f.map(op));
+                let m_flds = flds.map(|f: &Val| f.map(op))?;
                 Val::Tuple(m_flds)
             }
             &Val::Struct(ref typ, ref flds) => {
-                let m_flds = flds.map(|f: &Val| f.map(op));
+                let m_flds = flds.map(|f: &Val| f.map(op))?;
                 Val::Struct(typ.clone(), m_flds)
             }
             &Val::EnumStruct(ref typ, ref vname, ref flds) => {
-                let m_flds = flds.map(|f: &Val| f.map(op));
+                let m_flds = flds.map(|f: &Val| f.map(op))?;
                 Val::EnumStruct(typ.clone(), vname.clone(), m_flds)
             }
             &Val::EnumToken(ref typ, ref vname) => {
@@ -860,13 +937,13 @@ impl Val
             &Val::Token(ref typ) => Val::Token(typ.clone()),
             &Val::FuncRef(ref fi, ref args, ref typ) => {
                 let m_fi = fi.clone();
-                let m_args = args.map(|a| a.map(op));
+                let m_args = args.map(|a| a.map(op))?;
                 let m_typ = typ.clone();
                 Val::FuncRef(m_fi, m_args, m_typ)
             }
             &Val::Failure(ref tag, ref msg, ref ft, status) => {
-                let m_tag = tag.map(op);
-                let m_msg = msg.map(op);
+                let m_tag = tag.map(op)?;
+                let m_msg = msg.map(op)?;
                 Val::Failure(
                     Box::new(m_tag),
                     Box::new(m_msg),
@@ -875,7 +952,8 @@ impl Val
                 )
             }
             _ => self.clone(),
-        }
+        };
+        Ok(m_result)
     }
 
     pub fn deep_clone(&self) -> Val
@@ -1320,7 +1398,8 @@ impl PartialOrd for Val
             (&Val::Wildcard, _) => Some(Ordering::Less),
             (_, &Val::Wildcard) => Some(Ordering::Greater),
             _ => {
-                panic!("cannot compare({:?},{:?})", self, other);
+                eprintln!("cannot compare({:?},{:?})", self, other);
+                None
             }
         }
     }

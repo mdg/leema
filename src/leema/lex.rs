@@ -88,13 +88,11 @@ impl Token
                 parse::TOKEN_RPAREN => Token::RPAREN(tl),
                 parse::TOKEN_SEMICOLON => Token::SEMICOLON(tl),
                 parse::TOKEN_SquareL => Token::SquareL(tl),
-                parse::TOKEN_SquareCall => Token::SquareCall(tl),
                 parse::TOKEN_SquareR => Token::SquareR(tl),
                 parse::TOKEN_TIMES => Token::TIMES(tl),
                 parse::TOKEN_SLASH => Token::SLASH(tl),
                 parse::TOKEN_PIPE => Token::PIPE(tl),
                 parse::TOKEN_ASSIGN => Token::ASSIGN,
-                parse::TOKEN_FORK => Token::FORK(tl),
                 parse::TOKEN_Let => Token::Let(tl),
                 /*
                 parse::TOKEN_CurlyL => {
@@ -140,9 +138,6 @@ impl Token
                 parse::TOKEN_TYPE_STR => Token::TYPE_STR,
                 parse::TOKEN_TYPE_HASHTAG => Token::TYPE_HASHTAG,
                 parse::TOKEN_TYPE_VOID => Token::TYPE_VOID,
-                parse::TOKEN_TYPE_VAR => {
-                    Token::TYPE_VAR(TokenData::new((*tok).val(), tl))
-                }
                 parse::TOKEN_EOI => Token::EOI,
                 parse::TOKEN_ANY => Token::ANY,
                 parse::TOKEN_DollarQuestion => Token::DollarQuestion,
@@ -226,21 +221,39 @@ mod tests
     }
 
     #[test]
+    fn test_tokenize_enum_params()
+    {
+        let input = "
+        enum Foo[A, B]
+        |Bar(A)
+        |Baz(B)
+        --
+        ";
+        let tokens = super::lex(input);
+        assert_eq!(Token::ENUM(SrcLoc::new(2, 1)), tokens[0]);
+        assert_eq!(
+            Token::ID(TokenData::new(String::from("Foo"), SrcLoc::new(2, 5))),
+            tokens[1],
+        );
+        assert_eq!(Token::PIPE(SrcLoc::new(3, 1)), tokens[7]);
+    }
+
+    #[test]
     fn test_lex_enum_variants()
     {
         let actual = super::lex(
             "
-        enum Animal
+        enum Animal[A]
         |Dog
         |Cat Int
-        |Mouse $A
+        |Mouse A
         |Giraffe
             .height: Int
-            .weight: $A
+            .weight: A
         --
     ",
         );
-        assert_eq!(21, actual.len());
+        assert_eq!(24, actual.len());
     }
 
 }

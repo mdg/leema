@@ -1,4 +1,4 @@
-func inc(x: $T): $T >> x + 1 --
+func inc[T](x: T): T >> x + 1 --
 
 func main() >>
     let i := inc(~4)

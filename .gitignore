@@ -3,6 +3,8 @@
 /target/
 /lemon
 test.pyc
+# local tmp script for testing things temporarily
+/T/tmp.lma
 
 # Remove Cargo.lock from gitignore if creating an executable, leave it for libraries
 # More information here http://doc.crates.io/guide.html#cargotoml-vs-cargolock

@@ -1,8 +1,8 @@
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::parse::{Parser, Token};
-use leema::val::SrcLoc;
-use leema::val::Type;
+use leema::struple::{Struple2, StrupleItem};
+use leema::val::{FuncType, SrcLoc, Type};
 
 use std::collections::LinkedList;
 use std::fmt;
@@ -137,6 +137,8 @@ pub struct Kxpr
     pub x: Option<Box<Ast>>,
 }
 
+pub type KxprList = LinkedList<Kxpr>;
+
 impl Kxpr
 {
     pub fn new(k: Lstr, x: Ast) -> Kxpr
@@ -239,19 +241,19 @@ pub enum Ast
     // dereference another expression
     Deref(Box<Ast>),
     DotAccess(Box<Ast>, Lstr),
-    Fork(Box<Ast>),
     IfExpr(IfType, Box<Ast>, Box<IfCase>, SrcLoc),
     Import(Box<Ast>, SrcLoc),
     Let(Box<Ast>, Box<Ast>, SrcLoc),
     List(LinkedList<Ast>),
     Localid(Lstr, SrcLoc),
-    Lri(Vec<Lstr>, Option<LinkedList<Kxpr>>, SrcLoc),
-    Map(LinkedList<Kxpr>),
+    LocalGeneric(Lstr, KxprList, SrcLoc),
+    Modid(Lstr, Lstr, SrcLoc),
     Question,
     Return(Box<Ast>, SrcLoc),
     RustBlock,
     StrExpr(Vec<Ast>, SrcLoc),
     Tuple(LinkedList<Kxpr>),
+    TypeCall(Box<Ast>, KxprList, SrcLoc),
     TypeAnon,
     TypeBool,
     TypeFailure,
@@ -269,42 +271,50 @@ pub enum Ast
 
 impl Ast
 {
-    pub fn binaryop(callname: Vec<Lstr>, a: Ast, b: Ast, loc: SrcLoc) -> Ast
+    pub fn binaryop(
+        module: &'static str,
+        id: &'static str,
+        a: Ast,
+        b: Ast,
+        loc: SrcLoc,
+    ) -> Ast
     {
-        let name_lri = Ast::Lri(callname, None, loc.clone());
+        let name_lri = Ast::Modid(Lstr::Sref(module), Lstr::Sref(id), loc);
         let mut args = LinkedList::new();
         args.push_back(Kxpr::new_x(a));
         args.push_back(Kxpr::new_x(b));
         Ast::Call(Box::new(name_lri), args, loc)
     }
 
-    pub fn fork(x: Ast, loc: SrcLoc) -> Ast
+    pub fn type_call(
+        module: &'static str,
+        local: &'static str,
+        typs: Vec<Ast>,
+        loc: SrcLoc,
+    ) -> Ast
     {
-        let clos = Ast::closure(LinkedList::new(), x.clone(), loc);
-        let lrimods = vec![Lstr::Sref("task"), Lstr::Sref("spawn")];
-        let call = Ast::Lri(lrimods, None, loc);
-        let mut args = LinkedList::new();
-        args.push_back(Kxpr::new_x(clos));
-        Ast::Call(Box::new(call), args, loc)
+        let mods = Ast::Modid(Lstr::Sref(module), Lstr::Sref(local), loc);
+        let tparams = typs.iter().map(|t| Kxpr::new_x(t.clone())).collect();
+        Ast::TypeCall(Box::new(mods), tparams, loc)
     }
 
     pub fn from_lri(l: Lri, loc: &SrcLoc) -> Ast
     {
-        if l.local_only() {
-            return Ast::Localid(l.local_ref().clone(), *loc);
-        }
-        let mods = if l.has_modules() {
-            vec![l.mod_ref().unwrap().clone(), l.local_ref().clone()]
-        } else {
-            vec![l.local_ref().clone()]
+        let base = match l.modules {
+            Some(mods) => Ast::Modid(mods, l.localid, *loc),
+            None => Ast::Localid(l.localid, *loc),
         };
-        let new_params: Option<LinkedList<Kxpr>> = l.params.map(|params| {
-            params
-                .into_iter()
-                .map(|p| Kxpr::new_x(Ast::from_type(p, loc)))
-                .collect()
-        });
-        Ast::Lri(mods, new_params, *loc)
+
+        match l.params {
+            Some(params) => {
+                let kx_params = params
+                    .into_iter()
+                    .map(|p| Kxpr::new_x(Ast::from_type(p, loc)))
+                    .collect();
+                Ast::TypeCall(Box::new(base), kx_params, *loc)
+            }
+            None => base,
+        }
     }
 
     pub fn from_type(t: Type, loc: &SrcLoc) -> Ast
@@ -331,15 +341,24 @@ impl Ast
                     .collect();
                 Ast::Tuple(new_items)
             }
-            Type::Func(params, result) => {
-                let kx_result = Ast::from_type(*result, loc);
-                let new_params: Vec<Kxpr> = params
-                    .into_iter()
-                    .map(|it| {
-                        let newt = Ast::from_type(it, loc);
-                        Kxpr::new_x(newt)
-                    })
-                    .collect();
+            Type::Func(ftype) => {
+                let kx_result = Ast::from_type(*ftype.result, loc);
+                let new_params: Vec<Kxpr> = if ftype.args.is_empty() {
+                    vec![]
+                } else {
+                    ftype
+                        .args
+                        .0
+                        .into_iter()
+                        .map(|it| {
+                            let newt = Ast::from_type(it.v, loc);
+                            Kxpr {
+                                k: it.k,
+                                x: Some(Box::new(newt)),
+                            }
+                        })
+                        .collect()
+                };
                 Ast::TypeFunc(new_params, Box::new(kx_result), *loc)
             }
             Type::StrictList(inner) => {
@@ -348,7 +367,7 @@ impl Ast
                 Ast::List(items)
             }
             Type::Var(name) => Ast::TypeVar(name, *loc),
-            Type::AnonVar => Ast::TypeAnon,
+            Type::Unknown => Ast::TypeAnon,
             _ => {
                 panic!("cannot convert from type to ast");
             }
@@ -386,7 +405,8 @@ impl Ast
     {
         match self {
             &Ast::Localid(_, ref loc) => loc,
-            &Ast::Lri(_, _, ref loc) => loc,
+            &Ast::Modid(_, _, ref loc) => loc,
+            &Ast::TypeCall(_, _, ref loc) => loc,
             _ => {
                 panic!("cannot find SrcLoc for: {:?}", self);
             }
@@ -404,36 +424,12 @@ impl Ast
     }
 }
 
-impl<'a> From<&'a Ast> for String
-{
-    fn from(a: &'a Ast) -> String
-    {
-        match a {
-            &Ast::Localid(ref ls, _) => String::from(ls),
-            &Ast::Lri(ref items, ref types, _) => {
-                format!("{:?}<{:?}>", items, types)
-            }
-            _ => {
-                panic!("cannot convert to string: {:?}", a);
-            }
-        }
-    }
-}
-
 impl<'a> From<&'a Ast> for Lstr
 {
     fn from(a: &'a Ast) -> Lstr
     {
         match a {
             &Ast::Localid(ref ls, _) => ls.clone(),
-            &Ast::Lri(ref items, ref types, _) => {
-                if items.len() == 1 && types.is_none() {
-                    items.first().unwrap().clone()
-                } else {
-                    let new_str = format!("{:?}<{:?}>", items, types);
-                    Lstr::from(new_str)
-                }
-            }
             _ => {
                 panic!("cannot convert to string: {:?}", a);
             }
@@ -447,19 +443,24 @@ impl<'a> From<&'a Ast> for Lri
     {
         match a {
             &Ast::Localid(ref id, _) => Lri::new(id.clone()),
-            &Ast::Lri(ref names, ref types, _) => {
-                let param_array = types.as_ref().map(|param_list| {
-                    param_list
-                        .iter()
-                        .map(|p| Type::from(p.x_ref().unwrap()))
-                        .collect()
-                });
-                let modname = if names.len() == 1 {
-                    None
-                } else {
-                    Some(names.first().unwrap().clone())
+            &Ast::Modid(ref mods, ref localid, _) => {
+                Lri::with_modules(mods.clone(), localid.clone())
+            }
+            &Ast::TypeCall(ref base, ref types, _) => {
+                let lri_base = match **base {
+                    Ast::Localid(ref id, _) => Lri::new(id.clone()),
+                    Ast::Modid(ref mods, ref localid, _) => {
+                        Lri::with_modules(mods.clone(), localid.clone())
+                    }
+                    _ => {
+                        panic!("unknown base: {:?}", base);
+                    }
                 };
-                Lri::full(modname, names.last().unwrap().clone(), param_array)
+                let param_array = types
+                    .iter()
+                    .map(|p| Type::from(p.x_ref().unwrap()))
+                    .collect();
+                lri_base.replace_params(param_array)
             }
             _ => {
                 panic!("cannot convert Ast to Lri: {:?}", a);
@@ -473,7 +474,7 @@ impl<'a> From<&'a Ast> for Type
     fn from(a: &'a Ast) -> Type
     {
         match a {
-            &Ast::TypeAnon => Type::AnonVar,
+            &Ast::TypeAnon => Type::Unknown,
             &Ast::TypeInt => Type::Int,
             &Ast::TypeBool => Type::Bool,
             &Ast::TypeFailure => Type::Failure,
@@ -482,12 +483,16 @@ impl<'a> From<&'a Ast> for Type
             &Ast::TypeVar(ref v, _) => Type::Var(v.clone()),
             &Ast::TypeVoid => Type::Void,
             &Ast::TypeFunc(ref parts, ref result, _) => {
-                let mut ppp: Vec<Type> = parts
+                let mut ppp: Struple2<Type> = parts
                     .iter()
-                    .map(|p| Type::from(p.x_ref().unwrap()))
+                    .map(|p| {
+                        let pt = Type::from(p.x_ref().unwrap());
+                        StrupleItem::new(p.k_clone(), pt)
+                    })
                     .collect();
                 let result_type = Type::from(&**result);
-                Type::Func(ppp, Box::new(result_type))
+                let functype = FuncType::new(ppp, result_type);
+                Type::Func(functype)
             }
             &Ast::List(ref items) => {
                 match items.len() {
@@ -514,8 +519,11 @@ impl<'a> From<&'a Ast> for Type
                     .collect();
                 Type::Tuple(pp_items)
             }
+            &Ast::TypeCall(_, _, _) => Type::UserDef(Lri::from(a)),
             &Ast::Localid(ref id, _) => Type::UserDef(Lri::new(id.clone())),
-            &Ast::Lri(_, _, _) => Type::UserDef(Lri::from(a)),
+            &Ast::Modid(ref mods, ref id, _) => {
+                Type::UserDef(Lri::with_modules(mods.clone(), id.clone()))
+            }
             _ => {
                 panic!("cannot convert Ast to Type: {:?}", a);
             }
@@ -549,20 +557,13 @@ impl fmt::Display for Ast
                 write!(f, "(let {} = {})", lhs, rhs)
             }
             &Ast::Localid(ref id, _) => write!(f, "{}", id),
-            &Ast::Lri(ref id, ref types, _) => {
-                let mut use_sep = false;
-                for i in id {
-                    if use_sep {
-                        write!(f, "::{}", i)?;
-                    } else {
-                        write!(f, "{}", i)?;
-                        use_sep = true;
-                    }
+            &Ast::Modid(ref mods, ref id, _) => write!(f, "{}::{}", mods, id),
+            &Ast::TypeCall(ref base, ref types, _) => {
+                write!(f, "{}[", base)?;
+                for t in types.iter() {
+                    write!(f, "{},", t)?;
                 }
-                if types.is_some() {
-                    write!(f, "{:?}", types.as_ref().unwrap())?;
-                }
-                Ok(())
+                write!(f, "]")
             }
             &Ast::DefFunc(ft, ref decl, ref body) => {
                 writeln!(f, "({:?} {}", ft, decl)?;
@@ -584,12 +585,12 @@ impl fmt::Display for Ast
 pub fn parse(toks: Vec<Token>) -> Ast
 {
     let e = Err(0);
-    let mut p = Parser::new(e);
+    let mut p = Parser::new((e, Ast::ConstVoid));
     for t in toks {
         p.parse(t);
     }
     p.parse(Token::EOI);
-    p.into_extra().unwrap()
+    p.into_extra().0.unwrap()
 }
 
 
@@ -605,32 +606,19 @@ mod tests
     use std::collections::LinkedList;
 
 
-    fn test_lri(item: &'static str, line: i16, col: i8) -> Ast
-    {
-        Ast::Lri(
-            vec![Lstr::from(item)].into_iter().collect(),
-            None,
-            SrcLoc::new(line, col),
-        )
-    }
-
     fn test_localid(id: &'static str, line: i16, col: i8) -> Ast
     {
         Ast::Localid(Lstr::from(id), SrcLoc::new(line, col))
     }
 
-    fn test_mod_lri(
+    fn test_modid(
         m: &'static str,
         item: &'static str,
         line: i16,
         col: i8,
     ) -> Ast
     {
-        Ast::Lri(
-            vec![Lstr::from(m), Lstr::from(item)].into_iter().collect(),
-            None,
-            SrcLoc::new(line, col),
-        )
+        Ast::Modid(Lstr::from(m), Lstr::from(item), SrcLoc::new(line, col))
     }
 
     #[test]
@@ -688,7 +676,7 @@ mod tests
         let root = ast::parse(lexed);
 
         let expected = Ast::Block(vec![Ast::Call(
-            Box::new(test_mod_lri("prefab", "int_add", 1, 2)),
+            Box::new(test_modid("prefab", "int_add", 1, 2)),
             vec![Kxpr::new_x(Ast::ConstInt(5)), Kxpr::new_x(Ast::ConstInt(3))]
                 .into_iter()
                 .collect(),
@@ -743,14 +731,14 @@ mod tests
         let root = ast::parse(lex(input));
 
         let inner = Ast::Call(
-            Box::new(test_mod_lri("prefab", "int_add", 1, 2)),
+            Box::new(test_modid("prefab", "int_add", 1, 2)),
             vec![Kxpr::new_x(Ast::ConstInt(5)), Kxpr::new_x(Ast::ConstInt(3))]
                 .into_iter()
                 .collect(),
             SrcLoc::new(1, 2),
         );
         let outer = Ast::Call(
-            Box::new(test_mod_lri("prefab", "int_add", 1, 4)),
+            Box::new(test_modid("prefab", "int_add", 1, 4)),
             vec![Kxpr::new_x(inner), Kxpr::new_x(Ast::ConstInt(2))]
                 .into_iter()
                 .collect(),
@@ -768,7 +756,7 @@ mod tests
         let root = ast::parse(lex(input));
 
         let neg4 = Ast::Call(
-            Box::new(test_mod_lri("prefab", "int_negate", 1, 5)),
+            Box::new(test_modid("prefab", "int_negate", 1, 5)),
             vec![Kxpr::new_x(Ast::ConstInt(4))].into_iter().collect(),
             SrcLoc::new(1, 5),
         );
@@ -836,9 +824,9 @@ mod tests
 
         let mut cargs = LinkedList::new();
         cargs.push_back(Kxpr::new_k(Lstr::Sref("x")));
-        let multri = Ast::Lri(
-            vec![Lstr::Sref("prefab"), Lstr::Sref("int_mult")],
-            None,
+        let multri = Ast::Modid(
+            Lstr::Sref("prefab"),
+            Lstr::Sref("int_mult"),
             SrcLoc::new(1, 7),
         );
         let mut mult_args = LinkedList::new();
@@ -1115,13 +1103,13 @@ mod tests
     fn test_parse_enum_variants()
     {
         let input = "
-            enum Animal
+            enum Animal[A]
             |Dog
             |Cat(Int)
-            |Mouse($A)
+            |Mouse(A)
             |Giraffe
                 .height: Int
-                .weight: $A
+                .weight: A
             --
             ";
         let root = ast::parse(lex(input));
@@ -1131,10 +1119,18 @@ mod tests
             if let &Ast::DefData(ast::DataType::Enum, ref name, ref vars, _) =
                 first
             {
-                assert_eq!(
-                    Ast::Localid(Lstr::from("Animal"), SrcLoc::new(2, 5)),
-                    **name
-                );
+                if let Ast::TypeCall(ref call, ref tvars, _) = **name {
+                    assert_eq!(
+                        Ast::Localid(Lstr::Sref("Animal"), SrcLoc::new(2, 5)),
+                        **call,
+                    );
+                    assert_eq!(
+                        Ast::Localid(Lstr::Sref("A"), SrcLoc::new(2, 12)),
+                        **tvars.front().unwrap().x.as_ref().unwrap(),
+                    );
+                } else {
+                    panic!("not a typecall");
+                }
                 assert_eq!(4, vars.len());
             } else {
                 panic!("enum is not an enum: {:?}", first);
@@ -1371,7 +1367,6 @@ mod tests
         --
         ";
         ast::parse(lex(input));
-
         assert!(true); // didn't panic!
     }
 

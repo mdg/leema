@@ -1,9 +1,11 @@
 
-func new_pair(a: $A, b: $B): ($A, $B) -> (a, b) --
-func first(p: ($A, $B)): $A >>
+func new_pair[A, B](a: A, b: B): (A, B) -> (a, b) --
+
+func first[A, B](p: (A, B)): A >>
 |(a, b) -> a
 --
-func second(p: ($A, $B)): $B >>
+
+func second[A, B](p: (A, B)): B >>
 |(a, b) -> b
 --
 

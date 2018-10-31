@@ -1,8 +1,123 @@
+use leema::failure::Lresult;
 use leema::lstr::Lstr;
 use leema::sendclone::SendClone;
-use leema::val::{Type, Val};
+use leema::struple::{StrupleItem, StrupleKV};
+use leema::val::Type;
 
 use std::fmt;
+use std::iter::Iterator;
+
+
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Ord)]
+#[derive(Hash)]
+pub struct OnlyLocalId
+{
+    pub local: Lstr,
+}
+
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Ord)]
+#[derive(Hash)]
+pub struct ModLocalId
+{
+    pub module: Lstr,
+    pub local: Lstr,
+}
+
+impl ModLocalId
+{
+    pub fn new(m: Lstr, l: Lstr) -> ModLocalId
+    {
+        ModLocalId {
+            module: m,
+            local: l,
+        }
+    }
+}
+
+impl fmt::Display for ModLocalId
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "{}::{}", self.module, self.local)
+    }
+}
+
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Ord)]
+#[derive(Hash)]
+pub struct TypId<I, T>
+{
+    pub id: I,
+    pub tparams: StrupleKV<Lstr, T>,
+}
+
+pub type GenericLocalId = TypId<Lstr, ()>;
+pub type GenericModId = TypId<ModLocalId, ()>;
+pub type SpecialLocalId = TypId<OnlyLocalId, Type>;
+pub type SpecialModId = TypId<ModLocalId, Type>;
+
+impl<I, T> TypId<I, T>
+{
+    pub fn new(id: I, tparams: StrupleKV<Lstr, T>) -> TypId<I, T>
+    {
+        TypId { id, tparams }
+    }
+
+    pub fn num_vars(&self) -> usize
+    {
+        self.tparams.len()
+    }
+
+    pub fn vars(&self) -> impl Iterator<Item = &Lstr>
+    {
+        self.tparams.iter_k()
+    }
+}
+
+pub fn new_generic_local(id: Lstr, names: Vec<Lstr>) -> GenericLocalId
+{
+    let tparams = names.into_iter().map(|n| StrupleItem::new(n, ())).collect();
+    TypId { id, tparams }
+}
+
+trait SpecId<I>
+{
+    fn types(&self) -> Iterator<Item = &Type>;
+}
+
+trait LocalId<I>
+{
+    fn local(&self) -> &Lstr;
+}
+
+trait ModId<I>
+{
+    fn id(&self) -> &ModLocalId;
+    fn module(&self) -> &Lstr;
+}
+
+
+/*
+enum PrimitiveType;
+
+enum FlatType;
+
+enum FullType;
+*/
 
 
 #[derive(Clone)]
@@ -76,20 +191,22 @@ impl Lri
     }
 
     /// specialize the parameters for this Lri w/ the given ones
-    pub fn specialize_params(&self, other: &Vec<Type>) -> Result<Lri, Val>
+    pub fn specialize_params(&self, other: Vec<Type>) -> Lresult<Lri>
     {
         if self.params.is_none() {
-            return Err(Val::Str(Lstr::Sref(
+            return Err(rustfail!(
+                "type_failure",
                 "cannot specialize Lri w/ no params",
-            )));
+            ));
         }
         let self_p = self.params.as_ref().unwrap();
         if self_p.len() != other.len() {
-            return Err(Val::Str(Lstr::Sref(
+            return Err(rustfail!(
+                "type_failure",
                 "cannot specialize wrong number of Lri params",
-            )));
+            ));
         }
-        Ok(self.replace_params(other.clone()))
+        Ok(self.replace_params(other))
     }
 
     pub fn make_params_typevars(&mut self)
@@ -152,6 +269,25 @@ impl Lri
     pub fn has_params(&self) -> bool
     {
         self.params.is_some()
+    }
+
+    pub fn type_var_names(&self) -> Vec<Lstr>
+    {
+        self.params
+            .as_ref()
+            .map(|some_vars| {
+                some_vars
+                    .iter()
+                    .filter_map(|v| {
+                        if let Type::Var(ref vname) = v {
+                            Some(vname.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     pub fn nominal_eq(a: &Lri, b: &Lri) -> bool

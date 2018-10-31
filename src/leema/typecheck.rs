@@ -1,11 +1,12 @@
+use leema::failure::Lresult;
 use leema::infer::{Inferator, TypeSet};
 use leema::ixpr::{Ixpr, Source};
 use leema::lmap;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::phase0::Protomod;
-use leema::struple::Struple;
-use leema::val::{Type, TypeErr, TypeResult, Val};
+use leema::struple::{Struple, StrupleItem, StrupleKV};
+use leema::val::{FuncType, Type, Val};
 
 use std::collections::{HashMap, LinkedList};
 
@@ -176,7 +177,6 @@ impl<'a> CallFrame<'a>
 #[derive(PartialOrd)]
 pub enum Depth
 {
-    Phase0,
     Inter,
     One,
     Full,
@@ -190,9 +190,6 @@ impl Depth
             &Depth::Inter => false,
             &Depth::One => true,
             &Depth::Full => true,
-            &Depth::Phase0 => {
-                panic!("cannot check one_deeper for Depth::Phase0")
-            }
         }
     }
 
@@ -201,7 +198,6 @@ impl Depth
         match self {
             &Depth::One => Depth::Inter,
             &Depth::Full => Depth::Full,
-            &Depth::Phase0 => panic!("cannot get next for Depth::Phase0"),
             &Depth::Inter => panic!("cannot get next for Depth::Inter"),
         }
     }
@@ -286,7 +282,6 @@ impl<'a, 'b> Typescope<'a, 'b>
     {
         match t {
             &Type::Var(_) => true,
-            &Type::AnonVar => true,
             &Type::Unknown => true,
             &Type::UserDef(ref tri) if tri.local_only() => {
                 self.infer.is_typevar(&tri.localid)
@@ -302,14 +297,11 @@ impl<'a, 'b> Typescope<'a, 'b>
             &Type::Tuple(ref items) => {
                 items.0.iter().any(|i| self.is_typevar(&i.1))
             }
-            &Type::Func(ref args, ref result) => {
-                args.iter().any(|a| self.is_typevar(a))
-                    || self.is_typevar(result)
-            }
-            &Type::Closure(ref args, ref closed, ref result) => {
-                args.iter().any(|a| self.is_typevar(a))
-                    || closed.iter().any(|c| self.is_typevar(c))
-                    || self.is_typevar(result)
+            &Type::Func(ref ftype) => {
+                let is_typevar = |it| self.is_typevar(it);
+                ftype.args.iter_v().any(is_typevar)
+                    || ftype.closed.iter_v().any(is_typevar)
+                    || self.is_typevar(&ftype.result)
             }
             &Type::StrictList(ref inner) => self.is_typevar(inner),
             _ => false,
@@ -320,7 +312,7 @@ impl<'a, 'b> Typescope<'a, 'b>
         &mut self,
         valtype: &Type,
         case: &mut Ixpr,
-    ) -> TypeResult
+    ) -> Lresult<Type>
     {
         // this is_matchcase check is a borrow-checker workaround
         // b/c i had trouble calling typecheck_expr in the
@@ -355,70 +347,164 @@ impl<'a, 'b> Typescope<'a, 'b>
         }
     }
 
-    pub fn typecheck_call_func(&mut self, src: &Source) -> TypeResult
+    pub fn typecheck_call_func(&mut self, src: &Source) -> Lresult<Type>
     {
         match src {
-            &Source::Tuple(ref items) => {
-                println!("tuples as calls are deprecated: {:?}", items);
-                if items.0.len() != 2 {
-                    panic!("call tuples should have 2 items: {:?}", items);
-                }
-                let ref _modname = items.0[0];
-                let ref _funcname = items.0[1];
-                Ok(Type::Void)
+            &Source::ConstVal(Val::FuncRef(ref fri, _, ref typ)) => {
+                self.typecheck_funcref(fri, typ)
             }
-            &Source::ConstVal(ref fval) => {
-                match fval {
-                    &Val::Str(_) => Ok(Type::Void),
-                    &Val::FuncRef(ref fri, ref args, ref typ) => {
-                        self.typecheck_funcref(fri, args, typ)
-                    }
-                    _ => {
-                        panic!("what val is in typecheck_call? {:?}", fval);
-                    }
+            &Source::Id(ref id, _) => {
+                let local_type = self.infer.vartype(id)?;
+                if !self.is_typevar(&local_type) {
+                    return Ok(local_type.clone());
                 }
+                Ok(local_type)
             }
-            &Source::Id(ref name, _) => self.infer.vartype(name),
             _ => {
                 panic!("whatever is that in typecheck_call? {:?}", src);
             }
         }
     }
 
-    pub fn typecheck_funcref(
+    /// typecheck a function call with args
+    pub fn typecheck_call(
         &mut self,
-        fri: &Lri,
-        args: &Struple<Val>,
-        typ: &Type,
-    ) -> TypeResult
+        func: &mut Ixpr,
+        args: &mut Struple<Ixpr>,
+    ) -> Lresult<Type>
     {
-        let typed = self.functype(fri.mod_ref().unwrap(), &fri.localid);
-        let result = self.infer.merge_types(typ, &typed);
-        match typ {
-            Type::Func(ref _iargs, _) => {
-                // do nothing here for now
-            }
-            Type::Closure(ref iargs, ref cargs, _) => {
-                let argc = iargs.len();
-                for ((a, _), t) in args.0.iter().skip(argc).zip(cargs.iter()) {
-                    if a.is_none() {
-                        continue;
+        let mut targs = vec![];
+        for mut a in &mut args.0 {
+            let atype = typecheck_expr(self, &mut a.1).map_err(|e| {
+                e.add_context(Lstr::from(format!(
+                    "function args for: {:?} on line {}",
+                    func.src, func.line
+                )))
+            })?;
+            targs.push(atype);
+        }
+
+        match &mut func.src {
+            Source::ConstVal(Val::FuncRef(ref mut fri, _, ref mut typ)) => {
+                if fri.has_params() {
+                    let special_type = match typ {
+                        Type::GenericFunc(ref gen_vars, ref mut ft) => {
+                            self.specialize_generic_func(ft, gen_vars, &targs)?
+                        }
+                        Type::SpecialFunc(_, _) => typ.clone(),
+                        not_func => {
+                            return Err(rustfail!(
+                                "type_err",
+                                "not a func: {}",
+                                not_func
+                            ));
+                        }
+                    };
+                    *typ = special_type;
+                    if let Type::SpecialFunc(ref mut spec_vars, _) = typ {
+                        let new_types =
+                            spec_vars.iter_v().map(|t| t.clone()).collect();
+                        *fri = fri.specialize_params(new_types)?;
                     }
-                    self.infer.bind_vartype(a.as_ref().unwrap(), t, 0)?;
+                } else {
+                    // fine, do nothing
                 }
             }
+            Source::Id(_, _) => {
+                // ids are fine, do nothing
+            }
             _ => {
-                panic!("FuncRef type is not a func or closure: {:?}", typ);
+                println!("whoa, not a const func");
+                // should probably do something else here to handle
+                // function arguments and convert them too
             }
         }
-        result
+
+        let tfunc = self.typecheck_call_func(&func.src).map_err(|e| {
+            e.add_context(Lstr::from(format!("function: {:?}", func.src)))
+        })?;
+
+        let mut targs_ref = vec![];
+        for ta in targs.iter() {
+            targs_ref.push(ta);
+        }
+        let full_call_type =
+            self.infer.make_call_type(&tfunc, &targs_ref).unwrap();
+        let (_, call_result) = Type::split_func_ref(&full_call_type);
+        Ok(call_result.clone())
     }
 
-    pub fn functype(&self, modname: &str, funcname: &str) -> Type
+    fn specialize_generic_func(
+        &mut self,
+        ft: &FuncType,
+        gen_args: &Vec<Lstr>,
+        arg_types: &Vec<Type>,
+    ) -> Lresult<Type>
     {
-        if modname == self.inter.name() {
+        let mut var_map: HashMap<Lstr, &Type> = HashMap::new();
+        for (var, argtype) in ft.args.iter().zip(arg_types.iter()) {
+            match var.v {
+                Type::Var(ref varname) => {
+                    if var_map.contains_key(varname) {
+                        let prev_type = var_map.get(varname).unwrap();
+                        self.infer.merge_types(&argtype, prev_type)?;
+                    } else {
+                        var_map.insert(varname.clone(), argtype);
+                    }
+                }
+                _ => {
+                    // not a typevar, ignore it
+                }
+            }
+        }
+
+        let special_args: StrupleKV<Lstr, Type> = gen_args
+            .iter()
+            .map(|ga| {
+                let var_type = var_map.get(ga);
+                let new_type =
+                    var_type.map(|t| (*t).clone()).unwrap_or(Type::Unknown);
+                StrupleItem::new(ga.clone(), new_type)
+            })
+            .collect();
+
+        let special_ft = ft.map(&|t| Type::replace_typevars(t, &var_map))?;
+
+        Ok(Type::SpecialFunc(special_args, special_ft))
+    }
+
+    pub fn typecheck_funcref(&mut self, fri: &Lri, typ: &Type)
+        -> Lresult<Type>
+    {
+        let typed = self.functype(&fri)?;
+        let result = self.infer.merge_types(typ, &typed)?;
+        match result {
+            Type::Func(ref _func_type) => {
+                // do nothing here for now
+            }
+            Type::GenericFunc(ref _var_types, ref _func_type) => {
+                // do nothing here for now
+            }
+            Type::SpecialFunc(ref _var_types, ref _func_type) => {
+                // do nothing here for now?
+            }
+            not_func => {
+                return Err(rustfail!(
+                    "type_err",
+                    "FuncRef type is not a func: {:?}",
+                    not_func,
+                ));
+            }
+        }
+        Ok(result)
+    }
+
+    pub fn functype(&self, fri: &Lri) -> Lresult<Type>
+    {
+        let modname = fri.mod_ref().unwrap();
+        let ftype = if modname == self.inter.name() {
             self.inter
-                .get_function_type(funcname)
+                .get_function_type(&fri.localid)
                 .expect("missing typed object for module")
                 .clone()
         } else {
@@ -426,41 +512,28 @@ impl<'a, 'b> Typescope<'a, 'b>
                 "cannot find module {} in {:?}",
                 modname, self.imports
             ));
-            m.get_function_type(funcname)
-                .expect(&format!(
-                    "cannot find function {}::{} in {:?}",
-                    modname, funcname, m
-                ))
+            m.get_function_type(&fri.localid)
+                .expect(&format!("cannot find function {} in {:?}", fri, m))
                 .clone()
+        };
+        if let Type::Func(ref _i_ftype) = &ftype {
+            /*
+            if !Lri::nominal_eq(selfri, fri) {
+            return Err(TypeErr::Failure(Failure::new(
+                "type_error",
+                Lstr::from(format!("what to match this Lri to: {}", fri)),
+            )));
+            */
         }
+        Ok(ftype)
     }
 }
 
-pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
+pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> Lresult<Type>
 {
     match &mut ix.src {
         &mut Source::Call(ref mut func, ref mut args) => {
-            let tfunc = scope.typecheck_call_func(&func.src).map_err(|e| {
-                e.add_context(Lstr::from(format!("function: {:?}", func.src)))
-            })?;
-            let mut targs = vec![];
-            for mut a in &mut args.0 {
-                let atype = typecheck_expr(scope, &mut a.1).map_err(|e| {
-                    e.add_context(Lstr::from(format!(
-                        "function args for: {:?} on line {}",
-                        func.src, func.line
-                    )))
-                })?;
-                targs.push(atype);
-            }
-            let mut targs_ref = vec![];
-            for ta in targs.iter() {
-                targs_ref.push(ta);
-            }
-            let full_call_type =
-                scope.infer.make_call_type(&tfunc, &targs_ref).unwrap();
-            let (_, call_result) = Type::split_func(full_call_type);
-            Ok(call_result.clone())
+            scope.typecheck_call(func, args)
         }
         &mut Source::Cons(ref mut head, ref mut tail) => {
             let head_t = typecheck_expr(scope, head).unwrap();
@@ -468,8 +541,8 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             let head_list_t = Type::StrictList(Box::new(head_t));
             scope.infer.merge_types(&head_list_t, &tail_t)
         }
-        &mut Source::ConstVal(Val::FuncRef(ref fri, ref args, ref typ)) => {
-            scope.typecheck_funcref(fri, args, typ)
+        &mut Source::ConstVal(Val::FuncRef(ref fri, _, ref typ)) => {
+            scope.typecheck_funcref(fri, typ)
         }
         &mut Source::ConstVal(ref val) => Ok(val.get_type()),
         &mut Source::Let(ref lhs, ref mut rhs, ref mut fails) => {
@@ -498,11 +571,11 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             Ok(Type::Void)
         }
         &mut Source::Block(ref mut elems) => {
-            let mut last_type = Ok(Type::Void);
+            let mut last_type = Type::Void;
             for e in elems {
-                last_type = typecheck_expr(scope, e);
+                last_type = typecheck_expr(scope, e)?;
             }
-            last_type
+            Ok(last_type)
         }
         &mut Source::FieldAccess(ref mut x, ref sub, ref mut subidx) => {
             let xtyp = typecheck_expr(scope, x)?;
@@ -565,9 +638,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
             panic!("cannot directly typecheck matchcase: {}", pattern);
         }
         &mut Source::Func(ref _args, _, _, _, ref _body) => {
-            Err(TypeErr::Error(Lstr::from(format!(
-                "unexpected func in typecheck",
-            ))))
+            Err(rustfail!("leema_fail", "unexpected func in typecheck",))
         }
         src => {
             panic!("could not typecheck_expr({:?})", src);
@@ -575,8 +646,10 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
     }
 }
 
-pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
+pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr)
+    -> Lresult<Type>
 {
+    let pretype = scope.inter.get_function_type(scope.fname).unwrap();
     match &mut ix.src {
         &mut Source::Func(
             ref arg_names,
@@ -611,26 +684,78 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> TypeResult
                 let typ = scope.infer.vartype(var);
                 vout!("\t{}: {}\n", var, typ.unwrap());
             }
-            let final_args = arg_types
+            let final_args_vec = arg_names
                 .iter()
-                .map(|at| scope.infer.inferred_type(at).clone())
+                .zip(arg_types.iter())
+                .map(|(an, at)| {
+                    let at2 = scope.infer.inferred_type(at).clone();
+                    StrupleItem::new(Some(an.clone()), at2)
+                })
                 .collect();
-            scope
+            let final_args = StrupleKV::from_vec(final_args_vec);
+            let final_result = scope
                 .infer
-                .merge_types(&result_type, declared_result_type)
-                .map(|final_type| Type::f(final_args, final_type))
+                .merge_types(&result_type, declared_result_type)?;
+            match pretype {
+                Type::Func(_) => Ok(Type::f(final_args, final_result)),
+                Type::GenericFunc(ref pre_tvars, _) => {
+                    Ok(Type::GenericFunc(
+                        pre_tvars.clone(),
+                        FuncType::new(final_args, final_result),
+                    ))
+                }
+                Type::SpecialFunc(_, _) => {
+                    Err(rustfail!(
+                        "leema_incomplete",
+                        "cannot typecheck a special func yet",
+                    ))
+                }
+                not_func => {
+                    Err(rustfail!(
+                        "leema_fail",
+                        "pre type is not a func: {}",
+                        not_func
+                    ))
+                }
+            }
         }
         &mut Source::RustBlock(ref arg_types, ref result_type) => {
             match *result_type {
-                Type::Unknown | Type::AnonVar => {
+                Type::Unknown => {
                     vout!("rust function result types must be known");
-                    return Err(TypeErr::Unknowable);
+                    return Err(rustfail!(
+                        "type_err",
+                        "unknowable type as rust block result",
+                    ));
                 }
                 _ => {} // everything's fine
             }
-
             scope.infer.validate_rust_args(arg_types, result_type)?;
-            Ok(Type::f(arg_types.clone(), result_type.clone()))
+
+            match pretype {
+                Type::Func(_) => {
+                    Ok(Type::f(arg_types.clone(), result_type.clone()))
+                }
+                Type::GenericFunc(ref pre_tvars, _) => {
+                    Ok(Type::GenericFunc(
+                        pre_tvars.clone(),
+                        FuncType::new(arg_types.clone(), result_type.clone()),
+                    ))
+                }
+                Type::SpecialFunc(_, _) => {
+                    Err(rustfail!(
+                        "leema_incomplete",
+                        "cannot typecheck a special rust func yet",
+                    ))
+                }
+                not_func => {
+                    Err(rustfail!(
+                        "leema_fail",
+                        "pre type is not a func: {}",
+                        not_func
+                    ))
+                }
+            }
         }
         ref mut src => {
             panic!("Cannot typecheck_function a not function: {:?}", src);
@@ -646,7 +771,7 @@ pub fn typecheck_field_access(
     fldidx: &mut Option<i8>,
     xtyp: &Type,
     fld: &Lstr,
-) -> TypeResult
+) -> Lresult<Type>
 {
     vout!("typecheck_field_access({:?}.{})\n", xtyp, fld);
     match xtyp {
@@ -659,7 +784,7 @@ pub fn typecheck_field_access(
                             ft.clone()
                         })
                         .ok_or_else(|| {
-                            TypeErr::Error(Lstr::Sref("invalid field index"))
+                            rustfail!("type_err", "invalid field index")
                         })
                 }
                 Result::Err(ref e) => {
@@ -681,9 +806,9 @@ mod tests
     use leema::lri::Lri;
     use leema::lstr::Lstr;
     use leema::program;
-    use leema::struple::Struple;
+    use leema::struple::{Struple, StrupleItem, StrupleKV};
     use leema::typecheck::Depth;
-    use leema::val::Type;
+    use leema::val::{FuncType, Type};
 
 
     #[test]
@@ -692,10 +817,10 @@ mod tests
     {
         let input = "
             ## foo should take [#] and return a #
-            func foo(inputs)
-            |([]) -> #empty
-            |(#whatever;more) -> #whatever
-            |(_;more) -> foo(more)
+            func foo(inputs) >>
+            |[] -> #empty
+            |#whatever;more -> #whatever
+            |_;more -> foo(more)
             --
 
             func main() ->
@@ -712,6 +837,32 @@ mod tests
     }
 
     #[test]
+    #[should_panic]
+    #[ignore] // ignored until generics are fixed
+    fn test_typevar_parameter_mismatch()
+    {
+        let input = r#"
+            func swap[T, U](a: T, b: U): (U, T) >>
+                (b, a)
+            --
+
+            func main() ->
+                let (a, b) := swap[Int, #]("x", #y)
+                let (c, d) := swap[Int, Str](8, true)
+                print("swapped: $a $b $c $d\n")
+            --
+            "#
+        .to_string();
+
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        loader.set_mod_txt(Lstr::Sref("tacos"), input);
+        let mut prog = program::Lib::new(loader);
+        let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("main"));
+        prog.typecheck(&fri, Depth::Full);
+    }
+
+    #[test]
+    #[ignore] // ignored until generics are fixed
     fn test_typevar_used_two_ways()
     {
         let input = r#"
@@ -732,107 +883,24 @@ mod tests
         let mut prog = program::Lib::new(loader);
         let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("main"));
         let main_type = prog.typecheck(&fri, Depth::Full);
-        assert_eq!(Type::Func(vec![], Box::new(Type::Void)), main_type);
+        let main_ft = FuncType::new(StrupleKV::none(), Type::Void);
+        assert_eq!(Type::Func(main_ft), main_type);
 
         let swapi = Lri::with_modules(Lstr::from("tacos"), Lstr::from("swap"));
         let swap_type = prog.typecheck(&swapi, Depth::Full);
-        assert_eq!(
-            Type::Func(
-                vec![Type::Var(Lstr::Sref("T")), Type::Var(Lstr::Sref("U")),],
-                Box::new(Type::Tuple(Struple(vec![
-                    (None, Type::Var(Lstr::Sref("U"))),
-                    (None, Type::Var(Lstr::Sref("T"))),
-                ]))),
-            ),
-            swap_type
+        let func_type = FuncType::new(
+            StrupleKV::from_vec(vec![
+                StrupleItem::new(None, Type::Var(Lstr::Sref("T"))),
+                StrupleItem::new(None, Type::Var(Lstr::Sref("U"))),
+            ]),
+            Type::Tuple(Struple(vec![
+                (None, Type::Var(Lstr::Sref("U"))),
+                (None, Type::Var(Lstr::Sref("T"))),
+            ])),
         );
+        assert_eq!(Type::Func(func_type), swap_type);
     }
 }
-
-/*
-mod -> prog
-imps -> libs
-
-load_func(mn, fn) {
-    mod = prog.load_module(prog, mn)
-    import_mods(mod)
-    if !mod_sourced(mn)
-        source_mod(mn)
-    if !mod_loaded(mn)
-        load_mod(mn)
-    mod = get_mod(mn)
-    if !mod.imports_loaded
-        load_imports(mod.imports)
-    src_func = get_func(mod, fn)
-    pfunc = preprocess(src_func)
-    tfunc = type_func(pfunc)
-    if !func_preprocessed(mod, fn)
-        src_func
-        preprocess(src_func)
-    if !func_processed(mod, fn)
-}
-
-for f in mod.funcs {
-    typecheck_func(f)
-}
-
-typecheck_call(m, f, args) {
-    tfd = typecheck_func(m, f)
-    typecheck(args, tfd.args)
-}
-
-typecheck_func(m, f) {
-    fd = getf(m, f)
-    for e in fd {
-        typecheck_expr(e)
-    }
-}
-
-typecheck_expr(e) {
-    if e == call {
-        typecheck_call(call.module, call.func, call.args)
-    }
-}
-*/
-
-/*
-pub fn module(prog: &mut program::Lib, inter: &Interloader, modname: &str)
-{
-    vout!("typecheck.module({})\n", modname);
-    let imported_mods = {
-        let m = prog.get_mod_mut(modname);
-        println!("loaded module:\n{:?}\n", m);
-
-        let mut imods = Vec::with_capacity(m.src.imports.len());
-        for i in &m.src.imports {
-            println!("import({})", i);
-            let ikey = inter.mod_name_to_key(&i);
-            let mut im = inter.init_module(ikey);
-            im.load();
-            imods.push(im);
-        }
-        m.imports_loaded = true;
-        imods
-    };
-
-    for i in imported_mods {
-        println!("imported({:?})", i);
-        prog.add_mod(i);
-    }
-
-    let funcs: Vec<String> = {
-        prog.get_mod(modname).src.funcs.keys().map(|im| {
-            im.clone()
-        }).collect()
-    };
-    // let mut ts = new TypeSpace();
-    // ts.add_imports(&m.src.imports);
-
-    for fname in funcs {
-        func(prog, inter, &fname);
-    }
-}
-*/
 
 /*
 thing that reads files
@@ -846,21 +914,4 @@ thing that holds complete type info
 view of visible type-complete stuff
 
 library of typed code
-
-
-pub fn function(prog: &mut program::Lib, inter: &Interloader,
-        modname: &str, fname: &str) -> Ixpr
-{
-    let mut m = prog.load_module(modname);
-    let mut tf = m.typed_func(fname);
-    if tf.is_none() {
-        sf = m.src_func(fname);
-        tf = preprocess(sf, prog);
-    }
-    match m.typed_func(fname) {
-        None => j
-    }
-    let tfunc = prog.typed_func(
-    let fsrc = prog.get_func(modname, fname);
-}
 */

@@ -1,15 +1,17 @@
-use leema::ast::{self, Ast, Kxpr};
+use leema::ast::{self, Ast, Kxpr, KxprList};
+use leema::failure::{Failure, Lresult};
 use leema::list;
-use leema::lri::Lri;
+use leema::lri::{Lri, ModLocalId};
 use leema::lstr::Lstr;
 use leema::module::{ModKey, ModulePreface};
 use leema::program::Lib;
-use leema::struple::Struple;
+use leema::struple::{Struple, Struple2, StrupleItem, StrupleKV};
 use leema::types;
-use leema::val::{SrcLoc, Type, Val};
+use leema::val::{FuncType, SrcLoc, Type, Val};
 
 use std::collections::{HashMap, LinkedList};
 use std::fmt;
+use std::iter::FromIterator;
 
 
 #[derive(Debug)]
@@ -66,27 +68,46 @@ impl Protomod
     )
     {
         match x {
-            &Ast::DefFunc(ast::FuncClass::Macro, _, _) => {
-                // do nothing. the macro definition will have been handled
-                // in the file read
-            }
-            &Ast::DefFunc(fclass, ref decl, ref body) => {
-                self.preproc_defunc(
-                    prog,
-                    mp,
-                    fclass,
-                    &decl.name,
-                    &decl.args,
-                    &decl.result,
-                    body,
-                    &decl.loc,
-                );
+            &Ast::DefFunc(ast::FuncClass::Func, ref decl, ref body) => {
+                match decl.name {
+                    Ast::Localid(ref name, _) => {
+                        self.preproc_defunc(
+                            prog,
+                            mp,
+                            &name,
+                            &decl.args,
+                            &decl.result,
+                            body,
+                            &decl.loc,
+                        );
+                    }
+                    Ast::LocalGeneric(ref name, ref typ_params, _) => {
+                        self.preproc_generic_func(
+                            prog,
+                            mp,
+                            &name,
+                            typ_params,
+                            &decl.args,
+                            &decl.result,
+                            body,
+                            &decl.loc,
+                        )
+                        .unwrap();
+                    }
+                    _ => {
+                        panic!("cannot preproc function: {}", decl);
+                    }
+                }
             }
             &Ast::DefData(data_type, ref name, ref fields, ref loc) => {
                 self.preproc_data(prog, mp, data_type, name, fields, loc);
             }
             &Ast::Import(ref _imports, _) => {
                 // do nothing. imports handled in file read
+            }
+            &Ast::DefFunc(ast::FuncClass::Macro, _, _) => {
+                // do nothing. the macro definition will have been handled
+                // in the file read
             }
             _ => {
                 println!("Cannot phase0: {:?}", x);
@@ -139,10 +160,6 @@ impl Protomod
             &Ast::DotAccess(ref base, ref fld) => {
                 let ppbase = Protomod::preproc_expr(self, prog, mp, base, loc);
                 Ast::DotAccess(Box::new(ppbase), fld.clone())
-            }
-            &Ast::Fork(ref fx) => {
-                let ppfx = Protomod::preproc_expr(self, prog, mp, fx, loc);
-                Ast::Fork(Box::new(ppfx))
             }
             &Ast::IfExpr(
                 ast::IfType::MatchFailure,
@@ -197,38 +214,19 @@ impl Protomod
                         .collect(),
                 )
             }
+            &Ast::LocalGeneric(_, _, _) => {
+                // nothing to do for generics really,
+                // since it's all just strings
+                x.clone()
+            }
             &Ast::Localid(ref id, ref iloc) => {
                 Protomod::preproc_localid(prog, mp, id, iloc)
             }
-            &Ast::Lri(ref mods, None, ref iloc) => {
-                Protomod::preproc_lri(prog, mp, mods, iloc)
+            &Ast::Modid(ref module, ref localid, ref iloc) => {
+                Protomod::preproc_modid(prog, mp, module, localid, iloc)
             }
-            &Ast::Lri(ref mods, Some(ref typs), ref iloc) => {
-                Protomod::preproc_lri_with_types(
-                    self, prog, mp, mods, typs, iloc,
-                )
-            }
-            &Ast::Map(ref items) if items.is_empty() => {
-                let callmods = vec![Lstr::Sref("map"), Lstr::Sref("new")];
-                let mut tvars = LinkedList::new();
-                tvars.push_back(Kxpr::new_x(Ast::TypeVar(
-                    Lstr::Sref("K"),
-                    *loc,
-                )));
-                tvars.push_back(Kxpr::new_x(Ast::TypeVar(
-                    Lstr::Sref("V"),
-                    *loc,
-                )));
-                let callri = Ast::Lri(callmods, Some(tvars), *loc);
-                let call = Ast::Call(Box::new(callri), LinkedList::new(), *loc);
-                self.preproc_expr(prog, mp, &call, loc)
-            }
-            &Ast::Map(ref items) => {
-                let pp_items = items
-                    .iter()
-                    .map(|i| i.map_x(|x| self.preproc_expr(prog, mp, x, loc)))
-                    .collect();
-                Ast::Map(pp_items)
+            &Ast::TypeCall(ref base, ref typs, ref iloc) => {
+                self.preproc_typecall(prog, mp, base, typs, iloc)
             }
             &Ast::Return(ref x, ref loc) => {
                 let px = Protomod::preproc_expr(self, prog, mp, x, loc);
@@ -273,15 +271,8 @@ impl Protomod
                         )
                     })
                     .collect();
-                let pp_result = self.preproc_func_arg(
-                    prog,
-                    mp,
-                    &anon_type,
-                    None,
-                    Some(result),
-                    loc,
-                );
-                Ast::TypeFunc(ppp, pp_result.x.unwrap(), *loc)
+                let pp_result = self.preproc_func_result(prog, mp, result, loc);
+                Ast::TypeFunc(ppp, Box::new(pp_result), *loc)
             }
             &Ast::Question => Ast::Question,
             &Ast::RustBlock => Ast::RustBlock,
@@ -375,18 +366,14 @@ impl Protomod
         &mut self,
         prog: &Lib,
         mp: &ModulePreface,
-        fclass: ast::FuncClass,
-        name: &Ast,
+        name: &Lstr,
         args: &LinkedList<Kxpr>,
         rtype: &Ast,
         body: &Ast,
         loc: &SrcLoc,
     )
     {
-        let mut name_lri = Lri::from(name);
-        name_lri.make_params_typevars();
-        let full_lri = name_lri.add_modules(mp.key.name.clone());
-        let lstr_name = name_lri.localid;
+        let modid = ModLocalId::new(mp.key.name.clone(), name.clone());
         let pp_args: LinkedList<Kxpr> = args
             .iter()
             .map(|a| {
@@ -394,7 +381,7 @@ impl Protomod
                     self,
                     prog,
                     mp,
-                    &lstr_name,
+                    &name,
                     a.k_ref(),
                     a.x_ref(),
                     loc,
@@ -428,7 +415,7 @@ impl Protomod
                 if let &Ast::TypeAnon = rtype {
                     panic!(
                         "return type must be defined for Rust functions: {}",
-                        full_lri
+                        modid
                     );
                 }
                 Ast::RustBlock
@@ -438,44 +425,232 @@ impl Protomod
             }
         };
         let decl = ast::FuncDecl {
-            name: name.clone(),
+            name: Ast::Localid(name.clone(), *loc),
             args: pp_args.clone(),
             result: pp_rtype_ast.clone(),
             loc: *loc,
         };
-        let pp_func = Ast::DefFunc(fclass, Box::new(decl), Box::new(pp_body));
+        let pp_func = Ast::DefFunc(
+            ast::FuncClass::Func,
+            Box::new(decl),
+            Box::new(pp_body),
+        );
 
         let mut ftype_parts: Vec<Kxpr> =
             pp_args.iter().map(|a| a.clone()).collect();
-        let (ftype_part_types, rtype): (Vec<Type>, Type) = {
-            let lri_params = full_lri.params.as_ref();
-            let pp_ftype_parts = ftype_parts
+        let (ftype_part_types, rtype): (Struple2<Type>, Type) = {
+            let pp_ftypr: Vec<
+                Lresult<StrupleItem<Option<Lstr>, Type>>,
+            >;
+            pp_ftypr = ftype_parts
                 .iter()
                 .map(|argt| {
-                    self.preproc_type(
+                    let typ = self.preproc_type(
                         prog,
                         mp,
-                        lri_params,
+                        &vec![],
                         argt.x_ref().unwrap(),
                         loc,
-                    )
+                    )?;
+                    Ok(StrupleItem::new(argt.k_clone(), typ))
                 })
                 .collect();
-            let pp_rtype =
-                self.preproc_type(prog, mp, lri_params, &pp_rtype_ast, loc);
-            (pp_ftype_parts, pp_rtype)
+            let pp_args: Vec<StrupleItem<Option<Lstr>, Type>>;
+            pp_args = Lresult::from_iter(pp_ftypr).unwrap();
+            let pp_rtype = self
+                .preproc_type(prog, mp, &vec![], &pp_rtype_ast, loc)
+                .unwrap();
+            (StrupleKV::from_vec(pp_args), pp_rtype)
         };
         ftype_parts.push(Kxpr::new_x(pp_rtype_ast));
-        let ftype = Type::Func(ftype_part_types, Box::new(rtype));
+        let functype = FuncType::new(ftype_part_types, rtype);
+        let ftype = Type::Func(functype);
         let fref_args =
             pp_args.iter().map(|a| (a.k_clone(), Val::Void)).collect();
 
+        let full_lri =
+            Lri::with_modules(modid.module.clone(), modid.local.clone());
         let funcref = Val::FuncRef(full_lri, fref_args, ftype.clone());
 
-        self.funcseq.push_back(lstr_name.clone());
-        self.funcsrc.insert(lstr_name.clone(), pp_func);
-        self.valtypes.insert(lstr_name.clone(), ftype);
-        self.constants.insert(lstr_name, funcref);
+        self.funcseq.push_back(name.clone());
+        self.funcsrc.insert(name.clone(), pp_func);
+        self.valtypes.insert(name.clone(), ftype);
+        self.constants.insert(name.clone(), funcref);
+    }
+
+    pub fn preproc_generic_func(
+        &mut self,
+        prog: &Lib,
+        mp: &ModulePreface,
+        name: &Lstr,
+        type_args: &KxprList,
+        args: &KxprList,
+        rtype: &Ast,
+        body: &Ast,
+        loc: &SrcLoc,
+    ) -> Lresult<()>
+    {
+        // for each type arg, make sure type IDs are converted to type vars
+        let type_var_name_result: Vec<Lresult<Lstr>> = type_args
+            .iter()
+            .map(|targ| {
+                match targ {
+                    Kxpr {
+                        k: None,
+                        x: Some(ref id),
+                    } => {
+                        match **id {
+                            Ast::Localid(ref argn, _) => Ok(argn.clone()),
+                            _ => {
+                                Err(Failure::new(
+                                    "code_err",
+                                    Lstr::from(format!(
+                                        "unrecognized type arg: {:?}",
+                                        targ
+                                    )),
+                                ))
+                            }
+                        }
+                    }
+                    _ => {
+                        Err(Failure::new(
+                            "code_err",
+                            Lstr::from(format!(
+                                "unrecognized type arg: {:?}",
+                                targ
+                            )),
+                        ))
+                    }
+                }
+            })
+            .collect();
+        let type_var_names: Vec<Lstr> =
+            Lresult::from_iter(type_var_name_result)?;
+        let type_vars: Vec<Type> = type_var_names
+            .iter()
+            .map(|tvn| Type::Var(tvn.clone()))
+            .collect();
+        let pp_args: LinkedList<Kxpr> = args
+            .iter()
+            .map(|a| {
+                Protomod::preproc_func_arg(
+                    self,
+                    prog,
+                    mp,
+                    &name,
+                    a.k_ref(),
+                    a.x_ref(),
+                    loc,
+                )
+            })
+            .collect();
+        let pp_rtype_ast =
+            Protomod::preproc_func_result(self, prog, mp, rtype, loc);
+        let pp_body = self.preproc_func_body(prog, mp, args, body, loc)?;
+        if Ast::RustBlock == pp_body && Ast::TypeAnon == *rtype {
+            return Err(Failure::new(
+                "bad_type",
+                Lstr::from(format!(
+                    "return type must be defined for Rust functions: {}",
+                    name
+                )),
+            ));
+        }
+        let decl = ast::FuncDecl {
+            name: Ast::Localid(name.clone(), *loc),
+            args: pp_args.clone(),
+            result: pp_rtype_ast.clone(),
+            loc: *loc,
+        };
+        let pp_func = Ast::DefFunc(
+            ast::FuncClass::Func,
+            Box::new(decl),
+            Box::new(pp_body),
+        );
+
+        let mut ftype_parts: Vec<Kxpr> =
+            pp_args.iter().map(|a| a.clone()).collect();
+        let (ftype_part_types, rtype): (Struple2<Type>, Type) = {
+            let pp_ftype_parts = ftype_parts
+                .iter()
+                .map(|argt| {
+                    StrupleItem::new(
+                        argt.k_clone(),
+                        self.preproc_type(
+                            prog,
+                            mp,
+                            &type_var_names,
+                            argt.x_ref().unwrap(),
+                            loc,
+                        )
+                        .unwrap(),
+                    )
+                })
+                .collect();
+            let pp_rtype = self
+                .preproc_type(prog, mp, &type_var_names, &pp_rtype_ast, loc)
+                .unwrap();
+            (StrupleKV::from_vec(pp_ftype_parts), pp_rtype)
+        };
+        ftype_parts.push(Kxpr::new_x(pp_rtype_ast));
+        let functype = FuncType::new(ftype_part_types, rtype);
+        let ftype = Type::GenericFunc(type_var_names.clone(), functype);
+        let fref_args =
+            pp_args.iter().map(|a| (a.k_clone(), Val::Void)).collect();
+
+        let funcri = Lri::full(
+            Some(mp.key.name.clone()),
+            name.clone(),
+            Some(type_vars.clone()),
+        );
+        let funcref = Val::FuncRef(funcri, fref_args, ftype.clone());
+
+        self.funcseq.push_back(name.clone());
+        self.funcsrc.insert(name.clone(), pp_func);
+        self.valtypes.insert(name.clone(), ftype);
+        self.constants.insert(name.clone(), funcref);
+        Ok(())
+    }
+
+    pub fn preproc_func_body(
+        &mut self,
+        prog: &Lib,
+        mp: &ModulePreface,
+        args: &KxprList,
+        body: &Ast,
+        loc: &SrcLoc,
+    ) -> Lresult<Ast>
+    {
+        let result = match body {
+            // normal function body
+            Ast::Block(_) => Protomod::preproc_expr(self, prog, mp, body, loc),
+            // match func body
+            Ast::IfExpr(ast::IfType::MatchFunc, _, ref cases, ref iloc) => {
+                let match_args = args
+                    .iter()
+                    .map(|a| {
+                        let argn = a.k_clone().unwrap();
+                        Kxpr::new_x(Ast::Localid(argn, *iloc))
+                    })
+                    .collect();
+                let match_arg_tuple = Box::new(Ast::Tuple(match_args));
+                let ifx = &Ast::IfExpr(
+                    ast::IfType::Match,
+                    match_arg_tuple,
+                    cases.clone(),
+                    *iloc,
+                );
+                self.preproc_expr(prog, mp, ifx, iloc)
+            }
+            Ast::RustBlock => Ast::RustBlock,
+            _ => {
+                return Err(Failure::new(
+                    "code_error",
+                    Lstr::from(format!("invalid function body: {:?}", body)),
+                ));
+            }
+        };
+        Ok(result)
     }
 
     pub fn preproc_closure(
@@ -505,7 +680,7 @@ impl Protomod
         let pp_body = self.preproc_expr(prog, mp, body, loc);
         let pp_result = self.preproc_func_result(prog, mp, &Ast::TypeAnon, loc);
 
-        let arg_types: Vec<Type> = pp_args
+        let arg_types: Vec<StrupleItem<Option<Lstr>, Type>> = pp_args
             .iter()
             .map(|a| {
                 let x_ref = a.x_ref();
@@ -513,17 +688,24 @@ impl Protomod
                     panic!("closure arg type is None: {}", closure_key);
                 }
                 let atype = x_ref.unwrap();
-                self.preproc_type(prog, mp, None, atype, loc)
+                StrupleItem::new(
+                    a.k_clone(),
+                    self.preproc_type(prog, mp, &vec![], atype, loc).unwrap(),
+                )
             })
             .collect();
-        let result_type = self.preproc_type(prog, mp, None, &pp_result, loc);
-        let ftype = Type::Func(arg_types, Box::new(result_type));
+        let result_type = self
+            .preproc_type(prog, mp, &vec![], &pp_result, loc)
+            .unwrap();
+        let func_type = FuncType::new(StrupleKV::from(arg_types), result_type);
+        let ftype = Type::Func(func_type);
+        // let type_vars = ftype.collect_typevars();
 
         let fref_args =
             pp_args.iter().map(|a| (a.k_clone(), Val::Void)).collect();
 
         let decl = ast::FuncDecl {
-            name: Ast::Lri(vec![closure_key.clone()], None, *loc),
+            name: Ast::Localid(closure_key.clone(), *loc),
             args: pp_args,
             result: pp_result.clone(),
             loc: *loc,
@@ -736,18 +918,29 @@ impl Protomod
                     .collect();
                 Ast::Call(Box::new(new_callx), new_args, *loc)
             }
-            &Ast::Localid(ref name, ref _iloc) => {
+            &Ast::TypeCall(ref base, ref tparams, _) => {
+                let base2 = Protomod::replace_ids(base, idvals, loc);
+                let tparams2 = tparams
+                    .iter()
+                    .map(|tp| {
+                        tp.map_x(|x| Protomod::replace_ids(x, idvals, loc))
+                    })
+                    .collect();
+                Ast::TypeCall(Box::new(base2), tparams2, *loc)
+            }
+            &Ast::Modid(_, _, _) => node.clone(),
+            &Ast::Localid(ref name, _) => {
                 match idvals.get(&*name) {
                     Some(newx) => (*newx).clone(),
                     None => Ast::Localid(name.clone(), *loc),
                 }
             }
-            &Ast::StrExpr(ref items, ref iloc) => {
+            &Ast::StrExpr(ref items, _) => {
                 let new_items = items
                     .iter()
-                    .map(|i| Protomod::replace_ids(i, idvals, iloc))
+                    .map(|i| Protomod::replace_ids(i, idvals, loc))
                     .collect();
-                Ast::StrExpr(new_items, *iloc)
+                Ast::StrExpr(new_items, *loc)
             }
             &Ast::DefFunc(fc, ref decl, ref body) => {
                 let r_name = Protomod::replace_ids(&decl.name, idvals, loc);
@@ -771,16 +964,6 @@ impl Protomod
             &Ast::Return(ref result, _) => {
                 let new_result = Protomod::replace_ids(result, idvals, loc);
                 Ast::Return(Box::new(new_result), *loc)
-            }
-            &Ast::Lri(_, None, _) => node.clone(),
-            &Ast::Lri(ref mods, Some(ref tparams), ref iloc) => {
-                let tparams2 = tparams
-                    .iter()
-                    .map(|tp| {
-                        tp.map_x(|x| Protomod::replace_ids(x, idvals, loc))
-                    })
-                    .collect();
-                Ast::Lri(mods.clone(), Some(tparams2), *iloc)
             }
             &Ast::ConstBool(b) => Ast::ConstBool(b),
             &Ast::ConstInt(i) => Ast::ConstInt(i),
@@ -825,33 +1008,33 @@ impl Protomod
         }
     }
 
-    pub fn preproc_lri(
+    pub fn preproc_modid(
         prog: &Lib,
         mp: &ModulePreface,
-        mods: &Vec<Lstr>,
+        mod_name: &Lstr,
+        localid: &Lstr,
         loc: &SrcLoc,
     ) -> Ast
     {
-        let mod_name = mods.first().unwrap();
         if *mod_name != *mp.key.name && !mp.imports.contains(mod_name) {
-            panic!("module not found: {:?}", mods);
+            panic!("module not found: {:?}", mod_name);
         }
-        let val_name = mods.last().unwrap();
-        match prog.get_macro(mod_name, val_name) {
+        match prog.get_macro(mod_name, localid) {
             Some(mac) => mac.clone(),
-            None => Ast::Lri(mods.clone(), None, *loc),
+            None => Ast::Modid(mod_name.clone(), localid.clone(), *loc),
         }
     }
 
-    pub fn preproc_lri_with_types(
+    pub fn preproc_typecall(
         &mut self,
-        _prog: &Lib,
+        prog: &Lib,
         mp: &ModulePreface,
-        mods: &Vec<Lstr>,
+        base: &Ast,
         typs: &LinkedList<Kxpr>,
         loc: &SrcLoc,
     ) -> Ast
     {
+        let pp_base = self.preproc_expr(prog, mp, base, loc);
         let pp_types = typs
             .iter()
             .map(|t| {
@@ -859,19 +1042,22 @@ impl Protomod
                     match tx {
                         Ast::Localid(ref id, ref iloc) => {
                             if self.deftypes.contains_key(id) {
-                                let tri = vec![mp.key.name.clone(), id.clone()];
-                                Ast::Lri(tri, None, *iloc)
+                                Ast::Modid(
+                                    mp.key.name.clone(),
+                                    id.clone(),
+                                    *iloc,
+                                )
                             } else {
                                 Ast::TypeVar(id.clone(), *iloc)
                             }
                         }
                         Ast::TypeVar(_, _) => tx.clone(),
-                        _ => tx.clone(),
+                        _ => self.preproc_expr(prog, mp, tx, loc),
                     }
                 })
             })
             .collect();
-        Ast::Lri(mods.clone(), Some(pp_types), *loc)
+        Ast::TypeCall(Box::new(pp_base), pp_types, *loc)
     }
 
     pub fn preproc_ifcase(
@@ -970,20 +1156,19 @@ impl Protomod
                     .collect();
                 Ast::Call(Box::new(pp_callx), pp_args, *loc)
             }
-            &Ast::Lri(ref mods, ref opt_params, ref iloc) => {
-                let pp_mods = mods.clone();
-                let pp_params = opt_params.as_ref().map(|params| {
-                    params
-                        .iter()
-                        .map(|pkx| {
-                            pkx.map_x(|p| {
-                                Protomod::preproc_pattern(prog, mp, p, iloc)
-                            })
+            &Ast::TypeCall(ref name, ref params, ref iloc) => {
+                let pp_call = Protomod::preproc_pattern(prog, mp, name, iloc);
+                let pp_params = params
+                    .iter()
+                    .map(|pkx| {
+                        pkx.map_x(|p| {
+                            Protomod::preproc_pattern(prog, mp, p, iloc)
                         })
-                        .collect()
-                });
-                Ast::Lri(pp_mods, pp_params, *iloc)
+                    })
+                    .collect();
+                Ast::TypeCall(Box::new(pp_call), pp_params, *iloc)
             }
+            &Ast::Modid(_, _, _) => p.clone(),
             &Ast::Localid(_, _) => p.clone(),
             &Ast::Wildcard => Ast::Wildcard,
             &Ast::ConstInt(i) => Ast::ConstInt(i),
@@ -1002,24 +1187,24 @@ impl Protomod
         &mut self,
         prog: &Lib,
         mp: &ModulePreface,
-        opt_type_params: Option<&Vec<Type>>,
+        type_params: &Vec<Lstr>,
         typ: &Ast,
         loc: &SrcLoc,
-    ) -> Type
+    ) -> Lresult<Type>
     {
         let pp_x = Protomod::preproc_expr(self, prog, mp, typ, loc);
         let local_type = Type::from(&pp_x);
-        self.replace_typeids(opt_type_params, local_type)
+        self.replace_typeids(type_params, local_type)
     }
 
     pub fn replace_typeids(
         &self,
-        type_params: Option<&Vec<Type>>,
+        type_params: &Vec<Lstr>,
         t: Type,
-    ) -> Type
+    ) -> Lresult<Type>
     {
         // rewrite the modules if necessary
-        match t {
+        let result = match t {
             Type::UserDef(id) => {
                 if id.local_only()
                     && Protomod::find_type_param(type_params, &id.localid)
@@ -1034,28 +1219,31 @@ impl Protomod
                     Type::UserDef(id)
                 }
             }
-            Type::Func(mut args, result) => {
-                let args2 = args
-                    .drain(..)
-                    .map(|a| self.replace_typeids(type_params, a))
-                    .collect();
-                let result2 = self.replace_typeids(type_params, *result);
-                Type::Func(args2, Box::new(result2))
+            Type::Func(ftype) => {
+                let args2 = ftype
+                    .args
+                    .map_v_into(|a| self.replace_typeids(type_params, a))?;
+                let closed2 = ftype
+                    .closed
+                    .map_v_into(|a| self.replace_typeids(type_params, a))?;
+                let result2 =
+                    self.replace_typeids(type_params, *ftype.result)?;
+                Type::Func(FuncType::new_closure(args2, closed2, result2))
             }
             Type::StrictList(subtype) => {
-                let sub2 = self.replace_typeids(type_params, *subtype);
+                let sub2 = self.replace_typeids(type_params, *subtype)?;
                 Type::StrictList(Box::new(sub2))
             }
             Type::Tuple(mut items) => {
-                let items2 = items
+                let items2: Vec<Lresult<(Option<Lstr>, Type)>> = items
                     .0
                     .drain(..)
                     .map(|mut i| {
-                        i.1 = self.replace_typeids(type_params, i.1);
-                        i
+                        i.1 = self.replace_typeids(type_params, i.1)?;
+                        Ok(i)
                     })
                     .collect();
-                Type::Tuple(Struple(items2))
+                Type::Tuple(Struple(Lresult::from_iter(items2)?))
             }
             Type::Var(varname) => Type::Var(varname),
             // primitive types
@@ -1066,22 +1254,20 @@ impl Protomod
             Type::Str => Type::Str,
             Type::Void => Type::Void,
             typ => {
-                panic!("cannot replace_typeids for: {}", typ);
+                return Err(Failure::new(
+                    "type_err",
+                    Lstr::from(format!("cannot replace_typeids for: {}", typ)),
+                ));
             }
-        }
+        };
+        Ok(result)
     }
 
-    pub fn find_type_param(params: Option<&Vec<Type>>, name: &str)
-        -> Option<i8>
+    pub fn find_type_param(params: &Vec<Lstr>, name: &str) -> Option<i8>
     {
-        if params.is_none() {
-            return None;
-        }
-        for (i, p) in params.unwrap().iter().enumerate() {
-            if let &Type::Var(ref pname) = p {
-                if pname == name {
-                    return Some(i as i8);
-                }
+        for (i, p) in params.iter().enumerate() {
+            if name == p {
+                return Some(i as i8);
             }
         }
         None
@@ -1202,25 +1388,18 @@ impl Protomod
     {
         let opt_variant = variant.clone();
         let local_func_name = variant.unwrap_or(struple_lri.localid.clone());
+        let type_vars = struple_lri.type_var_names();
 
         let struple_fields: Vec<(Option<Lstr>, Type)> = src_fields
             .iter()
             .map(|f| {
                 // struple fields are made w/ an x_list,
                 // x_ref will always be there
-                let pp_type = self.preproc_type(
-                    prog,
-                    mp,
-                    struple_lri.param_ref(),
-                    f.x_ref().unwrap(),
-                    loc,
-                );
+                let pp_type = self
+                    .preproc_type(prog, mp, &type_vars, f.x_ref().unwrap(), loc)
+                    .unwrap();
                 (f.k_clone(), pp_type)
             })
-            .collect();
-        let field_type_vec = struple_fields
-            .iter()
-            .map(|&(_, ref ftype)| ftype.clone())
             .collect();
         let fref_args = Struple(
             struple_fields
@@ -1230,7 +1409,16 @@ impl Protomod
         );
 
         let full_type = Type::UserDef(struple_lri.clone());
-        let func_type = Type::Func(field_type_vec, Box::new(full_type.clone()));
+        let func_args: Struple2<Type> = struple_fields
+            .iter()
+            .map(|item| StrupleItem::new(item.0.clone(), item.1.clone()))
+            .collect();
+        let ifunc_type = FuncType::new(func_args, full_type.clone());
+        let func_type = if type_vars.is_empty() {
+            Type::Func(ifunc_type)
+        } else {
+            Type::GenericFunc(type_vars.clone(), ifunc_type)
+        };
         let construct_ri = struple_lri.replace_local(local_func_name.clone());
 
         let srcblk = Ast::ConstructData(struple_lri.clone(), opt_variant);
@@ -1303,10 +1491,15 @@ impl Protomod
     pub fn func_result_type(&self, func_name: &Lstr) -> Option<Type>
     {
         self.valtypes.get(func_name.str()).and_then(|func_type| {
-            if let Type::Func(_, ref result_type) = func_type {
-                Some((**result_type).clone())
-            } else {
-                None
+            match func_type {
+                Type::Func(ref ftype) => Some((*ftype.result).clone()),
+                Type::GenericFunc(_, ref ftype) => {
+                    Some((*ftype.result).clone())
+                }
+                Type::SpecialFunc(_, ref ftype) => {
+                    Some((*ftype.result).clone())
+                }
+                _ => None,
             }
         })
     }
@@ -1440,9 +1633,9 @@ mod tests
     use leema::lri::Lri;
     use leema::lstr::Lstr;
     use leema::program;
-    use leema::struple::Struple;
+    use leema::struple::{Struple, StrupleItem, StrupleKV};
     use leema::types;
-    use leema::val::{Type, Val};
+    use leema::val::{FuncType, Type, Val};
 
 
     #[test]
@@ -1501,9 +1694,9 @@ mod tests
         let pmod = prog.read_proto(&foo_str);
 
         let open_valtype = pmod.valtypes.get("open_foo").unwrap();
-        if let Type::Func(open_args, open_result_type) = open_valtype {
-            assert!(open_args.is_empty());
-            assert_eq!("foo::Foo", &open_result_type.full_typename());
+        if let Type::Func(open_ft) = open_valtype {
+            assert!(open_ft.args.is_empty());
+            assert_eq!("foo::Foo", &open_ft.result.full_typename());
         } else {
             panic!("open_valtype is not a func type: {:?}", open_valtype);
         }
@@ -1529,6 +1722,26 @@ mod tests
         let type_foo = pmod.valtypes.get("foo").unwrap();
         let type_bar = pmod.valtypes.get("bar").unwrap();
         assert_eq!(type_foo, type_bar);
+    }
+
+    #[test]
+    fn test_preproc_generic_func()
+    {
+        let input = "
+            func swap[A, B](x: A, y: B): (B, A) >>
+                (b, a)
+            --
+            "
+        .to_string();
+
+        let foo_str = Lstr::Sref("foo");
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        loader.set_mod_txt(foo_str.clone(), input);
+        let mut prog = program::Lib::new(loader);
+        let pmod = prog.read_proto(&foo_str);
+
+        let _foo_type = pmod.valtypes.get("swap").unwrap();
+        let _foo_const = pmod.constants.get("swap").unwrap();
     }
 
     #[test]
@@ -1575,10 +1788,14 @@ mod tests
         let type_lri =
             Lri::with_modules(tacos_str.clone(), local_typename.clone());
         let tree_type = Type::UserDef(type_lri.clone());
-        let node_funct = Type::Func(
-            vec![tree_type.clone(), Type::Int, tree_type.clone()],
-            Box::new(tree_type.clone()),
-        );
+        let node_funct = Type::Func(FuncType::new(
+            StrupleKV::from(vec![
+                tree_type.clone(),
+                Type::Int,
+                tree_type.clone(),
+            ]),
+            tree_type.clone(),
+        ));
 
         // closures are empty
         assert!(pmod.closures.is_empty());
@@ -1689,13 +1906,32 @@ mod tests
         let animal_type = Type::UserDef(type_lri.clone());
         let typevar_a = Type::Var(Lstr::Sref("A"));
         let dog_name = Lstr::from("Dog".to_string());
-        let cat_func_type =
-            Type::Func(vec![Type::Int], Box::new(animal_type.clone()));
-        let mouse_func_type =
-            Type::Func(vec![typevar_a.clone()], Box::new(animal_type.clone()));
-        let giraffe_func_type = Type::Func(
-            vec![Type::Int, typevar_a.clone()],
-            Box::new(animal_type.clone()),
+        let cat_func_type = Type::GenericFunc(
+            vec![Lstr::Sref("A")],
+            FuncType::new(
+                StrupleKV::from(vec![Type::Int]),
+                animal_type.clone(),
+            ),
+        );
+        let mouse_func_type = Type::GenericFunc(
+            vec![Lstr::Sref("A")],
+            FuncType::new(
+                StrupleKV::from(vec![typevar_a.clone()]),
+                animal_type.clone(),
+            ),
+        );
+        let giraffe_func_type = Type::GenericFunc(
+            vec![Lstr::Sref("A")],
+            FuncType::new(
+                StrupleKV::from_vec(vec![
+                    StrupleItem::new(Some(Lstr::Sref("height")), Type::Int),
+                    StrupleItem::new(
+                        Some(Lstr::Sref("weight")),
+                        typevar_a.clone(),
+                    ),
+                ]),
+                animal_type.clone(),
+            ),
         );
 
         // no closures
@@ -1782,7 +2018,7 @@ mod tests
             format!("{}", *pmod.valtypes.get("Dog").unwrap())
         );
         assert_eq!(
-            "F(Int,):animals::Animal[$A,]",
+            "GF[A,](Int,/):animals::Animal[$A,]",
             format!("{}", *pmod.valtypes.get("Cat").unwrap())
         );
         assert_eq!(mouse_func_type, *pmod.valtypes.get("Mouse").unwrap());
@@ -1806,10 +2042,13 @@ mod tests
         let greeting_lstr = Lstr::Sref("Greeting");
         let greeting_fullri = Lri::with_modules(greet.clone(), greeting_lstr);
         let greeting_typref = Type::UserDef(greeting_fullri);
-        let xfunctyp = Type::Func(
-            vec![Type::Str, Type::Str],
-            Box::new(greeting_typref.clone()),
-        );
+        let xfunctyp = Type::Func(FuncType::new(
+            StrupleKV::from_vec(vec![
+                StrupleItem::new(None, Type::Str),
+                StrupleItem::new(None, Type::Str),
+            ]),
+            greeting_typref.clone(),
+        ));
 
         // constants
         match pmod.constants.get("Greeting").unwrap() {
@@ -1853,13 +2092,13 @@ mod tests
         // assert valtypes
         assert!(pmod.valtypes.contains_key("Burrito"));
         let constructor = pmod.valtypes.get("Burrito").unwrap();
-        if let &Type::Func(ref params, ref result) = constructor {
-            assert_eq!(2, params.len());
+        if let &Type::Func(ref ft) = constructor {
+            assert_eq!(2, ft.args.len());
             let exp_result = Type::UserDef(Lri::with_modules(
                 Lstr::from("tacos"),
                 Lstr::from("Burrito"),
             ));
-            assert_eq!(exp_result, **result);
+            assert_eq!(exp_result, *ft.result);
         } else {
             panic!("constructor valtype is not a func");
         }
@@ -1868,8 +2107,13 @@ mod tests
             Lstr::from("tacos"),
             Lstr::from("Burrito"),
         ));
-        let xfunctype =
-            Type::Func(vec![Type::Bool, Type::Int], Box::new(xtyperef.clone()));
+        let xfunctype = Type::Func(FuncType::new(
+            StrupleKV::from_vec(vec![
+                StrupleItem::new(None, Type::Bool),
+                StrupleItem::new(Some(Lstr::Sref("buns")), Type::Int),
+            ]),
+            xtyperef.clone(),
+        ));
 
         // assert constants
         let funcref = pmod.constants.get("Burrito").unwrap();
@@ -1919,13 +2163,13 @@ mod tests
         // assert valtypes
         assert!(pmod.valtypes.contains_key("Burrito"));
         let constructor = pmod.valtypes.get("Burrito").unwrap();
-        if let &Type::Func(ref params, ref result) = constructor {
-            assert_eq!(2, params.len());
+        if let &Type::Func(ref ft) = constructor {
+            assert_eq!(2, ft.args.len());
             let exp_result = Type::UserDef(Lri::with_modules(
                 Lstr::from("tacos"),
                 Lstr::from("Burrito"),
             ));
-            assert_eq!(exp_result, **result);
+            assert_eq!(exp_result, *ft.result);
         } else {
             panic!("constructor valtype is not a func");
         }
@@ -1934,8 +2178,13 @@ mod tests
             Lstr::from("tacos"),
             Lstr::from("Burrito"),
         ));
-        let xfunctype =
-            Type::Func(vec![Type::Str, Type::Int], Box::new(xtyperef.clone()));
+        let xfunctype = Type::Func(FuncType::new(
+            StrupleKV::from_vec(vec![
+                StrupleItem::new(Some(Lstr::Sref("filling")), Type::Str),
+                StrupleItem::new(Some(Lstr::Sref("number")), Type::Int),
+            ]),
+            xtyperef.clone(),
+        ));
 
         // assert constants
         let funcref = pmod.constants.get("Burrito").unwrap();
