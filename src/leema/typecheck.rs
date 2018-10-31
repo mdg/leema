@@ -641,6 +641,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> Lresult<Type>
 
 pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> Lresult<Type>
 {
+    let pretype = scope.inter.get_function_type(scope.fname).unwrap();
     match &mut ix.src {
         &mut Source::Func(
             ref arg_names,
@@ -649,7 +650,6 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> Lresult<Type>
             ref mut declared_result_type,
             ref mut body,
         ) => {
-            let pretype = scope.inter.get_function_type(scope.fname).unwrap();
             let zips = arg_names.iter().zip(arg_types.iter());
             for (i, (an, at)) in zips.enumerate() {
                 scope.infer.init_param(i as i16, an, at, ix.line)?;
@@ -723,9 +723,30 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr) -> Lresult<Type>
                 }
                 _ => {} // everything's fine
             }
-
             scope.infer.validate_rust_args(arg_types, result_type)?;
-            Ok(Type::f(arg_types.clone(), result_type.clone()))
+
+            match pretype {
+                Type::Func(_) => {
+                    Ok(Type::f(arg_types.clone(), result_type.clone()))
+                }
+                Type::GenericFunc(ref pre_tvars, _) => {
+                    Ok(Type::GenericFunc(
+                        pre_tvars.clone(),
+                        FuncType::new(arg_types.clone(), result_type.clone())
+                    ))
+                }
+                Type::SpecialFunc(_, _) => {
+                    Err(rustfail!(
+                        "leema_incomplete",
+                        "cannot typecheck a special rust func yet",
+                    ))
+                }
+                not_func => {
+                    Err(rustfail!(
+                        "leema_fail", "pre type is not a func: {}", not_func
+                    ))
+                }
+            }
         }
         ref mut src => {
             panic!("Cannot typecheck_function a not function: {:?}", src);
