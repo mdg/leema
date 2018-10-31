@@ -350,8 +350,15 @@ impl<'a, 'b> Typescope<'a, 'b>
     pub fn typecheck_call_func(&mut self, src: &Source) -> Lresult<Type>
     {
         match src {
-            &Source::ConstVal(Val::FuncRef(ref fri, ref args, ref typ)) => {
-                self.typecheck_funcref(fri, args, typ)
+            &Source::ConstVal(Val::FuncRef(ref fri, _, ref typ)) => {
+                self.typecheck_funcref(fri, typ)
+            }
+            &Source::Id(ref id, _) => {
+                let local_type = self.infer.vartype(id)?;
+                if !self.is_typevar(&local_type) {
+                    return Ok(local_type.clone());
+                }
+                Ok(local_type)
             }
             _ => {
                 panic!("whatever is that in typecheck_call? {:?}", src);
@@ -402,6 +409,9 @@ impl<'a, 'b> Typescope<'a, 'b>
                     // fine, do nothing
                 }
             }
+            Source::Id(_, _) => {
+                // ids are fine, do nothing
+            }
             _ => {
                 println!("whoa, not a const func");
                 // should probably do something else here to handle
@@ -445,9 +455,6 @@ impl<'a, 'b> Typescope<'a, 'b>
 
         let special_args: StrupleKV<Lstr, Type> = gen_args.iter().map(|ga| {
             let var_type = var_map.get(ga);
-            if var_type.is_none() {
-                println!("cannot find type for {} in {}", ga, ft);
-            }
             let new_type = var_type
                 .map(|t| (*t).clone())
                 .unwrap_or(Type::Unknown);
@@ -462,7 +469,6 @@ impl<'a, 'b> Typescope<'a, 'b>
     pub fn typecheck_funcref(
         &mut self,
         fri: &Lri,
-        _args: &Struple<Val>,
         typ: &Type,
     ) -> Lresult<Type>
     {
@@ -531,8 +537,8 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> Lresult<Type>
             let head_list_t = Type::StrictList(Box::new(head_t));
             scope.infer.merge_types(&head_list_t, &tail_t)
         }
-        &mut Source::ConstVal(Val::FuncRef(ref fri, ref args, ref typ)) => {
-            scope.typecheck_funcref(fri, args, typ)
+        &mut Source::ConstVal(Val::FuncRef(ref fri, _, ref typ)) => {
+            scope.typecheck_funcref(fri, typ)
         }
         &mut Source::ConstVal(ref val) => Ok(val.get_type()),
         &mut Source::Let(ref lhs, ref mut rhs, ref mut fails) => {

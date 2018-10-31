@@ -584,40 +584,12 @@ impl<'b> Inferator<'b>
                 &Type::Func(ref oldftype),
                 &Type::Func(ref newftype),
             ) => {
-                let oldlen = oldftype.args.len();
-                let newlen = newftype.args.len();
-                if oldlen != newlen {
-                    return match_err!(oldt, newt);
-                }
-                let coldlen = oldftype.closed.len();
-                let cnewlen = newftype.closed.len();
-                if coldlen != cnewlen {
-                    return match_err!(oldt, newt);
-                }
-                let mut masht = Vec::with_capacity(oldlen);
-                let mashit = oldftype.args.iter().zip(newftype.args.iter());
-                for (oldit, newit) in mashit {
-                    let mashit =
-                        Inferator::mash(inferences, typevars, &oldit.v, &newit.v)?;
-                    masht.push(StrupleItem::new(oldit.k.clone(), mashit));
-                }
-                let mut mashclosed = Vec::with_capacity(oldlen);
-                let close_it = oldftype.closed
-                    .iter()
-                    .zip(newftype.closed.iter());
-                for (oldit, newit) in close_it {
-                    let mashit =
-                        Inferator::mash(inferences, typevars, &oldit.v, &newit.v)?;
-                    mashclosed.push(StrupleItem::new(oldit.k.clone(), mashit));
-                }
-                let mashresult = Inferator::mash(
-                    inferences, typevars, &oldftype.result, &newftype.result,
+                let mashftype = Inferator::mash_ft(
+                    inferences,
+                    typevars,
+                    oldftype,
+                    newftype,
                 )?;
-                let mashftype = FuncType::new_closure(
-                    StrupleKV::from(masht),
-                    StrupleKV::from(mashclosed),
-                    mashresult,
-                );
                 Ok(Type::Func(mashftype))
             }
             (&Type::SpecialFunc(_, _), &Type::GenericFunc(_, _)) => {
@@ -710,12 +682,6 @@ impl<'b> Inferator<'b>
         if oldlen != newlen {
             return match_err!(oldt, newt);
         }
-        let coldlen = oldt.closed.len();
-        let cnewlen = newt.closed.len();
-        if coldlen != cnewlen {
-            return match_err!(oldt, newt);
-        }
-
         let mut masht = Vec::with_capacity(oldlen);
         let mashit = oldt.args.iter().zip(newt.args.iter());
         for (oldit, newit) in mashit {
@@ -723,21 +689,12 @@ impl<'b> Inferator<'b>
                 Inferator::mash(inferences, typevars, &oldit.v, &newit.v)?;
             masht.push(StrupleItem::new(oldit.k.clone(), mashit));
         }
-        let mut mashclosed = Vec::with_capacity(oldlen);
-        let close_it = oldt.closed
-            .iter()
-            .zip(newt.closed.iter());
-        for (oldit, newit) in close_it {
-            let mashit =
-                Inferator::mash(inferences, typevars, &oldit.v, &newit.v)?;
-            mashclosed.push(StrupleItem::new(oldit.k.clone(), mashit));
-        }
+
         let mashresult = Inferator::mash(
             inferences, typevars, &oldt.result, &newt.result,
         )?;
-        Ok(FuncType::new_closure(
+        Ok(FuncType::new(
             StrupleKV::from(masht),
-            StrupleKV::from(mashclosed),
             mashresult,
         ))
     }
