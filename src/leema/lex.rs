@@ -243,17 +243,17 @@ mod tests
     {
         let actual = super::lex(
             "
-        enum Animal
+        enum Animal[A]
         |Dog
         |Cat Int
-        |Mouse $A
+        |Mouse A
         |Giraffe
             .height: Int
-            .weight: $A
+            .weight: A
         --
     ",
         );
-        assert_eq!(21, actual.len());
+        assert_eq!(24, actual.len());
     }
 
 }

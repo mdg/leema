@@ -1101,13 +1101,13 @@ mod tests
     fn test_parse_enum_variants()
     {
         let input = "
-            enum Animal
+            enum Animal[A]
             |Dog
             |Cat(Int)
-            |Mouse($A)
+            |Mouse(A)
             |Giraffe
                 .height: Int
-                .weight: $A
+                .weight: A
             --
             ";
         let root = ast::parse(lex(input));
@@ -1117,10 +1117,18 @@ mod tests
             if let &Ast::DefData(ast::DataType::Enum, ref name, ref vars, _) =
                 first
             {
-                assert_eq!(
-                    Ast::Localid(Lstr::from("Animal"), SrcLoc::new(2, 5)),
-                    **name
-                );
+                if let Ast::TypeCall(ref call, ref tvars, _) = **name {
+                    assert_eq!(
+                        Ast::Localid(Lstr::Sref("Animal"), SrcLoc::new(2, 5)),
+                        **call,
+                    );
+                    assert_eq!(
+                        Ast::Localid(Lstr::Sref("A"), SrcLoc::new(2, 12)),
+                        **tvars.front().unwrap().x.as_ref().unwrap(),
+                    );
+                } else {
+                    panic!("not a typecall");
+                }
                 assert_eq!(4, vars.len());
             } else {
                 panic!("enum is not an enum: {:?}", first);
