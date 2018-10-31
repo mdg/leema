@@ -316,13 +316,6 @@ impl<'b> Inferator<'b>
     ) -> Lresult<Type>
     {
         match (patt, valtype) {
-            (_, &Type::Unknown) => {
-                Err(rustfail!(
-                    "leema_fail",
-                    "pattern value type cannot be anonymous: {:?}",
-                    patt
-                ))
-            }
             (&Val::Id(ref id), _) => self.bind_vartype(id, valtype, lineno),
             (&Val::Wildcard, _) => Ok(Type::Unknown),
             (&Val::Nil, _) => {
