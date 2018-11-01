@@ -5,9 +5,9 @@ import map
 
 func test_decode() >>
     let s := json::decode[Str]("\"coded  '\"")
-    ## let i := json::decode[Int](9)
-    ## let b := json::decode[Bool](true)
-    println("$s")
+    let i := json::decode[Int]("9")
+    let b := json::decode[Bool]("true")
+    println("$s $i or $b")
 --
 
 func test_encode() >>
