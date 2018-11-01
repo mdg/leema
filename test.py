@@ -294,6 +294,7 @@ class TestScripts(unittest.TestCase):
         exp = b'6\nfalse\n"hello"\n"#world"\n' \
             + b'["a","b"]\n' \
             + b'{"x":4}\n' \
+            + b'{"id":4,"name":"Javier"}\n' \
             + b'coded  \' 9 or true\n'
         self.assertEqual(exp, result['output'])
 

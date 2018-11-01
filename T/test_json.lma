@@ -3,6 +3,11 @@ import json
 import map
 
 
+struct User
+.id: Int
+.name: Str
+--
+
 func test_decode() >>
     let s := json::decode[Str]("\"coded  '\"")
     let i := json::decode[Int]("9")
@@ -18,6 +23,8 @@ func test_encode() >>
     print(json::encode(["a", "b"]) \n)
     let m := map::set({}, "x", 4)
     print(json::encode(m) \n)
+    let u := User(4, "Javier")
+    println(json::encode(u))
 --
 
 func main() >>

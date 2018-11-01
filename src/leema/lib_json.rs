@@ -35,6 +35,13 @@ impl Serialize for Val
                 let ss = ser.serialize_seq(Some(0))?;
                 ss.end()
             }
+            Val::Struct(_, ref flds) => {
+                let mut sser = ser.serialize_map(Some(flds.0.len()))?;
+                for f in flds.0.iter() {
+                    sser.serialize_entry(f.0.as_ref().unwrap().str(), &f.1)?;
+                }
+                sser.end()
+            }
             _ => {
                 panic!("cannot json serialize: {:?}", self);
             }
