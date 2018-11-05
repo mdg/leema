@@ -29,6 +29,11 @@ func sort[T](items: [T]): [T] -RUST-
 
 func cat[T](a: [T], b: [T]): [T] -RUST-
 
+func head[T](l: [T]): T >>
+|h:_ >> h
+|_ >> fail(#param_error, "cannot take head from empty list")
+--
+
 func _filter[T](acc: [T], in: [T], pred: F(T): Bool): [T] >>
 |(acc, [], _) -> reverse(acc)
 |(acc, h;t, f) ->

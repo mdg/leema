@@ -49,11 +49,6 @@ impl Application
         }
     }
 
-    pub fn set_args(&mut self, args: Val)
-    {
-        self.args = args;
-    }
-
     pub fn caller(&self) -> AppCaller
     {
         AppCaller {
@@ -251,11 +246,11 @@ pub struct AppCaller
 
 impl AppCaller
 {
-    pub fn push_call(&self, call: Lri) -> Receiver<Val>
+    pub fn push_call(&self, call: Lri, args: Struple<Val>) -> Receiver<Val>
     {
         let (result_send, result_recv) = channel();
         self.app_send
-            .send(AppMsg::Spawn(result_send, call, Struple(Vec::new())))
+            .send(AppMsg::Spawn(result_send, call, args))
             .unwrap();
         result_recv
     }
@@ -285,6 +280,7 @@ mod tests
     use leema::lri::Lri;
     use leema::lstr::Lstr;
     use leema::program;
+    use leema::struple::Struple;
     use leema::val::Val;
 
     use libc::getpid;
@@ -305,10 +301,10 @@ mod tests
 
         let mut app = Application::new(prog);
         let caller = app.caller();
-        let recv = caller.push_call(Lri::with_modules(
-            Lstr::Sref("test"),
-            Lstr::Sref("main"),
-        ));
+        let recv = caller.push_call(
+            Lri::with_modules(Lstr::Sref("test"), Lstr::Sref("main")),
+            Struple(vec![]),
+        );
         app.run();
 
         writeln!(stderr(), "Application::wait_until_done").unwrap();

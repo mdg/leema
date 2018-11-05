@@ -28,6 +28,7 @@ use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::module::ModuleSource;
 use leema::program;
+use leema::struple::Struple;
 use leema::typecheck;
 use leema::val::Val;
 
@@ -40,7 +41,8 @@ use std::env;
 struct Args
 {
     arg_cmd: String,
-    arg_script: Vec<String>,
+    arg_script: String,
+    arg_args: Vec<String>,
     flag_verbose: bool,
     flag_func: Option<String>,
 }
@@ -49,7 +51,7 @@ static USAGE: &'static str = "
 leema interpreter
 
 Usage:
-  leema [options] <cmd> <script>...
+  leema [options] <cmd> <script> [<args>...]
   leema (-v | --verbose)
   leema (-h | --help)
 
@@ -85,12 +87,11 @@ fn real_main() -> i32
     }
     vout!("args:{:?}\n", args);
 
-    let file = Lstr::from(args.arg_script.first().unwrap());
-    let leema_args: Val =
-        args.arg_script.iter().skip(1).fold(Val::Nil, |acc, a| {
-            let strval = Val::Str(Lstr::from(a.to_string()));
-            list::cons(strval, acc)
-        });
+    let file = Lstr::from(args.arg_script);
+    let leema_args_rev: Val = args.arg_args.iter().fold(Val::Nil, |aacc, a| {
+        list::cons(Val::Str(Lstr::from(a.to_string())), aacc)
+    });
+    let leema_args = list::reverse(&leema_args_rev);
     let inter = Interloader::new(file);
     let modkey = inter.mod_name_to_key(inter.main_mod.clone());
     vout!("{} {}\n", args.arg_cmd, inter.main_mod);
@@ -160,12 +161,12 @@ fn real_main() -> i32
     } else if args.arg_cmd == "run" {
         let prog = program::Lib::new(inter);
         let mut app = Application::new(prog);
-        app.set_args(leema_args);
         let caller = app.caller();
         let main_lri =
             Lri::with_modules(modkey.name.clone(), Lstr::Sref("main"));
         app.run();
-        let result_recv = caller.push_call(main_lri);
+        let main_arg = Struple(vec![(None, leema_args)]);
+        let result_recv = caller.push_call(main_lri, main_arg);
         app.wait_for_result(result_recv).unwrap()
     } else {
         println!("invalid command: {:?}", args.arg_cmd);

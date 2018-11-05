@@ -1,0 +1,10 @@
+import list
+
+func main(args: [Str]) ->
+    let hi_to := match args
+        |[] >> "world"
+        |[only] >> only
+        |[first, second] >> "$first and $second"
+        --
+    print("hi $hi_to\n")
+--
