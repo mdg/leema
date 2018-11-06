@@ -1,8 +1,10 @@
 import unittest
 import subprocess
 
-def run_leema(f):
+def run_leema(f, cli_args=None):
     args = ["target/debug/leema", "run", "T/"+f+".lma"]
+    if cli_args is not None:
+        args += cli_args
     print(args)
     proc = subprocess.Popen(args, stdout=subprocess.PIPE)
     result = proc.wait()
@@ -296,6 +298,22 @@ class TestScripts(unittest.TestCase):
             + b'{"x":4}\n' \
             + b'{"id":4,"name":"Javier"}\n' \
             + b'coded  \' 9 or true\n'
+        self.assertEqual(exp, result['output'])
+
+    def test_cli(self):
+        result = run_leema('hi_to')
+        self.assertEqual(0, result['code'])
+        exp = b'hi world\n'
+        self.assertEqual(exp, result['output'])
+
+        result = run_leema('hi_to', ['you'])
+        self.assertEqual(0, result['code'])
+        exp = b'hi you\n'
+        self.assertEqual(exp, result['output'])
+
+        result = run_leema('hi_to', ['tacos and burritos'])
+        self.assertEqual(0, result['code'])
+        exp = b'hi tacos and burritos\n'
         self.assertEqual(exp, result['output'])
 
     def test_read_file(self):
