@@ -87,17 +87,26 @@ fn real_main() -> i32
     }
     vout!("args:{:?}\n", args);
 
+    let leema_path = match env::var("LEEMA_PATH") {
+        Ok(path_val) => path_val,
+        Err(env::VarError::NotPresent) => String::new(),
+        Err(env::VarError::NotUnicode(os_path)) => {
+            eprintln!("LEEMA_PATH is not unicode: {:?}", os_path);
+            String::new()
+        }
+    };
+
     let file = Lstr::from(args.arg_script);
     let leema_args_rev: Val = args.arg_args.iter().fold(Val::Nil, |aacc, a| {
         list::cons(Val::Str(Lstr::from(a.to_string())), aacc)
     });
     let leema_args = list::reverse(&leema_args_rev);
-    let inter = Interloader::new(file);
-    let modkey = inter.mod_name_to_key(inter.main_mod.clone());
+    let inter = Interloader::new(file, &leema_path);
+    let mod_name = inter.main_mod.clone();
     vout!("{} {}\n", args.arg_cmd, inter.main_mod);
 
     let main_result = if args.arg_cmd == "tokens" {
-        let modtxt = inter.read_module(&modkey);
+        let modtxt = inter.read_module(&mod_name).unwrap();
         let toks = ModuleSource::read_tokens(&modtxt);
         println!("tokens:");
         for t in &toks {
@@ -105,28 +114,28 @@ fn real_main() -> i32
         }
         Val::Int(0)
     } else if args.arg_cmd == "ast" {
-        let modtxt = inter.read_module(&modkey);
+        let modtxt = inter.read_module(&mod_name).unwrap();
         let ast = ModuleSource::read_ast(&modtxt);
         println!("{}\n", ast);
         Val::Int(0)
     } else if args.arg_cmd == "modsrc" {
         let prog = program::Lib::new(inter);
-        let src = prog.read_modsrc(&modkey.name);
+        let src = prog.read_modsrc(&mod_name);
         println!("{:?}\n", src);
         Val::Int(0)
     } else if args.arg_cmd == "preface" {
         let prog = program::Lib::new(inter);
-        let (_, pref) = prog.read_preface(&modkey.name);
+        let (_, pref) = prog.read_preface(&mod_name);
         println!("{:?}\n", pref);
         Val::Int(0)
     } else if args.arg_cmd == "proto" {
         let mut prog = program::Lib::new(inter);
-        let proto = prog.read_proto(&modkey.name);
+        let proto = prog.read_proto(&mod_name);
         println!("\n{}\n", proto);
         Val::Int(0)
     } else if args.arg_cmd == "inter" {
         let mut prog = program::Lib::new(inter);
-        let imod = prog.read_inter(&modkey.name);
+        let imod = prog.read_inter(&mod_name);
         let fix = match args.flag_func {
             Some(func) => {
                 let lfunc = Lstr::from(func);
@@ -138,7 +147,6 @@ fn real_main() -> i32
         Val::Int(0)
     } else if args.arg_cmd == "typecheck" {
         let mut prog = program::Lib::new(inter);
-        let mod_name = modkey.name.clone();
         let func_name = Lstr::Sref("main");
         let funcri = Lri::with_modules(mod_name, func_name);
         let ftype = prog.typecheck(&funcri, typecheck::Depth::Full);
@@ -149,9 +157,9 @@ fn real_main() -> i32
         let code = match args.flag_func {
             Some(func) => {
                 let func_name = Lstr::from(func);
-                prog.load_code(&modkey.name, &func_name)
+                prog.load_code(&mod_name, &func_name)
             }
-            None => prog.load_code(&modkey.name, &Lstr::Sref("main")),
+            None => prog.load_code(&mod_name, &Lstr::Sref("main")),
         };
         println!("code: {:?}", code);
         Val::Int(0)
@@ -163,7 +171,7 @@ fn real_main() -> i32
         let mut app = Application::new(prog);
         let caller = app.caller();
         let main_lri =
-            Lri::with_modules(modkey.name.clone(), Lstr::Sref("main"));
+            Lri::with_modules(mod_name, Lstr::Sref("main"));
         app.run();
         let main_arg = Struple(vec![(None, leema_args)]);
         let result_recv = caller.push_call(main_lri, main_arg);

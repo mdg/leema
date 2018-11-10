@@ -8,7 +8,7 @@ use leema::lib_str;
 use leema::loader::Interloader;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
-use leema::module::{ModulePreface, ModuleSource};
+use leema::module::{ModulePreface, ModuleSource, ModKey};
 use leema::phase0::{self, Protomod};
 use leema::typecheck::{self, CallFrame, CallOp, Typemod, Typescope};
 use leema::val::Type;
@@ -165,8 +165,8 @@ impl Lib
     pub fn read_modsrc(&self, modname: &Lstr) -> ModuleSource
     {
         vout!("read_modsrc: {}\n", modname);
-        let modkey = self.loader.mod_name_to_key(modname.clone());
-        let modtxt = self.loader.read_module(&modkey);
+        let modtxt = self.loader.read_module(modname).unwrap();
+        let modkey = ModKey::name_only(modname.clone());
         ModuleSource::new(modkey, modtxt)
     }
 

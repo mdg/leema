@@ -1,7 +1,9 @@
 use leema::lstr::Lstr;
+use leema::failure::Lresult;
 use leema::module::ModKey;
 
 use std::collections::HashMap;
+use std::env;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -10,14 +12,14 @@ use std::path::{Path, PathBuf};
 #[derive(Debug)]
 pub struct Interloader
 {
-    pub root_path: PathBuf,
     pub main_mod: Lstr,
+    paths: Vec<PathBuf>,
     modtxt: HashMap<Lstr, String>,
 }
 
 impl Interloader
 {
-    pub fn new(mainfile: Lstr) -> Interloader
+    pub fn new(mainfile: Lstr, path_str: &str) -> Interloader
     {
         let path = Path::new(mainfile.str());
         let ext = path.extension();
@@ -32,11 +34,15 @@ impl Interloader
             panic!("Is that not a real file? {}", mainfile);
         }
 
+        let root_path = Some(path.parent().unwrap().to_path_buf());
+        let splits = env::split_paths(path_str);
+        let paths: Vec<PathBuf> = root_path.into_iter().chain(splits).collect();
+
         let mod_str =
             Lstr::from(modname.unwrap().to_str().unwrap().to_string());
         Interloader {
-            root_path: path.parent().unwrap().to_path_buf(),
             main_mod: mod_str,
+            paths,
             modtxt: HashMap::new(),
         }
     }
@@ -46,41 +52,76 @@ impl Interloader
         self.modtxt.insert(modname, content);
     }
 
-    pub fn mod_name_to_key(&self, mod_name: Lstr) -> ModKey
+    fn mod_name_to_key(&self, mod_name: &Lstr) -> Lresult<ModKey>
     {
-        if self.modtxt.contains_key(&mod_name) {
-            ModKey::name_only(mod_name)
+        if self.modtxt.contains_key(mod_name) {
+            Ok(ModKey::name_only(mod_name.clone()))
         } else {
-            let mut path = PathBuf::new();
-            path.push(self.root_path.as_path());
-            path.push(mod_name.str());
-            path.set_extension("lma");
-            ModKey::new(mod_name, path)
+            let path = self.find_file_path(mod_name)?;
+            Ok(ModKey::new(mod_name.clone(), path))
         }
     }
 
-    pub fn read_module(&self, mod_key: &ModKey) -> String
+    pub fn read_module(&self, mod_name: &Lstr) -> Lresult<String>
     {
+        let mod_key = self.mod_name_to_key(mod_name)?;
         if mod_key.file.is_none() {
-            self.modtxt.get(&*mod_key.name).unwrap().clone()
+            self.modtxt.get(mod_name)
+                .map(|txt| txt.clone())
+                .ok_or_else(|| {
+                    rustfail!(
+                        "file_not_found",
+                        "could not find text for module with no file: {}",
+                        mod_name,
+                    )
+                })
         } else {
-            Interloader::read_file_text(mod_key.file.as_ref().unwrap())
+            self.read_file_text(mod_key.file.as_ref().unwrap())
         }
     }
 
-    fn read_file_text(path: &Path) -> String
+    fn find_file_path(&self, name: &Lstr) -> Lresult<PathBuf>
+    {
+        let mut file_path = PathBuf::new();
+        file_path.push(name.str());
+        file_path.set_extension("lma");
+
+        for p in self.paths.iter() {
+            let mut check_path = p.clone();
+            check_path.push(file_path.clone());
+            if check_path.exists() && check_path.is_file() {
+                return Ok(check_path);
+            }
+        }
+
+        Err(rustfail!(
+            "file_not_found",
+            "Module file does not exist: {:?}",
+            name,
+        ))
+    }
+
+    fn read_file_text(&self, path: &Path) -> Lresult<String>
     {
         if !path.exists() {
-            panic!("Module file does not exist: {:?}", path);
+            return Err(rustfail!(
+                "file_not_found",
+                "Module file does not exist: {:?}",
+                path,
+            ));
         }
         if !path.is_file() {
-            panic!("Module is not a file: {:?}", path);
+            return Err(rustfail!(
+                "file_not_found",
+                "Module is not a file: {:?}",
+                path,
+            ));
         }
         let mut f = File::open(path).ok().unwrap();
         let mut result = String::new();
         f.read_to_string(&mut result)
             .expect("failed reading file to text");
-        result
+        Ok(result)
     }
 }
 
