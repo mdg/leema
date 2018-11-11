@@ -3,11 +3,13 @@ import subprocess
 import time
 
 def run_clientserver(client, server):
+    e = {"LEEMA_PATH": "lib"}
     try:
         # start server
         server_args = ["target/debug/leema", "run", "T/"+server+".lma"]
         print(server_args)
-        server_proc = subprocess.Popen(server_args, stdout=subprocess.PIPE)
+        server_proc = \
+            subprocess.Popen(server_args, stdout=subprocess.PIPE, env=e)
     except Exception as sse:
         print("server start error: {0}".format(sse))
         server_proc.kill()
@@ -18,7 +20,8 @@ def run_clientserver(client, server):
         time.sleep(1)
         client_args = ["target/debug/leema", "run", "T/"+client+".lma"]
         print(client_args)
-        client_proc = subprocess.Popen(client_args, stdout=subprocess.PIPE)
+        client_proc = \
+            subprocess.Popen(client_args, stdout=subprocess.PIPE, env=e)
     except Exception as cse:
         print("client start error: {0}".format(cse))
         server_proc.kill()
@@ -52,8 +55,9 @@ def run_clientserver(client, server):
 
 def run_leema(f):
     args = ["target/debug/leema", "run", "T/"+f+".lma"]
+    e = {"LEEMA_PATH": "lib"}
     print(args)
-    proc = subprocess.Popen(args, stdout=subprocess.PIPE)
+    proc = subprocess.Popen(args, stdout=subprocess.PIPE, env=e)
     result = proc.wait()
     output = proc.stdout.read()
     return {'code': result, 'output': output}

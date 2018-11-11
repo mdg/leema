@@ -3,10 +3,11 @@ import subprocess
 
 def run_leema(f, cli_args=None):
     args = ["target/debug/leema", "run", "T/"+f+".lma"]
+    env = {"LEEMA_PATH": "lib"}
     if cli_args is not None:
         args += cli_args
     print(args)
-    proc = subprocess.Popen(args, stdout=subprocess.PIPE)
+    proc = subprocess.Popen(args, stdout=subprocess.PIPE, env=env)
     result = proc.wait()
     output = proc.stdout.read()
     return {'code': result, 'output': output}
