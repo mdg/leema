@@ -774,19 +774,18 @@ mod tests
     }
 
     #[test]
-    #[ignore] // ignored until generics are fixed
     #[should_panic]
     fn test_load_code_fails_for_func_type_infer_mismatch()
     {
         let input = "
             ## foo should take [#] and return a #
-            func foo(inputs)
+            func foo(inputs) >>
             |([]) -> #empty
             |(#whatever;more) -> #whatever
             |(_;more) -> foo(more)
             --
 
-            func main() ->
+            func main() >>
                 foo([5, 3, 4])
             --
             "

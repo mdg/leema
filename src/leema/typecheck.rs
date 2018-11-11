@@ -838,7 +838,6 @@ mod tests
 
     #[test]
     #[should_panic]
-    #[ignore] // ignored until generics are fixed
     fn test_typevar_parameter_mismatch()
     {
         let input = r#"
@@ -846,7 +845,7 @@ mod tests
                 (b, a)
             --
 
-            func main() ->
+            func main() >>
                 let (a, b) := swap[Int, #]("x", #y)
                 let (c, d) := swap[Int, Str](8, true)
                 print("swapped: $a $b $c $d\n")
@@ -862,7 +861,6 @@ mod tests
     }
 
     #[test]
-    #[ignore] // ignored until generics are fixed
     fn test_typevar_used_two_ways()
     {
         let input = r#"
@@ -870,7 +868,7 @@ mod tests
                 (b, a)
             --
 
-            func main() ->
+            func main() >>
                 let (a, b) := swap[Str, #]("x", #y)
                 let (c, d) := swap[Int, Bool](8, true)
                 print("swapped: $a $b $c $d\n")
@@ -888,17 +886,24 @@ mod tests
 
         let swapi = Lri::with_modules(Lstr::from("tacos"), Lstr::from("swap"));
         let swap_type = prog.typecheck(&swapi, Depth::Full);
+        let func_vars = vec![Lstr::Sref("T"), Lstr::Sref("U")];
         let func_type = FuncType::new(
             StrupleKV::from_vec(vec![
-                StrupleItem::new(None, Type::Var(Lstr::Sref("T"))),
-                StrupleItem::new(None, Type::Var(Lstr::Sref("U"))),
+                StrupleItem::new(
+                    Some(Lstr::Sref("a")),
+                    Type::Var(Lstr::Sref("T")),
+                ),
+                StrupleItem::new(
+                    Some(Lstr::Sref("b")),
+                    Type::Var(Lstr::Sref("U")),
+                ),
             ]),
             Type::Tuple(Struple(vec![
                 (None, Type::Var(Lstr::Sref("U"))),
                 (None, Type::Var(Lstr::Sref("T"))),
             ])),
         );
-        assert_eq!(Type::Func(func_type), swap_type);
+        assert_eq!(Type::GenericFunc(func_vars, func_type), swap_type);
     }
 }
 

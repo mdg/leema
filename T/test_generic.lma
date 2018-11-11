@@ -13,7 +13,7 @@ func main
     let c := 3
     let d := true
 
-    let x := swap(a, b)
+    let x := swap[Str, #](a, b)
     let y := swap(c, d)
     let z := swap(b, c)
 

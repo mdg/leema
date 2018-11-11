@@ -606,10 +606,7 @@ term(A) ::= tuple(B). {
 term(A) ::= list(B). {
     A = B;
 }
-term(A) ::= localid(B). {
-    A = B;
-}
-term(A) ::= modid_spec(B). {
+term(A) ::= id_spec(B). {
     A = B;
 }
 term(A) ::= map(B). {
