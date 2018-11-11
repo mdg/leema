@@ -1651,7 +1651,7 @@ mod tests
             ",
         );
 
-        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
         let pmod = prog.read_proto(&Lstr::Sref("tacos"));
@@ -1688,7 +1688,7 @@ mod tests
         .to_string();
 
         let foo_str = Lstr::Sref("foo");
-        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
         loader.set_mod_txt(foo_str.clone(), input);
         let mut prog = program::Lib::new(loader);
         let pmod = prog.read_proto(&foo_str);
@@ -1714,7 +1714,7 @@ mod tests
         .to_string();
 
         let foo_str = Lstr::Sref("foo");
-        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
         loader.set_mod_txt(foo_str.clone(), input);
         let mut prog = program::Lib::new(loader);
         let pmod = prog.read_proto(&foo_str);
@@ -1735,7 +1735,7 @@ mod tests
         .to_string();
 
         let foo_str = Lstr::Sref("foo");
-        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
         loader.set_mod_txt(foo_str.clone(), input);
         let mut prog = program::Lib::new(loader);
         let pmod = prog.read_proto(&foo_str);
@@ -1756,7 +1756,7 @@ mod tests
         .to_string();
 
         let foo_str = Lstr::Sref("foo");
-        let mut loader = Interloader::new(Lstr::Sref("foo.lma"));
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
         loader.set_mod_txt(foo_str.clone(), input);
         let mut prog = program::Lib::new(loader);
         let pmod = prog.read_proto(&foo_str);
@@ -1779,7 +1779,7 @@ mod tests
         );
 
         let tacos_str = Lstr::Sref("tacos");
-        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
         loader.set_mod_txt(tacos_str.clone(), input);
         let mut prog = program::Lib::new(loader);
         let pmod = prog.read_proto(&tacos_str);
@@ -1859,7 +1859,7 @@ mod tests
         );
 
         let colors_str = Lstr::Sref("colors");
-        let mut loader = Interloader::new(Lstr::Sref("colors.lma"));
+        let mut loader = Interloader::new(Lstr::Sref("colors.lma"), "lib");
         loader.set_mod_txt(colors_str.clone(), input);
         let mut prog = program::Lib::new(loader);
         let pmod = prog.read_proto(&colors_str);
@@ -1893,7 +1893,7 @@ mod tests
         "
         .to_string();
         let animals_str = Lstr::Sref("animals");
-        let mut loader = Interloader::new(Lstr::Sref("animals.lma"));
+        let mut loader = Interloader::new(Lstr::Sref("animals.lma"), "lib");
         loader.set_mod_txt(animals_str.clone(), input);
         let mut prog = program::Lib::new(loader);
         let pmod = prog.read_proto(&animals_str);
@@ -2034,7 +2034,7 @@ mod tests
     "
         .to_string();
         let greet = Lstr::Sref("greet");
-        let mut loader = Interloader::new(Lstr::Sref("greet.lma"));
+        let mut loader = Interloader::new(Lstr::Sref("greet.lma"), "lib");
         loader.set_mod_txt(greet.clone(), input);
         let mut prog = program::Lib::new(loader);
         let pmod = prog.read_proto(&greet);
@@ -2084,7 +2084,7 @@ mod tests
             "
         .to_string();
 
-        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
         let pmod = prog.read_proto(&Lstr::Sref("tacos"));
@@ -2155,7 +2155,7 @@ mod tests
             --
             "
         .to_string();
-        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
         let pmod = prog.read_proto(&Lstr::Sref("tacos"));
@@ -2253,7 +2253,7 @@ mod tests
             "
         .to_string();
 
-        let mut loader = Interloader::new(Lstr::Sref("tok.lma"));
+        let mut loader = Interloader::new(Lstr::Sref("tok.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("tok"), input);
         let mut prog = program::Lib::new(loader);
         let pmod = prog.read_proto(&Lstr::Sref("tok"));

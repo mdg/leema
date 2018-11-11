@@ -1,5 +1,5 @@
-use leema::lstr::Lstr;
 use leema::failure::Lresult;
+use leema::lstr::Lstr;
 use leema::module::ModKey;
 
 use std::collections::HashMap;
@@ -66,7 +66,8 @@ impl Interloader
     {
         let mod_key = self.mod_name_to_key(mod_name)?;
         if mod_key.file.is_none() {
-            self.modtxt.get(mod_name)
+            self.modtxt
+                .get(mod_name)
                 .map(|txt| txt.clone())
                 .ok_or_else(|| {
                     rustfail!(
@@ -137,16 +138,16 @@ mod tests
     #[test]
     fn test_root_path()
     {
-        let i = Interloader::new(Lstr::Sref("hello/world.lma"));
+        let i = Interloader::new(Lstr::Sref("hello/world.lma"), "lib");
 
-        let expected = Path::new("hello");
-        assert_eq!(expected, i.root_path);
+        let expected = vec![Path::new("hello"), Path::new("lib")];
+        assert_eq!(expected, i.paths);
     }
 
     #[test]
     fn test_main_mod()
     {
-        let i = Interloader::new(Lstr::Sref("hello/world.lma"));
+        let i = Interloader::new(Lstr::Sref("hello/world.lma"), "lib");
 
         assert_eq!("world", i.main_mod.str());
     }

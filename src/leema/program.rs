@@ -8,7 +8,7 @@ use leema::lib_str;
 use leema::loader::Interloader;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
-use leema::module::{ModulePreface, ModuleSource, ModKey};
+use leema::module::{ModKey, ModulePreface, ModuleSource};
 use leema::phase0::{self, Protomod};
 use leema::typecheck::{self, CallFrame, CallOp, Typemod, Typescope};
 use leema::val::Type;

@@ -170,8 +170,7 @@ fn real_main() -> i32
         let prog = program::Lib::new(inter);
         let mut app = Application::new(prog);
         let caller = app.caller();
-        let main_lri =
-            Lri::with_modules(mod_name, Lstr::Sref("main"));
+        let main_lri = Lri::with_modules(mod_name, Lstr::Sref("main"));
         app.run();
         let main_arg = Struple(vec![(None, leema_args)]);
         let result_recv = caller.push_call(main_lri, main_arg);

@@ -829,7 +829,7 @@ mod tests
             "
         .to_string();
 
-        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
         let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("main"));
@@ -854,7 +854,7 @@ mod tests
             "#
         .to_string();
 
-        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
         let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("main"));
@@ -878,7 +878,7 @@ mod tests
             "#
         .to_string();
 
-        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"));
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
         let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("main"));
