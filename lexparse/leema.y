@@ -258,10 +258,7 @@ failed_stmt(A) ::= FAILED(L) localid(B) if_case(C) DOUBLEDASH. {
         , Box::new(B), Box::new(C), L);
 }
 
-let_stmt(A) ::= Let(Z) expr(B) ASSIGN expr(C). {
-    A = Ast::Let(Box::new(B), Box::new(Ast::TypeAnon), Box::new(C), Z);
-}
-let_stmt(A) ::= Let(Z) expr(B) COLON typex(C) ASSIGN expr(D). {
+let_stmt(A) ::= Let(Z) expr(B) opt_typex(C) ASSIGN expr(D). {
     A = Ast::Let(Box::new(B), Box::new(C), Box::new(D), Z);
 }
 
