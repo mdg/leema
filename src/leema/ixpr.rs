@@ -26,7 +26,7 @@ pub enum Source
     FieldAccess(Box<Ixpr>, Lstr, Option<i8>),
     Fork(Box<Ixpr>),
     Func(Vec<Lstr>, Vec<Lstr>, Vec<Type>, Type, Box<Ixpr>),
-    Let(Val, Box<Ixpr>, Vec<MatchFailure>),
+    Let(Val, Type, Box<Ixpr>, Vec<MatchFailure>),
     MatchExpr(Box<Ixpr>, Box<Ixpr>),
     MatchCase(Val, Box<Ixpr>, Box<Ixpr>),
     RustBlock(Struple2<Type>, Type),
@@ -54,7 +54,7 @@ impl Source
     {
         match src {
             &Source::ConstVal(ref v) => v.get_type(),
-            &Source::Let(_, _, _) => Type::Void,
+            &Source::Let(_, ref t, _, _) => t.clone(),
             _ => Type::Unknown,
         }
     }

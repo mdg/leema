@@ -243,7 +243,7 @@ pub enum Ast
     DotAccess(Box<Ast>, Lstr),
     IfExpr(IfType, Box<Ast>, Box<IfCase>, SrcLoc),
     Import(Box<Ast>, SrcLoc),
-    Let(Box<Ast>, Box<Ast>, SrcLoc),
+    Let(Box<Ast>, Box<Ast>, Box<Ast>, SrcLoc),
     List(LinkedList<Ast>),
     Localid(Lstr, SrcLoc),
     LocalGeneric(Lstr, KxprList, SrcLoc),
@@ -553,8 +553,8 @@ impl fmt::Display for Ast
             &Ast::DotAccess(ref base, ref fld) => {
                 write!(f, "({} . {})", base, fld)
             }
-            &Ast::Let(ref lhs, ref rhs, _) => {
-                write!(f, "(let {} = {})", lhs, rhs)
+            &Ast::Let(ref lhs, ref ltype, ref rhs, _) => {
+                write!(f, "(let {}: {} = {})", lhs, ltype, rhs)
             }
             &Ast::Localid(ref id, _) => write!(f, "{}", id),
             &Ast::Modid(ref mods, ref id, _) => write!(f, "{}::{}", mods, id),

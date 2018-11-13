@@ -332,7 +332,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             vout!("make_construple_ops({:?})\n", typ);
             make_construple_ops(rt, typ, variant, flds, input.line)
         }
-        Source::Let(ref patt, ref x, ref fails) => {
+        Source::Let(ref patt, _, ref x, ref fails) => {
             let pval = assign_pattern_registers(rt, patt);
             rt.push_dst();
             let mut xops = make_sub_ops(rt, x);

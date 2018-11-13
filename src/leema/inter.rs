@@ -644,8 +644,8 @@ pub fn compile_expr(
                 loc.lineno,
             ))
         }
-        &Ast::Let(ref lhs, ref rhs, ref iloc) => {
-            compile_let_stmt(scope, lhs, rhs, iloc)
+        &Ast::Let(ref lhs, ref ltype, ref rhs, ref iloc) => {
+            compile_let_stmt(scope, lhs, ltype, rhs, iloc)
         }
         _ => {
             Err(Failure::new(
@@ -904,6 +904,7 @@ pub fn compile_typecall(
 pub fn compile_let_stmt(
     scope: &mut Interscope,
     lhs: &Ast,
+    ltype: &Ast,
     rhs: &Ast,
     loc: &SrcLoc,
 ) -> Lresult<Ixpr>
@@ -912,6 +913,7 @@ pub fn compile_let_stmt(
     let irhs = compile_expr(scope, rhs, loc)?;
     let mut new_vars = Vec::new();
     let cpatt = compile_pattern(scope, &mut new_vars, lhs)?;
+    let ctype = compile_type(scope, ltype, loc);
     vout!("new vars in let: {:?} = {:?} = {:?}\n", new_vars, lhs, irhs);
     let m_failures = new_vars.iter().map(|v| {
         scope.blocks.assign_var(v, LocalType::Let);
@@ -919,7 +921,7 @@ pub fn compile_let_stmt(
     });
     let failures: Vec<MatchFailure> = Lresult::from_iter(m_failures)?;
     Ok(Ixpr::new(
-        Source::Let(cpatt, Box::new(irhs), failures),
+        Source::Let(cpatt, ctype, Box::new(irhs), failures),
         loc.lineno,
     ))
 }

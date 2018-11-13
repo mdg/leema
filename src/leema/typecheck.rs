@@ -58,7 +58,7 @@ impl<'a> CallFrame<'a>
             Source::Block(ref expressions) => {
                 self.collect_calls_vec(expressions);
             }
-            Source::Let(ref _lhs, ref rhs, ref failed) => {
+            Source::Let(ref _lhs, _, ref rhs, ref failed) => {
                 self.collect_calls(rhs);
                 // would be better to pass the iterator directly instead
                 // of creating a new vector, but I don't know how to do
@@ -545,7 +545,10 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> Lresult<Type>
             scope.typecheck_funcref(fri, typ)
         }
         &mut Source::ConstVal(ref val) => Ok(val.get_type()),
-        &mut Source::Let(ref lhs, ref mut rhs, ref mut fails) => {
+        &mut Source::Let(ref lhs, ref ltype, ref mut rhs, ref mut fails) => {
+            scope
+                .infer
+                .match_pattern(&scope.typeset, lhs, ltype, ix.line)?;
             let rhs_type = typecheck_expr(scope, rhs)?;
             scope.infer.match_pattern(
                 &scope.typeset,
@@ -827,6 +830,25 @@ mod tests
                 foo([5, 3, 4])
             --
             "
+        .to_string();
+
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
+        loader.set_mod_txt(Lstr::Sref("tacos"), input);
+        let mut prog = program::Lib::new(loader);
+        let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("main"));
+        prog.typecheck(&fri, Depth::Full);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_let_type_mismatch()
+    {
+        let input = r#"
+            func main() ->
+                let x: Str := 1 + 2
+                print("$x")
+            --
+            "#
         .to_string();
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");

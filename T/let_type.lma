@@ -1,0 +1,5 @@
+
+func main() >>
+    let i: Int := 5 + 3
+    println("5 + 3 = $i")
+--

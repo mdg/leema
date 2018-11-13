@@ -128,6 +128,11 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(0, result['code'])
         self.assertEqual(b"first: 4, second: b\n", result['output'])
 
+    def test_let_type(self):
+        result = run_leema('let_type')
+        self.assertEqual(0, result['code'])
+        self.assertEqual(b"5 + 3 = 8\n", result['output'])
+
     def test_list_cons(self):
         result = run_leema('list_cons')
         self.assertEqual(0, result['code'])

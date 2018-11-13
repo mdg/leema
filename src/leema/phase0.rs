@@ -200,11 +200,16 @@ impl Protomod
                     *iloc,
                 )
             }
-            &Ast::Let(ref left, ref right, ref iloc) => {
+            &Ast::Let(ref left, ref ltype, ref right, ref iloc) => {
                 let pp_left = Protomod::preproc_pattern(prog, mp, left, iloc);
-                let pp_right =
-                    Protomod::preproc_expr(self, prog, mp, right, iloc);
-                Ast::Let(Box::new(pp_left), Box::new(pp_right), *iloc)
+                let pp_ltype = self.preproc_expr(prog, mp, ltype, iloc);
+                let pp_right = self.preproc_expr(prog, mp, right, iloc);
+                Ast::Let(
+                    Box::new(pp_left),
+                    Box::new(pp_ltype),
+                    Box::new(pp_right),
+                    *iloc,
+                )
             }
             &Ast::List(ref items) => {
                 Ast::List(
@@ -820,6 +825,7 @@ impl Protomod
                 let new_x = Box::new(a.x_clone().unwrap());
                 new_block.push(Ast::Let(
                     Box::new(argn_ast.clone()),
+                    Box::new(Ast::TypeAnon),
                     new_x,
                     *loc,
                 ));
