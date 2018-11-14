@@ -430,7 +430,7 @@ type_term(A) ::= type_term(B) PCT(Z). {
     A = Ast::type_call("task", "Future", vec![B], Z);
 }
 type_term(A) ::= type_term(B) TIMES(Z). {
-    A = Ast::type_call("seq", "T", vec![B], Z);
+    A = Ast::type_call("task", "Stream", vec![B], Z);
 }
 type_term(A) ::= type_term(B) QUESTION(Z). {
     A = Ast::type_call("option", "T", vec![B], Z);

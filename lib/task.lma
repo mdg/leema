@@ -3,6 +3,8 @@ struct Key(Int)
 
 struct Future[T] --
 
+struct Stream[T] --
+
 
 macro detach(x)
 >>
@@ -12,6 +14,11 @@ macro detach(x)
 macro fork(x)
 >>
     task::start_fork(fn() x)
+--
+
+macro stream(x)
+>>
+    task::start_stream(fn() x)
 --
 
 
@@ -25,6 +32,14 @@ func start_fork[T]: T%
 
 func join_fork[T]: T
 .forked: T%
+-RUST-
+
+func start_stream[T]: T*
+.action: F(): T*
+-RUST-
+
+func recv_stream[T]: T
+.stream: T*
 -RUST-
 
 #>>
