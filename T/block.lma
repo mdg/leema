@@ -1,9 +1,9 @@
-func main() ->
-    let x := ->
+func main() >>
+    let x := >>
         let y := 8
         y + 4
     --
-    let z := ->
+    let z := >>
         x * 3
     --
     print("z is: $z\n")

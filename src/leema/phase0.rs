@@ -1023,7 +1023,10 @@ impl Protomod
     ) -> Ast
     {
         if *mod_name != *mp.key.name && !mp.imports.contains(mod_name) {
-            panic!("module not found: {:?}", mod_name);
+            panic!(
+                "module not found: '{}::{}' in {} @ {}",
+                mod_name, localid, mp.key.name, loc,
+            );
         }
         match prog.get_macro(mod_name, localid) {
             Some(mac) => mac.clone(),
