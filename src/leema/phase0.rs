@@ -444,9 +444,7 @@ impl Protomod
         let mut ftype_parts: Vec<Kxpr> =
             pp_args.iter().map(|a| a.clone()).collect();
         let (ftype_part_types, rtype): (Struple2<Type>, Type) = {
-            let pp_ftypr: Vec<
-                Lresult<StrupleItem<Option<Lstr>, Type>>,
-            >;
+            let pp_ftypr: Vec<Lresult<StrupleItem<Option<Lstr>, Type>>>;
             pp_ftypr = ftype_parts
                 .iter()
                 .map(|argt| {
