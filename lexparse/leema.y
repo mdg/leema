@@ -19,6 +19,7 @@ use std::collections::linked_list::{LinkedList};
 %type COLON { SrcLoc }
 %type COMMA { SrcLoc }
 %type ConcatNewline { SrcLoc }
+%type CONST { SrcLoc }
 %type CurlyL { SrcLoc }
 %type CurlyR { SrcLoc }
 %type DBLCOLON { SrcLoc }
@@ -82,6 +83,7 @@ use std::collections::linked_list::{LinkedList};
 %type macro_stmt { Ast }
 %type call_expr { Ast }
 %type closure_expr { Ast }
+%type const_stmt { Ast }
 %type if_stmt { Ast }
 %type else_if { ast::IfCase }
 %type expr_list { LinkedList<Ast> }
@@ -187,6 +189,7 @@ block_arrow ::= BLOCKARROW. {}
 block_arrow ::= DOUBLEARROW. {}
 
 
+stmt(A) ::= const_stmt(B). { A = B; }
 stmt(A) ::= defstruple(B). { A = B; }
 stmt(A) ::= defenum(B). { A = B; }
 stmt(A) ::= IMPORT(C) localid(B). {
@@ -256,6 +259,10 @@ defenum_variant(A) ::= PIPE(D) ID(B) defstruple_block(C). {
 failed_stmt(A) ::= FAILED(L) localid(B) if_case(C) DOUBLEDASH. {
     A = Ast::IfExpr(ast::IfType::MatchFailure
         , Box::new(B), Box::new(C), L);
+}
+
+const_stmt(A) ::= CONST(Z) ID(B) opt_typex(C) ASSIGN expr(D). {
+    A = Ast::DefConst(Lstr::from(B.data), Box::new(C), Box::new(D), Z);
 }
 
 let_stmt(A) ::= Let(Z) expr(B) opt_typex(C) ASSIGN expr(D). {

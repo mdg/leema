@@ -41,8 +41,7 @@ pub fn iter<'a>(head: &'a Val) -> ListIterator<'a>
 
 pub fn from_vec(items: &Vec<Val>) -> Val
 {
-    let new_items = items.iter().fold(Val::Nil, |acc, i| cons(i.clone(), acc));
-    reverse(&new_items)
+    items.iter().rev().fold(Val::Nil, |acc, i| cons(i.clone(), acc))
 }
 
 pub fn cons(head: Val, tail: Val) -> Val

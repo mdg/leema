@@ -1,3 +1,4 @@
+use leema::ast::{Ast};
 use leema::failure::{Failure, Lresult};
 use leema::frame::FrameTrace;
 use leema::list;
@@ -1014,6 +1015,33 @@ impl Val
         }
     }
 
+    pub fn from_ast(a: Ast) -> Lresult<Val>
+    {
+        let good_val = match a {
+            Ast::ConstBool(b) => Val::Bool(b),
+            Ast::ConstInt(i) => Val::Int(i),
+            Ast::ConstStr(s) => Val::Str(s),
+            Ast::ConstHashtag(h) => Val::Hashtag(h),
+            Ast::ConstVoid => Val::Void,
+            Ast::List(items) => {
+                let mut new_items = Val::Nil;
+                for i in items.into_iter().rev() {
+                    let new_i = Val::from_ast(i)?;
+                    new_items = list::cons(new_i, new_items);
+                }
+                new_items
+            }
+            not_val => {
+                return Err(rustfail!(
+                    "leema_fail",
+                    "cannot make Val from Ast: {}",
+                    not_val,
+                ));
+            }
+        };
+        Ok(good_val)
+    }
+
     fn fmt_list(f: &mut fmt::Formatter, l: &Val, dbg: bool) -> fmt::Result
     {
         match l {
@@ -1172,14 +1200,6 @@ impl fmt::Debug for Val
         }
     }
 }
-
-/*
-impl fmt::Debug for Val {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self)
-    }
-}
-*/
 
 
 impl reg::Iregistry for Val

@@ -109,6 +109,16 @@ impl Protomod
                 // do nothing. the macro definition will have been handled
                 // in the file read
             }
+            &Ast::DefConst(ref id, ref ltype, ref right, ref iloc) => {
+                let pp_ltyp = self
+                    .preproc_type(prog, mp, &vec![], ltype, iloc)
+                    .unwrap();
+                self.valtypes.insert(id.clone(), pp_ltyp);
+
+                let pp_right = self.preproc_expr(prog, mp, right, iloc);
+                let pp_const = Val::from_ast(pp_right).unwrap();
+                self.constants.insert(id.clone(), pp_const);
+            }
             _ => {
                 println!("Cannot phase0: {:?}", x);
             }
@@ -290,6 +300,9 @@ impl Protomod
             &Ast::TypeVar(ref v, ref loc) => Ast::TypeVar(v.clone(), *loc),
             &Ast::TypeVoid => Ast::TypeVoid,
             &Ast::Wildcard => Ast::Wildcard,
+            &Ast::DefConst(_, _, _, _) => {
+                panic!("cannot preproc const: {}", x);
+            }
             &Ast::DefData(_, _, _, _) => {
                 panic!("cannot preproc: {:?}", x);
             }

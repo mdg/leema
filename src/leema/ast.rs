@@ -236,6 +236,7 @@ pub enum Ast
     ConstInt(i64),
     ConstStr(Lstr),
     ConstVoid,
+    DefConst(Lstr, Box<Ast>, Box<Ast>, SrcLoc),
     DefData(DataType, Box<Ast>, LinkedList<Kxpr>, SrcLoc),
     DefFunc(FuncClass, Box<FuncDecl>, Box<Ast>),
     // dereference another expression
@@ -549,6 +550,9 @@ impl fmt::Display for Ast
                     write!(f, "{},", a.x_ref().unwrap())?;
                 }
                 write!(f, "])")
+            }
+            &Ast::DefConst(ref id, ref ltype, ref rhs, _) => {
+                write!(f, "(const {}: {} = {})", id, ltype, rhs)
             }
             &Ast::DotAccess(ref base, ref fld) => {
                 write!(f, "({} . {})", base, fld)
@@ -1288,6 +1292,22 @@ mod tests
         );
         let expected = Ast::Block(vec![strx]);
         assert_eq!(expected, root);
+    }
+
+    #[test]
+    fn test_parse_const()
+    {
+        let input = "
+            const x := #whatever
+            ";
+        let root = ast::parse(lex(input));
+
+        if let Ast::Block(lines) = root {
+            assert_matches!(lines[0], Ast::DefConst(_, _, _, _));
+            assert_eq!(1, lines.len());
+        } else {
+            panic!("root is not a block");
+        }
     }
 
     #[test]

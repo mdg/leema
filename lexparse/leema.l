@@ -199,6 +199,10 @@ void	{ return set_token(yyg, TOKEN_VOID); }
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_ConcatNewline);
 }
+const	{
+    BEGIN(INITIAL);
+    return set_token(yyg, TOKEN_CONST);
+}
 else	{
     BEGIN(INITIAL);
     return set_token(yyg, TOKEN_ELSE);

@@ -75,6 +75,7 @@ impl Token
                     Token::HASHTAG(TokenData::new(txt, tl))
                 }
                 parse::TOKEN_ConcatNewline => Token::ConcatNewline(tl),
+                parse::TOKEN_CONST => Token::CONST(tl),
                 parse::TOKEN_IMPORT => Token::IMPORT(tl),
                 parse::TOKEN_LPAREN => Token::LPAREN(tl),
                 parse::TOKEN_PARENCALL => Token::PARENCALL(tl),
