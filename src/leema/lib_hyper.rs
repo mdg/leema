@@ -133,7 +133,7 @@ pub fn new_leema_request(req: &Request<Body>) -> Val
                 Val::Str(Lstr::from(req.method().as_str().to_string())),
                 FrameTrace::new_root(),
                 0,
-            )
+            );
         }
     };
     let leema_method = Val::Str(Lstr::Sref(method_str));
