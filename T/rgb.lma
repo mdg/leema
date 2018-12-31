@@ -1,4 +1,8 @@
 
+const HEX_RED := #ff0000
+const HEX_GREEN := #00ff00
+const HEX_BLUE := #0000ff
+
 struct Rgb
 .red: Int
 .green: Int
@@ -10,4 +14,6 @@ func main() ->
     print("color: $c\n")
     print("red: ${c.red}\n")
     print("blue: ${c.blue}\n")
+    let hex_g := HEX_GREEN
+    print("hex green is: $hex_g\n")
 --
