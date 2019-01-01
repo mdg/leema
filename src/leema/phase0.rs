@@ -109,15 +109,33 @@ impl Protomod
                 // do nothing. the macro definition will have been handled
                 // in the file read
             }
-            &Ast::DefConst(ref id, ref ltype, ref right, ref iloc) => {
-                let pp_ltyp = self
-                    .preproc_type(prog, mp, &vec![], ltype, iloc)
-                    .unwrap();
-                self.valtypes.insert(id.clone(), pp_ltyp);
-
+            &Ast::DefConst(ref id, ref ltype_ast, ref right, ref iloc) => {
+                // find the constant value, store it
                 let pp_right = self.preproc_expr(prog, mp, right, iloc);
                 let pp_const = Val::from_ast(pp_right).unwrap();
+                let rtype = pp_const.get_type(); // use pp_const b4 it moves
                 self.constants.insert(id.clone(), pp_const);
+
+                // find the constant type, remember it
+                let const_type = if **ltype_ast == Ast::TypeAnon {
+                    if rtype == Type::Unknown {
+                        panic!("unknown constant type must be specified: {}",
+                            id);
+                    }
+                    rtype
+                } else {
+                    let pp_ltyp = self
+                        .preproc_type(prog, mp, &vec![], ltype_ast, iloc)
+                        .expect("type failure for constant");
+                    if rtype == Type::Unknown {
+                        pp_ltyp
+                    } else if rtype != pp_ltyp {
+                        panic!("const type mismatch: {}", id);
+                    } else {
+                        pp_ltyp
+                    }
+                };
+                self.valtypes.insert(id.clone(), const_type);
             }
             _ => {
                 println!("Cannot phase0: {:?}", x);
@@ -1784,6 +1802,34 @@ mod tests
         let closure0 = pmod.closures.front().unwrap();
         assert_eq!("foo_4_i", closure0);
         assert_eq!(1, pmod.closures.len());
+    }
+
+    #[test]
+    fn test_preproc_const()
+    {
+        let input = "
+            const x := #whatever
+            ".to_string();
+        let foo_str = Lstr::Sref("foo");
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
+        loader.set_mod_txt(foo_str.clone(), input);
+        let mut prog = program::Lib::new(loader);
+        let pmod = prog.read_proto(&foo_str);
+
+        // assert constants
+        let whatever = pmod.constants.get("x").unwrap();
+        assert_eq!("whatever", whatever.str());
+        assert_eq!(2, pmod.constants.len());
+
+        // assert valtypes
+        assert_eq!(1, pmod.valtypes.len());
+
+        // assert empty data
+        assert!(pmod.closures.is_empty());
+        assert!(pmod.deftypes.is_empty());
+        assert!(pmod.funcseq.is_empty());
+        assert!(pmod.funcsrc.is_empty());
+        assert!(pmod.struple_fields.is_empty());
     }
 
     #[test]

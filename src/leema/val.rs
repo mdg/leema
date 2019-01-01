@@ -593,6 +593,7 @@ impl Val
         match self {
             &Val::Id(ref id) => id.str(),
             &Val::Str(ref s) => s.str(),
+            &Val::Hashtag(ref s) => s.str(),
             _ => {
                 panic!("Cannot convert to string: {:?}", self);
             }

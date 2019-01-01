@@ -265,7 +265,8 @@ class TestScripts(unittest.TestCase):
         result = run_leema('rgb')
         self.assertEqual(0, result['code'])
         expected = b"color: rgb::Rgb(red:10,green:20,blue:30,)\n" \
-            + b"red: 10\nblue: 30\n"
+            + b"red: 10\nblue: 30\n" \
+            + b"hex green is: #00ff00\n"
         self.assertEqual(expected, result['output'])
 
     def test_empty_struct(self):
