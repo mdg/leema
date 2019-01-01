@@ -1030,7 +1030,7 @@ pub fn compile_pattern(
                     return Err(Failure::new(
                         "invalid_pattern",
                         Lstr::from(format!("invalid pattern tail: {:?}", tail)),
-                    ))
+                    ));
                 }
             };
             Val::Cons(Box::new(chead), Arc::new(ctail))
