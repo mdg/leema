@@ -119,8 +119,10 @@ impl Protomod
                 // find the constant type, remember it
                 let const_type = if **ltype_ast == Ast::TypeAnon {
                     if rtype == Type::Unknown {
-                        panic!("unknown constant type must be specified: {}",
-                            id);
+                        panic!(
+                            "unknown constant type must be specified: {}",
+                            id
+                        );
                     }
                     rtype
                 } else {
@@ -1809,7 +1811,8 @@ mod tests
     {
         let input = "
             const x := #whatever
-            ".to_string();
+            "
+        .to_string();
         let foo_str = Lstr::Sref("foo");
         let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
         loader.set_mod_txt(foo_str.clone(), input);

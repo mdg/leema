@@ -1,4 +1,4 @@
-use leema::ast::{Ast};
+use leema::ast::Ast;
 use leema::failure::{Failure, Lresult};
 use leema::frame::FrameTrace;
 use leema::list;
