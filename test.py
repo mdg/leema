@@ -269,6 +269,12 @@ class TestScripts(unittest.TestCase):
             + b"hex green is: #00ff00\n"
         self.assertEqual(expected, result['output'])
 
+    def test_const(self):
+        result = run_leema('test_const')
+        self.assertEqual(0, result['code'])
+        expected = b"red is: #ff0000\n"
+        self.assertEqual(expected, result['output'])
+
     def test_empty_struct(self):
         result = run_leema('empty_struct')
         self.assertEqual(0, result['code'])

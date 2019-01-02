@@ -1,0 +1,8 @@
+
+import rgb
+
+func main()
+>>
+    let r := rgb::HEX_RED
+    println("red is: $r")
+--
