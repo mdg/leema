@@ -246,11 +246,10 @@ impl<'i> Tokenz<'i>
         match self.peek() {
             '-' => {
                 self.next();
+                if self.peek() == '-' {
+                    panic!("--- is not a valid token");
+                }
                 self.tokens.push(Token::DoubleDash);
-            }
-            '>' => {
-                self.next();
-                println!("what is -> used for now?");
             }
             _ => {
                 self.tokens.push(Token::Dash);
@@ -450,5 +449,13 @@ mod tests
         assert_eq!(Token::Id("T"), toks[3]);
         assert_eq!(Token::SquareR, toks[4]);
         assert_eq!(18, toks.len());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_triple_dash()
+    {
+        let input = "func foo() >> 5 ---".to_string();
+        Tokenz::lex(&input);
     }
 }
