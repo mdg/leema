@@ -1,6 +1,7 @@
 
 import json
 import map
+import option
 
 
 struct User
@@ -8,13 +9,8 @@ struct User
 .name: Str
 --
 
+#>>
 func serialize[User](u: User, s: Serializer)
->>
-    deser::serialize(s, u.id)
-    deser::serialize(s, u.name)
---
-
-func User::serialize(u: User, s: Serializer)
 >>
     deser::serialize(s, u.id)
     deser::serialize(s, u.name)
@@ -25,12 +21,14 @@ func deserialize[User](d: Deserializer)
     let id := deser::deserialize[Int](d)
     let name := deser::deserialize[Str](d)
     User(id, name)
---
+#--
 
-func serializedUser(fields: [(Str, Str)])
+func user_from_json(juser: json::Val)
 >>
-    let ("id", id), (_, name)] := list::take_n(fields, 2)
-    User(Int::from_str(id), name)
+    let fields := json::object_fields(juser)
+    let id := json::int_val(option::unwrap(map::get(fields, "id")))
+    let name := option::unwrap(map::get(fields, "name"))
+    User(id, name)
 --
 
 func test_decode() >>
@@ -38,6 +36,12 @@ func test_decode() >>
     let i := json::decode[Int]("9")
     let b := json::decode[Bool]("true")
     println("$s $i or $b")
+--
+
+func test_decode_val() >>
+    let ju := json::decode_val("{\"id\": 8, \"name\": \"Gerald\"}")
+    let u := user_from_json(ju)
+    println("$u")
 --
 
 func test_encode() >>

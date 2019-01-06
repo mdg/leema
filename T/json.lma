@@ -1,4 +1,6 @@
 
+import map
+
 func encode[T](val: T): Str -RUST-
 func decode[T](input: Str): T -RUST-
 
@@ -13,3 +15,18 @@ enum Val
 
 func decode_val(input: Str): json::Val -RUST-
 
+func object_fields(v: Val): map::T[Str, Val]
+>>
+    match v
+    |Object(flds) >> flds
+    |_ >> fail(#input_error, "json value is not an object")
+    --
+--
+
+func int_val(v: Val): Int
+>>
+    match v
+    |Integer(i) >> i
+    |_ >> fail(#input_error, "json value is not an integer")
+    --
+--
