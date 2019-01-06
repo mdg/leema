@@ -4,4 +4,8 @@ enum T[V]
 |None
 --
 
-
+func unwrap[V](opt: T[V]): V
+>>
+|Some(result) >> result
+|None >> fail(#option_error, "cannot unwrap None")
+--
