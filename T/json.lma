@@ -1,5 +1,15 @@
 
 func encode[T](val: T): Str -RUST-
-
 func decode[T](input: Str): T -RUST-
+
+enum Val
+|Integer(Int)
+|String(Str)
+|Boolean(Bool)
+|List([json::Val])
+|Object(map::T[Str, json::Val])
+|Null
+--
+
+func decode_val(input: Str): json::Val -RUST-
 

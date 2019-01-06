@@ -8,6 +8,31 @@ struct User
 .name: Str
 --
 
+func serialize[User](u: User, s: Serializer)
+>>
+    deser::serialize(s, u.id)
+    deser::serialize(s, u.name)
+--
+
+func User::serialize(u: User, s: Serializer)
+>>
+    deser::serialize(s, u.id)
+    deser::serialize(s, u.name)
+--
+
+func deserialize[User](d: Deserializer)
+>>
+    let id := deser::deserialize[Int](d)
+    let name := deser::deserialize[Str](d)
+    User(id, name)
+--
+
+func serializedUser(fields: [(Str, Str)])
+>>
+    let ("id", id), (_, name)] := list::take_n(fields, 2)
+    User(Int::from_str(id), name)
+--
+
 func test_decode() >>
     let s := json::decode[Str]("\"coded  '\"")
     let i := json::decode[Int]("9")
