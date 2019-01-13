@@ -86,7 +86,6 @@ pub enum Event
     Iop((i64, i64), rsrc::IopAction, Vec<Val>),
     Complete(bool),
     Success,
-    Failure,
 }
 
 impl Event
@@ -122,7 +121,6 @@ impl fmt::Debug for Event
             }
             &Event::Complete(c) => write!(f, "Event::Complete({})", c),
             &Event::Success => write!(f, "Event::Success"),
-            &Event::Failure => write!(f, "Event::Failure"),
         }
     }
 }
@@ -142,7 +140,6 @@ impl PartialEq for Event
                 r1 == r2
             }
             (&Event::Success, &Event::Success) => true,
-            (&Event::Failure, &Event::Failure) => true,
             _ => false,
         }
     }

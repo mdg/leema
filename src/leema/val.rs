@@ -508,6 +508,7 @@ pub enum Val
         Arc<FrameTrace>,
         i8, // status
     ),
+    Failure2(Box<Failure>),
     Id(Lstr),
     Type(Type),
     Lib(Arc<LibVal>),
@@ -690,6 +691,7 @@ impl Val
             }
             &Val::Nil => Type::StrictList(Box::new(Type::Unknown)),
             &Val::Failure(_, _, _, _) => Type::Failure,
+            &Val::Failure2(_) => Type::Failure,
             &Val::Type(_) => Type::Kind,
             &Val::Void => Type::Void,
             &Val::Wildcard => Type::Unknown,
@@ -1139,6 +1141,7 @@ impl fmt::Display for Val
             Val::Failure(ref tag, ref msg, ref stack, _status) => {
                 write!(f, "Failure({}, {}\n{})", tag, msg, **stack)
             }
+            Val::Failure2(ref fail) => write!(f, "Failure({:?})", **fail),
             Val::Id(ref name) => write!(f, "{}", name),
             Val::Type(ref t) => write!(f, "{}", t),
             Val::FuncRef(ref id, ref args, ref typ) => {
@@ -1189,6 +1192,7 @@ impl fmt::Debug for Val
             Val::Failure(ref tag, ref msg, ref stack, status) => {
                 write!(f, "Failure({}, {}, {}, {:?})", tag, status, msg, stack)
             }
+            Val::Failure2(ref fail) => write!(f, "Failure({:?})", fail),
             Val::Id(ref id) => write!(f, "Id({})", id),
             Val::Type(ref t) => write!(f, "TypeVal({:?})", t),
             Val::FuncRef(ref id, ref args, ref typ) => {

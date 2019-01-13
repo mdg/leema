@@ -166,6 +166,7 @@ impl Worker
             Some(ReadyFiber::Ready(mut f, code)) => {
                 did_something = true;
                 let ev = self.execute_frame(&mut f, &*code);
+                // .expect("failure executing frame");
                 self.handle_event(f, ev, code)
                     .expect("failure handling event");
             }
@@ -247,10 +248,6 @@ impl Worker
             }
             Event::Success => {
                 vout!("function call success\n");
-                Result::Ok(Async::NotReady)
-            }
-            Event::Failure => {
-                vout!("function call failure\n");
                 Result::Ok(Async::NotReady)
             }
             Event::Call(dst, line, func, args) => {
