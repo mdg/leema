@@ -8,7 +8,7 @@ use leema::worker::RustFuncContext;
 
 use serde::ser::{Serialize, SerializeMap, SerializeSeq};
 use serde::Serializer;
-use serde_json;
+use serde_json::{self, Value};
 
 
 impl Serialize for Val
@@ -103,6 +103,49 @@ pub fn decode(mut ctx: RustFuncContext) -> Event
     Event::success()
 }
 
+pub fn decode_val(mut ctx: RustFuncContext) -> Event
+{
+    let result: Val = {
+        let text = ctx.get_param(0).str();
+        // previous typechecking should assure that the type param is
+        // there and that there will be exactly 1
+        let json_val: Value = serde_json::from_str(text)
+            .expect("invalid json");
+        match json_val {
+            Value::Bool(b) => {
+                Val::Bool(b)
+            }
+            Value::Number(num) => {
+                if num.is_i64() {
+                    Val::Int(num.as_i64().unwrap())
+                } else {
+                    Val::Failure2(Box::new(rustfail!(
+                        "json_failure",
+                        "unknown number format: {:?}",
+                        num,
+                    )))
+                }
+            }
+            Value::String(s) => {
+                Val::Str(Lstr::from(s))
+            }
+            Value::Null => {
+                panic!("What to do with json nulls?");
+            }
+            Value::Array(_items) => {
+                // array stuff
+                Val::Nil
+            }
+            Value::Object(_items) => {
+                // object stuff
+                Val::Map(Lmap::new())
+            }
+        }
+    };
+    ctx.set_result(result);
+    Event::success()
+}
+
 pub fn encode(mut ctx: RustFuncContext) -> Event
 {
     let json = {
@@ -117,6 +160,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
         "decode" => Some(Code::Rust2(decode)),
+        "decode_val" => Some(Code::Rust2(decode_val)),
         "encode" => Some(Code::Rust2(encode)),
         _ => None,
     }

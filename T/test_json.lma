@@ -10,17 +10,41 @@ struct User
 --
 
 #>>
-func serialize[User](u: User, s: Serializer)
+func serialize[User](u: User): serial::Val
 >>
-    deser::serialize(s, u.id)
-    deser::serialize(s, u.name)
+    s = serial::ize(s, u.id)
+    s = serial::ize(s, u.name)
 --
 
-func deserialize[User](d: Deserializer)
+func deserialize[User](d: serial::Val): User
 >>
-    let id := deser::deserialize[Int](d)
-    let name := deser::deserialize[Str](d)
+    let id := dessert::deserialize[Int](d, "id")
+    let name := dessert::deserialize[Str](d, "name")
+    let addr := dessert::deserialize[Address](d, "addr")
+    let id := serial::get_field[Int](v, "id")
+    let name := serial::get_field[Str](v, "name")
+    let addr := serial::get_field[Address](v, "addr")
     User(id, name)
+--
+
+func json_deserialize[T](d: Deserializer, fldname: Str): T
+>>
+    let fldval := json::get_field(d, fldname)
+    json::from_val[T](fldval)
+--
+
+func json_decode[T](input: Str): T
+>>
+    let jsonval := json::decode_val(input)
+    let d := json::new_deserializer(jsonval)
+    dessert::deserialize[T](d)
+--
+
+func json_encode[T](input: T): Str
+>>
+    let s = json::new_serializer()
+    dessert::serialize[T](input, s)
+    s.to_string()
 #--
 
 func user_from_json(juser: json::Val)
@@ -59,4 +83,5 @@ func test_encode() >>
 func main() >>
     test_encode()
     test_decode()
+    test_decode_val()
 --
