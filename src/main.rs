@@ -40,26 +40,42 @@ use std::env;
 #[derive(RustcDecodable)]
 struct Args
 {
-    arg_cmd: String,
     arg_script: String,
     arg_args: Vec<String>,
     flag_verbose: bool,
     flag_func: Option<String>,
+    flag_tokens: bool,
+    flag_ast: bool,
+    flag_modsrc: bool,
+    flag_preface: bool,
+    flag_proto: bool,
+    flag_inter: bool,
+    flag_typecheck: bool,
+    flag_code: bool,
+    flag_repl: bool,
 }
 
 static USAGE: &'static str = "
 leema interpreter
 
 Usage:
-  leema [options] <cmd> <script> [<args>...]
+  leema [options] <script> [<args>...]
   leema (-v | --verbose)
   leema (-h | --help)
 
 Options:
+     --typecheck   Typecheck the script
+     --tokens      Show the tokens in this module for debugging
+     --ast         Show the ast for the module
+     --modsrc      Show the modsrc for the module
+     --preface     Show the preface for the module
+     --proto       Show the proto mod for the module
+     --inter       Show the inter mod for the module
+     --code        Show code for the function
+     --repl        Launch the REPL
      --func=<func>
   -v --verbose     Output debug messages
   -h --help        Show this message
-  --repl           Launch the REPL
 ";
 
 const ENV_VERBOSE: &str = "LEEMA_VERBOSE";
@@ -103,9 +119,9 @@ fn real_main() -> i32
     let leema_args = list::reverse(&leema_args_rev);
     let inter = Interloader::new(file, &leema_path);
     let mod_name = inter.main_mod.clone();
-    vout!("{} {}\n", args.arg_cmd, inter.main_mod);
+    vout!("run {}\n", inter.main_mod);
 
-    let main_result = if args.arg_cmd == "tokens" {
+    let main_result = if args.flag_tokens {
         let modtxt = inter.read_module(&mod_name).unwrap();
         let toks = ModuleSource::read_tokens(&modtxt);
         println!("tokens:");
@@ -113,27 +129,27 @@ fn real_main() -> i32
             println!("\t{:?}", t);
         }
         Val::Int(0)
-    } else if args.arg_cmd == "ast" {
+    } else if args.flag_ast {
         let modtxt = inter.read_module(&mod_name).unwrap();
         let ast = ModuleSource::read_ast(&modtxt);
         println!("{}\n", ast);
         Val::Int(0)
-    } else if args.arg_cmd == "modsrc" {
+    } else if args.flag_modsrc {
         let prog = program::Lib::new(inter);
         let src = prog.read_modsrc(&mod_name);
         println!("{:?}\n", src);
         Val::Int(0)
-    } else if args.arg_cmd == "preface" {
+    } else if args.flag_preface {
         let prog = program::Lib::new(inter);
         let (_, pref) = prog.read_preface(&mod_name);
         println!("{:?}\n", pref);
         Val::Int(0)
-    } else if args.arg_cmd == "proto" {
+    } else if args.flag_proto {
         let mut prog = program::Lib::new(inter);
         let proto = prog.read_proto(&mod_name);
         println!("\n{}\n", proto);
         Val::Int(0)
-    } else if args.arg_cmd == "inter" {
+    } else if args.flag_inter {
         let mut prog = program::Lib::new(inter);
         let imod = prog.read_inter(&mod_name);
         let fix = match args.flag_func {
@@ -145,14 +161,14 @@ fn real_main() -> i32
         };
         println!("\n{:?}\n", fix);
         Val::Int(0)
-    } else if args.arg_cmd == "typecheck" {
+    } else if args.flag_typecheck {
         let mut prog = program::Lib::new(inter);
         let func_name = Lstr::Sref("main");
         let funcri = Lri::with_modules(mod_name, func_name);
         let ftype = prog.typecheck(&funcri, typecheck::Depth::Full);
         println!("type: {}", ftype);
         Val::Int(0)
-    } else if args.arg_cmd == "code" {
+    } else if args.flag_code {
         let mut prog = program::Lib::new(inter);
         let code = match args.flag_func {
             Some(func) => {
@@ -163,10 +179,10 @@ fn real_main() -> i32
         };
         println!("code: {:?}", code);
         Val::Int(0)
-    } else if args.arg_cmd == "repl" {
+    } else if args.flag_repl {
         println!("wouldn't it be cool if there was a repl?");
         Val::Int(2)
-    } else if args.arg_cmd == "run" {
+    } else {
         let prog = program::Lib::new(inter);
         let mut app = Application::new(prog);
         let caller = app.caller();
@@ -175,9 +191,6 @@ fn real_main() -> i32
         let main_arg = Struple(vec![(None, leema_args)]);
         let result_recv = caller.push_call(main_lri, main_arg);
         app.wait_for_result(result_recv).unwrap()
-    } else {
-        println!("invalid command: {:?}", args.arg_cmd);
-        Val::Int(1)
     };
 
     i32::from(Application::handle_result(main_result))
