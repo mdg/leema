@@ -2,7 +2,7 @@ import unittest
 import subprocess
 
 def run_leema(f, cli_args=None):
-    args = ["target/debug/leema", "run", "T/"+f+".lma"]
+    args = ["target/debug/leema", "T/"+f+".lma"]
     env = {"LEEMA_PATH": "lib"}
     if cli_args is not None:
         args += cli_args

@@ -6,7 +6,7 @@ def run_clientserver(client, server):
     e = {"LEEMA_PATH": "lib"}
     try:
         # start server
-        server_args = ["target/debug/leema", "run", "T/"+server+".lma"]
+        server_args = ["target/debug/leema", "T/"+server+".lma"]
         print(server_args)
         server_proc = \
             subprocess.Popen(server_args, stdout=subprocess.PIPE, env=e)
@@ -18,7 +18,7 @@ def run_clientserver(client, server):
     try:
         # start client after pausing to let the server start
         time.sleep(1)
-        client_args = ["target/debug/leema", "run", "T/"+client+".lma"]
+        client_args = ["target/debug/leema", "T/"+client+".lma"]
         print(client_args)
         client_proc = \
             subprocess.Popen(client_args, stdout=subprocess.PIPE, env=e)
@@ -54,7 +54,7 @@ def run_clientserver(client, server):
     }
 
 def run_leema(f):
-    args = ["target/debug/leema", "run", "T/"+f+".lma"]
+    args = ["target/debug/leema", "T/"+f+".lma"]
     e = {"LEEMA_PATH": "lib"}
     print(args)
     proc = subprocess.Popen(args, stdout=subprocess.PIPE, env=e)
