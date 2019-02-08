@@ -428,10 +428,11 @@ impl<'b> Inferator<'b>
             _ => {
                 let ptype = patt.get_type();
                 self.merge_types(&ptype, valtype).map_err(|e| {
-                    e.add_context(Lstr::from(format!(
+                    e.add_context(lstrf!(
                         "pattern type mismatch: {:?} != {:?}",
-                        patt, valtype
-                    )))
+                        patt,
+                        valtype
+                    ))
                 })
             }
         }

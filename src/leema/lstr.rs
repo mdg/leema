@@ -8,6 +8,12 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 
+macro_rules! lstrf {
+    ($fmt:expr, $($arg:tt)*) => {
+        ::leema::lstr::Lstr::from(format!($fmt, $($arg)*))
+    };
+}
+
 #[derive(Clone)]
 #[derive(Eq)]
 pub enum Lstr
@@ -312,6 +318,13 @@ mod tests
         let s2 = str_identity(&Lstr::Sref("tacos"));
 
         assert_eq!(s1, s2);
+    }
+
+    #[test]
+    fn test_lstrf()
+    {
+        let s = lstrf!("xa {} - {} /", 48, "hello");
+        assert_eq!("xa 48 - hello /", &s);
     }
 
 }
