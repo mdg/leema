@@ -1,10 +1,12 @@
 #[macro_use]
 pub mod log;
+#[macro_use]
+pub mod lstr;
+#[macro_use]
+pub mod failure;
 pub mod application;
 pub mod ast;
 pub mod code;
-#[macro_use]
-pub mod failure;
 pub mod fiber;
 pub mod frame;
 pub mod infer;
@@ -16,7 +18,6 @@ pub mod list;
 pub mod lmap;
 pub mod loader;
 pub mod lri;
-pub mod lstr;
 pub mod module;
 pub mod msg;
 pub mod parse;
