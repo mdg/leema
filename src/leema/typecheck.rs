@@ -331,7 +331,10 @@ impl<'a, 'b> Typescope<'a, 'b>
                     valtype,
                     case.line,
                 )?;
-                let ttype = typecheck_expr(self, truth).unwrap();
+                let ttype = typecheck_expr(self, truth)
+                    .map_err(|f| {
+                        f.add_context(Lstr::from("typecheck_matchcase"))
+                    })?;
                 if lies.src != Source::ConstVal(Val::Void) {
                     let ftype =
                         self.typecheck_matchcase(valtype, lies).unwrap();
@@ -813,6 +816,34 @@ mod tests
     use leema::typecheck::Depth;
     use leema::val::{FuncType, Type};
 
+
+    #[test]
+    fn test_pattern_field_inferred()
+    {
+        let input = r#"
+            import map
+
+            enum Foo
+            |Object(map::T[Str, Foo])
+            |Nothing
+            --
+
+            func bar(f: Foo): map::T[Str, Foo]
+            >>
+                match f
+                |Object(flds) >> flds
+                |Nothing >> fail(#nothing, "not an object")
+                --
+            --
+            "#
+        .to_string();
+
+        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
+        loader.set_mod_txt(Lstr::Sref("tacos"), input);
+        let mut prog = program::Lib::new(loader);
+        let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("bar"));
+        prog.typecheck(&fri, Depth::Full);
+    }
 
     #[test]
     #[should_panic]
