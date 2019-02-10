@@ -103,6 +103,54 @@ pub fn decode(mut ctx: RustFuncContext) -> Event
     Event::success()
 }
 
+pub fn json_to_leema(jv: Value) -> Val
+{
+    match jv {
+        Value::Bool(b) => {
+            Val::Bool(b)
+        }
+        Value::Number(num) => {
+            if num.is_i64() {
+                Val::Int(num.as_i64().unwrap())
+            } else {
+                Val::Failure2(Box::new(rustfail!(
+                    "json_failure",
+                    "unknown number format: {:?}",
+                    num,
+                )))
+            }
+        }
+        Value::String(s) => {
+            Val::Str(Lstr::from(s))
+        }
+        Value::Null => {
+            panic!("What to do with json nulls?");
+        }
+        Value::Array(items) => {
+            // array stuff
+            items
+                .into_iter()
+                .rev()
+                .fold(Val::Nil, |acc, i| {
+                    let lv = json_to_leema(i);
+                    list::cons(lv, acc)
+                })
+        }
+        Value::Object(jitems) => {
+            // object stuff
+            let litems = jitems
+                .into_iter()
+                .fold(Lmap::new(), |acc, i| {
+                    let (k, v) = i;
+                    let lv = json_to_leema(v);
+                    let lk = Val::Str(Lstr::from(k));
+                    Lmap::insert(&acc, lk, lv)
+                });
+            Val::Map(litems)
+        }
+    }
+}
+
 pub fn decode_val(mut ctx: RustFuncContext) -> Event
 {
     let result: Val = {
@@ -111,36 +159,7 @@ pub fn decode_val(mut ctx: RustFuncContext) -> Event
         // there and that there will be exactly 1
         let json_val: Value = serde_json::from_str(text)
             .expect("invalid json");
-        match json_val {
-            Value::Bool(b) => {
-                Val::Bool(b)
-            }
-            Value::Number(num) => {
-                if num.is_i64() {
-                    Val::Int(num.as_i64().unwrap())
-                } else {
-                    Val::Failure2(Box::new(rustfail!(
-                        "json_failure",
-                        "unknown number format: {:?}",
-                        num,
-                    )))
-                }
-            }
-            Value::String(s) => {
-                Val::Str(Lstr::from(s))
-            }
-            Value::Null => {
-                panic!("What to do with json nulls?");
-            }
-            Value::Array(_items) => {
-                // array stuff
-                Val::Nil
-            }
-            Value::Object(_items) => {
-                // object stuff
-                Val::Map(Lmap::new())
-            }
-        }
+        json_to_leema(json_val)
     };
     ctx.set_result(result);
     Event::success()
