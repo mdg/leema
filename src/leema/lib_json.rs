@@ -2,7 +2,9 @@ use leema::code::Code;
 use leema::frame::Event;
 use leema::list;
 use leema::lmap::{Lmap, LmapNode};
+use leema::lri::Lri;
 use leema::lstr::Lstr;
+use leema::struple::Struple;
 use leema::val::{Type, Val};
 use leema::worker::RustFuncContext;
 
@@ -10,6 +12,12 @@ use serde::ser::{Serialize, SerializeMap, SerializeSeq};
 use serde::Serializer;
 use serde_json::{self, Value};
 
+
+const JSON_VAL_TYPE: Lri = Lri {
+    modules: Some(Lstr::Sref("json")),
+    localid: Lstr::Sref("Val"),
+    params: None,
+};
 
 impl Serialize for Val
 {
@@ -107,11 +115,12 @@ pub fn json_to_leema(jv: Value) -> Val
 {
     match jv {
         Value::Bool(b) => {
-            Val::Bool(b)
+            new_json_val("Boolean", Val::Bool(b))
         }
         Value::Number(num) => {
             if num.is_i64() {
-                Val::Int(num.as_i64().unwrap())
+                let inner = Val::Int(num.as_i64().unwrap());
+                new_json_val("Integer", inner)
             } else {
                 Val::Failure2(Box::new(rustfail!(
                     "json_failure",
@@ -121,20 +130,22 @@ pub fn json_to_leema(jv: Value) -> Val
             }
         }
         Value::String(s) => {
-            Val::Str(Lstr::from(s))
+            let inner = Val::Str(Lstr::from(s));
+            new_json_val("String", inner)
         }
         Value::Null => {
-            panic!("What to do with json nulls?");
+            Val::EnumToken(JSON_VAL_TYPE.clone(), Lstr::Sref("Null"))
         }
         Value::Array(items) => {
             // array stuff
-            items
+            let inner = items
                 .into_iter()
                 .rev()
                 .fold(Val::Nil, |acc, i| {
                     let lv = json_to_leema(i);
                     list::cons(lv, acc)
-                })
+                });
+            new_json_val("Array", inner)
         }
         Value::Object(jitems) => {
             // object stuff
@@ -146,9 +157,19 @@ pub fn json_to_leema(jv: Value) -> Val
                     let lk = Val::Str(Lstr::from(k));
                     Lmap::insert(&acc, lk, lv)
                 });
-            Val::Map(litems)
+            let inner = Val::Map(litems);
+            new_json_val("Object", inner)
         }
     }
+}
+
+fn new_json_val(variant: &'static str, inner: Val) -> Val
+{
+    Val::EnumStruct(
+        JSON_VAL_TYPE.clone(),
+        Lstr::Sref(variant),
+        Struple::new_indexed(vec![inner]),
+    )
 }
 
 pub fn decode_val(mut ctx: RustFuncContext) -> Event
