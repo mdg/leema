@@ -776,10 +776,10 @@ impl Val
                 })
             }
             (
-                &Val::EnumStruct(ref pt, ref pname, ref pv),
-                &Val::EnumStruct(ref it, ref iname, ref iv),
+                &Val::EnumStruct(_, ref pname, ref pv),
+                &Val::EnumStruct(_, ref iname, ref iv),
             ) if pv.0.len() == iv.0.len() => {
-                if pt != it || pname != iname {
+                if pname != iname {
                     return false;
                 }
                 pv.0.iter().zip(iv.0.iter()).all(|(p_item, i_item)| {
