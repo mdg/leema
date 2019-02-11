@@ -331,10 +331,9 @@ impl<'a, 'b> Typescope<'a, 'b>
                     valtype,
                     case.line,
                 )?;
-                let ttype = typecheck_expr(self, truth)
-                    .map_err(|f| {
-                        f.add_context(Lstr::from("typecheck_matchcase"))
-                    })?;
+                let ttype = typecheck_expr(self, truth).map_err(|f| {
+                    f.add_context(Lstr::from("typecheck_matchcase"))
+                })?;
                 if lies.src != Source::ConstVal(Val::Void) {
                     let ftype =
                         self.typecheck_matchcase(valtype, lies).unwrap();

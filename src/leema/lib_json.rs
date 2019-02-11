@@ -114,9 +114,7 @@ pub fn decode(mut ctx: RustFuncContext) -> Event
 pub fn json_to_leema(jv: Value) -> Val
 {
     match jv {
-        Value::Bool(b) => {
-            new_json_val("Boolean", Val::Bool(b))
-        }
+        Value::Bool(b) => new_json_val("Boolean", Val::Bool(b)),
         Value::Number(num) => {
             if num.is_i64() {
                 let inner = Val::Int(num.as_i64().unwrap());
@@ -138,25 +136,20 @@ pub fn json_to_leema(jv: Value) -> Val
         }
         Value::Array(items) => {
             // array stuff
-            let inner = items
-                .into_iter()
-                .rev()
-                .fold(Val::Nil, |acc, i| {
-                    let lv = json_to_leema(i);
-                    list::cons(lv, acc)
-                });
+            let inner = items.into_iter().rev().fold(Val::Nil, |acc, i| {
+                let lv = json_to_leema(i);
+                list::cons(lv, acc)
+            });
             new_json_val("Array", inner)
         }
         Value::Object(jitems) => {
             // object stuff
-            let litems = jitems
-                .into_iter()
-                .fold(Lmap::new(), |acc, i| {
-                    let (k, v) = i;
-                    let lv = json_to_leema(v);
-                    let lk = Val::Str(Lstr::from(k));
-                    Lmap::insert(&acc, lk, lv)
-                });
+            let litems = jitems.into_iter().fold(Lmap::new(), |acc, i| {
+                let (k, v) = i;
+                let lv = json_to_leema(v);
+                let lk = Val::Str(Lstr::from(k));
+                Lmap::insert(&acc, lk, lv)
+            });
             let inner = Val::Map(litems);
             new_json_val("Object", inner)
         }
@@ -178,8 +171,7 @@ pub fn decode_val(mut ctx: RustFuncContext) -> Event
         let text = ctx.get_param(0).str();
         // previous typechecking should assure that the type param is
         // there and that there will be exactly 1
-        let json_val: Value = serde_json::from_str(text)
-            .expect("invalid json");
+        let json_val: Value = serde_json::from_str(text).expect("invalid json");
         json_to_leema(json_val)
     };
     ctx.set_result(result);
