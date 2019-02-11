@@ -30,3 +30,11 @@ func int_val(v: Val): Int
     |_ >> fail(#input_error, "json value is not an integer: $v")
     --
 --
+
+func str_val(v: Val): Str
+>>
+    match v
+    |String(s) >> s
+    |_ >> fail(#input_error, "json value is not a string: $v")
+    --
+--

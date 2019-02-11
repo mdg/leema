@@ -51,7 +51,7 @@ func user_from_json(juser: json::Val)
 >>
     let fields := json::object_fields(juser)
     let id := json::int_val(option::unwrap(map::get(fields, "id")))
-    let name := option::unwrap(map::get(fields, "name"))
+    let name := json::str_val(option::unwrap(map::get(fields, "name")))
     User(id, name)
 --
 

@@ -272,8 +272,12 @@ class TestScripts(unittest.TestCase):
     def test_const(self):
         result = run_leema('test_const')
         self.assertEqual(0, result['code'])
-        expected = b"red is: #ff0000\n"
-        self.assertEqual(expected, result['output'])
+        lines = result['output'].splitlines()
+        self.assertEqual(b"red is: #ff0000", lines[0])
+        self.assertTrue(
+            lines[1].startswith(b"rgb types: [types::TypeVal(", 0),
+            lines[1],
+        )
 
     def test_empty_struct(self):
         result = run_leema('empty_struct')
@@ -310,7 +314,8 @@ class TestScripts(unittest.TestCase):
             + b'["a","b"]\n' \
             + b'{"x":4}\n' \
             + b'{"id":4,"name":"Javier"}\n' \
-            + b'coded  \' 9 or true\n'
+            + b'coded  \' 9 or true\n' \
+            + b'test_json::User(id:8,name:Gerald,)\n'
         self.assertEqual(exp, result['output'])
 
     def test_cli(self):
