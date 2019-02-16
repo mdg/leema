@@ -9,9 +9,11 @@ use leema::val::{Type, Val};
 use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 use std::thread;
+use std::time::Instant;
 
 use futures::sync::oneshot as futures_oneshot;
 use futures::{future, Future};
+use hyper::client::connect::HttpInfo;
 use hyper::rt::Stream;
 use hyper::service::service_fn;
 use hyper::{Body, Client, Method, Request, Response, Server, StatusCode, Uri};
@@ -184,6 +186,21 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
 }
 
 
+const CLIENT_RESP_TYPE: Lri = Lri {
+    modules: Some(Lstr::Sref("hyper_client")),
+    localid: Lstr::Sref("Response"),
+    params: None,
+};
+
+pub fn new_client_response(code: i64, body: String) -> Val
+{
+    let fields = Struple::new_indexed(vec![
+        Val::Int(code),
+        Val::Str(Lstr::from(body)),
+    ]);
+    Val::Struct(CLIENT_RESP_TYPE, fields)
+}
+
 pub fn client_get(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     let url = {
@@ -254,21 +271,35 @@ pub fn client_post(mut ctx: rsrc::IopCtx) -> rsrc::Event
         .unwrap();
     let tls_conn = HttpsConnector::new(1);
     let client = Client::builder().build(tls_conn);
+    let start_instant = Instant::now();
     let post_fut = client
         .request(req)
-        .and_then(|res| Stream::collect(res.into_body()))
-        .map(|chunks| {
-            let text_vec: Vec<String> = chunks
+        .and_then(move |res| {
+            let (parts, body) = res.into_parts();
+            Stream::collect(body).map(move |chunks| {
+                let req_time = start_instant.elapsed();
+eprintln!("secs: {}, millis: {}, mics: {}, nanos: {}", req_time.as_secs(), req_time.subsec_millis(), req_time.subsec_micros(), req_time.subsec_nanos());
+                (parts, chunks)
+            })
+        })
+        .map(|resp| {
+            let text_vec: Vec<String> = resp.1
                 .into_iter()
                 .map(|chunk| {
                     String::from_utf8(chunk.into_bytes().as_ref().to_vec())
                         .unwrap()
                 })
                 .collect();
+            let parts = resp.0;
+            let info = parts.extensions.get::<HttpInfo>();
+eprintln!("\nextensions: {:?}", info);
             let text: String = text_vec.concat();
-            rsrc::Event::Result(Val::Str(Lstr::from(text)))
+            let resp_val =
+                new_client_response(parts.status.as_u16() as i64, text);
+            rsrc::Event::Result(resp_val)
         })
         .map_err(|err| {
+            eprintln!("http post error: {:?}", err);
             rsrc::Event::Result(Val::Str(Lstr::Sref("client_failure")))
         });
     rsrc::Event::Future(Box::new(post_fut))
