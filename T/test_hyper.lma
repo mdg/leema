@@ -13,13 +13,15 @@ func intro(): Str >>
 --
 
 func web_handler(req: hyper_server::Request): Str >>
-    match req.path
-    |"/" >> intro()
-    |"/chess960" >>
+    match (req.method, req.path)
+    |("GET", "/") >> intro()
+    |("GET", "/chess960") >>
         let lineup := chess960::chess960()
         "$lineup\n"
-    |path >>
-        "no matching pattern: $path\n"
+    |("POST", "/test") >>
+        "this was a post\n"
+    |(meth, path) >>
+        "no matching pattern: $meth $path\n"
     --
 --
 
@@ -31,6 +33,8 @@ func run_server() >>
 func run_client() >>
     let lineup := hyper_client::get("http://localhost:3998/chess960")
     print("client_received:$lineup\n")
+    let posted := hyper_client::post("http://localhost:3998/test", "test body")
+    print("client_received:$posted\n")
 --
 
 func main() >>

@@ -15,6 +15,7 @@ use futures::{future, Future};
 use hyper::rt::Stream;
 use hyper::service::service_fn;
 use hyper::{Body, Client, Method, Request, Response, Server, StatusCode, Uri};
+use hyper_rustls::HttpsConnector;
 
 /*
 http handle
@@ -223,11 +224,61 @@ pub fn client_get(mut ctx: rsrc::IopCtx) -> rsrc::Event
     rsrc::Event::Future(Box::new(get_fut))
 }
 
+pub fn client_post(mut ctx: rsrc::IopCtx) -> rsrc::Event
+{
+    let url = {
+        match ctx.take_param(0).unwrap() {
+            Val::Str(url_str) => url_str.parse::<Uri>().unwrap(),
+            not_str => {
+                /*
+                return rsrc::Event::Result(Val::failure(
+                    Val::Hashtag(Lstr::from("type_error")),
+                    Val::Str(Lstr::from(format!(
+                        "url parameter is not a string: {}", not_str
+                    ))),
+                    None,
+                ));
+                */
+                panic!("url parameter is not a string: {}", not_str);
+            }
+        }
+    };
+    let reqbody: Lstr = match ctx.take_param(1).unwrap() {
+        Val::Str(body) => body.clone(),
+        not_str => {
+            panic!("url body is not a string: {:?}", not_str);
+        }
+    };
+    let req = Request::post(url)
+        .body(Body::from(String::from(&reqbody)))
+        .unwrap();
+    let tls_conn = HttpsConnector::new(1);
+    let client = Client::builder().build(tls_conn);
+    let post_fut = client
+        .request(req)
+        .and_then(|res| Stream::collect(res.into_body()))
+        .map(|chunks| {
+            let text_vec: Vec<String> = chunks
+                .into_iter()
+                .map(|chunk| {
+                    String::from_utf8(chunk.into_bytes().as_ref().to_vec())
+                        .unwrap()
+                })
+                .collect();
+            let text: String = text_vec.concat();
+            rsrc::Event::Result(Val::Str(Lstr::from(text)))
+        })
+        .map_err(|err| {
+            rsrc::Event::Result(Val::Str(Lstr::Sref("client_failure")))
+        });
+    rsrc::Event::Future(Box::new(post_fut))
+}
+
 pub fn load_client_func(func_name: &str) -> Option<Code>
 {
     match func_name {
         "get" => Some(Code::Iop(client_get, None)),
-        // "post" => Some(Code::Iop(client_post, None)),
+        "post" => Some(Code::Iop(client_post, None)),
         _ => None,
     }
 }

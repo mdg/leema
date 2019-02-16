@@ -8,6 +8,7 @@ extern crate mopa;
 extern crate bytes;
 extern crate futures;
 extern crate hyper;
+extern crate hyper_rustls;
 #[cfg(test)]
 #[macro_use]
 extern crate matches;
