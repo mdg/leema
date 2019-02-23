@@ -13,7 +13,6 @@ use std::time::{Duration, Instant};
 
 use futures::sync::oneshot as futures_oneshot;
 use futures::{future, Future};
-use hyper::client::connect::HttpInfo;
 use hyper::rt::Stream;
 use hyper::service::service_fn;
 use hyper::{Body, Client, Method, Request, Response, Server, StatusCode, Uri};
@@ -295,8 +294,10 @@ pub fn client_post(mut ctx: rsrc::IopCtx) -> rsrc::Event
                 })
                 .collect();
             let parts = resp.0;
-            let info = parts.extensions.get::<HttpInfo>();
-eprintln!("\nextensions: {:?}", info);
+            // use hyper::client::connect::HttpInfo;
+            // let info = parts.extensions.get::<HttpInfo>().unwrap();
+            // let remote_addr = format!("{}", info.remote_addr());
+            // println!("response from: {}", remote_addr);
             let text: String = text_vec.concat();
             let resp_val =
                 new_client_response(parts.status.as_u16() as i64, resp.1, text);
