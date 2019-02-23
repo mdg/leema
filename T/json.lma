@@ -1,5 +1,8 @@
 
+import list
 import map
+import option
+
 
 func encode[T](val: T): Str -RUST-
 func decode[T](input: Str): T -RUST-
@@ -8,7 +11,7 @@ enum Val
 |Integer(Int)
 |String(Str)
 |Boolean(Bool)
-|List([json::Val])
+|Array([json::Val])
 |Object(map::T[Str, json::Val])
 |Null
 --
@@ -20,6 +23,42 @@ func object_fields(v: Val): map::T[Str, Val]
     match v
     |Object(flds) >> flds
     |_ >> fail(#input_error, "json value is not an object: $v")
+    --
+--
+
+func object_val(v: Val, name: Str): Val
+>>
+    option::unwrap(map::get(object_fields(v), name))
+--
+
+func object_int(v: Val, name: Str): Int
+>>
+    int_val(object_val(v, name))
+--
+
+func object_str(v: Val, name: Str): Str
+>>
+    str_val(object_val(v, name))
+--
+
+func object_bool(v: Val, name: Str): Bool
+>>
+    bool_val(object_val(v, name))
+--
+
+func array_map[T](v: Val, transform: F(Val): T): [T]
+>>
+    match v
+    |Array(items) >> list::map(items, transform)
+    |_ >> fail(#input_error, "json value is not an array: $v")
+    --
+--
+
+func bool_val(v: Val): Bool
+>>
+    match v
+    |Boolean(b) >> b
+    |_ >> fail(#input_error, "json value is not a boolean: $v")
     --
 --
 
