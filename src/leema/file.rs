@@ -48,11 +48,19 @@ pub fn file_write_file(mut ctx: rsrc::IopCtx) -> rsrc::Event
     rsrc::Event::Result(Val::Void)
 }
 
+pub fn file_exists(mut ctx: rsrc::IopCtx) -> rsrc::Event
+{
+    let pathval = ctx.take_param(0).unwrap();
+    let exists = Path::new(pathval.str()).exists();
+    rsrc::Event::Result(Val::Bool(exists))
+}
+
 pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
         "read_file" => Some(Code::Iop(file_read_file, None)),
         "write_file" => Some(Code::Iop(file_write_file, None)),
+        "exists" => Some(Code::Iop(file_exists, None)),
         _ => None,
     }
 }
