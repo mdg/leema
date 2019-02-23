@@ -1,0 +1,50 @@
+
+enum T
+|Date
+    .year
+    .month
+    .day
+    .tz: Timezone
+|DateTime
+    .year: Int
+    .month: Int
+    .day: Int
+    .hour: Int
+    .minute: Int
+    .second: Int
+    .nano: Int
+    .tz: Timezone
+|Time
+    .hour: Int
+    .minute: Int
+    .second: Int
+    .nano: Int
+    .tz: Timezone
+--
+
+enum NaiveT
+|NaiveDate
+    .year
+    .month
+    .day
+|NaiveDateTime
+    .year: Int
+    .month: Int
+    .day: Int
+    .hour: Int
+    .minute: Int
+    .second: Int
+    .nano: Int
+|NaiveTime
+    .hour: Int
+    .minute: Int
+    .second: Int
+    .nano: Int
+--
+
+
+func from_unix(unix_time: Int): T -RUST-
+func now(): T -RUST-
+
+func naive_from_unix(unix_time: Int): NaiveT -RUST-
+func naive_with_tz(t: T): T -RUST-
