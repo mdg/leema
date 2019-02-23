@@ -47,9 +47,9 @@ pub fn libstr_replace(mut ctx: RustFuncContext) -> frame::Event
             }
             _ => {
                 let fail = rustfail!(
-                        "runtime_type_failure",
-                        "str::replace parameters are not strings",
-                    );
+                    "runtime_type_failure",
+                    "str::replace parameters are not strings",
+                );
                 Val::Failure2(Box::new(fail))
             }
         }

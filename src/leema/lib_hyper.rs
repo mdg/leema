@@ -286,7 +286,8 @@ pub fn client_post(mut ctx: rsrc::IopCtx) -> rsrc::Event
             })
         })
         .map(|resp| {
-            let text_vec: Vec<String> = resp.2
+            let text_vec: Vec<String> = resp
+                .2
                 .into_iter()
                 .map(|chunk| {
                     String::from_utf8(chunk.into_bytes().as_ref().to_vec())
