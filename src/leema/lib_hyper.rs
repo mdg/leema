@@ -9,7 +9,7 @@ use leema::val::{Type, Val};
 use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 use std::thread;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use futures::sync::oneshot as futures_oneshot;
 use futures::{future, Future};
@@ -192,11 +192,16 @@ const CLIENT_RESP_TYPE: Lri = Lri {
     params: None,
 };
 
-pub fn new_client_response(code: i64, body: String) -> Val
+pub fn new_client_response(code: i64, req_time: Duration, body: String) -> Val
 {
+    let sec_mics: i64 = req_time.as_secs() as i64 * 1000000;
+    let sub_mics: i64 = req_time.subsec_micros() as i64;
+    let mics = sec_mics + sub_mics;
+
     let fields = Struple::new_indexed(vec![
         Val::Int(code),
         Val::Str(Lstr::from(body)),
+        Val::Int(mics),
     ]);
     Val::Struct(CLIENT_RESP_TYPE, fields)
 }
@@ -278,12 +283,11 @@ pub fn client_post(mut ctx: rsrc::IopCtx) -> rsrc::Event
             let (parts, body) = res.into_parts();
             Stream::collect(body).map(move |chunks| {
                 let req_time = start_instant.elapsed();
-eprintln!("secs: {}, millis: {}, mics: {}, nanos: {}", req_time.as_secs(), req_time.subsec_millis(), req_time.subsec_micros(), req_time.subsec_nanos());
-                (parts, chunks)
+                (parts, req_time, chunks)
             })
         })
         .map(|resp| {
-            let text_vec: Vec<String> = resp.1
+            let text_vec: Vec<String> = resp.2
                 .into_iter()
                 .map(|chunk| {
                     String::from_utf8(chunk.into_bytes().as_ref().to_vec())
@@ -295,7 +299,7 @@ eprintln!("secs: {}, millis: {}, mics: {}, nanos: {}", req_time.as_secs(), req_t
 eprintln!("\nextensions: {:?}", info);
             let text: String = text_vec.concat();
             let resp_val =
-                new_client_response(parts.status.as_u16() as i64, text);
+                new_client_response(parts.status.as_u16() as i64, resp.1, text);
             rsrc::Event::Result(resp_val)
         })
         .map_err(|err| {

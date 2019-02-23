@@ -2,6 +2,7 @@
 struct Response
 .status: Int
 .body: Str
+.mics: Int
 --
 
 func get(url: Str): Response -RUST-
