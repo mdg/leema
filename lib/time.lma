@@ -1,45 +1,51 @@
 
-enum T
-|Date
-    .year
-    .month
-    .day
-    .tz: Timezone
-|DateTime
-    .year: Int
-    .month: Int
-    .day: Int
-    .hour: Int
-    .minute: Int
-    .second: Int
-    .nano: Int
-    .tz: Timezone
-|Time
-    .hour: Int
-    .minute: Int
-    .second: Int
-    .nano: Int
-    .tz: Timezone
+struct Date
+.year
+.month
+.day
+.tz: Zone
 --
 
-enum NaiveT
-|NaiveDate
-    .year
-    .month
-    .day
-|NaiveDateTime
-    .year: Int
-    .month: Int
-    .day: Int
-    .hour: Int
-    .minute: Int
-    .second: Int
-    .nano: Int
-|NaiveTime
-    .hour: Int
-    .minute: Int
-    .second: Int
-    .nano: Int
+struct DateTime
+.year: Int
+.month: Int
+.day: Int
+.hour: Int
+.minute: Int
+.second: Int
+.nano: Int
+.tz: Zone
+--
+
+struct OfDay
+.hour: Int
+.minute: Int
+.second: Int
+.nano: Int
+.tz: Timezone
+--
+
+struct NaiveDate
+.year
+.month
+.day
+--
+
+struct NaiveDateTime
+.year: Int
+.month: Int
+.day: Int
+.hour: Int
+.minute: Int
+.second: Int
+.nano: Int
+--
+
+struct NaiveTimeOfDay
+.hour: Int
+.minute: Int
+.second: Int
+.nano: Int
 --
 
 
