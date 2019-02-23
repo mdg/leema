@@ -2,6 +2,7 @@
 func is_empty(input: Str): Bool -RUST-
 func join(parts: [Str]): Str -RUST-
 func len(input: Str): Int -RUST-
+func replace(base: Str, from: Str, to: Str): Str -RUST-
 func split(input: Str, divisor: Str): [Str] -RUST-
 
 func to_lowercase(input: Str): Str -RUST-

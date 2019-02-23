@@ -33,6 +33,36 @@ pub fn join(f: &mut Fiber) -> frame::Event
     frame::Event::success()
 }
 
+pub fn libstr_replace(mut ctx: RustFuncContext) -> frame::Event
+{
+    let result = {
+        let src_val = ctx.get_param(0);
+        let from_val = ctx.get_param(1);
+        let to_val = ctx.get_param(2);
+        match (src_val, from_val, to_val) {
+            (Val::Str(src), Val::Str(from), Val::Str(to)) => {
+                let src_str: &str = src.str();
+                let result_str = src_str.replace(from.str(), &to);
+                Val::Str(Lstr::from(result_str))
+            }
+            _ => {
+                let fail = rustfail!(
+                        "runtime_type_failure",
+                        "str::replace parameters are not strings",
+                    );
+                Val::Failure2(Box::new(fail))
+            }
+        }
+    };
+    let failure = result.is_failure();
+    ctx.set_result(result);
+    // this is kind of lame, should fix it
+    if failure {
+        return frame::Event::failure();
+    }
+    frame::Event::success()
+}
+
 pub fn split(f: &mut Fiber) -> frame::Event
 {
     let result = {
@@ -77,6 +107,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         "is_empty" => Some(Code::Rust(is_empty)),
         "join" => Some(Code::Rust(join)),
         "len" => Some(Code::Rust(len)),
+        "replace" => Some(Code::Rust2(libstr_replace)),
         "split" => Some(Code::Rust(split)),
         "to_lowercase" => Some(Code::Rust2(to_lowercase)),
         "to_uppercase" => Some(Code::Rust2(to_uppercase)),
