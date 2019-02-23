@@ -684,7 +684,7 @@ impl<'b> Inferator<'b>
             panic!("too many args passed to {:?}: {:?}", ftype, argst);
         }
         if argslen < defargslen {
-            panic!("it's so much fun to curry, but not supported yet");
+            return Err(rustfail!("type_error", "passed too few args to {}", ftype));
         }
 
         let mash_result: Vec<Lresult<StrupleItem<Option<Lstr>, Type>>>;

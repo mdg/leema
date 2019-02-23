@@ -636,6 +636,7 @@ impl Val
     {
         match self {
             &Val::Failure(_, _, _, _) => true,
+            &Val::Failure2(_) => true,
             _ => false,
         }
     }
