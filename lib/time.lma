@@ -1,12 +1,7 @@
 
-struct Date
-.year
-.month
-.day
-.tz: Zone
---
-
-struct DateTime
+## A date and a time with a timezone
+## The primary data type for this module.
+struct T
 .year: Int
 .month: Int
 .day: Int
@@ -17,7 +12,15 @@ struct DateTime
 .tz: Zone
 --
 
-struct OfDay
+## A date structure with no concept of time
+struct Date
+.year: Int
+.month: Int
+.day: Int
+--
+
+## A time of day struct with the timezone
+struct TimeOfDay
 .hour: Int
 .minute: Int
 .second: Int
@@ -25,12 +28,7 @@ struct OfDay
 .tz: Timezone
 --
 
-struct NaiveDate
-.year
-.month
-.day
---
-
+## A datetime struct without timezone
 struct NaiveDateTime
 .year: Int
 .month: Int
@@ -41,6 +39,7 @@ struct NaiveDateTime
 .nano: Int
 --
 
+## A time of day struct without timezone
 struct NaiveTimeOfDay
 .hour: Int
 .minute: Int
@@ -49,8 +48,54 @@ struct NaiveTimeOfDay
 --
 
 
-func from_unix(unix_time: Int): T -RUST-
+#>> The current time, right now
+### something here too
+#-- What's the good way to make this work in tests?
 func now(): T -RUST-
 
-func naive_from_unix(unix_time: Int): NaiveT -RUST-
-func naive_with_tz(t: T): T -RUST-
+## Make a new time object from the given unix time
+func from_unix(unix_time: Int): T -RUST-
+
+## The current date
+func today(): Date
+>>
+    let n := now()
+    Date(n.year, n.month, n.day)
+--
+
+## Make a new date object from the given unix time
+func date_from_unix(unix_time: Int): Date
+>>
+    let dt = from_unix(unix_time)
+    Date(dt.year, dt.month, dt.day)
+--
+
+## Add a timezone to a naive time
+func naive_from_unix(unix_time: Int): NaiveDateTime
+>>
+    let t := from_unix(unix_time)
+    NaiveDateTime(
+        t.year,
+        t.month,
+        t.day,
+        t.hour,
+        t.minute,
+        t.second,
+        t.nano,
+    )
+--
+
+## Add a timezone
+func naive_with_tz(t: NaiveDateTime, tz: Timezone): T
+>>
+    T(
+        t.year,
+        t.month,
+        t.day,
+        t.hour,
+        t.minute,
+        t.second,
+        t.nano,
+        tz,
+    )
+--

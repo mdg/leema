@@ -1,15 +1,15 @@
 
-struct Date
+struct T
 .year: Int
 .month: Int
 .day: Int
-.timezone: Timezone
 --
+
 
 func today(): Date -RUST-
 
-#>> From Unix in UTC
+## From Unix in UTC
 func from_unix(unix_time: Int): Date -RUST-
 
-#>> From Unix, in another timezone
+## From Unix, in another timezone
 func from_unix(unix_time: Int): NaivDate -RUST-
