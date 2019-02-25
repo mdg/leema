@@ -50,11 +50,15 @@ struct NaiveTimeOfDay
 
 #>> The current time, right now
 ### something here too
-#-- What's the good way to make this work in tests?
+### What's the good way to make this work in tests?
+#--
 func now(): T -RUST-
 
 ## Make a new time object from the given unix time
 func from_unix(unix_time: Int): T -RUST-
+
+## Format a datetime for the given string
+func format(fmt: Str, dt: T): Str -RUST-
 
 ## The current date
 func today(): Date
@@ -63,10 +67,13 @@ func today(): Date
     Date(n.year, n.month, n.day)
 --
 
+## Format date for the given string
+func format_date(fmt: Str, dt: T): Str -RUST-
+
 ## Make a new date object from the given unix time
 func date_from_unix(unix_time: Int): Date
 >>
-    let dt = from_unix(unix_time)
+    let dt := from_unix(unix_time)
     Date(dt.year, dt.month, dt.day)
 --
 
