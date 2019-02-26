@@ -228,7 +228,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
 {
     match input.src {
         Source::Block(ref lines) => {
-            vout!("block dst: {}", rt.dst());
+            vout!("block dst: {}\n", rt.dst());
             let mut oxprs = Vec::with_capacity(lines.len());
             for i in lines.iter().rev() {
                 oxprs.push(make_sub_ops(rt, i));
@@ -427,6 +427,7 @@ pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr, args: &Struple<Ixpr>)
         .0
         .iter()
         .enumerate()
+        .rev()
         .flat_map(|(i, a)| {
             let argdst = fref_dst.sub(i as i8);
             rt.push_dst_reg(argdst.clone());
