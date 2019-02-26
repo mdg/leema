@@ -80,12 +80,8 @@ impl fmt::Display for FuncDecl
         write!(f, "{}(", self.name)?;
         for a in &self.args {
             match a.x_ref() {
-                Some(aix) => {
-                    write!(f, "{},", aix)?
-                }
-                None => {
-                    write!(f, "{},", a.k_ref().unwrap())?
-                }
+                Some(aix) => write!(f, "{},", aix)?,
+                None => write!(f, "{},", a.k_ref().unwrap())?,
             }
         }
         write!(f, "):{}", self.result)

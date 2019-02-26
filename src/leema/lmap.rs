@@ -52,11 +52,7 @@ impl Lmap
                         newright,
                     )))
                 } else {
-                    Some(Arc::new(Lmap(
-                        left.clone(),
-                        (k, v),
-                        right.clone(),
-                    )))
+                    Some(Arc::new(Lmap(left.clone(), (k, v), right.clone())))
                 }
             }
         }
