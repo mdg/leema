@@ -6,7 +6,6 @@
 use leema::code::Code;
 // use leema::fiber::Fiber;
 use leema::frame::Event;
-use leema::lstr::Lstr;
 use leema::val::Val;
 use leema::worker::RustFuncContext;
 

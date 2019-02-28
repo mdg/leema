@@ -9,13 +9,13 @@ use std::sync::Arc;
 
 macro_rules! rustfail {
     ($tag:expr, $msg:expr) => {
-        ::leema::failure::Failure::new($tag, Lstr::from($msg))
+        ::leema::failure::Failure::new($tag, ::leema::lstr::Lstr::from($msg))
             .set_rustloc(file!(), line!())
     };
     ($tag:expr, $fmt:expr, $($arg:tt)*) => {
         ::leema::failure::Failure::new(
                 $tag,
-                Lstr::from(format!($fmt, $($arg)*))
+                ::leema::lstr::Lstr::from(format!($fmt, $($arg)*))
             )
             .set_rustloc(file!(), line!())
     };
