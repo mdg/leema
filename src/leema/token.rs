@@ -1,26 +1,59 @@
+use leema::failure::{Failure, Lresult};
+
 use std::iter::Peekable;
 use std::str::CharIndices;
 
 
+#[derive(Copy)]
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
+pub struct Loc
+{
+    pub index: usize,
+    pub lineno: u16,
+    pub column: u8,
+}
+
+impl Loc
+{
+    fn nextcol(&mut self)
+    {
+        self.column += 1;
+    }
+
+    fn newline(&mut self)
+    {
+        self.lineno += 1;
+        self.column = 1;
+    }
+}
+
+impl Default for Loc
+{
+    fn default() -> Loc
+    {
+        Loc {
+            index: 0,
+            lineno: 1,
+            column: 1,
+        }
+    }
+}
+
+#[derive(Clone)]
+#[derive(Copy)]
+#[derive(Debug)]
+#[derive(PartialEq)]
 #[derive(PartialOrd)]
-pub enum Token<'input>
+pub enum TokenData<'input>
 {
     Id(&'input str),
-    Int(i64),
+    Int(&'input str),
     Bool(bool),
     Hashtag(&'input str),
     Str(&'input str),
     DollarId(&'input str),
-
-    // types
-    TypeInt,
-    TypeBool,
-    TypeStr,
-    TypeHashtag,
-    TypeVoid,
 
     // brackets
     ParenL,
@@ -31,10 +64,10 @@ pub enum Token<'input>
     CurlyR,
     AngleL,
     AngleR,
-    DoubleQuote,
+    DoubleQuoteL,
+    DoubleQuoteR,
 
     // keywords
-    Enum,
     Failed,
     Fork,
     Func,
@@ -44,7 +77,7 @@ pub enum Token<'input>
     Macro,
     Match,
     Return,
-    Struct,
+    Type,
     Void,
 
     // operators (arithmetic)
@@ -86,6 +119,113 @@ pub enum Token<'input>
     CommentBlockStop,
     CommentLine,
 }
+
+#[derive(Copy)]
+#[derive(Clone)]
+#[derive(Debug)]
+pub struct Token<'input>(TokenData<'input>, Loc);
+
+/// scan((start, line, col, (i, char))
+/// return (consume_char, Option<new_token>, Option<push_scanner(scanner) | pop_state>) | error
+
+#[derive(Copy)]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialOrd)]
+#[derive(PartialEq)]
+enum ScanMode
+{
+    Normal,
+    StrLit,
+    Comment,
+    BlockComment,
+}
+
+type ScanFn = &'static Fn(Option<Loc>, Option<Loc>, &str) -> ScanResult;
+
+struct Scanner
+{
+    mode: ScanMode,
+    func: ScanFn,
+}
+
+enum ScannerOp
+{
+    Push(Scanner),
+    Pop,
+}
+
+enum ScanOutput<'input>
+{
+    StartToken(Loc, Scanner),
+    Next,
+    Complete(Token<'input>, bool),
+}
+
+type ScanResult<'input> = Lresult<ScanOutput<'input>>;
+
+struct ScanState<'input>
+{
+    scanner: Vec<Scanner>,
+    src: &'input str,
+    first: Option<Loc>,
+    next: Option<Loc>,
+    failure: Option<Failure>,
+}
+
+impl<'input> ScanState<'input>
+{
+    pub fn new(src: &'input str) -> ScanState<'input>
+    {
+        ScanState {
+            scanner: vec![SCAN_ROOT],
+            src,
+            first: None,
+            next: None,
+            failure: None,
+        }
+    }
+}
+
+fn scan_root<'input>(
+    _start: Option<Loc>,
+    _next: Option<Loc>,
+    _src: &'input str,
+) -> ScanResult<'input>
+{
+    Ok(ScanOutput::Next)
+}
+
+fn scan_int<'input>(
+    _start: Option<Loc>,
+    _next: Option<Loc>,
+    _src: &'input str,
+) -> ScanResult<'input>
+{
+    Ok(ScanOutput::Next)
+}
+
+fn scan_str<'input>(
+    _start: Option<Loc>,
+    _next: Option<Loc>,
+    _src: &'input str,
+) -> ScanResult<'input>
+{
+    Ok(ScanOutput::Next)
+}
+
+const SCAN_ROOT: Scanner = Scanner {
+    mode: ScanMode::Normal,
+    func: &scan_root,
+};
+const SCAN_INT: Scanner = Scanner {
+    mode: ScanMode::Normal,
+    func: &scan_int,
+};
+const SCAN_STR: Scanner = Scanner {
+    mode: ScanMode::Normal,
+    func: &scan_str,
+};
 
 pub struct Tokenz<'i>
 {
@@ -134,8 +274,9 @@ impl<'i> Tokenz<'i>
         }
     }
 
-    pub fn lex_one_token(&mut self, first: char)
+    pub fn lex_one_token(&mut self, _first: char)
     {
+        /*
         match first {
             // brackets
             '(' => {
@@ -213,10 +354,12 @@ impl<'i> Tokenz<'i>
                 }
             }
         }
+        */
     }
 
     pub fn lex_backslash(&mut self)
     {
+        /*
         match self.next() {
             '\n' => {
                 self.increment_lineno();
@@ -226,10 +369,12 @@ impl<'i> Tokenz<'i>
                 panic!("unknown token: \\{}", c);
             }
         }
+        */
     }
 
     pub fn lex_colon(&mut self)
     {
+        /*
         match self.peek() {
             ':' => {
                 self.next();
@@ -239,10 +384,12 @@ impl<'i> Tokenz<'i>
                 self.tokens.push(Token::Colon);
             }
         }
+        */
     }
 
     pub fn lex_dash(&mut self)
     {
+        /*
         match self.peek() {
             '-' => {
                 self.next();
@@ -255,10 +402,12 @@ impl<'i> Tokenz<'i>
                 self.tokens.push(Token::Dash);
             }
         }
+        */
     }
 
     pub fn lex_eq(&mut self)
     {
+        /*
         match self.next() {
             '=' => {
                 self.tokens.push(Token::Equal);
@@ -270,10 +419,12 @@ impl<'i> Tokenz<'i>
                 panic!("= is an invalid token. use := or ==");
             }
         }
+        */
     }
 
     pub fn lex_gt(&mut self)
     {
+        /*
         match self.peek() {
             '>' => {
                 self.next();
@@ -287,18 +438,10 @@ impl<'i> Tokenz<'i>
                 self.tokens.push(Token::GreaterThan);
             }
         }
+        */
     }
 
-    pub fn lex_peek(&mut self, peeked: char, tok2: Token<'i>, tok1: Token<'i>)
-    {
-        if self.peek() == peeked {
-            self.next();
-            self.tokens.push(tok2);
-        } else {
-            self.tokens.push(tok1);
-        }
-    }
-
+    /*
     pub fn lex_int(&mut self)
     {
         let end = self
@@ -363,6 +506,7 @@ impl<'i> Tokenz<'i>
         };
         Some(tok)
     }
+    */
 
     pub fn next(&mut self) -> char
     {
@@ -380,22 +524,6 @@ impl<'i> Tokenz<'i>
             }
             // else is horizontal whitespace so continue
         }
-    }
-
-    pub fn peek(&mut self) -> char
-    {
-        let first = self.code.peek();
-        if first.is_none() {
-            return '\0';
-        }
-        let (_, character) = first.unwrap();
-        *character
-    }
-
-    pub fn increment_lineno(&mut self)
-    {
-        self.lineno += 1;
-        self.column = 0;
     }
 }
 
