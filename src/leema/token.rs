@@ -8,35 +8,58 @@ use std::str::CharIndices;
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
-pub struct Loc
+pub struct Char
 {
     pub index: usize,
+    pub c: char,
     pub lineno: u16,
     pub column: u8,
 }
 
-impl Loc
+#[derive(Clone)]
+struct CharIter<'input>
 {
-    fn nextcol(&mut self)
-    {
-        self.column += 1;
-    }
-
-    fn newline(&mut self)
-    {
-        self.lineno += 1;
-        self.column = 1;
-    }
+    chars: CharIndices<'input>,
+    lineno: u16,
+    column: u8,
 }
 
-impl Default for Loc
+impl<'input> CharIter<'input>
 {
-    fn default() -> Loc
+    fn new(src: &str) -> CharIter
     {
-        Loc {
-            index: 0,
+        CharIter{
+            chars: src.char_indices(),
             lineno: 1,
             column: 1,
+        }
+    }
+
+    fn next(&mut self) -> Option<Char>
+    {
+        match self.chars.next() {
+            None => None,
+            Some(index, '\n') => {
+                let result = Char{
+                    index,
+                    c: '\n',
+                    lineno: self.lineno,
+                    column: self.column,
+                };
+                self.lineno += 1;
+                self.column = 1;
+                result
+            }
+            Some(index, c) => {
+                let result = Char{
+                    index,
+                    c,
+                    lineno: self.lineno,
+                    column: self.column,
+                };
+                self.column += 1;
+                result
+            }
         }
     }
 }
@@ -118,32 +141,36 @@ pub enum TokenData<'input>
     CommentBlockStart,
     CommentBlockStop,
     CommentLine,
+
+    // EOF
+    EOF,
 }
 
 #[derive(Copy)]
 #[derive(Clone)]
 #[derive(Debug)]
-pub struct Token<'input>(TokenData<'input>, Loc);
+pub struct Token<'input>(TokenData<'input>, Char);
 
 /// scan((start, line, col, (i, char))
 /// return (consume_char, Option<new_token>, Option<push_scanner(scanner) | pop_state>) | error
 
 trait ScanModeTrait
 {
-    fn scan(&self, Option<Loc>, Option<Loc>, &str) -> ScanResult;
+    fn scan(&self, Char, &str) -> ScanResult;
 }
 
+// struct ScanMode(Box<ScanModeTrait>);
 type ScanMode = &'static ScanModeTrait;
 
 enum ScanModeOp
 {
-    Push(&'static Box<ScanModeTrait>),
+    Push(ScanMode),
     Pop,
 }
 
 enum ScanOutput<'input>
 {
-    StartToken(Loc, ScanMode),
+    Start(Char, ScanMode),
     Next,
     Complete(Token<'input>, bool),
 }
@@ -152,10 +179,12 @@ type ScanResult<'input> = Lresult<ScanOutput<'input>>;
 
 struct ScanState<'input>
 {
-    mode: Vec<ScanMode>,
+    mode: ScanMode,
+    mode_stack: Vec<ScanMode>,
     src: &'input str,
-    first: Option<Loc>,
-    next: Option<Loc>,
+    chars: CharIter<'input>,
+    first: Option<Char>,
+    next: Option<Char>,
     failure: Option<Failure>,
 }
 
@@ -163,13 +192,20 @@ impl<'input> ScanState<'input>
 {
     pub fn new(src: &'input str) -> ScanState<'input>
     {
+        let chars = CharIter::new(src);
         ScanState {
-            mode: vec![SCAN_ROOT],
+            mode: SCAN_ROOT,
+            mode_stack: vec![],
             src,
+            chars,
             first: None,
             next: None,
             failure: None,
         }
+    }
+
+    pub fn scan(st: &mut ScanState, next: Char) -> Option<Token>
+    {
     }
 }
 
@@ -180,19 +216,61 @@ impl<'input> ScanState<'input>
     BlockComment,
     */
 
+#[derive(Debug)]
 struct ScanModeRoot;
+
+#[derive(Debug)]
 struct ScanModeInt;
+
+#[derive(Debug)]
+struct ScanModeSpace;
 
 impl ScanModeTrait for ScanModeRoot
 {
-    fn scan(
-        &self,
-        _start: Option<Loc>,
-        _next: Option<Loc>,
+    fn scan(&self, next: Char,
         _src: &str,
     ) -> ScanResult
     {
-        Ok(ScanOutput::Next)
+        let output = match next.unwrap().c {
+            '\n' => ScanOutput::Complete(Token::Newline, true),
+            ' ' => ScanOutput::Start(next, ScanModeSpace),
+            _ => ScanOutput::Next,
+        };
+        Ok(output)
+    }
+
+    /*
+    fn eof(&self, start: Char, next: Char, _src: &str) -> Option<ScanResult>
+    {
+        Ok(ScanOutput::Complete(Token(TokenData::EOF, next), true))
+    }
+    */
+}
+
+impl ScanModeTrait for ScanModeSpace
+{
+    fn scan(
+        &self,
+        next: Char,
+        _src: &str,
+    ) -> ScanResult
+    {
+        match next.c {
+            ' ' => {
+                Ok(ScanOutput::Next)
+            }
+            '\t' => {
+                Err(rustfail!(
+                    "mixed_spaces_tabs",
+                    "Do not use spaces when already using tabs {},{}",
+                    next.lineno,
+                    next.column,
+                ))
+            }
+            _ => {
+                Ok(ScanOutput::Complete(Token(TokenData::Whitespace, next.c)))
+            }
+        }
     }
 }
 
@@ -200,8 +278,7 @@ impl ScanModeTrait for ScanModeInt
 {
     fn scan(
         &self,
-        _start: Option<Loc>,
-        _next: Option<Loc>,
+        _next: Option<Char>,
         _src: &str,
     ) -> ScanResult
     {
@@ -210,8 +287,8 @@ impl ScanModeTrait for ScanModeInt
 }
 
 fn scan_str<'input>(
-    _start: Option<Loc>,
-    _next: Option<Loc>,
+    _start: Option<Char>,
+    _next: Option<Char>,
     _src: &'input str,
 ) -> ScanResult<'input>
 {
@@ -501,24 +578,6 @@ impl<'i> Tokenz<'i>
         Some(tok)
     }
     */
-
-    pub fn next(&mut self) -> char
-    {
-        loop {
-            let first = self.code.next();
-            if first.is_none() {
-                return '\0';
-            }
-            let (loc, character) = first.unwrap();
-            self.column += 1;
-            self.chindex = loc;
-            // skip if horizontal space
-            if character == '\n' || !character.is_whitespace() {
-                return character;
-            }
-            // else is horizontal whitespace so continue
-        }
-    }
 }
 
 
