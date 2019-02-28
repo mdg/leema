@@ -128,36 +128,22 @@ pub struct Token<'input>(TokenData<'input>, Loc);
 /// scan((start, line, col, (i, char))
 /// return (consume_char, Option<new_token>, Option<push_scanner(scanner) | pop_state>) | error
 
-#[derive(Copy)]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialOrd)]
-#[derive(PartialEq)]
-enum ScanMode
+trait ScanModeTrait
 {
-    Normal,
-    StrLit,
-    Comment,
-    BlockComment,
+    fn scan(&self, Option<Loc>, Option<Loc>, &str) -> ScanResult;
 }
 
-type ScanFn = &'static Fn(Option<Loc>, Option<Loc>, &str) -> ScanResult;
+type ScanMode = &'static ScanModeTrait;
 
-struct Scanner
+enum ScanModeOp
 {
-    mode: ScanMode,
-    func: ScanFn,
-}
-
-enum ScannerOp
-{
-    Push(Scanner),
+    Push(&'static Box<ScanModeTrait>),
     Pop,
 }
 
 enum ScanOutput<'input>
 {
-    StartToken(Loc, Scanner),
+    StartToken(Loc, ScanMode),
     Next,
     Complete(Token<'input>, bool),
 }
@@ -166,7 +152,7 @@ type ScanResult<'input> = Lresult<ScanOutput<'input>>;
 
 struct ScanState<'input>
 {
-    scanner: Vec<Scanner>,
+    mode: Vec<ScanMode>,
     src: &'input str,
     first: Option<Loc>,
     next: Option<Loc>,
@@ -178,7 +164,7 @@ impl<'input> ScanState<'input>
     pub fn new(src: &'input str) -> ScanState<'input>
     {
         ScanState {
-            scanner: vec![SCAN_ROOT],
+            mode: vec![SCAN_ROOT],
             src,
             first: None,
             next: None,
@@ -187,22 +173,40 @@ impl<'input> ScanState<'input>
     }
 }
 
-fn scan_root<'input>(
-    _start: Option<Loc>,
-    _next: Option<Loc>,
-    _src: &'input str,
-) -> ScanResult<'input>
+    /*
+    Root,
+    StrLit,
+    Comment,
+    BlockComment,
+    */
+
+struct ScanModeRoot;
+struct ScanModeInt;
+
+impl ScanModeTrait for ScanModeRoot
 {
-    Ok(ScanOutput::Next)
+    fn scan(
+        &self,
+        _start: Option<Loc>,
+        _next: Option<Loc>,
+        _src: &str,
+    ) -> ScanResult
+    {
+        Ok(ScanOutput::Next)
+    }
 }
 
-fn scan_int<'input>(
-    _start: Option<Loc>,
-    _next: Option<Loc>,
-    _src: &'input str,
-) -> ScanResult<'input>
+impl ScanModeTrait for ScanModeInt
 {
-    Ok(ScanOutput::Next)
+    fn scan(
+        &self,
+        _start: Option<Loc>,
+        _next: Option<Loc>,
+        _src: &str,
+    ) -> ScanResult
+    {
+        Ok(ScanOutput::Next)
+    }
 }
 
 fn scan_str<'input>(
@@ -214,18 +218,8 @@ fn scan_str<'input>(
     Ok(ScanOutput::Next)
 }
 
-const SCAN_ROOT: Scanner = Scanner {
-    mode: ScanMode::Normal,
-    func: &scan_root,
-};
-const SCAN_INT: Scanner = Scanner {
-    mode: ScanMode::Normal,
-    func: &scan_int,
-};
-const SCAN_STR: Scanner = Scanner {
-    mode: ScanMode::Normal,
-    func: &scan_str,
-};
+const SCAN_ROOT: ScanMode = &ScanModeRoot;
+const SCAN_INT: ScanMode = &ScanModeInt;
 
 pub struct Tokenz<'i>
 {
