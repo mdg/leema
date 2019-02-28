@@ -1,6 +1,6 @@
 [package]
 name = "leema"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Matthew Graham <mdg149@gmail.com>"]
 rustc-link-search = ["."]
 rustc-link-lib = ["leemalex"]
