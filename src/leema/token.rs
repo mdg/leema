@@ -1,6 +1,5 @@
 use leema::failure::{Failure, Lresult};
 
-use std::iter::Peekable;
 use std::str::CharIndices;
 
 
@@ -39,7 +38,7 @@ impl<'input> CharIter<'input>
     {
         match self.chars.next() {
             None => None,
-            Some(index, '\n') => {
+            Some((index, '\n')) => {
                 let result = Char{
                     index,
                     c: '\n',
@@ -48,9 +47,9 @@ impl<'input> CharIter<'input>
                 };
                 self.lineno += 1;
                 self.column = 1;
-                result
+                Some(result)
             }
-            Some(index, c) => {
+            Some((index, c)) => {
                 let result = Char{
                     index,
                     c,
@@ -58,7 +57,7 @@ impl<'input> CharIter<'input>
                     column: self.column,
                 };
                 self.column += 1;
-                result
+                Some(result)
             }
         }
     }
@@ -69,14 +68,14 @@ impl<'input> CharIter<'input>
 #[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
-pub enum TokenData<'input>
+pub enum Token
 {
-    Id(&'input str),
-    Int(&'input str),
+    Id,
+    Int,
     Bool(bool),
-    Hashtag(&'input str),
-    Str(&'input str),
-    DollarId(&'input str),
+    Hashtag,
+    Str,
+    DollarId,
 
     // brackets
     ParenL,
@@ -142,21 +141,36 @@ pub enum TokenData<'input>
     CommentBlockStop,
     CommentLine,
 
+    // whitespace
+    Indent,
+    Newline,
+    Spaces,
+    Tabs,
+
     // EOF
     EOF,
 }
 
+/// A location wrapper for the token
 #[derive(Copy)]
 #[derive(Clone)]
 #[derive(Debug)]
-pub struct Token<'input>(TokenData<'input>, Char);
+pub struct TokenChars<'input>
+{
+    tok: Token,
+    start: Char,
+    end: Char,
+    src: &'input str,
+}
+
+type TokenResult<'input> = Lresult<TokenChars<'input>>;
 
 /// scan((start, line, col, (i, char))
 /// return (consume_char, Option<new_token>, Option<push_scanner(scanner) | pop_state>) | error
 
 trait ScanModeTrait
 {
-    fn scan(&self, Char, &str) -> ScanResult;
+    fn scan(&self, Char) -> ScanResult;
 }
 
 // struct ScanMode(Box<ScanModeTrait>);
@@ -165,49 +179,18 @@ type ScanMode = &'static ScanModeTrait;
 enum ScanModeOp
 {
     Push(ScanMode),
+    Replace(ScanMode),
     Pop,
 }
 
-enum ScanOutput<'input>
+enum ScanOutput
 {
     Start(Char, ScanMode),
     Next,
-    Complete(Token<'input>, bool),
+    Complete(Token, bool), // , ScanModeOp),
 }
 
-type ScanResult<'input> = Lresult<ScanOutput<'input>>;
-
-struct ScanState<'input>
-{
-    mode: ScanMode,
-    mode_stack: Vec<ScanMode>,
-    src: &'input str,
-    chars: CharIter<'input>,
-    first: Option<Char>,
-    next: Option<Char>,
-    failure: Option<Failure>,
-}
-
-impl<'input> ScanState<'input>
-{
-    pub fn new(src: &'input str) -> ScanState<'input>
-    {
-        let chars = CharIter::new(src);
-        ScanState {
-            mode: SCAN_ROOT,
-            mode_stack: vec![],
-            src,
-            chars,
-            first: None,
-            next: None,
-            failure: None,
-        }
-    }
-
-    pub fn scan(st: &mut ScanState, next: Char) -> Option<Token>
-    {
-    }
-}
+type ScanResult = Lresult<ScanOutput>;
 
     /*
     Root,
@@ -227,13 +210,11 @@ struct ScanModeSpace;
 
 impl ScanModeTrait for ScanModeRoot
 {
-    fn scan(&self, next: Char,
-        _src: &str,
-    ) -> ScanResult
+    fn scan(&self, next: Char) -> ScanResult
     {
-        let output = match next.unwrap().c {
+        let output = match next.c {
             '\n' => ScanOutput::Complete(Token::Newline, true),
-            ' ' => ScanOutput::Start(next, ScanModeSpace),
+            ' ' => ScanOutput::Start(next, &ScanModeSpace),
             _ => ScanOutput::Next,
         };
         Ok(output)
@@ -249,11 +230,7 @@ impl ScanModeTrait for ScanModeRoot
 
 impl ScanModeTrait for ScanModeSpace
 {
-    fn scan(
-        &self,
-        next: Char,
-        _src: &str,
-    ) -> ScanResult
+    fn scan(&self, next: Char) -> ScanResult
     {
         match next.c {
             ' ' => {
@@ -268,7 +245,7 @@ impl ScanModeTrait for ScanModeSpace
                 ))
             }
             _ => {
-                Ok(ScanOutput::Complete(Token(TokenData::Whitespace, next.c)))
+                Ok(ScanOutput::Complete(Token::Spaces, false))
             }
         }
     }
@@ -276,75 +253,93 @@ impl ScanModeTrait for ScanModeSpace
 
 impl ScanModeTrait for ScanModeInt
 {
-    fn scan(
-        &self,
-        _next: Option<Char>,
-        _src: &str,
-    ) -> ScanResult
+    fn scan(&self, _next: Char) -> ScanResult
     {
         Ok(ScanOutput::Next)
     }
 }
 
+/*
 fn scan_str<'input>(
     _start: Option<Char>,
     _next: Option<Char>,
     _src: &'input str,
-) -> ScanResult<'input>
+) -> ScanResult
 {
     Ok(ScanOutput::Next)
 }
+*/
 
 const SCAN_ROOT: ScanMode = &ScanModeRoot;
 const SCAN_INT: ScanMode = &ScanModeInt;
 
-pub struct Tokenz<'i>
+struct Tokenz<'input>
 {
-    input: &'i str,
-    code: Peekable<CharIndices<'i>>,
-    tokens: Vec<Token<'i>>,
-    paren_stack: Vec<u16>,
-    chindex: usize,
-    lineno: u16,
-    column: u8,
-    continued_line: bool,
+    src: &'input str,
+    chars: CharIter<'input>,
+
+    mode: ScanMode,
+    mode_stack: Vec<ScanMode>,
+    // paren_stack: Vec<u16>,
+
+    first: Option<Char>,
+    last: Option<Char>,
+    next: Option<Char>,
+
+    failure: Option<Failure>,
+}
+
+impl<'input> Tokenz<'input>
+{
+    pub fn new(src: &'input str) -> Tokenz<'input>
+    {
+        let chars = CharIter::new(src);
+        Tokenz{
+            src,
+            chars,
+
+            mode: SCAN_ROOT,
+            mode_stack: vec![],
+
+            first: None,
+            last: None,
+            next: None,
+
+            failure: None,
+        }
+    }
+
+    fn scan(&mut self, _c: Char) -> TokenResult<'input>
+    {
+        let first = self.first.unwrap();
+        let second = self.last.unwrap();
+        Ok(TokenChars{
+            tok: Token::ParenL,
+            start: self.first.unwrap(),
+            end: self.last.unwrap(),
+            src: &self.src[first.index ..= second.index],
+        })
+    }
+}
+
+impl<'input> Iterator for Tokenz<'input>
+{
+    type Item = TokenResult<'input>;
+
+    fn next(&mut self) -> Option<TokenResult<'input>>
+    {
+        let next_char = self.next.or_else(|| {
+            self.chars.next()
+        });
+        if next_char.is_none() {
+            return None;
+        }
+        Some(self.scan(next_char.unwrap()))
+    }
 }
 
 impl<'i> Tokenz<'i>
 {
-    pub fn new(input: &'i str) -> Tokenz<'i>
-    {
-        Tokenz {
-            input,
-            code: input.char_indices().peekable(),
-            tokens: Vec::new(),
-            paren_stack: Vec::with_capacity(16),
-            chindex: 0,
-            lineno: 1,
-            column: 0,
-            continued_line: false,
-        }
-    }
-
-    pub fn lex(input: &'i str) -> Vec<Token<'i>>
-    {
-        let mut tokz = Tokenz::new(input);
-        tokz.lex_all();
-        // check state of things like paren stack
-        tokz.tokens
-    }
-
-    pub fn lex_all(&mut self)
-    {
-        loop {
-            let ch = self.next();
-            if ch == '\0' {
-                break;
-            }
-            self.lex_one_token(ch);
-        }
-    }
-
     pub fn lex_one_token(&mut self, _first: char)
     {
         /*
