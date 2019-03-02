@@ -1,4 +1,4 @@
-use leema::failure::{Failure, Lresult};
+use leema::failure::Lresult;
 
 use std::str::CharIndices;
 
@@ -158,8 +158,8 @@ pub enum Token
 pub struct TokenChars<'input>
 {
     tok: Token,
-    start: Char,
-    end: Char,
+    first: Char,
+    last: Char,
     src: &'input str,
 }
 
@@ -188,6 +188,7 @@ enum ScanOutput
     Start(Char, ScanMode),
     Next,
     Complete(Token, bool), // , ScanModeOp),
+    EOF,
 }
 
 type ScanResult = Lresult<ScanOutput>;
@@ -201,6 +202,9 @@ type ScanResult = Lresult<ScanOutput>;
 
 #[derive(Debug)]
 struct ScanModeRoot;
+
+#[derive(Debug)]
+struct ScanModeEOF;
 
 #[derive(Debug)]
 struct ScanModeInt;
@@ -226,6 +230,14 @@ impl ScanModeTrait for ScanModeRoot
         Ok(ScanOutput::Complete(Token(TokenData::EOF, next), true))
     }
     */
+}
+
+impl ScanModeTrait for ScanModeEOF
+{
+    fn scan(&self, _next: Char) -> ScanResult
+    {
+        Ok(ScanOutput::EOF)
+    }
 }
 
 impl ScanModeTrait for ScanModeSpace
@@ -285,13 +297,11 @@ struct Tokenz<'input>
     first: Option<Char>,
     last: Option<Char>,
     next: Option<Char>,
-
-    failure: Option<Failure>,
 }
 
 impl<'input> Tokenz<'input>
 {
-    pub fn new(src: &'input str) -> Tokenz<'input>
+    pub fn lex(src: &'input str) -> Tokenz<'input>
     {
         let chars = CharIter::new(src);
         Tokenz{
@@ -304,21 +314,38 @@ impl<'input> Tokenz<'input>
             first: None,
             last: None,
             next: None,
-
-            failure: None,
         }
     }
 
-    fn scan(&mut self, _c: Char) -> TokenResult<'input>
+    fn next_char(&mut self) -> Option<Char>
     {
-        let first = self.first.unwrap();
-        let second = self.last.unwrap();
-        Ok(TokenChars{
-            tok: Token::ParenL,
-            start: self.first.unwrap(),
-            end: self.last.unwrap(),
-            src: &self.src[first.index ..= second.index],
+        self.next.or_else(|| {
+            self.chars.next()
         })
+    }
+
+    fn scan(&mut self, opt_c: Option<Char>) -> ScanResult
+    {
+        match opt_c {
+            Some(c) => {
+                self.mode.scan(c)
+            }
+            None => {
+                // probably should get the last token here or something
+                Ok(ScanOutput::EOF)
+            }
+        }
+    }
+
+    fn push_mode(&mut self, mode: ScanMode)
+    {
+        self.mode_stack.push(mode);
+        self.mode = mode;
+    }
+
+    fn pop_mode(&mut self)
+    {
+        self.mode_stack.pop();
     }
 }
 
@@ -328,13 +355,49 @@ impl<'input> Iterator for Tokenz<'input>
 
     fn next(&mut self) -> Option<TokenResult<'input>>
     {
-        let next_char = self.next.or_else(|| {
+        let mut c = self.next.or_else(|| {
             self.chars.next()
         });
-        if next_char.is_none() {
-            return None;
+        loop {
+            match self.scan(c) {
+                Ok(ScanOutput::Start(_, new_mode)) => {
+                    self.first = c;
+                    self.last = c;
+                    self.push_mode(new_mode);
+                }
+                Ok(ScanOutput::Next) => {
+                    self.last = c;
+                    c = self.chars.next();
+                }
+                Ok(ScanOutput::Complete(tok, consume)) => {
+                    let first = self.first.or(c).unwrap();
+                    let last = if !consume {
+                        self.next = c;
+                        self.last.unwrap()
+                    } else {
+                        c.unwrap()
+                    };
+
+                    self.first = None;
+                    self.last = None;
+                    self.pop_mode();
+
+                    return Some(Ok(TokenChars{
+                        tok,
+                        first,
+                        last,
+                        src: &self.src[first.index ..= last.index],
+                    }));
+                }
+                Ok(ScanOutput::EOF) => {
+                    return None;
+                }
+                Err(fail) => {
+                    self.mode = &ScanModeEOF;
+                    return Some(Err(fail))
+                }
+            }
         }
-        Some(self.scan(next_char.unwrap()))
     }
 }
 
@@ -579,8 +642,39 @@ impl<'i> Tokenz<'i>
 #[cfg(test)]
 mod tests
 {
-    use leema::token::{Token, Tokenz};
+    use super::{Token, Tokenz, TokenResult};
 
+
+    fn tok<'a>(toks: &'a Vec<TokenResult>, i: usize) -> (Token, &'a str)
+    {
+        let t = toks[i].as_ref().unwrap();
+        (t.tok, t.src)
+    }
+
+    /*
+    fn test_lex<F>(input: &'static str) -> (impl Fn(usize) -> (Token, &'static str), usize)
+        where F: Fn(usize) -> (Token, &'static str)
+    {
+        let toks: Vec<TokenResult> = Tokenz::lex(input).collect();
+        let tok_len = toks.len();
+        let tok_src = |i| {
+            let ftoks: Vec<TokenResult> = toks;
+            let tok_r: &TokenResult = ftoks.get(i).unwrap();
+            let t: &TokenChars = tok_r.as_ref().unwrap();
+            (t.tok, t.src)
+        };
+        (tok_src, tok_len)
+    }
+
+    fn tok_src<'a>(toks: &'a Vec<TokenResult<'static>>) -> impl Fn(usize) -> (Token, &'static str)
+    {
+        |i| {
+            let tr: &'a TokenResult<'static> = toks.get(i).as_ref().unwrap();
+            let t: &'a TokenChars<'static> = tr.as_ref().unwrap();
+            (t.tok, t.src)
+        }
+    }
+    */
 
     #[test]
     fn test_tokenize_func()
@@ -592,38 +686,43 @@ mod tests
         >>
             make_tacos(meat, size)
         --
-        "
-        .to_string();
+        ";
 
-        let toks = Tokenz::lex(&input);
-        assert_eq!(Token::Func, toks[0]);
-        assert_eq!(Token::Colon, toks[2]);
-        assert_eq!(Token::Dot, toks[4]);
-        assert_eq!(Token::Id("filling"), toks[5]);
-        assert_eq!(Token::Colon, toks[6]);
-        assert_eq!(Token::Id("make_tacos"), toks[13]);
-        assert_eq!(Token::DoubleDash, toks[19]);
+        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        // let tok = tok_src(&toks);
+        // let (tok, toklen): (Box<Fn(usize) -> (Token, &'static str)>, usize) = test_lex(&input);
+        assert_eq!(Token::Func, tok(&t, 0).0);
+        assert_eq!(Token::Colon, tok(&t, 2).0);
+        assert_eq!(Token::Dot, tok(&t, 4).0);
+        assert_eq!((Token::Id, "filling"), tok(&t, 5));
+        /*
+        assert_eq!(Token::Colon, tok(toks, 6).0);
+        assert_eq!((Token::Id, "make_tacos"), tok(toks, 13));
+        assert_eq!(Token::DoubleDash, tok(toks, 19).0);
         assert_eq!(20, toks.len());
+        */
     }
 
+    /*
     #[test]
     fn test_tokenize_struct()
     {
         let input = "
-        struct Foo[T]
+        type Foo[T]
         .dog: T
         .cat: Str
         .mouse: Int
         --
-        "
-        .to_string();
+        ";
 
-        let toks = Tokenz::lex(&input);
-        assert_eq!(Token::Struct, toks[0]);
-        assert_eq!(Token::Id("Foo"), toks[1]);
-        assert_eq!(Token::SquareL, toks[2]);
-        assert_eq!(Token::Id("T"), toks[3]);
-        assert_eq!(Token::SquareR, toks[4]);
+        // let (tok, toklen) = test_lex(input);
+        let toks: Vec<TokenResult> = Tokenz::lex(input).collect();
+        let tok = tok_src(&toks);
+        assert_eq!(Token::Struct, tok(0));
+        assert_eq!((Token::Id, "Foo"), tok(1));
+        assert_eq!(Token::SquareL, tok(2));
+        assert_eq!((Token::Id, "T"), tok(3));
+        assert_eq!(Token::SquareR, tok(4));
         assert_eq!(18, toks.len());
     }
 
@@ -631,7 +730,8 @@ mod tests
     #[should_panic]
     fn test_triple_dash()
     {
-        let input = "func foo() >> 5 ---".to_string();
-        Tokenz::lex(&input);
+        let input = "func foo() >> 5 ---";
+        Tokenz::lex(input);
     }
+    */
 }
