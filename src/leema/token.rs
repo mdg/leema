@@ -118,9 +118,7 @@ pub enum Token
     // operators (comparison)
     Equal,
     EqualNot,
-    GreaterThan,
     GreaterThanEqual,
-    LessThan,
     LessThanEqual,
 
     // separators
