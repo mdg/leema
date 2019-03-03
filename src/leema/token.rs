@@ -179,20 +179,20 @@ enum ScanModeOp
     Push(ScanMode),
     Replace(ScanMode),
     Pop,
+    Noop,
 }
 
 enum ScanOutput
 {
-    Start(Char, ScanMode),
-    Next,
-    Complete(Token, bool), // , ScanModeOp),
+    Start(ScanModeOp),
+    Next(ScanModeOp),
+    Token(Token, bool, ScanModeOp),
     EOF,
 }
 
 type ScanResult = Lresult<ScanOutput>;
 
     /*
-    Root,
     StrLit,
     Comment,
     BlockComment,
@@ -205,6 +205,9 @@ struct ScanModeRoot;
 struct ScanModeEOF;
 
 #[derive(Debug)]
+struct ScanModeFailure;
+
+#[derive(Debug)]
 struct ScanModeInt;
 
 #[derive(Debug)]
@@ -215,9 +218,22 @@ impl ScanModeTrait for ScanModeRoot
     fn scan(&self, next: Char) -> ScanResult
     {
         let output = match next.c {
-            '\n' => ScanOutput::Complete(Token::Newline, true),
-            ' ' => ScanOutput::Start(next, &ScanModeSpace),
-            _ => ScanOutput::Next,
+            // brackets
+            '(' => ScanOutput::Token(Token::ParenL, true, ScanModeOp::Noop),
+            ')' => ScanOutput::Token(Token::ParenR, true, ScanModeOp::Noop),
+            '{' => ScanOutput::Token(Token::CurlyL, true, ScanModeOp::Noop),
+            '}' => ScanOutput::Token(Token::CurlyR, true, ScanModeOp::Noop),
+            '[' => ScanOutput::Token(Token::SquareL, true, ScanModeOp::Noop),
+            ']' => ScanOutput::Token(Token::SquareR, true, ScanModeOp::Noop),
+            '<' => ScanOutput::Token(Token::AngleL, true, ScanModeOp::Noop),
+            '>' => ScanOutput::Token(Token::AngleR, true, ScanModeOp::Noop),
+            // whitespace
+            '\n' => ScanOutput::Token(Token::Newline, true, ScanModeOp::Noop),
+            ' ' => ScanOutput::Start(ScanModeOp::Push(&ScanModeSpace)),
+            _ => {
+                eprintln!("root next: '{}'", next.c);
+                ScanOutput::Next(ScanModeOp::Noop)
+            }
         };
         Ok(output)
     }
@@ -238,13 +254,26 @@ impl ScanModeTrait for ScanModeEOF
     }
 }
 
+impl ScanModeTrait for ScanModeFailure
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        Err(rustfail!(
+            "token_failure",
+            "token failure at {:?}",
+            next,
+        ))
+    }
+}
+
 impl ScanModeTrait for ScanModeSpace
 {
     fn scan(&self, next: Char) -> ScanResult
     {
         match next.c {
             ' ' => {
-                Ok(ScanOutput::Next)
+                eprintln!("more space");
+                Ok(ScanOutput::Next(ScanModeOp::Noop))
             }
             '\t' => {
                 Err(rustfail!(
@@ -255,7 +284,8 @@ impl ScanModeTrait for ScanModeSpace
                 ))
             }
             _ => {
-                Ok(ScanOutput::Complete(Token::Spaces, false))
+                eprintln!("end of space");
+                Ok(ScanOutput::Token(Token::Spaces, false, ScanModeOp::Pop))
             }
         }
     }
@@ -265,7 +295,7 @@ impl ScanModeTrait for ScanModeInt
 {
     fn scan(&self, _next: Char) -> ScanResult
     {
-        Ok(ScanOutput::Next)
+        Ok(ScanOutput::Next(ScanModeOp::Noop))
     }
 }
 
@@ -335,15 +365,21 @@ impl<'input> Tokenz<'input>
         }
     }
 
-    fn push_mode(&mut self, mode: ScanMode)
+    fn next_mode(&mut self, mode_op: ScanModeOp)
     {
-        self.mode_stack.push(mode);
-        self.mode = mode;
-    }
-
-    fn pop_mode(&mut self)
-    {
-        self.mode_stack.pop();
+        match mode_op {
+            ScanModeOp::Push(new_mode) => {
+                self.mode_stack.push(self.mode);
+                self.mode = new_mode;
+            }
+            ScanModeOp::Replace(new_mode) => {
+                self.mode = new_mode;
+            }
+            ScanModeOp::Pop => {
+                self.mode = self.mode_stack.pop().unwrap_or(&ScanModeFailure);
+            }
+            ScanModeOp::Noop => {} // Noop means do nothing
+        }
     }
 }
 
@@ -358,16 +394,17 @@ impl<'input> Iterator for Tokenz<'input>
         });
         loop {
             match self.scan(c) {
-                Ok(ScanOutput::Start(_, new_mode)) => {
+                Ok(ScanOutput::Start(mode_op)) => {
                     self.first = c;
                     self.last = c;
-                    self.push_mode(new_mode);
+                    self.next_mode(mode_op);
                 }
-                Ok(ScanOutput::Next) => {
+                Ok(ScanOutput::Next(mode_op)) => {
                     self.last = c;
                     c = self.chars.next();
+                    self.next_mode(mode_op)
                 }
-                Ok(ScanOutput::Complete(tok, consume)) => {
+                Ok(ScanOutput::Token(tok, consume, mode_op)) => {
                     let first = self.first.or(c).unwrap();
                     let last = if !consume {
                         self.next = c;
@@ -378,7 +415,7 @@ impl<'input> Iterator for Tokenz<'input>
 
                     self.first = None;
                     self.last = None;
-                    self.pop_mode();
+                    self.next_mode(mode_op);
 
                     return Some(Ok(TokenChars{
                         tok,
@@ -405,30 +442,6 @@ impl<'i> Tokenz<'i>
     {
         /*
         match first {
-            // brackets
-            '(' => {
-                self.paren_stack.push(self.lineno);
-                self.tokens.push(Token::ParenL);
-            }
-            ')' => {
-                if self.paren_stack.is_empty() {
-                    panic!("parentheses underflow");
-                }
-                self.paren_stack.pop();
-                self.tokens.push(Token::ParenR);
-            }
-            '{' => {
-                self.tokens.push(Token::CurlyL);
-            }
-            '}' => {
-                self.tokens.push(Token::CurlyR);
-            }
-            '[' => {
-                self.tokens.push(Token::SquareL);
-            }
-            ']' => {
-                self.tokens.push(Token::SquareR);
-            }
             // separators
             ':' => {
                 self.lex_colon();
@@ -649,31 +662,24 @@ mod tests
         (t.tok, t.src)
     }
 
+    #[test]
+    fn test_tokenize_brackets()
+    {
+        let input = "(){}[]<>";
+
+        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        assert_eq!(Token::ParenL, tok(&t, 0).0);
+        assert_eq!(Token::ParenR, tok(&t, 1).0);
+        assert_eq!(Token::CurlyL, tok(&t, 2).0);
+        assert_eq!(Token::CurlyR, tok(&t, 3).0);
+        assert_eq!(Token::SquareL, tok(&t, 4).0);
+        assert_eq!(Token::SquareR, tok(&t, 5).0);
+        assert_eq!(Token::AngleL, tok(&t, 6).0);
+        assert_eq!(Token::AngleR, tok(&t, 7).0);
+        assert_eq!(8, t.len());
+    }
+
     /*
-    fn test_lex<F>(input: &'static str) -> (impl Fn(usize) -> (Token, &'static str), usize)
-        where F: Fn(usize) -> (Token, &'static str)
-    {
-        let toks: Vec<TokenResult> = Tokenz::lex(input).collect();
-        let tok_len = toks.len();
-        let tok_src = |i| {
-            let ftoks: Vec<TokenResult> = toks;
-            let tok_r: &TokenResult = ftoks.get(i).unwrap();
-            let t: &TokenChars = tok_r.as_ref().unwrap();
-            (t.tok, t.src)
-        };
-        (tok_src, tok_len)
-    }
-
-    fn tok_src<'a>(toks: &'a Vec<TokenResult<'static>>) -> impl Fn(usize) -> (Token, &'static str)
-    {
-        |i| {
-            let tr: &'a TokenResult<'static> = toks.get(i).as_ref().unwrap();
-            let t: &'a TokenChars<'static> = tr.as_ref().unwrap();
-            (t.tok, t.src)
-        }
-    }
-    */
-
     #[test]
     fn test_tokenize_func()
     {
@@ -687,21 +693,16 @@ mod tests
         ";
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
-        // let tok = tok_src(&toks);
-        // let (tok, toklen): (Box<Fn(usize) -> (Token, &'static str)>, usize) = test_lex(&input);
         assert_eq!(Token::Func, tok(&t, 0).0);
         assert_eq!(Token::Colon, tok(&t, 2).0);
         assert_eq!(Token::Dot, tok(&t, 4).0);
         assert_eq!((Token::Id, "filling"), tok(&t, 5));
-        /*
-        assert_eq!(Token::Colon, tok(toks, 6).0);
-        assert_eq!((Token::Id, "make_tacos"), tok(toks, 13));
-        assert_eq!(Token::DoubleDash, tok(toks, 19).0);
-        assert_eq!(20, toks.len());
-        */
+        assert_eq!(Token::Colon, tok(&t, 6).0);
+        assert_eq!((Token::Id, "make_tacos"), tok(&t, 13));
+        assert_eq!(Token::DoubleDash, tok(&t, 19).0);
+        assert_eq!(20, t.len());
     }
 
-    /*
     #[test]
     fn test_tokenize_struct()
     {
