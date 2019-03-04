@@ -216,7 +216,13 @@ struct ScanModeEOF;
 struct ScanModeFailure;
 
 #[derive(Debug)]
+struct ScanModeColon;
+
+#[derive(Debug)]
 struct ScanModeDash;
+
+#[derive(Debug)]
+struct ScanModeEqual;
 
 #[derive(Debug)]
 struct ScanModeInt;
@@ -240,11 +246,15 @@ impl ScanModeTrait for ScanModeRoot
             '>' => ScanOutput::Token(Token::AngleR, true, ScanModeOp::Noop),
             // arithmetic operators
             '+' => ScanOutput::Token(Token::Plus, true, ScanModeOp::Noop),
-            '-' => {
-                ScanOutput::Start(ScanModeOp::Push(&ScanModeDash))
-            }
+            '-' => ScanOutput::Start(ScanModeOp::Push(&ScanModeDash)),
             '*' => ScanOutput::Token(Token::Star, true, ScanModeOp::Noop),
             '/' => ScanOutput::Token(Token::Slash, true, ScanModeOp::Noop),
+            // comparison operators
+            '=' => ScanOutput::Start(ScanModeOp::Push(&ScanModeEqual)),
+            // separators
+            ':' => ScanOutput::Start(ScanModeOp::Push(&ScanModeColon)),
+            ',' => ScanOutput::Token(Token::Comma, true, ScanModeOp::Noop),
+            '.' => ScanOutput::Token(Token::Dot, true, ScanModeOp::Noop),
             // whitespace
             '\n' => ScanOutput::Token(Token::Newline, true, ScanModeOp::Noop),
             ' ' => ScanOutput::Start(ScanModeOp::Push(&ScanModeSpace)),
@@ -284,6 +294,24 @@ impl ScanModeTrait for ScanModeFailure
     }
 }
 
+impl ScanModeTrait for ScanModeColon
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        let output = match next.c {
+            ':' => ScanOutput::Token(Token::DoubleColon, true, ScanModeOp::Pop),
+            '=' => ScanOutput::Token(Token::Assignment, true, ScanModeOp::Pop),
+            _ => ScanOutput::Token(Token::Colon, false, ScanModeOp::Pop),
+        };
+        Ok(output)
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        Ok(ScanOutput::Token(Token::Colon, false, ScanModeOp::Pop))
+    }
+}
+
 impl ScanModeTrait for ScanModeDash
 {
     fn scan(&self, next: Char) -> ScanResult
@@ -302,6 +330,31 @@ impl ScanModeTrait for ScanModeDash
     fn eof(&self) -> ScanResult
     {
         Ok(ScanOutput::Token(Token::Dash, false, ScanModeOp::Pop))
+    }
+}
+
+impl ScanModeTrait for ScanModeEqual
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        match next.c {
+            '=' => Ok(ScanOutput::Token(Token::Equal, true, ScanModeOp::Pop)),
+            _ => {
+                Err(rustfail!(
+                    "invalid_token",
+                    "single = is not a valid token. Use == or := at character: {:?}",
+                    next,
+                ))
+            }
+        }
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        Err(rustfail!(
+            "invalid_token",
+            "single = is not a valid token. Use == or := at EOF",
+        ))
     }
 }
 
@@ -484,15 +537,6 @@ impl<'i> Tokenz<'i>
         /*
         match first {
             // separators
-            ':' => {
-                self.lex_colon();
-            }
-            '.' => {
-                self.tokens.push(Token::Dot);
-            }
-            ',' => {
-                self.tokens.push(Token::Comma);
-            }
             '\n' => {
                 self.increment_lineno();
             }
@@ -502,9 +546,6 @@ impl<'i> Tokenz<'i>
             // comparison operators
             '<' => {
                 self.lex_peek('=', Token::LessThanEqual, Token::LessThan);
-            }
-            '=' => {
-                self.lex_eq();
             }
             '>' => {
                 self.lex_gt();
@@ -535,56 +576,6 @@ impl<'i> Tokenz<'i>
             }
             c => {
                 panic!("unknown token: \\{}", c);
-            }
-        }
-        */
-    }
-
-    pub fn lex_colon(&mut self)
-    {
-        /*
-        match self.peek() {
-            ':' => {
-                self.next();
-                self.tokens.push(Token::DoubleColon);
-            }
-            _ => {
-                self.tokens.push(Token::Colon);
-            }
-        }
-        */
-    }
-
-    pub fn lex_dash(&mut self)
-    {
-        /*
-        match self.peek() {
-            '-' => {
-                self.next();
-                if self.peek() == '-' {
-                    panic!("--- is not a valid token");
-                }
-                self.tokens.push(Token::DoubleDash);
-            }
-            _ => {
-                self.tokens.push(Token::Dash);
-            }
-        }
-        */
-    }
-
-    pub fn lex_eq(&mut self)
-    {
-        /*
-        match self.next() {
-            '=' => {
-                self.tokens.push(Token::Equal);
-            }
-            '>' => {
-                println!("what is => used for now?");
-            }
-            _ => {
-                panic!("= is an invalid token. use := or ==");
             }
         }
         */
@@ -654,9 +645,8 @@ impl<'i> Tokenz<'i>
     pub fn lex_keyword(id: &str) -> Option<Token>
     {
         let tok = match id {
-            "enum" => Token::Enum,
             "failed" => Token::Failed,
-            "false" => Token::Bool(false),
+            "False" => Token::Bool(false),
             "fork" => Token::Fork,
             "func" => Token::Func,
             "if" => Token::If,
@@ -665,8 +655,8 @@ impl<'i> Tokenz<'i>
             "macro" => Token::Macro,
             "match" => Token::Match,
             "return" => Token::Return,
-            "struct" => Token::Struct,
-            "true" => Token::Bool(true),
+            "True" => Token::Bool(true),
+            "type" => Token::Type,
             "void" => Token::Void,
             _ => {
                 return None;
@@ -732,6 +722,31 @@ mod tests
         assert_eq!(Token::Star, tok(&t, 4).0);
         assert_eq!(Token::Slash, tok(&t, 6).0);
         assert_eq!(7, t.len());
+    }
+
+    #[test]
+    fn test_tokenz_comparison_operators()
+    {
+        let input = "==";
+
+        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        assert_eq!(Token::Equal, tok(&t, 0).0);
+        assert_eq!(1, t.len());
+    }
+
+    #[test]
+    fn test_tokenz_separators()
+    {
+        let input = ": , . :: := :";
+
+        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        assert_eq!(Token::Colon, tok(&t, 0).0);
+        assert_eq!(Token::Comma, tok(&t, 2).0);
+        assert_eq!(Token::Dot, tok(&t, 4).0);
+        assert_eq!(Token::DoubleColon, tok(&t, 6).0);
+        assert_eq!(Token::Assignment, tok(&t, 8).0);
+        assert_eq!(Token::Colon, tok(&t, 10).0);
+        assert_eq!(11, t.len());
     }
 
     /*
