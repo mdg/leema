@@ -233,6 +233,13 @@ impl ScanModeTrait for ScanModeRoot
             ']' => ScanOutput::Token(Token::SquareR, true, ScanModeOp::Noop),
             '<' => ScanOutput::Token(Token::AngleL, true, ScanModeOp::Noop),
             '>' => ScanOutput::Token(Token::AngleR, true, ScanModeOp::Noop),
+            // arithmetic operators
+            '+' => ScanOutput::Token(Token::Plus, true, ScanModeOp::Noop),
+            '-' => {
+                ScanOutput::Start(ScanModeOp::Push(&ScanModeDash))
+            }
+            '*' => ScanOutput::Token(Token::Star, true, ScanModeOp::Noop),
+            '/' => ScanOutput::Token(Token::Slash, true, ScanModeOp::Noop),
             // whitespace
             '\n' => ScanOutput::Token(Token::Newline, true, ScanModeOp::Noop),
             ' ' => ScanOutput::Start(ScanModeOp::Push(&ScanModeSpace)),
@@ -297,6 +304,22 @@ impl ScanModeTrait for ScanModeSpace
     }
 }
 
+impl ScanModeTrait for ScanModeDash
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        let output = match next.c {
+            '-' => {
+                ScanOutput::Token(Token::DoubleDash, true, ScanModeOp::Pop)
+            }
+            _ => {
+                ScanOutput::Token(Token::Dash, false, ScanModeOp::Pop)
+            }
+        };
+        Ok(output)
+    }
+}
+
 impl ScanModeTrait for ScanModeInt
 {
     fn scan(&self, _next: Char) -> ScanResult
@@ -330,7 +353,7 @@ struct Tokenz<'input>
 
     first: Option<Char>,
     last: Option<Char>,
-    next: Option<Char>,
+    unused_next: Option<Char>,
 }
 
 impl<'input> Tokenz<'input>
@@ -347,15 +370,19 @@ impl<'input> Tokenz<'input>
 
             first: None,
             last: None,
-            next: None,
+            unused_next: None,
         }
     }
 
     fn next_char(&mut self) -> Option<Char>
     {
-        self.next.or_else(|| {
-            self.chars.next()
-        })
+        self.unused_next.take()
+            .map(|c| {
+                c
+            })
+            .or_else(|| {
+                self.chars.next()
+            })
     }
 
     fn scan(&mut self, opt_c: Option<Char>) -> ScanResult
@@ -395,9 +422,10 @@ impl<'input> Iterator for Tokenz<'input>
 
     fn next(&mut self) -> Option<TokenResult<'input>>
     {
-        let mut c = self.next.or_else(|| {
-            self.chars.next()
-        });
+        let mut c = self.next_char();
+        if c.is_none() {
+            return None;
+        }
         loop {
             match self.scan(c) {
                 Ok(ScanOutput::Start(mode_op)) => {
@@ -407,15 +435,15 @@ impl<'input> Iterator for Tokenz<'input>
                 }
                 Ok(ScanOutput::Next(mode_op)) => {
                     self.last = c;
-                    c = self.chars.next();
                     self.next_mode(mode_op)
                 }
                 Ok(ScanOutput::Token(tok, consume, mode_op)) => {
                     let first = self.first.or(c).unwrap();
                     let last = if !consume {
-                        self.next = c;
+                        self.unused_next = c;
                         self.last.unwrap()
                     } else {
+                        self.unused_next = None;
                         c.unwrap()
                     };
 
@@ -438,6 +466,7 @@ impl<'input> Iterator for Tokenz<'input>
                     return Some(Err(fail))
                 }
             }
+            c = self.chars.next();
         }
     }
 }
@@ -465,17 +494,8 @@ impl<'i> Tokenz<'i>
                 self.lex_backslash();
             }
             // arithmetic operators
-            '+' => {
-                self.tokens.push(Token::Plus);
-            }
             '-' => {
                 self.lex_dash();
-            }
-            '*' => {
-                self.tokens.push(Token::Star);
-            }
-            '/' => {
-                self.tokens.push(Token::Slash);
             }
             // comparison operators
             '<' => {
@@ -669,7 +689,7 @@ mod tests
     }
 
     #[test]
-    fn test_tokenize_brackets()
+    fn test_tokenz_brackets()
     {
         let input = "(){}[]<>";
 
@@ -683,6 +703,36 @@ mod tests
         assert_eq!(Token::AngleL, tok(&t, 6).0);
         assert_eq!(Token::AngleR, tok(&t, 7).0);
         assert_eq!(8, t.len());
+    }
+
+    #[test]
+    fn test_tokenz_doubledash()
+    {
+        let input = "- -- ---";
+
+        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        assert_eq!(Token::Dash, tok(&t, 0).0);
+        assert_eq!(Token::DoubleDash, tok(&t, 2).0);
+        assert_eq!(Token::DoubleDash, tok(&t, 4).0);
+        assert_eq!(Token::Dash, tok(&t, 5).0);
+        assert_eq!(6, t.len());
+    }
+
+    #[test]
+    fn test_tokenz_arithmetic_operators()
+    {
+        let input = "- ";
+        // let input = "+ - * / --";
+
+        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        assert_eq!(Token::Dash, tok(&t, 0).0);
+        assert_eq!(Token::Plus, tok(&t, 0).0);
+        assert_eq!((Token::Spaces, " "), tok(&t, 1));
+        assert_eq!(Token::Dash, tok(&t, 2).0);
+        assert_eq!(Token::Star, tok(&t, 4).0);
+        assert_eq!(Token::Slash, tok(&t, 6).0);
+        assert_eq!(Token::DoubleDash, tok(&t, 8).0);
+        assert_eq!(9, t.len());
     }
 
     /*
