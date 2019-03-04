@@ -1,5 +1,6 @@
 use leema::failure::Lresult;
 
+use std::fmt::Debug;
 use std::str::CharIndices;
 
 
@@ -166,7 +167,7 @@ type TokenResult<'input> = Lresult<TokenChars<'input>>;
 /// scan((start, line, col, (i, char))
 /// return (consume_char, Option<new_token>, Option<push_scanner(scanner) | pop_state>) | error
 
-trait ScanModeTrait
+trait ScanModeTrait: Debug
 {
     fn scan(&self, Char) -> ScanResult;
 }
@@ -174,6 +175,8 @@ trait ScanModeTrait
 // struct ScanMode(Box<ScanModeTrait>);
 type ScanMode = &'static ScanModeTrait;
 
+#[derive(Clone)]
+#[derive(Debug)]
 enum ScanModeOp
 {
     Push(ScanMode),
@@ -206,6 +209,9 @@ struct ScanModeEOF;
 
 #[derive(Debug)]
 struct ScanModeFailure;
+
+#[derive(Debug)]
+struct ScanModeDash;
 
 #[derive(Debug)]
 struct ScanModeInt;
