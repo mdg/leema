@@ -170,6 +170,11 @@ type TokenResult<'input> = Lresult<TokenChars<'input>>;
 trait ScanModeTrait: Debug
 {
     fn scan(&self, Char) -> ScanResult;
+
+    fn eof(&self) -> ScanResult
+    {
+        Ok(ScanOutput::EOF)
+    }
 }
 
 // struct ScanMode(Box<ScanModeTrait>);
@@ -318,6 +323,11 @@ impl ScanModeTrait for ScanModeDash
         };
         Ok(output)
     }
+
+    fn eof(&self) -> ScanResult
+    {
+        Ok(ScanOutput::Token(Token::Dash, false, ScanModeOp::Pop))
+    }
 }
 
 impl ScanModeTrait for ScanModeInt
@@ -385,15 +395,14 @@ impl<'input> Tokenz<'input>
             })
     }
 
-    fn scan(&mut self, opt_c: Option<Char>) -> ScanResult
+    fn mode_scan(&mut self, opt_c: Option<Char>) -> ScanResult
     {
         match opt_c {
             Some(c) => {
                 self.mode.scan(c)
             }
             None => {
-                // probably should get the last token here or something
-                Ok(ScanOutput::EOF)
+                self.mode.eof()
             }
         }
     }
@@ -423,11 +432,8 @@ impl<'input> Iterator for Tokenz<'input>
     fn next(&mut self) -> Option<TokenResult<'input>>
     {
         let mut c = self.next_char();
-        if c.is_none() {
-            return None;
-        }
         loop {
-            match self.scan(c) {
+            match self.mode_scan(c) {
                 Ok(ScanOutput::Start(mode_op)) => {
                     self.first = c;
                     self.last = c;
@@ -492,10 +498,6 @@ impl<'i> Tokenz<'i>
             }
             '\\' => {
                 self.lex_backslash();
-            }
-            // arithmetic operators
-            '-' => {
-                self.lex_dash();
             }
             // comparison operators
             '<' => {
@@ -721,18 +723,15 @@ mod tests
     #[test]
     fn test_tokenz_arithmetic_operators()
     {
-        let input = "- ";
-        // let input = "+ - * / --";
+        let input = "+ - * /";
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
-        assert_eq!(Token::Dash, tok(&t, 0).0);
         assert_eq!(Token::Plus, tok(&t, 0).0);
         assert_eq!((Token::Spaces, " "), tok(&t, 1));
         assert_eq!(Token::Dash, tok(&t, 2).0);
         assert_eq!(Token::Star, tok(&t, 4).0);
         assert_eq!(Token::Slash, tok(&t, 6).0);
-        assert_eq!(Token::DoubleDash, tok(&t, 8).0);
-        assert_eq!(9, t.len());
+        assert_eq!(7, t.len());
     }
 
     /*
