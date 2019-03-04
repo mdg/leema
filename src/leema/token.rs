@@ -284,31 +284,6 @@ impl ScanModeTrait for ScanModeFailure
     }
 }
 
-impl ScanModeTrait for ScanModeSpace
-{
-    fn scan(&self, next: Char) -> ScanResult
-    {
-        match next.c {
-            ' ' => {
-                eprintln!("more space");
-                Ok(ScanOutput::Next(ScanModeOp::Noop))
-            }
-            '\t' => {
-                Err(rustfail!(
-                    "mixed_spaces_tabs",
-                    "Do not use spaces when already using tabs {},{}",
-                    next.lineno,
-                    next.column,
-                ))
-            }
-            _ => {
-                eprintln!("end of space");
-                Ok(ScanOutput::Token(Token::Spaces, false, ScanModeOp::Pop))
-            }
-        }
-    }
-}
-
 impl ScanModeTrait for ScanModeDash
 {
     fn scan(&self, next: Char) -> ScanResult
@@ -335,6 +310,31 @@ impl ScanModeTrait for ScanModeInt
     fn scan(&self, _next: Char) -> ScanResult
     {
         Ok(ScanOutput::Next(ScanModeOp::Noop))
+    }
+}
+
+impl ScanModeTrait for ScanModeSpace
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        match next.c {
+            ' ' => {
+                eprintln!("more space");
+                Ok(ScanOutput::Next(ScanModeOp::Noop))
+            }
+            '\t' => {
+                Err(rustfail!(
+                    "mixed_spaces_tabs",
+                    "Do not use spaces when already using tabs {},{}",
+                    next.lineno,
+                    next.column,
+                ))
+            }
+            _ => {
+                eprintln!("end of space");
+                Ok(ScanOutput::Token(Token::Spaces, false, ScanModeOp::Pop))
+            }
+        }
     }
 }
 
