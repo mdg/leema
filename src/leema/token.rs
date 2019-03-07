@@ -216,6 +216,12 @@ struct ScanModeEOF;
 struct ScanModeFailure;
 
 #[derive(Debug)]
+struct ScanModeAngleL;
+
+#[derive(Debug)]
+struct ScanModeAngleR;
+
+#[derive(Debug)]
 struct ScanModeColon;
 
 #[derive(Debug)]
@@ -242,14 +248,13 @@ impl ScanModeTrait for ScanModeRoot
             '}' => ScanOutput::Token(Token::CurlyR, true, ScanModeOp::Noop),
             '[' => ScanOutput::Token(Token::SquareL, true, ScanModeOp::Noop),
             ']' => ScanOutput::Token(Token::SquareR, true, ScanModeOp::Noop),
-            '<' => ScanOutput::Token(Token::AngleL, true, ScanModeOp::Noop),
-            '>' => ScanOutput::Token(Token::AngleR, true, ScanModeOp::Noop),
+            '<' => ScanOutput::Start(ScanModeOp::Push(&ScanModeAngleL)),
+            '>' => ScanOutput::Start(ScanModeOp::Push(&ScanModeAngleR)),
             // arithmetic operators
             '+' => ScanOutput::Token(Token::Plus, true, ScanModeOp::Noop),
             '-' => ScanOutput::Start(ScanModeOp::Push(&ScanModeDash)),
             '*' => ScanOutput::Token(Token::Star, true, ScanModeOp::Noop),
             '/' => ScanOutput::Token(Token::Slash, true, ScanModeOp::Noop),
-            // comparison operators
             '=' => ScanOutput::Start(ScanModeOp::Push(&ScanModeEqual)),
             // separators
             ':' => ScanOutput::Start(ScanModeOp::Push(&ScanModeColon)),
@@ -286,7 +291,40 @@ impl ScanModeTrait for ScanModeFailure
 {
     fn scan(&self, next: Char) -> ScanResult
     {
-        Err(rustfail!("token_failure", "token failure at {:?}", next,))
+        Err(rustfail!("token_failure", "token failure at {:?}", next))
+    }
+}
+
+impl ScanModeTrait for ScanModeAngleL
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        match next.c {
+            '=' => Ok(ScanOutput::Token(Token::LessThanEqual, true, ScanModeOp::Pop)),
+            _ => Ok(ScanOutput::Token(Token::AngleL, false, ScanModeOp::Pop)),
+        }
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        Ok(ScanOutput::Token(Token::AngleL, false, ScanModeOp::Pop))
+    }
+}
+
+impl ScanModeTrait for ScanModeAngleR
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        match next.c {
+            '=' => Ok(ScanOutput::Token(Token::GreaterThanEqual, true, ScanModeOp::Pop)),
+            '>' => Ok(ScanOutput::Token(Token::DoubleArrow, true, ScanModeOp::Pop)),
+            _ => Ok(ScanOutput::Token(Token::AngleR, false, ScanModeOp::Pop)),
+        }
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        Ok(ScanOutput::Token(Token::AngleR, false, ScanModeOp::Pop))
     }
 }
 
@@ -432,7 +470,6 @@ impl<'input> Tokenz<'input>
     {
         self.unused_next
             .take()
-            .map(|c| c)
             .or_else(|| self.chars.next())
     }
 
@@ -711,11 +748,16 @@ mod tests
     #[test]
     fn test_tokenz_comparison_operators()
     {
-        let input = "==";
+        let input = "== < > <= >= >>";
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
         assert_eq!(Token::Equal, tok(&t, 0).0);
-        assert_eq!(1, t.len());
+        assert_eq!(Token::AngleL, tok(&t, 2).0);
+        assert_eq!(Token::AngleR, tok(&t, 4).0);
+        assert_eq!(Token::LessThanEqual, tok(&t, 6).0);
+        assert_eq!(Token::GreaterThanEqual, tok(&t, 8).0);
+        assert_eq!(Token::DoubleArrow, tok(&t, 10).0);
+        assert_eq!(11, t.len());
     }
 
     #[test]
