@@ -75,7 +75,7 @@ pub enum Token
     Int,
     Bool(bool),
     Hashtag,
-    Str,
+    StrLit,
     DollarId,
 
     // brackets
@@ -100,8 +100,6 @@ pub enum Token
     Macro,
     Match,
     Return,
-    Type,
-    Void,
 
     // operators (arithmetic)
     Plus,
@@ -260,6 +258,7 @@ impl ScanModeTrait for ScanModeRoot
             ':' => ScanOutput::Start(ScanModeOp::Push(&ScanModeColon)),
             ',' => ScanOutput::Token(Token::Comma, true, ScanModeOp::Noop),
             '.' => ScanOutput::Token(Token::Dot, true, ScanModeOp::Noop),
+            '|' => ScanOutput::Token(Token::Pipe, true, ScanModeOp::Noop),
             // whitespace
             '\n' => ScanOutput::Token(Token::Newline, true, ScanModeOp::Noop),
             ' ' => ScanOutput::Start(ScanModeOp::Push(&ScanModeSpace)),
@@ -763,7 +762,7 @@ mod tests
     #[test]
     fn test_tokenz_separators()
     {
-        let input = ": , . :: := :";
+        let input = ": , . :: := | :";
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
         assert_eq!(Token::Colon, tok(&t, 0).0);
@@ -771,8 +770,9 @@ mod tests
         assert_eq!(Token::Dot, tok(&t, 4).0);
         assert_eq!(Token::DoubleColon, tok(&t, 6).0);
         assert_eq!(Token::Assignment, tok(&t, 8).0);
-        assert_eq!(Token::Colon, tok(&t, 10).0);
-        assert_eq!(11, t.len());
+        assert_eq!(Token::Pipe, tok(&t, 10).0);
+        assert_eq!(Token::Colon, tok(&t, 12).0);
+        assert_eq!(13, t.len());
     }
 
     /*
