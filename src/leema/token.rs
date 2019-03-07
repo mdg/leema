@@ -1,5 +1,6 @@
 use leema::failure::Lresult;
 
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::str::CharIndices;
 
@@ -77,6 +78,7 @@ pub enum Token
     Hashtag,
     StrLit,
     DollarId,
+    Underscore,
 
     // brackets
     ParenL,
@@ -146,6 +148,29 @@ pub enum Token
 
     // EOF
     EOF,
+}
+
+lazy_static! {
+    static ref KEYWORDS: HashMap<&'static str, Token> = {
+        let mut keywords = HashMap::new();
+        // keyword operators
+        keywords.insert("and", Token::And);
+        keywords.insert("mod", Token::Modulo);
+        keywords.insert("not", Token::Not);
+        keywords.insert("or", Token::Or);
+        keywords.insert("xor", Token::Xor);
+        // keywords
+        keywords.insert("failed", Token::Failed);
+        keywords.insert("fork", Token::Fork);
+        keywords.insert("func", Token::Func);
+        keywords.insert("if", Token::If);
+        keywords.insert("import", Token::Import);
+        keywords.insert("let", Token::Let);
+        keywords.insert("macro", Token::Macro);
+        keywords.insert("match", Token::Match);
+        keywords.insert("return", Token::Return);
+        keywords
+    };
 }
 
 /// A location wrapper for the token
@@ -229,6 +254,9 @@ struct ScanModeDash;
 struct ScanModeEqual;
 
 #[derive(Debug)]
+struct ScanModeId;
+
+#[derive(Debug)]
 struct ScanModeInt;
 
 #[derive(Debug)]
@@ -262,6 +290,8 @@ impl ScanModeTrait for ScanModeRoot
             // whitespace
             '\n' => ScanOutput::Token(Token::Newline, true, ScanModeOp::Noop),
             ' ' => ScanOutput::Start(ScanModeOp::Push(&ScanModeSpace)),
+            // keywords
+            c if c.is_alphabetic() => ScanOutput::Start(ScanModeOp::Push(&ScanModeId)),
             _ => {
                 eprintln!("root next: '{}'", next.c);
                 ScanOutput::Next(ScanModeOp::Noop)
@@ -384,6 +414,23 @@ impl ScanModeTrait for ScanModeEqual
             "invalid_token",
             "single = is not a valid token. Use == or := at EOF",
         ))
+    }
+}
+
+impl ScanModeTrait for ScanModeId
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        match next.c {
+            '_' => Ok(ScanOutput::Next(ScanModeOp::Noop)),
+            c if c.is_alphanumeric() => Ok(ScanOutput::Next(ScanModeOp::Noop)),
+            _ => Ok(ScanOutput::Token(Token::Id, false, ScanModeOp::Pop)),
+        }
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        Ok(ScanOutput::Token(Token::Id, false, ScanModeOp::Pop))
     }
 }
 
@@ -516,7 +563,7 @@ impl<'input> Iterator for Tokenz<'input>
                     self.last = c;
                     self.next_mode(mode_op)
                 }
-                Ok(ScanOutput::Token(tok, consume, mode_op)) => {
+                Ok(ScanOutput::Token(mut tok, consume, mode_op)) => {
                     let first = self.first.or(c).unwrap();
                     let last = if !consume {
                         self.unused_next = c;
@@ -529,12 +576,18 @@ impl<'input> Iterator for Tokenz<'input>
                     self.first = None;
                     self.last = None;
                     self.next_mode(mode_op);
+                    let src = &self.src[first.index..=last.index];
+
+                    let keyword = KEYWORDS.get(src);
+                    if keyword.is_some() {
+                        tok = *keyword.unwrap();
+                    }
 
                     return Some(Ok(TokenChars {
                         tok,
                         first,
                         last,
-                        src: &self.src[first.index..=last.index],
+                        src,
                     }));
                 }
                 Ok(ScanOutput::EOF) => {
@@ -728,6 +781,49 @@ mod tests
         assert_eq!(Token::DoubleDash, tok(&t, 4).0);
         assert_eq!(Token::Dash, tok(&t, 5).0);
         assert_eq!(6, t.len());
+    }
+
+    #[test]
+    fn test_tokenz_ids()
+    {
+        let input = "tacos burrit_s";
+
+        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        assert_eq!((Token::Id, "tacos"), tok(&t, 0));
+        assert_eq!((Token::Id, "burrit_s"), tok(&t, 2));
+        assert_eq!(3, t.len());
+    }
+
+    #[test]
+    fn test_tokenz_keyword_operators()
+    {
+        let input = "and mod not or xor";
+
+        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        assert_eq!(Token::And, tok(&t, 0).0);
+        assert_eq!(Token::Modulo, tok(&t, 2).0);
+        assert_eq!(Token::Not, tok(&t, 4).0);
+        assert_eq!(Token::Or, tok(&t, 6).0);
+        assert_eq!(Token::Xor, tok(&t, 8).0);
+        assert_eq!(9, t.len());
+    }
+
+    #[test]
+    fn test_tokenz_keywords()
+    {
+        let input = "failed fork func if import let macro match return";
+
+        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        assert_eq!(Token::Failed, tok(&t, 0).0);
+        assert_eq!(Token::Fork, tok(&t, 2).0);
+        assert_eq!(Token::Func, tok(&t, 4).0);
+        assert_eq!(Token::If, tok(&t, 6).0);
+        assert_eq!(Token::Import, tok(&t, 8).0);
+        assert_eq!(Token::Let, tok(&t, 10).0);
+        assert_eq!(Token::Macro, tok(&t, 12).0);
+        assert_eq!(Token::Match, tok(&t, 14).0);
+        assert_eq!(Token::Return, tok(&t, 16).0);
+        assert_eq!(17, t.len());
     }
 
     #[test]
