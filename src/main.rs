@@ -4,6 +4,8 @@
 extern crate docopt;
 extern crate libc;
 #[macro_use]
+extern crate lazy_static;
+#[macro_use]
 extern crate mopa;
 extern crate bytes;
 extern crate futures;
