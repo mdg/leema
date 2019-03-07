@@ -28,7 +28,7 @@ impl<'input> CharIter<'input>
 {
     fn new(src: &str) -> CharIter
     {
-        CharIter{
+        CharIter {
             chars: src.char_indices(),
             lineno: 1,
             column: 1,
@@ -40,7 +40,7 @@ impl<'input> CharIter<'input>
         match self.chars.next() {
             None => None,
             Some((index, '\n')) => {
-                let result = Char{
+                let result = Char {
                     index,
                     c: '\n',
                     lineno: self.lineno,
@@ -51,7 +51,7 @@ impl<'input> CharIter<'input>
                 Some(result)
             }
             Some((index, c)) => {
-                let result = Char{
+                let result = Char {
                     index,
                     c,
                     lineno: self.lineno,
@@ -200,11 +200,11 @@ enum ScanOutput
 
 type ScanResult = Lresult<ScanOutput>;
 
-    /*
-    StrLit,
-    Comment,
-    BlockComment,
-    */
+/*
+StrLit,
+Comment,
+BlockComment,
+*/
 
 #[derive(Debug)]
 struct ScanModeRoot;
@@ -286,11 +286,7 @@ impl ScanModeTrait for ScanModeFailure
 {
     fn scan(&self, next: Char) -> ScanResult
     {
-        Err(rustfail!(
-            "token_failure",
-            "token failure at {:?}",
-            next,
-        ))
+        Err(rustfail!("token_failure", "token failure at {:?}", next,))
     }
 }
 
@@ -317,12 +313,8 @@ impl ScanModeTrait for ScanModeDash
     fn scan(&self, next: Char) -> ScanResult
     {
         let output = match next.c {
-            '-' => {
-                ScanOutput::Token(Token::DoubleDash, true, ScanModeOp::Pop)
-            }
-            _ => {
-                ScanOutput::Token(Token::Dash, false, ScanModeOp::Pop)
-            }
+            '-' => ScanOutput::Token(Token::DoubleDash, true, ScanModeOp::Pop),
+            _ => ScanOutput::Token(Token::Dash, false, ScanModeOp::Pop),
         };
         Ok(output)
     }
@@ -413,7 +405,6 @@ struct Tokenz<'input>
     mode: ScanMode,
     mode_stack: Vec<ScanMode>,
     // paren_stack: Vec<u16>,
-
     first: Option<Char>,
     last: Option<Char>,
     unused_next: Option<Char>,
@@ -424,7 +415,7 @@ impl<'input> Tokenz<'input>
     pub fn lex(src: &'input str) -> Tokenz<'input>
     {
         let chars = CharIter::new(src);
-        Tokenz{
+        Tokenz {
             src,
             chars,
 
@@ -439,24 +430,17 @@ impl<'input> Tokenz<'input>
 
     fn next_char(&mut self) -> Option<Char>
     {
-        self.unused_next.take()
-            .map(|c| {
-                c
-            })
-            .or_else(|| {
-                self.chars.next()
-            })
+        self.unused_next
+            .take()
+            .map(|c| c)
+            .or_else(|| self.chars.next())
     }
 
     fn mode_scan(&mut self, opt_c: Option<Char>) -> ScanResult
     {
         match opt_c {
-            Some(c) => {
-                self.mode.scan(c)
-            }
-            None => {
-                self.mode.eof()
-            }
+            Some(c) => self.mode.scan(c),
+            None => self.mode.eof(),
         }
     }
 
@@ -510,11 +494,11 @@ impl<'input> Iterator for Tokenz<'input>
                     self.last = None;
                     self.next_mode(mode_op);
 
-                    return Some(Ok(TokenChars{
+                    return Some(Ok(TokenChars {
                         tok,
                         first,
                         last,
-                        src: &self.src[first.index ..= last.index],
+                        src: &self.src[first.index..=last.index],
                     }));
                 }
                 Ok(ScanOutput::EOF) => {
@@ -522,7 +506,7 @@ impl<'input> Iterator for Tokenz<'input>
                 }
                 Err(fail) => {
                     self.mode = &ScanModeEOF;
-                    return Some(Err(fail))
+                    return Some(Err(fail));
                 }
             }
             c = self.chars.next();
@@ -671,7 +655,7 @@ impl<'i> Tokenz<'i>
 #[cfg(test)]
 mod tests
 {
-    use super::{Token, Tokenz, TokenResult};
+    use super::{Token, TokenResult, Tokenz};
 
 
     fn tok<'a>(toks: &'a Vec<TokenResult>, i: usize) -> (Token, &'a str)
