@@ -291,9 +291,13 @@ impl ScanModeTrait for ScanModeRoot
             '\n' => ScanOutput::Token(Token::Newline, true, ScanModeOp::Noop),
             ' ' => ScanOutput::Start(ScanModeOp::Push(&ScanModeSpace)),
             // keywords
-            c if c.is_alphabetic() => ScanOutput::Start(ScanModeOp::Push(&ScanModeId)),
+            c if c.is_alphabetic() => {
+                ScanOutput::Start(ScanModeOp::Push(&ScanModeId))
+            }
             // numbers
-            c if c.is_numeric() => ScanOutput::Start(ScanModeOp::Push(&ScanModeInt)),
+            c if c.is_numeric() => {
+                ScanOutput::Start(ScanModeOp::Push(&ScanModeInt))
+            }
             _ => {
                 eprintln!("root next: '{}'", next.c);
                 ScanOutput::Next(ScanModeOp::Noop)
@@ -331,7 +335,13 @@ impl ScanModeTrait for ScanModeAngleL
     fn scan(&self, next: Char) -> ScanResult
     {
         match next.c {
-            '=' => Ok(ScanOutput::Token(Token::LessThanEqual, true, ScanModeOp::Pop)),
+            '=' => {
+                Ok(ScanOutput::Token(
+                    Token::LessThanEqual,
+                    true,
+                    ScanModeOp::Pop,
+                ))
+            }
             _ => Ok(ScanOutput::Token(Token::AngleL, false, ScanModeOp::Pop)),
         }
     }
@@ -347,8 +357,16 @@ impl ScanModeTrait for ScanModeAngleR
     fn scan(&self, next: Char) -> ScanResult
     {
         match next.c {
-            '=' => Ok(ScanOutput::Token(Token::GreaterThanEqual, true, ScanModeOp::Pop)),
-            '>' => Ok(ScanOutput::Token(Token::DoubleArrow, true, ScanModeOp::Pop)),
+            '=' => {
+                Ok(ScanOutput::Token(
+                    Token::GreaterThanEqual,
+                    true,
+                    ScanModeOp::Pop,
+                ))
+            }
+            '>' => {
+                Ok(ScanOutput::Token(Token::DoubleArrow, true, ScanModeOp::Pop))
+            }
             _ => Ok(ScanOutput::Token(Token::AngleR, false, ScanModeOp::Pop)),
         }
     }
@@ -525,9 +543,7 @@ impl<'input> Tokenz<'input>
 
     fn next_char(&mut self) -> Option<Char>
     {
-        self.unused_next
-            .take()
-            .or_else(|| self.chars.next())
+        self.unused_next.take().or_else(|| self.chars.next())
     }
 
     fn mode_scan(&mut self, opt_c: Option<Char>) -> ScanResult
