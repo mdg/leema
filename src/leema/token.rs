@@ -292,6 +292,8 @@ impl ScanModeTrait for ScanModeRoot
             ' ' => ScanOutput::Start(ScanModeOp::Push(&ScanModeSpace)),
             // keywords
             c if c.is_alphabetic() => ScanOutput::Start(ScanModeOp::Push(&ScanModeId)),
+            // numbers
+            c if c.is_numeric() => ScanOutput::Start(ScanModeOp::Push(&ScanModeInt)),
             _ => {
                 eprintln!("root next: '{}'", next.c);
                 ScanOutput::Next(ScanModeOp::Noop)
@@ -436,9 +438,18 @@ impl ScanModeTrait for ScanModeId
 
 impl ScanModeTrait for ScanModeInt
 {
-    fn scan(&self, _next: Char) -> ScanResult
+    fn scan(&self, next: Char) -> ScanResult
     {
-        Ok(ScanOutput::Next(ScanModeOp::Noop))
+        if next.c.is_numeric() {
+            Ok(ScanOutput::Next(ScanModeOp::Noop))
+        } else {
+            Ok(ScanOutput::Token(Token::Int, false, ScanModeOp::Pop))
+        }
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        Ok(ScanOutput::Token(Token::Int, false, ScanModeOp::Pop))
     }
 }
 
@@ -781,6 +792,17 @@ mod tests
         assert_eq!(Token::DoubleDash, tok(&t, 4).0);
         assert_eq!(Token::Dash, tok(&t, 5).0);
         assert_eq!(6, t.len());
+    }
+
+    #[test]
+    fn test_tokenz_int()
+    {
+        let input = "1234 999999999999999";
+
+        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        assert_eq!((Token::Int, "1234"), tok(&t, 0));
+        assert_eq!((Token::Int, "999999999999999"), tok(&t, 2));
+        assert_eq!(3, t.len());
     }
 
     #[test]
