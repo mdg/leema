@@ -102,6 +102,7 @@ pub enum Token
     Macro,
     Match,
     Return,
+    Type,
 
     // operators (arithmetic)
     Plus,
@@ -169,6 +170,7 @@ lazy_static! {
         keywords.insert("macro", Token::Macro);
         keywords.insert("match", Token::Match);
         keywords.insert("return", Token::Return);
+        keywords.insert("type", Token::Type);
         keywords
     };
 }
@@ -850,7 +852,6 @@ mod tests
         assert_eq!(39, t.len());
     }
 
-    /*
     #[test]
     fn test_tokenize_struct()
     {
@@ -862,23 +863,19 @@ mod tests
         --
         ";
 
-        // let (tok, toklen) = test_lex(input);
-        let toks: Vec<TokenResult> = Tokenz::lex(input).collect();
-        let tok = tok_src(&toks);
-        assert_eq!(Token::Struct, tok(0));
-        assert_eq!((Token::Id, "Foo"), tok(1));
-        assert_eq!(Token::SquareL, tok(2));
-        assert_eq!((Token::Id, "T"), tok(3));
-        assert_eq!(Token::SquareR, tok(4));
-        assert_eq!(18, toks.len());
-    }
+        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
 
-    #[test]
-    #[should_panic]
-    fn test_triple_dash()
-    {
-        let input = "func foo() >> 5 ---";
-        Tokenz::lex(input);
+        assert_eq!(Token::Type, tok(&t, 2).0);
+        assert_eq!((Token::Id, "Foo"), tok(&t, 4));
+        assert_eq!(Token::SquareL, tok(&t, 5).0);
+        assert_eq!((Token::Id, "T"), tok(&t, 6));
+        assert_eq!(Token::SquareR, tok(&t, 7).0);
+
+        assert_eq!(Token::Dot, tok(&t, 10).0);
+        assert_eq!((Token::Id, "dog"), tok(&t, 11));
+        assert_eq!(Token::Colon, tok(&t, 12).0);
+        assert_eq!((Token::Id, "T"), tok(&t, 14));
+
+        assert_eq!(34, t.len());
     }
-    */
 }
