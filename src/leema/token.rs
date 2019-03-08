@@ -245,6 +245,9 @@ struct ScanModeAngleL;
 struct ScanModeAngleR;
 
 #[derive(Debug)]
+struct ScanModeBackslash;
+
+#[derive(Debug)]
 struct ScanModeColon;
 
 #[derive(Debug)]
@@ -290,6 +293,7 @@ impl ScanModeTrait for ScanModeRoot
             // whitespace
             '\n' => ScanOutput::Token(Token::Newline, true, ScanModeOp::Noop),
             ' ' => ScanOutput::Start(ScanModeOp::Push(&ScanModeSpace)),
+            '\\' => ScanOutput::Start(ScanModeOp::Push(&ScanModeBackslash)),
             // keywords
             c if c.is_alphabetic() => {
                 ScanOutput::Start(ScanModeOp::Push(&ScanModeId))
@@ -374,6 +378,34 @@ impl ScanModeTrait for ScanModeAngleR
     fn eof(&self) -> ScanResult
     {
         Ok(ScanOutput::Token(Token::AngleR, false, ScanModeOp::Pop))
+    }
+}
+
+impl ScanModeTrait for ScanModeBackslash
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        match next.c {
+            'n' => {
+                Ok(ScanOutput::Token(
+                    Token::ConcatNewline,
+                    true,
+                    ScanModeOp::Pop,
+                ))
+            }
+            '\n' => {
+                Err(rustfail!(
+                    "invalid_token",
+                    "backslash-newline not yet supported",
+                ))
+            }
+            _ => Err(rustfail!("invalid_token", "\\ is not a valid token")),
+        }
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        Err(rustfail!("invalid_token", "\\ is not a valid token"))
     }
 }
 
@@ -493,6 +525,11 @@ impl ScanModeTrait for ScanModeSpace
                 Ok(ScanOutput::Token(Token::Spaces, false, ScanModeOp::Pop))
             }
         }
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        Ok(ScanOutput::Token(Token::Spaces, false, ScanModeOp::Pop))
     }
 }
 
@@ -630,144 +667,6 @@ impl<'input> Iterator for Tokenz<'input>
     }
 }
 
-impl<'i> Tokenz<'i>
-{
-    pub fn lex_one_token(&mut self, _first: char)
-    {
-        /*
-        match first {
-            // separators
-            '\n' => {
-                self.increment_lineno();
-            }
-            '\\' => {
-                self.lex_backslash();
-            }
-            // comparison operators
-            '<' => {
-                self.lex_peek('=', Token::LessThanEqual, Token::LessThan);
-            }
-            '>' => {
-                self.lex_gt();
-            }
-            '_' => self.lex_id(),
-            // data tokens
-            _ => {
-                println!("data token: ({})", first);
-                if first.is_alphabetic() {
-                    self.lex_id();
-                } else if first.is_numeric() {
-                    self.lex_int();
-                } else {
-                    panic!("dunno what kind of token: '{}'", first);
-                }
-            }
-        }
-        */
-    }
-
-    pub fn lex_backslash(&mut self)
-    {
-        /*
-        match self.next() {
-            '\n' => {
-                self.increment_lineno();
-                self.continued_line = true;
-            }
-            c => {
-                panic!("unknown token: \\{}", c);
-            }
-        }
-        */
-    }
-
-    pub fn lex_gt(&mut self)
-    {
-        /*
-        match self.peek() {
-            '>' => {
-                self.next();
-                self.tokens.push(Token::DoubleArrow);
-            }
-            '=' => {
-                self.next();
-                self.tokens.push(Token::GreaterThanEqual);
-            }
-            _ => {
-                self.tokens.push(Token::GreaterThan);
-            }
-        }
-        */
-    }
-
-    /*
-    pub fn lex_int(&mut self)
-    {
-        let end = self
-            .code
-            .clone()
-            .take_while(|ch| ch.1.is_numeric())
-            .last()
-            .map(|l| l.0)
-            .unwrap_or(self.chindex + 1);
-        let int_str = &self.input[self.chindex..end];
-        let int_val: i64 = int_str.parse().expect("could not parse lexed int");
-        self.tokens.push(Token::Int(int_val));
-    }
-
-    pub fn lex_id(&mut self)
-    {
-        let start = &self.input[self.chindex..];
-        println!("look for id at: {}", start);
-        let len = start
-            .chars()
-            .take_while(|ch| ch.is_alphanumeric() || *ch == '_')
-            .count();
-        let end = self.chindex + len;
-        {
-            let mut dec = len;
-            while dec > 1 {
-                self.code.next();
-                dec -= 1;
-            }
-        }
-        let id_str = &self.input[self.chindex..end];
-        let keyword = Tokenz::lex_keyword(id_str);
-        if keyword.is_some() {
-            self.tokens.push(keyword.unwrap());
-        } else {
-            let id_token = Token::Id(id_str);
-            println!("found token: {:?}", id_token);
-            self.tokens.push(id_token);
-        }
-    }
-
-    pub fn lex_keyword(id: &str) -> Option<Token>
-    {
-        let tok = match id {
-            "failed" => Token::Failed,
-            "False" => Token::Bool(false),
-            "fork" => Token::Fork,
-            "func" => Token::Func,
-            "if" => Token::If,
-            "import" => Token::Import,
-            "let" => Token::Let,
-            "macro" => Token::Macro,
-            "match" => Token::Match,
-            "return" => Token::Return,
-            "True" => Token::Bool(true),
-            "type" => Token::Type,
-            "void" => Token::Void,
-            _ => {
-                return None;
-            }
-        };
-        Some(tok)
-    }
-    */
-}
-
-
 #[cfg(test)]
 mod tests
 {
@@ -881,7 +780,7 @@ mod tests
     #[test]
     fn test_tokenz_comparison_operators()
     {
-        let input = "== < > <= >= >>";
+        let input = "== < > <= >= \\n >>";
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
         assert_eq!(Token::Equal, tok(&t, 0).0);
@@ -889,8 +788,9 @@ mod tests
         assert_eq!(Token::AngleR, tok(&t, 4).0);
         assert_eq!(Token::LessThanEqual, tok(&t, 6).0);
         assert_eq!(Token::GreaterThanEqual, tok(&t, 8).0);
-        assert_eq!(Token::DoubleArrow, tok(&t, 10).0);
-        assert_eq!(11, t.len());
+        assert_eq!(Token::ConcatNewline, tok(&t, 10).0);
+        assert_eq!(Token::DoubleArrow, tok(&t, 12).0);
+        assert_eq!(13, t.len());
     }
 
     #[test]
@@ -909,7 +809,6 @@ mod tests
         assert_eq!(13, t.len());
     }
 
-    /*
     #[test]
     fn test_tokenize_func()
     {
@@ -923,16 +822,35 @@ mod tests
         ";
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
-        assert_eq!(Token::Func, tok(&t, 0).0);
-        assert_eq!(Token::Colon, tok(&t, 2).0);
-        assert_eq!(Token::Dot, tok(&t, 4).0);
-        assert_eq!((Token::Id, "filling"), tok(&t, 5));
-        assert_eq!(Token::Colon, tok(&t, 6).0);
-        assert_eq!((Token::Id, "make_tacos"), tok(&t, 13));
-        assert_eq!(Token::DoubleDash, tok(&t, 19).0);
-        assert_eq!(20, t.len());
+
+        assert_eq!(Token::Func, tok(&t, 2).0);
+        assert_eq!((Token::Id, "tacos"), tok(&t, 4));
+        assert_eq!(Token::Colon, tok(&t, 5).0);
+        assert_eq!((Token::Id, "Int"), tok(&t, 7));
+
+        assert_eq!(Token::Dot, tok(&t, 10).0);
+        assert_eq!((Token::Id, "filling"), tok(&t, 11));
+        assert_eq!(Token::Colon, tok(&t, 12).0);
+        assert_eq!((Token::Id, "Str"), tok(&t, 14));
+
+        assert_eq!(Token::Dot, tok(&t, 17).0);
+        assert_eq!((Token::Id, "size"), tok(&t, 18));
+        assert_eq!(Token::Colon, tok(&t, 19).0);
+        assert_eq!((Token::Id, "Int"), tok(&t, 21));
+
+        assert_eq!(Token::DoubleArrow, tok(&t, 24).0);
+        assert_eq!((Token::Id, "make_tacos"), tok(&t, 27));
+        assert_eq!(Token::ParenL, tok(&t, 28).0);
+        assert_eq!((Token::Id, "meat"), tok(&t, 29));
+        assert_eq!(Token::Comma, tok(&t, 30).0);
+        assert_eq!((Token::Id, "size"), tok(&t, 32));
+        assert_eq!(Token::ParenR, tok(&t, 33).0);
+        assert_eq!(Token::DoubleDash, tok(&t, 36).0);
+
+        assert_eq!(39, t.len());
     }
 
+    /*
     #[test]
     fn test_tokenize_struct()
     {
