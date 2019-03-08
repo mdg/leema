@@ -265,6 +265,9 @@ struct ScanModeId;
 struct ScanModeInt;
 
 #[derive(Debug)]
+struct ScanModeQuote;
+
+#[derive(Debug)]
 struct ScanModeSpace;
 
 #[derive(Debug)]
@@ -300,7 +303,13 @@ impl ScanModeTrait for ScanModeRoot
             ' ' => ScanOutput::Start(ScanModeOp::Push(&ScanModeSpace)),
             '\\' => ScanOutput::Start(ScanModeOp::Push(&ScanModeBackslash)),
             // strings
-            '"' => ScanOutput::Start(ScanModeOp::Push(&ScanModeStr)),
+            '"' => {
+                ScanOutput::Token(
+                    Token::DoubleQuoteL,
+                    true,
+                    ScanModeOp::Push(&ScanModeQuote),
+                )
+            }
             // keywords
             c if c.is_alphabetic() => {
                 ScanOutput::Start(ScanModeOp::Push(&ScanModeId))
@@ -510,6 +519,28 @@ impl ScanModeTrait for ScanModeInt
     }
 }
 
+impl ScanModeTrait for ScanModeQuote
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        match next.c {
+            '"' => {
+                Ok(ScanOutput::Token(
+                    Token::DoubleQuoteR,
+                    true,
+                    ScanModeOp::Pop,
+                ))
+            }
+            _ => Ok(ScanOutput::Start(ScanModeOp::Push(&ScanModeStr))),
+        }
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        Err(rustfail!("token_error", "unexpected end of file",))
+    }
+}
+
 impl ScanModeTrait for ScanModeSpace
 {
     fn scan(&self, next: Char) -> ScanResult
@@ -545,12 +576,8 @@ impl ScanModeTrait for ScanModeStr
     fn scan(&self, next: Char) -> ScanResult
     {
         match next.c {
-            '"' => {
-                Ok(ScanOutput::Token(Token::StrLit, true, ScanModeOp::Pop))
-            }
-            _ => {
-                Ok(ScanOutput::Next(ScanModeOp::Noop))
-            }
+            '"' => Ok(ScanOutput::Token(Token::StrLit, false, ScanModeOp::Pop)),
+            _ => Ok(ScanOutput::Next(ScanModeOp::Noop)),
         }
     }
 
@@ -828,14 +855,20 @@ mod tests
     #[test]
     fn test_tokenz_strings()
     {
-        let input = r#""tacos" "burritos""#;
+        let input = r#""tacos" "" "burritos""#;
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
 
-        assert_eq!((Token::StrLit, r#""tacos""#), tok(&t, 0));
-        assert_eq!((Token::StrLit, r#""burritos""#), tok(&t, 2));
+        assert_eq!(Token::DoubleQuoteL, tok(&t, 0).0);
+        assert_eq!((Token::StrLit, "tacos"), tok(&t, 1));
+        assert_eq!(Token::DoubleQuoteR, tok(&t, 2).0);
 
-        assert_eq!(3, t.len());
+        assert_eq!(Token::DoubleQuoteL, tok(&t, 4).0);
+        assert_eq!(Token::DoubleQuoteR, tok(&t, 5).0);
+
+        assert_eq!((Token::StrLit, "burritos"), tok(&t, 8));
+
+        assert_eq!(10, t.len());
     }
 
     #[test]
