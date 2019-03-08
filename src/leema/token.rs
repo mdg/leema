@@ -267,6 +267,9 @@ struct ScanModeInt;
 #[derive(Debug)]
 struct ScanModeSpace;
 
+#[derive(Debug)]
+struct ScanModeStr;
+
 impl ScanModeTrait for ScanModeRoot
 {
     fn scan(&self, next: Char) -> ScanResult
@@ -296,6 +299,8 @@ impl ScanModeTrait for ScanModeRoot
             '\n' => ScanOutput::Token(Token::Newline, true, ScanModeOp::Noop),
             ' ' => ScanOutput::Start(ScanModeOp::Push(&ScanModeSpace)),
             '\\' => ScanOutput::Start(ScanModeOp::Push(&ScanModeBackslash)),
+            // strings
+            '"' => ScanOutput::Start(ScanModeOp::Push(&ScanModeStr)),
             // keywords
             c if c.is_alphabetic() => {
                 ScanOutput::Start(ScanModeOp::Push(&ScanModeId))
@@ -535,16 +540,25 @@ impl ScanModeTrait for ScanModeSpace
     }
 }
 
-/*
-fn scan_str<'input>(
-    _start: Option<Char>,
-    _next: Option<Char>,
-    _src: &'input str,
-) -> ScanResult
+impl ScanModeTrait for ScanModeStr
 {
-    Ok(ScanOutput::Next)
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        match next.c {
+            '"' => {
+                Ok(ScanOutput::Token(Token::StrLit, true, ScanModeOp::Pop))
+            }
+            _ => {
+                Ok(ScanOutput::Next(ScanModeOp::Noop))
+            }
+        }
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        Ok(ScanOutput::Token(Token::Int, false, ScanModeOp::Pop))
+    }
 }
-*/
 
 const SCAN_ROOT: ScanMode = &ScanModeRoot;
 const SCAN_INT: ScanMode = &ScanModeInt;
@@ -809,6 +823,19 @@ mod tests
         assert_eq!(Token::Pipe, tok(&t, 10).0);
         assert_eq!(Token::Colon, tok(&t, 12).0);
         assert_eq!(13, t.len());
+    }
+
+    #[test]
+    fn test_tokenz_strings()
+    {
+        let input = r#""tacos" "burritos""#;
+
+        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+
+        assert_eq!((Token::StrLit, r#""tacos""#), tok(&t, 0));
+        assert_eq!((Token::StrLit, r#""burritos""#), tok(&t, 2));
+
+        assert_eq!(3, t.len());
     }
 
     #[test]
