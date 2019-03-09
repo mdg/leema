@@ -239,12 +239,6 @@ enum ScanOutput
 
 type ScanResult = Lresult<ScanOutput>;
 
-/*
-StrLit,
-Comment,
-BlockComment,
-*/
-
 #[derive(Debug)]
 struct ScanModeEOF;
 
@@ -557,11 +551,6 @@ impl ScanModeTrait for ScanModeIndent
             }
         }
     }
-
-    fn eof(&self) -> ScanResult
-    {
-        Ok(ScanOutput::Token(Token::LineBegin, false, ScanModeOp::Pop))
-    }
 }
 
 impl ScanModeTrait for ScanModeInt
@@ -596,11 +585,6 @@ impl ScanModeTrait for ScanModeLineBegin
                 Ok(ScanOutput::Token(Token::LineBegin, false, PUSH_MODE_LINE))
             }
         }
-    }
-
-    fn eof(&self) -> ScanResult
-    {
-        Ok(ScanOutput::Token(Token::LineBegin, false, ScanModeOp::Pop))
     }
 }
 
@@ -690,6 +674,7 @@ pub struct Tokenz<'input>
     begin: Option<Char>,
     len: usize,
     unused_next: Option<Char>,
+    eof: bool,
 }
 
 impl<'input> Tokenz<'input>
@@ -707,6 +692,7 @@ impl<'input> Tokenz<'input>
             begin: None,
             len: 0,
             unused_next: None,
+            eof: false,
         }
     }
 
@@ -719,7 +705,11 @@ impl<'input> Tokenz<'input>
     {
         match opt_c {
             Some(c) => self.mode.scan(c),
-            None => self.mode.eof(),
+            None => {
+                let eofr = self.mode.eof();
+                self.eof = true;
+                eofr
+            }
         }
     }
 
@@ -783,6 +773,9 @@ impl<'input> Iterator for Tokenz<'input>
 
     fn next(&mut self) -> Option<TokenResult<'input>>
     {
+        if self.eof {
+            return None;
+        }
         let mut c = self.next_char();
         loop {
             match self.mode_scan(c) {
