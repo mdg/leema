@@ -830,11 +830,15 @@ mod tests
         let input = "- -- ---";
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
-        assert_eq!(Token::Dash, tok(&t, 0).0);
-        assert_eq!(Token::DoubleDash, tok(&t, 2).0);
-        assert_eq!(Token::DoubleDash, tok(&t, 4).0);
-        assert_eq!(Token::Dash, tok(&t, 5).0);
-        assert_eq!(6, t.len());
+        let mut i = t.iter();
+        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        assert_eq!(Token::Dash, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::DoubleDash, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::DoubleDash, nextok(&mut i).0);
+        assert_eq!(Token::Dash, nextok(&mut i).0);
+        assert_eq!(7, t.len());
     }
 
     #[test]
