@@ -895,16 +895,26 @@ mod tests
         let input = "failed fork func if import let macro match return";
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
-        assert_eq!(Token::Failed, tok(&t, 0).0);
-        assert_eq!(Token::Fork, tok(&t, 2).0);
-        assert_eq!(Token::Func, tok(&t, 4).0);
-        assert_eq!(Token::If, tok(&t, 6).0);
-        assert_eq!(Token::Import, tok(&t, 8).0);
-        assert_eq!(Token::Let, tok(&t, 10).0);
-        assert_eq!(Token::Macro, tok(&t, 12).0);
-        assert_eq!(Token::Match, tok(&t, 14).0);
-        assert_eq!(Token::Return, tok(&t, 16).0);
-        assert_eq!(17, t.len());
+        let mut i = t.iter();
+        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        assert_eq!(Token::Failed, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::Fork, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::Func, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::If, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::Import, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::Let, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::Macro, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::Match, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::Return, nextok(&mut i).0);
+        assert_eq!(18, t.len());
     }
 
     #[test]
@@ -913,12 +923,16 @@ mod tests
         let input = "+ - * /";
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
-        assert_eq!(Token::Plus, tok(&t, 0).0);
-        assert_eq!((Token::Spaces, " "), tok(&t, 1));
-        assert_eq!(Token::Dash, tok(&t, 2).0);
-        assert_eq!(Token::Star, tok(&t, 4).0);
-        assert_eq!(Token::Slash, tok(&t, 6).0);
-        assert_eq!(7, t.len());
+        let mut i = t.iter();
+        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        assert_eq!(Token::Plus, nextok(&mut i).0);
+        assert_eq!((Token::Spaces, " "), nextok(&mut i));
+        assert_eq!(Token::Dash, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::Star, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::Slash, nextok(&mut i).0);
+        assert_eq!(8, t.len());
     }
 
     #[test]
