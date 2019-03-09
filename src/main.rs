@@ -32,6 +32,7 @@ use leema::lstr::Lstr;
 use leema::module::ModuleSource;
 use leema::program;
 use leema::struple::Struple;
+use leema::token::{Tokenz, TokenResult};
 use leema::typecheck;
 use leema::val::Val;
 
@@ -47,6 +48,7 @@ struct Args
     arg_args: Vec<String>,
     flag_verbose: bool,
     flag_func: Option<String>,
+    flag_tok: bool,
     flag_tokens: bool,
     flag_ast: bool,
     flag_modsrc: bool,
@@ -68,6 +70,7 @@ Usage:
 
 Options:
      --typecheck   Typecheck the script
+     --tok         Show the tokens in this module
      --tokens      Show the tokens in this module for debugging
      --ast         Show the ast for the module
      --modsrc      Show the modsrc for the module
@@ -127,6 +130,14 @@ fn real_main() -> i32
     let main_result = if args.flag_tokens {
         let modtxt = inter.read_module(&mod_name).unwrap();
         let toks = ModuleSource::read_tokens(&modtxt);
+        println!("tokens:");
+        for t in &toks {
+            println!("\t{:?}", t);
+        }
+        Val::Int(0)
+    } else if args.flag_tok {
+        let modtxt = inter.read_module(&mod_name).unwrap();
+        let toks: Vec<TokenResult> = Tokenz::lex(&modtxt).collect();
         println!("tokens:");
         for t in &toks {
             println!("\t{:?}", t);

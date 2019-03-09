@@ -188,7 +188,7 @@ pub struct TokenChars<'input>
     src: &'input str,
 }
 
-type TokenResult<'input> = Lresult<TokenChars<'input>>;
+pub type TokenResult<'input> = Lresult<TokenChars<'input>>;
 
 /// scan((start, line, col, (i, char))
 /// return (consume_char, Option<new_token>, Option<push_scanner(scanner) | pop_state>) | error
@@ -662,7 +662,7 @@ const PUSH_MODE_INDENT_TAB: ScanModeOp =
 const PUSH_MODE_INT: ScanModeOp = ScanModeOp::Push(&ScanModeInt);
 const PUSH_MODE_LINE: ScanModeOp = ScanModeOp::Push(&ScanModeLine);
 
-struct Tokenz<'input>
+pub struct Tokenz<'input>
 {
     src: &'input str,
     chars: CharIter<'input>,
