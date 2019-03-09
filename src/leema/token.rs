@@ -798,10 +798,9 @@ mod tests
 
     fn nextok<'a, 'b, I>(it: &'a mut I) -> (Token, &'static str)
         where I: Iterator<Item=&'b TokenResult<'static>>
-            , 'a: 'b
+            , 'b: 'a
     {
         let tokr: &TokenResult = it.next().as_ref().unwrap();
-        // let t: &'a TokenChars = tokr.as_ref().unwrap();
         let t = tokr.as_ref().unwrap();
         (t.tok, t.src)
     }
@@ -813,18 +812,16 @@ mod tests
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
         let mut i = t.iter();
-        {assert_eq!(Token::LineBegin, nextok(&mut i).0)};
-        {assert_eq!(Token::ParenL, nextok(&mut i).0)};
-        /*
-        assert_eq!(Token::ParenR, tok(&t, i).0);
-        assert_eq!(Token::CurlyL, tok(&t, i)).0);
-        assert_eq!(Token::CurlyR, tok(&t, i)).0);
-        assert_eq!(Token::SquareL, tok(&t, i)).0);
-        assert_eq!(Token::SquareR, tok(&t, i)).0);
-        assert_eq!(Token::AngleL, tok(&t, i).0);
-        assert_eq!(Token::AngleR, tok(&t, i).0);
-        */
-        assert_eq!(8, t.len());
+        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        assert_eq!(Token::ParenL, nextok(&mut i).0);
+        assert_eq!(Token::ParenR, nextok(&mut i).0);
+        assert_eq!(Token::CurlyL, nextok(&mut i).0);
+        assert_eq!(Token::CurlyR, nextok(&mut i).0);
+        assert_eq!(Token::SquareL, nextok(&mut i).0);
+        assert_eq!(Token::SquareR, nextok(&mut i).0);
+        assert_eq!(Token::AngleL, nextok(&mut i).0);
+        assert_eq!(Token::AngleR, nextok(&mut i).0);
+        assert_eq!(9, t.len());
     }
 
     #[test]
