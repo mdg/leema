@@ -143,7 +143,8 @@ pub enum Token
 
     // whitespace
     Indent,
-    Newline,
+    LineBegin,
+    LineEnd,
     Spaces,
     Tabs,
 
@@ -232,9 +233,6 @@ BlockComment,
 */
 
 #[derive(Debug)]
-struct ScanModeRoot;
-
-#[derive(Debug)]
 struct ScanModeEOF;
 
 #[derive(Debug)]
@@ -262,7 +260,19 @@ struct ScanModeEqual;
 struct ScanModeId;
 
 #[derive(Debug)]
+struct ScanModeIndent
+{
+    space_or_tab: char,
+}
+
+#[derive(Debug)]
 struct ScanModeInt;
+
+#[derive(Debug)]
+struct ScanModeLine;
+
+#[derive(Debug)]
+struct ScanModeLineBegin;
 
 #[derive(Debug)]
 struct ScanModeQuote;
@@ -273,7 +283,7 @@ struct ScanModeSpace;
 #[derive(Debug)]
 struct ScanModeStr;
 
-impl ScanModeTrait for ScanModeRoot
+impl ScanModeTrait for ScanModeLine
 {
     fn scan(&self, next: Char) -> ScanResult
     {
@@ -299,7 +309,7 @@ impl ScanModeTrait for ScanModeRoot
             '.' => ScanOutput::Token(Token::Dot, true, ScanModeOp::Noop),
             '|' => ScanOutput::Token(Token::Pipe, true, ScanModeOp::Noop),
             // whitespace
-            '\n' => ScanOutput::Token(Token::Newline, true, ScanModeOp::Noop),
+            '\n' => ScanOutput::Token(Token::LineEnd, true, ScanModeOp::Pop),
             ' ' => ScanOutput::Start(ScanModeOp::Push(&ScanModeSpace)),
             '\\' => ScanOutput::Start(ScanModeOp::Push(&ScanModeBackslash)),
             // strings
@@ -502,6 +512,41 @@ impl ScanModeTrait for ScanModeId
     }
 }
 
+impl ScanModeTrait for ScanModeIndent
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        match (self.space_or_tab, next.c) {
+            (' ', ' ') => Ok(ScanOutput::Next(ScanModeOp::Noop)),
+            ('\t', '\t') => Ok(ScanOutput::Next(ScanModeOp::Noop)),
+            (' ', '\t') => {
+                Err(rustfail!(
+                    "token_failure",
+                    "do not use tabs when already using spaces {},{}",
+                    next.lineno,
+                    next.column,
+                ))
+            }
+            ('\t', ' ') => {
+                Err(rustfail!(
+                    "token_failure",
+                    "do not use spaces when already using tabs {},{}",
+                    next.lineno,
+                    next.column,
+                ))
+            }
+            _ => {
+                Ok(ScanOutput::Token(Token::Indent, false, PUSH_MODE_LINE))
+            }
+        }
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        Ok(ScanOutput::Token(Token::Spaces, false, ScanModeOp::Pop))
+    }
+}
+
 impl ScanModeTrait for ScanModeInt
 {
     fn scan(&self, next: Char) -> ScanResult
@@ -516,6 +561,29 @@ impl ScanModeTrait for ScanModeInt
     fn eof(&self) -> ScanResult
     {
         Ok(ScanOutput::Token(Token::Int, false, ScanModeOp::Pop))
+    }
+}
+
+impl ScanModeTrait for ScanModeLineBegin
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        match next.c {
+            ' ' => {
+                Ok(ScanOutput::Token(Token::LineBegin, false, PUSH_MODE_INDENT_SPACE))
+            }
+            '\t' => {
+                Ok(ScanOutput::Token(Token::LineBegin, false, PUSH_MODE_INDENT_TAB))
+            }
+            _ => {
+                Ok(ScanOutput::Token(Token::LineBegin, false, PUSH_MODE_LINE))
+            }
+        }
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        Err(rustfail!("invalid_token", "\\ is not a valid token"))
     }
 }
 
@@ -547,13 +615,12 @@ impl ScanModeTrait for ScanModeSpace
     {
         match next.c {
             ' ' => {
-                eprintln!("more space");
                 Ok(ScanOutput::Next(ScanModeOp::Noop))
             }
             '\t' => {
                 Err(rustfail!(
                     "mixed_spaces_tabs",
-                    "Do not use spaces when already using tabs {},{}",
+                    "Do not use tabes when already using spaces {},{}",
                     next.lineno,
                     next.column,
                 ))
@@ -587,8 +654,13 @@ impl ScanModeTrait for ScanModeStr
     }
 }
 
-const SCAN_ROOT: ScanMode = &ScanModeRoot;
-const SCAN_INT: ScanMode = &ScanModeInt;
+const LINE_BEGIN: ScanMode = &ScanModeLineBegin;
+const PUSH_MODE_INDENT_SPACE: ScanModeOp =
+    ScanModeOp::Push(&ScanModeIndent{space_or_tab: ' '});
+const PUSH_MODE_INDENT_TAB: ScanModeOp =
+    ScanModeOp::Push(&ScanModeIndent{space_or_tab: '\t'});
+const PUSH_MODE_INT: ScanModeOp = ScanModeOp::Push(&ScanModeInt);
+const PUSH_MODE_LINE: ScanModeOp = ScanModeOp::Push(&ScanModeLine);
 
 struct Tokenz<'input>
 {
@@ -612,7 +684,7 @@ impl<'input> Tokenz<'input>
             src,
             chars,
 
-            mode: SCAN_ROOT,
+            mode: LINE_BEGIN,
             mode_stack: vec![],
 
             first: None,
@@ -674,7 +746,7 @@ impl<'input> Iterator for Tokenz<'input>
                     let first = self.first.or(c).unwrap();
                     let last = if !consume {
                         self.unused_next = c;
-                        self.last.unwrap()
+                        self.last.or(c).unwrap()
                     } else {
                         self.unused_next = None;
                         c.unwrap()
@@ -715,10 +787,22 @@ mod tests
 {
     use super::{Token, TokenResult, Tokenz};
 
+    use std::iter::Iterator;
+
 
     fn tok<'a>(toks: &'a Vec<TokenResult>, i: usize) -> (Token, &'a str)
     {
         let t = toks[i].as_ref().unwrap();
+        (t.tok, t.src)
+    }
+
+    fn nextok<'a, 'b, I>(it: &'a mut I) -> (Token, &'static str)
+        where I: Iterator<Item=&'b TokenResult<'static>>
+            , 'a: 'b
+    {
+        let tokr: &TokenResult = it.next().as_ref().unwrap();
+        // let t: &'a TokenChars = tokr.as_ref().unwrap();
+        let t = tokr.as_ref().unwrap();
         (t.tok, t.src)
     }
 
@@ -728,14 +812,18 @@ mod tests
         let input = "(){}[]<>";
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
-        assert_eq!(Token::ParenL, tok(&t, 0).0);
-        assert_eq!(Token::ParenR, tok(&t, 1).0);
-        assert_eq!(Token::CurlyL, tok(&t, 2).0);
-        assert_eq!(Token::CurlyR, tok(&t, 3).0);
-        assert_eq!(Token::SquareL, tok(&t, 4).0);
-        assert_eq!(Token::SquareR, tok(&t, 5).0);
-        assert_eq!(Token::AngleL, tok(&t, 6).0);
-        assert_eq!(Token::AngleR, tok(&t, 7).0);
+        let mut i = t.iter();
+        {assert_eq!(Token::LineBegin, nextok(&mut i).0)};
+        {assert_eq!(Token::ParenL, nextok(&mut i).0)};
+        /*
+        assert_eq!(Token::ParenR, tok(&t, i).0);
+        assert_eq!(Token::CurlyL, tok(&t, i)).0);
+        assert_eq!(Token::CurlyR, tok(&t, i)).0);
+        assert_eq!(Token::SquareL, tok(&t, i)).0);
+        assert_eq!(Token::SquareR, tok(&t, i)).0);
+        assert_eq!(Token::AngleL, tok(&t, i).0);
+        assert_eq!(Token::AngleR, tok(&t, i).0);
+        */
         assert_eq!(8, t.len());
     }
 
