@@ -847,9 +847,12 @@ mod tests
         let input = "1234 999999999999999";
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
-        assert_eq!((Token::Int, "1234"), tok(&t, 0));
-        assert_eq!((Token::Int, "999999999999999"), tok(&t, 2));
-        assert_eq!(3, t.len());
+        let mut i = t.iter();
+        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        assert_eq!((Token::Int, "1234"), nextok(&mut i));
+        i.next();
+        assert_eq!((Token::Int, "999999999999999"), nextok(&mut i));
+        assert_eq!(4, t.len());
     }
 
     #[test]
@@ -858,8 +861,11 @@ mod tests
         let input = "tacos burrit_s";
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
-        assert_eq!((Token::Id, "tacos"), tok(&t, 0));
-        assert_eq!((Token::Id, "burrit_s"), tok(&t, 2));
+        let mut i = t.iter();
+        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        assert_eq!((Token::Id, "tacos"), nextok(&mut i));
+        i.next();
+        assert_eq!((Token::Id, "burrit_s"), nextok(&mut i));
         assert_eq!(3, t.len());
     }
 
@@ -869,12 +875,18 @@ mod tests
         let input = "and mod not or xor";
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
-        assert_eq!(Token::And, tok(&t, 0).0);
-        assert_eq!(Token::Modulo, tok(&t, 2).0);
-        assert_eq!(Token::Not, tok(&t, 4).0);
-        assert_eq!(Token::Or, tok(&t, 6).0);
-        assert_eq!(Token::Xor, tok(&t, 8).0);
-        assert_eq!(9, t.len());
+        let mut i = t.iter();
+        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        assert_eq!(Token::And, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::Modulo, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::Not, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::Or, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::Xor, nextok(&mut i).0);
+        assert_eq!(10, t.len());
     }
 
     #[test]
