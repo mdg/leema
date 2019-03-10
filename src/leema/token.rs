@@ -894,11 +894,11 @@ mod tests
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
         let mut i = t.iter();
-        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        assert_eq!((Token::LineBegin, ""), nextok(&mut i));
         assert_eq!((Token::Id, "tacos"), nextok(&mut i));
-        i.next();
+        assert_eq!((Token::Spaces, " "), nextok(&mut i));
         assert_eq!((Token::Id, "burrit_s"), nextok(&mut i));
-        assert_eq!(3, t.len());
+        assert_eq!(None, i.next());
     }
 
     #[test]
