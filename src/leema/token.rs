@@ -1,7 +1,7 @@
 use leema::failure::Lresult;
 
 use std::collections::HashMap;
-use std::fmt::Debug;
+use std::fmt;
 use std::str::CharIndices;
 
 
@@ -206,7 +206,7 @@ pub type TokenResult<'input> = Lresult<TokenChars<'input>>;
 /// scan((start, line, col, (i, char))
 /// return (consume_char, Option<new_token>, Option<push_scanner(scanner) | pop_state>) | error
 
-trait ScanModeTrait: Debug
+trait ScanModeTrait: fmt::Debug
 {
     fn scan(&self, Char) -> ScanResult;
 
@@ -264,12 +264,22 @@ struct ScanModeDash;
 struct ScanModeEqual;
 
 #[derive(Debug)]
-struct ScanModeId;
+struct ScanModeFileBegin;
 
 #[derive(Debug)]
+struct ScanModeId;
+
 struct ScanModeIndent
 {
     space_or_tab: char,
+}
+
+impl fmt::Debug for ScanModeIndent
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "ScanModeIndent({:?})", self.space_or_tab)
+    }
 }
 
 #[derive(Debug)]
@@ -277,9 +287,6 @@ struct ScanModeInt;
 
 #[derive(Debug)]
 struct ScanModeLine;
-
-#[derive(Debug)]
-struct ScanModeLineBegin;
 
 #[derive(Debug)]
 struct ScanModeQuote;
@@ -504,6 +511,24 @@ impl ScanModeTrait for ScanModeEqual
     }
 }
 
+impl ScanModeTrait for ScanModeFileBegin
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        match next.c {
+            ' ' => {
+                Ok(ScanOutput::Start(ScanModeOp::Replace(&ScanModeIndent{space_or_tab: ' '})))
+            }
+            '\t' => {
+                Ok(ScanOutput::Start(ScanModeOp::Replace(&ScanModeIndent{space_or_tab: '\t'})))
+            }
+            _ => {
+                Ok(ScanOutput::Token(Token::LineBegin, false, PUSH_MODE_LINE))
+            }
+        }
+    }
+}
+
 impl ScanModeTrait for ScanModeId
 {
     fn scan(&self, next: Char) -> ScanResult
@@ -526,9 +551,7 @@ impl ScanModeTrait for ScanModeIndent
     fn scan(&self, next: Char) -> ScanResult
     {
         match (self.space_or_tab, next.c) {
-            (' ', ' ') => {
-                Ok(ScanOutput::Next(ScanModeOp::Noop))
-            }
+            (' ', ' ') => Ok(ScanOutput::Next(ScanModeOp::Noop)),
             ('\t', '\t') => Ok(ScanOutput::Next(ScanModeOp::Noop)),
             (' ', '\t') => {
                 Err(rustfail!(
@@ -570,24 +593,6 @@ impl ScanModeTrait for ScanModeInt
     }
 }
 
-impl ScanModeTrait for ScanModeLineBegin
-{
-    fn scan(&self, next: Char) -> ScanResult
-    {
-        match next.c {
-            ' ' => {
-                Ok(ScanOutput::Start(PUSH_MODE_INDENT_SPACE))
-            }
-            '\t' => {
-                Ok(ScanOutput::Start(PUSH_MODE_INDENT_TAB))
-            }
-            _ => {
-                Ok(ScanOutput::Token(Token::LineBegin, false, PUSH_MODE_LINE))
-            }
-        }
-    }
-}
-
 impl ScanModeTrait for ScanModeQuote
 {
     fn scan(&self, next: Char) -> ScanResult
@@ -626,10 +631,7 @@ impl ScanModeTrait for ScanModeSpace
                     next.column,
                 ))
             }
-            _ => {
-                eprintln!("end of space");
-                Ok(ScanOutput::Token(Token::Spaces, false, ScanModeOp::Pop))
-            }
+            _ => Ok(ScanOutput::Token(Token::Spaces, false, ScanModeOp::Pop)),
         }
     }
 
@@ -655,7 +657,7 @@ impl ScanModeTrait for ScanModeStr
     }
 }
 
-const LINE_BEGIN: ScanMode = &ScanModeLineBegin;
+const FILE_BEGIN: ScanMode = &ScanModeFileBegin;
 const PUSH_MODE_INDENT_SPACE: ScanModeOp =
     ScanModeOp::Push(&ScanModeIndent{space_or_tab: ' '});
 const PUSH_MODE_INDENT_TAB: ScanModeOp =
@@ -686,7 +688,7 @@ impl<'input> Tokenz<'input>
             src,
             chars,
 
-            mode: LINE_BEGIN,
+            mode: FILE_BEGIN,
             mode_stack: vec![],
 
             begin: None,
@@ -785,6 +787,10 @@ impl<'input> Iterator for Tokenz<'input>
                     self.next_mode(mode_op);
                 }
                 Ok(ScanOutput::Next(mode_op)) => {
+                    if self.begin.is_none() {
+                        self.begin = c;
+                        self.len = 0;
+                    }
                     self.len += 1;
                     self.next_mode(mode_op);
                 }
@@ -964,7 +970,7 @@ mod tests
     #[test]
     fn test_tokenz_comparison_operators()
     {
-        let input = "== < > <= >= \\n >>";
+        let input = "== < > <= >= \\n >> >";
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
         let mut i = t.iter();
@@ -982,7 +988,9 @@ mod tests
         assert_eq!(Token::ConcatNewline, nextok(&mut i).0);
         i.next();
         assert_eq!(Token::DoubleArrow, nextok(&mut i).0);
-        assert_eq!(14, t.len());
+        i.next();
+        assert_eq!(Token::AngleR, nextok(&mut i).0);
+        assert_eq!(None, i.next());
     }
 
     #[test]
@@ -1032,19 +1040,51 @@ mod tests
     }
 
     #[test]
+    fn test_tokenz_begin_line()
+    {
+        let input = "
+        .size: Int
+        >>
+            --
+        ";
+
+        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let mut i = t.iter();
+
+        assert_eq!((Token::LineBegin, ""), nextok(&mut i));
+        assert_eq!((Token::LineEnd, "\n"), nextok(&mut i));
+
+        assert_eq!((Token::LineBegin, "        "), nextok(&mut i));
+        assert_eq!((Token::Dot, "."), nextok(&mut i));
+        assert_eq!((Token::Id, "size"), nextok(&mut i));
+        assert_eq!((Token::Colon, ":"), nextok(&mut i));
+        assert_eq!((Token::Spaces, " "), nextok(&mut i));
+        assert_eq!((Token::Id, "Int"), nextok(&mut i));
+        assert_eq!((Token::LineEnd, "\n"), nextok(&mut i));
+
+        assert_eq!((Token::LineBegin, "        "), nextok(&mut i));
+        assert_eq!((Token::DoubleArrow, ">>"), nextok(&mut i));
+        assert_eq!((Token::LineEnd, "\n"), nextok(&mut i));
+
+        assert_eq!((Token::LineBegin, "            "), nextok(&mut i));
+        assert_eq!((Token::DoubleDash, "--"), nextok(&mut i));
+        assert_eq!((Token::LineEnd, "\n"), nextok(&mut i));
+
+        assert_eq!(None, i.next());
+    }
+
+
+    #[test]
     fn test_tokenz_func()
     {
         let input = "
         func tacos: Int
-        ";
-        /*
         .filling: Str
         .size: Int
         >>
             make_tacos(meat, size)
         --
         ";
-        */
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
         let mut i = t.iter();
@@ -1061,7 +1101,6 @@ mod tests
         assert_eq!((Token::Id, "Int"), nextok(&mut i));
         assert_eq!(Token::LineEnd, nextok(&mut i).0);
 
-        /*
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
         assert_eq!(Token::Dot, nextok(&mut i).0);
         assert_eq!((Token::Id, "filling"), nextok(&mut i));
@@ -1096,13 +1135,11 @@ mod tests
         assert_eq!(Token::DoubleDash, nextok(&mut i).0);
         assert_eq!(Token::LineEnd, nextok(&mut i).0);
 
-        assert_eq!((Token::LineBegin, "        "), nextok(&mut i));
         assert_eq!(None, i.next());
-        */
     }
 
     #[test]
-    fn test_tokenize_struct()
+    fn test_tokenz_struct()
     {
         let input = "
         type Foo[T]
