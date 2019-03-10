@@ -1150,18 +1150,64 @@ mod tests
         ";
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let mut i = t.iter();
 
-        assert_eq!(Token::Type, tok(&t, 2).0);
-        assert_eq!((Token::Id, "Foo"), tok(&t, 4));
-        assert_eq!(Token::SquareL, tok(&t, 5).0);
-        assert_eq!((Token::Id, "T"), tok(&t, 6));
-        assert_eq!(Token::SquareR, tok(&t, 7).0);
+        i.next();
+        i.next();
 
-        assert_eq!(Token::Dot, tok(&t, 10).0);
-        assert_eq!((Token::Id, "dog"), tok(&t, 11));
-        assert_eq!(Token::Colon, tok(&t, 12).0);
-        assert_eq!((Token::Id, "T"), tok(&t, 14));
+        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        assert_eq!(Token::Type, nextok(&mut i).0);
+        i.next();
+        assert_eq!((Token::Id, "Foo"), nextok(&mut i));
+        assert_eq!(Token::SquareL, nextok(&mut i).0);
+        assert_eq!((Token::Id, "T"), nextok(&mut i));
+        assert_eq!(Token::SquareR, nextok(&mut i).0);
+        assert_eq!(Token::LineEnd, nextok(&mut i).0);
 
-        assert_eq!(34, t.len());
+        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        assert_eq!(Token::Dot, nextok(&mut i).0);
+        assert_eq!((Token::Id, "dog"), nextok(&mut i));
+        assert_eq!(Token::Colon, nextok(&mut i).0);
+        i.next();
+        assert_eq!((Token::Id, "T"), nextok(&mut i));
+    }
+
+    #[test]
+    fn test_tokenz_enum()
+    {
+        let input = "
+        type Boolean
+        |True
+        |False
+        --
+        ";
+
+        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let mut i = t.iter();
+
+        i.next();
+        i.next();
+
+        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        assert_eq!(Token::Type, nextok(&mut i).0);
+        i.next();
+        assert_eq!((Token::Id, "Boolean"), nextok(&mut i));
+        assert_eq!(Token::LineEnd, nextok(&mut i).0);
+
+        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        assert_eq!(Token::Pipe, nextok(&mut i).0);
+        assert_eq!((Token::Id, "True"), nextok(&mut i));
+        assert_eq!(Token::LineEnd, nextok(&mut i).0);
+
+        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        assert_eq!(Token::Pipe, nextok(&mut i).0);
+        assert_eq!((Token::Id, "False"), nextok(&mut i));
+        assert_eq!(Token::LineEnd, nextok(&mut i).0);
+
+        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        assert_eq!(Token::DoubleDash, nextok(&mut i).0);
+        assert_eq!(Token::LineEnd, nextok(&mut i).0);
+
+        assert_eq!(None, i.next());
     }
 }
