@@ -164,6 +164,16 @@ pub enum Token
     EOF,
 }
 
+type TokenFilterFn = fn(Token) -> bool;
+
+impl Token
+{
+    pub fn nofilter(_: Token) -> bool
+    {
+        true
+    }
+}
+
 lazy_static! {
     static ref KEYWORDS: HashMap<&'static str, Token> = {
         let mut keywords = HashMap::new();
@@ -665,6 +675,7 @@ pub struct Tokenz<'input>
 {
     src: &'input str,
     chars: CharIter<'input>,
+    filter: TokenFilterFn,
 
     mode: ScanMode,
     mode_stack: Vec<ScanMode>,
@@ -683,6 +694,7 @@ impl<'input> Tokenz<'input>
         Tokenz {
             src,
             chars,
+            filter: Token::nofilter,
 
             mode: FILE_BEGIN,
             mode_stack: vec![],
@@ -691,6 +703,51 @@ impl<'input> Tokenz<'input>
             len: 0,
             unused_next: None,
             eof: false,
+        }
+    }
+
+    pub fn set_filter(&mut self, filter: TokenFilterFn)
+    {
+        self.filter = filter;
+    }
+
+    fn unfiltered_next(&mut self) -> Option<TokenResult<'input>>
+    {
+        if self.eof {
+            return None;
+        }
+        let mut c = self.next_char();
+        loop {
+            match self.mode_scan(c) {
+                Ok(ScanOutput::Start(mode_op)) => {
+                    self.begin = c;
+                    self.len = 1;
+                    self.next_mode(mode_op);
+                }
+                Ok(ScanOutput::Next(mode_op)) => {
+                    if self.begin.is_none() {
+                        self.begin = c;
+                        self.len = 0;
+                    }
+                    self.len += 1;
+                    self.next_mode(mode_op);
+                }
+                Ok(ScanOutput::Token(tok, consume, mode_op)) => {
+                    let tokr = self.next_token(tok, consume, c);
+                    if tokr.is_ok() {
+                        self.next_mode(mode_op);
+                    }
+                    return Some(tokr);
+                }
+                Ok(ScanOutput::EOF) => {
+                    return None;
+                }
+                Err(fail) => {
+                    self.mode = &ScanModeEOF;
+                    return Some(Err(fail));
+                }
+            }
+            c = self.chars.next();
         }
     }
 
@@ -776,41 +833,22 @@ impl<'input> Iterator for Tokenz<'input>
 
     fn next(&mut self) -> Option<TokenResult<'input>>
     {
-        if self.eof {
-            return None;
-        }
-        let mut c = self.next_char();
+        let filter_fn = self.filter;
         loop {
-            match self.mode_scan(c) {
-                Ok(ScanOutput::Start(mode_op)) => {
-                    self.begin = c;
-                    self.len = 1;
-                    self.next_mode(mode_op);
-                }
-                Ok(ScanOutput::Next(mode_op)) => {
-                    if self.begin.is_none() {
-                        self.begin = c;
-                        self.len = 0;
+            match self.unfiltered_next() {
+                Some(Ok(tok)) => {
+                    if filter_fn(tok.tok) {
+                        return Some(Ok(tok));
                     }
-                    self.len += 1;
-                    self.next_mode(mode_op);
+                    // continue
                 }
-                Ok(ScanOutput::Token(tok, consume, mode_op)) => {
-                    let tokr = self.next_token(tok, consume, c);
-                    if tokr.is_ok() {
-                        self.next_mode(mode_op);
-                    }
-                    return Some(tokr);
+                Some(Err(e)) => {
+                    return Some(Err(e));
                 }
-                Ok(ScanOutput::EOF) => {
+                None => {
                     return None;
                 }
-                Err(fail) => {
-                    self.mode = &ScanModeEOF;
-                    return Some(Err(fail));
-                }
             }
-            c = self.chars.next();
         }
     }
 }
