@@ -203,7 +203,7 @@ lazy_static! {
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
-pub struct TokenChars<'input>
+pub struct TokenSrc<'input>
 {
     src: &'input str,
     tok: Token,
@@ -211,7 +211,7 @@ pub struct TokenChars<'input>
     len: usize,
 }
 
-pub type TokenResult<'input> = Lresult<TokenChars<'input>>;
+pub type TokenResult<'input> = Lresult<TokenSrc<'input>>;
 
 /// scan((start, line, col, (i, char))
 /// return (consume_char, Option<new_token>, Option<push_scanner(scanner) | pop_state>) | error
@@ -818,7 +818,7 @@ impl<'input> Tokenz<'input>
             tok = *keyword.unwrap();
         }
 
-        Ok(TokenChars {
+        Ok(TokenSrc {
             src,
             tok,
             begin,
