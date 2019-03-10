@@ -21,6 +21,7 @@ pub mod lri;
 pub mod module;
 pub mod msg;
 pub mod parse;
+pub mod parser;
 pub mod phase0;
 pub mod prefab;
 pub mod program;
