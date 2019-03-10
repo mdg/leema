@@ -21,7 +21,7 @@ impl Default for Char
 {
     fn default() -> Char
     {
-        Char{
+        Char {
             index: 0,
             c: '\0',
             lineno: 0,
@@ -325,9 +325,7 @@ impl ScanModeTrait for ScanModeLine
             // whitespace
             '\n' => ScanOutput::Token(Token::LineEnd, true, ScanModeOp::Pop),
             ' ' => ScanOutput::Start(ScanModeOp::Push(&ScanModeSpace)),
-            '\\' => {
-                ScanOutput::Start(ScanModeOp::Push(&ScanModeBackslash))
-            }
+            '\\' => ScanOutput::Start(ScanModeOp::Push(&ScanModeBackslash)),
             // strings
             '"' => {
                 ScanOutput::Token(
@@ -517,14 +515,16 @@ impl ScanModeTrait for ScanModeFileBegin
     {
         match next.c {
             ' ' => {
-                Ok(ScanOutput::Start(ScanModeOp::Replace(&ScanModeIndent{space_or_tab: ' '})))
+                Ok(ScanOutput::Start(ScanModeOp::Replace(&ScanModeIndent {
+                    space_or_tab: ' ',
+                })))
             }
             '\t' => {
-                Ok(ScanOutput::Start(ScanModeOp::Replace(&ScanModeIndent{space_or_tab: '\t'})))
+                Ok(ScanOutput::Start(ScanModeOp::Replace(&ScanModeIndent {
+                    space_or_tab: '\t',
+                })))
             }
-            _ => {
-                Ok(ScanOutput::Token(Token::LineBegin, false, PUSH_MODE_LINE))
-            }
+            _ => Ok(ScanOutput::Token(Token::LineBegin, false, PUSH_MODE_LINE)),
         }
     }
 }
@@ -569,9 +569,7 @@ impl ScanModeTrait for ScanModeIndent
                     next.column,
                 ))
             }
-            _ => {
-                Ok(ScanOutput::Token(Token::LineBegin, false, PUSH_MODE_LINE))
-            }
+            _ => Ok(ScanOutput::Token(Token::LineBegin, false, PUSH_MODE_LINE)),
         }
     }
 }
@@ -620,9 +618,7 @@ impl ScanModeTrait for ScanModeSpace
     fn scan(&self, next: Char) -> ScanResult
     {
         match next.c {
-            ' ' => {
-                Ok(ScanOutput::Next(ScanModeOp::Noop))
-            }
+            ' ' => Ok(ScanOutput::Next(ScanModeOp::Noop)),
             '\t' => {
                 Err(rustfail!(
                     "mixed_spaces_tabs",
@@ -659,9 +655,9 @@ impl ScanModeTrait for ScanModeStr
 
 const FILE_BEGIN: ScanMode = &ScanModeFileBegin;
 const PUSH_MODE_INDENT_SPACE: ScanModeOp =
-    ScanModeOp::Push(&ScanModeIndent{space_or_tab: ' '});
+    ScanModeOp::Push(&ScanModeIndent { space_or_tab: ' ' });
 const PUSH_MODE_INDENT_TAB: ScanModeOp =
-    ScanModeOp::Push(&ScanModeIndent{space_or_tab: '\t'});
+    ScanModeOp::Push(&ScanModeIndent { space_or_tab: '\t' });
 const PUSH_MODE_INT: ScanModeOp = ScanModeOp::Push(&ScanModeInt);
 const PUSH_MODE_LINE: ScanModeOp = ScanModeOp::Push(&ScanModeLine);
 
@@ -732,7 +728,12 @@ impl<'input> Tokenz<'input>
         }
     }
 
-    fn next_token(&mut self, mut tok: Token, consume: bool, c: Option<Char>) -> TokenResult<'input>
+    fn next_token(
+        &mut self,
+        mut tok: Token,
+        consume: bool,
+        c: Option<Char>,
+    ) -> TokenResult<'input>
     {
         let begin = match self.begin.or(c) {
             Some(b) => b,
@@ -829,8 +830,9 @@ mod tests
     }
 
     fn nextok<'a, 'b, I>(it: &'a mut I) -> (Token, &'static str)
-        where I: Iterator<Item=&'b TokenResult<'static>>
-            , 'b: 'a
+    where
+        I: Iterator<Item = &'b TokenResult<'static>>,
+        'b: 'a,
     {
         let tokr: &TokenResult = it.next().as_ref().unwrap();
         let t = tokr.as_ref().unwrap();

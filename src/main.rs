@@ -32,7 +32,7 @@ use leema::lstr::Lstr;
 use leema::module::ModuleSource;
 use leema::program;
 use leema::struple::Struple;
-use leema::token::{Tokenz, TokenResult};
+use leema::token::{TokenResult, Tokenz};
 use leema::typecheck;
 use leema::val::Val;
 
