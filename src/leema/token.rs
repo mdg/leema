@@ -823,12 +823,6 @@ mod tests
     use std::iter::Iterator;
 
 
-    fn tok<'a>(toks: &'a Vec<TokenResult>, i: usize) -> (Token, &'a str)
-    {
-        let t = toks[i].as_ref().unwrap();
-        (t.tok, t.src)
-    }
-
     fn nextok<'a, 'b, I>(it: &'a mut I) -> (Token, &'static str)
     where
         I: Iterator<Item = &'b TokenResult<'static>>,
@@ -1042,39 +1036,27 @@ mod tests
     }
 
     #[test]
-    fn test_tokenz_begin_line()
+    fn test_tokenz_iter()
     {
-        let input = "
-        .size: Int
-        >>
-            --
+        let input = r"1 2
+        5 6
+        8 9
         ";
 
-        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
-        let mut i = t.iter();
+        let tokv: Vec<TokenResult> = Tokenz::lex(input).collect();
+        assert_eq!(15, tokv.len());
 
-        assert_eq!((Token::LineBegin, ""), nextok(&mut i));
-        assert_eq!((Token::LineEnd, "\n"), nextok(&mut i));
-
-        assert_eq!((Token::LineBegin, "        "), nextok(&mut i));
-        assert_eq!((Token::Dot, "."), nextok(&mut i));
-        assert_eq!((Token::Id, "size"), nextok(&mut i));
-        assert_eq!((Token::Colon, ":"), nextok(&mut i));
-        assert_eq!((Token::Spaces, " "), nextok(&mut i));
-        assert_eq!((Token::Id, "Int"), nextok(&mut i));
-        assert_eq!((Token::LineEnd, "\n"), nextok(&mut i));
-
-        assert_eq!((Token::LineBegin, "        "), nextok(&mut i));
-        assert_eq!((Token::DoubleArrow, ">>"), nextok(&mut i));
-        assert_eq!((Token::LineEnd, "\n"), nextok(&mut i));
-
-        assert_eq!((Token::LineBegin, "            "), nextok(&mut i));
-        assert_eq!((Token::DoubleDash, "--"), nextok(&mut i));
-        assert_eq!((Token::LineEnd, "\n"), nextok(&mut i));
-
-        assert_eq!(None, i.next());
+        let toki = Tokenz::lex(input);
+        let ftoks: Vec<TokenResult> = toki
+            .filter(|opt_t| {
+                if opt_t.is_err() {
+                    return true;
+                }
+                opt_t.as_ref().unwrap().tok != Token::LineEnd
+            })
+            .collect();
+        assert_eq!(12, ftoks.len());
     }
-
 
     #[test]
     fn test_tokenz_func()

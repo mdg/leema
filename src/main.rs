@@ -140,7 +140,15 @@ fn real_main() -> i32
         let toks: Vec<TokenResult> = Tokenz::lex(&modtxt).collect();
         println!("tokens:");
         for t in &toks {
-            println!("\t{:?}", t);
+            match t {
+                Ok(tc) => {
+                    println!("\t{:?}", tc);
+                }
+                Err(e) => {
+                    println!("err: {:?}", e);
+                    break;
+                }
+            }
         }
         Val::Int(0)
     } else if args.flag_ast {
