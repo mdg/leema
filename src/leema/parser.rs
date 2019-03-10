@@ -31,12 +31,12 @@ impl<'input> Parser<'input>
 
     pub fn parse_stmt(&mut self) -> Lresult<Stmt>
     {
-        Ok(Stmt{line: 0})
+        Ok(Stmt { line: 0 })
     }
 
     pub fn lookahead(&mut self, _tok: Token) -> bool
     {
-        false
+        true
     }
 
     fn token_filter(tok: Token) -> bool
@@ -53,15 +53,15 @@ impl<'input> Parser<'input>
 #[cfg(test)]
 mod tests
 {
-    use leema::token::{Tokenz};
-
-    use std::iter::Iterator;
-
+    use super::Parser;
+    use leema::token::Tokenz;
 
     #[test]
     fn test_parser_it()
     {
-        let input = "(){}[]<>";
+        let input = "const X = 5";
+        let mut p = Parser::new(Tokenz::lex(input));
+        let r = p.parse_module();
+        assert!(r.is_ok());
     }
 }
-
