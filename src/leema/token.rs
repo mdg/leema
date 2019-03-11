@@ -155,6 +155,7 @@ pub enum Token
     CommentLine,
 
     // whitespace
+    EmptyLine,
     LineBegin,
     LineEnd,
     Spaces,
@@ -534,6 +535,9 @@ impl ScanModeTrait for ScanModeFileBegin
                     space_or_tab: '\t',
                 })))
             }
+            '\n' => {
+                Ok(ScanOutput::Token(Token::EmptyLine, true, ScanModeOp::Noop))
+            }
             _ => Ok(ScanOutput::Token(Token::LineBegin, false, PUSH_MODE_LINE)),
         }
     }
@@ -563,6 +567,9 @@ impl ScanModeTrait for ScanModeIndent
         match (self.space_or_tab, next.c) {
             (' ', ' ') => Ok(ScanOutput::Next(ScanModeOp::Noop)),
             ('\t', '\t') => Ok(ScanOutput::Next(ScanModeOp::Noop)),
+            (_, '\n') => {
+                Ok(ScanOutput::Token(Token::EmptyLine, true, ScanModeOp::Noop))
+            }
             (' ', '\t') => {
                 Err(rustfail!(
                     "token_failure",
@@ -1111,8 +1118,7 @@ mod tests
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
         let mut i = t.iter();
 
-        assert_eq!((Token::LineBegin, ""), nextok(&mut i));
-        assert_eq!((Token::LineEnd, "\n"), nextok(&mut i));
+        assert_eq!(Token::EmptyLine, nextok(&mut i).0);
 
         assert_eq!((Token::LineBegin, "        "), nextok(&mut i));
         assert_eq!(Token::Func, nextok(&mut i).0);
@@ -1175,7 +1181,6 @@ mod tests
         let mut i = t.iter();
 
         i.next();
-        i.next();
 
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
         assert_eq!(Token::Type, nextok(&mut i).0);
@@ -1207,7 +1212,6 @@ mod tests
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
         let mut i = t.iter();
 
-        i.next();
         i.next();
 
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
