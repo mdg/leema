@@ -206,10 +206,10 @@ lazy_static! {
 #[derive(PartialEq)]
 pub struct TokenSrc<'input>
 {
-    src: &'input str,
-    tok: Token,
-    begin: Char,
-    len: usize,
+    pub src: &'input str,
+    pub tok: Token,
+    pub begin: Char,
+    pub len: usize,
 }
 
 pub type TokenResult<'input> = Lresult<TokenSrc<'input>>;
@@ -716,6 +716,29 @@ impl<'input> Tokenz<'input>
     pub fn set_filter(&mut self, filter: TokenFilterFn)
     {
         self.filter = filter;
+    }
+
+    pub fn expect(&mut self, tok: Token) -> TokenResult<'input>
+    {
+        match self.next() {
+            Some(Ok(toksrc)) if toksrc.tok == tok => Ok(toksrc),
+            Some(Ok(toksrc)) => {
+                Err(rustfail!(
+                    "parse_failure",
+                    "expected {:?}, found {:?}",
+                    tok,
+                    toksrc,
+                ))
+            }
+            Some(Err(e)) => Err(e),
+            None => {
+                Err(rustfail!(
+                    "parse_failure",
+                    "expected {:?}, found eof",
+                    tok
+                ))
+            }
+        }
     }
 
     fn unfiltered_next(&mut self) -> Option<TokenResult<'input>>

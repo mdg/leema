@@ -2,7 +2,7 @@ use leema::failure::Lresult;
 use leema::token::{Token, Tokenz};
 
 
-struct Stmt
+struct Ast
 {
     line: u16,
 }
@@ -20,7 +20,7 @@ impl<'input> Parser<'input>
         Parser { tok }
     }
 
-    pub fn parse_module(&mut self) -> Lresult<Vec<Stmt>>
+    pub fn parse_module(&mut self) -> Lresult<Vec<Ast>>
     {
         let mut result = vec![];
         while !self.lookahead(Token::EOF) {
@@ -29,9 +29,35 @@ impl<'input> Parser<'input>
         Ok(result)
     }
 
-    pub fn parse_stmt(&mut self) -> Lresult<Stmt>
+    pub fn parse_stmt(&mut self) -> Lresult<Ast>
     {
-        Ok(Stmt { line: 0 })
+        self.tok.expect(Token::LineBegin)?;
+        let toksrc = self.tok.next().unwrap()?;
+        match toksrc.tok {
+            Token::Let => {
+                // let patt = self.parse_pattern()?;
+                self.tok.expect(Token::Assignment)?;
+                let _expr = self.parse_expr()?;
+            }
+            _ => {
+                self.parse_expr()?;
+            }
+        }
+        Ok(Ast { line: 0 })
+    }
+
+    pub fn parse_expr(&mut self) -> Lresult<Ast>
+    {
+        let tok = self.tok.next().unwrap()?;
+        match tok.tok {
+            Token::Id => {
+            }
+            Token::Int => {
+            }
+            _ => {
+            }
+        }
+        Ok(Ast { line: 0 })
     }
 
     pub fn lookahead(&mut self, _tok: Token) -> bool
@@ -42,6 +68,7 @@ impl<'input> Parser<'input>
     fn token_filter(tok: Token) -> bool
     {
         match tok {
+            Token::EmptyLine => false,
             Token::LineEnd => false,
             Token::Spaces => false,
             _ => true,
