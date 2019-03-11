@@ -1,9 +1,11 @@
 [package]
 name = "leema"
 version = "0.0.2"
-authors = ["Matthew Graham <mdg149@gmail.com>"]
+authors = ["Matthew Graham <mattg@leema.org>"]
 rustc-link-search = ["."]
 rustc-link-lib = ["leemalex"]
+# lots of errors from 2018, not ready yet
+# edition = "2018"
 
 [[bin]]
 name = "leema"
