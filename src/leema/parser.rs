@@ -50,12 +50,9 @@ impl<'input> Parser<'input>
     {
         let tok = self.tok.next().unwrap()?;
         match tok.tok {
-            Token::Id => {
-            }
-            Token::Int => {
-            }
-            _ => {
-            }
+            Token::Id => {}
+            Token::Int => {}
+            _ => {}
         }
         Ok(Ast { line: 0 })
     }

@@ -732,11 +732,7 @@ impl<'input> Tokenz<'input>
             }
             Some(Err(e)) => Err(e),
             None => {
-                Err(rustfail!(
-                    "parse_failure",
-                    "expected {:?}, found eof",
-                    tok
-                ))
+                Err(rustfail!("parse_failure", "expected {:?}, found eof", tok))
             }
         }
     }
