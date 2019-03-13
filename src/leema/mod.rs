@@ -6,6 +6,7 @@ pub mod lstr;
 pub mod failure;
 pub mod application;
 pub mod ast;
+pub mod ast2;
 pub mod code;
 pub mod fiber;
 pub mod frame;
