@@ -1,5 +1,7 @@
+use leema::ast2::Ast;
 use leema::failure::Lresult;
 use leema::token::{Token, TokenSrc};
+use leema::val::Val;
 
 
 struct TokenStream<'input>
@@ -23,6 +25,11 @@ impl<'input> TokenStream<'input>
         self.peek_token().map(|t| t.tok)
     }
 
+    pub fn match_next(&mut self, t: Token) -> Lresult<bool>
+    {
+        self.peek().map(|tok| tok == t)
+    }
+
     pub fn next(&mut self) -> Lresult<TokenSrc<'input>>
     {
         self.peek_token()?;
@@ -42,7 +49,7 @@ impl<'input> TokenStream<'input>
         }
     }
 
-    pub fn expect(&mut self, expected: Token) -> Lresult<TokenSrc<'input>>
+    pub fn expect_next(&mut self, expected: Token) -> Lresult<TokenSrc<'input>>
     {
         let tok = self.peek_token()?;
         if tok.tok == expected {
@@ -80,10 +87,42 @@ impl<'input> TokenStream<'input>
     }
 }
 
-struct Ast
+trait StmtParser
 {
-    line: u16,
+    fn parse<'input>(Parser<'input>, Token<'input>) -> Ast;
 }
+
+struct DefConstParser;
+struct DefFuncParser;
+struct DefTypeParser;
+struct LetParser;
+
+trait PrefixParser
+{
+    fn parse(Parser<'input>, Token<'input>) -> Ast;
+}
+
+struct BlockParser;
+struct IdParser;
+struct IfParser;
+struct ListParser;
+struct MatchParser;
+struct PrefixOpParser;
+struct TupleParser;
+
+trait InfixParser
+{
+    fn parse(Parser<'input>, Ast, Token<'input>) -> Ast;
+}
+
+struct BinaryOpParser;
+// struct ConsParser;
+// struct DollarParser;
+// struct DotParser;
+// struct PipeParser;
+struct CallParser;
+struct LessThanParser;
+struct TypeParamParser;
 
 struct Parser<'input>
 {
@@ -98,46 +137,75 @@ impl<'input> Parser<'input>
         Parser { tok }
     }
 
-    pub fn parse_module(&mut self) -> Lresult<Vec<Ast>>
+    pub fn parse_module(&mut self) -> Lresult<Vec<Ast<'input>>>
     {
         let mut result = vec![];
-        while !self.lookahead(Token::EOF) {
+        while !self.match_next(Token::EOF)? {
             result.push(self.parse_stmt()?);
         }
         Ok(result)
     }
 
-    pub fn parse_stmt(&mut self) -> Lresult<Ast>
+    pub fn parse_stmt(&mut self) -> Lresult<Ast<'input>>
     {
-        self.tok.expect(Token::LineBegin)?;
+        self.tok.expect_next(Token::LineBegin)?;
         let toksrc = self.tok.next()?;
         match toksrc.tok {
             Token::Let => {
-                // let patt = self.parse_pattern()?;
-                self.tok.expect(Token::Assignment)?;
-                let _expr = self.parse_expr()?;
+                let lhs = self.parse_pattern()?;
+                self.tok.expect_next(Token::Assignment)?;
+                let loc = Ast::loc(&lhs);
+                let rhs = self.parse_expr()?;
+                Ok(Ast::Let(lhs, rhs, loc))
             }
             _ => {
-                self.parse_expr()?;
+                self.parse_expr()
             }
         }
-        Ok(Ast { line: 0 })
     }
 
-    pub fn parse_expr(&mut self) -> Lresult<Ast>
+    pub fn parse_expr(&mut self) -> Lresult<Ast<'input>>
+    {
+        let first = self.tok.next()?;
+        let prefix = self.find_prefix(first.tok).ok_or_else(|| {
+            rustfail!("cannot find parser for {:?}", first.tok)
+        })?;
+        // let left = prefix.parse(first);
+
+        let expr = match first.tok {
+            Token::Id => {
+                Ast::Id(tok.src, Ast::loc(&tok))
+            }
+            Token::Bool(b) => {
+                Ast::Bool(b, Ast::loc(&tok))
+            }
+            _ => {
+                return Err(rustfail!(
+                    "parse_failure",
+                    "expected expression, found {:?}",
+                    tok,
+                ))
+            }
+        };
+        Ok(expr)
+    }
+
+    pub fn parse_pattern(&mut self) -> Lresult<Ast<'input>>
     {
         let tok = self.tok.next()?;
-        match tok.tok {
-            Token::Id => {}
-            Token::Int => {}
-            _ => {}
-        }
-        Ok(Ast { line: 0 })
-    }
-
-    pub fn lookahead(&mut self, _tok: Token) -> bool
-    {
-        true
+        let patt = match tok.tok {
+            Token::Id => {
+                Ast::Id(tok.src, tok.loc)
+            }
+            _ => {
+                return Err(rustfail!(
+                    "parse_failure",
+                    "expected pattern token, found {:?}",
+                    tok,
+                ))
+            }
+        };
+        Ok(patt)
     }
 
     fn token_filter(tok: Token) -> bool
