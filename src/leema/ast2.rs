@@ -1,21 +1,16 @@
 use leema::token::TokenSrc;
-use leema::val::Val;
+use leema::val::{Type, Val};
+use leema::reg::Reg;
+use leema::struple::{Struple2, StrupleKV};
 
 
+#[derive(Clone)]
+#[derive(Copy)]
+#[derive(Debug)]
+#[derive(PartialEq)]
 struct Loc {
     lineno: u16,
     column: u8,
-}
-
-impl From<TokenSrc> for Loc
-{
-    fn from(t: &TokenSrc) -> Loc
-    {
-        Loc {
-            lineno: t.lineno,
-            column: t.column,
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -31,56 +26,50 @@ pub enum CaseType
     TypeCast,
 }
 
-// almost all these vecs should be Struples
-enum Ast<'input>
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+pub struct Case<'i>
 {
-    Block(Vec<Val>, Loc),
-    Call(Ast, Vec<Ast>, Loc),
-    Case(CaseType, Ast, Ast, Ast, Loc),
-    Const(Val, Loc),
-    DefConst(&'input str, Ast, Loc),
-    DefFunc(Ast, Ast, Ast, Loc),
-    DefFunc(AstNode, Struple2<AstNode>, AstNode, AstNode),
-    DefType(Ast, Vec<Ast>, Loc),
-    FuncType(Vec<Ast>, Loc),
-    LessThan3(Ast, bool, Ast, bool, Ast, Loc),
-    Let(Ast, Ast, Loc),
-    List(Vec<Ast>, Loc),
-    Localid(&'input str, Loc),
-    ModId(&'input str, &'input str, Vec<Ast>, Loc),
-    Op1(Ast, Ast, Loc),
-    Op2(Ast, Ast, Ast, Loc),
-    Tuple(Vec<Ast>, Loc),
+    pub cond: AstNode<'i>,
+    pub body: AstNode<'i>,
+    pub else_case: Option<Box<Case<'i>>>,
+    pub loc: Loc,
 }
 
+#[derive(Clone)]
 #[derive(Debug)]
-pub enum Ast
+#[derive(PartialEq)]
+pub enum Ast<'i>
 {
-    Block(Vec<AstNode>),
-    Call(AstNode, Struple2<AstNode>),
-    Cons(AstNode, AstNode),
-    ConstVal(Val),
-    DefMacro(AstNode, Struple2<AstNode>, AstNode),
-    DefStruct(AstNode, Struple2<AstNode>),
-    DefUnion(AstNode, Struple2<AstNode>),
-    DotAccess(AstNode, Lstr),
-    GenericId(AstNode, Struple2<Lstr>),
-    Id(Lstr),
-    Ifx(IfType, AstNode, IfCase),
-    Import(Lstr),
-    Let(AstNode, AstNode, AstNode),
-    List(Struple2<AstNode>),
-    Map(Struple2<AstNode>),
-    ModId(Lstr, Lstr),
-    NewStruct(AstNode, Struple2<AstNode>),
-    NewTuple(Struple2<AstNode>),
-    NewUnion(AstNode, Lstr, Struple2<AstNode>),
-    Return(AstNode),
+    Block(Vec<AstNode<'i>>),
+    Call(AstNode<'i>, StrupleKV<&'i str, AstNode<'i>>),
+    Case(CaseType, AstNode<'i>, Case<'i>),
+    ConstExpr(Val),
+    DefConst(&'i str, AstNode<'i>),
+    DefFunc(AstNode<'i>, StrupleKV<Option<&'i str>, AstNode<'i>>, AstNode<'i>),
+    DefMacro(AstNode<'i>, StrupleKV<&'i str, AstNode<'i>>, AstNode<'i>),
+    DefType(AstNode<'i>, StrupleKV<&'i str, AstNode<'i>>),
+    FuncType(StrupleKV<&'i str, AstNode<'i>>),
+    Id1(&'i str),
+    Id2(&'i str, &'i str),
+    IdGeneric(AstNode<'i>, StrupleKV<&'i str, Option<&'i str>>),
+    Import(&'i str),
+    LessThan3(AstNode<'i>, bool, AstNode<'i>, bool, AstNode<'i>),
+    Let(AstNode<'i>, AstNode<'i>, AstNode<'i>),
+    List(StrupleKV<&'i str, AstNode<'i>>),
+    Map(StrupleKV<AstNode<'i>, AstNode<'i>>),
+    NewStruct(AstNode<'i>, Struple2<AstNode<'i>>),
+    NewTuple(StrupleKV<&'i str, AstNode<'i>>),
+    NewUnion(AstNode<'i>, &'i str, Struple2<AstNode<'i>>),
+    Op1(&'i str, AstNode<'i>),
+    Op2(&'i str, AstNode<'i>, AstNode<'i>),
+    Return(AstNode<'i>),
     RustBlock,
-    StrExpr(Vec<AstNode>),
+    StrExpr(Vec<AstNode<'i>>),
+    Tuple(StrupleKV<&'i str, AstNode<'i>>),
     Type(Type),
-    TypeCall(AstNode, Struple2<AstNode>),
-    Wildcard,
+    TypeCall(AstNode<'i>, StrupleKV<&'i str, AstNode<'i>>),
 }
 
 impl<'input> Ast<'input>
@@ -95,17 +84,17 @@ impl<'input> Ast<'input>
 }
 
 #[derive(Debug)]
-pub struct AstNode
+pub struct AstNode<'i>
 {
-    node: Box<Ast>,
-    loc: SrcLoc,
-    typ: Type,
-    dst: Reg,
+    pub node: Box<Ast<'i>>,
+    pub loc: Loc,
+    pub typ: Type,
+    pub dst: Reg,
 }
 
-impl AstNode
+impl<'i> AstNode<'i>
 {
-    pub fn new(node: Ast, loc: SrcLoc) -> AstNode
+    pub fn new(node: Ast<'i>, loc: Loc) -> AstNode<'i>
     {
         AstNode {
             node: Box::new(node),
@@ -115,7 +104,7 @@ impl AstNode
         }
     }
 
-    pub fn replace(&self, node: Ast, t: Type) -> AstNode
+    pub fn replace(&self, node: Ast<'i>, t: Type) -> AstNode<'i>
     {
         AstNode {
             node: Box::new(node),

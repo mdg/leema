@@ -1,17 +1,15 @@
-use leema::ast::{IfCase, IfType};
+use leema::ast2::{Ast, AstNode};
 use leema::failure::{Failure, Lresult};
 use leema::infer::Inferator;
 use leema::inter::Blockstack;
 use leema::lri::{Lri, ModLocalId, SpecialModId};
 use leema::lstr::Lstr;
-use leema::reg::{Reg, RegTable};
+use leema::reg::RegTable;
 use leema::struple::{Struple, Struple2, StrupleItem, StrupleKV};
-use leema::val::{SrcLoc, Type, Val};
+use leema::val::{Type, Val};
 
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
-
-
 
 
 pub struct Semantics<'a>
@@ -171,8 +169,8 @@ impl<'a> Semantics<'a>
                     .map(|i| (Some(i.k.clone()), Val::Void))
                     .collect();
                 let fri = match *new_id.node {
-                    Ast::Id(ref localid) => Lri::new(localid.clone()),
-                    Ast::ModId(ref modid, ref localid) => {
+                    Ast::Id1(ref localid) => Lri::new(localid.clone()),
+                    Ast::Id2(ref modid, ref localid) => {
                         let mlid =
                             ModLocalId::new(modid.clone(), localid.clone());
                         let tctypes = special_types.clone();
@@ -191,7 +189,7 @@ impl<'a> Semantics<'a>
                 // *t = Type::SpecialFunc(special_types.clone(), ft);
                 let spec_type = Type::SpecialFunc(special_types, ft.clone());
                 let t2 = spec_type.clone();
-                (Ast::ConstVal(Val::FuncRef(fri, arg_vals, spec_type)), t2)
+                (Ast::ConstExpr(Val::FuncRef(fri, arg_vals, spec_type)), t2)
             }
             Type::Func(_) => {
                 return Err(Failure::new(

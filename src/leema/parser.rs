@@ -1,7 +1,6 @@
 use leema::ast2::Ast;
 use leema::failure::Lresult;
 use leema::token::{Token, TokenSrc};
-use leema::val::Val;
 
 
 struct TokenStream<'input>
@@ -89,7 +88,7 @@ impl<'input> TokenStream<'input>
 
 trait StmtParser
 {
-    fn parse<'input>(Parser<'input>, Token<'input>) -> Ast;
+    fn parse<'input>(Parser<'input>, TokenSrc<'input>) -> Ast<'input>;
 }
 
 struct DefConstParser;
@@ -99,7 +98,7 @@ struct LetParser;
 
 trait PrefixParser
 {
-    fn parse(Parser<'input>, Token<'input>) -> Ast;
+    fn parse<'input>(Parser<'input>, TokenSrc<'input>) -> Ast<'input>;
 }
 
 struct BlockParser;
@@ -112,7 +111,7 @@ struct TupleParser;
 
 trait InfixParser
 {
-    fn parse(Parser<'input>, Ast, Token<'input>) -> Ast;
+    fn parse<'input>(Parser<'input>, Ast, TokenSrc<'input>) -> Ast<'input>;
 }
 
 struct BinaryOpParser;
@@ -172,9 +171,10 @@ impl<'input> Parser<'input>
         })?;
         // let left = prefix.parse(first);
 
+        /*
         let expr = match first.tok {
             Token::Id => {
-                Ast::Id(tok.src, Ast::loc(&tok))
+                Ast::Id(first.src, Ast::loc(&tok))
             }
             Token::Bool(b) => {
                 Ast::Bool(b, Ast::loc(&tok))
@@ -187,7 +187,12 @@ impl<'input> Parser<'input>
                 ))
             }
         };
-        Ok(expr)
+        */
+        // Ok(expr)
+        Err(rustfail!(
+            "parse_failure",
+            "parse not implemented",
+        ))
     }
 
     pub fn parse_pattern(&mut self) -> Lresult<Ast<'input>>
