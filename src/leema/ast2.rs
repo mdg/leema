@@ -70,6 +70,7 @@ pub enum Ast<'i>
     Tuple(StrupleKV<&'i str, AstNode<'i>>),
     Type(Type),
     TypeCall(AstNode<'i>, StrupleKV<&'i str, AstNode<'i>>),
+    Void,
 }
 
 impl<'input> Ast<'input>
@@ -77,13 +78,15 @@ impl<'input> Ast<'input>
     pub fn loc(t: &TokenSrc) -> Loc
     {
         Loc {
-            lineno: t.lineno,
-            column: t.column,
+            lineno: t.begin.lineno,
+            column: t.begin.column,
         }
     }
 }
 
+#[derive(Clone)]
 #[derive(Debug)]
+#[derive(PartialEq)]
 pub struct AstNode<'i>
 {
     pub node: Box<Ast<'i>>,
@@ -99,6 +102,16 @@ impl<'i> AstNode<'i>
         AstNode {
             node: Box::new(node),
             loc,
+            typ: Type::Unknown,
+            dst: Reg::Void,
+        }
+    }
+
+    pub fn void() -> AstNode<'i>
+    {
+        AstNode {
+            node: Box::new(Ast::Void),
+            loc: Loc { lineno: 0, column: 0 },
             typ: Type::Unknown,
             dst: Reg::Void,
         }

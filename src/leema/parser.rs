@@ -1,4 +1,4 @@
-use leema::ast2::Ast;
+use leema::ast2::{Ast, AstNode};
 use leema::failure::Lresult;
 use leema::token::{Token, TokenSrc};
 
@@ -136,34 +136,34 @@ impl<'input> Parser<'input>
         Parser { tok }
     }
 
-    pub fn parse_module(&mut self) -> Lresult<Vec<Ast<'input>>>
+    pub fn parse_module(&mut self) -> Lresult<Vec<AstNode<'input>>>
     {
         let mut result = vec![];
-        while !self.match_next(Token::EOF)? {
+        while !self.tok.match_next(Token::EOF)? {
             result.push(self.parse_stmt()?);
         }
         Ok(result)
     }
 
-    pub fn parse_stmt(&mut self) -> Lresult<Ast<'input>>
+    pub fn parse_stmt(&mut self) -> Lresult<AstNode<'input>>
     {
         self.tok.expect_next(Token::LineBegin)?;
         let toksrc = self.tok.next()?;
-        match toksrc.tok {
+        let ast = match toksrc.tok {
             Token::Let => {
                 let lhs = self.parse_pattern()?;
                 self.tok.expect_next(Token::Assignment)?;
-                let loc = Ast::loc(&lhs);
                 let rhs = self.parse_expr()?;
-                Ok(Ast::Let(lhs, rhs, loc))
+                Ast::Let(lhs, AstNode::void(), rhs)
             }
             _ => {
-                self.parse_expr()
+                return self.parse_expr();
             }
-        }
+        };
+        Ok(AstNode::new(ast, Ast::loc(&toksrc)))
     }
 
-    pub fn parse_expr(&mut self) -> Lresult<Ast<'input>>
+    pub fn parse_expr(&mut self) -> Lresult<AstNode<'input>>
     {
         let first = self.tok.next()?;
         let prefix = self.find_prefix(first.tok).ok_or_else(|| {
@@ -195,7 +195,7 @@ impl<'input> Parser<'input>
         ))
     }
 
-    pub fn parse_pattern(&mut self) -> Lresult<Ast<'input>>
+    pub fn parse_pattern(&mut self) -> Lresult<AstNode<'input>>
     {
         let tok = self.tok.next()?;
         let patt = match tok.tok {
