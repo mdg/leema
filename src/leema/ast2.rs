@@ -73,7 +73,7 @@ pub enum Ast<'i>
     Void,
 }
 
-impl<'input> Ast<'input>
+impl<'i> Ast<'i>
 {
     pub fn loc(t: &TokenSrc) -> Loc
     {

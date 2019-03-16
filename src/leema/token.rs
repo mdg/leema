@@ -83,6 +83,9 @@ impl<'input> CharIter<'input>
 #[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Ord)]
+#[derive(Hash)]
 pub enum Token
 {
     Id,

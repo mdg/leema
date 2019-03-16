@@ -107,8 +107,27 @@ impl PrefixParser for LetParser
 }
 
 struct BlockParser;
+
+impl PrefixParser for BlockParser
+{
+    fn parse<'input>(&self, _p: Parser<'input>, _left: TokenSrc<'input>) -> Lresult<AstNode<'input>>
+    {
+        Ok(AstNode::void())
+    }
+}
+
 struct IdParser;
+
 struct IfParser;
+
+impl PrefixParser for IfParser
+{
+    fn parse<'input>(&self, _p: Parser<'input>, _left: TokenSrc<'input>) -> Lresult<AstNode<'input>>
+    {
+        Ok(AstNode::void())
+    }
+}
+
 struct ListParser;
 struct MatchParser;
 struct PrefixOpParser
@@ -120,7 +139,7 @@ struct TupleParser;
 
 trait InfixParser
 {
-    fn parse<'input>(&self, Parser<'input>, AstNode, TokenSrc<'input>) -> Lresult<AstNode<'input>>;
+    fn parse<'input>(&self, Parser<'input>, AstNode<'input>, TokenSrc<'input>) -> Lresult<AstNode<'input>>;
 }
 
 enum Assoc
@@ -159,11 +178,11 @@ impl BinaryOpParser
 
 impl InfixParser for BinaryOpParser
 {
-    fn parse<'input>(&self, p: Parser<'input>, left: AstNode, op: TokenSrc<'input>) -> Lresult<AstNode<'input>>
+    fn parse<'input>(&self, p: Parser<'input>, left: AstNode<'input>, op: TokenSrc<'input>) -> Lresult<AstNode<'input>>
     {
         let right = p.parse_expr()?;
-        let ast = Ast::BinaryOp(left, op.src, right);
-        Ok(AstNode::new(ast, Ast::loc(op)))
+        let ast = Ast::Op2(op.src, left, right);
+        Ok(AstNode::new(ast, Ast::loc(&op)))
     }
 }
 
@@ -175,22 +194,28 @@ struct CallParser;
 struct LessThanParser;
 struct TypeParamParser;
 
-lazy_static! {
-    static ref STMT_PARSERS: HashMap<Token, &'static PrefixParser> = {
-        let mut stmt = HashMap::new();
-        stmt.insert(Token::Let, &LetParser);
-        // stmt.insert(Token::Const, &DefConstParser);
-        stmt
-    };
+struct Parser<'input>
+{
+    tok: TokenStream<'input>,
+    stmts: HashMap<Token, &'static PrefixParser>,
+    prefix: HashMap<Token, &'static PrefixParser>,
+    infix: HashMap<Token, &'static InfixParser>,
+}
 
-    static ref PREFIX_PARSERS: HashMap<Token, &'static PrefixParser> = {
-        let mut prefix = HashMap::new();
+impl<'input> Parser<'input>
+{
+    pub fn new(items: Vec<TokenSrc<'input>>) -> Parser<'input>
+    {
+        let tok = TokenStream::new(items);
+
+        let mut stmts = HashMap::new();
+        stmts.insert(Token::Let, &LetParser);
+        // stmt.insert(Token::Const, &DefConstParser);
+
+        let mut prefix: HashMap<Token, &'static PrefixParser> = HashMap::new();
         prefix.insert(Token::DoubleArrow, &BlockParser);
         prefix.insert(Token::If, &IfParser);
-        prefix
-    };
 
-    static ref INFIX_PARSERS: HashMap<Token, &'static InfixParser> = {
         let mut infix = HashMap::new();
         infix.insert(Token::Star
             , &BinaryOpParser::new("*", Precedence(13, None), Assoc::Left));
@@ -200,21 +225,8 @@ lazy_static! {
             , &BinaryOpParser::new("+", Precedence(10, None), Assoc::Left));
         infix.insert(Token::Dash
             , &BinaryOpParser::new("-", Precedence(10, None), Assoc::Left));
-        infix
-    };
-}
 
-struct Parser<'input>
-{
-    tok: TokenStream<'input>,
-}
-
-impl<'input> Parser<'input>
-{
-    pub fn new(items: Vec<TokenSrc<'input>>) -> Parser<'input>
-    {
-        let tok = TokenStream::new(items);
-        Parser { tok }
+        Parser { tok, stmts, prefix, infix }
     }
 
     pub fn parse_module(&mut self) -> Lresult<Vec<AstNode<'input>>>
