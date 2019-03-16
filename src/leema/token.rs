@@ -106,6 +106,7 @@ pub enum Token
     DoubleQuoteR,
 
     // keywords
+    Const,
     Failed,
     Fork,
     Func,
@@ -185,6 +186,7 @@ lazy_static! {
         keywords.insert("or", Token::Or);
         keywords.insert("xor", Token::Xor);
         // keywords
+        keywords.insert("const", Token::Const);
         keywords.insert("failed", Token::Failed);
         keywords.insert("fork", Token::Fork);
         keywords.insert("func", Token::Func);
