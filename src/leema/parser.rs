@@ -2,6 +2,8 @@ use leema::ast2::{Ast, AstNode};
 use leema::failure::Lresult;
 use leema::token::{Token, TokenSrc};
 
+use std::collections::HashMap;
+
 
 struct TokenStream<'input>
 {
@@ -86,9 +88,9 @@ impl<'input> TokenStream<'input>
     }
 }
 
-trait StmtParser
+trait PrefixParser
 {
-    fn parse<'input>(Parser<'input>, TokenSrc<'input>) -> Ast<'input>;
+    fn parse<'input>(&self, Parser<'input>, TokenSrc<'input>) -> Lresult<AstNode<'input>>;
 }
 
 struct DefConstParser;
@@ -96,9 +98,12 @@ struct DefFuncParser;
 struct DefTypeParser;
 struct LetParser;
 
-trait PrefixParser
+impl PrefixParser for LetParser
 {
-    fn parse<'input>(Parser<'input>, TokenSrc<'input>) -> Ast<'input>;
+    fn parse<'input>(&self, _p: Parser<'input>, _left: TokenSrc<'input>) -> Lresult<AstNode<'input>>
+    {
+        Ok(AstNode::void())
+    }
 }
 
 struct BlockParser;
@@ -106,15 +111,62 @@ struct IdParser;
 struct IfParser;
 struct ListParser;
 struct MatchParser;
-struct PrefixOpParser;
+struct PrefixOpParser
+{
+    op: &'static str,
+    precedence: u8,
+}
 struct TupleParser;
 
 trait InfixParser
 {
-    fn parse<'input>(Parser<'input>, Ast, TokenSrc<'input>) -> Ast<'input>;
+    fn parse<'input>(&self, Parser<'input>, AstNode, TokenSrc<'input>) -> Lresult<AstNode<'input>>;
 }
 
-struct BinaryOpParser;
+enum Assoc
+{
+    Left,
+    Right,
+}
+
+enum PrecedenceMod
+{
+    UserHigher,
+    AssocLower,
+    UserLower,
+}
+struct Precedence(u8, Option<PrecedenceMod>);
+
+struct BinaryOpParser
+{
+    op: &'static str,
+    pre: Precedence,
+    assoc: Assoc,
+}
+
+impl BinaryOpParser
+{
+    pub fn new(op: &'static str, pre: Precedence, assoc: Assoc) -> BinaryOpParser
+    {
+        BinaryOpParser
+        {
+            op,
+            pre,
+            assoc,
+        }
+    }
+}
+
+impl InfixParser for BinaryOpParser
+{
+    fn parse<'input>(&self, p: Parser<'input>, left: AstNode, op: TokenSrc<'input>) -> Lresult<AstNode<'input>>
+    {
+        let right = p.parse_expr()?;
+        let ast = Ast::BinaryOp(left, op.src, right);
+        Ok(AstNode::new(ast, Ast::loc(op)))
+    }
+}
+
 // struct ConsParser;
 // struct DollarParser;
 // struct DotParser;
@@ -122,6 +174,35 @@ struct BinaryOpParser;
 struct CallParser;
 struct LessThanParser;
 struct TypeParamParser;
+
+lazy_static! {
+    static ref STMT_PARSERS: HashMap<Token, &'static PrefixParser> = {
+        let mut stmt = HashMap::new();
+        stmt.insert(Token::Let, &LetParser);
+        // stmt.insert(Token::Const, &DefConstParser);
+        stmt
+    };
+
+    static ref PREFIX_PARSERS: HashMap<Token, &'static PrefixParser> = {
+        let mut prefix = HashMap::new();
+        prefix.insert(Token::DoubleArrow, &BlockParser);
+        prefix.insert(Token::If, &IfParser);
+        prefix
+    };
+
+    static ref INFIX_PARSERS: HashMap<Token, &'static InfixParser> = {
+        let mut infix = HashMap::new();
+        infix.insert(Token::Star
+            , &BinaryOpParser::new("*", Precedence(13, None), Assoc::Left));
+        infix.insert(Token::Slash
+            , &BinaryOpParser::new("/", Precedence(13, None), Assoc::Left));
+        infix.insert(Token::Plus
+            , &BinaryOpParser::new("+", Precedence(10, None), Assoc::Left));
+        infix.insert(Token::Dash
+            , &BinaryOpParser::new("-", Precedence(10, None), Assoc::Left));
+        infix
+    };
+}
 
 struct Parser<'input>
 {
@@ -211,6 +292,11 @@ impl<'input> Parser<'input>
             }
         };
         Ok(patt)
+    }
+
+    fn find_prefix(&self, tok: Token) -> Option<&PrefixParser>
+    {
+        None
     }
 
     fn token_filter(tok: Token) -> bool
