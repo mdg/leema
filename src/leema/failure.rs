@@ -10,14 +10,14 @@ use std::sync::Arc;
 macro_rules! rustfail {
     ($tag:expr, $msg:expr) => {
         ::leema::failure::Failure::new($tag, ::leema::lstr::Lstr::from($msg))
-            .set_rustloc(file!(), line!())
+            .loc(file!(), line!())
     };
     ($tag:expr, $fmt:expr, $($arg:tt)*) => {
         ::leema::failure::Failure::new(
                 $tag,
                 ::leema::lstr::Lstr::from(format!($fmt, $($arg)*))
             )
-            .set_rustloc(file!(), line!())
+            .loc(file!(), line!())
     };
 }
 
@@ -52,7 +52,7 @@ pub struct Failure
     msg: Val,
     trace: Option<Arc<FrameTrace>>,
     status: Status,
-    rustloc: Option<(&'static str, u32)>,
+    loc: Vec<(Lstr, u32)>,
     meta: LmapNode,
     context: Vec<Lstr>,
 }
@@ -68,15 +68,15 @@ impl Failure
             msg: Val::Str(msg),
             trace: None,
             status: Status::None,
-            rustloc: None,
+            loc: vec![],
             meta: None,
             context: vec![],
         }
     }
 
-    pub fn set_rustloc(mut self, file: &'static str, line: u32) -> Self
+    pub fn loc(mut self, file: &'static str, line: u32) -> Self
     {
-        self.rustloc = Some((file, line));
+        self.loc.push((Lstr::from(file), line));
         self
     }
 
@@ -103,9 +103,7 @@ impl fmt::Display for Failure
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         write!(f, "Failure({} ", self.tag)?;
-        if let Some(ref rustloc) = self.rustloc {
-            write!(f, " @ {:?}", rustloc)?;
-        }
+        write!(f, " @ {:?}", self.loc)?;
         write!(f, "\n'{}')", self.msg)
     }
 }
