@@ -140,7 +140,10 @@ impl PrefixParser for LetParser
         let lhs = p.parse_pattern()?;
         let _assign = p.expect_next(Token::Assignment)?;
         let rhs = p.parse_expr()?;
-        Ok(AstNode::new(Ast::Let(lhs, AstNode::void(), rhs), Ast::loc(&left)))
+        Ok(AstNode::new(
+            Ast::Let(lhs, AstNode::void(), rhs),
+            Ast::loc(&left),
+        ))
     }
 }
 
@@ -268,10 +271,7 @@ struct BinaryOpParser
 
 impl BinaryOpParser
 {
-    pub fn new(
-        op: &'static str,
-        pre: Precedence,
-    ) -> BinaryOpParser
+    pub fn new(op: &'static str, pre: Precedence) -> BinaryOpParser
     {
         BinaryOpParser { op, pre }
     }
