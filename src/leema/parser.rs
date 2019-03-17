@@ -94,6 +94,18 @@ trait PrefixParser
 }
 
 struct DefConstParser;
+
+impl PrefixParser for DefConstParser
+{
+    fn parse<'input>(&self, p: &mut Parser<'input>, left: TokenSrc<'input>) -> Lresult<AstNode<'input>>
+    {
+        let id = p.expect_next(Token::Id)?;
+        let _assign = p.expect_next(Token::Assignment)?;
+        let rhs = p.parse_expr()?;
+        Ok(AstNode::new(Ast::DefConst(id.src, rhs), Ast::loc(&left)))
+    }
+}
+
 struct DefFuncParser;
 struct DefTypeParser;
 struct LetParser;
@@ -117,6 +129,14 @@ impl PrefixParser for BlockParser
 }
 
 struct IdParser;
+
+impl PrefixParser for IdParser
+{
+    fn parse<'input>(&self, _p: &mut Parser<'input>, left: TokenSrc<'input>) -> Lresult<AstNode<'input>>
+    {
+        Ok(AstNode::new(Ast::Id1(left.src), Ast::loc(&left)))
+    }
+}
 
 struct IfParser;
 
@@ -234,10 +254,11 @@ impl<'input> Parser<'input>
 
         let mut stmts: HashMap<Token, &'static PrefixParser> = HashMap::new();
         stmts.insert(Token::Let, &LetParser);
-        // stmt.insert(Token::Const, &DefConstParser);
+        stmts.insert(Token::Const, &DefConstParser);
 
         let mut prefix: HashMap<Token, &'static PrefixParser> = HashMap::new();
         prefix.insert(Token::DoubleArrow, &BlockParser);
+        prefix.insert(Token::Id, &IdParser);
         prefix.insert(Token::If, &IfParser);
 
         let mut infix: HashMap<Token, &'static InfixParser> = HashMap::new();
@@ -247,6 +268,11 @@ impl<'input> Parser<'input>
         infix.insert(Token::Dash, OP_SUBTRACT);
 
         Parser { tok, stmts, prefix, infix }
+    }
+
+    pub fn expect_next(&mut self, expected: Token) -> Lresult<TokenSrc<'input>>
+    {
+        self.tok.expect_next(expected)
     }
 
     pub fn parse_module(&mut self) -> Lresult<Vec<AstNode<'input>>>
@@ -279,10 +305,10 @@ impl<'input> Parser<'input>
     pub fn parse_expr(&mut self) -> Lresult<AstNode<'input>>
     {
         let first = self.tok.next()?;
-        let _prefix = self.find_prefix(first.tok).ok_or_else(|| {
+        let prefix = self.find_prefix(first.tok).ok_or_else(|| {
             rustfail!("parse_failure", "cannot find parser for {:?}", first.tok)
         })?;
-        // let left = prefix.parse(first);
+        let left = prefix.parse(self, first)?;
 
         /*
         let expr = match first.tok {
@@ -301,11 +327,7 @@ impl<'input> Parser<'input>
             }
         };
         */
-        // Ok(expr)
-        Err(rustfail!(
-            "parse_failure",
-            "parse not implemented",
-        ))
+        Ok(left)
     }
 
     pub fn parse_pattern(&mut self) -> Lresult<AstNode<'input>>
@@ -326,9 +348,9 @@ impl<'input> Parser<'input>
         Ok(AstNode::new(patt, Ast::loc(&tok)))
     }
 
-    fn find_prefix(&self, _tok: Token) -> Option<&PrefixParser>
+    fn find_prefix(&self, tok: Token) -> Option<&PrefixParser>
     {
-        None
+        self.prefix.get(&tok).map(|pp| *pp)
     }
 
     fn token_filter(tok: Token) -> bool
@@ -353,8 +375,7 @@ mod tests
     fn test_parse_const()
     {
         let input = "const X := 5";
-        let mut p = Parser::new(Tokenz::lexr(input).unwrap());
-        let r = p.parse_module();
-        assert!(r.is_ok());
+        let mut p = Parser::new(Tokenz::lexp(input).unwrap());
+        p.parse_module().unwrap();
     }
 }

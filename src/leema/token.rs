@@ -177,6 +177,16 @@ impl Token
     {
         true
     }
+
+    pub fn parsefilter(tok: Token) -> bool
+    {
+        match tok {
+            Token::EmptyLine => false,
+            Token::LineEnd => false,
+            Token::Spaces => false,
+            _ => true,
+        }
+    }
 }
 
 lazy_static! {
@@ -700,9 +710,11 @@ pub struct Tokenz<'input>
 
 impl<'input> Tokenz<'input>
 {
-    pub fn lexr(src: &'input str) -> Lresult<Vec<TokenSrc<'input>>>
+    pub fn lexp(src: &'input str) -> Lresult<Vec<TokenSrc<'input>>>
     {
-        Tokenz::lex(src).collect()
+        let mut toks = Tokenz::lex(src);
+        toks.set_filter(Token::parsefilter);
+        toks.collect()
     }
 
     pub fn lex(src: &'input str) -> Tokenz<'input>
