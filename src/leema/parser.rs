@@ -346,24 +346,15 @@ impl<'input> Parser<'input>
 #[cfg(test)]
 mod tests
 {
-    use super::{Parser, TokenStream};
+    use super::Parser;
     use leema::token::Tokenz;
 
     #[test]
-    fn test_parser_it()
+    fn test_parse_const()
     {
-        let input = "const X = 5";
-        let mut p = Parser::new(Tokenz::lex(input));
+        let input = "const X := 5";
+        let mut p = Parser::new(Tokenz::lexr(input).unwrap());
         let r = p.parse_module();
         assert!(r.is_ok());
-    }
-
-    #[test]
-    fn test_token_stream()
-    {
-        let input = "const X = 5";
-        let items = Tokenz::lex(input).filter(|t| TokenStream::token_filter(t)).collect();
-        let it = items.iter().peekable();
-        let toks = TokenStream::new(it);
     }
 }

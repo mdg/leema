@@ -700,6 +700,11 @@ pub struct Tokenz<'input>
 
 impl<'input> Tokenz<'input>
 {
+    pub fn lexr(src: &'input str) -> Lresult<Vec<TokenSrc<'input>>>
+    {
+        Tokenz::lex(src).collect()
+    }
+
     pub fn lex(src: &'input str) -> Tokenz<'input>
     {
         let chars = CharIter::new(src);

@@ -13,6 +13,17 @@ pub struct Loc {
     pub column: u8,
 }
 
+impl Default for Loc
+{
+    fn default() -> Loc
+    {
+        Loc {
+            lineno: 0,
+            column: 0,
+        }
+    }
+}
+
 #[derive(Clone)]
 #[derive(Copy)]
 #[derive(Debug)]
@@ -45,7 +56,7 @@ pub enum Ast<'i>
     Block(Vec<AstNode<'i>>),
     Call(AstNode<'i>, StrupleKV<&'i str, AstNode<'i>>),
     Case(CaseType, AstNode<'i>, Case<'i>),
-    ConstExpr(Val),
+    ConstVal(Val),
     DefConst(&'i str, AstNode<'i>),
     DefFunc(AstNode<'i>, StrupleKV<Option<&'i str>, AstNode<'i>>, AstNode<'i>),
     DefMacro(AstNode<'i>, StrupleKV<&'i str, AstNode<'i>>, AstNode<'i>),

@@ -191,7 +191,7 @@ impl<'a> Semantics<'a>
                 // *t = Type::SpecialFunc(special_types.clone(), ft);
                 let spec_type = Type::SpecialFunc(special_types, ft.clone());
                 let t2 = spec_type.clone();
-                (Ast::ConstExpr(Val::FuncRef(fri, arg_vals, spec_type)), t2)
+                (Ast::ConstVal(Val::FuncRef(fri, arg_vals, spec_type)), t2)
             }
             Type::Func(_) => {
                 return Err(Failure::new(
@@ -239,15 +239,16 @@ impl<'a> Semantics<'a>
 mod tests
 {
     use super::*;
+    use leema::ast2::{Ast, Loc};
     use leema::lri::Lri;
     use leema::lstr::Lstr;
     use leema::struple::StrupleKV;
-    use leema::val::{FuncType, SrcLoc, Type};
+    use leema::val::{FuncType, Type};
 
 
     fn new_node(node: Ast) -> AstNode
     {
-        AstNode::new(node, SrcLoc::default())
+        AstNode::new(node, Loc::default())
     }
 
     #[test]
@@ -275,7 +276,7 @@ mod tests
         sem.types.insert(Lstr::Sref("c"), mod_c);
 
         let typecall = new_node(Ast::TypeCall(
-            new_node(Ast::ModId(Lstr::Sref("c"), Lstr::Sref("d"))),
+            new_node(Ast::Id2("c", "d")),
             StrupleKV::from(vec![
                 new_node(Ast::Type(Type::Int)),
                 new_node(Ast::Type(Type::Str)),
