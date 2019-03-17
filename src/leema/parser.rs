@@ -24,17 +24,21 @@ impl<'input> TokenStream<'input>
 
     pub fn peek(&mut self) -> Lresult<Token>
     {
-        self.peek_token().map(|t| t.tok)
+        self.peek_token()
+            .map(|t| t.tok)
+            .map_err(|f| f.loc(file!(), line!()))
     }
 
     pub fn match_next(&mut self, t: Token) -> Lresult<bool>
     {
-        self.peek().map(|tok| tok == t)
+        self.peek()
+            .map(|tok| tok == t)
+            .map_err(|f| f.loc(file!(), line!()))
     }
 
     pub fn next(&mut self) -> Lresult<TokenSrc<'input>>
     {
-        self.peek_token()?;
+        self.peek_token().map_err(|f| f.loc(file!(), line!()))?;
         self.peeked.take().ok_or_else(|| {
             rustfail!("parse_failure", "failed peek")
         })
@@ -42,7 +46,7 @@ impl<'input> TokenStream<'input>
 
     pub fn next_if(&mut self, t: Token) -> Lresult<Option<TokenSrc<'input>>>
     {
-        let tok = self.peek_token()?;
+        let tok = self.peek_token().map_err(|f| f.loc(file!(), line!()))?;
         if tok.tok == t {
             self.peeked = None;
             Ok(Some(tok))
@@ -401,7 +405,8 @@ mod tests
     fn test_parse_const()
     {
         let input = "const X := 5";
-        let mut p = Parser::new(Tokenz::lexp(input).unwrap());
+        let toks = Tokenz::lexp(input).unwrap();
+        let mut p = Parser::new(toks);
         p.parse_module().unwrap();
     }
 }

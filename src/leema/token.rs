@@ -814,11 +814,7 @@ impl<'input> Tokenz<'input>
     {
         match opt_c {
             Some(c) => self.mode.scan(c),
-            None => {
-                let eofr = self.mode.eof();
-                self.eof = true;
-                eofr
-            }
+            None => self.mode.eof(),
         }
     }
 
@@ -941,7 +937,8 @@ mod tests
         assert_eq!(Token::SquareR, nextok(&mut i).0);
         assert_eq!(Token::AngleL, nextok(&mut i).0);
         assert_eq!(Token::AngleR, nextok(&mut i).0);
-        assert_eq!(9, t.len());
+        assert_eq!(Token::EOF, nextok(&mut i).0);
+        assert_eq!(None, i.next());
     }
 
     #[test]
@@ -958,7 +955,8 @@ mod tests
         i.next();
         assert_eq!(Token::DoubleDash, nextok(&mut i).0);
         assert_eq!(Token::Dash, nextok(&mut i).0);
-        assert_eq!(7, t.len());
+        assert_eq!(Token::EOF, nextok(&mut i).0);
+        assert_eq!(None, i.next());
     }
 
     #[test]
@@ -972,7 +970,8 @@ mod tests
         assert_eq!((Token::Int, "1234"), nextok(&mut i));
         i.next();
         assert_eq!((Token::Int, "999999999999999"), nextok(&mut i));
-        assert_eq!(4, t.len());
+        assert_eq!(Token::EOF, nextok(&mut i).0);
+        assert_eq!(None, i.next());
     }
 
     #[test]
@@ -986,6 +985,7 @@ mod tests
         assert_eq!((Token::Id, "tacos"), nextok(&mut i));
         assert_eq!((Token::Spaces, " "), nextok(&mut i));
         assert_eq!((Token::Id, "burrit_s"), nextok(&mut i));
+        assert_eq!(Token::EOF, nextok(&mut i).0);
         assert_eq!(None, i.next());
     }
 
@@ -1006,7 +1006,8 @@ mod tests
         assert_eq!(Token::Or, nextok(&mut i).0);
         i.next();
         assert_eq!(Token::Xor, nextok(&mut i).0);
-        assert_eq!(10, t.len());
+        assert_eq!(Token::EOF, nextok(&mut i).0);
+        assert_eq!(None, i.next());
     }
 
     #[test]
@@ -1034,7 +1035,8 @@ mod tests
         assert_eq!(Token::Match, nextok(&mut i).0);
         i.next();
         assert_eq!(Token::Return, nextok(&mut i).0);
-        assert_eq!(18, t.len());
+        assert_eq!(Token::EOF, nextok(&mut i).0);
+        assert_eq!(None, i.next());
     }
 
     #[test]
@@ -1079,6 +1081,7 @@ mod tests
         assert_eq!(Token::DoubleArrow, nextok(&mut i).0);
         i.next();
         assert_eq!(Token::AngleR, nextok(&mut i).0);
+        assert_eq!(Token::EOF, nextok(&mut i).0);
         assert_eq!(None, i.next());
     }
 
@@ -1103,7 +1106,8 @@ mod tests
         assert_eq!(Token::Pipe, nextok(&mut i).0);
         i.next();
         assert_eq!(Token::Colon, nextok(&mut i).0);
-        assert_eq!(14, t.len());
+        assert_eq!(Token::EOF, nextok(&mut i).0);
+        assert_eq!(None, i.next());
     }
 
     #[test]
@@ -1286,6 +1290,22 @@ mod tests
         assert_eq!(Token::LineEnd, nextok(&mut i).0);
 
         assert_eq!(Token::EOF, nextok(&mut i).0);
+        assert_eq!(None, i.next());
+    }
+
+    #[test]
+    fn test_lexp_constint()
+    {
+        let input = "const X := 5";
+        let t = Tokenz::lexp(input).unwrap();
+        let mut i = t.iter();
+
+        assert_eq!(Token::LineBegin, i.next().unwrap().tok);
+        assert_eq!(Token::Const, i.next().unwrap().tok);
+        assert_eq!(Token::Id, i.next().unwrap().tok);
+        assert_eq!(Token::Assignment, i.next().unwrap().tok);
+        assert_eq!(Token::Int, i.next().unwrap().tok);
+        assert_eq!(Token::EOF, i.next().unwrap().tok);
         assert_eq!(None, i.next());
     }
 }
