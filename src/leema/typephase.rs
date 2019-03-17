@@ -169,7 +169,9 @@ impl<'a> Semantics<'a>
                     .map(|i| (Some(i.k.clone()), Val::Void))
                     .collect();
                 let fri = match *new_id.node {
-                    Ast::Id1(ref localid) => Lri::new(Lstr::from(localid.to_string())),
+                    Ast::Id1(ref localid) => {
+                        Lri::new(Lstr::from(localid.to_string()))
+                    }
                     Ast::Id2(ref modid, ref localid) => {
                         let mlid = ModLocalId::new(
                             Lstr::from(modid.to_string()),
@@ -178,7 +180,10 @@ impl<'a> Semantics<'a>
                         let tctypes = special_types.clone();
                         let tcid = SpecialModId::new(mlid, tctypes);
                         self.typecalls.insert(tcid);
-                        Lri::with_modules(Lstr::from(modid.to_string()), Lstr::from(localid.to_string()))
+                        Lri::with_modules(
+                            Lstr::from(modid.to_string()),
+                            Lstr::from(localid.to_string()),
+                        )
                     }
                     not_id => {
                         return Err(Failure::new(

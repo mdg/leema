@@ -1,14 +1,15 @@
-use leema::token::TokenSrc;
-use leema::val::{Type, Val};
 use leema::reg::Reg;
 use leema::struple::{Struple2, StrupleKV};
+use leema::token::TokenSrc;
+use leema::val::{Type, Val};
 
 
 #[derive(Clone)]
 #[derive(Copy)]
 #[derive(Debug)]
 #[derive(PartialEq)]
-pub struct Loc {
+pub struct Loc
+{
     pub lineno: u16,
     pub column: u8,
 }
@@ -58,7 +59,11 @@ pub enum Ast<'i>
     Case(CaseType, AstNode<'i>, Case<'i>),
     ConstVal(Val),
     DefConst(&'i str, AstNode<'i>),
-    DefFunc(AstNode<'i>, StrupleKV<Option<&'i str>, AstNode<'i>>, AstNode<'i>),
+    DefFunc(
+        AstNode<'i>,
+        StrupleKV<Option<&'i str>, AstNode<'i>>,
+        AstNode<'i>,
+    ),
     DefMacro(AstNode<'i>, StrupleKV<&'i str, AstNode<'i>>, AstNode<'i>),
     DefType(AstNode<'i>, StrupleKV<&'i str, AstNode<'i>>),
     FuncType(StrupleKV<&'i str, AstNode<'i>>),
@@ -122,7 +127,10 @@ impl<'i> AstNode<'i>
     {
         AstNode {
             node: Box::new(Ast::Void),
-            loc: Loc { lineno: 0, column: 0 },
+            loc: Loc {
+                lineno: 0,
+                column: 0,
+            },
             typ: Type::Unknown,
             dst: Reg::Void,
         }
@@ -143,4 +151,3 @@ impl<'i> AstNode<'i>
         self.dst = dst;
     }
 }
-

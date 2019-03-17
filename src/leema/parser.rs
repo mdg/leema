@@ -39,9 +39,9 @@ impl<'input> TokenStream<'input>
     pub fn next(&mut self) -> Lresult<TokenSrc<'input>>
     {
         self.peek_token().map_err(|f| f.loc(file!(), line!()))?;
-        self.peeked.take().ok_or_else(|| {
-            rustfail!("parse_failure", "failed peek")
-        })
+        self.peeked
+            .take()
+            .ok_or_else(|| rustfail!("parse_failure", "failed peek"))
     }
 
     pub fn next_if(&mut self, t: Token) -> Lresult<Option<TokenSrc<'input>>>
@@ -55,7 +55,8 @@ impl<'input> TokenStream<'input>
         }
     }
 
-    pub fn expect_next(&mut self, expected: Token) -> Lresult<TokenSrc<'input>>
+    pub fn expect_next(&mut self, expected: Token)
+        -> Lresult<TokenSrc<'input>>
     {
         let tok = self.peek_token()?;
         if tok.tok == expected {
@@ -77,9 +78,7 @@ impl<'input> TokenStream<'input>
             self.peeked = self.it.next();
         }
         self.peeked
-            .ok_or_else(|| {
-                rustfail!("parse_failure", "token underflow")
-            })
+            .ok_or_else(|| rustfail!("parse_failure", "token underflow"))
     }
 
     fn token_filter(t: &TokenSrc) -> bool
@@ -95,14 +94,22 @@ impl<'input> TokenStream<'input>
 
 trait PrefixParser
 {
-    fn parse<'input>(&self, &mut Parser<'input>, TokenSrc<'input>) -> Lresult<AstNode<'input>>;
+    fn parse<'input>(
+        &self,
+        &mut Parser<'input>,
+        TokenSrc<'input>,
+    ) -> Lresult<AstNode<'input>>;
 }
 
 struct DefConstParser;
 
 impl PrefixParser for DefConstParser
 {
-    fn parse<'input>(&self, p: &mut Parser<'input>, left: TokenSrc<'input>) -> Lresult<AstNode<'input>>
+    fn parse<'input>(
+        &self,
+        p: &mut Parser<'input>,
+        left: TokenSrc<'input>,
+    ) -> Lresult<AstNode<'input>>
     {
         let id = p.expect_next(Token::Id)?;
         let _assign = p.expect_next(Token::Assignment)?;
@@ -117,7 +124,11 @@ struct LetParser;
 
 impl PrefixParser for LetParser
 {
-    fn parse<'input>(&self, _p: &mut Parser<'input>, _left: TokenSrc<'input>) -> Lresult<AstNode<'input>>
+    fn parse<'input>(
+        &self,
+        _p: &mut Parser<'input>,
+        _left: TokenSrc<'input>,
+    ) -> Lresult<AstNode<'input>>
     {
         Ok(AstNode::void())
     }
@@ -127,7 +138,11 @@ struct BlockParser;
 
 impl PrefixParser for BlockParser
 {
-    fn parse<'input>(&self, _p: &mut Parser<'input>, _left: TokenSrc<'input>) -> Lresult<AstNode<'input>>
+    fn parse<'input>(
+        &self,
+        _p: &mut Parser<'input>,
+        _left: TokenSrc<'input>,
+    ) -> Lresult<AstNode<'input>>
     {
         Ok(AstNode::void())
     }
@@ -137,7 +152,11 @@ struct IdParser;
 
 impl PrefixParser for IdParser
 {
-    fn parse<'input>(&self, _p: &mut Parser<'input>, left: TokenSrc<'input>) -> Lresult<AstNode<'input>>
+    fn parse<'input>(
+        &self,
+        _p: &mut Parser<'input>,
+        left: TokenSrc<'input>,
+    ) -> Lresult<AstNode<'input>>
     {
         Ok(AstNode::new(Ast::Id1(left.src), Ast::loc(&left)))
     }
@@ -147,7 +166,11 @@ struct IfParser;
 
 impl PrefixParser for IfParser
 {
-    fn parse<'input>(&self, _p: &mut Parser<'input>, _left: TokenSrc<'input>) -> Lresult<AstNode<'input>>
+    fn parse<'input>(
+        &self,
+        _p: &mut Parser<'input>,
+        _left: TokenSrc<'input>,
+    ) -> Lresult<AstNode<'input>>
     {
         Ok(AstNode::void())
     }
@@ -157,7 +180,11 @@ struct IntParser;
 
 impl PrefixParser for IntParser
 {
-    fn parse<'input>(&self, _p: &mut Parser<'input>, left: TokenSrc<'input>) -> Lresult<AstNode<'input>>
+    fn parse<'input>(
+        &self,
+        _p: &mut Parser<'input>,
+        left: TokenSrc<'input>,
+    ) -> Lresult<AstNode<'input>>
     {
         let i: i64 = left.src.parse().map_err(|parsef| {
             rustfail!(
@@ -181,7 +208,12 @@ struct TupleParser;
 
 trait InfixParser
 {
-    fn parse<'input>(&self, &mut Parser<'input>, AstNode<'input>, TokenSrc<'input>) -> Lresult<AstNode<'input>>;
+    fn parse<'input>(
+        &self,
+        &mut Parser<'input>,
+        AstNode<'input>,
+        TokenSrc<'input>,
+    ) -> Lresult<AstNode<'input>>;
 }
 
 enum Assoc
@@ -207,20 +239,24 @@ struct BinaryOpParser
 
 impl BinaryOpParser
 {
-    pub fn new(op: &'static str, pre: Precedence, assoc: Assoc) -> BinaryOpParser
+    pub fn new(
+        op: &'static str,
+        pre: Precedence,
+        assoc: Assoc,
+    ) -> BinaryOpParser
     {
-        BinaryOpParser
-        {
-            op,
-            pre,
-            assoc,
-        }
+        BinaryOpParser { op, pre, assoc }
     }
 }
 
 impl InfixParser for BinaryOpParser
 {
-    fn parse<'input>(&self, p: &mut Parser<'input>, left: AstNode<'input>, op: TokenSrc<'input>) -> Lresult<AstNode<'input>>
+    fn parse<'input>(
+        &self,
+        p: &mut Parser<'input>,
+        left: AstNode<'input>,
+        op: TokenSrc<'input>,
+    ) -> Lresult<AstNode<'input>>
     {
         let right = p.parse_expr()?;
         let ast = Ast::Op2(op.src, left, right);
@@ -290,10 +326,16 @@ impl<'input> Parser<'input>
         infix.insert(Token::Plus, OP_ADD);
         infix.insert(Token::Dash, OP_SUBTRACT);
 
-        Parser { tok, stmts, prefix, infix }
+        Parser {
+            tok,
+            stmts,
+            prefix,
+            infix,
+        }
     }
 
-    pub fn expect_next(&mut self, expected: Token) -> Lresult<TokenSrc<'input>>
+    pub fn expect_next(&mut self, expected: Token)
+        -> Lresult<TokenSrc<'input>>
     {
         self.tok.expect_next(expected)
     }
@@ -313,12 +355,8 @@ impl<'input> Parser<'input>
         let first = self.tok.next()?;
 
         match self.find_stmtp(first.tok) {
-            Some(stmtp) => {
-                stmtp.parse(self, first)
-            }
-            None => {
-                self.parse_expr_first(first)
-            }
+            Some(stmtp) => stmtp.parse(self, first),
+            None => self.parse_expr_first(first),
         }
     }
 
@@ -328,7 +366,10 @@ impl<'input> Parser<'input>
         self.parse_expr_first(first)
     }
 
-    fn parse_expr_first(&mut self, first: TokenSrc<'input>) -> Lresult<AstNode<'input>>
+    fn parse_expr_first(
+        &mut self,
+        first: TokenSrc<'input>,
+    ) -> Lresult<AstNode<'input>>
     {
         let prefix = self.find_prefix(first.tok).ok_or_else(|| {
             rustfail!("parse_failure", "cannot find parser for {:?}", first.tok)
@@ -359,15 +400,13 @@ impl<'input> Parser<'input>
     {
         let tok = self.tok.next()?;
         let patt = match tok.tok {
-            Token::Id => {
-                Ast::Id1(tok.src)
-            }
+            Token::Id => Ast::Id1(tok.src),
             _ => {
                 return Err(rustfail!(
                     "parse_failure",
                     "expected pattern token, found {:?}",
                     tok,
-                ))
+                ));
             }
         };
         Ok(AstNode::new(patt, Ast::loc(&tok)))
