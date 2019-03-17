@@ -788,7 +788,13 @@ impl<'input> Tokenz<'input>
                     return Some(tokr);
                 }
                 Ok(ScanOutput::EOF) => {
-                    return None;
+                    self.eof = true;
+                    return Some(Ok(TokenSrc {
+                        src: "",
+                        tok: Token::EOF,
+                        begin: Char::default(),
+                        len: 0,
+                    }));
                 }
                 Err(fail) => {
                     self.mode = &ScanModeEOF;
@@ -1046,7 +1052,8 @@ mod tests
         assert_eq!(Token::Star, nextok(&mut i).0);
         i.next();
         assert_eq!(Token::Slash, nextok(&mut i).0);
-        assert_eq!(8, t.len());
+        assert_eq!(Token::EOF, nextok(&mut i).0);
+        assert_eq!(None, i.next());
     }
 
     #[test]
@@ -1115,10 +1122,12 @@ mod tests
         assert_eq!(Token::DoubleQuoteL, nextok(&mut i).0);
         assert_eq!(Token::DoubleQuoteR, nextok(&mut i).0);
         i.next();
-        i.next();
+        assert_eq!(Token::DoubleQuoteL, nextok(&mut i).0);
         assert_eq!((Token::StrLit, "burritos"), nextok(&mut i));
+        assert_eq!(Token::DoubleQuoteR, nextok(&mut i).0);
 
-        assert_eq!(11, t.len());
+        assert_eq!(Token::EOF, nextok(&mut i).0);
+        assert_eq!(None, i.next());
     }
 
     #[test]
@@ -1130,7 +1139,7 @@ mod tests
         ";
 
         let tokv: Vec<TokenResult> = Tokenz::lex(input).collect();
-        assert_eq!(15, tokv.len());
+        assert_eq!(16, tokv.len());
 
         let toki = Tokenz::lex(input);
         let ftoks: Vec<TokenResult> = toki
@@ -1141,7 +1150,7 @@ mod tests
                 opt_t.as_ref().unwrap().tok != Token::LineEnd
             })
             .collect();
-        assert_eq!(12, ftoks.len());
+        assert_eq!(13, ftoks.len());
     }
 
     #[test]
@@ -1204,6 +1213,7 @@ mod tests
         assert_eq!(Token::DoubleDash, nextok(&mut i).0);
         assert_eq!(Token::LineEnd, nextok(&mut i).0);
 
+        assert_eq!(Token::EOF, nextok(&mut i).0);
         assert_eq!(None, i.next());
     }
 
@@ -1275,6 +1285,7 @@ mod tests
         assert_eq!(Token::DoubleDash, nextok(&mut i).0);
         assert_eq!(Token::LineEnd, nextok(&mut i).0);
 
+        assert_eq!(Token::EOF, nextok(&mut i).0);
         assert_eq!(None, i.next());
     }
 }
