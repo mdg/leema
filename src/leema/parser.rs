@@ -448,4 +448,13 @@ mod tests
         let mut p = Parser::new(toks);
         p.parse_module().unwrap();
     }
+
+    #[test]
+    fn test_parse_let()
+    {
+        let input = "let x := 5 + y";
+        let toks = Tokenz::lexp(input).unwrap();
+        let mut p = Parser::new(toks);
+        p.parse_module().unwrap();
+    }
 }
