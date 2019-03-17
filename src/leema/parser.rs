@@ -4,6 +4,7 @@ use leema::token::{Token, TokenSrc};
 use leema::val::Val;
 
 use std::collections::HashMap;
+use std::fmt::Debug;
 
 
 struct TokenStream<'input>
@@ -92,7 +93,7 @@ impl<'input> TokenStream<'input>
     }
 }
 
-trait PrefixParser
+trait PrefixParser: Debug
 {
     fn parse<'input>(
         &self,
@@ -101,6 +102,7 @@ trait PrefixParser
     ) -> Lresult<AstNode<'input>>;
 }
 
+#[derive(Debug)]
 struct DefConstParser;
 
 impl PrefixParser for DefConstParser
@@ -118,22 +120,31 @@ impl PrefixParser for DefConstParser
     }
 }
 
+#[derive(Debug)]
 struct DefFuncParser;
+
+#[derive(Debug)]
 struct DefTypeParser;
+
+#[derive(Debug)]
 struct LetParser;
 
 impl PrefixParser for LetParser
 {
     fn parse<'input>(
         &self,
-        _p: &mut Parser<'input>,
-        _left: TokenSrc<'input>,
+        p: &mut Parser<'input>,
+        left: TokenSrc<'input>,
     ) -> Lresult<AstNode<'input>>
     {
-        Ok(AstNode::void())
+        let lhs = p.parse_pattern()?;
+        let _assign = p.expect_next(Token::Assignment)?;
+        let rhs = p.parse_expr()?;
+        Ok(AstNode::new(Ast::Let(lhs, AstNode::void(), rhs), Ast::loc(&left)))
     }
 }
 
+#[derive(Debug)]
 struct BlockParser;
 
 impl PrefixParser for BlockParser
@@ -148,6 +159,7 @@ impl PrefixParser for BlockParser
     }
 }
 
+#[derive(Debug)]
 struct IdParser;
 
 impl PrefixParser for IdParser
@@ -162,6 +174,7 @@ impl PrefixParser for IdParser
     }
 }
 
+#[derive(Debug)]
 struct IfParser;
 
 impl PrefixParser for IfParser
@@ -176,6 +189,7 @@ impl PrefixParser for IfParser
     }
 }
 
+#[derive(Debug)]
 struct IntParser;
 
 impl PrefixParser for IntParser
@@ -197,16 +211,23 @@ impl PrefixParser for IntParser
     }
 }
 
+#[derive(Debug)]
 struct ListParser;
+
+#[derive(Debug)]
 struct MatchParser;
+
+#[derive(Debug)]
 struct PrefixOpParser
 {
     op: &'static str,
     precedence: u8,
 }
+
+#[derive(Debug)]
 struct TupleParser;
 
-trait InfixParser
+trait InfixParser: Debug
 {
     fn parse<'input>(
         &self,
@@ -214,27 +235,35 @@ trait InfixParser
         AstNode<'input>,
         TokenSrc<'input>,
     ) -> Lresult<AstNode<'input>>;
+
+    fn precedence(&self) -> Precedence;
 }
 
+#[derive(Copy)]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
 enum Assoc
 {
     Left,
     Right,
 }
 
-enum PrecedenceMod
-{
-    UserHigher,
-    AssocLower,
-    UserLower,
-}
-struct Precedence(u8, Option<PrecedenceMod>);
+#[derive(Copy)]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+struct Precedence(u8, i8, Assoc);
 
+const MIN_PRECEDENCE: Precedence = Precedence(0, 0, Assoc::Left);
+
+#[derive(Debug)]
 struct BinaryOpParser
 {
     op: &'static str,
     pre: Precedence,
-    assoc: Assoc,
 }
 
 impl BinaryOpParser
@@ -242,10 +271,9 @@ impl BinaryOpParser
     pub fn new(
         op: &'static str,
         pre: Precedence,
-        assoc: Assoc,
     ) -> BinaryOpParser
     {
-        BinaryOpParser { op, pre, assoc }
+        BinaryOpParser { op, pre }
     }
 }
 
@@ -262,38 +290,45 @@ impl InfixParser for BinaryOpParser
         let ast = Ast::Op2(op.src, left, right);
         Ok(AstNode::new(ast, Ast::loc(&op)))
     }
+
+    fn precedence(&self) -> Precedence
+    {
+        self.pre
+    }
 }
 
 const OP_MULTIPLY: &'static BinaryOpParser = &BinaryOpParser {
     op: "*",
-    pre: Precedence(13, None),
-    assoc: Assoc::Left,
+    pre: Precedence(13, 0, Assoc::Left),
 };
 
 const OP_DIVIDE: &'static BinaryOpParser = &BinaryOpParser {
     op: "/",
-    pre: Precedence(13, None),
-    assoc: Assoc::Left,
+    pre: Precedence(13, 0, Assoc::Left),
 };
 
 const OP_ADD: &'static BinaryOpParser = &BinaryOpParser {
     op: "+",
-    pre: Precedence(10, None),
-    assoc: Assoc::Left,
+    pre: Precedence(13, 0, Assoc::Left),
 };
 
 const OP_SUBTRACT: &'static BinaryOpParser = &BinaryOpParser {
     op: "*",
-    pre: Precedence(10, None),
-    assoc: Assoc::Left,
+    pre: Precedence(13, 0, Assoc::Left),
 };
 
 // struct ConsParser;
 // struct DollarParser;
 // struct DotParser;
 // struct PipeParser;
+
+#[derive(Debug)]
 struct CallParser;
+
+#[derive(Debug)]
 struct LessThanParser;
+
+#[derive(Debug)]
 struct TypeParamParser;
 
 struct Parser<'input>
@@ -302,6 +337,7 @@ struct Parser<'input>
     stmts: HashMap<Token, &'static PrefixParser>,
     prefix: HashMap<Token, &'static PrefixParser>,
     infix: HashMap<Token, &'static InfixParser>,
+    pattern: HashMap<Token, &'static PrefixParser>,
 }
 
 impl<'input> Parser<'input>
@@ -311,8 +347,8 @@ impl<'input> Parser<'input>
         let tok = TokenStream::new(items);
 
         let mut stmts: HashMap<Token, &'static PrefixParser> = HashMap::new();
-        stmts.insert(Token::Let, &LetParser);
         stmts.insert(Token::Const, &DefConstParser);
+        stmts.insert(Token::Let, &LetParser);
 
         let mut prefix: HashMap<Token, &'static PrefixParser> = HashMap::new();
         prefix.insert(Token::DoubleArrow, &BlockParser);
@@ -326,11 +362,16 @@ impl<'input> Parser<'input>
         infix.insert(Token::Plus, OP_ADD);
         infix.insert(Token::Dash, OP_SUBTRACT);
 
+        let mut patt: HashMap<Token, &'static PrefixParser> = HashMap::new();
+        patt.insert(Token::Id, &IdParser);
+        patt.insert(Token::Int, &IntParser);
+
         Parser {
             tok,
             stmts,
             prefix,
             infix,
+            pattern: patt,
         }
     }
 
@@ -356,19 +397,20 @@ impl<'input> Parser<'input>
 
         match self.find_stmtp(first.tok) {
             Some(stmtp) => stmtp.parse(self, first),
-            None => self.parse_expr_first(first),
+            None => self.parse_expr_first(first, MIN_PRECEDENCE),
         }
     }
 
     pub fn parse_expr(&mut self) -> Lresult<AstNode<'input>>
     {
         let first = self.tok.next()?;
-        self.parse_expr_first(first)
+        self.parse_expr_first(first, MIN_PRECEDENCE)
     }
 
     fn parse_expr_first(
         &mut self,
         first: TokenSrc<'input>,
+        _pre: Precedence,
     ) -> Lresult<AstNode<'input>>
     {
         let prefix = self.find_prefix(first.tok).ok_or_else(|| {
@@ -398,18 +440,15 @@ impl<'input> Parser<'input>
 
     pub fn parse_pattern(&mut self) -> Lresult<AstNode<'input>>
     {
-        let tok = self.tok.next()?;
-        let patt = match tok.tok {
-            Token::Id => Ast::Id1(tok.src),
-            _ => {
-                return Err(rustfail!(
-                    "parse_failure",
-                    "expected pattern token, found {:?}",
-                    tok,
-                ));
-            }
-        };
-        Ok(AstNode::new(patt, Ast::loc(&tok)))
+        let first = self.tok.next()?;
+        let pattern = self.find_pattern(first.tok).ok_or_else(|| {
+            rustfail!(
+                "parse_failure",
+                "no pattern parser for token: {:?}",
+                first.tok,
+            )
+        })?;
+        pattern.parse(self, first)
     }
 
     fn find_stmtp(&self, tok: Token) -> Option<&'static PrefixParser>
@@ -420,6 +459,11 @@ impl<'input> Parser<'input>
     fn find_prefix(&self, tok: Token) -> Option<&'static PrefixParser>
     {
         self.prefix.get(&tok).map(|pp| *pp)
+    }
+
+    fn find_pattern(&self, tok: Token) -> Option<&'static PrefixParser>
+    {
+        self.pattern.get(&tok).map(|pp| *pp)
     }
 
     fn token_filter(tok: Token) -> bool
