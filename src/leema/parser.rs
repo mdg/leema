@@ -93,7 +93,6 @@ trait PrefixParser
     fn parse<'input>(&self, &mut Parser<'input>, TokenSrc<'input>) -> Lresult<AstNode<'input>>;
 }
 
-#[derive(Debug)]
 struct DefConstParser;
 
 impl PrefixParser for DefConstParser
@@ -107,13 +106,8 @@ impl PrefixParser for DefConstParser
     }
 }
 
-#[derive(Debug)]
 struct DefFuncParser;
-
-#[derive(Debug)]
 struct DefTypeParser;
-
-#[derive(Debug)]
 struct LetParser;
 
 impl PrefixParser for LetParser
@@ -124,7 +118,6 @@ impl PrefixParser for LetParser
     }
 }
 
-#[derive(Debug)]
 struct BlockParser;
 
 impl PrefixParser for BlockParser
@@ -135,7 +128,6 @@ impl PrefixParser for BlockParser
     }
 }
 
-#[derive(Debug)]
 struct IdParser;
 
 impl PrefixParser for IdParser
@@ -146,7 +138,6 @@ impl PrefixParser for IdParser
     }
 }
 
-#[derive(Debug)]
 struct IfParser;
 
 impl PrefixParser for IfParser
@@ -157,20 +148,13 @@ impl PrefixParser for IfParser
     }
 }
 
-#[derive(Debug)]
 struct ListParser;
-
-#[derive(Debug)]
 struct MatchParser;
-
-#[derive(Debug)]
 struct PrefixOpParser
 {
     op: &'static str,
     precedence: u8,
 }
-
-#[derive(Debug)]
 struct TupleParser;
 
 trait InfixParser
@@ -178,37 +162,20 @@ trait InfixParser
     fn parse<'input>(&self, &mut Parser<'input>, AstNode<'input>, TokenSrc<'input>) -> Lresult<AstNode<'input>>;
 }
 
-#[derive(Copy)]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
 enum Assoc
 {
     Left,
     Right,
 }
 
-#[derive(Copy)]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
 enum PrecedenceMod
 {
     UserHigher,
     AssocLower,
     UserLower,
 }
-
-#[derive(Copy)]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
 struct Precedence(u8, Option<PrecedenceMod>);
 
-#[derive(Debug)]
 struct BinaryOpParser
 {
     op: &'static str,
@@ -267,14 +234,8 @@ const OP_SUBTRACT: &'static BinaryOpParser = &BinaryOpParser {
 // struct DollarParser;
 // struct DotParser;
 // struct PipeParser;
-
-#[derive(Debug)]
 struct CallParser;
-
-#[derive(Debug)]
 struct LessThanParser;
-
-#[derive(Debug)]
 struct TypeParamParser;
 
 struct Parser<'input>
