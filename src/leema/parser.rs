@@ -410,31 +410,17 @@ impl<'input> Parser<'input>
     fn parse_expr_first(
         &mut self,
         first: TokenSrc<'input>,
-        _pre: Precedence,
+        min_pre: Precedence,
     ) -> Lresult<AstNode<'input>>
     {
         let prefix = self.find_prefix(first.tok).ok_or_else(|| {
             rustfail!("parse_failure", "cannot find parser for {:?}", first.tok)
         })?;
-        let left = prefix.parse(self, first)?;
+        let mut left = prefix.parse(self, first)?;
 
-        /*
-        let expr = match first.tok {
-            Token::Id => {
-                Ast::Id(first.src, Ast::loc(&tok))
-            }
-            Token::Bool(b) => {
-                Ast::Bool(b, Ast::loc(&tok))
-            }
-            _ => {
-                return Err(rustfail!(
-                    "parse_failure",
-                    "expected expression, found {:?}",
-                    tok,
-                ))
-            }
-        };
-        */
+        while let Some((tok, infix)) = self.next_infix(min_pre) {
+            left = infix.parse(self, left, tok)?;
+        }
         Ok(left)
     }
 
@@ -459,6 +445,25 @@ impl<'input> Parser<'input>
     fn find_prefix(&self, tok: Token) -> Option<&'static PrefixParser>
     {
         self.prefix.get(&tok).map(|pp| *pp)
+    }
+
+    fn next_infix(&mut self, min_pre: Precedence) -> Option<(TokenSrc<'input>, &'static InfixParser)>
+    {
+        let tok = self.tok.peek().ok().unwrap_or(Token::EOF);
+        if tok == Token::EOF {
+            return None;
+        }
+        match self.infix.get(&tok).map(|ip| *ip) {
+            None => None,
+            Some(infix) => {
+                if infix.precedence() >= min_pre {
+                    let toksrc = self.tok.next().unwrap();
+                    Some((toksrc, infix))
+                } else {
+                    None
+                }
+            }
+        }
     }
 
     fn find_pattern(&self, tok: Token) -> Option<&'static PrefixParser>
