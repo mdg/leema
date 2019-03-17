@@ -5,7 +5,7 @@ use leema::inter::Blockstack;
 use leema::lri::{Lri, ModLocalId, SpecialModId};
 use leema::lstr::Lstr;
 use leema::reg::RegTable;
-use leema::struple::{Struple, Struple2, StrupleItem, StrupleKV};
+use leema::struple::{Struple, StrupleItem, StrupleKV};
 use leema::val::{Type, Val};
 
 use std::collections::{HashMap, HashSet};
@@ -48,7 +48,7 @@ impl<'a> Semantics<'a>
         }
     }
 
-    pub fn map_node(&mut self, node: &AstNode) -> Lresult<AstNode>
+    pub fn map_node<'i>(&mut self, node: &AstNode<'i>) -> Lresult<AstNode<'i>>
     {
         match &*node.node {
             Ast::Block(ref items) => {
@@ -67,7 +67,7 @@ impl<'a> Semantics<'a>
                 };
                 self.replace(node, Ast::Block(new_items), last_type)
             }
-            Ast::ModId(ref m, ref l) => {
+            Ast::Id2(ref m, ref l) => {
                 let (new_node, new_type) = self.map_modid(m, l)?;
                 self.replace(node, new_node, new_type)
             }
@@ -88,11 +88,11 @@ impl<'a> Semantics<'a>
         }
     }
 
-    pub fn map_modid(
+    pub fn map_modid<'i>(
         &mut self,
-        module: &Lstr,
-        local: &Lstr,
-    ) -> Lresult<(Ast, Type)>
+        module: &'i str,
+        local: &'i str,
+    ) -> Lresult<(Ast<'i>, Type)>
     {
         let mod_types = self.types.get(module).ok_or_else(|| {
             Failure::new(
@@ -113,7 +113,7 @@ impl<'a> Semantics<'a>
                 Err(Failure::new("debug", Lstr::Sref("is func")))
             }
             Type::GenericFunc(ref _tvars, ref _ft) => {
-                let new_node = Ast::ModId(module.clone(), local.clone());
+                let new_node = Ast::Id2(module, local);
                 Ok((new_node, found_type.clone()))
             }
             not_func => {
@@ -128,14 +128,14 @@ impl<'a> Semantics<'a>
         }
     }
 
-    pub fn map_typecall(
+    pub fn map_typecall<'i>(
         &mut self,
-        id: &AstNode,
-        args: &Struple2<AstNode>,
-    ) -> Lresult<(Ast, Type)>
+        id: &AstNode<'i>,
+        args: &StrupleKV<Option<&'i str>, AstNode<'i>>,
+    ) -> Lresult<(Ast<'i>, Type)>
     {
         let new_id = self.map_node(id)?;
-        let new_args: Struple2<Type> = args.map_v(|a| {
+        let new_args: StrupleKV<Option<&'i str>, Type> = args.map_v(|a| {
             let new_node = self.map_node(a)?;
             match *new_node.node {
                 Ast::Type(t) => Ok(t),
@@ -169,14 +169,16 @@ impl<'a> Semantics<'a>
                     .map(|i| (Some(i.k.clone()), Val::Void))
                     .collect();
                 let fri = match *new_id.node {
-                    Ast::Id1(ref localid) => Lri::new(localid.clone()),
+                    Ast::Id1(ref localid) => Lri::new(Lstr::from(localid.to_string())),
                     Ast::Id2(ref modid, ref localid) => {
-                        let mlid =
-                            ModLocalId::new(modid.clone(), localid.clone());
+                        let mlid = ModLocalId::new(
+                            Lstr::from(modid.to_string()),
+                            Lstr::from(localid.to_string()),
+                        );
                         let tctypes = special_types.clone();
                         let tcid = SpecialModId::new(mlid, tctypes);
                         self.typecalls.insert(tcid);
-                        Lri::with_modules(modid.clone(), localid.clone())
+                        Lri::with_modules(Lstr::from(modid.to_string()), Lstr::from(localid.to_string()))
                     }
                     not_id => {
                         return Err(Failure::new(
@@ -213,12 +215,12 @@ impl<'a> Semantics<'a>
         Ok((result, rtype))
     }
 
-    fn replace(
+    fn replace<'i>(
         &mut self,
-        old: &AstNode,
-        new_ast: Ast,
+        old: &AstNode<'i>,
+        new_ast: Ast<'i>,
         new_typ: Type,
-    ) -> Lresult<AstNode>
+    ) -> Lresult<AstNode<'i>>
     {
         let m_type = self.merge_types(&old.typ, &new_typ)?;
         Ok(old.replace(new_ast, m_type))

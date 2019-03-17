@@ -8,9 +8,9 @@ use leema::struple::{Struple2, StrupleKV};
 #[derive(Copy)]
 #[derive(Debug)]
 #[derive(PartialEq)]
-struct Loc {
-    lineno: u16,
-    column: u8,
+pub struct Loc {
+    pub lineno: u16,
+    pub column: u8,
 }
 
 #[derive(Clone)]
@@ -69,7 +69,7 @@ pub enum Ast<'i>
     StrExpr(Vec<AstNode<'i>>),
     Tuple(StrupleKV<&'i str, AstNode<'i>>),
     Type(Type),
-    TypeCall(AstNode<'i>, StrupleKV<&'i str, AstNode<'i>>),
+    TypeCall(AstNode<'i>, StrupleKV<Option<&'i str>, AstNode<'i>>),
     Void,
 }
 

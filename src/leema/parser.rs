@@ -90,7 +90,7 @@ impl<'input> TokenStream<'input>
 
 trait PrefixParser
 {
-    fn parse<'input>(&self, Parser<'input>, TokenSrc<'input>) -> Lresult<AstNode<'input>>;
+    fn parse<'input>(&self, &mut Parser<'input>, TokenSrc<'input>) -> Lresult<AstNode<'input>>;
 }
 
 struct DefConstParser;
@@ -100,7 +100,7 @@ struct LetParser;
 
 impl PrefixParser for LetParser
 {
-    fn parse<'input>(&self, _p: Parser<'input>, _left: TokenSrc<'input>) -> Lresult<AstNode<'input>>
+    fn parse<'input>(&self, _p: &mut Parser<'input>, _left: TokenSrc<'input>) -> Lresult<AstNode<'input>>
     {
         Ok(AstNode::void())
     }
@@ -110,7 +110,7 @@ struct BlockParser;
 
 impl PrefixParser for BlockParser
 {
-    fn parse<'input>(&self, _p: Parser<'input>, _left: TokenSrc<'input>) -> Lresult<AstNode<'input>>
+    fn parse<'input>(&self, _p: &mut Parser<'input>, _left: TokenSrc<'input>) -> Lresult<AstNode<'input>>
     {
         Ok(AstNode::void())
     }
@@ -122,7 +122,7 @@ struct IfParser;
 
 impl PrefixParser for IfParser
 {
-    fn parse<'input>(&self, _p: Parser<'input>, _left: TokenSrc<'input>) -> Lresult<AstNode<'input>>
+    fn parse<'input>(&self, _p: &mut Parser<'input>, _left: TokenSrc<'input>) -> Lresult<AstNode<'input>>
     {
         Ok(AstNode::void())
     }
@@ -139,7 +139,7 @@ struct TupleParser;
 
 trait InfixParser
 {
-    fn parse<'input>(&self, Parser<'input>, AstNode<'input>, TokenSrc<'input>) -> Lresult<AstNode<'input>>;
+    fn parse<'input>(&self, &mut Parser<'input>, AstNode<'input>, TokenSrc<'input>) -> Lresult<AstNode<'input>>;
 }
 
 enum Assoc
@@ -178,13 +178,37 @@ impl BinaryOpParser
 
 impl InfixParser for BinaryOpParser
 {
-    fn parse<'input>(&self, p: Parser<'input>, left: AstNode<'input>, op: TokenSrc<'input>) -> Lresult<AstNode<'input>>
+    fn parse<'input>(&self, p: &mut Parser<'input>, left: AstNode<'input>, op: TokenSrc<'input>) -> Lresult<AstNode<'input>>
     {
         let right = p.parse_expr()?;
         let ast = Ast::Op2(op.src, left, right);
         Ok(AstNode::new(ast, Ast::loc(&op)))
     }
 }
+
+const OP_MULTIPLY: &'static BinaryOpParser = &BinaryOpParser {
+    op: "*",
+    pre: Precedence(13, None),
+    assoc: Assoc::Left,
+};
+
+const OP_DIVIDE: &'static BinaryOpParser = &BinaryOpParser {
+    op: "/",
+    pre: Precedence(13, None),
+    assoc: Assoc::Left,
+};
+
+const OP_ADD: &'static BinaryOpParser = &BinaryOpParser {
+    op: "+",
+    pre: Precedence(10, None),
+    assoc: Assoc::Left,
+};
+
+const OP_SUBTRACT: &'static BinaryOpParser = &BinaryOpParser {
+    op: "*",
+    pre: Precedence(10, None),
+    assoc: Assoc::Left,
+};
 
 // struct ConsParser;
 // struct DollarParser;
@@ -208,7 +232,7 @@ impl<'input> Parser<'input>
     {
         let tok = TokenStream::new(items);
 
-        let mut stmts = HashMap::new();
+        let mut stmts: HashMap<Token, &'static PrefixParser> = HashMap::new();
         stmts.insert(Token::Let, &LetParser);
         // stmt.insert(Token::Const, &DefConstParser);
 
@@ -216,15 +240,11 @@ impl<'input> Parser<'input>
         prefix.insert(Token::DoubleArrow, &BlockParser);
         prefix.insert(Token::If, &IfParser);
 
-        let mut infix = HashMap::new();
-        infix.insert(Token::Star
-            , &BinaryOpParser::new("*", Precedence(13, None), Assoc::Left));
-        infix.insert(Token::Slash
-            , &BinaryOpParser::new("/", Precedence(13, None), Assoc::Left));
-        infix.insert(Token::Plus
-            , &BinaryOpParser::new("+", Precedence(10, None), Assoc::Left));
-        infix.insert(Token::Dash
-            , &BinaryOpParser::new("-", Precedence(10, None), Assoc::Left));
+        let mut infix: HashMap<Token, &'static InfixParser> = HashMap::new();
+        infix.insert(Token::Star, OP_MULTIPLY);
+        infix.insert(Token::Slash, OP_DIVIDE);
+        infix.insert(Token::Plus, OP_ADD);
+        infix.insert(Token::Dash, OP_SUBTRACT);
 
         Parser { tok, stmts, prefix, infix }
     }
@@ -259,8 +279,8 @@ impl<'input> Parser<'input>
     pub fn parse_expr(&mut self) -> Lresult<AstNode<'input>>
     {
         let first = self.tok.next()?;
-        let prefix = self.find_prefix(first.tok).ok_or_else(|| {
-            rustfail!("cannot find parser for {:?}", first.tok)
+        let _prefix = self.find_prefix(first.tok).ok_or_else(|| {
+            rustfail!("parse_failure", "cannot find parser for {:?}", first.tok)
         })?;
         // let left = prefix.parse(first);
 
@@ -293,7 +313,7 @@ impl<'input> Parser<'input>
         let tok = self.tok.next()?;
         let patt = match tok.tok {
             Token::Id => {
-                Ast::Id(tok.src, tok.loc)
+                Ast::Id1(tok.src)
             }
             _ => {
                 return Err(rustfail!(
@@ -303,10 +323,10 @@ impl<'input> Parser<'input>
                 ))
             }
         };
-        Ok(patt)
+        Ok(AstNode::new(patt, Ast::loc(&tok)))
     }
 
-    fn find_prefix(&self, tok: Token) -> Option<&PrefixParser>
+    fn find_prefix(&self, _tok: Token) -> Option<&PrefixParser>
     {
         None
     }

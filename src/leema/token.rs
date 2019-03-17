@@ -94,7 +94,6 @@ pub enum Token
     Hashtag,
     StrLit,
     DollarId,
-    Underscore,
 
     // brackets
     ParenL,
@@ -120,6 +119,7 @@ pub enum Token
     Match,
     Return,
     Type,
+    Underscore,
 
     // operators (arithmetic)
     Plus,
