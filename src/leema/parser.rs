@@ -189,9 +189,9 @@ impl PrefixParser for BlockParser
 }
 
 #[derive(Debug)]
-struct IdParser;
+struct ParseId;
 
-impl PrefixParser for IdParser
+impl PrefixParser for ParseId
 {
     fn parse<'input>(
         &self,
@@ -219,9 +219,9 @@ impl PrefixParser for IfParser
 }
 
 #[derive(Debug)]
-struct IntParser;
+struct ParseInt;
 
-impl PrefixParser for IntParser
+impl PrefixParser for ParseInt
 {
     fn parse<'input>(
         &self,
@@ -357,6 +357,82 @@ struct LessThanParser;
 #[derive(Debug)]
 struct TypeParamParser;
 
+type PrefixOption = Option<&'static PrefixParser>;
+type InfixOption = Option<&'static InfixParser>;
+type ParseRow = (Token, PrefixOption, PrefixOption, InfixOption);
+const PARSE_TABLE: [ParseRow; 61] = [
+    (Token::Id, None, Some(&ParseId), None),
+    (Token::Int, None, Some(&ParseInt), None),
+    (Token::Bool, None, Some(&ParseBool), None),
+    (Token::Hashtag, None, None, None),
+    (Token::StrLit, None, None, None),
+    (Token::DollarId, None, None, None),
+    // brackets
+    (Token::ParenL, None, None, None),
+    (Token::ParenR, None, None, None),
+    (Token::SquareL, None, None, None),
+    (Token::SquareR, None, None, None),
+    (Token::CurlyL, None, None, None),
+    (Token::CurlyR, None, None, None),
+    (Token::AngleL, None, None, None),
+    (Token::AngleR, None, None, None),
+    (Token::DoubleQuoteL, None, None, None),
+    (Token::DoubleQuoteR, None, None, None),
+    // keywords
+    (Token::Const, None, None, None),
+    (Token::Failed, None, None, None),
+    (Token::Fork, None, None, None),
+    (Token::Func, None, None, None),
+    (Token::If, None, None, None),
+    (Token::Import, None, None, None),
+    (Token::Let, None, None, None),
+    (Token::Macro, None, None, None),
+    (Token::Match, None, None, None),
+    (Token::Return, None, None, None),
+    (Token::Type, None, None, None),
+    (Token::Underscore, None, None, None),
+    // operators (arithmetic)
+    (Token::Plus, None, None, None),
+    (Token::Dash, None, None, None),
+    (Token::Star, None, None, None),
+    (Token::Slash, None, None, None),
+    (Token::Modulo, None, None, None),
+    // operators (boolean)
+    (Token::And, None, None, None),
+    (Token::Not, None, None, None),
+    (Token::Or, None, None, None),
+    (Token::Xor, None, None, None),
+    // operators (comparison)
+    (Token::Equal, None, None, None),
+    (Token::EqualNot, None, None, None),
+    (Token::GreaterThanEqual, None, None, None),
+    (Token::LessThanEqual, None, None, None),
+    // separators
+    (Token::Assignment, None, None, None),
+    (Token::Colon, None, None, None),
+    (Token::Comma, None, None, None),
+    (Token::ConcatNewline, None, None, None),
+    (Token::Dot, None, None, None),
+    (Token::DoubleArrow, None, None, None),
+    (Token::DoubleColon, None, None, None),
+    (Token::DoubleDash, None, None, None),
+    (Token::Pipe, None, None, None),
+    (Token::Semicolon, None, None, None),
+    (Token::StatementSep, None, None, None),
+    // comments
+    (Token::CommentBlockStart, None, None, None),
+    (Token::CommentBlockStop, None, None, None),
+    (Token::CommentLine, None, None, None),
+    // whitespace
+    (Token::EmptyLine, None, None, None),
+    (Token::LineBegin, None, None, None),
+    (Token::LineEnd, None, None, None),
+    (Token::Spaces, None, None, None),
+    (Token::Tabs, None, None, None),
+    // EOF
+    (Token::EOF, None, None, None),
+];
+
 struct Parser<'input>
 {
     tok: TokenStream<'input>,
@@ -377,9 +453,9 @@ impl<'input> Parser<'input>
 
         let mut prefix: HashMap<Token, &'static PrefixParser> = HashMap::new();
         prefix.insert(Token::DoubleArrow, &BlockParser);
-        prefix.insert(Token::Id, &IdParser);
+        prefix.insert(Token::Id, &ParseId);
         prefix.insert(Token::If, &IfParser);
-        prefix.insert(Token::Int, &IntParser);
+        prefix.insert(Token::Int, &ParseInt);
 
         let mut infix: HashMap<Token, &'static InfixParser> = HashMap::new();
         infix.insert(Token::Star, OP_MULTIPLY);
