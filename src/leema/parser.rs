@@ -163,7 +163,7 @@ impl PrefixParser for LetParser
         left: TokenSrc<'input>,
     ) -> Lresult<AstNode<'input>>
     {
-        let lhs = p.parse_pattern()?;
+        let lhs = p.parse_expr()?;
         let _assign = p.expect_next(Token::Assignment)?;
         let rhs = p.parse_expr()?;
         Ok(AstNode::new(
@@ -363,7 +363,6 @@ struct Parser<'input>
     stmts: HashMap<Token, &'static PrefixParser>,
     prefix: HashMap<Token, &'static PrefixParser>,
     infix: HashMap<Token, &'static InfixParser>,
-    pattern: HashMap<Token, &'static PrefixParser>,
 }
 
 impl<'input> Parser<'input>
@@ -388,16 +387,11 @@ impl<'input> Parser<'input>
         infix.insert(Token::Plus, OP_ADD);
         infix.insert(Token::Dash, OP_SUBTRACT);
 
-        let mut patt: HashMap<Token, &'static PrefixParser> = HashMap::new();
-        patt.insert(Token::Id, &IdParser);
-        patt.insert(Token::Int, &IntParser);
-
         Parser {
             tok,
             stmts,
             prefix,
             infix,
-            pattern: patt,
         }
     }
 
@@ -450,19 +444,6 @@ impl<'input> Parser<'input>
         Ok(left)
     }
 
-    pub fn parse_pattern(&mut self) -> Lresult<AstNode<'input>>
-    {
-        let first = self.tok.next()?;
-        let pattern = self.find_pattern(first.tok).ok_or_else(|| {
-            rustfail!(
-                "parse_failure",
-                "no pattern parser for token: {:?}",
-                first.tok,
-            )
-        })?;
-        pattern.parse(self, first)
-    }
-
     fn find_stmtp(&self, tok: Token) -> Option<&'static PrefixParser>
     {
         self.stmts.get(&tok).map(|pp| *pp)
@@ -493,11 +474,6 @@ impl<'input> Parser<'input>
                 }
             }
         }
-    }
-
-    fn find_pattern(&self, tok: Token) -> Option<&'static PrefixParser>
-    {
-        self.pattern.get(&tok).map(|pp| *pp)
     }
 
     fn token_filter(tok: Token) -> bool
