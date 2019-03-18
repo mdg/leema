@@ -1263,9 +1263,9 @@ mod tests
     fn test_tokenz_enum()
     {
         let input = "
-        type Boolean
-        |True
-        |False
+        type Roulette
+        |Red
+        |Black
         --
         ";
 
@@ -1277,17 +1277,17 @@ mod tests
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
         assert_eq!(Token::Type, nextok(&mut i).0);
         i.next();
-        assert_eq!((Token::Id, "Boolean"), nextok(&mut i));
+        assert_eq!((Token::Id, "Roulette"), nextok(&mut i));
         assert_eq!(Token::LineEnd, nextok(&mut i).0);
 
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
         assert_eq!(Token::Pipe, nextok(&mut i).0);
-        assert_eq!((Token::Id, "True"), nextok(&mut i));
+        assert_eq!((Token::Id, "Red"), nextok(&mut i));
         assert_eq!(Token::LineEnd, nextok(&mut i).0);
 
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
         assert_eq!(Token::Pipe, nextok(&mut i).0);
-        assert_eq!((Token::Id, "False"), nextok(&mut i));
+        assert_eq!((Token::Id, "Black"), nextok(&mut i));
         assert_eq!(Token::LineEnd, nextok(&mut i).0);
 
         assert_eq!(Token::LineBegin, nextok(&mut i).0);

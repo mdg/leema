@@ -3,7 +3,6 @@ use leema::failure::Lresult;
 use leema::token::{Token, TokenSrc};
 use leema::val::Val;
 
-use std::collections::HashMap;
 use std::fmt::Debug;
 
 
@@ -129,9 +128,9 @@ impl PrefixParser for ParseBool
 }
 
 #[derive(Debug)]
-struct DefConstParser;
+struct ParseDefConst;
 
-impl PrefixParser for DefConstParser
+impl PrefixParser for ParseDefConst
 {
     fn parse<'input>(
         &self,
@@ -153,9 +152,9 @@ struct DefFuncParser;
 struct DefTypeParser;
 
 #[derive(Debug)]
-struct LetParser;
+struct ParseLet;
 
-impl PrefixParser for LetParser
+impl PrefixParser for ParseLet
 {
     fn parse<'input>(
         &self,
@@ -379,23 +378,23 @@ const PARSE_TABLE: [ParseRow; 61] = [
     (Token::DoubleQuoteL, None, None, None),
     (Token::DoubleQuoteR, None, None, None),
     // keywords
-    (Token::Const, None, None, None),
+    (Token::Const, Some(&ParseDefConst), None, None),
     (Token::Failed, None, None, None),
     (Token::Fork, None, None, None),
     (Token::Func, None, None, None),
-    (Token::If, None, None, None),
+    (Token::If, None, Some(&IfParser), None),
     (Token::Import, None, None, None),
-    (Token::Let, None, None, None),
+    (Token::Let, Some(&ParseLet), None, None),
     (Token::Macro, None, None, None),
     (Token::Match, None, None, None),
     (Token::Return, None, None, None),
     (Token::Type, None, None, None),
     (Token::Underscore, None, None, None),
     // operators (arithmetic)
-    (Token::Plus, None, None, None),
-    (Token::Dash, None, None, None),
-    (Token::Star, None, None, None),
-    (Token::Slash, None, None, None),
+    (Token::Plus, None, None, Some(OP_ADD)),
+    (Token::Dash, None, None, Some(OP_SUBTRACT)),
+    (Token::Star, None, None, Some(OP_MULTIPLY)),
+    (Token::Slash, None, None, Some(OP_DIVIDE)),
     (Token::Modulo, None, None, None),
     // operators (boolean)
     (Token::And, None, None, None),
@@ -413,7 +412,7 @@ const PARSE_TABLE: [ParseRow; 61] = [
     (Token::Comma, None, None, None),
     (Token::ConcatNewline, None, None, None),
     (Token::Dot, None, None, None),
-    (Token::DoubleArrow, None, None, None),
+    (Token::DoubleArrow, None, Some(&BlockParser), None),
     (Token::DoubleColon, None, None, None),
     (Token::DoubleDash, None, None, None),
     (Token::Pipe, None, None, None),
@@ -436,9 +435,6 @@ const PARSE_TABLE: [ParseRow; 61] = [
 struct Parser<'input>
 {
     tok: TokenStream<'input>,
-    stmts: HashMap<Token, &'static PrefixParser>,
-    prefix: HashMap<Token, &'static PrefixParser>,
-    infix: HashMap<Token, &'static InfixParser>,
 }
 
 impl<'input> Parser<'input>
@@ -447,28 +443,7 @@ impl<'input> Parser<'input>
     {
         let tok = TokenStream::new(items);
 
-        let mut stmts: HashMap<Token, &'static PrefixParser> = HashMap::new();
-        stmts.insert(Token::Const, &DefConstParser);
-        stmts.insert(Token::Let, &LetParser);
-
-        let mut prefix: HashMap<Token, &'static PrefixParser> = HashMap::new();
-        prefix.insert(Token::DoubleArrow, &BlockParser);
-        prefix.insert(Token::Id, &ParseId);
-        prefix.insert(Token::If, &IfParser);
-        prefix.insert(Token::Int, &ParseInt);
-
-        let mut infix: HashMap<Token, &'static InfixParser> = HashMap::new();
-        infix.insert(Token::Star, OP_MULTIPLY);
-        infix.insert(Token::Slash, OP_DIVIDE);
-        infix.insert(Token::Plus, OP_ADD);
-        infix.insert(Token::Dash, OP_SUBTRACT);
-
-        Parser {
-            tok,
-            stmts,
-            prefix,
-            infix,
-        }
+        Parser { tok }
     }
 
     pub fn expect_next(&mut self, expected: Token)
@@ -522,12 +497,12 @@ impl<'input> Parser<'input>
 
     fn find_stmtp(&self, tok: Token) -> Option<&'static PrefixParser>
     {
-        self.stmts.get(&tok).map(|pp| *pp)
+        PARSE_TABLE.get(tok as usize).and_then(|row| row.1)
     }
 
     fn find_prefix(&self, tok: Token) -> Option<&'static PrefixParser>
     {
-        self.prefix.get(&tok).map(|pp| *pp)
+        PARSE_TABLE.get(tok as usize).and_then(|row| row.2)
     }
 
     fn next_infix(
@@ -539,7 +514,7 @@ impl<'input> Parser<'input>
         if tok == Token::EOF {
             return None;
         }
-        match self.infix.get(&tok).map(|ip| *ip) {
+        match PARSE_TABLE.get(tok as usize).and_then(|row| row.3) {
             None => None,
             Some(infix) => {
                 if infix.precedence() >= min_pre {
