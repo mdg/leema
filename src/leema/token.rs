@@ -210,6 +210,7 @@ lazy_static! {
         keywords.insert("match", Token::Match);
         keywords.insert("return", Token::Return);
         keywords.insert("type", Token::Type);
+        keywords.insert("_", Token::Underscore);
         // booleans
         keywords.insert("False", Token::Bool);
         keywords.insert("True", Token::Bool);
@@ -364,6 +365,7 @@ impl ScanModeTrait for ScanModeLine
                 )
             }
             // keywords
+            '_' => ScanOutput::Start(ScanModeOp::Push(&ScanModeId)),
             c if c.is_alphabetic() => {
                 ScanOutput::Start(ScanModeOp::Push(&ScanModeId))
             }
