@@ -123,6 +123,17 @@ impl<'i> AstNode<'i>
         }
     }
 
+    pub fn new_constval(v: Val, loc: Loc) -> AstNode<'i>
+    {
+        let const_type = v.get_type();
+        AstNode {
+            node: Box::new(Ast::ConstVal(v)),
+            loc,
+            typ: const_type,
+            dst: Reg::Void,
+        }
+    }
+
     pub fn void() -> AstNode<'i>
     {
         AstNode {

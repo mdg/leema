@@ -90,7 +90,7 @@ pub enum Token
 {
     Id,
     Int,
-    Bool(bool),
+    Bool,
     Hashtag,
     StrLit,
     DollarId,
@@ -210,6 +210,9 @@ lazy_static! {
         keywords.insert("match", Token::Match);
         keywords.insert("return", Token::Return);
         keywords.insert("type", Token::Type);
+        // booleans
+        keywords.insert("False", Token::Bool);
+        keywords.insert("True", Token::Bool);
         keywords
     };
 }

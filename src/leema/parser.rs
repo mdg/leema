@@ -103,6 +103,32 @@ trait PrefixParser: Debug
 }
 
 #[derive(Debug)]
+struct ParseBool;
+
+impl PrefixParser for ParseBool
+{
+    fn parse<'input>(
+        &self,
+        _p: &mut Parser<'input>,
+        left: TokenSrc<'input>,
+    ) -> Lresult<AstNode<'input>>
+    {
+        let b = match left.src {
+            "False" => false,
+            "True" => true,
+            _ => {
+                return Err(rustfail!(
+                    "parse_failure",
+                    "bool token is not True or False: '{}'",
+                    left.src,
+                ));
+            }
+        };
+        Ok(AstNode::new_constval(Val::Bool(b), Ast::loc(&left)))
+    }
+}
+
+#[derive(Debug)]
 struct DefConstParser;
 
 impl PrefixParser for DefConstParser
