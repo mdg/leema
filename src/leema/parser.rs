@@ -447,7 +447,10 @@ impl<'input> Parser<'input>
         self.prefix.get(&tok).map(|pp| *pp)
     }
 
-    fn next_infix(&mut self, min_pre: Precedence) -> Option<(TokenSrc<'input>, &'static InfixParser)>
+    fn next_infix(
+        &mut self,
+        min_pre: Precedence,
+    ) -> Option<(TokenSrc<'input>, &'static InfixParser)>
     {
         let tok = self.tok.peek().ok().unwrap_or(Token::EOF);
         if tok == Token::EOF {
