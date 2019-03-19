@@ -49,13 +49,15 @@ pub struct Case<'i>
     pub loc: Loc,
 }
 
+type Xlist<'i> = StrupleKV<Option<&'i str>, AstNode<'i>>;
+
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub enum Ast<'i>
 {
     Block(Vec<AstNode<'i>>),
-    Call(AstNode<'i>, StrupleKV<&'i str, AstNode<'i>>),
+    Call(AstNode<'i>, Xlist<'i>),
     Case(CaseType, AstNode<'i>, Case<'i>),
     ConstVal(Val),
     DefConst(&'i str, AstNode<'i>),

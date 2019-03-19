@@ -1,5 +1,6 @@
 use leema::ast2::{Ast, AstNode};
 use leema::failure::Lresult;
+use leema::struple::StrupleKV;
 use leema::token::{Token, TokenSrc};
 use leema::val::Val;
 
@@ -22,23 +23,32 @@ impl<'input> TokenStream<'input>
         }
     }
 
-    pub fn peek(&mut self) -> Lresult<Token>
+    fn peek(&mut self) -> Lresult<TokenSrc<'input>>
     {
-        self.peek_token()
+        if self.peeked.is_none() {
+            self.peeked = self.it.next();
+        }
+        self.peeked
+            .ok_or_else(|| rustfail!("parse_failure", "token underflow"))
+    }
+
+    pub fn peek_token(&mut self) -> Lresult<Token>
+    {
+        self.peek()
             .map(|t| t.tok)
             .map_err(|f| f.loc(file!(), line!()))
     }
 
     pub fn match_next(&mut self, t: Token) -> Lresult<bool>
     {
-        self.peek()
+        self.peek_token()
             .map(|tok| tok == t)
             .map_err(|f| f.loc(file!(), line!()))
     }
 
     pub fn next(&mut self) -> Lresult<TokenSrc<'input>>
     {
-        self.peek_token().map_err(|f| f.loc(file!(), line!()))?;
+        self.peek().map_err(|f| f.loc(file!(), line!()))?;
         self.peeked
             .take()
             .ok_or_else(|| rustfail!("parse_failure", "failed peek"))
@@ -46,7 +56,7 @@ impl<'input> TokenStream<'input>
 
     pub fn next_if(&mut self, t: Token) -> Lresult<Option<TokenSrc<'input>>>
     {
-        let tok = self.peek_token().map_err(|f| f.loc(file!(), line!()))?;
+        let tok = self.peek().map_err(|f| f.loc(file!(), line!()))?;
         if tok.tok == t {
             self.peeked = None;
             Ok(Some(tok))
@@ -58,7 +68,7 @@ impl<'input> TokenStream<'input>
     pub fn expect_next(&mut self, expected: Token)
         -> Lresult<TokenSrc<'input>>
     {
-        let tok = self.peek_token()?;
+        let tok = self.peek()?;
         if tok.tok == expected {
             self.peeked = None;
             Ok(tok)
@@ -72,15 +82,6 @@ impl<'input> TokenStream<'input>
         }
     }
 
-    fn peek_token(&mut self) -> Lresult<TokenSrc<'input>>
-    {
-        if self.peeked.is_none() {
-            self.peeked = self.it.next();
-        }
-        self.peeked
-            .ok_or_else(|| rustfail!("parse_failure", "token underflow"))
-    }
-
     fn token_filter(t: &TokenSrc) -> bool
     {
         match t.tok {
@@ -90,6 +91,21 @@ impl<'input> TokenStream<'input>
             _ => true,
         }
     }
+}
+
+enum OpPrecedence
+{
+    Minimum,
+    Equal,
+    LessThan,
+    Add,
+    Multiply,
+    Xor,
+    Semicolon,
+    Dollar,
+    Pipe,
+    Func,
+    Dot,
 }
 
 trait PrefixParser: Debug
@@ -348,7 +364,37 @@ const OP_SUBTRACT: &'static BinaryOpParser = &BinaryOpParser {
 // struct PipeParser;
 
 #[derive(Debug)]
-struct CallParser;
+struct ParseCall;
+
+impl InfixParser for ParseCall
+{
+    fn parse<'input>(
+        &self,
+        p: &mut Parser<'input>,
+        left: AstNode<'input>,
+        _tok: TokenSrc<'input>,
+    ) -> Lresult<AstNode<'input>>
+    {
+        let tok = p.next()?;
+        let args = match tok.tok {
+            Token::ParenR => StrupleKV::new(),
+            Token::EOF => {
+                return Err(rustfail!(
+                    "parse_failure",
+                    "expected ')', found EOF",
+                ));
+            }
+            _ => p.parse_xlist()?,
+        };
+        let loc = left.loc;
+        Ok(AstNode::new(Ast::Call(left, args), loc))
+    }
+
+    fn precedence(&self) -> Precedence
+    {
+        Precedence(15, 0, Assoc::Left)
+    }
+}
 
 #[derive(Debug)]
 struct LessThanParser;
@@ -367,7 +413,7 @@ const PARSE_TABLE: [ParseRow; 61] = [
     (Token::StrLit, None, None, None),
     (Token::DollarId, None, None, None),
     // brackets
-    (Token::ParenL, None, None, None),
+    (Token::ParenL, None, None, Some(&ParseCall)),
     (Token::ParenR, None, None, None),
     (Token::SquareL, None, None, None),
     (Token::SquareR, None, None, None),
@@ -446,6 +492,11 @@ impl<'input> Parser<'input>
         Parser { tok }
     }
 
+    pub fn next(&mut self) -> Lresult<TokenSrc<'input>>
+    {
+        self.tok.next()
+    }
+
     pub fn expect_next(&mut self, expected: Token)
         -> Lresult<TokenSrc<'input>>
     {
@@ -470,6 +521,13 @@ impl<'input> Parser<'input>
             Some(stmtp) => stmtp.parse(self, first),
             None => self.parse_expr_first(first, MIN_PRECEDENCE),
         }
+    }
+
+    pub fn parse_xlist(
+        &mut self,
+    ) -> Lresult<StrupleKV<Option<&'input str>, AstNode<'input>>>
+    {
+        Ok(StrupleKV::new())
     }
 
     pub fn parse_expr(&mut self) -> Lresult<AstNode<'input>>
@@ -510,7 +568,7 @@ impl<'input> Parser<'input>
         min_pre: Precedence,
     ) -> Option<(TokenSrc<'input>, &'static InfixParser)>
     {
-        let tok = self.tok.peek().ok().unwrap_or(Token::EOF);
+        let tok = self.tok.peek_token().ok().unwrap_or(Token::EOF);
         if tok == Token::EOF {
             return None;
         }
@@ -544,6 +602,15 @@ mod tests
 {
     use super::Parser;
     use leema::token::Tokenz;
+
+    #[test]
+    fn test_parse_call()
+    {
+        let input = "let x := 5 + f()";
+        Parser::new(Tokenz::lexp(input).unwrap())
+            .parse_module()
+            .unwrap();
+    }
 
     #[test]
     fn test_parse_const()
