@@ -375,17 +375,7 @@ impl InfixParser for ParseCall
         _tok: TokenSrc<'input>,
     ) -> Lresult<AstNode<'input>>
     {
-        let tok = p.next()?;
-        let args = match tok.tok {
-            Token::ParenR => StrupleKV::new(),
-            Token::EOF => {
-                return Err(rustfail!(
-                    "parse_failure",
-                    "expected ')', found EOF",
-                ));
-            }
-            _ => p.parse_xlist()?,
-        };
+        let args = p.parse_xlist()?;
         let loc = left.loc;
         Ok(AstNode::new(Ast::Call(left, args), loc))
     }
@@ -527,7 +517,48 @@ impl<'input> Parser<'input>
         &mut self,
     ) -> Lresult<StrupleKV<Option<&'input str>, AstNode<'input>>>
     {
-        Ok(StrupleKV::new())
+        let mut args = vec![];
+        loop {
+            match self.tok.peek_token()? {
+                Token::ParenR => {
+                    self.next()?;
+                    break;
+                }
+                Token::EOF => {
+                    return Err(rustfail!(
+                        "parse_failure",
+                        "expected ')', found EOF",
+                    ));
+                }
+                _ => {
+                    args.push(self.parse_expr()?);
+                }
+            };
+
+            let comma = self.tok.next()?;
+            match comma.tok {
+                Token::Comma => {
+                    // continue
+                }
+                Token::ParenR => {
+                    break;
+                }
+                Token::EOF => {
+                    return Err(rustfail!(
+                        "parse_failure",
+                        "expected ')', found EOF",
+                    ));
+                }
+                _ => {
+                    return Err(rustfail!(
+                        "parse_failure",
+                        "expected ')' or ',' found {:?}",
+                        comma,
+                    ));
+                }
+            }
+        }
+        Ok(StrupleKV::from(args))
     }
 
     pub fn parse_expr(&mut self) -> Lresult<AstNode<'input>>
@@ -604,9 +635,27 @@ mod tests
     use leema::token::Tokenz;
 
     #[test]
-    fn test_parse_call()
+    fn test_parse_call_no_params()
     {
         let input = "let x := 5 + f()";
+        Parser::new(Tokenz::lexp(input).unwrap())
+            .parse_module()
+            .unwrap();
+    }
+
+    #[test]
+    fn test_parse_call_two_params()
+    {
+        let input = "let x := 5 + f(9, 3)";
+        Parser::new(Tokenz::lexp(input).unwrap())
+            .parse_module()
+            .unwrap();
+    }
+
+    #[test]
+    fn test_parse_call_two_params_trailing_comma()
+    {
+        let input = "let x := 5 + f(9, 3,)";
         Parser::new(Tokenz::lexp(input).unwrap())
             .parse_module()
             .unwrap();
