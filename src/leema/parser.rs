@@ -468,7 +468,7 @@ const PARSE_TABLE: [ParseRow; 61] = [
     (Token::EOF, None, None, None),
 ];
 
-struct Parser<'input>
+pub struct Parser<'input>
 {
     tok: TokenStream<'input>,
 }

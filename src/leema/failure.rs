@@ -44,6 +44,29 @@ pub enum Status
     RuntimeLeemaFailure,
 }
 
+impl Status
+{
+    pub fn cli_code(&self) -> i8
+    {
+        match self {
+            Status::None => 0,
+            // end-user input errors
+            Status::InvalidUserInput => 1,
+            Status::Unauthenticated => 2,
+            Status::Unauthorized => 3,
+            Status::NotFound => 4,
+            // programmer-user errors
+            Status::Timeout => 5,
+            Status::ParseFailure => 6,
+            Status::CompileFailure => 7,
+            Status::TypeFailure => 8,
+            // internal leema errors
+            Status::StaticLeemaFailure => -1,
+            Status::RuntimeLeemaFailure => -2,
+        }
+    }
+}
+
 #[derive(Clone)]
 #[derive(Debug)]
 pub struct Failure
@@ -51,7 +74,7 @@ pub struct Failure
     tag: Val,
     msg: Val,
     trace: Option<Arc<FrameTrace>>,
-    status: Status,
+    pub status: Status,
     loc: Vec<(Lstr, u32)>,
     meta: LmapNode,
     context: Vec<Lstr>,

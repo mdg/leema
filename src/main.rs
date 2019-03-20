@@ -30,6 +30,7 @@ use leema::loader::Interloader;
 use leema::lri::Lri;
 use leema::lstr::Lstr;
 use leema::module::ModuleSource;
+use leema::parser::Parser;
 use leema::program;
 use leema::struple::Struple;
 use leema::token::{TokenResult, Tokenz};
@@ -146,16 +147,27 @@ fn real_main() -> i32
                 }
                 Err(e) => {
                     println!("err: {:?}", e);
-                    break;
+                    return 3;
                 }
             }
         }
         Val::Int(0)
     } else if args.flag_ast {
         let modtxt = inter.read_module(&mod_name).unwrap();
-        let ast = ModuleSource::read_ast(&modtxt);
-        println!("{}\n", ast);
-        Val::Int(0)
+        let astr = Parser::new(Tokenz::lexp(&modtxt).unwrap()).parse_module();
+        match astr {
+            Ok(ast) => {
+                println!("{:?}", ast);
+                Val::Int(0)
+            }
+            Err(failure) => {
+                eprintln!("{:?}", failure);
+                match failure.status.cli_code() {
+                    0 => Val::Int(1),
+                    code => Val::Int(code.into()),
+                }
+            }
+        }
     } else if args.flag_modsrc {
         let prog = program::Lib::new(inter);
         let src = prog.read_modsrc(&mod_name);
