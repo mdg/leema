@@ -4,6 +4,7 @@ use leema::lstr::Lstr;
 use leema::val::Val;
 
 use std::fmt;
+use std::process::Termination;
 use std::sync::Arc;
 
 
@@ -46,7 +47,7 @@ pub enum Status
 
 impl Status
 {
-    pub fn cli_code(&self) -> i8
+    pub fn cli_code(&self) -> i32
     {
         match self {
             Status::None => 0,
@@ -128,6 +129,20 @@ impl fmt::Display for Failure
         write!(f, "Failure({} ", self.tag)?;
         write!(f, " @ {:?}", self.loc)?;
         write!(f, "\n'{}')", self.msg)
+    }
+}
+
+impl Termination for Lresult<()>
+{
+    fn report(self) -> i32
+    {
+        match self {
+            Ok(()) => 0,
+            Err(f) => {
+                eprintln!("{}", f);
+                f.status.cli_code()
+            }
+        }
     }
 }
 

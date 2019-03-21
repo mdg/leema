@@ -25,6 +25,7 @@ extern crate tokio_current_thread;
 mod leema;
 
 use leema::application::Application;
+use leema::failure::Lresult;
 use leema::list;
 use leema::loader::Interloader;
 use leema::lri::Lri;
@@ -88,15 +89,7 @@ Options:
 const ENV_VERBOSE: &str = "LEEMA_VERBOSE";
 
 
-fn main()
-{
-    // got this pattern from stack overflow. kind of in disbelief that
-    // there isn't a better way to do it.
-    let exit_code = real_main();
-    std::process::exit(exit_code);
-}
-
-fn real_main() -> i32
+fn main() -> Lresult<()>
 {
     vout!("cmd: {:?}", env::current_exe());
     let args: Args = Docopt::new(USAGE)
@@ -129,60 +122,41 @@ fn real_main() -> i32
     vout!("run {}\n", inter.main_mod);
 
     let main_result = if args.flag_tokens {
-        let modtxt = inter.read_module(&mod_name).unwrap();
+        let modtxt = inter.read_module(&mod_name)?;
         let toks = ModuleSource::read_tokens(&modtxt);
         println!("tokens:");
         for t in &toks {
             println!("\t{:?}", t);
         }
-        Val::Int(0)
+        None
     } else if args.flag_tok {
-        let modtxt = inter.read_module(&mod_name).unwrap();
-        let toks: Vec<TokenResult> = Tokenz::lex(&modtxt).collect();
+        let modtxt = inter.read_module(&mod_name)?;
+        let tokr: Vec<TokenResult> = Tokenz::lex(&modtxt).collect();
         println!("tokens:");
-        for t in &toks {
-            match t {
-                Ok(tc) => {
-                    println!("\t{:?}", tc);
-                }
-                Err(e) => {
-                    println!("err: {:?}", e);
-                    return 3;
-                }
-            }
+        for t in tokr {
+            println!("\t{:?}", t?);
         }
-        Val::Int(0)
+        None
     } else if args.flag_ast {
-        let modtxt = inter.read_module(&mod_name).unwrap();
-        let astr = Parser::new(Tokenz::lexp(&modtxt).unwrap()).parse_module();
-        match astr {
-            Ok(ast) => {
-                println!("{:?}", ast);
-                Val::Int(0)
-            }
-            Err(failure) => {
-                eprintln!("{:?}", failure);
-                match failure.status.cli_code() {
-                    0 => Val::Int(1),
-                    code => Val::Int(code.into()),
-                }
-            }
-        }
+        let modtxt = inter.read_module(&mod_name)?;
+        let ast = Parser::new(Tokenz::lexp(&modtxt)?).parse_module()?;
+        println!("{:?}", ast);
+        None
     } else if args.flag_modsrc {
         let prog = program::Lib::new(inter);
         let src = prog.read_modsrc(&mod_name);
         println!("{:?}\n", src);
-        Val::Int(0)
+        None
     } else if args.flag_preface {
         let prog = program::Lib::new(inter);
         let (_, pref) = prog.read_preface(&mod_name);
         println!("{:?}\n", pref);
-        Val::Int(0)
+        None
     } else if args.flag_proto {
         let mut prog = program::Lib::new(inter);
         let proto = prog.read_proto(&mod_name);
         println!("\n{}\n", proto);
-        Val::Int(0)
+        None
     } else if args.flag_inter {
         let mut prog = program::Lib::new(inter);
         let imod = prog.read_inter(&mod_name);
@@ -194,14 +168,14 @@ fn real_main() -> i32
             None => imod.interfunc.get("main"),
         };
         println!("\n{:?}\n", fix);
-        Val::Int(0)
+        None
     } else if args.flag_typecheck {
         let mut prog = program::Lib::new(inter);
         let func_name = Lstr::Sref("main");
         let funcri = Lri::with_modules(mod_name, func_name);
         let ftype = prog.typecheck(&funcri, typecheck::Depth::Full);
         println!("type: {}", ftype);
-        Val::Int(0)
+        None
     } else if args.flag_code {
         let mut prog = program::Lib::new(inter);
         let code = match args.flag_func {
@@ -212,10 +186,12 @@ fn real_main() -> i32
             None => prog.load_code(&mod_name, &Lstr::Sref("main")),
         };
         println!("code: {:?}", code);
-        Val::Int(0)
+        None
     } else if args.flag_repl {
-        println!("wouldn't it be cool if there was a repl?");
-        Val::Int(2)
+        return Err(rustfail!(
+            "invalid_options",
+            "wouldn't it be cool if there were a repl?",
+        ));
     } else {
         let prog = program::Lib::new(inter);
         let mut app = Application::new(prog);
@@ -224,8 +200,14 @@ fn real_main() -> i32
         app.run();
         let main_arg = Struple(vec![(None, leema_args)]);
         let result_recv = caller.push_call(main_lri, main_arg);
-        app.wait_for_result(result_recv).unwrap()
+        app.wait_for_result(result_recv)
     };
 
-    i32::from(Application::handle_result(main_result))
+    match main_result {
+        Some(mainr) => {
+            println!("{}", mainr);
+            Ok(())
+        }
+        None => Ok(()),
+    }
 }

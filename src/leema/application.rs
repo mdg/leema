@@ -196,26 +196,6 @@ impl Application
     {
         self.result.take()
     }
-
-    pub fn handle_result(result: Val) -> i8
-    {
-        vout!("Result = {:?}\n", result);
-        let code: i8 = match result {
-            Val::Int(i) => i as i8,
-            Val::Void => 0,
-            Val::Failure(ref tag, ref msg, ref trace, status) => {
-                println!("Failure: {}", tag);
-                println!("Message: {}", msg);
-                println!("Stack Trace:\n{}", trace);
-                status
-            }
-            res => {
-                println!("Result: {}", res);
-                -2
-            }
-        };
-        code
-    }
 }
 
 /*
