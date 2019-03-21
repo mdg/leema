@@ -4,7 +4,6 @@ use leema::lstr::Lstr;
 use leema::val::Val;
 
 use std::fmt;
-use std::process::Termination;
 use std::sync::Arc;
 
 
@@ -72,10 +71,11 @@ impl Status
 #[derive(Debug)]
 pub struct Failure
 {
-    tag: Val,
-    msg: Val,
-    trace: Option<Arc<FrameTrace>>,
+    pub tag: Val,
+    pub msg: Val,
+    pub trace: Option<Arc<FrameTrace>>,
     pub status: Status,
+    pub code: i8,
     loc: Vec<(Lstr, u32)>,
     meta: LmapNode,
     context: Vec<Lstr>,
@@ -92,6 +92,26 @@ impl Failure
             msg: Val::Str(msg),
             trace: None,
             status: Status::None,
+            code: 0,
+            loc: vec![],
+            meta: None,
+            context: vec![],
+        }
+    }
+
+    pub fn leema_new(
+        tag: Val,
+        msg: Val,
+        trace: Arc<FrameTrace>,
+        code: i8,
+    ) -> Failure
+    {
+        Failure {
+            tag,
+            msg,
+            trace: Some(trace),
+            status: Status::None,
+            code,
             loc: vec![],
             meta: None,
             context: vec![],
@@ -127,22 +147,10 @@ impl fmt::Display for Failure
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         write!(f, "Failure({} ", self.tag)?;
-        write!(f, " @ {:?}", self.loc)?;
-        write!(f, "\n'{}')", self.msg)
-    }
-}
-
-impl Termination for Lresult<()>
-{
-    fn report(self) -> i32
-    {
-        match self {
-            Ok(()) => 0,
-            Err(f) => {
-                eprintln!("{}", f);
-                f.status.cli_code()
-            }
+        if !self.loc.is_empty() {
+            write!(f, "\n @ {:?}\n", self.loc)?;
         }
+        write!(f, "'{}')", self.msg)
     }
 }
 

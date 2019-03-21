@@ -1,4 +1,5 @@
 use leema::code::{Code, Op, OpVec};
+use leema::failure::Failure;
 use leema::frame::{Event, Frame, FrameTrace, Parent};
 use leema::list;
 use leema::lmap::Lmap;
@@ -403,15 +404,34 @@ impl Fiber
     pub fn propagate_failure(&mut self, src: &Reg, line: i16) -> Event
     {
         let srcval = self.head.e.get_reg(src);
-        if let &Val::Failure(ref tag, ref msg, ref trace, status) = srcval {
-            let new_trace =
-                FrameTrace::propagate_down(trace, &self.head.function, line);
-            let new_fail =
-                Val::Failure(tag.clone(), msg.clone(), new_trace, status);
-            self.head.parent.set_result(new_fail);
-            Event::Complete(false)
-        } else {
-            Event::Uneventful
+        match srcval {
+            &Val::Failure(ref tag, ref msg, ref trace, status) => {
+                let new_trace = FrameTrace::propagate_down(
+                    trace,
+                    &self.head.function,
+                    line,
+                );
+                let new_fail =
+                    Val::Failure(tag.clone(), msg.clone(), new_trace, status);
+                self.head.parent.set_result(new_fail);
+                Event::Complete(false)
+            }
+            &Val::Failure2(ref failure) => {
+                let new_trace = FrameTrace::propagate_down(
+                    failure.trace.as_ref().unwrap(),
+                    &self.head.function,
+                    line,
+                );
+                let new_fail = Val::Failure2(Box::new(Failure::leema_new(
+                    failure.tag.clone(),
+                    failure.msg.clone(),
+                    new_trace,
+                    failure.code,
+                )));
+                self.head.parent.set_result(new_fail);
+                Event::Complete(false)
+            }
+            _ => Event::Uneventful,
         }
     }
 

@@ -88,8 +88,24 @@ Options:
 
 const ENV_VERBOSE: &str = "LEEMA_VERBOSE";
 
+fn main()
+{
+    // got this pattern from stack overflow. kind of in disbelief that
+    // there isn't a better way to do it.
+    let exit_code = match real_main() {
+        Ok(()) => 0,
+        Err(e) => {
+            eprintln!("{}", e);
+            match (e.code, e.status.cli_code()) {
+                (0, cli_code) => cli_code,
+                (cli_code, _) => cli_code.into(),
+            }
+        }
+    };
+    std::process::exit(exit_code);
+}
 
-fn main() -> Lresult<()>
+fn real_main() -> Lresult<()>
 {
     vout!("cmd: {:?}", env::current_exe());
     let args: Args = Docopt::new(USAGE)
@@ -204,6 +220,9 @@ fn main() -> Lresult<()>
     };
 
     match main_result {
+        Some(Val::Void) => Ok(()),
+        Some(Val::Int(_)) => Ok(()),
+        Some(Val::Failure2(failure)) => Err(*failure),
         Some(mainr) => {
             println!("{}", mainr);
             Ok(())

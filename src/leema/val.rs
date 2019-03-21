@@ -1210,7 +1210,7 @@ impl fmt::Debug for Val
 
 impl reg::Iregistry for Val
 {
-    fn ireg_get(&self, i: &Ireg) -> &Val
+    fn ireg_get<'a, 'b>(&'a self, i: &'b Ireg) -> &'a Val
     {
         match (i, self) {
             // get reg on tuple
@@ -1219,6 +1219,12 @@ impl reg::Iregistry for Val
             (_, &Val::Struct(_, ref items)) => items.ireg_get(i),
             // Functions & Closures
             (_, &Val::FuncRef(_, ref args, _)) => args.ireg_get(i),
+            // New Failures
+            (&Ireg::Reg(0), &Val::Failure2(ref failure)) => &failure.tag,
+            (&Ireg::Reg(1), &Val::Failure2(ref failure)) => &failure.msg,
+            (&Ireg::Reg(2), &Val::Failure2(ref failure)) => {
+                panic!("Cannot access frame trace until it is implemented as a leema value {:?}", failure.trace);
+            }
             // Failures
             (&Ireg::Reg(0), &Val::Failure(ref tag, _, _, _)) => tag,
             (&Ireg::Reg(1), &Val::Failure(_, ref msg, _, _)) => msg,
