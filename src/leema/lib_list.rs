@@ -1,7 +1,7 @@
-use leema::code::Code;
-use leema::fiber::Fiber;
-use leema::frame;
-use leema::list;
+use crate::leema::code::Code;
+use crate::leema::fiber::Fiber;
+use crate::leema::frame;
+use crate::leema::list;
 
 
 pub fn sort(f: &mut Fiber) -> frame::Event

@@ -1,8 +1,10 @@
-use leema::failure::Lresult;
+use crate::leema::failure::Lresult;
 
 use std::collections::HashMap;
 use std::fmt;
 use std::str::CharIndices;
+
+use lazy_static::lazy_static;
 
 
 #[derive(Copy)]
@@ -238,7 +240,7 @@ pub type TokenResult<'input> = Lresult<TokenSrc<'input>>;
 
 trait ScanModeTrait: fmt::Debug
 {
-    fn scan(&self, Char) -> ScanResult;
+    fn scan(&self, c: Char) -> ScanResult;
 
     fn eof(&self) -> ScanResult
     {

@@ -1,4 +1,4 @@
-use leema::val::Val;
+use crate::leema::val::Val;
 
 use std::cmp::Eq;
 use std::collections::HashMap;
@@ -391,8 +391,8 @@ pub fn head_ref(l: &Val) -> &Val
 #[cfg(test)]
 mod tests
 {
-    use leema::list;
-    use leema::val::Val;
+    use crate::leema::list;
+    use crate::leema::val::Val;
 
     #[test]
     fn test_concat()

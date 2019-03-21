@@ -1,8 +1,8 @@
-use leema::failure::Lresult;
-use leema::lstr::Lstr;
-use leema::sendclone::SendClone;
-use leema::struple::{StrupleItem, StrupleKV};
-use leema::val::Type;
+use crate::leema::failure::Lresult;
+use crate::leema::lstr::Lstr;
+use crate::leema::sendclone::SendClone;
+use crate::leema::struple::{StrupleItem, StrupleKV};
+use crate::leema::val::Type;
 
 use std::fmt;
 use std::iter::Iterator;
@@ -371,9 +371,9 @@ impl fmt::Debug for Lri
 #[cfg(test)]
 mod tests
 {
-    use leema::lri::Lri;
-    use leema::lstr::Lstr;
-    use leema::val::Type;
+    use crate::leema::lri::Lri;
+    use crate::leema::lstr::Lstr;
+    use crate::leema::val::Type;
 
     #[test]
     fn test_lri_equality()

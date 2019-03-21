@@ -1,13 +1,13 @@
-use leema::fiber;
-use leema::frame;
-use leema::ixpr::{Ixpr, Source};
-use leema::lstr::Lstr;
-use leema::reg::{Reg, RegTable};
-use leema::rsrc;
-use leema::sendclone::SendClone;
-use leema::struple::Struple;
-use leema::val::{Type, Val};
-use leema::worker::RustFuncContext;
+use crate::leema::fiber;
+use crate::leema::frame;
+use crate::leema::ixpr::{Ixpr, Source};
+use crate::leema::lstr::Lstr;
+use crate::leema::reg::{Reg, RegTable};
+use crate::leema::rsrc;
+use crate::leema::sendclone::SendClone;
+use crate::leema::struple::Struple;
+use crate::leema::val::{Type, Val};
+use crate::leema::worker::RustFuncContext;
 
 use std::fmt;
 use std::marker;
@@ -235,7 +235,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             }
             let mut ops: Vec<(Op, i16)> = Vec::with_capacity(oxprs.len());
             let mut last_dst = rt.dst().clone();
-            for mut i in oxprs.iter_mut().rev() {
+            for i in oxprs.iter_mut().rev() {
                 ops.append(&mut i.ops);
                 last_dst = i.dst.clone();
             }
@@ -293,7 +293,7 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             panic!("cannot access a field with no index: {}", fldname);
         }
         Source::FieldAccess(ref base, _, Some(fld_idx)) => {
-            let mut base_ops = make_sub_ops(rt, base);
+            let base_ops = make_sub_ops(rt, base);
             Oxpr {
                 ops: base_ops.ops,
                 dst: base_ops.dst.sub(fld_idx),
@@ -734,13 +734,13 @@ pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Ixpr>) -> Oxpr
 #[cfg(test)]
 mod tests
 {
-    use leema::code::{self, Op};
-    use leema::ixpr::Ixpr;
-    use leema::loader::Interloader;
-    use leema::lstr::Lstr;
-    use leema::program;
-    use leema::reg::Reg;
-    use leema::val::Val;
+    use crate::leema::code::{self, Op};
+    use crate::leema::ixpr::Ixpr;
+    use crate::leema::loader::Interloader;
+    use crate::leema::lstr::Lstr;
+    use crate::leema::program;
+    use crate::leema::reg::Reg;
+    use crate::leema::val::Val;
 
     #[test]
     fn test_code_constval()

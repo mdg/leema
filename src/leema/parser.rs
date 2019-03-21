@@ -1,8 +1,8 @@
-use leema::ast2::{Ast, AstNode};
-use leema::failure::Lresult;
-use leema::struple::StrupleKV;
-use leema::token::{Token, TokenSrc};
-use leema::val::Val;
+use crate::leema::ast2::{Ast, AstNode};
+use crate::leema::failure::Lresult;
+use crate::leema::struple::StrupleKV;
+use crate::leema::token::{Token, TokenSrc};
+use crate::leema::val::Val;
 
 use std::fmt::Debug;
 
@@ -112,8 +112,8 @@ trait PrefixParser: Debug
 {
     fn parse<'input>(
         &self,
-        &mut Parser<'input>,
-        TokenSrc<'input>,
+        p: &mut Parser<'input>,
+        tok: TokenSrc<'input>,
     ) -> Lresult<AstNode<'input>>;
 }
 
@@ -275,9 +275,9 @@ trait InfixParser: Debug
 {
     fn parse<'input>(
         &self,
-        &mut Parser<'input>,
-        AstNode<'input>,
-        TokenSrc<'input>,
+        p: &mut Parser<'input>,
+        left: AstNode<'input>,
+        tok: TokenSrc<'input>,
     ) -> Lresult<AstNode<'input>>;
 
     fn precedence(&self) -> Precedence;
@@ -632,7 +632,7 @@ impl<'input> Parser<'input>
 mod tests
 {
     use super::Parser;
-    use leema::token::Tokenz;
+    use crate::leema::token::Tokenz;
 
     #[test]
     fn test_parse_call_no_params()

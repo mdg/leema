@@ -1,12 +1,12 @@
-use leema::code::Code;
-use leema::fiber::Fiber;
-use leema::frame::{Event, Frame, Parent};
-use leema::lri::Lri;
-use leema::lstr::Lstr;
-use leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
-use leema::reg::Reg;
-use leema::struple::Struple;
-use leema::val::{MsgVal, Val};
+use crate::leema::code::Code;
+use crate::leema::fiber::Fiber;
+use crate::leema::frame::{Event, Frame, Parent};
+use crate::leema::lri::Lri;
+use crate::leema::lstr::Lstr;
+use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
+use crate::leema::reg::Reg;
+use crate::leema::struple::Struple;
+use crate::leema::val::{MsgVal, Val};
 
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};

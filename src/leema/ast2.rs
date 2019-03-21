@@ -1,7 +1,7 @@
-use leema::reg::Reg;
-use leema::struple::{Struple2, StrupleKV};
-use leema::token::TokenSrc;
-use leema::val::{Type, Val};
+use crate::leema::reg::Reg;
+use crate::leema::struple::{Struple2, StrupleKV};
+use crate::leema::token::TokenSrc;
+use crate::leema::val::{Type, Val};
 
 
 #[derive(Clone)]

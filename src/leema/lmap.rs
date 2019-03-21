@@ -1,6 +1,6 @@
-use leema::lri::Lri;
-use leema::lstr::Lstr;
-use leema::val::{Type, Val};
+use crate::leema::lri::Lri;
+use crate::leema::lstr::Lstr;
+use crate::leema::val::{Type, Val};
 
 use std::sync::Arc;
 
@@ -90,9 +90,9 @@ impl Lmap
 #[cfg(test)]
 mod tests
 {
-    use leema::lmap::Lmap;
-    use leema::lstr::Lstr;
-    use leema::val::Val;
+    use crate::leema::lmap::Lmap;
+    use crate::leema::lstr::Lstr;
+    use crate::leema::val::Val;
 
 
     #[test]

@@ -1,9 +1,9 @@
-use leema::lri::Lri;
-use leema::lstr::Lstr;
-use leema::msg::{AppMsg, IoMsg, WorkerMsg};
-use leema::rsrc::{self, Event, IopCtx, Rsrc};
-use leema::struple::Struple;
-use leema::val::{MsgVal, Val};
+use crate::leema::lri::Lri;
+use crate::leema::lstr::Lstr;
+use crate::leema::msg::{AppMsg, IoMsg, WorkerMsg};
+use crate::leema::rsrc::{self, Event, IopCtx, Rsrc};
+use crate::leema::struple::Struple;
+use crate::leema::val::{MsgVal, Val};
 
 use std;
 use std::cell::RefCell;
@@ -261,7 +261,7 @@ impl Io
                     if opt_rsrcq.is_none() {
                         panic!("missing queue for rsrc: {}", rsrc_id);
                     }
-                    let mut rsrcq = opt_rsrcq.unwrap();
+                    let rsrcq = opt_rsrcq.unwrap();
                     rsrcq.push_iop(iop)
                 };
                 if let Some(rsrc_op) = opt_rsrc_op {
@@ -479,12 +479,12 @@ impl Future for IoLoop
 #[cfg(test)]
 pub mod tests
 {
-    use leema::io::{Io, IoLoop};
-    use leema::lstr::Lstr;
-    use leema::msg;
-    use leema::rsrc::{self, Rsrc};
-    use leema::struple::Struple;
-    use leema::val::{MsgVal, Type, Val};
+    use crate::leema::io::{Io, IoLoop};
+    use crate::leema::lstr::Lstr;
+    use crate::leema::msg;
+    use crate::leema::rsrc::{self, Rsrc};
+    use crate::leema::struple::Struple;
+    use crate::leema::val::{MsgVal, Type, Val};
 
     use std::sync::mpsc;
 

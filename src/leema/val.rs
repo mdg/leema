@@ -1,14 +1,14 @@
-use leema::ast::Ast;
-use leema::failure::{Failure, Lresult};
-use leema::frame::FrameTrace;
-use leema::list;
-use leema::lmap::{self, LmapNode};
-use leema::lri::{GenericModId, Lri, ModLocalId, SpecialModId};
-use leema::lstr::Lstr;
-use leema::msg;
-use leema::reg::{self, Ireg, Iregistry, Reg};
-use leema::sendclone::{self, SendClone};
-use leema::struple::{Struple, Struple2, StrupleKV};
+use crate::leema::ast::Ast;
+use crate::leema::failure::{Failure, Lresult};
+use crate::leema::frame::FrameTrace;
+use crate::leema::list;
+use crate::leema::lmap::{self, LmapNode};
+use crate::leema::lri::{GenericModId, Lri, ModLocalId, SpecialModId};
+use crate::leema::lstr::Lstr;
+use crate::leema::msg;
+use crate::leema::reg::{self, Ireg, Iregistry, Reg};
+use crate::leema::sendclone::{self, SendClone};
+use crate::leema::struple::{Struple, Struple2, StrupleKV};
 
 use std::cmp::{Ordering, PartialEq, PartialOrd};
 use std::collections::{BTreeMap, HashMap};
@@ -18,7 +18,7 @@ use std::iter::FromIterator;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 
-use mopa;
+use mopa::mopafy;
 
 
 #[derive(Debug)]
@@ -1661,12 +1661,12 @@ impl reg::Iregistry for Env
 #[cfg(test)]
 mod tests
 {
-    use leema::list;
-    use leema::lri::Lri;
-    use leema::lstr::Lstr;
-    use leema::reg::Reg;
-    use leema::struple::Struple;
-    use leema::val::{Type, Val};
+    use crate::leema::list;
+    use crate::leema::lri::Lri;
+    use crate::leema::lstr::Lstr;
+    use crate::leema::reg::Reg;
+    use crate::leema::struple::Struple;
+    use crate::leema::val::{Type, Val};
 
 
     #[test]

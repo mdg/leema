@@ -1,6 +1,6 @@
-use leema::failure::Lresult;
-use leema::lstr::Lstr;
-use leema::module::ModKey;
+use crate::leema::failure::Lresult;
+use crate::leema::lstr::Lstr;
+use crate::leema::module::ModKey;
 
 use std::collections::HashMap;
 use std::env;
@@ -130,8 +130,8 @@ impl Interloader
 #[cfg(test)]
 mod tests
 {
-    use leema::loader::Interloader;
-    use leema::lstr::Lstr;
+    use crate::leema::loader::Interloader;
+    use crate::leema::lstr::Lstr;
 
     use std::path::Path;
 

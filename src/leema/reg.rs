@@ -1,5 +1,5 @@
-use leema::lstr::Lstr;
-use leema::val::Val;
+use crate::leema::lstr::Lstr;
+use crate::leema::val::Val;
 
 use std::cell::RefCell;
 use std::cmp;
@@ -530,7 +530,7 @@ impl RegTable
 #[cfg(test)]
 mod tests
 {
-    use leema::reg::{Reg, RegTable};
+    use crate::leema::reg::{Reg, RegTable};
 
     #[test]
     fn test_init()

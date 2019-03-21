@@ -1,8 +1,8 @@
-use leema::list;
-use leema::lri::Lri;
-use leema::lstr::Lstr;
-use leema::struple::Struple;
-use leema::val::{Type, Val};
+use crate::leema::list;
+use crate::leema::lri::Lri;
+use crate::leema::lstr::Lstr;
+use crate::leema::struple::Struple;
+use crate::leema::val::{Type, Val};
 
 
 pub const STRUCT_FIELD_LRI: Lri = Lri {
@@ -158,10 +158,10 @@ pub fn new_type_val(name: Lri, fields: &Vec<(Option<Lstr>, Type)>) -> Val
 #[cfg(test)]
 mod tests
 {
-    use leema::lri::Lri;
-    use leema::lstr::Lstr;
-    use leema::types;
-    use leema::val::Type;
+    use crate::leema::lri::Lri;
+    use crate::leema::lstr::Lstr;
+    use crate::leema::types;
+    use crate::leema::val::Type;
 
 
     #[test]

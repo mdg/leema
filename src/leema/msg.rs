@@ -1,10 +1,10 @@
-use leema::code::Code;
-use leema::lri::Lri;
-use leema::lstr::Lstr;
-use leema::rsrc::IopAction;
-use leema::sendclone::SendClone;
-use leema::struple::Struple;
-use leema::val::{MsgVal, Val};
+use crate::leema::code::Code;
+use crate::leema::lri::Lri;
+use crate::leema::lstr::Lstr;
+use crate::leema::rsrc::IopAction;
+use crate::leema::sendclone::SendClone;
+use crate::leema::struple::Struple;
+use crate::leema::val::{MsgVal, Val};
 
 use std::fmt;
 use std::ops::Deref;

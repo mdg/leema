@@ -1,10 +1,10 @@
-use leema::io::{Io, IoLoop};
-use leema::lri::Lri;
-use leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
-use leema::program;
-use leema::struple::Struple;
-use leema::val::Val;
-use leema::worker::Worker;
+use crate::leema::io::{Io, IoLoop};
+use crate::leema::lri::Lri;
+use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
+use crate::leema::program;
+use crate::leema::struple::Struple;
+use crate::leema::val::Val;
+use crate::leema::worker::Worker;
 
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
@@ -275,13 +275,13 @@ enum Itype
 #[cfg(test)]
 mod tests
 {
-    use leema::application::Application;
-    use leema::loader::Interloader;
-    use leema::lri::Lri;
-    use leema::lstr::Lstr;
-    use leema::program;
-    use leema::struple::Struple;
-    use leema::val::Val;
+    use crate::leema::application::Application;
+    use crate::leema::loader::Interloader;
+    use crate::leema::lri::Lri;
+    use crate::leema::lstr::Lstr;
+    use crate::leema::program;
+    use crate::leema::struple::Struple;
+    use crate::leema::val::Val;
 
     use libc::getpid;
     use std::io::{stderr, Write};

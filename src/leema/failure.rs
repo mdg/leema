@@ -1,7 +1,7 @@
-use leema::frame::FrameTrace;
-use leema::lmap::LmapNode;
-use leema::lstr::Lstr;
-use leema::val::Val;
+use crate::leema::frame::FrameTrace;
+use crate::leema::lmap::LmapNode;
+use crate::leema::lstr::Lstr;
+use crate::leema::val::Val;
 
 use std::fmt;
 use std::sync::Arc;
@@ -9,13 +9,13 @@ use std::sync::Arc;
 
 macro_rules! rustfail {
     ($tag:expr, $msg:expr) => {
-        ::leema::failure::Failure::new($tag, ::leema::lstr::Lstr::from($msg))
+        crate::leema::failure::Failure::new($tag, crate::leema::lstr::Lstr::from($msg))
             .loc(file!(), line!())
     };
     ($tag:expr, $fmt:expr, $($arg:tt)*) => {
-        ::leema::failure::Failure::new(
+        crate::leema::failure::Failure::new(
                 $tag,
-                ::leema::lstr::Lstr::from(format!($fmt, $($arg)*))
+                crate::leema::lstr::Lstr::from(format!($fmt, $($arg)*))
             )
             .loc(file!(), line!())
     };

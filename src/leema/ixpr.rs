@@ -1,6 +1,6 @@
-use leema::lstr::Lstr;
-use leema::struple::{Struple, Struple2};
-use leema::val::{Type, Val};
+use crate::leema::lstr::Lstr;
+use crate::leema::struple::{Struple, Struple2};
+use crate::leema::val::{Type, Val};
 
 
 #[derive(Clone)]
@@ -203,9 +203,9 @@ impl Ixpr
 #[cfg(test)]
 mod tests
 {
-    use leema::ixpr::{Ixpr, Source};
-    use leema::lstr::Lstr;
-    use leema::val::Val;
+    use crate::leema::ixpr::{Ixpr, Source};
+    use crate::leema::lstr::Lstr;
+    use crate::leema::val::Val;
 
 
     #[test]

@@ -1,41 +1,21 @@
 #![deny(warnings)]
 #![allow(dead_code)]
 
-extern crate docopt;
-extern crate libc;
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate mopa;
-extern crate bytes;
-extern crate futures;
-extern crate hyper;
-extern crate hyper_rustls;
-#[cfg(test)]
-#[macro_use]
-extern crate matches;
-extern crate rand;
-extern crate rustc_serialize;
-extern crate serde;
-extern crate serde_json;
-extern crate tokio;
-extern crate tokio_current_thread;
-
 #[macro_use]
 mod leema;
 
-use leema::application::Application;
-use leema::list;
-use leema::loader::Interloader;
-use leema::lri::Lri;
-use leema::lstr::Lstr;
-use leema::module::ModuleSource;
-use leema::parser::Parser;
-use leema::program;
-use leema::struple::Struple;
-use leema::token::{TokenResult, Tokenz};
-use leema::typecheck;
-use leema::val::Val;
+use crate::leema::application::Application;
+use crate::leema::list;
+use crate::leema::loader::Interloader;
+use crate::leema::lri::Lri;
+use crate::leema::lstr::Lstr;
+use crate::leema::module::ModuleSource;
+use crate::leema::parser::Parser;
+use crate::leema::program;
+use crate::leema::struple::Struple;
+use crate::leema::token::{TokenResult, Tokenz};
+use crate::leema::typecheck;
+use crate::leema::val::Val;
 
 use docopt::Docopt;
 use std::env;
@@ -105,7 +85,7 @@ fn real_main() -> i32
 
     let verbosenv = env::var_os(ENV_VERBOSE);
     if args.flag_verbose || verbosenv.is_some() && "1" == &verbosenv.unwrap() {
-        ::leema::log::set_verbose();
+        crate::leema::log::set_verbose();
         vout!("verbose mode\n");
     }
     vout!("args:{:?}\n", args);

@@ -1,12 +1,12 @@
-use leema::failure::Lresult;
-use leema::infer::{Inferator, TypeSet};
-use leema::ixpr::{Ixpr, Source};
-use leema::lmap;
-use leema::lri::Lri;
-use leema::lstr::Lstr;
-use leema::phase0::Protomod;
-use leema::struple::{Struple, StrupleItem, StrupleKV};
-use leema::val::{FuncType, Type, Val};
+use crate::leema::failure::Lresult;
+use crate::leema::infer::{Inferator, TypeSet};
+use crate::leema::ixpr::{Ixpr, Source};
+use crate::leema::lmap;
+use crate::leema::lri::Lri;
+use crate::leema::lstr::Lstr;
+use crate::leema::phase0::Protomod;
+use crate::leema::struple::{Struple, StrupleItem, StrupleKV};
+use crate::leema::val::{FuncType, Type, Val};
 
 use std::collections::{HashMap, LinkedList};
 
@@ -376,7 +376,7 @@ impl<'a, 'b> Typescope<'a, 'b>
     ) -> Lresult<Type>
     {
         let mut targs = vec![];
-        for mut a in &mut args.0 {
+        for a in &mut args.0 {
             let atype = typecheck_expr(self, &mut a.1).map_err(|e| {
                 e.add_context(Lstr::from(format!(
                     "function args for: {:?} on line {}",
@@ -558,7 +558,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> Lresult<Type>
                 &rhs_type,
                 ix.line,
             )?;
-            for mut f in fails {
+            for f in fails {
                 if f.case.is_none() {
                     continue;
                 }
@@ -603,7 +603,7 @@ pub fn typecheck_expr(scope: &mut Typescope, ix: &mut Ixpr) -> Lresult<Type>
         &mut Source::Map(_) => Ok(lmap::MAP_TYPE),
         &mut Source::Tuple(ref mut items) => {
             let mut item_types = Vec::with_capacity(items.0.len());
-            for mut i in &mut items.0 {
+            for i in &mut items.0 {
                 let xt = typecheck_expr(scope, &mut i.1)?;
                 item_types.push((i.0.clone(), xt));
             }
@@ -667,7 +667,7 @@ pub fn typecheck_function(scope: &mut Typescope, ix: &mut Ixpr)
             for (i, (an, at)) in zips.enumerate() {
                 scope.infer.init_param(i as i16, an, at, ix.line)?;
             }
-            let mut ci = arg_names.len();
+            let ci = arg_names.len();
             for an in closed_vars.iter() {
                 let at = Type::Var(Lstr::from(format!("T_{}_{}", an, ci)));
                 scope.infer.init_param(ci as i16, an, &at, ix.line)?;
@@ -807,13 +807,13 @@ pub fn typecheck_field_access(
 #[cfg(test)]
 mod tests
 {
-    use leema::loader::Interloader;
-    use leema::lri::Lri;
-    use leema::lstr::Lstr;
-    use leema::program;
-    use leema::struple::{Struple, StrupleItem, StrupleKV};
-    use leema::typecheck::Depth;
-    use leema::val::{FuncType, Type};
+    use crate::leema::loader::Interloader;
+    use crate::leema::lri::Lri;
+    use crate::leema::lstr::Lstr;
+    use crate::leema::program;
+    use crate::leema::struple::{Struple, StrupleItem, StrupleKV};
+    use crate::leema::typecheck::Depth;
+    use crate::leema::val::{FuncType, Type};
 
 
     #[test]

@@ -1,12 +1,12 @@
-use leema::ast::{self, Ast, IfCase, Kxpr};
-use leema::failure::{Failure, Lresult};
-use leema::ixpr::{Ixpr, MatchFailure, Source};
-use leema::list;
-use leema::lri::Lri;
-use leema::lstr::Lstr;
-use leema::phase0::Protomod;
-use leema::struple::{Struple, StrupleItem, StrupleKV};
-use leema::val::{FuncType, SrcLoc, Type, Val};
+use crate::leema::ast::{self, Ast, IfCase, Kxpr};
+use crate::leema::failure::{Failure, Lresult};
+use crate::leema::ixpr::{Ixpr, MatchFailure, Source};
+use crate::leema::list;
+use crate::leema::lri::Lri;
+use crate::leema::lstr::Lstr;
+use crate::leema::phase0::Protomod;
+use crate::leema::struple::{Struple, StrupleItem, StrupleKV};
+use crate::leema::val::{FuncType, SrcLoc, Type, Val};
 
 use std::collections::{HashMap, HashSet, LinkedList};
 use std::fmt;
@@ -1238,14 +1238,14 @@ impl fmt::Debug for Intermod
 #[cfg(test)]
 mod tests
 {
-    use leema::ast::Ast;
-    use leema::inter::{self, Intermod, Interscope, ScopeLevel};
-    use leema::loader::Interloader;
-    use leema::lstr::Lstr;
-    use leema::module::ModKey;
-    use leema::phase0::Protomod;
-    use leema::program;
-    use leema::val::SrcLoc;
+    use crate::leema::ast::Ast;
+    use crate::leema::inter::{self, Intermod, Interscope, ScopeLevel};
+    use crate::leema::loader::Interloader;
+    use crate::leema::lstr::Lstr;
+    use crate::leema::module::ModKey;
+    use crate::leema::phase0::Protomod;
+    use crate::leema::program;
+    use crate::leema::val::SrcLoc;
 
     use std::collections::{HashMap, LinkedList};
 

@@ -1,6 +1,6 @@
-use leema::io::Io;
-pub use leema::io::RunQueue;
-use leema::val::{Type, Val};
+use crate::leema::io::Io;
+pub use crate::leema::io::RunQueue;
+use crate::leema::val::{Type, Val};
 
 use std::cell::RefCell;
 use std::fmt;
@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 use futures::future;
 use futures::stream;
-use mopa;
+use mopa::mopafy;
 
 
 pub trait Rsrc: mopa::Any + fmt::Debug

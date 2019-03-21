@@ -1,8 +1,8 @@
-use leema::lri::Lri;
-use leema::lstr::Lstr;
-use leema::parse::{Parser, Token};
-use leema::struple::{Struple2, StrupleItem};
-use leema::val::{FuncType, SrcLoc, Type};
+use crate::leema::lri::Lri;
+use crate::leema::lstr::Lstr;
+use crate::leema::parse::{Parser, Token};
+use crate::leema::struple::{Struple2, StrupleItem};
+use crate::leema::val::{FuncType, SrcLoc, Type};
 
 use std::collections::LinkedList;
 use std::fmt;
@@ -487,7 +487,7 @@ impl<'a> From<&'a Ast> for Type
             &Ast::TypeVar(ref v, _) => Type::Var(v.clone()),
             &Ast::TypeVoid => Type::Void,
             &Ast::TypeFunc(ref parts, ref result, _) => {
-                let mut ppp: Struple2<Type> = parts
+                let ppp: Struple2<Type> = parts
                     .iter()
                     .map(|p| {
                         let pt = Type::from(p.x_ref().unwrap());
@@ -604,13 +604,15 @@ pub fn parse(toks: Vec<Token>) -> Ast
 #[cfg(test)]
 mod tests
 {
-    use leema::ast::{self, Ast, Kxpr, Type};
-    use leema::lex::lex;
-    use leema::lri::Lri;
-    use leema::lstr::Lstr;
-    use leema::val::SrcLoc;
+    use crate::leema::ast::{self, Ast, Kxpr, Type};
+    use crate::leema::lex::lex;
+    use crate::leema::lri::Lri;
+    use crate::leema::lstr::Lstr;
+    use crate::leema::val::SrcLoc;
 
     use std::collections::LinkedList;
+
+    use matches::assert_matches;
 
 
     fn test_localid(id: &'static str, line: i16, col: i8) -> Ast

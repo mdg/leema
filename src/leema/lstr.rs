@@ -1,4 +1,4 @@
-use leema::sendclone::SendClone;
+use crate::leema::sendclone::SendClone;
 
 use std::borrow::Borrow;
 use std::cmp::{Ordering, PartialEq, PartialOrd};
@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 macro_rules! lstrf {
     ($fmt:expr, $($arg:tt)*) => {
-        ::leema::lstr::Lstr::from(format!($fmt, $($arg)*))
+        crate::leema::lstr::Lstr::from(format!($fmt, $($arg)*))
     };
 }
 
@@ -204,7 +204,7 @@ impl Hash for Lstr
 #[cfg(test)]
 mod tests
 {
-    use leema::lstr::Lstr;
+    use crate::leema::lstr::Lstr;
 
     use std::cmp::{Ord, Ordering};
     use std::collections::HashSet;

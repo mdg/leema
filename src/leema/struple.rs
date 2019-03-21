@@ -1,8 +1,8 @@
-use leema::failure::Lresult;
-use leema::lstr::Lstr;
-use leema::reg::{self, Ireg};
-use leema::sendclone;
-use leema::val::Val;
+use crate::leema::failure::Lresult;
+use crate::leema::lstr::Lstr;
+use crate::leema::reg::{self, Ireg};
+use crate::leema::sendclone;
+use crate::leema::val::Val;
 
 use std::clone::Clone;
 use std::fmt;
@@ -377,9 +377,9 @@ impl reg::Iregistry for Struple<Val>
 #[cfg(test)]
 mod tests
 {
-    use leema::lstr::Lstr;
-    use leema::struple::Struple;
-    use leema::val::Val;
+    use crate::leema::lstr::Lstr;
+    use crate::leema::struple::Struple;
+    use crate::leema::val::Val;
 
 
     #[test]

@@ -1,7 +1,7 @@
-use leema::code::Code;
-use leema::lstr::Lstr;
-use leema::rsrc;
-use leema::val::Val;
+use crate::leema::code::Code;
+use crate::leema::lstr::Lstr;
+use crate::leema::rsrc;
+use crate::leema::val::Val;
 
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};

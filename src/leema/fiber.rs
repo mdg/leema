@@ -1,12 +1,12 @@
-use leema::code::{Code, Op, OpVec};
-use leema::frame::{Event, Frame, FrameTrace, Parent};
-use leema::list;
-use leema::lmap::Lmap;
-use leema::lri::Lri;
-use leema::lstr::Lstr;
-use leema::reg::Reg;
-use leema::struple::Struple;
-use leema::val::{Env, Type, Val};
+use crate::leema::code::{Code, Op, OpVec};
+use crate::leema::frame::{Event, Frame, FrameTrace, Parent};
+use crate::leema::list;
+use crate::leema::lmap::Lmap;
+use crate::leema::lri::Lri;
+use crate::leema::lstr::Lstr;
+use crate::leema::reg::Reg;
+use crate::leema::struple::Struple;
+use crate::leema::val::{Env, Type, Val};
 
 use std::mem;
 use std::rc::Rc;
@@ -430,13 +430,13 @@ impl Fiber
 #[cfg(test)]
 mod tests
 {
-    use leema::fiber::Fiber;
-    use leema::frame::{Event, Frame, Parent};
-    use leema::lri::Lri;
-    use leema::lstr::Lstr;
-    use leema::reg::Reg;
-    use leema::struple::Struple;
-    use leema::val::Val;
+    use crate::leema::fiber::Fiber;
+    use crate::leema::frame::{Event, Frame, Parent};
+    use crate::leema::lri::Lri;
+    use crate::leema::lstr::Lstr;
+    use crate::leema::reg::Reg;
+    use crate::leema::struple::Struple;
+    use crate::leema::val::Val;
 
 
     #[test]

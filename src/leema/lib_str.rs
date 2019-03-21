@@ -1,10 +1,10 @@
-use leema::code::Code;
-use leema::fiber::Fiber;
-use leema::frame;
-use leema::list;
-use leema::lstr::Lstr;
-use leema::val::Val;
-use leema::worker::RustFuncContext;
+use crate::leema::code::Code;
+use crate::leema::fiber::Fiber;
+use crate::leema::frame;
+use crate::leema::list;
+use crate::leema::lstr::Lstr;
+use crate::leema::val::Val;
+use crate::leema::worker::RustFuncContext;
 
 
 pub fn len(f: &mut Fiber) -> frame::Event

@@ -1,13 +1,13 @@
-use leema::ast::{self, Ast, Kxpr, KxprList};
-use leema::failure::{Failure, Lresult};
-use leema::list;
-use leema::lri::{Lri, ModLocalId};
-use leema::lstr::Lstr;
-use leema::module::{ModKey, ModulePreface};
-use leema::program::Lib;
-use leema::struple::{Struple, Struple2, StrupleItem, StrupleKV};
-use leema::types;
-use leema::val::{FuncType, SrcLoc, Type, Val};
+use crate::leema::ast::{self, Ast, Kxpr, KxprList};
+use crate::leema::failure::{Failure, Lresult};
+use crate::leema::list;
+use crate::leema::lri::{Lri, ModLocalId};
+use crate::leema::lstr::Lstr;
+use crate::leema::module::{ModKey, ModulePreface};
+use crate::leema::program::Lib;
+use crate::leema::struple::{Struple, Struple2, StrupleItem, StrupleKV};
+use crate::leema::types;
+use crate::leema::val::{FuncType, SrcLoc, Type, Val};
 
 use std::collections::{HashMap, LinkedList};
 use std::fmt;
@@ -1667,15 +1667,15 @@ impl fmt::Display for Protomod
 #[cfg(test)]
 mod tests
 {
-    use leema::ast::{self, Ast};
-    use leema::list;
-    use leema::loader::Interloader;
-    use leema::lri::Lri;
-    use leema::lstr::Lstr;
-    use leema::program;
-    use leema::struple::{Struple, StrupleItem, StrupleKV};
-    use leema::types;
-    use leema::val::{FuncType, Type, Val};
+    use crate::leema::ast::{self, Ast};
+    use crate::leema::list;
+    use crate::leema::loader::Interloader;
+    use crate::leema::lri::Lri;
+    use crate::leema::lstr::Lstr;
+    use crate::leema::program;
+    use crate::leema::struple::{Struple, StrupleItem, StrupleKV};
+    use crate::leema::types;
+    use crate::leema::val::{FuncType, Type, Val};
 
 
     #[test]

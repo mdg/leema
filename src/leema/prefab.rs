@@ -1,10 +1,10 @@
-use leema::code::Code;
-use leema::fiber::Fiber;
-use leema::frame::Event;
-use leema::list;
-use leema::lstr::Lstr;
-use leema::rsrc;
-use leema::val::{self, LibVal, Type, Val};
+use crate::leema::code::Code;
+use crate::leema::fiber::Fiber;
+use crate::leema::frame::Event;
+use crate::leema::list;
+use crate::leema::lstr::Lstr;
+use crate::leema::rsrc;
+use crate::leema::val::{self, LibVal, Type, Val};
 
 use std::fmt::{self, Debug, Display};
 use std::fs::File;

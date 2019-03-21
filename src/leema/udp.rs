@@ -1,7 +1,7 @@
-use leema::code::Code;
-use leema::lstr::Lstr;
-use leema::rsrc::{self, Rsrc};
-use leema::val::{Type, Val};
+use crate::leema::code::Code;
+use crate::leema::lstr::Lstr;
+use crate::leema::rsrc::{self, Rsrc};
+use crate::leema::val::{Type, Val};
 
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
@@ -132,9 +132,9 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
 #[cfg(test)]
 mod tests
 {
-    use leema::io::tests::exercise_iop_action;
-    use leema::udp;
-    use leema::val::Val;
+    use crate::leema::io::tests::exercise_iop_action;
+    use crate::leema::udp;
+    use crate::leema::val::Val;
 
     #[test]
     fn test_udp_socket_creation()

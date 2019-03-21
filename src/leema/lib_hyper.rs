@@ -1,10 +1,10 @@
-use leema::code::Code;
-use leema::frame::FrameTrace;
-use leema::lri::Lri;
-use leema::lstr::Lstr;
-use leema::rsrc::{self, Rsrc, RunQueue};
-use leema::struple::Struple;
-use leema::val::{Type, Val};
+use crate::leema::code::Code;
+use crate::leema::frame::FrameTrace;
+use crate::leema::lri::Lri;
+use crate::leema::lstr::Lstr;
+use crate::leema::rsrc::{self, Rsrc, RunQueue};
+use crate::leema::struple::Struple;
+use crate::leema::val::{Type, Val};
 
 use std::fmt;
 use std::net::{IpAddr, SocketAddr};

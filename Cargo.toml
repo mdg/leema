@@ -4,8 +4,7 @@ version = "0.0.2"
 authors = ["Matthew Graham <mattg@leema.org>"]
 rustc-link-search = ["."]
 rustc-link-lib = ["leemalex"]
-# lots of errors from 2018, not ready yet
-# edition = "2018"
+edition = "2018"
 
 [[bin]]
 name = "leema"

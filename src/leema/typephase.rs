@@ -1,12 +1,12 @@
-use leema::ast2::{Ast, AstNode};
-use leema::failure::{Failure, Lresult};
-use leema::infer::Inferator;
-use leema::inter::Blockstack;
-use leema::lri::{Lri, ModLocalId, SpecialModId};
-use leema::lstr::Lstr;
-use leema::reg::RegTable;
-use leema::struple::{Struple, StrupleItem, StrupleKV};
-use leema::val::{Type, Val};
+use crate::leema::ast2::{Ast, AstNode};
+use crate::leema::failure::{Failure, Lresult};
+use crate::leema::infer::Inferator;
+use crate::leema::inter::Blockstack;
+use crate::leema::lri::{Lri, ModLocalId, SpecialModId};
+use crate::leema::lstr::Lstr;
+use crate::leema::reg::RegTable;
+use crate::leema::struple::{Struple, StrupleItem, StrupleKV};
+use crate::leema::val::{Type, Val};
 
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
@@ -244,11 +244,13 @@ impl<'a> Semantics<'a>
 mod tests
 {
     use super::*;
-    use leema::ast2::{Ast, Loc};
-    use leema::lri::Lri;
-    use leema::lstr::Lstr;
-    use leema::struple::StrupleKV;
-    use leema::val::{FuncType, Type};
+    use crate::leema::ast2::{Ast, Loc};
+    use crate::leema::lri::Lri;
+    use crate::leema::lstr::Lstr;
+    use crate::leema::struple::StrupleKV;
+    use crate::leema::val::{FuncType, Type};
+
+    use matches::assert_matches;
 
 
     fn new_node(node: Ast) -> AstNode

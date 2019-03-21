@@ -1,8 +1,8 @@
-use leema::ast::{self, Ast};
-use leema::lex::lex;
-use leema::lstr::Lstr;
-use leema::parse::Token;
-use leema::val::{Type, Val};
+use crate::leema::ast::{self, Ast};
+use crate::leema::lex::lex;
+use crate::leema::lstr::Lstr;
+use crate::leema::parse::Token;
+use crate::leema::val::{Type, Val};
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;

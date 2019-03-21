@@ -1,10 +1,10 @@
-use leema::code::Code;
-use leema::fiber::Fiber;
-use leema::frame;
-use leema::lmap::Lmap;
-use leema::types;
-use leema::val::{Type, Val};
-use leema::worker::RustFuncContext;
+use crate::leema::code::Code;
+use crate::leema::fiber::Fiber;
+use crate::leema::frame;
+use crate::leema::lmap::Lmap;
+use crate::leema::types;
+use crate::leema::val::{Type, Val};
+use crate::leema::worker::RustFuncContext;
 
 
 pub fn new(f: &mut Fiber) -> frame::Event

@@ -1,6 +1,6 @@
-use leema::ast::TokenData;
-use leema::parse::{self, Token};
-use leema::val::SrcLoc;
+use crate::leema::ast::TokenData;
+use crate::leema::parse::{self, Token};
+use crate::leema::val::SrcLoc;
 use std::ptr;
 
 #[repr(C)]
@@ -185,9 +185,9 @@ pub fn lex(str_input: &str) -> Vec<Token>
 #[cfg(test)]
 mod tests
 {
-    use leema::ast::TokenData;
-    use leema::parse::Token;
-    use leema::val::SrcLoc;
+    use crate::leema::ast::TokenData;
+    use crate::leema::parse::Token;
+    use crate::leema::val::SrcLoc;
 
     #[test]
     fn test_lex_int()

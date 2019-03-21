@@ -17,12 +17,12 @@ pub fn is_verbose() -> bool
 macro_rules! vout
 {
     ($fmt:expr) => {
-        if ::leema::log::is_verbose() {
+        if crate::leema::log::is_verbose() {
             eprint!($fmt);
         }
     };
     ($fmt:expr, $($arg:tt)*) => {
-        if ::leema::log::is_verbose() {
+        if crate::leema::log::is_verbose() {
             (eprint!($fmt, $($arg)*));
         }
     };

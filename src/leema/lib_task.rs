@@ -1,10 +1,10 @@
-use leema::code::Code;
-use leema::frame::Event;
-use leema::io::RunQueueReceiver;
-use leema::lstr::Lstr;
-use leema::rsrc;
-use leema::val::{Type, Val};
-use leema::worker::RustFuncContext;
+use crate::leema::code::Code;
+use crate::leema::frame::Event;
+use crate::leema::io::RunQueueReceiver;
+use crate::leema::lstr::Lstr;
+use crate::leema::rsrc;
+use crate::leema::val::{Type, Val};
+use crate::leema::worker::RustFuncContext;
 
 use futures::future::Future;
 

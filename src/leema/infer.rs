@@ -1,8 +1,8 @@
-use leema::failure::Lresult;
-use leema::lri::Lri;
-use leema::lstr::Lstr;
-use leema::struple::{Struple, Struple2, StrupleItem, StrupleKV};
-use leema::val::{FuncType, Type, Val};
+use crate::leema::failure::Lresult;
+use crate::leema::lri::Lri;
+use crate::leema::lstr::Lstr;
+use crate::leema::struple::{Struple, Struple2, StrupleItem, StrupleKV};
+use crate::leema::val::{FuncType, Type, Val};
 
 use std::collections::hash_map::Keys;
 use std::collections::HashMap;
@@ -720,12 +720,12 @@ impl<'b> Inferator<'b>
 #[cfg(test)]
 mod tests
 {
-    use leema::infer::{Inferator, TypeSet};
-    use leema::list;
-    use leema::lri::Lri;
-    use leema::lstr::Lstr;
-    use leema::struple::{Struple, StrupleKV};
-    use leema::val::{Type, Val};
+    use crate::leema::infer::{Inferator, TypeSet};
+    use crate::leema::list;
+    use crate::leema::lri::Lri;
+    use crate::leema::lstr::Lstr;
+    use crate::leema::struple::{Struple, StrupleKV};
+    use crate::leema::val::{Type, Val};
 
     use std::collections::HashMap;
 

@@ -1,10 +1,10 @@
-use leema::code::Code;
-use leema::lri::Lri;
-use leema::lstr::Lstr;
-use leema::reg::{Ireg, Reg};
-use leema::rsrc;
-use leema::struple::Struple;
-use leema::val::{Env, Val};
+use crate::leema::code::Code;
+use crate::leema::lri::Lri;
+use crate::leema::lstr::Lstr;
+use crate::leema::reg::{Ireg, Reg};
+use crate::leema::rsrc;
+use crate::leema::struple::Struple;
+use crate::leema::val::{Env, Val};
 
 use std::fmt::{self, Debug};
 use std::mem;

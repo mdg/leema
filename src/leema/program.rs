@@ -1,18 +1,20 @@
-use leema::ast::Ast;
-use leema::code::{self, Code};
-use leema::infer::TypeSet;
-use leema::inter::Intermod;
-use leema::ixpr::Source;
-use leema::lib_map;
-use leema::lib_str;
-use leema::loader::Interloader;
-use leema::lri::Lri;
-use leema::lstr::Lstr;
-use leema::module::{ModKey, ModulePreface, ModuleSource};
-use leema::phase0::{self, Protomod};
-use leema::typecheck::{self, CallFrame, CallOp, Typemod, Typescope};
-use leema::val::Type;
-use leema::{file, lib_hyper, lib_json, lib_list, lib_task, prefab, tcp, udp};
+use crate::leema::ast::Ast;
+use crate::leema::code::{self, Code};
+use crate::leema::infer::TypeSet;
+use crate::leema::inter::Intermod;
+use crate::leema::ixpr::Source;
+use crate::leema::lib_map;
+use crate::leema::lib_str;
+use crate::leema::loader::Interloader;
+use crate::leema::lri::Lri;
+use crate::leema::lstr::Lstr;
+use crate::leema::module::{ModKey, ModulePreface, ModuleSource};
+use crate::leema::phase0::{self, Protomod};
+use crate::leema::typecheck::{self, CallFrame, CallOp, Typemod, Typescope};
+use crate::leema::val::Type;
+use crate::leema::{
+    file, lib_hyper, lib_json, lib_list, lib_task, prefab, tcp, udp,
+};
 
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
