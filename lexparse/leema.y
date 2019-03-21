@@ -2,9 +2,9 @@
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
 
-use leema::ast::{self, Ast, TokenData, Kxpr};
-use leema::val::{SrcLoc};
-use leema::lstr::{Lstr};
+use crate::leema::ast::{self, Ast, TokenData, Kxpr};
+use crate::leema::val::{SrcLoc};
+use crate::leema::lstr::{Lstr};
 
 use std::collections::linked_list::{LinkedList};
 }
