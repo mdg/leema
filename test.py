@@ -7,10 +7,11 @@ def run_leema(f, cli_args=None):
     if cli_args is not None:
         args += cli_args
     print(args)
-    proc = subprocess.Popen(args, stdout=subprocess.PIPE, env=env)
+    proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
     result = proc.wait()
     output = proc.stdout.read()
-    return {'code': result, 'output': output}
+    err = proc.stderr.read()
+    return {'code': result, 'output': output, 'stderr': err}
 
 class TestScripts(unittest.TestCase):
 
@@ -78,7 +79,7 @@ class TestScripts(unittest.TestCase):
     def test_func_inc(self):
         """Test that we can add a const to a function parameter"""
         result = run_leema('func_inc')
-        self.assertEqual(5, result['code'])
+        self.assertEqual(0, result['code'])
         self.assertEqual(b"inc(-4) = -3\n", result['output'])
 
     def test_footag_match(self):
@@ -184,17 +185,8 @@ class TestScripts(unittest.TestCase):
         result = run_leema('failure')
         self.assertEqual(249, result['code'])
         self.assertEqual(
-            b"Failure: #xis4\n" +
-            b"Message: tacos are delicious\n" +
-            b"Stack Trace:\n" +
-            b"<  failure::main:14\n" +
-            b"<  failure::add5:9\n" +
-            b"<> failure::add4:3\n" +
-            b" > failure::add5:9\n" +
-            b" > failure::main:14\n" +
-            b" > __init__\n" +
-            b"\n",
-            result['output'])
+            b"Failure(#xis4 'tacos are delicious')\n",
+            result['stderr'])
 
     def test_failed_handled(self):
         result = run_leema('failed_handled')
@@ -208,17 +200,11 @@ class TestScripts(unittest.TestCase):
         result = run_leema('failed_propagated')
         self.assertEqual(249, result['code'])
         self.assertEqual(
-            b"c failed. log and propagate\n" +
-            b"Failure: #xis4\n" +
-            b"Message: tacos are delicious\n" +
-            b"Stack Trace:\n" +
-            b"<  failed_propagated::main:33\n" +
-            b"<> failed_propagated::foo:3\n" +
-            b" > failed_propagated::handle_nonlinear:13\n" +
-            b" > failed_propagated::main:33\n" +
-            b" > __init__\n" +
-            b"\n",
+            b"c failed. log and propagate\n",
             result['output'])
+        self.assertEqual(
+            b"Failure(#xis4 'tacos are delicious')\n",
+            result['stderr'])
 
     def test_closures(self):
         result = run_leema('test_closures')

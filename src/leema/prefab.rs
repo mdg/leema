@@ -1,4 +1,5 @@
 use crate::leema::code::Code;
+use crate::leema::failure::Failure;
 use crate::leema::fiber::Fiber;
 use crate::leema::frame::Event;
 use crate::leema::list;
@@ -320,12 +321,12 @@ pub fn create_failure(f: &mut Fiber) -> Event
 {
     let failtag = f.head.e.get_param(0);
     let failmsg = f.head.e.get_param(1);
-    let failure = Val::Failure(
-        Box::new(failtag.clone()),
-        Box::new(failmsg.clone()),
+    let failure = Val::Failure2(Box::new(Failure::leema_new(
+        failtag.clone(),
+        failmsg.clone(),
         f.head.trace.fail_here(),
         val::FAILURE_INTERNAL,
-    );
+    )));
     f.head.parent.set_result(failure);
     Event::failure()
 }
