@@ -1,4 +1,5 @@
 use crate::leema::code::Code;
+use crate::leema::failure::{Failure, Lresult};
 use crate::leema::fiber::Fiber;
 use crate::leema::frame::{Event, Frame, Parent};
 use crate::leema::lri::Lri;
@@ -52,12 +53,12 @@ impl<'a> RustFuncContext<'a>
         &self.task.head.function
     }
 
-    pub fn get_param(&self, i: i8) -> &Val
+    pub fn get_param(&self, i: i8) -> Lresult<&Val>
     {
         self.task.head.e.get_param(i)
     }
 
-    pub fn get_reg(&self, r: &Reg) -> &Val
+    pub fn get_reg(&self, r: &Reg) -> Lresult<&Val>
     {
         self.task.head.e.get_reg(r)
     }
@@ -138,7 +139,7 @@ impl Worker
     {
         let mut did_nothing = 0;
         while !self.done {
-            let did_something = self.run_once();
+            let did_something = self.run_once().unwrap();
             if did_something {
                 did_nothing = 0;
             } else {
@@ -150,29 +151,27 @@ impl Worker
         }
     }
 
-    pub fn run_once(&mut self) -> bool
+    pub fn run_once(&mut self) -> Lresult<bool>
     {
         let mut did_something = false;
         while let Result::Ok(msg) = self.msg_rx.try_recv() {
             did_something = true;
-            self.process_msg(msg);
+            self.process_msg(msg)?;
         }
 
         match self.pop_fresh() {
             Some(ReadyFiber::New(f)) => {
                 did_something = true;
-                self.load_code(f);
+                self.load_code(f)?;
             }
             Some(ReadyFiber::Ready(mut f, code)) => {
                 did_something = true;
-                let ev = self.execute_frame(&mut f, &*code);
-                // .expect("failure executing frame");
-                self.handle_event(f, ev, code)
-                    .expect("failure handling event");
+                let ev = self.execute_frame(&mut f, &*code)?;
+                self.handle_event(f, ev, code)?;
             }
             None => {}
         }
-        did_something
+        Ok(did_something)
     }
 
     fn find_code<'a>(
@@ -189,11 +188,11 @@ impl Worker
             .map(|func: &'a Rc<Code>| (*func).clone())
     }
 
-    fn load_code(&mut self, curf: Fiber)
+    fn load_code(&mut self, curf: Fiber) -> Lresult<()>
     {
         let opt_code = self.find_code(curf.module_name(), curf.function_name());
         if let Some(func) = opt_code {
-            self.push_coded_fiber(curf, func);
+            self.push_coded_fiber(curf, func)
         } else {
             let msg = AppMsg::RequestCode(
                 self.id,
@@ -207,10 +206,11 @@ impl Worker
             let fiber_id = curf.fiber_id;
             let fw = FiberWait::Code(curf);
             self.waiting.insert(fiber_id, fw);
+            Ok(())
         }
     }
 
-    pub fn execute_frame(&self, f: &mut Fiber, code: &Code) -> Event
+    pub fn execute_frame(&self, f: &mut Fiber, code: &Code) -> Lresult<Event>
     {
         match code {
             &Code::Leema(ref ops) => f.execute_leema_frame(ops),
@@ -224,7 +224,10 @@ impl Worker
                 rf(ctx)
             }
             &Code::Iop(_, _) => {
-                panic!("cannot execute iop in a worker\n");
+                Err(rustfail!(
+                    "leema_failure",
+                    "cannot execute iop in a worker\n",
+                ))
             }
         }
     }
@@ -234,7 +237,7 @@ impl Worker
         mut fbr: Fiber,
         e: Event,
         code: Rc<Code>,
-    ) -> Poll<Val, Val>
+    ) -> Poll<Val, Failure>
     {
         match e {
             Event::Complete(success) => {
@@ -253,7 +256,7 @@ impl Worker
             Event::Call(dst, line, func, args) => {
                 vout!("push_call({} {}, {:?})\n", line, func, args);
                 fbr.push_call(code.clone(), dst, line, func, args);
-                self.load_code(fbr);
+                self.load_code(fbr)?;
                 Result::Ok(Async::NotReady)
             }
             Event::NewTask(Val::FuncRef(callri, callargs, _)) => {
@@ -270,7 +273,11 @@ impl Worker
                 Result::Ok(Async::NotReady)
             }
             Event::NewTask(p) => {
-                panic!("Event::NewTask parameter must be a FuncRef: {:?}", p);
+                Err(rustfail!(
+                    "runtime_type_failure",
+                    "Event::NewTask parameter must be a FuncRef: {:?}",
+                    p,
+                ))
             }
             Event::FutureWait(reg) => {
                 println!("wait for future {:?}", reg);
@@ -282,40 +289,47 @@ impl Worker
                         "Run Iop on worker with resource: {}/{}",
                         rsrc_worker_id, rsrc_id
                     );
-                /*
-                let opt_ioq = self.resource.get_mut(&rsrc_id);
-                if opt_ioq.is_none() {
-                    panic!("Iop resource not found: {}", rsrc_id);
-                }
-                let mut ioq = opt_ioq.unwrap();
-                match ioq.checkout(self.id, iopf, iopargs) {
-                    // Some((iopf2, rsrc, iopargs2)) => {
-                    Some((rsrc, iop2)) => {
-                        match (iop2.action)(resp, rsrc, iop2.params) {
-                            Event::IoFuture(fut) => {
-                                self.handle.spawn(fut);
-                            }
-                            _ => {
-                                panic!("not a future");
+                    /*
+                    let opt_ioq = self.resource.get_mut(&rsrc_id);
+                    if opt_ioq.is_none() {
+                        panic!("Iop resource not found: {}", rsrc_id);
+                    }
+                    let mut ioq = opt_ioq.unwrap();
+                    match ioq.checkout(self.id, iopf, iopargs) {
+                        // Some((iopf2, rsrc, iopargs2)) => {
+                        Some((rsrc, iop2)) => {
+                            match (iop2.action)(resp, rsrc, iop2.params) {
+                                Event::IoFuture(fut) => {
+                                    self.handle.spawn(fut);
+                                }
+                                _ => {
+                                    panic!("not a future");
+                                }
                             }
                         }
+                        None => {
+                            // resource is busy, will push it later
+                        }
                     }
-                    None => {
-                        // resource is busy, will push it later
-                    }
-                }
-                */
+                    */
+                    Ok(Async::NotReady)
                 } else {
-                    panic!(
+                    Err(rustfail!(
+                        "leema_failure",
                         "cannot send iop from worker({}) to worker({})",
-                        self.id, rsrc_worker_id
-                    );
+                        self.id,
+                        rsrc_worker_id,
+                    ))
                 }
-                Result::Ok(Async::NotReady)
             }
             Event::Uneventful => {
-                println!("We shouldn't be here with uneventful");
-                panic!("code: {:?}, pc: {:?}", code, fbr.head.pc);
+                vout!("shouldn't be here with uneventful");
+                Err(rustfail!(
+                    "leema_failure",
+                    "code: {:?}, pc: {:?}",
+                    code,
+                    fbr.head.pc,
+                ))
             }
         }
     }
@@ -348,7 +362,7 @@ impl Worker
         }
     }
 
-    pub fn process_msg(&mut self, msg: WorkerMsg)
+    pub fn process_msg(&mut self, msg: WorkerMsg) -> Lresult<()>
     {
         match msg {
             WorkerMsg::Spawn(result_dst, func, args) => {
@@ -364,9 +378,13 @@ impl Worker
                 self.code.insert(module.take(), new_mod);
                 let opt_fiber = self.waiting.remove(&fiber_id);
                 if let Some(FiberWait::Code(fib)) = opt_fiber {
-                    self.push_coded_fiber(fib, rc_code);
+                    self.push_coded_fiber(fib, rc_code)?;
                 } else {
-                    panic!("Cannot find waiting fiber: {}", fiber_id);
+                    return Err(rustfail!(
+                        "leema_failure",
+                        "Cannot find waiting fiber: {}",
+                        fiber_id,
+                    ));
                 }
             }
             WorkerMsg::IopResult(fiber_id, result_msg) => {
@@ -382,23 +400,23 @@ impl Worker
                 self.done = true;
             }
         }
+        Ok(())
     }
 
-    fn push_coded_fiber(&mut self, fib: Fiber, code: Rc<Code>)
+    fn push_coded_fiber(&mut self, fib: Fiber, code: Rc<Code>) -> Lresult<()>
     {
-        if code.is_leema() {
-            self.push_fresh(ReadyFiber::Ready(fib, code));
-        } else if code.is_rust() {
-            self.push_fresh(ReadyFiber::Ready(fib, code));
-        } else if let Some((iopf, rsrc_idx)) = code.get_iop() {
+        if let Some((iopf, rsrc_idx)) = code.get_iop() {
             let fiber_id = fib.fiber_id;
-            let rsrc_id = rsrc_idx.and_then(|idx| {
-                if let &Val::ResourceRef(rid) = fib.head.e.get_param(idx) {
-                    Some(rid)
-                } else {
-                    None
+            let rsrc_id = match rsrc_idx {
+                Some(idx) => {
+                    if let &Val::ResourceRef(rid) = fib.head.e.get_param(idx)? {
+                        Some(rid)
+                    } else {
+                        None
+                    }
                 }
-            });
+                None => None,
+            };
             let msg_val = MsgVal::new(fib.head.e.get_params());
             self.io_tx
                 .send(IoMsg::Iop {
@@ -408,10 +426,12 @@ impl Worker
                     action: iopf,
                     params: msg_val,
                 })
-                .expect("io send failure");
+                .map_err(|e| rustfail!("io_failure", "{}", e))?;
             self.waiting.insert(fiber_id, FiberWait::Io(fib));
+            Ok(())
         } else {
-            panic!("code is what type? {:?}", *code);
+            self.push_fresh(ReadyFiber::Ready(fib, code));
+            Ok(())
         }
     }
 

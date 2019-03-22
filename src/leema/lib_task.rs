@@ -1,4 +1,5 @@
 use crate::leema::code::Code;
+use crate::leema::failure::Lresult;
 use crate::leema::frame::Event;
 use crate::leema::io::RunQueueReceiver;
 use crate::leema::lstr::Lstr;
@@ -24,16 +25,20 @@ impl rsrc::Rsrc for Lfuture
 }
 
 
-pub fn start(mut ctx: RustFuncContext) -> Event
+pub fn start(mut ctx: RustFuncContext) -> Lresult<Event>
 {
     // let child_key = f.new_task_key();
     vout!("lib_task::start()\n");
-    match ctx.get_param(0) {
+    match ctx.get_param(0)? {
         &Val::FuncRef(ref fri, ref args, _) => {
             ctx.new_task(fri.clone(), args.clone())
         }
         not_func => {
-            panic!("start fork parameter is not a func: {:?}", not_func);
+            return Err(rustfail!(
+                "runtime_type_failure",
+                "start fork parameter is not a func: {:?}",
+                not_func,
+            ));
         }
     };
     ctx.set_result(Val::Int(7));

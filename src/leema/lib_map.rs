@@ -1,4 +1,5 @@
 use crate::leema::code::Code;
+use crate::leema::failure::Lresult;
 use crate::leema::fiber::Fiber;
 use crate::leema::frame;
 use crate::leema::lmap::Lmap;
@@ -7,19 +8,19 @@ use crate::leema::val::{Type, Val};
 use crate::leema::worker::RustFuncContext;
 
 
-pub fn new(f: &mut Fiber) -> frame::Event
+pub fn new(f: &mut Fiber) -> Lresult<frame::Event>
 {
     f.head.parent.set_result(Val::Map(Lmap::new()));
     frame::Event::success()
 }
 
-pub fn set(f: &mut Fiber) -> frame::Event
+pub fn set(f: &mut Fiber) -> Lresult<frame::Event>
 {
     let mresult = {
-        let p0 = f.head.e.get_param(0);
+        let p0 = f.head.e.get_param(0)?;
         if let &Val::Map(ref m) = p0 {
-            let k = f.head.e.get_param(1);
-            let v = f.head.e.get_param(2);
+            let k = f.head.e.get_param(1)?;
+            let v = f.head.e.get_param(2)?;
             Lmap::insert(m, k.clone(), v.clone())
         } else {
             panic!("first param to map::set is not a map: {:?}", p0);
@@ -29,12 +30,12 @@ pub fn set(f: &mut Fiber) -> frame::Event
     frame::Event::success()
 }
 
-pub fn get(mut ctx: RustFuncContext) -> frame::Event
+pub fn get(mut ctx: RustFuncContext) -> Lresult<frame::Event>
 {
     let map_val = {
-        let p0 = ctx.get_param(0);
+        let p0 = ctx.get_param(0)?;
         if let &Val::Map(ref m) = p0 {
-            let k = ctx.get_param(1);
+            let k = ctx.get_param(1)?;
             Lmap::get(m, k).map(|v| v.clone())
         } else {
             panic!("first param to map::has is not a map: {:?}", p0);
@@ -50,12 +51,12 @@ pub fn get(mut ctx: RustFuncContext) -> frame::Event
 
 /// Eventually maybe move this function to leema
 /// once option types and type parameters are in better shape
-pub fn has_key(f: &mut Fiber) -> frame::Event
+pub fn has_key(f: &mut Fiber) -> Lresult<frame::Event>
 {
     let map_has = {
-        let p0 = f.head.e.get_param(0);
+        let p0 = f.head.e.get_param(0)?;
         if let &Val::Map(ref m) = p0 {
-            let k = f.head.e.get_param(1);
+            let k = f.head.e.get_param(1)?;
             Lmap::get(m, k).is_some()
         } else {
             panic!("first param to map::has is not a map: {:?}", p0);
@@ -65,10 +66,10 @@ pub fn has_key(f: &mut Fiber) -> frame::Event
     frame::Event::success()
 }
 
-pub fn len(f: &mut Fiber) -> frame::Event
+pub fn len(f: &mut Fiber) -> Lresult<frame::Event>
 {
     let len = {
-        let p0 = f.head.e.get_param(0);
+        let p0 = f.head.e.get_param(0)?;
         if let &Val::Map(ref m) = p0 {
             Lmap::len(m)
         } else {

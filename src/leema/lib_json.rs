@@ -1,4 +1,5 @@
 use crate::leema::code::Code;
+use crate::leema::failure::Lresult;
 use crate::leema::frame::Event;
 use crate::leema::list;
 use crate::leema::lmap::{Lmap, LmapNode};
@@ -78,10 +79,10 @@ where
     }
 }
 
-pub fn decode(mut ctx: RustFuncContext) -> Event
+pub fn decode(mut ctx: RustFuncContext) -> Lresult<Event>
 {
     let result: Val = {
-        let text = ctx.get_param(0).str();
+        let text = ctx.get_param(0)?.str();
         let fri = ctx.current_fri();
         // previous typechecking should assure that the type param is
         // there and that there will be exactly 1
@@ -103,7 +104,11 @@ pub fn decode(mut ctx: RustFuncContext) -> Event
                 Val::Hashtag(Lstr::from(s))
             }
             ref bad_type => {
-                panic!("cannot decode json into type: {}", bad_type);
+                return Err(rustfail!(
+                    "runtime_type_failure",
+                    "cannot decode json into type: {}",
+                    bad_type,
+                ));
             }
         }
     };
@@ -165,23 +170,24 @@ fn new_json_val(variant: &'static str, inner: Val) -> Val
     )
 }
 
-pub fn decode_val(mut ctx: RustFuncContext) -> Event
+pub fn decode_val(mut ctx: RustFuncContext) -> Lresult<Event>
 {
     let result: Val = {
-        let text = ctx.get_param(0).str();
+        let text = ctx.get_param(0)?.str();
         // previous typechecking should assure that the type param is
         // there and that there will be exactly 1
-        let json_val: Value = serde_json::from_str(text).expect("invalid json");
+        let json_val: Value = serde_json::from_str(text)
+            .map_err(|e| rustfail!("invalid_json", "{}", e))?;
         json_to_leema(json_val)
     };
     ctx.set_result(result);
     Event::success()
 }
 
-pub fn encode(mut ctx: RustFuncContext) -> Event
+pub fn encode(mut ctx: RustFuncContext) -> Lresult<Event>
 {
     let json = {
-        let val = ctx.get_param(0);
+        let val = ctx.get_param(0)?;
         serde_json::to_string(val)
     };
     ctx.set_result(Val::Str(Lstr::from(json.unwrap())));

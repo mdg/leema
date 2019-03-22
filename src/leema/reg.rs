@@ -1,3 +1,4 @@
+use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::val::Val;
 
@@ -83,7 +84,7 @@ impl fmt::Debug for Ireg
 
 pub trait Iregistry
 {
-    fn ireg_get(&self, r: &Ireg) -> &Val;
+    fn ireg_get(&self, r: &Ireg) -> Lresult<&Val>;
     fn ireg_get_mut(&mut self, r: &Ireg) -> &mut Val;
     fn ireg_set(&mut self, r: &Ireg, v: Val);
 }

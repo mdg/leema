@@ -1,4 +1,5 @@
 use crate::leema::code::Code;
+use crate::leema::failure::Lresult;
 use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::reg::{Ireg, Reg};
@@ -90,14 +91,14 @@ pub enum Event
 
 impl Event
 {
-    pub fn success() -> Event
+    pub fn success() -> Lresult<Event>
     {
-        Event::Complete(true)
+        Ok(Event::Complete(true))
     }
 
-    pub fn failure() -> Event
+    pub fn failure() -> Lresult<Event>
     {
-        Event::Complete(false)
+        Ok(Event::Complete(false))
     }
 }
 
@@ -300,7 +301,7 @@ impl Frame
     /**
      * handy accessor function when calling from rust native functions
      */
-    pub fn get_param(&self, p: i8) -> &Val
+    pub fn get_param(&self, p: i8) -> Lresult<&Val>
     {
         self.e.get_reg(&Reg::Param(Ireg::Reg(p)))
     }

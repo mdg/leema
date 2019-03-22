@@ -1,3 +1,4 @@
+use crate::leema::failure::Lresult;
 use crate::leema::fiber;
 use crate::leema::frame;
 use crate::leema::ixpr::{Ixpr, Source};
@@ -123,9 +124,9 @@ pub struct Oxpr
 }
 
 
-pub type RustFunc = fn(&mut fiber::Fiber) -> frame::Event;
+pub type RustFunc = fn(&mut fiber::Fiber) -> Lresult<frame::Event>;
 
-pub type RustFunc2 = fn(RustFuncContext) -> frame::Event;
+pub type RustFunc2 = fn(RustFuncContext) -> Lresult<frame::Event>;
 
 pub enum Code
 {

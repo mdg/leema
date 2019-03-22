@@ -1210,7 +1210,7 @@ impl fmt::Debug for Val
 
 impl reg::Iregistry for Val
 {
-    fn ireg_get<'a, 'b>(&'a self, i: &'b Ireg) -> &'a Val
+    fn ireg_get<'a, 'b>(&'a self, i: &'b Ireg) -> Lresult<&'a Val>
     {
         match (i, self) {
             // get reg on tuple
@@ -1220,23 +1220,46 @@ impl reg::Iregistry for Val
             // Functions & Closures
             (_, &Val::FuncRef(_, ref args, _)) => args.ireg_get(i),
             // New Failures
-            (&Ireg::Reg(0), &Val::Failure2(ref failure)) => &failure.tag,
-            (&Ireg::Reg(1), &Val::Failure2(ref failure)) => &failure.msg,
+            (&Ireg::Reg(0), &Val::Failure2(ref failure)) => Ok(&failure.tag),
+            (&Ireg::Reg(1), &Val::Failure2(ref failure)) => Ok(&failure.msg),
             (&Ireg::Reg(2), &Val::Failure2(ref failure)) => {
-                panic!("Cannot access frame trace until it is implemented as a leema value {:?}", failure.trace);
+                Err(rustfail!(
+                    "leema_failure",
+                    "Cannot access frame trace until it is implemented as a leema value {:?}",
+                    failure.trace,
+                ))
             }
             // Failures
-            (&Ireg::Reg(0), &Val::Failure(ref tag, _, _, _)) => tag,
-            (&Ireg::Reg(1), &Val::Failure(_, ref msg, _, _)) => msg,
+            (&Ireg::Reg(0), &Val::Failure(ref tag, _, _, _)) => Ok(tag),
+            (&Ireg::Reg(1), &Val::Failure(_, ref msg, _, _)) => Ok(msg),
             (&Ireg::Reg(2), &Val::Failure(_, _, ref trace, _)) => {
-                panic!("Cannot access frame trace until it is implemented as a leema value {}", trace);
+                Err(rustfail!(
+                    "leema_failure",
+                    "Cannot access frame trace until it is implemented as a leema value {}",
+                    trace,
+                ))
             }
             (&Ireg::Sub(_, _), &Val::Failure(ref tag, ref msg, _, _)) => {
-                panic!("Cannot access sub data for Failure {} {}", tag, msg);
+                Err(rustfail!(
+                    "leema_failure",
+                    "Cannot access sub data for Failure {} {}",
+                    tag,
+                    msg,
+                ))
             }
-            (_, &Val::Void) => panic!("cannot access a register on void"),
+            (_, &Val::Void) => {
+                Err(rustfail!(
+                    "leema_failure",
+                    "cannot access a register on void",
+                ))
+            }
             _ => {
-                panic!("unsupported registry value {:?}{:?}", self, i);
+                Err(rustfail!(
+                    "leema_failure",
+                    "unsupported registry value {:?}{:?}",
+                    self,
+                    i,
+                ))
             }
         }
     }
@@ -1576,19 +1599,24 @@ impl Env
         }
     }
 
-    pub fn get_reg(&self, reg: &Reg) -> &Val
+    pub fn get_reg(&self, reg: &Reg) -> Lresult<&Val>
     {
         match reg {
             &Reg::Param(ref r) => self.params.ireg_get(r),
             &Reg::Local(ref i) => self.ireg_get(i),
             &Reg::Void => {
-                panic!("Cannot get Reg::Void");
+                Err(rustfail!("leema_failure", "Cannot get Reg::Void",))
             }
             &Reg::Lib => {
-                panic!("Please look in application library for Reg::Lib");
+                Err(rustfail!(
+                    "leema_failure",
+                    "Please look in application library for Reg::Lib",
+                ))
             }
             &Reg::Undecided => {
-                panic!("Cannot get undecided register");
+                Err(
+                    rustfail!("leema_failure", "Cannot get undecided register",),
+                )
             }
         }
     }
@@ -1598,7 +1626,7 @@ impl Env
         &self.params
     }
 
-    pub fn get_param(&self, reg: i8) -> &Val
+    pub fn get_param(&self, reg: i8) -> Lresult<&Val>
     {
         self.get_reg(&Reg::Param(Ireg::Reg(reg)))
     }
@@ -1611,19 +1639,18 @@ impl Env
 
 impl reg::Iregistry for Env
 {
-    fn ireg_get(&self, i: &Ireg) -> &Val
+    fn ireg_get(&self, i: &Ireg) -> Lresult<&Val>
     {
         let p = i.get_primary();
-        if !self.reg.contains_key(&p) {
+        let v = self.reg.get(&p).ok_or_else(|| {
             vout!("{:?} not set in {:?}\n", i, self.reg);
-            panic!("register is not set: {:?}", i);
-        }
-        let v = self.reg.get(&p).unwrap();
+            rustfail!("leema_failure", "register is not set: {:?}", i,)
+        })?;
 
         if let &Ireg::Sub(_, ref s) = i {
             v.ireg_get(&*s)
         } else {
-            v
+            Ok(v)
         }
     }
 

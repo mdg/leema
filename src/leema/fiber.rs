@@ -1,5 +1,5 @@
 use crate::leema::code::{Code, Op, OpVec};
-use crate::leema::failure::Failure;
+use crate::leema::failure::{Failure, Lresult};
 use crate::leema::frame::{Event, Frame, FrameTrace, Parent};
 use crate::leema::list;
 use crate::leema::lmap::Lmap;
@@ -70,16 +70,16 @@ impl Fiber
         self.head.set_parent(parent);
     }
 
-    pub fn execute_leema_frame(&mut self, ops: &OpVec) -> Event
+    pub fn execute_leema_frame(&mut self, ops: &OpVec) -> Lresult<Event>
     {
         let mut e = Event::Uneventful;
         while let Event::Uneventful = e {
-            e = self.execute_leema_op(ops);
+            e = self.execute_leema_op(ops)?;
         }
-        e
+        Ok(e)
     }
 
-    pub fn execute_leema_op(&mut self, ops: &OpVec) -> Event
+    pub fn execute_leema_op(&mut self, ops: &OpVec) -> Lresult<Event>
     {
         let op = ops.get(self.head.pc as usize).unwrap();
         let line = op.1;
@@ -111,15 +111,20 @@ impl Fiber
             &Op::ApplyFunc(ref dst, ref func) => {
                 self.execute_call(dst, func, line)
             }
-            &Op::Return => Event::Complete(true),
+            &Op::Return => Ok(Event::Complete(true)),
             &Op::SetResult(ref dst) => {
                 if *dst == Reg::Void {
-                    panic!("return void at {} in {:?}", self.head.pc, ops);
+                    return Err(rustfail!(
+                        "leema_failure",
+                        "return void at {} in {:?}",
+                        self.head.pc,
+                        ops,
+                    ));
                 }
-                let result = self.head.e.get_reg(dst).clone();
+                let result = self.head.e.get_reg(dst)?.clone();
                 self.head.parent.set_result(result);
                 self.head.pc += 1;
-                Event::Uneventful
+                Ok(Event::Uneventful)
             }
             &Op::PropagateFailure(ref src, line) => {
                 let ev = self.propagate_failure(src, line);
@@ -129,26 +134,30 @@ impl Fiber
         }
     }
 
-    pub fn execute_strcat(&mut self, dstreg: &Reg, srcreg: &Reg) -> Event
+    pub fn execute_strcat(
+        &mut self,
+        dstreg: &Reg,
+        srcreg: &Reg,
+    ) -> Lresult<Event>
     {
         let result = {
-            let dst = self.head.e.get_reg(dstreg);
-            let src = self.head.e.get_reg(srcreg);
+            let dst = self.head.e.get_reg(dstreg)?;
+            let src = self.head.e.get_reg(srcreg)?;
             match (dst, src) {
                 (&Val::Future(_), _) => {
                     // oops, not ready to do this yet, let's bail and wait
-                    return Event::FutureWait(dstreg.clone());
+                    return Ok(Event::FutureWait(dstreg.clone()));
                 }
                 (_, &Val::Future(_)) => {
                     // oops, not ready to do this yet, let's bail and wait
-                    return Event::FutureWait(srcreg.clone());
+                    return Ok(Event::FutureWait(srcreg.clone()));
                 }
                 _ => Val::Str(Lstr::from(format!("{}{}", dst, src))),
             }
         };
         self.head.e.set_reg(dstreg, result);
         self.head.pc += 1;
-        Event::Uneventful
+        Ok(Event::Uneventful)
     }
 
     pub fn execute_match_pattern(
@@ -156,7 +165,7 @@ impl Fiber
         dst: &Reg,
         patt: &Val,
         input: &Reg,
-    ) -> Event
+    ) -> Lresult<Event>
     {
         vout!(
             "execute_match_pattern({:?}, {:?}, {:?})\n",
@@ -165,7 +174,7 @@ impl Fiber
             input
         );
         let matches = {
-            let ival = self.head.e.get_reg(&input);
+            let ival = self.head.e.get_reg(&input)?;
             Val::pattern_match(patt, ival)
         };
         match matches {
@@ -187,7 +196,7 @@ impl Fiber
             }
         }
         self.head.pc += 1;
-        Event::Uneventful
+        Ok(Event::Uneventful)
     }
 
     /**
@@ -197,28 +206,37 @@ impl Fiber
      * create a new frame w/ func code and new frame state
      * set curf.flag to Called(new_frame)
      */
-    pub fn execute_call(&mut self, dst: &Reg, freg: &Reg, line: i16) -> Event
+    pub fn execute_call(
+        &mut self,
+        dst: &Reg,
+        freg: &Reg,
+        line: i16,
+    ) -> Lresult<Event>
     {
         let (funcri, args): (&Lri, &Struple<Val>) = {
-            let ref fname_val = self.head.e.get_reg(freg);
+            let ref fname_val = self.head.e.get_reg(freg)?;
             match *fname_val {
                 &Val::FuncRef(ref callri, ref args, _) => (callri, args),
                 _ => {
-                    panic!("That's not a function! {:?}", fname_val);
+                    return Err(rustfail!(
+                        "failure",
+                        "That's not a function! {:?}",
+                        fname_val,
+                    ));
                 }
             }
         };
         vout!("execute_call({})\n", funcri);
 
         let argstup = Val::Tuple(args.clone());
-        Event::Call(dst.clone(), line, funcri.clone(), argstup)
+        Ok(Event::Call(dst.clone(), line, funcri.clone(), argstup))
     }
 
-    pub fn execute_const_val(&mut self, reg: &Reg, v: &Val) -> Event
+    pub fn execute_const_val(&mut self, reg: &Reg, v: &Val) -> Lresult<Event>
     {
         self.head.e.set_reg(reg, v.clone());
         self.head.pc += 1;
-        Event::Uneventful
+        Ok(Event::Uneventful)
     }
 
     pub fn execute_construct_enum(
@@ -227,7 +245,7 @@ impl Fiber
         new_typ: &Type,
         variant: &Lstr,
         flds: &Struple<Type>,
-    ) -> Event
+    ) -> Lresult<Event>
     {
         let construple = match self.head.e.get_params() {
             &Val::Struct(_, ref items) => {
@@ -238,7 +256,11 @@ impl Fiber
                         items.clone(),
                     )
                 } else {
-                    panic!("struct type is not user defined: {:?}", new_typ);
+                    return Err(rustfail!(
+                        "leema_failure",
+                        "struct type is not user defined: {:?}",
+                        new_typ,
+                    ));
                 }
             }
             &Val::Tuple(ref items) => {
@@ -261,16 +283,24 @@ impl Fiber
                         Struple(new_items),
                     )
                 } else {
-                    panic!("struct type is not user defined: {:?}", new_typ);
+                    return Err(rustfail!(
+                        "leema_failure",
+                        "struct type is not user defined: {:?}",
+                        new_typ,
+                    ));
                 }
             }
             what => {
-                panic!("cannot construct a not construple: {:?}", what);
+                return Err(rustfail!(
+                    "leema_failure",
+                    "cannot construct a not construple: {:?}",
+                    what,
+                ));
             }
         };
         self.head.e.set_reg(reg, construple);
         self.head.pc = self.head.pc + 1;
-        Event::Uneventful
+        Ok(Event::Uneventful)
     }
 
     pub fn execute_construple(
@@ -278,14 +308,18 @@ impl Fiber
         reg: &Reg,
         new_typ: &Type,
         flds: &Struple<Type>,
-    ) -> Event
+    ) -> Lresult<Event>
     {
         let construple = match self.head.e.get_params() {
             &Val::Struct(_, ref items) => {
                 if let &Type::UserDef(ref i_new_typ) = new_typ {
                     Val::Struct(i_new_typ.clone(), items.clone())
                 } else {
-                    panic!("struct type is not user defined: {:?}", new_typ);
+                    return Err(rustfail!(
+                        "leema_failure",
+                        "struct type is not user defined: {:?}",
+                        new_typ,
+                    ));
                 }
             }
             &Val::Tuple(ref items) => {
@@ -304,16 +338,24 @@ impl Fiber
                         .collect();
                     Val::Struct(i_new_typ.clone(), Struple(new_items))
                 } else {
-                    panic!("struct type is not user defined: {:?}", new_typ);
+                    return Err(rustfail!(
+                        "leema_failure",
+                        "struct type is not user defined: {:?}",
+                        new_typ,
+                    ));
                 }
             }
             what => {
-                panic!("cannot construct a not construple: {:?}", what);
+                return Err(rustfail!(
+                    "leema_failure",
+                    "cannot construct a not construple: {:?}",
+                    what,
+                ));
             }
         };
         self.head.e.set_reg(reg, construple);
         self.head.pc = self.head.pc + 1;
-        Event::Uneventful
+        Ok(Event::Uneventful)
     }
 
     pub fn execute_cons_list(
@@ -321,51 +363,56 @@ impl Fiber
         dst: &Reg,
         head: &Reg,
         tail: &Reg,
-    ) -> Event
+    ) -> Lresult<Event>
     {
         let new_list = {
-            let headval = self.head.e.get_reg(&head).clone();
-            let tailval = self.head.e.get_reg(&tail).clone();
+            let headval = self.head.e.get_reg(&head)?.clone();
+            let tailval = self.head.e.get_reg(&tail)?.clone();
             list::cons(headval, tailval)
         };
         self.head.e.set_reg(&dst, new_list);
         self.head.pc += 1;
-        Event::Uneventful
+        Ok(Event::Uneventful)
     }
 
-    pub fn execute_create_list(&mut self, dst: &Reg) -> Event
+    pub fn execute_create_list(&mut self, dst: &Reg) -> Lresult<Event>
     {
         self.head.e.set_reg(&dst, list::empty());
         self.head.pc = self.head.pc + 1;
-        Event::Uneventful
+        Ok(Event::Uneventful)
     }
 
-    pub fn execute_create_map(&mut self, dst: &Reg) -> Event
+    pub fn execute_create_map(&mut self, dst: &Reg) -> Lresult<Event>
     {
         self.head.e.set_reg(&dst, Val::Map(Lmap::new()));
         self.head.pc = self.head.pc + 1;
-        Event::Uneventful
+        Ok(Event::Uneventful)
     }
 
-    pub fn execute_create_tuple(&mut self, dst: &Reg, ref sz: i8) -> Event
+    pub fn execute_create_tuple(
+        &mut self,
+        dst: &Reg,
+        ref sz: i8,
+    ) -> Lresult<Event>
     {
         let tupsize: usize = *sz as usize;
         self.head.e.set_reg(dst, Val::new_tuple(tupsize));
         self.head.pc = self.head.pc + 1;
-        Event::Uneventful
+        Ok(Event::Uneventful)
     }
 
-    pub fn execute_jump(&mut self, jmp: i16) -> Event
+    pub fn execute_jump(&mut self, jmp: i16) -> Lresult<Event>
     {
         self.head.pc += jmp as i32;
-        Event::Uneventful
+        Ok(Event::Uneventful)
     }
 
-    pub fn execute_jump_if_not(&mut self, jmp: i16, reg: &Reg) -> Event
+    pub fn execute_jump_if_not(&mut self, jmp: i16, reg: &Reg)
+        -> Lresult<Event>
     {
         vout!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
         let tjump: i32 = {
-            let test_val = self.head.e.get_reg(reg);
+            let test_val = self.head.e.get_reg(reg)?;
             if let &Val::Bool(test) = test_val {
                 if test {
                     vout!("if test is true\n");
@@ -375,35 +422,40 @@ impl Fiber
                     jmp as i32
                 }
             } else {
-                panic!("can't if check a not bool {:?}", test_val);
+                return Err(rustfail!(
+                    "type_failure",
+                    "can't if check a not bool {:?}",
+                    test_val,
+                ));
             }
         };
         self.head.pc += tjump;
-        Event::Uneventful
+        Ok(Event::Uneventful)
     }
 
-    pub fn execute_if_failure(&mut self, src: &Reg, jmp: i16) -> Event
+    pub fn execute_if_failure(&mut self, src: &Reg, jmp: i16)
+        -> Lresult<Event>
     {
-        if self.head.e.get_reg(src).is_failure() {
+        if self.head.e.get_reg(src)?.is_failure() {
             self.head.pc += 1;
         } else {
             self.head.pc += jmp as i32;
-            return Event::Uneventful;
         }
-        Event::Uneventful
+        Ok(Event::Uneventful)
     }
 
-    pub fn execute_copy(&mut self, dst: &Reg, src: &Reg) -> Event
+    pub fn execute_copy(&mut self, dst: &Reg, src: &Reg) -> Lresult<Event>
     {
-        let src_val = self.head.e.get_reg(src).clone();
+        let src_val = self.head.e.get_reg(src)?.clone();
         self.head.e.set_reg(dst, src_val);
         self.head.pc = self.head.pc + 1;
-        Event::Uneventful
+        Ok(Event::Uneventful)
     }
 
-    pub fn propagate_failure(&mut self, src: &Reg, line: i16) -> Event
+    pub fn propagate_failure(&mut self, src: &Reg, line: i16)
+        -> Lresult<Event>
     {
-        let srcval = self.head.e.get_reg(src);
+        let srcval = self.head.e.get_reg(src)?;
         match srcval {
             &Val::Failure(ref tag, ref msg, ref trace, status) => {
                 let new_trace = FrameTrace::propagate_down(
@@ -414,7 +466,7 @@ impl Fiber
                 let new_fail =
                     Val::Failure(tag.clone(), msg.clone(), new_trace, status);
                 self.head.parent.set_result(new_fail);
-                Event::Complete(false)
+                Ok(Event::Complete(false))
             }
             &Val::Failure2(ref failure) => {
                 let new_trace = FrameTrace::propagate_down(
@@ -429,9 +481,9 @@ impl Fiber
                     failure.code,
                 )));
                 self.head.parent.set_result(new_fail);
-                Event::Complete(false)
+                Ok(Event::Complete(false))
             }
-            _ => Event::Uneventful,
+            _ => Ok(Event::Uneventful),
         }
     }
 
@@ -472,7 +524,7 @@ mod tests
         frame.e.set_reg(&r2, Val::Str(Lstr::Sref("burritos")));
         let mut fib = Fiber::spawn(1, frame);
 
-        let event = fib.execute_strcat(&r1, &r2);
+        let event = fib.execute_strcat(&r1, &r2).unwrap();
         assert_eq!(Event::Uneventful, event);
     }
 

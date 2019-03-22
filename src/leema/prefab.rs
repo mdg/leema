@@ -1,5 +1,5 @@
 use crate::leema::code::Code;
-use crate::leema::failure::Failure;
+use crate::leema::failure::{Failure, Lresult};
 use crate::leema::fiber::Fiber;
 use crate::leema::frame::Event;
 use crate::leema::list;
@@ -20,12 +20,12 @@ use tokio::timer::Delay;
 use rand;
 
 
-pub fn int_add(f: &mut Fiber) -> Event
+pub fn int_add(f: &mut Fiber) -> Lresult<Event>
 {
     let ic;
     {
-        let a = f.head.get_param(0);
-        let b = f.head.get_param(1);
+        let a = f.head.get_param(0)?;
+        let b = f.head.get_param(1)?;
         match (a, b) {
             (&Val::Int(ia), &Val::Int(ib)) => {
                 ic = ia + ib;
@@ -39,12 +39,12 @@ pub fn int_add(f: &mut Fiber) -> Event
     Event::success()
 }
 
-pub fn int_sub(f: &mut Fiber) -> Event
+pub fn int_sub(f: &mut Fiber) -> Lresult<Event>
 {
     let ic;
     {
-        let a = f.head.get_param(0);
-        let b = f.head.get_param(1);
+        let a = f.head.get_param(0)?;
+        let b = f.head.get_param(1)?;
         match (a, b) {
             (&Val::Int(ia), &Val::Int(ib)) => {
                 ic = ia - ib;
@@ -58,12 +58,12 @@ pub fn int_sub(f: &mut Fiber) -> Event
     Event::success()
 }
 
-pub fn int_mult(f: &mut Fiber) -> Event
+pub fn int_mult(f: &mut Fiber) -> Lresult<Event>
 {
     let ic;
     {
-        let a = f.head.get_param(0);
-        let b = f.head.get_param(1);
+        let a = f.head.get_param(0)?;
+        let b = f.head.get_param(1)?;
         match (a, b) {
             (&Val::Int(ia), &Val::Int(ib)) => {
                 ic = ia * ib;
@@ -77,12 +77,12 @@ pub fn int_mult(f: &mut Fiber) -> Event
     Event::success()
 }
 
-pub fn int_div(f: &mut Fiber) -> Event
+pub fn int_div(f: &mut Fiber) -> Lresult<Event>
 {
     let ic;
     {
-        let a = f.head.get_param(0);
-        let b = f.head.get_param(1);
+        let a = f.head.get_param(0)?;
+        let b = f.head.get_param(1)?;
         match (a, b) {
             (&Val::Int(ia), &Val::Int(ib)) => {
                 ic = ia / ib;
@@ -96,12 +96,12 @@ pub fn int_div(f: &mut Fiber) -> Event
     Event::success()
 }
 
-pub fn int_mod(f: &mut Fiber) -> Event
+pub fn int_mod(f: &mut Fiber) -> Lresult<Event>
 {
     let ic;
     {
-        let a = f.head.get_param(0);
-        let b = f.head.get_param(1);
+        let a = f.head.get_param(0)?;
+        let b = f.head.get_param(1)?;
         match (a, b) {
             (&Val::Int(ia), &Val::Int(ib)) => {
                 ic = ia % ib;
@@ -115,11 +115,11 @@ pub fn int_mod(f: &mut Fiber) -> Event
     Event::success()
 }
 
-pub fn int_negate(f: &mut Fiber) -> Event
+pub fn int_negate(f: &mut Fiber) -> Lresult<Event>
 {
     let result;
     {
-        let a = f.head.get_param(0);
+        let a = f.head.get_param(0)?;
         match a {
             &Val::Int(a) => {
                 result = -a;
@@ -133,16 +133,16 @@ pub fn int_negate(f: &mut Fiber) -> Event
     Event::success()
 }
 
-pub fn int_random(f: &mut Fiber) -> Event
+pub fn int_random(f: &mut Fiber) -> Lresult<Event>
 {
     let result = rand::random::<i64>(); // as i64;
     f.head.parent.set_result(Val::Int(result));
     Event::success()
 }
 
-pub fn bool_not(f: &mut Fiber) -> Event
+pub fn bool_not(f: &mut Fiber) -> Lresult<Event>
 {
-    let i = f.head.e.get_param(0);
+    let i = f.head.e.get_param(0)?;
     if let &Val::Bool(b) = i {
         f.head.parent.set_result(Val::Bool(!b));
         Event::success()
@@ -160,12 +160,12 @@ pub fn bool_not(f: &mut Fiber) -> Event
     }
 }
 
-pub fn bool_xor(f: &mut Fiber) -> Event
+pub fn bool_xor(f: &mut Fiber) -> Lresult<Event>
 {
     let result;
     {
-        let va = f.head.get_param(0);
-        let vb = f.head.get_param(1);
+        let va = f.head.get_param(0)?;
+        let vb = f.head.get_param(1)?;
         match (va, vb) {
             (&Val::Bool(a), &Val::Bool(b)) => {
                 result = a && !b || b && !a;
@@ -179,77 +179,77 @@ pub fn bool_xor(f: &mut Fiber) -> Event
     Event::success()
 }
 
-pub fn list_cons(f: &mut Fiber) -> Event
+pub fn list_cons(f: &mut Fiber) -> Lresult<Event>
 {
     let result = {
-        let head = f.head.e.get_param(0);
-        let tail = f.head.e.get_param(1);
+        let head = f.head.e.get_param(0)?;
+        let tail = f.head.e.get_param(1)?;
         list::cons(head.clone(), tail.clone())
     };
     f.head.parent.set_result(result);
     Event::success()
 }
 
-pub fn less_than(f: &mut Fiber) -> Event
+pub fn less_than(f: &mut Fiber) -> Lresult<Event>
 {
     let result = {
-        let va = f.head.e.get_param(0);
-        let vb = f.head.e.get_param(1);
+        let va = f.head.e.get_param(0)?;
+        let vb = f.head.e.get_param(1)?;
         Val::Bool(va < vb)
     };
     f.head.parent.set_result(result);
     Event::success()
 }
 
-pub fn less_than_equal(f: &mut Fiber) -> Event
+pub fn less_than_equal(f: &mut Fiber) -> Lresult<Event>
 {
     let result = {
-        let va = f.head.e.get_param(0);
-        let vb = f.head.e.get_param(1);
+        let va = f.head.e.get_param(0)?;
+        let vb = f.head.e.get_param(1)?;
         Val::Bool(va <= vb)
     };
     f.head.parent.set_result(result);
     Event::success()
 }
 
-pub fn equal(f: &mut Fiber) -> Event
+pub fn equal(f: &mut Fiber) -> Lresult<Event>
 {
     let result = {
-        let va = f.head.e.get_param(0);
-        let vb = f.head.e.get_param(1);
+        let va = f.head.e.get_param(0)?;
+        let vb = f.head.e.get_param(1)?;
         Val::Bool(va == vb)
     };
     f.head.parent.set_result(result);
     Event::success()
 }
 
-pub fn greater_than(f: &mut Fiber) -> Event
+pub fn greater_than(f: &mut Fiber) -> Lresult<Event>
 {
     let result = {
-        let va = f.head.get_param(0);
-        let vb = f.head.get_param(1);
+        let va = f.head.get_param(0)?;
+        let vb = f.head.get_param(1)?;
         va > vb
     };
     f.head.parent.set_result(Val::Bool(result));
     Event::success()
 }
 
-pub fn greater_than_equal(f: &mut Fiber) -> Event
+pub fn greater_than_equal(f: &mut Fiber) -> Lresult<Event>
 {
     let result = {
-        let va = f.head.get_param(0);
-        let vb = f.head.get_param(1);
+        let va = f.head.get_param(0)?;
+        let vb = f.head.get_param(1)?;
         va >= vb
     };
     f.head.parent.set_result(Val::Bool(result));
     Event::success()
 }
 
-pub fn get_type(f: &mut Fiber) -> Event
+pub fn get_type(f: &mut Fiber) -> Lresult<Event>
 {
     let result: Type;
     {
-        let v = f.head.get_param(0);
+        let v = f.head.get_param(0)?;
         result = v.get_type();
     }
     f.head.parent.set_result(Val::Type(result));
@@ -275,7 +275,7 @@ pub fn leema_sleep_forever(_ctx: rsrc::IopCtx) -> rsrc::Event
 /**
  * cin
  */
-pub fn cin(f: &mut Fiber) -> Event
+pub fn cin(f: &mut Fiber) -> Lresult<Event>
 {
     vout!("cin()\n");
     let mut input = String::new();
@@ -297,30 +297,31 @@ pub fn cin(f: &mut Fiber) -> Event
     }
 }
 
-pub fn print(f: &mut Fiber) -> Event
+pub fn print(f: &mut Fiber) -> Lresult<Event>
 {
     {
-        let v = f.head.e.get_param(0);
+        let v = f.head.e.get_param(0)?;
         print!("{}", v);
     }
     f.head.parent.set_result(Val::Void);
     Event::success()
 }
 
-pub fn printerr(f: &mut Fiber) -> Event
+pub fn printerr(f: &mut Fiber) -> Lresult<Event>
 {
     {
-        let va = f.head.get_param(0);
-        write!(stderr(), "{}", va).expect("fail writing to stderr");
+        let va = f.head.get_param(0)?;
+        write!(stderr(), "{}", va)
+            .map_err(|e| rustfail!("io_failure", "{}", e))?;
     }
     f.head.parent.set_result(Val::Void);
     Event::success()
 }
 
-pub fn create_failure(f: &mut Fiber) -> Event
+pub fn create_failure(f: &mut Fiber) -> Lresult<Event>
 {
-    let failtag = f.head.e.get_param(0);
-    let failmsg = f.head.e.get_param(1);
+    let failtag = f.head.e.get_param(0)?;
+    let failmsg = f.head.e.get_param(1)?;
     let failure = Val::Failure2(Box::new(Failure::leema_new(
         failtag.clone(),
         failmsg.clone(),
@@ -370,10 +371,10 @@ impl Debug for LeemaFile
 }
 
 
-pub fn file_read(f: &mut Fiber) -> Event
+pub fn file_read(f: &mut Fiber) -> Lresult<Event>
 {
     let open_result = {
-        let fnval = f.head.get_param(0);
+        let fnval = f.head.get_param(0)?;
         match fnval {
             &Val::Str(ref fnstr) => File::open(&**fnstr),
             _ => {
@@ -396,7 +397,7 @@ pub fn file_read(f: &mut Fiber) -> Event
     Event::success()
 }
 
-pub fn file_stream_read(f: &mut Fiber) -> Event
+pub fn file_stream_read(f: &mut Fiber) -> Lresult<Event>
 {
     let mut input = "".to_string();
     {

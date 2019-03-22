@@ -315,21 +315,33 @@ where
 
 impl reg::Iregistry for Struple<Val>
 {
-    fn ireg_get(&self, i: &Ireg) -> &Val
+    fn ireg_get(&self, i: &Ireg) -> Lresult<&Val>
     {
         match i {
             // get reg on struple
             &Ireg::Reg(p) => {
                 if p as usize >= self.0.len() {
-                    panic!("{:?} too big for {:?}", i, self.0);
+                    Err(rustfail!(
+                        "leema_failure",
+                        "{:?} too big for {:?}",
+                        i,
+                        self.0,
+                    ))
+                } else {
+                    Ok(&self.0[p as usize].1)
                 }
-                &self.0[p as usize].1
             }
             &Ireg::Sub(p, ref s) => {
                 if p as usize >= self.0.len() {
-                    panic!("{:?} too big for {:?}", i, self.0);
+                    Err(rustfail!(
+                        "leema_failure",
+                        "{:?} too big for {:?}",
+                        i,
+                        self.0,
+                    ))
+                } else {
+                    self.0[p as usize].1.ireg_get(&*s)
                 }
-                self.0[p as usize].1.ireg_get(&*s)
             }
         }
     }
