@@ -502,12 +502,6 @@ pub enum Val
     EnumToken(Lri, Lstr),
     Token(Lri),
     Map(LmapNode),
-    Failure(
-        Box<Val>, // tag
-        Box<Val>, // msg
-        Arc<FrameTrace>,
-        i8, // status
-    ),
     Failure2(Box<Failure>),
     Id(Lstr),
     Type(Type),
@@ -635,7 +629,6 @@ impl Val
     pub fn is_failure(&self) -> bool
     {
         match self {
-            &Val::Failure(_, _, _, _) => true,
             &Val::Failure2(_) => true,
             _ => false,
         }
@@ -648,7 +641,7 @@ impl Val
         status: i8,
     ) -> Val
     {
-        Val::Failure(Box::new(tag), Box::new(msg), trace, status)
+        Val::Failure2(Box::new(Failure::leema_new(tag, msg, Some(trace), status)))
     }
 
     pub fn resource_ref(&self) -> i64
@@ -691,7 +684,6 @@ impl Val
                 Type::StrictList(Box::new(inner))
             }
             &Val::Nil => Type::StrictList(Box::new(Type::Unknown)),
-            &Val::Failure(_, _, _, _) => Type::Failure,
             &Val::Failure2(_) => Type::Failure,
             &Val::Type(_) => Type::Kind,
             &Val::Void => Type::Void,
@@ -946,15 +938,15 @@ impl Val
                 let m_typ = typ.clone();
                 Val::FuncRef(m_fi, m_args, m_typ)
             }
-            &Val::Failure(ref tag, ref msg, ref ft, status) => {
-                let m_tag = tag.map(op)?;
-                let m_msg = msg.map(op)?;
-                Val::Failure(
-                    Box::new(m_tag),
-                    Box::new(m_msg),
-                    ft.clone(),
-                    status,
-                )
+            &Val::Failure2(ref failure) => {
+                let m_tag = failure.tag.map(op)?;
+                let m_msg = failure.msg.map(op)?;
+                Val::Failure2(Box::new(Failure::leema_new(
+                    m_tag,
+                    m_msg,
+                    failure.trace.clone(),
+                    failure.code,
+                )))
             }
             _ => self.clone(),
         };
@@ -996,13 +988,13 @@ impl Val
                 let typ2 = typ.deep_clone();
                 Val::FuncRef(fi2, args2, typ2)
             }
-            &Val::Failure(ref tag, ref msg, ref ft, status) => {
-                Val::Failure(
-                    Box::new(tag.deep_clone()),
-                    Box::new(msg.deep_clone()),
-                    ft.clone(),
-                    status,
-                )
+            &Val::Failure2(ref f) => {
+                Val::Failure2(Box::new(Failure::leema_new(
+                    f.tag.deep_clone(),
+                    f.msg.deep_clone(),
+                    f.trace.clone(),
+                    f.code,
+                )))
             }
             &Val::Id(ref s) => Val::Id(s.clone_for_send()),
             &Val::Type(ref t) => Val::Type(t.deep_clone()),
@@ -1139,9 +1131,6 @@ impl fmt::Display for Val
             Val::Lib(ref lv) => write!(f, "LibVal({:?})", lv),
             Val::ResourceRef(rid) => write!(f, "ResourceRef({})", rid),
             Val::RustBlock => write!(f, "RustBlock"),
-            Val::Failure(ref tag, ref msg, ref stack, _status) => {
-                write!(f, "Failure({}, {}\n{})", tag, msg, **stack)
-            }
             Val::Failure2(ref fail) => write!(f, "Failure({:?})", **fail),
             Val::Id(ref name) => write!(f, "{}", name),
             Val::Type(ref t) => write!(f, "{}", t),
@@ -1190,9 +1179,6 @@ impl fmt::Debug for Val
             Val::Lib(ref lv) => write!(f, "LibVal({:?})", lv),
             Val::ResourceRef(rid) => write!(f, "ResourceRef({})", rid),
             Val::RustBlock => write!(f, "RustBlock"),
-            Val::Failure(ref tag, ref msg, ref stack, status) => {
-                write!(f, "Failure({}, {}, {}, {:?})", tag, status, msg, stack)
-            }
             Val::Failure2(ref fail) => write!(f, "Failure({:?})", fail),
             Val::Id(ref id) => write!(f, "Id({})", id),
             Val::Type(ref t) => write!(f, "TypeVal({:?})", t),
@@ -1219,7 +1205,7 @@ impl reg::Iregistry for Val
             (_, &Val::Struct(_, ref items)) => items.ireg_get(i),
             // Functions & Closures
             (_, &Val::FuncRef(_, ref args, _)) => args.ireg_get(i),
-            // New Failures
+            // Failures
             (&Ireg::Reg(0), &Val::Failure2(ref failure)) => Ok(&failure.tag),
             (&Ireg::Reg(1), &Val::Failure2(ref failure)) => Ok(&failure.msg),
             (&Ireg::Reg(2), &Val::Failure2(ref failure)) => {
@@ -1227,24 +1213,6 @@ impl reg::Iregistry for Val
                     "leema_failure",
                     "Cannot access frame trace until it is implemented as a leema value {:?}",
                     failure.trace,
-                ))
-            }
-            // Failures
-            (&Ireg::Reg(0), &Val::Failure(ref tag, _, _, _)) => Ok(tag),
-            (&Ireg::Reg(1), &Val::Failure(_, ref msg, _, _)) => Ok(msg),
-            (&Ireg::Reg(2), &Val::Failure(_, _, ref trace, _)) => {
-                Err(rustfail!(
-                    "leema_failure",
-                    "Cannot access frame trace until it is implemented as a leema value {}",
-                    trace,
-                ))
-            }
-            (&Ireg::Sub(_, _), &Val::Failure(ref tag, ref msg, _, _)) => {
-                Err(rustfail!(
-                    "leema_failure",
-                    "Cannot access sub data for Failure {} {}",
-                    tag,
-                    msg,
                 ))
             }
             (_, &Val::Void) => {
@@ -1301,13 +1269,6 @@ impl reg::Iregistry for Val
             // set reg on FuncRef
             (_, &mut Val::FuncRef(_, ref mut args, _)) => {
                 args.ireg_set(i, v);
-            }
-            // set reg on Failures
-            (&Ireg::Reg(0), &mut Val::Failure(ref mut tag, _, _, _)) => {
-                *tag = Box::new(v);
-            }
-            (&Ireg::Reg(1), &mut Val::Failure(_, ref mut msg, _, _)) => {
-                *msg = Box::new(v);
             }
             // values that can't act as registries
             (_, dst) => {
@@ -1511,9 +1472,6 @@ impl Clone for Val
             }
             &Val::Tuple(ref t) => {
                 Val::Tuple(t.clone())
-            }
-            &Val::Failure => {
-                Val::Failure
             }
             &Val::Sxpr(ref s) => {
                 Val::Sxpr(s.clone())

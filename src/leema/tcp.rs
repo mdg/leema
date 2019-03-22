@@ -156,9 +156,9 @@ pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
             rsrc::Event::NewRsrc(Box::new(sock))
         })
         .map_err(move |_| {
-            rsrc::Event::Result(Val::Failure(
-                Box::new(Val::Hashtag(Lstr::Sref("connection_failure"))),
-                Box::new(Val::Str(Lstr::Sref("Failure to connect"))),
+            rsrc::Event::Result(Val::failure(
+                Val::Hashtag(Lstr::Sref("connection_failure")),
+                Val::Str(Lstr::Sref("Failure to connect")),
                 FrameTrace::new_root(),
                 val::FAILURE_MISSINGDATA,
             ))

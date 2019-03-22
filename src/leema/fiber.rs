@@ -111,7 +111,7 @@ impl Fiber
             &Op::ApplyFunc(ref dst, ref func) => {
                 self.execute_call(dst, func, line)
             }
-            &Op::Return => Ok(Event::Complete(true)),
+            &Op::Return => Ok(Event::Success),
             &Op::SetResult(ref dst) => {
                 if *dst == Reg::Void {
                     return Err(rustfail!(
@@ -457,31 +457,18 @@ impl Fiber
     {
         let srcval = self.head.e.get_reg(src)?;
         match srcval {
-            &Val::Failure(ref tag, ref msg, ref trace, status) => {
-                let new_trace = FrameTrace::propagate_down(
-                    trace,
-                    &self.head.function,
-                    line,
-                );
-                let new_fail =
-                    Val::Failure(tag.clone(), msg.clone(), new_trace, status);
-                self.head.parent.set_result(new_fail);
-                Ok(Event::Complete(false))
-            }
             &Val::Failure2(ref failure) => {
                 let new_trace = FrameTrace::propagate_down(
                     failure.trace.as_ref().unwrap(),
                     &self.head.function,
                     line,
                 );
-                let new_fail = Val::Failure2(Box::new(Failure::leema_new(
+                Err(Failure::leema_new(
                     failure.tag.clone(),
                     failure.msg.clone(),
-                    new_trace,
+                    Some(new_trace),
                     failure.code,
-                )));
-                self.head.parent.set_result(new_fail);
-                Ok(Event::Complete(false))
+                ))
             }
             _ => Ok(Event::Uneventful),
         }

@@ -147,16 +147,15 @@ pub fn bool_not(f: &mut Fiber) -> Lresult<Event>
         f.head.parent.set_result(Val::Bool(!b));
         Event::success()
     } else {
-        let tag = Val::Hashtag(Lstr::Sref("invalid_type"));
-        let msg = Val::Str(Lstr::from(format!(
-            "input to not must be a boolean: {:?}",
-            i
-        )));
-
-        let fail =
-            Val::failure(tag, msg, f.head.trace.clone(), val::FAILURE_TYPE);
-        f.head.parent.set_result(fail);
-        Event::failure()
+        Err(Failure::leema_new(
+            Val::Hashtag(Lstr::Sref("invalid_type")),
+            Val::Str(Lstr::from(format!(
+                "input to not must be a boolean: {:?}",
+                i
+            ))),
+            Some(f.head.trace.clone()),
+            val::FAILURE_TYPE,
+        ))
     }
 }
 
@@ -322,14 +321,12 @@ pub fn create_failure(f: &mut Fiber) -> Lresult<Event>
 {
     let failtag = f.head.e.get_param(0)?;
     let failmsg = f.head.e.get_param(1)?;
-    let failure = Val::Failure2(Box::new(Failure::leema_new(
+    Err(Failure::leema_new(
         failtag.clone(),
         failmsg.clone(),
-        f.head.trace.fail_here(),
+        Some(f.head.trace.fail_here()),
         val::FAILURE_INTERNAL,
-    )));
-    f.head.parent.set_result(failure);
-    Event::failure()
+    ))
 }
 
 

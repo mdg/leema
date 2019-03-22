@@ -85,7 +85,6 @@ pub enum Event
     NewTask(Val),
     FutureWait(Reg),
     Iop((i64, i64), rsrc::IopAction, Vec<Val>),
-    Complete(bool),
     Success,
 }
 
@@ -93,12 +92,7 @@ impl Event
 {
     pub fn success() -> Lresult<Event>
     {
-        Ok(Event::Complete(true))
-    }
-
-    pub fn failure() -> Lresult<Event>
-    {
-        Ok(Event::Complete(false))
+        Ok(Event::Success)
     }
 }
 
@@ -120,7 +114,6 @@ impl fmt::Debug for Event
             &Event::Iop(wrid, _, ref iopargs) => {
                 write!(f, "Event::Iop({:?}, f, {:?})", wrid, iopargs)
             }
-            &Event::Complete(c) => write!(f, "Event::Complete({})", c),
             &Event::Success => write!(f, "Event::Success"),
         }
     }

@@ -166,7 +166,7 @@ impl Worker
             }
             Some(ReadyFiber::Ready(mut f, code)) => {
                 did_something = true;
-                let ev = self.execute_frame(&mut f, &*code)?;
+                let ev = self.execute_frame(&mut f, &*code);
                 self.handle_event(f, ev, code)?;
             }
             None => {}
@@ -235,22 +235,21 @@ impl Worker
     pub fn handle_event(
         &mut self,
         mut fbr: Fiber,
-        e: Event,
+        evr: Lresult<Event>,
         code: Rc<Code>,
     ) -> Poll<Val, Failure>
     {
-        match e {
-            Event::Complete(success) => {
-                if success {
-                    // analyze successful function run
-                } else {
-                    vout!("function call failed\n");
-                }
-                self.return_from_call(fbr);
-                Result::Ok(Async::NotReady)
+        let e = match evr {
+            Ok(ev) => ev,
+            Err(failure) => {
+                fbr.head.parent.set_result(Val::Failure2(Box::new(failure)));
+                return Ok(Async::NotReady);
             }
+        };
+        match e {
             Event::Success => {
                 vout!("function call success\n");
+                self.return_from_call(fbr);
                 Result::Ok(Async::NotReady)
             }
             Event::Call(dst, line, func, args) => {

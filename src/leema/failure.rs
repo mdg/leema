@@ -102,14 +102,14 @@ impl Failure
     pub fn leema_new(
         tag: Val,
         msg: Val,
-        trace: Arc<FrameTrace>,
+        trace: Option<Arc<FrameTrace>>,
         code: i8,
     ) -> Failure
     {
         Failure {
             tag,
             msg,
-            trace: Some(trace),
+            trace,
             status: Status::None,
             code,
             loc: vec![],
