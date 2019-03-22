@@ -641,7 +641,12 @@ impl Val
         status: i8,
     ) -> Val
     {
-        Val::Failure2(Box::new(Failure::leema_new(tag, msg, Some(trace), status)))
+        Val::Failure2(Box::new(Failure::leema_new(
+            tag,
+            msg,
+            Some(trace),
+            status,
+        )))
     }
 
     pub fn resource_ref(&self) -> i64

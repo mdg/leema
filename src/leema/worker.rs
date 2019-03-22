@@ -243,6 +243,7 @@ impl Worker
             Ok(ev) => ev,
             Err(failure) => {
                 fbr.head.parent.set_result(Val::Failure2(Box::new(failure)));
+                self.return_from_call(fbr);
                 return Ok(Async::NotReady);
             }
         };
@@ -250,7 +251,7 @@ impl Worker
             Event::Success => {
                 vout!("function call success\n");
                 self.return_from_call(fbr);
-                Result::Ok(Async::NotReady)
+                Ok(Async::NotReady)
             }
             Event::Call(dst, line, func, args) => {
                 vout!("push_call({} {}, {:?})\n", line, func, args);
