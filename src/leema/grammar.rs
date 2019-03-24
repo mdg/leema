@@ -81,6 +81,7 @@ impl PrefixParser for ParseDefFunc
         let name = Grammar::parse_id(p)?;
         let args = Grammar::parse_idtypes(p, Token::DoubleArrow)?;
         let body = Grammar::parse_funcbody(p)?;
+        p.expect_next(Token::DoubleDash)?;
         Ok(AstNode::new(
             Ast::DefFunc(name, args, body),
             Ast::loc(&left),
@@ -339,7 +340,38 @@ impl<'input> Grammar<'input>
         Ok(result)
     }
 
-    fn parse_funcbody(_p: &mut Parser<'input>) -> AstResult<'input>
+    /// Parse the body of a function. Also eat the trailing
+    fn parse_funcbody(p: &mut Parser<'input>) -> AstResult<'input>
+    {
+        match p.peek_token()? {
+            Token::LineBegin => {
+                p.next()?;
+                match p.peek_token()? {
+                    Token::Pipe => {
+                        let cases = Grammar::parse_cases(p);
+                        cases
+                    }
+                    _ => p.parse_stmt(),
+                }
+            }
+            Token::DoubleDash => {
+                Ok(AstNode::void())
+            }
+            Token::EOF => {
+                Err(rustfail!(
+                    "parse_failure",
+                    "expected function body, found EOF",
+                ))
+            }
+            _ => {
+                let x = p.parse_expr()?;
+                Ok(x)
+            }
+        }
+    }
+
+    /// Parse the cases of a function body that matches on all parameters
+    fn parse_cases(_p: &mut Parser<'input>) -> AstResult<'input>
     {
         Ok(AstNode::void())
     }
