@@ -10,6 +10,7 @@ pub mod ast2;
 pub mod code;
 pub mod fiber;
 pub mod frame;
+pub mod grammar;
 pub mod infer;
 pub mod inter;
 pub mod io;

@@ -6,12 +6,12 @@ mod leema;
 
 use crate::leema::application::Application;
 use crate::leema::failure::Lresult;
+use crate::leema::grammar::Grammar;
 use crate::leema::list;
 use crate::leema::loader::Interloader;
 use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::ModuleSource;
-use crate::leema::parser::Parser;
 use crate::leema::program;
 use crate::leema::struple::Struple;
 use crate::leema::token::{TokenResult, Tokenz};
@@ -135,7 +135,7 @@ fn real_main() -> Lresult<()>
         None
     } else if args.flag_ast {
         let modtxt = inter.read_module(&mod_name)?;
-        let ast = Parser::new(Tokenz::lexp(&modtxt)?).parse_module()?;
+        let ast = Grammar::new(Tokenz::lexp(&modtxt)?).parse_module()?;
         println!("{:?}", ast);
         None
     } else if args.flag_modsrc {
