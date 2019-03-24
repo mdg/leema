@@ -48,13 +48,11 @@ expr = blockx
 
 blockx = arrowblock "--"
 
-ifx = "if" ifcases "--"
-ifcases = ifcases ifcase
-ifcase = "|" expr arrowblock
-
-matchx = "match" expr matchcases "--"
-matchcases = matchcases matchcase
-matchcase = "|" pattern arrowblock
+ifx = "if" cases "--"
+matchx = "match" expr cases "--"
+       | "match" cases "--"
+cases = cases ifcase
+case = "|" expr arrowblock
 
 prefixop(op) = op term
 
