@@ -162,7 +162,27 @@ impl PrefixParser for ParseDefConst
 }
 
 #[derive(Debug)]
-struct DefFuncParser;
+struct ParseDefFunc;
+
+impl PrefixParser for ParseDefFunc
+{
+    fn parse<'input>(
+        &self,
+        p: &mut Parser<'input>,
+        left: TokenSrc<'input>,
+    ) -> Lresult<AstNode<'input>>
+    {
+        let name = p.parse_id()?;
+        p.expect_next(Token::ParenL)?;
+        let args = p.parse_xlist()?;
+        p.expect_next(Token::ParenR)?;
+        let body = AstNode::void();
+        Ok(AstNode::new(
+            Ast::DefFunc(name, args, body),
+            Ast::loc(&left),
+        ))
+    }
+}
 
 #[derive(Debug)]
 struct DefTypeParser;
@@ -417,7 +437,7 @@ const PARSE_TABLE: [ParseRow; 61] = [
     (Token::Const, Some(&ParseDefConst), None, None),
     (Token::Failed, None, None, None),
     (Token::Fork, None, None, None),
-    (Token::Func, None, None, None),
+    (Token::Func, Some(&ParseDefFunc), None, None),
     (Token::If, None, Some(&IfParser), None),
     (Token::Import, None, None, None),
     (Token::Let, Some(&ParseLet), None, None),
@@ -561,6 +581,12 @@ impl<'input> Parser<'input>
         Ok(StrupleKV::from(args))
     }
 
+    pub fn parse_id(&mut self) -> Lresult<AstNode<'input>>
+    {
+        let id = self.tok.expect_next(Token::Id)?;
+        Ok(AstNode::new(Ast::Id1(id.src), Ast::loc(&id)))
+    }
+
     pub fn parse_expr(&mut self) -> Lresult<AstNode<'input>>
     {
         let first = self.tok.next()?;
@@ -665,6 +691,15 @@ mod tests
     fn test_parse_const()
     {
         let input = "const X := 5";
+        let toks = Tokenz::lexp(input).unwrap();
+        let mut p = Parser::new(toks);
+        p.parse_module().unwrap();
+    }
+
+    #[test]
+    fn test_parse_deffunc()
+    {
+        let input = "func zero() >> 0 --";
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Parser::new(toks);
         p.parse_module().unwrap();
