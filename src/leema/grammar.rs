@@ -291,6 +291,7 @@ const PARSE_TABLE: ParseTable = [
     (Token::LessThanEqual, None, None, None),
     // separators
     (Token::Assignment, None, None, None),
+    (Token::CasePipe, None, None, None),
     (Token::Colon, None, None, None),
     (Token::Comma, None, None, None),
     (Token::ConcatNewline, None, None, None),
@@ -531,5 +532,16 @@ mod tests
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
         p.parse_module().unwrap();
+    }
+
+    #[test]
+    fn test_parse_table_tokens()
+    {
+        for (i, row) in super::PARSE_TABLE.iter().enumerate() {
+            let token_index = row.0 as usize;
+            if i != token_index {
+               panic!("parse table row at wrong index for {:?}", row.0);
+            }
+        }
     }
 }

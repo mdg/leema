@@ -144,6 +144,7 @@ pub enum Token
 
     // separators
     Assignment,
+    CasePipe,
     Colon,
     Comma,
     ConcatNewline,
