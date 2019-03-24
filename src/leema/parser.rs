@@ -1,4 +1,4 @@
-use crate::leema::ast2::{Ast, AstNode};
+use crate::leema::ast2::{Ast, AstNode, AstResult};
 use crate::leema::failure::Lresult;
 use crate::leema::struple::StrupleKV;
 use crate::leema::token::{Token, TokenSrc};
@@ -114,7 +114,7 @@ trait PrefixParser: Debug
         &self,
         p: &mut Parser<'input>,
         tok: TokenSrc<'input>,
-    ) -> Lresult<AstNode<'input>>;
+    ) -> AstResult<'input>;
 }
 
 #[derive(Debug)]
@@ -126,7 +126,7 @@ impl PrefixParser for ParseBool
         &self,
         _p: &mut Parser<'input>,
         left: TokenSrc<'input>,
-    ) -> Lresult<AstNode<'input>>
+    ) -> AstResult<'input>
     {
         let b = match left.src {
             "False" => false,
@@ -152,7 +152,7 @@ impl PrefixParser for ParseDefConst
         &self,
         p: &mut Parser<'input>,
         left: TokenSrc<'input>,
-    ) -> Lresult<AstNode<'input>>
+    ) -> AstResult<'input>
     {
         let id = p.expect_next(Token::Id)?;
         let _assign = p.expect_next(Token::Assignment)?;
@@ -170,12 +170,11 @@ impl PrefixParser for ParseDefFunc
         &self,
         p: &mut Parser<'input>,
         left: TokenSrc<'input>,
-    ) -> Lresult<AstNode<'input>>
+    ) -> AstResult<'input>
     {
         let name = p.parse_id()?;
-        p.expect_next(Token::ParenL)?;
-        let args = p.parse_xlist(Token::ParenR)?;
-        let body = AstNode::void();
+        let args = p.parse_idtypes(Token::DoubleArrow)?;
+        let body = parse_funcbody(p)?;
         Ok(AstNode::new(
             Ast::DefFunc(name, args, body),
             Ast::loc(&left),
@@ -195,7 +194,7 @@ impl PrefixParser for ParseLet
         &self,
         p: &mut Parser<'input>,
         left: TokenSrc<'input>,
-    ) -> Lresult<AstNode<'input>>
+    ) -> AstResult<'input>
     {
         let lhs = p.parse_expr()?;
         let _assign = p.expect_next(Token::Assignment)?;
@@ -216,7 +215,7 @@ impl PrefixParser for BlockParser
         &self,
         _p: &mut Parser<'input>,
         _left: TokenSrc<'input>,
-    ) -> Lresult<AstNode<'input>>
+    ) -> AstResult<'input>
     {
         Ok(AstNode::void())
     }
@@ -231,7 +230,7 @@ impl PrefixParser for ParseId
         &self,
         _p: &mut Parser<'input>,
         left: TokenSrc<'input>,
-    ) -> Lresult<AstNode<'input>>
+    ) -> AstResult<'input>
     {
         Ok(AstNode::new(Ast::Id1(left.src), Ast::loc(&left)))
     }
@@ -246,7 +245,7 @@ impl PrefixParser for IfParser
         &self,
         _p: &mut Parser<'input>,
         _left: TokenSrc<'input>,
-    ) -> Lresult<AstNode<'input>>
+    ) -> AstResult<'input>
     {
         Ok(AstNode::void())
     }
@@ -261,7 +260,7 @@ impl PrefixParser for ParseInt
         &self,
         _p: &mut Parser<'input>,
         left: TokenSrc<'input>,
-    ) -> Lresult<AstNode<'input>>
+    ) -> AstResult<'input>
     {
         let i: i64 = left.src.parse().map_err(|parsef| {
             rustfail!(
@@ -297,7 +296,7 @@ trait InfixParser: Debug
         p: &mut Parser<'input>,
         left: AstNode<'input>,
         tok: TokenSrc<'input>,
-    ) -> Lresult<AstNode<'input>>;
+    ) -> AstResult<'input>;
 
     fn precedence(&self) -> Precedence;
 }
@@ -344,7 +343,7 @@ impl InfixParser for BinaryOpParser
         p: &mut Parser<'input>,
         left: AstNode<'input>,
         op: TokenSrc<'input>,
-    ) -> Lresult<AstNode<'input>>
+    ) -> AstResult<'input>
     {
         let right = p.parse_expr()?;
         let ast = Ast::Op2(op.src, left, right);
@@ -392,7 +391,7 @@ impl InfixParser for ParseCall
         p: &mut Parser<'input>,
         left: AstNode<'input>,
         _tok: TokenSrc<'input>,
-    ) -> Lresult<AstNode<'input>>
+    ) -> AstResult<'input>
     {
         let args = p.parse_xlist(Token::ParenR)?;
         let loc = left.loc;
@@ -410,6 +409,11 @@ struct LessThanParser;
 
 #[derive(Debug)]
 struct TypeParamParser;
+
+fn parse_funcbody<'input>(_p: &mut Parser<'input>) -> AstResult<'input>
+{
+    Ok(AstNode::void())
+}
 
 type PrefixOption = Option<&'static PrefixParser>;
 type InfixOption = Option<&'static InfixParser>;
@@ -521,7 +525,7 @@ impl<'input> Parser<'input>
         Ok(result)
     }
 
-    pub fn parse_stmt(&mut self) -> Lresult<AstNode<'input>>
+    pub fn parse_stmt(&mut self) -> AstResult<'input>
     {
         self.tok.expect_next(Token::LineBegin)?;
         let first = self.tok.next()?;
@@ -588,9 +592,7 @@ impl<'input> Parser<'input>
                         end,
                     ));
                 }
-                t if t == end => {
-                    None
-                }
+                t if t == end => None,
                 t => {
                     return Err(rustfail!(
                         "parse_failure",
@@ -656,13 +658,13 @@ impl<'input> Parser<'input>
         Ok(StrupleKV::from(args))
     }
 
-    pub fn parse_id(&mut self) -> Lresult<AstNode<'input>>
+    pub fn parse_id(&mut self) -> AstResult<'input>
     {
         let id = self.tok.expect_next(Token::Id)?;
         Ok(AstNode::new(Ast::Id1(id.src), Ast::loc(&id)))
     }
 
-    pub fn parse_expr(&mut self) -> Lresult<AstNode<'input>>
+    pub fn parse_expr(&mut self) -> AstResult<'input>
     {
         let first = self.tok.next()?;
         self.parse_expr_first(first, MIN_PRECEDENCE)
@@ -672,7 +674,7 @@ impl<'input> Parser<'input>
         &mut self,
         first: TokenSrc<'input>,
         min_pre: Precedence,
-    ) -> Lresult<AstNode<'input>>
+    ) -> AstResult<'input>
     {
         let prefix = self.find_prefix(first.tok).ok_or_else(|| {
             rustfail!("parse_failure", "cannot find parser for {:?}", first.tok)

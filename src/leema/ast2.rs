@@ -1,3 +1,4 @@
+use crate::leema::failure::Lresult;
 use crate::leema::reg::Reg;
 use crate::leema::struple::{Struple2, StrupleKV};
 use crate::leema::token::TokenSrc;
@@ -63,7 +64,7 @@ pub enum Ast<'i>
     DefConst(&'i str, AstNode<'i>),
     DefFunc(
         AstNode<'i>,
-        StrupleKV<Option<&'i str>, AstNode<'i>>,
+        StrupleKV<Option<&'i str>, Option<AstNode<'i>>>,
         AstNode<'i>,
     ),
     DefMacro(AstNode<'i>, StrupleKV<&'i str, AstNode<'i>>, AstNode<'i>),
@@ -112,6 +113,8 @@ pub struct AstNode<'i>
     pub typ: Type,
     pub dst: Reg,
 }
+
+pub type AstResult<'input> = Lresult<AstNode<'input>>;
 
 impl<'i> AstNode<'i>
 {
