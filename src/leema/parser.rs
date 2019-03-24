@@ -174,8 +174,7 @@ impl PrefixParser for ParseDefFunc
     {
         let name = p.parse_id()?;
         p.expect_next(Token::ParenL)?;
-        let args = p.parse_xlist()?;
-        p.expect_next(Token::ParenR)?;
+        let args = p.parse_xlist(Token::ParenR)?;
         let body = AstNode::void();
         Ok(AstNode::new(
             Ast::DefFunc(name, args, body),
@@ -395,7 +394,7 @@ impl InfixParser for ParseCall
         _tok: TokenSrc<'input>,
     ) -> Lresult<AstNode<'input>>
     {
-        let args = p.parse_xlist()?;
+        let args = p.parse_xlist(Token::ParenR)?;
         let loc = left.loc;
         Ok(AstNode::new(Ast::Call(left, args), loc))
     }
@@ -533,22 +532,97 @@ impl<'input> Parser<'input>
         }
     }
 
+    /// Parse an idtype pair, ".id:Type"
+    /// skip a LineBegin before the idtype if there is one
+    pub fn parse_idtypes(
+        &mut self,
+        end: Token,
+    ) -> Lresult<StrupleKV<Option<&'input str>, Option<AstNode<'input>>>>
+    {
+        let mut idtypes = vec![];
+        loop {
+            self.tok.next_if(Token::LineBegin)?;
+            let id = match self.tok.peek_token()? {
+                Token::Dot => {
+                    let _dot = self.expect_next(Token::Dot)?;
+                    let name = self.expect_next(Token::Id)?;
+                    Some(name.src)
+                }
+                Token::Colon => {
+                    // no ID, fall through to type
+                    None
+                }
+                Token::EOF => {
+                    return Err(rustfail!(
+                        "parse_failure",
+                        "expected {:?}, found EOF",
+                        end,
+                    ));
+                }
+                t if t == end => {
+                    self.next()?;
+                    break;
+                }
+                t => {
+                    return Err(rustfail!(
+                        "parse_failue",
+                        "expected . or :, found {:?}",
+                        t,
+                    ));
+                }
+            };
+
+            let typ = match self.tok.peek_token()? {
+                Token::Dot => {
+                    // no type, fall through
+                    None
+                }
+                Token::Colon => {
+                    self.next()?;
+                    Some(self.parse_expr()?)
+                }
+                Token::EOF => {
+                    return Err(rustfail!(
+                        "parse_failure",
+                        "expected {:?}, found EOF",
+                        end,
+                    ));
+                }
+                t if t == end => {
+                    None
+                }
+                t => {
+                    return Err(rustfail!(
+                        "parse_failure",
+                        "expected ')' or ',' found {:?}",
+                        t,
+                    ));
+                }
+            };
+
+            idtypes.push((id, typ));
+        }
+        Ok(StrupleKV::from(idtypes))
+    }
+
     pub fn parse_xlist(
         &mut self,
+        end: Token,
     ) -> Lresult<StrupleKV<Option<&'input str>, AstNode<'input>>>
     {
         let mut args = vec![];
         loop {
             match self.tok.peek_token()? {
-                Token::ParenR => {
-                    self.next()?;
-                    break;
-                }
                 Token::EOF => {
                     return Err(rustfail!(
                         "parse_failure",
-                        "expected ')', found EOF",
+                        "expected {:?}, found EOF",
+                        end,
                     ));
+                }
+                t if t == end => {
+                    self.next()?;
+                    break;
                 }
                 _ => {
                     args.push(self.parse_expr()?);
@@ -560,14 +634,15 @@ impl<'input> Parser<'input>
                 Token::Comma => {
                     // continue
                 }
-                Token::ParenR => {
-                    break;
-                }
                 Token::EOF => {
                     return Err(rustfail!(
                         "parse_failure",
-                        "expected ')', found EOF",
+                        "expected {:?}, found EOF",
+                        end,
                     ));
+                }
+                t if t == end => {
+                    break;
                 }
                 _ => {
                     return Err(rustfail!(
@@ -699,7 +774,7 @@ mod tests
     #[test]
     fn test_parse_deffunc()
     {
-        let input = "func zero() >> 0 --";
+        let input = "func zero >> 0 --";
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Parser::new(toks);
         p.parse_module().unwrap();

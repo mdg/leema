@@ -16,10 +16,7 @@ defconst = "const" localid := expr
 deftype = defstruct | defenum
 
 defstruct = "type" structdef "--"
-structdef = genericid structfields
-          | genericid "(" xlist ")"
-structfields = structfields structfield
-structfield = "." localid ":" lri
+structdef = genericid idtypes
 
 defenum = "type" genericid enumvariants "--"
 enumvariants = enumvariants enumvariant
@@ -27,6 +24,13 @@ enumvariant = "|" genericid
             | "|" structdef
 enumfields = enumfields enumfield
 enumfield = "|" localid "(" lri
+
+deffunc = "func" genericid idtypes blockx
+
+idtypes = idtypes idtype
+idtype = "." localid ":" lri
+       | "." localid
+       | ":" lri
 
 genericid = localid "[" klist "]"
 
