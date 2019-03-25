@@ -1,5 +1,6 @@
 use crate::leema::ast2::{Ast, AstNode, AstResult, FuncClass};
 use crate::leema::failure::Lresult;
+use crate::leema::lstr::Lstr;
 use crate::leema::parser::{
     Assoc, BinaryOpParser, InfixParser, ParseTable, Parser, Precedence,
     PrefixParser,
@@ -23,31 +24,7 @@ enum OpPrecedence
     Dot,
 }
 
-#[derive(Debug)]
-struct ParseBool;
-
-impl PrefixParser for ParseBool
-{
-    fn parse<'input>(
-        &self,
-        _p: &mut Parser<'input>,
-        left: TokenSrc<'input>,
-    ) -> AstResult<'input>
-    {
-        let b = match left.src {
-            "False" => false,
-            "True" => true,
-            _ => {
-                return Err(rustfail!(
-                    "parse_failure",
-                    "bool token is not True or False: '{}'",
-                    left.src,
-                ));
-            }
-        };
-        Ok(AstNode::new_constval(Val::Bool(b), Ast::loc(&left)))
-    }
-}
+/* Statement Parsers */
 
 #[derive(Debug)]
 struct ParseDefConst;
@@ -113,6 +90,8 @@ impl PrefixParser for ParseLet
     }
 }
 
+/* Expression Parsers */
+
 #[derive(Debug)]
 struct BlockParser;
 
@@ -125,6 +104,50 @@ impl PrefixParser for BlockParser
     ) -> AstResult<'input>
     {
         Ok(AstNode::void())
+    }
+}
+
+#[derive(Debug)]
+struct ParseBool;
+
+impl PrefixParser for ParseBool
+{
+    fn parse<'input>(
+        &self,
+        _p: &mut Parser<'input>,
+        left: TokenSrc<'input>,
+    ) -> AstResult<'input>
+    {
+        let b = match left.src {
+            "False" => false,
+            "True" => true,
+            _ => {
+                return Err(rustfail!(
+                    "parse_failure",
+                    "bool token is not True or False: '{}'",
+                    left.src,
+                ));
+            }
+        };
+        Ok(AstNode::new_constval(Val::Bool(b), Ast::loc(&left)))
+    }
+}
+
+#[derive(Debug)]
+struct ParseHashtag;
+
+impl PrefixParser for ParseHashtag
+{
+    fn parse<'input>(
+        &self,
+        _p: &mut Parser<'input>,
+        left: TokenSrc<'input>,
+    ) -> AstResult<'input>
+    {
+        Ok(AstNode::new_constval(
+            Val::Hashtag(Lstr::from(left.src.to_string())),
+            Ast::loc(&left),
+        ))
     }
 }
 
@@ -555,6 +578,15 @@ mod tests
             1 + 2
         --
         "#;
+        let toks = Tokenz::lexp(input).unwrap();
+        let mut p = Grammar::new(toks);
+        p.parse_module().unwrap();
+    }
+
+    #[test]
+    fn test_parse_hashtag()
+    {
+        let input = "const H := #hash_tag";
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
         p.parse_module().unwrap();
