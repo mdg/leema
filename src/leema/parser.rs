@@ -37,13 +37,6 @@ impl<'input> TokenStream<'input>
             .map_err(|f| f.loc(file!(), line!()))
     }
 
-    pub fn match_next(&mut self, t: Token) -> Lresult<bool>
-    {
-        self.peek_token()
-            .map(|tok| tok == t)
-            .map_err(|f| f.loc(file!(), line!()))
-    }
-
     pub fn next(&mut self) -> Lresult<TokenSrc<'input>>
     {
         self.peek().map_err(|f| f.loc(file!(), line!()))?;
@@ -178,6 +171,15 @@ type PrefixOption = Option<&'static PrefixParser>;
 type InfixOption = Option<&'static InfixParser>;
 type ParseRow = (Token, PrefixOption, PrefixOption, InfixOption);
 pub type ParseTable = [ParseRow; 62];
+/*
+enum TokenParser
+{
+    Stmt(&'static PrefixParser),
+    Expr(Option<&'static PrefixParser>, Option<&'static InfixParser>),
+    EndBlock,
+}
+pub type ParseTable2 = [ParseEntry; 62];
+*/
 
 pub struct Parser<'input>
 {
@@ -201,11 +203,6 @@ impl<'input> Parser<'input>
         self.tok.peek_token()
     }
 
-    pub fn match_next(&mut self, t: Token) -> Lresult<bool>
-    {
-        self.tok.match_next(t)
-    }
-
     pub fn next(&mut self) -> Lresult<TokenSrc<'input>>
     {
         self.tok.next()
@@ -222,15 +219,28 @@ impl<'input> Parser<'input>
         self.tok.expect_next(expected)
     }
 
-    pub fn parse_stmt(&mut self) -> AstResult<'input>
+    pub fn parse_stmts(&mut self) -> Lresult<Vec<AstNode<'input>>>
     {
-        self.tok.expect_next(Token::LineBegin)?;
-        let first = self.tok.next()?;
-
-        match self.find_stmtp(first.tok) {
-            Some(stmtp) => stmtp.parse(self, first),
-            None => self.parse_expr_first(first, MIN_PRECEDENCE),
+        let mut stmts = vec![];
+        while self.tok.peek_token()? != Token::EOF {
+            self.expect_next(Token::LineBegin)?;
+            let tok = self.tok.peek_token()?;
+            if let Some(stmtp) = self.find_stmtp(tok) {
+                let first = self.tok.next()?;
+                let stmt = stmtp.parse(self, first)?;
+                stmts.push(stmt);
+                continue;
+            }
+            if self.find_prefix(tok).is_some() {
+                let expr = self.parse_expr()?;
+                stmts.push(expr);
+                continue;
+            }
+            // else there are no parsers for this token
+            // hopefully that's ok later
+            break;
         }
+        Ok(stmts)
     }
 
     pub fn parse_expr(&mut self) -> AstResult<'input>

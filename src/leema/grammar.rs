@@ -1,4 +1,4 @@
-use crate::leema::ast2::{Ast, AstNode, AstResult};
+use crate::leema::ast2::{Ast, AstNode, AstResult, FuncClass};
 use crate::leema::failure::Lresult;
 use crate::leema::parser::{
     Assoc, BinaryOpParser, InfixParser, ParseTable, Parser, Precedence,
@@ -68,7 +68,7 @@ impl PrefixParser for ParseDefConst
 }
 
 #[derive(Debug)]
-struct ParseDefFunc;
+struct ParseDefFunc(FuncClass);
 
 impl PrefixParser for ParseDefFunc
 {
@@ -79,11 +79,11 @@ impl PrefixParser for ParseDefFunc
     ) -> AstResult<'input>
     {
         let name = Grammar::parse_id(p)?;
-        let args = Grammar::parse_idtypes(p, Token::DoubleArrow)?;
-        let body = Grammar::parse_funcbody(p)?;
+        let args = Grammar::parse_idtypes(p)?;
+        let body = Grammar::parse_block(p)?;
         p.expect_next(Token::DoubleDash)?;
         Ok(AstNode::new(
-            Ast::DefFunc(name, args, body),
+            Ast::DefFunc(self.0, name, args, body),
             Ast::loc(&left),
         ))
     }
@@ -261,18 +261,19 @@ const PARSE_TABLE: ParseTable = [
     (Token::AngleR, None, None, None),
     (Token::DoubleQuoteL, None, None, None),
     (Token::DoubleQuoteR, None, None, None),
-    // keywords
+    // statement keywords
     (Token::Const, Some(&ParseDefConst), None, None),
     (Token::Failed, None, None, None),
     (Token::Fork, None, None, None),
-    (Token::Func, Some(&ParseDefFunc), None, None),
-    (Token::If, None, Some(&IfParser), None),
+    (Token::Func, Some(&ParseDefFunc(FuncClass::Func)), None, None),
     (Token::Import, None, None, None),
     (Token::Let, Some(&ParseLet), None, None),
-    (Token::Macro, None, None, None),
-    (Token::Match, None, None, None),
+    (Token::Macro, Some(&ParseDefFunc(FuncClass::Macro)), None, None),
     (Token::Return, None, None, None),
     (Token::Type, None, None, None),
+    // expression keywords
+    (Token::If, None, Some(&IfParser), None),
+    (Token::Match, None, None, None),
     (Token::Underscore, None, None, None),
     // operators (arithmetic)
     (Token::Plus, None, None, Some(OP_ADD)),
@@ -333,41 +334,15 @@ impl<'input> Grammar<'input>
 
     pub fn parse_module(&mut self) -> Lresult<Vec<AstNode<'input>>>
     {
-        let mut result = vec![];
-        while !self.p.match_next(Token::EOF)? {
-            result.push(self.p.parse_stmt()?);
-        }
-        Ok(result)
+        self.p.parse_stmts()
     }
 
     /// Parse the body of a function. Also eat the trailing
-    fn parse_funcbody(p: &mut Parser<'input>) -> AstResult<'input>
+    fn parse_block(p: &mut Parser<'input>) -> AstResult<'input>
     {
-        match p.peek_token()? {
-            Token::LineBegin => {
-                p.next()?;
-                match p.peek_token()? {
-                    Token::Pipe => {
-                        let cases = Grammar::parse_cases(p);
-                        cases
-                    }
-                    _ => p.parse_stmt(),
-                }
-            }
-            Token::DoubleDash => {
-                Ok(AstNode::void())
-            }
-            Token::EOF => {
-                Err(rustfail!(
-                    "parse_failure",
-                    "expected function body, found EOF",
-                ))
-            }
-            _ => {
-                let x = p.parse_expr()?;
-                Ok(x)
-            }
-        }
+        let arrow = p.expect_next(Token::DoubleArrow)?;
+        let stmts = p.parse_stmts()?;
+        Ok(AstNode::new(Ast::Block(stmts), Ast::loc(&arrow)))
     }
 
     /// Parse the cases of a function body that matches on all parameters
@@ -380,7 +355,6 @@ impl<'input> Grammar<'input>
     /// skip a LineBegin before the idtype if there is one
     pub fn parse_idtypes(
         p: &mut Parser<'input>,
-        end: Token,
     ) -> Lresult<StrupleKV<Option<&'input str>, Option<AstNode<'input>>>>
     {
         let mut idtypes = vec![];
@@ -396,16 +370,17 @@ impl<'input> Grammar<'input>
                     // no ID, fall through to type
                     None
                 }
+                Token::DoubleArrow => {
+                    break;
+                }
+                Token::DoubleDash => {
+                    break;
+                }
                 Token::EOF => {
                     return Err(rustfail!(
                         "parse_failure",
-                        "expected {:?}, found EOF",
-                        end,
+                        "expected : or . found EOF",
                     ));
-                }
-                t if t == end => {
-                    p.next()?;
-                    break;
                 }
                 t => {
                     return Err(rustfail!(
@@ -425,14 +400,14 @@ impl<'input> Grammar<'input>
                     p.next()?;
                     Some(p.parse_expr()?)
                 }
+                Token::DoubleArrow => None,
+                Token::DoubleDash => None,
                 Token::EOF => {
                     return Err(rustfail!(
                         "parse_failure",
-                        "expected {:?}, found EOF",
-                        end,
+                        "expected : or . found EOF",
                     ));
                 }
-                t if t == end => None,
                 t => {
                     return Err(rustfail!(
                         "parse_failure",

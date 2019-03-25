@@ -31,6 +31,18 @@ impl Default for Loc
 #[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
+pub enum FuncClass
+{
+    Macro,
+    Func,
+    Closure,
+}
+
+#[derive(Clone)]
+#[derive(Copy)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
 pub enum CaseType
 {
     If,
@@ -63,11 +75,11 @@ pub enum Ast<'i>
     ConstVal(Val),
     DefConst(&'i str, AstNode<'i>),
     DefFunc(
+        FuncClass,
         AstNode<'i>,
         StrupleKV<Option<&'i str>, Option<AstNode<'i>>>,
         AstNode<'i>,
     ),
-    DefMacro(AstNode<'i>, StrupleKV<&'i str, AstNode<'i>>, AstNode<'i>),
     DefType(AstNode<'i>, StrupleKV<&'i str, AstNode<'i>>),
     FuncType(StrupleKV<&'i str, AstNode<'i>>),
     Id1(&'i str),
