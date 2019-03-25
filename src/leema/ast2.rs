@@ -58,8 +58,14 @@ pub struct Case<'i>
 {
     pub cond: AstNode<'i>,
     pub body: AstNode<'i>,
-    pub else_case: Option<Box<Case<'i>>>,
-    pub loc: Loc,
+}
+
+impl<'i> Case<'i>
+{
+    pub fn new(cond: AstNode<'i>, body: AstNode<'i>) -> Case<'i>
+    {
+        Case { cond, body }
+    }
 }
 
 type Xlist<'i> = StrupleKV<Option<&'i str>, AstNode<'i>>;
@@ -71,7 +77,7 @@ pub enum Ast<'i>
 {
     Block(Vec<AstNode<'i>>),
     Call(AstNode<'i>, Xlist<'i>),
-    Case(CaseType, AstNode<'i>, Case<'i>),
+    Case(CaseType, AstNode<'i>, Vec<Case<'i>>),
     ConstVal(Val),
     DefConst(&'i str, AstNode<'i>),
     DefFunc(

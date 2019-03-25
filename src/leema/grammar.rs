@@ -1,4 +1,4 @@
-use crate::leema::ast2::{Ast, AstNode, AstResult, FuncClass};
+use crate::leema::ast2::{self, Ast, AstNode, AstResult, CaseType, FuncClass};
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::parser::{
@@ -167,17 +167,22 @@ impl PrefixParser for ParseId
 }
 
 #[derive(Debug)]
-struct IfParser;
+struct ParseIf;
 
-impl PrefixParser for IfParser
+impl PrefixParser for ParseIf
 {
     fn parse<'input>(
         &self,
-        _p: &mut Parser<'input>,
-        _left: TokenSrc<'input>,
+        p: &mut Parser<'input>,
+        if_token: TokenSrc<'input>,
     ) -> AstResult<'input>
     {
-        Ok(AstNode::void())
+        let cases = Grammar::parse_cases(p)?;
+        p.expect_next(Token::DoubleDash)?;
+        Ok(AstNode::new(
+            Ast::Case(CaseType::If, AstNode::void(), cases),
+            Ast::loc(&if_token),
+        ))
     }
 }
 
@@ -294,7 +299,7 @@ const PARSE_TABLE: ParseTable = [
         None,
         None,
     ),
-    (Token::If, None, Some(&IfParser), None),
+    (Token::If, None, Some(&ParseIf), None),
     (Token::Import, None, None, None),
     (Token::Let, Some(&ParseLet), None, None),
     (
@@ -384,9 +389,32 @@ impl<'input> Grammar<'input>
     }
 
     /// Parse the cases of a function body that matches on all parameters
-    fn parse_cases(_p: &mut Parser<'input>) -> AstResult<'input>
+    fn parse_cases(p: &mut Parser<'input>) -> Lresult<Vec<ast2::Case<'input>>>
     {
-        Ok(AstNode::void())
+        let mut cases = vec![];
+        loop {
+            p.expect_next(Token::LineBegin)?;
+            let peeked = p.peek()?;
+            match peeked.tok {
+                Token::Pipe => {
+                    p.next()?;
+                    let cond = p.parse_expr()?;
+                    let body = Grammar::parse_block(p)?;
+                    cases.push(ast2::Case::new(cond, body));
+                }
+                Token::DoubleDash => {
+                    break;
+                }
+                _ => {
+                    return Err(rustfail!(
+                        "parse_failure",
+                        "expected | or -- found {:?}",
+                        peeked,
+                    ));
+                }
+            }
+        }
+        Ok(cases)
     }
 
     /// Parse an idtype pair, ".id:Type"
