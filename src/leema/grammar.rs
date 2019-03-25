@@ -219,22 +219,22 @@ struct TupleParser;
 
 const OP_MULTIPLY: &'static BinaryOpParser = &BinaryOpParser {
     op: "*",
-    pre: Precedence(13, 0, Assoc::Left),
+    pre: Precedence(Lprec::Multiply as u8, 0, Assoc::Left),
 };
 
 const OP_DIVIDE: &'static BinaryOpParser = &BinaryOpParser {
     op: "/",
-    pre: Precedence(13, 0, Assoc::Left),
+    pre: Precedence(Lprec::Multiply as u8, 0, Assoc::Left),
 };
 
 const OP_ADD: &'static BinaryOpParser = &BinaryOpParser {
     op: "+",
-    pre: Precedence(13, 0, Assoc::Left),
+    pre: Precedence(Lprec::Add as u8, 0, Assoc::Left),
 };
 
 const OP_SUBTRACT: &'static BinaryOpParser = &BinaryOpParser {
     op: "*",
-    pre: Precedence(13, 0, Assoc::Left),
+    pre: Precedence(Lprec::Add as u8, 0, Assoc::Left),
 };
 
 const OP_EQ: &'static BinaryOpParser = &BinaryOpParser {

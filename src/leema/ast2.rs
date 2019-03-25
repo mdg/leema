@@ -4,6 +4,8 @@ use crate::leema::struple::{Struple2, StrupleKV};
 use crate::leema::token::TokenSrc;
 use crate::leema::val::{Type, Val};
 
+use std::fmt;
+
 
 #[derive(Clone)]
 #[derive(Copy)]
@@ -71,7 +73,6 @@ impl<'i> Case<'i>
 type Xlist<'i> = StrupleKV<Option<&'i str>, AstNode<'i>>;
 
 #[derive(Clone)]
-#[derive(Debug)]
 #[derive(PartialEq)]
 pub enum Ast<'i>
 {
@@ -120,6 +121,28 @@ impl<'i> Ast<'i>
         }
     }
 }
+
+impl<'i> fmt::Debug for Ast<'i>
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        match self {
+            Ast::Id1(id) => {
+                write!(f, "(Id1 {})", id)
+            }
+            Ast::Op1(op, node) => {
+                write!(f, "(Op1 {} {:?})", op, node.node)
+            }
+            Ast::Op2(op, a, b) => {
+                write!(f, "(Op2 {} {:?} {:?})", op, a.node, b.node)
+            }
+            _ => {
+                write!(f, "Ast to be printed")
+            }
+        }
+    }
+}
+
 
 #[derive(Clone)]
 #[derive(Debug)]
