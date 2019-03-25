@@ -563,7 +563,12 @@ impl<'input> Grammar<'input>
 mod tests
 {
     use super::Grammar;
+    use crate::leema::ast2::Ast;
     use crate::leema::token::Tokenz;
+    use crate::leema::val::Val;
+
+    use matches::assert_matches;
+
 
     #[test]
     fn test_parse_call_no_params()
@@ -649,8 +654,8 @@ mod tests
     fn test_parse_operators()
     {
         let input = r#"func ops >>
-            1 - 2
-            x * y
+            1 - 2 - 3
+            x * y * z
             9 / 3
             4 == 4
             7 != 8
@@ -659,6 +664,45 @@ mod tests
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
         p.parse_module().unwrap();
+    }
+
+    #[test]
+    fn test_parse_precedence()
+    {
+        let input = r#"
+        1 - 2 * 3
+        x / y + z
+        "#;
+        let toks = Tokenz::lexp(input).unwrap();
+        let mut p = Grammar::new(toks);
+        let ast = p.parse_module().unwrap();
+        assert_eq!(2, ast.len());
+
+        {
+            let sub = &ast[0];
+            assert_matches!(*sub.node, Ast::Op2("-", _, _));
+            if let Ast::Op2("-", i1, mult) = &*sub.node {
+                assert_matches!(*i1.node, Ast::ConstVal(Val::Int(1)));
+                assert_matches!(*mult.node, Ast::Op2("*", _, _));
+                if let Ast::Op2("*", i2, i3) = &*mult.node {
+                    assert_matches!(*i2.node, Ast::ConstVal(Val::Int(2)));
+                    assert_matches!(*i3.node, Ast::ConstVal(Val::Int(3)));
+                }
+            }
+        }
+
+        {
+            let add = &ast[1];
+            assert_matches!(*add.node, Ast::Op2("+", _, _));
+            if let Ast::Op2("+", div, x) = &*add.node {
+                assert_matches!(*div.node, Ast::Op2("/", _, _));
+                assert_matches!(*x.node, Ast::Id1("z"));
+                if let Ast::Op2("/", x, y) = &*div.node {
+                    assert_matches!(*x.node, Ast::Id1("x"));
+                    assert_matches!(*y.node, Ast::Id1("y"));
+                }
+            }
+        }
     }
 
     #[test]
