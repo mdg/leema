@@ -9,7 +9,7 @@ use crate::leema::struple::StrupleKV;
 use crate::leema::token::{Token, TokenSrc};
 use crate::leema::val::Val;
 
-enum OpPrecedence
+enum Lprec
 {
     Minimum,
     Equal,
@@ -237,6 +237,17 @@ const OP_SUBTRACT: &'static BinaryOpParser = &BinaryOpParser {
     pre: Precedence(13, 0, Assoc::Left),
 };
 
+const OP_EQ: &'static BinaryOpParser = &BinaryOpParser {
+    op: "==",
+    pre: Precedence(Lprec::Equal as u8, 0, Assoc::Left),
+};
+
+const OP_NEQ: &'static BinaryOpParser = &BinaryOpParser {
+    op: "!=",
+    pre: Precedence(Lprec::Equal as u8, 0, Assoc::Left),
+};
+
+
 // struct ConsParser;
 // struct DollarParser;
 // struct DotParser;
@@ -324,8 +335,8 @@ const PARSE_TABLE: ParseTable = [
     (Token::Or, None, None, None),
     (Token::Xor, None, None, None),
     // operators (comparison)
-    (Token::Equal, None, None, None),
-    (Token::EqualNot, None, None, None),
+    (Token::Equal, None, None, Some(OP_EQ)),
+    (Token::EqualNot, None, None, Some(OP_NEQ)),
     (Token::GreaterThanEqual, None, None, None),
     (Token::LessThanEqual, None, None, None),
     // separators
@@ -602,8 +613,13 @@ mod tests
     #[test]
     fn test_parse_deffunc_noparams_multiline()
     {
-        let input = r#"func zero >>
+        let input = r#"func three >>
             1 + 2
+        --
+
+        func five
+        >>
+            3 + 2
         --
         "#;
         let toks = Tokenz::lexp(input).unwrap();
@@ -624,6 +640,21 @@ mod tests
     fn test_parse_let()
     {
         let input = "let x := 5 + y";
+        let toks = Tokenz::lexp(input).unwrap();
+        let mut p = Grammar::new(toks);
+        p.parse_module().unwrap();
+    }
+
+    #[test]
+    fn test_parse_operators()
+    {
+        let input = r#"func ops >>
+            1 - 2
+            x * y
+            9 / 3
+            4 == 4
+        --
+        "#;
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
         p.parse_module().unwrap();
