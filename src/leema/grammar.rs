@@ -265,15 +265,24 @@ const PARSE_TABLE: ParseTable = [
     (Token::Const, Some(&ParseDefConst), None, None),
     (Token::Failed, None, None, None),
     (Token::Fork, None, None, None),
-    (Token::Func, Some(&ParseDefFunc(FuncClass::Func)), None, None),
+    (
+        Token::Func,
+        Some(&ParseDefFunc(FuncClass::Func)),
+        None,
+        None,
+    ),
+    (Token::If, None, Some(&IfParser), None),
     (Token::Import, None, None, None),
     (Token::Let, Some(&ParseLet), None, None),
-    (Token::Macro, Some(&ParseDefFunc(FuncClass::Macro)), None, None),
+    (
+        Token::Macro,
+        Some(&ParseDefFunc(FuncClass::Macro)),
+        None,
+        None,
+    ),
+    (Token::Match, None, None, None),
     (Token::Return, None, None, None),
     (Token::Type, None, None, None),
-    // expression keywords
-    (Token::If, None, Some(&IfParser), None),
-    (Token::Match, None, None, None),
     (Token::Underscore, None, None, None),
     // operators (arithmetic)
     (Token::Plus, None, None, Some(OP_ADD)),
@@ -341,8 +350,14 @@ impl<'input> Grammar<'input>
     fn parse_block(p: &mut Parser<'input>) -> AstResult<'input>
     {
         let arrow = p.expect_next(Token::DoubleArrow)?;
-        let stmts = p.parse_stmts()?;
-        Ok(AstNode::new(Ast::Block(stmts), Ast::loc(&arrow)))
+        match p.peek_token()? {
+            Token::LineBegin => {
+                let stmts = p.parse_stmts()?;
+                Ok(AstNode::new(Ast::Block(stmts), Ast::loc(&arrow)))
+            }
+            // if it's on the same line, take only one expr
+            _ => p.parse_expr(),
+        }
     }
 
     /// Parse the cases of a function body that matches on all parameters
@@ -360,7 +375,8 @@ impl<'input> Grammar<'input>
         let mut idtypes = vec![];
         loop {
             p.next_if(Token::LineBegin)?;
-            let id = match p.peek_token()? {
+            let peeked = p.peek()?;
+            let id = match peeked.tok {
                 Token::Dot => {
                     let _dot = p.expect_next(Token::Dot)?;
                     let name = p.expect_next(Token::Id)?;
@@ -382,11 +398,11 @@ impl<'input> Grammar<'input>
                         "expected : or . found EOF",
                     ));
                 }
-                t => {
+                _ => {
                     return Err(rustfail!(
                         "parse_failue",
                         "expected . or :, found {:?}",
-                        t,
+                        peeked,
                     ));
                 }
             };
@@ -524,9 +540,21 @@ mod tests
     }
 
     #[test]
-    fn test_parse_deffunc()
+    fn test_parse_deffunc_noparams_oneline()
     {
         let input = "func zero >> 0 --";
+        let toks = Tokenz::lexp(input).unwrap();
+        let mut p = Grammar::new(toks);
+        p.parse_module().unwrap();
+    }
+
+    #[test]
+    fn test_parse_deffunc_noparams_multiline()
+    {
+        let input = r#"func zero >>
+            1 + 2
+        --
+        "#;
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
         p.parse_module().unwrap();
@@ -547,7 +575,7 @@ mod tests
         for (i, row) in super::PARSE_TABLE.iter().enumerate() {
             let token_index = row.0 as usize;
             if i != token_index {
-               panic!("parse table row at wrong index for {:?}", row.0);
+                panic!("parse table row at wrong index for {:?}", row.0);
             }
         }
     }

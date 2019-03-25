@@ -1,6 +1,6 @@
 use crate::leema::ast2::{Ast, AstNode, AstResult};
 use crate::leema::failure::Lresult;
-use crate::leema::token::{Token, TokenSrc};
+use crate::leema::token::{Token, TokenResult, TokenSrc};
 
 use std::fmt::Debug;
 
@@ -21,7 +21,7 @@ impl<'input> TokenStream<'input>
         }
     }
 
-    fn peek(&mut self) -> Lresult<TokenSrc<'input>>
+    fn peek(&mut self) -> TokenResult<'input>
     {
         if self.peeked.is_none() {
             self.peeked = self.it.next();
@@ -37,7 +37,7 @@ impl<'input> TokenStream<'input>
             .map_err(|f| f.loc(file!(), line!()))
     }
 
-    pub fn next(&mut self) -> Lresult<TokenSrc<'input>>
+    pub fn next(&mut self) -> TokenResult<'input>
     {
         self.peek().map_err(|f| f.loc(file!(), line!()))?;
         self.peeked
@@ -56,8 +56,7 @@ impl<'input> TokenStream<'input>
         }
     }
 
-    pub fn expect_next(&mut self, expected: Token)
-        -> Lresult<TokenSrc<'input>>
+    pub fn expect_next(&mut self, expected: Token) -> TokenResult<'input>
     {
         let tok = self.peek()?;
         if tok.tok == expected {
@@ -196,6 +195,11 @@ impl<'input> Parser<'input>
     {
         let tok = TokenStream::new(items);
         Parser { tbl, tok }
+    }
+
+    pub fn peek(&mut self) -> TokenResult<'input>
+    {
+        self.tok.peek()
     }
 
     pub fn peek_token(&mut self) -> Lresult<Token>
