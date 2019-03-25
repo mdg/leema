@@ -653,6 +653,7 @@ mod tests
             x * y
             9 / 3
             4 == 4
+            7 != 8
         --
         "#;
         let toks = Tokenz::lexp(input).unwrap();

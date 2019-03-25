@@ -288,6 +288,9 @@ struct ScanModeAngleR;
 struct ScanModeBackslash;
 
 #[derive(Debug)]
+struct ScanModeBang;
+
+#[derive(Debug)]
 struct ScanModeColon;
 
 #[derive(Debug)]
@@ -350,6 +353,7 @@ impl ScanModeTrait for ScanModeLine
             '*' => ScanOutput::Token(Token::Star, true, ScanModeOp::Noop),
             '/' => ScanOutput::Token(Token::Slash, true, ScanModeOp::Noop),
             '=' => ScanOutput::Start(ScanModeOp::Push(&ScanModeEqual)),
+            '!' => ScanOutput::Start(ScanModeOp::Push(&ScanModeBang)),
             // separators
             ':' => ScanOutput::Start(ScanModeOp::Push(&ScanModeColon)),
             ',' => ScanOutput::Token(Token::Comma, true, ScanModeOp::Noop),
@@ -480,6 +484,28 @@ impl ScanModeTrait for ScanModeBackslash
     fn eof(&self) -> ScanResult
     {
         Err(rustfail!("invalid_token", "\\ is not a valid token"))
+    }
+}
+
+impl ScanModeTrait for ScanModeBang
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        let output = match next.c {
+            '=' => ScanOutput::Token(Token::EqualNot, true, ScanModeOp::Pop),
+            _ => {
+                return Err(rustfail!(
+                    "token_failure",
+                    "'!' is not a valid token",
+                ));
+            }
+        };
+        Ok(output)
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        return Err(rustfail!("token_failure", "'!' is not a valid token",));
     }
 }
 
@@ -1069,12 +1095,14 @@ mod tests
     #[test]
     fn test_tokenz_comparison_operators()
     {
-        let input = "== < > <= >= \\n >> >";
+        let input = "== != < > <= >= \\n >> >";
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
         let mut i = t.iter();
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
         assert_eq!(Token::Equal, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::EqualNot, nextok(&mut i).0);
         i.next();
         assert_eq!(Token::AngleL, nextok(&mut i).0);
         i.next();
