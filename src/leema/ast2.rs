@@ -137,7 +137,7 @@ impl<'i> fmt::Debug for Ast<'i>
                 write!(f, "(Op2 {} {:?} {:?})", op, a.node, b.node)
             }
             _ => {
-                write!(f, "Ast to be printed")
+                write!(f, "Ast to be written")
             }
         }
     }

@@ -12,6 +12,7 @@ use crate::leema::val::Val;
 enum Lprec
 {
     Minimum,
+    Comma,
     Equal,
     LessThan,
     Add,
@@ -22,6 +23,14 @@ enum Lprec
     Pipe,
     Func,
     Dot,
+}
+
+impl From<Lprec> for Precedence
+{
+    fn from(p: Lprec) -> Self
+    {
+        Precedence(p as u8, 0, Assoc::Left)
+    }
 }
 
 /* Statement Parsers */
@@ -39,7 +48,7 @@ impl PrefixParser for ParseDefConst
     {
         let id = p.expect_next(Token::Id)?;
         let _assign = p.expect_next(Token::Assignment)?;
-        let rhs = p.parse_expr()?;
+        let rhs = p.parse_new_expr()?;
         Ok(AstNode::new(Ast::DefConst(id.src, rhs), Ast::loc(&left)))
     }
 }
@@ -80,9 +89,9 @@ impl PrefixParser for ParseLet
         left: TokenSrc<'input>,
     ) -> AstResult<'input>
     {
-        let lhs = p.parse_expr()?;
+        let lhs = p.parse_new_expr()?;
         let _assign = p.expect_next(Token::Assignment)?;
-        let rhs = p.parse_expr()?;
+        let rhs = p.parse_new_expr()?;
         Ok(AstNode::new(
             Ast::Let(lhs, AstNode::void(), rhs),
             Ast::loc(&left),
@@ -395,7 +404,7 @@ impl<'input> Grammar<'input>
                 Ok(AstNode::new(Ast::Block(stmts), Ast::loc(&arrow)))
             }
             // if it's on the same line, take only one expr
-            _ => p.parse_expr(),
+            _ => p.parse_new_expr(),
         }
     }
 
@@ -409,7 +418,7 @@ impl<'input> Grammar<'input>
             match peeked.tok {
                 Token::Pipe => {
                     p.next()?;
-                    let cond = p.parse_expr()?;
+                    let cond = p.parse_new_expr()?;
                     let body = Grammar::parse_block(p)?;
                     cases.push(ast2::Case::new(cond, body));
                 }
@@ -476,7 +485,7 @@ impl<'input> Grammar<'input>
                 }
                 Token::Colon => {
                     p.next()?;
-                    Some(p.parse_expr()?)
+                    Some(p.parse_new_expr()?)
                 }
                 Token::DoubleArrow => None,
                 Token::DoubleDash => None,
@@ -520,7 +529,7 @@ impl<'input> Grammar<'input>
                     break;
                 }
                 _ => {
-                    args.push(p.parse_expr()?);
+                    args.push(p.parse_new_expr()?);
                 }
             };
 

@@ -155,7 +155,7 @@ impl InfixParser for BinaryOpParser
         op: TokenSrc<'input>,
     ) -> AstResult<'input>
     {
-        let right = p.parse_expr()?;
+        let right = p.parse_expr(self.pre)?;
         let ast = Ast::Op2(op.src, left, right);
         Ok(AstNode::new(ast, Ast::loc(&op)))
     }
@@ -236,7 +236,7 @@ impl<'input> Parser<'input>
                 continue;
             }
             if self.find_prefix(tok).is_some() {
-                let expr = self.parse_expr()?;
+                let expr = self.parse_new_expr()?;
                 stmts.push(expr);
                 continue;
             }
@@ -247,18 +247,14 @@ impl<'input> Parser<'input>
         Ok(stmts)
     }
 
-    pub fn parse_expr(&mut self) -> AstResult<'input>
+    pub fn parse_new_expr(&mut self) -> AstResult<'input>
     {
-        let first = self.tok.next()?;
-        self.parse_expr_first(first, MIN_PRECEDENCE)
+        self.parse_expr(MIN_PRECEDENCE)
     }
 
-    fn parse_expr_first(
-        &mut self,
-        first: TokenSrc<'input>,
-        min_pre: Precedence,
-    ) -> AstResult<'input>
+    pub fn parse_expr(&mut self, min_pre: Precedence) -> AstResult<'input>
     {
+        let first = self.tok.next()?;
         let prefix = self.find_prefix(first.tok).ok_or_else(|| {
             rustfail!("parse_failure", "cannot find parser for {:?}", first.tok)
         })?;
