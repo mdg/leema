@@ -129,6 +129,7 @@ pub enum Token
     Star,
     Slash,
     Modulo,
+    Dollar,
 
     // operators (boolean)
     And,
@@ -170,6 +171,9 @@ pub enum Token
 
     // EOF
     EOF,
+
+    // final counter
+    NumTokens,
 }
 
 type TokenFilterFn = fn(Token) -> bool;
@@ -297,13 +301,16 @@ struct ScanModeColon;
 struct ScanModeDash;
 
 #[derive(Debug)]
+struct ScanModeDollar;
+
+#[derive(Debug)]
 struct ScanModeEqual;
 
 #[derive(Debug)]
 struct ScanModeFileBegin;
 
 #[derive(Debug)]
-struct ScanModeId;
+struct ScanModeId(Token);
 
 struct ScanModeIndent
 {
@@ -332,6 +339,9 @@ struct ScanModeSpace;
 
 #[derive(Debug)]
 struct ScanModeStr;
+
+#[derive(Debug)]
+struct ScanModeStrDollar;
 
 impl ScanModeTrait for ScanModeLine
 {
@@ -371,10 +381,11 @@ impl ScanModeTrait for ScanModeLine
                     ScanModeOp::Push(&ScanModeQuote),
                 )
             }
+            '$' => ScanOutput::Start(ScanModeOp::Push(&ScanModeDollar)),
             // keywords
-            '_' => ScanOutput::Start(ScanModeOp::Push(&ScanModeId)),
+            '_' => ScanOutput::Start(ScanModeOp::Push(&ScanModeId(Token::Id))),
             c if c.is_alphabetic() => {
-                ScanOutput::Start(ScanModeOp::Push(&ScanModeId))
+                ScanOutput::Start(ScanModeOp::Push(&ScanModeId(Token::Id)))
             }
             // numbers
             c if c.is_numeric() => {
@@ -544,6 +555,26 @@ impl ScanModeTrait for ScanModeDash
     }
 }
 
+impl ScanModeTrait for ScanModeDollar
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        let output = match next.c {
+            c if c.is_alphabetic() => {
+                let op = ScanModeOp::Replace(&ScanModeId(Token::DollarId));
+                ScanOutput::Next(op)
+            }
+            _ => ScanOutput::Token(Token::Dollar, false, ScanModeOp::Pop),
+        };
+        Ok(output)
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        Ok(ScanOutput::Token(Token::Dash, false, ScanModeOp::Pop))
+    }
+}
+
 impl ScanModeTrait for ScanModeEqual
 {
     fn scan(&self, next: Char) -> ScanResult
@@ -599,7 +630,7 @@ impl ScanModeTrait for ScanModeId
         match next.c {
             '_' => Ok(ScanOutput::Next(ScanModeOp::Noop)),
             c if c.is_alphanumeric() => Ok(ScanOutput::Next(ScanModeOp::Noop)),
-            _ => Ok(ScanOutput::Token(Token::Id, false, ScanModeOp::Pop)),
+            _ => Ok(ScanOutput::Token(self.0, false, ScanModeOp::Pop)),
         }
     }
 
@@ -669,6 +700,7 @@ impl ScanModeTrait for ScanModeQuote
                     ScanModeOp::Pop,
                 ))
             }
+            '$' => Ok(ScanOutput::Start(ScanModeOp::Push(&ScanModeDollar))),
             _ => Ok(ScanOutput::Start(ScanModeOp::Push(&ScanModeStr))),
         }
     }
@@ -709,6 +741,7 @@ impl ScanModeTrait for ScanModeStr
     {
         match next.c {
             '"' => Ok(ScanOutput::Token(Token::StrLit, false, ScanModeOp::Pop)),
+            '$' => Ok(ScanOutput::Token(Token::StrLit, false, ScanModeOp::Pop)),
             _ => Ok(ScanOutput::Next(ScanModeOp::Noop)),
         }
     }
@@ -716,6 +749,29 @@ impl ScanModeTrait for ScanModeStr
     fn eof(&self) -> ScanResult
     {
         Ok(ScanOutput::Token(Token::Int, false, ScanModeOp::Pop))
+    }
+}
+
+impl ScanModeTrait for ScanModeStrDollar
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        let out = match next.c {
+            '$' => ScanOutput::Start(ScanModeOp::Replace(&ScanModeDollar)),
+            _ => {
+                return Err(rustfail!(
+                    "token_failure",
+                    "expected $ found {:?}",
+                    next,
+                ));
+            }
+        };
+        Ok(out)
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        Err(rustfail!("token_failure", "expected $ found eof"))
     }
 }
 
@@ -1149,7 +1205,7 @@ mod tests
     #[test]
     fn test_tokenz_strings()
     {
-        let input = r#""tacos" "" "burritos""#;
+        let input = r#""tacos" "" "flautas $tortas burritos""#;
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
         let mut i = t.iter();
@@ -1163,7 +1219,9 @@ mod tests
         assert_eq!(Token::DoubleQuoteR, nextok(&mut i).0);
         i.next();
         assert_eq!(Token::DoubleQuoteL, nextok(&mut i).0);
-        assert_eq!((Token::StrLit, "burritos"), nextok(&mut i));
+        assert_eq!((Token::StrLit, "flautas "), nextok(&mut i));
+        assert_eq!((Token::DollarId, "$tortas"), nextok(&mut i));
+        assert_eq!((Token::StrLit, " burritos"), nextok(&mut i));
         assert_eq!(Token::DoubleQuoteR, nextok(&mut i).0);
 
         assert_eq!(Token::EOF, nextok(&mut i).0);

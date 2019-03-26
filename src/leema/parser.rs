@@ -169,7 +169,7 @@ impl InfixParser for BinaryOpParser
 type PrefixOption = Option<&'static PrefixParser>;
 type InfixOption = Option<&'static InfixParser>;
 type ParseRow = (Token, PrefixOption, PrefixOption, InfixOption);
-pub type ParseTable = [ParseRow; 62];
+pub type ParseTable = [ParseRow; Token::NumTokens as usize];
 /*
 enum TokenParser
 {

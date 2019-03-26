@@ -224,6 +224,56 @@ struct ListParser;
 struct MatchParser;
 
 #[derive(Debug)]
+struct ParseStr;
+
+impl PrefixParser for ParseStr
+{
+    fn parse<'input>(
+        &self,
+        p: &mut Parser<'input>,
+        left: TokenSrc<'input>,
+    ) -> AstResult<'input>
+    {
+        let mut found_strlit = false;
+        let mut strs = vec![];
+        loop {
+            let tok = p.next()?;
+            let x = match tok.tok {
+                Token::StrLit => {
+                    found_strlit = true;
+                    let lstr = Lstr::from(tok.src.to_string());
+                    AstNode::new(Ast::ConstVal(Val::Str(lstr)), Ast::loc(&tok))
+                }
+                Token::DollarId => {
+                    AstNode::new(Ast::Id1(tok.src), Ast::loc(&tok))
+                }
+                Token::DoubleQuoteR => {
+                    break;
+                }
+                _ => {
+                    return Err(rustfail!(
+                        "parse_failure",
+                        "expected str or id, found {:?}",
+                        tok,
+                    ));
+                }
+            };
+            strs.push(x);
+        }
+        let node = match strs.len() {
+            // empty vec reduces to constant ""
+            0 => AstNode::new(Ast::ConstVal(Val::empty_str()), Ast::loc(&left)),
+            // single item w/ constant string reduces to just that
+            // constant string. single IDs stay in the strexpr so
+            // they get stringified if they aren't already
+            1 if found_strlit => strs.pop().unwrap(),
+            _ => AstNode::new(Ast::StrExpr(strs), Ast::loc(&left)),
+        };
+        Ok(node)
+    }
+}
+
+#[derive(Debug)]
 struct TupleParser;
 
 const OP_MULTIPLY: &'static BinaryOpParser = &BinaryOpParser {
@@ -307,7 +357,7 @@ const PARSE_TABLE: ParseTable = [
     (Token::CurlyR, None, None, None),
     (Token::AngleL, None, None, None),
     (Token::AngleR, None, None, None),
-    (Token::DoubleQuoteL, None, None, None),
+    (Token::DoubleQuoteL, None, Some(&ParseStr), None),
     (Token::DoubleQuoteR, None, None, None),
     // statement keywords
     (Token::Const, Some(&ParseDefConst), None, None),
@@ -338,6 +388,7 @@ const PARSE_TABLE: ParseTable = [
     (Token::Star, None, None, Some(OP_MULTIPLY)),
     (Token::Slash, None, None, Some(OP_DIVIDE)),
     (Token::Modulo, None, None, None),
+    (Token::Dollar, None, None, None),
     // operators (boolean)
     (Token::And, None, None, None),
     (Token::Not, None, None, None),
@@ -573,6 +624,7 @@ mod tests
 {
     use super::Grammar;
     use crate::leema::ast2::Ast;
+    use crate::leema::lstr::Lstr;
     use crate::leema::token::Tokenz;
     use crate::leema::val::Val;
 
@@ -710,6 +762,54 @@ mod tests
                     assert_matches!(*x.node, Ast::Id1("x"));
                     assert_matches!(*y.node, Ast::Id1("y"));
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_strlit()
+    {
+        let input = r#"
+        "tacos"
+        "$burritos"
+        "cats $dogs mice"
+        "#;
+        let toks = Tokenz::lexp(input).unwrap();
+        let mut p = Grammar::new(toks);
+        let ast = p.parse_module().unwrap();
+        assert_eq!(3, ast.len());
+
+        {
+            let tacos = &ast[0];
+            assert_matches!(*tacos.node, Ast::ConstVal(Val::Str(_)));
+            if let Ast::ConstVal(Val::Str(inner)) = &*tacos.node {
+                assert_eq!("tacos", inner);
+            }
+        }
+
+        {
+            let s = &ast[1];
+            assert_matches!(*s.node, Ast::StrExpr(_));
+            if let Ast::StrExpr(items) = &*s.node {
+                assert_eq!(1, items.len());
+                assert_eq!(*items[0].node, Ast::Id1("$burritos"));
+            }
+        }
+
+        {
+            let s = &ast[2];
+            assert_matches!(*s.node, Ast::StrExpr(_));
+            if let Ast::StrExpr(items) = &*s.node {
+                assert_eq!(3, items.len());
+                assert_eq!(
+                    Ast::ConstVal(Val::Str(Lstr::from("cats "))),
+                    *items[0].node,
+                );
+                assert_eq!(*items[1].node, Ast::Id1("$dogs"));
+                assert_eq!(
+                    Ast::ConstVal(Val::Str(Lstr::from(" mice"))),
+                    *items[2].node,
+                );
             }
         }
     }
