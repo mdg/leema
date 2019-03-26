@@ -127,18 +127,24 @@ impl<'i> fmt::Debug for Ast<'i>
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
-            Ast::Id1(id) => {
-                write!(f, "(Id1 {})", id)
+            Ast::ConstVal(v) => write!(f, "(Const {})", v),
+            Ast::Id1(id) => write!(f, "(Id {})", id),
+            Ast::Id2(id1, id2) => write!(f, "(Id {}::{})", id1, id2),
+            Ast::Let(lhp, _lht, rhs) => {
+                write!(f, "(Let {:?} := {:?}", lhp.node, rhs.node)
             }
-            Ast::Op1(op, node) => {
-                write!(f, "(Op1 {} {:?})", op, node.node)
-            }
+            Ast::Op1(op, node) => write!(f, "(Op1 {} {:?})", op, node.node),
             Ast::Op2(op, a, b) => {
                 write!(f, "(Op2 {} {:?} {:?})", op, a.node, b.node)
             }
-            _ => {
-                write!(f, "Ast to be written")
+            Ast::StrExpr(items) => {
+                write!(f, "(Str")?;
+                for i in items {
+                    write!(f, " {:?}", i.node)?;
+                }
+                write!(f, ")")
             }
+            _ => write!(f, "Ast to be written"),
         }
     }
 }
