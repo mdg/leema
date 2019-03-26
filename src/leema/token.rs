@@ -111,6 +111,7 @@ pub enum Token
 
     // keywords
     Const,
+    Else,
     Failed,
     Fork,
     Func,
@@ -207,6 +208,7 @@ lazy_static! {
         keywords.insert("xor", Token::Xor);
         // keywords
         keywords.insert("const", Token::Const);
+        keywords.insert("else", Token::Else);
         keywords.insert("failed", Token::Failed);
         keywords.insert("fork", Token::Fork);
         keywords.insert("func", Token::Func);

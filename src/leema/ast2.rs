@@ -54,7 +54,6 @@ pub enum CaseType
 }
 
 #[derive(Clone)]
-#[derive(Debug)]
 #[derive(PartialEq)]
 pub struct Case<'i>
 {
@@ -67,6 +66,14 @@ impl<'i> Case<'i>
     pub fn new(cond: AstNode<'i>, body: AstNode<'i>) -> Case<'i>
     {
         Case { cond, body }
+    }
+}
+
+impl<'i> fmt::Debug for Case<'i>
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "(Case {:?} ? {:?})", self.cond, self.body)
     }
 }
 

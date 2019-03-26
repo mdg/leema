@@ -12,7 +12,6 @@ use std::slice::SliceIndex;
 
 
 #[derive(Clone)]
-#[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
 #[derive(Eq)]
@@ -43,8 +42,18 @@ where
     }
 }
 
+impl<K, V> fmt::Debug for StrupleItem<K, V>
+where
+    K: fmt::Debug,
+    V: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "({:?}:{:?})", self.k, self.v)
+    }
+}
+
 #[derive(Clone)]
-#[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
 #[derive(Eq)]
@@ -196,6 +205,31 @@ where
     }
 }
 
+impl<K, V> fmt::Display for StrupleKV<K, V>
+where
+    K: fmt::Display,
+    V: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "[")?;
+        for i in &self.0 {
+            write!(f, "{},", i)?;
+        }
+        write!(f, "]")
+    }
+}
+
+impl<K, V> fmt::Debug for StrupleKV<K, V>
+where
+    K: fmt::Debug,
+    V: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "{:?}", self.0)
+    }
+}
 
 
 #[derive(Clone)]

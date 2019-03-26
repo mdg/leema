@@ -361,6 +361,7 @@ const PARSE_TABLE: ParseTable = [
     (Token::DoubleQuoteR, None, None, None),
     // statement keywords
     (Token::Const, Some(&ParseDefConst), None, None),
+    (Token::Else, None, None, None),
     (Token::Failed, None, None, None),
     (Token::Fork, None, None, None),
     (
