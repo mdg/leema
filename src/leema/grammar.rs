@@ -189,7 +189,7 @@ impl PrefixParser for ParseIf
         let cases = Grammar::parse_cases(p)?;
         p.expect_next(Token::DoubleDash)?;
         Ok(AstNode::new(
-            Ast::Case(CaseType::If, AstNode::void(), cases),
+            Ast::Case(CaseType::If, None, cases),
             Ast::loc(&if_token),
         ))
     }
@@ -451,8 +451,13 @@ impl<'input> Grammar<'input>
         let arrow = p.expect_next(Token::DoubleArrow)?;
         match p.peek_token()? {
             Token::LineBegin => {
-                let stmts = p.parse_stmts()?;
-                Ok(AstNode::new(Ast::Block(stmts), Ast::loc(&arrow)))
+                let mut stmts = p.parse_stmts()?;
+                let node = match stmts.len() {
+                    0 => AstNode::void(),
+                    1 => stmts.pop().unwrap(),
+                    _ => AstNode::new(Ast::Block(stmts), Ast::loc(&arrow)),
+                };
+                Ok(node)
             }
             // if it's on the same line, take only one expr
             _ => p.parse_new_expr(),

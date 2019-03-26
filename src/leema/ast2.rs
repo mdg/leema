@@ -78,7 +78,7 @@ pub enum Ast<'i>
 {
     Block(Vec<AstNode<'i>>),
     Call(AstNode<'i>, Xlist<'i>),
-    Case(CaseType, AstNode<'i>, Vec<Case<'i>>),
+    Case(CaseType, Option<AstNode<'i>>, Vec<Case<'i>>),
     ConstVal(Val),
     DefConst(&'i str, AstNode<'i>),
     DefFunc(
@@ -120,38 +120,52 @@ impl<'i> Ast<'i>
             column: t.begin.column,
         }
     }
+
+    pub fn fmt_inner(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        match self {
+            Ast::Block(items) => write!(f, "Block {:?}", items),
+            Ast::Call(id, args) => write!(f, "Call {:?} {:?}", id, args),
+            Ast::Case(typ, None, args) => write!(f, "{:?} {:?}", typ, args),
+            Ast::Case(typ, Some(cond), args) => {
+                write!(f, "{:?} {:?} {:?}", typ, cond, args)
+            }
+            Ast::ConstVal(v) => write!(f, "Const {}", v),
+            Ast::DefConst(id, x) => write!(f, "DefConst {} := {:?}", id, x),
+            Ast::DefFunc(fclass, name, args, body) => {
+                write!(f, "Def {:?} {:?} {:?} {:?}", fclass, name, args, body)
+            }
+            Ast::DefType(name, fields) => {
+                write!(f, "DefType {:?} {:?}", name, fields)
+            }
+            // Ast::Def(v) => write!(f, "Def {}", v),
+            Ast::Id1(id) => write!(f, "Id {}", id),
+            Ast::Id2(id1, id2) => write!(f, "Id {}::{}", id1, id2),
+            Ast::IdGeneric(id, args) => {
+                write!(f, "IdGeneric {:?} {:?}", id, args)
+            }
+            Ast::Import(module) => write!(f, "Import {:?}", module),
+            Ast::Let(lhp, _lht, rhs) => write!(f, "Let {:?} := {:?}", lhp, rhs),
+            Ast::Op1(op, node) => write!(f, "Op1 {} {:?}", op, node),
+            Ast::Op2(op, a, b) => write!(f, "Op2 {} {:?} {:?}", op, a, b),
+            Ast::StrExpr(items) => write!(f, "Str {:?}", items),
+            _ => write!(f, "Ast w/o debug"),
+        }
+    }
 }
 
 impl<'i> fmt::Debug for Ast<'i>
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        match self {
-            Ast::ConstVal(v) => write!(f, "(Const {})", v),
-            Ast::Id1(id) => write!(f, "(Id {})", id),
-            Ast::Id2(id1, id2) => write!(f, "(Id {}::{})", id1, id2),
-            Ast::Let(lhp, _lht, rhs) => {
-                write!(f, "(Let {:?} := {:?}", lhp.node, rhs.node)
-            }
-            Ast::Op1(op, node) => write!(f, "(Op1 {} {:?})", op, node.node),
-            Ast::Op2(op, a, b) => {
-                write!(f, "(Op2 {} {:?} {:?})", op, a.node, b.node)
-            }
-            Ast::StrExpr(items) => {
-                write!(f, "(Str")?;
-                for i in items {
-                    write!(f, " {:?}", i.node)?;
-                }
-                write!(f, ")")
-            }
-            _ => write!(f, "Ast to be written"),
-        }
+        write!(f, "(")?;
+        self.fmt_inner(f)?;
+        write!(f, ")")
     }
 }
 
 
 #[derive(Clone)]
-#[derive(Debug)]
 #[derive(PartialEq)]
 pub struct AstNode<'i>
 {
@@ -212,5 +226,15 @@ impl<'i> AstNode<'i>
     pub fn set_dst(&mut self, dst: Reg)
     {
         self.dst = dst;
+    }
+}
+
+impl<'i> fmt::Debug for AstNode<'i>
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "(")?;
+        self.node.fmt_inner(f)?;
+        write!(f, " {},{})", self.loc.lineno, self.loc.column)
     }
 }
