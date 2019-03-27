@@ -155,8 +155,21 @@ impl<'i> Ast<'i>
             Ast::Let(lhp, _lht, rhs) => write!(f, "Let {:?} := {:?}", lhp, rhs),
             Ast::Op1(op, node) => write!(f, "Op1 {} {:?}", op, node),
             Ast::Op2(op, a, b) => write!(f, "Op2 {} {:?} {:?}", op, a, b),
+            Ast::RustBlock => write!(f, "RustBlock"),
             Ast::StrExpr(items) => write!(f, "Str {:?}", items),
-            _ => write!(f, "Ast w/o debug"),
+            Ast::Void => write!(f, "Void"),
+            // unimplemented
+            Ast::FuncType(_) => unimplemented!(),
+            Ast::LessThan3(_, _, _, _, _) => unimplemented!(),
+            Ast::List(_) => unimplemented!(),
+            Ast::Map(_) => unimplemented!(),
+            Ast::NewStruct(_, _) => unimplemented!(),
+            Ast::NewTuple(_) => unimplemented!(),
+            Ast::NewUnion(_, _, _) => unimplemented!(),
+            Ast::Return(_) => unimplemented!(),
+            Ast::Tuple(_) => unimplemented!(),
+            Ast::Type(_) => unimplemented!(),
+            Ast::TypeCall(_, _) => unimplemented!(),
         }
     }
 }
