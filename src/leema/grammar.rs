@@ -737,8 +737,18 @@ mod tests
             ";
         let toks = Tokenz::lexp(input).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
-
         assert_eq!(1, ast.len());
+
+        let l = &ast[0];
+        assert_matches!(*l.node, Ast::Let(_, _, _));
+        if let Ast::Let(lhp, _, rhs) = &*l.node {
+            assert_eq!(Ast::Id1("a"), *lhp.node);
+            assert_matches!(*rhs.node, Ast::Op2("*", _, _));
+            if let Ast::Op2("*", b, three) = &*rhs.node {
+                assert_eq!(Ast::Id1("b"), *b.node);
+                assert_eq!(Ast::ConstVal(Val::Int(3)), *three.node);
+            }
+        }
     }
 
     #[test]
