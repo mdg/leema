@@ -66,6 +66,7 @@ impl PrefixParser for ParseDefFunc
     {
         let name = Grammar::parse_id(p)?;
         let args = Grammar::parse_idtypes(p)?;
+        p.expect_next(Token::DoubleArrow)?;
         let body = Grammar::parse_block(p)?;
         p.expect_next(Token::DoubleDash)?;
         Ok(AstNode::new(
@@ -102,17 +103,19 @@ impl PrefixParser for ParseLet
 /* Expression Parsers */
 
 #[derive(Debug)]
-struct BlockParser;
+struct ParseBlock;
 
-impl PrefixParser for BlockParser
+impl PrefixParser for ParseBlock
 {
     fn parse<'input>(
         &self,
-        _p: &mut Parser<'input>,
+        p: &mut Parser<'input>,
         _left: TokenSrc<'input>,
     ) -> AstResult<'input>
     {
-        Ok(AstNode::void())
+        let block = Grammar::parse_block(p)?;
+        p.expect_next(Token::DoubleDash)?;
+        Ok(block)
     }
 }
 
@@ -407,7 +410,7 @@ const PARSE_TABLE: ParseTable = [
     (Token::Comma, None, None, None),
     (Token::ConcatNewline, None, None, None),
     (Token::Dot, None, None, None),
-    (Token::DoubleArrow, None, Some(&BlockParser), None),
+    (Token::DoubleArrow, None, Some(&ParseBlock), None),
     (Token::DoubleColon, None, None, None),
     (Token::DoubleDash, None, None, None),
     (Token::Pipe, None, None, None),
@@ -449,14 +452,14 @@ impl<'input> Grammar<'input>
     /// Parse the body of a function. Also eat the trailing
     fn parse_block(p: &mut Parser<'input>) -> AstResult<'input>
     {
-        let arrow = p.expect_next(Token::DoubleArrow)?;
-        match p.peek_token()? {
+        let tok = p.peek()?;
+        match tok.tok {
             Token::LineBegin => {
                 let mut stmts = p.parse_stmts()?;
                 let node = match stmts.len() {
                     0 => AstNode::void(),
                     1 => stmts.pop().unwrap(),
-                    _ => AstNode::new(Ast::Block(stmts), Ast::loc(&arrow)),
+                    _ => AstNode::new(Ast::Block(stmts), Ast::loc(&tok)),
                 };
                 Ok(node)
             }
@@ -482,6 +485,7 @@ impl<'input> Grammar<'input>
                         }
                         None => p.parse_new_expr()?,
                     };
+                    p.expect_next(Token::DoubleArrow)?;
                     let body = Grammar::parse_block(p)?;
                     cases.push(ast2::Case::new(cond, body));
                 }
@@ -715,12 +719,26 @@ mod tests
     }
 
     #[test]
-    fn test_parse_let()
+    fn test_parse_let_add()
     {
         let input = "let x := 5 + y";
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
         p.parse_module().unwrap();
+    }
+
+    #[test]
+    fn test_parse_let_block()
+    {
+        let input = "
+            let a := >>
+                b * 3
+            --
+            ";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+
+        assert_eq!(1, ast.len());
     }
 
     #[test]
