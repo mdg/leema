@@ -475,7 +475,13 @@ impl<'input> Grammar<'input>
             match peeked.tok {
                 Token::Pipe => {
                     p.next()?;
-                    let cond = p.parse_new_expr()?;
+                    let cond = match p.next_if(Token::Else)? {
+                        Some(tok) => {
+                            let v = Ast::ConstVal(Val::Bool(true));
+                            AstNode::new(v, Ast::loc(&tok))
+                        }
+                        None => p.parse_new_expr()?,
+                    };
                     let body = Grammar::parse_block(p)?;
                     cases.push(ast2::Case::new(cond, body));
                 }
