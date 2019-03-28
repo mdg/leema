@@ -77,7 +77,40 @@ impl PrefixParser for ParseDefFunc
 }
 
 #[derive(Debug)]
-struct DefTypeParser;
+struct ParseDefType;
+
+impl PrefixParser for ParseDefType
+{
+    fn parse<'input>(
+        &self,
+        p: &mut Parser<'input>,
+        left: TokenSrc<'input>,
+    ) -> AstResult<'input>
+    {
+        let name = Grammar::parse_id(p)?;
+        p.skip_if(Token::LineBegin)?;
+        let tok = p.peek()?;
+        let data = match tok.tok {
+            Token::Dot => {
+                let args = Grammar::parse_idtypes(p)?;
+                p.expect_next(Token::DoubleDash)?;
+                AstNode::new(
+                    Ast::DefType(ast2::DataType::Struct, name, args),
+                    Ast::loc(&left),
+                )
+            }
+            Token::Pipe => AstNode::void(),
+            _ => {
+                return Err(rustfail!(
+                    "parse_failure",
+                    "expected . or | found {:?}",
+                    tok,
+                ));
+            }
+        };
+        Ok(data)
+    }
+}
 
 #[derive(Debug)]
 struct ParseLet;
@@ -384,7 +417,7 @@ const PARSE_TABLE: ParseTable = [
     ),
     (Token::Match, None, None, None),
     (Token::Return, None, None, None),
-    (Token::Type, None, None, None),
+    (Token::Type, Some(&ParseDefType), None, None),
     (Token::Underscore, None, None, None),
     // operators (arithmetic)
     (Token::Plus, None, None, Some(OP_ADD)),
@@ -852,6 +885,21 @@ mod tests
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_parse_type_struct()
+    {
+        let input = "
+        type Point
+        .x:Int
+        .y:Int
+        --
+        ";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+
+        assert_eq!(1, ast.len());
     }
 
     #[test]

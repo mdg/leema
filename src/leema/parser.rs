@@ -223,6 +223,14 @@ impl<'input> Parser<'input>
         self.tok.expect_next(expected)
     }
 
+    pub fn skip_if(&mut self, t: Token) -> Lresult<()>
+    {
+        while self.tok.next_if(t)?.is_some() {
+            // nothing to do, just skipping
+        }
+        Ok(())
+    }
+
     pub fn parse_stmts(&mut self) -> Lresult<Vec<AstNode<'input>>>
     {
         let mut stmts = vec![];

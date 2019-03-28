@@ -33,6 +33,17 @@ impl Default for Loc
 #[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
+pub enum DataType
+{
+    Struct,
+    Union,
+}
+
+#[derive(Clone)]
+#[derive(Copy)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
 pub enum FuncClass
 {
     Macro,
@@ -94,7 +105,11 @@ pub enum Ast<'i>
         StrupleKV<Option<&'i str>, Option<AstNode<'i>>>,
         AstNode<'i>,
     ),
-    DefType(AstNode<'i>, StrupleKV<&'i str, AstNode<'i>>),
+    DefType(
+        DataType,
+        AstNode<'i>,
+        StrupleKV<Option<&'i str>, Option<AstNode<'i>>>,
+    ),
     FuncType(StrupleKV<&'i str, AstNode<'i>>),
     Id1(&'i str),
     Id2(&'i str, &'i str),
@@ -142,8 +157,8 @@ impl<'i> Ast<'i>
             Ast::DefFunc(fclass, name, args, body) => {
                 write!(f, "Def {:?} {:?} {:?} {:?}", fclass, name, args, body)
             }
-            Ast::DefType(name, fields) => {
-                write!(f, "DefType {:?} {:?}", name, fields)
+            Ast::DefType(dtype, name, fields) => {
+                write!(f, "DefType {:?} {:?} {:?}", dtype, name, fields)
             }
             // Ast::Def(v) => write!(f, "Def {}", v),
             Ast::Id1(id) => write!(f, "Id {}", id),
