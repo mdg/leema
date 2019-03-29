@@ -5,6 +5,23 @@ use crate::leema::token::{Token, TokenResult, TokenSrc};
 use std::fmt::Debug;
 
 
+#[macro_export]
+macro_rules! expect_next {
+    ($p:expr, $expected:expr) => {{
+        let tok = $p.peek()?;
+        if tok.tok == $expected {
+            $p.next()
+        } else {
+            Err(rustfail!(
+                "parse_failure",
+                "expected {:?}, found {:?}",
+                $expected,
+                tok,
+            ))
+        }
+    }};
+}
+
 struct TokenStream<'input>
 {
     it: ::std::vec::IntoIter<TokenSrc<'input>>,
@@ -53,22 +70,6 @@ impl<'input> TokenStream<'input>
             Ok(Some(tok))
         } else {
             Ok(None)
-        }
-    }
-
-    pub fn expect_next(&mut self, expected: Token) -> TokenResult<'input>
-    {
-        let tok = self.peek()?;
-        if tok.tok == expected {
-            self.peeked = None;
-            Ok(tok)
-        } else {
-            Err(rustfail!(
-                "parse_failure",
-                "expected {:?}, found {:?}",
-                expected,
-                tok,
-            ))
         }
     }
 
@@ -217,12 +218,6 @@ impl<'input> Parser<'input>
         self.tok.next_if(t)
     }
 
-    pub fn expect_next(&mut self, expected: Token)
-        -> Lresult<TokenSrc<'input>>
-    {
-        self.tok.expect_next(expected)
-    }
-
     pub fn skip_if(&mut self, t: Token) -> Lresult<()>
     {
         while self.tok.next_if(t)?.is_some() {
@@ -235,7 +230,7 @@ impl<'input> Parser<'input>
     {
         let mut stmts = vec![];
         while self.tok.peek_token()? != Token::EOF {
-            self.expect_next(Token::LineBegin)?;
+            expect_next!(self, Token::LineBegin)?;
             let tok = self.tok.peek_token()?;
             if let Some(stmtp) = self.find_stmtp(tok) {
                 let first = self.tok.next()?;

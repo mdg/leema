@@ -4,6 +4,9 @@ pub mod log;
 pub mod lstr;
 #[macro_use]
 pub mod failure;
+#[macro_use]
+pub mod parser;
+
 pub mod application;
 pub mod ast;
 pub mod ast2;
@@ -23,7 +26,6 @@ pub mod lri;
 pub mod module;
 pub mod msg;
 pub mod parse;
-pub mod parser;
 pub mod phase0;
 pub mod prefab;
 pub mod program;

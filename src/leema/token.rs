@@ -32,6 +32,18 @@ impl Default for Char
     }
 }
 
+impl fmt::Display for Char
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(
+            f,
+            "({:?} {} {},{})",
+            self.c, self.index, self.lineno, self.column
+        )
+    }
+}
+
 #[derive(Clone)]
 struct CharIter<'input>
 {
@@ -238,6 +250,18 @@ pub struct TokenSrc<'input>
     pub tok: Token,
     pub begin: Char,
     pub len: usize,
+}
+
+impl<'input> fmt::Display for TokenSrc<'input>
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(
+            f,
+            "({:?} {:?} {} {})",
+            self.tok, self.src, self.begin, self.len
+        )
+    }
 }
 
 pub type TokenResult<'input> = Lresult<TokenSrc<'input>>;

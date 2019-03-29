@@ -46,8 +46,8 @@ impl PrefixParser for ParseDefConst
         left: TokenSrc<'input>,
     ) -> AstResult<'input>
     {
-        let id = p.expect_next(Token::Id)?;
-        let _assign = p.expect_next(Token::Assignment)?;
+        let id = expect_next!(p, Token::Id)?;
+        let _assign = expect_next!(p, Token::Assignment)?;
         let rhs = p.parse_new_expr()?;
         Ok(AstNode::new(Ast::DefConst(id.src, rhs), Ast::loc(&left)))
     }
@@ -66,9 +66,9 @@ impl PrefixParser for ParseDefFunc
     {
         let name = Grammar::parse_id(p)?;
         let args = Grammar::parse_idtypes(p)?;
-        p.expect_next(Token::DoubleArrow)?;
+        expect_next!(p, Token::DoubleArrow)?;
         let body = Grammar::parse_block(p)?;
-        p.expect_next(Token::DoubleDash)?;
+        expect_next!(p, Token::DoubleDash)?;
         Ok(AstNode::new(
             Ast::DefFunc(self.0, name, args, body),
             Ast::loc(&left),
@@ -93,13 +93,12 @@ impl PrefixParser for ParseDefType
         let data = match tok.tok {
             Token::Dot => {
                 let args = Grammar::parse_idtypes(p)?;
-                p.expect_next(Token::DoubleDash)?;
-                AstNode::new(
-                    Ast::DefType(ast2::DataType::Struct, name, args),
-                    Ast::loc(&left),
-                )
+                Ast::DefType(ast2::DataType::Struct, name, args)
             }
-            Token::Pipe => AstNode::void(),
+            Token::Pipe => {
+                let variants = Grammar::parse_variants(p)?;
+                Ast::DefType(ast2::DataType::Union, name, variants)
+            }
             _ => {
                 return Err(rustfail!(
                     "parse_failure",
@@ -108,7 +107,8 @@ impl PrefixParser for ParseDefType
                 ));
             }
         };
-        Ok(data)
+        expect_next!(p, Token::DoubleDash)?;
+        Ok(AstNode::new(data, Ast::loc(&left)))
     }
 }
 
@@ -124,7 +124,7 @@ impl PrefixParser for ParseLet
     ) -> AstResult<'input>
     {
         let lhs = p.parse_new_expr()?;
-        let _assign = p.expect_next(Token::Assignment)?;
+        let _assign = expect_next!(p, Token::Assignment)?;
         let rhs = p.parse_new_expr()?;
         Ok(AstNode::new(
             Ast::Let(lhs, AstNode::void(), rhs),
@@ -147,7 +147,7 @@ impl PrefixParser for ParseBlock
     ) -> AstResult<'input>
     {
         let block = Grammar::parse_block(p)?;
-        p.expect_next(Token::DoubleDash)?;
+        expect_next!(p, Token::DoubleDash)?;
         Ok(block)
     }
 }
@@ -223,7 +223,7 @@ impl PrefixParser for ParseIf
     ) -> AstResult<'input>
     {
         let cases = Grammar::parse_cases(p)?;
-        p.expect_next(Token::DoubleDash)?;
+        expect_next!(p, Token::DoubleDash)?;
         Ok(AstNode::new(
             Ast::Case(CaseType::If, None, cases),
             Ast::loc(&if_token),
@@ -506,7 +506,7 @@ impl<'input> Grammar<'input>
     {
         let mut cases = vec![];
         loop {
-            p.expect_next(Token::LineBegin)?;
+            expect_next!(p, Token::LineBegin)?;
             let peeked = p.peek()?;
             match peeked.tok {
                 Token::Pipe => {
@@ -518,7 +518,7 @@ impl<'input> Grammar<'input>
                         }
                         None => p.parse_new_expr()?,
                     };
-                    p.expect_next(Token::DoubleArrow)?;
+                    expect_next!(p, Token::DoubleArrow)?;
                     let body = Grammar::parse_block(p)?;
                     cases.push(ast2::Case::new(cond, body));
                 }
@@ -549,8 +549,8 @@ impl<'input> Grammar<'input>
             let peeked = p.peek()?;
             let id = match peeked.tok {
                 Token::Dot => {
-                    let _dot = p.expect_next(Token::Dot)?;
-                    let name = p.expect_next(Token::Id)?;
+                    let _dot = expect_next!(p, Token::Dot)?;
+                    let name = expect_next!(p, Token::Id)?;
                     Some(name.src)
                 }
                 Token::Colon => {
@@ -558,21 +558,27 @@ impl<'input> Grammar<'input>
                     None
                 }
                 Token::DoubleArrow => {
+                    // for parameters in a function declaration
                     break;
                 }
                 Token::DoubleDash => {
+                    // for parameters in a structure declaration
+                    break;
+                }
+                Token::Pipe => {
+                    // for fields in a union variant
                     break;
                 }
                 Token::EOF => {
                     return Err(rustfail!(
                         "parse_failure",
-                        "expected : or . found EOF",
+                        "expected : or . or | found EOF",
                     ));
                 }
                 _ => {
                     return Err(rustfail!(
                         "parse_failue",
-                        "expected . or :, found {:?}",
+                        "expected . or : or | found {:?}",
                         peeked,
                     ));
                 }
@@ -589,6 +595,7 @@ impl<'input> Grammar<'input>
                 }
                 Token::DoubleArrow => None,
                 Token::DoubleDash => None,
+                Token::Pipe => None,
                 Token::EOF => {
                     return Err(rustfail!(
                         "parse_failure",
@@ -607,6 +614,46 @@ impl<'input> Grammar<'input>
             idtypes.push((id, typ));
         }
         Ok(StrupleKV::from(idtypes))
+    }
+
+    /// Parse the variants in a union declaration
+    pub fn parse_variants(
+        p: &mut Parser<'input>,
+    ) -> Lresult<StrupleKV<Option<&'input str>, Option<AstNode<'input>>>>
+    {
+        let mut variants = vec![];
+        loop {
+            let pipe = p.peek()?;
+            match pipe.tok {
+                Token::Pipe => {
+                    p.next()?; // consume the pipe
+                    let name = expect_next!(p, Token::Id)?;
+                    let id = AstNode::new(Ast::Id1(name.src), Ast::loc(&name));
+                    let fields = Self::parse_idtypes(p)?;
+                    let var = if fields.is_empty() {
+                        None
+                    } else {
+                        Some(AstNode::new(
+                            Ast::DefType(ast2::DataType::Struct, id, fields),
+                            Ast::loc(&name),
+                        ))
+                    };
+                    variants.push((Some(name.src), var));
+                }
+                Token::DoubleDash => {
+                    // leave the doubledash unconsumed
+                    break;
+                }
+                _ => {
+                    return Err(rustfail!(
+                        "parse_failure",
+                        "expected | or -- found {:?}",
+                        pipe,
+                    ));
+                }
+            }
+        }
+        Ok(StrupleKV::from(variants))
     }
 
     pub fn parse_xlist(
@@ -662,7 +709,7 @@ impl<'input> Grammar<'input>
 
     pub fn parse_id(p: &mut Parser<'input>) -> AstResult<'input>
     {
-        let id = p.expect_next(Token::Id)?;
+        let id = expect_next!(p, Token::Id)?;
         Ok(AstNode::new(Ast::Id1(id.src), Ast::loc(&id)))
     }
 }
@@ -672,7 +719,7 @@ impl<'input> Grammar<'input>
 mod tests
 {
     use super::Grammar;
-    use crate::leema::ast2::Ast;
+    use crate::leema::ast2::{Ast, DataType};
     use crate::leema::lstr::Lstr;
     use crate::leema::token::Tokenz;
     use crate::leema::val::Val;
@@ -898,8 +945,47 @@ mod tests
         ";
         let toks = Tokenz::lexp(input).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
-
         assert_eq!(1, ast.len());
+
+        let t = &ast[0];
+        assert_matches!(*t.node, Ast::DefType(DataType::Struct, _, _));
+        if let Ast::DefType(_, name, fields) = &*t.node {
+            assert_matches!(*name.node, Ast::Id1("Point"));
+            assert_eq!(2, fields.len());
+            assert_eq!("x", fields[0].k.unwrap());
+            assert_eq!("y", fields[1].k.unwrap());
+            assert_eq!(Ast::Id1("Int"), *fields[0].v.as_ref().unwrap().node);
+            assert_eq!(Ast::Id1("Int"), *fields[1].v.as_ref().unwrap().node);
+        }
+    }
+
+    #[test]
+    fn test_parse_type_union_color()
+    {
+        let input = "
+        type Color
+        |Red
+        |Green
+        |Blue
+        --
+        ";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+        assert_eq!(1, ast.len());
+
+        let t = &ast[0];
+        assert_matches!(*t.node, Ast::DefType(DataType::Union, _, _));
+        // match_let!(Ast::DefType(DataType::Union, name, vars), t);
+        if let Ast::DefType(_, name, vars) = &*t.node {
+            assert_eq!(Ast::Id1("Color"), *name.node);
+            assert_eq!(3, vars.len());
+            assert_eq!("Red", vars[0].k.unwrap());
+            assert_eq!("Green", vars[1].k.unwrap());
+            assert_eq!("Blue", vars[2].k.unwrap());
+            assert_eq!(None, vars[0].v);
+            assert_eq!(None, vars[1].v);
+            assert_eq!(None, vars[2].v);
+        }
     }
 
     #[test]
