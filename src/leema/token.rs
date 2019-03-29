@@ -321,6 +321,9 @@ struct ScanModeBackslash;
 struct ScanModeBang;
 
 #[derive(Debug)]
+struct ScanModeCasePipe;
+
+#[derive(Debug)]
 struct ScanModeColon;
 
 #[derive(Debug)]
@@ -546,6 +549,28 @@ impl ScanModeTrait for ScanModeBang
     }
 }
 
+impl ScanModeTrait for ScanModeCasePipe
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        match next.c {
+            '|' => {
+                Ok(ScanOutput::Token(
+                    Token::CasePipe,
+                    true,
+                    ScanModeOp::Replace(&ScanModeLine),
+                ))
+            }
+            _ => Err(rustfail!("token_failure", "expected | found {}", next)),
+        }
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        Err(rustfail!("token_failure", "expected | found EOF"))
+    }
+}
+
 impl ScanModeTrait for ScanModeColon
 {
     fn scan(&self, next: Char) -> ScanResult
@@ -690,6 +715,13 @@ impl ScanModeTrait for ScanModeIndent
                     "do not use spaces when already using tabs {},{}",
                     next.lineno,
                     next.column,
+                ))
+            }
+            (_, '|') => {
+                Ok(ScanOutput::Token(
+                    Token::Spaces,
+                    false,
+                    ScanModeOp::Push(&ScanModeCasePipe),
                 ))
             }
             _ => Ok(ScanOutput::Token(Token::LineBegin, false, PUSH_MODE_LINE)),
@@ -1053,6 +1085,25 @@ mod tests
         assert_eq!(Token::SquareR, nextok(&mut i).0);
         assert_eq!(Token::AngleL, nextok(&mut i).0);
         assert_eq!(Token::AngleR, nextok(&mut i).0);
+        assert_eq!(Token::EOF, nextok(&mut i).0);
+        assert_eq!(None, i.next());
+    }
+
+    #[test]
+    fn test_tokenz_casepipe()
+    {
+        let input = " | |
+        |";
+
+        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let mut i = t.iter();
+        assert_eq!(Token::Spaces, nextok(&mut i).0);
+        assert_eq!(Token::CasePipe, nextok(&mut i).0);
+        i.next().unwrap();
+        assert_eq!(Token::Pipe, nextok(&mut i).0);
+        i.next().unwrap();
+        assert_eq!(Token::Spaces, nextok(&mut i).0);
+        assert_eq!(Token::CasePipe, nextok(&mut i).0);
         assert_eq!(Token::EOF, nextok(&mut i).0);
         assert_eq!(None, i.next());
     }
