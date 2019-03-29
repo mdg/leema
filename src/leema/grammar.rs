@@ -337,6 +337,21 @@ const OP_NOT: &'static PrefixOpParser = &PrefixOpParser {
     pre: Precedence(Lprec::Not as u8, 0, Assoc::Right),
 };
 
+const OP_AND: &'static BinaryOpParser = &BinaryOpParser {
+    op: "and",
+    pre: Precedence(Lprec::And as u8, 0, Assoc::Left),
+};
+
+const OP_OR: &'static BinaryOpParser = &BinaryOpParser {
+    op: "or",
+    pre: Precedence(Lprec::Or as u8, 0, Assoc::Left),
+};
+
+const OP_XOR: &'static BinaryOpParser = &BinaryOpParser {
+    op: "xor",
+    pre: Precedence(Lprec::Or as u8, 0, Assoc::Left),
+};
+
 const OP_MULTIPLY: &'static BinaryOpParser = &BinaryOpParser {
     op: "*",
     pre: Precedence(Lprec::Multiply as u8, 0, Assoc::Left),
@@ -477,10 +492,10 @@ const PARSE_TABLE: ParseTable = [
     (Token::Modulo, None, None, Some(OP_MODULO)),
     (Token::Dollar, None, None, None),
     // operators (boolean)
-    (Token::And, None, None, None),
+    (Token::And, None, None, Some(OP_AND)),
     (Token::Not, None, Some(OP_NOT), None),
-    (Token::Or, None, None, None),
-    (Token::Xor, None, None, None),
+    (Token::Or, None, None, Some(OP_OR)),
+    (Token::Xor, None, None, Some(OP_XOR)),
     // operators (comparison)
     (Token::Equal, None, None, Some(OP_EQ)),
     (Token::EqualNot, None, None, Some(OP_NEQ)),
@@ -916,6 +931,9 @@ mod tests
             3 > 2
             2 >= 1
             not True
+            a and b
+            c or d
+            m xor n
         --
         "#;
         let toks = Tokenz::lexp(input).unwrap();
