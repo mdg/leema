@@ -229,16 +229,31 @@ impl<'input> Parser<'input>
     pub fn parse_stmts(&mut self) -> Lresult<Vec<AstNode<'input>>>
     {
         let mut stmts = vec![];
-        while self.tok.peek_token()? != Token::EOF {
-            expect_next!(self, Token::LineBegin)?;
-            let tok = self.tok.peek_token()?;
-            if let Some(stmtp) = self.find_stmtp(tok) {
+        loop {
+            self.skip_if(Token::LineBegin)?;
+            let tok = self.tok.peek()?;
+            match tok.tok {
+                Token::CasePipe => {
+                    break;
+                }
+                Token::DoubleDash => {
+                    break;
+                }
+                Token::EOF => {
+                    break;
+                }
+                _ => {
+                    // reset indentation outside of the match
+                }
+            }
+
+            if let Some(stmtp) = self.find_stmtp(tok.tok) {
                 let first = self.tok.next()?;
                 let stmt = stmtp.parse(self, first)?;
                 stmts.push(stmt);
                 continue;
             }
-            if self.find_prefix(tok).is_some() {
+            if self.find_prefix(tok.tok).is_some() {
                 let expr = self.parse_new_expr()?;
                 stmts.push(expr);
                 continue;

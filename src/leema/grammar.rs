@@ -95,7 +95,7 @@ impl PrefixParser for ParseDefType
                 let args = Grammar::parse_idtypes(p)?;
                 Ast::DefType(ast2::DataType::Struct, name, args)
             }
-            Token::Pipe => {
+            Token::CasePipe => {
                 let variants = Grammar::parse_variants(p)?;
                 Ast::DefType(ast2::DataType::Union, name, variants)
             }
@@ -531,10 +531,10 @@ impl<'input> Grammar<'input>
     {
         let mut cases = vec![];
         loop {
-            expect_next!(p, Token::LineBegin)?;
+            p.skip_if(Token::LineBegin)?;
             let peeked = p.peek()?;
             match peeked.tok {
-                Token::Pipe => {
+                Token::CasePipe => {
                     p.next()?;
                     let cond = match p.next_if(Token::Else)? {
                         Some(tok) => {
@@ -570,7 +570,7 @@ impl<'input> Grammar<'input>
     {
         let mut idtypes = vec![];
         loop {
-            p.next_if(Token::LineBegin)?;
+            p.skip_if(Token::LineBegin)?;
             let peeked = p.peek()?;
             let id = match peeked.tok {
                 Token::Dot => {
@@ -590,7 +590,7 @@ impl<'input> Grammar<'input>
                     // for parameters in a structure declaration
                     break;
                 }
-                Token::Pipe => {
+                Token::CasePipe => {
                     // for fields in a union variant
                     break;
                 }
@@ -620,7 +620,7 @@ impl<'input> Grammar<'input>
                 }
                 Token::DoubleArrow => None,
                 Token::DoubleDash => None,
-                Token::Pipe => None,
+                Token::CasePipe => None,
                 Token::EOF => {
                     return Err(rustfail!(
                         "parse_failure",
@@ -650,7 +650,7 @@ impl<'input> Grammar<'input>
         loop {
             let pipe = p.peek()?;
             match pipe.tok {
-                Token::Pipe => {
+                Token::CasePipe => {
                     p.next()?; // consume the pipe
                     let name = expect_next!(p, Token::Id)?;
                     let id = AstNode::new(Ast::Id1(name.src), Ast::loc(&name));
@@ -822,6 +822,26 @@ mod tests
         let mut p = Grammar::new(toks);
         p.parse_module().unwrap();
     }
+
+    #[test]
+    fn test_parse_ifcases()
+    {
+        let input = "
+        if
+        |b == 3 >> 100
+        |b == 0 >>
+            let a := 5
+            int_abs(a)
+        |else >>
+            let r := a mod b
+            gcd(b, min(r, b - r))
+        --
+        ";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+        assert_eq!(1, ast.len());
+    }
+
 
     #[test]
     fn test_parse_let_add()

@@ -1446,13 +1446,13 @@ mod tests
         assert_eq!((Token::Id, "Roulette"), nextok(&mut i));
         assert_eq!(Token::LineEnd, nextok(&mut i).0);
 
-        assert_eq!(Token::LineBegin, nextok(&mut i).0);
-        assert_eq!(Token::Pipe, nextok(&mut i).0);
+        assert_eq!(Token::Spaces, nextok(&mut i).0);
+        assert_eq!(Token::CasePipe, nextok(&mut i).0);
         assert_eq!((Token::Id, "Red"), nextok(&mut i));
         assert_eq!(Token::LineEnd, nextok(&mut i).0);
 
-        assert_eq!(Token::LineBegin, nextok(&mut i).0);
-        assert_eq!(Token::Pipe, nextok(&mut i).0);
+        assert_eq!(Token::Spaces, nextok(&mut i).0);
+        assert_eq!(Token::CasePipe, nextok(&mut i).0);
         assert_eq!((Token::Id, "Black"), nextok(&mut i));
         assert_eq!(Token::LineEnd, nextok(&mut i).0);
 
