@@ -322,6 +322,11 @@ const OP_DIVIDE: &'static BinaryOpParser = &BinaryOpParser {
     pre: Precedence(Lprec::Multiply as u8, 0, Assoc::Left),
 };
 
+const OP_MODULO: &'static BinaryOpParser = &BinaryOpParser {
+    op: "mod",
+    pre: Precedence(Lprec::Multiply as u8, 0, Assoc::Left),
+};
+
 const OP_ADD: &'static BinaryOpParser = &BinaryOpParser {
     op: "+",
     pre: Precedence(Lprec::Add as u8, 0, Assoc::Left),
@@ -444,7 +449,7 @@ const PARSE_TABLE: ParseTable = [
     (Token::Dash, None, None, Some(OP_SUBTRACT)),
     (Token::Star, None, None, Some(OP_MULTIPLY)),
     (Token::Slash, None, None, Some(OP_DIVIDE)),
-    (Token::Modulo, None, None, None),
+    (Token::Modulo, None, None, Some(OP_MODULO)),
     (Token::Dollar, None, None, None),
     // operators (boolean)
     (Token::And, None, None, None),
@@ -858,6 +863,7 @@ mod tests
             1 - 2 - 3
             x * y * z
             9 / 3
+            5 mod 4
             4 == 4
             7 != 8
             1 < 2
