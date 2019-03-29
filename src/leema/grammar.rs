@@ -342,6 +342,26 @@ const OP_NEQ: &'static BinaryOpParser = &BinaryOpParser {
     pre: Precedence(Lprec::Equal as u8, 0, Assoc::Left),
 };
 
+const OP_GT: &'static BinaryOpParser = &BinaryOpParser {
+    op: ">",
+    pre: Precedence(Lprec::LessThan as u8, 0, Assoc::Left),
+};
+
+const OP_GTE: &'static BinaryOpParser = &BinaryOpParser {
+    op: ">=",
+    pre: Precedence(Lprec::LessThan as u8, 0, Assoc::Left),
+};
+
+const OP_LT: &'static BinaryOpParser = &BinaryOpParser {
+    op: "<",
+    pre: Precedence(Lprec::LessThan as u8, 0, Assoc::Left),
+};
+
+const OP_LTE: &'static BinaryOpParser = &BinaryOpParser {
+    op: "<=",
+    pre: Precedence(Lprec::LessThan as u8, 0, Assoc::Left),
+};
+
 
 // struct ConsParser;
 // struct DollarParser;
@@ -391,8 +411,8 @@ const PARSE_TABLE: ParseTable = [
     (Token::SquareR, None, None, None),
     (Token::CurlyL, None, None, None),
     (Token::CurlyR, None, None, None),
-    (Token::AngleL, None, None, None),
-    (Token::AngleR, None, None, None),
+    (Token::AngleL, None, None, Some(OP_LT)),
+    (Token::AngleR, None, None, Some(OP_GT)),
     (Token::DoubleQuoteL, None, Some(&ParseStr), None),
     (Token::DoubleQuoteR, None, None, None),
     // statement keywords
@@ -434,8 +454,8 @@ const PARSE_TABLE: ParseTable = [
     // operators (comparison)
     (Token::Equal, None, None, Some(OP_EQ)),
     (Token::EqualNot, None, None, Some(OP_NEQ)),
-    (Token::GreaterThanEqual, None, None, None),
-    (Token::LessThanEqual, None, None, None),
+    (Token::GreaterThanEqual, None, None, Some(OP_GTE)),
+    (Token::LessThanEqual, None, None, Some(OP_LTE)),
     // separators
     (Token::Assignment, None, None, None),
     (Token::CasePipe, None, None, None),
@@ -840,6 +860,10 @@ mod tests
             9 / 3
             4 == 4
             7 != 8
+            1 < 2
+            2 <= 3
+            3 > 2
+            2 >= 1
         --
         "#;
         let toks = Tokenz::lexp(input).unwrap();
