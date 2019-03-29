@@ -117,7 +117,21 @@ pub trait PrefixParser: Debug
 pub struct PrefixOpParser
 {
     pub op: &'static str,
-    pub precedence: u8,
+    pub pre: Precedence,
+}
+
+impl PrefixParser for PrefixOpParser
+{
+    fn parse<'input>(
+        &self,
+        p: &mut Parser<'input>,
+        op: TokenSrc<'input>,
+    ) -> AstResult<'input>
+    {
+        let right = p.parse_expr(self.pre)?;
+        let ast = Ast::Op1(op.src, right);
+        Ok(AstNode::new(ast, Ast::loc(&op)))
+    }
 }
 
 pub trait InfixParser: Debug

@@ -3,7 +3,7 @@ use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::parser::{
     Assoc, BinaryOpParser, InfixParser, ParseTable, Parser, Precedence,
-    PrefixParser,
+    PrefixOpParser, PrefixParser,
 };
 use crate::leema::struple::StrupleKV;
 use crate::leema::token::{Token, TokenSrc};
@@ -13,6 +13,9 @@ enum Lprec
 {
     Minimum,
     Comma,
+    Or,
+    And,
+    Not,
     Equal,
     LessThan,
     Add,
@@ -130,6 +133,23 @@ impl PrefixParser for ParseLet
             Ast::Let(lhs, AstNode::void(), rhs),
             Ast::loc(&left),
         ))
+    }
+}
+
+#[derive(Debug)]
+struct ParseParen;
+
+impl PrefixParser for ParseParen
+{
+    fn parse<'input>(
+        &self,
+        p: &mut Parser<'input>,
+        _left: TokenSrc<'input>,
+    ) -> AstResult<'input>
+    {
+        let inner = p.parse_new_expr()?;
+        expect_next!(p, Token::ParenR)?;
+        Ok(inner)
     }
 }
 
@@ -312,6 +332,11 @@ impl PrefixParser for ParseStr
 #[derive(Debug)]
 struct TupleParser;
 
+const OP_NOT: &'static PrefixOpParser = &PrefixOpParser {
+    op: "not",
+    pre: Precedence(Lprec::Not as u8, 0, Assoc::Right),
+};
+
 const OP_MULTIPLY: &'static BinaryOpParser = &BinaryOpParser {
     op: "*",
     pre: Precedence(Lprec::Multiply as u8, 0, Assoc::Left),
@@ -410,7 +435,7 @@ const PARSE_TABLE: ParseTable = [
     (Token::StrLit, None, None, None),
     (Token::DollarId, None, None, None),
     // brackets
-    (Token::ParenL, None, None, Some(&ParseCall)),
+    (Token::ParenL, None, Some(&ParseParen), Some(&ParseCall)),
     (Token::ParenR, None, None, None),
     (Token::SquareL, None, None, None),
     (Token::SquareR, None, None, None),
@@ -453,7 +478,7 @@ const PARSE_TABLE: ParseTable = [
     (Token::Dollar, None, None, None),
     // operators (boolean)
     (Token::And, None, None, None),
-    (Token::Not, None, None, None),
+    (Token::Not, None, Some(OP_NOT), None),
     (Token::Or, None, None, None),
     (Token::Xor, None, None, None),
     // operators (comparison)
@@ -890,8 +915,18 @@ mod tests
             2 <= 3
             3 > 2
             2 >= 1
+            not True
         --
         "#;
+        let toks = Tokenz::lexp(input).unwrap();
+        let mut p = Grammar::new(toks);
+        p.parse_module().unwrap();
+    }
+
+    #[test]
+    fn test_parse_parens()
+    {
+        let input = r#"not (x == y)"#;
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
         p.parse_module().unwrap();
