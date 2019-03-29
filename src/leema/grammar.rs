@@ -20,8 +20,7 @@ enum Lprec
     LessThan,
     Add,
     Multiply,
-    Xor,
-    Semicolon,
+    Cons,
     Dollar,
     Pipe,
     Func,
@@ -367,6 +366,11 @@ const OP_MODULO: &'static BinaryOpParser = &BinaryOpParser {
     pre: Precedence(Lprec::Multiply as u8, 0, Assoc::Left),
 };
 
+const OP_CONS: &'static BinaryOpParser = &BinaryOpParser {
+    op: ";",
+    pre: Precedence(Lprec::Cons as u8, 0, Assoc::Right),
+};
+
 const OP_ADD: &'static BinaryOpParser = &BinaryOpParser {
     op: "+",
     pre: Precedence(Lprec::Add as u8, 0, Assoc::Left),
@@ -512,7 +516,7 @@ const PARSE_TABLE: ParseTable = [
     (Token::DoubleColon, None, None, None),
     (Token::DoubleDash, None, None, None),
     (Token::Pipe, None, None, None),
-    (Token::Semicolon, None, None, None),
+    (Token::Semicolon, None, None, Some(OP_CONS)),
     (Token::StatementSep, None, None, None),
     // comments
     (Token::CommentBlockStart, None, None, None),
@@ -934,6 +938,7 @@ mod tests
             a and b
             c or d
             m xor n
+            h;t
         --
         "#;
         let toks = Tokenz::lexp(input).unwrap();

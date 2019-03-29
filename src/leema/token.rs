@@ -393,6 +393,7 @@ impl ScanModeTrait for ScanModeLine
             '/' => ScanOutput::Token(Token::Slash, true, ScanModeOp::Noop),
             '=' => ScanOutput::Start(ScanModeOp::Push(&ScanModeEqual)),
             '!' => ScanOutput::Start(ScanModeOp::Push(&ScanModeBang)),
+            ';' => ScanOutput::Token(Token::Semicolon, true, ScanModeOp::Noop),
             // separators
             ':' => ScanOutput::Start(ScanModeOp::Push(&ScanModeColon)),
             ',' => ScanOutput::Token(Token::Comma, true, ScanModeOp::Noop),
@@ -413,6 +414,7 @@ impl ScanModeTrait for ScanModeLine
             '$' => ScanOutput::Start(ScanModeOp::Push(&ScanModeDollar)),
             // keywords
             '_' => ScanOutput::Start(ScanModeOp::Push(&ScanModeId(Token::Id))),
+            '#' => ScanOutput::Start(ScanModeOp::Push(&ScanModeId(Token::Id))),
             c if c.is_alphabetic() => {
                 ScanOutput::Start(ScanModeOp::Push(&ScanModeId(Token::Id)))
             }
