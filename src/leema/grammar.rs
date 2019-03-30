@@ -276,7 +276,32 @@ impl PrefixParser for ParseInt
 struct ListParser;
 
 #[derive(Debug)]
-struct MatchParser;
+struct ParseMatch;
+
+impl PrefixParser for ParseMatch
+{
+    fn parse<'input>(
+        &self,
+        p: &mut Parser<'input>,
+        left: TokenSrc<'input>,
+    ) -> AstResult<'input>
+    {
+        let tok = p.peek()?;
+        let input = match tok.tok {
+            Token::CasePipe => {
+                // no expression, go straight to cases
+                None
+            }
+            _ => {
+                // get the expression, then go to cases
+                Some(p.parse_new_expr()?)
+            }
+        };
+        let cases = Grammar::parse_cases(p)?;
+        let m = Ast::Case(CaseType::Match, input, cases);
+        Ok(AstNode::new(m, Ast::loc(&left)))
+    }
+}
 
 #[derive(Debug)]
 struct ParseStr;
@@ -484,7 +509,7 @@ const PARSE_TABLE: ParseTable = [
         None,
         None,
     ),
-    (Token::Match, None, None, None),
+    (Token::Match, None, Some(&ParseMatch), None),
     (Token::Return, None, None, None),
     (Token::Type, Some(&ParseDefType), None, None),
     (Token::Underscore, None, None, None),
@@ -886,7 +911,6 @@ mod tests
         assert_eq!(1, ast.len());
     }
 
-
     #[test]
     fn test_parse_let_add()
     {
@@ -918,6 +942,34 @@ mod tests
                 assert_eq!(Ast::ConstVal(Val::Int(3)), *three.node);
             }
         }
+    }
+
+    #[test]
+    fn test_parse_match_noinput()
+    {
+        let input = "
+        match
+        |0 >> 1
+        |i >> do(i)
+        --
+        ";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+        assert_eq!(1, ast.len());
+    }
+
+    #[test]
+    fn test_parse_match_withinput()
+    {
+        let input = "
+        match tacos
+        |0 >> 1
+        |i >> do(i)
+        --
+        ";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+        assert_eq!(1, ast.len());
     }
 
     #[test]
