@@ -115,6 +115,22 @@ impl PrefixParser for ParseDefType
 }
 
 #[derive(Debug)]
+struct ParseImport;
+
+impl PrefixParser for ParseImport
+{
+    fn parse<'input>(
+        &self,
+        p: &mut Parser<'input>,
+        left: TokenSrc<'input>,
+    ) -> AstResult<'input>
+    {
+        let module = expect_next!(p, Token::Id)?;
+        Ok(AstNode::new(Ast::Import(module.src), Ast::loc(&left)))
+    }
+}
+
+#[derive(Debug)]
 struct ParseLet;
 
 impl PrefixParser for ParseLet
@@ -499,7 +515,7 @@ const PARSE_TABLE: ParseTable = [
         TokenParser::Stmt(&ParseDefFunc(FuncClass::Func)),
     ),
     (Token::If, TokenParser::Prefix(&ParseIf)),
-    (Token::Import, TokenParser::Unimplemented),
+    (Token::Import, TokenParser::Stmt(&ParseImport)),
     (Token::Let, TokenParser::Stmt(&ParseLet)),
     (
         Token::Macro,
