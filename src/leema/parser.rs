@@ -263,13 +263,13 @@ impl<'input> Parser<'input>
                 }
             }
 
-            if let Some(stmtp) = self.find_stmtp(tok.tok)? {
+            if let Some(stmtp) = self.find_stmtp(&tok)? {
                 let first = self.tok.next()?;
                 let stmt = stmtp.parse(self, first)?;
                 stmts.push(stmt);
                 continue;
             }
-            if self.find_prefix(tok.tok)?.is_some() {
+            if self.find_prefix(&tok)?.is_some() {
                 let expr = self.parse_new_expr()?;
                 stmts.push(expr);
                 continue;
@@ -289,7 +289,7 @@ impl<'input> Parser<'input>
     pub fn parse_expr(&mut self, min_pre: Precedence) -> AstResult<'input>
     {
         let first = self.tok.next()?;
-        let prefix = self.find_prefix(first.tok)?.ok_or_else(|| {
+        let prefix = self.find_prefix(&first)?.ok_or_else(|| {
             rustfail!("parse_failure", "cannot find parser for {:?}", first.tok)
         })?;
         let mut left = prefix.parse(self, first)?;
@@ -300,18 +300,23 @@ impl<'input> Parser<'input>
         Ok(left)
     }
 
-    fn find_stmtp(&self, tok: Token) -> Lresult<Option<&'static PrefixParser>>
+    fn find_stmtp(
+        &self,
+        tok: &TokenSrc<'input>,
+    ) -> Lresult<Option<&'static PrefixParser>>
     {
-        match self.token_parser(tok)? {
+        match ltry!(self.token_parser(tok)) {
             TokenParser::Stmt(p) => Ok(Some(p)),
             _ => Ok(None),
         }
     }
 
-    fn find_prefix(&self, tok: Token)
-        -> Lresult<Option<&'static PrefixParser>>
+    fn find_prefix(
+        &self,
+        tok: &TokenSrc<'input>,
+    ) -> Lresult<Option<&'static PrefixParser>>
     {
-        match self.token_parser(tok)? {
+        match ltry!(self.token_parser(tok)) {
             TokenParser::Prefix(p) => Ok(Some(p)),
             TokenParser::Bothfix(p, _) => Ok(Some(p)),
             _ => Ok(None),
@@ -323,11 +328,8 @@ impl<'input> Parser<'input>
         min_pre: Precedence,
     ) -> Lresult<Option<(TokenSrc<'input>, &'static InfixParser)>>
     {
-        let tok = self.tok.peek_token().ok().unwrap_or(Token::EOF);
-        if tok == Token::EOF {
-            return Ok(None);
-        }
-        let infix = match self.token_parser(tok)? {
+        let tok = self.tok.peek()?;
+        let infix = match ltry!(self.token_parser(&tok)) {
             TokenParser::Infix(p) => p,
             TokenParser::Bothfix(_, p) => p,
             _ => {
@@ -343,9 +345,9 @@ impl<'input> Parser<'input>
         }
     }
 
-    fn token_parser(&self, tok: Token) -> Lresult<TokenParser>
+    fn token_parser(&self, tok: &TokenSrc<'input>) -> Lresult<TokenParser>
     {
-        let tprow = self.tbl.get(tok as usize).ok_or_else(|| {
+        let tprow = self.tbl.get(tok.tok as usize).ok_or_else(|| {
             rustfail!("parse_failure", "no parser for token: {:?}", tok)
         })?;
         match tprow.1 {

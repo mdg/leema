@@ -21,6 +21,17 @@ macro_rules! rustfail {
     };
 }
 
+macro_rules! ltry {
+    ($r:expr) => {
+        match $r {
+            Ok(x) => x,
+            Err(f) => {
+                return Err(f.loc(file!(), line!()));
+            }
+        }
+    };
+}
+
 // need to move these to leema code
 #[derive(Copy)]
 #[derive(Clone)]

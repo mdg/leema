@@ -582,7 +582,7 @@ const PARSE_TABLE: ParseTable = [
     (Token::Spaces, TokenParser::Unimplemented),
     (Token::Tabs, TokenParser::Unimplemented),
     // EOF
-    (Token::EOF, TokenParser::Unimplemented),
+    (Token::EOF, TokenParser::ExprBreak),
 ];
 
 pub struct Grammar<'input>
