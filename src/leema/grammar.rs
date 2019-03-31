@@ -152,6 +152,22 @@ impl PrefixParser for ParseLet
 }
 
 #[derive(Debug)]
+struct ParseList;
+
+impl PrefixParser for ParseList
+{
+    fn parse<'input>(
+        &self,
+        p: &mut Parser<'input>,
+        left: TokenSrc<'input>,
+    ) -> AstResult<'input>
+    {
+        let items = Grammar::parse_xlist(p, Token::SquareR)?;
+        Ok(AstNode::new(Ast::List(items), Ast::loc(&left)))
+    }
+}
+
+#[derive(Debug)]
 struct ParseParen;
 
 impl PrefixParser for ParseParen
@@ -497,8 +513,8 @@ const PARSE_TABLE: ParseTable = [
     // brackets
     (Token::ParenL, TokenParser::Bothfix(&ParseParen, &ParseCall)),
     (Token::ParenR, TokenParser::ExprBreak),
-    (Token::SquareL, TokenParser::Unimplemented),
-    (Token::SquareR, TokenParser::Unimplemented),
+    (Token::SquareL, TokenParser::Prefix(&ParseList)),
+    (Token::SquareR, TokenParser::ExprBreak),
     (Token::CurlyL, TokenParser::Unimplemented),
     (Token::CurlyR, TokenParser::Unimplemented),
     (Token::AngleL, TokenParser::Infix(OP_LT)),
@@ -954,6 +970,15 @@ mod tests
                 assert_eq!(Ast::ConstVal(Val::Int(3)), *three.node);
             }
         }
+    }
+
+    #[test]
+    fn test_parse_list_oneline()
+    {
+        let input = "let l := [1, 2, 3, 4]";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+        assert_eq!(1, ast.len());
     }
 
     #[test]

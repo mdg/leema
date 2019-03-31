@@ -302,7 +302,6 @@ impl<'input> Parser<'input>
 
     fn find_stmtp(&self, tok: Token) -> Lresult<Option<&'static PrefixParser>>
     {
-        eprintln!("find_stmtp({:?})", tok);
         match self.token_parser(tok)? {
             TokenParser::Stmt(p) => Ok(Some(p)),
             _ => Ok(None),
@@ -312,7 +311,6 @@ impl<'input> Parser<'input>
     fn find_prefix(&self, tok: Token)
         -> Lresult<Option<&'static PrefixParser>>
     {
-        eprintln!("find_prefix({:?})", tok);
         match self.token_parser(tok)? {
             TokenParser::Prefix(p) => Ok(Some(p)),
             TokenParser::Bothfix(p, _) => Ok(Some(p)),
@@ -329,7 +327,6 @@ impl<'input> Parser<'input>
         if tok == Token::EOF {
             return Ok(None);
         }
-        eprintln!("find_infix({:?})", tok);
         let infix = match self.token_parser(tok)? {
             TokenParser::Infix(p) => p,
             TokenParser::Bothfix(_, p) => p,

@@ -88,6 +88,8 @@ impl<'i> fmt::Debug for Case<'i>
     }
 }
 
+type KorXlist<'i> = StrupleKV<Option<&'i str>, Option<AstNode<'i>>>;
+type Klist<'i> = StrupleKV<&'i str, Option<AstNode<'i>>>;
 type Xlist<'i> = StrupleKV<Option<&'i str>, AstNode<'i>>;
 
 #[derive(Clone)]
@@ -99,25 +101,16 @@ pub enum Ast<'i>
     Case(CaseType, Option<AstNode<'i>>, Vec<Case<'i>>),
     ConstVal(Val),
     DefConst(&'i str, AstNode<'i>),
-    DefFunc(
-        FuncClass,
-        AstNode<'i>,
-        StrupleKV<Option<&'i str>, Option<AstNode<'i>>>,
-        AstNode<'i>,
-    ),
-    DefType(
-        DataType,
-        AstNode<'i>,
-        StrupleKV<Option<&'i str>, Option<AstNode<'i>>>,
-    ),
+    DefFunc(FuncClass, AstNode<'i>, KorXlist<'i>, AstNode<'i>),
+    DefType(DataType, AstNode<'i>, KorXlist<'i>),
     FuncType(StrupleKV<&'i str, AstNode<'i>>),
     Id1(&'i str),
     Id2(&'i str, &'i str),
-    IdGeneric(AstNode<'i>, StrupleKV<&'i str, Option<&'i str>>),
+    IdGeneric(AstNode<'i>, Klist<'i>),
     Import(&'i str),
     LessThan3(AstNode<'i>, bool, AstNode<'i>, bool, AstNode<'i>),
     Let(AstNode<'i>, AstNode<'i>, AstNode<'i>),
-    List(StrupleKV<&'i str, AstNode<'i>>),
+    List(Xlist<'i>),
     Map(StrupleKV<AstNode<'i>, AstNode<'i>>),
     NewStruct(AstNode<'i>, Struple2<AstNode<'i>>),
     NewTuple(StrupleKV<&'i str, AstNode<'i>>),
@@ -129,7 +122,7 @@ pub enum Ast<'i>
     StrExpr(Vec<AstNode<'i>>),
     Tuple(StrupleKV<&'i str, AstNode<'i>>),
     Type(Type),
-    TypeCall(AstNode<'i>, StrupleKV<Option<&'i str>, AstNode<'i>>),
+    TypeCall(AstNode<'i>, Xlist<'i>),
     Void,
 }
 
