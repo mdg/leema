@@ -136,6 +136,17 @@ impl<'i> Ast<'i>
         }
     }
 
+    pub fn is_const(&self) -> bool
+    {
+        match self {
+            Ast::ConstVal(_) => true,
+            Ast::List(items) => {
+                items.iter().all(|a| a.node.is_const())
+            }
+            _ => false,
+        }
+    }
+
     pub fn fmt_inner(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {

@@ -6,6 +6,8 @@ pub mod lstr;
 pub mod failure;
 #[macro_use]
 pub mod parser;
+#[macro_use]
+pub mod parsl;
 
 pub mod application;
 pub mod ast;
@@ -14,6 +16,7 @@ pub mod code;
 pub mod fiber;
 pub mod frame;
 pub mod grammar;
+pub mod grammar2;
 pub mod infer;
 pub mod inter;
 pub mod io;

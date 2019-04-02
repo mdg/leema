@@ -5,23 +5,6 @@ use crate::leema::token::{Token, TokenResult, TokenSrc};
 use std::fmt::Debug;
 
 
-#[macro_export]
-macro_rules! expect_next {
-    ($p:expr, $expected:expr) => {{
-        let tok = $p.peek()?;
-        if tok.tok == $expected {
-            $p.next()
-        } else {
-            Err(rustfail!(
-                "parse_failure",
-                "expected {:?}, found {:?}",
-                $expected,
-                tok,
-            ))
-        }
-    }};
-}
-
 struct TokenStream<'input>
 {
     it: ::std::vec::IntoIter<TokenSrc<'input>>,
