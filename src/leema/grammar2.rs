@@ -1,7 +1,7 @@
 use crate::leema::ast2::{self, Ast, AstNode, AstResult, CaseType, FuncClass, Loc};
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
-use crate::leema::parsl::{Assoc, InfixParser, ItemParser, Parsl, Precedence};
+use crate::leema::parsl::{Assoc, InfixParser, ItemParser, Parsl, ParslMode, Precedence};
 use crate::leema::struple::StrupleKV;
 use crate::leema::token::{Token, TokenSrc};
 use crate::leema::val::Val;
@@ -35,7 +35,74 @@ impl From<Lprec> for Precedence
 #[derive(Debug)]
 struct StmtMode;
 
-impl<'i> ParseMode<'i> for StmtMode
+impl StmtMode
+{
+    fn parse_defconst<'i>(p: Parsl<'i>) -> AstResult<'i>
+    {
+        let id = expect_next!(p, Token::Id)?;
+        let _assign = expect_next!(p, Token::Assignment)?;
+        let rhs = p.parse_new(&ExprMode)?;
+        Ok(AstNode::new(Ast::DefConst(id.src, rhs), Ast::loc(&id)))
+    }
+
+    fn parse_deffunc<'i>(p: Parsl<'i>, fc: FuncClass) -> AstResult<'i>
+    {
+        let name = Grammar::parse_id(p)?;
+        let loc = name.loc;
+        let args = Grammar::parse_idtypes(p)?;
+        expect_next!(p, Token::DoubleArrow)?;
+        let body = Grammar::parse_block(p)?;
+        expect_next!(p, Token::DoubleDash)?;
+        Ok(AstNode::new(
+            Ast::DefFunc(fc, name, args, body),
+            loc,
+        ))
+    }
+
+    fn parse_deftype<'i>(p: Parsl<'i>) -> AstResult<'i>
+    {
+        let name = Grammar::parse_id(p)?;
+        let loc = name.loc;
+        p.skip_if(Token::LineBegin)?;
+        let tok = p.peek()?;
+        let data = match tok.tok {
+            Token::Dot => {
+                let args = Grammar::parse_idtypes(p)?;
+                Ast::DefType(ast2::DataType::Struct, name, args)
+            }
+            Token::CasePipe => {
+                let variants = Grammar::parse_variants(p)?;
+                Ast::DefType(ast2::DataType::Union, name, variants)
+            }
+            _ => {
+                return Err(rustfail!(
+                    "parse_failure",
+                    "expected . or | found {:?}",
+                    tok,
+                ));
+            }
+        };
+        expect_next!(p, Token::DoubleDash)?;
+        Ok(AstNode::new(data, loc))
+    }
+
+    fn parse_import<'i>(p: Parsl<'i>) -> AstResult<'i>
+    {
+        let module = expect_next!(p, Token::Id)?;
+        Ok(AstNode::new(Ast::Import(module.src), Ast::loc(&module)))
+    }
+
+    fn parse_let<'i>(p: Parsl<'i>) -> AstResult<'i>
+    {
+        let lhs = p.parse_new(&ExprMode)?;
+        let _assign = expect_next!(p, Token::Assignment)?;
+        let rhs = p.parse_new(&ExprMode)?;
+        let loc = lhs.loc;
+        Ok(AstNode::new(Ast::Let(lhs, AstNode::void(), rhs), loc))
+    }
+}
+
+impl<'i> ParslMode<'i> for StmtMode
 {
     fn prefix(&self, p: Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
@@ -62,70 +129,6 @@ impl<'i> ParseMode<'i> for StmtMode
                 p.parse_new(&ExprMode)
             }
         }
-    }
-
-    fn parse_defconst(p: Parsl<'i>) -> ParseResult<'i>
-    {
-        let id = expect_next!(p, Token::Id)?;
-        let _assign = expect_next!(p, Token::Assignment)?;
-        let rhs = p.parse_new_expr()?;
-        Ok(AstNode::new(Ast::DefConst(id.src, rhs), Ast::loc(&left)))
-    }
-
-    fn parse_deffunc(p: Parsl<'i>, fc: FuncClass) -> ParseResult<'i>
-    {
-        let name = Grammar::parse_id(p)?;
-        let args = Grammar::parse_idtypes(p)?;
-        expect_next!(p, Token::DoubleArrow)?;
-        let body = Grammar::parse_block(p)?;
-        expect_next!(p, Token::DoubleDash)?;
-        Ok(AstNode::new(
-            Ast::DefFunc(fc, name, args, body),
-            Ast::loc(&left),
-        ))
-    }
-
-    fn parse_deftype(p: Parsl<'i>) -> ParseResult<'i>
-    {
-        let name = Grammar::parse_id(p)?;
-        p.skip_if(Token::LineBegin)?;
-        let tok = p.peek()?;
-        let data = match tok.tok {
-            Token::Dot => {
-                let args = Grammar::parse_idtypes(p)?;
-                Ast::DefType(ast2::DataType::Struct, name, args)
-            }
-            Token::CasePipe => {
-                let variants = Grammar::parse_variants(p)?;
-                Ast::DefType(ast2::DataType::Union, name, variants)
-            }
-            _ => {
-                return Err(rustfail!(
-                    "parse_failure",
-                    "expected . or | found {:?}",
-                    tok,
-                ));
-            }
-        };
-        expect_next!(p, Token::DoubleDash)?;
-        Ok(AstNode::new(data, Ast::loc(&left)))
-    }
-
-    fn parse_import(p: Parsl<'i>) -> ParseResult<'i>
-    {
-        let module = expect_next!(p, Token::Id)?;
-        Ok(AstNode::new(Ast::Import(module.src), Ast::loc(&left)))
-    }
-
-    fn parse_let(p: Parsl<'i>) -> ParseResult<'i>
-    {
-        let lhs = p.parse_new_expr()?;
-        let _assign = expect_next!(p, Token::Assignment)?;
-        let rhs = p.parse_new_expr()?;
-        Ok(AstNode::new(
-            Ast::Let(lhs, AstNode::void(), rhs),
-            Ast::loc(&left),
-        ))
     }
 }
 
@@ -159,59 +162,9 @@ impl InfixParser for BinaryOpParser
 #[derive(Debug)]
 struct ExprMode;
 
-impl<'i> ParseMode<'i> for ExprMode
+impl ExprMode
 {
-    fn prefix(&self, p: Parsl<'i>, tok: TokenSrc<'i>) -> ParseResult<'i>
-    {
-        let loc = Ast::loc(&tok);
-        let expr = match tok.tok {
-            Token::Bool => parse_bool(),
-            Token::DoubleArrow => {
-                let block = Grammar::parse_block(p)?;
-                expect_next!(p, Token::DoubleDash)?;
-                Ok(block)
-            }
-            Token::DoubleQuoteL => ExprMode::parse_str(p, loc),
-            Token::Hashtag => {
-                AstNode::new_constval(
-                    Val::Hashtag(Lstr::from(tok.src.to_string())),
-                    loc,
-                )
-            }
-            Token::Id => {
-                AstNode::new(Ast::Id1(tok.src), loc)
-            }
-            Token::If => Grammar::parse_casex(p, CaseType::If, &loc),
-            Token::Int => {
-                let i: i64 = tok.src.parse().map_err(|parsef| {
-                    rustfail!(
-                        "parse_failure",
-                        "int token is not an integer: {:?}",
-                        parsef,
-                    )
-                })?;
-                Ok(AstNode::new(Ast::ConstVal(Val::Int(i)), loc))
-            }
-            Token::Match => Grammar::parse_casex(p, CaseType::Match, &loc),
-            Token::Not => {
-                let x = p.parse(Lprec::Not)?;
-                AstNode::new(Ast::Op1(tok.src), loc)
-            }
-            Token::ParenL => {
-                let inner = p.parse_new_expr()?;
-                expect_next!(p, Token::ParenR)?;
-                inner
-            }
-            Token::SquareL => {
-                let items = p.parse_n(ParseXMaybeK(Token::SquareR))?;
-                expect_next!(p, Token::SquareR)?;
-                Ok(AstNode::new(Ast::List(items), Ast::loc(&tok)))
-            }
-        };
-        Ok(expr)
-    }
-
-    fn parse_bool(tok: TokenSrc<'i>) -> AstResult<'i>
+    fn parse_bool<'i>(tok: TokenSrc<'i>) -> AstResult<'i>
     {
         let b = match tok.src {
             "False" => false,
@@ -227,7 +180,19 @@ impl<'i> ParseMode<'i> for ExprMode
         AstNode::new_constval(Val::Bool(b), Ast::loc(&tok))
     }
 
-    fn parse_str(p: &mut Parsl<'i>, loc: Loc) -> AstResult<'i>
+    fn parse_int<'i>(tok: TokenSrc<'i>) -> AstResult<'i>
+    {
+        let i: i64 = tok.src.parse().map_err(|parsef| {
+            rustfail!(
+                "parse_failure",
+                "int token is not an integer: {:?}",
+                parsef,
+            )
+        })?;
+        Ok(AstNode::new(Ast::ConstVal(Val::Int(i)), Ast::loc(tok)))
+    }
+
+    fn parse_str<'i>(p: &mut Parsl<'i>, loc: Loc) -> AstResult<'i>
     {
         let mut strs = p.parse_n(ExprMode::parse_stritem)?;
         let node = match strs.len() {
@@ -242,7 +207,7 @@ impl<'i> ParseMode<'i> for ExprMode
         Ok(node)
     }
 
-    fn parse_stritem(p: Parsl<'i>) -> Lresult<Option<AstNode<'i>>>
+    fn parse_stritem<'i>(p: Parsl<'i>) -> Lresult<Option<AstNode<'i>>>
     {
         let tok = p.next()?;
         let x = match tok.tok {
@@ -268,15 +233,59 @@ impl<'i> ParseMode<'i> for ExprMode
     }
 
     /*
-    fn less_than(p: Parsl<'i>, left: AstNode<'i>, tok: TokenSrc<'i>) -> ParseResult<'i>
+    fn less_than<'i>(p: Parsl<'i>, left: AstNode<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
         ParseOutput::ok(AstNode::void())
     }
     */
+}
+
+impl<'i> ParslMode<'i> for ExprMode
+{
+    fn prefix(&self, p: Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
+    {
+        let loc = Ast::loc(&tok);
+        let expr = match tok.tok {
+            Token::Bool => ExprMode::parse_bool(tok),
+            Token::DoubleArrow => {
+                let block = Grammar::parse_block(p)?;
+                expect_next!(p, Token::DoubleDash)?;
+                Ok(block)
+            }
+            Token::DoubleQuoteL => ExprMode::parse_str(p, loc),
+            Token::Hashtag => {
+                AstNode::new_constval(
+                    Val::Hashtag(Lstr::from(tok.src.to_string())),
+                    loc,
+                )
+            }
+            Token::Id => {
+                AstNode::new(Ast::Id1(tok.src), loc)
+            }
+            Token::If => Grammar::parse_casex(p, CaseType::If, &loc),
+            Token::Int => ExprMode::parse_int(tok),
+            Token::Match => Grammar::parse_casex(p, CaseType::Match, &loc),
+            Token::Not => {
+                let x = p.parse(Lprec::Not)?;
+                AstNode::new(Ast::Op1(tok.src), loc)
+            }
+            Token::ParenL => {
+                let inner = p.parse_new(&ExprMode)?;
+                expect_next!(p, Token::ParenR)?;
+                inner
+            }
+            Token::SquareL => {
+                let items = p.parse_n(ParseXMaybeK(Token::SquareR))?;
+                expect_next!(p, Token::SquareR)?;
+                Ok(AstNode::new(Ast::List(items), Ast::loc(&tok)))
+            }
+        };
+        Ok(expr)
+    }
 
     fn infix(&self, tok: Token) -> Option<&'static InfixParser>
     {
-        match tok.tok {
+        let parse = match tok {
             Token::And => OP_AND,
             Token::Dash => OP_SUBTRACT,
             Token::Equal => OP_EQ,
@@ -292,8 +301,11 @@ impl<'i> ParseMode<'i> for ExprMode
             Token::Slash => OP_DIVIDE,
             Token::Star => OP_MULTIPLY,
             Token::Xor => OP_XOR,
-            _ => None,
-        }
+            _ => {
+                return None;
+            }
+        };
+        Some(parse)
     }
 }
 
@@ -382,9 +394,9 @@ const OP_LTE: &'static BinaryOpParser = &BinaryOpParser {
 #[derive(Debug)]
 struct ParseCall;
 
-impl<'input> InfixParser<'input> for ParseCall
+impl InfixParser for ParseCall
 {
-    fn parse(
+    fn parse<'input>(
         &self,
         p: &mut Parsl<'input>,
         left: AstNode<'input>,
@@ -412,14 +424,14 @@ impl<'i> ItemParser<'i> for ParseXMaybeK
 
     fn parse(&self, p: &mut Parsl<'i>) -> Lresult<(Self::Item, bool)>
     {
-        let first = p.parse_new_expr()?;
+        let first = p.parse_new(&ExprMode)?;
 
         let comma = p.peek()?;
         let result =
             match comma.tok {
                 Token::Colon => {
                     self.next()?;
-                    let value = p.parse_new_expr()?;
+                    let value = p.parse_new(&ExprMode)?;
                     let more = p.next_if(Token::Comma)?.is_some();
                     ((Some(first), value), more)
                 }
@@ -451,7 +463,7 @@ impl<'i> ItemParser<'i> for ParseCase
 {
     type Item = ast2::Case<'i>;
 
-    fn parse(&self, p: &mut Parsl<'i>) -> Lresult<Self::Item>
+    fn parse(&self, p: &mut Parsl<'i>) -> Lresult<(Self::Item, bool)>
     {
         p.skip_if(Token::LineBegin)?;
         let peeked = p.peek()?;
@@ -463,7 +475,7 @@ impl<'i> ItemParser<'i> for ParseCase
                         let v = Ast::ConstVal(Val::Bool(true));
                         AstNode::new(v, Ast::loc(&tok))
                     }
-                    None => p.parse_new_expr()?,
+                    None => p.parse_new(&ExprMode)?,
                 };
                 expect_next!(p, Token::DoubleArrow)?;
                 let body = Grammar::parse_block(p)?;
@@ -502,7 +514,7 @@ impl<'input> Grammar<'input>
 
     pub fn parse_module(&mut self) -> Lresult<Vec<AstNode<'input>>>
     {
-        self.p.parse_stmts()
+        self.p.parse_n()
     }
 
     /// Parse the body of a function. Also eat the trailing
@@ -511,7 +523,7 @@ impl<'input> Grammar<'input>
         let tok = p.peek()?;
         match tok.tok {
             Token::LineBegin => {
-                let mut stmts = p.parse_stmts()?;
+                let mut stmts = p.parse_n()?;
                 let node = match stmts.len() {
                     0 => AstNode::void(),
                     1 => stmts.pop().unwrap(),
@@ -520,7 +532,7 @@ impl<'input> Grammar<'input>
                 Ok(node)
             }
             // if it's on the same line, take only one expr
-            _ => p.parse_new_expr(),
+            _ => p.parse_new(&ExprMode),
         }
     }
 
@@ -535,13 +547,13 @@ impl<'input> Grammar<'input>
             }
             _ => {
                 // get the expression, then go to cases
-                Some(p.parse_new_expr()?)
+                Some(p.parse_new(&ExprMode)?)
             }
         };
         let cases = p.parse_n(Grammar::parse_case)?;
         expect_next!(p, Token::DoubleDash)?;
         let node = Ast::Case(ct, input, cases);
-        Ok(AstNode::new(node, loc))
+        Ok(AstNode::new(node, *loc))
     }
 
     /// Parse an idtype pair, ".id:Type"
@@ -598,7 +610,7 @@ impl<'input> Grammar<'input>
                 }
                 Token::Colon => {
                     p.next()?;
-                    Some(p.parse_new_expr()?)
+                    Some(p.parse_new(&ExprMode)?)
                 }
                 Token::DoubleArrow => None,
                 Token::DoubleDash => None,
@@ -643,7 +655,7 @@ impl<'input> Grammar<'input>
                         Ast::loc(&name),
                     ))
                 };
-                Ok((Some(name.src), var))
+                Ok(Some((Some(name.src), var)))
             }
             Token::DoubleDash => {
                 // leave the doubledash unconsumed
@@ -657,57 +669,6 @@ impl<'input> Grammar<'input>
                 ));
             }
         }
-    }
-
-    pub fn parse_xlist(
-        p: &mut Parsl<'input>,
-        end: Token,
-    ) -> Lresult<StrupleKV<Option<&'input str>, AstNode<'input>>>
-    {
-        let mut args = vec![];
-        loop {
-            match p.peek_token()? {
-                Token::EOF => {
-                    return Err(rustfail!(
-                        "parse_failure",
-                        "expected {:?}, found EOF",
-                        end,
-                    ));
-                }
-                t if t == end => {
-                    p.next()?;
-                    break;
-                }
-                _ => {
-                    args.push(p.parse_new_expr()?);
-                }
-            };
-
-            let comma = p.next()?;
-            match comma.tok {
-                Token::Comma => {
-                    // continue
-                }
-                Token::EOF => {
-                    return Err(rustfail!(
-                        "parse_failure",
-                        "expected {:?}, found EOF",
-                        end,
-                    ));
-                }
-                t if t == end => {
-                    break;
-                }
-                _ => {
-                    return Err(rustfail!(
-                        "parse_failure",
-                        "expected ')' or ',' found {:?}",
-                        comma,
-                    ));
-                }
-            }
-        }
-        Ok(StrupleKV::from(args))
     }
 
     pub fn parse_id(p: &mut Parsl<'input>) -> AstResult<'input>

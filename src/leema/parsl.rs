@@ -107,8 +107,8 @@ pub const MIN_PRECEDENCE: Precedence = Precedence(0, 0, Assoc::Left);
 /*
 pub enum ModeOp<'i>
 {
-    Push(&'static ParseMode<'i>),
-    Replace(&'static ParseMode<'i>),
+    Push(&'static ParslMode<'i>),
+    Replace(&'static ParslMode<'i>),
     Pop,
 }
 */
@@ -139,7 +139,7 @@ impl<'input> ParseOutput<'input>
 type ParseResult<'i> = Lresult<ParseOutput<'i>>;
 type ParseNResult<'i> = Lresult<Vec<AstNode<'i>>>;
 
-pub trait InfixParser: Debug
+pub trait InfixParser: fmt::Debug
 {
     fn parse<'input>(
         &self,
@@ -151,9 +151,9 @@ pub trait InfixParser: Debug
     fn precedence(&self) -> Precedence;
 }
 
-pub trait ParseMode<'i>: fmt::Debug
+pub trait ParslMode<'i>: fmt::Debug
 {
-    fn prefix(&self, p: Parsl<'i>, tok: TokenSrc<'i>) -> ParseResult<'i>;
+    fn prefix(&self, p: Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>;
 
     fn infix(&self, tok: Token) -> Option<&'static InfixParser>
     {
@@ -165,24 +165,54 @@ pub trait ItemParser<'i>: fmt::Debug
 {
     type Item;
 
-    fn parse(&self, p: Parsl<'i>) -> Lresult<(Self::Item, bool)>;
+    fn parse(&self, p: &mut Parsl<'i>) -> Lresult<(Self::Item, bool)>;
 }
 
 pub struct Parsl<'i>
 {
     src: TokenStream<'i>,
-    mode: ParslMode,
-    mode_stack: Vec<ParslMode>,
 }
 
 impl<'i> Parsl<'i>
 {
-    pub fn parse_new(&mut self, mode: &ParseMode<'i>) -> P1Result<'i>
+    pub fn new(src: TokenStream<'i>) -> Parsl<'i>
     {
-        self.parse(mode, MINIMUM_PRECEDENCE)
+        Parsl { src }
     }
 
-    pub fn parse(&mut self, mode: &ParseMode<'i>, prec: Precedence) -> ParseResult<'i>
+    pub fn peek_token(&mut self) -> Lresult<Token>
+    {
+        Ok(self.src.peek()?.tok)
+    }
+
+    pub fn peek(&mut self) -> TokenResult<'i>
+    {
+        self.src.peek()
+    }
+
+    pub fn next(&mut self) -> TokenResult<'i>
+    {
+        self.src.peek()
+    }
+
+    pub fn next_if(&mut self, tok: Token) -> Lresult<Option<TokenSrc<'i>>>
+    {
+        self.src.next_if()
+    }
+
+    pub fn skip_if(&mut self, tok: Token) -> Lresult<Option<TokenSrc<'i>>>
+    {
+        while self.next_if(tok)?.is_some() {
+            // keep going
+        }
+    }
+
+    pub fn parse_new(&mut self, mode: &'static ParslMode<'i>) -> AstResult<'i>
+    {
+        self.parse(mode, MIN_PRECEDENCE)
+    }
+
+    pub fn parse(&mut self, mode: &'static ParslMode<'i>, prec: Precedence) -> AstResult<'i>
     {
         let mut left = self.parse_0(mode)?;
         loop {
@@ -195,7 +225,8 @@ impl<'i> Parsl<'i>
         Ok(left)
     }
 
-    pub fn parse_n(&mut self, pi: &ItemParser<'i>) -> Lresult<Vec<ItemParser::Item>>
+    pub fn parse_n<P>(&mut self, pi: &'static P) -> Lresult<Vec<P::Item>>
+        where P: ItemParser<'i>
     {
         let mut result = vec![];
         loop {
@@ -212,7 +243,7 @@ impl<'i> Parsl<'i>
         Ok(result)
     }
 
-    pub fn parse_0(&mut self, mode: &ParseMode<'i>) -> AstResult<'i>
+    pub fn parse_0(&mut self, mode: &'static ParslMode<'i>) -> AstResult<'i>
     {
         let tok = self.src.next()?;
         let output = mode.prefix(self, tok)?;
@@ -226,7 +257,7 @@ impl<'i> Parsl<'i>
         })
     }
 
-    pub fn parse_1(&mut self, mode: &ParseMode<'i>, left: AstNode<'i>) -> AstResult<'i>
+    pub fn parse_1(&mut self, mode: &'static ParslMode<'i>, left: AstNode<'i>) -> AstResult<'i>
     {
         let tok = self.src.peek()?;
         let output = mode.parse_0(self, left, tok)?;
