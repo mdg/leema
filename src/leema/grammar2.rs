@@ -1,8 +1,8 @@
-use crate::leema::ast2::{self, Ast, AstNode, AstResult, CaseType, FuncClass, Loc};
+use crate::leema::ast2::{Ast, AstNode, AstResult};
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
-use crate::leema::parsl::{Assoc, InfixParser, ItemParser, Parsl, ParslMode, Precedence};
-use crate::leema::struple::StrupleKV;
+use crate::leema::parsl::{Assoc, InfixParser, Parsl, ParslMode, Precedence};
+// use crate::leema::struple::StrupleKV;
 use crate::leema::token::{Token, TokenSrc};
 use crate::leema::val::Val;
 
@@ -45,6 +45,7 @@ impl StmtMode
         Ok(AstNode::new(Ast::DefConst(id.src, rhs), Ast::loc(&id)))
     }
 
+    /*
     fn parse_deffunc<'i>(p: Parsl<'i>, fc: FuncClass) -> AstResult<'i>
     {
         let name = Grammar::parse_id(p)?;
@@ -100,6 +101,7 @@ impl StmtMode
         let loc = lhs.loc;
         Ok(AstNode::new(Ast::Let(lhs, AstNode::void(), rhs), loc))
     }
+    */
 }
 
 impl<'i> ParslMode<'i> for StmtMode
@@ -111,19 +113,24 @@ impl<'i> ParslMode<'i> for StmtMode
                 StmtMode::parse_defconst(p)
             }
             Token::DefFunc => {
-                StmtMode::parse_deffunc(p, FuncClass::Func)
+                // StmtMode::parse_deffunc(p, FuncClass::Func)
+                AstNode::void()
             }
             Token::DefType => {
-                StmtMode::parse_deftype(p)
+                // StmtMode::parse_deftype(p)
+                AstNode::void()
             }
             Token::Import => {
-                StmtMode::parse_import(p)
+                // StmtMode::parse_import(p)
+                AstNode::void()
             }
             Token::Let => {
-                StmtMode::parse_let(p)
+                // StmtMode::parse_let(p)
+                AstNode::void()
             }
             Token::DefMacro => {
-                StmtMode::parse_deffunc(p, FuncClass::Macro)
+                // StmtMode::parse_deffunc(p, FuncClass::Macro)
+                AstNode::void()
             }
             _ => {
                 p.parse_new(&ExprMode)
@@ -192,6 +199,7 @@ impl ExprMode
         Ok(AstNode::new(Ast::ConstVal(Val::Int(i)), Ast::loc(tok)))
     }
 
+    /*
     fn parse_str<'i>(p: &mut Parsl<'i>, loc: Loc) -> AstResult<'i>
     {
         let mut strs = p.parse_n(ExprMode::parse_stritem)?;
@@ -231,6 +239,7 @@ impl ExprMode
         };
         Ok(Some(x))
     }
+    */
 
     /*
     fn less_than<'i>(p: Parsl<'i>, left: AstNode<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
@@ -247,12 +256,14 @@ impl<'i> ParslMode<'i> for ExprMode
         let loc = Ast::loc(&tok);
         let expr = match tok.tok {
             Token::Bool => ExprMode::parse_bool(tok),
+            /*
             Token::DoubleArrow => {
                 let block = Grammar::parse_block(p)?;
                 expect_next!(p, Token::DoubleDash)?;
                 Ok(block)
             }
-            Token::DoubleQuoteL => ExprMode::parse_str(p, loc),
+            */
+            // Token::DoubleQuoteL => ExprMode::parse_str(p, loc),
             Token::Hashtag => {
                 AstNode::new_constval(
                     Val::Hashtag(Lstr::from(tok.src.to_string())),
@@ -262,9 +273,9 @@ impl<'i> ParslMode<'i> for ExprMode
             Token::Id => {
                 AstNode::new(Ast::Id1(tok.src), loc)
             }
-            Token::If => Grammar::parse_casex(p, CaseType::If, &loc),
+            // Token::If => Grammar::parse_casex(p, CaseType::If, &loc),
             Token::Int => ExprMode::parse_int(tok),
-            Token::Match => Grammar::parse_casex(p, CaseType::Match, &loc),
+            // Token::Match => Grammar::parse_casex(p, CaseType::Match, &loc),
             Token::Not => {
                 let x = p.parse(Lprec::Not)?;
                 AstNode::new(Ast::Op1(tok.src), loc)
@@ -274,11 +285,13 @@ impl<'i> ParslMode<'i> for ExprMode
                 expect_next!(p, Token::ParenR)?;
                 inner
             }
+            /*
             Token::SquareL => {
                 let items = p.parse_n(ParseXMaybeK(Token::SquareR))?;
                 expect_next!(p, Token::SquareR)?;
                 Ok(AstNode::new(Ast::List(items), Ast::loc(&tok)))
             }
+            */
         };
         Ok(expr)
     }
@@ -295,7 +308,7 @@ impl<'i> ParslMode<'i> for ExprMode
             Token::LessThanEqual => OP_LTE,
             Token::Modulo => OP_MODULO,
             Token::Or => OP_OR,
-            Token::ParenL => &ParseCall,
+            // Token::ParenL => &ParseCall,
             Token::Plus => OP_ADD,
             Token::Semicolon => OP_CONS,
             Token::Slash => OP_DIVIDE,
@@ -384,13 +397,14 @@ const OP_LTE: &'static BinaryOpParser = &BinaryOpParser {
     pre: Precedence(Lprec::LessThan as u8, 0, Assoc::Left),
 };
 
-/* Expression Parsers */
+// Expression Parsers
 
 // struct ConsParser;
 // struct DollarParser;
 // struct DotParser;
 // struct PipeParser;
 
+/*
 #[derive(Debug)]
 struct ParseCall;
 
@@ -495,6 +509,7 @@ impl<'i> ItemParser<'i> for ParseCase
         Ok(case)
     }
 }
+*/
 
 
 /// Grammar is a collection of functions for parsing a stream of tokens
@@ -517,6 +532,7 @@ impl<'input> Grammar<'input>
         self.p.parse_n()
     }
 
+    /*
     /// Parse the body of a function. Also eat the trailing
     fn parse_block(p: &mut Parsl<'input>) -> AstResult<'input>
     {
@@ -670,6 +686,7 @@ impl<'input> Grammar<'input>
             }
         }
     }
+    */
 
     pub fn parse_id(p: &mut Parsl<'input>) -> AstResult<'input>
     {

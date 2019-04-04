@@ -161,12 +161,14 @@ pub trait ParslMode<'i>: fmt::Debug
     }
 }
 
+/*
 pub trait ItemParser<'i>: fmt::Debug
 {
     type Item;
 
     fn parse(&self, p: &mut Parsl<'i>) -> Lresult<(Self::Item, bool)>;
 }
+*/
 
 pub struct Parsl<'i>
 {
@@ -243,7 +245,7 @@ impl<'i> Parsl<'i>
         Ok(result)
     }
 
-    pub fn parse_0(&mut self, mode: &'static ParslMode<'i>) -> AstResult<'i>
+    fn parse_0(&mut self, mode: &'static ParslMode<'i>) -> AstResult<'i>
     {
         let tok = self.src.next()?;
         let output = mode.prefix(self, tok)?;
