@@ -1,7 +1,7 @@
 use crate::leema::ast2::{Ast, AstNode, AstResult};
 use crate::leema::failure::Lresult;
-use crate::leema::lstr::Lstr;
-use crate::leema::parsl::{Assoc, InfixParser, Parsl, ParslMode, Precedence};
+// use crate::leema::lstr::Lstr;
+use crate::leema::parsl::{Assoc, InfixParser, Parsl, ParslMode, Precedence, PrefixParser};
 // use crate::leema::struple::StrupleKV;
 use crate::leema::token::{Token, TokenSrc};
 use crate::leema::val::Val;
@@ -33,18 +33,24 @@ impl From<Lprec> for Precedence
 }
 
 #[derive(Debug)]
-struct StmtMode;
+struct ParseDefConst;
 
-impl StmtMode
+impl<'i, T> PrefixParser<'i, T> for ParseDefConst
 {
-    fn parse_defconst<'i>(p: Parsl<'i>) -> AstResult<'i>
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<T>
     {
         let id = expect_next!(p, Token::Id)?;
         let _assign = expect_next!(p, Token::Assignment)?;
         let rhs = p.parse_new(&ExprMode)?;
-        Ok(AstNode::new(Ast::DefConst(id.src, rhs), Ast::loc(&id)))
+        Ok(AstNode::new(Ast::DefConst(id.src, rhs), Ast::loc(&tok)))
     }
+}
 
+#[derive(Debug)]
+struct StmtMode;
+
+impl StmtMode
+{
     /*
     fn parse_deffunc<'i>(p: Parsl<'i>, fc: FuncClass) -> AstResult<'i>
     {
@@ -104,14 +110,15 @@ impl StmtMode
     */
 }
 
-impl<'i> ParslMode<'i> for StmtMode
+impl<'i, T> ParslMode<'i, T> for StmtMode
 {
-    fn prefix(&self, p: Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
+    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, T>>
     {
-        match tok.tok {
+        Some(match tok.tok {
             Token::DefConst => {
-                StmtMode::parse_defconst(p)
+                &ParseDefConst
             }
+            /*
             Token::DefFunc => {
                 // StmtMode::parse_deffunc(p, FuncClass::Func)
                 AstNode::void()
@@ -132,10 +139,12 @@ impl<'i> ParslMode<'i> for StmtMode
                 // StmtMode::parse_deffunc(p, FuncClass::Macro)
                 AstNode::void()
             }
+            */
             _ => {
-                p.parse_new(&ExprMode)
+                // p.parse_new(&ExprMode)
+                return None;
             }
-        }
+        })
     }
 }
 
@@ -146,14 +155,14 @@ pub struct BinaryOpParser
     pub pre: Precedence,
 }
 
-impl InfixParser for BinaryOpParser
+impl<'i, T> InfixParser<'i, T> for BinaryOpParser
 {
-    fn parse<'input>(
+    fn parse(
         &self,
-        p: &mut Parsl<'input>,
-        left: AstNode<'input>,
-        op: TokenSrc<'input>,
-    ) -> AstResult<'input>
+        p: &mut Parsl<'i>,
+        left: T,
+        op: TokenSrc<'i>,
+    ) -> Lresult<T>
     {
         let right = p.parse_expr(self.pre)?;
         let ast = Ast::Op2(op.src, left, right);
@@ -163,6 +172,17 @@ impl InfixParser for BinaryOpParser
     fn precedence(&self) -> Precedence
     {
         self.pre
+    }
+}
+
+#[derive(Debug)]
+struct ParseId;
+
+impl<'i, T> PrefixParser<'i, T> for ParseId
+{
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<T>
+    {
+        Ok(AstNode::new(Ast::Id1(tok.src), Ast::loc(&tok)))
     }
 }
 
@@ -249,8 +269,19 @@ impl ExprMode
     */
 }
 
-impl<'i> ParslMode<'i> for ExprMode
+impl<'i, T> ParslMode<'i, T> for ExprMode
 {
+    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, T>>
+    {
+        Some(match tok {
+            Token::Id => &ParseId,
+            _ => {
+                return None;
+            }
+        })
+    }
+
+    /*
     fn prefix(&self, p: Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
         let loc = Ast::loc(&tok);
@@ -295,8 +326,9 @@ impl<'i> ParslMode<'i> for ExprMode
         };
         Ok(expr)
     }
+    */
 
-    fn infix(&self, tok: Token) -> Option<&'static InfixParser>
+    fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, T>>
     {
         let parse = match tok {
             Token::And => OP_AND,
@@ -687,12 +719,6 @@ impl<'input> Grammar<'input>
         }
     }
     */
-
-    pub fn parse_id(p: &mut Parsl<'input>) -> AstResult<'input>
-    {
-        let id = expect_next!(p, Token::Id)?;
-        Ok(AstNode::new(Ast::Id1(id.src), Ast::loc(&id)))
-    }
 }
 
 

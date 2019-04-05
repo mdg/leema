@@ -1,4 +1,3 @@
-use crate::leema::ast2::{AstNode, AstResult};
 use crate::leema::failure::Lresult;
 use crate::leema::token::{Token, TokenResult, TokenSrc};
 
@@ -111,7 +110,6 @@ pub enum ModeOp<'i>
     Replace(&'static ParslMode<'i>),
     Pop,
 }
-*/
 
 pub struct ParseOutput<'input>
 {
@@ -138,37 +136,41 @@ impl<'input> ParseOutput<'input>
 
 type ParseResult<'i> = Lresult<ParseOutput<'i>>;
 type ParseNResult<'i> = Lresult<Vec<AstNode<'i>>>;
+*/
 
-pub trait InfixParser: fmt::Debug
+pub trait PrefixParser<'i, T>: fmt::Debug
 {
-    fn parse<'input>(
+    fn parse(
         &self,
-        p: &mut Parsl<'input>,
-        left: AstNode<'input>,
-        tok: TokenSrc<'input>,
-    ) -> AstResult<'input>;
+        p: &mut Parsl<'i>,
+        tok: TokenSrc<'i>,
+    ) -> Lresult<T>;
+}
+
+pub trait InfixParser<'i, T>: fmt::Debug
+{
+    fn parse(
+        &self,
+        p: &mut Parsl<'i>,
+        left: T,
+        tok: TokenSrc<'i>,
+    ) -> Lresult<T>;
 
     fn precedence(&self) -> Precedence;
 }
 
-pub trait ParslMode<'i>: fmt::Debug
+pub trait ParslMode<'i, T>: fmt::Debug
 {
-    fn prefix(&self, p: Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>;
+    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, T>>
+    {
+        None
+    }
 
-    fn infix(&self, tok: Token) -> Option<&'static InfixParser>
+    fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, T>>
     {
         None
     }
 }
-
-/*
-pub trait ItemParser<'i>: fmt::Debug
-{
-    type Item;
-
-    fn parse(&self, p: &mut Parsl<'i>) -> Lresult<(Self::Item, bool)>;
-}
-*/
 
 pub struct Parsl<'i>
 {
@@ -199,36 +201,48 @@ impl<'i> Parsl<'i>
 
     pub fn next_if(&mut self, tok: Token) -> Lresult<Option<TokenSrc<'i>>>
     {
-        self.src.next_if()
+        self.src.next_if(tok)
     }
 
-    pub fn skip_if(&mut self, tok: Token) -> Lresult<Option<TokenSrc<'i>>>
+    pub fn skip_if(&mut self, tok: Token) -> Lresult<()>
     {
         while self.next_if(tok)?.is_some() {
             // keep going
         }
+        Ok(())
     }
 
-    pub fn parse_new(&mut self, mode: &'static ParslMode<'i>) -> AstResult<'i>
+    pub fn parse_new<T>(&mut self, mode: &'static ParslMode<'i, T>) -> Lresult<T>
     {
         self.parse(mode, MIN_PRECEDENCE)
     }
 
-    pub fn parse(&mut self, mode: &'static ParslMode<'i>, prec: Precedence) -> AstResult<'i>
+    pub fn parse<T>(&mut self, mode: &'static ParslMode<'i, T>, prec: Precedence) -> Lresult<T>
     {
-        let mut left = self.parse_0(mode)?;
+        let tok = self.next()?;
+        let parser = mode.prefix(tok.tok)
+            .ok_or_else(|| {
+                rustfail!(
+                    "parse_failure",
+                    "cannot parse token {:?} with parser {:?}",
+                    tok,
+                    mode,
+                )
+            })?;
+        let mut left = parser.parse(self, tok)?;
+
         loop {
             let infix = mode.infix(self.peek_token()?);
             if infix.is_none() || infix.unwrap().precedence() < prec {
                 break;
             }
-            left = infix.parse(self, left, self.next()?)?;
+            left = infix.unwrap().parse(self, left, self.next()?)?;
         }
         Ok(left)
     }
 
-    pub fn parse_n<P>(&mut self, pi: &'static P) -> Lresult<Vec<P::Item>>
-        where P: ItemParser<'i>
+    /*
+    pub fn parse_n<T>(&mut self, pi: &'static ParslMode<'i, T>) -> Lresult<T>
     {
         let mut result = vec![];
         loop {
@@ -275,4 +289,5 @@ impl<'i> Parsl<'i>
             )
         })
     }
+    */
 }

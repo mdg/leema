@@ -141,7 +141,7 @@ impl<'i> Ast<'i>
         match self {
             Ast::ConstVal(_) => true,
             Ast::List(items) => {
-                items.iter().all(|a| a.node.is_const())
+                items.iter_v().all(|a| a.node.is_const())
             }
             _ => false,
         }
