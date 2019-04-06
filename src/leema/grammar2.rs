@@ -56,18 +56,31 @@ impl<'i> ParslMode<'i> for StmtsMode
 {
     type Item = Vec<AstNode<'i>>;
 
-    fn prefix(&self, _tok: Token) -> Option<&'static PrefixParser<'i, Item=Vec<AstNode<'i>>>>
+    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=Vec<AstNode<'i>>>>
     {
-        None
+        Some(match tok {
+            Token::LineBegin => &ParseStmt,
+            _ => {
+                return None;
+            }
+        })
     }
 }
 
 #[derive(Debug)]
-struct StmtMode;
+struct ParseStmt;
 
-/*
-impl StmtMode
+impl ParseStmt
 {
+    fn parse_defconst<'i>(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
+    {
+        let id = expect_next!(p, Token::Id)?;
+        let _assign = expect_next!(p, Token::Assignment)?;
+        let rhs = p.parse_new(&ExprMode)?;
+        Ok(AstNode::new(Ast::DefConst(id.src, rhs), Ast::loc(&tok)))
+    }
+
+    /*
     fn parse_deffunc<'i>(p: Parsl<'i>, fc: FuncClass) -> AstResult<'i>
     {
         let name = Grammar::parse_id(p)?;
@@ -123,19 +136,24 @@ impl StmtMode
         let loc = lhs.loc;
         Ok(AstNode::new(Ast::Let(lhs, AstNode::void(), rhs), loc))
     }
+    */
 }
-*/
 
-impl<'i> ParslMode<'i> for StmtMode
+impl<'i> PrefixParser<'i> for ParseStmt
 {
-    type Item = AstNode<'i>;
+    type Item = Vec<AstNode<'i>>;
 
-    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=AstNode<'i>>>
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<Vec<AstNode<'i>>>
     {
-        Some(match tok {
-            Token::Const => {
-                &ParseDefConst
+        let stmt_tok = match tok.tok {
+            Token::LineBegin => {
+                p.next_if(Token::LineBegin)?;
+                p.next()?
             }
+            _ => tok,
+        };
+        let stmt = match stmt_tok.tok {
+            Token::Const => self.parse_defconst(p, stmt_tok)?,
             /*
             Token::DefFunc => {
                 // StmtMode::parse_deffunc(p, FuncClass::Func)
@@ -160,9 +178,14 @@ impl<'i> ParslMode<'i> for StmtMode
             */
             _ => {
                 // p.parse_new(&ExprMode)
-                return None;
+                return Err(rustfail!(
+                    "parse_failure",
+                    "cannot parse token as statement: {}",
+                    stmt_tok,
+                ));
             }
-        })
+        };
+        Ok(vec![stmt])
     }
 }
 
@@ -212,6 +235,26 @@ impl<'i> PrefixParser for ParseId<'i>
 */
 
 #[derive(Debug)]
+struct ParseInt;
+
+impl<'i> PrefixParser<'i> for ParseInt
+{
+    type Item = AstNode<'i>;
+
+    fn parse(&self, _p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
+    {
+        let i: i64 = tok.src.parse().map_err(|parsef| {
+            rustfail!(
+                "parse_failure",
+                "int token is not an integer: {:?}",
+                parsef,
+            )
+        })?;
+        Ok(AstNode::new(Ast::ConstVal(Val::Int(i)), Ast::loc(&tok)))
+    }
+}
+
+#[derive(Debug)]
 struct ExprMode;
 
 impl ExprMode
@@ -231,20 +274,6 @@ impl ExprMode
         };
         Ok(AstNode::new_constval(Val::Bool(b), Ast::loc(&tok)))
     }
-
-    /*
-    fn parse_int(tok: TokenSrc<'i>) -> AstResult<'i>
-    {
-        let i: i64 = tok.src.parse().map_err(|parsef| {
-            rustfail!(
-                "parse_failure",
-                "int token is not an integer: {:?}",
-                parsef,
-            )
-        })?;
-        Ok(AstNode::new(Ast::ConstVal(Val::Int(i)), Ast::loc(tok)))
-    }
-    */
 
     /*
     fn parse_str<'i>(p: &mut Parsl<'i>, loc: Loc) -> AstResult<'i>
@@ -300,17 +329,15 @@ impl<'i> ParslMode<'i> for ExprMode
 {
     type Item = AstNode<'i>;
 
-    fn prefix(&self, _tok: Token) -> Option<&'static PrefixParser<'i, Item=AstNode<'i>>>
+    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=AstNode<'i>>>
     {
-        /*
         Some(match tok {
             // Token::Id => &ParseId,
+            Token::Int => &ParseInt,
             _ => {
                 return None;
             }
         })
-        */
-        None
     }
 
     /*
@@ -1104,17 +1131,6 @@ mod tests
             assert_eq!(None, vars[0].v);
             assert_eq!(None, vars[1].v);
             assert_eq!(None, vars[2].v);
-        }
-    }
-
-    #[test]
-    fn test_parse_table_tokens()
-    {
-        for (i, row) in super::PARSE_TABLE.iter().enumerate() {
-            let token_index = row.0 as usize;
-            if i != token_index {
-                panic!("parse table row at wrong index for {:?}", row.0);
-            }
         }
     }
 }

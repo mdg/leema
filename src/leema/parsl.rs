@@ -7,13 +7,13 @@ use std::fmt;
 #[macro_export]
 macro_rules! expect_next {
     ($p:expr, $expected:expr) => {{
-        let tok = $p.peek()?;
+        let tok = $p.next()?;
         if tok.tok == $expected {
-            $p.next()
+            Ok(tok)
         } else {
             Err(rustfail!(
                 "parse_failure",
-                "expected {:?}, found {:?}",
+                "expected {:?}, found {}",
                 $expected,
                 tok,
             ))
@@ -37,6 +37,7 @@ impl<'input> TokenStream<'input>
         }
     }
 
+    /// Peek at the next token without consuming it
     fn peek(&mut self) -> TokenResult<'input>
     {
         if self.peeked.is_none() {
@@ -46,6 +47,7 @@ impl<'input> TokenStream<'input>
             .ok_or_else(|| rustfail!("parse_failure", "token underflow"))
     }
 
+    /// Peek at the type of the next token without consuming it
     pub fn peek_token(&mut self) -> Lresult<Token>
     {
         self.peek()
@@ -53,6 +55,7 @@ impl<'input> TokenStream<'input>
             .map_err(|f| f.loc(file!(), line!()))
     }
 
+    /// Consume the next token
     pub fn next(&mut self) -> TokenResult<'input>
     {
         self.peek().map_err(|f| f.loc(file!(), line!()))?;
@@ -61,6 +64,7 @@ impl<'input> TokenStream<'input>
             .ok_or_else(|| rustfail!("parse_failure", "failed peek"))
     }
 
+    /// Consume the next token if it is of the expected type
     pub fn next_if(&mut self, t: Token) -> Lresult<Option<TokenSrc<'input>>>
     {
         let tok = self.peek().map_err(|f| f.loc(file!(), line!()))?;
@@ -201,7 +205,7 @@ impl<'i> Parsl<'i>
 
     pub fn peek_token(&mut self) -> Lresult<Token>
     {
-        Ok(self.src.peek()?.tok)
+        self.src.peek_token()
     }
 
     pub fn peek(&mut self) -> TokenResult<'i>
@@ -211,7 +215,7 @@ impl<'i> Parsl<'i>
 
     pub fn next(&mut self) -> TokenResult<'i>
     {
-        self.src.peek()
+        self.src.next()
     }
 
     pub fn next_if(&mut self, tok: Token) -> Lresult<Option<TokenSrc<'i>>>
@@ -236,21 +240,16 @@ impl<'i> Parsl<'i>
     pub fn parse<P>(&mut self, mode: &'static P, prec: Precedence) -> Lresult<P::Item>
         where P: ParslMode<'i>
     {
-        let mut left = match mode.implicit_prefix() {
-            Some(def_left) => def_left,
+        let tok0 = self.next()?;
+        let mut left = match mode.prefix(tok0.tok) {
+            Some(parser) => parser.parse(self, tok0)?,
             None => {
-                let tok0 = self.next()?;
-                match mode.prefix(tok0.tok) {
-                    Some(parser) => parser.parse(self, tok0)?,
-                    None => {
-                        return Err(rustfail!(
-                            "parse_failure",
-                            "cannot parse token {:?} in mode {:?}",
-                            tok0,
-                            mode,
-                        ));
-                    }
-                }
+                return Err(rustfail!(
+                    "parse_failure",
+                    "cannot parse token in mode {} {:?}",
+                    tok0,
+                    mode,
+                ));
             }
         };
 
