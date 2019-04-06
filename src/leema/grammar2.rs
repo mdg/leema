@@ -80,6 +80,15 @@ impl ParseStmt
         Ok(AstNode::new(Ast::DefConst(id.src, rhs), Ast::loc(&tok)))
     }
 
+    fn parse_let<'i>(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
+    {
+        let lhs = p.parse_new(&ExprMode)?;
+        let _assign = expect_next!(p, Token::Assignment)?;
+        let rhs = p.parse_new(&ExprMode)?;
+        let loc = Ast::loc(&tok);
+        Ok(AstNode::new(Ast::Let(lhs, AstNode::void(), rhs), loc))
+    }
+
     /*
     fn parse_deffunc<'i>(p: Parsl<'i>, fc: FuncClass) -> AstResult<'i>
     {
@@ -127,15 +136,6 @@ impl ParseStmt
         let module = expect_next!(p, Token::Id)?;
         Ok(AstNode::new(Ast::Import(module.src), Ast::loc(&module)))
     }
-
-    fn parse_let<'i>(p: Parsl<'i>) -> AstResult<'i>
-    {
-        let lhs = p.parse_new(&ExprMode)?;
-        let _assign = expect_next!(p, Token::Assignment)?;
-        let rhs = p.parse_new(&ExprMode)?;
-        let loc = lhs.loc;
-        Ok(AstNode::new(Ast::Let(lhs, AstNode::void(), rhs), loc))
-    }
     */
 }
 
@@ -154,6 +154,7 @@ impl<'i> PrefixParser<'i> for ParseStmt
         };
         let stmt = match stmt_tok.tok {
             Token::Const => self.parse_defconst(p, stmt_tok)?,
+            Token::Let => self.parse_let(p, stmt_tok)?,
             /*
             Token::DefFunc => {
                 // StmtMode::parse_deffunc(p, FuncClass::Func)
@@ -165,10 +166,6 @@ impl<'i> PrefixParser<'i> for ParseStmt
             }
             Token::Import => {
                 // StmtMode::parse_import(p)
-                AstNode::void()
-            }
-            Token::Let => {
-                // StmtMode::parse_let(p)
                 AstNode::void()
             }
             Token::DefMacro => {
@@ -189,16 +186,14 @@ impl<'i> PrefixParser<'i> for ParseStmt
     }
 }
 
-/*
 #[derive(Debug)]
-pub struct BinaryOpParser<'i>
+pub struct BinaryOpParser
 {
-    phantom: PhantomData<&'i bool>,
     pub op: &'static str,
     pub pre: Precedence,
 }
 
-impl<'i> InfixParser for BinaryOpParser<'i>
+impl<'i> InfixParser<'i> for BinaryOpParser
 {
     type Item = AstNode<'i>;
 
@@ -209,7 +204,7 @@ impl<'i> InfixParser for BinaryOpParser<'i>
         op: TokenSrc<'i>,
     ) -> AstResult<'i>
     {
-        let right = p.parse_expr(self.pre)?;
+        let right = p.parse(&ExprMode, self.pre)?;
         let ast = Ast::Op2(op.src, left, right);
         Ok(AstNode::new(ast, Ast::loc(&op)))
     }
@@ -221,18 +216,17 @@ impl<'i> InfixParser for BinaryOpParser<'i>
 }
 
 #[derive(Debug)]
-struct ParseId<'i>(PhantomData<&'i bool>);
+struct ParseId;
 
-impl<'i> PrefixParser for ParseId<'i>
+impl<'i> PrefixParser<'i> for ParseId
 {
     type Item = AstNode<'i>;
 
-    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
+    fn parse(&self, _p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
         Ok(AstNode::new(Ast::Id1(tok.src), Ast::loc(&tok)))
     }
 }
-*/
 
 #[derive(Debug)]
 struct ParseInt;
@@ -332,7 +326,7 @@ impl<'i> ParslMode<'i> for ExprMode
     fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=AstNode<'i>>>
     {
         Some(match tok {
-            // Token::Id => &ParseId,
+            Token::Id => &ParseId,
             Token::Int => &ParseInt,
             _ => {
                 return None;
@@ -387,10 +381,11 @@ impl<'i> ParslMode<'i> for ExprMode
     }
     */
 
-    fn infix(&self, _tok: Token) -> Option<&'static InfixParser<Item=AstNode<'i>>>
+    fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, Item=AstNode<'i>>>
     {
-            /*
         let parse = match tok {
+            Token::Plus => OP_ADD,
+            /*
             Token::And => OP_AND,
             Token::Dash => OP_SUBTRACT,
             Token::Equal => OP_EQ,
@@ -401,20 +396,23 @@ impl<'i> ParslMode<'i> for ExprMode
             Token::Modulo => OP_MODULO,
             Token::Or => OP_OR,
             // Token::ParenL => &ParseCall,
-            Token::Plus => OP_ADD,
             Token::Semicolon => OP_CONS,
             Token::Slash => OP_DIVIDE,
             Token::Star => OP_MULTIPLY,
             Token::Xor => OP_XOR,
+            */
             _ => {
                 return None;
             }
         };
         Some(parse)
-            */
-        None
     }
 }
+
+const OP_ADD: &'static BinaryOpParser = &BinaryOpParser {
+    op: "+",
+    pre: Precedence(Lprec::Add as u8, 0, Assoc::Left),
+};
 
 /*
 const OP_AND: &'static BinaryOpParser = &BinaryOpParser {
@@ -450,11 +448,6 @@ const OP_MODULO: &'static BinaryOpParser = &BinaryOpParser {
 const OP_CONS: &'static BinaryOpParser = &BinaryOpParser {
     op: ";",
     pre: Precedence(Lprec::Cons as u8, 0, Assoc::Right),
-};
-
-const OP_ADD: &'static BinaryOpParser = &BinaryOpParser {
-    op: "+",
-    pre: Precedence(Lprec::Add as u8, 0, Assoc::Left),
 };
 
 const OP_SUBTRACT: &'static BinaryOpParser = &BinaryOpParser {
@@ -625,7 +618,17 @@ impl<'input> Grammar<'input>
 
     pub fn parse_module(&mut self) -> Lresult<Vec<AstNode<'input>>>
     {
-        self.p.parse_new(&StmtsMode)
+        let result = self.p.parse_new(&StmtsMode)?;
+        let tok = self.p.peek()?;
+        if tok.tok != Token::EOF {
+            Err(rustfail!(
+                "parse_failure",
+                "failed to complete parsing. stopped at {}",
+                tok,
+            ))
+        } else {
+            Ok(result)
+        }
     }
 
     /*
@@ -894,7 +897,18 @@ mod tests
         let input = "let x := 5 + y";
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
-        p.parse_module().unwrap();
+        let ast = p.parse_module().unwrap();
+
+        assert_eq!(1, ast.len());
+        assert_matches!(*ast[0].node, Ast::Let(_, _, _));
+        if let Ast::Let(lhs, _, rhs) = &*ast[0].node {
+            assert_eq!(Ast::Id1("x"), *lhs.node);
+            assert_matches!(*rhs.node, Ast::Op2("+", _, _));
+            if let Ast::Op2(_, op1, op2) = &*rhs.node {
+                assert_eq!(Ast::ConstVal(Val::Int(5)), *op1.node);
+                assert_eq!(Ast::Id1("y"), *op2.node);
+            }
+        }
     }
 
     #[test]

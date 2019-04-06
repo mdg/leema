@@ -153,11 +153,11 @@ pub trait PrefixParser<'i>: fmt::Debug
     ) -> Lresult<Self::Item>;
 }
 
-pub trait InfixParser: fmt::Debug
+pub trait InfixParser<'i>: fmt::Debug
 {
     type Item;
 
-    fn parse<'i>(
+    fn parse(
         &self,
         p: &mut Parsl<'i>,
         left: Self::Item,
@@ -184,7 +184,7 @@ pub trait ParslMode<'i>: fmt::Debug
         None
     }
 
-    fn infix(&self, _tok: Token) -> Option<&InfixParser<Item=Self::Item>>
+    fn infix(&self, _tok: Token) -> Option<&InfixParser<'i, Item=Self::Item>>
     {
         None
     }
@@ -233,12 +233,14 @@ impl<'i> Parsl<'i>
 
     pub fn parse_new<P>(&mut self, mode: &'static P) -> Lresult<P::Item>
         where P: ParslMode<'i>
+            , P::Item: fmt::Debug
     {
         self.parse(mode, MIN_PRECEDENCE)
     }
 
     pub fn parse<P>(&mut self, mode: &'static P, prec: Precedence) -> Lresult<P::Item>
         where P: ParslMode<'i>
+            , P::Item: fmt::Debug
     {
         let tok0 = self.next()?;
         let mut left = match mode.prefix(tok0.tok) {
@@ -254,7 +256,8 @@ impl<'i> Parsl<'i>
         };
 
         loop {
-            let infix = mode.infix(self.peek_token()?);
+            let peek_infix = self.peek_token()?;
+            let infix = mode.infix(peek_infix);
             if infix.is_none() || infix.unwrap().precedence() < prec {
                 break;
             }
@@ -263,54 +266,4 @@ impl<'i> Parsl<'i>
         }
         Ok(left)
     }
-
-    /*
-    pub fn parse_n<T>(&mut self, pi: &'static ParslMode<'i, T>) -> Lresult<T>
-    {
-        let mut result = vec![];
-        loop {
-            let tok = self.peek_token()?;
-            if tok.tok == Token::EOF {
-                break;
-            }
-            if !pi.more(self, tok.tok) {
-                break;
-            }
-            let node = pi.parse(self)?;
-            result.push_back(node);
-        }
-        Ok(result)
-    }
-
-    fn parse_0(&mut self, mode: &'static ParslMode<'i>) -> AstResult<'i>
-    {
-        let tok = self.src.next()?;
-        let output = mode.prefix(self, tok)?;
-        output.1.ok_or_else(|| {
-            rustfail!(
-                "parse_failure",
-                "cannot parse token {:?} with parser {:?}",
-                tok,
-                mode,
-            )
-        })
-    }
-
-    pub fn parse_1(&mut self, mode: &'static ParslMode<'i>, left: AstNode<'i>) -> AstResult<'i>
-    {
-        let tok = self.src.peek()?;
-        let output = mode.parse_0(self, left, tok)?;
-        if output.2 {
-            self.src.next()?;
-        }
-        output.1.ok_or_else(|| {
-            rustfail!(
-                "parse_failure",
-                "cannot parse token {:?} with parser {:?}",
-                tok,
-                mode,
-            )
-        })
-    }
-    */
 }
