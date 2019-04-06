@@ -138,35 +138,41 @@ type ParseResult<'i> = Lresult<ParseOutput<'i>>;
 type ParseNResult<'i> = Lresult<Vec<AstNode<'i>>>;
 */
 
-pub trait PrefixParser<'i, T>: fmt::Debug
+pub trait PrefixParser<'i>: fmt::Debug
 {
+    type Item;
+
     fn parse(
         &self,
         p: &mut Parsl<'i>,
         tok: TokenSrc<'i>,
-    ) -> Lresult<T>;
+    ) -> Lresult<Self::Item>;
 }
 
-pub trait InfixParser<'i, T>: fmt::Debug
+pub trait InfixParser: fmt::Debug
 {
-    fn parse(
+    type Item;
+
+    fn parse<'i>(
         &self,
         p: &mut Parsl<'i>,
-        left: T,
+        left: Self::Item,
         tok: TokenSrc<'i>,
-    ) -> Lresult<T>;
+    ) -> Lresult<Self::Item>;
 
     fn precedence(&self) -> Precedence;
 }
 
-pub trait ParslMode<'i, T>: fmt::Debug
+pub trait ParslMode<'i>: fmt::Debug
 {
-    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, T>>
+    type Item;
+
+    fn prefix(&self, _tok: Token) -> Option<&PrefixParser<'i, Item=Self::Item>>
     {
         None
     }
 
-    fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, T>>
+    fn infix(&self, _tok: Token) -> Option<&InfixParser<Item=Self::Item>>
     {
         None
     }
@@ -179,9 +185,10 @@ pub struct Parsl<'i>
 
 impl<'i> Parsl<'i>
 {
-    pub fn new(src: TokenStream<'i>) -> Parsl<'i>
+    pub fn new(src: Vec<TokenSrc<'i>>) -> Parsl<'i>
     {
-        Parsl { src }
+        let strm = TokenStream::new(src);
+        Parsl { src: strm }
     }
 
     pub fn peek_token(&mut self) -> Lresult<Token>
@@ -212,15 +219,17 @@ impl<'i> Parsl<'i>
         Ok(())
     }
 
-    pub fn parse_new<T>(&mut self, mode: &'static ParslMode<'i, T>) -> Lresult<T>
+    pub fn parse_new<P>(&mut self, mode: &'static P) -> Lresult<P::Item>
+        where P: ParslMode<'i>
     {
         self.parse(mode, MIN_PRECEDENCE)
     }
 
-    pub fn parse<T>(&mut self, mode: &'static ParslMode<'i, T>, prec: Precedence) -> Lresult<T>
+    pub fn parse<P>(&mut self, mode: &'static P, prec: Precedence) -> Lresult<P::Item>
+        where P: ParslMode<'i>
     {
-        let tok = self.next()?;
-        let parser = mode.prefix(tok.tok)
+        let tok: TokenSrc<'i> = self.next()?;
+        let parser: &PrefixParser<'i, Item=P::Item> = mode.prefix(tok.tok)
             .ok_or_else(|| {
                 rustfail!(
                     "parse_failure",
@@ -236,7 +245,8 @@ impl<'i> Parsl<'i>
             if infix.is_none() || infix.unwrap().precedence() < prec {
                 break;
             }
-            left = infix.unwrap().parse(self, left, self.next()?)?;
+            let itok = self.next()?;
+            left = infix.unwrap().parse(self, left, itok)?;
         }
         Ok(left)
     }

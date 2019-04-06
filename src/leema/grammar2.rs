@@ -6,6 +6,7 @@ use crate::leema::parsl::{Assoc, InfixParser, Parsl, ParslMode, Precedence, Pref
 use crate::leema::token::{Token, TokenSrc};
 use crate::leema::val::Val;
 
+
 enum Lprec
 {
     Minimum,
@@ -35,9 +36,11 @@ impl From<Lprec> for Precedence
 #[derive(Debug)]
 struct ParseDefConst;
 
-impl<'i, T> PrefixParser<'i, T> for ParseDefConst
+impl<'i> PrefixParser<'i> for ParseDefConst
 {
-    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<T>
+    type Item = AstNode<'i>;
+
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
         let id = expect_next!(p, Token::Id)?;
         let _assign = expect_next!(p, Token::Assignment)?;
@@ -47,11 +50,24 @@ impl<'i, T> PrefixParser<'i, T> for ParseDefConst
 }
 
 #[derive(Debug)]
+struct StmtsMode;
+
+impl<'i> ParslMode<'i> for StmtsMode
+{
+    type Item = Vec<AstNode<'i>>;
+
+    fn prefix(&self, _tok: Token) -> Option<&'static PrefixParser<'i, Item=Vec<AstNode<'i>>>>
+    {
+        None
+    }
+}
+
+#[derive(Debug)]
 struct StmtMode;
 
+/*
 impl StmtMode
 {
-    /*
     fn parse_deffunc<'i>(p: Parsl<'i>, fc: FuncClass) -> AstResult<'i>
     {
         let name = Grammar::parse_id(p)?;
@@ -107,15 +123,17 @@ impl StmtMode
         let loc = lhs.loc;
         Ok(AstNode::new(Ast::Let(lhs, AstNode::void(), rhs), loc))
     }
-    */
 }
+*/
 
-impl<'i, T> ParslMode<'i, T> for StmtMode
+impl<'i> ParslMode<'i> for StmtMode
 {
-    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, T>>
+    type Item = AstNode<'i>;
+
+    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=AstNode<'i>>>
     {
-        Some(match tok.tok {
-            Token::DefConst => {
+        Some(match tok {
+            Token::Const => {
                 &ParseDefConst
             }
             /*
@@ -148,21 +166,25 @@ impl<'i, T> ParslMode<'i, T> for StmtMode
     }
 }
 
+/*
 #[derive(Debug)]
-pub struct BinaryOpParser
+pub struct BinaryOpParser<'i>
 {
+    phantom: PhantomData<&'i bool>,
     pub op: &'static str,
     pub pre: Precedence,
 }
 
-impl<'i, T> InfixParser<'i, T> for BinaryOpParser
+impl<'i> InfixParser for BinaryOpParser<'i>
 {
+    type Item = AstNode<'i>;
+
     fn parse(
         &self,
         p: &mut Parsl<'i>,
-        left: T,
+        left: AstNode<'i>,
         op: TokenSrc<'i>,
-    ) -> Lresult<T>
+    ) -> AstResult<'i>
     {
         let right = p.parse_expr(self.pre)?;
         let ast = Ast::Op2(op.src, left, right);
@@ -176,15 +198,18 @@ impl<'i, T> InfixParser<'i, T> for BinaryOpParser
 }
 
 #[derive(Debug)]
-struct ParseId;
+struct ParseId<'i>(PhantomData<&'i bool>);
 
-impl<'i, T> PrefixParser<'i, T> for ParseId
+impl<'i> PrefixParser for ParseId<'i>
 {
-    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<T>
+    type Item = AstNode<'i>;
+
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
         Ok(AstNode::new(Ast::Id1(tok.src), Ast::loc(&tok)))
     }
 }
+*/
 
 #[derive(Debug)]
 struct ExprMode;
@@ -204,10 +229,11 @@ impl ExprMode
                 ));
             }
         };
-        AstNode::new_constval(Val::Bool(b), Ast::loc(&tok))
+        Ok(AstNode::new_constval(Val::Bool(b), Ast::loc(&tok)))
     }
 
-    fn parse_int<'i>(tok: TokenSrc<'i>) -> AstResult<'i>
+    /*
+    fn parse_int(tok: TokenSrc<'i>) -> AstResult<'i>
     {
         let i: i64 = tok.src.parse().map_err(|parsef| {
             rustfail!(
@@ -218,6 +244,7 @@ impl ExprMode
         })?;
         Ok(AstNode::new(Ast::ConstVal(Val::Int(i)), Ast::loc(tok)))
     }
+    */
 
     /*
     fn parse_str<'i>(p: &mut Parsl<'i>, loc: Loc) -> AstResult<'i>
@@ -269,16 +296,21 @@ impl ExprMode
     */
 }
 
-impl<'i, T> ParslMode<'i, T> for ExprMode
+impl<'i> ParslMode<'i> for ExprMode
 {
-    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, T>>
+    type Item = AstNode<'i>;
+
+    fn prefix(&self, _tok: Token) -> Option<&'static PrefixParser<'i, Item=AstNode<'i>>>
     {
+        /*
         Some(match tok {
-            Token::Id => &ParseId,
+            // Token::Id => &ParseId,
             _ => {
                 return None;
             }
         })
+        */
+        None
     }
 
     /*
@@ -328,8 +360,9 @@ impl<'i, T> ParslMode<'i, T> for ExprMode
     }
     */
 
-    fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, T>>
+    fn infix(&self, _tok: Token) -> Option<&'static InfixParser<Item=AstNode<'i>>>
     {
+            /*
         let parse = match tok {
             Token::And => OP_AND,
             Token::Dash => OP_SUBTRACT,
@@ -351,9 +384,12 @@ impl<'i, T> ParslMode<'i, T> for ExprMode
             }
         };
         Some(parse)
+            */
+        None
     }
 }
 
+/*
 const OP_AND: &'static BinaryOpParser = &BinaryOpParser {
     op: "and",
     pre: Precedence(Lprec::And as u8, 0, Assoc::Left),
@@ -428,6 +464,7 @@ const OP_LTE: &'static BinaryOpParser = &BinaryOpParser {
     op: "<=",
     pre: Precedence(Lprec::LessThan as u8, 0, Assoc::Left),
 };
+*/
 
 // Expression Parsers
 
@@ -561,7 +598,7 @@ impl<'input> Grammar<'input>
 
     pub fn parse_module(&mut self) -> Lresult<Vec<AstNode<'input>>>
     {
-        self.p.parse_n()
+        self.p.parse_new(&StmtsMode)
     }
 
     /*
