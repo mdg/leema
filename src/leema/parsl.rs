@@ -167,6 +167,14 @@ pub trait ParslMode<'i>: fmt::Debug
 {
     type Item;
 
+    /// Some modes start with an implicit prefix and are infix only
+    /// like a list of parameters
+    fn implicit_prefix(&self) -> Option<Self::Item>
+    {
+        None
+    }
+
+    /// Get a prefix parser for this token
     fn prefix(&self, _tok: Token) -> Option<&PrefixParser<'i, Item=Self::Item>>
     {
         None
@@ -228,17 +236,23 @@ impl<'i> Parsl<'i>
     pub fn parse<P>(&mut self, mode: &'static P, prec: Precedence) -> Lresult<P::Item>
         where P: ParslMode<'i>
     {
-        let tok: TokenSrc<'i> = self.next()?;
-        let parser: &PrefixParser<'i, Item=P::Item> = mode.prefix(tok.tok)
-            .ok_or_else(|| {
-                rustfail!(
-                    "parse_failure",
-                    "cannot parse token {:?} with parser {:?}",
-                    tok,
-                    mode,
-                )
-            })?;
-        let mut left = parser.parse(self, tok)?;
+        let mut left = match mode.implicit_prefix() {
+            Some(def_left) => def_left,
+            None => {
+                let tok0 = self.next()?;
+                match mode.prefix(tok0.tok) {
+                    Some(parser) => parser.parse(self, tok0)?,
+                    None => {
+                        return Err(rustfail!(
+                            "parse_failure",
+                            "cannot parse token {:?} in mode {:?}",
+                            tok0,
+                            mode,
+                        ));
+                    }
+                }
+            }
+        };
 
         loop {
             let infix = mode.infix(self.peek_token()?);
