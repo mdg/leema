@@ -668,10 +668,7 @@ impl ScanModeTrait for ScanModeFileBegin
                     space_or_tab: '\t',
                 })))
             }
-            '\n' => {
-                Ok(ScanOutput::Token(Token::EmptyLine, true, ScanModeOp::Noop))
-            }
-            _ => Ok(ScanOutput::Token(Token::LineBegin, false, PUSH_MODE_LINE)),
+            _ => ScanModeIndent{ space_or_tab: '\0' }.scan(next),
         }
     }
 }
@@ -707,6 +704,9 @@ impl ScanModeTrait for ScanModeIndent
                 Ok(ScanOutput::Token(Token::Spaces, false, PUSH_MODE_LINE))
             }
             (_, ':') => {
+                Ok(ScanOutput::Token(Token::Spaces, false, PUSH_MODE_LINE))
+            }
+            (_, ',') => {
                 Ok(ScanOutput::Token(Token::Spaces, false, PUSH_MODE_LINE))
             }
             (' ', '\t') => {
@@ -1292,7 +1292,7 @@ mod tests
 
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
         let mut i = t.iter();
-        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        assert_eq!(Token::Spaces, nextok(&mut i).0);
         assert_eq!(Token::Colon, nextok(&mut i).0);
         i.next();
         assert_eq!(Token::Comma, nextok(&mut i).0);

@@ -25,6 +25,8 @@ enum Lprec
     Dot,
 }
 
+const COMMA_PRECEDENCE: Precedence = Precedence(Lprec::Comma as u8, 0, Assoc::Left);
+
 impl From<Lprec> for Precedence
 {
     fn from(p: Lprec) -> Self
@@ -555,6 +557,22 @@ impl<'i> PrefixParser<'i> for ParseParen
 }
 
 #[derive(Debug)]
+struct ParseList;
+
+impl<'i> PrefixParser<'i> for ParseList
+{
+    type Item = AstNode<'i>;
+
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
+    {
+        let inner = p.parse_new(&XlistMode)?;
+        expect_next!(p, Token::SquareR)?;
+        let items = StrupleKV::from(inner);
+        Ok(AstNode::new(Ast::List(items), Ast::loc(&tok)))
+    }
+}
+
+#[derive(Debug)]
 struct ParseStr;
 
 impl<'i> PrefixParser<'i> for ParseStr
@@ -607,6 +625,7 @@ impl<'i> ParslMode<'i> for ExprMode
             Token::Int => &ParseInt,
             Token::Not => &ParseNot,
             Token::ParenL => &ParseParen,
+            Token::SquareL => &ParseList,
             _ => {
                 return None;
             }
@@ -804,6 +823,69 @@ impl<'i> PrefixParser<'i> for ParseStrLit
     {
         let lstr = Lstr::from(tok.src.to_string());
         Ok(AstNode::new(Ast::ConstVal(Val::Str(lstr)), Ast::loc(&tok)))
+    }
+}
+
+/// XlistMode for lists of: "x," or "k: x,", trailing comma is allowed/optional
+#[derive(Debug)]
+struct XlistMode;
+
+impl<'i> ParslMode<'i> for XlistMode
+{
+    type Item = Vec<(Option<&'i str>, AstNode<'i>)>;
+
+    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=Self::Item>>
+    {
+        match tok {
+            Token::Comma => None,
+            _ => Some(&ParseFirst(&ParseXMaybeK(false))),
+        }
+    }
+
+    fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, Item=Self::Item>>
+    {
+        match tok {
+            Token::Comma => {
+                Some(&ParseMore(
+                    &ParseXMaybeK(true),
+                    COMMA_PRECEDENCE,
+                ))
+            }
+            _ => None,
+        }
+    }
+}
+
+/// Parses a single item in a list, tuple, call args
+#[derive(Debug)]
+struct ParseXMaybeK(bool);
+
+impl<'i> PrefixParser<'i> for ParseXMaybeK
+{
+    type Item = (Option<&'i str>, AstNode<'i>);
+
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<Self::Item>
+    {
+        let first = if self.0 {
+            assert_eq!(Token::Comma, tok.tok);
+            p.parse_new(&ExprMode)?
+        } else {
+            p.reparse(&ExprMode, MIN_PRECEDENCE, tok)?
+        };
+        if p.next_if(Token::Colon)?.is_some() {
+            if let Ast::Id1(key) = *first.node {
+                let v = p.parse_new(&ExprMode)?;
+                Ok((Some(key), v))
+            } else {
+                Err(rustfail!(
+                    "parse_failure",
+                    "key must be a single id, found {:?}",
+                    first,
+                ))
+            }
+        } else {
+            Ok((None, first))
+        }
     }
 }
 

@@ -107,41 +107,6 @@ pub struct Precedence(pub u8, pub i8, pub Assoc);
 
 pub const MIN_PRECEDENCE: Precedence = Precedence(0, 0, Assoc::Left);
 
-/*
-pub enum ModeOp<'i>
-{
-    Push(&'static ParslMode<'i>),
-    Replace(&'static ParslMode<'i>),
-    Pop,
-}
-
-pub struct ParseOutput<'input>
-{
-    node: Option<AstNode<'input>>,
-    consume: bool,
-    /*
-    Open(AstNode<'input>, bool, ModeOp),
-    Close(AstNode<'input>, bool, ModeOp),
-    Skip(bool, ModeOp),
-    Stop,
-    */
-}
-
-impl<'input> ParseOutput<'input>
-{
-    fn ok(node: AstNode<'input>, consume: bool) -> ParseResult<'input>
-    {
-        ParseOutput {
-            node,
-            consume,
-        }
-    }
-}
-
-type ParseResult<'i> = Lresult<ParseOutput<'i>>;
-type ParseNResult<'i> = Lresult<Vec<AstNode<'i>>>;
-*/
-
 pub trait PrefixParser<'i>: fmt::Debug
 {
     type Item;
