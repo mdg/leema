@@ -1,7 +1,7 @@
-use crate::leema::ast2::{Ast, AstNode, AstResult};
+use crate::leema::ast2::{Ast, AstNode, AstResult, Loc};
 use crate::leema::failure::Lresult;
 // use crate::leema::lstr::Lstr;
-use crate::leema::parsl::{Assoc, InfixParser, Parsl, ParslMode, Precedence, PrefixParser};
+use crate::leema::parsl::{Assoc, InfixParser, MIN_PRECEDENCE, Parsl, ParslMode, Precedence, PrefixParser};
 // use crate::leema::struple::StrupleKV;
 use crate::leema::token::{Token, TokenSrc};
 use crate::leema::val::Val;
@@ -49,6 +49,7 @@ impl<'i> PrefixParser<'i> for ParseDefConst
     }
 }
 
+/// Parse mode for a sequence of statements
 #[derive(Debug)]
 struct StmtsMode;
 
@@ -61,17 +62,137 @@ impl<'i> ParslMode<'i> for StmtsMode
         Some(match tok {
             Token::LineBegin => &ParseStmt,
             _ => {
+eprintln!("no parser for token in StmtsMode: {:?}", tok);
+                return None;
+            }
+        })
+    }
+
+    fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, Item=Vec<AstNode<'i>>>>
+    {
+        Some(match tok {
+            Token::LineBegin => &ParseStmt,
+            Token::DoubleDash => {
+                return None;
+            }
+            _ => {
                 return None;
             }
         })
     }
 }
 
+impl<'i> PrefixParser<'i> for ParseStmt
+{
+    type Item = Vec<AstNode<'i>>;
+
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<Vec<AstNode<'i>>>
+    {
+        let stmt = self.parse_stmt(p, tok)?;
+        Ok(vec![stmt])
+    }
+}
+
+impl<'i> InfixParser<'i> for ParseStmt
+{
+    type Item = Vec<AstNode<'i>>;
+
+    fn parse(&self, p: &mut Parsl<'i>, mut left: Vec<AstNode<'i>>, tok: TokenSrc<'i>) -> Lresult<Vec<AstNode<'i>>>
+    {
+        let right = self.parse_stmt(p, tok)?;
+        left.push(right);
+        Ok(left)
+    }
+
+    fn precedence(&self) -> Precedence
+    {
+        MIN_PRECEDENCE
+    }
+}
+
+/*
+#[derive(Debug)]
+struct ParseStmts;
+
+impl<'i> PrefixParser<'i> for ParseStmts
+{
+    type Item = Vec<AstNode<'i>>;
+
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<Vec<AstNode<'i>>>
+    {
+        // skip LineBegin in tok
+        let stmt = p.parse_new(&StmtMode)?;
+        Ok(vec![stmt])
+    }
+}
+
+/// Parse mode for a single statement
+#[derive(Debug)]
+struct StmtMode;
+
+impl<'i> ParslMode<'i> for StmtMode
+{
+    type Item = Vec<AstNode<'i>>;
+
+    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=Vec<AstNode<'i>>>>
+    {
+        match tok {
+            Token::Const => ParseDefConst,
+            Token::Let => ParseLet,
+            _ => {
+                ParseExpr,
+            }
+        }
+    }
+}
+*/
+
 #[derive(Debug)]
 struct ParseStmt;
 
 impl ParseStmt
 {
+    fn parse_stmt<'i>(&self, p: &mut Parsl<'i>, mut tok: TokenSrc<'i>) -> AstResult<'i>
+    {
+        // skip LineBegin for stmts
+        if tok.tok == Token::LineBegin {
+            p.next_if(Token::LineBegin)?;
+            tok = p.next()?;
+        }
+        match tok.tok {
+            Token::Const => self.parse_defconst(p, tok),
+            Token::Let => self.parse_let(p, tok),
+            _ => {
+                p.reparse(&ExprMode, MIN_PRECEDENCE, tok)
+            }
+            /*
+            Token::DefFunc => {
+                // StmtMode::parse_deffunc(p, FuncClass::Func)
+                AstNode::void()
+            }
+            Token::DefType => {
+                // StmtMode::parse_deftype(p)
+                AstNode::void()
+            }
+            Token::Import => {
+                // StmtMode::parse_import(p)
+                AstNode::void()
+            }
+            Token::DefMacro => {
+                // StmtMode::parse_deffunc(p, FuncClass::Macro)
+                AstNode::void()
+            }
+            */
+                /*
+                return Err(rustfail!(
+                    "parse_failure",
+                    "cannot parse token as statement: {}",
+                    stmt_tok,
+                ));
+                */
+        }
+    }
+
     fn parse_defconst<'i>(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
         let id = expect_next!(p, Token::Id)?;
@@ -139,53 +260,6 @@ impl ParseStmt
     */
 }
 
-impl<'i> PrefixParser<'i> for ParseStmt
-{
-    type Item = Vec<AstNode<'i>>;
-
-    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<Vec<AstNode<'i>>>
-    {
-        let stmt_tok = match tok.tok {
-            Token::LineBegin => {
-                p.next_if(Token::LineBegin)?;
-                p.next()?
-            }
-            _ => tok,
-        };
-        let stmt = match stmt_tok.tok {
-            Token::Const => self.parse_defconst(p, stmt_tok)?,
-            Token::Let => self.parse_let(p, stmt_tok)?,
-            /*
-            Token::DefFunc => {
-                // StmtMode::parse_deffunc(p, FuncClass::Func)
-                AstNode::void()
-            }
-            Token::DefType => {
-                // StmtMode::parse_deftype(p)
-                AstNode::void()
-            }
-            Token::Import => {
-                // StmtMode::parse_import(p)
-                AstNode::void()
-            }
-            Token::DefMacro => {
-                // StmtMode::parse_deffunc(p, FuncClass::Macro)
-                AstNode::void()
-            }
-            */
-            _ => {
-                // p.parse_new(&ExprMode)
-                return Err(rustfail!(
-                    "parse_failure",
-                    "cannot parse token as statement: {}",
-                    stmt_tok,
-                ));
-            }
-        };
-        Ok(vec![stmt])
-    }
-}
-
 #[derive(Debug)]
 pub struct BinaryOpParser
 {
@@ -204,7 +278,7 @@ impl<'i> InfixParser<'i> for BinaryOpParser
         op: TokenSrc<'i>,
     ) -> AstResult<'i>
     {
-        let right = p.parse(&ExprMode, self.pre)?;
+        let right = p.parse_more(&ExprMode, self.pre)?;
         let ast = Ast::Op2(op.src, left, right);
         Ok(AstNode::new(ast, Ast::loc(&op)))
     }
@@ -212,6 +286,21 @@ impl<'i> InfixParser<'i> for BinaryOpParser
     fn precedence(&self) -> Precedence
     {
         self.pre
+    }
+}
+
+#[derive(Debug)]
+struct ParseBlockx;
+
+impl<'i> PrefixParser<'i> for ParseBlockx
+{
+    type Item = AstNode<'i>;
+
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
+    {
+        let block = Grammar::parse_block(p, Ast::loc(&tok))?;
+        expect_next!(p, Token::DoubleDash)?;
+        Ok(block)
     }
 }
 
@@ -328,6 +417,7 @@ impl<'i> ParslMode<'i> for ExprMode
         Some(match tok {
             Token::Id => &ParseId,
             Token::Int => &ParseInt,
+            Token::DoubleArrow => &ParseBlockx,
             _ => {
                 return None;
             }
@@ -631,26 +721,19 @@ impl<'input> Grammar<'input>
         }
     }
 
-    /*
     /// Parse the body of a function. Also eat the trailing
-    fn parse_block(p: &mut Parsl<'input>) -> AstResult<'input>
+    fn parse_block(p: &mut Parsl<'input>, loc: Loc) -> AstResult<'input>
     {
-        let tok = p.peek()?;
-        match tok.tok {
-            Token::LineBegin => {
-                let mut stmts = p.parse_n()?;
-                let node = match stmts.len() {
-                    0 => AstNode::void(),
-                    1 => stmts.pop().unwrap(),
-                    _ => AstNode::new(Ast::Block(stmts), Ast::loc(&tok)),
-                };
-                Ok(node)
-            }
-            // if it's on the same line, take only one expr
-            _ => p.parse_new(&ExprMode),
-        }
+        let mut stmts = p.parse_new(&StmtsMode)?;
+        let node = match stmts.len() {
+            0 => AstNode::void(),
+            1 => stmts.pop().unwrap(),
+            _ => AstNode::new(Ast::Block(stmts), loc),
+        };
+        Ok(node)
     }
 
+    /*
     /// Parse an if or match expression (which have the same structure
     fn parse_casex(p: Parsl<'input>, ct: CaseType, loc: &Loc) -> AstResult<'input>
     {
@@ -800,6 +883,20 @@ mod tests
 
     use matches::assert_matches;
 
+
+    #[test]
+    fn test_parse_blockx()
+    {
+        let input = ">>
+            let a := 1
+            let b := 2
+            a + b
+            --
+        ";
+        Grammar::new(Tokenz::lexp(input).unwrap())
+            .parse_module()
+            .unwrap();
+    }
 
     #[test]
     fn test_parse_call_no_params()

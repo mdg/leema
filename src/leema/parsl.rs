@@ -235,22 +235,37 @@ impl<'i> Parsl<'i>
         where P: ParslMode<'i>
             , P::Item: fmt::Debug
     {
-        self.parse(mode, MIN_PRECEDENCE)
+        let tok = self.next()?;
+        self.parse(mode, MIN_PRECEDENCE, tok)
     }
 
-    pub fn parse<P>(&mut self, mode: &'static P, prec: Precedence) -> Lresult<P::Item>
+    pub fn parse_more<P>(&mut self, mode: &'static P, prec: Precedence) -> Lresult<P::Item>
         where P: ParslMode<'i>
             , P::Item: fmt::Debug
     {
-        let tok0 = self.next()?;
+        let tok = self.next()?;
+        self.parse(mode, prec, tok)
+    }
+
+    pub fn reparse<P>(&mut self, mode: &'static P, prec: Precedence, tok: TokenSrc<'i>) -> Lresult<P::Item>
+        where P: ParslMode<'i>
+            , P::Item: fmt::Debug
+    {
+        self.parse(mode, prec, tok)
+    }
+
+    fn parse<P>(&mut self, mode: &'static P, prec: Precedence, tok0: TokenSrc<'i>) -> Lresult<P::Item>
+        where P: ParslMode<'i>
+            , P::Item: fmt::Debug
+    {
         let mut left = match mode.prefix(tok0.tok) {
             Some(parser) => parser.parse(self, tok0)?,
             None => {
                 return Err(rustfail!(
                     "parse_failure",
-                    "cannot parse token in mode {} {:?}",
-                    tok0,
+                    "cannot parse token in {:?}: {}",
                     mode,
+                    tok0,
                 ));
             }
         };
