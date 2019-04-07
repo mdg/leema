@@ -1362,7 +1362,7 @@ mod tests
         assert_eq!((Token::Id, "Int"), nextok(&mut i));
         assert_eq!(Token::LineEnd, nextok(&mut i).0);
 
-        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        i.next();
         assert_eq!(Token::Dot, nextok(&mut i).0);
         assert_eq!((Token::Id, "filling"), nextok(&mut i));
         assert_eq!(Token::Colon, nextok(&mut i).0);
@@ -1370,7 +1370,7 @@ mod tests
         assert_eq!((Token::Id, "Str"), nextok(&mut i));
         assert_eq!(Token::LineEnd, nextok(&mut i).0);
 
-        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        i.next();
         assert_eq!(Token::Dot, nextok(&mut i).0);
         assert_eq!((Token::Id, "size"), nextok(&mut i));
         assert_eq!(Token::Colon, nextok(&mut i).0);
@@ -1425,7 +1425,7 @@ mod tests
         assert_eq!(Token::SquareR, nextok(&mut i).0);
         assert_eq!(Token::LineEnd, nextok(&mut i).0);
 
-        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        i.next();
         assert_eq!(Token::Dot, nextok(&mut i).0);
         assert_eq!((Token::Id, "dog"), nextok(&mut i));
         assert_eq!(Token::Colon, nextok(&mut i).0);
