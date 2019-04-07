@@ -70,15 +70,12 @@ eprintln!("no parser for token in StmtsMode: {:?}", tok);
 
     fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, Item=Vec<AstNode<'i>>>>
     {
-        Some(match tok {
-            Token::LineBegin => &ParseStmt,
-            Token::DoubleDash => {
-                return None;
-            }
-            _ => {
-                return None;
-            }
-        })
+        match tok {
+            Token::LineBegin => Some(&ParseStmt),
+            Token::DoubleDash => None,
+            Token::Pipe => None,
+            _ => None,
+        }
     }
 }
 
@@ -86,8 +83,13 @@ impl<'i> PrefixParser<'i> for ParseStmt
 {
     type Item = Vec<AstNode<'i>>;
 
-    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<Vec<AstNode<'i>>>
+    fn parse(&self, p: &mut Parsl<'i>, mut tok: TokenSrc<'i>) -> Lresult<Vec<AstNode<'i>>>
     {
+        // skip LineBegin for stmts
+        if tok.tok == Token::LineBegin {
+            p.next_if(Token::LineBegin)?;
+            tok = p.next()?;
+        }
         let stmt = self.parse_stmt(p, tok)?;
         Ok(vec![stmt])
     }
@@ -99,8 +101,22 @@ impl<'i> InfixParser<'i> for ParseStmt
 
     fn parse(&self, p: &mut Parsl<'i>, mut left: Vec<AstNode<'i>>, tok: TokenSrc<'i>) -> Lresult<Vec<AstNode<'i>>>
     {
-        let right = self.parse_stmt(p, tok)?;
-        left.push(right);
+        if tok.tok != Token::LineBegin {
+            return Err(rustfail!(
+                "parse_failure",
+                "expected LineBegin, found {}",
+                tok,
+            ));
+        }
+        match p.peek_token()? {
+            Token::DoubleDash => {}
+            Token::Pipe => {}
+            _ => {
+                let next = p.next()?;
+                let right = self.parse_stmt(p, next)?;
+                left.push(right);
+            }
+        }
         Ok(left)
     }
 
@@ -152,13 +168,8 @@ struct ParseStmt;
 
 impl ParseStmt
 {
-    fn parse_stmt<'i>(&self, p: &mut Parsl<'i>, mut tok: TokenSrc<'i>) -> AstResult<'i>
+    fn parse_stmt<'i>(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
-        // skip LineBegin for stmts
-        if tok.tok == Token::LineBegin {
-            p.next_if(Token::LineBegin)?;
-            tok = p.next()?;
-        }
         match tok.tok {
             Token::Const => self.parse_defconst(p, tok),
             Token::Let => self.parse_let(p, tok),
