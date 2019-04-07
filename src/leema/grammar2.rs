@@ -387,6 +387,21 @@ impl<'i> PrefixParser<'i> for ParseNot
 }
 
 #[derive(Debug)]
+struct ParseParen;
+
+impl<'i> PrefixParser<'i> for ParseParen
+{
+    type Item = AstNode<'i>;
+
+    fn parse(&self, p: &mut Parsl<'i>, _tok: TokenSrc<'i>) -> AstResult<'i>
+    {
+        let inner = p.parse_new(&ExprMode)?;
+        expect_next!(p, Token::ParenR)?;
+        Ok(inner)
+    }
+}
+
+#[derive(Debug)]
 struct ParseStr;
 
 impl<'i> PrefixParser<'i> for ParseStr
@@ -437,6 +452,7 @@ impl<'i> ParslMode<'i> for ExprMode
             Token::Id => &ParseId,
             Token::Int => &ParseInt,
             Token::Not => &ParseNot,
+            Token::ParenL => &ParseParen,
             _ => {
                 return None;
             }
@@ -472,11 +488,6 @@ impl<'i> ParslMode<'i> for ExprMode
             Token::Not => {
                 let x = p.parse(Lprec::Not)?;
                 AstNode::new(Ast::Op1(tok.src), loc)
-            }
-            Token::ParenL => {
-                let inner = p.parse_new(&ExprMode)?;
-                expect_next!(p, Token::ParenR)?;
-                inner
             }
             /*
             Token::SquareL => {
