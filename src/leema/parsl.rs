@@ -75,16 +75,6 @@ impl<'input> TokenStream<'input>
             Ok(None)
         }
     }
-
-    fn token_filter(t: &TokenSrc) -> bool
-    {
-        match t.tok {
-            Token::EmptyLine => false,
-            Token::LineEnd => false,
-            Token::Spaces => false,
-            _ => true,
-        }
-    }
 }
 
 #[derive(Copy)]

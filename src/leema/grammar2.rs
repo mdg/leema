@@ -21,7 +21,7 @@ enum Lprec
     Cons,
     Dollar,
     Pipe,
-    Func,
+    Call,
     Dot,
 }
 
@@ -566,9 +566,8 @@ impl<'i> PrefixParser<'i> for ParseList
 
     fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
-        let inner = p.parse_new(&XlistMode)?;
+        let items = XlistMode::parse(p)?;
         expect_next!(p, Token::SquareR)?;
-        let items = StrupleKV::from(inner);
         Ok(AstNode::new(Ast::List(items), Ast::loc(&tok)))
     }
 }
@@ -654,7 +653,7 @@ impl<'i> ParslMode<'i> for ExprMode
 
     fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, Item=AstNode<'i>>>
     {
-        let parse = match tok {
+        Some(match tok {
             // boolean operators
             Token::And => OP_AND,
             Token::Or => OP_OR,
@@ -673,15 +672,12 @@ impl<'i> ParslMode<'i> for ExprMode
             Token::Slash => OP_DIVIDE,
             Token::Star => OP_MULTIPLY,
             // other operators
+            Token::ParenL => &ParseCall,
             Token::Semicolon => OP_CONS,
-            /*
-            // Token::ParenL => &ParseCall,
-            */
             _ => {
                 return None;
             }
-        };
-        Some(parse)
+        })
     }
 }
 
@@ -831,6 +827,16 @@ impl<'i> PrefixParser<'i> for ParseStrLit
 #[derive(Debug)]
 struct XlistMode;
 
+impl XlistMode
+{
+    pub fn parse<'i>(p: &mut Parsl<'i>) -> Lresult<ast2::Xlist<'i>>
+    {
+        let items = p.parse_new(&XlistMode)?;
+        p.skip_if(Token::Comma)?;
+        Ok(StrupleKV::from(items))
+    }
+}
+
 impl<'i> ParslMode<'i> for XlistMode
 {
     type Item = Vec<(Option<&'i str>, AstNode<'i>)>;
@@ -890,20 +896,25 @@ impl<'i> PrefixParser<'i> for ParseXMaybeK
     }
 }
 
-/*
 #[derive(Debug)]
 struct ParseCall;
 
-impl InfixParser for ParseCall
+impl<'i> InfixParser<'i> for ParseCall
 {
-    fn parse<'input>(
+    type Item = AstNode<'i>;
+
+    fn parse(
         &self,
-        p: &mut Parsl<'input>,
-        left: AstNode<'input>,
-        _tok: TokenSrc<'input>,
-    ) -> AstResult<'input>
+        p: &mut Parsl<'i>,
+        left: AstNode<'i>,
+        _tok: TokenSrc<'i>,
+    ) -> AstResult<'i>
     {
-        let args = p.parse_n(&ParseXMaybeK(Token::ParenR))?;
+        let args = if p.peek_token()? == Token::ParenR {
+            StrupleKV::new()
+        } else {
+            XlistMode::parse(p)?
+        };
         expect_next!(p, Token::ParenR)?;
         let loc = left.loc;
         Ok(AstNode::new(Ast::Call(left, args), loc))
@@ -911,10 +922,11 @@ impl InfixParser for ParseCall
 
     fn precedence(&self) -> Precedence
     {
-        Precedence(15, 0, Assoc::Left)
+        Precedence(Lprec::Call as u8, 0, Assoc::Left)
     }
 }
 
+/*
 /// Parse the cases of an if or match expression
 #[derive(Debug)]
 struct ParseCase(Token);
