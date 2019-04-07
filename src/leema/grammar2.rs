@@ -397,12 +397,13 @@ impl<'i> PrefixParser<'i> for ParseVariant
     {
         assert_eq!(Token::CasePipe, tok.tok);
         let name = expect_next!(p, Token::Id)?;
-        let idtypes = p.parse_new(&IdTypeMode)?; 
-        if idtypes.is_empty() {
+        // check if it's an empty token variant
+        let peeked = p.peek_token()?;
+        if peeked == Token::CasePipe || peeked == Token::LineBegin {
             Ok((Some(name.src), None))
         } else {
             let name_id = AstNode::new(Ast::Id1(name.src), Ast::loc(&name));
-            let fields = StrupleKV::from(idtypes);
+            let fields = StrupleKV::from(p.parse_new(&IdTypeMode)?);
             let loc = name_id.loc;
             let var = Ast::DefType(ast2::DataType::Struct, name_id, fields);
             Ok((Some(name.src), Some(AstNode::new(var, loc))))
@@ -914,46 +915,6 @@ impl InfixParser for ParseCall
     }
 }
 
-#[derive(Debug)]
-struct ParseXMaybeK(Token);
-
-impl<'i> ItemParser<'i> for ParseXMaybeK
-{
-    type Item = (Option<&'i str>, AstNode<'i>);
-
-    fn parse(&self, p: &mut Parsl<'i>) -> Lresult<(Self::Item, bool)>
-    {
-        let first = p.parse_new(&ExprMode)?;
-
-        let comma = p.peek()?;
-        let result =
-            match comma.tok {
-                Token::Colon => {
-                    self.next()?;
-                    let value = p.parse_new(&ExprMode)?;
-                    let more = p.next_if(Token::Comma)?.is_some();
-                    ((Some(first), value), more)
-                }
-                Token::Comma => {
-                    self.next()?;
-                    ((None, first), true)
-                }
-                t if t == self.0 => {
-                    ((None, first), false)
-                }
-                _ => {
-                    return Err(rustfail!(
-                        "parse_failure",
-                        "expected ',' or ':' or '{}' found {:?}",
-                        self.0,
-                        comma,
-                    ));
-                }
-            };
-        Ok(result)
-    }
-}
-
 /// Parse the cases of an if or match expression
 #[derive(Debug)]
 struct ParseCase(Token);
@@ -1065,121 +1026,6 @@ impl<'input> Grammar<'input>
         expect_next!(p, Token::DoubleDash)?;
         let node = Ast::Case(ct, input, cases);
         Ok(AstNode::new(node, *loc))
-    }
-
-    /// Parse an idtype pair, ".id:Type"
-    /// skip a LineBegin before the idtype if there is one
-    pub fn parse_idtypes(
-        p: &mut Parsl<'input>,
-    ) -> Lresult<StrupleKV<Option<&'input str>, Option<AstNode<'input>>>>
-    {
-        let mut idtypes = vec![];
-        loop {
-            p.skip_if(Token::LineBegin)?;
-            let peeked = p.peek()?;
-            let id = match peeked.tok {
-                Token::Dot => {
-                    let _dot = expect_next!(p, Token::Dot)?;
-                    let name = expect_next!(p, Token::Id)?;
-                    Some(name.src)
-                }
-                Token::Colon => {
-                    // no ID, fall through to type
-                    None
-                }
-                Token::DoubleArrow => {
-                    // for parameters in a function declaration
-                    break;
-                }
-                Token::DoubleDash => {
-                    // for parameters in a structure declaration
-                    break;
-                }
-                Token::CasePipe => {
-                    // for fields in a union variant
-                    break;
-                }
-                Token::EOF => {
-                    return Err(rustfail!(
-                        "parse_failure",
-                        "expected : or . or | found EOF",
-                    ));
-                }
-                _ => {
-                    return Err(rustfail!(
-                        "parse_failue",
-                        "expected . or : or | found {:?}",
-                        peeked,
-                    ));
-                }
-            };
-
-            let typ = match p.peek_token()? {
-                Token::Dot => {
-                    // no type, fall through
-                    None
-                }
-                Token::Colon => {
-                    p.next()?;
-                    Some(p.parse_new(&ExprMode)?)
-                }
-                Token::DoubleArrow => None,
-                Token::DoubleDash => None,
-                Token::CasePipe => None,
-                Token::EOF => {
-                    return Err(rustfail!(
-                        "parse_failure",
-                        "expected : or . found EOF",
-                    ));
-                }
-                t => {
-                    return Err(rustfail!(
-                        "parse_failure",
-                        "expected ')' or ',' found {:?}",
-                        t,
-                    ));
-                }
-            };
-
-            idtypes.push((id, typ));
-        }
-        Ok(StrupleKV::from(idtypes))
-    }
-
-    /// Parse the variants in a union declaration
-    pub fn parse_variant(
-        p: &mut Parsl<'input>,
-    ) -> Lresult<Option<(Option<&'input str>, Option<AstNode<'input>>)>>
-    {
-        let pipe = p.peek()?;
-        match pipe.tok {
-            Token::CasePipe => {
-                p.next()?; // consume the pipe
-                let name = expect_next!(p, Token::Id)?;
-                let id = AstNode::new(Ast::Id1(name.src), Ast::loc(&name));
-                let fields = Self::parse_idtypes(p)?;
-                let var = if fields.is_empty() {
-                    None
-                } else {
-                    Some(AstNode::new(
-                        Ast::DefType(ast2::DataType::Struct, id, fields),
-                        Ast::loc(&name),
-                    ))
-                };
-                Ok(Some((Some(name.src), var)))
-            }
-            Token::DoubleDash => {
-                // leave the doubledash unconsumed
-                Ok(None)
-            }
-            _ => {
-                return Err(rustfail!(
-                    "parse_failure",
-                    "expected | or -- found {:?}",
-                    pipe,
-                ));
-            }
-        }
     }
     */
 }
