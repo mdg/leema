@@ -1,7 +1,7 @@
 use crate::leema::ast2::{Ast, AstNode, AstResult, Loc};
 use crate::leema::failure::Lresult;
-// use crate::leema::lstr::Lstr;
-use crate::leema::parsl::{Assoc, InfixParser, MIN_PRECEDENCE, Parsl, ParslMode, Precedence, PrefixParser};
+use crate::leema::lstr::Lstr;
+use crate::leema::parsl::{Assoc, InfixParser, MIN_PRECEDENCE, ParseFirst, ParseMore, Parsl, ParslMode, Precedence, PrefixParser};
 // use crate::leema::struple::StrupleKV;
 use crate::leema::token::{Token, TokenSrc};
 use crate::leema::val::Val;
@@ -387,14 +387,17 @@ impl<'i> PrefixParser<'i> for ParseNot
 }
 
 #[derive(Debug)]
-struct ExprMode;
+struct ParseStr;
 
-impl ExprMode
+impl<'i> PrefixParser<'i> for ParseStr
 {
-    /*
-    fn parse_str<'i>(p: &mut Parsl<'i>, loc: Loc) -> AstResult<'i>
+    type Item = AstNode<'i>;
+
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
-        let mut strs = p.parse_n(ExprMode::parse_stritem)?;
+        let loc = Ast::loc(&tok);
+        let mut strs = p.parse_new(&StrxMode)?;
+        expect_next!(p, Token::DoubleQuoteR)?;
         let node = match strs.len() {
             // empty vec reduces to constant ""
             0 => AstNode::new(Ast::ConstVal(Val::empty_str()), loc),
@@ -406,33 +409,13 @@ impl ExprMode
         };
         Ok(node)
     }
+}
 
-    fn parse_stritem<'i>(p: Parsl<'i>) -> Lresult<Option<AstNode<'i>>>
-    {
-        let tok = p.next()?;
-        let x = match tok.tok {
-            Token::StrLit => {
-                let lstr = Lstr::from(tok.src.to_string());
-                AstNode::new(Ast::ConstVal(Val::Str(lstr)), Ast::loc(&tok))
-            }
-            Token::DollarId => {
-                AstNode::new(Ast::Id1(tok.src), Ast::loc(&tok))
-            }
-            Token::DoubleQuoteR => {
-                return Ok(None);
-            }
-            _ => {
-                return Err(rustfail!(
-                    "parse_failure",
-                    "expected str or id, found {:?}",
-                    tok,
-                ));
-            }
-        };
-        Ok(Some(x))
-    }
-    */
+#[derive(Debug)]
+struct ExprMode;
 
+impl ExprMode
+{
     /*
     fn less_than<'i>(p: Parsl<'i>, left: AstNode<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
@@ -449,9 +432,10 @@ impl<'i> ParslMode<'i> for ExprMode
     {
         Some(match tok {
             Token::Bool => &ParseBool,
+            Token::DoubleArrow => &ParseBlockx,
+            Token::DoubleQuoteL => &ParseStr,
             Token::Id => &ParseId,
             Token::Int => &ParseInt,
-            Token::DoubleArrow => &ParseBlockx,
             Token::Not => &ParseNot,
             _ => {
                 return None;
@@ -635,12 +619,51 @@ const OP_LTE: &'static BinaryOpParser = &BinaryOpParser {
     pre: Precedence(Lprec::LessThan as u8, 0, Assoc::Left),
 };
 
-// Expression Parsers
-
-// struct ConsParser;
 // struct DollarParser;
 // struct DotParser;
 // struct PipeParser;
+
+#[derive(Debug)]
+struct StrxMode;
+
+impl<'i> ParslMode<'i> for StrxMode
+{
+    type Item = Vec<AstNode<'i>>;
+
+    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=Vec<AstNode<'i>>>>
+    {
+        match tok {
+            Token::StrLit => Some(&ParseFirst(&ParseStrLit)),
+            Token::DollarId => Some(&ParseFirst(&ParseId)),
+            Token::DoubleQuoteR => None,
+            _ => None,
+        }
+    }
+
+    fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, Item=Vec<AstNode<'i>>>>
+    {
+        match tok {
+            Token::StrLit => Some(&ParseMore(&ParseStrLit, MIN_PRECEDENCE)),
+            Token::DollarId => Some(&ParseMore(&ParseId, MIN_PRECEDENCE)),
+            Token::DoubleQuoteR => None,
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct ParseStrLit;
+
+impl<'i> PrefixParser<'i> for ParseStrLit
+{
+    type Item = AstNode<'i>;
+
+    fn parse(&self, _p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
+    {
+        let lstr = Lstr::from(tok.src.to_string());
+        Ok(AstNode::new(Ast::ConstVal(Val::Str(lstr)), Ast::loc(&tok)))
+    }
+}
 
 /*
 #[derive(Debug)]

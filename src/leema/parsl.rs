@@ -167,6 +167,44 @@ pub trait InfixParser<'i>: fmt::Debug
     fn precedence(&self) -> Precedence;
 }
 
+#[derive(Debug)]
+pub struct ParseFirst<P: 'static>(pub &'static P);
+
+impl<'i, P> PrefixParser<'i> for ParseFirst<P>
+    where P: PrefixParser<'i>
+        , P::Item: fmt::Debug
+{
+    type Item = Vec<P::Item>;
+
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<Vec<P::Item>>
+    {
+        let first = self.0.parse(p, tok)?;
+        Ok(vec![first])
+    }
+}
+
+#[derive(Debug)]
+pub struct ParseMore<P: 'static>(pub &'static P, pub Precedence);
+
+impl<'i, P> InfixParser<'i> for ParseMore<P>
+    where P: PrefixParser<'i>
+        , P::Item: fmt::Debug
+{
+    type Item = Vec<P::Item>;
+
+    fn parse(&self, p: &mut Parsl<'i>, mut left: Vec<P::Item>, tok: TokenSrc<'i>) -> Lresult<Vec<P::Item>>
+    {
+        let next = self.0.parse(p, tok)?;
+        left.push(next);
+        Ok(left)
+    }
+
+    fn precedence(&self) -> Precedence
+    {
+        self.1
+    }
+}
+
 pub trait ParslMode<'i>: fmt::Debug
 {
     type Item;
