@@ -1,8 +1,8 @@
-use crate::leema::ast2::{Ast, AstNode, AstResult, Loc};
+use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc};
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::parsl::{Assoc, InfixParser, MIN_PRECEDENCE, ParseFirst, ParseMore, Parsl, ParslMode, Precedence, PrefixParser};
-// use crate::leema::struple::StrupleKV;
+use crate::leema::struple::StrupleKV;
 use crate::leema::token::{Token, TokenSrc};
 use crate::leema::val::Val;
 
@@ -172,6 +172,7 @@ impl ParseStmt
     {
         match tok.tok {
             Token::Const => self.parse_defconst(p, tok),
+            Token::Type => ParseStmt::parse_deftype(p),
             Token::Let => self.parse_let(p, tok),
             _ => {
                 p.reparse(&ExprMode, MIN_PRECEDENCE, tok)
@@ -179,10 +180,6 @@ impl ParseStmt
             /*
             Token::DefFunc => {
                 // StmtMode::parse_deffunc(p, FuncClass::Func)
-                AstNode::void()
-            }
-            Token::DefType => {
-                // StmtMode::parse_deftype(p)
                 AstNode::void()
             }
             Token::Import => {
@@ -212,6 +209,41 @@ impl ParseStmt
         Ok(AstNode::new(Ast::DefConst(id.src, rhs), Ast::loc(&tok)))
     }
 
+    fn parse_deftype<'i>(p: &mut Parsl<'i>) -> AstResult<'i>
+    {
+        let name = Grammar::parse_id(p)?;
+        let loc = name.loc;
+        let tok = p.peek()?;
+        let data = match tok.tok {
+            // . and : both indicate struct
+            Token::Dot => {
+                let idtypes = p.parse_new(&IdTypeMode)?;
+                let fields = StrupleKV::from(idtypes);
+                Ast::DefType(ast2::DataType::Struct, name, fields)
+            }
+            Token::Colon => {
+                let idtypes = p.parse_new(&IdTypeMode)?;
+                let fields = StrupleKV::from(idtypes);
+                Ast::DefType(ast2::DataType::Struct, name, fields)
+            }
+            Token::CasePipe => {
+                let variantvec = p.parse_new(&DefVariantsMode)?;
+                let variants = StrupleKV::from(variantvec);
+                Ast::DefType(ast2::DataType::Union, name, variants)
+            }
+            _ => {
+                return Err(rustfail!(
+                    "parse_failure",
+                    "expected . or | found {:?}",
+                    tok,
+                ));
+            }
+        };
+        p.skip_if(Token::LineBegin)?;
+        expect_next!(p, Token::DoubleDash)?;
+        Ok(AstNode::new(data, loc))
+    }
+
     fn parse_let<'i>(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
         let lhs = p.parse_new(&ExprMode)?;
@@ -236,33 +268,6 @@ impl ParseStmt
         ))
     }
 
-    fn parse_deftype<'i>(p: Parsl<'i>) -> AstResult<'i>
-    {
-        let name = Grammar::parse_id(p)?;
-        let loc = name.loc;
-        p.skip_if(Token::LineBegin)?;
-        let tok = p.peek()?;
-        let data = match tok.tok {
-            Token::Dot => {
-                let args = Grammar::parse_idtypes(p)?;
-                Ast::DefType(ast2::DataType::Struct, name, args)
-            }
-            Token::CasePipe => {
-                let variants = Grammar::parse_variants(p)?;
-                Ast::DefType(ast2::DataType::Union, name, variants)
-            }
-            _ => {
-                return Err(rustfail!(
-                    "parse_failure",
-                    "expected . or | found {:?}",
-                    tok,
-                ));
-            }
-        };
-        expect_next!(p, Token::DoubleDash)?;
-        Ok(AstNode::new(data, loc))
-    }
-
     fn parse_import<'i>(p: Parsl<'i>) -> AstResult<'i>
     {
         let module = expect_next!(p, Token::Id)?;
@@ -270,6 +275,140 @@ impl ParseStmt
     }
     */
 }
+
+// IdTypeMode
+
+/// IdTypeMode for lists of: ".id:Type" | ".id" | ":Type"
+#[derive(Debug)]
+struct IdTypeMode;
+
+impl<'i> ParslMode<'i> for IdTypeMode
+{
+    type Item = Vec<(Option<&'i str>, Option<AstNode<'i>>)>;
+
+    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=Self::Item>>
+    {
+        match tok {
+            Token::Dot => Some(&ParseFirst(&ParseIdType)),
+            Token::Colon => Some(&ParseFirst(&ParseIdType)),
+            _ => None,
+        }
+    }
+
+    fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, Item=Self::Item>>
+    {
+        match tok {
+            Token::Dot => Some(&ParseMore(&ParseIdType, MIN_PRECEDENCE)),
+            Token::Colon => Some(&ParseMore(&ParseIdType, MIN_PRECEDENCE)),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct ParseIdType;
+
+impl<'i> PrefixParser<'i> for ParseIdType
+{
+    type Item = (Option<&'i str>, Option<AstNode<'i>>);
+
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<Self::Item>
+    {
+        match tok.tok {
+            Token::Dot => {
+                let keytok = expect_next!(p, Token::Id)?;
+                let v = if p.next_if(Token::Colon)?.is_some() {
+                    Some(p.parse_new(&TypexMode)?)
+                } else {
+                    None
+                };
+                Ok((Some(keytok.src), v))
+            }
+            Token::Colon => {
+                let v = p.parse_new(&TypexMode)?;
+                Ok((None, Some(v)))
+            }
+            _ => {
+                Err(rustfail!(
+                    "parse_failure",
+                    "expected . or : found {}",
+                    tok,
+                ))
+            }
+        }
+    }
+}
+
+// TYPEX MODE
+
+/// Typex mode for Type expressions
+/// which are slightly different than value expressions
+#[derive(Debug)]
+struct TypexMode;
+
+impl<'i> ParslMode<'i> for TypexMode
+{
+    type Item = AstNode<'i>;
+
+    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=Self::Item>>
+    {
+        match tok {
+            Token::Id => Some(&ParseId),
+            _ => None,
+        }
+    }
+}
+
+/// DefVariantsMode for type variants
+#[derive(Debug)]
+struct DefVariantsMode;
+
+impl<'i> ParslMode<'i> for DefVariantsMode
+{
+    type Item = Vec<(Option<&'i str>, Option<AstNode<'i>>)>;
+
+    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=Self::Item>>
+    {
+        match tok {
+            Token::CasePipe => Some(&ParseFirst(&ParseVariant)),
+            _ => None,
+        }
+    }
+
+    fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, Item=Self::Item>>
+    {
+        match tok {
+            Token::CasePipe => Some(&ParseMore(&ParseVariant, MIN_PRECEDENCE)),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct ParseVariant;
+
+impl<'i> PrefixParser<'i> for ParseVariant
+{
+    type Item = (Option<&'i str>, Option<AstNode<'i>>);
+
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<Self::Item>
+    {
+        assert_eq!(Token::CasePipe, tok.tok);
+        let name = expect_next!(p, Token::Id)?;
+        let idtypes = p.parse_new(&IdTypeMode)?; 
+        if idtypes.is_empty() {
+            Ok((Some(name.src), None))
+        } else {
+            let name_id = AstNode::new(Ast::Id1(name.src), Ast::loc(&name));
+            let fields = StrupleKV::from(idtypes);
+            let loc = name_id.loc;
+            let var = Ast::DefType(ast2::DataType::Struct, name_id, fields);
+            Ok((Some(name.src), Some(AstNode::new(var, loc))))
+        }
+    }
+}
+
+// EXPRESSION PARSING
 
 #[derive(Debug)]
 pub struct BinaryOpParser
@@ -824,6 +963,13 @@ impl<'input> Grammar<'input>
             _ => AstNode::new(Ast::Block(stmts), loc),
         };
         Ok(node)
+    }
+
+    /// Parse an id
+    fn parse_id(p: &mut Parsl<'input>) -> AstResult<'input>
+    {
+        let tok = expect_next!(p, Token::Id)?;
+        ParseId.parse(p, tok)
     }
 
     /*
