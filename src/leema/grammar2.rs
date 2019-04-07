@@ -316,6 +316,30 @@ impl<'i> PrefixParser<'i> for ParseBlockx
 }
 
 #[derive(Debug)]
+struct ParseBool;
+
+impl<'i> PrefixParser<'i> for ParseBool
+{
+    type Item = AstNode<'i>;
+
+    fn parse(&self, _p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
+    {
+        let b = match tok.src {
+            "False" => false,
+            "True" => true,
+            _ => {
+                return Err(rustfail!(
+                    "parse_failure",
+                    "bool token is not True or False: '{}'",
+                    tok.src,
+                ));
+            }
+        };
+        Ok(AstNode::new_constval(Val::Bool(b), Ast::loc(&tok)))
+    }
+}
+
+#[derive(Debug)]
 struct ParseId;
 
 impl<'i> PrefixParser<'i> for ParseId
@@ -349,26 +373,24 @@ impl<'i> PrefixParser<'i> for ParseInt
 }
 
 #[derive(Debug)]
+struct ParseNot;
+
+impl<'i> PrefixParser<'i> for ParseNot
+{
+    type Item = AstNode<'i>;
+
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
+    {
+        let x = p.parse_more(&ExprMode, Precedence::from(Lprec::Not))?;
+        Ok(AstNode::new(Ast::Op1("not", x), Ast::loc(&tok)))
+    }
+}
+
+#[derive(Debug)]
 struct ExprMode;
 
 impl ExprMode
 {
-    fn parse_bool<'i>(tok: TokenSrc<'i>) -> AstResult<'i>
-    {
-        let b = match tok.src {
-            "False" => false,
-            "True" => true,
-            _ => {
-                return Err(rustfail!(
-                    "parse_failure",
-                    "bool token is not True or False: '{}'",
-                    tok.src,
-                ));
-            }
-        };
-        Ok(AstNode::new_constval(Val::Bool(b), Ast::loc(&tok)))
-    }
-
     /*
     fn parse_str<'i>(p: &mut Parsl<'i>, loc: Loc) -> AstResult<'i>
     {
@@ -426,9 +448,11 @@ impl<'i> ParslMode<'i> for ExprMode
     fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=AstNode<'i>>>
     {
         Some(match tok {
+            Token::Bool => &ParseBool,
             Token::Id => &ParseId,
             Token::Int => &ParseInt,
             Token::DoubleArrow => &ParseBlockx,
+            Token::Not => &ParseNot,
             _ => {
                 return None;
             }
@@ -485,22 +509,27 @@ impl<'i> ParslMode<'i> for ExprMode
     fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, Item=AstNode<'i>>>
     {
         let parse = match tok {
-            Token::Plus => OP_ADD,
-            /*
+            // boolean operators
             Token::And => OP_AND,
-            Token::Dash => OP_SUBTRACT,
+            Token::Or => OP_OR,
+            Token::Xor => OP_XOR,
+            // comparison operators
             Token::Equal => OP_EQ,
             Token::EqualNot => OP_NEQ,
+            Token::AngleL => OP_LT,
+            Token::AngleR => OP_GT,
             Token::GreaterThanEqual => OP_GTE,
-            Token::LessThan => OP_LT,
             Token::LessThanEqual => OP_LTE,
+            // arithmetic operators
+            Token::Dash => OP_SUBTRACT,
             Token::Modulo => OP_MODULO,
-            Token::Or => OP_OR,
-            // Token::ParenL => &ParseCall,
-            Token::Semicolon => OP_CONS,
+            Token::Plus => OP_ADD,
             Token::Slash => OP_DIVIDE,
             Token::Star => OP_MULTIPLY,
-            Token::Xor => OP_XOR,
+            // other operators
+            Token::Semicolon => OP_CONS,
+            /*
+            // Token::ParenL => &ParseCall,
             */
             _ => {
                 return None;
@@ -510,82 +539,101 @@ impl<'i> ParslMode<'i> for ExprMode
     }
 }
 
+// arithmetic operators
+
+/// Addition parser
 const OP_ADD: &'static BinaryOpParser = &BinaryOpParser {
     op: "+",
     pre: Precedence(Lprec::Add as u8, 0, Assoc::Left),
 };
 
-/*
-const OP_AND: &'static BinaryOpParser = &BinaryOpParser {
-    op: "and",
-    pre: Precedence(Lprec::And as u8, 0, Assoc::Left),
-};
-
-const OP_OR: &'static BinaryOpParser = &BinaryOpParser {
-    op: "or",
-    pre: Precedence(Lprec::Or as u8, 0, Assoc::Left),
-};
-
-const OP_XOR: &'static BinaryOpParser = &BinaryOpParser {
-    op: "xor",
-    pre: Precedence(Lprec::Or as u8, 0, Assoc::Left),
-};
-
-const OP_MULTIPLY: &'static BinaryOpParser = &BinaryOpParser {
-    op: "*",
-    pre: Precedence(Lprec::Multiply as u8, 0, Assoc::Left),
-};
-
-const OP_DIVIDE: &'static BinaryOpParser = &BinaryOpParser {
-    op: "/",
-    pre: Precedence(Lprec::Multiply as u8, 0, Assoc::Left),
-};
-
-const OP_MODULO: &'static BinaryOpParser = &BinaryOpParser {
-    op: "mod",
-    pre: Precedence(Lprec::Multiply as u8, 0, Assoc::Left),
-};
-
-const OP_CONS: &'static BinaryOpParser = &BinaryOpParser {
-    op: ";",
-    pre: Precedence(Lprec::Cons as u8, 0, Assoc::Right),
-};
-
+/// Subtraction parser
 const OP_SUBTRACT: &'static BinaryOpParser = &BinaryOpParser {
     op: "*",
     pre: Precedence(Lprec::Add as u8, 0, Assoc::Left),
 };
 
+/// Multiplication parser
+const OP_MULTIPLY: &'static BinaryOpParser = &BinaryOpParser {
+    op: "*",
+    pre: Precedence(Lprec::Multiply as u8, 0, Assoc::Left),
+};
+
+/// Division parser
+const OP_DIVIDE: &'static BinaryOpParser = &BinaryOpParser {
+    op: "/",
+    pre: Precedence(Lprec::Multiply as u8, 0, Assoc::Left),
+};
+
+/// Modulo parser
+const OP_MODULO: &'static BinaryOpParser = &BinaryOpParser {
+    op: "mod",
+    pre: Precedence(Lprec::Multiply as u8, 0, Assoc::Left),
+};
+
+/// List cons parser
+const OP_CONS: &'static BinaryOpParser = &BinaryOpParser {
+    op: ";",
+    pre: Precedence(Lprec::Cons as u8, 0, Assoc::Right),
+};
+
+// BOOLEAN OPERATORS
+
+/// Boolean AND operator
+const OP_AND: &'static BinaryOpParser = &BinaryOpParser {
+    op: "and",
+    pre: Precedence(Lprec::And as u8, 0, Assoc::Left),
+};
+
+/// Boolean OR operator
+const OP_OR: &'static BinaryOpParser = &BinaryOpParser {
+    op: "or",
+    pre: Precedence(Lprec::Or as u8, 0, Assoc::Left),
+};
+
+/// Boolean XOR operator
+const OP_XOR: &'static BinaryOpParser = &BinaryOpParser {
+    op: "xor",
+    pre: Precedence(Lprec::Or as u8, 0, Assoc::Left),
+};
+
+// COMPARISON OPERATORS
+
+/// Equality operator
 const OP_EQ: &'static BinaryOpParser = &BinaryOpParser {
     op: "==",
     pre: Precedence(Lprec::Equal as u8, 0, Assoc::Left),
 };
 
+/// Inequality parser
 const OP_NEQ: &'static BinaryOpParser = &BinaryOpParser {
     op: "!=",
     pre: Precedence(Lprec::Equal as u8, 0, Assoc::Left),
 };
 
+/// Greater than parser
 const OP_GT: &'static BinaryOpParser = &BinaryOpParser {
     op: ">",
     pre: Precedence(Lprec::LessThan as u8, 0, Assoc::Left),
 };
 
+/// Greater than or equal parser
 const OP_GTE: &'static BinaryOpParser = &BinaryOpParser {
     op: ">=",
     pre: Precedence(Lprec::LessThan as u8, 0, Assoc::Left),
 };
 
+/// Less than parser
 const OP_LT: &'static BinaryOpParser = &BinaryOpParser {
     op: "<",
     pre: Precedence(Lprec::LessThan as u8, 0, Assoc::Left),
 };
 
+/// Less than or equal parser
 const OP_LTE: &'static BinaryOpParser = &BinaryOpParser {
     op: "<=",
     pre: Precedence(Lprec::LessThan as u8, 0, Assoc::Left),
 };
-*/
 
 // Expression Parsers
 
@@ -1083,23 +1131,22 @@ mod tests
     #[test]
     fn test_parse_operators()
     {
-        let input = r#"func ops >>
-            1 - 2 - 3
-            x * y * z
-            9 / 3
-            5 mod 4
-            4 == 4
-            7 != 8
-            1 < 2
-            2 <= 3
-            3 > 2
-            2 >= 1
-            not True
-            a and b
-            c or d
-            m xor n
-            h;t
-        --
+        let input = r#"
+        1 - 2 - 3
+        x * y * z
+        9 / 3
+        5 mod 4
+        4 == 4
+        7 != 8
+        1 < 2
+        2 <= 3
+        3 > 2
+        2 >= 1
+        not True
+        a and b
+        c or d
+        m xor n
+        h;t
         "#;
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
