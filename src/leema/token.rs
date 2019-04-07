@@ -414,7 +414,7 @@ impl ScanModeTrait for ScanModeLine
             '$' => ScanOutput::Start(ScanModeOp::Push(&ScanModeDollar)),
             // keywords
             '_' => ScanOutput::Start(ScanModeOp::Push(&ScanModeId(Token::Id))),
-            '#' => ScanOutput::Start(ScanModeOp::Push(&ScanModeId(Token::Id))),
+            '#' => ScanOutput::Start(ScanModeOp::Push(&ScanModeId(Token::Hashtag))),
             c if c.is_alphabetic() => {
                 ScanOutput::Start(ScanModeOp::Push(&ScanModeId(Token::Id)))
             }
@@ -689,7 +689,7 @@ impl ScanModeTrait for ScanModeId
 
     fn eof(&self) -> ScanResult
     {
-        Ok(ScanOutput::Token(Token::Id, false, ScanModeOp::Pop))
+        Ok(ScanOutput::Token(self.0, false, ScanModeOp::Pop))
     }
 }
 
@@ -1112,6 +1112,29 @@ mod tests
         i.next().unwrap();
         assert_eq!(Token::Spaces, nextok(&mut i).0);
         assert_eq!(Token::CasePipe, nextok(&mut i).0);
+        assert_eq!(Token::EOF, nextok(&mut i).0);
+        assert_eq!(None, i.next());
+    }
+
+    #[test]
+    fn test_tokenz_consts()
+    {
+        let input = "True False #tag #8";
+        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let mut i = t.iter();
+        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+
+        assert_eq!((Token::Bool, "True"), nextok(&mut i));
+        i.next();
+        assert_eq!((Token::Bool, "False"), nextok(&mut i));
+        i.next();
+        assert_eq!((Token::Hashtag, "#tag"), nextok(&mut i));
+        i.next();
+        // #8 is allowed for now. but should it not be?
+        // would mean that programmers can't reliably convert from hashtags to
+        // field names or other identifiers. Maybe that's ok b/c at that
+        // point it's all dynamic anyway.
+        assert_eq!((Token::Hashtag, "#8"), nextok(&mut i));
         assert_eq!(Token::EOF, nextok(&mut i).0);
         assert_eq!(None, i.next());
     }

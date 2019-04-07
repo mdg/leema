@@ -479,6 +479,20 @@ impl<'i> PrefixParser<'i> for ParseBool
 }
 
 #[derive(Debug)]
+struct ParseHashtag;
+
+impl<'i> PrefixParser<'i> for ParseHashtag
+{
+    type Item = AstNode<'i>;
+
+    fn parse(&self, _p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
+    {
+        let tag = Val::Hashtag(Lstr::from(tok.src.to_string()));
+        Ok(AstNode::new(Ast::ConstVal(tag), Ast::loc(&tok)))
+    }
+}
+
+#[derive(Debug)]
 struct ParseId;
 
 impl<'i> PrefixParser<'i> for ParseId
@@ -588,6 +602,7 @@ impl<'i> ParslMode<'i> for ExprMode
             Token::Bool => &ParseBool,
             Token::DoubleArrow => &ParseBlockx,
             Token::DoubleQuoteL => &ParseStr,
+            Token::Hashtag => &ParseHashtag,
             Token::Id => &ParseId,
             Token::Int => &ParseInt,
             Token::Not => &ParseNot,
@@ -603,31 +618,8 @@ impl<'i> ParslMode<'i> for ExprMode
     {
         let loc = Ast::loc(&tok);
         let expr = match tok.tok {
-            Token::Bool => ExprMode::parse_bool(tok),
-            /*
-            Token::DoubleArrow => {
-                let block = Grammar::parse_block(p)?;
-                expect_next!(p, Token::DoubleDash)?;
-                Ok(block)
-            }
-            */
-            // Token::DoubleQuoteL => ExprMode::parse_str(p, loc),
-            Token::Hashtag => {
-                AstNode::new_constval(
-                    Val::Hashtag(Lstr::from(tok.src.to_string())),
-                    loc,
-                )
-            }
-            Token::Id => {
-                AstNode::new(Ast::Id1(tok.src), loc)
-            }
             // Token::If => Grammar::parse_casex(p, CaseType::If, &loc),
-            Token::Int => ExprMode::parse_int(tok),
             // Token::Match => Grammar::parse_casex(p, CaseType::Match, &loc),
-            Token::Not => {
-                let x = p.parse(Lprec::Not)?;
-                AstNode::new(Ast::Op1(tok.src), loc)
-            }
             /*
             Token::SquareL => {
                 let items = p.parse_n(ParseXMaybeK(Token::SquareR))?;
@@ -1202,10 +1194,16 @@ mod tests
     #[test]
     fn test_parse_hashtag()
     {
-        let input = "const H := #hash_tag";
+        let input = "#hash_tag";
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
-        p.parse_module().unwrap();
+        let ast = p.parse_module().unwrap();
+
+        assert_eq!(1, ast.len());
+        assert_eq!(
+            Ast::ConstVal(Val::Hashtag(Lstr::from("#hash_tag"))),
+            *ast[0].node,
+        );
     }
 
     #[test]
