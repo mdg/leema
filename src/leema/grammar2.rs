@@ -845,19 +845,14 @@ impl<'i> ParslMode<'i> for XlistMode
     {
         match tok {
             Token::Comma => None,
-            _ => Some(&ParseFirst(&ParseXMaybeK(false))),
+            _ => Some(&ParseFirst(&ParseXMaybeK)),
         }
     }
 
     fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, Item=Self::Item>>
     {
         match tok {
-            Token::Comma => {
-                Some(&ParseMore(
-                    &ParseXMaybeK(true),
-                    COMMA_PRECEDENCE,
-                ))
-            }
+            Token::Comma => Some(&ParseXMaybeK),
             _ => None,
         }
     }
@@ -865,7 +860,7 @@ impl<'i> ParslMode<'i> for XlistMode
 
 /// Parses a single item in a list, tuple, call args
 #[derive(Debug)]
-struct ParseXMaybeK(bool);
+struct ParseXMaybeK;
 
 impl<'i> PrefixParser<'i> for ParseXMaybeK
 {
@@ -873,12 +868,7 @@ impl<'i> PrefixParser<'i> for ParseXMaybeK
 
     fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<Self::Item>
     {
-        let first = if self.0 {
-            assert_eq!(Token::Comma, tok.tok);
-            p.parse_new(&ExprMode)?
-        } else {
-            p.reparse(&ExprMode, MIN_PRECEDENCE, tok)?
-        };
+        let first = p.reparse(&ExprMode, MIN_PRECEDENCE, tok)?;
         if p.next_if(Token::Colon)?.is_some() {
             if let Ast::Id1(key) = *first.node {
                 let v = p.parse_new(&ExprMode)?;
@@ -893,6 +883,48 @@ impl<'i> PrefixParser<'i> for ParseXMaybeK
         } else {
             Ok((None, first))
         }
+    }
+}
+
+impl<'i> InfixParser<'i> for ParseXMaybeK
+{
+    type Item = Vec<(Option<&'i str>, AstNode<'i>)>;
+
+    fn parse(&self, p: &mut Parsl<'i>, mut left: Self::Item, tok: TokenSrc<'i>) -> Lresult<Self::Item>
+    {
+        assert_eq!(Token::Comma, tok.tok);
+        p.skip_if(Token::LineBegin)?;
+        {
+            // special stop logic, stop if there isn't another expression
+            // things like ] or ) or } won't start new expressions
+            let peeked = p.peek_token()?;
+            if ExprMode.prefix(peeked).is_none() {
+                return Ok(left);
+            }
+        }
+
+        let first = p.parse_new(&ExprMode)?;
+        let item = if p.next_if(Token::Colon)?.is_some() {
+            if let Ast::Id1(key) = *first.node {
+                let v = p.parse_new(&ExprMode)?;
+                (Some(key), v)
+            } else {
+                return Err(rustfail!(
+                    "parse_failure",
+                    "key must be a single id, found {:?}",
+                    first,
+                ));
+            }
+        } else {
+            (None, first)
+        };
+        left.push(item);
+        Ok(left)
+    }
+
+    fn precedence(&self) -> Precedence
+    {
+        Precedence::from(Lprec::Comma)
     }
 }
 
