@@ -174,18 +174,15 @@ impl ParseStmt
     {
         match tok.tok {
             Token::Const => self.parse_defconst(p, tok),
-            Token::Type => ParseStmt::parse_deftype(p),
+            Token::Import => ParseStmt::parse_import(p),
             Token::Let => self.parse_let(p, tok),
+            Token::Type => ParseStmt::parse_deftype(p),
             _ => {
                 p.reparse(&ExprMode, MIN_PRECEDENCE, tok)
             }
             /*
             Token::DefFunc => {
                 // StmtMode::parse_deffunc(p, FuncClass::Func)
-                AstNode::void()
-            }
-            Token::Import => {
-                // StmtMode::parse_import(p)
                 AstNode::void()
             }
             Token::DefMacro => {
@@ -246,6 +243,12 @@ impl ParseStmt
         Ok(AstNode::new(data, loc))
     }
 
+    fn parse_import<'i>(p: &mut Parsl<'i>) -> AstResult<'i>
+    {
+        let module = expect_next!(p, Token::Id)?;
+        Ok(AstNode::new(Ast::Import(module.src), Ast::loc(&module)))
+    }
+
     fn parse_let<'i>(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
         let lhs = p.parse_new(&ExprMode)?;
@@ -268,12 +271,6 @@ impl ParseStmt
             Ast::DefFunc(fc, name, args, body),
             loc,
         ))
-    }
-
-    fn parse_import<'i>(p: Parsl<'i>) -> AstResult<'i>
-    {
-        let module = expect_next!(p, Token::Id)?;
-        Ok(AstNode::new(Ast::Import(module.src), Ast::loc(&module)))
     }
     */
 }
@@ -1195,6 +1192,16 @@ mod tests
         let toks = Tokenz::lexp(input).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
         assert_eq!(1, ast.len());
+    }
+
+    #[test]
+    fn test_parse_import()
+    {
+        let input = "import tacos";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+        assert_eq!(1, ast.len());
+        assert_eq!(Ast::Import("tacos"), *ast[0].node);
     }
 
     #[test]
