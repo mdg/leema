@@ -173,39 +173,44 @@ impl ParseStmt
     fn parse_stmt<'i>(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
         match tok.tok {
-            Token::Const => self.parse_defconst(p, tok),
+            Token::Const => ParseStmt::parse_defconst(p, tok),
+            Token::Func => ParseStmt::parse_deffunc(p, ast2::FuncClass::Func),
+            Token::Macro => ParseStmt::parse_deffunc(p, ast2::FuncClass::Macro),
             Token::Import => ParseStmt::parse_import(p),
-            Token::Let => self.parse_let(p, tok),
+            Token::Let => ParseStmt::parse_let(p, tok),
             Token::Type => ParseStmt::parse_deftype(p),
             _ => {
                 p.reparse(&ExprMode, MIN_PRECEDENCE, tok)
             }
-            /*
-            Token::DefFunc => {
-                // StmtMode::parse_deffunc(p, FuncClass::Func)
-                AstNode::void()
-            }
-            Token::DefMacro => {
-                // StmtMode::parse_deffunc(p, FuncClass::Macro)
-                AstNode::void()
-            }
-            */
-                /*
-                return Err(rustfail!(
-                    "parse_failure",
-                    "cannot parse token as statement: {}",
-                    stmt_tok,
-                ));
-                */
         }
     }
 
-    fn parse_defconst<'i>(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
+    fn parse_defconst<'i>(p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
         let id = expect_next!(p, Token::Id)?;
         let _assign = expect_next!(p, Token::Assignment)?;
         let rhs = p.parse_new(&ExprMode)?;
         Ok(AstNode::new(Ast::DefConst(id.src, rhs), Ast::loc(&tok)))
+    }
+
+    fn parse_deffunc<'i>(p: &mut Parsl<'i>, fc: ast2::FuncClass) -> AstResult<'i>
+    {
+        let name = Grammar::parse_id(p)?;
+        // skip a newline if there is one
+        p.skip_if(Token::LineBegin)?;
+        let loc = name.loc;
+        let args = if p.peek_token()? == Token::DoubleArrow {
+            StrupleKV::new()
+        } else {
+            IdTypeMode::parse(p)?
+        };
+        let arrow = expect_next!(p, Token::DoubleArrow)?;
+        let body = Grammar::parse_block(p, Ast::loc(&arrow))?;
+        expect_next!(p, Token::DoubleDash)?;
+        Ok(AstNode::new(
+            Ast::DefFunc(fc, name, args, body),
+            loc,
+        ))
     }
 
     fn parse_deftype<'i>(p: &mut Parsl<'i>) -> AstResult<'i>
@@ -216,13 +221,11 @@ impl ParseStmt
         let data = match tok.tok {
             // . and : both indicate struct
             Token::Dot => {
-                let idtypes = p.parse_new(&IdTypeMode)?;
-                let fields = StrupleKV::from(idtypes);
+                let fields = IdTypeMode::parse(p)?;
                 Ast::DefType(ast2::DataType::Struct, name, fields)
             }
             Token::Colon => {
-                let idtypes = p.parse_new(&IdTypeMode)?;
-                let fields = StrupleKV::from(idtypes);
+                let fields = IdTypeMode::parse(p)?;
                 Ast::DefType(ast2::DataType::Struct, name, fields)
             }
             Token::CasePipe => {
@@ -249,7 +252,7 @@ impl ParseStmt
         Ok(AstNode::new(Ast::Import(module.src), Ast::loc(&module)))
     }
 
-    fn parse_let<'i>(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
+    fn parse_let<'i>(p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
         let lhs = p.parse_new(&ExprMode)?;
         let _assign = expect_next!(p, Token::Assignment)?;
@@ -257,22 +260,6 @@ impl ParseStmt
         let loc = Ast::loc(&tok);
         Ok(AstNode::new(Ast::Let(lhs, AstNode::void(), rhs), loc))
     }
-
-    /*
-    fn parse_deffunc<'i>(p: Parsl<'i>, fc: FuncClass) -> AstResult<'i>
-    {
-        let name = Grammar::parse_id(p)?;
-        let loc = name.loc;
-        let args = Grammar::parse_idtypes(p)?;
-        expect_next!(p, Token::DoubleArrow)?;
-        let body = Grammar::parse_block(p)?;
-        expect_next!(p, Token::DoubleDash)?;
-        Ok(AstNode::new(
-            Ast::DefFunc(fc, name, args, body),
-            loc,
-        ))
-    }
-    */
 }
 
 // IdTypeMode
@@ -280,6 +267,16 @@ impl ParseStmt
 /// IdTypeMode for lists of: ".id:Type" | ".id" | ":Type"
 #[derive(Debug)]
 struct IdTypeMode;
+
+impl IdTypeMode
+{
+    pub fn parse<'i>(p: &mut Parsl<'i>) -> Lresult<ast2::KorXlist<'i>>
+    {
+        let idtypes = p.parse_new(&IdTypeMode)?;
+        let fields = StrupleKV::from(idtypes);
+        Ok(fields)
+    }
+}
 
 impl<'i> ParslMode<'i> for IdTypeMode
 {
@@ -1032,11 +1029,15 @@ impl<'input> Grammar<'input>
     /// Parse the body of a function. Also eat the trailing
     fn parse_block(p: &mut Parsl<'input>, loc: Loc) -> AstResult<'input>
     {
-        let mut stmts = p.parse_new(&StmtsMode)?;
-        let node = match stmts.len() {
-            0 => AstNode::void(),
-            1 => stmts.pop().unwrap(),
-            _ => AstNode::new(Ast::Block(stmts), loc),
+        let node = if p.peek_token()? == Token::LineBegin {
+            let mut stmts = p.parse_new(&StmtsMode)?;
+            match stmts.len() {
+                0 => AstNode::void(),
+                1 => stmts.pop().unwrap(),
+                _ => AstNode::new(Ast::Block(stmts), loc),
+            }
+        } else {
+            p.parse_new(&ExprMode)?
         };
         Ok(node)
     }

@@ -88,7 +88,7 @@ impl<'i> fmt::Debug for Case<'i>
     }
 }
 
-type KorXlist<'i> = StrupleKV<Option<&'i str>, Option<AstNode<'i>>>;
+pub type KorXlist<'i> = StrupleKV<Option<&'i str>, Option<AstNode<'i>>>;
 type Klist<'i> = StrupleKV<&'i str, Option<AstNode<'i>>>;
 pub type Xlist<'i> = StrupleKV<Option<&'i str>, AstNode<'i>>;
 
