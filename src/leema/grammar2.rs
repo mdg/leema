@@ -616,7 +616,9 @@ impl<'i> ParslMode<'i> for ExprMode
             Token::DoubleQuoteL => &ParseStr,
             Token::Hashtag => &ParseHashtag,
             Token::Id => &ParseId,
+            Token::If => &ParseCasex(ast2::CaseType::If),
             Token::Int => &ParseInt,
+            Token::Match => &ParseCasex(ast2::CaseType::Match),
             Token::Not => &ParseNot,
             Token::ParenL => &ParseParen,
             Token::SquareL => &ParseList,
@@ -631,8 +633,6 @@ impl<'i> ParslMode<'i> for ExprMode
     {
         let loc = Ast::loc(&tok);
         let expr = match tok.tok {
-            // Token::If => Grammar::parse_casex(p, CaseType::If, &loc),
-            // Token::Match => Grammar::parse_casex(p, CaseType::Match, &loc),
             /*
             Token::SquareL => {
                 let items = p.parse_n(ParseXMaybeK(Token::SquareR))?;
@@ -952,48 +952,78 @@ impl<'i> InfixParser<'i> for ParseCall
     }
 }
 
-/*
 /// Parse the cases of an if or match expression
 #[derive(Debug)]
-struct ParseCase(Token);
+struct ParseCasex(ast2::CaseType);
 
-impl<'i> ItemParser<'i> for ParseCase
+impl<'i> PrefixParser<'i> for ParseCasex
+{
+    type Item = AstNode<'i>;
+
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<Self::Item>
+    {
+        let peeked = p.peek()?;
+        let input = if peeked.tok == Token::CasePipe {
+            None
+        } else {
+            Some(p.parse_new(&ExprMode)?)
+        };
+        let cases = p.parse_new(&CaseMode)?;
+        p.skip_if(Token::LineBegin)?;
+        expect_next!(p, Token::DoubleDash)?;
+        Ok(AstNode::new(Ast::Case(self.0, input, cases), Ast::loc(&tok)))
+    }
+}
+
+/// CaseMode for cases in if and match expressions
+#[derive(Debug)]
+struct CaseMode;
+
+impl<'i> ParslMode<'i> for CaseMode
+{
+    type Item = Vec<ast2::Case<'i>>;
+
+    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=Self::Item>>
+    {
+        match tok {
+            Token::CasePipe => Some(&ParseFirst(&ParseCase)),
+            _ => None,
+        }
+    }
+
+    fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, Item=Self::Item>>
+    {
+        match tok {
+            Token::CasePipe => Some(&ParseMore(&ParseCase, MIN_PRECEDENCE)),
+            _ => None,
+        }
+    }
+}
+
+/// Parse a single case for an if or match expression
+#[derive(Debug)]
+struct ParseCase;
+
+impl<'i> PrefixParser<'i> for ParseCase
 {
     type Item = ast2::Case<'i>;
 
-    fn parse(&self, p: &mut Parsl<'i>) -> Lresult<(Self::Item, bool)>
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<Self::Item>
     {
-        p.skip_if(Token::LineBegin)?;
-        let peeked = p.peek()?;
-        let case = match peeked.tok {
-            Token::CasePipe => {
-                p.next()?;
-                let cond = match p.next_if(Token::Else)? {
-                    Some(tok) => {
-                        let v = Ast::ConstVal(Val::Bool(true));
-                        AstNode::new(v, Ast::loc(&tok))
-                    }
-                    None => p.parse_new(&ExprMode)?,
-                };
-                expect_next!(p, Token::DoubleArrow)?;
-                let body = Grammar::parse_block(p)?;
-                Some(ast2::Case::new(cond, body))
+        assert_eq!(Token::CasePipe, tok.tok);
+        let condition = match p.next_if(Token::Else)? {
+            Some(else_tok) => {
+                AstNode::new(Ast::Void, Ast::loc(&else_tok))
             }
-            Token::DoubleDash => {
-                None
-            }
-            _ => {
-                return Err(rustfail!(
-                    "parse_failure",
-                    "expected | or -- found {:?}",
-                    peeked,
-                ));
+            None => {
+                p.parse_new(&ExprMode)?
             }
         };
-        Ok(case)
+        let arrow = expect_next!(p, Token::DoubleArrow)?;
+        let body = Grammar::parse_block(p, Ast::loc(&arrow))?;
+        Ok(ast2::Case::new(condition, body))
     }
 }
-*/
 
 
 /// Grammar is a collection of functions for parsing a stream of tokens
@@ -1048,28 +1078,6 @@ impl<'input> Grammar<'input>
         let tok = expect_next!(p, Token::Id)?;
         ParseId.parse(p, tok)
     }
-
-    /*
-    /// Parse an if or match expression (which have the same structure
-    fn parse_casex(p: Parsl<'input>, ct: CaseType, loc: &Loc) -> AstResult<'input>
-    {
-        let tok = p.peek()?;
-        let input = match tok.tok {
-            Token::CasePipe => {
-                // no expression, go straight to cases
-                None
-            }
-            _ => {
-                // get the expression, then go to cases
-                Some(p.parse_new(&ExprMode)?)
-            }
-        };
-        let cases = p.parse_n(Grammar::parse_case)?;
-        expect_next!(p, Token::DoubleDash)?;
-        let node = Ast::Case(ct, input, cases);
-        Ok(AstNode::new(node, *loc))
-    }
-    */
 }
 
 
