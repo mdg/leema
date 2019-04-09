@@ -564,7 +564,7 @@ const PARSE_TABLE: ParseTable = [
     (Token::Colon, TokenParser::ExprBreak),
     (Token::Comma, TokenParser::ExprBreak),
     (Token::ConcatNewline, TokenParser::Unimplemented),
-    (Token::Dot, TokenParser::Unimplemented),
+    (Token::Dot, TokenParser::ExprBreak),
     (Token::DoubleArrow, TokenParser::Prefix(&ParseBlock)),
     (Token::DoubleColon, TokenParser::Unimplemented),
     (Token::DoubleDash, TokenParser::EndBlock),
