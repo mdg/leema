@@ -6,7 +6,7 @@ mod leema;
 
 use crate::leema::application::Application;
 use crate::leema::failure::Lresult;
-use crate::leema::grammar::Grammar;
+use crate::leema::grammar2::Grammar;
 use crate::leema::list;
 use crate::leema::loader::Interloader;
 use crate::leema::lri::Lri;

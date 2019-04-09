@@ -350,6 +350,7 @@ impl<'i> ParslMode<'i> for TypexMode
     {
         match tok {
             Token::Id => Some(&ParseId),
+            Token::SquareL => Some(&ParseListType),
             _ => None,
         }
     }
@@ -560,8 +561,26 @@ impl<'i> PrefixParser<'i> for ParseList
 
     fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
+        assert_eq!(Token::SquareL, tok.tok);
         let items = XlistMode::parse(p)?;
         expect_next!(p, Token::SquareR)?;
+        Ok(AstNode::new(Ast::List(items), Ast::loc(&tok)))
+    }
+}
+
+#[derive(Debug)]
+struct ParseListType;
+
+impl<'i> PrefixParser<'i> for ParseListType
+{
+    type Item = AstNode<'i>;
+
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
+    {
+        assert_eq!(Token::SquareL, tok.tok);
+        let inner = p.parse_new(&TypexMode)?;
+        expect_next!(p, Token::SquareR)?;
+        let items = StrupleKV::from(vec![(None, inner)]);
         Ok(AstNode::new(Ast::List(items), Ast::loc(&tok)))
     }
 }
@@ -1411,6 +1430,31 @@ mod tests
                     Ast::ConstVal(Val::Str(Lstr::from(" mice"))),
                     *items[2].node,
                 );
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_type_expressions()
+    {
+        let input = "
+        type TypeX
+        :Y
+        :[Int]
+        --
+        ";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+        assert_eq!(1, ast.len());
+
+        let t = &ast[0];
+        if let Ast::DefType(DataType::Struct, _name, fields) = &*t.node {
+            assert_eq!(2, fields.len());
+            assert_eq!(Ast::Id1("Y"), *fields[0].v.as_ref().unwrap().node);
+            let int_list = &*fields[1].v.as_ref().unwrap().node;
+            assert_matches!(int_list, Ast::List(_));
+            if let Ast::List(inner) = int_list {
+                assert_eq!(Ast::Id1("Int"), *inner[0].v.node);
             }
         }
     }
