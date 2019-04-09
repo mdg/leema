@@ -414,7 +414,9 @@ impl ScanModeTrait for ScanModeLine
             '$' => ScanOutput::Start(ScanModeOp::Push(&ScanModeDollar)),
             // keywords
             '_' => ScanOutput::Start(ScanModeOp::Push(&ScanModeId(Token::Id))),
-            '#' => ScanOutput::Start(ScanModeOp::Push(&ScanModeId(Token::Hashtag))),
+            '#' => {
+                ScanOutput::Start(ScanModeOp::Push(&ScanModeId(Token::Hashtag)))
+            }
             c if c.is_alphabetic() => {
                 ScanOutput::Start(ScanModeOp::Push(&ScanModeId(Token::Id)))
             }
@@ -668,7 +670,7 @@ impl ScanModeTrait for ScanModeFileBegin
                     space_or_tab: '\t',
                 })))
             }
-            _ => ScanModeIndent{ space_or_tab: '\0' }.scan(next),
+            _ => ScanModeIndent { space_or_tab: '\0' }.scan(next),
         }
     }
 }

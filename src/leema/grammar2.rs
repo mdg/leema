@@ -1,7 +1,10 @@
 use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc};
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
-use crate::leema::parsl::{Assoc, InfixParser, MIN_PRECEDENCE, ParseFirst, ParseMore, Parsl, ParslMode, Precedence, PrefixParser};
+use crate::leema::parsl::{
+    Assoc, InfixParser, ParseFirst, ParseMore, Parsl, ParslMode, Precedence,
+    PrefixParser, MIN_PRECEDENCE,
+};
 use crate::leema::struple::StrupleKV;
 use crate::leema::token::{Token, TokenSrc};
 use crate::leema::val::Val;
@@ -25,7 +28,8 @@ enum Lprec
     Dot,
 }
 
-const COMMA_PRECEDENCE: Precedence = Precedence(Lprec::Comma as u8, 0, Assoc::Left);
+const COMMA_PRECEDENCE: Precedence =
+    Precedence(Lprec::Comma as u8, 0, Assoc::Left);
 
 impl From<Lprec> for Precedence
 {
@@ -59,18 +63,24 @@ impl<'i> ParslMode<'i> for StmtsMode
 {
     type Item = Vec<AstNode<'i>>;
 
-    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=Vec<AstNode<'i>>>>
+    fn prefix(
+        &self,
+        tok: Token,
+    ) -> Option<&'static PrefixParser<'i, Item = Vec<AstNode<'i>>>>
     {
         Some(match tok {
             Token::LineBegin => &ParseStmt,
             _ => {
-eprintln!("no parser for token in StmtsMode: {:?}", tok);
+                eprintln!("no parser for token in StmtsMode: {:?}", tok);
                 return None;
             }
         })
     }
 
-    fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, Item=Vec<AstNode<'i>>>>
+    fn infix(
+        &self,
+        tok: Token,
+    ) -> Option<&'static InfixParser<'i, Item = Vec<AstNode<'i>>>>
     {
         match tok {
             Token::LineBegin => Some(&ParseStmt),
@@ -85,7 +95,11 @@ impl<'i> PrefixParser<'i> for ParseStmt
 {
     type Item = Vec<AstNode<'i>>;
 
-    fn parse(&self, p: &mut Parsl<'i>, mut tok: TokenSrc<'i>) -> Lresult<Vec<AstNode<'i>>>
+    fn parse(
+        &self,
+        p: &mut Parsl<'i>,
+        mut tok: TokenSrc<'i>,
+    ) -> Lresult<Vec<AstNode<'i>>>
     {
         // skip LineBegin for stmts
         if tok.tok == Token::LineBegin {
@@ -101,7 +115,12 @@ impl<'i> InfixParser<'i> for ParseStmt
 {
     type Item = Vec<AstNode<'i>>;
 
-    fn parse(&self, p: &mut Parsl<'i>, mut left: Vec<AstNode<'i>>, tok: TokenSrc<'i>) -> Lresult<Vec<AstNode<'i>>>
+    fn parse(
+        &self,
+        p: &mut Parsl<'i>,
+        mut left: Vec<AstNode<'i>>,
+        tok: TokenSrc<'i>,
+    ) -> Lresult<Vec<AstNode<'i>>>
     {
         if tok.tok != Token::LineBegin {
             return Err(rustfail!(
@@ -170,7 +189,11 @@ struct ParseStmt;
 
 impl ParseStmt
 {
-    fn parse_stmt<'i>(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
+    fn parse_stmt<'i>(
+        &self,
+        p: &mut Parsl<'i>,
+        tok: TokenSrc<'i>,
+    ) -> AstResult<'i>
     {
         match tok.tok {
             Token::Const => ParseStmt::parse_defconst(p, tok),
@@ -179,13 +202,12 @@ impl ParseStmt
             Token::Import => ParseStmt::parse_import(p),
             Token::Let => ParseStmt::parse_let(p, tok),
             Token::Type => ParseStmt::parse_deftype(p),
-            _ => {
-                p.reparse(&ExprMode, MIN_PRECEDENCE, tok)
-            }
+            _ => p.reparse(&ExprMode, MIN_PRECEDENCE, tok),
         }
     }
 
-    fn parse_defconst<'i>(p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
+    fn parse_defconst<'i>(p: &mut Parsl<'i>, tok: TokenSrc<'i>)
+        -> AstResult<'i>
     {
         let id = expect_next!(p, Token::Id)?;
         let _assign = expect_next!(p, Token::Assignment)?;
@@ -193,7 +215,10 @@ impl ParseStmt
         Ok(AstNode::new(Ast::DefConst(id.src, rhs), Ast::loc(&tok)))
     }
 
-    fn parse_deffunc<'i>(p: &mut Parsl<'i>, fc: ast2::FuncClass) -> AstResult<'i>
+    fn parse_deffunc<'i>(
+        p: &mut Parsl<'i>,
+        fc: ast2::FuncClass,
+    ) -> AstResult<'i>
     {
         let name = Grammar::parse_id(p)?;
         // skip a newline if there is one
@@ -207,10 +232,7 @@ impl ParseStmt
         let arrow = expect_next!(p, Token::DoubleArrow)?;
         let body = Grammar::parse_block(p, Ast::loc(&arrow))?;
         expect_next!(p, Token::DoubleDash)?;
-        Ok(AstNode::new(
-            Ast::DefFunc(fc, name, args, body),
-            loc,
-        ))
+        Ok(AstNode::new(Ast::DefFunc(fc, name, args, body), loc))
     }
 
     fn parse_deftype<'i>(p: &mut Parsl<'i>) -> AstResult<'i>
@@ -282,7 +304,10 @@ impl<'i> ParslMode<'i> for IdTypeMode
 {
     type Item = Vec<(Option<&'i str>, Option<AstNode<'i>>)>;
 
-    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=Self::Item>>
+    fn prefix(
+        &self,
+        tok: Token,
+    ) -> Option<&'static PrefixParser<'i, Item = Self::Item>>
     {
         match tok {
             Token::Dot => Some(&ParseFirst(&ParseIdType)),
@@ -291,7 +316,10 @@ impl<'i> ParslMode<'i> for IdTypeMode
         }
     }
 
-    fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, Item=Self::Item>>
+    fn infix(
+        &self,
+        tok: Token,
+    ) -> Option<&'static InfixParser<'i, Item = Self::Item>>
     {
         match tok {
             Token::Dot => Some(&ParseMore(&ParseIdType, MIN_PRECEDENCE)),
@@ -308,7 +336,8 @@ impl<'i> PrefixParser<'i> for ParseIdType
 {
     type Item = (Option<&'i str>, Option<AstNode<'i>>);
 
-    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<Self::Item>
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>)
+        -> Lresult<Self::Item>
     {
         match tok.tok {
             Token::Dot => {
@@ -325,11 +354,9 @@ impl<'i> PrefixParser<'i> for ParseIdType
                 Ok((None, Some(v)))
             }
             _ => {
-                Err(rustfail!(
-                    "parse_failure",
-                    "expected . or : found {}",
-                    tok,
-                ))
+                Err(
+                    rustfail!("parse_failure", "expected . or : found {}", tok,),
+                )
             }
         }
     }
@@ -346,7 +373,10 @@ impl<'i> ParslMode<'i> for TypexMode
 {
     type Item = AstNode<'i>;
 
-    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=Self::Item>>
+    fn prefix(
+        &self,
+        tok: Token,
+    ) -> Option<&'static PrefixParser<'i, Item = Self::Item>>
     {
         match tok {
             Token::Id => Some(&ParseId),
@@ -364,7 +394,10 @@ impl<'i> ParslMode<'i> for DefVariantsMode
 {
     type Item = Vec<(Option<&'i str>, Option<AstNode<'i>>)>;
 
-    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=Self::Item>>
+    fn prefix(
+        &self,
+        tok: Token,
+    ) -> Option<&'static PrefixParser<'i, Item = Self::Item>>
     {
         match tok {
             Token::CasePipe => Some(&ParseFirst(&ParseVariant)),
@@ -372,7 +405,10 @@ impl<'i> ParslMode<'i> for DefVariantsMode
         }
     }
 
-    fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, Item=Self::Item>>
+    fn infix(
+        &self,
+        tok: Token,
+    ) -> Option<&'static InfixParser<'i, Item = Self::Item>>
     {
         match tok {
             Token::CasePipe => Some(&ParseMore(&ParseVariant, MIN_PRECEDENCE)),
@@ -388,7 +424,8 @@ impl<'i> PrefixParser<'i> for ParseVariant
 {
     type Item = (Option<&'i str>, Option<AstNode<'i>>);
 
-    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<Self::Item>
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>)
+        -> Lresult<Self::Item>
     {
         assert_eq!(Token::CasePipe, tok.tok);
         let name = expect_next!(p, Token::Id)?;
@@ -627,7 +664,10 @@ impl<'i> ParslMode<'i> for ExprMode
 {
     type Item = AstNode<'i>;
 
-    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=AstNode<'i>>>
+    fn prefix(
+        &self,
+        tok: Token,
+    ) -> Option<&'static PrefixParser<'i, Item = AstNode<'i>>>
     {
         Some(match tok {
             Token::Bool => &ParseBool,
@@ -664,7 +704,10 @@ impl<'i> ParslMode<'i> for ExprMode
     }
     */
 
-    fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, Item=AstNode<'i>>>
+    fn infix(
+        &self,
+        tok: Token,
+    ) -> Option<&'static InfixParser<'i, Item = AstNode<'i>>>
     {
         Some(match tok {
             // boolean operators
@@ -801,7 +844,10 @@ impl<'i> ParslMode<'i> for StrxMode
 {
     type Item = Vec<AstNode<'i>>;
 
-    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=Vec<AstNode<'i>>>>
+    fn prefix(
+        &self,
+        tok: Token,
+    ) -> Option<&'static PrefixParser<'i, Item = Vec<AstNode<'i>>>>
     {
         match tok {
             Token::StrLit => Some(&ParseFirst(&ParseStrLit)),
@@ -811,7 +857,10 @@ impl<'i> ParslMode<'i> for StrxMode
         }
     }
 
-    fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, Item=Vec<AstNode<'i>>>>
+    fn infix(
+        &self,
+        tok: Token,
+    ) -> Option<&'static InfixParser<'i, Item = Vec<AstNode<'i>>>>
     {
         match tok {
             Token::StrLit => Some(&ParseMore(&ParseStrLit, MIN_PRECEDENCE)),
@@ -854,7 +903,10 @@ impl<'i> ParslMode<'i> for XlistMode
 {
     type Item = Vec<(Option<&'i str>, AstNode<'i>)>;
 
-    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=Self::Item>>
+    fn prefix(
+        &self,
+        tok: Token,
+    ) -> Option<&'static PrefixParser<'i, Item = Self::Item>>
     {
         match tok {
             Token::Comma => None,
@@ -862,7 +914,10 @@ impl<'i> ParslMode<'i> for XlistMode
         }
     }
 
-    fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, Item=Self::Item>>
+    fn infix(
+        &self,
+        tok: Token,
+    ) -> Option<&'static InfixParser<'i, Item = Self::Item>>
     {
         match tok {
             Token::Comma => Some(&ParseXMaybeK),
@@ -879,7 +934,8 @@ impl<'i> PrefixParser<'i> for ParseXMaybeK
 {
     type Item = (Option<&'i str>, AstNode<'i>);
 
-    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<Self::Item>
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>)
+        -> Lresult<Self::Item>
     {
         let first = p.reparse(&ExprMode, MIN_PRECEDENCE, tok)?;
         if p.next_if(Token::Colon)?.is_some() {
@@ -903,7 +959,12 @@ impl<'i> InfixParser<'i> for ParseXMaybeK
 {
     type Item = Vec<(Option<&'i str>, AstNode<'i>)>;
 
-    fn parse(&self, p: &mut Parsl<'i>, mut left: Self::Item, tok: TokenSrc<'i>) -> Lresult<Self::Item>
+    fn parse(
+        &self,
+        p: &mut Parsl<'i>,
+        mut left: Self::Item,
+        tok: TokenSrc<'i>,
+    ) -> Lresult<Self::Item>
     {
         assert_eq!(Token::Comma, tok.tok);
         p.skip_if(Token::LineBegin)?;
@@ -979,7 +1040,8 @@ impl<'i> PrefixParser<'i> for ParseCasex
 {
     type Item = AstNode<'i>;
 
-    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<Self::Item>
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>)
+        -> Lresult<Self::Item>
     {
         let peeked = p.peek()?;
         let input = if peeked.tok == Token::CasePipe {
@@ -990,7 +1052,10 @@ impl<'i> PrefixParser<'i> for ParseCasex
         let cases = p.parse_new(&CaseMode)?;
         p.skip_if(Token::LineBegin)?;
         expect_next!(p, Token::DoubleDash)?;
-        Ok(AstNode::new(Ast::Case(self.0, input, cases), Ast::loc(&tok)))
+        Ok(AstNode::new(
+            Ast::Case(self.0, input, cases),
+            Ast::loc(&tok),
+        ))
     }
 }
 
@@ -1002,7 +1067,10 @@ impl<'i> ParslMode<'i> for CaseMode
 {
     type Item = Vec<ast2::Case<'i>>;
 
-    fn prefix(&self, tok: Token) -> Option<&'static PrefixParser<'i, Item=Self::Item>>
+    fn prefix(
+        &self,
+        tok: Token,
+    ) -> Option<&'static PrefixParser<'i, Item = Self::Item>>
     {
         match tok {
             Token::CasePipe => Some(&ParseFirst(&ParseCase)),
@@ -1010,7 +1078,10 @@ impl<'i> ParslMode<'i> for CaseMode
         }
     }
 
-    fn infix(&self, tok: Token) -> Option<&'static InfixParser<'i, Item=Self::Item>>
+    fn infix(
+        &self,
+        tok: Token,
+    ) -> Option<&'static InfixParser<'i, Item = Self::Item>>
     {
         match tok {
             Token::CasePipe => Some(&ParseMore(&ParseCase, MIN_PRECEDENCE)),
@@ -1027,16 +1098,13 @@ impl<'i> PrefixParser<'i> for ParseCase
 {
     type Item = ast2::Case<'i>;
 
-    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<Self::Item>
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>)
+        -> Lresult<Self::Item>
     {
         assert_eq!(Token::CasePipe, tok.tok);
         let condition = match p.next_if(Token::Else)? {
-            Some(else_tok) => {
-                AstNode::new(Ast::Void, Ast::loc(&else_tok))
-            }
-            None => {
-                p.parse_new(&ExprMode)?
-            }
+            Some(else_tok) => AstNode::new(Ast::Void, Ast::loc(&else_tok)),
+            None => p.parse_new(&ExprMode)?,
         };
         let arrow = expect_next!(p, Token::DoubleArrow)?;
         let body = Grammar::parse_block(p, Ast::loc(&arrow))?;

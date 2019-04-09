@@ -126,12 +126,17 @@ pub trait InfixParser<'i>: fmt::Debug
 pub struct ParseFirst<P: 'static>(pub &'static P);
 
 impl<'i, P> PrefixParser<'i> for ParseFirst<P>
-    where P: PrefixParser<'i>
-        , P::Item: fmt::Debug
+where
+    P: PrefixParser<'i>,
+    P::Item: fmt::Debug,
 {
     type Item = Vec<P::Item>;
 
-    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> Lresult<Vec<P::Item>>
+    fn parse(
+        &self,
+        p: &mut Parsl<'i>,
+        tok: TokenSrc<'i>,
+    ) -> Lresult<Vec<P::Item>>
     {
         let first = self.0.parse(p, tok)?;
         Ok(vec![first])
@@ -142,12 +147,18 @@ impl<'i, P> PrefixParser<'i> for ParseFirst<P>
 pub struct ParseMore<P: 'static>(pub &'static P, pub Precedence);
 
 impl<'i, P> InfixParser<'i> for ParseMore<P>
-    where P: PrefixParser<'i>
-        , P::Item: fmt::Debug
+where
+    P: PrefixParser<'i>,
+    P::Item: fmt::Debug,
 {
     type Item = Vec<P::Item>;
 
-    fn parse(&self, p: &mut Parsl<'i>, mut left: Vec<P::Item>, tok: TokenSrc<'i>) -> Lresult<Vec<P::Item>>
+    fn parse(
+        &self,
+        p: &mut Parsl<'i>,
+        mut left: Vec<P::Item>,
+        tok: TokenSrc<'i>,
+    ) -> Lresult<Vec<P::Item>>
     {
         let next = self.0.parse(p, tok)?;
         left.push(next);
@@ -172,12 +183,16 @@ pub trait ParslMode<'i>: fmt::Debug
     }
 
     /// Get a prefix parser for this token
-    fn prefix(&self, _tok: Token) -> Option<&PrefixParser<'i, Item=Self::Item>>
+    fn prefix(
+        &self,
+        _tok: Token,
+    ) -> Option<&PrefixParser<'i, Item = Self::Item>>
     {
         None
     }
 
-    fn infix(&self, _tok: Token) -> Option<&InfixParser<'i, Item=Self::Item>>
+    fn infix(&self, _tok: Token)
+        -> Option<&InfixParser<'i, Item = Self::Item>>
     {
         None
     }
@@ -225,31 +240,49 @@ impl<'i> Parsl<'i>
     }
 
     pub fn parse_new<P>(&mut self, mode: &'static P) -> Lresult<P::Item>
-        where P: ParslMode<'i>
-            , P::Item: fmt::Debug
+    where
+        P: ParslMode<'i>,
+        P::Item: fmt::Debug,
     {
         let tok = self.next()?;
         self.parse(mode, MIN_PRECEDENCE, tok)
     }
 
-    pub fn parse_more<P>(&mut self, mode: &'static P, prec: Precedence) -> Lresult<P::Item>
-        where P: ParslMode<'i>
-            , P::Item: fmt::Debug
+    pub fn parse_more<P>(
+        &mut self,
+        mode: &'static P,
+        prec: Precedence,
+    ) -> Lresult<P::Item>
+    where
+        P: ParslMode<'i>,
+        P::Item: fmt::Debug,
     {
         let tok = self.next()?;
         self.parse(mode, prec, tok)
     }
 
-    pub fn reparse<P>(&mut self, mode: &'static P, prec: Precedence, tok: TokenSrc<'i>) -> Lresult<P::Item>
-        where P: ParslMode<'i>
-            , P::Item: fmt::Debug
+    pub fn reparse<P>(
+        &mut self,
+        mode: &'static P,
+        prec: Precedence,
+        tok: TokenSrc<'i>,
+    ) -> Lresult<P::Item>
+    where
+        P: ParslMode<'i>,
+        P::Item: fmt::Debug,
     {
         self.parse(mode, prec, tok)
     }
 
-    fn parse<P>(&mut self, mode: &'static P, prec: Precedence, tok0: TokenSrc<'i>) -> Lresult<P::Item>
-        where P: ParslMode<'i>
-            , P::Item: fmt::Debug
+    fn parse<P>(
+        &mut self,
+        mode: &'static P,
+        prec: Precedence,
+        tok0: TokenSrc<'i>,
+    ) -> Lresult<P::Item>
+    where
+        P: ParslMode<'i>,
+        P::Item: fmt::Debug,
     {
         let mut left = match mode.prefix(tok0.tok) {
             Some(parser) => parser.parse(self, tok0)?,
