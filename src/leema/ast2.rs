@@ -120,10 +120,11 @@ pub enum Ast<'i>
     Return(AstNode<'i>),
     RustBlock,
     StrExpr(Vec<AstNode<'i>>),
-    Tuple(StrupleKV<&'i str, AstNode<'i>>),
+    Tuple(Xlist<'i>),
     Type(Type),
     TypeCall(AstNode<'i>, Xlist<'i>),
     Void,
+    Wildcard,
 }
 
 impl<'i> Ast<'i>
@@ -175,6 +176,7 @@ impl<'i> Ast<'i>
             Ast::RustBlock => write!(f, "RustBlock"),
             Ast::StrExpr(items) => write!(f, "Str {:?}", items),
             Ast::Void => write!(f, "Void"),
+            Ast::Wildcard => write!(f, "_"),
             // unimplemented
             Ast::FuncType(_) => unimplemented!(),
             Ast::LessThan3(_, _, _, _, _) => unimplemented!(),

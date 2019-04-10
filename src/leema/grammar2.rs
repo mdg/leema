@@ -582,11 +582,24 @@ impl<'i> PrefixParser<'i> for ParseParen
 {
     type Item = AstNode<'i>;
 
-    fn parse(&self, p: &mut Parsl<'i>, _tok: TokenSrc<'i>) -> AstResult<'i>
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
-        let inner = p.parse_new(&ExprMode)?;
+        p.skip_if(Token::LineBegin)?;
+        if p.next_if(Token::ParenR)?.is_some() {
+            return Err(rustfail!(
+                "parse_failure",
+                "empty tuples () are not allowed: {}",
+                tok,
+            ));
+        }
+        let mut inner = XlistMode::parse(p)?;
         expect_next!(p, Token::ParenR)?;
-        Ok(inner)
+        let node = if inner.len() == 1 && inner[0].k.is_none() {
+            inner.0.pop().unwrap().v
+        } else {
+            AstNode::new(Ast::Tuple(inner), Ast::loc(&tok))
+        };
+        Ok(node)
     }
 }
 
@@ -649,6 +662,19 @@ impl<'i> PrefixParser<'i> for ParseStr
 }
 
 #[derive(Debug)]
+struct ParseUnderscore;
+
+impl<'i> PrefixParser<'i> for ParseUnderscore
+{
+    type Item = AstNode<'i>;
+
+    fn parse(&self, _p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
+    {
+        Ok(AstNode::new(Ast::Wildcard, Ast::loc(&tok)))
+    }
+}
+
+#[derive(Debug)]
 struct ExprMode;
 
 impl ExprMode
@@ -682,6 +708,7 @@ impl<'i> ParslMode<'i> for ExprMode
             Token::Not => &ParseNot,
             Token::ParenL => &ParseParen,
             Token::SquareL => &ParseList,
+            Token::Underscore => &ParseUnderscore,
             _ => {
                 return None;
             }
@@ -1435,10 +1462,14 @@ mod tests
     #[test]
     fn test_parse_parens()
     {
-        let input = r#"not (x == y)"#;
+        let input = r#"not (x == y)
+        (3, 4, 5)
+        (6, 7, 8,)
+        "#;
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
-        p.parse_module().unwrap();
+        let ast = p.parse_module().unwrap();
+        assert_eq!(3, ast.len());
     }
 
     #[test]
