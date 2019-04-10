@@ -229,6 +229,7 @@ impl ParseStmt
         } else {
             IdTypeMode::parse(p)?
         };
+        p.skip_if(Token::LineBegin)?;
         let arrow = expect_next!(p, Token::DoubleArrow)?;
         let body = Grammar::parse_block(p, Ast::loc(&arrow))?;
         expect_next!(p, Token::DoubleDash)?;
@@ -1249,6 +1250,31 @@ mod tests
         func five
         >>
             3 + 2
+        --
+        "#;
+        let toks = Tokenz::lexp(input).unwrap();
+        let mut p = Grammar::new(toks);
+        p.parse_module().unwrap();
+    }
+
+    #[test]
+    fn test_parse_deffunc_params()
+    {
+        let input = r#"func add .x:Int .y:Int :Int >>
+            x + y
+        --
+
+        func add .x:Int .y:Int :Int
+        >>
+            x + y
+        --
+
+        func add
+        .x:Int
+        .y:Int
+        :Int
+        >>
+            x + y
         --
         "#;
         let toks = Tokenz::lexp(input).unwrap();
