@@ -339,6 +339,9 @@ struct ScanModeEqual;
 struct ScanModeFileBegin;
 
 #[derive(Debug)]
+struct ScanModeHashtag;
+
+#[derive(Debug)]
 struct ScanModeId(Token);
 
 struct ScanModeIndent
@@ -414,9 +417,7 @@ impl ScanModeTrait for ScanModeLine
             '$' => ScanOutput::Start(ScanModeOp::Push(&ScanModeDollar)),
             // keywords
             '_' => ScanOutput::Start(ScanModeOp::Push(&ScanModeId(Token::Id))),
-            '#' => {
-                ScanOutput::Start(ScanModeOp::Push(&ScanModeId(Token::Hashtag)))
-            }
+            '#' => ScanOutput::Start(ScanModeOp::Push(&ScanModeHashtag)),
             c if c.is_alphabetic() => {
                 ScanOutput::Start(ScanModeOp::Push(&ScanModeId(Token::Id)))
             }
@@ -672,6 +673,47 @@ impl ScanModeTrait for ScanModeFileBegin
             }
             _ => ScanModeIndent { space_or_tab: '\0' }.scan(next),
         }
+    }
+}
+
+impl ScanModeTrait for ScanModeHashtag
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        let idop = Ok(ScanOutput::Next(ScanModeOp::Replace(&ScanModeId(
+            Token::Hashtag,
+        ))));
+        match next.c {
+            '>' => {
+                Ok(ScanOutput::Token(
+                    Token::CommentBlockStart,
+                    false,
+                    ScanModeOp::Pop,
+                ))
+            }
+            '-' => {
+                Ok(ScanOutput::Token(
+                    Token::CommentBlockStop,
+                    false,
+                    ScanModeOp::Pop,
+                ))
+            }
+            '#' => {
+                Ok(ScanOutput::Token(
+                    Token::CommentLine,
+                    false,
+                    ScanModeOp::Pop,
+                ))
+            }
+            '_' => idop,
+            c if c.is_alphabetic() => idop,
+            _ => Ok(ScanOutput::Token(Token::Id, false, ScanModeOp::Pop)),
+        }
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        Ok(ScanOutput::Token(Token::Id, false, ScanModeOp::Pop))
     }
 }
 
@@ -1121,7 +1163,7 @@ mod tests
     #[test]
     fn test_tokenz_consts()
     {
-        let input = "True False #tag #8";
+        let input = "True False # #tag #8";
         let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
         let mut i = t.iter();
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
@@ -1130,13 +1172,16 @@ mod tests
         i.next();
         assert_eq!((Token::Bool, "False"), nextok(&mut i));
         i.next();
+        assert_eq!((Token::Id, "#"), nextok(&mut i));
+        i.next();
         assert_eq!((Token::Hashtag, "#tag"), nextok(&mut i));
         i.next();
         // #8 is allowed for now. but should it not be?
         // would mean that programmers can't reliably convert from hashtags to
         // field names or other identifiers. Maybe that's ok b/c at that
         // point it's all dynamic anyway.
-        assert_eq!((Token::Hashtag, "#8"), nextok(&mut i));
+        assert_eq!((Token::Id, "#"), nextok(&mut i));
+        assert_eq!((Token::Int, "8"), nextok(&mut i));
         assert_eq!(Token::EOF, nextok(&mut i).0);
         assert_eq!(None, i.next());
     }
