@@ -613,7 +613,11 @@ impl<'i> PrefixParser<'i> for ParseList
     fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
         assert_eq!(Token::SquareL, tok.tok);
-        let items = XlistMode::parse(p)?;
+        let items = if p.peek_token()? == Token::SquareR {
+            StrupleKV::new()
+        } else {
+            XlistMode::parse(p)?
+        };
         expect_next!(p, Token::SquareR)?;
         Ok(AstNode::new(Ast::List(items), Ast::loc(&tok)))
     }
@@ -714,23 +718,6 @@ impl<'i> ParslMode<'i> for ExprMode
             }
         })
     }
-
-    /*
-    fn prefix(&self, p: Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
-    {
-        let loc = Ast::loc(&tok);
-        let expr = match tok.tok {
-            /*
-            Token::SquareL => {
-                let items = p.parse_n(ParseXMaybeK(Token::SquareR))?;
-                expect_next!(p, Token::SquareR)?;
-                Ok(AstNode::new(Ast::List(items), Ast::loc(&tok)))
-            }
-            */
-        };
-        Ok(expr)
-    }
-    */
 
     fn infix(
         &self,
@@ -1398,12 +1385,14 @@ mod tests
     }
 
     #[test]
-    fn test_parse_list_oneline()
+    fn test_parse_lists()
     {
-        let input = "let l := [1, 2, 3, 4]";
+        let input = "[1, 2, 3, 4]
+        []
+        [5, 6, 7,]";
         let toks = Tokenz::lexp(input).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
-        assert_eq!(1, ast.len());
+        assert_eq!(3, ast.len());
     }
 
     #[test]
@@ -1566,6 +1555,7 @@ mod tests
         type TypeX
         :Y
         :[Int]
+        :(Int, Bool)
         --
         ";
         let toks = Tokenz::lexp(input).unwrap();
@@ -1574,7 +1564,7 @@ mod tests
 
         let t = &ast[0];
         if let Ast::DefType(DataType::Struct, _name, fields) = &*t.node {
-            assert_eq!(2, fields.len());
+            assert_eq!(3, fields.len());
             assert_eq!(Ast::Id1("Y"), *fields[0].v.as_ref().unwrap().node);
             let int_list = &*fields[1].v.as_ref().unwrap().node;
             assert_matches!(int_list, Ast::List(_));
