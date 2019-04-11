@@ -381,9 +381,42 @@ impl<'i> ParslMode<'i> for TypexMode
     {
         match tok {
             Token::Id => Some(&ParseId),
+            Token::ParenL => Some(&ParseTypeTuple),
             Token::SquareL => Some(&ParseListType),
             _ => None,
         }
+    }
+}
+
+#[derive(Debug)]
+struct ParseTypeTuple;
+
+impl<'i> PrefixParser<'i> for ParseTypeTuple
+{
+    type Item = AstNode<'i>;
+
+    fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
+    {
+        let loc = Ast::loc(&tok);
+        assert_eq!(Token::ParenL, tok.tok);
+        let inner = IdTypeMode::parse(p)?;
+        expect_next!(p, Token::ParenR)?;
+        let mut items = Vec::with_capacity(inner.len());
+        for i in inner.0 {
+            match i.v {
+                None => {
+                    return Err(rustfail!(
+                        "parse_failure",
+                        "tuple field types must be defined @ {:?}",
+                        loc,
+                    ));
+                }
+                Some(v) => {
+                    items.push((i.k, v));
+                }
+            }
+        }
+        Ok(AstNode::new(Ast::Tuple(StrupleKV::from(items)), Ast::loc(&tok)))
     }
 }
 
@@ -1555,7 +1588,7 @@ mod tests
         type TypeX
         :Y
         :[Int]
-        :(Int, Bool)
+        :(:Int :Bool)
         --
         ";
         let toks = Tokenz::lexp(input).unwrap();
