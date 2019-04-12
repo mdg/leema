@@ -416,7 +416,10 @@ impl<'i> PrefixParser<'i> for ParseTypeTuple
                 }
             }
         }
-        Ok(AstNode::new(Ast::Tuple(StrupleKV::from(items)), Ast::loc(&tok)))
+        Ok(AstNode::new(
+            Ast::Tuple(StrupleKV::from(items)),
+            Ast::loc(&tok),
+        ))
     }
 }
 

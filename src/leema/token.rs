@@ -753,6 +753,12 @@ impl ScanModeTrait for ScanModeIndent
             (_, ',') => {
                 Ok(ScanOutput::Token(Token::Spaces, false, PUSH_MODE_LINE))
             }
+            (_, ')') => {
+                Ok(ScanOutput::Token(Token::Spaces, false, PUSH_MODE_LINE))
+            }
+            (_, ']') => {
+                Ok(ScanOutput::Token(Token::Spaces, false, PUSH_MODE_LINE))
+            }
             (' ', '\t') => {
                 Err(rustfail!(
                     "token_failure",
