@@ -719,11 +719,13 @@ impl<'i> PrefixParser<'i> for ParseStr
     fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
         let loc = Ast::loc(&tok);
+        if p.next_if(Token::DoubleQuoteR)?.is_some() {
+            return Ok(AstNode::new(Ast::ConstVal(Val::empty_str()), loc));
+        }
+
         let mut strs = p.parse_new(&StrxMode)?;
         expect_next!(p, Token::DoubleQuoteR)?;
         let node = match strs.len() {
-            // empty vec reduces to constant ""
-            0 => AstNode::new(Ast::ConstVal(Val::empty_str()), loc),
             // single item w/ constant string reduces to just that
             // constant string. single IDs stay in the strexpr so
             // they get stringified if they aren't already
@@ -1309,10 +1311,12 @@ mod tests
     #[test]
     fn test_parse_const()
     {
-        let input = "const X := 5";
+        let input = r#"const X := 5
+        """#;
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
-        p.parse_module().unwrap();
+        let ast = p.parse_module().unwrap();
+        assert_eq!(2, ast.len());
     }
 
     #[test]
