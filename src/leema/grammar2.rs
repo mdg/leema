@@ -230,8 +230,27 @@ impl ParseStmt
             IdTypeMode::parse(p)?
         };
         p.skip_if(Token::LineBegin)?;
-        let arrow = expect_next!(p, Token::DoubleArrow)?;
-        let body = Grammar::parse_block(p, Ast::loc(&arrow))?;
+
+        let body_start = p.peek()?;
+        let body = match body_start.tok {
+            Token::DoubleArrow => {
+                let arrow = expect_next!(p, Token::DoubleArrow)?;
+                Grammar::parse_block(p, Ast::loc(&arrow))?
+            }
+            Token::CasePipe => {
+                let cases = p.parse_new(&CaseMode)?;
+                let ast = Ast::Case(ast2::CaseType::Match, None, cases);
+                AstNode::new(ast, Ast::loc(&body_start))
+            }
+            _ => {
+                return Err(rustfail!(
+                    "parse_failure",
+                    "expected >> or | found {:?}",
+                    body_start,
+                ));
+            }
+        };
+        p.skip_if(Token::LineBegin)?;
         expect_next!(p, Token::DoubleDash)?;
         Ok(AstNode::new(Ast::DefFunc(fc, name, args, body), loc))
     }
@@ -562,6 +581,35 @@ impl<'i> PrefixParser<'i> for ParseId
     }
 }
 
+impl<'i> InfixParser<'i> for ParseId
+{
+    type Item = AstNode<'i>;
+
+    fn parse(
+        &self,
+        p: &mut Parsl<'i>,
+        left: AstNode<'i>,
+        _tok: TokenSrc<'i>,
+    ) -> AstResult<'i>
+    {
+        if let Ast::Id1(first) = *left.node {
+            let second = expect_next!(p, Token::Id)?;
+            Ok(AstNode::new(Ast::Id2(first, second.src), left.loc))
+        } else {
+            Err(rustfail!(
+                "parse_failure",
+                "expected id1::id2, but id1 is {:?}",
+                left,
+            ))
+        }
+    }
+
+    fn precedence(&self) -> Precedence
+    {
+        Precedence(Lprec::Dot as u8, 0, Assoc::Right)
+    }
+}
+
 #[derive(Debug)]
 struct ParseInt;
 
@@ -764,6 +812,7 @@ impl<'i> ParslMode<'i> for ExprMode
             Token::Slash => OP_DIVIDE,
             Token::Star => OP_MULTIPLY,
             // other operators
+            Token::DoubleColon => &ParseId,
             Token::ParenL => &ParseCall,
             Token::Semicolon => OP_CONS,
             _ => {
@@ -1199,7 +1248,7 @@ impl<'input> Grammar<'input>
     fn parse_id(p: &mut Parsl<'input>) -> AstResult<'input>
     {
         let tok = expect_next!(p, Token::Id)?;
-        ParseId.parse(p, tok)
+        PrefixParser::parse(&ParseId, p, tok)
     }
 }
 
@@ -1310,6 +1359,25 @@ mod tests
          :Int
         >>
             x + y
+        --
+        "#;
+        let toks = Tokenz::lexp(input).unwrap();
+        let mut p = Grammar::new(toks);
+        let ast = p.parse_module().unwrap();
+        assert_eq!(3, ast.len());
+    }
+
+    #[test]
+    fn test_parse_deffunc_match()
+    {
+        let input = r#"func add x:Int y:Int :Int
+        |(0, 0) >> 0
+        |(x, y) >> x + y
+        --
+
+        func fact x:Int :Int
+        |0 >> 1
+        |x >> x * fact(f-1)
         --
         "#;
         let toks = Tokenz::lexp(input).unwrap();
@@ -1462,6 +1530,7 @@ mod tests
         a and b
         c or d
         m xor n
+        a_module::a_func
         h;t
         "#;
         let toks = Tokenz::lexp(input).unwrap();
