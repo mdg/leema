@@ -240,10 +240,11 @@ impl ParseStmt
     {
         let name = Grammar::parse_id(p)?;
         let loc = name.loc;
+        p.skip_if(Token::LineBegin)?;
         let tok = p.peek()?;
         let data = match tok.tok {
             // . and : both indicate struct
-            Token::Dot => {
+            Token::Id => {
                 let fields = IdTypeMode::parse(p)?;
                 Ast::DefType(ast2::DataType::Struct, name, fields)
             }
@@ -259,7 +260,7 @@ impl ParseStmt
             _ => {
                 return Err(rustfail!(
                     "parse_failure",
-                    "expected . or | found {:?}",
+                    "expected id or : or | found {:?}",
                     tok,
                 ));
             }
@@ -287,13 +288,13 @@ impl ParseStmt
 
 // IdTypeMode
 
-/// IdTypeMode for lists of: ".id:Type" | ".id" | ":Type"
+/// IdTypeMode for lists of: "id:Type" | ":Type"
 #[derive(Debug)]
 struct IdTypeMode;
 
 impl IdTypeMode
 {
-    pub fn parse<'i>(p: &mut Parsl<'i>) -> Lresult<ast2::KorXlist<'i>>
+    pub fn parse<'i>(p: &mut Parsl<'i>) -> Lresult<ast2::Xlist<'i>>
     {
         let idtypes = p.parse_new(&IdTypeMode)?;
         let fields = StrupleKV::from(idtypes);
@@ -303,7 +304,7 @@ impl IdTypeMode
 
 impl<'i> ParslMode<'i> for IdTypeMode
 {
-    type Item = Vec<(Option<&'i str>, Option<AstNode<'i>>)>;
+    type Item = Vec<(Option<&'i str>, AstNode<'i>)>;
 
     fn prefix(
         &self,
@@ -311,7 +312,7 @@ impl<'i> ParslMode<'i> for IdTypeMode
     ) -> Option<&'static PrefixParser<'i, Item = Self::Item>>
     {
         match tok {
-            Token::Dot => Some(&ParseFirst(&ParseIdType)),
+            Token::Id => Some(&ParseFirst(&ParseIdType)),
             Token::Colon => Some(&ParseFirst(&ParseIdType)),
             _ => None,
         }
@@ -323,7 +324,7 @@ impl<'i> ParslMode<'i> for IdTypeMode
     ) -> Option<&'static InfixParser<'i, Item = Self::Item>>
     {
         match tok {
-            Token::Dot => Some(&ParseMore(&ParseIdType, MIN_PRECEDENCE)),
+            Token::Id => Some(&ParseMore(&ParseIdType, MIN_PRECEDENCE)),
             Token::Colon => Some(&ParseMore(&ParseIdType, MIN_PRECEDENCE)),
             _ => None,
         }
@@ -335,31 +336,31 @@ struct ParseIdType;
 
 impl<'i> PrefixParser<'i> for ParseIdType
 {
-    type Item = (Option<&'i str>, Option<AstNode<'i>>);
+    type Item = (Option<&'i str>, AstNode<'i>);
 
     fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>)
         -> Lresult<Self::Item>
     {
-        match tok.tok {
-            Token::Dot => {
-                let keytok = expect_next!(p, Token::Id)?;
-                let v = if p.next_if(Token::Colon)?.is_some() {
-                    Some(p.parse_new(&TypexMode)?)
-                } else {
-                    None
-                };
-                Ok((Some(keytok.src), v))
+        let idtype = match tok.tok {
+            Token::Id => {
+                expect_next!(p, Token::Colon)?;
+                let typ = p.parse_new(&TypexMode)?;
+                (Some(tok.src), typ)
             }
             Token::Colon => {
-                let v = p.parse_new(&TypexMode)?;
-                Ok((None, Some(v)))
+                let typ = p.parse_new(&TypexMode)?;
+                (None, typ)
             }
             _ => {
-                Err(
-                    rustfail!("parse_failure", "expected . or : found {}", tok,),
-                )
+                return Err(rustfail!(
+                    "parse_failure",
+                    "expected id or : found {:?}",
+                    tok,
+                ));
             }
-        }
+        };
+        p.skip_if(Token::LineBegin)?;
+        Ok(idtype)
     }
 }
 
@@ -397,27 +398,11 @@ impl<'i> PrefixParser<'i> for ParseTypeTuple
 
     fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>) -> AstResult<'i>
     {
-        let loc = Ast::loc(&tok);
         assert_eq!(Token::ParenL, tok.tok);
         let inner = IdTypeMode::parse(p)?;
         expect_next!(p, Token::ParenR)?;
-        let mut items = Vec::with_capacity(inner.len());
-        for i in inner.0 {
-            match i.v {
-                None => {
-                    return Err(rustfail!(
-                        "parse_failure",
-                        "tuple field types must be defined @ {:?}",
-                        loc,
-                    ));
-                }
-                Some(v) => {
-                    items.push((i.k, v));
-                }
-            }
-        }
         Ok(AstNode::new(
-            Ast::Tuple(StrupleKV::from(items)),
+            Ast::Tuple(StrupleKV::from(inner)),
             Ast::loc(&tok),
         ))
     }
@@ -429,7 +414,7 @@ struct DefVariantsMode;
 
 impl<'i> ParslMode<'i> for DefVariantsMode
 {
-    type Item = Vec<(Option<&'i str>, Option<AstNode<'i>>)>;
+    type Item = Vec<(Option<&'i str>, AstNode<'i>)>;
 
     fn prefix(
         &self,
@@ -459,7 +444,7 @@ struct ParseVariant;
 
 impl<'i> PrefixParser<'i> for ParseVariant
 {
-    type Item = (Option<&'i str>, Option<AstNode<'i>>);
+    type Item = (Option<&'i str>, AstNode<'i>);
 
     fn parse(&self, p: &mut Parsl<'i>, tok: TokenSrc<'i>)
         -> Lresult<Self::Item>
@@ -469,13 +454,13 @@ impl<'i> PrefixParser<'i> for ParseVariant
         // check if it's an empty token variant
         let peeked = p.peek_token()?;
         if peeked == Token::CasePipe || peeked == Token::LineBegin {
-            Ok((Some(name.src), None))
+            Ok((Some(name.src), AstNode::new(Ast::Void, Ast::loc(&name))))
         } else {
             let name_id = AstNode::new(Ast::Id1(name.src), Ast::loc(&name));
             let fields = StrupleKV::from(p.parse_new(&IdTypeMode)?);
             let loc = name_id.loc;
             let var = Ast::DefType(ast2::DataType::Struct, name_id, fields);
-            Ok((Some(name.src), Some(AstNode::new(var, loc))))
+            Ok((Some(name.src), AstNode::new(var, loc)))
         }
     }
 }
@@ -1310,19 +1295,19 @@ mod tests
     #[test]
     fn test_parse_deffunc_params()
     {
-        let input = r#"func add .x:Int .y:Int :Int >>
+        let input = r#"func add x:Int y:Int :Int >>
             x + y
         --
 
-        func add .x:Int .y:Int :Int
+        func add x:Int y:Int :Int
         >>
             x + y
         --
 
         func add
-        .x:Int
-        .y:Int
-        :Int
+        x:Int
+        y:Int
+         :Int
         >>
             x + y
         --
@@ -1601,8 +1586,8 @@ mod tests
         let t = &ast[0];
         if let Ast::DefType(DataType::Struct, _name, fields) = &*t.node {
             assert_eq!(3, fields.len());
-            assert_eq!(Ast::Id1("Y"), *fields[0].v.as_ref().unwrap().node);
-            let int_list = &*fields[1].v.as_ref().unwrap().node;
+            assert_eq!(Ast::Id1("Y"), *fields[0].v.node);
+            let int_list = &*fields[1].v.node;
             assert_matches!(int_list, Ast::List(_));
             if let Ast::List(inner) = int_list {
                 assert_eq!(Ast::Id1("Int"), *inner[0].v.node);
@@ -1614,24 +1599,27 @@ mod tests
     fn test_parse_type_struct()
     {
         let input = "
-        type Point
-        .x:Int
-        .y:Int
+        type Point2 x:Int y:Int --
+
+        type Point3
+        x:Int
+        y:Int
+        z:Int
         --
         ";
         let toks = Tokenz::lexp(input).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
-        assert_eq!(1, ast.len());
+        assert_eq!(2, ast.len());
 
         let t = &ast[0];
         assert_matches!(*t.node, Ast::DefType(DataType::Struct, _, _));
         if let Ast::DefType(_, name, fields) = &*t.node {
-            assert_matches!(*name.node, Ast::Id1("Point"));
+            assert_matches!(*name.node, Ast::Id1("Point2"));
             assert_eq!(2, fields.len());
             assert_eq!("x", fields[0].k.unwrap());
             assert_eq!("y", fields[1].k.unwrap());
-            assert_eq!(Ast::Id1("Int"), *fields[0].v.as_ref().unwrap().node);
-            assert_eq!(Ast::Id1("Int"), *fields[1].v.as_ref().unwrap().node);
+            assert_eq!(Ast::Id1("Int"), *fields[0].v.node);
+            assert_eq!(Ast::Id1("Int"), *fields[1].v.node);
         }
     }
 
@@ -1658,9 +1646,9 @@ mod tests
             assert_eq!("Red", vars[0].k.unwrap());
             assert_eq!("Green", vars[1].k.unwrap());
             assert_eq!("Blue", vars[2].k.unwrap());
-            assert_eq!(None, vars[0].v);
-            assert_eq!(None, vars[1].v);
-            assert_eq!(None, vars[2].v);
+            assert_eq!(Ast::Void, *vars[0].v.node);
+            assert_eq!(Ast::Void, *vars[1].v.node);
+            assert_eq!(Ast::Void, *vars[2].v.node);
         }
     }
 }
