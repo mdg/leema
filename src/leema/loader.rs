@@ -81,6 +81,25 @@ impl Interloader
         }
     }
 
+    pub fn read_mod<'a, 'b>(&'a mut self, mod_name: &'b Lstr) -> Lresult<&'a str>
+    {
+        let mod_key = self.mod_name_to_key(mod_name)?;
+        if mod_key.file.is_some() {
+            let txt = self.read_file_text(mod_key.file.as_ref().unwrap())?;
+            self.modtxt.insert(mod_name.clone(), txt);
+        }
+        self.modtxt
+            .get(mod_name)
+            .map(|txt| txt.as_str())
+            .ok_or_else(|| {
+                rustfail!(
+                    "file_not_found",
+                    "could not find text for module with no file: {}",
+                    mod_name,
+                )
+            })
+    }
+
     fn find_file_path(&self, name: &Lstr) -> Lresult<PathBuf>
     {
         let mut file_path = PathBuf::new();

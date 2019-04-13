@@ -33,7 +33,7 @@ struct Args
     flag_tok: bool,
     flag_tokens: bool,
     flag_ast: bool,
-    flag_modsrc: bool,
+    flag_astmod: bool,
     flag_preface: bool,
     flag_proto: bool,
     flag_inter: bool,
@@ -55,7 +55,7 @@ Options:
      --tok         Show the tokens in this module
      --tokens      Show the tokens in this module for debugging
      --ast         Show the ast for the module
-     --modsrc      Show the modsrc for the module
+     --astmod      Show the ast for the module
      --preface     Show the preface for the module
      --proto       Show the proto mod for the module
      --inter       Show the inter mod for the module
@@ -113,7 +113,7 @@ fn real_main() -> Lresult<()>
         list::cons(Val::Str(Lstr::from(a.to_string())), aacc)
     });
     let leema_args = list::reverse(&leema_args_rev);
-    let inter = Interloader::new(file, &leema_path);
+    let mut inter = Interloader::new(file, &leema_path);
     let mod_name = inter.main_mod.clone();
     vout!("run {}\n", inter.main_mod);
 
@@ -138,23 +138,23 @@ fn real_main() -> Lresult<()>
         let ast = Grammar::new(Tokenz::lexp(&modtxt)?).parse_module()?;
         println!("{:?}", ast);
         None
-    } else if args.flag_modsrc {
-        let prog = program::Lib::new(inter);
-        let src = prog.read_modsrc(&mod_name);
-        println!("{:?}\n", src);
+    } else if args.flag_astmod {
+        let mut prog = program::Lib::new(&mut inter);
+        let astmod = prog.read_astmod(&mod_name)?;
+        println!("{:#?}\n", astmod);
         None
     } else if args.flag_preface {
-        let prog = program::Lib::new(inter);
+        let prog = program::Lib::new(&mut inter);
         let (_, pref) = prog.read_preface(&mod_name);
-        println!("{:?}\n", pref);
+        println!("{:#?}\n", pref);
         None
     } else if args.flag_proto {
-        let mut prog = program::Lib::new(inter);
+        let mut prog = program::Lib::new(&mut inter);
         let proto = prog.read_proto(&mod_name);
         println!("\n{}\n", proto);
         None
     } else if args.flag_inter {
-        let mut prog = program::Lib::new(inter);
+        let mut prog = program::Lib::new(&mut inter);
         let imod = prog.read_inter(&mod_name);
         let fix = match args.flag_func {
             Some(func) => {
@@ -166,14 +166,14 @@ fn real_main() -> Lresult<()>
         println!("\n{:?}\n", fix);
         None
     } else if args.flag_typecheck {
-        let mut prog = program::Lib::new(inter);
+        let mut prog = program::Lib::new(&mut inter);
         let func_name = Lstr::Sref("main");
         let funcri = Lri::with_modules(mod_name, func_name);
         let ftype = prog.typecheck(&funcri, typecheck::Depth::Full);
         println!("type: {}", ftype);
         None
     } else if args.flag_code {
-        let mut prog = program::Lib::new(inter);
+        let mut prog = program::Lib::new(&mut inter);
         let code = match args.flag_func {
             Some(func) => {
                 let func_name = Lstr::from(func);
@@ -189,7 +189,7 @@ fn real_main() -> Lresult<()>
             "wouldn't it be cool if there were a repl?",
         ));
     } else {
-        let prog = program::Lib::new(inter);
+        let prog = program::Lib::new(&mut inter);
         let mut app = Application::new(prog);
         let caller = app.caller();
         let main_lri = Lri::with_modules(mod_name, Lstr::Sref("main"));

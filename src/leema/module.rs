@@ -2,7 +2,6 @@ use crate::leema::ast::{self, Ast};
 use crate::leema::lex::lex;
 use crate::leema::lstr::Lstr;
 use crate::leema::parse::Token;
-use crate::leema::val::{Type, Val};
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -138,26 +137,6 @@ impl ModulePreface
             _ => {
                 // ignore everything else, it will be handled in a later phase
             }
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct ModuleInterface
-{
-    pub key: ModKey,
-    pub funcs: HashMap<Lstr, Option<Val>>,
-    pub valtypes: HashMap<Lstr, Type>,
-}
-
-impl ModuleInterface
-{
-    pub fn new(ms: &ModuleSource) -> ModuleInterface
-    {
-        ModuleInterface {
-            key: ms.key.clone(),
-            funcs: HashMap::new(),
-            valtypes: HashMap::new(),
         }
     }
 }

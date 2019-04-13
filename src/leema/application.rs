@@ -13,9 +13,9 @@ use std::thread;
 use std::time::Duration;
 
 
-pub struct Application
+pub struct Application<'i>
 {
-    prog: program::Lib,
+    prog: program::Lib<'i>,
     app_recv: Receiver<AppMsg>,
     app_send: Sender<AppMsg>,
     io_recv: Option<Receiver<IoMsg>>,
@@ -28,9 +28,9 @@ pub struct Application
     last_worker_id: i64,
 }
 
-impl Application
+impl<'i> Application<'i>
 {
-    pub fn new(prog: program::Lib) -> Application
+    pub fn new(prog: program::Lib<'i>) -> Application<'i>
     {
         let (tx, rx) = channel();
         let (iotx, iorx) = channel();

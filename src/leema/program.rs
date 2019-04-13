@@ -1,5 +1,8 @@
 use crate::leema::ast::Ast;
+use crate::leema::ast2::AstModule;
 use crate::leema::code::{self, Code};
+use crate::leema::failure::Lresult;
+use crate::leema::grammar2::Grammar;
 use crate::leema::infer::TypeSet;
 use crate::leema::inter::Intermod;
 use crate::leema::ixpr::Source;
@@ -10,6 +13,7 @@ use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::{ModKey, ModulePreface, ModuleSource};
 use crate::leema::phase0::{self, Protomod};
+use crate::leema::token::Tokenz;
 use crate::leema::typecheck::{self, CallFrame, CallOp, Typemod, Typescope};
 use crate::leema::val::Type;
 use crate::leema::{
@@ -20,9 +24,9 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 
-pub struct Lib
+pub struct Lib<'i>
 {
-    loader: Interloader,
+    loader: &'i mut Interloader,
     modsrc: HashMap<Lstr, ModuleSource>,
     preface: HashMap<Lstr, Rc<ModulePreface>>,
     proto: HashMap<Lstr, Rc<Protomod>>,
@@ -32,9 +36,9 @@ pub struct Lib
     code: HashMap<Lstr, HashMap<Lstr, Code>>,
 }
 
-impl Lib
+impl<'i> Lib<'i>
 {
-    pub fn new(l: Interloader) -> Lib
+    pub fn new(l: &'i mut Interloader) -> Lib<'i>
     {
         let mut proglib = Lib {
             loader: l,
@@ -162,6 +166,16 @@ impl Lib
             self.modsrc.insert(modname.clone(), msrc);
             self.preface.insert(modname.clone(), Rc::new(mpref));
         }
+    }
+
+    pub fn read_astmod<'a>(&'a mut self, modname: &Lstr) -> Lresult<AstModule<'i>>
+        where 'a: 'i
+    {
+        vout!("read_modast: {}\n", modname);
+        let modtxt: &'i str = self.loader.read_mod(modname)?;
+        let asts = Grammar::new(Tokenz::lexp(modtxt)?).parse_module()?;
+        let modkey = ModKey::name_only(modname.clone());
+        AstModule::new(modkey, asts)
     }
 
     pub fn read_modsrc(&self, modname: &Lstr) -> ModuleSource

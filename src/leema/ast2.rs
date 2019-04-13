@@ -1,9 +1,11 @@
 use crate::leema::failure::Lresult;
+use crate::leema::module::ModKey;
 use crate::leema::reg::Reg;
 use crate::leema::struple::{Struple2, StrupleKV};
 use crate::leema::token::TokenSrc;
 use crate::leema::val::{Type, Val};
 
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 
@@ -275,5 +277,69 @@ impl<'i> fmt::Debug for AstNode<'i>
         write!(f, "(")?;
         self.node.fmt_inner(f)?;
         write!(f, " {},{})", self.loc.lineno, self.loc.column)
+    }
+}
+
+/// Asts separated into their types of components
+#[derive(Debug)]
+pub struct AstModule<'i>
+{
+    pub key: ModKey,
+    pub imports: HashSet<&'i str>,
+    pub macros: HashMap<&'i str, AstNode<'i>>,
+    pub constants: Vec<AstNode<'i>>,
+    pub types: Vec<AstNode<'i>>,
+    pub funcs: Vec<AstNode<'i>>,
+}
+
+impl<'i> AstModule<'i>
+{
+    pub fn new(key: ModKey, items: Vec<AstNode<'i>>) -> Lresult<AstModule<'i>>
+    {
+        let mut astmod = AstModule {
+            key,
+            imports: HashSet::new(),
+            macros: HashMap::new(),
+            constants: Vec::new(),
+            types: Vec::new(),
+            funcs: Vec::new(),
+        };
+
+        for i in items {
+            match *i.node {
+                Ast::DefConst(_, _) => {
+                    astmod.constants.push(i);
+                }
+                Ast::DefFunc(FuncClass::Macro, macro_name, args, body) => {
+                    if let Ast::Id1(name) = *macro_name.node {
+                        let mac = Ast::DefFunc(FuncClass::Macro, macro_name, args, body);
+                        astmod.macros.insert(name, AstNode::new(mac, i.loc));
+                    } else {
+                        return Err(rustfail!(
+                            "parse_failure",
+                            "expected id for macro name, found {:?}",
+                            macro_name,
+                        ));
+                    }
+                }
+                Ast::DefFunc(FuncClass::Func, _, _, _) => {
+                    astmod.funcs.push(i);
+                }
+                Ast::DefType(_, _, _) => {
+                    astmod.types.push(i);
+                }
+                Ast::Import(imp) => {
+                    astmod.imports.insert(imp);
+                }
+                _ => {
+                    return Err(rustfail!(
+                        "parse_failure",
+                        "expected module statement, found {:?}",
+                        i,
+                    ));
+                }
+            }
+        }
+        Ok(astmod)
     }
 }
