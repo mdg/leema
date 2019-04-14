@@ -117,15 +117,7 @@ fn real_main() -> Lresult<()>
     let mod_name = inter.main_mod.clone();
     vout!("run {}\n", inter.main_mod);
 
-    let main_result = if args.flag_tokens {
-        let modtxt = inter.read_module(&mod_name)?;
-        let toks = ModuleSource::read_tokens(&modtxt);
-        println!("tokens:");
-        for t in &toks {
-            println!("\t{:?}", t);
-        }
-        None
-    } else if args.flag_tok {
+    let main_result = if args.flag_tok {
         let modtxt = inter.read_module(&mod_name)?;
         let tokr: Vec<TokenResult> = Tokenz::lex(&modtxt).collect();
         println!("tokens:");
@@ -136,17 +128,12 @@ fn real_main() -> Lresult<()>
     } else if args.flag_ast {
         let modtxt = inter.read_module(&mod_name)?;
         let ast = Grammar::new(Tokenz::lexp(&modtxt)?).parse_module()?;
-        println!("{:?}", ast);
+        println!("{:#?}", ast);
         None
     } else if args.flag_astmod {
         let mut prog = program::Lib::new(&mut inter);
         let astmod = prog.read_astmod(&mod_name)?;
         println!("{:#?}\n", astmod);
-        None
-    } else if args.flag_preface {
-        let prog = program::Lib::new(&mut inter);
-        let (_, pref) = prog.read_preface(&mod_name);
-        println!("{:#?}\n", pref);
         None
     } else if args.flag_proto {
         let mut prog = program::Lib::new(&mut inter);
