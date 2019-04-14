@@ -11,7 +11,6 @@ use crate::leema::list;
 use crate::leema::loader::Interloader;
 use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::ModuleSource;
 use crate::leema::program;
 use crate::leema::struple::Struple;
 use crate::leema::token::{TokenResult, Tokenz};

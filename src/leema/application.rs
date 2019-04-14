@@ -277,7 +277,7 @@ mod tests
         let input = "func main() -> 3 --".to_string();
         let mut inter = Interloader::new(Lstr::Sref("test.lma"), "lib");
         inter.set_mod_txt(Lstr::Sref("test"), input);
-        let prog = program::Lib::new(inter);
+        let prog = program::Lib::new(&mut inter);
 
         let mut app = Application::new(prog);
         let caller = app.caller();

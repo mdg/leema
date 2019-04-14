@@ -839,7 +839,7 @@ mod tests
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
-        let mut prog = program::Lib::new(loader);
+        let mut prog = program::Lib::new(&mut loader);
         let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("bar"));
         prog.typecheck(&fri, Depth::Full);
     }
@@ -864,7 +864,7 @@ mod tests
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
-        let mut prog = program::Lib::new(loader);
+        let mut prog = program::Lib::new(&mut loader);
         let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("main"));
         prog.typecheck(&fri, Depth::Full);
     }
@@ -883,7 +883,7 @@ mod tests
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
-        let mut prog = program::Lib::new(loader);
+        let mut prog = program::Lib::new(&mut loader);
         let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("main"));
         prog.typecheck(&fri, Depth::Full);
     }
@@ -907,7 +907,7 @@ mod tests
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
-        let mut prog = program::Lib::new(loader);
+        let mut prog = program::Lib::new(&mut loader);
         let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("main"));
         prog.typecheck(&fri, Depth::Full);
     }
@@ -930,7 +930,7 @@ mod tests
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
-        let mut prog = program::Lib::new(loader);
+        let mut prog = program::Lib::new(&mut loader);
         let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("main"));
         let main_type = prog.typecheck(&fri, Depth::Full);
         let main_ft = FuncType::new(StrupleKV::none(), Type::Void);
