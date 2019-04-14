@@ -81,7 +81,10 @@ impl Interloader
         }
     }
 
-    pub fn read_mod<'a, 'b>(&'a mut self, mod_name: &'b Lstr) -> Lresult<&'a str>
+    pub fn read_mod<'a, 'b>(
+        &'a mut self,
+        mod_name: &'b Lstr,
+    ) -> Lresult<&'a str>
     {
         let mod_key = self.mod_name_to_key(mod_name)?;
         if mod_key.file.is_some() {

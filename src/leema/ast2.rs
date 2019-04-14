@@ -312,7 +312,12 @@ impl<'i> AstModule<'i>
                 }
                 Ast::DefFunc(FuncClass::Macro, macro_name, args, body) => {
                     if let Ast::Id1(name) = *macro_name.node {
-                        let mac = Ast::DefFunc(FuncClass::Macro, macro_name, args, body);
+                        let mac = Ast::DefFunc(
+                            FuncClass::Macro,
+                            macro_name,
+                            args,
+                            body,
+                        );
                         astmod.macros.insert(name, AstNode::new(mac, i.loc));
                     } else {
                         return Err(rustfail!(

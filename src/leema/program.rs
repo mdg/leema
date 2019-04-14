@@ -168,8 +168,12 @@ impl<'i> Lib<'i>
         }
     }
 
-    pub fn read_astmod<'a>(&'a mut self, modname: &Lstr) -> Lresult<AstModule<'i>>
-        where 'a: 'i
+    pub fn read_astmod<'a>(
+        &'a mut self,
+        modname: &Lstr,
+    ) -> Lresult<AstModule<'i>>
+    where
+        'a: 'i,
     {
         vout!("read_modast: {}\n", modname);
         let modtxt: &'i str = self.loader.read_mod(modname)?;
