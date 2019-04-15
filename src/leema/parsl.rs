@@ -257,7 +257,7 @@ impl<'i> Parsl<'i>
         P: ParslMode<'i>,
         P::Item: fmt::Debug,
     {
-        let tok = self.next()?;
+        let tok = ltry!(self.next());
         self.parse(mode, prec, tok)
     }
 
