@@ -26,6 +26,7 @@ enum Lprec
     Pipe,
     Call,
     Dot,
+    DoubleColon,
 }
 
 const COMMA_PRECEDENCE: Precedence =
@@ -606,7 +607,7 @@ impl<'i> InfixParser<'i> for ParseId
 
     fn precedence(&self) -> Precedence
     {
-        Precedence(Lprec::Dot as u8, 0, Assoc::Right)
+        Precedence(Lprec::DoubleColon as u8, 0, Assoc::Right)
     }
 }
 
