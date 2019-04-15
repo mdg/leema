@@ -1,5 +1,5 @@
 use crate::leema::ast::Ast;
-use crate::leema::ast2::AstModule;
+use crate::leema::proto::ProtoModule;
 use crate::leema::code::{self, Code};
 use crate::leema::failure::Lresult;
 use crate::leema::grammar2::Grammar;
@@ -171,7 +171,7 @@ impl<'i> Lib<'i>
     pub fn read_astmod<'a>(
         &'a mut self,
         modname: &Lstr,
-    ) -> Lresult<AstModule<'i>>
+    ) -> Lresult<ProtoModule<'i>>
     where
         'a: 'i,
     {
@@ -179,7 +179,20 @@ impl<'i> Lib<'i>
         let modtxt: &'i str = self.loader.read_mod(modname)?;
         let asts = Grammar::new(Tokenz::lexp(modtxt)?).parse_module()?;
         let modkey = ModKey::name_only(modname.clone());
-        AstModule::new(modkey, asts)
+        ProtoModule::new(modkey, asts)
+    }
+
+    pub fn read_proto2(&mut self, _modname: &Lstr) -> Lresult<ProtoModule>
+    {
+        /*
+        let raw = self.read_astmod(modname)?;
+        self.load_imports(modname, &raw.imports);
+        let proto = phase0::preproc(self, &pref, &ms.ast);
+        self.modsrc.insert(modname.clone(), ms);
+        self.preface.insert(modname.clone(), Rc::new(pref));
+        proto
+        */
+        unimplemented!()
     }
 
     pub fn read_modsrc(&self, modname: &Lstr) -> ModuleSource

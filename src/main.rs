@@ -136,8 +136,8 @@ fn real_main() -> Lresult<()>
         None
     } else if args.flag_proto {
         let mut prog = program::Lib::new(&mut inter);
-        let proto = prog.read_proto(&mod_name);
-        println!("\n{}\n", proto);
+        let proto = prog.read_proto2(&mod_name)?;
+        println!("\n{:#?}\n", proto);
         None
     } else if args.flag_inter {
         let mut prog = program::Lib::new(&mut inter);
