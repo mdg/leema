@@ -276,13 +276,3 @@ impl<'i> fmt::Debug for AstNode<'i>
         write!(f, " {},{})", self.loc.lineno, self.loc.column)
     }
 }
-
-trait PipelineOp<'i>: fmt::Debug
-{
-    fn map(&mut self, node: AstNode<'i>) -> Lresult<Option<AstNode<'i>>>;
-}
-
-struct Pipeline<'i, 'p>
-{
-    ops: Vec<&'p mut PipelineOp<'i>>,
-}

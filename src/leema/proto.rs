@@ -1,9 +1,6 @@
 use crate::leema::ast2::{Ast, AstNode, FuncClass};
 use crate::leema::failure::Lresult;
 use crate::leema::module::ModKey;
-use crate::leema::program;
-use crate::leema::struple::StrupleKV;
-use crate::leema::val::Type;
 
 use std::collections::{HashMap, HashSet};
 
@@ -75,17 +72,4 @@ impl<'i> ProtoModule<'i>
         }
         Ok(proto)
     }
-}
-
-struct MacroApplication<'i, 'l>(&'l program::Lib<'i>);
-
-struct TypeCollector<'i>
-{
-    deftypes: HashMap<&'i str, Type>,
-    deffields: HashMap<&'i str, StrupleKV<&'i str, Type>>,
-}
-
-struct ClosureCollector<'i>
-{
-    closures: Vec<AstNode<'i>>,
 }
