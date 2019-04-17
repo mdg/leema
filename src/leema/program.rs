@@ -1,5 +1,4 @@
 use crate::leema::ast::Ast;
-use crate::leema::proto::ProtoModule;
 use crate::leema::code::{self, Code};
 use crate::leema::failure::Lresult;
 use crate::leema::grammar2::Grammar;
@@ -13,6 +12,7 @@ use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::{ModKey, ModulePreface, ModuleSource};
 use crate::leema::phase0::{self, Protomod};
+use crate::leema::proto::ProtoModule;
 use crate::leema::token::Tokenz;
 use crate::leema::typecheck::{self, CallFrame, CallOp, Typemod, Typescope};
 use crate::leema::val::Type;

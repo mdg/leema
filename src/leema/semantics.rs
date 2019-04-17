@@ -32,7 +32,11 @@ struct MacroApplication<'i, 'l>
 
 impl<'i, 'l> MacroApplication<'i, 'l>
 {
-    fn apply_macro(mac: &Ast<'i>, args: Vec<AstNode<'i>>, loc: Loc) -> AstResult<'i>
+    fn apply_macro(
+        _mac: &Ast<'i>,
+        _args: StrupleKV<Option<&'i str>, AstNode<'i>>,
+        _loc: Loc,
+    ) -> AstResult<'i>
     {
         Ok(AstNode::void())
     }
@@ -44,23 +48,21 @@ impl<'i, 'l> PipelineOp<'i> for MacroApplication<'i, 'l>
     {
         if let Ast::Call(callid, args) = *node.node {
             let optmac = match *callid.node {
-                Ast::Id1(macroname) => {
-                    self.prog.get_macro("", macroname)
-                }
+                Ast::Id1(macroname) => self.prog.get_macro("", macroname),
                 Ast::Id2(modname, macroname) => {
                     self.prog.get_macro(modname, macroname)
                 }
-                _ => {
-                    None
-                }
+                _ => None,
             };
             match optmac {
-                Some(mac) => {
-                    let result = Self::apply_macro(mac, args, callid.loc)?;
-                    Ok(Some(result))
+                Some(_mac) => {
+                    // let result = Self::apply_macro(mac, args, callid.loc)?;
+                    // Ok(Some(result))
+                    Ok(None)
                 }
                 None => {
-                    Ok(Some(node))
+                    let node2 = AstNode::new(Ast::Call(callid, args), node.loc);
+                    Ok(Some(node2))
                 }
             }
         } else {
@@ -126,9 +128,9 @@ struct Semantics
     is_closure: bool,
 }
 
-pub fn compile(prog: &mut program::Lib, proto: ProtoModule) // -> Semantics
+pub fn compile(prog: &mut program::Lib, _proto: ProtoModule) // -> Semantics
 {
-    let ops = Pipeline{ops: vec![
-        &mut MacroApplication{prog: &prog},
-    ]};
+    let _ops = Pipeline {
+        ops: vec![&mut MacroApplication { prog: &prog }],
+    };
 }

@@ -1,4 +1,4 @@
-use crate::leema::ast2::{Ast, AstNode, FuncClass};
+use crate::leema::ast2::{Ast, AstNode};
 use crate::leema::failure::Lresult;
 use crate::leema::module::ModKey;
 
@@ -19,7 +19,8 @@ pub struct ProtoModule<'i>
 
 impl<'i> ProtoModule<'i>
 {
-    pub fn new(key: ModKey, items: Vec<AstNode<'i>>) -> Lresult<ProtoModule<'i>>
+    pub fn new(key: ModKey, items: Vec<AstNode<'i>>)
+        -> Lresult<ProtoModule<'i>>
     {
         let mut proto = ProtoModule {
             key,
@@ -35,24 +36,10 @@ impl<'i> ProtoModule<'i>
                 Ast::DefConst(_, _) => {
                     proto.constants.push(i);
                 }
-                Ast::DefFunc(FuncClass::Macro, macro_name, args, body) => {
-                    if let Ast::Id1(name) = *macro_name.node {
-                        let mac = Ast::DefFunc(
-                            FuncClass::Macro,
-                            macro_name,
-                            args,
-                            body,
-                        );
-                        proto.macros.insert(name, AstNode::new(mac, i.loc));
-                    } else {
-                        return Err(rustfail!(
-                            "parse_failure",
-                            "expected id for macro name, found {:?}",
-                            macro_name,
-                        ));
-                    }
+                Ast::DefMacro(macro_name, _, _) => {
+                    proto.macros.insert(macro_name, i);
                 }
-                Ast::DefFunc(FuncClass::Func, _, _, _) => {
+                Ast::DefFunc(_, _, _) => {
                     proto.funcs.push(i);
                 }
                 Ast::DefType(_, _, _) => {

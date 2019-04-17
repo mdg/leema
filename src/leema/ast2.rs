@@ -44,18 +44,6 @@ pub enum DataType
 #[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
-pub enum FuncClass
-{
-    Macro,
-    Func,
-    Closure,
-}
-
-#[derive(Clone)]
-#[derive(Copy)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
 pub enum CaseType
 {
     If,
@@ -100,7 +88,8 @@ pub enum Ast<'i>
     Case(CaseType, Option<AstNode<'i>>, Vec<Case<'i>>),
     ConstVal(Val),
     DefConst(&'i str, AstNode<'i>),
-    DefFunc(FuncClass, AstNode<'i>, Xlist<'i>, AstNode<'i>),
+    DefFunc(AstNode<'i>, Xlist<'i>, AstNode<'i>),
+    DefMacro(&'i str, Vec<&'i str>, AstNode<'i>),
     DefType(DataType, AstNode<'i>, Xlist<'i>),
     FuncType(StrupleKV<&'i str, AstNode<'i>>),
     Id1(&'i str),
@@ -156,8 +145,11 @@ impl<'i> Ast<'i>
             }
             Ast::ConstVal(v) => write!(f, "Const {}", v),
             Ast::DefConst(id, x) => write!(f, "DefConst {} := {:?}", id, x),
-            Ast::DefFunc(fclass, name, args, body) => {
-                write!(f, "Def {:?} {:?} {:?} {:?}", fclass, name, args, body)
+            Ast::DefFunc(name, args, body) => {
+                write!(f, "DefFunc {:?} {:?} {:?}", name, args, body)
+            }
+            Ast::DefMacro(name, args, body) => {
+                write!(f, "DefMacro {:?} {:?} {:?}", name, args, body)
             }
             Ast::DefType(dtype, name, fields) => {
                 write!(f, "DefType {:?} {:?} {:?}", dtype, name, fields)

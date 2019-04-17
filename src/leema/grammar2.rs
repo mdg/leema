@@ -198,8 +198,8 @@ impl ParseStmt
     {
         match tok.tok {
             Token::Const => ParseStmt::parse_defconst(p, tok),
-            Token::Func => ParseStmt::parse_deffunc(p, ast2::FuncClass::Func),
-            Token::Macro => ParseStmt::parse_deffunc(p, ast2::FuncClass::Macro),
+            Token::Func => ParseStmt::parse_deffunc(p),
+            Token::Macro => ParseStmt::parse_defmacro(p),
             Token::Import => ParseStmt::parse_import(p),
             Token::Let => ParseStmt::parse_let(p, tok),
             Token::Type => ParseStmt::parse_deftype(p),
@@ -216,10 +216,7 @@ impl ParseStmt
         Ok(AstNode::new(Ast::DefConst(id.src, rhs), Ast::loc(&tok)))
     }
 
-    fn parse_deffunc<'i>(
-        p: &mut Parsl<'i>,
-        fc: ast2::FuncClass,
-    ) -> AstResult<'i>
+    fn parse_deffunc<'i>(p: &mut Parsl<'i>) -> AstResult<'i>
     {
         let name = Grammar::parse_id(p)?;
         // skip a newline if there is one
@@ -253,7 +250,85 @@ impl ParseStmt
         };
         p.skip_if(Token::LineBegin)?;
         expect_next!(p, Token::DoubleDash)?;
-        Ok(AstNode::new(Ast::DefFunc(fc, name, args, body), loc))
+        Ok(AstNode::new(Ast::DefFunc(name, args, body), loc))
+    }
+
+    fn parse_defmacro<'i>(p: &mut Parsl<'i>) -> AstResult<'i>
+    {
+        let name = expect_next!(p, Token::Id)?;
+        // skip a newline if there is one
+        p.skip_if(Token::LineBegin)?;
+        let args = Self::parse_defmacro_args(p)?;
+        p.skip_if(Token::LineBegin)?;
+
+        let body_start = p.peek()?;
+        let body = match body_start.tok {
+            Token::DoubleArrow => {
+                let arrow = expect_next!(p, Token::DoubleArrow)?;
+                Grammar::parse_block(p, Ast::loc(&arrow))?
+            }
+            Token::CasePipe => {
+                let cases = p.parse_new(&CaseMode)?;
+                let ast = Ast::Case(ast2::CaseType::Match, None, cases);
+                AstNode::new(ast, Ast::loc(&body_start))
+            }
+            _ => {
+                return Err(rustfail!(
+                    "parse_failure",
+                    "expected >> or | found {:?}",
+                    body_start,
+                ));
+            }
+        };
+        p.skip_if(Token::LineBegin)?;
+        expect_next!(p, Token::DoubleDash)?;
+        Ok(AstNode::new(
+            Ast::DefMacro(name.src, args, body),
+            Ast::loc(&name),
+        ))
+    }
+
+    fn parse_defmacro_args<'i>(p: &mut Parsl<'i>) -> Lresult<Vec<&'i str>>
+    {
+        let mut args = vec![];
+        loop {
+            let tok0 = p.peek()?;
+            match tok0.tok {
+                Token::DoubleArrow => {
+                    break;
+                }
+                Token::Id => {
+                    let arg = p.next()?;
+                    args.push(arg.src);
+                }
+                _ => {
+                    return Err(rustfail!(
+                        "parse_failure",
+                        "expected Id or >> found {:?}",
+                        tok0
+                    ));
+                }
+            }
+
+            let tok1 = p.peek()?;
+            match tok1.tok {
+                Token::DoubleArrow => {
+                    break;
+                }
+                Token::Comma => {
+                    p.next()?;
+                    // loop again and take the next Id
+                }
+                _ => {
+                    return Err(rustfail!(
+                        "parse_failure",
+                        "expected , or >> found {:?}",
+                        tok1
+                    ));
+                }
+            }
+        }
+        Ok(args)
     }
 
     fn parse_deftype<'i>(p: &mut Parsl<'i>) -> AstResult<'i>
