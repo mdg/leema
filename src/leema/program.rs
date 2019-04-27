@@ -1,4 +1,5 @@
 use crate::leema::ast::Ast;
+use crate::leema::ast2;
 use crate::leema::code::{self, Code};
 use crate::leema::failure::Lresult;
 use crate::leema::grammar2::Grammar;
@@ -30,6 +31,7 @@ pub struct Lib<'i>
     modsrc: HashMap<Lstr, ModuleSource>,
     preface: HashMap<Lstr, Rc<ModulePreface>>,
     proto: HashMap<Lstr, Rc<Protomod>>,
+    proto2: HashMap<Lstr, ProtoModule<'i>>,
     inter: HashMap<Lstr, Intermod>,
     typed: HashMap<Lstr, Typemod>,
     rust_load: HashMap<Lstr, fn(&str) -> Option<code::Code>>,
@@ -45,6 +47,7 @@ impl<'i> Lib<'i>
             modsrc: HashMap::new(),
             preface: HashMap::new(),
             proto: HashMap::new(),
+            proto2: HashMap::new(),
             inter: HashMap::new(),
             typed: HashMap::new(),
             rust_load: HashMap::new(),
@@ -168,28 +171,34 @@ impl<'i> Lib<'i>
         }
     }
 
-    pub fn read_astmod<'a>(
-        &'a mut self,
-        modname: &Lstr,
+    pub fn read_astmod<'b>(
+        loader: &'i mut Interloader,
+        modname: &'b Lstr,
     ) -> Lresult<ProtoModule<'i>>
-    where
-        'a: 'i,
     {
         vout!("read_modast: {}\n", modname);
-        let modtxt: &'i str = self.loader.read_mod(modname)?;
+        let modtxt = loader.read_mod(modname)?;
         let asts = Grammar::new(Tokenz::lexp(modtxt)?).parse_module()?;
         let modkey = ModKey::name_only(modname.clone());
         ProtoModule::new(modkey, asts)
     }
 
-    pub fn read_proto2(&mut self, _modname: &Lstr) -> Lresult<ProtoModule>
+    pub fn load_proto2<'a, 'b>(
+        &'a mut self,
+        modname: &'b Lstr,
+    ) -> Lresult<()>
+        where 'a: 'i
     {
+        vout!("load_proto2: {}\n", modname);
+        let proto = Self::read_astmod(self.loader, modname)?;
+        self.proto2.insert(modname.clone(), proto);
+        Ok(())
+    }
+
+    pub fn read_semantics<'b>(&'i mut self, modname: &'b Lstr) -> Lresult<()>
+    {
+        self.load_proto_and_imports(modname)?;
         /*
-        let raw = self.read_astmod(modname)?;
-        self.load_imports(modname, &raw.imports);
-        let proto = phase0::preproc(self, &pref, &ms.ast);
-        self.modsrc.insert(modname.clone(), ms);
-        self.preface.insert(modname.clone(), Rc::new(pref));
         proto
         */
         unimplemented!()
@@ -427,19 +436,51 @@ impl<'i> Lib<'i>
         typecheck::typecheck_function(&mut scope, &mut fix).unwrap()
     }
 
+    fn load_proto_and_imports<'b>(&'i mut self, modname: &'b Lstr) -> Lresult<()>
+    {
+        self.load_proto2(modname)?;
+        let mut imported = vec![];
+        {
+            let proto = self.proto2.get(modname).ok_or_else(|| {
+                rustfail!(
+                    "parse_failure",
+                    "failed finding loaded proto-module: {}",
+                    modname,
+                )
+            })?;
+            for i in proto.imports {
+                if i == modname {
+                    return Err(rustfail!(
+                        "semantic_failure",
+                        "A module cannot import itself: {}",
+                        i,
+                    ));
+                }
+                if self.proto2.contains_key(i) {
+                    continue;
+                }
+                let improto = Self::read_astmod(self.loader, &modname)?;
+                imported.push(improto);
+            }
+        }
+        for i in imported {
+            self.proto2.insert(modname.clone(), i);
+        }
+        Ok(())
+    }
+
     fn load_imports(&mut self, modname: &Lstr, imports: &HashSet<Lstr>)
     {
         for i in imports {
             if i == modname {
                 panic!("A module cannot import itself: {}", i);
             }
-            if self.preface.contains_key(i) {
-                continue;
+            if !self.preface.contains_key(i) {
+                let im = self.read_modsrc(i);
+                let pref = ModulePreface::new(&im);
+                self.modsrc.insert(i.clone(), im);
+                self.preface.insert(i.clone(), Rc::new(pref));
             }
-            let im = self.read_modsrc(i);
-            let pref = ModulePreface::new(&im);
-            self.modsrc.insert(i.clone(), im);
-            self.preface.insert(i.clone(), Rc::new(pref));
         }
     }
 
@@ -459,6 +500,19 @@ impl<'i> Lib<'i>
             imported_protos.insert(i.clone(), p);
         }
         imported_protos
+    }
+
+    pub fn get_macro2<'a>(
+        &'a self,
+        modname: &str,
+        macname: &str,
+    ) -> Option<&'a ast2::Ast>
+        where 'a: 'i
+    {
+        self.proto2.get(modname)
+            .and_then(|proto| {
+                proto.macros.get(macname)
+            })
     }
 
     pub fn get_macro<'a>(

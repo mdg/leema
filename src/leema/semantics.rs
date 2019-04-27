@@ -26,6 +26,7 @@ struct Pipeline<'i, 'p>
 }
 
 struct MacroApplication<'i, 'l>
+        where 'l: 'i
 {
     prog: &'l program::Lib<'i>,
 }
@@ -34,8 +35,8 @@ impl<'i, 'l> MacroApplication<'i, 'l>
 {
     fn apply_macro(
         _mac: &Ast<'i>,
-        _args: StrupleKV<Option<&'i str>, AstNode<'i>>,
         _loc: Loc,
+        _args: StrupleKV<Option<&'i str>, AstNode<'i>>,
     ) -> AstResult<'i>
     {
         Ok(AstNode::void())
@@ -48,17 +49,17 @@ impl<'i, 'l> PipelineOp<'i> for MacroApplication<'i, 'l>
     {
         if let Ast::Call(callid, args) = *node.node {
             let optmac = match *callid.node {
-                Ast::Id1(macroname) => self.prog.get_macro("", macroname),
+                Ast::Id1(macroname) => self.prog.get_macro2("", macroname),
                 Ast::Id2(modname, macroname) => {
-                    self.prog.get_macro(modname, macroname)
+                    self.prog.get_macro2(modname, macroname)
                 }
                 _ => None,
             };
             match optmac {
-                Some(_mac) => {
-                    // let result = Self::apply_macro(mac, args, callid.loc)?;
-                    // Ok(Some(result))
-                    Ok(None)
+                Some(mac) => {
+                    let result = Self::apply_macro(mac, callid.loc, args)?;
+                    Ok(Some(result))
+                    // Ok(None)
                 }
                 None => {
                     let node2 = AstNode::new(Ast::Call(callid, args), node.loc);
@@ -117,7 +118,7 @@ struct Registration
 // postop: 4, 3, 2, 1
 // after, subsequent, late, postlude
 
-struct Semantics
+pub struct Semantics
 {
     pub types: HashMap<Lstr, HashMap<Lstr, Type>>,
 

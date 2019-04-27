@@ -11,7 +11,7 @@ pub struct ProtoModule<'i>
 {
     pub key: ModKey,
     pub imports: HashSet<&'i str>,
-    pub macros: HashMap<&'i str, AstNode<'i>>,
+    pub macros: HashMap<&'i str, Ast<'i>>,
     pub constants: Vec<AstNode<'i>>,
     pub types: Vec<AstNode<'i>>,
     pub funcs: Vec<AstNode<'i>>,
@@ -37,7 +37,7 @@ impl<'i> ProtoModule<'i>
                     proto.constants.push(i);
                 }
                 Ast::DefMacro(macro_name, _, _) => {
-                    proto.macros.insert(macro_name, i);
+                    proto.macros.insert(macro_name, *i.node);
                 }
                 Ast::DefFunc(_, _, _) => {
                     proto.funcs.push(i);

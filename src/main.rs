@@ -35,6 +35,7 @@ struct Args
     flag_astmod: bool,
     flag_preface: bool,
     flag_proto: bool,
+    flag_semantics: bool,
     flag_inter: bool,
     flag_typecheck: bool,
     flag_code: bool,
@@ -129,15 +130,14 @@ fn real_main() -> Lresult<()>
         let ast = Grammar::new(Tokenz::lexp(&modtxt)?).parse_module()?;
         println!("{:#?}", ast);
         None
-    } else if args.flag_astmod {
-        let mut prog = program::Lib::new(&mut inter);
-        let astmod = prog.read_astmod(&mod_name)?;
-        println!("{:#?}\n", astmod);
-        None
     } else if args.flag_proto {
-        let mut prog = program::Lib::new(&mut inter);
-        let proto = prog.read_proto2(&mod_name)?;
+        let proto = program::Lib::read_astmod(&mut inter, &mod_name)?;
         println!("\n{:#?}\n", proto);
+        None
+    } else if args.flag_semantics {
+        let mut prog = program::Lib::new(&mut inter);
+        let semantics = prog.read_semantics(&mod_name)?;
+        println!("\n{:#?}\n", semantics);
         None
     } else if args.flag_inter {
         let mut prog = program::Lib::new(&mut inter);
