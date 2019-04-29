@@ -49,9 +49,9 @@ impl<'i, 'l> PipelineOp<'i> for MacroApplication<'i, 'l>
     {
         if let Ast::Call(callid, args) = *node.node {
             let optmac = match *callid.node {
-                Ast::Id1(macroname) => self.prog.get_macro2("", macroname),
+                Ast::Id1(macroname) => self.prog.get_macro2("", macroname)?,
                 Ast::Id2(modname, macroname) => {
-                    self.prog.get_macro2(modname, macroname)
+                    self.prog.get_macro2(modname, macroname)?
                 }
                 _ => None,
             };

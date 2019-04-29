@@ -13,7 +13,7 @@ use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::{ModKey, ModulePreface, ModuleSource};
 use crate::leema::phase0::{self, Protomod};
-use crate::leema::proto::ProtoModule;
+use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::token::Tokenz;
 use crate::leema::typecheck::{self, CallFrame, CallOp, Typemod, Typescope};
 use crate::leema::val::Type;
@@ -31,7 +31,7 @@ pub struct Lib<'i>
     modsrc: HashMap<Lstr, ModuleSource>,
     preface: HashMap<Lstr, Rc<ModulePreface>>,
     proto: HashMap<Lstr, Rc<Protomod>>,
-    proto2: HashMap<Lstr, ProtoModule<'i>>,
+    protos: ProtoLib<'i>,
     inter: HashMap<Lstr, Intermod>,
     typed: HashMap<Lstr, Typemod>,
     rust_load: HashMap<Lstr, fn(&str) -> Option<code::Code>>,
@@ -42,12 +42,13 @@ impl<'i> Lib<'i>
 {
     pub fn new(l: &'i mut Interloader) -> Lib<'i>
     {
+        let protos = ProtoLib::new(l.clone());
         let mut proglib = Lib {
             loader: l,
             modsrc: HashMap::new(),
             preface: HashMap::new(),
             proto: HashMap::new(),
-            proto2: HashMap::new(),
+            protos,
             inter: HashMap::new(),
             typed: HashMap::new(),
             rust_load: HashMap::new(),
@@ -187,11 +188,9 @@ impl<'i> Lib<'i>
         &'a mut self,
         modname: &'b Lstr,
     ) -> Lresult<()>
-        where 'a: 'i
     {
         vout!("load_proto2: {}\n", modname);
-        let proto = Self::read_astmod(self.loader, modname)?;
-        self.proto2.insert(modname.clone(), proto);
+        self.protos.load(modname)?;
         Ok(())
     }
 
@@ -438,16 +437,10 @@ impl<'i> Lib<'i>
 
     fn load_proto_and_imports<'b>(&'i mut self, modname: &'b Lstr) -> Lresult<()>
     {
-        self.load_proto2(modname)?;
+        self.protos.load(modname)?;
         let mut imported = vec![];
         {
-            let proto = self.proto2.get(modname).ok_or_else(|| {
-                rustfail!(
-                    "parse_failure",
-                    "failed finding loaded proto-module: {}",
-                    modname,
-                )
-            })?;
+            let proto = self.protos.get(modname)?;
             for i in proto.imports {
                 if i == modname {
                     return Err(rustfail!(
@@ -456,11 +449,14 @@ impl<'i> Lib<'i>
                         i,
                     ));
                 }
-                if self.proto2.contains_key(i) {
+                self.protos.load(modname)?;
+                /*
+                if self.protos.contains_key(i) {
                     continue;
                 }
                 let improto = Self::read_astmod(self.loader, &modname)?;
                 imported.push(improto);
+                */
             }
         }
         for i in imported {
@@ -506,13 +502,11 @@ impl<'i> Lib<'i>
         &'a self,
         modname: &str,
         macname: &str,
-    ) -> Option<&'a ast2::Ast>
+    ) -> Lresult<Option<&'a ast2::Ast>>
         where 'a: 'i
     {
-        self.proto2.get(modname)
-            .and_then(|proto| {
-                proto.macros.get(macname)
-            })
+        let proto = self.protos.get(modname)?;
+        Ok(proto.macros.get(macname))
     }
 
     pub fn get_macro<'a>(
