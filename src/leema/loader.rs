@@ -9,6 +9,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 
+#[derive(Clone)]
 #[derive(Debug)]
 pub struct Interloader
 {

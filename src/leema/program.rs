@@ -2,7 +2,6 @@ use crate::leema::ast::Ast;
 use crate::leema::ast2;
 use crate::leema::code::{self, Code};
 use crate::leema::failure::Lresult;
-use crate::leema::grammar2::Grammar;
 use crate::leema::infer::TypeSet;
 use crate::leema::inter::Intermod;
 use crate::leema::ixpr::Source;
@@ -14,7 +13,6 @@ use crate::leema::lstr::Lstr;
 use crate::leema::module::{ModKey, ModulePreface, ModuleSource};
 use crate::leema::phase0::{self, Protomod};
 use crate::leema::proto::{ProtoLib, ProtoModule};
-use crate::leema::token::Tokenz;
 use crate::leema::typecheck::{self, CallFrame, CallOp, Typemod, Typescope};
 use crate::leema::val::Type;
 use crate::leema::{
@@ -178,10 +176,9 @@ impl<'i> Lib<'i>
     ) -> Lresult<ProtoModule<'i>>
     {
         vout!("read_modast: {}\n", modname);
-        let modtxt = loader.read_mod(modname)?;
-        let asts = Grammar::new(Tokenz::lexp(modtxt)?).parse_module()?;
+        let modtxt = loader.read_module(modname)?;
         let modkey = ModKey::name_only(modname.clone());
-        ProtoModule::new(modkey, asts)
+        ProtoModule::parse_new(modkey, modtxt)
     }
 
     pub fn load_proto2<'a, 'b>(
@@ -438,31 +435,7 @@ impl<'i> Lib<'i>
     fn load_proto_and_imports<'b>(&'i mut self, modname: &'b Lstr) -> Lresult<()>
     {
         self.protos.load(modname)?;
-        let mut imported = vec![];
-        {
-            let proto = self.protos.get(modname)?;
-            for i in proto.imports {
-                if i == modname {
-                    return Err(rustfail!(
-                        "semantic_failure",
-                        "A module cannot import itself: {}",
-                        i,
-                    ));
-                }
-                self.protos.load(modname)?;
-                /*
-                if self.protos.contains_key(i) {
-                    continue;
-                }
-                let improto = Self::read_astmod(self.loader, &modname)?;
-                imported.push(improto);
-                */
-            }
-        }
-        for i in imported {
-            self.proto2.insert(modname.clone(), i);
-        }
-        Ok(())
+        self.protos.load_imports(modname)
     }
 
     fn load_imports(&mut self, modname: &Lstr, imports: &HashSet<Lstr>)
