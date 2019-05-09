@@ -40,7 +40,7 @@ impl<'i> Lib<'i>
 {
     pub fn new(l: &'i mut Interloader) -> Lib<'i>
     {
-        let protos = ProtoLib::new(l.clone());
+        let protos = ProtoLib::new();
         let mut proglib = Lib {
             loader: l,
             modsrc: HashMap::new(),
@@ -176,24 +176,25 @@ impl<'i> Lib<'i>
     ) -> Lresult<ProtoModule<'i>>
     {
         vout!("read_modast: {}\n", modname);
-        let modtxt = loader.read_module(modname)?;
+        let modtxt = loader.read_mod(modname)?;
         let modkey = ModKey::name_only(modname.clone());
         ProtoModule::parse_new(modkey, modtxt)
     }
 
-    pub fn load_proto2<'a, 'b>(
-        &'a mut self,
-        modname: &'b Lstr,
+    pub fn load_proto2(
+        &mut self,
+        loader: &'i mut Interloader,
+        modname: &Lstr,
     ) -> Lresult<()>
     {
         vout!("load_proto2: {}\n", modname);
-        self.protos.load(modname)?;
+        self.protos.load(loader, modname)?;
         Ok(())
     }
 
-    pub fn read_semantics<'b>(&'i mut self, modname: &'b Lstr) -> Lresult<()>
+    pub fn read_semantics(&mut self, loader: &'i mut Interloader, modname: &Lstr) -> Lresult<()>
     {
-        self.load_proto_and_imports(modname)?;
+        self.load_proto_and_imports(loader, modname)?;
         /*
         proto
         */
@@ -432,10 +433,10 @@ impl<'i> Lib<'i>
         typecheck::typecheck_function(&mut scope, &mut fix).unwrap()
     }
 
-    fn load_proto_and_imports<'b>(&'i mut self, modname: &'b Lstr) -> Lresult<()>
+    fn load_proto_and_imports(&mut self, loader: &Interloader, modname: &Lstr) -> Lresult<()>
     {
-        self.protos.load(modname)?;
-        self.protos.load_imports(modname)
+        self.protos.load(loader, modname)?;
+        self.protos.load_imports(loader, modname)
     }
 
     fn load_imports(&mut self, modname: &Lstr, imports: &HashSet<Lstr>)
