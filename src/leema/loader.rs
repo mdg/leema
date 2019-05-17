@@ -36,6 +36,13 @@ pub struct Interloader
 
 impl Interloader
 {
+    pub fn init()
+    {
+        unsafe {
+            init_modtxt();
+        }
+    }
+
     pub fn new(mainfile: Lstr, path_str: &str) -> Interloader
     {
         let path = Path::new(mainfile.str());

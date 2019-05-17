@@ -59,6 +59,7 @@ Options:
      --preface     Show the preface for the module
      --proto       Show the proto mod for the module
      --inter       Show the inter mod for the module
+     --semantics   Semantically analyze the module
      --code        Show code for the function
      --repl        Launch the REPL
      --func=<func>
@@ -113,6 +114,7 @@ fn real_main() -> Lresult<()>
         list::cons(Val::Str(Lstr::from(a.to_string())), aacc)
     });
     let leema_args = list::reverse(&leema_args_rev);
+    Interloader::init();
     let mut inter = Interloader::new(file, &leema_path);
     let mod_name = inter.main_mod.clone();
     vout!("run {}\n", inter.main_mod);
