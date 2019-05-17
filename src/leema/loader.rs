@@ -7,23 +7,34 @@ use std::env;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::{Once, ONCE_INIT};
 
+
+static INIT: Once = ONCE_INIT;
 
 static mut MODTXT: Option<HashMap<Lstr, String>> = None;
 
 unsafe fn init_modtxt()
 {
-    MODTXT = Some(HashMap::new());
+    INIT.call_once(|| {
+        MODTXT = Some(HashMap::new());
+    });
 }
 
 unsafe fn put_modtxt(key: Lstr, val: String) -> &'static str
 {
+    if MODTXT.is_none() {
+        init_modtxt();
+    }
     MODTXT.as_mut().unwrap().insert(key.clone(), val);
     MODTXT.as_ref().unwrap().get(&key).unwrap()
 }
 
 unsafe fn get_modtxt(key: &str) -> Option<&'static str>
 {
+    if MODTXT.is_none() {
+        return None;
+    }
     MODTXT.as_ref().unwrap().get(key).map(|s| s.as_str())
 }
 
