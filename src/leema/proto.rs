@@ -14,7 +14,6 @@ use std::collections::{HashMap, HashSet};
 pub struct ProtoModule<'i>
 {
     pub key: ModKey,
-    pub src: String,
     pub imports: HashSet<&'i str>,
     pub macros: HashMap<&'i str, Ast<'i>>,
     pub constants: Vec<AstNode<'i>>,
@@ -24,45 +23,33 @@ pub struct ProtoModule<'i>
 
 impl<'i> ProtoModule<'i>
 {
-    pub fn parse_new(key: ModKey, src: String) -> Lresult<ProtoModule<'i>>
+    pub fn new(key: ModKey, items: Vec<AstNode<'i>>) -> Lresult<ProtoModule<'i>>
     {
-        let mut proto = Self::new(key, src);
-        proto.parse()?;
-        Ok(proto)
-    }
-
-    pub fn new(key: ModKey, src: String) -> ProtoModule<'i>
-    {
-        ProtoModule {
+        let mut proto = ProtoModule {
             key,
-            src,
             imports: HashSet::new(),
             macros: HashMap::new(),
             constants: Vec::new(),
             types: Vec::new(),
             funcs: Vec::new(),
-        }
-    }
+        };
 
-    pub fn parse(&'i mut self) -> Lresult<()>
-    {
-        let items = Grammar::new(Tokenz::lexp(&self.src)?).parse_module()?;
         for i in items {
             match *i.node {
                 Ast::DefConst(_, _) => {
-                    self.constants.push(i);
+                    proto.constants.push(i);
                 }
                 Ast::DefMacro(macro_name, _, _) => {
-                    self.macros.insert(macro_name, *i.node);
+                    proto.macros.insert(macro_name, *i.node);
                 }
                 Ast::DefFunc(_, _, _) => {
-                    self.funcs.push(i);
+                    proto.funcs.push(i);
                 }
                 Ast::DefType(_, _, _) => {
-                    self.types.push(i);
+                    proto.types.push(i);
                 }
                 Ast::Import(imp) => {
-                    self.imports.insert(imp);
+                    proto.imports.insert(imp);
                 }
                 _ => {
                     return Err(rustfail!(
@@ -73,40 +60,39 @@ impl<'i> ProtoModule<'i>
                 }
             }
         }
-        Ok(())
+        Ok(proto)
     }
 }
 
 pub struct ProtoLib<'i>
 {
-    loader: Interloader,
     protos: HashMap<Lstr, ProtoModule<'i>>,
 }
 
 impl<'i> ProtoLib<'i>
 {
-    pub fn new(loader: Interloader) -> ProtoLib<'i>
+    pub fn new() -> ProtoLib<'i>
     {
         ProtoLib{
-            loader,
             protos: HashMap::new(),
         }
     }
 
-    pub fn load(&mut self, modname: &Lstr) -> Lresult<()>
+    pub fn load(&mut self, loader: &Interloader, modname: &Lstr) -> Lresult<()>
     {
         vout!("ProtoLib::load({})\n", modname);
         if self.protos.contains_key(modname) {
             return Ok(());
         }
-        let modtxt = self.loader.read_module(modname)?;
+        let modtxt = loader.read_mod(modname)?;
+        let asts = Grammar::new(Tokenz::lexp(modtxt)?).parse_module()?;
         let modkey = ModKey::name_only(modname.clone());
-        let proto = ProtoModule::parse_new(modkey, modtxt)?;
+        let proto = ProtoModule::new(modkey, asts)?;
         self.protos.insert(modname.clone(), proto);
         Ok(())
     }
 
-    pub fn load_imports(&mut self, modname: &Lstr) -> Lresult<()>
+    pub fn load_imports(&mut self, loader: &Interloader, modname: &Lstr) -> Lresult<()>
     {
         vout!("ProtoLib::load_imports({})\n", modname);
         let mut imported: Vec<Lstr> = vec![];
@@ -134,7 +120,7 @@ impl<'i> ProtoLib<'i>
             }
         }
         for i in imported.iter() {
-            self.load(i);
+            self.load(loader, i)?;
         }
         Ok(())
     }

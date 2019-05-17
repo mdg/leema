@@ -2,6 +2,7 @@ use crate::leema::ast::Ast;
 use crate::leema::ast2;
 use crate::leema::code::{self, Code};
 use crate::leema::failure::Lresult;
+use crate::leema::grammar2::Grammar;
 use crate::leema::infer::TypeSet;
 use crate::leema::inter::Intermod;
 use crate::leema::ixpr::Source;
@@ -13,6 +14,7 @@ use crate::leema::lstr::Lstr;
 use crate::leema::module::{ModKey, ModulePreface, ModuleSource};
 use crate::leema::phase0::{self, Protomod};
 use crate::leema::proto::{ProtoLib, ProtoModule};
+use crate::leema::token::Tokenz;
 use crate::leema::typecheck::{self, CallFrame, CallOp, Typemod, Typescope};
 use crate::leema::val::Type;
 use crate::leema::{
@@ -177,24 +179,24 @@ impl<'i> Lib<'i>
     {
         vout!("read_modast: {}\n", modname);
         let modtxt = loader.read_mod(modname)?;
+        let asts = Grammar::new(Tokenz::lexp(modtxt)?).parse_module()?;
         let modkey = ModKey::name_only(modname.clone());
-        ProtoModule::parse_new(modkey, modtxt)
+        ProtoModule::new(modkey, asts)
     }
 
     pub fn load_proto2(
         &mut self,
-        loader: &'i mut Interloader,
         modname: &Lstr,
     ) -> Lresult<()>
     {
         vout!("load_proto2: {}\n", modname);
-        self.protos.load(loader, modname)?;
+        self.protos.load(self.loader, modname)?;
         Ok(())
     }
 
-    pub fn read_semantics(&mut self, loader: &'i mut Interloader, modname: &Lstr) -> Lresult<()>
+    pub fn read_semantics(&mut self, modname: &Lstr) -> Lresult<()>
     {
-        self.load_proto_and_imports(loader, modname)?;
+        self.load_proto_and_imports(modname)?;
         /*
         proto
         */
@@ -433,10 +435,10 @@ impl<'i> Lib<'i>
         typecheck::typecheck_function(&mut scope, &mut fix).unwrap()
     }
 
-    fn load_proto_and_imports(&mut self, loader: &Interloader, modname: &Lstr) -> Lresult<()>
+    fn load_proto_and_imports(&mut self, modname: &Lstr) -> Lresult<()>
     {
-        self.protos.load(loader, modname)?;
-        self.protos.load_imports(loader, modname)
+        self.protos.load(&mut self.loader, modname)?;
+        self.protos.load_imports(&mut self.loader, modname)
     }
 
     fn load_imports(&mut self, modname: &Lstr, imports: &HashSet<Lstr>)
