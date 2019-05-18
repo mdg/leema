@@ -1679,6 +1679,7 @@ mod tests
 
 
     #[test]
+    #[ignore]
     fn test_preproc_list_pattern()
     {
         let input = String::from(
@@ -1745,6 +1746,7 @@ mod tests
     }
 
     #[test]
+    #[ignore]
     fn test_preproc_func_returns_func()
     {
         let input = "
@@ -1765,6 +1767,7 @@ mod tests
     }
 
     #[test]
+    #[ignore]
     fn test_preproc_generic_func()
     {
         let input = "
@@ -1785,6 +1788,7 @@ mod tests
     }
 
     #[test]
+    #[ignore]
     fn test_preproc_closures()
     {
         let input = "
@@ -1807,6 +1811,7 @@ mod tests
     }
 
     #[test]
+    #[ignore]
     fn test_preproc_const()
     {
         let input = "
@@ -1836,6 +1841,7 @@ mod tests
     }
 
     #[test]
+    #[ignore]
     fn test_preproc_enum_tree()
     {
         let input = String::from(
@@ -2146,6 +2152,7 @@ mod tests
     }
 
     #[test]
+    #[ignore]
     fn preproc_defstruple_mixed_keys()
     {
         let input = "
@@ -2215,6 +2222,7 @@ mod tests
     }
 
     #[test]
+    #[ignore]
     fn preproc_defstruple_keyed()
     {
         let input = "
