@@ -3,8 +3,7 @@ use crate::leema::failure::Lresult;
 use crate::leema::infer::Inferator;
 use crate::leema::inter::Blockstack;
 use crate::leema::lstr::Lstr;
-use crate::leema::program;
-use crate::leema::proto::ProtoModule;
+use crate::leema::proto::ProtoLib; // {ProtoLib, ProtoModule};
 use crate::leema::reg::RegTable;
 use crate::leema::struple::StrupleKV;
 use crate::leema::val::Type;
@@ -28,7 +27,7 @@ struct Pipeline<'i, 'p>
 struct MacroApplication<'i, 'l>
         where 'l: 'i
 {
-    prog: &'l program::Lib<'i>,
+    proto: &'l ProtoLib<'i>,
 }
 
 impl<'i, 'l> MacroApplication<'i, 'l>
@@ -49,9 +48,9 @@ impl<'i, 'l> PipelineOp<'i> for MacroApplication<'i, 'l>
     {
         if let Ast::Call(callid, args) = *node.node {
             let optmac = match *callid.node {
-                Ast::Id1(macroname) => self.prog.get_macro2("", macroname)?,
+                Ast::Id1(macroname) => self.proto.get_macro("", macroname)?,
                 Ast::Id2(modname, macroname) => {
-                    self.prog.get_macro2(modname, macroname)?
+                    self.proto.get_macro(modname, macroname)?
                 }
                 _ => None,
             };
@@ -98,7 +97,6 @@ struct ScopeCheck
 
 struct TypeCheck<'i>
 {
-    prog: &'i program::Lib<'i>,
     infer: Inferator<'i>,
 }
 
@@ -126,12 +124,37 @@ pub struct Semantics
     // pub typecalls: HashSet<SpecialModId>,
     pub closed: Option<HashSet<Lstr>>,
 
-    is_closure: bool,
+    is_closure: Vec<bool>,
 }
 
-pub fn compile(prog: &mut program::Lib, _proto: ProtoModule) // -> Semantics
+pub struct SemanticLib
 {
-    let _ops = Pipeline {
-        ops: vec![&mut MacroApplication { prog: &prog }],
-    };
+    semantics: HashMap<Lstr, Semantics>,
+}
+
+impl SemanticLib
+{
+    pub fn new() -> SemanticLib
+    {
+        SemanticLib {
+            semantics: HashMap::new(),
+        }
+    }
+
+    pub fn compile(&mut self, proto: &mut ProtoLib, module: &str) -> Lresult<()>
+    {
+        while let Some(mut func_ast) = proto.pop_func(module)? {
+            let mut macs = MacroApplication { proto };
+            let mut ops = Pipeline {
+                ops: vec![&mut macs],
+            };
+
+            for op in ops.ops.iter_mut() {
+                func_ast = op.f(func_ast)?.unwrap();
+            }
+
+            println!("compiled func to {:?}", func_ast);
+        }
+        Ok(())
+    }
 }

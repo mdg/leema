@@ -125,6 +125,23 @@ impl<'i> ProtoLib<'i>
         Ok(())
     }
 
+    pub fn pop_func(&mut self, module: &str) -> Lresult<Option<AstNode<'i>>>
+    {
+        match self.protos.get_mut(module) {
+            Some(protomod) => {
+                Ok(protomod.funcs.pop())
+            }
+            None => {
+                Err(rustfail!(
+                    "semantic_failure",
+                    "could not find module: {}",
+                    module,
+                ))
+            }
+        }
+    }
+
+
     pub fn get(&self, modname: &str) -> Lresult<&ProtoModule<'i>>
     {
         self.protos.get(modname)
@@ -135,5 +152,17 @@ impl<'i> ProtoLib<'i>
                     modname,
                 )
             })
+    }
+
+    pub fn get_macro(&self, module: &str, macroname: &str) -> Lresult<Option<&Ast>>
+    {
+        let proto = self.protos.get(module).ok_or_else(|| {
+            rustfail!(
+                "semantic_failure",
+                "module not loaded: {}",
+                module,
+            )
+        })?;
+        Ok(proto.macros.get(macroname))
     }
 }
