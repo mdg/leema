@@ -7,35 +7,21 @@ use std::env;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::sync::{Once, ONCE_INIT};
+use std::sync::{Mutex, Once, ONCE_INIT};
 
 
 static INIT: Once = ONCE_INIT;
 
-static mut MODTXT: Option<HashMap<Lstr, String>> = None;
+static mut MODTXT: Option<Vec<String>> = None;
 
-unsafe fn init_modtxt()
+unsafe fn put_modtxt(val: String) -> &'static str
 {
     INIT.call_once(|| {
-        MODTXT = Some(HashMap::new());
+        MODTXT = Some(vec![]);
     });
-}
-
-unsafe fn put_modtxt(key: Lstr, val: String) -> &'static str
-{
-    if MODTXT.is_none() {
-        init_modtxt();
-    }
-    MODTXT.as_mut().unwrap().insert(key.clone(), val);
-    MODTXT.as_ref().unwrap().get(&key).unwrap()
-}
-
-unsafe fn get_modtxt(key: &str) -> Option<&'static str>
-{
-    if MODTXT.is_none() {
-        return None;
-    }
-    MODTXT.as_ref().unwrap().get(key).map(|s| s.as_str())
+    let store = MODTXT.as_mut().unwrap();
+    store.push(val);
+    store.last().unwrap()
 }
 
 #[derive(Debug)]
@@ -43,17 +29,12 @@ pub struct Interloader
 {
     pub main_mod: Lstr,
     paths: Vec<PathBuf>,
+    lock: Mutex<()>,
+    texts: HashMap<Lstr, &'static str>,
 }
 
 impl Interloader
 {
-    pub fn init()
-    {
-        unsafe {
-            init_modtxt();
-        }
-    }
-
     pub fn new(mainfile: Lstr, path_str: &str) -> Interloader
     {
         let path = Path::new(mainfile.str());
@@ -78,21 +59,25 @@ impl Interloader
         Interloader {
             main_mod: mod_str,
             paths,
+            lock: Mutex::new(()),
+            texts: HashMap::new(),
         }
     }
 
-    pub fn set_mod_txt(&mut self, modname: Lstr, content: String)
+    pub fn set_modtxt(&mut self, modname: Lstr, content: String) -> &'static str
     {
-        unsafe {
-            put_modtxt(modname, content);
-        }
+        let mut lockg = self.lock.lock().expect("failed locking modtxt");
+        let stext = unsafe {
+            put_modtxt(content)
+        };
+        self.texts.insert(modname, stext);
+        *lockg = ();
+        stext
     }
 
     fn mod_name_to_key(&self, mod_name: &Lstr) -> Lresult<ModKey>
     {
-        let contained = unsafe {
-            get_modtxt(mod_name).is_some()
-        };
+        let contained = self.texts.contains_key(mod_name);
         if contained {
             Ok(ModKey::name_only(mod_name.clone()))
         } else {
@@ -101,51 +86,32 @@ impl Interloader
         }
     }
 
-    pub fn read_module(&self, mod_name: &Lstr) -> Lresult<String>
+    pub fn read_module(&mut self, mod_name: &Lstr) -> Lresult<String>
     {
-        let mod_key = self.mod_name_to_key(mod_name)?;
-        if mod_key.file.is_none() {
-            let modtxt = unsafe {
-                get_modtxt(mod_name)
-            };
-            modtxt
-                .map(|txt| txt.to_string())
-                .ok_or_else(|| {
-                    rustfail!(
-                        "file_not_found",
-                        "could not find text for module with no file: {}",
-                        mod_name,
-                    )
-                })
-        } else {
-            self.read_file_text(mod_key.file.as_ref().unwrap())
-        }
+        self.read_mod(mod_name).map(|text| text.to_string())
     }
 
     pub fn read_mod(
-        &self,
+        &mut self,
         mod_name: &Lstr,
     ) -> Lresult<&'static str>
     {
-        let mod_key = self.mod_name_to_key(mod_name)?;
-        if mod_key.file.is_some() {
-            let txt = self.read_file_text(mod_key.file.as_ref().unwrap())?;
-            let result = unsafe {
-                put_modtxt(mod_name.clone(), txt)
-            };
-            Ok(result)
-        } else {
-            let txt = unsafe {
-                get_modtxt(mod_name)
-            };
-            txt.ok_or_else(|| {
-                rustfail!(
-                    "file_not_found",
-                    "could not find text for module with no file: {}",
-                    mod_name,
-                )
-            })
+        if let Some(txt) = self.texts.get(mod_name) {
+            return Ok(txt);
         }
+
+        let mod_key = self.mod_name_to_key(mod_name)?;
+        let filepath = mod_key.file.as_ref().ok_or_else(|| {
+            rustfail!(
+                "file_not_found",
+                "could not find text for module with no file: {}",
+                mod_name,
+            )
+        })?;
+        let text = self.read_file_text(filepath)?;
+        let stext = self.set_modtxt(mod_name.clone(), text);
+        self.texts.insert(mod_name.clone(), stext);
+        Ok(stext)
     }
 
     fn find_file_path(&self, name: &Lstr) -> Lresult<PathBuf>

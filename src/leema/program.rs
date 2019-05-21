@@ -203,7 +203,7 @@ impl<'i> Lib<'i>
         unimplemented!()
     }
 
-    pub fn read_modsrc(&self, modname: &Lstr) -> ModuleSource
+    pub fn read_modsrc(&mut self, modname: &Lstr) -> ModuleSource
     {
         vout!("read_modsrc: {}\n", modname);
         let modtxt = self.loader.read_module(modname).unwrap();
@@ -211,7 +211,7 @@ impl<'i> Lib<'i>
         ModuleSource::new(modkey, modtxt)
     }
 
-    pub fn read_preface(&self, modname: &Lstr)
+    pub fn read_preface(&mut self, modname: &Lstr)
         -> (ModuleSource, ModulePreface)
     {
         let ms = self.read_modsrc(modname);

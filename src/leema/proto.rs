@@ -78,7 +78,7 @@ impl<'i> ProtoLib<'i>
         }
     }
 
-    pub fn load(&mut self, loader: &Interloader, modname: &Lstr) -> Lresult<()>
+    pub fn load(&mut self, loader: &mut Interloader, modname: &Lstr) -> Lresult<()>
     {
         vout!("ProtoLib::load({})\n", modname);
         if self.protos.contains_key(modname) {
@@ -92,7 +92,7 @@ impl<'i> ProtoLib<'i>
         Ok(())
     }
 
-    pub fn load_imports(&mut self, loader: &Interloader, modname: &Lstr) -> Lresult<()>
+    pub fn load_imports(&mut self, loader: &mut Interloader, modname: &Lstr) -> Lresult<()>
     {
         vout!("ProtoLib::load_imports({})\n", modname);
         let mut imported: Vec<Lstr> = vec![];

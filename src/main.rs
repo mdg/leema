@@ -114,7 +114,6 @@ fn real_main() -> Lresult<()>
         list::cons(Val::Str(Lstr::from(a.to_string())), aacc)
     });
     let leema_args = list::reverse(&leema_args_rev);
-    Interloader::init();
     let mut inter = Interloader::new(file, &leema_path);
     let mod_name = inter.main_mod.clone();
     vout!("run {}\n", inter.main_mod);
