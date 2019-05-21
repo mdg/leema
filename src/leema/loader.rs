@@ -7,21 +7,27 @@ use std::env;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, Once, ONCE_INIT};
+use std::sync::Mutex;
+
+use lazy_static::lazy_static;
 
 
-static INIT: Once = ONCE_INIT;
-
-static mut MODTXT: Option<Vec<String>> = None;
+static mut TEXTS: Option<Vec<String>> = None;
 
 unsafe fn put_modtxt(val: String) -> &'static str
 {
-    INIT.call_once(|| {
-        MODTXT = Some(vec![]);
-    });
-    let store = MODTXT.as_mut().unwrap();
-    store.push(val);
-    store.last().unwrap()
+    lazy_static! {
+        static ref LOCK: Mutex<()> = Mutex::new(());
+    }
+    let mut lock = LOCK.lock().expect("failed locking TEXTS");
+    if TEXTS.is_none() {
+        TEXTS = Some(Vec::with_capacity(12));
+    }
+    let texts = TEXTS.as_mut().unwrap();
+    texts.push(val);
+    let stext: &'static str = texts.last().as_ref().unwrap();
+    *lock = ();
+    stext
 }
 
 #[derive(Debug)]
@@ -29,7 +35,6 @@ pub struct Interloader
 {
     pub main_mod: Lstr,
     paths: Vec<PathBuf>,
-    lock: Mutex<()>,
     texts: HashMap<Lstr, &'static str>,
 }
 
@@ -59,19 +64,16 @@ impl Interloader
         Interloader {
             main_mod: mod_str,
             paths,
-            lock: Mutex::new(()),
             texts: HashMap::new(),
         }
     }
 
-    pub fn set_modtxt(&mut self, modname: Lstr, content: String) -> &'static str
+    pub fn set_mod_txt(&mut self, modname: Lstr, content: String) -> &'static str
     {
-        let mut lockg = self.lock.lock().expect("failed locking modtxt");
         let stext = unsafe {
             put_modtxt(content)
         };
         self.texts.insert(modname, stext);
-        *lockg = ();
         stext
     }
 
@@ -109,7 +111,7 @@ impl Interloader
             )
         })?;
         let text = self.read_file_text(filepath)?;
-        let stext = self.set_modtxt(mod_name.clone(), text);
+        let stext = self.set_mod_txt(mod_name.clone(), text);
         self.texts.insert(mod_name.clone(), stext);
         Ok(stext)
     }
