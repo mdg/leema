@@ -817,7 +817,6 @@ mod tests
 
 
     #[test]
-    #[ignore]
     fn test_pattern_field_inferred()
     {
         let input = r#"
@@ -914,7 +913,6 @@ mod tests
     }
 
     #[test]
-    #[ignore]
     fn test_typevar_used_two_ways()
     {
         let input = r#"

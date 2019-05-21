@@ -1347,7 +1347,6 @@ mod tests
     }
 
     #[test]
-    #[ignore]
     #[should_panic]
     fn test_compile_function_undefined_var()
     {
@@ -1367,7 +1366,6 @@ mod tests
     }
 
     #[test]
-    #[ignore]
     fn test_compile_function_closure_def()
     {
         let input = "
@@ -1394,7 +1392,6 @@ mod tests
     }
 
     #[test]
-    #[ignore]
     fn test_compile_anon_func()
     {
         let input = "
@@ -1420,7 +1417,6 @@ mod tests
     }
 
     #[test]
-    #[ignore]
     fn test_compile_closure()
     {
         let input = "
@@ -1559,7 +1555,6 @@ mod tests
     }
 
     #[test]
-    #[ignore]
     fn test_compile_match_existing_var()
     {
         let input = "
