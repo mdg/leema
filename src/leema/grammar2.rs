@@ -292,8 +292,8 @@ impl ParseStmt
     {
         let mut args = vec![];
         loop {
-            let tok0 = p.peek()?;
-            match tok0.tok {
+            let tok = p.peek()?;
+            match tok.tok {
                 Token::DoubleArrow => {
                     break;
                 }
@@ -305,25 +305,7 @@ impl ParseStmt
                     return Err(rustfail!(
                         "parse_failure",
                         "expected Id or >> found {:?}",
-                        tok0
-                    ));
-                }
-            }
-
-            let tok1 = p.peek()?;
-            match tok1.tok {
-                Token::DoubleArrow => {
-                    break;
-                }
-                Token::Comma => {
-                    p.next()?;
-                    // loop again and take the next Id
-                }
-                _ => {
-                    return Err(rustfail!(
-                        "parse_failure",
-                        "expected , or >> found {:?}",
-                        tok1
+                        tok
                     ));
                 }
             }
@@ -1458,6 +1440,21 @@ mod tests
         func fact x:Int :Int
         |0 >> 1
         |x >> x * fact(f-1)
+        --
+        "#;
+        let toks = Tokenz::lexp(input).unwrap();
+        let mut p = Grammar::new(toks);
+        p.parse_module().unwrap();
+    }
+
+    #[test]
+    fn test_parse_defmacro()
+    {
+        let input = r#"macro test_and a b >>
+            if
+            |a >> b
+            |else >> false
+            --
         --
         "#;
         let toks = Tokenz::lexp(input).unwrap();
