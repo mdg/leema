@@ -184,7 +184,7 @@ mod tests
 
         let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("foo"), input.to_string());
-        let mut prog = program::Lib::new(&mut loader);
+        let mut prog = program::Lib::new(loader);
         prog.read_semantics(&Lstr::from("foo")).unwrap();
     }
 }

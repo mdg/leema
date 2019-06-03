@@ -1360,7 +1360,7 @@ mod tests
         let foo_str = Lstr::Sref("foo");
         let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
         loader.set_mod_txt(foo_str.clone(), input);
-        let mut prog = program::Lib::new(&mut loader);
+        let mut prog = program::Lib::new(loader);
         // y is undefined so this should crash b/c it's not a closure
         prog.read_inter(&foo_str);
     }
@@ -1378,7 +1378,7 @@ mod tests
         let foo_str = Lstr::Sref("foo");
         let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
         loader.set_mod_txt(foo_str.clone(), input);
-        let mut prog = program::Lib::new(&mut loader);
+        let mut prog = program::Lib::new(loader);
         let proto = prog.read_proto(&foo_str);
         let mut inter = Intermod::new(foo_str.clone());
         let closure_name = proto.closures.front().unwrap();
@@ -1405,7 +1405,7 @@ mod tests
 
         let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("foo"), input);
-        let mut prog = program::Lib::new(&mut loader);
+        let mut prog = program::Lib::new(loader);
         let inter = prog.read_inter(&Lstr::Sref("foo"));
         let proto = prog.find_proto("foo").unwrap();
         let closure_name = proto.closures.front().unwrap();
@@ -1430,7 +1430,7 @@ mod tests
 
         let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("foo"), input);
-        let mut prog = program::Lib::new(&mut loader);
+        let mut prog = program::Lib::new(loader);
         let inter = prog.read_inter(&Lstr::Sref("foo"));
         let proto = prog.find_proto("foo").unwrap();
         let closure_name = proto.closures.front().unwrap();
@@ -1458,7 +1458,7 @@ mod tests
 
         let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("foo"), input);
-        let mut prog = program::Lib::new(&mut loader);
+        let mut prog = program::Lib::new(loader);
         prog.read_inter(&Lstr::Sref("foo"));
     }
 
@@ -1477,7 +1477,7 @@ mod tests
 
         let mut loader = Interloader::new(Lstr::Sref("fact.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("fact"), input);
-        let mut prog = program::Lib::new(&mut loader);
+        let mut prog = program::Lib::new(loader);
         prog.read_inter(&Lstr::Sref("fact"));
         // assert that it didn't panic
         assert!(true);
@@ -1501,7 +1501,7 @@ mod tests
 
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
-        let mut prog = program::Lib::new(&mut loader);
+        let mut prog = program::Lib::new(loader);
         prog.read_inter(&Lstr::Sref("tacos"));
         assert!(true); // didn't panic earlier
     }
@@ -1522,7 +1522,7 @@ mod tests
         let greeting_str = Lstr::Sref("greeting");
         let mut loader = Interloader::new(Lstr::Sref("greeting.lma"), "lib");
         loader.set_mod_txt(greeting_str.clone(), input);
-        let mut prog = program::Lib::new(&mut loader);
+        let mut prog = program::Lib::new(loader);
         prog.read_inter(&greeting_str);
         assert!(true); // didn't panic earlier
     }
@@ -1549,7 +1549,7 @@ mod tests
 
         let mut loader = Interloader::new(Lstr::Sref("animals.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("animals"), input);
-        let mut prog = program::Lib::new(&mut loader);
+        let mut prog = program::Lib::new(loader);
         prog.read_inter(&Lstr::Sref("animals"));
         assert!(true); // didn't panic earlier
     }
@@ -1571,7 +1571,7 @@ mod tests
 
         let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("foo"), input);
-        let mut prog = program::Lib::new(&mut loader);
+        let mut prog = program::Lib::new(loader);
         prog.read_inter(&Lstr::Sref("foo"));
         assert!(true); // assert that it didn't panic
     }

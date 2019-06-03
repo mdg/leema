@@ -1119,7 +1119,7 @@ mod tests
 
     fn nextok<'a, 'b, I>(it: &'a mut I) -> (Token, &'static str)
     where
-        I: Iterator<Item = &'b TokenResult<'static>>,
+        I: Iterator<Item = &'b TokenResult>,
         'b: 'a,
     {
         let tokr: &TokenResult = it.next().as_ref().unwrap();
@@ -1132,7 +1132,7 @@ mod tests
     {
         let input = "(){}[]<>";
 
-        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let t: Vec<TokenResult> = Tokenz::lex(input).collect();
         let mut i = t.iter();
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
         assert_eq!(Token::ParenL, nextok(&mut i).0);
@@ -1153,7 +1153,7 @@ mod tests
         let input = " | |
         |";
 
-        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let t: Vec<TokenResult> = Tokenz::lex(input).collect();
         let mut i = t.iter();
         assert_eq!(Token::Spaces, nextok(&mut i).0);
         assert_eq!(Token::CasePipe, nextok(&mut i).0);
@@ -1170,7 +1170,7 @@ mod tests
     fn test_tokenz_consts()
     {
         let input = "True False # #tag #8";
-        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let t: Vec<TokenResult> = Tokenz::lex(input).collect();
         let mut i = t.iter();
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
 
@@ -1197,7 +1197,7 @@ mod tests
     {
         let input = "- -- ---";
 
-        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let t: Vec<TokenResult> = Tokenz::lex(input).collect();
         let mut i = t.iter();
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
         assert_eq!(Token::Dash, nextok(&mut i).0);
@@ -1215,7 +1215,7 @@ mod tests
     {
         let input = "1234 999999999999999";
 
-        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let t: Vec<TokenResult> = Tokenz::lex(input).collect();
         let mut i = t.iter();
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
         assert_eq!((Token::Int, "1234"), nextok(&mut i));
@@ -1230,7 +1230,7 @@ mod tests
     {
         let input = "tacos burrit_s";
 
-        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let t: Vec<TokenResult> = Tokenz::lex(input).collect();
         let mut i = t.iter();
         assert_eq!((Token::LineBegin, ""), nextok(&mut i));
         assert_eq!((Token::Id, "tacos"), nextok(&mut i));
@@ -1245,7 +1245,7 @@ mod tests
     {
         let input = "and mod not or xor";
 
-        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let t: Vec<TokenResult> = Tokenz::lex(input).collect();
         let mut i = t.iter();
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
         assert_eq!(Token::And, nextok(&mut i).0);
@@ -1266,7 +1266,7 @@ mod tests
     {
         let input = "failed fork func if import let macro match return";
 
-        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let t: Vec<TokenResult> = Tokenz::lex(input).collect();
         let mut i = t.iter();
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
         assert_eq!(Token::Failed, nextok(&mut i).0);
@@ -1295,7 +1295,7 @@ mod tests
     {
         let input = "+ - * /";
 
-        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let t: Vec<TokenResult> = Tokenz::lex(input).collect();
         let mut i = t.iter();
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
         assert_eq!(Token::Plus, nextok(&mut i).0);
@@ -1314,7 +1314,7 @@ mod tests
     {
         let input = "== != < > <= >= \\n >> >";
 
-        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let t: Vec<TokenResult> = Tokenz::lex(input).collect();
         let mut i = t.iter();
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
         assert_eq!(Token::Equal, nextok(&mut i).0);
@@ -1343,7 +1343,7 @@ mod tests
     {
         let input = ": , . :: := | :";
 
-        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let t: Vec<TokenResult> = Tokenz::lex(input).collect();
         let mut i = t.iter();
         assert_eq!(Token::Spaces, nextok(&mut i).0);
         assert_eq!(Token::Colon, nextok(&mut i).0);
@@ -1368,7 +1368,7 @@ mod tests
     {
         let input = r#""tacos" "" "flautas $tortas burritos""#;
 
-        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let t: Vec<TokenResult> = Tokenz::lex(input).collect();
         let mut i = t.iter();
 
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
@@ -1424,7 +1424,7 @@ mod tests
         --
         ";
 
-        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let t: Vec<TokenResult> = Tokenz::lex(input).collect();
         let mut i = t.iter();
 
         assert_eq!(Token::EmptyLine, nextok(&mut i).0);
@@ -1487,7 +1487,7 @@ mod tests
         --
         ";
 
-        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let t: Vec<TokenResult> = Tokenz::lex(input).collect();
         let mut i = t.iter();
 
         i.next();
@@ -1519,7 +1519,7 @@ mod tests
         --
         ";
 
-        let t: Vec<TokenResult<'static>> = Tokenz::lex(input).collect();
+        let t: Vec<TokenResult> = Tokenz::lex(input).collect();
         let mut i = t.iter();
 
         i.next();
