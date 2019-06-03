@@ -68,11 +68,13 @@ impl Interloader
         }
     }
 
-    pub fn set_mod_txt(&mut self, modname: Lstr, content: String) -> &'static str
+    pub fn set_mod_txt(
+        &mut self,
+        modname: Lstr,
+        content: String,
+    ) -> &'static str
     {
-        let stext = unsafe {
-            put_modtxt(content)
-        };
+        let stext = unsafe { put_modtxt(content) };
         self.texts.insert(modname, stext);
         stext
     }
@@ -93,10 +95,7 @@ impl Interloader
         self.read_mod(mod_name).map(|text| text.to_string())
     }
 
-    pub fn read_mod(
-        &mut self,
-        mod_name: &Lstr,
-    ) -> Lresult<&'static str>
+    pub fn read_mod(&mut self, mod_name: &Lstr) -> Lresult<&'static str>
     {
         if let Some(txt) = self.texts.get(mod_name) {
             return Ok(txt);

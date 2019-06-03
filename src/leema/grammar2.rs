@@ -96,11 +96,7 @@ impl PrefixParser for ParseStmt
 {
     type Item = Vec<AstNode>;
 
-    fn parse(
-        &self,
-        p: &mut Parsl,
-        mut tok: TokenSrc,
-    ) -> Lresult<Vec<AstNode>>
+    fn parse(&self, p: &mut Parsl, mut tok: TokenSrc) -> Lresult<Vec<AstNode>>
     {
         // skip LineBegin for stmts
         if tok.tok == Token::LineBegin {
@@ -190,11 +186,7 @@ struct ParseStmt;
 
 impl ParseStmt
 {
-    fn parse_stmt(
-        &self,
-        p: &mut Parsl,
-        tok: TokenSrc,
-    ) -> AstResult
+    fn parse_stmt(&self, p: &mut Parsl, tok: TokenSrc) -> AstResult
     {
         match tok.tok {
             Token::Const => ParseStmt::parse_defconst(p, tok),
@@ -207,8 +199,7 @@ impl ParseStmt
         }
     }
 
-    fn parse_defconst(p: &mut Parsl, tok: TokenSrc)
-        -> AstResult
+    fn parse_defconst(p: &mut Parsl, tok: TokenSrc) -> AstResult
     {
         let id = expect_next!(p, Token::Id)?;
         let _assign = expect_next!(p, Token::Assignment)?;
@@ -415,8 +406,7 @@ impl PrefixParser for ParseIdType
 {
     type Item = (Option<&'static str>, AstNode);
 
-    fn parse(&self, p: &mut Parsl, tok: TokenSrc)
-        -> Lresult<Self::Item>
+    fn parse(&self, p: &mut Parsl, tok: TokenSrc) -> Lresult<Self::Item>
     {
         let idtype = match tok.tok {
             Token::Id => {
@@ -523,8 +513,7 @@ impl PrefixParser for ParseVariant
 {
     type Item = (Option<&'static str>, AstNode);
 
-    fn parse(&self, p: &mut Parsl, tok: TokenSrc)
-        -> Lresult<Self::Item>
+    fn parse(&self, p: &mut Parsl, tok: TokenSrc) -> Lresult<Self::Item>
     {
         assert_eq!(Token::CasePipe, tok.tok);
         let name = expect_next!(p, Token::Id)?;
@@ -555,12 +544,7 @@ impl InfixParser for BinaryOpParser
 {
     type Item = AstNode;
 
-    fn parse(
-        &self,
-        p: &mut Parsl,
-        left: AstNode,
-        op: TokenSrc,
-    ) -> AstResult
+    fn parse(&self, p: &mut Parsl, left: AstNode, op: TokenSrc) -> AstResult
     {
         let right = p.parse_more(&ExprMode, self.pre)?;
         let ast = Ast::Op2(op.src, left, right);
@@ -643,12 +627,7 @@ impl InfixParser for ParseId
 {
     type Item = AstNode;
 
-    fn parse(
-        &self,
-        p: &mut Parsl,
-        left: AstNode,
-        _tok: TokenSrc,
-    ) -> AstResult
+    fn parse(&self, p: &mut Parsl, left: AstNode, _tok: TokenSrc) -> AstResult
     {
         if let Ast::Id1(first) = *left.node {
             let second = expect_next!(p, Token::Id)?;
@@ -848,10 +827,8 @@ impl ParslMode for ExprMode
         })
     }
 
-    fn infix(
-        &self,
-        tok: Token,
-    ) -> Option<&'static InfixParser<Item = AstNode>>
+    fn infix(&self, tok: Token)
+        -> Option<&'static InfixParser<Item = AstNode>>
     {
         Some(match tok {
             // boolean operators
@@ -1079,8 +1056,7 @@ impl PrefixParser for ParseXMaybeK
 {
     type Item = (Option<&'static str>, AstNode);
 
-    fn parse(&self, p: &mut Parsl, tok: TokenSrc)
-        -> Lresult<Self::Item>
+    fn parse(&self, p: &mut Parsl, tok: TokenSrc) -> Lresult<Self::Item>
     {
         let first = p.reparse(&ExprMode, MIN_PRECEDENCE, tok)?;
         if p.next_if(Token::Colon)?.is_some() {
@@ -1154,12 +1130,7 @@ impl InfixParser for ParseCall
 {
     type Item = AstNode;
 
-    fn parse(
-        &self,
-        p: &mut Parsl,
-        left: AstNode,
-        _tok: TokenSrc,
-    ) -> AstResult
+    fn parse(&self, p: &mut Parsl, left: AstNode, _tok: TokenSrc) -> AstResult
     {
         let args = if p.peek_token()? == Token::ParenR {
             StrupleKV::new()
@@ -1185,8 +1156,7 @@ impl PrefixParser for ParseCasex
 {
     type Item = AstNode;
 
-    fn parse(&self, p: &mut Parsl, tok: TokenSrc)
-        -> Lresult<Self::Item>
+    fn parse(&self, p: &mut Parsl, tok: TokenSrc) -> Lresult<Self::Item>
     {
         let peeked = p.peek()?;
         let input = if peeked.tok == Token::CasePipe {
@@ -1243,8 +1213,7 @@ impl PrefixParser for ParseCase
 {
     type Item = ast2::Case;
 
-    fn parse(&self, p: &mut Parsl, tok: TokenSrc)
-        -> Lresult<Self::Item>
+    fn parse(&self, p: &mut Parsl, tok: TokenSrc) -> Lresult<Self::Item>
     {
         assert_eq!(Token::CasePipe, tok.tok);
         let condition = match p.next_if(Token::Else)? {

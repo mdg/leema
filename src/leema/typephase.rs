@@ -135,15 +135,20 @@ impl<'a> Semantics<'a>
     ) -> Lresult<(Ast, Type)>
     {
         let new_id = self.map_node(id)?;
-        let new_args: StrupleKV<Option<&'static str>, Type> = args.map_v(|a| {
-            let new_node = self.map_node(a)?;
-            match *new_node.node {
-                Ast::Type(t) => Ok(t),
-                not_type => {
-                    Err(rustfail!("leema_fail", "not a type: {:?}", not_type))
+        let new_args: StrupleKV<Option<&'static str>, Type> =
+            args.map_v(|a| {
+                let new_node = self.map_node(a)?;
+                match *new_node.node {
+                    Ast::Type(t) => Ok(t),
+                    not_type => {
+                        Err(rustfail!(
+                            "leema_fail",
+                            "not a type: {:?}",
+                            not_type
+                        ))
+                    }
                 }
-            }
-        })?;
+            })?;
 
         let (result, rtype) = match &new_id.typ {
             Type::GenericFunc(ref targs, ref ft) => {

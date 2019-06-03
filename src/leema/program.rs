@@ -186,10 +186,7 @@ impl Lib
         ProtoModule::new(modkey, asts)
     }
 
-    pub fn load_proto2(
-        &mut self,
-        modname: &Lstr,
-    ) -> Lresult<()>
+    pub fn load_proto2(&mut self, modname: &Lstr) -> Lresult<()>
     {
         vout!("load_proto2: {}\n", modname);
         self.protos.load(&mut self.loader, modname)?;
@@ -210,8 +207,10 @@ impl Lib
         ModuleSource::new(modkey, modtxt)
     }
 
-    pub fn read_preface(&mut self, modname: &Lstr)
-        -> (ModuleSource, ModulePreface)
+    pub fn read_preface(
+        &mut self,
+        modname: &Lstr,
+    ) -> (ModuleSource, ModulePreface)
     {
         let ms = self.read_modsrc(modname);
         let pref = ModulePreface::new(&ms);

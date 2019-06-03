@@ -93,8 +93,7 @@ struct ScopeCheck
     blocks: Blockstack,
 }
 
-struct TypeCheck
-{
+struct TypeCheck {
     // infer: Inferator,
 }
 
@@ -134,7 +133,11 @@ impl Semantics
         }
     }
 
-    pub fn compile<'a>(&mut self, proto: &'a mut ProtoLib, module: &str) -> Lresult<()>
+    pub fn compile<'a>(
+        &mut self,
+        proto: &'a mut ProtoLib,
+        module: &str,
+    ) -> Lresult<()>
     {
         while let Some(func_ast) = proto.pop_func(module)? {
             let comp_ast = self.compile_func(proto, func_ast)?;
@@ -143,7 +146,11 @@ impl Semantics
         Ok(())
     }
 
-    pub fn compile_func<'a>(&mut self, proto: &'a ProtoLib, mut func_ast: AstNode) -> Lresult<AstNode>
+    pub fn compile_func<'a>(
+        &mut self,
+        proto: &'a ProtoLib,
+        mut func_ast: AstNode,
+    ) -> Lresult<AstNode>
     {
         let mut macs: MacroApplication = MacroApplication { proto };
         let mut ops = Pipeline {

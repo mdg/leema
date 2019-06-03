@@ -101,11 +101,7 @@ pub trait PrefixParser: fmt::Debug
 {
     type Item;
 
-    fn parse(
-        &self,
-        p: &mut Parsl,
-        tok: TokenSrc,
-    ) -> Lresult<Self::Item>;
+    fn parse(&self, p: &mut Parsl, tok: TokenSrc) -> Lresult<Self::Item>;
 }
 
 pub trait InfixParser: fmt::Debug
@@ -132,11 +128,7 @@ where
 {
     type Item = Vec<P::Item>;
 
-    fn parse(
-        &self,
-        p: &mut Parsl,
-        tok: TokenSrc,
-    ) -> Lresult<Vec<P::Item>>
+    fn parse(&self, p: &mut Parsl, tok: TokenSrc) -> Lresult<Vec<P::Item>>
     {
         let first = self.0.parse(p, tok)?;
         Ok(vec![first])
@@ -183,16 +175,12 @@ pub trait ParslMode: fmt::Debug
     }
 
     /// Get a prefix parser for this token
-    fn prefix(
-        &self,
-        _tok: Token,
-    ) -> Option<&PrefixParser<Item = Self::Item>>
+    fn prefix(&self, _tok: Token) -> Option<&PrefixParser<Item = Self::Item>>
     {
         None
     }
 
-    fn infix(&self, _tok: Token)
-        -> Option<&InfixParser<Item = Self::Item>>
+    fn infix(&self, _tok: Token) -> Option<&InfixParser<Item = Self::Item>>
     {
         None
     }

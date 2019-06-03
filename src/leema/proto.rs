@@ -73,12 +73,16 @@ impl ProtoLib
 {
     pub fn new() -> ProtoLib
     {
-        ProtoLib{
+        ProtoLib {
             protos: HashMap::new(),
         }
     }
 
-    pub fn load(&mut self, loader: &mut Interloader, modname: &Lstr) -> Lresult<()>
+    pub fn load(
+        &mut self,
+        loader: &mut Interloader,
+        modname: &Lstr,
+    ) -> Lresult<()>
     {
         vout!("ProtoLib::load({})\n", modname);
         if self.protos.contains_key(modname) {
@@ -92,19 +96,22 @@ impl ProtoLib
         Ok(())
     }
 
-    pub fn load_imports(&mut self, loader: &mut Interloader, modname: &Lstr) -> Lresult<()>
+    pub fn load_imports(
+        &mut self,
+        loader: &mut Interloader,
+        modname: &Lstr,
+    ) -> Lresult<()>
     {
         vout!("ProtoLib::load_imports({})\n", modname);
         let mut imported: Vec<Lstr> = vec![];
         {
-            let proto = self.protos.get(modname)
-                .ok_or_else(|| {
-                    rustfail!(
-                        "semantic_failure",
-                        "an import module does not exist: {}",
-                        modname,
-                    )
-                })?;
+            let proto = self.protos.get(modname).ok_or_else(|| {
+                rustfail!(
+                    "semantic_failure",
+                    "an import module does not exist: {}",
+                    modname,
+                )
+            })?;
             for i in proto.imports.iter() {
                 if i == &modname {
                     return Err(rustfail!(
@@ -128,9 +135,7 @@ impl ProtoLib
     pub fn pop_func(&mut self, module: &str) -> Lresult<Option<AstNode>>
     {
         match self.protos.get_mut(module) {
-            Some(protomod) => {
-                Ok(protomod.funcs.pop())
-            }
+            Some(protomod) => Ok(protomod.funcs.pop()),
             None => {
                 Err(rustfail!(
                     "semantic_failure",
@@ -144,24 +149,19 @@ impl ProtoLib
 
     pub fn get(&self, modname: &str) -> Lresult<&ProtoModule>
     {
-        self.protos.get(modname)
-            .ok_or_else(|| {
-                rustfail!(
-                    "compile_failure",
-                    "module not loaded: {}",
-                    modname,
-                )
-            })
+        self.protos.get(modname).ok_or_else(|| {
+            rustfail!("compile_failure", "module not loaded: {}", modname,)
+        })
     }
 
-    pub fn get_macro(&self, module: &str, macroname: &str) -> Lresult<Option<&Ast>>
+    pub fn get_macro(
+        &self,
+        module: &str,
+        macroname: &str,
+    ) -> Lresult<Option<&Ast>>
     {
         let proto = self.protos.get(module).ok_or_else(|| {
-            rustfail!(
-                "semantic_failure",
-                "module not loaded: {}",
-                module,
-            )
+            rustfail!("semantic_failure", "module not loaded: {}", module,)
         })?;
         Ok(proto.macros.get(macroname))
     }
