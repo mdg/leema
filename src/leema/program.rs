@@ -14,7 +14,7 @@ use crate::leema::lstr::Lstr;
 use crate::leema::module::{ModKey, ModulePreface, ModuleSource};
 use crate::leema::phase0::{self, Protomod};
 use crate::leema::proto::{ProtoLib, ProtoModule};
-use crate::leema::semantics::SemanticLib;
+use crate::leema::semantics::Semantics;
 use crate::leema::token::Tokenz;
 use crate::leema::typecheck::{self, CallFrame, CallOp, Typemod, Typescope};
 use crate::leema::val::Type;
@@ -33,7 +33,7 @@ pub struct Lib<'i>
     preface: HashMap<Lstr, Rc<ModulePreface>>,
     proto: HashMap<Lstr, Rc<Protomod>>,
     protos: ProtoLib<'i>,
-    semantics: SemanticLib,
+    semantics: Semantics<'i>,
     inter: HashMap<Lstr, Intermod>,
     typed: HashMap<Lstr, Typemod>,
     rust_load: HashMap<Lstr, fn(&str) -> Option<code::Code>>,
@@ -50,7 +50,7 @@ impl<'i> Lib<'i>
             preface: HashMap::new(),
             proto: HashMap::new(),
             protos: ProtoLib::new(),
-            semantics: SemanticLib::new(),
+            semantics: Semantics::new(),
             inter: HashMap::new(),
             typed: HashMap::new(),
             rust_load: HashMap::new(),
@@ -196,7 +196,7 @@ impl<'i> Lib<'i>
         Ok(())
     }
 
-    pub fn read_semantics(&mut self, modname: &Lstr) -> Lresult<()>
+    pub fn read_semantics(&'i mut self, modname: &Lstr) -> Lresult<()>
     {
         self.load_proto_and_imports(modname)?;
         self.semantics.compile(&mut self.protos, modname.str())

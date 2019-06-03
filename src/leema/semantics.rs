@@ -8,7 +8,7 @@ use crate::leema::reg::RegTable;
 use crate::leema::struple::StrupleKV;
 use crate::leema::val::Type;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 
 
@@ -25,7 +25,6 @@ struct Pipeline<'i, 'p>
 }
 
 struct MacroApplication<'i, 'l>
-        where 'l: 'i
 {
     proto: &'l ProtoLib<'i>,
 }
@@ -116,45 +115,77 @@ struct Registration
 // postop: 4, 3, 2, 1
 // after, subsequent, late, postlude
 
-pub struct Semantics
+pub struct Semantics<'i>
 {
     pub types: HashMap<Lstr, HashMap<Lstr, Type>>,
 
     // pub calls: HashSet<ModLocalId>,
     // pub typecalls: HashSet<SpecialModId>,
-    pub closed: Option<HashSet<Lstr>>,
-
-    is_closure: Vec<bool>,
+    // pub closed: Option<HashSet<Lstr>>,
+    pub src: HashMap<Lstr, HashMap<Lstr, AstNode<'i>>>,
 }
 
-pub struct SemanticLib
+impl<'i> Semantics<'i>
 {
-    semantics: HashMap<Lstr, Semantics>,
-}
-
-impl SemanticLib
-{
-    pub fn new() -> SemanticLib
+    pub fn new() -> Semantics<'i>
     {
-        SemanticLib {
-            semantics: HashMap::new(),
+        Semantics {
+            types: HashMap::new(),
+            src: HashMap::new(),
         }
     }
 
-    pub fn compile(&mut self, proto: &mut ProtoLib, module: &str) -> Lresult<()>
+    pub fn compile<'a>(&mut self, proto: &'a mut ProtoLib<'i>, module: &str) -> Lresult<()>
     {
-        while let Some(mut func_ast) = proto.pop_func(module)? {
-            let mut macs = MacroApplication { proto };
-            let mut ops = Pipeline {
-                ops: vec![&mut macs],
-            };
-
-            for op in ops.ops.iter_mut() {
-                func_ast = op.f(func_ast)?.unwrap();
-            }
-
-            println!("compiled func to {:?}", func_ast);
+        while let Some(func_ast) = proto.pop_func(module)? {
+            let comp_ast = self.compile_func(proto, func_ast)?;
+            println!("compiled func to {:?}", comp_ast);
         }
         Ok(())
+    }
+
+    pub fn compile_func<'a>(&mut self, proto: &'a ProtoLib<'i>, mut func_ast: AstNode<'i>) -> Lresult<AstNode<'i>>
+    {
+        let mut macs: MacroApplication = MacroApplication { proto };
+        let mut ops = Pipeline {
+            ops: vec![&mut macs],
+        };
+
+        for op in ops.ops.iter_mut() {
+            func_ast = op.f(func_ast)?.unwrap();
+        }
+
+        Ok(func_ast)
+    }
+}
+
+#[cfg(test)]
+mod tests
+{
+    use crate::leema::loader::Interloader;
+    use crate::leema::lstr::Lstr;
+    use crate::leema::program;
+
+
+    #[test]
+    fn test_semantics_macro()
+    {
+        let input = r#"
+        macro test_and a b >>
+            if
+            |a >> b
+            |else >> false
+            --
+        --
+
+        func main >>
+            test_and(1 == 1, 2 == 3)
+        --
+        "#;
+
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
+        loader.set_mod_txt(Lstr::Sref("foo"), input.to_string());
+        let mut prog = program::Lib::new(&mut loader);
+        prog.read_semantics(&Lstr::from("foo")).unwrap();
     }
 }
