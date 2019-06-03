@@ -26,23 +26,23 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 
-pub struct Lib<'i>
+pub struct Lib
 {
-    loader: &'i mut Interloader,
+    loader: Interloader,
     modsrc: HashMap<Lstr, ModuleSource>,
     preface: HashMap<Lstr, Rc<ModulePreface>>,
     proto: HashMap<Lstr, Rc<Protomod>>,
-    protos: ProtoLib<'i>,
-    semantics: Semantics<'i>,
+    protos: ProtoLib,
+    semantics: Semantics,
     inter: HashMap<Lstr, Intermod>,
     typed: HashMap<Lstr, Typemod>,
     rust_load: HashMap<Lstr, fn(&str) -> Option<code::Code>>,
     code: HashMap<Lstr, HashMap<Lstr, Code>>,
 }
 
-impl<'i> Lib<'i>
+impl Lib
 {
-    pub fn new(l: &'i mut Interloader) -> Lib<'i>
+    pub fn new(l: Interloader) -> Lib
     {
         let mut proglib = Lib {
             loader: l,
@@ -174,10 +174,10 @@ impl<'i> Lib<'i>
         }
     }
 
-    pub fn read_astmod<'b>(
-        loader: &'i mut Interloader,
-        modname: &'b Lstr,
-    ) -> Lresult<ProtoModule<'i>>
+    pub fn read_astmod(
+        loader: &mut Interloader,
+        modname: &Lstr,
+    ) -> Lresult<ProtoModule>
     {
         vout!("read_modast: {}\n", modname);
         let modtxt = loader.read_mod(modname)?;
@@ -192,11 +192,11 @@ impl<'i> Lib<'i>
     ) -> Lresult<()>
     {
         vout!("load_proto2: {}\n", modname);
-        self.protos.load(self.loader, modname)?;
+        self.protos.load(&mut self.loader, modname)?;
         Ok(())
     }
 
-    pub fn read_semantics(&'i mut self, modname: &Lstr) -> Lresult<()>
+    pub fn read_semantics(&mut self, modname: &Lstr) -> Lresult<()>
     {
         self.load_proto_and_imports(modname)?;
         self.semantics.compile(&mut self.protos, modname.str())
@@ -478,7 +478,6 @@ impl<'i> Lib<'i>
         modname: &str,
         macname: &str,
     ) -> Lresult<Option<&'a ast2::Ast>>
-        where 'a: 'i
     {
         let proto = self.protos.get(modname)?;
         Ok(proto.macros.get(macname))

@@ -21,15 +21,15 @@ macro_rules! expect_next {
     }};
 }
 
-struct TokenStream<'input>
+struct TokenStream
 {
-    it: ::std::vec::IntoIter<TokenSrc<'input>>,
-    peeked: Option<TokenSrc<'input>>,
+    it: ::std::vec::IntoIter<TokenSrc>,
+    peeked: Option<TokenSrc>,
 }
 
-impl<'input> TokenStream<'input>
+impl TokenStream
 {
-    pub fn new(items: Vec<TokenSrc<'input>>) -> TokenStream<'input>
+    pub fn new(items: Vec<TokenSrc>) -> TokenStream
     {
         TokenStream {
             it: items.into_iter(),
@@ -38,7 +38,7 @@ impl<'input> TokenStream<'input>
     }
 
     /// Peek at the next token without consuming it
-    fn peek(&mut self) -> TokenResult<'input>
+    fn peek(&mut self) -> TokenResult
     {
         if self.peeked.is_none() {
             self.peeked = self.it.next();
@@ -56,7 +56,7 @@ impl<'input> TokenStream<'input>
     }
 
     /// Consume the next token
-    pub fn next(&mut self) -> TokenResult<'input>
+    pub fn next(&mut self) -> TokenResult
     {
         self.peek().map_err(|f| f.loc(file!(), line!()))?;
         self.peeked
@@ -65,7 +65,7 @@ impl<'input> TokenStream<'input>
     }
 
     /// Consume the next token if it is of the expected type
-    pub fn next_if(&mut self, t: Token) -> Lresult<Option<TokenSrc<'input>>>
+    pub fn next_if(&mut self, t: Token) -> Lresult<Option<TokenSrc>>
     {
         let tok = self.peek().map_err(|f| f.loc(file!(), line!()))?;
         if tok.tok == t {
@@ -97,26 +97,26 @@ pub struct Precedence(pub u8, pub i8, pub Assoc);
 
 pub const MIN_PRECEDENCE: Precedence = Precedence(0, 0, Assoc::Left);
 
-pub trait PrefixParser<'i>: fmt::Debug
+pub trait PrefixParser: fmt::Debug
 {
     type Item;
 
     fn parse(
         &self,
-        p: &mut Parsl<'i>,
-        tok: TokenSrc<'i>,
+        p: &mut Parsl,
+        tok: TokenSrc,
     ) -> Lresult<Self::Item>;
 }
 
-pub trait InfixParser<'i>: fmt::Debug
+pub trait InfixParser: fmt::Debug
 {
     type Item;
 
     fn parse(
         &self,
-        p: &mut Parsl<'i>,
+        p: &mut Parsl,
         left: Self::Item,
-        tok: TokenSrc<'i>,
+        tok: TokenSrc,
     ) -> Lresult<Self::Item>;
 
     fn precedence(&self) -> Precedence;
@@ -125,17 +125,17 @@ pub trait InfixParser<'i>: fmt::Debug
 #[derive(Debug)]
 pub struct ParseFirst<P: 'static>(pub &'static P);
 
-impl<'i, P> PrefixParser<'i> for ParseFirst<P>
+impl<P> PrefixParser for ParseFirst<P>
 where
-    P: PrefixParser<'i>,
+    P: PrefixParser,
     P::Item: fmt::Debug,
 {
     type Item = Vec<P::Item>;
 
     fn parse(
         &self,
-        p: &mut Parsl<'i>,
-        tok: TokenSrc<'i>,
+        p: &mut Parsl,
+        tok: TokenSrc,
     ) -> Lresult<Vec<P::Item>>
     {
         let first = self.0.parse(p, tok)?;
@@ -146,18 +146,18 @@ where
 #[derive(Debug)]
 pub struct ParseMore<P: 'static>(pub &'static P, pub Precedence);
 
-impl<'i, P> InfixParser<'i> for ParseMore<P>
+impl<P> InfixParser for ParseMore<P>
 where
-    P: PrefixParser<'i>,
+    P: PrefixParser,
     P::Item: fmt::Debug,
 {
     type Item = Vec<P::Item>;
 
     fn parse(
         &self,
-        p: &mut Parsl<'i>,
+        p: &mut Parsl,
         mut left: Vec<P::Item>,
-        tok: TokenSrc<'i>,
+        tok: TokenSrc,
     ) -> Lresult<Vec<P::Item>>
     {
         let next = self.0.parse(p, tok)?;
@@ -171,7 +171,7 @@ where
     }
 }
 
-pub trait ParslMode<'i>: fmt::Debug
+pub trait ParslMode: fmt::Debug
 {
     type Item;
 
@@ -186,26 +186,26 @@ pub trait ParslMode<'i>: fmt::Debug
     fn prefix(
         &self,
         _tok: Token,
-    ) -> Option<&PrefixParser<'i, Item = Self::Item>>
+    ) -> Option<&PrefixParser<Item = Self::Item>>
     {
         None
     }
 
     fn infix(&self, _tok: Token)
-        -> Option<&InfixParser<'i, Item = Self::Item>>
+        -> Option<&InfixParser<Item = Self::Item>>
     {
         None
     }
 }
 
-pub struct Parsl<'i>
+pub struct Parsl
 {
-    src: TokenStream<'i>,
+    src: TokenStream,
 }
 
-impl<'i> Parsl<'i>
+impl Parsl
 {
-    pub fn new(src: Vec<TokenSrc<'i>>) -> Parsl<'i>
+    pub fn new(src: Vec<TokenSrc>) -> Parsl
     {
         let strm = TokenStream::new(src);
         Parsl { src: strm }
@@ -216,17 +216,17 @@ impl<'i> Parsl<'i>
         self.src.peek_token()
     }
 
-    pub fn peek(&mut self) -> TokenResult<'i>
+    pub fn peek(&mut self) -> TokenResult
     {
         self.src.peek()
     }
 
-    pub fn next(&mut self) -> TokenResult<'i>
+    pub fn next(&mut self) -> TokenResult
     {
         self.src.next()
     }
 
-    pub fn next_if(&mut self, tok: Token) -> Lresult<Option<TokenSrc<'i>>>
+    pub fn next_if(&mut self, tok: Token) -> Lresult<Option<TokenSrc>>
     {
         self.src.next_if(tok)
     }
@@ -241,7 +241,7 @@ impl<'i> Parsl<'i>
 
     pub fn parse_new<P>(&mut self, mode: &'static P) -> Lresult<P::Item>
     where
-        P: ParslMode<'i>,
+        P: ParslMode,
         P::Item: fmt::Debug,
     {
         let tok = self.next()?;
@@ -254,7 +254,7 @@ impl<'i> Parsl<'i>
         prec: Precedence,
     ) -> Lresult<P::Item>
     where
-        P: ParslMode<'i>,
+        P: ParslMode,
         P::Item: fmt::Debug,
     {
         let tok = ltry!(self.next());
@@ -265,10 +265,10 @@ impl<'i> Parsl<'i>
         &mut self,
         mode: &'static P,
         prec: Precedence,
-        tok: TokenSrc<'i>,
+        tok: TokenSrc,
     ) -> Lresult<P::Item>
     where
-        P: ParslMode<'i>,
+        P: ParslMode,
         P::Item: fmt::Debug,
     {
         self.parse(mode, prec, tok)
@@ -278,10 +278,10 @@ impl<'i> Parsl<'i>
         &mut self,
         mode: &'static P,
         prec: Precedence,
-        tok0: TokenSrc<'i>,
+        tok0: TokenSrc,
     ) -> Lresult<P::Item>
     where
-        P: ParslMode<'i>,
+        P: ParslMode,
         P::Item: fmt::Debug,
     {
         let mut left = match mode.prefix(tok0.tok) {

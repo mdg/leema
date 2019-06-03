@@ -119,7 +119,7 @@ fn real_main() -> Lresult<()>
     vout!("run {}\n", inter.main_mod);
 
     let main_result = if args.flag_tok {
-        let modtxt = inter.read_module(&mod_name)?;
+        let modtxt = inter.read_mod(&mod_name)?;
         let tokr: Vec<TokenResult> = Tokenz::lex(&modtxt).collect();
         println!("tokens:");
         for t in tokr {
@@ -127,7 +127,7 @@ fn real_main() -> Lresult<()>
         }
         None
     } else if args.flag_ast {
-        let modtxt = inter.read_module(&mod_name)?;
+        let modtxt = inter.read_mod(&mod_name)?;
         let ast = Grammar::new(Tokenz::lexp(&modtxt)?).parse_module()?;
         println!("{:#?}", ast);
         None
@@ -136,12 +136,12 @@ fn real_main() -> Lresult<()>
         println!("\n{:#?}\n", proto);
         None
     } else if args.flag_semantics {
-        let mut prog = program::Lib::new(&mut inter);
+        let mut prog = program::Lib::new(inter);
         let semantics = prog.read_semantics(&mod_name)?;
         println!("\n{:#?}\n", semantics);
         None
     } else if args.flag_inter {
-        let mut prog = program::Lib::new(&mut inter);
+        let mut prog = program::Lib::new(inter);
         let imod = prog.read_inter(&mod_name);
         let fix = match args.flag_func {
             Some(func) => {
@@ -153,14 +153,14 @@ fn real_main() -> Lresult<()>
         println!("\n{:?}\n", fix);
         None
     } else if args.flag_typecheck {
-        let mut prog = program::Lib::new(&mut inter);
+        let mut prog = program::Lib::new(inter);
         let func_name = Lstr::Sref("main");
         let funcri = Lri::with_modules(mod_name, func_name);
         let ftype = prog.typecheck(&funcri, typecheck::Depth::Full);
         println!("type: {}", ftype);
         None
     } else if args.flag_code {
-        let mut prog = program::Lib::new(&mut inter);
+        let mut prog = program::Lib::new(inter);
         let code = match args.flag_func {
             Some(func) => {
                 let func_name = Lstr::from(func);
@@ -176,7 +176,7 @@ fn real_main() -> Lresult<()>
             "wouldn't it be cool if there were a repl?",
         ));
     } else {
-        let prog = program::Lib::new(&mut inter);
+        let prog = program::Lib::new(inter);
         let mut app = Application::new(prog);
         let caller = app.caller();
         let main_lri = Lri::with_modules(mod_name, Lstr::Sref("main"));

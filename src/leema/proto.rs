@@ -11,19 +11,19 @@ use std::collections::{HashMap, HashSet};
 
 /// Asts separated into their types of components
 #[derive(Debug)]
-pub struct ProtoModule<'i>
+pub struct ProtoModule
 {
     pub key: ModKey,
-    pub imports: HashSet<&'i str>,
-    pub macros: HashMap<&'i str, Ast<'i>>,
-    pub constants: Vec<AstNode<'i>>,
-    pub types: Vec<AstNode<'i>>,
-    pub funcs: Vec<AstNode<'i>>,
+    pub imports: HashSet<&'static str>,
+    pub macros: HashMap<&'static str, Ast>,
+    pub constants: Vec<AstNode>,
+    pub types: Vec<AstNode>,
+    pub funcs: Vec<AstNode>,
 }
 
-impl<'i> ProtoModule<'i>
+impl ProtoModule
 {
-    pub fn new(key: ModKey, items: Vec<AstNode<'i>>) -> Lresult<ProtoModule<'i>>
+    pub fn new(key: ModKey, items: Vec<AstNode>) -> Lresult<ProtoModule>
     {
         let mut proto = ProtoModule {
             key,
@@ -64,14 +64,14 @@ impl<'i> ProtoModule<'i>
     }
 }
 
-pub struct ProtoLib<'i>
+pub struct ProtoLib
 {
-    protos: HashMap<Lstr, ProtoModule<'i>>,
+    protos: HashMap<Lstr, ProtoModule>,
 }
 
-impl<'i> ProtoLib<'i>
+impl ProtoLib
 {
-    pub fn new() -> ProtoLib<'i>
+    pub fn new() -> ProtoLib
     {
         ProtoLib{
             protos: HashMap::new(),
@@ -125,7 +125,7 @@ impl<'i> ProtoLib<'i>
         Ok(())
     }
 
-    pub fn pop_func(&mut self, module: &str) -> Lresult<Option<AstNode<'i>>>
+    pub fn pop_func(&mut self, module: &str) -> Lresult<Option<AstNode>>
     {
         match self.protos.get_mut(module) {
             Some(protomod) => {
@@ -142,7 +142,7 @@ impl<'i> ProtoLib<'i>
     }
 
 
-    pub fn get(&self, modname: &str) -> Lresult<&ProtoModule<'i>>
+    pub fn get(&self, modname: &str) -> Lresult<&ProtoModule>
     {
         self.protos.get(modname)
             .ok_or_else(|| {

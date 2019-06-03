@@ -48,7 +48,7 @@ impl<'a> Semantics<'a>
         }
     }
 
-    pub fn map_node<'i>(&mut self, node: &AstNode<'i>) -> Lresult<AstNode<'i>>
+    pub fn map_node(&mut self, node: &AstNode) -> Lresult<AstNode>
     {
         match &*node.node {
             Ast::Block(ref items) => {
@@ -88,11 +88,11 @@ impl<'a> Semantics<'a>
         }
     }
 
-    pub fn map_modid<'i>(
+    pub fn map_modid(
         &mut self,
-        module: &'i str,
-        local: &'i str,
-    ) -> Lresult<(Ast<'i>, Type)>
+        module: &'static str,
+        local: &'static str,
+    ) -> Lresult<(Ast, Type)>
     {
         let mod_types = self.types.get(module).ok_or_else(|| {
             Failure::new(
@@ -128,14 +128,14 @@ impl<'a> Semantics<'a>
         }
     }
 
-    pub fn map_typecall<'i>(
+    pub fn map_typecall(
         &mut self,
-        id: &AstNode<'i>,
-        args: &StrupleKV<Option<&'i str>, AstNode<'i>>,
-    ) -> Lresult<(Ast<'i>, Type)>
+        id: &AstNode,
+        args: &StrupleKV<Option<&'static str>, AstNode>,
+    ) -> Lresult<(Ast, Type)>
     {
         let new_id = self.map_node(id)?;
-        let new_args: StrupleKV<Option<&'i str>, Type> = args.map_v(|a| {
+        let new_args: StrupleKV<Option<&'static str>, Type> = args.map_v(|a| {
             let new_node = self.map_node(a)?;
             match *new_node.node {
                 Ast::Type(t) => Ok(t),
@@ -220,12 +220,12 @@ impl<'a> Semantics<'a>
         Ok((result, rtype))
     }
 
-    fn replace<'i>(
+    fn replace(
         &mut self,
-        old: &AstNode<'i>,
-        new_ast: Ast<'i>,
+        old: &AstNode,
+        new_ast: Ast,
         new_typ: Type,
-    ) -> Lresult<AstNode<'i>>
+    ) -> Lresult<AstNode>
     {
         let m_type = self.merge_types(&old.typ, &new_typ)?;
         Ok(old.replace(new_ast, m_type))

@@ -1,6 +1,5 @@
 use crate::leema::ast2::{Ast, AstNode, AstResult, Loc};
 use crate::leema::failure::Lresult;
-use crate::leema::infer::Inferator;
 use crate::leema::inter::Blockstack;
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::ProtoLib; // {ProtoLib, ProtoModule};
@@ -12,38 +11,38 @@ use std::collections::HashMap;
 use std::fmt;
 
 
-type PipelineResult<'i> = Lresult<Option<AstNode<'i>>>;
+type PipelineResult = Lresult<Option<AstNode>>;
 
-trait PipelineOp<'i>: fmt::Debug
+trait PipelineOp: fmt::Debug
 {
-    fn f(&mut self, node: AstNode<'i>) -> PipelineResult<'i>;
+    fn f(&mut self, node: AstNode) -> PipelineResult;
 }
 
-struct Pipeline<'i, 'p>
+struct Pipeline<'p>
 {
-    ops: Vec<&'p mut PipelineOp<'i>>,
+    ops: Vec<&'p mut PipelineOp>,
 }
 
-struct MacroApplication<'i, 'l>
+struct MacroApplication<'l>
 {
-    proto: &'l ProtoLib<'i>,
+    proto: &'l ProtoLib,
 }
 
-impl<'i, 'l> MacroApplication<'i, 'l>
+impl<'l> MacroApplication<'l>
 {
     fn apply_macro(
-        _mac: &Ast<'i>,
+        _mac: &Ast,
         _loc: Loc,
-        _args: StrupleKV<Option<&'i str>, AstNode<'i>>,
-    ) -> AstResult<'i>
+        _args: StrupleKV<Option<&'static str>, AstNode>,
+    ) -> AstResult
     {
         Ok(AstNode::void())
     }
 }
 
-impl<'i, 'l> PipelineOp<'i> for MacroApplication<'i, 'l>
+impl<'l> PipelineOp for MacroApplication<'l>
 {
-    fn f(&mut self, node: AstNode<'i>) -> PipelineResult<'i>
+    fn f(&mut self, node: AstNode) -> PipelineResult
     {
         if let Ast::Call(callid, args) = *node.node {
             let optmac = match *callid.node {
@@ -70,7 +69,7 @@ impl<'i, 'l> PipelineOp<'i> for MacroApplication<'i, 'l>
     }
 }
 
-impl<'i, 'l> fmt::Debug for MacroApplication<'i, 'l>
+impl<'l> fmt::Debug for MacroApplication<'l>
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
@@ -78,15 +77,15 @@ impl<'i, 'l> fmt::Debug for MacroApplication<'i, 'l>
     }
 }
 
-struct TypeCollector<'i>
+struct TypeCollector
 {
-    deftypes: HashMap<&'i str, Type>,
-    deffields: HashMap<&'i str, StrupleKV<&'i str, Type>>,
+    deftypes: HashMap<&'static str, Type>,
+    deffields: HashMap<&'static str, StrupleKV<&'static str, Type>>,
 }
 
-struct ClosureCollector<'i>
+struct ClosureCollector
 {
-    closures: Vec<AstNode<'i>>,
+    closures: Vec<AstNode>,
 }
 
 struct ScopeCheck
@@ -94,9 +93,9 @@ struct ScopeCheck
     blocks: Blockstack,
 }
 
-struct TypeCheck<'i>
+struct TypeCheck
 {
-    infer: Inferator<'i>,
+    // infer: Inferator,
 }
 
 struct Registration
@@ -115,19 +114,19 @@ struct Registration
 // postop: 4, 3, 2, 1
 // after, subsequent, late, postlude
 
-pub struct Semantics<'i>
+pub struct Semantics
 {
     pub types: HashMap<Lstr, HashMap<Lstr, Type>>,
 
     // pub calls: HashSet<ModLocalId>,
     // pub typecalls: HashSet<SpecialModId>,
     // pub closed: Option<HashSet<Lstr>>,
-    pub src: HashMap<Lstr, HashMap<Lstr, AstNode<'i>>>,
+    pub src: HashMap<Lstr, HashMap<Lstr, AstNode>>,
 }
 
-impl<'i> Semantics<'i>
+impl Semantics
 {
-    pub fn new() -> Semantics<'i>
+    pub fn new() -> Semantics
     {
         Semantics {
             types: HashMap::new(),
@@ -135,7 +134,7 @@ impl<'i> Semantics<'i>
         }
     }
 
-    pub fn compile<'a>(&mut self, proto: &'a mut ProtoLib<'i>, module: &str) -> Lresult<()>
+    pub fn compile<'a>(&mut self, proto: &'a mut ProtoLib, module: &str) -> Lresult<()>
     {
         while let Some(func_ast) = proto.pop_func(module)? {
             let comp_ast = self.compile_func(proto, func_ast)?;
@@ -144,7 +143,7 @@ impl<'i> Semantics<'i>
         Ok(())
     }
 
-    pub fn compile_func<'a>(&mut self, proto: &'a ProtoLib<'i>, mut func_ast: AstNode<'i>) -> Lresult<AstNode<'i>>
+    pub fn compile_func<'a>(&mut self, proto: &'a ProtoLib, mut func_ast: AstNode) -> Lresult<AstNode>
     {
         let mut macs: MacroApplication = MacroApplication { proto };
         let mut ops = Pipeline {

@@ -54,21 +54,21 @@ pub enum CaseType
 
 #[derive(Clone)]
 #[derive(PartialEq)]
-pub struct Case<'i>
+pub struct Case
 {
-    pub cond: AstNode<'i>,
-    pub body: AstNode<'i>,
+    pub cond: AstNode,
+    pub body: AstNode,
 }
 
-impl<'i> Case<'i>
+impl Case
 {
-    pub fn new(cond: AstNode<'i>, body: AstNode<'i>) -> Case<'i>
+    pub fn new(cond: AstNode, body: AstNode) -> Case
     {
         Case { cond, body }
     }
 }
 
-impl<'i> fmt::Debug for Case<'i>
+impl fmt::Debug for Case
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
@@ -76,46 +76,46 @@ impl<'i> fmt::Debug for Case<'i>
     }
 }
 
-type Klist<'i> = StrupleKV<&'i str, Option<AstNode<'i>>>;
-pub type Xlist<'i> = StrupleKV<Option<&'i str>, AstNode<'i>>;
+type Klist = StrupleKV<&'static str, Option<AstNode>>;
+pub type Xlist = StrupleKV<Option<&'static str>, AstNode>;
 
 #[derive(Clone)]
 #[derive(PartialEq)]
-pub enum Ast<'i>
+pub enum Ast
 {
-    Block(Vec<AstNode<'i>>),
-    Call(AstNode<'i>, Xlist<'i>),
-    Case(CaseType, Option<AstNode<'i>>, Vec<Case<'i>>),
+    Block(Vec<AstNode>),
+    Call(AstNode, Xlist),
+    Case(CaseType, Option<AstNode>, Vec<Case>),
     ConstVal(Val),
-    DefConst(&'i str, AstNode<'i>),
-    DefFunc(AstNode<'i>, Xlist<'i>, AstNode<'i>),
-    DefMacro(&'i str, Vec<&'i str>, AstNode<'i>),
-    DefType(DataType, AstNode<'i>, Xlist<'i>),
-    FuncType(StrupleKV<&'i str, AstNode<'i>>),
-    Id1(&'i str),
-    Id2(&'i str, &'i str),
-    IdGeneric(AstNode<'i>, Klist<'i>),
-    Import(&'i str),
-    LessThan3(AstNode<'i>, bool, AstNode<'i>, bool, AstNode<'i>),
-    Let(AstNode<'i>, AstNode<'i>, AstNode<'i>),
-    List(Xlist<'i>),
-    Map(StrupleKV<AstNode<'i>, AstNode<'i>>),
-    NewStruct(AstNode<'i>, Struple2<AstNode<'i>>),
-    NewTuple(StrupleKV<&'i str, AstNode<'i>>),
-    NewUnion(AstNode<'i>, &'i str, Struple2<AstNode<'i>>),
-    Op1(&'i str, AstNode<'i>),
-    Op2(&'i str, AstNode<'i>, AstNode<'i>),
-    Return(AstNode<'i>),
+    DefConst(&'static str, AstNode),
+    DefFunc(AstNode, Xlist, AstNode),
+    DefMacro(&'static str, Vec<&'static str>, AstNode),
+    DefType(DataType, AstNode, Xlist),
+    FuncType(StrupleKV<&'static str, AstNode>),
+    Id1(&'static str),
+    Id2(&'static str, &'static str),
+    IdGeneric(AstNode, Klist),
+    Import(&'static str),
+    LessThan3(AstNode, bool, AstNode, bool, AstNode),
+    Let(AstNode, AstNode, AstNode),
+    List(Xlist),
+    Map(StrupleKV<AstNode, AstNode>),
+    NewStruct(AstNode, Struple2<AstNode>),
+    NewTuple(StrupleKV<&'static str, AstNode>),
+    NewUnion(AstNode, &'static str, Struple2<AstNode>),
+    Op1(&'static str, AstNode),
+    Op2(&'static str, AstNode, AstNode),
+    Return(AstNode),
     RustBlock,
-    StrExpr(Vec<AstNode<'i>>),
-    Tuple(Xlist<'i>),
+    StrExpr(Vec<AstNode>),
+    Tuple(Xlist),
     Type(Type),
-    TypeCall(AstNode<'i>, Xlist<'i>),
+    TypeCall(AstNode, Xlist),
     Void,
     Wildcard,
 }
 
-impl<'i> Ast<'i>
+impl Ast
 {
     pub fn loc(t: &TokenSrc) -> Loc
     {
@@ -184,7 +184,7 @@ impl<'i> Ast<'i>
     }
 }
 
-impl<'i> fmt::Debug for Ast<'i>
+impl fmt::Debug for Ast
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
@@ -197,19 +197,19 @@ impl<'i> fmt::Debug for Ast<'i>
 
 #[derive(Clone)]
 #[derive(PartialEq)]
-pub struct AstNode<'i>
+pub struct AstNode
 {
-    pub node: Box<Ast<'i>>,
+    pub node: Box<Ast>,
     pub loc: Loc,
     pub typ: Type,
     pub dst: Reg,
 }
 
-pub type AstResult<'input> = Lresult<AstNode<'input>>;
+pub type AstResult = Lresult<AstNode>;
 
-impl<'i> AstNode<'i>
+impl AstNode
 {
-    pub fn new(node: Ast<'i>, loc: Loc) -> AstNode<'i>
+    pub fn new(node: Ast, loc: Loc) -> AstNode
     {
         AstNode {
             node: Box::new(node),
@@ -219,7 +219,7 @@ impl<'i> AstNode<'i>
         }
     }
 
-    pub fn new_constval(v: Val, loc: Loc) -> AstNode<'i>
+    pub fn new_constval(v: Val, loc: Loc) -> AstNode
     {
         let const_type = v.get_type();
         AstNode {
@@ -230,7 +230,7 @@ impl<'i> AstNode<'i>
         }
     }
 
-    pub fn void() -> AstNode<'i>
+    pub fn void() -> AstNode
     {
         AstNode {
             node: Box::new(Ast::Void),
@@ -243,7 +243,7 @@ impl<'i> AstNode<'i>
         }
     }
 
-    pub fn replace(&self, node: Ast<'i>, t: Type) -> AstNode<'i>
+    pub fn replace(&self, node: Ast, t: Type) -> AstNode
     {
         AstNode {
             node: Box::new(node),
@@ -259,7 +259,7 @@ impl<'i> AstNode<'i>
     }
 }
 
-impl<'i> fmt::Debug for AstNode<'i>
+impl fmt::Debug for AstNode
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {

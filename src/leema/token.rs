@@ -45,16 +45,16 @@ impl fmt::Display for Char
 }
 
 #[derive(Clone)]
-struct CharIter<'input>
+struct CharIter
 {
-    chars: CharIndices<'input>,
+    chars: CharIndices<'static>,
     lineno: u16,
     column: u8,
 }
 
-impl<'input> CharIter<'input>
+impl CharIter
 {
-    fn new(src: &str) -> CharIter
+    fn new(src: &'static str) -> CharIter
     {
         CharIter {
             chars: src.char_indices(),
@@ -244,15 +244,15 @@ lazy_static! {
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
-pub struct TokenSrc<'input>
+pub struct TokenSrc
 {
-    pub src: &'input str,
+    pub src: &'static str,
     pub tok: Token,
     pub begin: Char,
     pub len: usize,
 }
 
-impl<'input> fmt::Display for TokenSrc<'input>
+impl fmt::Display for TokenSrc
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
@@ -264,7 +264,7 @@ impl<'input> fmt::Display for TokenSrc<'input>
     }
 }
 
-pub type TokenResult<'input> = Lresult<TokenSrc<'input>>;
+pub type TokenResult = Lresult<TokenSrc>;
 
 /// scan((start, line, col, (i, char))
 /// return (consume_char, Option<new_token>, Option<push_scanner(scanner) | pop_state>) | error
@@ -899,10 +899,10 @@ const PUSH_MODE_INDENT_TAB: ScanModeOp =
 const PUSH_MODE_INT: ScanModeOp = ScanModeOp::Push(&ScanModeInt);
 const PUSH_MODE_LINE: ScanModeOp = ScanModeOp::Push(&ScanModeLine);
 
-pub struct Tokenz<'input>
+pub struct Tokenz
 {
-    src: &'input str,
-    chars: CharIter<'input>,
+    src: &'static str,
+    chars: CharIter,
     filter: TokenFilterFn,
 
     mode: ScanMode,
@@ -914,16 +914,16 @@ pub struct Tokenz<'input>
     eof: bool,
 }
 
-impl<'input> Tokenz<'input>
+impl Tokenz
 {
-    pub fn lexp(src: &'input str) -> Lresult<Vec<TokenSrc<'input>>>
+    pub fn lexp(src: &'static str) -> Lresult<Vec<TokenSrc>>
     {
         let mut toks = Tokenz::lex(src);
         toks.set_filter(Token::parsefilter);
         toks.collect()
     }
 
-    pub fn lex(src: &'input str) -> Tokenz<'input>
+    pub fn lex(src: &'static str) -> Tokenz
     {
         let chars = CharIter::new(src);
         Tokenz {
@@ -946,7 +946,7 @@ impl<'input> Tokenz<'input>
         self.filter = filter;
     }
 
-    pub fn expect(&mut self, tok: Token) -> TokenResult<'input>
+    pub fn expect(&mut self, tok: Token) -> TokenResult
     {
         match self.next() {
             Some(Ok(toksrc)) if toksrc.tok == tok => Ok(toksrc),
@@ -965,7 +965,7 @@ impl<'input> Tokenz<'input>
         }
     }
 
-    fn unfiltered_next(&mut self) -> Option<TokenResult<'input>>
+    fn unfiltered_next(&mut self) -> Option<TokenResult>
     {
         if self.eof {
             return None;
@@ -1046,7 +1046,7 @@ impl<'input> Tokenz<'input>
         mut tok: Token,
         consume: bool,
         c: Option<Char>,
-    ) -> TokenResult<'input>
+    ) -> TokenResult
     {
         let begin = match self.begin.or(c) {
             Some(b) => b,
@@ -1083,11 +1083,11 @@ impl<'input> Tokenz<'input>
     }
 }
 
-impl<'input> Iterator for Tokenz<'input>
+impl Iterator for Tokenz
 {
-    type Item = TokenResult<'input>;
+    type Item = TokenResult;
 
-    fn next(&mut self) -> Option<TokenResult<'input>>
+    fn next(&mut self) -> Option<TokenResult>
     {
         let filter_fn = self.filter;
         loop {
