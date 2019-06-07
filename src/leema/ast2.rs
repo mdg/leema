@@ -253,6 +253,13 @@ impl AstNode
         }
     }
 
+    /// Replace the Ast member in this AstNode
+    pub fn replace_node(self, node: Ast) -> AstNode
+    {
+        self.node = Box::new(node);
+        self
+    }
+
     pub fn set_dst(&mut self, dst: Reg)
     {
         self.dst = dst;

@@ -1,4 +1,4 @@
-use crate::leema::ast2::{Ast, AstNode, AstResult, Loc};
+use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc};
 use crate::leema::failure::Lresult;
 use crate::leema::inter::Blockstack;
 use crate::leema::lstr::Lstr;
@@ -11,16 +11,66 @@ use std::collections::HashMap;
 use std::fmt;
 
 
-type PipelineResult = Lresult<Option<AstNode>>;
-
-trait PipelineOp: fmt::Debug
+enum SemanticAction
 {
-    fn f(&mut self, node: AstNode) -> PipelineResult;
+    Keep(AstNode),
+    Rewrite(AstNode),
+    Remove,
 }
 
-struct Pipeline<'p>
+type SemanticResult = Lresult<SemanticAction>;
+
+trait SemanticOp: fmt::Debug
 {
-    ops: Vec<&'p mut PipelineOp>,
+    fn f(&mut self, node: AstNode) -> SemanticResult
+    {
+        Ok(SemanticAction::Keep(node))
+    }
+    fn pre(&mut self, node: AstNode) -> SemanticResult
+    {
+        Ok(SemanticAction::Keep(node))
+    }
+    fn post(&mut self, node: AstNode) -> SemanticResult
+    {
+        Ok(SemanticAction::Keep(node))
+    }
+}
+
+#[derive(Debug)]
+struct SemanticPipeline<'p>
+{
+    ops: Vec<&'p mut SemanticOp>,
+}
+
+impl<'p> SemanticOp for SemanticPipeline<'p>
+{
+    fn pre(&mut self, mut node: AstNode) -> SemanticResult
+    {
+        let mut do_loop = true;
+        loop {
+            do_loop = false;
+            for op in self.ops.iter_mut() {
+                match op.pre(node)? {
+                    SemanticAction::Keep(knode) => {
+                        node = knode;
+                    }
+                    SemanticAction::Rewrite(rnode) => {
+                        node = rnode;
+                        do_loop = true;
+                        break;
+                    }
+                    SemanticAction::Remove => {
+                        return Ok(SemanticAction::Remove);
+                    }
+                }
+            }
+            if !do_loop {
+                break;
+            }
+        }
+
+        Ok(SemanticAction::Keep(node))
+    }
 }
 
 struct MacroApplication<'l>
@@ -40,9 +90,9 @@ impl<'l> MacroApplication<'l>
     }
 }
 
-impl<'l> PipelineOp for MacroApplication<'l>
+impl<'l> SemanticOp for MacroApplication<'l>
 {
-    fn f(&mut self, node: AstNode) -> PipelineResult
+    fn f(&mut self, node: AstNode) -> SemanticResult
     {
         if let Ast::Call(callid, args) = *node.node {
             let optmac = match *callid.node {
@@ -55,16 +105,16 @@ impl<'l> PipelineOp for MacroApplication<'l>
             match optmac {
                 Some(mac) => {
                     let result = Self::apply_macro(mac, callid.loc, args)?;
-                    Ok(Some(result))
+                    Ok(SemanticAction::Rewrite(result))
                     // Ok(None)
                 }
                 None => {
                     let node2 = AstNode::new(Ast::Call(callid, args), node.loc);
-                    Ok(Some(node2))
+                    Ok(SemanticAction::Keep(node2))
                 }
             }
         } else {
-            Ok(Some(node))
+            Ok(SemanticAction::Keep(node))
         }
     }
 }
@@ -74,6 +124,28 @@ impl<'l> fmt::Debug for MacroApplication<'l>
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         write!(f, "MacroApplication")
+    }
+}
+
+#[derive(Debug)]
+struct CaseCheck
+{
+}
+
+impl SemanticOp for CaseCheck
+{
+    fn pre(&mut self, node: AstNode) -> SemanticResult
+    {
+        match *node.node {
+            Ast::Case(ast2::CaseType::If, Some(cond), _) => {
+                return Err(rustfail!(
+                    "semantic_failure",
+                    "expected no input for if, found {:?}",
+                    cond,
+                ));
+            }
+            _ => Ok(SemanticAction::Keep(node)),
+        }
     }
 }
 
@@ -133,9 +205,9 @@ impl Semantics
         }
     }
 
-    pub fn compile<'a>(
+    pub fn compile(
         &mut self,
-        proto: &'a mut ProtoLib,
+        proto: &mut ProtoLib,
         module: &str,
     ) -> Lresult<()>
     {
@@ -146,22 +218,73 @@ impl Semantics
         Ok(())
     }
 
-    pub fn compile_func<'a>(
+    pub fn compile_func(
         &mut self,
-        proto: &'a ProtoLib,
+        proto: &ProtoLib,
         mut func_ast: AstNode,
-    ) -> Lresult<AstNode>
+    ) -> AstResult
     {
         let mut macs: MacroApplication = MacroApplication { proto };
-        let mut ops = Pipeline {
+        let mut pipe = SemanticPipeline {
             ops: vec![&mut macs],
         };
 
-        for op in ops.ops.iter_mut() {
-            func_ast = op.f(func_ast)?.unwrap();
-        }
+        // pipe.walk(func_ast)
+        Self::walk(pipe, func_ast)
+    }
 
-        Ok(func_ast)
+    pub fn walk<Op: SemanticOp>(op: Op, node: AstNode) -> AstResult
+    {
+        let mut prenode = match op.pre(node)? {
+            SemanticAction::Keep(inode) => inode,
+            SemanticAction::Rewrite(inode) => inode,
+            SemanticAction::Remove => {
+                return Ok(AstNode::void())
+            }
+        };
+
+        let new_ast = match *prenode.node {
+            Ast::Block(children) => {
+                let new_children: Vec<AstNode> = children.into_iter().map(|ch| {
+                    Self::walk(op, ch)
+                }).collect()?;
+                Ast::Block(new_children)
+            }
+            Ast::Call(id, args) => {
+                let wid = Self::walk(op, id)?;
+                let wargs = args.map_v_into(|v| Self::walk(op, v))?;
+                Ast::Call(wid, wargs)
+            }
+            Ast::Case(typ, None, args) => {
+                let new_args = args.into_iter().map(|ch| {
+                    let wcond = Self::walk(op, ch.cond)?;
+                    let wbody = Self::walk(op, ch.body)?;
+                    Ok(ast2::Case::new(wcond, wbody))
+                }).collect()?;
+                Ast::Case(typ, None, new_args)
+            }
+            Ast::Case(typ, Some(cond), children) => {
+                let wcond = Self::walk(op, cond)?;
+                let wchildren = children.into_iter().map(|ch| {
+                    let wcond = Self::walk(op, ch.cond)?;
+                    let wbody = Self::walk(op, ch.body)?;
+                    Ok(ast2::Case::new(wcond, wbody))
+                }).collect()?;
+                Ast::Case(typ, Some(wcond), wchildren)
+            }
+            ast => ast, // do nothing for everything else
+        };
+        prenode.node = Box::new(new_ast);
+
+        let postnode = match op.post(node)? {
+            SemanticAction::Keep(inode) => inode,
+            SemanticAction::Rewrite(inode) => inode,
+            SemanticAction::Remove => {
+                return Ok(AstNode::void())
+            }
+        };
+
+        Ok(postnode)
     }
 }
 
