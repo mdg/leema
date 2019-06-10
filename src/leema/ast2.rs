@@ -254,7 +254,7 @@ impl AstNode
     }
 
     /// Replace the Ast member in this AstNode
-    pub fn replace_node(self, node: Ast) -> AstNode
+    pub fn replace_node(mut self, node: Ast) -> AstNode
     {
         self.node = Box::new(node);
         self

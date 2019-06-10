@@ -133,9 +133,9 @@ impl<K, V> StrupleKV<K, V>
         Ok(StrupleKV::from_vec(m_items))
     }
 
-    pub fn map_v_into<F, U>(self, f: F) -> Lresult<StrupleKV<K, U>>
+    pub fn map_v_into<F, U>(self, mut f: F) -> Lresult<StrupleKV<K, U>>
     where
-        F: Fn(V) -> Lresult<U>,
+        F: FnMut(V) -> Lresult<U>,
     {
         let m_result_items: Vec<Lresult<StrupleItem<K, U>>> = self
             .0

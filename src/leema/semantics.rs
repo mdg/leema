@@ -46,9 +46,8 @@ impl<'p> SemanticOp for SemanticPipeline<'p>
 {
     fn pre(&mut self, mut node: AstNode) -> SemanticResult
     {
-        let mut do_loop = true;
         loop {
-            do_loop = false;
+            let mut do_loop = false;
             for op in self.ops.iter_mut() {
                 match op.pre(node)? {
                     SemanticAction::Keep(knode) => {
@@ -221,7 +220,7 @@ impl Semantics
     pub fn compile_func(
         &mut self,
         proto: &ProtoLib,
-        mut func_ast: AstNode,
+        func_ast: AstNode,
     ) -> AstResult
     {
         let mut macs: MacroApplication = MacroApplication { proto };
@@ -229,11 +228,10 @@ impl Semantics
             ops: vec![&mut macs],
         };
 
-        // pipe.walk(func_ast)
-        Self::walk(pipe, func_ast)
+        Self::walk(&mut pipe, func_ast)
     }
 
-    pub fn walk<Op: SemanticOp>(op: Op, node: AstNode) -> AstResult
+    fn walk<Op: SemanticOp>(op: &mut Op, node: AstNode) -> AstResult
     {
         let mut prenode = match op.pre(node)? {
             SemanticAction::Keep(inode) => inode,
@@ -245,10 +243,10 @@ impl Semantics
 
         let new_ast = match *prenode.node {
             Ast::Block(children) => {
-                let new_children: Vec<AstNode> = children.into_iter().map(|ch| {
+                let new_children: Lresult<Vec<AstNode>> = children.into_iter().map(|ch| {
                     Self::walk(op, ch)
-                }).collect()?;
-                Ast::Block(new_children)
+                }).collect();
+                Ast::Block(new_children?)
             }
             Ast::Call(id, args) => {
                 let wid = Self::walk(op, id)?;
@@ -256,27 +254,27 @@ impl Semantics
                 Ast::Call(wid, wargs)
             }
             Ast::Case(typ, None, args) => {
-                let new_args = args.into_iter().map(|ch| {
+                let new_args: Lresult<Vec<ast2::Case>> = args.into_iter().map(|ch| {
                     let wcond = Self::walk(op, ch.cond)?;
                     let wbody = Self::walk(op, ch.body)?;
                     Ok(ast2::Case::new(wcond, wbody))
-                }).collect()?;
-                Ast::Case(typ, None, new_args)
+                }).collect();
+                Ast::Case(typ, None, new_args?)
             }
             Ast::Case(typ, Some(cond), children) => {
                 let wcond = Self::walk(op, cond)?;
-                let wchildren = children.into_iter().map(|ch| {
+                let wchildren: Lresult<Vec<ast2::Case>> = children.into_iter().map(|ch| {
                     let wcond = Self::walk(op, ch.cond)?;
                     let wbody = Self::walk(op, ch.body)?;
                     Ok(ast2::Case::new(wcond, wbody))
-                }).collect()?;
-                Ast::Case(typ, Some(wcond), wchildren)
+                }).collect();
+                Ast::Case(typ, Some(wcond), wchildren?)
             }
             ast => ast, // do nothing for everything else
         };
         prenode.node = Box::new(new_ast);
 
-        let postnode = match op.post(node)? {
+        let postnode = match op.post(prenode)? {
             SemanticAction::Keep(inode) => inode,
             SemanticAction::Rewrite(inode) => inode,
             SemanticAction::Remove => {
