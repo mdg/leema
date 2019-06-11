@@ -2,7 +2,6 @@ use crate::leema::ast::Ast;
 use crate::leema::ast2;
 use crate::leema::code::{self, Code};
 use crate::leema::failure::Lresult;
-use crate::leema::grammar2::Grammar;
 use crate::leema::infer::TypeSet;
 use crate::leema::inter::Intermod;
 use crate::leema::ixpr::Source;
@@ -15,7 +14,6 @@ use crate::leema::module::{ModKey, ModulePreface, ModuleSource};
 use crate::leema::phase0::{self, Protomod};
 use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::semantics::Semantics;
-use crate::leema::token::Tokenz;
 use crate::leema::typecheck::{self, CallFrame, CallOp, Typemod, Typescope};
 use crate::leema::val::Type;
 use crate::leema::{
@@ -181,9 +179,8 @@ impl Lib
     {
         vout!("read_modast: {}\n", modname);
         let modtxt = loader.read_mod(modname)?;
-        let asts = Grammar::new(Tokenz::lexp(modtxt)?).parse_module()?;
         let modkey = ModKey::name_only(modname.clone());
-        ProtoModule::new(modkey, asts)
+        ProtoModule::new(modkey, modtxt)
     }
 
     pub fn load_proto2(&mut self, modname: &Lstr) -> Lresult<()>

@@ -25,8 +25,10 @@ pub struct ProtoModule
 
 impl ProtoModule
 {
-    pub fn new(key: ModKey, items: Vec<AstNode>) -> Lresult<ProtoModule>
+    pub fn new(key: ModKey, src: &'static str) -> Lresult<ProtoModule>
     {
+        let items = Grammar::new(Tokenz::lexp(src)?).parse_module()?;
+
         let mut proto = ProtoModule {
             key,
             imports: HashSet::new(),
@@ -78,9 +80,22 @@ impl ProtoModule
         Ok(())
     }
 
-    fn add_struct(&mut self, _name: AstNode, _fields: Xlist) -> Lresult<()>
+    fn add_struct(&mut self, name: AstNode, _fields: Xlist) -> Lresult<()>
     {
-        // proto.types.push(i);
+        match *name.node {
+            Ast::Id1(name_id) => {
+                let lri = Lri::new(Lstr::from(name_id));
+                self.types.insert(name_id, Type::UserDef(lri));
+                // do something with fields too!
+            }
+            invalid_name => {
+                return Err(rustfail!(
+                    "semantic_failure",
+                    "unsupported struct name: {:?}",
+                    invalid_name,
+                ));
+            }
+        }
         Ok(())
     }
 
@@ -134,9 +149,8 @@ impl ProtoLib
             return Ok(());
         }
         let modtxt = loader.read_mod(modname)?;
-        let asts = Grammar::new(Tokenz::lexp(modtxt)?).parse_module()?;
         let modkey = ModKey::name_only(modname.clone());
-        let proto = ProtoModule::new(modkey, asts)?;
+        let proto = ProtoModule::new(modkey, modtxt)?;
         self.protos.insert(modname.clone(), proto);
         Ok(())
     }
@@ -216,23 +230,33 @@ impl ProtoLib
 #[cfg(test)]
 mod tests
 {
-    use super::ProtoLib;
-    use crate::leema::loader::Interloader;
+    use super::ProtoModule;
     use crate::leema::lri::Lri;
     use crate::leema::lstr::Lstr;
+    use crate::leema::module::ModKey;
     use crate::leema::val::Type;
+
+    fn new_proto(input: &'static str) -> ProtoModule
+    {
+        let key = ModKey::name_only(Lstr::Sref("foo"));
+        ProtoModule::new(key, input).expect("ProtoModule load failure")
+    }
 
     #[test]
     fn test_proto_token()
     {
-        let input = "type Burrito --";
-        let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
-        loader.set_mod_txt(Lstr::Sref("foo"), input.to_string());
-        let mut lib = ProtoLib::new();
-        lib.load(&mut loader, &Lstr::from("foo")).expect("foo load failure");
-        let proto = lib.get("foo").expect("no foo ProtoMod");
+        let proto = new_proto("type Burrito --");
 
         let burrito_type = proto.types.get("Burrito").expect("no Burrito type");
         assert_eq!(Type::UserDef(Lri::new(Lstr::from("Burrito"))), *burrito_type);
+    }
+
+    #[test]
+    fn test_proto_struct()
+    {
+        let proto = new_proto("type Point x:Int y:Int --");
+
+        let point_type = proto.types.get("Point").expect("no Point type");
+        assert_eq!(Type::UserDef(Lri::new(Lstr::from("Point"))), *point_type);
     }
 }
