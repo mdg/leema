@@ -10,6 +10,18 @@ use crate::leema::val::Type;
 use std::collections::HashMap;
 use std::fmt;
 
+/// Stages
+/// - prewrite
+///   - apply macros
+///   - closure collector
+/// - analyze
+///   - valid code
+///   - collect calls
+///   - scope check
+///   - typecheck
+/// - postwrite
+///   - optimization / constant folding / code removal
+///   - assign registers
 
 enum SemanticAction
 {
