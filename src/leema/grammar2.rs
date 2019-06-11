@@ -311,7 +311,7 @@ impl ParseStmt
         p.skip_if(Token::LineBegin)?;
         let tok = p.peek()?;
         let data = match tok.tok {
-            // . and : both indicate struct
+            // id and : both indicate struct, probably just id?
             Token::Id => {
                 let fields = IdTypeMode::parse(p)?;
                 Ast::DefType(ast2::DataType::Struct, name, fields)
@@ -320,15 +320,21 @@ impl ParseStmt
                 let fields = IdTypeMode::parse(p)?;
                 Ast::DefType(ast2::DataType::Struct, name, fields)
             }
+            // -- indicates token type
+            Token::DoubleDash => {
+                Ast::DefType(ast2::DataType::Struct, name, ast2::Xlist::new())
+            }
+            // | indicates enum type
             Token::CasePipe => {
                 let variantvec = p.parse_new(&DefVariantsMode)?;
                 let variants = StrupleKV::from(variantvec);
                 Ast::DefType(ast2::DataType::Union, name, variants)
             }
+            // anything else is a failure
             _ => {
                 return Err(rustfail!(
                     "parse_failure",
-                    "expected id or : or | found {:?}",
+                    "expected id or : or | or -- found {:?}",
                     tok,
                 ));
             }
@@ -1735,6 +1741,22 @@ mod tests
             assert_eq!("y", fields[1].k.unwrap());
             assert_eq!(Ast::Id1("Int"), *fields[0].v.node);
             assert_eq!(Ast::Id1("Int"), *fields[1].v.node);
+        }
+    }
+
+    #[test]
+    fn test_parse_type_token()
+    {
+        let input = "type What --";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+        assert_eq!(1, ast.len());
+
+        let t = &ast[0];
+        assert_matches!(*t.node, Ast::DefType(DataType::Struct, _, _));
+        if let Ast::DefType(_, name, fields) = &*t.node {
+            assert_matches!(*name.node, Ast::Id1("What"));
+            assert_eq!(0, fields.len());
         }
     }
 
