@@ -1,4 +1,4 @@
-use crate::leema::ast2::{Ast, AstNode};
+use crate::leema::ast2::{Ast, AstNode, DataType, Xlist};
 use crate::leema::failure::Lresult;
 use crate::leema::grammar2::Grammar;
 use crate::leema::loader::Interloader;
@@ -17,7 +17,7 @@ pub struct ProtoModule
     pub imports: HashSet<&'static str>,
     pub macros: HashMap<&'static str, Ast>,
     pub constants: Vec<AstNode>,
-    pub types: Vec<AstNode>,
+    pub types: HashMap<&'static str, AstNode>,
     pub funcs: Vec<AstNode>,
 }
 
@@ -30,7 +30,7 @@ impl ProtoModule
             imports: HashSet::new(),
             macros: HashMap::new(),
             constants: Vec::new(),
-            types: Vec::new(),
+            types: HashMap::new(),
             funcs: Vec::new(),
         };
 
@@ -42,11 +42,14 @@ impl ProtoModule
                 Ast::DefMacro(macro_name, _, _) => {
                     proto.macros.insert(macro_name, *i.node);
                 }
-                Ast::DefFunc(_, _, _) => {
-                    proto.funcs.push(i);
+                Ast::DefFunc(name, args, body) => {
+                    proto.add_func(name, args, body)?;
                 }
-                Ast::DefType(_, _, _) => {
-                    proto.types.push(i);
+                Ast::DefType(DataType::Struct, name, fields) => {
+                    proto.add_struct(name, fields)?;
+                }
+                Ast::DefType(DataType::Union, name, variants) => {
+                    proto.add_union(name, variants)?;
                 }
                 Ast::Import(imp) => {
                     proto.imports.insert(imp);
@@ -61,6 +64,24 @@ impl ProtoModule
             }
         }
         Ok(proto)
+    }
+
+    fn add_func(&mut self, _name: AstNode, _args: Xlist, _body: AstNode) -> Lresult<()>
+    {
+        // self.funcs.push(i);
+        Ok(())
+    }
+
+    fn add_struct(&mut self, _name: AstNode, _fields: Xlist) -> Lresult<()>
+    {
+        // proto.types.push(i);
+        Ok(())
+    }
+
+    fn add_union(&mut self, _name: AstNode, _variants: Xlist) -> Lresult<()>
+    {
+        // proto.types.push(i);
+        Ok(())
     }
 }
 
@@ -164,5 +185,27 @@ impl ProtoLib
             rustfail!("semantic_failure", "module not loaded: {}", module,)
         })?;
         Ok(proto.macros.get(macroname))
+    }
+}
+
+
+#[cfg(test)]
+mod tests
+{
+    use super::ProtoLib;
+    use crate::leema::loader::Interloader;
+    use crate::leema::lstr::Lstr;
+
+    #[test]
+    fn test_proto_token()
+    {
+        let input = "type Burrito --";
+        let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
+        loader.set_mod_txt(Lstr::Sref("foo"), input.to_string());
+        let mut lib = ProtoLib::new();
+        lib.load(&mut loader, &Lstr::from("foo")).expect("foo load failure");
+        let proto = lib.get("foo").expect("no foo ProtoMod");
+
+        let _burrito_type = proto.types.get("Burrito").expect("no Burrito type");
     }
 }
