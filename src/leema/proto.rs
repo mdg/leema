@@ -20,7 +20,8 @@ pub struct ProtoModule
     pub macros: HashMap<&'static str, Ast>,
     pub constants: Vec<AstNode>,
     pub types: HashMap<&'static str, Type>,
-    pub funcs: Vec<AstNode>,
+    pub funcseq: Vec<&'static str>,
+    pub funcsrc: HashMap<&'static str, AstNode>,
 }
 
 impl ProtoModule
@@ -35,7 +36,8 @@ impl ProtoModule
             macros: HashMap::new(),
             constants: Vec::new(),
             types: HashMap::new(),
-            funcs: Vec::new(),
+            funcseq: Vec::new(),
+            funcsrc: HashMap::new(),
         };
 
         for i in items {
@@ -74,9 +76,21 @@ impl ProtoModule
         Ok(proto)
     }
 
-    fn add_func(&mut self, _name: AstNode, _args: Xlist, _body: AstNode) -> Lresult<()>
+    fn add_func(&mut self, name: AstNode, _args: Xlist, body: AstNode) -> Lresult<()>
     {
-        // self.funcs.push(i);
+        match *name.node {
+            Ast::Id1(name_id) => {
+                self.funcseq.push(name_id);
+                self.funcsrc.insert(name_id, body);
+            }
+            invalid_name => {
+                return Err(rustfail!(
+                    "semantic_failure",
+                    "unsupported struct name: {:?}",
+                    invalid_name,
+                ));
+            }
+        }
         Ok(())
     }
 
@@ -193,16 +207,23 @@ impl ProtoLib
 
     pub fn pop_func(&mut self, module: &str) -> Lresult<Option<AstNode>>
     {
-        match self.protos.get_mut(module) {
-            Some(protomod) => Ok(protomod.funcs.pop()),
-            None => {
-                Err(rustfail!(
+        self.protos
+            .get_mut(module)
+            .ok_or_else(|| {
+                rustfail!(
                     "semantic_failure",
                     "could not find module: {}",
                     module,
-                ))
-            }
-        }
+                )
+            })
+            .map(|protomod| {
+                protomod.funcseq
+                    .pop()
+                    .and_then(|func| {
+                        protomod.funcsrc.remove(func)
+                    })
+            })
+
     }
 
 
@@ -240,6 +261,18 @@ mod tests
     {
         let key = ModKey::name_only(Lstr::Sref("foo"));
         ProtoModule::new(key, input).expect("ProtoModule load failure")
+    }
+
+    #[test]
+    fn test_proto_func_noargs()
+    {
+        let proto = new_proto(r#"func hello >> "world" --"#);
+
+        let funcseq = proto.funcseq.get(0).expect("no funcseq type");
+        assert_eq!("hello", *funcseq);
+        assert_eq!(1, proto.funcseq.len());
+        assert!(proto.funcsrc.contains_key("hello"));
+        assert_eq!(1, proto.funcsrc.len());
     }
 
     #[test]
