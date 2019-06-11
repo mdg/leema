@@ -23,16 +23,16 @@ use std::fmt;
 ///   - optimization / constant folding / code removal
 ///   - assign registers
 
-enum SemanticAction
+pub enum SemanticAction
 {
     Keep(AstNode),
     Rewrite(AstNode),
     Remove,
 }
 
-type SemanticResult = Lresult<SemanticAction>;
+pub type SemanticResult = Lresult<SemanticAction>;
 
-trait SemanticOp: fmt::Debug
+pub trait SemanticOp: fmt::Debug
 {
     fn f(&mut self, node: AstNode) -> SemanticResult
     {
@@ -243,7 +243,7 @@ impl Semantics
         Self::walk(&mut pipe, func_ast)
     }
 
-    fn walk<Op: SemanticOp>(op: &mut Op, node: AstNode) -> AstResult
+    pub fn walk<Op: SemanticOp>(op: &mut Op, node: AstNode) -> AstResult
     {
         let mut prenode = match op.pre(node)? {
             SemanticAction::Keep(inode) => inode,
