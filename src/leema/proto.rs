@@ -22,6 +22,7 @@ pub struct ProtoModule
     pub types: HashMap<&'static str, Type>,
     pub funcseq: Vec<&'static str>,
     pub funcsrc: HashMap<&'static str, AstNode>,
+    pub typefunc: HashMap<&'static str, Type>,
 }
 
 impl ProtoModule
@@ -38,6 +39,7 @@ impl ProtoModule
             types: HashMap::new(),
             funcseq: Vec::new(),
             funcsrc: HashMap::new(),
+            typefunc: HashMap::new(),
         };
 
         for i in items {

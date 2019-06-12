@@ -282,6 +282,17 @@ impl Semantics
                 }).collect();
                 Ast::Case(typ, Some(wcond), wchildren?)
             }
+            Ast::ConstVal(v) => {
+                // can't walk past on const
+                Ast::ConstVal(v)
+            }
+            Ast::DefConst(_, _) => {
+                return Err(rustfail!(
+                    "semantic_failure",
+                    "cannot define const at {:?}",
+                    prenode.loc,
+                ));
+            }
             ast => ast, // do nothing for everything else
         };
         prenode.node = Box::new(new_ast);
