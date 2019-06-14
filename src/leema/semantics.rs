@@ -2,7 +2,7 @@ use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc};
 use crate::leema::failure::Lresult;
 use crate::leema::inter::Blockstack;
 use crate::leema::lstr::Lstr;
-use crate::leema::proto::ProtoLib; // {ProtoLib, ProtoModule};
+use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::reg::RegTable;
 use crate::leema::struple::StrupleKV;
 use crate::leema::val::Type;
@@ -86,6 +86,7 @@ impl<'p> SemanticOp for SemanticPipeline<'p>
 
 struct MacroApplication<'l>
 {
+    local: &'l ProtoModule,
     proto: &'l ProtoLib,
 }
 
@@ -103,11 +104,11 @@ impl<'l> MacroApplication<'l>
 
 impl<'l> SemanticOp for MacroApplication<'l>
 {
-    fn f(&mut self, node: AstNode) -> SemanticResult
+    fn pre(&mut self, node: AstNode) -> SemanticResult
     {
         if let Ast::Call(callid, args) = *node.node {
             let optmac = match *callid.node {
-                Ast::Id1(macroname) => self.proto.get_macro("", macroname)?,
+                Ast::Id1(macroname) => self.local.get_macro(macroname)?,
                 Ast::Id2(modname, macroname) => {
                     self.proto.get_macro(modname, macroname)?
                 }
@@ -231,16 +232,21 @@ impl Semantics
 
     pub fn compile_func(
         &mut self,
-        proto: &ProtoLib,
-        func_ast: AstNode,
+        proto: &mut ProtoLib,
+        mod_name: &str,
+        func_name: &str,
     ) -> AstResult
     {
-        let mut macs: MacroApplication = MacroApplication { proto };
+        let func_ast = proto.pop_func(mod_name, func_name)?;
+        let mut macs: MacroApplication = MacroApplication {
+            local: proto.get(mod_name)?,
+            proto: proto,
+        };
         let mut pipe = SemanticPipeline {
             ops: vec![&mut macs],
         };
 
-        Self::walk(&mut pipe, func_ast)
+        Self::walk(&mut pipe, func_ast.unwrap())
     }
 
     pub fn walk<Op: SemanticOp>(op: &mut Op, node: AstNode) -> AstResult
@@ -312,9 +318,12 @@ impl Semantics
 #[cfg(test)]
 mod tests
 {
-    use crate::leema::loader::Interloader;
+    use super::Semantics;
+    use crate::leema::ast2::Ast;
     use crate::leema::lstr::Lstr;
-    use crate::leema::program;
+    use crate::leema::proto::ProtoLib;
+
+    use matches::assert_matches;
 
 
     #[test]
@@ -329,13 +338,14 @@ mod tests
         --
 
         func main >>
-            test_and(1 == 1, 2 == 3)
+            test_and(True, False)
         --
         "#;
 
-        let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
-        loader.set_mod_txt(Lstr::Sref("foo"), input.to_string());
-        let mut prog = program::Lib::new(loader);
-        prog.read_semantics(&Lstr::from("foo")).unwrap();
+        let mut proto = ProtoLib::new();
+        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
+        let mut semantics = Semantics::new();
+        let body = semantics.compile_func(&mut proto, "foo", "main").unwrap();
+        assert_matches!(*body.node, Ast::Case(_, _, _));
     }
 }

@@ -138,6 +138,17 @@ impl ProtoModule
         // proto.types.push(i);
         Ok(())
     }
+
+    pub fn pop_func(&mut self, func: &str) -> Lresult<Option<AstNode>>
+    {
+        Ok(self.funcsrc.remove(func))
+    }
+
+    pub fn get_macro(&self, macroname: &str) -> Lresult<Option<&Ast>>
+    {
+        println!("ProtoModule::get_macro({})", macroname);
+        Ok(self.macros.get(macroname))
+    }
 }
 
 pub struct ProtoLib
@@ -152,6 +163,22 @@ impl ProtoLib
         ProtoLib {
             protos: HashMap::new(),
         }
+    }
+
+    pub fn add_module(&mut self, modname: &Lstr, src: &'static str) -> Lresult<()>
+    {
+        vout!("ProtoLib::add_module({})\n", modname);
+        if self.protos.contains_key(modname) {
+            return Err(rustfail!(
+                "load_failure",
+                "cannot load a module twice: {}",
+                modname,
+            ));
+        }
+        let modkey = ModKey::name_only(modname.clone());
+        let proto = ProtoModule::new(modkey, src)?;
+        self.protos.insert(modname.clone(), proto);
+        Ok(())
     }
 
     pub fn load(
@@ -207,7 +234,7 @@ impl ProtoLib
         Ok(())
     }
 
-    pub fn pop_func(&mut self, module: &str) -> Lresult<Option<AstNode>>
+    pub fn pop_func(&mut self, module: &str, func: &str) -> Lresult<Option<AstNode>>
     {
         self.protos
             .get_mut(module)
@@ -218,14 +245,9 @@ impl ProtoLib
                     module,
                 )
             })
-            .map(|protomod| {
-                protomod.funcseq
-                    .pop()
-                    .and_then(|func| {
-                        protomod.funcsrc.remove(func)
-                    })
+            .and_then(|protomod| {
+                protomod.pop_func(func)
             })
-
     }
 
 
@@ -242,10 +264,11 @@ impl ProtoLib
         macroname: &str,
     ) -> Lresult<Option<&Ast>>
     {
+        println!("Proto::get_macro({}, {})", module, macroname);
         let proto = self.protos.get(module).ok_or_else(|| {
             rustfail!("semantic_failure", "module not loaded: {}", module,)
         })?;
-        Ok(proto.macros.get(macroname))
+        proto.get_macro(macroname)
     }
 }
 
