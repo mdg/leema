@@ -14,6 +14,9 @@ enum Lprec
 {
     Minimum,
     Comma,
+    Dollar,
+    Pipe,
+    Cons,
     Or,
     And,
     Not,
@@ -21,9 +24,7 @@ enum Lprec
     LessThan,
     Add,
     Multiply,
-    Cons,
-    Dollar,
-    Pipe,
+    Negative,
     Call,
     Dot,
     DoubleColon,
@@ -674,6 +675,20 @@ impl PrefixParser for ParseInt
 }
 
 #[derive(Debug)]
+struct ParseNegative;
+
+impl PrefixParser for ParseNegative
+{
+    type Item = AstNode;
+
+    fn parse(&self, p: &mut Parsl, tok: TokenSrc) -> AstResult
+    {
+        let x = p.parse_more(&ExprMode, Precedence::from(Lprec::Negative))?;
+        Ok(AstNode::new(Ast::Op1("-", x), Ast::loc(&tok)))
+    }
+}
+
+#[derive(Debug)]
 struct ParseNot;
 
 impl PrefixParser for ParseNot
@@ -816,6 +831,7 @@ impl ParslMode for ExprMode
     {
         Some(match tok {
             Token::Bool => &ParseBool,
+            Token::Dash => &ParseNegative,
             Token::DoubleArrow => &ParseBlockx,
             Token::DoubleQuoteL => &ParseStr,
             Token::Hashtag => &ParseHashtag,
@@ -875,7 +891,7 @@ const OP_ADD: &'static BinaryOpParser = &BinaryOpParser {
 
 /// Subtraction parser
 const OP_SUBTRACT: &'static BinaryOpParser = &BinaryOpParser {
-    op: "*",
+    op: "-",
     pre: Precedence(Lprec::Add as u8, 0, Assoc::Left),
 };
 
@@ -1565,6 +1581,18 @@ mod tests
     }
 
     #[test]
+    fn test_parse_newline_dash()
+    {
+        let input = "9
+        - 5";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+        assert_eq!(Ast::ConstVal(Val::Int(9)), *ast[0].node);
+        assert_matches!(*ast[1].node, Ast::Op1("-", _));
+        assert_eq!(2, ast.len());
+    }
+
+    #[test]
     fn test_parse_operators()
     {
         let input = r#"
@@ -1609,11 +1637,12 @@ mod tests
         let input = r#"
         1 - 2 * 3
         x / y + z
+        a * - b
         "#;
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
         let ast = p.parse_module().unwrap();
-        assert_eq!(2, ast.len());
+        assert_eq!(3, ast.len());
 
         {
             let sub = &ast[0];
@@ -1637,6 +1666,18 @@ mod tests
                 if let Ast::Op2("/", x, y) = &*div.node {
                     assert_matches!(*x.node, Ast::Id1("x"));
                     assert_matches!(*y.node, Ast::Id1("y"));
+                }
+            }
+        }
+
+        {
+            let times = &ast[2];
+            assert_matches!(*times.node, Ast::Op2("*", _, _));
+            if let Ast::Op2("*", a, negb) = &*times.node {
+                assert_eq!(Ast::Id1("a"), *a.node);
+                assert_matches!(*negb.node, Ast::Op1("-", _));
+                if let Ast::Op1("-", b) = &*negb.node {
+                    assert_eq!(Ast::Id1("b"), *b.node);
                 }
             }
         }
