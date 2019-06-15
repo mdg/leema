@@ -23,6 +23,8 @@ use std::fmt;
 ///   - optimization / constant folding / code removal
 ///   - assign registers
 
+const SEMFAIL: &'static str = "semantic_failure";
+
 pub enum SemanticAction
 {
     Keep(AstNode),
@@ -93,12 +95,48 @@ struct MacroApplication<'l>
 impl<'l> MacroApplication<'l>
 {
     fn apply_macro(
-        _mac: &Ast,
-        _loc: Loc,
-        _args: StrupleKV<Option<&'static str>, AstNode>,
+        mac: &Ast,
+        loc: Loc,
+        args: StrupleKV<Option<&'static str>, AstNode>,
     ) -> AstResult
     {
-        Ok(AstNode::void())
+        let (macro_name, arg_names, body) =
+            if let Ast::DefMacro(iname, idefargs, ibody) = mac {
+                (iname, idefargs, ibody)
+            } else {
+                return Err(rustfail!(
+                    SEMFAIL,
+                    "invalid macro definition: {:?}",
+                    mac,
+                ));
+            };
+        match (arg_names.len(), args.len()) {
+            (a, b) if a < b => {
+                return Err(rustfail!(
+                    SEMFAIL,
+                    "Too many arguments passed to macro {}, expected {}",
+                    macro_name, a,
+                ));
+            }
+            (a, b) if a > b => {
+                return Err(rustfail!(
+                    SEMFAIL,
+                    "Too few arguments passed to macro {}, expected {}",
+                    macro_name, a
+                ));
+            }
+            _ => {
+                // a == b. cool, proceed
+            }
+        }
+
+        let mut arg_map: HashMap<&'static str, AstNode> = HashMap::new();
+        for (n, arg_val) in arg_names.iter().zip(args.into_iter()) {
+            arg_map.insert(n, arg_val.v);
+        }
+        vout!("replace_ids({:?})\n", arg_map);
+        let mut macro_replace = MacroReplacement{arg_map, loc};
+        Semantics::walk(&mut macro_replace, body.clone())
     }
 }
 
@@ -136,6 +174,30 @@ impl<'l> fmt::Debug for MacroApplication<'l>
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         write!(f, "MacroApplication")
+    }
+}
+
+#[derive(Debug)]
+struct MacroReplacement
+{
+    arg_map: HashMap<&'static str, AstNode>,
+    loc: Loc,
+}
+
+impl SemanticOp for MacroReplacement
+{
+    fn pre(&mut self, node: AstNode) -> SemanticResult
+    {
+        if let Ast::Id1(idname) = &*node.node {
+            if let Some(newval) = self.arg_map.get(idname) {
+                return Ok(SemanticAction::Rewrite(newval.clone()));
+            }
+        }
+        // if not replacing the id, replace the location of the call
+        // so everything in the macro body traces back to the macro name
+        let mut new_node = node;
+        new_node.loc = self.loc;
+        Ok(SemanticAction::Keep(new_node))
     }
 }
 
