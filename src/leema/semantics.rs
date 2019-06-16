@@ -1,6 +1,6 @@
 use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc};
 use crate::leema::failure::Lresult;
-use crate::leema::inter::Blockstack;
+use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::reg::RegTable;
@@ -250,20 +250,69 @@ impl SemanticOp for CaseCheck
     }
 }
 
-struct TypeCollector
-{
-    deftypes: HashMap<&'static str, Type>,
-    deffields: HashMap<&'static str, StrupleKV<&'static str, Type>>,
-}
-
 struct ClosureCollector
 {
     closures: Vec<AstNode>,
 }
 
+#[derive(Debug)]
 struct ScopeCheck
 {
     blocks: Blockstack,
+}
+
+impl ScopeCheck
+{
+    pub fn new() -> ScopeCheck
+    {
+        ScopeCheck {
+            blocks: Blockstack::new(),
+        }
+    }
+}
+
+impl SemanticOp for ScopeCheck
+{
+    fn pre(&mut self, node: AstNode) -> SemanticResult
+    {
+        match &*node.node {
+            Ast::Block(_) => {
+                self.blocks.push_blockscope();
+            }
+            Ast::Let(patt, _, _) => {
+                match &*patt.node {
+                    Ast::Id1(id) => {
+                        self.blocks.assign_var(&Lstr::Sref(id), LocalType::Let);
+                    }
+                    _ => {
+                        unimplemented!();
+                    }
+                }
+            }
+            Ast::Id1(id) => {
+                if !self.blocks.var_in_scope(&Lstr::Sref(id)) {
+                    println!("var not in scope: {}", id);
+                }
+            }
+            _ => {
+                // do nothing otherwise
+            }
+        }
+        Ok(SemanticAction::Keep(node))
+    }
+
+    fn post(&mut self, node: AstNode) -> SemanticResult
+    {
+        match *node.node {
+            Ast::Block(_) => {
+                self.blocks.pop_blockscope();
+            }
+            _ => {
+                // do nothing, keep walking
+            }
+        }
+        Ok(SemanticAction::Keep(node))
+    }
 }
 
 struct TypeCheck {
