@@ -74,7 +74,7 @@ impl<'a> Semantics<'a>
             Ast::Type(ref t) => {
                 self.replace(node, Ast::Type(t.clone()), Type::Kind)
             }
-            Ast::TypeCall(ref id, ref args) => {
+            Ast::TypeSpecific(ref id, ref args) => {
                 let (new_node, new_type) = self.map_typecall(id, args)?;
                 self.replace(node, new_node, new_type)
             }

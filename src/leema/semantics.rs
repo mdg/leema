@@ -255,6 +255,54 @@ struct ClosureCollector
     closures: Vec<AstNode>,
 }
 
+struct CallCollection<'l>
+{
+    local: &'l ProtoModule,
+    imports: &'l ProtoLib,
+    // calls: Vec<Lri>,
+    // typecalls: Vec<Lri>,
+}
+
+impl<'l> CallCollection<'l>
+{
+    pub fn new(local: &'l ProtoModule, imports: &'l ProtoLib) -> CallCollection<'l>
+    {
+        CallCollection {
+            local,
+            imports,
+            // calls: vec![],
+            // typecalls: vec![],
+        }
+    }
+}
+
+impl<'l> SemanticOp for CallCollection<'l>
+{
+    fn pre(&mut self, node: AstNode) -> SemanticResult
+    {
+        match &*node.node {
+            Ast::Id1(_callid) => {
+                // let local_type = self.local.types.get(callri)
+                // if self.local.types
+            }
+            Ast::Id2(_module, _callri) => {
+            }
+            _ => {
+                // if they're not IDs, we don't care
+            }
+        }
+        Ok(SemanticAction::Keep(node))
+    }
+}
+
+impl<'l> fmt::Debug for CallCollection<'l>
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "CallCollection")
+    }
+}
+
 #[derive(Debug)]
 struct ScopeCheck
 {

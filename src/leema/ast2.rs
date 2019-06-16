@@ -94,7 +94,6 @@ pub enum Ast
     FuncType(StrupleKV<&'static str, AstNode>),
     Id1(&'static str),
     Id2(&'static str, &'static str),
-    IdGeneric(AstNode, Klist),
     Import(&'static str),
     LessThan3(AstNode, bool, AstNode, bool, AstNode),
     Let(AstNode, AstNode, AstNode),
@@ -110,7 +109,8 @@ pub enum Ast
     StrExpr(Vec<AstNode>),
     Tuple(Xlist),
     Type(Type),
-    TypeCall(AstNode, Xlist),
+    TypeGeneric(AstNode, Klist),
+    TypeSpecific(AstNode, Xlist),
     Void,
     Wildcard,
 }
@@ -157,9 +157,6 @@ impl Ast
             // Ast::Def(v) => write!(f, "Def {}", v),
             Ast::Id1(id) => write!(f, "Id {}", id),
             Ast::Id2(id1, id2) => write!(f, "Id {}::{}", id1, id2),
-            Ast::IdGeneric(id, args) => {
-                write!(f, "IdGeneric {:?} {:?}", id, args)
-            }
             Ast::Import(module) => write!(f, "Import {:?}", module),
             Ast::Let(lhp, _lht, rhs) => write!(f, "Let {:?} := {:?}", lhp, rhs),
             Ast::List(items) => write!(f, "List {:?}", items),
@@ -179,7 +176,10 @@ impl Ast
             Ast::NewUnion(_, _, _) => unimplemented!(),
             Ast::Return(_) => unimplemented!(),
             Ast::Type(_) => unimplemented!(),
-            Ast::TypeCall(_, _) => unimplemented!(),
+            Ast::TypeGeneric(id, args) => {
+                write!(f, "TypeGeneric {:?} {:?}", id, args)
+            }
+            Ast::TypeSpecific(_, _) => unimplemented!(),
         }
     }
 }
