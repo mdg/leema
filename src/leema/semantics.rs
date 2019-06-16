@@ -292,6 +292,11 @@ impl SemanticOp for ScopeCheck
             Ast::Id1(id) => {
                 if !self.blocks.var_in_scope(&Lstr::Sref(id)) {
                     println!("var not in scope: {}", id);
+                    return Err(rustfail!(
+                        SEMFAIL,
+                        "var not in scope: {}",
+                        id,
+                    ));
                 }
             }
             _ => {
@@ -413,9 +418,14 @@ impl Semantics
             local: proto.get(mod_name)?,
             proto: proto,
         };
+        let mut scope_check = ScopeCheck::new();
         let mut remove_extra = RemoveExtraCode;
         let mut pipe = SemanticPipeline {
-            ops: vec![&mut macs, &mut remove_extra],
+            ops: vec![
+                &mut macs,
+                &mut scope_check,
+                &mut remove_extra,
+            ],
         };
 
         Self::walk(&mut pipe, func_ast.unwrap())
@@ -505,7 +515,7 @@ mod tests
         macro test_and a b >>
             if
             |a >> b
-            |else >> false
+            |else >> False
             --
         --
 
@@ -519,5 +529,25 @@ mod tests
         let mut semantics = Semantics::new();
         let body = semantics.compile_func(&mut proto, "foo", "main").unwrap();
         assert_matches!(*body.node, Ast::Case(_, _, _));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_semantics_scope_fail()
+    {
+        let input = r#"
+        func main >>
+            if
+            |True >>
+                let x := 5
+            --
+            println("x = $x")
+        --
+        "#;
+
+        let mut proto = ProtoLib::new();
+        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
+        let mut semantics = Semantics::new();
+        semantics.compile_func(&mut proto, "foo", "main").unwrap();
     }
 }
