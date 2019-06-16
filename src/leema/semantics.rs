@@ -84,6 +84,33 @@ impl<'p> SemanticOp for SemanticPipeline<'p>
 
         Ok(SemanticAction::Keep(node))
     }
+
+    fn post(&mut self, mut node: AstNode) -> SemanticResult
+    {
+        loop {
+            let mut do_loop = false;
+            for op in self.ops.iter_mut().rev() {
+                match op.post(node)? {
+                    SemanticAction::Keep(knode) => {
+                        node = knode;
+                    }
+                    SemanticAction::Rewrite(rnode) => {
+                        node = rnode;
+                        do_loop = true;
+                        break;
+                    }
+                    SemanticAction::Remove => {
+                        return Ok(SemanticAction::Remove);
+                    }
+                }
+            }
+            if !do_loop {
+                break;
+            }
+        }
+
+        Ok(SemanticAction::Keep(node))
+    }
 }
 
 struct MacroApplication<'l>
@@ -243,6 +270,37 @@ struct TypeCheck {
     // infer: Inferator,
 }
 
+#[derive(Debug)]
+struct RemoveExtraCode;
+
+impl SemanticOp for RemoveExtraCode
+{
+    fn post(&mut self, mut node: AstNode) -> SemanticResult
+    {
+        let action = match *node.node {
+            Ast::Block(mut items) => {
+                match items.len() {
+                    0 => {
+                        SemanticAction::Rewrite(AstNode::void())
+                    }
+                    1 => {
+                        SemanticAction::Rewrite(items.pop().unwrap())
+                    }
+                    _ => {
+                        node.node = Box::new(Ast::Block(items));
+                        SemanticAction::Keep(node)
+                    }
+                }
+            }
+            ast => {
+                node.node = Box::new(ast);
+                SemanticAction::Keep(node)
+            }
+        };
+        Ok(action)
+    }
+}
+
 struct Registration
 {
     reg: RegTable,
@@ -281,14 +339,16 @@ impl Semantics
 
     pub fn compile(
         &mut self,
-        proto: &mut ProtoLib,
-        module: &str,
+        _proto: &mut ProtoLib,
+        _module: &str,
     ) -> Lresult<()>
     {
+        /*
         while let Some(func_ast) = proto.pop_func(module)? {
             let comp_ast = self.compile_func(proto, func_ast)?;
             println!("compiled func to {:?}", comp_ast);
         }
+        */
         Ok(())
     }
 
@@ -304,8 +364,9 @@ impl Semantics
             local: proto.get(mod_name)?,
             proto: proto,
         };
+        let mut remove_extra = RemoveExtraCode;
         let mut pipe = SemanticPipeline {
-            ops: vec![&mut macs],
+            ops: vec![&mut macs, &mut remove_extra],
         };
 
         Self::walk(&mut pipe, func_ast.unwrap())
