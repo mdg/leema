@@ -310,8 +310,17 @@ impl ParseStmt
 
     fn parse_deftype(p: &mut Parsl) -> AstResult
     {
-        let name = Grammar::parse_id(p)?;
-        let loc = name.loc;
+        let base_name = Grammar::parse_id(p)?;
+        let loc = base_name.loc;
+        let name = match p.next_if(Token::SquareL)? {
+            Some(_) => {
+                let gen_args = IdTypeMode::parse(p)?;
+                let gen = AstNode::new(Ast::Generic(base_name, gen_args), loc);
+                expect_next!(p, Token::SquareR)?;
+                gen
+            }
+            None => base_name,
+        };
         p.skip_if(Token::LineBegin)?;
         let tok = p.peek()?;
         let data = match tok.tok {
@@ -1190,10 +1199,10 @@ impl InfixParser for ParseGeneric
                 tok,
             ));
         }
-        let args = XlistMode::parse(p)?;
+        let args = IdTypeMode::parse(p)?;
         expect_next!(p, Token::SquareR)?;
         let loc = left.loc;
-        Ok(AstNode::new(Ast::Call(left, args), loc))
+        Ok(AstNode::new(Ast::Generic(left, args), loc))
     }
 
     fn precedence(&self) -> Precedence
@@ -1487,10 +1496,39 @@ mod tests
     #[test]
     fn test_parse_generic_call()
     {
-        let input = r#"swap[Int, Str](5, "tacos")"#;
+        let input = r#"swap[:Int :Str](5, "tacos")"#;
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
         let _ast = p.parse_module().unwrap();
+    }
+
+    #[test]
+    fn test_parse_generic_struct_fields()
+    {
+        let input = "
+        type Foo[:T]
+        apple:T
+        banana:Int
+        --
+        ";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+        assert_eq!(1, ast.len());
+
+        let t = &ast[0];
+        assert_matches!(&*t.node, Ast::DefType(DataType::Struct, _, _));
+        if let Ast::DefType(_, gen, fields) = &*t.node {
+            assert_matches!(&*gen.node, Ast::Generic(_, _));
+            if let Ast::Generic(name, gen_args) = &*gen.node {
+                assert_eq!(Ast::Id1("Foo"), *name.node);
+                assert_eq!(Ast::Id1("T"), *gen_args[0].v.node);
+                assert_eq!(1, gen_args.len());
+            }
+            assert_eq!(2, fields.len());
+            // assert_eq!(Ast::Id1("T"), *fields[0].v.node);
+            // let int_list = &*fields[1].v.node;
+            // assert_matches!(int_list, Ast::List(_));
+        }
     }
 
     #[test]
