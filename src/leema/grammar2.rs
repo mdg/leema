@@ -1468,6 +1468,18 @@ mod tests
     }
 
     #[test]
+    fn test_parse_id2()
+    {
+        let input = "x::y";
+        let toks = Tokenz::lexp(input).unwrap();
+        let mut p = Grammar::new(toks);
+        let ast = p.parse_module().unwrap();
+
+        assert_eq!(Ast::Id2("x", "y"), *ast[0].node);
+        assert_eq!(1, ast.len());
+    }
+
+    #[test]
     fn test_parse_ifcases()
     {
         let input = "
@@ -1552,6 +1564,28 @@ mod tests
         let toks = Tokenz::lexp(input).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
         assert_eq!(3, ast.len());
+    }
+
+    #[test]
+    fn test_parse_lt3()
+    {
+        let input = "x < y <= z
+        x < y <= z
+        a < b + 1 < c - 1
+        ";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+        assert_eq!(3, ast.len());
+
+        assert_matches!(*ast[0].node, Ast::Op2("<", _, _));
+        if let Ast::Op2(_, x, yltez) = &*ast[0].node {
+            assert_eq!(Ast::Id1("x"), *x.node);
+            assert_matches!(*yltez.node, Ast::Op2("<=", _, _));
+            if let Ast::Op2(_, y, z) = &*yltez.node {
+                assert_eq!(Ast::Id1("y"), *y.node);
+                assert_eq!(Ast::Id1("z"), *z.node);
+            }
+        }
     }
 
     #[test]
