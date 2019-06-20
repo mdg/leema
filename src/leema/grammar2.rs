@@ -1485,6 +1485,15 @@ mod tests
     }
 
     #[test]
+    fn test_parse_generic_call()
+    {
+        let input = r#"swap[Int, Str](5, "tacos")"#;
+        let toks = Tokenz::lexp(input).unwrap();
+        let mut p = Grammar::new(toks);
+        let _ast = p.parse_module().unwrap();
+    }
+
+    #[test]
     fn test_parse_hashtag()
     {
         let input = "#hash_tag";
