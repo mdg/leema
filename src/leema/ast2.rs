@@ -92,6 +92,7 @@ pub enum Ast
     DefMacro(&'static str, Vec<&'static str>, AstNode),
     DefType(DataType, AstNode, Xlist),
     FuncType(StrupleKV<&'static str, AstNode>),
+    Generic(AstNode, Xlist),
     Id1(&'static str),
     Id2(&'static str, &'static str),
     Import(&'static str),
@@ -109,8 +110,6 @@ pub enum Ast
     StrExpr(Vec<AstNode>),
     Tuple(Xlist),
     Type(Type),
-    TypeGeneric(AstNode, Klist),
-    TypeSpecific(AstNode, Xlist),
     Void,
     Wildcard,
 }
@@ -155,6 +154,9 @@ impl Ast
                 write!(f, "DefType {:?} {:?} {:?}", dtype, name, fields)
             }
             // Ast::Def(v) => write!(f, "Def {}", v),
+            Ast::Generic(id, args) => {
+                write!(f, "Generic {:?}[{:?}]", id, args)
+            }
             Ast::Id1(id) => write!(f, "Id {}", id),
             Ast::Id2(id1, id2) => write!(f, "Id {}::{}", id1, id2),
             Ast::Import(module) => write!(f, "Import {:?}", module),
@@ -176,10 +178,6 @@ impl Ast
             Ast::NewUnion(_, _, _) => unimplemented!(),
             Ast::Return(_) => unimplemented!(),
             Ast::Type(_) => unimplemented!(),
-            Ast::TypeGeneric(id, args) => {
-                write!(f, "TypeGeneric {:?} {:?}", id, args)
-            }
-            Ast::TypeSpecific(_, _) => unimplemented!(),
         }
     }
 }

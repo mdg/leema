@@ -26,12 +26,15 @@ enum Lprec
     Multiply,
     Negative,
     Call,
+    Generic,
     Dot,
     DoubleColon,
 }
 
 const COMMA_PRECEDENCE: Precedence =
     Precedence(Lprec::Comma as u8, 0, Assoc::Left);
+
+const PARSE_FAIL: &'static str = "parse_failure";
 
 impl From<Lprec> for Precedence
 {
@@ -873,6 +876,7 @@ impl ParslMode for ExprMode
             // other operators
             Token::DoubleColon => &ParseId,
             Token::ParenL => &ParseCall,
+            Token::SquareL => &ParseGeneric,
             Token::Semicolon => OP_CONS,
             _ => {
                 return None;
@@ -1167,6 +1171,34 @@ impl InfixParser for ParseCall
     fn precedence(&self) -> Precedence
     {
         Precedence(Lprec::Call as u8, 0, Assoc::Left)
+    }
+}
+
+#[derive(Debug)]
+struct ParseGeneric;
+
+impl InfixParser for ParseGeneric
+{
+    type Item = AstNode;
+
+    fn parse(&self, p: &mut Parsl, left: AstNode, tok: TokenSrc) -> AstResult
+    {
+        if p.peek_token()? == Token::SquareR {
+            return Err(rustfail!(
+                PARSE_FAIL,
+                "cannot have empty generic types at {:?}",
+                tok,
+            ));
+        }
+        let args = XlistMode::parse(p)?;
+        expect_next!(p, Token::SquareR)?;
+        let loc = left.loc;
+        Ok(AstNode::new(Ast::Call(left, args), loc))
+    }
+
+    fn precedence(&self) -> Precedence
+    {
+        Precedence(Lprec::Generic as u8, 0, Assoc::Left)
     }
 }
 

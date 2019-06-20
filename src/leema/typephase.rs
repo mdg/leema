@@ -74,7 +74,7 @@ impl<'a> Semantics<'a>
             Ast::Type(ref t) => {
                 self.replace(node, Ast::Type(t.clone()), Type::Kind)
             }
-            Ast::TypeSpecific(ref id, ref args) => {
+            Ast::Generic(ref id, ref args) => {
                 let (new_node, new_type) = self.map_typecall(id, args)?;
                 self.replace(node, new_node, new_type)
             }
@@ -287,7 +287,7 @@ mod tests
         let mut sem = Semantics::new(&lri);
         sem.types.insert(Lstr::Sref("c"), mod_c);
 
-        let typecall = new_node(Ast::TypeCall(
+        let typecall = new_node(Ast::Generic(
             new_node(Ast::Id2("c", "d")),
             StrupleKV::from(vec![
                 new_node(Ast::Type(Type::Int)),
