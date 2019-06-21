@@ -1524,10 +1524,11 @@ mod tests
                 assert_eq!(Ast::Id1("T"), *gen_args[0].v.node);
                 assert_eq!(1, gen_args.len());
             }
+            assert_eq!("apple", *fields[0].k.as_ref().unwrap());
+            assert_eq!("banana", *fields[1].k.as_ref().unwrap());
+            assert_eq!(Ast::Id1("T"), *fields[0].v.node);
+            assert_eq!(Ast::Id1("Int"), *fields[1].v.node);
             assert_eq!(2, fields.len());
-            // assert_eq!(Ast::Id1("T"), *fields[0].v.node);
-            // let int_list = &*fields[1].v.node;
-            // assert_matches!(int_list, Ast::List(_));
         }
     }
 
