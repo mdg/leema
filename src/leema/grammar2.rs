@@ -1503,6 +1503,45 @@ mod tests
     }
 
     #[test]
+    fn test_parse_generic_enum_tuple()
+    {
+        let input = "
+        type Opt[:T]
+        |Some :T
+        |None
+        --
+        ";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+        assert_eq!(1, ast.len());
+
+        let t = &ast[0];
+        assert_matches!(&*t.node, Ast::DefType(DataType::Union, _, _));
+        if let Ast::DefType(_, gen, variants) = &*t.node {
+            assert_matches!(&*gen.node, Ast::Generic(_, _));
+            if let Ast::Generic(name, gen_args) = &*gen.node {
+                assert_eq!(Ast::Id1("Opt"), *name.node);
+                assert_eq!(Ast::Id1("T"), *gen_args[0].v.node);
+                assert_eq!(1, gen_args.len());
+            }
+
+            assert_eq!("Some", variants[0].k.unwrap());
+            assert_eq!("None", variants[1].k.unwrap());
+            assert_eq!(2, variants.len());
+
+            assert_matches!(*variants[0].v.node, Ast::DefType(DataType::Struct, _, _));
+            if let Ast::DefType(_, some, some_fields) = &*variants[0].v.node {
+                assert_eq!(Ast::Id1("Some"), *some.node);
+                assert_eq!(None, some_fields[0].k);
+                assert_eq!(Ast::Id1("T"), *some_fields[0].v.node);
+                assert_eq!(1, some_fields.len());
+            }
+            assert_eq!(Ast::Void, *variants[1].v.node);
+            assert_eq!(2, variants.len());
+        }
+    }
+
+    #[test]
     fn test_parse_generic_enum_fields()
     {
         let input = "
@@ -1524,9 +1563,9 @@ mod tests
                 assert_eq!(Ast::Id1("T"), *gen_args[0].v.node);
                 assert_eq!(1, gen_args.len());
             }
-            assert_eq!(2, variants.len());
             assert_eq!("Bar", variants[0].k.unwrap());
             assert_eq!("Baz", variants[1].k.unwrap());
+            assert_eq!(2, variants.len());
 
             assert_matches!(*variants[0].v.node, Ast::DefType(DataType::Struct, _, _));
             if let Ast::DefType(_, bar, bar_fields) = &*variants[0].v.node {
