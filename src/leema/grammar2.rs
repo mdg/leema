@@ -1503,6 +1503,40 @@ mod tests
     }
 
     #[test]
+    fn test_parse_generic_struct_tuple()
+    {
+        let input = "
+        type Foo[:T :U]
+        :T
+        :U
+        :Int
+        --
+        ";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+        assert_eq!(1, ast.len());
+
+        let t = &ast[0];
+        assert_matches!(&*t.node, Ast::DefType(DataType::Struct, _, _));
+        if let Ast::DefType(_, gen, fields) = &*t.node {
+            assert_matches!(&*gen.node, Ast::Generic(_, _));
+            if let Ast::Generic(name, gen_args) = &*gen.node {
+                assert_eq!(Ast::Id1("Foo"), *name.node);
+                assert_eq!(Ast::Id1("T"), *gen_args[0].v.node);
+                assert_eq!(Ast::Id1("U"), *gen_args[1].v.node);
+                assert_eq!(2, gen_args.len());
+            }
+            assert!(fields[0].k.is_none());
+            assert!(fields[1].k.is_none());
+            assert!(fields[2].k.is_none());
+            assert_eq!(Ast::Id1("T"), *fields[0].v.node);
+            assert_eq!(Ast::Id1("U"), *fields[1].v.node);
+            assert_eq!(Ast::Id1("Int"), *fields[2].v.node);
+            assert_eq!(3, fields.len());
+        }
+    }
+
+    #[test]
     fn test_parse_generic_struct_fields()
     {
         let input = "
