@@ -1503,6 +1503,46 @@ mod tests
     }
 
     #[test]
+    fn test_parse_generic_enum_fields()
+    {
+        let input = "
+        type Foo[:T]
+        |Bar a:T b:Int
+        |Baz
+        --
+        ";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+        assert_eq!(1, ast.len());
+
+        let t = &ast[0];
+        assert_matches!(&*t.node, Ast::DefType(DataType::Union, _, _));
+        if let Ast::DefType(_, gen, variants) = &*t.node {
+            assert_matches!(&*gen.node, Ast::Generic(_, _));
+            if let Ast::Generic(name, gen_args) = &*gen.node {
+                assert_eq!(Ast::Id1("Foo"), *name.node);
+                assert_eq!(Ast::Id1("T"), *gen_args[0].v.node);
+                assert_eq!(1, gen_args.len());
+            }
+            assert_eq!(2, variants.len());
+            assert_eq!("Bar", variants[0].k.unwrap());
+            assert_eq!("Baz", variants[1].k.unwrap());
+
+            assert_matches!(*variants[0].v.node, Ast::DefType(DataType::Struct, _, _));
+            if let Ast::DefType(_, bar, bar_fields) = &*variants[0].v.node {
+                assert_eq!(Ast::Id1("Bar"), *bar.node);
+                assert_eq!("a", bar_fields[0].k.unwrap());
+                assert_eq!("b", bar_fields[1].k.unwrap());
+                assert_eq!(Ast::Id1("T"), *bar_fields[0].v.node);
+                assert_eq!(Ast::Id1("Int"), *bar_fields[1].v.node);
+                assert_eq!(2, bar_fields.len());
+            }
+
+            assert_eq!(Ast::Void, *variants[1].v.node);
+        }
+    }
+
+    #[test]
     fn test_parse_generic_struct_tuple()
     {
         let input = "
@@ -1558,8 +1598,8 @@ mod tests
                 assert_eq!(Ast::Id1("T"), *gen_args[0].v.node);
                 assert_eq!(1, gen_args.len());
             }
-            assert_eq!("apple", *fields[0].k.as_ref().unwrap());
-            assert_eq!("banana", *fields[1].k.as_ref().unwrap());
+            assert_eq!("apple", fields[0].k.unwrap());
+            assert_eq!("banana", fields[1].k.unwrap());
             assert_eq!(Ast::Id1("T"), *fields[0].v.node);
             assert_eq!(Ast::Id1("Int"), *fields[1].v.node);
             assert_eq!(2, fields.len());
