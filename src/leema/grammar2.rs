@@ -1514,7 +1514,7 @@ mod tests
     #[test]
     fn test_parse_generic_deffunc_types()
     {
-        let input = r#"func swap[:A :B] a:A b:B :B
+        let input = r#"func swap[:A :B] a:A b:B :(:B :A)
         >>
             (b, a)
         --
