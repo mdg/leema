@@ -213,10 +213,19 @@ impl ParseStmt
 
     fn parse_deffunc(p: &mut Parsl) -> AstResult
     {
-        let name = Grammar::parse_id(p)?;
+        let base_name = Grammar::parse_id(p)?;
         // skip a newline if there is one
         p.skip_if(Token::LineBegin)?;
-        let loc = name.loc;
+        let loc = base_name.loc;
+        let name = match p.next_if(Token::SquareL)? {
+            Some(_) => {
+                let generic_args = IdTypeMode::parse(p)?;
+                let gname = AstNode::new(Ast::Generic(base_name, generic_args), loc);
+                expect_next!(p, Token::SquareR)?;
+                gname
+            }
+            None => base_name,
+        };
         let args = if p.peek_token()? == Token::DoubleArrow {
             StrupleKV::new()
         } else {
@@ -1497,6 +1506,19 @@ mod tests
     fn test_parse_generic_call()
     {
         let input = r#"swap[:Int :Str](5, "tacos")"#;
+        let toks = Tokenz::lexp(input).unwrap();
+        let mut p = Grammar::new(toks);
+        let _ast = p.parse_module().unwrap();
+    }
+
+    #[test]
+    fn test_parse_generic_deffunc_types()
+    {
+        let input = r#"func swap[:A :B] a:A b:B :B
+        >>
+            (b, a)
+        --
+        "#;
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
         let _ast = p.parse_module().unwrap();
