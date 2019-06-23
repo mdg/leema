@@ -112,6 +112,7 @@ pub enum Type
     SpecialFunc(StrupleKV<Lstr, Type>, FuncType),
     // UserDef to be deleted once everything is using Mod/Special/Generic/etc
     UserDef(Lri),
+    // UserGeneric(Lri),
     Lib(String),
     Resource(Lstr),
     RustBlock,

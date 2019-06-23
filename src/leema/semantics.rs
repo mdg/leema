@@ -462,6 +462,8 @@ impl Semantics
     ) -> AstResult
     {
         let func_ast = proto.pop_func(mod_name, func_name)?;
+        let (_args, body) = func_ast.unwrap();
+
         let mut macs: MacroApplication = MacroApplication {
             local: proto.get(mod_name)?,
             proto: proto,
@@ -476,7 +478,7 @@ impl Semantics
             ],
         };
 
-        Self::walk(&mut pipe, func_ast.unwrap())
+        Self::walk(&mut pipe, body)
     }
 
     pub fn walk<Op: SemanticOp>(op: &mut Op, node: AstNode) -> AstResult

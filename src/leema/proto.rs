@@ -21,7 +21,11 @@ pub struct ProtoModule
     pub constants: Vec<AstNode>,
     pub types: HashMap<&'static str, Type>,
     pub funcseq: Vec<&'static str>,
-    pub funcsrc: HashMap<&'static str, AstNode>,
+    pub funcsrc: HashMap<&'static str, (Xlist, AstNode)>,
+    pub token: HashSet<&'static str>,
+    pub struct_fields: HashMap<&'static str, AstNode>,
+    pub genfunc: HashMap<&'static str, (Xlist, Xlist, AstNode)>,
+    pub gentype: HashMap<&'static str, Xlist>,
 }
 
 impl ProtoModule
@@ -38,6 +42,10 @@ impl ProtoModule
             types: HashMap::new(),
             funcseq: Vec::new(),
             funcsrc: HashMap::new(),
+            token: HashSet::new(),
+            struct_fields: HashMap::new(),
+            genfunc: HashMap::new(),
+            gentype: HashMap::new(),
         };
 
         for i in items {
@@ -76,12 +84,23 @@ impl ProtoModule
         Ok(proto)
     }
 
-    fn add_func(&mut self, name: AstNode, _args: Xlist, body: AstNode) -> Lresult<()>
+    fn add_func(&mut self, name: AstNode, args: Xlist, body: AstNode) -> Lresult<()>
     {
         match *name.node {
             Ast::Id1(name_id) => {
                 self.funcseq.push(name_id);
-                self.funcsrc.insert(name_id, body);
+                self.funcsrc.insert(name_id, (args, body));
+            }
+            Ast::Generic(gen, gen_args) => {
+                if let Ast::Id1(name_id) = *gen.node {
+                    self.genfunc.insert(name_id, (gen_args, args, body));
+                } else {
+                    return Err(rustfail!(
+                        "semantic_failure",
+                        "unsupported generic struct name: {:?}",
+                        gen,
+                    ));
+                }
             }
             invalid_name => {
                 return Err(rustfail!(
@@ -101,6 +120,18 @@ impl ProtoModule
                 let lri = Lri::new(Lstr::from(name_id));
                 self.types.insert(name_id, Type::UserDef(lri));
                 // do something with fields too!
+            }
+            Ast::Generic(gen, gen_args) => {
+                if let Ast::Id1(name_id) = *gen.node {
+                    // let lri = Lri::new(Lstr::from(name_id));
+                    self.gentype.insert(name_id, gen_args);
+                } else {
+                    return Err(rustfail!(
+                        "semantic_failure",
+                        "unsupported generic struct name: {:?}",
+                        gen,
+                    ));
+                }
             }
             invalid_name => {
                 return Err(rustfail!(
@@ -137,7 +168,7 @@ impl ProtoModule
         Ok(())
     }
 
-    pub fn pop_func(&mut self, func: &str) -> Lresult<Option<AstNode>>
+    pub fn pop_func(&mut self, func: &str) -> Lresult<Option<(Xlist, AstNode)>>
     {
         Ok(self.funcsrc.remove(func))
     }
@@ -232,7 +263,7 @@ impl ProtoLib
         Ok(())
     }
 
-    pub fn pop_func(&mut self, module: &str, func: &str) -> Lresult<Option<AstNode>>
+    pub fn pop_func(&mut self, module: &str, func: &str) -> Lresult<Option<(Xlist, AstNode)>>
     {
         self.protos
             .get_mut(module)
@@ -296,6 +327,15 @@ mod tests
         assert_eq!(1, proto.funcseq.len());
         assert!(proto.funcsrc.contains_key("hello"));
         assert_eq!(1, proto.funcsrc.len());
+    }
+
+    #[test]
+    fn test_proto_generic_struct()
+    {
+        let proto = new_proto("type Point[:T] x:T y:T --");
+
+        let point_type = proto.types.get("Point").expect("no Point type");
+        assert_eq!(Type::UserDef(Lri::new(Lstr::from("Point"))), *point_type);
     }
 
     #[test]
