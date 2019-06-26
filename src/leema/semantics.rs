@@ -530,6 +530,43 @@ impl Semantics
                     prenode.loc,
                 ));
             }
+            /*
+            Ast::DefFunc(name, args, body) => {
+                write!(f, "DefFunc {:?} {:?} {:?}", name, args, body)
+            }
+            Ast::DefMacro(name, args, body) => {
+                write!(f, "DefMacro {:?} {:?} {:?}", name, args, body)
+            }
+            Ast::DefType(dtype, name, fields) => {
+                write!(f, "DefType {:?} {:?} {:?}", dtype, name, fields)
+            }
+            // Ast::Def(v) => write!(f, "Def {}", v),
+            Ast::Id1(id) => write!(f, "Id {}", id),
+            Ast::Id2(id1, id2) => write!(f, "Id {}::{}", id1, id2),
+            Ast::IdGeneric(id, args) => {
+                write!(f, "IdGeneric {:?} {:?}", id, args)
+            }
+            Ast::Import(module) => write!(f, "Import {:?}", module),
+            Ast::Let(lhp, _lht, rhs) => write!(f, "Let {:?} := {:?}", lhp, rhs),
+            Ast::List(items) => write!(f, "List {:?}", items),
+            Ast::Op1(op, node) => write!(f, "Op1 {} {:?}", op, node),
+            Ast::Op2(op, a, b) => write!(f, "Op2 {} {:?} {:?}", op, a, b),
+            Ast::RustBlock => write!(f, "RustBlock"),
+            Ast::StrExpr(items) => write!(f, "Str {:?}", items),
+            Ast::Tuple(items) => write!(f, "Tuple {:?}", items),
+            Ast::Void => write!(f, "Void"),
+            Ast::Wildcard => write!(f, "_"),
+            // unimplemented
+            Ast::FuncType(_) => unimplemented!(),
+            Ast::LessThan3(_, _, _, _, _) => unimplemented!(),
+            Ast::Map(_) => unimplemented!(),
+            Ast::NewStruct(_, _) => unimplemented!(),
+            Ast::NewTuple(_) => unimplemented!(),
+            Ast::NewUnion(_, _, _) => unimplemented!(),
+            Ast::Return(_) => unimplemented!(),
+            Ast::Type(_) => unimplemented!(),
+            Ast::TypeCall(_, _) => unimplemented!(),
+            */
             ast => ast, // do nothing for everything else
         };
         prenode.node = Box::new(new_ast);
@@ -627,5 +664,58 @@ mod tests
         proto.add_module(&Lstr::Sref("foo"), input).unwrap();
         let mut semantics = Semantics::new();
         semantics.compile_call(&mut proto, "foo", "main").unwrap();
+    }
+
+    #[test]
+    fn test_semantics_external_scope_call()
+    {
+        let foo_input = r#"func bar >> 3 --"#;
+
+        let baz_input = r#"
+        func main >>
+            foo::bar() + 6
+        --
+        "#;
+
+        let mut proto = ProtoLib::new();
+        proto.add_module(&Lstr::Sref("foo"), foo_input).unwrap();
+        proto.add_module(&Lstr::Sref("baz"), baz_input).unwrap();
+        let mut semantics = Semantics::new();
+        semantics.compile_call(&mut proto, "baz", "main").unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_semantics_external_scope_fail()
+    {
+        let foo_input = r#"func bak >> 3 --"#;
+
+        let baz_input = r#"
+        func main >>
+            foo::bar() + 6
+        --
+        "#;
+
+        let mut proto = ProtoLib::new();
+        proto.add_module(&Lstr::Sref("foo"), foo_input).unwrap();
+        proto.add_module(&Lstr::Sref("baz"), baz_input).unwrap();
+        let mut semantics = Semantics::new();
+        semantics.compile_call(&mut proto, "baz", "main").unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_semantics_external_scope_no_module()
+    {
+        let baz_input = r#"
+        func main >>
+            foo::bar() + 6
+        --
+        "#;
+
+        let mut proto = ProtoLib::new();
+        proto.add_module(&Lstr::Sref("baz"), baz_input).unwrap();
+        let mut semantics = Semantics::new();
+        semantics.compile_call(&mut proto, "baz", "main").unwrap();
     }
 }
