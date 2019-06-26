@@ -583,7 +583,7 @@ mod tests
 
     #[test]
     #[should_panic]
-    fn test_semantics_scope_fail()
+    fn test_semantics_local_scope_fail()
     {
         let input = r#"
         func main >>
@@ -591,9 +591,38 @@ mod tests
             |True >>
                 let x := 5
             --
-            println("x = $x")
+            x + 1
         --
         "#;
+
+        let mut proto = ProtoLib::new();
+        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
+        let mut semantics = Semantics::new();
+        semantics.compile_call(&mut proto, "foo", "main").unwrap();
+    }
+
+    #[test]
+    fn test_semantics_module_scope_call()
+    {
+        let input = r#"
+        func foo >> 5 --
+
+        func main >>
+            foo() + 3
+        --
+        "#;
+
+        let mut proto = ProtoLib::new();
+        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
+        let mut semantics = Semantics::new();
+        semantics.compile_call(&mut proto, "foo", "main").unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_semantics_module_scope_fail()
+    {
+        let input = r#"func main >> foo() --"#;
 
         let mut proto = ProtoLib::new();
         proto.add_module(&Lstr::Sref("foo"), input).unwrap();
