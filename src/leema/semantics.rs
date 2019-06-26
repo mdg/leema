@@ -175,7 +175,7 @@ impl<'l> SemanticOp for MacroApplication<'l>
             let optmac = match *callid.node {
                 Ast::Id1(macroname) => self.local.get_macro(macroname)?,
                 Ast::Id2(modname, macroname) => {
-                    self.proto.get_macro(modname, macroname)?
+                    self.proto.get(modname)?.get_macro(macroname)?
                 }
                 _ => None,
             };
@@ -183,7 +183,6 @@ impl<'l> SemanticOp for MacroApplication<'l>
                 Some(mac) => {
                     let result = Self::apply_macro(mac, callid.loc, args)?;
                     Ok(SemanticAction::Rewrite(result))
-                    // Ok(None)
                 }
                 None => {
                     let node2 = AstNode::new(Ast::Call(callid, args), node.loc);

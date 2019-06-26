@@ -300,25 +300,11 @@ impl ProtoLib
             })
     }
 
-
     pub fn get(&self, modname: &str) -> Lresult<&ProtoModule>
     {
         self.protos.get(modname).ok_or_else(|| {
             rustfail!(PROTOFAIL, "module not loaded: {}", modname,)
         })
-    }
-
-    pub fn get_macro(
-        &self,
-        module: &str,
-        macroname: &str,
-    ) -> Lresult<Option<&Ast>>
-    {
-        println!("Proto::get_macro({}, {})", module, macroname);
-        let proto = self.protos.get(module).ok_or_else(|| {
-            rustfail!(PROTOFAIL, "module not loaded: {}", module,)
-        })?;
-        proto.get_macro(macroname)
     }
 }
 
