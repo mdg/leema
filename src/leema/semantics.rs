@@ -16,8 +16,8 @@ use std::fmt;
 ///   - closure collector
 /// - analyze
 ///   - valid code
-///   - collect calls
 ///   - scope check
+///   - collect calls
 ///   - typecheck
 /// - postwrite
 ///   - optimization / constant folding / code removal
@@ -447,14 +447,14 @@ impl Semantics
     {
         /*
         while let Some(func_ast) = proto.pop_func(module)? {
-            let comp_ast = self.compile_func(proto, func_ast)?;
+            let comp_ast = self.compile_call(proto, func_ast)?;
             println!("compiled func to {:?}", comp_ast);
         }
         */
         Ok(())
     }
 
-    pub fn compile_func(
+    pub fn compile_call(
         &mut self,
         proto: &mut ProtoLib,
         mod_name: &str,
@@ -577,7 +577,7 @@ mod tests
         let mut proto = ProtoLib::new();
         proto.add_module(&Lstr::Sref("foo"), input).unwrap();
         let mut semantics = Semantics::new();
-        let body = semantics.compile_func(&mut proto, "foo", "main").unwrap();
+        let body = semantics.compile_call(&mut proto, "foo", "main").unwrap();
         assert_matches!(*body.node, Ast::Case(_, _, _));
     }
 
@@ -598,6 +598,6 @@ mod tests
         let mut proto = ProtoLib::new();
         proto.add_module(&Lstr::Sref("foo"), input).unwrap();
         let mut semantics = Semantics::new();
-        semantics.compile_func(&mut proto, "foo", "main").unwrap();
+        semantics.compile_call(&mut proto, "foo", "main").unwrap();
     }
 }

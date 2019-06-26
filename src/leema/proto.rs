@@ -2,13 +2,17 @@ use crate::leema::ast2::{Ast, AstNode, DataType, Xlist};
 use crate::leema::failure::Lresult;
 use crate::leema::grammar2::Grammar;
 use crate::leema::loader::Interloader;
-use crate::leema::lri::Lri;
+use crate::leema::lri::{GenericModId, Lri, ModLocalId};
 use crate::leema::lstr::Lstr;
 use crate::leema::module::ModKey;
+use crate::leema::struple::StrupleKV;
 use crate::leema::token::Tokenz;
 use crate::leema::val::Type;
 
 use std::collections::{HashMap, HashSet};
+
+
+const PROTOFAIL: &'static str = "prototype_failure";
 
 
 /// Asts separated into their types of components
@@ -74,7 +78,7 @@ impl ProtoModule
                 }
                 _ => {
                     return Err(rustfail!(
-                        "parse_failure",
+                        PROTOFAIL,
                         "expected module statement, found {:?}",
                         i,
                     ));
@@ -96,7 +100,7 @@ impl ProtoModule
                     self.genfunc.insert(name_id, (gen_args, args, body));
                 } else {
                     return Err(rustfail!(
-                        "semantic_failure",
+                        PROTOFAIL,
                         "unsupported generic struct name: {:?}",
                         gen,
                     ));
@@ -104,7 +108,7 @@ impl ProtoModule
             }
             invalid_name => {
                 return Err(rustfail!(
-                    "semantic_failure",
+                    PROTOFAIL,
                     "unsupported struct name: {:?}",
                     invalid_name,
                 ));
@@ -121,22 +125,25 @@ impl ProtoModule
                 self.types.insert(name_id, Type::UserDef(lri));
                 // do something with fields too!
             }
-            Ast::Generic(gen, gen_args) => {
+            Ast::Generic(gen, _gen_args) => {
                 if let Ast::Id1(name_id) = *gen.node {
-                    // let lri = Lri::new(Lstr::from(name_id));
-                    self.gentype.insert(name_id, gen_args);
+                    let modid = ModLocalId::new(self.key.name.clone(), Lstr::Sref(name_id));
+                    let lri = GenericModId::new(modid, StrupleKV::new()); // gen_args);
+                    let gentype = Type::Generic(lri);
+                    self.types.insert(name_id, gentype);
+                    // self.gentype.insert(name_id, gen_args);
                 } else {
                     return Err(rustfail!(
-                        "semantic_failure",
-                        "unsupported generic struct name: {:?}",
+                        PROTOFAIL,
+                        "invalid generic struct name: {:?}",
                         gen,
                     ));
                 }
             }
             invalid_name => {
                 return Err(rustfail!(
-                    "semantic_failure",
-                    "unsupported struct name: {:?}",
+                    PROTOFAIL,
+                    "invalid struct name: {:?}",
                     invalid_name,
                 ));
             }
@@ -151,9 +158,16 @@ impl ProtoModule
                 let lri = Lri::new(Lstr::from(name_id));
                 self.types.insert(name_id, Type::UserDef(lri));
             }
+            Ast::Generic(iname, _) => {
+                return Err(rustfail!(
+                    PROTOFAIL,
+                    "token cannot be generic: {:?}",
+                    iname,
+                ));
+            }
             invalid_name => {
                 return Err(rustfail!(
-                    "semantic_failure",
+                    PROTOFAIL,
                     "invalid token name: {:?}",
                     invalid_name,
                 ));
@@ -162,8 +176,15 @@ impl ProtoModule
         Ok(())
     }
 
-    fn add_union(&mut self, _name: AstNode, _variants: Xlist) -> Lresult<()>
+    fn add_union(&mut self, name: AstNode, variants: Xlist) -> Lresult<()>
     {
+        if variants.is_empty() {
+            return Err(rustfail!(
+                PROTOFAIL,
+                "union must have at least variant variant: {:?}",
+                name,
+            ));
+        }
         // proto.types.push(i);
         Ok(())
     }
@@ -199,7 +220,7 @@ impl ProtoLib
         vout!("ProtoLib::add_module({})\n", modname);
         if self.protos.contains_key(modname) {
             return Err(rustfail!(
-                "load_failure",
+                PROTOFAIL,
                 "cannot load a module twice: {}",
                 modname,
             ));
@@ -238,7 +259,7 @@ impl ProtoLib
         {
             let proto = self.protos.get(modname).ok_or_else(|| {
                 rustfail!(
-                    "semantic_failure",
+                    PROTOFAIL,
                     "an import module does not exist: {}",
                     modname,
                 )
@@ -246,7 +267,7 @@ impl ProtoLib
             for i in proto.imports.iter() {
                 if i == &modname {
                     return Err(rustfail!(
-                        "semantic_failure",
+                        PROTOFAIL,
                         "a module cannot import itself: {}",
                         i,
                     ));
@@ -269,7 +290,7 @@ impl ProtoLib
             .get_mut(module)
             .ok_or_else(|| {
                 rustfail!(
-                    "semantic_failure",
+                    PROTOFAIL,
                     "could not find module: {}",
                     module,
                 )
@@ -283,7 +304,7 @@ impl ProtoLib
     pub fn get(&self, modname: &str) -> Lresult<&ProtoModule>
     {
         self.protos.get(modname).ok_or_else(|| {
-            rustfail!("compile_failure", "module not loaded: {}", modname,)
+            rustfail!(PROTOFAIL, "module not loaded: {}", modname,)
         })
     }
 
@@ -295,7 +316,7 @@ impl ProtoLib
     {
         println!("Proto::get_macro({}, {})", module, macroname);
         let proto = self.protos.get(module).ok_or_else(|| {
-            rustfail!("semantic_failure", "module not loaded: {}", module,)
+            rustfail!(PROTOFAIL, "module not loaded: {}", module,)
         })?;
         proto.get_macro(macroname)
     }
