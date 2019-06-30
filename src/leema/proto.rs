@@ -2,10 +2,9 @@ use crate::leema::ast2::{Ast, AstNode, DataType, Xlist};
 use crate::leema::failure::Lresult;
 use crate::leema::grammar2::Grammar;
 use crate::leema::loader::Interloader;
-use crate::leema::lri::{GenericModId, Lri, ModLocalId};
+use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::ModKey;
-use crate::leema::struple::StrupleKV;
 use crate::leema::token::Tokenz;
 use crate::leema::val::Type;
 
@@ -22,7 +21,7 @@ pub struct ProtoModule
     pub key: ModKey,
     pub imports: HashSet<&'static str>,
     pub macros: HashMap<&'static str, Ast>,
-    pub constants: Vec<AstNode>,
+    pub constants: HashMap<&'static str, AstNode>,
     pub types: HashMap<&'static str, Type>,
     pub funcseq: Vec<&'static str>,
     pub funcsrc: HashMap<&'static str, (Xlist, AstNode)>,
@@ -42,7 +41,7 @@ impl ProtoModule
             key,
             imports: HashSet::new(),
             macros: HashMap::new(),
-            constants: Vec::new(),
+            constants: HashMap::new(),
             types: HashMap::new(),
             funcseq: Vec::new(),
             funcsrc: HashMap::new(),
@@ -54,8 +53,8 @@ impl ProtoModule
 
         for i in items {
             match *i.node {
-                Ast::DefConst(_, _) => {
-                    proto.constants.push(i);
+                Ast::DefConst(name, val) => {
+                    proto.constants.insert(name, val);
                 }
                 Ast::DefMacro(macro_name, _, _) => {
                     proto.macros.insert(macro_name, *i.node);
@@ -125,13 +124,23 @@ impl ProtoModule
                 self.types.insert(name_id, Type::UserDef(lri));
                 // do something with fields too!
             }
-            Ast::Generic(gen, _gen_args) => {
+            Ast::Generic(gen, gen_args) => {
                 if let Ast::Id1(name_id) = *gen.node {
-                    let modid = ModLocalId::new(self.key.name.clone(), Lstr::Sref(name_id));
-                    let lri = GenericModId::new(modid, StrupleKV::new()); // gen_args);
-                    let gentype = Type::Generic(lri);
-                    self.types.insert(name_id, gentype);
-                    // self.gentype.insert(name_id, gen_args);
+                    let inner = Type::User(self.key.name.clone(), name_id);
+                    let mut gen_vars = vec![];
+                    for a in gen_args.into_iter() {
+                        if let Ast::Id1(var) = *a.v.node {
+                            gen_vars.push(var);
+                        } else {
+                            return Err(rustfail!(
+                                PROTOFAIL,
+                                "generic arguments must be IDs: {:?}",
+                                a,
+                            ));
+                        }
+                    }
+                    let open = Type::Open(gen_vars, Box::new(inner));
+                    self.types.insert(name_id, open);
                 } else {
                     return Err(rustfail!(
                         PROTOFAIL,
@@ -194,10 +203,16 @@ impl ProtoModule
         Ok(self.funcsrc.remove(func))
     }
 
-    pub fn get_macro(&self, macroname: &str) -> Lresult<Option<&Ast>>
+    pub fn find_macro(&self, macroname: &str) -> Lresult<Option<&Ast>>
     {
-        println!("ProtoModule::get_macro({})", macroname);
+        println!("ProtoModule::find_macro({})", macroname);
         Ok(self.macros.get(macroname))
+    }
+
+    pub fn find_const(&self, name: &str) -> Lresult<Option<&AstNode>>
+    {
+        println!("ProtoModule::find_const({})", name);
+        Ok(self.constants.get(name))
     }
 }
 

@@ -91,7 +91,6 @@ pub enum Ast
     DefFunc(AstNode, Xlist, AstNode),
     DefMacro(&'static str, Vec<&'static str>, AstNode),
     DefType(DataType, AstNode, Xlist),
-    FuncType(StrupleKV<&'static str, AstNode>),
     Generic(AstNode, Xlist),
     Id1(&'static str),
     Id2(&'static str, &'static str),
@@ -170,7 +169,6 @@ impl Ast
             Ast::Void => write!(f, "Void"),
             Ast::Wildcard => write!(f, "_"),
             // unimplemented
-            Ast::FuncType(_) => unimplemented!(),
             Ast::LessThan3(_, _, _, _, _) => unimplemented!(),
             Ast::Map(_) => unimplemented!(),
             Ast::NewStruct(_, _) => unimplemented!(),

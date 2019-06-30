@@ -105,6 +105,9 @@ pub enum Type
     // base interface/type should probably be iterator
     // and then it should be a protocol, not type
     StrictList(Box<Type>),
+    Open(Vec<&'static str>, Box<Type>),
+    User(Lstr, &'static str),
+    ClosedUser(Lstr, &'static str, Vec<Lstr>),
     Mod(ModLocalId),
     Special(SpecialModId),
     Generic(GenericModId),
@@ -327,9 +330,16 @@ impl fmt::Display for Type
             &Type::Tuple(ref items) => write!(f, "{}", items),
             &Type::UserDef(ref name) => write!(f, "{}", name),
             &Type::Failure => write!(f, "Failure"),
+            &Type::User(ref module, ref id) => write!(f, "{}::{}", module, id),
+            &Type::Open(ref args, ref inner) => {
+                write!(f, "{}{:?}", inner, args)
+            }
+            &Type::ClosedUser(ref module, ref id, ref args) => {
+                write!(f, "{}::{}{:?}", module, id, args)
+            }
             &Type::Mod(ref id) => write!(f, "{}", id),
-            &Type::Generic(ref id) => write!(f, "{:?}", id),
-            &Type::Special(ref id) => write!(f, "{:?}", id),
+            &Type::Generic(ref id) => write!(f, "Generic/{:?}", id),
+            &Type::Special(ref id) => write!(f, "Special/{:?}", id),
             &Type::Func(ref ftyp) => write!(f, "F{}", ftyp),
             &Type::GenericFunc(ref params, ref ftyp) => {
                 write!(f, "GF[")?;
@@ -379,9 +389,16 @@ impl fmt::Debug for Type
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
-            &Type::Mod(ref id) => write!(f, "{:?}", id),
-            &Type::Special(ref id) => write!(f, "{:?}", id),
-            &Type::Generic(ref id) => write!(f, "{:?}", id),
+            &Type::User(ref module, ref id) => write!(f, "{}::{}", module, id),
+            &Type::Open(ref args, ref inner) => {
+                write!(f, "{}{:?}", inner, args)
+            }
+            &Type::ClosedUser(ref module, ref id, ref args) => {
+                write!(f, "{}::{}{:?}", module, id, args)
+            }
+            &Type::Mod(ref id) => write!(f, "Mod({:?})", id),
+            &Type::Special(ref id) => write!(f, "Special({:?})", id),
+            &Type::Generic(ref id) => write!(f, "Generic({:?})", id),
             &Type::GenericFunc(ref vars, ref ftype) => {
                 write!(f, "GenericFunc({:?}, {:?})", vars, ftype)
             }

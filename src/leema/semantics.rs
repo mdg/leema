@@ -173,9 +173,9 @@ impl<'l> SemanticOp for MacroApplication<'l>
     {
         if let Ast::Call(callid, args) = *node.node {
             let optmac = match *callid.node {
-                Ast::Id1(macroname) => self.local.get_macro(macroname)?,
+                Ast::Id1(macroname) => self.local.find_macro(macroname)?,
                 Ast::Id2(modname, macroname) => {
-                    self.proto.get(modname)?.get_macro(macroname)?
+                    self.proto.get(modname)?.find_macro(macroname)?
                 }
                 _ => None,
             };
@@ -283,8 +283,6 @@ impl<'l> SemanticOp for CallCollection<'l>
             Ast::Id1(_callid) => {
                 // let local_type = self.local.types.get(callri)
                 // if self.local.types
-            }
-            Ast::Id2(_module, _callri) => {
             }
             _ => {
                 // if they're not IDs, we don't care
