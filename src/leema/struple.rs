@@ -231,6 +231,28 @@ where
     }
 }
 
+impl<K, V> sendclone::SendClone for StrupleKV<K, V>
+where
+    K: sendclone::SendClone<Item = K>,
+    V: sendclone::SendClone<Item = V>,
+{
+    type Item = StrupleKV<K, V>;
+
+    fn clone_for_send(&self) -> StrupleKV<K, V>
+    {
+        let safe_items = self
+            .0
+            .iter()
+            .map(|i| {
+                let new_key = i.k.clone_for_send();
+                let new_val = i.v.clone_for_send();
+                StrupleItem::new(new_key, new_val)
+            })
+            .collect();
+        StrupleKV::from_vec(safe_items)
+    }
+}
+
 
 #[derive(Clone)]
 #[derive(PartialEq)]

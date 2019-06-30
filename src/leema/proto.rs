@@ -5,8 +5,9 @@ use crate::leema::loader::Interloader;
 use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::ModKey;
+use crate::leema::struple::Struple2;
 use crate::leema::token::Tokenz;
-use crate::leema::val::Type;
+use crate::leema::val::{Type, Val};
 
 use std::collections::{HashMap, HashSet};
 
@@ -120,8 +121,10 @@ impl ProtoModule
     {
         match *name.node {
             Ast::Id1(name_id) => {
-                let lri = Lri::new(Lstr::from(name_id));
-                self.types.insert(name_id, Type::UserDef(lri));
+                let typ = Type::User(self.key.name.clone(), name_id);
+                self.types.insert(name_id, typ.clone());
+                let constructor_ref = Val::Fref(self.key.name.clone(), name_id, Struple2::new(), typ);
+                self.constants.insert(name_id, AstNode::new_constval(constructor_ref, name.loc));
                 // do something with fields too!
             }
             Ast::Generic(gen, gen_args) => {

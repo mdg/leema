@@ -524,6 +524,7 @@ pub enum Val
     Id(Lstr),
     Type(Type),
     Lib(Arc<LibVal>),
+    Fref(Lstr, &'static str, Struple2<Val>, Type),
     FuncRef(Lri, Struple<Val>, Type),
     ResourceRef(i64),
     RustBlock,
@@ -582,6 +583,7 @@ impl Val
     pub fn is_funcref(&self) -> bool
     {
         match self {
+            &Val::Fref(_, _, _, _) => true,
             &Val::FuncRef(_, _, _) => true,
             _ => false,
         }
@@ -731,6 +733,7 @@ impl Val
             &Val::EnumToken(ref typ, _) => Type::UserDef(typ.clone()),
             &Val::Token(ref typ) => Type::UserDef(typ.clone()),
             &Val::Buffer(_) => Type::Str,
+            &Val::Fref(_, _, _, ref typ) => typ.clone(),
             &Val::FuncRef(_, _, ref typ) => typ.clone(),
             &Val::Lib(ref lv) => lv.get_type(),
             &Val::ResourceRef(_) => {
@@ -955,6 +958,11 @@ impl Val
                 Val::EnumToken(typ.clone(), vname.clone())
             }
             &Val::Token(ref typ) => Val::Token(typ.clone()),
+            &Val::Fref(ref m, ref id, ref args, ref typ) => {
+                let m_args = args.map_v(|a| a.map(op))?;
+                let m_typ = typ.clone();
+                Val::Fref(m.clone(), id, m_args, m_typ)
+            }
             &Val::FuncRef(ref fi, ref args, ref typ) => {
                 let m_fi = fi.clone();
                 let m_args = args.map(|a| a.map(op))?;
@@ -1005,6 +1013,11 @@ impl Val
                 Val::EnumToken(typ.deep_clone(), vname.clone_for_send())
             }
             &Val::Token(ref typ) => Val::Token(typ.deep_clone()),
+            &Val::Fref(ref m, ref id, ref args, ref typ) => {
+                let args2 = args.clone_for_send();
+                let typ2 = typ.deep_clone();
+                Val::Fref(m.clone(), id, args2, typ2)
+            }
             &Val::FuncRef(ref fi, ref args, ref typ) => {
                 let fi2 = fi.deep_clone();
                 let args2 = args.clone_for_send();
@@ -1157,6 +1170,9 @@ impl fmt::Display for Val
             Val::Failure2(ref fail) => write!(f, "Failure({:?})", **fail),
             Val::Id(ref name) => write!(f, "{}", name),
             Val::Type(ref t) => write!(f, "{}", t),
+            Val::Fref(ref module, ref id, ref args, ref typ) => {
+                write!(f, "{}::{}({:?}): {}", module, id, args, typ)
+            }
             Val::FuncRef(ref id, ref args, ref typ) => {
                 write!(f, "{}({:?}): {}", id, args, typ)
             }
@@ -1205,6 +1221,9 @@ impl fmt::Debug for Val
             Val::Failure2(ref fail) => write!(f, "Failure({:?})", fail),
             Val::Id(ref id) => write!(f, "Id({})", id),
             Val::Type(ref t) => write!(f, "TypeVal({:?})", t),
+            Val::Fref(ref module, ref id, ref args, ref typ) => {
+                write!(f, "Fref({}::{} {:?}: {})", module, id, args, typ)
+            }
             Val::FuncRef(ref id, ref args, ref typ) => {
                 write!(f, "FuncRef({} {:?}: {})", id, args, typ)
             }
