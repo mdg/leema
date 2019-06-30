@@ -173,9 +173,9 @@ impl<'l> SemanticOp for MacroApplication<'l>
     {
         if let Ast::Call(callid, args) = *node.node {
             let optmac = match *callid.node {
-                Ast::Id1(macroname) => self.local.find_macro(macroname)?,
+                Ast::Id1(macroname) => self.local.find_macro(macroname),
                 Ast::Id2(modname, macroname) => {
-                    self.proto.get(modname)?.find_macro(macroname)?
+                    self.proto.get(modname)?.find_macro(macroname)
                 }
                 _ => None,
             };
@@ -301,24 +301,26 @@ impl<'l> fmt::Debug for CallCollection<'l>
 }
 
 #[derive(Debug)]
-struct ScopeCheck
+struct ScopeCheck<'p>
 {
     blocks: Blockstack,
+    local_mod: &'p ProtoModule,
 }
 
-impl ScopeCheck
+impl<'p> ScopeCheck<'p>
 {
-    pub fn new() -> ScopeCheck
+    pub fn new(local_mod: &'p ProtoModule) -> ScopeCheck<'p>
     {
         ScopeCheck {
             blocks: Blockstack::new(),
+            local_mod,
         }
     }
 }
 
-impl SemanticOp for ScopeCheck
+impl<'p> SemanticOp for ScopeCheck<'p>
 {
-    fn pre(&mut self, node: AstNode) -> SemanticResult
+    fn pre(&mut self, mut node: AstNode) -> SemanticResult
     {
         match &*node.node {
             Ast::Block(_) => {
@@ -335,7 +337,27 @@ impl SemanticOp for ScopeCheck
                 }
             }
             Ast::Id1(id) => {
-                if !self.blocks.var_in_scope(&Lstr::Sref(id)) {
+                if self.blocks.var_in_scope(&Lstr::Sref(id)) {
+                    // that's cool, nothing to do I guess?
+                } else if self.local_mod.find_const(id).is_some() {
+                    match &self.local_mod.key.name {
+                        Lstr::Sref(smod) => {
+                            println!("module str is static: {}", smod);
+                            node.node = Box::new(Ast::Id2(smod, id));
+                            return Ok(SemanticAction::Rewrite(node));
+                        }
+                        Lstr::Arc(inner) => {
+                            return Err(rustfail!(
+                                SEMFAIL,
+                                "mod name is not static: {}",
+                                inner,
+                            ));
+                        }
+                        Lstr::Cat(_, _) => {
+                            panic!("why is Lstr::Cat still here?");
+                        }
+                    }
+                } else {
                     println!("var not in scope: {}", id);
                     return Err(rustfail!(
                         SEMFAIL,
@@ -461,11 +483,12 @@ impl Semantics
         let func_ast = proto.pop_func(mod_name, func_name)?;
         let (_args, body) = func_ast.unwrap();
 
+        let local_proto = proto.get(mod_name)?;
         let mut macs: MacroApplication = MacroApplication {
-            local: proto.get(mod_name)?,
+            local: local_proto,
             proto: proto,
         };
-        let mut scope_check = ScopeCheck::new();
+        let mut scope_check = ScopeCheck::new(local_proto);
         let mut remove_extra = RemoveExtraCode;
         let mut pipe = SemanticPipeline {
             ops: vec![

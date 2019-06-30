@@ -190,10 +190,11 @@ impl Lib
         Ok(())
     }
 
-    pub fn read_semantics(&mut self, modname: &Lstr) -> Lresult<()>
+    pub fn read_semantics(&mut self, modname: &Lstr, funcname: &Lstr) -> Lresult<()>
     {
         self.load_proto_and_imports(modname)?;
-        self.semantics.compile(&mut self.protos, modname.str())
+        self.semantics.compile_call(&mut self.protos, modname.str(), funcname.str())?;
+        Ok(())
     }
 
     pub fn read_modsrc(&mut self, modname: &Lstr) -> ModuleSource

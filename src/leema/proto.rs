@@ -206,16 +206,16 @@ impl ProtoModule
         Ok(self.funcsrc.remove(func))
     }
 
-    pub fn find_macro(&self, macroname: &str) -> Lresult<Option<&Ast>>
+    pub fn find_macro(&self, macroname: &str) -> Option<&Ast>
     {
         println!("ProtoModule::find_macro({})", macroname);
-        Ok(self.macros.get(macroname))
+        self.macros.get(macroname)
     }
 
-    pub fn find_const(&self, name: &str) -> Lresult<Option<&AstNode>>
+    pub fn find_const(&self, name: &str) -> Option<&AstNode>
     {
         println!("ProtoModule::find_const({})", name);
-        Ok(self.constants.get(name))
+        self.constants.get(name)
     }
 }
 

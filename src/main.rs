@@ -137,7 +137,11 @@ fn real_main() -> Lresult<()>
         None
     } else if args.flag_semantics {
         let mut prog = program::Lib::new(inter);
-        let semantics = prog.read_semantics(&mod_name)?;
+        let func = match args.flag_func {
+            Some(ifunc) => Lstr::from(ifunc),
+            None => Lstr::Sref("main"),
+        };
+        let semantics = prog.read_semantics(&mod_name, &func)?;
         println!("\n{:#?}\n", semantics);
         None
     } else if args.flag_inter {
