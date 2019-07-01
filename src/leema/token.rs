@@ -405,7 +405,9 @@ impl ScanModeTrait for ScanModeLine
             // whitespace
             '\n' => ScanOutput::Token(Token::LineEnd, true, ScanModeOp::Pop),
             ' ' => ScanOutput::Start(ScanModeOp::Push(&ScanModeSpace)),
-            '\\' => ScanOutput::Start(ScanModeOp::Push(&ScanModeBackslash)),
+            '\\' => {
+                ScanOutput::Start(ScanModeOp::Push(&ScanModeBackslash))
+            }
             // strings
             '"' => {
                 ScanOutput::Token(
@@ -1366,7 +1368,7 @@ mod tests
     #[test]
     fn test_tokenz_strings()
     {
-        let input = r#""tacos" "" "flautas $tortas burritos""#;
+        let input = r#""tacos" "" "flautas $tortas burritos" \n"#;
 
         let t: Vec<TokenResult> = Tokenz::lex(input).collect();
         let mut i = t.iter();
@@ -1385,6 +1387,8 @@ mod tests
         assert_eq!((Token::StrLit, " burritos"), nextok(&mut i));
         assert_eq!(Token::DoubleQuoteR, nextok(&mut i).0);
 
+        i.next();
+        assert_eq!(Token::ConcatNewline, nextok(&mut i).0);
         assert_eq!(Token::EOF, nextok(&mut i).0);
         assert_eq!(None, i.next());
     }

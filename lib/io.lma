@@ -1,0 +1,5 @@
+
+macro println x >> print(x \n) --
+
+func cin :Str -RUST-
+func print txt:Str :Void -RUST-

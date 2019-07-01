@@ -1,0 +1,18 @@
+
+
+func equal(a, b): Bool -RUST-
+func less_than(a, b): Bool -RUST-
+
+func max[T](a: T, b: T): T ->
+    if
+    |a < b -> b
+    |else -> a
+    --
+--
+
+func min[T](a: T, b: T): T ->
+    if
+    |a < b -> a
+    |else -> b
+    --
+--

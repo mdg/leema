@@ -17,7 +17,7 @@ use crate::leema::semantics::Semantics;
 use crate::leema::typecheck::{self, CallFrame, CallOp, Typemod, Typescope};
 use crate::leema::val::Type;
 use crate::leema::{
-    file, lib_hyper, lib_json, lib_list, lib_task, prefab, tcp, udp,
+    file, lib_hyper, lib_io, lib_json, lib_list, lib_task, prefab, tcp, udp,
 };
 
 use std::collections::{HashMap, HashSet};
@@ -67,6 +67,9 @@ impl Lib
         proglib
             .rust_load
             .insert(Lstr::Sref("hyper_server"), lib_hyper::load_rust_func);
+        proglib
+            .rust_load
+            .insert(Lstr::Sref("io"), lib_io::load_rust_func);
         proglib
             .rust_load
             .insert(Lstr::Sref("json"), lib_json::load_rust_func);

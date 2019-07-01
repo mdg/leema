@@ -1,0 +1,15 @@
+
+func int_add(a: Int, b: Int): Int -RUST-
+func int_sub(a: Int, b: Int): Int -RUST-
+func int_mult(a: Int, b: Int): Int -RUST-
+func int_div(a: Int, b: Int): Int -RUST-
+func int_mod(a: Int, b: Int): Int -RUST-
+func int_negate(a: Int): Int -RUST-
+func int_random(): Int -RUST-
+
+func int_abs(abs_a: Int): Int ->
+    if
+    |abs_a < 0 -> ~abs_a
+    |else -> abs_a
+    --
+--

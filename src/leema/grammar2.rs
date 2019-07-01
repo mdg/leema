@@ -29,6 +29,7 @@ enum Lprec
     Generic,
     Dot,
     DoubleColon,
+    Postfix,
 }
 
 const COMMA_PRECEDENCE: Precedence =
@@ -586,6 +587,25 @@ impl InfixParser for BinaryOpParser
 }
 
 #[derive(Debug)]
+pub struct ParsePostfixOp;
+
+impl InfixParser for ParsePostfixOp
+{
+    type Item = AstNode;
+
+    fn parse(&self, _: &mut Parsl, left: AstNode, op: TokenSrc) -> AstResult
+    {
+        let ast = Ast::Op1(op.src, left);
+        Ok(AstNode::new(ast, Ast::loc(&op)))
+    }
+
+    fn precedence(&self) -> Precedence
+    {
+        Precedence(Lprec::Postfix as u8, 0, Assoc::Left)
+    }
+}
+
+#[derive(Debug)]
 struct ParseBlockx;
 
 impl PrefixParser for ParseBlockx
@@ -892,6 +912,7 @@ impl ParslMode for ExprMode
             Token::Slash => OP_DIVIDE,
             Token::Star => OP_MULTIPLY,
             // other operators
+            Token::ConcatNewline => &ParsePostfixOp,
             Token::DoubleColon => &ParseId,
             Token::ParenL => &ParseCall,
             Token::SquareL => &ParseGeneric,
@@ -1880,6 +1901,16 @@ mod tests
         let mut p = Grammar::new(toks);
         let ast = p.parse_module().unwrap();
         assert_eq!(3, ast.len());
+    }
+
+    #[test]
+    fn test_parse_postfix_newline()
+    {
+        let input = "name \\n";
+        let toks = Tokenz::lexp(input).unwrap();
+        let mut p = Grammar::new(toks);
+        let ast = p.parse_module().unwrap();
+        assert_eq!(1, ast.len());
     }
 
     #[test]
