@@ -238,7 +238,11 @@ impl ParseStmt
         let body = match body_start.tok {
             Token::DoubleArrow => {
                 let arrow = expect_next!(p, Token::DoubleArrow)?;
-                Grammar::parse_block(p, Ast::loc(&arrow))?
+                if let Some(rust_block) = p.next_if(Token::RustBlock)? {
+                    AstNode::new(Ast::RustBlock, Ast::loc(&rust_block))
+                } else {
+                    Grammar::parse_block(p, Ast::loc(&arrow))?
+                }
             }
             Token::CasePipe => {
                 let cases = p.parse_new(&CaseMode)?;

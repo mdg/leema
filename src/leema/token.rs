@@ -133,6 +133,7 @@ pub enum Token
     Macro,
     Match,
     Return,
+    RustBlock,
     Type,
     Underscore,
 
@@ -230,6 +231,7 @@ lazy_static! {
         keywords.insert("macro", Token::Macro);
         keywords.insert("match", Token::Match);
         keywords.insert("return", Token::Return);
+        keywords.insert("__RUST__", Token::RustBlock);
         keywords.insert("type", Token::Type);
         keywords.insert("_", Token::Underscore);
         // booleans
@@ -1266,7 +1268,9 @@ mod tests
     #[test]
     fn test_tokenz_keywords()
     {
-        let input = "failed fork func if import let macro match return";
+        let input = r#"failed fork func if import let macro match return
+        __RUST__
+        "#;
 
         let t: Vec<TokenResult> = Tokenz::lex(input).collect();
         let mut i = t.iter();
@@ -1288,6 +1292,10 @@ mod tests
         assert_eq!(Token::Match, nextok(&mut i).0);
         i.next();
         assert_eq!(Token::Return, nextok(&mut i).0);
+        i.next();
+        i.next();
+        assert_eq!(Token::RustBlock, nextok(&mut i).0);
+        i.next();
         assert_eq!(Token::EOF, nextok(&mut i).0);
         assert_eq!(None, i.next());
     }
