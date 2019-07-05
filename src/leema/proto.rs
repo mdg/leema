@@ -360,7 +360,11 @@ mod tests
         let proto = new_proto("type Point[:T] x:T y:T --");
 
         let point_type = proto.types.get("Point").expect("no Point type");
-        assert_eq!(Type::UserDef(Lri::new(Lstr::from("Point"))), *point_type);
+        let expected = Type::Open(
+            vec!["T"],
+            Box::new(Type::User(Lstr::Sref("foo"), "Point")),
+        );
+        assert_eq!(expected, *point_type);
     }
 
     #[test]
@@ -378,6 +382,6 @@ mod tests
         let proto = new_proto("type Point x:Int y:Int --");
 
         let point_type = proto.types.get("Point").expect("no Point type");
-        assert_eq!(Type::UserDef(Lri::new(Lstr::from("Point"))), *point_type);
+        assert_eq!(Type::User(Lstr::Sref("foo"), "Point"), *point_type);
     }
 }
