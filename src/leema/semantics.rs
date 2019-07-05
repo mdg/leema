@@ -585,9 +585,50 @@ impl Semantics
                 let wbody = Self::walk(op, body)?;
                 Ast::DefFunc(wname, wargs, wbody)
             }
+            Ast::Generic(id, args) => {
+                let wid = Self::walk(op, id)?;
+                let wargs = args.map_v_into(|arg| {
+                    Self::walk(op, arg)
+                })?;
+                Ast::Generic(wid, wargs)
+            }
+            Ast::Let(lhp, lht, rhs) => {
+                let wlhp = Self::walk(op, lhp)?;
+                let wrhs = Self::walk(op, rhs)?;
+                Ast::Let(wlhp, lht, wrhs)
+            }
+            Ast::List(items) => {
+                let witems = items.map_v_into(|item| Self::walk(op, item))?;
+                Ast::List(witems)
+            }
+            Ast::Op1(ast_op, node) => {
+                let wnode = Self::walk(op, node)?;
+                Ast::Op1(ast_op, wnode)
+            }
+            Ast::Op2(ast_op, a, b) => {
+                let wa = Self::walk(op, a)?;
+                let wb = Self::walk(op, b)?;
+                Ast::Op2(ast_op, wa, wb)
+            }
+            Ast::Return(x) => Ast::Return(Self::walk(op, x)?),
+            Ast::StrExpr(items) => {
+                let witems: Lresult<Vec<AstNode>> = items.into_iter().map(|i| {
+                    Self::walk(op, i)
+                }).collect();
+                Ast::StrExpr(witems?)
+            }
+            Ast::Tuple(items) => {
+                let witems = items.map_v_into(|item| Self::walk(op, item))?;
+                Ast::Tuple(witems)
+            }
+
             // nothing further to walk for these ASTs
             Ast::Id1(id) => Ast::Id1(id),
             Ast::Id2(id1, id2) => Ast::Id2(id1, id2),
+            Ast::RustBlock => Ast::RustBlock,
+            Ast::Void => Ast::Void,
+            Ast::Wildcard => Ast::Wildcard,
+
             // these ASTs should already be processed in the proto phase
             Ast::DefMacro(name, _, _) => {
                 return Err(rustfail!(
@@ -612,18 +653,6 @@ impl Semantics
                 ));
             }
             /*
-            Ast::IdGeneric(id, args) => {
-                write!(f, "IdGeneric {:?} {:?}", id, args)
-            }
-            Ast::Let(lhp, _lht, rhs) => write!(f, "Let {:?} := {:?}", lhp, rhs),
-            Ast::List(items) => write!(f, "List {:?}", items),
-            Ast::Op1(op, node) => write!(f, "Op1 {} {:?}", op, node),
-            Ast::Op2(op, a, b) => write!(f, "Op2 {} {:?} {:?}", op, a, b),
-            Ast::RustBlock => write!(f, "RustBlock"),
-            Ast::StrExpr(items) => write!(f, "Str {:?}", items),
-            Ast::Tuple(items) => write!(f, "Tuple {:?}", items),
-            Ast::Void => write!(f, "Void"),
-            Ast::Wildcard => write!(f, "_"),
             // unimplemented
             Ast::FuncType(_) => unimplemented!(),
             Ast::LessThan3(_, _, _, _, _) => unimplemented!(),
@@ -631,7 +660,6 @@ impl Semantics
             Ast::NewStruct(_, _) => unimplemented!(),
             Ast::NewTuple(_) => unimplemented!(),
             Ast::NewUnion(_, _, _) => unimplemented!(),
-            Ast::Return(_) => unimplemented!(),
             Ast::Type(_) => unimplemented!(),
             Ast::TypeCall(_, _) => unimplemented!(),
             */
