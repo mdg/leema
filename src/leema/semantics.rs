@@ -585,6 +585,10 @@ impl Semantics
                 let wbody = Self::walk(op, body)?;
                 Ast::DefFunc(wname, wargs, wbody)
             }
+            // nothing further to walk for these ASTs
+            Ast::Id1(id) => Ast::Id1(id),
+            Ast::Id2(id1, id2) => Ast::Id2(id1, id2),
+            // these ASTs should already be processed in the proto phase
             Ast::DefMacro(name, _, _) => {
                 return Err(rustfail!(
                     SEMFAIL,
@@ -600,10 +604,6 @@ impl Semantics
                     name,
                 ));
             }
-            // nothing further to walk for these ASTs
-            Ast::Id1(id) => Ast::Id1(id),
-            Ast::Id2(id1, id2) => Ast::Id2(id1, id2),
-            // these ASTs should already be processed in the proto phase
             Ast::Import(module) => {
                 return Err(rustfail!(
                     SEMFAIL,
