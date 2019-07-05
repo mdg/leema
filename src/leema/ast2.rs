@@ -256,6 +256,13 @@ impl AstNode
         self
     }
 
+    /// Replace the Ast member in this AstNode
+    pub fn replace_loc(mut self, loc: Loc) -> AstNode
+    {
+        self.loc = loc;
+        self
+    }
+
     pub fn set_dst(&mut self, dst: Reg)
     {
         self.dst = dst;

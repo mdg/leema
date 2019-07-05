@@ -300,20 +300,21 @@ impl<'l> fmt::Debug for CallCollection<'l>
     }
 }
 
-#[derive(Debug)]
 struct ScopeCheck<'p>
 {
     blocks: Blockstack,
     local_mod: &'p ProtoModule,
+    lib: &'p ProtoLib,
 }
 
 impl<'p> ScopeCheck<'p>
 {
-    pub fn new(local_mod: &'p ProtoModule) -> ScopeCheck<'p>
+    pub fn new(local_mod: &'p ProtoModule, lib: &'p ProtoLib) -> ScopeCheck<'p>
     {
         ScopeCheck {
             blocks: Blockstack::new(),
             local_mod,
+            lib,
         }
     }
 }
@@ -366,6 +367,26 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                     ));
                 }
             }
+            Ast::Id2(module, id) => {
+                println!("scope check id2: {}::{}", module, id);
+                let proto = self.lib.get(module)
+                    .map_err(|e| {
+                        e.add_context(Lstr::from(format!(
+                            "module {} not found at {:?}", module, node.loc
+                        )))
+                    })?;
+                let val_ast = proto.find_const(id)
+                    .ok_or_else(|| {
+                        rustfail!(
+                            SEMFAIL,
+                            "cannot find {} in module {} @ {:?}",
+                            id,
+                            module,
+                            node.loc,
+                        )
+                    })?;
+                return Ok(SemanticAction::Rewrite(val_ast.clone().replace_loc(node.loc)))
+            }
             _ => {
                 // do nothing otherwise
             }
@@ -384,6 +405,14 @@ impl<'p> SemanticOp for ScopeCheck<'p>
             }
         }
         Ok(SemanticAction::Keep(node))
+    }
+}
+
+impl<'l> fmt::Debug for ScopeCheck<'l>
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "ScopeCheck({})", self.local_mod.key.name)
     }
 }
 
@@ -488,7 +517,7 @@ impl Semantics
             local: local_proto,
             proto: proto,
         };
-        let mut scope_check = ScopeCheck::new(local_proto);
+        let mut scope_check = ScopeCheck::new(local_proto, proto);
         let mut remove_extra = RemoveExtraCode;
         let mut pipe = SemanticPipeline {
             ops: vec![
@@ -544,30 +573,48 @@ impl Semantics
                 // can't walk past on const
                 Ast::ConstVal(v)
             }
-            Ast::DefConst(_, _) => {
+            Ast::DefConst(name, v) => {
+                let wval = Self::walk(op, v)?;
+                Ast::DefConst(name, wval)
+            }
+            Ast::DefFunc(name, args, body) => {
+                let wname = Self::walk(op, name)?;
+                let wargs = args.map_v_into(|arg| {
+                    Self::walk(op, arg)
+                })?;
+                let wbody = Self::walk(op, body)?;
+                Ast::DefFunc(wname, wargs, wbody)
+            }
+            Ast::DefMacro(name, _, _) => {
                 return Err(rustfail!(
-                    "semantic_failure",
-                    "cannot define const at {:?}",
+                    SEMFAIL,
+                    "macro definition must already be processed: {} @ {:?}",
+                    name,
                     prenode.loc,
                 ));
             }
+            Ast::DefType(_, name, _) => {
+                return Err(rustfail!(
+                    SEMFAIL,
+                    "type definition must already be processed: {:?}",
+                    name,
+                ));
+            }
+            // nothing further to walk for these ASTs
+            Ast::Id1(id) => Ast::Id1(id),
+            Ast::Id2(id1, id2) => Ast::Id2(id1, id2),
+            // these ASTs should already be processed in the proto phase
+            Ast::Import(module) => {
+                return Err(rustfail!(
+                    SEMFAIL,
+                    "import must already be processed: {}",
+                    module,
+                ));
+            }
             /*
-            Ast::DefFunc(name, args, body) => {
-                write!(f, "DefFunc {:?} {:?} {:?}", name, args, body)
-            }
-            Ast::DefMacro(name, args, body) => {
-                write!(f, "DefMacro {:?} {:?} {:?}", name, args, body)
-            }
-            Ast::DefType(dtype, name, fields) => {
-                write!(f, "DefType {:?} {:?} {:?}", dtype, name, fields)
-            }
-            // Ast::Def(v) => write!(f, "Def {}", v),
-            Ast::Id1(id) => write!(f, "Id {}", id),
-            Ast::Id2(id1, id2) => write!(f, "Id {}::{}", id1, id2),
             Ast::IdGeneric(id, args) => {
                 write!(f, "IdGeneric {:?} {:?}", id, args)
             }
-            Ast::Import(module) => write!(f, "Import {:?}", module),
             Ast::Let(lhp, _lht, rhs) => write!(f, "Let {:?} := {:?}", lhp, rhs),
             Ast::List(items) => write!(f, "List {:?}", items),
             Ast::Op1(op, node) => write!(f, "Op1 {} {:?}", op, node),
@@ -711,7 +758,7 @@ mod tests
     {
         let foo_input = r#"func bak >> 3 --"#;
 
-        let baz_input = r#"
+        let app_input = r#"
         func main >>
             foo::bar() + 6
         --
@@ -719,9 +766,9 @@ mod tests
 
         let mut proto = ProtoLib::new();
         proto.add_module(&Lstr::Sref("foo"), foo_input).unwrap();
-        proto.add_module(&Lstr::Sref("baz"), baz_input).unwrap();
+        proto.add_module(&Lstr::Sref("app"), app_input).unwrap();
         let mut semantics = Semantics::new();
-        semantics.compile_call(&mut proto, "baz", "main").unwrap();
+        semantics.compile_call(&mut proto, "app", "main").unwrap();
     }
 
     #[test]
