@@ -189,6 +189,20 @@ impl Type
         }
     }
 
+    pub fn is_open(&self) -> bool
+    {
+        match self {
+            Type::Open(_, _) => true,
+            Type::Tuple(items) => items.0.iter().any(|i| i.1.is_open()),
+            _ => false,
+        }
+    }
+
+    pub fn is_closed(&self) -> bool
+    {
+        !self.is_open()
+    }
+
     pub fn map<Op>(&self, op: &Op) -> Lresult<Type>
     where
         Op: Fn(&Type) -> Lresult<Option<Type>>,

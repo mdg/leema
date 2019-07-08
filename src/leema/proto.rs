@@ -1,13 +1,13 @@
-use crate::leema::ast2::{Ast, AstNode, DataType, Xlist};
+use crate::leema::ast2::{self, Ast, AstNode, DataType, Xlist};
 use crate::leema::failure::Lresult;
 use crate::leema::grammar2::Grammar;
 use crate::leema::loader::Interloader;
 use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::ModKey;
-use crate::leema::struple::Struple2;
+use crate::leema::struple::{Struple2, StrupleItem, StrupleKV};
 use crate::leema::token::Tokenz;
-use crate::leema::val::{Type, Val};
+use crate::leema::val::{FuncType, Type, Val};
 
 use std::collections::{HashMap, HashSet};
 
@@ -92,8 +92,7 @@ impl ProtoModule
     {
         match *name.node {
             Ast::Id1(name_id) => {
-                self.funcseq.push(name_id);
-                self.funcsrc.insert(name_id, (args, body));
+                self.add_func_not_generic(name_id, args, body, name.loc)?;
             }
             Ast::Generic(gen, gen_args) => {
                 if let Ast::Id1(name_id) = *gen.node {
@@ -114,6 +113,39 @@ impl ProtoModule
                 ));
             }
         }
+        Ok(())
+    }
+
+    fn add_func_not_generic(&mut self, name: &'static str, args: Xlist, body: AstNode, loc: ast2::Loc) -> Lresult<()>
+    {
+        let args2 = args.clone();
+        // not generic so everything is a closed type
+        let empty_type_args: &[&'static str] = &[];
+        let arg_types_r: Lresult<Vec<StrupleItem<Option<Lstr>, Type>>>;
+        arg_types_r = args.0.into_iter()
+            .map(|i| {
+                Ok(StrupleItem::new(
+                    i.k.map(|k| Lstr::Sref(k)),
+                    ast_to_type(&self.key.name, &i.v, empty_type_args)?
+                ))
+            })
+            .collect();
+        let mut arg_types_vec = arg_types_r?;
+        let mut result_type_vec = arg_types_vec.split_off(arg_types_vec.len() - 1);
+        let result_type = result_type_vec.pop().unwrap().v;
+        let arg_types = StrupleKV::from(arg_types_vec);
+        let ftyp = FuncType::new(arg_types, result_type);
+        self.funcseq.push(name);
+        // is this args2 param necessary anymore? the type should be enough
+        self.funcsrc.insert(name, (args2, body));
+        let fref = Val::Fref(
+            self.key.name.clone(),
+            name,
+            StrupleKV::new(),
+            Type::Func(ftyp),
+        );
+        let fref_ast = AstNode::new_constval(fref, loc);
+        self.constants.insert(name, fref_ast);
         Ok(())
     }
 
@@ -208,7 +240,6 @@ impl ProtoModule
 
     pub fn find_macro(&self, macroname: &str) -> Option<&Ast>
     {
-        println!("ProtoModule::find_macro({})", macroname);
         self.macros.get(macroname)
     }
 
@@ -217,6 +248,36 @@ impl ProtoModule
         println!("ProtoModule::find_const({})", name);
         self.constants.get(name)
     }
+}
+
+fn ast_to_type(local_mod: &Lstr, node: &AstNode, opens: &[&'static str]) -> Lresult<Type>
+{
+    Ok(match &*node.node {
+        Ast::Id1("Bool") => Type::Bool,
+        Ast::Id1("Int") => Type::Int,
+        Ast::Id1("Str") => Type::Str,
+        Ast::Id1("#") => Type::Hashtag,
+        Ast::Id1(id) if opens.contains(&id) => {
+            Type::Var(Lstr::Sref(id))
+        }
+        Ast::Id1(id) => {
+            Type::User(local_mod.clone(), id)
+        }
+        Ast::Id2(module, id) => Type::User(Lstr::Sref(module), id),
+        Ast::Generic(_, typeargs) => {
+            let _gen = typeargs.map_v(|v| {
+                ast_to_type(local_mod, v, opens)
+            });
+            unimplemented!()
+        }
+        invalid => {
+            return Err(rustfail!(
+                PROTOFAIL,
+                "cannot derive type from: {:?}",
+                invalid,
+            ));
+        }
+    })
 }
 
 pub struct ProtoLib
