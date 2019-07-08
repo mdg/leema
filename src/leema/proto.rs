@@ -120,21 +120,25 @@ impl ProtoModule
     {
         let args2 = args.clone();
         // not generic so everything is a closed type
-        let empty_type_args: &[&'static str] = &[];
-        let arg_types_r: Lresult<Vec<StrupleItem<Option<Lstr>, Type>>>;
-        arg_types_r = args.0.into_iter()
-            .map(|i| {
-                Ok(StrupleItem::new(
-                    i.k.map(|k| Lstr::Sref(k)),
-                    ast_to_type(&self.key.name, &i.v, empty_type_args)?
-                ))
-            })
-            .collect();
-        let mut arg_types_vec = arg_types_r?;
-        let mut result_type_vec = arg_types_vec.split_off(arg_types_vec.len() - 1);
-        let result_type = result_type_vec.pop().unwrap().v;
-        let arg_types = StrupleKV::from(arg_types_vec);
-        let ftyp = FuncType::new(arg_types, result_type);
+        let ftyp = if !args.is_empty() {
+            let empty_type_args: &[&'static str] = &[];
+            let arg_types_r: Lresult<Vec<StrupleItem<Option<Lstr>, Type>>>;
+            arg_types_r = args.0.into_iter()
+                .map(|i| {
+                    Ok(StrupleItem::new(
+                        i.k.map(|k| Lstr::Sref(k)),
+                        ast_to_type(&self.key.name, &i.v, empty_type_args)?
+                    ))
+                })
+                .collect();
+            let mut arg_types_vec = arg_types_r?;
+            let mut result_type_vec = arg_types_vec.split_off(arg_types_vec.len() - 1);
+            let result_type = result_type_vec.pop().unwrap().v;
+            let arg_types = StrupleKV::from(arg_types_vec);
+            FuncType::new(arg_types, result_type)
+        } else {
+            FuncType::new(StrupleKV::new(), Type::Void)
+        };
         self.funcseq.push(name);
         // is this args2 param necessary anymore? the type should be enough
         self.funcsrc.insert(name, (args2, body));
