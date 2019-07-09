@@ -48,6 +48,8 @@ pub trait SemanticOp: fmt::Debug
     {
         Ok(SemanticAction::Keep(node))
     }
+
+    fn set_pattern(&mut self, _is_pattern: bool) {}
 }
 
 #[derive(Debug)]
@@ -416,8 +418,68 @@ impl<'l> fmt::Debug for ScopeCheck<'l>
     }
 }
 
-struct TypeCheck {
+struct TypeCheck<'p>
+{
+    vartypes: HashMap<&'static str, Type>,
     // infer: Inferator,
+    local_mod: &'p ProtoModule,
+    lib: &'p ProtoLib,
+}
+
+impl<'p> TypeCheck<'p>
+{
+    pub fn new(local_mod: &'p ProtoModule, lib: &'p ProtoLib) -> TypeCheck<'p>
+    {
+        TypeCheck {
+            vartypes: HashMap::new(),
+            local_mod,
+            lib,
+        }
+    }
+
+    pub fn decl_pattern_vartypes(&mut self, node: &AstNode) -> Lresult<Type>
+    {
+        match &*node.node {
+            Ast::Id1(id) => {
+                let tvar = Type::Var(lstrf!("inferred:{}", id));
+                self.vartypes.insert(id, tvar.clone());
+                Ok(tvar)
+            }
+            unsupported => {
+                Err(rustfail!(
+                    SEMFAIL,
+                    "complex patterns not supported: {:?}",
+                    unsupported,
+                ))
+            }
+        }
+    }
+}
+
+impl<'p> SemanticOp for TypeCheck<'p>
+{
+    fn pre(&mut self, mut node: AstNode) -> SemanticResult
+    {
+        match *node.node {
+            Ast::Let(patt, dtype, mut x) => {
+                let ptype = self.decl_pattern_vartypes(&patt)?;
+                x.typ = ptype;
+                node.node = Box::new(Ast::Let(patt, dtype, x));
+            }
+            _ => {
+                // should handle matches later, but for now it's fine
+            }
+        }
+        Ok(SemanticAction::Keep(node))
+    }
+}
+
+impl<'l> fmt::Debug for TypeCheck<'l>
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "TypeCheck({})", self.local_mod.key.name)
+    }
 }
 
 #[derive(Debug)]
@@ -554,7 +616,9 @@ impl Semantics
             }
             Ast::Case(typ, None, args) => {
                 let new_args: Lresult<Vec<ast2::Case>> = args.into_iter().map(|ch| {
+                    op.set_pattern(typ == ast2::CaseType::Match);
                     let wcond = Self::walk(op, ch.cond)?;
+                    op.set_pattern(false);
                     let wbody = Self::walk(op, ch.body)?;
                     Ok(ast2::Case::new(wcond, wbody))
                 }).collect();
@@ -593,7 +657,9 @@ impl Semantics
                 Ast::Generic(wid, wargs)
             }
             Ast::Let(lhp, lht, rhs) => {
+                op.set_pattern(true);
                 let wlhp = Self::walk(op, lhp)?;
+                op.set_pattern(false);
                 let wrhs = Self::walk(op, rhs)?;
                 Ast::Let(wlhp, lht, wrhs)
             }
@@ -813,5 +879,20 @@ mod tests
         proto.add_module(&Lstr::Sref("baz"), baz_input).unwrap();
         let mut semantics = Semantics::new();
         semantics.compile_call(&mut proto, "baz", "main").unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_type_fail()
+    {
+        let input = r#"
+        func inc i:Int :Int >> i + 1 --
+        func main >> inc("5") --
+        "#;
+
+        let mut proto = ProtoLib::new();
+        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
+        let mut semantics = Semantics::new();
+        semantics.compile_call(&mut proto, "foo", "main").unwrap();
     }
 }

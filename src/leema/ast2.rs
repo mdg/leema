@@ -141,7 +141,7 @@ impl Ast
             Ast::Case(typ, Some(cond), args) => {
                 write!(f, "{:?} {:?} {:?}", typ, cond, args)
             }
-            Ast::ConstVal(v) => write!(f, "Const {}", v),
+            Ast::ConstVal(v) => write!(f, "Const {:?}", v),
             Ast::DefConst(id, x) => write!(f, "DefConst {} := {:?}", id, x),
             Ast::DefFunc(name, args, body) => {
                 write!(f, "DefFunc {:?} {:?} {:?}", name, args, body)
