@@ -1,9 +1,9 @@
 #[macro_use]
 pub mod log;
 #[macro_use]
-pub mod lstr;
-#[macro_use]
 pub mod failure;
+#[macro_use]
+pub mod lstr;
 #[macro_use]
 pub mod parsl;
 

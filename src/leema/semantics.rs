@@ -5,7 +5,7 @@ use crate::leema::lstr::Lstr;
 use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::reg::RegTable;
 use crate::leema::struple::StrupleKV;
-use crate::leema::val::Type;
+use crate::leema::val::{FuncType, Type};
 
 use std::collections::HashMap;
 use std::fmt;
@@ -415,6 +415,28 @@ impl<'l> fmt::Debug for ScopeCheck<'l>
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         write!(f, "ScopeCheck({})", self.local_mod.key.name)
+    }
+}
+
+struct VarTypes<'p>
+{
+    vartypes: HashMap<&'static str, Type>,
+    module: &'p Lstr,
+}
+
+impl<'p> VarTypes<'p>
+{
+    pub fn new(module: &'p Lstr, ftype: &FuncType) -> Lresult<VarTypes<'p>>
+    {
+        let mut vartypes = HashMap::new();
+        for arg in ftype.args.iter() {
+            let argname = arg.k.as_ref().unwrap().sref()?;
+            vartypes.insert(argname, arg.v.clone());
+        }
+        Ok(VarTypes {
+            vartypes,
+            module,
+        })
     }
 }
 

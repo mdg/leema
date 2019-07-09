@@ -1,3 +1,4 @@
+use crate::leema::failure::Lresult;
 use crate::leema::sendclone::SendClone;
 
 use std::borrow::Borrow;
@@ -43,6 +44,15 @@ impl Lstr
             _ => {
                 panic!("not a str: {:?}", self);
             }
+        }
+    }
+
+    pub fn sref(&self) -> Lresult<&'static str>
+    {
+        if let Lstr::Sref(s) = self {
+            Ok(s)
+        } else {
+            Err(rustfail!("failure", "string is not static"))
         }
     }
 }
