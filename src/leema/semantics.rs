@@ -396,7 +396,7 @@ impl<'p> SemanticOp for ScopeCheck<'p>
 
     fn post(&mut self, node: AstNode) -> SemanticResult
     {
-        match *node.node {
+        match &*node.node {
             Ast::Block(_) => {
                 self.blocks.pop_blockscope();
             }
@@ -521,9 +521,9 @@ impl Semantics
         let mut remove_extra = RemoveExtraCode;
         let mut pipe = SemanticPipeline {
             ops: vec![
+                &mut remove_extra,
                 &mut macs,
                 &mut scope_check,
-                &mut remove_extra,
             ],
         };
 
