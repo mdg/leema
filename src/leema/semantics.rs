@@ -468,6 +468,17 @@ impl<'p> SemanticOp for VarTypes<'p>
                 x.typ = ptype;
                 *node.node = Ast::Let(patt, dtype, x);
             }
+            Ast::Id1(id) => {
+                // if the type is known, assign it to this variable
+                if let Some(typ) = self.vartypes.get(id) {
+                    node.typ = typ.clone();
+                    // put the node back the way it was
+                    *node.node = Ast::Id1(id);
+                } else {
+                    // i guess do nothing?
+                    // could be a local function or something
+                }
+            }
             _ => {
                 // should handle matches later, but for now it's fine
             }
@@ -486,7 +497,6 @@ impl<'p> fmt::Debug for VarTypes<'p>
 
 struct TypeCheck<'p>
 {
-    vartypes: HashMap<&'static str, Type>,
     // infer: Inferator,
     local_mod: &'p ProtoModule,
     lib: &'p ProtoLib,
@@ -497,7 +507,6 @@ impl<'p> TypeCheck<'p>
     pub fn new(local_mod: &'p ProtoModule, lib: &'p ProtoLib) -> TypeCheck<'p>
     {
         TypeCheck {
-            vartypes: HashMap::new(),
             local_mod,
             lib,
         }
