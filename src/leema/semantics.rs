@@ -438,26 +438,6 @@ impl<'p> VarTypes<'p>
             module,
         })
     }
-}
-
-struct TypeCheck<'p>
-{
-    vartypes: HashMap<&'static str, Type>,
-    // infer: Inferator,
-    local_mod: &'p ProtoModule,
-    lib: &'p ProtoLib,
-}
-
-impl<'p> TypeCheck<'p>
-{
-    pub fn new(local_mod: &'p ProtoModule, lib: &'p ProtoLib) -> TypeCheck<'p>
-    {
-        TypeCheck {
-            vartypes: HashMap::new(),
-            local_mod,
-            lib,
-        }
-    }
 
     pub fn decl_pattern_vartypes(&mut self, node: &AstNode) -> Lresult<Type>
     {
@@ -478,7 +458,7 @@ impl<'p> TypeCheck<'p>
     }
 }
 
-impl<'p> SemanticOp for TypeCheck<'p>
+impl<'p> SemanticOp for VarTypes<'p>
 {
     fn pre(&mut self, mut node: AstNode) -> SemanticResult
     {
@@ -488,6 +468,48 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 x.typ = ptype;
                 node.node = Box::new(Ast::Let(patt, dtype, x));
             }
+            _ => {
+                // should handle matches later, but for now it's fine
+            }
+        }
+        Ok(SemanticAction::Keep(node))
+    }
+}
+
+impl<'p> fmt::Debug for VarTypes<'p>
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "VarTypes({})", self.module)
+    }
+}
+
+struct TypeCheck<'p>
+{
+    vartypes: HashMap<&'static str, Type>,
+    // infer: Inferator,
+    local_mod: &'p ProtoModule,
+    lib: &'p ProtoLib,
+}
+
+impl<'p> TypeCheck<'p>
+{
+    pub fn new(local_mod: &'p ProtoModule, lib: &'p ProtoLib) -> TypeCheck<'p>
+    {
+        TypeCheck {
+            vartypes: HashMap::new(),
+            local_mod,
+            lib,
+        }
+    }
+}
+
+impl<'p> SemanticOp for TypeCheck<'p>
+{
+    fn pre(&mut self, node: AstNode) -> SemanticResult
+    {
+        match &*node.node {
+            // Ast::Let(patt, dtype, x) => {
             _ => {
                 // should handle matches later, but for now it's fine
             }
