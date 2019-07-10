@@ -1312,7 +1312,7 @@ impl reg::Iregistry for Val
             }
             // set reg on lists
             (&Ireg::Reg(0), &mut Val::Cons(ref mut head, _)) => {
-                *head = Box::new(v);
+                **head = v;
             }
             (&Ireg::Sub(0, ref s), &mut Val::Cons(ref mut head, _)) => {
                 head.ireg_set(&*s, v);

@@ -346,7 +346,7 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                     match &self.local_mod.key.name {
                         Lstr::Sref(smod) => {
                             println!("module str is static: {}", smod);
-                            node.node = Box::new(Ast::Id2(smod, id));
+                            *node.node = Ast::Id2(smod, id);
                             return Ok(SemanticAction::Rewrite(node));
                         }
                         Lstr::Arc(inner) => {
@@ -466,7 +466,7 @@ impl<'p> SemanticOp for VarTypes<'p>
             Ast::Let(patt, dtype, mut x) => {
                 let ptype = self.decl_pattern_vartypes(&patt)?;
                 x.typ = ptype;
-                node.node = Box::new(Ast::Let(patt, dtype, x));
+                *node.node = Ast::Let(patt, dtype, x);
             }
             _ => {
                 // should handle matches later, but for now it's fine
@@ -543,13 +543,13 @@ impl SemanticOp for RemoveExtraCode
                         SemanticAction::Rewrite(items.pop().unwrap())
                     }
                     _ => {
-                        node.node = Box::new(Ast::Block(items));
+                        *node.node = Ast::Block(items);
                         SemanticAction::Keep(node)
                     }
                 }
             }
             ast => {
-                node.node = Box::new(ast);
+                *node.node = ast;
                 SemanticAction::Keep(node)
             }
         };
@@ -775,7 +775,7 @@ impl Semantics
             */
             ast => ast, // do nothing for everything else
         };
-        prenode.node = Box::new(new_ast);
+        *prenode.node = new_ast;
 
         let postnode = match op.post(prenode)? {
             SemanticAction::Keep(inode) => inode,
