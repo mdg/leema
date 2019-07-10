@@ -511,11 +511,37 @@ impl<'p> TypeCheck<'p>
             lib,
         }
     }
+
+    pub fn check_call(&self, _callx: &AstNode) -> Lresult<()>
+    {
+        Ok(())
+    }
+
+    pub fn check_call_args(&self, _calltype: &Type, _args: &ast2::Xlist) -> Lresult<Type>
+    {
+        Ok(Type::Void)
+    }
 }
 
 impl<'p> SemanticOp for TypeCheck<'p>
 {
-    fn pre(&mut self, node: AstNode) -> SemanticResult
+    fn pre(&mut self, mut node: AstNode) -> SemanticResult
+    {
+        match &mut *node.node {
+            // Ast::Let(patt, dtype, x) => {
+            Ast::Call(callx, args) => {
+                self.check_call(&callx)?;
+                let result_type = self.check_call_args(&callx.typ, args)?;
+                node.typ = result_type;
+            }
+            _ => {
+                // should handle matches later, but for now it's fine
+            }
+        }
+        Ok(SemanticAction::Keep(node))
+    }
+
+    fn post(&mut self, node: AstNode) -> SemanticResult
     {
         match &*node.node {
             // Ast::Let(patt, dtype, x) => {
