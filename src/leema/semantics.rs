@@ -512,8 +512,22 @@ impl<'p> TypeCheck<'p>
         }
     }
 
-    pub fn check_call(&self, _callx: &AstNode) -> Lresult<()>
+    pub fn set_call_type(&self, callx: &mut AstNode) -> Lresult<()>
     {
+        match &*callx.node {
+            Ast::Id2(modname, id) => {
+                let module = self.lib.get(modname)?;
+                let typ = module.get_type(id)?;
+                callx.typ = typ.clone();
+            }
+            other_call => {
+                return Err(rustfail!(
+                    SEMFAIL,
+                    "cannot set call type for ast: {:?}",
+                    other_call,
+                ));
+            }
+        }
         Ok(())
     }
 
@@ -529,8 +543,8 @@ impl<'p> SemanticOp for TypeCheck<'p>
     {
         match &mut *node.node {
             // Ast::Let(patt, dtype, x) => {
-            Ast::Call(callx, args) => {
-                self.check_call(&callx)?;
+            Ast::Call(ref mut callx, args) => {
+                self.set_call_type(callx)?;
                 let result_type = self.check_call_args(&callx.typ, args)?;
                 node.typ = result_type;
             }
@@ -654,17 +668,31 @@ impl Semantics
         let (_args, body) = func_ast.unwrap();
 
         let local_proto = proto.get(mod_name)?;
+        let ftyp = match local_proto.get_type(func_name)? {
+            Type::Func(ft) => ft,
+            unexpected => {
+                return Err(rustfail!(
+                    SEMFAIL,
+                    "unexpected call type: {}",
+                    unexpected,
+                ));
+            }
+        };
         let mut macs: MacroApplication = MacroApplication {
             local: local_proto,
             proto: proto,
         };
         let mut scope_check = ScopeCheck::new(local_proto, proto);
+        let mut var_types = VarTypes::new(&local_proto.key.name, ftyp)?;
+        let mut type_check = TypeCheck::new(local_proto, proto);
         let mut remove_extra = RemoveExtraCode;
         let mut pipe = SemanticPipeline {
             ops: vec![
                 &mut remove_extra,
                 &mut macs,
                 &mut scope_check,
+                &mut var_types,
+                &mut type_check,
             ],
         };
 

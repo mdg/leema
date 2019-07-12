@@ -23,7 +23,7 @@ pub struct ProtoModule
     pub imports: HashSet<&'static str>,
     pub macros: HashMap<&'static str, Ast>,
     pub constants: HashMap<&'static str, AstNode>,
-    pub types: HashMap<&'static str, Type>,
+    types: HashMap<&'static str, Type>,
     pub funcseq: Vec<&'static str>,
     pub funcsrc: HashMap<&'static str, (Xlist, AstNode)>,
     pub token: HashSet<&'static str>,
@@ -251,6 +251,15 @@ impl ProtoModule
     {
         println!("ProtoModule::find_const({})", name);
         self.constants.get(name)
+    }
+
+    pub fn get_type(&self, name: &str) -> Lresult<&Type>
+    {
+        println!("ProtoModule::find_type({})", name);
+        self.types.get(name)
+            .ok_or_else(|| {
+                rustfail!(PROTOFAIL, "type not found: {}", name)
+            })
     }
 }
 
