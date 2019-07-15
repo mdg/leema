@@ -515,24 +515,23 @@ impl<'p> TypeCheck<'p>
     pub fn set_call_type(&self, callx: &mut AstNode) -> Lresult<()>
     {
         match &*callx.node {
-            Ast::Id2(modname, id) => {
-                let module = self.lib.get(modname)?;
-                let typ = module.get_type(id)?;
-                callx.typ = typ.clone();
-            }
+            Ast::Id2(_modname, _id) => {}
             other_call => {
                 return Err(rustfail!(
                     SEMFAIL,
-                    "cannot set call type for ast: {:?}",
+                    "cannot set call type for ast: {:?} @ {:?}",
                     other_call,
+                    callx.loc,
                 ));
             }
         }
         Ok(())
     }
 
-    pub fn check_call_args(&self, _calltype: &Type, _args: &ast2::Xlist) -> Lresult<Type>
+    pub fn check_call_args(&self, calltype: &Type, args: &ast2::Xlist) -> Lresult<Type>
     {
+        println!("calltype: {}", calltype);
+        println!("    args: {:?}", args);
         Ok(Type::Void)
     }
 }
@@ -543,10 +542,10 @@ impl<'p> SemanticOp for TypeCheck<'p>
     {
         match &mut *node.node {
             // Ast::Let(patt, dtype, x) => {
-            Ast::Call(ref mut callx, args) => {
-                self.set_call_type(callx)?;
-                let result_type = self.check_call_args(&callx.typ, args)?;
-                node.typ = result_type;
+            Ast::Id2(modname, id) => {
+                let module = self.lib.get(modname)?;
+                let typ = module.get_type(id)?;
+                node.typ = typ.clone();
             }
             _ => {
                 // should handle matches later, but for now it's fine
@@ -555,9 +554,11 @@ impl<'p> SemanticOp for TypeCheck<'p>
         Ok(SemanticAction::Keep(node))
     }
 
-    fn post(&mut self, node: AstNode) -> SemanticResult
+    fn post(&mut self, mut node: AstNode) -> SemanticResult
     {
-        match &*node.node {
+        match &mut *node.node {
+            Ast::Call(ref mut _callx, _args) => {
+            }
             // Ast::Let(patt, dtype, x) => {
             _ => {
                 // should handle matches later, but for now it's fine

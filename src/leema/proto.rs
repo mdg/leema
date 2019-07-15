@@ -146,10 +146,11 @@ impl ProtoModule
             self.key.name.clone(),
             name,
             StrupleKV::new(),
-            Type::Func(ftyp),
+            Type::Func(ftyp.clone()),
         );
         let fref_ast = AstNode::new_constval(fref, loc);
         self.constants.insert(name, fref_ast);
+        self.types.insert(name, Type::Func(ftyp));
         Ok(())
     }
 
