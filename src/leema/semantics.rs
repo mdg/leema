@@ -1025,11 +1025,41 @@ mod tests
 
     #[test]
     #[should_panic]
-    fn test_type_fail()
+    fn test_type_fail_func_types()
     {
         let input = r#"
         func inc i:Int :Int >> i + 1 --
         func main >> inc("5") --
+        "#;
+
+        let mut proto = ProtoLib::new();
+        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
+        let mut semantics = Semantics::new();
+        semantics.compile_call(&mut proto, "foo", "main").unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_type_fail_too_few_args()
+    {
+        let input = r#"
+        func mult i:Int j:Int :Int >> i * j --
+        func main >> mult(7) --
+        "#;
+
+        let mut proto = ProtoLib::new();
+        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
+        let mut semantics = Semantics::new();
+        semantics.compile_call(&mut proto, "foo", "main").unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_type_fail_too_many_args()
+    {
+        let input = r#"
+        func inc i:Int :Int >> i + 1 --
+        func main >> inc(2, 7) --
         "#;
 
         let mut proto = ProtoLib::new();
