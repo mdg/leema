@@ -512,27 +512,49 @@ impl<'p> TypeCheck<'p>
         }
     }
 
-    pub fn set_call_type(&self, callx: &mut AstNode) -> Lresult<()>
+    pub fn applied_call_type(&self, calltype: &Type, args: &ast2::Xlist) -> Lresult<Type>
     {
-        match &*callx.node {
-            Ast::Id2(_modname, _id) => {}
-            other_call => {
+        let ftyp = if let Type::Func(inner_ftyp) = calltype {
+            inner_ftyp
+        } else {
+            return Err(rustfail!(
+                SEMFAIL,
+                "call type is not a function: {:?}",
+                calltype,
+            ));
+        };
+
+        if args.len() < ftyp.args.len() {
+            return Err(rustfail!(
+                SEMFAIL,
+                "too few arguments, expected {}, found {}",
+                ftyp.args.len(),
+                args.len(),
+            ));
+        }
+        if args.len() > ftyp.args.len() {
+            return Err(rustfail!(
+                SEMFAIL,
+                "too many arguments, expected {}, found {}",
+                ftyp.args.len(),
+                args.len(),
+            ));
+        }
+
+        for arg in ftyp.args.iter().zip(args.iter()) {
+            if arg.0.v != arg.1.v.typ {
                 return Err(rustfail!(
                     SEMFAIL,
-                    "cannot set call type for ast: {:?} @ {:?}",
-                    other_call,
-                    callx.loc,
+                    "type error for function param: {}, expected {}, found {} @ {:?}",
+                    arg.0.k.as_ref().unwrap(),
+                    arg.0.v,
+                    arg.1.v.typ,
+                    arg.1.v.loc,
                 ));
             }
         }
-        Ok(())
-    }
 
-    pub fn check_call_args(&self, calltype: &Type, args: &ast2::Xlist) -> Lresult<Type>
-    {
-        println!("calltype: {}", calltype);
-        println!("    args: {:?}", args);
-        Ok(Type::Void)
+        Ok((*ftyp.result).clone())
     }
 }
 
@@ -547,6 +569,9 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 let typ = module.get_type(id)?;
                 node.typ = typ.clone();
             }
+            Ast::ConstVal(c) if node.typ.is_open() => {
+                node.typ = c.get_type();
+            }
             _ => {
                 // should handle matches later, but for now it's fine
             }
@@ -557,7 +582,16 @@ impl<'p> SemanticOp for TypeCheck<'p>
     fn post(&mut self, mut node: AstNode) -> SemanticResult
     {
         match &mut *node.node {
-            Ast::Call(ref mut _callx, _args) => {
+            Ast::Block(items) => {
+                if let Some(last) = items.last() {
+                    node.typ = last.typ.clone();
+                } else {
+                    node.typ = Type::Void;
+                }
+            }
+            Ast::Call(ref mut callx, args) => {
+                let call_result = self.applied_call_type(&callx.typ, &args)?;
+                node.typ = call_result;
             }
             // Ast::Let(patt, dtype, x) => {
             _ => {

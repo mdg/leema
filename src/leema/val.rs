@@ -195,6 +195,7 @@ impl Type
             Type::Open(_, _) => true,
             Type::Var(_) => true,
             Type::Tuple(items) => items.0.iter().any(|i| i.1.is_open()),
+            Type::Unknown => true,
             _ => false,
         }
     }
