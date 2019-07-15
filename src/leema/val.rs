@@ -108,14 +108,7 @@ pub enum Type
     Open(Vec<&'static str>, Box<Type>),
     User(Lstr, &'static str),
     ClosedUser(Lstr, &'static str, Vec<Lstr>),
-    Mod(ModLocalId),
-    Special(SpecialModId),
-    Generic(GenericModId),
-    GenericFunc(Vec<Lstr>, FuncType),
-    SpecialFunc(StrupleKV<Lstr, Type>, FuncType),
-    // UserDef to be deleted once everything is using Mod/Special/Generic/etc
-    UserDef(Lri),
-    // UserGeneric(Lri),
+
     Lib(String),
     Resource(Lstr),
     RustBlock,
@@ -125,6 +118,16 @@ pub enum Type
 
     Unknown,
     Var(Lstr),
+
+    // obsolete, to be deleted
+    Mod(ModLocalId),
+    Special(SpecialModId),
+    Generic(GenericModId),
+    GenericFunc(Vec<Lstr>, FuncType),
+    SpecialFunc(StrupleKV<Lstr, Type>, FuncType),
+    // UserDef to be deleted once everything is using Mod/Special/Generic/etc
+    UserDef(Lri),
+    // UserGeneric(Lri),
 }
 
 impl Type
