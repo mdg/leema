@@ -731,7 +731,18 @@ impl Semantics
             ],
         };
 
-        Self::walk(&mut pipe, body)
+        let result = Self::walk(&mut pipe, body)?;
+        if *ftyp.result != result.typ && *ftyp.result != Type::Void {
+            return Err(rustfail!(
+                SEMFAIL,
+                "bad return type in {}::{}, expected: {}, found {}",
+                mod_name,
+                func_name,
+                ftyp.result,
+                result.typ,
+            ));
+        }
+        Ok(result)
     }
 
     pub fn walk<Op: SemanticOp>(op: &mut Op, node: AstNode) -> AstResult
@@ -1066,5 +1077,19 @@ mod tests
         proto.add_module(&Lstr::Sref("foo"), input).unwrap();
         let mut semantics = Semantics::new();
         semantics.compile_call(&mut proto, "foo", "main").unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_type_fail_bad_return_type()
+    {
+        let input = r#"
+        func inc i:Int :Int >> "hello" --
+        "#;
+
+        let mut proto = ProtoLib::new();
+        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
+        let mut semantics = Semantics::new();
+        semantics.compile_call(&mut proto, "foo", "inc").unwrap();
     }
 }
