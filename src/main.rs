@@ -36,7 +36,6 @@ struct Args
     flag_preface: bool,
     flag_proto: bool,
     flag_semantics: bool,
-    flag_inter: bool,
     flag_typecheck: bool,
     flag_code: bool,
     flag_repl: bool,
@@ -58,7 +57,6 @@ Options:
      --astmod      Show the ast for the module
      --preface     Show the preface for the module
      --proto       Show the proto mod for the module
-     --inter       Show the inter mod for the module
      --semantics   Semantically analyze the module
      --code        Show code for the function
      --repl        Launch the REPL
@@ -143,18 +141,6 @@ fn real_main() -> Lresult<()>
         };
         let semantics = prog.read_semantics(&mod_name, &func)?;
         println!("\n{:#?}\n", semantics);
-        None
-    } else if args.flag_inter {
-        let mut prog = program::Lib::new(inter);
-        let imod = prog.read_inter(&mod_name);
-        let fix = match args.flag_func {
-            Some(func) => {
-                let lfunc = Lstr::from(func);
-                imod.interfunc.get(&lfunc)
-            }
-            None => imod.interfunc.get("main"),
-        };
-        println!("\n{:?}\n", fix);
         None
     } else if args.flag_typecheck {
         let mut prog = program::Lib::new(inter);
