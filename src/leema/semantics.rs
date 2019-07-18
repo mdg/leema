@@ -593,6 +593,11 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 let call_result = self.applied_call_type(&callx.typ, &args)?;
                 node.typ = call_result;
             }
+            Ast::StrExpr(ref _items) => {
+                // check items, but not necessary yet b/c everything
+                // converts to strings right now
+                node.typ = Type::Str;
+            }
             // Ast::Let(patt, dtype, x) => {
             _ => {
                 // should handle matches later, but for now it's fine

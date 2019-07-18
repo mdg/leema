@@ -671,7 +671,21 @@ impl PrefixParser for ParseId
 
     fn parse(&self, _p: &mut Parsl, tok: TokenSrc) -> AstResult
     {
-        Ok(AstNode::new(Ast::Id1(tok.src), Ast::loc(&tok)))
+        match tok.tok {
+            Token::Id => {
+                Ok(AstNode::new(Ast::Id1(tok.src), Ast::loc(&tok)))
+            }
+            Token::DollarId => {
+                Ok(AstNode::new(Ast::Id1(&tok.src[1..]), Ast::loc(&tok)))
+            }
+            _ => {
+                Err(rustfail!(
+                    PARSE_FAIL,
+                    "cannot parse token as id: {:?}",
+                    tok,
+                ))
+            }
+        }
     }
 }
 
@@ -1995,7 +2009,7 @@ mod tests
             assert_matches!(*s.node, Ast::StrExpr(_));
             if let Ast::StrExpr(items) = &*s.node {
                 assert_eq!(1, items.len());
-                assert_eq!(*items[0].node, Ast::Id1("$burritos"));
+                assert_eq!(*items[0].node, Ast::Id1("burritos"));
             }
         }
 
@@ -2008,7 +2022,7 @@ mod tests
                     Ast::ConstVal(Val::Str(Lstr::from("cats "))),
                     *items[0].node,
                 );
-                assert_eq!(*items[1].node, Ast::Id1("$dogs"));
+                assert_eq!(*items[1].node, Ast::Id1("dogs"));
                 assert_eq!(
                     Ast::ConstVal(Val::Str(Lstr::from(" mice"))),
                     *items[2].node,
