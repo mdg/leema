@@ -134,12 +134,14 @@ fn real_main() -> Lresult<()>
         println!("\n{:#?}\n", proto);
         None
     } else if args.flag_semantics {
+        let mod_key = lstrf!("mod name key {}", mod_name);
+        let smod_name = inter.set_mod_txt(mod_key, String::from(&mod_name));
         let mut prog = program::Lib::new(inter);
         let func = match args.flag_func {
             Some(ifunc) => Lstr::from(ifunc),
             None => Lstr::Sref("main"),
         };
-        let semantics = prog.read_semantics(&mod_name, &func)?;
+        let semantics = prog.read_semantics(&Lstr::from(smod_name), &func)?;
         println!("\n{:#?}\n", semantics);
         None
     } else if args.flag_typecheck {

@@ -1,5 +1,6 @@
-func fact: Int
-.i: Int
+import io
+
+func fact i:Int :Int
 >>
     if
     |i == 1 >> 1
@@ -10,6 +11,6 @@ func fact: Int
 func main
 >>
     let f := fact(4)
-    print("factorial(4) = $f\n")
+    io::print("factorial(4) = $f\n")
 --
 
