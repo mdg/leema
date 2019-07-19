@@ -167,32 +167,50 @@ impl<'l> MacroApplication<'l>
         let mut macro_replace = MacroReplacement{arg_map, loc};
         Semantics::walk(&mut macro_replace, body.clone())
     }
+
+    fn op_to_call(module: &'static str, func: &'static str, a: AstNode, b: AstNode, loc: Loc) -> AstNode
+    {
+        let callx = AstNode::new(Ast::Id2(module, func), loc);
+        let args: StrupleKV<Option<&'static str>, AstNode> = StrupleKV::from(vec![a, b]);
+        AstNode::new(Ast::Call(callx, args), loc)
+    }
 }
 
 impl<'l> SemanticOp for MacroApplication<'l>
 {
     fn pre(&mut self, node: AstNode) -> SemanticResult
     {
-        if let Ast::Call(callid, args) = *node.node {
-            let optmac = match *callid.node {
-                Ast::Id1(macroname) => self.local.find_macro(macroname),
-                Ast::Id2(modname, macroname) => {
-                    self.proto.get(modname)?.find_macro(macroname)
-                }
-                _ => None,
-            };
-            match optmac {
-                Some(mac) => {
-                    let result = Self::apply_macro(mac, callid.loc, args)?;
-                    Ok(SemanticAction::Rewrite(result))
-                }
-                None => {
-                    let node2 = AstNode::new(Ast::Call(callid, args), node.loc);
-                    Ok(SemanticAction::Keep(node2))
+        match *node.node {
+            Ast::Call(callid, args) => {
+                let optmac = match *callid.node {
+                    Ast::Id1(macroname) => self.local.find_macro(macroname),
+                    Ast::Id2(modname, macroname) => {
+                        self.proto.get(modname)?.find_macro(macroname)
+                    }
+                    _ => None,
+                };
+                match optmac {
+                    Some(mac) => {
+                        let result = Self::apply_macro(mac, callid.loc, args)?;
+                        Ok(SemanticAction::Rewrite(result))
+                    }
+                    None => {
+                        let node2 = AstNode::new(Ast::Call(callid, args), node.loc);
+                        Ok(SemanticAction::Keep(node2))
+                    }
                 }
             }
-        } else {
-            Ok(SemanticAction::Keep(node))
+            Ast::Op2("+", a, b) => {
+                let call = Self::op_to_call("math", "int_add", a, b, node.loc);
+                Ok(SemanticAction::Rewrite(call))
+            }
+            Ast::Op2("-", a, b) => {
+                let call = Self::op_to_call("math", "int_sub", a, b, node.loc);
+                Ok(SemanticAction::Rewrite(call))
+            }
+            _ => {
+                Ok(SemanticAction::Keep(node))
+            }
         }
     }
 }
@@ -311,13 +329,20 @@ struct ScopeCheck<'p>
 
 impl<'p> ScopeCheck<'p>
 {
-    pub fn new(local_mod: &'p ProtoModule, lib: &'p ProtoLib) -> ScopeCheck<'p>
+    pub fn new(ftyp: &'p FuncType, local_mod: &'p ProtoModule, lib: &'p ProtoLib) -> Lresult<ScopeCheck<'p>>
     {
-        ScopeCheck {
-            blocks: Blockstack::new(),
+        let mut root = Blockstack::new();
+        for arg in ftyp.args.iter() {
+            let argn = arg.k.as_ref().ok_or_else(|| {
+                rustfail!(SEMFAIL, "arguments must have a name: {:?}", arg)
+            })?;
+            root.assign_var(&argn, LocalType::Param);
+        }
+        Ok(ScopeCheck {
+            blocks: root,
             local_mod,
             lib,
-        }
+        })
     }
 }
 
@@ -722,7 +747,7 @@ impl Semantics
             local: local_proto,
             proto: proto,
         };
-        let mut scope_check = ScopeCheck::new(local_proto, proto);
+        let mut scope_check = ScopeCheck::new(ftyp, local_proto, proto)?;
         let mut var_types = VarTypes::new(&local_proto.key.name, ftyp)?;
         let mut type_check = TypeCheck::new(local_proto, proto);
         let mut remove_extra = RemoveExtraCode;
@@ -910,6 +935,7 @@ mod tests
     use crate::leema::ast2::Ast;
     use crate::leema::lstr::Lstr;
     use crate::leema::proto::ProtoLib;
+    use crate::leema::val::Type;
 
     use matches::assert_matches;
 
@@ -955,6 +981,18 @@ mod tests
         proto.add_module(&Lstr::Sref("foo"), input).unwrap();
         let mut semantics = Semantics::new();
         semantics.compile_call(&mut proto, "foo", "main").unwrap();
+    }
+
+    #[test]
+    fn test_semantics_param_in_scope()
+    {
+        let input = r#"func inc i:Int :Int >> i + 1 --"#;
+
+        let mut proto = ProtoLib::new();
+        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
+        let mut semantics = Semantics::new();
+        let result = semantics.compile_call(&mut proto, "foo", "inc").unwrap();
+        assert_eq!(Type::Int, result.typ);
     }
 
     #[test]

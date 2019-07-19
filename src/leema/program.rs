@@ -193,11 +193,11 @@ impl Lib
         Ok(())
     }
 
-    pub fn read_semantics(&mut self, modname: &Lstr, funcname: &Lstr) -> Lresult<()>
+    pub fn read_semantics(&mut self, modname: &Lstr, funcname: &Lstr) -> Lresult<Type>
     {
         self.load_proto_and_imports(modname)?;
-        self.semantics.compile_call(&mut self.protos, modname.str(), funcname.str())?;
-        Ok(())
+        let result = self.semantics.compile_call(&mut self.protos, modname.str(), funcname.str())?;
+        Ok(result.typ)
     }
 
     pub fn read_modsrc(&mut self, modname: &Lstr) -> ModuleSource
