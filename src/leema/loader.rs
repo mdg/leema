@@ -85,7 +85,7 @@ impl Interloader
         if contained {
             Ok(ModKey::name_only(mod_name.clone()))
         } else {
-            let path = self.find_file_path(mod_name)?;
+            let path = ltry!(self.find_file_path(mod_name));
             Ok(ModKey::new(mod_name.clone(), path))
         }
     }
@@ -101,7 +101,7 @@ impl Interloader
             return Ok(txt);
         }
 
-        let mod_key = self.mod_name_to_key(mod_name)?;
+        let mod_key = ltry!(self.mod_name_to_key(mod_name));
         let filepath = mod_key.file.as_ref().ok_or_else(|| {
             rustfail!(
                 "file_not_found",
@@ -131,7 +131,7 @@ impl Interloader
 
         Err(rustfail!(
             "file_not_found",
-            "Module file does not exist: {:?}",
+            "Module file path cannot be found: {:?}",
             name,
         ))
     }
@@ -157,6 +157,26 @@ impl Interloader
         f.read_to_string(&mut result)
             .expect("failed reading file to text");
         Ok(result)
+    }
+}
+
+/// Default Interloader primarily for using in tests and dev
+impl Default for Interloader
+{
+    fn default() -> Interloader
+    {
+        println!("file: {:?}", file!());
+        let root_path = Path::new(file!())
+            .parent().unwrap()   // pop loader.rs
+            .parent().unwrap()   // pop leema/
+            .parent().unwrap();  // pop src/
+        let leema_path = root_path.join(Path::new("lib"));
+
+        Interloader {
+            main_mod: Lstr::Sref("__default__"),
+            paths: vec![leema_path],
+            texts: HashMap::new(),
+        }
     }
 }
 

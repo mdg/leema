@@ -21,6 +21,15 @@ macro_rules! rustfail {
     };
 }
 
+macro_rules! lfailoc {
+    ($r:expr) => {
+        match $r {
+            Ok(x) => Ok(x),
+            Err(f) => Err(f.loc(file!(), line!())),
+        }
+    };
+}
+
 macro_rules! ltry {
     ($r:expr) => {
         match $r {

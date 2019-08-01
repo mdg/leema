@@ -334,7 +334,7 @@ impl ProtoLib
         if self.protos.contains_key(modname) {
             return Ok(());
         }
-        let modtxt = loader.read_mod(modname)?;
+        let modtxt = ltry!(loader.read_mod(modname));
         let modkey = ModKey::name_only(modname.clone());
         let proto = ProtoModule::new(modkey, modtxt)?;
         self.protos.insert(modname.clone(), proto);
@@ -372,7 +372,7 @@ impl ProtoLib
             }
         }
         for i in imported.iter() {
-            self.load(loader, i)?;
+            ltry!(self.load(loader, i));
         }
         Ok(())
     }

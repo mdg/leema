@@ -201,11 +201,11 @@ impl<'l> SemanticOp for MacroApplication<'l>
                 }
             }
             Ast::Op2("+", a, b) => {
-                let call = Self::op_to_call("math", "int_add", a, b, node.loc);
+                let call = Self::op_to_call("prefab", "int_add", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2("-", a, b) => {
-                let call = Self::op_to_call("math", "int_sub", a, b, node.loc);
+                let call = Self::op_to_call("prefab", "int_sub", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             _ => {
@@ -933,12 +933,21 @@ mod tests
 {
     use super::Semantics;
     use crate::leema::ast2::Ast;
+    use crate::leema::loader::Interloader;
     use crate::leema::lstr::Lstr;
     use crate::leema::proto::ProtoLib;
     use crate::leema::val::Type;
 
     use matches::assert_matches;
 
+
+    fn load_proto_with_prefab() -> ProtoLib
+    {
+        let mut loader = Interloader::default();
+        let mut proto = ProtoLib::new();
+        lfailoc!(proto.load(&mut loader, &Lstr::Sref("prefab"))).unwrap();
+        proto
+    }
 
     #[test]
     fn test_semantics_macro()
@@ -988,7 +997,7 @@ mod tests
     {
         let input = r#"func inc i:Int :Int >> i + 1 --"#;
 
-        let mut proto = ProtoLib::new();
+        let mut proto = load_proto_with_prefab();
         proto.add_module(&Lstr::Sref("foo"), input).unwrap();
         let mut semantics = Semantics::new();
         let result = semantics.compile_call(&mut proto, "foo", "inc").unwrap();
