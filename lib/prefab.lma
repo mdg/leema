@@ -1,27 +1,27 @@
-macro boolean_and(and_a, and_b) ->
+macro boolean_and and_a and_b >>
     if
-    |and_a -> and_b
-    |else -> false
+    |and_a >> and_b
+    |else >> false
     --
 --
 
-macro boolean_or(or_a, or_b) ->
+macro boolean_or or_a or_b >>
     if
-    |or_a -> true
-    |else -> or_b
+    |or_a >> true
+    |else >> or_b
     --
 --
 
-macro fail(ft, msg) ->
+macro fail ft msg >>
     return create_failure(ft, msg)
 --
 
-macro refail(f) ->
+macro refail f >>
     return f
 --
 
 ## recover from a failure w/ a new valid value
-macro unfail(new_val) ->
+macro unfail new_val >>
     new_val
 --
 

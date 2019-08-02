@@ -199,6 +199,7 @@ impl ParseStmt
             Token::Macro => ParseStmt::parse_defmacro(p),
             Token::Import => ParseStmt::parse_import(p),
             Token::Let => ParseStmt::parse_let(p, tok),
+            Token::Return => ParseStmt::parse_return(p, Ast::loc(&tok)),
             Token::Type => ParseStmt::parse_deftype(p),
             _ => p.reparse(&ExprMode, MIN_PRECEDENCE, tok),
         }
@@ -384,6 +385,12 @@ impl ParseStmt
         let rhs = p.parse_new(&ExprMode)?;
         let loc = Ast::loc(&tok);
         Ok(AstNode::new(Ast::Let(lhs, AstNode::void(), rhs), loc))
+    }
+
+    fn parse_return(p: &mut Parsl, loc: Loc) -> AstResult
+    {
+        let result = p.parse_new(&ExprMode)?;
+        Ok(AstNode::new(Ast::Return(result), loc))
     }
 }
 

@@ -705,7 +705,7 @@ impl ScanModeTrait for ScanModeHashtag
             '#' => {
                 Ok(ScanOutput::Token(
                     Token::CommentLine,
-                    false,
+                    true,
                     ScanModeOp::Pop,
                 ))
             }

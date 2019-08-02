@@ -372,7 +372,7 @@ impl ProtoLib
             }
         }
         for i in imported.iter() {
-            ltry!(self.load(loader, i));
+            lfailoc!(self.load(loader, i))?;
         }
         Ok(())
     }
