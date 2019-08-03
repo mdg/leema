@@ -202,6 +202,7 @@ impl Token
     pub fn parsefilter(tok: Token) -> bool
     {
         match tok {
+            Token::CommentLine => false,
             Token::EmptyLine => false,
             Token::LineEnd => false,
             Token::Spaces => false,
@@ -327,6 +328,9 @@ struct ScanModeCasePipe;
 
 #[derive(Debug)]
 struct ScanModeColon;
+
+#[derive(Debug)]
+struct ScanModeCommentLine;
 
 #[derive(Debug)]
 struct ScanModeDash;
@@ -598,6 +602,25 @@ impl ScanModeTrait for ScanModeColon
     }
 }
 
+impl ScanModeTrait for ScanModeCommentLine
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        let output = match next.c {
+            '\n' => {
+                ScanOutput::Token(Token::CommentLine, true, ScanModeOp::Pop)
+            }
+            _ => ScanOutput::Next(ScanModeOp::Noop),
+        };
+        Ok(output)
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        Ok(ScanOutput::Token(Token::CommentLine, false, ScanModeOp::Pop))
+    }
+}
+
 impl ScanModeTrait for ScanModeDash
 {
     fn scan(&self, next: Char) -> ScanResult
@@ -703,10 +726,8 @@ impl ScanModeTrait for ScanModeHashtag
                 ))
             }
             '#' => {
-                Ok(ScanOutput::Token(
-                    Token::CommentLine,
-                    true,
-                    ScanModeOp::Pop,
+                Ok(ScanOutput::Next(
+                    ScanModeOp::Replace(&ScanModeCommentLine),
                 ))
             }
             '_' => idop,
@@ -1166,6 +1187,19 @@ mod tests
         i.next().unwrap();
         assert_eq!(Token::Spaces, nextok(&mut i).0);
         assert_eq!(Token::CasePipe, nextok(&mut i).0);
+        assert_eq!(Token::EOF, nextok(&mut i).0);
+        assert_eq!(None, i.next());
+    }
+
+    #[test]
+    fn test_tokenz_comments()
+    {
+        let input = "## whatever";
+        let t: Vec<TokenResult> = Tokenz::lex(input).collect();
+        let mut i = t.iter();
+        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+
+        assert_eq!((Token::CommentLine, "## whatever"), nextok(&mut i));
         assert_eq!(Token::EOF, nextok(&mut i).0);
         assert_eq!(None, i.next());
     }
