@@ -165,7 +165,6 @@ impl Default for Interloader
 {
     fn default() -> Interloader
     {
-        println!("file: {:?}", file!());
         let root_path = Path::new(file!())
             .parent().unwrap()   // pop loader.rs
             .parent().unwrap()   // pop leema/
