@@ -965,7 +965,7 @@ mod tests
         --
         "#;
 
-        let mut proto = ProtoLib::new();
+        let mut proto = load_proto_with_prefab();
         proto.add_module(&Lstr::Sref("foo"), input).unwrap();
         let mut semantics = Semantics::new();
         let body = semantics.compile_call(&mut proto, "foo", "main").unwrap();
@@ -1008,14 +1008,14 @@ mod tests
     fn test_semantics_module_scope_call()
     {
         let input = r#"
-        func foo >> 5 --
+        func foo :Int >> 5 --
 
         func main >>
             foo() + 3
         --
         "#;
 
-        let mut proto = ProtoLib::new();
+        let mut proto = load_proto_with_prefab();
         proto.add_module(&Lstr::Sref("foo"), input).unwrap();
         let mut semantics = Semantics::new();
         semantics.compile_call(&mut proto, "foo", "main").unwrap();
@@ -1036,7 +1036,7 @@ mod tests
     #[test]
     fn test_semantics_external_scope_call()
     {
-        let foo_input = r#"func bar >> 3 --"#;
+        let foo_input = r#"func bar :Int >> 3 --"#;
 
         let baz_input = r#"
         func main >>
@@ -1044,7 +1044,7 @@ mod tests
         --
         "#;
 
-        let mut proto = ProtoLib::new();
+        let mut proto = load_proto_with_prefab();
         proto.add_module(&Lstr::Sref("foo"), foo_input).unwrap();
         proto.add_module(&Lstr::Sref("baz"), baz_input).unwrap();
         let mut semantics = Semantics::new();
