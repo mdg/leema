@@ -12,7 +12,6 @@ use std::sync::Mutex;
 use lazy_static::lazy_static;
 
 
-const PREFAB_SRC: &'static str = include_str!("../../lib/prefab.lma");
 static mut TEXTS: Option<Vec<String>> = None;
 
 unsafe fn put_modtxt(val: String) -> &'static str
@@ -100,9 +99,6 @@ impl Interloader
     {
         if let Some(txt) = self.texts.get(mod_name) {
             return Ok(txt);
-        }
-        if mod_name == "prefab" {
-            return Ok(PREFAB_SRC);
         }
 
         let mod_key = ltry!(self.mod_name_to_key(mod_name));
