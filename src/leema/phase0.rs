@@ -1674,7 +1674,6 @@ mod tests
     use crate::leema::lstr::Lstr;
     use crate::leema::program;
     use crate::leema::struple::{Struple, StrupleItem, StrupleKV};
-    use crate::leema::types;
     use crate::leema::val::{FuncType, Type, Val};
 
 
@@ -1765,26 +1764,6 @@ mod tests
     }
 
     #[test]
-    fn test_preproc_generic_func()
-    {
-        let input = "
-            func swap[A, B](x: A, y: B): (B, A) >>
-                (b, a)
-            --
-            "
-        .to_string();
-
-        let foo_str = Lstr::Sref("foo");
-        let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
-        loader.set_mod_txt(foo_str.clone(), input);
-        let mut prog = program::Lib::new(loader);
-        let pmod = prog.read_proto(&foo_str);
-
-        let _foo_type = pmod.valtypes.get("swap").unwrap();
-        let _foo_const = pmod.constants.get("swap").unwrap();
-    }
-
-    #[test]
     fn test_preproc_closures()
     {
         let input = "
@@ -1804,35 +1783,6 @@ mod tests
         let closure0 = pmod.closures.front().unwrap();
         assert_eq!("foo_4_i", closure0);
         assert_eq!(1, pmod.closures.len());
-    }
-
-    #[test]
-    fn test_preproc_const()
-    {
-        let input = "
-            const x := #whatever
-            "
-        .to_string();
-        let foo_str = Lstr::Sref("foo");
-        let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
-        loader.set_mod_txt(foo_str.clone(), input);
-        let mut prog = program::Lib::new(loader);
-        let pmod = prog.read_proto(&foo_str);
-
-        // assert constants
-        let whatever = pmod.constants.get("x").unwrap();
-        assert_eq!("whatever", whatever.str());
-        assert_eq!(2, pmod.constants.len());
-
-        // assert valtypes
-        assert_eq!(1, pmod.valtypes.len());
-
-        // assert empty data
-        assert!(pmod.closures.is_empty());
-        assert!(pmod.deftypes.is_empty());
-        assert!(pmod.funcseq.is_empty());
-        assert!(pmod.funcsrc.is_empty());
-        assert!(pmod.struple_fields.is_empty());
     }
 
     #[test]
@@ -2212,141 +2162,5 @@ mod tests
         // assert funcsrc
         assert!(pmod.funcsrc.contains_key("Burrito"));
         assert_eq!(1, pmod.funcsrc.len());
-    }
-
-    #[test]
-    fn preproc_defstruple_keyed()
-    {
-        let input = "
-            struct Burrito
-            .filling: Str
-            .number: Int
-            --
-            "
-        .to_string();
-        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
-        loader.set_mod_txt(Lstr::Sref("tacos"), input);
-        let mut prog = program::Lib::new(loader);
-        let pmod = prog.read_proto(&Lstr::Sref("tacos"));
-
-        // assert valtypes
-        assert!(pmod.valtypes.contains_key("Burrito"));
-        let constructor = pmod.valtypes.get("Burrito").unwrap();
-        if let &Type::Func(ref ft) = constructor {
-            assert_eq!(2, ft.args.len());
-            let exp_result = Type::UserDef(Lri::with_modules(
-                Lstr::from("tacos"),
-                Lstr::from("Burrito"),
-            ));
-            assert_eq!(exp_result, *ft.result);
-        } else {
-            panic!("constructor valtype is not a func");
-        }
-
-        let xtyperef = Type::UserDef(Lri::with_modules(
-            Lstr::from("tacos"),
-            Lstr::from("Burrito"),
-        ));
-        let xfunctype = Type::Func(FuncType::new(
-            StrupleKV::from_vec(vec![
-                StrupleItem::new(Some(Lstr::Sref("filling")), Type::Str),
-                StrupleItem::new(Some(Lstr::Sref("number")), Type::Int),
-            ]),
-            xtyperef.clone(),
-        ));
-
-        // assert constants
-        let funcref = pmod.constants.get("Burrito").unwrap();
-        if let &Val::FuncRef(ref funcri, ref args, ref ftype) = funcref {
-            // func lri
-            assert_eq!("tacos", funcri.mod_ref().unwrap().str());
-            assert_eq!("Burrito", funcri.localid.str());
-            // func args
-            assert_eq!("filling", args.0[0].0.as_ref().unwrap());
-            assert_eq!("number", args.0[1].0.as_ref().unwrap());
-            assert_eq!(Val::Void, args.0[0].1);
-            assert_eq!(Val::Void, args.0[1].1);
-            assert_eq!(2, args.0.len());
-            // func type
-            assert_eq!(xfunctype, *ftype);
-        } else {
-            panic!("Burrito constant is not a FuncRef: {:?}", funcref);
-        }
-        let type_vals = pmod.constants.get("TYPES").unwrap();
-        assert_eq!(1, list::len(type_vals));
-        let burrito_typeval = list::head_ref(type_vals);
-        if let &Val::Struct(ref stype, ref sfields) = burrito_typeval {
-            assert_eq!("types::TypeVal", format!("{}", stype));
-            assert_eq!(2, sfields.0.len());
-        } else {
-            panic!("Burrito constant is not a struct: {:?}", burrito_typeval);
-        }
-        assert_eq!(2, pmod.constants.len());
-
-        // assert burrito field types
-        let burrito_filling_type =
-            types::get_field_type(burrito_typeval, &Lstr::Sref("filling"))
-                .expect("cannot find Burrito filling field");
-        let burrito_number_type =
-            types::get_field_type(burrito_typeval, &Lstr::Sref("number"))
-                .expect("cannot find Burrito number field");
-        assert_eq!(Type::Str, *burrito_filling_type.1);
-        assert_eq!(Type::Int, *burrito_number_type.1);
-        assert_eq!(0, burrito_filling_type.0);
-        assert_eq!(1, burrito_number_type.0);
-
-        // assert funcseq contents
-        assert_eq!("Burrito", *&pmod.funcseq.front().unwrap());
-        assert_eq!(1, pmod.funcseq.len());
-
-        // assert valtypes
-        assert_eq!(xfunctype, *pmod.valtypes.get("Burrito").unwrap());
-        assert_eq!(1, pmod.valtypes.len());
-
-        // assert funcsrc
-        assert!(pmod.funcsrc.contains_key("Burrito"));
-        assert_eq!(1, pmod.funcsrc.len());
-
-        // field indexes
-        let burrito_filling_idx = pmod.struple_field_idx("Burrito", "filling");
-        let burrito_number_idx = pmod.struple_field_idx("Burrito", "number");
-        burrito_filling_idx.expect("burrito filling idx");
-        burrito_number_idx.expect("burrito number idx");
-    }
-
-    #[test]
-    fn preproc_defstruple_token()
-    {
-        let input = "
-            struct Burrito --
-            "
-        .to_string();
-
-        let mut loader = Interloader::new(Lstr::Sref("tok.lma"), "lib");
-        loader.set_mod_txt(Lstr::Sref("tok"), input);
-        let mut prog = program::Lib::new(loader);
-        let pmod = prog.read_proto(&Lstr::Sref("tok"));
-
-        let exptype_lri =
-            Lri::with_modules(Lstr::from("tok"), Lstr::from("Burrito"));
-        let exptype = Type::UserDef(exptype_lri.clone());
-
-        // verify valtypes
-        assert_eq!(exptype, *pmod.valtypes.get("Burrito").unwrap());
-        assert_eq!(1, pmod.valtypes.len());
-
-        // verify constants
-        assert_eq!(
-            Val::Token(exptype_lri.clone()),
-            *pmod.constants.get("Burrito").unwrap()
-        );
-        pmod.constants
-            .get("TYPES")
-            .expect("tok constants not found");
-        assert_eq!(2, pmod.constants.len());
-
-        // assert on fields that shouldn't have changed
-        assert_eq!(0, pmod.funcseq.len());
-        assert_eq!(0, pmod.funcsrc.len());
     }
 }

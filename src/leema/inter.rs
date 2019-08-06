@@ -1347,25 +1347,6 @@ mod tests
     }
 
     #[test]
-    #[should_panic]
-    fn test_compile_function_undefined_var()
-    {
-        let input = "
-            func foo(x) ->
-                \"($x:$y)\"
-            --
-            "
-        .to_string();
-
-        let foo_str = Lstr::Sref("foo");
-        let mut loader = Interloader::new(Lstr::Sref("foo.lma"), "lib");
-        loader.set_mod_txt(foo_str.clone(), input);
-        let mut prog = program::Lib::new(loader);
-        // y is undefined so this should crash b/c it's not a closure
-        prog.read_inter(&foo_str);
-    }
-
-    #[test]
     fn test_compile_function_closure_def()
     {
         let input = "

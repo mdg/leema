@@ -869,25 +869,6 @@ mod tests
 
     #[test]
     #[should_panic]
-    fn test_let_type_mismatch()
-    {
-        let input = r#"
-            func main() ->
-                let x: Str := 1 + 2
-                print("$x")
-            --
-            "#
-        .to_string();
-
-        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
-        loader.set_mod_txt(Lstr::Sref("tacos"), input);
-        let mut prog = program::Lib::new(loader);
-        let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("main"));
-        prog.typecheck(&fri, Depth::Full);
-    }
-
-    #[test]
-    #[should_panic]
     fn test_typevar_parameter_mismatch()
     {
         let input = r#"
@@ -909,68 +890,4 @@ mod tests
         let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("main"));
         prog.typecheck(&fri, Depth::Full);
     }
-
-    /*
-    #[test]
-    fn test_typevar_used_two_ways()
-    {
-        let input = r#"
-            import io
-
-            func swap[T, U](a: T, b: U): (U, T) >>
-                (b, a)
-            --
-
-            func main() >>
-                let (a, b) := swap[Str, #]("x", #y)
-                let (c, d) := swap[Int, Bool](8, true)
-                io::print("swapped: $a $b $c $d\n")
-            --
-            "#
-        .to_string();
-
-        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
-        loader.set_mod_txt(Lstr::Sref("tacos"), input);
-        let mut prog = program::Lib::new(loader);
-        let fri = Lri::with_modules(Lstr::from("tacos"), Lstr::from("main"));
-        let main_type = prog.typecheck(&fri, Depth::Full);
-        let main_ft = FuncType::new(StrupleKV::none(), Type::Void);
-        assert_eq!(Type::Func(main_ft), main_type);
-
-        let swapi = Lri::with_modules(Lstr::from("tacos"), Lstr::from("swap"));
-        let swap_type = prog.typecheck(&swapi, Depth::Full);
-        let func_vars = vec![Lstr::Sref("T"), Lstr::Sref("U")];
-        let func_type = FuncType::new(
-            StrupleKV::from_vec(vec![
-                StrupleItem::new(
-                    Some(Lstr::Sref("a")),
-                    Type::Var(Lstr::Sref("T")),
-                ),
-                StrupleItem::new(
-                    Some(Lstr::Sref("b")),
-                    Type::Var(Lstr::Sref("U")),
-                ),
-            ]),
-            Type::Tuple(Struple(vec![
-                (None, Type::Var(Lstr::Sref("U"))),
-                (None, Type::Var(Lstr::Sref("T"))),
-            ])),
-        );
-        assert_eq!(Type::GenericFunc(func_vars, func_type), swap_type);
-    }
-    */
 }
-
-/*
-thing that reads files
-
-thing that holds imported files, ntyped functions
-
-view of visible naively, unferred typed stuff
-
-thing that holds complete type info
-
-view of visible type-complete stuff
-
-library of typed code
-*/
