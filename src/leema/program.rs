@@ -2,19 +2,17 @@ use crate::leema::ast::Ast;
 use crate::leema::ast2;
 use crate::leema::code::{self, Code};
 use crate::leema::failure::Lresult;
-use crate::leema::infer::TypeSet;
 use crate::leema::inter::Intermod;
 use crate::leema::ixpr::Source;
 use crate::leema::lib_map;
 use crate::leema::lib_str;
 use crate::leema::loader::Interloader;
-use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::{ModKey, ModulePreface, ModuleSource};
 use crate::leema::phase0::{self, Protomod};
 use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::semantics::Semantics;
-use crate::leema::typecheck::{self, CallFrame, CallOp, Typemod, Typescope};
+use crate::leema::typecheck::Typemod;
 use crate::leema::val::Type;
 use crate::leema::{
     file, lib_hyper, lib_io, lib_json, lib_list, lib_task, prefab, tcp, udp,
@@ -57,7 +55,6 @@ impl Lib
         proglib
             .rust_load
             .insert(Lstr::Sref("prefab"), prefab::load_rust_func);
-        proglib.load_inter(&Lstr::Sref("prefab"));
         proglib
             .rust_load
             .insert(Lstr::Sref("file"), file::load_rust_func);
@@ -243,9 +240,6 @@ impl Lib
         vout!("read_code({}::{})\n", modname, funcname);
         self.load_inter(modname);
 
-        let funcri = Lri::with_modules(modname.clone(), funcname.clone());
-        self.typecheck(&funcri, typecheck::Depth::One);
-
         let inter = self
             .inter
             .get(modname)
@@ -281,157 +275,6 @@ impl Lib
             let ops = code::make_ops(fix);
             Code::Leema(ops)
         }
-    }
-
-    pub fn typecheck(&mut self, funcri: &Lri, depth: typecheck::Depth) -> Type
-    {
-        vout!("typecheck({}, {:?})\n", funcri, depth);
-        self.load_inter(funcri.mod_ref().expect("no typecheck module name"));
-        if depth.one_deeper() {
-            self.deeper_typecheck(funcri, depth);
-        }
-
-        let ftype = self.local_typecheck(funcri);
-        let modstr = funcri.mod_ref().unwrap().str();
-        let mutyped = self.typed.get_mut(modstr).unwrap();
-        mutyped.set_function_type(funcri.localid.clone(), ftype.clone());
-        vout!("\tfinish typecheck({}: {})\n", funcri, ftype);
-        ftype
-    }
-
-    pub fn deeper_typecheck(&mut self, funcri: &Lri, depth: typecheck::Depth)
-    {
-        let mod_str = funcri.mod_ref().expect("typecheck module name").clone();
-        let cf = {
-            let mut icf = CallFrame::new(funcri);
-            let inter = self.inter.get(&mod_str).unwrap();
-            let fix = inter
-                .interfunc
-                .get(funcri.localid.str())
-                .or_else(|| {
-                    panic!("cannot find function inter: {}", funcri);
-                })
-                .unwrap();
-            icf.collect_calls(&fix);
-            vout!("collected calls: {} => {:?}\n", funcri, icf.calls);
-            icf
-        };
-        for c in cf.calls.iter() {
-            match c {
-                &CallOp::LocalCall(ref call_name) => {
-                    println!("typecheck local call: {}", call_name);
-                    /* if it's still a local call at this point,
-                     * it's probably a closure
-                     */
-                    let contains_local = {
-                        let opt_local_inter = self.inter.get(&mod_str);
-                        if opt_local_inter.is_none() {
-                            panic!("inter not found for module: {}", funcri);
-                        }
-                        let local_inter = opt_local_inter.unwrap();
-                        local_inter.interfunc.contains_key(&**call_name)
-                    };
-                    if contains_local {
-                        if funcri.localid.str() != &**call_name {
-                            self.typecheck(
-                                &Lri::full(
-                                    funcri.modules.clone(),
-                                    call_name.clone(),
-                                    None,
-                                ),
-                                depth.next(),
-                            );
-                        }
-                    } else {
-                        self.typecheck(
-                            &Lri::with_modules(
-                                Lstr::Sref("prefab"),
-                                call_name.clone(),
-                            ),
-                            depth.next(),
-                        );
-                    }
-                }
-                &CallOp::ExternalCall(ref ext) => {
-                    if funcri == ext {
-                        // do nothing, it's recursive, we're already doing it
-                    } else {
-                        self.typecheck(&ext, depth.next());
-                    }
-                }
-            }
-        }
-    }
-
-    pub fn local_typecheck(&mut self, funcri: &Lri) -> Type
-    {
-        vout!("local_typecheck({})\n", funcri);
-        let modlstr = funcri.mod_ref().unwrap();
-        self.load_inter(modlstr);
-        let funclstr = &funcri.localid;
-        let opt_inter = self.inter.get_mut(modlstr);
-        if opt_inter.is_none() {
-            panic!("cannot find inter for {}", funcri);
-        }
-        let inter = opt_inter.unwrap();
-        let opt_fix = inter.interfunc.get_mut(funclstr);
-        if opt_fix.is_none() {
-            panic!("cannot find function: {}", funclstr);
-        }
-        let mut fix = opt_fix.unwrap();
-        if !self.typed.contains_key(modlstr) {
-            self.typed
-                .insert(modlstr.clone(), Typemod::new(modlstr.clone()));
-        }
-
-        {
-            let mutyped = self.typed.get_mut(modlstr).unwrap();
-            if mutyped.get_function_type(funclstr).is_none() {
-                let proto = self.proto.get(modlstr).unwrap();
-                let decltype = proto.valtypes.get(funclstr).unwrap();
-                mutyped.set_function_type(funclstr.clone(), decltype.clone());
-            }
-        }
-        let typed = self.typed.get(modlstr).unwrap();
-
-        let mut typeset = TypeSet::new();
-        if self.proto.contains_key("prefab") {
-            typeset.import_user_types(
-                Lstr::Sref("prefab"),
-                &self.proto.get("prefab").unwrap().struple_fields,
-            );
-        }
-
-        let pref = self.preface.get(modlstr).unwrap().clone();
-        let mut imports: HashMap<Lstr, &Typemod> = HashMap::new();
-        let prefab_typed = self.typed.get("prefab");
-        if prefab_typed.is_some() {
-            imports.insert(Lstr::Sref("prefab"), prefab_typed.unwrap());
-        }
-        for i in pref.imports.iter() {
-            let iii: Option<&Typemod> = self.typed.get(i);
-            if iii.is_none() {
-                panic!("cannot find intermod in imports: {}", i);
-            }
-            imports.insert(i.clone(), iii.unwrap());
-
-            let improto = self.proto.get(i).unwrap();
-            typeset.import_user_types(i.clone(), &improto.struple_fields);
-        }
-
-        let opt_proto = self.proto.get(modlstr);
-        typeset.import_user_types(
-            modlstr.clone(),
-            &opt_proto.unwrap().struple_fields,
-        );
-        let mut scope = Typescope::new(
-            typed,
-            opt_proto.unwrap(),
-            &funcri,
-            &imports,
-            &typeset,
-        );
-        typecheck::typecheck_function(&mut scope, &mut fix).unwrap()
     }
 
     fn load_proto_and_imports(&mut self, modname: &Lstr) -> Lresult<()>

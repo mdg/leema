@@ -14,7 +14,6 @@ use crate::leema::lstr::Lstr;
 use crate::leema::program;
 use crate::leema::struple::Struple;
 use crate::leema::token::{TokenResult, Tokenz};
-use crate::leema::typecheck;
 use crate::leema::val::Val;
 
 use docopt::Docopt;
@@ -143,13 +142,6 @@ fn real_main() -> Lresult<()>
         };
         let semantics = prog.read_semantics(&Lstr::from(smod_name), &func)?;
         println!("\n{:#?}\n", semantics);
-        None
-    } else if args.flag_typecheck {
-        let mut prog = program::Lib::new(inter);
-        let func_name = Lstr::Sref("main");
-        let funcri = Lri::with_modules(mod_name, func_name);
-        let ftype = prog.typecheck(&funcri, typecheck::Depth::Full);
-        println!("type: {}", ftype);
         None
     } else if args.flag_code {
         let mut prog = program::Lib::new(inter);
