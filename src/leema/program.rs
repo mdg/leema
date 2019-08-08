@@ -97,7 +97,7 @@ impl Lib
         &self.loader.main_mod
     }
 
-    pub fn load_code(&mut self, modname: &Lstr, funcname: &Lstr) -> &Code
+    pub fn load_code(&mut self, modname: &Lstr, funcname: &Lstr) -> Lresult<&Code>
     {
         let (has_mod, has_func) = if self.code.contains_key(modname) {
             let old_mod = self.code.get(modname).unwrap();
@@ -107,7 +107,7 @@ impl Lib
         };
 
         if !has_func {
-            let new_code = self.read_code(modname, funcname);
+            let new_code = self.read_code(modname, funcname)?;
 
             if has_mod {
                 let old_mod = self.code.get_mut(modname).unwrap();
@@ -119,7 +119,20 @@ impl Lib
             }
         }
 
-        self.code.get(modname).unwrap().get(funcname).unwrap()
+        let module = self.code.get(modname).ok_or_else(|| {
+            rustfail!(
+                "codefail",
+                "cannot find module for code: {}",
+                modname,
+            )
+        })?;
+        module.get(funcname).ok_or_else(|| {
+            rustfail!(
+                "codefail",
+                "cannot find code for function: {}",
+                funcname,
+            )
+        })
     }
 
     pub fn find_preface(&self, modname: &str) -> Option<&Rc<ModulePreface>>
@@ -235,7 +248,7 @@ impl Lib
         Intermod::compile(&proto, &imports)
     }
 
-    pub fn read_code(&mut self, modname: &Lstr, funcname: &Lstr) -> Code
+    pub fn read_code(&mut self, modname: &Lstr, funcname: &Lstr) -> Lresult<Code>
     {
         vout!("read_code({}::{})\n", modname, funcname);
         self.load_inter(modname);
@@ -243,20 +256,24 @@ impl Lib
         let inter = self
             .inter
             .get(modname)
-            .or_else(|| {
-                panic!("cannot compile missing module {}", modname);
-            })
-            .unwrap();
+            .ok_or_else(|| {
+                rustfail!(
+                    "codefail",
+                    "cannot compile missing module {}",
+                    modname,
+                )
+            })?;
         let fix = inter
             .interfunc
             .get(funcname)
-            .or_else(|| {
-                panic!(
+            .ok_or_else(|| {
+                rustfail!(
+                    "codefail",
                     "cannot compile missing function {}::{}",
-                    modname, funcname
-                );
-            })
-            .unwrap();
+                    modname,
+                    funcname,
+                )
+            })?;
         if modname == "prefab" {
             vout!("prefab::{} fix: {:?}\n", funcname, fix);
         }
@@ -270,10 +287,10 @@ impl Lib
             if rustfunc.is_none() {
                 panic!("no rust function for: {}::{}", modname, funcname);
             }
-            rustfunc.unwrap()
+            Ok(rustfunc.unwrap())
         } else {
             let ops = code::make_ops(fix);
-            Code::Leema(ops)
+            Ok(Code::Leema(ops))
         }
     }
 

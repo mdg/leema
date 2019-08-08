@@ -171,7 +171,7 @@ impl Application
             AppMsg::RequestCode(worker_id, frame, mmodule, mfunc) => {
                 let module = mmodule.take();
                 let func = mfunc.take();
-                let code = self.prog.load_code(&module, &func);
+                let code = self.prog.load_code(&module, &func).unwrap();
                 let worker = self.worker.get(&worker_id).unwrap();
                 worker
                     .send(WorkerMsg::FoundCode(
