@@ -129,7 +129,12 @@ fn real_main() -> Lresult<()>
         println!("{:#?}", ast);
         None
     } else if args.flag_proto {
-        let proto = program::Lib::read_astmod(&mut inter, &mod_name)?;
+        let mod_key = lstrf!("mod name {}", mod_name);
+        let smod_name = inter.set_mod_txt(mod_key, String::from(&mod_name));
+        let smod_lstr = Lstr::Sref(smod_name);
+        let mut prog = program::Lib::new(inter);
+        prog.load_proto2(&Lstr::from(smod_lstr))?;
+        let proto = prog.find_proto(smod_name)?;
         println!("\n{:#?}\n", proto);
         None
     } else if args.flag_semantics {

@@ -135,16 +135,6 @@ impl Lib
         })
     }
 
-    pub fn find_preface(&self, modname: &str) -> Option<&Rc<ModulePreface>>
-    {
-        self.preface.get(modname)
-    }
-
-    pub fn find_proto(&self, modname: &str) -> Option<&Protomod>
-    {
-        self.proto.get(modname).map(|p| &**p)
-    }
-
     pub fn load_inter(&mut self, modname: &Lstr)
     {
         if !self.inter.contains_key(modname) {
@@ -176,24 +166,9 @@ impl Lib
         }
     }
 
-    pub fn load_preface(&mut self, modname: &Lstr)
+    pub fn find_proto(&self, modname: &str) -> Lresult<&ProtoModule>
     {
-        if !self.preface.contains_key(modname) {
-            let (msrc, mpref) = self.read_preface(modname);
-            self.modsrc.insert(modname.clone(), msrc);
-            self.preface.insert(modname.clone(), Rc::new(mpref));
-        }
-    }
-
-    pub fn read_astmod(
-        loader: &mut Interloader,
-        modname: &Lstr,
-    ) -> Lresult<ProtoModule>
-    {
-        vout!("read_modast: {}\n", modname);
-        let modtxt = loader.read_mod(modname)?;
-        let modkey = ModKey::name_only(modname.clone());
-        ProtoModule::new(modkey, modtxt)
+        self.protos.get(modname)
     }
 
     pub fn load_proto2(&mut self, modname: &Lstr) -> Lresult<()>
