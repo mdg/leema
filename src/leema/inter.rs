@@ -1372,6 +1372,7 @@ mod tests
         assert_eq!(1, closed.len());
     }
 
+    /*
     #[test]
     fn test_compile_anon_func()
     {
@@ -1396,7 +1397,9 @@ mod tests
         assert!(inter.interfunc.contains_key("foo"));
         assert_eq!(2, inter.interfunc.len());
     }
+    */
 
+    /*
     #[test]
     fn test_compile_closure()
     {
@@ -1423,6 +1426,7 @@ mod tests
         assert!(inter.interfunc.contains_key("foo"));
         assert_eq!(2, inter.interfunc.len());
     }
+    */
 
     #[test]
     #[should_panic]

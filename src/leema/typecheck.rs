@@ -804,15 +804,10 @@ pub fn typecheck_field_access(
 }
 
 
+/*
 #[cfg(test)]
 mod tests
 {
-    use crate::leema::loader::Interloader;
-    use crate::leema::lri::Lri;
-    use crate::leema::lstr::Lstr;
-    use crate::leema::program;
-    use crate::leema::typecheck::Depth;
-
 
     #[test]
     fn test_pattern_field_inferred()
@@ -891,3 +886,4 @@ mod tests
         prog.typecheck(&fri, Depth::Full);
     }
 }
+*/

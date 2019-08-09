@@ -772,7 +772,7 @@ mod tests
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
-        prog.load_code(&Lstr::Sref("tacos"), &Lstr::Sref("main"));
+        prog.load_code(&Lstr::Sref("tacos"), &Lstr::Sref("main")).unwrap();
     }
 
     #[test]
@@ -796,7 +796,7 @@ mod tests
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
-        prog.load_code(&Lstr::Sref("tacos"), &Lstr::Sref("main"));
+        prog.load_code(&Lstr::Sref("tacos"), &Lstr::Sref("main")).unwrap();
     }
 
 }
