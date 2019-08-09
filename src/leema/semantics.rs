@@ -687,14 +687,13 @@ struct Registration
 // postop: 4, 3, 2, 1
 // after, subsequent, late, postlude
 
+#[derive(Debug)]
 pub struct Semantics
 {
-    pub types: HashMap<Lstr, HashMap<Lstr, Type>>,
-
     // pub calls: HashSet<ModLocalId>,
     // pub typecalls: HashSet<SpecialModId>,
     // pub closed: Option<HashSet<Lstr>>,
-    pub src: HashMap<Lstr, HashMap<Lstr, AstNode>>,
+    pub src: AstNode,
 }
 
 impl Semantics
@@ -702,24 +701,13 @@ impl Semantics
     pub fn new() -> Semantics
     {
         Semantics {
-            types: HashMap::new(),
-            src: HashMap::new(),
+            src: AstNode::void(),
         }
     }
 
-    pub fn compile(
-        &mut self,
-        _proto: &mut ProtoLib,
-        _module: &str,
-    ) -> Lresult<()>
+    pub fn get_type(&self) -> &Type
     {
-        /*
-        while let Some(func_ast) = proto.pop_func(module)? {
-            let comp_ast = self.compile_call(proto, func_ast)?;
-            println!("compiled func to {:?}", comp_ast);
-        }
-        */
-        Ok(())
+        &self.src.typ
     }
 
     pub fn compile_call(

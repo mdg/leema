@@ -1,9 +1,8 @@
-use crate::leema::ast::Ast;
-use crate::leema::ast2;
+use crate::leema::ast;
+use crate::leema::ast2::Ast;
 use crate::leema::code::{self, Code};
 use crate::leema::failure::Lresult;
 use crate::leema::inter::Intermod;
-use crate::leema::ixpr::Source;
 use crate::leema::lib_map;
 use crate::leema::lib_str;
 use crate::leema::loader::Interloader;
@@ -13,7 +12,6 @@ use crate::leema::phase0::{self, Protomod};
 use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::semantics::Semantics;
 use crate::leema::typecheck::Typemod;
-use crate::leema::val::Type;
 use crate::leema::{
     file, lib_hyper, lib_io, lib_json, lib_list, lib_task, prefab, tcp, udp,
 };
@@ -135,14 +133,6 @@ impl Lib
         })
     }
 
-    pub fn load_inter(&mut self, modname: &Lstr)
-    {
-        if !self.inter.contains_key(modname) {
-            let inter = self.read_inter(modname);
-            self.inter.insert(modname.clone(), inter);
-        }
-    }
-
     pub fn init_typemod(&mut self, modname: &Lstr)
     {
         if !self.typed.contains_key(modname) {
@@ -178,11 +168,13 @@ impl Lib
         Ok(())
     }
 
-    pub fn read_semantics(&mut self, modname: &Lstr, funcname: &Lstr) -> Lresult<Type>
+    pub fn read_semantics(&mut self, modname: &Lstr, funcname: &Lstr) -> Lresult<Semantics>
     {
         self.load_proto_and_imports(modname)?;
-        let result = self.semantics.compile_call(&mut self.protos, modname.str(), funcname.str())?;
-        Ok(result.typ)
+        let mut semantics = Semantics::new();
+        let result = semantics.compile_call(&mut self.protos, modname.str(), funcname.str())?;
+        semantics.src = result;
+        Ok(semantics)
     }
 
     pub fn read_modsrc(&mut self, modname: &Lstr) -> ModuleSource
@@ -226,34 +218,10 @@ impl Lib
     pub fn read_code(&mut self, modname: &Lstr, funcname: &Lstr) -> Lresult<Code>
     {
         vout!("read_code({}::{})\n", modname, funcname);
-        self.load_inter(modname);
+        self.read_inter(modname);
+        let semantics = self.read_semantics(modname, funcname)?;
 
-        let inter = self
-            .inter
-            .get(modname)
-            .ok_or_else(|| {
-                rustfail!(
-                    "codefail",
-                    "cannot compile missing module {}",
-                    modname,
-                )
-            })?;
-        let fix = inter
-            .interfunc
-            .get(funcname)
-            .ok_or_else(|| {
-                rustfail!(
-                    "codefail",
-                    "cannot compile missing function {}::{}",
-                    modname,
-                    funcname,
-                )
-            })?;
-        if modname == "prefab" {
-            vout!("prefab::{} fix: {:?}\n", funcname, fix);
-        }
-
-        if let Source::RustBlock(_, _) = fix.src {
+        if let Ast::RustBlock = &*semantics.src.node {
             let rust_loader = self.rust_load.get(modname);
             if rust_loader.is_none() {
                 panic!("no rust loader for: {}", modname);
@@ -264,7 +232,7 @@ impl Lib
             }
             Ok(rustfunc.unwrap())
         } else {
-            let ops = code::make_ops(fix);
+            let ops = code::make_ops2(semantics.src);
             Ok(Code::Leema(ops))
         }
     }
@@ -312,7 +280,7 @@ impl Lib
         &'a self,
         modname: &str,
         macname: &str,
-    ) -> Lresult<Option<&'a ast2::Ast>>
+    ) -> Lresult<Option<&'a Ast>>
     {
         let proto = self.protos.get(modname)?;
         Ok(proto.macros.get(macname))
@@ -322,7 +290,7 @@ impl Lib
         &'a self,
         modname: &str,
         macname: &str,
-    ) -> Option<&'a Ast>
+    ) -> Option<&'a ast::Ast>
     {
         match self.preface.get(modname) {
             Some(pref) => pref.macros.get(macname),
