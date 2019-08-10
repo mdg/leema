@@ -1,4 +1,4 @@
-use crate::leema::ast2::AstNode;
+use crate::leema::ast2::{Ast, AstNode};
 use crate::leema::failure::Lresult;
 use crate::leema::fiber;
 use crate::leema::frame;
@@ -219,14 +219,35 @@ impl Clone for Code
 pub fn make_ops2(input: AstNode) -> OpVec
 {
     vout!("make_ops({:?})\n", input);
-    // let mut ops = make_sub_ops(&mut regtbl, input);
-    let mut ops = Oxpr{
-        ops: vec![],
-        dst: Reg::Void,
-    };
-    ops.ops.push((Op::SetResult(input.dst), input.loc.lineno as i16));
-    ops.ops.push((Op::Return, input.loc.lineno as i16));
+    let lineno = input.loc.lineno as i16;
+    let dst = input.dst.clone();
+    let mut ops = make_sub_ops2(input);
+    ops.ops.push((Op::SetResult(dst), lineno));
+    ops.ops.push((Op::Return, lineno));
     ops.ops
+}
+
+pub fn make_sub_ops2(input: AstNode) -> Oxpr
+{
+    let mut ops = vec![];
+    match *input.node {
+        Ast::Block(lines) => {
+            let mut oxprs = Vec::with_capacity(lines.len());
+            for i in lines {
+                oxprs.push(make_sub_ops2(i));
+            }
+            ops.reserve_exact(oxprs.len());
+            for mut i in oxprs {
+                ops.append(&mut i.ops);
+            }
+        }
+        Ast::RustBlock => {}
+        _ => {}
+    }
+    Oxpr {
+        ops,
+        dst: input.dst,
+    }
 }
 
 pub fn make_ops(input: &Ixpr) -> OpVec
