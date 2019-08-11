@@ -230,6 +230,7 @@ pub fn make_ops2(input: AstNode) -> OpVec
 pub fn make_sub_ops2(input: AstNode) -> Oxpr
 {
     let mut ops = vec![];
+    let input_line = input.loc.lineno as i16;
     match *input.node {
         Ast::Block(lines) => {
             let mut oxprs = Vec::with_capacity(lines.len());
@@ -240,6 +241,9 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             for mut i in oxprs {
                 ops.append(&mut i.ops);
             }
+        }
+        Ast::ConstVal(ref v) => {
+            ops.push((Op::ConstVal(input.dst.clone(), v.clone()), input_line));
         }
         Ast::RustBlock => {}
         _ => {}
