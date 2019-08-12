@@ -229,27 +229,28 @@ pub fn make_ops2(input: AstNode) -> OpVec
 
 pub fn make_sub_ops2(input: AstNode) -> Oxpr
 {
-    let mut ops = vec![];
     let input_line = input.loc.lineno as i16;
-    match *input.node {
+    let subops = match *input.node {
         Ast::Block(lines) => {
             let mut oxprs = Vec::with_capacity(lines.len());
             for i in lines {
                 oxprs.push(make_sub_ops2(i));
             }
-            ops.reserve_exact(oxprs.len());
+            let mut ops = Vec::with_capacity(oxprs.len());
             for mut i in oxprs {
                 ops.append(&mut i.ops);
             }
+            ops
         }
-        Ast::ConstVal(ref v) => {
-            ops.push((Op::ConstVal(input.dst.clone(), v.clone()), input_line));
+        Ast::ConstVal(v) => {
+            vec![(Op::ConstVal(input.dst.clone(), v.clone()), input_line)]
         }
-        Ast::RustBlock => {}
-        _ => {}
-    }
+        Ast::StrExpr(items) => make_str_ops(items),
+        Ast::RustBlock => vec![],
+        _ => vec![],
+    };
     Oxpr {
-        ops,
+        ops: subops,
         dst: input.dst,
     }
 }
@@ -267,26 +268,6 @@ pub fn make_ops(input: &Ixpr) -> OpVec
 pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
 {
     match input.src {
-        Source::Block(ref lines) => {
-            vout!("block dst: {}\n", rt.dst());
-            let mut oxprs = Vec::with_capacity(lines.len());
-            for i in lines.iter().rev() {
-                oxprs.push(make_sub_ops(rt, i));
-            }
-            let mut ops: Vec<(Op, i16)> = Vec::with_capacity(oxprs.len());
-            let mut last_dst = rt.dst().clone();
-            for i in oxprs.iter_mut().rev() {
-                ops.append(&mut i.ops);
-                last_dst = i.dst.clone();
-            }
-            if *rt.dst() != last_dst {
-                ops.push((Op::Copy(rt.dst().clone(), last_dst), input.line));
-            }
-            Oxpr {
-                ops,
-                dst: rt.dst().clone(),
-            }
-        }
         Source::ConstVal(Val::FuncRef(ref cri, ref cvs, ref typ)) => {
             let mut ops = Vec::with_capacity(cvs.0.len() + 1);
             let dst = rt.dst().clone();
@@ -321,13 +302,6 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 i += 1;
             }
             Oxpr { ops, dst }
-        }
-        Source::ConstVal(ref v) => {
-            let dst = rt.dst();
-            Oxpr {
-                ops: vec![(Op::ConstVal(dst.clone(), v.clone()), input.line)],
-                dst: dst.clone(),
-            }
         }
         Source::FieldAccess(_, ref fldname, None) => {
             panic!("cannot access a field with no index: {}", fldname);
@@ -414,7 +388,6 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::IfExpr(ref test, ref truth, ref lies) => {
             make_if_else_ops(rt, &*test, &*truth, lies.as_ref().unwrap())
         }
-        Source::StrMash(ref items) => make_str_ops(rt, items),
         Source::Tuple(ref items) => {
             let dst = rt.dst().clone();
             let newtup = Op::TupleCreate(dst.clone(), items.0.len() as i8);
@@ -440,11 +413,8 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             rops.ops.push((Op::Return, input.line));
             rops
         }
-        Source::RustBlock(_, _) => {
-            Oxpr {
-                ops: vec![],
-                dst: rt.dst().clone(),
-            }
+        _ => {
+            unimplemented!();
         }
     }
 }
@@ -752,22 +722,24 @@ pub fn make_map_ops(
     Oxpr { ops, dst }
 }
 
-pub fn make_str_ops(rt: &mut RegTable, items: &Vec<Ixpr>) -> Oxpr
+pub fn make_str_ops(items: Vec<AstNode>) -> OpVec
 {
-    let dst = rt.dst().clone();
+    let (dst, lineno) = {
+        let first = items.first().unwrap();
+        (first.dst.clone(), first.loc.lineno as i16)
+    };
     let mut ops: Vec<(Op, i16)> = Vec::with_capacity(items.len());
     ops.push((
         Op::ConstVal(dst.clone(), Val::empty_str()),
-        items.first().unwrap().line,
+        lineno,
     ));
-    rt.push_dst();
     for i in items {
-        let mut strops = make_sub_ops(rt, i);
+        let iline = i.loc.lineno as i16;
+        let mut strops = make_sub_ops2(i);
         ops.append(&mut strops.ops);
-        ops.push((Op::StrCat(dst.clone(), strops.dst), i.line));
+        ops.push((Op::StrCat(dst.clone(), strops.dst), iline));
     }
-    rt.pop_dst();
-    Oxpr { ops, dst }
+    ops
 }
 
 
