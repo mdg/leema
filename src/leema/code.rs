@@ -1,4 +1,4 @@
-use crate::leema::ast2::{Ast, AstNode};
+use crate::leema::ast2::{Ast, AstNode, Xlist};
 use crate::leema::failure::Lresult;
 use crate::leema::fiber;
 use crate::leema::frame;
@@ -245,6 +245,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
         Ast::ConstVal(v) => {
             vec![(Op::ConstVal(input.dst.clone(), v.clone()), input_line)]
         }
+        Ast::Call(f, args) => make_call_ops(input.dst.clone(), f, args),
         Ast::Let(patt, _, x) => {
             let pval = make_pattern_val(patt);
             let mut xops = make_sub_ops2(x);
@@ -352,11 +353,6 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             // return the future
             // maybe start w/ making closures and forks will be easier
         }
-        Source::Func(ref argnames, ref closed, _, _, ref body) => {
-            rt.def_args(argnames, closed);
-            make_sub_ops(rt, &body)
-        }
-        Source::Call(ref f, ref args) => make_call_ops(rt, f, args),
         Source::Cons(ref h, ref t) => {
             let dst = rt.dst().clone();
             rt.push_dst();
@@ -409,46 +405,25 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
     }
 }
 
-pub fn make_call_ops(rt: &mut RegTable, f: &Ixpr, args: &Struple<Ixpr>)
-    -> Oxpr
+pub fn make_call_ops(dst: Reg, f: AstNode, args: Xlist) -> OpVec
 {
-    let dst = rt.dst().clone();
-    vout!("make_call_ops: {:?} = {:?}\n", dst, f);
+    vout!("make_call_ops: {:?}\n", f);
 
-    let fref_dst = rt.push_dst().clone();
-    let mut fops = make_sub_ops(rt, f);
-    if fops.dst != fref_dst {
-        fops.ops
-            .push((Op::Copy(fref_dst.clone(), fops.dst), f.line));
-        fops.dst = fref_dst.clone();
-    }
+    let flineno = f.loc.lineno as i16;
+    let mut fops = make_sub_ops2(f);
 
     let mut argops: OpVec = args
         .0
-        .iter()
-        .enumerate()
+        .into_iter()
         .rev()
-        .flat_map(|(i, a)| {
-            let argdst = fref_dst.sub(i as i8);
-            rt.push_dst_reg(argdst.clone());
-            let mut arg_ops: Oxpr = make_sub_ops(rt, &a.1);
-            if arg_ops.dst != argdst {
-                arg_ops
-                    .ops
-                    .push((Op::Copy(argdst.clone(), arg_ops.dst), a.1.line));
-                arg_ops.dst = argdst.clone();
-            }
-            rt.pop_dst_reg();
-            arg_ops.ops
+        .flat_map(|a| {
+            let iargops: Oxpr = make_sub_ops2(a.v);
+            iargops.ops
         })
         .collect();
     fops.ops.append(&mut argops);
+    fops.ops.push((Op::ApplyFunc(dst, fops.dst), flineno));
     fops.ops
-        .push((Op::ApplyFunc(dst.clone(), fops.dst.clone()), f.line));
-
-    rt.pop_dst();
-    fops.dst = dst;
-    fops
 }
 
 pub fn make_construple_ops(
