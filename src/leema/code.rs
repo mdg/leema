@@ -245,6 +245,26 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
         Ast::ConstVal(v) => {
             vec![(Op::ConstVal(input.dst.clone(), v.clone()), input_line)]
         }
+        Ast::Let(patt, _, x) => {
+            let pval = make_pattern_val(patt);
+            let mut xops = make_sub_ops2(x);
+            /*
+            let mut failops: Vec<(Op, i16)> = fails
+                .into_iter()
+                .flat_map(|mf| {
+                    let ox =
+                        make_matchfailure_ops(rt, &mf.var, &mf.case, mf.line);
+                    ox.ops.into_iter()
+                })
+                .collect();
+                */
+            xops.ops.push((
+                Op::MatchPattern(input.dst.clone(), pval, xops.dst),
+                input_line,
+            ));
+            // xops.ops.append(&mut failops);
+            xops.ops
+        }
         Ast::Tuple(items) => {
             let newtup = Op::TupleCreate(input.dst.clone(), items.0.len() as i8);
             let mut ops: Vec<(Op, i16)> = vec![(newtup, input_line)];
@@ -355,29 +375,6 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::Construple(ref typ, ref variant, ref flds) => {
             vout!("make_construple_ops({:?})\n", typ);
             make_construple_ops(rt, typ, variant, flds, input.line)
-        }
-        Source::Let(ref patt, _, ref x, ref fails) => {
-            let pval = assign_pattern_registers(rt, patt);
-            rt.push_dst();
-            let mut xops = make_sub_ops(rt, x);
-            let mut failops: Vec<(Op, i16)> = fails
-                .iter()
-                .flat_map(|mf| {
-                    let ox =
-                        make_matchfailure_ops(rt, &mf.var, &mf.case, mf.line);
-                    ox.ops.into_iter()
-                })
-                .collect();
-            rt.pop_dst();
-            xops.ops.push((
-                Op::MatchPattern(rt.dst().clone(), pval, xops.dst),
-                input.line,
-            ));
-            xops.ops.append(&mut failops);
-            Oxpr {
-                ops: xops.ops,
-                dst: rt.dst().clone(),
-            }
         }
         Source::MatchExpr(ref x, ref cases) => {
             make_matchexpr_ops(rt, &*x, &*cases)
@@ -733,6 +730,55 @@ pub fn make_str_ops(items: Vec<AstNode>) -> OpVec
         ops.push((Op::StrCat(dst.clone(), strops.dst), iline));
     }
     ops
+}
+
+pub fn make_pattern_val(pattern: AstNode) -> Val
+{
+    match *pattern.node {
+        Ast::Id1(id) => {
+            vout!("pattern var:reg is {}.{:?}\n", id, pattern.dst);
+            Val::PatternVar(pattern.dst)
+        }
+        Ast::ConstVal(v) => v,
+        Ast::Wildcard => Val::Wildcard,
+        Ast::Tuple(vars) => {
+            let reg_items = vars
+                .0
+                .into_iter()
+                .map(|v| (v.k.map(|k| Lstr::Sref(k)), make_pattern_val(v.v)))
+                .collect();
+            Val::Tuple(Struple(reg_items))
+        }
+        /*
+        &Val::Cons(ref head, ref tail) => {
+            let pr_head = assign_pattern_registers(rt, head);
+            let pr_tail = assign_pattern_registers(rt, tail);
+            Val::Cons(Box::new(pr_head), Arc::new(pr_tail))
+        }
+        &Val::Struct(ref styp, ref vars) => {
+            let reg_items = vars
+                .0
+                .iter()
+                .map(|v| (v.0.clone(), assign_pattern_registers(rt, &v.1)))
+                .collect();
+            Val::Struct(styp.clone(), Struple(reg_items))
+        }
+        &Val::EnumStruct(ref styp, ref variant, ref vars) => {
+            let reg_items = vars
+                .0
+                .iter()
+                .map(|v| (v.0.clone(), assign_pattern_registers(rt, &v.1)))
+                .collect();
+            Val::EnumStruct(styp.clone(), variant.clone(), Struple(reg_items))
+        }
+        &Val::EnumToken(ref styp, ref variant) => {
+            Val::EnumToken(styp.clone(), variant.clone())
+        }
+        */
+        _ => {
+            panic!("pattern type unsupported: {:?}", pattern);
+        }
+    }
 }
 
 
