@@ -245,6 +245,16 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
         Ast::ConstVal(v) => {
             vec![(Op::ConstVal(input.dst.clone(), v.clone()), input_line)]
         }
+        Ast::Tuple(items) => {
+            let newtup = Op::TupleCreate(input.dst.clone(), items.0.len() as i8);
+            let mut ops: Vec<(Op, i16)> = vec![(newtup, input_line)];
+            for i in items.0 {
+                let mut iops = make_sub_ops2(i.v);
+                ops.append(&mut iops.ops);
+                // ops.push((Op::Copy(input.dst.clone(), iops.dst), i.1.line));
+            }
+            ops
+        }
         Ast::StrExpr(items) => make_str_ops(items),
         Ast::RustBlock => vec![],
         _ => vec![],
@@ -387,23 +397,6 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         }
         Source::IfExpr(ref test, ref truth, ref lies) => {
             make_if_else_ops(rt, &*test, &*truth, lies.as_ref().unwrap())
-        }
-        Source::Tuple(ref items) => {
-            let dst = rt.dst().clone();
-            let newtup = Op::TupleCreate(dst.clone(), items.0.len() as i8);
-            let mut ops: Vec<(Op, i16)> = vec![(newtup, input.line)];
-            rt.push_sub();
-            for i in items.0.iter() {
-                // set dst to dst.child
-                let mut iops = make_sub_ops(rt, &i.1);
-                ops.append(&mut iops.ops);
-                if *rt.dst() != iops.dst {
-                    ops.push((Op::Copy(rt.dst().clone(), iops.dst), i.1.line));
-                }
-                rt.next_sub();
-            }
-            rt.pop_dst();
-            Oxpr { ops, dst }
         }
         Source::List(ref items) => make_list_ops(rt, items, input.line),
         Source::Map(ref items) => make_map_ops(rt, items, input.line),
