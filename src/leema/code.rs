@@ -277,6 +277,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             ops
         }
         Ast::StrExpr(items) => make_str_ops(items),
+        Ast::Id1(_) => vec![],
         Ast::RustBlock => vec![],
         _ => vec![],
     };
@@ -344,15 +345,6 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
                 dst: base_ops.dst.sub(fld_idx),
             }
         }
-        Source::Fork(ref _fx) => {
-            panic!("cannot generate code for forks yet");
-            // maybe a fork is not really a thing at this level
-            // a fork is really
-            // create a closure
-            // call it and connect it to a future
-            // return the future
-            // maybe start w/ making closures and forks will be easier
-        }
         Source::Cons(ref h, ref t) => {
             let dst = rt.dst().clone();
             rt.push_dst();
@@ -377,13 +369,6 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         }
         Source::MatchCase(_, _, _) => {
             panic!("matchcase ops not generated directly");
-        }
-        Source::Id(ref id, _line) => {
-            let src = rt.id(id);
-            Oxpr {
-                ops: vec![],
-                dst: src,
-            }
         }
         Source::IfExpr(ref test, ref truth, None) => {
             make_if_ops(rt, &*test, &*truth)
@@ -760,8 +745,8 @@ pub fn make_pattern_val(pattern: AstNode) -> Val
 #[cfg(test)]
 mod tests
 {
+    use crate::leema::ast2::{Ast, AstNode, Loc};
     use crate::leema::code::{self, Op};
-    use crate::leema::ixpr::Ixpr;
     use crate::leema::loader::Interloader;
     use crate::leema::lstr::Lstr;
     use crate::leema::program;
@@ -771,13 +756,15 @@ mod tests
     #[test]
     fn test_code_constval()
     {
-        let ic = Ixpr::const_val(Val::Int(9), 8);
-        let code = code::make_ops(&ic);
+        let loc = Loc { lineno: 8, column: 7 };
+        let mut node = AstNode::new(Ast::ConstVal(Val::Int(9)), loc);
+        node.dst = Reg::local(3);
+        let code = code::make_ops2(node);
 
         assert_eq!(3, code.len());
         let x = vec![
-            (Op::ConstVal(Reg::local(0), Val::Int(9)), 8),
-            (Op::SetResult(Reg::local(0)), 8),
+            (Op::ConstVal(Reg::local(3), Val::Int(9)), 8),
+            (Op::SetResult(Reg::local(3)), 8),
             (Op::Return, 8),
         ];
         assert_eq!(x, code);
