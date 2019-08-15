@@ -266,6 +266,9 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             // xops.ops.append(&mut failops);
             xops.ops
         }
+        Ast::List(items) => {
+            make_list_ops(input.dst.clone(), items, input.loc.lineno as i16)
+        }
         Ast::Tuple(items) => {
             let newtup = Op::TupleCreate(input.dst.clone(), items.0.len() as i8);
             let mut ops: Vec<(Op, i16)> = vec![(newtup, input_line)];
@@ -376,7 +379,6 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::IfExpr(ref test, ref truth, ref lies) => {
             make_if_else_ops(rt, &*test, &*truth, lies.as_ref().unwrap())
         }
-        Source::List(ref items) => make_list_ops(rt, items, input.line),
         Source::Map(ref items) => make_map_ops(rt, items, input.line),
         Source::Return(ref result) => {
             let mut rops = make_sub_ops(rt, result);
@@ -647,18 +649,16 @@ pub fn make_fork_ops(rt: &mut RegTable, dst: &Reg, f: &Ixpr, args: &Ixpr) -> Oxp
 }
 */
 
-pub fn make_list_ops(rt: &mut RegTable, items: &Vec<Ixpr>, line: i16) -> Oxpr
+pub fn make_list_ops(dst: Reg, items: Xlist, lineno: i16) -> OpVec
 {
-    let dst = rt.dst().clone();
-    let mut ops = vec![(Op::ListCreate(dst.clone()), line)];
-    rt.push_dst();
-    for i in items.iter().rev() {
-        let mut listops = make_sub_ops(rt, i);
+    let mut ops = vec![(Op::ListCreate(dst.clone()), lineno)];
+    for i in items.0.into_iter().rev() {
+        let ilineno = i.v.loc.lineno as i16;
+        let mut listops = make_sub_ops2(i.v);
         ops.append(&mut listops.ops);
-        ops.push((Op::ListCons(dst.clone(), listops.dst, dst.clone()), i.line));
+        ops.push((Op::ListCons(dst.clone(), listops.dst, dst.clone()), ilineno));
     }
-    rt.pop_dst();
-    Oxpr { ops, dst }
+    ops
 }
 
 pub fn make_map_ops(
