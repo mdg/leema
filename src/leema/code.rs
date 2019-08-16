@@ -246,6 +246,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             vec![(Op::ConstVal(input.dst.clone(), v.clone()), input_line)]
         }
         Ast::Call(f, args) => make_call_ops(input.dst.clone(), f, args),
+        Ast::NewStruct(_typ, _args) => vec![],
         Ast::Let(patt, _, x) => {
             let pval = make_pattern_val(patt);
             let mut xops = make_sub_ops2(x);
@@ -280,6 +281,12 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             ops
         }
         Ast::StrExpr(items) => make_str_ops(items),
+        Ast::Return(result) => {
+            let mut rops = make_sub_ops2(result);
+            rops.ops.push((Op::SetResult(rops.dst.clone()), input_line));
+            rops.ops.push((Op::Return, input_line));
+            rops.ops
+        }
         Ast::Id1(_) => vec![],
         Ast::RustBlock => vec![],
         _ => vec![],
@@ -363,10 +370,6 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             ));
             Oxpr { ops: hops.ops, dst }
         }
-        Source::Construple(ref typ, ref variant, ref flds) => {
-            vout!("make_construple_ops({:?})\n", typ);
-            make_construple_ops(rt, typ, variant, flds, input.line)
-        }
         Source::MatchExpr(ref x, ref cases) => {
             make_matchexpr_ops(rt, &*x, &*cases)
         }
@@ -380,12 +383,6 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             make_if_else_ops(rt, &*test, &*truth, lies.as_ref().unwrap())
         }
         Source::Map(ref items) => make_map_ops(rt, items, input.line),
-        Source::Return(ref result) => {
-            let mut rops = make_sub_ops(rt, result);
-            rops.ops.push((Op::SetResult(rops.dst.clone()), input.line));
-            rops.ops.push((Op::Return, input.line));
-            rops
-        }
         _ => {
             unimplemented!();
         }
