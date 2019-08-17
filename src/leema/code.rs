@@ -287,6 +287,9 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             rops.ops.push((Op::Return, input_line));
             rops.ops
         }
+        Ast::Map(_items) => {
+            vec![(Op::MapCreate(input.dst.clone()), input_line)]
+        }
         Ast::Id1(_) => vec![],
         Ast::RustBlock => vec![],
         _ => vec![],
@@ -382,7 +385,6 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
         Source::IfExpr(ref test, ref truth, ref lies) => {
             make_if_else_ops(rt, &*test, &*truth, lies.as_ref().unwrap())
         }
-        Source::Map(ref items) => make_map_ops(rt, items, input.line),
         _ => {
             unimplemented!();
         }
@@ -656,17 +658,6 @@ pub fn make_list_ops(dst: Reg, items: Xlist, lineno: i16) -> OpVec
         ops.push((Op::ListCons(dst.clone(), listops.dst, dst.clone()), ilineno));
     }
     ops
-}
-
-pub fn make_map_ops(
-    rt: &mut RegTable,
-    _items: &Struple<Ixpr>,
-    line: i16,
-) -> Oxpr
-{
-    let dst = rt.dst().clone();
-    let ops = vec![(Op::MapCreate(dst.clone()), line)];
-    Oxpr { ops, dst }
 }
 
 pub fn make_str_ops(items: Vec<AstNode>) -> OpVec
