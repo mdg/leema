@@ -1,4 +1,4 @@
-use crate::leema::ast2::{Ast, AstNode, Xlist};
+use crate::leema::ast2::{Ast, AstNode, Case, CaseType, Xlist};
 use crate::leema::failure::Lresult;
 use crate::leema::fiber;
 use crate::leema::frame;
@@ -281,6 +281,12 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             ops
         }
         Ast::StrExpr(items) => make_str_ops(items),
+        Ast::Case(CaseType::If, _, cases) => {
+            make_if_ops(cases)
+        }
+        Ast::Case(CaseType::Match, x, cases) => {
+            make_matchexpr_ops(*x, cases)
+        }
         Ast::Return(result) => {
             let mut rops = make_sub_ops2(result);
             rops.ops.push((Op::SetResult(rops.dst.clone()), input_line));
@@ -373,18 +379,6 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             ));
             Oxpr { ops: hops.ops, dst }
         }
-        Source::MatchExpr(ref x, ref cases) => {
-            make_matchexpr_ops(rt, &*x, &*cases)
-        }
-        Source::MatchCase(_, _, _) => {
-            panic!("matchcase ops not generated directly");
-        }
-        Source::IfExpr(ref test, ref truth, None) => {
-            make_if_ops(rt, &*test, &*truth)
-        }
-        Source::IfExpr(ref test, ref truth, ref lies) => {
-            make_if_else_ops(rt, &*test, &*truth, lies.as_ref().unwrap())
-        }
         _ => {
             unimplemented!();
         }
@@ -468,25 +462,21 @@ pub fn make_matchfailure_ops(
     }
 }
 
-pub fn make_matchexpr_ops(rt: &mut RegTable, x: &Ixpr, cases: &Ixpr) -> Oxpr
+pub fn make_matchexpr_ops(x: AstNode, cases: Vec<Case>) -> Oxpr
 {
-    let dst = rt.dst().clone();
-    vout!("make_matchexpr_ops({:?},{:?}) -> {:?}\n", x, cases, dst);
-    rt.push_dst();
-    let mut xops = make_sub_ops(rt, &x);
+    vout!("make_matchexpr_ops({:?},{:?})\n", x, cases);
+    let mut xops = make_sub_ops2(&x);
 
-    let mut case_ops = make_matchcase_ops(rt, dst.clone(), cases, &xops.dst);
+    let mut case_ops = make_matchcase_ops(dst.clone(), cases, &xops.dst);
     vout!("made matchcase_ops =\n{:?}\n", case_ops);
-    rt.pop_dst();
 
     xops.ops.append(&mut case_ops.ops);
     Oxpr { ops: xops.ops, dst }
 }
 
 pub fn make_matchcase_ops(
-    rt: &mut RegTable,
     dstreg: Reg,
-    matchcase: &Ixpr,
+    matchcase: AstNode,
     xreg: &Reg,
 ) -> Oxpr
 {
@@ -510,7 +500,7 @@ pub fn make_matchcase_ops(
     let mut code_ops = make_sub_ops(rt, code);
     rt.pop_dst_reg();
     // pop reg scope
-    let mut next_ops = make_matchcase_ops(rt, dstreg.clone(), next, &xreg);
+    let mut next_ops = make_matchcase_ops(dstreg.clone(), next, &xreg);
 
     let next_len = next_ops.ops.len();
     if next_len > 0 {
@@ -589,23 +579,30 @@ pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
     }
 }
 
-pub fn make_if_ops(rt: &mut RegTable, test: &Ixpr, truth: &Ixpr) -> Oxpr
+pub fn make_if_ops(cases: Vec<Case>) -> OpVec
 {
-    let mut truth_ops = make_sub_ops(rt, &truth);
-    rt.push_dst();
-    let mut if_ops = make_sub_ops(rt, &test);
-    rt.pop_dst();
+    let mut case_ops = cases.into_iter().map(|case| {
+        let cond_ops = make_sub_ops2(case.cond);
+        let body_ops = make_sub_ops2(case.body);
+        (cond_ops, body_ops)
+    }).collect();
 
-    if_ops.ops.push((
-        Op::JumpIfNot((truth_ops.ops.len() + 1) as i16, if_ops.dst),
-        test.line,
-    ));
+    case_ops.iter_mut().rev().fold(0, |after, mut case| {
+        if after > 0 {
+            case.1.ops.push(Op::Jump(after + 1));
+        }
+        case.0.ops.push(Op::JumpIfNot(
+            case.1.ops.len() + after + 1,
+            case.0.cond_ops.dst.clone(),
+        ), 0);
+        after + case.0.ops.len() + case.0.ops.len()
+    });
 
-    if_ops.ops.append(&mut truth_ops.ops);
-    Oxpr {
-        ops: if_ops.ops,
-        dst: truth_ops.dst,
-    }
+    case_ops.into_iter().flat_map(|case| {
+        let mut tmp = case.1.ops;
+        case.0.ops.append(&mut tmp);
+        case.0.ops
+    })
 }
 
 pub fn make_if_else_ops(
