@@ -218,7 +218,6 @@ impl Lib
     pub fn read_code(&mut self, modname: &Lstr, funcname: &Lstr) -> Lresult<Code>
     {
         vout!("read_code({}::{})\n", modname, funcname);
-        self.read_inter(modname);
         let semantics = self.read_semantics(modname, funcname)?;
 
         if let Ast::RustBlock = &*semantics.src.node {
