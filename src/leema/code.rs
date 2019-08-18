@@ -13,7 +13,6 @@ use crate::leema::worker::RustFuncContext;
 
 use std::fmt;
 use std::marker;
-use std::sync::Arc;
 
 
 #[derive(Debug)]
@@ -284,8 +283,13 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
         Ast::Case(CaseType::If, _, cases) => {
             make_if_ops(cases)
         }
-        Ast::Case(CaseType::Match, x, cases) => {
-            make_matchexpr_ops(*x, cases)
+        Ast::Case(CaseType::Match, Some(x), cases) => {
+            make_matchexpr_ops(x, cases)
+        }
+        Ast::Case(CaseType::Match, None, _) => {
+            // None should have been replaced by the args
+            // in an earlier phase?
+            panic!("case statement must have an expression");
         }
         Ast::Return(result) => {
             let mut rops = make_sub_ops2(result);
@@ -427,8 +431,8 @@ pub fn make_construple_ops(
     Oxpr { ops, dst }
 }
 
+/*
 pub fn make_matchfailure_ops(
-    rt: &mut RegTable,
     var: &Lstr,
     opt_cases: &Option<Ixpr>,
     line: i16,
@@ -461,148 +465,69 @@ pub fn make_matchfailure_ops(
         dst: vreg,
     }
 }
+// */
 
-pub fn make_matchexpr_ops(x: AstNode, cases: Vec<Case>) -> Oxpr
+pub fn make_matchexpr_ops(x: AstNode, cases: Vec<Case>) -> OpVec
 {
     vout!("make_matchexpr_ops({:?},{:?})\n", x, cases);
-    let mut xops = make_sub_ops2(&x);
+    let mut xops = make_sub_ops2(x);
 
-    let mut case_ops = make_matchcase_ops(dst.clone(), cases, &xops.dst);
+    let mut case_ops = cases.into_iter().flat_map(|case| {
+        make_matchcase_ops(case, &xops.dst)
+    }).collect();
     vout!("made matchcase_ops =\n{:?}\n", case_ops);
 
-    xops.ops.append(&mut case_ops.ops);
-    Oxpr { ops: xops.ops, dst }
+    xops.ops.append(&mut case_ops);
+    xops.ops
 }
 
 pub fn make_matchcase_ops(
-    dstreg: Reg,
-    matchcase: AstNode,
+    matchcase: Case,
     xreg: &Reg,
-) -> Oxpr
+) -> OpVec
 {
-    let (patt, code, next) = match matchcase.src {
-        Source::MatchCase(ref patt, ref code, ref next) => (patt, code, next),
-        Source::ConstVal(Val::Void) => {
-            // this is here when there's no else case
-            vout!("empty_matchcase_ops\n");
-            return Oxpr {
-                ops: vec![],
-                dst: Reg::Void,
-            };
-        }
-        _ => {
-            panic!("Cannot make ops for a not MatchCase {:?}", matchcase);
-        }
-    };
-    // push reg scope
-    let patt_val = assign_pattern_registers(rt, patt);
-    rt.push_dst_reg(dstreg.clone());
-    let mut code_ops = make_sub_ops(rt, code);
-    rt.pop_dst_reg();
-    // pop reg scope
-    let mut next_ops = make_matchcase_ops(dstreg.clone(), next, &xreg);
+    let patt_val = make_pattern_val(matchcase.cond);
+    let mut code_ops = make_sub_ops2(matchcase.body);
 
-    let next_len = next_ops.ops.len();
-    if next_len > 0 {
-        code_ops
-            .ops
-            .push((Op::Jump((next_len + 1) as i16), matchcase.line));
-    }
-    rt.push_dst();
     let mut patt_ops: Vec<(Op, i16)> = vec![(
-        Op::MatchPattern(rt.dst().clone(), patt_val, xreg.clone()),
-        matchcase.line,
+        Op::MatchPattern(Reg::Void, patt_val, xreg.clone()),
+        0,
     )];
     patt_ops.push((
-        Op::JumpIfNot(code_ops.ops.len() as i16 + 1, rt.dst().clone()),
-        matchcase.line,
+        Op::JumpIfNot(code_ops.ops.len() as i16 + 1, Reg::Void),
+        0,
     ));
-    rt.pop_dst();
 
     patt_ops.append(&mut code_ops.ops);
-    patt_ops.append(&mut next_ops.ops);
-    Oxpr {
-        ops: patt_ops,
-        dst: dstreg,
-    }
-}
-
-pub fn assign_pattern_registers(rt: &mut RegTable, pattern: &Val) -> Val
-{
-    match pattern {
-        &Val::Id(ref id) => {
-            let id_reg = rt.id(id);
-            vout!("pattern var:reg is {}.{:?}\n", id, id_reg);
-            Val::PatternVar(id_reg)
-        }
-        &Val::Int(i) => Val::Int(i),
-        &Val::Bool(b) => Val::Bool(b),
-        &Val::Str(ref s) => Val::Str(s.clone()),
-        &Val::Hashtag(ref h) => Val::Hashtag(h.clone()),
-        &Val::Wildcard => Val::Wildcard,
-        &Val::Nil => Val::Nil,
-        &Val::Cons(ref head, ref tail) => {
-            let pr_head = assign_pattern_registers(rt, head);
-            let pr_tail = assign_pattern_registers(rt, tail);
-            Val::Cons(Box::new(pr_head), Arc::new(pr_tail))
-        }
-        &Val::Tuple(ref vars) => {
-            let reg_items = vars
-                .0
-                .iter()
-                .map(|v| (v.0.clone(), assign_pattern_registers(rt, &v.1)))
-                .collect();
-            Val::Tuple(Struple(reg_items))
-        }
-        &Val::Struct(ref styp, ref vars) => {
-            let reg_items = vars
-                .0
-                .iter()
-                .map(|v| (v.0.clone(), assign_pattern_registers(rt, &v.1)))
-                .collect();
-            Val::Struct(styp.clone(), Struple(reg_items))
-        }
-        &Val::EnumStruct(ref styp, ref variant, ref vars) => {
-            let reg_items = vars
-                .0
-                .iter()
-                .map(|v| (v.0.clone(), assign_pattern_registers(rt, &v.1)))
-                .collect();
-            Val::EnumStruct(styp.clone(), variant.clone(), Struple(reg_items))
-        }
-        &Val::EnumToken(ref styp, ref variant) => {
-            Val::EnumToken(styp.clone(), variant.clone())
-        }
-        _ => {
-            panic!("pattern type unsupported: {:?}", pattern);
-        }
-    }
+    patt_ops
 }
 
 pub fn make_if_ops(cases: Vec<Case>) -> OpVec
 {
-    let mut case_ops = cases.into_iter().map(|case| {
+    let mut case_ops: Vec<(Oxpr, Oxpr)> = cases.into_iter().map(|case| {
         let cond_ops = make_sub_ops2(case.cond);
         let body_ops = make_sub_ops2(case.body);
         (cond_ops, body_ops)
     }).collect();
 
-    case_ops.iter_mut().rev().fold(0, |after, mut case| {
+    case_ops.iter_mut().rev().fold(0 as i16, |after, case| {
         if after > 0 {
-            case.1.ops.push(Op::Jump(after + 1));
+            case.1.ops.push((Op::Jump(after + 1), 0));
         }
-        case.0.ops.push(Op::JumpIfNot(
-            case.1.ops.len() + after + 1,
-            case.0.cond_ops.dst.clone(),
-        ), 0);
-        after + case.0.ops.len() + case.0.ops.len()
+        let body_ops_len = case.1.ops.len() as i16;
+        case.0.ops.push((Op::JumpIfNot(
+            body_ops_len + after + 1,
+            case.0.dst.clone(),
+        ), 0));
+        let cond_ops_len = case.0.ops.len() as i16;
+        after + cond_ops_len + body_ops_len
     });
 
-    case_ops.into_iter().flat_map(|case| {
+    case_ops.into_iter().flat_map(|mut case| {
         let mut tmp = case.1.ops;
         case.0.ops.append(&mut tmp);
         case.0.ops
-    })
+    }).collect()
 }
 
 pub fn make_if_else_ops(
