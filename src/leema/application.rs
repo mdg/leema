@@ -274,7 +274,7 @@ mod tests
             getpid();
         };
         writeln!(stderr(), "test_main_func_finishes {:?}", p).unwrap();
-        let input = "func main() -> 3 --".to_string();
+        let input = "func main >> 3 --".to_string();
         let mut inter = Interloader::new(Lstr::Sref("test.lma"), "lib");
         inter.set_mod_txt(Lstr::Sref("test"), input);
         let prog = program::Lib::new(inter);
