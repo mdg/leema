@@ -1,4 +1,0 @@
-[submodule "lemon_rust"]
-	path = lemon_rust
-	url = git://github.com/mdg/lemon_rust.git
-	branch = leema

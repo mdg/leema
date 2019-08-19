@@ -2,7 +2,6 @@ use crate::leema::ast2::{Ast, AstNode, Case, CaseType, Xlist};
 use crate::leema::failure::Lresult;
 use crate::leema::fiber;
 use crate::leema::frame;
-use crate::leema::ixpr::{Ixpr, Source};
 use crate::leema::lstr::Lstr;
 use crate::leema::reg::{Reg, RegTable};
 use crate::leema::rsrc;
@@ -217,7 +216,7 @@ impl Clone for Code
 
 pub fn make_ops2(input: AstNode) -> OpVec
 {
-    vout!("make_ops({:?})\n", input);
+    vout!("make_ops2({:?})\n", input);
     let lineno = input.loc.lineno as i16;
     let dst = input.dst.clone();
     let mut ops = make_sub_ops2(input);
@@ -310,16 +309,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
     }
 }
 
-pub fn make_ops(input: &Ixpr) -> OpVec
-{
-    vout!("make_ops({:?})\n", input);
-    let mut regtbl = RegTable::new();
-    let mut ops = make_sub_ops(&mut regtbl, input);
-    ops.ops.push((Op::SetResult(ops.dst), input.line));
-    ops.ops.push((Op::Return, input.line));
-    ops.ops
-}
-
+/*
 pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
 {
     match input.src {
@@ -383,11 +373,9 @@ pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
             ));
             Oxpr { ops: hops.ops, dst }
         }
-        _ => {
-            unimplemented!();
-        }
     }
 }
+*/
 
 pub fn make_call_ops(dst: Reg, f: AstNode, args: Xlist) -> OpVec
 {
@@ -528,35 +516,6 @@ pub fn make_if_ops(cases: Vec<Case>) -> OpVec
         case.0.ops.append(&mut tmp);
         case.0.ops
     }).collect()
-}
-
-pub fn make_if_else_ops(
-    rt: &mut RegTable,
-    test: &Ixpr,
-    truth: &Ixpr,
-    lies: &Ixpr,
-) -> Oxpr
-{
-    let mut truth_ops = make_sub_ops(rt, &truth);
-    let mut lies_ops = make_sub_ops(rt, &lies);
-    rt.push_dst();
-    let mut if_ops = make_sub_ops(rt, &test);
-    rt.pop_dst();
-
-    truth_ops
-        .ops
-        .push((Op::Jump((lies_ops.ops.len() + 1) as i16), truth.line));
-    if_ops.ops.push((
-        Op::JumpIfNot((truth_ops.ops.len() + 1) as i16, if_ops.dst),
-        lies.line,
-    ));
-
-    if_ops.ops.append(&mut truth_ops.ops);
-    if_ops.ops.append(&mut lies_ops.ops);
-    Oxpr {
-        ops: if_ops.ops,
-        dst: truth_ops.dst,
-    }
 }
 
 /*

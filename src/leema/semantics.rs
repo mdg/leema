@@ -1132,4 +1132,134 @@ mod tests
         let mut semantics = Semantics::new();
         semantics.compile_call(&mut proto, "foo", "inc").unwrap();
     }
+
+    /*
+    // semantics tests copied over from inter.rs
+    // these are cases that don't pass yet, but should be made to pass later
+
+    #[test]
+    fn test_compile_anon_func()
+    {
+        let input = "
+            func foo() ->
+                let double := fn(x) x * 2
+                let ten := double(5)
+                \"5 * 2 == $ten\"
+            --
+            "
+    }
+
+    #[test]
+    fn test_compile_closure()
+    {
+        let input = "
+            func foo(i) ->
+                let times_i := fn(x) -> x * i --
+                let result := times_i(5)
+                \"result := $result\"
+            --
+            "
+    }
+
+    #[test]
+    fn test_compile_function_closure_def()
+    {
+        let input = "
+            func foo(i) ->
+                fn(x) \"($x:$i)\"
+            --
+            "
+        .to_string();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_compile_undefined_closure_var()
+    {
+        let input = "
+            func foo(j) ->
+                let times_i := fn(x) -> x * i --
+                let result := times_i(5)
+                \"result := $result\"
+            --
+            "
+    }
+
+    #[test]
+    fn test_compile_matched_if_branches()
+    {
+        let input = "
+            func factf(i): Int ->
+                if
+                |i == 1 -> 1
+                |else -> i * factf(i-1)
+                --
+            --
+            "
+    }
+
+    #[test]
+    fn test_pattern_declaration()
+    {
+        let input = "
+            func foo(inputs: [#]) >>
+            |[] -> #empty
+            |#whatever;more -> #whatever
+            |_;more -> foo(more)
+            --
+
+            func main() ->
+                foo([#a, #b, #c])
+            --
+            "
+    }
+
+    #[test]
+    fn test_named_tuple_constructor()
+    {
+        let input = String::from(
+            "
+            struct Greeting(Str, Str)
+
+            func main() ->
+                let g := Greeting(\"hello\", \"world\")
+            --
+            ",
+    }
+
+    #[test]
+    fn test_enum_constructors()
+    {
+        let input = "
+            enum Animal
+            |Dog
+            |Cat(Int)
+            |Mouse
+                .whiskers: Int
+                .color: Str
+            --
+
+            func main() ->
+                let d := Dog
+                let c := Cat(3)
+                let m := Mouse(9, \"red\")
+            --
+            "
+    }
+
+    #[test]
+    fn test_compile_match_existing_var()
+    {
+        let input = "
+            func foo(): Int ->
+                let a := 5
+                let b := 8
+                match b
+                |a -> a + 1
+                |_ -> a - 1
+                --
+            --
+            "
+    }
+    // */
 }

@@ -1,35 +1,24 @@
-use crate::leema::ast;
 use crate::leema::ast2::Ast;
 use crate::leema::code::{self, Code};
 use crate::leema::failure::Lresult;
-use crate::leema::inter::Intermod;
 use crate::leema::lib_map;
 use crate::leema::lib_str;
 use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::{ModKey, ModulePreface, ModuleSource};
-use crate::leema::phase0::{self, Protomod};
 use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::semantics::Semantics;
-use crate::leema::typecheck::Typemod;
 use crate::leema::{
     file, lib_hyper, lib_io, lib_json, lib_list, lib_task, prefab, tcp, udp,
 };
 
-use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
+use std::collections::HashMap;
 
 
 pub struct Lib
 {
     loader: Interloader,
-    modsrc: HashMap<Lstr, ModuleSource>,
-    preface: HashMap<Lstr, Rc<ModulePreface>>,
-    proto: HashMap<Lstr, Rc<Protomod>>,
     protos: ProtoLib,
     semantics: Semantics,
-    inter: HashMap<Lstr, Intermod>,
-    typed: HashMap<Lstr, Typemod>,
     rust_load: HashMap<Lstr, fn(&str) -> Option<code::Code>>,
     code: HashMap<Lstr, HashMap<Lstr, Code>>,
 }
@@ -40,13 +29,8 @@ impl Lib
     {
         let mut proglib = Lib {
             loader: l,
-            modsrc: HashMap::new(),
-            preface: HashMap::new(),
-            proto: HashMap::new(),
             protos: ProtoLib::new(),
             semantics: Semantics::new(),
-            inter: HashMap::new(),
-            typed: HashMap::new(),
             rust_load: HashMap::new(),
             code: HashMap::new(),
         };
@@ -133,29 +117,6 @@ impl Lib
         })
     }
 
-    pub fn init_typemod(&mut self, modname: &Lstr)
-    {
-        if !self.typed.contains_key(modname) {
-            self.typed
-                .insert(modname.clone(), Typemod::new(modname.clone()));
-        }
-
-        let typmod = self.typed.get_mut(modname).unwrap();
-        let proto = self.proto.get(modname).unwrap();
-        for (fname, ftype) in proto.valtypes.iter() {
-            typmod.set_function_type(fname.clone(), ftype.clone());
-        }
-    }
-
-    pub fn load_proto(&mut self, modname: &Lstr)
-    {
-        if !self.proto.contains_key(modname) {
-            let proto = self.read_proto(modname);
-            self.proto.insert(modname.clone(), Rc::new(proto));
-            self.init_typemod(modname);
-        }
-    }
-
     pub fn find_proto(&self, modname: &str) -> Lresult<&ProtoModule>
     {
         self.protos.get(modname)
@@ -175,44 +136,6 @@ impl Lib
         let result = semantics.compile_call(&mut self.protos, modname.str(), funcname.str())?;
         semantics.src = result;
         Ok(semantics)
-    }
-
-    pub fn read_modsrc(&mut self, modname: &Lstr) -> ModuleSource
-    {
-        vout!("read_modsrc: {}\n", modname);
-        let modtxt = self.loader.read_module(modname).unwrap();
-        let modkey = ModKey::name_only(modname.clone());
-        ModuleSource::new(modkey, modtxt)
-    }
-
-    pub fn read_preface(
-        &mut self,
-        modname: &Lstr,
-    ) -> (ModuleSource, ModulePreface)
-    {
-        let ms = self.read_modsrc(modname);
-        let pref = ModulePreface::new(&ms);
-        (ms, pref)
-    }
-
-    pub fn read_proto(&mut self, modname: &Lstr) -> Protomod
-    {
-        let (ms, pref) = self.read_preface(modname);
-        self.load_imports(modname, &pref.imports);
-        let proto = phase0::preproc(self, &pref, &ms.ast);
-        self.modsrc.insert(modname.clone(), ms);
-        self.preface.insert(modname.clone(), Rc::new(pref));
-        proto
-    }
-
-    pub fn read_inter(&mut self, modname: &Lstr) -> Intermod
-    {
-        vout!("read_inter({})\n", modname);
-        self.load_proto(modname);
-        let preface = self.preface.get(modname).unwrap().clone();
-        let imports = self.import_protos(&preface.imports);
-        let proto = self.proto.get(modname).unwrap();
-        Intermod::compile(&proto, &imports)
     }
 
     pub fn read_code(&mut self, modname: &Lstr, funcname: &Lstr) -> Lresult<Code>
@@ -242,39 +165,6 @@ impl Lib
         self.protos.load_imports(&mut self.loader, modname)
     }
 
-    fn load_imports(&mut self, modname: &Lstr, imports: &HashSet<Lstr>)
-    {
-        for i in imports {
-            if i == modname {
-                panic!("A module cannot import itself: {}", i);
-            }
-            if !self.preface.contains_key(i) {
-                let im = self.read_modsrc(i);
-                let pref = ModulePreface::new(&im);
-                self.modsrc.insert(i.clone(), im);
-                self.preface.insert(i.clone(), Rc::new(pref));
-            }
-        }
-    }
-
-    fn import_protos(
-        &mut self,
-        imports: &HashSet<Lstr>,
-    ) -> HashMap<Lstr, Rc<Protomod>>
-    {
-        let mut imported_protos: HashMap<Lstr, Rc<Protomod>> = HashMap::new();
-        imported_protos.insert(
-            Lstr::Sref("prefab"),
-            self.proto.get("prefab").unwrap().clone(),
-        );
-        for i in imports {
-            self.load_proto(i);
-            let p = self.proto.get(i).unwrap().clone();
-            imported_protos.insert(i.clone(), p);
-        }
-        imported_protos
-    }
-
     pub fn get_macro2<'a>(
         &'a self,
         modname: &str,
@@ -283,17 +173,5 @@ impl Lib
     {
         let proto = self.protos.get(modname)?;
         Ok(proto.macros.get(macname))
-    }
-
-    pub fn get_macro<'a>(
-        &'a self,
-        modname: &str,
-        macname: &str,
-    ) -> Option<&'a ast::Ast>
-    {
-        match self.preface.get(modname) {
-            Some(pref) => pref.macros.get(macname),
-            None => None,
-        }
     }
 }
