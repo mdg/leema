@@ -247,16 +247,40 @@ impl SemanticOp for MacroReplacement
     }
 }
 
+/// CaseCheck checks that if an match cases return the same type
+/// for all branches
+/// matching case types seems like something that should just live
+/// in the regular type checking op
 #[derive(Debug)]
-struct CaseCheck
+struct CaseCheck;
+
+impl CaseCheck
 {
+    fn match_case_types(cases: &Vec<ast2::Case>) -> Lresult<()>
+    {
+        let mut prev_typ: Option<&Type> = None;
+        for case in cases.iter() {
+            if let Some(pt) = prev_typ {
+                if *pt != case.body.typ {
+                    return Err(rustfail!(
+                        SEMFAIL,
+                        "match case types do not match at line: {}",
+                        case.body.loc.lineno,
+                    ));
+                }
+            } else {
+                prev_typ = Some(&case.body.typ);
+            }
+        }
+        Ok(())
+    }
 }
 
 impl SemanticOp for CaseCheck
 {
-    fn pre(&mut self, node: AstNode) -> SemanticResult
+    fn post(&mut self, node: AstNode) -> SemanticResult
     {
-        match *node.node {
+        match &*node.node {
             Ast::Case(ast2::CaseType::If, Some(cond), _) => {
                 return Err(rustfail!(
                     "semantic_failure",
@@ -264,8 +288,12 @@ impl SemanticOp for CaseCheck
                     cond,
                 ));
             }
-            _ => Ok(SemanticAction::Keep(node)),
+            Ast::Case(_, _, ref cases) => {
+                Self::match_case_types(cases)?;
+            }
+            _ => {} // nothing
         }
+        Ok(SemanticAction::Keep(node))
     }
 }
 
@@ -718,7 +746,14 @@ impl Semantics
     ) -> AstResult
     {
         let func_ast = proto.pop_func(mod_name, func_name)?;
-        let (_args, body) = func_ast.unwrap();
+        let (_args, body) = func_ast.ok_or_else(|| {
+            rustfail!(
+                SEMFAIL,
+                "ast is empty for function {}::{}",
+                mod_name,
+                func_name,
+            )
+        })?;
 
         let local_proto = proto.get(mod_name)?;
         let ftyp = match local_proto.get_type(func_name)? {
@@ -739,11 +774,13 @@ impl Semantics
         let mut var_types = VarTypes::new(&local_proto.key.name, ftyp)?;
         let mut type_check = TypeCheck::new(local_proto, proto);
         let mut remove_extra = RemoveExtraCode;
+        let mut case_check = CaseCheck;
         let mut pipe = SemanticPipeline {
             ops: vec![
                 &mut remove_extra,
                 &mut macs,
                 &mut scope_check,
+                &mut case_check,
                 &mut var_types,
                 &mut type_check,
             ],
@@ -1133,6 +1170,25 @@ mod tests
         semantics.compile_call(&mut proto, "foo", "inc").unwrap();
     }
 
+    #[test]
+    #[should_panic]
+    fn test_compile_mismatched_if_branches()
+    {
+        let input = r#"
+        func factf i:Int :Int >>
+            if
+            |i == 1 >> "text"
+            |else >> i * factf(i-1)
+            --
+        --
+        "#;
+
+        let mut proto = load_proto_with_prefab();
+        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
+        let mut semantics = Semantics::new();
+        semantics.compile_call(&mut proto, "foo", "factf").unwrap();
+    }
+
     /*
     // semantics tests copied over from inter.rs
     // these are cases that don't pass yet, but should be made to pass later
@@ -1181,19 +1237,6 @@ mod tests
                 let times_i := fn(x) -> x * i --
                 let result := times_i(5)
                 \"result := $result\"
-            --
-            "
-    }
-
-    #[test]
-    fn test_compile_matched_if_branches()
-    {
-        let input = "
-            func factf(i): Int ->
-                if
-                |i == 1 -> 1
-                |else -> i * factf(i-1)
-                --
             --
             "
     }
