@@ -245,6 +245,7 @@ impl Tree
 
     fn _push(&mut self, r: i8) -> i8
     {
+        // what is going on in here?
         if self.reg.is_none() {
             self.reg = Some(r);
             self.max = self.get_max();
@@ -320,11 +321,16 @@ impl Default for RegState
     }
 }
 
+/// Table for allocating scoped registers
+///
+/// Down:
+/// - blocks: push state, assign members
+/// - ids assign new or existing
+/// - calls assign new, push params as current
 pub struct RegTab
 {
-    ids: HashMap<Lstr, Reg>,
-    reg: Rc<RefCell<Tree>>,
-    state: Rc<RefCell<Vec<RegState>>>,
+    tab: Vec<bool>,
+    ids: HashMap<&'static str, i8>,
     pub current: Reg,
 }
 
@@ -333,13 +339,33 @@ impl RegTab
     pub fn new() -> RegTab
     {
         RegTab {
+            tab: Vec::new(),
             ids: HashMap::new(),
-            reg: Rc::new(RefCell::new(Tree::new())),
-            state: Rc::new(RefCell::new(vec![RegState::default(); 8])),
             current: Reg::local(0),
         }
     }
 
+    pub fn id(&mut self, name: &'static str) -> Reg
+    {
+        if let Some(r) = self.ids.get(name) {
+            return Reg::local(*r);
+        }
+        for (i, r) in self.tab.iter_mut().enumerate() {
+            if !*r {
+                *r = true;
+                let ir = i as i8;
+                self.ids.insert(name, ir);
+                return Reg::local(ir);
+            }
+        }
+        let ir = self.tab.len() as i8;
+        self.tab.push(true);
+        self.ids.insert(name, ir);
+        Reg::local(ir)
+    }
+}
+
+/*
     pub fn push_dst(&mut self) -> ScopedReg
     {
         let icurrent = self.reg.borrow_mut().push();
@@ -359,21 +385,7 @@ impl RegTab
             free_on_drop: false,
         }
     }
-
-    pub fn id(&mut self, name: &Lstr) -> Reg
-    {
-        {
-            let first_get = self.ids.get(name);
-            if first_get.is_some() {
-                return first_get.unwrap().clone();
-            }
-        }
-        let ireg = self.reg.borrow_mut().push();
-        let reg = Reg::local(ireg);
-        self.ids.insert(name.clone(), reg.clone());
-        reg
-    }
-}
+*/
 
 
 pub struct ScopedReg
@@ -409,24 +421,73 @@ impl Drop for ScopedReg
 }
 
 
-pub struct StackedReg<'a>
+enum RegStack
+{
+    Head(RegTab, RegStack),
+    Node(i8, RegStack),
+    Root(RegTab),
+    Nil,
+}
+
+struct StackedReg
 {
     reg: Reg,
-    stack: RegStack<'a>,
+    node: RegStack,
 }
 
 
-pub enum RegStack<'a>
+/// RegStack pulls registers from the table
+/// and puts them back when they're no longer used
+///
+/// root = inner_table
+/// (b, bnode) = root.push()
+/// (c, cnode) = bnode.push()
+/// use c.reg
+/// d = c.push()
+/// d.drop(|| {
+///     d.restore(c)
+/// })
+/// c.drop(|| {
+///     c.restore(b)
+/// })
+///
+/// pusher -> tab
+/// pushed(r) -> popper -> (pusher|tab)
+///           -> prev pushed
+pub struct RegStack<'s>
 {
-    Node(Reg, &'a RegStack<'a>),
-    Base(Reg, RegTab),
+    r: i8,
+    parent: Option<RegStack<'s>>,
+    tab: Option<RegTab>,
 }
 
-impl<'a> RegStack<'a>
+impl RegStack<'s>
 {
+    pub fn base(tab: RegTab) -> RegStack
+    {
+        RegStack{
+            reg: Reg::local(0),
+            parent: None,
+            tab: Some(tab),
+        }
+    }
+
+    pub fn push<'p>(&'p mut self) -> RegStack<'p>
+    {
+        let tab = p.tab.take().unwrap();
+        let r = tab.pop_unused();
+        RegStack{
+            reg: r,
+            parent: self,
+            tab: Some(tab),
+        }
+    }
+
+    pub fn pop(self) -> RegStack
+
     pub fn reg(&self) -> Reg
     {
-        Reg::Void
+        Reg::local(self.r)
     }
 }
 
