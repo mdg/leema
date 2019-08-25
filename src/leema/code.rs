@@ -3,7 +3,7 @@ use crate::leema::failure::Lresult;
 use crate::leema::fiber;
 use crate::leema::frame;
 use crate::leema::lstr::Lstr;
-use crate::leema::reg::{Reg, RegTable};
+use crate::leema::reg::Reg;
 use crate::leema::rsrc;
 use crate::leema::sendclone::SendClone;
 use crate::leema::struple::Struple;
@@ -310,7 +310,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
 }
 
 /*
-pub fn make_sub_ops(rt: &mut RegTable, input: &Ixpr) -> Oxpr
+pub fn make_sub_ops(input: &Ixpr) -> Oxpr
 {
     match input.src {
         Source::ConstVal(Val::FuncRef(ref cri, ref cvs, ref typ)) => {
@@ -399,14 +399,13 @@ pub fn make_call_ops(dst: Reg, f: AstNode, args: Xlist) -> OpVec
 }
 
 pub fn make_construple_ops(
-    rt: &mut RegTable,
+    dst: Reg,
     typ: &Type,
     variant: &Option<Lstr>,
     flds: &Struple<Type>,
     line: i16,
 ) -> Oxpr
 {
-    let dst = rt.dst().clone();
     let construct = match variant {
         Some(ref ivar) => {
             let var = ivar.clone();
@@ -519,7 +518,7 @@ pub fn make_if_ops(cases: Vec<Case>) -> OpVec
 }
 
 /*
-pub fn make_fork_ops(rt: &mut RegTable, dst: &Reg, f: &Ixpr, args: &Ixpr) -> Oxpr
+pub fn make_fork_ops(dst: &Reg, f: &Ixpr, args: &Ixpr) -> Oxpr
 {
     println!("make_fork_ops({:?}, {:?}, {:?})", dst, f, args);
     let mut ops = make_sub_ops(rt, f);

@@ -3,7 +3,7 @@ use crate::leema::failure::Lresult;
 use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::{ProtoLib, ProtoModule};
-use crate::leema::reg::RegTable;
+use crate::leema::reg::Reg;
 use crate::leema::struple::StrupleKV;
 use crate::leema::val::{FuncType, Type};
 
@@ -701,8 +701,41 @@ impl SemanticOp for RemoveExtraCode
 
 struct Registration
 {
-    reg: RegTable,
 }
+
+impl Registration
+{
+    fn assign_registers(&mut self, node: &mut AstNode) -> Lresult<()>
+    {
+        match &mut *node.node {
+            Ast::Id1(ref _name) => {
+                node.dst = Reg::Void;
+            }
+            _ => {
+                // do nothing
+            }
+        }
+        Ok(())
+    }
+}
+
+impl SemanticOp for Registration
+{
+    fn post(&mut self, mut node: AstNode) -> SemanticResult
+    {
+        self.assign_registers(&mut node)?;
+        Ok(SemanticAction::Keep(node))
+    }
+}
+
+impl fmt::Debug for Registration
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "Registration")
+    }
+}
+
 
 // 1
 // 2
