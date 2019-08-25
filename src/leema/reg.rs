@@ -1,12 +1,8 @@
 use crate::leema::failure::Lresult;
-use crate::leema::lstr::Lstr;
 use crate::leema::val::Val;
 
-use std::cell::RefCell;
-use std::cmp;
 use std::collections::HashMap;
 use std::fmt;
-use std::rc::Rc;
 
 
 #[derive(PartialEq)]
@@ -85,7 +81,6 @@ impl fmt::Debug for Ireg
 pub trait Iregistry
 {
     fn ireg_get(&self, r: &Ireg) -> Lresult<&Val>;
-    fn ireg_get_mut(&mut self, r: &Ireg) -> &mut Val;
     fn ireg_set(&mut self, r: &Ireg, v: Val);
 }
 
@@ -98,7 +93,7 @@ pub enum Reg
 {
     Param(Ireg),
     Local(Ireg),
-    // Stack(Ireg),
+    Stack(Ireg),
     Lib,
     Void,
     Undecided,
@@ -126,6 +121,11 @@ impl Reg
     pub fn local(p: i8) -> Reg
     {
         Reg::Local(Ireg::Reg(p))
+    }
+
+    pub fn stack(p: i8) -> Reg
+    {
+        Reg::Stack(Ireg::Reg(p))
     }
 
     pub fn is_primary(&self) -> bool
@@ -173,7 +173,8 @@ impl fmt::Display for Reg
     {
         match self {
             &Reg::Param(ref r) => write!(f, "Param{}", r),
-            &Reg::Local(ref r) => write!(f, "Reg{}", r),
+            &Reg::Local(ref r) => write!(f, "Local{}", r),
+            &Reg::Stack(ref r) => write!(f, "Stack{}", r),
             &Reg::Lib => write!(f, "Reg::Lib"),
             &Reg::Void => write!(f, "Reg::Void"),
             &Reg::Undecided => write!(f, "Reg::Undecided"),
@@ -190,148 +191,17 @@ impl fmt::Debug for Reg
 }
 
 
-#[derive(Clone)]
-#[derive(Debug)]
-pub struct Tree
-{
-    zero: Option<Box<Tree>>,
-    one: Option<Box<Tree>>,
-    reg: Option<i8>,
-    max: i8,
-}
-
-impl Tree
-{
-    pub fn new() -> Tree
-    {
-        Tree {
-            zero: None,
-            one: None,
-            reg: None,
-            max: 0,
-        }
-    }
-
-    fn with_reg(reg: i8) -> Tree
-    {
-        Tree {
-            zero: None,
-            one: None,
-            reg: Some(reg),
-            max: reg,
-        }
-    }
-
-    pub fn push(&mut self) -> i8
-    {
-        self._push(1)
-    }
-
-    pub fn pop(&mut self, r: &Reg)
-    {
-        let ir = match r {
-            &Reg::Local(Ireg::Reg(localreg)) => localreg,
-            _ => {
-                panic!("cannot pop a not local reg: {:?}", r);
-            }
-        };
-        if ir == 1 {
-            self.reg = None;
-            self.max = self.get_max();
-            return;
-        }
-        self._pop(ir >> 1);
-    }
-
-    fn _push(&mut self, r: i8) -> i8
-    {
-        // what is going on in here?
-        if self.reg.is_none() {
-            self.reg = Some(r);
-            self.max = self.get_max();
-            return r;
-        }
-        let new0x = (r << 1) & 0x7e;
-        let new1x = new0x | 0x01;
-        let new_reg = match (&mut self.zero, &mut self.one) {
-            (&mut Some(ref mut old0), &mut Some(ref old1))
-                if old0.max < old1.max =>
-            {
-                old0._push(new0x)
-            }
-            (&mut Some(_), &mut Some(ref mut old1)) => old1._push(new0x),
-            (old0 @ &mut None, _) => {
-                *old0 = Some(Box::new(Tree::with_reg(new0x)));
-                new0x
-            }
-            (_, old1 @ &mut None) => {
-                *old1 = Some(Box::new(Tree::with_reg(new1x)));
-                new1x
-            }
-        };
-        self.max = self.get_max();
-        new_reg
-    }
-
-    fn _pop(&mut self, r: i8)
-    {
-        if r == 1 {
-            self.reg = None;
-            self.max = self.get_max();
-            return;
-        } else {
-            let nextr = r >> 1;
-            if r & 0x01 == 0x01 {
-                self.zero.as_mut().unwrap()._pop(nextr);
-            } else {
-                self.one.as_mut().unwrap()._pop(nextr);
-            }
-        }
-    }
-
-    pub fn get_max(&mut self) -> i8
-    {
-        match (&self.zero, &self.one) {
-            (&Some(ref old0), &Some(ref old1)) => cmp::max(old0.max, old1.max),
-            (&None, &Some(ref old1)) => old1.max,
-            (&Some(ref old0), &None) => old0.max,
-            _ => self.max,
-        }
-    }
-}
-
-#[derive(Clone)]
-#[derive(Debug)]
-pub struct RegState
-{
-    in_use: bool,
-    prev: Option<i8>,
-    name: Option<Lstr>,
-}
-
-impl Default for RegState
-{
-    fn default() -> RegState
-    {
-        RegState {
-            in_use: false,
-            prev: None,
-            name: None,
-        }
-    }
-}
-
-/// Table for allocating scoped registers
+/// Table for allocating local registers for a function
+///
+/// Local registers are allocated for the duration of a function
 ///
 /// Down:
-/// - blocks: push state, assign members
 /// - ids assign new or existing
 /// - calls assign new, push params as current
 pub struct RegTab
 {
-    tab: Vec<bool>,
     ids: HashMap<&'static str, i8>,
-    pub current: Reg,
+    next_local: i8,
 }
 
 impl RegTab
@@ -339,104 +209,38 @@ impl RegTab
     pub fn new() -> RegTab
     {
         RegTab {
-            tab: Vec::new(),
             ids: HashMap::new(),
-            current: Reg::local(0),
+            next_local: 0,
         }
     }
 
-    pub fn id(&mut self, name: &'static str) -> Reg
+    pub fn named(&mut self, id: &'static str) -> Reg
     {
-        if let Some(r) = self.ids.get(name) {
+        if let Some(r) = self.ids.get(id) {
             return Reg::local(*r);
         }
-        for (i, r) in self.tab.iter_mut().enumerate() {
-            if !*r {
-                *r = true;
-                let ir = i as i8;
-                self.ids.insert(name, ir);
-                return Reg::local(ir);
-            }
-        }
-        let ir = self.tab.len() as i8;
-        self.tab.push(true);
-        self.ids.insert(name, ir);
-        Reg::local(ir)
+        let r = self.next_local;
+        self.next_local += 1;
+        self.ids.insert(id, r);
+        Reg::local(r)
     }
-}
 
-/*
-    pub fn push_dst(&mut self) -> ScopedReg
+    pub fn unnamed(&mut self) -> Reg
     {
-        let icurrent = self.reg.borrow_mut().push();
-        self.current = Reg::local(icurrent);
-        ScopedReg {
-            r: self.current.clone(),
-            tree: self.reg.clone(),
-            free_on_drop: true,
-        }
+        let r = self.next_local;
+        self.next_local += 1;
+        Reg::local(r)
     }
 
-    pub fn push_dst_reg(&mut self, r: Reg) -> ScopedReg
+    /// find how many local registers have been allocated to this table
+    pub fn size(&self) -> i8
     {
-        ScopedReg {
-            r,
-            tree: self.reg.clone(),
-            free_on_drop: false,
-        }
-    }
-*/
-
-
-pub struct ScopedReg
-{
-    pub r: Reg,
-    tree: Rc<RefCell<Tree>>,
-    free_on_drop: bool,
-}
-
-impl ScopedReg
-{
-    pub fn pop(mut self)
-    {
-        self._pop();
-    }
-
-    fn _pop(&mut self)
-    {
-        if self.r == Reg::Void {
-            return;
-        }
-        self.tree.borrow_mut().pop(&self.r);
-        self.r = Reg::Void;
-    }
-}
-
-impl Drop for ScopedReg
-{
-    fn drop(&mut self)
-    {
-        self._pop();
+        self.next_local
     }
 }
 
 
-enum RegStack
-{
-    Head(RegTab, RegStack),
-    Node(i8, RegStack),
-    Root(RegTab),
-    Nil,
-}
-
-struct StackedReg
-{
-    reg: Reg,
-    node: RegStack,
-}
-
-
-/// RegStack pulls registers from the table
+/// RegStack pulls temporary registers from the table
 /// and puts them back when they're no longer used
 ///
 /// root = inner_table
@@ -456,38 +260,28 @@ struct StackedReg
 ///           -> prev pushed
 pub struct RegStack<'s>
 {
-    r: i8,
-    parent: Option<RegStack<'s>>,
-    tab: Option<RegTab>,
+    tab: &'s RegTab,
+    stack: i8,
 }
 
-impl RegStack<'s>
+impl<'s> RegStack<'s>
 {
-    pub fn base(tab: RegTab) -> RegStack
+    pub fn root(tab: &'s RegTab) -> RegStack<'s>
     {
         RegStack{
-            reg: Reg::local(0),
-            parent: None,
-            tab: Some(tab),
+            tab,
+            stack: 0,
         }
     }
 
-    pub fn push<'p>(&'p mut self) -> RegStack<'p>
+    pub fn push(self) -> (Reg, RegStack<'s>)
     {
-        let tab = p.tab.take().unwrap();
-        let r = tab.pop_unused();
-        RegStack{
-            reg: r,
-            parent: self,
-            tab: Some(tab),
-        }
-    }
-
-    pub fn pop(self) -> RegStack
-
-    pub fn reg(&self) -> Reg
-    {
-        Reg::local(self.r)
+        let r = Reg::stack(self.stack);
+        let new_stack = RegStack{
+            tab: self.tab,
+            stack: self.stack + 1,
+        };
+        (r, new_stack)
     }
 }
 

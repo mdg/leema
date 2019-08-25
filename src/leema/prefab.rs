@@ -8,7 +8,7 @@ use crate::leema::val::{self, LibVal, Type, Val};
 
 use std::fmt::{self, Debug, Display};
 use std::fs::File;
-use std::io::{stderr, stdin, Read, Write};
+use std::io::{stderr, stdin, Write};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -374,6 +374,8 @@ pub fn file_read(f: &mut Fiber) -> Lresult<Event>
 
 pub fn file_stream_read(f: &mut Fiber) -> Lresult<Event>
 {
+    /*
+     * reimplement this on the io worker
     let mut input = "".to_string();
     {
         let streamval = f.head.e.get_param_mut(0);
@@ -386,6 +388,8 @@ pub fn file_stream_read(f: &mut Fiber) -> Lresult<Event>
         //let result = myf.f.lock().unwrap().read_to_string(&mut input);
     }
     f.head.parent.set_result(Val::Str(Lstr::from(input)));
+    */
+    f.head.parent.set_result(Val::Str(Lstr::Sref("")));
     Event::success()
 }
 

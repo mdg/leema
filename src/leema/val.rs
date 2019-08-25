@@ -10,7 +10,7 @@ use crate::leema::sendclone::{self, SendClone};
 use crate::leema::struple::{Struple, Struple2, StrupleKV};
 
 use std::cmp::{Ordering, PartialEq, PartialOrd};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::fmt;
 use std::io::Error;
 use std::iter::FromIterator;
@@ -1265,16 +1265,6 @@ impl reg::Iregistry for Val
         }
     }
 
-    fn ireg_get_mut<'a, 'b>(&'a mut self, i: &'b Ireg) -> &'a mut Val
-    {
-        match (i, self) {
-            (_, &mut Val::Tuple(ref mut items)) => items.ireg_get_mut(i),
-            _ => {
-                panic!("Tuple is only mut registry value");
-            }
-        }
-    }
-
     fn ireg_set(&mut self, i: &Ireg, v: Val)
     {
         match (i, self) {
@@ -1482,6 +1472,14 @@ impl AsMut<[u8]> for Val
     }
 }
 
+impl Default for Val
+{
+    fn default() -> Val
+    {
+        Val::Void
+    }
+}
+
 /*
 impl Clone for Val
 {
@@ -1531,9 +1529,10 @@ pub struct Env
 {
     params: Val,
     result: Option<Val>,
-    reg: BTreeMap<i8, Val>,
-    kv: BTreeMap<String, Val>,
-    error: Val,
+    // locals: StrupleKV<&'static str, Val>,
+    // maybe eventually switch locals to init w/ a struple from the func?
+    locals: StrupleKV<(), Val>,
+    stack: StrupleKV<(), Val>,
 }
 
 impl Env
@@ -1543,9 +1542,8 @@ impl Env
         Env {
             params: Val::Void,
             result: None,
-            reg: BTreeMap::new(),
-            kv: BTreeMap::new(),
-            error: Val::Void,
+            locals: StrupleKV::new(),
+            stack: StrupleKV::new(),
         }
     }
 
@@ -1554,33 +1552,28 @@ impl Env
         Env {
             params: v,
             result: None,
-            reg: BTreeMap::new(),
-            kv: BTreeMap::new(),
-            error: Val::Void,
-        }
-    }
-
-    pub fn get_reg_mut(&mut self, reg: &Reg) -> &mut Val
-    {
-        match reg {
-            &Reg::Param(ref r) => self.params.ireg_get_mut(r),
-            &Reg::Local(ref i) => self.ireg_get_mut(i),
-            &Reg::Void => {
-                panic!("Cannot get Reg::Void");
-            }
-            &Reg::Lib => {
-                panic!("Please look in application library for Reg::Lib");
-            }
-            &Reg::Undecided => {
-                panic!("Cannot get undecided register");
-            }
+            locals: StrupleKV::new(),
+            stack: StrupleKV::new(),
         }
     }
 
     pub fn set_reg(&mut self, reg: &Reg, v: Val)
     {
         match reg {
-            &Reg::Local(ref i) => self.ireg_set(i, v),
+            &Reg::Local(ref i) => {
+                let primary = i.get_primary() as usize;
+                if primary >= self.locals.len() {
+                    self.locals.0.resize(primary + 1, Default::default())
+                }
+                self.locals.ireg_set(i, v)
+            }
+            &Reg::Stack(ref i) => {
+                let primary = i.get_primary() as usize;
+                if primary >= self.stack.len() {
+                    self.stack.0.resize(primary + 1, Default::default())
+                }
+                self.stack.ireg_set(i, v)
+            }
             &Reg::Void => {
                 // do nothing, void reg is like /dev/null
             }
@@ -1594,7 +1587,12 @@ impl Env
     {
         match reg {
             &Reg::Param(ref r) => self.params.ireg_get(r),
-            &Reg::Local(ref i) => self.ireg_get(i),
+            &Reg::Local(ref i) => {
+                self.locals.ireg_get(i)
+            }
+            &Reg::Stack(ref i) => {
+                self.stack.ireg_get(i)
+            }
             &Reg::Void => {
                 Err(rustfail!("leema_failure", "Cannot get Reg::Void",))
             }
@@ -1619,65 +1617,7 @@ impl Env
 
     pub fn get_param(&self, reg: i8) -> Lresult<&Val>
     {
-        self.get_reg(&Reg::Param(Ireg::Reg(reg)))
-    }
-
-    pub fn get_param_mut(&mut self, reg: i8) -> &mut Val
-    {
-        self.get_reg_mut(&Reg::Param(Ireg::Reg(reg)))
-    }
-}
-
-impl reg::Iregistry for Env
-{
-    fn ireg_get(&self, i: &Ireg) -> Lresult<&Val>
-    {
-        let p = i.get_primary();
-        let v = self.reg.get(&p).ok_or_else(|| {
-            vout!("{:?} not set in {:?}\n", i, self.reg);
-            rustfail!("leema_failure", "register is not set: {:?}", i,)
-        })?;
-
-        if let &Ireg::Sub(_, ref s) = i {
-            v.ireg_get(&*s)
-        } else {
-            Ok(v)
-        }
-    }
-
-    fn ireg_get_mut(&mut self, i: &Ireg) -> &mut Val
-    {
-        let p = i.get_primary();
-        if !self.reg.contains_key(&p) {
-            vout!("{:?} not set in {:?}\n", i, self.reg);
-            panic!("register_mut is not set: {:?}", i);
-        }
-        let v = self.reg.get_mut(&p).unwrap();
-
-        if let &Ireg::Sub(_, ref s) = i {
-            v.ireg_get_mut(&*s)
-        } else {
-            v
-        }
-    }
-
-    fn ireg_set(&mut self, i: &Ireg, v: Val)
-    {
-        match i {
-            &Ireg::Reg(p) => {
-                if self.reg.contains_key(&p) {
-                    vout!("register already set: {:?}\n", i);
-                    vout!("\toverwrite {:?}\twith {:?}\n", self.reg.get(&p), v);
-                }
-                self.reg.insert(p, v);
-            }
-            &Ireg::Sub(p, ref s) => {
-                if !self.reg.contains_key(&p) {
-                    panic!("primary register not set: {:?}", i);
-                }
-                self.reg.get_mut(&p).unwrap().ireg_set(&*s, v);
-            }
-        }
+        self.params.ireg_get(&Ireg::Reg(reg))
     }
 }
 

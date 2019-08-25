@@ -53,6 +53,17 @@ where
     }
 }
 
+impl<K, V> Default for StrupleItem<K, V>
+where
+    K: Default,
+    V: Default,
+{
+    fn default() -> StrupleItem<K, V>
+    {
+        StrupleItem { k: Default::default(), v: Default::default() }
+    }
+}
+
 #[derive(Clone)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
@@ -253,6 +264,61 @@ where
     }
 }
 
+impl<K> reg::Iregistry for StrupleKV<K, Val>
+where
+    K: fmt::Debug
+{
+    fn ireg_get(&self, i: &Ireg) -> Lresult<&Val>
+    {
+        match i {
+            // get reg on struple
+            &Ireg::Reg(p) => {
+                if p as usize >= self.0.len() {
+                    Err(rustfail!(
+                        "leema_failure",
+                        "{:?} too big for {:?}",
+                        i,
+                        self.0,
+                    ))
+                } else {
+                    Ok(&self.0[p as usize].v)
+                }
+            }
+            &Ireg::Sub(p, ref s) => {
+                if p as usize >= self.0.len() {
+                    Err(rustfail!(
+                        "leema_failure",
+                        "{:?} too big for {:?}",
+                        i,
+                        self.0,
+                    ))
+                } else {
+                    self.0[p as usize].v.ireg_get(&*s)
+                }
+            }
+        }
+    }
+
+    fn ireg_set(&mut self, i: &Ireg, v: Val)
+    {
+        match i {
+            // get reg on struple
+            &Ireg::Reg(p) => {
+                if p as usize >= self.0.len() {
+                    panic!("{:?} too big for struple {:?}", i, self);
+                }
+                self.0[p as usize].v = v;
+            }
+            &Ireg::Sub(p, ref s) => {
+                if p as usize >= self.0.len() {
+                    panic!("{:?} too big for strtuple {:?}", i, self);
+                }
+                self.0[p as usize].v.ireg_set(&*s, v);
+            }
+        }
+    }
+}
+
 
 #[derive(Clone)]
 #[derive(PartialEq)]
@@ -398,25 +464,6 @@ impl reg::Iregistry for Struple<Val>
                 } else {
                     self.0[p as usize].1.ireg_get(&*s)
                 }
-            }
-        }
-    }
-
-    fn ireg_get_mut(&mut self, i: &Ireg) -> &mut Val
-    {
-        match i {
-            // set reg on struple
-            &Ireg::Reg(p) => {
-                if p as usize >= self.0.len() {
-                    panic!("{:?} too big for {:?}", i, self.0);
-                }
-                &mut self.0[p as usize].1
-            }
-            &Ireg::Sub(p, ref s) => {
-                if p as usize >= self.0.len() {
-                    panic!("{:?} too big for {:?}", i, self.0);
-                }
-                self.0[p as usize].1.ireg_get_mut(&*s)
             }
         }
     }

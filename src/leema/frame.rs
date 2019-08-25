@@ -298,11 +298,6 @@ impl Frame
     {
         self.e.get_reg(&Reg::Param(Ireg::Reg(p)))
     }
-
-    pub fn get_param_mut(&mut self, p: i8) -> &mut Val
-    {
-        self.e.get_reg_mut(&Reg::Param(Ireg::Reg(p)))
-    }
 }
 
 /*
