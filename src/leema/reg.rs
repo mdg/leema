@@ -258,27 +258,24 @@ impl RegTab
 /// pusher -> tab
 /// pushed(r) -> popper -> (pusher|tab)
 ///           -> prev pushed
-pub struct RegStack<'s>
+pub struct RegStack
 {
-    tab: &'s RegTab,
     stack: i8,
 }
 
-impl<'s> RegStack<'s>
+impl RegStack
 {
-    pub fn root(tab: &'s RegTab) -> RegStack<'s>
+    pub fn root() -> RegStack
     {
         RegStack{
-            tab,
             stack: 0,
         }
     }
 
-    pub fn push(self) -> (Reg, RegStack<'s>)
+    pub fn push(self) -> (Reg, RegStack)
     {
         let r = Reg::stack(self.stack);
         let new_stack = RegStack{
-            tab: self.tab,
             stack: self.stack + 1,
         };
         (r, new_stack)
