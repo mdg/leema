@@ -3,7 +3,6 @@ use crate::leema::failure::Lresult;
 use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::{ProtoLib, ProtoModule};
-use crate::leema::reg::{Reg, RegStack, RegTab};
 use crate::leema::struple::StrupleKV;
 use crate::leema::val::{FuncType, Type};
 
@@ -696,75 +695,6 @@ impl SemanticOp for RemoveExtraCode
             }
         };
         Ok(action)
-    }
-}
-
-struct Registration<'t>
-{
-    current: Reg,
-    tab: &'t mut RegTab,
-    stack: RegStack,
-}
-
-impl<'t> Registration<'t>
-{
-    fn pre_assign_registers(&mut self, node: &mut AstNode) -> Lresult<()>
-    {
-        match &mut *node.node {
-            Ast::Id1(ref name) => {
-                node.dst = self.tab.named(name);
-            }
-            Ast::Block(ref mut items) => {
-                if let Some(item) = items.last_mut() {
-                    item.dst = self.current.clone();
-
-                    // send all the others to void
-                    for i in items.iter_mut().rev().skip(1) {
-                        i.dst = Reg::Void;
-                    }
-                }
-            }
-            _ => {
-                // do nothing
-            }
-        }
-        Ok(())
-    }
-
-    fn post_assign_registers(&mut self, node: &mut AstNode) -> Lresult<()>
-    {
-        match &mut *node.node {
-            Ast::Id1(ref _name) => {
-                node.dst = Reg::Void;
-            }
-            _ => {
-                // do nothing
-            }
-        }
-        Ok(())
-    }
-}
-
-impl<'t> SemanticOp for Registration<'t>
-{
-    fn pre(&mut self, mut node: AstNode) -> SemanticResult
-    {
-        self.pre_assign_registers(&mut node)?;
-        Ok(SemanticAction::Keep(node))
-    }
-
-    fn post(&mut self, mut node: AstNode) -> SemanticResult
-    {
-        self.post_assign_registers(&mut node)?;
-        Ok(SemanticAction::Keep(node))
-    }
-}
-
-impl<'t> fmt::Debug for Registration<'t>
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        write!(f, "Registration")
     }
 }
 

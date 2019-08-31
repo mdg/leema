@@ -258,25 +258,32 @@ impl RegTab
 /// pusher -> tab
 /// pushed(r) -> popper -> (pusher|tab)
 ///           -> prev pushed
-pub struct RegStack
+pub struct RegStack<'t>
 {
+    pub dst: Reg,
+    pub local: &'t mut RegTab,
     stack: i8,
 }
 
-impl RegStack
+impl<'t> RegStack<'t>
 {
-    pub fn root() -> RegStack
+    pub fn new(local: &'t mut RegTab) -> RegStack<'t>
     {
         RegStack{
+            dst: Reg::stack(0),
+            local,
             stack: 0,
         }
     }
 
-    pub fn push(self) -> (Reg, RegStack)
+    pub fn push(self) -> (Reg, RegStack<'t>)
     {
-        let r = Reg::stack(self.stack);
+        let next_stack = self.stack + 1;
+        let r = Reg::stack(next_stack);
         let new_stack = RegStack{
-            stack: self.stack + 1,
+            dst: r.clone(),
+            local: self.local,
+            stack: next_stack,
         };
         (r, new_stack)
     }
