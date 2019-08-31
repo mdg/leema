@@ -1,5 +1,4 @@
 use crate::leema::failure::Lresult;
-use crate::leema::reg::Reg;
 use crate::leema::struple::{Struple2, StrupleKV};
 use crate::leema::token::TokenSrc;
 use crate::leema::val::{Type, Val};
@@ -198,7 +197,6 @@ pub struct AstNode
     pub node: Box<Ast>,
     pub loc: Loc,
     pub typ: Type,
-    pub dst: Reg,
 }
 
 pub type AstResult = Lresult<AstNode>;
@@ -211,7 +209,6 @@ impl AstNode
             node: Box::new(node),
             loc,
             typ: Type::Unknown,
-            dst: Reg::Void,
         }
     }
 
@@ -222,7 +219,6 @@ impl AstNode
             node: Box::new(Ast::ConstVal(v)),
             loc,
             typ: const_type,
-            dst: Reg::Void,
         }
     }
 
@@ -235,7 +231,6 @@ impl AstNode
                 column: 0,
             },
             typ: Type::Unknown,
-            dst: Reg::Void,
         }
     }
 
@@ -245,7 +240,6 @@ impl AstNode
             node: Box::new(node),
             loc: self.loc.clone(),
             typ: t,
-            dst: self.dst.clone(),
         }
     }
 
@@ -261,11 +255,6 @@ impl AstNode
     {
         self.loc = loc;
         self
-    }
-
-    pub fn set_dst(&mut self, dst: Reg)
-    {
-        self.dst = dst;
     }
 }
 
