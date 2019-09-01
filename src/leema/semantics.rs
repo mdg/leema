@@ -3,7 +3,7 @@ use crate::leema::failure::Lresult;
 use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::{ProtoLib, ProtoModule};
-use crate::leema::reg::{Reg, RegTab};
+use crate::leema::reg::{Reg, RegStack, RegTab};
 use crate::leema::struple::StrupleKV;
 use crate::leema::val::{FuncType, Type};
 
@@ -704,6 +704,7 @@ impl SemanticOp for RemoveExtraCode
 struct Registration
 {
     tab: RegTab,
+    stack: RegStack,
     is_pattern: bool,
 }
 
@@ -713,6 +714,7 @@ impl Registration
     {
         Registration {
             tab: RegTab::new(),
+            stack: RegStack::new(),
             is_pattern: false,
         }
     }
@@ -720,6 +722,12 @@ impl Registration
     fn pre_assign_registers(&mut self, node: &mut AstNode) -> Lresult<()>
     {
         match &mut *node.node {
+            Ast::Block(ref mut items) => {
+                // copy the block's dst to the last item in the block
+                if let Some(item) = items.last_mut() {
+                    item.dst = node.dst.clone();
+                }
+            }
             Ast::Id1(ref name) => {
                 node.dst = self.tab.named(name);
             }
@@ -801,6 +809,7 @@ impl SemanticOp for Registration
     fn pre(&mut self, mut node: AstNode) -> SemanticResult
     {
         if !self.is_pattern {
+            self.stack.push_node();
             self.pre_assign_registers(&mut node)?;
         } // else do nothing for patterns
         Ok(SemanticAction::Keep(node))
@@ -810,6 +819,7 @@ impl SemanticOp for Registration
     {
         if !self.is_pattern {
             self.post_assign_registers(&mut node)?;
+            self.stack.pop_node();
         } // else do nothing for patterns
         Ok(SemanticAction::Keep(node))
     }
