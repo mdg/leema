@@ -200,7 +200,7 @@ impl fmt::Debug for Reg
 /// - calls assign new, push params as current
 pub struct RegTab
 {
-    ids: HashMap<&'static str, i8>,
+    ids: HashMap<&'static str, Reg>,
     next_local: i8,
 }
 
@@ -217,11 +217,11 @@ impl RegTab
     pub fn named(&mut self, id: &'static str) -> Reg
     {
         if let Some(r) = self.ids.get(id) {
-            return Reg::local(*r);
+            return r.clone();
         }
         let r = self.next_local;
         self.next_local += 1;
-        self.ids.insert(id, r);
+        self.ids.insert(id, Reg::local(r));
         Reg::local(r)
     }
 
@@ -258,34 +258,39 @@ impl RegTab
 /// pusher -> tab
 /// pushed(r) -> popper -> (pusher|tab)
 ///           -> prev pushed
-pub struct RegStack<'t>
+pub struct RegStack
 {
     pub dst: Reg,
-    pub local: &'t mut RegTab,
-    stack: i8,
+    next: i8,
+    stack: Vec<i8>,
 }
 
-impl<'t> RegStack<'t>
+impl RegStack
 {
-    pub fn new(local: &'t mut RegTab) -> RegStack<'t>
+    pub fn new() -> RegStack
     {
         RegStack{
             dst: Reg::stack(0),
-            local,
-            stack: 0,
+            next: 1,
+            stack: Vec::new(),
         }
     }
 
-    pub fn push(self) -> (Reg, RegStack<'t>)
+    pub fn push_dst(&mut self) -> Reg
     {
-        let next_stack = self.stack + 1;
-        let r = Reg::stack(next_stack);
-        let new_stack = RegStack{
-            dst: r.clone(),
-            local: self.local,
-            stack: next_stack,
-        };
-        (r, new_stack)
+        self.dst = Reg::stack(self.next);
+        self.next += 1;
+        self.dst.clone()
+    }
+
+    pub fn push_node(&mut self)
+    {
+        self.stack.push(self.next);
+    }
+
+    pub fn pop_node(&mut self)
+    {
+        self.next = self.stack.pop().unwrap();
     }
 }
 

@@ -3,6 +3,7 @@ use crate::leema::failure::Lresult;
 use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::{ProtoLib, ProtoModule};
+use crate::leema::reg::{Reg, RegStack, RegTab};
 use crate::leema::struple::StrupleKV;
 use crate::leema::val::{FuncType, Type};
 
@@ -695,6 +696,77 @@ impl SemanticOp for RemoveExtraCode
             }
         };
         Ok(action)
+    }
+}
+
+struct Registration
+{
+    current: Reg,
+    tab: RegTab,
+    stack: RegStack,
+}
+
+impl Registration
+{
+    fn pre_assign_registers(&mut self, node: &mut AstNode) -> Lresult<()>
+    {
+        match &mut *node.node {
+            Ast::Id1(ref name) => {
+                node.dst = self.tab.named(name);
+            }
+            Ast::Call(ref mut f, ref mut args) => {
+                f.dst = self.tab.unnamed();
+                for (it, a) in args.0.iter_mut().enumerate() {
+                    let i = it as i8;
+                    a.v.dst = f.dst.sub(i);
+                }
+            }
+            _ => {
+                // do nothing
+            }
+        }
+        Ok(())
+    }
+
+    fn post_assign_registers(&mut self, node: &mut AstNode) -> Lresult<()>
+    {
+        match &mut *node.node {
+            Ast::Block(ref mut items) => {
+                if !items.is_empty() {
+                    // send all the others to void
+                    for i in items.iter_mut().rev().skip(1) {
+                        i.dst = Reg::Void;
+                    }
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+}
+
+impl SemanticOp for Registration
+{
+    fn pre(&mut self, mut node: AstNode) -> SemanticResult
+    {
+        self.stack.push_node();
+        self.pre_assign_registers(&mut node)?;
+        Ok(SemanticAction::Keep(node))
+    }
+
+    fn post(&mut self, mut node: AstNode) -> SemanticResult
+    {
+        self.post_assign_registers(&mut node)?;
+        self.stack.pop_node();
+        Ok(SemanticAction::Keep(node))
+    }
+}
+
+impl fmt::Debug for Registration
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "Registration")
     }
 }
 

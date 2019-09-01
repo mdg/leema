@@ -3,7 +3,7 @@ use crate::leema::failure::Lresult;
 use crate::leema::fiber;
 use crate::leema::frame;
 use crate::leema::lstr::Lstr;
-use crate::leema::reg::{Reg, RegStack, RegTab};
+use crate::leema::reg::{Reg, RegStack};
 use crate::leema::rsrc;
 use crate::leema::struple::Struple;
 use crate::leema::val::{Type, Val};
@@ -195,8 +195,7 @@ impl Clone for Code
 pub fn make_ops2(input: AstNode) -> OpVec
 {
     vout!("make_ops2({:?})\n", input);
-    let mut rt = RegTab::new();
-    let mut rs = RegStack::new(&mut rt);
+    let mut rs = RegStack::new();
     let mut ops = make_sub_ops2(&mut rs, input);
     ops.ops.push(Op::SetResult(rs.dst));
     ops.ops.push(Op::Return);
@@ -531,9 +530,8 @@ pub fn make_pattern_val(rs: &mut RegStack, pattern: AstNode) -> Val
 {
     match *pattern.node {
         Ast::Id1(id) => {
-            let dst = rs.local.named(id);
-            vout!("pattern var:reg is {}.{:?}\n", id, dst);
-            Val::PatternVar(dst)
+            vout!("pattern var:reg is {}.{:?}\n", id, pattern.dst);
+            Val::PatternVar(pattern.dst)
         }
         Ast::ConstVal(v) => v,
         Ast::Wildcard => Val::Wildcard,
