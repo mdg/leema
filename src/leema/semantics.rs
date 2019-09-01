@@ -1,4 +1,4 @@
-use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc};
+use crate::leema::ast2::{self, Ast, AstNode, AstResult, CaseType, Loc};
 use crate::leema::failure::Lresult;
 use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
@@ -704,11 +704,22 @@ struct Registration
     current: Reg,
     tab: RegTab,
     stack: RegStack,
+    is_pattern: bool,
 }
 
 impl Registration
 {
-    fn pre_assign_registers(&mut self, node: &mut AstNode) -> Lresult<()>
+    pub fn new() -> Registration
+    {
+        Registration {
+            current: Reg::Void,
+            tab: RegTab::new(),
+            stack: RegStack::new(),
+            is_pattern: false,
+        }
+    }
+
+    fn post_assign_registers(&mut self, node: &mut AstNode) -> Lresult<()>
     {
         match &mut *node.node {
             Ast::Id1(ref name) => {
@@ -721,36 +732,60 @@ impl Registration
                     a.v.dst = f.dst.sub(i);
                 }
             }
-            _ => {
-                // do nothing
+            Ast::Let(ref mut lhs, _, ref mut rhs) => {
+                if let Ast::Id1(name) = &*lhs.node {
+                    rhs.dst = self.tab.named(name);
+                } else {
+                    self.assign_pattern_registers(lhs);
+                }
             }
-        }
-        Ok(())
-    }
-
-    fn post_assign_registers(&mut self, node: &mut AstNode) -> Lresult<()>
-    {
-        match &mut *node.node {
             Ast::Block(ref mut items) => {
                 if !items.is_empty() {
+                    node.dst = items.last_mut().unwrap().dst.clone();
                     // send all the others to void
                     for i in items.iter_mut().rev().skip(1) {
                         i.dst = Reg::Void;
                     }
                 }
             }
-            _ => {}
+            Ast::Case(CaseType::Match, _match_input, ref mut cases) => {
+                for case in cases.iter_mut() {
+                    self.assign_pattern_registers(&mut case.cond);
+                    // is there anything to do w/ the body here?
+                }
+            }
+            Ast::Case(CaseType::If, _, _) => {
+                // is there anything to do w/ the body here?
+            }
+            _ => {} // do nothing for other AST values
         }
         Ok(())
+    }
+
+    fn assign_pattern_registers(&mut self, pattern: &mut AstNode)
+    {
+        match *pattern.node {
+            Ast::Id1(id) => {
+                pattern.dst = self.tab.named(id);
+                vout!("pattern var:reg is {}.{:?}\n", id, pattern.dst);
+            }
+            Ast::Tuple(ref mut items) => {
+                for item in items.0.iter_mut() {
+                    self.assign_pattern_registers(&mut item.v);
+                }
+            }
+            _ => {
+                // do nothing with other pattern values
+            }
+        }
     }
 }
 
 impl SemanticOp for Registration
 {
-    fn pre(&mut self, mut node: AstNode) -> SemanticResult
+    fn pre(&mut self, node: AstNode) -> SemanticResult
     {
         self.stack.push_node();
-        self.pre_assign_registers(&mut node)?;
         Ok(SemanticAction::Keep(node))
     }
 
@@ -759,6 +794,11 @@ impl SemanticOp for Registration
         self.post_assign_registers(&mut node)?;
         self.stack.pop_node();
         Ok(SemanticAction::Keep(node))
+    }
+
+    fn set_pattern(&mut self, is_pattern: bool)
+    {
+        self.is_pattern = is_pattern;
     }
 }
 

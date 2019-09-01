@@ -195,9 +195,10 @@ impl Clone for Code
 pub fn make_ops2(input: AstNode) -> OpVec
 {
     vout!("make_ops2({:?})\n", input);
+    let input_dst = input.dst.clone();
     let mut rs = RegStack::new();
     let mut ops = make_sub_ops2(&mut rs, input);
-    ops.ops.push(Op::SetResult(rs.dst));
+    ops.ops.push(Op::SetResult(input_dst));
     ops.ops.push(Op::Return);
     ops.ops
 }
@@ -217,11 +218,9 @@ pub fn make_sub_ops2(rs: &mut RegStack, input: AstNode) -> Oxpr
             ops
         }
         Ast::ConstVal(v) => {
-            vec![
-                Op::ConstVal(rs.dst.clone(), v.clone())]
+            vec![Op::ConstVal(input.dst, v.clone())]
         }
         Ast::Call(f, args) => make_call_ops(rs, f, args),
-        Ast::NewStruct(_typ, _args) => vec![],
         Ast::Let(patt, _, x) => {
             let pval = make_pattern_val(rs, patt);
             let mut xops = make_sub_ops2(rs, x);
@@ -235,7 +234,7 @@ pub fn make_sub_ops2(rs: &mut RegStack, input: AstNode) -> Oxpr
                 })
                 .collect();
                 */
-            xops.ops.push(Op::MatchPattern(rs.dst.clone(), pval, xops.dst));
+            xops.ops.push(Op::MatchPattern(input.dst, pval, xops.dst));
             // xops.ops.append(&mut failops);
             xops.ops
         }
@@ -243,10 +242,15 @@ pub fn make_sub_ops2(rs: &mut RegStack, input: AstNode) -> Oxpr
             make_list_ops(rs, items)
         }
         Ast::Tuple(items) => {
-            let newtup = Op::ConstVal(rs.dst.clone(), Val::new_tuple(items.0.len()));
+            let newtup = Op::ConstVal(input.dst.clone(), Val::new_tuple(items.0.len()));
             let mut ops: Vec<Op> = vec![newtup];
-            for i in items.0 {
-                let mut iops = make_sub_ops2(rs, i.v);
+            for (i, item) in items.0.into_iter().enumerate() {
+                let subdst = input.dst.sub(i as i8);
+                let mut iops = make_sub_ops2(rs, item.v);
+                // should be able to generalize this
+                if iops.dst != subdst {
+                    iops.ops.push(Op::Copy(subdst, iops.dst));
+                }
                 ops.append(&mut iops.ops);
                 // ops.push((Op::Copy(input.dst.clone(), iops.dst), i.1.line));
             }

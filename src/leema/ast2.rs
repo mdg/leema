@@ -1,6 +1,6 @@
 use crate::leema::failure::Lresult;
 use crate::leema::reg::Reg;
-use crate::leema::struple::{Struple2, StrupleKV};
+use crate::leema::struple::StrupleKV;
 use crate::leema::token::TokenSrc;
 use crate::leema::val::{Type, Val};
 
@@ -98,9 +98,6 @@ pub enum Ast
     LessThan3(AstNode, bool, AstNode, bool, AstNode),
     Let(AstNode, AstNode, AstNode),
     List(Xlist),
-    NewStruct(AstNode, Struple2<AstNode>),
-    NewTuple(StrupleKV<&'static str, AstNode>),
-    NewUnion(AstNode, &'static str, Struple2<AstNode>),
     Op1(&'static str, AstNode),
     Op2(&'static str, AstNode, AstNode),
     Return(AstNode),
@@ -169,9 +166,6 @@ impl Ast
             Ast::Wildcard => write!(f, "_"),
             // unimplemented
             Ast::LessThan3(_, _, _, _, _) => unimplemented!(),
-            Ast::NewStruct(_, _) => unimplemented!(),
-            Ast::NewTuple(_) => unimplemented!(),
-            Ast::NewUnion(_, _, _) => unimplemented!(),
             Ast::Return(_) => unimplemented!(),
             Ast::Type(_) => unimplemented!(),
         }
