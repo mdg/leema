@@ -222,7 +222,7 @@ pub fn make_sub_ops2(rs: &mut RegStack, input: AstNode) -> Oxpr
         }
         Ast::Call(f, args) => make_call_ops(rs, f, args),
         Ast::Let(patt, _, x) => {
-            let pval = make_pattern_val(rs, patt);
+            let pval = make_pattern_val(patt);
             let mut xops = make_sub_ops2(rs, x);
             /*
             let mut failops: Vec<(Op, i16)> = fails
@@ -452,7 +452,7 @@ pub fn make_matchcase_ops(
     xreg: &Reg,
 ) -> OpVec
 {
-    let patt_val = make_pattern_val(rs, matchcase.cond);
+    let patt_val = make_pattern_val(matchcase.cond);
     let mut code_ops = make_sub_ops2(rs, matchcase.body);
 
     let mut patt_ops: Vec<Op> = vec![
@@ -530,7 +530,7 @@ pub fn make_str_ops(rs: &mut RegStack, items: Vec<AstNode>) -> OpVec
     ops
 }
 
-pub fn make_pattern_val(rs: &mut RegStack, pattern: AstNode) -> Val
+pub fn make_pattern_val(pattern: AstNode) -> Val
 {
     match *pattern.node {
         Ast::Id1(id) => {
@@ -543,7 +543,7 @@ pub fn make_pattern_val(rs: &mut RegStack, pattern: AstNode) -> Val
             let reg_items = vars
                 .0
                 .into_iter()
-                .map(|v| (v.k.map(|k| Lstr::Sref(k)), make_pattern_val(rs, v.v)))
+                .map(|v| (v.k.map(|k| Lstr::Sref(k)), make_pattern_val(v.v)))
                 .collect();
             Val::Tuple(Struple(reg_items))
         }
