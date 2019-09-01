@@ -258,11 +258,12 @@ impl RegTab
 /// pusher -> tab
 /// pushed(r) -> popper -> (pusher|tab)
 ///           -> prev pushed
+#[derive(Clone)]
 pub struct RegStack
 {
     pub dst: Reg,
     next: i8,
-    stack: Vec<i8>,
+    stack: Vec<(Reg, i8)>,
 }
 
 impl RegStack
@@ -276,6 +277,15 @@ impl RegStack
         }
     }
 
+    pub fn put_dst(&mut self, a: Reg) -> Reg
+    {
+        if Reg::Undecided != a {
+            self.dst = a.clone();
+            return a;
+        }
+        self.push_dst()
+    }
+
     pub fn push_dst(&mut self) -> Reg
     {
         self.dst = Reg::stack(self.next);
@@ -285,12 +295,14 @@ impl RegStack
 
     pub fn push_node(&mut self)
     {
-        self.stack.push(self.next);
+        self.stack.push((self.dst.clone(), self.next));
     }
 
     pub fn pop_node(&mut self)
     {
-        self.next = self.stack.pop().unwrap();
+        let top = self.stack.pop().unwrap();
+        self.dst = top.0;
+        self.next = top.1;
     }
 }
 
