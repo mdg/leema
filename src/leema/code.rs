@@ -5,7 +5,6 @@ use crate::leema::frame;
 use crate::leema::lstr::Lstr;
 use crate::leema::reg::{Reg, RegStack, RegTab};
 use crate::leema::rsrc;
-use crate::leema::sendclone::SendClone;
 use crate::leema::struple::Struple;
 use crate::leema::val::{Type, Val};
 use crate::leema::worker::RustFuncContext;
@@ -38,13 +37,13 @@ impl fmt::Display for ModSym
 #[derive(PartialEq)]
 pub enum Op
 {
-    ApplyFunc(Reg, Reg),
+    ApplyFunc(Reg, Reg, u16),
     Return,
     SetResult(Reg),
-    PropagateFailure(Reg, i16),
+    PropagateFailure(Reg, u16),
     ConstVal(Reg, Val),
-    ConstructEnum(Reg, Type, Lstr, Struple<Type>),
-    Construple(Reg, Type, Struple<Type>),
+    // ConstructEnum(Reg, Type, Lstr, Struple<Type>),
+    // Construple(Reg, Type, Struple<Type>),
     Copy(Reg, Reg),
     // Fork(Reg, Reg, Reg),
     Jump(i16),
@@ -53,10 +52,7 @@ pub enum Op
     // jump if no match, pattern reg, input reg
     MatchPattern(Reg, Val, Reg),
     ListCons(Reg, Reg, Reg),
-    ListCreate(Reg),
-    MapCreate(Reg),
     StrCat(Reg, Reg),
-    TupleCreate(Reg, i8),
 }
 
 unsafe impl marker::Send for Op {}
@@ -67,31 +63,16 @@ impl Clone for Op
     fn clone(&self) -> Op
     {
         match self {
-            &Op::ApplyFunc(ref dst, ref f) => {
-                Op::ApplyFunc(dst.clone(), f.clone())
+            &Op::ApplyFunc(ref dst, ref f, line) => {
+                Op::ApplyFunc(dst.clone(), f.clone(), line)
             }
             &Op::Return => Op::Return,
             &Op::SetResult(ref src) => Op::SetResult(src.clone()),
-            &Op::PropagateFailure(ref src, line) => {
-                Op::PropagateFailure(src.clone(), line)
+            &Op::PropagateFailure(ref src, lineno) => {
+                Op::PropagateFailure(src.clone(), lineno)
             }
             &Op::ConstVal(ref dst, ref src) => {
                 Op::ConstVal(dst.clone(), src.deep_clone())
-            }
-            &Op::ConstructEnum(ref dst, ref typ, ref var, ref flds) => {
-                Op::ConstructEnum(
-                    dst.clone(),
-                    typ.deep_clone(),
-                    var.clone(),
-                    flds.clone_for_send(),
-                )
-            }
-            &Op::Construple(ref dst, ref typ, ref flds) => {
-                Op::Construple(
-                    dst.clone(),
-                    typ.deep_clone(),
-                    flds.clone_for_send(),
-                )
             }
             &Op::Copy(ref dst, ref src) => Op::Copy(dst.clone(), src.clone()),
             &Op::Jump(j) => Op::Jump(j),
@@ -103,17 +84,14 @@ impl Clone for Op
             &Op::ListCons(ref dst, ref head, ref tail) => {
                 Op::ListCons(dst.clone(), head.clone(), tail.clone())
             }
-            &Op::ListCreate(ref dst) => Op::ListCreate(dst.clone()),
-            &Op::MapCreate(ref dst) => Op::MapCreate(dst.clone()),
             &Op::StrCat(ref dst, ref src) => {
                 Op::StrCat(dst.clone(), src.clone())
             }
-            &Op::TupleCreate(ref dst, sz) => Op::TupleCreate(dst.clone(), sz),
         }
     }
 }
 
-pub type OpVec = Vec<(Op, i16)>;
+pub type OpVec = Vec<Op>;
 
 #[derive(Debug)]
 pub struct Oxpr
@@ -217,19 +195,17 @@ impl Clone for Code
 pub fn make_ops2(input: AstNode) -> OpVec
 {
     vout!("make_ops2({:?})\n", input);
-    let lineno = input.loc.lineno as i16;
     let mut rt = RegTab::new();
     let mut rs = RegStack::new(&mut rt);
     let mut ops = make_sub_ops2(&mut rs, input);
-    ops.ops.push((Op::SetResult(rs.dst), lineno));
-    ops.ops.push((Op::Return, lineno));
+    ops.ops.push(Op::SetResult(rs.dst));
+    ops.ops.push(Op::Return);
     ops.ops
 }
 
 pub fn make_sub_ops2(rs: &mut RegStack, input: AstNode) -> Oxpr
 {
-    let input_line = input.loc.lineno as i16;
-    let subops = match *input.node {
+    let ops = match *input.node {
         Ast::Block(lines) => {
             let mut oxprs = Vec::with_capacity(lines.len());
             for i in lines {
@@ -242,7 +218,8 @@ pub fn make_sub_ops2(rs: &mut RegStack, input: AstNode) -> Oxpr
             ops
         }
         Ast::ConstVal(v) => {
-            vec![(Op::ConstVal(rs.dst.clone(), v.clone()), input_line)]
+            vec![
+                Op::ConstVal(rs.dst.clone(), v.clone())]
         }
         Ast::Call(f, args) => make_call_ops(rs, f, args),
         Ast::NewStruct(_typ, _args) => vec![],
@@ -259,19 +236,16 @@ pub fn make_sub_ops2(rs: &mut RegStack, input: AstNode) -> Oxpr
                 })
                 .collect();
                 */
-            xops.ops.push((
-                Op::MatchPattern(rs.dst.clone(), pval, xops.dst),
-                input_line,
-            ));
+            xops.ops.push(Op::MatchPattern(rs.dst.clone(), pval, xops.dst));
             // xops.ops.append(&mut failops);
             xops.ops
         }
         Ast::List(items) => {
-            make_list_ops(rs, items, input.loc.lineno as i16)
+            make_list_ops(rs, items)
         }
         Ast::Tuple(items) => {
-            let newtup = Op::TupleCreate(rs.dst.clone(), items.0.len() as i8);
-            let mut ops: Vec<(Op, i16)> = vec![(newtup, input_line)];
+            let newtup = Op::ConstVal(rs.dst.clone(), Val::new_tuple(items.0.len()));
+            let mut ops: Vec<Op> = vec![newtup];
             for i in items.0 {
                 let mut iops = make_sub_ops2(rs, i.v);
                 ops.append(&mut iops.ops);
@@ -279,7 +253,7 @@ pub fn make_sub_ops2(rs: &mut RegStack, input: AstNode) -> Oxpr
             }
             ops
         }
-        Ast::StrExpr(items) => make_str_ops(rs, items, input.loc.lineno as i16),
+        Ast::StrExpr(items) => make_str_ops(rs, items),
         Ast::Case(CaseType::If, _, cases) => {
             make_if_ops(rs, cases)
         }
@@ -293,21 +267,19 @@ pub fn make_sub_ops2(rs: &mut RegStack, input: AstNode) -> Oxpr
         }
         Ast::Return(result) => {
             let mut rops = make_sub_ops2(rs, result);
-            rops.ops.push((Op::SetResult(rops.dst.clone()), input_line));
-            rops.ops.push((Op::Return, input_line));
+            rops.ops.push(Op::SetResult(rops.dst.clone()));
+            rops.ops.push(Op::Return);
             rops.ops
         }
-        Ast::Map(_items) => {
-            vec![(Op::MapCreate(rs.dst.clone()), input_line)]
+        Ast::Id1(ref _id) => {
+            // let id_dst = rs.local.named(id);
+            // rt.set_dst(rs.local.named(id));
+            vec![]
         }
-        Ast::Id1(_) => vec![],
         Ast::RustBlock => vec![],
         _ => vec![],
     };
-    Oxpr {
-        ops: subops,
-        dst: rs.dst.clone(),
-    }
+    Oxpr{ ops, dst: rs.dst.clone() }
 }
 
 /*
@@ -368,10 +340,9 @@ pub fn make_sub_ops(input: &Ixpr) -> Oxpr
             rt.pop_dst();
             rt.pop_dst();
             hops.ops.append(&mut tops.ops);
-            hops.ops.push((
+            hops.ops.push(
                 Op::ListCons(dst.clone(), hops.dst, tops.dst),
-                input.line,
-            ));
+            );
             Oxpr { ops: hops.ops, dst }
         }
     }
@@ -382,7 +353,7 @@ pub fn make_call_ops(rs: &mut RegStack, f: AstNode, args: Xlist) -> OpVec
 {
     vout!("make_call_ops: {:?}\n", f);
 
-    let flineno = f.loc.lineno as i16;
+    let lineno = f.loc.lineno;
     let mut fops = make_sub_ops2(rs, f);
 
     let mut argops: OpVec = args
@@ -395,26 +366,29 @@ pub fn make_call_ops(rs: &mut RegStack, f: AstNode, args: Xlist) -> OpVec
         })
         .collect();
     fops.ops.append(&mut argops);
-    fops.ops.push((Op::ApplyFunc(rs.dst.clone(), fops.dst), flineno));
+    fops.ops.push(Op::ApplyFunc(rs.dst.clone(), fops.dst, lineno));
     fops.ops
 }
 
 pub fn make_construple_ops(
     dst: Reg,
-    typ: &Type,
+    _typ: &Type,
     variant: &Option<Lstr>,
-    flds: &Struple<Type>,
-    line: i16,
+    _flds: &Struple<Type>,
 ) -> Oxpr
 {
     let construct = match variant {
-        Some(ref ivar) => {
-            let var = ivar.clone();
-            Op::ConstructEnum(dst.clone(), typ.clone(), var, flds.clone())
+        Some(ref _ivar) => {
+            // let var = ivar.clone();
+            // Op::ConstructEnum(dst.clone(), typ.clone(), var, flds.clone())
+            Op::ConstVal(dst.clone(), Val::Void)
         }
-        None => Op::Construple(dst.clone(), typ.clone(), flds.clone()),
+        None => {
+            // Op::Construple(dst.clone(), typ.clone(), flds.clone()),
+            Op::ConstVal(dst.clone(), Val::Void)
+        }
     };
-    let ops: Vec<(Op, i16)> = vec![(construct, line)];
+    let ops: Vec<Op> = vec![construct];
 
     Oxpr { ops, dst }
 }
@@ -478,14 +452,12 @@ pub fn make_matchcase_ops(
     let patt_val = make_pattern_val(rs, matchcase.cond);
     let mut code_ops = make_sub_ops2(rs, matchcase.body);
 
-    let mut patt_ops: Vec<(Op, i16)> = vec![(
+    let mut patt_ops: Vec<Op> = vec![
         Op::MatchPattern(Reg::Void, patt_val, xreg.clone()),
-        0,
-    )];
-    patt_ops.push((
+    ];
+    patt_ops.push(
         Op::JumpIfNot(code_ops.ops.len() as i16 + 1, Reg::Void),
-        0,
-    ));
+    );
 
     patt_ops.append(&mut code_ops.ops);
     patt_ops
@@ -501,13 +473,13 @@ pub fn make_if_ops(rs: &mut RegStack, cases: Vec<Case>) -> OpVec
 
     case_ops.iter_mut().rev().fold(0 as i16, |after, case| {
         if after > 0 {
-            case.1.ops.push((Op::Jump(after + 1), 0));
+            case.1.ops.push(Op::Jump(after + 1));
         }
         let body_ops_len = case.1.ops.len() as i16;
-        case.0.ops.push((Op::JumpIfNot(
+        case.0.ops.push(Op::JumpIfNot(
             body_ops_len + after + 1,
             case.0.dst.clone(),
-        ), 0));
+        ));
         let cond_ops_len = case.0.ops.len() as i16;
         after + cond_ops_len + body_ops_len
     });
@@ -530,30 +502,27 @@ pub fn make_fork_ops(dst: &Reg, f: &Ixpr, args: &Ixpr) -> Oxpr
 }
 */
 
-pub fn make_list_ops(rs: &mut RegStack, items: Xlist, lineno: i16) -> OpVec
+pub fn make_list_ops(rs: &mut RegStack, items: Xlist) -> OpVec
 {
-    let mut ops = vec![(Op::ListCreate(rs.dst.clone()), lineno)];
+    let mut ops = vec![Op::ConstVal(rs.dst.clone(), Val::Nil)];
     for i in items.0.into_iter().rev() {
-        let ilineno = i.v.loc.lineno as i16;
         let mut listops = make_sub_ops2(rs, i.v);
         ops.append(&mut listops.ops);
-        ops.push((Op::ListCons(rs.dst.clone(), listops.dst, rs.dst.clone()), ilineno));
+        ops.push(Op::ListCons(rs.dst.clone(), listops.dst, rs.dst.clone()));
     }
     ops
 }
 
-pub fn make_str_ops(rs: &mut RegStack, items: Vec<AstNode>, lineno: i16) -> OpVec
+pub fn make_str_ops(rs: &mut RegStack, items: Vec<AstNode>) -> OpVec
 {
-    let mut ops: Vec<(Op, i16)> = Vec::with_capacity(items.len());
-    ops.push((
-        Op::ConstVal(rs.dst.clone(), Val::empty_str()),
-        lineno,
-    ));
+    let mut ops: Vec<Op> = Vec::with_capacity(items.len());
+    ops.push(Op::ConstVal(rs.dst.clone(), Val::empty_str()));
+    // let (subdst, mut subrs) = rs.push();
+    let subdst = Reg::Void;
     for i in items {
-        let iline = i.loc.lineno as i16;
         let mut strops = make_sub_ops2(rs, i);
         ops.append(&mut strops.ops);
-        ops.push((Op::StrCat(rs.dst.clone(), strops.dst), iline));
+        ops.push(Op::StrCat(rs.dst.clone(), subdst.clone()));
     }
     ops
 }

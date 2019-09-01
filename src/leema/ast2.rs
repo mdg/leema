@@ -97,7 +97,6 @@ pub enum Ast
     LessThan3(AstNode, bool, AstNode, bool, AstNode),
     Let(AstNode, AstNode, AstNode),
     List(Xlist),
-    Map(StrupleKV<AstNode, AstNode>),
     NewStruct(AstNode, Struple2<AstNode>),
     NewTuple(StrupleKV<&'static str, AstNode>),
     NewUnion(AstNode, &'static str, Struple2<AstNode>),
@@ -169,7 +168,6 @@ impl Ast
             Ast::Wildcard => write!(f, "_"),
             // unimplemented
             Ast::LessThan3(_, _, _, _, _) => unimplemented!(),
-            Ast::Map(_) => unimplemented!(),
             Ast::NewStruct(_, _) => unimplemented!(),
             Ast::NewTuple(_) => unimplemented!(),
             Ast::NewUnion(_, _, _) => unimplemented!(),

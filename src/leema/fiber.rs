@@ -82,16 +82,9 @@ impl Fiber
     pub fn execute_leema_op(&mut self, ops: &OpVec) -> Lresult<Event>
     {
         let op = ops.get(self.head.pc as usize).unwrap();
-        let line = op.1;
         vout!("exec: {:?}\n", op);
-        match &op.0 {
+        match op {
             &Op::ConstVal(ref dst, ref v) => self.execute_const_val(dst, v),
-            &Op::ConstructEnum(ref dst, ref typ, ref var, ref flds) => {
-                self.execute_construct_enum(dst, typ, var, flds)
-            }
-            &Op::Construple(ref dst, ref typ, ref flds) => {
-                self.execute_construple(dst, typ, flds)
-            }
             &Op::Copy(ref dst, ref src) => self.execute_copy(dst, src),
             &Op::Jump(jmp) => self.execute_jump(jmp),
             &Op::JumpIfNot(jmp, ref reg) => self.execute_jump_if_not(jmp, reg),
@@ -102,14 +95,9 @@ impl Fiber
             &Op::ListCons(ref dst, ref head, ref tail) => {
                 self.execute_cons_list(dst, head, tail)
             }
-            &Op::ListCreate(ref dst) => self.execute_create_list(dst),
-            &Op::MapCreate(ref dst) => self.execute_create_map(dst),
-            &Op::TupleCreate(ref dst, ref sz) => {
-                self.execute_create_tuple(dst, *sz)
-            }
             &Op::StrCat(ref dst, ref src) => self.execute_strcat(dst, src),
-            &Op::ApplyFunc(ref dst, ref func) => {
-                self.execute_call(dst, func, line)
+            &Op::ApplyFunc(ref dst, ref func, lineno) => {
+                self.execute_call(dst, func, lineno)
             }
             &Op::Return => Ok(Event::Success),
             &Op::SetResult(ref dst) => {
@@ -126,8 +114,8 @@ impl Fiber
                 self.head.pc += 1;
                 Ok(Event::Uneventful)
             }
-            &Op::PropagateFailure(ref src, line) => {
-                let ev = self.propagate_failure(src, line);
+            &Op::PropagateFailure(ref src, lineno) => {
+                let ev = self.propagate_failure(src, lineno);
                 self.head.pc += 1;
                 ev
             }
@@ -210,7 +198,7 @@ impl Fiber
         &mut self,
         dst: &Reg,
         freg: &Reg,
-        line: i16,
+        line: u16,
     ) -> Lresult<Event>
     {
         let (funcri, args): (&Lri, &Struple<Val>) = {
@@ -229,7 +217,7 @@ impl Fiber
         vout!("execute_call({})\n", funcri);
 
         let argstup = Val::Tuple(args.clone());
-        Ok(Event::Call(dst.clone(), line, funcri.clone(), argstup))
+        Ok(Event::Call(dst.clone(), line as i16, funcri.clone(), argstup))
     }
 
     pub fn execute_const_val(&mut self, reg: &Reg, v: &Val) -> Lresult<Event>
@@ -452,7 +440,7 @@ impl Fiber
         Ok(Event::Uneventful)
     }
 
-    pub fn propagate_failure(&mut self, src: &Reg, line: i16)
+    pub fn propagate_failure(&mut self, src: &Reg, line: u16)
         -> Lresult<Event>
     {
         let srcval = self.head.e.get_reg(src)?;
@@ -461,7 +449,7 @@ impl Fiber
                 let new_trace = FrameTrace::propagate_down(
                     failure.trace.as_ref().unwrap(),
                     &self.head.function,
-                    line,
+                    line as i16,
                 );
                 Err(Failure::leema_new(
                     failure.tag.clone(),
