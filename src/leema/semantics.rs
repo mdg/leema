@@ -721,11 +721,20 @@ impl Registration
 
     fn pre_assign_registers(&mut self, node: &mut AstNode) -> Lresult<()>
     {
+        if node.dst == Reg::Undecided {
+            node.dst = self.stack.dst.clone();
+        }
+        let first_dst = node.dst.clone();
+
         match &mut *node.node {
             Ast::Block(ref mut items) => {
                 // copy the block's dst to the last item in the block
                 if let Some(item) = items.last_mut() {
                     item.dst = node.dst.clone();
+                }
+
+                for i in items.iter_mut().rev().skip(1) {
+                    i.dst = Reg::Void;
                 }
             }
             Ast::Id1(ref name) => {
@@ -754,8 +763,24 @@ impl Registration
                     // is there anything to do w/ the body here?
                 }
             }
+            Ast::Tuple(ref mut items) => {
+                if node.dst.is_sub() {
+                    node.dst = self.stack.push_dst();
+                }
+                for (i, item) in items.0.iter_mut().enumerate() {
+                    item.v.dst = node.dst.sub(i as i8);
+                }
+            }
             // don't handle anything else in pre
             _ => {}
+        }
+
+        // if the dst reg has changed, insert a copy node
+        if node.dst != first_dst {
+            let mut copy_node = AstNode::void();
+            copy_node.dst = first_dst;
+            mem::swap(node, &mut copy_node);
+            node.node = Box::new(Ast::Copy(copy_node));
         }
         Ok(())
     }

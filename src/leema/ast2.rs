@@ -87,6 +87,7 @@ pub enum Ast
     Call(AstNode, Xlist),
     Case(CaseType, Option<AstNode>, Vec<Case>),
     ConstVal(Val),
+    Copy(AstNode),
     DefConst(&'static str, AstNode),
     DefFunc(AstNode, Xlist, AstNode),
     DefMacro(&'static str, Vec<&'static str>, AstNode),
@@ -138,6 +139,7 @@ impl Ast
                 write!(f, "{:?} {:?} {:?}", typ, cond, args)
             }
             Ast::ConstVal(v) => write!(f, "Const {:?}", v),
+            Ast::Copy(src) => write!(f, "Copy {:?}", src),
             Ast::DefConst(id, x) => write!(f, "DefConst {} := {:?}", id, x),
             Ast::DefFunc(name, args, body) => {
                 write!(f, "DefFunc {:?} {:?} {:?}", name, args, body)
