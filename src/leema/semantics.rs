@@ -441,8 +441,10 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                             module,
                             node.loc,
                         )
-                    })?;
-                return Ok(SemanticAction::Rewrite(val_ast.clone().replace_loc(node.loc)))
+                    })?
+                    .clone();
+                node = node.replace(*val_ast.node, val_ast.typ);
+                return Ok(SemanticAction::Rewrite(node))
             }
             _ => {
                 // do nothing otherwise
@@ -681,10 +683,10 @@ impl SemanticOp for RemoveExtraCode
             Ast::Block(mut items) => {
                 match items.len() {
                     0 => {
-                        SemanticAction::Rewrite(AstNode::void())
+                        SemanticAction::Keep(AstNode::void())
                     }
                     1 => {
-                        SemanticAction::Rewrite(items.pop().unwrap())
+                        SemanticAction::Keep(items.pop().unwrap())
                     }
                     _ => {
                         *node.node = Ast::Block(items);
@@ -710,16 +712,16 @@ struct Registration
 
 impl Registration
 {
-    pub fn new() -> Registration
+    pub fn new(params: &Vec<Option<&'static str>>) -> Registration
     {
         Registration {
-            tab: RegTab::new(),
+            tab: RegTab::new(params),
             stack: RegStack::new(),
             is_pattern: false,
         }
     }
 
-    fn pre_assign_registers(&mut self, node: &mut AstNode) -> Lresult<()>
+    fn assign_registers(&mut self, node: &mut AstNode) -> Lresult<()>
     {
         if node.dst == Reg::Undecided {
             node.dst = self.stack.dst.clone();
@@ -752,9 +754,8 @@ impl Registration
             }
             Ast::Call(ref mut f, ref mut args) => {
                 f.dst = self.tab.unnamed();
-                for (it, a) in args.0.iter_mut().enumerate() {
-                    let i = it as i8;
-                    a.v.dst = f.dst.sub(i);
+                for (i, a) in args.0.iter_mut().enumerate() {
+                    a.v.dst = f.dst.sub(i as i8);
                 }
             }
             Ast::Case(CaseType::Match, _match_input, ref mut cases) => {
@@ -785,31 +786,6 @@ impl Registration
         Ok(())
     }
 
-    fn post_assign_registers(&mut self, node: &mut AstNode) -> Lresult<()>
-    {
-        match &mut *node.node {
-            // handled in pre
-            // Ast::Call
-            // Ast::Case
-            // Ast::Id1
-            // Ast::Let
-
-            // handled in post
-            Ast::Block(ref mut items) => {
-                if !items.is_empty() {
-                    node.dst = items.last_mut().unwrap().dst.clone();
-
-                    // send all the others to void
-                    for i in items.iter_mut().rev().skip(1) {
-                        i.dst = Reg::Void;
-                    }
-                }
-            }
-            _ => {} // do nothing for other AST values
-        }
-        Ok(())
-    }
-
     fn assign_pattern_registers(&mut self, pattern: &mut AstNode)
     {
         match *pattern.node {
@@ -835,15 +811,14 @@ impl SemanticOp for Registration
     {
         if !self.is_pattern {
             self.stack.push_node();
-            self.pre_assign_registers(&mut node)?;
+            self.assign_registers(&mut node)?;
         } // else do nothing for patterns
         Ok(SemanticAction::Keep(node))
     }
 
-    fn post(&mut self, mut node: AstNode) -> SemanticResult
+    fn post(&mut self, node: AstNode) -> SemanticResult
     {
         if !self.is_pattern {
-            self.post_assign_registers(&mut node)?;
             self.stack.pop_node();
         } // else do nothing for patterns
         Ok(SemanticAction::Keep(node))
@@ -926,6 +901,21 @@ impl Semantics
                 ));
             }
         };
+
+        let func_args = ftyp.args.0.iter().map(|kv| {
+            match &kv.k {
+                Some(Lstr::Sref(name)) => {
+                    Some(*name)
+                }
+                Some(Lstr::Arc(ref name)) => {
+                    panic!("func arg name is not a static: {}", name);
+                }
+                _ => {
+                    None
+                }
+            }
+        }).collect();
+
         let mut macs: MacroApplication = MacroApplication {
             local: local_proto,
             proto: proto,
@@ -935,6 +925,7 @@ impl Semantics
         let mut type_check = TypeCheck::new(local_proto, proto);
         let mut remove_extra = RemoveExtraCode;
         let mut case_check = CaseCheck;
+        let mut reg = Registration::new(&func_args);
         let mut pipe = SemanticPipeline {
             ops: vec![
                 &mut remove_extra,
@@ -943,6 +934,7 @@ impl Semantics
                 &mut case_check,
                 &mut var_types,
                 &mut type_check,
+                &mut reg,
             ],
         };
 

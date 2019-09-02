@@ -218,9 +218,9 @@ pub fn make_sub_ops2(mut rs: RegStack, input: AstNode) -> Oxpr
             ops
         }
         Ast::ConstVal(v) => {
-            vec![Op::ConstVal(rs.put_dst(input.dst.clone()), v.clone())]
+            vec![Op::ConstVal(input.dst.clone(), v.clone())]
         }
-        Ast::Call(f, args) => make_call_ops(rs, f, args),
+        Ast::Call(f, args) => make_call_ops(rs, input.dst.clone(), f, args),
         Ast::Let(patt, _, x) => {
             let pval = make_pattern_val(patt);
             let match_dst = rs.put_dst(input.dst.clone());
@@ -354,7 +354,7 @@ pub fn make_sub_ops(input: &Ixpr) -> Oxpr
 }
 */
 
-pub fn make_call_ops(rs: RegStack, f: AstNode, args: Xlist) -> OpVec
+pub fn make_call_ops(rs: RegStack, dst: Reg, f: AstNode, args: Xlist) -> OpVec
 {
     vout!("make_call_ops: {:?}\n", f);
 
@@ -371,7 +371,7 @@ pub fn make_call_ops(rs: RegStack, f: AstNode, args: Xlist) -> OpVec
         })
         .collect();
     fops.ops.append(&mut argops);
-    fops.ops.push(Op::ApplyFunc(rs.dst.clone(), fops.dst, lineno));
+    fops.ops.push(Op::ApplyFunc(dst, fops.dst, lineno));
     fops.ops
 }
 

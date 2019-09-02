@@ -139,13 +139,14 @@ impl ProtoModule
         } else {
             FuncType::new(StrupleKV::new(), Type::Void)
         };
+        let fref_args = ftyp.args.map_v(|_| Ok(Val::Void))?;
         self.funcseq.push(name);
         // is this args2 param necessary anymore? the type should be enough
         self.funcsrc.insert(name, (args2, body));
         let fref = Val::Fref(
             self.key.name.clone(),
             name,
-            StrupleKV::new(),
+            fref_args,
             Type::Func(ftyp.clone()),
         );
         let fref_ast = AstNode::new_constval(fref, loc);

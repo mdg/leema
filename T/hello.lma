@@ -1,3 +1,5 @@
-func main() >>
-    print("hello world\n")
+import io
+
+func main >>
+    io::print("hello world\n")
 --

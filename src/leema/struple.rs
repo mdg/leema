@@ -302,7 +302,7 @@ where
     fn ireg_set(&mut self, i: &Ireg, v: Val)
     {
         match i {
-            // get reg on struple
+            // set reg on struple
             &Ireg::Reg(p) => {
                 if p as usize >= self.0.len() {
                     panic!("{:?} too big for struple {:?}", i, self);
@@ -378,6 +378,17 @@ impl<T> FromIterator<(Option<Lstr>, T)> for Struple<T>
             items.push(item);
         }
         Struple(items)
+    }
+}
+
+impl<T> From<Struple2<T>> for Struple<T>
+{
+    fn from(items: Struple2<T>) -> Struple<T>
+    {
+        items.0
+            .into_iter()
+            .map(|i| (i.k, i.v))
+            .collect()
     }
 }
 

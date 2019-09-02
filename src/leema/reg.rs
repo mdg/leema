@@ -104,8 +104,9 @@ impl Reg
     pub fn sub(&self, sub: i8) -> Reg
     {
         match self {
-            &Reg::Param(ref r)|&Reg::Local(ref r) => Reg::Param(r.sub(sub)),
-            // &Reg::Local(ref r) => Reg::Local(r.sub(sub)),
+            &Reg::Param(ref r) => Reg::Param(r.sub(sub)),
+            &Reg::Local(ref r) => Reg::Local(r.sub(sub)),
+            &Reg::Stack(ref r) => Reg::Stack(r.sub(sub)),
             &Reg::Void => Reg::Void,
             _ => {
                 panic!("Can't make a sub reg for {:?}", self);
@@ -133,6 +134,7 @@ impl Reg
         match self {
             &Reg::Param(Ireg::Reg(_)) => true,
             &Reg::Local(Ireg::Reg(_)) => true,
+            &Reg::Stack(Ireg::Reg(_)) => true,
             _ => false,
         }
     }
@@ -142,6 +144,7 @@ impl Reg
         match self {
             &Reg::Param(Ireg::Sub(_, _)) => true,
             &Reg::Local(Ireg::Sub(_, _)) => true,
+            &Reg::Stack(Ireg::Sub(_, _)) => true,
             _ => false,
         }
     }
@@ -151,6 +154,7 @@ impl Reg
         match self {
             &Reg::Param(ref sub) => Reg::Param(sub.next_sibling()),
             &Reg::Local(ref sub) => Reg::Local(sub.next_sibling()),
+            &Reg::Stack(ref sub) => Reg::Stack(sub.next_sibling()),
             _ => {
                 panic!("register has no sibling: {:?}", self);
             }
@@ -160,8 +164,9 @@ impl Reg
     pub fn get_sub(&self) -> &Ireg
     {
         match self {
-            &Reg::Param(ref s) => s,
+            &Reg::Param(Ireg::Sub(_, ref s)) => s,
             &Reg::Local(Ireg::Sub(_, ref s)) => s,
+            &Reg::Stack(Ireg::Sub(_, ref s)) => s,
             _ => panic!("cannot get sub from other register: {:?}", self),
         }
     }
@@ -206,10 +211,16 @@ pub struct RegTab
 
 impl RegTab
 {
-    pub fn new() -> RegTab
+    pub fn new(params: &Vec<Option<&'static str>>) -> RegTab
     {
+        let mut ids = HashMap::new();
+        for (i, name) in params.iter().enumerate() {
+            if let Some(iname) = name {
+                ids.insert(*iname, Reg::param(i as i8));
+            }
+        }
         RegTab {
-            ids: HashMap::new(),
+            ids,
             next_local: 0,
         }
     }

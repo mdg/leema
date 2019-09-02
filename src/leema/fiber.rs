@@ -201,14 +201,19 @@ impl Fiber
         line: u16,
     ) -> Lresult<Event>
     {
-        let (funcri, args): (&Lri, &Struple<Val>) = {
+        let mut funcri_ref;
+        let (funcri, args): (&Lri, Struple<Val>) = {
             let ref fname_val = self.head.e.get_reg(freg)?;
             match *fname_val {
-                &Val::FuncRef(ref callri, ref args, _) => (callri, args),
+                &Val::FuncRef(ref callri, ref args, _) => (callri, args.clone()),
+                &Val::Fref(ref modname, ref name, ref args, _) => {
+                    funcri_ref = Lri::with_modules(modname.clone(), Lstr::Sref(name));
+                    (&funcri_ref, Struple::from(args.clone()))
+                }
                 _ => {
                     return Err(rustfail!(
                         "failure",
-                        "That's not a function! {:?}",
+                        "that's not a function! {:?}",
                         fname_val,
                     ));
                 }
@@ -216,7 +221,7 @@ impl Fiber
         };
         vout!("execute_call({})\n", funcri);
 
-        let argstup = Val::Tuple(args.clone());
+        let argstup = Val::Tuple(args);
         Ok(Event::Call(dst.clone(), line as i16, funcri.clone(), argstup))
     }
 

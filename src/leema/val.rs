@@ -1293,6 +1293,10 @@ impl reg::Iregistry for Val
             (_, &mut Val::FuncRef(_, ref mut args, _)) => {
                 args.ireg_set(i, v);
             }
+            // set reg on Fref
+            (_, &mut Val::Fref(_, _, ref mut args, _)) => {
+                args.ireg_set(i, v);
+            }
             // values that can't act as registries
             (_, dst) => {
                 panic!("Can't ireg_set({:?}, {:?})", i, dst);
