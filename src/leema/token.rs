@@ -373,6 +373,9 @@ struct ScanModeLine;
 struct ScanModeQuote;
 
 #[derive(Debug)]
+struct ScanModeQuoteEscape;
+
+#[derive(Debug)]
 struct ScanModeSpace;
 
 #[derive(Debug)]
@@ -842,6 +845,7 @@ impl ScanModeTrait for ScanModeQuote
                 ))
             }
             '$' => Ok(ScanOutput::Start(ScanModeOp::Push(&ScanModeDollar))),
+            '\\' => Ok(ScanOutput::Start(ScanModeOp::Push(&ScanModeQuoteEscape))),
             _ => Ok(ScanOutput::Start(ScanModeOp::Push(&ScanModeStr))),
         }
     }
@@ -849,6 +853,34 @@ impl ScanModeTrait for ScanModeQuote
     fn eof(&self) -> ScanResult
     {
         Err(rustfail!("token_error", "unexpected end of file",))
+    }
+}
+
+impl ScanModeTrait for ScanModeQuoteEscape
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        match next.c {
+            'n' => {
+                Ok(ScanOutput::Token(
+                    Token::StrLit,
+                    true,
+                    ScanModeOp::Pop,
+                ))
+            }
+            _ => {
+                Err(rustfail!(
+                    "token_error",
+                    "unexpected escape character: {}",
+                    next.c,
+                ))
+            }
+        }
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        Err(rustfail!("token_error", "expected escape character, found eof",))
     }
 }
 
@@ -883,6 +915,11 @@ impl ScanModeTrait for ScanModeStr
         match next.c {
             '"' => Ok(ScanOutput::Token(Token::StrLit, false, ScanModeOp::Pop)),
             '$' => Ok(ScanOutput::Token(Token::StrLit, false, ScanModeOp::Pop)),
+            '\\' => {
+                // save this strlit and bounce back down to ScanModeQuote
+                // which will switch to escaping then come back when it's done
+                Ok(ScanOutput::Token(Token::StrLit, false, ScanModeOp::Pop))
+            }
             _ => Ok(ScanOutput::Next(ScanModeOp::Noop)),
         }
     }
