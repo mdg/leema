@@ -769,6 +769,12 @@ impl Registration
                     // is there anything to do w/ the body here?
                 }
             }
+            Ast::StrExpr(ref mut items) => {
+                let item_dst = self.stack.push_dst();
+                for i in items {
+                    i.dst = item_dst.clone();
+                }
+            }
             Ast::Tuple(ref mut items) => {
                 if node.dst.is_sub() {
                     node.dst = self.stack.push_dst();

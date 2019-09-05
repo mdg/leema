@@ -257,7 +257,7 @@ pub fn make_sub_ops2(mut rs: RegStack, input: AstNode) -> Oxpr
             }
             ops
         }
-        Ast::StrExpr(items) => make_str_ops(rs, items),
+        Ast::StrExpr(items) => make_str_ops(rs, input.dst.clone(), items),
         Ast::Case(CaseType::If, _, cases) => {
             rs.put_dst(input.dst.clone());
             make_if_ops(rs, cases)
@@ -535,16 +535,15 @@ pub fn make_list_ops(mut rs: RegStack, items: Xlist) -> OpVec
     ops
 }
 
-pub fn make_str_ops(mut rs: RegStack, items: Vec<AstNode>) -> OpVec
+pub fn make_str_ops(rs: RegStack, dst: Reg, items: Vec<AstNode>) -> OpVec
 {
     let mut ops: Vec<Op> = Vec::with_capacity(items.len());
-    let dst = rs.dst.clone();
-    let tmp = rs.push_dst();
     ops.push(Op::ConstVal(dst.clone(), Val::empty_str()));
     for i in items {
+        let idst = i.dst.clone();
         let mut strops = make_sub_ops2(rs.clone(), i);
         ops.append(&mut strops.ops);
-        ops.push(Op::StrCat(dst.clone(), tmp.clone()));
+        ops.push(Op::StrCat(dst.clone(), idst));
     }
     ops
 }
