@@ -557,15 +557,17 @@ struct TypeCheck<'p>
     // infer: Inferator,
     local_mod: &'p ProtoModule,
     lib: &'p ProtoLib,
+    result: &'p Type,
 }
 
 impl<'p> TypeCheck<'p>
 {
-    pub fn new(local_mod: &'p ProtoModule, lib: &'p ProtoLib) -> TypeCheck<'p>
+    pub fn new(local_mod: &'p ProtoModule, lib: &'p ProtoLib, ftyp: &'p FuncType) -> TypeCheck<'p>
     {
         TypeCheck {
             local_mod,
             lib,
+            result: &*ftyp.result,
         }
     }
 
@@ -628,6 +630,9 @@ impl<'p> SemanticOp for TypeCheck<'p>
             }
             Ast::ConstVal(c) if node.typ.is_open() => {
                 node.typ = c.get_type();
+            }
+            Ast::RustBlock => {
+                node.typ = self.result.clone();
             }
             _ => {
                 // should handle matches later, but for now it's fine
@@ -922,7 +927,7 @@ impl Semantics
         };
         let mut scope_check = ScopeCheck::new(ftyp, local_proto, proto)?;
         let mut var_types = VarTypes::new(&local_proto.key.name, ftyp)?;
-        let mut type_check = TypeCheck::new(local_proto, proto);
+        let mut type_check = TypeCheck::new(local_proto, proto, ftyp);
         let mut remove_extra = RemoveExtraCode;
         let mut case_check = CaseCheck;
         let mut reg = Registration::new(&func_args);
