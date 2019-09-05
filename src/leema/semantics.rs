@@ -5,7 +5,7 @@ use crate::leema::lstr::Lstr;
 use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::reg::{Reg, RegStack, RegTab};
 use crate::leema::struple::StrupleKV;
-use crate::leema::val::{FuncType, Type};
+use crate::leema::val::{FuncType, Type, Val};
 
 use std::collections::HashMap;
 use std::fmt;
@@ -209,6 +209,15 @@ impl<'l> SemanticOp for MacroApplication<'l>
             Ast::Op2("-", a, b) => {
                 let call = Self::op_to_call("prefab", "int_sub", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
+            }
+            Ast::ConstVal(Val::Str(s)) => {
+                let node2 = if &s == "\\n" {
+                    let new_str = Val::Str(Lstr::Sref("\n"));
+                    AstNode::new_constval(new_str, node.loc)
+                } else {
+                    AstNode::new(Ast::ConstVal(Val::Str(s)), node.loc)
+                };
+                Ok(SemanticAction::Keep(node2))
             }
             _ => {
                 Ok(SemanticAction::Keep(node))
