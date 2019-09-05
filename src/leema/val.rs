@@ -1238,6 +1238,8 @@ impl reg::Iregistry for Val
             (_, &Val::Struct(_, ref items)) => items.ireg_get(i),
             // Functions & Closures
             (_, &Val::FuncRef(_, ref args, _)) => args.ireg_get(i),
+            // Get for Functions & Closures
+            (_, &Val::Fref(_, _, ref args, _)) => args.ireg_get(i),
             // Failures
             (&Ireg::Reg(0), &Val::Failure2(ref failure)) => Ok(&failure.tag),
             (&Ireg::Reg(1), &Val::Failure2(ref failure)) => Ok(&failure.msg),
