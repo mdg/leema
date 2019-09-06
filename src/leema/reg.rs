@@ -10,10 +10,11 @@ use std::fmt;
 #[derive(PartialOrd)]
 #[derive(Ord)]
 #[derive(Clone)]
+#[derive(Copy)]
 pub enum Ireg
 {
     Reg(i8),
-    Sub(i8, Box<Ireg>),
+    Sub(i8, i8),
 }
 
 impl Ireg
@@ -21,8 +22,10 @@ impl Ireg
     pub fn sub(&self, newsub: i8) -> Ireg
     {
         match self {
-            &Ireg::Reg(r) => Ireg::Sub(r, Box::new(Ireg::Reg(newsub))),
-            &Ireg::Sub(r, ref s) => Ireg::Sub(r, Box::new(s.sub(newsub))),
+            &Ireg::Reg(r) => Ireg::Sub(r, newsub),
+            &Ireg::Sub(_, _) => {
+                panic!("cannot take sub reg of sub reg: {}", self);
+            }
         }
     }
 
@@ -45,16 +48,8 @@ impl Ireg
     pub fn next_sibling(&self) -> Ireg
     {
         match self {
-            &Ireg::Sub(r, ref s) => Ireg::Sub(r, Box::new(s.next_sibling())),
+            &Ireg::Sub(r, s) => Ireg::Sub(r, s + 1),
             &Ireg::Reg(r) => Ireg::Reg(r + 1),
-        }
-    }
-
-    pub fn get_sub(&self) -> &Ireg
-    {
-        match self {
-            &Ireg::Sub(_, ref s) => &*s,
-            &Ireg::Reg(_) => panic!("Cannot get sub from Ireg::Reg"),
         }
     }
 }
@@ -80,8 +75,8 @@ impl fmt::Debug for Ireg
 
 pub trait Iregistry
 {
-    fn ireg_get(&self, r: &Ireg) -> Lresult<&Val>;
-    fn ireg_set(&mut self, r: &Ireg, v: Val);
+    fn ireg_get(&self, r: Ireg) -> Lresult<&Val>;
+    fn ireg_set(&mut self, r: Ireg, v: Val);
 }
 
 #[derive(PartialEq)]
@@ -89,6 +84,7 @@ pub trait Iregistry
 #[derive(PartialOrd)]
 #[derive(Ord)]
 #[derive(Clone)]
+#[derive(Copy)]
 pub enum Reg
 {
     Param(Ireg),
@@ -152,22 +148,12 @@ impl Reg
     pub fn next_sibling(&self) -> Reg
     {
         match self {
-            &Reg::Param(ref sub) => Reg::Param(sub.next_sibling()),
-            &Reg::Local(ref sub) => Reg::Local(sub.next_sibling()),
-            &Reg::Stack(ref sub) => Reg::Stack(sub.next_sibling()),
+            &Reg::Param(ref r) => Reg::Param(r.next_sibling()),
+            &Reg::Local(ref r) => Reg::Local(r.next_sibling()),
+            &Reg::Stack(ref r) => Reg::Stack(r.next_sibling()),
             _ => {
                 panic!("register has no sibling: {:?}", self);
             }
-        }
-    }
-
-    pub fn get_sub(&self) -> &Ireg
-    {
-        match self {
-            &Reg::Param(Ireg::Sub(_, ref s)) => s,
-            &Reg::Local(Ireg::Sub(_, ref s)) => s,
-            &Reg::Stack(Ireg::Sub(_, ref s)) => s,
-            _ => panic!("cannot get sub from other register: {:?}", self),
         }
     }
 }

@@ -84,24 +84,24 @@ impl Fiber
         let op = ops.get(self.head.pc as usize).unwrap();
         vout!("exec: {:?}\n", op);
         match op {
-            &Op::ConstVal(ref dst, ref v) => self.execute_const_val(dst, v),
-            &Op::Copy(ref dst, ref src) => self.execute_copy(dst, src),
+            &Op::ConstVal(ref dst, ref v) => self.execute_const_val(*dst, v),
+            &Op::Copy(dst, src) => self.execute_copy(dst, src),
             &Op::Jump(jmp) => self.execute_jump(jmp),
-            &Op::JumpIfNot(jmp, ref reg) => self.execute_jump_if_not(jmp, reg),
-            &Op::IfFailure(ref src, jmp) => self.execute_if_failure(src, jmp),
+            &Op::JumpIfNot(jmp, reg) => self.execute_jump_if_not(jmp, reg),
+            &Op::IfFailure(src, jmp) => self.execute_if_failure(src, jmp),
             &Op::MatchPattern(ref dst, ref patt, ref input) => {
-                self.execute_match_pattern(dst, patt, input)
+                self.execute_match_pattern(*dst, patt, *input)
             }
-            &Op::ListCons(ref dst, ref head, ref tail) => {
+            &Op::ListCons(dst, head, tail) => {
                 self.execute_cons_list(dst, head, tail)
             }
-            &Op::StrCat(ref dst, ref src) => self.execute_strcat(dst, src),
-            &Op::ApplyFunc(ref dst, ref func, lineno) => {
+            &Op::StrCat(dst, src) => self.execute_strcat(dst, src),
+            &Op::ApplyFunc(dst, func, lineno) => {
                 self.execute_call(dst, func, lineno)
             }
             &Op::Return => Ok(Event::Success),
-            &Op::SetResult(ref dst) => {
-                if *dst == Reg::Void {
+            &Op::SetResult(dst) => {
+                if dst == Reg::Void {
                     return Err(rustfail!(
                         "leema_failure",
                         "return void at {} in {:?}",
@@ -114,7 +114,7 @@ impl Fiber
                 self.head.pc += 1;
                 Ok(Event::Uneventful)
             }
-            &Op::PropagateFailure(ref src, lineno) => {
+            &Op::PropagateFailure(src, lineno) => {
                 let ev = self.propagate_failure(src, lineno);
                 self.head.pc += 1;
                 ev
@@ -124,8 +124,8 @@ impl Fiber
 
     pub fn execute_strcat(
         &mut self,
-        dstreg: &Reg,
-        srcreg: &Reg,
+        dstreg: Reg,
+        srcreg: Reg,
     ) -> Lresult<Event>
     {
         let result = {
@@ -150,9 +150,9 @@ impl Fiber
 
     pub fn execute_match_pattern(
         &mut self,
-        dst: &Reg,
+        dst: Reg,
         patt: &Val,
-        input: &Reg,
+        input: Reg,
     ) -> Lresult<Event>
     {
         vout!(
@@ -162,7 +162,7 @@ impl Fiber
             input
         );
         let matches = {
-            let ival = self.head.e.get_reg(&input)?;
+            let ival = self.head.e.get_reg(input)?;
             Val::pattern_match(patt, ival)
         };
         match matches {
@@ -173,7 +173,7 @@ impl Fiber
                             // don't write into param, it's already correct
                         }
                         (pdst, v) => {
-                            self.head.e.set_reg(&pdst, v);
+                            self.head.e.set_reg(pdst, v);
                         }
                     }
                 }
@@ -196,8 +196,8 @@ impl Fiber
      */
     pub fn execute_call(
         &mut self,
-        dst: &Reg,
-        freg: &Reg,
+        dst: Reg,
+        freg: Reg,
         line: u16,
     ) -> Lresult<Event>
     {
@@ -225,7 +225,7 @@ impl Fiber
         Ok(Event::Call(dst.clone(), line as i16, funcri.clone(), argstup))
     }
 
-    pub fn execute_const_val(&mut self, reg: &Reg, v: &Val) -> Lresult<Event>
+    pub fn execute_const_val(&mut self, reg: Reg, v: &Val) -> Lresult<Event>
     {
         self.head.e.set_reg(reg, v.clone());
         self.head.pc += 1;
@@ -234,7 +234,7 @@ impl Fiber
 
     pub fn execute_construct_enum(
         &mut self,
-        reg: &Reg,
+        reg: Reg,
         new_typ: &Type,
         variant: &Lstr,
         flds: &Struple<Type>,
@@ -298,7 +298,7 @@ impl Fiber
 
     pub fn execute_construple(
         &mut self,
-        reg: &Reg,
+        reg: Reg,
         new_typ: &Type,
         flds: &Struple<Type>,
     ) -> Lresult<Event>
@@ -353,38 +353,38 @@ impl Fiber
 
     pub fn execute_cons_list(
         &mut self,
-        dst: &Reg,
-        head: &Reg,
-        tail: &Reg,
+        dst: Reg,
+        head: Reg,
+        tail: Reg,
     ) -> Lresult<Event>
     {
         let new_list = {
-            let headval = self.head.e.get_reg(&head)?.clone();
-            let tailval = self.head.e.get_reg(&tail)?.clone();
+            let headval = self.head.e.get_reg(head)?.clone();
+            let tailval = self.head.e.get_reg(tail)?.clone();
             list::cons(headval, tailval)
         };
-        self.head.e.set_reg(&dst, new_list);
+        self.head.e.set_reg(dst, new_list);
         self.head.pc += 1;
         Ok(Event::Uneventful)
     }
 
-    pub fn execute_create_list(&mut self, dst: &Reg) -> Lresult<Event>
+    pub fn execute_create_list(&mut self, dst: Reg) -> Lresult<Event>
     {
-        self.head.e.set_reg(&dst, list::empty());
+        self.head.e.set_reg(dst, list::empty());
         self.head.pc = self.head.pc + 1;
         Ok(Event::Uneventful)
     }
 
-    pub fn execute_create_map(&mut self, dst: &Reg) -> Lresult<Event>
+    pub fn execute_create_map(&mut self, dst: Reg) -> Lresult<Event>
     {
-        self.head.e.set_reg(&dst, Val::Map(Lmap::new()));
+        self.head.e.set_reg(dst, Val::Map(Lmap::new()));
         self.head.pc = self.head.pc + 1;
         Ok(Event::Uneventful)
     }
 
     pub fn execute_create_tuple(
         &mut self,
-        dst: &Reg,
+        dst: Reg,
         ref sz: i8,
     ) -> Lresult<Event>
     {
@@ -400,7 +400,7 @@ impl Fiber
         Ok(Event::Uneventful)
     }
 
-    pub fn execute_jump_if_not(&mut self, jmp: i16, reg: &Reg)
+    pub fn execute_jump_if_not(&mut self, jmp: i16, reg: Reg)
         -> Lresult<Event>
     {
         vout!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
@@ -426,7 +426,7 @@ impl Fiber
         Ok(Event::Uneventful)
     }
 
-    pub fn execute_if_failure(&mut self, src: &Reg, jmp: i16)
+    pub fn execute_if_failure(&mut self, src: Reg, jmp: i16)
         -> Lresult<Event>
     {
         if self.head.e.get_reg(src)?.is_failure() {
@@ -437,7 +437,7 @@ impl Fiber
         Ok(Event::Uneventful)
     }
 
-    pub fn execute_copy(&mut self, dst: &Reg, src: &Reg) -> Lresult<Event>
+    pub fn execute_copy(&mut self, dst: Reg, src: Reg) -> Lresult<Event>
     {
         let src_val = self.head.e.get_reg(src)?.clone();
         self.head.e.set_reg(dst, src_val);
@@ -445,7 +445,7 @@ impl Fiber
         Ok(Event::Uneventful)
     }
 
-    pub fn propagate_failure(&mut self, src: &Reg, line: u16)
+    pub fn propagate_failure(&mut self, src: Reg, line: u16)
         -> Lresult<Event>
     {
         let srcval = self.head.e.get_reg(src)?;

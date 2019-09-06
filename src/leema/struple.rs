@@ -268,11 +268,11 @@ impl<K> reg::Iregistry for StrupleKV<K, Val>
 where
     K: fmt::Debug
 {
-    fn ireg_get(&self, i: &Ireg) -> Lresult<&Val>
+    fn ireg_get(&self, i: Ireg) -> Lresult<&Val>
     {
         match i {
             // get reg on struple
-            &Ireg::Reg(p) => {
+            Ireg::Reg(p) => {
                 if p as usize >= self.0.len() {
                     Err(rustfail!(
                         "leema_failure",
@@ -284,7 +284,7 @@ where
                     Ok(&self.0[p as usize].v)
                 }
             }
-            &Ireg::Sub(p, ref s) => {
+            Ireg::Sub(p, s) => {
                 if p as usize >= self.0.len() {
                     Err(rustfail!(
                         "leema_failure",
@@ -293,27 +293,27 @@ where
                         self.0,
                     ))
                 } else {
-                    self.0[p as usize].v.ireg_get(&*s)
+                    self.0[p as usize].v.ireg_get(Ireg::Reg(s))
                 }
             }
         }
     }
 
-    fn ireg_set(&mut self, i: &Ireg, v: Val)
+    fn ireg_set(&mut self, i: Ireg, v: Val)
     {
         match i {
             // set reg on struple
-            &Ireg::Reg(p) => {
+            Ireg::Reg(p) => {
                 if p as usize >= self.0.len() {
                     panic!("{:?} too big for struple {:?}", i, self);
                 }
                 self.0[p as usize].v = v;
             }
-            &Ireg::Sub(p, ref s) => {
+            Ireg::Sub(p, s) => {
                 if p as usize >= self.0.len() {
                     panic!("{:?} too big for strtuple {:?}", i, self);
                 }
-                self.0[p as usize].v.ireg_set(&*s, v);
+                self.0[p as usize].v.ireg_set(Ireg::Reg(s), v);
             }
         }
     }
@@ -448,11 +448,11 @@ where
 
 impl reg::Iregistry for Struple<Val>
 {
-    fn ireg_get(&self, i: &Ireg) -> Lresult<&Val>
+    fn ireg_get(&self, i: Ireg) -> Lresult<&Val>
     {
         match i {
             // get reg on struple
-            &Ireg::Reg(p) => {
+            Ireg::Reg(p) => {
                 if p as usize >= self.0.len() {
                     Err(rustfail!(
                         "leema_failure",
@@ -464,7 +464,7 @@ impl reg::Iregistry for Struple<Val>
                     Ok(&self.0[p as usize].1)
                 }
             }
-            &Ireg::Sub(p, ref s) => {
+            Ireg::Sub(p, s) => {
                 if p as usize >= self.0.len() {
                     Err(rustfail!(
                         "leema_failure",
@@ -473,27 +473,27 @@ impl reg::Iregistry for Struple<Val>
                         self.0,
                     ))
                 } else {
-                    self.0[p as usize].1.ireg_get(&*s)
+                    self.0[p as usize].1.ireg_get(Ireg::Reg(s))
                 }
             }
         }
     }
 
-    fn ireg_set(&mut self, i: &Ireg, v: Val)
+    fn ireg_set(&mut self, i: Ireg, v: Val)
     {
         match i {
             // get reg on struple
-            &Ireg::Reg(p) => {
+            Ireg::Reg(p) => {
                 if p as usize >= self.0.len() {
                     panic!("{:?} too big for struple {:?}", i, self);
                 }
                 self.0[p as usize].1 = v;
             }
-            &Ireg::Sub(p, ref s) => {
+            Ireg::Sub(p, s) => {
                 if p as usize >= self.0.len() {
                     panic!("{:?} too big for strtuple {:?}", i, self);
                 }
-                self.0[p as usize].1.ireg_set(&*s, v);
+                self.0[p as usize].1.ireg_set(Ireg::Reg(s), v);
             }
         }
     }

@@ -58,7 +58,7 @@ impl<'a> RustFuncContext<'a>
         self.task.head.e.get_param(i)
     }
 
-    pub fn get_reg(&self, r: &Reg) -> Lresult<&Val>
+    pub fn get_reg(&self, r: Reg) -> Lresult<&Val>
     {
         self.task.head.e.get_reg(r)
     }

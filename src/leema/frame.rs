@@ -40,7 +40,7 @@ impl Parent
     {
         match self {
             &mut Parent::Caller(_, ref mut pf, ref dst) => {
-                pf.e.set_reg(dst, r);
+                pf.e.set_reg(*dst, r);
             }
             // &mut Parent::Fork(_, _) => {}
             &mut Parent::Main(ref mut res) => {
@@ -296,7 +296,7 @@ impl Frame
      */
     pub fn get_param(&self, p: i8) -> Lresult<&Val>
     {
-        self.e.get_reg(&Reg::Param(Ireg::Reg(p)))
+        self.e.get_reg(Reg::Param(Ireg::Reg(p)))
     }
 }
 

@@ -1229,7 +1229,7 @@ impl fmt::Debug for Val
 
 impl reg::Iregistry for Val
 {
-    fn ireg_get<'a, 'b>(&'a self, i: &'b Ireg) -> Lresult<&'a Val>
+    fn ireg_get(&self, i: Ireg) -> Lresult<&Val>
     {
         match (i, self) {
             // get reg on tuple
@@ -1241,9 +1241,9 @@ impl reg::Iregistry for Val
             // Get for Functions & Closures
             (_, &Val::Fref(_, _, ref args, _)) => args.ireg_get(i),
             // Failures
-            (&Ireg::Reg(0), &Val::Failure2(ref failure)) => Ok(&failure.tag),
-            (&Ireg::Reg(1), &Val::Failure2(ref failure)) => Ok(&failure.msg),
-            (&Ireg::Reg(2), &Val::Failure2(ref failure)) => {
+            (Ireg::Reg(0), &Val::Failure2(ref failure)) => Ok(&failure.tag),
+            (Ireg::Reg(1), &Val::Failure2(ref failure)) => Ok(&failure.msg),
+            (Ireg::Reg(2), &Val::Failure2(ref failure)) => {
                 Err(rustfail!(
                     "leema_failure",
                     "Cannot access frame trace until it is implemented as a leema value {:?}",
@@ -1267,7 +1267,7 @@ impl reg::Iregistry for Val
         }
     }
 
-    fn ireg_set(&mut self, i: &Ireg, v: Val)
+    fn ireg_set(&mut self, i: Ireg, v: Val)
     {
         match (i, self) {
             // set reg on tuples
@@ -1279,17 +1279,17 @@ impl reg::Iregistry for Val
                 fields.ireg_set(i, v);
             }
             // set reg on lists
-            (&Ireg::Reg(0), &mut Val::Cons(ref mut head, _)) => {
+            (Ireg::Reg(0), &mut Val::Cons(ref mut head, _)) => {
                 **head = v;
             }
-            (&Ireg::Sub(0, ref s), &mut Val::Cons(ref mut head, _)) => {
-                head.ireg_set(&*s, v);
+            (Ireg::Sub(0, s), &mut Val::Cons(ref mut head, _)) => {
+                head.ireg_set(Ireg::Reg(s), v);
             }
             (_, &mut Val::Cons(_, _)) => {
-                panic!("Cannot set a register on a list");
+                panic!("cannot set reg within a list: {}", i);
             }
             (_, &mut Val::Nil) => {
-                panic!("cannot set reg on empty list: {:?}", i);
+                panic!("cannot set reg on empty list: {}", i);
             }
             // set reg on FuncRef
             (_, &mut Val::FuncRef(_, ref mut args, _)) => {
@@ -1563,24 +1563,24 @@ impl Env
         }
     }
 
-    pub fn set_reg(&mut self, reg: &Reg, v: Val)
+    pub fn set_reg(&mut self, reg: Reg, v: Val)
     {
         match reg {
-            &Reg::Local(ref i) => {
+            Reg::Local(i) => {
                 let primary = i.get_primary() as usize;
                 if primary >= self.locals.len() {
                     self.locals.0.resize(primary + 1, Default::default())
                 }
                 self.locals.ireg_set(i, v)
             }
-            &Reg::Stack(ref i) => {
+            Reg::Stack(i) => {
                 let primary = i.get_primary() as usize;
                 if primary >= self.stack.len() {
                     self.stack.0.resize(primary + 1, Default::default())
                 }
                 self.stack.ireg_set(i, v)
             }
-            &Reg::Void => {
+            Reg::Void => {
                 // do nothing, void reg is like /dev/null
             }
             _ => {
@@ -1589,26 +1589,26 @@ impl Env
         }
     }
 
-    pub fn get_reg(&self, reg: &Reg) -> Lresult<&Val>
+    pub fn get_reg(&self, reg: Reg) -> Lresult<&Val>
     {
         match reg {
-            &Reg::Param(ref r) => self.params.ireg_get(r),
-            &Reg::Local(ref i) => {
+            Reg::Param(r) => self.params.ireg_get(r),
+            Reg::Local(i) => {
                 self.locals.ireg_get(i)
             }
-            &Reg::Stack(ref i) => {
+            Reg::Stack(i) => {
                 self.stack.ireg_get(i)
             }
-            &Reg::Void => {
+            Reg::Void => {
                 Err(rustfail!("leema_failure", "Cannot get Reg::Void",))
             }
-            &Reg::Lib => {
+            Reg::Lib => {
                 Err(rustfail!(
                     "leema_failure",
                     "Please look in application library for Reg::Lib",
                 ))
             }
-            &Reg::Undecided => {
+            Reg::Undecided => {
                 Err(
                     rustfail!("leema_failure", "Cannot get undecided register",),
                 )
@@ -1623,7 +1623,7 @@ impl Env
 
     pub fn get_param(&self, reg: i8) -> Lresult<&Val>
     {
-        self.params.ireg_get(&Ireg::Reg(reg))
+        self.params.ireg_get(Ireg::Reg(reg))
     }
 }
 
