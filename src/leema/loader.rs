@@ -166,9 +166,12 @@ impl Default for Interloader
     fn default() -> Interloader
     {
         let root_path = Path::new(file!())
-            .parent().unwrap()   // pop loader.rs
-            .parent().unwrap()   // pop leema/
-            .parent().unwrap();  // pop src/
+            .parent()
+            .unwrap() // pop loader.rs
+            .parent()
+            .unwrap() // pop leema/
+            .parent()
+            .unwrap(); // pop src/
         let leema_path = root_path.join(Path::new("lib"));
 
         Interloader {

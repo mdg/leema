@@ -88,7 +88,12 @@ impl ProtoModule
         Ok(proto)
     }
 
-    fn add_func(&mut self, name: AstNode, args: Xlist, body: AstNode) -> Lresult<()>
+    fn add_func(
+        &mut self,
+        name: AstNode,
+        args: Xlist,
+        body: AstNode,
+    ) -> Lresult<()>
     {
         match *name.node {
             Ast::Id1(name_id) => {
@@ -116,23 +121,32 @@ impl ProtoModule
         Ok(())
     }
 
-    fn add_func_not_generic(&mut self, name: &'static str, args: Xlist, body: AstNode, loc: ast2::Loc) -> Lresult<()>
+    fn add_func_not_generic(
+        &mut self,
+        name: &'static str,
+        args: Xlist,
+        body: AstNode,
+        loc: ast2::Loc,
+    ) -> Lresult<()>
     {
         let args2 = args.clone();
         // not generic so everything is a closed type
         let ftyp = if !args.is_empty() {
             let empty_type_args: &[&'static str] = &[];
             let arg_types_r: Lresult<Vec<StrupleItem<Option<Lstr>, Type>>>;
-            arg_types_r = args.0.into_iter()
+            arg_types_r = args
+                .0
+                .into_iter()
                 .map(|i| {
                     Ok(StrupleItem::new(
                         i.k.map(|k| Lstr::Sref(k)),
-                        ast_to_type(&self.key.name, &i.v, empty_type_args)?
+                        ast_to_type(&self.key.name, &i.v, empty_type_args)?,
                     ))
                 })
                 .collect();
             let mut arg_types_vec = arg_types_r?;
-            let mut result_type_vec = arg_types_vec.split_off(arg_types_vec.len() - 1);
+            let mut result_type_vec =
+                arg_types_vec.split_off(arg_types_vec.len() - 1);
             let result_type = result_type_vec.pop().unwrap().v;
             let arg_types = StrupleKV::from(arg_types_vec);
             FuncType::new(arg_types, result_type)
@@ -161,8 +175,16 @@ impl ProtoModule
             Ast::Id1(name_id) => {
                 let typ = Type::User(self.key.name.clone(), name_id);
                 self.types.insert(name_id, typ.clone());
-                let constructor_ref = Val::Fref(self.key.name.clone(), name_id, Struple2::new(), typ);
-                self.constants.insert(name_id, AstNode::new_constval(constructor_ref, name.loc));
+                let constructor_ref = Val::Fref(
+                    self.key.name.clone(),
+                    name_id,
+                    Struple2::new(),
+                    typ,
+                );
+                self.constants.insert(
+                    name_id,
+                    AstNode::new_constval(constructor_ref, name.loc),
+                );
                 // do something with fields too!
             }
             Ast::Generic(gen, gen_args) => {
@@ -239,7 +261,8 @@ impl ProtoModule
         Ok(())
     }
 
-    pub fn pop_func(&mut self, func: &str) -> Lresult<Option<(Xlist, AstNode)>>
+    pub fn pop_func(&mut self, func: &str)
+        -> Lresult<Option<(Xlist, AstNode)>>
     {
         Ok(self.funcsrc.remove(func))
     }
@@ -258,31 +281,28 @@ impl ProtoModule
     pub fn get_type(&self, name: &str) -> Lresult<&Type>
     {
         println!("ProtoModule::find_type({})", name);
-        self.types.get(name)
-            .ok_or_else(|| {
-                rustfail!(PROTOFAIL, "type not found: {}", name)
-            })
+        self.types
+            .get(name)
+            .ok_or_else(|| rustfail!(PROTOFAIL, "type not found: {}", name))
     }
 }
 
-fn ast_to_type(local_mod: &Lstr, node: &AstNode, opens: &[&'static str]) -> Lresult<Type>
+fn ast_to_type(
+    local_mod: &Lstr,
+    node: &AstNode,
+    opens: &[&'static str],
+) -> Lresult<Type>
 {
     Ok(match &*node.node {
         Ast::Id1("Bool") => Type::Bool,
         Ast::Id1("Int") => Type::Int,
         Ast::Id1("Str") => Type::Str,
         Ast::Id1("#") => Type::Hashtag,
-        Ast::Id1(id) if opens.contains(&id) => {
-            Type::Var(Lstr::Sref(id))
-        }
-        Ast::Id1(id) => {
-            Type::User(local_mod.clone(), id)
-        }
+        Ast::Id1(id) if opens.contains(&id) => Type::Var(Lstr::Sref(id)),
+        Ast::Id1(id) => Type::User(local_mod.clone(), id),
         Ast::Id2(module, id) => Type::User(Lstr::Sref(module), id),
         Ast::Generic(_, typeargs) => {
-            let _gen = typeargs.map_v(|v| {
-                ast_to_type(local_mod, v, opens)
-            });
+            let _gen = typeargs.map_v(|v| ast_to_type(local_mod, v, opens));
             unimplemented!()
         }
         invalid => {
@@ -309,7 +329,11 @@ impl ProtoLib
         }
     }
 
-    pub fn add_module(&mut self, modname: &Lstr, src: &'static str) -> Lresult<()>
+    pub fn add_module(
+        &mut self,
+        modname: &Lstr,
+        src: &'static str,
+    ) -> Lresult<()>
     {
         vout!("ProtoLib::add_module({})\n", modname);
         if self.protos.contains_key(modname) {
@@ -378,20 +402,18 @@ impl ProtoLib
         Ok(())
     }
 
-    pub fn pop_func(&mut self, module: &str, func: &str) -> Lresult<Option<(Xlist, AstNode)>>
+    pub fn pop_func(
+        &mut self,
+        module: &str,
+        func: &str,
+    ) -> Lresult<Option<(Xlist, AstNode)>>
     {
         self.protos
             .get_mut(module)
             .ok_or_else(|| {
-                rustfail!(
-                    PROTOFAIL,
-                    "could not find module: {}",
-                    module,
-                )
+                rustfail!(PROTOFAIL, "could not find module: {}", module,)
             })
-            .and_then(|protomod| {
-                protomod.pop_func(func)
-            })
+            .and_then(|protomod| protomod.pop_func(func))
     }
 
     pub fn get(&self, modname: &str) -> Lresult<&ProtoModule>
@@ -449,7 +471,10 @@ mod tests
         let proto = new_proto("type Burrito --");
 
         let burrito_type = proto.types.get("Burrito").expect("no Burrito type");
-        assert_eq!(Type::UserDef(Lri::new(Lstr::from("Burrito"))), *burrito_type);
+        assert_eq!(
+            Type::UserDef(Lri::new(Lstr::from("Burrito"))),
+            *burrito_type
+        );
     }
 
     #[test]

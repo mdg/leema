@@ -1593,12 +1593,8 @@ impl Env
     {
         match reg {
             Reg::Param(r) => self.params.ireg_get(r),
-            Reg::Local(i) => {
-                self.locals.ireg_get(i)
-            }
-            Reg::Stack(i) => {
-                self.stack.ireg_get(i)
-            }
+            Reg::Local(i) => self.locals.ireg_get(i),
+            Reg::Stack(i) => self.stack.ireg_get(i),
             Reg::Void => {
                 Err(rustfail!("leema_failure", "Cannot get Reg::Void",))
             }

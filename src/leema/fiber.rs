@@ -122,11 +122,8 @@ impl Fiber
         }
     }
 
-    pub fn execute_strcat(
-        &mut self,
-        dstreg: Reg,
-        srcreg: Reg,
-    ) -> Lresult<Event>
+    pub fn execute_strcat(&mut self, dstreg: Reg, srcreg: Reg)
+        -> Lresult<Event>
     {
         let result = {
             let dst = self.head.e.get_reg(dstreg)?;
@@ -205,9 +202,12 @@ impl Fiber
         let (funcri, args): (&Lri, Struple<Val>) = {
             let ref fname_val = self.head.e.get_reg(freg)?;
             match *fname_val {
-                &Val::FuncRef(ref callri, ref args, _) => (callri, args.clone()),
+                &Val::FuncRef(ref callri, ref args, _) => {
+                    (callri, args.clone())
+                }
                 &Val::Fref(ref modname, ref name, ref args, _) => {
-                    funcri_ref = Lri::with_modules(modname.clone(), Lstr::Sref(name));
+                    funcri_ref =
+                        Lri::with_modules(modname.clone(), Lstr::Sref(name));
                     (&funcri_ref, Struple::from(args.clone()))
                 }
                 _ => {
@@ -222,7 +222,12 @@ impl Fiber
         vout!("execute_call({})\n", funcri);
 
         let argstup = Val::Tuple(args);
-        Ok(Event::Call(dst.clone(), line as i16, funcri.clone(), argstup))
+        Ok(Event::Call(
+            dst.clone(),
+            line as i16,
+            funcri.clone(),
+            argstup,
+        ))
     }
 
     pub fn execute_const_val(&mut self, reg: Reg, v: &Val) -> Lresult<Event>
@@ -426,8 +431,7 @@ impl Fiber
         Ok(Event::Uneventful)
     }
 
-    pub fn execute_if_failure(&mut self, src: Reg, jmp: i16)
-        -> Lresult<Event>
+    pub fn execute_if_failure(&mut self, src: Reg, jmp: i16) -> Lresult<Event>
     {
         if self.head.e.get_reg(src)?.is_failure() {
             self.head.pc += 1;
@@ -445,8 +449,7 @@ impl Fiber
         Ok(Event::Uneventful)
     }
 
-    pub fn propagate_failure(&mut self, src: Reg, line: u16)
-        -> Lresult<Event>
+    pub fn propagate_failure(&mut self, src: Reg, line: u16) -> Lresult<Event>
     {
         let srcval = self.head.e.get_reg(src)?;
         match srcval {

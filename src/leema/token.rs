@@ -414,9 +414,7 @@ impl ScanModeTrait for ScanModeLine
             // whitespace
             '\n' => ScanOutput::Token(Token::LineEnd, true, ScanModeOp::Pop),
             ' ' => ScanOutput::Start(ScanModeOp::Push(&ScanModeSpace)),
-            '\\' => {
-                ScanOutput::Start(ScanModeOp::Push(&ScanModeBackslash))
-            }
+            '\\' => ScanOutput::Start(ScanModeOp::Push(&ScanModeBackslash)),
             // strings
             '"' => {
                 ScanOutput::Token(
@@ -620,7 +618,11 @@ impl ScanModeTrait for ScanModeCommentLine
 
     fn eof(&self) -> ScanResult
     {
-        Ok(ScanOutput::Token(Token::CommentLine, false, ScanModeOp::Pop))
+        Ok(ScanOutput::Token(
+            Token::CommentLine,
+            false,
+            ScanModeOp::Pop,
+        ))
     }
 }
 
@@ -729,9 +731,7 @@ impl ScanModeTrait for ScanModeHashtag
                 ))
             }
             '#' => {
-                Ok(ScanOutput::Next(
-                    ScanModeOp::Replace(&ScanModeCommentLine),
-                ))
+                Ok(ScanOutput::Next(ScanModeOp::Replace(&ScanModeCommentLine)))
             }
             '_' => idop,
             c if c.is_alphabetic() => idop,
@@ -845,7 +845,9 @@ impl ScanModeTrait for ScanModeQuote
                 ))
             }
             '$' => Ok(ScanOutput::Start(ScanModeOp::Push(&ScanModeDollar))),
-            '\\' => Ok(ScanOutput::Start(ScanModeOp::Push(&ScanModeQuoteEscape))),
+            '\\' => {
+                Ok(ScanOutput::Start(ScanModeOp::Push(&ScanModeQuoteEscape)))
+            }
             _ => Ok(ScanOutput::Start(ScanModeOp::Push(&ScanModeStr))),
         }
     }
@@ -861,13 +863,7 @@ impl ScanModeTrait for ScanModeQuoteEscape
     fn scan(&self, next: Char) -> ScanResult
     {
         match next.c {
-            'n' => {
-                Ok(ScanOutput::Token(
-                    Token::StrLit,
-                    true,
-                    ScanModeOp::Pop,
-                ))
-            }
+            'n' => Ok(ScanOutput::Token(Token::StrLit, true, ScanModeOp::Pop)),
             _ => {
                 Err(rustfail!(
                     "token_error",
@@ -880,7 +876,10 @@ impl ScanModeTrait for ScanModeQuoteEscape
 
     fn eof(&self) -> ScanResult
     {
-        Err(rustfail!("token_error", "expected escape character, found eof",))
+        Err(rustfail!(
+            "token_error",
+            "expected escape character, found eof",
+        ))
     }
 }
 

@@ -205,10 +205,7 @@ impl RegTab
                 ids.insert(*iname, Reg::param(i as i8));
             }
         }
-        RegTab {
-            ids,
-            next_local: 0,
-        }
+        RegTab { ids, next_local: 0 }
     }
 
     pub fn named(&mut self, id: &'static str) -> Reg
@@ -267,7 +264,7 @@ impl RegStack
 {
     pub fn new() -> RegStack
     {
-        RegStack{
+        RegStack {
             dst: Reg::stack(0),
             next: 1,
             stack: Vec::new(),

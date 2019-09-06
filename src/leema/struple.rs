@@ -60,7 +60,10 @@ where
 {
     fn default() -> StrupleItem<K, V>
     {
-        StrupleItem { k: Default::default(), v: Default::default() }
+        StrupleItem {
+            k: Default::default(),
+            v: Default::default(),
+        }
     }
 }
 
@@ -266,7 +269,7 @@ where
 
 impl<K> reg::Iregistry for StrupleKV<K, Val>
 where
-    K: fmt::Debug
+    K: fmt::Debug,
 {
     fn ireg_get(&self, i: Ireg) -> Lresult<&Val>
     {
@@ -385,10 +388,7 @@ impl<T> From<Struple2<T>> for Struple<T>
 {
     fn from(items: Struple2<T>) -> Struple<T>
     {
-        items.0
-            .into_iter()
-            .map(|i| (i.k, i.v))
-            .collect()
+        items.0.into_iter().map(|i| (i.k, i.v)).collect()
     }
 }
 

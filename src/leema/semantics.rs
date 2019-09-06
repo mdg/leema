@@ -146,14 +146,16 @@ impl<'l> MacroApplication<'l>
                 return Err(rustfail!(
                     SEMFAIL,
                     "Too many arguments passed to macro {}, expected {}",
-                    macro_name, a,
+                    macro_name,
+                    a,
                 ));
             }
             (a, b) if a > b => {
                 return Err(rustfail!(
                     SEMFAIL,
                     "Too few arguments passed to macro {}, expected {}",
-                    macro_name, a
+                    macro_name,
+                    a
                 ));
             }
             _ => {
@@ -166,14 +168,21 @@ impl<'l> MacroApplication<'l>
             arg_map.insert(n, arg_val.v);
         }
         vout!("replace_ids({:?})\n", arg_map);
-        let mut macro_replace = MacroReplacement{arg_map, loc};
+        let mut macro_replace = MacroReplacement { arg_map, loc };
         Semantics::walk(&mut macro_replace, body.clone())
     }
 
-    fn op_to_call(module: &'static str, func: &'static str, a: AstNode, b: AstNode, loc: Loc) -> AstNode
+    fn op_to_call(
+        module: &'static str,
+        func: &'static str,
+        a: AstNode,
+        b: AstNode,
+        loc: Loc,
+    ) -> AstNode
     {
         let callx = AstNode::new(Ast::Id2(module, func), loc);
-        let args: StrupleKV<Option<&'static str>, AstNode> = StrupleKV::from(vec![a, b]);
+        let args: StrupleKV<Option<&'static str>, AstNode> =
+            StrupleKV::from(vec![a, b]);
         AstNode::new(Ast::Call(callx, args), loc)
     }
 }
@@ -197,17 +206,20 @@ impl<'l> SemanticOp for MacroApplication<'l>
                         Ok(SemanticAction::Rewrite(result))
                     }
                     None => {
-                        let node2 = AstNode::new(Ast::Call(callid, args), node.loc);
+                        let node2 =
+                            AstNode::new(Ast::Call(callid, args), node.loc);
                         Ok(SemanticAction::Keep(node2))
                     }
                 }
             }
             Ast::Op2("+", a, b) => {
-                let call = Self::op_to_call("prefab", "int_add", a, b, node.loc);
+                let call =
+                    Self::op_to_call("prefab", "int_add", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2("-", a, b) => {
-                let call = Self::op_to_call("prefab", "int_sub", a, b, node.loc);
+                let call =
+                    Self::op_to_call("prefab", "int_sub", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::ConstVal(Val::Str(s)) => {
@@ -219,9 +231,7 @@ impl<'l> SemanticOp for MacroApplication<'l>
                 };
                 Ok(SemanticAction::Keep(node2))
             }
-            _ => {
-                Ok(SemanticAction::Keep(node))
-            }
+            _ => Ok(SemanticAction::Keep(node)),
         }
     }
 }
@@ -323,7 +333,10 @@ struct CallCollection<'l>
 
 impl<'l> CallCollection<'l>
 {
-    pub fn new(local: &'l ProtoModule, imports: &'l ProtoLib) -> CallCollection<'l>
+    pub fn new(
+        local: &'l ProtoModule,
+        imports: &'l ProtoLib,
+    ) -> CallCollection<'l>
     {
         CallCollection {
             local,
@@ -368,7 +381,11 @@ struct ScopeCheck<'p>
 
 impl<'p> ScopeCheck<'p>
 {
-    pub fn new(ftyp: &'p FuncType, local_mod: &'p ProtoModule, lib: &'p ProtoLib) -> Lresult<ScopeCheck<'p>>
+    pub fn new(
+        ftyp: &'p FuncType,
+        local_mod: &'p ProtoModule,
+        lib: &'p ProtoLib,
+    ) -> Lresult<ScopeCheck<'p>>
     {
         let mut root = Blockstack::new();
         for arg in ftyp.args.iter() {
@@ -426,22 +443,21 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                     }
                 } else {
                     println!("var not in scope: {}", id);
-                    return Err(rustfail!(
-                        SEMFAIL,
-                        "var not in scope: {}",
-                        id,
-                    ));
+                    return Err(
+                        rustfail!(SEMFAIL, "var not in scope: {}", id,),
+                    );
                 }
             }
             Ast::Id2(module, id) => {
                 println!("scope check id2: {}::{}", module, id);
-                let proto = self.lib.get(module)
-                    .map_err(|e| {
-                        e.add_context(Lstr::from(format!(
-                            "module {} not found at {:?}", module, node.loc
-                        )))
-                    })?;
-                let val_ast = proto.find_const(id)
+                let proto = self.lib.get(module).map_err(|e| {
+                    e.add_context(Lstr::from(format!(
+                        "module {} not found at {:?}",
+                        module, node.loc
+                    )))
+                })?;
+                let val_ast = proto
+                    .find_const(id)
                     .ok_or_else(|| {
                         rustfail!(
                             SEMFAIL,
@@ -453,7 +469,7 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                     })?
                     .clone();
                 node = node.replace(*val_ast.node, val_ast.typ);
-                return Ok(SemanticAction::Rewrite(node))
+                return Ok(SemanticAction::Rewrite(node));
             }
             _ => {
                 // do nothing otherwise
@@ -499,10 +515,7 @@ impl<'p> VarTypes<'p>
             let argname = arg.k.as_ref().unwrap().sref()?;
             vartypes.insert(argname, arg.v.clone());
         }
-        Ok(VarTypes {
-            vartypes,
-            module,
-        })
+        Ok(VarTypes { vartypes, module })
     }
 
     pub fn decl_pattern_vartypes(&mut self, node: &AstNode) -> Lresult<Type>
@@ -571,7 +584,11 @@ struct TypeCheck<'p>
 
 impl<'p> TypeCheck<'p>
 {
-    pub fn new(local_mod: &'p ProtoModule, lib: &'p ProtoLib, ftyp: &'p FuncType) -> TypeCheck<'p>
+    pub fn new(
+        local_mod: &'p ProtoModule,
+        lib: &'p ProtoLib,
+        ftyp: &'p FuncType,
+    ) -> TypeCheck<'p>
     {
         TypeCheck {
             local_mod,
@@ -580,7 +597,11 @@ impl<'p> TypeCheck<'p>
         }
     }
 
-    pub fn applied_call_type(&self, calltype: &Type, args: &ast2::Xlist) -> Lresult<Type>
+    pub fn applied_call_type(
+        &self,
+        calltype: &Type,
+        args: &ast2::Xlist,
+    ) -> Lresult<Type>
     {
         let ftyp = if let Type::Func(inner_ftyp) = calltype {
             inner_ftyp
@@ -696,12 +717,8 @@ impl SemanticOp for RemoveExtraCode
         let action = match *node.node {
             Ast::Block(mut items) => {
                 match items.len() {
-                    0 => {
-                        SemanticAction::Keep(AstNode::void())
-                    }
-                    1 => {
-                        SemanticAction::Keep(items.pop().unwrap())
-                    }
+                    0 => SemanticAction::Keep(AstNode::void()),
+                    1 => SemanticAction::Keep(items.pop().unwrap()),
                     _ => {
                         *node.node = Ast::Block(items);
                         SemanticAction::Keep(node)
@@ -922,19 +939,20 @@ impl Semantics
             }
         };
 
-        let func_args = ftyp.args.0.iter().map(|kv| {
-            match &kv.k {
-                Some(Lstr::Sref(name)) => {
-                    Some(*name)
+        let func_args = ftyp
+            .args
+            .0
+            .iter()
+            .map(|kv| {
+                match &kv.k {
+                    Some(Lstr::Sref(name)) => Some(*name),
+                    Some(Lstr::Arc(ref name)) => {
+                        panic!("func arg name is not a static: {}", name);
+                    }
+                    _ => None,
                 }
-                Some(Lstr::Arc(ref name)) => {
-                    panic!("func arg name is not a static: {}", name);
-                }
-                _ => {
-                    None
-                }
-            }
-        }).collect();
+            })
+            .collect();
 
         let mut macs: MacroApplication = MacroApplication {
             local: local_proto,
@@ -977,16 +995,13 @@ impl Semantics
         let mut prenode = match op.pre(node)? {
             SemanticAction::Keep(inode) => inode,
             SemanticAction::Rewrite(inode) => inode,
-            SemanticAction::Remove => {
-                return Ok(AstNode::void())
-            }
+            SemanticAction::Remove => return Ok(AstNode::void()),
         };
 
         let new_ast = match *prenode.node {
             Ast::Block(children) => {
-                let new_children: Lresult<Vec<AstNode>> = children.into_iter().map(|ch| {
-                    Self::walk(op, ch)
-                }).collect();
+                let new_children: Lresult<Vec<AstNode>> =
+                    children.into_iter().map(|ch| Self::walk(op, ch)).collect();
                 Ast::Block(new_children?)
             }
             Ast::Call(id, args) => {
@@ -995,22 +1010,28 @@ impl Semantics
                 Ast::Call(wid, wargs)
             }
             Ast::Case(typ, None, args) => {
-                let new_args: Lresult<Vec<ast2::Case>> = args.into_iter().map(|ch| {
-                    op.set_pattern(typ == ast2::CaseType::Match);
-                    let wcond = Self::walk(op, ch.cond)?;
-                    op.set_pattern(false);
-                    let wbody = Self::walk(op, ch.body)?;
-                    Ok(ast2::Case::new(wcond, wbody))
-                }).collect();
+                let new_args: Lresult<Vec<ast2::Case>> = args
+                    .into_iter()
+                    .map(|ch| {
+                        op.set_pattern(typ == ast2::CaseType::Match);
+                        let wcond = Self::walk(op, ch.cond)?;
+                        op.set_pattern(false);
+                        let wbody = Self::walk(op, ch.body)?;
+                        Ok(ast2::Case::new(wcond, wbody))
+                    })
+                    .collect();
                 Ast::Case(typ, None, new_args?)
             }
             Ast::Case(typ, Some(cond), children) => {
                 let wcond = Self::walk(op, cond)?;
-                let wchildren: Lresult<Vec<ast2::Case>> = children.into_iter().map(|ch| {
-                    let wcond = Self::walk(op, ch.cond)?;
-                    let wbody = Self::walk(op, ch.body)?;
-                    Ok(ast2::Case::new(wcond, wbody))
-                }).collect();
+                let wchildren: Lresult<Vec<ast2::Case>> = children
+                    .into_iter()
+                    .map(|ch| {
+                        let wcond = Self::walk(op, ch.cond)?;
+                        let wbody = Self::walk(op, ch.body)?;
+                        Ok(ast2::Case::new(wcond, wbody))
+                    })
+                    .collect();
                 Ast::Case(typ, Some(wcond), wchildren?)
             }
             Ast::ConstVal(v) => {
@@ -1023,17 +1044,13 @@ impl Semantics
             }
             Ast::DefFunc(name, args, body) => {
                 let wname = Self::walk(op, name)?;
-                let wargs = args.map_v_into(|arg| {
-                    Self::walk(op, arg)
-                })?;
+                let wargs = args.map_v_into(|arg| Self::walk(op, arg))?;
                 let wbody = Self::walk(op, body)?;
                 Ast::DefFunc(wname, wargs, wbody)
             }
             Ast::Generic(id, args) => {
                 let wid = Self::walk(op, id)?;
-                let wargs = args.map_v_into(|arg| {
-                    Self::walk(op, arg)
-                })?;
+                let wargs = args.map_v_into(|arg| Self::walk(op, arg))?;
                 Ast::Generic(wid, wargs)
             }
             Ast::Let(lhp, lht, rhs) => {
@@ -1058,9 +1075,8 @@ impl Semantics
             }
             Ast::Return(x) => Ast::Return(Self::walk(op, x)?),
             Ast::StrExpr(items) => {
-                let witems: Lresult<Vec<AstNode>> = items.into_iter().map(|i| {
-                    Self::walk(op, i)
-                }).collect();
+                let witems: Lresult<Vec<AstNode>> =
+                    items.into_iter().map(|i| Self::walk(op, i)).collect();
                 Ast::StrExpr(witems?)
             }
             Ast::Tuple(items) => {
@@ -1116,9 +1132,7 @@ impl Semantics
         let postnode = match op.post(prenode)? {
             SemanticAction::Keep(inode) => inode,
             SemanticAction::Rewrite(inode) => inode,
-            SemanticAction::Remove => {
-                return Ok(AstNode::void())
-            }
+            SemanticAction::Remove => return Ok(AstNode::void()),
         };
 
         Ok(postnode)

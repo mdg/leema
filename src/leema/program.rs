@@ -79,7 +79,11 @@ impl Lib
         &self.loader.main_mod
     }
 
-    pub fn load_code(&mut self, modname: &Lstr, funcname: &Lstr) -> Lresult<&Code>
+    pub fn load_code(
+        &mut self,
+        modname: &Lstr,
+        funcname: &Lstr,
+    ) -> Lresult<&Code>
     {
         let (has_mod, has_func) = if self.code.contains_key(modname) {
             let old_mod = self.code.get(modname).unwrap();
@@ -102,11 +106,7 @@ impl Lib
         }
 
         let module = self.code.get(modname).ok_or_else(|| {
-            rustfail!(
-                "codefail",
-                "cannot find module for code: {}",
-                modname,
-            )
+            rustfail!("codefail", "cannot find module for code: {}", modname,)
         })?;
         module.get(funcname).ok_or_else(|| {
             rustfail!(
@@ -129,16 +129,28 @@ impl Lib
         Ok(())
     }
 
-    pub fn read_semantics(&mut self, modname: &Lstr, funcname: &Lstr) -> Lresult<Semantics>
+    pub fn read_semantics(
+        &mut self,
+        modname: &Lstr,
+        funcname: &Lstr,
+    ) -> Lresult<Semantics>
     {
         self.load_proto_and_imports(modname)?;
         let mut semantics = Semantics::new();
-        let result = semantics.compile_call(&mut self.protos, modname.str(), funcname.str())?;
+        let result = semantics.compile_call(
+            &mut self.protos,
+            modname.str(),
+            funcname.str(),
+        )?;
         semantics.src = result;
         Ok(semantics)
     }
 
-    pub fn read_code(&mut self, modname: &Lstr, funcname: &Lstr) -> Lresult<Code>
+    pub fn read_code(
+        &mut self,
+        modname: &Lstr,
+        funcname: &Lstr,
+    ) -> Lresult<Code>
     {
         vout!("read_code({}::{})\n", modname, funcname);
         let semantics = self.read_semantics(modname, funcname)?;

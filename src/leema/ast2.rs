@@ -151,9 +151,7 @@ impl Ast
                 write!(f, "DefType {:?} {:?} {:?}", dtype, name, fields)
             }
             // Ast::Def(v) => write!(f, "Def {}", v),
-            Ast::Generic(id, args) => {
-                write!(f, "Generic {:?}[{:?}]", id, args)
-            }
+            Ast::Generic(id, args) => write!(f, "Generic {:?}[{:?}]", id, args),
             Ast::Id1(id) => write!(f, "Id {}", id),
             Ast::Id2(id1, id2) => write!(f, "Id {}::{}", id1, id2),
             Ast::Import(module) => write!(f, "Import {:?}", module),

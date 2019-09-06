@@ -217,9 +217,7 @@ pub fn make_sub_ops2(mut rs: RegStack, input: AstNode) -> Oxpr
             }
             ops
         }
-        Ast::ConstVal(v) => {
-            vec![Op::ConstVal(input.dst.clone(), v.clone())]
-        }
+        Ast::ConstVal(v) => vec![Op::ConstVal(input.dst.clone(), v.clone())],
         Ast::Call(f, args) => make_call_ops(rs, input.dst.clone(), f, args),
         Ast::Let(patt, _, x) => {
             let pval = make_pattern_val(patt);
@@ -239,11 +237,12 @@ pub fn make_sub_ops2(mut rs: RegStack, input: AstNode) -> Oxpr
             // xops.ops.append(&mut failops);
             xops.ops
         }
-        Ast::List(items) => {
-            make_list_ops(rs, items)
-        }
+        Ast::List(items) => make_list_ops(rs, items),
         Ast::Tuple(items) => {
-            let newtup = Op::ConstVal(rs.put_dst(input.dst.clone()), Val::new_tuple(items.0.len()));
+            let newtup = Op::ConstVal(
+                rs.put_dst(input.dst.clone()),
+                Val::new_tuple(items.0.len()),
+            );
             let mut ops: Vec<Op> = vec![newtup];
             for (i, item) in items.0.into_iter().enumerate() {
                 let subdst = input.dst.sub(i as i8);
@@ -284,7 +283,10 @@ pub fn make_sub_ops2(mut rs: RegStack, input: AstNode) -> Oxpr
         Ast::RustBlock => vec![],
         _ => vec![],
     };
-    Oxpr{ ops, dst: input.dst }
+    Oxpr {
+        ops,
+        dst: input.dst,
+    }
 }
 
 /*
@@ -434,7 +436,11 @@ pub fn make_matchfailure_ops(
 }
 // */
 
-pub fn make_matchexpr_ops(mut rs: RegStack, x: AstNode, cases: Vec<Case>) -> OpVec
+pub fn make_matchexpr_ops(
+    mut rs: RegStack,
+    x: AstNode,
+    cases: Vec<Case>,
+) -> OpVec
 {
     vout!("make_matchexpr_ops({:?},{:?})\n", x, cases);
     let x_dst = rs.put_dst(x.dst.clone());
@@ -444,9 +450,12 @@ pub fn make_matchexpr_ops(mut rs: RegStack, x: AstNode, cases: Vec<Case>) -> OpV
 
     let match_reg = x_rs.push_dst();
 
-    let mut case_ops = cases.into_iter().flat_map(|case| {
-        make_matchcase_ops(x_rs.clone(), case, &x_dst, &match_reg)
-    }).collect();
+    let mut case_ops = cases
+        .into_iter()
+        .flat_map(|case| {
+            make_matchcase_ops(x_rs.clone(), case, &x_dst, &match_reg)
+        })
+        .collect();
     vout!("made matchcase_ops =\n{:?}\n", case_ops);
 
     xops.ops.append(&mut case_ops);
@@ -463,12 +472,9 @@ pub fn make_matchcase_ops(
     let patt_val = make_pattern_val(matchcase.cond);
     let mut code_ops = make_sub_ops2(rs, matchcase.body);
 
-    let mut patt_ops: Vec<Op> = vec![
-        Op::MatchPattern(Reg::Void, patt_val, xreg.clone()),
-    ];
-    patt_ops.push(
-        Op::JumpIfNot(code_ops.ops.len() as i16 + 1, Reg::Void),
-    );
+    let mut patt_ops: Vec<Op> =
+        vec![Op::MatchPattern(Reg::Void, patt_val, xreg.clone())];
+    patt_ops.push(Op::JumpIfNot(code_ops.ops.len() as i16 + 1, Reg::Void));
 
     patt_ops.append(&mut code_ops.ops);
     patt_ops
@@ -485,30 +491,35 @@ pub fn make_if_ops(mut rs: RegStack, cases: Vec<Case>) -> OpVec
     let body_rs = rs.clone();
     rs.push_dst();
     let cond_rs = rs.clone();
-    let mut case_ops: Vec<(Oxpr, Oxpr)> = cases.into_iter().map(|case| {
-        let cond_ops = make_sub_ops2(cond_rs.clone(), case.cond);
-        let body_ops = make_sub_ops2(body_rs.clone(), case.body);
-        (cond_ops, body_ops)
-    }).collect();
+    let mut case_ops: Vec<(Oxpr, Oxpr)> = cases
+        .into_iter()
+        .map(|case| {
+            let cond_ops = make_sub_ops2(cond_rs.clone(), case.cond);
+            let body_ops = make_sub_ops2(body_rs.clone(), case.body);
+            (cond_ops, body_ops)
+        })
+        .collect();
 
     case_ops.iter_mut().rev().fold(0 as i16, |after, case| {
         if after > 0 {
             case.1.ops.push(Op::Jump(after + 1));
         }
         let body_ops_len = case.1.ops.len() as i16;
-        case.0.ops.push(Op::JumpIfNot(
-            body_ops_len + after + 1,
-            case.0.dst.clone(),
-        ));
+        case.0
+            .ops
+            .push(Op::JumpIfNot(body_ops_len + after + 1, case.0.dst.clone()));
         let cond_ops_len = case.0.ops.len() as i16;
         after + cond_ops_len + body_ops_len
     });
 
-    case_ops.into_iter().flat_map(|mut case| {
-        let mut tmp = case.1.ops;
-        case.0.ops.append(&mut tmp);
-        case.0.ops
-    }).collect()
+    case_ops
+        .into_iter()
+        .flat_map(|mut case| {
+            let mut tmp = case.1.ops;
+            case.0.ops.append(&mut tmp);
+            case.0.ops
+        })
+        .collect()
 }
 
 /*
@@ -612,7 +623,10 @@ mod tests
     #[test]
     fn test_code_constval()
     {
-        let loc = Loc { lineno: 8, column: 7 };
+        let loc = Loc {
+            lineno: 8,
+            column: 7,
+        };
         let mut node = AstNode::new(Ast::ConstVal(Val::Int(9)), loc);
         node.dst = Reg::local(3);
         let code = code::make_ops2(node);
@@ -640,7 +654,8 @@ mod tests
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
-        prog.load_code(&Lstr::Sref("tacos"), &Lstr::Sref("main")).unwrap();
+        prog.load_code(&Lstr::Sref("tacos"), &Lstr::Sref("main"))
+            .unwrap();
     }
 
     #[test]
@@ -664,7 +679,8 @@ mod tests
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
-        prog.load_code(&Lstr::Sref("tacos"), &Lstr::Sref("main")).unwrap();
+        prog.load_code(&Lstr::Sref("tacos"), &Lstr::Sref("main"))
+            .unwrap();
     }
 
 }

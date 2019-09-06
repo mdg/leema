@@ -222,7 +222,8 @@ impl ParseStmt
         let name = match p.next_if(Token::SquareL)? {
             Some(_) => {
                 let generic_args = IdTypeMode::parse(p)?;
-                let gname = AstNode::new(Ast::Generic(base_name, generic_args), loc);
+                let gname =
+                    AstNode::new(Ast::Generic(base_name, generic_args), loc);
                 expect_next!(p, Token::SquareR)?;
                 gname
             }
@@ -679,9 +680,7 @@ impl PrefixParser for ParseId
     fn parse(&self, _p: &mut Parsl, tok: TokenSrc) -> AstResult
     {
         match tok.tok {
-            Token::Id => {
-                Ok(AstNode::new(Ast::Id1(tok.src), Ast::loc(&tok)))
-            }
+            Token::Id => Ok(AstNode::new(Ast::Id1(tok.src), Ast::loc(&tok))),
             Token::DollarId => {
                 Ok(AstNode::new(Ast::Id1(&tok.src[1..]), Ast::loc(&tok)))
             }
@@ -1597,7 +1596,10 @@ mod tests
             assert_eq!("None", variants[1].k.unwrap());
             assert_eq!(2, variants.len());
 
-            assert_matches!(*variants[0].v.node, Ast::DefType(DataType::Struct, _, _));
+            assert_matches!(
+                *variants[0].v.node,
+                Ast::DefType(DataType::Struct, _, _)
+            );
             if let Ast::DefType(_, some, some_fields) = &*variants[0].v.node {
                 assert_eq!(Ast::Id1("Some"), *some.node);
                 assert_eq!(None, some_fields[0].k);
@@ -1635,7 +1637,10 @@ mod tests
             assert_eq!("Baz", variants[1].k.unwrap());
             assert_eq!(2, variants.len());
 
-            assert_matches!(*variants[0].v.node, Ast::DefType(DataType::Struct, _, _));
+            assert_matches!(
+                *variants[0].v.node,
+                Ast::DefType(DataType::Struct, _, _)
+            );
             if let Ast::DefType(_, bar, bar_fields) = &*variants[0].v.node {
                 assert_eq!(Ast::Id1("Bar"), *bar.node);
                 assert_eq!("a", bar_fields[0].k.unwrap());
