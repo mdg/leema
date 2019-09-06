@@ -503,11 +503,11 @@ mod tests
         let callri = Lri::with_modules(Lstr::Sref("foo"), Lstr::Sref("bar"));
         let mut frame =
             Frame::new_root(main_parent, callri, Struple(Vec::new()));
-        frame.e.set_reg(&r1, Val::Str(Lstr::Sref("i like ")));
-        frame.e.set_reg(&r2, Val::Str(Lstr::Sref("burritos")));
+        frame.e.set_reg(r1, Val::Str(Lstr::Sref("i like ")));
+        frame.e.set_reg(r2, Val::Str(Lstr::Sref("burritos")));
         let mut fib = Fiber::spawn(1, frame);
 
-        let event = fib.execute_strcat(&r1, &r2).unwrap();
+        let event = fib.execute_strcat(r1, r2).unwrap();
         assert_eq!(Event::Uneventful, event);
     }
 
