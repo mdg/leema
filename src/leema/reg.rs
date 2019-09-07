@@ -60,7 +60,7 @@ impl fmt::Display for Ireg
     {
         match self {
             &Ireg::Reg(r) => write!(f, ".{}", r),
-            &Ireg::Sub(r, ref s) => write!(f, ".{}{}", r, s),
+            &Ireg::Sub(r, ref s) => write!(f, ".{}.{}", r, s),
         }
     }
 }
