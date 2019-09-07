@@ -28,7 +28,6 @@ struct Args
     arg_args: Vec<String>,
     flag_verbose: bool,
     flag_func: Option<String>,
-    flag_tok: bool,
     flag_tokens: bool,
     flag_ast: bool,
     flag_astmod: bool,
@@ -50,7 +49,6 @@ Usage:
 
 Options:
      --typecheck   Typecheck the script
-     --tok         Show the tokens in this module
      --tokens      Show the tokens in this module for debugging
      --ast         Show the ast for the module
      --astmod      Show the ast for the module
@@ -115,7 +113,7 @@ fn real_main() -> Lresult<()>
     let mod_name = inter.main_mod.clone();
     vout!("run {}\n", inter.main_mod);
 
-    let main_result = if args.flag_tok {
+    let main_result = if args.flag_tokens {
         let modtxt = inter.read_mod(&mod_name)?;
         let tokr: Vec<TokenResult> = Tokenz::lex(&modtxt).collect();
         println!("tokens:");
