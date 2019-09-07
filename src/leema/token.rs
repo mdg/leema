@@ -186,6 +186,9 @@ pub enum Token
     // EOF
     EOF,
 
+    // Invalid tokens
+    Invalid,
+
     // final counter
     NumTokens,
 }
@@ -238,6 +241,9 @@ lazy_static! {
         // booleans
         keywords.insert("False", Token::Bool);
         keywords.insert("True", Token::Bool);
+        // invalid keywords
+        keywords.insert("false", Token::Invalid);
+        keywords.insert("true", Token::Invalid);
         keywords
     };
 }
@@ -1133,6 +1139,15 @@ impl Tokenz
         let keyword = KEYWORDS.get(src);
         if keyword.is_some() {
             tok = *keyword.unwrap();
+        }
+        if tok == Token::Invalid {
+            return Err(rustfail!(
+                "token_failure",
+                "invalid token {:?} at {},{}",
+                src,
+                begin.lineno,
+                begin.column,
+            ));
         }
 
         Ok(TokenSrc {
