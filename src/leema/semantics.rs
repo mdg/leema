@@ -449,7 +449,6 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                 }
             }
             Ast::Id2(module, id) => {
-                println!("scope check id2: {}::{}", module, id);
                 let proto = self.lib.get(module).map_err(|e| {
                     e.add_context(Lstr::from(format!(
                         "module {} not found at {:?}",
@@ -689,6 +688,11 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 // check items, but not necessary yet b/c everything
                 // converts to strings right now
                 node.typ = Type::Str;
+            }
+            Ast::Copy(ref src) => {
+                // this is a weird hacky thing just to pass through
+                // any types to the children
+                node.typ = src.typ.clone();
             }
             // Ast::Let(patt, dtype, x) => {
             _ => {
