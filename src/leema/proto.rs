@@ -274,13 +274,11 @@ impl ProtoModule
 
     pub fn find_const(&self, name: &str) -> Option<&AstNode>
     {
-        println!("ProtoModule::find_const({})", name);
         self.constants.get(name)
     }
 
     pub fn get_type(&self, name: &str) -> Lresult<&Type>
     {
-        println!("ProtoModule::find_type({})", name);
         self.types
             .get(name)
             .ok_or_else(|| rustfail!(PROTOFAIL, "type not found: {}", name))
