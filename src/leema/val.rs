@@ -1233,13 +1233,21 @@ impl reg::Iregistry for Val
     {
         match (i, self) {
             // get reg on tuple
-            (_, &Val::Tuple(ref items)) => items.ireg_get(i),
+            (_, &Val::Tuple(ref items)) => {
+                lfailoc!(items.ireg_get(i))
+            }
             // get reg on struct
-            (_, &Val::Struct(_, ref items)) => items.ireg_get(i),
+            (_, &Val::Struct(_, ref items)) => {
+                lfailoc!(items.ireg_get(i))
+            }
             // Functions & Closures
-            (_, &Val::FuncRef(_, ref args, _)) => args.ireg_get(i),
+            (_, &Val::FuncRef(_, ref args, _)) => {
+                lfailoc!(args.ireg_get(i))
+            }
             // Get for Functions & Closures
-            (_, &Val::Fref(_, _, ref args, _)) => args.ireg_get(i),
+            (_, &Val::Fref(_, _, ref args, _)) => {
+                lfailoc!(args.ireg_get(i))
+            }
             // Failures
             (Ireg::Reg(0), &Val::Failure2(ref failure)) => Ok(&failure.tag),
             (Ireg::Reg(1), &Val::Failure2(ref failure)) => Ok(&failure.msg),
@@ -1592,9 +1600,15 @@ impl Env
     pub fn get_reg(&self, reg: Reg) -> Lresult<&Val>
     {
         match reg {
-            Reg::Param(r) => self.params.ireg_get(r),
-            Reg::Local(i) => self.locals.ireg_get(i),
-            Reg::Stack(i) => self.stack.ireg_get(i),
+            Reg::Param(r) => {
+                lfailoc!(self.params.ireg_get(r))
+            }
+            Reg::Local(i) => {
+                lfailoc!(self.locals.ireg_get(i))
+            }
+            Reg::Stack(i) => {
+                lfailoc!(self.stack.ireg_get(i))
+            }
             Reg::Void => {
                 Err(rustfail!("leema_failure", "Cannot get Reg::Void",))
             }
@@ -1619,7 +1633,7 @@ impl Env
 
     pub fn get_param(&self, reg: i8) -> Lresult<&Val>
     {
-        self.params.ireg_get(Ireg::Reg(reg))
+        lfailoc!(self.params.ireg_get(Ireg::Reg(reg)))
     }
 }
 

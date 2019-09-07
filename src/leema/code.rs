@@ -219,6 +219,11 @@ pub fn make_sub_ops2(mut rs: RegStack, input: AstNode) -> Oxpr
         }
         Ast::ConstVal(v) => vec![Op::ConstVal(input.dst.clone(), v.clone())],
         Ast::Call(f, args) => make_call_ops(rs, input.dst.clone(), f, args),
+        Ast::Copy(src) => {
+            let mut src_ops = make_sub_ops2(rs, src);
+            src_ops.ops.push(Op::Copy(input.dst.clone(), src_ops.dst));
+            src_ops.ops
+        }
         Ast::Let(patt, _, x) => {
             let pval = make_pattern_val(patt);
             let match_dst = rs.put_dst(input.dst.clone());
