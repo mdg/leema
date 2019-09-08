@@ -1286,6 +1286,23 @@ mod tests
     }
 
     #[test]
+    fn test_semantics_undefined_variable()
+    {
+        let baz_input = r#"
+        func main >>
+            let a := blah
+            "a is $a\n"
+        --
+        "#;
+
+        let mut proto = ProtoLib::new();
+        proto.add_module(&Lstr::Sref("baz"), baz_input).unwrap();
+        let mut semantics = Semantics::new();
+        let result = semantics.compile_call(&mut proto, "baz", "main");
+        assert_eq!("scope_fail", result.unwrap_err().tag.str());
+    }
+
+    #[test]
     #[should_panic]
     fn test_semantics_external_scope_no_module()
     {

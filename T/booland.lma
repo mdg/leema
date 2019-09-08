@@ -1,8 +1,8 @@
 import io
 
 func main >>
-  let a := true
-  let b := false
+  let a := True
+  let b := False
   io::print("a is $a\nb is $b\n")
   let c := a and b
   io::print("a and b is $c\n")
