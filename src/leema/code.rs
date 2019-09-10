@@ -193,24 +193,24 @@ impl Clone for Code
     }
 }
 
-pub fn make_ops2(input: AstNode, args: Vec<Option<&'static str>>) -> OpVec
+pub fn make_ops2(input: AstNode) -> OpVec
 {
     vout!("make_ops2({:?})\n", input);
-    let mut rs = Registration::new(args);
-    let input_dst = rs.stack.put_dst(input.dst.clone());
-    let mut ops = make_sub_ops2(&mut rs, input);
+    let input_dst = input.dst.clone();
+    let mut ops = make_sub_ops2(input);
     ops.ops.push(Op::SetResult(input_dst));
     ops.ops.push(Op::Return);
     ops.ops
 }
 
-pub fn make_sub_ops2(rs: &mut Registration, input: AstNode) -> Oxpr
+pub fn make_sub_ops2(input: AstNode) -> Oxpr
 {
+    let input_dst = input.dst;
     let ops = match *input.node {
         Ast::Block(lines) => {
             let mut oxprs = Vec::with_capacity(lines.len());
             for i in lines {
-                oxprs.push(make_sub_ops2(rs, i));
+                oxprs.push(make_sub_ops2(i));
             }
             let mut ops = Vec::with_capacity(oxprs.len());
             for mut i in oxprs {
@@ -218,17 +218,16 @@ pub fn make_sub_ops2(rs: &mut Registration, input: AstNode) -> Oxpr
             }
             ops
         }
-        Ast::ConstVal(v) => vec![Op::ConstVal(input.dst.clone(), v.clone())],
-        Ast::Call(f, args) => make_call_ops(rs, input.dst.clone(), f, args),
+        Ast::ConstVal(v) => vec![Op::ConstVal(input_dst, v.clone())],
+        Ast::Call(f, args) => make_call_ops(input_dst, f, args),
         Ast::Copy(src) => {
-            let mut src_ops = make_sub_ops2(rs, src);
+            let mut src_ops = make_sub_ops2(src);
             src_ops.ops.push(Op::Copy(input.dst.clone(), src_ops.dst));
             src_ops.ops
         }
         Ast::Let(patt, _, x) => {
             let pval = make_pattern_val(patt);
-            let match_dst = rs.stack.put_dst(input.dst.clone());
-            let mut xops = make_sub_ops2(rs, x);
+            let mut xops = make_sub_ops2(x);
             /*
             let mut failops: Vec<(Op, i16)> = fails
                 .into_iter()
@@ -239,20 +238,20 @@ pub fn make_sub_ops2(rs: &mut Registration, input: AstNode) -> Oxpr
                 })
                 .collect();
                 */
-            xops.ops.push(Op::MatchPattern(match_dst, pval, xops.dst));
+            xops.ops.push(Op::MatchPattern(input_dst, pval, xops.dst));
             // xops.ops.append(&mut failops);
             xops.ops
         }
-        Ast::List(items) => make_list_ops(rs, items),
+        Ast::List(items) => make_list_ops(input_dst, items),
         Ast::Tuple(items) => {
             let newtup = Op::ConstVal(
-                rs.stack.put_dst(input.dst.clone()),
+                input_dst,
                 Val::new_tuple(items.0.len()),
             );
             let mut ops: Vec<Op> = vec![newtup];
             for (i, item) in items.0.into_iter().enumerate() {
                 let subdst = input.dst.sub(i as i8);
-                let mut iops = make_sub_ops2(rs, item.v);
+                let mut iops = make_sub_ops2(item.v);
                 // should be able to generalize this
                 if iops.dst != subdst {
                     iops.ops.push(Op::Copy(subdst, iops.dst));
@@ -262,13 +261,12 @@ pub fn make_sub_ops2(rs: &mut Registration, input: AstNode) -> Oxpr
             }
             ops
         }
-        Ast::StrExpr(items) => make_str_ops(rs, input.dst.clone(), items),
+        Ast::StrExpr(items) => make_str_ops(input.dst.clone(), items),
         Ast::Case(CaseType::If, _, cases) => {
-            rs.stack.put_dst(input.dst.clone());
-            make_if_ops(rs, cases)
+            make_if_ops(cases)
         }
         Ast::Case(CaseType::Match, Some(x), cases) => {
-            make_matchexpr_ops(rs, x, cases)
+            make_matchexpr_ops(x, cases)
         }
         Ast::Case(CaseType::Match, None, _) => {
             // None should have been replaced by the args
@@ -276,14 +274,12 @@ pub fn make_sub_ops2(rs: &mut Registration, input: AstNode) -> Oxpr
             panic!("case statement must have an expression");
         }
         Ast::Return(result) => {
-            let mut rops = make_sub_ops2(rs, result);
+            let mut rops = make_sub_ops2(result);
             rops.ops.push(Op::SetResult(rops.dst.clone()));
             rops.ops.push(Op::Return);
             rops.ops
         }
         Ast::Id1(ref _id) => {
-            // let id_dst = rs.local.named(id);
-            // rt.set_dst(rs.local.named(id));
             vec![]
         }
         Ast::RustBlock => vec![],
@@ -362,19 +358,19 @@ pub fn make_sub_ops(input: &Ixpr) -> Oxpr
 }
 */
 
-pub fn make_call_ops(rs: &mut Registration, dst: Reg, f: AstNode, args: Xlist) -> OpVec
+pub fn make_call_ops(dst: Reg, f: AstNode, args: Xlist) -> OpVec
 {
     vout!("make_call_ops: {:?}\n", f);
 
     let lineno = f.loc.lineno;
-    let mut fops = make_sub_ops2(rs, f);
+    let mut fops = make_sub_ops2(f);
 
     let mut argops: OpVec = args
         .0
         .into_iter()
         .rev()
         .flat_map(|a| {
-            let iargops: Oxpr = make_sub_ops2(rs, a.v);
+            let iargops: Oxpr = make_sub_ops2(a.v);
             iargops.ops
         })
         .collect();
@@ -443,19 +439,18 @@ pub fn make_matchfailure_ops(
 // */
 
 pub fn make_matchexpr_ops(
-    rs: &mut Registration,
     x: AstNode,
     cases: Vec<Case>,
 ) -> OpVec
 {
     vout!("make_matchexpr_ops({:?},{:?})\n", x, cases);
 
-    let mut xops = make_sub_ops2(rs, x);
+    let mut xops = make_sub_ops2(x);
     let x_dst = xops.dst.clone();
     let mut case_ops = cases
         .into_iter()
         .flat_map(|case| {
-            make_matchcase_ops(rs, case, &x_dst, &x_dst)
+            make_matchcase_ops(case, &x_dst, &x_dst)
         })
         .collect();
     vout!("made matchcase_ops =\n{:?}\n", case_ops);
@@ -465,14 +460,13 @@ pub fn make_matchexpr_ops(
 }
 
 pub fn make_matchcase_ops(
-    rs: &mut Registration,
     matchcase: Case,
     xreg: &Reg,
     _matchreg: &Reg,
 ) -> OpVec
 {
     let patt_val = make_pattern_val(matchcase.cond);
-    let mut code_ops = make_sub_ops2(rs, matchcase.body);
+    let mut code_ops = make_sub_ops2(matchcase.body);
 
     let mut patt_ops: Vec<Op> =
         vec![Op::MatchPattern(Reg::Void, patt_val, xreg.clone())];
@@ -488,14 +482,13 @@ pub fn make_matchcase_ops(
 ///   eval cond b
 ///   jump_if_not(cond b, end of body b)
 ///   body c
-pub fn make_if_ops(rs: &mut Registration, cases: Vec<Case>) -> OpVec
+pub fn make_if_ops(cases: Vec<Case>) -> OpVec
 {
-    rs.stack.push_dst();
     let mut case_ops: Vec<(Oxpr, Oxpr)> = cases
         .into_iter()
         .map(|case| {
-            let cond_ops = make_sub_ops2(rs, case.cond);
-            let body_ops = make_sub_ops2(rs, case.body);
+            let cond_ops = make_sub_ops2(case.cond);
+            let body_ops = make_sub_ops2(case.body);
             (cond_ops, body_ops)
         })
         .collect();
@@ -533,26 +526,25 @@ pub fn make_fork_ops(dst: &Reg, f: &Ixpr, args: &Ixpr) -> Oxpr
 }
 */
 
-pub fn make_list_ops(rs: &mut Registration, items: Xlist) -> OpVec
+pub fn make_list_ops(dst: Reg, items: Xlist) -> OpVec
 {
-    let dst = rs.stack.dst.clone();
-    let tmp = rs.stack.push_dst();
-    let mut ops = vec![Op::ConstVal(dst.clone(), Val::Nil)];
+    let mut ops = vec![Op::ConstVal(dst, Val::Nil)];
     for i in items.0.into_iter().rev() {
-        let mut listops = make_sub_ops2(rs, i.v);
+        let idst = i.v.dst;
+        let mut listops = make_sub_ops2(i.v);
         ops.append(&mut listops.ops);
-        ops.push(Op::ListCons(dst.clone(), tmp.clone(), dst.clone()));
+        ops.push(Op::ListCons(dst, idst, dst));
     }
     ops
 }
 
-pub fn make_str_ops(rs: &mut Registration, dst: Reg, items: Vec<AstNode>) -> OpVec
+pub fn make_str_ops(dst: Reg, items: Vec<AstNode>) -> OpVec
 {
     let mut ops: Vec<Op> = Vec::with_capacity(items.len());
-    ops.push(Op::ConstVal(dst.clone(), Val::empty_str()));
+    ops.push(Op::ConstVal(dst, Val::empty_str()));
     for i in items {
-        let idst = i.dst.clone();
-        let mut strops = make_sub_ops2(rs, i);
+        let idst = i.dst;
+        let mut strops = make_sub_ops2(i);
         ops.append(&mut strops.ops);
         ops.push(Op::StrCat(dst.clone(), idst));
     }
@@ -606,6 +598,14 @@ pub fn make_pattern_val(pattern: AstNode) -> Val
             panic!("pattern type unsupported: {:?}", pattern);
         }
     }
+}
+
+pub fn assign_registers(input: &mut AstNode, args: Vec<Option<&'static str>>) -> Lresult<()>
+{
+    vout!("assign_registers({:?})\n", input);
+    let mut rs = Registration::new(args);
+    rs.assign_registers(input)?;
+    Ok(())
 }
 
 pub struct Registration
