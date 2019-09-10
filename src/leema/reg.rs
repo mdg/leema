@@ -197,7 +197,7 @@ pub struct RegTab
 
 impl RegTab
 {
-    pub fn new(params: &Vec<Option<&'static str>>) -> RegTab
+    pub fn new(params: Vec<Option<&'static str>>) -> RegTab
     {
         let mut ids = HashMap::new();
         for (i, name) in params.iter().enumerate() {

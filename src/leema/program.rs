@@ -166,7 +166,7 @@ impl Lib
             }
             Ok(rustfunc.unwrap())
         } else {
-            let ops = code::make_ops2(semantics.src);
+            let ops = code::make_ops2(semantics.src, semantics.args);
             Ok(Code::Leema(ops))
         }
     }

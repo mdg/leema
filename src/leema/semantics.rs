@@ -1,15 +1,13 @@
-use crate::leema::ast2::{self, Ast, AstNode, AstResult, CaseType, Loc};
+use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc};
 use crate::leema::failure::Lresult;
 use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::{ProtoLib, ProtoModule};
-use crate::leema::reg::{Reg, RegStack, RegTab};
 use crate::leema::struple::StrupleKV;
 use crate::leema::val::{FuncType, Type, Val};
 
 use std::collections::HashMap;
 use std::fmt;
-use std::mem;
 
 
 /// Stages
@@ -738,147 +736,6 @@ impl SemanticOp for RemoveExtraCode
     }
 }
 
-struct Registration
-{
-    tab: RegTab,
-    stack: RegStack,
-    is_pattern: bool,
-}
-
-impl Registration
-{
-    pub fn new(params: &Vec<Option<&'static str>>) -> Registration
-    {
-        Registration {
-            tab: RegTab::new(params),
-            stack: RegStack::new(),
-            is_pattern: false,
-        }
-    }
-
-    fn assign_registers(&mut self, node: &mut AstNode) -> Lresult<()>
-    {
-        if node.dst == Reg::Undecided {
-            node.dst = self.stack.dst.clone();
-        }
-        let first_dst = node.dst.clone();
-
-        match &mut *node.node {
-            Ast::Block(ref mut items) => {
-                // copy the block's dst to the last item in the block
-                if let Some(item) = items.last_mut() {
-                    item.dst = node.dst.clone();
-                }
-
-                for i in items.iter_mut().rev().skip(1) {
-                    i.dst = Reg::Void;
-                }
-            }
-            Ast::Id1(ref name) => {
-                node.dst = self.tab.named(name);
-            }
-            Ast::Let(ref mut lhs, _, ref mut rhs) => {
-                if let Ast::Id1(name) = &*lhs.node {
-                    // if single assignment, replace the let w/
-                    // rhs assigned to lhs name
-                    rhs.dst = self.tab.named(name);
-                    *node = mem::replace(rhs, AstNode::void());
-                } else {
-                    self.assign_pattern_registers(lhs);
-                }
-            }
-            Ast::Call(ref mut f, ref mut args) => {
-                f.dst = self.tab.unnamed();
-                for (i, a) in args.0.iter_mut().enumerate() {
-                    a.v.dst = f.dst.sub(i as i8);
-                }
-            }
-            Ast::Case(CaseType::Match, _match_input, ref mut cases) => {
-                for case in cases.iter_mut() {
-                    self.assign_pattern_registers(&mut case.cond);
-                    // is there anything to do w/ the body here?
-                }
-            }
-            Ast::StrExpr(ref mut items) => {
-                let item_dst = self.stack.push_dst();
-                for i in items {
-                    i.dst = item_dst.clone();
-                }
-            }
-            Ast::Tuple(ref mut items) => {
-                if node.dst.is_sub() {
-                    node.dst = self.stack.push_dst();
-                }
-                for (i, item) in items.0.iter_mut().enumerate() {
-                    item.v.dst = node.dst.sub(i as i8);
-                }
-            }
-            // don't handle anything else in pre
-            _ => {}
-        }
-
-        // if the dst reg has changed, insert a copy node
-        if node.dst != first_dst {
-            let mut copy_node = AstNode::void();
-            copy_node.dst = first_dst;
-            mem::swap(node, &mut copy_node);
-            node.node = Box::new(Ast::Copy(copy_node));
-        }
-        Ok(())
-    }
-
-    fn assign_pattern_registers(&mut self, pattern: &mut AstNode)
-    {
-        match *pattern.node {
-            Ast::Id1(id) => {
-                pattern.dst = self.tab.named(id);
-                vout!("pattern var:reg is {}.{:?}\n", id, pattern.dst);
-            }
-            Ast::Tuple(ref mut items) => {
-                for item in items.0.iter_mut() {
-                    self.assign_pattern_registers(&mut item.v);
-                }
-            }
-            _ => {
-                // do nothing with other pattern values
-            }
-        }
-    }
-}
-
-impl SemanticOp for Registration
-{
-    fn pre(&mut self, mut node: AstNode) -> SemanticResult
-    {
-        if !self.is_pattern {
-            self.stack.push_node();
-            self.assign_registers(&mut node)?;
-        } // else do nothing for patterns
-        Ok(SemanticAction::Keep(node))
-    }
-
-    fn post(&mut self, node: AstNode) -> SemanticResult
-    {
-        if !self.is_pattern {
-            self.stack.pop_node();
-        } // else do nothing for patterns
-        Ok(SemanticAction::Keep(node))
-    }
-
-    fn set_pattern(&mut self, is_pattern: bool)
-    {
-        self.is_pattern = is_pattern;
-    }
-}
-
-impl fmt::Debug for Registration
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        write!(f, "Registration")
-    }
-}
-
 
 // 1
 // 2
@@ -898,6 +755,7 @@ pub struct Semantics
     // pub typecalls: HashSet<SpecialModId>,
     // pub closed: Option<HashSet<Lstr>>,
     pub src: AstNode,
+    pub args: Vec<Option<&'static str>>,
 }
 
 impl Semantics
@@ -906,6 +764,7 @@ impl Semantics
     {
         Semantics {
             src: AstNode::void(),
+            args: Vec::new(),
         }
     }
 
@@ -943,7 +802,7 @@ impl Semantics
             }
         };
 
-        let func_args = ftyp
+        self.args = ftyp
             .args
             .0
             .iter()
@@ -967,7 +826,6 @@ impl Semantics
         let mut type_check = TypeCheck::new(local_proto, proto, ftyp);
         let mut remove_extra = RemoveExtraCode;
         let mut case_check = CaseCheck;
-        let mut reg = Registration::new(&func_args);
         let mut pipe = SemanticPipeline {
             ops: vec![
                 &mut remove_extra,
@@ -976,7 +834,6 @@ impl Semantics
                 &mut case_check,
                 &mut var_types,
                 &mut type_check,
-                &mut reg,
             ],
         };
 
