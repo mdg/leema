@@ -34,6 +34,9 @@ impl Lib
             rust_load: HashMap::new(),
             code: HashMap::new(),
         };
+
+        lfailoc!(proglib.protos.load(&mut proglib.loader, &Lstr::Sref("prefab"))).unwrap();
+
         proglib
             .rust_load
             .insert(Lstr::Sref("prefab"), prefab::load_rust_func);

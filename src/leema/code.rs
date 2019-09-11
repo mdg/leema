@@ -268,11 +268,6 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
         Ast::Case(CaseType::Match, Some(x), cases) => {
             make_matchexpr_ops(x, cases)
         }
-        Ast::Case(CaseType::Match, None, _) => {
-            // None should have been replaced by the args
-            // in an earlier phase?
-            panic!("case statement must have an expression");
-        }
         Ast::Return(result) => {
             let mut rops = make_sub_ops2(result);
             rops.ops.push(Op::SetResult(rops.dst.clone()));
@@ -283,6 +278,13 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             vec![]
         }
         Ast::RustBlock => vec![],
+
+        // invalid patterns
+        Ast::Case(CaseType::Match, None, _) => {
+            // None should have been replaced by the args
+            // in an earlier phase?
+            panic!("case statement must have an expression");
+        }
         _ => vec![],
     };
     Oxpr {
@@ -360,7 +362,7 @@ pub fn make_sub_ops(input: &Ixpr) -> Oxpr
 
 pub fn make_call_ops(dst: Reg, f: AstNode, args: Xlist) -> OpVec
 {
-    vout!("make_call_ops: {:?}\n", f);
+    vout!("make_call_ops: {} = {:?}\n", dst, f);
 
     let lineno = f.loc.lineno;
     let mut fops = make_sub_ops2(f);
@@ -639,10 +641,11 @@ impl Registration
                 // copy the block's dst to the last item in the block
                 if let Some(item) = items.last_mut() {
                     item.dst = node.dst.clone();
+                    self.assign_registers(item)?;
                 }
 
                 for i in items.iter_mut().rev().skip(1) {
-                    i.dst = Reg::Void;
+                    self.assign_registers(i)?;
                 }
             }
             Ast::Id1(ref name) => {
@@ -654,26 +657,45 @@ impl Registration
                     // rhs assigned to lhs name
                     rhs.dst = self.tab.named(name);
                     *node = mem::replace(rhs, AstNode::void());
+                    self.assign_registers(node)?;
                 } else {
                     self.assign_pattern_registers(lhs);
+                    self.assign_registers(rhs)?;
                 }
             }
             Ast::Call(ref mut f, ref mut args) => {
                 f.dst = self.tab.unnamed();
+                self.assign_registers(f)?;
                 for (i, a) in args.0.iter_mut().enumerate() {
                     a.v.dst = f.dst.sub(i as i8);
+                    self.assign_registers(&mut a.v)?;
                 }
             }
-            Ast::Case(CaseType::Match, _match_input, ref mut cases) => {
+            Ast::Case(CaseType::Match, ref mut match_input, ref mut cases) => {
+                if let Some(ref mut mi) = match_input {
+                    mi.dst = self.stack.push_dst();
+                    self.assign_registers(mi)?;
+                }
                 for case in cases.iter_mut() {
                     self.assign_pattern_registers(&mut case.cond);
-                    // is there anything to do w/ the body here?
+                    case.body.dst = node.dst;
+                    self.assign_registers(&mut case.body)?;
+                }
+            }
+            Ast::Case(CaseType::If, None, ref mut cases) => {
+                let cond_dst = self.stack.push_dst();
+                for case in cases.iter_mut() {
+                    case.cond.dst = cond_dst;
+                    case.body.dst = node.dst;
+                    self.assign_registers(&mut case.cond)?;
+                    self.assign_registers(&mut case.body)?;
                 }
             }
             Ast::StrExpr(ref mut items) => {
                 let item_dst = self.stack.push_dst();
                 for i in items {
                     i.dst = item_dst.clone();
+                    self.assign_registers(i)?;
                 }
             }
             Ast::Tuple(ref mut items) => {
@@ -682,6 +704,7 @@ impl Registration
                 }
                 for (i, item) in items.0.iter_mut().enumerate() {
                     item.v.dst = node.dst.sub(i as i8);
+                    self.assign_registers(&mut item.v)?;
                 }
             }
             // don't handle anything else in pre
@@ -689,7 +712,7 @@ impl Registration
         }
 
         // if the dst reg has changed, insert a copy node
-        if node.dst != first_dst {
+        if node.dst != first_dst && first_dst != Reg::Void {
             let mut copy_node = AstNode::void();
             copy_node.dst = first_dst;
             mem::swap(node, &mut copy_node);

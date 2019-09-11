@@ -220,6 +220,16 @@ impl<'l> SemanticOp for MacroApplication<'l>
                     Self::op_to_call("prefab", "int_sub", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
+            Ast::Op2("and", a, b) => {
+                let call =
+                    Self::op_to_call("prefab", "boolean_and", a, b, node.loc);
+                Ok(SemanticAction::Rewrite(call))
+            }
+            Ast::Op2("or", a, b) => {
+                let call =
+                    Self::op_to_call("prefab", "boolean_or", a, b, node.loc);
+                Ok(SemanticAction::Rewrite(call))
+            }
             Ast::ConstVal(Val::Str(s)) => {
                 let node2 = if &s == "\\n" {
                     let new_str = Val::Str(Lstr::Sref("\n"));

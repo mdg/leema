@@ -1,13 +1,13 @@
 macro boolean_and and_a and_b >>
     if
     |and_a >> and_b
-    |else >> false
+    |else >> False
     --
 --
 
 macro boolean_or or_a or_b >>
     if
-    |or_a >> true
+    |or_a >> True
     |else >> or_b
     --
 --
