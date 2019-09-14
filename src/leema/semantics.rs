@@ -537,7 +537,7 @@ struct TypeCheck<'p>
     local_mod: &'p ProtoModule,
     lib: &'p ProtoLib,
     result: &'p Type,
-    infers: HashMap<&'static str, Type>,
+    infers: HashMap<Lstr, Type>,
 }
 
 impl<'p> TypeCheck<'p>
@@ -559,15 +559,14 @@ impl<'p> TypeCheck<'p>
     pub fn match_type(&mut self, t0: &Type, t1: &Type) -> Lresult<Type>
     {
         match (t0, t1) {
-            (Type::Var(v0), Type::Var(v1)) => {
-                panic!("not ready! {} == {}?", v0, v1);
+            (Type::Var(v0), Type::Var(_)) => {
+                self.infer_type(v0, t1)
             }
-            (Type::Var(Lstr::Sref(v0)), t1) => {
-                panic!("not ready 2! {} == {}?", v0, t1);
+            (Type::Var(v0), t1) => {
+                self.infer_type(v0, t1)
             }
-            (t0, Type::Var(Lstr::Sref(v1))) => {
-                self.infer_type(v1, t0)?;
-                Ok(self.infers.get(v1).unwrap().clone())
+            (t0, Type::Var(ref v1)) => {
+                self.infer_type(v1, t0)
             }
             (t0, t1) => {
                 if t0 != t1 {
@@ -584,7 +583,7 @@ impl<'p> TypeCheck<'p>
         }
     }
 
-    pub fn infer_type(&mut self, var: &'static str, t: &Type) -> Lresult<Type>
+    pub fn infer_type(&mut self, var: &Lstr, t: &Type) -> Lresult<Type>
     {
         if self.infers.contains_key(var) {
             let var_type = self.infers.get(var).unwrap();
@@ -599,7 +598,7 @@ impl<'p> TypeCheck<'p>
                 ))
             }
         } else {
-            self.infers.insert(var, t.clone());
+            self.infers.insert(var.clone(), t.clone());
             Ok(t.clone())
         }
     }
