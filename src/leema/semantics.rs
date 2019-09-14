@@ -276,56 +276,6 @@ impl SemanticOp for MacroReplacement
     }
 }
 
-/// CaseCheck checks that if an match cases return the same type
-/// for all branches
-/// matching case types seems like something that should just live
-/// in the regular type checking op
-#[derive(Debug)]
-struct CaseCheck;
-
-impl CaseCheck
-{
-    fn match_case_types(cases: &Vec<ast2::Case>) -> Lresult<()>
-    {
-        let mut prev_typ: Option<&Type> = None;
-        for case in cases.iter() {
-            if let Some(pt) = prev_typ {
-                if *pt != case.body.typ {
-                    return Err(rustfail!(
-                        SEMFAIL,
-                        "match case types do not match at line: {}",
-                        case.body.loc.lineno,
-                    ));
-                }
-            } else {
-                prev_typ = Some(&case.body.typ);
-            }
-        }
-        Ok(())
-    }
-}
-
-impl SemanticOp for CaseCheck
-{
-    fn post(&mut self, node: AstNode) -> SemanticResult
-    {
-        match &*node.node {
-            Ast::Case(ast2::CaseType::If, Some(cond), _) => {
-                return Err(rustfail!(
-                    "semantic_failure",
-                    "expected no input for if, found {:?}",
-                    cond,
-                ));
-            }
-            Ast::Case(_, _, ref cases) => {
-                Self::match_case_types(cases)?;
-            }
-            _ => {} // nothing
-        }
-        Ok(SemanticAction::Keep(node))
-    }
-}
-
 struct ClosureCollector
 {
     closures: Vec<AstNode>,
@@ -587,6 +537,7 @@ struct TypeCheck<'p>
     local_mod: &'p ProtoModule,
     lib: &'p ProtoLib,
     result: &'p Type,
+    infers: HashMap<&'static str, Type>,
 }
 
 impl<'p> TypeCheck<'p>
@@ -601,6 +552,55 @@ impl<'p> TypeCheck<'p>
             local_mod,
             lib,
             result: &*ftyp.result,
+            infers: HashMap::new(),
+        }
+    }
+
+    pub fn match_type(&mut self, t0: &Type, t1: &Type) -> Lresult<Type>
+    {
+        match (t0, t1) {
+            (Type::Var(v0), Type::Var(v1)) => {
+                panic!("not ready! {} == {}?", v0, v1);
+            }
+            (Type::Var(Lstr::Sref(v0)), t1) => {
+                panic!("not ready 2! {} == {}?", v0, t1);
+            }
+            (t0, Type::Var(Lstr::Sref(v1))) => {
+                self.infer_type(v1, t0)?;
+                Ok(self.infers.get(v1).unwrap().clone())
+            }
+            (t0, t1) => {
+                if t0 != t1 {
+                    Err(rustfail!(
+                        SEMFAIL,
+                        "match case types do not match: ({} != {})",
+                        t0,
+                        t1,
+                    ))
+                } else {
+                    Ok(t0.clone())
+                }
+            }
+        }
+    }
+
+    pub fn infer_type(&mut self, var: &'static str, t: &Type) -> Lresult<Type>
+    {
+        if self.infers.contains_key(var) {
+            let var_type = self.infers.get(var).unwrap();
+            if var_type == t {
+                Ok(var_type.clone())
+            } else {
+                Err(rustfail!(
+                    SEMFAIL,
+                    "type mismatch: {} != {}",
+                    var_type,
+                    t,
+                ))
+            }
+        } else {
+            self.infers.insert(var, t.clone());
+            Ok(t.clone())
         }
     }
 
@@ -652,6 +652,19 @@ impl<'p> TypeCheck<'p>
 
         Ok((*ftyp.result).clone())
     }
+
+    fn match_case_types(&mut self, cases: &Vec<ast2::Case>) -> Lresult<Type>
+    {
+        let mut prev_typ: Option<Type> = None;
+        for case in cases.iter() {
+            if let Some(ref pt) = prev_typ {
+                self.match_type(pt, &case.body.typ)?;
+            } else {
+                prev_typ = Some(case.body.typ.clone());
+            }
+        }
+        Ok(prev_typ.unwrap())
+    }
 }
 
 impl<'p> SemanticOp for TypeCheck<'p>
@@ -701,6 +714,9 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 // this is a weird hacky thing just to pass through
                 // any types to the children
                 node.typ = src.typ.clone();
+            }
+            Ast::Case(_, _, ref mut cases) => {
+                node.typ = self.match_case_types(cases)?;
             }
             // Ast::Let(patt, dtype, x) => {
             _ => {
@@ -835,13 +851,11 @@ impl Semantics
         let mut var_types = VarTypes::new(&local_proto.key.name, ftyp)?;
         let mut type_check = TypeCheck::new(local_proto, proto, ftyp);
         let mut remove_extra = RemoveExtraCode;
-        let mut case_check = CaseCheck;
         let mut pipe = SemanticPipeline {
             ops: vec![
                 &mut remove_extra,
                 &mut macs,
                 &mut scope_check,
-                &mut case_check,
                 &mut var_types,
                 &mut type_check,
             ],
