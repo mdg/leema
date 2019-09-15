@@ -231,12 +231,18 @@ impl<'l> SemanticOp for MacroApplication<'l>
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::ConstVal(Val::Str(s)) => {
-                let node2 = if &s == "\\n" {
-                    let new_str = Val::Str(Lstr::Sref("\n"));
-                    AstNode::new_constval(new_str, node.loc)
-                } else {
-                    AstNode::new(Ast::ConstVal(Val::Str(s)), node.loc)
+                let new_str_node = match s.str() {
+                    "\\n" => {
+                        Ast::ConstVal(Val::Str(Lstr::Sref("\n")))
+                    }
+                    "\\\"" => {
+                        Ast::ConstVal(Val::Str(Lstr::Sref("\"")))
+                    }
+                    _ => {
+                        Ast::ConstVal(Val::Str(s))
+                    }
                 };
+                let node2 = AstNode::new(new_str_node, node.loc);
                 Ok(SemanticAction::Keep(node2))
             }
             _ => Ok(SemanticAction::Keep(node)),

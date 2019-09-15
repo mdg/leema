@@ -870,6 +870,7 @@ impl ScanModeTrait for ScanModeQuoteEscape
     {
         match next.c {
             'n' => Ok(ScanOutput::Token(Token::StrLit, true, ScanModeOp::Pop)),
+            '"' => Ok(ScanOutput::Token(Token::StrLit, true, ScanModeOp::Pop)),
             _ => {
                 Err(rustfail!(
                     "token_error",

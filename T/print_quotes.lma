@@ -1,4 +1,6 @@
-func main() ->
+import io
+
+func main >>
     ## print a message to the console
-    print("hello \"quotes\"\n")
+    io::print("hello \"quotes\"\n")
 --
