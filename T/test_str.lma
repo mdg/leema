@@ -1,6 +1,6 @@
 import str
 
-func main()
+func main
 >>
     let a := "aBcDeFg"
     let lower_a := str::to_lowercase(a)

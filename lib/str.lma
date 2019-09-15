@@ -1,9 +1,9 @@
 
-func is_empty(input: Str): Bool -RUST-
-func join(parts: [Str]): Str -RUST-
-func len(input: Str): Int -RUST-
-func replace(base: Str, from: Str, to: Str): Str -RUST-
-func split(input: Str, divisor: Str): [Str] -RUST-
+func is_empty input:Str :Bool >> __RUST__ --
+func join parts:[Str] :Str >> __RUST__ --
+func len input:Str :Int >> __RUST__ --
+func replace base:Str from:Str to:Str :Str >> __RUST__ --
+func split input:Str divisor:Str :[Str] >> __RUST__ --
 
-func to_lowercase(input: Str): Str -RUST-
-func to_uppercase(input: Str): Str -RUST-
+func to_lowercase input:Str :Str >> __RUST__ --
+func to_uppercase input:Str :Str >> __RUST__ --
