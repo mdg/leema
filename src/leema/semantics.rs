@@ -24,6 +24,7 @@ use std::fmt;
 ///   - assign registers
 
 const SEMFAIL: &'static str = "semantic_failure";
+const TYPEFAIL: &'static str = "type_failure";
 
 pub enum SemanticAction
 {
@@ -610,9 +611,9 @@ impl<'p> TypeCheck<'p>
     }
 
     pub fn applied_call_type(
-        &self,
-        calltype: &Type,
-        args: &ast2::Xlist,
+        &mut self,
+        calltype: &mut Type,
+        args: &mut ast2::Xlist,
     ) -> Lresult<Type>
     {
         let ftyp = if let Type::Func(inner_ftyp) = calltype {
@@ -642,17 +643,25 @@ impl<'p> TypeCheck<'p>
             ));
         }
 
-        for arg in ftyp.args.iter().zip(args.iter()) {
-            if arg.0.v != arg.1.v.typ {
+        for arg in ftyp.args.0.iter_mut().zip(args.0.iter_mut()) {
+            if arg.0.v.is_open() {
                 return Err(rustfail!(
-                    SEMFAIL,
-                    "type error for function param: {}, expected {}, found {} @ {:?}",
-                    arg.0.k.as_ref().unwrap(),
-                    arg.0.v,
-                    arg.1.v.typ,
-                    arg.1.v.loc,
+                    TYPEFAIL,
+                    "open arg types still unsupported: {}",
+                    ftyp,
                 ));
             }
+            let typ = lfailoc!(self.match_type(&arg.0.v, &arg.1.v.typ))
+                .map_err(|f| {
+                    f.add_context(lstrf!(
+                        "function param: {}, expected {}, found {}",
+                        arg.0.k.as_ref().unwrap(),
+                        arg.0.v,
+                        arg.1.v.typ,
+                    ))
+                })?;
+            arg.0.v = typ.clone();
+            arg.1.v.typ = typ;
         }
 
         Ok((*ftyp.result).clone())
@@ -706,8 +715,8 @@ impl<'p> SemanticOp for TypeCheck<'p>
                     node.typ = Type::Void;
                 }
             }
-            Ast::Call(ref mut callx, args) => {
-                let call_result = self.applied_call_type(&callx.typ, &args)?;
+            Ast::Call(ref mut callx, ref mut args) => {
+                let call_result = self.applied_call_type(&mut callx.typ, args)?;
                 node.typ = call_result;
             }
             Ast::StrExpr(ref _items) => {
@@ -723,7 +732,11 @@ impl<'p> SemanticOp for TypeCheck<'p>
             Ast::Case(_, _, ref mut cases) => {
                 node.typ = self.match_case_types(cases)?;
             }
-            // Ast::Let(patt, dtype, x) => {
+            Ast::Let(ref mut patt, _, ref mut x) => {
+                let typ = self.match_type(&patt.typ, &x.typ)?;
+                patt.typ = typ.clone();
+                x.typ = typ;
+            }
             _ => {
                 // should handle matches later, but for now it's fine
             }
@@ -1113,6 +1126,22 @@ mod tests
 
         func main >>
             foo() + 3
+        --
+        "#;
+
+        let mut proto = load_proto_with_prefab();
+        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
+        let mut semantics = Semantics::new();
+        semantics.compile_call(&mut proto, "foo", "main").unwrap();
+    }
+
+    #[test]
+    fn test_type_inferred_var()
+    {
+        let input = r#"
+        func main >>
+            let x := 8
+            let y := x + 1
         --
         "#;
 
