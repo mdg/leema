@@ -40,8 +40,8 @@ func _filter[T](acc: [T], in: [T], pred: F(T): Bool): [T] >>
     let matcher := f(h)
     let new_acc :=
         match f(h)
-        |true -> h;acc
-        |false -> acc
+        |True -> h;acc
+        |False -> acc
         --
     _filter(new_acc, t, f)
 --

@@ -1,3 +1,5 @@
+import io
+
 func main >>
     let x := >>
         let y := 8
@@ -6,5 +8,5 @@ func main >>
     let z := >>
         x * 3
     --
-    print("z is: $z\n")
+    io::print("z is: $z\n")
 --

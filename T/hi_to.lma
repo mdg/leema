@@ -1,6 +1,7 @@
 import list
 
-func main(args: [Str]) ->
+func main args:[Str] :Void
+>>
     let hi_to := match args
         |[] >> "world"
         |[only] >> only
