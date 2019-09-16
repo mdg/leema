@@ -221,6 +221,11 @@ impl<'l> SemanticOp for MacroApplication<'l>
                     Self::op_to_call("prefab", "int_sub", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
+            Ast::Op2("*", a, b) => {
+                let call =
+                    Self::op_to_call("prefab", "int_mult", a, b, node.loc);
+                Ok(SemanticAction::Rewrite(call))
+            }
             Ast::Op2("and", a, b) => {
                 let call =
                     Self::op_to_call("prefab", "boolean_and", a, b, node.loc);
