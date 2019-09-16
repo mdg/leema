@@ -1,12 +1,15 @@
-func fizzbuzz(x, max): Void >>
+import io
+
+func fizzbuzz x:Int max:Int :Void
+>>
     let xm30 := (x mod 3) == 0
     let xm50 := (x mod 5) == 0
 
     if
-    |xm30 and xm50 >> print("fizzbuzz\n")
-    |xm30 >> print("fizz\n")
-    |xm50 >> print("buzz\n")
-    |else >> print("$x\n")
+    |xm30 and xm50 >> io::print("fizzbuzz\n")
+    |xm30 >> io::print("fizz\n")
+    |xm50 >> io::print("buzz\n")
+    |else >> io::print("$x\n")
     --
 
     if x < max >>
@@ -15,4 +18,4 @@ func fizzbuzz(x, max): Void >>
 --
 
 
-func main() >> fizzbuzz(1, 100) --
+func main >> fizzbuzz(1, 100) --
