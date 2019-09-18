@@ -91,6 +91,7 @@ impl ParslMode for StmtsMode
         match tok {
             Token::LineBegin => Some(&ParseStmt),
             Token::DoubleDash => None,
+            Token::Else => None,
             Token::Pipe => None,
             _ => None,
         }
@@ -901,9 +902,9 @@ impl ParslMode for ExprMode
             Token::DoubleQuoteL => &ParseStr,
             Token::Hashtag => &ParseHashtag,
             Token::Id => &ParseId,
-            Token::If => &ParseCasex(ast2::CaseType::If),
+            Token::If => &ParseIf,
             Token::Int => &ParseInt,
-            Token::Match => &ParseCasex(ast2::CaseType::Match),
+            Token::Match => &ParseMatch,
             Token::Not => &ParseNot,
             Token::ParenL => &ParseParen,
             Token::SquareL => &ParseList,
@@ -1267,9 +1268,61 @@ impl InfixParser for ParseGeneric
 
 /// Parse the cases of an if or match expression
 #[derive(Debug)]
-struct ParseCasex(ast2::CaseType);
+struct ParseIf;
 
-impl PrefixParser for ParseCasex
+impl PrefixParser for ParseIf
+{
+    type Item = AstNode;
+
+    fn parse(&self, p: &mut Parsl, tok: TokenSrc) -> Lresult<Self::Item>
+    {
+        let peeked = p.peek()?;
+        let mut cases: Vec<ast2::Case>;
+        if peeked.tok == Token::CasePipe {
+            cases = p.parse_new(&CaseMode)?;
+            p.skip_if(Token::LineBegin)?;
+            expect_next!(p, Token::DoubleDash)?;
+        } else {
+            let if_x = p.parse_new(&ExprMode)?;
+            let if_arrow = expect_next!(p, Token::DoubleArrow)?;
+            p.skip_if(Token::LineBegin)?;
+            let if_body = Grammar::parse_block(p, Ast::loc(&if_arrow))?;
+            cases = vec![ast2::Case{ cond: if_x, body: if_body }];
+
+            p.skip_if(Token::LineBegin)?;
+            let next = p.next()?;
+            match next.tok {
+                Token::DoubleDash => {
+                    // end of expr
+                }
+                Token::Else => {
+                    // get the else block
+                    let else_arrow = expect_next!(p, Token::DoubleArrow)?;
+                    let else_body = Grammar::parse_block(p, Ast::loc(&else_arrow))?;
+                    expect_next!(p, Token::DoubleDash)?;
+                    cases.push(ast2::Case{ cond: AstNode::void(), body: else_body });
+                }
+                _ => {
+                    return Err(rustfail!(
+                        PARSE_FAIL,
+                        "expected else or --, found {:?}",
+                        next.src,
+                    ));
+                }
+            }
+        };
+        Ok(AstNode::new(
+            Ast::Case(ast2::CaseType::If, None, cases),
+            Ast::loc(&tok),
+        ))
+    }
+}
+
+/// Parse the cases of an if or match expression
+#[derive(Debug)]
+struct ParseMatch;
+
+impl PrefixParser for ParseMatch
 {
     type Item = AstNode;
 
@@ -1285,7 +1338,7 @@ impl PrefixParser for ParseCasex
         p.skip_if(Token::LineBegin)?;
         expect_next!(p, Token::DoubleDash)?;
         Ok(AstNode::new(
-            Ast::Case(self.0, input, cases),
+            Ast::Case(ast2::CaseType::Match, input, cases),
             Ast::loc(&tok),
         ))
     }
@@ -1762,6 +1815,24 @@ mod tests
         let toks = Tokenz::lexp(input).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
         assert_eq!(1, ast.len());
+    }
+
+    #[test]
+    fn test_parse_ifstmt()
+    {
+        let input = "
+        if True >>
+            1
+        else >>
+            3
+        --
+        if True >>
+            2
+        --
+        ";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+        assert_eq!(2, ast.len());
     }
 
     #[test]
