@@ -1,4 +1,5 @@
 use crate::leema::failure::Lresult;
+use crate::leema::lstr::Lstr;
 use crate::leema::reg::Reg;
 use crate::leema::struple::StrupleKV;
 use crate::leema::token::TokenSrc;
@@ -94,7 +95,7 @@ pub enum Ast
     DefType(DataType, AstNode, Xlist),
     Generic(AstNode, Xlist),
     Id1(&'static str),
-    Id2(&'static str, &'static str),
+    Id2(Lstr, &'static str),
     Import(&'static str),
     LessThan3(AstNode, bool, AstNode, bool, AstNode),
     Let(AstNode, AstNode, AstNode),

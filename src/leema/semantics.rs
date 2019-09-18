@@ -179,7 +179,7 @@ impl<'l> MacroApplication<'l>
         loc: Loc,
     ) -> AstNode
     {
-        let callx = AstNode::new(Ast::Id2(module, func), loc);
+        let callx = AstNode::new(Ast::Id2(Lstr::Sref(module), func), loc);
         let args: StrupleKV<Option<&'static str>, AstNode> =
             StrupleKV::from(vec![a, b]);
         AstNode::new(Ast::Call(callx, args), loc)
@@ -194,8 +194,8 @@ impl<'l> SemanticOp for MacroApplication<'l>
             Ast::Call(callid, args) => {
                 let optmac = match *callid.node {
                     Ast::Id1(macroname) => self.local.find_macro(macroname),
-                    Ast::Id2(modname, macroname) => {
-                        self.proto.get(modname)?.find_macro(macroname)
+                    Ast::Id2(ref modname, ref macroname) => {
+                        self.proto.get(&modname)?.find_macro(macroname)
                     }
                     _ => None,
                 };
@@ -394,23 +394,8 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                 if self.blocks.var_in_scope(&Lstr::Sref(id)) {
                     // that's cool, nothing to do I guess?
                 } else if self.local_mod.find_const(id).is_some() {
-                    match &self.local_mod.key.name {
-                        Lstr::Sref(smod) => {
-                            println!("module str is static: {}", smod);
-                            *node.node = Ast::Id2(smod, id);
-                            return Ok(SemanticAction::Rewrite(node));
-                        }
-                        Lstr::Arc(inner) => {
-                            return Err(rustfail!(
-                                SEMFAIL,
-                                "mod name is not static: {}",
-                                inner,
-                            ));
-                        }
-                        Lstr::Cat(_, _) => {
-                            panic!("why is Lstr::Cat still here?");
-                        }
-                    }
+                    *node.node = Ast::Id2(self.local_mod.key.name.clone(), id);
+                    return Ok(SemanticAction::Rewrite(node));
                 } else {
                     println!("var not in scope: {}", id);
                     return Err(

@@ -704,7 +704,7 @@ impl InfixParser for ParseId
     {
         if let Ast::Id1(first) = *left.node {
             let second = expect_next!(p, Token::Id)?;
-            Ok(AstNode::new(Ast::Id2(first, second.src), left.loc))
+            Ok(AstNode::new(Ast::Id2(Lstr::Sref(first), second.src), left.loc))
         } else {
             Err(rustfail!(
                 "parse_failure",
