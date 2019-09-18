@@ -575,6 +575,12 @@ impl<'p> TypeCheck<'p>
             (t0, Type::Var(ref v1)) => {
                 lfailoc!(self.infer_type(v1, t0))
             }
+            (t0, Type::Unknown) => {
+                Ok(t0.clone())
+            }
+            (Type::Unknown, t1) => {
+                Ok(t1.clone())
+            }
             (t0, t1) => {
                 if t0 != t1 {
                     Err(rustfail!(
@@ -605,7 +611,10 @@ impl<'p> TypeCheck<'p>
                 ))
             }
         } else {
-            self.infers.insert(var.clone(), t.clone());
+            if true || t.is_closed() {
+eprintln!("set inferred: {} == {}", var, t);
+                self.infers.insert(var.clone(), t.clone());
+            }
             Ok(t.clone())
         }
     }
@@ -729,7 +738,15 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 // any types to the children
                 node.typ = src.typ.clone();
             }
-            Ast::Case(_, _, ref mut cases) => {
+            Ast::Case(ast2::CaseType::If, _, ref mut cases) => {
+                // all if cases should be boolean
+                for case in cases.iter_mut() {
+                    self.match_type(&case.cond.typ, &Type::Bool)?;
+                    case.cond.typ = Type::Bool;
+                }
+                node.typ = self.match_case_types(cases)?;
+            }
+            Ast::Case(ast2::CaseType::Match, _, ref mut cases) => {
                 node.typ = self.match_case_types(cases)?;
             }
             Ast::Let(ref mut patt, _, ref mut x) => {
@@ -929,17 +946,19 @@ impl Semantics
                     .collect();
                 Ast::Case(typ, None, new_args?)
             }
-            Ast::Case(typ, Some(cond), children) => {
+            Ast::Case(ast2::CaseType::Match, Some(cond), children) => {
                 let wcond = Self::walk(op, cond)?;
                 let wchildren: Lresult<Vec<ast2::Case>> = children
                     .into_iter()
                     .map(|ch| {
+                        op.set_pattern(true);
                         let wcond = Self::walk(op, ch.cond)?;
+                        op.set_pattern(false);
                         let wbody = Self::walk(op, ch.body)?;
                         Ok(ast2::Case::new(wcond, wbody))
                     })
                     .collect();
-                Ast::Case(typ, Some(wcond), wchildren?)
+                Ast::Case(ast2::CaseType::Match, Some(wcond), wchildren?)
             }
             Ast::ConstVal(v) => {
                 // can't walk past on const
