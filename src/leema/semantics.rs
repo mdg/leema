@@ -226,6 +226,16 @@ impl<'l> SemanticOp for MacroApplication<'l>
                     Self::op_to_call("prefab", "int_mult", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
+            Ast::Op2("/", a, b) => {
+                let call =
+                    Self::op_to_call("prefab", "int_div", a, b, node.loc);
+                Ok(SemanticAction::Rewrite(call))
+            }
+            Ast::Op2("mod", a, b) => {
+                let call =
+                    Self::op_to_call("prefab", "int_mod", a, b, node.loc);
+                Ok(SemanticAction::Rewrite(call))
+            }
             Ast::Op2("and", a, b) => {
                 let call =
                     Self::op_to_call("prefab", "boolean_and", a, b, node.loc);
@@ -557,13 +567,13 @@ impl<'p> TypeCheck<'p>
     {
         match (t0, t1) {
             (Type::Var(v0), Type::Var(_)) => {
-                self.infer_type(v0, t1)
+                lfailoc!(self.infer_type(v0, t1))
             }
             (Type::Var(v0), t1) => {
-                self.infer_type(v0, t1)
+                lfailoc!(self.infer_type(v0, t1))
             }
             (t0, Type::Var(ref v1)) => {
-                self.infer_type(v1, t0)
+                lfailoc!(self.infer_type(v1, t0))
             }
             (t0, t1) => {
                 if t0 != t1 {
@@ -589,7 +599,7 @@ impl<'p> TypeCheck<'p>
             } else {
                 Err(rustfail!(
                     SEMFAIL,
-                    "type mismatch: {} != {}",
+                    "inferred type mismatch for: {} != {}",
                     var_type,
                     t,
                 ))
@@ -790,6 +800,7 @@ pub struct Semantics
     // pub closed: Option<HashSet<Lstr>>,
     pub src: AstNode,
     pub args: Vec<Option<&'static str>>,
+    pub infers: HashMap<Lstr, Type>,
 }
 
 impl Semantics
@@ -799,6 +810,7 @@ impl Semantics
         Semantics {
             src: AstNode::void(),
             args: Vec::new(),
+            infers: HashMap::new(),
         }
     }
 
@@ -880,6 +892,8 @@ impl Semantics
                 result.typ,
             ));
         }
+
+        self.infers = type_check.infers;
         Ok(result)
     }
 
