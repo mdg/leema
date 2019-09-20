@@ -170,6 +170,9 @@ impl fmt::Display for Failure
         if !self.loc.is_empty() {
             write!(f, "\n @ {:?}\n", self.loc)?;
         }
+        for c in &self.context {
+            write!(f, "   {}\n", c)?;
+        }
         write!(f, "'{}')", self.msg)
     }
 }

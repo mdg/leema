@@ -1605,6 +1605,9 @@ impl Env
             }
             Reg::Local(i) => {
                 lfailoc!(self.locals.ireg_get(i))
+                    .map_err(|f| {
+                        f.add_context(lstrf!("get_reg {}", reg))
+                    })
             }
             Reg::Stack(i) => {
                 lfailoc!(self.stack.ireg_get(i))

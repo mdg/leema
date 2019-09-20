@@ -81,9 +81,10 @@ impl Fiber
 
     pub fn execute_leema_op(&mut self, ops: &OpVec) -> Lresult<Event>
     {
-        let op = ops.get(self.head.pc as usize).unwrap();
+        let opc = self.head.pc as usize;
+        let op = ops.get(opc).unwrap();
         vout!("exec: {:?}\n", op);
-        match op {
+        let result = match op {
             &Op::ConstVal(ref dst, ref v) => self.execute_const_val(*dst, v),
             &Op::Copy(dst, src) => self.execute_copy(dst, src),
             &Op::Jump(jmp) => self.execute_jump(jmp),
@@ -119,7 +120,10 @@ impl Fiber
                 self.head.pc += 1;
                 ev
             }
-        }
+        };
+        result.map_err(|f| {
+            f.add_context(lstrf!("pc: {}", opc))
+        })
     }
 
     pub fn execute_strcat(&mut self, dstreg: Reg, srcreg: Reg)

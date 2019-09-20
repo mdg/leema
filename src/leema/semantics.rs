@@ -246,6 +246,11 @@ impl<'l> SemanticOp for MacroApplication<'l>
                     Self::op_to_call("prefab", "boolean_or", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
+            Ast::Op2("==", a, b) => {
+                let call =
+                    Self::op_to_call("prefab", "equal", a, b, node.loc);
+                Ok(SemanticAction::Rewrite(call))
+            }
             Ast::ConstVal(Val::Str(s)) => {
                 let new_str_node = match s.str() {
                     "\\n" => {
@@ -611,7 +616,7 @@ impl<'p> TypeCheck<'p>
                 ))
             }
         } else {
-            if true || t.is_closed() {
+            if t.is_closed() {
 eprintln!("set inferred: {} == {}", var, t);
                 self.infers.insert(var.clone(), t.clone());
             }

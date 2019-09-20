@@ -283,9 +283,25 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
         Ast::Case(CaseType::Match, None, _) => {
             // None should have been replaced by the args
             // in an earlier phase?
-            panic!("case statement must have an expression");
+            panic!("match expression must have an expression");
         }
-        _ => vec![],
+        Ast::Case(_, _, _)
+            | Ast::DefConst(_, _)
+            | Ast::DefFunc(_, _, _)
+            | Ast::DefMacro(_, _, _)
+            | Ast::DefType(_, _, _)
+            | Ast::Generic(_, _)
+            | Ast::Id2(_, _)
+            | Ast::Import(_)
+            | Ast::LessThan3(_, _, _, _, _)
+            | Ast::Op1(_, _)
+            | Ast::Op2(_, _, _)
+            | Ast::Type(_)
+            | Ast::Void
+            | Ast::Wildcard
+        => {
+            panic!("node should not exist in function: {:?}", input);
+        }
     };
     Oxpr {
         ops,
