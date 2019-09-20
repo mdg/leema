@@ -1794,7 +1794,7 @@ mod tests
         let mut p = Grammar::new(toks);
         let ast = p.parse_module().unwrap();
 
-        assert_eq!(Ast::Id2("x", "y"), *ast[0].node);
+        assert_eq!(Ast::Id2(Lstr::Sref("x"), "y"), *ast[0].node);
         assert_eq!(1, ast.len());
     }
 

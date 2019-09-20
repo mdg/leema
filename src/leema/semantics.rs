@@ -1180,6 +1180,26 @@ mod tests
     }
 
     #[test]
+    fn test_type_var_func()
+    {
+        let input = r#"
+        func swap[:T] b:T a:T :(:T :T)
+        >>
+            (b, a)
+        --
+
+        func main >>
+            swap(3, 5)
+        --
+        "#;
+
+        let mut proto = load_proto_with_prefab();
+        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
+        let mut semantics = Semantics::new();
+        semantics.compile_call(&mut proto, "foo", "main").unwrap();
+    }
+
+    #[test]
     #[should_panic]
     fn test_semantics_module_scope_fail()
     {

@@ -456,6 +456,24 @@ mod tests
     }
 
     #[test]
+    fn test_proto_func_typeargs()
+    {
+        let input = r#"
+        func swap[:T] b:T a:T :(:T :T)
+        >>
+            (b, a)
+        --
+        "#;
+        let proto = new_proto(input);
+
+        let funcseq = proto.funcseq.get(0).expect("no funcseq type");
+        assert_eq!("swap", *funcseq);
+        assert_eq!(1, proto.funcseq.len());
+        assert!(proto.funcsrc.contains_key("swap"));
+        assert_eq!(1, proto.funcsrc.len());
+    }
+
+    #[test]
     fn test_proto_generic_struct()
     {
         let proto = new_proto("type Point[:T] x:T y:T --");
