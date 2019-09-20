@@ -285,21 +285,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             // in an earlier phase?
             panic!("match expression must have an expression");
         }
-        Ast::Case(_, _, _)
-            | Ast::DefConst(_, _)
-            | Ast::DefFunc(_, _, _)
-            | Ast::DefMacro(_, _, _)
-            | Ast::DefType(_, _, _)
-            | Ast::Generic(_, _)
-            | Ast::Id2(_, _)
-            | Ast::Import(_)
-            | Ast::LessThan3(_, _, _, _, _)
-            | Ast::Op1(_, _)
-            | Ast::Op2(_, _, _)
-            | Ast::Type(_)
-            | Ast::Void
-            | Ast::Wildcard
-        => {
+        _ => {
             panic!("node should not exist in function: {:?}", input);
         }
     };
