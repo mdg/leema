@@ -518,7 +518,8 @@ mod tests
     use crate::leema::lri::Lri;
     use crate::leema::lstr::Lstr;
     use crate::leema::module::ModKey;
-    use crate::leema::val::Type;
+    use crate::leema::struple::{Struple, StrupleItem, StrupleKV};
+    use crate::leema::val::{FuncType, Type};
 
     fn new_proto(input: &'static str) -> ProtoModule
     {
@@ -542,12 +543,13 @@ mod tests
     fn test_proto_genericfunc()
     {
         let input = r#"
-        func swap[:T] b:T a:T :(:T :T)
+        func swap[:T] a:T b:T :(:T :T)
         >>
             (b, a)
         --
         "#;
         let proto = new_proto(input);
+        let tvt = Type::Var(Lstr::Sref("T"));
 
         assert_eq!(1, proto.genfunc.len());
         assert!(proto.genfunc.contains_key("swap"));
@@ -557,6 +559,19 @@ mod tests
 
         assert_eq!(1, proto.types.len());
         assert!(proto.types.contains_key("swap"));
+        assert_eq!(
+            Type::Open(
+                vec!["T"],
+                Box::new(Type::Func(FuncType::new(
+                    StrupleKV::from_vec(vec![
+                        StrupleItem::new(Some(Lstr::Sref("a")), tvt.clone()),
+                        StrupleItem::new(Some(Lstr::Sref("b")), tvt.clone()),
+                    ]),
+                    Type::Tuple(Struple::new_tuple2(tvt.clone(), tvt.clone())),
+                ))),
+            ),
+            *proto.types.get("swap").unwrap(),
+        );
     }
 
     #[test]
