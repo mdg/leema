@@ -5,7 +5,7 @@ use crate::leema::loader::Interloader;
 use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::ModKey;
-use crate::leema::struple::{Struple2, StrupleItem, StrupleKV};
+use crate::leema::struple::{Struple, Struple2, StrupleItem, StrupleKV};
 use crate::leema::token::Tokenz;
 use crate::leema::val::{FuncType, Type, Val};
 
@@ -99,21 +99,21 @@ impl ProtoModule
             Ast::Id1(name_id) => {
                 self.add_func_not_generic(name_id, args, body, name.loc)?;
             }
-            Ast::Generic(gen, gen_args) => {
-                if let Ast::Id1(name_id) = *gen.node {
-                    self.genfunc.insert(name_id, (gen_args, args, body));
+            Ast::Generic(name, gen_args) => {
+                if let Ast::Id1(name_id) = *name.node {
+                    self.add_generic_func(name_id, gen_args, args, body, name.loc)?;
                 } else {
                     return Err(rustfail!(
                         PROTOFAIL,
-                        "unsupported generic struct name: {:?}",
-                        gen,
+                        "unsupported generic func name: {:?}",
+                        name,
                     ));
                 }
             }
             invalid_name => {
                 return Err(rustfail!(
                     PROTOFAIL,
-                    "unsupported struct name: {:?}",
+                    "unsupported func name: {:?}",
                     invalid_name,
                 ));
             }
@@ -166,6 +166,78 @@ impl ProtoModule
         let fref_ast = AstNode::new_constval(fref, loc);
         self.constants.insert(name, fref_ast);
         self.types.insert(name, Type::Func(ftyp));
+        Ok(())
+    }
+
+    fn add_generic_func(
+        &mut self,
+        name: &'static str,
+        typeargs: Xlist,
+        args: Xlist,
+        body: AstNode,
+        loc: ast2::Loc,
+    ) -> Lresult<()>
+    {
+        if typeargs.is_empty() {
+            return Err(rustfail!(
+                PROTOFAIL,
+                "generic type args cannot be empty for func: {} at line {}",
+                name,
+                loc.lineno,
+            ));
+        }
+        self.genfunc.insert(name, (typeargs.clone(), args.clone(), body));
+
+        let open_result: Lresult<Vec<&'static str>> = typeargs.0.into_iter().map(|ta| {
+            if let Ast::Id1(typeargname) = *ta.v.node {
+                Ok(typeargname)
+            } else {
+                Err(rustfail!(
+                    PROTOFAIL,
+                    "type arg for {} is not an id: {:?}",
+                    name,
+                    ta,
+                ))
+            }
+        }).collect();
+        let opens: Vec<&'static str> = open_result?;
+
+        let ftyp = if !args.is_empty() {
+            let arg_types_r: Lresult<Vec<StrupleItem<Option<Lstr>, Type>>>;
+            arg_types_r = args
+                .0
+                .into_iter()
+                .map(|i| {
+                    Ok(StrupleItem::new(
+                        i.k.map(|k| Lstr::Sref(k)),
+                        ast_to_type(&self.key.name, &i.v, &opens)?,
+                    ))
+                })
+                .collect();
+            let mut arg_types_vec = arg_types_r?;
+            let mut result_type_vec =
+                arg_types_vec.split_off(arg_types_vec.len() - 1);
+            let result_type = result_type_vec.pop().unwrap().v;
+            let arg_types = StrupleKV::from(arg_types_vec);
+            FuncType::new(arg_types, result_type)
+        } else {
+            FuncType::new(StrupleKV::new(), Type::Void)
+        };
+
+        let fref_args = ftyp.args.map_v(|_| Ok(Val::Void))?;
+        let genfunctype = Type::Open(opens, Box::new(Type::Func(ftyp)));
+
+        let fref = Val::Fref(
+            self.key.name.clone(),
+            name,
+            fref_args,
+            genfunctype.clone(),
+        );
+        let fref_ast = AstNode::new_constval(fref, loc);
+        self.constants.insert(name, fref_ast);
+
+        self.types.insert(name, genfunctype);
+
         Ok(())
     }
 
@@ -303,6 +375,17 @@ fn ast_to_type(
             let inner = &inner_items.0.first().unwrap().v;
             let inner_t = ast_to_type(local_mod, inner, opens)?;
             Type::StrictList(Box::new(inner_t))
+        }
+        Ast::Tuple(inner_items) => {
+            let inner_t: Lresult<Vec<(Option<Lstr>, Type)>> = inner_items.0
+                .iter()
+                .map(|item| {
+                    let k = item.k.map(|ik| Lstr::Sref(ik));
+                    let v = ast_to_type(local_mod, &item.v, opens)?;
+                    Ok((k, v))
+                })
+                .collect();
+            Type::Tuple(Struple(inner_t?))
         }
         Ast::Generic(_, typeargs) => {
             let _gen = typeargs.map_v(|v| ast_to_type(local_mod, v, opens));
@@ -456,7 +539,7 @@ mod tests
     }
 
     #[test]
-    fn test_proto_func_typeargs()
+    fn test_proto_genericfunc()
     {
         let input = r#"
         func swap[:T] b:T a:T :(:T :T)
@@ -466,11 +549,14 @@ mod tests
         "#;
         let proto = new_proto(input);
 
-        let funcseq = proto.funcseq.get(0).expect("no funcseq type");
-        assert_eq!("swap", *funcseq);
-        assert_eq!(1, proto.funcseq.len());
-        assert!(proto.funcsrc.contains_key("swap"));
-        assert_eq!(1, proto.funcsrc.len());
+        assert_eq!(1, proto.genfunc.len());
+        assert!(proto.genfunc.contains_key("swap"));
+
+        assert_eq!(1, proto.constants.len());
+        assert!(proto.constants.contains_key("swap"));
+
+        assert_eq!(1, proto.types.len());
+        assert!(proto.types.contains_key("swap"));
     }
 
     #[test]

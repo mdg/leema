@@ -1180,7 +1180,7 @@ mod tests
     }
 
     #[test]
-    fn test_type_var_func()
+    fn test_type_genericfunc()
     {
         let input = r#"
         func swap[:T] b:T a:T :(:T :T)
