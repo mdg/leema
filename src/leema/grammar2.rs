@@ -1591,7 +1591,7 @@ mod tests
         let input = r#"macro test_and a b >>
             if
             |a >> b
-            |else >> false
+            |else >> False
             --
         --
         "#;

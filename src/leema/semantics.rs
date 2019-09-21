@@ -1262,7 +1262,7 @@ mod tests
         proto.add_module(&Lstr::Sref("baz"), baz_input).unwrap();
         let mut semantics = Semantics::new();
         let result = semantics.compile_call(&mut proto, "baz", "main");
-        assert_eq!("scope_fail", result.unwrap_err().tag.str());
+        assert_eq!("semantic_failure", result.unwrap_err().tag.str());
     }
 
     #[test]
