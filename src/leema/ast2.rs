@@ -261,6 +261,6 @@ impl fmt::Debug for AstNode
     {
         write!(f, "(")?;
         self.node.fmt_inner(f)?;
-        write!(f, " {} {})", self.loc.lineno, self.dst)
+        write!(f, " {} {} {})", self.typ, self.loc.lineno, self.dst)
     }
 }

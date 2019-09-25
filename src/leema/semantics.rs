@@ -630,16 +630,34 @@ eprintln!("set inferred: {} == {}", var, t);
         args: &mut ast2::Xlist,
     ) -> Lresult<Type>
     {
-        let ftyp = if let Type::Func(inner_ftyp) = calltype {
-            inner_ftyp
-        } else {
-            return Err(rustfail!(
-                SEMFAIL,
-                "call type is not a function: {:?}",
-                calltype,
-            ));
-        };
+        match calltype {
+            Type::Func(inner_ftyp) => {
+                self.match_argtypes(&[], inner_ftyp, args)
+            }
+            Type::Open(opens, open_ftyp) => {
+                if let Type::Func(inner_ftyp) = &mut **open_ftyp {
+                    // figure out arg types
+                    self.match_argtypes(&opens, inner_ftyp, args)
+                } else {
+                    return Err(rustfail!(
+                        SEMFAIL,
+                        "call type is not a function: {:?}",
+                        calltype,
+                    ));
+                }
+            }
+            _ => {
+                return Err(rustfail!(
+                    SEMFAIL,
+                    "call type is not a function: {:?}",
+                    calltype,
+                ));
+            }
+        }
+    }
 
+    fn match_argtypes(&mut self, opens: &[&'static str], ftyp: &mut FuncType, args: &mut ast2::Xlist) -> Lresult<Type>
+    {
         if args.len() < ftyp.args.len() {
             return Err(rustfail!(
                 SEMFAIL,
@@ -657,28 +675,41 @@ eprintln!("set inferred: {} == {}", var, t);
             ));
         }
 
+        let mut real_types = HashMap::new();
+        for o in opens {
+            real_types.insert(o, Type::Unknown);
+        }
+
         for arg in ftyp.args.0.iter_mut().zip(args.0.iter_mut()) {
-            if arg.0.v.is_open() {
+            let typ = if arg.0.v.is_open() {
+                // self.match_argtype(&mut real_types, &arg.0.v, &mut arg.1.v.typ)?
                 return Err(rustfail!(
                     TYPEFAIL,
-                    "open arg types still unsupported: {}",
+                    "open types not working {:?}, found {:?}",
                     ftyp,
+                    args,
                 ));
-            }
-            let typ = lfailoc!(self.match_type(&arg.0.v, &arg.1.v.typ))
-                .map_err(|f| {
-                    f.add_context(lstrf!(
-                        "function param: {}, expected {}, found {}",
-                        arg.0.k.as_ref().unwrap(),
-                        arg.0.v,
-                        arg.1.v.typ,
-                    ))
-                })?;
+            } else {
+                lfailoc!(self.match_type(&arg.0.v, &arg.1.v.typ))
+                    .map_err(|f| {
+                        f.add_context(lstrf!(
+                            "function param: {}, expected {}, found {}",
+                            arg.0.k.as_ref().unwrap(),
+                            arg.0.v,
+                            arg.1.v.typ,
+                        ))
+                    })?
+            };
             arg.0.v = typ.clone();
             arg.1.v.typ = typ;
         }
 
         Ok((*ftyp.result).clone())
+    }
+
+    fn match_argtype(_opens: &mut HashMap<&'static str, Type>, _decl_type: &'static str, _arg: &mut ast2::Xlist) -> Lresult<Type>
+    {
+        Ok(Type::Void)
     }
 
     fn match_case_types(&mut self, cases: &Vec<ast2::Case>) -> Lresult<Type>
@@ -1183,7 +1214,7 @@ mod tests
     fn test_type_genericfunc()
     {
         let input = r#"
-        func swap[:T] b:T a:T :(:T :T)
+        func swap[:T] a:T b:T :(:T :T)
         >>
             (b, a)
         --
