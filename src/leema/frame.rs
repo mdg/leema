@@ -4,7 +4,7 @@ use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::reg::{Ireg, Reg};
 use crate::leema::rsrc;
-use crate::leema::struple::Struple;
+use crate::leema::struple::Struple2;
 use crate::leema::val::{Env, Val};
 
 use std::fmt::{self, Debug};
@@ -241,7 +241,7 @@ pub struct Frame
 
 impl Frame
 {
-    pub fn new_root(parent: Parent, function: Lri, args: Struple<Val>)
+    pub fn new_root(parent: Parent, function: Lri, args: Struple2<Val>)
         -> Frame
     {
         let env = Env::with_args(Val::Tuple(args));

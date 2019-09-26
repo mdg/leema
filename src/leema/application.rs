@@ -2,7 +2,7 @@ use crate::leema::io::{Io, IoLoop};
 use crate::leema::lri::Lri;
 use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use crate::leema::program;
-use crate::leema::struple::Struple;
+use crate::leema::struple::Struple2;
 use crate::leema::val::Val;
 use crate::leema::worker::Worker;
 
@@ -21,7 +21,7 @@ pub struct Application
     io_recv: Option<Receiver<IoMsg>>,
     io_send: Sender<IoMsg>,
     worker: HashMap<i64, Sender<WorkerMsg>>,
-    calls: LinkedList<(Sender<Val>, Lri, Struple<Val>)>,
+    calls: LinkedList<(Sender<Val>, Lri, Struple2<Val>)>,
     args: Val,
     result: Option<Val>,
     done: bool,
@@ -56,7 +56,7 @@ impl Application
         }
     }
 
-    pub fn push_call(&mut self, dst: Sender<Val>, call: Lri, args: Struple<Val>)
+    pub fn push_call(&mut self, dst: Sender<Val>, call: Lri, args: Struple2<Val>)
     {
         self.calls.push_back((dst, call, args));
     }
@@ -226,7 +226,7 @@ pub struct AppCaller
 
 impl AppCaller
 {
-    pub fn push_call(&self, call: Lri, args: Struple<Val>) -> Receiver<Val>
+    pub fn push_call(&self, call: Lri, args: Struple2<Val>) -> Receiver<Val>
     {
         let (result_send, result_recv) = channel();
         self.app_send
@@ -260,7 +260,7 @@ mod tests
     use crate::leema::lri::Lri;
     use crate::leema::lstr::Lstr;
     use crate::leema::program;
-    use crate::leema::struple::Struple;
+    use crate::leema::struple::StrupleKV;
     use crate::leema::val::Val;
 
     use libc::getpid;
@@ -283,7 +283,7 @@ mod tests
         let caller = app.caller();
         let recv = caller.push_call(
             Lri::with_modules(Lstr::Sref("test"), Lstr::Sref("main")),
-            Struple(vec![]),
+            StrupleKV(vec![]),
         );
         app.run();
 

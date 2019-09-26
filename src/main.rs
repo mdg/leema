@@ -12,7 +12,7 @@ use crate::leema::loader::Interloader;
 use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::program;
-use crate::leema::struple::Struple;
+use crate::leema::struple::{StrupleItem, StrupleKV};
 use crate::leema::token::{TokenResult, Tokenz};
 use crate::leema::val::Val;
 
@@ -168,7 +168,7 @@ fn real_main() -> Lresult<()>
         let caller = app.caller();
         let main_lri = Lri::with_modules(mod_name, Lstr::Sref("main"));
         app.run();
-        let main_arg = Struple(vec![(None, leema_args)]);
+        let main_arg = StrupleKV(vec![StrupleItem::new(None, leema_args)]);
         let result_recv = caller.push_call(main_lri, main_arg);
         app.wait_for_result(result_recv)
     };

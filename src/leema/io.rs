@@ -2,7 +2,7 @@ use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::msg::{AppMsg, IoMsg, WorkerMsg};
 use crate::leema::rsrc::{self, Event, IopCtx, Rsrc};
-use crate::leema::struple::Struple;
+use crate::leema::struple::Struple2;
 use crate::leema::val::{MsgVal, Val};
 
 use std;
@@ -111,7 +111,7 @@ pub struct RunQueueReceiver(Receiver<Val>);
 
 impl RunQueue
 {
-    pub fn spawn(&self, func: Lri, args: Struple<Val>) -> RunQueueReceiver
+    pub fn spawn(&self, func: Lri, args: Struple2<Val>) -> RunQueueReceiver
     {
         let (result_send, result_recv) = channel();
         self.app_send
@@ -483,7 +483,7 @@ pub mod tests
     use crate::leema::lstr::Lstr;
     use crate::leema::msg;
     use crate::leema::rsrc::{self, Rsrc};
-    use crate::leema::struple::Struple;
+    use crate::leema::struple::Struple2;
     use crate::leema::val::{MsgVal, Type, Val};
 
     use std::sync::mpsc;
@@ -524,7 +524,7 @@ pub mod tests
 
         let rcio = Io::new(app_tx, msg_rx);
 
-        let msg_params = MsgVal::new(&Val::Tuple(Struple(params)));
+        let msg_params = MsgVal::new(&Val::Tuple(Struple2::from(params)));
         msg_tx.send(msg::IoMsg::NewWorker(11, worker_tx)).unwrap();
         msg_tx
             .send(msg::IoMsg::Iop {

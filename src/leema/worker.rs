@@ -6,7 +6,7 @@ use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use crate::leema::reg::Reg;
-use crate::leema::struple::Struple;
+use crate::leema::struple::{Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{MsgVal, Val};
 
 use std::cmp::min;
@@ -68,7 +68,7 @@ impl<'a> RustFuncContext<'a>
         self.task.head.parent.set_result(r);
     }
 
-    pub fn new_task(&self, fri: Lri, args: Struple<Val>)
+    pub fn new_task(&self, fri: Lri, args: Struple2<Val>)
     {
         let (send, _) = channel();
         let spawn_msg = AppMsg::Spawn(send, fri, args);
@@ -78,7 +78,7 @@ impl<'a> RustFuncContext<'a>
             .expect("failed sending new_task msg");
     }
 
-    pub fn new_fork(&self, fri: Lri, args: Struple<Val>) -> Receiver<Val>
+    pub fn new_fork(&self, fri: Lri, args: Struple2<Val>) -> Receiver<Val>
     {
         let (send, recv) = channel();
         let spawn_msg = AppMsg::Spawn(send, fri, args);
@@ -264,9 +264,9 @@ impl Worker
                 let msg = AppMsg::Spawn(sender, callri, callargs);
                 self.app_tx.send(msg).expect("new task msg send failure");
                 let (new_child, new_parent) = fbr.new_task_key();
-                let new_task_key = Val::Tuple(Struple(vec![
-                    (None, Val::Int(new_child)),
-                    (None, Val::Int(new_parent)),
+                let new_task_key = Val::Tuple(StrupleKV(vec![
+                    StrupleItem::new(None, Val::Int(new_child)),
+                    StrupleItem::new(None, Val::Int(new_parent)),
                 ]));
                 fbr.head.parent.set_result(new_task_key);
                 self.return_from_call(fbr);

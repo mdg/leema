@@ -3,7 +3,7 @@ use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::rsrc::IopAction;
 use crate::leema::sendclone::SendClone;
-use crate::leema::struple::Struple;
+use crate::leema::struple::Struple2;
 use crate::leema::val::{MsgVal, Val};
 
 use std::fmt;
@@ -47,7 +47,7 @@ type MsgLstr = MsgItem<Lstr>;
 pub enum AppMsg
 {
     // Spawn(module, function)
-    Spawn(mpsc::Sender<Val>, Lri, Struple<Val>),
+    Spawn(mpsc::Sender<Val>, Lri, Struple2<Val>),
     // RequestCode(worker_id, fiber_id, module, function)
     RequestCode(i64, i64, MsgLstr, MsgLstr),
     MainResult(MsgVal),
@@ -57,7 +57,7 @@ pub enum AppMsg
 pub enum WorkerMsg
 {
     // Spawn(module, function)
-    Spawn(mpsc::Sender<Val>, Lri, Struple<Val>),
+    Spawn(mpsc::Sender<Val>, Lri, Struple2<Val>),
     // FoundCode(fiber_id, module, function, code)
     FoundCode(i64, MsgLstr, MsgLstr, Code),
     // IopResult(fiber_id, MsgVal)

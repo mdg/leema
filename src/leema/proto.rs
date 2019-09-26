@@ -5,7 +5,7 @@ use crate::leema::loader::Interloader;
 use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::ModKey;
-use crate::leema::struple::{Struple, Struple2, StrupleItem, StrupleKV};
+use crate::leema::struple::{Struple2, StrupleItem, StrupleKV};
 use crate::leema::token::Tokenz;
 use crate::leema::val::{FuncType, Type, Val};
 
@@ -377,15 +377,15 @@ fn ast_to_type(
             Type::StrictList(Box::new(inner_t))
         }
         Ast::Tuple(inner_items) => {
-            let inner_t: Lresult<Vec<(Option<Lstr>, Type)>> = inner_items.0
+            let inner_t: Lresult<Vec<StrupleItem<Option<Lstr>, Type>>> = inner_items.0
                 .iter()
                 .map(|item| {
                     let k = item.k.map(|ik| Lstr::Sref(ik));
                     let v = ast_to_type(local_mod, &item.v, opens)?;
-                    Ok((k, v))
+                    Ok(StrupleItem::new(k, v))
                 })
                 .collect();
-            Type::Tuple(Struple(inner_t?))
+            Type::Tuple(StrupleKV(inner_t?))
         }
         Ast::Generic(_, typeargs) => {
             let _gen = typeargs.map_v(|v| ast_to_type(local_mod, v, opens));
@@ -518,7 +518,7 @@ mod tests
     use crate::leema::lri::Lri;
     use crate::leema::lstr::Lstr;
     use crate::leema::module::ModKey;
-    use crate::leema::struple::{Struple, StrupleItem, StrupleKV};
+    use crate::leema::struple::{Struple2, StrupleItem, StrupleKV};
     use crate::leema::val::{FuncType, Type};
 
     fn new_proto(input: &'static str) -> ProtoModule
@@ -567,7 +567,7 @@ mod tests
                         StrupleItem::new(Some(Lstr::Sref("a")), tvt.clone()),
                         StrupleItem::new(Some(Lstr::Sref("b")), tvt.clone()),
                     ]),
-                    Type::Tuple(Struple::new_tuple2(tvt.clone(), tvt.clone())),
+                    Type::Tuple(Struple2::new_tuple2(tvt.clone(), tvt.clone())),
                 ))),
             ),
             *proto.types.get("swap").unwrap(),

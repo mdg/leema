@@ -7,7 +7,7 @@ use crate::leema::lstr::Lstr;
 use crate::leema::msg;
 use crate::leema::reg::{self, Ireg, Iregistry, Reg};
 use crate::leema::sendclone::{self, SendClone};
-use crate::leema::struple::{Struple, Struple2, StrupleKV};
+use crate::leema::struple::{Struple2, StrupleKV, StrupleItem};
 
 use std::cmp::{Ordering, PartialEq, PartialOrd};
 use std::collections::HashMap;
@@ -97,7 +97,7 @@ pub enum Type
     Str,
     Bool,
     Hashtag,
-    Tuple(Struple<Type>),
+    Tuple(Struple2<Type>),
     Failure,
     Func(FuncType),
     // different from base collection/map interfaces?
@@ -196,7 +196,7 @@ impl Type
         match self {
             Type::Open(_, _) => true,
             Type::Var(_) => true,
-            Type::Tuple(items) => items.0.iter().any(|i| i.1.is_open()),
+            Type::Tuple(items) => items.0.iter().any(|i| i.v.is_open()),
             Type::Unknown => true,
             _ => false,
         }
@@ -217,7 +217,7 @@ impl Type
 
         let res = match self {
             &Type::Tuple(ref items) => {
-                let m_items = items.map(|i| i.map(op))?;
+                let m_items = items.map_v(|i| i.map(op))?;
                 Type::Tuple(m_items)
             }
             &Type::StrictList(ref inner) => {
@@ -532,9 +532,9 @@ pub enum Val
     Buffer(Vec<u8>),
     Cons(Box<Val>, Arc<Val>),
     Nil,
-    Tuple(Struple<Val>),
-    Struct(Lri, Struple<Val>),
-    EnumStruct(Lri, Lstr, Struple<Val>),
+    Tuple(Struple2<Val>),
+    Struct(Lri, Struple2<Val>),
+    EnumStruct(Lri, Lstr, Struple2<Val>),
     EnumToken(Lri, Lstr),
     Token(Lri),
     Map(LmapNode),
@@ -543,7 +543,7 @@ pub enum Val
     Type(Type),
     Lib(Arc<LibVal>),
     Fref(Lstr, &'static str, Struple2<Val>, Type),
-    FuncRef(Lri, Struple<Val>, Type),
+    FuncRef(Lri, Struple2<Val>, Type),
     ResourceRef(i64),
     RustBlock,
     Future(Arc<Mutex<Receiver<Val>>>),
@@ -577,10 +577,10 @@ impl Val
         let mut t = Vec::with_capacity(*sz);
         let mut i: usize = *sz;
         while i > 0 {
-            t.push((None, VOID));
+            t.push(StrupleItem::new(None, VOID));
             i = i - 1;
         }
-        Val::Tuple(Struple(t))
+        Val::Tuple(StrupleKV(t))
     }
 
     pub fn tuple_from_list(l: &Val) -> Val
@@ -589,13 +589,13 @@ impl Val
         if !l.is_list() {
             panic!("Cannot make tuple from not-list: {:?}", l);
         }
-        let empties: Vec<(Option<Lstr>, Val)> =
+        let empties: Vec<StrupleItem<Option<Lstr>, Val>> =
             Vec::with_capacity(list::len(l));
         let items = list::fold_ref(empties, l, |mut res, item| {
-            res.push((None, item.clone()));
+            res.push(StrupleItem::new(None, item.clone()));
             res
         });
-        Val::Tuple(Struple(items))
+        Val::Tuple(StrupleKV(items))
     }
 
     pub fn is_funcref(&self) -> bool
@@ -736,15 +736,15 @@ impl Val
             &Val::RustBlock => Type::RustBlock,
             &Val::Map(_) => lmap::MAP_TYPE,
             &Val::Tuple(ref items) if items.0.len() == 1 => {
-                items.0.get(0).unwrap().1.get_type()
+                items.0.get(0).unwrap().v.get_type()
             }
             &Val::Tuple(ref items) => {
                 let tuptypes = items
                     .0
                     .iter()
-                    .map(|i| (i.0.clone(), i.1.get_type()))
+                    .map(|i| (StrupleItem::new(i.k.clone(), i.v.get_type())))
                     .collect();
-                Type::Tuple(Struple(tuptypes))
+                Type::Tuple(StrupleKV(tuptypes))
             }
             &Val::Struct(ref typ, _) => Type::UserDef(typ.clone()),
             &Val::EnumStruct(ref typ, _, _) => Type::UserDef(typ.clone()),
@@ -797,7 +797,7 @@ impl Val
                 if pv.0.len() == iv.0.len() =>
             {
                 pv.0.iter().zip(iv.0.iter()).all(|(p_item, i_item)| {
-                    Val::_pattern_match(assigns, &p_item.1, &i_item.1)
+                    Val::_pattern_match(assigns, &p_item.v, &i_item.v)
                 })
             }
             (&Val::Struct(ref pt, ref pv), &Val::Struct(ref it, ref iv))
@@ -809,7 +809,7 @@ impl Val
                     return false;
                 }
                 pv.0.iter().zip(iv.0.iter()).all(|(p_item, i_item)| {
-                    Val::_pattern_match(assigns, &p_item.1, &i_item.1)
+                    Val::_pattern_match(assigns, &p_item.v, &i_item.v)
                 })
             }
             (
@@ -820,7 +820,7 @@ impl Val
                     return false;
                 }
                 pv.0.iter().zip(iv.0.iter()).all(|(p_item, i_item)| {
-                    Val::_pattern_match(assigns, &p_item.1, &i_item.1)
+                    Val::_pattern_match(assigns, &p_item.v, &i_item.v)
                 })
             }
             (
@@ -893,13 +893,9 @@ impl Val
             &Val::Struct(ref tri, ref flds) if Lri::nominal_eq(tri, lri) => {
                 let params = lri.params.as_ref().unwrap();
                 let m_tri = tri.specialize_params(params.clone()).unwrap();
-                let m_flds: Struple<Val> = {
+                let m_flds: Struple2<Val> = {
                     let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
-                    let im_flds = flds
-                        .0
-                        .iter()
-                        .map(|f| Ok((f.0.clone(), f.1.map(&apply_f)?)));
-                    Lresult::from_iter(im_flds)?
+                    flds.map_v(|v| v.map(&apply_f))?
                 };
                 Some(Val::Struct(m_tri, m_flds))
             }
@@ -908,9 +904,9 @@ impl Val
             {
                 let params = lri.params.as_ref().unwrap();
                 let m_tri = tri.specialize_params(params.clone()).unwrap();
-                let m_flds: Struple<Val> = {
+                let m_flds: Struple2<Val> = {
                     let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
-                    flds.map(|f: &Val| f.map(&apply_f))?
+                    flds.map_v(|f: &Val| f.map(&apply_f))?
                 };
                 Some(Val::EnumStruct(m_tri, variant.clone(), m_flds))
             }
@@ -931,13 +927,9 @@ impl Val
             {
                 let params = lri.params.as_ref().unwrap();
                 let m_tri = tri.specialize_params(params.clone()).unwrap();
-                let m_args: Struple<Val> = {
+                let m_args: Struple2<Val> = {
                     let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
-                    let im_args = args
-                        .0
-                        .iter()
-                        .map(|f| Ok((f.0.clone(), f.1.map(&apply_f)?)));
-                    Lresult::from_iter(im_args)?
+                    args.map_v(|v| v.map(&apply_f))?
                 };
                 Some(Val::FuncRef(m_tri, m_args, typ.clone()))
             }
@@ -961,15 +953,15 @@ impl Val
                 Val::Cons(Box::new(m_head), Arc::new(m_tail))
             }
             &Val::Tuple(ref flds) => {
-                let m_flds = flds.map(|f: &Val| f.map(op))?;
+                let m_flds = flds.map_v(|f: &Val| f.map(op))?;
                 Val::Tuple(m_flds)
             }
             &Val::Struct(ref typ, ref flds) => {
-                let m_flds = flds.map(|f: &Val| f.map(op))?;
+                let m_flds = flds.map_v(|f: &Val| f.map(op))?;
                 Val::Struct(typ.clone(), m_flds)
             }
             &Val::EnumStruct(ref typ, ref vname, ref flds) => {
-                let m_flds = flds.map(|f: &Val| f.map(op))?;
+                let m_flds = flds.map_v(|f: &Val| f.map(op))?;
                 Val::EnumStruct(typ.clone(), vname.clone(), m_flds)
             }
             &Val::EnumToken(ref typ, ref vname) => {
@@ -983,7 +975,7 @@ impl Val
             }
             &Val::FuncRef(ref fi, ref args, ref typ) => {
                 let m_fi = fi.clone();
-                let m_args = args.map(|a| a.map(op))?;
+                let m_args = args.map_v(|a| a.map(op))?;
                 let m_typ = typ.clone();
                 Val::FuncRef(m_fi, m_args, m_typ)
             }
@@ -1648,7 +1640,7 @@ mod tests
     use crate::leema::lri::Lri;
     use crate::leema::lstr::Lstr;
     use crate::leema::reg::Reg;
-    use crate::leema::struple::Struple;
+    use crate::leema::struple::Struple2;
     use crate::leema::val::{Type, Val};
 
 
@@ -1670,7 +1662,7 @@ mod tests
         let origl = list::cons(Val::Int(4), list::singleton(Val::Int(7)));
         let tuple = Val::tuple_from_list(&origl);
         print!("wtf?({:?})", tuple);
-        let exp = Val::Tuple(Struple::new_tuple2(Val::Int(4), Val::Int(7)));
+        let exp = Val::Tuple(Struple2::new_tuple2(Val::Int(4), Val::Int(7)));
         assert_eq!(exp, tuple);
     }
 
@@ -1709,8 +1701,8 @@ mod tests
     #[test]
     fn test_tuple()
     {
-        let a = Val::Tuple(Struple::new_tuple2(Val::Int(3), Val::Int(7)));
-        let b = Val::Tuple(Struple::new_tuple2(Val::Int(3), Val::Int(7)));
+        let a = Val::Tuple(Struple2::new_tuple2(Val::Int(3), Val::Int(7)));
+        let b = Val::Tuple(Struple2::new_tuple2(Val::Int(3), Val::Int(7)));
         assert!(a == b);
     }
 
@@ -1736,10 +1728,10 @@ mod tests
         let t = Lri::new(Lstr::Sref("Taco"));
         let a = Val::Struct(
             t.clone(),
-            Struple::new_tuple2(Val::Int(3), Val::Bool(false)),
+            Struple2::new_tuple2(Val::Int(3), Val::Bool(false)),
         );
         let b =
-            Val::Struct(t, Struple::new_tuple2(Val::Int(3), Val::Bool(false)));
+            Val::Struct(t, Struple2::new_tuple2(Val::Int(3), Val::Bool(false)));
         assert_eq!(a, b);
     }
 
@@ -1748,11 +1740,11 @@ mod tests
     {
         let a = Val::Struct(
             Lri::new(Lstr::Sref("Burrito")),
-            Struple::new_tuple2(Val::Int(3), Val::Bool(false)),
+            Struple2::new_tuple2(Val::Int(3), Val::Bool(false)),
         );
         let b = Val::Struct(
             Lri::new(Lstr::Sref("Taco")),
-            Struple::new_tuple2(Val::Int(3), Val::Bool(false)),
+            Struple2::new_tuple2(Val::Int(3), Val::Bool(false)),
         );
         assert!(a < b);
     }
@@ -1763,11 +1755,11 @@ mod tests
         let typ = Lri::new(Lstr::Sref("Taco"));
         let a = Val::Struct(
             typ.clone(),
-            Struple::new_tuple2(Val::Bool(false), Val::Int(3)),
+            Struple2::new_tuple2(Val::Bool(false), Val::Int(3)),
         );
         let b = Val::Struct(
             typ.clone(),
-            Struple::new_tuple2(Val::Bool(false), Val::Int(7)),
+            Struple2::new_tuple2(Val::Bool(false), Val::Int(7)),
         );
         assert!(a < b);
     }
@@ -1808,12 +1800,12 @@ mod tests
         let a = Val::EnumStruct(
             typ.clone(),
             Lstr::Sref("Burrito"),
-            Struple::new_tuple2(Val::Int(5), Val::Int(8)),
+            Struple2::new_tuple2(Val::Int(5), Val::Int(8)),
         );
         let b = Val::EnumStruct(
             typ,
             Lstr::Sref("Burrito"),
-            Struple::new_tuple2(Val::Int(9), Val::Int(8)),
+            Struple2::new_tuple2(Val::Int(9), Val::Int(8)),
         );
         assert!(a < b);
     }
@@ -1846,11 +1838,11 @@ mod tests
         let s = Val::EnumStruct(
             stype_lri,
             burrito_str.clone(),
-            Struple::new_tuple2(Val::Int(5), Val::Int(8)),
+            Struple2::new_tuple2(Val::Int(5), Val::Int(8)),
         );
 
         let s_str = format!("{}", s);
-        assert_eq!("tortas::Taco.Burrito(5,8,)", s_str);
+        assert_eq!("tortas::Taco.Burrito(:5,:8,)", s_str);
     }
 
     #[test]
@@ -1862,12 +1854,12 @@ mod tests
         let s = Val::Str(Lstr::Sref("hello"));
         let strct = Val::Struct(
             Lri::new(Lstr::Sref("Foo")),
-            Struple::new_tuple2(Val::Int(2), Val::Bool(true)),
+            Struple2::new_tuple2(Val::Int(2), Val::Bool(true)),
         );
         let enm = Val::EnumStruct(
             Lri::new(Lstr::Sref("Taco")),
             Lstr::Sref("Burrito"),
-            Struple::new_tuple2(Val::Int(8), Val::Int(6)),
+            Struple2::new_tuple2(Val::Int(8), Val::Int(6)),
         );
 
         assert!(f < t);
@@ -1915,8 +1907,8 @@ mod tests
     #[test]
     fn test_pattern_match_wildcard_inside_tuple()
     {
-        let patt = Val::Tuple(Struple::new_tuple2(Val::Int(1), Val::Wildcard));
-        let input = Val::Tuple(Struple::new_tuple2(Val::Int(1), Val::Int(4)));
+        let patt = Val::Tuple(Struple2::new_tuple2(Val::Int(1), Val::Wildcard));
+        let input = Val::Tuple(Struple2::new_tuple2(Val::Int(1), Val::Int(4)));
         let pmatch = Val::pattern_match(&patt, &input);
         assert!(pmatch.is_some());
     }

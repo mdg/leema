@@ -1,7 +1,7 @@
 use crate::leema::failure::Lresult;
 use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
-use crate::leema::struple::{Struple, Struple2, StrupleItem, StrupleKV};
+use crate::leema::struple::{Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{FuncType, Type, Val};
 
 use std::collections::hash_map::Keys;
@@ -19,7 +19,7 @@ macro_rules! match_err {
 #[derive(Debug)]
 pub struct TypeSet<'b>
 {
-    typedef: HashMap<Lstr, &'b HashMap<Lstr, Struple<Type>>>,
+    typedef: HashMap<Lstr, &'b HashMap<Lstr, Struple2<Type>>>,
 }
 
 impl<'b> TypeSet<'b>
@@ -31,7 +31,7 @@ impl<'b> TypeSet<'b>
         }
     }
 
-    pub fn get_typedef(&self, i: &Lri) -> Lresult<&Struple<Type>>
+    pub fn get_typedef(&self, i: &Lri) -> Lresult<&Struple2<Type>>
     {
         // switch all this to use Option/Result combinators
         if !i.has_modules() {
@@ -63,7 +63,7 @@ impl<'b> TypeSet<'b>
     pub fn import_user_types(
         &mut self,
         modname: Lstr,
-        types: &'b HashMap<Lstr, Struple<Type>>,
+        types: &'b HashMap<Lstr, Struple2<Type>>,
     )
     {
         self.typedef.insert(modname, types);
@@ -204,7 +204,7 @@ impl<'b> Inferator<'b>
             }
             &Type::Tuple(ref items) => {
                 for i in items.0.iter() {
-                    self.mark_used_typevars(&i.1)?;
+                    self.mark_used_typevars(&i.v)?;
                 }
                 Ok(Type::Void)
             }
@@ -328,12 +328,12 @@ impl<'b> Inferator<'b>
                 }
                 let mut tfld_types = vec![];
                 for (fp, ft) in flds1.0.iter().zip(item_types.0.iter()) {
-                    tfld_types.push((
-                        ft.0.clone(),
-                        self.match_pattern(typeset, &fp.1, &ft.1, lineno)?,
+                    tfld_types.push(StrupleItem::new(
+                        ft.k.clone(),
+                        self.match_pattern(typeset, &fp.v, &ft.v, lineno)?,
                     ));
                 }
-                Ok(Type::Tuple(Struple(tfld_types)))
+                Ok(Type::Tuple(StrupleKV(tfld_types)))
             }
             (
                 &Val::Struct(ref typ1, ref flds1),
@@ -357,7 +357,7 @@ impl<'b> Inferator<'b>
                 let mut tparams = vec![];
                 for (fp, ft) in flds1.0.iter().zip(flds2.0.iter()) {
                     tparams.push(
-                        self.match_pattern(typeset, &fp.1, &ft.1, lineno)?,
+                        self.match_pattern(typeset, &fp.v, &ft.v, lineno)?,
                     );
                 }
                 Ok(Type::UserDef(typ1.replace_params(tparams)))
@@ -394,7 +394,7 @@ impl<'b> Inferator<'b>
                     panic!("too many fields in pattern for: {}", new_type);
                 }
                 for (fp, ft) in flds1.0.iter().zip(flds2.0.iter()) {
-                    self.match_pattern(typeset, &fp.1, &ft.1, lineno)?;
+                    self.match_pattern(typeset, &fp.v, &ft.v, lineno)?;
                 }
                 Ok(Type::UserDef(new_type))
             }
@@ -486,7 +486,7 @@ impl<'b> Inferator<'b>
                 let infers = inners
                     .0
                     .iter()
-                    .map(|i| (i.0.clone(), self.inferred_type(&i.1)))
+                    .map(|i| StrupleItem::new(i.k.clone(), self.inferred_type(&i.v)))
                     .collect();
                 Type::Tuple(infers)
             }
@@ -604,10 +604,10 @@ impl<'b> Inferator<'b>
                 let mut mashitems = Vec::with_capacity(oldlen);
                 for (oi, ni) in olditems.0.iter().zip(newitems.0.iter()) {
                     let mi =
-                        Inferator::mash(inferences, typevars, &oi.1, &ni.1)?;
-                    mashitems.push((None, mi));
+                        Inferator::mash(inferences, typevars, &oi.v, &ni.v)?;
+                    mashitems.push(StrupleItem::new(None, mi));
                 }
-                Ok(Type::Tuple(Struple(mashitems)))
+                Ok(Type::Tuple(StrupleKV(mashitems)))
             }
             (&Type::UserDef(ref oldlri), &Type::UserDef(ref newlri)) => {
                 if oldlri.modules != newlri.modules {
@@ -724,7 +724,7 @@ mod tests
     use crate::leema::list;
     use crate::leema::lri::Lri;
     use crate::leema::lstr::Lstr;
-    use crate::leema::struple::{Struple, StrupleKV};
+    use crate::leema::struple::{Struple2, StrupleItem, StrupleKV};
     use crate::leema::val::{Type, Val};
 
     use std::collections::HashMap;
@@ -826,16 +826,16 @@ mod tests
         let fri = Lri::new(Lstr::Sref("burritos"));
         let mut t = Inferator::new(&fri);
         let tvar =
-            Type::Tuple(Struple(vec![(None, Type::Var(Lstr::Sref("Taco")))]));
+            Type::Tuple(StrupleKV(vec![StrupleItem::new(None, Type::Var(Lstr::Sref("Taco")))]));
         let ilistpatt = list::cons(
             Val::Hashtag(Lstr::Sref("leema")),
             Val::Id(Lstr::Sref("tail")),
         );
-        let listpatt = Val::Tuple(Struple(vec![(None, ilistpatt)]));
+        let listpatt = Val::Tuple(StrupleKV(vec![StrupleItem::new(None, ilistpatt)]));
         let ts = TypeSet::new();
         t.match_pattern(&ts, &listpatt, &tvar, 14).unwrap();
 
-        let exp = Type::Tuple(Struple(vec![(
+        let exp = Type::Tuple(StrupleKV(vec![StrupleItem::new(
             None,
             Type::StrictList(Box::new(Type::Hashtag)),
         )]));
@@ -849,8 +849,8 @@ mod tests
         let fri = Lri::new(Lstr::Sref("burritos"));
         let mut t = Inferator::new(&fri);
         let tvar =
-            Type::Tuple(Struple(vec![(None, Type::Var(Lstr::Sref("Taco")))]));
-        let listpatt = Val::Tuple(Struple::new_tuple2(
+            Type::Tuple(StrupleKV(vec![StrupleItem::new(None, Type::Var(Lstr::Sref("Taco")))]));
+        let listpatt = Val::Tuple(Struple2::new_tuple2(
             Val::Hashtag(Lstr::Sref("leema")),
             Val::Id(Lstr::Sref("tail")),
         ));
@@ -863,12 +863,15 @@ mod tests
     {
         let mut inferences = HashMap::new();
         let typevars = HashMap::new();
-        let oldt = Type::Tuple(Struple(vec![
-            (None, Type::Var(Lstr::Sref("A"))),
-            (None, Type::Var(Lstr::Sref("B"))),
+        let oldt = Type::Tuple(StrupleKV(vec![
+            StrupleItem::new(None, Type::Var(Lstr::Sref("A"))),
+            StrupleItem::new(None, Type::Var(Lstr::Sref("B"))),
         ]));
         let newt =
-            Type::Tuple(Struple(vec![(None, Type::Int), (None, Type::Str)]));
+            Type::Tuple(StrupleKV(vec![
+                StrupleItem::new(None, Type::Int),
+                StrupleItem::new(None, Type::Str),
+            ]));
 
         let result = Inferator::mash(&mut inferences, &typevars, &oldt, &newt);
         result.unwrap();

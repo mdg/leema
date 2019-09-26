@@ -6,7 +6,7 @@ use crate::leema::lmap::Lmap;
 use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::reg::Reg;
-use crate::leema::struple::Struple;
+use crate::leema::struple::{Struple2, StrupleItem};
 use crate::leema::val::{Env, Type, Val};
 
 use std::mem;
@@ -203,7 +203,7 @@ impl Fiber
     ) -> Lresult<Event>
     {
         let mut funcri_ref;
-        let (funcri, args): (&Lri, Struple<Val>) = {
+        let (funcri, args): (&Lri, Struple2<Val>) = {
             let ref fname_val = self.head.e.get_reg(freg)?;
             match *fname_val {
                 &Val::FuncRef(ref callri, ref args, _) => {
@@ -212,7 +212,7 @@ impl Fiber
                 &Val::Fref(ref modname, ref name, ref args, _) => {
                     funcri_ref =
                         Lri::with_modules(modname.clone(), Lstr::Sref(name));
-                    (&funcri_ref, Struple::from(args.clone()))
+                    (&funcri_ref, Struple2::from(args.clone()))
                 }
                 _ => {
                     return Err(rustfail!(
@@ -246,7 +246,7 @@ impl Fiber
         reg: Reg,
         new_typ: &Type,
         variant: &Lstr,
-        flds: &Struple<Type>,
+        flds: &Struple2<Type>,
     ) -> Lresult<Event>
     {
         let construple = match self.head.e.get_params() {
@@ -272,17 +272,17 @@ impl Fiber
                         .iter()
                         .zip(flds.0.iter())
                         .map(|(i, f)| {
-                            if i.0.is_some() {
-                                (i.0.clone(), i.1.clone())
+                            if i.k.is_some() {
+                                StrupleItem::new(i.k.clone(), i.v.clone())
                             } else {
-                                (f.0.clone(), i.1.clone())
+                                StrupleItem::new(f.k.clone(), i.v.clone())
                             }
                         })
                         .collect();
                     Val::EnumStruct(
                         i_new_typ.clone(),
                         variant.clone(),
-                        Struple(new_items),
+                        new_items,
                     )
                 } else {
                     return Err(rustfail!(
@@ -309,7 +309,7 @@ impl Fiber
         &mut self,
         reg: Reg,
         new_typ: &Type,
-        flds: &Struple<Type>,
+        flds: &Struple2<Type>,
     ) -> Lresult<Event>
     {
         let construple = match self.head.e.get_params() {
@@ -331,14 +331,14 @@ impl Fiber
                         .iter()
                         .zip(flds.0.iter())
                         .map(|(i, f)| {
-                            if i.0.is_some() {
-                                (i.0.clone(), i.1.clone())
+                            if i.k.is_some() {
+                                StrupleItem::new(i.k.clone(), i.v.clone())
                             } else {
-                                (f.0.clone(), i.1.clone())
+                                StrupleItem::new(f.k.clone(), i.v.clone())
                             }
                         })
                         .collect();
-                    Val::Struct(i_new_typ.clone(), Struple(new_items))
+                    Val::Struct(i_new_typ.clone(), new_items)
                 } else {
                     return Err(rustfail!(
                         "leema_failure",
@@ -474,11 +474,11 @@ impl Fiber
         }
     }
 
-    fn call_arg_failure(args: &Struple<Val>) -> Option<&Val>
+    fn call_arg_failure(args: &Struple2<Val>) -> Option<&Val>
     {
         for i in args.0.iter() {
-            if i.1.is_failure() {
-                return Some(&i.1);
+            if i.v.is_failure() {
+                return Some(&i.v);
             }
         }
         None
@@ -494,7 +494,7 @@ mod tests
     use crate::leema::lri::Lri;
     use crate::leema::lstr::Lstr;
     use crate::leema::reg::Reg;
-    use crate::leema::struple::Struple;
+    use crate::leema::struple::StrupleKV;
     use crate::leema::val::Val;
 
 
@@ -506,7 +506,7 @@ mod tests
         let main_parent = Parent::new_main();
         let callri = Lri::with_modules(Lstr::Sref("foo"), Lstr::Sref("bar"));
         let mut frame =
-            Frame::new_root(main_parent, callri, Struple(Vec::new()));
+            Frame::new_root(main_parent, callri, StrupleKV(Vec::new()));
         frame.e.set_reg(r1, Val::Str(Lstr::Sref("i like ")));
         frame.e.set_reg(r2, Val::Str(Lstr::Sref("burritos")));
         let mut fib = Fiber::spawn(1, frame);

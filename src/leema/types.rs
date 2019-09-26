@@ -1,7 +1,7 @@
 use crate::leema::list;
 use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
-use crate::leema::struple::Struple;
+use crate::leema::struple::{StrupleKV, StrupleItem};
 use crate::leema::val::{Type, Val};
 
 
@@ -21,7 +21,7 @@ pub fn new_some(v: Val) -> Val
 {
     let some_type = v.get_type();
     let optype = option_type(some_type);
-    let fields = Struple(vec![(None, v)]);
+    let fields = StrupleKV(vec![StrupleItem::new(None, v)]);
     Val::EnumStruct(optype, Lstr::Sref("Some"), fields)
 }
 
@@ -44,9 +44,9 @@ pub fn get_named_struct_field<'a, 'b>(
         }
     };
     for (i, f) in fields.0.iter().enumerate() {
-        match &f.0 {
+        match &f.k {
             &Some(ref it_name) if it_name == name => {
-                return Some((i as i16, &f.1));
+                return Some((i as i16, &f.v));
             }
             _ => {
                 continue;
@@ -59,7 +59,7 @@ pub fn get_named_struct_field<'a, 'b>(
 pub fn get_indexed_struct_field(
     sv: &Val,
     idx: i16,
-) -> Option<&(Option<Lstr>, Val)>
+) -> Option<&StrupleItem<Option<Lstr>, Val>>
 {
     let fields = match sv {
         &Val::Struct(_, ref fld_struple) => fld_struple,
@@ -106,7 +106,7 @@ pub fn get_field_type<'a, 'b>(
         }
         let some_fld_name = get_indexed_struct_field(fld_name_val, 0)
             .expect("some value is not found");
-        if fld_name != some_fld_name.1.str() {
+        if fld_name != some_fld_name.v.str() {
             continue;
         }
         let opt_typeval = get_named_struct_field(f, &Lstr::Sref("type"));
@@ -128,9 +128,9 @@ pub fn new_struct_field(name: Option<Lstr>, typ: &Type) -> Val
         Some(inner_name) => new_some(Val::Str(inner_name.clone())),
         None => new_none(Type::Str),
     };
-    let fields = Struple(vec![
-        (Some(Lstr::Sref("name")), name_val),
-        (Some(Lstr::Sref("type")), Val::Type(typ.clone())),
+    let fields = StrupleKV(vec![
+        StrupleItem::new(Some(Lstr::Sref("name")), name_val),
+        StrupleItem::new(Some(Lstr::Sref("type")), Val::Type(typ.clone())),
     ]);
     Val::Struct(STRUCT_FIELD_LRI.clone(), fields)
 }
@@ -146,9 +146,9 @@ pub fn new_type_val(name: Lri, fields: &Vec<(Option<Lstr>, Type)>) -> Val
 
     let struct_type_lri =
         Lri::with_modules(Lstr::Sref("types"), Lstr::Sref("TypeVal"));
-    let struct_fields_struple = Struple(vec![
-        (Some(Lstr::Sref("name")), Val::Str(name.localid.clone())),
-        (Some(Lstr::Sref("fields")), struct_field_vals),
+    let struct_fields_struple = StrupleKV(vec![
+        StrupleItem::new(Some(Lstr::Sref("name")), Val::Str(name.localid.clone())),
+        StrupleItem::new(Some(Lstr::Sref("fields")), struct_field_vals),
     ]);
 
     Val::Struct(struct_type_lri.clone(), struct_fields_struple)

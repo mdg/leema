@@ -5,7 +5,7 @@ use crate::leema::frame;
 use crate::leema::lstr::Lstr;
 use crate::leema::reg::{Reg, RegStack, RegTab};
 use crate::leema::rsrc;
-use crate::leema::struple::Struple;
+use crate::leema::struple::{Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{Type, Val};
 use crate::leema::worker::RustFuncContext;
 
@@ -43,8 +43,8 @@ pub enum Op
     SetResult(Reg),
     PropagateFailure(Reg, u16),
     ConstVal(Reg, Val),
-    // ConstructEnum(Reg, Type, Lstr, Struple<Type>),
-    // Construple(Reg, Type, Struple<Type>),
+    // ConstructEnum(Reg, Type, Lstr, Struple2<Type>),
+    // Construple(Reg, Type, Struple2<Type>),
     Copy(Reg, Reg),
     // Fork(Reg, Reg, Reg),
     Jump(i16),
@@ -302,7 +302,7 @@ pub fn make_sub_ops(input: &Ixpr) -> Oxpr
         Source::ConstVal(Val::FuncRef(ref cri, ref cvs, ref typ)) => {
             let mut ops = Vec::with_capacity(cvs.0.len() + 1);
             let dst = rt.dst().clone();
-            let blanks = Struple(
+            let blanks = Struple2(
                 cvs.0.iter().map(|cv| (cv.0.clone(), Val::Void)).collect(),
             );
             ops.push((
@@ -387,7 +387,7 @@ pub fn make_construple_ops(
     dst: Reg,
     _typ: &Type,
     variant: &Option<Lstr>,
-    _flds: &Struple<Type>,
+    _flds: &Struple2<Type>,
 ) -> Oxpr
 {
     let construct = match variant {
@@ -565,12 +565,15 @@ pub fn make_pattern_val(pattern: AstNode) -> Val
         Ast::ConstVal(v) => v,
         Ast::Wildcard => Val::Wildcard,
         Ast::Tuple(vars) => {
-            let reg_items = vars
+            let reg_items: StrupleKV<Option<Lstr>, Val> = vars
                 .0
                 .into_iter()
-                .map(|v| (v.k.map(|k| Lstr::Sref(k)), make_pattern_val(v.v)))
+                .map(|i| StrupleItem::new(
+                    i.k.map(|k| Lstr::Sref(k)),
+                    make_pattern_val(i.v),
+                ))
                 .collect();
-            Val::Tuple(Struple(reg_items))
+            Val::Tuple(reg_items)
         }
         /*
         &Val::Cons(ref head, ref tail) => {
@@ -584,7 +587,7 @@ pub fn make_pattern_val(pattern: AstNode) -> Val
                 .iter()
                 .map(|v| (v.0.clone(), assign_pattern_registers(rt, &v.1)))
                 .collect();
-            Val::Struct(styp.clone(), Struple(reg_items))
+            Val::Struct(styp.clone(), Struple2(reg_items))
         }
         &Val::EnumStruct(ref styp, ref variant, ref vars) => {
             let reg_items = vars
@@ -592,7 +595,7 @@ pub fn make_pattern_val(pattern: AstNode) -> Val
                 .iter()
                 .map(|v| (v.0.clone(), assign_pattern_registers(rt, &v.1)))
                 .collect();
-            Val::EnumStruct(styp.clone(), variant.clone(), Struple(reg_items))
+            Val::EnumStruct(styp.clone(), variant.clone(), Struple2(reg_items))
         }
         &Val::EnumToken(ref styp, ref variant) => {
             Val::EnumToken(styp.clone(), variant.clone())

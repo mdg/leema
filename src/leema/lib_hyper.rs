@@ -3,7 +3,7 @@ use crate::leema::frame::FrameTrace;
 use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::rsrc::{self, Rsrc, RunQueue};
-use crate::leema::struple::Struple;
+use crate::leema::struple::{StrupleItem, StrupleKV};
 use crate::leema::val::{Type, Val};
 
 use std::fmt;
@@ -142,10 +142,10 @@ pub fn new_leema_request(req: &Request<Body>) -> Val
     let leema_path = Val::Str(Lstr::from(req.uri().path().to_string()));
 
     let fields = vec![
-        (Some(Lstr::Sref("method")), leema_method),
-        (Some(Lstr::Sref("path")), leema_path),
+        StrupleItem::new(Some(Lstr::Sref("method")), leema_method),
+        StrupleItem::new(Some(Lstr::Sref("path")), leema_path),
     ];
-    Val::Struct(REQUEST_LRI, Struple(fields))
+    Val::Struct(REQUEST_LRI, StrupleKV(fields))
 }
 
 pub fn handle_request(
@@ -156,7 +156,9 @@ pub fn handle_request(
 {
     vout!("handle_request({},\n\t{:?})", func, req);
     let leema_req = new_leema_request(&req);
-    let args = Struple(vec![(Some(Lstr::Sref("req")), leema_req)]);
+    let args = StrupleKV(vec![
+        StrupleItem::new(Some(Lstr::Sref("req")), leema_req),
+    ]);
     Box::new(
         caller
             .spawn(func, args)
@@ -197,10 +199,10 @@ pub fn new_client_response(code: i64, req_time: Duration, body: String) -> Val
     let sub_mics: i64 = req_time.subsec_micros() as i64;
     let mics = sec_mics + sub_mics;
 
-    let fields = Struple::new_indexed(vec![
-        Val::Int(code),
-        Val::Str(Lstr::from(body)),
-        Val::Int(mics),
+    let fields = StrupleKV(vec![
+        StrupleItem::new(None, Val::Int(code)),
+        StrupleItem::new(None, Val::Str(Lstr::from(body))),
+        StrupleItem::new(None, Val::Int(mics)),
     ]);
     Val::Struct(CLIENT_RESP_TYPE, fields)
 }
