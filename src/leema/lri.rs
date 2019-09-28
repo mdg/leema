@@ -209,32 +209,6 @@ impl Lri
         Ok(self.replace_params(other))
     }
 
-    pub fn make_params_typevars(&mut self)
-    {
-        self.params.as_mut().map(|params| {
-            for p in params {
-                *p = Lri::make_param_typevar(p);
-            }
-        });
-    }
-
-    pub fn make_param_typevar(p: &Type) -> Type
-    {
-        match p {
-            Type::UserDef(ref tri) if tri.modules.is_some() => {
-                panic!("type parameters cannot have module prefix: {}", tri);
-            }
-            Type::UserDef(ref tri) if tri.params.is_some() => {
-                panic!("type parameters cannot have type parameters: {}", tri);
-            }
-            Type::UserDef(ref tri) => Type::Var(tri.localid.clone()),
-            Type::Var(ref v) => Type::Var(v.clone()),
-            _ => {
-                panic!("cannot make typevar from: {}", p);
-            }
-        }
-    }
-
     pub fn local_only(&self) -> bool
     {
         self.modules.is_none() && self.params.is_none()
@@ -269,25 +243,6 @@ impl Lri
     pub fn has_params(&self) -> bool
     {
         self.params.is_some()
-    }
-
-    pub fn type_var_names(&self) -> Vec<Lstr>
-    {
-        self.params
-            .as_ref()
-            .map(|some_vars| {
-                some_vars
-                    .iter()
-                    .filter_map(|v| {
-                        if let Type::Var(ref vname) = v {
-                            Some(vname.clone())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect()
-            })
-            .unwrap_or_default()
     }
 
     pub fn nominal_eq(a: &Lri, b: &Lri) -> bool

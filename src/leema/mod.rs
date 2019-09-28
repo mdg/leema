@@ -13,7 +13,6 @@ pub mod code;
 pub mod fiber;
 pub mod frame;
 pub mod grammar2;
-pub mod infer;
 pub mod inter;
 pub mod io;
 pub mod list;

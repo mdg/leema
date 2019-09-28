@@ -52,10 +52,6 @@ pub fn cons(head: Val, tail: Val) -> Val
     match tail {
         Val::Cons(_, _) => Val::Cons(Box::new(head), Arc::new(tail)),
         Val::Nil => Val::Cons(Box::new(head), Arc::new(Val::Nil)),
-        Val::Id(_) => {
-            // this is used when parsing list patterns
-            Val::Cons(Box::new(head), Arc::new(tail))
-        }
         Val::Wildcard => Val::Cons(Box::new(head), Arc::new(tail)),
         Val::PatternVar(_) => Val::Cons(Box::new(head), Arc::new(tail)),
         _ => {

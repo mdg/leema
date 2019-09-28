@@ -491,7 +491,7 @@ impl<'p> VarTypes<'p>
     {
         match &*node.node {
             Ast::Id1(id) => {
-                let tvar = Type::Var(lstrf!("inferred:{}", id));
+                let tvar = Type::LocalVar(id);
                 self.vartypes.insert(id, tvar.clone());
                 Ok(tvar)
             }
@@ -543,13 +543,21 @@ impl<'p> fmt::Debug for VarTypes<'p>
     }
 }
 
+/// Check types within a function call
+///
+/// Normally match types w/ self.match_type(t0, t1)
+/// If there's a generic call, put the arg types in scope
+/// how to differentiate between regular type vars and function type vars?
+/// Need to collect which generic funcs have types applied
+/// Function type parameters should be converted to real types
+/// before typechecking
 struct TypeCheck<'p>
 {
     // infer: Inferator,
     local_mod: &'p ProtoModule,
     lib: &'p ProtoLib,
     result: &'p Type,
-    infers: HashMap<Lstr, Type>,
+    infers: HashMap<&'static str, Type>,
 }
 
 impl<'p> TypeCheck<'p>
@@ -568,16 +576,17 @@ impl<'p> TypeCheck<'p>
         }
     }
 
+    // pub fn match_type(&mut self, t0: &Type, t1: &Type, opens: &mut StrupleKV<&'static str, Type>) -> Lresult<Type>
     pub fn match_type(&mut self, t0: &Type, t1: &Type) -> Lresult<Type>
     {
         match (t0, t1) {
-            (Type::Var(v0), Type::Var(_)) => {
+            (Type::LocalVar(v0), Type::LocalVar(_)) => {
                 lfailoc!(self.infer_type(v0, t1))
             }
-            (Type::Var(v0), t1) => {
+            (Type::LocalVar(v0), t1) => {
                 lfailoc!(self.infer_type(v0, t1))
             }
-            (t0, Type::Var(ref v1)) => {
+            (t0, Type::LocalVar(ref v1)) => {
                 lfailoc!(self.infer_type(v1, t0))
             }
             (t0, Type::Unknown) => {
@@ -601,7 +610,7 @@ impl<'p> TypeCheck<'p>
         }
     }
 
-    pub fn infer_type(&mut self, var: &Lstr, t: &Type) -> Lresult<Type>
+    pub fn infer_type(&mut self, var: &'static str, t: &Type) -> Lresult<Type>
     {
         if self.infers.contains_key(var) {
             let var_type = self.infers.get(var).unwrap();
@@ -618,7 +627,7 @@ impl<'p> TypeCheck<'p>
         } else {
             if t.is_closed() {
 eprintln!("set inferred: {} == {}", var, t);
-                self.infers.insert(var.clone(), t.clone());
+                self.infers.insert(var, t.clone());
             }
             Ok(t.clone())
         }
@@ -853,7 +862,7 @@ pub struct Semantics
     // pub closed: Option<HashSet<Lstr>>,
     pub src: AstNode,
     pub args: Vec<Option<&'static str>>,
-    pub infers: HashMap<Lstr, Type>,
+    pub infers: HashMap<&'static str, Type>,
 }
 
 impl Semantics

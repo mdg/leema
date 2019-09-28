@@ -2,7 +2,6 @@ use crate::leema::code::Code;
 use crate::leema::failure::Lresult;
 use crate::leema::frame::Event;
 use crate::leema::io::RunQueueReceiver;
-use crate::leema::lstr::Lstr;
 use crate::leema::rsrc;
 use crate::leema::val::{Type, Val};
 use crate::leema::worker::RustFuncContext;
@@ -20,7 +19,7 @@ impl rsrc::Rsrc for Lfuture
 {
     fn get_type(&self) -> Type
     {
-        Type::future(Type::Var(Lstr::Sref("T")))
+        Type::future(Type::OpenVar("T"))
     }
 }
 

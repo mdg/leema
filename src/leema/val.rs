@@ -10,7 +10,6 @@ use crate::leema::sendclone::{self, SendClone};
 use crate::leema::struple::{Struple2, StrupleKV, StrupleItem};
 
 use std::cmp::{Ordering, PartialEq, PartialOrd};
-use std::collections::HashMap;
 use std::fmt;
 use std::io::Error;
 use std::iter::FromIterator;
@@ -116,7 +115,8 @@ pub enum Type
     Any,
 
     Unknown,
-    Var(Lstr),
+    OpenVar(&'static str),
+    LocalVar(&'static str),
 
     // obsolete, to be deleted
     Mod(ModLocalId),
@@ -140,11 +140,6 @@ impl Type
         })
     }
 
-    pub fn new_var(var_name: &str) -> Type
-    {
-        Type::Var(Lstr::from(format!("TypeOf {}", var_name)))
-    }
-
     pub fn future(inner: Type) -> Type
     {
         Type::UserDef(Lri::full(
@@ -163,7 +158,8 @@ impl Type
             &Type::Int => Lstr::Sref("Int"),
             &Type::UserDef(ref name) => Lstr::from(name),
             &Type::Void => Lstr::Sref("Void"),
-            &Type::Var(ref name) => Lstr::from(format!("${}", name)),
+            &Type::OpenVar(name) => Lstr::from(format!("${}", name)),
+            &Type::LocalVar(name) => Lstr::from(format!("local:{}", name)),
             _ => {
                 panic!("no typename for {:?}", self);
             }
@@ -195,7 +191,7 @@ impl Type
     {
         match self {
             Type::Open(_, _) => true,
-            Type::Var(_) => true,
+            Type::OpenVar(_) => true,
             Type::Tuple(items) => items.0.iter().any(|i| i.v.is_open()),
             Type::Unknown => true,
             _ => false,
@@ -238,22 +234,6 @@ impl Type
         Ok(res)
     }
 
-    pub fn replace_typevars(
-        &self,
-        vars: &HashMap<Lstr, &Type>,
-    ) -> Lresult<Option<Type>>
-    {
-        match self {
-            Type::Var(ref name) => {
-                match vars.get(name) {
-                    Some(typ) => return Ok(Some((*typ).clone())),
-                    None => return Ok(Some(Type::Unknown)),
-                }
-            }
-            _ => Ok(None),
-        }
-    }
-
     pub fn deep_clone(&self) -> Type
     {
         match self {
@@ -275,7 +255,8 @@ impl Type
                 Type::SpecialFunc(vars.clone(), ftyp.clone())
             }
             &Type::Unknown => Type::Unknown,
-            &Type::Var(ref id) => Type::Var(id.clone_for_send()),
+            &Type::OpenVar(id) => Type::OpenVar(id),
+            &Type::LocalVar(id) => Type::LocalVar(id),
             &Type::Void => Type::Void,
             _ => {
                 panic!("cannot deep_clone Type: {:?}", self);
@@ -287,7 +268,8 @@ impl Type
     {
         match self {
             &Type::StrictList(ref inner) => (**inner).clone(),
-            &Type::Var(_) => Type::Unknown,
+            &Type::OpenVar(_) => Type::Unknown,
+            &Type::LocalVar(_) => Type::Unknown,
             &Type::Unknown => Type::Unknown,
             _ => {
                 panic!("cannot get inner type of a not list: {:?}", self);
@@ -385,7 +367,8 @@ impl fmt::Display for Type
             &Type::Any => write!(f, "Any"),
 
             &Type::Unknown => write!(f, "TypeUnknown"),
-            &Type::Var(ref name) => write!(f, "${}", name),
+            &Type::OpenVar(ref name) => write!(f, "${}", name),
+            &Type::LocalVar(ref name) => write!(f, "local${}", name),
         }
     }
 }
@@ -431,7 +414,8 @@ impl fmt::Debug for Type
             &Type::Any => write!(f, "Any"),
 
             &Type::Unknown => write!(f, "TypeUnknown"),
-            &Type::Var(ref name) => write!(f, "${}", name),
+            &Type::OpenVar(name) => write!(f, "${}", name),
+            &Type::LocalVar(name) => write!(f, "local${}", name),
         }
     }
 }
@@ -539,7 +523,6 @@ pub enum Val
     Token(Lri),
     Map(LmapNode),
     Failure2(Box<Failure>),
-    Id(Lstr),
     Type(Type),
     Lib(Arc<LibVal>),
     Fref(Lstr, &'static str, Struple2<Val>, Type),
@@ -559,14 +542,6 @@ pub const TRUE: Val = Val::Bool(true);
 
 impl Val
 {
-    pub fn is_id(&self) -> bool
-    {
-        match self {
-            &Val::Id(_) => true,
-            _ => false,
-        }
-    }
-
     pub fn empty_tuple() -> Val
     {
         Val::new_tuple(0)
@@ -624,7 +599,6 @@ impl Val
     pub fn str(&self) -> &str
     {
         match self {
-            &Val::Id(ref id) => id.str(),
             &Val::Str(ref s) => s.str(),
             &Val::Hashtag(ref s) => s.str(),
             _ => {
@@ -732,7 +706,6 @@ impl Val
             &Val::Void => Type::Void,
             &Val::Wildcard => Type::Unknown,
             &Val::PatternVar(_) => Type::Unknown,
-            &Val::Id(ref var_name) => Type::new_var(var_name),
             &Val::RustBlock => Type::RustBlock,
             &Val::Map(_) => lmap::MAP_TYPE,
             &Val::Tuple(ref items) if items.0.len() == 1 => {
@@ -875,7 +848,7 @@ impl Val
                 .zip(lri.params.as_ref().unwrap().iter())
                 .map(|(ref tvar, ref tval)| {
                     let var_key = match tvar {
-                        Type::Var(ref name) => name.clone(),
+                        Type::OpenVar(name) => name.clone(),
                         _ => {
                             return Err(Failure::new(
                                 "type_param",
@@ -885,7 +858,7 @@ impl Val
                     };
                     Ok((var_key, (*tval).clone()))
                 });
-            let ok_mapped_types: Vec<(Lstr, Type)> =
+            let ok_mapped_types: Vec<(&'static str, Type)> =
                 Lresult::from_iter(mapped_types)?;
             println!("specialization is: {:?}", ok_mapped_types);
         }
@@ -1042,7 +1015,6 @@ impl Val
                     f.code,
                 )))
             }
-            &Val::Id(ref s) => Val::Id(s.clone_for_send()),
             &Val::Type(ref t) => Val::Type(t.deep_clone()),
             &Val::ResourceRef(r) => Val::ResourceRef(r),
             // &Val::Lib(LibVal),
@@ -1073,13 +1045,6 @@ impl Val
                 write!(f, "")
             }
             &Val::Wildcard => write!(f, ";_"),
-            &Val::Id(ref name) => {
-                if dbg {
-                    write!(f, ";{:?}", l)
-                } else {
-                    write!(f, ";{}", name)
-                }
-            }
             &Val::PatternVar(_) => write!(f, ";{:?}", l),
             _ => {
                 panic!("Not a list: {:?}", l);
@@ -1151,7 +1116,6 @@ impl fmt::Display for Val
             Val::ResourceRef(rid) => write!(f, "ResourceRef({})", rid),
             Val::RustBlock => write!(f, "RustBlock"),
             Val::Failure2(ref fail) => write!(f, "Failure({:?})", **fail),
-            Val::Id(ref name) => write!(f, "{}", name),
             Val::Type(ref t) => write!(f, "{}", t),
             Val::Fref(ref module, ref id, ref args, ref typ) => {
                 write!(f, "{}::{}({:?}): {}", module, id, args, typ)
@@ -1202,7 +1166,6 @@ impl fmt::Debug for Val
             Val::ResourceRef(rid) => write!(f, "ResourceRef({})", rid),
             Val::RustBlock => write!(f, "RustBlock"),
             Val::Failure2(ref fail) => write!(f, "Failure({:?})", fail),
-            Val::Id(ref id) => write!(f, "Id({})", id),
             Val::Type(ref t) => write!(f, "TypeVal({:?})", t),
             Val::Fref(ref module, ref id, ref args, ref typ) => {
                 write!(f, "Fref({}::{} {:?}: {})", module, id, args, typ)
@@ -1333,7 +1296,6 @@ impl PartialOrd for Val
             (&Val::Type(ref a), &Val::Type(ref b)) => {
                 PartialOrd::partial_cmp(a, b)
             }
-            (&Val::Id(ref a), &Val::Id(ref b)) => PartialOrd::partial_cmp(a, b),
             (&Val::Wildcard, &Val::Wildcard) => Some(Ordering::Equal),
             (&Val::Nil, &Val::Cons(_, _)) => Some(Ordering::Less),
             (&Val::Cons(_, _), &Val::Nil) => Some(Ordering::Greater),
@@ -1418,8 +1380,6 @@ impl PartialOrd for Val
             (_, &Val::Hashtag(_)) => Some(Ordering::Greater),
             (&Val::Type(_), _) => Some(Ordering::Less),
             (_, &Val::Type(_)) => Some(Ordering::Greater),
-            (&Val::Id(_), _) => Some(Ordering::Less),
-            (_, &Val::Id(_)) => Some(Ordering::Greater),
             (&Val::ResourceRef(_), _) => Some(Ordering::Less),
             (_, &Val::ResourceRef(_)) => Some(Ordering::Greater),
             (&Val::Nil, _) => Some(Ordering::Less),

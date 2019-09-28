@@ -368,7 +368,7 @@ fn ast_to_type(
         Ast::Id1("Int") => Type::Int,
         Ast::Id1("Str") => Type::Str,
         Ast::Id1("#") => Type::Hashtag,
-        Ast::Id1(id) if opens.contains(&id) => Type::Var(Lstr::Sref(id)),
+        Ast::Id1(id) if opens.contains(id) => Type::LocalVar(id),
         Ast::Id1(id) => Type::User(local_mod.clone(), id),
         Ast::Id2(module, id) => Type::User(module.clone(), id),
         Ast::List(inner_items) if inner_items.len() == 1 => {
