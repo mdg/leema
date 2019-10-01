@@ -7,8 +7,6 @@ use crate::leema::val::Val;
 use std::clone::Clone;
 use std::fmt;
 use std::iter::{FromIterator, Iterator};
-use std::ops::Index;
-use std::slice::SliceIndex;
 
 
 #[derive(Clone)]
@@ -70,6 +68,14 @@ where
     }
 }
 
+impl<K, V> From<(K, V)> for StrupleItem<K, V>
+{
+    fn from(item: (K, V)) -> StrupleItem<K, V>
+    {
+        StrupleItem{k: item.0, v: item.1}
+    }
+}
+
 impl<K, V> Default for StrupleItem<K, V>
 where
     K: Default,
@@ -84,211 +90,73 @@ where
     }
 }
 
-#[derive(Clone)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
-#[derive(Eq)]
-#[derive(Ord)]
-#[derive(Hash)]
-pub struct StrupleKV<K, V>(pub Vec<StrupleItem<K, V>>);
 
+pub type StrupleKV<K, V> = Vec<StrupleItem<K, V>>;
+pub type Struple2<T> = Vec<StrupleItem<Option<Lstr>, T>>;
 
-pub type Struple2<T> = StrupleKV<Option<Lstr>, T>;
-
-impl<K, V> StrupleKV<K, V>
+pub fn iter_k<K, V>(s: &StrupleKV<K, V>) -> impl Iterator<Item = &K>
 {
-    pub fn new() -> StrupleKV<K, V>
-    {
-        StrupleKV(vec![])
-    }
-
-    pub fn none() -> StrupleKV<K, V>
-    {
-        StrupleKV(vec![])
-    }
-
-    pub fn from_vec(items: Vec<StrupleItem<K, V>>) -> StrupleKV<K, V>
-    {
-        StrupleKV(items)
-    }
-
-    pub fn into_iter(self) -> impl IntoIterator<Item = StrupleItem<K, V>>
-    {
-        self.0.into_iter()
-    }
-
-    pub fn is_empty(&self) -> bool
-    {
-        self.0.is_empty()
-    }
-
-    pub fn len(&self) -> usize
-    {
-        self.0.len()
-    }
-
-    pub fn get(&self, idx: usize) -> Option<&StrupleItem<K, V>>
-    {
-        self.0.get(idx)
-    }
-
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &StrupleItem<K, V>>
-    {
-        self.0.iter()
-    }
-
-    pub fn iter_k(&self) -> impl Iterator<Item = &K>
-    {
-        self.iter().map(|kv| &kv.k)
-    }
-
-    pub fn iter_v(&self) -> impl Iterator<Item = &V>
-    {
-        self.iter().map(|kv| &kv.v)
-    }
-
-    pub fn map_v<F, U>(&self, mut f: F) -> Lresult<StrupleKV<K, U>>
-    where
-        F: FnMut(&V) -> Lresult<U>,
-        K: Clone,
-    {
-        let m_result_items: Vec<Lresult<StrupleItem<K, U>>> = self
-            .0
-            .iter()
-            .map(|kv| {
-                let u = f(&kv.v)?;
-                Ok(StrupleItem::new(kv.k.clone(), u))
-            })
-            .collect();
-        let m_items = Lresult::from_iter(m_result_items)?;
-        Ok(StrupleKV::from_vec(m_items))
-    }
-
-    pub fn map_v_into<F, U>(self, mut f: F) -> Lresult<StrupleKV<K, U>>
-    where
-        F: FnMut(V) -> Lresult<U>,
-    {
-        let m_result_items: Vec<Lresult<StrupleItem<K, U>>> = self
-            .0
-            .into_iter()
-            .map(|kv| {
-                let u = f(kv.v)?;
-                Ok(StrupleItem::new(kv.k, u))
-            })
-            .collect();
-        let m_items = Lresult::from_iter(m_result_items)?;
-        Ok(StrupleKV::from_vec(m_items))
-    }
+    s.iter().map(|kv| &kv.k)
 }
 
-impl<K, V> StrupleKV<K, V>
+pub fn iter_v<K, V>(s: &StrupleKV<K, V>) -> impl Iterator<Item = &V>
+{
+    s.iter().map(|kv| &kv.v)
+}
+
+pub fn map_v<K, V, F, U>(s: &StrupleKV<K, V>, mut f: F) -> Lresult<StrupleKV<K, U>>
+where
+    F: FnMut(&V) -> Lresult<U>,
+    K: Clone,
+{
+    // let m_result_items: Vec<Lresult<StrupleItem<K, U>>> = s
+    let m_result_items = s
+        .iter()
+        .map(|kv| {
+            let u = f(&kv.v)?;
+            Ok(StrupleItem::new(kv.k.clone(), u))
+        });
+    Lresult::from_iter(m_result_items)
+}
+
+pub fn map_v_into<K, V, F, U>(s: StrupleKV<K, V>, mut f: F) -> Lresult<StrupleKV<K, U>>
+where
+    F: FnMut(V) -> Lresult<U>,
+{
+    // let m_result_items: Vec<Lresult<StrupleItem<K, U>>> = s
+    let m_result_items = s
+        .into_iter()
+        .map(|kv| {
+            let u = f(kv.v)?;
+            Ok(StrupleItem::new(kv.k, u))
+        });
+    Lresult::from_iter(m_result_items)
+}
+
+pub fn find<'s, 'k, K, V>(s: &'s StrupleKV<K, V>, key: &'k K) -> Option<(usize, &'s V)>
 where
     K: PartialEq,
 {
-    pub fn find(&self, key: &K) -> Option<(usize, &V)>
-    {
-        self.0
-            .iter()
-            .enumerate()
-            .find(|(_, i)| i.k == *key)
-            .map(|(idx, item)| (idx, &item.v))
-    }
-
-    pub fn contains_key(&self, k: &K) -> bool
-    {
-        self.find(k).is_some()
-    }
+    s
+        .iter()
+        .enumerate()
+        .find(|(_, i)| i.k == *key)
+        .map(|(idx, item)| (idx, &item.v))
 }
 
-impl<V> Struple2<V>
-{
-    pub fn new_tuple2(a: V, b: V) -> Struple2<V>
-    {
-        StrupleKV(vec![
-            StrupleItem::new(None, a),
-            StrupleItem::new(None, b),
-        ])
-    }
-}
-
-impl<K, V> FromIterator<StrupleItem<K, V>> for StrupleKV<K, V>
-{
-    fn from_iter<I: IntoIterator<Item = StrupleItem<K, V>>>(
-        iter: I,
-    ) -> StrupleKV<K, V>
-    {
-        let items = Vec::from_iter(iter);
-        StrupleKV::from_vec(items)
-    }
-}
-
-impl<K, V> From<Vec<StrupleItem<K, V>>> for StrupleKV<K, V>
-{
-    fn from(items: Vec<StrupleItem<K, V>>) -> StrupleKV<K, V>
-    {
-        StrupleKV::from_vec(items)
-    }
-}
-
-impl<K, V> From<Vec<(K, V)>> for StrupleKV<K, V>
-{
-    fn from(items: Vec<(K, V)>) -> StrupleKV<K, V>
-    {
-        let new_items = items
-            .into_iter()
-            .map(|(k, v)| StrupleItem::new(k, v))
-            .collect();
-        StrupleKV::from_vec(new_items)
-    }
-}
-
-impl<K, V> From<Vec<V>> for StrupleKV<Option<K>, V>
-{
-    fn from(items: Vec<V>) -> StrupleKV<Option<K>, V>
-    {
-        let full_items = items
-            .into_iter()
-            .map(|i| StrupleItem::new(None, i))
-            .collect();
-        StrupleKV::from_vec(full_items)
-    }
-}
-
-impl<K, V, I> Index<I> for StrupleKV<K, V>
+pub fn contains_key<K, V>(s: &StrupleKV<K, V>, k: &K) -> bool
 where
-    I: SliceIndex<[StrupleItem<K, V>]>,
+    K: PartialEq,
 {
-    type Output = I::Output;
-
-    fn index(&self, idx: I) -> &Self::Output
-    {
-        &self.0[idx]
-    }
+    find(s, k).is_some()
 }
 
-impl<K, V> fmt::Display for StrupleKV<K, V>
-where
-    StrupleItem<K, V>: fmt::Display,
+pub fn new_tuple2<V>(a: V, b: V) -> Struple2<V>
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        write!(f, "(")?;
-        for i in &self.0 {
-            write!(f, "{},", i)?;
-        }
-        write!(f, ")")
-    }
-}
-
-impl<K, V> fmt::Debug for StrupleKV<K, V>
-where
-    K: fmt::Debug,
-    V: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        write!(f, "{:?}", self.0)
-    }
+    vec![
+        StrupleItem::new(None, a),
+        StrupleItem::new(None, b),
+    ]
 }
 
 impl<K, V> sendclone::SendClone for StrupleKV<K, V>
@@ -301,7 +169,6 @@ where
     fn clone_for_send(&self) -> StrupleKV<K, V>
     {
         let safe_items = self
-            .0
             .iter()
             .map(|i| {
                 let new_key = i.k.clone_for_send();
@@ -309,7 +176,7 @@ where
                 StrupleItem::new(new_key, new_val)
             })
             .collect();
-        StrupleKV::from_vec(safe_items)
+        safe_items
     }
 }
 
@@ -322,27 +189,27 @@ where
         match i {
             // get reg on struple
             Ireg::Reg(p) => {
-                if p as usize >= self.0.len() {
+                if p as usize >= self.len() {
                     Err(rustfail!(
                         "leema_failure",
                         "{:?} too big for {:?}",
                         i,
-                        self.0,
+                        self,
                     ))
                 } else {
-                    Ok(&self.0[p as usize].v)
+                    Ok(&self[p as usize].v)
                 }
             }
             Ireg::Sub(p, s) => {
-                if p as usize >= self.0.len() {
+                if p as usize >= self.len() {
                     Err(rustfail!(
                         "leema_failure",
                         "{:?} too big for {:?}",
                         i,
-                        self.0,
+                        self,
                     ))
                 } else {
-                    self.0[p as usize].v.ireg_get(Ireg::Reg(s))
+                    self[p as usize].v.ireg_get(Ireg::Reg(s))
                 }
             }
         }
@@ -353,16 +220,16 @@ where
         match i {
             // set reg on struple
             Ireg::Reg(p) => {
-                if p as usize >= self.0.len() {
+                if p as usize >= self.len() {
                     panic!("{:?} too big for struple {:?}", i, self);
                 }
-                self.0[p as usize].v = v;
+                self[p as usize].v = v;
             }
             Ireg::Sub(p, s) => {
-                if p as usize >= self.0.len() {
+                if p as usize >= self.len() {
                     panic!("{:?} too big for strtuple {:?}", i, self);
                 }
-                self.0[p as usize].v.ireg_set(Ireg::Reg(s), v);
+                self[p as usize].v.ireg_set(Ireg::Reg(s), v);
             }
         }
     }

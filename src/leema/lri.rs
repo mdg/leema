@@ -1,7 +1,7 @@
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::sendclone::SendClone;
-use crate::leema::struple::{StrupleItem, StrupleKV};
+use crate::leema::struple::{self, StrupleItem, StrupleKV};
 use crate::leema::val::Type;
 
 use std::fmt;
@@ -84,7 +84,7 @@ impl<I, T> TypId<I, T>
 
     pub fn vars(&self) -> impl Iterator<Item = &Lstr>
     {
-        self.tparams.iter_k()
+        struple::iter_k(&self.tparams)
     }
 }
 
