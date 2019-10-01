@@ -553,7 +553,6 @@ impl<'p> fmt::Debug for VarTypes<'p>
 /// before typechecking
 struct TypeCheck<'p>
 {
-    // infer: Inferator,
     local_mod: &'p ProtoModule,
     lib: &'p ProtoLib,
     result: &'p Type,
@@ -576,18 +575,17 @@ impl<'p> TypeCheck<'p>
         }
     }
 
-    // pub fn match_type(&mut self, t0: &Type, t1: &Type, opens: &mut StrupleKV<&'static str, Type>) -> Lresult<Type>
-    pub fn match_type(&mut self, t0: &Type, t1: &Type) -> Lresult<Type>
+    pub fn match_type(&mut self, t0: &Type, t1: &Type, opens: &mut StrupleKV<&'static str, Type>) -> Lresult<Type>
     {
         match (t0, t1) {
             (Type::LocalVar(v0), Type::LocalVar(_)) => {
-                lfailoc!(self.infer_type(v0, t1))
+                lfailoc!(self.infer_type(v0, t1, opens))
             }
             (Type::LocalVar(v0), t1) => {
-                lfailoc!(self.infer_type(v0, t1))
+                lfailoc!(self.infer_type(v0, t1, opens))
             }
             (t0, Type::LocalVar(ref v1)) => {
-                lfailoc!(self.infer_type(v1, t0))
+                lfailoc!(self.infer_type(v1, t0, opens))
             }
             (t0, Type::Unknown) => {
                 Ok(t0.clone())
@@ -610,7 +608,7 @@ impl<'p> TypeCheck<'p>
         }
     }
 
-    pub fn infer_type(&mut self, var: &'static str, t: &Type) -> Lresult<Type>
+    pub fn infer_type(&mut self, var: &'static str, t: &Type, _opens: &mut StrupleKV<&'static str, Type>) -> Lresult<Type>
     {
         if self.infers.contains_key(var) {
             let var_type = self.infers.get(var).unwrap();
@@ -641,12 +639,13 @@ eprintln!("set inferred: {} == {}", var, t);
     {
         match calltype {
             Type::Func(inner_ftyp) => {
-                self.match_argtypes(&[], inner_ftyp, args)
+                let mut opens = StrupleKV::new();
+                self.match_argtypes(&mut opens, inner_ftyp, args)
             }
-            Type::Open(opens, open_ftyp) => {
+            Type::Open(ref mut opens, ref mut open_ftyp) => {
                 if let Type::Func(inner_ftyp) = &mut **open_ftyp {
                     // figure out arg types
-                    self.match_argtypes(&opens, inner_ftyp, args)
+                    self.match_argtypes(opens, inner_ftyp, args)
                 } else {
                     return Err(rustfail!(
                         SEMFAIL,
@@ -665,7 +664,7 @@ eprintln!("set inferred: {} == {}", var, t);
         }
     }
 
-    fn match_argtypes(&mut self, opens: &[&'static str], ftyp: &mut FuncType, args: &mut ast2::Xlist) -> Lresult<Type>
+    fn match_argtypes(&mut self, opens: &mut StrupleKV<&'static str, Type>, ftyp: &mut FuncType, args: &mut ast2::Xlist) -> Lresult<Type>
     {
         if args.len() < ftyp.args.len() {
             return Err(rustfail!(
@@ -684,14 +683,9 @@ eprintln!("set inferred: {} == {}", var, t);
             ));
         }
 
-        let mut real_types = HashMap::new();
-        for o in opens {
-            real_types.insert(o, Type::Unknown);
-        }
-
         for arg in ftyp.args.0.iter_mut().zip(args.0.iter_mut()) {
             let typ = if arg.0.v.is_open() {
-                // self.match_argtype(&mut real_types, &arg.0.v, &mut arg.1.v.typ)?
+                // Self::match_argtype(opens, &arg.0.v, &mut arg.1.v.typ)?
                 return Err(rustfail!(
                     TYPEFAIL,
                     "open types not working {:?}, found {:?}",
@@ -699,7 +693,7 @@ eprintln!("set inferred: {} == {}", var, t);
                     args,
                 ));
             } else {
-                lfailoc!(self.match_type(&arg.0.v, &arg.1.v.typ))
+                lfailoc!(self.match_type(&arg.0.v, &arg.1.v.typ, opens))
                     .map_err(|f| {
                         f.add_context(lstrf!(
                             "function param: {}, expected {}, found {}",
@@ -716,7 +710,7 @@ eprintln!("set inferred: {} == {}", var, t);
         Ok((*ftyp.result).clone())
     }
 
-    fn match_argtype(_opens: &mut HashMap<&'static str, Type>, _decl_type: &'static str, _arg: &mut ast2::Xlist) -> Lresult<Type>
+    fn match_argtype(_opens: &mut StrupleKV<&'static str, Type>, _decl_type: &'static str, _arg: &mut ast2::Xlist) -> Lresult<Type>
     {
         Ok(Type::Void)
     }
@@ -724,9 +718,10 @@ eprintln!("set inferred: {} == {}", var, t);
     fn match_case_types(&mut self, cases: &Vec<ast2::Case>) -> Lresult<Type>
     {
         let mut prev_typ: Option<Type> = None;
+        let mut opens = StrupleKV::new();
         for case in cases.iter() {
             if let Some(ref pt) = prev_typ {
-                self.match_type(pt, &case.body.typ)?;
+                self.match_type(pt, &case.body.typ, &mut opens)?;
             } else {
                 prev_typ = Some(case.body.typ.clone());
             }
@@ -785,8 +780,9 @@ impl<'p> SemanticOp for TypeCheck<'p>
             }
             Ast::Case(ast2::CaseType::If, _, ref mut cases) => {
                 // all if cases should be boolean
+                let mut opens = StrupleKV::new();
                 for case in cases.iter_mut() {
-                    self.match_type(&case.cond.typ, &Type::Bool)?;
+                    self.match_type(&case.cond.typ, &Type::Bool, &mut opens)?;
                     case.cond.typ = Type::Bool;
                 }
                 node.typ = self.match_case_types(cases)?;
@@ -795,7 +791,8 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 node.typ = self.match_case_types(cases)?;
             }
             Ast::Let(ref mut patt, _, ref mut x) => {
-                let typ = self.match_type(&patt.typ, &x.typ)?;
+                let mut opens = StrupleKV::new();
+                let typ = self.match_type(&patt.typ, &x.typ, &mut opens)?;
                 patt.typ = typ.clone();
                 x.typ = typ;
             }

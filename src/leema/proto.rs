@@ -132,7 +132,7 @@ impl ProtoModule
         let args2 = args.clone();
         // not generic so everything is a closed type
         let ftyp = if !args.is_empty() {
-            let empty_type_args: &[&'static str] = &[];
+            let empty_type_args = StrupleKV::new();
             let arg_types_r: Lresult<Vec<StrupleItem<Option<Lstr>, Type>>>;
             arg_types_r = args
                 .0
@@ -140,7 +140,7 @@ impl ProtoModule
                 .map(|i| {
                     Ok(StrupleItem::new(
                         i.k.map(|k| Lstr::Sref(k)),
-                        ast_to_type(&self.key.name, &i.v, empty_type_args)?,
+                        ast_to_type(&self.key.name, &i.v, &empty_type_args)?,
                     ))
                 })
                 .collect();
@@ -188,9 +188,9 @@ impl ProtoModule
         }
         self.genfunc.insert(name, (typeargs.clone(), args.clone(), body));
 
-        let open_result: Lresult<Vec<&'static str>> = typeargs.0.into_iter().map(|ta| {
+        let open_result: Lresult<StrupleKV<&'static str, Type>> = typeargs.0.into_iter().map(|ta| {
             if let Ast::Id1(typeargname) = *ta.v.node {
-                Ok(typeargname)
+                Ok(StrupleItem::new(typeargname, Type::Unknown))
             } else {
                 Err(rustfail!(
                     PROTOFAIL,
@@ -200,7 +200,7 @@ impl ProtoModule
                 ))
             }
         }).collect();
-        let opens: Vec<&'static str> = open_result?;
+        let opens: StrupleKV<&'static str, Type> = open_result?;
 
         let ftyp = if !args.is_empty() {
             let arg_types_r: Lresult<Vec<StrupleItem<Option<Lstr>, Type>>>;
@@ -262,10 +262,12 @@ impl ProtoModule
             Ast::Generic(gen, gen_args) => {
                 if let Ast::Id1(name_id) = *gen.node {
                     let inner = Type::User(self.key.name.clone(), name_id);
-                    let mut gen_vars = vec![];
+                    let mut gen_vars = StrupleKV::new();
                     for a in gen_args.into_iter() {
                         if let Ast::Id1(var) = *a.v.node {
-                            gen_vars.push(var);
+                            gen_vars.0.push(
+                                StrupleItem::new(var, Type::Unknown),
+                            );
                         } else {
                             return Err(rustfail!(
                                 PROTOFAIL,
@@ -360,7 +362,7 @@ impl ProtoModule
 fn ast_to_type(
     local_mod: &Lstr,
     node: &AstNode,
-    opens: &[&'static str],
+    opens: &StrupleKV<&'static str, Type>,
 ) -> Lresult<Type>
 {
     Ok(match &*node.node {
@@ -368,7 +370,7 @@ fn ast_to_type(
         Ast::Id1("Int") => Type::Int,
         Ast::Id1("Str") => Type::Str,
         Ast::Id1("#") => Type::Hashtag,
-        Ast::Id1(id) if opens.contains(id) => Type::LocalVar(id),
+        Ast::Id1(id) if opens.contains_key(id) => Type::OpenVar(id),
         Ast::Id1(id) => Type::User(local_mod.clone(), id),
         Ast::Id2(module, id) => Type::User(module.clone(), id),
         Ast::List(inner_items) if inner_items.len() == 1 => {
@@ -549,7 +551,7 @@ mod tests
         --
         "#;
         let proto = new_proto(input);
-        let tvt = Type::Var(Lstr::Sref("T"));
+        let tvt = Type::OpenVar("T");
 
         assert_eq!(1, proto.genfunc.len());
         assert!(proto.genfunc.contains_key("swap"));
@@ -561,7 +563,7 @@ mod tests
         assert!(proto.types.contains_key("swap"));
         assert_eq!(
             Type::Open(
-                vec!["T"],
+                StrupleKV(vec![StrupleItem::new("T", Type::Unknown)]),
                 Box::new(Type::Func(FuncType::new(
                     StrupleKV::from_vec(vec![
                         StrupleItem::new(Some(Lstr::Sref("a")), tvt.clone()),
@@ -581,7 +583,7 @@ mod tests
 
         let point_type = proto.types.get("Point").expect("no Point type");
         let expected = Type::Open(
-            vec!["T"],
+            StrupleKV(vec![StrupleItem::new("T", Type::Unknown)]),
             Box::new(Type::User(Lstr::Sref("foo"), "Point")),
         );
         assert_eq!(expected, *point_type);

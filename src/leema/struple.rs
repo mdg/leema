@@ -193,6 +193,11 @@ where
             .find(|(_, i)| i.k == *key)
             .map(|(idx, item)| (idx, &item.v))
     }
+
+    pub fn contains_key(&self, k: &K) -> bool
+    {
+        self.find(k).is_some()
+    }
 }
 
 impl<V> Struple2<V>

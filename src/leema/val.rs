@@ -103,7 +103,7 @@ pub enum Type
     // base interface/type should probably be iterator
     // and then it should be a protocol, not type
     StrictList(Box<Type>),
-    Open(Vec<&'static str>, Box<Type>),
+    Open(StrupleKV<&'static str, Type>, Box<Type>),
     User(Lstr, &'static str),
     ClosedUser(Lstr, &'static str, Vec<Lstr>),
 
