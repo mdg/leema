@@ -6,7 +6,7 @@ use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use crate::leema::reg::Reg;
-use crate::leema::struple::{Struple2, StrupleItem, StrupleKV};
+use crate::leema::struple::{Struple2, StrupleItem};
 use crate::leema::val::{MsgVal, Val};
 
 use std::cmp::min;
@@ -264,10 +264,10 @@ impl Worker
                 let msg = AppMsg::Spawn(sender, callri, callargs);
                 self.app_tx.send(msg).expect("new task msg send failure");
                 let (new_child, new_parent) = fbr.new_task_key();
-                let new_task_key = Val::Tuple(StrupleKV(vec![
+                let new_task_key = Val::Tuple(vec![
                     StrupleItem::new(None, Val::Int(new_child)),
                     StrupleItem::new(None, Val::Int(new_parent)),
-                ]));
+                ]);
                 fbr.head.parent.set_result(new_task_key);
                 self.return_from_call(fbr);
                 Result::Ok(Async::NotReady)

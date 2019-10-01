@@ -5,7 +5,7 @@ use crate::leema::parsl::{
     Assoc, InfixParser, ParseFirst, ParseMore, Parsl, ParslMode, Precedence,
     PrefixParser, MIN_PRECEDENCE,
 };
-use crate::leema::struple::StrupleKV;
+use crate::leema::struple::{StrupleItem, StrupleKV};
 use crate::leema::token::{Token, TokenSrc};
 use crate::leema::val::Val;
 
@@ -231,7 +231,7 @@ impl ParseStmt
             None => base_name,
         };
         let args = if p.peek_token()? == Token::DoubleArrow {
-            StrupleKV::new()
+            vec![]
         } else {
             IdTypeMode::parse(p)?
         };
@@ -356,8 +356,7 @@ impl ParseStmt
             }
             // | indicates enum type
             Token::CasePipe => {
-                let variantvec = p.parse_new(&DefVariantsMode)?;
-                let variants = StrupleKV::from(variantvec);
+                let variants = p.parse_new(&DefVariantsMode)?;
                 Ast::DefType(ast2::DataType::Union, name, variants)
             }
             // anything else is a failure
@@ -406,15 +405,14 @@ impl IdTypeMode
 {
     pub fn parse(p: &mut Parsl) -> Lresult<ast2::Xlist>
     {
-        let idtypes = p.parse_new(&IdTypeMode)?;
-        let fields = StrupleKV::from(idtypes);
+        let fields = p.parse_new(&IdTypeMode)?;
         Ok(fields)
     }
 }
 
 impl ParslMode for IdTypeMode
 {
-    type Item = Vec<(Option<&'static str>, AstNode)>;
+    type Item = StrupleKV<Option<&'static str>, AstNode>;
 
     fn prefix(
         &self,
@@ -446,7 +444,7 @@ struct ParseIdType;
 
 impl PrefixParser for ParseIdType
 {
-    type Item = (Option<&'static str>, AstNode);
+    type Item = StrupleItem<Option<&'static str>, AstNode>;
 
     fn parse(&self, p: &mut Parsl, tok: TokenSrc) -> Lresult<Self::Item>
     {
@@ -454,11 +452,11 @@ impl PrefixParser for ParseIdType
             Token::Id => {
                 expect_next!(p, Token::Colon)?;
                 let typ = p.parse_new(&TypexMode)?;
-                (Some(tok.src), typ)
+                StrupleItem::new(Some(tok.src), typ)
             }
             Token::Colon => {
                 let typ = p.parse_new(&TypexMode)?;
-                (None, typ)
+                StrupleItem::new(None, typ)
             }
             _ => {
                 return Err(rustfail!(
@@ -523,7 +521,7 @@ struct DefVariantsMode;
 
 impl ParslMode for DefVariantsMode
 {
-    type Item = Vec<(Option<&'static str>, AstNode)>;
+    type Item = StrupleKV<Option<&'static str>, AstNode>;
 
     fn prefix(
         &self,
@@ -553,7 +551,7 @@ struct ParseVariant;
 
 impl PrefixParser for ParseVariant
 {
-    type Item = (Option<&'static str>, AstNode);
+    type Item = StrupleItem<Option<&'static str>, AstNode>;
 
     fn parse(&self, p: &mut Parsl, tok: TokenSrc) -> Lresult<Self::Item>
     {
@@ -562,13 +560,13 @@ impl PrefixParser for ParseVariant
         // check if it's an empty token variant
         let peeked = p.peek_token()?;
         if peeked == Token::CasePipe || peeked == Token::LineBegin {
-            Ok((Some(name.src), AstNode::new(Ast::Void, Ast::loc(&name))))
+            Ok(StrupleItem::new(Some(name.src), AstNode::new(Ast::Void, Ast::loc(&name))))
         } else {
             let name_id = AstNode::new(Ast::Id1(name.src), Ast::loc(&name));
-            let fields = StrupleKV::from(p.parse_new(&IdTypeMode)?);
+            let fields = p.parse_new(&IdTypeMode)?;
             let loc = name_id.loc;
             let var = Ast::DefType(ast2::DataType::Struct, name_id, fields);
-            Ok((Some(name.src), AstNode::new(var, loc)))
+            Ok(StrupleItem::new(Some(name.src), AstNode::new(var, loc)))
         }
     }
 }
@@ -788,7 +786,7 @@ impl PrefixParser for ParseParen
         let mut inner = XlistMode::parse(p)?;
         expect_next!(p, Token::ParenR)?;
         let node = if inner.len() == 1 && inner[0].k.is_none() {
-            inner.0.pop().unwrap().v
+            inner.pop().unwrap().v
         } else {
             AstNode::new(Ast::Tuple(inner), Ast::loc(&tok))
         };
@@ -828,7 +826,7 @@ impl PrefixParser for ParseListType
         assert_eq!(Token::SquareL, tok.tok);
         let inner = p.parse_new(&TypexMode)?;
         expect_next!(p, Token::SquareR)?;
-        let items = StrupleKV::from(vec![(None, inner)]);
+        let items = vec![StrupleItem::new(None, inner)];
         Ok(AstNode::new(Ast::List(items), Ast::loc(&tok)))
     }
 }
@@ -1107,13 +1105,13 @@ impl XlistMode
     {
         let items = p.parse_new(&XlistMode)?;
         p.skip_if(Token::Comma)?;
-        Ok(StrupleKV::from(items))
+        Ok(items)
     }
 }
 
 impl ParslMode for XlistMode
 {
-    type Item = Vec<(Option<&'static str>, AstNode)>;
+    type Item = StrupleKV<Option<&'static str>, AstNode>;
 
     fn prefix(
         &self,
@@ -1144,7 +1142,7 @@ struct ParseXMaybeK;
 
 impl PrefixParser for ParseXMaybeK
 {
-    type Item = (Option<&'static str>, AstNode);
+    type Item = StrupleItem<Option<&'static str>, AstNode>;
 
     fn parse(&self, p: &mut Parsl, tok: TokenSrc) -> Lresult<Self::Item>
     {
@@ -1152,7 +1150,7 @@ impl PrefixParser for ParseXMaybeK
         if p.next_if(Token::Colon)?.is_some() {
             if let Ast::Id1(key) = *first.node {
                 let v = p.parse_new(&ExprMode)?;
-                Ok((Some(key), v))
+                Ok(StrupleItem::new(Some(key), v))
             } else {
                 Err(rustfail!(
                     "parse_failure",
@@ -1161,14 +1159,14 @@ impl PrefixParser for ParseXMaybeK
                 ))
             }
         } else {
-            Ok((None, first))
+            Ok(StrupleItem::new(None, first))
         }
     }
 }
 
 impl InfixParser for ParseXMaybeK
 {
-    type Item = Vec<(Option<&'static str>, AstNode)>;
+    type Item = StrupleKV<Option<&'static str>, AstNode>;
 
     fn parse(
         &self,
@@ -1192,7 +1190,7 @@ impl InfixParser for ParseXMaybeK
         let item = if p.next_if(Token::Colon)?.is_some() {
             if let Ast::Id1(key) = *first.node {
                 let v = p.parse_new(&ExprMode)?;
-                (Some(key), v)
+                StrupleItem::new(Some(key), v)
             } else {
                 return Err(rustfail!(
                     "parse_failure",
@@ -1201,7 +1199,7 @@ impl InfixParser for ParseXMaybeK
                 ));
             }
         } else {
-            (None, first)
+            StrupleItem::new(None, first)
         };
         left.push(item);
         Ok(left)
@@ -1223,7 +1221,7 @@ impl InfixParser for ParseCall
     fn parse(&self, p: &mut Parsl, left: AstNode, _tok: TokenSrc) -> AstResult
     {
         let args = if p.peek_token()? == Token::ParenR {
-            StrupleKV::new()
+            vec![]
         } else {
             XlistMode::parse(p)?
         };

@@ -3,7 +3,7 @@ use crate::leema::failure::Lresult;
 use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::{ProtoLib, ProtoModule};
-use crate::leema::struple::StrupleKV;
+use crate::leema::struple::{self, StrupleKV};
 use crate::leema::val::{FuncType, Type, Val};
 
 use std::collections::HashMap;
@@ -181,7 +181,13 @@ impl<'l> MacroApplication<'l>
     {
         let callx = AstNode::new(Ast::Id2(Lstr::Sref(module), func), loc);
         let args: StrupleKV<Option<&'static str>, AstNode> =
-            StrupleKV::from(vec![a, b]);
+            struple::new_tuple2(a, b);
+            /*
+            vec![
+                StrupleItem::new(None, a),
+                StrupleItem::new(None, b),
+            ];
+            */
         AstNode::new(Ast::Call(callx, args), loc)
     }
 }
@@ -639,7 +645,7 @@ eprintln!("set inferred: {} == {}", var, t);
     {
         match calltype {
             Type::Func(inner_ftyp) => {
-                let mut opens = StrupleKV::new();
+                let mut opens = vec![];
                 self.match_argtypes(&mut opens, inner_ftyp, args)
             }
             Type::Open(ref mut opens, ref mut open_ftyp) => {
@@ -683,7 +689,7 @@ eprintln!("set inferred: {} == {}", var, t);
             ));
         }
 
-        for arg in ftyp.args.0.iter_mut().zip(args.0.iter_mut()) {
+        for arg in ftyp.args.iter_mut().zip(args.iter_mut()) {
             let typ = if arg.0.v.is_open() {
                 // Self::match_argtype(opens, &arg.0.v, &mut arg.1.v.typ)?
                 return Err(rustfail!(
@@ -718,7 +724,7 @@ eprintln!("set inferred: {} == {}", var, t);
     fn match_case_types(&mut self, cases: &Vec<ast2::Case>) -> Lresult<Type>
     {
         let mut prev_typ: Option<Type> = None;
-        let mut opens = StrupleKV::new();
+        let mut opens = vec![];
         for case in cases.iter() {
             if let Some(ref pt) = prev_typ {
                 self.match_type(pt, &case.body.typ, &mut opens)?;
@@ -780,7 +786,7 @@ impl<'p> SemanticOp for TypeCheck<'p>
             }
             Ast::Case(ast2::CaseType::If, _, ref mut cases) => {
                 // all if cases should be boolean
-                let mut opens = StrupleKV::new();
+                let mut opens = vec![];
                 for case in cases.iter_mut() {
                     self.match_type(&case.cond.typ, &Type::Bool, &mut opens)?;
                     case.cond.typ = Type::Bool;
@@ -791,7 +797,7 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 node.typ = self.match_case_types(cases)?;
             }
             Ast::Let(ref mut patt, _, ref mut x) => {
-                let mut opens = StrupleKV::new();
+                let mut opens = vec![];
                 let typ = self.match_type(&patt.typ, &x.typ, &mut opens)?;
                 patt.typ = typ.clone();
                 x.typ = typ;
@@ -909,7 +915,6 @@ impl Semantics
 
         self.args = ftyp
             .args
-            .0
             .iter()
             .map(|kv| {
                 match &kv.k {
@@ -972,7 +977,7 @@ impl Semantics
             }
             Ast::Call(id, args) => {
                 let wid = Self::walk(op, id)?;
-                let wargs = args.map_v_into(|v| Self::walk(op, v))?;
+                let wargs = struple::map_v_into(args, |v| Self::walk(op, v))?;
                 Ast::Call(wid, wargs)
             }
             Ast::Case(typ, None, args) => {
@@ -1012,13 +1017,13 @@ impl Semantics
             }
             Ast::DefFunc(name, args, body) => {
                 let wname = Self::walk(op, name)?;
-                let wargs = args.map_v_into(|arg| Self::walk(op, arg))?;
+                let wargs = struple::map_v_into(args, |arg| Self::walk(op, arg))?;
                 let wbody = Self::walk(op, body)?;
                 Ast::DefFunc(wname, wargs, wbody)
             }
             Ast::Generic(id, args) => {
                 let wid = Self::walk(op, id)?;
-                let wargs = args.map_v_into(|arg| Self::walk(op, arg))?;
+                let wargs = struple::map_v_into(args, |arg| Self::walk(op, arg))?;
                 Ast::Generic(wid, wargs)
             }
             Ast::Let(lhp, lht, rhs) => {
@@ -1029,7 +1034,7 @@ impl Semantics
                 Ast::Let(wlhp, lht, wrhs)
             }
             Ast::List(items) => {
-                let witems = items.map_v_into(|item| Self::walk(op, item))?;
+                let witems = struple::map_v_into(items, |item| Self::walk(op, item))?;
                 Ast::List(witems)
             }
             Ast::Op1(ast_op, node) => {
@@ -1048,7 +1053,7 @@ impl Semantics
                 Ast::StrExpr(witems?)
             }
             Ast::Tuple(items) => {
-                let witems = items.map_v_into(|item| Self::walk(op, item))?;
+                let witems = struple::map_v_into(items, |item| Self::walk(op, item))?;
                 Ast::Tuple(witems)
             }
 

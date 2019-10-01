@@ -47,6 +47,19 @@ where
     }
 }
 
+impl<V> fmt::Display for StrupleItem<Option<&'static str>, V>
+where
+    V: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        match self.k {
+            Some(ref k) => write!(f, "{}:{}", k, self.v),
+            None => write!(f, ":{}", self.v),
+        }
+    }
+}
+
 impl<V> fmt::Display for StrupleItem<Lstr, V>
 where
     V: fmt::Display,
@@ -151,7 +164,7 @@ where
     find(s, k).is_some()
 }
 
-pub fn new_tuple2<V>(a: V, b: V) -> Struple2<V>
+pub fn new_tuple2<K, V>(a: V, b: V) -> StrupleKV<Option<K>, V>
 {
     vec![
         StrupleItem::new(None, a),
@@ -247,11 +260,11 @@ mod tests
     #[test]
     fn test_struple_find()
     {
-        let s: Struple2<Val> = StrupleKV(vec![
+        let s: Struple2<Val> = vec![
             StrupleItem::new(Some(Lstr::Sref("taco")), Val::Int(2)),
             StrupleItem::new(None, Val::Int(3)),
             StrupleItem::new(Some(Lstr::Sref("burrito")), Val::Int(4)),
-        ]);
+        ];
 
         let actual = s.find(&Some(Lstr::Sref("burrito"))).expect("burrito value");
         assert_eq!(2, actual.0);

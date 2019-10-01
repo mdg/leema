@@ -5,7 +5,7 @@ use crate::leema::loader::Interloader;
 use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::ModKey;
-use crate::leema::struple::{Struple2, StrupleItem, StrupleKV};
+use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::token::Tokenz;
 use crate::leema::val::{FuncType, Type, Val};
 
@@ -133,10 +133,8 @@ impl ProtoModule
         // not generic so everything is a closed type
         let ftyp = if !args.is_empty() {
             let empty_type_args = StrupleKV::new();
-            let arg_types_r: Lresult<Vec<StrupleItem<Option<Lstr>, Type>>>;
-            arg_types_r = args
-                .0
-                .into_iter()
+            let arg_types_r: Lresult<StrupleKV<Option<Lstr>, Type>>;
+            arg_types_r = args.into_iter()
                 .map(|i| {
                     Ok(StrupleItem::new(
                         i.k.map(|k| Lstr::Sref(k)),
@@ -153,7 +151,7 @@ impl ProtoModule
         } else {
             FuncType::new(StrupleKV::new(), Type::Void)
         };
-        let fref_args = ftyp.args.map_v(|_| Ok(Val::Void))?;
+        let fref_args = struple::map_v(&ftyp.args, |_| Ok(Val::Void))?;
         self.funcseq.push(name);
         // is this args2 param necessary anymore? the type should be enough
         self.funcsrc.insert(name, (args2, body));
@@ -188,7 +186,7 @@ impl ProtoModule
         }
         self.genfunc.insert(name, (typeargs.clone(), args.clone(), body));
 
-        let open_result: Lresult<StrupleKV<&'static str, Type>> = typeargs.0.into_iter().map(|ta| {
+        let open_result: Lresult<StrupleKV<&'static str, Type>> = typeargs.into_iter().map(|ta| {
             if let Ast::Id1(typeargname) = *ta.v.node {
                 Ok(StrupleItem::new(typeargname, Type::Unknown))
             } else {
@@ -205,7 +203,6 @@ impl ProtoModule
         let ftyp = if !args.is_empty() {
             let arg_types_r: Lresult<Vec<StrupleItem<Option<Lstr>, Type>>>;
             arg_types_r = args
-                .0
                 .into_iter()
                 .map(|i| {
                     Ok(StrupleItem::new(
@@ -224,7 +221,7 @@ impl ProtoModule
             FuncType::new(StrupleKV::new(), Type::Void)
         };
 
-        let fref_args = ftyp.args.map_v(|_| Ok(Val::Void))?;
+        let fref_args = struple::map_v(&ftyp.args, |_| Ok(Val::Void))?;
         let genfunctype = Type::Open(opens, Box::new(Type::Func(ftyp)));
 
         let fref = Val::Fref(
@@ -262,10 +259,10 @@ impl ProtoModule
             Ast::Generic(gen, gen_args) => {
                 if let Ast::Id1(name_id) = *gen.node {
                     let inner = Type::User(self.key.name.clone(), name_id);
-                    let mut gen_vars = StrupleKV::new();
+                    let mut gen_vars = vec![];
                     for a in gen_args.into_iter() {
                         if let Ast::Id1(var) = *a.v.node {
-                            gen_vars.0.push(
+                            gen_vars.push(
                                 StrupleItem::new(var, Type::Unknown),
                             );
                         } else {
@@ -370,16 +367,16 @@ fn ast_to_type(
         Ast::Id1("Int") => Type::Int,
         Ast::Id1("Str") => Type::Str,
         Ast::Id1("#") => Type::Hashtag,
-        Ast::Id1(id) if opens.contains_key(id) => Type::OpenVar(id),
+        Ast::Id1(id) if struple::contains_key(opens, id) => Type::OpenVar(id),
         Ast::Id1(id) => Type::User(local_mod.clone(), id),
         Ast::Id2(module, id) => Type::User(module.clone(), id),
         Ast::List(inner_items) if inner_items.len() == 1 => {
-            let inner = &inner_items.0.first().unwrap().v;
+            let inner = &inner_items.first().unwrap().v;
             let inner_t = ast_to_type(local_mod, inner, opens)?;
             Type::StrictList(Box::new(inner_t))
         }
         Ast::Tuple(inner_items) => {
-            let inner_t: Lresult<Vec<StrupleItem<Option<Lstr>, Type>>> = inner_items.0
+            let inner_t: Lresult<Vec<StrupleItem<Option<Lstr>, Type>>> = inner_items
                 .iter()
                 .map(|item| {
                     let k = item.k.map(|ik| Lstr::Sref(ik));
@@ -387,10 +384,10 @@ fn ast_to_type(
                     Ok(StrupleItem::new(k, v))
                 })
                 .collect();
-            Type::Tuple(StrupleKV(inner_t?))
+            Type::Tuple(inner_t?)
         }
         Ast::Generic(_, typeargs) => {
-            let _gen = typeargs.map_v(|v| ast_to_type(local_mod, v, opens));
+            let _gen = struple::map_v(typeargs, |v| ast_to_type(local_mod, v, opens));
             unimplemented!()
         }
         invalid => {
@@ -563,12 +560,12 @@ mod tests
         assert!(proto.types.contains_key("swap"));
         assert_eq!(
             Type::Open(
-                StrupleKV(vec![StrupleItem::new("T", Type::Unknown)]),
+                vec![StrupleItem::new("T", Type::Unknown)],
                 Box::new(Type::Func(FuncType::new(
-                    StrupleKV::from_vec(vec![
+                    vec![
                         StrupleItem::new(Some(Lstr::Sref("a")), tvt.clone()),
                         StrupleItem::new(Some(Lstr::Sref("b")), tvt.clone()),
-                    ]),
+                    ],
                     Type::Tuple(Struple2::new_tuple2(tvt.clone(), tvt.clone())),
                 ))),
             ),
@@ -583,7 +580,7 @@ mod tests
 
         let point_type = proto.types.get("Point").expect("no Point type");
         let expected = Type::Open(
-            StrupleKV(vec![StrupleItem::new("T", Type::Unknown)]),
+            vec![StrupleItem::new("T", Type::Unknown)],
             Box::new(Type::User(Lstr::Sref("foo"), "Point")),
         );
         assert_eq!(expected, *point_type);

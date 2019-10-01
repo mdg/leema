@@ -7,7 +7,7 @@ use crate::leema::lstr::Lstr;
 use crate::leema::msg;
 use crate::leema::reg::{self, Ireg, Iregistry, Reg};
 use crate::leema::sendclone::{self, SendClone};
-use crate::leema::struple::{Struple2, StrupleKV, StrupleItem};
+use crate::leema::struple::{self, Struple2, StrupleKV, StrupleItem};
 
 use std::cmp::{Ordering, PartialEq, PartialOrd};
 use std::fmt;
@@ -53,7 +53,7 @@ impl FuncType
     {
         FuncType {
             args,
-            closed: StrupleKV::none(),
+            closed: vec![],
             result: Box::new(result),
         }
     }
@@ -76,8 +76,8 @@ impl FuncType
         Op: Fn(&Type) -> Lresult<Option<Type>>,
     {
         let mapf = |v: &Type| v.map(op);
-        let m_args = self.args.map_v(mapf)?;
-        let m_closed = self.closed.map_v(mapf)?;
+        let m_args = struple::map_v(&self.args, mapf)?;
+        let m_closed = struple::map_v(&self.closed, mapf)?;
         let m_result = self.result.map(op)?;
         Ok(FuncType::new_closure(m_args, m_closed, m_result))
     }
@@ -135,7 +135,7 @@ impl Type
     {
         Type::Func(FuncType {
             args: inputs,
-            closed: StrupleKV::none(),
+            closed: vec![],
             result: Box::new(result),
         })
     }
@@ -192,7 +192,7 @@ impl Type
         match self {
             Type::Open(_, _) => true,
             Type::OpenVar(_) => true,
-            Type::Tuple(items) => items.0.iter().any(|i| i.v.is_open()),
+            Type::Tuple(items) => items.iter().any(|i| i.v.is_open()),
             Type::Unknown => true,
             _ => false,
         }
@@ -213,7 +213,7 @@ impl Type
 
         let res = match self {
             &Type::Tuple(ref items) => {
-                let m_items = items.map_v(|i| i.map(op))?;
+                let m_items = struple::map_v(items, |i| i.map(op))?;
                 Type::Tuple(m_items)
             }
             &Type::StrictList(ref inner) => {
@@ -327,7 +327,13 @@ impl fmt::Display for Type
             &Type::Str => write!(f, "Str"),
             &Type::Bool => write!(f, "Bool"),
             &Type::Hashtag => write!(f, "Hashtag"),
-            &Type::Tuple(ref items) => write!(f, "{}", items),
+            &Type::Tuple(ref items) => {
+                write!(f, "(")?;
+                for i in items {
+                    write!(f, "{}", i)?;
+                }
+                write!(f, ")")
+            }
             &Type::UserDef(ref name) => write!(f, "{}", name),
             &Type::Failure => write!(f, "Failure"),
             &Type::User(ref module, ref id) => write!(f, "{}::{}", module, id),
@@ -382,7 +388,7 @@ impl fmt::Debug for Type
             &Type::Str => write!(f, "Str"),
             &Type::Bool => write!(f, "Bool"),
             &Type::Hashtag => write!(f, "Hashtag"),
-            &Type::Tuple(ref items) => write!(f, "T{}", items),
+            &Type::Tuple(ref items) => write!(f, "{:?}", items),
             &Type::UserDef(ref name) => write!(f, "UserDef({})", name),
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref ftyp) => write!(f, "{:?}", ftyp),
@@ -555,7 +561,7 @@ impl Val
             t.push(StrupleItem::new(None, VOID));
             i = i - 1;
         }
-        Val::Tuple(StrupleKV(t))
+        Val::Tuple(t)
     }
 
     pub fn tuple_from_list(l: &Val) -> Val
@@ -570,7 +576,7 @@ impl Val
             res.push(StrupleItem::new(None, item.clone()));
             res
         });
-        Val::Tuple(StrupleKV(items))
+        Val::Tuple(items)
     }
 
     pub fn is_funcref(&self) -> bool
@@ -708,16 +714,15 @@ impl Val
             &Val::PatternVar(_) => Type::Unknown,
             &Val::RustBlock => Type::RustBlock,
             &Val::Map(_) => lmap::MAP_TYPE,
-            &Val::Tuple(ref items) if items.0.len() == 1 => {
-                items.0.get(0).unwrap().v.get_type()
+            &Val::Tuple(ref items) if items.len() == 1 => {
+                items.get(0).unwrap().v.get_type()
             }
             &Val::Tuple(ref items) => {
                 let tuptypes = items
-                    .0
                     .iter()
                     .map(|i| (StrupleItem::new(i.k.clone(), i.v.get_type())))
                     .collect();
-                Type::Tuple(StrupleKV(tuptypes))
+                Type::Tuple(tuptypes)
             }
             &Val::Struct(ref typ, _) => Type::UserDef(typ.clone()),
             &Val::EnumStruct(ref typ, _, _) => Type::UserDef(typ.clone()),
@@ -767,32 +772,32 @@ impl Val
                 Val::_pattern_match_list(assigns, patt, input)
             }
             (&Val::Tuple(ref pv), &Val::Tuple(ref iv))
-                if pv.0.len() == iv.0.len() =>
+                if pv.len() == iv.len() =>
             {
-                pv.0.iter().zip(iv.0.iter()).all(|(p_item, i_item)| {
+                pv.iter().zip(iv.iter()).all(|(p_item, i_item)| {
                     Val::_pattern_match(assigns, &p_item.v, &i_item.v)
                 })
             }
             (&Val::Struct(ref pt, ref pv), &Val::Struct(ref it, ref iv))
-                if pv.0.len() == iv.0.len() =>
+                if pv.len() == iv.len() =>
             {
                 // this type check shouldn't be necessary
                 // if the type checking was right
                 if pt != it {
                     return false;
                 }
-                pv.0.iter().zip(iv.0.iter()).all(|(p_item, i_item)| {
+                pv.iter().zip(iv.iter()).all(|(p_item, i_item)| {
                     Val::_pattern_match(assigns, &p_item.v, &i_item.v)
                 })
             }
             (
                 &Val::EnumStruct(_, ref pname, ref pv),
                 &Val::EnumStruct(_, ref iname, ref iv),
-            ) if pv.0.len() == iv.0.len() => {
+            ) if pv.len() == iv.len() => {
                 if pname != iname {
                     return false;
                 }
-                pv.0.iter().zip(iv.0.iter()).all(|(p_item, i_item)| {
+                pv.iter().zip(iv.iter()).all(|(p_item, i_item)| {
                     Val::_pattern_match(assigns, &p_item.v, &i_item.v)
                 })
             }
@@ -868,7 +873,7 @@ impl Val
                 let m_tri = tri.specialize_params(params.clone()).unwrap();
                 let m_flds: Struple2<Val> = {
                     let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
-                    flds.map_v(|v| v.map(&apply_f))?
+                    struple::map_v(flds, |v| v.map(&apply_f))?
                 };
                 Some(Val::Struct(m_tri, m_flds))
             }
@@ -879,7 +884,7 @@ impl Val
                 let m_tri = tri.specialize_params(params.clone()).unwrap();
                 let m_flds: Struple2<Val> = {
                     let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
-                    flds.map_v(|f: &Val| f.map(&apply_f))?
+                    struple::map_v(flds, |f: &Val| f.map(&apply_f))?
                 };
                 Some(Val::EnumStruct(m_tri, variant.clone(), m_flds))
             }
@@ -902,7 +907,7 @@ impl Val
                 let m_tri = tri.specialize_params(params.clone()).unwrap();
                 let m_args: Struple2<Val> = {
                     let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
-                    args.map_v(|v| v.map(&apply_f))?
+                    struple::map_v(args, |v| v.map(&apply_f))?
                 };
                 Some(Val::FuncRef(m_tri, m_args, typ.clone()))
             }
@@ -926,15 +931,15 @@ impl Val
                 Val::Cons(Box::new(m_head), Arc::new(m_tail))
             }
             &Val::Tuple(ref flds) => {
-                let m_flds = flds.map_v(|f: &Val| f.map(op))?;
+                let m_flds = struple::map_v(flds, |f: &Val| f.map(op))?;
                 Val::Tuple(m_flds)
             }
             &Val::Struct(ref typ, ref flds) => {
-                let m_flds = flds.map_v(|f: &Val| f.map(op))?;
+                let m_flds = struple::map_v(flds, |f: &Val| f.map(op))?;
                 Val::Struct(typ.clone(), m_flds)
             }
             &Val::EnumStruct(ref typ, ref vname, ref flds) => {
-                let m_flds = flds.map_v(|f: &Val| f.map(op))?;
+                let m_flds = struple::map_v(flds, |f: &Val| f.map(op))?;
                 Val::EnumStruct(typ.clone(), vname.clone(), m_flds)
             }
             &Val::EnumToken(ref typ, ref vname) => {
@@ -942,13 +947,13 @@ impl Val
             }
             &Val::Token(ref typ) => Val::Token(typ.clone()),
             &Val::Fref(ref m, ref id, ref args, ref typ) => {
-                let m_args = args.map_v(|a| a.map(op))?;
+                let m_args = struple::map_v(args, |a| a.map(op))?;
                 let m_typ = typ.clone();
                 Val::Fref(m.clone(), id, m_args, m_typ)
             }
             &Val::FuncRef(ref fi, ref args, ref typ) => {
                 let m_fi = fi.clone();
-                let m_args = args.map_v(|a| a.map(op))?;
+                let m_args = struple::map_v(args, |a| a.map(op))?;
                 let m_typ = typ.clone();
                 Val::FuncRef(m_fi, m_args, m_typ)
             }
@@ -1101,12 +1106,26 @@ impl fmt::Display for Val
             }
             Val::Nil => write!(f, "[]"),
             Val::Hashtag(ref s) => write!(f, "#{}", s),
-            Val::Tuple(ref items) => write!(f, "{}", items),
+            Val::Tuple(ref items) => {
+                write!(f, "(")?;
+                for i in items {
+                    write!(f, "{}", i)?;
+                }
+                write!(f, ")")
+            }
             Val::Struct(ref typename, ref items) => {
-                write!(f, "{}{}", typename, items)
+                write!(f, "{}(", typename)?;
+                for i in items {
+                    write!(f, "{}", i)?;
+                }
+                write!(f, ")")
             }
             Val::EnumStruct(ref tname, ref var, ref items) => {
-                write!(f, "{}.{}{}", tname, var, items)
+                write!(f, "{}.{}(", tname, var)?;
+                for i in items {
+                    write!(f, "{}", i)?;
+                }
+                write!(f, ")")
             }
             Val::EnumToken(_, ref var_name) => write!(f, "{}", var_name),
             Val::Token(ref typename) => write!(f, "{}", typename),
@@ -1529,14 +1548,14 @@ impl Env
             Reg::Local(i) => {
                 let primary = i.get_primary() as usize;
                 if primary >= self.locals.len() {
-                    self.locals.0.resize(primary + 1, Default::default())
+                    self.locals.resize(primary + 1, Default::default())
                 }
                 self.locals.ireg_set(i, v)
             }
             Reg::Stack(i) => {
                 let primary = i.get_primary() as usize;
                 if primary >= self.stack.len() {
-                    self.stack.0.resize(primary + 1, Default::default())
+                    self.stack.resize(primary + 1, Default::default())
                 }
                 self.stack.ireg_set(i, v)
             }

@@ -5,7 +5,7 @@ use crate::leema::list;
 use crate::leema::lmap::{Lmap, LmapNode};
 use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
-use crate::leema::struple::Struple2;
+use crate::leema::struple::StrupleItem;
 use crate::leema::val::{Type, Val};
 use crate::leema::worker::RustFuncContext;
 
@@ -45,8 +45,8 @@ impl Serialize for Val
                 ss.end()
             }
             Val::Struct(_, ref flds) => {
-                let mut sser = ser.serialize_map(Some(flds.0.len()))?;
-                for f in flds.0.iter() {
+                let mut sser = ser.serialize_map(Some(flds.len()))?;
+                for f in flds.iter() {
                     sser.serialize_entry(f.k.as_ref().unwrap().str(), &f.v)?;
                 }
                 sser.end()
@@ -166,7 +166,7 @@ fn new_json_val(variant: &'static str, inner: Val) -> Val
     Val::EnumStruct(
         JSON_VAL_TYPE.clone(),
         Lstr::Sref(variant),
-        Struple2::from(vec![inner]),
+        vec![StrupleItem::new(None, inner)],
     )
 }
 

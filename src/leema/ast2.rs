@@ -1,7 +1,7 @@
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::reg::Reg;
-use crate::leema::struple::StrupleKV;
+use crate::leema::struple::{self, StrupleKV};
 use crate::leema::token::TokenSrc;
 use crate::leema::val::{Type, Val};
 
@@ -125,7 +125,7 @@ impl Ast
     {
         match self {
             Ast::ConstVal(_) => true,
-            Ast::List(items) => items.iter_v().all(|a| a.node.is_const()),
+            Ast::List(items) => struple::iter_v(items).all(|a| a.node.is_const()),
             _ => false,
         }
     }

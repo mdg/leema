@@ -260,7 +260,6 @@ mod tests
     use crate::leema::lri::Lri;
     use crate::leema::lstr::Lstr;
     use crate::leema::program;
-    use crate::leema::struple::StrupleKV;
     use crate::leema::val::Val;
 
     use libc::getpid;
@@ -283,7 +282,7 @@ mod tests
         let caller = app.caller();
         let recv = caller.push_call(
             Lri::with_modules(Lstr::Sref("test"), Lstr::Sref("main")),
-            StrupleKV(vec![]),
+            vec![],
         );
         app.run();
 

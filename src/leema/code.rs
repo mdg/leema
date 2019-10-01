@@ -246,10 +246,10 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
         Ast::Tuple(items) => {
             let newtup = Op::ConstVal(
                 input_dst,
-                Val::new_tuple(items.0.len()),
+                Val::new_tuple(items.len()),
             );
             let mut ops: Vec<Op> = vec![newtup];
-            for (i, item) in items.0.into_iter().enumerate() {
+            for (i, item) in items.into_iter().enumerate() {
                 let subdst = input.dst.sub(i as i8);
                 let mut iops = make_sub_ops2(item.v);
                 // should be able to generalize this
@@ -370,7 +370,6 @@ pub fn make_call_ops(dst: Reg, f: AstNode, args: Xlist) -> OpVec
     let mut fops = make_sub_ops2(f);
 
     let mut argops: OpVec = args
-        .0
         .into_iter()
         .rev()
         .flat_map(|a| {
@@ -533,7 +532,7 @@ pub fn make_fork_ops(dst: &Reg, f: &Ixpr, args: &Ixpr) -> Oxpr
 pub fn make_list_ops(dst: Reg, items: Xlist) -> OpVec
 {
     let mut ops = vec![Op::ConstVal(dst, Val::Nil)];
-    for i in items.0.into_iter().rev() {
+    for i in items.into_iter().rev() {
         let idst = i.v.dst;
         let mut listops = make_sub_ops2(i.v);
         ops.append(&mut listops.ops);
@@ -566,7 +565,6 @@ pub fn make_pattern_val(pattern: AstNode) -> Val
         Ast::Wildcard => Val::Wildcard,
         Ast::Tuple(vars) => {
             let reg_items: StrupleKV<Option<Lstr>, Val> = vars
-                .0
                 .into_iter()
                 .map(|i| StrupleItem::new(
                     i.k.map(|k| Lstr::Sref(k)),
@@ -671,7 +669,7 @@ impl Registration
             Ast::Call(ref mut f, ref mut args) => {
                 f.dst = self.tab.unnamed();
                 self.assign_registers(f)?;
-                for (i, a) in args.0.iter_mut().enumerate() {
+                for (i, a) in args.iter_mut().enumerate() {
                     a.v.dst = f.dst.sub(i as i8);
                     self.assign_registers(&mut a.v)?;
                 }
@@ -707,7 +705,7 @@ impl Registration
                 if node.dst.is_sub() {
                     node.dst = self.stack.push_dst();
                 }
-                for (i, item) in items.0.iter_mut().enumerate() {
+                for (i, item) in items.iter_mut().enumerate() {
                     item.v.dst = node.dst.sub(i as i8);
                     self.assign_registers(&mut item.v)?;
                 }
@@ -735,7 +733,7 @@ impl Registration
                 vout!("pattern var:reg is {}.{:?}\n", id, pattern.dst);
             }
             Ast::Tuple(ref mut items) => {
-                for item in items.0.iter_mut() {
+                for item in items.iter_mut() {
                     self.assign_pattern_registers(&mut item.v);
                 }
             }

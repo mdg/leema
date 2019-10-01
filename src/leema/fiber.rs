@@ -268,9 +268,8 @@ impl Fiber
             &Val::Tuple(ref items) => {
                 if let &Type::UserDef(ref i_new_typ) = new_typ {
                     let new_items = items
-                        .0
                         .iter()
-                        .zip(flds.0.iter())
+                        .zip(flds.iter())
                         .map(|(i, f)| {
                             if i.k.is_some() {
                                 StrupleItem::new(i.k.clone(), i.v.clone())
@@ -327,9 +326,8 @@ impl Fiber
             &Val::Tuple(ref items) => {
                 if let &Type::UserDef(ref i_new_typ) = new_typ {
                     let new_items = items
-                        .0
                         .iter()
-                        .zip(flds.0.iter())
+                        .zip(flds.iter())
                         .map(|(i, f)| {
                             if i.k.is_some() {
                                 StrupleItem::new(i.k.clone(), i.v.clone())
@@ -476,7 +474,7 @@ impl Fiber
 
     fn call_arg_failure(args: &Struple2<Val>) -> Option<&Val>
     {
-        for i in args.0.iter() {
+        for i in args.iter() {
             if i.v.is_failure() {
                 return Some(&i.v);
             }
@@ -494,7 +492,6 @@ mod tests
     use crate::leema::lri::Lri;
     use crate::leema::lstr::Lstr;
     use crate::leema::reg::Reg;
-    use crate::leema::struple::StrupleKV;
     use crate::leema::val::Val;
 
 
@@ -506,7 +503,7 @@ mod tests
         let main_parent = Parent::new_main();
         let callri = Lri::with_modules(Lstr::Sref("foo"), Lstr::Sref("bar"));
         let mut frame =
-            Frame::new_root(main_parent, callri, StrupleKV(Vec::new()));
+            Frame::new_root(main_parent, callri, Vec::new());
         frame.e.set_reg(r1, Val::Str(Lstr::Sref("i like ")));
         frame.e.set_reg(r2, Val::Str(Lstr::Sref("burritos")));
         let mut fib = Fiber::spawn(1, frame);
