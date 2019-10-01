@@ -1619,7 +1619,7 @@ mod tests
     use crate::leema::lri::Lri;
     use crate::leema::lstr::Lstr;
     use crate::leema::reg::Reg;
-    use crate::leema::struple::Struple2;
+    use crate::leema::struple;
     use crate::leema::val::{Type, Val};
 
 
@@ -1641,7 +1641,7 @@ mod tests
         let origl = list::cons(Val::Int(4), list::singleton(Val::Int(7)));
         let tuple = Val::tuple_from_list(&origl);
         print!("wtf?({:?})", tuple);
-        let exp = Val::Tuple(Struple2::new_tuple2(Val::Int(4), Val::Int(7)));
+        let exp = Val::Tuple(struple::new_tuple2(Val::Int(4), Val::Int(7)));
         assert_eq!(exp, tuple);
     }
 
@@ -1680,8 +1680,8 @@ mod tests
     #[test]
     fn test_tuple()
     {
-        let a = Val::Tuple(Struple2::new_tuple2(Val::Int(3), Val::Int(7)));
-        let b = Val::Tuple(Struple2::new_tuple2(Val::Int(3), Val::Int(7)));
+        let a = Val::Tuple(struple::new_tuple2(Val::Int(3), Val::Int(7)));
+        let b = Val::Tuple(struple::new_tuple2(Val::Int(3), Val::Int(7)));
         assert!(a == b);
     }
 
@@ -1707,10 +1707,10 @@ mod tests
         let t = Lri::new(Lstr::Sref("Taco"));
         let a = Val::Struct(
             t.clone(),
-            Struple2::new_tuple2(Val::Int(3), Val::Bool(false)),
+            struple::new_tuple2(Val::Int(3), Val::Bool(false)),
         );
         let b =
-            Val::Struct(t, Struple2::new_tuple2(Val::Int(3), Val::Bool(false)));
+            Val::Struct(t, struple::new_tuple2(Val::Int(3), Val::Bool(false)));
         assert_eq!(a, b);
     }
 
@@ -1719,11 +1719,11 @@ mod tests
     {
         let a = Val::Struct(
             Lri::new(Lstr::Sref("Burrito")),
-            Struple2::new_tuple2(Val::Int(3), Val::Bool(false)),
+            struple::new_tuple2(Val::Int(3), Val::Bool(false)),
         );
         let b = Val::Struct(
             Lri::new(Lstr::Sref("Taco")),
-            Struple2::new_tuple2(Val::Int(3), Val::Bool(false)),
+            struple::new_tuple2(Val::Int(3), Val::Bool(false)),
         );
         assert!(a < b);
     }
@@ -1734,11 +1734,11 @@ mod tests
         let typ = Lri::new(Lstr::Sref("Taco"));
         let a = Val::Struct(
             typ.clone(),
-            Struple2::new_tuple2(Val::Bool(false), Val::Int(3)),
+            struple::new_tuple2(Val::Bool(false), Val::Int(3)),
         );
         let b = Val::Struct(
             typ.clone(),
-            Struple2::new_tuple2(Val::Bool(false), Val::Int(7)),
+            struple::new_tuple2(Val::Bool(false), Val::Int(7)),
         );
         assert!(a < b);
     }
@@ -1779,12 +1779,12 @@ mod tests
         let a = Val::EnumStruct(
             typ.clone(),
             Lstr::Sref("Burrito"),
-            Struple2::new_tuple2(Val::Int(5), Val::Int(8)),
+            struple::new_tuple2(Val::Int(5), Val::Int(8)),
         );
         let b = Val::EnumStruct(
             typ,
             Lstr::Sref("Burrito"),
-            Struple2::new_tuple2(Val::Int(9), Val::Int(8)),
+            struple::new_tuple2(Val::Int(9), Val::Int(8)),
         );
         assert!(a < b);
     }
@@ -1817,7 +1817,7 @@ mod tests
         let s = Val::EnumStruct(
             stype_lri,
             burrito_str.clone(),
-            Struple2::new_tuple2(Val::Int(5), Val::Int(8)),
+            struple::new_tuple2(Val::Int(5), Val::Int(8)),
         );
 
         let s_str = format!("{}", s);
@@ -1833,12 +1833,12 @@ mod tests
         let s = Val::Str(Lstr::Sref("hello"));
         let strct = Val::Struct(
             Lri::new(Lstr::Sref("Foo")),
-            Struple2::new_tuple2(Val::Int(2), Val::Bool(true)),
+            struple::new_tuple2(Val::Int(2), Val::Bool(true)),
         );
         let enm = Val::EnumStruct(
             Lri::new(Lstr::Sref("Taco")),
             Lstr::Sref("Burrito"),
-            Struple2::new_tuple2(Val::Int(8), Val::Int(6)),
+            struple::new_tuple2(Val::Int(8), Val::Int(6)),
         );
 
         assert!(f < t);
@@ -1886,8 +1886,8 @@ mod tests
     #[test]
     fn test_pattern_match_wildcard_inside_tuple()
     {
-        let patt = Val::Tuple(Struple2::new_tuple2(Val::Int(1), Val::Wildcard));
-        let input = Val::Tuple(Struple2::new_tuple2(Val::Int(1), Val::Int(4)));
+        let patt = Val::Tuple(struple::new_tuple2(Val::Int(1), Val::Wildcard));
+        let input = Val::Tuple(struple::new_tuple2(Val::Int(1), Val::Int(4)));
         let pmatch = Val::pattern_match(&patt, &input);
         assert!(pmatch.is_some());
     }

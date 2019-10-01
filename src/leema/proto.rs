@@ -517,7 +517,7 @@ mod tests
     use crate::leema::lri::Lri;
     use crate::leema::lstr::Lstr;
     use crate::leema::module::ModKey;
-    use crate::leema::struple::{Struple2, StrupleItem, StrupleKV};
+    use crate::leema::struple::{self, StrupleItem};
     use crate::leema::val::{FuncType, Type};
 
     fn new_proto(input: &'static str) -> ProtoModule
@@ -566,7 +566,7 @@ mod tests
                         StrupleItem::new(Some(Lstr::Sref("a")), tvt.clone()),
                         StrupleItem::new(Some(Lstr::Sref("b")), tvt.clone()),
                     ],
-                    Type::Tuple(Struple2::new_tuple2(tvt.clone(), tvt.clone())),
+                    Type::Tuple(struple::new_tuple2(tvt.clone(), tvt.clone())),
                 ))),
             ),
             *proto.types.get("swap").unwrap(),

@@ -253,7 +253,7 @@ where
 mod tests
 {
     use crate::leema::lstr::Lstr;
-    use crate::leema::struple::{Struple2, StrupleItem, StrupleKV};
+    use crate::leema::struple::{self, Struple2, StrupleItem};
     use crate::leema::val::Val;
 
 
@@ -266,7 +266,7 @@ mod tests
             StrupleItem::new(Some(Lstr::Sref("burrito")), Val::Int(4)),
         ];
 
-        let actual = s.find(&Some(Lstr::Sref("burrito"))).expect("burrito value");
+        let actual = struple::find(&s, &Some(Lstr::Sref("burrito"))).expect("burrito value");
         assert_eq!(2, actual.0);
         assert_eq!(Val::Int(4), *actual.1);
     }

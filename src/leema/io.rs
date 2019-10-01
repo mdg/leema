@@ -515,7 +515,7 @@ pub mod tests
 
     pub fn exercise_iop_action(
         action: rsrc::IopAction,
-        params: Vec<(Option<Lstr>, Val)>,
+        params: Struple2<Val>,
     ) -> Result<(i64, Val), mpsc::TryRecvError>
     {
         let (msg_tx, msg_rx) = mpsc::channel::<msg::IoMsg>();
@@ -524,7 +524,7 @@ pub mod tests
 
         let rcio = Io::new(app_tx, msg_rx);
 
-        let msg_params = MsgVal::new(&Val::Tuple(Struple2::from(params)));
+        let msg_params = MsgVal::new(&Val::Tuple(params));
         msg_tx.send(msg::IoMsg::NewWorker(11, worker_tx)).unwrap();
         msg_tx
             .send(msg::IoMsg::Iop {
