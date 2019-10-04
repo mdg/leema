@@ -581,16 +581,39 @@ impl<'p> TypeCheck<'p>
         }
     }
 
+    pub fn inferred_local(&self, local_tvar: &'static str) -> Type
+    {
+        self.infers
+            .get(local_tvar)
+            .map(|t| t.clone())
+            .unwrap_or(Type::LocalVar(local_tvar))
+    }
+
     pub fn match_type(&mut self, t0: &Type, t1: &Type, opens: &mut StrupleKV<&'static str, Type>) -> Lresult<Type>
     {
         match (t0, t1) {
-            (Type::LocalVar(v0), Type::LocalVar(_)) => {
+            (Type::OpenVar(v0), t1) => {
                 lfailoc!(self.infer_type(v0, t1, opens))
+            }
+            (_, Type::OpenVar(_)) => {
+                Err(rustfail!(
+                    TYPEFAIL,
+                    "open type vars should be passed as the first arg",
+                ))
+            }
+            (Type::LocalVar(v0), Type::LocalVar(v1)) if v0 == v1 => {
+                Ok(self.inferred_local(v0))
+            }
+            (Type::LocalVar(v0), Type::LocalVar(v1)) if v0 < v1 => {
+                lfailoc!(self.infer_type(v0, t1, opens))
+            }
+            (Type::LocalVar(v0), Type::LocalVar(v1)) if v1 < v0 => {
+                lfailoc!(self.infer_type(v1, t0, opens))
             }
             (Type::LocalVar(v0), t1) => {
                 lfailoc!(self.infer_type(v0, t1, opens))
             }
-            (t0, Type::LocalVar(ref v1)) => {
+            (t0, Type::LocalVar(v1)) => {
                 lfailoc!(self.infer_type(v1, t0, opens))
             }
             (t0, Type::Unknown) => {
@@ -622,7 +645,7 @@ impl<'p> TypeCheck<'p>
                 Ok(var_type.clone())
             } else {
                 Err(rustfail!(
-                    SEMFAIL,
+                    TYPEFAIL,
                     "inferred type mismatch for: {} != {}",
                     var_type,
                     t,
@@ -690,35 +713,20 @@ eprintln!("set inferred: {} == {}", var, t);
         }
 
         for arg in ftyp.args.iter_mut().zip(args.iter_mut()) {
-            let typ = if arg.0.v.is_open() {
-                // Self::match_argtype(opens, &arg.0.v, &mut arg.1.v.typ)?
-                return Err(rustfail!(
-                    TYPEFAIL,
-                    "open types not working {:?}, found {:?}",
-                    ftyp,
-                    args,
-                ));
-            } else {
-                lfailoc!(self.match_type(&arg.0.v, &arg.1.v.typ, opens))
-                    .map_err(|f| {
-                        f.add_context(lstrf!(
-                            "function param: {}, expected {}, found {}",
-                            arg.0.k.as_ref().unwrap(),
-                            arg.0.v,
-                            arg.1.v.typ,
-                        ))
-                    })?
-            };
+            let typ =  lfailoc!(self.match_type(&arg.0.v, &arg.1.v.typ, opens))
+                .map_err(|f| {
+                    f.add_context(lstrf!(
+                        "function param: {}, expected {}, found {}",
+                        arg.0.k.as_ref().unwrap(),
+                        arg.0.v,
+                        arg.1.v.typ,
+                    ))
+                })?;
             arg.0.v = typ.clone();
             arg.1.v.typ = typ;
         }
 
         Ok((*ftyp.result).clone())
-    }
-
-    fn match_argtype(_opens: &mut StrupleKV<&'static str, Type>, _decl_type: &'static str, _arg: &mut ast2::Xlist) -> Lresult<Type>
-    {
-        Ok(Type::Void)
     }
 
     fn match_case_types(&mut self, cases: &Vec<ast2::Case>) -> Lresult<Type>
