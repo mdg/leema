@@ -1,4 +1,4 @@
-use crate::leema::ast2::{Ast, AstNode, Case, CaseType, Xlist};
+use crate::leema::ast2::{Ast, AstNode, Case, Xlist};
 use crate::leema::failure::Lresult;
 use crate::leema::fiber;
 use crate::leema::frame;
@@ -262,10 +262,10 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             ops
         }
         Ast::StrExpr(items) => make_str_ops(input.dst.clone(), items),
-        Ast::Case(CaseType::If, _, cases) => {
+        Ast::Ifx(cases) => {
             make_if_ops(cases)
         }
-        Ast::Case(CaseType::Match, Some(x), cases) => {
+        Ast::Matchx(Some(x), cases) => {
             make_matchexpr_ops(x, cases)
         }
         Ast::Return(result) => {
@@ -281,7 +281,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
         Ast::Void => vec![],
 
         // invalid patterns
-        Ast::Case(CaseType::Match, None, _) => {
+        Ast::Matchx(None, _) => {
             // None should have been replaced by the args
             // in an earlier phase?
             panic!("match expression must have an expression");
@@ -675,7 +675,7 @@ impl Registration
                     self.assign_registers(&mut a.v)?;
                 }
             }
-            Ast::Case(CaseType::Match, ref mut match_input, ref mut cases) => {
+            Ast::Matchx(ref mut match_input, ref mut cases) => {
                 if let Some(ref mut mi) = match_input {
                     mi.dst = self.stack.push_dst();
                     self.assign_registers(mi)?;
@@ -686,7 +686,7 @@ impl Registration
                     self.assign_registers(&mut case.body)?;
                 }
             }
-            Ast::Case(CaseType::If, None, ref mut cases) => {
+            Ast::Ifx(ref mut cases) => {
                 let cond_dst = self.stack.push_dst();
                 for case in cases.iter_mut() {
                     case.cond.dst = cond_dst;

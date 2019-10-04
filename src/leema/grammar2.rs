@@ -249,7 +249,7 @@ impl ParseStmt
             }
             Token::CasePipe => {
                 let cases = p.parse_new(&CaseMode)?;
-                let ast = Ast::Case(ast2::CaseType::Match, None, cases);
+                let ast = Ast::Matchx(None, cases);
                 AstNode::new(ast, Ast::loc(&body_start))
             }
             _ => {
@@ -281,7 +281,7 @@ impl ParseStmt
             }
             Token::CasePipe => {
                 let cases = p.parse_new(&CaseMode)?;
-                let ast = Ast::Case(ast2::CaseType::Match, None, cases);
+                let ast = Ast::Matchx(None, cases);
                 AstNode::new(ast, Ast::loc(&body_start))
             }
             _ => {
@@ -1310,7 +1310,7 @@ impl PrefixParser for ParseIf
             }
         };
         Ok(AstNode::new(
-            Ast::Case(ast2::CaseType::If, None, cases),
+            Ast::Ifx(cases),
             Ast::loc(&tok),
         ))
     }
@@ -1336,7 +1336,7 @@ impl PrefixParser for ParseMatch
         p.skip_if(Token::LineBegin)?;
         expect_next!(p, Token::DoubleDash)?;
         Ok(AstNode::new(
-            Ast::Case(ast2::CaseType::Match, input, cases),
+            Ast::Matchx(input, cases),
             Ast::loc(&tok),
         ))
     }

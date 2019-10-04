@@ -47,8 +47,6 @@ pub enum DataType
 #[derive(PartialOrd)]
 pub enum CaseType
 {
-    If,
-    Match,
     MatchFailure,
     TypeCast,
 }
@@ -86,7 +84,6 @@ pub enum Ast
 {
     Block(Vec<AstNode>),
     Call(AstNode, Xlist),
-    Case(CaseType, Option<AstNode>, Vec<Case>),
     ConstVal(Val),
     Copy(AstNode),
     DefConst(&'static str, AstNode),
@@ -96,10 +93,12 @@ pub enum Ast
     Generic(AstNode, Xlist),
     Id1(&'static str),
     Id2(Lstr, &'static str),
+    Ifx(Vec<Case>),
     Import(&'static str),
     LessThan3(AstNode, bool, AstNode, bool, AstNode),
     Let(AstNode, AstNode, AstNode),
     List(Xlist),
+    Matchx(Option<AstNode>, Vec<Case>),
     Op1(&'static str, AstNode),
     Op2(&'static str, AstNode, AstNode),
     Return(AstNode),
@@ -135,10 +134,6 @@ impl Ast
         match self {
             Ast::Block(items) => write!(f, "Block {:?}", items),
             Ast::Call(id, args) => write!(f, "Call {:?} {:?}", id, args),
-            Ast::Case(typ, None, args) => write!(f, "{:?} {:?}", typ, args),
-            Ast::Case(typ, Some(cond), args) => {
-                write!(f, "{:?} {:?} {:?}", typ, cond, args)
-            }
             Ast::ConstVal(v) => write!(f, "Const {:?}", v),
             Ast::Copy(src) => write!(f, "Copy {:?}", src),
             Ast::DefConst(id, x) => write!(f, "DefConst {} := {:?}", id, x),
@@ -155,9 +150,16 @@ impl Ast
             Ast::Generic(id, args) => write!(f, "Generic {:?}[{:?}]", id, args),
             Ast::Id1(id) => write!(f, "Id {}", id),
             Ast::Id2(id1, id2) => write!(f, "Id {}::{}", id1, id2),
+            Ast::Ifx(args) => write!(f, "If {:?}", args),
             Ast::Import(module) => write!(f, "Import {:?}", module),
             Ast::Let(lhp, _lht, rhs) => write!(f, "Let {:?} := {:?}", lhp, rhs),
             Ast::List(items) => write!(f, "List {:?}", items),
+            Ast::Matchx(None, args) => {
+                write!(f, "Match None {:?}", args)
+            }
+            Ast::Matchx(Some(cond), args) => {
+                write!(f, "Match {:?} {:?}", cond, args)
+            }
             Ast::Op1(op, node) => write!(f, "Op1 {} {:?}", op, node),
             Ast::Op2(op, a, b) => write!(f, "Op2 {} {:?} {:?}", op, a, b),
             Ast::RustBlock => write!(f, "RustBlock"),

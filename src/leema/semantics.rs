@@ -794,7 +794,7 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 // any types to the children
                 node.typ = src.typ.clone();
             }
-            Ast::Case(ast2::CaseType::If, _, ref mut cases) => {
+            Ast::Ifx(ref mut cases) => {
                 // all if cases should be boolean
                 let mut opens = vec![];
                 for case in cases.iter_mut() {
@@ -803,7 +803,8 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 }
                 node.typ = self.match_case_types(cases)?;
             }
-            Ast::Case(ast2::CaseType::Match, _, ref mut cases) => {
+            Ast::Matchx(_, ref mut cases) => {
+                // what about match input and pattern types?
                 node.typ = self.match_case_types(cases)?;
             }
             Ast::Let(ref mut patt, _, ref mut x) => {
@@ -990,20 +991,31 @@ impl Semantics
                 let wargs = struple::map_v_into(args, |v| Self::walk(op, v))?;
                 Ast::Call(wid, wargs)
             }
-            Ast::Case(typ, None, args) => {
+            Ast::Ifx(cases) => {
+                let new_cases: Lresult<Vec<ast2::Case>> = cases
+                    .into_iter()
+                    .map(|ch| {
+                        let wcond = Self::walk(op, ch.cond)?;
+                        let wbody = Self::walk(op, ch.body)?;
+                        Ok(ast2::Case::new(wcond, wbody))
+                    })
+                    .collect();
+                Ast::Ifx(new_cases?)
+            }
+            Ast::Matchx(None, args) => {
                 let new_args: Lresult<Vec<ast2::Case>> = args
                     .into_iter()
                     .map(|ch| {
-                        op.set_pattern(typ == ast2::CaseType::Match);
+                        op.set_pattern(true);
                         let wcond = Self::walk(op, ch.cond)?;
                         op.set_pattern(false);
                         let wbody = Self::walk(op, ch.body)?;
                         Ok(ast2::Case::new(wcond, wbody))
                     })
                     .collect();
-                Ast::Case(typ, None, new_args?)
+                Ast::Matchx(None, new_args?)
             }
-            Ast::Case(ast2::CaseType::Match, Some(cond), children) => {
+            Ast::Matchx(Some(cond), children) => {
                 let wcond = Self::walk(op, cond)?;
                 let wchildren: Lresult<Vec<ast2::Case>> = children
                     .into_iter()
@@ -1015,7 +1027,7 @@ impl Semantics
                         Ok(ast2::Case::new(wcond, wbody))
                     })
                     .collect();
-                Ast::Case(ast2::CaseType::Match, Some(wcond), wchildren?)
+                Ast::Matchx(Some(wcond), wchildren?)
             }
             Ast::ConstVal(v) => {
                 // can't walk past on const
@@ -1163,7 +1175,7 @@ mod tests
         proto.add_module(&Lstr::Sref("foo"), input).unwrap();
         let mut semantics = Semantics::new();
         let body = semantics.compile_call(&mut proto, "foo", "main").unwrap();
-        assert_matches!(*body.node, Ast::Case(_, _, _));
+        assert_matches!(*body.node, Ast::Ifx(_));
     }
 
     #[test]
