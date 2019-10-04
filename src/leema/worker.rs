@@ -60,7 +60,7 @@ impl<'a> RustFuncContext<'a>
 
     pub fn get_reg(&self, r: Reg) -> Lresult<&Val>
     {
-        self.task.head.e.get_reg(r)
+        Ok(ltry!(self.task.head.e.get_reg(r)))
     }
 
     pub fn set_result(&mut self, r: Val)

@@ -257,6 +257,14 @@ impl<'l> SemanticOp for MacroApplication<'l>
                     Self::op_to_call("prefab", "equal", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
+            Ast::Op1("\\n", x) => {
+                let newline = AstNode::new_constval(
+                    Val::Str(Lstr::Sref("\n")),
+                    node.loc,
+                );
+                let strx = Ast::StrExpr(vec![x, newline]);
+                Ok(SemanticAction::Rewrite(AstNode::new(strx, node.loc)))
+            }
             Ast::ConstVal(Val::Str(s)) => {
                 let new_str_node = match s.str() {
                     "\\n" => {

@@ -110,7 +110,7 @@ impl Fiber
                         ops,
                     ));
                 }
-                let result = self.head.e.get_reg(dst)?.clone();
+                let result = ltry!(self.head.e.get_reg(dst)).clone();
                 self.head.parent.set_result(result);
                 self.head.pc += 1;
                 Ok(Event::Uneventful)
@@ -130,8 +130,8 @@ impl Fiber
         -> Lresult<Event>
     {
         let result = {
-            let dst = self.head.e.get_reg(dstreg)?;
-            let src = self.head.e.get_reg(srcreg)?;
+            let dst = ltry!(self.head.e.get_reg(dstreg));
+            let src = ltry!(self.head.e.get_reg(srcreg));
             match (dst, src) {
                 (&Val::Future(_), _) => {
                     // oops, not ready to do this yet, let's bail and wait
@@ -163,7 +163,7 @@ impl Fiber
             input
         );
         let matches = {
-            let ival = self.head.e.get_reg(input)?;
+            let ival = ltry!(self.head.e.get_reg(input));
             Val::pattern_match(patt, ival)
         };
         match matches {
@@ -204,7 +204,7 @@ impl Fiber
     {
         let mut funcri_ref;
         let (funcri, args): (&Lri, Struple2<Val>) = {
-            let ref fname_val = self.head.e.get_reg(freg)?;
+            let ref fname_val = ltry!(self.head.e.get_reg(freg));
             match *fname_val {
                 &Val::FuncRef(ref callri, ref args, _) => {
                     (callri, args.clone())
@@ -366,8 +366,8 @@ impl Fiber
     ) -> Lresult<Event>
     {
         let new_list = {
-            let headval = self.head.e.get_reg(head)?.clone();
-            let tailval = self.head.e.get_reg(tail)?.clone();
+            let headval = ltry!(self.head.e.get_reg(head)).clone();
+            let tailval = ltry!(self.head.e.get_reg(tail)).clone();
             list::cons(headval, tailval)
         };
         self.head.e.set_reg(dst, new_list);
@@ -412,7 +412,7 @@ impl Fiber
     {
         vout!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
         let tjump: i32 = {
-            let test_val = self.head.e.get_reg(reg)?;
+            let test_val = ltry!(self.head.e.get_reg(reg));
             if let &Val::Bool(test) = test_val {
                 if test {
                     vout!("if test is true\n");
@@ -445,7 +445,7 @@ impl Fiber
 
     pub fn execute_copy(&mut self, dst: Reg, src: Reg) -> Lresult<Event>
     {
-        let src_val = self.head.e.get_reg(src)?.clone();
+        let src_val = ltry!(self.head.e.get_reg(src)).clone();
         self.head.e.set_reg(dst, src_val);
         self.head.pc = self.head.pc + 1;
         Ok(Event::Uneventful)
@@ -453,7 +453,7 @@ impl Fiber
 
     pub fn propagate_failure(&mut self, src: Reg, line: u16) -> Lresult<Event>
     {
-        let srcval = self.head.e.get_reg(src)?;
+        let srcval = ltry!(self.head.e.get_reg(src));
         match srcval {
             &Val::Failure2(ref failure) => {
                 let new_trace = FrameTrace::propagate_down(
