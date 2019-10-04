@@ -637,23 +637,17 @@ impl<'p> TypeCheck<'p>
         }
     }
 
-    pub fn infer_type(&mut self, var: &'static str, t: &Type, _opens: &mut StrupleKV<&'static str, Type>) -> Lresult<Type>
+    pub fn infer_type(&mut self, var: &'static str, t: &Type, opens: &mut StrupleKV<&'static str, Type>) -> Lresult<Type>
     {
         if self.infers.contains_key(var) {
-            let var_type = self.infers.get(var).unwrap();
-            if var_type == t {
-                Ok(var_type.clone())
+            let var_type = self.inferred_local(var);
+            if var_type == *t {
+                Ok(var_type)
             } else {
-                Err(rustfail!(
-                    TYPEFAIL,
-                    "inferred type mismatch for: {} != {}",
-                    var_type,
-                    t,
-                ))
+                self.match_type(&var_type, t, opens)
             }
         } else {
             if t.is_closed() {
-eprintln!("set inferred: {} == {}", var, t);
                 self.infers.insert(var, t.clone());
             }
             Ok(t.clone())

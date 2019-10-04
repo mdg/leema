@@ -278,6 +278,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             vec![]
         }
         Ast::RustBlock => vec![],
+        Ast::Void => vec![],
 
         // invalid patterns
         Ast::Case(CaseType::Match, None, _) => {
