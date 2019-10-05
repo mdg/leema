@@ -5,7 +5,7 @@ use crate::leema::frame;
 use crate::leema::lstr::Lstr;
 use crate::leema::reg::{Reg, RegStack, RegTab};
 use crate::leema::rsrc;
-use crate::leema::struple::{Struple2, StrupleItem, StrupleKV};
+use crate::leema::struple::{Struple2, StrupleItem};
 use crate::leema::val::{Type, Val};
 use crate::leema::worker::RustFuncContext;
 
@@ -13,6 +13,8 @@ use std::fmt;
 use std::marker;
 use std::mem;
 
+
+const CODEFAIL: &'static str = "codegen_failure";
 
 #[derive(Debug)]
 #[derive(PartialEq)]
@@ -226,7 +228,11 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             src_ops.ops
         }
         Ast::Let(patt, _, x) => {
-            let pval = make_pattern_val(patt);
+            let pval = if let Ast::ConstVal(pv) = *patt.node {
+                pv
+            } else {
+                panic!("let patterns should be ConstVal! {:?}", patt);
+            };
             let mut xops = make_sub_ops2(x);
             /*
             let mut failops: Vec<(Op, i16)> = fails
@@ -484,7 +490,12 @@ pub fn make_matchcase_ops(
     last_case: bool,
 ) -> OpVec
 {
-    let patt_val = make_pattern_val(matchcase.cond);
+    let ifmatch_dst = matchcase.cond.dst;
+    let patt_val = if let Ast::ConstVal(pv) = *matchcase.cond.node {
+        pv
+    } else {
+        panic!("match patterns should be const vals! {:?}", matchcase.cond);
+    };
     let mut code_ops = make_sub_ops2(matchcase.body);
 
     if patt_val == Val::Wildcard {
@@ -494,12 +505,12 @@ pub fn make_matchcase_ops(
     }
 
     let mut patt_ops: Vec<Op> =
-        vec![Op::MatchPattern(Reg::Void, patt_val, xreg.clone())];
+        vec![Op::MatchPattern(ifmatch_dst, patt_val, xreg.clone())];
     let mut jump_len = code_ops.ops.len() as i16 + 1;
     if !last_case {
         jump_len += 1;
     }
-    patt_ops.push(Op::JumpIfNot(jump_len, Reg::Void));
+    patt_ops.push(Op::JumpIfNot(jump_len, ifmatch_dst));
 
     patt_ops.append(&mut code_ops.ops);
     patt_ops
@@ -579,57 +590,6 @@ pub fn make_str_ops(dst: Reg, items: Vec<AstNode>) -> OpVec
     ops
 }
 
-pub fn make_pattern_val(pattern: AstNode) -> Val
-{
-    match *pattern.node {
-        Ast::Id1(id) => {
-            vout!("pattern var:reg is {}.{:?}\n", id, pattern.dst);
-            Val::PatternVar(pattern.dst)
-        }
-        Ast::ConstVal(v) => v,
-        Ast::Wildcard => Val::Wildcard,
-        Ast::Tuple(vars) => {
-            let reg_items: StrupleKV<Option<Lstr>, Val> = vars
-                .into_iter()
-                .map(|i| StrupleItem::new(
-                    i.k.map(|k| Lstr::Sref(k)),
-                    make_pattern_val(i.v),
-                ))
-                .collect();
-            Val::Tuple(reg_items)
-        }
-        /*
-        &Val::Cons(ref head, ref tail) => {
-            let pr_head = assign_pattern_registers(rt, head);
-            let pr_tail = assign_pattern_registers(rt, tail);
-            Val::Cons(Box::new(pr_head), Arc::new(pr_tail))
-        }
-        &Val::Struct(ref styp, ref vars) => {
-            let reg_items = vars
-                .0
-                .iter()
-                .map(|v| (v.0.clone(), assign_pattern_registers(rt, &v.1)))
-                .collect();
-            Val::Struct(styp.clone(), Struple2(reg_items))
-        }
-        &Val::EnumStruct(ref styp, ref variant, ref vars) => {
-            let reg_items = vars
-                .0
-                .iter()
-                .map(|v| (v.0.clone(), assign_pattern_registers(rt, &v.1)))
-                .collect();
-            Val::EnumStruct(styp.clone(), variant.clone(), Struple2(reg_items))
-        }
-        &Val::EnumToken(ref styp, ref variant) => {
-            Val::EnumToken(styp.clone(), variant.clone())
-        }
-        */
-        _ => {
-            panic!("pattern type unsupported: {:?}", pattern);
-        }
-    }
-}
-
 pub fn assign_registers(input: &mut AstNode, args: Vec<Option<&'static str>>) -> Lresult<()>
 {
     vout!("assign_registers({:?})\n", input);
@@ -687,7 +647,9 @@ impl Registration
                     *node = mem::replace(rhs, AstNode::void());
                     self.assign_registers(node)?;
                 } else {
-                    self.assign_pattern_registers(lhs);
+                    let pval = ltry!(self.make_pattern_val(&lhs));
+                    *lhs = AstNode::new_constval(pval, lhs.loc);
+                    lhs.dst = self.stack.push_dst();
                     self.assign_registers(rhs)?;
                 }
             }
@@ -704,8 +666,12 @@ impl Registration
                     mi.dst = self.stack.push_dst();
                     self.assign_registers(mi)?;
                 }
+                let cond_dst = self.stack.push_dst();
                 for case in cases.iter_mut() {
-                    self.assign_pattern_registers(&mut case.cond);
+                    let pval = ltry!(self.make_pattern_val(&case.cond));
+                    let mut cond = AstNode::new_constval(pval, case.cond.loc);
+                    cond.dst = cond_dst;
+                    case.cond = cond;
                     case.body.dst = node.dst;
                     self.assign_registers(&mut case.body)?;
                 }
@@ -750,22 +716,34 @@ impl Registration
         Ok(())
     }
 
-    fn assign_pattern_registers(&mut self, pattern: &mut AstNode)
+    fn make_pattern_val(&mut self, pattern: &AstNode) -> Lresult<Val>
     {
-        match *pattern.node {
+        let pval = match &*pattern.node {
             Ast::Id1(id) => {
-                pattern.dst = self.tab.named(id);
+                let dst = self.tab.named(id);
                 vout!("pattern var:reg is {}.{:?}\n", id, pattern.dst);
+                Val::PatternVar(dst)
             }
-            Ast::Tuple(ref mut items) => {
-                for item in items.iter_mut() {
-                    self.assign_pattern_registers(&mut item.v);
-                }
+            Ast::Tuple(ref items) => {
+                let tval: Lresult<Struple2<Val>> = items.iter().map(|item| {
+                    let pk = item.k.map(|k| Lstr::Sref(k));
+                    let pv = self.make_pattern_val(&item.v)?;
+                    Ok(StrupleItem::new(pk, pv))
+                }).collect();
+                Val::Tuple(tval?)
             }
-            _ => {
+            Ast::ConstVal(ref val) => val.clone(),
+            Ast::Wildcard => Val::Wildcard,
+            pnode => {
                 // do nothing with other pattern values
+                return Err(rustfail!(
+                    CODEFAIL,
+                    "cannot make a pattern val: {:?}",
+                    pnode,
+                ));
             }
-        }
+        };
+        Ok(pval)
     }
 }
 
