@@ -1,14 +1,16 @@
-func main() ->
+import io
+
+func main >>
     let x := 1
     let y := 2
 
-    if x == 1 ->
-        if y == 2 ->
-            print("x = 1, y = 2\n")
-        else ->
-            print("x = 1, y != 2\n")
+    if x == 1 >>
+        if y == 2 >>
+            io::print("x = 1, y = 2\n")
+        else >>
+            io::print("x = 1, y != 2\n")
         --
-    else ->
-        print("x != 1\n")
+    else >>
+        io::print("x != 1\n")
     --
 --

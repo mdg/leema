@@ -105,7 +105,7 @@ pub enum Type
     StrictList(Box<Type>),
     Open(StrupleKV<&'static str, Type>, Box<Type>),
     User(Lstr, &'static str),
-    ClosedUser(Lstr, &'static str, Vec<Lstr>),
+    ClosedUser(Lstr, &'static str, StrupleKV<&'static str, Type>),
 
     Lib(String),
     Resource(Lstr),
@@ -257,6 +257,13 @@ impl Type
             &Type::Unknown => Type::Unknown,
             &Type::OpenVar(id) => Type::OpenVar(id),
             &Type::LocalVar(id) => Type::LocalVar(id),
+            &Type::Open(ref opens, ref subt) => {
+                let subt2 = Box::new(subt.deep_clone());
+                Type::Open(opens.clone(), subt2)
+            }
+            &Type::User(ref module, typ) => {
+                Type::User(module.clone_for_send(), typ)
+            }
             &Type::Void => Type::Void,
             _ => {
                 panic!("cannot deep_clone Type: {:?}", self);
@@ -1028,6 +1035,10 @@ impl Val
             &Val::Void => Val::Void,
             &Val::Wildcard => Val::Wildcard,
             &Val::PatternVar(ref r) => Val::PatternVar(r.clone()),
+            &Val::Map(_) => {
+                panic!("cannot deep clone Map");
+            }
+            &Val::RustBlock => Val::RustBlock,
             _ => {
                 panic!("cannot deep clone val: {:?}", self);
             }
