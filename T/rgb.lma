@@ -1,7 +1,7 @@
 
-const HEX_RED := #ff0000
-const HEX_GREEN := #00ff00
-const HEX_BLUE := #0000ff
+const HEX_RED :=   "#ff0000"
+const HEX_GREEN := "#00ff00"
+const HEX_BLUE :=  "#0000ff"
 
 struct Rgb
 .red: Int
@@ -9,7 +9,7 @@ struct Rgb
 .blue: Int
 --
 
-func main() ->
+func main >>
     let c := Rgb(10, 20, 30)
     print("color: $c\n")
     print("red: ${c.red}\n")
