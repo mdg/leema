@@ -451,15 +451,29 @@ pub fn make_matchexpr_ops(
 
     let mut xops = make_sub_ops2(x);
     let x_dst = xops.dst.clone();
-    let mut case_ops = cases
+    // assume # cases is already verified > 0
+    let last_case = cases.len() - 1;
+    let mut case_ops: Vec<OpVec> = cases
         .into_iter()
-        .flat_map(|case| {
-            make_matchcase_ops(case, &x_dst, &x_dst)
+        .enumerate()
+        .map(|(i, case)| {
+            make_matchcase_ops(case, &x_dst, &x_dst, i == last_case)
         })
         .collect();
     vout!("made matchcase_ops =\n{:?}\n", case_ops);
 
-    xops.ops.append(&mut case_ops);
+    // add jumps after
+    case_ops.iter_mut().rev().fold(0 as i16, |after, case| {
+        if after > 0 {
+            case.push(Op::Jump(after + 1));
+        }
+        let case_ops_len = case.len() as i16;
+        after + case_ops_len
+    });
+
+    for mut case in case_ops {
+        xops.ops.append(&mut case);
+    }
     xops.ops
 }
 
@@ -467,14 +481,25 @@ pub fn make_matchcase_ops(
     matchcase: Case,
     xreg: &Reg,
     _matchreg: &Reg,
+    last_case: bool,
 ) -> OpVec
 {
     let patt_val = make_pattern_val(matchcase.cond);
     let mut code_ops = make_sub_ops2(matchcase.body);
 
+    if patt_val == Val::Wildcard {
+        // wildcard in the not-last case would be a semantic failure
+        // and should have already been verified
+        return code_ops.ops;
+    }
+
     let mut patt_ops: Vec<Op> =
         vec![Op::MatchPattern(Reg::Void, patt_val, xreg.clone())];
-    patt_ops.push(Op::JumpIfNot(code_ops.ops.len() as i16 + 1, Reg::Void));
+    let mut jump_len = code_ops.ops.len() as i16 + 1;
+    if !last_case {
+        jump_len += 1;
+    }
+    patt_ops.push(Op::JumpIfNot(jump_len, Reg::Void));
 
     patt_ops.append(&mut code_ops.ops);
     patt_ops
@@ -512,8 +537,7 @@ pub fn make_if_ops(cases: Vec<Case>) -> OpVec
     case_ops
         .into_iter()
         .flat_map(|mut case| {
-            let mut tmp = case.1.ops;
-            case.0.ops.append(&mut tmp);
+            case.0.ops.append(&mut case.1.ops);
             case.0.ops
         })
         .collect()
