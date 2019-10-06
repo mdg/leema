@@ -1,9 +1,9 @@
-use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc};
+use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc, Xlist};
 use crate::leema::failure::Lresult;
 use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::{ProtoLib, ProtoModule};
-use crate::leema::struple::{self, StrupleKV};
+use crate::leema::struple::{self, StrupleItem, StrupleKV};
 use crate::leema::val::{FuncType, Type, Val};
 
 use std::collections::HashMap;
@@ -120,6 +120,7 @@ struct MacroApplication<'l>
 {
     local: &'l ProtoModule,
     proto: &'l ProtoLib,
+    ftype: &'l FuncType,
 }
 
 impl<'l> MacroApplication<'l>
@@ -279,6 +280,24 @@ impl<'l> SemanticOp for MacroApplication<'l>
                 };
                 let node2 = AstNode::new(new_str_node, node.loc);
                 Ok(SemanticAction::Keep(node2))
+            }
+            Ast::Matchx(None, cases) => {
+                let node_loc = node.loc;
+                let args: Lresult<Xlist> = self.ftype.args.iter().map(|arg| {
+                    if let Some(Lstr::Sref(argname)) = arg.k {
+                        let argnode = AstNode::new(Ast::Id1(argname), node_loc);
+                        Ok(StrupleItem::new_v(argnode))
+                    } else {
+                        return Err(rustfail!(
+                            SEMFAIL,
+                            "arg name is not a static str: {:?}",
+                            arg.k,
+                        ));
+                    }
+                }).collect();
+                let match_input = AstNode::new(Ast::Tuple(args?), node.loc);
+                let matchx = Ast::Matchx(Some(match_input), cases);
+                Ok(SemanticAction::Keep(AstNode::new(matchx, node.loc)))
             }
             _ => Ok(SemanticAction::Keep(node)),
         }
@@ -941,6 +960,7 @@ impl Semantics
         let mut macs: MacroApplication = MacroApplication {
             local: local_proto,
             proto: proto,
+            ftype: ftyp,
         };
         let mut scope_check = ScopeCheck::new(ftyp, local_proto, proto)?;
         let mut var_types = VarTypes::new(&local_proto.key.name, ftyp)?;
