@@ -255,7 +255,12 @@ impl<'l> SemanticOp for MacroApplication<'l>
             }
             Ast::Op2("==", a, b) => {
                 let call =
-                    Self::op_to_call("prefab", "equal", a, b, node.loc);
+                    Self::op_to_call("prefab", "int_equal", a, b, node.loc);
+                Ok(SemanticAction::Rewrite(call))
+            }
+            Ast::Op2("<", a, b) => {
+                let call =
+                    Self::op_to_call("prefab", "int_less_than", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op1("\\n", x) => {

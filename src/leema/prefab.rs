@@ -5,6 +5,7 @@ use crate::leema::frame::Event;
 use crate::leema::lstr::Lstr;
 use crate::leema::rsrc;
 use crate::leema::val::{self, LibVal, Type, Val};
+use crate::leema::worker::RustFuncContext;
 
 use std::fmt::{self, Debug, Display};
 use std::fs::File;
@@ -129,6 +130,78 @@ pub fn int_negate(f: &mut Fiber) -> Lresult<Event>
         }
     }
     f.head.parent.set_result(Val::Int(result));
+    Event::success()
+}
+
+pub fn int_equal(mut f: RustFuncContext) -> Lresult<Event>
+{
+    let result = {
+        let pa = f.get_param(0)?;
+        let pb = f.get_param(1)?;
+        match (pa, pb) {
+            (Val::Int(a), Val::Int(b)) => {
+                Val::Bool(a == b)
+            }
+            (Val::Int(_), _) => {
+                return Err(rustfail!(
+                    "runtime_type_failure",
+                    "parameter b is not an integer: {}",
+                    pb,
+                ))
+            }
+            (_, Val::Int(_)) => {
+                return Err(rustfail!(
+                    "runtime_type_failure",
+                    "parameter a is not an integer: {}",
+                    pa,
+                ))
+            }
+            _ => {
+                return Err(rustfail!(
+                    "runtime_type_failure",
+                    "equal parameters are not integers: {} == {}",
+                    pa,
+                    pb,
+                ))
+            }
+        }
+    };
+    f.set_result(result);
+    Event::success()
+}
+
+pub fn int_less_than(mut f: RustFuncContext) -> Lresult<Event>
+{
+    let result = {
+        let pa = f.get_param(0)?;
+        let pb = f.get_param(1)?;
+        match (pa, pb) {
+            (Val::Int(a), Val::Int(b)) => Val::Bool(a < b),
+            (Val::Int(_), _) => {
+                return Err(rustfail!(
+                    "runtime_type_failure",
+                    "parameter b is not an integer: {}",
+                    pb,
+                ))
+            }
+            (_, Val::Int(_)) => {
+                return Err(rustfail!(
+                    "runtime_type_failure",
+                    "parameter a is not an integer: {}",
+                    pa,
+                ))
+            }
+            _ => {
+                return Err(rustfail!(
+                    "runtime_type_failure",
+                    "parameters are not integers: {} < {}",
+                    pa,
+                    pb,
+                ))
+            }
+        }
+    };
+    f.set_result(result);
     Event::success()
 }
 
@@ -415,6 +488,8 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         "int_div" => Some(Code::Rust(int_div)),
         "int_mod" => Some(Code::Rust(int_mod)),
         "int_negate" => Some(Code::Rust(int_negate)),
+        "int_equal" => Some(Code::Rust2(int_equal)),
+        "int_less_than" => Some(Code::Rust2(int_less_than)),
         "int_random" => Some(Code::Rust(int_random)),
         "bool_not" => Some(Code::Rust(bool_not)),
         "bool_xor" => Some(Code::Rust(bool_xor)),
