@@ -43,6 +43,11 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(0, result['code'])
         self.assertEqual(b"factorial(4) = 24\n", result['output'])
 
+    def test_fact_fmatch(self):
+        result = run_leema('fact_fmatch')
+        self.assertEqual(0, result['code'])
+        self.assertEqual(b"factorial(4) = 24\n", result['output'])
+
     def test_factorial(self):
         result = run_leema('factorial')
         self.assertEqual(0, result['code'])

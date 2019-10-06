@@ -297,7 +297,20 @@ impl<'l> SemanticOp for MacroApplication<'l>
                 }).collect();
                 let match_input = AstNode::new(Ast::Tuple(args?), node.loc);
                 let matchx = Ast::Matchx(Some(match_input), cases);
-                Ok(SemanticAction::Keep(AstNode::new(matchx, node.loc)))
+                Ok(SemanticAction::Rewrite(AstNode::new(matchx, node.loc)))
+            }
+            // for single element tuples, just take the single item
+            Ast::Tuple(mut items) => {
+                if items.len() == 1 {
+                    if items.first().unwrap().k.is_none() {
+                        return Ok(SemanticAction::Rewrite(
+                            items.pop().unwrap().v
+                        ))
+                    }
+                }
+
+                let node2 = AstNode::new(Ast::Tuple(items), node.loc);
+                Ok(SemanticAction::Keep(node2))
             }
             _ => Ok(SemanticAction::Keep(node)),
         }
