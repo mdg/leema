@@ -538,9 +538,11 @@ pub fn make_if_ops(cases: Vec<Case>) -> OpVec
             case.1.ops.push(Op::Jump(after + 1));
         }
         let body_ops_len = case.1.ops.len() as i16;
-        case.0
-            .ops
-            .push(Op::JumpIfNot(body_ops_len + after + 1, case.0.dst.clone()));
+        if case.0.dst != Reg::Void {
+            case.0
+                .ops
+                .push(Op::JumpIfNot(body_ops_len + 1, case.0.dst.clone()));
+        }
         let cond_ops_len = case.0.ops.len() as i16;
         after + cond_ops_len + body_ops_len
     });
@@ -679,7 +681,11 @@ impl Registration
             Ast::Ifx(ref mut cases) => {
                 let cond_dst = self.stack.push_dst();
                 for case in cases.iter_mut() {
-                    case.cond.dst = cond_dst;
+                    if *case.cond.node == Ast::Void {
+                        case.cond.dst = Reg::Void;
+                    } else {
+                        case.cond.dst = cond_dst;
+                    }
                     case.body.dst = node.dst;
                     self.assign_registers(&mut case.cond)?;
                     self.assign_registers(&mut case.body)?;
