@@ -1,11 +1,13 @@
-func footag() -> #foot --
+import io
 
-func main() ->
+func footag >> #foot --
+
+func main >>
     let h := footag()
-    print("h is $h\n")
+    io::print("h is $h\n")
 
     match h
-    |#foo -> print("matched #foo\n")
-    |_ -> print("some other thing? $h\n")
+    |#foo >> io::print("matched #foo\n")
+    |_ >> io::print("some other thing? $h\n")
     --
 --

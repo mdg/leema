@@ -1116,7 +1116,7 @@ impl fmt::Display for Val
                     .and_then(|_| write!(f, "]"))
             }
             Val::Nil => write!(f, "[]"),
-            Val::Hashtag(ref s) => write!(f, "#{}", s),
+            Val::Hashtag(ref s) => f.write_str(s),
             Val::Tuple(ref items) => {
                 write!(f, "(")?;
                 for i in items {
