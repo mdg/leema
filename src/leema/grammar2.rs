@@ -416,7 +416,11 @@ impl IdTypeMode
     /// FuncTypeMode for func args like: "id:Type* > Type"
     pub fn parse_func_type(p: &mut Parsl) -> Lresult<(ast2::Xlist, AstNode)>
     {
-        let args = IdTypeMode::parse(p)?;
+        let args = if p.peek_token()? == Token::Slash {
+            vec![]
+        } else {
+            IdTypeMode::parse(p)?
+        };
 
         let result: AstNode;
         if p.next_if(Token::Slash)?.is_some() {
@@ -1599,6 +1603,26 @@ mod tests
             assert_matches!(args[0].k.unwrap(), "s");
             assert_matches!(*args[0].v.node, Ast::Id1("Str"));
             assert_matches!(*result.node, Ast::Void);
+        }
+    }
+
+    #[test]
+    fn test_parse_deffunc_result_noparams()
+    {
+        let input = r#"func do / Str >>
+            done()
+        --
+        "#;
+        let toks = Tokenz::lexp(input).unwrap();
+        let mut p = Grammar::new(toks);
+        let ast = p.parse_module().unwrap();
+
+        assert_eq!(1, ast.len());
+        assert_matches!(*ast[0].node, Ast::DefFunc(_, _, _, _));
+        if let Ast::DefFunc(name, args, result, _body) = &*ast[0].node {
+            assert_matches!(*name.node, Ast::Id1("do"));
+            assert_matches!(*result.node, Ast::Id1("Str"));
+            assert_eq!(0, args.len());
         }
     }
 

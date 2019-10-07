@@ -1247,7 +1247,7 @@ mod tests
     #[test]
     fn test_semantics_param_in_scope()
     {
-        let input = r#"func inc i:Int :Int >> i + 1 --"#;
+        let input = r#"func inc i:Int / Int >> i + 1 --"#;
 
         let mut proto = load_proto_with_prefab();
         proto.add_module(&Lstr::Sref("foo"), input).unwrap();
@@ -1260,7 +1260,7 @@ mod tests
     fn test_semantics_module_scope_call()
     {
         let input = r#"
-        func foo :Int >> 5 --
+        func foo / Int >> 5 --
 
         func main >>
             foo() + 3
@@ -1293,7 +1293,7 @@ mod tests
     fn test_type_genericfunc()
     {
         let input = r#"
-        func swap[:T] a:T b:T :(:T :T)
+        func swap[:T] a:T b:T / (:T :T)
         >>
             (b, a)
         --
@@ -1324,7 +1324,7 @@ mod tests
     #[test]
     fn test_semantics_external_scope_call()
     {
-        let foo_input = r#"func bar :Int >> 3 --"#;
+        let foo_input = r#"func bar / Int >> 3 --"#;
 
         let baz_input = r#"
         func main >>
@@ -1426,7 +1426,7 @@ mod tests
     fn test_type_fail_too_many_args()
     {
         let input = r#"
-        func inc i:Int :Int >> i + 1 --
+        func inc i:Int / Int >> i + 1 --
         func main >> inc(2, 7) --
         "#;
 
