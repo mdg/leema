@@ -219,12 +219,14 @@ impl Parsl
         self.src.next_if(tok)
     }
 
-    pub fn skip_if(&mut self, tok: Token) -> Lresult<()>
+    pub fn skip_if(&mut self, tok: Token) -> Lresult<bool>
     {
+        let mut found = false;
         while self.next_if(tok)?.is_some() {
+            found = true;
             // keep going
         }
-        Ok(())
+        Ok(found)
     }
 
     pub fn parse_new<P>(&mut self, mode: &'static P) -> Lresult<P::Item>

@@ -1395,6 +1395,7 @@ impl PrefixParser for ParseCase
         };
         let arrow = expect_next!(p, Token::DoubleArrow)?;
         let body = Grammar::parse_block(p, Ast::loc(&arrow))?;
+        p.skip_if(Token::LineBegin)?;
         Ok(ast2::Case::new(condition, body))
     }
 }
@@ -1517,7 +1518,8 @@ mod tests
 
             if
             |a >> who()
-            ## |c >> when()
+            ## |b >> what()
+            |else >> which()
             --
         --
         "#;

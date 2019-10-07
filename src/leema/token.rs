@@ -626,7 +626,7 @@ impl ScanModeTrait for ScanModeCommentLine
     {
         let output = match next.c {
             '\n' => {
-                ScanOutput::Token(Token::CommentLine, true, ScanModeOp::Pop)
+                ScanOutput::Token(Token::CommentLine, false, ScanModeOp::Pop)
             }
             _ => ScanOutput::Next(ScanModeOp::Noop),
         };
@@ -1263,6 +1263,50 @@ mod tests
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
 
         assert_eq!((Token::CommentLine, "## whatever"), nextok(&mut i));
+        assert_eq!(Token::EOF, nextok(&mut i).0);
+        assert_eq!(None, i.next());
+    }
+
+    #[test]
+    fn test_tokenz_comments_incase()
+    {
+        let input = "if
+        |case1 >> 1
+        ## case2 >> 2
+        |case3 >> 3
+        --
+        ";
+        let t: Vec<TokenResult> = Tokenz::lex(input).collect();
+        let mut i = t.iter();
+        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        assert_eq!(Token::If, nextok(&mut i).0);
+        i.next().unwrap();
+
+        assert_eq!(Token::Spaces, nextok(&mut i).0);
+        assert_eq!(Token::CasePipe, nextok(&mut i).0);
+        assert_eq!((Token::Id, "case1"), nextok(&mut i));
+        i.next().unwrap();
+        assert_eq!(Token::DoubleArrow, nextok(&mut i).0);
+        i.next().unwrap();
+        assert_eq!((Token::Int, "1"), nextok(&mut i));
+        i.next().unwrap();
+
+        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        assert_eq!((Token::CommentLine, "## case2 >> 2"), nextok(&mut i));
+        i.next().unwrap();
+
+        assert_eq!(Token::Spaces, nextok(&mut i).0);
+        assert_eq!(Token::CasePipe, nextok(&mut i).0);
+        assert_eq!((Token::Id, "case3"), nextok(&mut i));
+        i.next().unwrap();
+        assert_eq!(Token::DoubleArrow, nextok(&mut i).0);
+        i.next().unwrap();
+        assert_eq!((Token::Int, "3"), nextok(&mut i));
+        i.next().unwrap();
+
+        assert_eq!(Token::LineBegin, nextok(&mut i).0);
+        assert_eq!(Token::DoubleDash, nextok(&mut i).0);
+        i.next().unwrap();
         assert_eq!(Token::EOF, nextok(&mut i).0);
         assert_eq!(None, i.next());
     }
