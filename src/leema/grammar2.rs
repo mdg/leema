@@ -1541,7 +1541,7 @@ mod tests
         let ast = p.parse_module().unwrap();
 
         assert_eq!(1, ast.len());
-        assert_matches!(*ast[0].node, Ast::DefFunc(_, _, _));
+        assert_matches!(*ast[0].node, Ast::DefFunc(_, _, _, _));
     }
 
     #[test]
@@ -1582,18 +1582,39 @@ mod tests
     }
 
     #[test]
+    fn test_parse_deffunc_params_noresult()
+    {
+        let input = r#"func do s:Str >>
+            done(s)
+        --
+        "#;
+        let toks = Tokenz::lexp(input).unwrap();
+        let mut p = Grammar::new(toks);
+        let ast = p.parse_module().unwrap();
+
+        assert_eq!(1, ast.len());
+        assert_matches!(*ast[0].node, Ast::DefFunc(_, _, _, _));
+        if let Ast::DefFunc(_name, args, result, _body) = &*ast[0].node {
+            assert_eq!(1, args.len());
+            assert_matches!(args[0].k.unwrap(), "s");
+            assert_matches!(*args[0].v.node, Ast::Id1("Str"));
+            assert_matches!(*result.node, Ast::Void);
+        }
+    }
+
+    #[test]
     fn test_parse_deffunc_params()
     {
-        let input = r#"func add x:Int y:Int / Int >>
+        let input = r#"func add1 x:Int y:Int / Int >>
             x + y
         --
 
-        func add: x:Int y:Int / Int
+        func add2: x:Int y:Int / Int
         >>
             x + y
         --
 
-        func add
+        func add3
         x:Int
         y:Int
         / Int
@@ -1605,6 +1626,17 @@ mod tests
         let mut p = Grammar::new(toks);
         let ast = p.parse_module().unwrap();
         assert_eq!(3, ast.len());
+
+        assert_matches!(*ast[0].node, Ast::DefFunc(_, _, _, _));
+        if let Ast::DefFunc(name, args, result, _body) = &*ast[0].node {
+            assert_matches!(*name.node, Ast::Id1("add1"));
+            assert_eq!(2, args.len());
+            assert_matches!(args[0].k.unwrap(), "x");
+            assert_matches!(*args[0].v.node, Ast::Id1("Int"));
+            assert_matches!(args[1].k.unwrap(), "y");
+            assert_matches!(*args[1].v.node, Ast::Id1("Int"));
+            assert_matches!(*result.node, Ast::Id1("Int"));
+        }
     }
 
     #[test]
@@ -1659,7 +1691,10 @@ mod tests
         "#;
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
-        let _ast = p.parse_module().unwrap();
+        let ast = p.parse_module().unwrap();
+
+        assert_eq!(1, ast.len());
+        assert_matches!(*ast[0].node, Ast::DefFunc(_, _, _, _));
     }
 
     #[test]
