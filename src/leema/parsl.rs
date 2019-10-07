@@ -246,7 +246,7 @@ impl Parsl
         P::Item: fmt::Debug,
     {
         let tok = ltry!(self.next());
-        self.parse(mode, prec, tok)
+        lfailoc!(self.parse(mode, prec, tok))
     }
 
     pub fn reparse<P>(
@@ -259,7 +259,7 @@ impl Parsl
         P: ParslMode,
         P::Item: fmt::Debug,
     {
-        self.parse(mode, prec, tok)
+        lfailoc!(self.parse(mode, prec, tok))
     }
 
     fn parse<P>(
@@ -291,7 +291,7 @@ impl Parsl
                 break;
             }
             let itok = self.next()?;
-            left = infix.unwrap().parse(self, left, itok)?;
+            left = ltry!(infix.unwrap().parse(self, left, itok));
         }
         Ok(left)
     }

@@ -202,6 +202,11 @@ impl ParseStmt
             Token::Let => ParseStmt::parse_let(p, tok),
             Token::Return => ParseStmt::parse_return(p, Ast::loc(&tok)),
             Token::Type => ParseStmt::parse_deftype(p),
+            Token::LineBegin => {
+                // skip LineBegin, parse a new statement
+                let next = p.next()?;
+                self.parse_stmt(p, next)
+            }
             _ => p.reparse(&ExprMode, MIN_PRECEDENCE, tok),
         }
     }
@@ -1503,14 +1508,36 @@ mod tests
     }
 
     #[test]
-    fn test_parse_const()
+    fn test_parse_comments()
     {
-        let input = r#"const X := 5
-        """#;
+        let input = r#"
+        func foo >>
+            let a := do_something(5)
+            ## first comment
+
+            if
+            |a >> who()
+            ## |c >> when()
+            --
+        --
+        "#;
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
         let ast = p.parse_module().unwrap();
-        assert_eq!(2, ast.len());
+
+        assert_eq!(1, ast.len());
+        assert_matches!(*ast[0].node, Ast::DefFunc(_, _, _));
+    }
+
+    #[test]
+    fn test_parse_const()
+    {
+        let input = r#"const X := 5
+        "#;
+        let toks = Tokenz::lexp(input).unwrap();
+        let mut p = Grammar::new(toks);
+        let ast = p.parse_module().unwrap();
+        assert_eq!(1, ast.len());
     }
 
     #[test]
