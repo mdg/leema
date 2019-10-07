@@ -263,6 +263,15 @@ impl<'l> SemanticOp for MacroApplication<'l>
                     Self::op_to_call("prefab", "int_less_than", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
+            Ast::Op1("-", x) => {
+                let callx = AstNode::new(Ast::Id2(
+                        Lstr::Sref("prefab"),
+                        "int_negate",
+                    ), node.loc);
+                let arg = vec![StrupleItem::new_v(x)];
+                let call = AstNode::new(Ast::Call(callx, arg), node.loc);
+                Ok(SemanticAction::Rewrite(call))
+            }
             Ast::Op1("\\n", x) => {
                 let newline = AstNode::new_constval(
                     Val::Str(Lstr::Sref("\n")),

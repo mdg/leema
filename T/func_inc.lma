@@ -1,7 +1,9 @@
-func inc[T](x: T): T >> x + 1 --
+import io
 
-func main() >>
-    let i := inc(~4)
-    print("inc(-4) = $i\n")
+func inc x:Int :Int >> x + 1 --
+
+func main >>
+    let i := inc(-4)
+    io::print("inc(-4) = $i\n")
     inc(4)
 --
