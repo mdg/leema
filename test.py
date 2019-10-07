@@ -135,6 +135,7 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(b"first: 4, second: b\n", result['output'])
 
     def test_let_type(self):
+        self.skipTest("let types not yet implemented")
         result = run_leema('let_type')
         self.assertEqual(0, result['code'])
         self.assertEqual(b"5 + 3 = 8\n", result['output'])
