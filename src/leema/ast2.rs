@@ -75,7 +75,6 @@ impl fmt::Debug for Case
     }
 }
 
-type Klist = StrupleKV<&'static str, Option<AstNode>>;
 pub type Xlist = StrupleKV<Option<&'static str>, AstNode>;
 
 #[derive(Clone)]
@@ -105,7 +104,6 @@ pub enum Ast
     RustBlock,
     StrExpr(Vec<AstNode>),
     Tuple(Xlist),
-    Type(Type),
     Void,
     Wildcard,
 }
@@ -170,7 +168,6 @@ impl Ast
             // unimplemented
             Ast::LessThan3(_, _, _, _, _) => unimplemented!(),
             Ast::Return(_) => unimplemented!(),
-            Ast::Type(_) => unimplemented!(),
         }
     }
 }

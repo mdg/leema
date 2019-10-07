@@ -1164,8 +1164,6 @@ impl Semantics
             Ast::NewStruct(_, _) => unimplemented!(),
             Ast::NewTuple(_) => unimplemented!(),
             Ast::NewUnion(_, _, _) => unimplemented!(),
-            Ast::Type(_) => unimplemented!(),
-            Ast::TypeCall(_, _) => unimplemented!(),
             */
             ast => ast, // do nothing for everything else
         };
