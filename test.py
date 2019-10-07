@@ -188,6 +188,7 @@ class TestScripts(unittest.TestCase):
             result['output'])
 
     def test_failure(self):
+        self.skipTest("not reimplemented yet")
         result = run_leema('failure')
         self.assertEqual(249, result['code'])
         self.assertEqual(
@@ -195,6 +196,7 @@ class TestScripts(unittest.TestCase):
             result['stderr'])
 
     def test_failed_handled(self):
+        self.skipTest("not reimplemented yet")
         result = run_leema('failed_handled')
         self.assertEqual(0, result['code'])
         self.assertEqual(
@@ -203,6 +205,7 @@ class TestScripts(unittest.TestCase):
             result['output'])
 
     def test_failed_propagated(self):
+        self.skipTest("not reimplemented yet")
         result = run_leema('failed_propagated')
         self.assertEqual(249, result['code'])
         self.assertEqual(
