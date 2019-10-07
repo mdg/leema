@@ -1,8 +1,10 @@
-func main() ->
+import io
+
+func main >>
     let x := 3
-    if x == 3 ->
-        print("hello\n")
-    else ->
-        print("burritos\n")
+    if x == 3 >>
+        io::print("hello\n")
+    else >>
+        io::print("burritos\n")
     --
 --
