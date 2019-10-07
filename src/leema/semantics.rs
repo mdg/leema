@@ -1084,11 +1084,12 @@ impl Semantics
                 let wval = Self::walk(op, v)?;
                 Ast::DefConst(name, wval)
             }
-            Ast::DefFunc(name, args, body) => {
+            Ast::DefFunc(name, args, result, body) => {
                 let wname = Self::walk(op, name)?;
                 let wargs = struple::map_v_into(args, |arg| Self::walk(op, arg))?;
+                let wresult = Self::walk(op, result)?;
                 let wbody = Self::walk(op, body)?;
-                Ast::DefFunc(wname, wargs, wbody)
+                Ast::DefFunc(wname, wargs, wresult, wbody)
             }
             Ast::Generic(id, args) => {
                 let wid = Self::walk(op, id)?;

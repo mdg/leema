@@ -86,9 +86,10 @@ pub enum Ast
     ConstVal(Val),
     Copy(AstNode),
     DefConst(&'static str, AstNode),
-    DefFunc(AstNode, Xlist, AstNode),
+    DefFunc(AstNode, Xlist, AstNode, AstNode),
     DefMacro(&'static str, Vec<&'static str>, AstNode),
     DefType(DataType, AstNode, Xlist),
+    FuncType(Xlist, AstNode),
     Generic(AstNode, Xlist),
     Id1(&'static str),
     Id2(Lstr, &'static str),
@@ -135,8 +136,8 @@ impl Ast
             Ast::ConstVal(v) => write!(f, "Const {:?}", v),
             Ast::Copy(src) => write!(f, "Copy {:?}", src),
             Ast::DefConst(id, x) => write!(f, "DefConst {} := {:?}", id, x),
-            Ast::DefFunc(name, args, body) => {
-                write!(f, "DefFunc {:?} {:?} {:?}", name, args, body)
+            Ast::DefFunc(name, args, result, body) => {
+                write!(f, "DefFunc {:?} {:?} / {:?} {:?}", name, args, result, body)
             }
             Ast::DefMacro(name, args, body) => {
                 write!(f, "DefMacro {:?} {:?} {:?}", name, args, body)
@@ -145,6 +146,9 @@ impl Ast
                 write!(f, "DefType {:?} {:?} {:?}", dtype, name, fields)
             }
             // Ast::Def(v) => write!(f, "Def {}", v),
+            Ast::FuncType(args, result) => {
+                write!(f, "FuncType {:?} / {:?}]", args, result)
+            }
             Ast::Generic(id, args) => write!(f, "Generic {:?}[{:?}]", id, args),
             Ast::Id1(id) => write!(f, "Id {}", id),
             Ast::Id2(id1, id2) => write!(f, "Id {}::{}", id1, id2),

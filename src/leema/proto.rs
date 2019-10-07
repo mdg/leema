@@ -60,8 +60,8 @@ impl ProtoModule
                 Ast::DefMacro(macro_name, _, _) => {
                     proto.macros.insert(macro_name, *i.node);
                 }
-                Ast::DefFunc(name, args, body) => {
-                    proto.add_func(name, args, body)?;
+                Ast::DefFunc(name, args, result, body) => {
+                    proto.add_func(name, args, result, body)?;
                 }
                 Ast::DefType(DataType::Struct, name, fields) => {
                     if fields.is_empty() {
@@ -92,16 +92,17 @@ impl ProtoModule
         &mut self,
         name: AstNode,
         args: Xlist,
+        result: AstNode,
         body: AstNode,
     ) -> Lresult<()>
     {
         match *name.node {
             Ast::Id1(name_id) => {
-                self.add_func_not_generic(name_id, args, body, name.loc)?;
+                self.add_func_not_generic(name_id, args, result, body, name.loc)?;
             }
             Ast::Generic(name, gen_args) => {
                 if let Ast::Id1(name_id) = *name.node {
-                    self.add_generic_func(name_id, gen_args, args, body, name.loc)?;
+                    self.add_generic_func(name_id, gen_args, args, result, body, name.loc)?;
                 } else {
                     return Err(rustfail!(
                         PROTOFAIL,
@@ -125,32 +126,17 @@ impl ProtoModule
         &mut self,
         name: &'static str,
         args: Xlist,
+        result: AstNode,
         body: AstNode,
         loc: ast2::Loc,
     ) -> Lresult<()>
     {
         let args2 = args.clone();
         // not generic so everything is a closed type
-        let ftyp = if !args.is_empty() {
-            let empty_type_args = StrupleKV::new();
-            let arg_types_r: Lresult<StrupleKV<Option<Lstr>, Type>>;
-            arg_types_r = args.into_iter()
-                .map(|i| {
-                    Ok(StrupleItem::new(
-                        i.k.map(|k| Lstr::Sref(k)),
-                        ast_to_type(&self.key.name, &i.v, &empty_type_args)?,
-                    ))
-                })
-                .collect();
-            let mut arg_types_vec = arg_types_r?;
-            let mut result_type_vec =
-                arg_types_vec.split_off(arg_types_vec.len() - 1);
-            let result_type = result_type_vec.pop().unwrap().v;
-            let arg_types = StrupleKV::from(arg_types_vec);
-            FuncType::new(arg_types, result_type)
-        } else {
-            FuncType::new(StrupleKV::new(), Type::Void)
-        };
+
+        let empty_opens = StrupleKV::new();
+        let ftyp = ast_to_ftype(&self.key.name, &args, &result, &empty_opens)?;
+
         let fref_args = struple::map_v(&ftyp.args, |_| Ok(Val::Void))?;
         self.funcseq.push(name);
         // is this args2 param necessary anymore? the type should be enough
@@ -172,6 +158,7 @@ impl ProtoModule
         name: &'static str,
         typeargs: Xlist,
         args: Xlist,
+        result: AstNode,
         body: AstNode,
         loc: ast2::Loc,
     ) -> Lresult<()>
@@ -200,26 +187,7 @@ impl ProtoModule
         }).collect();
         let opens: StrupleKV<&'static str, Type> = open_result?;
 
-        let ftyp = if !args.is_empty() {
-            let arg_types_r: Lresult<Vec<StrupleItem<Option<Lstr>, Type>>>;
-            arg_types_r = args
-                .into_iter()
-                .map(|i| {
-                    Ok(StrupleItem::new(
-                        i.k.map(|k| Lstr::Sref(k)),
-                        ast_to_type(&self.key.name, &i.v, &opens)?,
-                    ))
-                })
-                .collect();
-            let mut arg_types_vec = arg_types_r?;
-            let mut result_type_vec =
-                arg_types_vec.split_off(arg_types_vec.len() - 1);
-            let result_type = result_type_vec.pop().unwrap().v;
-            let arg_types = StrupleKV::from(arg_types_vec);
-            FuncType::new(arg_types, result_type)
-        } else {
-            FuncType::new(StrupleKV::new(), Type::Void)
-        };
+        let ftyp = ast_to_ftype(&self.key.name, &args, &result, &opens)?;
 
         let fref_args = struple::map_v(&ftyp.args, |_| Ok(Val::Void))?;
         let genfunctype = Type::Open(opens, Box::new(Type::Func(ftyp)));
@@ -390,6 +358,7 @@ fn ast_to_type(
             let _gen = struple::map_v(typeargs, |v| ast_to_type(local_mod, v, opens));
             unimplemented!()
         }
+        Ast::Void => Type::Void,
         invalid => {
             return Err(rustfail!(
                 PROTOFAIL,
@@ -398,6 +367,28 @@ fn ast_to_type(
             ));
         }
     })
+}
+
+fn ast_to_ftype(
+    local_mod: &Lstr,
+    args: &Xlist,
+    result: &AstNode,
+    opens: &StrupleKV<&'static str, Type>,
+) -> Lresult<FuncType>
+{
+    let arg_types_r: Lresult<StrupleKV<Option<Lstr>, Type>>;
+    arg_types_r = args.into_iter()
+        .map(|i| {
+            Ok(StrupleItem::new(
+                i.k.map(|k| Lstr::Sref(k)),
+                ast_to_type(local_mod, &i.v, opens)?,
+            ))
+        })
+        .collect();
+    let arg_types_vec = arg_types_r?;
+    let arg_types = StrupleKV::from(arg_types_vec);
+    let result_type = ast_to_type(local_mod, &result, opens)?;
+    Ok(FuncType::new(arg_types, result_type))
 }
 
 pub struct ProtoLib

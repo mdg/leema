@@ -235,10 +235,10 @@ impl ParseStmt
             }
             None => base_name,
         };
-        let args = if p.peek_token()? == Token::DoubleArrow {
-            vec![]
+        let (args, result) = if p.peek_token()? == Token::DoubleArrow {
+            (vec![], AstNode::void())
         } else {
-            IdTypeMode::parse(p)?
+            IdTypeMode::parse_func_type(p)?
         };
         p.skip_if(Token::LineBegin)?;
 
@@ -267,7 +267,7 @@ impl ParseStmt
         };
         p.skip_if(Token::LineBegin)?;
         expect_next!(p, Token::DoubleDash)?;
-        Ok(AstNode::new(Ast::DefFunc(name, args, body), loc))
+        Ok(AstNode::new(Ast::DefFunc(name, args, result, body), loc))
     }
 
     fn parse_defmacro(p: &mut Parsl) -> AstResult
@@ -410,8 +410,21 @@ impl IdTypeMode
 {
     pub fn parse(p: &mut Parsl) -> Lresult<ast2::Xlist>
     {
-        let fields = p.parse_new(&IdTypeMode)?;
-        Ok(fields)
+        p.parse_new(&IdTypeMode)
+    }
+
+    /// FuncTypeMode for func args like: "id:Type* > Type"
+    pub fn parse_func_type(p: &mut Parsl) -> Lresult<(ast2::Xlist, AstNode)>
+    {
+        let args = IdTypeMode::parse(p)?;
+
+        let result: AstNode;
+        if p.next_if(Token::Slash)?.is_some() {
+            result = p.parse_new(&TypexMode)?;
+        } else {
+            result = AstNode::void();
+        }
+        Ok((args, result))
     }
 }
 
@@ -1571,11 +1584,11 @@ mod tests
     #[test]
     fn test_parse_deffunc_params()
     {
-        let input = r#"func add x:Int y:Int :Int >>
+        let input = r#"func add x:Int y:Int / Int >>
             x + y
         --
 
-        func add x:Int y:Int :Int
+        func add: x:Int y:Int / Int
         >>
             x + y
         --
@@ -1583,7 +1596,7 @@ mod tests
         func add
         x:Int
         y:Int
-         :Int
+        / Int
         >>
             x + y
         --
@@ -1597,7 +1610,7 @@ mod tests
     #[test]
     fn test_parse_deffunc_match()
     {
-        let input = r#"func add x:Int y:Int :Int
+        let input = r#"func add x:Int y:Int / Int
         |(0, 0) >> 0
         |(x, y) >> x + y
         --
@@ -1639,7 +1652,7 @@ mod tests
     #[test]
     fn test_parse_generic_deffunc_types()
     {
-        let input = r#"func swap[:A :B] a:A b:B :(:B :A)
+        let input = r#"func swap[:A :B] a:A b:B / (:B :A)
         >>
             (b, a)
         --
