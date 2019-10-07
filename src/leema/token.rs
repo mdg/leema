@@ -7,6 +7,17 @@ use std::str::CharIndices;
 use lazy_static::lazy_static;
 
 
+type ParseFilter = &'static [(&'static [Token], &'static[usize])];
+const PARSE_FILTER: ParseFilter = &[
+    (&[Token::CommentLine], &[]),
+    (&[Token::EmptyLine], &[]),
+    (&[Token::LineBegin, Token::CasePipe],
+        &[1],
+    ),
+    (&[Token::LineEnd], &[]),
+    (&[Token::Spaces], &[]),
+];
+
 #[derive(Copy)]
 #[derive(Clone)]
 #[derive(Debug)]
