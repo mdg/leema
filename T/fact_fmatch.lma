@@ -1,6 +1,6 @@
 import io
 
-func fmatch_fact i:Int :Int
+func fmatch_fact i:Int / Int
 |1 >> 1
 |_ >> i * fmatch_fact(i-1)
 --

@@ -1,6 +1,6 @@
 import io
 
-func inc x:Int :Int >> x + 1 --
+func inc x:Int /Int >> x + 1 --
 
 func main >>
     let i := inc(-4)

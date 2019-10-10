@@ -1,6 +1,6 @@
 import io
 
-func fizbuz x:Int max:Int :Void
+func fizbuz x:Int max:Int
 >>
     let xm30 := (x mod 3) == 0
     let xm50 := (x mod 5) == 0

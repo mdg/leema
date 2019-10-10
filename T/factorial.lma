@@ -1,6 +1,6 @@
 import io
 
-func fact i:Int :Int
+func fact i:Int / Int
 >>
     if
     |i == 1 >> 1
