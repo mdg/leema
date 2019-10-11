@@ -647,7 +647,7 @@ impl<'p> TypeCheck<'p>
     {
         match (t0, t1) {
             (Type::OpenVar(v0), t1) => {
-                lfailoc!(self.infer_type(v0, t1, opens))
+                lfailoc!(self.close_generic(v0, t1, opens))
             }
             (_, Type::OpenVar(_)) => {
                 Err(rustfail!(
@@ -705,6 +705,36 @@ impl<'p> TypeCheck<'p>
                 self.infers.insert(var, t.clone());
             }
             Ok(t.clone())
+        }
+    }
+
+    pub fn close_generic(&mut self, var: &'static str, t: &Type, opens: &mut StrupleKV<&'static str, Type>) -> Lresult<Type>
+    {
+        let open_idx = if let Some((found, _)) = struple::find(opens, &var) {
+            found
+        } else {
+            return Err(rustfail!(
+                TYPEFAIL,
+                "open type var {:?} not found in {:?}",
+                var,
+                opens,
+            ));
+        };
+
+        if opens[open_idx].v == Type::Unknown {
+            // newly defined type, set it in opens
+            opens[open_idx].v = t.clone();
+            Ok(t.clone())
+        } else if opens[open_idx].v == *t {
+            // already the same type, good
+            return Ok(t.clone());
+        } else {
+            // different type, run a match and then assign the result
+            // this upgrades inference local vars to concrete types
+            let old_type = opens[open_idx].v.clone();
+            let new_type = self.match_type(&old_type, t, opens)?;
+            opens[open_idx].v = new_type.clone();
+            Ok(new_type)
         }
     }
 
@@ -774,7 +804,7 @@ impl<'p> TypeCheck<'p>
             arg.1.v.typ = typ;
         }
 
-        Ok((*ftyp.result).clone())
+        self.match_type(&ftyp.result, &Type::Unknown, opens)
     }
 
     fn match_case_types(&mut self, cases: &Vec<ast2::Case>) -> Lresult<Type>
