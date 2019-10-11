@@ -1310,6 +1310,28 @@ mod tests
     }
 
     #[test]
+    fn test_type_genericfuncs()
+    {
+        let input = r#"
+        func new_pair[:A :B] a:A b:B /(:A :B) >> (a, b) --
+
+        func first[:A :B] p:(:A :B) /A
+        |(a, _) >> a
+        --
+
+        func main >>
+            let p := new_pair(4, "b")
+            let f := first(p)
+        --
+        "#;
+
+        let mut proto = load_proto_with_prefab();
+        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
+        let mut semantics = Semantics::new();
+        semantics.compile_call(&mut proto, "foo", "main").unwrap();
+    }
+
+    #[test]
     #[should_panic]
     fn test_semantics_module_scope_fail()
     {
