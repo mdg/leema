@@ -1,7 +1,8 @@
+import io
 
-struct Greeting(Str, Str)
+struct Greeting :Str :Str --
 
 func main() ->
     let g := Greeting("hello", "world")
-    print("greeting is: \"$g\"\n")
+    io::print("greeting is: \"$g\"\n")
 --

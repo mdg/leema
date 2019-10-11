@@ -1,19 +1,20 @@
+import io
 
-func new_pair[A, B](a: A, b: B): (A, B) -> (a, b) --
+func new_pair[:A :B] a:A b:B /(:A :B) >> (a, b) --
 
-func first[A, B](p: (A, B)): A >>
-|(a, b) -> a
+func first[:A :B] p:(:A :B) /A
+|(a, _) >> a
 --
 
-func second[A, B](p: (A, B)): B >>
-|(a, b) -> b
+func second[:A :B] p:(:A :B) /B
+|(_, b) >> b
 --
 
-func main() ->
+func main >>
     let p := new_pair(4, "b")
     let f := first(p)
     let s := second(p)
 
-    print("first: $f, second: $s\n")
+    io::print("first: $f, second: $s\n")
 --
 

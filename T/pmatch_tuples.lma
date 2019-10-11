@@ -1,6 +1,6 @@
 import io
 
-func match_zero x:Int y:Int :Str
+func match_zero x:Int y:Int /Str
 >>
     match (x, y)
     |(0, 0) >> "both"

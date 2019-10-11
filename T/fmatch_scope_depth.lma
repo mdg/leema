@@ -1,16 +1,17 @@
+import io
 
-func foo(a: [#]) >>
-|([]) -> print("done\n")
-|(#c;t) ->
-    print("found c.\n")
+func foo a:[#]
+|[] >> io::print("done\n")
+|#c;t >>
+    io::print("found c.\n")
     foo(t)
-|(h;t) ->
+|h;t >>
     match h
-    |#a -> print("found a! what else is in $t ?\n")
-    |#b -> print("found b! what else is in $t ?\n")
-    |#c -> print("found c! what else is in $t ?\n")
+    |#a >> io::print("found a! what else is in $t ?\n")
+    |#b >> io::print("found b! what else is in $t ?\n")
+    |#c >> io::print("found c! what else is in $t ?\n")
     --
     foo(t)
 --
 
-func main() -> foo([#a, #b, #c]) --
+func main >> foo([#a, #b, #c]) --

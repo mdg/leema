@@ -1,6 +1,6 @@
 import io
 
-func match_fact i:Int :Int
+func match_fact i:Int /Int
 >>
     match i
     |1 >> 1
