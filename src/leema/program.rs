@@ -96,7 +96,7 @@ impl Lib
         };
 
         if !has_func {
-            let new_code = self.read_code(modname, funcname)?;
+            let new_code = ltry!(self.read_code(modname, funcname));
 
             if has_mod {
                 let old_mod = self.code.get_mut(modname).unwrap();
@@ -140,11 +140,11 @@ impl Lib
     {
         self.load_proto_and_imports(modname)?;
         let mut semantics = Semantics::new();
-        let result = semantics.compile_call(
+        let result = ltry!(semantics.compile_call(
             &mut self.protos,
             modname.str(),
             funcname.str(),
-        )?;
+        ));
         semantics.src = result;
         Ok(semantics)
     }
@@ -156,7 +156,7 @@ impl Lib
     ) -> Lresult<Code>
     {
         vout!("read_code({}::{})\n", modname, funcname);
-        let semantics = self.read_semantics(modname, funcname)?;
+        let semantics = ltry!(self.read_semantics(modname, funcname));
 
         if let Ast::RustBlock = &*semantics.src.node {
             let rust_loader = self.rust_load.get(modname);

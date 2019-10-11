@@ -171,15 +171,22 @@ impl Application
             AppMsg::RequestCode(worker_id, frame, mmodule, mfunc) => {
                 let module = mmodule.take();
                 let func = mfunc.take();
-                let code = self.prog.load_code(&module, &func).unwrap();
                 let worker = self.worker.get(&worker_id).unwrap();
+                let reply = match self.prog.load_code(&module, &func) {
+                    Ok(code) => {
+                        WorkerMsg::FoundCode(
+                            frame,
+                            MsgItem::new(&module),
+                            MsgItem::new(&func),
+                            code.clone(),
+                        )
+                    }
+                    Err(f) => {
+                        WorkerMsg::IopResult(frame, MsgItem::new(&Val::Failure2(Box::new(f))))
+                    }
+                };
                 worker
-                    .send(WorkerMsg::FoundCode(
-                        frame,
-                        MsgItem::new(&module),
-                        MsgItem::new(&func),
-                        code.clone(),
-                    ))
+                    .send(reply)
                     .expect("fail to send found code to worker");
             }
             AppMsg::MainResult(mv) => {

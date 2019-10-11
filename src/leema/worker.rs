@@ -358,6 +358,7 @@ impl Worker
             Parent::Task => {} // nothing to do
             Parent::Null => {
                 // this shouldn't have happened
+                vout!("Parent::Null but how?\n");
             }
         }
     }
@@ -391,10 +392,15 @@ impl Worker
                 vout!("iop_result({}, {:?})\n", fiber_id, result_msg);
                 let result_val = result_msg.take();
                 let wait = self.waiting.remove(&fiber_id).unwrap();
-                if let FiberWait::Io(mut fib) = wait {
-                    fib.head.parent.set_result(result_val);
-                    self.return_from_call(fib);
-                }
+                let mut fib = match wait {
+                    FiberWait::Io(f) => f,
+                    FiberWait::Code(f) => f,
+                    FiberWait::Future(_, _) => {
+                        panic!("cannot handle a future now");
+                    }
+                };
+                fib.head.parent.set_result(result_val);
+                self.return_from_call(fib);
             }
             WorkerMsg::Done => {
                 self.done = true;
