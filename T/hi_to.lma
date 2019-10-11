@@ -1,6 +1,6 @@
 import list
 
-func main args:[Str] :Void
+func main args:[Str]
 >>
     let hi_to := match args
         |[] >> "world"

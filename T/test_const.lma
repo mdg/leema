@@ -1,10 +1,11 @@
 
 import rgb
+import io
 
-func main()
+func main
 >>
     let r := rgb::HEX_RED
-    println("red is: $r")
+    io::println("red is: $r")
     let types := rgb::TYPES
-    println("rgb types: $types")
+    io::println("rgb types: $types")
 --
