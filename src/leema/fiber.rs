@@ -439,7 +439,7 @@ mod tests
     use crate::leema::frame::{Event, Frame, Parent};
     use crate::leema::lstr::Lstr;
     use crate::leema::reg::Reg;
-    use crate::leema::val::Val;
+    use crate::leema::val::{Fref, Val};
 
 
     #[test]

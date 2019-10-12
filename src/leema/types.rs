@@ -165,9 +165,9 @@ mod tests
     #[test]
     fn test_type_val()
     {
-        let tv_type = Type::User(Lstr::Sref("tacos"), "Burrito");
+        // let tv_type = Type::User(Lstr::Sref("tacos"), "Burrito");
         let tv = types::new_type_val(
-            tv_type,
+            Lstr::Sref("Burrito"),
             &vec![
                 (Some(Lstr::Sref("filling")), Type::Str),
                 (Some(Lstr::Sref("has_rice")), Type::Bool),

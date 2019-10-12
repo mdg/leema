@@ -267,7 +267,7 @@ mod tests
     use crate::leema::loader::Interloader;
     use crate::leema::lstr::Lstr;
     use crate::leema::program;
-    use crate::leema::val::Val;
+    use crate::leema::val::{Fref, Val};
 
     use libc::getpid;
     use std::io::{stderr, Write};

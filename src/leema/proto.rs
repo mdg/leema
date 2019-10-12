@@ -523,7 +523,7 @@ mod tests
         assert!(proto.types.contains_key("swap"));
         assert_eq!(
             Type::Generic(
-                true
+                true,
                 Box::new(Type::Func(FuncType::new(
                     vec![
                         StrupleItem::new(Some(Lstr::Sref("a")), tvt.clone()),
@@ -545,8 +545,8 @@ mod tests
         let point_type = proto.types.get("Point").expect("no Point type");
         let expected = Type::Generic(
             true,
-            vec![StrupleItem::new("T", Type::Unknown)],
             Box::new(Type::User(Lstr::Sref("foo"), "Point")),
+            vec![StrupleItem::new("T", Type::Unknown)],
         );
         assert_eq!(expected, *point_type);
     }
