@@ -1,16 +1,21 @@
-use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
+use crate::leema::struple::StrupleItem;
 use crate::leema::val::{Type, Val};
 
 use std::sync::Arc;
 
 
-pub const MAP_TYPE_LRI: Lri = Lri {
-    modules: Some(Lstr::Sref("map")),
-    localid: Lstr::Sref("T"),
-    params: None,
-};
-pub const MAP_TYPE: Type = Type::UserDef(MAP_TYPE_LRI);
+pub fn map_type() -> Type
+{
+    Type::Generic(
+        true,
+        Box::new(Type::User(Lstr::Sref("map"), "T")),
+        vec![
+            StrupleItem{ k: "K", v: Type::Unknown },
+            StrupleItem{ k: "V", v: Type::Unknown },
+        ],
+    )
+}
 
 pub type LmapNode = Option<Arc<Lmap>>;
 

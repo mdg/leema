@@ -9,12 +9,11 @@ use crate::leema::failure::Lresult;
 use crate::leema::grammar2::Grammar;
 use crate::leema::list;
 use crate::leema::loader::Interloader;
-use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::program;
 use crate::leema::struple::StrupleItem;
 use crate::leema::token::{TokenResult, Tokenz};
-use crate::leema::val::Val;
+use crate::leema::val::{Fref, Val};
 
 use docopt::Docopt;
 use std::env;
@@ -166,10 +165,10 @@ fn real_main() -> Lresult<()>
         let prog = program::Lib::new(inter);
         let mut app = Application::new(prog);
         let caller = app.caller();
-        let main_lri = Lri::with_modules(mod_name, Lstr::Sref("main"));
+        let main_fref = Fref::with_modules(mod_name, "main");
         app.run();
         let main_arg = vec![StrupleItem::new(None, leema_args)];
-        let result_recv = caller.push_call(main_lri, main_arg);
+        let result_recv = caller.push_call(main_fref, main_arg);
         app.wait_for_result(result_recv)
     };
 

@@ -372,8 +372,7 @@ struct CallCollection<'l>
 {
     local: &'l ProtoModule,
     imports: &'l ProtoLib,
-    // calls: Vec<Lri>,
-    // typecalls: Vec<Lri>,
+    // calls: Vec<Fref>,
 }
 
 impl<'l> CallCollection<'l>
@@ -387,7 +386,6 @@ impl<'l> CallCollection<'l>
             local,
             imports,
             // calls: vec![],
-            // typecalls: vec![],
         }
     }
 }
@@ -749,7 +747,7 @@ impl<'p> TypeCheck<'p>
                 let mut opens = vec![];
                 self.match_argtypes(&mut opens, inner_ftyp, args)
             }
-            Type::Open(ref mut opens, ref mut open_ftyp) => {
+            Type::Generic(true, ref mut open_ftyp, ref mut opens) => {
                 if let Type::Func(inner_ftyp) = &mut **open_ftyp {
                     // figure out arg types
                     self.match_argtypes(opens, inner_ftyp, args)

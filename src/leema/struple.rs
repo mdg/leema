@@ -106,6 +106,8 @@ where
 
 pub type StrupleKV<K, V> = Vec<StrupleItem<K, V>>;
 pub type Struple2<T> = Vec<StrupleItem<Option<Lstr>, T>>;
+pub type StrupleSlice<K, V> = [StrupleItem<K, V>];
+pub type Struple2Slice<T> = [StrupleItem<Option<Lstr>, T>];
 
 pub fn iter_k<K, V>(s: &StrupleKV<K, V>) -> impl Iterator<Item = &K>
 {
@@ -146,7 +148,7 @@ where
     Lresult::from_iter(m_result_items)
 }
 
-pub fn find<'s, 'k, K, V>(s: &'s StrupleKV<K, V>, key: &'k K) -> Option<(usize, &'s V)>
+pub fn find<'s, 'k, K, V>(s: &'s [StrupleItem<K, V>], key: &'k K) -> Option<(usize, &'s V)>
 where
     K: PartialEq,
 {
@@ -157,7 +159,7 @@ where
         .map(|(idx, item)| (idx, &item.v))
 }
 
-pub fn contains_key<K, V>(s: &StrupleKV<K, V>, k: &K) -> bool
+pub fn contains_key<K, V>(s: &[StrupleItem<K, V>], k: &K) -> bool
 where
     K: PartialEq,
 {

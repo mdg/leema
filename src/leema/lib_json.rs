@@ -3,7 +3,6 @@ use crate::leema::failure::Lresult;
 use crate::leema::frame::Event;
 use crate::leema::list;
 use crate::leema::lmap::{Lmap, LmapNode};
-use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::struple::StrupleItem;
 use crate::leema::val::{Type, Val};
@@ -14,11 +13,7 @@ use serde::Serializer;
 use serde_json::{self, Value};
 
 
-const JSON_VAL_TYPE: Lri = Lri {
-    modules: Some(Lstr::Sref("json")),
-    localid: Lstr::Sref("Val"),
-    params: None,
-};
+const JSON_VAL_TYPE: Type = Type::User(Lstr::Sref("json"), "Val");
 
 impl Serialize for Val
 {
@@ -83,10 +78,16 @@ pub fn decode(mut ctx: RustFuncContext) -> Lresult<Event>
 {
     let result: Val = {
         let text = ctx.get_param(0)?.str();
-        let fri = ctx.current_fri();
+        let fref = ctx.current_fref();
         // previous typechecking should assure that the type param is
         // there and that there will be exactly 1
-        match fri.params.as_ref().unwrap()[0] {
+        let tparam = if let Type::Generic(_, _, args) = &fref.t {
+            &args.get(0).unwrap().v
+        } else {
+            panic!("not a generic");
+        };
+
+        match tparam {
             Type::Bool => {
                 let b = serde_json::from_str(text).unwrap();
                 Val::Bool(b)
@@ -103,11 +104,11 @@ pub fn decode(mut ctx: RustFuncContext) -> Lresult<Event>
                 let s: String = serde_json::from_str(text).unwrap();
                 Val::Hashtag(Lstr::from(s))
             }
-            ref bad_type => {
+            _ => {
                 return Err(rustfail!(
                     "runtime_type_failure",
                     "cannot decode json into type: {}",
-                    bad_type,
+                    tparam,
                 ));
             }
         }

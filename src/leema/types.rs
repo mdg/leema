@@ -1,20 +1,20 @@
 use crate::leema::list;
-use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::struple::StrupleItem;
 use crate::leema::val::{Type, Val};
 
 
-pub const STRUCT_FIELD_LRI: Lri = Lri {
-    modules: Some(Lstr::Sref("types")),
-    localid: Lstr::Sref("StructFieldVal"),
-    params: None,
-};
+pub const STRUCT_FIELD_TYPE: Type = Type::User(
+    Lstr::Sref("types"),
+    "StructFieldVal",
+);
 
 
-pub fn option_type(t: Type) -> Lri
+pub fn option_type(t: Type) -> Type
 {
-    Lri::full(Some(Lstr::Sref("option")), Lstr::Sref("T"), Some(vec![t]))
+    let open = t.is_open();
+    let opt = Box::new(Type::User(Lstr::Sref("option"), "T"));
+    Type::Generic(open, opt, vec![StrupleItem::new("T", t)])
 }
 
 pub fn new_some(v: Val) -> Val
@@ -132,10 +132,10 @@ pub fn new_struct_field(name: Option<Lstr>, typ: &Type) -> Val
         StrupleItem::new(Some(Lstr::Sref("name")), name_val),
         StrupleItem::new(Some(Lstr::Sref("type")), Val::Type(typ.clone())),
     ];
-    Val::Struct(STRUCT_FIELD_LRI.clone(), fields)
+    Val::Struct(STRUCT_FIELD_TYPE.clone(), fields)
 }
 
-pub fn new_type_val(name: Lri, fields: &Vec<(Option<Lstr>, Type)>) -> Val
+pub fn new_type_val(name: Lstr, fields: &Vec<(Option<Lstr>, Type)>) -> Val
 {
     let mut struct_fields_acc = Val::Nil;
     for f in fields.iter() {
@@ -144,21 +144,19 @@ pub fn new_type_val(name: Lri, fields: &Vec<(Option<Lstr>, Type)>) -> Val
     }
     let struct_field_vals = list::reverse(&struct_fields_acc);
 
-    let struct_type_lri =
-        Lri::with_modules(Lstr::Sref("types"), Lstr::Sref("TypeVal"));
+    let struct_type_type = Type::User(Lstr::Sref("types"), "TypeVal");
     let struct_fields_struple = vec![
-        StrupleItem::new(Some(Lstr::Sref("name")), Val::Str(name.localid.clone())),
+        StrupleItem::new(Some(Lstr::Sref("name")), Val::Str(name)),
         StrupleItem::new(Some(Lstr::Sref("fields")), struct_field_vals),
     ];
 
-    Val::Struct(struct_type_lri.clone(), struct_fields_struple)
+    Val::Struct(struct_type_type, struct_fields_struple)
 }
 
 
 #[cfg(test)]
 mod tests
 {
-    use crate::leema::lri::Lri;
     use crate::leema::lstr::Lstr;
     use crate::leema::types;
     use crate::leema::val::Type;
@@ -167,10 +165,9 @@ mod tests
     #[test]
     fn test_type_val()
     {
-        let tv_lri =
-            Lri::with_modules(Lstr::Sref("tacos"), Lstr::Sref("Burrito"));
+        let tv_type = Type::User(Lstr::Sref("tacos"), "Burrito");
         let tv = types::new_type_val(
-            tv_lri,
+            tv_type,
             &vec![
                 (Some(Lstr::Sref("filling")), Type::Str),
                 (Some(Lstr::Sref("has_rice")), Type::Bool),

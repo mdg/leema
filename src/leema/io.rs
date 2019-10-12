@@ -1,9 +1,8 @@
-use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::msg::{AppMsg, IoMsg, WorkerMsg};
 use crate::leema::rsrc::{self, Event, IopCtx, Rsrc};
 use crate::leema::struple::Struple2;
-use crate::leema::val::{MsgVal, Val};
+use crate::leema::val::{Fref, MsgVal, Val};
 
 use std;
 use std::cell::RefCell;
@@ -111,7 +110,7 @@ pub struct RunQueueReceiver(Receiver<Val>);
 
 impl RunQueue
 {
-    pub fn spawn(&self, func: Lri, args: Struple2<Val>) -> RunQueueReceiver
+    pub fn spawn(&self, func: Fref, args: Struple2<Val>) -> RunQueueReceiver
     {
         let (result_send, result_recv) = channel();
         self.app_send

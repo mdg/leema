@@ -1,10 +1,9 @@
 use crate::leema::code::Code;
 use crate::leema::frame::FrameTrace;
-use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::rsrc::{self, Rsrc, RunQueue};
 use crate::leema::struple::StrupleItem;
-use crate::leema::val::{Type, Val};
+use crate::leema::val::{Fref, Type, Val};
 
 use std::fmt;
 use std::net::{IpAddr, SocketAddr};
@@ -33,12 +32,7 @@ hyper_server::run(s)
 hyper_server::close(s)
 */
 
-const REQUEST_LRI: Lri = Lri {
-    modules: Some(Lstr::Sref("hyper_server")),
-    localid: Lstr::Sref("Request"),
-    params: None,
-};
-
+const REQUEST_TYPE: Type = Type::User(Lstr::Sref("hyper_server"), "Request");
 
 type BoxFut = Box<
     Future<Item = Response<Body>, Error = futures_oneshot::Canceled> + Send,
@@ -78,11 +72,11 @@ pub fn server_run(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("hyper_server::bind()\n");
     let port = ctx.take_param(0).unwrap().to_int() as u16;
-    let func = ctx.take_param(1).unwrap();
-    let funcri = match func {
-        Val::FuncRef(ref lri, _, _) => lri.clone(),
+    let call = ctx.take_param(1).unwrap();
+    let fref = match call {
+        Val::Call(ref f, _) => f.clone(),
         _ => {
-            panic!("cannot bind server to a not function: {:?}", func);
+            panic!("cannot bind server to a not function: {:?}", call);
         }
     };
 
@@ -91,7 +85,7 @@ pub fn server_run(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let handle = ServerHandle::new(closer);
 
     thread::spawn(move || {
-        server_run_on_thread(port, funcri, runq, close_recv);
+        server_run_on_thread(port, fref, runq, close_recv);
     });
 
     rsrc::Event::NewRsrc(handle)
@@ -99,7 +93,7 @@ pub fn server_run(mut ctx: rsrc::IopCtx) -> rsrc::Event
 
 pub fn server_run_on_thread(
     port: u16,
-    func: Lri,
+    func: Fref,
     runq: RunQueue,
     close_recv: futures_oneshot::Receiver<()>,
 )
@@ -145,11 +139,11 @@ pub fn new_leema_request(req: &Request<Body>) -> Val
         StrupleItem::new(Some(Lstr::Sref("method")), leema_method),
         StrupleItem::new(Some(Lstr::Sref("path")), leema_path),
     ];
-    Val::Struct(REQUEST_LRI, fields)
+    Val::Struct(REQUEST_TYPE, fields)
 }
 
 pub fn handle_request(
-    func: Lri,
+    func: Fref,
     req: Request<Body>,
     caller: &RunQueue,
 ) -> BoxFut
@@ -187,11 +181,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
 }
 
 
-const CLIENT_RESP_TYPE: Lri = Lri {
-    modules: Some(Lstr::Sref("hyper_client")),
-    localid: Lstr::Sref("Response"),
-    params: None,
-};
+const CLIENT_RESP_TYPE: Type = Type::User(Lstr::Sref("hyper_client"), "Response");
 
 pub fn new_client_response(code: i64, req_time: Duration, body: String) -> Val
 {

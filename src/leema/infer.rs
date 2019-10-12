@@ -1,5 +1,4 @@
 use crate::leema::failure::Lresult;
-use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::struple::{Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{FuncType, Type, Val};
@@ -722,7 +721,6 @@ mod tests
 {
     use crate::leema::infer::{Inferator, TypeSet};
     use crate::leema::list;
-    use crate::leema::lri::Lri;
     use crate::leema::lstr::Lstr;
     use crate::leema::struple::{Struple2, StrupleItem, StrupleKV};
     use crate::leema::val::{Type, Val};

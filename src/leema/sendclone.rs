@@ -16,3 +16,13 @@ where
         self.as_ref().map(|v| v.clone_for_send())
     }
 }
+
+impl SendClone for &'static str
+{
+    type Item = &'static str;
+
+    fn clone_for_send(&self) -> &'static str
+    {
+        self
+    }
+}

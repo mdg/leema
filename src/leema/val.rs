@@ -2,7 +2,6 @@ use crate::leema::failure::{Failure, Lresult};
 use crate::leema::frame::FrameTrace;
 use crate::leema::list;
 use crate::leema::lmap::{self, LmapNode};
-use crate::leema::lri::{GenericModId, Lri, ModLocalId, SpecialModId};
 use crate::leema::lstr::Lstr;
 use crate::leema::msg;
 use crate::leema::reg::{self, Ireg, Iregistry, Reg};
@@ -12,7 +11,6 @@ use crate::leema::struple::{self, Struple2, StrupleKV, StrupleItem};
 use std::cmp::{Ordering, PartialEq, PartialOrd};
 use std::fmt;
 use std::io::Error;
-use std::iter::FromIterator;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 
@@ -71,6 +69,13 @@ impl FuncType
         }
     }
 
+    pub fn call_args(&self) -> Struple2<Val>
+    {
+        self.args.iter().chain(self.closed.iter()).map(|a| {
+            StrupleItem::new(a.k.clone(), Val::Void)
+        }).collect()
+    }
+
     pub fn map<Op>(&self, op: &Op) -> Lresult<FuncType>
     where
         Op: Fn(&Type) -> Lresult<Option<Type>>,
@@ -82,6 +87,8 @@ impl FuncType
         Ok(FuncType::new_closure(m_args, m_closed, m_result))
     }
 }
+
+pub type GenericTypes = StrupleKV<&'static str, Type>;
 
 // #[derive(Debug)]
 #[derive(Clone)]
@@ -103,9 +110,9 @@ pub enum Type
     // base interface/type should probably be iterator
     // and then it should be a protocol, not type
     StrictList(Box<Type>),
-    Open(StrupleKV<&'static str, Type>, Box<Type>),
     User(Lstr, &'static str),
-    ClosedUser(Lstr, &'static str, StrupleKV<&'static str, Type>),
+    /// bool is open
+    Generic(bool, Box<Type>, GenericTypes),
 
     Lib(String),
     Resource(Lstr),
@@ -117,16 +124,6 @@ pub enum Type
     Unknown,
     OpenVar(&'static str),
     LocalVar(&'static str),
-
-    // obsolete, to be deleted
-    Mod(ModLocalId),
-    Special(SpecialModId),
-    Generic(GenericModId),
-    GenericFunc(Vec<Lstr>, FuncType),
-    SpecialFunc(StrupleKV<Lstr, Type>, FuncType),
-    // UserDef to be deleted once everything is using Mod/Special/Generic/etc
-    UserDef(Lri),
-    // UserGeneric(Lri),
 }
 
 impl Type
@@ -140,15 +137,6 @@ impl Type
         })
     }
 
-    pub fn future(inner: Type) -> Type
-    {
-        Type::UserDef(Lri::full(
-            Some(Lstr::Sref("task")),
-            Lstr::Sref("Future"),
-            Some(vec![inner]),
-        ))
-    }
-
     /**
      * Get the typename including the module
      */
@@ -156,7 +144,7 @@ impl Type
     {
         match self {
             &Type::Int => Lstr::Sref("Int"),
-            &Type::UserDef(ref name) => Lstr::from(name),
+            &Type::User(ref m, ref name) => lstrf!("{}::{}", m, name),
             &Type::Void => Lstr::Sref("Void"),
             &Type::OpenVar(name) => Lstr::from(format!("${}", name)),
             &Type::LocalVar(name) => Lstr::from(format!("local:{}", name)),
@@ -170,8 +158,6 @@ impl Type
     {
         match t {
             &Type::Func(ref ftype) => (&ftype.args, &ftype.result),
-            &Type::GenericFunc(_, ref ftype) => (&ftype.args, &ftype.result),
-            &Type::SpecialFunc(_, ref ftype) => (&ftype.args, &ftype.result),
             _ => {
                 panic!("not a func type {:?}", t);
             }
@@ -182,7 +168,6 @@ impl Type
     {
         match self {
             &Type::Func(_) => true,
-            &Type::GenericFunc(_, _) => true,
             _ => false,
         }
     }
@@ -190,7 +175,7 @@ impl Type
     pub fn is_open(&self) -> bool
     {
         match self {
-            Type::Open(_, _) => true,
+            Type::Generic(open, _, _) => *open,
             Type::OpenVar(_) => true,
             Type::Tuple(items) => items.iter().any(|i| i.v.is_open()),
             Type::Unknown => true,
@@ -224,11 +209,6 @@ impl Type
                 let m_ftype = ftyp.map(op)?;
                 Type::Func(m_ftype)
             }
-            &Type::GenericFunc(ref tparams, ref ftyp) => {
-                let m_ftype = ftyp.map(op)?;
-                Type::GenericFunc(tparams.clone(), m_ftype)
-            }
-
             _ => self.clone(),
         };
         Ok(res)
@@ -243,23 +223,17 @@ impl Type
             &Type::Int => Type::Int,
             &Type::Hashtag => Type::Hashtag,
             &Type::Tuple(ref items) => Type::Tuple(items.clone_for_send()),
-            &Type::UserDef(ref i) => Type::UserDef(i.deep_clone()),
             &Type::StrictList(ref i) => {
                 Type::StrictList(Box::new(i.deep_clone()))
             }
             &Type::Func(ref ftyp) => Type::Func(ftyp.clone()),
-            &Type::GenericFunc(ref vars, ref ftyp) => {
-                Type::GenericFunc(vars.clone(), ftyp.clone())
-            }
-            &Type::SpecialFunc(ref vars, ref ftyp) => {
-                Type::SpecialFunc(vars.clone(), ftyp.clone())
-            }
             &Type::Unknown => Type::Unknown,
             &Type::OpenVar(id) => Type::OpenVar(id),
             &Type::LocalVar(id) => Type::LocalVar(id),
-            &Type::Open(ref opens, ref subt) => {
-                let subt2 = Box::new(subt.deep_clone());
-                Type::Open(opens.clone(), subt2)
+            &Type::Generic(open, ref subt, ref opens) => {
+                let subt2 = Box::new(subt.clone_for_send());
+                let opens2 = opens.clone_for_send();
+                Type::Generic(open, subt2, opens2)
             }
             &Type::User(ref module, typ) => {
                 Type::User(module.clone_for_send(), typ)
@@ -341,33 +315,12 @@ impl fmt::Display for Type
                 }
                 write!(f, ")")
             }
-            &Type::UserDef(ref name) => write!(f, "{}", name),
             &Type::Failure => write!(f, "Failure"),
             &Type::User(ref module, ref id) => write!(f, "{}::{}", module, id),
-            &Type::Open(ref args, ref inner) => {
+            &Type::Generic(_, ref inner, ref args) => {
                 write!(f, "{}{:?}", inner, args)
             }
-            &Type::ClosedUser(ref module, ref id, ref args) => {
-                write!(f, "{}::{}{:?}", module, id, args)
-            }
-            &Type::Mod(ref id) => write!(f, "{}", id),
-            &Type::Generic(ref id) => write!(f, "Generic/{:?}", id),
-            &Type::Special(ref id) => write!(f, "Special/{:?}", id),
             &Type::Func(ref ftyp) => write!(f, "F{}", ftyp),
-            &Type::GenericFunc(ref params, ref ftyp) => {
-                write!(f, "GF[")?;
-                for p in params.iter() {
-                    write!(f, "{},", p)?;
-                }
-                write!(f, "]{}", ftyp)
-            }
-            &Type::SpecialFunc(ref params, ref ftyp) => {
-                write!(f, "SF[")?;
-                for p in params.iter() {
-                    write!(f, "{},", p)?;
-                }
-                write!(f, "]{}", ftyp)
-            }
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
@@ -396,7 +349,6 @@ impl fmt::Debug for Type
             &Type::Bool => write!(f, "Bool"),
             &Type::Hashtag => write!(f, "Hashtag"),
             &Type::Tuple(ref items) => write!(f, "{:?}", items),
-            &Type::UserDef(ref name) => write!(f, "UserDef({})", name),
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref ftyp) => write!(f, "{:?}", ftyp),
             // different from base collection/map interfaces?
@@ -404,20 +356,13 @@ impl fmt::Debug for Type
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
             &Type::User(ref module, ref id) => write!(f, "{}::{}", module, id),
-            &Type::Open(ref args, ref inner) => {
-                write!(f, "{}{:?}", inner, args)
-            }
-            &Type::ClosedUser(ref module, ref id, ref args) => {
-                write!(f, "{}::{}{:?}", module, id, args)
-            }
-            &Type::Mod(ref id) => write!(f, "Mod({:?})", id),
-            &Type::Special(ref id) => write!(f, "Special({:?})", id),
-            &Type::Generic(ref id) => write!(f, "Generic({:?})", id),
-            &Type::GenericFunc(ref vars, ref ftype) => {
-                write!(f, "GenericFunc({:?}, {:?})", vars, ftype)
-            }
-            &Type::SpecialFunc(ref vars, ref ftyp) => {
-                write!(f, "SpecialFunc({:?} {:?})", vars, ftyp)
+            &Type::Generic(open, ref inner, ref args) => {
+                let open_tag = if open {
+                    "Open"
+                } else {
+                    "Closed"
+                };
+                write!(f, "({} {}{:?})", open_tag, inner, args)
             }
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
             &Type::Resource(ref name) => write!(f, "Resource({})", &name),
@@ -515,6 +460,58 @@ pub const FAILURE_TIMEOUT: i8 = -6;
 pub const FAILURE_INTERNAL: i8 = -7;
 pub const FAILURE_TYPE: i8 = -8;
 
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Hash)]
+#[derive(Ord)]
+pub struct Fref
+{
+    pub m: Lstr,
+    pub f: &'static str,
+    pub t: Type,
+}
+
+impl Fref
+{
+    pub fn new(m: Lstr, f: &'static str, t: Type) -> Fref
+    {
+        Fref { m, f, t }
+    }
+
+    pub fn with_modules(m: Lstr, f: &'static str) -> Fref
+    {
+        Fref {
+            m,
+            f,
+            t: Type::Unknown,
+        }
+    }
+}
+
+impl fmt::Display for Fref
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "({}::{} {:?})", self.m, self.f, self.t)
+    }
+}
+
+impl sendclone::SendClone for Fref
+{
+    type Item = Fref;
+
+    fn clone_for_send(&self) -> Fref
+    {
+        Fref {
+            m: self.m.clone_for_send(),
+            f: self.f,
+            t: self.t.clone_for_send(),
+        }
+    }
+}
 
 pub type MsgVal = msg::MsgItem<Val>;
 
@@ -530,16 +527,16 @@ pub enum Val
     Cons(Box<Val>, Arc<Val>),
     Nil,
     Tuple(Struple2<Val>),
-    Struct(Lri, Struple2<Val>),
-    EnumStruct(Lri, Lstr, Struple2<Val>),
-    EnumToken(Lri, Lstr),
-    Token(Lri),
+    Struct(Type, Struple2<Val>),
+    EnumStruct(Type, Lstr, Struple2<Val>),
+    EnumToken(Type, Lstr),
+    Token(Type),
     Map(LmapNode),
     Failure2(Box<Failure>),
     Type(Type),
     Lib(Arc<LibVal>),
-    Fref(Lstr, &'static str, Struple2<Val>, Type),
-    FuncRef(Lri, Struple2<Val>, Type),
+    // Fref(Fref),
+    Call(Fref, Struple2<Val>),
     ResourceRef(i64),
     RustBlock,
     Future(Arc<Mutex<Receiver<Val>>>),
@@ -586,11 +583,10 @@ impl Val
         Val::Tuple(items)
     }
 
-    pub fn is_funcref(&self) -> bool
+    pub fn is_call(&self) -> bool
     {
         match self {
-            &Val::Fref(_, _, _, _) => true,
-            &Val::FuncRef(_, _, _) => true,
+            &Val::Call(_, _) => true,
             _ => false,
         }
     }
@@ -720,7 +716,7 @@ impl Val
             &Val::Wildcard => Type::Unknown,
             &Val::PatternVar(_) => Type::Unknown,
             &Val::RustBlock => Type::RustBlock,
-            &Val::Map(_) => lmap::MAP_TYPE,
+            &Val::Map(_) => lmap::map_type(),
             &Val::Tuple(ref items) if items.len() == 1 => {
                 items.get(0).unwrap().v.get_type()
             }
@@ -731,13 +727,12 @@ impl Val
                     .collect();
                 Type::Tuple(tuptypes)
             }
-            &Val::Struct(ref typ, _) => Type::UserDef(typ.clone()),
-            &Val::EnumStruct(ref typ, _, _) => Type::UserDef(typ.clone()),
-            &Val::EnumToken(ref typ, _) => Type::UserDef(typ.clone()),
-            &Val::Token(ref typ) => Type::UserDef(typ.clone()),
+            &Val::Struct(ref typ, _) => typ.clone(),
+            &Val::EnumStruct(ref typ, _, _) => typ.clone(),
+            &Val::EnumToken(ref typ, _) => typ.clone(),
+            &Val::Token(ref typ) => typ.clone(),
             &Val::Buffer(_) => Type::Str,
-            &Val::Fref(_, _, _, ref typ) => typ.clone(),
-            &Val::FuncRef(_, _, ref typ) => typ.clone(),
+            &Val::Call(ref fref, _) => fref.t.clone(),
             &Val::Lib(ref lv) => lv.get_type(),
             &Val::ResourceRef(_) => {
                 panic!("cannot get type of ResourceRef: {:?}", self);
@@ -839,90 +834,6 @@ impl Val
         }
     }
 
-    pub fn specialize_lri_params(&self, lri: &Lri) -> Lresult<Option<Val>>
-    {
-        if let Val::FuncRef(ref selfri, ref _args, ref _typ) = self {
-            if !Lri::nominal_eq(selfri, lri) {
-                return Err(Failure::new(
-                    "function_mismatch",
-                    Lstr::from(format!(
-                        "functions do not match: {} != {}",
-                        selfri, lri
-                    )),
-                ));
-            }
-            if selfri.params.is_none() && lri.params.is_none() {}
-            let mapped_types = selfri
-                .params
-                .as_ref()
-                .unwrap()
-                .iter()
-                .zip(lri.params.as_ref().unwrap().iter())
-                .map(|(ref tvar, ref tval)| {
-                    let var_key = match tvar {
-                        Type::OpenVar(name) => name.clone(),
-                        _ => {
-                            return Err(Failure::new(
-                                "type_param",
-                                Lstr::Sref("expected type parameter"),
-                            ));
-                        }
-                    };
-                    Ok((var_key, (*tval).clone()))
-                });
-            let ok_mapped_types: Vec<(&'static str, Type)> =
-                Lresult::from_iter(mapped_types)?;
-            println!("specialization is: {:?}", ok_mapped_types);
-        }
-        let result = match self {
-            &Val::Struct(ref tri, ref flds) if Lri::nominal_eq(tri, lri) => {
-                let params = lri.params.as_ref().unwrap();
-                let m_tri = tri.specialize_params(params.clone()).unwrap();
-                let m_flds: Struple2<Val> = {
-                    let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
-                    struple::map_v(flds, |v| v.map(&apply_f))?
-                };
-                Some(Val::Struct(m_tri, m_flds))
-            }
-            &Val::EnumStruct(ref tri, ref variant, ref flds)
-                if Lri::nominal_eq(tri, lri) =>
-            {
-                let params = lri.params.as_ref().unwrap();
-                let m_tri = tri.specialize_params(params.clone()).unwrap();
-                let m_flds: Struple2<Val> = {
-                    let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
-                    struple::map_v(flds, |f: &Val| f.map(&apply_f))?
-                };
-                Some(Val::EnumStruct(m_tri, variant.clone(), m_flds))
-            }
-            &Val::EnumToken(ref tri, ref variant)
-                if Lri::nominal_eq(tri, lri) =>
-            {
-                let params = lri.params.as_ref().unwrap();
-                let m_tri = tri.specialize_params(params.clone()).unwrap();
-                Some(Val::EnumToken(m_tri, variant.clone()))
-            }
-            &Val::Token(ref tri) if Lri::nominal_eq(tri, lri) => {
-                let params = lri.params.as_ref().unwrap();
-                let m_tri = tri.specialize_params(params.clone()).unwrap();
-                Some(Val::Token(m_tri))
-            }
-            &Val::FuncRef(ref tri, ref args, ref typ)
-                if Lri::nominal_eq(tri, lri) =>
-            {
-                let params = lri.params.as_ref().unwrap();
-                let m_tri = tri.specialize_params(params.clone()).unwrap();
-                let m_args: Struple2<Val> = {
-                    let apply_f = |v: &Val| Val::specialize_lri_params(v, lri);
-                    struple::map_v(args, |v| v.map(&apply_f))?
-                };
-                Some(Val::FuncRef(m_tri, m_args, typ.clone()))
-            }
-            _ => None,
-        };
-        Ok(result)
-    }
-
     pub fn map<Op>(&self, op: &Op) -> Lresult<Val>
     where
         Op: Fn(&Val) -> Lresult<Option<Val>>,
@@ -953,16 +864,10 @@ impl Val
                 Val::EnumToken(typ.clone(), vname.clone())
             }
             &Val::Token(ref typ) => Val::Token(typ.clone()),
-            &Val::Fref(ref m, ref id, ref args, ref typ) => {
+            &Val::Call(ref f, ref args) => {
+                let m_fref = f.clone();
                 let m_args = struple::map_v(args, |a| a.map(op))?;
-                let m_typ = typ.clone();
-                Val::Fref(m.clone(), id, m_args, m_typ)
-            }
-            &Val::FuncRef(ref fi, ref args, ref typ) => {
-                let m_fi = fi.clone();
-                let m_args = struple::map_v(args, |a| a.map(op))?;
-                let m_typ = typ.clone();
-                Val::FuncRef(m_fi, m_args, m_typ)
+                Val::Call(m_fref, m_args)
             }
             &Val::Failure2(ref failure) => {
                 let m_tag = failure.tag.map(op)?;
@@ -1008,16 +913,10 @@ impl Val
                 Val::EnumToken(typ.deep_clone(), vname.clone_for_send())
             }
             &Val::Token(ref typ) => Val::Token(typ.deep_clone()),
-            &Val::Fref(ref m, ref id, ref args, ref typ) => {
+            &Val::Call(ref f, ref args) => {
+                let f2 = f.clone_for_send();
                 let args2 = args.clone_for_send();
-                let typ2 = typ.deep_clone();
-                Val::Fref(m.clone(), id, args2, typ2)
-            }
-            &Val::FuncRef(ref fi, ref args, ref typ) => {
-                let fi2 = fi.deep_clone();
-                let args2 = args.clone_for_send();
-                let typ2 = typ.deep_clone();
-                Val::FuncRef(fi2, args2, typ2)
+                Val::Call(f2, args2)
             }
             &Val::Failure2(ref f) => {
                 Val::Failure2(Box::new(Failure::leema_new(
@@ -1147,11 +1046,8 @@ impl fmt::Display for Val
             Val::RustBlock => write!(f, "RustBlock"),
             Val::Failure2(ref fail) => write!(f, "Failure({:?})", **fail),
             Val::Type(ref t) => write!(f, "{}", t),
-            Val::Fref(ref module, ref id, ref args, ref typ) => {
-                write!(f, "{}::{}({:?}): {}", module, id, args, typ)
-            }
-            Val::FuncRef(ref id, ref args, ref typ) => {
-                write!(f, "{}({:?}): {}", id, args, typ)
+            Val::Call(ref fref, ref args) => {
+                write!(f, "{}::{}({:?}): {}", fref.m, fref.f, args, fref.t)
             }
             Val::Future(_) => write!(f, "Future"),
             Val::Void => write!(f, "Void"),
@@ -1197,11 +1093,8 @@ impl fmt::Debug for Val
             Val::RustBlock => write!(f, "RustBlock"),
             Val::Failure2(ref fail) => write!(f, "Failure({:?})", fail),
             Val::Type(ref t) => write!(f, "TypeVal({:?})", t),
-            Val::Fref(ref module, ref id, ref args, ref typ) => {
-                write!(f, "Fref({}::{} {:?}: {})", module, id, args, typ)
-            }
-            Val::FuncRef(ref id, ref args, ref typ) => {
-                write!(f, "FuncRef({} {:?}: {})", id, args, typ)
+            Val::Call(ref fref, ref args) => {
+                write!(f, "({}::{} {:?}: {:?})", fref.m, fref.f, args, fref.t)
             }
             Val::Future(_) => write!(f, "Future"),
             Val::PatternVar(ref r) => write!(f, "pvar:{:?}", r),
@@ -1225,12 +1118,8 @@ impl reg::Iregistry for Val
             (_, &Val::Struct(_, ref items)) => {
                 lfailoc!(items.ireg_get(i))
             }
-            // Functions & Closures
-            (_, &Val::FuncRef(_, ref args, _)) => {
-                lfailoc!(args.ireg_get(i))
-            }
             // Get for Functions & Closures
-            (_, &Val::Fref(_, _, ref args, _)) => {
+            (_, &Val::Call(_, ref args)) => {
                 lfailoc!(args.ireg_get(i))
             }
             // Failures
@@ -1284,12 +1173,8 @@ impl reg::Iregistry for Val
             (_, &mut Val::Nil) => {
                 panic!("cannot set reg on empty list: {}", i);
             }
-            // set reg on FuncRef
-            (_, &mut Val::FuncRef(_, ref mut args, _)) => {
-                args.ireg_set(i, v);
-            }
             // set reg on Fref
-            (_, &mut Val::Fref(_, _, ref mut args, _)) => {
+            (_, &mut Val::Call(_, ref mut args)) => {
                 args.ireg_set(i, v);
             }
             // values that can't act as registries
@@ -1378,16 +1263,15 @@ impl PartialOrd for Val
             (&Val::Token(ref at), &Val::Token(ref bt)) => {
                 PartialOrd::partial_cmp(&*at, &*bt)
             }
-            // func ref to func ref comparison
+            // fref to fref comparison
             (
-                &Val::FuncRef(ref f1, ref a1, ref t1),
-                &Val::FuncRef(ref f2, ref a2, ref t2),
+                &Val::Call(ref f1, ref a1),
+                &Val::Call(ref f2, ref a2),
             ) => {
                 Some(
                     PartialOrd::partial_cmp(f1, f2)
                         .unwrap()
-                        .then_with(|| PartialOrd::partial_cmp(a1, a2).unwrap())
-                        .then_with(|| PartialOrd::partial_cmp(t1, t2).unwrap()),
+                        .then_with(|| PartialOrd::partial_cmp(a1, a2).unwrap()),
                 )
             }
             (&Val::ResourceRef(rra), &Val::ResourceRef(rrb)) => {
@@ -1523,7 +1407,7 @@ impl Clone for Val
 #[derive(Clone)]
 pub struct Env
 {
-    params: Val,
+    params: Struple2<Val>,
     result: Option<Val>,
     // locals: StrupleKV<&'static str, Val>,
     // maybe eventually switch locals to init w/ a struple from the func?
@@ -1536,17 +1420,17 @@ impl Env
     pub fn new() -> Env
     {
         Env {
-            params: Val::Void,
+            params: vec![],
             result: None,
             locals: StrupleKV::new(),
             stack: StrupleKV::new(),
         }
     }
 
-    pub fn with_args(v: Val) -> Env
+    pub fn with_args(args: Struple2<Val>) -> Env
     {
         Env {
-            params: v,
+            params: args,
             result: None,
             locals: StrupleKV::new(),
             stack: StrupleKV::new(),
@@ -1611,7 +1495,7 @@ impl Env
         }
     }
 
-    pub fn get_params(&self) -> &Val
+    pub fn get_params(&self) -> &Struple2<Val>
     {
         &self.params
     }
@@ -1627,7 +1511,6 @@ impl Env
 mod tests
 {
     use crate::leema::list;
-    use crate::leema::lri::Lri;
     use crate::leema::lstr::Lstr;
     use crate::leema::reg::Reg;
     use crate::leema::struple;
@@ -1715,7 +1598,7 @@ mod tests
     #[test]
     fn test_struct_eq()
     {
-        let t = Lri::new(Lstr::Sref("Taco"));
+        let t = Type::User(Lstr::Sref("foo"), "Taco");
         let a = Val::Struct(
             t.clone(),
             struple::new_tuple2(Val::Int(3), Val::Bool(false)),
@@ -1729,11 +1612,11 @@ mod tests
     fn test_struct_lt_type()
     {
         let a = Val::Struct(
-            Lri::new(Lstr::Sref("Burrito")),
+            Type::User(Lstr::Sref("foo"), "Burrito"),
             struple::new_tuple2(Val::Int(3), Val::Bool(false)),
         );
         let b = Val::Struct(
-            Lri::new(Lstr::Sref("Taco")),
+            Type::User(Lstr::Sref("foo"), "Taco"),
             struple::new_tuple2(Val::Int(3), Val::Bool(false)),
         );
         assert!(a < b);
@@ -1742,7 +1625,7 @@ mod tests
     #[test]
     fn test_struct_lt_val()
     {
-        let typ = Lri::new(Lstr::Sref("Taco"));
+        let typ = Type::User(Lstr::Sref("foo"), "Taco");
         let a = Val::Struct(
             typ.clone(),
             struple::new_tuple2(Val::Bool(false), Val::Int(3)),
@@ -1757,8 +1640,7 @@ mod tests
     #[test]
     fn test_enum_eq()
     {
-        let etype =
-            Lri::with_modules(Lstr::Sref("animals"), Lstr::Sref("Animal"));
+        let etype = Type::User(Lstr::Sref("animals"), "Animal");
 
         let a = Val::EnumToken(etype.clone(), Lstr::from("Dog".to_string()));
         let b = Val::EnumToken(etype.clone(), Lstr::Sref("Dog"));
@@ -1768,7 +1650,7 @@ mod tests
     #[test]
     fn test_enum_lt_type()
     {
-        let typ = Lri::new(Lstr::Sref("Taco"));
+        let typ = Type::User(Lstr::Sref("foo"), "Taco");
         let a = Val::EnumToken(typ.clone(), Lstr::Sref("Quesadilla"));
         let b = Val::EnumToken(typ, Lstr::Sref("Torta"));
         assert!(a < b);
@@ -1777,7 +1659,7 @@ mod tests
     #[test]
     fn test_enum_lt_variant()
     {
-        let typ = Lri::new(Lstr::Sref("Taco"));
+        let typ = Type::User(Lstr::Sref("foo"), "Taco");
         let a = Val::EnumToken(typ.clone(), Lstr::Sref("Burrito"));
         let b = Val::EnumToken(typ, Lstr::Sref("Torta"));
         assert!(a < b);
@@ -1786,7 +1668,7 @@ mod tests
     #[test]
     fn test_enum_lt_val()
     {
-        let typ = Lri::new(Lstr::Sref("Taco"));
+        let typ = Type::User(Lstr::Sref("foo"), "Taco");
         let a = Val::EnumStruct(
             typ.clone(),
             Lstr::Sref("Burrito"),
@@ -1803,17 +1685,18 @@ mod tests
     #[test]
     fn test_format_struct_empty()
     {
-        let s = Val::Token(Lri::new(Lstr::Sref("Taco")));
+        let typ = Type::User(Lstr::Sref("foo"), "Taco");
+        let s = Val::Token(typ);
 
         let s_str = format!("{}", s);
-        assert_eq!("Taco", s_str);
+        assert_eq!("foo::Taco", s_str);
     }
 
     #[test]
     fn test_format_enum_token()
     {
-        let type_lri = Lri::new(Lstr::Sref("Taco"));
-        let e = Val::EnumToken(type_lri, Lstr::Sref("Burrito"));
+        let typ = Type::User(Lstr::Sref("foo"), "Taco");
+        let e = Val::EnumToken(typ, Lstr::Sref("Burrito"));
 
         let e_str = format!("{}", e);
         assert_eq!("Burrito", e_str);
@@ -1823,10 +1706,9 @@ mod tests
     fn test_format_enum_namedtuple()
     {
         let burrito_str = Lstr::Sref("Burrito");
-        let stype_lri =
-            Lri::with_modules(Lstr::Sref("tortas"), Lstr::Sref("Taco"));
+        let stype = Type::User(Lstr::Sref("tortas"), "Taco");
         let s = Val::EnumStruct(
-            stype_lri,
+            stype,
             burrito_str.clone(),
             struple::new_tuple2(Val::Int(5), Val::Int(8)),
         );
@@ -1842,12 +1724,14 @@ mod tests
         let t = Val::Bool(true);
         let i = Val::Int(7);
         let s = Val::Str(Lstr::Sref("hello"));
+        let stype = Type::User(Lstr::Sref("foo"), "Foo");
         let strct = Val::Struct(
-            Lri::new(Lstr::Sref("Foo")),
+            stype,
             struple::new_tuple2(Val::Int(2), Val::Bool(true)),
         );
+        let etype = Type::User(Lstr::Sref("foo"), "Taco");
         let enm = Val::EnumStruct(
-            Lri::new(Lstr::Sref("Taco")),
+            etype,
             Lstr::Sref("Burrito"),
             struple::new_tuple2(Val::Int(8), Val::Int(6)),
         );

@@ -3,11 +3,10 @@ use crate::leema::failure::{Failure, Lresult};
 use crate::leema::frame::{Event, Frame, FrameTrace, Parent};
 use crate::leema::list;
 use crate::leema::lmap::Lmap;
-use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::reg::Reg;
 use crate::leema::struple::{Struple2, StrupleItem};
-use crate::leema::val::{Env, Type, Val};
+use crate::leema::val::{Env, Fref, Type, Val};
 
 use std::mem;
 use std::rc::Rc;
@@ -34,12 +33,12 @@ impl Fiber
 
     pub fn module_name(&self) -> &Lstr
     {
-        self.head.function.mod_ref().unwrap()
+        &self.head.function.m
     }
 
-    pub fn function_name(&self) -> &Lstr
+    pub fn function_name(&self) -> &'static str
     {
-        &self.head.function.localid
+        &self.head.function.f
     }
 
     pub fn new_task_key(&mut self) -> (i64, i64)
@@ -54,8 +53,8 @@ impl Fiber
         code: Rc<Code>,
         dst: Reg,
         line: i16,
-        func: Lri,
-        args: Val,
+        func: Fref,
+        args: Struple2<Val>,
     )
     {
         let mut newf = Frame {
@@ -202,17 +201,11 @@ impl Fiber
         line: u16,
     ) -> Lresult<Event>
     {
-        let mut funcri_ref;
-        let (funcri, args): (&Lri, Struple2<Val>) = {
+        let (fref, args): (Fref, Struple2<Val>) = {
             let ref fname_val = ltry!(self.head.e.get_reg(freg));
             match *fname_val {
-                &Val::FuncRef(ref callri, ref args, _) => {
-                    (callri, args.clone())
-                }
-                &Val::Fref(ref modname, ref name, ref args, _) => {
-                    funcri_ref =
-                        Lri::with_modules(modname.clone(), Lstr::Sref(name));
-                    (&funcri_ref, Struple2::from(args.clone()))
+                &Val::Call(ref f, ref args) => {
+                    (f.clone(), args.clone())
                 }
                 _ => {
                     return Err(rustfail!(
@@ -223,14 +216,13 @@ impl Fiber
                 }
             }
         };
-        vout!("execute_call({})\n", funcri);
+        vout!("execute_call({})\n", fref);
 
-        let argstup = Val::Tuple(args);
         Ok(Event::Call(
             dst.clone(),
             line as i16,
-            funcri.clone(),
-            argstup,
+            fref,
+            args,
         ))
     }
 
@@ -249,56 +241,32 @@ impl Fiber
         flds: &Struple2<Type>,
     ) -> Lresult<Event>
     {
-        let construple = match self.head.e.get_params() {
-            &Val::Struct(_, ref items) => {
-                if let &Type::UserDef(ref i_new_typ) = new_typ {
-                    Val::EnumStruct(
-                        i_new_typ.clone(),
-                        variant.clone(),
-                        items.clone(),
-                    )
-                } else {
-                    return Err(rustfail!(
-                        "leema_failure",
-                        "struct type is not user defined: {:?}",
-                        new_typ,
-                    ));
-                }
-            }
-            &Val::Tuple(ref items) => {
-                if let &Type::UserDef(ref i_new_typ) = new_typ {
-                    let new_items = items
-                        .iter()
-                        .zip(flds.iter())
-                        .map(|(i, f)| {
-                            if i.k.is_some() {
-                                StrupleItem::new(i.k.clone(), i.v.clone())
-                            } else {
-                                StrupleItem::new(f.k.clone(), i.v.clone())
-                            }
-                        })
-                        .collect();
-                    Val::EnumStruct(
-                        i_new_typ.clone(),
-                        variant.clone(),
-                        new_items,
-                    )
-                } else {
-                    return Err(rustfail!(
-                        "leema_failure",
-                        "struct type is not user defined: {:?}",
-                        new_typ,
-                    ));
-                }
-            }
-            what => {
-                return Err(rustfail!(
-                    "leema_failure",
-                    "cannot construct a not construple: {:?}",
-                    what,
-                ));
-            }
+        let items = self.head.e.get_params();
+        let construple = if let Type::User(_mname, _fname) = new_typ {
+            let new_items = items
+                .iter()
+                .zip(flds.iter())
+                .map(|(i, f)| {
+                    if i.k.is_some() {
+                        StrupleItem::new(i.k.clone(), i.v.clone())
+                    } else {
+                        StrupleItem::new(f.k.clone(), i.v.clone())
+                    }
+                })
+                .collect();
+            Val::EnumStruct(
+                new_typ.clone(),
+                variant.clone(),
+                new_items,
+            )
+        } else {
+            return Err(rustfail!(
+                "leema_failure",
+                "struct type is not user defined: {:?}",
+                new_typ,
+            ));
         };
+
         self.head.e.set_reg(reg, construple);
         self.head.pc = self.head.pc + 1;
         Ok(Event::Uneventful)
@@ -311,48 +279,28 @@ impl Fiber
         flds: &Struple2<Type>,
     ) -> Lresult<Event>
     {
-        let construple = match self.head.e.get_params() {
-            &Val::Struct(_, ref items) => {
-                if let &Type::UserDef(ref i_new_typ) = new_typ {
-                    Val::Struct(i_new_typ.clone(), items.clone())
-                } else {
-                    return Err(rustfail!(
-                        "leema_failure",
-                        "struct type is not user defined: {:?}",
-                        new_typ,
-                    ));
-                }
-            }
-            &Val::Tuple(ref items) => {
-                if let &Type::UserDef(ref i_new_typ) = new_typ {
-                    let new_items = items
-                        .iter()
-                        .zip(flds.iter())
-                        .map(|(i, f)| {
-                            if i.k.is_some() {
-                                StrupleItem::new(i.k.clone(), i.v.clone())
-                            } else {
-                                StrupleItem::new(f.k.clone(), i.v.clone())
-                            }
-                        })
-                        .collect();
-                    Val::Struct(i_new_typ.clone(), new_items)
-                } else {
-                    return Err(rustfail!(
-                        "leema_failure",
-                        "struct type is not user defined: {:?}",
-                        new_typ,
-                    ));
-                }
-            }
-            what => {
-                return Err(rustfail!(
-                    "leema_failure",
-                    "cannot construct a not construple: {:?}",
-                    what,
-                ));
-            }
+        let items = self.head.e.get_params();
+        let construple = if let Type::User(_, _) = new_typ {
+            let new_items = items
+                .iter()
+                .zip(flds.iter())
+                .map(|(i, f)| {
+                    if i.k.is_some() {
+                        StrupleItem::new(i.k.clone(), i.v.clone())
+                    } else {
+                        StrupleItem::new(f.k.clone(), i.v.clone())
+                    }
+                })
+                .collect();
+            Val::Struct(new_typ.clone(), new_items)
+        } else {
+            return Err(rustfail!(
+                "leema_failure",
+                "struct type is not user defined: {:?}",
+                new_typ,
+            ));
         };
+
         self.head.e.set_reg(reg, construple);
         self.head.pc = self.head.pc + 1;
         Ok(Event::Uneventful)
@@ -489,7 +437,6 @@ mod tests
 {
     use crate::leema::fiber::Fiber;
     use crate::leema::frame::{Event, Frame, Parent};
-    use crate::leema::lri::Lri;
     use crate::leema::lstr::Lstr;
     use crate::leema::reg::Reg;
     use crate::leema::val::Val;
@@ -501,7 +448,7 @@ mod tests
         let r1 = Reg::local(1);
         let r2 = Reg::local(2);
         let main_parent = Parent::new_main();
-        let callri = Lri::with_modules(Lstr::Sref("foo"), Lstr::Sref("bar"));
+        let callri = Fref::with_modules(Lstr::Sref("foo"), "bar");
         let mut frame =
             Frame::new_root(main_parent, callri, Vec::new());
         frame.e.set_reg(r1, Val::Str(Lstr::Sref("i like ")));

@@ -1,13 +1,12 @@
 use crate::leema::io::{Io, IoLoop};
-use crate::leema::lri::Lri;
 use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use crate::leema::program;
 use crate::leema::struple::Struple2;
-use crate::leema::val::Val;
+use crate::leema::val::{Fref, Val};
 use crate::leema::worker::Worker;
 
 use std::cmp::min;
-use std::collections::{HashMap, LinkedList};
+use std::collections::HashMap;
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::thread;
 use std::time::Duration;
@@ -21,7 +20,7 @@ pub struct Application
     io_recv: Option<Receiver<IoMsg>>,
     io_send: Sender<IoMsg>,
     worker: HashMap<i64, Sender<WorkerMsg>>,
-    calls: LinkedList<(Sender<Val>, Lri, Struple2<Val>)>,
+    calls: Vec<(Sender<Val>, Fref, Struple2<Val>)>,
     args: Val,
     result: Option<Val>,
     done: bool,
@@ -41,7 +40,7 @@ impl Application
             io_recv: Some(iorx),
             io_send: iotx,
             worker: HashMap::new(),
-            calls: LinkedList::new(),
+            calls: Vec::new(),
             args: Val::Nil,
             result: None,
             done: false,
@@ -56,9 +55,9 @@ impl Application
         }
     }
 
-    pub fn push_call(&mut self, dst: Sender<Val>, call: Lri, args: Struple2<Val>)
+    pub fn push_call(&mut self, dst: Sender<Val>, call: Fref, args: Struple2<Val>)
     {
-        self.calls.push_back((dst, call, args));
+        self.calls.push((dst, call, args));
     }
 
     pub fn run(&mut self)
@@ -149,7 +148,8 @@ impl Application
     pub fn iterate(&mut self) -> bool
     {
         let mut did_something = false;
-        while let Some((dst, call, args)) = self.calls.pop_front() {
+        for call in self.calls.drain(..) {
+            let (dst, call, args) = call;
             vout!("application call {}({:?})\n", call, args);
             let w = self.worker.values().next().unwrap();
             let msg = WorkerMsg::Spawn(dst, call, args);
@@ -171,6 +171,7 @@ impl Application
             AppMsg::RequestCode(worker_id, frame, mmodule, mfunc) => {
                 let module = mmodule.take();
                 let func = mfunc.take();
+                vout!("AppMsg::RequestCode({}, {}, {}, {})\n", worker_id, frame, module, func);
                 let worker = self.worker.get(&worker_id).unwrap();
                 let reply = match self.prog.load_code(&module, &func) {
                     Ok(code) => {
@@ -194,7 +195,7 @@ impl Application
                 self.done = true;
             }
             AppMsg::Spawn(result_dst, func, args) => {
-                self.calls.push_back((result_dst, func, args));
+                self.calls.push((result_dst, func, args));
             }
         }
     }
@@ -233,7 +234,7 @@ pub struct AppCaller
 
 impl AppCaller
 {
-    pub fn push_call(&self, call: Lri, args: Struple2<Val>) -> Receiver<Val>
+    pub fn push_call(&self, call: Fref, args: Struple2<Val>) -> Receiver<Val>
     {
         let (result_send, result_recv) = channel();
         self.app_send
@@ -264,7 +265,6 @@ mod tests
 {
     use crate::leema::application::Application;
     use crate::leema::loader::Interloader;
-    use crate::leema::lri::Lri;
     use crate::leema::lstr::Lstr;
     use crate::leema::program;
     use crate::leema::val::Val;
@@ -288,7 +288,7 @@ mod tests
         let mut app = Application::new(prog);
         let caller = app.caller();
         let recv = caller.push_call(
-            Lri::with_modules(Lstr::Sref("test"), Lstr::Sref("main")),
+            Fref::with_modules(Lstr::Sref("test"), "main"),
             vec![],
         );
         app.run();

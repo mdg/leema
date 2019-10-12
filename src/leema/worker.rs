@@ -2,12 +2,11 @@ use crate::leema::code::Code;
 use crate::leema::failure::{Failure, Lresult};
 use crate::leema::fiber::Fiber;
 use crate::leema::frame::{Event, Frame, Parent};
-use crate::leema::lri::Lri;
 use crate::leema::lstr::Lstr;
 use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use crate::leema::reg::Reg;
 use crate::leema::struple::{Struple2, StrupleItem};
-use crate::leema::val::{MsgVal, Val};
+use crate::leema::val::{Fref, MsgVal, Val};
 
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
@@ -48,7 +47,7 @@ impl<'a> RustFuncContext<'a>
         RustFuncContext { worker: w, task: t }
     }
 
-    pub fn current_fri(&self) -> &Lri
+    pub fn current_fref(&self) -> &Fref
     {
         &self.task.head.function
     }
@@ -68,20 +67,20 @@ impl<'a> RustFuncContext<'a>
         self.task.head.parent.set_result(r);
     }
 
-    pub fn new_task(&self, fri: Lri, args: Struple2<Val>)
+    pub fn new_task(&self, f: Fref, args: Struple2<Val>)
     {
         let (send, _) = channel();
-        let spawn_msg = AppMsg::Spawn(send, fri, args);
+        let spawn_msg = AppMsg::Spawn(send, f, args);
         self.worker
             .app_tx
             .send(spawn_msg)
             .expect("failed sending new_task msg");
     }
 
-    pub fn new_fork(&self, fri: Lri, args: Struple2<Val>) -> Receiver<Val>
+    pub fn new_fork(&self, f: Fref, args: Struple2<Val>) -> Receiver<Val>
     {
         let (send, recv) = channel();
-        let spawn_msg = AppMsg::Spawn(send, fri, args);
+        let spawn_msg = AppMsg::Spawn(send, f, args);
         self.worker
             .app_tx
             .send(spawn_msg)
@@ -198,7 +197,7 @@ impl Worker
                 self.id,
                 curf.fiber_id,
                 MsgItem::new(curf.module_name()),
-                MsgItem::new(curf.function_name()),
+                MsgItem::new(&Lstr::Sref(curf.function_name())),
             );
             self.app_tx
                 .send(msg)
@@ -259,9 +258,9 @@ impl Worker
                 self.load_code(fbr)?;
                 Result::Ok(Async::NotReady)
             }
-            Event::NewTask(Val::FuncRef(callri, callargs, _)) => {
+            Event::NewTask(fref, callargs) => {
                 let (sender, _receiver) = channel();
-                let msg = AppMsg::Spawn(sender, callri, callargs);
+                let msg = AppMsg::Spawn(sender, fref, callargs);
                 self.app_tx.send(msg).expect("new task msg send failure");
                 let (new_child, new_parent) = fbr.new_task_key();
                 let new_task_key = Val::Tuple(vec![
@@ -271,13 +270,6 @@ impl Worker
                 fbr.head.parent.set_result(new_task_key);
                 self.return_from_call(fbr);
                 Result::Ok(Async::NotReady)
-            }
-            Event::NewTask(p) => {
-                Err(rustfail!(
-                    "runtime_type_failure",
-                    "Event::NewTask parameter must be a FuncRef: {:?}",
-                    p,
-                ))
             }
             Event::FutureWait(reg) => {
                 println!("wait for future {:?}", reg);
@@ -423,14 +415,16 @@ impl Worker
                 }
                 None => None,
             };
-            let msg_val = MsgVal::new(fib.head.e.get_params());
+
+            let args = Val::Tuple(fib.head.e.get_params().clone());
+            let msg_vals = MsgVal::new(&args);
             self.io_tx
                 .send(IoMsg::Iop {
                     worker_id: self.id,
                     fiber_id,
                     rsrc_id,
                     action: iopf,
-                    params: msg_val,
+                    params: msg_vals,
                 })
                 .map_err(|e| rustfail!("io_failure", "{}", e))?;
             self.waiting.insert(fiber_id, FiberWait::Io(fib));
