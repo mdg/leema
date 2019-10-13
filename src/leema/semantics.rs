@@ -987,8 +987,25 @@ impl Semantics
         })?;
 
         let local_proto = proto.get(mod_name)?;
-        let ftyp = match local_proto.get_type(func_name)? {
+        let func_ref = local_proto.find_const(func_name)
+            .ok_or_else(|| {
+                rustfail!(
+                    SEMFAIL,
+                    "cannot find func ref for {}::{}",
+                    mod_name,
+                    func_name,
+                )
+            })?;
+        let ftyp = match &func_ref.typ {
             Type::Func(ft) => ft,
+            Type::Generic(true, _gen_id, _gen_types) => {
+                return Err(rustfail!(
+                    SEMFAIL,
+                    "generic functions should be type calls: {}::{}",
+                    mod_name,
+                    func_name,
+                ));
+            }
             unexpected => {
                 return Err(rustfail!(
                     SEMFAIL,

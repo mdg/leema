@@ -145,13 +145,12 @@ impl ProtoModule
         let typ = type_maker(ftyp);
         let fref = Fref::new(m.clone(), name_id, typ.clone());
         let call = Val::Call(fref, call_args);
-        let fref_ast = AstNode::new_constval(call, name.loc);
+        let mut fref_ast = AstNode::new_constval(call, name.loc);
+        fref_ast.typ = typ;
 
         self.constants.insert(name_id, fref_ast);
         self.funcseq.push(name_id);
         self.funcsrc.insert(name_id, (args, body));
-        // funcs aren't a new type
-        // but maybe func args are?
 
         Ok(())
     }
@@ -518,9 +517,6 @@ mod tests
 
         assert_eq!(1, proto.constants.len());
         assert!(proto.constants.contains_key("swap"));
-
-        assert_eq!(1, proto.types.len());
-        assert!(proto.types.contains_key("swap"));
         assert_eq!(
             Type::Generic(
                 true,
@@ -533,8 +529,11 @@ mod tests
                 ))),
                 vec![StrupleItem::new("T", Type::Unknown)],
             ),
-            *proto.types.get("swap").unwrap(),
+            proto.constants.get("swap").unwrap().typ,
         );
+
+        // function definitions do not create new types
+        assert_eq!(0, proto.types.len());
     }
 
     #[test]
