@@ -815,6 +815,19 @@ impl<'p> SemanticOp for TypeCheck<'p>
             }
             Ast::Call(ref mut callx, ref mut args) => {
                 let call_result = self.applied_call_type(&mut callx.typ, args)?;
+                if let Ast::ConstVal(Val::Call(ref mut fref, _argvals)) = &mut *callx.node {
+                    fref.t = callx.typ.clone();
+                    // an optimization here might be to iterate over ast args
+                    // and initialize any constants
+                    // actually better might be to stop having the args
+                    // in the Val::Call const
+                } else {
+                    return Err(rustfail!(
+                        SEMFAIL,
+                        "call expression is not a const fref: {:?}",
+                        callx,
+                    ));
+                }
                 node.typ = call_result;
             }
             Ast::StrExpr(ref _items) => {
