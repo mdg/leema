@@ -140,12 +140,11 @@ impl Lib
     {
         self.load_proto_and_imports(modname)?;
         let mut semantics = Semantics::new();
-        let result = ltry!(semantics.compile_call(
+        ltry!(semantics.compile_call(
             &mut self.protos,
             modname.str(),
             funcname.str(),
         ));
-        semantics.src = result;
         Ok(semantics)
     }
 

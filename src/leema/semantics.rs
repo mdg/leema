@@ -4,7 +4,7 @@ use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::struple::{self, StrupleItem, StrupleKV};
-use crate::leema::val::{FuncType, Type, Val};
+use crate::leema::val::{Fref, FuncType, Type, Val};
 
 use std::collections::HashMap;
 use std::fmt;
@@ -368,53 +368,6 @@ struct ClosureCollector
     closures: Vec<AstNode>,
 }
 
-struct CallCollection<'l>
-{
-    local: &'l ProtoModule,
-    imports: &'l ProtoLib,
-    // calls: Vec<Fref>,
-}
-
-impl<'l> CallCollection<'l>
-{
-    pub fn new(
-        local: &'l ProtoModule,
-        imports: &'l ProtoLib,
-    ) -> CallCollection<'l>
-    {
-        CallCollection {
-            local,
-            imports,
-            // calls: vec![],
-        }
-    }
-}
-
-impl<'l> SemanticOp for CallCollection<'l>
-{
-    fn pre(&mut self, node: AstNode) -> SemanticResult
-    {
-        match &*node.node {
-            Ast::Id1(_callid) => {
-                // let local_type = self.local.types.get(callri)
-                // if self.local.types
-            }
-            _ => {
-                // if they're not IDs, we don't care
-            }
-        }
-        Ok(SemanticAction::Keep(node))
-    }
-}
-
-impl<'l> fmt::Debug for CallCollection<'l>
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        write!(f, "CallCollection")
-    }
-}
-
 struct ScopeCheck<'p>
 {
     blocks: Blockstack,
@@ -615,6 +568,7 @@ struct TypeCheck<'p>
     lib: &'p ProtoLib,
     result: &'p Type,
     infers: HashMap<&'static str, Type>,
+    calls: Vec<Fref>,
 }
 
 impl<'p> TypeCheck<'p>
@@ -630,6 +584,7 @@ impl<'p> TypeCheck<'p>
             lib,
             result: &*ftyp.result,
             infers: HashMap::new(),
+            calls: vec![],
         }
     }
 
@@ -745,12 +700,14 @@ impl<'p> TypeCheck<'p>
         match calltype {
             Type::Func(inner_ftyp) => {
                 let mut opens = vec![];
-                self.match_argtypes(&mut opens, inner_ftyp, args)
+                self.match_argtypes(inner_ftyp, args, &mut opens)
             }
-            Type::Generic(true, ref mut open_ftyp, ref mut opens) => {
+            Type::Generic(gopen @ true, ref mut open_ftyp, ref mut opens) => {
                 if let Type::Func(inner_ftyp) = &mut **open_ftyp {
                     // figure out arg types
-                    self.match_argtypes(opens, inner_ftyp, args)
+                    let result = self.match_argtypes(inner_ftyp, args, opens)?;
+                    *gopen = false;
+                    Ok(result)
                 } else {
                     return Err(rustfail!(
                         SEMFAIL,
@@ -769,7 +726,7 @@ impl<'p> TypeCheck<'p>
         }
     }
 
-    fn match_argtypes(&mut self, opens: &mut StrupleKV<&'static str, Type>, ftyp: &mut FuncType, args: &mut ast2::Xlist) -> Lresult<Type>
+    fn match_argtypes(&mut self, ftyp: &mut FuncType, args: &mut ast2::Xlist, opens: &mut StrupleKV<&'static str, Type>) -> Lresult<Type>
     {
         if args.len() < ftyp.args.len() {
             return Err(rustfail!(
@@ -802,7 +759,9 @@ impl<'p> TypeCheck<'p>
             arg.1.v.typ = typ;
         }
 
-        self.match_type(&ftyp.result, &Type::Unknown, opens)
+        let result = self.match_type(&ftyp.result, &Type::Unknown, opens)?;
+        ftyp.result = Box::new(result.clone());
+        Ok(result)
     }
 
     fn match_case_types(&mut self, cases: &Vec<ast2::Case>) -> Lresult<Type>
@@ -974,7 +933,7 @@ impl Semantics
         proto: &mut ProtoLib,
         mod_name: &str,
         func_name: &str,
-    ) -> AstResult
+    ) -> Lresult<()>
     {
         let func_ast = proto.pop_func(mod_name, func_name)?;
         let (_args, body) = func_ast.ok_or_else(|| {
@@ -1001,7 +960,7 @@ impl Semantics
             Type::Generic(true, _gen_id, _gen_types) => {
                 return Err(rustfail!(
                     SEMFAIL,
-                    "generic functions should be type calls: {}::{}",
+                    "open generic function should be a type call: {}::{}",
                     mod_name,
                     func_name,
                 ));
@@ -1061,7 +1020,8 @@ impl Semantics
         }
 
         self.infers = type_check.infers;
-        Ok(result)
+        self.src = result;
+        Ok(())
     }
 
     pub fn walk<Op: SemanticOp>(op: &mut Op, node: AstNode) -> AstResult
