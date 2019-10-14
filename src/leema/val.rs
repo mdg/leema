@@ -284,7 +284,9 @@ impl fmt::Display for FuncType
                 }
             }
         }
-        write!(f, "/")?;
+        if !self.closed.is_empty() {
+            write!(f, "...")?;
+        }
         for c in self.closed.iter() {
             match c.k {
                 Some(ref k) => {

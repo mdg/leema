@@ -821,6 +821,7 @@ impl<'p> SemanticOp for TypeCheck<'p>
                     // and initialize any constants
                     // actually better might be to stop having the args
                     // in the Val::Call const
+                    self.calls.push(fref.clone());
                 } else {
                     return Err(rustfail!(
                         SEMFAIL,
@@ -923,6 +924,7 @@ pub struct Semantics
     pub src: AstNode,
     pub args: Vec<Option<&'static str>>,
     pub infers: HashMap<&'static str, Type>,
+    pub calls: Vec<Fref>,
 }
 
 impl Semantics
@@ -933,6 +935,7 @@ impl Semantics
             src: AstNode::void(),
             args: Vec::new(),
             infers: HashMap::new(),
+            calls: Vec::new(),
         }
     }
 
@@ -1033,6 +1036,7 @@ impl Semantics
         }
 
         self.infers = type_check.infers;
+        self.calls = type_check.calls;
         self.src = result;
         Ok(())
     }
