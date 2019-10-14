@@ -3,7 +3,7 @@ use crate::leema::failure::Lresult;
 use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::{ProtoLib, ProtoModule};
-use crate::leema::struple::{self, StrupleItem, StrupleKV};
+use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{Fref, FuncType, Type, Val};
 
 use std::collections::HashMap;
@@ -602,11 +602,8 @@ impl<'p> TypeCheck<'p>
             (Type::OpenVar(v0), t1) => {
                 lfailoc!(self.close_generic(v0, t1, opens))
             }
-            (_, Type::OpenVar(_)) => {
-                Err(rustfail!(
-                    TYPEFAIL,
-                    "open type vars should be passed as the first arg",
-                ))
+            (t0, Type::OpenVar(v1)) => {
+                lfailoc!(self.close_generic(v1, t0, opens))
             }
             (Type::LocalVar(v0), Type::LocalVar(v1)) if v0 == v1 => {
                 Ok(self.inferred_local(v0))
@@ -622,6 +619,18 @@ impl<'p> TypeCheck<'p>
             }
             (t0, Type::LocalVar(v1)) => {
                 lfailoc!(self.infer_type(v1, t0, opens))
+            }
+            (Type::Tuple(i0), Type::Tuple(i1)) => {
+                let im: Lresult<Struple2<Type>>;
+                im = i0.iter().zip(i1.iter()).map(|iz| {
+                    let k = iz.0.k.clone();
+                    let v = lfailoc!(self.match_type(&iz.0.v, &iz.1.v, opens))?;
+                    Ok(StrupleItem::new(k, v))
+                }).collect();
+                Ok(Type::Tuple(im?))
+            }
+            (Type::Tuple(_), Type::Unknown) => {
+                panic!("cannot compare tuple to Unknown");
             }
             (t0, Type::Unknown) => {
                 Ok(t0.clone())
@@ -654,9 +663,7 @@ impl<'p> TypeCheck<'p>
                 self.match_type(&var_type, t, opens)
             }
         } else {
-            if t.is_closed() {
-                self.infers.insert(var, t.clone());
-            }
+            self.infers.insert(var, t.clone());
             Ok(t.clone())
         }
     }
@@ -689,6 +696,33 @@ impl<'p> TypeCheck<'p>
             opens[open_idx].v = new_type.clone();
             Ok(new_type)
         }
+    }
+
+    pub fn close_type(t: &mut Type, opens: &StrupleKV<&'static str, Type>) -> Lresult<()>
+    {
+        match t {
+            Type::OpenVar(var) => {
+                if let Some((found, _)) = struple::find(opens, &var) {
+                    *t = opens[found].v.clone();
+                } else {
+                    return Err(rustfail!(
+                        TYPEFAIL,
+                        "open type var {:?} not found in {:?}",
+                        var,
+                        opens,
+                    ));
+                }
+            }
+            Type::Tuple(items) => {
+                for i in items.iter_mut() {
+                    Self::close_type(&mut i.v, opens)?;
+                }
+            }
+            _ => {
+                // do nothing
+            }
+        };
+        Ok(())
     }
 
     pub fn applied_call_type(
@@ -759,9 +793,8 @@ impl<'p> TypeCheck<'p>
             arg.1.v.typ = typ;
         }
 
-        let result = self.match_type(&ftyp.result, &Type::Unknown, opens)?;
-        ftyp.result = Box::new(result.clone());
-        Ok(result)
+        Self::close_type(&mut *ftyp.result, opens)?;
+        Ok((*ftyp.result).clone())
     }
 
     fn match_case_types(&mut self, cases: &Vec<ast2::Case>) -> Lresult<Type>

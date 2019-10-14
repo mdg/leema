@@ -364,7 +364,7 @@ impl fmt::Debug for Type
                 } else {
                     "Closed"
                 };
-                write!(f, "({} {}{:?})", open_tag, inner, args)
+                write!(f, "({} ({}){:?})", open_tag, inner, args)
             }
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
             &Type::Resource(ref name) => write!(f, "Resource({})", &name),
