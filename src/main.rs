@@ -13,7 +13,7 @@ use crate::leema::lstr::Lstr;
 use crate::leema::program;
 use crate::leema::struple::StrupleItem;
 use crate::leema::token::{TokenResult, Tokenz};
-use crate::leema::val::{Fref, Val};
+use crate::leema::val::{Fref, FuncType, Type, Val};
 
 use docopt::Docopt;
 use std::env;
@@ -110,6 +110,17 @@ fn real_main() -> Lresult<()>
     let leema_args = list::reverse(&leema_args_rev);
     let mut inter = Interloader::new(file, &leema_path);
     let mod_name = inter.main_mod.clone();
+    let fref = match args.flag_func {
+        Some(func) => {
+            let sfunc = Interloader::static_str(func);
+            Fref::with_modules(mod_name.clone(), sfunc)
+        }
+        None => {
+            let main_ftyp = FuncType::new(vec![], Type::Void);
+            let main_type = Type::Func(main_ftyp);
+            Fref::new(mod_name.clone(), "main", main_type)
+        }
+    };
     vout!("run {}\n", inter.main_mod);
 
     let main_result = if args.flag_tokens {
@@ -135,25 +146,13 @@ fn real_main() -> Lresult<()>
         println!("\n{:#?}\n", proto);
         None
     } else if args.flag_semantics {
-        let mod_key = lstrf!("mod name key {}", mod_name);
-        let smod_name = inter.set_mod_txt(mod_key, String::from(&mod_name));
         let mut prog = program::Lib::new(inter);
-        let func = match args.flag_func {
-            Some(ifunc) => Lstr::from(ifunc),
-            None => Lstr::Sref("main"),
-        };
-        let semantics = prog.read_semantics(&Lstr::from(smod_name), &func)?;
+        let semantics = prog.read_semantics(&fref)?;
         println!("\n{:#?}\n", semantics);
         None
     } else if args.flag_code {
         let mut prog = program::Lib::new(inter);
-        let code = match args.flag_func {
-            Some(func) => {
-                let func_name = Lstr::from(func);
-                prog.load_code(&mod_name, &func_name)
-            }
-            None => prog.load_code(&mod_name, &Lstr::Sref("main")),
-        };
+        let code = prog.load_code(&fref);
         println!("code: {:?}", code);
         None
     } else if args.flag_repl {
@@ -165,10 +164,9 @@ fn real_main() -> Lresult<()>
         let prog = program::Lib::new(inter);
         let mut app = Application::new(prog);
         let caller = app.caller();
-        let main_fref = Fref::with_modules(mod_name, "main");
         app.run();
         let main_arg = vec![StrupleItem::new(None, leema_args)];
-        let result_recv = caller.push_call(main_fref, main_arg);
+        let result_recv = caller.push_call(fref, main_arg);
         app.wait_for_result(result_recv)
     };
 

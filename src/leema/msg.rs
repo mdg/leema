@@ -48,7 +48,7 @@ pub enum AppMsg
     // Spawn(module, function)
     Spawn(mpsc::Sender<Val>, Fref, Struple2<Val>),
     // RequestCode(worker_id, fiber_id, module, function)
-    RequestCode(i64, i64, MsgLstr, MsgLstr),
+    RequestCode(i64, i64, MsgItem<Fref>),
     MainResult(MsgVal),
 }
 
@@ -57,8 +57,8 @@ pub enum WorkerMsg
 {
     // Spawn(module, function)
     Spawn(mpsc::Sender<Val>, Fref, Struple2<Val>),
-    // FoundCode(fiber_id, module, function, code)
-    FoundCode(i64, MsgLstr, MsgLstr, Code),
+    // FoundCode(fiber_id, fref, code)
+    FoundCode(i64, MsgItem<Fref>, Code),
     // IopResult(fiber_id, MsgVal)
     IopResult(i64, MsgVal),
     Done,

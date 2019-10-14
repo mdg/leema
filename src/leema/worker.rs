@@ -2,7 +2,6 @@ use crate::leema::code::Code;
 use crate::leema::failure::{Failure, Lresult};
 use crate::leema::fiber::Fiber;
 use crate::leema::frame::{Event, Frame, Parent};
-use crate::leema::lstr::Lstr;
 use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use crate::leema::reg::Reg;
 use crate::leema::struple::{Struple2, StrupleItem};
@@ -94,7 +93,7 @@ pub struct Worker
 {
     fresh: LinkedList<ReadyFiber>,
     waiting: HashMap<i64, FiberWait>,
-    code: HashMap<Lstr, HashMap<Lstr, Rc<Code>>>,
+    code: HashMap<Fref, Rc<Code>>,
     app_tx: Sender<AppMsg>,
     io_tx: Sender<IoMsg>,
     msg_rx: Receiver<WorkerMsg>,
@@ -175,29 +174,24 @@ impl Worker
 
     fn find_code<'a>(
         &'a self,
-        modname: &str,
-        funcname: &str,
+        fref: &Fref,
     ) -> Option<Rc<Code>>
     {
         self.code
-            .get(modname)
-            .and_then(|module: &'a HashMap<Lstr, Rc<Code>>| {
-                module.get(funcname)
-            })
+            .get(fref)
             .map(|func: &'a Rc<Code>| (*func).clone())
     }
 
     fn load_code(&mut self, curf: Fiber) -> Lresult<()>
     {
-        let opt_code = self.find_code(curf.module_name(), curf.function_name());
+        let opt_code = self.find_code(&curf.head.function);
         if let Some(func) = opt_code {
             self.push_coded_fiber(curf, func)
         } else {
             let msg = AppMsg::RequestCode(
                 self.id,
                 curf.fiber_id,
-                MsgItem::new(curf.module_name()),
-                MsgItem::new(&Lstr::Sref(curf.function_name())),
+                MsgItem::new(&curf.head.function),
             );
             self.app_tx
                 .send(msg)
@@ -364,11 +358,10 @@ impl Worker
                 let root = Frame::new_root(parent, func, args);
                 self.spawn_fiber(root);
             }
-            WorkerMsg::FoundCode(fiber_id, module, func, code) => {
+            WorkerMsg::FoundCode(fiber_id, fref, code) => {
+                let newf = fref.take();
                 let rc_code = Rc::new(code);
-                let mut new_mod = HashMap::new();
-                new_mod.insert(func.take(), rc_code.clone());
-                self.code.insert(module.take(), new_mod);
+                self.code.insert(newf, rc_code.clone());
                 let opt_fiber = self.waiting.remove(&fiber_id);
                 if let Some(FiberWait::Code(fib)) = opt_fiber {
                     self.push_coded_fiber(fib, rc_code)?;

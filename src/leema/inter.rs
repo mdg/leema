@@ -1,5 +1,4 @@
 use crate::leema::lstr::Lstr;
-use crate::leema::val::Val;
 
 use std::collections::{HashMap, HashSet};
 
@@ -137,13 +136,4 @@ impl Blockstack
     {
         self.stack.iter().any(|bs| bs.vars.contains(id))
     }
-}
-
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-pub enum ScopeLevel
-{
-    Local,
-    Module(Val),
 }

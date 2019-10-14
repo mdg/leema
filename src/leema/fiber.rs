@@ -59,7 +59,7 @@ impl Fiber
     {
         let mut newf = Frame {
             parent: Parent::Null,
-            function: func.clone(),
+            function: func,
             trace: self.head.push_frame_trace(line),
             e: Env::with_args(args),
             pc: 0,

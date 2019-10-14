@@ -7,6 +7,7 @@ use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::semantics::Semantics;
+use crate::leema::val::Fref;
 use crate::leema::{
     file, lib_hyper, lib_io, lib_json, lib_list, lib_task, prefab, tcp, udp,
 };
@@ -20,7 +21,7 @@ pub struct Lib
     protos: ProtoLib,
     semantics: Semantics,
     rust_load: HashMap<Lstr, fn(&str) -> Option<code::Code>>,
-    code: HashMap<Lstr, HashMap<Lstr, Code>>,
+    code: HashMap<Fref, Code>,
 }
 
 impl Lib
@@ -84,39 +85,16 @@ impl Lib
 
     pub fn load_code(
         &mut self,
-        modname: &Lstr,
-        funcname: &Lstr,
+        f: &Fref,
     ) -> Lresult<&Code>
     {
-        let (has_mod, has_func) = if self.code.contains_key(modname) {
-            let old_mod = self.code.get(modname).unwrap();
-            (true, old_mod.contains_key(funcname))
-        } else {
-            (false, false)
-        };
-
-        if !has_func {
-            let new_code = ltry!(self.read_code(modname, funcname));
-
-            if has_mod {
-                let old_mod = self.code.get_mut(modname).unwrap();
-                old_mod.insert(funcname.clone(), new_code);
-            } else {
-                let mut new_mod = HashMap::new();
-                new_mod.insert(funcname.clone(), new_code);
-                self.code.insert(modname.clone(), new_mod);
-            }
+        if !self.code.contains_key(f) {
+            let new_code = ltry!(self.read_code(f));
+            self.code.insert(f.clone(), new_code);
         }
 
-        let module = self.code.get(modname).ok_or_else(|| {
-            rustfail!("codefail", "cannot find module for code: {}", modname,)
-        })?;
-        module.get(funcname).ok_or_else(|| {
-            rustfail!(
-                "codefail",
-                "cannot find code for function: {}",
-                funcname,
-            )
+        self.code.get(f).ok_or_else(|| {
+            rustfail!("codefail", "cannot find code for: {}", f)
         })
     }
 
@@ -134,37 +112,29 @@ impl Lib
 
     pub fn read_semantics(
         &mut self,
-        modname: &Lstr,
-        funcname: &Lstr,
+        f: &Fref,
     ) -> Lresult<Semantics>
     {
-        self.load_proto_and_imports(modname)?;
-        let mut semantics = Semantics::new();
-        ltry!(semantics.compile_call(
-            &mut self.protos,
-            modname.str(),
-            funcname.str(),
-        ));
-        Ok(semantics)
+        self.load_proto_and_imports(&f.m)?;
+        Semantics::compile_call(&mut self.protos, f)
     }
 
     pub fn read_code(
         &mut self,
-        modname: &Lstr,
-        funcname: &Lstr,
+        f: &Fref,
     ) -> Lresult<Code>
     {
-        vout!("read_code({}::{})\n", modname, funcname);
-        let semantics = ltry!(self.read_semantics(modname, funcname));
+        vout!("read_code({})\n", f);
+        let semantics = ltry!(self.read_semantics(f));
 
         if let Ast::RustBlock = &*semantics.src.node {
-            let rust_loader = self.rust_load.get(modname);
+            let rust_loader = self.rust_load.get(&f.m);
             if rust_loader.is_none() {
-                panic!("no rust loader for: {}", modname);
+                panic!("no rust loader for: {}", f.m);
             }
-            let rustfunc = rust_loader.unwrap()(funcname);
+            let rustfunc = rust_loader.unwrap()(f.f);
             if rustfunc.is_none() {
-                panic!("no rust function for: {}::{}", modname, funcname);
+                panic!("no rust function for: {}", f);
             }
             Ok(rustfunc.unwrap())
         } else {

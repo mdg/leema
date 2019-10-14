@@ -265,10 +265,23 @@ impl ProtoModule
         Ok(())
     }
 
+    /// TODO rename this. Maybe take_func?
     pub fn pop_func(&mut self, func: &str)
-        -> Lresult<Option<(Xlist, AstNode)>>
+        -> Option<(Xlist, AstNode)>
     {
-        Ok(self.funcsrc.remove(func))
+        let generic = match self.constants.get(func) {
+            Some(fconst) => fconst.typ.is_open(),
+            None => {
+                return None;
+            }
+        };
+        if generic {
+            // make a copy for generic functions
+            self.funcsrc.get(func).map(|fsrc| fsrc.clone())
+        } else {
+            // just take the original if not generic
+            self.funcsrc.remove(func)
+        }
     }
 
     pub fn find_macro(&self, macroname: &str) -> Option<&Ast>
@@ -464,7 +477,7 @@ impl ProtoLib
             .ok_or_else(|| {
                 rustfail!(PROTOFAIL, "could not find module: {}", module,)
             })
-            .and_then(|protomod| protomod.pop_func(func))
+            .map(|protomod| protomod.pop_func(func))
     }
 
     pub fn get(&self, modname: &str) -> Lresult<&ProtoModule>

@@ -4,7 +4,7 @@ use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
-use crate::leema::val::{Fref, FuncType, Type, Val};
+use crate::leema::val::{Fref, FuncType, GenericTypes, Type, Val};
 
 use std::collections::HashMap;
 use std::fmt;
@@ -50,7 +50,7 @@ pub trait SemanticOp: fmt::Debug
         Ok(SemanticAction::Keep(node))
     }
 
-    fn set_pattern(&mut self, _is_pattern: bool) {}
+    fn set_pattern(&mut self, _pattern_mode: Option<LocalType>) {}
 }
 
 #[derive(Debug)]
@@ -114,6 +114,12 @@ impl<'p> SemanticOp for SemanticPipeline<'p>
 
         Ok(SemanticAction::Keep(node))
     }
+
+    fn set_pattern(&mut self, pmode: Option<LocalType>) {
+        for op in self.ops.iter_mut() {
+            op.set_pattern(pmode);
+        }
+    }
 }
 
 struct MacroApplication<'l>
@@ -121,6 +127,7 @@ struct MacroApplication<'l>
     local: &'l ProtoModule,
     proto: &'l ProtoLib,
     ftype: &'l FuncType,
+    closed: &'l GenericTypes,
 }
 
 impl<'l> MacroApplication<'l>
@@ -373,6 +380,7 @@ struct ScopeCheck<'p>
     blocks: Blockstack,
     local_mod: &'p ProtoModule,
     lib: &'p ProtoLib,
+    pattern_mode: Option<LocalType>,
 }
 
 impl<'p> ScopeCheck<'p>
@@ -394,6 +402,7 @@ impl<'p> ScopeCheck<'p>
             blocks: root,
             local_mod,
             lib,
+            pattern_mode: None,
         })
     }
 }
@@ -406,15 +415,9 @@ impl<'p> SemanticOp for ScopeCheck<'p>
             Ast::Block(_) => {
                 self.blocks.push_blockscope();
             }
-            Ast::Let(patt, _, _) => {
-                match &*patt.node {
-                    Ast::Id1(id) => {
-                        self.blocks.assign_var(&Lstr::Sref(id), LocalType::Let);
-                    }
-                    _ => {
-                        unimplemented!();
-                    }
-                }
+            Ast::Id1(id) if self.pattern_mode.is_some() => {
+                let pmode = self.pattern_mode.unwrap();
+                self.blocks.assign_var(&Lstr::Sref(id), pmode);
             }
             Ast::Id1(id) => {
                 if self.blocks.var_in_scope(&Lstr::Sref(id)) {
@@ -424,9 +427,12 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                     return Ok(SemanticAction::Rewrite(node));
                 } else {
                     println!("var not in scope: {}", id);
-                    return Err(
-                        rustfail!(SEMFAIL, "var not in scope: {}", id,),
-                    );
+                    return Err(rustfail!(
+                        SEMFAIL,
+                        "var not in scope: {} @ {:?}",
+                        id,
+                        node.loc,
+                    ));
                 }
             }
             Ast::Id2(module, id) => {
@@ -469,6 +475,10 @@ impl<'p> SemanticOp for ScopeCheck<'p>
             }
         }
         Ok(SemanticAction::Keep(node))
+    }
+
+    fn set_pattern(&mut self, pmode: Option<LocalType>) {
+        self.pattern_mode = pmode;
     }
 }
 
@@ -978,52 +988,63 @@ impl Semantics
     }
 
     pub fn compile_call(
-        &mut self,
         proto: &mut ProtoLib,
-        mod_name: &str,
-        func_name: &str,
-    ) -> Lresult<()>
+        f: &Fref,
+    ) -> Lresult<Semantics>
     {
-        let func_ast = proto.pop_func(mod_name, func_name)?;
+        let mut sem = Semantics::new();
+
+        let func_ast = proto.pop_func(&f.m, &f.f)?;
         let (_args, body) = func_ast.ok_or_else(|| {
             rustfail!(
                 SEMFAIL,
-                "ast is empty for function {}::{}",
-                mod_name,
-                func_name,
+                "ast is empty for function {}",
+                f,
             )
         })?;
 
-        let local_proto = proto.get(mod_name)?;
-        let func_ref = local_proto.find_const(func_name)
+        let local_proto = proto.get(&f.m)?;
+        let func_ref = local_proto.find_const(&f.f)
             .ok_or_else(|| {
                 rustfail!(
                     SEMFAIL,
-                    "cannot find func ref for {}::{}",
-                    mod_name,
-                    func_name,
+                    "cannot find func ref for {}",
+                    f,
                 )
             })?;
-        let ftyp = match &func_ref.typ {
-            Type::Func(ft) => ft,
-            Type::Generic(true, _gen_id, _gen_types) => {
-                return Err(rustfail!(
-                    SEMFAIL,
-                    "open generic function should be a type call: {}::{}",
-                    mod_name,
-                    func_name,
-                ));
+        let closed;
+        let ftyp: &FuncType = match (&func_ref.typ, &f.t) {
+            (Type::Func(ft1), Type::Func(ft2)) => {
+                assert_eq!(ft1, ft2);
+                closed = vec![];
+                ft1
+            }
+            (Type::Generic(true, _ft1, _open), Type::Generic(false, ft2, iclosed)) => {
+                match &**ft2 {
+                    // take the closed version that has real types
+                    Type::Func(ift2) => {
+                        closed = iclosed.clone();
+                        ift2
+                    }
+                    _ => {
+                        return Err(rustfail!(
+                            SEMFAIL,
+                            "open generic function is not a function: {}",
+                            ft2,
+                        ));
+                    }
+                }
             }
             unexpected => {
                 return Err(rustfail!(
                     SEMFAIL,
-                    "unexpected call type: {}",
+                    "unexpected call types: {:?}",
                     unexpected,
                 ));
             }
         };
 
-        self.args = ftyp
+        sem.args = ftyp
             .args
             .iter()
             .map(|kv| {
@@ -1041,6 +1062,7 @@ impl Semantics
             local: local_proto,
             proto: proto,
             ftype: ftyp,
+            closed: &closed,
         };
         let mut scope_check = ScopeCheck::new(ftyp, local_proto, proto)?;
         let mut var_types = VarTypes::new(&local_proto.key.name, ftyp)?;
@@ -1060,18 +1082,17 @@ impl Semantics
         if *ftyp.result != result.typ && *ftyp.result != Type::Void {
             return Err(rustfail!(
                 SEMFAIL,
-                "bad return type in {}::{}, expected: {}, found {}",
-                mod_name,
-                func_name,
+                "bad return type in {}, expected: {}, found {}",
+                f,
                 ftyp.result,
                 result.typ,
             ));
         }
 
-        self.infers = type_check.infers;
-        self.calls = type_check.calls;
-        self.src = result;
-        Ok(())
+        sem.infers = type_check.infers;
+        sem.calls = type_check.calls;
+        sem.src = result;
+        Ok(sem)
     }
 
     pub fn walk<Op: SemanticOp>(op: &mut Op, node: AstNode) -> AstResult
@@ -1108,9 +1129,9 @@ impl Semantics
                 let new_args: Lresult<Vec<ast2::Case>> = args
                     .into_iter()
                     .map(|ch| {
-                        op.set_pattern(true);
+                        op.set_pattern(Some(LocalType::Match));
                         let wcond = Self::walk(op, ch.cond)?;
-                        op.set_pattern(false);
+                        op.set_pattern(None);
                         let wbody = Self::walk(op, ch.body)?;
                         Ok(ast2::Case::new(wcond, wbody))
                     })
@@ -1122,9 +1143,9 @@ impl Semantics
                 let wchildren: Lresult<Vec<ast2::Case>> = children
                     .into_iter()
                     .map(|ch| {
-                        op.set_pattern(true);
+                        op.set_pattern(Some(LocalType::Match));
                         let wcond = Self::walk(op, ch.cond)?;
-                        op.set_pattern(false);
+                        op.set_pattern(None);
                         let wbody = Self::walk(op, ch.body)?;
                         Ok(ast2::Case::new(wcond, wbody))
                     })
@@ -1152,9 +1173,9 @@ impl Semantics
                 Ast::Generic(wid, wargs)
             }
             Ast::Let(lhp, lht, rhs) => {
-                op.set_pattern(true);
+                op.set_pattern(Some(LocalType::Let));
                 let wlhp = Self::walk(op, lhp)?;
-                op.set_pattern(false);
+                op.set_pattern(None);
                 let wrhs = Self::walk(op, rhs)?;
                 Ast::Let(wlhp, lht, wrhs)
             }

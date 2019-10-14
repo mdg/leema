@@ -90,11 +90,6 @@ impl Interloader
         }
     }
 
-    pub fn read_module(&mut self, mod_name: &Lstr) -> Lresult<String>
-    {
-        self.read_mod(mod_name).map(|text| text.to_string())
-    }
-
     pub fn read_mod(&mut self, mod_name: &Lstr) -> Lresult<&'static str>
     {
         if let Some(txt) = self.texts.get(mod_name) {
@@ -113,6 +108,11 @@ impl Interloader
         let stext = self.set_mod_txt(mod_name.clone(), text);
         self.texts.insert(mod_name.clone(), stext);
         Ok(stext)
+    }
+
+    pub fn static_str(s: String) -> &'static str
+    {
+        unsafe { put_modtxt(s) }
     }
 
     fn find_file_path(&self, name: &Lstr) -> Lresult<PathBuf>

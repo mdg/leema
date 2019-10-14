@@ -168,17 +168,15 @@ impl Application
     {
         vout!("Received a message! {:?}\n", msg);
         match msg {
-            AppMsg::RequestCode(worker_id, frame, mmodule, mfunc) => {
-                let module = mmodule.take();
-                let func = mfunc.take();
-                vout!("AppMsg::RequestCode({}, {}, {}, {})\n", worker_id, frame, module, func);
+            AppMsg::RequestCode(worker_id, frame, msg_f) => {
+                let fref = msg_f.take();
+                vout!("AppMsg::RequestCode({}, {}, {})\n", worker_id, frame, fref);
                 let worker = self.worker.get(&worker_id).unwrap();
-                let reply = match self.prog.load_code(&module, &func) {
+                let reply = match self.prog.load_code(&fref) {
                     Ok(code) => {
                         WorkerMsg::FoundCode(
                             frame,
-                            MsgItem::new(&module),
-                            MsgItem::new(&func),
+                            MsgItem::new(&fref),
                             code.clone(),
                         )
                     }
