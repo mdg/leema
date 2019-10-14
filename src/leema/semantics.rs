@@ -494,6 +494,7 @@ struct VarTypes<'p>
 {
     vartypes: HashMap<&'static str, Type>,
     module: &'p Lstr,
+    pattern_mode: Option<LocalType>,
 }
 
 impl<'p> VarTypes<'p>
@@ -505,25 +506,7 @@ impl<'p> VarTypes<'p>
             let argname = arg.k.as_ref().unwrap().sref()?;
             vartypes.insert(argname, arg.v.clone());
         }
-        Ok(VarTypes { vartypes, module })
-    }
-
-    pub fn decl_pattern_vartypes(&mut self, node: &AstNode) -> Lresult<Type>
-    {
-        match &*node.node {
-            Ast::Id1(id) => {
-                let tvar = Type::LocalVar(id);
-                self.vartypes.insert(id, tvar.clone());
-                Ok(tvar)
-            }
-            unsupported => {
-                Err(rustfail!(
-                    SEMFAIL,
-                    "complex patterns not supported: {:?}",
-                    unsupported,
-                ))
-            }
-        }
+        Ok(VarTypes { vartypes, module, pattern_mode: None })
     }
 }
 
@@ -532,17 +515,18 @@ impl<'p> SemanticOp for VarTypes<'p>
     fn pre(&mut self, mut node: AstNode) -> SemanticResult
     {
         match *node.node {
-            Ast::Let(patt, dtype, mut x) => {
-                let ptype = self.decl_pattern_vartypes(&patt)?;
-                x.typ = ptype;
-                *node.node = Ast::Let(patt, dtype, x);
-            }
             Ast::Id1(id) => {
                 // if the type is known, assign it to this variable
                 if let Some(typ) = self.vartypes.get(id) {
                     node.typ = typ.clone();
                     // put the node back the way it was
-                    *node.node = Ast::Id1(id);
+                    // *node.node = Ast::Id1(id);
+                } else if self.pattern_mode.is_some() {
+                    let tvar = Type::LocalVar(id);
+                    self.vartypes.insert(id, tvar.clone());
+                    node.typ = tvar;
+                    // put the node back the way it was
+                    // *node.node = Ast::Id1(id);
                 } else {
                     // i guess do nothing?
                     // could be a local function or something
@@ -553,6 +537,10 @@ impl<'p> SemanticOp for VarTypes<'p>
             }
         }
         Ok(SemanticAction::Keep(node))
+    }
+
+    fn set_pattern(&mut self, pmode: Option<LocalType>) {
+        self.pattern_mode = pmode;
     }
 }
 
@@ -961,9 +949,6 @@ impl SemanticOp for RemoveExtraCode
 #[derive(Debug)]
 pub struct Semantics
 {
-    // pub calls: HashSet<ModLocalId>,
-    // pub typecalls: HashSet<SpecialModId>,
-    // pub closed: Option<HashSet<Lstr>>,
     pub src: AstNode,
     pub args: Vec<Option<&'static str>>,
     pub infers: HashMap<&'static str, Type>,
