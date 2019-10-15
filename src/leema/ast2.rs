@@ -105,6 +105,7 @@ pub enum Ast
     RustBlock,
     StrExpr(Vec<AstNode>),
     Tuple(Xlist),
+    Type(Type),
     Void,
     Wildcard,
 }
@@ -167,6 +168,7 @@ impl Ast
             Ast::RustBlock => write!(f, "RustBlock"),
             Ast::StrExpr(items) => write!(f, "Str {:?}", items),
             Ast::Tuple(items) => write!(f, "Tuple {:?}", items),
+            Ast::Type(inner) => write!(f, "Type {}", inner),
             Ast::Void => write!(f, "Void"),
             Ast::Wildcard => write!(f, "_"),
             // unimplemented

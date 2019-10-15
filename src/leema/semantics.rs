@@ -302,6 +302,15 @@ impl<'l> SemanticOp for MacroApplication<'l>
                 let node2 = AstNode::new(new_str_node, node.loc);
                 Ok(SemanticAction::Keep(node2))
             }
+            Ast::Id1(id) => {
+                let nloc = node.loc;
+                if let Some((_, ctype)) = struple::find(self.closed, &id) {
+                    let type_ast = Ast::Type(ctype.clone());
+                    Ok(SemanticAction::Rewrite(AstNode::new(type_ast, nloc)))
+                } else {
+                    Ok(SemanticAction::Keep(node))
+                }
+            }
             Ast::Matchx(None, cases) => {
                 let node_loc = node.loc;
                 let args: Lresult<Xlist> = self.ftype.args.iter().map(|arg| {
@@ -876,13 +885,21 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 // all if cases should be boolean
                 let mut opens = vec![];
                 for case in cases.iter_mut() {
-                    self.match_type(&case.cond.typ, &Type::Bool, &mut opens)?;
+                    ltry!(self.match_type(&case.cond.typ, &Type::Bool, &mut opens));
                     case.cond.typ = Type::Bool;
                 }
                 node.typ = self.match_case_types(cases)?;
             }
-            Ast::Matchx(_, ref mut cases) => {
-                // what about match input and pattern types?
+            Ast::Matchx(Some(ref mut input), ref mut cases) => {
+                let mut opens = vec![];
+                for case in cases.iter_mut() {
+                    let it = self.match_type(&input.typ, &case.cond.typ, &mut opens)
+                        .map_err(|f| {
+                            f.add_context(lstrf!("for pattern {:?} at {:?}", case.cond.node, case.cond.loc))
+                        })?;
+                    input.typ = it.clone();
+                    case.cond.typ = it;
+                }
                 node.typ = self.match_case_types(cases)?;
             }
             Ast::Let(ref mut patt, _, ref mut x) => {
@@ -890,6 +907,15 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 let typ = self.match_type(&patt.typ, &x.typ, &mut opens)?;
                 patt.typ = typ.clone();
                 x.typ = typ;
+            }
+            Ast::Tuple(ref items) => {
+                let itypes: Lresult<Struple2<Type>> = items.iter().map(|i| {
+                    Ok(StrupleItem::new(
+                        i.k.map(|k| Lstr::Sref(k)),
+                        i.v.typ.clone(),
+                    ))
+                }).collect();
+                node.typ = Type::Tuple(itypes?);
             }
             _ => {
                 // should handle matches later, but for now it's fine
