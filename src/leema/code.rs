@@ -771,7 +771,7 @@ mod tests
     use crate::leema::lstr::Lstr;
     use crate::leema::program;
     use crate::leema::reg::Reg;
-    use crate::leema::val::Val;
+    use crate::leema::val::{Fref, Val};
 
     #[test]
     fn test_code_constval()
@@ -807,8 +807,8 @@ mod tests
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
-        prog.load_code(&Lstr::Sref("tacos"), &Lstr::Sref("main"))
-            .unwrap();
+        let fref = Fref::with_modules(Lstr::Sref("tacos"), "main");
+        prog.load_code(&fref).unwrap();
     }
 
     #[test]
@@ -832,8 +832,8 @@ mod tests
         let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
         loader.set_mod_txt(Lstr::Sref("tacos"), input);
         let mut prog = program::Lib::new(loader);
-        prog.load_code(&Lstr::Sref("tacos"), &Lstr::Sref("main"))
-            .unwrap();
+        let fref = Fref::with_modules(Lstr::Sref("tacos"), "main");
+        prog.load_code(&fref).unwrap();
     }
 
 }
