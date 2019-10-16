@@ -1025,8 +1025,7 @@ impl Semantics
             })?;
         let closed;
         let ftyp: &FuncType = match (&func_ref.typ, &f.t) {
-            (Type::Func(ft1), Type::Func(ft2)) => {
-                assert_eq!(ft1, ft2);
+            (Type::Func(ft1), _) => {
                 closed = vec![];
                 ft1
             }
