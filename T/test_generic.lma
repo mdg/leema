@@ -1,7 +1,5 @@
 
-func swap[A, B]: (B, A)
-.a: A
-.b: B
+func swap[:A :B] a:A b:B / (:B :A)
 >>
     (b, a)
 --
@@ -11,9 +9,9 @@ func main
     let a := "taco"
     let b := #burrito
     let c := 3
-    let d := true
+    let d := True
 
-    let x := swap[Str, #](a, b)
+    let x := swap[:Str :#](a, b)
     let y := swap(c, d)
     let z := swap(b, c)
 
