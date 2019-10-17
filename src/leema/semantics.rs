@@ -4,7 +4,7 @@ use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
-use crate::leema::val::{Fref, FuncType, GenericTypes, Type, Val};
+use crate::leema::val::{Fref, FuncType, GenericTypes, GenericTypeSlice, Type, Val};
 
 use std::collections::HashMap;
 use std::fmt;
@@ -603,6 +603,30 @@ impl<'p> TypeCheck<'p>
             .unwrap_or(Type::LocalVar(local_tvar))
     }
 
+    pub fn inferred_type(&self, t: &Type, opens: &GenericTypeSlice) -> Lresult<Type>
+    {
+        match t {
+            Type::OpenVar(v) => {
+                    Ok(struple::find(opens, &v)
+                        .map(|(_, item)| item.clone())
+                        .unwrap_or(Type::OpenVar(v))
+                    )
+            }
+            Type::LocalVar(v) => {
+                Ok(self.inferred_local(v))
+            }
+            Type::Tuple(items) => {
+                let mitems = struple::map_v(items, |it| {
+                    self.inferred_type(it, opens)
+                })?;
+                Ok(Type::Tuple(mitems))
+            }
+            _ => {
+                Ok(t.clone())
+            }
+        }
+    }
+
     pub fn match_type(&mut self, t0: &Type, t1: &Type, opens: &mut StrupleKV<&'static str, Type>) -> Lresult<Type>
     {
         match (t0, t1) {
@@ -705,33 +729,6 @@ impl<'p> TypeCheck<'p>
         }
     }
 
-    pub fn close_type(t: &mut Type, opens: &StrupleKV<&'static str, Type>) -> Lresult<()>
-    {
-        match t {
-            Type::OpenVar(var) => {
-                if let Some((found, _)) = struple::find(opens, &var) {
-                    *t = opens[found].v.clone();
-                } else {
-                    return Err(rustfail!(
-                        TYPEFAIL,
-                        "open type var {:?} not found in {:?}",
-                        var,
-                        opens,
-                    ));
-                }
-            }
-            Type::Tuple(items) => {
-                for i in items.iter_mut() {
-                    Self::close_type(&mut i.v, opens)?;
-                }
-            }
-            _ => {
-                // do nothing
-            }
-        };
-        Ok(())
-    }
-
     pub fn applied_call_type(
         &mut self,
         calltype: &mut Type,
@@ -747,6 +744,13 @@ impl<'p> TypeCheck<'p>
                 if let Type::Func(inner_ftyp) = &mut **open_ftyp {
                     // figure out arg types
                     let result = self.match_argtypes(inner_ftyp, args, opens)?;
+                    if result.is_open() {
+                        return Err(rustfail!(
+                            TYPEFAIL,
+                            "function should not be open: {}",
+                            result,
+                        ));
+                    }
                     *gopen = false;
                     Ok(result)
                 } else {
@@ -800,7 +804,7 @@ impl<'p> TypeCheck<'p>
             arg.1.v.typ = typ;
         }
 
-        Self::close_type(&mut *ftyp.result, opens)?;
+        ftyp.result = Box::new(self.inferred_type(&ftyp.result, &opens)?);
         Ok((*ftyp.result).clone())
     }
 
@@ -1088,7 +1092,8 @@ impl Semantics
             ],
         };
 
-        let result = Self::walk(&mut pipe, body)?;
+        let mut result = Self::walk(&mut pipe, body)?;
+        result.typ = type_check.inferred_type(&result.typ, &[])?;
         if *ftyp.result != result.typ && *ftyp.result != Type::Void {
             return Err(rustfail!(
                 SEMFAIL,

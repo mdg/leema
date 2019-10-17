@@ -96,6 +96,7 @@ impl FuncType
 }
 
 pub type GenericTypes = StrupleKV<&'static str, Type>;
+pub type GenericTypeSlice = [StrupleItem<&'static str, Type>];
 
 // #[derive(Debug)]
 #[derive(Clone)]
