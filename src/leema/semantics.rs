@@ -33,6 +33,40 @@ pub enum SemanticAction
     Remove,
 }
 
+#[derive(Copy)]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+pub enum AstMode
+{
+    Value,
+    Type,
+    LetPattern,
+    MatchPattern,
+}
+
+impl AstMode
+{
+    pub fn is_pattern(&self) -> bool
+    {
+        match self {
+            AstMode::LetPattern => true,
+            AstMode::MatchPattern => true,
+            _ => false,
+        }
+    }
+
+    pub fn get_pattern(&self) -> Option<LocalType>
+    {
+        match self {
+            AstMode::LetPattern => Some(LocalType::Let),
+            AstMode::MatchPattern => Some(LocalType::Match),
+            _ => None,
+        }
+    }
+}
+
 pub type SemanticResult = Lresult<SemanticAction>;
 
 pub trait SemanticOp: fmt::Debug
@@ -50,7 +84,7 @@ pub trait SemanticOp: fmt::Debug
         Ok(SemanticAction::Keep(node))
     }
 
-    fn set_pattern(&mut self, _pattern_mode: Option<LocalType>) {}
+    fn set_mode(&mut self, _mode: AstMode) {}
 }
 
 #[derive(Debug)]
@@ -115,9 +149,9 @@ impl<'p> SemanticOp for SemanticPipeline<'p>
         Ok(SemanticAction::Keep(node))
     }
 
-    fn set_pattern(&mut self, pmode: Option<LocalType>) {
+    fn set_mode(&mut self, mode: AstMode) {
         for op in self.ops.iter_mut() {
-            op.set_pattern(pmode);
+            op.set_mode(mode);
         }
     }
 }
@@ -303,12 +337,22 @@ impl<'l> SemanticOp for MacroApplication<'l>
                 Ok(SemanticAction::Keep(node2))
             }
             Ast::Id1(id) => {
-                let nloc = node.loc;
-                if let Some((_, ctype)) = struple::find(self.closed, &id) {
-                    let type_ast = Ast::Type(ctype.clone());
-                    Ok(SemanticAction::Rewrite(AstNode::new(type_ast, nloc)))
-                } else {
-                    Ok(SemanticAction::Keep(node))
+                match id {
+                    "Bool"|"Int"|"Str"|"#" => {
+                        let n2 = node.replace_node(
+                            Ast::Id2(Lstr::Sref("prefab"), id)
+                        );
+                        Ok(SemanticAction::Keep(n2))
+                    }
+                    _ => {
+                        let nloc = node.loc;
+                        if let Some((_, ctype)) = struple::find(self.closed, &id) {
+                            let type_ast = Ast::Type(ctype.clone());
+                            Ok(SemanticAction::Rewrite(AstNode::new(type_ast, nloc)))
+                        } else {
+                            Ok(SemanticAction::Keep(node))
+                        }
+                    }
                 }
             }
             Ast::Matchx(None, cases) => {
@@ -379,17 +423,12 @@ impl SemanticOp for MacroReplacement
     }
 }
 
-struct ClosureCollector
-{
-    closures: Vec<AstNode>,
-}
-
 struct ScopeCheck<'p>
 {
     blocks: Blockstack,
     local_mod: &'p ProtoModule,
     lib: &'p ProtoLib,
-    pattern_mode: Option<LocalType>,
+    mode: AstMode,
 }
 
 impl<'p> ScopeCheck<'p>
@@ -411,7 +450,7 @@ impl<'p> ScopeCheck<'p>
             blocks: root,
             local_mod,
             lib,
-            pattern_mode: None,
+            mode: AstMode::Value,
         })
     }
 }
@@ -424,9 +463,11 @@ impl<'p> SemanticOp for ScopeCheck<'p>
             Ast::Block(_) => {
                 self.blocks.push_blockscope();
             }
-            Ast::Id1(id) if self.pattern_mode.is_some() => {
-                let pmode = self.pattern_mode.unwrap();
-                self.blocks.assign_var(&Lstr::Sref(id), pmode);
+            Ast::Id1(id) if self.mode == AstMode::LetPattern => {
+                self.blocks.assign_var(&Lstr::Sref(id), LocalType::Let);
+            }
+            Ast::Id1(id) if self.mode == AstMode::MatchPattern => {
+                self.blocks.assign_var(&Lstr::Sref(id), LocalType::Match);
             }
             Ast::Id1(id) => {
                 if self.blocks.var_in_scope(&Lstr::Sref(id)) {
@@ -435,7 +476,6 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                     *node.node = Ast::Id2(self.local_mod.key.name.clone(), id);
                     return Ok(SemanticAction::Rewrite(node));
                 } else {
-                    println!("var not in scope: {}", id);
                     return Err(rustfail!(
                         SEMFAIL,
                         "var not in scope: {} @ {:?}",
@@ -443,6 +483,26 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                         node.loc,
                     ));
                 }
+            }
+            Ast::Id2(module, id) if self.mode == AstMode::Type => {
+                let proto = self.lib.get(module).map_err(|e| {
+                    e.add_context(Lstr::from(format!(
+                        "module {} not found at {:?}",
+                        module, node.loc
+                    )))
+                })?;
+
+                proto.get_type(id)
+                    .map_err(|_| {
+                        rustfail!(
+                            SEMFAIL,
+                            "cannot find type {} in module {} @ {:?}",
+                            id,
+                            module,
+                            node.loc,
+                        )
+                    })?;
+                return Ok(SemanticAction::Keep(node));
             }
             Ast::Id2(module, id) => {
                 let proto = self.lib.get(module).map_err(|e| {
@@ -486,8 +546,8 @@ impl<'p> SemanticOp for ScopeCheck<'p>
         Ok(SemanticAction::Keep(node))
     }
 
-    fn set_pattern(&mut self, pmode: Option<LocalType>) {
-        self.pattern_mode = pmode;
+    fn set_mode(&mut self, mode: AstMode) {
+        self.mode = mode;
     }
 }
 
@@ -503,7 +563,7 @@ struct VarTypes<'p>
 {
     vartypes: HashMap<&'static str, Type>,
     module: &'p Lstr,
-    pattern_mode: Option<LocalType>,
+    mode: AstMode,
 }
 
 impl<'p> VarTypes<'p>
@@ -515,7 +575,7 @@ impl<'p> VarTypes<'p>
             let argname = arg.k.as_ref().unwrap().sref()?;
             vartypes.insert(argname, arg.v.clone());
         }
-        Ok(VarTypes { vartypes, module, pattern_mode: None })
+        Ok(VarTypes { vartypes, module, mode: AstMode::Value })
     }
 }
 
@@ -530,7 +590,7 @@ impl<'p> SemanticOp for VarTypes<'p>
                     node.typ = typ.clone();
                     // put the node back the way it was
                     // *node.node = Ast::Id1(id);
-                } else if self.pattern_mode.is_some() {
+                } else if self.mode.is_pattern() {
                     let tvar = Type::LocalVar(id);
                     self.vartypes.insert(id, tvar.clone());
                     node.typ = tvar;
@@ -548,8 +608,8 @@ impl<'p> SemanticOp for VarTypes<'p>
         Ok(SemanticAction::Keep(node))
     }
 
-    fn set_pattern(&mut self, pmode: Option<LocalType>) {
-        self.pattern_mode = pmode;
+    fn set_mode(&mut self, mode: AstMode) {
+        self.mode = mode;
     }
 }
 
@@ -729,6 +789,15 @@ impl<'p> TypeCheck<'p>
         }
     }
 
+    pub fn apply_typecall(
+        &mut self,
+        calltype: &mut Type,
+        args: &mut ast2::Xlist,
+    ) -> Lresult<Type>
+    {
+        Ok(Type::Void)
+    }
+
     pub fn applied_call_type(
         &mut self,
         calltype: &mut Type,
@@ -874,6 +943,12 @@ impl<'p> SemanticOp for TypeCheck<'p>
                     ));
                 }
                 node.typ = call_result;
+            }
+            Ast::Generic(ref mut callx, ref mut args) => {
+                if let Ast::ConstVal(Val::Call(ref mut fref, _)) = &mut *callx.node {
+                    let typecall_t = self.apply_typecall(&mut fref.t, args)?;
+                    callx.typ = typecall_t;
+                }
             }
             Ast::StrExpr(ref _items) => {
                 // check items, but not necessary yet b/c everything
@@ -1144,9 +1219,9 @@ impl Semantics
                 let new_args: Lresult<Vec<ast2::Case>> = args
                     .into_iter()
                     .map(|ch| {
-                        op.set_pattern(Some(LocalType::Match));
+                        op.set_mode(AstMode::MatchPattern);
                         let wcond = Self::walk(op, ch.cond)?;
-                        op.set_pattern(None);
+                        op.set_mode(AstMode::Value);
                         let wbody = Self::walk(op, ch.body)?;
                         Ok(ast2::Case::new(wcond, wbody))
                     })
@@ -1158,9 +1233,9 @@ impl Semantics
                 let wchildren: Lresult<Vec<ast2::Case>> = children
                     .into_iter()
                     .map(|ch| {
-                        op.set_pattern(Some(LocalType::Match));
+                        op.set_mode(AstMode::MatchPattern);
                         let wcond = Self::walk(op, ch.cond)?;
-                        op.set_pattern(None);
+                        op.set_mode(AstMode::Value);
                         let wbody = Self::walk(op, ch.body)?;
                         Ok(ast2::Case::new(wcond, wbody))
                     })
@@ -1184,13 +1259,15 @@ impl Semantics
             }
             Ast::Generic(id, args) => {
                 let wid = Self::walk(op, id)?;
+                op.set_mode(AstMode::Type);
                 let wargs = struple::map_v_into(args, |arg| Self::walk(op, arg))?;
+                op.set_mode(AstMode::Value);
                 Ast::Generic(wid, wargs)
             }
             Ast::Let(lhp, lht, rhs) => {
-                op.set_pattern(Some(LocalType::Let));
+                op.set_mode(AstMode::LetPattern);
                 let wlhp = Self::walk(op, lhp)?;
-                op.set_pattern(None);
+                op.set_mode(AstMode::Value);
                 let wrhs = Self::walk(op, rhs)?;
                 Ast::Let(wlhp, lht, wrhs)
             }

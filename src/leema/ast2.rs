@@ -165,6 +165,7 @@ impl Ast
             }
             Ast::Op1(op, node) => write!(f, "Op1 {} {:?}", op, node),
             Ast::Op2(op, a, b) => write!(f, "Op2 {} {:?} {:?}", op, a, b),
+            Ast::Return(result) => write!(f, "Return {:?}", result),
             Ast::RustBlock => write!(f, "RustBlock"),
             Ast::StrExpr(items) => write!(f, "Str {:?}", items),
             Ast::Tuple(items) => write!(f, "Tuple {:?}", items),
@@ -173,7 +174,6 @@ impl Ast
             Ast::Wildcard => write!(f, "_"),
             // unimplemented
             Ast::LessThan3(_, _, _, _, _) => unimplemented!(),
-            Ast::Return(_) => unimplemented!(),
         }
     }
 }

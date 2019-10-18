@@ -379,6 +379,7 @@ fn xlist_to_types(
     Ok(arg_types_r?)
 }
 
+#[derive(Debug)]
 pub struct ProtoLib
 {
     protos: HashMap<Lstr, ProtoModule>,
