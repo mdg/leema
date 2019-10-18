@@ -1702,7 +1702,20 @@ mod tests
         let input = r#"swap[:Int :Str](5, "tacos")"#;
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
-        let _ast = p.parse_module().unwrap();
+        let ast = p.parse_module().unwrap();
+
+        assert_eq!(1, ast.len());
+        assert_matches!(*ast[0].node, Ast::Call(_, _));
+        if let Ast::Call(callx, args) = &*ast[0].node {
+            assert_matches!(*callx.node, Ast::Generic(_, _));
+            assert_eq!(2, args.len());
+            if let Ast::Generic(genx, genargs) = &*callx.node {
+                assert_matches!(*genx.node, Ast::Id1("swap"));
+                assert_eq!(2, genargs.len());
+                assert_matches!(*genargs[0].v.node, Ast::Id1("Int"));
+                assert_matches!(*genargs[1].v.node, Ast::Id1("Str"));
+            }
+        }
     }
 
     #[test]

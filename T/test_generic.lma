@@ -1,4 +1,6 @@
 
+import io
+
 func swap[:A :B] a:A b:B / (:B :A)
 >>
     (b, a)
@@ -15,5 +17,5 @@ func main
     let y := swap(c, d)
     let z := swap(b, c)
 
-    print("x: $x\ny: $y\nz: $z\n")
+    io::print("x: $x\ny: $y\nz: $z\n")
 --

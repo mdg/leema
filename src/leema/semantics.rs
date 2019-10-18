@@ -1381,7 +1381,7 @@ mod tests
     }
 
     #[test]
-    fn test_type_genericfunc()
+    fn test_type_genericfunc_1()
     {
         let input = r#"
         func swap[:T] a:T b:T / (:T :T)
@@ -1391,6 +1391,7 @@ mod tests
 
         func main >>
             swap(3, 5)
+            swap[:Str :#]("hello", #world)
         --
         "#;
 
