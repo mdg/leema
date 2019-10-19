@@ -302,7 +302,7 @@ impl ProtoModule
     }
 }
 
-fn ast_to_type(
+pub fn ast_to_type(
     local_mod: &Lstr,
     node: &AstNode,
     opens: &[StrupleItem<&'static str, Type>],

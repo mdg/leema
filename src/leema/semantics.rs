@@ -2,7 +2,7 @@ use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc, Xlist};
 use crate::leema::failure::Lresult;
 use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
-use crate::leema::proto::{ProtoLib, ProtoModule};
+use crate::leema::proto::{self, ProtoLib, ProtoModule};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{Fref, FuncType, GenericTypes, GenericTypeSlice, Type, Val};
 
@@ -665,26 +665,33 @@ impl<'p> TypeCheck<'p>
 
     pub fn inferred_type(&self, t: &Type, opens: &GenericTypeSlice) -> Lresult<Type>
     {
-        match t {
+        let newt = match t {
             Type::OpenVar(v) => {
-                    Ok(struple::find(opens, &v)
+                    struple::find(opens, &v)
                         .map(|(_, item)| item.clone())
                         .unwrap_or(Type::OpenVar(v))
-                    )
             }
             Type::LocalVar(v) => {
-                Ok(self.inferred_local(v))
+                self.inferred_local(v)
             }
             Type::Tuple(items) => {
                 let mitems = struple::map_v(items, |it| {
                     self.inferred_type(it, opens)
                 })?;
-                Ok(Type::Tuple(mitems))
+                Type::Tuple(mitems)
+            }
+            Type::Func(ftyp) => {
+                let iargs = struple::map_v(&ftyp.args, |a| {
+                    self.inferred_type(a, opens)
+                })?;
+                let iresult = self.inferred_type(&ftyp.result, opens)?;
+                Type::Func(FuncType::new(iargs, iresult))
             }
             _ => {
-                Ok(t.clone())
+                t.clone()
             }
-        }
+        };
+        Ok(newt)
     }
 
     pub fn match_type(&mut self, t0: &Type, t1: &Type, opens: &mut StrupleKV<&'static str, Type>) -> Lresult<Type>
@@ -795,7 +802,33 @@ impl<'p> TypeCheck<'p>
         args: &mut ast2::Xlist,
     ) -> Lresult<Type>
     {
-        Ok(Type::Void)
+        match calltype {
+            Type::Generic(gopen @ true, ref mut inner, ref mut targs) => {
+                if args.len() != targs.len() {
+                    return Err(rustfail!(
+                        TYPEFAIL,
+                        "wrong number of args, expected {}, found {}",
+                        targs.len(),
+                        args.len(),
+                    ));
+                }
+                for a in targs.iter_mut().zip(args.iter_mut()) {
+                    let t = proto::ast_to_type(&self.local_mod.key.name, &a.1.v, &[])?;
+                    a.0.v = t;
+                }
+                let t = self.inferred_type(&inner, &targs)?;
+                *inner = Box::new(t);
+                *gopen = false;
+            }
+            _ => {
+                return Err(rustfail!(
+                    TYPEFAIL,
+                    "not a function call {:#?}",
+                    calltype,
+                ));
+            }
+        }
+        Ok(calltype.clone())
     }
 
     pub fn applied_call_type(
@@ -808,6 +841,9 @@ impl<'p> TypeCheck<'p>
             Type::Func(inner_ftyp) => {
                 let mut opens = vec![];
                 self.match_argtypes(inner_ftyp, args, &mut opens)
+            }
+            Type::Generic(false, ref mut inner, _) => {
+                self.applied_call_type(&mut *inner, args)
             }
             Type::Generic(gopen @ true, ref mut open_ftyp, ref mut opens) => {
                 if let Type::Func(inner_ftyp) = &mut **open_ftyp {
@@ -927,7 +963,16 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 }
             }
             Ast::Call(ref mut callx, ref mut args) => {
-                let call_result = self.applied_call_type(&mut callx.typ, args)?;
+                let call_result = ltry!(self
+                    .applied_call_type(&mut callx.typ, args)
+                    .map_err(|f| {
+                        f.add_context(lstrf!(
+                            "for function: {:?} with type {}",
+                            callx.node,
+                            callx.typ,
+                        ))
+                    })
+                );
                 if let Ast::ConstVal(Val::Call(ref mut fref, _argvals)) = &mut *callx.node {
                     fref.t = callx.typ.clone();
                     // an optimization here might be to iterate over ast args
@@ -947,7 +992,8 @@ impl<'p> SemanticOp for TypeCheck<'p>
             Ast::Generic(ref mut callx, ref mut args) => {
                 if let Ast::ConstVal(Val::Call(ref mut fref, _)) = &mut *callx.node {
                     let typecall_t = self.apply_typecall(&mut fref.t, args)?;
-                    callx.typ = typecall_t;
+                    callx.typ = typecall_t.clone();
+                    node.typ = typecall_t;
                 }
             }
             Ast::StrExpr(ref _items) => {
@@ -1458,10 +1504,32 @@ mod tests
     }
 
     #[test]
-    fn test_type_genericfunc_1()
+    fn test_generic_typecall_wrongargs()
     {
         let input = r#"
         func swap[:T] a:T b:T / (:T :T)
+        >>
+            (b, a)
+        --
+
+        func main >>
+            swap[:Str :#]("hello", #world)
+        --
+        "#;
+
+        let mut proto = load_proto_with_prefab();
+        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
+        let fref = Fref::with_modules(Lstr::Sref("foo"), "main");
+        let f = Semantics::compile_call(&mut proto, &fref).unwrap_err();
+        assert_eq!("type_failure", f.tag.str());
+        assert_eq!("wrong number of args, expected 1, found 2", f.msg.str());
+    }
+
+    #[test]
+    fn test_type_genericfunc_1()
+    {
+        let input = r#"
+        func swap[:A :B] a:A b:B / (:B :A)
         >>
             (b, a)
         --
