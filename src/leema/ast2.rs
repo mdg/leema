@@ -45,18 +45,6 @@ pub enum DataType
 #[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
-pub enum ImportType
-{
-    Export,
-    Import,
-    Include,
-}
-
-#[derive(Clone)]
-#[derive(Copy)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
 pub enum CaseType
 {
     MatchFailure,
@@ -87,59 +75,29 @@ impl fmt::Debug for Case
     }
 }
 
-Ast::Import(Val::Tuple[
-    Val::List([Ast::Id("core"), Ast::Id("fmt")]),
-    Val::Str("inclib")
-    "leema": Val::Tuple([
-        Val::List([Str("failure"), Str("Lresult")])
-        Val::List([Str("lstr"), Str("Lstr")])
-        Val::List([Str("reg"), Str("Reg")])
-        "struple": Val::Tuple([Val::Str("StrupleKV")])
-        "v": Ast::Op1("val", Ast::Tuple([
-            Ast::Id("Type")
-            Ast::Id("Val")
-        ]))
-    ])
-    None: Ast::Id("macs")
-))
+#[derive(Clone)]
+#[derive(Copy)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+pub enum ModAction
+{
+    Export,
+    Import,
+    Include,
+}
 
-ModAction::Export([ModTree])
-ModAction::Import([ModTree])
-ModAction::Include([ModTree])
-
-ModTree::Id("")
-ModTree::List([""])
-ModTree::Sub(Import, [Import])
-ModTree::Alias("", "")
-
-Ast::Import(Ast::Tuple(
-    None: Ast::List([None: Ast::Id("core"), None: Ast::Id("fmt")]),
-    None: Ast::Id("inclib")
-    "leema": Ast::Tuple(
-        Ast::List([Id("failure"), Id("Lresult")])
-        Ast::List([Id("lstr"), Id("Lstr")])
-        Ast::List([Id("reg"), Id("Reg")])
-        "struple": Ast::Tuple([Ast::Id("StrupleKV")])
-        "v": Ast::Op1("val", Ast::Tuple([
-            Ast::Id("Type")
-            Ast::Id("Val")
-        ]))
-    )
-    None: Ast::Id("macs")
-))
-
-Ast::Import[
-    "core": Ast::Import(["fmt": Ast::Void]),
-    "core": Ast::List(["core": Ast::Void, "fmt": Ast::Void]),
-    "inclib": Ast::Void,
-    "leema": Ast::Import([
-        "failure": Ast::Import(["Lresult": Ast::Void]),
-        "lstr": Ast::Import(["Lstr": Ast::Void]),
-        "reg": Ast::Import(["Reg": Ast::Void]),
-        "struple": Ast::Import(["StrupleKV": Ast::Void]),
-    ])
-]
-
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+pub enum ModTree
+{
+    Id(&'static str),
+    List(Vec<&'static str>),
+    Sub(Box<ModTree>, Vec<ModTree>),
+    Alias(&'static str, Box<ModTree>),
+}
 
 pub type Xlist = StrupleKV<Option<&'static str>, AstNode>;
 

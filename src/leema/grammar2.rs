@@ -1975,22 +1975,29 @@ mod tests
     #[test]
     fn test_parse_import_block()
     {
-        let input = "import tacos >>
-            burritos
-            dog >>
-                cat
-                mouse
+        let input = "
+        import >>
+            core >>
+                io
+                list::head
             --
-            tortas
+            m1::m2::m3
+            myapp >>
+                tacos::burritos
+                tortas
+                cat: dog
+            --
+            blah
         --";
         let toks = Tokenz::lexp(input).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
         assert_eq!(1, ast.len());
         assert_matches!(*ast[0].node, Ast::Import("tacos", _));
         if let Ast::Import("tacos", subs) = &*ast[0].node {
-            assert_matches!(*subs[0].node, Ast::Import("burritos", _));
-            assert_matches!(*subs[1].node, Ast::Import("dog", _));
-            assert_matches!(*subs[2].node, Ast::Import("tortas", _));
+            assert_matches!(*subs[0].node, Ast::Import("tacos", _));
+            assert_matches!(*subs[1].node, Ast::Import("burritos", _));
+            assert_matches!(*subs[2].node, Ast::Import("dog", _));
+            assert_matches!(*subs[3].node, Ast::Import("tortas", _));
             assert_eq!(3, subs.len());
         }
     }
