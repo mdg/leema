@@ -1,6 +1,35 @@
 import macs
 import inclib
 
+import >>
+    core::fmt
+    leema::failure::Lresult
+    leema::lstr::Lstr
+    leema::reg::Reg
+    leema::struple::part2::StrupleKV
+    leema::token::TokenSrc
+    leema::val::Type
+    leema::val::Val
+--
+
+import >>
+    core::fmt
+    leema >>
+        failure::Lresult
+        lstr::Lstr
+        reg::Reg
+        struple::part2 >>
+            StrupleKV
+        --
+        token::TokenSrc
+        val >>
+            Type
+            Val
+        --
+    --
+    inclib
+    macs
+--
 
 func main() ->
     if macs.m_and(true, false) ->
