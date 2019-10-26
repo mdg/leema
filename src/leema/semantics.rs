@@ -1364,7 +1364,7 @@ impl Semantics
                     name,
                 ));
             }
-            Ast::Import(module) => {
+            Ast::Import(module, _subs) => {
                 return Err(rustfail!(
                     SEMFAIL,
                     "import must already be processed: {}",

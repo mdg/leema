@@ -94,7 +94,7 @@ pub enum Ast
     Id1(&'static str),
     Id2(Lstr, &'static str),
     Ifx(Vec<Case>),
-    Import(&'static str),
+    Import(&'static str, Vec<AstNode>),
     LessThan3(AstNode, bool, AstNode, bool, AstNode),
     Let(AstNode, AstNode, AstNode),
     List(Xlist),
@@ -154,7 +154,9 @@ impl Ast
             Ast::Id1(id) => write!(f, "Id {}", id),
             Ast::Id2(id1, id2) => write!(f, "Id {}::{}", id1, id2),
             Ast::Ifx(args) => write!(f, "If {:?}", args),
-            Ast::Import(module) => write!(f, "Import {:?}", module),
+            Ast::Import(module, subs) => {
+                write!(f, "Import {:?} {:?}", module, subs)
+            }
             Ast::Let(lhp, _lht, rhs) => write!(f, "Let {:?} := {:?}", lhp, rhs),
             Ast::List(items) => write!(f, "List {:?}", items),
             Ast::Matchx(None, args) => {

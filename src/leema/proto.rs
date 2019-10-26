@@ -68,7 +68,7 @@ impl ProtoModule
                 Ast::DefType(DataType::Union, name, variants) => {
                     proto.add_union(name, variants)?;
                 }
-                Ast::Import(imp) => {
+                Ast::Import(imp, _subs) => {
                     proto.imports.insert(imp);
                 }
                 _ => {

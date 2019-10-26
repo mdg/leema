@@ -196,9 +196,11 @@ impl ParseStmt
     {
         match tok.tok {
             Token::Const => ParseStmt::parse_defconst(p, tok),
+            Token::Export => ParseStmt::parse_import(p),
             Token::Func => ParseStmt::parse_deffunc(p),
             Token::Macro => ParseStmt::parse_defmacro(p),
             Token::Import => ParseStmt::parse_import(p),
+            Token::Include => ParseStmt::parse_import(p),
             Token::Let => ParseStmt::parse_let(p, tok),
             Token::Return => ParseStmt::parse_return(p, Ast::loc(&tok)),
             Token::Type => ParseStmt::parse_deftype(p),
@@ -381,7 +383,17 @@ impl ParseStmt
     fn parse_import(p: &mut Parsl) -> AstResult
     {
         let module = expect_next!(p, Token::Id)?;
-        Ok(AstNode::new(Ast::Import(module.src), Ast::loc(&module)))
+        let mut subs = vec![];
+        if p.next_if(Token::DoubleArrow)?.is_some() {
+            p.skip_if(Token::LineBegin)?;
+            while p.peek_token()? != Token::DoubleDash {
+                let imp = Self::parse_import(p)?;
+                subs.push(imp);
+                p.skip_if(Token::LineBegin)?;
+            }
+            expect_next!(p, Token::DoubleDash)?;
+        }
+        Ok(AstNode::new(Ast::Import(module.src, subs), Ast::loc(&module)))
     }
 
     fn parse_let(p: &mut Parsl, tok: TokenSrc) -> AstResult
@@ -1948,13 +1960,39 @@ mod tests
     }
 
     #[test]
-    fn test_parse_import()
+    fn test_parse_import_one()
     {
         let input = "import tacos";
         let toks = Tokenz::lexp(input).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
         assert_eq!(1, ast.len());
-        assert_eq!(Ast::Import("tacos"), *ast[0].node);
+        assert_matches!(*ast[0].node, Ast::Import("tacos", _));
+        if let Ast::Import(_, subs) = &*ast[0].node {
+            assert_eq!(0, subs.len());
+        }
+    }
+
+    #[test]
+    fn test_parse_import_block()
+    {
+        let input = "import tacos >>
+            burritos
+            dog >>
+                cat
+                mouse
+            --
+            tortas
+        --";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+        assert_eq!(1, ast.len());
+        assert_matches!(*ast[0].node, Ast::Import("tacos", _));
+        if let Ast::Import("tacos", subs) = &*ast[0].node {
+            assert_matches!(*subs[0].node, Ast::Import("burritos", _));
+            assert_matches!(*subs[1].node, Ast::Import("dog", _));
+            assert_matches!(*subs[2].node, Ast::Import("tortas", _));
+            assert_eq!(3, subs.len());
+        }
     }
 
     #[test]

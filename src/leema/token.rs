@@ -135,11 +135,13 @@ pub enum Token
     // keywords
     Const,
     Else,
+    Export,
     Failed,
     Fork,
     Func,
     If,
     Import,
+    Include,
     Let,
     Macro,
     Match,
@@ -237,11 +239,13 @@ lazy_static! {
         // keywords
         keywords.insert("const", Token::Const);
         keywords.insert("else", Token::Else);
+        keywords.insert("export", Token::Export);
         keywords.insert("failed", Token::Failed);
         keywords.insert("fork", Token::Fork);
         keywords.insert("func", Token::Func);
         keywords.insert("if", Token::If);
         keywords.insert("import", Token::Import);
+        keywords.insert("include", Token::Include);
         keywords.insert("let", Token::Let);
         keywords.insert("macro", Token::Macro);
         keywords.insert("match", Token::Match);
@@ -1409,7 +1413,8 @@ mod tests
     #[test]
     fn test_tokenz_keywords()
     {
-        let input = r#"failed fork func if import let macro match return
+        let input = r#"failed fork func if let macro match return
+        export include import
         __RUST__
         "#;
 
@@ -1424,8 +1429,6 @@ mod tests
         i.next();
         assert_eq!(Token::If, nextok(&mut i).0);
         i.next();
-        assert_eq!(Token::Import, nextok(&mut i).0);
-        i.next();
         assert_eq!(Token::Let, nextok(&mut i).0);
         i.next();
         assert_eq!(Token::Macro, nextok(&mut i).0);
@@ -1433,6 +1436,13 @@ mod tests
         assert_eq!(Token::Match, nextok(&mut i).0);
         i.next();
         assert_eq!(Token::Return, nextok(&mut i).0);
+        i.next();
+        i.next();
+        assert_eq!(Token::Export, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::Include, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::Import, nextok(&mut i).0);
         i.next();
         i.next();
         assert_eq!(Token::RustBlock, nextok(&mut i).0);
