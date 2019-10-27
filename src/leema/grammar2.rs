@@ -1,4 +1,4 @@
-use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc};
+use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc, ModTree};
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::parsl::{
@@ -196,11 +196,11 @@ impl ParseStmt
     {
         match tok.tok {
             Token::Const => ParseStmt::parse_defconst(p, tok),
-            Token::Export => ParseStmt::parse_import(p),
+            Token::Export => ParseStmt::parse_import(p, tok),
             Token::Func => ParseStmt::parse_deffunc(p),
             Token::Macro => ParseStmt::parse_defmacro(p),
-            Token::Import => ParseStmt::parse_import(p),
-            Token::Include => ParseStmt::parse_import(p),
+            Token::Import => ParseStmt::parse_import(p, tok),
+            Token::Include => ParseStmt::parse_import(p, tok),
             Token::Let => ParseStmt::parse_let(p, tok),
             Token::Return => ParseStmt::parse_return(p, Ast::loc(&tok)),
             Token::Type => ParseStmt::parse_deftype(p),
@@ -380,8 +380,50 @@ impl ParseStmt
         Ok(AstNode::new(data, loc))
     }
 
-    fn parse_import(p: &mut Parsl) -> AstResult
+    fn parse_import(p: &mut Parsl, tok: TokenSrc) -> AstResult
     {
+        let action = match tok.tok {
+            Token::Export => ast2::ModAction::Export,
+            Token::Import => ast2::ModAction::Import,
+            Token::Include => ast2::ModAction::Include,
+            _ => {
+                return Err(rustfail!(
+                    PARSE_FAIL,
+                    "expected module action keyword, found: {:?}",
+                    tok,
+                ));
+            }
+        };
+
+        let tree_tok = p.peek()?;
+        let tree = match tree_tok.tok {
+            Token::DoubleArrow => Self::parse_import_block(p)?,
+            Token::Id => Self::parse_import_line(p)?,
+            _ => {
+                return Err(rustfail!(
+                    PARSE_FAIL,
+                    "expected >> or ID, found: {:?}",
+                    tree_tok,
+                ));
+            }
+        };
+
+        Ok(AstNode::new(Ast::ModAction(action, tree), Ast::loc(&tok)))
+    }
+
+    fn parse_import_line(p: &mut Parsl) -> Lresult<ModTree>
+    {
+        let mut tree = ModTree::Id(expect_next!(p, Token::Id)?.src);
+        while p.next_if(Token::DoubleColon)?.is_some() {
+            let next_id = expect_next!(p, Token::Id)?;
+            tree = ModTree::sub(tree, ModTree::Id(next_id.src));
+        }
+        Ok(tree)
+    }
+
+    fn parse_import_block(_p: &mut Parsl) -> Lresult<ModTree>
+    {
+        /*
         let module = expect_next!(p, Token::Id)?;
         let mut subs = vec![];
         if p.next_if(Token::DoubleArrow)?.is_some() {
@@ -394,6 +436,8 @@ impl ParseStmt
             expect_next!(p, Token::DoubleDash)?;
         }
         Ok(AstNode::new(Ast::Import(module.src, subs), Ast::loc(&module)))
+        */
+        Ok(ModTree::Id(""))
     }
 
     fn parse_let(p: &mut Parsl, tok: TokenSrc) -> AstResult
@@ -1488,7 +1532,7 @@ impl Grammar
 mod tests
 {
     use super::Grammar;
-    use crate::leema::ast2::{Ast, DataType};
+    use crate::leema::ast2::{Ast, DataType, ModAction, ModTree};
     use crate::leema::lstr::Lstr;
     use crate::leema::token::Tokenz;
     use crate::leema::val::Val;
@@ -1960,15 +2004,26 @@ mod tests
     }
 
     #[test]
-    fn test_parse_import_one()
+    fn test_parse_import_line()
     {
-        let input = "import tacos";
+        let input = "
+        import tacos
+        import burritos::tortas
+        ";
         let toks = Tokenz::lexp(input).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
-        assert_eq!(1, ast.len());
-        assert_matches!(*ast[0].node, Ast::Import("tacos", _));
-        if let Ast::Import(_, subs) = &*ast[0].node {
-            assert_eq!(0, subs.len());
+        assert_eq!(2, ast.len());
+        assert_matches!(
+            *ast[0].node,
+            Ast::ModAction(ModAction::Import, ModTree::Id("tacos"))
+        );
+        assert_matches!(
+            *ast[1].node,
+            Ast::ModAction(ModAction::Import, _)
+        );
+        if let Ast::ModAction(_, ModTree::Sub(a, b)) = &*ast[1].node {
+            assert_eq!(ModTree::Id("burritos"), **a);
+            assert_eq!(ModTree::Id("tortas"), **b);
         }
     }
 
@@ -1985,7 +2040,6 @@ mod tests
             myapp >>
                 tacos::burritos
                 tortas
-                cat: dog
             --
             blah
         --";

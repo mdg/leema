@@ -94,9 +94,16 @@ pub enum ModAction
 pub enum ModTree
 {
     Id(&'static str),
-    List(Vec<&'static str>),
-    Sub(Box<ModTree>, Vec<ModTree>),
-    Alias(&'static str, Box<ModTree>),
+    Block(Vec<ModTree>),
+    Sub(Box<ModTree>, Box<ModTree>),
+}
+
+impl ModTree
+{
+    pub fn sub(a: ModTree, b: ModTree) -> ModTree
+    {
+        ModTree::Sub(Box::new(a), Box::new(b))
+    }
 }
 
 pub type Xlist = StrupleKV<Option<&'static str>, AstNode>;
@@ -119,11 +126,11 @@ pub enum Ast
     Id2(Lstr, &'static str),
     Ifx(Vec<Case>),
     Import(&'static str, Vec<AstNode>),
-    Import2(AstNode),
     LessThan3(AstNode, bool, AstNode, bool, AstNode),
     Let(AstNode, AstNode, AstNode),
     List(Xlist),
     Matchx(Option<AstNode>, Vec<Case>),
+    ModAction(ModAction, ModTree),
     Op1(&'static str, AstNode),
     Op2(&'static str, AstNode, AstNode),
     Return(AstNode),
@@ -189,6 +196,9 @@ impl Ast
             }
             Ast::Matchx(Some(cond), args) => {
                 write!(f, "Match {:?} {:?}", cond, args)
+            }
+            Ast::ModAction(action, tree) => {
+                write!(f, "{:?} {:?}", action, tree)
             }
             Ast::Op1(op, node) => write!(f, "Op1 {} {:?}", op, node),
             Ast::Op2(op, a, b) => write!(f, "Op2 {} {:?} {:?}", op, a, b),
