@@ -5,6 +5,7 @@ use crate::leema::struple::{self, StrupleKV};
 use crate::leema::token::TokenSrc;
 use crate::leema::val::{Type, Val};
 
+use std::collections::HashMap;
 use std::fmt;
 
 
@@ -121,6 +122,33 @@ impl ModTree
             }
         }
     }
+
+    pub fn collect(&self, flats: &mut HashMap<&'static str, Lstr>)
+    {
+        let mut paths = Vec::with_capacity(16);
+        self._collect(flats, &mut paths);
+    }
+
+    pub fn _collect(&self, flats: &mut HashMap<&'static str, Lstr>, path: &mut Vec<&'static str>)
+    {
+        match self {
+            ModTree::Id(id) => {
+                path.push(id);
+                flats.insert(id, Lstr::from(path.join("::")));
+                path.pop();
+            }
+            ModTree::Sub(id, subs) => {
+                path.push(id);
+                subs._collect(flats, path);
+                path.pop();
+            }
+            ModTree::Block(block) => {
+                for item in block.iter() {
+                    item._collect(flats, path);
+                }
+            }
+        }
+    }
 }
 
 pub type Xlist = StrupleKV<Option<&'static str>, AstNode>;
@@ -142,7 +170,6 @@ pub enum Ast
     Id1(&'static str),
     Id2(Lstr, &'static str),
     Ifx(Vec<Case>),
-    Import(&'static str, Vec<AstNode>),
     LessThan3(AstNode, bool, AstNode, bool, AstNode),
     Let(AstNode, AstNode, AstNode),
     List(Xlist),
@@ -203,9 +230,6 @@ impl Ast
             Ast::Id1(id) => write!(f, "Id {}", id),
             Ast::Id2(id1, id2) => write!(f, "Id {}::{}", id1, id2),
             Ast::Ifx(args) => write!(f, "If {:?}", args),
-            Ast::Import(module, subs) => {
-                write!(f, "Import {:?} {:?}", module, subs)
-            }
             Ast::Let(lhp, _lht, rhs) => write!(f, "Let {:?} := {:?}", lhp, rhs),
             Ast::List(items) => write!(f, "List {:?}", items),
             Ast::Matchx(None, args) => {

@@ -1541,6 +1541,7 @@ mod tests
     use crate::leema::val::Val;
 
     use matches::assert_matches;
+    use std::collections::HashMap;
 
 
     #[test]
@@ -2077,6 +2078,43 @@ mod tests
                     assert_eq!(2, block.len());
                 }
             }
+        }
+    }
+
+    #[test]
+    fn test_parse_import_collect()
+    {
+        let input = "
+        include >>
+            core >>
+                io
+                list::head
+            --
+            m1::m2::m3
+            myapp >>
+                tacos::burritos
+                tortas
+            --
+            blah
+        --";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+        assert_matches!(*ast[0].node, Ast::ModAction(ModAction::Include, _));
+        if let Ast::ModAction(_, tree) = &*ast[0].node {
+            let mut flats = HashMap::new();
+            tree.collect(&mut flats);
+
+            assert_eq!("core::io", flats["io"].str());
+            assert_eq!("core::list::head", flats["head"].str());
+
+            assert_eq!("m1::m2::m3", flats["m3"].str());
+
+            assert_eq!("myapp::tacos::burritos", flats["burritos"].str());
+            assert_eq!("myapp::tortas", flats["tortas"].str());
+
+            assert_eq!("blah", flats["blah"].str());
+
+            assert_eq!(6, flats.len());
         }
     }
 

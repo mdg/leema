@@ -1364,11 +1364,12 @@ impl Semantics
                     name,
                 ));
             }
-            Ast::Import(module, _subs) => {
+            Ast::ModAction(action, tree) => {
                 return Err(rustfail!(
                     SEMFAIL,
-                    "import must already be processed: {}",
-                    module,
+                    "module action must already be processed: {:?} {:?}",
+                    action,
+                    tree,
                 ));
             }
             /*

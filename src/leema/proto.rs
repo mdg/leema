@@ -1,4 +1,4 @@
-use crate::leema::ast2::{Ast, AstNode, DataType, Xlist};
+use crate::leema::ast2::{Ast, AstNode, DataType, ModAction, Xlist};
 use crate::leema::failure::Lresult;
 use crate::leema::grammar2::Grammar;
 use crate::leema::loader::Interloader;
@@ -19,7 +19,7 @@ const PROTOFAIL: &'static str = "prototype_failure";
 pub struct ProtoModule
 {
     pub key: ModKey,
-    pub imports: HashSet<&'static str>,
+    pub imports: HashMap<&'static str, Lstr>,
     pub macros: HashMap<&'static str, Ast>,
     pub constants: HashMap<&'static str, AstNode>,
     types: HashMap<&'static str, Type>,
@@ -37,7 +37,7 @@ impl ProtoModule
 
         let mut proto = ProtoModule {
             key,
-            imports: HashSet::new(),
+            imports: HashMap::new(),
             macros: HashMap::new(),
             constants: HashMap::new(),
             types: HashMap::new(),
@@ -68,8 +68,8 @@ impl ProtoModule
                 Ast::DefType(DataType::Union, name, variants) => {
                     proto.add_union(name, variants)?;
                 }
-                Ast::Import(imp, _subs) => {
-                    proto.imports.insert(imp);
+                Ast::ModAction(ModAction::Import, tree) => {
+                    tree.collect(&mut proto.imports);
                 }
                 _ => {
                     return Err(rustfail!(
@@ -447,18 +447,18 @@ impl ProtoLib
                     modname,
                 )
             })?;
-            for i in proto.imports.iter() {
-                if i == &modname {
+            for (_, i) in proto.imports.iter() {
+                if i == modname {
                     return Err(rustfail!(
                         PROTOFAIL,
                         "a module cannot import itself: {}",
                         i,
                     ));
                 }
-                if self.protos.contains_key(*i) {
+                if self.protos.contains_key(i) {
                     continue;
                 }
-                imported.push(Lstr::from(String::from(*i)));
+                imported.push(i.clone());
             }
         }
         for i in imported.iter() {
