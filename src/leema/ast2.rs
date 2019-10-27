@@ -95,14 +95,31 @@ pub enum ModTree
 {
     Id(&'static str),
     Block(Vec<ModTree>),
-    Sub(Box<ModTree>, Box<ModTree>),
+    Sub(&'static str, Box<ModTree>),
 }
 
 impl ModTree
 {
-    pub fn sub(a: ModTree, b: ModTree) -> ModTree
+    pub fn sub(a: &'static str, b: ModTree) -> ModTree
     {
-        ModTree::Sub(Box::new(a), Box::new(b))
+        ModTree::Sub(a, Box::new(b))
+    }
+
+    pub fn push_sub(&mut self, tail: ModTree)
+    {
+        match self {
+            ModTree::Id(a) => {
+                *self = ModTree::Sub(a, Box::new(tail));
+            }
+            ModTree::Sub(_, ref mut b) => {
+                b.push_sub(tail);
+            }
+            ModTree::Block(_) => {
+                // blocks can't really contain a sub
+                // this should never happen
+                unimplemented!();
+            }
+        }
     }
 }
 
