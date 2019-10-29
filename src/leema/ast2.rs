@@ -97,7 +97,7 @@ pub enum ModTree
     Id(&'static str),
     Block(Vec<ModTree>),
     Sub(&'static str, Box<ModTree>),
-    Dot,
+    Module,
     Wildcard,
 }
 
@@ -117,7 +117,7 @@ impl ModTree
             ModTree::Sub(_, ref mut b) => {
                 b.push_sub(tail);
             }
-            ModTree::Block(_)|ModTree::Dot|ModTree::Wildcard => {
+            ModTree::Block(_)|ModTree::Module|ModTree::Wildcard => {
                 // these can't really contain a sub
                 // this should never happen
                 unimplemented!();
@@ -149,7 +149,7 @@ impl ModTree
                     item._collect(flats, path);
                 }
             }
-            ModTree::Dot => {
+            ModTree::Module => {
                 flats.insert(path.last().unwrap(), Lstr::from(path.join("::")));
             }
             ModTree::Wildcard => {

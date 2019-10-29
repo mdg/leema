@@ -413,13 +413,27 @@ impl ParseStmt
 
     fn parse_import_line(p: &mut Parsl) -> Lresult<ModTree>
     {
-        let id = expect_next!(p, Token::Id)?.src;
-        if p.next_if(Token::DoubleColon)?.is_some() {
-            let subline = Self::parse_import_line(p)?;
-            Ok(ModTree::sub(id, subline))
-        } else {
-            Ok(ModTree::Id(id))
-        }
+        let next = p.next()?;
+        let line = match next.tok {
+            Token::Id => {
+                if p.next_if(Token::DoubleColon)?.is_some() {
+                    let subline = Self::parse_import_line(p)?;
+                    ModTree::sub(next.src, subline)
+                } else {
+                    ModTree::Id(next.src)
+                }
+            }
+            Token::Star => ModTree::Wildcard,
+            Token::Dot => ModTree::Module,
+            _ => {
+                return Err(rustfail!(
+                    PARSE_FAIL,
+                    "expected id, * or . found {:?}",
+                    next,
+                ));
+            }
+        };
+        Ok(line)
     }
 
     fn parse_import_block(p: &mut Parsl) -> Lresult<ModTree>
@@ -428,7 +442,7 @@ impl ParseStmt
         p.skip_if(Token::LineBegin)?;
 
         let mut block = vec![];
-        while p.peek_token()? == Token::Id {
+        while p.peek_token()? != Token::DoubleDash {
             let mut line = ltry!(Self::parse_import_line(p));
             let next_tok = p.peek()?;
             if next_tok.tok == Token::DoubleArrow {
@@ -2069,7 +2083,7 @@ mod tests
                     if let ModTree::Sub(_, ref star) = block[1] {
                         assert_eq!(ModTree::Wildcard, **star);
                     }
-                    assert_eq!(3, block.len());
+                    assert_eq!(2, block.len());
                 }
             }
             if let ModTree::Sub(_, ref sbox) = subs[1] {
@@ -2080,7 +2094,7 @@ mod tests
             }
             if let ModTree::Sub(_, ref sbox) = subs[2] {
                 if let ModTree::Block(ref block) = &**sbox {
-                    assert_eq!(ModTree::Dot, block[0]);
+                    assert_eq!(ModTree::Module, block[0]);
                     assert_matches!(block[1], ModTree::Sub("tacos", _));
                     assert_eq!(ModTree::Id("tortas"), block[2]);
                     assert_eq!(3, block.len());
@@ -2094,7 +2108,7 @@ mod tests
     {
         let toks = Tokenz::lexp(parse_block_input()).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
-        assert_matches!(*ast[0].node, Ast::ModAction(ModAction::Include, _));
+        assert_matches!(*ast[0].node, Ast::ModAction(ModAction::Import, _));
         if let Ast::ModAction(_, tree) = &*ast[0].node {
             let mut flats = HashMap::new();
             tree.collect(&mut flats);
@@ -2108,7 +2122,7 @@ mod tests
 
             assert_eq!("blah", flats["blah"].str());
 
-            assert_eq!(5, flats.len());
+            assert_eq!(6, flats.len());
         }
     }
 
