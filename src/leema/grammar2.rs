@@ -2031,23 +2031,27 @@ mod tests
         }
     }
 
-    #[test]
-    fn test_parse_import_block()
+    fn parse_block_input() -> &'static str
     {
-        let input = "
-        import >>
+        "import >>
             core >>
                 io
-                list::head
+                list::*
             --
             m1::m2::m3
             myapp >>
+                .
                 tacos::burritos
                 tortas
             --
             blah
-        --";
-        let toks = Tokenz::lexp(input).unwrap();
+        --"
+    }
+
+    #[test]
+    fn test_parse_import_block()
+    {
+        let toks = Tokenz::lexp(parse_block_input()).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
         assert_eq!(1, ast.len());
         assert_matches!(*ast[0].node, Ast::ModAction(ModAction::Import, _));
@@ -2062,7 +2066,10 @@ mod tests
                 if let ModTree::Block(ref block) = &**sbox {
                     assert_eq!(ModTree::Id("io"), block[0]);
                     assert_matches!(block[1], ModTree::Sub("list", _));
-                    assert_eq!(2, block.len());
+                    if let ModTree::Sub(_, ref star) = block[1] {
+                        assert_eq!(ModTree::Wildcard, **star);
+                    }
+                    assert_eq!(3, block.len());
                 }
             }
             if let ModTree::Sub(_, ref sbox) = subs[1] {
@@ -2073,9 +2080,10 @@ mod tests
             }
             if let ModTree::Sub(_, ref sbox) = subs[2] {
                 if let ModTree::Block(ref block) = &**sbox {
-                    assert_matches!(block[0], ModTree::Sub("tacos", _));
-                    assert_eq!(ModTree::Id("tortas"), block[1]);
-                    assert_eq!(2, block.len());
+                    assert_eq!(ModTree::Dot, block[0]);
+                    assert_matches!(block[1], ModTree::Sub("tacos", _));
+                    assert_eq!(ModTree::Id("tortas"), block[2]);
+                    assert_eq!(3, block.len());
                 }
             }
         }
@@ -2084,20 +2092,7 @@ mod tests
     #[test]
     fn test_parse_import_collect()
     {
-        let input = "
-        include >>
-            core >>
-                io
-                list::head
-            --
-            m1::m2::m3
-            myapp >>
-                tacos::burritos
-                tortas
-            --
-            blah
-        --";
-        let toks = Tokenz::lexp(input).unwrap();
+        let toks = Tokenz::lexp(parse_block_input()).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
         assert_matches!(*ast[0].node, Ast::ModAction(ModAction::Include, _));
         if let Ast::ModAction(_, tree) = &*ast[0].node {
@@ -2105,7 +2100,6 @@ mod tests
             tree.collect(&mut flats);
 
             assert_eq!("core::io", flats["io"].str());
-            assert_eq!("core::list::head", flats["head"].str());
 
             assert_eq!("m1::m2::m3", flats["m3"].str());
 
@@ -2114,7 +2108,7 @@ mod tests
 
             assert_eq!("blah", flats["blah"].str());
 
-            assert_eq!(6, flats.len());
+            assert_eq!(5, flats.len());
         }
     }
 
