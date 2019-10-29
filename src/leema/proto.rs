@@ -6,7 +6,7 @@ use crate::leema::lstr::Lstr;
 use crate::leema::module::ModKey;
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::token::Tokenz;
-use crate::leema::val::{self, Fref, FuncType, GenericTypes, Type, Val};
+use crate::leema::val::{Fref, FuncType, GenericTypes, Type, Val};
 
 use std::collections::{HashMap, HashSet};
 
@@ -309,10 +309,10 @@ pub fn ast_to_type(
 ) -> Lresult<Type>
 {
     Ok(match &*node.node {
-        Ast::Id1("Bool") => val::TYPE_BOOL,
-        Ast::Id1("Int") => val::TYPE_INT,
-        Ast::Id1("Str") => val::TYPE_STR,
-        Ast::Id1("#") => val::TYPE_HASHTAG,
+        Ast::Id1("Bool") => Type::BOOL,
+        Ast::Id1("Int") => Type::INT,
+        Ast::Id1("Str") => Type::STR,
+        Ast::Id1("#") => Type::HASHTAG,
         Ast::Id1(id) if struple::contains_key(opens, id) => {
             Type::OpenVar(id)
         }

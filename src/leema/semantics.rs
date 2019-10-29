@@ -4,7 +4,7 @@ use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::{self, ProtoLib, ProtoModule};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
-use crate::leema::val::{self, Fref, FuncType, GenericTypes, GenericTypeSlice, Type, Val};
+use crate::leema::val::{Fref, FuncType, GenericTypes, GenericTypeSlice, Type, Val};
 
 use std::collections::HashMap;
 use std::fmt;
@@ -999,7 +999,7 @@ impl<'p> SemanticOp for TypeCheck<'p>
             Ast::StrExpr(ref _items) => {
                 // check items, but not necessary yet b/c everything
                 // converts to strings right now
-                node.typ = val::TYPE_STR.clone();
+                node.typ = Type::STR.clone();
             }
             Ast::Copy(ref src) => {
                 // this is a weird hacky thing just to pass through
@@ -1010,8 +1010,8 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 // all if cases should be boolean
                 let mut opens = vec![];
                 for case in cases.iter_mut() {
-                    ltry!(self.match_type(&case.cond.typ, &val::TYPE_BOOL, &mut opens));
-                    case.cond.typ = val::TYPE_BOOL.clone();
+                    ltry!(self.match_type(&case.cond.typ, &Type::BOOL, &mut opens));
+                    case.cond.typ = Type::BOOL.clone();
                 }
                 node.typ = self.match_case_types(cases)?;
             }

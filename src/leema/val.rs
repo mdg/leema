@@ -17,11 +17,6 @@ use std::sync::{Arc, Mutex};
 use mopa::mopafy;
 
 
-pub const TYPE_INT: Type = Type::User(Lstr::Sref("core"), "Int");
-pub const TYPE_STR: Type = Type::User(Lstr::Sref("core"), "Str");
-pub const TYPE_BOOL: Type = Type::User(Lstr::Sref("core"), "Bool");
-pub const TYPE_HASHTAG: Type = Type::User(Lstr::Sref("core"), "#");
-
 #[derive(Debug)]
 #[derive(Clone)]
 #[derive(PartialEq)]
@@ -138,7 +133,9 @@ pub enum Type
 impl Type
 {
     pub const INT: Type = Type::User(Lstr::Sref("core"), "Int");
-    pub const STR: Type = Type::User(Lstr::Sref("core"), "Int");
+    pub const STR: Type = Type::User(Lstr::Sref("core"), "Str");
+    pub const BOOL: Type = Type::User(Lstr::Sref("core"), "Bool");
+    pub const HASHTAG: Type = Type::User(Lstr::Sref("core"), "Hashtag");
 
     pub fn f(inputs: Struple2<Type>, result: Type) -> Type
     {
@@ -702,10 +699,10 @@ impl Val
     pub fn get_type(&self) -> Type
     {
         match self {
-            &Val::Bool(_) => TYPE_BOOL.clone(),
-            &Val::Int(_) => TYPE_INT.clone(),
-            &Val::Str(_) => TYPE_STR.clone(),
-            &Val::Hashtag(_) => TYPE_HASHTAG.clone(),
+            &Val::Bool(_) => Type::BOOL.clone(),
+            &Val::Int(_) => Type::INT.clone(),
+            &Val::Str(_) => Type::STR.clone(),
+            &Val::Hashtag(_) => Type::HASHTAG.clone(),
             &Val::Cons(ref head, _) => {
                 let inner = head.get_type();
                 Type::StrictList(Box::new(inner))
