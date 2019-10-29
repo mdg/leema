@@ -1,7 +1,7 @@
 use crate::leema::list;
 use crate::leema::lstr::Lstr;
 use crate::leema::struple::StrupleItem;
-use crate::leema::val::{Type, Val};
+use crate::leema::val::{self, Type, Val};
 
 
 pub const STRUCT_FIELD_TYPE: Type = Type::User(
@@ -126,7 +126,7 @@ pub fn new_struct_field(name: Option<Lstr>, typ: &Type) -> Val
 {
     let name_val = match name {
         Some(inner_name) => new_some(Val::Str(inner_name.clone())),
-        None => new_none(Type::Str),
+        None => new_none(val::TYPE_STR),
     };
     let fields = vec![
         StrupleItem::new(Some(Lstr::Sref("name")), name_val),
@@ -159,7 +159,7 @@ mod tests
 {
     use crate::leema::lstr::Lstr;
     use crate::leema::types;
-    use crate::leema::val::Type;
+    use crate::leema::val::{self, Type};
 
 
     #[test]
@@ -169,8 +169,8 @@ mod tests
         let tv = types::new_type_val(
             Lstr::Sref("Burrito"),
             &vec![
-                (Some(Lstr::Sref("filling")), Type::Str),
-                (Some(Lstr::Sref("has_rice")), Type::Bool),
+                (Some(Lstr::Sref("filling")), val::TYPE_STR),
+                (Some(Lstr::Sref("has_rice")), val::TYPE_BOOL),
             ],
         );
 
@@ -178,8 +178,8 @@ mod tests
             .expect("cannot find the burrito filling field");
         let has_rice = types::get_field_type(&tv, &Lstr::Sref("has_rice"))
             .expect("cannot find the burrito filling field");
-        assert_eq!(Type::Str, *filling.1);
-        assert_eq!(Type::Bool, *has_rice.1);
+        assert_eq!(TYPE_STR, *filling.1);
+        assert_eq!(TYPE_BOOL, *has_rice.1);
         assert_eq!(0, filling.0);
         assert_eq!(1, has_rice.0);
     }

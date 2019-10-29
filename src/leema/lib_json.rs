@@ -5,7 +5,7 @@ use crate::leema::list;
 use crate::leema::lmap::{Lmap, LmapNode};
 use crate::leema::lstr::Lstr;
 use crate::leema::struple::StrupleItem;
-use crate::leema::val::{Type, Val};
+use crate::leema::val::{self, Type, Val};
 use crate::leema::worker::RustFuncContext;
 
 use serde::ser::{Serialize, SerializeMap, SerializeSeq};
@@ -87,20 +87,20 @@ pub fn decode(mut ctx: RustFuncContext) -> Lresult<Event>
             panic!("not a generic");
         };
 
-        match tparam {
-            Type::Bool => {
+        match *tparam {
+            val::TYPE_BOOL => {
                 let b = serde_json::from_str(text).unwrap();
                 Val::Bool(b)
             }
-            Type::Int => {
+            val::TYPE_INT => {
                 let i = serde_json::from_str(text).unwrap();
                 Val::Int(i)
             }
-            Type::Str => {
+            val::TYPE_STR => {
                 let v: String = serde_json::from_str(text).unwrap();
                 Val::Str(Lstr::from(v))
             }
-            Type::Hashtag => {
+            val::TYPE_HASHTAG => {
                 let s: String = serde_json::from_str(text).unwrap();
                 Val::Hashtag(Lstr::from(s))
             }

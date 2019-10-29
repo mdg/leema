@@ -16,6 +16,7 @@ macro_rules! lstrf {
 }
 
 #[derive(Clone)]
+#[derive(PartialEq)]
 #[derive(Eq)]
 pub enum Lstr
 {
@@ -132,14 +133,6 @@ impl Borrow<str> for Lstr
     fn borrow(&self) -> &str
     {
         self.str()
-    }
-}
-
-impl PartialEq for Lstr
-{
-    fn eq(&self, b: &Lstr) -> bool
-    {
-        PartialEq::eq(self.str(), b.str())
     }
 }
 

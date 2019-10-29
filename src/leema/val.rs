@@ -17,6 +17,11 @@ use std::sync::{Arc, Mutex};
 use mopa::mopafy;
 
 
+pub const TYPE_INT: Type = Type::User(Lstr::Sref("core"), "Int");
+pub const TYPE_STR: Type = Type::User(Lstr::Sref("core"), "Str");
+pub const TYPE_BOOL: Type = Type::User(Lstr::Sref("core"), "Bool");
+pub const TYPE_HASHTAG: Type = Type::User(Lstr::Sref("core"), "#");
+
 #[derive(Debug)]
 #[derive(Clone)]
 #[derive(PartialEq)]
@@ -107,10 +112,6 @@ pub type GenericTypeSlice = [StrupleItem<&'static str, Type>];
 #[derive(Ord)]
 pub enum Type
 {
-    Int,
-    Str,
-    Bool,
-    Hashtag,
     Tuple(Struple2<Type>),
     Failure,
     Func(FuncType),
@@ -136,6 +137,9 @@ pub enum Type
 
 impl Type
 {
+    pub const INT: Type = Type::User(Lstr::Sref("core"), "Int");
+    pub const STR: Type = Type::User(Lstr::Sref("core"), "Int");
+
     pub fn f(inputs: Struple2<Type>, result: Type) -> Type
     {
         Type::Func(FuncType {
@@ -151,7 +155,6 @@ impl Type
     pub fn full_typename(&self) -> Lstr
     {
         match self {
-            &Type::Int => Lstr::Sref("Int"),
             &Type::User(ref m, ref name) => lstrf!("{}::{}", m, name),
             &Type::Void => Lstr::Sref("Void"),
             &Type::OpenVar(name) => Lstr::from(format!("${}", name)),
@@ -225,11 +228,7 @@ impl Type
     pub fn deep_clone(&self) -> Type
     {
         match self {
-            &Type::Str => Type::Str,
-            &Type::Bool => Type::Bool,
             &Type::Failure => Type::Failure,
-            &Type::Int => Type::Int,
-            &Type::Hashtag => Type::Hashtag,
             &Type::Tuple(ref items) => Type::Tuple(items.clone_for_send()),
             &Type::StrictList(ref i) => {
                 Type::StrictList(Box::new(i.deep_clone()))
@@ -314,10 +313,6 @@ impl fmt::Display for Type
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
-            &Type::Int => write!(f, "Int"),
-            &Type::Str => write!(f, "Str"),
-            &Type::Bool => write!(f, "Bool"),
-            &Type::Hashtag => write!(f, "Hashtag"),
             &Type::Tuple(ref items) => {
                 write!(f, "(")?;
                 for i in items {
@@ -354,10 +349,6 @@ impl fmt::Debug for Type
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
-            &Type::Int => write!(f, "Int"),
-            &Type::Str => write!(f, "Str"),
-            &Type::Bool => write!(f, "Bool"),
-            &Type::Hashtag => write!(f, "Hashtag"),
             &Type::Tuple(ref items) => write!(f, "{:?}", items),
             &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref ftyp) => write!(f, "{:?}", ftyp),
@@ -711,10 +702,10 @@ impl Val
     pub fn get_type(&self) -> Type
     {
         match self {
-            &Val::Bool(_) => Type::Bool,
-            &Val::Int(_) => Type::Int,
-            &Val::Str(_) => Type::Str,
-            &Val::Hashtag(_) => Type::Hashtag,
+            &Val::Bool(_) => TYPE_BOOL.clone(),
+            &Val::Int(_) => TYPE_INT.clone(),
+            &Val::Str(_) => TYPE_STR.clone(),
+            &Val::Hashtag(_) => TYPE_HASHTAG.clone(),
             &Val::Cons(ref head, _) => {
                 let inner = head.get_type();
                 Type::StrictList(Box::new(inner))
@@ -741,7 +732,7 @@ impl Val
             &Val::EnumStruct(ref typ, _, _) => typ.clone(),
             &Val::EnumToken(ref typ, _) => typ.clone(),
             &Val::Token(ref typ) => typ.clone(),
-            &Val::Buffer(_) => Type::Str,
+            &Val::Buffer(_) => Type::STR,
             &Val::Call(ref fref, _) => fref.t.clone(),
             &Val::Lib(ref lv) => lv.get_type(),
             &Val::ResourceRef(_) => {
@@ -1528,18 +1519,6 @@ mod tests
 
 
     #[test]
-    fn test_equal_type_str()
-    {
-        assert_eq!(Type::Str, Type::Str);
-    }
-
-    #[test]
-    fn test_equal_type_int()
-    {
-        assert_eq!(Type::Int, Type::Int);
-    }
-
-    #[test]
     fn test_tuple_from_list()
     {
         let origl = list::cons(Val::Int(4), list::singleton(Val::Int(7)));
@@ -1767,7 +1746,7 @@ mod tests
     fn test_get_type_int_list()
     {
         let typ = list::from2(Val::Int(3), Val::Int(8)).get_type();
-        assert_eq!(Type::StrictList(Box::new(Type::Int)), typ);
+        assert_eq!(Type::StrictList(TYPE_INT), typ);
     }
 
     #[test]
