@@ -1743,7 +1743,7 @@ mod tests
     fn test_get_type_int_list()
     {
         let typ = list::from2(Val::Int(3), Val::Int(8)).get_type();
-        assert_eq!(Type::StrictList(TYPE_INT), typ);
+        assert_eq!(Type::StrictList(Box::new(Type::INT)), typ);
     }
 
     #[test]

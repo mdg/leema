@@ -16,7 +16,6 @@ macro_rules! lstrf {
 }
 
 #[derive(Clone)]
-#[derive(PartialEq)]
 #[derive(Eq)]
 pub enum Lstr
 {
@@ -136,6 +135,14 @@ impl Borrow<str> for Lstr
     }
 }
 
+impl PartialEq for Lstr
+{
+    fn eq(&self, other: &Lstr) -> bool
+    {
+        PartialEq::eq(self.str(), other.str())
+    }
+}
+
 impl<'a, 'b> PartialEq<&'b Lstr> for &'a str
 {
     fn eq(&self, other: &&Lstr) -> bool
@@ -199,7 +206,7 @@ impl Hash for Lstr
 {
     fn hash<H: Hasher>(&self, state: &mut H)
     {
-        self.str().hash(state)
+        self.str().hash(state);
     }
 }
 
@@ -290,7 +297,8 @@ mod tests
     {
         let mut s = HashSet::new();
         s.insert(Lstr::from("tacos"));
-        assert!(s.contains(&Lstr::from("tacos")));
+        assert!(s.contains(&Lstr::Sref("tacos")));
+        assert!(s.get(&Lstr::Sref("tacos")).is_some());
     }
 
     #[test]
@@ -299,6 +307,7 @@ mod tests
         let mut s = HashSet::new();
         s.insert(Lstr::from("tacos"));
         assert!(s.contains(&Lstr::from(String::from("tacos"))));
+        assert!(s.get(&Lstr::from(String::from("tacos"))).is_some());
     }
 
     #[test]

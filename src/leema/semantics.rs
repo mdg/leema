@@ -1468,7 +1468,7 @@ mod tests
         proto.add_module(&Lstr::Sref("foo"), input).unwrap();
         let fref = Fref::with_modules(Lstr::Sref("foo"), "inc");
         let result = Semantics::compile_call(&mut proto, &fref).unwrap();
-        assert_eq!(val::TYPE_INT, result.src.typ);
+        assert_eq!(Type::INT, result.src.typ);
     }
 
     #[test]

@@ -87,30 +87,24 @@ pub fn decode(mut ctx: RustFuncContext) -> Lresult<Event>
             panic!("not a generic");
         };
 
-        match *tparam {
-            Type::BOOL => {
-                let b = serde_json::from_str(text).unwrap();
-                Val::Bool(b)
-            }
-            Type::INT => {
-                let i = serde_json::from_str(text).unwrap();
-                Val::Int(i)
-            }
-            Type::STR => {
-                let v: String = serde_json::from_str(text).unwrap();
-                Val::Str(Lstr::from(v))
-            }
-            Type::HASHTAG => {
-                let s: String = serde_json::from_str(text).unwrap();
-                Val::Hashtag(Lstr::from(s))
-            }
-            _ => {
-                return Err(rustfail!(
-                    "runtime_type_failure",
-                    "cannot decode json into type: {}",
-                    tparam,
-                ));
-            }
+        if *tparam == Type::BOOL {
+            let b = serde_json::from_str(text).unwrap();
+            Val::Bool(b)
+        } else if *tparam == Type::INT {
+            let i = serde_json::from_str(text).unwrap();
+            Val::Int(i)
+        } else if *tparam == Type::STR {
+            let v: String = serde_json::from_str(text).unwrap();
+            Val::Str(Lstr::from(v))
+        } else if *tparam == Type::HASHTAG {
+            let s: String = serde_json::from_str(text).unwrap();
+            Val::Hashtag(Lstr::from(s))
+        } else {
+            return Err(rustfail!(
+                "runtime_type_failure",
+                "cannot decode json into type: {}",
+                tparam,
+            ));
         }
     };
     ctx.set_result(result);
