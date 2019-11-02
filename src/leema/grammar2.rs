@@ -416,7 +416,7 @@ impl ParseStmt
         let next = p.next()?;
         let line = match next.tok {
             Token::Id => {
-                if p.next_if(Token::DoubleColon)?.is_some() {
+                if p.next_if(Token::Slash)?.is_some() {
                     let subline = Self::parse_import_line(p)?;
                     ModTree::sub(next.src, subline)
                 } else {
@@ -2026,7 +2026,7 @@ mod tests
     {
         let input = "
         import tacos
-        import burritos::tortas
+        import burritos/tortas
         ";
         let toks = Tokenz::lexp(input).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
@@ -2050,12 +2050,12 @@ mod tests
         "import >>
             core >>
                 io
-                list::*
+                list/*
             --
-            m1::m2::m3
+            m1/m2/m3
             myapp >>
                 .
-                tacos::burritos
+                tacos/burritos
                 tortas
             --
             blah
