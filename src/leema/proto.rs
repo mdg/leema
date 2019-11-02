@@ -20,6 +20,7 @@ pub struct ProtoModule
 {
     pub key: ModKey,
     pub imports: HashMap<&'static str, Lstr>,
+    pub exports: HashMap<&'static str, Vec<&'static str>>,
     pub macros: HashMap<&'static str, Ast>,
     pub constants: HashMap<&'static str, AstNode>,
     types: HashMap<&'static str, Type>,
@@ -38,6 +39,7 @@ impl ProtoModule
         let mut proto = ProtoModule {
             key,
             imports: HashMap::new(),
+            exports: HashMap::new(),
             macros: HashMap::new(),
             constants: HashMap::new(),
             types: HashMap::new(),

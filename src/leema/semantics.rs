@@ -340,7 +340,7 @@ impl<'l> SemanticOp for MacroApplication<'l>
                 match id {
                     "Bool"|"Int"|"Str"|"#" => {
                         let n2 = node.replace_node(
-                            Ast::Id2(Lstr::Sref("prefab"), id)
+                            Ast::Id2(Lstr::Sref("core"), id)
                         );
                         Ok(SemanticAction::Keep(n2))
                     }
@@ -1412,6 +1412,7 @@ mod tests
     {
         let mut loader = Interloader::default();
         let mut proto = ProtoLib::new();
+        lfailoc!(proto.load(&mut loader, &Lstr::Sref("core"))).unwrap();
         lfailoc!(proto.load(&mut loader, &Lstr::Sref("prefab"))).unwrap();
         proto
     }

@@ -176,7 +176,7 @@ impl Default for Interloader
 
         Interloader {
             main_mod: Lstr::Sref("__default__"),
-            paths: vec![leema_path],
+            paths: vec![root_path.to_path_buf(), leema_path],
             texts: HashMap::new(),
         }
     }

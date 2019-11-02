@@ -1,9 +1,4 @@
 
-type Bool --
-type Int --
-type Str --
-type # --
-
 macro boolean_and and_a and_b >>
     if
     |and_a >> and_b
