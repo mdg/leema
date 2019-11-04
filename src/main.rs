@@ -141,7 +141,7 @@ fn real_main() -> Lresult<()>
         let smod_name = inter.set_mod_txt(mod_key, String::from(&mod_name));
         let smod_lstr = Lstr::Sref(smod_name);
         let mut prog = program::Lib::new(inter);
-        prog.load_proto2(&Lstr::from(smod_lstr))?;
+        prog.load_proto_and_imports(&Lstr::from(smod_lstr))?;
         let proto = prog.find_proto(smod_name)?;
         println!("\n{:#?}\n", proto);
         None

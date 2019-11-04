@@ -26,6 +26,8 @@ pub enum Lstr
 
 impl Lstr
 {
+    pub const EMPTY: Lstr = Lstr::Sref("");
+
     pub fn empty() -> Lstr
     {
         Lstr::Sref("")

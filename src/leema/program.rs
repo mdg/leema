@@ -36,7 +36,7 @@ impl Lib
             code: HashMap::new(),
         };
 
-        lfailoc!(proglib.protos.load(&mut proglib.loader, &Lstr::Sref("prefab"))).unwrap();
+        lfailoc!(proglib.protos.load(&mut proglib.loader, &Lstr::EMPTY, &Lstr::Sref("prefab"))).unwrap();
 
         proglib
             .rust_load
@@ -103,13 +103,6 @@ impl Lib
         self.protos.get(modname)
     }
 
-    pub fn load_proto2(&mut self, modname: &Lstr) -> Lresult<()>
-    {
-        vout!("load_proto2: {}\n", modname);
-        self.protos.load(&mut self.loader, modname)?;
-        Ok(())
-    }
-
     pub fn read_semantics(
         &mut self,
         f: &Fref,
@@ -145,9 +138,9 @@ impl Lib
         }
     }
 
-    fn load_proto_and_imports(&mut self, modname: &Lstr) -> Lresult<()>
+    pub fn load_proto_and_imports(&mut self, modname: &Lstr) -> Lresult<()>
     {
-        self.protos.load(&mut self.loader, modname)?;
+        self.protos.load(&mut self.loader, &Lstr::EMPTY, modname)?;
         self.protos.load_imports(&mut self.loader, modname)
     }
 

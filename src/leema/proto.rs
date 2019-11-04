@@ -20,7 +20,7 @@ pub struct ProtoModule
 {
     pub key: ModKey,
     pub imports: HashMap<&'static str, Lstr>,
-    pub exports: HashMap<&'static str, Vec<&'static str>>,
+    pub exports: HashMap<&'static str, Lstr>,
     pub macros: HashMap<&'static str, Ast>,
     pub constants: HashMap<&'static str, AstNode>,
     types: HashMap<&'static str, Type>,
@@ -419,13 +419,62 @@ impl ProtoLib
     pub fn load(
         &mut self,
         loader: &mut Interloader,
+        modbase: &Lstr,
         modname: &Lstr,
     ) -> Lresult<()>
     {
-        vout!("ProtoLib::load({})\n", modname);
+        vout!("ProtoLib::load({}, {})\n", modbase, modname);
+        let (canonical_name, rem) = self.canonical_name(modbase, modname)?;
+        self.load_canonical(loader, &canonical_name)?;
+        if let Some(next) = rem {
+            self.load(loader, &canonical_name, &next)?;
+        }
+        Ok(())
+    }
+
+    pub fn canonical_name(
+        &self,
+        modbase: &Lstr,
+        modname: &Lstr,
+    ) -> Lresult<(Lstr, Option<Lstr>)>
+    {
+        vout!("ProtoLib::canonical_name({}, {})\n", modbase, modname);
+        let mut modit = modname.splitn(2, "/");
+        let mod1 = modit.next().expect("must have at least one module name");
+        let rem = modit.next().map(|s| Lstr::from(s.to_string()));
+
+        if modbase == "" {
+            return Ok((Lstr::from(mod1.to_string()), rem));
+        }
+        let canonical = self.get(modbase)?;
+
+        match canonical.exports.get(mod1) {
+            Some(export) => {
+                Ok((export.clone(), rem))
+            }
+            None => {
+                Err(rustfail!(
+                    PROTOFAIL,
+                    "module {} is not exported by module {}",
+                    mod1,
+                    modbase,
+                ))
+            }
+        }
+    }
+
+    /// load module by canonical name, w/o checking permissions etc
+    fn load_canonical(
+        &mut self,
+        loader: &mut Interloader,
+        modname: &Lstr,
+    ) -> Lresult<()>
+    {
+        vout!("ProtoLib::load_direct({})\n", modname);
         if self.protos.contains_key(modname) {
             return Ok(());
         }
+
         let modtxt = ltry!(loader.read_mod(modname));
         let modkey = ModKey::name_only(modname.clone());
         let proto = ProtoModule::new(modkey, modtxt)?;
@@ -464,7 +513,7 @@ impl ProtoLib
             }
         }
         for i in imported.iter() {
-            lfailoc!(self.load(loader, i))?;
+            lfailoc!(self.load(loader, &Lstr::EMPTY, i))?;
         }
         Ok(())
     }
