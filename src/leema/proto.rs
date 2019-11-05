@@ -457,6 +457,11 @@ impl ProtoLib
     ///   load_child(base_proto, next_path + postfix)
     /// if next_path is absolute:
     ///   load(next_path + next_tail)
+    ///
+    /// load_child(base_proto, child_path)
+    /// child_head, child_tail = child_path.split()
+    /// child_proto = find_child_proto(base_proto, child_head)
+    /// load_relative(child_proto, child_tail)
     pub fn load(
         &mut self,
         loader: &mut Interloader,
