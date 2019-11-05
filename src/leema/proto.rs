@@ -444,11 +444,20 @@ impl ProtoLib
     /// x exports y: y
     /// y exports z: z
     ///
-    /// load(mod_path)
+    /// load_absolute(mod_path)
     /// base_path, postfix = mod_path.split()
     /// base_proto = find_proto(base_path)
     /// load_relative(base_proto, postfix)
     ///
+    /// load_sibling(base_proto, mod_path)
+    /// sibling_base, postfix = mod_path.split()
+    /// base_proto = find_sibling_proto(base_proto, sibling_base)
+    /// load_relative(base_proto, postfix)
+    ///
+    /// load_child(base_proto, child_path)
+    /// child_head, child_tail = child_path.split()
+    /// child_proto = find_child_proto(base_proto, child_head)
+    /// load_relative(child_proto, child_tail)
     ///
     /// load_relative(base_proto, rel_path)
     /// next_prefix, postfix = relative_postfix.split()
@@ -456,12 +465,7 @@ impl ProtoLib
     /// if next_path is relative:
     ///   load_child(base_proto, next_path + postfix)
     /// if next_path is absolute:
-    ///   load(next_path + next_tail)
-    ///
-    /// load_child(base_proto, child_path)
-    /// child_head, child_tail = child_path.split()
-    /// child_proto = find_child_proto(base_proto, child_head)
-    /// load_relative(child_proto, child_tail)
+    ///   load_absolute(next_path + next_tail)
     pub fn load(
         &mut self,
         loader: &mut Interloader,

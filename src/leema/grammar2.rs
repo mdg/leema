@@ -2048,12 +2048,12 @@ mod tests
     fn parse_block_input() -> &'static str
     {
         "import >>
-            core >>
+            /core >>
                 io
                 list/*
             --
             m1/m2/m3
-            myapp >>
+            ../myapp >>
                 .
                 tacos/burritos
                 tortas
