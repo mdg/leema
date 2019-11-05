@@ -416,6 +416,42 @@ impl ProtoLib
         Ok(())
     }
 
+
+    /// (head, tail) = path.split()
+    /// proto_head = load_canonical(head)
+    /// (mid, tail2) = tail.split()
+    /// new_path in proto_head.exports[mid]
+    /// if new_path.startswith(head+mid) >>
+    ///   load(head+mid, tail2)
+    /// else if new_path.startswith(head) >>
+    ///   load(head, tail
+    ///
+    /// a/b/d
+    /// a exports b: b
+    /// b exports d: c/d
+    /// c exports d: d
+    ///
+    /// b cannot export a sibling's locals w/ relative path
+    /// a/b/f
+    /// a exports b: b
+    /// b exports f: /a/e/f
+    /// a exports e: e
+    /// e exports f: f
+    ///
+    /// a/b/y/z
+    /// a exports b: b
+    /// b exports y: /x/y
+    /// x exports y: y
+    /// y exports z: z
+    ///
+    /// input: canonical_prefix, relative_postfix
+    /// canonical_proto = find_proto(canonical_prefix)
+    /// next_prefix, next_tail = relative_postfix.split()
+    /// next_full = canonical_proto[next_prefix]
+    /// if next_full is relative:
+    ///   load_relative(canonical_prefix + next, next_tail)
+    /// if next_full is absolute:
+    ///   load(next_full + next_tail)
     pub fn load(
         &mut self,
         loader: &mut Interloader,
@@ -432,6 +468,11 @@ impl ProtoLib
         Ok(())
     }
 
+    /// in x: import /a/b/d
+    /// in a: export b
+    /// in b: export c/d
+    /// in c: export d
+    /// in d: blah
     pub fn canonical_name(
         &self,
         modbase: &Lstr,
