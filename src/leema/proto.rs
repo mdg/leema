@@ -444,14 +444,19 @@ impl ProtoLib
     /// x exports y: y
     /// y exports z: z
     ///
-    /// input: canonical_prefix, relative_postfix
-    /// canonical_proto = find_proto(canonical_prefix)
-    /// next_prefix, next_tail = relative_postfix.split()
-    /// next_full = canonical_proto[next_prefix]
-    /// if next_full is relative:
-    ///   load_relative(canonical_prefix + next, next_tail)
-    /// if next_full is absolute:
-    ///   load(next_full + next_tail)
+    /// load(mod_path)
+    /// base_path, postfix = mod_path.split()
+    /// base_proto = find_proto(base_path)
+    /// load_relative(base_proto, postfix)
+    ///
+    ///
+    /// load_relative(base_proto, rel_path)
+    /// next_prefix, postfix = relative_postfix.split()
+    /// next_path = base_proto.exports[next_prefix]
+    /// if next_path is relative:
+    ///   load_child(base_proto, next_path + postfix)
+    /// if next_path is absolute:
+    ///   load(next_path + next_tail)
     pub fn load(
         &mut self,
         loader: &mut Interloader,
