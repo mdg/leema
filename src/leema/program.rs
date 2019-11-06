@@ -5,7 +5,7 @@ use crate::leema::lib_map;
 use crate::leema::lib_str;
 use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
-use crate::leema::proto::{ProtoLib, ProtoModule};
+use crate::leema::proto::{ModPath, ProtoLib, ProtoModule};
 use crate::leema::semantics::Semantics;
 use crate::leema::val::Fref;
 use crate::leema::{
@@ -36,7 +36,7 @@ impl Lib
             code: HashMap::new(),
         };
 
-        lfailoc!(proglib.protos.load(&mut proglib.loader, &Lstr::EMPTY, &Lstr::Sref("prefab"))).unwrap();
+        lfailoc!(proglib.protos.load_absolute(&mut proglib.loader, ModPath::abs(vec!["prefab"]))).unwrap();
 
         proglib
             .rust_load
@@ -140,7 +140,9 @@ impl Lib
 
     pub fn load_proto_and_imports(&mut self, modname: &Lstr) -> Lresult<()>
     {
-        self.protos.load(&mut self.loader, &Lstr::EMPTY, modname)?;
+        let static_name = Interloader::static_str(String::from(modname));
+        let mod_path = ModPath::abs(vec![static_name]);
+        self.protos.load_absolute(&mut self.loader, mod_path)?;
         self.protos.load_imports(&mut self.loader, modname)
     }
 

@@ -1402,7 +1402,7 @@ mod tests
     use crate::leema::ast2::Ast;
     use crate::leema::loader::Interloader;
     use crate::leema::lstr::Lstr;
-    use crate::leema::proto::ProtoLib;
+    use crate::leema::proto::{ModPath, ProtoLib};
     use crate::leema::val::{Fref, Type};
 
     use matches::assert_matches;
@@ -1412,8 +1412,10 @@ mod tests
     {
         let mut loader = Interloader::default();
         let mut proto = ProtoLib::new();
-        lfailoc!(proto.load(&mut loader, &Lstr::Sref("core"))).unwrap();
-        lfailoc!(proto.load(&mut loader, &Lstr::Sref("prefab"))).unwrap();
+        let core_path = ModPath::abs(vec!["core"]);
+        let prefab_path = ModPath::abs(vec!["prefab"]);
+        lfailoc!(proto.load_absolute(&mut loader, core_path)).unwrap();
+        lfailoc!(proto.load_absolute(&mut loader, prefab_path)).unwrap();
         proto
     }
 

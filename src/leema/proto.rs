@@ -9,9 +9,110 @@ use crate::leema::token::Tokenz;
 use crate::leema::val::{Fref, FuncType, GenericTypes, Type, Val};
 
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 
 
 const PROTOFAIL: &'static str = "prototype_failure";
+
+
+#[derive(Clone)]
+#[derive(Copy)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(Eq)]
+#[derive(Hash)]
+enum ModRelativity
+{
+    Absolute,
+    Child,
+    Sibling,
+}
+
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(Eq)]
+#[derive(Hash)]
+pub struct ModPath
+{
+    relativity: ModRelativity,
+    path: Vec<&'static str>, // or Lstr
+}
+
+impl ModPath
+{
+    pub fn abs(path: Vec<&'static str>) -> ModPath
+    {
+        ModPath {
+            relativity: ModRelativity::Absolute,
+            path,
+        }
+    }
+
+    pub fn child(path: Vec<&'static str>) -> ModPath
+    {
+        ModPath {
+            relativity: ModRelativity::Child,
+            path,
+        }
+    }
+
+    pub fn push(&mut self, sub: &'static str)
+    {
+        self.path.push(sub);
+    }
+
+    pub fn join(&mut self, mut sub: ModPath)
+    {
+        self.path.append(&mut sub.path);
+    }
+
+    pub fn head(mut self) -> (&'static str, Option<ModPath>)
+    {
+        let head = self.path.remove(0);
+        self.relativity = ModRelativity::Child;
+        let tail = if self.path.is_empty() {
+            None
+        } else {
+            Some(self)
+        };
+        (head, tail)
+    }
+
+    pub fn split(mut self) -> (ModPath, Option<ModPath>)
+    {
+        let tail = self.path.split_off(1);
+        let opt_tail = if tail.is_empty() {
+            None
+        } else {
+            Some(ModPath::child(tail))
+        };
+        (self, opt_tail)
+    }
+}
+
+impl fmt::Display for ModPath
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        match self.relativity {
+            ModRelativity::Absolute => {
+                f.write_str("/")?;
+            }
+            ModRelativity::Sibling => {
+                f.write_str("../")?;
+            }
+            ModRelativity::Child => {
+                // nothing
+            }
+        }
+        f.write_str(self.path[0])?;
+        for p in self.path[1..].iter() {
+            write!(f, "/{}", p)?;
+        }
+        Ok(())
+    }
+}
 
 
 /// Asts separated into their types of components
@@ -20,7 +121,8 @@ pub struct ProtoModule
 {
     pub key: ModKey,
     pub imports: HashMap<&'static str, Lstr>,
-    pub exports: HashMap<&'static str, Lstr>,
+    pub imports2: HashMap<&'static str, ModPath>,
+    pub exports: HashMap<&'static str, ModPath>,
     pub macros: HashMap<&'static str, Ast>,
     pub constants: HashMap<&'static str, AstNode>,
     types: HashMap<&'static str, Type>,
@@ -39,6 +141,7 @@ impl ProtoModule
         let mut proto = ProtoModule {
             key,
             imports: HashMap::new(),
+            imports2: HashMap::new(),
             exports: HashMap::new(),
             macros: HashMap::new(),
             constants: HashMap::new(),
@@ -385,6 +488,7 @@ fn xlist_to_types(
 pub struct ProtoLib
 {
     protos: HashMap<Lstr, ProtoModule>,
+    lib: HashMap<Vec<&'static str>, ProtoModule>,
 }
 
 impl ProtoLib
@@ -393,6 +497,7 @@ impl ProtoLib
     {
         ProtoLib {
             protos: HashMap::new(),
+            lib: HashMap::new(),
         }
     }
 
@@ -415,7 +520,6 @@ impl ProtoLib
         self.protos.insert(modname.clone(), proto);
         Ok(())
     }
-
 
     /// (head, tail) = path.split()
     /// proto_head = load_canonical(head)
@@ -446,8 +550,8 @@ impl ProtoLib
     ///
     /// load_absolute(mod_path)
     /// base_path, postfix = mod_path.split()
-    /// base_proto = find_proto(base_path)
-    /// load_relative(base_proto, postfix)
+    /// load_canonical(base_path)
+    /// load_relative(base_path, postfix)
     ///
     /// load_sibling(base_proto, mod_path)
     /// sibling_base, postfix = mod_path.split()
@@ -459,29 +563,86 @@ impl ProtoLib
     /// child_proto = find_child_proto(base_proto, child_head)
     /// load_relative(child_proto, child_tail)
     ///
-    /// load_relative(base_proto, rel_path)
+    /// load_relative(base_path, rel_path)
     /// next_prefix, postfix = relative_postfix.split()
-    /// next_path = base_proto.exports[next_prefix]
+    /// base_proto = find_proto(base_path)
+    /// canonical_path = base_proto.exports[next_prefix]
     /// if next_path is relative:
-    ///   load_child(base_proto, next_path + postfix)
+    ///   load_child(canonical_path, next_path + postfix)
     /// if next_path is absolute:
-    ///   load_absolute(next_path + next_tail)
-    pub fn load(
+    ///   load_absolute(canonical_path + next_tail)
+    pub fn load_absolute(
         &mut self,
         loader: &mut Interloader,
-        modbase: &Lstr,
-        modname: &Lstr,
-    ) -> Lresult<()>
+        mod_path: ModPath,
+    ) -> Lresult<ModPath>
     {
-        vout!("ProtoLib::load({}, {})\n", modbase, modname);
-        let (canonical_name, rem) = self.canonical_name(modbase, modname)?;
-        self.load_canonical(loader, &canonical_name)?;
-        if let Some(next) = rem {
-            self.load(loader, &canonical_name, &next)?;
-        }
-        Ok(())
+        vout!("ProtoLib::load_absolute({})\n", mod_path);
+        let (head, tail) = mod_path.split();
+        self.load_canonical(loader, &head)?;
+        self.load_relative(loader, head, tail)
     }
 
+    pub fn load_child(
+        &mut self,
+        loader: &mut Interloader,
+        mut base_path: ModPath,
+        child_path: ModPath,
+    ) -> Lresult<ModPath>
+    {
+        vout!("ProtoLib::load_child({:?}, {:?})\n", base_path, child_path);
+        let (head, tail) = child_path.head();
+        base_path.push(head);
+        self.load_canonical(loader, &base_path)?;
+        self.load_relative(loader, base_path, tail)
+    }
+
+    pub fn load_relative(
+        &mut self,
+        loader: &mut Interloader,
+        base_path: ModPath,
+        opt_next_path: Option<ModPath>,
+    ) -> Lresult<ModPath>
+    {
+        if opt_next_path.is_none() {
+            return Ok(base_path);
+        }
+        let (head, tail) = opt_next_path.unwrap().head();
+        let base_proto = ltry!(self.path_proto(&base_path));
+
+        let mut canonical_head = match base_proto.exports.get(head) {
+            Some(canon_head) => canon_head.clone(),
+            None => {
+                return Err(rustfail!(
+                    PROTOFAIL,
+                    "protomod not loaded: {:?}",
+                    head,
+                ));
+            }
+        };
+
+        if let Some(itail) = tail {
+            canonical_head.join(itail);
+        }
+        match canonical_head.relativity {
+            ModRelativity::Absolute => {
+                self.load_absolute(loader, canonical_head)
+            }
+            ModRelativity::Child => {
+                self.load_child(loader, base_path, canonical_head)
+            }
+            ModRelativity::Sibling => {
+                Err(rustfail!(
+                    PROTOFAIL,
+                    "cannot load sibling module as child: {:?} / {:?}",
+                    base_path,
+                    canonical_head,
+                ))
+            }
+        }
+    }
+
+    /*
     /// in x: import /a/b/d
     /// in a: export b
     /// in b: export c/d
@@ -518,22 +679,75 @@ impl ProtoLib
         }
     }
 
-    /// load module by canonical name, w/o checking permissions etc
-    fn load_canonical(
+    pub fn load_exported_module(
+        &mut self,
+        loader: &mut Interloader,
+        loaded: &str,
+        imports: &str,
+    ) -> Lresult<()>
+    {
+        // load the canonical module name
+        self.load_canonical(parent)?;
+        if let Some(export) = modit.next() {
+            self.load_export(export)?;
+        }
+        Ok(())
+    }
+
+    pub fn load_exported_module_2(
         &mut self,
         loader: &mut Interloader,
         modname: &Lstr,
     ) -> Lresult<()>
     {
-        vout!("ProtoLib::load_direct({})\n", modname);
-        if self.protos.contains_key(modname) {
-            return Ok(());
+        match modit.next() {
+            Some(child) => {
+                // load this module, check its exports and load children
+                self.load_export(parent, child)
+            }
+            None => {
+                self.load_direct(parent)
+            }
         }
+    }
 
+    /// load a module exported exported by a previously loaded module
+    pub fn load_export(
+        &mut self,
+        loader: &mut Interloader,
+        parent: &Lstr,
+        export: &Lstr,
+    ) -> Lresult<()>
+    {
+        vout!("ProtoLib::load_export({}, {})\n", parent, export);
+
+        self.get_canonical_name(parent);
         let modtxt = ltry!(loader.read_mod(modname));
         let modkey = ModKey::name_only(modname.clone());
         let proto = ProtoModule::new(modkey, modtxt)?;
         self.protos.insert(modname.clone(), proto);
+        Ok(())
+    }
+    */
+
+    /// load module by canonical name, w/o checking permissions etc
+    fn load_canonical(
+        &mut self,
+        loader: &mut Interloader,
+        mod_path: &ModPath,
+    ) -> Lresult<()>
+    {
+        vout!("ProtoLib::load_direct({:?})\n", mod_path);
+        if self.lib.contains_key(&mod_path.path) {
+            // already loaded
+            return Ok(());
+        }
+
+        let modname = Lstr::from(mod_path.path.join("/"));
+        let modtxt = ltry!(loader.read_mod(&modname));
+        let modkey = ModKey::name_only(modname);
+        let proto = ProtoModule::new(modkey, modtxt)?;
+        self.lib.insert(mod_path.path.clone(), proto);
         Ok(())
     }
 
@@ -544,7 +758,7 @@ impl ProtoLib
     ) -> Lresult<()>
     {
         vout!("ProtoLib::load_imports({})\n", modname);
-        let mut imported: Vec<Lstr> = vec![];
+        let mut imported: Vec<ModPath> = vec![];
         {
             let proto = self.protos.get(modname).ok_or_else(|| {
                 rustfail!(
@@ -553,22 +767,24 @@ impl ProtoLib
                     modname,
                 )
             })?;
-            for (_, i) in proto.imports.iter() {
+            for (_, i) in proto.imports2.iter() {
+                /*
                 if i == modname {
                     return Err(rustfail!(
                         PROTOFAIL,
-                        "a module cannot import itself: {}",
+                        "a module cannot import itself: {:?}",
                         i,
                     ));
                 }
-                if self.protos.contains_key(i) {
+                */
+                if self.lib.contains_key(&i.path) {
                     continue;
                 }
                 imported.push(i.clone());
             }
         }
         for i in imported.iter() {
-            lfailoc!(self.load(loader, &Lstr::EMPTY, i))?;
+            lfailoc!(self.load_absolute(loader, i.clone()))?;
         }
         Ok(())
     }
@@ -591,6 +807,13 @@ impl ProtoLib
     {
         self.protos.get(modname).ok_or_else(|| {
             rustfail!(PROTOFAIL, "module not loaded: {}", modname,)
+        })
+    }
+
+    pub fn path_proto(&self, path: &ModPath) -> Lresult<&ProtoModule>
+    {
+        self.lib.get(&path.path).ok_or_else(|| {
+            rustfail!(PROTOFAIL, "module not loaded: {:?}", path)
         })
     }
 }
