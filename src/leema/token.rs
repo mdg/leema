@@ -180,6 +180,7 @@ pub enum Token
     DoubleArrow,
     DoubleColon,
     DoubleDash,
+    DoubleDot,
     Pipe,
     Semicolon,
     StatementSep,
@@ -360,6 +361,9 @@ struct ScanModeDash;
 struct ScanModeDollar;
 
 #[derive(Debug)]
+struct ScanModeDot;
+
+#[derive(Debug)]
 struct ScanModeEqual;
 
 #[derive(Debug)]
@@ -430,7 +434,7 @@ impl ScanModeTrait for ScanModeLine
             // separators
             ':' => ScanOutput::Start(ScanModeOp::Push(&ScanModeColon)),
             ',' => ScanOutput::Token(Token::Comma, true, ScanModeOp::Noop),
-            '.' => ScanOutput::Token(Token::Dot, true, ScanModeOp::Noop),
+            '.' => ScanOutput::Start(ScanModeOp::Push(&ScanModeDot)),
             '|' => ScanOutput::Token(Token::Pipe, true, ScanModeOp::Noop),
             // whitespace
             '\n' => ScanOutput::Token(Token::LineEnd, true, ScanModeOp::Pop),
@@ -681,6 +685,23 @@ impl ScanModeTrait for ScanModeDollar
     fn eof(&self) -> ScanResult
     {
         Ok(ScanOutput::Token(Token::Dash, false, ScanModeOp::Pop))
+    }
+}
+
+impl ScanModeTrait for ScanModeDot
+{
+    fn scan(&self, next: Char) -> ScanResult
+    {
+        let output = match next.c {
+            '.' => ScanOutput::Token(Token::DoubleDot, true, ScanModeOp::Pop),
+            _ => ScanOutput::Token(Token::Dot, false, ScanModeOp::Pop),
+        };
+        Ok(output)
+    }
+
+    fn eof(&self) -> ScanResult
+    {
+        Ok(ScanOutput::Token(Token::Dot, false, ScanModeOp::Pop))
     }
 }
 
@@ -1502,7 +1523,7 @@ mod tests
     #[test]
     fn test_tokenz_separators()
     {
-        let input = ": , . :: := | :";
+        let input = ": , . .. :: := | :";
 
         let t: Vec<TokenResult> = Tokenz::lex(input).collect();
         let mut i = t.iter();
@@ -1512,6 +1533,8 @@ mod tests
         assert_eq!(Token::Comma, nextok(&mut i).0);
         i.next();
         assert_eq!(Token::Dot, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::DoubleDot, nextok(&mut i).0);
         i.next();
         assert_eq!(Token::DoubleColon, nextok(&mut i).0);
         i.next();
