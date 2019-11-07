@@ -1,4 +1,4 @@
-use crate::leema::ast2::{Ast, AstNode, DataType, ModAction, Xlist};
+use crate::leema::ast2::{Ast, AstNode, DataType, ModAction, ModRelativity, Xlist};
 use crate::leema::failure::Lresult;
 use crate::leema::grammar2::Grammar;
 use crate::leema::loader::Interloader;
@@ -14,19 +14,6 @@ use std::fmt;
 
 const PROTOFAIL: &'static str = "prototype_failure";
 
-
-#[derive(Clone)]
-#[derive(Copy)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(Eq)]
-#[derive(Hash)]
-enum ModRelativity
-{
-    Absolute,
-    Child,
-    Sibling,
-}
 
 #[derive(Clone)]
 #[derive(Debug)]

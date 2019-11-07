@@ -398,7 +398,7 @@ impl ParseStmt
         let tree_tok = p.peek()?;
         let tree = match tree_tok.tok {
             Token::DoubleArrow => Self::parse_import_block(p)?,
-            Token::Id => Self::parse_import_line(p)?,
+            Token::Id => Self::parse_import_line(p, false)?,
             _ => {
                 return Err(rustfail!(
                     PARSE_FAIL,
@@ -411,20 +411,43 @@ impl ParseStmt
         Ok(AstNode::new(Ast::ModAction(action, tree), Ast::loc(&tok)))
     }
 
-    fn parse_import_line(p: &mut Parsl) -> Lresult<ModTree>
+    fn parse_import_line(p: &mut Parsl, first: bool) -> Lresult<ModTree>
     {
         let next = p.next()?;
         let line = match next.tok {
             Token::Id => {
                 if p.next_if(Token::Slash)?.is_some() {
-                    let subline = Self::parse_import_line(p)?;
+                    let subline = Self::parse_import_line(p, false)?;
                     ModTree::sub(next.src, subline)
                 } else {
                     ModTree::Id(next.src)
                 }
             }
+            Token::DoubleDot if first => {
+                expect_next!(p, Token::Slash)?;
+                let sibling = Self::parse_import_line(p, false)?;
+                ModTree::Sibling(Box::new(sibling))
+            }
+            Token::Slash if first => {
+                let root = Self::parse_import_line(p, false)?;
+                ModTree::Root(Box::new(root))
+            }
             Token::Star => ModTree::Wildcard,
             Token::Dot => ModTree::Module,
+            Token::DoubleDot if !first => {
+                return Err(rustfail!(
+                    PARSE_FAIL,
+                    "siblings can only be included at the top level: {:?}",
+                    next,
+                ));
+            }
+            Token::Slash if !first => {
+                return Err(rustfail!(
+                    PARSE_FAIL,
+                    "unexpected / token {:?}",
+                    next,
+                ));
+            }
             _ => {
                 return Err(rustfail!(
                     PARSE_FAIL,
@@ -443,7 +466,7 @@ impl ParseStmt
 
         let mut block = vec![];
         while p.peek_token()? != Token::DoubleDash {
-            let mut line = ltry!(Self::parse_import_line(p));
+            let mut line = ltry!(Self::parse_import_line(p, true));
             let next_tok = p.peek()?;
             if next_tok.tok == Token::DoubleArrow {
                 let iblock = ltry!(Self::parse_import_block(p));
@@ -2070,9 +2093,9 @@ mod tests
         assert_eq!(1, ast.len());
         assert_matches!(*ast[0].node, Ast::ModAction(ModAction::Import, _));
         if let Ast::ModAction(_, ModTree::Block(subs)) = &*ast[0].node {
-            assert_matches!(subs[0], ModTree::Sub("core", _));
+            assert_matches!(subs[0], ModTree::Root(_));
             assert_matches!(subs[1], ModTree::Sub("m1", _));
-            assert_matches!(subs[2], ModTree::Sub("myapp", _));
+            assert_matches!(subs[2], ModTree::Sibling(_));
             assert_eq!(ModTree::Id("blah"), subs[3]);
             assert_eq!(4, subs.len());
 

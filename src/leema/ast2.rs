@@ -34,6 +34,19 @@ impl Default for Loc
 #[derive(Copy)]
 #[derive(Debug)]
 #[derive(PartialEq)]
+#[derive(Eq)]
+#[derive(Hash)]
+pub enum ModRelativity
+{
+    Absolute,
+    Child,
+    Sibling,
+}
+
+#[derive(Clone)]
+#[derive(Copy)]
+#[derive(Debug)]
+#[derive(PartialEq)]
 #[derive(PartialOrd)]
 pub enum DataType
 {
@@ -98,6 +111,8 @@ pub enum ModTree
     Block(Vec<ModTree>),
     Sub(&'static str, Box<ModTree>),
     Module,
+    Root(Box<ModTree>),
+    Sibling(Box<ModTree>),
     Wildcard,
 }
 
@@ -117,6 +132,12 @@ impl ModTree
             ModTree::Sub(_, ref mut b) => {
                 b.push_sub(tail);
             }
+            ModTree::Root(ref mut sub) => {
+                sub.push_sub(tail);
+            }
+            ModTree::Sibling(ref mut sub) => {
+                sub.push_sub(tail);
+            }
             ModTree::Block(_)|ModTree::Module|ModTree::Wildcard => {
                 // these can't really contain a sub
                 // this should never happen
@@ -128,10 +149,10 @@ impl ModTree
     pub fn collect(&self, flats: &mut HashMap<&'static str, Lstr>)
     {
         let mut paths = Vec::with_capacity(16);
-        self._collect(flats, &mut paths);
+        self._collect(flats, ModRelativity::Child, &mut paths);
     }
 
-    pub fn _collect(&self, flats: &mut HashMap<&'static str, Lstr>, path: &mut Vec<&'static str>)
+    pub fn _collect(&self, flats: &mut HashMap<&'static str, Lstr>, rel: ModRelativity, path: &mut Vec<&'static str>)
     {
         match self {
             ModTree::Id(id) => {
@@ -141,13 +162,25 @@ impl ModTree
             }
             ModTree::Sub(id, subs) => {
                 path.push(id);
-                subs._collect(flats, path);
+                subs._collect(flats, rel, path);
                 path.pop();
             }
             ModTree::Block(block) => {
                 for item in block.iter() {
-                    item._collect(flats, path);
+                    item._collect(flats, rel, path);
                 }
+            }
+            ModTree::Root(subs) => {
+                if !path.is_empty() {
+                    panic!("path must be empty for absolute path: {:?}", path);
+                }
+                subs._collect(flats, ModRelativity::Absolute, path);
+            }
+            ModTree::Sibling(subs) => {
+                if !path.is_empty() {
+                    panic!("path must be empty for sibling path: {:?}", path);
+                }
+                subs._collect(flats, ModRelativity::Sibling, path);
             }
             ModTree::Module => {
                 flats.insert(path.last().unwrap(), Lstr::from(path.join("::")));
