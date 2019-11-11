@@ -36,7 +36,7 @@ impl Lib
             code: HashMap::new(),
         };
 
-        lfailoc!(proglib.protos.load_absolute(&mut proglib.loader, &module::Chain::from("prefab"))).unwrap();
+        lfailoc!(proglib.protos.load_absolute(&mut proglib.loader, module::Chain::from("prefab"))).unwrap();
 
         proglib
             .rust_load
@@ -135,7 +135,7 @@ impl Lib
 
     pub fn load_proto_and_imports(&mut self, modpath: &module::Chain) -> Lresult<()>
     {
-        self.protos.load_absolute(&mut self.loader, modpath)?;
+        self.protos.load_absolute(&mut self.loader, modpath.clone())?;
         self.protos.load_imports(&mut self.loader, modpath)
     }
 

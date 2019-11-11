@@ -303,12 +303,12 @@ impl ProtoModule
             .ok_or_else(|| rustfail!(PROTOFAIL, "type not found: {}", name))
     }
 
-    pub fn imported_module(&self, modname: &'static str) -> Lresult<&ModPath>
+    pub fn imported_module(&self, modname: &str) -> Lresult<&ModPath>
     {
         self.imports
-            .get(&modname)
+            .get(modname)
             .or_else(|| {
-                self.exports.get(&modname)
+                self.exports.get(modname)
             })
             .ok_or_else(|| {
                 rustfail!(PROTOFAIL, "no module for name: {:?}", modname)
@@ -482,7 +482,7 @@ impl ProtoLib
     pub fn load_absolute(
         &mut self,
         loader: &mut Interloader,
-        mod_path: &module::Chain,
+        mod_path: module::Chain,
     ) -> Lresult<module::Chain>
     {
         vout!("ProtoLib::load_absolute({})\n", mod_path);
@@ -535,7 +535,7 @@ impl ProtoLib
         }
         match canonical_head.relativity {
             ModRelativity::Absolute => {
-                self.load_absolute(loader, &canonical_head.path)
+                self.load_absolute(loader, canonical_head.path)
             }
             ModRelativity::Child => {
                 self.load_child(loader, base_path, canonical_head.path)
@@ -689,7 +689,7 @@ impl ProtoLib
                 imported.push(i.path.clone());
             }
         }
-        for i in imported.iter() {
+        for i in imported.into_iter() {
             lfailoc!(self.load_absolute(loader, i))?;
         }
         Ok(())
@@ -709,7 +709,7 @@ impl ProtoLib
             .map(|protomod| protomod.pop_func(func))
     }
 
-    pub fn imported_proto(&self, proto: &module::Chain, alias: &'static str) -> Lresult<&ProtoModule>
+    pub fn imported_proto(&self, proto: &module::Chain, alias: &str) -> Lresult<&ProtoModule>
     {
         let protomod = self.protos.get(proto).ok_or_else(|| {
             rustfail!(PROTOFAIL, "module not loaded: {:?}", proto)

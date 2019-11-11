@@ -131,7 +131,7 @@ impl Interloader
                 return Ok(check_path);
             }
 
-            check_path = p.join(mod_path);
+            check_path = p.join(mod_path.clone());
             if check_path.exists() && check_path.is_file() {
                 return Ok(check_path);
             }

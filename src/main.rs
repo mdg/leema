@@ -110,6 +110,7 @@ fn real_main() -> Lresult<()>
     let leema_args = list::reverse(&leema_args_rev);
     let mut inter = Interloader::new(main_file, &leema_path);
     let main_key = inter.new_key(&inter.main_mod)?;
+    let main_mod = inter.main_mod.clone();
     let fref = match args.flag_func {
         Some(func) => {
             let sfunc = Interloader::static_str(func);
@@ -121,7 +122,7 @@ fn real_main() -> Lresult<()>
             Fref::new(main_key.clone(), "main", main_type)
         }
     };
-    vout!("run {}\n", inter.main_mod);
+    vout!("run {}\n", main_mod);
 
     let main_result = if args.flag_tokens {
         let modtxt = inter.read_mod(&main_key)?;
@@ -138,8 +139,8 @@ fn real_main() -> Lresult<()>
         None
     } else if args.flag_proto {
         let mut prog = program::Lib::new(inter);
-        prog.load_proto_and_imports(&inter.main_mod)?;
-        let proto = prog.find_proto(&inter.main_mod)?;
+        prog.load_proto_and_imports(&main_mod)?;
+        let proto = prog.find_proto(&main_mod)?;
         println!("\n{:#?}\n", proto);
         None
     } else if args.flag_semantics {
