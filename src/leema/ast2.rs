@@ -260,6 +260,9 @@ impl Ast
             Ast::Id1(id) => write!(f, "Id {}", id),
             Ast::Id2(id1, id2) => write!(f, "Id {}::{}", id1, id2),
             Ast::Ifx(args) => write!(f, "If {:?}", args),
+            Ast::ImportedId(import, id) => {
+                write!(f, "ImportedId {}/{}", import, id)
+            }
             Ast::Let(lhp, _lht, rhs) => write!(f, "Let {:?} := {:?}", lhp, rhs),
             Ast::List(items) => write!(f, "List {:?}", items),
             Ast::Matchx(None, args) => {

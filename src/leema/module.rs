@@ -1,4 +1,5 @@
 use crate::leema::lstr::Lstr;
+use crate::leema::sendclone;
 
 use std::fmt;
 use std::path::PathBuf;
@@ -170,6 +171,21 @@ impl fmt::Display for ModKey
     }
 }
 
+impl sendclone::SendClone for ModKey
+{
+    type Item = ModKey;
+
+    fn clone_for_send(&self) -> ModKey
+    {
+        ModKey {
+            name: self.name.clone_for_send(),
+            chain: self.chain.clone(),
+            file: self.file.clone(),
+        }
+    }
+}
+
+/// Collect a module chain together with a module relationship enum
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]

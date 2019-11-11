@@ -2,7 +2,6 @@ use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc, Xlist};
 use crate::leema::failure::Lresult;
 use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
-use crate::leema::module::ModPath;
 use crate::leema::proto::{self, ProtoLib, ProtoModule};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{Fref, FuncType, GenericTypes, GenericTypeSlice, Type, Val};
@@ -244,7 +243,7 @@ impl<'l> SemanticOp for MacroApplication<'l>
                 let optmac = match *callid.node {
                     Ast::Id1(macroname) => self.local.find_macro(macroname),
                     Ast::Id2(ref modname, ref macroname) => {
-                        self.proto.get(&modname)?.find_macro(macroname)
+                        self.proto.imported_proto(&self.local.key.chain, &modname)?.find_macro(macroname)
                     }
                     _ => None,
                 };
@@ -486,7 +485,7 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                 }
             }
             Ast::Id2(module, id) if self.mode == AstMode::Type => {
-                let proto = self.lib.get(module).map_err(|e| {
+                let proto = self.lib.imported_proto(&self.local_mod.key.chain, module).map_err(|e| {
                     e.add_context(Lstr::from(format!(
                         "module {} not found at {:?}",
                         module, node.loc
@@ -506,7 +505,7 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                 return Ok(SemanticAction::Keep(node));
             }
             Ast::Id2(module, id) => {
-                let proto = self.lib.get(module).map_err(|e| {
+                let proto = self.lib.imported_proto(&self.local_mod.key.chain, module).map_err(|e| {
                     e.add_context(Lstr::from(format!(
                         "module {} not found at {:?}",
                         module, node.loc
@@ -936,7 +935,7 @@ impl<'p> SemanticOp for TypeCheck<'p>
         match &mut *node.node {
             // Ast::Let(patt, dtype, x) => {
             Ast::Id2(modname, id) => {
-                let module = self.lib.get(modname)?;
+                let module = self.lib.imported_proto(&self.local_mod.key.chain, modname)?;
                 let typ = module.get_type(id)?;
                 node.typ = typ.clone();
             }
@@ -1131,7 +1130,7 @@ impl Semantics
     {
         let mut sem = Semantics::new();
 
-        let func_ast = proto.pop_func(&f.m, &f.f)?;
+        let func_ast = proto.pop_func(&f.m.chain, &f.f)?;
         let (_args, body) = func_ast.ok_or_else(|| {
             rustfail!(
                 SEMFAIL,
@@ -1140,7 +1139,7 @@ impl Semantics
             )
         })?;
 
-        let local_proto = proto.get(&ModPath::abs(vec![&f.m]))?;
+        let local_proto = proto.path_proto(&f.m.chain)?;
         let func_ref = local_proto.find_const(&f.f)
             .ok_or_else(|| {
                 rustfail!(
