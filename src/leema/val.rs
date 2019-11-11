@@ -3,6 +3,7 @@ use crate::leema::frame::FrameTrace;
 use crate::leema::list;
 use crate::leema::lmap::{self, LmapNode};
 use crate::leema::lstr::Lstr;
+use crate::leema::module::ModKey;
 use crate::leema::msg;
 use crate::leema::reg::{self, Ireg, Iregistry, Reg};
 use crate::leema::sendclone::{self, SendClone};
@@ -467,19 +468,19 @@ pub const FAILURE_TYPE: i8 = -8;
 #[derive(Ord)]
 pub struct Fref
 {
-    pub m: Lstr,
+    pub m: ModKey,
     pub f: &'static str,
     pub t: Type,
 }
 
 impl Fref
 {
-    pub fn new(m: Lstr, f: &'static str, t: Type) -> Fref
+    pub fn new(m: ModKey, f: &'static str, t: Type) -> Fref
     {
         Fref { m, f, t }
     }
 
-    pub fn with_modules(m: Lstr, f: &'static str) -> Fref
+    pub fn with_modules(m: ModKey, f: &'static str) -> Fref
     {
         Fref {
             m,

@@ -4,6 +4,7 @@ use crate::leema::frame::{Event, Frame, FrameTrace, Parent};
 use crate::leema::list;
 use crate::leema::lmap::Lmap;
 use crate::leema::lstr::Lstr;
+use crate::leema::module::ModKey;
 use crate::leema::reg::Reg;
 use crate::leema::struple::{Struple2, StrupleItem};
 use crate::leema::val::{Env, Fref, Type, Val};
@@ -31,7 +32,7 @@ impl Fiber
         }
     }
 
-    pub fn module_name(&self) -> &Lstr
+    pub fn module_name(&self) -> &ModKey
     {
         &self.head.function.m
     }

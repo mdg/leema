@@ -1,6 +1,5 @@
 use crate::leema::failure::Lresult;
-use crate::leema::lstr::Lstr;
-use crate::leema::module::ModKey;
+use crate::leema::module::{self, ModKey};
 
 use std::collections::HashMap;
 use std::env;
@@ -33,16 +32,17 @@ unsafe fn put_modtxt(val: String) -> &'static str
 #[derive(Debug)]
 pub struct Interloader
 {
-    pub main_mod: Lstr,
+    pub main_mod: module::Chain,
     paths: Vec<PathBuf>,
-    texts: HashMap<Lstr, &'static str>,
+    keys: HashMap<module::Chain, ModKey>,
+    texts: HashMap<module::Chain, &'static str>,
 }
 
 impl Interloader
 {
-    pub fn new(mainfile: Lstr, path_str: &str) -> Interloader
+    pub fn new(mainfile: &'static str, path_str: &str) -> Interloader
     {
-        let path = Path::new(mainfile.str());
+        let path = Path::new(mainfile);
         let ext = path.extension();
         if ext.is_none() {
             panic!("Main file has no extension: {}", mainfile);
@@ -60,70 +60,78 @@ impl Interloader
         let paths: Vec<PathBuf> = root_path.into_iter().chain(splits).collect();
 
         let mod_str =
-            Lstr::from(modname.unwrap().to_str().unwrap().to_string());
+            Self::static_str(modname.unwrap().to_str().unwrap().to_string());
+        let main_mod = module::Chain::from(mod_str);
         Interloader {
-            main_mod: mod_str,
+            main_mod,
             paths,
+            keys: HashMap::new(),
             texts: HashMap::new(),
         }
     }
 
     pub fn set_mod_txt(
         &mut self,
-        modname: Lstr,
+        key: ModKey,
         content: String,
     ) -> &'static str
     {
-        let stext = unsafe { put_modtxt(content) };
-        self.texts.insert(modname, stext);
+        let stext = Self::static_str(content);
+        self.texts.insert(key.chain.clone(), stext);
+        self.keys.insert(key.chain.clone(), key);
         stext
     }
 
-    fn mod_name_to_key(&self, mod_name: &Lstr) -> Lresult<ModKey>
+    pub fn new_key(&self, chain: &module::Chain) -> Lresult<ModKey>
     {
-        let contained = self.texts.contains_key(mod_name);
-        if contained {
-            Ok(ModKey::name_only(mod_name.clone()))
-        } else {
-            let path = ltry!(self.find_file_path(mod_name));
-            Ok(ModKey::new(mod_name.clone(), path))
+        if let Some(found) = self.keys.get(chain) {
+            return Ok(found.clone());
         }
+
+        let path = ltry!(self.find_file_path(chain));
+        Ok(ModKey::new(chain.clone(), path))
     }
 
-    pub fn read_mod(&mut self, mod_name: &Lstr) -> Lresult<&'static str>
+    pub fn read_mod(&mut self, key: &ModKey) -> Lresult<&'static str>
     {
-        if let Some(txt) = self.texts.get(mod_name) {
+        if let Some(txt) = self.texts.get(&key.chain) {
             return Ok(txt);
         }
 
-        let mod_key = ltry!(self.mod_name_to_key(mod_name));
-        let filepath = mod_key.file.as_ref().ok_or_else(|| {
+        let filepath = key.file.as_ref().ok_or_else(|| {
             rustfail!(
                 "file_not_found",
                 "could not find text for module with no file: {}",
-                mod_name,
+                key,
             )
         })?;
         let text = self.read_file_text(filepath)?;
-        let stext = self.set_mod_txt(mod_name.clone(), text);
-        self.texts.insert(mod_name.clone(), stext);
+        let stext = self.set_mod_txt(key.clone(), text);
         Ok(stext)
     }
 
+    /// turn any regular String into a &'static str that will live forever
     pub fn static_str(s: String) -> &'static str
     {
         unsafe { put_modtxt(s) }
     }
 
-    fn find_file_path(&self, name: &Lstr) -> Lresult<PathBuf>
+    /// this all seems suboptimal, but it can probably be fixed later
+    fn find_file_path(&self, name: &module::Chain) -> Lresult<PathBuf>
     {
         let mut file_path = PathBuf::new();
-        file_path.push(name.str());
+        file_path.push(String::from(name));
+        let mod_path = file_path.join("_.lma");
         file_path.set_extension("lma");
 
         for p in self.paths.iter() {
             let mut check_path = p.clone();
             check_path.push(file_path.clone());
+            if check_path.exists() && check_path.is_file() {
+                return Ok(check_path);
+            }
+
+            check_path = p.join(mod_path);
             if check_path.exists() && check_path.is_file() {
                 return Ok(check_path);
             }
@@ -175,8 +183,9 @@ impl Default for Interloader
         let leema_path = root_path.join(Path::new("lib"));
 
         Interloader {
-            main_mod: Lstr::Sref("__default__"),
+            main_mod: module::Chain::default(),
             paths: vec![root_path.to_path_buf(), leema_path],
+            keys: HashMap::new(),
             texts: HashMap::new(),
         }
     }

@@ -2,6 +2,7 @@ use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc, Xlist};
 use crate::leema::failure::Lresult;
 use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
+use crate::leema::module::ModPath;
 use crate::leema::proto::{self, ProtoLib, ProtoModule};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{Fref, FuncType, GenericTypes, GenericTypeSlice, Type, Val};
@@ -1139,7 +1140,7 @@ impl Semantics
             )
         })?;
 
-        let local_proto = proto.get(&f.m)?;
+        let local_proto = proto.get(&ModPath::abs(vec![&f.m]))?;
         let func_ref = local_proto.find_const(&f.f)
             .ok_or_else(|| {
                 rustfail!(
@@ -1150,14 +1151,14 @@ impl Semantics
             })?;
         let closed;
         let ftyp: &FuncType = match (&func_ref.typ, &f.t) {
-            (Type::Func(ft1), _) => {
+            (Type::Func(ref ft1), _) => {
                 closed = vec![];
                 ft1
             }
-            (Type::Generic(true, _ft1, _open), Type::Generic(false, ft2, iclosed)) => {
+            (Type::Generic(true, _ft1, _open), Type::Generic(false, ref ft2, ref iclosed)) => {
                 match &**ft2 {
                     // take the closed version that has real types
-                    Type::Func(ift2) => {
+                    Type::Func(ref ift2) => {
                         closed = iclosed.clone();
                         ift2
                     }

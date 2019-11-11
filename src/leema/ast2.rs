@@ -1,5 +1,6 @@
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
+use crate::leema::module::{self, ModPath, ModRelativity};
 use crate::leema::reg::Reg;
 use crate::leema::struple::{self, StrupleKV};
 use crate::leema::token::TokenSrc;
@@ -28,19 +29,6 @@ impl Default for Loc
             column: 0,
         }
     }
-}
-
-#[derive(Clone)]
-#[derive(Copy)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(Eq)]
-#[derive(Hash)]
-pub enum ModRelativity
-{
-    Absolute,
-    Child,
-    Sibling,
 }
 
 #[derive(Clone)]
@@ -146,18 +134,18 @@ impl ModTree
         }
     }
 
-    pub fn collect(&self, flats: &mut HashMap<&'static str, Lstr>)
+    pub fn collect(&self, flats: &mut HashMap<&'static str, ModPath>)
     {
-        let mut paths = Vec::with_capacity(16);
+        let mut paths = module::Chain::new(Vec::with_capacity(16));
         self._collect(flats, ModRelativity::Child, &mut paths);
     }
 
-    pub fn _collect(&self, flats: &mut HashMap<&'static str, Lstr>, rel: ModRelativity, path: &mut Vec<&'static str>)
+    pub fn _collect(&self, flats: &mut HashMap<&'static str, ModPath>, rel: ModRelativity, path: &mut module::Chain)
     {
         match self {
             ModTree::Id(id) => {
                 path.push(id);
-                flats.insert(id, Lstr::from(path.join("::")));
+                flats.insert(id, ModPath::new(rel, path.clone()));
                 path.pop();
             }
             ModTree::Sub(id, subs) => {
@@ -183,7 +171,7 @@ impl ModTree
                 subs._collect(flats, ModRelativity::Sibling, path);
             }
             ModTree::Module => {
-                flats.insert(path.last().unwrap(), Lstr::from(path.join("::")));
+                flats.insert(path.last(), ModPath::new(rel, path.clone()));
             }
             ModTree::Wildcard => {
                 // need to do something with this
@@ -211,6 +199,7 @@ pub enum Ast
     Id1(&'static str),
     Id2(Lstr, &'static str),
     Ifx(Vec<Case>),
+    ImportedId(ModPath, &'static str),
     LessThan3(AstNode, bool, AstNode, bool, AstNode),
     Let(AstNode, AstNode, AstNode),
     List(Xlist),

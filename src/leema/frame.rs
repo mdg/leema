@@ -1,6 +1,6 @@
 use crate::leema::code::Code;
 use crate::leema::failure::Lresult;
-use crate::leema::lstr::Lstr;
+use crate::leema::module::ModKey;
 use crate::leema::reg::{Ireg, Reg};
 use crate::leema::rsrc;
 use crate::leema::struple::Struple2;
@@ -166,7 +166,7 @@ impl FrameTrace
     {
         Arc::new(FrameTrace {
             direction: FrameTraceDirection::CallUp,
-            function: Fref::with_modules(Lstr::Sref(""), "__init__"),
+            function: Fref::with_modules(ModKey::default(), "__init__"),
             line: 0,
             parent: None,
         })

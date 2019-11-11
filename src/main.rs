@@ -103,28 +103,28 @@ fn real_main() -> Lresult<()>
         }
     };
 
-    let file = Lstr::from(args.arg_script);
+    let main_file = Interloader::static_str(args.arg_script);
     let leema_args_rev: Val = args.arg_args.iter().fold(Val::Nil, |aacc, a| {
         list::cons(Val::Str(Lstr::from(a.to_string())), aacc)
     });
     let leema_args = list::reverse(&leema_args_rev);
-    let mut inter = Interloader::new(file, &leema_path);
-    let mod_name = inter.main_mod.clone();
+    let mut inter = Interloader::new(main_file, &leema_path);
+    let main_key = inter.new_key(&inter.main_mod)?;
     let fref = match args.flag_func {
         Some(func) => {
             let sfunc = Interloader::static_str(func);
-            Fref::with_modules(mod_name.clone(), sfunc)
+            Fref::with_modules(main_key.clone(), sfunc)
         }
         None => {
             let main_ftyp = FuncType::new(vec![], Type::Void);
             let main_type = Type::Func(main_ftyp);
-            Fref::new(mod_name.clone(), "main", main_type)
+            Fref::new(main_key.clone(), "main", main_type)
         }
     };
     vout!("run {}\n", inter.main_mod);
 
     let main_result = if args.flag_tokens {
-        let modtxt = inter.read_mod(&mod_name)?;
+        let modtxt = inter.read_mod(&main_key)?;
         let tokr: Vec<TokenResult> = Tokenz::lex(&modtxt).collect();
         println!("tokens:");
         for t in tokr {
@@ -132,17 +132,14 @@ fn real_main() -> Lresult<()>
         }
         None
     } else if args.flag_ast {
-        let modtxt = inter.read_mod(&mod_name)?;
+        let modtxt = inter.read_mod(&main_key)?;
         let ast = Grammar::new(Tokenz::lexp(&modtxt)?).parse_module()?;
         println!("{:#?}", ast);
         None
     } else if args.flag_proto {
-        let mod_key = lstrf!("mod name {}", mod_name);
-        let smod_name = inter.set_mod_txt(mod_key, String::from(&mod_name));
-        let smod_lstr = Lstr::Sref(smod_name);
         let mut prog = program::Lib::new(inter);
-        prog.load_proto_and_imports(&Lstr::from(smod_lstr))?;
-        let proto = prog.find_proto(smod_name)?;
+        prog.load_proto_and_imports(&inter.main_mod)?;
+        let proto = prog.find_proto(&inter.main_mod)?;
         println!("\n{:#?}\n", proto);
         None
     } else if args.flag_semantics {
