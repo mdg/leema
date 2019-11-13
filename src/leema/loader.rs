@@ -196,14 +196,13 @@ impl Default for Interloader
 mod tests
 {
     use crate::leema::loader::Interloader;
-    use crate::leema::lstr::Lstr;
 
     use std::path::Path;
 
     #[test]
     fn test_root_path()
     {
-        let i = Interloader::new(Lstr::Sref("hello/world.lma"), "lib");
+        let i = Interloader::new("hello/world.lma", "lib");
 
         let expected = vec![Path::new("hello"), Path::new("lib")];
         assert_eq!(expected, i.paths);
@@ -212,9 +211,9 @@ mod tests
     #[test]
     fn test_main_mod()
     {
-        let i = Interloader::new(Lstr::Sref("hello/world.lma"), "lib");
+        let i = Interloader::new("hello/world.lma", "lib");
 
-        assert_eq!("world", i.main_mod.str());
+        assert_eq!("world", &String::from(&i.main_mod));
     }
 
 }

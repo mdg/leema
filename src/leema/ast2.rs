@@ -136,7 +136,7 @@ impl ModTree
 
     pub fn collect(&self, flats: &mut HashMap<&'static str, ModPath>)
     {
-        let mut paths = module::Chain::new(Vec::with_capacity(16));
+        let mut paths = module::Chain::new(Vec::with_capacity(8));
         self._collect(flats, ModRelativity::Child, &mut paths);
     }
 

@@ -2136,14 +2136,14 @@ mod tests
             let mut flats = HashMap::new();
             tree.collect(&mut flats);
 
-            assert_eq!("core::io", flats["io"].str());
+            assert_eq!("core::io", format!("{}", flats["io"]));
 
-            assert_eq!("m1::m2::m3", flats["m3"].str());
+            assert_eq!("m1::m2::m3", format!("{}", flats["m3"]));
 
-            assert_eq!("myapp::tacos::burritos", flats["burritos"].str());
-            assert_eq!("myapp::tortas", flats["tortas"].str());
+            assert_eq!("myapp::tacos::burritos", format!("{}", flats["burritos"]));
+            assert_eq!("myapp::tortas", format!("{}", flats["tortas"]));
 
-            assert_eq!("blah", flats["blah"].str());
+            assert_eq!("blah", format!("{}", flats["blah"]));
 
             assert_eq!(6, flats.len());
         }

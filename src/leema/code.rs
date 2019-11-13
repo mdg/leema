@@ -768,7 +768,7 @@ mod tests
     use crate::leema::ast2::{Ast, AstNode, Loc};
     use crate::leema::code::{self, Op};
     use crate::leema::loader::Interloader;
-    use crate::leema::lstr::Lstr;
+    use crate::leema::module::ModKey;
     use crate::leema::program;
     use crate::leema::reg::Reg;
     use crate::leema::val::{Fref, Val};
@@ -804,10 +804,10 @@ mod tests
             ",
         );
 
-        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
-        loader.set_mod_txt(Lstr::Sref("tacos"), input);
+        let mut loader = Interloader::new("tacos.lma", "lib");
+        loader.set_mod_txt(From::from("tacos"), input);
         let mut prog = program::Lib::new(loader);
-        let fref = Fref::with_modules(Lstr::Sref("tacos"), "main");
+        let fref = Fref::with_modules(From::from("tacos"), "main");
         prog.load_code(&fref).unwrap();
     }
 
@@ -829,10 +829,10 @@ mod tests
             "
         .to_string();
 
-        let mut loader = Interloader::new(Lstr::Sref("tacos.lma"), "lib");
-        loader.set_mod_txt(Lstr::Sref("tacos"), input);
+        let mut loader = Interloader::new("tacos.lma", "lib");
+        loader.set_mod_txt(ModKey::from("tacos"), input);
         let mut prog = program::Lib::new(loader);
-        let fref = Fref::with_modules(Lstr::Sref("tacos"), "main");
+        let fref = Fref::with_modules(From::from("tacos"), "main");
         prog.load_code(&fref).unwrap();
     }
 

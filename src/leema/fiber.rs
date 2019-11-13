@@ -449,7 +449,7 @@ mod tests
         let r1 = Reg::local(1);
         let r2 = Reg::local(2);
         let main_parent = Parent::new_main();
-        let callri = Fref::with_modules(Lstr::Sref("foo"), "bar");
+        let callri = Fref::with_modules(From::from("foo"), "bar");
         let mut frame =
             Frame::new_root(main_parent, callri, Vec::new());
         frame.e.set_reg(r1, Val::Str(Lstr::Sref("i like ")));

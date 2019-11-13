@@ -1401,8 +1401,8 @@ mod tests
     use super::Semantics;
     use crate::leema::ast2::Ast;
     use crate::leema::loader::Interloader;
-    use crate::leema::lstr::Lstr;
-    use crate::leema::proto::{ModPath, ProtoLib};
+    use crate::leema::module::{self, ModKey};
+    use crate::leema::proto::ProtoLib;
     use crate::leema::val::{Fref, Type};
 
     use matches::assert_matches;
@@ -1412,8 +1412,8 @@ mod tests
     {
         let mut loader = Interloader::default();
         let mut proto = ProtoLib::new();
-        let core_path = ModPath::abs(vec!["core"]);
-        let prefab_path = ModPath::abs(vec!["prefab"]);
+        let core_path = module::Chain::from("core");
+        let prefab_path = module::Chain::from("prefab");
         lfailoc!(proto.load_absolute(&mut loader, core_path)).unwrap();
         lfailoc!(proto.load_absolute(&mut loader, prefab_path)).unwrap();
         proto
@@ -1436,8 +1436,8 @@ mod tests
         "#;
 
         let mut proto = load_proto_with_prefab();
-        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
-        let fref = Fref::with_modules(Lstr::Sref("foo"), "main");
+        proto.add_module(From::from("foo"), input).unwrap();
+        let fref = Fref::with_modules(From::from("foo"), "main");
         let body = Semantics::compile_call(&mut proto, &fref).unwrap();
         assert_matches!(*body.src.node, Ast::Ifx(_));
     }
@@ -1457,8 +1457,8 @@ mod tests
         "#;
 
         let mut proto = ProtoLib::new();
-        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
-        let fref = Fref::with_modules(Lstr::Sref("foo"), "main");
+        proto.add_module(From::from("foo"), input).unwrap();
+        let fref = Fref::with_modules(From::from("foo"), "main");
         Semantics::compile_call(&mut proto, &fref).unwrap();
     }
 
@@ -1468,8 +1468,8 @@ mod tests
         let input = r#"func inc i:Int / Int >> i + 1 --"#;
 
         let mut proto = load_proto_with_prefab();
-        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
-        let fref = Fref::with_modules(Lstr::Sref("foo"), "inc");
+        proto.add_module(From::from("foo"), input).unwrap();
+        let fref = Fref::with_modules(From::from("foo"), "inc");
         let result = Semantics::compile_call(&mut proto, &fref).unwrap();
         assert_eq!(Type::INT, result.src.typ);
     }
@@ -1486,8 +1486,8 @@ mod tests
         "#;
 
         let mut proto = load_proto_with_prefab();
-        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
-        let fref = Fref::with_modules(Lstr::Sref("foo"), "main");
+        proto.add_module(From::from("foo"), input).unwrap();
+        let fref = Fref::with_modules(From::from("foo"), "main");
         Semantics::compile_call(&mut proto, &fref).unwrap();
     }
 
@@ -1502,8 +1502,8 @@ mod tests
         "#;
 
         let mut proto = load_proto_with_prefab();
-        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
-        let fref = Fref::with_modules(Lstr::Sref("foo"), "main");
+        proto.add_module(From::from("foo"), input).unwrap();
+        let fref = Fref::with_modules(From::from("foo"), "main");
         Semantics::compile_call(&mut proto, &fref).unwrap();
     }
 
@@ -1522,8 +1522,8 @@ mod tests
         "#;
 
         let mut proto = load_proto_with_prefab();
-        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
-        let fref = Fref::with_modules(Lstr::Sref("foo"), "main");
+        proto.add_module(From::from("foo"), input).unwrap();
+        let fref = Fref::with_modules(From::from("foo"), "main");
         let f = Semantics::compile_call(&mut proto, &fref).unwrap_err();
         assert_eq!("type_failure", f.tag.str());
         assert_eq!("wrong number of args, expected 1, found 2", f.msg.str());
@@ -1545,8 +1545,8 @@ mod tests
         "#;
 
         let mut proto = load_proto_with_prefab();
-        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
-        let fref = Fref::with_modules(Lstr::Sref("foo"), "main");
+        proto.add_module(From::from("foo"), input).unwrap();
+        let fref = Fref::with_modules(From::from("foo"), "main");
         Semantics::compile_call(&mut proto, &fref).unwrap();
     }
 
@@ -1567,8 +1567,8 @@ mod tests
         "#;
 
         let mut proto = load_proto_with_prefab();
-        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
-        let fref = Fref::with_modules(Lstr::Sref("foo"), "main");
+        proto.add_module(From::from("foo"), input).unwrap();
+        let fref = Fref::with_modules(From::from("foo"), "main");
         Semantics::compile_call(&mut proto, &fref).unwrap();
     }
 
@@ -1579,8 +1579,8 @@ mod tests
         let input = r#"func main >> foo() --"#;
 
         let mut proto = ProtoLib::new();
-        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
-        let fref = Fref::with_modules(Lstr::Sref("foo"), "main");
+        proto.add_module(From::from("foo"), input).unwrap();
+        let fref = Fref::with_modules(From::from("foo"), "main");
         Semantics::compile_call(&mut proto, &fref).unwrap();
     }
 
@@ -1596,9 +1596,9 @@ mod tests
         "#;
 
         let mut proto = load_proto_with_prefab();
-        proto.add_module(&Lstr::Sref("foo"), foo_input).unwrap();
-        proto.add_module(&Lstr::Sref("baz"), baz_input).unwrap();
-        let fref = Fref::with_modules(Lstr::Sref("baz"), "main");
+        proto.add_module(From::from("foo"), foo_input).unwrap();
+        proto.add_module(From::from("baz"), baz_input).unwrap();
+        let fref = Fref::with_modules(From::from("baz"), "main");
         Semantics::compile_call(&mut proto, &fref).unwrap();
     }
 
@@ -1615,9 +1615,9 @@ mod tests
         "#;
 
         let mut proto = ProtoLib::new();
-        proto.add_module(&Lstr::Sref("foo"), foo_input).unwrap();
-        proto.add_module(&Lstr::Sref("app"), app_input).unwrap();
-        let fref = Fref::with_modules(Lstr::Sref("app"), "main");
+        proto.add_module(From::from("foo"), foo_input).unwrap();
+        proto.add_module(From::from("app"), app_input).unwrap();
+        let fref = Fref::with_modules(From::from("app"), "main");
         Semantics::compile_call(&mut proto, &fref).unwrap();
     }
 
@@ -1632,8 +1632,8 @@ mod tests
         "#;
 
         let mut proto = ProtoLib::new();
-        proto.add_module(&Lstr::Sref("baz"), baz_input).unwrap();
-        let fref = Fref::with_modules(Lstr::Sref("baz"), "main");
+        proto.add_module(From::from("baz"), baz_input).unwrap();
+        let fref = Fref::with_modules(From::from("baz"), "main");
         let semantics = Semantics::compile_call(&mut proto, &fref);
         assert_eq!("semantic_failure", semantics.unwrap_err().tag.str());
     }
@@ -1649,8 +1649,8 @@ mod tests
         "#;
 
         let mut proto = ProtoLib::new();
-        proto.add_module(&Lstr::Sref("baz"), baz_input).unwrap();
-        let fref = Fref::with_modules(Lstr::Sref("baz"), "main");
+        proto.add_module(From::from("baz"), baz_input).unwrap();
+        let fref = Fref::with_modules(From::from("baz"), "main");
         Semantics::compile_call(&mut proto, &fref).unwrap();
     }
 
@@ -1664,8 +1664,8 @@ mod tests
         "#;
 
         let mut proto = ProtoLib::new();
-        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
-        let fref = Fref::with_modules(Lstr::Sref("foo"), "main");
+        proto.add_module(From::from("foo"), input).unwrap();
+        let fref = Fref::with_modules(From::from("foo"), "main");
         Semantics::compile_call(&mut proto, &fref).unwrap();
     }
 
@@ -1679,8 +1679,8 @@ mod tests
         "#;
 
         let mut proto = ProtoLib::new();
-        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
-        let fref = Fref::with_modules(Lstr::Sref("foo"), "main");
+        proto.add_module(module::Chain::from("foo"), input).unwrap();
+        let fref = Fref::with_modules(ModKey::from("foo"), "main");
         Semantics::compile_call(&mut proto, &fref).unwrap();
     }
 
@@ -1694,8 +1694,8 @@ mod tests
         "#;
 
         let mut proto = ProtoLib::new();
-        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
-        let fref = Fref::with_modules(Lstr::Sref("foo"), "main");
+        proto.add_module(module::Chain::from("foo"), input).unwrap();
+        let fref = Fref::with_modules(ModKey::from("foo"), "main");
         Semantics::compile_call(&mut proto, &fref).unwrap();
     }
 
@@ -1708,8 +1708,8 @@ mod tests
         "#;
 
         let mut proto = ProtoLib::new();
-        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
-        let fref = Fref::with_modules(Lstr::Sref("foo"), "inc");
+        proto.add_module(module::Chain::from("foo"), input).unwrap();
+        let fref = Fref::with_modules(ModKey::from("foo"), "inc");
         Semantics::compile_call(&mut proto, &fref).unwrap();
     }
 
@@ -1727,8 +1727,9 @@ mod tests
         "#;
 
         let mut proto = load_proto_with_prefab();
-        proto.add_module(&Lstr::Sref("foo"), input).unwrap();
-        let fref = Fref::with_modules(Lstr::Sref("foo"), "factf");
+        let mkey = ModKey::from("foo");
+        proto.add_module(mkey.chain.clone(), input).unwrap();
+        let fref = Fref::with_modules(mkey, "factf");
         Semantics::compile_call(&mut proto, &fref).unwrap();
     }
 

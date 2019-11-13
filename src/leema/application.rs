@@ -263,7 +263,7 @@ mod tests
 {
     use crate::leema::application::Application;
     use crate::leema::loader::Interloader;
-    use crate::leema::lstr::Lstr;
+    use crate::leema::module::ModKey;
     use crate::leema::program;
     use crate::leema::val::{Fref, Val};
 
@@ -279,14 +279,15 @@ mod tests
         };
         writeln!(stderr(), "test_main_func_finishes {:?}", p).unwrap();
         let input = "func main >> 3 --".to_string();
-        let mut inter = Interloader::new(Lstr::Sref("test.lma"), "lib");
-        inter.set_mod_txt(Lstr::Sref("test"), input);
+        let mut inter = Interloader::new("test.lma", "lib");
+        let test_key = ModKey::from("test");
+        inter.set_mod_txt(test_key.clone(), input);
         let prog = program::Lib::new(inter);
 
         let mut app = Application::new(prog);
         let caller = app.caller();
         let recv = caller.push_call(
-            Fref::with_modules(Lstr::Sref("test"), "main"),
+            Fref::with_modules(test_key, "main"),
             vec![],
         );
         app.run();
@@ -295,5 +296,4 @@ mod tests
         let result = app.wait_for_result(recv);
         assert_eq!(Some(Val::Int(3)), result);
     }
-
 }

@@ -147,6 +147,14 @@ impl From<Chain> for ModKey
     }
 }
 
+impl From<&'static str> for ModKey
+{
+    fn from(chain_str: &'static str) -> ModKey
+    {
+        ModKey::from(Chain::from(chain_str))
+    }
+}
+
 impl Default for ModKey
 {
     fn default() -> ModKey

@@ -71,7 +71,12 @@ impl ProtoModule
                     proto.add_union(name, variants)?;
                 }
                 Ast::ModAction(ModAction::Import, tree) => {
+                    let mut imports = HashMap::new();
+                    tree.collect(&mut imports);
+                }
+                Ast::ModAction(ModAction::Export, tree) => {
                     tree.collect(&mut proto.imports);
+                    // figure out what to do w/ exports later
                 }
                 _ => {
                     return Err(rustfail!(
@@ -739,7 +744,7 @@ mod tests
 
     fn new_proto(input: &'static str) -> ProtoModule
     {
-        let key = ModKey::name_only(Lstr::Sref("foo"));
+        let key = ModKey::from("foo");
         ProtoModule::new(key, input).expect("ProtoModule load failure")
     }
 
@@ -800,6 +805,23 @@ mod tests
             vec![StrupleItem::new("T", Type::Unknown)],
         );
         assert_eq!(expected, *point_type);
+    }
+
+    #[test]
+    fn test_proto_imports()
+    {
+        let proto = new_proto("
+        import tacos
+        import >>
+            burritos
+            tortas >>
+                huevos
+                rancheros
+            --
+        --
+        ");
+
+        assert_eq!(4, proto.imports.len());
     }
 
     #[test]
