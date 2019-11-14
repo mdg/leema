@@ -675,7 +675,7 @@ impl ProtoLib
     ) -> Lresult<()>
     {
         vout!("ProtoLib::load_imports({})\n", modname);
-        let mut imported: Vec<module::Chain> = vec![];
+        let mut imported: Vec<ModPath> = vec![];
         {
             let proto = self.protos.get(modname).ok_or_else(|| {
                 rustfail!(
@@ -695,11 +695,21 @@ impl ProtoLib
                 if self.protos.contains_key(&i.path) {
                     continue;
                 }
-                imported.push(i.path.clone());
+                imported.push(i.clone());
             }
         }
         for i in imported.into_iter() {
-            lfailoc!(self.load_absolute(loader, i))?;
+            match i.relativity {
+                ModRelativity::Absolute => {
+                    lfailoc!(self.load_absolute(loader, i.path))?;
+                }
+                ModRelativity::Child => {
+                    lfailoc!(self.load_child(loader, modname.clone(), i.path))?;
+                }
+                ModRelativity::Sibling => {
+                    lfailoc!(self.load_absolute(loader, i.path))?;
+                }
+            }
         }
         Ok(())
     }
@@ -881,10 +891,10 @@ mod tests
     }
 
     #[test]
-    fn test_proto_import_exports()
+    fn test_import_basic_exports()
     {
         let a = "
-        export >>
+        import >>
             b
             c >>
                 d
@@ -893,7 +903,7 @@ mod tests
         ".to_string();
         let b = "
         export foo
-        func foo() >> 3 --
+        func foo >> 3 --
         ".to_string();
         let c = "export >>
             d
@@ -901,13 +911,37 @@ mod tests
         ".to_string();
         let d = "
         export bar
-        func bar() >> 5 --
+        func bar >> 5 --
         ".to_string();
 
         let mut loader = Interloader::default();
         loader.set_mod_txt(ModKey::from("a"), a);
         loader.set_mod_txt(ModKey::from("a/b"), b);
         loader.set_mod_txt(ModKey::from("a/c"), c);
+        loader.set_mod_txt(ModKey::from("a/c/d"), d);
+
+        let mut protos = ProtoLib::new();
+        protos.load_absolute(&mut loader, Chain::from("a")).unwrap();
+        protos.load_imports(&mut loader, &Chain::from("a")).unwrap();
+
+        assert_eq!(4, protos.protos.len());
+    }
+
+    #[test]
+    fn test_import_skipped_export()
+    {
+        let a = "import b/d".to_string();
+        let b = "export c/d".to_string();
+        let c = "export d".to_string();
+        let d = "
+        export bar
+        func bar >> 5 --
+        ".to_string();
+
+        let mut loader = Interloader::default();
+        loader.set_mod_txt(ModKey::from("a"), a);
+        loader.set_mod_txt(ModKey::from("a/b"), b);
+        loader.set_mod_txt(ModKey::from("a/b/c"), c);
         loader.set_mod_txt(ModKey::from("a/b/c/d"), d);
 
         let mut protos = ProtoLib::new();
