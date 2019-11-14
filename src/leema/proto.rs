@@ -71,12 +71,16 @@ impl ProtoModule
                     proto.add_union(name, variants)?;
                 }
                 Ast::ModAction(ModAction::Import, tree) => {
-                    let mut imports = HashMap::new();
-                    tree.collect(&mut imports);
+                    tree.collect(&mut proto.imports);
                 }
                 Ast::ModAction(ModAction::Export, tree) => {
-                    tree.collect(&mut proto.imports);
                     // figure out what to do w/ exports later
+                    let mut exports = HashMap::new();
+                    tree.collect(&mut exports);
+                    for (k, v) in exports.into_iter() {
+                        proto.imports.insert(k, v.clone());
+                        proto.exports.insert(k, v);
+                    }
                 }
                 _ => {
                     return Err(rustfail!(
@@ -738,7 +742,14 @@ mod tests
 {
     use super::ProtoModule;
     use crate::leema::lstr::Lstr;
-    use crate::leema::module::ModKey;
+    use crate::leema::module::{
+        ModKey,
+        ModRelativity::{
+            Absolute,
+            Child,
+            Sibling,
+        },
+    };
     use crate::leema::struple::{self, StrupleItem};
     use crate::leema::val::{FuncType, Type};
 
@@ -811,17 +822,28 @@ mod tests
     fn test_proto_imports()
     {
         let proto = new_proto("
-        import tacos
+        import /tacos
         import >>
             burritos
             tortas >>
-                huevos
-                rancheros
+                huevos >>
+                    .
+                    rancheros
+                --
+                enchiladas
             --
+            ../nachos
         --
         ");
 
-        assert_eq!(4, proto.imports.len());
+        assert_eq!(6, proto.imports.len());
+        assert_eq!(0, proto.exports.len());
+        assert_eq!(Absolute, proto.imports["tacos"].relativity);
+        assert_eq!(Child, proto.imports["burritos"].relativity);
+        assert_eq!(Child, proto.imports["huevos"].relativity);
+        assert_eq!(Child, proto.imports["rancheros"].relativity);
+        assert_eq!(Child, proto.imports["enchiladas"].relativity);
+        assert_eq!(Sibling, proto.imports["nachos"].relativity);
     }
 
     #[test]
