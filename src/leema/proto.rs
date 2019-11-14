@@ -740,7 +740,8 @@ impl ProtoLib
 #[cfg(test)]
 mod tests
 {
-    use super::ProtoModule;
+    use super::{ProtoLib, ProtoModule};
+    use crate::leema::loader::Interloader;
     use crate::leema::lstr::Lstr;
     use crate::leema::module::{
         Chain,
@@ -877,6 +878,43 @@ mod tests
         assert_eq!(Child, proto.exports["tacos"].relativity);
         assert_eq!(Chain::from("tacos"), proto.imports["tacos"].path);
         assert_eq!(Chain::from("tacos"), proto.exports["tacos"].path);
+    }
+
+    #[test]
+    fn test_proto_import_exports()
+    {
+        let a = "
+        export >>
+            b
+            c >>
+                d
+            --
+        --
+        ".to_string();
+        let b = "
+        export foo
+        func foo() >> 3 --
+        ".to_string();
+        let c = "export >>
+            d
+        --
+        ".to_string();
+        let d = "
+        export bar
+        func bar() >> 5 --
+        ".to_string();
+
+        let mut loader = Interloader::default();
+        loader.set_mod_txt(ModKey::from("a"), a);
+        loader.set_mod_txt(ModKey::from("a/b"), b);
+        loader.set_mod_txt(ModKey::from("a/c"), c);
+        loader.set_mod_txt(ModKey::from("a/b/c/d"), d);
+
+        let mut protos = ProtoLib::new();
+        protos.load_absolute(&mut loader, Chain::from("a")).unwrap();
+        protos.load_imports(&mut loader, &Chain::from("a")).unwrap();
+
+        assert_eq!(4, protos.protos.len());
     }
 
     #[test]
