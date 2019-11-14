@@ -743,6 +743,7 @@ mod tests
     use super::ProtoModule;
     use crate::leema::lstr::Lstr;
     use crate::leema::module::{
+        Chain,
         ModKey,
         ModRelativity::{
             Absolute,
@@ -838,12 +839,44 @@ mod tests
 
         assert_eq!(6, proto.imports.len());
         assert_eq!(0, proto.exports.len());
+
         assert_eq!(Absolute, proto.imports["tacos"].relativity);
         assert_eq!(Child, proto.imports["burritos"].relativity);
         assert_eq!(Child, proto.imports["huevos"].relativity);
         assert_eq!(Child, proto.imports["rancheros"].relativity);
         assert_eq!(Child, proto.imports["enchiladas"].relativity);
         assert_eq!(Sibling, proto.imports["nachos"].relativity);
+
+        assert_eq!(Chain::from("tacos"), proto.imports["tacos"].path);
+        assert_eq!(Chain::from("burritos"), proto.imports["burritos"].path);
+        assert_eq!(
+            Chain::from("tortas/huevos"),
+            proto.imports["huevos"].path
+        );
+        assert_eq!(
+            Chain::from("tortas/huevos/rancheros"),
+            proto.imports["rancheros"].path
+        );
+        assert_eq!(
+            Chain::from("tortas/enchiladas"),
+            proto.imports["enchiladas"].path
+        );
+        assert_eq!(Chain::from("nachos"), proto.imports["nachos"].path);
+    }
+
+    #[test]
+    fn test_proto_exports()
+    {
+        let proto = new_proto("
+        export tacos
+        ");
+
+        assert_eq!(1, proto.imports.len());
+        assert_eq!(1, proto.exports.len());
+        assert_eq!(Child, proto.imports["tacos"].relativity);
+        assert_eq!(Child, proto.exports["tacos"].relativity);
+        assert_eq!(Chain::from("tacos"), proto.imports["tacos"].path);
+        assert_eq!(Chain::from("tacos"), proto.exports["tacos"].path);
     }
 
     #[test]
