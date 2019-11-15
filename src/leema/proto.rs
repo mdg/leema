@@ -496,7 +496,7 @@ impl ProtoLib
     {
         vout!("ProtoLib::load_absolute({})\n", mod_path);
         let (head, tail) = mod_path.split();
-        self.load_canonical(loader, &head)?;
+        ltry!(self.load_canonical(loader, &head));
         self.load_relative(loader, head, tail)
     }
 
@@ -510,7 +510,7 @@ impl ProtoLib
         vout!("ProtoLib::load_child({:?}, {:?})\n", base_path, child_path);
         let (head, tail) = child_path.head();
         base_path.push(head);
-        self.load_canonical(loader, &base_path)?;
+        ltry!(self.load_canonical(loader, &base_path));
         self.load_relative(loader, base_path, tail)
     }
 
@@ -533,7 +533,8 @@ impl ProtoLib
             None => {
                 return Err(rustfail!(
                     PROTOFAIL,
-                    "protomod not loaded: {:?}",
+                    "submodule {} not exported from {}",
+                    base_path,
                     head,
                 ));
             }
@@ -655,7 +656,7 @@ impl ProtoLib
         modpath: &module::Chain,
     ) -> Lresult<()>
     {
-        vout!("ProtoLib::load_direct({:?})\n", modpath);
+        vout!("ProtoLib::load_canonical({:?})\n", modpath);
         if self.protos.contains_key(&modpath) {
             // already loaded
             return Ok(());
@@ -707,7 +708,8 @@ impl ProtoLib
                     lfailoc!(self.load_child(loader, modname.clone(), i.path))?;
                 }
                 ModRelativity::Sibling => {
-                    lfailoc!(self.load_absolute(loader, i.path))?;
+                    let parent = modname.parent();
+                    lfailoc!(self.load_child(loader, parent, i.path))?;
                 }
             }
         }
@@ -949,6 +951,65 @@ mod tests
         protos.load_imports(&mut loader, &Chain::from("a")).unwrap();
 
         assert_eq!(4, protos.protos.len());
+    }
+
+    #[test]
+    fn test_import_absolute_and_sibling()
+    {
+        let a = "
+        export b
+        ".to_string();
+        let b = "
+        import ../c
+        import /d
+        ".to_string();
+        let c = "
+        export foo
+        func foo >> 3 --
+        ".to_string();
+        let d = "
+        export bar
+        func bar >> 5 --
+        ".to_string();
+
+        let mut loader = Interloader::default();
+        loader.set_mod_txt(ModKey::from("a"), a);
+        loader.set_mod_txt(ModKey::from("a/b"), b);
+        loader.set_mod_txt(ModKey::from("a/c"), c);
+        loader.set_mod_txt(ModKey::from("d"), d);
+        let mut protos = ProtoLib::new();
+
+        protos.load_absolute(&mut loader, Chain::from("a")).unwrap();
+        protos.load_imports(&mut loader, &Chain::from("a")).unwrap();
+        assert_eq!(2, protos.protos.len());
+
+        protos.load_absolute(&mut loader, Chain::from("a/b")).unwrap();
+        protos.load_imports(&mut loader, &Chain::from("a/b")).unwrap();
+        assert_eq!(4, protos.protos.len());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_not_exported()
+    {
+        let a = "
+        import b
+        ".to_string();
+        let b = "
+        func foo >> 3 --
+        ".to_string();
+
+        let mut loader = Interloader::default();
+        loader.set_mod_txt(ModKey::from("a"), a);
+        loader.set_mod_txt(ModKey::from("a/b"), b);
+        let mut protos = ProtoLib::new();
+
+        protos.load_absolute(&mut loader, Chain::from("a")).unwrap();
+        protos.load_imports(&mut loader, &Chain::from("a")).unwrap();
+        assert_eq!(2, protos.protos.len());
+
+        protos.load_absolute(&mut loader, Chain::from("a/b"))
+            .expect("want this panic");
     }
 
     #[test]

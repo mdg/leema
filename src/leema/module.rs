@@ -53,6 +53,14 @@ impl Chain
         self.0.append(&mut sub.0);
     }
 
+    /// Get the parent of this Chain
+    pub fn parent(&self) -> Chain
+    {
+        let mut tmp = self.0.clone();
+        tmp.pop();
+        Chain(tmp)
+    }
+
     pub fn head(mut self) -> (&'static str, Option<Chain>)
     {
         let head = self.0.remove(0);
