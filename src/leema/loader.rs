@@ -121,8 +121,9 @@ impl Interloader
     {
         let mut file_path = PathBuf::new();
         file_path.push(String::from(name));
-        let mod_path = file_path.join("_.lma");
+        let mut mod_path = file_path.join(String::from(name));
         file_path.set_extension("lma");
+        mod_path.set_extension("lma");
 
         for p in self.paths.iter() {
             let mut check_path = p.clone();
