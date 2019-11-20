@@ -38,7 +38,7 @@ impl ProtoModule
 
         let mut proto = ProtoModule {
             key,
-            imports: HashMap::new(),
+            imports: Self::default_imports(),
             exports: HashMap::new(),
             macros: HashMap::new(),
             constants: HashMap::new(),
@@ -92,6 +92,13 @@ impl ProtoModule
             }
         }
         Ok(proto)
+    }
+
+    fn default_imports() -> HashMap<&'static str, ModPath>
+    {
+        let mut imports = HashMap::new();
+        imports.insert("prefab", ModPath::abs(module::Chain::from("prefab")));
+        imports
     }
 
     fn add_func(

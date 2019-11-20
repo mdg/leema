@@ -243,7 +243,8 @@ impl<'l> SemanticOp for MacroApplication<'l>
                 let optmac = match *callid.node {
                     Ast::Id1(macroname) => self.local.find_macro(macroname),
                     Ast::Id2(ref modname, ref macroname) => {
-                        self.proto.imported_proto(&self.local.key.chain, &modname)?.find_macro(macroname)
+                        ltry!(self.proto.imported_proto(&self.local.key.chain, &modname))
+                            .find_macro(macroname)
                     }
                     _ => None,
                 };
@@ -485,12 +486,12 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                 }
             }
             Ast::Id2(module, id) if self.mode == AstMode::Type => {
-                let proto = self.lib.imported_proto(&self.local_mod.key.chain, module).map_err(|e| {
+                let proto = ltry!(self.lib.imported_proto(&self.local_mod.key.chain, module).map_err(|e| {
                     e.add_context(Lstr::from(format!(
                         "module {} not found at {:?}",
                         module, node.loc
                     )))
-                })?;
+                }));
 
                 proto.get_type(id)
                     .map_err(|_| {
@@ -505,12 +506,15 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                 return Ok(SemanticAction::Keep(node));
             }
             Ast::Id2(module, id) => {
-                let proto = self.lib.imported_proto(&self.local_mod.key.chain, module).map_err(|e| {
-                    e.add_context(Lstr::from(format!(
-                        "module {} not found at {:?}",
-                        module, node.loc
-                    )))
-                })?;
+                let proto = ltry!(
+                    self.lib.imported_proto(&self.local_mod.key.chain, module)
+                        .map_err(|e| {
+                            e.add_context(Lstr::from(format!(
+                                "module {} not found at {:?}",
+                                module, node.loc
+                            )))
+                        })
+                    );
                 let val_ast = proto
                     .find_const(id)
                     .ok_or_else(|| {
@@ -935,7 +939,7 @@ impl<'p> SemanticOp for TypeCheck<'p>
         match &mut *node.node {
             // Ast::Let(patt, dtype, x) => {
             Ast::Id2(modname, id) => {
-                let module = self.lib.imported_proto(&self.local_mod.key.chain, modname)?;
+                let module = ltry!(self.lib.imported_proto(&self.local_mod.key.chain, modname));
                 let typ = module.get_type(id)?;
                 node.typ = typ.clone();
             }
@@ -1590,8 +1594,30 @@ mod tests
         let foo_input = r#"func bar / Int >> 3 --"#;
 
         let baz_input = r#"
+        import foo
+
         func main >>
             foo::bar() + 6
+        --
+        "#;
+
+        let mut proto = load_proto_with_prefab();
+        proto.add_module(From::from("foo"), foo_input).unwrap();
+        proto.add_module(From::from("baz"), baz_input).unwrap();
+        let fref = Fref::with_modules(From::from("baz"), "main");
+        Semantics::compile_call(&mut proto, &fref).unwrap();
+    }
+
+    #[test]
+    fn test_semantics_exported_call()
+    {
+        let foo_input = r#"func bar / Int >> 3 --"#;
+
+        let baz_input = r#"
+        import foo/bar
+
+        func main >>
+            bar() + 6
         --
         "#;
 
