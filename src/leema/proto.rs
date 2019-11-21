@@ -97,10 +97,11 @@ impl ProtoModule
                     tree.collect(&mut exports);
                 }
                 _ => {
-                    return Err(rustfail!(
-                        PROTOFAIL,
-                        "expected module statement, found {:?}",
-                        i,
+                    return Err(Failure::static_leema(
+                        failure::Status::CompileFailure,
+                        lstrf!("expected module statement, found {:?}", i),
+                        proto.key.best_path(),
+                        i.loc.lineno,
                     ));
                 }
             }
@@ -111,17 +112,19 @@ impl ProtoModule
             proto.refute_redefines_default(k, loc)?;
 
             if proto.defines(k) {
-                return Err(rustfail!(
-                    PROTOFAIL,
-                    "local definition cannot shadow import: {}",
-                    v,
+                return Err(Failure::static_leema(
+                    failure::Status::CompileFailure,
+                    lstrf!("local definition cannot shadow import: {}", v),
+                    proto.key.best_path(),
+                    loc.lineno,
                 ));
             }
             if proto.imports.contains_key(k) {
-                return Err(rustfail!(
-                    PROTOFAIL,
-                    "duplicate import: {}",
-                    v,
+                return Err(Failure::static_leema(
+                    failure::Status::CompileFailure,
+                    lstrf!("duplicate import: {}", v),
+                    proto.key.best_path(),
+                    loc.lineno,
                 ));
             }
             proto.imports.insert(k, v);

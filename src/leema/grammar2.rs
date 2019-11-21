@@ -2076,13 +2076,13 @@ mod tests
         );
         if let Ast::ModAction(_, ModTree::Sub(a, b)) = &*ast[1].node {
             assert_eq!("burritos", *a);
-            assert_eq!(ModTree::Id("tortas", Loc::new(3, 7)), **b);
+            assert_eq!(ModTree::Id("tortas", Loc::new(3, 25)), **b);
         }
         if let Ast::ModAction(_, ModTree::Root(m)) = &*ast[2].node {
-            assert_eq!(ModTree::Id("root", Loc::new(4, 7)), **m);
+            assert_eq!(ModTree::Id("root", Loc::new(4, 17)), **m);
         }
         if let Ast::ModAction(_, ModTree::Sibling(m)) = &*ast[2].node {
-            assert_eq!(ModTree::Id("root", Loc::new(5, 7)), **m);
+            assert_eq!(ModTree::Id("root", Loc::new(5, 20)), **m);
         }
     }
 
@@ -2114,7 +2114,7 @@ mod tests
             assert_matches!(subs[0], ModTree::Root(_));
             assert_matches!(subs[1], ModTree::Sub("m1", _));
             assert_matches!(subs[2], ModTree::Sibling(_));
-            assert_eq!(ModTree::Id("blah", Loc::new(4, 5)), subs[3]);
+            assert_eq!(ModTree::Id("blah", Loc::new(12, 13)), subs[3]);
             assert_eq!(4, subs.len());
 
             if let ModTree::Sub(_, ref sbox) = subs[0] {
