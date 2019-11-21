@@ -344,10 +344,11 @@ impl ProtoModule
                 self.types.insert(name_id, t);
             }
             Ast::Generic(iname, _) => {
-                return Err(rustfail!(
-                    PROTOFAIL,
-                    "tokens cannot be generic: {:?}",
-                    iname,
+                return Err(Failure::static_leema(
+                    failure::Status::CompileFailure,
+                    lstrf!("tokens cannot be generic: {:?}", iname),
+                    self.key.best_path(),
+                    name.loc.lineno,
                 ));
             }
             invalid_name => {
