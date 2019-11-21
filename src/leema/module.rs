@@ -38,6 +38,11 @@ impl Chain
         self.0.len()
     }
 
+    pub fn starts_with(&self, name: &str) -> bool
+    {
+        *self.0.first().expect("module chain underflow") == name
+    }
+
     pub fn last(&self) -> &'static str
     {
         self.0.last().expect("module chain underflow")
@@ -141,7 +146,7 @@ impl ModKey
     pub fn new(name: Chain, path: PathBuf) -> ModKey
     {
         ModKey {
-            name: lstrf!("{:?}", name),
+            name: Lstr::from(String::from(&name)),
             chain: name,
             file: Some(From::from(path)),
         }

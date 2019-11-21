@@ -170,7 +170,7 @@ impl ProtoModule
 
     fn refute_redefines_default(&self, id: &'static str, loc: Loc) -> Lresult<()>
     {
-        if !self.key.name.starts_with("core.") && DEFAULT_IDS.contains_key(id) {
+        if !self.key.chain.starts_with("core") && DEFAULT_IDS.contains_key(id) {
             Err(Failure::static_leema(
                 failure::Mode::CompileFailure,
                 lstrf!("cannot redefine core {}", id),
