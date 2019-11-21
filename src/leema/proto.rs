@@ -21,6 +21,7 @@ pub struct ProtoModule
     pub key: ModKey,
     pub imports: HashMap<&'static str, ModPath>,
     pub exports: HashMap<&'static str, ModPath>,
+    pub imported_ids: HashMap<&'static str, module::Chain>,
     pub macros: HashMap<&'static str, Ast>,
     pub constants: HashMap<&'static str, AstNode>,
     types: HashMap<&'static str, Type>,
@@ -38,8 +39,9 @@ impl ProtoModule
 
         let mut proto = ProtoModule {
             key,
-            imports: Self::default_imports(),
+            imports: HashMap::new(),
             exports: HashMap::new(),
+            imported_ids: HashMap::new(),
             macros: HashMap::new(),
             constants: HashMap::new(),
             types: HashMap::new(),
@@ -49,7 +51,7 @@ impl ProtoModule
             struct_fields: HashMap::new(),
         };
 
-        let mut imports = HashMap::new();
+        let mut imports = Self::default_imports();
         let mut exports = HashMap::new();
         for i in items {
             match *i.node {
@@ -325,6 +327,18 @@ impl ProtoModule
         Ok(())
     }
 
+    pub fn set_canonical(&mut self, key: &'static str, canonical: module::Chain, is_id: bool)
+    {
+        if is_id {
+            self.imports.remove(key);
+            self.imported_ids.insert(key, canonical);
+        } else {
+            let import = self.imports.get_mut(key).unwrap();
+            import.relativity = ModRelativity::Absolute;
+            import.path = canonical;
+        }
+    }
+
     /// TODO rename this. Maybe take_func?
     pub fn pop_func(&mut self, func: &str)
         -> Option<(Xlist, AstNode)>
@@ -549,7 +563,7 @@ impl ProtoLib
         &mut self,
         loader: &mut Interloader,
         mod_path: module::Chain,
-    ) -> Lresult<module::Chain>
+    ) -> Lresult<(module::Chain, bool)>
     {
         vout!("ProtoLib::load_absolute({})\n", mod_path);
         let (head, tail) = mod_path.split();
@@ -562,7 +576,7 @@ impl ProtoLib
         loader: &mut Interloader,
         mut base_path: module::Chain,
         child_path: module::Chain,
-    ) -> Lresult<module::Chain>
+    ) -> Lresult<(module::Chain, bool)>
     {
         vout!("ProtoLib::load_child({:?}, {:?})\n", base_path, child_path);
         let (head, tail) = child_path.head();
@@ -576,10 +590,10 @@ impl ProtoLib
         loader: &mut Interloader,
         base_path: module::Chain,
         opt_next_path: Option<module::Chain>,
-    ) -> Lresult<module::Chain>
+    ) -> Lresult<(module::Chain, bool)>
     {
         if opt_next_path.is_none() {
-            return Ok(base_path);
+            return Ok((base_path, false));
         }
         let (head, tail) = opt_next_path.unwrap().head();
         let base_proto = ltry!(self.path_proto(&base_path));
@@ -602,7 +616,11 @@ impl ProtoLib
         }
         match canonical_head.relativity {
             ModRelativity::Absolute => {
-                lfailoc!(self.load_absolute(loader, canonical_head.path))
+                Err(rustfail!(
+                    PROTOFAIL,
+                    "cannot load absolute module relatively: {}",
+                    canonical_head,
+                ))
             }
             ModRelativity::Child => {
                 lfailoc!(self.load_child(loader, base_path, canonical_head.path))
@@ -617,7 +635,7 @@ impl ProtoLib
             }
             ModRelativity::Local => {
                 // already loaded, no need to load deeper
-                Ok(canonical_head.path)
+                Ok((base_path, true))
             }
         }
     }
@@ -737,7 +755,7 @@ impl ProtoLib
     ) -> Lresult<()>
     {
         vout!("ProtoLib::load_imports({})\n", modname);
-        let mut imported: Vec<ModPath> = vec![];
+        let mut imported: Vec<(&'static str, ModPath)> = vec![];
         {
             let proto = self.protos.get(modname).ok_or_else(|| {
                 rustfail!(
@@ -746,7 +764,7 @@ impl ProtoLib
                     modname,
                 )
             })?;
-            for (_, i) in proto.imports.iter().chain(proto.exports.iter()) {
+            for (k, i) in proto.imports.iter().chain(proto.exports.iter()) {
                 if i.path == *modname {
                     return Err(rustfail!(
                         PROTOFAIL,
@@ -757,25 +775,34 @@ impl ProtoLib
                 if self.protos.contains_key(&i.path) {
                     continue;
                 }
-                imported.push(i.clone());
+                imported.push((k, i.clone()));
             }
         }
-        for i in imported.into_iter() {
-            match i.relativity {
+
+        let mut canonicals = vec![];
+        for (k, i) in imported.into_iter() {
+            let result = match i.relativity {
                 ModRelativity::Absolute => {
-                    ltry!(self.load_absolute(loader, i.path));
+                    ltry!(self.load_absolute(loader, i.path))
                 }
                 ModRelativity::Child => {
-                    ltry!(self.load_child(loader, modname.clone(), i.path));
+                    ltry!(self.load_child(loader, modname.clone(), i.path))
                 }
                 ModRelativity::Sibling => {
                     let parent = modname.parent();
-                    ltry!(self.load_child(loader, parent, i.path));
+                    ltry!(self.load_child(loader, parent, i.path))
                 }
                 ModRelativity::Local => {
-                    // already loaded, nothing to do
+                    panic!("cannot import locally defined identifiers: {}", i);
                 }
-            }
+            };
+            canonicals.push((k, result.0, result.1));
+        }
+
+        // safe to unwrap b/c verified this module is present above
+        let proto_mut = self.protos.get_mut(modname).unwrap();
+        for (k, c, is_id) in canonicals.into_iter() {
+            proto_mut.set_canonical(k, c, is_id);
         }
         Ok(())
     }
@@ -822,6 +849,7 @@ mod tests
     use crate::leema::module::{
         Chain,
         ModKey,
+        ModPath,
         ModRelativity::{
             Absolute,
             Child,
@@ -1093,8 +1121,18 @@ mod tests
 
         protos.load_absolute(&mut loader, Chain::from("b")).unwrap();
         protos.load_imports(&mut loader, &Chain::from("b")).unwrap();
+        assert_eq!(3, protos.protos.len()); // 3rd is prefab
 
-        assert_eq!(2, protos.protos.len());
+        let a = protos.path_proto(&Chain::from("a")).unwrap();
+        assert_eq!(1, a.imports.len());
+        assert_eq!(1, a.exports.len());
+        assert_eq!(ModPath::local(Chain::from("foo")), a.exports["foo"]);
+
+        let b = protos.path_proto(&Chain::from("b")).unwrap();
+        assert_eq!(1, b.imports.len());
+        assert_eq!(1, b.imported_ids.len());
+        assert_eq!(0, b.exports.len());
+        assert_eq!(Chain::from("a"), b.imported_ids["foo"]);
     }
 
     #[test]

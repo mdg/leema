@@ -244,6 +244,14 @@ impl ModPath
         }
     }
 
+    pub fn local(path: Chain) -> ModPath
+    {
+        ModPath {
+            relativity: ModRelativity::Local,
+            path,
+        }
+    }
+
     pub fn push(&mut self, mut sub: &'static str)
     {
         self.path.push(&mut sub);
