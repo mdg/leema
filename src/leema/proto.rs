@@ -49,6 +49,8 @@ impl ProtoModule
             struct_fields: HashMap::new(),
         };
 
+        let mut imports = HashMap::new();
+        let mut exports = HashMap::new();
         for i in items {
             match *i.node {
                 Ast::DefConst(name, val) => {
@@ -71,16 +73,10 @@ impl ProtoModule
                     proto.add_union(name, variants)?;
                 }
                 Ast::ModAction(ModAction::Import, tree) => {
-                    tree.collect(&mut proto.imports);
+                    tree.collect(&mut imports);
                 }
                 Ast::ModAction(ModAction::Export, tree) => {
-                    // figure out what to do w/ exports later
-                    let mut exports = HashMap::new();
                     tree.collect(&mut exports);
-                    for (k, v) in exports.into_iter() {
-                        proto.imports.insert(k, v.clone());
-                        proto.exports.insert(k, v);
-                    }
                 }
                 _ => {
                     return Err(rustfail!(
@@ -91,6 +87,52 @@ impl ProtoModule
                 }
             }
         }
+
+        // make sure imports don't overlap w/ anything defined
+        for (k, v) in imports.iter() {
+            if proto.defines(k) {
+                return Err(rustfail!(
+                    PROTOFAIL,
+                    "local definition cannot shadow import: {}",
+                    v,
+                ));
+            }
+        }
+
+        for (k, v) in exports.iter_mut() {
+            // make sure that only child modules are exported
+            // siblings and absolute modules cannot be exported (for now)
+            if v.relativity != ModRelativity::Child {
+                return Err(rustfail!(
+                    PROTOFAIL,
+                    "only child modules can be exported: {}",
+                    v,
+                ));
+            }
+
+            // if it's not defined locally, must be a child module
+            // so import it
+            if proto.defines(k) {
+                v.relativity = ModRelativity::Local;
+
+                if v.path.len() != 1 {
+                    return Err(rustfail!(
+                        PROTOFAIL,
+                        "local definition cannot shadow export: {}",
+                        v,
+                    ));
+                }
+
+                // k is locally defined so shouldn't be added to imports
+            } else {
+                // add exports to imports if they're child modules
+                imports.insert(k, v.clone());
+            }
+        }
+
+        proto.imports = imports;
+        proto.exports = exports;
+
         Ok(proto)
     }
 
@@ -300,6 +342,14 @@ impl ProtoModule
             // just take the original if not generic
             self.funcsrc.remove(func)
         }
+    }
+
+    /// Check if this module defines a function, type or macro of this name
+    pub fn defines(&self, id: &str) -> bool
+    {
+        self.constants.contains_key(id)
+            || self.macros.contains_key(id)
+            || self.types.contains_key(id)
     }
 
     pub fn find_macro(&self, macroname: &str) -> Option<&Ast>
@@ -552,10 +602,10 @@ impl ProtoLib
         }
         match canonical_head.relativity {
             ModRelativity::Absolute => {
-                self.load_absolute(loader, canonical_head.path)
+                lfailoc!(self.load_absolute(loader, canonical_head.path))
             }
             ModRelativity::Child => {
-                self.load_child(loader, base_path, canonical_head.path)
+                lfailoc!(self.load_child(loader, base_path, canonical_head.path))
             }
             ModRelativity::Sibling => {
                 Err(rustfail!(
@@ -564,6 +614,10 @@ impl ProtoLib
                     base_path,
                     canonical_head,
                 ))
+            }
+            ModRelativity::Local => {
+                // already loaded, no need to load deeper
+                Ok(canonical_head.path)
             }
         }
     }
@@ -669,9 +723,9 @@ impl ProtoLib
             return Ok(());
         }
 
-        let modkey = loader.new_key(&modpath)?;
+        let modkey = ltry!(loader.new_key(&modpath));
         let modtxt = ltry!(loader.read_mod(&modkey));
-        let proto = ProtoModule::new(modkey, modtxt)?;
+        let proto = ltry!(ProtoModule::new(modkey, modtxt));
         self.protos.insert(modpath.clone(), proto);
         Ok(())
     }
@@ -709,14 +763,17 @@ impl ProtoLib
         for i in imported.into_iter() {
             match i.relativity {
                 ModRelativity::Absolute => {
-                    lfailoc!(self.load_absolute(loader, i.path))?;
+                    ltry!(self.load_absolute(loader, i.path));
                 }
                 ModRelativity::Child => {
-                    lfailoc!(self.load_child(loader, modname.clone(), i.path))?;
+                    ltry!(self.load_child(loader, modname.clone(), i.path));
                 }
                 ModRelativity::Sibling => {
                     let parent = modname.parent();
-                    lfailoc!(self.load_child(loader, parent, i.path))?;
+                    ltry!(self.load_child(loader, parent, i.path));
+                }
+                ModRelativity::Local => {
+                    // already loaded, nothing to do
                 }
             }
         }
@@ -1017,6 +1074,27 @@ mod tests
 
         protos.load_absolute(&mut loader, Chain::from("a/b"))
             .expect("want this panic");
+    }
+
+    #[test]
+    fn test_proto_import_exported_func()
+    {
+        let a = "export foo
+        func foo >> 4 --
+        ".to_string();
+        let b = "import /a/foo
+        func bar >> foo() + 3 --
+        ".to_string();
+
+        let mut loader = Interloader::default();
+        loader.set_mod_txt(ModKey::from("a"), a);
+        loader.set_mod_txt(ModKey::from("b"), b);
+        let mut protos = ProtoLib::new();
+
+        protos.load_absolute(&mut loader, Chain::from("b")).unwrap();
+        protos.load_imports(&mut loader, &Chain::from("b")).unwrap();
+
+        assert_eq!(2, protos.protos.len());
     }
 
     #[test]

@@ -33,6 +33,11 @@ impl Chain
         self.0.is_empty()
     }
 
+    pub fn len(&self) -> usize
+    {
+        self.0.len()
+    }
+
     pub fn last(&self) -> &'static str
     {
         self.0.last().expect("module chain underflow")
@@ -284,7 +289,7 @@ impl fmt::Display for ModPath
             ModRelativity::Sibling => {
                 f.write_str("../")?;
             }
-            ModRelativity::Child => {
+            ModRelativity::Child|ModRelativity::Local => {
                 // nothing
             }
         }
@@ -303,4 +308,5 @@ pub enum ModRelativity
     Absolute,
     Child,
     Sibling,
+    Local,
 }
