@@ -10,9 +10,23 @@ use crate::leema::val::{Fref, FuncType, GenericTypes, Type, Val};
 
 use std::collections::{HashMap, HashSet};
 
+use lazy_static::lazy_static;
+
 
 const PROTOFAIL: &'static str = "prototype_failure";
 
+
+lazy_static! {
+    static ref DEFAULT_IDS: HashMap<&'static str, ModPath> = {
+        let mut ids = HashMap::new();
+        ids.insert("Bool", ModPath::abs(From::from("core")));
+        ids.insert("Hashtag", ModPath::abs(From::from("core")));
+        ids.insert("Int", ModPath::abs(From::from("core")));
+        ids.insert("Str", ModPath::abs(From::from("core")));
+        ids.insert("#", ModPath::abs(From::from("core")));
+        ids
+    };
+}
 
 /// Asts separated into their types of components
 #[derive(Debug)]
@@ -51,7 +65,7 @@ impl ProtoModule
             struct_fields: HashMap::new(),
         };
 
-        let mut imports = Self::default_imports();
+        let mut imports = HashMap::new();
         let mut exports = HashMap::new();
         for i in items {
             match *i.node {
@@ -90,8 +104,23 @@ impl ProtoModule
             }
         }
 
+        // don't use default imports within core. module
+        // how does rust do this?
+        if !proto.key.name.starts_with("core.") {
+            proto.imports = Self::default_imports().clone();
+            for (k, _) in proto.imports.iter() {
+                if proto.defines(k) {
+                    return Err(rustfail!(
+                        PROTOFAIL,
+                        "local definition overwrites {}",
+                        k,
+                    ));
+                }
+            }
+        }
+
         // make sure imports don't overlap w/ anything defined
-        for (k, v) in imports.iter() {
+        for (k, v) in imports.into_iter() {
             if proto.defines(k) {
                 return Err(rustfail!(
                     PROTOFAIL,
@@ -99,6 +128,14 @@ impl ProtoModule
                     v,
                 ));
             }
+            if proto.imports.contains_key(k) {
+                return Err(rustfail!(
+                    PROTOFAIL,
+                    "duplicate import: {}",
+                    v,
+                ));
+            }
+            proto.imports.insert(k, v);
         }
 
         for (k, v) in exports.iter_mut() {
@@ -128,21 +165,17 @@ impl ProtoModule
                 // k is locally defined so shouldn't be added to imports
             } else {
                 // add exports to imports if they're child modules
-                imports.insert(k, v.clone());
+                proto.imports.insert(k, v.clone());
             }
         }
-
-        proto.imports = imports;
         proto.exports = exports;
 
         Ok(proto)
     }
 
-    fn default_imports() -> HashMap<&'static str, ModPath>
+    fn default_imports() -> &'static HashMap<&'static str, ModPath>
     {
-        let mut imports = HashMap::new();
-        imports.insert("prefab", ModPath::abs(module::Chain::from("prefab")));
-        imports
+        &DEFAULT_IDS
     }
 
     fn add_func(
