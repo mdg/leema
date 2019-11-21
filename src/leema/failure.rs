@@ -85,6 +85,26 @@ impl Status
             Status::RuntimeLeemaFailure => -2,
         }
     }
+
+    fn as_str(&self) -> &'static str
+    {
+        match self {
+            Status::None => "success",
+            // end-user input errors
+            Status::InvalidUserInput => "invalid_input",
+            Status::Unauthenticated => "unauthenticated",
+            Status::Unauthorized => "unauthorized",
+            Status::NotFound => "not_found",
+            // programmer-user errors
+            Status::Timeout => "timeout",
+            Status::ParseFailure => "parse_failure",
+            Status::CompileFailure => "compile_failure",
+            Status::TypeFailure => "type_failure",
+            // internal leema errors
+            Status::StaticLeemaFailure => "static_leema_failure",
+            Status::RuntimeLeemaFailure => "runtime_leema_failure",
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -133,6 +153,26 @@ impl Failure
             status: Status::None,
             code,
             loc: vec![],
+            meta: None,
+            context: vec![],
+        }
+    }
+
+    /// Return a static, compile-time leema code error
+    pub fn static_leema(
+        status: Status,
+        msg: Lstr,
+        module: Lstr,
+        lineno: u16,
+    ) -> Failure
+    {
+        Failure {
+            tag: Val::Str(Lstr::Sref(status.as_str())),
+            msg: Val::Str(msg),
+            trace: None,
+            status,
+            code: 0,
+            loc: vec![(module, lineno as u32)],
             meta: None,
             context: vec![],
         }

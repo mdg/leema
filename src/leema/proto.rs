@@ -1,5 +1,5 @@
-use crate::leema::ast2::{Ast, AstNode, DataType, ModAction, Xlist};
-use crate::leema::failure::Lresult;
+use crate::leema::ast2::{Ast, AstNode, DataType, Loc, ModAction, Xlist};
+use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::grammar2::Grammar;
 use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
@@ -70,9 +70,11 @@ impl ProtoModule
         for i in items {
             match *i.node {
                 Ast::DefConst(name, val) => {
+                    ltry!(proto.refute_redefines_default(name, i.loc));
                     proto.constants.insert(name, val);
                 }
                 Ast::DefMacro(macro_name, _, _) => {
+                    ltry!(proto.refute_redefines_default(macro_name, i.loc));
                     proto.macros.insert(macro_name, *i.node);
                 }
                 Ast::DefFunc(name, args, result, body) => {
@@ -80,9 +82,9 @@ impl ProtoModule
                 }
                 Ast::DefType(DataType::Struct, name, fields) => {
                     if fields.is_empty() {
-                        proto.add_token(name)?;
+                        ltry!(proto.add_token(name));
                     } else {
-                        proto.add_struct(name, fields)?;
+                        ltry!(proto.add_struct(name, fields));
                     }
                 }
                 Ast::DefType(DataType::Union, name, variants) => {
@@ -104,23 +106,10 @@ impl ProtoModule
             }
         }
 
-        // don't use default imports within core. module
-        // how does rust do this?
-        if !proto.key.name.starts_with("core.") {
-            proto.imports = Self::default_imports().clone();
-            for (k, _) in proto.imports.iter() {
-                if proto.defines(k) {
-                    return Err(rustfail!(
-                        PROTOFAIL,
-                        "local definition overwrites {}",
-                        k,
-                    ));
-                }
-            }
-        }
-
         // make sure imports don't overlap w/ anything defined
-        for (k, v) in imports.into_iter() {
+        for (k, (v, loc)) in imports.into_iter() {
+            proto.refute_redefines_default(k, loc)?;
+
             if proto.defines(k) {
                 return Err(rustfail!(
                     PROTOFAIL,
@@ -138,14 +127,15 @@ impl ProtoModule
             proto.imports.insert(k, v);
         }
 
-        for (k, v) in exports.iter_mut() {
+        for (k, (mut v, loc)) in exports.into_iter() {
             // make sure that only child modules are exported
             // siblings and absolute modules cannot be exported (for now)
             if v.relativity != ModRelativity::Child {
-                return Err(rustfail!(
-                    PROTOFAIL,
-                    "only child modules can be exported: {}",
-                    v,
+                return Err(Failure::static_leema(
+                    failure::Status::CompileFailure,
+                    lstrf!("only child modules can be exported: {}", v),
+                    proto.key.best_path(),
+                    loc.lineno,
                 ));
             }
 
@@ -155,10 +145,11 @@ impl ProtoModule
                 v.relativity = ModRelativity::Local;
 
                 if v.path.len() != 1 {
-                    return Err(rustfail!(
-                        PROTOFAIL,
-                        "local definition cannot shadow export: {}",
-                        v,
+                    return Err(Failure::static_leema(
+                        failure::Status::CompileFailure,
+                        lstrf!("local definition cannot shadow export: {}", v),
+                        proto.key.best_path(),
+                        loc.lineno,
                     ));
                 }
 
@@ -167,10 +158,25 @@ impl ProtoModule
                 // add exports to imports if they're child modules
                 proto.imports.insert(k, v.clone());
             }
+
+            proto.exports.insert(k, v);
         }
-        proto.exports = exports;
 
         Ok(proto)
+    }
+
+    fn refute_redefines_default(&self, id: &'static str, loc: Loc) -> Lresult<()>
+    {
+        if !self.key.name.starts_with("core.") && DEFAULT_IDS.contains_key(id) {
+            Err(Failure::static_leema(
+                failure::Status::CompileFailure,
+                lstrf!("cannot redefine core {}", id),
+                self.key.best_path(),
+                loc.lineno,
+            ))
+        } else {
+            Ok(())
+        }
     }
 
     fn default_imports() -> &'static HashMap<&'static str, ModPath>
@@ -192,6 +198,7 @@ impl ProtoModule
 
         let name_id = match *name.node {
             Ast::Id1(name_id) => {
+                ltry!(self.refute_redefines_default(name_id, name.loc));
                 opens = vec![];
                 type_maker = Box::new(|ft| Type::Func(ft));
                 name_id
@@ -217,6 +224,7 @@ impl ProtoModule
                 });
 
                 if let Ast::Id1(name_id) = *gen.node {
+                    ltry!(self.refute_redefines_default(name_id, name.loc));
                     name_id
                 } else {
                     return Err(rustfail!(
@@ -258,6 +266,7 @@ impl ProtoModule
 
         let sname_id = match *name.node {
             Ast::Id1(name_id) => {
+                ltry!(self.refute_redefines_default(name_id, name.loc));
                 struct_typ = Type::User(m.clone(), name_id);
                 opens = vec![];
                 name_id
@@ -279,6 +288,7 @@ impl ProtoModule
                 opens = opens1?;
 
                 if let Ast::Id1(name_id) = *gen.node {
+                    ltry!(self.refute_redefines_default(name_id, name.loc));
                     let inner = Type::User(m.clone(), name_id);
                     struct_typ = Type::Generic(true, Box::new(inner), opens.clone());
                     name_id
@@ -326,6 +336,7 @@ impl ProtoModule
     {
         match *name.node {
             Ast::Id1(name_id) => {
+                ltry!(self.refute_redefines_default(name_id, name.loc));
                 let t = Type::User(self.key.name.clone(), name_id);
                 self.types.insert(name_id, t);
             }
@@ -356,6 +367,7 @@ impl ProtoModule
                 name,
             ));
         }
+        // later ltry!(self.refute_redefines_default(name_id, name.loc));
         // proto.types.push(i);
         Ok(())
     }
@@ -1154,15 +1166,15 @@ mod tests
 
         protos.load_absolute(&mut loader, Chain::from("b")).unwrap();
         protos.load_imports(&mut loader, &Chain::from("b")).unwrap();
-        assert_eq!(3, protos.protos.len()); // 3rd is prefab
+        assert_eq!(2, protos.protos.len());
 
         let a = protos.path_proto(&Chain::from("a")).unwrap();
-        assert_eq!(1, a.imports.len());
+        assert_eq!(0, a.imports.len());
         assert_eq!(1, a.exports.len());
         assert_eq!(ModPath::local(Chain::from("foo")), a.exports["foo"]);
 
         let b = protos.path_proto(&Chain::from("b")).unwrap();
-        assert_eq!(1, b.imports.len());
+        assert_eq!(0, b.imports.len());
         assert_eq!(1, b.imported_ids.len());
         assert_eq!(0, b.exports.len());
         assert_eq!(Chain::from("a"), b.imported_ids["foo"]);

@@ -2,7 +2,7 @@ use crate::leema::lstr::Lstr;
 use crate::leema::sendclone;
 
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 
 const DEFAULT_MODNAME: &'static str = "$";
@@ -133,7 +133,7 @@ pub struct ModKey
 {
     pub name: Lstr,
     pub chain: Chain,
-    pub file: Option<PathBuf>,
+    pub file: Option<Box<Path>>,
 }
 
 impl ModKey
@@ -143,8 +143,23 @@ impl ModKey
         ModKey {
             name: lstrf!("{:?}", name),
             chain: name,
-            file: Some(path),
+            file: Some(From::from(path)),
         }
+    }
+
+    /// If the path exists, get it. Otherwise return the module name
+    pub fn best_path(&self) -> Lstr
+    {
+        self.file.as_ref()
+            .and_then(|ref p| {
+                p.to_str()
+            })
+            .map(|ps| {
+                Lstr::from(String::from(ps))
+            })
+            .unwrap_or_else(|| {
+                self.name.clone()
+            })
     }
 }
 

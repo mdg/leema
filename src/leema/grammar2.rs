@@ -422,7 +422,7 @@ impl ParseStmt
                     let subline = Self::parse_import_line(p, false)?;
                     ModTree::sub(next.src, subline)
                 } else {
-                    ModTree::Id(next.src)
+                    ModTree::Id(next.src, Ast::loc(&next))
                 }
             }
             Token::DoubleDot if first => {
@@ -434,8 +434,8 @@ impl ParseStmt
                 let root = Self::parse_import_line(p, false)?;
                 ModTree::Root(Box::new(root))
             }
-            Token::Star => ModTree::Wildcard,
-            Token::Dot => ModTree::Module,
+            Token::Star => ModTree::Wildcard(Ast::loc(&next)),
+            Token::Dot => ModTree::Module(Ast::loc(&next)),
             Token::DoubleDot if !first => {
                 return Err(rustfail!(
                     PARSE_FAIL,
@@ -1574,7 +1574,7 @@ impl Grammar
 mod tests
 {
     use super::Grammar;
-    use crate::leema::ast2::{Ast, DataType, ModAction, ModTree};
+    use crate::leema::ast2::{Ast, DataType, Loc, ModAction, ModTree};
     use crate::leema::lstr::Lstr;
     use crate::leema::token::Tokenz;
     use crate::leema::val::Val;
@@ -2060,7 +2060,7 @@ mod tests
         assert_eq!(4, ast.len());
         assert_matches!(
             *ast[0].node,
-            Ast::ModAction(ModAction::Import, ModTree::Id("tacos"))
+            Ast::ModAction(ModAction::Import, ModTree::Id("tacos", _))
         );
         assert_matches!(
             *ast[1].node,
@@ -2076,13 +2076,13 @@ mod tests
         );
         if let Ast::ModAction(_, ModTree::Sub(a, b)) = &*ast[1].node {
             assert_eq!("burritos", *a);
-            assert_eq!(ModTree::Id("tortas"), **b);
+            assert_eq!(ModTree::Id("tortas", Loc::new(3, 7)), **b);
         }
         if let Ast::ModAction(_, ModTree::Root(m)) = &*ast[2].node {
-            assert_eq!(ModTree::Id("root"), **m);
+            assert_eq!(ModTree::Id("root", Loc::new(4, 7)), **m);
         }
         if let Ast::ModAction(_, ModTree::Sibling(m)) = &*ast[2].node {
-            assert_eq!(ModTree::Id("root"), **m);
+            assert_eq!(ModTree::Id("root", Loc::new(5, 7)), **m);
         }
     }
 
@@ -2114,15 +2114,15 @@ mod tests
             assert_matches!(subs[0], ModTree::Root(_));
             assert_matches!(subs[1], ModTree::Sub("m1", _));
             assert_matches!(subs[2], ModTree::Sibling(_));
-            assert_eq!(ModTree::Id("blah"), subs[3]);
+            assert_eq!(ModTree::Id("blah", Loc::new(4, 5)), subs[3]);
             assert_eq!(4, subs.len());
 
             if let ModTree::Sub(_, ref sbox) = subs[0] {
                 if let ModTree::Block(ref block) = &**sbox {
-                    assert_eq!(ModTree::Id("io"), block[0]);
+                    assert_eq!(ModTree::Id("io", Loc::new(5, 3)), block[0]);
                     assert_matches!(block[1], ModTree::Sub("list", _));
                     if let ModTree::Sub(_, ref star) = block[1] {
-                        assert_eq!(ModTree::Wildcard, **star);
+                        assert_eq!(ModTree::Wildcard(Loc::new(4, 5)), **star);
                     }
                     assert_eq!(2, block.len());
                 }
@@ -2135,9 +2135,9 @@ mod tests
             }
             if let ModTree::Sub(_, ref sbox) = subs[2] {
                 if let ModTree::Block(ref block) = &**sbox {
-                    assert_eq!(ModTree::Module, block[0]);
+                    assert_eq!(ModTree::Module(Loc::new(10, 4)), block[0]);
                     assert_matches!(block[1], ModTree::Sub("tacos", _));
-                    assert_eq!(ModTree::Id("tortas"), block[2]);
+                    assert_eq!(ModTree::Id("tortas", Loc::new(18, 20)), block[2]);
                     assert_eq!(3, block.len());
                 }
             }
@@ -2154,15 +2154,15 @@ mod tests
             let mut flats = HashMap::new();
             tree.collect(&mut flats);
 
-            assert_eq!("/core/io", format!("{}", flats["io"]));
+            assert_eq!("/core/io", format!("{}", flats["io"].0));
 
-            assert_eq!("m1/m2/m3", format!("{}", flats["m3"]));
+            assert_eq!("m1/m2/m3", format!("{}", flats["m3"].0));
 
-            assert_eq!("../myapp", format!("{}", flats["myapp"]));
-            assert_eq!("../myapp/tacos/burritos", format!("{}", flats["burritos"]));
-            assert_eq!("../myapp/tortas", format!("{}", flats["tortas"]));
+            assert_eq!("../myapp", format!("{}", flats["myapp"].0));
+            assert_eq!("../myapp/tacos/burritos", format!("{}", flats["burritos"].0));
+            assert_eq!("../myapp/tortas", format!("{}", flats["tortas"].0));
 
-            assert_eq!("blah", format!("{}", flats["blah"]));
+            assert_eq!("blah", format!("{}", flats["blah"].0));
 
             assert_eq!(6, flats.len());
         }

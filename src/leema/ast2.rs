@@ -14,10 +14,19 @@ use std::fmt;
 #[derive(Copy)]
 #[derive(Debug)]
 #[derive(PartialEq)]
+#[derive(PartialOrd)]
 pub struct Loc
 {
     pub lineno: u16,
     pub column: u8,
+}
+
+impl Loc
+{
+    pub fn new(lineno: u16, column: u8) -> Loc
+    {
+        Loc{ lineno, column }
+    }
 }
 
 impl Default for Loc
@@ -95,13 +104,13 @@ pub enum ModAction
 #[derive(PartialOrd)]
 pub enum ModTree
 {
-    Id(&'static str),
+    Id(&'static str, Loc),
     Block(Vec<ModTree>),
     Sub(&'static str, Box<ModTree>),
-    Module,
+    Module(Loc),
     Root(Box<ModTree>),
     Sibling(Box<ModTree>),
-    Wildcard,
+    Wildcard(Loc),
 }
 
 impl ModTree
@@ -114,7 +123,7 @@ impl ModTree
     pub fn push_sub(&mut self, tail: ModTree)
     {
         match self {
-            ModTree::Id(a) => {
+            ModTree::Id(a, _) => {
                 *self = ModTree::Sub(a, Box::new(tail));
             }
             ModTree::Sub(_, ref mut b) => {
@@ -126,7 +135,7 @@ impl ModTree
             ModTree::Sibling(ref mut sub) => {
                 sub.push_sub(tail);
             }
-            ModTree::Block(_)|ModTree::Module|ModTree::Wildcard => {
+            ModTree::Block(_)|ModTree::Module(_)|ModTree::Wildcard(_) => {
                 // these can't really contain a sub
                 // this should never happen
                 unimplemented!();
@@ -134,18 +143,18 @@ impl ModTree
         }
     }
 
-    pub fn collect(&self, flats: &mut HashMap<&'static str, ModPath>)
+    pub fn collect(&self, flats: &mut HashMap<&'static str, (ModPath, Loc)>)
     {
         let mut paths = module::Chain::new(Vec::with_capacity(8));
         self._collect(flats, ModRelativity::Child, &mut paths);
     }
 
-    pub fn _collect(&self, flats: &mut HashMap<&'static str, ModPath>, rel: ModRelativity, path: &mut module::Chain)
+    pub fn _collect(&self, flats: &mut HashMap<&'static str, (ModPath, Loc)>, rel: ModRelativity, path: &mut module::Chain)
     {
         match self {
-            ModTree::Id(id) => {
+            ModTree::Id(id, loc) => {
                 path.push(id);
-                flats.insert(id, ModPath::new(rel, path.clone()));
+                flats.insert(id, (ModPath::new(rel, path.clone()), *loc));
                 path.pop();
             }
             ModTree::Sub(id, subs) => {
@@ -170,10 +179,10 @@ impl ModTree
                 }
                 subs._collect(flats, ModRelativity::Sibling, path);
             }
-            ModTree::Module => {
-                flats.insert(path.last(), ModPath::new(rel, path.clone()));
+            ModTree::Module(loc) => {
+                flats.insert(path.last(), (ModPath::new(rel, path.clone()), *loc));
             }
-            ModTree::Wildcard => {
+            ModTree::Wildcard(_) => {
                 // need to do something with this
             }
         }
