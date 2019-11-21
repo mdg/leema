@@ -46,9 +46,9 @@ macro_rules! ltry {
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
-pub enum Status
+pub enum Mode
 {
-    None,
+    Success,
     // end-user input errors
     InvalidUserInput,
     Unauthenticated,
@@ -64,45 +64,45 @@ pub enum Status
     RuntimeLeemaFailure,
 }
 
-impl Status
+impl Mode
 {
     pub fn cli_code(&self) -> i32
     {
         match self {
-            Status::None => 0,
+            Mode::Success => 0,
             // end-user input errors
-            Status::InvalidUserInput => 1,
-            Status::Unauthenticated => 2,
-            Status::Unauthorized => 3,
-            Status::NotFound => 4,
+            Mode::InvalidUserInput => 1,
+            Mode::Unauthenticated => 2,
+            Mode::Unauthorized => 3,
+            Mode::NotFound => 4,
             // programmer-user errors
-            Status::Timeout => 5,
-            Status::ParseFailure => 6,
-            Status::CompileFailure => 7,
-            Status::TypeFailure => 8,
+            Mode::Timeout => 5,
+            Mode::ParseFailure => 6,
+            Mode::CompileFailure => 7,
+            Mode::TypeFailure => 8,
             // internal leema errors
-            Status::StaticLeemaFailure => -1,
-            Status::RuntimeLeemaFailure => -2,
+            Mode::StaticLeemaFailure => -1,
+            Mode::RuntimeLeemaFailure => -2,
         }
     }
 
     fn as_str(&self) -> &'static str
     {
         match self {
-            Status::None => "success",
+            Mode::Success => "success",
             // end-user input errors
-            Status::InvalidUserInput => "invalid_input",
-            Status::Unauthenticated => "unauthenticated",
-            Status::Unauthorized => "unauthorized",
-            Status::NotFound => "not_found",
+            Mode::InvalidUserInput => "invalid_input",
+            Mode::Unauthenticated => "unauthenticated",
+            Mode::Unauthorized => "unauthorized",
+            Mode::NotFound => "not_found",
             // programmer-user errors
-            Status::Timeout => "timeout",
-            Status::ParseFailure => "parse_failure",
-            Status::CompileFailure => "compile_failure",
-            Status::TypeFailure => "type_failure",
+            Mode::Timeout => "timeout",
+            Mode::ParseFailure => "parse_failure",
+            Mode::CompileFailure => "compile_failure",
+            Mode::TypeFailure => "type_failure",
             // internal leema errors
-            Status::StaticLeemaFailure => "static_leema_failure",
-            Status::RuntimeLeemaFailure => "runtime_leema_failure",
+            Mode::StaticLeemaFailure => "static_leema_failure",
+            Mode::RuntimeLeemaFailure => "runtime_leema_failure",
         }
     }
 }
@@ -114,7 +114,7 @@ pub struct Failure
     pub tag: Val,
     pub msg: Val,
     pub trace: Option<Arc<FrameTrace>>,
-    pub status: Status,
+    pub status: Mode,
     pub code: i8,
     loc: Vec<(Lstr, u32)>,
     meta: LmapNode,
@@ -131,7 +131,7 @@ impl Failure
             tag: Val::Hashtag(Lstr::Sref(tag)),
             msg: Val::Str(msg),
             trace: None,
-            status: Status::None,
+            status: Mode::Success,
             code: 0,
             loc: vec![],
             meta: None,
@@ -150,7 +150,7 @@ impl Failure
             tag,
             msg,
             trace,
-            status: Status::None,
+            status: Mode::Success,
             code,
             loc: vec![],
             meta: None,
@@ -160,7 +160,7 @@ impl Failure
 
     /// Return a static, compile-time leema code error
     pub fn static_leema(
-        status: Status,
+        status: Mode,
         msg: Lstr,
         module: Lstr,
         lineno: u16,

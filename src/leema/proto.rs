@@ -98,7 +98,7 @@ impl ProtoModule
                 }
                 _ => {
                     return Err(Failure::static_leema(
-                        failure::Status::CompileFailure,
+                        failure::Mode::CompileFailure,
                         lstrf!("expected module statement, found {:?}", i),
                         proto.key.best_path(),
                         i.loc.lineno,
@@ -113,7 +113,7 @@ impl ProtoModule
 
             if proto.defines(k) {
                 return Err(Failure::static_leema(
-                    failure::Status::CompileFailure,
+                    failure::Mode::CompileFailure,
                     lstrf!("local definition cannot shadow import: {}", v),
                     proto.key.best_path(),
                     loc.lineno,
@@ -121,7 +121,7 @@ impl ProtoModule
             }
             if proto.imports.contains_key(k) {
                 return Err(Failure::static_leema(
-                    failure::Status::CompileFailure,
+                    failure::Mode::CompileFailure,
                     lstrf!("duplicate import: {}", v),
                     proto.key.best_path(),
                     loc.lineno,
@@ -135,7 +135,7 @@ impl ProtoModule
             // siblings and absolute modules cannot be exported (for now)
             if v.relativity != ModRelativity::Child {
                 return Err(Failure::static_leema(
-                    failure::Status::CompileFailure,
+                    failure::Mode::CompileFailure,
                     lstrf!("only child modules can be exported: {}", v),
                     proto.key.best_path(),
                     loc.lineno,
@@ -149,7 +149,7 @@ impl ProtoModule
 
                 if v.path.len() != 1 {
                     return Err(Failure::static_leema(
-                        failure::Status::CompileFailure,
+                        failure::Mode::CompileFailure,
                         lstrf!("local definition cannot shadow export: {}", v),
                         proto.key.best_path(),
                         loc.lineno,
@@ -172,7 +172,7 @@ impl ProtoModule
     {
         if !self.key.name.starts_with("core.") && DEFAULT_IDS.contains_key(id) {
             Err(Failure::static_leema(
-                failure::Status::CompileFailure,
+                failure::Mode::CompileFailure,
                 lstrf!("cannot redefine core {}", id),
                 self.key.best_path(),
                 loc.lineno,
@@ -345,7 +345,7 @@ impl ProtoModule
             }
             Ast::Generic(iname, _) => {
                 return Err(Failure::static_leema(
-                    failure::Status::CompileFailure,
+                    failure::Mode::CompileFailure,
                     lstrf!("tokens cannot be generic: {:?}", iname),
                     self.key.best_path(),
                     name.loc.lineno,
