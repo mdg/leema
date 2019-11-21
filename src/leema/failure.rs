@@ -48,7 +48,7 @@ macro_rules! ltry {
 #[derive(PartialEq)]
 pub enum Mode
 {
-    Success,
+    Ok,
     // end-user input errors
     InvalidUserInput,
     Unauthenticated,
@@ -69,7 +69,7 @@ impl Mode
     pub fn cli_code(&self) -> i32
     {
         match self {
-            Mode::Success => 0,
+            Mode::Ok => 0,
             // end-user input errors
             Mode::InvalidUserInput => 1,
             Mode::Unauthenticated => 2,
@@ -89,7 +89,7 @@ impl Mode
     fn as_str(&self) -> &'static str
     {
         match self {
-            Mode::Success => "success",
+            Mode::Ok => "ok",
             // end-user input errors
             Mode::InvalidUserInput => "invalid_input",
             Mode::Unauthenticated => "unauthenticated",
@@ -131,7 +131,7 @@ impl Failure
             tag: Val::Hashtag(Lstr::Sref(tag)),
             msg: Val::Str(msg),
             trace: None,
-            status: Mode::Success,
+            status: Mode::Ok,
             code: 0,
             loc: vec![],
             meta: None,
@@ -150,7 +150,7 @@ impl Failure
             tag,
             msg,
             trace,
-            status: Mode::Success,
+            status: Mode::Ok,
             code,
             loc: vec![],
             meta: None,
