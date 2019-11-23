@@ -415,6 +415,13 @@ impl ProtoModule
             || self.types.contains_key(id)
     }
 
+    /// Check if this module is a core module
+    pub fn is_core(&self) -> bool
+    {
+        // maybe memoize this as a struct var at some point
+        self.key.chain.starts_with("core")
+    }
+
     pub fn find_macro(&self, macroname: &str) -> Option<&Ast>
     {
         self.macros.get(macroname)
@@ -440,7 +447,12 @@ impl ProtoModule
                 self.exports.get(modname)
             })
             .ok_or_else(|| {
-                rustfail!(PROTOFAIL, "no module for name: {:?}", modname)
+                rustfail!(
+                    PROTOFAIL,
+                    "module {} not imported from {}",
+                    modname,
+                    self.key.name,
+                )
             })
     }
 }

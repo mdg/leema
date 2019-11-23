@@ -1,5 +1,5 @@
 use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc, Xlist};
-use crate::leema::failure::Lresult;
+use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::{self, ProtoLib, ProtoModule};
@@ -241,7 +241,9 @@ impl<'l> SemanticOp for MacroApplication<'l>
         match *node.node {
             Ast::Call(callid, args) => {
                 let optmac = match *callid.node {
-                    Ast::Id1(macroname) => self.local.find_macro(macroname),
+                    Ast::Id1(macroname) => {
+                        self.local.find_macro(macroname)
+                    }
                     Ast::Id2(ref modname, ref macroname) => {
                         ltry!(self.proto.imported_proto(&self.local.key.chain, &modname))
                             .find_macro(macroname)
@@ -338,22 +340,12 @@ impl<'l> SemanticOp for MacroApplication<'l>
                 Ok(SemanticAction::Keep(node2))
             }
             Ast::Id1(id) => {
-                match id {
-                    "Bool"|"Int"|"Str"|"#" => {
-                        let n2 = node.replace_node(
-                            Ast::Id2(Lstr::Sref("core"), id)
-                        );
-                        Ok(SemanticAction::Keep(n2))
-                    }
-                    _ => {
-                        let nloc = node.loc;
-                        if let Some((_, ctype)) = struple::find(self.closed, &id) {
-                            let type_ast = Ast::Type(ctype.clone());
-                            Ok(SemanticAction::Rewrite(AstNode::new(type_ast, nloc)))
-                        } else {
-                            Ok(SemanticAction::Keep(node))
-                        }
-                    }
+                let nloc = node.loc;
+                if let Some((_, ctype)) = struple::find(self.closed, &id) {
+                    let type_ast = Ast::Type(ctype.clone());
+                    Ok(SemanticAction::Rewrite(AstNode::new(type_ast, nloc)))
+                } else {
+                    Ok(SemanticAction::Keep(node))
                 }
             }
             Ast::Matchx(None, cases) => {
@@ -465,17 +457,61 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                 self.blocks.push_blockscope();
             }
             Ast::Id1(id) if self.mode == AstMode::LetPattern => {
+                if self.local_mod.imports.contains_key(id) {
+                    return Err(Failure::static_leema(
+                        failure::Mode::CompileFailure,
+                        lstrf!("{} is already used as a module name", id),
+                        self.local_mod.key.best_path(),
+                        node.loc.lineno,
+                    ));
+                }
                 self.blocks.assign_var(&Lstr::Sref(id), LocalType::Let);
             }
             Ast::Id1(id) if self.mode == AstMode::MatchPattern => {
+                if self.local_mod.imports.contains_key(id) {
+                    return Err(Failure::static_leema(
+                        failure::Mode::CompileFailure,
+                        lstrf!("{} is already used as a module name", id),
+                        self.local_mod.key.best_path(),
+                        node.loc.lineno,
+                    ));
+                }
                 self.blocks.assign_var(&Lstr::Sref(id), LocalType::Match);
+            }
+            Ast::Id1(id) if self.mode == AstMode::Type => {
+                let local_type = self.local_mod.get_type(id);
+                if local_type.is_ok() {
+                    return Ok(SemanticAction::Keep(node));
+                }
+
+                let import = self.local_mod.imported_ids.get(id);
+                if import.is_none() {
+                    return Err(Failure::static_leema(
+                        failure::Mode::CompileFailure,
+                        lstrf!("type {} is undefined", id),
+                        self.local_mod.key.best_path(),
+                        node.loc.lineno,
+                    ));
+                }
+
+                let import_chain = import.unwrap();
+                let import_proto = ltry!(self.lib.path_proto(import_chain));
+                import_proto.get_type(id)
+                    .map_err(|_| {
+                        Failure::static_leema(
+                            failure::Mode::CompileFailure,
+                            lstrf!("type {}::{} undefined", import_chain, id),
+                            self.local_mod.key.best_path(),
+                            node.loc.lineno,
+                        )
+                    })?;
+                return Ok(SemanticAction::Keep(node));
             }
             Ast::Id1(id) => {
                 if self.blocks.var_in_scope(&Lstr::Sref(id)) {
                     // that's cool, nothing to do I guess?
                 } else if self.local_mod.find_const(id).is_some() {
-                    *node.node = Ast::Id2(self.local_mod.key.name.clone(), id);
-                    return Ok(SemanticAction::Rewrite(node));
+                    return Ok(SemanticAction::Keep(node));
                 } else {
                     return Err(rustfail!(
                         SEMFAIL,
@@ -488,8 +524,8 @@ impl<'p> SemanticOp for ScopeCheck<'p>
             Ast::Id2(module, id) if self.mode == AstMode::Type => {
                 let proto = ltry!(self.lib.imported_proto(&self.local_mod.key.chain, module).map_err(|e| {
                     e.add_context(Lstr::from(format!(
-                        "module {} not found at {:?}",
-                        module, node.loc
+                        "module {} not found for {} at {:?}",
+                        module, id, node.loc
                     )))
                 }));
 
@@ -510,8 +546,8 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                     self.lib.imported_proto(&self.local_mod.key.chain, module)
                         .map_err(|e| {
                             e.add_context(Lstr::from(format!(
-                                "module {} not found at {:?}",
-                                module, node.loc
+                                "module {} not found for {} at {:?}",
+                                module, id, node.loc
                             )))
                         })
                     );
