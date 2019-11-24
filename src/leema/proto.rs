@@ -859,12 +859,6 @@ impl ProtoLib
                         i,
                     ));
                 }
-                if self.protos.contains_key(&i.path) {
-                    // need to reassign the canonical path here somehow
-                    // probably just import anyway and trust the shortcut
-                    // within load_canonical or something
-                    continue;
-                }
                 imported.push((k, i.clone()));
             }
         }
@@ -1086,7 +1080,6 @@ mod tests
         --
         ".to_string();
         let b = "
-        export foo
         func foo >> 3 --
         ".to_string();
         let c = "export >>
@@ -1094,7 +1087,6 @@ mod tests
         --
         ".to_string();
         let d = "
-        export bar
         func bar >> 5 --
         ".to_string();
 
@@ -1118,7 +1110,6 @@ mod tests
         let b = "export c/d".to_string();
         let c = "export d".to_string();
         let d = "
-        export bar
         func bar >> 5 --
         ".to_string();
 
@@ -1146,11 +1137,9 @@ mod tests
         import /d
         ".to_string();
         let c = "
-        export foo
         func foo >> 3 --
         ".to_string();
         let d = "
-        export bar
         func bar >> 5 --
         ".to_string();
 
@@ -1197,7 +1186,7 @@ mod tests
     #[test]
     fn test_proto_import_exported_func()
     {
-        let a = "export foo
+        let a = "
         func foo >> 4 --
         ".to_string();
         let b = "import /a/foo
@@ -1221,7 +1210,7 @@ mod tests
         let b = protos.path_proto(&Chain::from("b")).unwrap();
         assert_eq!(0, b.imports.len());
         assert_eq!(1, b.imported_ids.len());
-        assert_eq!(0, b.exports.len());
+        assert_eq!(1, b.exports.len());
         assert_eq!(Chain::from("a"), b.imported_ids["foo"]);
     }
 
