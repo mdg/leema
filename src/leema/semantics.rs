@@ -1053,8 +1053,13 @@ impl<'p> SemanticOp for TypeCheck<'p>
             Ast::Generic(ref mut callx, ref mut args) => {
                 if let Ast::ConstVal(Val::Call(ref mut fref, _)) = &mut *callx.node {
                     let typecall_t = self.apply_typecall(&mut fref.t, args)?;
-                    callx.typ = typecall_t.clone();
-                    node.typ = typecall_t;
+                    if typecall_t.is_closed() {
+                        *node.node = (*callx.node).clone();
+                        node.typ = typecall_t;
+                    } else {
+                        callx.typ = typecall_t.clone();
+                        node.typ = typecall_t;
+                    }
                 }
             }
             Ast::StrExpr(ref _items) => {
@@ -1613,12 +1618,11 @@ mod tests
             swap(3, 5)
             swap[:Str :#]("hello", #world)
         --
-        "#;
+        "#.to_string();
 
-        let mut proto = load_proto_with_prefab();
-        proto.add_module(From::from("foo"), input).unwrap();
-        let fref = Fref::with_modules(From::from("foo"), "main");
-        Semantics::compile_call(&mut proto, &fref).unwrap();
+        let mut prog = core_program(&[("foo", input)]);
+        let fref = Fref::from(("foo", "main"));
+        prog.read_semantics(&fref).unwrap();
     }
 
     #[test]

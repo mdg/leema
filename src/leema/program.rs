@@ -36,6 +36,9 @@ impl Lib
             code: HashMap::new(),
         };
 
+        // automatically load both core and prefab
+        // eventually will move everything to core and delete prefab
+        lfailoc!(proglib.protos.load_absolute(&mut proglib.loader, module::Chain::from("core"))).unwrap();
         lfailoc!(proglib.protos.load_absolute(&mut proglib.loader, module::Chain::from("prefab"))).unwrap();
 
         proglib

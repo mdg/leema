@@ -77,6 +77,11 @@ impl FuncType
             || self.result.is_open()
     }
 
+    pub fn is_closed(&self) -> bool
+    {
+        !self.is_open()
+    }
+
     pub fn call_args(&self) -> Struple2<Val>
     {
         self.args.iter().chain(self.closed.iter()).map(|a| {
