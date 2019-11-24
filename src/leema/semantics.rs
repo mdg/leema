@@ -1464,11 +1464,21 @@ mod tests
     use crate::leema::ast2::Ast;
     use crate::leema::loader::Interloader;
     use crate::leema::module::{self, ModKey};
+    use crate::leema::program;
     use crate::leema::proto::ProtoLib;
     use crate::leema::val::{Fref, Type};
 
     use matches::assert_matches;
 
+
+    fn core_program(mods: &[(&'static str, String)]) -> program::Lib
+    {
+        let mut loader = Interloader::default();
+        for (name, src) in mods.iter() {
+            loader.set_mod_txt(ModKey::from(*name), src.clone());
+        }
+        program::Lib::new(loader)
+    }
 
     fn load_proto_with_prefab() -> ProtoLib
     {
@@ -1669,21 +1679,22 @@ mod tests
     #[test]
     fn test_semantics_exported_call()
     {
-        let foo_input = r#"func bar / Int >> 3 --"#;
+        let foo_input = r#"func bar / Int >> 3 --"#.to_string();
 
         let baz_input = r#"
-        import foo/bar
+        import /foo/bar
 
         func main >>
             bar() + 6
         --
-        "#;
+        "#.to_string();
 
-        let mut proto = load_proto_with_prefab();
-        proto.add_module(From::from("foo"), foo_input).unwrap();
-        proto.add_module(From::from("baz"), baz_input).unwrap();
-        let fref = Fref::with_modules(From::from("baz"), "main");
-        Semantics::compile_call(&mut proto, &fref).unwrap();
+        let mut prog = core_program(&[
+            ("foo", foo_input),
+            ("baz", baz_input),
+        ]);
+        let fref = Fref::from(("baz", "main"));
+        prog.read_semantics(&fref).unwrap();
     }
 
     #[test]

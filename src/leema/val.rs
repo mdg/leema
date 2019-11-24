@@ -490,6 +490,15 @@ impl Fref
     }
 }
 
+impl From<(&'static str, &'static str)> for Fref
+{
+    fn from(input: (&'static str, &'static str)) -> Fref
+    {
+        let m = ModKey::from(input.0);
+        Fref::with_modules(m, input.1)
+    }
+}
+
 impl fmt::Display for Fref
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result

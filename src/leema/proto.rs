@@ -133,7 +133,7 @@ impl ProtoModule
             proto.imports.insert(k, v);
         }
 
-        for (k, (mut v, loc)) in exports.into_iter() {
+        for (k, (v, loc)) in exports.into_iter() {
             // make sure that only child modules are exported
             // siblings and absolute modules cannot be exported (for now)
             if v.relativity != ModRelativity::Child {
@@ -148,24 +148,32 @@ impl ProtoModule
             // if it's not defined locally, must be a child module
             // so import it
             if proto.defines(k) {
-                v.relativity = ModRelativity::Local;
-
-                if v.path.len() != 1 {
-                    return Err(Failure::static_leema(
-                        failure::Mode::CompileFailure,
-                        lstrf!("local definition cannot shadow export: {}", v),
-                        proto.key.best_path(),
-                        loc.lineno,
-                    ));
-                }
-
-                // k is locally defined so shouldn't be added to imports
+                // this is no good. decide the error message
+                let err_msg = if v.path.len() == 1 {
+                    // k is locally defined so doesn't need to be exported
+                    lstrf!("local definitions are exported by default: {}", v)
+                } else {
+                    // importing a child module over a local definition
+                    lstrf!("local definition cannot shadow export: {}", v)
+                };
+                return Err(Failure::static_leema(
+                    failure::Mode::CompileFailure,
+                    err_msg,
+                    proto.key.best_path(),
+                    loc.lineno,
+                ));
             } else {
                 // add exports to imports if they're child modules
                 proto.imports.insert(k, v.clone());
             }
 
             proto.exports.insert(k, v);
+        }
+
+        // export any local definitions
+        for name in proto.macros.keys().chain(proto.funcseq.iter()) {
+            let chain = module::Chain::from(*name);
+            proto.exports.insert(name, ModPath::local(chain));
         }
 
         Ok(proto)
@@ -684,8 +692,8 @@ impl ProtoLib
                 return Err(rustfail!(
                     PROTOFAIL,
                     "submodule {} not exported from {}",
-                    base_path,
                     head,
+                    base_path,
                 ));
             }
         };
@@ -843,7 +851,7 @@ impl ProtoLib
                     modname,
                 )
             })?;
-            for (k, i) in proto.imports.iter().chain(proto.exports.iter()) {
+            for (k, i) in proto.imports.iter() {
                 if i.path == *modname {
                     return Err(rustfail!(
                         PROTOFAIL,
@@ -852,6 +860,9 @@ impl ProtoLib
                     ));
                 }
                 if self.protos.contains_key(&i.path) {
+                    // need to reassign the canonical path here somehow
+                    // probably just import anyway and trust the shortcut
+                    // within load_canonical or something
                     continue;
                 }
                 imported.push((k, i.clone()));
