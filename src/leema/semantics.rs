@@ -516,9 +516,8 @@ impl<'p> SemanticOp for ScopeCheck<'p>
             Ast::Id1(id) => {
                 if self.blocks.var_in_scope(&Lstr::Sref(id)) {
                     // that's cool, nothing to do I guess?
-                } else if self.local_mod.find_const(id).is_some() {
-                    // *node.node = Ast::Id2(self.local_mod.key.name.clone(), id);
-                    // return Ok(SemanticAction::Rewrite(node));
+                } else if let Some(ic) = self.local_mod.find_const(id) {
+                    node = node.replace((*ic.node).clone(), ic.typ.clone());
                     return Ok(SemanticAction::Keep(node));
                 } else if let Some(ich) = self.local_mod.imported_id(id) {
                     let constval = ltry!(self.lib.path_proto(ich))
