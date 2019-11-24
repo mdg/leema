@@ -14,7 +14,7 @@ use lazy_static::lazy_static;
 
 
 const PROTOFAIL: &'static str = "prototype_failure";
-
+const DEFAULT_MODULE: &'static str = "prefab";
 
 lazy_static! {
     static ref DEFAULT_IDS: HashMap<&'static str, ModPath> = {
@@ -26,7 +26,10 @@ lazy_static! {
         ids.insert("#", ModPath::abs(From::from("core")));
         ids
     };
+
+    static ref DEFAULT_MODPATH: ModPath = ModPath::from("/prefab");
 }
+
 
 /// Asts separated into their types of components
 #[derive(Debug)]
@@ -443,8 +446,14 @@ impl ProtoModule
     {
         self.imports
             .get(modname)
+            // exported modules are implicitly included in imports
+            // .or_else(|| self.exports.get(modname))
             .or_else(|| {
-                self.exports.get(modname)
+                if modname == DEFAULT_MODULE {
+                    Some(&DEFAULT_MODPATH)
+                } else {
+                    None
+                }
             })
             .ok_or_else(|| {
                 rustfail!(
@@ -453,6 +462,15 @@ impl ProtoModule
                     modname,
                     self.key.name,
                 )
+            })
+    }
+
+    pub fn imported_id(&self, modname: &str) -> Option<&module::Chain>
+    {
+        self.imported_ids
+            .get(modname)
+            .or_else(|| {
+                DEFAULT_IDS.get(modname).map(|mp| &mp.path)
             })
     }
 }

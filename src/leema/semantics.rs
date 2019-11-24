@@ -245,8 +245,14 @@ impl<'l> SemanticOp for MacroApplication<'l>
                         self.local.find_macro(macroname)
                     }
                     Ast::Id2(ref modname, ref macroname) => {
-                        ltry!(self.proto.imported_proto(&self.local.key.chain, &modname))
-                            .find_macro(macroname)
+                        ltry!(self.proto
+                            .imported_proto(&self.local.key.chain, &modname)
+                            .map_err(|f| {
+                                f.add_context(lstrf!(
+                                    "no protomod for {}::{}", modname, macroname
+                                ))
+                            })
+                        ).find_macro(macroname)
                     }
                     _ => None,
                 };
@@ -511,6 +517,22 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                 if self.blocks.var_in_scope(&Lstr::Sref(id)) {
                     // that's cool, nothing to do I guess?
                 } else if self.local_mod.find_const(id).is_some() {
+                    // *node.node = Ast::Id2(self.local_mod.key.name.clone(), id);
+                    // return Ok(SemanticAction::Rewrite(node));
+                    return Ok(SemanticAction::Keep(node));
+                } else if let Some(ich) = self.local_mod.imported_id(id) {
+                    let constval = ltry!(self.lib.path_proto(ich))
+                        .find_const(id)
+                        .map(|c| c.clone())
+                        .ok_or_else(|| {
+                            Failure::static_leema(
+                                failure::Mode::CompileFailure,
+                                lstrf!("undefined var: {}", id),
+                                self.local_mod.key.best_path(),
+                                node.loc.lineno,
+                            )
+                        })?;
+                    node = node.replace(*constval.node, constval.typ);
                     return Ok(SemanticAction::Keep(node));
                 } else {
                     return Err(rustfail!(

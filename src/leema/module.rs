@@ -306,6 +306,21 @@ impl ModPath
     }
 }
 
+impl From<&'static str> for ModPath
+{
+    fn from(mp: &'static str) -> ModPath
+    {
+        if mp.starts_with("../") {
+            let ch = Chain::from(&mp[3..]);
+            ModPath::new(ModRelativity::Sibling, ch)
+        } else if mp.starts_with("/") {
+            ModPath::abs(Chain::from(&mp[1..]))
+        } else {
+            ModPath::child(Chain::from(mp))
+        }
+    }
+}
+
 impl fmt::Display for ModPath
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
