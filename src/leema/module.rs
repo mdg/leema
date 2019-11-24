@@ -8,7 +8,6 @@ use std::path::{Path, PathBuf};
 const DEFAULT_MODNAME: &'static str = "$";
 
 #[derive(Clone)]
-#[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(Eq)]
 #[derive(Hash)]
@@ -120,6 +119,14 @@ impl Default for Chain
 }
 
 impl fmt::Display for Chain
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        f.write_str(&self.0.join("/"))
+    }
+}
+
+impl fmt::Debug for Chain
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
