@@ -490,7 +490,7 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                     return Ok(SemanticAction::Keep(node));
                 }
 
-                let import = self.local_mod.imported_ids.get(id);
+                let import = self.local_mod.imported_id(id);
                 if import.is_none() {
                     return Err(Failure::static_leema(
                         failure::Mode::CompileFailure,
