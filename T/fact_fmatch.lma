@@ -1,4 +1,4 @@
-import io
+import /io
 
 func fmatch_fact i:Int / Int
 |1 >> 1

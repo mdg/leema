@@ -1,3 +1,5 @@
+import /io/print
+
 func main() ->
     let a := if
     |true -> 5
