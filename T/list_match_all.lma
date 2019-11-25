@@ -1,11 +1,11 @@
-func main() ->
+func main >>
     let l := [3, 2, 8]
     print("l: $l\n")
 
     match l
-    |[x, y, z] ->
+    |[x, y, z] >>
         print("l is a list with 3 elements [$x, $y, $z]\n")
-    |_ ->
+    |_ >>
         print("l is not a list with 3 elements\n")
     --
 --

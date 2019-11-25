@@ -1,4 +1,5 @@
-import list
+import /io
+import /list
 
 func main args:[Str]
 >>
@@ -7,5 +8,5 @@ func main args:[Str]
         |[only] >> only
         |[first, second] >> "$first and $second"
         --
-    print("hi $hi_to\n")
+    io::print("hi $hi_to\n")
 --
