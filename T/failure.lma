@@ -1,4 +1,4 @@
-import io
+import /io
 
 func add4 cx:Int :Int
 |4 >>

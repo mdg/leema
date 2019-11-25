@@ -1,4 +1,4 @@
-import io
+import /io
 
 func new_pair[:A :B] a:A b:B /(:A :B) >> (a, b) --
 

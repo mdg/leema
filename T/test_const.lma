@@ -1,6 +1,6 @@
 
 import rgb
-import io
+import /io
 
 func main
 >>

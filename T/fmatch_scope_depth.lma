@@ -1,4 +1,4 @@
-import io
+import /io
 
 func foo a:[#]
 |[] >> io::print("done\n")

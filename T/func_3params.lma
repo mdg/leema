@@ -1,4 +1,4 @@
-import io
+import /io
 
 func sum x:Int y:Int z:Int /Int >> x + y + z --
 

@@ -1,5 +1,5 @@
 
-import io
+import /io
 
 func swap[:A :B] a:A b:B / (:B :A)
 >>
