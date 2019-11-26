@@ -932,12 +932,7 @@ impl Val
                 Val::Call(f2, args2)
             }
             &Val::Failure2(ref f) => {
-                Val::Failure2(Box::new(Failure::leema_new(
-                    f.tag.deep_clone(),
-                    f.msg.deep_clone(),
-                    f.trace.clone(),
-                    f.code,
-                )))
+                Val::Failure2(Box::new(f.clone_for_send()))
             }
             &Val::Type(ref t) => Val::Type(t.deep_clone()),
             &Val::ResourceRef(r) => Val::ResourceRef(r),

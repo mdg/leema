@@ -1,6 +1,6 @@
 import /io
 
-func footag >> #foo --
+func footag / # >> #foo --
 
 func main >>
     let h := footag()

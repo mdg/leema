@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 pub trait SendClone
 {
     type Item;
@@ -14,6 +16,16 @@ where
     fn clone_for_send(&self) -> Option<T>
     {
         self.as_ref().map(|v| v.clone_for_send())
+    }
+}
+
+impl<T> SendClone for Arc<T>
+{
+    type Item = Arc<T>;
+
+    fn clone_for_send(&self) -> Arc<T>
+    {
+        self.clone()
     }
 }
 

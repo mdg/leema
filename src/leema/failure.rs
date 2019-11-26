@@ -1,6 +1,7 @@
 use crate::leema::frame::FrameTrace;
 use crate::leema::lmap::LmapNode;
 use crate::leema::lstr::Lstr;
+use crate::leema::sendclone::SendClone;
 use crate::leema::val::Val;
 
 use std::fmt;
@@ -180,7 +181,13 @@ impl Failure
 
     pub fn loc(mut self, file: &'static str, line: u32) -> Self
     {
-        self.loc.push((Lstr::from(file), line));
+        self.loc.push((Lstr::Sref(file), line));
+        self
+    }
+
+    pub fn lstr_loc(mut self, file: Lstr, line: u32) -> Self
+    {
+        self.loc.push((file, line));
         self
     }
 
@@ -222,5 +229,29 @@ impl PartialEq for Failure
     fn eq(&self, b: &Failure) -> bool
     {
         self.tag == b.tag
+    }
+}
+
+impl SendClone for Failure
+{
+    type Item = Failure;
+
+    fn clone_for_send(&self) -> Failure
+    {
+        let loc = self.loc.iter().map(|l| {
+            (l.0.clone_for_send(), l.1)
+        }).collect();
+        let context = self.context.iter().map(|c| c.clone_for_send()).collect();
+
+        Failure {
+            tag: self.tag.clone_for_send(),
+            msg: self.msg.clone_for_send(),
+            trace: self.trace.clone_for_send(),
+            status: self.status,
+            code: self.code,
+            loc,
+            meta: self.meta.clone_for_send(),
+            context,
+        }
     }
 }

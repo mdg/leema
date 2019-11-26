@@ -783,7 +783,7 @@ impl<'p> TypeCheck<'p>
                 let im: Lresult<Struple2<Type>>;
                 im = i0.iter().zip(i1.iter()).map(|iz| {
                     let k = iz.0.k.clone();
-                    let v = lfailoc!(self.match_type(&iz.0.v, &iz.1.v, opens))?;
+                    let v = ltry!(self.match_type(&iz.0.v, &iz.1.v, opens));
                     Ok(StrupleItem::new(k, v))
                 }).collect();
                 Ok(Type::Tuple(im?))
@@ -819,7 +819,7 @@ impl<'p> TypeCheck<'p>
             if var_type == *t {
                 Ok(var_type)
             } else {
-                self.match_type(&var_type, t, opens)
+                lfailoc!(self.match_type(&var_type, t, opens))
             }
         } else {
             self.infers.insert(var, t.clone());
@@ -851,7 +851,7 @@ impl<'p> TypeCheck<'p>
             // different type, run a match and then assign the result
             // this upgrades inference local vars to concrete types
             let old_type = opens[open_idx].v.clone();
-            let new_type = self.match_type(&old_type, t, opens)?;
+            let new_type = ltry!(self.match_type(&old_type, t, opens));
             opens[open_idx].v = new_type.clone();
             Ok(new_type)
         }
@@ -980,7 +980,7 @@ impl<'p> TypeCheck<'p>
         let mut opens = vec![];
         for case in cases.iter() {
             if let Some(ref pt) = prev_typ {
-                self.match_type(pt, &case.body.typ, &mut opens)?;
+                ltry!(self.match_type(pt, &case.body.typ, &mut opens));
             } else {
                 prev_typ = Some(case.body.typ.clone());
             }
@@ -1005,6 +1005,9 @@ impl<'p> SemanticOp for TypeCheck<'p>
             }
             Ast::RustBlock => {
                 node.typ = self.result.clone();
+            }
+            Ast::Wildcard => {
+                node.typ = Type::Unknown;
             }
             _ => {
                 // should handle matches later, but for now it's fine
@@ -1086,7 +1089,9 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 for case in cases.iter_mut() {
                     let it = self.match_type(&input.typ, &case.cond.typ, &mut opens)
                         .map_err(|f| {
-                            f.add_context(lstrf!("for pattern {:?} at {:?}", case.cond.node, case.cond.loc))
+                            f
+                                .add_context(lstrf!("for pattern {:?} at {:?}", case.cond.node, case.cond.loc))
+                                .lstr_loc(self.local_mod.key.best_path(), case.cond.loc.lineno as u32)
                         })?;
                     input.typ = it.clone();
                     case.cond.typ = it;
@@ -1095,7 +1100,7 @@ impl<'p> SemanticOp for TypeCheck<'p>
             }
             Ast::Let(ref mut patt, _, ref mut x) => {
                 let mut opens = vec![];
-                let typ = self.match_type(&patt.typ, &x.typ, &mut opens)?;
+                let typ = ltry!(self.match_type(&patt.typ, &x.typ, &mut opens));
                 patt.typ = typ.clone();
                 x.typ = typ;
             }
@@ -1279,7 +1284,7 @@ impl Semantics
             ],
         };
 
-        let mut result = Self::walk(&mut pipe, body)?;
+        let mut result = ltry!(Self::walk(&mut pipe, body));
         result.typ = type_check.inferred_type(&result.typ, &[])?;
         if *ftyp.result != result.typ && *ftyp.result != Type::Void {
             return Err(rustfail!(

@@ -70,7 +70,7 @@ fn main()
     let exit_code = match real_main() {
         Ok(()) => 0,
         Err(e) => {
-            eprintln!("{}", e);
+            eprintln!("{:#?}", e);
             match (e.code, e.status.cli_code()) {
                 (0, cli_code) => cli_code,
                 (cli_code, _) => cli_code.into(),
