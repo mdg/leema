@@ -1,5 +1,5 @@
 
-import rgb
+import /rgb
 import /io
 
 func main

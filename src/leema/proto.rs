@@ -52,7 +52,9 @@ impl ProtoModule
 {
     pub fn new(key: ModKey, src: &'static str) -> Lresult<ProtoModule>
     {
-        let items = Grammar::new(Tokenz::lexp(src)?).parse_module()?;
+        let mut grammar = Grammar::new(Tokenz::lexp(src)?);
+        grammar.set_path(key.best_path());
+        let items = grammar.parse_module()?;
 
         let mut proto = ProtoModule {
             key,

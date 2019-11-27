@@ -2,7 +2,7 @@
 import list
 
 
-func assign(line: [#], col: Int, rkr: #, bb: Int, bw: Int, pcs: [#]): [#] >>
+func assign line:[#] col:Int rkr:# bb:Int bw:Int pcs:[#] / [#]
 |(line, _, _, 0, 0, []) >> line
 |(line, col, rkr, bb, bw, pcs) >>
     if
@@ -22,7 +22,7 @@ func assign(line: [#], col: Int, rkr: #, bb: Int, bw: Int, pcs: [#]): [#] >>
     --
 --
 
-func piece_str(piece: #): Str >>
+func piece_str piece:# / Str
 |#rook >> "R"
 |#knight >> "N"
 |#bishop >> "B"
@@ -31,7 +31,7 @@ func piece_str(piece: #): Str >>
 |p >> fail(#unknown_piece, "$p")
 --
 
-func print_pieces(all_ppcs: [#]) >>
+func print_pieces all_ppcs:[#]
 |[] >>
     print("\n")
 |p;ppcs >>
@@ -39,19 +39,19 @@ func print_pieces(all_ppcs: [#]) >>
     print_pieces(ppcs)
 --
 
-func pieces_to_str(acc: Str, all_pieces: [#]): Str >>
+func pieces_to_str acc:Str all_pieces:[#] / Str
 |(acc, []) >> acc
 |(acc, h;t) >>
     let pstr := piece_str(h)
     pieces_to_str("$acc$pstr", t)
 --
 
-func take_pieces(outs: [#], input: [(Int, #)]): [#] >>
+func take_pieces outs:[#] input:[(:Int :#)] / [#]
 |(outs, []) >> outs
 |(outs, (_, head);tail) >> take_pieces(head;outs, tail)
 --
 
-func chess960(): Str >>
+func chess960 / Str >>
     let bb := 2 * (int_abs(int_random()) mod 4) + 1
     let bw := 2 * (int_abs(int_random()) mod 4) + 2
     let pieces := [
@@ -68,7 +68,7 @@ func chess960(): Str >>
     pieces_to_str("", alignment)
 --
 
-func main() >>
+func main >>
     let backline := chess960()
     print("$backline\n")
 --

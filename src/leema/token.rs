@@ -277,6 +277,14 @@ pub struct TokenSrc
     pub len: usize,
 }
 
+impl TokenSrc
+{
+    fn lineno(&self) -> u16
+    {
+        self.begin.lineno
+    }
+}
+
 impl fmt::Display for TokenSrc
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result

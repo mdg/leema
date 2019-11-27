@@ -169,6 +169,7 @@ class TestScripts(unittest.TestCase):
             result['output'])
 
     def test_fmatch_list_tail(self):
+        self.skipTest("not ready for testing")
         result = run_leema('fmatch_list_tail')
         self.assertEqual(0, result['code'])
         self.assertEqual(
@@ -177,11 +178,13 @@ class TestScripts(unittest.TestCase):
             result['output'])
 
     def test_fmatch_list_empty(self):
+        self.skipTest("not ready for testing")
         result = run_leema('fmatch_list_empty')
         self.assertEqual(0, result['code'])
         self.assertEqual(b"is_empty? false\n", result['output'])
 
     def test_fmatch_scope_depth(self):
+        self.skipTest("not ready for testing")
         result = run_leema('fmatch_scope_depth')
         self.assertEqual(0, result['code'])
         self.assertEqual(
@@ -220,6 +223,7 @@ class TestScripts(unittest.TestCase):
             result['stderr'])
 
     def test_closures(self):
+        self.skipTest("not ready for testing")
         result = run_leema('test_closures')
         self.assertEqual(0, result['code'])
         exp = b"double i = [2,4,6,8,]\n" \
@@ -228,6 +232,7 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(exp, result['output'])
 
     def test_destruct(self):
+        self.skipTest("not ready for testing")
         result = run_leema('destruct')
         self.assertEqual(0, result['code'])
         self.assertEqual(
@@ -271,6 +276,7 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(expected, result['output'])
 
     def test_const(self):
+        self.skipTest("not ready for testing")
         result = run_leema('test_const')
         self.assertEqual(0, result['code'])
         lines = result['output'].splitlines()
@@ -281,6 +287,7 @@ class TestScripts(unittest.TestCase):
         )
 
     def test_empty_struct(self):
+        self.skipTest("not ready for testing")
         result = run_leema('empty_struct')
         self.assertEqual(0, result['code'])
         expected = b"empty: empty_struct::Empty\n"
@@ -294,6 +301,7 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(expected, result['output'])
 
     def test_color_enum(self):
+        self.skipTest("not ready for testing")
         result = run_leema('color_enum')
         self.assertEqual(0, result['code'])
         exp = b"red: Red\n" \
@@ -323,6 +331,7 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(exp, result['output'])
 
     def test_cli(self):
+        self.skipTest("not ready for testing")
         result = run_leema('hi_to')
         self.assertEqual(0, result['code'])
         exp = b'hi world\n'

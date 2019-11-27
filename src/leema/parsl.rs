@@ -1,4 +1,5 @@
-use crate::leema::failure::Lresult;
+use crate::leema::failure::{self, Failure, Lresult};
+use crate::leema::lstr::Lstr;
 use crate::leema::token::{Token, TokenResult, TokenSrc};
 
 use std::fmt;
@@ -11,12 +12,13 @@ macro_rules! expect_next {
         if tok.tok == $expected {
             Ok(tok)
         } else {
-            Err(rustfail!(
-                "parse_failure",
-                "expected {:?}, found {}",
-                $expected,
-                tok,
-            ))
+            let f = crate::leema::failure::Failure::static_leema(
+                crate::leema::failure::Mode::ParseFailure,
+                lstrf!("expected {:?}, found {:?}", $expected, tok.tok),
+                $p.path.clone(),
+                tok.begin.lineno,
+            ).loc(file!(), line!());
+            Err(f)
         }
     }};
 }
@@ -189,6 +191,7 @@ pub trait ParslMode: fmt::Debug
 pub struct Parsl
 {
     src: TokenStream,
+    pub path: Lstr,
 }
 
 impl Parsl
@@ -196,7 +199,7 @@ impl Parsl
     pub fn new(src: Vec<TokenSrc>) -> Parsl
     {
         let strm = TokenStream::new(src);
-        Parsl { src: strm }
+        Parsl { src: strm, path: Lstr::Sref("") }
     }
 
     pub fn peek_token(&mut self) -> Lresult<Token>
@@ -277,12 +280,12 @@ impl Parsl
         let mut left = match mode.prefix(tok0.tok) {
             Some(parser) => parser.parse(self, tok0)?,
             None => {
-                return Err(rustfail!(
-                    "parse_failure",
-                    "cannot parse token in {:?}: {}",
-                    mode,
-                    tok0,
-                ));
+                return Err(Failure::static_leema(
+                    failure::Mode::ParseFailure,
+                    lstrf!("cannot parse token in {:?}: {:?}", mode, tok0.tok),
+                    self.path.clone(),
+                    tok0.begin.lineno,
+                ).loc(file!(), line!()));
             }
         };
 

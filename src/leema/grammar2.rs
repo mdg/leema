@@ -1,5 +1,5 @@
 use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc, ModTree};
-use crate::leema::failure::Lresult;
+use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::lstr::Lstr;
 use crate::leema::parsl::{
     Assoc, InfixParser, ParseFirst, ParseMore, Parsl, ParslMode, Precedence,
@@ -579,10 +579,11 @@ impl PrefixParser for ParseIdType
                 StrupleItem::new(None, typ)
             }
             _ => {
-                return Err(rustfail!(
-                    "parse_failure",
-                    "expected id or : found {:?}",
-                    tok,
+                return Err(Failure::static_leema(
+                    failure::Mode::ParseFailure,
+                    lstrf!("expected id or : found {:?}", tok.tok),
+                    p.path.clone(),
+                    tok.begin.lineno,
                 ));
             }
         };
@@ -1529,6 +1530,11 @@ impl Grammar
         Grammar {
             p: Parsl::new(items),
         }
+    }
+
+    pub fn set_path(&mut self, path: Lstr)
+    {
+        self.p.path = path;
     }
 
     pub fn parse_module(&mut self) -> Lresult<Vec<AstNode>>
