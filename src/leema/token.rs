@@ -1412,10 +1412,9 @@ mod tests
         let t: Vec<TokenSrc> = tr.unwrap();
 
         let hint_open = vec![false];
-        let mut i = t.into_iter();
 
-        let first2 = (i.next(), i.next());
-        let mut _i = i.fold((vec![], first2), |(mut acc, c01), c2| {
+        let first2: (Option<TokenSrc>, Option<TokenSrc>) = (None, None);
+        let mut _i = t.into_iter().fold((vec![], first2), |(mut acc, c01), c2| {
             let ot0 = c01.0.map(|c| c.tok);
             let ot1 = c01.1.map(|c| c.tok);
             match (ot0, ot1, c2.tok) {
@@ -1437,9 +1436,9 @@ mod tests
                 (Some(Token::LineBegin), Some(_), _) => {
                     (acc, (c01.1, Some(c2)))
                 }
-                (Some(first), Some(Token::LineBegin), _) => {
+                (Some(first), Some(Token::LineBegin), last) => {
                     let hint = hint_open.last().map(|h| *h).unwrap_or(false);
-                    if is_expr_open(first, hint) {
+                    if is_expr_open(first, last, hint) {
                         acc.push(c01.0);
                         acc.push(c01.1);
                     } else {
@@ -1455,105 +1454,118 @@ mod tests
         });
     }
 
-    fn is_expr_open(tok: Token, hint_is_open: bool) -> bool
+    fn is_expr_open(first: Token, _second: Token, hint_is_open: bool) -> bool
     {
-        match tok {
+        match first {
             Token::Id
             |Token::Int
             |Token::Bool
             |Token::Hashtag
             |Token::StrLit
-            |Token::DollarId => hint_is_open,
+            |Token::ConcatNewline
+            |Token::DollarId
+            |Token::Type
+            |Token::Underscore => hint_is_open,
+
+            Token::DoubleQuoteR
+            |Token::ParenR
+            |Token::SquareR
+            |Token::CurlyR
+            |Token::AngleR => hint_is_open,
 
             // brackets
-            Token::ParenL
-            |Token::ParenR
+            Token::DoubleQuoteL
+            |Token::ParenL
             |Token::SquareL
             |Token::CurlyL
             |Token::AngleL => true,
 
-            _ => false,
-
-            /*
-            Token::DoubleQuoteL
-            |Token::SquareR
-            |Token::CurlyR
-            |Token::AngleR
-            |Token::DoubleQuoteR
-
-            // keywords
-            Token::Const
-            Token::Else
-            Token::Export
-            Token::Failed
-            Token::Fork
-            Token::Func
-            Token::If
-            Token::Import
-            Token::Include
-            Token::Let
-            Token::Macro
-            Token::Match
-            Token::Return
-            Token::RustBlock
-            Token::Type
-            Token::Underscore
-
-            // operators (arithmetic)
+            // operators
             Token::Plus
-            Token::Dash
-            Token::Star
-            Token::Slash
-            Token::Modulo
-            Token::Dollar
-
-            // operators (boolean)
-            Token::And
-            Token::Not
-            Token::Or
-            Token::Xor
-
-            // operators (comparison)
-            Token::Equal
-            Token::EqualNot
-            Token::GreaterThanEqual
-            Token::LessThanEqual
+            |Token::Dash
+            |Token::Star
+            |Token::Slash
+            |Token::Modulo
+            |Token::Dollar
+            |Token::And
+            |Token::Not
+            |Token::Or
+            |Token::Xor
+            |Token::Equal
+            |Token::EqualNot
+            |Token::GreaterThanEqual
+            |Token::LessThanEqual => true,
 
             // separators
             Token::Assignment
-            Token::CasePipe
-            Token::Colon
-            Token::Comma
-            Token::ConcatNewline
-            Token::Dot
-            Token::DoubleArrow
-            Token::DoubleColon
-            Token::DoubleDash
-            Token::DoubleDot
-            Token::Pipe
-            Token::Semicolon
-            Token::StatementSep
+            |Token::Colon
+            |Token::Comma
+            |Token::Dot
+            |Token::DoubleColon
+            |Token::DoubleDot
+            |Token::Pipe
+            |Token::Semicolon => true,
 
-            // comments
-            Token::CommentBlockStart
-            Token::CommentBlockStop
-            Token::CommentLine
+            Token::CasePipe
+            |Token::DoubleArrow
+            |Token::DoubleDash
+            |Token::RustBlock
+            |Token::StatementSep => false,
+
+            // keywords
+            Token::Const
+            |Token::Else
+            |Token::Export
+            |Token::Failed
+            |Token::Fork
+            |Token::Func
+            |Token::If
+            |Token::Import
+            |Token::Include
+            |Token::Let
+            |Token::Macro
+            |Token::Match
+            |Token::Return => true,
 
             // whitespace
             Token::EmptyLine
-            Token::LineBegin
-            Token::LineEnd
-            Token::Spaces
-            Token::Tabs
+            |Token::LineBegin
+            |Token::LineEnd
+            |Token::Spaces
+            |Token::Tabs => hint_is_open,
+
+            // comments
+            Token::CommentBlockStart
+            |Token::CommentBlockStop
+            |Token::CommentLine => hint_is_open,
 
             // EOF
-            Token::EOF
-
-            // Invalid tokens
-            Token::Invalid
-            */
+            Token::EOF => false,
+            Token::Invalid => unimplemented!(),
+            Token::NumTokens => unimplemented!(),
         }
     }
+
+        /*
+        let mut last3 = Vec::new();
+        let mut i = t.into_iter().flat_map(|c| {
+            last3.push(c);
+            if last3.len() > 3 {
+                let first = last3.remove(0);
+                Some([first])
+                // last3.drain(0..1).into_iter()
+            } else {
+                // last3.drain(0..0).into_iter()
+                None
+            }
+        });
+
+        dbg!(i.next());
+        dbg!(i.next());
+        dbg!(i.next());
+        dbg!(i.next());
+        panic!("{:#?}", i.next());
+        */
 
     #[test]
     fn test_tokenz_int()
