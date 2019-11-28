@@ -2233,6 +2233,20 @@ mod tests
     }
 
     #[test]
+    fn test_parse_list_of_tuples()
+    {
+        let input = r#"
+        let x :=
+            [ (3, "a")
+            , (7, "b")
+            ]
+        "#;
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+        assert_eq!(1, ast.len());
+    }
+
+    #[test]
     fn test_parse_lt3()
     {
         let input = "x < y <= z

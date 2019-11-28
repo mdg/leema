@@ -60,7 +60,7 @@ func chess960 / Str >>
         (int_random(), #queen),
         (int_random(), #rkr),
         (int_random(), #rkr),
-        (int_random(), #rkr)
+        (int_random(), #rkr),
         ]
     let sorted_pieces := list::sort(pieces)
     let just_pieces := take_pieces([], sorted_pieces)

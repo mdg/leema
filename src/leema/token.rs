@@ -1230,10 +1230,20 @@ impl Iterator for Tokenz
     }
 }
 
+/// Token Filtering
+/// if an expression or statement is open, filter out LineBegin and LineEnd
+/// if it's closed, replace with LineEnd/LineBegin with StmtBreak
+/// expression is open if:
+/// * unclosed ( [ { "
+/// * line ends with operator , + . : < <= > >= == != :=
+/// expression is closed if:
+/// * line ends with ) ] } id const >> --
+
 #[cfg(test)]
 mod tests
 {
-    use super::{Token, TokenResult, Tokenz};
+    use super::{Token, TokenResult, TokenSrc, Tokenz};
+    use crate::leema::failure::Lresult;
 
     use std::iter::Iterator;
 
@@ -1386,6 +1396,163 @@ mod tests
         assert_eq!(Token::Dash, nextok(&mut i).0);
         assert_eq!(Token::EOF, nextok(&mut i).0);
         assert_eq!(None, i.next());
+    }
+
+    #[test]
+    fn test_tokenz_stmtbreaks()
+    {
+        let input = "
+        let x := [
+            (#whatever),
+            (3),
+            ]
+        ";
+
+        let tr: Lresult<Vec<TokenSrc>> = Tokenz::lex(input).collect();
+        let t: Vec<TokenSrc> = tr.unwrap();
+
+        let hint_open = vec![false];
+        let mut i = t.into_iter();
+
+        let first2 = (i.next(), i.next());
+        let mut _i = i.fold((vec![], first2), |(mut acc, c01), c2| {
+            let ot0 = c01.0.map(|c| c.tok);
+            let ot1 = c01.1.map(|c| c.tok);
+            match (ot0, ot1, c2.tok) {
+                // fill in empty spots
+                (None, None, _) => {
+                    // shift forward 2
+                    (acc, (Some(c2), None))
+                }
+                (None, Some(_), _) => {
+                    // shift forward 1
+                    (acc, (c01.1, Some(c2)))
+                }
+                (Some(_), None, _) => {
+                    // shift forward
+                    (acc, (c01.0, Some(c2)))
+                }
+
+                // fill in empty spots
+                (Some(Token::LineBegin), Some(_), _) => {
+                    (acc, (c01.1, Some(c2)))
+                }
+                (Some(first), Some(Token::LineBegin), _) => {
+                    let hint = hint_open.last().map(|h| *h).unwrap_or(false);
+                    if is_expr_open(first, hint) {
+                        acc.push(c01.0);
+                        acc.push(c01.1);
+                    } else {
+                        acc.push(c01.0);
+                    }
+                    (acc, (Some(c2), None))
+                }
+                (Some(_), Some(_), _) => {
+                    acc.push(c01.0);
+                    (acc, (c01.1, Some(c2)))
+                }
+            }
+        });
+    }
+
+    fn is_expr_open(tok: Token, hint_is_open: bool) -> bool
+    {
+        match tok {
+            Token::Id
+            |Token::Int
+            |Token::Bool
+            |Token::Hashtag
+            |Token::StrLit
+            |Token::DollarId => hint_is_open,
+
+            // brackets
+            Token::ParenL
+            |Token::ParenR
+            |Token::SquareL
+            |Token::CurlyL
+            |Token::AngleL => true,
+
+            _ => false,
+
+            /*
+            Token::DoubleQuoteL
+            |Token::SquareR
+            |Token::CurlyR
+            |Token::AngleR
+            |Token::DoubleQuoteR
+
+            // keywords
+            Token::Const
+            Token::Else
+            Token::Export
+            Token::Failed
+            Token::Fork
+            Token::Func
+            Token::If
+            Token::Import
+            Token::Include
+            Token::Let
+            Token::Macro
+            Token::Match
+            Token::Return
+            Token::RustBlock
+            Token::Type
+            Token::Underscore
+
+            // operators (arithmetic)
+            Token::Plus
+            Token::Dash
+            Token::Star
+            Token::Slash
+            Token::Modulo
+            Token::Dollar
+
+            // operators (boolean)
+            Token::And
+            Token::Not
+            Token::Or
+            Token::Xor
+
+            // operators (comparison)
+            Token::Equal
+            Token::EqualNot
+            Token::GreaterThanEqual
+            Token::LessThanEqual
+
+            // separators
+            Token::Assignment
+            Token::CasePipe
+            Token::Colon
+            Token::Comma
+            Token::ConcatNewline
+            Token::Dot
+            Token::DoubleArrow
+            Token::DoubleColon
+            Token::DoubleDash
+            Token::DoubleDot
+            Token::Pipe
+            Token::Semicolon
+            Token::StatementSep
+
+            // comments
+            Token::CommentBlockStart
+            Token::CommentBlockStop
+            Token::CommentLine
+
+            // whitespace
+            Token::EmptyLine
+            Token::LineBegin
+            Token::LineEnd
+            Token::Spaces
+            Token::Tabs
+
+            // EOF
+            Token::EOF
+
+            // Invalid tokens
+            Token::Invalid
+            */
+        }
     }
 
     #[test]
