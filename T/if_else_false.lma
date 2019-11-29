@@ -2,9 +2,10 @@ import /io
 
 func main >>
     let x := 3
-    if x == 1 >>
+    if
+    |x == 1 >>
         io::print("hello\n")
-    else >>
+    |else >>
         io::print("burritos\n")
     --
 --

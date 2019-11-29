@@ -1,5 +1,5 @@
 
-import list
+import /list
 
 
 func assign line:[#] col:Int rkr:# bb:Int bw:Int pcs:[#] / [#]
