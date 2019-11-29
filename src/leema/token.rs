@@ -1,4 +1,5 @@
-use crate::leema::failure::Lresult;
+use crate::leema::failure::{self, Failure, Lresult};
+use crate::leema::lstr::Lstr;
 
 use std::collections::HashMap;
 use std::fmt;
@@ -227,14 +228,123 @@ impl Token
         }
     }
 
-    pub fn continues_next_line(&self) -> bool
+    pub fn continues_next_line(&self) -> Option<bool>
     {
-        false
+        match self {
+            Token::Id
+            |Token::Int
+            |Token::Bool
+            |Token::Hashtag
+            |Token::StrLit
+            |Token::ConcatNewline
+            |Token::DollarId
+            |Token::Type
+            |Token::Underscore => None, // false? open_expr
+
+            Token::DoubleQuoteR
+            |Token::ParenR
+            |Token::SquareR
+            |Token::CurlyR => {
+                if false { // end_of_line {
+                    None
+                } else {
+                    Some(true)
+                }
+                // false // || open_expr
+            }
+
+            // brackets
+            Token::DoubleQuoteL
+            |Token::ParenL
+            |Token::SquareL
+            |Token::CurlyL => {
+                if false { // loc == StartOfLine {
+                    None
+                } else {
+                    Some(true)
+                }
+                // true
+            }
+
+            // operators
+            Token::Plus
+            |Token::Dash
+            |Token::Star
+            |Token::Slash
+            |Token::Modulo
+            |Token::Dollar
+            |Token::And
+            |Token::Not
+            |Token::Or
+            |Token::Xor
+            |Token::Equal
+            |Token::EqualNot
+            |Token::GreaterThanEqual
+            |Token::LessThanEqual
+            |Token::AngleL
+            |Token::AngleR => Some(true),
+
+            // separators
+            Token::Assignment
+            |Token::Colon
+            |Token::Comma
+            |Token::Dot
+            |Token::DoubleColon
+            |Token::DoubleDot
+            |Token::Pipe
+            |Token::Semicolon => Some(true),
+
+            Token::CasePipe
+            |Token::DoubleArrow
+            |Token::DoubleDash
+            |Token::RustBlock
+            |Token::StatementSep => Some(false),
+
+            // keywords
+            Token::Const
+            |Token::Else
+            |Token::Export
+            |Token::Failed
+            |Token::Fork
+            |Token::Func
+            |Token::If
+            |Token::Import
+            |Token::Include
+            |Token::Let
+            |Token::Macro
+            |Token::Match
+            |Token::Return => Some(true),
+
+            // whitespace
+            Token::EmptyLine
+            |Token::LineBegin
+            |Token::LineEnd
+            |Token::Spaces
+            |Token::Tabs => Some(false), // hint_is_open,
+
+            // comments
+            Token::CommentBlockStart
+            |Token::CommentBlockStop
+            |Token::CommentLine => Some(false), // hint_is_open,
+
+            // EOF
+            Token::EOF => Some(false),
+            Token::Invalid => unimplemented!(),
+            Token::NumTokens => unimplemented!(),
+        }
     }
 
     pub fn continues_prev_line(&self) -> bool
     {
         false
+    }
+}
+
+impl fmt::Display for Token
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "{:?}", self)
     }
 }
 
@@ -1240,6 +1350,115 @@ impl Iterator for Tokenz
     }
 }
 
+struct LineBreaker
+{
+    toks: Vec<TokenSrc>,
+    curr: Option<TokenSrc>,
+    expr: Vec<TokenSrc>,
+}
+
+impl LineBreaker
+{
+    pub fn new() -> LineBreaker
+    {
+        LineBreaker {
+            toks: Vec::new(),
+            curr: None,
+            expr: Vec::new(),
+        }
+    }
+
+    pub fn push(mut self, next: TokenSrc) -> Lresult<LineBreaker>
+    {
+        if self.toks.is_empty() {
+            self.toks.push(next);
+        } else if self.curr.is_none() {
+            self.curr = Some(next);
+        } else {
+            /*
+            self.push3(
+                self.toks.last().unwrap().tok,
+                self.curr.unwrap().tok,
+                next.tok,
+            );
+            */
+        }
+        Ok(self)
+    }
+
+    pub fn close(self) -> Lresult<Vec<TokenSrc>>
+    {
+        Ok(self.toks)
+    }
+
+    fn push_token(&mut self, next: TokenSrc) -> Lresult<()>
+    {
+        match next.tok {
+            Token::ParenL
+            |Token::SquareL
+            |Token::CurlyL
+            |Token::DoubleQuoteL
+            |Token::DoubleArrow => self.expr.push(next),
+
+            Token::ParenR
+            |Token::SquareR
+            |Token::CurlyR
+            |Token::DoubleQuoteR
+            |Token::DoubleDash
+            |Token::CasePipe => self.close_expr(next)?,
+
+            _ => {} // nothing to do otherwise
+        }
+        self.toks.push(next);
+        Ok(())
+    }
+
+    fn close_expr(&mut self, close: TokenSrc) -> Lresult<()>
+    {
+        let open = self.expr.pop().unwrap();
+        match (open.tok, close.tok) {
+            (Token::ParenL, Token::ParenR)
+            |(Token::SquareL, Token::SquareR)
+            |(Token::CurlyL, Token::CurlyR)
+            |(Token::DoubleQuoteL, Token::DoubleQuoteL)
+            |(Token::DoubleArrow, Token::CasePipe)
+            |(Token::DoubleArrow, Token::DoubleDash) => {
+                // match as expected
+                return Ok(())
+            }
+            _ => {} // fall down to error handling
+        }
+
+        let err_msg = match open.tok {
+            Token::ParenL => {
+                lstrf!("mismatched (), expected ), found {}", close.tok)
+            }
+            Token::SquareL => {
+                lstrf!("mismatched [], expected ], found {}", close.tok)
+            }
+            Token::CurlyL => {
+                lstrf!("mismatched {{}}, expected }}, found {}", close.tok)
+            }
+            Token::DoubleQuoteL => {
+                lstrf!(r#"mismatched "", expected closing ", found {}"#, close.tok)
+            }
+            Token::DoubleArrow => {
+                lstrf!(r#"unclosed block, expected | or --, found {}"#, close.tok)
+            }
+
+            _ => {
+                panic!("unexpected open token: {:#?}", open);
+            }
+        };
+        Err(Failure::static_leema(
+            failure::Mode::ParseFailure,
+            err_msg,
+            Lstr::Sref(file!()),
+            close.begin.lineno,
+        ))
+    }
+}
+
 /// Token Filtering
 /// if an expression or statement is open, filter out LineBegin and LineEnd
 /// if it's closed, replace with LineEnd/LineBegin with StmtBreak
@@ -1253,6 +1472,7 @@ impl Iterator for Tokenz
 mod tests
 {
     use super::{Token, TokenResult, TokenSrc, Tokenz};
+    use super::LineBreaker;
     use crate::leema::failure::Lresult;
 
     use std::iter::Iterator;
@@ -1421,59 +1641,33 @@ mod tests
         let tr: Lresult<Vec<TokenSrc>> = Tokenz::lex(input).collect();
         let t: Vec<TokenSrc> = tr.unwrap();
 
-        let hint_open = vec![false];
+        let breaks = t.into_iter().try_fold(LineBreaker::new(), |lb, n| {
+            lb.push(n)
+        }).unwrap();
+        let _toks = breaks.close().unwrap();
+    }
 
-        let first2: (Option<TokenSrc>, Option<TokenSrc>) = (None, None);
-        let mut _i = t.into_iter().fold((vec![], first2), |(mut acc, c01), c2| {
-            let ot0 = c01.0.map(|c| c.tok);
-            let ot1 = c01.1.map(|c| c.tok);
-            match (ot0, ot1, c2.tok) {
-                // fill in empty spots
-                (None, None, _) => {
-                    // shift forward 2
-                    (acc, (Some(c2), None))
-                }
-                (None, Some(_), _) => {
-                    // shift forward 1
-                    (acc, (c01.1, Some(c2)))
-                }
-                (Some(_), None, _) => {
-                    // shift forward
-                    (acc, (c01.0, Some(c2)))
-                }
-
-                // fill in empty spots
-                (Some(Token::LineBegin), Some(_), _) => {
-                    (acc, (c01.1, Some(c2)))
-                }
-                (Some(first), Some(Token::LineBegin), last) => {
-                    let hint = hint_open.last().map(|h| *h).unwrap_or(false);
-                    if is_expr_open(first, last, hint) {
-                        acc.push(c01.0);
-                        acc.push(c01.1);
-                    } else {
-                        acc.push(c01.0);
-                    }
-                    (acc, (Some(c2), None))
-                }
-                (Some(_), Some(_), _) => {
-                    acc.push(c01.0);
-                    (acc, (c01.1, Some(c2)))
-                }
-            }
-        });
+    fn is_expr_closed(first: Token, second: Token, prev_open: bool) -> bool
+    {
+        prev_open
+            || first.continues_next_line().unwrap()
+            || second.continues_prev_line()
     }
 
     fn is_expr_open(first: Token, second: Token, prev_open: bool) -> bool
     {
         prev_open
-            || first.continues_next_line()
+            || first.continues_next_line().unwrap()
             || second.continues_prev_line()
-        first.is_open_expr(EndOfLine)
-            .or_else(|| second.is_open_expr(StartOfLine))
-            .or(prev_open)
+        /*
+        (Some(n), Some(p)) => n && p
+        (Some(n), None) => n,
+        (None, Some(p)) => p,
+        (None, None) => prev_open,
+        */
     }
 
+    /*
     fn is_open_expr(tok: Token, loc: bool) -> Option<bool>
     {
         match tok {
@@ -1577,6 +1771,7 @@ mod tests
             Token::NumTokens => unimplemented!(),
         }
     }
+    */
 
     #[test]
     fn test_tokenz_int()
