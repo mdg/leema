@@ -1754,6 +1754,7 @@ mod tests
         let input = r#"
         func add x:Int y:Int / Int
         |(0, 0) >> 0
+        |(1, 1) >> 2
         |(x, y) >> x + y
         --
 

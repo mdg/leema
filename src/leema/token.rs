@@ -1469,8 +1469,13 @@ impl LineBreaker
                 // don't pop the type token if that's previous
                 let pipe_closes = if let Some(last) = self.expr.last_mut() {
                     match last.tok {
-                        Token::Type|Token::Func => false,
-                        Token::DoubleArrow => true,
+                        Token::Type => false,
+
+                        Token::DoubleArrow
+                        |Token::Func
+                        |Token::If
+                        |Token::Match => true,
+
                         t => {
                             panic!("unexpected pipe opening: {}", t);
                         }
@@ -1479,7 +1484,7 @@ impl LineBreaker
                     true
                 };
                 if pipe_closes {
-                    self.close_expr(next)?;
+                    self.expr.pop();
                 }
             }
 
@@ -1557,6 +1562,7 @@ impl LineBreaker
                     Token::SquareL => true,
                     Token::CurlyL => true,
                     Token::DoubleQuoteL => true,
+                    Token::Func => true,
                     Token::Type => true,
                     Token::DoubleArrow => false,
                     _ => {
