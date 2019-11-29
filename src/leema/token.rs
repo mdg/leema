@@ -227,44 +227,11 @@ impl Token
         }
     }
 
-    pub fn continues_next_line(&self) -> Option<bool>
+    /// check if this token ending a line should continue the next line
+    /// eg, a comma ending a line indicates the next line continues
+    pub fn continues_next_line(&self) -> bool
     {
         match self {
-            Token::Id
-            |Token::Int
-            |Token::Bool
-            |Token::Hashtag
-            |Token::StrLit
-            |Token::ConcatNewline
-            |Token::DollarId
-            |Token::Type
-            |Token::Underscore => None, // false? open_expr
-
-            Token::DoubleQuoteR
-            |Token::ParenR
-            |Token::SquareR
-            |Token::CurlyR => {
-                if false { // end_of_line {
-                    None
-                } else {
-                    Some(true)
-                }
-                // false // || open_expr
-            }
-
-            // brackets
-            Token::DoubleQuoteL
-            |Token::ParenL
-            |Token::SquareL
-            |Token::CurlyL => {
-                if false { // loc == StartOfLine {
-                    None
-                } else {
-                    Some(true)
-                }
-                // true
-            }
-
             // operators
             Token::Plus
             |Token::Dash
@@ -281,7 +248,7 @@ impl Token
             |Token::GreaterThanEqual
             |Token::LessThanEqual
             |Token::AngleL
-            |Token::AngleR => Some(true),
+            |Token::AngleR => true,
 
             // separators
             Token::Assignment
@@ -291,12 +258,7 @@ impl Token
             |Token::DoubleColon
             |Token::DoubleDot
             |Token::Pipe
-            |Token::Semicolon => Some(true),
-
-            Token::CasePipe
-            |Token::DoubleArrow
-            |Token::DoubleDash
-            |Token::RustBlock => Some(false),
+            |Token::Semicolon => true,
 
             // keywords
             Token::Const
@@ -311,30 +273,79 @@ impl Token
             |Token::Let
             |Token::Macro
             |Token::Match
-            |Token::Return => Some(true),
+            |Token::Return => true,
 
-            // whitespace
-            Token::EmptyLine
-            |Token::LineBegin
-            |Token::LineEnd
-            |Token::Spaces
-            |Token::Tabs => Some(false), // hint_is_open,
+            // opening brackets continue the next line
+            // (but that should already be covered as being in an open expr
+            Token::DoubleQuoteL
+            |Token::ParenL
+            |Token::SquareL
+            |Token::CurlyL => true,
 
-            // comments
-            Token::CommentBlockStart
-            |Token::CommentBlockStop
-            |Token::CommentLine => Some(false), // hint_is_open,
-
-            // EOF
-            Token::EOF => Some(false),
-            Token::Invalid => unimplemented!(),
-            Token::NumTokens => unimplemented!(),
+            _ => false,
         }
     }
 
+    /// check if this token starting a newline should continue the previous line
+    /// for example, a comma on a newline indicates the previous line continues
     pub fn continues_prev_line(&self) -> bool
     {
-        false
+        match self {
+            // infix-only operators
+            Token::Plus
+            |Token::Star
+            |Token::Slash
+            |Token::Modulo
+            |Token::Dollar
+            |Token::And
+            |Token::Or
+            |Token::Xor
+            |Token::Equal
+            |Token::EqualNot
+            |Token::GreaterThanEqual
+            |Token::LessThanEqual
+            |Token::AngleL
+            |Token::AngleR => true,
+
+            // these prefix operators can start a statement
+            Token::Dash
+            |Token::Not => false,
+
+            // separators
+            Token::Assignment
+            |Token::Colon
+            |Token::Comma
+            |Token::Dot
+            |Token::DoubleColon
+            |Token::DoubleDot
+            |Token::Pipe
+            |Token::Semicolon => true,
+
+            // a closing bracket suggests there's something above still open
+            Token::DoubleQuoteR
+            |Token::ParenR
+            |Token::SquareR
+            |Token::CurlyR => true,
+
+            // else only keyword that doesn't start a statement
+            Token::Else => true,
+
+            // opening keywords
+            Token::Const
+            |Token::Export
+            |Token::Failed
+            |Token::Fork
+            |Token::Func
+            |Token::If
+            |Token::Import
+            |Token::Include
+            |Token::Let
+            |Token::Macro
+            |Token::Match
+            |Token::Return => false,
+
+            _ => false,
+        }
     }
 }
 
@@ -1450,7 +1461,7 @@ impl LineBreaker
                 }
             })
             .unwrap_or(false);
-        open || t0.continues_next_line().unwrap() || t2.continues_prev_line()
+        open || t0.continues_next_line() || t2.continues_prev_line()
     }
 
     fn close_expr(&mut self, close: TokenSrc) -> Lresult<()>
@@ -1694,131 +1705,6 @@ mod tests
         assert_eq!(Token::ParenL, i.next().unwrap().tok);
         assert_eq!(Token::Hashtag, i.next().unwrap().tok);
     }
-
-    fn is_expr_closed(first: Token, second: Token, prev_open: bool) -> bool
-    {
-        prev_open
-            || first.continues_next_line().unwrap()
-            || second.continues_prev_line()
-    }
-
-    fn is_expr_open(first: Token, second: Token, prev_open: bool) -> bool
-    {
-        prev_open
-            || first.continues_next_line().unwrap()
-            || second.continues_prev_line()
-        /*
-        (Some(n), Some(p)) => n && p
-        (Some(n), None) => n,
-        (None, Some(p)) => p,
-        (None, None) => prev_open,
-        */
-    }
-
-    /*
-    fn is_open_expr(tok: Token, loc: bool) -> Option<bool>
-    {
-        match tok {
-            Token::Id
-            |Token::Int
-            |Token::Bool
-            |Token::Hashtag
-            |Token::StrLit
-            |Token::ConcatNewline
-            |Token::DollarId
-            |Token::Type
-            |Token::Underscore => None,
-
-            Token::DoubleQuoteR
-            |Token::ParenR
-            |Token::SquareR
-            |Token::CurlyR
-            |Token::AngleR => {
-                if end_of_line {
-                    None
-                } else {
-                    Some(true)
-                }
-            }
-
-            // brackets
-            Token::DoubleQuoteL
-            |Token::ParenL
-            |Token::SquareL
-            |Token::CurlyL
-            |Token::AngleL => {
-                if loc == StartOfLine {
-                    None
-                } else {
-                    Some(true)
-                }
-            }
-
-            // operators
-            Token::Plus
-            |Token::Dash
-            |Token::Star
-            |Token::Slash
-            |Token::Modulo
-            |Token::Dollar
-            |Token::And
-            |Token::Not
-            |Token::Or
-            |Token::Xor
-            |Token::Equal
-            |Token::EqualNot
-            |Token::GreaterThanEqual
-            |Token::LessThanEqual => true,
-
-            // separators
-            Token::Assignment
-            |Token::Colon
-            |Token::Comma
-            |Token::Dot
-            |Token::DoubleColon
-            |Token::DoubleDot
-            |Token::Pipe
-            |Token::Semicolon => true,
-
-            Token::CasePipe
-            |Token::DoubleArrow
-            |Token::DoubleDash
-            |Token::RustBlock
-
-            // keywords
-            Token::Const
-            |Token::Else
-            |Token::Export
-            |Token::Failed
-            |Token::Fork
-            |Token::Func
-            |Token::If
-            |Token::Import
-            |Token::Include
-            |Token::Let
-            |Token::Macro
-            |Token::Match
-            |Token::Return => true,
-
-            // whitespace
-            Token::EmptyLine
-            |Token::LineBegin
-            |Token::LineEnd
-            |Token::Spaces
-            |Token::Tabs => hint_is_open,
-
-            // comments
-            Token::CommentBlockStart
-            |Token::CommentBlockStop
-            |Token::CommentLine => hint_is_open,
-
-            // EOF
-            Token::EOF => false,
-            Token::Invalid => unimplemented!(),
-            Token::NumTokens => unimplemented!(),
-        }
-    }
-    */
 
     #[test]
     fn test_tokenz_int()
