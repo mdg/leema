@@ -511,7 +511,7 @@ impl IdTypeMode
         p.parse_new(&IdTypeMode)
     }
 
-    /// FuncTypeMode for func args like: "id:Type* > Type"
+    /// FuncTypeMode for func args like: "id:Type* / Type"
     pub fn parse_func_type(p: &mut Parsl) -> Lresult<(ast2::Xlist, AstNode)>
     {
         let args = if p.peek_token()? == Token::Slash {
@@ -680,7 +680,7 @@ impl PrefixParser for ParseVariant
         let name = expect_next!(p, Token::Id)?;
         // check if it's an empty token variant
         let peeked = p.peek_token()?;
-        if peeked == Token::CasePipe || peeked == Token::LineBegin {
+        if peeked == Token::CasePipe || peeked == Token::DoubleDash {
             Ok(StrupleItem::new(Some(name.src), AstNode::new(Ast::Void, Ast::loc(&name))))
         } else {
             let name_id = AstNode::new(Ast::Id1(name.src), Ast::loc(&name));

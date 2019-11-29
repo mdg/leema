@@ -1541,6 +1541,7 @@ impl LineBreaker
                     Token::SquareL => true,
                     Token::CurlyL => true,
                     Token::DoubleQuoteL => true,
+                    Token::Type => true,
                     Token::DoubleArrow => false,
                     _ => {
                         panic!("unexpected opening token: {:#?}", ts);
