@@ -1751,12 +1751,13 @@ mod tests
     #[test]
     fn test_parse_deffunc_match()
     {
-        let input = r#"func add x:Int y:Int / Int
+        let input = r#"
+        func add x:Int y:Int / Int
         |(0, 0) >> 0
         |(x, y) >> x + y
         --
 
-        func fact x:Int :Int
+        func fact x:Int / Int
         |0 >> 1
         |x >> x * fact(f-1)
         --

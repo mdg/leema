@@ -1434,9 +1434,10 @@ impl LineBreaker
             |Token::SquareL
             |Token::CurlyL
             |Token::DoubleQuoteL
+            |Token::Func
             |Token::If
             |Token::Match
-            |Token::Type => self.expr.push(next),
+            |Token::Type => self.open_expr(next),
 
             Token::ParenR
             |Token::SquareR
@@ -1446,29 +1447,39 @@ impl LineBreaker
 
             // >> might replace a fake if block
             Token::DoubleArrow => {
-                let mut was_if = false;
+                let mut replaced = false;
                 if let Some(last) = self.expr.last_mut() {
-                    if last.tok == Token::If {
-                        // replace the if w/ a >>
-                        *last = next;
-                        was_if = true;
+                    match last.tok {
+                        Token::Func
+                        |Token::If => {
+                            // replace the if w/ a >>
+                            *last = next;
+                            replaced = true;
+                        }
+                        _ => {} // replaced already set false
                     }
                 };
-                if !was_if {
-                    self.expr.push(next)
+                if !replaced {
+                    self.open_expr(next);
                 }
             }
 
-            // case pipe might replace a fake type block
+            // case pipe might not want to duplicate a virtual block
             Token::CasePipe => {
                 // don't pop the type token if that's previous
-                let mut is_type = false;
-                if let Some(last) = self.expr.last_mut() {
-                    is_type = last.tok == Token::Type;
-                }
-                if !is_type {
-                    // it wasn't a type, so go ahead and pop
-                    self.expr.pop();
+                let pipe_closes = if let Some(last) = self.expr.last_mut() {
+                    match last.tok {
+                        Token::Type|Token::Func => false,
+                        Token::DoubleArrow => true,
+                        t => {
+                            panic!("unexpected pipe opening: {}", t);
+                        }
+                    }
+                } else {
+                    true
+                };
+                if pipe_closes {
+                    self.close_expr(next)?;
                 }
             }
 
@@ -1476,6 +1487,11 @@ impl LineBreaker
         }
         self.toks.push(next);
         Ok(())
+    }
+
+    fn open_expr(&mut self, open: TokenSrc)
+    {
+        self.expr.push(open);
     }
 
     fn close_expr(&mut self, close: TokenSrc) -> Lresult<()>
