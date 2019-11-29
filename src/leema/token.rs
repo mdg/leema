@@ -1478,26 +1478,6 @@ impl LineBreaker
         Ok(())
     }
 
-    /// check if the token stream is in the middle of an open expression
-    fn in_open_expr(&self, t0: Token, t2: Token) -> bool
-    {
-        let open = self.expr.last()
-            .map(|ts| {
-                match ts.tok {
-                    Token::ParenL => true,
-                    Token::SquareL => true,
-                    Token::CurlyL => true,
-                    Token::DoubleQuoteL => true,
-                    Token::DoubleArrow => false,
-                    _ => {
-                        panic!("unexpected opening token: {:#?}", ts);
-                    }
-                }
-            })
-            .unwrap_or(false);
-        open || t0.continues_next_line() || t2.continues_prev_line()
-    }
-
     fn close_expr(&mut self, close: TokenSrc) -> Lresult<()>
     {
         let open = self.expr.pop().unwrap();
@@ -1549,6 +1529,26 @@ impl LineBreaker
             Lstr::Sref(file!()),
             close.begin.lineno,
         ))
+    }
+
+    /// check if the token stream is in the middle of an open expression
+    fn in_open_expr(&self, t0: Token, t2: Token) -> bool
+    {
+        let open = self.expr.last()
+            .map(|ts| {
+                match ts.tok {
+                    Token::ParenL => true,
+                    Token::SquareL => true,
+                    Token::CurlyL => true,
+                    Token::DoubleQuoteL => true,
+                    Token::DoubleArrow => false,
+                    _ => {
+                        panic!("unexpected opening token: {:#?}", ts);
+                    }
+                }
+            })
+            .unwrap_or(false);
+        open || t0.continues_next_line() || t2.continues_prev_line()
     }
 }
 
