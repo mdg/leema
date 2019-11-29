@@ -184,7 +184,6 @@ pub enum Token
     DoubleDot,
     Pipe,
     Semicolon,
-    StatementSep,
 
     // comments
     CommentBlockStart,
@@ -297,8 +296,7 @@ impl Token
             Token::CasePipe
             |Token::DoubleArrow
             |Token::DoubleDash
-            |Token::RustBlock
-            |Token::StatementSep => Some(false),
+            |Token::RustBlock => Some(false),
 
             // keywords
             Token::Const
@@ -399,6 +397,11 @@ pub struct TokenSrc
 
 impl TokenSrc
 {
+    pub fn tok_src(&self) -> (Token, &'static str)
+    {
+        (self.tok, self.src)
+    }
+
     fn lineno(&self) -> u16
     {
         self.begin.lineno
@@ -1350,6 +1353,7 @@ impl Iterator for Tokenz
     }
 }
 
+#[derive(Debug)]
 struct LineBreaker
 {
     toks: Vec<TokenSrc>,
@@ -1371,24 +1375,37 @@ impl LineBreaker
     pub fn push(mut self, next: TokenSrc) -> Lresult<LineBreaker>
     {
         if self.toks.is_empty() {
-            self.toks.push(next);
+            self.push_token(next)?;
         } else if self.curr.is_none() {
             self.curr = Some(next);
         } else {
-            /*
-            self.push3(
+            self.push_next(
                 self.toks.last().unwrap().tok,
                 self.curr.unwrap().tok,
-                next.tok,
-            );
-            */
+                next,
+            )?;
         }
         Ok(self)
     }
 
-    pub fn close(self) -> Lresult<Vec<TokenSrc>>
+    pub fn close(mut self) -> Lresult<Vec<TokenSrc>>
     {
+        if let Some(curr) = self.curr {
+            self.toks.push(curr);
+        }
         Ok(self.toks)
+    }
+
+    fn push_next(&mut self, t0: Token, t1: Token, t2: TokenSrc) -> Lresult<()>
+    {
+        if t0 == Token::LineBegin && t1 == Token::LineBegin {
+            self.curr = Some(t2);
+        } else {
+            let curr = self.curr.take().unwrap();
+            self.push_token(curr)?;
+            self.curr = Some(t2);
+        }
+        Ok(())
     }
 
     fn push_token(&mut self, next: TokenSrc) -> Lresult<()>
@@ -1473,7 +1490,6 @@ mod tests
 {
     use super::{Token, TokenResult, TokenSrc, Tokenz};
     use super::LineBreaker;
-    use crate::leema::failure::Lresult;
 
     use std::iter::Iterator;
 
@@ -1632,19 +1648,24 @@ mod tests
     fn test_tokenz_stmtbreaks()
     {
         let input = "
+
         let x := [
-            (#whatever),
-            (3),
+            (#whatever, 5),
+            (3, True),
             ]
         ";
 
-        let tr: Lresult<Vec<TokenSrc>> = Tokenz::lex(input).collect();
-        let t: Vec<TokenSrc> = tr.unwrap();
+        let t: Vec<TokenSrc> = Tokenz::lexp(input).unwrap();
 
         let breaks = t.into_iter().try_fold(LineBreaker::new(), |lb, n| {
             lb.push(n)
         }).unwrap();
-        let _toks = breaks.close().unwrap();
+        let toks = breaks.close().unwrap();
+        let mut i = toks.iter();
+
+        assert_eq!(Token::LineBegin, i.next().unwrap().tok);
+        assert_eq!(Token::Let, i.next().unwrap().tok);
+        assert_eq!((Token::Id, "x"), i.next().unwrap().tok_src());
     }
 
     fn is_expr_closed(first: Token, second: Token, prev_open: bool) -> bool
@@ -1736,7 +1757,6 @@ mod tests
             |Token::DoubleArrow
             |Token::DoubleDash
             |Token::RustBlock
-            |Token::StatementSep => false,
 
             // keywords
             Token::Const
