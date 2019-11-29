@@ -1434,7 +1434,8 @@ impl LineBreaker
             |Token::SquareL
             |Token::CurlyL
             |Token::DoubleQuoteL
-            |Token::DoubleArrow => self.expr.push(next),
+            |Token::If
+            |Token::Match => self.expr.push(next),
 
             Token::ParenR
             |Token::SquareR
@@ -1442,6 +1443,34 @@ impl LineBreaker
             |Token::DoubleQuoteR
             |Token::DoubleDash
             |Token::CasePipe => self.close_expr(next)?,
+
+            // >> might replace a fake if block
+            Token::DoubleArrow => {
+                let mut was_if = false;
+                if let Some(last) = self.expr.last_mut() {
+                    if last.tok == Token::If {
+                        // replace the if w/ a >>
+                        *last = next;
+                        was_if = true;
+                    }
+                };
+                if !was_if {
+                    self.expr.push(next)
+                }
+                /*
+                let was_if = if let Some(last) = self.expr.last() {
+                    last.tok == Token::If
+                } else {
+                    false
+                };
+                if was_if {
+                    // replace the if w/ a >>
+                    self.expr.last_mut() = next;
+                } else {
+                    self.expr.push(next)
+                }
+                */
+            }
 
             _ => {} // nothing to do otherwise
         }
@@ -1482,6 +1511,13 @@ impl LineBreaker
                 // match as expected
                 return Ok(())
             }
+
+            (Token::If, Token::CasePipe)
+            |(Token::Match, Token::CasePipe) => {
+                // not real blocks
+                return Ok(())
+            }
+
             _ => {} // fall down to error handling
         }
 
@@ -2073,5 +2109,25 @@ mod tests
         assert_eq!(Token::Int, i.next().unwrap().tok);
         assert_eq!(Token::EOF, i.next().unwrap().tok);
         assert_eq!(None, i.next());
+    }
+
+    #[test]
+    fn test_breaklines_ifx()
+    {
+        let input = "
+        [if
+        |b == 3 >> 100
+        |b == 0 >> 5
+        |else >> 9
+        --]
+
+        (if b == 3 >>
+            100
+        else >>
+            5
+        --)
+        ";
+        let toks = Tokenz::lexp(input).unwrap();
+        assert_eq!(6, toks.len());
     }
 }
