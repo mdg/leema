@@ -226,6 +226,16 @@ impl Token
             _ => true,
         }
     }
+
+    pub fn continues_next_line(&self) -> bool
+    {
+        false
+    }
+
+    pub fn continues_prev_line(&self) -> bool
+    {
+        false
+    }
 }
 
 lazy_static! {
@@ -1454,9 +1464,19 @@ mod tests
         });
     }
 
-    fn is_expr_open(first: Token, _second: Token, hint_is_open: bool) -> bool
+    fn is_expr_open(first: Token, second: Token, prev_open: bool) -> bool
     {
-        match first {
+        prev_open
+            || first.continues_next_line()
+            || second.continues_prev_line()
+        first.is_open_expr(EndOfLine)
+            .or_else(|| second.is_open_expr(StartOfLine))
+            .or(prev_open)
+    }
+
+    fn is_open_expr(tok: Token, loc: bool) -> Option<bool>
+    {
+        match tok {
             Token::Id
             |Token::Int
             |Token::Bool
@@ -1465,20 +1485,32 @@ mod tests
             |Token::ConcatNewline
             |Token::DollarId
             |Token::Type
-            |Token::Underscore => hint_is_open,
+            |Token::Underscore => None,
 
             Token::DoubleQuoteR
             |Token::ParenR
             |Token::SquareR
             |Token::CurlyR
-            |Token::AngleR => hint_is_open,
+            |Token::AngleR => {
+                if end_of_line {
+                    None
+                } else {
+                    Some(true)
+                }
+            }
 
             // brackets
             Token::DoubleQuoteL
             |Token::ParenL
             |Token::SquareL
             |Token::CurlyL
-            |Token::AngleL => true,
+            |Token::AngleL => {
+                if loc == StartOfLine {
+                    None
+                } else {
+                    Some(true)
+                }
+            }
 
             // operators
             Token::Plus
@@ -1545,27 +1577,6 @@ mod tests
             Token::NumTokens => unimplemented!(),
         }
     }
-
-        /*
-        let mut last3 = Vec::new();
-        let mut i = t.into_iter().flat_map(|c| {
-            last3.push(c);
-            if last3.len() > 3 {
-                let first = last3.remove(0);
-                Some([first])
-                // last3.drain(0..1).into_iter()
-            } else {
-                // last3.drain(0..0).into_iter()
-                None
-            }
-        });
-
-        dbg!(i.next());
-        dbg!(i.next());
-        dbg!(i.next());
-        dbg!(i.next());
-        panic!("{:#?}", i.next());
-        */
 
     #[test]
     fn test_tokenz_int()
