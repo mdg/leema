@@ -1400,6 +1400,9 @@ impl LineBreaker
     {
         if t0 == Token::LineBegin && t1 == Token::LineBegin {
             self.curr = Some(t2);
+        } else if t1 == Token::LineBegin && self.in_open_expr(t0, t2.tok) {
+            // currently in an open expression, skip the LineBegin in curr
+            self.curr = Some(t2);
         } else {
             let curr = self.curr.take().unwrap();
             self.push_token(curr)?;
@@ -1428,6 +1431,26 @@ impl LineBreaker
         }
         self.toks.push(next);
         Ok(())
+    }
+
+    /// check if the token stream is in the middle of an open expression
+    fn in_open_expr(&self, t0: Token, t2: Token) -> bool
+    {
+        let open = self.expr.last()
+            .map(|ts| {
+                match ts.tok {
+                    Token::ParenL => true,
+                    Token::SquareL => true,
+                    Token::CurlyL => true,
+                    Token::DoubleQuoteL => true,
+                    Token::DoubleArrow => false,
+                    _ => {
+                        panic!("unexpected opening token: {:#?}", ts);
+                    }
+                }
+            })
+            .unwrap_or(false);
+        open || t0.continues_next_line().unwrap() || t2.continues_prev_line()
     }
 
     fn close_expr(&mut self, close: TokenSrc) -> Lresult<()>
@@ -1666,6 +1689,10 @@ mod tests
         assert_eq!(Token::LineBegin, i.next().unwrap().tok);
         assert_eq!(Token::Let, i.next().unwrap().tok);
         assert_eq!((Token::Id, "x"), i.next().unwrap().tok_src());
+        assert_eq!(Token::Assignment, i.next().unwrap().tok);
+        assert_eq!(Token::SquareL, i.next().unwrap().tok);
+        assert_eq!(Token::ParenL, i.next().unwrap().tok);
+        assert_eq!(Token::Hashtag, i.next().unwrap().tok);
     }
 
     fn is_expr_closed(first: Token, second: Token, prev_open: bool) -> bool
