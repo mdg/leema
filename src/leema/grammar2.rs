@@ -1400,7 +1400,6 @@ impl PrefixParser for ParseIf
         if peeked.tok == Token::CasePipe {
             cases = p.parse_new(&CaseMode)?;
             p.skip_if(Token::LineBegin)?;
-            expect_next!(p, Token::DoubleDash)?;
         } else {
             let if_x = p.parse_new(&ExprMode)?;
             let if_arrow = expect_next!(p, Token::DoubleArrow)?;
@@ -1409,27 +1408,8 @@ impl PrefixParser for ParseIf
             cases = vec![ast2::Case{ cond: if_x, body: if_body }];
 
             p.skip_if(Token::LineBegin)?;
-            let next = p.next()?;
-            match next.tok {
-                Token::DoubleDash => {
-                    // end of expr
-                }
-                Token::Else => {
-                    // get the else block
-                    let else_arrow = expect_next!(p, Token::DoubleArrow)?;
-                    let else_body = Grammar::parse_block(p, Ast::loc(&else_arrow))?;
-                    expect_next!(p, Token::DoubleDash)?;
-                    cases.push(ast2::Case{ cond: AstNode::void(), body: else_body });
-                }
-                _ => {
-                    return Err(rustfail!(
-                        PARSE_FAIL,
-                        "expected else or --, found {:?}",
-                        next.src,
-                    ));
-                }
-            }
         };
+        expect_next!(p, Token::DoubleDash)?;
         Ok(AstNode::new(
             Ast::Ifx(cases),
             Ast::loc(&tok),
@@ -2039,17 +2019,12 @@ mod tests
     {
         let input = "
         if True >>
-            1
-        else >>
-            3
-        --
-        if True >>
             2
         --
         ";
         let toks = Tokenz::lexp(input).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
-        assert_eq!(2, ast.len());
+        assert_eq!(1, ast.len());
     }
 
     #[test]
