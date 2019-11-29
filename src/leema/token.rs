@@ -1162,11 +1162,16 @@ pub struct Tokenz
 
 impl Tokenz
 {
+    /// the p in lexp is for parse, lex for parsing
+    /// as opposed to just dumping tokens or maybe reformatting?
     pub fn lexp(src: &'static str) -> Lresult<Vec<TokenSrc>>
     {
         let mut toks = Tokenz::lex(src);
         toks.set_filter(Token::parsefilter);
-        toks.collect()
+        let breaks = toks.try_fold(LineBreaker::new(), |lb, n| {
+            lb.push(n?)
+        })?;
+        breaks.close()
     }
 
     pub fn lex(src: &'static str) -> Tokenz
@@ -1523,7 +1528,6 @@ impl LineBreaker
 mod tests
 {
     use super::{Token, TokenResult, TokenSrc, Tokenz};
-    use super::LineBreaker;
 
     use std::iter::Iterator;
 
@@ -1689,12 +1693,7 @@ mod tests
             ]
         ";
 
-        let t: Vec<TokenSrc> = Tokenz::lexp(input).unwrap();
-
-        let breaks = t.into_iter().try_fold(LineBreaker::new(), |lb, n| {
-            lb.push(n)
-        }).unwrap();
-        let toks = breaks.close().unwrap();
+        let toks: Vec<TokenSrc> = Tokenz::lexp(input).unwrap();
         let mut i = toks.iter();
 
         assert_eq!(Token::LineBegin, i.next().unwrap().tok);
