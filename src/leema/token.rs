@@ -1435,14 +1435,14 @@ impl LineBreaker
             |Token::CurlyL
             |Token::DoubleQuoteL
             |Token::If
-            |Token::Match => self.expr.push(next),
+            |Token::Match
+            |Token::Type => self.expr.push(next),
 
             Token::ParenR
             |Token::SquareR
             |Token::CurlyR
             |Token::DoubleQuoteR
-            |Token::DoubleDash
-            |Token::CasePipe => self.close_expr(next)?,
+            |Token::DoubleDash => self.close_expr(next)?,
 
             // >> might replace a fake if block
             Token::DoubleArrow => {
@@ -1457,19 +1457,19 @@ impl LineBreaker
                 if !was_if {
                     self.expr.push(next)
                 }
-                /*
-                let was_if = if let Some(last) = self.expr.last() {
-                    last.tok == Token::If
-                } else {
-                    false
-                };
-                if was_if {
-                    // replace the if w/ a >>
-                    self.expr.last_mut() = next;
-                } else {
-                    self.expr.push(next)
+            }
+
+            // case pipe might replace a fake type block
+            Token::CasePipe => {
+                // don't pop the type token if that's previous
+                let mut is_type = false;
+                if let Some(last) = self.expr.last_mut() {
+                    is_type = last.tok == Token::Type;
                 }
-                */
+                if !is_type {
+                    // it wasn't a type, so go ahead and pop
+                    self.expr.pop();
+                }
             }
 
             _ => {} // nothing to do otherwise
@@ -1505,9 +1505,10 @@ impl LineBreaker
             (Token::ParenL, Token::ParenR)
             |(Token::SquareL, Token::SquareR)
             |(Token::CurlyL, Token::CurlyR)
-            |(Token::DoubleQuoteL, Token::DoubleQuoteL)
+            |(Token::DoubleQuoteL, Token::DoubleQuoteR)
             |(Token::DoubleArrow, Token::CasePipe)
-            |(Token::DoubleArrow, Token::DoubleDash) => {
+            |(Token::DoubleArrow, Token::DoubleDash)
+            |(Token::Type, Token::DoubleDash) => {
                 // match as expected
                 return Ok(())
             }
@@ -2123,11 +2124,9 @@ mod tests
 
         (if b == 3 >>
             100
-        else >>
-            5
         --)
         ";
         let toks = Tokenz::lexp(input).unwrap();
-        assert_eq!(6, toks.len());
+        assert_eq!(35, toks.len());
     }
 }
