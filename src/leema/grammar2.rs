@@ -1,5 +1,5 @@
 use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc, ModTree};
-use crate::leema::failure::{self, Failure, Lresult};
+use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::parsl::{
     Assoc, InfixParser, ParseFirst, ParseMore, Parsl, ParslMode, Precedence,
@@ -540,8 +540,17 @@ impl ParslMode for IdTypeMode
     ) -> Option<&'static PrefixParser<Item = Self::Item>>
     {
         match tok {
-            Token::Id => Some(&ParseFirst(&ParseIdType)),
-            Token::Colon => Some(&ParseFirst(&ParseIdType)),
+            Token::Slash
+            |Token::DoubleDash
+            |Token::ParenR
+            |Token::SquareR
+            |Token::Colon => None,
+
+            Token::Id
+            |Token::ParenL
+            |Token::SquareL
+            |Token::FnType => Some(&ParseFirst(&ParseIdType)),
+
             _ => None,
         }
     }
@@ -552,8 +561,17 @@ impl ParslMode for IdTypeMode
     ) -> Option<&'static InfixParser<Item = Self::Item>>
     {
         match tok {
-            Token::Id => Some(&ParseMore(&ParseIdType, MIN_PRECEDENCE)),
-            Token::Colon => Some(&ParseMore(&ParseIdType, MIN_PRECEDENCE)),
+            Token::Slash
+            |Token::DoubleDash
+            |Token::ParenR
+            |Token::SquareR
+            |Token::Colon => None,
+
+            Token::Id
+            |Token::ParenL
+            |Token::SquareL
+            |Token::FnType => Some(&ParseMore(&ParseIdType, MIN_PRECEDENCE)),
+
             _ => None,
         }
     }
@@ -568,27 +586,15 @@ impl PrefixParser for ParseIdType
 
     fn parse(&self, p: &mut Parsl, tok: TokenSrc) -> Lresult<Self::Item>
     {
-        let idtype = match tok.tok {
-            Token::Id => {
-                expect_next!(p, Token::Colon)?;
-                let typ = p.parse_new(&TypexMode)?;
-                StrupleItem::new(Some(tok.src), typ)
+        let first = p.reparse(&TypexMode, MIN_PRECEDENCE, tok)?;
+
+        if let Ast::Id1(key) = &*first.node {
+            if p.next_if(Token::Colon)?.is_some() {
+                let x = p.parse_new(&TypexMode)?;
+                return Ok(StrupleItem::new(Some(key), x));
             }
-            Token::Colon => {
-                let typ = p.parse_new(&TypexMode)?;
-                StrupleItem::new(None, typ)
-            }
-            _ => {
-                return Err(Failure::static_leema(
-                    failure::Mode::ParseFailure,
-                    lstrf!("expected id or : found {:?}", tok.tok),
-                    p.path.clone(),
-                    tok.begin.lineno,
-                ));
-            }
-        };
-        p.skip_if(Token::LineBegin)?;
-        Ok(idtype)
+        }
+        Ok(StrupleItem::new_v(first))
     }
 }
 
@@ -1740,13 +1746,14 @@ mod tests
     }
 
     #[test]
-    fn test_parse_deffunc_params()
+    fn test_parse_deffunc_params_with_result()
     {
-        let input = r#"func add1 x:Int y:Int / Int >>
+        let input = r#"
+        func add1 x:Int y:Int / Int >>
             x + y
         --
 
-        func add2: x:Int y:Int / Int
+        func add2 x:Int y:Int / Int
         >>
             x + y
         --
@@ -1814,7 +1821,7 @@ mod tests
     #[test]
     fn test_parse_generic_call()
     {
-        let input = r#"swap[:Int :Str](5, "tacos")"#;
+        let input = r#"swap[Int Str](5, "tacos")"#;
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
         let ast = p.parse_module().unwrap();
