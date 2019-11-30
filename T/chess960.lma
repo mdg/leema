@@ -2,7 +2,7 @@
 import /list
 
 
-func assign line:[#] col:Int rkr:# bb:Int bw:Int pcs:[#] / [#]
+func assign line:[#] col:Int rkr:# bb:Int bw:Int pcs:[#] /[#]
 |(line, _, _, 0, 0, []) >> line
 |(line, col, rkr, bb, bw, pcs) >>
     if
@@ -46,7 +46,7 @@ func pieces_to_str acc:Str all_pieces:[#] / Str
     pieces_to_str("$acc$pstr", t)
 --
 
-func take_pieces outs:[#] input:[(:Int :#)] / [#]
+func take_pieces outs:[#] input:[(Int #)] /[#]
 |(outs, []) >> outs
 |(outs, (_, head);tail) >> take_pieces(head;outs, tail)
 --
