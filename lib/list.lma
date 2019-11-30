@@ -1,11 +1,11 @@
 
-func map[:A :B] items:[A] f:(Fn :A /B) /[B] >>
+func map[:A :B] items:[A] f:(Fn :A / B) /[B] >>
     _map([], items, f)
 --
 
 func _map[:C :D] result:[C] input:[D] f:F(D)/C / [C] >>
-|(result, [], _f) -> reverse(result)
-|(result, h;t, f) -> _map(f(h);result, t, f)
+|(result, [], _f) >> reverse(result)
+|(result, h;t, f) >> _map(f(h);result, t, f)
 --
 
 func reduce[:A :B] init:A items:[B] f:(Fn :A :B /A) /A >>

@@ -138,6 +138,7 @@ pub enum Token
     Else,
     Export,
     Failed,
+    FnType,
     Fork,
     Func,
     If,
@@ -371,6 +372,7 @@ lazy_static! {
         keywords.insert("else", Token::Else);
         keywords.insert("export", Token::Export);
         keywords.insert("failed", Token::Failed);
+        keywords.insert("Fn", Token::FnType);
         keywords.insert("fork", Token::Fork);
         keywords.insert("func", Token::Func);
         keywords.insert("if", Token::If);
@@ -1501,7 +1503,12 @@ impl LineBreaker
 
     fn close_expr(&mut self, close: TokenSrc) -> Lresult<()>
     {
-        let open = self.expr.pop().unwrap();
+        let open = match self.expr.pop() {
+            Some(o) => o,
+            None => {
+                panic!("close expr underflow for {:?}", close);
+            }
+        };
         match (open.tok, close.tok) {
             (Token::ParenL, Token::ParenR)
             |(Token::SquareL, Token::SquareR)

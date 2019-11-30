@@ -612,8 +612,36 @@ impl ParslMode for TypexMode
             Token::Id => Some(&ParseId),
             Token::ParenL => Some(&ParseTypeTuple),
             Token::SquareL => Some(&ParseListType),
+            Token::FnType => Some(&ParseFnType),
             _ => None,
         }
+    }
+}
+
+#[derive(Debug)]
+struct ParseFnType;
+
+impl PrefixParser for ParseFnType
+{
+    type Item = AstNode;
+
+    /// ParseFnType for func args like: "id:Type* / Type"
+    fn parse(&self, p: &mut Parsl, tok: TokenSrc) -> AstResult
+    {
+        let args = if p.peek_token()? == Token::Slash {
+            vec![]
+        } else {
+            IdTypeMode::parse(p)?
+        };
+
+        let result: AstNode;
+        if p.next_if(Token::Slash)?.is_some() {
+            result = p.parse_new(&TypexMode)?;
+        } else {
+            result = AstNode::void();
+        }
+        let ft = Ast::FuncType(args, result);
+        Ok(AstNode::new(ft, Ast::loc(&tok)))
     }
 }
 
