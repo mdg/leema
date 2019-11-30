@@ -3,7 +3,7 @@ func map[A B] items:[A] f:(Fn A /B) /[B] >>
     _map([], items, f)
 --
 
-func _map[C D] result:[C] input:[D] f:(Fn D /C) /[C] >>
+func _map[C D] result:[C] input:[D] f:(Fn D /C) /[C]
 |(result, [], _f) >> reverse(result)
 |(result, h;t, f) >> _map(f(h);result, t, f)
 --
@@ -29,12 +29,12 @@ func sort[T] items:[T] /[T] >> __RUST__ --
 
 func cat[T] a:[T] b:[T] /[T] >> __RUST__ --
 
-func head[T] l:[T] /T >>
-|h:_ >> h
+func head[T] l:[T] /T
+|h;_ >> h
 |_ >> fail(#param_error, "cannot take head from empty list")
 --
 
-func _filter[T] acc:[T] in:[T] pred:(Fn T /Bool) /[T] >>
+func _filter[T] acc:[T] in:[T] pred:(Fn T /Bool) /[T]
 |(acc, [], _) >> reverse(acc)
 |(acc, h;t, f) >>
     let matcher := f(h)
@@ -46,7 +46,7 @@ func _filter[T] acc:[T] in:[T] pred:(Fn T /Bool) /[T] >>
     _filter(new_acc, t, f)
 --
 
-func _reverse[T] out:[T] in:[T] /[T] >>
+func _reverse[T] out:[T] in:[T] /[T]
 |(out, []) >> out
 |(out, h;t) >> _reverse(h;out, t)
 --

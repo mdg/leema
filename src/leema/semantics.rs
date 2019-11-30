@@ -788,6 +788,10 @@ impl<'p> TypeCheck<'p>
                 }).collect();
                 Ok(Type::Tuple(im?))
             }
+            (Type::StrictList(i0), Type::StrictList(i1)) => {
+                let it = ltry!(self.match_type(i0, i1, opens));
+                Ok(Type::StrictList(Box::new(it)))
+            }
             (Type::Tuple(_), Type::Unknown) => {
                 panic!("cannot compare tuple to Unknown");
             }

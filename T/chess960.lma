@@ -1,5 +1,7 @@
 
+import /io/print
 import /list
+import /math
 
 
 func assign line:[#] col:Int rkr:# bb:Int bw:Int pcs:[#] /[#]
@@ -22,7 +24,7 @@ func assign line:[#] col:Int rkr:# bb:Int bw:Int pcs:[#] /[#]
     --
 --
 
-func piece_str piece:# / Str
+func piece_str piece:# /Str
 |#rook >> "R"
 |#knight >> "N"
 |#bishop >> "B"
@@ -52,15 +54,15 @@ func take_pieces outs:[#] input:[(Int #)] /[#]
 --
 
 func chess960 / Str >>
-    let bb := 2 * (int_abs(int_random()) mod 4) + 1
-    let bw := 2 * (int_abs(int_random()) mod 4) + 2
+    let bb := 2 * (math::int_abs(math::int_random()) mod 4) + 1
+    let bw := 2 * (math::int_abs(math::int_random()) mod 4) + 2
     let pieces := [
-        (int_random(), #knight),
-        (int_random(), #knight),
-        (int_random(), #queen),
-        (int_random(), #rkr),
-        (int_random(), #rkr),
-        (int_random(), #rkr),
+        (math::int_random(), #knight),
+        (math::int_random(), #knight),
+        (math::int_random(), #queen),
+        (math::int_random(), #rkr),
+        (math::int_random(), #rkr),
+        (math::int_random(), #rkr),
         ]
     let sorted_pieces := list::sort(pieces)
     let just_pieces := take_pieces([], sorted_pieces)

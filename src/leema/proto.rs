@@ -517,6 +517,10 @@ pub fn ast_to_type(
                 .collect();
             Type::Tuple(inner_t?)
         }
+        Ast::FuncType(args, result) => {
+            let ftype = ast_to_ftype(local_mod, args, result, opens)?;
+            Type::Func(ftype)
+        }
         Ast::Generic(_, typeargs) => {
             let _gen = struple::map_v(typeargs, |v| ast_to_type(local_mod, v, opens));
             unimplemented!()
