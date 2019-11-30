@@ -1843,7 +1843,7 @@ mod tests
     #[test]
     fn test_parse_generic_deffunc_types()
     {
-        let input = r#"func swap[:A :B] a:A b:B / (:B :A)
+        let input = r#"func swap[A B] a:A b:B /(B A)
         >>
             (b, a)
         --
@@ -1860,8 +1860,8 @@ mod tests
     fn test_parse_generic_enum_tuple()
     {
         let input = "
-        type Opt[:T]
-        |Some :T
+        type Opt[T]
+        |Some T
         |None
         --
         ";
@@ -1902,7 +1902,7 @@ mod tests
     fn test_parse_generic_enum_fields()
     {
         let input = "
-        type Foo[:T]
+        type Foo[T]
         |Bar a:T b:Int
         |Baz
         --
@@ -1945,10 +1945,10 @@ mod tests
     fn test_parse_generic_struct_tuple()
     {
         let input = "
-        type Foo[:T :U]
-        :T
-        :U
-        :Int
+        type Foo[T U]
+        T
+        U
+        Int
         --
         ";
         let toks = Tokenz::lexp(input).unwrap();
@@ -1979,7 +1979,7 @@ mod tests
     fn test_parse_generic_struct_fields()
     {
         let input = "
-        type Foo[:T]
+        type Foo[T]
         apple:T
         banana:Int
         --
@@ -2474,9 +2474,9 @@ mod tests
     {
         let input = "
         type TypeX
-        :Y
-        :[Int]
-        :(:Int :Bool)
+        Y
+        [Int]
+        (Int Bool)
         --
         ";
         let toks = Tokenz::lexp(input).unwrap();

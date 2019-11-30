@@ -1592,13 +1592,13 @@ mod tests
     fn test_generic_typecall_wrongargs()
     {
         let input = r#"
-        func swap[:T] a:T b:T / (:T :T)
+        func swap[T] a:T b:T /(T T)
         >>
             (b, a)
         --
 
         func main >>
-            swap[:Str :#]("hello", #world)
+            swap[Str #]("hello", #world)
         --
         "#;
 
@@ -1614,14 +1614,14 @@ mod tests
     fn test_type_genericfunc_1()
     {
         let input = r#"
-        func swap[:A :B] a:A b:B / (:B :A)
+        func swap[A B] a:A b:B /(B A)
         >>
             (b, a)
         --
 
         func main >>
             swap(3, 5)
-            swap[:Str :#]("hello", #world)
+            swap[Str #]("hello", #world)
         --
         "#.to_string();
 
@@ -1634,9 +1634,9 @@ mod tests
     fn test_type_genericfuncs()
     {
         let input = r#"
-        func new_pair[:A :B] a:A b:B /(:A :B) >> (a, b) --
+        func new_pair[A B] a:A b:B /(A B) >> (a, b) --
 
-        func first[:A :B] p:(:A :B) /A
+        func first[A B] p:(A B) /A
         |(a, _) >> a
         --
 

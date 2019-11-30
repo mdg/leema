@@ -967,7 +967,7 @@ mod tests
     fn test_proto_genericfunc()
     {
         let input = r#"
-        func swap[:T] a:T b:T / (:T :T)
+        func swap[T] a:T b:T /(T T)
         >>
             (b, a)
         --
@@ -999,7 +999,7 @@ mod tests
     #[test]
     fn test_proto_generic_struct()
     {
-        let proto = new_proto("type Point[:T] x:T y:T --");
+        let proto = new_proto("type Point[T] x:T y:T --");
 
         let point_type = proto.types.get("Point").expect("no Point type");
         let expected = Type::Generic(
