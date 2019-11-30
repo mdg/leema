@@ -836,7 +836,10 @@ impl ProtoLib
 
         let modkey = ltry!(loader.new_key(&modpath));
         let modtxt = ltry!(loader.read_mod(&modkey));
-        let proto = ltry!(ProtoModule::new(modkey, modtxt));
+        let proto = ltry!(ProtoModule::new(modkey.clone(), modtxt)
+            .map_err(|e| {
+                e.lstr_loc(modkey.best_path(), 0)
+            }));
         self.protos.insert(modpath.clone(), proto);
         Ok(())
     }

@@ -604,8 +604,12 @@ impl ScanModeTrait for ScanModeLine
                 ScanOutput::Start(ScanModeOp::Push(&ScanModeInt))
             }
             _ => {
-                eprintln!("root next: '{}'", next.c);
-                ScanOutput::Next(ScanModeOp::Noop)
+                return Err(Failure::static_leema(
+                    failure::Mode::ParseFailure,
+                    lstrf!("unexpected character '{}'", next.c),
+                    Lstr::Sref(file!()),
+                    next.lineno,
+                ));
             }
         };
         Ok(output)

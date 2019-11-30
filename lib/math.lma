@@ -3,7 +3,7 @@ func int_random /Int >> __RUST__ --
 
 func int_abs abs_a:Int /Int >>
     if
-    |abs_a < 0 >> ~abs_a
+    |abs_a < 0 >> -abs_a
     |else >> abs_a
     --
 --
