@@ -651,15 +651,12 @@ impl<'p> SemanticOp for VarTypes<'p>
                     node.typ = typ.clone();
                     // put the node back the way it was
                     // *node.node = Ast::Id1(id);
-                } else if self.mode.is_pattern() {
+                } else {
                     let tvar = Type::LocalVar(id);
                     self.vartypes.insert(id, tvar.clone());
                     node.typ = tvar;
                     // put the node back the way it was
                     // *node.node = Ast::Id1(id);
-                } else {
-                    // i guess do nothing?
-                    // could be a local function or something
                 }
             }
             _ => {
@@ -697,6 +694,7 @@ struct TypeCheck<'p>
     result: &'p Type,
     infers: HashMap<&'static str, Type>,
     calls: Vec<Fref>,
+    mode: AstMode,
 }
 
 impl<'p> TypeCheck<'p>
@@ -713,6 +711,7 @@ impl<'p> TypeCheck<'p>
             result: &*ftyp.result,
             infers: HashMap::new(),
             calls: vec![],
+            mode: AstMode::Value,
         }
     }
 
@@ -824,6 +823,11 @@ impl<'p> TypeCheck<'p>
                 Ok(var_type)
             } else {
                 lfailoc!(self.match_type(&var_type, t, opens))
+                    .map_err(|f| {
+                        f.add_context(lstrf!(
+                            "inferring type var {} as {}", var, var_type
+                        ))
+                    })
             }
         } else {
             self.infers.insert(var, t.clone());
@@ -838,9 +842,10 @@ impl<'p> TypeCheck<'p>
         } else {
             return Err(rustfail!(
                 TYPEFAIL,
-                "open type var {:?} not found in {:?}",
+                "open type var {:?} not found in {:?} for {:?}",
                 var,
                 opens,
+                t,
             ));
         };
 
@@ -961,15 +966,22 @@ impl<'p> TypeCheck<'p>
         }
 
         for arg in ftyp.args.iter_mut().zip(args.iter_mut()) {
-            let typ =  lfailoc!(self.match_type(&arg.0.v, &arg.1.v.typ, opens))
+            let typ = ltry!(self.match_type(&arg.0.v, &arg.1.v.typ, opens)
                 .map_err(|f| {
-                    f.add_context(lstrf!(
-                        "function param: {}, expected {}, found {}",
-                        arg.0.k.as_ref().unwrap(),
-                        arg.0.v,
-                        arg.1.v.typ,
-                    ))
-                })?;
+                    f
+                        .add_context(lstrf!(
+                            "function param: {}, expected {}, found {} column:{}",
+                            arg.0.k.as_ref().unwrap(),
+                            arg.0.v,
+                            arg.1.v.typ,
+                            arg.1.v.loc.column,
+                        ))
+                        .lstr_loc(
+                            self.local_mod.key.best_path(),
+                            arg.1.v.loc.lineno as u32,
+                        )
+                })
+            );
             arg.0.v = typ.clone();
             arg.1.v.typ = typ;
         }
@@ -1122,6 +1134,10 @@ impl<'p> SemanticOp for TypeCheck<'p>
             }
         }
         Ok(SemanticAction::Keep(node))
+    }
+
+    fn set_mode(&mut self, mode: AstMode) {
+        self.mode = mode;
     }
 }
 
@@ -1502,6 +1518,27 @@ mod tests
         lfailoc!(proto.load_absolute(&mut loader, core_path)).unwrap();
         lfailoc!(proto.load_absolute(&mut loader, prefab_path)).unwrap();
         proto
+    }
+
+    #[test]
+    fn test_typecheck_open_local_vars()
+    {
+        let input = r#"
+        func sort[T] unsorted:[T] /[T] >> __RUST__ --
+        func take_names with_names:[(Int Str)] /[Str] >> __RUST__ --
+
+        func main >>
+            let plain := [(3, "hello"), (5, "world")]
+            let sorted_tuples := sort(plain)
+            let names := take_names(sorted_tuples)
+        --
+        "#;
+
+        let mut proto = load_proto_with_prefab();
+        proto.add_module(From::from("foo"), input).unwrap();
+        let fref = Fref::with_modules(From::from("foo"), "main");
+        let body = Semantics::compile_call(&mut proto, &fref).unwrap();
+        assert_matches!(*body.src.node, Ast::Ifx(_));
     }
 
     #[test]
