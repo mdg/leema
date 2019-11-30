@@ -740,6 +740,10 @@ impl<'p> TypeCheck<'p>
                 })?;
                 Type::Tuple(mitems)
             }
+            Type::StrictList(inner) => {
+                let inferred = self.inferred_type(inner, opens)?;
+                Type::StrictList(Box::new(inferred))
+            }
             Type::Func(ftyp) => {
                 let iargs = struple::map_v(&ftyp.args, |a| {
                     self.inferred_type(a, opens)
@@ -754,9 +758,39 @@ impl<'p> TypeCheck<'p>
         Ok(newt)
     }
 
+    /// match one type to another
+    /// List(Var) == x
+    /// List(x.inner) == x
+    /// Var == x.inner
+    /// List(Local) == x
     pub fn match_type(&mut self, t0: &Type, t1: &Type, opens: &mut StrupleKV<&'static str, Type>) -> Lresult<Type>
     {
         match (t0, t1) {
+            (t0, Type::Unknown) => {
+                if t0.is_open() {
+                    eprintln!("yikes, type is open {}", t0);
+                }
+                Ok(t0.clone())
+            }
+            (Type::Unknown, t1) => {
+                if t1.is_open() {
+                    eprintln!("yikes, type is open {}", t1);
+                }
+                Ok(t1.clone())
+            }
+            (Type::Tuple(i0), Type::Tuple(i1)) => {
+                let im: Lresult<Struple2<Type>>;
+                im = i0.iter().zip(i1.iter()).map(|iz| {
+                    let k = iz.0.k.clone();
+                    let v = ltry!(self.match_type(&iz.0.v, &iz.1.v, opens));
+                    Ok(StrupleItem::new(k, v))
+                }).collect();
+                Ok(Type::Tuple(im?))
+            }
+            (Type::StrictList(i0), Type::StrictList(i1)) => {
+                let it = ltry!(self.match_type(i0, i1, opens));
+                Ok(Type::StrictList(Box::new(it)))
+            }
             (Type::OpenVar(v0), t1) => {
                 lfailoc!(self.close_generic(v0, t1, opens))
             }
@@ -777,28 +811,6 @@ impl<'p> TypeCheck<'p>
             }
             (t0, Type::LocalVar(v1)) => {
                 lfailoc!(self.infer_type(v1, t0, opens))
-            }
-            (Type::Tuple(i0), Type::Tuple(i1)) => {
-                let im: Lresult<Struple2<Type>>;
-                im = i0.iter().zip(i1.iter()).map(|iz| {
-                    let k = iz.0.k.clone();
-                    let v = ltry!(self.match_type(&iz.0.v, &iz.1.v, opens));
-                    Ok(StrupleItem::new(k, v))
-                }).collect();
-                Ok(Type::Tuple(im?))
-            }
-            (Type::StrictList(i0), Type::StrictList(i1)) => {
-                let it = ltry!(self.match_type(i0, i1, opens));
-                Ok(Type::StrictList(Box::new(it)))
-            }
-            (Type::Tuple(_), Type::Unknown) => {
-                panic!("cannot compare tuple to Unknown");
-            }
-            (t0, Type::Unknown) => {
-                Ok(t0.clone())
-            }
-            (Type::Unknown, t1) => {
-                Ok(t1.clone())
             }
             (t0, t1) => {
                 if t0 != t1 {
