@@ -133,8 +133,7 @@ pub enum Type
 
     Unknown,
     OpenVar(&'static str),
-    LocalVar(&'static str),
-    InnerVar(&'static str, i16),
+    LocalVar(Lstr),
 }
 
 impl Type
@@ -162,7 +161,7 @@ impl Type
             &Type::User(ref m, ref name) => lstrf!("{}::{}", m, name),
             &Type::Void => Lstr::Sref("Void"),
             &Type::OpenVar(name) => Lstr::from(format!("${}", name)),
-            &Type::LocalVar(name) => Lstr::from(format!("local:{}", name)),
+            &Type::LocalVar(ref name) => Lstr::from(format!("local:{}", name)),
             _ => {
                 panic!("no typename for {:?}", self);
             }
@@ -177,6 +176,11 @@ impl Type
                 panic!("not a func type {:?}", t);
             }
         }
+    }
+
+    pub fn inner(var: &Lstr, i: i16) -> Type
+    {
+        Type::LocalVar(lstrf!("{}$inner{}", var.str(), i))
     }
 
     pub fn is_func(&self) -> bool
@@ -240,7 +244,7 @@ impl Type
             &Type::Func(ref ftyp) => Type::Func(ftyp.clone()),
             &Type::Unknown => Type::Unknown,
             &Type::OpenVar(id) => Type::OpenVar(id),
-            &Type::LocalVar(id) => Type::LocalVar(id),
+            &Type::LocalVar(ref id) => Type::LocalVar(id.clone_for_send()),
             &Type::Generic(open, ref subt, ref opens) => {
                 let subt2 = Box::new(subt.clone_for_send());
                 let opens2 = opens.clone_for_send();
@@ -344,7 +348,6 @@ impl fmt::Display for Type
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::OpenVar(ref name) => write!(f, "${}", name),
             &Type::LocalVar(ref name) => write!(f, "local${}", name),
-            &Type::InnerVar(ref name, i) => write!(f, "local${}$inner{}", name, i),
         }
     }
 }
@@ -379,8 +382,7 @@ impl fmt::Debug for Type
 
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::OpenVar(name) => write!(f, "${}", name),
-            &Type::LocalVar(name) => write!(f, "local${}", name),
-            &Type::InnerVar(ref name, i) => write!(f, "local${}$inner{}", name, i),
+            &Type::LocalVar(ref name) => write!(f, "local${}", name),
         }
     }
 }

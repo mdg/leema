@@ -652,7 +652,7 @@ impl<'p> SemanticOp for VarTypes<'p>
                     // put the node back the way it was
                     // *node.node = Ast::Id1(id);
                 } else {
-                    let tvar = Type::LocalVar(id);
+                    let tvar = Type::LocalVar(Lstr::Sref(id));
                     self.vartypes.insert(id, tvar.clone());
                     node.typ = tvar;
                     // put the node back the way it was
@@ -692,7 +692,7 @@ struct TypeCheck<'p>
     local_mod: &'p ProtoModule,
     lib: &'p ProtoLib,
     result: &'p Type,
-    infers: HashMap<&'static str, Type>,
+    infers: HashMap<Lstr, Type>,
     calls: Vec<Fref>,
     mode: AstMode,
 }
@@ -715,12 +715,12 @@ impl<'p> TypeCheck<'p>
         }
     }
 
-    pub fn inferred_local(&self, local_tvar: &'static str) -> Type
+    pub fn inferred_local(&self, local_tvar: &Lstr) -> Type
     {
         self.infers
-            .get(local_tvar)
+            .get(local_tvar.str())
             .map(|t| t.clone())
-            .unwrap_or(Type::LocalVar(local_tvar))
+            .unwrap_or(Type::LocalVar(local_tvar.clone()))
     }
 
     pub fn inferred_type(&self, t: &Type, opens: &GenericTypeSlice) -> Lresult<Type>
@@ -732,7 +732,7 @@ impl<'p> TypeCheck<'p>
                         .unwrap_or(Type::OpenVar(v))
             }
             Type::LocalVar(v) => {
-                self.inferred_local(v)
+                self.inferred_local(&v)
             }
             Type::Tuple(items) => {
                 let mitems = struple::map_v(items, |it| {
@@ -798,7 +798,7 @@ impl<'p> TypeCheck<'p>
                 Ok(Type::StrictList(Box::new(it)))
             }
             (Type::StrictList(_), Type::LocalVar(v1)) => {
-                let local_inner = Type::InnerVar(v1, 0);
+                let local_inner = Type::inner(v1, 0);
                 let il1 = Type::StrictList(Box::new(local_inner));
                 let mlist = ltry!(self.match_type(t0, &il1, opens));
                 self.infer_type(v1, &mlist, opens)
@@ -842,7 +842,7 @@ impl<'p> TypeCheck<'p>
         }
     }
 
-    pub fn infer_type(&mut self, var: &'static str, t: &Type, opens: &mut StrupleKV<&'static str, Type>) -> Lresult<Type>
+    pub fn infer_type(&mut self, var: &Lstr, t: &Type, opens: &mut StrupleKV<&'static str, Type>) -> Lresult<Type>
     {
         if self.infers.contains_key(var) {
             let var_type = self.inferred_local(var);
@@ -857,7 +857,7 @@ impl<'p> TypeCheck<'p>
                     })
             }
         } else {
-            self.infers.insert(var, t.clone());
+            self.infers.insert(var.clone(), t.clone());
             Ok(t.clone())
         }
     }
@@ -1220,7 +1220,7 @@ pub struct Semantics
 {
     pub src: AstNode,
     pub args: Vec<Option<&'static str>>,
-    pub infers: HashMap<&'static str, Type>,
+    pub infers: HashMap<Lstr, Type>,
     pub calls: Vec<Fref>,
 }
 
@@ -1565,7 +1565,7 @@ mod tests
         proto.add_module(From::from("foo"), input).unwrap();
         let fref = Fref::with_modules(From::from("foo"), "main");
         let body = Semantics::compile_call(&mut proto, &fref).unwrap();
-        assert_matches!(*body.src.node, Ast::Ifx(_));
+        assert_matches!(*body.src.node, Ast::Block(_));
     }
 
     #[test]
