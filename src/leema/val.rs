@@ -134,6 +134,7 @@ pub enum Type
     Unknown,
     OpenVar(&'static str),
     LocalVar(&'static str),
+    InnerVar(&'static str, i16),
 }
 
 impl Type
@@ -343,6 +344,7 @@ impl fmt::Display for Type
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::OpenVar(ref name) => write!(f, "${}", name),
             &Type::LocalVar(ref name) => write!(f, "local${}", name),
+            &Type::InnerVar(ref name, i) => write!(f, "local${}$inner{}", name, i),
         }
     }
 }
@@ -378,6 +380,7 @@ impl fmt::Debug for Type
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::OpenVar(name) => write!(f, "${}", name),
             &Type::LocalVar(name) => write!(f, "local${}", name),
+            &Type::InnerVar(ref name, i) => write!(f, "local${}$inner{}", name, i),
         }
     }
 }

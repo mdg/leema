@@ -759,10 +759,16 @@ impl<'p> TypeCheck<'p>
     }
 
     /// match one type to another
-    /// List(Var) == x
-    /// List(x.inner) == x
-    /// Var == x.inner
-    /// List(Local) == x
+    /// 1. List(OpenVarA) == LocalX
+    ///    OpenVarA == LocalX.Inner
+    ///    nah, use 2 instead
+    /// 2. match List(OpenVarA) == LocalX
+    ///    infer LocalX = List(LocalX.Inner0)
+    ///    match List(OpenVarA) == List(LocalX.Inner0)
+    /// 3. match List(LocalX) == OpenVarA
+    ///    close_generic(OpenVarA, List(LocalX)
+    /// 4. match Tuple(OpenVarA, OpenVarB) == LocalX
+    ///    Tuple(OpenVarA, OpenVarB) == Tuple(LocalX.Inner0, LocalX.Inner1)
     pub fn match_type(&mut self, t0: &Type, t1: &Type, opens: &mut StrupleKV<&'static str, Type>) -> Lresult<Type>
     {
         match (t0, t1) {
@@ -790,6 +796,15 @@ impl<'p> TypeCheck<'p>
             (Type::StrictList(i0), Type::StrictList(i1)) => {
                 let it = ltry!(self.match_type(i0, i1, opens));
                 Ok(Type::StrictList(Box::new(it)))
+            }
+            (Type::StrictList(_), Type::LocalVar(v1)) => {
+                let local_inner = Type::InnerVar(v1, 0);
+                let il1 = Type::StrictList(Box::new(local_inner));
+                let mlist = ltry!(self.match_type(t0, &il1, opens));
+                self.infer_type(v1, &mlist, opens)
+            }
+            (Type::LocalVar(_), Type::StrictList(_)) => {
+                self.match_type(t1, t0, opens)
             }
             (Type::OpenVar(v0), t1) => {
                 lfailoc!(self.close_generic(v0, t1, opens))
