@@ -53,7 +53,7 @@ func take_pieces outs:[#] input:[(Int #)] /[#]
 |(outs, (_, head);tail) >> take_pieces(head;outs, tail)
 --
 
-func chess960 / Str >>
+func chess960 /Str >>
     let bb := 2 * (math::int_abs(math::int_random()) mod 4) + 1
     let bw := 2 * (math::int_abs(math::int_random()) mod 4) + 2
     let pieces := [
