@@ -43,6 +43,7 @@ pub mod lib_io;
 pub mod lib_json;
 pub mod lib_list;
 pub mod lib_map;
+pub mod lib_math;
 pub mod lib_str;
 pub mod lib_task;
 pub mod lib_time;
