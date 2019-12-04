@@ -151,7 +151,6 @@ class TestScripts(unittest.TestCase):
             result['output'])
 
     def test_list_match_all(self):
-        self.skipTest("not ready for testing yet")
         result = run_leema('list_match_all')
         self.assertEqual(0, result['code'])
         self.assertEqual(
@@ -160,7 +159,6 @@ class TestScripts(unittest.TestCase):
             result['output'])
 
     def test_list_match_head(self):
-        self.skipTest("not ready for testing yet")
         result = run_leema('list_match_head')
         self.assertEqual(0, result['code'])
         self.assertEqual(
@@ -169,7 +167,6 @@ class TestScripts(unittest.TestCase):
             result['output'])
 
     def test_fmatch_list_tail(self):
-        self.skipTest("not ready for testing")
         result = run_leema('fmatch_list_tail')
         self.assertEqual(0, result['code'])
         self.assertEqual(
@@ -178,7 +175,6 @@ class TestScripts(unittest.TestCase):
             result['output'])
 
     def test_fmatch_list_empty(self):
-        self.skipTest("not ready for testing")
         result = run_leema('fmatch_list_empty')
         self.assertEqual(0, result['code'])
         self.assertEqual(b"is_empty? false\n", result['output'])

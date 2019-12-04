@@ -756,6 +756,11 @@ impl Registration
             }
             Ast::ConstVal(ref val) => val.clone(),
             Ast::Wildcard => Val::Wildcard,
+            Ast::Op2(";", a, b) => {
+                let pa = self.make_pattern_val(a)?;
+                let pb = self.make_pattern_val(b)?;
+                list::cons(pa, pb)
+            }
             pnode => {
                 // do nothing with other pattern values
                 return Err(rustfail!(
@@ -827,6 +832,7 @@ mod tests
 
         func is_empty l:[Int]
         |[] >> True
+        |h;t >> False
         |_ >> False
         --
 
@@ -837,8 +843,11 @@ mod tests
         "#.to_string();
 
         let mut prog = core_program(&[("foo", input)]);
-        let fref = Fref::from(("foo", "main"));
-        prog.read_code(&fref).unwrap();
+        let main_ref = Fref::from(("foo", "main"));
+        let is_empty_ref = Fref::from(("foo", "is_empty"));
+        // make sure it didn't panic or fail
+        prog.read_code(&main_ref).unwrap();
+        prog.read_code(&is_empty_ref).unwrap();
     }
 
     #[test]
