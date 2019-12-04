@@ -9,7 +9,8 @@ use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::semantics::Semantics;
 use crate::leema::val::Fref;
 use crate::leema::{
-    file, lib_hyper, lib_io, lib_json, lib_list, lib_task, prefab, tcp, udp,
+    lib_core, prefab,
+    file, lib_hyper, lib_io, lib_json, lib_list, lib_task, tcp, udp,
 };
 
 use std::collections::HashMap;
@@ -41,6 +42,9 @@ impl Lib
         lfailoc!(proglib.protos.load_absolute(&mut proglib.loader, module::Chain::from("core"))).unwrap();
         lfailoc!(proglib.protos.load_absolute(&mut proglib.loader, module::Chain::from("prefab"))).unwrap();
 
+        proglib
+            .rust_load
+            .insert(Chain::from("core"), lib_core::load_rust_func);
         proglib
             .rust_load
             .insert(Chain::from("prefab"), prefab::load_rust_func);

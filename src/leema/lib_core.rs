@@ -5,10 +5,11 @@ use crate::leema::list;
 use crate::leema::worker::RustFuncContext;
 
 
-pub fn sort(mut ctx: RustFuncContext) -> Lresult<frame::Event>
+pub fn list_cons(mut ctx: RustFuncContext) -> Lresult<frame::Event>
 {
-    let src = ctx.get_param(0)?;
-    let result = list::sort(src);
+    let head = ctx.get_param(0)?;
+    let tail = ctx.get_param(1)?;
+    let result = list::cons(head.clone(), tail.clone());
     ctx.set_result(result);
     frame::Event::success()
 }
@@ -16,7 +17,8 @@ pub fn sort(mut ctx: RustFuncContext) -> Lresult<frame::Event>
 pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
-        "sort" => Some(Code::Rust2(sort)),
+        "cons" => Some(Code::Rust2(list_cons)),
         _ => None,
     }
 }
+

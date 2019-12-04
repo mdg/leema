@@ -333,7 +333,9 @@ impl<'l> SemanticOp for MacroApplication<'l>
             Ast::Op2(";", a, b) => {
                 if !self.mode.is_pattern() {
                     // if not a pattern, convert to a call
-                    let call = Self::op_to_call("list", "cons", a, b, node.loc);
+                    let callx = AstNode::new(Ast::Id1("cons"), node.loc);
+                    let args = struple::new_tuple2(a, b);
+                    let call = AstNode::new(Ast::Call(callx, args), node.loc);
                     Ok(SemanticAction::Rewrite(call))
                 } else {
                     // if a pattern, leave as an Op
@@ -1599,6 +1601,36 @@ mod tests
         let fref = Fref::with_modules(From::from("foo"), "main");
         let body = Semantics::compile_call(&mut proto, &fref).unwrap();
         assert_matches!(*body.src.node, Ast::Block(_));
+    }
+
+    #[test]
+    fn test_semantics_default_imports()
+    {
+        let input = r#"
+        func main >>
+            4;[6]
+            4 < 6
+            8 > 8
+            "x" <= "y"
+            "x" >= "y"
+            4 == 8
+            9 != 7
+            3 + 4
+            3 - 4
+            3 * 4
+            5 / 6
+            -8
+            5 mod 6
+            True and False
+            True or False
+            not True
+        --
+        "#;
+
+        let mut proto = load_proto_with_prefab();
+        proto.add_module(From::from("foo"), input).unwrap();
+        let fref = Fref::with_modules(From::from("foo"), "main");
+        Semantics::compile_call(&mut proto, &fref).unwrap();
     }
 
     #[test]

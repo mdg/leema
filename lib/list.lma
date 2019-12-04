@@ -1,6 +1,4 @@
 
-func cons[A] head:A tail:[A] /[A] >> __RUST__ --
-
 func map[A B] items:[A] f:(Fn A /B) /[B] >>
     _map([], items, f)
 --

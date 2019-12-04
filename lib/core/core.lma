@@ -5,3 +5,5 @@ type Int --
 type Str --
 type # --
 
+func cons[A] head:A tail:[A] /[A] >> __RUST__ --
+

@@ -18,12 +18,14 @@ const DEFAULT_MODULE: &'static str = "prefab";
 
 lazy_static! {
     static ref DEFAULT_IDS: HashMap<&'static str, ModPath> = {
+        let core_mod = ModPath::abs(From::from("core"));
         let mut ids = HashMap::new();
-        ids.insert("Bool", ModPath::abs(From::from("core")));
-        ids.insert("Hashtag", ModPath::abs(From::from("core")));
-        ids.insert("Int", ModPath::abs(From::from("core")));
-        ids.insert("Str", ModPath::abs(From::from("core")));
-        ids.insert("#", ModPath::abs(From::from("core")));
+        ids.insert("Bool", core_mod.clone());
+        ids.insert("cons", core_mod.clone());
+        ids.insert("Hashtag", core_mod.clone());
+        ids.insert("Int", core_mod.clone());
+        ids.insert("Str", core_mod.clone());
+        ids.insert("#", core_mod);
         ids
     };
 

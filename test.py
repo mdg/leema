@@ -34,7 +34,6 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(b"hello \"quotes\"\n", result['output'])
 
     def test_pmatch_tuples(self):
-        self.skipTest("not ready for testing yet")
         result = run_leema('pmatch_tuples')
         self.assertEqual(0, result['code'])
         self.assertEqual(b"both\nfirst\nsecond\nneither\n", result['output'])
@@ -142,7 +141,6 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(b"5 + 3 = 8\n", result['output'])
 
     def test_list_cons(self):
-        self.skipTest("not ready for testing yet")
         result = run_leema('list_cons')
         self.assertEqual(0, result['code'])
         self.assertEqual(
@@ -180,7 +178,6 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(b"is_empty? false\n", result['output'])
 
     def test_fmatch_scope_depth(self):
-        self.skipTest("not ready for testing")
         result = run_leema('fmatch_scope_depth')
         self.assertEqual(0, result['code'])
         self.assertEqual(
