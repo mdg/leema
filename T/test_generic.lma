@@ -1,7 +1,7 @@
 
 import /io
 
-func swap[:A :B] a:A b:B / (:B :A)
+func swap[A B] a:A b:B / (B A)
 >>
     (b, a)
 --
@@ -13,7 +13,7 @@ func main
     let c := 3
     let d := True
 
-    let x := swap[:Str :#](a, b)
+    let x := swap[Str #](a, b)
     let y := swap(c, d)
     let z := swap(b, c)
 

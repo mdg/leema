@@ -748,7 +748,7 @@ impl Registration
             }
             Ast::List(ref items) => {
                 let mut result = Val::Nil;
-                for i in items.iter() {
+                for i in items.iter().rev() {
                     let next = self.make_pattern_val(&i.v)?;
                     result = list::cons(next, result);
                 }
