@@ -269,6 +269,7 @@ mod tests
 
     use libc::getpid;
     use std::io::{stderr, Write};
+    use std::path::PathBuf;
 
 
     #[test]
@@ -279,7 +280,8 @@ mod tests
         };
         writeln!(stderr(), "test_main_func_finishes {:?}", p).unwrap();
         let input = "func main >> 3 --".to_string();
-        let mut inter = Interloader::new("test.lma", "lib");
+        let path = vec![PathBuf::from("lib")];
+        let mut inter = Interloader::new("test.lma", path);
         let test_key = ModKey::from("test");
         inter.set_mod_txt(test_key.clone(), input);
         let prog = program::Lib::new(inter);

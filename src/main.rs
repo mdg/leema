@@ -82,7 +82,6 @@ fn main()
 
 fn real_main() -> Lresult<()>
 {
-    vout!("cmd: {:?}", env::current_exe());
     let args: Args = Docopt::new(USAGE)
         .and_then(|d| d.decode())
         .unwrap_or_else(|e| e.exit());
@@ -92,14 +91,15 @@ fn real_main() -> Lresult<()>
         crate::leema::log::set_verbose();
         vout!("verbose mode\n");
     }
+    vout!("cmd: {:?}\n", env::current_exe().unwrap());
     vout!("args:{:?}\n", args);
 
     let leema_path = match env::var("LEEMA_PATH") {
-        Ok(path_val) => path_val,
-        Err(env::VarError::NotPresent) => String::new(),
+        Ok(path_val) => Interloader::split_paths(&path_val),
+        Err(env::VarError::NotPresent) => Interloader::default_path(),
         Err(env::VarError::NotUnicode(os_path)) => {
             eprintln!("LEEMA_PATH is not unicode: {:?}", os_path);
-            String::new()
+            Interloader::default_path()
         }
     };
 
@@ -108,7 +108,7 @@ fn real_main() -> Lresult<()>
         list::cons(Val::Str(Lstr::from(a.to_string())), aacc)
     });
     let leema_args = list::reverse(&leema_args_rev);
-    let mut inter = Interloader::new(main_file, &leema_path);
+    let mut inter = Interloader::new(main_file, leema_path);
     let main_key = inter.new_key(&inter.main_mod)?;
     let main_mod = inter.main_mod.clone();
     let fref = match args.flag_func {
