@@ -1,9 +1,12 @@
-func is_empty(l: [Int]) >>
-|([]) -> true
-|(_) -> false
+
+import /io/print
+
+func is_empty l:[Int]
+|[] >> True
+|_ >> False
 --
 
-func main() ->
+func main >>
     let l := [3, 2, 8]
     let e := is_empty(l)
     print("is_empty? $e\n")

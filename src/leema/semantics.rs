@@ -162,10 +162,27 @@ struct MacroApplication<'l>
     proto: &'l ProtoLib,
     ftype: &'l FuncType,
     closed: &'l GenericTypes,
+    mode: AstMode,
 }
 
 impl<'l> MacroApplication<'l>
 {
+    pub fn new(
+        local: &'l ProtoModule,
+        proto: &'l ProtoLib,
+        ftype: &'l FuncType,
+        closed: &'l GenericTypes,
+    ) -> MacroApplication<'l>
+    {
+        MacroApplication {
+            local,
+            proto,
+            ftype,
+            closed,
+            mode: AstMode::Value,
+        }
+    }
+
     fn apply_macro(
         mac: &Ast,
         loc: Loc,
@@ -236,7 +253,7 @@ impl<'l> MacroApplication<'l>
 
 impl<'l> SemanticOp for MacroApplication<'l>
 {
-    fn pre(&mut self, node: AstNode) -> SemanticResult
+    fn pre(&mut self, mut node: AstNode) -> SemanticResult
     {
         match *node.node {
             Ast::Call(callid, args) => {
@@ -313,6 +330,19 @@ impl<'l> SemanticOp for MacroApplication<'l>
                     Self::op_to_call("prefab", "int_less_than", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
+            Ast::Op2(";", a, b) => {
+                if !self.mode.is_pattern() {
+                    // if not a pattern, convert to a call
+                    let callx = AstNode::new(Ast::Id1("cons"), node.loc);
+                    let args = struple::new_tuple2(a, b);
+                    let call = AstNode::new(Ast::Call(callx, args), node.loc);
+                    Ok(SemanticAction::Rewrite(call))
+                } else {
+                    // if a pattern, leave as an Op
+                    *node.node = Ast::Op2(";", a, b);
+                    Ok(SemanticAction::Keep(node))
+                }
+            }
             Ast::Op1("-", x) => {
                 let callx = AstNode::new(Ast::Id2(
                         Lstr::Sref("prefab"),
@@ -387,6 +417,11 @@ impl<'l> SemanticOp for MacroApplication<'l>
             }
             _ => Ok(SemanticAction::Keep(node)),
         }
+    }
+
+    fn set_mode(&mut self, mode: AstMode)
+    {
+        self.mode = mode;
     }
 }
 
@@ -1311,12 +1346,12 @@ impl Semantics
             })
             .collect();
 
-        let mut macs: MacroApplication = MacroApplication {
-            local: local_proto,
-            proto: proto,
-            ftype: ftyp,
-            closed: &closed,
-        };
+        let mut macs = MacroApplication::new(
+            local_proto,
+            proto,
+            ftyp,
+            &closed,
+        );
         let mut scope_check = ScopeCheck::new(ftyp, local_proto, proto)?;
         let mut var_types = VarTypes::new(&local_proto.key.name, ftyp)?;
         let mut type_check = TypeCheck::new(local_proto, proto, ftyp);
@@ -1566,6 +1601,36 @@ mod tests
         let fref = Fref::with_modules(From::from("foo"), "main");
         let body = Semantics::compile_call(&mut proto, &fref).unwrap();
         assert_matches!(*body.src.node, Ast::Block(_));
+    }
+
+    #[test]
+    fn test_semantics_default_imports()
+    {
+        let input = r#"
+        func main >>
+            4;[6]
+            4 < 6
+            8 > 8
+            "x" <= "y"
+            "x" >= "y"
+            4 == 8
+            9 != 7
+            3 + 4
+            3 - 4
+            3 * 4
+            5 / 6
+            -8
+            5 mod 6
+            True and False
+            True or False
+            not True
+        --
+        "#;
+
+        let mut proto = load_proto_with_prefab();
+        proto.add_module(From::from("foo"), input).unwrap();
+        let fref = Fref::with_modules(From::from("foo"), "main");
+        Semantics::compile_call(&mut proto, &fref).unwrap();
     }
 
     #[test]

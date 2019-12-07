@@ -17,8 +17,6 @@ use futures::future::empty;
 use futures::Future;
 use tokio::timer::Delay;
 
-use rand;
-
 
 pub fn int_add(f: &mut Fiber) -> Lresult<Event>
 {
@@ -202,13 +200,6 @@ pub fn int_less_than(mut f: RustFuncContext) -> Lresult<Event>
         }
     };
     f.set_result(result);
-    Event::success()
-}
-
-pub fn int_random(f: &mut Fiber) -> Lresult<Event>
-{
-    let result = rand::random::<i64>(); // as i64;
-    f.head.parent.set_result(Val::Int(result));
     Event::success()
 }
 
@@ -490,7 +481,6 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         "int_negate" => Some(Code::Rust(int_negate)),
         "int_equal" => Some(Code::Rust2(int_equal)),
         "int_less_than" => Some(Code::Rust2(int_less_than)),
-        "int_random" => Some(Code::Rust(int_random)),
         "bool_not" => Some(Code::Rust(bool_not)),
         "bool_xor" => Some(Code::Rust(bool_xor)),
         "sleep" => Some(Code::Iop(leema_sleep, None)),

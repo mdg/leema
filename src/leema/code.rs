@@ -2,6 +2,7 @@ use crate::leema::ast2::{Ast, AstNode, Case, Xlist};
 use crate::leema::failure::Lresult;
 use crate::leema::fiber;
 use crate::leema::frame;
+use crate::leema::list;
 use crate::leema::lstr::Lstr;
 use crate::leema::reg::{Reg, RegStack, RegTab};
 use crate::leema::rsrc;
@@ -707,6 +708,13 @@ impl Registration
                     self.assign_registers(&mut item.v)?;
                 }
             }
+            Ast::List(ref mut items) => {
+                let dst = self.stack.push_dst();
+                for i in items.iter_mut() {
+                    i.v.dst = dst.clone();
+                    self.assign_registers(&mut i.v)?;
+                }
+            }
             // don't handle anything else in pre
             _ => {}
         }
@@ -738,8 +746,21 @@ impl Registration
                 }).collect();
                 Val::Tuple(tval?)
             }
+            Ast::List(ref items) => {
+                let mut result = Val::Nil;
+                for i in items.iter().rev() {
+                    let next = self.make_pattern_val(&i.v)?;
+                    result = list::cons(next, result);
+                }
+                result
+            }
             Ast::ConstVal(ref val) => val.clone(),
             Ast::Wildcard => Val::Wildcard,
+            Ast::Op2(";", a, b) => {
+                let pa = self.make_pattern_val(a)?;
+                let pb = self.make_pattern_val(b)?;
+                list::cons(pa, pb)
+            }
             pnode => {
                 // do nothing with other pattern values
                 return Err(rustfail!(
@@ -775,6 +796,15 @@ mod tests
 
     use std::path::PathBuf;
 
+    fn core_program(mods: &[(&'static str, String)]) -> program::Lib
+    {
+        let mut loader = Interloader::default();
+        for (name, src) in mods.iter() {
+            loader.set_mod_txt(ModKey::from(*name), src.clone());
+        }
+        program::Lib::new(loader)
+    }
+
     #[test]
     fn test_code_constval()
     {
@@ -793,6 +823,32 @@ mod tests
             Op::Return,
         ];
         assert_eq!(x, code);
+    }
+
+    #[test]
+    fn test_code_lists()
+    {
+        let input = r#"
+        import /io/print
+
+        func is_empty l:[Int]
+        |[] >> True
+        |h;t >> False
+        |_ >> False
+        --
+
+        func main >>
+            let e := is_empty([4, 8, 3])
+            print("is empty? $e\n")
+        --
+        "#.to_string();
+
+        let mut prog = core_program(&[("foo", input)]);
+        let main_ref = Fref::from(("foo", "main"));
+        let is_empty_ref = Fref::from(("foo", "is_empty"));
+        // make sure it didn't panic or fail
+        prog.read_code(&main_ref).unwrap();
+        prog.read_code(&is_empty_ref).unwrap();
     }
 
     #[test]

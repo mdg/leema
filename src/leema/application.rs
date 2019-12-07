@@ -181,6 +181,7 @@ impl Application
                         )
                     }
                     Err(f) => {
+                        eprintln!("code load error: {}\n{:#?}", fref, f);
                         WorkerMsg::IopResult(frame, MsgItem::new(&Val::Failure2(Box::new(f))))
                     }
                 };

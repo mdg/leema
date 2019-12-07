@@ -20,7 +20,6 @@ pub mod lmap;
 pub mod loader;
 pub mod module;
 pub mod msg;
-pub mod prefab;
 pub mod program;
 pub mod proto;
 pub mod reg;
@@ -36,12 +35,15 @@ pub mod val;
 pub mod worker;
 
 // libraries
+pub mod lib_core;
+pub mod prefab;
 pub mod file;
 pub mod lib_hyper;
 pub mod lib_io;
 pub mod lib_json;
 pub mod lib_list;
 pub mod lib_map;
+pub mod lib_math;
 pub mod lib_str;
 pub mod lib_task;
 pub mod lib_time;
