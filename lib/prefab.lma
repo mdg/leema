@@ -13,10 +13,6 @@ macro boolean_or or_a or_b >>
     --
 --
 
-macro fail ft msg >>
-    return create_failure(ft, msg)
---
-
 macro refail f >>
     return f
 --
@@ -41,5 +37,3 @@ func equal[T] a:T b:T /Bool >> __RUST__ --
 func less_than[T] a:T b:T /Bool >> __RUST__ --
 func sleep d:Int >> __RUST__ --
 func sleep_forever >> __RUST__ --
-
-func create_failure failure_tag:# msg:Str /Failure >> __RUST__ --

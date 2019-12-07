@@ -1,7 +1,7 @@
 use crate::leema::code::Code;
 use crate::leema::failure::{Failure, Lresult};
 use crate::leema::fiber::Fiber;
-use crate::leema::frame::{Event, Frame, Parent};
+use crate::leema::frame::{Event, Frame, FrameTrace, Parent};
 use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use crate::leema::reg::Reg;
 use crate::leema::struple::{Struple2, StrupleItem};
@@ -10,7 +10,10 @@ use crate::leema::val::{Fref, MsgVal, Val};
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
 use std::rc::Rc;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{
+    Arc,
+    mpsc::{channel, Receiver, Sender},
+};
 use std::thread;
 use std::time::Duration;
 
@@ -59,6 +62,11 @@ impl<'a> RustFuncContext<'a>
     pub fn get_reg(&self, r: Reg) -> Lresult<&Val>
     {
         Ok(ltry!(self.task.head.e.get_reg(r)))
+    }
+
+    pub fn fail_here(&self) -> Arc<FrameTrace>
+    {
+        self.task.head.trace.fail_here()
     }
 
     pub fn set_result(&mut self, r: Val)

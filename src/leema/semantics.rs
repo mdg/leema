@@ -259,7 +259,14 @@ impl<'l> SemanticOp for MacroApplication<'l>
             Ast::Call(callid, args) => {
                 let optmac = match *callid.node {
                     Ast::Id1(macroname) => {
-                        self.local.find_macro(macroname)
+                        match self.local.imported_id(macroname) {
+                            Some(import_path) => {
+                                let import_mod =
+                                    self.proto.path_proto(import_path)?;
+                                import_mod.find_macro(macroname)
+                            }
+                            None => None,
+                        }
                     }
                     Ast::Id2(ref modname, ref macroname) => {
                         ltry!(self.proto

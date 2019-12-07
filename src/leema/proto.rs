@@ -22,6 +22,8 @@ lazy_static! {
         let mut ids = HashMap::new();
         ids.insert("Bool", core_mod.clone());
         ids.insert("cons", core_mod.clone());
+        ids.insert("create_failure", core_mod.clone());
+        ids.insert("fail", core_mod.clone());
         ids.insert("Hashtag", core_mod.clone());
         ids.insert("Int", core_mod.clone());
         ids.insert("Str", core_mod.clone());
@@ -477,12 +479,12 @@ impl ProtoModule
             })
     }
 
-    pub fn imported_id(&self, modname: &str) -> Option<&module::Chain>
+    pub fn imported_id(&self, id: &str) -> Option<&module::Chain>
     {
         self.imported_ids
-            .get(modname)
+            .get(id)
             .or_else(|| {
-                DEFAULT_IDS.get(modname).map(|mp| &mp.path)
+                DEFAULT_IDS.get(id).map(|mp| &mp.path)
             })
     }
 }

@@ -359,18 +359,6 @@ pub fn printerr(f: &mut Fiber) -> Lresult<Event>
     Event::success()
 }
 
-pub fn create_failure(f: &mut Fiber) -> Lresult<Event>
-{
-    let failtag = f.head.e.get_param(0)?;
-    let failmsg = f.head.e.get_param(1)?;
-    Err(Failure::leema_new(
-        failtag.clone(),
-        failmsg.clone(),
-        Some(f.head.trace.fail_here()),
-        val::FAILURE_INTERNAL,
-    ))
-}
-
 
 struct LeemaFile
 {
@@ -492,7 +480,6 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         "greater_than_equal" => Some(Code::Rust(greater_than_equal)),
         "get_type" => Some(Code::Rust(get_type)),
         "cin" => Some(Code::Rust(cin)),
-        "create_failure" => Some(Code::Rust(create_failure)),
         "file_read" => Some(Code::Rust(file_read)),
         "file_stream_read" => Some(Code::Rust(file_stream_read)),
         _ => None,
