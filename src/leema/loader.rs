@@ -40,7 +40,7 @@ pub struct Interloader
 
 impl Interloader
 {
-    pub fn new(mainfile: &'static str, path_str: &str) -> Interloader
+    pub fn new(mainfile: &'static str, mut paths: Vec<PathBuf>) -> Interloader
     {
         let path = Path::new(mainfile);
         let ext = path.extension();
@@ -55,9 +55,8 @@ impl Interloader
             panic!("Is that not a real file? {}", mainfile);
         }
 
-        let root_path = Some(path.parent().unwrap().to_path_buf());
-        let splits = env::split_paths(path_str);
-        let paths: Vec<PathBuf> = root_path.into_iter().chain(splits).collect();
+        let root_path = path.parent().unwrap().to_path_buf();
+        paths.insert(0, root_path);
 
         let mod_str =
             Self::static_str(modname.unwrap().to_str().unwrap().to_string());
@@ -167,6 +166,18 @@ impl Interloader
             .expect("failed reading file to text");
         Ok(result)
     }
+
+    pub fn default_path() -> Vec<PathBuf>
+    {
+        let cmd_path: PathBuf = env::current_exe().unwrap();
+        let lib_dir = cmd_path.parent().unwrap().join("lib");
+        vec![lib_dir]
+    }
+
+    pub fn split_paths(path_str: &str) -> Vec<PathBuf>
+    {
+        env::split_paths(path_str).collect()
+    }
 }
 
 /// Default Interloader primarily for using in tests and dev
@@ -198,12 +209,13 @@ mod tests
 {
     use crate::leema::loader::Interloader;
 
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     #[test]
     fn test_root_path()
     {
-        let i = Interloader::new("hello/world.lma", "lib");
+        let path = vec![PathBuf::from("lib")];
+        let i = Interloader::new("hello/world.lma", path);
 
         let expected = vec![Path::new("hello"), Path::new("lib")];
         assert_eq!(expected, i.paths);
@@ -212,9 +224,8 @@ mod tests
     #[test]
     fn test_main_mod()
     {
-        let i = Interloader::new("hello/world.lma", "lib");
+        let i = Interloader::new("hello/world.lma", vec![]);
 
         assert_eq!("world", &String::from(&i.main_mod));
     }
-
 }

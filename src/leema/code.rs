@@ -794,6 +794,7 @@ mod tests
     use crate::leema::reg::Reg;
     use crate::leema::val::{Fref, Val};
 
+    use std::path::PathBuf;
 
     fn core_program(mods: &[(&'static str, String)]) -> program::Lib
     {
@@ -861,7 +862,8 @@ mod tests
             ",
         );
 
-        let mut loader = Interloader::new("tacos.lma", "lib");
+        let path = vec![PathBuf::from("lib")];
+        let mut loader = Interloader::new("tacos.lma", path);
         loader.set_mod_txt(From::from("tacos"), input);
         let mut prog = program::Lib::new(loader);
         let fref = Fref::with_modules(From::from("tacos"), "main");
@@ -886,7 +888,8 @@ mod tests
             "
         .to_string();
 
-        let mut loader = Interloader::new("tacos.lma", "lib");
+        let path = vec![PathBuf::from("lib")];
+        let mut loader = Interloader::new("tacos.lma", path);
         loader.set_mod_txt(ModKey::from("tacos"), input);
         let mut prog = program::Lib::new(loader);
         let fref = Fref::with_modules(From::from("tacos"), "main");
