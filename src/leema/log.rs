@@ -27,3 +27,25 @@ macro_rules! vout
         }
     };
 }
+
+#[macro_export]
+macro_rules! start_timer
+{
+    () => {
+        std::time::Instant::now()
+    };
+}
+
+#[macro_export]
+macro_rules! log_timer
+{
+    ($start:expr, $msg:expr) => {
+        let dur = $start.elapsed();
+        eprintln!("{:?} {}", dur, $msg);
+    };
+    ($start:expr, $fmt:expr, $($arg:tt)*) => {
+        let dur = $start.elapsed();
+        eprint!("{:?} ", dur);
+        eprintln!($fmt, $($arg)*);
+    };
+}

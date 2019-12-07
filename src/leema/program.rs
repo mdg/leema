@@ -123,6 +123,7 @@ impl Lib
     ) -> Lresult<Code>
     {
         vout!("read_code({})\n", f);
+        let start = start_timer!();
         let semantics = ltry!(self.read_semantics(f));
 
         if let Ast::RustBlock = &*semantics.src.node {
@@ -139,6 +140,7 @@ impl Lib
             let mut semantics_ast = semantics.src;
             code::assign_registers(&mut semantics_ast, semantics.args)?;
             let ops = code::make_ops2(semantics_ast);
+            log_timer!(start, "read_code {}", f);
             Ok(Code::Leema(ops))
         }
     }
