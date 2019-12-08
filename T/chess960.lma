@@ -30,7 +30,7 @@ func piece_str piece:# /Str
 |#bishop >> "B"
 |#queen >> "Q"
 |#king >> "K"
-|p >> fail(#unknown_piece, "$p")
+|p >> create_failure(#unknown_piece, "$p")
 --
 
 func print_pieces all_ppcs:[#]

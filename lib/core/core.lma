@@ -1,14 +1,16 @@
 
 type Bool --
+type Failure --
 type Hashtag --
 type Int --
 type Str --
 type # --
+type NoResult --
 
 func cons[A] head:A tail:[A] /[A] >> __RUST__ --
 
 macro fail ft msg >>
-    return create_failure(ft, msg)
+    create_failure(ft, msg)
 --
 
 func create_failure failure_tag:# msg:Str /Failure >> __RUST__ --

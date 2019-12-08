@@ -1,13 +1,13 @@
 import /io
 
-func add4 cx:Int :Int
+func add4 cx:Int /Int
 |4 >>
     fail(#xis4, "tacos are delicious")
 |cx >>
     cx + 4
 --
 
-func add5 dx:Int :Int >>
+func add5 dx:Int /Int >>
     let c := add4(dx)
     c + 1
 --

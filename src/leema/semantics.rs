@@ -826,6 +826,18 @@ impl<'p> TypeCheck<'p>
                 }
                 Ok(t1.clone())
             }
+            (t0, fail) if fail.is_failure() => {
+                if t0.is_open() {
+                    eprintln!("yikes, type is open {}", t0);
+                }
+                Ok(t0.clone())
+            }
+            (fail, t1) if fail.is_failure() => {
+                if t1.is_open() {
+                    eprintln!("yikes, type is open {}", t1);
+                }
+                Ok(t1.clone())
+            }
             (Type::Tuple(i0), Type::Tuple(i1)) => {
                 let im: Lresult<Struple2<Type>>;
                 im = i0.iter().zip(i1.iter()).map(|iz| {
@@ -873,7 +885,7 @@ impl<'p> TypeCheck<'p>
                 if t0 != t1 {
                     Err(rustfail!(
                         SEMFAIL,
-                        "match case types do not match: ({} != {})",
+                        "types do not match: ({:#?} != {})",
                         t0,
                         t1,
                     ))
@@ -1064,11 +1076,12 @@ impl<'p> TypeCheck<'p>
         let mut prev_typ: Option<Type> = None;
         let mut opens = vec![];
         for case in cases.iter() {
-            if let Some(ref pt) = prev_typ {
-                ltry!(self.match_type(pt, &case.body.typ, &mut opens));
+            let next_typ = if let Some(ref pt) = prev_typ {
+                ltry!(self.match_type(pt, &case.body.typ, &mut opens))
             } else {
-                prev_typ = Some(case.body.typ.clone());
-            }
+                case.body.typ.clone()
+            };
+            prev_typ = Some(next_typ);
         }
         Ok(prev_typ.unwrap())
     }
@@ -1197,6 +1210,9 @@ impl<'p> SemanticOp for TypeCheck<'p>
                     ))
                 }).collect();
                 node.typ = Type::Tuple(itypes?);
+            }
+            Ast::Return(_) => {
+                node.typ = Type::User(Lstr::Sref("core"), "NoReturn");
             }
             _ => {
                 // should handle matches later, but for now it's fine
@@ -1790,6 +1806,21 @@ mod tests
         proto.add_module(From::from("foo"), input).unwrap();
         let fref = Fref::with_modules(From::from("foo"), "main");
         Semantics::compile_call(&mut proto, &fref).unwrap();
+    }
+
+    #[test]
+    fn test_semantics_match_with_fail()
+    {
+        let input = r#"
+        func safediv x:Int y:Int /Int
+        |(_, 0) >> fail(#divide_by_0, "cannot divide by zero")
+        |(a, b) >> a + b
+        --
+        "#.to_string();
+
+        let mut prog = core_program(&[("foo", input)]);
+        let fref = Fref::from(("foo", "safediv"));
+        prog.read_semantics(&fref).unwrap();
     }
 
     #[test]

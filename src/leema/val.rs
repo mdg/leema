@@ -114,7 +114,6 @@ pub type GenericTypeSlice = [StrupleItem<&'static str, Type>];
 pub enum Type
 {
     Tuple(Struple2<Type>),
-    Failure,
     Func(FuncType),
     // different from base collection/map interfaces?
     // base interface/type should probably be iterator
@@ -142,6 +141,7 @@ impl Type
     pub const STR: Type = Type::User(Lstr::Sref("core"), "Str");
     pub const BOOL: Type = Type::User(Lstr::Sref("core"), "Bool");
     pub const HASHTAG: Type = Type::User(Lstr::Sref("core"), "Hashtag");
+    pub const FAILURE: Type = Type::User(Lstr::Sref("core"), "Failure");
 
     pub fn f(inputs: Struple2<Type>, result: Type) -> Type
     {
@@ -207,6 +207,15 @@ impl Type
         !self.is_open()
     }
 
+    pub fn is_failure(&self) -> bool
+    {
+        match self {
+            &Type::User(Lstr::Sref("core"), "Failure") => true,
+            &Type::User(ref core, "Failure") if core.str() == "core" => true,
+            _ => false,
+        }
+    }
+
     pub fn map<Op>(&self, op: &Op) -> Lresult<Type>
     where
         Op: Fn(&Type) -> Lresult<Option<Type>>,
@@ -236,7 +245,6 @@ impl Type
     pub fn deep_clone(&self) -> Type
     {
         match self {
-            &Type::Failure => Type::Failure,
             &Type::Tuple(ref items) => Type::Tuple(items.clone_for_send()),
             &Type::StrictList(ref i) => {
                 Type::StrictList(Box::new(i.deep_clone()))
@@ -328,7 +336,6 @@ impl fmt::Display for Type
                 }
                 write!(f, ")")
             }
-            &Type::Failure => write!(f, "Failure"),
             &Type::User(ref module, ref id) => write!(f, "{}::{}", module, id),
             &Type::Generic(_, ref inner, ref args) => {
                 write!(f, "{}{:?}", inner, args)
@@ -358,7 +365,6 @@ impl fmt::Debug for Type
     {
         match self {
             &Type::Tuple(ref items) => write!(f, "{:?}", items),
-            &Type::Failure => write!(f, "Failure"),
             &Type::Func(ref ftyp) => write!(f, "{:?}", ftyp),
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator
@@ -728,7 +734,7 @@ impl Val
                 Type::StrictList(Box::new(inner))
             }
             &Val::Nil => Type::StrictList(Box::new(Type::Unknown)),
-            &Val::Failure2(_) => Type::Failure,
+            &Val::Failure2(_) => Type::FAILURE,
             &Val::Type(_) => Type::Kind,
             &Val::Void => Type::Void,
             &Val::Wildcard => Type::Unknown,
