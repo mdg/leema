@@ -1,17 +1,17 @@
 
-struct Listener --
-struct TcpSocket --
+type Listener --
+type TcpSocket --
 
 ## open a tcp connection to a remote port
-func connect(addr: Str, port: Int): TcpSocket -RUST-
+func connect addr:Str port:Int /TcpSocket >> __RUST__ --
 
 ## create a tcp listener on the given port
-func listen(addr: Str, port: Int): Listener -RUST-
+func listen addr:Str port:Int /Listener >> __RUST__ --
 
 ## accept new sockets on the given socket
-func accept(l: Listener): TcpSocket -RUST-
+func accept l:Listener /TcpSocket >> __RUST__ --
 
-func recv(s: TcpSocket): Str -RUST-
+func recv s:TcpSocket /Str >> __RUST__ --
 
-func send(s: TcpSocket, output: Str): Int -RUST-
+func send s:TcpSocket output:Str /Int >> __RUST__ --
 

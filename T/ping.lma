@@ -1,6 +1,6 @@
-import udp
+import /udp
 
-func main() >>
+func main >>
    let sock := udp::socket()
    udp::send(sock, "127.0.0.1", 3999, "hello world\n")
 --
