@@ -41,11 +41,12 @@ macro_rules! log_timer
 {
     ($start:expr, $msg:expr) => {
         let dur = $start.elapsed();
-        eprintln!("{:?} {}", dur, $msg);
+        vout!("{:?} {}\n", dur, $msg);
     };
     ($start:expr, $fmt:expr, $($arg:tt)*) => {
         let dur = $start.elapsed();
-        eprint!("{:?} ", dur);
-        eprintln!($fmt, $($arg)*);
+        vout!("{:?} ", dur);
+        vout!($fmt, $($arg)*);
+        vout!("\n");
     };
 }
