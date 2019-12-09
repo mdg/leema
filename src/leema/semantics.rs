@@ -249,6 +249,23 @@ impl<'l> MacroApplication<'l>
             */
         AstNode::new(Ast::Call(callx, args), loc)
     }
+
+    fn find_macro_1(&self, macroname: &str) -> Lresult<Option<&Ast>>
+    {
+        let local_mac = self.local.find_macro(macroname);
+        if local_mac.is_some() {
+            return Ok(local_mac);
+        }
+
+        let imported_macro = match self.local.imported_id(macroname) {
+            Some(import_path) => {
+                let import_mod = self.proto.path_proto(import_path)?;
+                import_mod.find_macro(macroname)
+            }
+            None => None,
+        };
+        Ok(imported_macro)
+    }
 }
 
 impl<'l> SemanticOp for MacroApplication<'l>
@@ -259,14 +276,7 @@ impl<'l> SemanticOp for MacroApplication<'l>
             Ast::Call(callid, args) => {
                 let optmac = match *callid.node {
                     Ast::Id1(macroname) => {
-                        match self.local.imported_id(macroname) {
-                            Some(import_path) => {
-                                let import_mod =
-                                    self.proto.path_proto(import_path)?;
-                                import_mod.find_macro(macroname)
-                            }
-                            None => None,
-                        }
+                        self.find_macro_1(macroname)?
                     }
                     Ast::Id2(ref modname, ref macroname) => {
                         ltry!(self.proto
@@ -1670,13 +1680,13 @@ mod tests
         func main >>
             test_and(True, False)
         --
-        "#;
+        "#.to_string();
 
-        let mut proto = load_proto_with_prefab();
-        proto.add_module(From::from("foo"), input).unwrap();
-        let fref = Fref::with_modules(From::from("foo"), "main");
-        let body = Semantics::compile_call(&mut proto, &fref).unwrap();
-        assert_matches!(*body.src.node, Ast::Ifx(_));
+        let mut prog = core_program(&[("foo", input)]);
+        let fref = Fref::from(("foo", "main"));
+        let sem = prog.read_semantics(&fref).unwrap();
+
+        assert_matches!(*sem.src.node, Ast::Ifx(_));
     }
 
     #[test]
