@@ -9,8 +9,8 @@ use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::semantics::Semantics;
 use crate::leema::val::Fref;
 use crate::leema::{
-    lib_core, prefab,
-    file, lib_hyper, lib_io, lib_json, lib_list, lib_math, lib_task, tcp, udp,
+    file, lib_core, lib_hyper, lib_io, lib_json, lib_list, lib_math, lib_task,
+    prefab, tcp, udp,
 };
 
 use std::collections::HashMap;
@@ -39,8 +39,14 @@ impl Lib
 
         // automatically load both core and prefab
         // eventually will move everything to core and delete prefab
-        lfailoc!(proglib.protos.load_absolute(&mut proglib.loader, module::Chain::from("core"))).unwrap();
-        lfailoc!(proglib.protos.load_absolute(&mut proglib.loader, module::Chain::from("prefab"))).unwrap();
+        lfailoc!(proglib
+            .protos
+            .load_absolute(&mut proglib.loader, module::Chain::from("core")))
+        .unwrap();
+        lfailoc!(proglib
+            .protos
+            .load_absolute(&mut proglib.loader, module::Chain::from("prefab")))
+        .unwrap();
 
         proglib
             .rust_load
@@ -88,19 +94,16 @@ impl Lib
         proglib
     }
 
-    pub fn load_code(
-        &mut self,
-        f: &Fref,
-    ) -> Lresult<&Code>
+    pub fn load_code(&mut self, f: &Fref) -> Lresult<&Code>
     {
         if !self.code.contains_key(f) {
             let new_code = ltry!(self.read_code(f));
             self.code.insert(f.clone(), new_code);
         }
 
-        self.code.get(f).ok_or_else(|| {
-            rustfail!("codefail", "cannot find code for: {}", f)
-        })
+        self.code
+            .get(f)
+            .ok_or_else(|| rustfail!("codefail", "cannot find code for: {}", f))
     }
 
     pub fn find_proto(&self, path: &module::Chain) -> Lresult<&ProtoModule>
@@ -108,19 +111,13 @@ impl Lib
         self.protos.path_proto(&path)
     }
 
-    pub fn read_semantics(
-        &mut self,
-        f: &Fref,
-    ) -> Lresult<Semantics>
+    pub fn read_semantics(&mut self, f: &Fref) -> Lresult<Semantics>
     {
         self.load_proto_and_imports(&f.m.chain)?;
         Semantics::compile_call(&mut self.protos, f)
     }
 
-    pub fn read_code(
-        &mut self,
-        f: &Fref,
-    ) -> Lresult<Code>
+    pub fn read_code(&mut self, f: &Fref) -> Lresult<Code>
     {
         vout!("read_code({})\n", f);
         let start = start_timer!();
@@ -145,9 +142,13 @@ impl Lib
         }
     }
 
-    pub fn load_proto_and_imports(&mut self, modpath: &module::Chain) -> Lresult<()>
+    pub fn load_proto_and_imports(
+        &mut self,
+        modpath: &module::Chain,
+    ) -> Lresult<()>
     {
-        self.protos.load_absolute(&mut self.loader, modpath.clone())?;
+        self.protos
+            .load_absolute(&mut self.loader, modpath.clone())?;
         self.protos.load_imports(&mut self.loader, modpath)
     }
 

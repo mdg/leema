@@ -25,7 +25,7 @@ impl Loc
 {
     pub fn new(lineno: u16, column: u8) -> Loc
     {
-        Loc{ lineno, column }
+        Loc { lineno, column }
     }
 }
 
@@ -135,7 +135,7 @@ impl ModTree
             ModTree::Sibling(ref mut sub) => {
                 sub.push_sub(tail);
             }
-            ModTree::Block(_)|ModTree::Module(_)|ModTree::Wildcard(_) => {
+            ModTree::Block(_) | ModTree::Module(_) | ModTree::Wildcard(_) => {
                 // these can't really contain a sub
                 // this should never happen
                 unimplemented!();
@@ -149,7 +149,12 @@ impl ModTree
         self._collect(flats, ModRelativity::Child, &mut paths);
     }
 
-    pub fn _collect(&self, flats: &mut HashMap<&'static str, (ModPath, Loc)>, rel: ModRelativity, path: &mut module::Chain)
+    pub fn _collect(
+        &self,
+        flats: &mut HashMap<&'static str, (ModPath, Loc)>,
+        rel: ModRelativity,
+        path: &mut module::Chain,
+    )
     {
         match self {
             ModTree::Id(id, loc) => {
@@ -180,7 +185,10 @@ impl ModTree
                 subs._collect(flats, ModRelativity::Sibling, path);
             }
             ModTree::Module(loc) => {
-                flats.insert(path.last(), (ModPath::new(rel, path.clone()), *loc));
+                flats.insert(
+                    path.last(),
+                    (ModPath::new(rel, path.clone()), *loc),
+                );
             }
             ModTree::Wildcard(_) => {
                 // need to do something with this
@@ -239,7 +247,9 @@ impl Ast
     {
         match self {
             Ast::ConstVal(_) => true,
-            Ast::List(items) => struple::iter_v(items).all(|a| a.node.is_const()),
+            Ast::List(items) => {
+                struple::iter_v(items).all(|a| a.node.is_const())
+            }
             _ => false,
         }
     }
@@ -253,7 +263,11 @@ impl Ast
             Ast::Copy(src) => write!(f, "Copy {:?}", src),
             Ast::DefConst(id, x) => write!(f, "DefConst {} := {:?}", id, x),
             Ast::DefFunc(name, args, result, body) => {
-                write!(f, "DefFunc {:?} {:?} / {:?} {:?}", name, args, result, body)
+                write!(
+                    f,
+                    "DefFunc {:?} {:?} / {:?} {:?}",
+                    name, args, result, body
+                )
             }
             Ast::DefMacro(name, args, body) => {
                 write!(f, "DefMacro {:?} {:?} {:?}", name, args, body)
@@ -274,9 +288,7 @@ impl Ast
             }
             Ast::Let(lhp, _lht, rhs) => write!(f, "Let {:?} := {:?}", lhp, rhs),
             Ast::List(items) => write!(f, "List {:?}", items),
-            Ast::Matchx(None, args) => {
-                write!(f, "Match None {:?}", args)
-            }
+            Ast::Matchx(None, args) => write!(f, "Match None {:?}", args),
             Ast::Matchx(Some(cond), args) => {
                 write!(f, "Match {:?} {:?}", cond, args)
             }

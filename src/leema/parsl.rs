@@ -17,7 +17,8 @@ macro_rules! expect_next {
                 lstrf!("expected {:?}, found {:?}", $expected, tok.tok),
                 $p.path.clone(),
                 tok.begin.lineno,
-            ).loc(file!(), line!());
+            )
+            .loc(file!(), line!());
             Err(f)
         }
     }};
@@ -199,7 +200,10 @@ impl Parsl
     pub fn new(src: Vec<TokenSrc>) -> Parsl
     {
         let strm = TokenStream::new(src);
-        Parsl { src: strm, path: Lstr::Sref("") }
+        Parsl {
+            src: strm,
+            path: Lstr::Sref(""),
+        }
     }
 
     pub fn peek_token(&mut self) -> Lresult<Token>
@@ -285,7 +289,8 @@ impl Parsl
                     lstrf!("cannot parse token in {:?}: {:?}", mode, tok0.tok),
                     self.path.clone(),
                     tok0.begin.lineno,
-                ).loc(file!(), line!()));
+                )
+                .loc(file!(), line!()));
             }
         };
 

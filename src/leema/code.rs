@@ -251,10 +251,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
         }
         Ast::List(items) => make_list_ops(input_dst, items),
         Ast::Tuple(items) => {
-            let newtup = Op::ConstVal(
-                input_dst,
-                Val::new_tuple(items.len()),
-            );
+            let newtup = Op::ConstVal(input_dst, Val::new_tuple(items.len()));
             let mut ops: Vec<Op> = vec![newtup];
             for (i, item) in items.into_iter().enumerate() {
                 let subdst = input.dst.sub(i as i8);
@@ -269,21 +266,15 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             ops
         }
         Ast::StrExpr(items) => make_str_ops(input.dst.clone(), items),
-        Ast::Ifx(cases) => {
-            make_if_ops(cases)
-        }
-        Ast::Matchx(Some(x), cases) => {
-            make_matchexpr_ops(x, cases)
-        }
+        Ast::Ifx(cases) => make_if_ops(cases),
+        Ast::Matchx(Some(x), cases) => make_matchexpr_ops(x, cases),
         Ast::Return(result) => {
             let mut rops = make_sub_ops2(result);
             rops.ops.push(Op::SetResult(rops.dst.clone()));
             rops.ops.push(Op::Return);
             rops.ops
         }
-        Ast::Id1(ref _id) => {
-            vec![]
-        }
+        Ast::Id1(ref _id) => vec![],
         Ast::RustBlock => vec![],
         Ast::Void => vec![],
 
@@ -449,10 +440,7 @@ pub fn make_matchfailure_ops(
 }
 // */
 
-pub fn make_matchexpr_ops(
-    x: AstNode,
-    cases: Vec<Case>,
-) -> OpVec
+pub fn make_matchexpr_ops(x: AstNode, cases: Vec<Case>) -> OpVec
 {
     vout!("make_matchexpr_ops({:?},{:?})\n", x, cases);
 
@@ -593,7 +581,10 @@ pub fn make_str_ops(dst: Reg, items: Vec<AstNode>) -> OpVec
     ops
 }
 
-pub fn assign_registers(input: &mut AstNode, args: Vec<Option<&'static str>>) -> Lresult<()>
+pub fn assign_registers(
+    input: &mut AstNode,
+    args: Vec<Option<&'static str>>,
+) -> Lresult<()>
 {
     vout!("assign_registers({:?})\n", input);
     let mut rs = Registration::new(args);
@@ -739,11 +730,14 @@ impl Registration
                 Val::PatternVar(dst)
             }
             Ast::Tuple(ref items) => {
-                let tval: Lresult<Struple2<Val>> = items.iter().map(|item| {
-                    let pk = item.k.map(|k| Lstr::Sref(k));
-                    let pv = self.make_pattern_val(&item.v)?;
-                    Ok(StrupleItem::new(pk, pv))
-                }).collect();
+                let tval: Lresult<Struple2<Val>> = items
+                    .iter()
+                    .map(|item| {
+                        let pk = item.k.map(|k| Lstr::Sref(k));
+                        let pv = self.make_pattern_val(&item.v)?;
+                        Ok(StrupleItem::new(pk, pv))
+                    })
+                    .collect();
                 Val::Tuple(tval?)
             }
             Ast::List(ref items) => {
@@ -841,7 +835,8 @@ mod tests
             let e := is_empty([4, 8, 3])
             print("is empty? $e\n")
         --
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut prog = core_program(&[("foo", input)]);
         let main_ref = Fref::from(("foo", "main"));

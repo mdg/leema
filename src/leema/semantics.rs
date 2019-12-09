@@ -4,7 +4,9 @@ use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::{self, ProtoLib, ProtoModule};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
-use crate::leema::val::{Fref, FuncType, GenericTypes, GenericTypeSlice, Type, Val};
+use crate::leema::val::{
+    Fref, FuncType, GenericTypeSlice, GenericTypes, Type, Val,
+};
 
 use std::collections::HashMap;
 use std::fmt;
@@ -149,7 +151,8 @@ impl<'p> SemanticOp for SemanticPipeline<'p>
         Ok(SemanticAction::Keep(node))
     }
 
-    fn set_mode(&mut self, mode: AstMode) {
+    fn set_mode(&mut self, mode: AstMode)
+    {
         for op in self.ops.iter_mut() {
             op.set_mode(mode);
         }
@@ -241,12 +244,12 @@ impl<'l> MacroApplication<'l>
         let callx = AstNode::new(Ast::Id2(Lstr::Sref(module), func), loc);
         let args: StrupleKV<Option<&'static str>, AstNode> =
             struple::new_tuple2(a, b);
-            /*
-            vec![
-                StrupleItem::new(None, a),
-                StrupleItem::new(None, b),
-            ];
-            */
+        /*
+        vec![
+            StrupleItem::new(None, a),
+            StrupleItem::new(None, b),
+        ];
+        */
         AstNode::new(Ast::Call(callx, args), loc)
     }
 
@@ -275,18 +278,19 @@ impl<'l> SemanticOp for MacroApplication<'l>
         match *node.node {
             Ast::Call(callid, args) => {
                 let optmac = match *callid.node {
-                    Ast::Id1(macroname) => {
-                        self.find_macro_1(macroname)?
-                    }
+                    Ast::Id1(macroname) => self.find_macro_1(macroname)?,
                     Ast::Id2(ref modname, ref macroname) => {
-                        ltry!(self.proto
+                        ltry!(self
+                            .proto
                             .imported_proto(&self.local.key.chain, &modname)
                             .map_err(|f| {
                                 f.add_context(lstrf!(
-                                    "no protomod for {}::{}", modname, macroname
+                                    "no protomod for {}::{}",
+                                    modname,
+                                    macroname
                                 ))
-                            })
-                        ).find_macro(macroname)
+                            }))
+                        .find_macro(macroname)
                     }
                     _ => None,
                 };
@@ -361,33 +365,25 @@ impl<'l> SemanticOp for MacroApplication<'l>
                 }
             }
             Ast::Op1("-", x) => {
-                let callx = AstNode::new(Ast::Id2(
-                        Lstr::Sref("prefab"),
-                        "int_negate",
-                    ), node.loc);
+                let callx = AstNode::new(
+                    Ast::Id2(Lstr::Sref("prefab"), "int_negate"),
+                    node.loc,
+                );
                 let arg = vec![StrupleItem::new_v(x)];
                 let call = AstNode::new(Ast::Call(callx, arg), node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op1("\\n", x) => {
-                let newline = AstNode::new_constval(
-                    Val::Str(Lstr::Sref("\n")),
-                    node.loc,
-                );
+                let newline =
+                    AstNode::new_constval(Val::Str(Lstr::Sref("\n")), node.loc);
                 let strx = Ast::StrExpr(vec![x, newline]);
                 Ok(SemanticAction::Rewrite(AstNode::new(strx, node.loc)))
             }
             Ast::ConstVal(Val::Str(s)) => {
                 let new_str_node = match s.str() {
-                    "\\n" => {
-                        Ast::ConstVal(Val::Str(Lstr::Sref("\n")))
-                    }
-                    "\\\"" => {
-                        Ast::ConstVal(Val::Str(Lstr::Sref("\"")))
-                    }
-                    _ => {
-                        Ast::ConstVal(Val::Str(s))
-                    }
+                    "\\n" => Ast::ConstVal(Val::Str(Lstr::Sref("\n"))),
+                    "\\\"" => Ast::ConstVal(Val::Str(Lstr::Sref("\""))),
+                    _ => Ast::ConstVal(Val::Str(s)),
                 };
                 let node2 = AstNode::new(new_str_node, node.loc);
                 Ok(SemanticAction::Keep(node2))
@@ -403,18 +399,24 @@ impl<'l> SemanticOp for MacroApplication<'l>
             }
             Ast::Matchx(None, cases) => {
                 let node_loc = node.loc;
-                let args: Lresult<Xlist> = self.ftype.args.iter().map(|arg| {
-                    if let Some(Lstr::Sref(argname)) = arg.k {
-                        let argnode = AstNode::new(Ast::Id1(argname), node_loc);
-                        Ok(StrupleItem::new_v(argnode))
-                    } else {
-                        return Err(rustfail!(
-                            SEMFAIL,
-                            "arg name is not a static str: {:?}",
-                            arg.k,
-                        ));
-                    }
-                }).collect();
+                let args: Lresult<Xlist> = self
+                    .ftype
+                    .args
+                    .iter()
+                    .map(|arg| {
+                        if let Some(Lstr::Sref(argname)) = arg.k {
+                            let argnode =
+                                AstNode::new(Ast::Id1(argname), node_loc);
+                            Ok(StrupleItem::new_v(argnode))
+                        } else {
+                            return Err(rustfail!(
+                                SEMFAIL,
+                                "arg name is not a static str: {:?}",
+                                arg.k,
+                            ));
+                        }
+                    })
+                    .collect();
                 let match_input = AstNode::new(Ast::Tuple(args?), node.loc);
                 let matchx = Ast::Matchx(Some(match_input), cases);
                 Ok(SemanticAction::Rewrite(AstNode::new(matchx, node.loc)))
@@ -424,8 +426,8 @@ impl<'l> SemanticOp for MacroApplication<'l>
                 if items.len() == 1 {
                     if items.first().unwrap().k.is_none() {
                         return Ok(SemanticAction::Rewrite(
-                            items.pop().unwrap().v
-                        ))
+                            items.pop().unwrap().v,
+                        ));
                     }
                 }
 
@@ -554,15 +556,14 @@ impl<'p> SemanticOp for ScopeCheck<'p>
 
                 let import_chain = import.unwrap();
                 let import_proto = ltry!(self.lib.path_proto(import_chain));
-                import_proto.get_type(id)
-                    .map_err(|_| {
-                        Failure::static_leema(
-                            failure::Mode::CompileFailure,
-                            lstrf!("type {}::{} undefined", import_chain, id),
-                            self.local_mod.key.best_path(),
-                            node.loc.lineno,
-                        )
-                    })?;
+                import_proto.get_type(id).map_err(|_| {
+                    Failure::static_leema(
+                        failure::Mode::CompileFailure,
+                        lstrf!("type {}::{} undefined", import_chain, id),
+                        self.local_mod.key.best_path(),
+                        node.loc.lineno,
+                    )
+                })?;
                 return Ok(SemanticAction::Keep(node));
             }
             Ast::Id1(id) => {
@@ -595,35 +596,37 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                 }
             }
             Ast::Id2(module, id) if self.mode == AstMode::Type => {
-                let proto = ltry!(self.lib.imported_proto(&self.local_mod.key.chain, module).map_err(|e| {
-                    e.add_context(Lstr::from(format!(
-                        "module {} not found for {} at {:?}",
-                        module, id, node.loc
-                    )))
-                }));
+                let proto = ltry!(self
+                    .lib
+                    .imported_proto(&self.local_mod.key.chain, module)
+                    .map_err(|e| {
+                        e.add_context(Lstr::from(format!(
+                            "module {} not found for {} at {:?}",
+                            module, id, node.loc
+                        )))
+                    }));
 
-                proto.get_type(id)
-                    .map_err(|_| {
-                        rustfail!(
-                            SEMFAIL,
-                            "cannot find type {} in module {} @ {:?}",
-                            id,
-                            module,
-                            node.loc,
-                        )
-                    })?;
+                proto.get_type(id).map_err(|_| {
+                    rustfail!(
+                        SEMFAIL,
+                        "cannot find type {} in module {} @ {:?}",
+                        id,
+                        module,
+                        node.loc,
+                    )
+                })?;
                 return Ok(SemanticAction::Keep(node));
             }
             Ast::Id2(module, id) => {
-                let proto = ltry!(
-                    self.lib.imported_proto(&self.local_mod.key.chain, module)
-                        .map_err(|e| {
-                            e.add_context(Lstr::from(format!(
-                                "module {} not found for {} at {:?}",
-                                module, id, node.loc
-                            )))
-                        })
-                    );
+                let proto = ltry!(self
+                    .lib
+                    .imported_proto(&self.local_mod.key.chain, module)
+                    .map_err(|e| {
+                        e.add_context(Lstr::from(format!(
+                            "module {} not found for {} at {:?}",
+                            module, id, node.loc
+                        )))
+                    }));
                 let val_ast = proto
                     .find_const(id)
                     .ok_or_else(|| {
@@ -659,7 +662,8 @@ impl<'p> SemanticOp for ScopeCheck<'p>
         Ok(SemanticAction::Keep(node))
     }
 
-    fn set_mode(&mut self, mode: AstMode) {
+    fn set_mode(&mut self, mode: AstMode)
+    {
         self.mode = mode;
     }
 }
@@ -688,7 +692,11 @@ impl<'p> VarTypes<'p>
             let argname = arg.k.as_ref().unwrap().sref()?;
             vartypes.insert(argname, arg.v.clone());
         }
-        Ok(VarTypes { vartypes, module, mode: AstMode::Value })
+        Ok(VarTypes {
+            vartypes,
+            module,
+            mode: AstMode::Value,
+        })
     }
 }
 
@@ -701,8 +709,8 @@ impl<'p> SemanticOp for VarTypes<'p>
                 // if the type is known, assign it to this variable
                 if let Some(typ) = self.vartypes.get(id) {
                     node.typ = typ.clone();
-                    // put the node back the way it was
-                    // *node.node = Ast::Id1(id);
+                // put the node back the way it was
+                // *node.node = Ast::Id1(id);
                 } else {
                     let tvar = Type::LocalVar(Lstr::Sref(id));
                     self.vartypes.insert(id, tvar.clone());
@@ -718,7 +726,8 @@ impl<'p> SemanticOp for VarTypes<'p>
         Ok(SemanticAction::Keep(node))
     }
 
-    fn set_mode(&mut self, mode: AstMode) {
+    fn set_mode(&mut self, mode: AstMode)
+    {
         self.mode = mode;
     }
 }
@@ -775,21 +784,22 @@ impl<'p> TypeCheck<'p>
             .unwrap_or(Type::LocalVar(local_tvar.clone()))
     }
 
-    pub fn inferred_type(&self, t: &Type, opens: &GenericTypeSlice) -> Lresult<Type>
+    pub fn inferred_type(
+        &self,
+        t: &Type,
+        opens: &GenericTypeSlice,
+    ) -> Lresult<Type>
     {
         let newt = match t {
             Type::OpenVar(v) => {
-                    struple::find(opens, &v)
-                        .map(|(_, item)| item.clone())
-                        .unwrap_or(Type::OpenVar(v))
+                struple::find(opens, &v)
+                    .map(|(_, item)| item.clone())
+                    .unwrap_or(Type::OpenVar(v))
             }
-            Type::LocalVar(v) => {
-                self.inferred_local(&v)
-            }
+            Type::LocalVar(v) => self.inferred_local(&v),
             Type::Tuple(items) => {
-                let mitems = struple::map_v(items, |it| {
-                    self.inferred_type(it, opens)
-                })?;
+                let mitems =
+                    struple::map_v(items, |it| self.inferred_type(it, opens))?;
                 Type::Tuple(mitems)
             }
             Type::StrictList(inner) => {
@@ -803,9 +813,7 @@ impl<'p> TypeCheck<'p>
                 let iresult = self.inferred_type(&ftyp.result, opens)?;
                 Type::Func(FuncType::new(iargs, iresult))
             }
-            _ => {
-                t.clone()
-            }
+            _ => t.clone(),
         };
         Ok(newt)
     }
@@ -821,7 +829,12 @@ impl<'p> TypeCheck<'p>
     ///    close_generic(OpenVarA, List(LocalX)
     /// 4. match Tuple(OpenVarA, OpenVarB) == LocalX
     ///    Tuple(OpenVarA, OpenVarB) == Tuple(LocalX.Inner0, LocalX.Inner1)
-    pub fn match_type(&mut self, t0: &Type, t1: &Type, opens: &mut StrupleKV<&'static str, Type>) -> Lresult<Type>
+    pub fn match_type(
+        &mut self,
+        t0: &Type,
+        t1: &Type,
+        opens: &mut StrupleKV<&'static str, Type>,
+    ) -> Lresult<Type>
     {
         match (t0, t1) {
             (t0, Type::Unknown) => {
@@ -850,11 +863,15 @@ impl<'p> TypeCheck<'p>
             }
             (Type::Tuple(i0), Type::Tuple(i1)) => {
                 let im: Lresult<Struple2<Type>>;
-                im = i0.iter().zip(i1.iter()).map(|iz| {
-                    let k = iz.0.k.clone();
-                    let v = ltry!(self.match_type(&iz.0.v, &iz.1.v, opens));
-                    Ok(StrupleItem::new(k, v))
-                }).collect();
+                im = i0
+                    .iter()
+                    .zip(i1.iter())
+                    .map(|iz| {
+                        let k = iz.0.k.clone();
+                        let v = ltry!(self.match_type(&iz.0.v, &iz.1.v, opens));
+                        Ok(StrupleItem::new(k, v))
+                    })
+                    .collect();
                 Ok(Type::Tuple(im?))
             }
             (Type::StrictList(i0), Type::StrictList(i1)) => {
@@ -906,19 +923,25 @@ impl<'p> TypeCheck<'p>
         }
     }
 
-    pub fn infer_type(&mut self, var: &Lstr, t: &Type, opens: &mut StrupleKV<&'static str, Type>) -> Lresult<Type>
+    pub fn infer_type(
+        &mut self,
+        var: &Lstr,
+        t: &Type,
+        opens: &mut StrupleKV<&'static str, Type>,
+    ) -> Lresult<Type>
     {
         if self.infers.contains_key(var) {
             let var_type = self.inferred_local(var);
             if var_type == *t {
                 Ok(var_type)
             } else {
-                lfailoc!(self.match_type(&var_type, t, opens))
-                    .map_err(|f| {
-                        f.add_context(lstrf!(
-                            "inferring type var {} as {}", var, var_type
-                        ))
-                    })
+                lfailoc!(self.match_type(&var_type, t, opens)).map_err(|f| {
+                    f.add_context(lstrf!(
+                        "inferring type var {} as {}",
+                        var,
+                        var_type
+                    ))
+                })
             }
         } else {
             self.infers.insert(var.clone(), t.clone());
@@ -926,7 +949,12 @@ impl<'p> TypeCheck<'p>
         }
     }
 
-    pub fn close_generic(&mut self, var: &'static str, t: &Type, opens: &mut StrupleKV<&'static str, Type>) -> Lresult<Type>
+    pub fn close_generic(
+        &mut self,
+        var: &'static str,
+        t: &Type,
+        opens: &mut StrupleKV<&'static str, Type>,
+    ) -> Lresult<Type>
     {
         let open_idx = if let Some((found, _)) = struple::find(opens, &var) {
             found
@@ -974,7 +1002,11 @@ impl<'p> TypeCheck<'p>
                     ));
                 }
                 for a in targs.iter_mut().zip(args.iter_mut()) {
-                    let t = proto::ast_to_type(&self.local_mod.key.name, &a.1.v, &[])?;
+                    let t = proto::ast_to_type(
+                        &self.local_mod.key.name,
+                        &a.1.v,
+                        &[],
+                    )?;
                     a.0.v = t;
                 }
                 let t = self.inferred_type(&inner, &targs)?;
@@ -1009,7 +1041,8 @@ impl<'p> TypeCheck<'p>
             Type::Generic(gopen @ true, ref mut open_ftyp, ref mut opens) => {
                 if let Type::Func(inner_ftyp) = &mut **open_ftyp {
                     // figure out arg types
-                    let result = self.match_argtypes(inner_ftyp, args, opens)?;
+                    let result =
+                        self.match_argtypes(inner_ftyp, args, opens)?;
                     if result.is_open() {
                         return Err(rustfail!(
                             TYPEFAIL,
@@ -1037,7 +1070,12 @@ impl<'p> TypeCheck<'p>
         }
     }
 
-    fn match_argtypes(&mut self, ftyp: &mut FuncType, args: &mut ast2::Xlist, opens: &mut StrupleKV<&'static str, Type>) -> Lresult<Type>
+    fn match_argtypes(
+        &mut self,
+        ftyp: &mut FuncType,
+        args: &mut ast2::Xlist,
+        opens: &mut StrupleKV<&'static str, Type>,
+    ) -> Lresult<Type>
     {
         if args.len() < ftyp.args.len() {
             return Err(rustfail!(
@@ -1057,22 +1095,21 @@ impl<'p> TypeCheck<'p>
         }
 
         for arg in ftyp.args.iter_mut().zip(args.iter_mut()) {
-            let typ = ltry!(self.match_type(&arg.0.v, &arg.1.v.typ, opens)
+            let typ = ltry!(self
+                .match_type(&arg.0.v, &arg.1.v.typ, opens)
                 .map_err(|f| {
-                    f
-                        .add_context(lstrf!(
-                            "function param: {}, expected {}, found {} column:{}",
-                            arg.0.k.as_ref().unwrap(),
-                            arg.0.v,
-                            arg.1.v.typ,
-                            arg.1.v.loc.column,
-                        ))
-                        .lstr_loc(
-                            self.local_mod.key.best_path(),
-                            arg.1.v.loc.lineno as u32,
-                        )
-                })
-            );
+                    f.add_context(lstrf!(
+                        "function param: {}, expected {}, found {} column:{}",
+                        arg.0.k.as_ref().unwrap(),
+                        arg.0.v,
+                        arg.1.v.typ,
+                        arg.1.v.loc.column,
+                    ))
+                    .lstr_loc(
+                        self.local_mod.key.best_path(),
+                        arg.1.v.loc.lineno as u32,
+                    )
+                }));
             arg.0.v = typ.clone();
             arg.1.v.typ = typ;
         }
@@ -1104,7 +1141,9 @@ impl<'p> SemanticOp for TypeCheck<'p>
         match &mut *node.node {
             // Ast::Let(patt, dtype, x) => {
             Ast::Id2(modname, id) => {
-                let module = ltry!(self.lib.imported_proto(&self.local_mod.key.chain, modname));
+                let module = ltry!(self
+                    .lib
+                    .imported_proto(&self.local_mod.key.chain, modname));
                 let typ = module.get_type(id)?;
                 node.typ = typ.clone();
             }
@@ -1143,9 +1182,10 @@ impl<'p> SemanticOp for TypeCheck<'p>
                             callx.node,
                             callx.typ,
                         ))
-                    })
-                );
-                if let Ast::ConstVal(Val::Call(ref mut fref, _argvals)) = &mut *callx.node {
+                    }));
+                if let Ast::ConstVal(Val::Call(ref mut fref, _argvals)) =
+                    &mut *callx.node
+                {
                     fref.t = callx.typ.clone();
                     // an optimization here might be to iterate over ast args
                     // and initialize any constants
@@ -1162,7 +1202,9 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 node.typ = call_result;
             }
             Ast::Generic(ref mut callx, ref mut args) => {
-                if let Ast::ConstVal(Val::Call(ref mut fref, _)) = &mut *callx.node {
+                if let Ast::ConstVal(Val::Call(ref mut fref, _)) =
+                    &mut *callx.node
+                {
                     let typecall_t = self.apply_typecall(&mut fref.t, args)?;
                     if typecall_t.is_closed() {
                         *node.node = (*callx.node).clone();
@@ -1187,7 +1229,11 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 // all if cases should be boolean
                 let mut opens = vec![];
                 for case in cases.iter_mut() {
-                    ltry!(self.match_type(&case.cond.typ, &Type::BOOL, &mut opens));
+                    ltry!(self.match_type(
+                        &case.cond.typ,
+                        &Type::BOOL,
+                        &mut opens
+                    ));
                     case.cond.typ = Type::BOOL.clone();
                 }
                 node.typ = self.match_case_types(cases)?;
@@ -1195,11 +1241,18 @@ impl<'p> SemanticOp for TypeCheck<'p>
             Ast::Matchx(Some(ref mut input), ref mut cases) => {
                 let mut opens = vec![];
                 for case in cases.iter_mut() {
-                    let it = self.match_type(&input.typ, &case.cond.typ, &mut opens)
+                    let it = self
+                        .match_type(&input.typ, &case.cond.typ, &mut opens)
                         .map_err(|f| {
-                            f
-                                .add_context(lstrf!("for pattern {:?} at {:?}", case.cond.node, case.cond.loc))
-                                .lstr_loc(self.local_mod.key.best_path(), case.cond.loc.lineno as u32)
+                            f.add_context(lstrf!(
+                                "for pattern {:?} at {:?}",
+                                case.cond.node,
+                                case.cond.loc
+                            ))
+                            .lstr_loc(
+                                self.local_mod.key.best_path(),
+                                case.cond.loc.lineno as u32,
+                            )
                         })?;
                     input.typ = it.clone();
                     case.cond.typ = it;
@@ -1213,12 +1266,15 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 x.typ = typ;
             }
             Ast::Tuple(ref items) => {
-                let itypes: Lresult<Struple2<Type>> = items.iter().map(|i| {
-                    Ok(StrupleItem::new(
-                        i.k.map(|k| Lstr::Sref(k)),
-                        i.v.typ.clone(),
-                    ))
-                }).collect();
+                let itypes: Lresult<Struple2<Type>> = items
+                    .iter()
+                    .map(|i| {
+                        Ok(StrupleItem::new(
+                            i.k.map(|k| Lstr::Sref(k)),
+                            i.v.typ.clone(),
+                        ))
+                    })
+                    .collect();
                 node.typ = Type::Tuple(itypes?);
             }
             Ast::Return(_) => {
@@ -1231,7 +1287,8 @@ impl<'p> SemanticOp for TypeCheck<'p>
         Ok(SemanticAction::Keep(node))
     }
 
-    fn set_mode(&mut self, mode: AstMode) {
+    fn set_mode(&mut self, mode: AstMode)
+    {
         self.mode = mode;
     }
 }
@@ -1309,38 +1366,29 @@ impl Semantics
         &self.src.typ
     }
 
-    pub fn compile_call(
-        proto: &mut ProtoLib,
-        f: &Fref,
-    ) -> Lresult<Semantics>
+    pub fn compile_call(proto: &mut ProtoLib, f: &Fref) -> Lresult<Semantics>
     {
         let mut sem = Semantics::new();
 
         let func_ast = proto.pop_func(&f.m.chain, &f.f)?;
         let (_args, body) = func_ast.ok_or_else(|| {
-            rustfail!(
-                SEMFAIL,
-                "ast is empty for function {}",
-                f,
-            )
+            rustfail!(SEMFAIL, "ast is empty for function {}", f,)
         })?;
 
         let local_proto = proto.path_proto(&f.m.chain)?;
-        let func_ref = local_proto.find_const(&f.f)
-            .ok_or_else(|| {
-                rustfail!(
-                    SEMFAIL,
-                    "cannot find func ref for {}",
-                    f,
-                )
-            })?;
+        let func_ref = local_proto.find_const(&f.f).ok_or_else(|| {
+            rustfail!(SEMFAIL, "cannot find func ref for {}", f,)
+        })?;
         let closed;
         let ftyp: &FuncType = match (&func_ref.typ, &f.t) {
             (Type::Func(ref ft1), _) => {
                 closed = vec![];
                 ft1
             }
-            (Type::Generic(true, _ft1, _open), Type::Generic(false, ref ft2, ref iclosed)) => {
+            (
+                Type::Generic(true, _ft1, _open),
+                Type::Generic(false, ref ft2, ref iclosed),
+            ) => {
                 match &**ft2 {
                     // take the closed version that has real types
                     Type::Func(ref ift2) => {
@@ -1379,12 +1427,7 @@ impl Semantics
             })
             .collect();
 
-        let mut macs = MacroApplication::new(
-            local_proto,
-            proto,
-            ftyp,
-            &closed,
-        );
+        let mut macs = MacroApplication::new(local_proto, proto, ftyp, &closed);
         let mut scope_check = ScopeCheck::new(ftyp, local_proto, proto)?;
         let mut var_types = VarTypes::new(&local_proto.key.name, ftyp)?;
         let mut type_check = TypeCheck::new(local_proto, proto, ftyp);
@@ -1484,7 +1527,8 @@ impl Semantics
             }
             Ast::DefFunc(name, args, result, body) => {
                 let wname = Self::walk(op, name)?;
-                let wargs = struple::map_v_into(args, |arg| Self::walk(op, arg))?;
+                let wargs =
+                    struple::map_v_into(args, |arg| Self::walk(op, arg))?;
                 let wresult = Self::walk(op, result)?;
                 let wbody = Self::walk(op, body)?;
                 Ast::DefFunc(wname, wargs, wresult, wbody)
@@ -1492,7 +1536,8 @@ impl Semantics
             Ast::Generic(id, args) => {
                 let wid = Self::walk(op, id)?;
                 op.set_mode(AstMode::Type);
-                let wargs = struple::map_v_into(args, |arg| Self::walk(op, arg))?;
+                let wargs =
+                    struple::map_v_into(args, |arg| Self::walk(op, arg))?;
                 op.set_mode(AstMode::Value);
                 Ast::Generic(wid, wargs)
             }
@@ -1504,7 +1549,8 @@ impl Semantics
                 Ast::Let(wlhp, lht, wrhs)
             }
             Ast::List(items) => {
-                let witems = struple::map_v_into(items, |item| Self::walk(op, item))?;
+                let witems =
+                    struple::map_v_into(items, |item| Self::walk(op, item))?;
                 Ast::List(witems)
             }
             Ast::Op1(ast_op, node) => {
@@ -1523,7 +1569,8 @@ impl Semantics
                 Ast::StrExpr(witems?)
             }
             Ast::Tuple(items) => {
-                let witems = struple::map_v_into(items, |item| Self::walk(op, item))?;
+                let witems =
+                    struple::map_v_into(items, |item| Self::walk(op, item))?;
                 Ast::Tuple(witems)
             }
 
@@ -1680,7 +1727,8 @@ mod tests
         func main >>
             test_and(True, False)
         --
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut prog = core_program(&[("foo", input)]);
         let fref = Fref::from(("foo", "main"));
@@ -1789,7 +1837,8 @@ mod tests
             swap(3, 5)
             swap[Str #]("hello", #world)
         --
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut prog = core_program(&[("foo", input)]);
         let fref = Fref::from(("foo", "main"));
@@ -1826,7 +1875,8 @@ mod tests
         |(_, 0) >> fail(#divide_by_0, "cannot divide by zero")
         |(a, b) >> a + b
         --
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut prog = core_program(&[("foo", input)]);
         let fref = Fref::from(("foo", "safediv"));
@@ -1876,12 +1926,10 @@ mod tests
         func main >>
             bar() + 6
         --
-        "#.to_string();
+        "#
+        .to_string();
 
-        let mut prog = core_program(&[
-            ("foo", foo_input),
-            ("baz", baz_input),
-        ]);
+        let mut prog = core_program(&[("foo", foo_input), ("baz", baz_input)]);
         let fref = Fref::from(("baz", "main"));
         prog.read_semantics(&fref).unwrap();
     }

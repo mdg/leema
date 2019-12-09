@@ -137,9 +137,7 @@ pub fn int_equal(mut f: RustFuncContext) -> Lresult<Event>
         let pa = f.get_param(0)?;
         let pb = f.get_param(1)?;
         match (pa, pb) {
-            (Val::Int(a), Val::Int(b)) => {
-                Val::Bool(a == b)
-            }
+            (Val::Int(a), Val::Int(b)) => Val::Bool(a == b),
             (Val::Int(_), _) => {
                 return Err(rustfail!(
                     "runtime_type_failure",

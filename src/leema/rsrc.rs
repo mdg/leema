@@ -79,9 +79,7 @@ impl IopCtx
     ) -> IopCtx
     {
         let params = match param_val {
-            Val::Tuple(items) => {
-                items.into_iter().map(|i| Some(i.v)).collect()
-            }
+            Val::Tuple(items) => items.into_iter().map(|i| Some(i.v)).collect(),
             _ => {
                 panic!("IopCtx params not a tuple");
             }

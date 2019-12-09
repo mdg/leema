@@ -69,11 +69,8 @@ impl Interloader
         }
     }
 
-    pub fn set_mod_txt(
-        &mut self,
-        key: ModKey,
-        content: String,
-    ) -> &'static str
+    pub fn set_mod_txt(&mut self, key: ModKey, content: String)
+        -> &'static str
     {
         let stext = Self::static_str(content);
         self.texts.insert(key.chain.clone(), stext);

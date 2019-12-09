@@ -398,7 +398,7 @@ impl ParseStmt
         let tree_tok = p.peek()?;
         let tree = match tree_tok.tok {
             Token::DoubleArrow => Self::parse_import_block(p)?,
-            Token::Id|Token::Slash|Token::DoubleDot => {
+            Token::Id | Token::Slash | Token::DoubleDot => {
                 Self::parse_import_line(p, true)?
             }
             _ => {
@@ -541,15 +541,14 @@ impl ParslMode for IdTypeMode
     {
         match tok {
             Token::Slash
-            |Token::DoubleDash
-            |Token::ParenR
-            |Token::SquareR
-            |Token::Colon => None,
+            | Token::DoubleDash
+            | Token::ParenR
+            | Token::SquareR
+            | Token::Colon => None,
 
-            Token::Id
-            |Token::ParenL
-            |Token::SquareL
-            |Token::FnType => Some(&ParseFirst(&ParseIdType)),
+            Token::Id | Token::ParenL | Token::SquareL | Token::FnType => {
+                Some(&ParseFirst(&ParseIdType))
+            }
 
             _ => None,
         }
@@ -562,15 +561,14 @@ impl ParslMode for IdTypeMode
     {
         match tok {
             Token::Slash
-            |Token::DoubleDash
-            |Token::ParenR
-            |Token::SquareR
-            |Token::Colon => None,
+            | Token::DoubleDash
+            | Token::ParenR
+            | Token::SquareR
+            | Token::Colon => None,
 
-            Token::Id
-            |Token::ParenL
-            |Token::SquareL
-            |Token::FnType => Some(&ParseMore(&ParseIdType, MIN_PRECEDENCE)),
+            Token::Id | Token::ParenL | Token::SquareL | Token::FnType => {
+                Some(&ParseMore(&ParseIdType, MIN_PRECEDENCE))
+            }
 
             _ => None,
         }
@@ -715,7 +713,10 @@ impl PrefixParser for ParseVariant
         // check if it's an empty token variant
         let peeked = p.peek_token()?;
         if peeked == Token::CasePipe || peeked == Token::DoubleDash {
-            Ok(StrupleItem::new(Some(name.src), AstNode::new(Ast::Void, Ast::loc(&name))))
+            Ok(StrupleItem::new(
+                Some(name.src),
+                AstNode::new(Ast::Void, Ast::loc(&name)),
+            ))
         } else {
             let name_id = AstNode::new(Ast::Id1(name.src), Ast::loc(&name));
             let fields = p.parse_new(&IdTypeMode)?;
@@ -857,7 +858,10 @@ impl InfixParser for ParseId
     {
         if let Ast::Id1(first) = *left.node {
             let second = expect_next!(p, Token::Id)?;
-            Ok(AstNode::new(Ast::Id2(Lstr::Sref(first), second.src), left.loc))
+            Ok(AstNode::new(
+                Ast::Id2(Lstr::Sref(first), second.src),
+                left.loc,
+            ))
         } else {
             Err(rustfail!(
                 "parse_failure",
@@ -1439,15 +1443,15 @@ impl PrefixParser for ParseIf
             let if_arrow = expect_next!(p, Token::DoubleArrow)?;
             p.skip_if(Token::LineBegin)?;
             let if_body = Grammar::parse_block(p, Ast::loc(&if_arrow))?;
-            cases = vec![ast2::Case{ cond: if_x, body: if_body }];
+            cases = vec![ast2::Case {
+                cond: if_x,
+                body: if_body,
+            }];
 
             p.skip_if(Token::LineBegin)?;
         };
         expect_next!(p, Token::DoubleDash)?;
-        Ok(AstNode::new(
-            Ast::Ifx(cases),
-            Ast::loc(&tok),
-        ))
+        Ok(AstNode::new(Ast::Ifx(cases), Ast::loc(&tok)))
     }
 }
 
@@ -1470,10 +1474,7 @@ impl PrefixParser for ParseMatch
         let cases = p.parse_new(&CaseMode)?;
         p.skip_if(Token::LineBegin)?;
         expect_next!(p, Token::DoubleDash)?;
-        Ok(AstNode::new(
-            Ast::Matchx(input, cases),
-            Ast::loc(&tok),
-        ))
+        Ok(AstNode::new(Ast::Matchx(input, cases), Ast::loc(&tok)))
     }
 }
 
@@ -2155,7 +2156,10 @@ mod tests
                 if let ModTree::Block(ref block) = &**sbox {
                     assert_eq!(ModTree::Module(Loc::new(10, 4)), block[0]);
                     assert_matches!(block[1], ModTree::Sub("tacos", _));
-                    assert_eq!(ModTree::Id("tortas", Loc::new(18, 20)), block[2]);
+                    assert_eq!(
+                        ModTree::Id("tortas", Loc::new(18, 20)),
+                        block[2]
+                    );
                     assert_eq!(3, block.len());
                 }
             }
@@ -2177,7 +2181,10 @@ mod tests
             assert_eq!("m1/m2/m3", format!("{}", flats["m3"].0));
 
             assert_eq!("../myapp", format!("{}", flats["myapp"].0));
-            assert_eq!("../myapp/tacos/burritos", format!("{}", flats["burritos"].0));
+            assert_eq!(
+                "../myapp/tacos/burritos",
+                format!("{}", flats["burritos"].0)
+            );
             assert_eq!("../myapp/tortas", format!("{}", flats["tortas"].0));
 
             assert_eq!("blah", format!("{}", flats["blah"].0));

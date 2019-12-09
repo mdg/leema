@@ -238,9 +238,11 @@ impl SendClone for Failure
 
     fn clone_for_send(&self) -> Failure
     {
-        let loc = self.loc.iter().map(|l| {
-            (l.0.clone_for_send(), l.1)
-        }).collect();
+        let loc = self
+            .loc
+            .iter()
+            .map(|l| (l.0.clone_for_send(), l.1))
+            .collect();
         let context = self.context.iter().map(|c| c.clone_for_send()).collect();
 
         Failure {

@@ -30,7 +30,6 @@ lazy_static! {
         ids.insert("#", core_mod);
         ids
     };
-
     static ref DEFAULT_MODPATH: ModPath = ModPath::from("/prefab");
 }
 
@@ -185,7 +184,11 @@ impl ProtoModule
         Ok(proto)
     }
 
-    fn refute_redefines_default(&self, id: &'static str, loc: Loc) -> Lresult<()>
+    fn refute_redefines_default(
+        &self,
+        id: &'static str,
+        loc: Loc,
+    ) -> Lresult<()>
     {
         if !self.key.chain.starts_with("core") && DEFAULT_IDS.contains_key(id) {
             Err(Failure::static_leema(
@@ -224,7 +227,8 @@ impl ProtoModule
                 name_id
             }
             Ast::Generic(gen, gen_args) => {
-                let opens1: Lresult<GenericTypes> = gen_args.iter()
+                let opens1: Lresult<GenericTypes> = gen_args
+                    .iter()
                     .map(|a| {
                         if let Ast::Id1(var) = *a.v.node {
                             Ok(StrupleItem::new(var, Type::Unknown))
@@ -292,7 +296,8 @@ impl ProtoModule
                 name_id
             }
             Ast::Generic(gen, gen_args) => {
-                let opens1: Lresult<GenericTypes> = gen_args.iter()
+                let opens1: Lresult<GenericTypes> = gen_args
+                    .iter()
                     .map(|a| {
                         if let Ast::Id1(var) = *a.v.node {
                             Ok(StrupleItem::new(var, Type::Unknown))
@@ -310,7 +315,8 @@ impl ProtoModule
                 if let Ast::Id1(name_id) = *gen.node {
                     ltry!(self.refute_redefines_default(name_id, name.loc));
                     let inner = Type::User(m.clone(), name_id);
-                    struct_typ = Type::Generic(true, Box::new(inner), opens.clone());
+                    struct_typ =
+                        Type::Generic(true, Box::new(inner), opens.clone());
                     name_id
                 } else {
                     return Err(rustfail!(
@@ -333,15 +339,8 @@ impl ProtoModule
         let ftyp = FuncType::new(args, struct_typ.clone());
         let call_args = ftyp.call_args();
         let constructor_type = Type::Func(ftyp);
-        let fref = Fref::new(
-            self.key.clone(),
-            sname_id,
-            constructor_type,
-        );
-        let constructor_call = Val::Call(
-            fref,
-            call_args,
-        );
+        let fref = Fref::new(self.key.clone(), sname_id, constructor_type);
+        let constructor_call = Val::Call(fref, call_args);
         self.constants.insert(
             sname_id,
             AstNode::new_constval(constructor_call, name.loc),
@@ -393,7 +392,12 @@ impl ProtoModule
         Ok(())
     }
 
-    pub fn set_canonical(&mut self, key: &'static str, canonical: module::Chain, is_id: bool)
+    pub fn set_canonical(
+        &mut self,
+        key: &'static str,
+        canonical: module::Chain,
+        is_id: bool,
+    )
     {
         if is_id {
             self.imports.remove(key);
@@ -406,8 +410,7 @@ impl ProtoModule
     }
 
     /// TODO rename this. Maybe take_func?
-    pub fn pop_func(&mut self, func: &str)
-        -> Option<(Xlist, AstNode)>
+    pub fn pop_func(&mut self, func: &str) -> Option<(Xlist, AstNode)>
     {
         let generic = match self.constants.get(func) {
             Some(fconst) => fconst.typ.is_open(),
@@ -483,9 +486,7 @@ impl ProtoModule
     {
         self.imported_ids
             .get(id)
-            .or_else(|| {
-                DEFAULT_IDS.get(id).map(|mp| &mp.path)
-            })
+            .or_else(|| DEFAULT_IDS.get(id).map(|mp| &mp.path))
     }
 }
 
@@ -500,9 +501,7 @@ pub fn ast_to_type(
         Ast::Id1("Int") => Type::INT,
         Ast::Id1("Str") => Type::STR,
         Ast::Id1("#") => Type::HASHTAG,
-        Ast::Id1(id) if struple::contains_key(opens, id) => {
-            Type::OpenVar(id)
-        }
+        Ast::Id1(id) if struple::contains_key(opens, id) => Type::OpenVar(id),
         Ast::Id1(id) => Type::User(local_mod.clone(), id),
         Ast::Id2(module, id) => Type::User(module.clone(), id),
         Ast::List(inner_items) if inner_items.len() == 1 => {
@@ -511,14 +510,15 @@ pub fn ast_to_type(
             Type::StrictList(Box::new(inner_t))
         }
         Ast::Tuple(inner_items) => {
-            let inner_t: Lresult<Vec<StrupleItem<Option<Lstr>, Type>>> = inner_items
-                .iter()
-                .map(|item| {
-                    let k = item.k.map(|ik| Lstr::Sref(ik));
-                    let v = ast_to_type(local_mod, &item.v, opens)?;
-                    Ok(StrupleItem::new(k, v))
-                })
-                .collect();
+            let inner_t: Lresult<Vec<StrupleItem<Option<Lstr>, Type>>> =
+                inner_items
+                    .iter()
+                    .map(|item| {
+                        let k = item.k.map(|ik| Lstr::Sref(ik));
+                        let v = ast_to_type(local_mod, &item.v, opens)?;
+                        Ok(StrupleItem::new(k, v))
+                    })
+                    .collect();
             Type::Tuple(inner_t?)
         }
         Ast::FuncType(args, result) => {
@@ -526,7 +526,8 @@ pub fn ast_to_type(
             Type::Func(ftype)
         }
         Ast::Generic(_, typeargs) => {
-            let _gen = struple::map_v(typeargs, |v| ast_to_type(local_mod, v, opens));
+            let _gen =
+                struple::map_v(typeargs, |v| ast_to_type(local_mod, v, opens));
             unimplemented!()
         }
         Ast::Void => Type::Void,
@@ -559,7 +560,8 @@ fn xlist_to_types(
 ) -> Lresult<Struple2<Type>>
 {
     let arg_types_r: Lresult<StrupleKV<Option<Lstr>, Type>>;
-    arg_types_r = args.into_iter()
+    arg_types_r = args
+        .into_iter()
         .map(|i| {
             Ok(StrupleItem::new(
                 i.k.map(|k| Lstr::Sref(k)),
@@ -720,7 +722,11 @@ impl ProtoLib
                 ))
             }
             ModRelativity::Child => {
-                lfailoc!(self.load_child(loader, base_path, canonical_head.path))
+                lfailoc!(self.load_child(
+                    loader,
+                    base_path,
+                    canonical_head.path
+                ))
             }
             ModRelativity::Sibling => {
                 Err(rustfail!(
@@ -841,9 +847,7 @@ impl ProtoLib
         let modkey = ltry!(loader.new_key(&modpath));
         let modtxt = ltry!(loader.read_mod(&modkey));
         let proto = ltry!(ProtoModule::new(modkey.clone(), modtxt)
-            .map_err(|e| {
-                e.lstr_loc(modkey.best_path(), 0)
-            }));
+            .map_err(|e| { e.lstr_loc(modkey.best_path(), 0) }));
         self.protos.insert(modpath.clone(), proto);
         Ok(())
     }
@@ -918,7 +922,11 @@ impl ProtoLib
             .map(|protomod| protomod.pop_func(func))
     }
 
-    pub fn imported_proto(&self, proto: &module::Chain, alias: &str) -> Lresult<&ProtoModule>
+    pub fn imported_proto(
+        &self,
+        proto: &module::Chain,
+        alias: &str,
+    ) -> Lresult<&ProtoModule>
     {
         let protomod = self.protos.get(proto).ok_or_else(|| {
             rustfail!(PROTOFAIL, "module not loaded: {:?}", proto)
@@ -929,10 +937,9 @@ impl ProtoLib
 
     pub fn path_proto(&self, path: &module::Chain) -> Lresult<&ProtoModule>
     {
-        self.protos.get(path)
-            .ok_or_else(|| {
-                rustfail!(PROTOFAIL, "module not loaded: {:?}", path)
-            })
+        self.protos.get(path).ok_or_else(|| {
+            rustfail!(PROTOFAIL, "module not loaded: {:?}", path)
+        })
     }
 }
 
@@ -944,14 +951,8 @@ mod tests
     use crate::leema::loader::Interloader;
     use crate::leema::lstr::Lstr;
     use crate::leema::module::{
-        Chain,
-        ModKey,
-        ModPath,
-        ModRelativity::{
-            Absolute,
-            Child,
-            Sibling,
-        },
+        Chain, ModKey, ModPath,
+        ModRelativity::{Absolute, Child, Sibling},
     };
     use crate::leema::struple::{self, StrupleItem};
     use crate::leema::val::{FuncType, Type};
@@ -1024,7 +1025,8 @@ mod tests
     #[test]
     fn test_proto_imports()
     {
-        let proto = new_proto("
+        let proto = new_proto(
+            "
         import /tacos
         import >>
             burritos
@@ -1037,7 +1039,8 @@ mod tests
             --
             ../nachos
         --
-        ");
+        ",
+        );
 
         assert_eq!(6, proto.imports.len());
         assert_eq!(0, proto.exports.len());
@@ -1051,10 +1054,7 @@ mod tests
 
         assert_eq!(Chain::from("tacos"), proto.imports["tacos"].path);
         assert_eq!(Chain::from("burritos"), proto.imports["burritos"].path);
-        assert_eq!(
-            Chain::from("tortas/huevos"),
-            proto.imports["huevos"].path
-        );
+        assert_eq!(Chain::from("tortas/huevos"), proto.imports["huevos"].path);
         assert_eq!(
             Chain::from("tortas/huevos/rancheros"),
             proto.imports["rancheros"].path
@@ -1069,9 +1069,11 @@ mod tests
     #[test]
     fn test_proto_exports()
     {
-        let proto = new_proto("
+        let proto = new_proto(
+            "
         export tacos
-        ");
+        ",
+        );
 
         assert_eq!(1, proto.imports.len());
         assert_eq!(1, proto.exports.len());
@@ -1091,17 +1093,21 @@ mod tests
                 d
             --
         --
-        ".to_string();
+        "
+        .to_string();
         let b = "
         func foo >> 3 --
-        ".to_string();
+        "
+        .to_string();
         let c = "export >>
             d
         --
-        ".to_string();
+        "
+        .to_string();
         let d = "
         func bar >> 5 --
-        ".to_string();
+        "
+        .to_string();
 
         let mut loader = Interloader::default();
         loader.set_mod_txt(ModKey::from("a"), a);
@@ -1124,7 +1130,8 @@ mod tests
         let c = "export d".to_string();
         let d = "
         func bar >> 5 --
-        ".to_string();
+        "
+        .to_string();
 
         let mut loader = Interloader::default();
         loader.set_mod_txt(ModKey::from("a"), a);
@@ -1144,17 +1151,21 @@ mod tests
     {
         let a = "
         export b
-        ".to_string();
+        "
+        .to_string();
         let b = "
         import ../c
         import /d
-        ".to_string();
+        "
+        .to_string();
         let c = "
         func foo >> 3 --
-        ".to_string();
+        "
+        .to_string();
         let d = "
         func bar >> 5 --
-        ".to_string();
+        "
+        .to_string();
 
         let mut loader = Interloader::default();
         loader.set_mod_txt(ModKey::from("a"), a);
@@ -1167,8 +1178,12 @@ mod tests
         protos.load_imports(&mut loader, &Chain::from("a")).unwrap();
         assert_eq!(2, protos.protos.len());
 
-        protos.load_absolute(&mut loader, Chain::from("a/b")).unwrap();
-        protos.load_imports(&mut loader, &Chain::from("a/b")).unwrap();
+        protos
+            .load_absolute(&mut loader, Chain::from("a/b"))
+            .unwrap();
+        protos
+            .load_imports(&mut loader, &Chain::from("a/b"))
+            .unwrap();
         assert_eq!(4, protos.protos.len());
     }
 
@@ -1178,10 +1193,12 @@ mod tests
     {
         let a = "
         import b
-        ".to_string();
+        "
+        .to_string();
         let b = "
         func foo >> 3 --
-        ".to_string();
+        "
+        .to_string();
 
         let mut loader = Interloader::default();
         loader.set_mod_txt(ModKey::from("a"), a);
@@ -1192,7 +1209,8 @@ mod tests
         protos.load_imports(&mut loader, &Chain::from("a")).unwrap();
         assert_eq!(2, protos.protos.len());
 
-        protos.load_absolute(&mut loader, Chain::from("a/b"))
+        protos
+            .load_absolute(&mut loader, Chain::from("a/b"))
             .expect("want this panic");
     }
 
@@ -1201,10 +1219,12 @@ mod tests
     {
         let a = "
         func foo >> 4 --
-        ".to_string();
+        "
+        .to_string();
         let b = "import /a/foo
         func bar >> foo() + 3 --
-        ".to_string();
+        "
+        .to_string();
 
         let mut loader = Interloader::default();
         loader.set_mod_txt(ModKey::from("a"), a);
@@ -1233,10 +1253,7 @@ mod tests
         let proto = new_proto("type Burrito --");
 
         let burrito_type = proto.types.get("Burrito").expect("no Burrito type");
-        assert_eq!(
-            Type::User(Lstr::from("foo"), "Burrito"),
-            *burrito_type,
-        );
+        assert_eq!(Type::User(Lstr::from("foo"), "Burrito"), *burrito_type,);
     }
 
     #[test]

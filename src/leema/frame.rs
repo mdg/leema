@@ -130,9 +130,10 @@ impl PartialEq for Event
                 &Event::Call(ref r1, line1, ref f1, ref a1),
                 &Event::Call(ref r2, line2, ref f2, ref a2),
             ) => r1 == r2 && line1 == line2 && f1 == f2 && a1 == a2,
-            (&Event::NewTask(ref f1, ref a1), &Event::NewTask(ref f2, ref a2)) => {
-                f1 == f2 && a1 == a2
-            }
+            (
+                &Event::NewTask(ref f1, ref a1),
+                &Event::NewTask(ref f2, ref a2),
+            ) => f1 == f2 && a1 == a2,
             (&Event::FutureWait(ref r1), &Event::FutureWait(ref r2)) => {
                 r1 == r2
             }
@@ -244,8 +245,11 @@ pub struct Frame
 
 impl Frame
 {
-    pub fn new_root(parent: Parent, function: Fref, args: Struple2<Val>)
-        -> Frame
+    pub fn new_root(
+        parent: Parent,
+        function: Fref,
+        args: Struple2<Val>,
+    ) -> Frame
     {
         let env = Env::with_args(args);
         Frame {

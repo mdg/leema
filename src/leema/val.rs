@@ -7,7 +7,7 @@ use crate::leema::module::ModKey;
 use crate::leema::msg;
 use crate::leema::reg::{self, Ireg, Iregistry, Reg};
 use crate::leema::sendclone::{self, SendClone};
-use crate::leema::struple::{self, Struple2, StrupleKV, StrupleItem};
+use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 
 use std::cmp::{Ordering, PartialEq, PartialOrd};
 use std::fmt;
@@ -84,9 +84,11 @@ impl FuncType
 
     pub fn call_args(&self) -> Struple2<Val>
     {
-        self.args.iter().chain(self.closed.iter()).map(|a| {
-            StrupleItem::new(a.k.clone(), Val::Void)
-        }).collect()
+        self.args
+            .iter()
+            .chain(self.closed.iter())
+            .map(|a| StrupleItem::new(a.k.clone(), Val::Void))
+            .collect()
     }
 
     pub fn map<Op>(&self, op: &Op) -> Lresult<FuncType>
@@ -372,11 +374,7 @@ impl fmt::Debug for Type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
             &Type::User(ref module, ref id) => write!(f, "{}::{}", module, id),
             &Type::Generic(open, ref inner, ref args) => {
-                let open_tag = if open {
-                    "Open"
-                } else {
-                    "Closed"
-                };
+                let open_tag = if open { "Open" } else { "Closed" };
                 write!(f, "({} ({}){:?})", open_tag, inner, args)
             }
             &Type::Lib(ref name) => write!(f, "LibType({})", &name),
@@ -1283,10 +1281,7 @@ impl PartialOrd for Val
                 PartialOrd::partial_cmp(&*at, &*bt)
             }
             // fref to fref comparison
-            (
-                &Val::Call(ref f1, ref a1),
-                &Val::Call(ref f2, ref a2),
-            ) => {
+            (&Val::Call(ref f1, ref a1), &Val::Call(ref f2, ref a2)) => {
                 Some(
                     PartialOrd::partial_cmp(f1, f2)
                         .unwrap()
@@ -1485,18 +1480,12 @@ impl Env
     pub fn get_reg(&self, reg: Reg) -> Lresult<&Val>
     {
         match reg {
-            Reg::Param(r) => {
-                lfailoc!(self.params.ireg_get(r))
-            }
+            Reg::Param(r) => lfailoc!(self.params.ireg_get(r)),
             Reg::Local(i) => {
                 lfailoc!(self.locals.ireg_get(i))
-                    .map_err(|f| {
-                        f.add_context(lstrf!("get_reg {}", reg))
-                    })
+                    .map_err(|f| f.add_context(lstrf!("get_reg {}", reg)))
             }
-            Reg::Stack(i) => {
-                lfailoc!(self.stack.ireg_get(i))
-            }
+            Reg::Stack(i) => lfailoc!(self.stack.ireg_get(i)),
             Reg::Void => {
                 Err(rustfail!("leema_failure", "Cannot get Reg::Void",))
             }

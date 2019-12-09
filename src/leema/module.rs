@@ -73,11 +73,7 @@ impl Chain
     pub fn head(mut self) -> (&'static str, Option<Chain>)
     {
         let head = self.0.remove(0);
-        let tail = if self.0.is_empty() {
-            None
-        } else {
-            Some(self)
-        };
+        let tail = if self.0.is_empty() { None } else { Some(self) };
         (head, tail)
     }
 
@@ -162,16 +158,11 @@ impl ModKey
     /// If the path exists, get it. Otherwise return the module name
     pub fn best_path(&self) -> Lstr
     {
-        self.file.as_ref()
-            .and_then(|ref p| {
-                p.to_str()
-            })
-            .map(|ps| {
-                Lstr::from(String::from(ps))
-            })
-            .unwrap_or_else(|| {
-                self.name.clone()
-            })
+        self.file
+            .as_ref()
+            .and_then(|ref p| p.to_str())
+            .map(|ps| Lstr::from(String::from(ps)))
+            .unwrap_or_else(|| self.name.clone())
     }
 }
 
@@ -249,10 +240,7 @@ impl ModPath
 {
     pub fn new(relativity: ModRelativity, path: Chain) -> ModPath
     {
-        ModPath {
-            relativity,
-            path,
-        }
+        ModPath { relativity, path }
     }
 
     pub fn abs(path: Chain) -> ModPath
@@ -339,7 +327,7 @@ impl fmt::Display for ModPath
             ModRelativity::Sibling => {
                 f.write_str("../")?;
             }
-            ModRelativity::Child|ModRelativity::Local => {
+            ModRelativity::Child | ModRelativity::Local => {
                 // nothing
             }
         }

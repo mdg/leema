@@ -11,8 +11,14 @@ pub fn map_type() -> Type
         true,
         Box::new(Type::User(Lstr::Sref("map"), "T")),
         vec![
-            StrupleItem{ k: "K", v: Type::Unknown },
-            StrupleItem{ k: "V", v: Type::Unknown },
+            StrupleItem {
+                k: "K",
+                v: Type::Unknown,
+            },
+            StrupleItem {
+                k: "V",
+                v: Type::Unknown,
+            },
         ],
     )
 }

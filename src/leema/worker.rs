@@ -11,8 +11,8 @@ use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
 use std::rc::Rc;
 use std::sync::{
-    Arc,
     mpsc::{channel, Receiver, Sender},
+    Arc,
 };
 use std::thread;
 use std::time::Duration;
@@ -180,10 +180,7 @@ impl Worker
         Ok(did_something)
     }
 
-    fn find_code<'a>(
-        &'a self,
-        fref: &Fref,
-    ) -> Option<Rc<Code>>
+    fn find_code<'a>(&'a self, fref: &Fref) -> Option<Rc<Code>>
     {
         self.code
             .get(fref)

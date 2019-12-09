@@ -85,7 +85,10 @@ impl<K, V> From<(K, V)> for StrupleItem<K, V>
 {
     fn from(item: (K, V)) -> StrupleItem<K, V>
     {
-        StrupleItem{k: item.0, v: item.1}
+        StrupleItem {
+            k: item.0,
+            v: item.1,
+        }
     }
 }
 
@@ -119,41 +122,45 @@ pub fn iter_v<K, V>(s: &StrupleKV<K, V>) -> impl Iterator<Item = &V>
     s.iter().map(|kv| &kv.v)
 }
 
-pub fn map_v<K, V, F, U>(s: &StrupleKV<K, V>, mut f: F) -> Lresult<StrupleKV<K, U>>
+pub fn map_v<K, V, F, U>(
+    s: &StrupleKV<K, V>,
+    mut f: F,
+) -> Lresult<StrupleKV<K, U>>
 where
     F: FnMut(&V) -> Lresult<U>,
     K: Clone,
 {
     // let m_result_items: Vec<Lresult<StrupleItem<K, U>>> = s
-    let m_result_items = s
-        .iter()
-        .map(|kv| {
-            let u = f(&kv.v)?;
-            Ok(StrupleItem::new(kv.k.clone(), u))
-        });
+    let m_result_items = s.iter().map(|kv| {
+        let u = f(&kv.v)?;
+        Ok(StrupleItem::new(kv.k.clone(), u))
+    });
     Lresult::from_iter(m_result_items)
 }
 
-pub fn map_v_into<K, V, F, U>(s: StrupleKV<K, V>, mut f: F) -> Lresult<StrupleKV<K, U>>
+pub fn map_v_into<K, V, F, U>(
+    s: StrupleKV<K, V>,
+    mut f: F,
+) -> Lresult<StrupleKV<K, U>>
 where
     F: FnMut(V) -> Lresult<U>,
 {
     // let m_result_items: Vec<Lresult<StrupleItem<K, U>>> = s
-    let m_result_items = s
-        .into_iter()
-        .map(|kv| {
-            let u = f(kv.v)?;
-            Ok(StrupleItem::new(kv.k, u))
-        });
+    let m_result_items = s.into_iter().map(|kv| {
+        let u = f(kv.v)?;
+        Ok(StrupleItem::new(kv.k, u))
+    });
     Lresult::from_iter(m_result_items)
 }
 
-pub fn find<'s, 'k, K, V>(s: &'s [StrupleItem<K, V>], key: &'k K) -> Option<(usize, &'s V)>
+pub fn find<'s, 'k, K, V>(
+    s: &'s [StrupleItem<K, V>],
+    key: &'k K,
+) -> Option<(usize, &'s V)>
 where
     K: PartialEq,
 {
-    s
-        .iter()
+    s.iter()
         .enumerate()
         .find(|(_, i)| i.k == *key)
         .map(|(idx, item)| (idx, &item.v))
@@ -168,10 +175,7 @@ where
 
 pub fn new_tuple2<K, V>(a: V, b: V) -> StrupleKV<Option<K>, V>
 {
-    vec![
-        StrupleItem::new(None, a),
-        StrupleItem::new(None, b),
-    ]
+    vec![StrupleItem::new(None, a), StrupleItem::new(None, b)]
 }
 
 impl<K, V> sendclone::SendClone for StrupleKV<K, V>
@@ -268,7 +272,8 @@ mod tests
             StrupleItem::new(Some(Lstr::Sref("burrito")), Val::Int(4)),
         ];
 
-        let actual = struple::find(&s, &Some(Lstr::Sref("burrito"))).expect("burrito value");
+        let actual = struple::find(&s, &Some(Lstr::Sref("burrito")))
+            .expect("burrito value");
         assert_eq!(2, actual.0);
         assert_eq!(Val::Int(4), *actual.1);
     }

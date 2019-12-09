@@ -55,7 +55,12 @@ impl Application
         }
     }
 
-    pub fn push_call(&mut self, dst: Sender<Val>, call: Fref, args: Struple2<Val>)
+    pub fn push_call(
+        &mut self,
+        dst: Sender<Val>,
+        call: Fref,
+        args: Struple2<Val>,
+    )
     {
         self.calls.push((dst, call, args));
     }
@@ -170,7 +175,12 @@ impl Application
         match msg {
             AppMsg::RequestCode(worker_id, frame, msg_f) => {
                 let fref = msg_f.take();
-                vout!("AppMsg::RequestCode({}, {}, {})\n", worker_id, frame, fref);
+                vout!(
+                    "AppMsg::RequestCode({}, {}, {})\n",
+                    worker_id,
+                    frame,
+                    fref
+                );
                 let worker = self.worker.get(&worker_id).unwrap();
                 let reply = match self.prog.load_code(&fref) {
                     Ok(code) => {
@@ -182,7 +192,10 @@ impl Application
                     }
                     Err(f) => {
                         eprintln!("code load error: {}\n{:#?}", fref, f);
-                        WorkerMsg::IopResult(frame, MsgItem::new(&Val::Failure2(Box::new(f))))
+                        WorkerMsg::IopResult(
+                            frame,
+                            MsgItem::new(&Val::Failure2(Box::new(f))),
+                        )
                     }
                 };
                 worker
@@ -289,10 +302,8 @@ mod tests
 
         let mut app = Application::new(prog);
         let caller = app.caller();
-        let recv = caller.push_call(
-            Fref::with_modules(test_key, "main"),
-            vec![],
-        );
+        let recv =
+            caller.push_call(Fref::with_modules(test_key, "main"), vec![]);
         app.run();
 
         writeln!(stderr(), "Application::wait_until_done").unwrap();

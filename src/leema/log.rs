@@ -29,8 +29,7 @@ macro_rules! vout
 }
 
 #[macro_export]
-macro_rules! start_timer
-{
+macro_rules! start_timer {
     () => {
         std::time::Instant::now()
     };

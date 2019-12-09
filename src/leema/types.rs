@@ -4,10 +4,8 @@ use crate::leema::struple::StrupleItem;
 use crate::leema::val::{Type, Val};
 
 
-pub const STRUCT_FIELD_TYPE: Type = Type::User(
-    Lstr::Sref("types"),
-    "StructFieldVal",
-);
+pub const STRUCT_FIELD_TYPE: Type =
+    Type::User(Lstr::Sref("types"), "StructFieldVal");
 
 
 pub fn option_type(t: Type) -> Type

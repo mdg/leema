@@ -8,13 +8,11 @@ use std::str::CharIndices;
 use lazy_static::lazy_static;
 
 
-type ParseFilter = &'static [(&'static [Token], &'static[usize])];
+type ParseFilter = &'static [(&'static [Token], &'static [usize])];
 const PARSE_FILTER: ParseFilter = &[
     (&[Token::CommentLine], &[]),
     (&[Token::EmptyLine], &[]),
-    (&[Token::LineBegin, Token::CasePipe],
-        &[1],
-    ),
+    (&[Token::LineBegin, Token::CasePipe], &[1]),
     (&[Token::LineEnd], &[]),
     (&[Token::Spaces], &[]),
 ];
@@ -235,53 +233,53 @@ impl Token
         match self {
             // operators
             Token::Plus
-            |Token::Dash
-            |Token::Star
-            |Token::Slash
-            |Token::Modulo
-            |Token::Dollar
-            |Token::And
-            |Token::Not
-            |Token::Or
-            |Token::Xor
-            |Token::Equal
-            |Token::EqualNot
-            |Token::GreaterThanEqual
-            |Token::LessThanEqual
-            |Token::AngleL
-            |Token::AngleR => true,
+            | Token::Dash
+            | Token::Star
+            | Token::Slash
+            | Token::Modulo
+            | Token::Dollar
+            | Token::And
+            | Token::Not
+            | Token::Or
+            | Token::Xor
+            | Token::Equal
+            | Token::EqualNot
+            | Token::GreaterThanEqual
+            | Token::LessThanEqual
+            | Token::AngleL
+            | Token::AngleR => true,
 
             // separators
             Token::Assignment
-            |Token::Colon
-            |Token::Comma
-            |Token::Dot
-            |Token::DoubleColon
-            |Token::DoubleDot
-            |Token::Pipe
-            |Token::Semicolon => true,
+            | Token::Colon
+            | Token::Comma
+            | Token::Dot
+            | Token::DoubleColon
+            | Token::DoubleDot
+            | Token::Pipe
+            | Token::Semicolon => true,
 
             // keywords
             Token::Const
-            |Token::Else
-            |Token::Export
-            |Token::Failed
-            |Token::Fork
-            |Token::Func
-            |Token::If
-            |Token::Import
-            |Token::Include
-            |Token::Let
-            |Token::Macro
-            |Token::Match
-            |Token::Return => true,
+            | Token::Else
+            | Token::Export
+            | Token::Failed
+            | Token::Fork
+            | Token::Func
+            | Token::If
+            | Token::Import
+            | Token::Include
+            | Token::Let
+            | Token::Macro
+            | Token::Match
+            | Token::Return => true,
 
             // opening brackets continue the next line
             // (but that should already be covered as being in an open expr
             Token::DoubleQuoteL
-            |Token::ParenL
-            |Token::SquareL
-            |Token::CurlyL => true,
+            | Token::ParenL
+            | Token::SquareL
+            | Token::CurlyL => true,
 
             _ => false,
         }
@@ -294,56 +292,55 @@ impl Token
         match self {
             // infix-only operators
             Token::Plus
-            |Token::Star
-            |Token::Slash
-            |Token::Modulo
-            |Token::Dollar
-            |Token::And
-            |Token::Or
-            |Token::Xor
-            |Token::Equal
-            |Token::EqualNot
-            |Token::GreaterThanEqual
-            |Token::LessThanEqual
-            |Token::AngleL
-            |Token::AngleR => true,
+            | Token::Star
+            | Token::Slash
+            | Token::Modulo
+            | Token::Dollar
+            | Token::And
+            | Token::Or
+            | Token::Xor
+            | Token::Equal
+            | Token::EqualNot
+            | Token::GreaterThanEqual
+            | Token::LessThanEqual
+            | Token::AngleL
+            | Token::AngleR => true,
 
             // these prefix operators can start a statement
-            Token::Dash
-            |Token::Not => false,
+            Token::Dash | Token::Not => false,
 
             // separators
             Token::Assignment
-            |Token::Colon
-            |Token::Comma
-            |Token::Dot
-            |Token::DoubleColon
-            |Token::DoubleDot
-            |Token::Pipe
-            |Token::Semicolon => true,
+            | Token::Colon
+            | Token::Comma
+            | Token::Dot
+            | Token::DoubleColon
+            | Token::DoubleDot
+            | Token::Pipe
+            | Token::Semicolon => true,
 
             // a closing bracket suggests there's something above still open
             Token::DoubleQuoteR
-            |Token::ParenR
-            |Token::SquareR
-            |Token::CurlyR => true,
+            | Token::ParenR
+            | Token::SquareR
+            | Token::CurlyR => true,
 
             // else only keyword that doesn't start a statement
             Token::Else => true,
 
             // opening keywords
             Token::Const
-            |Token::Export
-            |Token::Failed
-            |Token::Fork
-            |Token::Func
-            |Token::If
-            |Token::Import
-            |Token::Include
-            |Token::Let
-            |Token::Macro
-            |Token::Match
-            |Token::Return => false,
+            | Token::Export
+            | Token::Failed
+            | Token::Fork
+            | Token::Func
+            | Token::If
+            | Token::Import
+            | Token::Include
+            | Token::Let
+            | Token::Macro
+            | Token::Match
+            | Token::Return => false,
 
             _ => false,
         }
@@ -1174,9 +1171,7 @@ impl Tokenz
     {
         let mut toks = Tokenz::lex(src);
         toks.set_filter(Token::parsefilter);
-        let breaks = toks.try_fold(LineBreaker::new(), |lb, n| {
-            lb.push(n?)
-        })?;
+        let breaks = toks.try_fold(LineBreaker::new(), |lb, n| lb.push(n?))?;
         breaks.close()
     }
 
@@ -1437,27 +1432,26 @@ impl LineBreaker
     {
         match next.tok {
             Token::ParenL
-            |Token::SquareL
-            |Token::CurlyL
-            |Token::DoubleQuoteL
-            |Token::Func
-            |Token::If
-            |Token::Match
-            |Token::Type => self.open_expr(next),
+            | Token::SquareL
+            | Token::CurlyL
+            | Token::DoubleQuoteL
+            | Token::Func
+            | Token::If
+            | Token::Match
+            | Token::Type => self.open_expr(next),
 
             Token::ParenR
-            |Token::SquareR
-            |Token::CurlyR
-            |Token::DoubleQuoteR
-            |Token::DoubleDash => self.close_expr(next)?,
+            | Token::SquareR
+            | Token::CurlyR
+            | Token::DoubleQuoteR
+            | Token::DoubleDash => self.close_expr(next)?,
 
             // >> might replace a fake if block
             Token::DoubleArrow => {
                 let mut replaced = false;
                 if let Some(last) = self.expr.last_mut() {
                     match last.tok {
-                        Token::Func
-                        |Token::If => {
+                        Token::Func | Token::If => {
                             // replace the if w/ a >>
                             *last = next;
                             replaced = true;
@@ -1478,9 +1472,9 @@ impl LineBreaker
                         Token::Type => false,
 
                         Token::DoubleArrow
-                        |Token::Func
-                        |Token::If
-                        |Token::Match => true,
+                        | Token::Func
+                        | Token::If
+                        | Token::Match => true,
 
                         t => {
                             panic!("unexpected pipe opening: {}", t);
@@ -1515,20 +1509,19 @@ impl LineBreaker
         };
         match (open.tok, close.tok) {
             (Token::ParenL, Token::ParenR)
-            |(Token::SquareL, Token::SquareR)
-            |(Token::CurlyL, Token::CurlyR)
-            |(Token::DoubleQuoteL, Token::DoubleQuoteR)
-            |(Token::DoubleArrow, Token::CasePipe)
-            |(Token::DoubleArrow, Token::DoubleDash)
-            |(Token::Type, Token::DoubleDash) => {
+            | (Token::SquareL, Token::SquareR)
+            | (Token::CurlyL, Token::CurlyR)
+            | (Token::DoubleQuoteL, Token::DoubleQuoteR)
+            | (Token::DoubleArrow, Token::CasePipe)
+            | (Token::DoubleArrow, Token::DoubleDash)
+            | (Token::Type, Token::DoubleDash) => {
                 // match as expected
-                return Ok(())
+                return Ok(());
             }
 
-            (Token::If, Token::CasePipe)
-            |(Token::Match, Token::CasePipe) => {
+            (Token::If, Token::CasePipe) | (Token::Match, Token::CasePipe) => {
                 // not real blocks
-                return Ok(())
+                return Ok(());
             }
 
             _ => {} // fall down to error handling
@@ -1545,10 +1538,16 @@ impl LineBreaker
                 lstrf!("mismatched {{}}, expected }}, found {}", close.tok)
             }
             Token::DoubleQuoteL => {
-                lstrf!(r#"mismatched "", expected closing ", found {}"#, close.tok)
+                lstrf!(
+                    r#"mismatched "", expected closing ", found {}"#,
+                    close.tok
+                )
             }
             Token::DoubleArrow => {
-                lstrf!(r#"unclosed block, expected | or --, found {}"#, close.tok)
+                lstrf!(
+                    r#"unclosed block, expected | or --, found {}"#,
+                    close.tok
+                )
             }
 
             _ => {
@@ -1566,7 +1565,9 @@ impl LineBreaker
     /// check if the token stream is in the middle of an open expression
     fn in_open_expr(&self, t0: Token, t2: Token) -> bool
     {
-        let open = self.expr.last()
+        let open = self
+            .expr
+            .last()
             .map(|ts| {
                 match ts.tok {
                     Token::ParenL => true,

@@ -121,9 +121,7 @@ impl Fiber
                 ev
             }
         };
-        result.map_err(|f| {
-            f.add_context(lstrf!("pc: {}", opc))
-        })
+        result.map_err(|f| f.add_context(lstrf!("pc: {}", opc)))
     }
 
     pub fn execute_strcat(&mut self, dstreg: Reg, srcreg: Reg)
@@ -205,9 +203,7 @@ impl Fiber
         let (fref, args): (Fref, Struple2<Val>) = {
             let ref fname_val = ltry!(self.head.e.get_reg(freg));
             match *fname_val {
-                &Val::Call(ref f, ref args) => {
-                    (f.clone(), args.clone())
-                }
+                &Val::Call(ref f, ref args) => (f.clone(), args.clone()),
                 _ => {
                     return Err(rustfail!(
                         "failure",
@@ -219,12 +215,7 @@ impl Fiber
         };
         vout!("execute_call({})\n", fref);
 
-        Ok(Event::Call(
-            dst.clone(),
-            line as i16,
-            fref,
-            args,
-        ))
+        Ok(Event::Call(dst.clone(), line as i16, fref, args))
     }
 
     pub fn execute_const_val(&mut self, reg: Reg, v: &Val) -> Lresult<Event>
@@ -255,11 +246,7 @@ impl Fiber
                     }
                 })
                 .collect();
-            Val::EnumStruct(
-                new_typ.clone(),
-                variant.clone(),
-                new_items,
-            )
+            Val::EnumStruct(new_typ.clone(), variant.clone(), new_items)
         } else {
             return Err(rustfail!(
                 "leema_failure",
@@ -450,8 +437,7 @@ mod tests
         let r2 = Reg::local(2);
         let main_parent = Parent::new_main();
         let callri = Fref::with_modules(From::from("foo"), "bar");
-        let mut frame =
-            Frame::new_root(main_parent, callri, Vec::new());
+        let mut frame = Frame::new_root(main_parent, callri, Vec::new());
         frame.e.set_reg(r1, Val::Str(Lstr::Sref("i like ")));
         frame.e.set_reg(r2, Val::Str(Lstr::Sref("burritos")));
         let mut fib = Fiber::spawn(1, frame);

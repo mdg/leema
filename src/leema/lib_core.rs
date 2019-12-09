@@ -35,4 +35,3 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         _ => None,
     }
 }
-

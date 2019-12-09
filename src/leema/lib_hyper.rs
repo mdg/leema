@@ -150,9 +150,7 @@ pub fn handle_request(
 {
     vout!("handle_request({},\n\t{:?})", func, req);
     let leema_req = new_leema_request(&req);
-    let args = vec![
-        StrupleItem::new(Some(Lstr::Sref("req")), leema_req),
-    ];
+    let args = vec![StrupleItem::new(Some(Lstr::Sref("req")), leema_req)];
     Box::new(
         caller
             .spawn(func, args)
@@ -181,7 +179,8 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
 }
 
 
-const CLIENT_RESP_TYPE: Type = Type::User(Lstr::Sref("hyper_client"), "Response");
+const CLIENT_RESP_TYPE: Type =
+    Type::User(Lstr::Sref("hyper_client"), "Response");
 
 pub fn new_client_response(code: i64, req_time: Duration, body: String) -> Val
 {

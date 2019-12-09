@@ -35,9 +35,8 @@ pub mod val;
 pub mod worker;
 
 // libraries
-pub mod lib_core;
-pub mod prefab;
 pub mod file;
+pub mod lib_core;
 pub mod lib_hyper;
 pub mod lib_io;
 pub mod lib_json;
@@ -47,3 +46,4 @@ pub mod lib_math;
 pub mod lib_str;
 pub mod lib_task;
 pub mod lib_time;
+pub mod prefab;
