@@ -1093,7 +1093,7 @@ impl fmt::Debug for Val
                     .and_then(|_| write!(f, "]"))
             }
             Val::Nil => write!(f, "L[]"),
-            Val::Hashtag(ref s) => write!(f, "#{}", s),
+            Val::Hashtag(ref s) => f.write_str(s),
             Val::Buffer(ref buf) => write!(f, "Buffer<{:?}>", buf),
             Val::Tuple(ref fields) => write!(f, "struple {:?}", fields),
             Val::Struct(ref typ, ref fields) => {
