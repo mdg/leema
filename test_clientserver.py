@@ -83,6 +83,7 @@ class TestScripts(unittest.TestCase):
         )
 
     def test_hyper_http(self):
+        self.skipTest("http not ready yet")
         result = run_leema('test_hyper')
         self.assertEqual(0, result['code'])
 
