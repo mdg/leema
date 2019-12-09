@@ -341,7 +341,6 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(exp, result['output'])
 
     def test_read_file(self):
-        self.skipTest("not doing file io again yet")
         result = run_leema('read_file')
         self.assertEqual(0, result['code'])
         expected = b"hello leema friend\n\n"

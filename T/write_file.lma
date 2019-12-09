@@ -1,7 +1,8 @@
-import file
+import /file
+import /io/print
 
 
-func main() ->
+func main >>
     let txt := "goodbye friend\n"
     file::write_file("goodbye.txt", txt)
     print("file written\n")

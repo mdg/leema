@@ -3,19 +3,19 @@
 
 ## open a file
 ## how to distinguish when opening a file for reading or writing
-func open(path: Str): File -RUST-
+func open path:Str /File >> __RUST__ --
 
 ## read from a file
-func read(f: File): Str -RUST-
+func read f:File /Str >> __RUST__ --
 
 ## write to a file
-func write(f: File, data: Str): Int -RUST-
+func write f:File data:Str /Int >> __RUST__ --
 
 ## read the full contents of a file into a string
-func read_file(path: Str): Str -RUST-
+func read_file path:Str /Str >> __RUST__ --
 
 ## write the full contents of a string into a file
-func write_file(path: Str, output: Str): Void -RUST-
+func write_file path:Str output:Str >> __RUST__ --
 
 ## check if a file exists
-func exists(path: Str): Bool -RUST-
+func exists path:Str /Bool >> __RUST__ --
