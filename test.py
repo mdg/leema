@@ -324,7 +324,6 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(exp, result['output'])
 
     def test_cli(self):
-        self.skipTest("not ready for testing")
         result = run_leema('hi_to')
         self.assertEqual(0, result['code'])
         exp = b'hi world\n'
