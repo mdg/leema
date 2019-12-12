@@ -1,7 +1,10 @@
 
-struct Empty --
+import /io/print
 
-func main() >>
+
+datatype Empty --
+
+func main >>
     let e := Empty
     print("empty: $e\n")
 --

@@ -1,11 +1,11 @@
 
-type Bool --
-type Failure --
-type Hashtag --
-type Int --
-type Str --
-type # --
-type NoResult --
+datatype Bool --
+datatype Failure --
+datatype Hashtag --
+datatype Int --
+datatype Str --
+datatype # --
+datatype NoResult --
 
 func cons[A] head:A tail:[A] /[A] >> __RUST__ --
 

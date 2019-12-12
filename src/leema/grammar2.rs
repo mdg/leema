@@ -203,7 +203,7 @@ impl ParseStmt
             Token::Include => ParseStmt::parse_import(p, tok),
             Token::Let => ParseStmt::parse_let(p, tok),
             Token::Return => ParseStmt::parse_return(p, Ast::loc(&tok)),
-            Token::Type => ParseStmt::parse_deftype(p),
+            Token::Datatype => ParseStmt::parse_deftype(p),
             Token::LineBegin => {
                 // skip LineBegin, parse a new statement
                 let next = p.next()?;
@@ -1861,7 +1861,7 @@ mod tests
     fn test_parse_generic_enum_tuple()
     {
         let input = "
-        type Opt[T]
+        datatype Opt[T]
         |Some T
         |None
         --
@@ -1903,7 +1903,7 @@ mod tests
     fn test_parse_generic_enum_fields()
     {
         let input = "
-        type Foo[T]
+        datatype Foo[T]
         |Bar a:T b:Int
         |Baz
         --
@@ -1946,7 +1946,7 @@ mod tests
     fn test_parse_generic_struct_tuple()
     {
         let input = "
-        type Foo[T U]
+        datatype Foo[T U]
         T
         U
         Int
@@ -1980,7 +1980,7 @@ mod tests
     fn test_parse_generic_struct_fields()
     {
         let input = "
-        type Foo[T]
+        datatype Foo[T]
         apple:T
         banana:Int
         --
@@ -2480,7 +2480,7 @@ mod tests
     fn test_parse_type_expressions()
     {
         let input = "
-        type TypeX
+        datatype TypeX
         Y
         [Int]
         (Int Bool)
@@ -2506,9 +2506,9 @@ mod tests
     fn test_parse_type_struct()
     {
         let input = "
-        type Point2 x:Int y:Int --
+        datatype Point2 x:Int y:Int --
 
-        type Point3
+        datatype Point3
         x:Int
         y:Int
         z:Int
@@ -2533,7 +2533,7 @@ mod tests
     #[test]
     fn test_parse_type_token()
     {
-        let input = "type What --";
+        let input = "datatype What --";
         let toks = Tokenz::lexp(input).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
         assert_eq!(1, ast.len());
@@ -2550,7 +2550,7 @@ mod tests
     fn test_parse_type_union_color()
     {
         let input = "
-        type Color
+        datatype Color
         |Red
         |Green
         |Blue

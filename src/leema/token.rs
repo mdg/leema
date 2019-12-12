@@ -133,6 +133,7 @@ pub enum Token
 
     // keywords
     Const,
+    Datatype,
     Else,
     Export,
     Failed,
@@ -147,7 +148,6 @@ pub enum Token
     Match,
     Return,
     RustBlock,
-    Type,
     Underscore,
 
     // operators (arithmetic)
@@ -366,6 +366,7 @@ lazy_static! {
         keywords.insert("xor", Token::Xor);
         // keywords
         keywords.insert("const", Token::Const);
+        keywords.insert("datatype", Token::Datatype);
         keywords.insert("else", Token::Else);
         keywords.insert("export", Token::Export);
         keywords.insert("failed", Token::Failed);
@@ -380,7 +381,6 @@ lazy_static! {
         keywords.insert("match", Token::Match);
         keywords.insert("return", Token::Return);
         keywords.insert("__RUST__", Token::RustBlock);
-        keywords.insert("type", Token::Type);
         keywords.insert("_", Token::Underscore);
         // booleans
         keywords.insert("False", Token::Bool);
@@ -1438,7 +1438,7 @@ impl LineBreaker
             | Token::Func
             | Token::If
             | Token::Match
-            | Token::Type => self.open_expr(next),
+            | Token::Datatype => self.open_expr(next),
 
             Token::ParenR
             | Token::SquareR
@@ -1469,7 +1469,7 @@ impl LineBreaker
                 // don't pop the type token if that's previous
                 let pipe_closes = if let Some(last) = self.expr.last_mut() {
                     match last.tok {
-                        Token::Type => false,
+                        Token::Datatype => false,
 
                         Token::DoubleArrow
                         | Token::Func
@@ -1514,7 +1514,7 @@ impl LineBreaker
             | (Token::DoubleQuoteL, Token::DoubleQuoteR)
             | (Token::DoubleArrow, Token::CasePipe)
             | (Token::DoubleArrow, Token::DoubleDash)
-            | (Token::Type, Token::DoubleDash) => {
+            | (Token::Datatype, Token::DoubleDash) => {
                 // match as expected
                 return Ok(());
             }
@@ -1575,7 +1575,7 @@ impl LineBreaker
                     Token::CurlyL => true,
                     Token::DoubleQuoteL => true,
                     Token::Func => true,
-                    Token::Type => true,
+                    Token::Datatype => true,
                     Token::DoubleArrow => false,
                     _ => {
                         panic!("unexpected opening token: {:#?}", ts);
@@ -2063,7 +2063,7 @@ mod tests
     fn test_tokenz_struct()
     {
         let input = "
-        type Foo[T]
+        datatype Foo[T]
         .dog: T
         .cat: Str
         .mouse: Int
@@ -2076,7 +2076,7 @@ mod tests
         i.next();
 
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
-        assert_eq!(Token::Type, nextok(&mut i).0);
+        assert_eq!(Token::Datatype, nextok(&mut i).0);
         i.next();
         assert_eq!((Token::Id, "Foo"), nextok(&mut i));
         assert_eq!(Token::SquareL, nextok(&mut i).0);
@@ -2096,7 +2096,7 @@ mod tests
     fn test_tokenz_enum()
     {
         let input = "
-        type Roulette
+        datatype Roulette
         |Red
         |Black
         --
@@ -2108,7 +2108,7 @@ mod tests
         i.next();
 
         assert_eq!(Token::LineBegin, nextok(&mut i).0);
-        assert_eq!(Token::Type, nextok(&mut i).0);
+        assert_eq!(Token::Datatype, nextok(&mut i).0);
         i.next();
         assert_eq!((Token::Id, "Roulette"), nextok(&mut i));
         assert_eq!(Token::LineEnd, nextok(&mut i).0);
