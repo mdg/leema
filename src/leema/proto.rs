@@ -357,7 +357,11 @@ impl ProtoModule
             Ast::Id1(name_id) => {
                 ltry!(self.refute_redefines_default(name_id, name.loc));
                 let t = Type::User(self.key.name.clone(), name_id);
+                let token_val = Val::Token(t.clone());
+                let const_node = AstNode::new_constval(token_val, name.loc);
                 self.types.insert(name_id, t);
+                self.token.insert(name_id);
+                self.constants.insert(name_id, const_node);
             }
             Ast::Generic(iname, _) => {
                 return Err(Failure::static_leema(
@@ -948,6 +952,7 @@ impl ProtoLib
 mod tests
 {
     use super::{ProtoLib, ProtoModule};
+    use crate::leema::ast2::Ast;
     use crate::leema::loader::Interloader;
     use crate::leema::lstr::Lstr;
     use crate::leema::module::{
@@ -955,7 +960,10 @@ mod tests
         ModRelativity::{Absolute, Child, Sibling},
     };
     use crate::leema::struple::{self, StrupleItem};
-    use crate::leema::val::{FuncType, Type};
+    use crate::leema::val::{FuncType, Type, Val};
+
+    use matches::assert_matches;
+
 
     fn new_proto(input: &'static str) -> ProtoModule
     {
@@ -1254,6 +1262,15 @@ mod tests
 
         let burrito_type = proto.types.get("Burrito").expect("no Burrito type");
         assert_eq!(Type::User(Lstr::from("foo"), "Burrito"), *burrito_type,);
+
+        assert!(proto.token.contains("Burrito"));
+
+        let burrito_val = proto.constants.get("Burrito")
+            .expect("no Burrito const");
+        assert_matches!(*burrito_val.node, Ast::ConstVal(_));
+        if let Ast::ConstVal(ref val) = &*burrito_val.node {
+            assert_eq!(Val::Token(burrito_type.clone()), *val);
+        }
     }
 
     #[test]
