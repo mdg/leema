@@ -217,7 +217,7 @@ impl ProtoModule
     {
         let m = &self.key.name;
         let opens: GenericTypes;
-        let type_maker: Box<Fn(FuncType) -> Type>;
+        let type_maker: Box<dyn Fn(FuncType) -> Type>;
 
         let name_id = match *name.node {
             Ast::Id1(name_id) => {
@@ -394,6 +394,11 @@ impl ProtoModule
         // later ltry!(self.refute_redefines_default(name_id, name.loc));
         // proto.types.push(i);
         Ok(())
+    }
+
+    pub fn type_modules(&self) -> Lresult<Vec<ProtoModule>>
+    {
+        Ok(vec![])
     }
 
     pub fn set_canonical(
@@ -608,7 +613,7 @@ impl ProtoLib
         }
         let modkey = ModKey::from(modname.clone());
         let proto = ProtoModule::new(modkey, src)?;
-        self.protos.insert(modname.clone(), proto);
+        self.put_module(modname, proto)?;
         Ok(())
     }
 
@@ -815,24 +820,6 @@ impl ProtoLib
             }
         }
     }
-
-    /// load a module exported exported by a previously loaded module
-    pub fn load_export(
-        &mut self,
-        loader: &mut Interloader,
-        parent: &Lstr,
-        export: &Lstr,
-    ) -> Lresult<()>
-    {
-        vout!("ProtoLib::load_export({}, {})\n", parent, export);
-
-        self.get_canonical_name(parent);
-        let modtxt = ltry!(loader.read_mod(modname));
-        let modkey = ModKey::name_only(modname.clone());
-        let proto = ProtoModule::new(modkey, modtxt)?;
-        self.protos.insert(modname.clone(), proto);
-        Ok(())
-    }
     */
 
     /// load module by canonical name, w/o checking permissions etc
@@ -852,7 +839,17 @@ impl ProtoLib
         let modtxt = ltry!(loader.read_mod(&modkey));
         let proto = ltry!(ProtoModule::new(modkey.clone(), modtxt)
             .map_err(|e| { e.lstr_loc(modkey.best_path(), 0) }));
-        self.protos.insert(modpath.clone(), proto);
+        self.put_module(modpath.clone(), proto)?;
+        Ok(())
+    }
+
+    fn put_module(&mut self, modpath: module::Chain, proto: ProtoModule) -> Lresult<()>
+    {
+        let type_mods = proto.type_modules()?;
+        self.protos.insert(modpath, proto);
+        for tm in type_mods.into_iter() {
+            self.protos.insert(tm.key.chain.clone(), tm);
+        }
         Ok(())
     }
 

@@ -446,7 +446,7 @@ trait ScanModeTrait: fmt::Debug
 }
 
 // struct ScanMode(Box<ScanModeTrait>);
-type ScanMode = &'static ScanModeTrait;
+type ScanMode = &'static dyn ScanModeTrait;
 
 #[derive(Clone)]
 #[derive(Debug)]

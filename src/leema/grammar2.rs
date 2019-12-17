@@ -72,7 +72,7 @@ impl ParslMode for StmtsMode
     fn prefix(
         &self,
         tok: Token,
-    ) -> Option<&'static PrefixParser<Item = Vec<AstNode>>>
+    ) -> Option<&'static dyn PrefixParser<Item = Vec<AstNode>>>
     {
         Some(match tok {
             Token::LineBegin => &ParseStmt,
@@ -86,7 +86,7 @@ impl ParslMode for StmtsMode
     fn infix(
         &self,
         tok: Token,
-    ) -> Option<&'static InfixParser<Item = Vec<AstNode>>>
+    ) -> Option<&'static dyn InfixParser<Item = Vec<AstNode>>>
     {
         match tok {
             Token::LineBegin => Some(&ParseStmt),
@@ -537,7 +537,7 @@ impl ParslMode for IdTypeMode
     fn prefix(
         &self,
         tok: Token,
-    ) -> Option<&'static PrefixParser<Item = Self::Item>>
+    ) -> Option<&'static dyn PrefixParser<Item = Self::Item>>
     {
         match tok {
             Token::Slash
@@ -557,7 +557,7 @@ impl ParslMode for IdTypeMode
     fn infix(
         &self,
         tok: Token,
-    ) -> Option<&'static InfixParser<Item = Self::Item>>
+    ) -> Option<&'static dyn InfixParser<Item = Self::Item>>
     {
         match tok {
             Token::Slash
@@ -610,7 +610,7 @@ impl ParslMode for TypexMode
     fn prefix(
         &self,
         tok: Token,
-    ) -> Option<&'static PrefixParser<Item = Self::Item>>
+    ) -> Option<&'static dyn PrefixParser<Item = Self::Item>>
     {
         match tok {
             Token::Id => Some(&ParseId),
@@ -679,7 +679,7 @@ impl ParslMode for DefVariantsMode
     fn prefix(
         &self,
         tok: Token,
-    ) -> Option<&'static PrefixParser<Item = Self::Item>>
+    ) -> Option<&'static dyn PrefixParser<Item = Self::Item>>
     {
         match tok {
             Token::CasePipe => Some(&ParseFirst(&ParseVariant)),
@@ -690,7 +690,7 @@ impl ParslMode for DefVariantsMode
     fn infix(
         &self,
         tok: Token,
-    ) -> Option<&'static InfixParser<Item = Self::Item>>
+    ) -> Option<&'static dyn InfixParser<Item = Self::Item>>
     {
         match tok {
             Token::CasePipe => Some(&ParseMore(&ParseVariant, MIN_PRECEDENCE)),
@@ -1050,7 +1050,7 @@ impl ParslMode for ExprMode
     fn prefix(
         &self,
         tok: Token,
-    ) -> Option<&'static PrefixParser<Item = AstNode>>
+    ) -> Option<&'static dyn PrefixParser<Item = AstNode>>
     {
         Some(match tok {
             Token::Bool => &ParseBool,
@@ -1073,7 +1073,7 @@ impl ParslMode for ExprMode
     }
 
     fn infix(&self, tok: Token)
-        -> Option<&'static InfixParser<Item = AstNode>>
+        -> Option<&'static dyn InfixParser<Item = AstNode>>
     {
         Some(match tok {
             // boolean operators
@@ -1216,7 +1216,7 @@ impl ParslMode for StrxMode
     fn prefix(
         &self,
         tok: Token,
-    ) -> Option<&'static PrefixParser<Item = Vec<AstNode>>>
+    ) -> Option<&'static dyn PrefixParser<Item = Vec<AstNode>>>
     {
         match tok {
             Token::StrLit => Some(&ParseFirst(&ParseStrLit)),
@@ -1229,7 +1229,7 @@ impl ParslMode for StrxMode
     fn infix(
         &self,
         tok: Token,
-    ) -> Option<&'static InfixParser<Item = Vec<AstNode>>>
+    ) -> Option<&'static dyn InfixParser<Item = Vec<AstNode>>>
     {
         match tok {
             Token::StrLit => Some(&ParseMore(&ParseStrLit, MIN_PRECEDENCE)),
@@ -1275,7 +1275,7 @@ impl ParslMode for XlistMode
     fn prefix(
         &self,
         tok: Token,
-    ) -> Option<&'static PrefixParser<Item = Self::Item>>
+    ) -> Option<&'static dyn PrefixParser<Item = Self::Item>>
     {
         match tok {
             Token::Comma => None,
@@ -1286,7 +1286,7 @@ impl ParslMode for XlistMode
     fn infix(
         &self,
         tok: Token,
-    ) -> Option<&'static InfixParser<Item = Self::Item>>
+    ) -> Option<&'static dyn InfixParser<Item = Self::Item>>
     {
         match tok {
             Token::Comma => Some(&ParseXMaybeK),
@@ -1434,7 +1434,7 @@ impl PrefixParser for ParseIf
     fn parse(&self, p: &mut Parsl, tok: TokenSrc) -> Lresult<Self::Item>
     {
         let peeked = p.peek()?;
-        let mut cases: Vec<ast2::Case>;
+        let cases: Vec<ast2::Case>;
         if peeked.tok == Token::CasePipe {
             cases = p.parse_new(&CaseMode)?;
             p.skip_if(Token::LineBegin)?;
@@ -1489,7 +1489,7 @@ impl ParslMode for CaseMode
     fn prefix(
         &self,
         tok: Token,
-    ) -> Option<&'static PrefixParser<Item = Self::Item>>
+    ) -> Option<&'static dyn PrefixParser<Item = Self::Item>>
     {
         match tok {
             Token::CasePipe => Some(&ParseFirst(&ParseCase)),
@@ -1500,7 +1500,7 @@ impl ParslMode for CaseMode
     fn infix(
         &self,
         tok: Token,
-    ) -> Option<&'static InfixParser<Item = Self::Item>>
+    ) -> Option<&'static dyn InfixParser<Item = Self::Item>>
     {
         match tok {
             Token::CasePipe => Some(&ParseMore(&ParseCase, MIN_PRECEDENCE)),

@@ -20,10 +20,10 @@ mopafy!(Rsrc);
 
 pub enum Event
 {
-    Future(Box<future::Future<Item = Event, Error = Event>>),
-    Stream(Box<stream::Stream<Item = Event, Error = Event>>),
-    NewRsrc(Box<Rsrc>),
-    ReturnRsrc(Box<Rsrc>),
+    Future(Box<dyn future::Future<Item = Event, Error = Event>>),
+    Stream(Box<dyn stream::Stream<Item = Event, Error = Event>>),
+    NewRsrc(Box<dyn Rsrc>),
+    ReturnRsrc(Box<dyn Rsrc>),
     DropRsrc,
     Result(Val),
     Sequence(Box<Event>, Box<Event>),
@@ -62,7 +62,7 @@ pub struct IopCtx
     src_fiber_id: i64,
     run_queue: RunQueue,
     rsrc_id: Option<i64>,
-    rsrc: Option<Box<Rsrc>>,
+    rsrc: Option<Box<dyn Rsrc>>,
     params: Vec<Option<Val>>,
 }
 
@@ -74,7 +74,7 @@ impl IopCtx
         fid: i64,
         run_queue: RunQueue,
         rsrc_id: Option<i64>,
-        rsrc: Option<Box<Rsrc>>,
+        rsrc: Option<Box<dyn Rsrc>>,
         param_val: Val,
     ) -> IopCtx
     {
@@ -95,7 +95,7 @@ impl IopCtx
         }
     }
 
-    pub fn init_rsrc(&mut self, rsrc: Box<Rsrc>)
+    pub fn init_rsrc(&mut self, rsrc: Box<dyn Rsrc>)
     {
         if self.rsrc_id.is_none() {
             panic!("cannot init rsrc with no rsrc_id");

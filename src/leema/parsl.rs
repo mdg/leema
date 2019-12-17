@@ -178,12 +178,12 @@ pub trait ParslMode: fmt::Debug
     }
 
     /// Get a prefix parser for this token
-    fn prefix(&self, _tok: Token) -> Option<&PrefixParser<Item = Self::Item>>
+    fn prefix(&self, _tok: Token) -> Option<&dyn PrefixParser<Item = Self::Item>>
     {
         None
     }
 
-    fn infix(&self, _tok: Token) -> Option<&InfixParser<Item = Self::Item>>
+    fn infix(&self, _tok: Token) -> Option<&dyn InfixParser<Item = Self::Item>>
     {
         None
     }

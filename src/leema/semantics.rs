@@ -92,7 +92,7 @@ pub trait SemanticOp: fmt::Debug
 #[derive(Debug)]
 struct SemanticPipeline<'p>
 {
-    ops: Vec<&'p mut SemanticOp>,
+    ops: Vec<&'p mut dyn SemanticOp>,
 }
 
 impl<'p> SemanticOp for SemanticPipeline<'p>

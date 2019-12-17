@@ -49,13 +49,13 @@ pub struct Iop
 pub struct RsrcQueue
 {
     rsrc_id: i64,
-    rsrc: Option<Box<Rsrc>>,
+    rsrc: Option<Box<dyn Rsrc>>,
     queue: LinkedList<Iop>,
 }
 
 impl RsrcQueue
 {
-    pub fn new(rsrc_id: i64, resource: Box<Rsrc>) -> RsrcQueue
+    pub fn new(rsrc_id: i64, resource: Box<dyn Rsrc>) -> RsrcQueue
     {
         RsrcQueue {
             rsrc_id,
@@ -86,7 +86,7 @@ impl RsrcQueue
     /**
      * Add the resource back to the Ioq to be used later
      */
-    pub fn checkin(&mut self, r: Box<Rsrc>) -> Option<(Iop, Box<Rsrc>)>
+    pub fn checkin(&mut self, r: Box<dyn Rsrc>) -> Option<(Iop, Box<dyn Rsrc>)>
     {
         match self.queue.pop_front() {
             Some(iop) => Some((iop, r)),
@@ -270,7 +270,7 @@ impl Io
         }
     }
 
-    fn run_iop(&mut self, rsrc_op: Option<(Iop, Box<Rsrc>)>)
+    fn run_iop(&mut self, rsrc_op: Option<(Iop, Box<dyn Rsrc>)>)
     {
         if let Some((mut iop, rsrc)) = rsrc_op {
             vout!("run_iop\n");
@@ -375,7 +375,7 @@ impl Io
         src_worker_id: i64,
         src_fiber_id: i64,
         rsrc_id: Option<i64>,
-        rsrc: Option<Box<Rsrc>>,
+        rsrc: Option<Box<dyn Rsrc>>,
         param_val: Val,
     ) -> IopCtx
     {
@@ -394,7 +394,7 @@ impl Io
         )
     }
 
-    pub fn new_rsrc(&mut self, rsrc: Box<Rsrc>) -> i64
+    pub fn new_rsrc(&mut self, rsrc: Box<dyn Rsrc>) -> i64
     {
         let rsrc_id = self.next_rsrc_id;
         self.next_rsrc_id += 1;
@@ -410,7 +410,7 @@ impl Io
             .expect("failed sending iop result to worker");
     }
 
-    pub fn return_rsrc(&mut self, rsrc_id: Option<i64>, rsrc: Box<Rsrc>)
+    pub fn return_rsrc(&mut self, rsrc_id: Option<i64>, rsrc: Box<dyn Rsrc>)
     {
         vout!("return_rsrc({:?})\n", rsrc_id);
         if rsrc_id.is_none() {

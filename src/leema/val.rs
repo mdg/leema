@@ -556,7 +556,7 @@ pub enum Val
     Map(LmapNode),
     Failure2(Box<Failure>),
     Type(Type),
-    Lib(Arc<LibVal>),
+    Lib(Arc<dyn LibVal>),
     // Fref(Fref),
     Call(Fref, Struple2<Val>),
     ResourceRef(i64),
@@ -712,7 +712,7 @@ impl Val
         match self {
             &Val::Lib(ref lvarc) => {
                 vout!("lvarc: {:?}\n", lvarc);
-                let lvref: &LibVal = &**lvarc;
+                let lvref: &dyn LibVal = &**lvarc;
                 vout!("lvref: {:?}\n", lvref);
                 lvref.downcast_ref::<T>()
             }

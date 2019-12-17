@@ -102,7 +102,7 @@ pub fn udp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let fut = Box::new(
         sock.send_dgram(msg, &dst_addr)
             .map(move |(sock2, _buff)| {
-                let sockr: Box<Rsrc> = Box::new(sock2) as Box<Rsrc>;
+                let sockr: Box<dyn Rsrc> = Box::new(sock2) as Box<dyn Rsrc>;
                 rsrc::Event::seq(
                     rsrc::Event::ReturnRsrc(sockr),
                     rsrc::Event::Result(Val::Int(0)),

@@ -35,9 +35,9 @@ hyper_server::close(s)
 const REQUEST_TYPE: Type = Type::User(Lstr::Sref("hyper_server"), "Request");
 
 type BoxFut = Box<
-    Future<Item = Response<Body>, Error = futures_oneshot::Canceled> + Send,
+    dyn Future<Item = Response<Body>, Error = futures_oneshot::Canceled> + Send,
 >;
-type Graceful = Box<Future<Item = (), Error = ()> + Send>;
+type Graceful = Box<dyn Future<Item = (), Error = ()> + Send>;
 
 struct ServerHandle
 {
