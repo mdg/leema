@@ -10,11 +10,13 @@ use futures::{Async, Future, Poll};
 use tokio::net::UdpSocket;
 
 
+const SOCKET_TYPE: Type = Type::User(Lstr::Sref("udp"), "Socket");
+
 impl Rsrc for UdpSocket
 {
     fn get_type(&self) -> Type
     {
-        Type::Resource(Lstr::Sref("UdpSocket"))
+        SOCKET_TYPE
     }
 }
 

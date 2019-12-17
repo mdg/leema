@@ -125,8 +125,6 @@ pub enum Type
     /// bool is open
     Generic(bool, Box<Type>, GenericTypes),
 
-    Lib(String),
-    Resource(Lstr),
     RustBlock,
     Void,
     Kind,
@@ -347,8 +345,6 @@ impl fmt::Display for Type
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
-            &Type::Lib(ref name) => write!(f, "LibType({})", &name),
-            &Type::Resource(ref name) => write!(f, "{}", &name),
             &Type::RustBlock => write!(f, "RustBlock"),
             &Type::Void => write!(f, "Void"),
             &Type::Kind => write!(f, "Kind"),
@@ -377,8 +373,6 @@ impl fmt::Debug for Type
                 let open_tag = if open { "Open" } else { "Closed" };
                 write!(f, "({} ({}){:?})", open_tag, inner, args)
             }
-            &Type::Lib(ref name) => write!(f, "LibType({})", &name),
-            &Type::Resource(ref name) => write!(f, "Resource({})", &name),
             &Type::RustBlock => write!(f, "RustBlock"),
             &Type::Void => write!(f, "Void"),
             &Type::Kind => write!(f, "Kind"),

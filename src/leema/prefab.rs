@@ -4,13 +4,10 @@ use crate::leema::fiber::Fiber;
 use crate::leema::frame::Event;
 use crate::leema::lstr::Lstr;
 use crate::leema::rsrc;
-use crate::leema::val::{self, LibVal, Type, Val};
+use crate::leema::val::{self, Type, Val};
 use crate::leema::worker::RustFuncContext;
 
-use std::fmt::{self, Debug, Display};
-use std::fs::File;
 use std::io::{stderr, stdin, Write};
-use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use futures::future::empty;
@@ -358,91 +355,6 @@ pub fn printerr(f: &mut Fiber) -> Lresult<Event>
 }
 
 
-struct LeemaFile
-{
-    f: Mutex<File>,
-}
-
-impl LeemaFile
-{
-    pub fn new(f: File) -> LeemaFile
-    {
-        LeemaFile { f: Mutex::new(f) }
-    }
-}
-
-impl LibVal for LeemaFile
-{
-    fn get_type(&self) -> Type
-    {
-        Type::Lib("File".to_string())
-    }
-}
-
-impl Display for LeemaFile
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        write!(f, "LeemaFile")
-    }
-}
-
-impl Debug for LeemaFile
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        write!(f, "LeemaFile")
-    }
-}
-
-
-pub fn file_read(f: &mut Fiber) -> Lresult<Event>
-{
-    let open_result = {
-        let fnval = f.head.get_param(0)?;
-        match fnval {
-            &Val::Str(ref fnstr) => File::open(&**fnstr),
-            _ => {
-                panic!("Can't open file with not string {:?}", fnval);
-            }
-        }
-    };
-    let openf = match open_result {
-        Ok(file) => Val::libval(LeemaFile::new(file)),
-        Err(_) => {
-            Val::failure(
-                Val::Hashtag(Lstr::Sref("file_open_fail")),
-                Val::Str(Lstr::Sref("Failed to open file")),
-                f.head.trace.fail_here(),
-                val::FAILURE_INTERNAL,
-            )
-        }
-    };
-    f.head.parent.set_result(openf);
-    Event::success()
-}
-
-pub fn file_stream_read(f: &mut Fiber) -> Lresult<Event>
-{
-    /*
-     * reimplement this on the io worker
-    let mut input = "".to_string();
-    {
-        let streamval = f.head.e.get_param_mut(0);
-        let optf = streamval.libval_as();
-        let myfref: &LeemaFile = optf.unwrap();
-        let lockf = myfref.f.lock();
-        let mut rawf = lockf.unwrap();
-        rawf.read_to_string(&mut input)
-            .expect("failed to read from file to string");
-        //let result = myf.f.lock().unwrap().read_to_string(&mut input);
-    }
-    f.head.parent.set_result(Val::Str(Lstr::from(input)));
-    */
-    f.head.parent.set_result(Val::Str(Lstr::Sref("")));
-    Event::success()
-}
-
 /*
 macro_rules! load_rust_funcs {
     ( $fname:ident, $( $f:ident ),* ) => {
@@ -478,8 +390,6 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         "greater_than_equal" => Some(Code::Rust(greater_than_equal)),
         "get_type" => Some(Code::Rust(get_type)),
         "cin" => Some(Code::Rust(cin)),
-        "file_read" => Some(Code::Rust(file_read)),
-        "file_stream_read" => Some(Code::Rust(file_stream_read)),
         _ => None,
     }
 }

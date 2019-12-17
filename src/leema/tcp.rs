@@ -18,11 +18,14 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpListener, TcpStream};
 
 
+const SOCKET_TYPE: Type = Type::User(Lstr::Sref("tcp"), "Socket");
+const LISTENER_TYPE: Type = Type::User(Lstr::Sref("tcp"), "Listener");
+
 impl Rsrc for TcpStream
 {
     fn get_type(&self) -> Type
     {
-        Type::Resource(Lstr::Sref("TcpSocket"))
+        SOCKET_TYPE
     }
 }
 
@@ -30,7 +33,7 @@ impl Rsrc for TcpListener
 {
     fn get_type(&self) -> Type
     {
-        Type::Resource(Lstr::Sref("TcpListener"))
+        LISTENER_TYPE
     }
 }
 

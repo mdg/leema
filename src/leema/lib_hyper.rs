@@ -33,6 +33,7 @@ hyper_server::close(s)
 */
 
 const REQUEST_TYPE: Type = Type::User(Lstr::Sref("hyper_server"), "Request");
+const SERVER_HANDLE_TYPE: Type = Type::User(Lstr::Sref("hyper_server"), "ServerHandle");
 
 type BoxFut = Box<
     dyn Future<Item = Response<Body>, Error = futures_oneshot::Canceled> + Send,
@@ -56,7 +57,7 @@ impl Rsrc for ServerHandle
 {
     fn get_type(&self) -> Type
     {
-        Type::Resource(Lstr::Sref("ServerHandle"))
+        SERVER_HANDLE_TYPE
     }
 }
 
