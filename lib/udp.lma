@@ -1,13 +1,13 @@
 
-## rust type Stream
+datatype Socket --
 
 ## create a udp socket on any address and port
-func socket /UdpSocket >> __RUST__ --
+func socket /Socket >> __RUST__ --
 
 ## create a udp socket on the given address and port
-func bind addr:Str port:Int /UdpSocket >> __RUST__ --
+func bind addr:Str port:Int /Socket >> __RUST__ --
 
-func recv s:UdpSocket /Str >> __RUST__ --
+func recv s:Socket /Str >> __RUST__ --
 
-func send s:UdpSocket addr:Str port:Int output:Str >> __RUST__ --
+func send s:Socket addr:Str port:Int output:Str >> __RUST__ --
 

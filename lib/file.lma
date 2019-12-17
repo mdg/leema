@@ -1,5 +1,5 @@
 
-## rust type File
+datatype File --
 
 ## open a file
 ## how to distinguish when opening a file for reading or writing

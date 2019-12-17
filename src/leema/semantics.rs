@@ -539,8 +539,7 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                 self.blocks.assign_var(&Lstr::Sref(id), LocalType::Match);
             }
             Ast::Id1(id) if self.mode == AstMode::Type => {
-                let local_type = self.local_mod.get_type(id);
-                if local_type.is_ok() {
+                if self.local_mod.get_type(id).is_ok() {
                     return Ok(SemanticAction::Keep(node));
                 }
 
@@ -764,16 +763,25 @@ impl<'p> TypeCheck<'p>
         local_mod: &'p ProtoModule,
         lib: &'p ProtoLib,
         ftyp: &'p FuncType,
-    ) -> TypeCheck<'p>
+    ) -> Lresult<TypeCheck<'p>>
     {
-        TypeCheck {
+        let check = TypeCheck {
             local_mod,
             lib,
             result: &*ftyp.result,
             infers: HashMap::new(),
             calls: vec![],
             mode: AstMode::Value,
+        };
+        for arg in ftyp.args.iter() {
+            check.validate_type(&arg.v)?;
         }
+        Ok(check)
+    }
+
+    fn validate_type(&self, _type: &Type) -> Lresult<()>
+    {
+        Ok(())
     }
 
     pub fn inferred_local(&self, local_tvar: &Lstr) -> Type
@@ -1430,7 +1438,7 @@ impl Semantics
         let mut macs = MacroApplication::new(local_proto, proto, ftyp, &closed);
         let mut scope_check = ScopeCheck::new(ftyp, local_proto, proto)?;
         let mut var_types = VarTypes::new(&local_proto.key.name, ftyp)?;
-        let mut type_check = TypeCheck::new(local_proto, proto, ftyp);
+        let mut type_check = TypeCheck::new(local_proto, proto, ftyp)?;
         let mut remove_extra = RemoveExtraCode;
         let mut pipe = SemanticPipeline {
             ops: vec![
