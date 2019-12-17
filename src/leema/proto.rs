@@ -1265,8 +1265,8 @@ mod tests
 
         assert!(proto.token.contains("Burrito"));
 
-        let burrito_val = proto.constants.get("Burrito")
-            .expect("no Burrito const");
+        let burrito_val =
+            proto.constants.get("Burrito").expect("no Burrito const");
         assert_matches!(*burrito_val.node, Ast::ConstVal(_));
         if let Ast::ConstVal(ref val) = &*burrito_val.node {
             assert_eq!(Val::Token(burrito_type.clone()), *val);
