@@ -1,6 +1,6 @@
 language: rust
 rust:
-  - 1.33.0
+  - 1.39.0
 install:
   - sudo pip install nose
   - rustup install nightly
