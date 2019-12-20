@@ -75,75 +75,33 @@ impl ProtoModule
 
         let mut exports = HashMap::new();
         let mut imports = HashMap::new();
-        let mut import_mode = true;
-        for i in items {
+        let mut it = items.into_iter().peekable();
+        while it.peek().is_some() {
+            if let Ast::ModAction(_, _) = &*it.peek().unwrap().node {
+                // another import, take the next
+            } else {
+                // no more imports, exports. move on to the regular stuff
+                break;
+            }
+
+            let i = it.next().unwrap();
             match *i.node {
-                Ast::DefConst(name, val) => {
-                    ltry!(proto.refute_redefines_default(name, i.loc));
-                    proto.constants.insert(name, val);
-                    import_mode = false;
-                }
-                Ast::DefMacro(macro_name, _, _) => {
-                    ltry!(proto.refute_redefines_default(macro_name, i.loc));
-                    proto.macros.insert(macro_name, *i.node);
-                    import_mode = false;
-                }
-                Ast::DefFunc(name, args, result, body) => {
-                    proto.add_func(name, args, result, body)?;
-                    import_mode = false;
-                }
-                Ast::DefType(DataType::Struct, name, fields) => {
-                    if fields.is_empty() {
-                        ltry!(proto.add_token(name));
-                    } else {
-                        ltry!(proto.add_struct(name, fields));
-                    }
-                    import_mode = false;
-                }
-                Ast::DefType(DataType::Union, name, variants) => {
-                    proto.add_union(name, variants)?;
-                    import_mode = false;
-                }
-                Ast::ModAction(_, _) if !import_mode => {
-                    return Err(Failure::static_leema(
-                        failure::Mode::CompileFailure,
-                        Lstr::Sref("imports must come before definitions"),
-                        proto.key.best_path(),
-                        i.loc.lineno,
-                    ));
-                }
                 Ast::ModAction(ModAction::Import, tree) => {
-                    proto.add_import(tree)?;
+                    tree.collect(&mut imports);
                 }
                 Ast::ModAction(ModAction::Export, tree) => {
-                    proto.add_export(tree)?;
+                    tree.collect(&mut exports);
                 }
                 _ => {
-                    return Err(Failure::static_leema(
-                        failure::Mode::CompileFailure,
-                        lstrf!("expected module statement, found {:?}", i),
-                        proto.key.best_path(),
-                        i.loc.lineno,
-                    ));
+                    panic!("not an import or export");
                 }
             }
         }
-
-        // redo this ordering so these go in add_import and add_export functions
-        // then add some clean up here about putting undefined exports in imports
 
         // make sure imports don't overlap w/ anything defined
         for (k, (v, loc)) in imports.into_iter() {
             proto.refute_redefines_default(k, loc)?;
 
-            if proto.defines(k) {
-                return Err(Failure::static_leema(
-                    failure::Mode::CompileFailure,
-                    lstrf!("local definition cannot shadow import: {}", v),
-                    proto.key.best_path(),
-                    loc.lineno,
-                ));
-            }
             if proto.imports.contains_key(k) {
                 return Err(Failure::static_leema(
                     failure::Mode::CompileFailure,
@@ -152,6 +110,8 @@ impl ProtoModule
                     loc.lineno,
                 ));
             }
+
+            proto.imports.insert(k, v);
         }
 
         for (k, (v, loc)) in exports.into_iter() {
@@ -166,6 +126,53 @@ impl ProtoModule
                 ));
             }
 
+            proto.imports.insert(k, v.clone());
+            proto.exports.insert(k, v);
+        }
+
+        for i in it {
+            match *i.node {
+                Ast::DefConst(name, val) => {
+                    ltry!(proto.refute_redefines_default(name, i.loc));
+                    proto.constants.insert(name, val);
+                }
+                Ast::DefMacro(macro_name, _, _) => {
+                    ltry!(proto.refute_redefines_default(macro_name, i.loc));
+                    proto.macros.insert(macro_name, *i.node);
+                }
+                Ast::DefFunc(name, args, result, body) => {
+                    proto.add_func(name, args, result, body)?;
+                }
+                Ast::DefType(DataType::Struct, name, fields) => {
+                    if fields.is_empty() {
+                        ltry!(proto.add_token(name));
+                    } else {
+                        ltry!(proto.add_struct(name, fields));
+                    }
+                }
+                Ast::DefType(DataType::Union, name, variants) => {
+                    proto.add_union(name, variants)?;
+                }
+                Ast::ModAction(_, _) => {
+                    return Err(Failure::static_leema(
+                        failure::Mode::CompileFailure,
+                        Lstr::Sref("imports must come before definitions"),
+                        proto.key.best_path(),
+                        i.loc.lineno,
+                    ));
+                }
+                _ => {
+                    return Err(Failure::static_leema(
+                        failure::Mode::CompileFailure,
+                        lstrf!("expected module statement, found {:?}", i),
+                        proto.key.best_path(),
+                        i.loc.lineno,
+                    ));
+                }
+            }
+        }
+
+        for (k, v) in proto.exports.iter() {
             // if it's not defined locally, must be a child module
             // so import it
             if proto.defines(k) {
@@ -181,14 +188,9 @@ impl ProtoModule
                     failure::Mode::CompileFailure,
                     err_msg,
                     proto.key.best_path(),
-                    loc.lineno,
+                    0,
                 ));
-            } else {
-                // add exports to imports if they're child modules
-                proto.imports.insert(k, v.clone());
             }
-
-            proto.exports.insert(k, v);
         }
 
         // export any local definitions
