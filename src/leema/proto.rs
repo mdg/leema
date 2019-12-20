@@ -1,4 +1,4 @@
-use crate::leema::ast2::{Ast, AstNode, DataType, Loc, ModAction, Xlist};
+use crate::leema::ast2::{Ast, AstNode, DataType, Loc, ModAction, ModTree, Xlist};
 use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::grammar2::Grammar;
 use crate::leema::loader::Interloader;
@@ -73,20 +73,24 @@ impl ProtoModule
             struct_fields: HashMap::new(),
         };
 
-        let mut imports = HashMap::new();
         let mut exports = HashMap::new();
+        let mut imports = HashMap::new();
+        let mut import_mode = true;
         for i in items {
             match *i.node {
                 Ast::DefConst(name, val) => {
                     ltry!(proto.refute_redefines_default(name, i.loc));
                     proto.constants.insert(name, val);
+                    import_mode = false;
                 }
                 Ast::DefMacro(macro_name, _, _) => {
                     ltry!(proto.refute_redefines_default(macro_name, i.loc));
                     proto.macros.insert(macro_name, *i.node);
+                    import_mode = false;
                 }
                 Ast::DefFunc(name, args, result, body) => {
                     proto.add_func(name, args, result, body)?;
+                    import_mode = false;
                 }
                 Ast::DefType(DataType::Struct, name, fields) => {
                     if fields.is_empty() {
@@ -94,15 +98,25 @@ impl ProtoModule
                     } else {
                         ltry!(proto.add_struct(name, fields));
                     }
+                    import_mode = false;
                 }
                 Ast::DefType(DataType::Union, name, variants) => {
                     proto.add_union(name, variants)?;
+                    import_mode = false;
+                }
+                Ast::ModAction(_, _) if !import_mode => {
+                    return Err(Failure::static_leema(
+                        failure::Mode::CompileFailure,
+                        Lstr::Sref("imports must come before definitions"),
+                        proto.key.best_path(),
+                        i.loc.lineno,
+                    ));
                 }
                 Ast::ModAction(ModAction::Import, tree) => {
-                    tree.collect(&mut imports);
+                    proto.add_import(tree)?;
                 }
                 Ast::ModAction(ModAction::Export, tree) => {
-                    tree.collect(&mut exports);
+                    proto.add_export(tree)?;
                 }
                 _ => {
                     return Err(Failure::static_leema(
@@ -114,6 +128,9 @@ impl ProtoModule
                 }
             }
         }
+
+        // redo this ordering so these go in add_import and add_export functions
+        // then add some clean up here about putting undefined exports in imports
 
         // make sure imports don't overlap w/ anything defined
         for (k, (v, loc)) in imports.into_iter() {
@@ -135,7 +152,6 @@ impl ProtoModule
                     loc.lineno,
                 ));
             }
-            proto.imports.insert(k, v);
         }
 
         for (k, (v, loc)) in exports.into_iter() {
@@ -393,6 +409,46 @@ impl ProtoModule
         }
         // later ltry!(self.refute_redefines_default(name_id, name.loc));
         // proto.types.push(i);
+        Ok(())
+    }
+
+    fn add_import(&mut self, tree: ModTree) -> Lresult<()>
+    {
+        let mut imports = HashMap::new();
+        tree.collect(&mut imports);
+        for (k, (v, loc)) in imports.into_iter() {
+            self.refute_redefines_default(k, loc)?;
+
+            if self.exports.contains_key(k) && self.imports.contains_key(k) {
+                return Err(Failure::static_leema(
+                    failure::Mode::CompileFailure,
+                    lstrf!("duplicate import: {}", v),
+                    self.key.best_path(),
+                    loc.lineno,
+                ));
+            }
+            self.imports.insert(k, v);
+        }
+        Ok(())
+    }
+
+    fn add_export(&mut self, tree: ModTree) -> Lresult<()>
+    {
+        let mut exports = HashMap::new();
+        tree.collect(&mut exports);
+        for (k, (v, loc)) in exports.into_iter() {
+            self.refute_redefines_default(k, loc)?;
+
+            if self.exports.contains_key(k) && self.imports.contains_key(k) {
+                return Err(Failure::static_leema(
+                    failure::Mode::CompileFailure,
+                    lstrf!("duplicate export: {}", v),
+                    self.key.best_path(),
+                    loc.lineno,
+                ));
+            }
+            self.exports.insert(k, v);
+        }
         Ok(())
     }
 
