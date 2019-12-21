@@ -285,7 +285,7 @@ impl ProtoModule
             }
         };
 
-        let ftyp = ast_to_ftype(m, &args, &result, &opens)?;
+        let ftyp = self.ast_to_ftype(m, &args, &result, &opens)?;
         let call_args = ftyp.call_args();
         let typ = type_maker(ftyp);
         let fref = Fref::new(self.key.clone(), name_id, typ.clone());
@@ -353,7 +353,7 @@ impl ProtoModule
             }
         };
 
-        let args = xlist_to_types(&m, &fields, &opens)?;
+        let args = self.xlist_to_types(&m, &fields, &opens)?;
         let ftyp = FuncType::new(args, struct_typ.clone());
         let call_args = ftyp.call_args();
         let constructor_type = Type::Func(ftyp);
@@ -555,88 +555,102 @@ impl ProtoModule
             .get(id)
             .or_else(|| DEFAULT_IDS.get(id).map(|mp| &mp.path))
     }
-}
 
-pub fn ast_to_type(
-    local_mod: &Lstr,
-    node: &AstNode,
-    opens: &[StrupleItem<&'static str, Type>],
-) -> Lresult<Type>
-{
-    Ok(match &*node.node {
-        Ast::Id1("Bool") => Type::BOOL,
-        Ast::Id1("Int") => Type::INT,
-        Ast::Id1("Str") => Type::STR,
-        Ast::Id1("#") => Type::HASHTAG,
-        Ast::Id1(id) if struple::contains_key(opens, id) => Type::OpenVar(id),
-        Ast::Id1(id) => Type::User(local_mod.clone(), id),
-        Ast::Id2(module, id) => Type::User(module.clone(), id),
-        Ast::List(inner_items) if inner_items.len() == 1 => {
-            let inner = &inner_items.first().unwrap().v;
-            let inner_t = ast_to_type(local_mod, inner, opens)?;
-            Type::StrictList(Box::new(inner_t))
-        }
-        Ast::Tuple(inner_items) => {
-            let inner_t: Lresult<Vec<StrupleItem<Option<Lstr>, Type>>> =
-                inner_items
-                    .iter()
-                    .map(|item| {
-                        let k = item.k.map(|ik| Lstr::Sref(ik));
-                        let v = ast_to_type(local_mod, &item.v, opens)?;
-                        Ok(StrupleItem::new(k, v))
-                    })
-                    .collect();
-            Type::Tuple(inner_t?)
-        }
-        Ast::FuncType(args, result) => {
-            let ftype = ast_to_ftype(local_mod, args, result, opens)?;
-            Type::Func(ftype)
-        }
-        Ast::Generic(_, typeargs) => {
-            let _gen =
-                struple::map_v(typeargs, |v| ast_to_type(local_mod, v, opens));
-            unimplemented!()
-        }
-        Ast::Void => Type::Void,
-        invalid => {
-            return Err(rustfail!(
-                PROTOFAIL,
-                "cannot derive type from: {:?}",
-                invalid,
-            ));
-        }
-    })
-}
-
-fn ast_to_ftype(
-    local_mod: &Lstr,
-    args: &Xlist,
-    result: &AstNode,
-    opens: &[StrupleItem<&'static str, Type>],
-) -> Lresult<FuncType>
-{
-    let arg_types = xlist_to_types(local_mod, args, &opens)?;
-    let result_type = ast_to_type(local_mod, &result, opens)?;
-    Ok(FuncType::new(arg_types, result_type))
-}
-
-fn xlist_to_types(
-    local_mod: &Lstr,
-    args: &Xlist,
-    opens: &[StrupleItem<&'static str, Type>],
-) -> Lresult<Struple2<Type>>
-{
-    let arg_types_r: Lresult<StrupleKV<Option<Lstr>, Type>>;
-    arg_types_r = args
-        .into_iter()
-        .map(|i| {
-            Ok(StrupleItem::new(
-                i.k.map(|k| Lstr::Sref(k)),
-                ast_to_type(local_mod, &i.v, opens)?,
-            ))
+    pub fn ast_to_type(
+        &self,
+        local_mod: &Lstr,
+        node: &AstNode,
+        opens: &[StrupleItem<&'static str, Type>],
+    ) -> Lresult<Type>
+    {
+        Ok(match &*node.node {
+            Ast::Id1("Bool") => Type::BOOL,
+            Ast::Id1("Int") => Type::INT,
+            Ast::Id1("Str") => Type::STR,
+            Ast::Id1("#") => Type::HASHTAG,
+            Ast::Id1(id) if struple::contains_key(opens, id) => Type::OpenVar(id),
+            Ast::Id1(id) => {
+                match self.imports.get(id) {
+                    Some(modpath) => {
+                        Type::User(Lstr::from(String::from(&modpath.path)), id)
+                    }
+                    None => {
+                        Type::User(local_mod.clone(), id)
+                    }
+                }
+            }
+            Ast::Id2(module, id) => Type::User(module.clone(), id),
+            Ast::List(inner_items) if inner_items.len() == 1 => {
+                let inner = &inner_items.first().unwrap().v;
+                let inner_t = self.ast_to_type(local_mod, inner, opens)?;
+                Type::StrictList(Box::new(inner_t))
+            }
+            Ast::Tuple(inner_items) => {
+                let inner_t: Lresult<Vec<StrupleItem<Option<Lstr>, Type>>> =
+                    inner_items
+                        .iter()
+                        .map(|item| {
+                            let k = item.k.map(|ik| Lstr::Sref(ik));
+                            let v = self.ast_to_type(local_mod, &item.v, opens)?;
+                            Ok(StrupleItem::new(k, v))
+                        })
+                        .collect();
+                Type::Tuple(inner_t?)
+            }
+            Ast::FuncType(args, result) => {
+                let ftype = self.ast_to_ftype(local_mod, args, result, opens)?;
+                Type::Func(ftype)
+            }
+            Ast::Generic(_, typeargs) => {
+                let _gen =
+                    struple::map_v(typeargs, |v| {
+                        self.ast_to_type(local_mod, v, opens)
+                    });
+                unimplemented!()
+            }
+            Ast::Void => Type::Void,
+            invalid => {
+                return Err(rustfail!(
+                    PROTOFAIL,
+                    "cannot derive type from: {:?}",
+                    invalid,
+                ));
+            }
         })
-        .collect();
-    Ok(arg_types_r?)
+    }
+
+    fn ast_to_ftype(
+        &self,
+        local_mod: &Lstr,
+        args: &Xlist,
+        result: &AstNode,
+        opens: &[StrupleItem<&'static str, Type>],
+    ) -> Lresult<FuncType>
+    {
+        let arg_types = self.xlist_to_types(local_mod, args, &opens)?;
+        let result_type = self.ast_to_type(local_mod, &result, opens)?;
+        Ok(FuncType::new(arg_types, result_type))
+    }
+
+    fn xlist_to_types(
+        &self,
+        local_mod: &Lstr,
+        args: &Xlist,
+        opens: &[StrupleItem<&'static str, Type>],
+    ) -> Lresult<Struple2<Type>>
+    {
+        let arg_types_r: Lresult<StrupleKV<Option<Lstr>, Type>>;
+        arg_types_r = args
+            .into_iter()
+            .map(|i| {
+                Ok(StrupleItem::new(
+                    i.k.map(|k| Lstr::Sref(k)),
+                    self.ast_to_type(local_mod, &i.v, opens)?,
+                ))
+            })
+            .collect();
+        Ok(arg_types_r?)
+    }
 }
 
 #[derive(Debug)]

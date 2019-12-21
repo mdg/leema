@@ -2,7 +2,7 @@ use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc, Xlist};
 use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
-use crate::leema::proto::{self, ProtoLib, ProtoModule};
+use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{
     Fref, FuncType, GenericTypeSlice, GenericTypes, Type, Val,
@@ -1010,7 +1010,7 @@ impl<'p> TypeCheck<'p>
                     ));
                 }
                 for a in targs.iter_mut().zip(args.iter_mut()) {
-                    let t = proto::ast_to_type(
+                    let t = self.local_mod.ast_to_type(
                         &self.local_mod.key.name,
                         &a.1.v,
                         &[],
