@@ -202,7 +202,7 @@ impl Parsl
         let strm = TokenStream::new(src);
         Parsl {
             src: strm,
-            path: Lstr::Sref(""),
+            path: Lstr::EMPTY,
         }
     }
 

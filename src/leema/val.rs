@@ -618,7 +618,7 @@ impl Val
 
     pub fn empty_str() -> Val
     {
-        Val::Str(Lstr::Sref(""))
+        Val::Str(Lstr::EMPTY)
     }
 
     pub fn str(&self) -> &str

@@ -569,16 +569,7 @@ impl ProtoModule
             Ast::Id1("Str") => Type::STR,
             Ast::Id1("#") => Type::HASHTAG,
             Ast::Id1(id) if struple::contains_key(opens, id) => Type::OpenVar(id),
-            Ast::Id1(id) => {
-                match self.imports.get(id) {
-                    Some(modpath) => {
-                        Type::User(Lstr::from(String::from(&modpath.path)), id)
-                    }
-                    None => {
-                        Type::User(local_mod.clone(), id)
-                    }
-                }
-            }
+            Ast::Id1(id) => Type::User(Lstr::EMPTY, id),
             Ast::Id2(module, id) => Type::User(module.clone(), id),
             Ast::List(inner_items) if inner_items.len() == 1 => {
                 let inner = &inner_items.first().unwrap().v;

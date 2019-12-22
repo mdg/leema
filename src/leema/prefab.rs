@@ -333,7 +333,7 @@ pub fn cin(f: &mut Fiber) -> Lresult<Event>
         Err(_) => {
             f.head.parent.set_result(Val::failure(
                 Val::Hashtag(Lstr::Sref("console_read_fail")),
-                Val::Str(Lstr::Sref("")),
+                Val::Str(Lstr::EMPTY),
                 f.head.trace.fail_here(),
                 val::FAILURE_INTERNAL,
             ));

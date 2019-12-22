@@ -28,11 +28,6 @@ impl Lstr
 {
     pub const EMPTY: Lstr = Lstr::Sref("");
 
-    pub fn empty() -> Lstr
-    {
-        Lstr::Sref("")
-    }
-
     pub fn cat(a: Lstr, b: Lstr) -> Lstr
     {
         Lstr::Cat(Box::new(a), Box::new(b))
