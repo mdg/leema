@@ -220,7 +220,7 @@ impl ProtoModule
         }
     }
 
-    fn default_imports() -> &'static HashMap<&'static str, ModPath>
+    pub fn default_imports() -> &'static HashMap<&'static str, ModPath>
     {
         &DEFAULT_IDS
     }
@@ -502,6 +502,12 @@ impl ProtoModule
             || self.types.contains_key(id)
     }
 
+    /// Check if this module defines a type
+    pub fn defines_type(&self, id: &str) -> bool
+    {
+        self.types.contains_key(id)
+    }
+
     /// Check if this module is a core module
     pub fn is_core(&self) -> bool
     {
@@ -564,10 +570,10 @@ impl ProtoModule
     ) -> Lresult<Type>
     {
         Ok(match &*node.node {
-            Ast::Id1("Bool") => Type::BOOL,
-            Ast::Id1("Int") => Type::INT,
-            Ast::Id1("Str") => Type::STR,
-            Ast::Id1("#") => Type::HASHTAG,
+            // Ast::Id1("Bool") => Type::BOOL,
+            // Ast::Id1("Int") => Type::INT,
+            // Ast::Id1("Str") => Type::STR,
+            // Ast::Id1("#") => Type::HASHTAG,
             Ast::Id1(id) if struple::contains_key(opens, id) => Type::OpenVar(id),
             Ast::Id1(id) => Type::User(Lstr::EMPTY, id),
             Ast::Id2(module, id) => Type::User(module.clone(), id),

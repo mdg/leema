@@ -494,7 +494,7 @@ pub mod tests
     {
         fn get_type(&self) -> Type
         {
-            Type::Resource(Lstr::Sref("MockRsrc"))
+            Type::User(Lstr::Sref("foo"), "MockRsrc")
         }
     }
 

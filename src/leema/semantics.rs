@@ -776,6 +776,7 @@ impl<'p> TypeCheck<'p>
         for arg in ftyp.args.iter() {
             check.validate_type(&arg.v)?;
         }
+        check.validate_type(&ftyp.result)?;
         Ok(check)
     }
 
@@ -2071,6 +2072,23 @@ mod tests
         proto.add_module(mkey.chain.clone(), input).unwrap();
         let fref = Fref::with_modules(mkey, "factf");
         Semantics::compile_call(&mut proto, &fref).unwrap();
+    }
+
+    #[test]
+    fn test_typefailure_undefined()
+    {
+        let input = r#"
+        func inc i:Int /Inth >> i + 1 --
+        "#;
+
+        let mut proto = load_proto_with_prefab();
+        let mkey = ModKey::from("foo");
+        proto.add_module(mkey.chain.clone(), input).unwrap();
+        let fref = Fref::with_modules(mkey, "inc");
+        let err = Semantics::compile_call(&mut proto, &fref);
+
+        assert_matches!(err, Err(_));
+        err.unwrap();
     }
 
     /*
