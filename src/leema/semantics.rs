@@ -675,70 +675,6 @@ impl<'l> fmt::Debug for ScopeCheck<'l>
     }
 }
 
-struct VarTypes<'p>
-{
-    vartypes: HashMap<&'static str, Type>,
-    module: &'p Lstr,
-    mode: AstMode,
-}
-
-impl<'p> VarTypes<'p>
-{
-    pub fn new(module: &'p Lstr, ftype: &FuncType) -> Lresult<VarTypes<'p>>
-    {
-        let mut vartypes = HashMap::new();
-        for arg in ftype.args.iter() {
-            let argname = arg.k.as_ref().unwrap().sref()?;
-            vartypes.insert(argname, arg.v.clone());
-        }
-        Ok(VarTypes {
-            vartypes,
-            module,
-            mode: AstMode::Value,
-        })
-    }
-}
-
-impl<'p> SemanticOp for VarTypes<'p>
-{
-    fn pre(&mut self, mut node: AstNode) -> SemanticResult
-    {
-        match *node.node {
-            Ast::Id1(id) => {
-                // if the type is known, assign it to this variable
-                if let Some(typ) = self.vartypes.get(id) {
-                    node.typ = typ.clone();
-                // put the node back the way it was
-                // *node.node = Ast::Id1(id);
-                } else {
-                    let tvar = Type::LocalVar(Lstr::Sref(id));
-                    self.vartypes.insert(id, tvar.clone());
-                    node.typ = tvar;
-                    // put the node back the way it was
-                    // *node.node = Ast::Id1(id);
-                }
-            }
-            _ => {
-                // should handle matches later, but for now it's fine
-            }
-        }
-        Ok(SemanticAction::Keep(node))
-    }
-
-    fn set_mode(&mut self, mode: AstMode)
-    {
-        self.mode = mode;
-    }
-}
-
-impl<'p> fmt::Debug for VarTypes<'p>
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        write!(f, "VarTypes({})", self.module)
-    }
-}
-
 /// Check types within a function call
 ///
 /// Normally match types w/ self.match_type(t0, t1)
@@ -751,7 +687,8 @@ struct TypeCheck<'p>
 {
     local_mod: &'p ProtoModule,
     lib: &'p ProtoLib,
-    result: &'p Type,
+    result: Type,
+    vartypes: HashMap<&'static str, Type>,
     infers: HashMap<Lstr, Type>,
     calls: Vec<Fref>,
     mode: AstMode,
@@ -765,24 +702,43 @@ impl<'p> TypeCheck<'p>
         ftyp: &'p FuncType,
     ) -> Lresult<TypeCheck<'p>>
     {
-        let check = TypeCheck {
+        let mut check = TypeCheck {
             local_mod,
             lib,
-            result: &*ftyp.result,
+            result: Type::Void,
+            vartypes: HashMap::new(),
             infers: HashMap::new(),
             calls: vec![],
             mode: AstMode::Value,
         };
+
         for arg in ftyp.args.iter() {
-            check.validate_type(&arg.v)?;
+            let argname = arg.k.as_ref().unwrap().sref()?;
+            let real_type = check.true_type(&arg.v)?;
+            check.vartypes.insert(argname, real_type);
         }
-        check.validate_type(&ftyp.result)?;
+        check.result = check.true_type(&ftyp.result)?;
         Ok(check)
     }
 
-    fn validate_type(&self, _type: &Type) -> Lresult<()>
+    fn true_type(&self, typ: &Type) -> Lresult<Type>
     {
-        Ok(())
+        match typ {
+            Type::User(ref m, ref t) if m == "" => {
+                if self.local_mod.defines_type(t) {
+                } else if ProtoModule::default_imports().contains_key(t) {
+                } else {
+                }
+            }
+            Type::User(ref m, ref t) if m == "core" => {
+            }
+            Type::User(ref m, ref t) => {
+            }
+            _ => {
+                // nothing
+            }
+        }
+        Ok(Type::Void)
     }
 
     pub fn inferred_local(&self, local_tvar: &Lstr) -> Type
@@ -1149,6 +1105,20 @@ impl<'p> SemanticOp for TypeCheck<'p>
     {
         match &mut *node.node {
             // Ast::Let(patt, dtype, x) => {
+            Ast::Id1(id) => {
+                // if the type is known, assign it to this variable
+                if let Some(typ) = self.vartypes.get(id) {
+                    node.typ = typ.clone();
+                // put the node back the way it was
+                // *node.node = Ast::Id1(id);
+                } else {
+                    let tvar = Type::LocalVar(Lstr::Sref(id));
+                    self.vartypes.insert(id, tvar.clone());
+                    node.typ = tvar;
+                    // put the node back the way it was
+                    // *node.node = Ast::Id1(id);
+                }
+            }
             Ast::Id2(modname, id) => {
                 let module = ltry!(self
                     .lib
@@ -1438,7 +1408,6 @@ impl Semantics
 
         let mut macs = MacroApplication::new(local_proto, proto, ftyp, &closed);
         let mut scope_check = ScopeCheck::new(ftyp, local_proto, proto)?;
-        let mut var_types = VarTypes::new(&local_proto.key.name, ftyp)?;
         let mut type_check = TypeCheck::new(local_proto, proto, ftyp)?;
         let mut remove_extra = RemoveExtraCode;
         let mut pipe = SemanticPipeline {
@@ -1446,7 +1415,6 @@ impl Semantics
                 &mut remove_extra,
                 &mut macs,
                 &mut scope_check,
-                &mut var_types,
                 &mut type_check,
             ],
         };
