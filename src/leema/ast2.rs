@@ -40,6 +40,9 @@ impl Default for Loc
     }
 }
 
+/// ModAlias is a string that references an imported module
+pub struct ModAlias(&'static str);
+
 #[derive(Clone)]
 #[derive(Copy)]
 #[derive(Debug)]

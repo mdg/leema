@@ -349,25 +349,39 @@ pub enum ModRelativity
     Local,
 }
 
-/// mod ref .str, no /, for ast
+/// mod alias .str, no /, for ast
 ///
-/// local mod, import mod
-/// |child
-/// |sibling
-/// |absolute
+/// local mod, import mod, no leading /
+/// |child .str
+/// |sibling .str
+/// |absolute .str
+///
+/// relative mod .str
+/// |a/b ->   child
+/// |./a/b -> sibling
+/// |/a/b ->  absolute
 ///
 /// canonical .str, no leading /
 ///
 /// type mod?
-/// .import_mod
+/// .local_mod
 /// .canonical
 ///
-/// mod
+/// ModKey
 /// .canonical
 /// .path: str
-pub enum Import
+
+pub enum LocalMod
 {
     Absolute(Lstr),
     Child(Lstr),
     Sibling(Lstr),
+}
+
+pub struct CanonicalMod(Lstr);
+
+pub struct TypeMod
+{
+    local: LocalMod,
+    canonical: CanonicalMod,
 }
