@@ -348,3 +348,26 @@ pub enum ModRelativity
     Sibling,
     Local,
 }
+
+/// mod ref .str, no /, for ast
+///
+/// local mod, import mod
+/// |child
+/// |sibling
+/// |absolute
+///
+/// canonical .str, no leading /
+///
+/// type mod?
+/// .import_mod
+/// .canonical
+///
+/// mod
+/// .canonical
+/// .path: str
+pub enum Import
+{
+    Absolute(Lstr),
+    Child(Lstr),
+    Sibling(Lstr),
+}
