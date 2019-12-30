@@ -443,7 +443,7 @@ macro_rules! canonical_typemod
     ($tm:expr) => {
         crate::leema::module::TypeMod {
             import: crate::leema::module::ImportedMod(
-                crate::leema::lstr::Lstr::Sref($tm),
+                crate::leema::lstr::Lstr::Sref(concat!("/", stringify!($tm))),
             ),
             canonical: crate::leema::module::CanonicalMod(
                 crate::leema::lstr::Lstr::Sref($tm),
