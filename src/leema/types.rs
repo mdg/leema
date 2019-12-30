@@ -1,11 +1,12 @@
 use crate::leema::list;
 use crate::leema::lstr::Lstr;
+use crate::leema::module::TypeMod;
 use crate::leema::struple::StrupleItem;
 use crate::leema::val::{Type, Val};
 
 
-pub const STRUCT_FIELD_TYPE: Type =
-    Type::User(Lstr::Sref("types"), "StructFieldVal");
+const MODULE: TypeMod = canonical_typemod!(types);
+pub const STRUCT_FIELD_TYPE: Type = Type::User(MODULE, "StructFieldVal");
 
 
 pub fn option_type(t: Type) -> Type

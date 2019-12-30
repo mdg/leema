@@ -18,6 +18,8 @@ use std::sync::{Arc, Mutex};
 use mopa::mopafy;
 
 
+const CORE_MOD: TypeMod = canonical_typemod!(core);
+
 #[derive(Debug)]
 #[derive(Clone)]
 #[derive(PartialEq)]
@@ -121,7 +123,7 @@ pub enum Type
     // base interface/type should probably be iterator
     // and then it should be a protocol, not type
     StrictList(Box<Type>),
-    User(Lstr, &'static str),
+    User(TypeMod, &'static str),
     /// bool is open
     Generic(bool, Box<Type>, GenericTypes),
 
@@ -137,11 +139,11 @@ pub enum Type
 
 impl Type
 {
-    pub const INT: Type = Type::User(Lstr::Sref("core"), "Int");
-    pub const STR: Type = Type::User(Lstr::Sref("core"), "Str");
-    pub const BOOL: Type = Type::User(Lstr::Sref("core"), "Bool");
-    pub const HASHTAG: Type = Type::User(Lstr::Sref("core"), "Hashtag");
-    pub const FAILURE: Type = Type::User(Lstr::Sref("core"), "Failure");
+    pub const INT: Type = Type::User(CORE_MOD, "Int");
+    pub const STR: Type = Type::User(CORE_MOD, "Str");
+    pub const BOOL: Type = Type::User(CORE_MOD, "Bool");
+    pub const HASHTAG: Type = Type::User(CORE_MOD, "Hashtag");
+    pub const FAILURE: Type = Type::User(CORE_MOD, "Failure");
 
     pub fn f(inputs: Struple2<Type>, result: Type) -> Type
     {
@@ -211,7 +213,9 @@ impl Type
     {
         match self {
             &Type::User(Lstr::Sref("core"), "Failure") => true,
-            &Type::User(ref core, "Failure") if core.str() == "core" => true,
+            &Type::User(ref core, "Failure") if core.starts_with("/core") => {
+                true
+            }
             _ => false,
         }
     }

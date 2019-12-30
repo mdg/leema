@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 
 const DEFAULT_MODNAME: &'static str = "$";
+const DEFAULT_MOD: CanonicalMod = CanonicalMod(Path::new("$").to_path_buf());
 
 #[derive(Clone)]
 #[derive(PartialEq)]
@@ -139,7 +140,7 @@ impl fmt::Debug for Chain
 #[derive(Ord)]
 pub struct ModKey
 {
-    pub name: Lstr,
+    pub name: CanonicalMod,
     pub chain: Chain,
     pub file: Option<Box<Path>>,
 }
@@ -148,8 +149,9 @@ impl ModKey
 {
     pub fn new(name: Chain, path: PathBuf) -> ModKey
     {
+        let cmod = PathBuf::from(String::from(&name));
         ModKey {
-            name: Lstr::from(String::from(&name)),
+            name: CanonicalMod(cmod),
             chain: name,
             file: Some(From::from(path)),
         }
@@ -158,11 +160,8 @@ impl ModKey
     /// If the path exists, get it. Otherwise return the module name
     pub fn best_path(&self) -> Lstr
     {
-        self.file
-            .as_ref()
-            .and_then(|ref p| p.to_str())
-            .map(|ps| Lstr::from(String::from(ps)))
-            .unwrap_or_else(|| self.name.clone())
+        let path = self.file.map(|f| &*f).unwrap_or(self.name.0.as_path());
+        Lstr::from(String::from(path.to_str().unwrap()))
     }
 }
 
@@ -170,8 +169,9 @@ impl From<Chain> for ModKey
 {
     fn from(chain: Chain) -> ModKey
     {
+        let cmod = PathBuf::from(String::from(&chain));
         ModKey {
-            name: lstrf!("{}", chain),
+            name: CanonicalMod(cmod),
             chain,
             file: None,
         }
@@ -191,7 +191,7 @@ impl Default for ModKey
     fn default() -> ModKey
     {
         ModKey {
-            name: Lstr::Sref(DEFAULT_MODNAME),
+            name: DEFAULT_MOD,
             chain: Chain::default(),
             file: None,
         }
@@ -217,7 +217,7 @@ impl sendclone::SendClone for ModKey
     fn clone_for_send(&self) -> ModKey
     {
         ModKey {
-            name: self.name.clone_for_send(),
+            name: self.name.clone(),
             chain: self.chain.clone(),
             file: self.file.clone(),
         }
@@ -419,7 +419,31 @@ pub struct ImportedMod(pub PathBuf);
 #[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Ord)]
+#[derive(Hash)]
 pub struct CanonicalMod(pub PathBuf);
+
+impl fmt::Display for CanonicalMod
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        // really should call ok_or_else() here instead of unwrap
+        f.write_str(self.0.to_str().unwrap())
+    }
+}
+
+#[derive(Clone)]
+#[derive(Debug)]
+pub enum TypeMod2
+{
+    Alias(PathBuf),
+    Import {
+        import: PathBuf,
+        canonical: PathBuf,
+    },
+    Canonical(PathBuf),
+}
 
 #[derive(Clone)]
 #[derive(Debug)]
@@ -440,24 +464,23 @@ macro_rules! canonical_typemod
     };
 }
 
+impl From<&CanonicalMod> for TypeMod
+{
+    fn from(cmod: &CanonicalMod) -> TypeMod
+    {
+        TypeMod {
+            imported: cmod.0.clone(),
+            canonical: cmod.0.clone(),
+        }
+    }
+}
+
 /*
 impl From<ModAlias> for TypeMod
 {
     fn from(alias: ModAlias) -> TypeMod
     {
         TypeMod::Alias(alias.0)
-    }
-}
-
-impl From<&ImportedMod> for TypeMod
-{
-    fn from(im: &ImportedMod) -> TypeMod
-    {
-        TypeMod {
-            alias: ModAlias(""),
-            imported: im.clone(),
-            canonical: None,
-        }
     }
 }
 
@@ -479,5 +502,13 @@ impl PartialEq for TypeMod
     fn eq(&self, other: &TypeMod) -> bool
     {
         self.canonical == other.canonical
+    }
+}
+
+impl fmt::Display for TypeMod
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        f.write_str(self.import.to_str().unwrap())
     }
 }

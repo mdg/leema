@@ -1,15 +1,19 @@
-use crate::leema::lstr::Lstr;
+use crate::leema::module::TypeMod;
 use crate::leema::struple::StrupleItem;
 use crate::leema::val::{Type, Val};
 
 use std::sync::Arc;
 
 
+const MODULE: TypeMod = canonical_typemod!(map);
+const INNER_MAP_TYPE: Type = Type::User(MODULE, "T");
+const MAP_TYPE: Type = map_type();
+
 pub fn map_type() -> Type
 {
     Type::Generic(
         true,
-        Box::new(Type::User(Lstr::Sref("map"), "T")),
+        Box::new(INNER_MAP_TYPE),
         vec![
             StrupleItem {
                 k: "K",

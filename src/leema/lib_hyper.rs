@@ -1,6 +1,7 @@
 use crate::leema::code::Code;
 use crate::leema::frame::FrameTrace;
 use crate::leema::lstr::Lstr;
+use crate::leema::module::TypeMod;
 use crate::leema::rsrc::{self, Rsrc, RunQueue};
 use crate::leema::struple::StrupleItem;
 use crate::leema::val::{Fref, Type, Val};
@@ -32,8 +33,9 @@ hyper_server::run(s)
 hyper_server::close(s)
 */
 
-const REQUEST_TYPE: Type = Type::User(Lstr::Sref("hyper_server"), "Request");
-const SERVER_HANDLE_TYPE: Type = Type::User(Lstr::Sref("hyper_server"), "ServerHandle");
+const SERVER_MOD: TypeMod = canonical_typemod!(hyper_server);
+const REQUEST_TYPE: Type = Type::User(SERVER_MOD, "Request");
+const SERVER_HANDLE_TYPE: Type = Type::User(SERVER_MOD, "ServerHandle");
 
 type BoxFut = Box<
     dyn Future<Item = Response<Body>, Error = futures_oneshot::Canceled> + Send,
@@ -180,8 +182,9 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
 }
 
 
+const CLIENT_MOD: TypeMod = canonical_typemod!(hyper_client);
 const CLIENT_RESP_TYPE: Type =
-    Type::User(Lstr::Sref("hyper_client"), "Response");
+    Type::User(CLIENT_MOD, "Response");
 
 pub fn new_client_response(code: i64, req_time: Duration, body: String) -> Val
 {

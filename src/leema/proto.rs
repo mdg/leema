@@ -3,7 +3,7 @@ use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::grammar2::Grammar;
 use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::{self, ModKey, ModPath, ModRelativity, TypeMod};
+use crate::leema::module::{self, CanonicalMod, ModKey, ModPath, ModRelativity, TypeMod};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::token::Tokenz;
 use crate::leema::val::{Fref, FuncType, GenericTypes, Type, Val};
@@ -309,7 +309,7 @@ impl ProtoModule
         let sname_id = match *name.node {
             Ast::Id1(name_id) => {
                 ltry!(self.refute_redefines_default(name_id, name.loc));
-                struct_typ = Type::User(m.clone(), name_id);
+                struct_typ = Type::User(TypeMod::from(m), name_id);
                 opens = vec![];
                 name_id
             }
@@ -332,7 +332,8 @@ impl ProtoModule
 
                 if let Ast::Id1(name_id) = *gen.node {
                     ltry!(self.refute_redefines_default(name_id, name.loc));
-                    let inner = Type::User(m.clone(), name_id);
+                    let itmod = TypeMod::from(m);
+                    let inner = Type::User(itmod, name_id);
                     struct_typ =
                         Type::Generic(true, Box::new(inner), opens.clone());
                     name_id
@@ -620,7 +621,7 @@ impl ProtoModule
 
     fn ast_to_ftype(
         &self,
-        local_mod: &Lstr,
+        local_mod: &CanonicalMod,
         args: &Xlist,
         result: &AstNode,
         opens: &[StrupleItem<&'static str, Type>],
