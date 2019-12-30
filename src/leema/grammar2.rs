@@ -1,6 +1,7 @@
 use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc, ModTree};
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
+use crate::leema::module::ModAlias;
 use crate::leema::parsl::{
     Assoc, InfixParser, ParseFirst, ParseMore, Parsl, ParslMode, Precedence,
     PrefixParser, MIN_PRECEDENCE,
@@ -859,7 +860,7 @@ impl InfixParser for ParseId
         if let Ast::Id1(first) = *left.node {
             let second = expect_next!(p, Token::Id)?;
             Ok(AstNode::new(
-                Ast::Id2(ast2::ModAlias::new(first), second.src),
+                Ast::Id2(ModAlias::new(first), second.src),
                 left.loc,
             ))
         } else {

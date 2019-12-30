@@ -18,8 +18,9 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpListener, TcpStream};
 
 
-const SOCKET_TYPE: Type = Type::User(Lstr::Sref("tcp"), "Socket");
-const LISTENER_TYPE: Type = Type::User(Lstr::Sref("tcp"), "Listener");
+const MODULE: ModType = ModType::Canonical("tcp");
+const SOCKET_TYPE: Type = Type::User(MODULE, "Socket");
+const LISTENER_TYPE: Type = Type::User(MODULE, "Listener");
 
 impl Rsrc for TcpStream
 {

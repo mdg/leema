@@ -2,6 +2,7 @@ use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc, Xlist};
 use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
+use crate::leema::module::ModAlias;
 use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{
@@ -241,7 +242,7 @@ impl<'l> MacroApplication<'l>
         loc: Loc,
     ) -> AstNode
     {
-        let malias = ast2::ModAlias::new(module);
+        let malias = ModAlias::new(module);
         let callx = AstNode::new(Ast::Id2(malias, func), loc);
         let args: StrupleKV<Option<&'static str>, AstNode> =
             struple::new_tuple2(a, b);
@@ -367,7 +368,7 @@ impl<'l> SemanticOp for MacroApplication<'l>
             }
             Ast::Op1("-", x) => {
                 let callx = AstNode::new(
-                    Ast::Id2(ast2::ModAlias::new("prefab"), "int_negate"),
+                    Ast::Id2(ModAlias::new("prefab"), "int_negate"),
                     node.loc,
                 );
                 let arg = vec![StrupleItem::new_v(x)];

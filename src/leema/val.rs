@@ -3,7 +3,7 @@ use crate::leema::frame::FrameTrace;
 use crate::leema::list;
 use crate::leema::lmap::{self, LmapNode};
 use crate::leema::lstr::Lstr;
-use crate::leema::module::ModKey;
+use crate::leema::module::{ModKey, TypeMod};
 use crate::leema::msg;
 use crate::leema::reg::{self, Ireg, Iregistry, Reg};
 use crate::leema::sendclone::{self, SendClone};

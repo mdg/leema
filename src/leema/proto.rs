@@ -576,7 +576,9 @@ impl ProtoModule
             // Ast::Id1("#") => Type::HASHTAG,
             Ast::Id1(id) if struple::contains_key(opens, id) => Type::OpenVar(id),
             Ast::Id1(id) => Type::User(Lstr::EMPTY, id),
-            Ast::Id2(module, id) => Type::User(TypeMod::from(module), id),
+            Ast::Id2(alias, id) => {
+                Type::User(TypeMod::from(*alias), id)
+            }
             Ast::List(inner_items) if inner_items.len() == 1 => {
                 let inner = &inner_items.first().unwrap().v;
                 let inner_t = self.ast_to_type(local_mod, inner, opens)?;

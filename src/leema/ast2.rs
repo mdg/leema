@@ -1,5 +1,5 @@
 use crate::leema::failure::Lresult;
-use crate::leema::module::{self, ModPath, ModRelativity};
+use crate::leema::module::{self, ModAlias, ModPath, ModRelativity};
 use crate::leema::reg::Reg;
 use crate::leema::struple::{self, StrupleKV};
 use crate::leema::token::TokenSrc;
@@ -82,35 +82,6 @@ impl fmt::Debug for Case
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         write!(f, "(Case {:?} ? {:?})", self.cond, self.body)
-    }
-}
-
-/// ModAlias is a string that references an imported module
-#[derive(Copy)]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
-pub struct ModAlias(&'static str);
-
-impl ModAlias
-{
-    pub fn new(m: &'static str) -> ModAlias
-    {
-        ModAlias(m)
-    }
-
-    pub fn str(&self) -> &'static str
-    {
-        self.0
-    }
-}
-
-impl fmt::Display for ModAlias
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        f.write_str(self.0)
     }
 }
 

@@ -369,9 +369,45 @@ pub enum ModRelativity
 /// .local_mod
 /// .canonical
 ///
+/// TypeMod
+/// |Alias .str
+/// |Import
+///    .alias
+///    .canonical
+/// |Canonical .str
+///
 /// ModKey
 /// .canonical
 /// .path: str
+
+/// ModAlias is a string that references an imported module
+#[derive(Copy)]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+pub struct ModAlias(&'static str);
+
+impl ModAlias
+{
+    pub fn new(m: &'static str) -> ModAlias
+    {
+        ModAlias(m)
+    }
+
+    pub fn str(&self) -> &'static str
+    {
+        self.0
+    }
+}
+
+impl fmt::Display for ModAlias
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        f.write_str(self.0)
+    }
+}
 
 #[derive(Clone)]
 #[derive(Debug)]
@@ -391,8 +427,21 @@ pub struct CanonicalMod(Lstr);
 #[derive(PartialOrd)]
 pub struct TypeMod
 {
+    alias: ModAlias,
     imported: ImportedMod,
-    canonical: Option<CanonicalMod>,
+    pub canonical: Option<CanonicalMod>,
+}
+
+impl From<ModAlias> for TypeMod
+{
+    fn from(alias: ModAlias) -> TypeMod
+    {
+        TypeMod {
+            alias,
+            imported: ImportedMod(Lstr::EMPTY),
+            canonical: None,
+        }
+    }
 }
 
 impl From<&ImportedMod> for TypeMod
@@ -400,7 +449,20 @@ impl From<&ImportedMod> for TypeMod
     fn from(im: &ImportedMod) -> TypeMod
     {
         TypeMod {
+            alias: ModAlias(""),
             imported: im.clone(),
+            canonical: None,
+        }
+    }
+}
+
+impl From<(ModAlias, &ImportedMod)> for TypeMod
+{
+    fn from(mods: (ModAlias, &ImportedMod)) -> TypeMod
+    {
+        TypeMod {
+            alias: mods.0,
+            imported: mods.1.clone(),
             canonical: None,
         }
     }
