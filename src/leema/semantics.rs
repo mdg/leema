@@ -726,15 +726,13 @@ impl<'p> TypeCheck<'p>
     fn true_type(&self, typ: &Type) -> Lresult<Type>
     {
         match typ {
-            Type::User(ref m, ref t) if m == "" => {
+            Type::User(ref m, ref t) if m.canonical.starts_with("/core") => {
+            }
+            Type::User(ref m, ref t) => {
                 if self.local_mod.defines_type(t) {
                 } else if ProtoModule::default_imports().contains_key(t) {
                 } else {
                 }
-            }
-            Type::User(ref m, ref t) if m == "core" => {
-            }
-            Type::User(ref m, ref t) => {
             }
             _ => {
                 // nothing
@@ -1259,7 +1257,7 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 node.typ = Type::Tuple(itypes?);
             }
             Ast::Return(_) => {
-                node.typ = Type::User(Lstr::Sref("core"), "NoReturn");
+                node.typ = user_type!(core, "NoReturn");
             }
             _ => {
                 // should handle matches later, but for now it's fine

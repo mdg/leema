@@ -212,9 +212,8 @@ impl Type
     pub fn is_failure(&self) -> bool
     {
         match self {
-            &Type::User(Lstr::Sref("core"), "Failure") => true,
-            &Type::User(ref core, "Failure") if core.starts_with("/core") => {
-                true
+            &Type::User(ref core, "Failure") => {
+                core.canonical.starts_with("/core")
             }
             _ => false,
         }
@@ -263,7 +262,7 @@ impl Type
                 Type::Generic(open, subt2, opens2)
             }
             &Type::User(ref module, typ) => {
-                Type::User(module.clone_for_send(), typ)
+                Type::User(module.clone(), typ)
             }
             &Type::Void => Type::Void,
             _ => {

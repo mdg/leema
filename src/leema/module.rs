@@ -428,8 +428,7 @@ impl fmt::Display for CanonicalMod
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        // really should call ok_or_else() here instead of unwrap
-        f.write_str(self.0.to_str().unwrap())
+        write!(f, "{}", self.0.display())
     }
 }
 
@@ -447,6 +446,10 @@ pub enum TypeMod2
 
 #[derive(Clone)]
 #[derive(Debug)]
+#[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Ord)]
+#[derive(Hash)]
 pub struct TypeMod
 {
     pub import: PathBuf,
@@ -464,12 +467,20 @@ macro_rules! canonical_typemod
     };
 }
 
+#[macro_export]
+macro_rules! user_type
+{
+    ($m:ident, $t:expr) => {
+        crate::leema::val::Type::User(canonical_typemod!($m), $t)
+    };
+}
+
 impl From<&CanonicalMod> for TypeMod
 {
     fn from(cmod: &CanonicalMod) -> TypeMod
     {
         TypeMod {
-            imported: cmod.0.clone(),
+            import: cmod.0.clone(),
             canonical: cmod.0.clone(),
         }
     }
@@ -509,6 +520,6 @@ impl fmt::Display for TypeMod
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        f.write_str(self.import.to_str().unwrap())
+        write!(f, "{}", self.import.display())
     }
 }

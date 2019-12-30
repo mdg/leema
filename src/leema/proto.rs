@@ -375,7 +375,8 @@ impl ProtoModule
         match *name.node {
             Ast::Id1(name_id) => {
                 ltry!(self.refute_redefines_default(name_id, name.loc));
-                let t = Type::User(self.key.name.clone(), name_id);
+                let tok_mod = TypeMod::from(&self.key.name);
+                let t = Type::User(tok_mod, name_id);
                 let token_val = Val::Token(t.clone());
                 let const_node = AstNode::new_constval(token_val, name.loc);
                 self.types.insert(name_id, t);
@@ -565,7 +566,7 @@ impl ProtoModule
 
     pub fn ast_to_type(
         &self,
-        local_mod: &Lstr,
+        local_mod: &CanonicalMod,
         node: &AstNode,
         opens: &[StrupleItem<&'static str, Type>],
     ) -> Lresult<Type>
@@ -634,7 +635,7 @@ impl ProtoModule
 
     fn xlist_to_types(
         &self,
-        local_mod: &Lstr,
+        local_mod: &CanonicalMod,
         args: &Xlist,
         opens: &[StrupleItem<&'static str, Type>],
     ) -> Lresult<Struple2<Type>>
