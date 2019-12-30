@@ -361,7 +361,9 @@ pub enum ModRelativity
 /// |./a/b -> sibling
 /// |/a/b ->  absolute
 ///
-/// canonical .str, no leading /
+/// imported mod .str, leading / or ./ or no
+///
+/// canonical mod .str, no leading /
 ///
 /// type mod?
 /// .local_mod
@@ -371,17 +373,19 @@ pub enum ModRelativity
 /// .canonical
 /// .path: str
 
-pub enum LocalMod
+pub enum RelativeMod
 {
     Absolute(Lstr),
     Child(Lstr),
     Sibling(Lstr),
 }
 
+pub struct ImportedMod(Lstr);
+
 pub struct CanonicalMod(Lstr);
 
 pub struct TypeMod
 {
-    local: LocalMod,
+    imported: ImportedMod,
     canonical: CanonicalMod,
 }
