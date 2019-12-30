@@ -859,7 +859,7 @@ impl InfixParser for ParseId
         if let Ast::Id1(first) = *left.node {
             let second = expect_next!(p, Token::Id)?;
             Ok(AstNode::new(
-                Ast::Id2(Lstr::Sref(first), second.src),
+                Ast::Id2(ast2::ModAlias::new(first), second.src),
                 left.loc,
             ))
         } else {

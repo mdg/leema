@@ -1,5 +1,4 @@
 use crate::leema::failure::Lresult;
-use crate::leema::lstr::Lstr;
 use crate::leema::module::{self, ModPath, ModRelativity};
 use crate::leema::reg::Reg;
 use crate::leema::struple::{self, StrupleKV};
@@ -39,9 +38,6 @@ impl Default for Loc
         }
     }
 }
-
-/// ModAlias is a string that references an imported module
-pub struct ModAlias(&'static str);
 
 #[derive(Clone)]
 #[derive(Copy)]
@@ -86,6 +82,35 @@ impl fmt::Debug for Case
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         write!(f, "(Case {:?} ? {:?})", self.cond, self.body)
+    }
+}
+
+/// ModAlias is a string that references an imported module
+#[derive(Copy)]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+pub struct ModAlias(&'static str);
+
+impl ModAlias
+{
+    pub fn new(m: &'static str) -> ModAlias
+    {
+        ModAlias(m)
+    }
+
+    pub fn str(&self) -> &'static str
+    {
+        self.0
+    }
+}
+
+impl fmt::Display for ModAlias
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        f.write_str(self.0)
     }
 }
 
@@ -217,9 +242,8 @@ pub enum Ast
     FuncType(Xlist, AstNode),
     Generic(AstNode, Xlist),
     Id1(&'static str),
-    Id2(Lstr, &'static str),
+    Id2(ModAlias, &'static str),
     Ifx(Vec<Case>),
-    ImportedId(ModPath, &'static str),
     LessThan3(AstNode, bool, AstNode, bool, AstNode),
     Let(AstNode, AstNode, AstNode),
     List(Xlist),
@@ -286,9 +310,6 @@ impl Ast
             Ast::Id1(id) => write!(f, "Id {}", id),
             Ast::Id2(id1, id2) => write!(f, "Id {}::{}", id1, id2),
             Ast::Ifx(args) => write!(f, "If {:?}", args),
-            Ast::ImportedId(import, id) => {
-                write!(f, "ImportedId {}/{}", import, id)
-            }
             Ast::Let(lhp, _lht, rhs) => write!(f, "Let {:?} := {:?}", lhp, rhs),
             Ast::List(items) => write!(f, "List {:?}", items),
             Ast::Matchx(None, args) => write!(f, "Match None {:?}", args),

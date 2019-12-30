@@ -241,7 +241,8 @@ impl<'l> MacroApplication<'l>
         loc: Loc,
     ) -> AstNode
     {
-        let callx = AstNode::new(Ast::Id2(Lstr::Sref(module), func), loc);
+        let malias = ast2::ModAlias::new(module);
+        let callx = AstNode::new(Ast::Id2(malias, func), loc);
         let args: StrupleKV<Option<&'static str>, AstNode> =
             struple::new_tuple2(a, b);
         /*
@@ -282,7 +283,7 @@ impl<'l> SemanticOp for MacroApplication<'l>
                     Ast::Id2(ref modname, ref macroname) => {
                         ltry!(self
                             .proto
-                            .imported_proto(&self.local.key.chain, &modname)
+                            .imported_proto(&self.local.key.chain, modname.str())
                             .map_err(|f| {
                                 f.add_context(lstrf!(
                                     "no protomod for {}::{}",
@@ -366,7 +367,7 @@ impl<'l> SemanticOp for MacroApplication<'l>
             }
             Ast::Op1("-", x) => {
                 let callx = AstNode::new(
-                    Ast::Id2(Lstr::Sref("prefab"), "int_negate"),
+                    Ast::Id2(ast2::ModAlias::new("prefab"), "int_negate"),
                     node.loc,
                 );
                 let arg = vec![StrupleItem::new_v(x)];
@@ -597,7 +598,7 @@ impl<'p> SemanticOp for ScopeCheck<'p>
             Ast::Id2(module, id) if self.mode == AstMode::Type => {
                 let proto = ltry!(self
                     .lib
-                    .imported_proto(&self.local_mod.key.chain, module)
+                    .imported_proto(&self.local_mod.key.chain, module.str())
                     .map_err(|e| {
                         e.add_context(Lstr::from(format!(
                             "module {} not found for {} at {:?}",
@@ -619,7 +620,7 @@ impl<'p> SemanticOp for ScopeCheck<'p>
             Ast::Id2(module, id) => {
                 let proto = ltry!(self
                     .lib
-                    .imported_proto(&self.local_mod.key.chain, module)
+                    .imported_proto(&self.local_mod.key.chain, module.str())
                     .map_err(|e| {
                         e.add_context(Lstr::from(format!(
                             "module {} not found for {} at {:?}",
@@ -1122,7 +1123,7 @@ impl<'p> SemanticOp for TypeCheck<'p>
             Ast::Id2(modname, id) => {
                 let module = ltry!(self
                     .lib
-                    .imported_proto(&self.local_mod.key.chain, modname));
+                    .imported_proto(&self.local_mod.key.chain, modname.str()));
                 let typ = module.get_type(id)?;
                 node.typ = typ.clone();
             }

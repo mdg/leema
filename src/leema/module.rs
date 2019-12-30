@@ -373,19 +373,35 @@ pub enum ModRelativity
 /// .canonical
 /// .path: str
 
-pub enum RelativeMod
-{
-    Absolute(Lstr),
-    Child(Lstr),
-    Sibling(Lstr),
-}
-
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
 pub struct ImportedMod(Lstr);
 
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
 pub struct CanonicalMod(Lstr);
 
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
 pub struct TypeMod
 {
     imported: ImportedMod,
-    canonical: CanonicalMod,
+    canonical: Option<CanonicalMod>,
+}
+
+impl From<&ImportedMod> for TypeMod
+{
+    fn from(im: &ImportedMod) -> TypeMod
+    {
+        TypeMod {
+            imported: im.clone(),
+            canonical: None,
+        }
+    }
 }
