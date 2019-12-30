@@ -6,6 +6,8 @@ pub mod failure;
 pub mod lstr;
 #[macro_use]
 pub mod parsl;
+#[macro_use]
+pub mod module;
 
 pub mod application;
 pub mod ast2;
@@ -18,7 +20,6 @@ pub mod io;
 pub mod list;
 pub mod lmap;
 pub mod loader;
-pub mod module;
 pub mod msg;
 pub mod program;
 pub mod proto;

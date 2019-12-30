@@ -413,21 +413,20 @@ impl fmt::Display for ModAlias
 #[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
-pub struct ImportedMod(Lstr);
+pub struct ImportedMod(pub Lstr);
 
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
-pub struct CanonicalMod(Lstr);
+pub struct CanonicalMod(pub Lstr);
 
 #[derive(Clone)]
 #[derive(Debug)]
-pub enum TypeMod
+pub struct TypeMod
 {
-    Alias(&'static str),
-    Import(&'static str, &'static str),
-    Canonical(&'static str),
+    pub import: ImportedMod,
+    pub canonical: CanonicalMod,
 }
 
 impl From<ModAlias> for TypeMod
@@ -436,6 +435,21 @@ impl From<ModAlias> for TypeMod
     {
         TypeMod::Alias(alias.0)
     }
+}
+
+#[macro_export]
+macro_rules! canonical_typemod
+{
+    ($tm:expr) => {
+        crate::leema::module::TypeMod {
+            import: crate::leema::module::ImportedMod(
+                crate::leema::lstr::Lstr::Sref($tm),
+            ),
+            canonical: crate::leema::module::CanonicalMod(
+                crate::leema::lstr::Lstr::Sref($tm),
+            ),
+        }
+    };
 }
 
 /*
@@ -468,12 +482,6 @@ impl PartialEq for TypeMod
 {
     fn eq(&self, other: &TypeMod) -> bool
     {
-        match (self, other) {
-            (TypeMod::Import(_, m0), TypeMod::Import(_, m1)) => m0 == m1,
-            (TypeMod::Import(_, m0), TypeMod::Canonical(m1)) => m0 == m1,
-            (TypeMod::Canonical(m0), TypeMod::Import(_, m1)) => m0 == m1,
-            (TypeMod::Canonical(m0), TypeMod::Canonical(m1)) => m0 == m1,
-            _ => false,
-        }
+        self.canonical == other.canonical
     }
 }
