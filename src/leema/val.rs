@@ -6,7 +6,7 @@ use crate::leema::lstr::Lstr;
 use crate::leema::module::{ModKey, TypeMod};
 use crate::leema::msg;
 use crate::leema::reg::{self, Ireg, Iregistry, Reg};
-use crate::leema::sendclone::{self, SendClone};
+use crate::leema::sendclone;
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 
 use std::cmp::{Ordering, PartialEq, PartialOrd};
@@ -245,32 +245,6 @@ impl Type
         Ok(res)
     }
 
-    pub fn deep_clone(&self) -> Type
-    {
-        match self {
-            &Type::Tuple(ref items) => Type::Tuple(items.clone_for_send()),
-            &Type::StrictList(ref i) => {
-                Type::StrictList(Box::new(i.deep_clone()))
-            }
-            &Type::Func(ref ftyp) => Type::Func(ftyp.clone()),
-            &Type::Unknown => Type::Unknown,
-            &Type::OpenVar(id) => Type::OpenVar(id),
-            &Type::LocalVar(ref id) => Type::LocalVar(id.clone_for_send()),
-            &Type::Generic(open, ref subt, ref opens) => {
-                let subt2 = Box::new(subt.clone_for_send());
-                let opens2 = opens.clone_for_send();
-                Type::Generic(open, subt2, opens2)
-            }
-            &Type::User(ref module, typ) => {
-                Type::User(module.clone(), typ)
-            }
-            &Type::Void => Type::Void,
-            _ => {
-                panic!("cannot deep_clone Type: {:?}", self);
-            }
-        }
-    }
-
     pub fn list_inner_type(&self) -> Type
     {
         match self {
@@ -291,7 +265,28 @@ impl sendclone::SendClone for Type
 
     fn clone_for_send(&self) -> Type
     {
-        self.deep_clone()
+        match self {
+            &Type::Tuple(ref items) => Type::Tuple(items.clone_for_send()),
+            &Type::StrictList(ref i) => {
+                Type::StrictList(Box::new(i.clone_for_send()))
+            }
+            &Type::Func(ref ftyp) => Type::Func(ftyp.clone()),
+            &Type::Unknown => Type::Unknown,
+            &Type::OpenVar(id) => Type::OpenVar(id),
+            &Type::LocalVar(ref id) => Type::LocalVar(id.clone_for_send()),
+            &Type::Generic(open, ref subt, ref opens) => {
+                let subt2 = Box::new(subt.clone_for_send());
+                let opens2 = opens.clone_for_send();
+                Type::Generic(open, subt2, opens2)
+            }
+            &Type::User(ref module, typ) => {
+                Type::User(module.clone(), typ)
+            }
+            &Type::Void => Type::Void,
+            _ => {
+                panic!("cannot clone_for_send Type: {:?}", self);
+            }
+        }
     }
 }
 
@@ -903,61 +898,6 @@ impl Val
         Ok(m_result)
     }
 
-    pub fn deep_clone(&self) -> Val
-    {
-        match self {
-            &Val::Int(i) => Val::Int(i),
-            &Val::Str(ref s) => Val::Str(s.clone_for_send()),
-            &Val::Bool(b) => Val::Bool(b),
-            &Val::Hashtag(ref s) => Val::Hashtag(s.clone_for_send()),
-            &Val::Cons(ref head, ref tail) => {
-                Val::Cons(
-                    Box::new(head.deep_clone()),
-                    Arc::new(tail.deep_clone()),
-                )
-            }
-            &Val::Nil => Val::Nil,
-            &Val::Tuple(ref flds) => Val::Tuple(flds.clone_for_send()),
-            &Val::Struct(ref typ, ref flds) => {
-                Val::Struct(typ.deep_clone(), flds.clone_for_send())
-            }
-            &Val::EnumStruct(ref typ, ref vname, ref flds) => {
-                Val::EnumStruct(
-                    typ.deep_clone(),
-                    vname.clone_for_send(),
-                    flds.clone_for_send(),
-                )
-            }
-            &Val::EnumToken(ref typ, ref vname) => {
-                Val::EnumToken(typ.deep_clone(), vname.clone_for_send())
-            }
-            &Val::Token(ref typ) => Val::Token(typ.deep_clone()),
-            &Val::Call(ref f, ref args) => {
-                let f2 = f.clone_for_send();
-                let args2 = args.clone_for_send();
-                Val::Call(f2, args2)
-            }
-            &Val::Failure2(ref f) => {
-                Val::Failure2(Box::new(f.clone_for_send()))
-            }
-            &Val::Type(ref t) => Val::Type(t.deep_clone()),
-            &Val::ResourceRef(r) => Val::ResourceRef(r),
-            // &Val::Lib(LibVal),
-            // &Val::RustBlock,
-            &Val::Future(ref f) => Val::Future(f.clone()),
-            &Val::Void => Val::Void,
-            &Val::Wildcard => Val::Wildcard,
-            &Val::PatternVar(ref r) => Val::PatternVar(r.clone()),
-            &Val::Map(_) => {
-                panic!("cannot deep clone Map");
-            }
-            &Val::RustBlock => Val::RustBlock,
-            _ => {
-                panic!("cannot deep clone val: {:?}", self);
-            }
-        }
-    }
-
     fn fmt_list(f: &mut fmt::Formatter, l: &Val, dbg: bool) -> fmt::Result
     {
         match l {
@@ -1010,7 +950,57 @@ impl sendclone::SendClone for Val
 
     fn clone_for_send(&self) -> Val
     {
-        self.deep_clone()
+        match self {
+            &Val::Int(i) => Val::Int(i),
+            &Val::Str(ref s) => Val::Str(s.clone_for_send()),
+            &Val::Bool(b) => Val::Bool(b),
+            &Val::Hashtag(ref s) => Val::Hashtag(s.clone_for_send()),
+            &Val::Cons(ref head, ref tail) => {
+                Val::Cons(
+                    Box::new(head.clone_for_send()),
+                    tail.clone(),
+                )
+            }
+            &Val::Nil => Val::Nil,
+            &Val::Tuple(ref flds) => Val::Tuple(flds.clone_for_send()),
+            &Val::Struct(ref typ, ref flds) => {
+                Val::Struct(typ.clone_for_send(), flds.clone_for_send())
+            }
+            &Val::EnumStruct(ref typ, ref vname, ref flds) => {
+                Val::EnumStruct(
+                    typ.clone_for_send(),
+                    vname.clone_for_send(),
+                    flds.clone_for_send(),
+                )
+            }
+            &Val::EnumToken(ref typ, ref vname) => {
+                Val::EnumToken(typ.clone_for_send(), vname.clone_for_send())
+            }
+            &Val::Token(ref typ) => Val::Token(typ.clone_for_send()),
+            &Val::Call(ref f, ref args) => {
+                let f2 = f.clone_for_send();
+                let args2 = args.clone_for_send();
+                Val::Call(f2, args2)
+            }
+            &Val::Failure2(ref f) => {
+                Val::Failure2(Box::new(f.clone_for_send()))
+            }
+            &Val::Type(ref t) => Val::Type(t.clone_for_send()),
+            &Val::ResourceRef(r) => Val::ResourceRef(r),
+            // &Val::Lib(LibVal),
+            // &Val::RustBlock,
+            &Val::Future(ref f) => Val::Future(f.clone()),
+            &Val::Void => Val::Void,
+            &Val::Wildcard => Val::Wildcard,
+            &Val::PatternVar(ref r) => Val::PatternVar(r.clone()),
+            &Val::Map(_) => {
+                panic!("cannot deep clone Map");
+            }
+            &Val::RustBlock => Val::RustBlock,
+            _ => {
+                panic!("cannot deep clone val: {:?}", self);
+            }
+        }
     }
 }
 

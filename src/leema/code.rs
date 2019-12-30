@@ -6,6 +6,7 @@ use crate::leema::list;
 use crate::leema::lstr::Lstr;
 use crate::leema::reg::{Reg, RegStack, RegTab};
 use crate::leema::rsrc;
+use crate::leema::sendclone::SendClone;
 use crate::leema::struple::{Struple2, StrupleItem};
 use crate::leema::val::{Type, Val};
 use crate::leema::worker::RustFuncContext;
@@ -76,14 +77,18 @@ impl Clone for Op
                 Op::PropagateFailure(src.clone(), lineno)
             }
             &Op::ConstVal(ref dst, ref src) => {
-                Op::ConstVal(dst.clone(), src.deep_clone())
+                Op::ConstVal(dst.clone(), src.clone_for_send())
             }
             &Op::Copy(ref dst, ref src) => Op::Copy(dst.clone(), src.clone()),
             &Op::Jump(j) => Op::Jump(j),
             &Op::JumpIfNot(j, ref tst) => Op::JumpIfNot(j, tst.clone()),
             &Op::IfFailure(ref src, j) => Op::IfFailure(src.clone(), j),
             &Op::MatchPattern(ref dst, ref patt, ref input) => {
-                Op::MatchPattern(dst.clone(), patt.deep_clone(), input.clone())
+                Op::MatchPattern(
+                    dst.clone(),
+                    patt.clone_for_send(),
+                    input.clone(),
+                )
             }
             &Op::ListCons(ref dst, ref head, ref tail) => {
                 Op::ListCons(dst.clone(), head.clone(), tail.clone())
