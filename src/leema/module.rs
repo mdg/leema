@@ -413,22 +413,34 @@ impl fmt::Display for ModAlias
 #[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
-pub struct ImportedMod(pub Lstr);
+pub struct ImportedMod(pub PathBuf);
 
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
-pub struct CanonicalMod(pub Lstr);
+pub struct CanonicalMod(pub PathBuf);
 
 #[derive(Clone)]
 #[derive(Debug)]
 pub struct TypeMod
 {
-    pub import: ImportedMod,
-    pub canonical: CanonicalMod,
+    pub import: PathBuf,
+    pub canonical: PathBuf,
 }
 
+#[macro_export]
+macro_rules! canonical_typemod
+{
+    ($tm:ident) => {
+        crate::leema::module::TypeMod {
+            import: std::path::PathBuf::from(concat!("/", stringify!($tm))),
+            canonical: std::path::PathBuf::from(concat!("/", stringify!($tm))),
+        }
+    };
+}
+
+/*
 impl From<ModAlias> for TypeMod
 {
     fn from(alias: ModAlias) -> TypeMod
@@ -437,22 +449,6 @@ impl From<ModAlias> for TypeMod
     }
 }
 
-#[macro_export]
-macro_rules! canonical_typemod
-{
-    ($tm:expr) => {
-        crate::leema::module::TypeMod {
-            import: crate::leema::module::ImportedMod(
-                crate::leema::lstr::Lstr::Sref(concat!("/", stringify!($tm))),
-            ),
-            canonical: crate::leema::module::CanonicalMod(
-                crate::leema::lstr::Lstr::Sref($tm),
-            ),
-        }
-    };
-}
-
-/*
 impl From<&ImportedMod> for TypeMod
 {
     fn from(im: &ImportedMod) -> TypeMod

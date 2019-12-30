@@ -19,7 +19,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpListener, TcpStream};
 
 
-const MODULE: TypeMod = canonical_typemod!("tcp");
+const MODULE: TypeMod = canonical_typemod!(tcp);
 const SOCKET_TYPE: Type = Type::User(MODULE, "Socket");
 const LISTENER_TYPE: Type = Type::User(MODULE, "Listener");
 
