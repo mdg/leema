@@ -423,27 +423,22 @@ pub struct CanonicalMod(Lstr);
 
 #[derive(Clone)]
 #[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
-pub struct TypeMod
+pub enum TypeMod
 {
-    alias: ModAlias,
-    imported: ImportedMod,
-    pub canonical: Option<CanonicalMod>,
+    Alias(&'static str),
+    Import(&'static str, &'static str),
+    Canonical(&'static str),
 }
 
 impl From<ModAlias> for TypeMod
 {
     fn from(alias: ModAlias) -> TypeMod
     {
-        TypeMod {
-            alias,
-            imported: ImportedMod(Lstr::EMPTY),
-            canonical: None,
-        }
+        TypeMod::Alias(alias.0)
     }
 }
 
+/*
 impl From<&ImportedMod> for TypeMod
 {
     fn from(im: &ImportedMod) -> TypeMod
@@ -464,6 +459,21 @@ impl From<(ModAlias, &ImportedMod)> for TypeMod
             alias: mods.0,
             imported: mods.1.clone(),
             canonical: None,
+        }
+    }
+}
+*/
+
+impl PartialEq for TypeMod
+{
+    fn eq(&self, other: &TypeMod) -> bool
+    {
+        match (self, other) {
+            (TypeMod::Import(_, m0), TypeMod::Import(_, m1)) => m0 == m1,
+            (TypeMod::Import(_, m0), TypeMod::Canonical(m1)) => m0 == m1,
+            (TypeMod::Canonical(m0), TypeMod::Import(_, m1)) => m0 == m1,
+            (TypeMod::Canonical(m0), TypeMod::Canonical(m1)) => m0 == m1,
+            _ => false,
         }
     }
 }
