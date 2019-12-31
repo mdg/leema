@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 
 const DEFAULT_MODNAME: &'static str = "$";
-const DEFAULT_MOD: CanonicalMod = CanonicalMod(Path::new("$").to_path_buf());
+const DEFAULT_MOD: CanonicalMod = CanonicalMod(Lstr::Sref("$"));
 
 #[derive(Clone)]
 #[derive(PartialEq)]
@@ -149,7 +149,7 @@ impl ModKey
 {
     pub fn new(name: Chain, path: PathBuf) -> ModKey
     {
-        let cmod = PathBuf::from(String::from(&name));
+        let cmod = Lstr::from(String::from(&name));
         ModKey {
             name: CanonicalMod(cmod),
             chain: name,
@@ -160,8 +160,16 @@ impl ModKey
     /// If the path exists, get it. Otherwise return the module name
     pub fn best_path(&self) -> Lstr
     {
-        let path = self.file.as_ref().map(|f| &**f).unwrap_or(self.name.0.as_path());
-        Lstr::from(String::from(path.to_str().unwrap()))
+        self.file
+            .as_ref()
+            .map(|f| {
+                // convert the path to a string and then Lstr
+                Lstr::from(format!("{}", f.display()))
+            })
+            .unwrap_or_else(|| {
+                // clone the name Lstr
+                self.name.0.clone()
+            })
     }
 }
 
@@ -169,7 +177,7 @@ impl From<Chain> for ModKey
 {
     fn from(chain: Chain) -> ModKey
     {
-        let cmod = PathBuf::from(String::from(&chain));
+        let cmod = Lstr::from(String::from(&chain));
         ModKey {
             name: CanonicalMod(cmod),
             chain,
@@ -413,7 +421,7 @@ impl fmt::Display for ModAlias
 #[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
-pub struct ImportedMod(pub PathBuf);
+pub struct ImportedMod(pub Lstr);
 
 #[derive(Clone)]
 #[derive(Debug)]
@@ -422,13 +430,13 @@ pub struct ImportedMod(pub PathBuf);
 #[derive(Eq)]
 #[derive(Ord)]
 #[derive(Hash)]
-pub struct CanonicalMod(pub PathBuf);
+pub struct CanonicalMod(pub Lstr);
 
 impl fmt::Display for CanonicalMod
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        write!(f, "{}", self.0.display())
+        f.write_str(self.0.str())
     }
 }
 
@@ -452,8 +460,8 @@ pub enum TypeMod2
 #[derive(Hash)]
 pub struct TypeMod
 {
-    pub import: PathBuf,
-    pub canonical: PathBuf,
+    pub import: Lstr,
+    pub canonical: Lstr,
 }
 
 #[macro_export]
@@ -461,10 +469,10 @@ macro_rules! canonical_typemod
 {
     ($tm:ident) => {
         crate::leema::module::TypeMod {
-            import: crate::leema::module::TypeMod::new_path_buf(
+            import: crate::leema::lstr::Lstr::Sref(
                 concat!("/", stringify!($tm)),
             ),
-            canonical: crate::leema::module::TypeMod::new_path_buf(
+            canonical: crate::leema::lstr::Lstr::Sref(
                 concat!("/", stringify!($tm))
             ),
         }
@@ -477,14 +485,6 @@ macro_rules! user_type
     ($m:ident, $t:expr) => {
         crate::leema::val::Type::User(canonical_typemod!($m), $t)
     };
-}
-
-impl TypeMod
-{
-    pub const fn new_path_buf(path: &'static str) -> PathBuf
-    {
-        PathBuf::from(path)
-    }
 }
 
 impl From<&CanonicalMod> for TypeMod
@@ -532,6 +532,6 @@ impl fmt::Display for TypeMod
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        write!(f, "{}", self.import.display())
+        f.write_str(self.import.str())
     }
 }
