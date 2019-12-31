@@ -7,7 +7,6 @@ use std::sync::Arc;
 
 const MODULE: TypeMod = canonical_typemod!(map);
 const INNER_MAP_TYPE: Type = Type::User(MODULE, "T");
-const MAP_TYPE: Type = map_type();
 
 pub fn map_type() -> Type
 {

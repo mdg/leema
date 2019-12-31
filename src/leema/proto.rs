@@ -861,38 +861,6 @@ impl ProtoLib
             }
         }
     }
-
-    pub fn load_exported_module(
-        &mut self,
-        loader: &mut Interloader,
-        loaded: &str,
-        imports: &str,
-    ) -> Lresult<()>
-    {
-        // load the canonical module name
-        self.load_canonical(parent)?;
-        if let Some(export) = modit.next() {
-            self.load_export(export)?;
-        }
-        Ok(())
-    }
-
-    pub fn load_exported_module_2(
-        &mut self,
-        loader: &mut Interloader,
-        modname: &Lstr,
-    ) -> Lresult<()>
-    {
-        match modit.next() {
-            Some(child) => {
-                // load this module, check its exports and load children
-                self.load_export(parent, child)
-            }
-            None => {
-                self.load_direct(parent)
-            }
-        }
-    }
     */
 
     /// load module by canonical name, w/o checking permissions etc

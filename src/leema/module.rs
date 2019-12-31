@@ -160,7 +160,7 @@ impl ModKey
     /// If the path exists, get it. Otherwise return the module name
     pub fn best_path(&self) -> Lstr
     {
-        let path = self.file.map(|f| &*f).unwrap_or(self.name.0.as_path());
+        let path = self.file.as_ref().map(|f| &**f).unwrap_or(self.name.0.as_path());
         Lstr::from(String::from(path.to_str().unwrap()))
     }
 }
@@ -461,8 +461,12 @@ macro_rules! canonical_typemod
 {
     ($tm:ident) => {
         crate::leema::module::TypeMod {
-            import: std::path::PathBuf::from(concat!("/", stringify!($tm))),
-            canonical: std::path::PathBuf::from(concat!("/", stringify!($tm))),
+            import: crate::leema::module::TypeMod::new_path_buf(
+                concat!("/", stringify!($tm)),
+            ),
+            canonical: crate::leema::module::TypeMod::new_path_buf(
+                concat!("/", stringify!($tm))
+            ),
         }
     };
 }
@@ -473,6 +477,14 @@ macro_rules! user_type
     ($m:ident, $t:expr) => {
         crate::leema::val::Type::User(canonical_typemod!($m), $t)
     };
+}
+
+impl TypeMod
+{
+    pub const fn new_path_buf(path: &'static str) -> PathBuf
+    {
+        PathBuf::from(path)
+    }
 }
 
 impl From<&CanonicalMod> for TypeMod
