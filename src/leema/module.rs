@@ -2,7 +2,7 @@ use crate::leema::lstr::Lstr;
 use crate::leema::sendclone;
 
 use std::fmt;
-use std::path::{Path, PathBuf};
+use std::path::{self, Path, PathBuf};
 
 
 const DEFAULT_MODNAME: &'static str = "$";
@@ -417,11 +417,46 @@ impl fmt::Display for ModAlias
     }
 }
 
+/// Not sure what this is for. Might delete it later.
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
-pub struct ImportedMod(pub Lstr);
+pub struct ImportedMod(pub PathBuf);
+
+impl ImportedMod
+{
+    pub fn is_absolute(&self) -> bool
+    {
+        self.0.has_root()
+    }
+
+    pub fn is_sibling(&self) -> bool
+    {
+        self.0.starts_with("../")
+    }
+
+    pub fn is_child(&self) -> bool
+    {
+        !(self.is_absolute() || self.is_sibling())
+    }
+
+    pub fn head(&self) -> (path::Component, &Path)
+    {
+        let mut it = self.0.components();
+        let h = it.next().unwrap();
+        let t = it.as_path();
+        (h, t)
+    }
+}
+
+impl fmt::Display for ImportedMod
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "{}", self.0.display())
+    }
+}
 
 #[derive(Clone)]
 #[derive(Debug)]
