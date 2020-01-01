@@ -1,6 +1,7 @@
 use crate::leema::lstr::Lstr;
 use crate::leema::sendclone;
 
+use std::borrow::Borrow;
 use std::fmt;
 use std::path::{self, Path, PathBuf};
 
@@ -394,7 +395,9 @@ pub enum ModRelativity
 #[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
-pub struct ModAlias(&'static str);
+#[derive(Eq)]
+#[derive(Hash)]
+pub struct ModAlias(pub &'static str);
 
 impl ModAlias
 {
@@ -414,6 +417,14 @@ impl fmt::Display for ModAlias
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         f.write_str(self.0)
+    }
+}
+
+impl Borrow<str> for ModAlias
+{
+    fn borrow(&self) -> &str
+    {
+        self.0
     }
 }
 

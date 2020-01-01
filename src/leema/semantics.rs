@@ -518,8 +518,11 @@ impl<'p> SemanticOp for ScopeCheck<'p>
             Ast::Block(_) => {
                 self.blocks.push_blockscope();
             }
-            Ast::Id1(id) if self.mode == AstMode::LetPattern => {
-                if self.local_mod.imports.contains_key(id) {
+            Ast::Id1(id) if self.mode.is_pattern() => {
+                let local_type = self.mode.get_pattern().unwrap();
+                // make sure this doesn't duplicate an import
+                // why not just add ModAliases to the blocks?
+                if self.local_mod.imports.contains_key(&ModAlias(id)) {
                     return Err(Failure::static_leema(
                         failure::Mode::CompileFailure,
                         lstrf!("{} is already used as a module name", id),
@@ -527,18 +530,7 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                         node.loc.lineno,
                     ));
                 }
-                self.blocks.assign_var(&Lstr::Sref(id), LocalType::Let);
-            }
-            Ast::Id1(id) if self.mode == AstMode::MatchPattern => {
-                if self.local_mod.imports.contains_key(id) {
-                    return Err(Failure::static_leema(
-                        failure::Mode::CompileFailure,
-                        lstrf!("{} is already used as a module name", id),
-                        self.local_mod.key.best_path(),
-                        node.loc.lineno,
-                    ));
-                }
-                self.blocks.assign_var(&Lstr::Sref(id), LocalType::Match);
+                self.blocks.assign_var(&Lstr::Sref(id), local_type);
             }
             Ast::Id1(id) if self.mode == AstMode::Type => {
                 if self.local_mod.get_type(id).is_ok() {

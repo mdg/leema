@@ -3,7 +3,7 @@ use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::grammar2::Grammar;
 use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::{self, CanonicalMod, ModKey, ModPath, ModRelativity, TypeMod};
+use crate::leema::module::{self, CanonicalMod, ModAlias, ModKey, ModPath, ModRelativity, TypeMod};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::token::Tokenz;
 use crate::leema::val::{Fref, FuncType, GenericTypes, Type, Val};
@@ -39,9 +39,10 @@ lazy_static! {
 pub struct ProtoModule
 {
     pub key: ModKey,
-    pub imports: HashMap<&'static str, ModPath>,
-    pub exports: HashMap<&'static str, ModPath>,
-    pub imported_ids: HashMap<&'static str, module::Chain>,
+    pub imports: HashMap<ModAlias, ModPath>,
+    pub exports: HashMap<ModAlias, ModPath>,
+    pub imported_ids: HashMap<ModAlias, module::Chain>,
+    pub canonicals: HashMap<ModAlias, CanonicalMod>,
     pub macros: HashMap<&'static str, Ast>,
     pub constants: HashMap<&'static str, AstNode>,
     types: HashMap<&'static str, Type>,
@@ -64,6 +65,7 @@ impl ProtoModule
             imports: HashMap::new(),
             exports: HashMap::new(),
             imported_ids: HashMap::new(),
+            canonicals: HashMap::new(),
             macros: HashMap::new(),
             constants: HashMap::new(),
             types: HashMap::new(),
@@ -111,7 +113,7 @@ impl ProtoModule
                 ));
             }
 
-            proto.imports.insert(k, v);
+            proto.imports.insert(ModAlias::new(k), v);
         }
 
         for (k, (v, loc)) in exports.into_iter() {
@@ -126,8 +128,8 @@ impl ProtoModule
                 ));
             }
 
-            proto.imports.insert(k, v.clone());
-            proto.exports.insert(k, v);
+            proto.imports.insert(ModAlias::new(k), v.clone());
+            proto.exports.insert(ModAlias::new(k), v);
         }
 
         for i in it {
@@ -175,7 +177,7 @@ impl ProtoModule
         for (k, v) in proto.exports.iter() {
             // if it's not defined locally, must be a child module
             // so import it
-            if proto.defines(k) {
+            if proto.defines(k.str()) {
                 // this is no good. decide the error message
                 let err_msg = if v.path.len() == 1 {
                     // k is locally defined so doesn't need to be exported
@@ -196,7 +198,7 @@ impl ProtoModule
         // export any local definitions
         for name in proto.macros.keys().chain(proto.funcseq.iter()) {
             let chain = module::Chain::from(*name);
-            proto.exports.insert(name, ModPath::local(chain));
+            proto.exports.insert(ModAlias(name), ModPath::local(chain));
         }
 
         Ok(proto)
@@ -431,7 +433,7 @@ impl ProtoModule
                     loc.lineno,
                 ));
             }
-            self.imports.insert(k, v);
+            self.imports.insert(ModAlias(k), v);
         }
         Ok(())
     }
@@ -451,7 +453,7 @@ impl ProtoModule
                     loc.lineno,
                 ));
             }
-            self.exports.insert(k, v);
+            self.exports.insert(ModAlias(k), v);
         }
         Ok(())
     }
@@ -463,16 +465,16 @@ impl ProtoModule
 
     pub fn set_canonical(
         &mut self,
-        key: &'static str,
+        key: ModAlias,
         canonical: module::Chain,
         is_id: bool,
     )
     {
         if is_id {
-            self.imports.remove(key);
+            self.imports.remove(&key);
             self.imported_ids.insert(key, canonical);
         } else {
-            let import = self.imports.get_mut(key).unwrap();
+            let import = self.imports.get_mut(&key).unwrap();
             import.relativity = ModRelativity::Absolute;
             import.path = canonical;
         }
@@ -901,7 +903,7 @@ impl ProtoLib
     ) -> Lresult<()>
     {
         vout!("ProtoLib::load_imports({})\n", modname);
-        let mut imported: Vec<(&'static str, ModPath)> = vec![];
+        let mut imported: Vec<(ModAlias, ModPath)> = vec![];
         {
             let proto = self.protos.get(modname).ok_or_else(|| {
                 rustfail!(
@@ -918,7 +920,7 @@ impl ProtoLib
                         i,
                     ));
                 }
-                imported.push((k, i.clone()));
+                imported.push((*k, i.clone()));
             }
         }
 
