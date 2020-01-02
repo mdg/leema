@@ -1,5 +1,5 @@
 use crate::leema::failure::Lresult;
-use crate::leema::module::{self, ModKey};
+use crate::leema::module::{self, CanonicalMod, ModKey};
 
 use std::collections::HashMap;
 use std::env;
@@ -32,10 +32,10 @@ unsafe fn put_modtxt(val: String) -> &'static str
 #[derive(Debug)]
 pub struct Interloader
 {
-    pub main_mod: module::Chain,
+    pub main_mod: CanonicalMod,
     paths: Vec<PathBuf>,
-    keys: HashMap<module::Chain, ModKey>,
-    texts: HashMap<module::Chain, &'static str>,
+    keys: HashMap<CanonicalMod, ModKey>,
+    texts: HashMap<CanonicalMod, &'static str>,
 }
 
 impl Interloader
@@ -60,7 +60,7 @@ impl Interloader
 
         let mod_str =
             Self::static_str(modname.unwrap().to_str().unwrap().to_string());
-        let main_mod = module::Chain::from(mod_str);
+        let main_mod = canonical_mod!(mod_str);
         Interloader {
             main_mod,
             paths,
@@ -73,24 +73,24 @@ impl Interloader
         -> &'static str
     {
         let stext = Self::static_str(content);
-        self.texts.insert(key.chain.clone(), stext);
-        self.keys.insert(key.chain.clone(), key);
+        self.texts.insert(key.name.clone(), stext);
+        self.keys.insert(key.name.clone(), key);
         stext
     }
 
-    pub fn new_key(&self, chain: &module::Chain) -> Lresult<ModKey>
+    pub fn new_key(&self, cmod: &CanonicalMod) -> Lresult<ModKey>
     {
-        if let Some(found) = self.keys.get(chain) {
+        if let Some(found) = self.keys.get(cmod) {
             return Ok(found.clone());
         }
 
-        let path = ltry!(self.find_file_path(chain));
-        Ok(ModKey::new(chain.clone(), path))
+        let path = ltry!(self.find_file_path(cmod));
+        Ok(ModKey::new(cmod.clone(), path))
     }
 
     pub fn read_mod(&mut self, key: &ModKey) -> Lresult<&'static str>
     {
-        if let Some(txt) = self.texts.get(&key.chain) {
+        if let Some(txt) = self.texts.get(&key.name) {
             return Ok(txt);
         }
 
@@ -113,22 +113,13 @@ impl Interloader
     }
 
     /// this all seems suboptimal, but it can probably be fixed later
-    fn find_file_path(&self, name: &module::Chain) -> Lresult<PathBuf>
+    fn find_file_path(&self, name: &CanonicalMod) -> Lresult<PathBuf>
     {
-        let mut file_path = PathBuf::new();
-        file_path.push(String::from(name));
-        let mut mod_path = file_path.join(String::from(name));
-        file_path.set_extension("lma");
-        mod_path.set_extension("lma");
+        let mut file_path = name.as_path_buf();
 
         for p in self.paths.iter() {
             let mut check_path = p.clone();
             check_path.push(file_path.clone());
-            if check_path.exists() && check_path.is_file() {
-                return Ok(check_path);
-            }
-
-            check_path = p.join(mod_path.clone());
             if check_path.exists() && check_path.is_file() {
                 return Ok(check_path);
             }
@@ -192,7 +183,7 @@ impl Default for Interloader
         let leema_path = root_path.join(Path::new("lib"));
 
         Interloader {
-            main_mod: module::Chain::default(),
+            main_mod: module::DEFAULT_MOD,
             paths: vec![root_path.to_path_buf(), leema_path],
             keys: HashMap::new(),
             texts: HashMap::new(),

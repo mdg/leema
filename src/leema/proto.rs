@@ -14,11 +14,10 @@ use lazy_static::lazy_static;
 
 
 const PROTOFAIL: &'static str = "prototype_failure";
-const DEFAULT_MODULE: &'static str = "prefab";
 
 lazy_static! {
-    static ref DEFAULT_IDS: HashMap<&'static str, ModPath> = {
-        let core_mod = ModPath::abs(From::from("core"));
+    static ref DEFAULT_IDS: HashMap<&'static str, CanonicalMod> = {
+        let core_mod = canonical_mod!("/core");
         let mut ids = HashMap::new();
         ids.insert("Bool", core_mod.clone());
         ids.insert("cons", core_mod.clone());
@@ -41,8 +40,8 @@ pub struct ProtoModule
     pub key: ModKey,
     pub imports: HashMap<ModAlias, ModPath>,
     pub exports: HashMap<ModAlias, ModPath>,
-    pub imported_ids: HashMap<ModAlias, module::Chain>,
-    pub canonicals: HashMap<ModAlias, CanonicalMod>,
+    pub id_canonicals: HashMap<&'static str, CanonicalMod>,
+    pub mod_canonicals: HashMap<ModAlias, CanonicalMod>,
     pub macros: HashMap<&'static str, Ast>,
     pub constants: HashMap<&'static str, AstNode>,
     types: HashMap<&'static str, Type>,
@@ -64,8 +63,8 @@ impl ProtoModule
             key,
             imports: HashMap::new(),
             exports: HashMap::new(),
-            imported_ids: HashMap::new(),
-            canonicals: HashMap::new(),
+            id_canonicals: HashMap::new(),
+            mod_canonicals: HashMap::new(),
             macros: HashMap::new(),
             constants: HashMap::new(),
             types: HashMap::new(),
@@ -210,7 +209,7 @@ impl ProtoModule
         loc: Loc,
     ) -> Lresult<()>
     {
-        if !self.key.chain.starts_with("core") && DEFAULT_IDS.contains_key(id) {
+        if !self.key.name.is_core() && DEFAULT_IDS.contains_key(id) {
             Err(Failure::static_leema(
                 failure::Mode::CompileFailure,
                 lstrf!("cannot redefine core {}", id),
@@ -222,7 +221,7 @@ impl ProtoModule
         }
     }
 
-    pub fn default_imports() -> &'static HashMap<&'static str, ModPath>
+    pub fn default_imports() -> &'static HashMap<&'static str, CanonicalMod>
     {
         &DEFAULT_IDS
     }
@@ -466,17 +465,14 @@ impl ProtoModule
     pub fn set_canonical(
         &mut self,
         key: ModAlias,
-        canonical: module::Chain,
+        canonical: CanonicalMod,
         is_id: bool,
     )
     {
         if is_id {
-            self.imports.remove(&key);
-            self.imported_ids.insert(key, canonical);
+            self.id_canonicals.insert(key.0, canonical);
         } else {
-            let import = self.imports.get_mut(&key).unwrap();
-            import.relativity = ModRelativity::Absolute;
-            import.path = canonical;
+            self.mod_canonicals.insert(key, canonical);
         }
     }
 
@@ -512,13 +508,6 @@ impl ProtoModule
         self.types.contains_key(id)
     }
 
-    /// Check if this module is a core module
-    pub fn is_core(&self) -> bool
-    {
-        // maybe memoize this as a struct var at some point
-        self.key.chain.starts_with("core")
-    }
-
     pub fn find_macro(&self, macroname: &str) -> Option<&Ast>
     {
         self.macros.get(macroname)
@@ -536,34 +525,26 @@ impl ProtoModule
             .ok_or_else(|| rustfail!(PROTOFAIL, "type not found: {}", name))
     }
 
-    pub fn imported_module(&self, modname: &str) -> Lresult<&ModPath>
+    pub fn imported_module(&self, alias: &ModAlias) -> Lresult<&CanonicalMod>
     {
-        self.imports
-            .get(modname)
-            // exported modules are implicitly included in imports
-            // .or_else(|| self.exports.get(modname))
-            .or_else(|| {
-                if modname == DEFAULT_MODULE {
-                    Some(&DEFAULT_MODPATH)
-                } else {
-                    None
-                }
-            })
+        self.mod_canonicals
+            .get(alias)
             .ok_or_else(|| {
                 rustfail!(
                     PROTOFAIL,
-                    "module {} not imported from {}",
-                    modname,
+                    "no module imported as {} from {}",
+                    alias,
                     self.key.name,
                 )
             })
     }
 
-    pub fn imported_id(&self, id: &str) -> Option<&module::Chain>
+    /// get the canonical module for an id
+    pub fn canonical_mod_for_id(&self, id: &str) -> Option<&CanonicalMod>
     {
-        self.imported_ids
+        self.id_canonicals
             .get(id)
-            .or_else(|| DEFAULT_IDS.get(id).map(|mp| &mp.path))
+            .or_else(|| DEFAULT_IDS.get(id))
     }
 
     pub fn ast_to_type(
@@ -659,7 +640,7 @@ impl ProtoModule
 #[derive(Debug)]
 pub struct ProtoLib
 {
-    protos: HashMap<module::Chain, ProtoModule>,
+    protos: HashMap<CanonicalMod, ProtoModule>,
 }
 
 impl ProtoLib
@@ -674,7 +655,7 @@ impl ProtoLib
     /// mostly used for testing
     pub fn add_module(
         &mut self,
-        modname: module::Chain,
+        modname: CanonicalMod,
         src: &'static str,
     ) -> Lresult<()>
     {
@@ -686,7 +667,7 @@ impl ProtoLib
                 modname,
             ));
         }
-        let modkey = ModKey::from(modname.clone());
+        let modkey = ModKey::from(modname);
         let proto = ProtoModule::new(modkey, src)?;
         self.put_module(modname, proto)?;
         Ok(())
@@ -745,10 +726,11 @@ impl ProtoLib
     pub fn load_absolute(
         &mut self,
         loader: &mut Interloader,
-        mod_path: module::Chain,
-    ) -> Lresult<(module::Chain, bool)>
+        cmod: CanonicalMod,
+    ) -> Lresult<(CanonicalMod, bool)>
     {
-        vout!("ProtoLib::load_absolute({})\n", mod_path);
+        vout!("ProtoLib::load_absolute({})\n", cmod);
+        let mod_path = module::Chain::from_canonical(cmod)?;
         let (head, tail) = mod_path.split();
         ltry!(self.load_canonical(loader, &head));
         self.load_relative(loader, head, tail)
@@ -759,7 +741,7 @@ impl ProtoLib
         loader: &mut Interloader,
         mut base_path: module::Chain,
         child_path: module::Chain,
-    ) -> Lresult<(module::Chain, bool)>
+    ) -> Lresult<(CanonicalMod, bool)>
     {
         vout!("ProtoLib::load_child({:?}, {:?})\n", base_path, child_path);
         let (head, tail) = child_path.head();
@@ -773,10 +755,10 @@ impl ProtoLib
         loader: &mut Interloader,
         base_path: module::Chain,
         opt_next_path: Option<module::Chain>,
-    ) -> Lresult<(module::Chain, bool)>
+    ) -> Lresult<(CanonicalMod, bool)>
     {
         if opt_next_path.is_none() {
-            return Ok((base_path, false));
+            return Ok((CanonicalMod::from(&base_path), false));
         }
         let (head, tail) = opt_next_path.unwrap().head();
         let base_proto = ltry!(self.path_proto(&base_path));
@@ -822,7 +804,7 @@ impl ProtoLib
             }
             ModRelativity::Local => {
                 // already loaded, no need to load deeper
-                Ok((base_path, true))
+                Ok((CanonicalMod::from(&base_path), true))
             }
         }
     }
@@ -886,12 +868,12 @@ impl ProtoLib
         Ok(())
     }
 
-    fn put_module(&mut self, modpath: module::Chain, proto: ProtoModule) -> Lresult<()>
+    fn put_module(&mut self, modpath: CanonicalMod, proto: ProtoModule) -> Lresult<()>
     {
         let type_mods = proto.type_modules()?;
         self.protos.insert(modpath, proto);
         for tm in type_mods.into_iter() {
-            self.protos.insert(tm.key.chain.clone(), tm);
+            self.protos.insert(tm.key.name.clone(), tm);
         }
         Ok(())
     }
@@ -899,7 +881,7 @@ impl ProtoLib
     pub fn load_imports(
         &mut self,
         loader: &mut Interloader,
-        modname: &module::Chain,
+        modname: &CanonicalMod,
     ) -> Lresult<()>
     {
         vout!("ProtoLib::load_imports({})\n", modname);
@@ -954,7 +936,7 @@ impl ProtoLib
 
     pub fn pop_func(
         &mut self,
-        module: &module::Chain,
+        module: &CanonicalMod,
         func: &str,
     ) -> Lresult<Option<(Xlist, AstNode)>>
     {
@@ -968,18 +950,18 @@ impl ProtoLib
 
     pub fn imported_proto(
         &self,
-        proto: &module::Chain,
-        alias: &str,
+        proto: &CanonicalMod,
+        alias: &ModAlias,
     ) -> Lresult<&ProtoModule>
     {
         let protomod = self.protos.get(proto).ok_or_else(|| {
             rustfail!(PROTOFAIL, "module not loaded: {:?}", proto)
         })?;
         let new_path = ltry!(protomod.imported_module(alias));
-        self.path_proto(&new_path.path)
+        self.path_proto(&new_path)
     }
 
-    pub fn path_proto(&self, path: &module::Chain) -> Lresult<&ProtoModule>
+    pub fn path_proto(&self, path: &CanonicalMod) -> Lresult<&ProtoModule>
     {
         self.protos.get(path).ok_or_else(|| {
             rustfail!(PROTOFAIL, "module not loaded: {:?}", path)

@@ -1,3 +1,4 @@
+use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::sendclone;
 
@@ -7,7 +8,7 @@ use std::path::{self, Path, PathBuf};
 
 
 const DEFAULT_MODNAME: &'static str = "$";
-const DEFAULT_MOD: CanonicalMod = CanonicalMod(Lstr::Sref("$"));
+pub const DEFAULT_MOD: CanonicalMod = CanonicalMod(Lstr::Sref("$"));
 
 #[derive(Clone)]
 #[derive(PartialEq)]
@@ -22,6 +23,19 @@ impl Chain
     pub fn new(chain: Vec<&'static str>) -> Chain
     {
         Chain(chain)
+    }
+
+    pub fn from_canonical(cmod: CanonicalMod) -> Lresult<Chain>
+    {
+        if let Lstr::Sref(smod) = cmod.0 {
+            Ok(Chain::from(smod))
+        } else {
+            Err(rustfail!(
+                "leema_fail",
+                "canonical path is not static: '{}'",
+                cmod,
+            ))
+        }
     }
 
     pub fn chain(&self) -> &Vec<&'static str>
@@ -142,18 +156,15 @@ impl fmt::Debug for Chain
 pub struct ModKey
 {
     pub name: CanonicalMod,
-    pub chain: Chain,
     pub file: Option<Box<Path>>,
 }
 
 impl ModKey
 {
-    pub fn new(name: Chain, path: PathBuf) -> ModKey
+    pub fn new(name: CanonicalMod, path: PathBuf) -> ModKey
     {
-        let cmod = Lstr::from(String::from(&name));
         ModKey {
-            name: CanonicalMod(cmod),
-            chain: name,
+            name,
             file: Some(From::from(path)),
         }
     }
@@ -174,6 +185,17 @@ impl ModKey
     }
 }
 
+impl From<CanonicalMod> for ModKey
+{
+    fn from(name: CanonicalMod) -> ModKey
+    {
+        ModKey {
+            name,
+            file: None,
+        }
+    }
+}
+
 impl From<Chain> for ModKey
 {
     fn from(chain: Chain) -> ModKey
@@ -181,7 +203,6 @@ impl From<Chain> for ModKey
         let cmod = Lstr::from(String::from(&chain));
         ModKey {
             name: CanonicalMod(cmod),
-            chain,
             file: None,
         }
     }
@@ -201,7 +222,6 @@ impl Default for ModKey
     {
         ModKey {
             name: DEFAULT_MOD,
-            chain: Chain::default(),
             file: None,
         }
     }
@@ -227,7 +247,6 @@ impl sendclone::SendClone for ModKey
     {
         ModKey {
             name: self.name.clone(),
-            chain: self.chain.clone(),
             file: self.file.clone(),
         }
     }
@@ -477,6 +496,62 @@ impl fmt::Display for ImportedMod
 #[derive(Ord)]
 #[derive(Hash)]
 pub struct CanonicalMod(pub Lstr);
+
+#[macro_export]
+macro_rules! canonical_mod
+{
+    ($cm:expr) => {
+        crate::leema::module::CanonicalMod(crate::leema::lstr::Lstr::Sref($cm))
+    };
+}
+
+impl CanonicalMod
+{
+    /// Check if this module is a core module
+    pub fn is_core(&self) -> bool
+    {
+        // maybe memoize this as a struct var at some point
+        self.0.starts_with("/core")
+    }
+
+    pub fn as_path_buf(&self) -> PathBuf
+    {
+        let file_path = PathBuf::new();
+        let path_str: &str = if self.0.starts_with("/") {
+            &self.0.str()[1..]
+        } else {
+            eprintln!("canonical path does not start with /: {:?}", self.0);
+            self.0.str()
+        };
+        file_path.push(String::from(path_str));
+        file_path.set_extension("lma");
+        file_path
+    }
+}
+
+impl From<&ModPath> for CanonicalMod
+{
+    fn from(mp: &ModPath) -> CanonicalMod
+    {
+        CanonicalMod(lstrf!("{}", mp))
+    }
+}
+
+impl From<&Chain> for CanonicalMod
+{
+    fn from(ch: &Chain) -> CanonicalMod
+    {
+        CanonicalMod(lstrf!("/{}", ch))
+    }
+}
+
+impl Default for CanonicalMod
+{
+    fn default() -> CanonicalMod
+    {
+        DEFAULT_MOD
+    }
+}
 
 impl fmt::Display for CanonicalMod
 {

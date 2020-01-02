@@ -4,7 +4,7 @@ use crate::leema::failure::Lresult;
 use crate::leema::lib_map;
 use crate::leema::lib_str;
 use crate::leema::loader::Interloader;
-use crate::leema::module::{self, Chain};
+use crate::leema::module::CanonicalMod;
 use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::semantics::Semantics;
 use crate::leema::val::Fref;
@@ -21,7 +21,7 @@ pub struct Lib
     loader: Interloader,
     protos: ProtoLib,
     semantics: Semantics,
-    rust_load: HashMap<module::Chain, fn(&str) -> Option<code::Code>>,
+    rust_load: HashMap<CanonicalMod, fn(&str) -> Option<code::Code>>,
     code: HashMap<Fref, Code>,
 }
 
@@ -41,55 +41,55 @@ impl Lib
         // eventually will move everything to core and delete prefab
         lfailoc!(proglib
             .protos
-            .load_absolute(&mut proglib.loader, module::Chain::from("core")))
+            .load_absolute(&mut proglib.loader, canonical_mod!("/core")))
         .unwrap();
         lfailoc!(proglib
             .protos
-            .load_absolute(&mut proglib.loader, module::Chain::from("prefab")))
+            .load_absolute(&mut proglib.loader, canonical_mod!("/prefab")))
         .unwrap();
 
         proglib
             .rust_load
-            .insert(Chain::from("core"), lib_core::load_rust_func);
+            .insert(canonical_mod!("core"), lib_core::load_rust_func);
         proglib
             .rust_load
-            .insert(Chain::from("prefab"), prefab::load_rust_func);
+            .insert(canonical_mod!("prefab"), prefab::load_rust_func);
         proglib
             .rust_load
-            .insert(Chain::from("file"), file::load_rust_func);
+            .insert(canonical_mod!("file"), file::load_rust_func);
         proglib
             .rust_load
-            .insert(Chain::from("hyper_client"), lib_hyper::load_client_func);
+            .insert(canonical_mod!("hyper_client"), lib_hyper::load_client_func);
         proglib
             .rust_load
-            .insert(Chain::from("hyper_server"), lib_hyper::load_rust_func);
+            .insert(canonical_mod!("hyper_server"), lib_hyper::load_rust_func);
         proglib
             .rust_load
-            .insert(Chain::from("io"), lib_io::load_rust_func);
+            .insert(canonical_mod!("io"), lib_io::load_rust_func);
         proglib
             .rust_load
-            .insert(Chain::from("json"), lib_json::load_rust_func);
+            .insert(canonical_mod!("json"), lib_json::load_rust_func);
         proglib
             .rust_load
-            .insert(Chain::from("list"), lib_list::load_rust_func);
+            .insert(canonical_mod!("list"), lib_list::load_rust_func);
         proglib
             .rust_load
-            .insert(Chain::from("map"), lib_map::load_rust_func);
+            .insert(canonical_mod!("map"), lib_map::load_rust_func);
         proglib
             .rust_load
-            .insert(Chain::from("math"), lib_math::load_rust_func);
+            .insert(canonical_mod!("math"), lib_math::load_rust_func);
         proglib
             .rust_load
-            .insert(Chain::from("str"), lib_str::load_rust_func);
+            .insert(canonical_mod!("str"), lib_str::load_rust_func);
         proglib
             .rust_load
-            .insert(Chain::from("task"), lib_task::load_rust_func);
+            .insert(canonical_mod!("task"), lib_task::load_rust_func);
         proglib
             .rust_load
-            .insert(Chain::from("tcp"), tcp::load_rust_func);
+            .insert(canonical_mod!("tcp"), tcp::load_rust_func);
         proglib
             .rust_load
-            .insert(Chain::from("udp"), udp::load_rust_func);
+            .insert(canonical_mod!("udp"), udp::load_rust_func);
 
         proglib
     }
@@ -106,14 +106,14 @@ impl Lib
             .ok_or_else(|| rustfail!("codefail", "cannot find code for: {}", f))
     }
 
-    pub fn find_proto(&self, path: &module::Chain) -> Lresult<&ProtoModule>
+    pub fn find_proto(&self, path: &CanonicalMod) -> Lresult<&ProtoModule>
     {
         self.protos.path_proto(&path)
     }
 
     pub fn read_semantics(&mut self, f: &Fref) -> Lresult<Semantics>
     {
-        self.load_proto_and_imports(&f.m.chain)?;
+        self.load_proto_and_imports(&f.m.name)?;
         Semantics::compile_call(&mut self.protos, f)
     }
 
@@ -124,7 +124,7 @@ impl Lib
         let semantics = ltry!(self.read_semantics(f));
 
         if let Ast::RustBlock = &*semantics.src.node {
-            let rust_loader = self.rust_load.get(&f.m.chain);
+            let rust_loader = self.rust_load.get(&f.m.name);
             if rust_loader.is_none() {
                 panic!("no rust loader for: {}", f.m);
             }
@@ -144,21 +144,10 @@ impl Lib
 
     pub fn load_proto_and_imports(
         &mut self,
-        modpath: &module::Chain,
+        modpath: &CanonicalMod,
     ) -> Lresult<()>
     {
-        self.protos
-            .load_absolute(&mut self.loader, modpath.clone())?;
+        self.protos.load_absolute(&mut self.loader, modpath.clone())?;
         self.protos.load_imports(&mut self.loader, modpath)
-    }
-
-    pub fn get_macro2<'a>(
-        &'a self,
-        modpath: &module::Chain,
-        macname: &str,
-    ) -> Lresult<Option<&'a Ast>>
-    {
-        let proto = self.protos.path_proto(&modpath)?;
-        Ok(proto.macros.get(macname))
     }
 }

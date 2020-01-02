@@ -262,7 +262,7 @@ impl<'l> MacroApplication<'l>
             return Ok(local_mac);
         }
 
-        let imported_macro = match self.local.imported_id(macroname) {
+        let imported_macro = match self.local.canonical_mod_for_id(macroname) {
             Some(import_path) => {
                 let import_mod = self.proto.path_proto(import_path)?;
                 import_mod.find_macro(macroname)
@@ -284,7 +284,7 @@ impl<'l> SemanticOp for MacroApplication<'l>
                     Ast::Id2(ref modname, ref macroname) => {
                         ltry!(self
                             .proto
-                            .imported_proto(&self.local.key.chain, modname.str())
+                            .imported_proto(&self.local.key.name, modname)
                             .map_err(|f| {
                                 f.add_context(lstrf!(
                                     "no protomod for {}::{}",
@@ -537,7 +537,7 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                     return Ok(SemanticAction::Keep(node));
                 }
 
-                let import = self.local_mod.imported_id(id);
+                let import = self.local_mod.canonical_mod_for_id(id);
                 if import.is_none() {
                     return Err(Failure::static_leema(
                         failure::Mode::CompileFailure,
@@ -565,7 +565,7 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                 } else if let Some(ic) = self.local_mod.find_const(id) {
                     node = node.replace((*ic.node).clone(), ic.typ.clone());
                     return Ok(SemanticAction::Keep(node));
-                } else if let Some(ich) = self.local_mod.imported_id(id) {
+                } else if let Some(ich) = self.local_mod.canonical_mod_for_id(id) {
                     let constval = ltry!(self.lib.path_proto(ich))
                         .find_const(id)
                         .map(|c| c.clone())
@@ -591,7 +591,7 @@ impl<'p> SemanticOp for ScopeCheck<'p>
             Ast::Id2(module, id) if self.mode == AstMode::Type => {
                 let proto = ltry!(self
                     .lib
-                    .imported_proto(&self.local_mod.key.chain, module.str())
+                    .imported_proto(&self.local_mod.key.name, &module)
                     .map_err(|e| {
                         e.add_context(Lstr::from(format!(
                             "module {} not found for {} at {:?}",
@@ -613,7 +613,7 @@ impl<'p> SemanticOp for ScopeCheck<'p>
             Ast::Id2(module, id) => {
                 let proto = ltry!(self
                     .lib
-                    .imported_proto(&self.local_mod.key.chain, module.str())
+                    .imported_proto(&self.local_mod.key.name, &module)
                     .map_err(|e| {
                         e.add_context(Lstr::from(format!(
                             "module {} not found for {} at {:?}",
@@ -1114,7 +1114,7 @@ impl<'p> SemanticOp for TypeCheck<'p>
             Ast::Id2(modname, id) => {
                 let module = ltry!(self
                     .lib
-                    .imported_proto(&self.local_mod.key.chain, modname.str()));
+                    .imported_proto(&self.local_mod.key.name, &modname));
                 let typ = module.get_type(id)?;
                 node.typ = typ.clone();
             }
@@ -1341,12 +1341,12 @@ impl Semantics
     {
         let mut sem = Semantics::new();
 
-        let func_ast = proto.pop_func(&f.m.chain, &f.f)?;
+        let func_ast = proto.pop_func(&f.m.name, &f.f)?;
         let (_args, body) = func_ast.ok_or_else(|| {
             rustfail!(SEMFAIL, "ast is empty for function {}", f,)
         })?;
 
-        let local_proto = proto.path_proto(&f.m.chain)?;
+        let local_proto = proto.path_proto(&f.m.name)?;
         let func_ref = local_proto.find_const(&f.f).ok_or_else(|| {
             rustfail!(SEMFAIL, "cannot find func ref for {}", f,)
         })?;
