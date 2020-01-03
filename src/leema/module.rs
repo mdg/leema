@@ -4,7 +4,7 @@ use crate::leema::sendclone;
 
 use std::borrow::Borrow;
 use std::fmt;
-use std::path::{self, Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 
 const DEFAULT_MODNAME: &'static str = "$";
@@ -456,6 +456,20 @@ pub struct ImportedMod(pub PathBuf);
 
 impl ImportedMod
 {
+    pub fn relativity(&self) -> ModRelativity
+    {
+        match self.0.components().next().unwrap() {
+            Component::RootDir => ModRelativity::Absolute,
+            Component::ParentDir => {
+                ModRelativity::Sibling
+            }
+            Component::Normal(_) => ModRelativity::Child,
+            Component::CurDir => {
+                panic!("unexpected CurDir from {}", self.0.display());
+            }
+        }
+    }
+
     pub fn is_absolute(&self) -> bool
     {
         self.0.has_root()
@@ -471,7 +485,20 @@ impl ImportedMod
         !(self.is_absolute() || self.is_sibling())
     }
 
-    pub fn head(&self) -> (path::Component, &Path)
+    pub fn is_empty(path: &Path) -> bool
+    {
+        path.as_os_str().is_empty()
+    }
+
+    pub fn head(path: &Path) -> (Component, &Path)
+    {
+        let mut it = path.components();
+        let h = it.next().unwrap();
+        let t = it.as_path();
+        (h, t)
+    }
+
+    pub fn head2(&self) -> (Component, &Path)
     {
         let mut it = self.0.components();
         let h = it.next().unwrap();
@@ -514,11 +541,16 @@ impl CanonicalMod
         self.0.starts_with("/core")
     }
 
-    pub fn as_path_buf(&self) -> PathBuf
+    pub fn mod_path(&self) -> &Path
+    {
+        Path::new(self.0.str())
+    }
+
+    pub fn file_path_buf(&self) -> PathBuf
     {
         let file_path = PathBuf::new();
         let path_str: &str = if self.0.starts_with("/") {
-            &self.0.str()[1..]
+            &self.0.str()
         } else {
             eprintln!("canonical path does not start with /: {:?}", self.0);
             self.0.str()
@@ -526,6 +558,14 @@ impl CanonicalMod
         file_path.push(String::from(path_str));
         file_path.set_extension("lma");
         file_path
+    }
+}
+
+impl From<&Path> for CanonicalMod
+{
+    fn from(mp: &Path) -> CanonicalMod
+    {
+        CanonicalMod(lstrf!("{}", mp.display()))
     }
 }
 

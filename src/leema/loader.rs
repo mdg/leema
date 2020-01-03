@@ -115,7 +115,7 @@ impl Interloader
     /// this all seems suboptimal, but it can probably be fixed later
     fn find_file_path(&self, name: &CanonicalMod) -> Lresult<PathBuf>
     {
-        let mut file_path = name.as_path_buf();
+        let mut file_path = name.file_path_buf();
 
         for p in self.paths.iter() {
             let mut check_path = p.clone();

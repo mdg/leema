@@ -3,12 +3,13 @@ use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::grammar2::Grammar;
 use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::{self, CanonicalMod, ModAlias, ModKey, ModPath, ModRelativity, TypeMod};
+use crate::leema::module::{CanonicalMod, ImportedMod, ModAlias, ModKey, ModPath, ModRelativity, TypeMod};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::token::Tokenz;
 use crate::leema::val::{Fref, FuncType, GenericTypes, Type, Val};
 
 use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 
 use lazy_static::lazy_static;
 
@@ -38,8 +39,8 @@ lazy_static! {
 pub struct ProtoModule
 {
     pub key: ModKey,
-    pub imports: HashMap<ModAlias, ModPath>,
-    pub exports: HashMap<ModAlias, ModPath>,
+    pub imports: HashMap<ModAlias, ImportedMod>,
+    pub exports: HashMap<ModAlias, ImportedMod>,
     pub id_canonicals: HashMap<&'static str, CanonicalMod>,
     pub mod_canonicals: HashMap<ModAlias, CanonicalMod>,
     pub macros: HashMap<&'static str, Ast>,
@@ -118,7 +119,7 @@ impl ProtoModule
         for (k, (v, loc)) in exports.into_iter() {
             // make sure that only child modules are exported
             // siblings and absolute modules cannot be exported (for now)
-            if v.relativity != ModRelativity::Child {
+            if v.relativity() != ModRelativity::Child {
                 return Err(Failure::static_leema(
                     failure::Mode::CompileFailure,
                     lstrf!("only child modules can be exported: {}", v),
@@ -177,17 +178,10 @@ impl ProtoModule
             // if it's not defined locally, must be a child module
             // so import it
             if proto.defines(k.str()) {
-                // this is no good. decide the error message
-                let err_msg = if v.path.len() == 1 {
-                    // k is locally defined so doesn't need to be exported
-                    lstrf!("local definitions are exported by default: {}", v)
-                } else {
-                    // importing a child module over a local definition
-                    lstrf!("local definition cannot shadow export: {}", v)
-                };
+                // importing a child module over a local definition
                 return Err(Failure::static_leema(
                     failure::Mode::CompileFailure,
-                    err_msg,
+                    lstrf!("local definition cannot shadow export: {}", v),
                     proto.key.best_path(),
                     0,
                 ));
@@ -196,8 +190,8 @@ impl ProtoModule
 
         // export any local definitions
         for name in proto.macros.keys().chain(proto.funcseq.iter()) {
-            let chain = module::Chain::from(*name);
-            proto.exports.insert(ModAlias(name), ModPath::local(chain));
+            let export_path = PathBuf::from(*name);
+            proto.exports.insert(ModAlias(name), ImportedMod(export_path));
         }
 
         Ok(proto)
@@ -726,12 +720,11 @@ impl ProtoLib
     pub fn load_absolute(
         &mut self,
         loader: &mut Interloader,
-        cmod: CanonicalMod,
+        mod_path: &Path,
     ) -> Lresult<(CanonicalMod, bool)>
     {
-        vout!("ProtoLib::load_absolute({})\n", cmod);
-        let mod_path = module::Chain::from_canonical(cmod)?;
-        let (head, tail) = mod_path.split();
+        vout!("ProtoLib::load_absolute({})\n", mod_path.display());
+        let (head, tail) = ImportedMod::head(mod_path);
         ltry!(self.load_canonical(loader, &head));
         self.load_relative(loader, head, tail)
     }
@@ -739,29 +732,30 @@ impl ProtoLib
     pub fn load_child(
         &mut self,
         loader: &mut Interloader,
-        mut base_path: module::Chain,
-        child_path: module::Chain,
+        base_path: &Path,
+        child_path: &Path,
     ) -> Lresult<(CanonicalMod, bool)>
     {
-        vout!("ProtoLib::load_child({:?}, {:?})\n", base_path, child_path);
-        let (head, tail) = child_path.head();
-        base_path.push(head);
-        ltry!(self.load_canonical(loader, &base_path));
-        self.load_relative(loader, base_path, tail)
+        vout!("ProtoLib::load_child({:?}, {:?})\n", base_path.display(), child_path.display());
+        let (head, tail) = ImportedMod::head(child_path);
+        let next_base = base_path.join(head);
+        ltry!(self.load_canonical(loader, &next_base));
+        self.load_relative(loader, &next_base, tail)
     }
 
     pub fn load_relative(
         &mut self,
         loader: &mut Interloader,
-        base_path: module::Chain,
-        opt_next_path: Option<module::Chain>,
+        base_path: &Path,
+        next_path: &Path,
     ) -> Lresult<(CanonicalMod, bool)>
     {
-        if opt_next_path.is_none() {
-            return Ok((CanonicalMod::from(&base_path), false));
+        if ImportedMod::is_empty(next_path) {
+            let cmod = CanonicalMod::from(base_path);
+            return Ok((cmod, false));
         }
-        let (head, tail) = opt_next_path.unwrap().head();
-        let base_proto = ltry!(self.path_proto(&base_path));
+        let (head, tail) = ImportedMod::head(next_path);
+        let base_proto = ltry!(self.path_proto(&cmod));
 
         // this isn't necessarily canonical, it might be shortcutted later on
         let mut canonical_head = match base_proto.exports.get(head) {
@@ -804,7 +798,8 @@ impl ProtoLib
             }
             ModRelativity::Local => {
                 // already loaded, no need to load deeper
-                Ok((CanonicalMod::from(&base_path), true))
+                let cmod = CanonicalMod::from(base_path);
+                Ok((cmod, true))
             }
         }
     }
@@ -851,7 +846,7 @@ impl ProtoLib
     fn load_canonical(
         &mut self,
         loader: &mut Interloader,
-        modpath: &module::Chain,
+        modpath: &Path,
     ) -> Lresult<()>
     {
         vout!("ProtoLib::load_canonical({:?})\n", modpath);
@@ -881,11 +876,11 @@ impl ProtoLib
     pub fn load_imports(
         &mut self,
         loader: &mut Interloader,
-        modname: &CanonicalMod,
+        modname: &Path,
     ) -> Lresult<()>
     {
-        vout!("ProtoLib::load_imports({})\n", modname);
-        let mut imported: Vec<(ModAlias, ModPath)> = vec![];
+        vout!("ProtoLib::load_imports({})\n", modname.display());
+        let mut imported: Vec<(ModAlias, ImportedMod)> = vec![];
         {
             let proto = self.protos.get(modname).ok_or_else(|| {
                 rustfail!(
@@ -908,7 +903,7 @@ impl ProtoLib
 
         let mut canonicals = vec![];
         for (k, i) in imported.into_iter() {
-            let result = match i.relativity {
+            let result = match i.relativity() {
                 ModRelativity::Absolute => {
                     ltry!(self.load_absolute(loader, i.path))
                 }
@@ -917,7 +912,7 @@ impl ProtoLib
                 }
                 ModRelativity::Sibling => {
                     let parent = modname.parent();
-                    ltry!(self.load_child(loader, parent, i.path))
+                    ltry!(self.load_child(loader, parent, i))
                 }
                 ModRelativity::Local => {
                     panic!("cannot import locally defined identifiers: {}", i);
@@ -962,6 +957,11 @@ impl ProtoLib
     }
 
     pub fn path_proto(&self, path: &CanonicalMod) -> Lresult<&ProtoModule>
+    {
+        self._path_proto(path.mod_path())
+    }
+
+    fn _path_proto(&self, path: &Path) -> Lresult<&ProtoModule>
     {
         self.protos.get(path).ok_or_else(|| {
             rustfail!(PROTOFAIL, "module not loaded: {:?}", path)

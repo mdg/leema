@@ -1,5 +1,5 @@
 use crate::leema::failure::Lresult;
-use crate::leema::module::{self, ModAlias, ModPath, ModRelativity};
+use crate::leema::module::{ImportedMod, ModAlias, ModRelativity};
 use crate::leema::reg::Reg;
 use crate::leema::struple::{self, StrupleKV};
 use crate::leema::token::TokenSrc;
@@ -7,6 +7,7 @@ use crate::leema::val::{Type, Val};
 
 use std::collections::HashMap;
 use std::fmt;
+use std::path::{Component, PathBuf};
 
 
 #[derive(Clone)]
@@ -142,23 +143,23 @@ impl ModTree
         }
     }
 
-    pub fn collect(&self, flats: &mut HashMap<&'static str, (ModPath, Loc)>)
+    pub fn collect(&self, flats: &mut HashMap<&'static str, (ImportedMod, Loc)>)
     {
-        let mut paths = module::Chain::new(Vec::with_capacity(8));
+        let paths = PathBuf::new();
         self._collect(flats, ModRelativity::Child, &mut paths);
     }
 
     pub fn _collect(
         &self,
-        flats: &mut HashMap<&'static str, (ModPath, Loc)>,
+        flats: &mut HashMap<&'static str, (ImportedMod, Loc)>,
         rel: ModRelativity,
-        path: &mut module::Chain,
-    )
+        path: &mut PathBuf,
+    ) -> Lresult<()>
     {
         match self {
             ModTree::Id(id, loc) => {
                 path.push(id);
-                flats.insert(id, (ModPath::new(rel, path.clone()), *loc));
+                flats.insert(id, (ImportedMod(path.clone()), *loc));
                 path.pop();
             }
             ModTree::Sub(id, subs) => {
@@ -172,27 +173,32 @@ impl ModTree
                 }
             }
             ModTree::Root(subs) => {
-                if !path.is_empty() {
+                if !path.as_os_str().is_empty() {
                     panic!("path must be empty for absolute path: {:?}", path);
                 }
+                path.push(Component::RootDir);
                 subs._collect(flats, ModRelativity::Absolute, path);
+                *path = PathBuf::new();
             }
             ModTree::Sibling(subs) => {
-                if !path.is_empty() {
+                if !path.as_os_str().is_empty() {
                     panic!("path must be empty for sibling path: {:?}", path);
                 }
+                path.push(Component::ParentDir);
                 subs._collect(flats, ModRelativity::Sibling, path);
+                *path = PathBuf::new();
             }
             ModTree::Module(loc) => {
-                flats.insert(
-                    path.last(),
-                    (ModPath::new(rel, path.clone()), *loc),
-                );
+                path.push(Component::CurDir);
+                flats.insert(".", (ImportedMod(path.clone()), *loc));
+                // flats.insert(prev.unwrap(), (path.clone(), *loc));
+                path.pop();
             }
             ModTree::Wildcard(_) => {
                 // need to do something with this
             }
         }
+        Ok(())
     }
 }
 

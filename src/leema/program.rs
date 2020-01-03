@@ -14,6 +14,7 @@ use crate::leema::{
 };
 
 use std::collections::HashMap;
+use std::path::Path;
 
 
 pub struct Lib
@@ -41,11 +42,11 @@ impl Lib
         // eventually will move everything to core and delete prefab
         lfailoc!(proglib
             .protos
-            .load_absolute(&mut proglib.loader, canonical_mod!("/core")))
+            .load_absolute(&mut proglib.loader, Path::new("/core")))
         .unwrap();
         lfailoc!(proglib
             .protos
-            .load_absolute(&mut proglib.loader, canonical_mod!("/prefab")))
+            .load_absolute(&mut proglib.loader, Path::new("/prefab")))
         .unwrap();
 
         proglib
@@ -144,10 +145,11 @@ impl Lib
 
     pub fn load_proto_and_imports(
         &mut self,
-        modpath: &CanonicalMod,
+        cmod: &CanonicalMod,
     ) -> Lresult<()>
     {
-        self.protos.load_absolute(&mut self.loader, modpath.clone())?;
+        let modpath = cmod.mod_path();
+        self.protos.load_absolute(&mut self.loader, modpath)?;
         self.protos.load_imports(&mut self.loader, modpath)
     }
 }
