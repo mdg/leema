@@ -458,14 +458,19 @@ impl ImportedMod
 {
     pub fn relativity(&self) -> ModRelativity
     {
-        match self.0.components().next().unwrap() {
+        Self::path_relativity(&self.0)
+    }
+
+    pub fn path_relativity(p: &Path) -> ModRelativity
+    {
+        match p.components().next().unwrap() {
             Component::RootDir => ModRelativity::Absolute,
             Component::ParentDir => {
                 ModRelativity::Sibling
             }
             Component::Normal(_) => ModRelativity::Child,
             Component::CurDir => {
-                panic!("unexpected CurDir from {}", self.0.display());
+                panic!("unexpected CurDir from {}", p.display());
             }
         }
     }

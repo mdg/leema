@@ -634,7 +634,7 @@ impl ProtoModule
 #[derive(Debug)]
 pub struct ProtoLib
 {
-    protos: HashMap<CanonicalMod, ProtoModule>,
+    protos: HashMap<PathBuf, ProtoModule>,
 }
 
 impl ProtoLib
@@ -649,16 +649,16 @@ impl ProtoLib
     /// mostly used for testing
     pub fn add_module(
         &mut self,
-        modname: CanonicalMod,
+        modname: &Path,
         src: &'static str,
     ) -> Lresult<()>
     {
-        vout!("ProtoLib::add_module({})\n", modname);
-        if self.protos.contains_key(&modname) {
+        vout!("ProtoLib::add_module({})\n", modname.display());
+        if self.protos.contains_key(modname) {
             return Err(rustfail!(
                 PROTOFAIL,
                 "cannot load a module twice: {}",
-                modname,
+                modname.display(),
             ));
         }
         let modkey = ModKey::from(modname);
@@ -725,8 +725,8 @@ impl ProtoLib
     {
         vout!("ProtoLib::load_absolute({})\n", mod_path.display());
         let (head, tail) = ImportedMod::head(mod_path);
-        ltry!(self.load_canonical(loader, &head));
-        self.load_relative(loader, head, tail)
+        ltry!(self.load_canonical(loader, Path::new(&head)));
+        self.load_relative(loader, Path::new(&head), tail)
     }
 
     pub fn load_child(
@@ -755,45 +755,48 @@ impl ProtoLib
             return Ok((cmod, false));
         }
         let (head, tail) = ImportedMod::head(next_path);
-        let base_proto = ltry!(self.path_proto(&cmod));
+        let base_proto = ltry!(self._path_proto(base_path));
 
         // this isn't necessarily canonical, it might be shortcutted later on
-        let mut canonical_head = match base_proto.exports.get(head) {
-            Some(canon_head) => canon_head.clone(),
+        let mut head_export = match base_proto.exports.get(head) {
+            Some(exp_head) => {
+                if ImportedMod::is_empty(tail) {
+                    exp_head.0.clone()
+                } else {
+                    exp_head.0.join(tail)
+                }
+            }
             None => {
                 return Err(rustfail!(
                     PROTOFAIL,
-                    "submodule {} not exported from {}",
+                    "submodule {:?} not exported from {}",
                     head,
-                    base_path,
+                    base_path.display(),
                 ));
             }
         };
 
-        if let Some(itail) = tail {
-            canonical_head.join(itail);
-        }
-        match canonical_head.relativity {
+        match ImportedMod::path_relativity(&head_export) {
             ModRelativity::Absolute => {
                 Err(rustfail!(
                     PROTOFAIL,
                     "cannot load absolute module relatively: {}",
-                    canonical_head,
+                    head_export.display(),
                 ))
             }
             ModRelativity::Child => {
                 lfailoc!(self.load_child(
                     loader,
                     base_path,
-                    canonical_head.path
+                    &head_export,
                 ))
             }
             ModRelativity::Sibling => {
                 Err(rustfail!(
                     PROTOFAIL,
-                    "cannot load sibling module as child: {:?} / {:?}",
-                    base_path,
-                    canonical_head,
+                    "cannot load sibling module as child: {} / {}",
+                    base_path.display(),
+                    head_export.display(),
                 ))
             }
             ModRelativity::Local => {
@@ -850,25 +853,25 @@ impl ProtoLib
     ) -> Lresult<()>
     {
         vout!("ProtoLib::load_canonical({:?})\n", modpath);
-        if self.protos.contains_key(&modpath) {
+        if self.protos.contains_key(modpath) {
             // already loaded
             return Ok(());
         }
 
-        let modkey = ltry!(loader.new_key(&modpath));
+        let modkey = ltry!(loader.new_key(modpath));
         let modtxt = ltry!(loader.read_mod(&modkey));
         let proto = ltry!(ProtoModule::new(modkey.clone(), modtxt)
             .map_err(|e| { e.lstr_loc(modkey.best_path(), 0) }));
-        self.put_module(modpath.clone(), proto)?;
+        self.put_module(modpath, proto)?;
         Ok(())
     }
 
-    fn put_module(&mut self, modpath: CanonicalMod, proto: ProtoModule) -> Lresult<()>
+    fn put_module(&mut self, modpath: &Path, proto: ProtoModule) -> Lresult<()>
     {
         let type_mods = proto.type_modules()?;
-        self.protos.insert(modpath, proto);
+        self.protos.insert(modpath.to_path_buf(), proto);
         for tm in type_mods.into_iter() {
-            self.protos.insert(tm.key.name.clone(), tm);
+            self.protos.insert(tm.key.name.mod_path().to_path_buf(), tm);
         }
         Ok(())
     }
@@ -886,14 +889,14 @@ impl ProtoLib
                 rustfail!(
                     PROTOFAIL,
                     "an import module does not exist: {}",
-                    modname,
+                    modname.display(),
                 )
             })?;
             for (k, i) in proto.imports.iter() {
-                if i.path == *modname {
+                if i.0 == *modname {
                     return Err(rustfail!(
                         PROTOFAIL,
-                        "a module cannot import itself: {:?}",
+                        "a module cannot import itself: {}",
                         i,
                     ));
                 }
@@ -905,14 +908,14 @@ impl ProtoLib
         for (k, i) in imported.into_iter() {
             let result = match i.relativity() {
                 ModRelativity::Absolute => {
-                    ltry!(self.load_absolute(loader, i.path))
+                    ltry!(self.load_absolute(loader, &i.0))
                 }
                 ModRelativity::Child => {
-                    ltry!(self.load_child(loader, modname.clone(), i.path))
+                    ltry!(self.load_child(loader, modname.clone(), &i.0))
                 }
                 ModRelativity::Sibling => {
-                    let parent = modname.parent();
-                    ltry!(self.load_child(loader, parent, i))
+                    let parent = modname.parent().unwrap();
+                    ltry!(self.load_child(loader, parent, &i.0))
                 }
                 ModRelativity::Local => {
                     panic!("cannot import locally defined identifiers: {}", i);
@@ -936,7 +939,7 @@ impl ProtoLib
     ) -> Lresult<Option<(Xlist, AstNode)>>
     {
         self.protos
-            .get_mut(module)
+            .get_mut(module.mod_path())
             .ok_or_else(|| {
                 rustfail!(PROTOFAIL, "could not find module: {}", module,)
             })
@@ -949,7 +952,8 @@ impl ProtoLib
         alias: &ModAlias,
     ) -> Lresult<&ProtoModule>
     {
-        let protomod = self.protos.get(proto).ok_or_else(|| {
+        let modpath = proto.mod_path();
+        let protomod = self.protos.get(modpath).ok_or_else(|| {
             rustfail!(PROTOFAIL, "module not loaded: {:?}", proto)
         })?;
         let new_path = ltry!(protomod.imported_module(alias));
