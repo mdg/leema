@@ -1,3 +1,4 @@
+use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::sendclone;
 
@@ -294,18 +295,11 @@ impl CanonicalMod
         Path::new(self.0.str())
     }
 
-    pub fn file_path_buf(&self) -> PathBuf
+    pub fn file_path_buf(cpath: &Path) -> Lresult<PathBuf>
     {
-        let file_path = PathBuf::new();
-        let path_str: &str = if self.0.starts_with("/") {
-            &self.0.str()
-        } else {
-            eprintln!("canonical path does not start with /: {:?}", self.0);
-            self.0.str()
-        };
-        file_path.push(String::from(path_str));
-        file_path.set_extension("lma");
-        file_path
+        cpath.strip_prefix("/")
+            .map(|pb| pb.with_extension("lma"))
+            .map_err(|e| rustfail!("leemafail", "{}", e))
     }
 }
 

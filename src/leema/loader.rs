@@ -74,7 +74,7 @@ impl Interloader
     {
         let stext = Self::static_str(content);
         self.texts.insert(key.name.clone(), stext);
-        self.keys.insert(key.name.clone(), key);
+        self.keys.insert(key.name.mod_path().to_path_buf(), key);
         stext
     }
 
@@ -116,7 +116,7 @@ impl Interloader
     /// this all seems suboptimal, but it can probably be fixed later
     fn find_file_path(&self, name: &Path) -> Lresult<PathBuf>
     {
-        let mut file_path = name.strip_prefix("/").file_path_buf();
+        let mut file_path = CanonicalMod::file_path_buf(name)?;
 
         for p in self.paths.iter() {
             let check_path = p.join(file_path);
