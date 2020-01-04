@@ -88,10 +88,10 @@ impl ProtoModule
             let i = it.next().unwrap();
             match *i.node {
                 Ast::ModAction(ModAction::Import, tree) => {
-                    tree.collect(&mut imports);
+                    tree.collect(&mut imports)?;
                 }
                 Ast::ModAction(ModAction::Export, tree) => {
-                    tree.collect(&mut exports);
+                    tree.collect(&mut exports)?;
                 }
                 _ => {
                     panic!("not an import or export");
@@ -413,7 +413,7 @@ impl ProtoModule
     fn add_import(&mut self, tree: ModTree) -> Lresult<()>
     {
         let mut imports = HashMap::new();
-        tree.collect(&mut imports);
+        tree.collect(&mut imports)?;
         for (k, (v, loc)) in imports.into_iter() {
             self.refute_redefines_default(k, loc)?;
 
@@ -433,7 +433,7 @@ impl ProtoModule
     fn add_export(&mut self, tree: ModTree) -> Lresult<()>
     {
         let mut exports = HashMap::new();
-        tree.collect(&mut exports);
+        tree.collect(&mut exports)?;
         for (k, (v, loc)) in exports.into_iter() {
             self.refute_redefines_default(k, loc)?;
 

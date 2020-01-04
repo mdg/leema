@@ -252,15 +252,9 @@ impl ImportedMod
 
     pub fn head(path: &Path) -> (&Path, &Path)
     {
-        let mut it = path.components();
-        let hcomp = it.next().unwrap();
-        let h = match hcomp {
-            Component::Normal(_) => Path::new(&hcomp),
-            _ => {
-                panic!("unexpected head: {:?}", hcomp);
-            }
-        };
-        (h, it.as_path())
+        let mut it = path.iter();
+        let h = it.next().unwrap();
+        (Path::new(h), it.as_path())
     }
 
     pub fn head2(&self) -> (Component, &Path)

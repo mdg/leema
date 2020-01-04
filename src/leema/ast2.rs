@@ -143,10 +143,10 @@ impl ModTree
         }
     }
 
-    pub fn collect(&self, flats: &mut HashMap<&'static str, (ImportedMod, Loc)>)
+    pub fn collect(&self, flats: &mut HashMap<&'static str, (ImportedMod, Loc)>) -> Lresult<()>
     {
         let mut paths = PathBuf::new();
-        self._collect(flats, ModRelativity::Child, &mut paths);
+        self._collect(flats, ModRelativity::Child, &mut paths)
     }
 
     pub fn _collect(
@@ -164,12 +164,12 @@ impl ModTree
             }
             ModTree::Sub(id, subs) => {
                 path.push(id);
-                subs._collect(flats, rel, path);
+                subs._collect(flats, rel, path)?;
                 path.pop();
             }
             ModTree::Block(block) => {
                 for item in block.iter() {
-                    item._collect(flats, rel, path);
+                    item._collect(flats, rel, path)?;
                 }
             }
             ModTree::Root(subs) => {
@@ -177,7 +177,7 @@ impl ModTree
                     panic!("path must be empty for absolute path: {:?}", path);
                 }
                 path.push(Component::RootDir);
-                subs._collect(flats, ModRelativity::Absolute, path);
+                subs._collect(flats, ModRelativity::Absolute, path)?;
                 *path = PathBuf::new();
             }
             ModTree::Sibling(subs) => {
@@ -185,7 +185,7 @@ impl ModTree
                     panic!("path must be empty for sibling path: {:?}", path);
                 }
                 path.push(Component::ParentDir);
-                subs._collect(flats, ModRelativity::Sibling, path);
+                subs._collect(flats, ModRelativity::Sibling, path)?;
                 *path = PathBuf::new();
             }
             ModTree::Module(loc) => {
