@@ -145,7 +145,7 @@ impl ModTree
 
     pub fn collect(&self, flats: &mut HashMap<&'static str, (ImportedMod, Loc)>)
     {
-        let paths = PathBuf::new();
+        let mut paths = PathBuf::new();
         self._collect(flats, ModRelativity::Child, &mut paths);
     }
 

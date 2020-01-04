@@ -660,7 +660,7 @@ impl ProtoLib
                 modname.display(),
             ));
         }
-        let modkey = ModKey::from(modname);
+        let modkey = ModKey::from(CanonicalMod::from(modname));
         let proto = ProtoModule::new(modkey, src)?;
         self.put_module(modname, proto)?;
         Ok(())
@@ -757,7 +757,7 @@ impl ProtoLib
         let base_proto = ltry!(self._path_proto(base_path));
 
         // this isn't necessarily canonical, it might be shortcutted later on
-        let mut head_export = match base_proto.exports.get(head) {
+        let head_export = match base_proto.exports.get(head) {
             Some(exp_head) => {
                 if ImportedMod::is_empty(tail) {
                     exp_head.0.clone()

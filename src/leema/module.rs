@@ -183,6 +183,14 @@ impl fmt::Display for ModAlias
     }
 }
 
+impl Borrow<Path> for ModAlias
+{
+    fn borrow(&self) -> &Path
+    {
+        Path::new(self.0)
+    }
+}
+
 impl Borrow<str> for ModAlias
 {
     fn borrow(&self) -> &str
@@ -216,6 +224,9 @@ impl ImportedMod
             Component::CurDir => {
                 panic!("unexpected CurDir from {}", p.display());
             }
+            Component::Prefix(pre) => {
+                panic!("no relativity for prefix: {:?}", pre);
+            }
         }
     }
 
@@ -239,12 +250,17 @@ impl ImportedMod
         path.as_os_str().is_empty()
     }
 
-    pub fn head(path: &Path) -> (Component, &Path)
+    pub fn head(path: &Path) -> (&Path, &Path)
     {
         let mut it = path.components();
-        let h = it.next().unwrap();
-        let t = it.as_path();
-        (h, t)
+        let hcomp = it.next().unwrap();
+        let h = match hcomp {
+            Component::Normal(_) => Path::new(&hcomp),
+            _ => {
+                panic!("unexpected head: {:?}", hcomp);
+            }
+        };
+        (h, it.as_path())
     }
 
     pub fn head2(&self) -> (Component, &Path)
