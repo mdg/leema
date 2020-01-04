@@ -3,7 +3,7 @@ use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::grammar2::Grammar;
 use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::{CanonicalMod, ImportedMod, ModAlias, ModKey, ModPath, ModRelativity, TypeMod};
+use crate::leema::module::{CanonicalMod, ImportedMod, ModAlias, ModKey, ModRelativity, TypeMod};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::token::Tokenz;
 use crate::leema::val::{Fref, FuncType, GenericTypes, Type, Val};
@@ -30,7 +30,6 @@ lazy_static! {
         ids.insert("#", core_mod);
         ids
     };
-    static ref DEFAULT_MODPATH: ModPath = ModPath::from("/prefab");
 }
 
 

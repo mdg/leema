@@ -34,7 +34,7 @@ pub struct Interloader
 {
     pub main_mod: CanonicalMod,
     paths: Vec<PathBuf>,
-    keys: HashMap<CanonicalMod, ModKey>,
+    keys: HashMap<PathBuf, ModKey>,
     texts: HashMap<CanonicalMod, &'static str>,
 }
 
@@ -78,14 +78,15 @@ impl Interloader
         stext
     }
 
-    pub fn new_key(&self, cmod: &CanonicalMod) -> Lresult<ModKey>
+    pub fn new_key(&self, cpath: &Path) -> Lresult<ModKey>
     {
-        if let Some(found) = self.keys.get(cmod) {
+        if let Some(found) = self.keys.get(cpath) {
             return Ok(found.clone());
         }
 
-        let path = ltry!(self.find_file_path(cmod));
-        Ok(ModKey::new(cmod.clone(), path))
+        let file_path = ltry!(self.find_file_path(cpath));
+        let cmod = CanonicalMod::from(cpath);
+        Ok(ModKey::new(cmod.clone(), file_path))
     }
 
     pub fn read_mod(&mut self, key: &ModKey) -> Lresult<&'static str>
@@ -113,12 +114,12 @@ impl Interloader
     }
 
     /// this all seems suboptimal, but it can probably be fixed later
-    fn find_file_path(&self, name: &CanonicalMod) -> Lresult<PathBuf>
+    fn find_file_path(&self, name: &Path) -> Lresult<PathBuf>
     {
-        let mut file_path = name.file_path_buf();
+        let mut file_path = name.strip_prefix("/").file_path_buf();
 
         for p in self.paths.iter() {
-            let mut check_path = p.clone();
+            let check_path = p.join(file_path);
             check_path.push(file_path.clone());
             if check_path.exists() && check_path.is_file() {
                 return Ok(check_path);
