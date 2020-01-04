@@ -109,7 +109,7 @@ fn real_main() -> Lresult<()>
     });
     let leema_args = list::reverse(&leema_args_rev);
     let mut inter = Interloader::new(main_file, leema_path);
-    let main_key = inter.new_key(&inter.main_mod)?;
+    let main_key = inter.new_key(inter.main_mod.mod_path())?;
     let main_mod = inter.main_mod.clone();
     let fref = match args.flag_func {
         Some(func) => {
