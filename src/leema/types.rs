@@ -5,14 +5,14 @@ use crate::leema::struple::StrupleItem;
 use crate::leema::val::{Type, Val};
 
 
-const MODULE: TypeMod = canonical_typemod!(types);
+const MODULE: TypeMod = canonical_typemod!("/types");
 pub const STRUCT_FIELD_TYPE: Type = Type::User(MODULE, "StructFieldVal");
 
 
 pub fn option_type(t: Type) -> Type
 {
     let open = t.is_open();
-    let opt = Box::new(user_type!(option, "T"));
+    let opt = Box::new(user_type!("/option", "T"));
     Type::Generic(open, opt, vec![StrupleItem::new("T", t)])
 }
 
@@ -143,7 +143,7 @@ pub fn new_type_val(name: Lstr, fields: &Vec<(Option<Lstr>, Type)>) -> Val
     }
     let struct_field_vals = list::reverse(&struct_fields_acc);
 
-    let struct_type_type = user_type!(types, "TypeVal");
+    let struct_type_type = user_type!("/types", "TypeVal");
     let struct_fields_struple = vec![
         StrupleItem::new(Some(Lstr::Sref("name")), Val::Str(name)),
         StrupleItem::new(Some(Lstr::Sref("fields")), struct_field_vals),

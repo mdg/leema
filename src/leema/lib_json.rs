@@ -14,7 +14,7 @@ use serde::Serializer;
 use serde_json::{self, Value};
 
 
-const MODULE: TypeMod = canonical_typemod!(json);
+const MODULE: TypeMod = canonical_typemod!("/json");
 const JSON_VAL_TYPE: Type = Type::User(MODULE, "Val");
 
 impl Serialize for Val

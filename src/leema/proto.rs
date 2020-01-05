@@ -980,12 +980,11 @@ mod tests
     use crate::leema::ast2::Ast;
     use crate::leema::loader::Interloader;
     use crate::leema::lstr::Lstr;
-    use crate::leema::module::{
-        Chain, ModKey, ModPath,
-        ModRelativity::{Absolute, Child, Sibling},
-    };
+    use crate::leema::module::ModKey;
     use crate::leema::struple::{self, StrupleItem};
     use crate::leema::val::{FuncType, Type, Val};
+
+    use std::path::Path;
 
     use matches::assert_matches;
 
@@ -1049,7 +1048,7 @@ mod tests
         let point_type = proto.types.get("Point").expect("no Point type");
         let expected = Type::Generic(
             true,
-            Box::new(Type::User(Lstr::Sref("foo"), "Point")),
+            Box::new(user_type!("/foo", "Point")),
             vec![StrupleItem::new("T", Type::Unknown)],
         );
         assert_eq!(expected, *point_type);
@@ -1078,25 +1077,12 @@ mod tests
         assert_eq!(6, proto.imports.len());
         assert_eq!(0, proto.exports.len());
 
-        assert_eq!(Absolute, proto.imports["tacos"].relativity);
-        assert_eq!(Child, proto.imports["burritos"].relativity);
-        assert_eq!(Child, proto.imports["huevos"].relativity);
-        assert_eq!(Child, proto.imports["rancheros"].relativity);
-        assert_eq!(Child, proto.imports["enchiladas"].relativity);
-        assert_eq!(Sibling, proto.imports["nachos"].relativity);
-
-        assert_eq!(Chain::from("tacos"), proto.imports["tacos"].path);
-        assert_eq!(Chain::from("burritos"), proto.imports["burritos"].path);
-        assert_eq!(Chain::from("tortas/huevos"), proto.imports["huevos"].path);
-        assert_eq!(
-            Chain::from("tortas/huevos/rancheros"),
-            proto.imports["rancheros"].path
-        );
-        assert_eq!(
-            Chain::from("tortas/enchiladas"),
-            proto.imports["enchiladas"].path
-        );
-        assert_eq!(Chain::from("nachos"), proto.imports["nachos"].path);
+        assert_eq!("/tacos", proto.imports["tacos"]);
+        assert_eq!("burritos", proto.imports["burritos"]);
+        assert_eq!("tortas/huevos", proto.imports["huevos"]);
+        assert_eq!("tortas/huevos/rancheros", proto.imports["rancheros"]);
+        assert_eq!("tortas/enchiladas", proto.imports["enchiladas"]);
+        assert_eq!("../nachos", proto.imports["nachos"]);
     }
 
     #[test]
@@ -1110,10 +1096,8 @@ mod tests
 
         assert_eq!(1, proto.imports.len());
         assert_eq!(1, proto.exports.len());
-        assert_eq!(Child, proto.imports["tacos"].relativity);
-        assert_eq!(Child, proto.exports["tacos"].relativity);
-        assert_eq!(Chain::from("tacos"), proto.imports["tacos"].path);
-        assert_eq!(Chain::from("tacos"), proto.exports["tacos"].path);
+        assert_eq!("tacos", proto.imports["tacos"]);
+        assert_eq!("tacos", proto.exports["tacos"]);
     }
 
     #[test]
@@ -1149,8 +1133,8 @@ mod tests
         loader.set_mod_txt(ModKey::from("a/c/d"), d);
 
         let mut protos = ProtoLib::new();
-        protos.load_absolute(&mut loader, Chain::from("a")).unwrap();
-        protos.load_imports(&mut loader, &Chain::from("a")).unwrap();
+        protos.load_absolute(&mut loader, Path::new("a")).unwrap();
+        protos.load_imports(&mut loader, Path::new("a")).unwrap();
 
         assert_eq!(4, protos.protos.len());
     }
@@ -1173,8 +1157,8 @@ mod tests
         loader.set_mod_txt(ModKey::from("a/b/c/d"), d);
 
         let mut protos = ProtoLib::new();
-        protos.load_absolute(&mut loader, Chain::from("a")).unwrap();
-        protos.load_imports(&mut loader, &Chain::from("a")).unwrap();
+        protos.load_absolute(&mut loader, Path::new("a")).unwrap();
+        protos.load_imports(&mut loader, Path::new("a")).unwrap();
 
         assert_eq!(4, protos.protos.len());
     }
@@ -1207,15 +1191,15 @@ mod tests
         loader.set_mod_txt(ModKey::from("d"), d);
         let mut protos = ProtoLib::new();
 
-        protos.load_absolute(&mut loader, Chain::from("a")).unwrap();
-        protos.load_imports(&mut loader, &Chain::from("a")).unwrap();
+        protos.load_absolute(&mut loader, Path::new("a")).unwrap();
+        protos.load_imports(&mut loader, Path::new("a")).unwrap();
         assert_eq!(2, protos.protos.len());
 
         protos
-            .load_absolute(&mut loader, Chain::from("a/b"))
+            .load_absolute(&mut loader, Path::new("a/b"))
             .unwrap();
         protos
-            .load_imports(&mut loader, &Chain::from("a/b"))
+            .load_imports(&mut loader, Path::new("a/b"))
             .unwrap();
         assert_eq!(4, protos.protos.len());
     }
@@ -1238,12 +1222,12 @@ mod tests
         loader.set_mod_txt(ModKey::from("a/b"), b);
         let mut protos = ProtoLib::new();
 
-        protos.load_absolute(&mut loader, Chain::from("a")).unwrap();
-        protos.load_imports(&mut loader, &Chain::from("a")).unwrap();
+        protos.load_absolute(&mut loader, Path::new("a")).unwrap();
+        protos.load_imports(&mut loader, Path::new("a")).unwrap();
         assert_eq!(2, protos.protos.len());
 
         protos
-            .load_absolute(&mut loader, Chain::from("a/b"))
+            .load_absolute(&mut loader, Path::new("a/b"))
             .expect("want this panic");
     }
 
@@ -1264,20 +1248,20 @@ mod tests
         loader.set_mod_txt(ModKey::from("b"), b);
         let mut protos = ProtoLib::new();
 
-        protos.load_absolute(&mut loader, Chain::from("b")).unwrap();
-        protos.load_imports(&mut loader, &Chain::from("b")).unwrap();
+        protos.load_absolute(&mut loader, Path::new("b")).unwrap();
+        protos.load_imports(&mut loader, Path::new("b")).unwrap();
         assert_eq!(2, protos.protos.len());
 
-        let a = protos.path_proto(&Chain::from("a")).unwrap();
+        let a = protos.path_proto(&canonical_mod!("a")).unwrap();
         assert_eq!(0, a.imports.len());
         assert_eq!(1, a.exports.len());
-        assert_eq!(ModPath::local(Chain::from("foo")), a.exports["foo"]);
+        assert_eq!("foo", a.exports["foo"]);
 
-        let b = protos.path_proto(&Chain::from("b")).unwrap();
-        assert_eq!(0, b.imports.len());
-        assert_eq!(1, b.imported_ids.len());
+        let b = protos.path_proto(&canonical_mod!("b")).unwrap();
+        assert_eq!(1, b.imports.len());
         assert_eq!(1, b.exports.len());
-        assert_eq!(Chain::from("a"), b.imported_ids["foo"]);
+        assert_eq!(1, b.id_canonicals.len());
+        assert_eq!(0, b.mod_canonicals.len());
     }
 
     #[test]
@@ -1286,7 +1270,7 @@ mod tests
         let proto = new_proto("datatype Burrito --");
 
         let burrito_type = proto.types.get("Burrito").expect("no Burrito type");
-        assert_eq!(Type::User(Lstr::from("foo"), "Burrito"), *burrito_type,);
+        assert_eq!(user_type!("foo", "Burrito"), *burrito_type,);
 
         assert!(proto.token.contains("Burrito"));
 
@@ -1304,6 +1288,6 @@ mod tests
         let proto = new_proto("datatype Point x:Int y:Int --");
 
         let point_type = proto.types.get("Point").expect("no Point type");
-        assert_eq!(Type::User(Lstr::Sref("foo"), "Point"), *point_type);
+        assert_eq!(user_type!("foo", "Point"), *point_type);
     }
 }

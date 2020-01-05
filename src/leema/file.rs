@@ -14,7 +14,7 @@ use std::path::Path;
 use std::sync::Mutex;
 
 
-const MODULE: TypeMod = canonical_typemod!(file);
+const MODULE: TypeMod = canonical_typemod!("/file");
 const FILE_TYPE: Type = Type::User(MODULE, "File");
 
 struct LeemaFile

@@ -11,7 +11,7 @@ use futures::{Async, Future, Poll};
 use tokio::net::UdpSocket;
 
 
-const MODULE: TypeMod = canonical_typemod!(udp);
+const MODULE: TypeMod = canonical_typemod!("/udp");
 const SOCKET_TYPE: Type = Type::User(MODULE, "Socket");
 
 impl Rsrc for UdpSocket

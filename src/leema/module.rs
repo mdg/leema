@@ -266,6 +266,14 @@ impl ImportedMod
     }
 }
 
+impl PartialEq<ImportedMod> for &str
+{
+    fn eq(&self, other: &ImportedMod) -> bool
+    {
+        **self == *other.0.as_os_str()
+    }
+}
+
 impl fmt::Display for ImportedMod
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
@@ -321,6 +329,22 @@ impl From<&Path> for CanonicalMod
     }
 }
 
+impl Borrow<str> for CanonicalMod
+{
+    fn borrow(&self) -> &str
+    {
+        self.0.str()
+    }
+}
+
+impl PartialEq<CanonicalMod> for str
+{
+    fn eq(&self, other: &CanonicalMod) -> bool
+    {
+        *self == other.0
+    }
+}
+
 impl Default for CanonicalMod
 {
     fn default() -> CanonicalMod
@@ -339,18 +363,6 @@ impl fmt::Display for CanonicalMod
 
 #[derive(Clone)]
 #[derive(Debug)]
-pub enum TypeMod2
-{
-    Alias(PathBuf),
-    Import {
-        import: PathBuf,
-        canonical: PathBuf,
-    },
-    Canonical(PathBuf),
-}
-
-#[derive(Clone)]
-#[derive(Debug)]
 #[derive(PartialOrd)]
 #[derive(Eq)]
 #[derive(Ord)]
@@ -364,14 +376,10 @@ pub struct TypeMod
 #[macro_export]
 macro_rules! canonical_typemod
 {
-    ($tm:ident) => {
+    ($tm:expr) => {
         crate::leema::module::TypeMod {
-            import: crate::leema::lstr::Lstr::Sref(
-                concat!("/", stringify!($tm)),
-            ),
-            canonical: crate::leema::lstr::Lstr::Sref(
-                concat!("/", stringify!($tm))
-            ),
+            import: crate::leema::lstr::Lstr::Sref($tm),
+            canonical: crate::leema::lstr::Lstr::Sref($tm),
         }
     };
 }
@@ -379,7 +387,7 @@ macro_rules! canonical_typemod
 #[macro_export]
 macro_rules! user_type
 {
-    ($m:ident, $t:expr) => {
+    ($m:expr, $t:expr) => {
         crate::leema::val::Type::User(canonical_typemod!($m), $t)
     };
 }

@@ -1249,7 +1249,7 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 node.typ = Type::Tuple(itypes?);
             }
             Ast::Return(_) => {
-                node.typ = user_type!(core, "NoReturn");
+                node.typ = user_type!("/core", "NoReturn");
             }
             _ => {
                 // should handle matches later, but for now it's fine
@@ -1603,12 +1603,14 @@ mod tests
     use super::Semantics;
     use crate::leema::ast2::Ast;
     use crate::leema::loader::Interloader;
-    use crate::leema::module::{self, ModKey};
+    use crate::leema::module::ModKey;
     use crate::leema::program;
     use crate::leema::proto::ProtoLib;
     use crate::leema::val::{Fref, Type};
 
     use matches::assert_matches;
+
+    use std::path::Path;
 
 
     fn core_program(mods: &[(&'static str, String)]) -> program::Lib
@@ -1624,8 +1626,8 @@ mod tests
     {
         let mut loader = Interloader::default();
         let mut proto = ProtoLib::new();
-        let core_path = module::Chain::from("core");
-        let prefab_path = module::Chain::from("prefab");
+        let core_path = Path::new("core");
+        let prefab_path = Path::new("prefab");
         lfailoc!(proto.load_absolute(&mut loader, core_path)).unwrap();
         lfailoc!(proto.load_absolute(&mut loader, prefab_path)).unwrap();
         proto
@@ -1643,12 +1645,13 @@ mod tests
             let sorted_tuples := sort(plain)
             let names := take_names(sorted_tuples)
         --
-        "#;
+        "#.to_string();
 
-        let mut proto = load_proto_with_prefab();
-        proto.add_module(From::from("foo"), input).unwrap();
+        let prog = core_program(&[
+            ("foo", input),
+        ]);
         let fref = Fref::with_modules(From::from("foo"), "main");
-        let body = Semantics::compile_call(&mut proto, &fref).unwrap();
+        let body = prog.read_semantics(&fref).unwrap();
         assert_matches!(*body.src.node, Ast::Block(_));
     }
 
@@ -1867,7 +1870,7 @@ mod tests
     #[test]
     fn test_semantics_external_scope_call()
     {
-        let foo_input = r#"func bar / Int >> 3 --"#;
+        let foo_input = r#"func bar /Int >> 3 --"#;
 
         let baz_input = r#"
         import foo
@@ -1882,6 +1885,36 @@ mod tests
         proto.add_module(From::from("baz"), baz_input).unwrap();
         let fref = Fref::with_modules(From::from("baz"), "main");
         Semantics::compile_call(&mut proto, &fref).unwrap();
+    }
+
+    #[test]
+    fn test_semantics_three_level_call()
+    {
+        let foo_src = r#"struct Taco --"#.to_string();
+
+        let bar_src = r#"
+        export /foo/Taco
+
+        func bar t: foo::Taco /Int >> 3 --
+        "#.to_string();
+
+        let baz_src = r#"
+        import /foo
+        import /bar
+
+        func main >>
+            bar::bar(foo::Taco) + 6
+        --
+        "#.to_string();
+
+        let prog = core_program(&[
+            ("foo", foo_src),
+            ("bar", bar_src),
+            ("baz", baz_src),
+        ]);
+
+        let fref = Fref::from(("baz", "main"));
+        prog.read_semantics(&fref).unwrap();
     }
 
     #[test]
@@ -1980,7 +2013,7 @@ mod tests
         "#;
 
         let mut proto = ProtoLib::new();
-        proto.add_module(module::Chain::from("foo"), input).unwrap();
+        proto.add_module("foo", input).unwrap();
         let fref = Fref::with_modules(ModKey::from("foo"), "main");
         Semantics::compile_call(&mut proto, &fref).unwrap();
     }
@@ -1995,7 +2028,7 @@ mod tests
         "#;
 
         let mut proto = ProtoLib::new();
-        proto.add_module(module::Chain::from("foo"), input).unwrap();
+        proto.add_module("foo", input).unwrap();
         let fref = Fref::with_modules(ModKey::from("foo"), "main");
         Semantics::compile_call(&mut proto, &fref).unwrap();
     }
@@ -2009,7 +2042,7 @@ mod tests
         "#;
 
         let mut proto = ProtoLib::new();
-        proto.add_module(module::Chain::from("foo"), input).unwrap();
+        proto.add_module("foo", input).unwrap();
         let fref = Fref::with_modules(ModKey::from("foo"), "inc");
         Semantics::compile_call(&mut proto, &fref).unwrap();
     }
@@ -2029,7 +2062,7 @@ mod tests
 
         let mut proto = load_proto_with_prefab();
         let mkey = ModKey::from("foo");
-        proto.add_module(mkey.chain.clone(), input).unwrap();
+        proto.add_module(mkey.name.mod_path(), input).unwrap();
         let fref = Fref::with_modules(mkey, "factf");
         Semantics::compile_call(&mut proto, &fref).unwrap();
     }
@@ -2043,7 +2076,7 @@ mod tests
 
         let mut proto = load_proto_with_prefab();
         let mkey = ModKey::from("foo");
-        proto.add_module(mkey.chain.clone(), input).unwrap();
+        proto.add_module(mkey.name.mod_path(), input).unwrap();
         let fref = Fref::with_modules(mkey, "inc");
         let err = Semantics::compile_call(&mut proto, &fref);
 
@@ -2144,7 +2177,7 @@ mod tests
                 .color: Str
             --
 
-            func main() ->
+            func main >>
                 let d := Dog
                 let c := Cat(3)
                 let m := Mouse(9, \"red\")
@@ -2156,7 +2189,7 @@ mod tests
     fn test_compile_match_existing_var()
     {
         let input = "
-            func foo(): Int ->
+            func foo /Int >>
                 let a := 5
                 let b := 8
                 match b

@@ -33,7 +33,7 @@ hyper_server::run(s)
 hyper_server::close(s)
 */
 
-const SERVER_MOD: TypeMod = canonical_typemod!(hyper_server);
+const SERVER_MOD: TypeMod = canonical_typemod!("/hyper_server");
 const REQUEST_TYPE: Type = Type::User(SERVER_MOD, "Request");
 const SERVER_HANDLE_TYPE: Type = Type::User(SERVER_MOD, "ServerHandle");
 
@@ -182,7 +182,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
 }
 
 
-const CLIENT_MOD: TypeMod = canonical_typemod!(hyper_client);
+const CLIENT_MOD: TypeMod = canonical_typemod!("/hyper_client");
 const CLIENT_RESP_TYPE: Type =
     Type::User(CLIENT_MOD, "Response");
 

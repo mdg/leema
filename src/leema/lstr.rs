@@ -140,11 +140,11 @@ impl PartialEq for Lstr
     }
 }
 
-impl<'a, 'b> PartialEq<&'b Lstr> for &'a str
+impl PartialEq<Lstr> for str
 {
-    fn eq(&self, other: &&Lstr) -> bool
+    fn eq(&self, other: &Lstr) -> bool
     {
-        *self == (*other).str()
+        self == other.str()
     }
 }
 

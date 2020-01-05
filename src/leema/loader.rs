@@ -214,6 +214,6 @@ mod tests
     {
         let i = Interloader::new("hello/world.lma", vec![]);
 
-        assert_eq!("world", &String::from(&i.main_mod));
+        assert_eq!("world", i.main_mod.0.str());
     }
 }
