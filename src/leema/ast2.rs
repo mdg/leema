@@ -1,5 +1,5 @@
 use crate::leema::failure::Lresult;
-use crate::leema::module::{ImportedMod, ModAlias, ModRelativity};
+use crate::leema::module::{ImportedMod, ModAlias};
 use crate::leema::reg::Reg;
 use crate::leema::struple::{self, StrupleKV};
 use crate::leema::token::TokenSrc;
@@ -146,72 +146,57 @@ impl ModTree
     pub fn collect(&self, flats: &mut HashMap<&'static str, (ImportedMod, Loc)>) -> Lresult<()>
     {
         let mut paths = PathBuf::new();
-        self._collect(flats, ModRelativity::Child, &mut paths)?;
+        self._collect(flats, &mut paths, "")?;
         Ok(())
     }
 
     pub fn _collect(
         &self,
         flats: &mut HashMap<&'static str, (ImportedMod, Loc)>,
-        rel: ModRelativity,
         path: &mut PathBuf,
-    ) -> Lresult<bool>
+        parent: &'static str,
+    ) -> Lresult<()>
     {
-        let dot_module = match self {
+        match self {
             ModTree::Id(id, loc) => {
                 path.push(id);
                 flats.insert(id, (ImportedMod(path.clone()), *loc));
                 path.pop();
-                false
             }
             ModTree::Sub(id, subs) => {
                 path.push(id);
-                let include_this = subs._collect(flats, rel, path)?;
-                if include_this {
-                    flats.insert(id, (ImportedMod(path.clone()), *loc));
-                }
+                subs._collect(flats, path, id)?;
                 path.pop();
-                false
             }
             ModTree::Block(block) => {
-                let include_any = false;
                 for item in block.iter() {
-                    let include_this = item._collect(flats, rel, path)?;
-                    include_any = include_any || include_this;
+                    item._collect(flats, path, parent)?;
                 }
-                include_any
             }
             ModTree::Root(subs) => {
                 if !path.as_os_str().is_empty() {
                     panic!("path must be empty for absolute path: {:?}", path);
                 }
                 path.push(Component::RootDir);
-                subs._collect(flats, ModRelativity::Absolute, path)?;
+                subs._collect(flats, path, "/")?;
                 *path = PathBuf::new();
-                false
             }
             ModTree::Sibling(subs) => {
                 if !path.as_os_str().is_empty() {
                     panic!("path must be empty for sibling path: {:?}", path);
                 }
                 path.push(Component::ParentDir);
-                subs._collect(flats, ModRelativity::Sibling, path)?;
+                subs._collect(flats, path, "../")?;
                 *path = PathBuf::new();
-                false
             }
             ModTree::Module(loc) => {
-                // path.push(Component::CurDir);
-                // flats.insert(".", (ImportedMod(path.clone()), *loc));
-                // flats.insert(prev.unwrap(), (path.clone(), *loc));
-                // path.pop();
-                true
+                flats.insert(parent, (ImportedMod(path.clone()), *loc));
             }
             ModTree::Wildcard(_) => {
                 // need to do something with this
-                false
             }
-        };
-        Ok(dot_module)
+        }
+        Ok(())
     }
 }
 
