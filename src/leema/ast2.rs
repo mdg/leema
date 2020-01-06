@@ -146,7 +146,8 @@ impl ModTree
     pub fn collect(&self, flats: &mut HashMap<&'static str, (ImportedMod, Loc)>) -> Lresult<()>
     {
         let mut paths = PathBuf::new();
-        self._collect(flats, ModRelativity::Child, &mut paths)
+        self._collect(flats, ModRelativity::Child, &mut paths)?;
+        Ok(())
     }
 
     pub fn _collect(
@@ -154,23 +155,31 @@ impl ModTree
         flats: &mut HashMap<&'static str, (ImportedMod, Loc)>,
         rel: ModRelativity,
         path: &mut PathBuf,
-    ) -> Lresult<()>
+    ) -> Lresult<bool>
     {
-        match self {
+        let dot_module = match self {
             ModTree::Id(id, loc) => {
                 path.push(id);
                 flats.insert(id, (ImportedMod(path.clone()), *loc));
                 path.pop();
+                false
             }
             ModTree::Sub(id, subs) => {
                 path.push(id);
-                subs._collect(flats, rel, path)?;
+                let include_this = subs._collect(flats, rel, path)?;
+                if include_this {
+                    flats.insert(id, (ImportedMod(path.clone()), *loc));
+                }
                 path.pop();
+                false
             }
             ModTree::Block(block) => {
+                let include_any = false;
                 for item in block.iter() {
-                    item._collect(flats, rel, path)?;
+                    let include_this = item._collect(flats, rel, path)?;
+                    include_any = include_any || include_this;
                 }
+                include_any
             }
             ModTree::Root(subs) => {
                 if !path.as_os_str().is_empty() {
@@ -179,6 +188,7 @@ impl ModTree
                 path.push(Component::RootDir);
                 subs._collect(flats, ModRelativity::Absolute, path)?;
                 *path = PathBuf::new();
+                false
             }
             ModTree::Sibling(subs) => {
                 if !path.as_os_str().is_empty() {
@@ -187,18 +197,21 @@ impl ModTree
                 path.push(Component::ParentDir);
                 subs._collect(flats, ModRelativity::Sibling, path)?;
                 *path = PathBuf::new();
+                false
             }
             ModTree::Module(loc) => {
-                path.push(Component::CurDir);
-                flats.insert(".", (ImportedMod(path.clone()), *loc));
+                // path.push(Component::CurDir);
+                // flats.insert(".", (ImportedMod(path.clone()), *loc));
                 // flats.insert(prev.unwrap(), (path.clone(), *loc));
-                path.pop();
+                // path.pop();
+                true
             }
             ModTree::Wildcard(_) => {
                 // need to do something with this
+                false
             }
-        }
-        Ok(())
+        };
+        Ok(dot_module)
     }
 }
 
