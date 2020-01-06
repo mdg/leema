@@ -1600,17 +1600,13 @@ impl Semantics
 #[cfg(test)]
 mod tests
 {
-    use super::Semantics;
     use crate::leema::ast2::Ast;
     use crate::leema::loader::Interloader;
     use crate::leema::module::ModKey;
     use crate::leema::program;
-    use crate::leema::proto::ProtoLib;
     use crate::leema::val::{Fref, Type};
 
     use matches::assert_matches;
-
-    use std::path::Path;
 
 
     fn core_program(mods: &[(&'static str, String)]) -> program::Lib
@@ -1620,17 +1616,6 @@ mod tests
             loader.set_mod_txt(ModKey::from(*name), src.clone());
         }
         program::Lib::new(loader)
-    }
-
-    fn load_proto_with_prefab() -> ProtoLib
-    {
-        let mut loader = Interloader::default();
-        let mut proto = ProtoLib::new();
-        let core_path = Path::new("core");
-        let prefab_path = Path::new("prefab");
-        lfailoc!(proto.load_absolute(&mut loader, core_path)).unwrap();
-        lfailoc!(proto.load_absolute(&mut loader, prefab_path)).unwrap();
-        proto
     }
 
     #[test]
@@ -1647,7 +1632,7 @@ mod tests
         --
         "#.to_string();
 
-        let prog = core_program(&[
+        let mut prog = core_program(&[
             ("foo", input),
         ]);
         let fref = Fref::with_modules(From::from("foo"), "main");
@@ -1677,12 +1662,13 @@ mod tests
             True or False
             not True
         --
-        "#;
+        "#.to_string();
 
-        let mut proto = load_proto_with_prefab();
-        proto.add_module(From::from("foo"), input).unwrap();
+        let mut prog = core_program(&[
+            ("foo", input),
+        ]);
         let fref = Fref::with_modules(From::from("foo"), "main");
-        Semantics::compile_call(&mut proto, &fref).unwrap();
+        prog.read_semantics(&fref).unwrap();
     }
 
     #[test]
@@ -1721,23 +1707,21 @@ mod tests
             --
             x + 1
         --
-        "#;
+        "#.to_string();
 
-        let mut proto = ProtoLib::new();
-        proto.add_module(From::from("foo"), input).unwrap();
-        let fref = Fref::with_modules(From::from("foo"), "main");
-        Semantics::compile_call(&mut proto, &fref).unwrap();
+        let mut prog = core_program(&[("foo", input)]);
+        let fref = Fref::from(("foo", "main"));
+        prog.read_semantics(&fref).unwrap();
     }
 
     #[test]
     fn test_semantics_param_in_scope()
     {
-        let input = r#"func inc i:Int / Int >> i + 1 --"#;
+        let input = r#"func inc i:Int / Int >> i + 1 --"#.to_string();
 
-        let mut proto = load_proto_with_prefab();
-        proto.add_module(From::from("foo"), input).unwrap();
-        let fref = Fref::with_modules(From::from("foo"), "inc");
-        let result = Semantics::compile_call(&mut proto, &fref).unwrap();
+        let mut prog = core_program(&[("foo", input)]);
+        let fref = Fref::from(("foo", "inc"));
+        let result = prog.read_semantics(&fref).unwrap();
         assert_eq!(Type::INT, result.src.typ);
     }
 
@@ -1750,12 +1734,11 @@ mod tests
         func main >>
             foo() + 3
         --
-        "#;
+        "#.to_string();
 
-        let mut proto = load_proto_with_prefab();
-        proto.add_module(From::from("foo"), input).unwrap();
-        let fref = Fref::with_modules(From::from("foo"), "main");
-        Semantics::compile_call(&mut proto, &fref).unwrap();
+        let mut prog = core_program(&[("foo", input)]);
+        let fref = Fref::from(("foo", "main"));
+        prog.read_semantics(&fref).unwrap();
     }
 
     #[test]
@@ -1766,12 +1749,11 @@ mod tests
             let x := 8
             let y := x + 1
         --
-        "#;
+        "#.to_string();
 
-        let mut proto = load_proto_with_prefab();
-        proto.add_module(From::from("foo"), input).unwrap();
-        let fref = Fref::with_modules(From::from("foo"), "main");
-        Semantics::compile_call(&mut proto, &fref).unwrap();
+        let mut prog = core_program(&[("foo", input)]);
+        let fref = Fref::from(("foo", "main"));
+        prog.read_semantics(&fref).unwrap();
     }
 
     #[test]
@@ -1786,12 +1768,11 @@ mod tests
         func main >>
             swap[Str #]("hello", #world)
         --
-        "#;
+        "#.to_string();
 
-        let mut proto = load_proto_with_prefab();
-        proto.add_module(From::from("foo"), input).unwrap();
-        let fref = Fref::with_modules(From::from("foo"), "main");
-        let f = Semantics::compile_call(&mut proto, &fref).unwrap_err();
+        let mut prog = core_program(&[("foo", input)]);
+        let fref = Fref::from(("foo", "main"));
+        let f = prog.read_semantics(&fref).unwrap_err();
         assert_eq!("type_failure", f.tag.str());
         assert_eq!("wrong number of args, expected 1, found 2", f.msg.str());
     }
@@ -1831,12 +1812,11 @@ mod tests
             let p := new_pair(4, "b")
             let f := first(p)
         --
-        "#;
+        "#.to_string();
 
-        let mut proto = load_proto_with_prefab();
-        proto.add_module(From::from("foo"), input).unwrap();
-        let fref = Fref::with_modules(From::from("foo"), "main");
-        Semantics::compile_call(&mut proto, &fref).unwrap();
+        let mut prog = core_program(&[("foo", input)]);
+        let fref = Fref::from(("foo", "main"));
+        prog.read_semantics(&fref).unwrap();
     }
 
     #[test]
@@ -1859,18 +1839,17 @@ mod tests
     #[should_panic]
     fn test_semantics_module_scope_fail()
     {
-        let input = r#"func main >> foo() --"#;
+        let input = r#"func main >> foo() --"#.to_string();
 
-        let mut proto = ProtoLib::new();
-        proto.add_module(From::from("foo"), input).unwrap();
-        let fref = Fref::with_modules(From::from("foo"), "main");
-        Semantics::compile_call(&mut proto, &fref).unwrap();
+        let mut prog = core_program(&[("foo", input)]);
+        let fref = Fref::from(("foo", "main"));
+        prog.read_semantics(&fref).unwrap();
     }
 
     #[test]
     fn test_semantics_external_scope_call()
     {
-        let foo_input = r#"func bar /Int >> 3 --"#;
+        let foo_input = r#"func bar /Int >> 3 --"#.to_string();
 
         let baz_input = r#"
         import foo
@@ -1878,13 +1857,14 @@ mod tests
         func main >>
             foo::bar() + 6
         --
-        "#;
+        "#.to_string();
 
-        let mut proto = load_proto_with_prefab();
-        proto.add_module(From::from("foo"), foo_input).unwrap();
-        proto.add_module(From::from("baz"), baz_input).unwrap();
-        let fref = Fref::with_modules(From::from("baz"), "main");
-        Semantics::compile_call(&mut proto, &fref).unwrap();
+        let mut prog = core_program(&[
+            ("foo", foo_input),
+            ("baz", baz_input),
+        ]);
+        let fref = Fref::from(("baz", "main"));
+        prog.read_semantics(&fref).unwrap();
     }
 
     #[test]
@@ -1907,7 +1887,7 @@ mod tests
         --
         "#.to_string();
 
-        let prog = core_program(&[
+        let mut prog = core_program(&[
             ("foo", foo_src),
             ("bar", bar_src),
             ("baz", baz_src),
@@ -1940,19 +1920,20 @@ mod tests
     #[should_panic]
     fn test_semantics_external_scope_fail()
     {
-        let foo_input = r#"func bak >> 3 --"#;
+        let foo_input = r#"func bak >> 3 --"#.to_string();
 
         let app_input = r#"
         func main >>
             foo::bar() + 6
         --
-        "#;
+        "#.to_string();
 
-        let mut proto = ProtoLib::new();
-        proto.add_module(From::from("foo"), foo_input).unwrap();
-        proto.add_module(From::from("app"), app_input).unwrap();
-        let fref = Fref::with_modules(From::from("app"), "main");
-        Semantics::compile_call(&mut proto, &fref).unwrap();
+        let mut prog = core_program(&[
+            ("foo", foo_input),
+            ("app", app_input),
+        ]);
+        let fref = Fref::from(("app", "main"));
+        prog.read_semantics(&fref).unwrap();
     }
 
     #[test]
@@ -1963,13 +1944,12 @@ mod tests
             let a := blah
             "a is $a\n"
         --
-        "#;
+        "#.to_string();
 
-        let mut proto = ProtoLib::new();
-        proto.add_module(From::from("baz"), baz_input).unwrap();
-        let fref = Fref::with_modules(From::from("baz"), "main");
-        let semantics = Semantics::compile_call(&mut proto, &fref);
-        assert_eq!("semantic_failure", semantics.unwrap_err().tag.str());
+        let mut prog = core_program(&[("baz", baz_input)]);
+        let fref = Fref::from(("baz", "main"));
+        let f = prog.read_semantics(&fref).unwrap_err();
+        assert_eq!("semantic_failure", f.tag.str());
     }
 
     #[test]
@@ -1980,12 +1960,11 @@ mod tests
         func main >>
             foo::bar() + 6
         --
-        "#;
+        "#.to_string();
 
-        let mut proto = ProtoLib::new();
-        proto.add_module(From::from("baz"), baz_input).unwrap();
-        let fref = Fref::with_modules(From::from("baz"), "main");
-        Semantics::compile_call(&mut proto, &fref).unwrap();
+        let mut prog = core_program(&[("baz", baz_input)]);
+        let fref = Fref::from(("baz", "main"));
+        prog.read_semantics(&fref).unwrap();
     }
 
     #[test]
@@ -1995,12 +1974,11 @@ mod tests
         let input = r#"
         func inc i:Int :Int >> i + 1 --
         func main >> inc("5") --
-        "#;
+        "#.to_string();
 
-        let mut proto = ProtoLib::new();
-        proto.add_module(From::from("foo"), input).unwrap();
-        let fref = Fref::with_modules(From::from("foo"), "main");
-        Semantics::compile_call(&mut proto, &fref).unwrap();
+        let mut prog = core_program(&[("foo", input)]);
+        let fref = Fref::from(("foo", "main"));
+        prog.read_semantics(&fref).unwrap();
     }
 
     #[test]
@@ -2010,12 +1988,11 @@ mod tests
         let input = r#"
         func mult i:Int j:Int :Int >> i * j --
         func main >> mult(7) --
-        "#;
+        "#.to_string();
 
-        let mut proto = ProtoLib::new();
-        proto.add_module("foo", input).unwrap();
-        let fref = Fref::with_modules(ModKey::from("foo"), "main");
-        Semantics::compile_call(&mut proto, &fref).unwrap();
+        let mut prog = core_program(&[("foo", input)]);
+        let fref = Fref::from(("foo", "main"));
+        prog.read_semantics(&fref).unwrap();
     }
 
     #[test]
@@ -2025,12 +2002,11 @@ mod tests
         let input = r#"
         func inc i:Int / Int >> i + 1 --
         func main >> inc(2, 7) --
-        "#;
+        "#.to_string();
 
-        let mut proto = ProtoLib::new();
-        proto.add_module("foo", input).unwrap();
-        let fref = Fref::with_modules(ModKey::from("foo"), "main");
-        Semantics::compile_call(&mut proto, &fref).unwrap();
+        let mut prog = core_program(&[("foo", input)]);
+        let fref = Fref::from(("foo", "main"));
+        prog.read_semantics(&fref).unwrap();
     }
 
     #[test]
@@ -2039,12 +2015,11 @@ mod tests
     {
         let input = r#"
         func inc i:Int :Int >> "hello" --
-        "#;
+        "#.to_string();
 
-        let mut proto = ProtoLib::new();
-        proto.add_module("foo", input).unwrap();
-        let fref = Fref::with_modules(ModKey::from("foo"), "inc");
-        Semantics::compile_call(&mut proto, &fref).unwrap();
+        let mut prog = core_program(&[("foo", input)]);
+        let fref = Fref::from(("foo", "inc"));
+        prog.read_semantics(&fref).unwrap();
     }
 
     #[test]
@@ -2058,13 +2033,11 @@ mod tests
             |else >> i * factf(i-1)
             --
         --
-        "#;
+        "#.to_string();
 
-        let mut proto = load_proto_with_prefab();
-        let mkey = ModKey::from("foo");
-        proto.add_module(mkey.name.mod_path(), input).unwrap();
-        let fref = Fref::with_modules(mkey, "factf");
-        Semantics::compile_call(&mut proto, &fref).unwrap();
+        let mut prog = core_program(&[("foo", input)]);
+        let fref = Fref::from(("foo", "factf"));
+        prog.read_semantics(&fref).unwrap();
     }
 
     #[test]
@@ -2072,14 +2045,11 @@ mod tests
     {
         let input = r#"
         func inc i:Int /Inth >> i + 1 --
-        "#;
+        "#.to_string();
 
-        let mut proto = load_proto_with_prefab();
-        let mkey = ModKey::from("foo");
-        proto.add_module(mkey.name.mod_path(), input).unwrap();
-        let fref = Fref::with_modules(mkey, "inc");
-        let err = Semantics::compile_call(&mut proto, &fref);
-
+        let mut prog = core_program(&[("foo", input)]);
+        let fref = Fref::from(("foo", "inc"));
+        let err = prog.read_semantics(&fref);
         assert_matches!(err, Err(_));
         err.unwrap();
     }

@@ -2176,7 +2176,7 @@ mod tests
         assert_matches!(*ast[0].node, Ast::ModAction(ModAction::Import, _));
         if let Ast::ModAction(_, tree) = &*ast[0].node {
             let mut flats = HashMap::new();
-            tree.collect(&mut flats);
+            tree.collect(&mut flats).unwrap();
 
             assert_eq!("/core/io", format!("{}", flats["io"].0));
 
