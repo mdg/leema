@@ -4,6 +4,7 @@ use crate::leema::sendclone;
 
 use std::borrow::Borrow;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::path::{Component, Path, PathBuf};
 
 
@@ -159,7 +160,6 @@ pub enum ModRelativity
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
 #[derive(Eq)]
-#[derive(Hash)]
 pub struct ModAlias(pub &'static str);
 
 impl ModAlias
@@ -183,19 +183,19 @@ impl fmt::Display for ModAlias
     }
 }
 
-impl Borrow<Path> for ModAlias
-{
-    fn borrow(&self) -> &Path
-    {
-        Path::new(self.0)
-    }
-}
-
 impl Borrow<str> for ModAlias
 {
     fn borrow(&self) -> &str
     {
         self.0
+    }
+}
+
+impl Hash for ModAlias
+{
+    fn hash<H: Hasher>(&self, state: &mut H)
+    {
+        self.0.hash(state);
     }
 }
 
@@ -255,14 +255,6 @@ impl ImportedMod
         let mut it = path.iter();
         let h = it.next().unwrap();
         (Path::new(h), it.as_path())
-    }
-
-    pub fn head2(&self) -> (Component, &Path)
-    {
-        let mut it = self.0.components();
-        let h = it.next().unwrap();
-        let t = it.as_path();
-        (h, t)
     }
 }
 
@@ -438,5 +430,25 @@ impl fmt::Display for TypeMod
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         f.write_str(self.import.str())
+    }
+}
+
+
+#[cfg(test)]
+mod tests
+{
+    use super::ModAlias;
+
+    use std::collections::HashMap;
+    use std::path::Path;
+
+    #[test]
+    fn test_mod_alias_map()
+    {
+        let mut ma_map = HashMap::new();
+        let wp = Path::new("whatever");
+        ma_map.insert(ModAlias("whatever"), wp);
+        let wp_str = wp.to_str().unwrap();
+        ma_map.get(wp_str).unwrap();
     }
 }

@@ -756,8 +756,11 @@ impl ProtoLib
         let (head, tail) = ImportedMod::head(next_path);
         let base_proto = ltry!(self._path_proto(base_path));
 
+        // this should be fine b/c it came from a str before being turned
+        // into a path
+        let head_str = head.to_str().unwrap();
         // this isn't necessarily canonical, it might be shortcutted later on
-        let head_export = match base_proto.exports.get(head) {
+        let head_export = match base_proto.exports.get(head_str) {
             Some(exp_head) => {
                 if ImportedMod::is_empty(tail) {
                     exp_head.0.clone()
