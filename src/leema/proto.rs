@@ -1051,7 +1051,7 @@ mod tests
         let point_type = proto.types.get("Point").expect("no Point type");
         let expected = Type::Generic(
             true,
-            Box::new(user_type!("/foo", "Point")),
+            Box::new(user_type!("foo", "Point")),
             vec![StrupleItem::new("T", Type::Unknown)],
         );
         assert_eq!(expected, *point_type);
