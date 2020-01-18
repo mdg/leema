@@ -307,9 +307,14 @@ impl CanonicalMod
 
     pub fn file_path_buf(cpath: &Path) -> Lresult<PathBuf>
     {
-        cpath.strip_prefix("/")
-            .map(|pb| pb.with_extension("lma"))
-            .map_err(|e| rustfail!("leemafail", "{}", e))
+        if cpath.starts_with("/") {
+            return Err(rustfail!(
+                "leema_fail",
+                "unexpected root prefix in {}",
+                cpath.display(),
+            ));
+        }
+        Ok(cpath.with_extension("lma"))
     }
 }
 
@@ -437,7 +442,7 @@ impl fmt::Display for TypeMod
 #[cfg(test)]
 mod tests
 {
-    use super::ModAlias;
+    use super::{ImportedMod, ModAlias};
 
     use std::collections::HashMap;
     use std::path::Path;
@@ -450,5 +455,13 @@ mod tests
         ma_map.insert(ModAlias("whatever"), wp);
         let wp_str = wp.to_str().unwrap();
         ma_map.get(wp_str).unwrap();
+    }
+
+    #[test]
+    fn test_imported_mod_head_absolute()
+    {
+        let (head, tail) = ImportedMod::head(Path::new("/a/b/c"));
+        assert_eq!(Path::new("a"), head);
+        assert_eq!(Path::new("b/c"), tail);
     }
 }
