@@ -399,8 +399,8 @@ impl ParseStmt
         let tree_tok = p.peek()?;
         let tree = match tree_tok.tok {
             Token::DoubleArrow => Self::parse_import_block(p)?,
-            Token::Id | Token::Slash | Token::DoubleDot => {
-                Self::parse_import_line(p, true)?
+            Token::Id | Token::Dot | Token::DoubleDot => {
+                Self::parse_import_line_new(p)?
             }
             _ => {
                 return Err(rustfail!(
@@ -414,43 +414,54 @@ impl ParseStmt
         Ok(AstNode::new(Ast::ModAction(action, tree), Ast::loc(&tok)))
     }
 
-    fn parse_import_line(p: &mut Parsl, first: bool) -> Lresult<ModTree>
+    fn parse_import_line_new(p: &mut Parsl) -> Lresult<ModTree>
     {
         let next = p.next()?;
         let line = match next.tok {
             Token::Id => {
                 if p.next_if(Token::Slash)?.is_some() {
-                    let subline = Self::parse_import_line(p, false)?;
+                    let subline = Self::parse_import_line_cont(p)?;
                     ModTree::sub(next.src, subline)
                 } else {
                     ModTree::Id(next.src, Ast::loc(&next))
                 }
             }
-            Token::DoubleDot if first => {
+            Token::DoubleDot => {
                 expect_next!(p, Token::Slash)?;
-                let sibling = Self::parse_import_line(p, false)?;
-                ModTree::Sibling(Box::new(sibling))
+                let sibling = Self::parse_import_line_cont(p)?;
+                ModTree::Sub(next.src, Box::new(sibling))
             }
-            Token::Slash if first => {
-                let root = Self::parse_import_line(p, false)?;
-                ModTree::Root(Box::new(root))
+            Token::Dot => {
+                expect_next!(p, Token::Slash)?;
+                let root = Self::parse_import_line_cont(p)?;
+                ModTree::Sub(next.src, Box::new(root))
+            }
+            Token::Star => ModTree::Wildcard(Ast::loc(&next)),
+            _ => {
+                return Err(rustfail!(
+                    PARSE_FAIL,
+                    "expected id . or .. found {:?}",
+                    next,
+                ));
+            }
+        };
+        Ok(line)
+    }
+
+    fn parse_import_line_cont(p: &mut Parsl) -> Lresult<ModTree>
+    {
+        let next = p.next()?;
+        let line = match next.tok {
+            Token::Id => {
+                if p.next_if(Token::Slash)?.is_some() {
+                    let subline = Self::parse_import_line_cont(p)?;
+                    ModTree::sub(next.src, subline)
+                } else {
+                    ModTree::Id(next.src, Ast::loc(&next))
+                }
             }
             Token::Star => ModTree::Wildcard(Ast::loc(&next)),
             Token::Dot => ModTree::Module(Ast::loc(&next)),
-            Token::DoubleDot if !first => {
-                return Err(rustfail!(
-                    PARSE_FAIL,
-                    "siblings can only be included at the top level: {:?}",
-                    next,
-                ));
-            }
-            Token::Slash if !first => {
-                return Err(rustfail!(
-                    PARSE_FAIL,
-                    "unexpected / token {:?}",
-                    next,
-                ));
-            }
             _ => {
                 return Err(rustfail!(
                     PARSE_FAIL,
@@ -469,7 +480,7 @@ impl ParseStmt
 
         let mut block = vec![];
         while p.peek_token()? != Token::DoubleDash {
-            let mut line = ltry!(Self::parse_import_line(p, true));
+            let mut line = ltry!(Self::parse_import_line_new(p));
             let next_tok = p.peek()?;
             if next_tok.tok == Token::DoubleArrow {
                 let iblock = ltry!(Self::parse_import_block(p));
@@ -2071,50 +2082,55 @@ mod tests
     fn test_parse_import_line()
     {
         let input = "
-        import tacos
-        import burritos/tortas
-        import /root
+        import root
+        import ./child
         import ../sibling
+        import burritos/tacos/tortas
         ";
         let toks = Tokenz::lexp(input).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
         assert_eq!(4, ast.len());
         assert_matches!(
             *ast[0].node,
-            Ast::ModAction(ModAction::Import, ModTree::Id("tacos", _))
+            Ast::ModAction(ModAction::Import, ModTree::Id("root", _))
         );
         assert_matches!(
             *ast[1].node,
-            Ast::ModAction(ModAction::Import, ModTree::Sub(_, _))
+            Ast::ModAction(ModAction::Import, ModTree::Sub(".", _))
         );
         assert_matches!(
             *ast[2].node,
-            Ast::ModAction(ModAction::Import, ModTree::Root(_))
+            Ast::ModAction(ModAction::Import, ModTree::Sub("..", _))
         );
         assert_matches!(
             *ast[3].node,
-            Ast::ModAction(ModAction::Import, ModTree::Sibling(_))
+            Ast::ModAction(ModAction::Import, ModTree::Sub("burritos", _))
         );
-        if let Ast::ModAction(_, ModTree::Sub(a, b)) = &*ast[1].node {
-            assert_eq!("burritos", *a);
-            assert_eq!(ModTree::Id("tortas", Loc::new(3, 25)), **b);
+        if let Ast::ModAction(_, ModTree::Sub(_, b)) = &*ast[1].node {
+            assert_eq!(ModTree::Id("child", Loc::new(3, 18)), **b);
         }
-        if let Ast::ModAction(_, ModTree::Root(m)) = &*ast[2].node {
-            assert_eq!(ModTree::Id("root", Loc::new(4, 17)), **m);
+        if let Ast::ModAction(_, ModTree::Sub(_, b)) = &*ast[2].node {
+            assert_eq!(ModTree::Id("sibling", Loc::new(4, 19)), **b);
         }
-        if let Ast::ModAction(_, ModTree::Sibling(m)) = &*ast[2].node {
-            assert_eq!(ModTree::Id("root", Loc::new(5, 20)), **m);
+        if let Ast::ModAction(_, ModTree::Sub(_, b)) = &*ast[3].node {
+            assert_matches!(
+                **b,
+                ModTree::Sub("tacos", _)
+            );
+            if let ModTree::Sub(_, q) = &**b {
+                assert_matches!(**q, ModTree::Id("tortas", _));
+            }
         }
     }
 
     fn parse_block_input() -> &'static str
     {
         "import >>
-            /core >>
+            core >>
                 io
                 list/*
             --
-            m1/m2/m3
+            ./m1/m2/m3
             ../myapp >>
                 .
                 tacos/burritos
@@ -2132,9 +2148,9 @@ mod tests
         assert_eq!(1, ast.len());
         assert_matches!(*ast[0].node, Ast::ModAction(ModAction::Import, _));
         if let Ast::ModAction(_, ModTree::Block(subs)) = &*ast[0].node {
-            assert_matches!(subs[0], ModTree::Root(_));
-            assert_matches!(subs[1], ModTree::Sub("m1", _));
-            assert_matches!(subs[2], ModTree::Sibling(_));
+            assert_matches!(subs[0], ModTree::Sub(_, _));
+            assert_matches!(subs[1], ModTree::Sub(".", _));
+            assert_matches!(subs[2], ModTree::Sub("..", _));
             assert_eq!(ModTree::Id("blah", Loc::new(12, 13)), subs[3]);
             assert_eq!(4, subs.len());
 
@@ -2178,9 +2194,9 @@ mod tests
             let mut flats = HashMap::new();
             tree.collect(&mut flats).unwrap();
 
-            assert_eq!("/core/io", format!("{}", flats["io"].0));
+            assert_eq!("core/io", format!("{}", flats["io"].0));
 
-            assert_eq!("m1/m2/m3", format!("{}", flats["m3"].0));
+            assert_eq!("./m1/m2/m3", format!("{}", flats["m3"].0));
 
             assert_eq!("../myapp", format!("{}", flats["myapp"].0));
             assert_eq!(

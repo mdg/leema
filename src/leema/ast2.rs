@@ -7,7 +7,7 @@ use crate::leema::val::{Type, Val};
 
 use std::collections::HashMap;
 use std::fmt;
-use std::path::{Component, PathBuf};
+use std::path::PathBuf;
 
 
 #[derive(Clone)]
@@ -108,8 +108,6 @@ pub enum ModTree
     Block(Vec<ModTree>),
     Sub(&'static str, Box<ModTree>),
     Module(Loc),
-    Root(Box<ModTree>),
-    Sibling(Box<ModTree>),
     Wildcard(Loc),
 }
 
@@ -128,12 +126,6 @@ impl ModTree
             }
             ModTree::Sub(_, ref mut b) => {
                 b.push_sub(tail);
-            }
-            ModTree::Root(ref mut sub) => {
-                sub.push_sub(tail);
-            }
-            ModTree::Sibling(ref mut sub) => {
-                sub.push_sub(tail);
             }
             ModTree::Block(_) | ModTree::Module(_) | ModTree::Wildcard(_) => {
                 // these can't really contain a sub
@@ -172,22 +164,6 @@ impl ModTree
                 for item in block.iter() {
                     item._collect(flats, path, parent)?;
                 }
-            }
-            ModTree::Root(subs) => {
-                if !path.as_os_str().is_empty() {
-                    panic!("path must be empty for absolute path: {:?}", path);
-                }
-                path.push(Component::RootDir);
-                subs._collect(flats, path, "/")?;
-                *path = PathBuf::new();
-            }
-            ModTree::Sibling(subs) => {
-                if !path.as_os_str().is_empty() {
-                    panic!("path must be empty for sibling path: {:?}", path);
-                }
-                path.push(Component::ParentDir);
-                subs._collect(flats, path, "../")?;
-                *path = PathBuf::new();
             }
             ModTree::Module(loc) => {
                 flats.insert(parent, (ImportedMod(path.clone()), *loc));
