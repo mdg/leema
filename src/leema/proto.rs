@@ -723,15 +723,7 @@ impl ProtoLib
     ) -> Lresult<(CanonicalMod, bool)>
     {
         vout!("ProtoLib::load_absolute({})\n", mod_path.display());
-        let (root, full) = ImportedMod::head(mod_path);
-        if root != Path::new("/") {
-            return Err(rustfail!(
-                "leema_fail",
-                "cannot load absolute module with relative path: {}",
-                mod_path.display(),
-            ));
-        }
-        let (head, tail) = ImportedMod::head(full);
+        let (head, tail) = ImportedMod::head(mod_path);
         ltry!(self.load_canonical(loader, Path::new(&head)));
         self.load_relative(loader, Path::new(&head), tail)
     }
@@ -1249,7 +1241,7 @@ mod tests
         func foo >> 4 --
         "
         .to_string();
-        let b = "import /a/foo
+        let b = "import a/foo
         func bar >> foo() + 3 --
         "
         .to_string();

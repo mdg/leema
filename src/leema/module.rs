@@ -216,13 +216,11 @@ impl ImportedMod
     pub fn path_relativity(p: &Path) -> ModRelativity
     {
         match p.components().next().unwrap() {
-            Component::RootDir => ModRelativity::Absolute,
-            Component::ParentDir => {
-                ModRelativity::Sibling
-            }
-            Component::Normal(_) => ModRelativity::Child,
-            Component::CurDir => {
-                panic!("unexpected CurDir from {}", p.display());
+            Component::Normal(_) => ModRelativity::Absolute,
+            Component::ParentDir => ModRelativity::Sibling,
+            Component::CurDir => ModRelativity::Child,
+            Component::RootDir => {
+                panic!("no relativity for root component");
             }
             Component::Prefix(pre) => {
                 panic!("no relativity for prefix: {:?}", pre);
@@ -232,7 +230,7 @@ impl ImportedMod
 
     pub fn is_absolute(&self) -> bool
     {
-        self.0.has_root()
+        !(self.is_sibling() || self.is_child())
     }
 
     pub fn is_sibling(&self) -> bool
@@ -242,7 +240,7 @@ impl ImportedMod
 
     pub fn is_child(&self) -> bool
     {
-        !(self.is_absolute() || self.is_sibling())
+        self.0.starts_with("./")
     }
 
     pub fn is_empty(path: &Path) -> bool
@@ -455,6 +453,14 @@ mod tests
         ma_map.insert(ModAlias("whatever"), wp);
         let wp_str = wp.to_str().unwrap();
         ma_map.get(wp_str).unwrap();
+    }
+
+    #[test]
+    fn test_imported_mod_head_one()
+    {
+        let (head, tail) = ImportedMod::head(Path::new("a"));
+        assert_eq!(Path::new("a"), head);
+        assert_eq!(Path::new(""), tail);
     }
 
     #[test]
