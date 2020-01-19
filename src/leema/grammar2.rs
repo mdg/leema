@@ -418,7 +418,7 @@ impl ParseStmt
     {
         let next = p.next()?;
         let line = match next.tok {
-            Token::Id => {
+            Token::Id|Token::Dot => {
                 if p.next_if(Token::Slash)?.is_some() {
                     let subline = Self::parse_import_line_cont(p)?;
                     ModTree::sub(next.src, subline)
@@ -431,12 +431,7 @@ impl ParseStmt
                 let sibling = Self::parse_import_line_cont(p)?;
                 ModTree::Sub(next.src, Box::new(sibling))
             }
-            Token::Dot => {
-                expect_next!(p, Token::Slash)?;
-                let root = Self::parse_import_line_cont(p)?;
-                ModTree::Sub(next.src, Box::new(root))
-            }
-            Token::Star => ModTree::Wildcard(Ast::loc(&next)),
+            Token::Star => ModTree::Id(next.src, Ast::loc(&next)),
             _ => {
                 return Err(rustfail!(
                     PARSE_FAIL,
@@ -460,8 +455,7 @@ impl ParseStmt
                     ModTree::Id(next.src, Ast::loc(&next))
                 }
             }
-            Token::Star => ModTree::Wildcard(Ast::loc(&next)),
-            Token::Dot => ModTree::Module(Ast::loc(&next)),
+            Token::Dot|Token::Star => ModTree::Id(next.src, Ast::loc(&next)),
             _ => {
                 return Err(rustfail!(
                     PARSE_FAIL,
@@ -2148,18 +2142,20 @@ mod tests
         assert_eq!(1, ast.len());
         assert_matches!(*ast[0].node, Ast::ModAction(ModAction::Import, _));
         if let Ast::ModAction(_, ModTree::Block(subs)) = &*ast[0].node {
-            assert_matches!(subs[0], ModTree::Sub(_, _));
+            // assert from root
+            assert_matches!(subs[0], ModTree::Sub("core", _));
             assert_matches!(subs[1], ModTree::Sub(".", _));
             assert_matches!(subs[2], ModTree::Sub("..", _));
-            assert_eq!(ModTree::Id("blah", Loc::new(12, 13)), subs[3]);
+            assert_matches!(subs[3], ModTree::Id("blah", _));
             assert_eq!(4, subs.len());
 
+            // assert from core
             if let ModTree::Sub(_, ref sbox) = subs[0] {
                 if let ModTree::Block(ref block) = &**sbox {
-                    assert_eq!(ModTree::Id("io", Loc::new(5, 3)), block[0]);
+                    assert_eq!(ModTree::Id("io", Loc::new(3, 17)), block[0]);
                     assert_matches!(block[1], ModTree::Sub("list", _));
                     if let ModTree::Sub(_, ref star) = block[1] {
-                        assert_eq!(ModTree::Wildcard(Loc::new(4, 5)), **star);
+                        assert_eq!(ModTree::Id("*", Loc::new(4, 22)), **star);
                     }
                     assert_eq!(2, block.len());
                 }
@@ -2172,7 +2168,7 @@ mod tests
             }
             if let ModTree::Sub(_, ref sbox) = subs[2] {
                 if let ModTree::Block(ref block) = &**sbox {
-                    assert_eq!(ModTree::Module(Loc::new(10, 4)), block[0]);
+                    assert_eq!(ModTree::Id(".", Loc::new(10, 4)), block[0]);
                     assert_matches!(block[1], ModTree::Sub("tacos", _));
                     assert_eq!(
                         ModTree::Id("tortas", Loc::new(18, 20)),
