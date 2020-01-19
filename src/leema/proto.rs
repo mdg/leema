@@ -1093,14 +1093,14 @@ mod tests
     {
         let proto = new_proto(
             "
-        export tacos
+        export ./tacos
         ",
         );
 
         assert_eq!(1, proto.imports.len());
         assert_eq!(1, proto.exports.len());
-        assert_eq!("tacos", proto.imports["tacos"]);
-        assert_eq!("tacos", proto.exports["tacos"]);
+        assert_eq!("./tacos", proto.imports["tacos"]);
+        assert_eq!("./tacos", proto.exports["tacos"]);
     }
 
     #[test]

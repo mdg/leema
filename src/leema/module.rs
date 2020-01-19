@@ -256,6 +256,14 @@ impl ImportedMod
     }
 }
 
+impl From<&str> for ImportedMod
+{
+    fn from(imod: &str) -> ImportedMod
+    {
+        ImportedMod(PathBuf::from(String::from(imod)))
+    }
+}
+
 impl PartialEq<ImportedMod> for &str
 {
     fn eq(&self, other: &ImportedMod) -> bool
@@ -440,7 +448,7 @@ impl fmt::Display for TypeMod
 #[cfg(test)]
 mod tests
 {
-    use super::{ImportedMod, ModAlias};
+    use super::{ImportedMod, ModAlias, ModRelativity};
 
     use std::collections::HashMap;
     use std::path::Path;
@@ -453,6 +461,27 @@ mod tests
         ma_map.insert(ModAlias("whatever"), wp);
         let wp_str = wp.to_str().unwrap();
         ma_map.get(wp_str).unwrap();
+    }
+
+    #[test]
+    fn test_imported_mod_relativity_absolute()
+    {
+        let rel = ImportedMod::from("a").relativity();
+        assert_eq!(ModRelativity::Absolute, rel);
+    }
+
+    #[test]
+    fn test_imported_mod_relativity_child()
+    {
+        let rel = ImportedMod::from("./a").relativity();
+        assert_eq!(ModRelativity::Child, rel);
+    }
+
+    #[test]
+    fn test_imported_mod_relativity_sibling()
+    {
+        let rel = ImportedMod::from("../a").relativity();
+        assert_eq!(ModRelativity::Sibling, rel);
     }
 
     #[test]
