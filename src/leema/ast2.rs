@@ -148,6 +148,12 @@ impl ModTree
     ) -> Lresult<()>
     {
         match self {
+            ModTree::Id(".", loc) if path.as_os_str() != "" => {
+                flats.insert(parent, (ImportedMod(path.clone()), *loc));
+            }
+            ModTree::Id("*", _loc) => {
+                // don't do anything with this for now
+            }
             ModTree::Id(id, loc) => {
                 path.push(id);
                 flats.insert(id, (ImportedMod(path.clone()), *loc));
