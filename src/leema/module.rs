@@ -460,7 +460,7 @@ mod tests
     #[test]
     fn test_imported_mod_head_absolute()
     {
-        let (head, tail) = ImportedMod::head(Path::new("/a/b/c"));
+        let (head, tail) = ImportedMod::head(Path::new("a/b/c"));
         assert_eq!(Path::new("a"), head);
         assert_eq!(Path::new("b/c"), tail);
     }
