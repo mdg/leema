@@ -215,6 +215,9 @@ impl ImportedMod
 
     pub fn path_relativity(p: &Path) -> ModRelativity
     {
+        if p.extension().map(|x| x == "function").unwrap_or(false) {
+            return ModRelativity::Local;
+        }
         match p.components().next().unwrap() {
             Component::Normal(_) => ModRelativity::Absolute,
             Component::ParentDir => ModRelativity::Sibling,

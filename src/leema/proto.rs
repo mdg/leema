@@ -189,7 +189,8 @@ impl ProtoModule
 
         // export any local definitions
         for name in proto.macros.keys().chain(proto.funcseq.iter()) {
-            let export_path = Path::new("./").join(PathBuf::from(*name));
+            let mut export_path = Path::new("./").join(Path::new(*name));
+            export_path.set_extension("function");
             proto.exports.insert(ModAlias(name), ImportedMod(export_path));
         }
 
@@ -1275,7 +1276,7 @@ mod tests
         let a = protos.path_proto(&canonical_mod!("a")).unwrap();
         assert_eq!(0, a.imports.len());
         assert_eq!(1, a.exports.len());
-        assert_eq!("foo", a.exports["foo"]);
+        assert_eq!("./foo.function", a.exports["foo"]);
 
         let b = protos.path_proto(&canonical_mod!("b")).unwrap();
         assert_eq!(1, b.imports.len());
