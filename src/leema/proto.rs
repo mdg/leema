@@ -18,7 +18,7 @@ const PROTOFAIL: &'static str = "prototype_failure";
 
 lazy_static! {
     static ref DEFAULT_IDS: HashMap<&'static str, CanonicalMod> = {
-        let core_mod = canonical_mod!("/core");
+        let core_mod = canonical_mod!("core");
         let mut ids = HashMap::new();
         ids.insert("Bool", core_mod.clone());
         ids.insert("cons", core_mod.clone());

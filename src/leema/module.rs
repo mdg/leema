@@ -321,7 +321,7 @@ impl CanonicalMod
     pub fn is_core(&self) -> bool
     {
         // maybe memoize this as a struct var at some point
-        self.0.starts_with("/core")
+        self.0.starts_with("core")
     }
 
     pub fn mod_path(&self) -> &Path

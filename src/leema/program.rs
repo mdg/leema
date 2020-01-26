@@ -42,11 +42,11 @@ impl Lib
         // eventually will move everything to core and delete prefab
         lfailoc!(proglib
             .protos
-            .load_absolute(&mut proglib.loader, Path::new("/core")))
+            .load_absolute(&mut proglib.loader, Path::new("core")))
         .unwrap();
         lfailoc!(proglib
             .protos
-            .load_absolute(&mut proglib.loader, Path::new("/prefab")))
+            .load_absolute(&mut proglib.loader, Path::new("prefab")))
         .unwrap();
 
         proglib
