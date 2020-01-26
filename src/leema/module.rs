@@ -254,6 +254,21 @@ impl ImportedMod
         let h = it.next().unwrap();
         (Path::new(h), it.as_path())
     }
+
+    pub fn child_head(path: &Path) -> Lresult<(&Path, &Path)>
+    {
+        if !path.starts_with("./") {
+            return Err(rustfail!(
+                "compile_failure",
+                "cannot separate child module {:?}",
+                path,
+            ));
+        }
+        let mut it = path.iter();
+        it.next(); // ./ ignore it
+        let h = it.next().unwrap();
+        Ok((Path::new(h), it.as_path()))
+    }
 }
 
 impl From<&str> for ImportedMod

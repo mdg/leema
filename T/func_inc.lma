@@ -1,4 +1,4 @@
-import /io
+import io
 
 func inc x:Int /Int >> x + 1 --
 

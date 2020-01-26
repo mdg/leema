@@ -189,7 +189,7 @@ impl ProtoModule
 
         // export any local definitions
         for name in proto.macros.keys().chain(proto.funcseq.iter()) {
-            let export_path = PathBuf::from(*name);
+            let export_path = Path::new("./").join(PathBuf::from(*name));
             proto.exports.insert(ModAlias(name), ImportedMod(export_path));
         }
 
@@ -736,10 +736,27 @@ impl ProtoLib
     ) -> Lresult<(CanonicalMod, bool)>
     {
         vout!("ProtoLib::load_child({:?}, {:?})\n", base_path.display(), child_path.display());
-        let (head, tail) = ImportedMod::head(child_path);
+        let (head, tail) = ImportedMod::child_head(child_path)
+            .map_err(|f| {
+                f.add_context(lstrf!("from module {:?}", base_path))
+            })?;
         let next_base = base_path.join(head);
         ltry!(self.load_canonical(loader, &next_base));
         self.load_relative(loader, &next_base, tail)
+    }
+
+    pub fn load_sibling(
+        &mut self,
+        loader: &mut Interloader,
+        base_path: &Path,
+        sibling_path: &Path,
+    ) -> Lresult<(CanonicalMod, bool)>
+    {
+        vout!("ProtoLib::load_sibling({:?}, {:?})\n", base_path, sibling_path);
+        let parent = base_path.parent().unwrap();
+        let sibling_next = sibling_path.strip_prefix("../")
+            .map_err(|e| rustfail!("leema_fail", "{:?}", e))?;
+        self.load_relative(loader, parent, sibling_next)
     }
 
     pub fn load_relative(
@@ -916,8 +933,7 @@ impl ProtoLib
                     ltry!(self.load_child(loader, modname.clone(), &i.0))
                 }
                 ModRelativity::Sibling => {
-                    let parent = modname.parent().unwrap();
-                    ltry!(self.load_child(loader, parent, &i.0))
+                    ltry!(self.load_sibling(loader, modname, &i.0))
                 }
                 ModRelativity::Local => {
                     panic!("cannot import locally defined identifiers: {}", i);
@@ -1108,8 +1124,8 @@ mod tests
     {
         let a = "
         import >>
-            b
-            c >>
+            ./b
+            ./c >>
                 d
             --
         --
@@ -1120,7 +1136,7 @@ mod tests
         "
         .to_string();
         let c = "export >>
-            d
+            ./d
         --
         "
         .to_string();
@@ -1145,9 +1161,9 @@ mod tests
     #[test]
     fn test_import_skipped_export()
     {
-        let a = "import b/d".to_string();
-        let b = "export c/d".to_string();
-        let c = "export d".to_string();
+        let a = "import ./b/d".to_string();
+        let b = "export ./c/d".to_string();
+        let c = "export ./d".to_string();
         let d = "
         func bar >> 5 --
         "
@@ -1170,12 +1186,13 @@ mod tests
     fn test_import_absolute_and_sibling()
     {
         let a = "
-        export b
+        export ./b
+        export ./c
         "
         .to_string();
         let b = "
         import ../c
-        import /d
+        import d
         "
         .to_string();
         let c = "
@@ -1196,7 +1213,7 @@ mod tests
 
         protos.load_absolute(&mut loader, Path::new("a")).unwrap();
         protos.load_imports(&mut loader, Path::new("a")).unwrap();
-        assert_eq!(2, protos.protos.len());
+        assert_eq!(3, protos.protos.len());
 
         protos
             .load_absolute(&mut loader, Path::new("a/b"))
