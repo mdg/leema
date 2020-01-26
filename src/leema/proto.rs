@@ -26,6 +26,8 @@ lazy_static! {
         ids.insert("fail", core_mod.clone());
         ids.insert("Hashtag", core_mod.clone());
         ids.insert("Int", core_mod.clone());
+        ids.insert("int_equal", core_mod.clone());
+        ids.insert("int_less_than", core_mod.clone());
         ids.insert("Str", core_mod.clone());
         ids.insert("#", core_mod);
         ids

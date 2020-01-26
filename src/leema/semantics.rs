@@ -246,12 +246,19 @@ impl<'l> MacroApplication<'l>
         let callx = AstNode::new(Ast::Id2(malias, func), loc);
         let args: StrupleKV<Option<&'static str>, AstNode> =
             struple::new_tuple2(a, b);
-        /*
-        vec![
-            StrupleItem::new(None, a),
-            StrupleItem::new(None, b),
-        ];
-        */
+        AstNode::new(Ast::Call(callx, args), loc)
+    }
+
+    fn op_to_call1(
+        func: &'static str,
+        a: AstNode,
+        b: AstNode,
+        loc: Loc,
+    ) -> AstNode
+    {
+        let callx = AstNode::new(Ast::Id1(func), loc);
+        let args: StrupleKV<Option<&'static str>, AstNode> =
+            struple::new_tuple2(a, b);
         AstNode::new(Ast::Call(callx, args), loc)
     }
 
@@ -335,22 +342,22 @@ impl<'l> SemanticOp for MacroApplication<'l>
             }
             Ast::Op2("and", a, b) => {
                 let call =
-                    Self::op_to_call("prefab", "boolean_and", a, b, node.loc);
+                    Self::op_to_call1("boolean_and", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2("or", a, b) => {
                 let call =
-                    Self::op_to_call("prefab", "boolean_or", a, b, node.loc);
+                    Self::op_to_call1("boolean_or", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2("==", a, b) => {
                 let call =
-                    Self::op_to_call("prefab", "int_equal", a, b, node.loc);
+                    Self::op_to_call1("int_equal", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2("<", a, b) => {
                 let call =
-                    Self::op_to_call("prefab", "int_less_than", a, b, node.loc);
+                    Self::op_to_call1("int_less_than", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2(";", a, b) => {
