@@ -9,6 +9,7 @@ use crate::leema::token::Tokenz;
 use crate::leema::val::{Fref, FuncType, GenericTypes, Type, Val};
 
 use std::collections::{HashMap, HashSet};
+use std::mem;
 use std::path::{Path, PathBuf};
 
 use lazy_static::lazy_static;
@@ -42,6 +43,7 @@ pub struct ProtoModule
     pub key: ModKey,
     pub imports: HashMap<ModAlias, ImportedMod>,
     pub exports: HashMap<ModAlias, ImportedMod>,
+    definitions: Vec<AstNode>,
     pub id_canonicals: HashMap<&'static str, CanonicalMod>,
     pub mod_canonicals: HashMap<ModAlias, CanonicalMod>,
     pub macros: HashMap<&'static str, Ast>,
@@ -65,6 +67,7 @@ impl ProtoModule
             key,
             imports: HashMap::new(),
             exports: HashMap::new(),
+            definitions: Vec::new(),
             id_canonicals: HashMap::new(),
             mod_canonicals: HashMap::new(),
             macros: HashMap::new(),
@@ -133,34 +136,42 @@ impl ProtoModule
             proto.exports.insert(ModAlias::new(k), v);
         }
 
+        proto.definitions.extend(it);
+        Ok(proto)
+    }
+
+    pub fn add_definitions(&mut self) -> Lresult<()>
+    {
+        let it = mem::replace(&mut self.definitions, vec![]).into_iter();
+
         for i in it {
             match *i.node {
                 Ast::DefConst(name, val) => {
-                    ltry!(proto.refute_redefines_default(name, i.loc));
-                    proto.constants.insert(name, val);
+                    ltry!(self.refute_redefines_default(name, i.loc));
+                    self.constants.insert(name, val);
                 }
                 Ast::DefMacro(macro_name, _, _) => {
-                    ltry!(proto.refute_redefines_default(macro_name, i.loc));
-                    proto.macros.insert(macro_name, *i.node);
+                    ltry!(self.refute_redefines_default(macro_name, i.loc));
+                    self.macros.insert(macro_name, *i.node);
                 }
                 Ast::DefFunc(name, args, result, body) => {
-                    proto.add_func(name, args, result, body)?;
+                    self.add_func(name, args, result, body)?;
                 }
                 Ast::DefType(DataType::Struct, name, fields) => {
                     if fields.is_empty() {
-                        ltry!(proto.add_token(name));
+                        ltry!(self.add_token(name));
                     } else {
-                        ltry!(proto.add_struct(name, fields));
+                        ltry!(self.add_struct(name, fields));
                     }
                 }
                 Ast::DefType(DataType::Union, name, variants) => {
-                    proto.add_union(name, variants)?;
+                    self.add_union(name, variants)?;
                 }
                 Ast::ModAction(_, _) => {
                     return Err(Failure::static_leema(
                         failure::Mode::CompileFailure,
                         Lstr::Sref("imports must come before definitions"),
-                        proto.key.best_path(),
+                        self.key.best_path(),
                         i.loc.lineno,
                     ));
                 }
@@ -168,35 +179,20 @@ impl ProtoModule
                     return Err(Failure::static_leema(
                         failure::Mode::CompileFailure,
                         lstrf!("expected module statement, found {:?}", i),
-                        proto.key.best_path(),
+                        self.key.best_path(),
                         i.loc.lineno,
                     ));
                 }
             }
         }
 
-        for (k, v) in proto.exports.iter() {
-            // if it's not defined locally, must be a child module
-            // so import it
-            if proto.defines(k.str()) {
-                // importing a child module over a local definition
-                return Err(Failure::static_leema(
-                    failure::Mode::CompileFailure,
-                    lstrf!("local definition cannot shadow export: {}", v),
-                    proto.key.best_path(),
-                    0,
-                ));
-            }
-        }
-
         // export any local definitions
-        for name in proto.macros.keys().chain(proto.funcseq.iter()) {
+        for name in self.macros.keys().chain(self.funcseq.iter()) {
             let mut export_path = Path::new("./").join(Path::new(*name));
             export_path.set_extension("function");
-            proto.exports.insert(ModAlias(name), ImportedMod(export_path));
+            self.exports.insert(ModAlias(name), ImportedMod(export_path));
         }
-
-        Ok(proto)
+        Ok(())
     }
 
     fn refute_redefines_default(
