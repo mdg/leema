@@ -136,24 +136,72 @@ impl ProtoModule
             proto.exports.insert(ModAlias::new(k), v);
         }
 
-        proto.definitions.extend(it);
+        for i in it {
+            proto.add_definition_pre(i)?;
+        }
         Ok(proto)
     }
 
-    pub fn add_definitions(&mut self) -> Lresult<()>
+    pub fn add_definition_pre(&mut self, mut node: AstNode) -> Lresult<()>
+    {
+        match *node.node {
+            Ast::DefConst(name, val) => {
+                ltry!(self.refute_redefines_default(name, node.loc));
+                self.constants.insert(name, val);
+            }
+            Ast::DefMacro(macro_name, _, _) => {
+                ltry!(self.refute_redefines_default(macro_name, node.loc));
+                self.macros.insert(macro_name, *node.node);
+            }
+            Ast::DefType(dt, name, flds) => {
+                self.pre_add_type(name.clone())?;
+                *node.node = Ast::DefType(dt, name, flds);
+                self.definitions.push(node);
+            }
+            Ast::DefFunc(_, _, _, _) => {
+                // pretty sure this doesn't need to happen in pre
+                self.definitions.push(node);
+            }
+            Ast::ModAction(_, _) => {
+                return Err(Failure::static_leema(
+                    failure::Mode::CompileFailure,
+                    Lstr::Sref("imports must come before definitions"),
+                    self.key.best_path(),
+                    node.loc.lineno,
+                ));
+            }
+            _ => {
+                return Err(Failure::static_leema(
+                    failure::Mode::CompileFailure,
+                    lstrf!("expected module statement, found {:?}", node),
+                    self.key.best_path(),
+                    node.loc.lineno,
+                ));
+            }
+        }
+
+        // export any local definitions
+        for name in self.macros.keys() {
+            let mut export_path = Path::new("./").join(Path::new(*name));
+            export_path.set_extension("macro");
+            self.exports.insert(ModAlias(name), ImportedMod(export_path));
+        }
+        // empty tho b/c these are loaded in post
+        // should be able to populate funcseq in pre
+        for name in self.funcseq.iter() {
+            let mut export_path = Path::new("./").join(Path::new(*name));
+            export_path.set_extension("function");
+            self.exports.insert(ModAlias(name), ImportedMod(export_path));
+        }
+        Ok(())
+    }
+
+    pub fn post_add_definitions(&mut self) -> Lresult<()>
     {
         let it = mem::replace(&mut self.definitions, vec![]).into_iter();
 
         for i in it {
             match *i.node {
-                Ast::DefConst(name, val) => {
-                    ltry!(self.refute_redefines_default(name, i.loc));
-                    self.constants.insert(name, val);
-                }
-                Ast::DefMacro(macro_name, _, _) => {
-                    ltry!(self.refute_redefines_default(macro_name, i.loc));
-                    self.macros.insert(macro_name, *i.node);
-                }
                 Ast::DefFunc(name, args, result, body) => {
                     self.add_func(name, args, result, body)?;
                 }
@@ -167,18 +215,10 @@ impl ProtoModule
                 Ast::DefType(DataType::Union, name, variants) => {
                     self.add_union(name, variants)?;
                 }
-                Ast::ModAction(_, _) => {
-                    return Err(Failure::static_leema(
-                        failure::Mode::CompileFailure,
-                        Lstr::Sref("imports must come before definitions"),
-                        self.key.best_path(),
-                        i.loc.lineno,
-                    ));
-                }
                 _ => {
                     return Err(Failure::static_leema(
                         failure::Mode::CompileFailure,
-                        lstrf!("expected module statement, found {:?}", i),
+                        lstrf!("expected definition statement, found {:?}", i),
                         self.key.best_path(),
                         i.loc.lineno,
                     ));
@@ -216,6 +256,15 @@ impl ProtoModule
     pub fn default_imports() -> &'static HashMap<&'static str, CanonicalMod>
     {
         &DEFAULT_IDS
+    }
+
+    fn pre_add_func(
+        &mut self,
+        name: AstNode,
+    ) -> Lresult<()>
+    {
+        // funcseq.push(name)
+        Ok(())
     }
 
     fn add_func(
@@ -290,6 +339,11 @@ impl ProtoModule
         self.funcseq.push(name_id);
         self.funcsrc.insert(name_id, (args, body));
 
+        Ok(())
+    }
+
+    fn pre_add_type(&mut self, _name: AstNode) -> Lresult<()>
+    {
         Ok(())
     }
 
@@ -923,7 +977,7 @@ impl ProtoLib
         }
 
         let mut canonicals = vec![];
-        for (k, i) in imported.into_iter() {
+        for (k, i) in imported.iter() {
             let result = match i.relativity() {
                 ModRelativity::Absolute => {
                     ltry!(self.load_absolute(loader, &i.0))
@@ -938,14 +992,18 @@ impl ProtoLib
                     panic!("cannot import locally defined identifiers: {}", i);
                 }
             };
-            canonicals.push((k, result.0, result.1));
+            canonicals.push((*k, result.0, result.1));
         }
 
         // safe to unwrap b/c verified this module is present above
         let proto_mut = self.protos.get_mut(modname).unwrap();
         for (k, c, is_id) in canonicals.into_iter() {
             proto_mut.set_canonical(k, c, is_id);
+            if !is_id {
+                self.load_exports(loader, c);
+            }
         }
+
         Ok(())
     }
 
