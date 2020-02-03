@@ -431,7 +431,6 @@ impl ParseStmt
                 let sibling = Self::parse_import_line_cont(p)?;
                 ModTree::Sub(next.src, Box::new(sibling))
             }
-            Token::Star => ModTree::Id(next.src, Ast::loc(&next)),
             _ => {
                 return Err(rustfail!(
                     PARSE_FAIL,
@@ -455,7 +454,7 @@ impl ParseStmt
                     ModTree::Id(next.src, Ast::loc(&next))
                 }
             }
-            Token::Dot|Token::Star => ModTree::Id(next.src, Ast::loc(&next)),
+            Token::Dot => ModTree::Id(next.src, Ast::loc(&next)),
             _ => {
                 return Err(rustfail!(
                     PARSE_FAIL,
