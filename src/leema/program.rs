@@ -150,6 +150,6 @@ impl Lib
     {
         let modpath = cmod.mod_path();
         self.protos.load_absolute(&mut self.loader, modpath)?;
-        self.protos.load_imports(&mut self.loader, modpath)
+        self.protos.load_imports(&mut self.loader, modpath, false)
     }
 }

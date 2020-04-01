@@ -196,7 +196,7 @@ impl ProtoModule
         Ok(())
     }
 
-    pub fn post_add_definitions(&mut self) -> Lresult<()>
+    pub fn add_definitions_post(&mut self) -> Lresult<()>
     {
         let it = mem::replace(&mut self.definitions, vec![]).into_iter();
 
@@ -260,7 +260,7 @@ impl ProtoModule
 
     fn pre_add_func(
         &mut self,
-        name: AstNode,
+        _name: AstNode,
     ) -> Lresult<()>
     {
         // funcseq.push(name)
@@ -344,6 +344,48 @@ impl ProtoModule
 
     fn pre_add_type(&mut self, _name: AstNode) -> Lresult<()>
     {
+        /*
+        let sname_id = match *name.node {
+            Ast::Id1(name_id) => {
+                ltry!(self.refute_redefines_default(name_id, name.loc));
+                struct_typ = Type::User(TypeMod::from(m), name_id);
+                opens = vec![];
+                name_id
+            }
+            Ast::Generic(gen, gen_args) => {
+                let opens1: Lresult<GenericTypes> = gen_args
+                    .iter()
+                    .map(|a| {
+                        if let Ast::Id1(var) = *a.v.node {
+                            Ok(StrupleItem::new(var, Type::Unknown))
+                        } else {
+                            Err(rustfail!(
+                                PROTOFAIL,
+                                "generic arguments must be IDs: {:?}",
+                                a,
+                            ))
+                        }
+                    })
+                    .collect();
+                opens = opens1?;
+
+                if let Ast::Id1(name_id) = *gen.node {
+                    ltry!(self.refute_redefines_default(name_id, name.loc));
+                    let itmod = TypeMod::from(m);
+                    let inner = Type::User(itmod, name_id);
+                    struct_typ =
+                        Type::Generic(true, Box::new(inner), opens.clone());
+                    name_id
+                } else {
+                    return Err(rustfail!(
+                        PROTOFAIL,
+                        "invalid generic struct name: {:?}",
+                        gen,
+                    ));
+                }
+            }
+        }
+        */
         Ok(())
     }
 
@@ -952,6 +994,7 @@ impl ProtoLib
         &mut self,
         loader: &mut Interloader,
         modname: &Path,
+        _exports_only: bool,
     ) -> Lresult<()>
     {
         vout!("ProtoLib::load_imports({})\n", modname.display());
@@ -997,11 +1040,16 @@ impl ProtoLib
 
         // safe to unwrap b/c verified this module is present above
         let proto_mut = self.protos.get_mut(modname).unwrap();
+        let mut exports = vec![];
         for (k, c, is_id) in canonicals.into_iter() {
-            proto_mut.set_canonical(k, c, is_id);
+            proto_mut.set_canonical(k, c.clone(), is_id);
             if !is_id {
-                self.load_exports(loader, c);
+                exports.push(c);
             }
+        }
+
+        for x in exports.iter() {
+                self.load_imports(loader, x.mod_path(), true)?;
         }
 
         Ok(())
