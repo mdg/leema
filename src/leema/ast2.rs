@@ -184,6 +184,7 @@ pub enum Ast
     DefFunc(AstNode, Xlist, AstNode, AstNode),
     DefMacro(&'static str, Vec<&'static str>, AstNode),
     DefType(DataType, AstNode, Xlist),
+    Export(AstNode),
     FuncType(Xlist, AstNode),
     Generic(AstNode, Xlist),
     Id1(&'static str),
@@ -248,6 +249,7 @@ impl Ast
                 write!(f, "DefType {:?} {:?} {:?}", dtype, name, fields)
             }
             // Ast::Def(v) => write!(f, "Def {}", v),
+            Ast::Export(x) => write!(f, "Export {:?}", x),
             Ast::FuncType(args, result) => {
                 write!(f, "FuncType {:?} / {:?}]", args, result)
             }

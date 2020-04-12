@@ -197,7 +197,7 @@ impl ParseStmt
     {
         match tok.tok {
             Token::Const => ParseStmt::parse_defconst(p, tok),
-            Token::Export => ParseStmt::parse_import(p, tok),
+            Token::Export => ParseStmt::parse_export(p),
             Token::Func => ParseStmt::parse_deffunc(p),
             Token::Macro => ParseStmt::parse_defmacro(p),
             Token::Import => ParseStmt::parse_import(p, tok),
@@ -378,6 +378,27 @@ impl ParseStmt
         p.skip_if(Token::LineBegin)?;
         expect_next!(p, Token::DoubleDash)?;
         Ok(AstNode::new(data, loc))
+    }
+
+    fn parse_export(p: &mut Parsl) -> AstResult
+    {
+        let next_tok = p.next()?;
+        let exp = match next_tok.tok {
+            Token::Star => {
+                AstNode::new(Ast::Wildcard, Ast::loc(&next_tok))
+            }
+            Token::Id => {
+                PrefixParser::parse(&ParseId, p, next_tok)?
+            }
+            _ => {
+                return Err(rustfail!(
+                    PARSE_FAIL,
+                    "expected * or ID, found: {:?}",
+                    next_tok,
+                ));
+            }
+        };
+        Ok(AstNode::new(Ast::Export(exp), Ast::loc(&next_tok)))
     }
 
     fn parse_import(p: &mut Parsl, tok: TokenSrc) -> AstResult

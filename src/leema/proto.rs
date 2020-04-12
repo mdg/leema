@@ -994,7 +994,6 @@ impl ProtoLib
         &mut self,
         loader: &mut Interloader,
         modname: &Path,
-        _exports_only: bool,
     ) -> Lresult<()>
     {
         vout!("ProtoLib::load_imports({})\n", modname.display());
@@ -1049,7 +1048,7 @@ impl ProtoLib
         }
 
         for x in exports.iter() {
-                self.load_imports(loader, x.mod_path(), true)?;
+                self.load_imports(loader, x.mod_path())?;
         }
 
         Ok(())
@@ -1282,7 +1281,7 @@ mod tests
 
         let mut protos = ProtoLib::new();
         protos.load_absolute(&mut loader, Path::new("a")).unwrap();
-        protos.load_imports(&mut loader, Path::new("a"), false).unwrap();
+        protos.load_imports(&mut loader, Path::new("a")).unwrap();
 
         assert_eq!(4, protos.protos.len());
     }
