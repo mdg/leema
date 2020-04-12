@@ -2140,7 +2140,6 @@ mod tests
         "import >>
             core >>
                 io
-                list/*
             --
             ./m1/m2/m3
             ../myapp >>
@@ -2171,11 +2170,7 @@ mod tests
             if let ModTree::Sub(_, ref sbox) = subs[0] {
                 if let ModTree::Block(ref block) = &**sbox {
                     assert_eq!(ModTree::Id("io", Loc::new(3, 17)), block[0]);
-                    assert_matches!(block[1], ModTree::Sub("list", _));
-                    if let ModTree::Sub(_, ref star) = block[1] {
-                        assert_eq!(ModTree::Id("*", Loc::new(4, 22)), **star);
-                    }
-                    assert_eq!(2, block.len());
+                    assert_eq!(1, block.len());
                 }
             }
             if let ModTree::Sub(_, ref sbox) = subs[1] {
