@@ -1282,7 +1282,7 @@ mod tests
 
         let mut protos = ProtoLib::new();
         protos.load_absolute(&mut loader, Path::new("a")).unwrap();
-        protos.load_imports(&mut loader, Path::new("a")).unwrap();
+        protos.load_imports(&mut loader, Path::new("a"), false).unwrap();
 
         assert_eq!(4, protos.protos.len());
     }

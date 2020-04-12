@@ -142,7 +142,6 @@ pub enum Token
     Func,
     If,
     Import,
-    Include,
     Let,
     Macro,
     Match,
@@ -268,7 +267,6 @@ impl Token
             | Token::Func
             | Token::If
             | Token::Import
-            | Token::Include
             | Token::Let
             | Token::Macro
             | Token::Match
@@ -336,7 +334,6 @@ impl Token
             | Token::Func
             | Token::If
             | Token::Import
-            | Token::Include
             | Token::Let
             | Token::Macro
             | Token::Match
@@ -375,7 +372,6 @@ lazy_static! {
         keywords.insert("func", Token::Func);
         keywords.insert("if", Token::If);
         keywords.insert("import", Token::Import);
-        keywords.insert("include", Token::Include);
         keywords.insert("let", Token::Let);
         keywords.insert("macro", Token::Macro);
         keywords.insert("match", Token::Match);
@@ -1832,7 +1828,7 @@ mod tests
     fn test_tokenz_keywords()
     {
         let input = r#"failed fork func if let macro match return
-        export include import
+        export import
         __RUST__
         "#;
 
@@ -1857,8 +1853,6 @@ mod tests
         i.next();
         i.next();
         assert_eq!(Token::Export, nextok(&mut i).0);
-        i.next();
-        assert_eq!(Token::Include, nextok(&mut i).0);
         i.next();
         assert_eq!(Token::Import, nextok(&mut i).0);
         i.next();

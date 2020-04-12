@@ -201,7 +201,6 @@ impl ParseStmt
             Token::Func => ParseStmt::parse_deffunc(p),
             Token::Macro => ParseStmt::parse_defmacro(p),
             Token::Import => ParseStmt::parse_import(p, tok),
-            Token::Include => ParseStmt::parse_import(p, tok),
             Token::Let => ParseStmt::parse_let(p, tok),
             Token::Return => ParseStmt::parse_return(p, Ast::loc(&tok)),
             Token::Datatype => ParseStmt::parse_deftype(p),
@@ -386,7 +385,6 @@ impl ParseStmt
         let action = match tok.tok {
             Token::Export => ast2::ModAction::Export,
             Token::Import => ast2::ModAction::Import,
-            Token::Include => ast2::ModAction::Include,
             _ => {
                 return Err(rustfail!(
                     PARSE_FAIL,
