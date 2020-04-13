@@ -382,13 +382,14 @@ impl ParseStmt
 
     fn parse_export(p: &mut Parsl) -> AstResult
     {
-        let next_tok = p.next()?;
+        let next_tok = p.peek()?;
         let exp = match next_tok.tok {
             Token::Star => {
+                p.next()?;
                 AstNode::new(Ast::Wildcard, Ast::loc(&next_tok))
             }
             Token::Id => {
-                PrefixParser::parse(&ParseId, p, next_tok)?
+                Grammar::parse_id_or_two(p)?
             }
             _ => {
                 return Err(rustfail!(
@@ -1612,6 +1613,18 @@ impl Grammar
         let tok = expect_next!(p, Token::Id)?;
         PrefixParser::parse(&ParseId, p, tok)
     }
+
+    /// Parse an id that might be an id or a module::id
+    fn parse_id_or_two(p: &mut Parsl) -> AstResult
+    {
+        let tok = expect_next!(p, Token::Id)?;
+        let id = PrefixParser::parse(&ParseId, p, tok)?;
+        if let Some(dbl_colon) = p.next_if(Token::DoubleColon)? {
+            InfixParser::parse(&ParseId, p, id, dbl_colon)
+        } else {
+            Ok(id)
+        }
+    }
 }
 
 
@@ -1842,6 +1855,48 @@ mod tests
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
         p.parse_module().unwrap();
+    }
+
+    #[test]
+    fn test_parse_export_lines()
+    {
+        let input = "
+        export *
+        export child1
+        export child2::func_a
+        export child3::TypeB
+        ";
+        let toks = Tokenz::lexp(input).unwrap();
+        let ast = Grammar::new(toks).parse_module().unwrap();
+        assert_eq!(4, ast.len());
+        assert_matches!(
+            *ast[0].node,
+            Ast::Export(_)
+        );
+        assert_matches!(
+            *ast[1].node,
+            Ast::Export(_)
+        );
+        assert_matches!(
+            *ast[2].node,
+            Ast::Export(_)
+        );
+        assert_matches!(
+            *ast[3].node,
+            Ast::Export(_)
+        );
+        if let Ast::Export(star) = &*ast[0].node {
+            assert_eq!(Ast::Wildcard, *star.node);
+        }
+        if let Ast::Export(child1) = &*ast[1].node {
+            assert_eq!(Ast::Id1("child1"), *child1.node);
+        }
+        if let Ast::Export(child2) = &*ast[2].node {
+            assert_eq!(Ast::Id2(ModAlias("child2"), "func_a"), *child2.node);
+        }
+        if let Ast::Export(child3) = &*ast[3].node {
+            assert_eq!(Ast::Id2(ModAlias("child3"), "TypeB"), *child3.node);
+        }
     }
 
     #[test]

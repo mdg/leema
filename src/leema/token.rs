@@ -342,6 +342,25 @@ impl Token
             _ => false,
         }
     }
+
+    /// check if this token starting a newline should continue the previous line
+    /// for example, a comma on a newline indicates the previous line continues
+    pub fn breaks_prev_line(&self) -> bool
+    {
+        match self {
+            // opening keywords
+            Token::Const
+            | Token::Export
+            | Token::Failed
+            | Token::If
+            | Token::Import
+            | Token::Let
+            | Token::Macro
+            | Token::Return => true,
+
+            _ => false,
+        }
+    }
 }
 
 impl fmt::Display for Token
@@ -1579,7 +1598,8 @@ impl LineBreaker
                 }
             })
             .unwrap_or(false);
-        open || t0.continues_next_line() || t2.continues_prev_line()
+        (open || t0.continues_next_line() || t2.continues_prev_line())
+            && !t2.breaks_prev_line()
     }
 }
 
