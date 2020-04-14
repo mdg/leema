@@ -43,6 +43,7 @@ pub struct ProtoModule
     pub key: ModKey,
     pub imports: HashMap<ModAlias, ImportedMod>,
     pub exports: HashMap<ModAlias, ImportedMod>,
+    pub exports_all: bool,
     definitions: Vec<AstNode>,
     pub id_canonicals: HashMap<&'static str, CanonicalMod>,
     pub mod_canonicals: HashMap<ModAlias, CanonicalMod>,
@@ -62,11 +63,13 @@ impl ProtoModule
         let mut grammar = Grammar::new(Tokenz::lexp(src)?);
         grammar.set_path(key.best_path());
         let items = grammar.parse_module()?;
+        let modname = key.name.clone();
 
         let mut proto = ProtoModule {
             key,
             imports: HashMap::new(),
             exports: HashMap::new(),
+            exports_all: false,
             definitions: Vec::new(),
             id_canonicals: HashMap::new(),
             mod_canonicals: HashMap::new(),
@@ -83,11 +86,17 @@ impl ProtoModule
         let mut imports = HashMap::new();
         let mut it = items.into_iter().peekable();
         while it.peek().is_some() {
-            if let Ast::ModAction(_, _) = &*it.peek().unwrap().node {
-                // another import, take the next
-            } else {
-                // no more imports, exports. move on to the regular stuff
-                break;
+            match &*it.peek().unwrap().node {
+                Ast::ModAction(_, _) => {
+                    // an import, take the next
+                }
+                Ast::Export(_) => {
+                    // an export, take the next
+                }
+                _ => {
+                    // no more imports or exports. move on to the regular stuff
+                    break;
+                }
             }
 
             let i = it.next().unwrap();
@@ -98,8 +107,37 @@ impl ProtoModule
                 Ast::ModAction(ModAction::Export, tree) => {
                     tree.collect(&mut exports)?;
                 }
-                _ => {
-                    panic!("not an import or export");
+                Ast::Export(module) => {
+                    match *module.node {
+                        Ast::Wildcard => {
+                            proto.exports_all = true;
+                        }
+                        Ast::Id1(modname) => {
+                            exports.insert(modname, (ImportedMod::from(modname), i.loc));
+                        }
+                        what => {
+                            return Err(rustfail!(
+                                PROTOFAIL,
+                                "invalid export: {:?}",
+                                what,
+                            ));
+                        }
+                    }
+                    if proto.exports_all && !exports.is_empty() {
+                        return Err(Failure::static_leema(
+                            failure::Mode::CompileFailure,
+                            Lstr::Sref("cannot mix export * and specific"),
+                            modname.0.clone(),
+                            i.loc.lineno,
+                        ));
+                    }
+                }
+                what => {
+                    return Err(rustfail!(
+                        PROTOFAIL,
+                        "not an import or export: {:?}",
+                        what,
+                    ));
                 }
             }
         }
@@ -166,6 +204,14 @@ impl ProtoModule
                 return Err(Failure::static_leema(
                     failure::Mode::CompileFailure,
                     Lstr::Sref("imports must come before definitions"),
+                    self.key.best_path(),
+                    node.loc.lineno,
+                ));
+            }
+            Ast::Export(_) => {
+                return Err(Failure::static_leema(
+                    failure::Mode::CompileFailure,
+                    Lstr::Sref("exports must come before definitions"),
                     self.key.best_path(),
                     node.loc.lineno,
                 ));
@@ -1209,18 +1255,25 @@ mod tests
     }
 
     #[test]
-    fn test_proto_exports()
+    fn test_proto_export_star()
     {
-        let proto = new_proto(
-            "
-        export ./tacos
-        ",
-        );
+        let proto = new_proto("export *");
+
+        assert_eq!(0, proto.imports.len());
+        assert_eq!(0, proto.exports.len());
+        assert_eq!(true, proto.exports_all);
+    }
+
+    #[test]
+    fn test_proto_export_module()
+    {
+        let proto = new_proto("export tacos");
 
         assert_eq!(1, proto.imports.len());
         assert_eq!(1, proto.exports.len());
         assert_eq!("./tacos", proto.imports["tacos"]);
         assert_eq!("./tacos", proto.exports["tacos"]);
+        assert_eq!(false, proto.exports_all);
     }
 
     #[test]
