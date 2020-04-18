@@ -103,6 +103,7 @@ pub enum ModAction
 #[derive(PartialOrd)]
 pub enum ModTree
 {
+    All(Loc),
     Id(&'static str, Loc),
     Block(Vec<ModTree>),
     Sub(&'static str, Box<ModTree>),
@@ -124,7 +125,7 @@ impl ModTree
             ModTree::Sub(_, ref mut b) => {
                 b.push_sub(tail);
             }
-            ModTree::Block(_) => {
+            ModTree::All(_)|ModTree::Block(_) => {
                 // blocks can't really contain a sub
                 // this should never happen
                 unimplemented!();
@@ -147,6 +148,10 @@ impl ModTree
     ) -> Lresult<()>
     {
         match self {
+            ModTree::All(loc) => {
+                path.push("*");
+                flats.insert("*", (ImportedMod(path.clone()), *loc));
+            }
             ModTree::Id(".", loc) if path.as_os_str() != "" => {
                 flats.insert(parent, (ImportedMod(path.clone()), *loc));
             }

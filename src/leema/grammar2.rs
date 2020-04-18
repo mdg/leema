@@ -197,7 +197,7 @@ impl ParseStmt
     {
         match tok.tok {
             Token::Const => ParseStmt::parse_defconst(p, tok),
-            Token::Export => ParseStmt::parse_export(p),
+            Token::Export => ParseStmt::parse_import(p, tok),
             Token::Func => ParseStmt::parse_deffunc(p),
             Token::Macro => ParseStmt::parse_defmacro(p),
             Token::Import => ParseStmt::parse_import(p, tok),
@@ -421,6 +421,10 @@ impl ParseStmt
             Token::DoubleArrow => Self::parse_import_block(p)?,
             Token::Id | Token::Dot | Token::DoubleDot => {
                 Self::parse_import_line_new(p)?
+            }
+            Token::Star => {
+                p.next()?;
+                ModTree::All(Ast::loc(&tree_tok))
             }
             _ => {
                 return Err(rustfail!(
@@ -1863,40 +1867,28 @@ mod tests
         let input = "
         export *
         export child1
-        export child2::func_a
-        export child3::TypeB
+        export child2/func_a
+        export child3/TypeB
         ";
         let toks = Tokenz::lexp(input).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
         assert_eq!(4, ast.len());
         assert_matches!(
             *ast[0].node,
-            Ast::Export(_)
+            Ast::ModAction(ModAction::Export, ModTree::All(_))
         );
         assert_matches!(
             *ast[1].node,
-            Ast::Export(_)
+            Ast::ModAction(ModAction::Export, ModTree::Id("child1", _))
         );
         assert_matches!(
             *ast[2].node,
-            Ast::Export(_)
+            Ast::ModAction(ModAction::Export, _)
         );
         assert_matches!(
             *ast[3].node,
-            Ast::Export(_)
+            Ast::ModAction(ModAction::Export, _)
         );
-        if let Ast::Export(star) = &*ast[0].node {
-            assert_eq!(Ast::Wildcard, *star.node);
-        }
-        if let Ast::Export(child1) = &*ast[1].node {
-            assert_eq!(Ast::Id1("child1"), *child1.node);
-        }
-        if let Ast::Export(child2) = &*ast[2].node {
-            assert_eq!(Ast::Id2(ModAlias("child2"), "func_a"), *child2.node);
-        }
-        if let Ast::Export(child3) = &*ast[3].node {
-            assert_eq!(Ast::Id2(ModAlias("child3"), "TypeB"), *child3.node);
-        }
     }
 
     #[test]
