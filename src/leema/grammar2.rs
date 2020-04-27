@@ -418,8 +418,7 @@ impl ParseStmt
 
         let tree_tok = p.peek()?;
         let tree = match tree_tok.tok {
-            Token::DoubleArrow => Self::parse_import_block(p)?,
-            Token::Id | Token::Dot | Token::DoubleDot => {
+            Token::Id|Token::Slash|Token::DoubleDot => {
                 Self::parse_import_line_new(p)?
             }
             Token::Star => {
@@ -429,7 +428,7 @@ impl ParseStmt
             _ => {
                 return Err(rustfail!(
                     PARSE_FAIL,
-                    "expected >> or ID, found: {:?}",
+                    "expected ID / or .. found: {:?}",
                     tree_tok,
                 ));
             }
@@ -449,6 +448,10 @@ impl ParseStmt
                 } else {
                     ModTree::Id(next.src, Ast::loc(&next))
                 }
+            }
+            Token::Slash => {
+                let root = Self::parse_import_line_cont(p)?;
+                ModTree::sub(next.src, root)
             }
             Token::DoubleDot => {
                 expect_next!(p, Token::Slash)?;
@@ -478,6 +481,9 @@ impl ParseStmt
                     ModTree::Id(next.src, Ast::loc(&next))
                 }
             }
+            Token::DoubleArrow => {
+                Self::parse_import_block(p)?
+            }
             Token::Dot => ModTree::Id(next.src, Ast::loc(&next)),
             _ => {
                 return Err(rustfail!(
@@ -497,12 +503,7 @@ impl ParseStmt
 
         let mut block = vec![];
         while p.peek_token()? != Token::DoubleDash {
-            let mut line = ltry!(Self::parse_import_line_new(p));
-            let next_tok = p.peek()?;
-            if next_tok.tok == Token::DoubleArrow {
-                let iblock = ltry!(Self::parse_import_block(p));
-                line.push_sub(iblock);
-            }
+            let line = ltry!(Self::parse_import_line_new(p));
             block.push(line);
             p.skip_if(Token::LineBegin)?;
         }
@@ -2141,61 +2142,79 @@ mod tests
     fn test_parse_import_line()
     {
         let input = "
-        import root
-        import ./child
+        import /root
+        import child
         import ../sibling
-        import burritos/tacos/tortas
+        import /burritos/tacos
+        import cat/dog
         ";
         let toks = Tokenz::lexp(input).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
-        assert_eq!(4, ast.len());
+        assert_eq!(5, ast.len());
+
+        // /root
         assert_matches!(
             *ast[0].node,
-            Ast::ModAction(ModAction::Import, ModTree::Id("root", _))
+            Ast::ModAction(ModAction::Import, ModTree::Sub("/", _))
         );
+        if let Ast::ModAction(_, ModTree::Sub("/", root)) = &*ast[0].node {
+            assert_eq!(ModTree::Id("root", Loc::new(2, 17)), **root);
+        }
+        // child
         assert_matches!(
             *ast[1].node,
-            Ast::ModAction(ModAction::Import, ModTree::Sub(".", _))
+            Ast::ModAction(ModAction::Import, ModTree::Id("child", _))
         );
+        // ../sibling
         assert_matches!(
             *ast[2].node,
             Ast::ModAction(ModAction::Import, ModTree::Sub("..", _))
         );
-        assert_matches!(
-            *ast[3].node,
-            Ast::ModAction(ModAction::Import, ModTree::Sub("burritos", _))
-        );
-        if let Ast::ModAction(_, ModTree::Sub(_, b)) = &*ast[1].node {
-            assert_eq!(ModTree::Id("child", Loc::new(3, 18)), **b);
-        }
         if let Ast::ModAction(_, ModTree::Sub(_, b)) = &*ast[2].node {
             assert_eq!(ModTree::Id("sibling", Loc::new(4, 19)), **b);
         }
-        if let Ast::ModAction(_, ModTree::Sub(_, b)) = &*ast[3].node {
-            assert_matches!(
-                **b,
-                ModTree::Sub("tacos", _)
-            );
-            if let ModTree::Sub(_, q) = &**b {
-                assert_matches!(**q, ModTree::Id("tortas", _));
+        // /burritos/tacos/tortas
+        assert_matches!(
+            *ast[3].node,
+            Ast::ModAction(ModAction::Import, ModTree::Sub("/", _))
+        );
+        if let Ast::ModAction(_, ModTree::Sub("/", root)) = &*ast[3].node {
+            assert_matches!(**root, ModTree::Sub("burritos", _));
+            if let ModTree::Sub(_, ref sub) = &**root {
+                assert_eq!(ModTree::Id("tacos", Loc::new(5, 26)), **sub);
             }
+        }
+        // cat/dog
+        assert_matches!(
+            *ast[4].node,
+            Ast::ModAction(ModAction::Import, ModTree::Sub("cat", _))
+        );
+        if let Ast::ModAction(_, ModTree::Sub("cat", sub)) = &*ast[4].node {
+            assert_eq!(ModTree::Id("dog", Loc::new(6, 20)), **sub);
         }
     }
 
     fn parse_block_input() -> &'static str
     {
-        "import >>
-            core >>
-                io
-            --
-            ./m1/m2/m3
-            ../myapp >>
-                .
-                tacos/burritos
-                tortas
+        "
+        import /core >>
+            io
+            net/http
+        --
+        import tacos >>
+            burritos
+            tortas/quesadillas
+        --
+        import ../myapp >>
+            .
+            app >>
+                model
+                view
+                controller
             --
             blah
-        --"
+        --
+        "
     }
 
     #[test]
