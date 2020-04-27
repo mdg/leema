@@ -439,21 +439,18 @@ impl ParseStmt
 
     fn parse_import_line_new(p: &mut Parsl) -> Lresult<ModTree>
     {
-        let next = p.next()?;
+        let next = p.peek()?;
         let line = match next.tok {
             Token::Id|Token::Dot => {
-                if p.next_if(Token::Slash)?.is_some() {
-                    let subline = Self::parse_import_line_cont(p)?;
-                    ModTree::sub(next.src, subline)
-                } else {
-                    ModTree::Id(next.src, Ast::loc(&next))
-                }
+                Self::parse_import_line_cont(p)?
             }
             Token::Slash => {
+                p.next()?; // eat the /
                 let root = Self::parse_import_line_cont(p)?;
                 ModTree::sub(next.src, root)
             }
             Token::DoubleDot => {
+                p.next()?; // eat the ..
                 expect_next!(p, Token::Slash)?;
                 let sibling = Self::parse_import_line_cont(p)?;
                 ModTree::Sub(next.src, Box::new(sibling))
@@ -474,15 +471,20 @@ impl ParseStmt
         let next = p.next()?;
         let line = match next.tok {
             Token::Id => {
-                if p.next_if(Token::Slash)?.is_some() {
-                    let subline = Self::parse_import_line_cont(p)?;
-                    ModTree::sub(next.src, subline)
-                } else {
-                    ModTree::Id(next.src, Ast::loc(&next))
+                match p.peek_token()? {
+                    Token::Slash => {
+                        p.next()?;
+                        let subline = Self::parse_import_line_cont(p)?;
+                        ModTree::sub(next.src, subline)
+                    }
+                    Token::DoubleArrow => {
+                        let block = Self::parse_import_block(p)?;
+                        ModTree::sub(next.src, block)
+                    }
+                    _ => {
+                        ModTree::Id(next.src, Ast::loc(&next))
+                    }
                 }
-            }
-            Token::DoubleArrow => {
-                Self::parse_import_block(p)?
             }
             Token::Dot => ModTree::Id(next.src, Ast::loc(&next)),
             _ => {
@@ -2222,7 +2224,7 @@ mod tests
     {
         let toks = Tokenz::lexp(parse_block_input()).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
-        assert_eq!(1, ast.len());
+        assert_eq!(3, ast.len());
         assert_matches!(*ast[0].node, Ast::ModAction(ModAction::Import, _));
         if let Ast::ModAction(_, ModTree::Block(subs)) = &*ast[0].node {
             // assert from root
