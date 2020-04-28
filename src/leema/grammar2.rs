@@ -2274,20 +2274,19 @@ mod tests
             let mut flats = HashMap::new();
             tree.collect(&mut flats).unwrap();
 
-            assert_eq!("core/io", format!("{}", flats["io"].0));
+            assert_eq!("/core/io", format!("{}", flats["io"].0));
+            assert_eq!("/core/net/http", format!("{}", flats["http"].0));
 
-            assert_eq!("./m1/m2/m3", format!("{}", flats["m3"].0));
+            assert_eq!("tacos/burritos", format!("{}", flats["burritos"].0));
+            assert_eq!("tacos/tortas/quesadillas", format!("{}", flats["quesadillas"].0));
 
-            assert_eq!("../myapp", format!("{}", flats["myapp"].0));
-            assert_eq!(
-                "../myapp/tacos/burritos",
-                format!("{}", flats["burritos"].0)
-            );
-            assert_eq!("../myapp/tortas", format!("{}", flats["tortas"].0));
+            // assert_eq!("../myapp", format!("{}", flats["myapp"].0));
+            assert_eq!("../myapp/app/model", format!("{}", flats["model"].0));
+            assert_eq!("../myapp/app/view", format!("{}", flats["view"].0));
+            assert_eq!("../myapp/app/controller", format!("{}", flats["controller"].0));
+            assert_eq!("../myapp/blah", format!("{}", flats["blah"].0));
 
-            assert_eq!("blah", format!("{}", flats["blah"].0));
-
-            assert_eq!(6, flats.len());
+            assert_eq!(9, flats.len());
         }
     }
 

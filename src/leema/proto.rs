@@ -104,7 +104,26 @@ impl ProtoModule
                 Ast::ModAction(ModAction::Import, tree) => {
                     tree.collect(&mut imports)?;
                 }
+                Ast::ModAction(ModAction::Export, ModTree::All(loc)) => {
+                    if !exports.is_empty() {
+                        return Err(Failure::static_leema(
+                            failure::Mode::CompileFailure,
+                            Lstr::Sref("cannot mix export * and specific"),
+                            modname.0.clone(),
+                            loc.lineno,
+                        ));
+                    }
+                    proto.exports_all = true;
+                }
                 Ast::ModAction(ModAction::Export, tree) => {
+                    if proto.exports_all {
+                        return Err(Failure::static_leema(
+                            failure::Mode::CompileFailure,
+                            Lstr::Sref("cannot mix export * and specific"),
+                            modname.0.clone(),
+                            i.loc.lineno,
+                        ));
+                    }
                     tree.collect(&mut exports)?;
                 }
                 Ast::Export(module) => {
