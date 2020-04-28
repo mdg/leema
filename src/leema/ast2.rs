@@ -136,7 +136,29 @@ impl ModTree
     pub fn collect(&self, flats: &mut HashMap<&'static str, (ImportedMod, Loc)>) -> Lresult<()>
     {
         let mut paths = PathBuf::new();
-        self._collect(flats, &mut paths, "")?;
+        match self {
+            ModTree::Id(id, loc) => {
+                paths.push(id);
+                flats.insert(id, (ImportedMod(paths), *loc));
+            }
+            ModTree::Sub(id, sub) => {
+                paths.push(id);
+                sub._collect(flats, &mut paths, id)?;
+            }
+            ModTree::Block(_) => {
+                return Err(rustfail!(
+                    "compile_failure",
+                    "cannot collect imports from initial Block",
+                ));
+            }
+            ModTree::All(_) => {
+                // what? shouldn't happen
+                return Err(rustfail!(
+                    "compile_failure",
+                    "cannot collect imports from All",
+                ));
+            }
+        }
         Ok(())
     }
 
@@ -148,10 +170,6 @@ impl ModTree
     ) -> Lresult<()>
     {
         match self {
-            ModTree::All(loc) => {
-                path.push("*");
-                flats.insert("*", (ImportedMod(path.clone()), *loc));
-            }
             ModTree::Id(".", loc) if path.as_os_str() != "" => {
                 flats.insert(parent, (ImportedMod(path.clone()), *loc));
             }
@@ -169,6 +187,12 @@ impl ModTree
                 for item in block.iter() {
                     item._collect(flats, path, parent)?;
                 }
+            }
+            ModTree::All(_) => {
+                return Err(rustfail!(
+                    "compile_failure",
+                    "cannot _collect imports from All",
+                ));
             }
         }
         Ok(())

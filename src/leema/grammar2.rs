@@ -2269,25 +2269,36 @@ mod tests
     {
         let toks = Tokenz::lexp(parse_block_input()).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
+        let mut flats = HashMap::new();
+
         assert_matches!(*ast[0].node, Ast::ModAction(ModAction::Import, _));
         if let Ast::ModAction(_, tree) = &*ast[0].node {
-            let mut flats = HashMap::new();
             tree.collect(&mut flats).unwrap();
-
-            assert_eq!("/core/io", format!("{}", flats["io"].0));
-            assert_eq!("/core/net/http", format!("{}", flats["http"].0));
-
-            assert_eq!("tacos/burritos", format!("{}", flats["burritos"].0));
-            assert_eq!("tacos/tortas/quesadillas", format!("{}", flats["quesadillas"].0));
-
-            // assert_eq!("../myapp", format!("{}", flats["myapp"].0));
-            assert_eq!("../myapp/app/model", format!("{}", flats["model"].0));
-            assert_eq!("../myapp/app/view", format!("{}", flats["view"].0));
-            assert_eq!("../myapp/app/controller", format!("{}", flats["controller"].0));
-            assert_eq!("../myapp/blah", format!("{}", flats["blah"].0));
-
-            assert_eq!(9, flats.len());
         }
+
+        assert_matches!(*ast[1].node, Ast::ModAction(ModAction::Import, _));
+        if let Ast::ModAction(_, tree) = &*ast[1].node {
+            tree.collect(&mut flats).unwrap();
+        }
+
+        assert_matches!(*ast[2].node, Ast::ModAction(ModAction::Import, _));
+        if let Ast::ModAction(_, tree) = &*ast[2].node {
+            tree.collect(&mut flats).unwrap();
+        }
+
+        assert_eq!("/core/io", format!("{}", flats["io"].0));
+        assert_eq!("/core/net/http", format!("{}", flats["http"].0));
+
+        assert_eq!("tacos/burritos", format!("{}", flats["burritos"].0));
+        assert_eq!("tacos/tortas/quesadillas", format!("{}", flats["quesadillas"].0));
+
+        assert_eq!("../myapp", format!("{}", flats["myapp"].0));
+        assert_eq!("../myapp/app/model", format!("{}", flats["model"].0));
+        assert_eq!("../myapp/app/view", format!("{}", flats["view"].0));
+        assert_eq!("../myapp/app/controller", format!("{}", flats["controller"].0));
+        assert_eq!("../myapp/blah", format!("{}", flats["blah"].0));
+
+        assert_eq!(9, flats.len());
     }
 
     #[test]
