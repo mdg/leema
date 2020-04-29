@@ -219,11 +219,11 @@ impl ImportedMod
             return ModRelativity::Local;
         }
         match p.components().next().unwrap() {
-            Component::Normal(_) => ModRelativity::Absolute,
+            Component::Normal(_) => ModRelativity::Child,
             Component::ParentDir => ModRelativity::Sibling,
-            Component::CurDir => ModRelativity::Child,
-            Component::RootDir => {
-                panic!("no relativity for root component");
+            Component::RootDir => ModRelativity::Absolute,
+            Component::CurDir => {
+                panic!("no relativity for current directory components");
             }
             Component::Prefix(pre) => {
                 panic!("no relativity for prefix: {:?}", pre);
@@ -249,6 +249,21 @@ impl ImportedMod
     pub fn is_empty(path: &Path) -> bool
     {
         path.as_os_str().is_empty()
+    }
+
+    pub fn root_head(path: &Path) -> (&Path, &Path)
+    {
+        let mut it = path.components();
+        it.next();
+        it.next();
+        let tail = it.as_path();
+
+        let path_str = path.to_str().unwrap();
+        let tail_len = tail.to_str().unwrap().len();
+        let head_len = path_str.len() - (tail_len + 1);
+        let head_str = &path_str[0..head_len];
+        let head = Path::new(head_str);
+        (head, tail)
     }
 
     pub fn head(path: &Path) -> (&Path, &Path)
@@ -331,14 +346,19 @@ impl CanonicalMod
 
     pub fn file_path_buf(cpath: &Path) -> Lresult<PathBuf>
     {
-        if cpath.starts_with("/") {
-            return Err(rustfail!(
-                "leema_fail",
-                "unexpected root prefix in {}",
-                cpath.display(),
-            ));
-        }
-        Ok(cpath.with_extension("lma"))
+        cpath
+            .strip_prefix("/")
+            .map(|relative_path| {
+                relative_path.with_extension("lma")
+            })
+            .map_err(|path_err| {
+                rustfail!(
+                    "load_fail",
+                    "unexpected lack of root prefix in {} - error {}",
+                    cpath.display(),
+                    path_err,
+                )
+            })
     }
 }
 
