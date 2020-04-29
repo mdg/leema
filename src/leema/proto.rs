@@ -229,8 +229,7 @@ impl ProtoModule
         // empty tho b/c these are loaded in post
         // should be able to populate funcseq in pre
         for name in self.funcseq.iter() {
-            let mut export_path = Path::new("./").join(Path::new(*name));
-            export_path.set_extension("function");
+            let export_path = Path::new(*name).with_extension("function");
             self.exports.insert(ModAlias(name), ImportedMod(export_path));
         }
         Ok(())
@@ -266,12 +265,6 @@ impl ProtoModule
             }
         }
 
-        // export any local definitions
-        for name in self.macros.keys().chain(self.funcseq.iter()) {
-            let mut export_path = Path::new("./").join(Path::new(*name));
-            export_path.set_extension("function");
-            self.exports.insert(ModAlias(name), ImportedMod(export_path));
-        }
         Ok(())
     }
 
@@ -1450,7 +1443,7 @@ mod tests
         let a = protos.path_proto(&canonical_mod!("/a")).unwrap();
         assert_eq!(0, a.imports.len());
         assert_eq!(1, a.exports.len());
-        assert_eq!("./foo.function", a.exports["foo"]);
+        assert_eq!("foo.function", a.exports["foo"]);
 
         let b = protos.path_proto(&canonical_mod!("/b")).unwrap();
         assert_eq!(1, b.imports.len());
