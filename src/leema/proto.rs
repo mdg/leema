@@ -126,31 +126,6 @@ impl ProtoModule
                     }
                     tree.collect(&mut exports)?;
                 }
-                Ast::Export(module) => {
-                    match *module.node {
-                        Ast::Wildcard => {
-                            proto.exports_all = true;
-                        }
-                        Ast::Id1(modname) => {
-                            exports.insert(modname, (ImportedMod::from(modname), i.loc));
-                        }
-                        what => {
-                            return Err(rustfail!(
-                                PROTOFAIL,
-                                "invalid export: {:?}",
-                                what,
-                            ));
-                        }
-                    }
-                    if proto.exports_all && !exports.is_empty() {
-                        return Err(Failure::static_leema(
-                            failure::Mode::CompileFailure,
-                            Lstr::Sref("cannot mix export * and specific"),
-                            modname.0.clone(),
-                            i.loc.lineno,
-                        ));
-                    }
-                }
                 what => {
                     return Err(rustfail!(
                         PROTOFAIL,
@@ -216,8 +191,8 @@ impl ProtoModule
                 self.definitions.push(node);
             }
             Ast::DefFunc(_, _, _, _) => {
-                // pretty sure this doesn't need to happen in pre
-                self.definitions.push(node);
+                // need to collect exported functions
+                self.pre_add_func(node)?;
             }
             Ast::ModAction(_, _) => {
                 return Err(Failure::static_leema(
@@ -325,10 +300,36 @@ impl ProtoModule
 
     fn pre_add_func(
         &mut self,
-        _name: AstNode,
+        func: AstNode,
     ) -> Lresult<()>
     {
-        // funcseq.push(name)
+        if let Ast::DefFunc(ref name, _, _, _) = &*func.node {
+            self.pre_add_func_name(name)?;
+        }
+        self.definitions.push(func);
+        Ok(())
+    }
+
+    fn pre_add_func_name(
+        &mut self,
+        name: &AstNode,
+    ) -> Lresult<()>
+    {
+        match &*name.node {
+            Ast::Id1(name_id) => {
+                self.funcseq.push(name_id);
+            }
+            Ast::Generic(ref name, _args) => {
+                self.pre_add_func_name(name)?;
+            }
+            _ => {
+                return Err(rustfail!(
+                    PROTOFAIL,
+                    "invalid function name: {:?}",
+                    name,
+                ));
+            }
+        }
         Ok(())
     }
 
@@ -1438,20 +1439,20 @@ mod tests
         .to_string();
 
         let mut loader = Interloader::default();
-        loader.set_mod_txt(ModKey::from("a"), a);
-        loader.set_mod_txt(ModKey::from("b"), b);
+        loader.set_mod_txt(ModKey::from("/a"), a);
+        loader.set_mod_txt(ModKey::from("/b"), b);
         let mut protos = ProtoLib::new();
 
-        protos.load_absolute(&mut loader, Path::new("b")).unwrap();
-        protos.load_imports(&mut loader, Path::new("b")).unwrap();
+        protos.load_absolute(&mut loader, Path::new("/b")).unwrap();
+        protos.load_imports(&mut loader, Path::new("/b")).unwrap();
         assert_eq!(2, protos.protos.len());
 
-        let a = protos.path_proto(&canonical_mod!("a")).unwrap();
+        let a = protos.path_proto(&canonical_mod!("/a")).unwrap();
         assert_eq!(0, a.imports.len());
         assert_eq!(1, a.exports.len());
         assert_eq!("./foo.function", a.exports["foo"]);
 
-        let b = protos.path_proto(&canonical_mod!("b")).unwrap();
+        let b = protos.path_proto(&canonical_mod!("/b")).unwrap();
         assert_eq!(1, b.imports.len());
         assert_eq!(1, b.exports.len());
         assert_eq!(1, b.id_canonicals.len());

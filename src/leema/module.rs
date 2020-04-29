@@ -259,8 +259,12 @@ impl ImportedMod
         let tail = it.as_path();
 
         let path_str = path.to_str().unwrap();
-        let tail_len = tail.to_str().unwrap().len();
-        let head_len = path_str.len() - (tail_len + 1);
+        let mut tail_len = tail.to_str().unwrap().len();
+        if tail_len > 0 {
+            // for the directory separator that disappeared
+            tail_len += 1;
+        }
+        let head_len = path_str.len() - tail_len;
         let head_str = &path_str[0..head_len];
         let head = Path::new(head_str);
         (head, tail)
