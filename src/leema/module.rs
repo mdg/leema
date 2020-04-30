@@ -251,10 +251,21 @@ impl ImportedMod
         path.as_os_str().is_empty()
     }
 
-    pub fn root_head(path: &Path) -> (&Path, &Path)
+    pub fn root_head(path: &Path) -> Lresult<(&Path, &Path)>
     {
         let mut it = path.components();
-        it.next();
+        match it.next() {
+            Some(Component::RootDir) => {
+                // ok, that's fine
+            }
+            _ => {
+                return Err(rustfail!(
+                    "compile_failure",
+                    "not a root path: {:?}",
+                    path,
+                ));
+            }
+        }
         it.next();
         let tail = it.as_path();
 
@@ -267,29 +278,30 @@ impl ImportedMod
         let head_len = path_str.len() - tail_len;
         let head_str = &path_str[0..head_len];
         let head = Path::new(head_str);
-        (head, tail)
-    }
-
-    pub fn head(path: &Path) -> (&Path, &Path)
-    {
-        let mut it = path.iter();
-        let h = it.next().unwrap();
-        (Path::new(h), it.as_path())
+        Ok((head, tail))
     }
 
     pub fn child_head(path: &Path) -> Lresult<(&Path, &Path)>
     {
-        if !path.starts_with("./") {
-            return Err(rustfail!(
-                "compile_failure",
-                "cannot separate child module {:?}",
-                path,
-            ));
+        let mut it = path.components();
+        match it.next() {
+            Some(Component::Normal(h)) => {
+                Ok((Path::new(h), it.as_path()))
+            }
+            Some(_) => {
+                return Err(rustfail!(
+                    "compile_failure",
+                    "cannot take head from not-child path {:?}",
+                    path,
+                ));
+            }
+            None => {
+                return Err(rustfail!(
+                    "compile_failure",
+                    "cannot take head from empty path",
+                ));
+            }
         }
-        let mut it = path.iter();
-        it.next(); // ./ ignore it
-        let h = it.next().unwrap();
-        Ok((Path::new(h), it.as_path()))
     }
 }
 
@@ -340,7 +352,7 @@ impl CanonicalMod
     pub fn is_core(&self) -> bool
     {
         // maybe memoize this as a struct var at some point
-        self.0.starts_with("core")
+        self.0.starts_with("/core")
     }
 
     pub fn mod_path(&self) -> &Path
@@ -370,6 +382,9 @@ impl From<&Path> for CanonicalMod
 {
     fn from(mp: &Path) -> CanonicalMod
     {
+        if !mp.is_absolute() {
+            panic!("canonical mod must be absolute: {:?}", mp);
+        }
         CanonicalMod(lstrf!("{}", mp.display()))
     }
 }
@@ -527,18 +542,32 @@ mod tests
     }
 
     #[test]
-    fn test_imported_mod_head_one()
+    fn test_child_head_one()
     {
-        let (head, tail) = ImportedMod::head(Path::new("a"));
-        assert_eq!(Path::new("a"), head);
-        assert_eq!(Path::new(""), tail);
+        let (h, t) = ImportedMod::child_head(Path::new("foo")).unwrap();
+        assert_eq!("foo", h.as_os_str());
+        assert_eq!("", t.as_os_str());
     }
 
     #[test]
-    fn test_imported_mod_head_absolute()
+    fn test_child_head_three()
     {
-        let (head, tail) = ImportedMod::head(Path::new("a/b/c"));
-        assert_eq!(Path::new("a"), head);
-        assert_eq!(Path::new("b/c"), tail);
+        let (h, t) = ImportedMod::child_head(Path::new("foo/bar/baz")).unwrap();
+        assert_eq!("foo", h.as_os_str());
+        assert_eq!("bar/baz", t.as_os_str());
+    }
+
+    #[test]
+    fn test_child_head_absolute()
+    {
+        let f = ImportedMod::child_head(Path::new("/foo/bar")).unwrap_err();
+        assert_eq!("compile_failure", f.tag.str());
+    }
+
+    #[test]
+    fn test_child_head_sibling()
+    {
+        let f = ImportedMod::child_head(Path::new("../foo/bar")).unwrap_err();
+        assert_eq!("compile_failure", f.tag.str());
     }
 }

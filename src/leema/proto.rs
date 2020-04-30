@@ -877,7 +877,7 @@ impl ProtoLib
     ) -> Lresult<(CanonicalMod, bool)>
     {
         vout!("ProtoLib::load_absolute({})\n", mod_path.display());
-        let (head, tail) = ImportedMod::root_head(mod_path);
+        let (head, tail) = ImportedMod::root_head(mod_path)?;
         ltry!(self.load_canonical(loader, Path::new(&head)));
         self.load_relative(loader, Path::new(&head), tail)
     }
@@ -924,7 +924,7 @@ impl ProtoLib
             let cmod = CanonicalMod::from(base_path);
             return Ok((cmod, false));
         }
-        let (head, tail) = ImportedMod::head(next_path);
+        let (head, tail) = ImportedMod::child_head(next_path)?;
         let base_proto = ltry!(self._path_proto(base_path));
 
         // this should be fine b/c it came from a str before being turned
@@ -1282,8 +1282,8 @@ mod tests
 
         assert_eq!(1, proto.imports.len());
         assert_eq!(1, proto.exports.len());
-        assert_eq!("./tacos", proto.imports["tacos"]);
-        assert_eq!("./tacos", proto.exports["tacos"]);
+        assert_eq!("tacos", proto.imports["tacos"]);
+        assert_eq!("tacos", proto.exports["tacos"]);
         assert_eq!(false, proto.exports_all);
     }
 
@@ -1291,37 +1291,32 @@ mod tests
     fn test_import_basic_exports()
     {
         let a = "
-        import >>
-            ./b
-            ./c >>
-                d
-            --
-        --
+        import b
+        import c
+        import c/d
         "
         .to_string();
         let b = "
         func foo >> 3 --
         "
         .to_string();
-        let c = "export >>
-            ./d
-        --
-        "
-        .to_string();
+        let c = "
+        export d
+        ".to_string();
         let d = "
         func bar >> 5 --
         "
         .to_string();
 
         let mut loader = Interloader::default();
-        loader.set_mod_txt(ModKey::from("a"), a);
-        loader.set_mod_txt(ModKey::from("a/b"), b);
-        loader.set_mod_txt(ModKey::from("a/c"), c);
-        loader.set_mod_txt(ModKey::from("a/c/d"), d);
+        loader.set_mod_txt(ModKey::from("/a"), a);
+        loader.set_mod_txt(ModKey::from("/a/b"), b);
+        loader.set_mod_txt(ModKey::from("/a/c"), c);
+        loader.set_mod_txt(ModKey::from("/a/c/d"), d);
 
         let mut protos = ProtoLib::new();
-        protos.load_absolute(&mut loader, Path::new("a")).unwrap();
-        protos.load_imports(&mut loader, Path::new("a")).unwrap();
+        protos.load_absolute(&mut loader, Path::new("/a")).unwrap();
+        protos.load_imports(&mut loader, Path::new("/a")).unwrap();
 
         assert_eq!(4, protos.protos.len());
     }
@@ -1354,13 +1349,13 @@ mod tests
     fn test_import_absolute_and_sibling()
     {
         let a = "
-        export ./b
-        export ./c
+        export b
+        export c
         "
         .to_string();
         let b = "
         import ../c
-        import d
+        import /d
         "
         .to_string();
         let c = "
@@ -1373,23 +1368,23 @@ mod tests
         .to_string();
 
         let mut loader = Interloader::default();
-        loader.set_mod_txt(ModKey::from("a"), a);
-        loader.set_mod_txt(ModKey::from("a/b"), b);
-        loader.set_mod_txt(ModKey::from("a/c"), c);
-        loader.set_mod_txt(ModKey::from("d"), d);
+        loader.set_mod_txt(ModKey::from("/a"), a);
+        loader.set_mod_txt(ModKey::from("/a/b"), b);
+        loader.set_mod_txt(ModKey::from("/a/c"), c);
+        loader.set_mod_txt(ModKey::from("/d"), d);
         let mut protos = ProtoLib::new();
 
-        protos.load_absolute(&mut loader, Path::new("a")).unwrap();
-        protos.load_imports(&mut loader, Path::new("a")).unwrap();
+        protos.load_absolute(&mut loader, Path::new("/a")).unwrap();
+        protos.load_imports(&mut loader, Path::new("/a")).unwrap();
         assert_eq!(3, protos.protos.len());
 
         protos
-            .load_absolute(&mut loader, Path::new("a/b"))
+            .load_absolute(&mut loader, Path::new("/a/b"))
             .unwrap();
         protos
-            .load_imports(&mut loader, Path::new("a/b"))
+            .load_imports(&mut loader, Path::new("/a/b"))
             .unwrap();
-        assert_eq!(4, protos.protos.len());
+        assert_eq!(3, protos.protos.len());
     }
 
     #[test]
@@ -1397,7 +1392,7 @@ mod tests
     fn test_not_exported()
     {
         let a = "
-        import b
+        import /b
         "
         .to_string();
         let b = "
@@ -1406,8 +1401,8 @@ mod tests
         .to_string();
 
         let mut loader = Interloader::default();
-        loader.set_mod_txt(ModKey::from("a"), a);
-        loader.set_mod_txt(ModKey::from("a/b"), b);
+        loader.set_mod_txt(ModKey::from("/a"), a);
+        loader.set_mod_txt(ModKey::from("/a/b"), b);
         let mut protos = ProtoLib::new();
 
         protos.load_absolute(&mut loader, Path::new("a")).unwrap();
