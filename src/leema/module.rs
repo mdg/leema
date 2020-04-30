@@ -508,14 +508,14 @@ mod tests
     #[test]
     fn test_imported_mod_relativity_absolute()
     {
-        let rel = ImportedMod::from("a").relativity();
+        let rel = ImportedMod::from("/a").relativity();
         assert_eq!(ModRelativity::Absolute, rel);
     }
 
     #[test]
     fn test_imported_mod_relativity_child()
     {
-        let rel = ImportedMod::from("./a").relativity();
+        let rel = ImportedMod::from("a").relativity();
         assert_eq!(ModRelativity::Child, rel);
     }
 
