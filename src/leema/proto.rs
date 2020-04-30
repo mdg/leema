@@ -851,89 +851,24 @@ impl ProtoLib
     ///   for p in mod_path:
     ///     load_canonical(p)
     ///
-    /// load_sibling(base_proto, mod_path)
-    /// sibling_base, postfix = mod_path.split()
-    /// base_proto = find_sibling_proto(base_proto, sibling_base)
-    /// load_relative(base_proto, postfix)
-    ///
-    /// load_child(base_proto, child_path)
-    /// child_head, child_tail = child_path.split()
-    /// child_proto = find_child_proto(base_proto, child_head)
-    /// load_relative(child_proto, child_tail)
-    ///
-    /// load_relative(base_path, rel_path)
-    /// next_prefix, postfix = relative_postfix.split()
-    /// base_proto = find_proto(base_path)
-    /// canonical_path = base_proto.exports[next_prefix]
-    /// if next_path is relative:
-    ///   load_child(canonical_path, next_path + postfix)
-    /// if next_path is absolute:
-    ///   load_absolute(canonical_path + next_tail)
     pub fn load_absolute(
         &mut self,
         loader: &mut Interloader,
         mod_path: &Path,
-    ) -> Lresult<(CanonicalMod, bool)>
+    ) -> Lresult<()>
     {
         vout!("ProtoLib::load_absolute({})\n", mod_path.display());
-        let (head, _tail) = ImportedMod::root_head(mod_path)?;
-        ltry!(self.load_canonical(loader, Path::new(&head)));
-        Ok((CanonicalMod(Lstr::from(mod_path.to_str().unwrap().to_string())), true))
-    }
-
-    pub fn load_relative(
-        &mut self,
-        _loader: &mut Interloader,
-        base_path: &Path,
-        next_path: &Path,
-    ) -> Lresult<(CanonicalMod, bool)>
-    {
-        if ImportedMod::is_empty(next_path) {
-            let cmod = CanonicalMod::from(base_path);
-            return Ok((cmod, false));
+        if !mod_path.is_absolute() {
+            return Err(rustfail!(
+                PROTOFAIL,
+                "module is not absolute {:?}",
+                mod_path,
+            ));
         }
-        let (head, tail) = ImportedMod::child_head(next_path)?;
-        let base_proto = ltry!(self._path_proto(base_path));
-
-        // this should be fine b/c it came from a str before being turned
-        // into a path
-        let head_str = head.to_str().unwrap();
-        // this isn't necessarily canonical, it might be shortcutted later on
-        let head_export = match base_proto.exports.get(head_str) {
-            Some(exp_head) => {
-                if ImportedMod::is_empty(tail) {
-                    exp_head.0.clone()
-                } else {
-                    exp_head.0.join(tail)
-                }
-            }
-            None => {
-                return Err(rustfail!(
-                    PROTOFAIL,
-                    "submodule {:?} not exported from {}",
-                    head,
-                    base_path.display(),
-                ));
-            }
-        };
-
-        match ImportedMod::path_relativity(&head_export) {
-            ModRelativity::Absolute => {
-                Err(rustfail!(
-                    PROTOFAIL,
-                    "cannot load absolute module relatively: {}",
-                    head_export.display(),
-                ))
-            }
-            ModRelativity::Local => {
-                // already loaded, no need to load deeper
-                let cmod = CanonicalMod::from(base_path);
-                Ok((cmod, true))
-            }
-            _ => {
-                panic!("fix this");
-            }
+        for p in ImportedMod::ancestors(mod_path) {
+            ltry!(self.load_canonical(loader, p));
         }
+        Ok(())
     }
 
     /*
@@ -1033,9 +968,8 @@ impl ProtoLib
             }
         }
 
-        let mut canonicals = vec![];
-        for (k, i) in imported.iter() {
-            let result = match i.relativity() {
+        for (_k, i) in imported.iter() {
+            match i.relativity() {
                 ModRelativity::Absolute => {
                     ltry!(self.load_absolute(loader, &i.0))
                 }
@@ -1046,13 +980,6 @@ impl ProtoLib
                     panic!("import relativity");
                 }
             };
-            canonicals.push((*k, result.0, result.1));
-        }
-
-        // safe to unwrap b/c verified this module is present above
-        let proto_mut = self.protos.get_mut(modname).unwrap();
-        for (k, c, is_id) in canonicals.into_iter() {
-            proto_mut.set_canonical(k, c.clone(), is_id);
         }
 
         Ok(())

@@ -251,6 +251,12 @@ impl ImportedMod
         path.as_os_str().is_empty()
     }
 
+    pub fn ancestors(path: &Path) -> Vec<&Path>
+    {
+        let av: Vec<&Path> = path.ancestors().collect();
+        av.into_iter().skip(1).rev().collect()
+    }
+
     pub fn root_head(path: &Path) -> Lresult<(&Path, &Path)>
     {
         let mut it = path.components();
