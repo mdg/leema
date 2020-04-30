@@ -707,9 +707,9 @@ impl ProtoModule
             // Ast::Id1("Str") => Type::STR,
             // Ast::Id1("#") => Type::HASHTAG,
             Ast::Id1(id) if struple::contains_key(opens, id) => Type::OpenVar(id),
-            Ast::Id1(id) => Type::User(Lstr::EMPTY, id),
+            Ast::Id1(id) => Type::User(canonical_typemod!(&Lstr::EMPTY), id),
             Ast::Id2(alias, id) => {
-                Type::User(TypeMod::from(*alias), id)
+                Type::User(canonical_typemod!(alias.str()), id)
             }
             Ast::List(inner_items) if inner_items.len() == 1 => {
                 let inner = &inner_items.first().unwrap().v;
@@ -848,9 +848,8 @@ impl ProtoLib
     /// y exports z: z
     ///
     /// load_absolute(mod_path)
-    /// base_path, postfix = mod_path.split()
-    /// load_canonical(base_path)
-    /// load_relative(base_path, postfix)
+    ///   for p in mod_path:
+    ///     load_canonical(p)
     ///
     /// load_sibling(base_proto, mod_path)
     /// sibling_base, postfix = mod_path.split()
@@ -877,45 +876,14 @@ impl ProtoLib
     ) -> Lresult<(CanonicalMod, bool)>
     {
         vout!("ProtoLib::load_absolute({})\n", mod_path.display());
-        let (head, tail) = ImportedMod::root_head(mod_path)?;
+        let (head, _tail) = ImportedMod::root_head(mod_path)?;
         ltry!(self.load_canonical(loader, Path::new(&head)));
-        self.load_relative(loader, Path::new(&head), tail)
-    }
-
-    pub fn load_child(
-        &mut self,
-        loader: &mut Interloader,
-        base_path: &Path,
-        child_path: &Path,
-    ) -> Lresult<(CanonicalMod, bool)>
-    {
-        vout!("ProtoLib::load_child({:?}, {:?})\n", base_path.display(), child_path.display());
-        let (head, tail) = ImportedMod::child_head(child_path)
-            .map_err(|f| {
-                f.add_context(lstrf!("from module {:?}", base_path))
-            })?;
-        let next_base = base_path.join(head);
-        ltry!(self.load_canonical(loader, &next_base));
-        self.load_relative(loader, &next_base, tail)
-    }
-
-    pub fn load_sibling(
-        &mut self,
-        loader: &mut Interloader,
-        base_path: &Path,
-        sibling_path: &Path,
-    ) -> Lresult<(CanonicalMod, bool)>
-    {
-        vout!("ProtoLib::load_sibling({:?}, {:?})\n", base_path, sibling_path);
-        let parent = base_path.parent().unwrap();
-        let sibling_next = sibling_path.strip_prefix("../")
-            .map_err(|e| rustfail!("leema_fail", "{:?}", e))?;
-        self.load_relative(loader, parent, sibling_next)
+        Ok((CanonicalMod(Lstr::from(mod_path.to_str().unwrap().to_string())), true))
     }
 
     pub fn load_relative(
         &mut self,
-        loader: &mut Interloader,
+        _loader: &mut Interloader,
         base_path: &Path,
         next_path: &Path,
     ) -> Lresult<(CanonicalMod, bool)>
@@ -957,25 +925,13 @@ impl ProtoLib
                     head_export.display(),
                 ))
             }
-            ModRelativity::Child => {
-                lfailoc!(self.load_child(
-                    loader,
-                    base_path,
-                    &head_export,
-                ))
-            }
-            ModRelativity::Sibling => {
-                Err(rustfail!(
-                    PROTOFAIL,
-                    "cannot load sibling module as child: {} / {}",
-                    base_path.display(),
-                    head_export.display(),
-                ))
-            }
             ModRelativity::Local => {
                 // already loaded, no need to load deeper
                 let cmod = CanonicalMod::from(base_path);
                 Ok((cmod, true))
+            }
+            _ => {
+                panic!("fix this");
             }
         }
     }
@@ -1083,14 +1039,11 @@ impl ProtoLib
                 ModRelativity::Absolute => {
                     ltry!(self.load_absolute(loader, &i.0))
                 }
-                ModRelativity::Child => {
-                    ltry!(self.load_child(loader, modname.clone(), &i.0))
-                }
-                ModRelativity::Sibling => {
-                    ltry!(self.load_sibling(loader, modname, &i.0))
-                }
                 ModRelativity::Local => {
                     panic!("cannot import locally defined identifiers: {}", i);
+                }
+                _ => {
+                    panic!("import relativity");
                 }
             };
             canonicals.push((*k, result.0, result.1));
