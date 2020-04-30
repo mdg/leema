@@ -1098,16 +1098,8 @@ impl ProtoLib
 
         // safe to unwrap b/c verified this module is present above
         let proto_mut = self.protos.get_mut(modname).unwrap();
-        let mut exports = vec![];
         for (k, c, is_id) in canonicals.into_iter() {
             proto_mut.set_canonical(k, c.clone(), is_id);
-            if !is_id {
-                exports.push(c);
-            }
-        }
-
-        for x in exports.iter() {
-                self.load_imports(loader, x.mod_path())?;
         }
 
         Ok(())
