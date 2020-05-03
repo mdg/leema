@@ -128,7 +128,7 @@ impl Interloader
         Err(rustfail!(
             "file_not_found",
             "Module file path cannot be found: {:?}",
-            name,
+            file_path,
         ))
     }
 

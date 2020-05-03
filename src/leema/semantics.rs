@@ -1695,8 +1695,8 @@ mod tests
         "#
         .to_string();
 
-        let mut prog = core_program(&[("foo", input)]);
-        let fref = Fref::from(("foo", "main"));
+        let mut prog = core_program(&[("/foo", input)]);
+        let fref = Fref::from(("/foo", "main"));
         let sem = prog.read_semantics(&fref).unwrap();
 
         assert_matches!(*sem.src.node, Ast::Ifx(_));
