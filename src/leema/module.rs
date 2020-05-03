@@ -254,7 +254,7 @@ impl ImportedMod
     pub fn ancestors(path: &Path) -> Vec<&Path>
     {
         let av: Vec<&Path> = path.ancestors().collect();
-        av.into_iter().skip(1).rev().collect()
+        av.into_iter().rev().skip(1).collect()
     }
 
     pub fn root_head(path: &Path) -> Lresult<(&Path, &Path)>
@@ -361,9 +361,33 @@ impl CanonicalMod
         self.0.starts_with("/core")
     }
 
-    pub fn mod_path(&self) -> &Path
+    pub fn as_path(&self) -> &Path
     {
         Path::new(self.0.str())
+    }
+
+    pub fn mod_path(&self) -> &Path
+    {
+        self.as_path()
+    }
+
+    pub fn push(&self, imp: ImportedMod) -> CanonicalMod
+    {
+        match imp.relativity() {
+            ModRelativity::Absolute => {
+                CanonicalMod(Lstr::from(format!("{}", imp)))
+            }
+            ModRelativity::Sibling => {
+                let sib_base = self.as_path().parent().unwrap();
+                let sib_path = imp.0.strip_prefix("../").unwrap();
+                let sib = sib_base.join(sib_path);
+                CanonicalMod(Lstr::from(format!("{}", sib.display())))
+            }
+            ModRelativity::Child|ModRelativity::Local => {
+                let ch_path = self.as_path().join(imp.0);
+                CanonicalMod(Lstr::from(format!("{}", ch_path.display())))
+            }
+        }
     }
 
     pub fn file_path_buf(cpath: &Path) -> Lresult<PathBuf>

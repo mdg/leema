@@ -41,6 +41,7 @@ lazy_static! {
 pub struct ProtoModule
 {
     pub key: ModKey,
+    pub canonical_imports: HashMap<ModAlias, CanonicalMod>,
     pub imports: HashMap<ModAlias, ImportedMod>,
     pub exports: HashMap<ModAlias, ImportedMod>,
     pub exports_all: bool,
@@ -67,6 +68,7 @@ impl ProtoModule
 
         let mut proto = ProtoModule {
             key,
+            canonical_imports: HashMap::new(),
             imports: HashMap::new(),
             exports: HashMap::new(),
             exports_all: false,
@@ -149,7 +151,7 @@ impl ProtoModule
                 ));
             }
 
-            proto.imports.insert(ModAlias::new(k), v);
+            proto.add_imported_mod(k, v)?;
         }
 
         for (k, (v, loc)) in exports.into_iter() {
@@ -164,7 +166,7 @@ impl ProtoModule
                 ));
             }
 
-            proto.imports.insert(ModAlias::new(k), v.clone());
+            proto.add_imported_mod(k, v.clone())?;
             proto.exports.insert(ModAlias::new(k), v);
         }
 
@@ -172,6 +174,14 @@ impl ProtoModule
             proto.add_definition_pre(i)?;
         }
         Ok(proto)
+    }
+
+    pub fn add_imported_mod(&mut self, name: &'static str, imp: ImportedMod) -> Lresult<()>
+    {
+        let alias = ModAlias::new(name);
+        let canonical = self.key.name.push(imp);
+        self.canonical_imports.insert(alias, canonical);
+        Ok(())
     }
 
     pub fn add_definition_pre(&mut self, mut node: AstNode) -> Lresult<()>
@@ -947,7 +957,7 @@ impl ProtoLib
     ) -> Lresult<()>
     {
         vout!("ProtoLib::load_imports({})\n", modname.display());
-        let mut imported: Vec<(ModAlias, ImportedMod)> = vec![];
+        let mut imported: Vec<(ModAlias, CanonicalMod)> = vec![];
         {
             let proto = self.protos.get(modname).ok_or_else(|| {
                 rustfail!(
@@ -956,8 +966,8 @@ impl ProtoLib
                     modname.display(),
                 )
             })?;
-            for (k, i) in proto.imports.iter() {
-                if i.0 == *modname {
+            for (k, i) in proto.canonical_imports.iter() {
+                if i.as_path() == modname {
                     return Err(rustfail!(
                         PROTOFAIL,
                         "a module cannot import itself: {}",
@@ -969,17 +979,7 @@ impl ProtoLib
         }
 
         for (_k, i) in imported.iter() {
-            match i.relativity() {
-                ModRelativity::Absolute => {
-                    ltry!(self.load_absolute(loader, &i.0))
-                }
-                ModRelativity::Local => {
-                    panic!("cannot import locally defined identifiers: {}", i);
-                }
-                _ => {
-                    panic!("import relativity");
-                }
-            };
+            ltry!(self.load_absolute(loader, &i.as_path()))
         }
 
         Ok(())
@@ -992,7 +992,7 @@ impl ProtoLib
     ) -> Lresult<Option<(Xlist, AstNode)>>
     {
         self.protos
-            .get_mut(module.mod_path())
+            .get_mut(module.as_path())
             .ok_or_else(|| {
                 rustfail!(PROTOFAIL, "could not find module: {}", module,)
             })
@@ -1005,7 +1005,7 @@ impl ProtoLib
         alias: &ModAlias,
     ) -> Lresult<&ProtoModule>
     {
-        let modpath = proto.mod_path();
+        let modpath = proto.as_path();
         let protomod = self.protos.get(modpath).ok_or_else(|| {
             rustfail!(PROTOFAIL, "module not loaded: {:?}", proto)
         })?;
@@ -1015,7 +1015,7 @@ impl ProtoLib
 
     pub fn path_proto(&self, path: &CanonicalMod) -> Lresult<&ProtoModule>
     {
-        self._path_proto(path.mod_path())
+        self._path_proto(path.as_path())
     }
 
     fn _path_proto(&self, path: &Path) -> Lresult<&ProtoModule>
