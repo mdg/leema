@@ -41,12 +41,11 @@ lazy_static! {
 pub struct ProtoModule
 {
     pub key: ModKey,
-    pub imports: HashMap<ModAlias, CanonicalMod>,
+    pub imports: HashMap<&'static str, CanonicalMod>,
     pub exports: HashMap<ModAlias, ImportedMod>,
     pub exports_all: bool,
     definitions: Vec<AstNode>,
     pub id_canonicals: HashMap<&'static str, CanonicalMod>,
-    pub mod_canonicals: HashMap<ModAlias, CanonicalMod>,
     pub macros: HashMap<&'static str, Ast>,
     pub constants: HashMap<&'static str, AstNode>,
     types: HashMap<&'static str, Type>,
@@ -72,7 +71,6 @@ impl ProtoModule
             exports_all: false,
             definitions: Vec::new(),
             id_canonicals: HashMap::new(),
-            mod_canonicals: HashMap::new(),
             macros: HashMap::new(),
             constants: HashMap::new(),
             types: HashMap::new(),
@@ -176,9 +174,13 @@ impl ProtoModule
 
     pub fn add_imported_mod(&mut self, name: &'static str, imp: ImportedMod) -> Lresult<()>
     {
-        let alias = ModAlias::new(name);
+        let hasx = imp.has_extension();
         let canonical = self.key.name.push(imp);
-        self.imports.insert(alias, canonical);
+        if hasx {
+            self.id_canonicals.insert(name, canonical);
+        } else {
+            self.imports.insert(name, canonical);
+        }
         Ok(())
     }
 
@@ -597,20 +599,6 @@ impl ProtoModule
         Ok(vec![])
     }
 
-    pub fn set_canonical(
-        &mut self,
-        key: ModAlias,
-        canonical: CanonicalMod,
-        is_id: bool,
-    )
-    {
-        if is_id {
-            self.id_canonicals.insert(key.0, canonical);
-        } else {
-            self.mod_canonicals.insert(key, canonical);
-        }
-    }
-
     /// TODO rename this. Maybe take_func?
     pub fn pop_func(&mut self, func: &str) -> Option<(Xlist, AstNode)>
     {
@@ -662,8 +650,8 @@ impl ProtoModule
 
     pub fn imported_module(&self, alias: &ModAlias) -> Lresult<&CanonicalMod>
     {
-        self.mod_canonicals
-            .get(alias)
+        self.imports
+            .get(alias.as_ref())
             .ok_or_else(|| {
                 rustfail!(
                     PROTOFAIL,
@@ -944,7 +932,7 @@ impl ProtoLib
                     modname.display(),
                 )
             })?;
-            for (k, i) in proto.imports.iter() {
+            for (k, i) in proto.imports.iter().chain(proto.id_canonicals.iter()) {
                 if i.as_path() == modname {
                     return Err(rustfail!(
                         PROTOFAIL,
@@ -952,7 +940,7 @@ impl ProtoLib
                         i,
                     ));
                 }
-                imported.push((*k, i.clone()));
+                imported.push((ModAlias(*k), i.clone()));
             }
         }
 
@@ -1291,10 +1279,9 @@ mod tests
         assert_eq!("foo.function", a.exports["foo"]);
 
         let b = protos.path_proto(&canonical_mod!("/b")).unwrap();
-        assert_eq!(1, b.imports.len());
+        assert_eq!(0, b.imports.len());
         assert_eq!(1, b.exports.len());
         assert_eq!(1, b.id_canonicals.len());
-        assert_eq!(0, b.mod_canonicals.len());
     }
 
     #[test]

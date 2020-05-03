@@ -191,6 +191,14 @@ impl Borrow<str> for ModAlias
     }
 }
 
+impl AsRef<str> for ModAlias
+{
+    fn as_ref(&self) -> &str
+    {
+        self.0
+    }
+}
+
 impl Hash for ModAlias
 {
     fn hash<H: Hasher>(&self, state: &mut H)
@@ -244,6 +252,11 @@ impl ImportedMod
     pub fn is_child(&self) -> bool
     {
         self.0.starts_with("./")
+    }
+
+    pub fn has_extension(&self) -> bool
+    {
+        self.0.extension().is_some()
     }
 
     pub fn is_empty(path: &Path) -> bool
