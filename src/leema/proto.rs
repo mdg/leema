@@ -42,7 +42,6 @@ pub struct ProtoModule
 {
     pub key: ModKey,
     pub canonical_imports: HashMap<ModAlias, CanonicalMod>,
-    pub imports: HashMap<ModAlias, ImportedMod>,
     pub exports: HashMap<ModAlias, ImportedMod>,
     pub exports_all: bool,
     definitions: Vec<AstNode>,
@@ -69,7 +68,6 @@ impl ProtoModule
         let mut proto = ProtoModule {
             key,
             canonical_imports: HashMap::new(),
-            imports: HashMap::new(),
             exports: HashMap::new(),
             exports_all: false,
             definitions: Vec::new(),
@@ -142,7 +140,7 @@ impl ProtoModule
         for (k, (v, loc)) in imports.into_iter() {
             proto.refute_redefines_default(k, loc)?;
 
-            if proto.imports.contains_key(k) {
+            if proto.canonical_imports.contains_key(k) {
                 return Err(Failure::static_leema(
                     failure::Mode::CompileFailure,
                     lstrf!("duplicate import: {}", v),
@@ -574,26 +572,6 @@ impl ProtoModule
         Ok(())
     }
 
-    fn add_import(&mut self, tree: ModTree) -> Lresult<()>
-    {
-        let mut imports = HashMap::new();
-        tree.collect(&mut imports)?;
-        for (k, (v, loc)) in imports.into_iter() {
-            self.refute_redefines_default(k, loc)?;
-
-            if self.exports.contains_key(k) && self.imports.contains_key(k) {
-                return Err(Failure::static_leema(
-                    failure::Mode::CompileFailure,
-                    lstrf!("duplicate import: {}", v),
-                    self.key.best_path(),
-                    loc.lineno,
-                ));
-            }
-            self.imports.insert(ModAlias(k), v);
-        }
-        Ok(())
-    }
-
     fn add_export(&mut self, tree: ModTree) -> Lresult<()>
     {
         let mut exports = HashMap::new();
@@ -601,7 +579,7 @@ impl ProtoModule
         for (k, (v, loc)) in exports.into_iter() {
             self.refute_redefines_default(k, loc)?;
 
-            if self.exports.contains_key(k) && self.imports.contains_key(k) {
+            if self.exports.contains_key(k) && self.canonical_imports.contains_key(k) {
                 return Err(Failure::static_leema(
                     failure::Mode::CompileFailure,
                     lstrf!("duplicate export: {}", v),
