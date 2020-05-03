@@ -535,7 +535,8 @@ impl fmt::Display for TypeMod
 #[cfg(test)]
 mod tests
 {
-    use super::{ImportedMod, ModAlias, ModRelativity};
+    use super::{CanonicalMod, ImportedMod, ModAlias, ModRelativity};
+    use crate::leema::lstr::Lstr;
 
     use std::collections::HashMap;
     use std::path::Path;
@@ -548,6 +549,15 @@ mod tests
         ma_map.insert(ModAlias("whatever"), wp);
         let wp_str = wp.to_str().unwrap();
         ma_map.get(wp_str).unwrap();
+    }
+
+    #[test]
+    fn test_canonical_push_sibling()
+    {
+        let cm = CanonicalMod(Lstr::from("/foo/bar"));
+        let im = ImportedMod::from("../taco");
+        let result = cm.push(im);
+        assert_eq!("/foo/taco", result.0.str());
     }
 
     #[test]
