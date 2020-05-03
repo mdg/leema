@@ -932,7 +932,7 @@ mod tests
         let funcseq = proto.funcseq.get(0).expect("no funcseq type");
         assert_eq!("hello", *funcseq);
         assert_eq!(1, proto.funcseq.len());
-        assert_eq!(0, proto.funcsrc.len());
+        assert_eq!(1, proto.funcsrc.len());
     }
 
     #[test]
@@ -976,7 +976,7 @@ mod tests
         let point_type = proto.types.get("Point").expect("no Point type");
         let expected = Type::Generic(
             true,
-            Box::new(user_type!("foo", "Point")),
+            Box::new(user_type!("/foo", "Point")),
             vec![StrupleItem::new("T", Type::Unknown)],
         );
         assert_eq!(expected, *point_type);
@@ -1198,7 +1198,7 @@ mod tests
         let proto = new_proto("datatype Burrito --");
 
         let burrito_type = proto.types.get("Burrito").expect("no Burrito type");
-        assert_eq!(user_type!("foo", "Burrito"), *burrito_type,);
+        assert_eq!(user_type!("/foo", "Burrito"), *burrito_type,);
 
         assert!(proto.token.contains("Burrito"));
 
@@ -1216,6 +1216,6 @@ mod tests
         let proto = new_proto("datatype Point x:Int y:Int --");
 
         let point_type = proto.types.get("Point").expect("no Point type");
-        assert_eq!(user_type!("foo", "Point"), *point_type);
+        assert_eq!(user_type!("/foo", "Point"), *point_type);
     }
 }
