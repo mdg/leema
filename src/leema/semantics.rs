@@ -271,7 +271,7 @@ impl<'l> MacroApplication<'l>
 
         let imported_macro = match self.local.canonical_mod_for_id(macroname) {
             Some(import_path) => {
-                let import_mod = self.proto.path_proto(import_path)?;
+                let import_mod = ltry!(self.proto.path_proto(import_path));
                 import_mod.find_macro(macroname)
             }
             None => None,
@@ -288,7 +288,7 @@ impl<'l> SemanticOp for MacroApplication<'l>
             Ast::Call(callid, args) => {
                 let optmac = match *callid.node {
                     Ast::Id1(macroname) => self.find_macro_1(macroname)?,
-                    Ast::Id2(ref modname, ref macroname) => {
+                    Ast::Id2(ref modname, ref id) => {
                         ltry!(self
                             .proto
                             .imported_proto(&self.local.key.name, modname)
@@ -296,10 +296,10 @@ impl<'l> SemanticOp for MacroApplication<'l>
                                 f.add_context(lstrf!(
                                     "no protomod for {}::{}",
                                     modname,
-                                    macroname
+                                    id
                                 ))
                             }))
-                        .find_macro(macroname)
+                        .find_macro(id)
                     }
                     _ => None,
                 };
@@ -317,27 +317,27 @@ impl<'l> SemanticOp for MacroApplication<'l>
             }
             Ast::Op2("+", a, b) => {
                 let call =
-                    Self::op_to_call("prefab", "int_add", a, b, node.loc);
+                    Self::op_to_call1("int_add", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2("-", a, b) => {
                 let call =
-                    Self::op_to_call("prefab", "int_sub", a, b, node.loc);
+                    Self::op_to_call("core", "int_sub", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2("*", a, b) => {
                 let call =
-                    Self::op_to_call("prefab", "int_mult", a, b, node.loc);
+                    Self::op_to_call("core", "int_mult", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2("/", a, b) => {
                 let call =
-                    Self::op_to_call("prefab", "int_div", a, b, node.loc);
+                    Self::op_to_call("core", "int_div", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2("mod", a, b) => {
                 let call =
-                    Self::op_to_call("prefab", "int_mod", a, b, node.loc);
+                    Self::op_to_call("core", "int_mod", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2("and", a, b) => {
@@ -715,29 +715,10 @@ impl<'p> TypeCheck<'p>
 
         for arg in ftyp.args.iter() {
             let argname = arg.k.as_ref().unwrap().sref()?;
-            let real_type = check.true_type(&arg.v)?;
-            check.vartypes.insert(argname, real_type);
+            check.vartypes.insert(argname, arg.v.clone());
         }
-        check.result = check.true_type(&ftyp.result)?;
+        check.result = (*ftyp.result).clone();
         Ok(check)
-    }
-
-    fn true_type(&self, typ: &Type) -> Lresult<Type>
-    {
-        match typ {
-            Type::User(ref m, ref _t) if m.canonical.starts_with("core") => {
-            }
-            Type::User(ref _m, ref t) => {
-                if self.local_mod.defines_type(t) {
-                } else if ProtoModule::default_imports().contains_key(t) {
-                } else {
-                }
-            }
-            _ => {
-                // nothing
-            }
-        }
-        Ok(Type::Void)
     }
 
     pub fn inferred_local(&self, local_tvar: &Lstr) -> Type
@@ -1353,7 +1334,7 @@ impl Semantics
             rustfail!(SEMFAIL, "ast is empty for function {}", f,)
         })?;
 
-        let local_proto = proto.path_proto(&f.m.name)?;
+        let local_proto = ltry!(proto.path_proto(&f.m.name));
         let func_ref = local_proto.find_const(&f.f).ok_or_else(|| {
             rustfail!(SEMFAIL, "cannot find func ref for {}", f,)
         })?;
@@ -1907,10 +1888,10 @@ mod tests
     #[test]
     fn test_semantics_exported_call()
     {
-        let foo_input = r#"func bar / Int >> 3 --"#.to_string();
+        let foo_input = r#"func bar /Int >> 3 --"#.to_string();
 
         let baz_input = r#"
-        import /foo/bar
+        import /foo.bar
 
         func main >>
             bar() + 6
@@ -1918,8 +1899,8 @@ mod tests
         "#
         .to_string();
 
-        let mut prog = core_program(&[("foo", foo_input), ("baz", baz_input)]);
-        let fref = Fref::from(("baz", "main"));
+        let mut prog = core_program(&[("/foo", foo_input), ("/baz", baz_input)]);
+        let fref = Fref::from(("/baz", "main"));
         prog.read_semantics(&fref).unwrap();
     }
 

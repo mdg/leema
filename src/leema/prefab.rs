@@ -14,119 +14,6 @@ use futures::Future;
 use tokio::timer::Delay;
 
 
-pub fn int_add(f: &mut Fiber) -> Lresult<Event>
-{
-    let ic;
-    {
-        let a = f.head.get_param(0)?;
-        let b = f.head.get_param(1)?;
-        match (a, b) {
-            (&Val::Int(ia), &Val::Int(ib)) => {
-                ic = ia + ib;
-            }
-            _ => {
-                panic!("wtf is all that? {:?}", (a, b));
-            }
-        }
-    }
-    f.head.parent.set_result(Val::Int(ic));
-    Event::success()
-}
-
-pub fn int_sub(f: &mut Fiber) -> Lresult<Event>
-{
-    let ic;
-    {
-        let a = f.head.get_param(0)?;
-        let b = f.head.get_param(1)?;
-        match (a, b) {
-            (&Val::Int(ia), &Val::Int(ib)) => {
-                ic = ia - ib;
-            }
-            _ => {
-                panic!("wtf is all that? {:?}", (a, b));
-            }
-        }
-    }
-    f.head.parent.set_result(Val::Int(ic));
-    Event::success()
-}
-
-pub fn int_mult(f: &mut Fiber) -> Lresult<Event>
-{
-    let ic;
-    {
-        let a = f.head.get_param(0)?;
-        let b = f.head.get_param(1)?;
-        match (a, b) {
-            (&Val::Int(ia), &Val::Int(ib)) => {
-                ic = ia * ib;
-            }
-            _ => {
-                panic!("can't multiply that! {:?}", (a, b));
-            }
-        }
-    }
-    f.head.parent.set_result(Val::Int(ic));
-    Event::success()
-}
-
-pub fn int_div(f: &mut Fiber) -> Lresult<Event>
-{
-    let ic;
-    {
-        let a = f.head.get_param(0)?;
-        let b = f.head.get_param(1)?;
-        match (a, b) {
-            (&Val::Int(ia), &Val::Int(ib)) => {
-                ic = ia / ib;
-            }
-            _ => {
-                panic!("can't divide that! {:?}", (a, b));
-            }
-        }
-    }
-    f.head.parent.set_result(Val::Int(ic));
-    Event::success()
-}
-
-pub fn int_mod(f: &mut Fiber) -> Lresult<Event>
-{
-    let ic;
-    {
-        let a = f.head.get_param(0)?;
-        let b = f.head.get_param(1)?;
-        match (a, b) {
-            (&Val::Int(ia), &Val::Int(ib)) => {
-                ic = ia % ib;
-            }
-            _ => {
-                panic!("can't mod that! {:?}", (a, b));
-            }
-        }
-    }
-    f.head.parent.set_result(Val::Int(ic));
-    Event::success()
-}
-
-pub fn int_negate(f: &mut Fiber) -> Lresult<Event>
-{
-    let result;
-    {
-        let a = f.head.get_param(0)?;
-        match a {
-            &Val::Int(a) => {
-                result = -a;
-            }
-            _ => {
-                panic!("can't negate a not int? {:?}", a);
-            }
-        }
-    }
-    f.head.parent.set_result(Val::Int(result));
-    Event::success()
-}
-
 pub fn bool_not(f: &mut Fiber) -> Lresult<Event>
 {
     let i = f.head.e.get_param(0)?;
@@ -300,12 +187,6 @@ macro_rules! load_rust_funcs {
 pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
-        "int_add" => Some(Code::Rust(int_add)),
-        "int_sub" => Some(Code::Rust(int_sub)),
-        "int_mult" => Some(Code::Rust(int_mult)),
-        "int_div" => Some(Code::Rust(int_div)),
-        "int_mod" => Some(Code::Rust(int_mod)),
-        "int_negate" => Some(Code::Rust(int_negate)),
         "bool_not" => Some(Code::Rust(bool_not)),
         "bool_xor" => Some(Code::Rust(bool_xor)),
         "sleep" => Some(Code::Iop(leema_sleep, None)),

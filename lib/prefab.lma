@@ -11,12 +11,6 @@ macro unfail new_val >>
 
 func bool_not v:Bool /Bool >> __RUST__ --
 
-func int_add a:Int b:Int /Int >> __RUST__ --
-func int_sub a:Int b:Int /Int >> __RUST__ --
-func int_mult a:Int b:Int /Int >> __RUST__ --
-func int_div a:Int b:Int /Int >> __RUST__ --
-func int_mod a:Int b:Int /Int >> __RUST__ --
-func int_negate a:Int /Int >> __RUST__ --
 func equal[T] a:T b:T /Bool >> __RUST__ --
 func less_than[T] a:T b:T /Bool >> __RUST__ --
 func sleep d:Int >> __RUST__ --

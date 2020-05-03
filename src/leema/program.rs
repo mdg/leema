@@ -51,46 +51,46 @@ impl Lib
 
         proglib
             .rust_load
-            .insert(canonical_mod!("core"), lib_core::load_rust_func);
+            .insert(canonical_mod!("/core"), lib_core::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("prefab"), prefab::load_rust_func);
+            .insert(canonical_mod!("/prefab"), prefab::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("file"), file::load_rust_func);
+            .insert(canonical_mod!("/file"), file::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("hyper_client"), lib_hyper::load_client_func);
+            .insert(canonical_mod!("/hyper_client"), lib_hyper::load_client_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("hyper_server"), lib_hyper::load_rust_func);
+            .insert(canonical_mod!("/hyper_server"), lib_hyper::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("io"), lib_io::load_rust_func);
+            .insert(canonical_mod!("/io"), lib_io::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("json"), lib_json::load_rust_func);
+            .insert(canonical_mod!("/json"), lib_json::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("list"), lib_list::load_rust_func);
+            .insert(canonical_mod!("/list"), lib_list::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("map"), lib_map::load_rust_func);
+            .insert(canonical_mod!("/map"), lib_map::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("math"), lib_math::load_rust_func);
+            .insert(canonical_mod!("/math"), lib_math::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("str"), lib_str::load_rust_func);
+            .insert(canonical_mod!("/str"), lib_str::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("task"), lib_task::load_rust_func);
+            .insert(canonical_mod!("/task"), lib_task::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("tcp"), tcp::load_rust_func);
+            .insert(canonical_mod!("/tcp"), tcp::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("udp"), udp::load_rust_func);
+            .insert(canonical_mod!("/udp"), udp::load_rust_func);
 
         proglib
     }
@@ -114,7 +114,7 @@ impl Lib
 
     pub fn read_semantics(&mut self, f: &Fref) -> Lresult<Semantics>
     {
-        self.load_proto_and_imports(&f.m.name)?;
+        ltry!(self.load_proto_and_imports(&f.m.name));
         Semantics::compile_call(&mut self.protos, f)
     }
 
@@ -149,7 +149,7 @@ impl Lib
     ) -> Lresult<()>
     {
         let modpath = cmod.mod_path();
-        self.protos.load_absolute(&mut self.loader, modpath)?;
-        self.protos.load_imports(&mut self.loader, modpath)
+        ltry!(self.protos.load_absolute(&mut self.loader, modpath));
+        Ok(ltry!(self.protos.load_imports(&mut self.loader, modpath)))
     }
 }

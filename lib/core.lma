@@ -29,5 +29,11 @@ macro fail ft msg >>
 
 func create_failure failure_tag:# msg:Str /Failure >> __RUST__ --
 
+func int_add a:Int b:Int /Int >> __RUST__ --
+func int_sub a:Int b:Int /Int >> __RUST__ --
+func int_mult a:Int b:Int /Int >> __RUST__ --
+func int_div a:Int b:Int /Int >> __RUST__ --
+func int_mod a:Int b:Int /Int >> __RUST__ --
+func int_negate a:Int /Int >> __RUST__ --
 func int_equal a:Int b:Int /Bool >> __RUST__ --
 func int_less_than a:Int b:Int /Bool >> __RUST__ --

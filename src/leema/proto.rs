@@ -18,7 +18,7 @@ const PROTOFAIL: &'static str = "prototype_failure";
 
 lazy_static! {
     static ref DEFAULT_IDS: HashMap<&'static str, CanonicalMod> = {
-        let core_mod = canonical_mod!("core");
+        let core_mod = canonical_mod!("/core");
         let mut ids = HashMap::new();
         ids.insert("Bool", core_mod.clone());
         ids.insert("cons", core_mod.clone());
@@ -26,6 +26,12 @@ lazy_static! {
         ids.insert("fail", core_mod.clone());
         ids.insert("Hashtag", core_mod.clone());
         ids.insert("Int", core_mod.clone());
+        ids.insert("int_add", core_mod.clone());
+        ids.insert("int_sub", core_mod.clone());
+        ids.insert("int_mult", core_mod.clone());
+        ids.insert("int_div", core_mod.clone());
+        ids.insert("int_mod", core_mod.clone());
+        ids.insert("int_negate", core_mod.clone());
         ids.insert("int_equal", core_mod.clone());
         ids.insert("int_less_than", core_mod.clone());
         ids.insert("Str", core_mod.clone());
@@ -885,7 +891,7 @@ impl ProtoLib
             rustfail!(PROTOFAIL, "module not loaded: {:?}", proto)
         })?;
         let new_path = ltry!(protomod.imported_module(alias));
-        self.path_proto(&new_path)
+        Ok(ltry!(self.path_proto(&new_path)))
     }
 
     pub fn path_proto(&self, path: &CanonicalMod) -> Lresult<&ProtoModule>
