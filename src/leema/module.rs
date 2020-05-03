@@ -251,12 +251,6 @@ impl ImportedMod
         path.as_os_str().is_empty()
     }
 
-    pub fn ancestors(path: &Path) -> Vec<&Path>
-    {
-        let av: Vec<&Path> = path.ancestors().collect();
-        av.into_iter().rev().skip(1).collect()
-    }
-
     pub fn root_head(path: &Path) -> Lresult<(&Path, &Path)>
     {
         let mut it = path.components();
@@ -388,6 +382,29 @@ impl CanonicalMod
                 CanonicalMod(Lstr::from(format!("{}", ch_path.display())))
             }
         }
+    }
+
+    pub fn ancestors(path: &Path) -> Vec<&Path>
+    {
+        let av: Vec<&Path> = path.ancestors().collect();
+        av.into_iter()
+            .rev()
+            .skip(1)
+            .map(|p| {
+                // extensions should be trimmed
+                // is there a way to only do this for the final path
+                // since it's the only one that will ever have an extension?
+                let xlen = match p.extension() {
+                    Some(x) => x.len() + 1,
+                    None => {
+                        return p;
+                    }
+                };
+                let pstr = p.as_os_str().to_str().unwrap();
+                let (base, _) = pstr.split_at(pstr.len() - xlen);
+                Path::new(base)
+            })
+            .collect()
     }
 
     pub fn file_path_buf(cpath: &Path) -> Lresult<PathBuf>
@@ -549,6 +566,16 @@ mod tests
         ma_map.insert(ModAlias("whatever"), wp);
         let wp_str = wp.to_str().unwrap();
         ma_map.get(wp_str).unwrap();
+    }
+
+    #[test]
+    fn test_canonical_ancestors()
+    {
+        let a = CanonicalMod::ancestors(Path::new("/foo/bar.baz"));
+        let mut it = a.iter();
+        assert_eq!("/foo", it.next().unwrap().as_os_str());
+        assert_eq!("/foo/bar", it.next().unwrap().as_os_str());
+        assert_eq!(2, a.len());
     }
 
     #[test]
