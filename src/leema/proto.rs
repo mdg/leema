@@ -1108,11 +1108,11 @@ mod tests
         assert_eq!(0, proto.exports.len());
 
         assert_eq!(*"/tacos", proto.imports["tacos"]);
-        assert_eq!(*"burritos", proto.imports["burritos"]);
-        assert_eq!(*"tortas/huevos", proto.imports["huevos"]);
-        assert_eq!(*"tortas/huevos/rancheros", proto.imports["rancheros"]);
-        assert_eq!(*"tortas/huevos/enchiladas", proto.imports["enchiladas"]);
-        assert_eq!(*"../nachos", proto.imports["nachos"]);
+        assert_eq!(*"/foo/burritos", proto.imports["burritos"]);
+        assert_eq!(*"/foo/tortas/huevos", proto.imports["huevos"]);
+        assert_eq!(*"/foo/tortas/huevos/rancheros", proto.imports["rancheros"]);
+        assert_eq!(*"/foo/tortas/huevos/enchiladas", proto.imports["enchiladas"]);
+        assert_eq!(*"/nachos", proto.imports["nachos"]);
     }
 
     #[test]
