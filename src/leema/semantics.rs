@@ -529,7 +529,7 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                 let local_type = self.mode.get_pattern().unwrap();
                 // make sure this doesn't duplicate an import
                 // why not just add ModAliases to the blocks?
-                if self.local_mod.canonical_imports.contains_key(&ModAlias(id)) {
+                if self.local_mod.imports.contains_key(&ModAlias(id)) {
                     return Err(Failure::static_leema(
                         failure::Mode::CompileFailure,
                         lstrf!("{} is already used as a module name", id),

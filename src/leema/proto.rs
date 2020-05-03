@@ -41,7 +41,7 @@ lazy_static! {
 pub struct ProtoModule
 {
     pub key: ModKey,
-    pub canonical_imports: HashMap<ModAlias, CanonicalMod>,
+    pub imports: HashMap<ModAlias, CanonicalMod>,
     pub exports: HashMap<ModAlias, ImportedMod>,
     pub exports_all: bool,
     definitions: Vec<AstNode>,
@@ -67,7 +67,7 @@ impl ProtoModule
 
         let mut proto = ProtoModule {
             key,
-            canonical_imports: HashMap::new(),
+            imports: HashMap::new(),
             exports: HashMap::new(),
             exports_all: false,
             definitions: Vec::new(),
@@ -140,7 +140,7 @@ impl ProtoModule
         for (k, (v, loc)) in imports.into_iter() {
             proto.refute_redefines_default(k, loc)?;
 
-            if proto.canonical_imports.contains_key(k) {
+            if proto.imports.contains_key(k) {
                 return Err(Failure::static_leema(
                     failure::Mode::CompileFailure,
                     lstrf!("duplicate import: {}", v),
@@ -178,7 +178,7 @@ impl ProtoModule
     {
         let alias = ModAlias::new(name);
         let canonical = self.key.name.push(imp);
-        self.canonical_imports.insert(alias, canonical);
+        self.imports.insert(alias, canonical);
         Ok(())
     }
 
@@ -579,7 +579,7 @@ impl ProtoModule
         for (k, (v, loc)) in exports.into_iter() {
             self.refute_redefines_default(k, loc)?;
 
-            if self.exports.contains_key(k) && self.canonical_imports.contains_key(k) {
+            if self.exports.contains_key(k) && self.imports.contains_key(k) {
                 return Err(Failure::static_leema(
                     failure::Mode::CompileFailure,
                     lstrf!("duplicate export: {}", v),
@@ -944,7 +944,7 @@ impl ProtoLib
                     modname.display(),
                 )
             })?;
-            for (k, i) in proto.canonical_imports.iter() {
+            for (k, i) in proto.imports.iter() {
                 if i.as_path() == modname {
                     return Err(rustfail!(
                         PROTOFAIL,
@@ -1107,12 +1107,12 @@ mod tests
         assert_eq!(6, proto.imports.len());
         assert_eq!(0, proto.exports.len());
 
-        assert_eq!("/tacos", proto.imports["tacos"]);
-        assert_eq!("burritos", proto.imports["burritos"]);
-        assert_eq!("tortas/huevos", proto.imports["huevos"]);
-        assert_eq!("tortas/huevos/rancheros", proto.imports["rancheros"]);
-        assert_eq!("tortas/huevos/enchiladas", proto.imports["enchiladas"]);
-        assert_eq!("../nachos", proto.imports["nachos"]);
+        assert_eq!(*"/tacos", proto.imports["tacos"]);
+        assert_eq!(*"burritos", proto.imports["burritos"]);
+        assert_eq!(*"tortas/huevos", proto.imports["huevos"]);
+        assert_eq!(*"tortas/huevos/rancheros", proto.imports["rancheros"]);
+        assert_eq!(*"tortas/huevos/enchiladas", proto.imports["enchiladas"]);
+        assert_eq!(*"../nachos", proto.imports["nachos"]);
     }
 
     #[test]
@@ -1130,9 +1130,9 @@ mod tests
     {
         let proto = new_proto("export tacos");
 
-        assert_eq!(1, proto.canonical_imports.len());
+        assert_eq!(1, proto.imports.len());
         assert_eq!(1, proto.exports.len());
-        assert_eq!(*"/foo/tacos", proto.canonical_imports["tacos"]);
+        assert_eq!(*"/foo/tacos", proto.imports["tacos"]);
         assert_eq!("tacos", proto.exports["tacos"]);
         assert_eq!(false, proto.exports_all);
     }
