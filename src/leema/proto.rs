@@ -1271,7 +1271,7 @@ mod tests
         func foo >> 4 --
         "
         .to_string();
-        let b = "import /a/foo
+        let b = "import /a.foo
         func bar >> foo() + 3 --
         "
         .to_string();

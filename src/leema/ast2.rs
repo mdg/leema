@@ -104,6 +104,7 @@ pub enum ModAction
 pub enum ModTree
 {
     All(Loc),
+    FinalId(&'static str, Loc),
     FinalMod(&'static str, Loc),
     Block(Vec<ModTree>),
     Sub(&'static str, Box<ModTree>),
@@ -114,23 +115,6 @@ impl ModTree
     pub fn sub(a: &'static str, b: ModTree) -> ModTree
     {
         ModTree::Sub(a, Box::new(b))
-    }
-
-    pub fn push_sub(&mut self, tail: ModTree)
-    {
-        match self {
-            ModTree::FinalMod(a, _) => {
-                *self = ModTree::Sub(a, Box::new(tail));
-            }
-            ModTree::Sub(_, ref mut b) => {
-                b.push_sub(tail);
-            }
-            ModTree::All(_)|ModTree::Block(_) => {
-                // blocks can't really contain a sub
-                // this should never happen
-                unimplemented!();
-            }
-        }
     }
 
     pub fn collect(&self, flats: &mut HashMap<&'static str, (ImportedMod, Loc)>) -> Lresult<()>
@@ -150,6 +134,14 @@ impl ModTree
                     "compile_failure",
                     "cannot collect imports from initial Block",
                 ));
+            }
+            ModTree::FinalId(_, loc) => {
+                let f = rustfail!(
+                    "compile_failure",
+                    "cannot collect imports from initial FinalId",
+                )
+                .loc("", loc.lineno as u32);
+                return Err(f);
             }
             ModTree::All(_) => {
                 // what? shouldn't happen
@@ -184,6 +176,10 @@ impl ModTree
                 for item in block.iter() {
                     item._collect(flats, path, parent)?;
                 }
+            }
+            ModTree::FinalId(id, loc) => {
+                let id_path = path.with_extension(id);
+                flats.insert(id, (ImportedMod(id_path), *loc));
             }
             ModTree::All(_) => {
                 return Err(rustfail!(
