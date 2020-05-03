@@ -9,7 +9,6 @@ use crate::leema::token::Tokenz;
 use crate::leema::val::{Fref, FuncType, GenericTypes, Type, Val};
 
 use std::collections::{HashMap, HashSet};
-use std::mem;
 use std::path::{Path, PathBuf};
 
 use lazy_static::lazy_static;
@@ -44,7 +43,6 @@ pub struct ProtoModule
     pub imports: HashMap<&'static str, CanonicalMod>,
     pub exports: HashMap<ModAlias, ImportedMod>,
     pub exports_all: bool,
-    definitions: Vec<AstNode>,
     pub id_canonicals: HashMap<&'static str, CanonicalMod>,
     pub macros: HashMap<&'static str, Ast>,
     pub constants: HashMap<&'static str, AstNode>,
@@ -69,7 +67,6 @@ impl ProtoModule
             imports: HashMap::new(),
             exports: HashMap::new(),
             exports_all: false,
-            definitions: Vec::new(),
             id_canonicals: HashMap::new(),
             macros: HashMap::new(),
             constants: HashMap::new(),
@@ -167,7 +164,7 @@ impl ProtoModule
         }
 
         for i in it {
-            proto.add_definition_pre(i)?;
+            proto.add_definition(i)?;
         }
         Ok(proto)
     }
@@ -184,7 +181,7 @@ impl ProtoModule
         Ok(())
     }
 
-    pub fn add_definition_pre(&mut self, mut node: AstNode) -> Lresult<()>
+    pub fn add_definition(&mut self, node: AstNode) -> Lresult<()>
     {
         match *node.node {
             Ast::DefConst(name, val) => {
@@ -195,14 +192,18 @@ impl ProtoModule
                 ltry!(self.refute_redefines_default(macro_name, node.loc));
                 self.macros.insert(macro_name, *node.node);
             }
-            Ast::DefType(dt, name, flds) => {
-                self.pre_add_type(name.clone())?;
-                *node.node = Ast::DefType(dt, name, flds);
-                self.definitions.push(node);
+            Ast::DefFunc(name, args, result, body) => {
+                self.add_func(name, args, result, body)?;
             }
-            Ast::DefFunc(_, _, _, _) => {
-                // need to collect exported functions
-                self.pre_add_func(node)?;
+            Ast::DefType(DataType::Union, name, variants) => {
+                self.add_union(name, variants)?;
+            }
+            Ast::DefType(DataType::Struct, name, fields) => {
+                if fields.is_empty() {
+                    ltry!(self.add_token(name));
+                } else {
+                    ltry!(self.add_struct(name, fields));
+                }
             }
             Ast::ModAction(_, _) => {
                 return Err(Failure::static_leema(
@@ -245,39 +246,6 @@ impl ProtoModule
         Ok(())
     }
 
-    pub fn add_definitions_post(&mut self) -> Lresult<()>
-    {
-        let it = mem::replace(&mut self.definitions, vec![]).into_iter();
-
-        for i in it {
-            match *i.node {
-                Ast::DefFunc(name, args, result, body) => {
-                    self.add_func(name, args, result, body)?;
-                }
-                Ast::DefType(DataType::Struct, name, fields) => {
-                    if fields.is_empty() {
-                        ltry!(self.add_token(name));
-                    } else {
-                        ltry!(self.add_struct(name, fields));
-                    }
-                }
-                Ast::DefType(DataType::Union, name, variants) => {
-                    self.add_union(name, variants)?;
-                }
-                _ => {
-                    return Err(Failure::static_leema(
-                        failure::Mode::CompileFailure,
-                        lstrf!("expected definition statement, found {:?}", i),
-                        self.key.best_path(),
-                        i.loc.lineno,
-                    ));
-                }
-            }
-        }
-
-        Ok(())
-    }
-
     fn refute_redefines_default(
         &self,
         id: &'static str,
@@ -299,18 +267,6 @@ impl ProtoModule
     pub fn default_imports() -> &'static HashMap<&'static str, CanonicalMod>
     {
         &DEFAULT_IDS
-    }
-
-    fn pre_add_func(
-        &mut self,
-        func: AstNode,
-    ) -> Lresult<()>
-    {
-        if let Ast::DefFunc(ref name, _, _, _) = &*func.node {
-            self.pre_add_func_name(name)?;
-        }
-        self.definitions.push(func);
-        Ok(())
     }
 
     fn pre_add_func_name(
@@ -408,53 +364,6 @@ impl ProtoModule
         self.funcseq.push(name_id);
         self.funcsrc.insert(name_id, (args, body));
 
-        Ok(())
-    }
-
-    fn pre_add_type(&mut self, _name: AstNode) -> Lresult<()>
-    {
-        /*
-        let sname_id = match *name.node {
-            Ast::Id1(name_id) => {
-                ltry!(self.refute_redefines_default(name_id, name.loc));
-                struct_typ = Type::User(TypeMod::from(m), name_id);
-                opens = vec![];
-                name_id
-            }
-            Ast::Generic(gen, gen_args) => {
-                let opens1: Lresult<GenericTypes> = gen_args
-                    .iter()
-                    .map(|a| {
-                        if let Ast::Id1(var) = *a.v.node {
-                            Ok(StrupleItem::new(var, Type::Unknown))
-                        } else {
-                            Err(rustfail!(
-                                PROTOFAIL,
-                                "generic arguments must be IDs: {:?}",
-                                a,
-                            ))
-                        }
-                    })
-                    .collect();
-                opens = opens1?;
-
-                if let Ast::Id1(name_id) = *gen.node {
-                    ltry!(self.refute_redefines_default(name_id, name.loc));
-                    let itmod = TypeMod::from(m);
-                    let inner = Type::User(itmod, name_id);
-                    struct_typ =
-                        Type::Generic(true, Box::new(inner), opens.clone());
-                    name_id
-                } else {
-                    return Err(rustfail!(
-                        PROTOFAIL,
-                        "invalid generic struct name: {:?}",
-                        gen,
-                    ));
-                }
-            }
-        }
-        */
         Ok(())
     }
 
@@ -1023,8 +932,7 @@ mod tests
         let funcseq = proto.funcseq.get(0).expect("no funcseq type");
         assert_eq!("hello", *funcseq);
         assert_eq!(1, proto.funcseq.len());
-        assert!(proto.funcsrc.contains_key("hello"));
-        assert_eq!(1, proto.funcsrc.len());
+        assert_eq!(0, proto.funcsrc.len());
     }
 
     #[test]
