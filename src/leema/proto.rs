@@ -1045,7 +1045,7 @@ mod tests
 
     fn new_proto(input: &'static str) -> ProtoModule
     {
-        let key = ModKey::from("foo");
+        let key = ModKey::from("/foo");
         ProtoModule::new(key, input).expect("ProtoModule load failure")
     }
 
@@ -1152,9 +1152,9 @@ mod tests
     {
         let proto = new_proto("export tacos");
 
-        assert_eq!(1, proto.imports.len());
+        assert_eq!(1, proto.canonical_imports.len());
         assert_eq!(1, proto.exports.len());
-        assert_eq!("tacos", proto.imports["tacos"]);
+        assert_eq!(*"/foo/tacos", proto.canonical_imports["tacos"]);
         assert_eq!("tacos", proto.exports["tacos"]);
         assert_eq!(false, proto.exports_all);
     }
