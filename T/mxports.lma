@@ -1,0 +1,36 @@
+
+export *
+
+export foo
+import foo >>
+    bar
+    baz
+    cat >>
+        .dog
+        .mouse
+    --
+
+    taco.burrito
+--
+
+import
+
+import /tacos/whatever
+
+## a.lma
+
+import b/c/d
+
+d.foo()
+
+## a/b.lma
+
+export c/d
+
+## a/b/c.lma
+
+export d
+
+## a/b/c/d.lma
+
+func foo() >> 5 --
