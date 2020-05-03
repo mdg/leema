@@ -482,11 +482,10 @@ impl ParseStmt
                         ModTree::sub(next.src, block)
                     }
                     _ => {
-                        ModTree::Id(next.src, Ast::loc(&next))
+                        ModTree::FinalMod(next.src, Ast::loc(&next))
                     }
                 }
             }
-            Token::Dot => ModTree::Id(next.src, Ast::loc(&next)),
             _ => {
                 return Err(rustfail!(
                     PARSE_FAIL,
@@ -1882,7 +1881,7 @@ mod tests
         );
         assert_matches!(
             *ast[1].node,
-            Ast::ModAction(ModAction::Export, ModTree::Id("child1", _))
+            Ast::ModAction(ModAction::Export, ModTree::FinalMod("child1", _))
         );
         assert_matches!(
             *ast[2].node,
@@ -2160,12 +2159,12 @@ mod tests
             Ast::ModAction(ModAction::Import, ModTree::Sub("/", _))
         );
         if let Ast::ModAction(_, ModTree::Sub("/", root)) = &*ast[0].node {
-            assert_eq!(ModTree::Id("root", Loc::new(2, 17)), **root);
+            assert_eq!(ModTree::FinalMod("root", Loc::new(2, 17)), **root);
         }
         // child
         assert_matches!(
             *ast[1].node,
-            Ast::ModAction(ModAction::Import, ModTree::Id("child", _))
+            Ast::ModAction(ModAction::Import, ModTree::FinalMod("child", _))
         );
         // ../sibling
         assert_matches!(
@@ -2173,7 +2172,7 @@ mod tests
             Ast::ModAction(ModAction::Import, ModTree::Sub("..", _))
         );
         if let Ast::ModAction(_, ModTree::Sub(_, b)) = &*ast[2].node {
-            assert_eq!(ModTree::Id("sibling", Loc::new(4, 19)), **b);
+            assert_eq!(ModTree::FinalMod("sibling", Loc::new(4, 19)), **b);
         }
         // /burritos/tacos/tortas
         assert_matches!(
@@ -2183,7 +2182,7 @@ mod tests
         if let Ast::ModAction(_, ModTree::Sub("/", root)) = &*ast[3].node {
             assert_matches!(**root, ModTree::Sub("burritos", _));
             if let ModTree::Sub(_, ref sub) = &**root {
-                assert_eq!(ModTree::Id("tacos", Loc::new(5, 26)), **sub);
+                assert_eq!(ModTree::FinalMod("tacos", Loc::new(5, 26)), **sub);
             }
         }
         // cat/dog
@@ -2192,7 +2191,8 @@ mod tests
             Ast::ModAction(ModAction::Import, ModTree::Sub("cat", _))
         );
         if let Ast::ModAction(_, ModTree::Sub("cat", sub)) = &*ast[4].node {
-            assert_eq!(ModTree::Id("dog", Loc::new(6, 20)), **sub);
+            assert_eq!(ModTree::FinalMod("dog", Loc::new(6, 20)), **sub);
+        }
         }
     }
 
@@ -2233,7 +2233,7 @@ mod tests
             if let ModTree::Sub("core", core_block) = &**core {
                 assert_matches!(**core_block, ModTree::Block(_));
                 if let ModTree::Block(core_items) = &**core_block {
-                    assert_matches!((**core_items)[0], ModTree::Id("io", _));
+                    assert_matches!((**core_items)[0], ModTree::FinalMod("io", _));
                     assert_matches!((**core_items)[1], ModTree::Sub("net", _));
                 }
             }
@@ -2244,7 +2244,7 @@ mod tests
         if let Ast::ModAction(_, ModTree::Sub("tacos", tacos)) = &*ast[1].node {
             assert_matches!(**tacos, ModTree::Block(_));
             if let ModTree::Block(taco_items) = &**tacos {
-                assert_matches!((**taco_items)[0], ModTree::Id("burritos", _));
+                assert_matches!((**taco_items)[0], ModTree::FinalMod("burritos", _));
                 assert_matches!((**taco_items)[1], ModTree::Sub("tortas", _));
             }
         }
@@ -2256,9 +2256,9 @@ mod tests
             if let ModTree::Sub("myapp", sub_block) = &**sibling {
                 assert_matches!(**sub_block, ModTree::Block(_));
                 if let ModTree::Block(sub_items) = &**sub_block {
-                    assert_matches!((**sub_items)[0], ModTree::Id(".", _));
+                    assert_matches!((**sub_items)[0], ModTree::FinalMod(".", _));
                     assert_matches!((**sub_items)[1], ModTree::Sub("app", _));
-                    assert_matches!((**sub_items)[2], ModTree::Id("blah", _));
+                    assert_matches!((**sub_items)[2], ModTree::FinalMod("blah", _));
                 }
             }
         }

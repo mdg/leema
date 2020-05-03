@@ -104,7 +104,7 @@ pub enum ModAction
 pub enum ModTree
 {
     All(Loc),
-    Id(&'static str, Loc),
+    FinalMod(&'static str, Loc),
     Block(Vec<ModTree>),
     Sub(&'static str, Box<ModTree>),
 }
@@ -119,7 +119,7 @@ impl ModTree
     pub fn push_sub(&mut self, tail: ModTree)
     {
         match self {
-            ModTree::Id(a, _) => {
+            ModTree::FinalMod(a, _) => {
                 *self = ModTree::Sub(a, Box::new(tail));
             }
             ModTree::Sub(_, ref mut b) => {
@@ -137,7 +137,7 @@ impl ModTree
     {
         let mut paths = PathBuf::new();
         match self {
-            ModTree::Id(id, loc) => {
+            ModTree::FinalMod(id, loc) => {
                 paths.push(id);
                 flats.insert(id, (ImportedMod(paths), *loc));
             }
@@ -170,10 +170,7 @@ impl ModTree
     ) -> Lresult<()>
     {
         match self {
-            ModTree::Id(".", loc) if path.as_os_str() != "" => {
-                flats.insert(parent, (ImportedMod(path.clone()), *loc));
-            }
-            ModTree::Id(id, loc) => {
+            ModTree::FinalMod(id, loc) => {
                 path.push(id);
                 flats.insert(id, (ImportedMod(path.clone()), *loc));
                 path.pop();
