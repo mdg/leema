@@ -1,5 +1,5 @@
 import /udp
-import /io/print
+import /io.print
 
 func read_data /Str >>
    let sock := udp::bind("0.0.0.0", 3999)

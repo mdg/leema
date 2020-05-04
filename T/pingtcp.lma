@@ -1,5 +1,5 @@
 import /tcp
-import /io/print
+import /io.print
 
 func main >>
    let sock := tcp::connect("127.0.0.1", 3997)
