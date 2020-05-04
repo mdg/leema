@@ -1694,10 +1694,10 @@ mod tests
     #[test]
     fn test_semantics_param_in_scope()
     {
-        let input = r#"func inc i:Int / Int >> i + 1 --"#.to_string();
+        let input = r#"func inc i:Int /Int >> i + 1 --"#.to_string();
 
-        let mut prog = core_program(&[("foo", input)]);
-        let fref = Fref::from(("foo", "inc"));
+        let mut prog = core_program(&[("/foo", input)]);
+        let fref = Fref::from(("/foo", "inc"));
         let result = prog.read_semantics(&fref).unwrap();
         assert_eq!(Type::INT, result.src.typ);
     }
@@ -1706,15 +1706,15 @@ mod tests
     fn test_semantics_module_scope_call()
     {
         let input = r#"
-        func foo / Int >> 5 --
+        func foo /Int >> 5 --
 
         func main >>
             foo() + 3
         --
         "#.to_string();
 
-        let mut prog = core_program(&[("foo", input)]);
-        let fref = Fref::from(("foo", "main"));
+        let mut prog = core_program(&[("/foo", input)]);
+        let fref = Fref::from(("/foo", "main"));
         prog.read_semantics(&fref).unwrap();
     }
 
@@ -1807,8 +1807,8 @@ mod tests
         "#
         .to_string();
 
-        let mut prog = core_program(&[("foo", input)]);
-        let fref = Fref::from(("foo", "safediv"));
+        let mut prog = core_program(&[("/foo", input)]);
+        let fref = Fref::from(("/foo", "safediv"));
         prog.read_semantics(&fref).unwrap();
     }
 
@@ -1816,10 +1816,10 @@ mod tests
     #[should_panic]
     fn test_semantics_module_scope_fail()
     {
-        let input = r#"func main >> foo() --"#.to_string();
+        let input = r#"func main >> bar() --"#.to_string();
 
-        let mut prog = core_program(&[("foo", input)]);
-        let fref = Fref::from(("foo", "main"));
+        let mut prog = core_program(&[("/foo", input)]);
+        let fref = Fref::from(("/foo", "main"));
         prog.read_semantics(&fref).unwrap();
     }
 
@@ -1829,7 +1829,7 @@ mod tests
         let foo_input = r#"func bar /Int >> 3 --"#.to_string();
 
         let baz_input = r#"
-        import foo
+        import /foo
 
         func main >>
             foo::bar() + 6
@@ -1837,10 +1837,10 @@ mod tests
         "#.to_string();
 
         let mut prog = core_program(&[
-            ("foo", foo_input),
-            ("baz", baz_input),
+            ("/foo", foo_input),
+            ("/baz", baz_input),
         ]);
-        let fref = Fref::from(("baz", "main"));
+        let fref = Fref::from(("/baz", "main"));
         prog.read_semantics(&fref).unwrap();
     }
 
