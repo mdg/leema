@@ -148,5 +148,4 @@ mod tests
         let (_fiber_id, rsrc_ref) = response.ok().unwrap();
         assert_eq!(Val::ResourceRef(1), rsrc_ref);
     }
-
 }

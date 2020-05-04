@@ -895,5 +895,4 @@ mod tests
         let fref = Fref::with_modules(From::from("tacos"), "main");
         prog.load_code(&fref).unwrap();
     }
-
 }

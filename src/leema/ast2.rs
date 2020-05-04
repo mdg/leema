@@ -117,7 +117,10 @@ impl ModTree
         ModTree::Sub(a, Box::new(b))
     }
 
-    pub fn collect(&self, flats: &mut HashMap<&'static str, (ImportedMod, Loc)>) -> Lresult<()>
+    pub fn collect(
+        &self,
+        flats: &mut HashMap<&'static str, (ImportedMod, Loc)>,
+    ) -> Lresult<()>
     {
         let mut paths = PathBuf::new();
         match self {

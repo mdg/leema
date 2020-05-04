@@ -1,9 +1,13 @@
-use crate::leema::ast2::{Ast, AstNode, DataType, Loc, ModAction, ModTree, Xlist};
+use crate::leema::ast2::{
+    Ast, AstNode, DataType, Loc, ModAction, ModTree, Xlist,
+};
 use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::grammar2::Grammar;
 use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::{CanonicalMod, ImportedMod, ModAlias, ModKey, ModRelativity, TypeMod};
+use crate::leema::module::{
+    CanonicalMod, ImportedMod, ModAlias, ModKey, ModRelativity, TypeMod,
+};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::token::Tokenz;
 use crate::leema::val::{Fref, FuncType, GenericTypes, Type, Val};
@@ -177,7 +181,11 @@ impl ProtoModule
         Ok(proto)
     }
 
-    fn add_import(&mut self, name: &'static str, imp: ImportedMod) -> Lresult<()>
+    fn add_import(
+        &mut self,
+        name: &'static str,
+        imp: ImportedMod,
+    ) -> Lresult<()>
     {
         let (base_module, had_extension) = imp.trim_extension();
         let canonical = self.key.name.push(base_module);
@@ -243,13 +251,15 @@ impl ProtoModule
         for name in self.macros.keys() {
             let mut export_path = Path::new("./").join(Path::new(*name));
             export_path.set_extension("macro");
-            self.exports.insert(ModAlias(name), ImportedMod(export_path));
+            self.exports
+                .insert(ModAlias(name), ImportedMod(export_path));
         }
         // empty tho b/c these are loaded in post
         // should be able to populate funcseq in pre
         for name in self.funcseq.iter() {
             let export_path = Path::new(*name).with_extension("function");
-            self.exports.insert(ModAlias(name), ImportedMod(export_path));
+            self.exports
+                .insert(ModAlias(name), ImportedMod(export_path));
         }
         Ok(())
     }
@@ -277,10 +287,7 @@ impl ProtoModule
         &DEFAULT_IDS
     }
 
-    fn pre_add_func_name(
-        &mut self,
-        name: &AstNode,
-    ) -> Lresult<()>
+    fn pre_add_func_name(&mut self, name: &AstNode) -> Lresult<()>
     {
         match &*name.node {
             Ast::Id1(name_id) => {
@@ -567,24 +574,20 @@ impl ProtoModule
 
     pub fn imported_module(&self, alias: &ModAlias) -> Lresult<&CanonicalMod>
     {
-        self.imports
-            .get(alias.as_ref())
-            .ok_or_else(|| {
-                rustfail!(
-                    PROTOFAIL,
-                    "no module imported as {} from {}",
-                    alias,
-                    self.key.name,
-                )
-            })
+        self.imports.get(alias.as_ref()).ok_or_else(|| {
+            rustfail!(
+                PROTOFAIL,
+                "no module imported as {} from {}",
+                alias,
+                self.key.name,
+            )
+        })
     }
 
     /// get the canonical module for an id
     pub fn canonical_mod_for_id(&self, id: &str) -> Option<&CanonicalMod>
     {
-        self.id_canonicals
-            .get(id)
-            .or_else(|| DEFAULT_IDS.get(id))
+        self.id_canonicals.get(id).or_else(|| DEFAULT_IDS.get(id))
     }
 
     pub fn ast_to_type(
@@ -599,7 +602,9 @@ impl ProtoModule
             // Ast::Id1("Int") => Type::INT,
             // Ast::Id1("Str") => Type::STR,
             // Ast::Id1("#") => Type::HASHTAG,
-            Ast::Id1(id) if struple::contains_key(opens, id) => Type::OpenVar(id),
+            Ast::Id1(id) if struple::contains_key(opens, id) => {
+                Type::OpenVar(id)
+            }
             Ast::Id1(id) => {
                 let canonical_mod = match self.canonical_mod_for_id(id) {
                     Some(module) => module,
@@ -621,21 +626,22 @@ impl ProtoModule
                         .iter()
                         .map(|item| {
                             let k = item.k.map(|ik| Lstr::Sref(ik));
-                            let v = self.ast_to_type(local_mod, &item.v, opens)?;
+                            let v =
+                                self.ast_to_type(local_mod, &item.v, opens)?;
                             Ok(StrupleItem::new(k, v))
                         })
                         .collect();
                 Type::Tuple(inner_t?)
             }
             Ast::FuncType(args, result) => {
-                let ftype = self.ast_to_ftype(local_mod, args, result, opens)?;
+                let ftype =
+                    self.ast_to_ftype(local_mod, args, result, opens)?;
                 Type::Func(ftype)
             }
             Ast::Generic(_, typeargs) => {
-                let _gen =
-                    struple::map_v(typeargs, |v| {
-                        self.ast_to_type(local_mod, v, opens)
-                    });
+                let _gen = struple::map_v(typeargs, |v| {
+                    self.ast_to_type(local_mod, v, opens)
+                });
                 unimplemented!()
             }
             Ast::Void => Type::Void,
@@ -829,7 +835,8 @@ impl ProtoLib
         Ok(())
     }
 
-    fn put_module(&mut self, modpath: &Path, proto: ProtoModule) -> Lresult<()>
+    fn put_module(&mut self, modpath: &Path, proto: ProtoModule)
+        -> Lresult<()>
     {
         let type_mods = proto.type_modules()?;
         self.protos.insert(modpath.to_path_buf(), proto);
@@ -855,7 +862,8 @@ impl ProtoLib
                     modname.display(),
                 )
             })?;
-            for (k, i) in proto.imports.iter().chain(proto.id_canonicals.iter()) {
+            for (k, i) in proto.imports.iter().chain(proto.id_canonicals.iter())
+            {
                 if i.as_path() == modname {
                     return Err(rustfail!(
                         PROTOFAIL,
@@ -1021,7 +1029,10 @@ mod tests
         assert_eq!(*"/foo/burritos", proto.imports["burritos"]);
         assert_eq!(*"/foo/tortas/huevos", proto.imports["huevos"]);
         assert_eq!(*"/foo/tortas/huevos/rancheros", proto.imports["rancheros"]);
-        assert_eq!(*"/foo/tortas/huevos/enchiladas", proto.imports["enchiladas"]);
+        assert_eq!(
+            *"/foo/tortas/huevos/enchiladas",
+            proto.imports["enchiladas"]
+        );
         assert_eq!(*"/nachos", proto.imports["nachos"]);
     }
 
@@ -1062,7 +1073,8 @@ mod tests
         .to_string();
         let c = "
         export d
-        ".to_string();
+        "
+        .to_string();
         let d = "
         func bar >> 5 --
         "
@@ -1141,9 +1153,7 @@ mod tests
         protos
             .load_absolute(&mut loader, Path::new("/a/b"))
             .unwrap();
-        protos
-            .load_imports(&mut loader, Path::new("/a/b"))
-            .unwrap();
+        protos.load_imports(&mut loader, Path::new("/a/b")).unwrap();
         assert_eq!(4, protos.protos.len());
     }
 

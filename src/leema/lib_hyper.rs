@@ -183,8 +183,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
 
 
 const CLIENT_MOD: TypeMod = canonical_typemod!("/hyper_client");
-const CLIENT_RESP_TYPE: Type =
-    Type::User(CLIENT_MOD, "Response");
+const CLIENT_RESP_TYPE: Type = Type::User(CLIENT_MOD, "Response");
 
 pub fn new_client_response(code: i64, req_time: Duration, body: String) -> Val
 {

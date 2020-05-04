@@ -335,5 +335,4 @@ mod tests
         let s = lstrf!("xa {} - {} /", 48, "hello");
         assert_eq!("xa 48 - hello /", &s);
     }
-
 }

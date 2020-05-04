@@ -59,8 +59,7 @@ impl Interloader
         paths.insert(0, root_path);
 
         let mod_path = Path::new("/").join(modname.unwrap());
-        let mod_str =
-            Self::static_str(mod_path.to_str().unwrap().to_string());
+        let mod_str = Self::static_str(mod_path.to_str().unwrap().to_string());
         let main_mod = canonical_mod!(mod_str);
         Interloader {
             main_mod,

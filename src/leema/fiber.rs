@@ -445,5 +445,4 @@ mod tests
         let event = fib.execute_strcat(r1, r2).unwrap();
         assert_eq!(Event::Uneventful, event);
     }
-
 }

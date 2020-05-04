@@ -316,8 +316,7 @@ impl<'l> SemanticOp for MacroApplication<'l>
                 }
             }
             Ast::Op2("+", a, b) => {
-                let call =
-                    Self::op_to_call1("int_add", a, b, node.loc);
+                let call = Self::op_to_call1("int_add", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2("-", a, b) => {
@@ -561,7 +560,9 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                 } else if let Some(ic) = self.local_mod.find_const(id) {
                     node = node.replace((*ic.node).clone(), ic.typ.clone());
                     return Ok(SemanticAction::Keep(node));
-                } else if let Some(ich) = self.local_mod.canonical_mod_for_id(id) {
+                } else if let Some(ich) =
+                    self.local_mod.canonical_mod_for_id(id)
+                {
                     let constval = ltry!(self.lib.path_proto(ich))
                         .find_const(id)
                         .map(|c| c.clone())
@@ -1607,11 +1608,10 @@ mod tests
             let sorted_tuples := sort(plain)
             let names := take_names(sorted_tuples)
         --
-        "#.to_string();
+        "#
+        .to_string();
 
-        let mut prog = core_program(&[
-            ("/foo", input),
-        ]);
+        let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::with_modules(From::from("/foo"), "main");
         let body = prog.read_semantics(&fref).unwrap();
         assert_matches!(*body.src.node, Ast::Block(_));
@@ -1639,11 +1639,10 @@ mod tests
             True or False
             not True
         --
-        "#.to_string();
+        "#
+        .to_string();
 
-        let mut prog = core_program(&[
-            ("/foo", input),
-        ]);
+        let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::with_modules(From::from("/foo"), "main");
         prog.read_semantics(&fref).unwrap();
     }
@@ -1684,7 +1683,8 @@ mod tests
             --
             x + 1
         --
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut prog = core_program(&[("foo", input)]);
         let fref = Fref::from(("foo", "main"));
@@ -1711,7 +1711,8 @@ mod tests
         func main >>
             foo() + 3
         --
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::from(("/foo", "main"));
@@ -1726,7 +1727,8 @@ mod tests
             let x := 8
             let y := x + 1
         --
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::from(("/foo", "main"));
@@ -1745,7 +1747,8 @@ mod tests
         func main >>
             swap[Str #]("hello", #world)
         --
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::from(("/foo", "main"));
@@ -1789,7 +1792,8 @@ mod tests
             let p := new_pair(4, "b")
             let f := first(p)
         --
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::from(("/foo", "main"));
@@ -1834,12 +1838,11 @@ mod tests
         func main >>
             foo::bar() + 6
         --
-        "#.to_string();
+        "#
+        .to_string();
 
-        let mut prog = core_program(&[
-            ("/foo", foo_input),
-            ("/baz", baz_input),
-        ]);
+        let mut prog =
+            core_program(&[("/foo", foo_input), ("/baz", baz_input)]);
         let fref = Fref::from(("/baz", "main"));
         prog.read_semantics(&fref).unwrap();
     }
@@ -1853,7 +1856,8 @@ mod tests
         export foo.Taco
 
         func bar t: Taco /Int >> 3 --
-        "#.to_string();
+        "#
+        .to_string();
 
         let baz_src = r#"
         import /bar
@@ -1862,7 +1866,8 @@ mod tests
         func main >>
             bar::bar(Taco) + 6
         --
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut prog = core_program(&[
             ("/bar/foo", foo_src),
@@ -1888,7 +1893,8 @@ mod tests
         "#
         .to_string();
 
-        let mut prog = core_program(&[("/foo", foo_input), ("/baz", baz_input)]);
+        let mut prog =
+            core_program(&[("/foo", foo_input), ("/baz", baz_input)]);
         let fref = Fref::from(("/baz", "main"));
         prog.read_semantics(&fref).unwrap();
     }
@@ -1903,12 +1909,10 @@ mod tests
         func main >>
             foo::bar() + 6
         --
-        "#.to_string();
+        "#
+        .to_string();
 
-        let mut prog = core_program(&[
-            ("foo", foo_input),
-            ("app", app_input),
-        ]);
+        let mut prog = core_program(&[("foo", foo_input), ("app", app_input)]);
         let fref = Fref::from(("app", "main"));
         prog.read_semantics(&fref).unwrap();
     }
@@ -1921,7 +1925,8 @@ mod tests
             let a := blah
             "a is $a\n"
         --
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut prog = core_program(&[("/baz", baz_input)]);
         let fref = Fref::from(("/baz", "main"));
@@ -1937,7 +1942,8 @@ mod tests
         func main >>
             foo::bar() + 6
         --
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut prog = core_program(&[("baz", baz_input)]);
         let fref = Fref::from(("baz", "main"));
@@ -1951,7 +1957,8 @@ mod tests
         let input = r#"
         func inc i:Int :Int >> i + 1 --
         func main >> inc("5") --
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut prog = core_program(&[("foo", input)]);
         let fref = Fref::from(("foo", "main"));
@@ -1965,7 +1972,8 @@ mod tests
         let input = r#"
         func mult i:Int j:Int :Int >> i * j --
         func main >> mult(7) --
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut prog = core_program(&[("foo", input)]);
         let fref = Fref::from(("foo", "main"));
@@ -1979,7 +1987,8 @@ mod tests
         let input = r#"
         func inc i:Int / Int >> i + 1 --
         func main >> inc(2, 7) --
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut prog = core_program(&[("foo", input)]);
         let fref = Fref::from(("foo", "main"));
@@ -1992,7 +2001,8 @@ mod tests
     {
         let input = r#"
         func inc i:Int :Int >> "hello" --
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut prog = core_program(&[("foo", input)]);
         let fref = Fref::from(("foo", "inc"));
@@ -2010,7 +2020,8 @@ mod tests
             |else >> i * factf(i-1)
             --
         --
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut prog = core_program(&[("foo", input)]);
         let fref = Fref::from(("foo", "factf"));
@@ -2022,7 +2033,8 @@ mod tests
     {
         let input = r#"
         func inc i:Int /Inth >> i + 1 --
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::from(("/foo", "inc"));

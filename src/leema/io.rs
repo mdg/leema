@@ -86,7 +86,8 @@ impl RsrcQueue
     /**
      * Add the resource back to the Ioq to be used later
      */
-    pub fn checkin(&mut self, r: Box<dyn Rsrc>) -> Option<(Iop, Box<dyn Rsrc>)>
+    pub fn checkin(&mut self, r: Box<dyn Rsrc>)
+        -> Option<(Iop, Box<dyn Rsrc>)>
     {
         match self.queue.pop_front() {
             Some(iop) => Some((iop, r)),
@@ -591,5 +592,4 @@ pub mod tests
         let resp = worker_rx.try_recv();
         assert!(resp.is_ok());
     }
-
 }

@@ -54,10 +54,7 @@ impl From<CanonicalMod> for ModKey
 {
     fn from(name: CanonicalMod) -> ModKey
     {
-        ModKey {
-            name,
-            file: None,
-        }
+        ModKey { name, file: None }
     }
 }
 
@@ -314,9 +311,7 @@ impl ImportedMod
     {
         let mut it = path.components();
         match it.next() {
-            Some(Component::Normal(h)) => {
-                Ok((Path::new(h), it.as_path()))
-            }
+            Some(Component::Normal(h)) => Ok((Path::new(h), it.as_path())),
             Some(_) => {
                 return Err(rustfail!(
                     "compile_failure",
@@ -368,8 +363,7 @@ impl fmt::Display for ImportedMod
 pub struct CanonicalMod(pub Lstr);
 
 #[macro_export]
-macro_rules! canonical_mod
-{
+macro_rules! canonical_mod {
     ($cm:expr) => {
         crate::leema::module::CanonicalMod(crate::leema::lstr::Lstr::Sref($cm))
     };
@@ -406,7 +400,7 @@ impl CanonicalMod
                 let sib = sib_base.join(sib_path);
                 CanonicalMod(Lstr::from(format!("{}", sib.display())))
             }
-            ModRelativity::Child|ModRelativity::Local => {
+            ModRelativity::Child | ModRelativity::Local => {
                 let ch_path = self.as_path().join(import);
                 CanonicalMod(Lstr::from(format!("{}", ch_path.display())))
             }
@@ -440,9 +434,7 @@ impl CanonicalMod
     {
         cpath
             .strip_prefix("/")
-            .map(|relative_path| {
-                relative_path.with_extension("lma")
-            })
+            .map(|relative_path| relative_path.with_extension("lma"))
             .map_err(|path_err| {
                 rustfail!(
                     "load_fail",
@@ -510,8 +502,7 @@ pub struct TypeMod
 }
 
 #[macro_export]
-macro_rules! canonical_typemod
-{
+macro_rules! canonical_typemod {
     ($tm:expr) => {
         crate::leema::module::TypeMod {
             import: crate::leema::lstr::Lstr::Sref($tm),
@@ -521,8 +512,7 @@ macro_rules! canonical_typemod
 }
 
 #[macro_export]
-macro_rules! user_type
-{
+macro_rules! user_type {
     ($m:expr, $t:expr) => {
         crate::leema::val::Type::User(canonical_typemod!($m), $t)
     };

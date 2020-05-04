@@ -388,9 +388,7 @@ impl ParseStmt
                 p.next()?;
                 AstNode::new(Ast::Wildcard, Ast::loc(&next_tok))
             }
-            Token::Id => {
-                Grammar::parse_id_or_two(p)?
-            }
+            Token::Id => Grammar::parse_id_or_two(p)?,
             _ => {
                 return Err(rustfail!(
                     PARSE_FAIL,
@@ -418,7 +416,7 @@ impl ParseStmt
 
         let tree_tok = p.peek()?;
         let tree = match tree_tok.tok {
-            Token::Id|Token::Slash|Token::Dot|Token::DoubleDot => {
+            Token::Id | Token::Slash | Token::Dot | Token::DoubleDot => {
                 Self::parse_import_line_new(p)?
             }
             Token::Star => {
@@ -441,16 +439,16 @@ impl ParseStmt
     {
         let next = p.peek()?;
         let line = match next.tok {
-            Token::Id => {
-                Self::parse_import_line_cont(p)?
-            }
+            Token::Id => Self::parse_import_line_cont(p)?,
             Token::Slash => {
                 p.next()?; // eat the /
                 let root = Self::parse_import_line_cont(p)?;
                 ModTree::sub(next.src, root)
             }
             Token::Dot => {
-                p.next()?; // eat the dot
+                // eat the dot
+                p.next()?;
+
                 // next thing has to be a token and then we're done
                 let id_tok = expect_next!(p, Token::Id)?;
                 ModTree::FinalId(id_tok.src, Ast::loc(&id_tok))
@@ -495,9 +493,7 @@ impl ParseStmt
                         let block = Self::parse_import_block(p)?;
                         ModTree::sub(next.src, block)
                     }
-                    _ => {
-                        ModTree::FinalMod(next.src, Ast::loc(&next))
-                    }
+                    _ => ModTree::FinalMod(next.src, Ast::loc(&next)),
                 }
             }
             _ => {
@@ -1117,8 +1113,10 @@ impl ParslMode for ExprMode
         })
     }
 
-    fn infix(&self, tok: Token)
-        -> Option<&'static dyn InfixParser<Item = AstNode>>
+    fn infix(
+        &self,
+        tok: Token,
+    ) -> Option<&'static dyn InfixParser<Item = AstNode>>
     {
         Some(match tok {
             // boolean operators
@@ -1653,8 +1651,8 @@ mod tests
 {
     use super::Grammar;
     use crate::leema::ast2::{Ast, DataType, Loc, ModAction, ModTree};
-    use crate::leema::module::ModAlias;
     use crate::leema::lstr::Lstr;
+    use crate::leema::module::ModAlias;
     use crate::leema::token::Tokenz;
     use crate::leema::val::Val;
 
@@ -1897,14 +1895,8 @@ mod tests
             *ast[1].node,
             Ast::ModAction(ModAction::Export, ModTree::FinalMod("child1", _))
         );
-        assert_matches!(
-            *ast[2].node,
-            Ast::ModAction(ModAction::Export, _)
-        );
-        assert_matches!(
-            *ast[3].node,
-            Ast::ModAction(ModAction::Export, _)
-        );
+        assert_matches!(*ast[2].node, Ast::ModAction(ModAction::Export, _));
+        assert_matches!(*ast[3].node, Ast::ModAction(ModAction::Export, _));
     }
 
     #[test]
@@ -2248,24 +2240,36 @@ mod tests
         assert_eq!(3, ast.len());
 
         // /core
-        assert_matches!(*ast[0].node, Ast::ModAction(ModAction::Import, ModTree::Sub("/", _)));
+        assert_matches!(
+            *ast[0].node,
+            Ast::ModAction(ModAction::Import, ModTree::Sub("/", _))
+        );
         if let Ast::ModAction(_, ModTree::Sub("/", core)) = &*ast[0].node {
             assert_matches!(**core, ModTree::Sub("core", _));
             if let ModTree::Sub("core", core_block) = &**core {
                 assert_matches!(**core_block, ModTree::Block(_));
                 if let ModTree::Block(core_items) = &**core_block {
-                    assert_matches!((**core_items)[0], ModTree::FinalMod("io", _));
+                    assert_matches!(
+                        (**core_items)[0],
+                        ModTree::FinalMod("io", _)
+                    );
                     assert_matches!((**core_items)[1], ModTree::Sub("net", _));
                 }
             }
         }
 
         // tacos
-        assert_matches!(*ast[1].node, Ast::ModAction(ModAction::Import, ModTree::Sub("tacos", _)));
+        assert_matches!(
+            *ast[1].node,
+            Ast::ModAction(ModAction::Import, ModTree::Sub("tacos", _))
+        );
         if let Ast::ModAction(_, ModTree::Sub("tacos", tacos)) = &*ast[1].node {
             assert_matches!(**tacos, ModTree::Block(_));
             if let ModTree::Block(taco_items) = &**tacos {
-                assert_matches!((**taco_items)[0], ModTree::FinalMod("burritos", _));
+                assert_matches!(
+                    (**taco_items)[0],
+                    ModTree::FinalMod("burritos", _)
+                );
                 assert_matches!((**taco_items)[1], ModTree::Sub("tortas", _));
                 if let ModTree::Sub("tortas", ref torta) = (**taco_items)[1] {
                     assert_matches!(**torta, ModTree::FinalId("quesadilla", _));
@@ -2274,15 +2278,24 @@ mod tests
         }
 
         // ../myapp
-        assert_matches!(*ast[2].node, Ast::ModAction(ModAction::Import, ModTree::Sub("..", _)));
+        assert_matches!(
+            *ast[2].node,
+            Ast::ModAction(ModAction::Import, ModTree::Sub("..", _))
+        );
         if let Ast::ModAction(_, ModTree::Sub("..", sibling)) = &*ast[2].node {
             assert_matches!(**sibling, ModTree::Sub("myapp", _));
             if let ModTree::Sub("myapp", sub_block) = &**sibling {
                 assert_matches!(**sub_block, ModTree::Block(_));
                 if let ModTree::Block(sub_items) = &**sub_block {
                     let mut sub_it = sub_items.iter();
-                    assert_matches!(sub_it.next().unwrap(), ModTree::Sub("app", _));
-                    assert_matches!(sub_it.next().unwrap(), ModTree::FinalId("blah", _));
+                    assert_matches!(
+                        sub_it.next().unwrap(),
+                        ModTree::Sub("app", _)
+                    );
+                    assert_matches!(
+                        sub_it.next().unwrap(),
+                        ModTree::FinalId("blah", _)
+                    );
                 }
             }
         }
@@ -2314,11 +2327,17 @@ mod tests
         assert_eq!("/core/net/http", format!("{}", flats["http"].0));
 
         assert_eq!("tacos/burritos", format!("{}", flats["burritos"].0));
-        assert_eq!("tacos/tortas.quesadilla", format!("{}", flats["quesadilla"].0));
+        assert_eq!(
+            "tacos/tortas.quesadilla",
+            format!("{}", flats["quesadilla"].0)
+        );
 
         assert_eq!("../myapp/app/model", format!("{}", flats["model"].0));
         assert_eq!("../myapp/app/view", format!("{}", flats["view"].0));
-        assert_eq!("../myapp/app/controller", format!("{}", flats["controller"].0));
+        assert_eq!(
+            "../myapp/app/controller",
+            format!("{}", flats["controller"].0)
+        );
         assert_eq!("../myapp.blah", format!("{}", flats["blah"].0));
 
         assert_eq!(8, flats.len());

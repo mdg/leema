@@ -489,5 +489,4 @@ mod tests
         });
         assert_eq!(Val::Int(9), actual);
     }
-
 }

@@ -279,9 +279,7 @@ impl sendclone::SendClone for Type
                 let opens2 = opens.clone_for_send();
                 Type::Generic(open, subt2, opens2)
             }
-            &Type::User(ref module, typ) => {
-                Type::User(module.clone(), typ)
-            }
+            &Type::User(ref module, typ) => Type::User(module.clone(), typ),
             &Type::Void => Type::Void,
             _ => {
                 panic!("cannot clone_for_send Type: {:?}", self);
@@ -956,10 +954,7 @@ impl sendclone::SendClone for Val
             &Val::Bool(b) => Val::Bool(b),
             &Val::Hashtag(ref s) => Val::Hashtag(s.clone_for_send()),
             &Val::Cons(ref head, ref tail) => {
-                Val::Cons(
-                    Box::new(head.clone_for_send()),
-                    tail.clone(),
-                )
+                Val::Cons(Box::new(head.clone_for_send()), tail.clone())
             }
             &Val::Nil => Val::Nil,
             &Val::Tuple(ref flds) => Val::Tuple(flds.clone_for_send()),
@@ -1769,5 +1764,4 @@ mod tests
         let pmatch = Val::pattern_match(&patt, &input);
         assert!(pmatch.is_some());
     }
-
 }

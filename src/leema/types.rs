@@ -182,5 +182,4 @@ mod tests
         assert_eq!(0, filling.0);
         assert_eq!(1, has_rice.0);
     }
-
 }
