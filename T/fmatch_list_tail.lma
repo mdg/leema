@@ -1,4 +1,4 @@
-import /io/print
+import /io.print
 
 func inspect_list l:[Int]
 |0;_ >>

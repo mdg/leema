@@ -1,5 +1,5 @@
 
-import /io/print
+import /io.print
 import /list
 import /math
 

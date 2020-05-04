@@ -1,5 +1,5 @@
 
-import /io/print
+import /io.print
 
 func is_empty l:[Int]
 |[] >> True

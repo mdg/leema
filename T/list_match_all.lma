@@ -1,4 +1,4 @@
-import /io/print
+import /io.print
 
 func main >>
     let l := [3, 2, 8]
