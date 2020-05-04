@@ -1610,9 +1610,9 @@ mod tests
         "#.to_string();
 
         let mut prog = core_program(&[
-            ("foo", input),
+            ("/foo", input),
         ]);
-        let fref = Fref::with_modules(From::from("foo"), "main");
+        let fref = Fref::with_modules(From::from("/foo"), "main");
         let body = prog.read_semantics(&fref).unwrap();
         assert_matches!(*body.src.node, Ast::Block(_));
     }
@@ -1728,8 +1728,8 @@ mod tests
         --
         "#.to_string();
 
-        let mut prog = core_program(&[("foo", input)]);
-        let fref = Fref::from(("foo", "main"));
+        let mut prog = core_program(&[("/foo", input)]);
+        let fref = Fref::from(("/foo", "main"));
         prog.read_semantics(&fref).unwrap();
     }
 
@@ -1747,8 +1747,8 @@ mod tests
         --
         "#.to_string();
 
-        let mut prog = core_program(&[("foo", input)]);
-        let fref = Fref::from(("foo", "main"));
+        let mut prog = core_program(&[("/foo", input)]);
+        let fref = Fref::from(("/foo", "main"));
         let f = prog.read_semantics(&fref).unwrap_err();
         assert_eq!("type_failure", f.tag.str());
         assert_eq!("wrong number of args, expected 1, found 2", f.msg.str());
@@ -1770,8 +1770,8 @@ mod tests
         "#
         .to_string();
 
-        let mut prog = core_program(&[("foo", input)]);
-        let fref = Fref::from(("foo", "main"));
+        let mut prog = core_program(&[("/foo", input)]);
+        let fref = Fref::from(("/foo", "main"));
         prog.read_semantics(&fref).unwrap();
     }
 
@@ -1791,8 +1791,8 @@ mod tests
         --
         "#.to_string();
 
-        let mut prog = core_program(&[("foo", input)]);
-        let fref = Fref::from(("foo", "main"));
+        let mut prog = core_program(&[("/foo", input)]);
+        let fref = Fref::from(("/foo", "main"));
         prog.read_semantics(&fref).unwrap();
     }
 
@@ -1847,30 +1847,30 @@ mod tests
     #[test]
     fn test_semantics_three_level_call()
     {
-        let foo_src = r#"struct Taco --"#.to_string();
+        let foo_src = r#"datatype Taco --"#.to_string();
 
         let bar_src = r#"
-        export /foo/Taco
+        export foo.Taco
 
-        func bar t: foo::Taco /Int >> 3 --
+        func bar t: Taco /Int >> 3 --
         "#.to_string();
 
         let baz_src = r#"
-        import /foo
         import /bar
+        import /bar/foo.Taco
 
         func main >>
-            bar::bar(foo::Taco) + 6
+            bar::bar(Taco) + 6
         --
         "#.to_string();
 
         let mut prog = core_program(&[
-            ("foo", foo_src),
-            ("bar", bar_src),
-            ("baz", baz_src),
+            ("/bar/foo", foo_src),
+            ("/bar", bar_src),
+            ("/baz", baz_src),
         ]);
 
-        let fref = Fref::from(("baz", "main"));
+        let fref = Fref::from(("/baz", "main"));
         prog.read_semantics(&fref).unwrap();
     }
 
@@ -1923,8 +1923,8 @@ mod tests
         --
         "#.to_string();
 
-        let mut prog = core_program(&[("baz", baz_input)]);
-        let fref = Fref::from(("baz", "main"));
+        let mut prog = core_program(&[("/baz", baz_input)]);
+        let fref = Fref::from(("/baz", "main"));
         let f = prog.read_semantics(&fref).unwrap_err();
         assert_eq!("semantic_failure", f.tag.str());
     }
@@ -2024,8 +2024,8 @@ mod tests
         func inc i:Int /Inth >> i + 1 --
         "#.to_string();
 
-        let mut prog = core_program(&[("foo", input)]);
-        let fref = Fref::from(("foo", "inc"));
+        let mut prog = core_program(&[("/foo", input)]);
+        let fref = Fref::from(("/foo", "inc"));
         let err = prog.read_semantics(&fref);
         assert_matches!(err, Err(_));
         err.unwrap();

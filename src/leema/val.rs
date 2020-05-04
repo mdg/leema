@@ -142,7 +142,7 @@ impl Type
     pub const INT: Type = Type::User(CORE_MOD, "Int");
     pub const STR: Type = Type::User(CORE_MOD, "Str");
     pub const BOOL: Type = Type::User(CORE_MOD, "Bool");
-    pub const HASHTAG: Type = Type::User(CORE_MOD, "Hashtag");
+    pub const HASHTAG: Type = Type::User(CORE_MOD, "#");
     pub const FAILURE: Type = Type::User(CORE_MOD, "Failure");
 
     pub fn f(inputs: Struple2<Type>, result: Type) -> Type
