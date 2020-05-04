@@ -150,7 +150,7 @@ impl ProtoModule
                 ));
             }
 
-            proto.add_imported_mod(k, v)?;
+            proto.add_import(k, v)?;
         }
 
         for (k, (v, loc)) in exports.into_iter() {
@@ -165,7 +165,7 @@ impl ProtoModule
                 ));
             }
 
-            proto.add_imported_mod(k, v.clone())?;
+            proto.add_import(k, v.clone())?;
             proto.exports.insert(ModAlias::new(k), v);
         }
 
@@ -175,7 +175,7 @@ impl ProtoModule
         Ok(proto)
     }
 
-    pub fn add_imported_mod(&mut self, name: &'static str, imp: ImportedMod) -> Lresult<()>
+    fn add_import(&mut self, name: &'static str, imp: ImportedMod) -> Lresult<()>
     {
         let (base_module, had_extension) = imp.trim_extension();
         let canonical = self.key.name.push(base_module);
