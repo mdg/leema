@@ -321,43 +321,35 @@ impl<'l> SemanticOp for MacroApplication<'l>
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2("-", a, b) => {
-                let call =
-                    Self::op_to_call("core", "int_sub", a, b, node.loc);
+                let call = Self::op_to_call1("int_sub", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2("*", a, b) => {
-                let call =
-                    Self::op_to_call("core", "int_mult", a, b, node.loc);
+                let call = Self::op_to_call1("int_mult", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2("/", a, b) => {
-                let call =
-                    Self::op_to_call("core", "int_div", a, b, node.loc);
+                let call = Self::op_to_call1("int_div", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2("mod", a, b) => {
-                let call =
-                    Self::op_to_call("core", "int_mod", a, b, node.loc);
+                let call = Self::op_to_call1("int_mod", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2("and", a, b) => {
-                let call =
-                    Self::op_to_call1("boolean_and", a, b, node.loc);
+                let call = Self::op_to_call1("boolean_and", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2("or", a, b) => {
-                let call =
-                    Self::op_to_call1("boolean_or", a, b, node.loc);
+                let call = Self::op_to_call1("boolean_or", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2("==", a, b) => {
-                let call =
-                    Self::op_to_call1("int_equal", a, b, node.loc);
+                let call = Self::op_to_call1("int_equal", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2("<", a, b) => {
-                let call =
-                    Self::op_to_call1("int_less_than", a, b, node.loc);
+                let call = Self::op_to_call1("int_less_than", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
             Ast::Op2(";", a, b) => {
@@ -374,10 +366,7 @@ impl<'l> SemanticOp for MacroApplication<'l>
                 }
             }
             Ast::Op1("-", x) => {
-                let callx = AstNode::new(
-                    Ast::Id2(ModAlias::new("prefab"), "int_negate"),
-                    node.loc,
-                );
+                let callx = AstNode::new(Ast::Id1("int_negate"), node.loc);
                 let arg = vec![StrupleItem::new_v(x)];
                 let call = AstNode::new(Ast::Call(callx, arg), node.loc);
                 Ok(SemanticAction::Rewrite(call))
@@ -1653,9 +1642,9 @@ mod tests
         "#.to_string();
 
         let mut prog = core_program(&[
-            ("foo", input),
+            ("/foo", input),
         ]);
-        let fref = Fref::with_modules(From::from("foo"), "main");
+        let fref = Fref::with_modules(From::from("/foo"), "main");
         prog.read_semantics(&fref).unwrap();
     }
 

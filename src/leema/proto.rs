@@ -21,6 +21,8 @@ lazy_static! {
         let core_mod = canonical_mod!("/core");
         let mut ids = HashMap::new();
         ids.insert("Bool", core_mod.clone());
+        ids.insert("boolean_and", core_mod.clone());
+        ids.insert("boolean_or", core_mod.clone());
         ids.insert("cons", core_mod.clone());
         ids.insert("create_failure", core_mod.clone());
         ids.insert("fail", core_mod.clone());
