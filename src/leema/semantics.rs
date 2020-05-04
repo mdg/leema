@@ -2028,7 +2028,7 @@ mod tests
         let fref = Fref::from(("/foo", "inc"));
         let err = prog.read_semantics(&fref);
         assert_matches!(err, Err(_));
-        err.unwrap();
+        err.unwrap_err();
     }
 
     /*

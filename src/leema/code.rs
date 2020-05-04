@@ -828,7 +828,7 @@ mod tests
     fn test_code_lists()
     {
         let input = r#"
-        import io/print
+        import /io.print
 
         func is_empty l:[Int]
         |[] >> True
@@ -843,9 +843,9 @@ mod tests
         "#
         .to_string();
 
-        let mut prog = core_program(&[("foo", input)]);
-        let main_ref = Fref::from(("foo", "main"));
-        let is_empty_ref = Fref::from(("foo", "is_empty"));
+        let mut prog = core_program(&[("/foo", input)]);
+        let main_ref = Fref::from(("/foo", "main"));
+        let is_empty_ref = Fref::from(("/foo", "is_empty"));
         // make sure it didn't panic or fail
         prog.read_code(&main_ref).unwrap();
         prog.read_code(&is_empty_ref).unwrap();

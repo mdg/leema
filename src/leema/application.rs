@@ -296,7 +296,7 @@ mod tests
         let input = "func main >> 3 --".to_string();
         let path = vec![PathBuf::from("lib")];
         let mut inter = Interloader::new("test.lma", path);
-        let test_key = ModKey::from("test");
+        let test_key = ModKey::from("/test");
         inter.set_mod_txt(test_key.clone(), input);
         let prog = program::Lib::new(inter);
 
