@@ -18,7 +18,7 @@ use std::sync::{Arc, Mutex};
 use mopa::mopafy;
 
 
-const CORE_MOD: TypeMod = canonical_typemod!("core");
+const CORE_MOD: TypeMod = canonical_typemod!("/core");
 
 #[derive(Debug)]
 #[derive(Clone)]
@@ -212,8 +212,8 @@ impl Type
     pub fn is_failure(&self) -> bool
     {
         match self {
-            &Type::User(ref core, "Failure") => {
-                core.canonical.starts_with("core")
+            &Type::User(ref module, "Failure") => {
+                module.canonical.str() == "/core"
             }
             _ => false,
         }

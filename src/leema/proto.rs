@@ -598,7 +598,13 @@ impl ProtoModule
             // Ast::Id1("Str") => Type::STR,
             // Ast::Id1("#") => Type::HASHTAG,
             Ast::Id1(id) if struple::contains_key(opens, id) => Type::OpenVar(id),
-            Ast::Id1(id) => Type::User(canonical_typemod!(&Lstr::EMPTY), id),
+            Ast::Id1(id) => {
+                let canonical_mod = match self.canonical_mod_for_id(id) {
+                    Some(module) => module,
+                    None => &self.key.name,
+                };
+                Type::User(TypeMod::from(canonical_mod), id)
+            }
             Ast::Id2(alias, id) => {
                 Type::User(canonical_typemod!(alias.str()), id)
             }
@@ -756,7 +762,7 @@ impl ProtoLib
                 mod_path,
             ));
         }
-        for p in ImportedMod::ancestors(mod_path) {
+        for p in CanonicalMod::ancestors(mod_path) {
             ltry!(self.load_canonical(loader, p));
         }
         Ok(())
