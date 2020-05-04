@@ -259,6 +259,22 @@ impl ImportedMod
         self.0.extension().is_some()
     }
 
+    // trim the extension if there is one
+    pub fn trim_extension(&self) -> (&Path, bool)
+    {
+        // is there a way to only do this for the final path
+        // since it's the only one that will ever have an extension?
+        let xlen = match self.0.extension() {
+            Some(x) => x.len() + 1,
+            None => {
+                return (&self.0, false);
+            }
+        };
+        let pstr = self.0.as_os_str().to_str().unwrap();
+        let (base, _) = pstr.split_at(pstr.len() - xlen);
+        (Path::new(base), true)
+    }
+
     pub fn is_empty(path: &Path) -> bool
     {
         path.as_os_str().is_empty()
@@ -378,20 +394,20 @@ impl CanonicalMod
         self.as_path()
     }
 
-    pub fn push(&self, imp: ImportedMod) -> CanonicalMod
+    pub fn push(&self, import: &Path) -> CanonicalMod
     {
-        match imp.relativity() {
+        match ImportedMod::path_relativity(import) {
             ModRelativity::Absolute => {
-                CanonicalMod(Lstr::from(format!("{}", imp)))
+                CanonicalMod(Lstr::from(format!("{}", import.display())))
             }
             ModRelativity::Sibling => {
                 let sib_base = self.as_path().parent().unwrap();
-                let sib_path = imp.0.strip_prefix("../").unwrap();
+                let sib_path = import.strip_prefix("../").unwrap();
                 let sib = sib_base.join(sib_path);
                 CanonicalMod(Lstr::from(format!("{}", sib.display())))
             }
             ModRelativity::Child|ModRelativity::Local => {
-                let ch_path = self.as_path().join(imp.0);
+                let ch_path = self.as_path().join(import);
                 CanonicalMod(Lstr::from(format!("{}", ch_path.display())))
             }
         }
@@ -595,8 +611,7 @@ mod tests
     fn test_canonical_push_sibling()
     {
         let cm = CanonicalMod(Lstr::from("/foo/bar"));
-        let im = ImportedMod::from("../taco");
-        let result = cm.push(im);
+        let result = cm.push(Path::new("../taco"));
         assert_eq!("/foo/taco", result.0.str());
     }
 

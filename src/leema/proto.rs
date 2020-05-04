@@ -177,9 +177,9 @@ impl ProtoModule
 
     pub fn add_imported_mod(&mut self, name: &'static str, imp: ImportedMod) -> Lresult<()>
     {
-        let hasx = imp.has_extension();
-        let canonical = self.key.name.push(imp);
-        if hasx {
+        let (base_module, had_extension) = imp.trim_extension();
+        let canonical = self.key.name.push(base_module);
+        if had_extension {
             self.id_canonicals.insert(name, canonical);
         } else {
             self.imports.insert(name, canonical);
