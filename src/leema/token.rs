@@ -1335,15 +1335,19 @@ impl Tokenz
         self.begin = None;
         self.len = 0;
 
+        let orig_tok = tok;
         let src = &self.src[begin.index..(begin.index + len)];
-        let keyword = KEYWORDS.get(src);
-        if keyword.is_some() {
-            tok = *keyword.unwrap();
+        if tok == Token::Id {
+            let keyword = KEYWORDS.get(src);
+            if keyword.is_some() {
+                tok = *keyword.unwrap();
+            }
         }
         if tok == Token::Invalid {
             return Err(rustfail!(
                 "token_failure",
-                "invalid token {:?} at {},{}",
+                "invalid {:?} token {:?} at {},{}",
+                orig_tok,
                 src,
                 begin.lineno,
                 begin.column,
