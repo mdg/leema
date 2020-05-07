@@ -29,8 +29,8 @@ enum Lprec
     Call,
     Generic,
     Dot,
-    DoubleColon,
     Postfix,
+    DoubleColon,
 }
 
 const COMMA_PRECEDENCE: Precedence =
@@ -262,7 +262,7 @@ impl ParseStmt
             _ => {
                 return Err(rustfail!(
                     "parse_failure",
-                    "expected >> or | found {:?}",
+                    "expected >> or | found {}",
                     body_start,
                 ));
             }

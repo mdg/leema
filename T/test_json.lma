@@ -1,12 +1,13 @@
 
-import json
-import map
-import option
+import /json
+import /map
+import /option
+import /io.print
 
 
-struct User
-.id: Int
-.name: Str
+datatype User
+    id:Int
+    name:Str
 --
 
 #>>
@@ -47,7 +48,8 @@ func json_encode[T](input: T): Str
     s.to_string()
 #--
 
-func user_from_json(juser: json::Val)
+func user_from_json
+    juser: json::Val
 >>
     let fields := json::object_fields(juser)
     let id := json::int_val(option::unwrap(map::get(fields, "id")))
@@ -55,32 +57,32 @@ func user_from_json(juser: json::Val)
     User(id, name)
 --
 
-func test_decode() >>
+func test_decode >>
     let s := json::decode[Str]("\"coded  '\"")
     let i := json::decode[Int]("9")
     let b := json::decode[Bool]("true")
     println("$s $i or $b")
 --
 
-func test_decode_val() >>
+func test_decode_val >>
     let ju := json::decode_val("{\"id\": 8, \"name\": \"Gerald\"}")
     let u := user_from_json(ju)
     println("$u")
 --
 
-func test_encode() >>
+func test_encode >>
     println(json::encode(6))
-    println(json::encode(false))
+    println(json::encode(False))
     print(json::encode("hello") \n)
     print(json::encode(#world) \n)
     print(json::encode(["a", "b"]) \n)
-    let m := map::set({}, "x", 4)
-    print(json::encode(m) \n)
+    ## let m := map::set({}, "x", 4)
+    ## print(json::encode(m) \n)
     let u := User(4, "Javier")
     println(json::encode(u))
 --
 
-func main() >>
+func main >>
     test_encode()
     test_decode()
     test_decode_val()

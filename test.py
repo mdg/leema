@@ -280,10 +280,9 @@ class TestScripts(unittest.TestCase):
         )
 
     def test_empty_struct(self):
-        self.skipTest("not ready for testing")
         result = run_leema('empty_struct')
         self.assertEqual(0, result['code'])
-        expected = b"empty: empty_struct::Empty\n"
+        expected = b"empty: /empty_struct::Empty\n"
         self.assertEqual(expected, result['output'])
 
     def test_named_tuple(self):

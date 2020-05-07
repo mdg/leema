@@ -1,22 +1,22 @@
 
-import list
-import map
-import option
+import /list
+import /map
+import /option
 
 
-func encode[T](val: T): Str -RUST-
-func decode[T](input: Str): T -RUST-
+func encode[T] val:T /Str >> __RUST__ --
+func decode[T] input:Str /T >> __RUST__ --
 
-enum Val
-|Integer(Int)
-|String(Str)
-|Boolean(Bool)
-|Array([json::Val])
-|Object(map::T[Str, json::Val])
+datatype Val
+|Integer Int
+|String Str
+|Boolean Bool
+|Array [Val]
+|Object map::T[Str json::Val]
 |Null
 --
 
-func decode_val(input: Str): json::Val -RUST-
+func decode_val input:Str /Val __RUST__
 
 func object_fields(v: Val): map::T[Str, Val]
 >>

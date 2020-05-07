@@ -1,11 +1,11 @@
 
-enum PrimaryColor
+datatype PrimaryColor
 |Red
 |Blue
 |Yellow
 --
 
-func main() ->
+func main >>
     let r := Red
     let b := Blue
     let y := Yellow

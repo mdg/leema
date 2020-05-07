@@ -1,6 +1,6 @@
 import /io
 
-struct Greeting :Str :Str --
+datatype Greeting :Str :Str --
 
 func main >>
     let g := Greeting("hello", "world")
