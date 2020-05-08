@@ -1965,7 +1965,7 @@ mod tests
     #[test]
     fn test_tokenz_strings()
     {
-        let input = r#""tacos" "" "flautas $tortas burritos" \n"#;
+        let input = r#""tacos" "" "flautas $tortas burritos" "true" \n"#;
 
         let t: Vec<TokenResult> = Tokenz::lex(input).collect();
         let mut i = t.iter();
@@ -1982,6 +1982,10 @@ mod tests
         assert_eq!((Token::StrLit, "flautas "), nextok(&mut i));
         assert_eq!((Token::DollarId, "$tortas"), nextok(&mut i));
         assert_eq!((Token::StrLit, " burritos"), nextok(&mut i));
+        assert_eq!(Token::DoubleQuoteR, nextok(&mut i).0);
+        i.next();
+        assert_eq!(Token::DoubleQuoteL, nextok(&mut i).0);
+        assert_eq!((Token::StrLit, "true"), nextok(&mut i));
         assert_eq!(Token::DoubleQuoteR, nextok(&mut i).0);
 
         i.next();
