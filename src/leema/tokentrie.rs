@@ -39,32 +39,43 @@
 ///   CharIter
 ///
 /// TrieState
-///   keyword match
-///   function match
-///   emit, push/pop/replace
+///   exact/function/nomatch
+///   emit/begin/continue
+///   push/pop/replace
+
+/// NewlineTrie
+///   .exact_open("\t", Tabs)
+///   .exact_open(" ", Spaces)
+///   .exact_emit("\n", EmptyLine)
+///   .nomatch_emit(anything_else, Indent, InlineTrie)
 ///
 /// InlineTrie
-///   .new_exact("(", ParenL, Push(InlineTrie))
-///   .new_exact(")", ParenR, Pop)
-///   .new_func(is_alpha, IdState)
-///   .new_func(is_numeric, IntState)
+///   .exact_push("(", ParenL, InlineTrie)
+///   .exact_pop(")", ParenR, Pop)
+///   .exact_emit("-", Dash)
+///   .exact_emit("--", DoubleDash)
+///   .exact_close("\n", EOL)
+///   .exact_close("\t", Invalid)
+///   .func_open(is_alpha, IdState)
+///   .func_open(is_numeric, IntState)
+///   .func_open(is_space, Whitespace)
 ///
 /// IdState
 ///   .continue_func(is_alphanum)
-///   .emit(Id)
+///   .nomatch_emit(Id)
 ///
 /// IntState
 ///   .continue_exact(".", Replace(FloatFirst))
 ///   .continue_func(is_numeric)
-///   .emit(Int)
+///   .nomatch_emit(Int)
 ///
 /// FloatFirst
 ///   .continue_func(is_numeric, Push(FloatMore))
-///   .emit(Invalid)
+///   .nomatch_emit(Invalid)
 /// FloatMore
 ///   .continue_func(is_numeric)
 ///   .emit(Float)
-///
+
 /// 1. keyword?
 /// 2. id?
 /// 3. float
@@ -72,13 +83,68 @@
 /// 5. string
 ///
 
-trait TokenIter
+struct TokenIter
 {
+    chars: CharIter,
+    text: &'static str,
+    start: Char,
 }
 
-enum LexAction
+struct TrieIter
 {
-    CompleteToken(Token),
+    parent: &TrieIter,
+    ts: &TrieState,
+    chars: TokenIter,
+}
+
+impl TrieIter
+{
+    pub fn step(&mut self)
+    {
+        let c = self.chars.peek();
+        let mut new_start = false;
+        let result = self.ts.check(c);
+        if result.is_match() {
+            self.chars.next();
+        } else if let Some(tok) = result.emission() {
+            token = self.chars.token(tok);
+            new_start = true;
+        }
+        match result.staction() {
+            Push(newstate) => {
+                TrieIter{
+                    parent: self,
+                    ts: newstate,
+                    chars: if new_start {
+                        self.chars.new_start()
+                    } else {
+                        self.chars.clone()
+                    }
+                }
+            }
+            Replace(newstate) => {
+                TrieIter{
+                    parent: self.parent,
+                    ts: newstate,
+                    chars: self.chars.clone(),
+                }
+            }
+            Pop => self.parent,
+        }
+    }
+}
+
+struct TrieState
+{
+    trie: Trie<Char, LexAction>,
+    fmatch: Vec<MatchF>,
+    nomatch: LexAction,
+}
+
+enum TokenAction
+{
+    Emit(Token),
+    Emit(Token),
     Continue,
     PartialToken(Token),
     Invalid,
