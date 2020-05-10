@@ -15,21 +15,21 @@ func = { "func" }
 
 rust_block = { "-RUST-" }
 
-ident = @{ LETTER ~ ( LETTER | NUMBER )+ }
+id = @{ LETTER ~ ( LETTER | NUMBER )+ }
 
-ident_list = { !digit ~ ident ~ (" " ~ ident)+ }
+ident_list = { !digit ~ id ~ (" " ~ id)+ }
 
-id_colon_typex = { ident ~ ":" ~ typex }
+id_colon_typex = { id ~ ":" ~ typex }
 
-module_typex = { ident ~ "." ~ typex }
+module_typex = { id ~ "." ~ typex }
 
-typex = { module_typex | ident }
+typex = { module_typex | id }
 
 expr = { number }
 
 colon_typex = { ":" ~ typex }
 
-def_func_id = { ident ~ colon_typex }
+def_func_id = { id ~ colon_typex }
 
 def_func_args = { "::" ~ id_colon_typex+ }
 
@@ -37,7 +37,7 @@ def_func_block = { arrow_block | rust_block }
 
 def_func_type = { colon_typex? ~ def_func_args? }
 
-def_func = { func ~ ident ~ def_func_type ~ def_func_block }
+def_func = { func ~ id ~ def_func_type ~ def_func_block }
 
 return_stmt = { "return" ~ expr }
 
