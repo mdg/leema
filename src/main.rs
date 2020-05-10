@@ -4,6 +4,9 @@
 #[macro_use]
 mod leema;
 
+#[macro_use]
+extern crate pest_derive;
+
 use crate::leema::application::Application;
 use crate::leema::failure::Lresult;
 use crate::leema::grammar2::Grammar;
@@ -17,7 +20,6 @@ use crate::leema::val::{Fref, FuncType, Type, Val};
 
 use docopt::Docopt;
 use std::env;
-
 
 #[derive(Debug)]
 #[derive(RustcDecodable)]

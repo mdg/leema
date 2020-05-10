@@ -1,0 +1,19 @@
+
+alpha = { 'a'..'z' | 'A'..'Z' }
+digit = { '0'..'9' }
+
+float = @{ digit+ ~ "." ~ digit+ }
+int = @{ digit+ }
+number = { float | int }
+
+WHITESPACE = _{ " " }
+
+func = { "func" }
+
+rust_block = { "-RUST-" }
+
+ident = @{ (alpha | digit)+ }
+
+ident_list = { !digit ~ ident ~ (" " ~ ident)+ }
+
+def_func = { func ~ ident ~ rust_block }

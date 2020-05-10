@@ -21,6 +21,7 @@ pub mod list;
 pub mod lmap;
 pub mod loader;
 pub mod msg;
+pub mod parser;
 pub mod program;
 pub mod proto;
 pub mod reg;
