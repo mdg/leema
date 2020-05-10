@@ -7,8 +7,24 @@ block_arrow = { "->" | ">>" }
 float = @{ digit+ ~ "." ~ digit+ }
 int = @{ digit+ }
 number = { float | int }
+valid_bool = { "True" | "False" }
+invalid_bool = { "true" | "false" }
 
+kw_let = { "let" }
+assign = { ":=" }
 dot = { "." }
+
+prefix_op = { "not" }
+
+// postfix_op = {  }
+
+dash = { "-" }
+plus = { "+" }
+slash = { "/" }
+star = { "*" }
+modulo = { "mod" }
+infix_op = { plus | dash | star | slash | modulo | dot }
+
 WHITESPACE = _{ " " }
 
 func = { "func" }
@@ -17,15 +33,36 @@ rust_block = { "-RUST-" }
 
 id = @{ LETTER ~ ( LETTER | NUMBER )+ }
 
-ident_list = { !digit ~ id ~ (" " ~ id)+ }
+dollar_id = { "$" ~ id }
+
+hashtag = { "#" ~ id }
+
+id_or_2 = { (id ~ "." ~ id) | id }
+
+id_generic = { id_or_2 ~ ("'" ~ type_term)* }
 
 id_colon_typex = { id ~ ":" ~ typex }
 
-module_typex = { id ~ "." ~ typex }
+type_term = { id_generic | "(" ~ typex ~ ")" | "#" }
 
-typex = { module_typex | id }
+typex = { type_term | ("[" ~ typex ~ "]") }
 
-expr = { number }
+term = { id_generic | number }
+
+id_colon_expr = { id ~ ":" ~ expr }
+
+expr_struple_items = { (id_colon_expr ~ ","?)* }
+
+expr_call = @{ term ~ "(" ~ expr_struple_items ~ ")" }
+
+infix_expr = { term ~ (infix_op ~ expr)+ }
+
+expr =
+{ term
+| expr_call
+| infix_expr
+| (prefix_op ~ expr)
+}
 
 colon_typex = { ":" ~ typex }
 
