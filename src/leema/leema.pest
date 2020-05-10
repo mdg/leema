@@ -2,18 +2,52 @@
 alpha = { 'a'..'z' | 'A'..'Z' }
 digit = { '0'..'9' }
 
+block_arrow = { "->" | ">>" }
+
 float = @{ digit+ ~ "." ~ digit+ }
 int = @{ digit+ }
 number = { float | int }
 
+dot = { "." }
 WHITESPACE = _{ " " }
 
 func = { "func" }
 
 rust_block = { "-RUST-" }
 
-ident = @{ (alpha | digit)+ }
+ident = @{ LETTER ~ ( LETTER | NUMBER )+ }
 
 ident_list = { !digit ~ ident ~ (" " ~ ident)+ }
 
-def_func = { func ~ ident ~ rust_block }
+id_colon_typex = { ident ~ ":" ~ typex }
+
+module_typex = { ident ~ "." ~ typex }
+
+typex = { module_typex | ident }
+
+expr = { number }
+
+colon_typex = { ":" ~ typex }
+
+def_func_id = { ident ~ colon_typex }
+
+def_func_args = { "::" ~ id_colon_typex+ }
+
+def_func_block = { arrow_block | rust_block }
+
+def_func_type = { colon_typex? ~ def_func_args? }
+
+def_func = { func ~ ident ~ def_func_type ~ def_func_block }
+
+return_stmt = { "return" ~ expr }
+
+stmt = { def_func | return_stmt | expr }
+
+indent = { " "+ }
+
+indented_stmt = { indent ~ stmt }
+
+stmt_list = { indented_stmt+ }
+
+arrow_block_start = { block_arrow ~ stmt_list }
+arrow_block = { arrow_block_start ~ "--" }
