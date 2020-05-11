@@ -31,7 +31,6 @@ struct Args
     flag_func: Option<String>,
     flag_tokens: bool,
     flag_ast: bool,
-    flag_astmod: bool,
     flag_preface: bool,
     flag_proto: bool,
     flag_semantics: bool,
@@ -52,7 +51,6 @@ Options:
      --typecheck   Typecheck the script
      --tokens      Show the tokens in this module for debugging
      --ast         Show the ast for the module
-     --astmod      Show the ast for the module
      --preface     Show the preface for the module
      --proto       Show the proto mod for the module
      --semantics   Semantically analyze the module
