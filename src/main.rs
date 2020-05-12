@@ -13,6 +13,7 @@ use crate::leema::grammar2::Grammar;
 use crate::leema::list;
 use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
+use crate::leema::parser;
 use crate::leema::program;
 use crate::leema::struple::StrupleItem;
 use crate::leema::token::{TokenResult, Tokenz};
@@ -30,6 +31,7 @@ struct Args
     flag_verbose: bool,
     flag_func: Option<String>,
     flag_tokens: bool,
+    flag_pairs: bool,
     flag_ast: bool,
     flag_preface: bool,
     flag_proto: bool,
@@ -50,6 +52,7 @@ Usage:
 Options:
      --typecheck   Typecheck the script
      --tokens      Show the tokens in this module for debugging
+     --pairs       Show the parsed pairs for the module
      --ast         Show the ast for the module
      --preface     Show the preface for the module
      --proto       Show the proto mod for the module
@@ -131,6 +134,11 @@ fn real_main() -> Lresult<()>
         for t in tokr {
             println!("\t{:?}", t?);
         }
+        None
+    } else if args.flag_pairs {
+        let modtxt = inter.read_mod(&main_key)?;
+        let pairs = parser::parse(modtxt);
+        println!("{:#?}", pairs);
         None
     } else if args.flag_ast {
         let modtxt = inter.read_mod(&main_key)?;
