@@ -52,7 +52,7 @@ mod tests
     }
 
     #[test]
-    fn test_parse_number_float()
+    fn number_float()
     {
         parses_to!(
             parser: LeemaParser,
@@ -65,7 +65,7 @@ mod tests
     }
 
     #[test]
-    fn test_parse_number_int()
+    fn number_int()
     {
         parses_to!(
             parser: LeemaParser,
@@ -76,13 +76,34 @@ mod tests
     }
 
     #[test]
-    fn test_parse_number_negative_int()
+    fn negative_int()
     {
         parses_to!(
             parser: LeemaParser,
             input: "-34",
             rule: Rule::expr,
             tokens: [prefix_expr(0, 3, [dash(0, 1), int(1, 3)])]
+        )
+    }
+
+    #[test]
+    fn int_minus_negative()
+    {
+        // does the negative int get subtracted from
+        parses_to!(
+            parser: LeemaParser,
+            input: "3 - -56",
+            rule: Rule::expr,
+            tokens: [
+                infix_expr(0, 7, [
+                    int(0, 1),
+                    dash(2, 3),
+                    prefix_expr(4, 7, [
+                        dash(4, 5),
+                        int(5, 7),
+                    ])
+                ])
+            ]
         )
     }
 }

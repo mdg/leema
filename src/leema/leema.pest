@@ -7,7 +7,9 @@ block_arrow = { "->" | ">>" }
 float = @{ digit+ ~ "." ~ digit+ }
 int = @{ digit+ }
 number = _{ float | int }
+
 invalid_bool = { "true" | "false" }
+invalid_equality = { "=" }
 
 kw_let = { "let" }
 assign = { ":=" }
@@ -23,7 +25,15 @@ modulo = { "mod" }
 and = { "and" }
 or = { "or" }
 xor = { "xor" }
-infix_op = _{ plus | dash | star | slash | modulo | dot | and | or | xor }
+less_than = { "<=" | "<" }
+greater_than = { ">=" | ">" }
+equality = { "==" | "/=" | "!=" }
+infix_op = _{
+    plus | dash | star | slash | modulo
+    | and | or | xor
+    | equality | less_than | greater_than
+    | dot
+    }
 
 not = { "not" }
 prefix_op = _{ dash | not }
@@ -40,13 +50,19 @@ hashtag = { "#" ~ id }
 
 id_or_2 = { (id ~ "." ~ id) | id }
 
-id_generic = { id_or_2 ~ ("'" ~ type_term)* }
+id_generic = { id_or_2 ~ ("'" ~ typex)* }
 
 id_colon_typex = { id ~ ":" ~ typex }
 
-type_term = { id_generic | "(" ~ typex ~ ")" | "#" }
+hashtag_typex = { "#" }
+list_typex = { "{" ~ typex ~ "]" }
 
-typex = { type_term | ("[" ~ typex ~ "]") }
+typex =
+    _{id_generic
+    | ("(" ~ typex ~ ")")
+    | list_typex
+    | hashtag_typex
+    }
 
 term = _{ id_generic | number }
 
@@ -60,12 +76,15 @@ prefix_expr = { prefix_op ~ expr }
 
 infix_expr = { term ~ (infix_op ~ expr)+ }
 
+lt3_expr = { term ~ less_than ~ expr ~ less_than ~ expr }
+
 expr =
-_{ term
-| expr_call
-| infix_expr
-| prefix_expr
-}
+    _{lt3_expr
+    | infix_expr
+    | prefix_expr
+    | expr_call
+    | term
+    }
 
 colon_typex = { ":" ~ typex }
 
