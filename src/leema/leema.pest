@@ -32,7 +32,8 @@ infix_op = _{
     plus | dash | star | slash | modulo
     | and | or | xor
     | equality | less_than | greater_than
-    | dot
+    | dot | "'"
+    | "?:"
     }
 
 not = { "not" }
@@ -50,7 +51,9 @@ hashtag = { "#" ~ id }
 
 id_or_2 = { (id ~ "." ~ id) | id }
 
-id_generic = { id_or_2 ~ ("'" ~ typex)* }
+generics = { ("'" ~ typex)+ }
+id_generic = { id ~ generics }
+generic_or_id = _{ id_generic | id }
 
 id_colon_typex = { id ~ ":" ~ typex }
 
@@ -58,13 +61,13 @@ hashtag_typex = { "#" }
 list_typex = { "{" ~ typex ~ "]" }
 
 typex =
-    _{id_generic
+    _{generic_or_id
     | ("(" ~ typex ~ ")")
     | list_typex
     | hashtag_typex
     }
 
-term = _{ id_generic | number }
+term = _{ generic_or_id | number }
 
 id_colon_expr = { id ~ ":" ~ expr }
 

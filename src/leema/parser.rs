@@ -39,14 +39,30 @@ mod tests
     use pest::{consumes_to, parses_to};
 
     #[test]
-    fn test_parse_bool()
+    fn bool_true()
     {
         parses_to!(
             parser: LeemaParser,
             input: "True",
-            rule: Rule::id,
+            rule: Rule::expr,
             tokens: [
                 id(0, 4)
+            ]
+        )
+    }
+
+    #[test]
+    fn id_generic()
+    {
+        parses_to!(
+            parser: LeemaParser,
+            input: "foo'A",
+            rule: Rule::expr,
+            tokens: [
+                id_generic(0, 4, [
+                    id(0, 3),
+                    generics(3, 5),
+                ])
             ]
         )
     }
