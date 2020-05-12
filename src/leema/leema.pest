@@ -6,15 +6,12 @@ block_arrow = { "->" | ">>" }
 
 float = @{ digit+ ~ "." ~ digit+ }
 int = @{ digit+ }
-number = { float | int }
-valid_bool = { "True" | "False" }
+number = _{ float | int }
 invalid_bool = { "true" | "false" }
 
 kw_let = { "let" }
 assign = { ":=" }
 dot = { "." }
-
-prefix_op = { "not" }
 
 // postfix_op = {  }
 
@@ -23,11 +20,15 @@ plus = { "+" }
 slash = { "/" }
 star = { "*" }
 modulo = { "mod" }
-infix_op = { plus | dash | star | slash | modulo | dot }
+and = { "and" }
+or = { "or" }
+xor = { "xor" }
+infix_op = _{ plus | dash | star | slash | modulo | dot | and | or | xor }
+
+not = { "not" }
+prefix_op = _{ dash | not }
 
 WHITESPACE = _{ " " }
-
-func = { "func" }
 
 rust_block = { "-RUST-" }
 
@@ -47,7 +48,7 @@ type_term = { id_generic | "(" ~ typex ~ ")" | "#" }
 
 typex = { type_term | ("[" ~ typex ~ "]") }
 
-term = { id_generic | number }
+term = _{ id_generic | number }
 
 id_colon_expr = { id ~ ":" ~ expr }
 
@@ -55,32 +56,32 @@ expr_struple_items = { (id_colon_expr ~ ","?)* }
 
 expr_call = @{ term ~ "(" ~ expr_struple_items ~ ")" }
 
+prefix_expr = { prefix_op ~ expr }
+
 infix_expr = { term ~ (infix_op ~ expr)+ }
 
 expr =
-{ term
+_{ term
 | expr_call
 | infix_expr
-| (prefix_op ~ expr)
+| prefix_expr
 }
 
 colon_typex = { ":" ~ typex }
 
-def_func_id = { id ~ colon_typex }
-
 def_func_args = { "::" ~ id_colon_typex+ }
 
-def_func_block = { arrow_block | rust_block }
+def_func_block = _{ arrow_block | rust_block }
 
-def_func_type = { colon_typex? ~ def_func_args? }
+def_func_type = { colon_typex | (colon_typex? ~ def_func_args) }
 
-def_func = { func ~ id ~ def_func_type ~ def_func_block }
+def_func = { "func" ~ id_generic ~ def_func_type? ~ def_func_block }
 
 return_stmt = { "return" ~ expr }
 
-stmt = { def_func | return_stmt | expr }
+stmt = _{ def_func | return_stmt | expr }
 
-indent = { " "+ }
+indent = { " "* }
 
 indented_stmt = { indent ~ stmt }
 
