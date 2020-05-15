@@ -2,7 +2,7 @@
 digit = { '0'..'9' }
 float = @{ digit+ ~ "." ~ digit+ }
 int = @{ digit+ }
-number = { float | int }
+number = _{ float | int }
 
 infix_op = {
     "+" | "-" | "*" | "/" | "mod"
@@ -12,7 +12,7 @@ infix_op = {
 
 WHITESPACE = _{ " " }
 
-id = @{ LETTER ~ ( LETTER | NUMBER )+ }
+id = @{ LETTER ~ ( LETTER | NUMBER )* }
 
 term = { id | number }
 

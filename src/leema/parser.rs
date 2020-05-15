@@ -28,14 +28,7 @@ pub fn parse(text: &'static str) -> Lresult<Vec<Pair<Rule>>>
                 e,
             )
         })?;
-    println!("tokens: {:?}", it.tokens());
-    /*
-    for p in it.into_inner() {
-        println!("pair: {:?}", p);
-    }
-    */
-    // Ok(it.collect())
-    Ok(vec![])
+    Ok(it.collect())
 }
 
 #[cfg(test)]
@@ -92,18 +85,27 @@ mod tests
     {
         let input = "3 == x";
         let actual = parse(input).unwrap();
-        println!("{:?}", actual);
-        assert_eq!("whatever", format!("{:?}", actual));
-        /*
+        println!("{:#?}", actual);
         parses_to!(
             parser: LeemaParser,
             input: input,
             rule: Rule::expr,
             tokens: [
-                id(0, 4)
+                expr(0, 6, [
+                    infix_expr(0, 6, [
+                        term(0, 1, [
+                            int(0, 1)
+                        ]),
+                        infix_op(2, 4),
+                        expr(5, 6, [
+                            term(5, 6, [
+                                id(5, 6)
+                            ]),
+                        ]),
+                    ])
+                ])
             ]
         )
-        */
     }
 
     #[test]
