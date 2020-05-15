@@ -1,5 +1,4 @@
 
-alpha = { 'a'..'z' | 'A'..'Z' }
 digit = { '0'..'9' }
 
 block_arrow = { "->" | ">>" }
@@ -45,27 +44,11 @@ rust_block = { "-RUST-" }
 
 id = @{ LETTER ~ ( LETTER | NUMBER )+ }
 
+id_generic = { id ~ ("'" ~ type_term)* }
+
 dollar_id = { "$" ~ id }
 
 hashtag = { "#" ~ id }
-
-id_or_2 = { (id ~ "." ~ id) | id }
-
-generics = { ("'" ~ typex)+ }
-id_generic = { id ~ generics }
-generic_or_id = _{ id_generic | id }
-
-id_colon_typex = { id ~ ":" ~ typex }
-
-hashtag_typex = { "#" }
-list_typex = { "{" ~ typex ~ "]" }
-
-typex =
-    _{generic_or_id
-    | ("(" ~ typex ~ ")")
-    | list_typex
-    | hashtag_typex
-    }
 
 term = _{ generic_or_id | number }
 
@@ -89,15 +72,31 @@ expr =
     | term
     }
 
-colon_typex = { ":" ~ typex }
 
-def_func_args = { "::" ~ id_colon_typex+ }
+// types
+
+list_type = { "[" ~ typex ~ "]" }
+tuple_type = { "(" ~ type_term ~ type_term+ ~ ")" }
+hashtag_type = { "#" }
+
+type_term = _{
+    "(" ~ typex ~ ")"
+    | tuple_type
+    | list_type
+    | hashtag_type
+    | id
+}
+
+// func_type = { type_term? ~ "::" ~ type_term+ }
+
+typex = _{ id_generic | type_term }
 
 def_func_block = _{ arrow_block | rust_block }
 
-def_func_type = { colon_typex | (colon_typex? ~ def_func_args) }
+id_colon_typeterm = { id ~ ":" ~ type_term }
+def_func_type = { ":" ~ type_term? ~ "::" ~ id_colon_typeterm* }
 
-def_func = { "func" ~ id_generic ~ def_func_type? ~ def_func_block }
+def_func = { "func" ~ generic_or_id ~ def_func_type? ~ def_func_block }
 
 return_stmt = { "return" ~ expr }
 

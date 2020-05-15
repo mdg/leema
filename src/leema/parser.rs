@@ -19,7 +19,7 @@ static CLIMBER: PrecClimber<Rule> = prec_climber![
 
 pub fn parse(text: &'static str) -> Lresult<Vec<Pair<Rule>>>
 {
-    let it = LeemaParser::parse(Rule::stmt_list, text)
+    let it = LeemaParser::parse(Rule::expr, text)
         .map_err(|e| {
             println!("parse error: {:?}", e);
             rustfail!(
@@ -44,10 +44,21 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: "True",
-            rule: Rule::expr,
+            rule: Rule::id,
             tokens: [
                 id(0, 4)
             ]
+        )
+    }
+
+    #[test]
+    fn test_id()
+    {
+        parses_to!(
+            parser: LeemaParser,
+            input: "foo",
+            rule: Rule::typex,
+            tokens: [id(0, 3)]
         )
     }
 
@@ -57,11 +68,11 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: "foo'A",
-            rule: Rule::expr,
+            rule: Rule::id_generic,
             tokens: [
                 id_generic(0, 4, [
                     id(0, 3),
-                    generics(3, 5),
+                    id(4, 5),
                 ])
             ]
         )
