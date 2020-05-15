@@ -24,9 +24,13 @@ modulo = { "mod" }
 and = { "and" }
 or = { "or" }
 xor = { "xor" }
+not = { "not" }
 less_than = { "<=" | "<" }
 greater_than = { ">=" | ">" }
-equality = { "==" | "/=" | "!=" }
+equality = { "==" | "!=" }
+
+comparison_op = _{ less_than | equality | greater_than }
+
 infix_op = _{
     plus | dash | star | slash | modulo
     | and | or | xor
@@ -35,7 +39,6 @@ infix_op = _{
     | "?:"
     }
 
-not = { "not" }
 prefix_op = _{ dash | not }
 
 WHITESPACE = _{ " " }
@@ -44,69 +47,73 @@ rust_block = { "-RUST-" }
 
 id = @{ LETTER ~ ( LETTER | NUMBER )+ }
 
-id_generic = { id ~ ("'" ~ type_term)* }
+// id_generic = { id ~ ("'" ~ type_term)* }
 
 dollar_id = { "$" ~ id }
 
 hashtag = { "#" ~ id }
 
-term = _{ generic_or_id | number }
+term = _{ id | number }
 
-id_colon_expr = { id ~ ":" ~ expr }
+// id_colon_expr = { id ~ ":" ~ expr }
 
-expr_struple_items = { (id_colon_expr ~ ","?)* }
+// expr_struple_items = { (id_colon_expr ~ ","?)* }
 
-expr_call = @{ term ~ "(" ~ expr_struple_items ~ ")" }
+// expr_call = @{ term ~ "(" ~ expr_struple_items ~ ")" }
 
-prefix_expr = { prefix_op ~ expr }
+// prefix_expr = { prefix_op ~ expr }
 
-infix_expr = { term ~ (infix_op ~ expr)+ }
+// infix_expr = { term ~ (infix_op ~ expr)+ }
 
-lt3_expr = { term ~ less_than ~ expr ~ less_than ~ expr }
+expr_2 = { term }
 
-expr =
-    _{lt3_expr
-    | infix_expr
-    | prefix_expr
-    | expr_call
-    | term
-    }
+infix_comparison = { expr_2 ~ comparison_op ~ expr_2 }
+
+less_than_3 = { term ~ less_than ~ expr_2 ~ less_than ~ expr_2 }
+
+expr_1 = _{ less_than_3 | infix_comparison | expr_2 }
+
+expr_and = _{ expr_1 ~ and ~ expr_1 | expr_1 }
+
+expr_or = _{ expr_and ~ or ~ expr_and | expr_and }
+
+expr = _{ expr_or }
 
 
 // types
 
-list_type = { "[" ~ typex ~ "]" }
-tuple_type = { "(" ~ type_term ~ type_term+ ~ ")" }
-hashtag_type = { "#" }
+// list_type = { "[" ~ typex ~ "]" }
+// tuple_type = { "(" ~ type_term ~ type_term+ ~ ")" }
+// hashtag_type = { "#" }
 
-type_term = _{
-    "(" ~ typex ~ ")"
-    | tuple_type
-    | list_type
-    | hashtag_type
-    | id
-}
+// type_term = _{
+//     "(" ~ typex ~ ")"
+//     | tuple_type
+//     | list_type
+//     | hashtag_type
+//     | id
+// }
 
 // func_type = { type_term? ~ "::" ~ type_term+ }
 
-typex = _{ id_generic | type_term }
+// typex = _{ id_generic | type_term }
 
-def_func_block = _{ arrow_block | rust_block }
+// def_func_block = _{ arrow_block | rust_block }
 
-id_colon_typeterm = { id ~ ":" ~ type_term }
-def_func_type = { ":" ~ type_term? ~ "::" ~ id_colon_typeterm* }
+// id_colon_typeterm = { id ~ ":" ~ type_term }
+// def_func_type = { ":" ~ type_term? ~ "::" ~ id_colon_typeterm* }
 
-def_func = { "func" ~ generic_or_id ~ def_func_type? ~ def_func_block }
+// def_func = { "func" ~  ~ def_func_type? ~ def_func_block }
 
-return_stmt = { "return" ~ expr }
+// return_stmt = { "return" ~ expr }
 
-stmt = _{ def_func | return_stmt | expr }
+// stmt = _{ def_func | return_stmt | expr }
 
 indent = { " "* }
 
-indented_stmt = { indent ~ stmt }
+// indented_stmt = { indent ~ stmt }
 
-stmt_list = { indented_stmt+ }
+// stmt_list = { indented_stmt+ }
 
-arrow_block_start = { block_arrow ~ stmt_list }
-arrow_block = { arrow_block_start ~ "--" }
+// arrow_block_start = { block_arrow ~ stmt_list }
+// arrow_block = { arrow_block_start ~ "--" }

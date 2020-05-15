@@ -34,7 +34,7 @@ pub fn parse(text: &'static str) -> Lresult<Vec<Pair<Rule>>>
 #[cfg(test)]
 mod tests
 {
-    use super::{LeemaParser, Rule};
+    use super::{LeemaParser, parse, Rule};
 
     use pest::{consumes_to, parses_to};
 
@@ -44,13 +44,14 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: "True",
-            rule: Rule::id,
+            rule: Rule::expr,
             tokens: [
                 id(0, 4)
             ]
         )
     }
 
+    /*
     #[test]
     fn test_id()
     {
@@ -68,7 +69,7 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: "foo'A",
-            rule: Rule::id_generic,
+            rule: Rule::expr,
             tokens: [
                 id_generic(0, 4, [
                     id(0, 3),
@@ -77,6 +78,57 @@ mod tests
             ]
         )
     }
+    */
+
+    #[test]
+    fn infix_equality()
+    {
+        let input = "3 == x";
+        let actual = parse(input).unwrap();
+        println!("{:?}", actual);
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::expr,
+            tokens: [
+                id(0, 4)
+            ]
+        )
+    }
+
+    #[test]
+    fn infix_or()
+    {
+        let input = "True or False";
+        let actual = parse(input).unwrap();
+        println!("{:?}", actual);
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::expr,
+            tokens: [
+                id(0, 4)
+            ]
+        )
+    }
+
+    /*
+    #[test]
+    fn less_than_3()
+    {
+        let input = "3 < x <= 10";
+        let actual = parse(input).unwrap();
+        println!("{:?}", actual);
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::expr,
+            tokens: [
+                id(0, 4)
+            ]
+        )
+    }
+    */
 
     #[test]
     fn number_float()
@@ -84,7 +136,7 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: "3.14159",
-            rule: Rule::number,
+            rule: Rule::expr,
             tokens: [
                 float(0, 7)
             ]
@@ -97,11 +149,12 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: "1234",
-            rule: Rule::number,
+            rule: Rule::expr,
             tokens: [int(0, 4)]
         )
     }
 
+    /*
     #[test]
     fn negative_int()
     {
@@ -110,6 +163,23 @@ mod tests
             input: "-34",
             rule: Rule::expr,
             tokens: [prefix_expr(0, 3, [dash(0, 1), int(1, 3)])]
+        )
+    }
+
+    #[test]
+    fn negative_int_plus()
+    {
+        // does the negative 34 get handled correctly?
+        parses_to!(
+            parser: LeemaParser,
+            input: "-3 * 5",
+            rule: Rule::expr,
+            tokens: [
+                infix_expr(0, 6, [
+                    dash(0, 1),
+                    int(1, 3)
+                ])
+            ]
         )
     }
 
@@ -133,4 +203,5 @@ mod tests
             ]
         )
     }
+    */
 }
