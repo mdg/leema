@@ -1,60 +1,66 @@
 
+// invalid_bool = { "true" | "false" }
+// invalid_equality = { "=" }
+
+// kw_let = { "let" }
+// assign = { ":=" }
+// dot = { "." }
+
+// postfix_op = {  }
+
+// dash = { "-" }
+// plus = { "+" }
+// slash = { "/" }
+// star = { "*" }
+// modulo = { "mod" }
+// and = { "and" }
+// or = { "or" }
+// xor = { "xor" }
+// not = { "not" }
+// lt = { "<=" | "<" }
+// gt = { ">=" | ">" }
+// equality = { "==" | "!=" }
+
+// boolean_infix_op = { and | or | xor }
+// comparison_op = { lt | equality | gt }
+
+// | dot | "'"
+// | "?:"
+// prefix_op = _{ dash | not }
+
+
 digit = { '0'..'9' }
-
-block_arrow = { "->" | ">>" }
-
 float = @{ digit+ ~ "." ~ digit+ }
 int = @{ digit+ }
 number = { float | int }
 
-invalid_bool = { "true" | "false" }
-invalid_equality = { "=" }
-
-kw_let = { "let" }
-assign = { ":=" }
-dot = { "." }
-
-// postfix_op = {  }
-
-dash = { "-" }
-plus = { "+" }
-slash = { "/" }
-star = { "*" }
-modulo = { "mod" }
-and = { "and" }
-or = { "or" }
-xor = { "xor" }
-not = { "not" }
-lt = { "<=" | "<" }
-gt = { ">=" | ">" }
-equality = { "==" | "!=" }
-
-boolean_infix_op = { and | or | xor }
-comparison_op = { lt | equality | gt }
-
 infix_op = {
-    plus | dash | star | slash | modulo
-    | and | or | xor
-    | lt | equality | gt
-    // | dot | "'"
-    // | "?:"
-    }
-
-prefix_op = _{ dash | not }
+    "+" | "-" | "*" | "/" | "mod"
+    | "and" | "or" | "xor"
+    | "<" | "<=" | "==" | "!=" | ">=" | ">"
+}
 
 WHITESPACE = _{ " " }
 
-rust_block = { "-RUST-" }
-
 id = @{ LETTER ~ ( LETTER | NUMBER )+ }
+
+term = { id | number }
+
+infix_expr = { term ~ (infix_op ~ expr)+ }
+
+expr = {
+    infix_expr
+    | term
+}
+
+
+
 
 // id_generic = { id ~ ("'" ~ type_term)* }
 
-dollar_id = { "$" ~ id }
+// dollar_id = { "$" ~ id }
 
-hashtag = { "#" ~ id }
-
-term = { id | number }
+// hashtag = { "#" ~ id }
 
 // id_colon_expr = { id ~ ":" ~ expr }
 
@@ -64,12 +70,6 @@ term = { id | number }
 
 // prefix_expr = { prefix_op ~ expr }
 
-infix_expr = { term ~ (infix_op ~ expr)+ }
-
-expr = {
-    infix_expr
-    | term
-}
 
 
 // types
@@ -107,5 +107,7 @@ indent = { " "* }
 
 // stmt_list = { indented_stmt+ }
 
+// block_arrow = { "->" | ">>" }
 // arrow_block_start = { block_arrow ~ stmt_list }
 // arrow_block = { arrow_block_start ~ "--" }
+// rust_block = { "-RUST-" }
