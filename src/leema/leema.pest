@@ -5,7 +5,7 @@ block_arrow = { "->" | ">>" }
 
 float = @{ digit+ ~ "." ~ digit+ }
 int = @{ digit+ }
-number = _{ float | int }
+number = { float | int }
 
 invalid_bool = { "true" | "false" }
 invalid_equality = { "=" }
@@ -32,12 +32,12 @@ equality = { "==" | "!=" }
 boolean_infix_op = { and | or | xor }
 comparison_op = { lt | equality | gt }
 
-infix_op = _{
+infix_op = {
     plus | dash | star | slash | modulo
     | and | or | xor
-    | equality | less_than | greater_than
-    | dot | "'"
-    | "?:"
+    | lt | equality | gt
+    // | dot | "'"
+    // | "?:"
     }
 
 prefix_op = _{ dash | not }
@@ -54,7 +54,7 @@ dollar_id = { "$" ~ id }
 
 hashtag = { "#" ~ id }
 
-term = _{ id | number }
+term = { id | number }
 
 // id_colon_expr = { id ~ ":" ~ expr }
 
@@ -64,18 +64,10 @@ term = _{ id | number }
 
 // prefix_expr = { prefix_op ~ expr }
 
-// infix_expr = { term ~ (infix_op ~ expr)+ }
-
-
-infix_arith = { term ~ (infix_arith_op ~ infix_arith)+ }
-less_than_3 = { infix_arith ~ ltop ~ infix_arith ~ ltop ~ infix_arith }
-infix_comparison = { infix_arith ~ comparison_op ~ infix_arith }
-infix_boolean = { term ~ (infix_boolean_op ~ infix_boolean)+ }
+infix_expr = { term ~ (infix_op ~ expr)+ }
 
 expr = {
-    less_than_3
-    | infix_comparison
-    | infix_expr
+    infix_expr
     | term
 }
 

@@ -86,6 +86,8 @@ mod tests
         let input = "3 == x";
         let actual = parse(input).unwrap();
         println!("{:?}", actual);
+        assert_eq!("whatever", format!("{:?}", actual));
+        /*
         parses_to!(
             parser: LeemaParser,
             input: input,
@@ -94,6 +96,7 @@ mod tests
                 id(0, 4)
             ]
         )
+        */
     }
 
     #[test]
