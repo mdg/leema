@@ -14,7 +14,7 @@ WHITESPACE = _{ " " }
 
 id = @{ LETTER ~ ( LETTER | NUMBER )* }
 
-term = { id | number }
+term = _{ id | number }
 
 infix_expr = { term ~ (infix_op ~ expr)+ }
 

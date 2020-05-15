@@ -93,14 +93,10 @@ mod tests
             tokens: [
                 expr(0, 6, [
                     infix_expr(0, 6, [
-                        term(0, 1, [
-                            int(0, 1)
-                        ]),
+                        int(0, 1),
                         infix_op(2, 4),
                         expr(5, 6, [
-                            term(5, 6, [
-                                id(5, 6)
-                            ]),
+                            id(5, 6)
                         ]),
                     ])
                 ])
