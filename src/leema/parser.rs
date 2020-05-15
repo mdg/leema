@@ -28,7 +28,14 @@ pub fn parse(text: &'static str) -> Lresult<Vec<Pair<Rule>>>
                 e,
             )
         })?;
-    Ok(it.collect())
+    println!("tokens: {:?}", it.tokens());
+    /*
+    for p in it.into_inner() {
+        println!("pair: {:?}", p);
+    }
+    */
+    // Ok(it.collect())
+    Ok(vec![])
 }
 
 #[cfg(test)]
