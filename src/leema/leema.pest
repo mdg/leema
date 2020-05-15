@@ -25,11 +25,12 @@ and = { "and" }
 or = { "or" }
 xor = { "xor" }
 not = { "not" }
-less_than = { "<=" | "<" }
-greater_than = { ">=" | ">" }
+lt = { "<=" | "<" }
+gt = { ">=" | ">" }
 equality = { "==" | "!=" }
 
-comparison_op = _{ less_than | equality | greater_than }
+boolean_infix_op = { and | or | xor }
+comparison_op = { lt | equality | gt }
 
 infix_op = _{
     plus | dash | star | slash | modulo
@@ -65,19 +66,18 @@ term = _{ id | number }
 
 // infix_expr = { term ~ (infix_op ~ expr)+ }
 
-expr_2 = { term }
 
-infix_comparison = { expr_2 ~ comparison_op ~ expr_2 }
+infix_arith = { term ~ (infix_arith_op ~ infix_arith)+ }
+less_than_3 = { infix_arith ~ ltop ~ infix_arith ~ ltop ~ infix_arith }
+infix_comparison = { infix_arith ~ comparison_op ~ infix_arith }
+infix_boolean = { term ~ (infix_boolean_op ~ infix_boolean)+ }
 
-less_than_3 = { term ~ less_than ~ expr_2 ~ less_than ~ expr_2 }
-
-expr_1 = _{ less_than_3 | infix_comparison | expr_2 }
-
-expr_and = { expr_1 ~ (and ~ expr_1)* }
-
-expr_or = { expr_and ~ (or ~ expr_or)* }
-
-expr = _{ expr_or }
+expr = {
+    less_than_3
+    | infix_comparison
+    | infix_expr
+    | term
+}
 
 
 // types
