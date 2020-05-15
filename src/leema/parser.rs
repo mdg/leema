@@ -119,8 +119,62 @@ mod tests
                     infix_expr(0, 13, [
                         id(0, 4),
                         infix_op(5, 7),
-                        expr(8, 13, [
-                            id(8, 13)
+                        expr(8, 13, [id(8, 13)])
+                    ])
+                ])
+            ]
+        )
+    }
+
+    #[test]
+    fn infix_and_or()
+    {
+        let input = "a and b or c";
+        let actual = parse(input).unwrap();
+        println!("{:#?}", actual);
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::expr,
+            tokens: [
+                expr(0, 12, [
+                    infix_expr(0, 12, [
+                        id(0, 1),
+                        infix_op(2, 5),
+                        expr(6, 12, [
+                            infix_expr(6, 12, [
+                                id(6, 7),
+                                infix_op(8, 10),
+                                expr(11, 12, [id(11, 12)])
+                            ])
+                        ]),
+                    ])
+                ])
+            ]
+        )
+    }
+
+    #[test]
+    fn infix_or_and()
+    {
+        let input = "a or b and c";
+        let actual = parse(input).unwrap();
+        println!("{:#?}", actual);
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::expr,
+            tokens: [
+                expr(0, 12, [
+                    infix_expr(0, 12, [
+                        id(0, 1),
+                        infix_op(2, 4),
+                        expr(5, 12, [
+                            infix_expr(5, 12, [
+                                id(5, 6),
+                                infix_op(7, 10),
+                                expr(11, 12, [id(11, 12)])
+                            ])
                         ]),
                     ])
                 ])
