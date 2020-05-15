@@ -73,9 +73,9 @@ less_than_3 = { term ~ less_than ~ expr_2 ~ less_than ~ expr_2 }
 
 expr_1 = _{ less_than_3 | infix_comparison | expr_2 }
 
-expr_and = _{ expr_1 ~ and ~ expr_1 | expr_1 }
+expr_and = { expr_1 ~ (and ~ expr_1)* }
 
-expr_or = _{ expr_and ~ or ~ expr_and | expr_and }
+expr_or = { expr_and ~ (or ~ expr_or)* }
 
 expr = _{ expr_or }
 
