@@ -109,13 +109,21 @@ mod tests
     {
         let input = "True or False";
         let actual = parse(input).unwrap();
-        println!("{:?}", actual);
+        println!("{:#?}", actual);
         parses_to!(
             parser: LeemaParser,
             input: input,
             rule: Rule::expr,
             tokens: [
-                id(0, 4)
+                expr(0, 13, [
+                    infix_expr(0, 13, [
+                        id(0, 4),
+                        infix_op(5, 7),
+                        expr(8, 13, [
+                            id(8, 13)
+                        ]),
+                    ])
+                ])
             ]
         )
     }
