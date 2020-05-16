@@ -32,9 +32,25 @@ pub fn consume<'i>(pair: Pair<'i, Rule>, climber: &PrecClimber<Rule>) -> AstResu
         consume(p, climber)
     };
 
+    /*
     match pair.as_rule() {
         Rule::expr => climber.climb(pair.into_inner(), primary, infix),
-        _ => unreachable!(),
+        Rule::infix_expr => climber.climb(pair.into_inner(), primary, infix),
+        _ => {
+            Err(rustfail!(
+                "leema_failure",
+                "unsupported token: {:?}",
+                pair,
+            ))
+        }
+    }
+    */
+    let inner = pair.into_inner();
+    if inner.as_str().is_empty() {
+        // needs to be a better terminal case than this
+        Ok(AstNode::void())
+    } else {
+        climber.climb(inner, primary, infix)
     }
 }
 
@@ -134,7 +150,7 @@ mod tests
     }
 
     #[test]
-    fn infix_or()
+    fn infix_or_only()
     {
         let input = "True or False";
         let actual = parse(input).unwrap();

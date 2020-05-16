@@ -21,7 +21,7 @@ term = _{ id | number }
 
 infix_expr = { term ~ (infix_op ~ expr)+ }
 
-expr = {
+expr = _{
     infix_expr
     | term
 }
