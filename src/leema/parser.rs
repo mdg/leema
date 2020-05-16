@@ -32,7 +32,7 @@ pub fn infix(lhs: AstResult, op: Pair<Rule>, rhs: AstResult) -> AstResult
     }
 }
 
-pub fn consume<'i>(pair: Pair<'i, Rule>, climber: &PrecClimber<Rule>) -> AstResult
+pub fn consume(pair: Pair<'static, Rule>, climber: &PrecClimber<Rule>) -> AstResult
 {
     let primary = |p| {
         consume(p, climber)
