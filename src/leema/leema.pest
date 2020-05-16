@@ -4,9 +4,12 @@ float = @{ digit+ ~ "." ~ digit+ }
 int = @{ digit+ }
 number = _{ float | int }
 
+and = _{ "and" }
+or = _{ "or" }
+
 infix_op = {
     "+" | "-" | "*" | "/" | "mod"
-    | "and" | "or" | "xor"
+    | and | or
     | "<" | "<=" | "==" | "!=" | ">=" | ">"
 }
 

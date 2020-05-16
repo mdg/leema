@@ -1,24 +1,51 @@
 
 use crate::leema::failure::Lresult;
+use crate::leema::ast2::{AstNode, AstResult};
 
 use pest::Parser;
 use pest::iterators::Pair;
-// use pest::prec_climber::{Assoc, PrecClimber};
-// use pest::prec_climber;
+use pest::prec_climber::{Assoc, Operator, PrecClimber};
+
+use lazy_static::lazy_static;
 
 #[derive(Parser)]
 #[grammar = "leema/leema.pest"]
 pub struct LeemaParser;
 
-/*
-static CLIMBER: PrecClimber<Rule> = prec_climber![
-    L plus | dash,
-    L slash | star,
-];
-*/
 
-pub fn parse(text: &'static str) -> Lresult<Vec<Pair<Rule>>>
+pub fn infix(lhs: AstResult, op: Pair<Rule>, rhs: AstResult) -> AstResult
 {
+    match op.as_rule() {
+        Rule::and => {
+            lhs
+        }
+        Rule::or => {
+            rhs
+        }
+        _ => unreachable!("unknown operator: {:?}", op),
+    }
+}
+
+pub fn consume<'i>(pair: Pair<'i, Rule>, climber: &PrecClimber<Rule>) -> AstResult
+{
+    let primary = |p| {
+        consume(p, climber)
+    };
+
+    match pair.as_rule() {
+        Rule::expr => climber.climb(pair.into_inner(), primary, infix),
+        _ => unreachable!(),
+    }
+}
+
+pub fn parse(text: &'static str) -> Lresult<Vec<AstNode>>
+{
+    lazy_static! {
+        static ref CLIMBER: PrecClimber<Rule> = PrecClimber::new(vec![
+            Operator::new(Rule::or, Assoc::Left),
+            Operator::new(Rule::and, Assoc::Left),
+        ]);
+    }
     let it = LeemaParser::parse(Rule::expr, text)
         .map_err(|e| {
             println!("parse error: {:?}", e);
@@ -28,7 +55,9 @@ pub fn parse(text: &'static str) -> Lresult<Vec<Pair<Rule>>>
                 e,
             )
         })?;
-    Ok(it.collect())
+    it.map(|p| {
+        consume(p, &CLIMBER)
+    }).collect()
 }
 
 #[cfg(test)]
