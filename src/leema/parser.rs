@@ -1,6 +1,6 @@
 
 use crate::leema::failure::Lresult;
-use crate::leema::ast2::{AstNode, AstResult};
+use crate::leema::ast2::{self, Ast, AstNode, AstResult};
 
 use pest::Parser;
 use pest::iterators::Pair;
@@ -12,6 +12,12 @@ use lazy_static::lazy_static;
 #[grammar = "leema/leema.pest"]
 pub struct LeemaParser;
 
+
+pub fn loc(pair: &Pair<Rule>) -> ast2::Loc
+{
+    let (line, col) = pair.as_span().start_pos().line_col();
+    ast2::Loc::new(line as u16, col as u8)
+}
 
 pub fn infix(lhs: AstResult, op: Pair<Rule>, rhs: AstResult) -> AstResult
 {
@@ -32,25 +38,24 @@ pub fn consume<'i>(pair: Pair<'i, Rule>, climber: &PrecClimber<Rule>) -> AstResu
         consume(p, climber)
     };
 
-    /*
     match pair.as_rule() {
         Rule::expr => climber.climb(pair.into_inner(), primary, infix),
         Rule::infix_expr => climber.climb(pair.into_inner(), primary, infix),
-        _ => {
-            Err(rustfail!(
-                "leema_failure",
-                "unsupported token: {:?}",
-                pair,
+        Rule::id => {
+            Ok(AstNode::new(
+                Ast::Id1(pair.as_str()),
+                loc(&pair),
             ))
         }
-    }
-    */
-    let inner = pair.into_inner();
-    if inner.as_str().is_empty() {
-        // needs to be a better terminal case than this
-        Ok(AstNode::void())
-    } else {
-        climber.climb(inner, primary, infix)
+        _ => {
+            let inner = pair.into_inner();
+            if inner.as_str().is_empty() {
+                // needs to be a better terminal case than this
+                Ok(AstNode::void())
+            } else {
+                climber.climb(inner, primary, infix)
+            }
+        }
     }
 }
 
