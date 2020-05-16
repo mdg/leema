@@ -4,10 +4,10 @@ float = @{ digit+ ~ "." ~ digit+ }
 int = @{ digit+ }
 number = _{ float | int }
 
-and = _{ "and" }
-or = _{ "or" }
+and = { "and" }
+or = { "or" }
 
-infix_op = {
+infix_op = _{
     "+" | "-" | "*" | "/" | "mod"
     | and | or
     | "<" | "<=" | "==" | "!=" | ">=" | ">"
@@ -21,7 +21,7 @@ term = _{ id | number }
 
 infix_expr = { term ~ (infix_op ~ expr)+ }
 
-expr = _{
+expr = {
     infix_expr
     | term
 }

@@ -19,14 +19,18 @@ pub fn loc(pair: &Pair<Rule>) -> ast2::Loc
     ast2::Loc::new(line as u16, col as u8)
 }
 
-pub fn infix(lhs: AstResult, op: Pair<Rule>, rhs: AstResult) -> AstResult
+pub fn infix(lhsr: AstResult, op: Pair<'static, Rule>, rhsr: AstResult) -> AstResult
 {
+    let lhs = ltry!(lhsr);
+    let rhs = ltry!(rhsr);
     match op.as_rule() {
         Rule::and => {
-            lhs
+            let ast = Ast::Op2(op.as_str(), lhs, rhs);
+            Ok(AstNode::new(ast, loc(&op)))
         }
         Rule::or => {
-            rhs
+            let ast = Ast::Op2(op.as_str(), lhs, rhs);
+            Ok(AstNode::new(ast, loc(&op)))
         }
         _ => unreachable!("unknown operator: {:?}", op),
     }
