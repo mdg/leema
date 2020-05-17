@@ -207,16 +207,27 @@ mod tests
             ]
         );
 
+        /*
+        // assertion syntax like this would be nice
+        ast_match!(actual, Ast::Op2("or", a_and_b, c), [
+            ast_match!(a_and_b, Ast::Op2("and", a, b), [
+                ast_eq!(b, Ast::Id1("a")),
+                ast_eq!(c, Ast::Id1("b")),
+            ])
+            ast_eq!(c, Ast::Id1("c")),
+        ]);
+        */
+
         assert_eq!(1, actual.len());
         let t = &actual[0];
         if let Ast::Op2("or", a_and_b, c) = &*t.node {
-            assert_eq!(Ast::Id1("c"), *c.node);
             if let Ast::Op2("and", a, b) = &*a_and_b.node {
                 assert_eq!(Ast::Id1("a"), *a.node);
                 assert_eq!(Ast::Id1("b"), *b.node);
             } else {
                 panic!("expected and operation, found {:?}", a_and_b);
             }
+            assert_eq!(Ast::Id1("c"), *c.node);
         } else {
             panic!("expected or operation, found {:?}", t);
         }
