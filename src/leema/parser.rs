@@ -93,6 +93,7 @@ pub fn parse(text: &'static str) -> Lresult<Vec<AstNode>>
 mod tests
 {
     use super::{LeemaParser, parse, Rule};
+    use crate::leema::ast2::Ast;
 
     use pest::{consumes_to, parses_to};
 
@@ -190,20 +191,20 @@ mod tests
         let input = "a and b or c";
         let actual = parse(input).unwrap();
         println!("{:#?}", actual);
-        parses_to!(
-            parser: LeemaParser,
-            input: input,
-            rule: Rule::infix_expr,
-            tokens: [
-                infix_expr(0, 12, [
-                    id(0, 1),
-                    and(2, 5),
-                    id(6, 7),
-                    or(8, 10),
-                    id(11, 12)
-                ])
-            ]
-        )
+
+        assert_eq!(1, actual.len());
+        let t = &actual[0];
+        if let Ast::Op2("or", a_and_b, c) = &*t.node {
+            assert_eq!(Ast::Id1("c"), *c.node);
+            if let Ast::Op2("and", a, b) = &*a_and_b.node {
+                assert_eq!(Ast::Id1("a"), *a.node);
+                assert_eq!(Ast::Id1("b"), *b.node);
+            } else {
+                panic!("expected and operation, found {:?}", a_and_b);
+            }
+        } else {
+            panic!("expected or operation, found {:?}", t);
+        }
     }
 
     #[test]
