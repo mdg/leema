@@ -192,6 +192,21 @@ mod tests
         let actual = parse(input).unwrap();
         println!("{:#?}", actual);
 
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::infix_expr,
+            tokens: [
+                infix_expr(0, 12, [
+                    id(0, 1),
+                    and(2, 5),
+                    id(6, 7),
+                    or(8, 10),
+                    id(11, 12)
+                ])
+            ]
+        );
+
         assert_eq!(1, actual.len());
         let t = &actual[0];
         if let Ast::Op2("or", a_and_b, c) = &*t.node {
@@ -213,26 +228,35 @@ mod tests
         let input = "a or b and c";
         let actual = parse(input).unwrap();
         println!("{:#?}", actual);
+
         parses_to!(
             parser: LeemaParser,
             input: input,
-            rule: Rule::expr,
+            rule: Rule::infix_expr,
             tokens: [
-                expr(0, 12, [
-                    infix_expr(0, 12, [
-                        id(0, 1),
-                        infix_op(2, 4),
-                        expr(5, 12, [
-                            infix_expr(5, 12, [
-                                id(5, 6),
-                                infix_op(7, 10),
-                                expr(11, 12, [id(11, 12)])
-                            ])
-                        ]),
-                    ])
+                infix_expr(0, 12, [
+                    id(0, 1),
+                    or(2, 4),
+                    id(5, 6),
+                    and(7, 10),
+                    id(11, 12)
                 ])
             ]
-        )
+        );
+
+        assert_eq!(1, actual.len());
+        let t = &actual[0];
+        if let Ast::Op2("or", a, b_and_c) = &*t.node {
+            assert_eq!(Ast::Id1("a"), *a.node);
+            if let Ast::Op2("and", b, c) = &*b_and_c.node {
+                assert_eq!(Ast::Id1("b"), *b.node);
+                assert_eq!(Ast::Id1("c"), *c.node);
+            } else {
+                panic!("expected and operation, found {:?}", b_and_c);
+            }
+        } else {
+            panic!("expected or operation, found {:?}", t);
+        }
     }
 
     /*
