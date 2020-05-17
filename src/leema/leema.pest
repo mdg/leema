@@ -21,6 +21,10 @@ prefix_op = _{
     | not
 }
 
+// keywords
+func = { "func" }
+mxport = { "import" | "export" } // import or export
+
 infix_op = _{
     plus | dash | star | slash | modulo
     | and | or
@@ -29,7 +33,13 @@ infix_op = _{
 
 WHITESPACE = _{ " " }
 
-id = @{ LETTER ~ ( LETTER | NUMBER )* }
+keywords = _{
+    prefix_op | infix_op
+    | func
+    | mxport
+}
+
+id = @{ !keywords ~ LETTER ~ ( LETTER | NUMBER )* }
 
 term = _{ id | number }
 

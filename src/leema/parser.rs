@@ -30,7 +30,9 @@ pub fn infix(lhsr: AstResult, op: Pair<'static, Rule>, rhsr: AstResult) -> AstRe
             let ast = Ast::Op2(op.as_str(), lhs, rhs);
             Ok(AstNode::new(ast, loc(&op)))
         }
-        _ => unreachable!("unknown operator: {:?}", op),
+        _ => {
+            panic!("unknown operator: {:?}", op);
+        }
     }
 }
 
