@@ -193,20 +193,14 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: input,
-            rule: Rule::expr,
+            rule: Rule::infix_expr,
             tokens: [
-                expr(0, 12, [
-                    infix_expr(0, 12, [
-                        id(0, 1),
-                        infix_op(2, 5),
-                        expr(6, 12, [
-                            infix_expr(6, 12, [
-                                id(6, 7),
-                                infix_op(8, 10),
-                                expr(11, 12, [id(11, 12)])
-                            ])
-                        ]),
-                    ])
+                infix_expr(0, 12, [
+                    id(0, 1),
+                    and(2, 5),
+                    id(6, 7),
+                    or(8, 10),
+                    id(11, 12)
                 ])
             ]
         )
