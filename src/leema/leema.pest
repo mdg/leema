@@ -6,6 +6,11 @@ number = _{ float | int }
 
 and = { "and" }
 or = { "or" }
+not = { "not" }
+
+prefix_op = _{
+    not
+}
 
 infix_op = _{
     "+" | "-" | "*" | "/" | "mod"
@@ -19,8 +24,13 @@ id = @{ LETTER ~ ( LETTER | NUMBER )* }
 
 term = _{ id | number }
 
+prefix_expr = {
+    not ~ expr
+}
+
 expr = _{
-    term ~ "(" ~ infix_expr ~ ")"
+    prefix_expr
+    | term ~ "(" ~ infix_expr ~ ")"
     | term
 }
 

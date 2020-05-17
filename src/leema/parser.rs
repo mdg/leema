@@ -47,6 +47,16 @@ pub fn consume(pair: Pair<'static, Rule>, climber: &PrecClimber<Rule>) -> AstRes
             let inner = pair.into_inner();
             climber.climb(inner, primary, infix)
         }
+        Rule::infix_expr => {
+            let inner = pair.into_inner();
+            climber.climb(inner, primary, infix)
+        }
+        Rule::prefix_expr => {
+            let mut inner = pair.into_inner();
+            let op = inner.next().unwrap();
+            let arg = consume(inner.next().unwrap(), climber)?;
+            Ok(AstNode::new(Ast::Op1(op.as_str(), arg), loc(&op)))
+        }
         Rule::id => {
             Ok(AstNode::new(
                 Ast::Id1(pair.as_str()),
@@ -54,8 +64,10 @@ pub fn consume(pair: Pair<'static, Rule>, climber: &PrecClimber<Rule>) -> AstRes
             ))
         }
         Rule::and => Ok(AstNode::new(Ast::Id1("and"), loc(&pair))),
+        Rule::not => Ok(AstNode::new(Ast::Id1("not"), loc(&pair))),
         Rule::or => Ok(AstNode::new(Ast::Id1("or"), loc(&pair))),
         _ => {
+            println!("unsupported rule: {:?}", pair);
             let inner = pair.into_inner();
             if inner.as_str().is_empty() {
                 // needs to be a better terminal case than this
@@ -268,6 +280,30 @@ mod tests
         } else {
             panic!("expected or operation, found {:?}", t);
         }
+    }
+
+    #[test]
+    fn infix_not_and()
+    {
+        let input = "not a and b";
+        let actual = parse(input).unwrap();
+        println!("{:#?}", actual);
+
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::infix_expr,
+            tokens: [
+                infix_expr(0, 12, [
+                    prefix_expr(0, 5, [
+                        not(0, 3),
+                        id(4, 5),
+                    ]),
+                    and(6, 9),
+                    id(10, 11)
+                ])
+            ]
+        );
     }
 
     /*
