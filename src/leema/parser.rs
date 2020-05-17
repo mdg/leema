@@ -24,11 +24,8 @@ pub fn infix(lhsr: AstResult, op: Pair<'static, Rule>, rhsr: AstResult) -> AstRe
     let lhs = ltry!(lhsr);
     let rhs = ltry!(rhsr);
     match op.as_rule() {
-        Rule::and => {
-            let ast = Ast::Op2(op.as_str(), lhs, rhs);
-            Ok(AstNode::new(ast, loc(&op)))
-        }
-        Rule::or => {
+        Rule::and|Rule::or|Rule::less_than|Rule::equality|Rule::greater_than =>
+        {
             let ast = Ast::Op2(op.as_str(), lhs, rhs);
             Ok(AstNode::new(ast, loc(&op)))
         }
@@ -63,9 +60,11 @@ pub fn consume(pair: Pair<'static, Rule>, climber: &PrecClimber<Rule>) -> AstRes
                 loc(&pair),
             ))
         }
-        Rule::and => Ok(AstNode::new(Ast::Id1("and"), loc(&pair))),
-        Rule::not => Ok(AstNode::new(Ast::Id1("not"), loc(&pair))),
-        Rule::or => Ok(AstNode::new(Ast::Id1("or"), loc(&pair))),
+        Rule::and|Rule::or|Rule::not
+            |Rule::less_than|Rule::equality|Rule::greater_than =>
+        {
+            Ok(AstNode::new(Ast::Id1(pair.as_str()), loc(&pair)))
+        }
         _ => {
             println!("unsupported rule: {:?}", pair);
             let inner = pair.into_inner();
@@ -85,6 +84,9 @@ pub fn parse(text: &'static str) -> Lresult<Vec<AstNode>>
         static ref CLIMBER: PrecClimber<Rule> = PrecClimber::new(vec![
             Operator::new(Rule::or, Assoc::Left),
             Operator::new(Rule::and, Assoc::Left),
+            Operator::new(Rule::less_than, Assoc::Left)
+            | Operator::new(Rule::equality, Assoc::Left)
+            | Operator::new(Rule::greater_than, Assoc::Left),
         ]);
     }
     let it = LeemaParser::parse(Rule::infix_expr, text)
@@ -352,6 +354,36 @@ mod tests
             }
         } else {
             panic!("expected and op2, found {:?}", t);
+        }
+        assert_eq!(1, actual.len());
+    }
+
+    #[test]
+    fn infix_less_than()
+    {
+        let input = "a < b";
+        let actual = parse(input).unwrap();
+        println!("{:#?}", actual);
+
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::infix_expr,
+            tokens: [
+                infix_expr(0, 5, [
+                    id(0, 1),
+                    less_than(2, 3),
+                    id(4, 5),
+                ])
+            ]
+        );
+
+        let t = &actual[0];
+        if let Ast::Op2("<", a, b) = &*t.node {
+            assert_eq!(Ast::Id1("a"), *a.node);
+            assert_eq!(Ast::Id1("b"), *b.node);
+        } else {
+            panic!("expected < op2, found {:?}", t);
         }
         assert_eq!(1, actual.len());
     }

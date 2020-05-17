@@ -7,6 +7,9 @@ number = _{ float | int }
 and = { "and" }
 or = { "or" }
 not = { "not" }
+less_than = { "<" | "<=" }
+equality = { "==" | "!=" }
+greater_than = { ">" | ">=" }
 
 prefix_op = _{
     not
@@ -15,7 +18,7 @@ prefix_op = _{
 infix_op = _{
     "+" | "-" | "*" | "/" | "mod"
     | and | or
-    | "<" | "<=" | "==" | "!=" | ">=" | ">"
+    | less_than | equality | greater_than
 }
 
 WHITESPACE = _{ " " }
