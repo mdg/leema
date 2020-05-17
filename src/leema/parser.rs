@@ -294,7 +294,7 @@ mod tests
             input: input,
             rule: Rule::infix_expr,
             tokens: [
-                infix_expr(0, 12, [
+                infix_expr(0, 11, [
                     prefix_expr(0, 5, [
                         not(0, 3),
                         id(4, 5),
@@ -304,6 +304,56 @@ mod tests
                 ])
             ]
         );
+
+        let t = &actual[0];
+        if let Ast::Op2("and", not_a, b) = &*t.node {
+            if let Ast::Op1("not", a) = &*not_a.node {
+                assert_eq!(Ast::Id1("a"), *a.node);
+            } else {
+                panic!("expected not op1, found {:?}", not_a);
+            }
+            assert_eq!(Ast::Id1("b"), *b.node);
+        } else {
+            panic!("expected and op2, found {:?}", t);
+        }
+        assert_eq!(1, actual.len());
+    }
+
+    #[test]
+    fn infix_and_not()
+    {
+        let input = "a and not b";
+        let actual = parse(input).unwrap();
+        println!("{:#?}", actual);
+
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::infix_expr,
+            tokens: [
+                infix_expr(0, 11, [
+                    id(0, 1),
+                    and(2, 5),
+                    prefix_expr(6, 11, [
+                        not(6, 9),
+                        id(10, 11)
+                    ]),
+                ])
+            ]
+        );
+
+        let t = &actual[0];
+        if let Ast::Op2("and", a, not_b) = &*t.node {
+            assert_eq!(Ast::Id1("a"), *a.node);
+            if let Ast::Op1("not", b) = &*not_b.node {
+                assert_eq!(Ast::Id1("b"), *b.node);
+            } else {
+                panic!("expected not op1, found {:?}", not_b);
+            }
+        } else {
+            panic!("expected and op2, found {:?}", t);
+        }
+        assert_eq!(1, actual.len());
     }
 
     /*
