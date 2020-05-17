@@ -129,18 +129,18 @@ mod tests
         )
     }
 
-    /*
     #[test]
     fn test_id()
     {
         parses_to!(
             parser: LeemaParser,
             input: "foo",
-            rule: Rule::typex,
-            tokens: [id(0, 3)]
+            rule: Rule::infix_expr,
+            tokens: [infix_expr(0, 3, [id(0, 3)])]
         )
     }
 
+    /*
     #[test]
     fn id_generic()
     {
