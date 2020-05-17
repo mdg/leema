@@ -1,6 +1,7 @@
 
 use crate::leema::failure::Lresult;
 use crate::leema::ast2::{self, Ast, AstNode, AstResult};
+use crate::leema::val::Val;
 
 use pest::Parser;
 use pest::iterators::Pair;
@@ -59,6 +60,10 @@ pub fn consume(pair: Pair<'static, Rule>, climber: &PrecClimber<Rule>) -> AstRes
                 Ast::Id1(pair.as_str()),
                 loc(&pair),
             ))
+        }
+        Rule::int => {
+            let i = pair.as_str().parse().unwrap();
+            Ok(AstNode::new_constval(Val::Int(i), loc(&pair)))
         }
         Rule::and|Rule::or|Rule::not
             |Rule::less_than|Rule::equality|Rule::greater_than =>
@@ -162,38 +167,12 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: input,
-            rule: Rule::expr,
+            rule: Rule::infix_expr,
             tokens: [
-                expr(0, 6, [
-                    infix_expr(0, 6, [
-                        int(0, 1),
-                        infix_op(2, 4),
-                        expr(5, 6, [
-                            id(5, 6)
-                        ]),
-                    ])
-                ])
-            ]
-        )
-    }
-
-    #[test]
-    fn infix_or_only()
-    {
-        let input = "True or False";
-        let actual = parse(input).unwrap();
-        println!("{:#?}", actual);
-        parses_to!(
-            parser: LeemaParser,
-            input: input,
-            rule: Rule::expr,
-            tokens: [
-                expr(0, 13, [
-                    infix_expr(0, 13, [
-                        id(0, 4),
-                        infix_op(5, 7),
-                        expr(8, 13, [id(8, 13)])
-                    ])
+                infix_expr(0, 6, [
+                    int(0, 1),
+                    equality(2, 4),
+                    id(5, 6)
                 ])
             ]
         )
@@ -412,10 +391,8 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: "3.14159",
-            rule: Rule::expr,
-            tokens: [
-                float(0, 7)
-            ]
+            rule: Rule::infix_expr,
+            tokens: [infix_expr(0, 7, [float(0, 7)])]
         )
     }
 
@@ -425,8 +402,8 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: "1234",
-            rule: Rule::expr,
-            tokens: [int(0, 4)]
+            rule: Rule::infix_expr,
+            tokens: [infix_expr(0, 4, [int(0, 4)])]
         )
     }
 
