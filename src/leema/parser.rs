@@ -43,14 +43,18 @@ pub fn consume(pair: Pair<'static, Rule>, climber: &PrecClimber<Rule>) -> AstRes
     };
 
     match pair.as_rule() {
-        Rule::expr => climber.climb(pair.into_inner(), primary, infix),
-        Rule::infix_expr => climber.climb(pair.into_inner(), primary, infix),
+        Rule::expr => {
+            let inner = pair.into_inner();
+            climber.climb(inner, primary, infix)
+        }
         Rule::id => {
             Ok(AstNode::new(
                 Ast::Id1(pair.as_str()),
                 loc(&pair),
             ))
         }
+        Rule::and => Ok(AstNode::new(Ast::Id1("and"), loc(&pair))),
+        Rule::or => Ok(AstNode::new(Ast::Id1("or"), loc(&pair))),
         _ => {
             let inner = pair.into_inner();
             if inner.as_str().is_empty() {
@@ -71,7 +75,7 @@ pub fn parse(text: &'static str) -> Lresult<Vec<AstNode>>
             Operator::new(Rule::and, Assoc::Left),
         ]);
     }
-    let it = LeemaParser::parse(Rule::expr, text)
+    let it = LeemaParser::parse(Rule::infix_expr, text)
         .map_err(|e| {
             println!("parse error: {:?}", e);
             rustfail!(

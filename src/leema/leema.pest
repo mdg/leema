@@ -19,9 +19,12 @@ id = @{ LETTER ~ ( LETTER | NUMBER )* }
 
 term = _{ id | number }
 
-infix_expr = { term ~ (infix_op ~ expr)+ }
-
-expr = {
-    infix_expr
+expr = _{
+    term ~ "(" ~ infix_expr ~ ")"
     | term
+}
+
+infix_expr = {
+    expr ~ (infix_op ~ expr)+
+    | expr
 }
