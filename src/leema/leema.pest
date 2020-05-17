@@ -4,6 +4,11 @@ float = @{ digit+ ~ "." ~ digit+ }
 int = @{ digit+ }
 number = _{ float | int }
 
+plus = { "+" }
+dash = { "-" }
+star = { "*" }
+slash = { "/" }
+modulo = { "modulo" }
 and = { "and" }
 or = { "or" }
 not = { "not" }
@@ -12,11 +17,12 @@ equality = { "==" | "!=" }
 greater_than = { ">" | ">=" }
 
 prefix_op = _{
-    not
+    dash
+    | not
 }
 
 infix_op = _{
-    "+" | "-" | "*" | "/" | "mod"
+    plus | dash | star | slash | modulo
     | and | or
     | less_than | equality | greater_than
 }
@@ -28,7 +34,7 @@ id = @{ LETTER ~ ( LETTER | NUMBER )* }
 term = _{ id | number }
 
 prefix_expr = {
-    not ~ expr
+    prefix_op ~ expr
 }
 
 expr = _{

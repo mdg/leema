@@ -407,15 +407,16 @@ mod tests
         )
     }
 
-    /*
     #[test]
     fn negative_int()
     {
         parses_to!(
             parser: LeemaParser,
             input: "-34",
-            rule: Rule::expr,
-            tokens: [prefix_expr(0, 3, [dash(0, 1), int(1, 3)])]
+            rule: Rule::infix_expr,
+            tokens: [infix_expr(0, 3, [
+                prefix_expr(0, 3, [dash(0, 1), int(1, 3)])
+            ])]
         )
     }
 
@@ -425,12 +426,16 @@ mod tests
         // does the negative 34 get handled correctly?
         parses_to!(
             parser: LeemaParser,
-            input: "-3 * 5",
-            rule: Rule::expr,
+            input: "-3 + 5",
+            rule: Rule::infix_expr,
             tokens: [
                 infix_expr(0, 6, [
-                    dash(0, 1),
-                    int(1, 3)
+                    prefix_expr(0, 2, [
+                        dash(0, 1),
+                        int(1, 2)
+                    ]),
+                    plus(3, 4),
+                    int(5, 6)
                 ])
             ]
         )
@@ -443,7 +448,7 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: "3 - -56",
-            rule: Rule::expr,
+            rule: Rule::infix_expr,
             tokens: [
                 infix_expr(0, 7, [
                     int(0, 1),
@@ -456,5 +461,4 @@ mod tests
             ]
         )
     }
-    */
 }
