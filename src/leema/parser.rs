@@ -142,23 +142,23 @@ mod tests
         )
     }
 
-    /*
     #[test]
-    fn id_generic()
+    fn generic_id()
     {
         parses_to!(
             parser: LeemaParser,
             input: "foo'A",
-            rule: Rule::x1,
+            rule: Rule::expr,
             tokens: [
-                id_generic(0, 4, [
-                    id(0, 3),
-                    id(4, 5),
+                expr(0, 5, [
+                    typecall_expr(0, 5, [
+                        id(0, 3),
+                        id(4, 5),
+                    ])
                 ])
             ]
         )
     }
-    */
 
     #[test]
     fn infix_equality()

@@ -55,14 +55,14 @@ prefix_expr = { prefix_op ~ x1 }
 postfix_expr = { term ~ postfix_op }
 
 dot_expr = { term ~ "." ~ id }
-type_call_expr = { term ~ "'" ~ id }
+typecall_expr = { term ~ "'" ~ id }
 call_expr = { term ~ "(" ~ expr ~ ")" }
 
 x1 = _{
     prefix_expr
     | postfix_expr
     | dot_expr
-    | type_call_expr
+    | typecall_expr
     | call_expr
     | term
 }
