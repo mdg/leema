@@ -132,6 +132,22 @@ mod tests
     }
 
     #[test]
+    fn call_expr()
+    {
+        parses_to!(
+            parser: LeemaParser,
+            input: "foo(5)",
+            rule: Rule::expr,
+            tokens: [expr(0, 6, [
+                call_expr(0, 6, [
+                    id(0, 3),
+                    expr(4, 5, [int(4, 5)]),
+                ])
+            ])]
+        )
+    }
+
+    #[test]
     fn test_id()
     {
         parses_to!(
