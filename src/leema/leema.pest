@@ -8,6 +8,8 @@ plus = { "+" }
 dash = { "-" }
 star = { "*" }
 slash = { "/" }
+tick = { "'" }
+dot = { "." }
 modulo = { "modulo" }
 and = { "and" }
 or = { "or" }
@@ -15,10 +17,15 @@ not = { "not" }
 less_than = { "<" | "<=" }
 equality = { "==" | "!=" }
 greater_than = { ">" | ">=" }
+add_newline = { "\\n" }
 
 prefix_op = _{
     dash
     | not
+}
+
+postfix_op = _{
+    add_newline
 }
 
 // keywords
@@ -29,6 +36,7 @@ infix_op = _{
     plus | dash | star | slash | modulo
     | and | or
     | less_than | equality | greater_than
+    | tick | dot
 }
 
 WHITESPACE = _{ " " }
@@ -41,15 +49,21 @@ keywords = _{
 
 id = @{ !keywords ~ LETTER ~ ( LETTER | NUMBER )* }
 
-term = _{ id | number }
+term = _{ id | number | ("(" ~ expr ~ ")") }
 
-prefix_expr = {
-    prefix_op ~ x1
-}
+prefix_expr = { prefix_op ~ x1 }
+postfix_expr = { term ~ postfix_op }
+
+dot_expr = { term ~ "." ~ id }
+type_call_expr = { term ~ "'" ~ id }
+call_expr = { term ~ "(" ~ expr ~ ")" }
 
 x1 = _{
     prefix_expr
-    | term ~ "(" ~ expr ~ ")"
+    | postfix_expr
+    | dot_expr
+    | type_call_expr
+    | call_expr
     | term
 }
 
