@@ -49,11 +49,11 @@ prefix_expr = {
 
 x1 = _{
     prefix_expr
-    | term ~ "(" ~ infix_expr ~ ")"
+    | term ~ "(" ~ expr ~ ")"
     | term
 }
 
-infix_expr = {
+expr = {
     x1 ~ (infix_op ~ x1)+
     | x1
 }

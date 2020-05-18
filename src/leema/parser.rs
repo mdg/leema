@@ -47,7 +47,7 @@ pub fn consume(pair: Pair<'static, Rule>, climber: &PrecClimber<Rule>) -> AstRes
             let inner = pair.into_inner();
             climber.climb(inner, primary, infix)
         }
-        Rule::infix_expr => {
+        Rule::expr => {
             let inner = pair.into_inner();
             climber.climb(inner, primary, infix)
         }
@@ -96,7 +96,7 @@ pub fn parse(text: &'static str) -> Lresult<Vec<AstNode>>
             | Operator::new(Rule::greater_than, Assoc::Left),
         ]);
     }
-    let it = LeemaParser::parse(Rule::infix_expr, text)
+    let it = LeemaParser::parse(Rule::expr, text)
         .map_err(|e| {
             println!("parse error: {:?}", e);
             rustfail!(
@@ -137,8 +137,8 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: "foo",
-            rule: Rule::infix_expr,
-            tokens: [infix_expr(0, 3, [id(0, 3)])]
+            rule: Rule::expr,
+            tokens: [expr(0, 3, [id(0, 3)])]
         )
     }
 
@@ -169,9 +169,9 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: input,
-            rule: Rule::infix_expr,
+            rule: Rule::expr,
             tokens: [
-                infix_expr(0, 6, [
+                expr(0, 6, [
                     int(0, 1),
                     equality(2, 4),
                     id(5, 6)
@@ -190,9 +190,9 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: input,
-            rule: Rule::infix_expr,
+            rule: Rule::expr,
             tokens: [
-                infix_expr(0, 12, [
+                expr(0, 12, [
                     id(0, 1),
                     and(2, 5),
                     id(6, 7),
@@ -238,9 +238,9 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: input,
-            rule: Rule::infix_expr,
+            rule: Rule::expr,
             tokens: [
-                infix_expr(0, 12, [
+                expr(0, 12, [
                     id(0, 1),
                     or(2, 4),
                     id(5, 6),
@@ -275,9 +275,9 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: input,
-            rule: Rule::infix_expr,
+            rule: Rule::expr,
             tokens: [
-                infix_expr(0, 11, [
+                expr(0, 11, [
                     prefix_expr(0, 5, [
                         not(0, 3),
                         id(4, 5),
@@ -312,9 +312,9 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: input,
-            rule: Rule::infix_expr,
+            rule: Rule::expr,
             tokens: [
-                infix_expr(0, 11, [
+                expr(0, 11, [
                     id(0, 1),
                     and(2, 5),
                     prefix_expr(6, 11, [
@@ -349,9 +349,9 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: input,
-            rule: Rule::infix_expr,
+            rule: Rule::expr,
             tokens: [
-                infix_expr(0, 5, [
+                expr(0, 5, [
                     id(0, 1),
                     less_than(2, 3),
                     id(4, 5),
@@ -393,8 +393,8 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: "3.14159",
-            rule: Rule::infix_expr,
-            tokens: [infix_expr(0, 7, [float(0, 7)])]
+            rule: Rule::expr,
+            tokens: [expr(0, 7, [float(0, 7)])]
         )
     }
 
@@ -404,8 +404,8 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: "1234",
-            rule: Rule::infix_expr,
-            tokens: [infix_expr(0, 4, [int(0, 4)])]
+            rule: Rule::expr,
+            tokens: [expr(0, 4, [int(0, 4)])]
         )
     }
 
@@ -415,8 +415,8 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: "-34",
-            rule: Rule::infix_expr,
-            tokens: [infix_expr(0, 3, [
+            rule: Rule::expr,
+            tokens: [expr(0, 3, [
                 prefix_expr(0, 3, [dash(0, 1), int(1, 3)])
             ])]
         )
@@ -429,9 +429,9 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: "-3 + 5",
-            rule: Rule::infix_expr,
+            rule: Rule::expr,
             tokens: [
-                infix_expr(0, 6, [
+                expr(0, 6, [
                     prefix_expr(0, 2, [
                         dash(0, 1),
                         int(1, 2)
@@ -450,9 +450,9 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: "3 - -56",
-            rule: Rule::infix_expr,
+            rule: Rule::expr,
             tokens: [
-                infix_expr(0, 7, [
+                expr(0, 7, [
                     int(0, 1),
                     dash(2, 3),
                     prefix_expr(4, 7, [
