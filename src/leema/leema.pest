@@ -54,9 +54,12 @@ term = _{ id | number | ("(" ~ expr ~ ")") }
 prefix_expr = { prefix_op ~ x1 }
 postfix_expr = { term ~ postfix_op }
 
+x_maybe_k = { (id ~ ":")? ~ expr }
+call_args = _{ x_maybe_k ~ ("," ~ x_maybe_k)* ~ ","? }
+
 dot_expr = { term ~ "." ~ id }
 typecall_expr = { term ~ "'" ~ id }
-call_expr = { term ~ "(" ~ expr ~ ")" }
+call_expr = { term ~ "(" ~ call_args? ~ ")" }
 
 x1 = _{
     prefix_expr

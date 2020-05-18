@@ -136,12 +136,16 @@ mod tests
     {
         parses_to!(
             parser: LeemaParser,
-            input: "foo(5)",
+            input: "foo(5, x: y)",
             rule: Rule::expr,
-            tokens: [expr(0, 6, [
-                call_expr(0, 6, [
+            tokens: [expr(0, 12, [
+                call_expr(0, 12, [
                     id(0, 3),
-                    expr(4, 5, [int(4, 5)]),
+                    x_maybe_k(4, 5, [expr(4, 5, [int(4, 5)])]),
+                    x_maybe_k(7, 11, [
+                        id(7, 8),
+                        expr(10, 11, [id(10, 11)]),
+                    ]),
                 ])
             ])]
         )
