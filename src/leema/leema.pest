@@ -44,16 +44,16 @@ id = @{ !keywords ~ LETTER ~ ( LETTER | NUMBER )* }
 term = _{ id | number }
 
 prefix_expr = {
-    prefix_op ~ expr
+    prefix_op ~ x1
 }
 
-expr = _{
+x1 = _{
     prefix_expr
     | term ~ "(" ~ infix_expr ~ ")"
     | term
 }
 
 infix_expr = {
-    expr ~ (infix_op ~ expr)+
-    | expr
+    x1 ~ (infix_op ~ x1)+
+    | x1
 }

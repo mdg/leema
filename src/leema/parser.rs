@@ -43,7 +43,7 @@ pub fn consume(pair: Pair<'static, Rule>, climber: &PrecClimber<Rule>) -> AstRes
     };
 
     match pair.as_rule() {
-        Rule::expr => {
+        Rule::x1 => {
             let inner = pair.into_inner();
             climber.climb(inner, primary, infix)
         }
@@ -124,7 +124,7 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: "True",
-            rule: Rule::expr,
+            rule: Rule::x1,
             tokens: [
                 id(0, 4)
             ]
@@ -149,7 +149,7 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: "foo'A",
-            rule: Rule::expr,
+            rule: Rule::x1,
             tokens: [
                 id_generic(0, 4, [
                     id(0, 3),
@@ -379,7 +379,7 @@ mod tests
         parses_to!(
             parser: LeemaParser,
             input: input,
-            rule: Rule::expr,
+            rule: Rule::x1,
             tokens: [
                 id(0, 4)
             ]
