@@ -1,11 +1,10 @@
-
-use crate::leema::failure::Lresult;
 use crate::leema::ast2::{self, Ast, AstNode, AstResult};
+use crate::leema::failure::Lresult;
 use crate::leema::val::Val;
 
-use pest::Parser;
 use pest::iterators::Pair;
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
+use pest::Parser;
 
 use lazy_static::lazy_static;
 
@@ -20,13 +19,20 @@ pub fn loc(pair: &Pair<Rule>) -> ast2::Loc
     ast2::Loc::new(line as u16, col as u8)
 }
 
-pub fn infix(lhsr: AstResult, op: Pair<'static, Rule>, rhsr: AstResult) -> AstResult
+pub fn infix(
+    lhsr: AstResult,
+    op: Pair<'static, Rule>,
+    rhsr: AstResult,
+) -> AstResult
 {
     let lhs = ltry!(lhsr);
     let rhs = ltry!(rhsr);
     match op.as_rule() {
-        Rule::and|Rule::or|Rule::less_than|Rule::equality|Rule::greater_than =>
-        {
+        Rule::and
+        | Rule::or
+        | Rule::less_than
+        | Rule::equality
+        | Rule::greater_than => {
             let ast = Ast::Op2(op.as_str(), lhs, rhs);
             Ok(AstNode::new(ast, loc(&op)))
         }
@@ -36,11 +42,12 @@ pub fn infix(lhsr: AstResult, op: Pair<'static, Rule>, rhsr: AstResult) -> AstRe
     }
 }
 
-pub fn consume(pair: Pair<'static, Rule>, climber: &PrecClimber<Rule>) -> AstResult
+pub fn consume(
+    pair: Pair<'static, Rule>,
+    climber: &PrecClimber<Rule>,
+) -> AstResult
 {
-    let primary = |p| {
-        consume(p, climber)
-    };
+    let primary = |p| consume(p, climber);
 
     match pair.as_rule() {
         Rule::x1 => {
@@ -57,30 +64,25 @@ pub fn consume(pair: Pair<'static, Rule>, climber: &PrecClimber<Rule>) -> AstRes
             let arg = consume(inner.next().unwrap(), climber)?;
             Ok(AstNode::new(Ast::Op1(op.as_str(), arg), loc(&op)))
         }
-        Rule::id => {
-            Ok(AstNode::new(
-                Ast::Id1(pair.as_str()),
-                pair_loc,
-            ))
-        }
+        Rule::id => Ok(AstNode::new(Ast::Id1(pair.as_str()), pair_loc)),
         Rule::int => {
             let i = pair.as_str().parse().unwrap();
             Ok(AstNode::new_constval(Val::Int(i), pair_loc))
         }
-        Rule::and|Rule::or|Rule::not
-            |Rule::less_than|Rule::equality|Rule::greater_than =>
-        {
+        Rule::and
+        | Rule::or
+        | Rule::not
+        | Rule::less_than
+        | Rule::equality
+        | Rule::greater_than => {
             Ok(AstNode::new(Ast::Id1(pair.as_str()), pair_loc))
         }
-        Rule::stmt_block|Rule::file => {
-            let inner: Lresult<Vec<AstNode>> = pair.into_inner().map(|i| {
-                consume(i, climber)
-            }).collect();
+        Rule::stmt_block | Rule::file => {
+            let inner: Lresult<Vec<AstNode>> =
+                pair.into_inner().map(|i| consume(i, climber)).collect();
             Ok(AstNode::new(Ast::Block(inner?), pair_loc))
         }
-        Rule::rust_block => {
-            Ok(AstNode::new(Ast::RustBlock, pair_loc))
-        }
+        Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, pair_loc)),
         _ => {
             println!("unsupported rule: {:?}", pair);
             let inner = pair.into_inner();
@@ -96,15 +98,10 @@ pub fn consume(pair: Pair<'static, Rule>, climber: &PrecClimber<Rule>) -> AstRes
 
 pub fn parse_tokens(r: Rule, text: &'static str) -> Lresult<Vec<Pair<Rule>>>
 {
-    let it = LeemaParser::parse(r, text)
-        .map_err(|e| {
-            println!("parse error: {:?}", e);
-            rustfail!(
-                "parse failure",
-                "{:?}",
-                e,
-            )
-        })?;
+    let it = LeemaParser::parse(r, text).map_err(|e| {
+        println!("parse error: {:?}", e);
+        rustfail!("parse failure", "{:?}", e,)
+    })?;
     Ok(it.collect())
 }
 
@@ -115,28 +112,21 @@ pub fn parse(r: Rule, text: &'static str) -> Lresult<Vec<AstNode>>
             Operator::new(Rule::or, Assoc::Left),
             Operator::new(Rule::and, Assoc::Left),
             Operator::new(Rule::less_than, Assoc::Left)
-            | Operator::new(Rule::equality, Assoc::Left)
-            | Operator::new(Rule::greater_than, Assoc::Left),
+                | Operator::new(Rule::equality, Assoc::Left)
+                | Operator::new(Rule::greater_than, Assoc::Left),
         ]);
     }
-    let it = LeemaParser::parse(r, text)
-        .map_err(|e| {
-            println!("parse error: {:?}", e);
-            rustfail!(
-                "parse failure",
-                "{:?}",
-                e,
-            )
-        })?;
-    it.map(|p| {
-        consume(p, &CLIMBER)
-    }).collect()
+    let it = LeemaParser::parse(r, text).map_err(|e| {
+        println!("parse error: {:?}", e);
+        rustfail!("parse failure", "{:?}", e,)
+    })?;
+    it.map(|p| consume(p, &CLIMBER)).collect()
 }
 
 #[cfg(test)]
 mod tests
 {
-    use super::{LeemaParser, parse, Rule};
+    use super::{parse, LeemaParser, Rule};
     use crate::leema::ast2::Ast;
 
     use pest::{consumes_to, parses_to};

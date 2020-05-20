@@ -668,9 +668,7 @@ impl ParslMode for TypexMode
     ) -> Option<&'static dyn InfixParser<Item = Self::Item>>
     {
         match tok {
-            Token::DoubleColon => {
-                Some(&ParseId)
-            }
+            Token::DoubleColon => Some(&ParseId),
 
             _ => None,
         }
