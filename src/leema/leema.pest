@@ -18,6 +18,7 @@ less_than = { "<" | "<=" }
 equality = { "==" | "!=" }
 greater_than = { ">" | ">=" }
 add_newline = { "\\n" }
+block_arrow = _{ "->" | ">>" }
 
 prefix_op = _{
     dash
@@ -44,7 +45,7 @@ WHITESPACE = _{ " " }
 
 keywords = _{
     prefix_op | infix_op
-    | func_type
+    | func_type | block_arrow
     | mxport
 }
 
@@ -78,7 +79,7 @@ expr = !{
 
 // statements
 
-def_func = !{ func_type ~ id ~ rust_block }
+def_func = !{ func_type ~ id ~ func_block }
 
 stmt = _{
     def_func
@@ -87,4 +88,10 @@ stmt = _{
 
 line = _{ " "* ~ stmt? }
 stmt_block = ${ (line ~ "\n")* }
+arrow_block = _{ block_arrow ~  stmt_block }
+func_block = _{
+    rust_block
+    | (block_arrow ~ stmt_block ~ "--")
+    | (block_arrow ~ expr ~ "--")
+}
 file = ${ (line ~ "\n")* ~ line? }

@@ -1,5 +1,6 @@
-use crate::leema::ast2::{self, Ast, AstNode, AstResult};
+use crate::leema::ast2::{self, Ast, AstNode, AstResult, Xlist};
 use crate::leema::failure::Lresult;
+use crate::leema::struple::StrupleItem;
 use crate::leema::val::Val;
 
 use pest::iterators::Pair;
@@ -42,6 +43,34 @@ pub fn infix(
     }
 }
 
+pub fn consume_x_maybe_k(pair: Pair<'static, Rule>, climber: &PrecClimber<Rule>) -> Lresult<StrupleItem<Option<&'static str>, AstNode>>
+{
+    match pair.as_rule() {
+        Rule::x_maybe_k => {
+            let mut inner = pair.into_inner();
+            let k_or_x = inner.next().unwrap();
+            let maybe_x = inner.next();
+            match (k_or_x, maybe_x) {
+                (xpair, None) => {
+                    let x = consume(xpair, climber)?;
+                    Ok(StrupleItem::new_v(x))
+                }
+                (kpair, Some(xpair)) => {
+                    let x = consume(xpair, climber)?;
+                    Ok(StrupleItem::new(Some(kpair.as_str()), x))
+                }
+            }
+        }
+        unexpected => {
+            Err(rustfail!(
+                "compile_error",
+                "expected x_maybe_k, found {:?}",
+                unexpected,
+            ))
+        }
+    }
+}
+
 pub fn consume(
     pair: Pair<'static, Rule>,
     climber: &PrecClimber<Rule>,
@@ -49,6 +78,7 @@ pub fn consume(
 {
     let primary = |p| consume(p, climber);
 
+    let pair_loc = loc(&pair);
     match pair.as_rule() {
         Rule::x1 => {
             let inner = pair.into_inner();
@@ -57,6 +87,14 @@ pub fn consume(
         Rule::expr => {
             let inner = pair.into_inner();
             climber.climb(inner, primary, infix)
+        }
+        Rule::call_expr => {
+            let mut inner = pair.into_inner();
+            let fx = consume(inner.next().unwrap(), climber)?;
+            let args: Lresult<Xlist> = inner.map(|i| {
+                consume_x_maybe_k(i, climber)
+            }).collect();
+            Ok(AstNode::new(Ast::Call(fx, args?), pair_loc))
         }
         Rule::prefix_expr => {
             let mut inner = pair.into_inner();
@@ -81,6 +119,16 @@ pub fn consume(
             let inner: Lresult<Vec<AstNode>> =
                 pair.into_inner().map(|i| consume(i, climber)).collect();
             Ok(AstNode::new(Ast::Block(inner?), pair_loc))
+        }
+        Rule::def_func => {
+            let mut inner = pair.into_inner();
+            let _func_type = inner.next().unwrap();
+            let func_name = consume(inner.next().unwrap(), climber)?;
+            let func_args = vec![];
+            let func_result = AstNode::void();
+            let block = consume(inner.next().unwrap(), climber)?;
+            let df = Ast::DefFunc(func_name, func_args, func_result, block);
+            Ok(AstNode::new(df, pair_loc))
         }
         Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, pair_loc)),
         _ => {
@@ -159,6 +207,30 @@ mod tests
                         id(7, 8),
                         expr(10, 11, [id(10, 11)]),
                     ]),
+                ])
+            ])]
+        )
+    }
+
+    #[test]
+    fn def_func_arrowblock()
+    {
+        let input = "func foo ->
+            bar(x, y)
+            baz(z)
+        --
+        ";
+        let actual = parse(Rule::file, input).unwrap();
+        println!("{:#?}", actual);
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::file,
+            tokens: [file(0, 15, [
+                def_func(0, 15, [
+                    func_type(0, 4),
+                    id(5, 8),
+                    rust_block(9, 15),
                 ])
             ])]
         )
