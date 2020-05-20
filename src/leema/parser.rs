@@ -72,6 +72,13 @@ pub fn consume(pair: Pair<'static, Rule>, climber: &PrecClimber<Rule>) -> AstRes
         {
             Ok(AstNode::new(Ast::Id1(pair.as_str()), loc(&pair)))
         }
+        Rule::stmt_block => {
+            let pair_loc = loc(&pair);
+            let inner: Lresult<Vec<AstNode>> = pair.into_inner().map(|i| {
+                consume(i, climber)
+            }).collect();
+            Ok(AstNode::new(Ast::Block(inner?), pair_loc))
+        }
         _ => {
             println!("unsupported rule: {:?}", pair);
             let inner = pair.into_inner();
@@ -85,7 +92,21 @@ pub fn consume(pair: Pair<'static, Rule>, climber: &PrecClimber<Rule>) -> AstRes
     }
 }
 
-pub fn parse(text: &'static str) -> Lresult<Vec<AstNode>>
+pub fn parse_tokens(r: Rule, text: &'static str) -> Lresult<Vec<Pair<Rule>>>
+{
+    let it = LeemaParser::parse(r, text)
+        .map_err(|e| {
+            println!("parse error: {:?}", e);
+            rustfail!(
+                "parse failure",
+                "{:?}",
+                e,
+            )
+        })?;
+    Ok(it.collect())
+}
+
+pub fn parse(r: Rule, text: &'static str) -> Lresult<Vec<AstNode>>
 {
     lazy_static! {
         static ref CLIMBER: PrecClimber<Rule> = PrecClimber::new(vec![
@@ -96,7 +117,7 @@ pub fn parse(text: &'static str) -> Lresult<Vec<AstNode>>
             | Operator::new(Rule::greater_than, Assoc::Left),
         ]);
     }
-    let it = LeemaParser::parse(Rule::expr, text)
+    let it = LeemaParser::parse(r, text)
         .map_err(|e| {
             println!("parse error: {:?}", e);
             rustfail!(
@@ -152,6 +173,23 @@ mod tests
     }
 
     #[test]
+    fn def_func_rustblock()
+    {
+        let input = "func foo -RUST-
+        ";
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::stmt_block,
+            tokens: [stmt_block(0, 13, [
+                stmt_line(0, 13, [
+                    id(0, 3)
+                ])
+            ])]
+        )
+    }
+
+    #[test]
     fn test_id()
     {
         parses_to!(
@@ -184,7 +222,7 @@ mod tests
     fn infix_equality()
     {
         let input = "3 == x";
-        let actual = parse(input).unwrap();
+        let actual = parse(Rule::expr, input).unwrap();
         println!("{:#?}", actual);
         parses_to!(
             parser: LeemaParser,
@@ -204,7 +242,7 @@ mod tests
     fn infix_and_or()
     {
         let input = "a and b or c";
-        let actual = parse(input).unwrap();
+        let actual = parse(Rule::expr, input).unwrap();
         println!("{:#?}", actual);
 
         parses_to!(
@@ -252,7 +290,7 @@ mod tests
     fn infix_or_and()
     {
         let input = "a or b and c";
-        let actual = parse(input).unwrap();
+        let actual = parse(Rule::expr, input).unwrap();
         println!("{:#?}", actual);
 
         parses_to!(
@@ -289,7 +327,7 @@ mod tests
     fn infix_not_and()
     {
         let input = "not a and b";
-        let actual = parse(input).unwrap();
+        let actual = parse(Rule::expr, input).unwrap();
         println!("{:#?}", actual);
 
         parses_to!(
@@ -326,7 +364,7 @@ mod tests
     fn infix_and_not()
     {
         let input = "a and not b";
-        let actual = parse(input).unwrap();
+        let actual = parse(Rule::expr, input).unwrap();
         println!("{:#?}", actual);
 
         parses_to!(
@@ -363,7 +401,7 @@ mod tests
     fn infix_less_than()
     {
         let input = "a < b";
-        let actual = parse(input).unwrap();
+        let actual = parse(Rule::expr, input).unwrap();
         println!("{:#?}", actual);
 
         parses_to!(
@@ -394,7 +432,7 @@ mod tests
     fn less_than_3()
     {
         let input = "3 < x <= 10";
-        let actual = parse(input).unwrap();
+        let actual = parse(Rule::expr, input).unwrap();
         println!("{:?}", actual);
         parses_to!(
             parser: LeemaParser,

@@ -30,6 +30,7 @@ postfix_op = _{
 
 // keywords
 func = { "func" }
+rust_block = { "-RUST-" }
 mxport = { "import" | "export" } // import or export
 
 infix_op = _{
@@ -74,3 +75,15 @@ expr = {
     x1 ~ (infix_op ~ x1)+
     | x1
 }
+
+// statements
+
+def_func = { func ~ id ~ rust_block }
+
+stmt = _{
+    def_func
+    | expr
+}
+
+stmt_line = _{ " "* ~ stmt ~ "\n" }
+stmt_block = { stmt_line* }

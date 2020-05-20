@@ -9,14 +9,12 @@ extern crate pest_derive;
 
 use crate::leema::application::Application;
 use crate::leema::failure::Lresult;
-use crate::leema::grammar2::Grammar;
 use crate::leema::list;
 use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
 use crate::leema::parser;
 use crate::leema::program;
 use crate::leema::struple::StrupleItem;
-use crate::leema::token::{TokenResult, Tokenz};
 use crate::leema::val::{Fref, FuncType, Type, Val};
 
 use docopt::Docopt;
@@ -31,7 +29,6 @@ struct Args
     flag_verbose: bool,
     flag_func: Option<String>,
     flag_tokens: bool,
-    flag_pairs: bool,
     flag_ast: bool,
     flag_preface: bool,
     flag_proto: bool,
@@ -52,7 +49,6 @@ Usage:
 Options:
      --typecheck   Typecheck the script
      --tokens      Show the tokens in this module for debugging
-     --pairs       Show the parsed pairs for the module
      --ast         Show the ast for the module
      --preface     Show the preface for the module
      --proto       Show the proto mod for the module
@@ -129,20 +125,13 @@ fn real_main() -> Lresult<()>
 
     let main_result = if args.flag_tokens {
         let modtxt = inter.read_mod(&main_key)?;
-        let tokr: Vec<TokenResult> = Tokenz::lex(&modtxt).collect();
+        let tokens = parser::parse_tokens(parser::Rule::stmt_block, modtxt)?;
         println!("tokens:");
-        for t in tokr {
-            println!("\t{:?}", t?);
-        }
-        None
-    } else if args.flag_pairs {
-        let modtxt = inter.read_mod(&main_key)?;
-        let pairs = parser::parse(modtxt);
-        println!("{:#?}", pairs);
+        println!("{:#?}", tokens);
         None
     } else if args.flag_ast {
         let modtxt = inter.read_mod(&main_key)?;
-        let ast = Grammar::new(Tokenz::lexp(&modtxt)?).parse_module()?;
+        let ast = parser::parse(parser::Rule::stmt_block, modtxt);
         println!("{:#?}", ast);
         None
     } else if args.flag_proto {
