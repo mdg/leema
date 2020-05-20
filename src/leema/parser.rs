@@ -60,24 +60,26 @@ pub fn consume(pair: Pair<'static, Rule>, climber: &PrecClimber<Rule>) -> AstRes
         Rule::id => {
             Ok(AstNode::new(
                 Ast::Id1(pair.as_str()),
-                loc(&pair),
+                pair_loc,
             ))
         }
         Rule::int => {
             let i = pair.as_str().parse().unwrap();
-            Ok(AstNode::new_constval(Val::Int(i), loc(&pair)))
+            Ok(AstNode::new_constval(Val::Int(i), pair_loc))
         }
         Rule::and|Rule::or|Rule::not
             |Rule::less_than|Rule::equality|Rule::greater_than =>
         {
-            Ok(AstNode::new(Ast::Id1(pair.as_str()), loc(&pair)))
+            Ok(AstNode::new(Ast::Id1(pair.as_str()), pair_loc))
         }
-        Rule::stmt_block => {
-            let pair_loc = loc(&pair);
+        Rule::stmt_block|Rule::file => {
             let inner: Lresult<Vec<AstNode>> = pair.into_inner().map(|i| {
                 consume(i, climber)
             }).collect();
             Ok(AstNode::new(Ast::Block(inner?), pair_loc))
+        }
+        Rule::rust_block => {
+            Ok(AstNode::new(Ast::RustBlock, pair_loc))
         }
         _ => {
             println!("unsupported rule: {:?}", pair);
@@ -175,15 +177,18 @@ mod tests
     #[test]
     fn def_func_rustblock()
     {
-        let input = "func foo -RUST-
-        ";
+        let input = "func foo -RUST-";
+        let actual = parse(Rule::file, input).unwrap();
+        println!("{:#?}", actual);
         parses_to!(
             parser: LeemaParser,
             input: input,
-            rule: Rule::stmt_block,
-            tokens: [stmt_block(0, 13, [
-                stmt_line(0, 13, [
-                    id(0, 3)
+            rule: Rule::file,
+            tokens: [file(0, 15, [
+                def_func(0, 15, [
+                    func_type(0, 4),
+                    id(5, 8),
+                    rust_block(9, 15),
                 ])
             ])]
         )

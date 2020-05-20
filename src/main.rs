@@ -125,13 +125,13 @@ fn real_main() -> Lresult<()>
 
     let main_result = if args.flag_tokens {
         let modtxt = inter.read_mod(&main_key)?;
-        let tokens = parser::parse_tokens(parser::Rule::stmt_block, modtxt)?;
+        let tokens = parser::parse_tokens(parser::Rule::file, modtxt)?;
         println!("tokens:");
         println!("{:#?}", tokens);
         None
     } else if args.flag_ast {
         let modtxt = inter.read_mod(&main_key)?;
-        let ast = parser::parse(parser::Rule::stmt_block, modtxt);
+        let ast = parser::parse(parser::Rule::file, modtxt);
         println!("{:#?}", ast);
         None
     } else if args.flag_proto {

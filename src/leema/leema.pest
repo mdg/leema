@@ -29,7 +29,7 @@ postfix_op = _{
 }
 
 // keywords
-func = { "func" }
+func_type = { "func" }
 rust_block = { "-RUST-" }
 mxport = { "import" | "export" } // import or export
 
@@ -44,7 +44,7 @@ WHITESPACE = _{ " " }
 
 keywords = _{
     prefix_op | infix_op
-    | func
+    | func_type
     | mxport
 }
 
@@ -71,19 +71,20 @@ x1 = _{
     | term
 }
 
-expr = {
+expr = !{
     x1 ~ (infix_op ~ x1)+
     | x1
 }
 
 // statements
 
-def_func = { func ~ id ~ rust_block }
+def_func = !{ func_type ~ id ~ rust_block }
 
 stmt = _{
     def_func
     | expr
 }
 
-stmt_line = _{ " "* ~ stmt ~ "\n" }
-stmt_block = { stmt_line* }
+line = _{ " "* ~ stmt? }
+stmt_block = ${ (line ~ "\n")* }
+file = ${ (line ~ "\n")* ~ line? }
