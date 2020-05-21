@@ -4,6 +4,12 @@ float = @{ digit+ ~ "." ~ digit+ }
 int = @{ digit+ }
 number = _{ float | int }
 
+strchar = { !"\"" ~ !"$" ~ ANY }
+strlit = @{ strchar+ }
+strid = _{ "$" ~ id }
+strx = _{ "${" ~ expr ~ "}" }
+str = { "\"" ~ (strlit | strid | strx )* ~ "\"" }
+
 plus = { "+" }
 dash = { "-" }
 star = { "*" }
@@ -51,7 +57,7 @@ keywords = _{
 
 id = @{ !keywords ~ LETTER ~ ( LETTER | NUMBER )* }
 
-term = _{ id | number | ("(" ~ expr ~ ")") }
+term = _{ id | number | str | ("(" ~ expr ~ ")") }
 
 prefix_expr = { prefix_op ~ x1 }
 postfix_expr = { term ~ postfix_op }

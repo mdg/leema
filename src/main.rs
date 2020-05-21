@@ -131,7 +131,7 @@ fn real_main() -> Lresult<()>
         None
     } else if args.flag_ast {
         let modtxt = inter.read_mod(&main_key)?;
-        let ast = parser::parse(parser::Rule::file, modtxt);
+        let ast = parser::parse(parser::Rule::file, modtxt)?;
         println!("{:#?}", ast);
         None
     } else if args.flag_proto {

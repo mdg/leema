@@ -1,5 +1,6 @@
 use crate::leema::ast2::{self, Ast, AstNode, AstResult, Xlist};
 use crate::leema::failure::Lresult;
+use crate::leema::lstr::Lstr;
 use crate::leema::struple::StrupleItem;
 use crate::leema::val::Val;
 
@@ -107,6 +108,22 @@ pub fn consume(
             let i = pair.as_str().parse().unwrap();
             Ok(AstNode::new_constval(Val::Int(i), pair_loc))
         }
+        Rule::strlit => {
+            let s = Val::Str(Lstr::Sref(pair.as_str()));
+            Ok(AstNode::new_constval(s, pair_loc))
+        }
+        Rule::str => {
+            let strs: Lresult<Vec<AstNode>> = pair.into_inner().map(|i| {
+                consume(i, climber)
+            }).collect();
+            let mut s = strs?;
+            let result = match s.len() {
+                0 => AstNode::new_constval(Val::Str(Lstr::Sref("")), pair_loc),
+                1 => s.remove(0),
+                _ => AstNode::new(Ast::StrExpr(s), pair_loc),
+            };
+            Ok(result)
+        }
         Rule::and
         | Rule::or
         | Rule::not
@@ -176,6 +193,8 @@ mod tests
 {
     use super::{parse, LeemaParser, Rule};
     use crate::leema::ast2::Ast;
+    use crate::leema::lstr::Lstr;
+    use crate::leema::val::Val;
 
     use pest::{consumes_to, parses_to};
 
@@ -602,5 +621,19 @@ mod tests
                 ])
             ]
         )
+    }
+
+    #[test]
+    fn str_empty()
+    {
+        let ast = parse(Rule::expr, r#""""#).unwrap();
+        assert_eq!(Ast::ConstVal(Val::Str(Lstr::Sref(""))), *ast[0].node);
+    }
+
+    #[test]
+    fn str_const()
+    {
+        let ast = parse(Rule::expr, r#""taco""#).unwrap();
+        assert_eq!(Ast::ConstVal(Val::Str(Lstr::Sref("taco"))), *ast[0].node);
     }
 }
