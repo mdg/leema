@@ -88,7 +88,7 @@ stmt = _{
 
 line = _{ " "* ~ stmt? }
 stmt_block = ${ (line ~ "\n")* }
-arrow_block = _{ block_arrow ~  stmt_block }
+arrow_block = _{ block_arrow ~ stmt_block }
 func_block = _{
     rust_block
     | (block_arrow ~ stmt_block ~ "--")

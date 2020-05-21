@@ -217,7 +217,7 @@ mod tests
     {
         let input = "func foo ->
             bar(x, y)
-            baz(z)
+            baz()
         --
         ";
         let actual = parse(Rule::file, input).unwrap();
@@ -226,11 +226,24 @@ mod tests
             parser: LeemaParser,
             input: input,
             rule: Rule::file,
-            tokens: [file(0, 15, [
-                def_func(0, 15, [
+            tokens: [file(0, 71, [
+                def_func(0, 62, [
                     func_type(0, 4),
                     id(5, 8),
-                    rust_block(9, 15),
+                    stmt_block(11, 52, [
+                        expr(24, 33, [
+                            call_expr(24, 33, [
+                                id(24, 27),
+                                x_maybe_k(28, 29, [expr(28, 29, [id(28, 29)])]),
+                                x_maybe_k(31, 32, [expr(31, 32, [id(31, 32)])]),
+                            ])
+                        ]),
+                        expr(46, 51, [
+                            call_expr(46, 51, [
+                                id(46, 49),
+                            ])
+                        ]),
+                    ]),
                 ])
             ])]
         )
