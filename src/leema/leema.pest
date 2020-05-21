@@ -94,4 +94,4 @@ func_block = _{
     | (block_arrow ~ stmt_block ~ "--")
     | (block_arrow ~ expr ~ "--")
 }
-file = ${ (line ~ "\n")* ~ line? }
+file = ${ (line ~ "\n")* ~ line ~ "\n"? ~ EOI }
