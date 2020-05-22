@@ -268,6 +268,8 @@ mod tests
                 def_func(0, 62, [
                     func_mode(0, 4),
                     id(5, 8),
+                    def_func_result(9, 9),
+                    def_func_args(9, 9),
                     stmt_block(11, 52, [
                         expr(24, 33, [
                             call_expr(24, 33, [
@@ -302,6 +304,8 @@ mod tests
                 def_func(0, 15, [
                     func_mode(0, 4),
                     id(5, 8),
+                    def_func_result(9, 9),
+                    def_func_args(9, 9),
                     rust_block(9, 15),
                 ]),
                 EOI(15, 15)
