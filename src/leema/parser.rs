@@ -636,4 +636,35 @@ mod tests
         let ast = parse(Rule::expr, r#""taco""#).unwrap();
         assert_eq!(Ast::ConstVal(Val::Str(Lstr::Sref("taco"))), *ast[0].node);
     }
+
+    #[test]
+    fn str_expr()
+    {
+        let actual = parse(Rule::expr, r#""hello $world""#).unwrap();
+        if let Ast::StrExpr(strx) = &*actual[0].node {
+            assert_eq!(
+                Ast::ConstVal(Val::Str(Lstr::Sref("hello "))),
+                *strx[0].node,
+            );
+            assert_eq!(Ast::Id1("world"), *strx[1].node);
+            assert_eq!(2, strx.len());
+        } else {
+            panic!("expected StrExpr, found {:?}", actual[0]);
+        }
+        assert_eq!(1, actual.len());
+
+        parses_to!(
+            parser: LeemaParser,
+            input: r#""hello $world""#,
+            rule: Rule::expr,
+            tokens: [
+                expr(0, 14, [
+                    str(0, 14, [
+                        strlit(1, 7),
+                        id(8, 13),
+                    ]),
+                ])
+            ]
+        );
+    }
 }

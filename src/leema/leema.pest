@@ -8,7 +8,7 @@ strchar = { !"\"" ~ !"$" ~ ANY }
 strlit = @{ strchar+ }
 strid = _{ "$" ~ id }
 strx = _{ "${" ~ expr ~ "}" }
-str = { "\"" ~ (strlit | strid | strx )* ~ "\"" }
+str = ${ "\"" ~ (strlit | strid | strx )* ~ "\"" }
 
 plus = { "+" }
 dash = { "-" }
