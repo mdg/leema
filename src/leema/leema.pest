@@ -36,7 +36,7 @@ postfix_op = _{
 }
 
 // keywords
-func_type = { "func" }
+func_mode = { "func" }
 rust_block = { "-RUST-" }
 mxport = { "import" | "export" } // import or export
 
@@ -51,7 +51,7 @@ WHITESPACE = _{ " " }
 
 keywords = _{
     prefix_op | infix_op
-    | func_type | block_arrow
+    | func_mode | block_arrow
     | mxport
 }
 
@@ -83,9 +83,27 @@ expr = !{
     | x1
 }
 
+// types
+
+type_term = _{
+    "(" ~ typex ~ ")"
+    | id
+}
+
+type_func = {
+    "::" ~ x_maybe_k*
+    | type_term ~ "::" ~ x_maybe_k*
+    | type_term ~ "::"
+}
+
+typex = { type_func | type_term }
+
 // statements
 
-def_func = !{ func_type ~ id ~ func_block }
+def_func_arg = { id ~ (":" ~ type_term)? }
+def_func_args = { ("::" ~ def_func_arg+)? }
+def_func_result = { (":" ~ type_term)? }
+def_func = !{ func_mode ~ id ~ def_func_result ~ def_func_args ~ func_block }
 
 stmt = _{
     def_func

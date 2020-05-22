@@ -62,6 +62,12 @@ pub fn consume_x_maybe_k(pair: Pair<'static, Rule>, climber: &PrecClimber<Rule>)
                 }
             }
         }
+        Rule::def_func_arg => {
+            let mut inner = pair.into_inner();
+            let name = inner.next().unwrap();
+            let typ = consume(inner.next().unwrap(), climber)?;
+            Ok(StrupleItem::new(Some(name.as_str()), typ))
+        }
         unexpected => {
             Err(rustfail!(
                 "compile_error",
@@ -139,13 +145,26 @@ pub fn consume(
         }
         Rule::def_func => {
             let mut inner = pair.into_inner();
-            let _func_type = inner.next().unwrap();
+            let _func_mode = inner.next().unwrap();
             let func_name = consume(inner.next().unwrap(), climber)?;
-            let func_args = vec![];
-            let func_result = AstNode::void();
+            let func_result = consume(inner.next().unwrap(), climber)?;
+            let func_arg_it = inner.next().unwrap().into_inner();
+            let func_args: Lresult<Xlist> = func_arg_it.map(|arg| {
+                consume_x_maybe_k(arg, climber)
+            }).collect();
             let block = consume(inner.next().unwrap(), climber)?;
-            let df = Ast::DefFunc(func_name, func_args, func_result, block);
+            let df = Ast::DefFunc(func_name, func_args?, func_result, block);
             Ok(AstNode::new(df, pair_loc))
+        }
+        Rule::def_func_result => {
+            match pair.into_inner().next() {
+                Some(result) => {
+                    consume(result, climber)
+                }
+                None => {
+                    Ok(AstNode::new(Ast::Id1("Void"), pair_loc))
+                }
+            }
         }
         Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, pair_loc)),
         _ => {
@@ -247,7 +266,7 @@ mod tests
             rule: Rule::file,
             tokens: [file(0, 71, [
                 def_func(0, 62, [
-                    func_type(0, 4),
+                    func_mode(0, 4),
                     id(5, 8),
                     stmt_block(11, 52, [
                         expr(24, 33, [
@@ -281,13 +300,68 @@ mod tests
             rule: Rule::file,
             tokens: [file(0, 15, [
                 def_func(0, 15, [
-                    func_type(0, 4),
+                    func_mode(0, 4),
                     id(5, 8),
                     rust_block(9, 15),
                 ]),
                 EOI(15, 15)
             ])]
         )
+    }
+
+    #[test]
+    fn def_func_args()
+    {
+        let input = ":: s:Str x:Int";
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::def_func_args,
+            tokens: [def_func_args(0, 14, [
+                def_func_arg(3, 8, [
+                    id(3, 4),
+                    id(5, 8),
+                ]),
+                def_func_arg(9, 14, [
+                    id(9, 10),
+                    id(11, 14),
+                ])
+            ])]
+        )
+    }
+
+    #[test]
+    fn def_func_result()
+    {
+        let input = ":Str";
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::def_func_result,
+            tokens: [def_func_result(0, 4, [
+                id(1, 4),
+            ])]
+        )
+    }
+
+    #[test]
+    fn def_func_result_with_args()
+    {
+        let input = "func format:Str :: x:Int ->
+            do_it
+        --
+        ";
+        let actual = parse(Rule::def_func, input).unwrap();
+        println!("{:#?}", actual);
+        if let Ast::DefFunc(name, args, _result, _body) = &*actual[0].node {
+            assert_eq!(Ast::Id1("format"), *name.node);
+            assert_eq!(*"x", *args[0].k.unwrap());
+            assert_eq!(Ast::Id1("Int"), *args[0].v.node);
+            // assert_eq!(Ast::Id1("Str"), *_result.node);
+        } else {
+            panic!("expected DefFunc, found {:?}", actual[0]);
+        }
+        assert_eq!(1, actual.len());
     }
 
     #[test]
