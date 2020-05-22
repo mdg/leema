@@ -372,7 +372,13 @@ mod tests
             input: "foo",
             rule: Rule::expr,
             tokens: [expr(0, 3, [id(0, 3)])]
-        )
+        );
+        parses_to!(
+            parser: LeemaParser,
+            input: "foo_bar",
+            rule: Rule::expr,
+            tokens: [expr(0, 7, [id(0, 7)])]
+        );
     }
 
     #[test]

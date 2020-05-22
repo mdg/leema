@@ -55,7 +55,7 @@ keywords = _{
     | mxport
 }
 
-id = @{ !keywords ~ LETTER ~ ( LETTER | NUMBER )* }
+id = @{ !keywords ~ (LETTER | "_") ~ ( LETTER | NUMBER | "_" )* }
 
 term = _{ id | number | str | ("(" ~ expr ~ ")") }
 
