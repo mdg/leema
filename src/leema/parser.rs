@@ -166,6 +166,7 @@ pub fn consume(
                 }
             }
         }
+        Rule::EOI => Ok(AstNode::void()),
         Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, pair_loc)),
         _ => {
             println!("unsupported rule: {:?}", pair);
