@@ -105,8 +105,15 @@ def_func_args = { ("::" ~ def_func_arg+)? }
 def_func_result = { (":" ~ type_term)? }
 def_func = !{ func_mode ~ id ~ def_func_result ~ def_func_args ~ func_block }
 
+mxid = @{ "." ~ id }
+mxmod = @{ ("/" | "../")? ~ id ~ ("/" ~ id)* }
+mxline = { mxmod ~ mxid? }
+mxblock = { block_arrow ~ mxline+ ~ "--" }
+mxport_stmt = !{ mxport ~ (mxline | star) }
+
 stmt = _{
     def_func
+    | mxport_stmt
     | expr
 }
 

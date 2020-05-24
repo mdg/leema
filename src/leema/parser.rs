@@ -212,10 +212,11 @@ pub fn parse(r: Rule, text: &'static str) -> Lresult<Vec<AstNode>>
 mod tests
 {
     use super::{parse, LeemaParser, Rule};
-    use crate::leema::ast2::Ast;
+    use crate::leema::ast2::{Ast, ModAction, ModTree};
     use crate::leema::lstr::Lstr;
     use crate::leema::val::Val;
 
+    use matches::assert_matches;
     use pest::{consumes_to, parses_to};
 
     #[test]
@@ -401,6 +402,22 @@ mod tests
                     ])
                 ])
             ]
+        )
+    }
+
+    #[test]
+    fn mxpathfunc()
+    {
+        let input = "root/path.func";
+        // let input = "root/path";
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::mxline,
+            tokens: [mxline(0, 9, [
+                mxmod(0, 9),
+                // mxid(9, 14),
+            ])]
         )
     }
 
