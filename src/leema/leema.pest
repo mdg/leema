@@ -105,21 +105,22 @@ def_func_args = { ("::" ~ def_func_arg+)? }
 def_func_result = { (":" ~ type_term)? }
 def_func = !{ func_mode ~ id ~ def_func_result ~ def_func_args ~ func_block }
 
-mxid = @{ "." ~ id }
+mxcomp_tail = _{ ASCII_ALPHA_LOWER | ASCII_DIGIT }
+mxcomp = @{ ASCII_ALPHA_LOWER ~ mxcomp_tail* }
+mxid = @{ "." ~ mxcomp }
 mxhead = @{
-    ("/" ~ id)
-    | ("../" ~ id)
-    | ("." ~ id)
+    ("/" ~ mxcomp)
+    | ("../" ~ mxcomp)
+    | ("." ~ mxcomp)
     | id
 }
-mxmod = @{ mxhead ~ ("/" ~ id)* }
+mxmod = @{ mxhead ~ ("/" ~ mxcomp)* }
 mxline = ${ mxmod ~ mxid? }
-mxblock = { block_arrow ~ mxline+ ~ "--" }
-mxport_stmt = !{ mxport ~ (mxline | star) }
+mxstmt = !{ mxport ~ (mxline | star) }
 
 stmt = _{
     def_func
-    | mxport_stmt
+    | mxstmt
     | expr
 }
 

@@ -1,4 +1,5 @@
-use crate::leema::ast2::{self, Ast, AstNode, AstResult, Xlist};
+use crate::leema::ast2;
+use crate::leema::ast2::{Ast, AstNode, AstResult, ModAction, ModTree, Xlist};
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::struple::StrupleItem;
@@ -73,6 +74,49 @@ pub fn consume_x_maybe_k(pair: Pair<'static, Rule>, climber: &PrecClimber<Rule>)
                 "compile_error",
                 "expected x_maybe_k, found {:?}",
                 unexpected,
+            ))
+        }
+    }
+}
+
+pub fn consume_mxline(pair: Pair<'static, Rule>) -> Lresult<ModTree>
+{
+    match pair.as_rule() {
+        Rule::mxline => {
+            let mut it = pair.into_inner();
+            let head = it.next().unwrap();
+            let opt_tail = it.next();
+            match (head.as_rule(), opt_tail) {
+                (Rule::mxmod, None) => {
+                    Ok(ModTree::FinalMod(head.as_str(), loc(&head)))
+                }
+                (Rule::mxid, None) => {
+                    Ok(ModTree::FinalId(head.as_str(), loc(&head)))
+                }
+                (Rule::mxmod, Some(next)) => {
+                    let tail = match next.as_rule() {
+                        Rule::mxid => {
+                            ModTree::FinalId(next.as_str(), loc(&next))
+                        }
+                        _ => {
+                            panic!("unexpected import line tail: {:?}", next);
+                        }
+                    };
+                    Ok(ModTree::sub(head.as_str(), tail))
+                }
+                un => {
+                    panic!("unexpected import line: {:?}", un)
+                }
+            }
+        }
+        Rule::star => {
+            Ok(ModTree::All(loc(&pair)))
+        }
+        _ => {
+            Err(rustfail!(
+                "compile_failure",
+                "expected import/export line, found {:?}",
+                pair,
             ))
         }
     }
@@ -165,6 +209,17 @@ pub fn consume(
                     Ok(AstNode::new(Ast::Id1("Void"), pair_loc))
                 }
             }
+        }
+        Rule::mxstmt => {
+            let mut inner = pair.into_inner();
+            let mxpair = inner.next().unwrap();
+            let mx = match mxpair.as_str() {
+                "import" => ModAction::Import,
+                "export" => ModAction::Export,
+                _ => panic!("expected import or export, found {:?}", mxpair),
+            };
+            let mxline = consume_mxline(inner.next().unwrap())?;
+            Ok(AstNode::new(Ast::ModAction(mx, mxline), pair_loc))
         }
         Rule::EOI => Ok(AstNode::void()),
         Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, pair_loc)),
@@ -385,6 +440,13 @@ mod tests
             rule: Rule::expr,
             tokens: [expr(0, 7, [id(0, 7)])]
         );
+        // id breaks before the dot
+        parses_to!(
+            parser: LeemaParser,
+            input: "foo.bar",
+            rule: Rule::id,
+            tokens: [id(0, 3)]
+        );
     }
 
     #[test]
@@ -402,6 +464,18 @@ mod tests
                     ])
                 ])
             ]
+        )
+    }
+
+    #[test]
+    fn mxid()
+    {
+        let input = ".taco";
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::mxid,
+            tokens: [mxid(0, 5)]
         )
     }
 
@@ -442,19 +516,7 @@ mod tests
     }
 
     #[test]
-    fn mxmod_dot()
-    {
-        let input = "root/path.";
-        parses_to!(
-            parser: LeemaParser,
-            input: input,
-            rule: Rule::mxmod,
-            tokens: [mxmod(0, 9)]
-        )
-    }
-
-    #[test]
-    fn mxpathfunc()
+    fn mxmod_id()
     {
         let input = "root/path.func";
         // let input = "root/path";
@@ -467,6 +529,29 @@ mod tests
                 mxid(9, 14),
             ])]
         )
+    }
+
+    #[test]
+    fn mxlines()
+    {
+        let input = "
+        import /root/path
+        import ../sibling/path
+        import child/path
+        import child.func
+        ";
+        let actual = parse(Rule::file, input).unwrap();
+        println!("{:#?}", actual);
+        assert_eq!(1, actual.len());
+        if let Ast::Block(imps) = &*actual[0].node {
+            if let Ast::ModAction(ModAction::Import, root) = &*imps[0].node {
+                assert_matches!(root, ModTree::FinalMod("/root/path", _));
+            } else {
+                panic!("expected import, found {:?}", imps[0]);
+            }
+        } else {
+            panic!("expected block, found: {:?}", actual[0]);
+        }
     }
 
     #[test]
