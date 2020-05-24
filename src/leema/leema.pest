@@ -38,7 +38,7 @@ postfix_op = _{
 // keywords
 func_mode = { "func" }
 rust_block = { "-RUST-" }
-mxport = { "import" | "export" } // import or export
+mxport = { "import" | "export" }
 
 infix_op = _{
     plus | dash | star | slash | modulo
@@ -106,8 +106,14 @@ def_func_result = { (":" ~ type_term)? }
 def_func = !{ func_mode ~ id ~ def_func_result ~ def_func_args ~ func_block }
 
 mxid = @{ "." ~ id }
-mxmod = @{ ("/" | "../")? ~ id ~ ("/" ~ id)* }
-mxline = { mxmod ~ mxid? }
+mxhead = @{
+    ("/" ~ id)
+    | ("../" ~ id)
+    | ("." ~ id)
+    | id
+}
+mxmod = @{ mxhead ~ ("/" ~ id)* }
+mxline = ${ mxmod ~ mxid? }
 mxblock = { block_arrow ~ mxline+ ~ "--" }
 mxport_stmt = !{ mxport ~ (mxline | star) }
 

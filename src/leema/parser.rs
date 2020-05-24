@@ -406,6 +406,54 @@ mod tests
     }
 
     #[test]
+    fn mxmod_absolute()
+    {
+        let input = "/root/path";
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::mxmod,
+            tokens: [mxmod(0, 10)]
+        )
+    }
+
+    #[test]
+    fn mxmod_relative()
+    {
+        let input = "child/path";
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::mxmod,
+            tokens: [mxmod(0, 10)]
+        )
+    }
+
+    #[test]
+    fn mxmod_sibling()
+    {
+        let input = "../sibling/path";
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::mxmod,
+            tokens: [mxmod(0, 15)]
+        )
+    }
+
+    #[test]
+    fn mxmod_dot()
+    {
+        let input = "root/path.";
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::mxmod,
+            tokens: [mxmod(0, 9)]
+        )
+    }
+
+    #[test]
     fn mxpathfunc()
     {
         let input = "root/path.func";
@@ -414,9 +462,9 @@ mod tests
             parser: LeemaParser,
             input: input,
             rule: Rule::mxline,
-            tokens: [mxline(0, 9, [
+            tokens: [mxline(0, 14, [
                 mxmod(0, 9),
-                // mxid(9, 14),
+                mxid(9, 14),
             ])]
         )
     }
