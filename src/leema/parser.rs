@@ -95,7 +95,7 @@ pub fn consume_mxline(pair: Pair<'static, Rule>) -> Lresult<ModTree>
                 }
                 (Rule::mxmod, Some(next)) => {
                     let tail = match next.as_rule() {
-                        Rule::mxid => {
+                        Rule::id => {
                             ModTree::FinalId(next.as_str(), loc(&next))
                         }
                         _ => {
@@ -475,7 +475,7 @@ mod tests
             parser: LeemaParser,
             input: input,
             rule: Rule::mxid,
-            tokens: [mxid(0, 5)]
+            tokens: [id(1, 5)]
         )
     }
 
@@ -525,7 +525,7 @@ mod tests
             rule: Rule::mxline,
             tokens: [mxline(0, 14, [
                 mxmod(0, 9),
-                mxid(9, 14),
+                id(10, 14),
             ])]
         )
     }
@@ -563,7 +563,11 @@ mod tests
             }
             // child.funky
             if let Ast::ModAction(ModAction::Import, ch) = &*imps[3].node {
-                assert_matches!(ch, ModTree::FinalId("child.funky", _));
+                if let ModTree::Sub("child", funky) = ch {
+                    assert_matches!(**funky, ModTree::FinalId("funky", _));
+                } else {
+                    panic!("expected FinalId, found {:?}", ch);
+                }
             } else {
                 panic!("expected import, found {:?}", imps[0]);
             }

@@ -107,16 +107,16 @@ def_func_args = { ("::" ~ def_func_arg+)? }
 def_func_result = { (":" ~ type_term)? }
 def_func = !{ func_mode ~ id ~ def_func_result ~ def_func_args ~ func_block }
 
-mxid = @{ "." ~ id }
+mxid = _{ "." ~ id }
 mxhead = @{
     ("/" ~ modname)
     | ("../" ~ modname)
-    | mxid
     | modname
 }
 mxmod = @{ mxhead ~ ("/" ~ modname)* }
 mxline = ${ mxmod ~ mxid? }
-mxstmt = !{ mxport ~ (mxline | star) }
+// mxblock = { block_arrow ~ mxline+ ~ "--" }
+mxstmt = !{ mxport ~ (mxline | mxid | star) }
 
 stmt = _{
     def_func
