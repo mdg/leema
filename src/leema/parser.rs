@@ -518,7 +518,7 @@ mod tests
     #[test]
     fn mxmod_id()
     {
-        let input = "root/path.func";
+        let input = "root/path.taco";
         // let input = "root/path";
         parses_to!(
             parser: LeemaParser,
@@ -538,13 +538,18 @@ mod tests
         import /root/path
         import ../sibling/path
         import child/path
-        import child.func
+        import child.funky
         ";
         let actual = parse(Rule::file, input).unwrap();
         println!("{:#?}", actual);
         assert_eq!(1, actual.len());
         if let Ast::Block(imps) = &*actual[0].node {
             if let Ast::ModAction(ModAction::Import, root) = &*imps[0].node {
+                assert_matches!(root, ModTree::FinalMod("/root/path", _));
+            } else {
+                panic!("expected import, found {:?}", imps[0]);
+            }
+            if let Ast::ModAction(ModAction::Import, root) = &*imps[1].node {
                 assert_matches!(root, ModTree::FinalMod("/root/path", _));
             } else {
                 panic!("expected import, found {:?}", imps[0]);

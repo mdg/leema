@@ -43,14 +43,14 @@ infix_op = _{
     plus | dash | star | slash | modulo
     | and | or
     | less_than | equality | greater_than
-    | tick | dot
+    | tick
 }
 
 WHITESPACE = _{ " " }
 
 keywords = _{
-    prefix_op | infix_op
-    | func_mode | block_arrow
+    and | or | not
+    | func_mode
     | mxport
 }
 
@@ -106,12 +106,12 @@ def_func = !{ func_mode ~ id ~ def_func_result ~ def_func_args ~ func_block }
 
 mxcomp_tail = _{ ASCII_ALPHA_LOWER | ASCII_DIGIT }
 mxcomp = @{ ASCII_ALPHA_LOWER ~ mxcomp_tail* }
-mxid = @{ "." ~ mxcomp }
+mxid = @{ "." ~ id }
 mxhead = @{
     ("/" ~ mxcomp)
     | ("../" ~ mxcomp)
-    | ("." ~ mxcomp)
-    | id
+    | mxid
+    | mxcomp
 }
 mxmod = @{ mxhead ~ ("/" ~ mxcomp)* }
 mxline = ${ mxmod ~ mxid? }
