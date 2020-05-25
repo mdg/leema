@@ -45,7 +45,10 @@ pub fn infix(
     }
 }
 
-pub fn consume_x_maybe_k(pair: Pair<'static, Rule>, climber: &PrecClimber<Rule>) -> Lresult<StrupleItem<Option<&'static str>, AstNode>>
+pub fn consume_x_maybe_k(
+    pair: Pair<'static, Rule>,
+    climber: &PrecClimber<Rule>,
+) -> Lresult<StrupleItem<Option<&'static str>, AstNode>>
 {
     match pair.as_rule() {
         Rule::x_maybe_k => {
@@ -95,23 +98,17 @@ pub fn consume_mxline(pair: Pair<'static, Rule>) -> Lresult<ModTree>
                 }
                 (Rule::mxmod, Some(next)) => {
                     let tail = match next.as_rule() {
-                        Rule::id => {
-                            ModTree::FinalId(next.as_str(), loc(&next))
-                        }
+                        Rule::id => ModTree::FinalId(next.as_str(), loc(&next)),
                         _ => {
                             panic!("unexpected import line tail: {:?}", next);
                         }
                     };
                     Ok(ModTree::sub(head.as_str(), tail))
                 }
-                un => {
-                    panic!("unexpected import line: {:?}", un)
-                }
+                un => panic!("unexpected import line: {:?}", un),
             }
         }
-        Rule::star => {
-            Ok(ModTree::All(loc(&pair)))
-        }
+        Rule::star => Ok(ModTree::All(loc(&pair))),
         _ => {
             Err(rustfail!(
                 "compile_failure",
@@ -142,9 +139,8 @@ pub fn consume(
         Rule::call_expr => {
             let mut inner = pair.into_inner();
             let fx = consume(inner.next().unwrap(), climber)?;
-            let args: Lresult<Xlist> = inner.map(|i| {
-                consume_x_maybe_k(i, climber)
-            }).collect();
+            let args: Lresult<Xlist> =
+                inner.map(|i| consume_x_maybe_k(i, climber)).collect();
             Ok(AstNode::new(Ast::Call(fx, args?), pair_loc))
         }
         Rule::prefix_expr => {
@@ -163,9 +159,8 @@ pub fn consume(
             Ok(AstNode::new_constval(s, pair_loc))
         }
         Rule::str => {
-            let strs: Lresult<Vec<AstNode>> = pair.into_inner().map(|i| {
-                consume(i, climber)
-            }).collect();
+            let strs: Lresult<Vec<AstNode>> =
+                pair.into_inner().map(|i| consume(i, climber)).collect();
             let mut s = strs?;
             let result = match s.len() {
                 0 => AstNode::new_constval(Val::Str(Lstr::Sref("")), pair_loc),
@@ -193,21 +188,17 @@ pub fn consume(
             let func_name = consume(inner.next().unwrap(), climber)?;
             let func_result = consume(inner.next().unwrap(), climber)?;
             let func_arg_it = inner.next().unwrap().into_inner();
-            let func_args: Lresult<Xlist> = func_arg_it.map(|arg| {
-                consume_x_maybe_k(arg, climber)
-            }).collect();
+            let func_args: Lresult<Xlist> = func_arg_it
+                .map(|arg| consume_x_maybe_k(arg, climber))
+                .collect();
             let block = consume(inner.next().unwrap(), climber)?;
             let df = Ast::DefFunc(func_name, func_args?, func_result, block);
             Ok(AstNode::new(df, pair_loc))
         }
         Rule::def_func_result => {
             match pair.into_inner().next() {
-                Some(result) => {
-                    consume(result, climber)
-                }
-                None => {
-                    Ok(AstNode::new(Ast::Id1("Void"), pair_loc))
-                }
+                Some(result) => consume(result, climber),
+                None => Ok(AstNode::new(Ast::Id1("Void"), pair_loc)),
             }
         }
         Rule::mxstmt => {
