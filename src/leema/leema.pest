@@ -24,6 +24,7 @@ equality = { "==" | "!=" }
 greater_than = { ">" | ">=" }
 add_newline = { "\\n" }
 block_arrow = _{ "->" | ">>" }
+double_dash = _{ "--" }
 
 prefix_op = _{
     dash
@@ -49,8 +50,7 @@ infix_op = _{
 WHITESPACE = _{ " " }
 
 keywords = _{
-    and | or | not
-    | func_mode
+    func_mode
     | mxport
 }
 
@@ -115,7 +115,7 @@ mxhead = @{
 }
 mxmod = @{ mxhead ~ ("/" ~ modname)* }
 mxline = ${ mxmod ~ mxid? }
-// mxblock = { block_arrow ~ mxline+ ~ "--" }
+// mxblock = { block_arrow ~ mxline+ ~ double_dash }
 mxstmt = !{ mxport ~ (mxline | mxid | star) }
 
 stmt = _{
@@ -129,7 +129,7 @@ stmt_block = ${ (line ~ "\n")* }
 arrow_block = _{ block_arrow ~ stmt_block }
 func_block = _{
     rust_block
-    | (block_arrow ~ stmt_block ~ "--")
-    | (block_arrow ~ expr ~ "--")
+    | (block_arrow ~ stmt_block ~ double_dash)
+    | (block_arrow ~ expr ~ double_dash)
 }
 file = ${ (line ~ "\n")* ~ line ~ "\n"? ~ EOI }

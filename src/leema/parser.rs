@@ -33,6 +33,11 @@ pub fn infix(
     match op.as_rule() {
         Rule::and
         | Rule::or
+        | Rule::plus
+        | Rule::dash
+        | Rule::star
+        | Rule::slash
+        | Rule::modulo
         | Rule::less_than
         | Rule::equality
         | Rule::greater_than => {
@@ -245,6 +250,11 @@ pub fn parse(r: Rule, text: &'static str) -> Lresult<Vec<AstNode>>
             Operator::new(Rule::less_than, Assoc::Left)
                 | Operator::new(Rule::equality, Assoc::Left)
                 | Operator::new(Rule::greater_than, Assoc::Left),
+            Operator::new(Rule::plus, Assoc::Left)
+                | Operator::new(Rule::dash, Assoc::Left),
+            Operator::new(Rule::star, Assoc::Left)
+                | Operator::new(Rule::slash, Assoc::Left)
+                | Operator::new(Rule::modulo, Assoc::Left),
         ]);
     }
     let it = LeemaParser::parse(r, text).map_err(|e| {
