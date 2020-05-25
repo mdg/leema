@@ -519,7 +519,6 @@ mod tests
     fn mxmod_id()
     {
         let input = "root/path.taco";
-        // let input = "root/path";
         parses_to!(
             parser: LeemaParser,
             input: input,
@@ -544,13 +543,27 @@ mod tests
         println!("{:#?}", actual);
         assert_eq!(1, actual.len());
         if let Ast::Block(imps) = &*actual[0].node {
+            // /root/path
             if let Ast::ModAction(ModAction::Import, root) = &*imps[0].node {
                 assert_matches!(root, ModTree::FinalMod("/root/path", _));
             } else {
                 panic!("expected import, found {:?}", imps[0]);
             }
-            if let Ast::ModAction(ModAction::Import, root) = &*imps[1].node {
-                assert_matches!(root, ModTree::FinalMod("/root/path", _));
+            // ../sibling/path
+            if let Ast::ModAction(ModAction::Import, sib) = &*imps[1].node {
+                assert_matches!(sib, ModTree::FinalMod("../sibling/path", _));
+            } else {
+                panic!("expected import, found {:?}", imps[0]);
+            }
+            // child/path
+            if let Ast::ModAction(ModAction::Import, ch) = &*imps[2].node {
+                assert_matches!(ch, ModTree::FinalMod("child/path", _));
+            } else {
+                panic!("expected import, found {:?}", imps[0]);
+            }
+            // child.funky
+            if let Ast::ModAction(ModAction::Import, ch) = &*imps[3].node {
+                assert_matches!(ch, ModTree::FinalId("child.funky", _));
             } else {
                 panic!("expected import, found {:?}", imps[0]);
             }

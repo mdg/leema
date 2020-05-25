@@ -54,6 +54,9 @@ keywords = _{
     | mxport
 }
 
+modname_tail = _{ ASCII_ALPHA_LOWER | ASCII_DIGIT }
+modname = @{ !keywords ~ ASCII_ALPHA_LOWER ~ modname_tail* }
+
 id = @{ !keywords ~ (LETTER | "_") ~ ( LETTER | NUMBER | "_" )* }
 
 term = _{ id | number | str | ("(" ~ expr ~ ")") }
@@ -104,16 +107,14 @@ def_func_args = { ("::" ~ def_func_arg+)? }
 def_func_result = { (":" ~ type_term)? }
 def_func = !{ func_mode ~ id ~ def_func_result ~ def_func_args ~ func_block }
 
-mxcomp_tail = _{ ASCII_ALPHA_LOWER | ASCII_DIGIT }
-mxcomp = @{ ASCII_ALPHA_LOWER ~ mxcomp_tail* }
 mxid = @{ "." ~ id }
 mxhead = @{
-    ("/" ~ mxcomp)
-    | ("../" ~ mxcomp)
+    ("/" ~ modname)
+    | ("../" ~ modname)
     | mxid
-    | mxcomp
+    | modname
 }
-mxmod = @{ mxhead ~ ("/" ~ mxcomp)* }
+mxmod = @{ mxhead ~ ("/" ~ modname)* }
 mxline = ${ mxmod ~ mxid? }
 mxstmt = !{ mxport ~ (mxline | star) }
 
