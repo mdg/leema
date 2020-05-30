@@ -22,30 +22,71 @@ pub fn loc(pair: &Pair<Rule>) -> ast2::Loc
     ast2::Loc::new(line as u16, col as u8)
 }
 
-pub fn infix(
-    lhsr: AstResult,
-    op: Pair<'static, Rule>,
-    rhsr: AstResult,
-) -> AstResult
+pub fn reduce(r: Reduction<Rule, AstNode>, climber: PrecClimber<Rule>) -> AstResult
 {
-    let lhs = ltry!(lhsr);
-    let rhs = ltry!(rhsr);
-    match op.as_rule() {
-        Rule::and
-        | Rule::or
-        | Rule::plus
-        | Rule::dash
-        | Rule::star
-        | Rule::slash
-        | Rule::modulo
-        | Rule::less_than
-        | Rule::equality
-        | Rule::greater_than => {
-            let ast = Ast::Op2(op.as_str(), lhs, rhs);
-            Ok(AstNode::new(ast, loc(&op)))
+    match r {
+        Reduction::Primary(p) => {
+            consume(p, climber)
         }
-        _ => {
-            panic!("unknown operator: {:?}", op);
+        Reduction::Prefix(op, rhsr) => {
+            let rhs = ltry!(rhsr);
+            println!("prefix {:?} {:?}", op, rhs);
+            match op.as_rule() {
+                Rule::dash
+                | Rule::plus
+                | Rule::not => {
+                    println!("{} {:?}", op.as_str(), rhs);
+                    let ast = Ast::Op1(op.as_str(), rhs);
+                    Ok(AstNode::new(ast, loc(&op)))
+                }
+                _ => {
+                    panic!("unknown prefix operator: {:?}", op);
+                }
+            }
+        }
+        Reduction::Postfix(lhsr, op) => {
+            let lhs = ltry!(lhsr);
+            println!("postfix {:?} {:?}", lhs, op);
+            match op.as_rule() {
+                Rule::append_newline => {
+                    println!("{} {:?}", op.as_str(), lhs);
+                    let ast = Ast::Op1(op.as_str(), lhs);
+                    Ok(AstNode::new(ast, loc(&op)))
+                }
+                Rule::call_args => {
+                    let call_args = consume(op, climber)?;
+                    let loc = lhs.loc;
+                    AstNode::new(Ast::Call(lhs, call_args), loc)
+                }
+                _ => {
+                    panic!("unknown postfix operator: {:?}", op);
+                }
+            }
+        }
+        Reduction::Infix(lhsr, op, rhsr) => {
+            println!("pretry infix {:?} {:?} {:?}", lhsr, op, rhsr);
+            let lhs = ltry!(lhsr);
+            let rhs = ltry!(rhsr);
+            println!("infix {:?} {:?} {:?}", lhs, op, rhs);
+            match op.as_rule() {
+                Rule::and
+                | Rule::or
+                | Rule::plus
+                | Rule::dash
+                | Rule::star
+                | Rule::slash
+                | Rule::modulo
+                | Rule::less_than
+                | Rule::equality
+                | Rule::greater_than => {
+                    println!("{} {:?} {:?}", op.as_str(), lhs, rhs);
+                    let ast = Ast::Op2(op.as_str(), lhs, rhs);
+                    Ok(AstNode::new(ast, loc(&op)))
+                }
+                _ => {
+                    panic!("unknown operator: {:?}", op);
+                }
+            }
         }
     }
 }
@@ -129,17 +170,17 @@ pub fn consume(
     climber: &PrecClimber<Rule>,
 ) -> AstResult
 {
-    let primary = |p| consume(p, climber);
+    let reducer = |r| reduce(r, climber);
 
     let pair_loc = loc(&pair);
     match pair.as_rule() {
         Rule::x1 => {
             let inner = pair.into_inner();
-            climber.climb(inner, primary, infix)
+            climber.climb(inner, reducer)
         }
         Rule::expr => {
             let inner = pair.into_inner();
-            climber.climb(inner, primary, infix)
+            climber.climb(inner, reducer)
         }
         Rule::call_expr => {
             let mut inner = pair.into_inner();
@@ -226,7 +267,7 @@ pub fn consume(
                 // needs to be a better terminal case than this
                 Ok(AstNode::void())
             } else {
-                climber.climb(inner, primary, infix)
+                climber.climb(inner, reducer)
             }
         }
     }
