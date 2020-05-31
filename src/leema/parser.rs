@@ -1,277 +1,21 @@
 use crate::leema::ast2;
 use crate::leema::ast2::{Ast, AstNode, AstResult, ModAction, ModTree, Xlist};
-use crate::leema::failure::Lresult;
+use crate::leema::failure::{Failure, Lresult};
 use crate::leema::lstr::Lstr;
 use crate::leema::struple::StrupleItem;
 use crate::leema::val::Val;
 
-use pest::iterators::Pair;
-use pest::prec_climber::{Assoc, Operator, PrecClimber};
-use pest::Parser;
-
 use lazy_static::lazy_static;
+use pest::iterators::Pair;
+use pest::Parser;
+use pratt::{Affix, Arity, Associativity, Op, PrattParser, Precedence};
+
+use std::collections::HashMap;
 
 #[derive(Parser)]
 #[grammar = "leema/leema.pest"]
 pub struct LeemaParser;
 
-
-pub fn loc(pair: &Pair<Rule>) -> ast2::Loc
-{
-    let (line, col) = pair.as_span().start_pos().line_col();
-    ast2::Loc::new(line as u16, col as u8)
-}
-
-pub fn reduce(r: Reduction<Rule, AstNode>, climber: PrecClimber<Rule>) -> AstResult
-{
-    match r {
-        Reduction::Primary(p) => {
-            consume(p, climber)
-        }
-        Reduction::Prefix(op, rhsr) => {
-            let rhs = ltry!(rhsr);
-            println!("prefix {:?} {:?}", op, rhs);
-            match op.as_rule() {
-                Rule::dash
-                | Rule::plus
-                | Rule::not => {
-                    println!("{} {:?}", op.as_str(), rhs);
-                    let ast = Ast::Op1(op.as_str(), rhs);
-                    Ok(AstNode::new(ast, loc(&op)))
-                }
-                _ => {
-                    panic!("unknown prefix operator: {:?}", op);
-                }
-            }
-        }
-        Reduction::Postfix(lhsr, op) => {
-            let lhs = ltry!(lhsr);
-            println!("postfix {:?} {:?}", lhs, op);
-            match op.as_rule() {
-                Rule::append_newline => {
-                    println!("{} {:?}", op.as_str(), lhs);
-                    let ast = Ast::Op1(op.as_str(), lhs);
-                    Ok(AstNode::new(ast, loc(&op)))
-                }
-                Rule::call_args => {
-                    let call_args = consume(op, climber)?;
-                    let loc = lhs.loc;
-                    AstNode::new(Ast::Call(lhs, call_args), loc)
-                }
-                _ => {
-                    panic!("unknown postfix operator: {:?}", op);
-                }
-            }
-        }
-        Reduction::Infix(lhsr, op, rhsr) => {
-            println!("pretry infix {:?} {:?} {:?}", lhsr, op, rhsr);
-            let lhs = ltry!(lhsr);
-            let rhs = ltry!(rhsr);
-            println!("infix {:?} {:?} {:?}", lhs, op, rhs);
-            match op.as_rule() {
-                Rule::and
-                | Rule::or
-                | Rule::plus
-                | Rule::dash
-                | Rule::star
-                | Rule::slash
-                | Rule::modulo
-                | Rule::less_than
-                | Rule::equality
-                | Rule::greater_than => {
-                    println!("{} {:?} {:?}", op.as_str(), lhs, rhs);
-                    let ast = Ast::Op2(op.as_str(), lhs, rhs);
-                    Ok(AstNode::new(ast, loc(&op)))
-                }
-                _ => {
-                    panic!("unknown operator: {:?}", op);
-                }
-            }
-        }
-    }
-}
-
-pub fn consume_x_maybe_k(
-    pair: Pair<'static, Rule>,
-    climber: &PrecClimber<Rule>,
-) -> Lresult<StrupleItem<Option<&'static str>, AstNode>>
-{
-    match pair.as_rule() {
-        Rule::x_maybe_k => {
-            let mut inner = pair.into_inner();
-            let k_or_x = inner.next().unwrap();
-            let maybe_x = inner.next();
-            match (k_or_x, maybe_x) {
-                (xpair, None) => {
-                    let x = consume(xpair, climber)?;
-                    Ok(StrupleItem::new_v(x))
-                }
-                (kpair, Some(xpair)) => {
-                    let x = consume(xpair, climber)?;
-                    Ok(StrupleItem::new(Some(kpair.as_str()), x))
-                }
-            }
-        }
-        Rule::def_func_arg => {
-            let mut inner = pair.into_inner();
-            let name = inner.next().unwrap();
-            let typ = consume(inner.next().unwrap(), climber)?;
-            Ok(StrupleItem::new(Some(name.as_str()), typ))
-        }
-        unexpected => {
-            Err(rustfail!(
-                "compile_error",
-                "expected x_maybe_k, found {:?}",
-                unexpected,
-            ))
-        }
-    }
-}
-
-pub fn consume_mxline(pair: Pair<'static, Rule>) -> Lresult<ModTree>
-{
-    match pair.as_rule() {
-        Rule::mxline => {
-            let mut it = pair.into_inner();
-            let head = it.next().unwrap();
-            let opt_tail = it.next();
-            match (head.as_rule(), opt_tail) {
-                (Rule::mxmod, None) => {
-                    Ok(ModTree::FinalMod(head.as_str(), loc(&head)))
-                }
-                (Rule::mxid, None) => {
-                    Ok(ModTree::FinalId(head.as_str(), loc(&head)))
-                }
-                (Rule::mxmod, Some(next)) => {
-                    let tail = match next.as_rule() {
-                        Rule::id => ModTree::FinalId(next.as_str(), loc(&next)),
-                        _ => {
-                            panic!("unexpected import line tail: {:?}", next);
-                        }
-                    };
-                    Ok(ModTree::sub(head.as_str(), tail))
-                }
-                un => panic!("unexpected import line: {:?}", un),
-            }
-        }
-        Rule::star => Ok(ModTree::All(loc(&pair))),
-        _ => {
-            Err(rustfail!(
-                "compile_failure",
-                "expected import/export line, found {:?}",
-                pair,
-            ))
-        }
-    }
-}
-
-pub fn consume(
-    pair: Pair<'static, Rule>,
-    climber: &PrecClimber<Rule>,
-) -> AstResult
-{
-    let reducer = |r| reduce(r, climber);
-
-    let pair_loc = loc(&pair);
-    match pair.as_rule() {
-        Rule::x1 => {
-            let inner = pair.into_inner();
-            climber.climb(inner, reducer)
-        }
-        Rule::expr => {
-            let inner = pair.into_inner();
-            climber.climb(inner, reducer)
-        }
-        Rule::call_expr => {
-            let mut inner = pair.into_inner();
-            let fx = consume(inner.next().unwrap(), climber)?;
-            let args: Lresult<Xlist> =
-                inner.map(|i| consume_x_maybe_k(i, climber)).collect();
-            Ok(AstNode::new(Ast::Call(fx, args?), pair_loc))
-        }
-        Rule::prefix_expr => {
-            let mut inner = pair.into_inner();
-            let op = inner.next().unwrap();
-            let arg = consume(inner.next().unwrap(), climber)?;
-            Ok(AstNode::new(Ast::Op1(op.as_str(), arg), loc(&op)))
-        }
-        Rule::id => Ok(AstNode::new(Ast::Id1(pair.as_str()), pair_loc)),
-        Rule::int => {
-            let i = pair.as_str().parse().unwrap();
-            Ok(AstNode::new_constval(Val::Int(i), pair_loc))
-        }
-        Rule::strlit => {
-            let s = Val::Str(Lstr::Sref(pair.as_str()));
-            Ok(AstNode::new_constval(s, pair_loc))
-        }
-        Rule::str => {
-            let strs: Lresult<Vec<AstNode>> =
-                pair.into_inner().map(|i| consume(i, climber)).collect();
-            let mut s = strs?;
-            let result = match s.len() {
-                0 => AstNode::new_constval(Val::Str(Lstr::Sref("")), pair_loc),
-                1 => s.remove(0),
-                _ => AstNode::new(Ast::StrExpr(s), pair_loc),
-            };
-            Ok(result)
-        }
-        Rule::and
-        | Rule::or
-        | Rule::not
-        | Rule::less_than
-        | Rule::equality
-        | Rule::greater_than => {
-            Ok(AstNode::new(Ast::Id1(pair.as_str()), pair_loc))
-        }
-        Rule::stmt_block | Rule::file => {
-            let inner: Lresult<Vec<AstNode>> =
-                pair.into_inner().map(|i| consume(i, climber)).collect();
-            Ok(AstNode::new(Ast::Block(inner?), pair_loc))
-        }
-        Rule::def_func => {
-            let mut inner = pair.into_inner();
-            let _func_mode = inner.next().unwrap();
-            let func_name = consume(inner.next().unwrap(), climber)?;
-            let func_result = consume(inner.next().unwrap(), climber)?;
-            let func_arg_it = inner.next().unwrap().into_inner();
-            let func_args: Lresult<Xlist> = func_arg_it
-                .map(|arg| consume_x_maybe_k(arg, climber))
-                .collect();
-            let block = consume(inner.next().unwrap(), climber)?;
-            let df = Ast::DefFunc(func_name, func_args?, func_result, block);
-            Ok(AstNode::new(df, pair_loc))
-        }
-        Rule::def_func_result => {
-            match pair.into_inner().next() {
-                Some(result) => consume(result, climber),
-                None => Ok(AstNode::new(Ast::Id1("Void"), pair_loc)),
-            }
-        }
-        Rule::mxstmt => {
-            let mut inner = pair.into_inner();
-            let mxpair = inner.next().unwrap();
-            let mx = match mxpair.as_str() {
-                "import" => ModAction::Import,
-                "export" => ModAction::Export,
-                _ => panic!("expected import or export, found {:?}", mxpair),
-            };
-            let mxline = consume_mxline(inner.next().unwrap())?;
-            Ok(AstNode::new(Ast::ModAction(mx, mxline), pair_loc))
-        }
-        Rule::EOI => Ok(AstNode::void()),
-        Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, pair_loc)),
-        _ => {
-            println!("unsupported rule: {:?}", pair);
-            let inner = pair.into_inner();
-            if inner.as_str().is_empty() {
-                // needs to be a better terminal case than this
-                Ok(AstNode::void())
-            } else {
-                climber.climb(inner, reducer)
-            }
-        }
-    }
-}
 
 pub fn parse_tokens(r: Rule, text: &'static str) -> Lresult<Vec<Pair<Rule>>>
 {
@@ -284,25 +28,384 @@ pub fn parse_tokens(r: Rule, text: &'static str) -> Lresult<Vec<Pair<Rule>>>
 
 pub fn parse(r: Rule, text: &'static str) -> Lresult<Vec<AstNode>>
 {
-    lazy_static! {
-        static ref CLIMBER: PrecClimber<Rule> = PrecClimber::new(vec![
-            Operator::new(Rule::or, Assoc::Left),
-            Operator::new(Rule::and, Assoc::Left),
-            Operator::new(Rule::less_than, Assoc::Left)
-                | Operator::new(Rule::equality, Assoc::Left)
-                | Operator::new(Rule::greater_than, Assoc::Left),
-            Operator::new(Rule::plus, Assoc::Left)
-                | Operator::new(Rule::dash, Assoc::Left),
-            Operator::new(Rule::star, Assoc::Left)
-                | Operator::new(Rule::slash, Assoc::Left)
-                | Operator::new(Rule::modulo, Assoc::Left),
-        ]);
-    }
-    let it = LeemaParser::parse(r, text).map_err(|e| {
+    let mut it = LeemaParser::parse(r, text).map_err(|e| {
         println!("parse error: {:?}", e);
         rustfail!("parse failure", "{:?}", e,)
     })?;
-    it.map(|p| consume(p, &CLIMBER)).collect()
+    let mut pratt = LeemaPratt{};
+    it.map(|i| pratt.nullary(i)).collect()
+}
+
+pub fn nodeloc(pair: &Pair<Rule>) -> ast2::Loc
+{
+    let (line, col) = pair.as_span().start_pos().line_col();
+    ast2::Loc::new(line as u16, col as u8)
+}
+
+pub struct LeemaPratt;
+
+pub fn parse_mxline(pair: Pair<'static, Rule>) -> Lresult<ModTree>
+{
+    match pair.as_rule() {
+        Rule::mxline => {
+            let mut it = pair.into_inner();
+            let head = it.next().unwrap();
+            let opt_tail = it.next();
+            match (head.as_rule(), opt_tail) {
+                (Rule::mxmod, None) => {
+                    Ok(ModTree::FinalMod(head.as_str(), nodeloc(&head)))
+                }
+                (Rule::mxid, None) => {
+                    Ok(ModTree::FinalId(head.as_str(), nodeloc(&head)))
+                }
+                (Rule::mxmod, Some(next)) => {
+                    let tail = match next.as_rule() {
+                        Rule::id => ModTree::FinalId(next.as_str(), nodeloc(&next)),
+                        _ => {
+                            panic!("unexpected import line tail: {:?}", next);
+                        }
+                    };
+                    Ok(ModTree::sub(head.as_str(), tail))
+                }
+                un => panic!("unexpected import line: {:?}", un),
+            }
+        }
+        Rule::star => Ok(ModTree::All(nodeloc(&pair))),
+        _ => {
+            Err(rustfail!(
+                "compile_failure",
+                "expected import/export line, found {:?}",
+                pair,
+            ))
+        }
+    }
+}
+
+type OpVal = (&'static str, Rule, Affix, Arity);
+type PrecKey = HashMap<Rule, Op>;
+
+pub struct ParserBuilder
+{
+    prec: Vec<Vec<OpVal>>,
+}
+
+impl ParserBuilder
+{
+    pub fn new() -> Self
+    {
+        ParserBuilder{
+            prec: vec![],
+        }
+    }
+
+    pub fn left(self) -> PrecBuilder
+    {
+        PrecBuilder::open(self, Associativity::Left)
+    }
+
+    pub fn right(self) -> PrecBuilder
+    {
+        PrecBuilder::open(self, Associativity::Right)
+    }
+}
+
+pub struct PrecBuilder
+{
+    parser: ParserBuilder,
+    assoc: Associativity,
+    prec: Vec<OpVal>,
+}
+
+impl PrecBuilder
+{
+    pub fn open(parser: ParserBuilder, assoc: Associativity) -> Self
+    {
+        PrecBuilder{
+            parser,
+            assoc,
+            prec: vec![],
+        }
+    }
+
+    pub fn left(self) -> PrecBuilder
+    {
+        self.close().left()
+    }
+
+    pub fn right(self) -> PrecBuilder
+    {
+        self.close().right()
+    }
+
+    pub fn infix(self, src: &'static str, r: Rule) -> Self
+    {
+        self.prec.push((src, r, Affix::Infix(self.assoc), Arity::Binary));
+        self
+    }
+
+    pub fn prefix(self, src: &'static str, r: Rule) -> Self
+    {
+        if self.assoc == Associativity::Left {
+            panic!("prefix rules cannot be left associative: {:?} {:?}", src, r);
+        }
+        self.prec.push((src, r, Affix::Prefix, Arity::Unary));
+        self
+    }
+
+    pub fn postfix(self, src: &'static str, r: Rule) -> PrecBuilder
+    {
+        if self.assoc == Associativity::Right {
+            panic!("postfix rules cannot be right associative: {:?} {:?}", src, r);
+        }
+        self.prec.push((src, r, Affix::Postfix, Arity::Unary));
+        self
+    }
+
+    fn close(self) -> ParserBuilder
+    {
+        self.parser.prec.push(self.prec);
+        self.parser
+    }
+}
+
+impl Into<PrecKey> for PrecBuilder
+{
+    fn into(self) -> PrecKey
+    {
+        let mut key = HashMap::new();
+        for (iprec, p) in self.close().prec.into_iter().rev().enumerate() {
+            for opval in p.into_iter() {
+                let prec = Precedence(iprec as u32);
+                key.insert(opval.1, Op::new(opval.0, opval.2, opval.3, prec));
+            }
+        }
+        key
+    }
+}
+
+impl LeemaPratt
+{
+    pub fn parse_xlist<Inputs>(&mut self, it: Inputs) -> Lresult<Xlist>
+        where Inputs: Iterator<Item = Pair<'static, Rule>>,
+    {
+        it
+            .map(|p| {
+                self.parse_x_maybe_k(p)
+            })
+            .collect()
+    }
+
+    pub fn parse_x_maybe_k(
+        &mut self,
+        pair: Pair<'static, Rule>,
+    ) -> Lresult<StrupleItem<Option<&'static str>, AstNode>>
+    {
+        match pair.as_rule() {
+            Rule::x_maybe_k => {
+                let mut inner = pair.into_inner();
+                let k_or_x: Pair<'static, Rule> = inner.next().unwrap();
+                let maybe_x = inner.next();
+                match (k_or_x, maybe_x) {
+                    (xpair, None) => {
+                        let x = self.nullary(xpair)?;
+                        Ok(StrupleItem::new_v(x))
+                    }
+                    (kpair, Some(xpair)) => {
+                        let x = self.nullary(xpair)?;
+                        Ok(StrupleItem::new(Some(kpair.as_str()), x))
+                    }
+                }
+            }
+            Rule::def_func_arg => {
+                let mut inner = pair.into_inner();
+                let name = inner.next().unwrap();
+                let typ = self.nullary(inner.next().unwrap())?;
+                Ok(StrupleItem::new(Some(name.as_str()), typ))
+            }
+            unexpected => {
+                Err(rustfail!(
+                    "compile_error",
+                    "expected x_maybe_k, found {:?}",
+                    unexpected,
+                ))
+            }
+        }
+    }
+}
+
+impl<Inputs> PrattParser<Inputs> for LeemaPratt
+    where Inputs: Iterator<Item = Pair<'static, Rule>>,
+{
+    type Input = Pair<'static, Rule>;
+    type Output = AstNode;
+    type Error = Failure;
+
+    fn query(&mut self, p: &Self::Input) -> Lresult<Op>
+    {
+        lazy_static! {
+            static ref KEY: PrecKey = ParserBuilder::new()
+                .left()
+                    .infix(".", Rule::dot)
+                    .infix("'", Rule::tick)
+                    .postfix("()", Rule::call_args)
+                .left()
+                    .prefix("-", Rule::negative)
+                .left()
+                    .infix("*", Rule::star)
+                    .infix("/", Rule::slash)
+                    .infix("modulo", Rule::modulo)
+                .left()
+                    .infix("+", Rule::plus)
+                    .infix("-", Rule::dash)
+                .left()
+                    .infix("<", Rule::less_than)
+                    .infix("==", Rule::equality)
+                    .infix(">", Rule::greater_than)
+                .left()
+                    .infix("and", Rule::and)
+                .left()
+                    .infix("or", Rule::or)
+                .into();
+        }
+        KEY.get(&p.as_rule())
+            .map(|op| *op)
+            .ok_or_else(|| {
+                rustfail!(
+                    "compile_error",
+                    "unsupported operator: {:?}",
+                    p,
+                )
+            })
+    }
+
+    fn nullary(&mut self, n: Self::Input) -> AstResult
+    {
+        let loc = nodeloc(&n);
+        match n.as_rule() {
+            Rule::id => Ok(AstNode::new(Ast::Id1(n.as_str()), loc)),
+            Rule::int => {
+                let i = n.as_str().parse().unwrap();
+                Ok(AstNode::new_constval(Val::Int(i), loc))
+            }
+            Rule::x1 => self.parse(&mut n.into_inner()),
+            Rule::expr => self.parse(&mut n.into_inner()),
+            Rule::prefix_expr => {
+                let mut inner = n.into_inner();
+                let op = inner.next().unwrap();
+                let arg = self.nullary(inner.next().unwrap())?;
+                Ok(AstNode::new(Ast::Op1(op.as_str(), arg), nodeloc(&op)))
+            }
+            Rule::strlit => {
+                let s = Val::Str(Lstr::Sref(n.as_str()));
+                Ok(AstNode::new_constval(s, loc))
+            }
+            Rule::str => {
+                println!("str: %{:#?}", n);
+                let strs: Lresult<Vec<AstNode>> =
+                    n.into_inner().map(|i| self.nullary(i)).collect();
+                let mut s = strs?;
+                let result = match s.len() {
+                    0 => AstNode::new_constval(Val::Str(Lstr::Sref("")), loc),
+                    1 => s.remove(0),
+                    _ => AstNode::new(Ast::StrExpr(s), loc),
+                };
+                Ok(result)
+            }
+            Rule::and
+            | Rule::or
+            | Rule::not
+            | Rule::less_than
+            | Rule::equality
+            | Rule::greater_than => {
+                Ok(AstNode::new(Ast::Id1(n.as_str()), loc))
+            }
+            Rule::stmt_block | Rule::file => {
+                let inner: Lresult<Vec<AstNode>> =
+                    n.into_inner().map(|i| self.nullary(i)).collect();
+                Ok(AstNode::new(Ast::Block(inner?), loc))
+            }
+            Rule::def_func => {
+                let mut inner = n.into_inner();
+                let _func_mode = inner.next().unwrap();
+                let func_name = self.nullary(inner.next().unwrap())?;
+                let func_result = self.nullary(inner.next().unwrap())?;
+                let func_arg_it = inner.next().unwrap().into_inner();
+                let func_args: Xlist = self.parse_xlist(func_arg_it)?;
+                let block = self.nullary(inner.next().unwrap())?;
+                let df = Ast::DefFunc(func_name, func_args, func_result, block);
+                Ok(AstNode::new(df, loc))
+            }
+            Rule::def_func_result => {
+                match n.into_inner().next() {
+                    Some(result) => self.nullary(result),
+                    None => Ok(AstNode::new(Ast::Id1("Void"), loc)),
+                }
+            }
+            Rule::mxstmt => {
+                let mut inner = n.into_inner();
+                let mxpair = inner.next().unwrap();
+                let mx = match mxpair.as_str() {
+                    "import" => ModAction::Import,
+                    "export" => ModAction::Export,
+                    _ => panic!("expected import or export, found {:?}", mxpair),
+                };
+                let mxline = parse_mxline(inner.next().unwrap())?;
+                Ok(AstNode::new(Ast::ModAction(mx, mxline), loc))
+            }
+            Rule::EOI => Ok(AstNode::void()),
+            Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, loc)),
+            _ => {
+                println!("unsupported rule: {:?}", n);
+                self.parse(&mut n.into_inner())
+            }
+        }
+    }
+
+    fn unary(&mut self, op: Self::Input, x: AstNode) -> AstResult
+    {
+        println!("unary {:?} {:?}", op, x);
+        let loc = nodeloc(&op);
+        match op.as_rule() {
+            Rule::call_args => {
+                let call_args = self.parse_xlist(op.into_inner())?;
+                loc = x.loc;
+                Ok(AstNode::new(Ast::Call(x, call_args), loc))
+            }
+            Rule::negative
+            | Rule::not
+            | Rule::add_newline => {
+                println!("unary {} {:?}", op.as_str(), x);
+                let ast = Ast::Op1(op.as_str(), x);
+                Ok(AstNode::new(ast, loc))
+            }
+            _ => {
+                panic!("unknown unary operator: {:?}", op);
+            }
+        }
+    }
+
+    fn binary(&mut self, op: Self::Input, a: AstNode, b: AstNode) -> AstResult
+    {
+        match op.as_rule() {
+            Rule::and
+            | Rule::or
+            | Rule::plus
+            | Rule::dash
+            | Rule::star
+            | Rule::slash
+            | Rule::modulo
+            | Rule::less_than
+            | Rule::equality
+            | Rule::greater_than => {
+                println!("{} {:?} {:?}", op.as_str(), a, b);
+                let ast = Ast::Op2(op.as_str(), a, b);
+                Ok(AstNode::new(ast, nodeloc(&op)))
+            }
+            _ => {
+                panic!("unknown operator: {:?}", op);
+            }
+        }
+    }
 }
 
 #[cfg(test)]
