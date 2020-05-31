@@ -9,6 +9,7 @@ strid = _{ "$" ~ id }
 strx = _{ "${" ~ expr ~ "}" }
 str = ${ "\"" ~ (strlit | strid | strx )* ~ "\"" }
 
+negative = { "-" }
 plus = { "+" }
 dash = { "-" }
 star = { "*" }
@@ -27,7 +28,7 @@ block_arrow = _{ "->" | ">>" }
 double_dash = _{ "--" }
 
 prefix_op = _{
-    dash
+    negative
     | not
 }
 
@@ -41,10 +42,11 @@ rust_block = { "-RUST-" }
 mxport = { "import" | "export" }
 
 infix_op = _{
-    plus | dash | star | slash | modulo
-    | and | or
+    dot
+    | star | slash | modulo
+    | plus | dash
     | less_than | equality | greater_than
-    | tick
+    | and | or
 }
 
 WHITESPACE = _{ " " }
@@ -61,22 +63,21 @@ id = @{ !keywords ~ (LETTER | "_") ~ ( LETTER | NUMBER | "_" )* }
 
 term = _{ id | number | str | ("(" ~ expr ~ ")") }
 
-prefix_expr = { prefix_op ~ x1 }
+prefix_expr = { prefix_op ~ term }
 postfix_expr = { term ~ postfix_op }
 
 x_maybe_k = { (id ~ ":")? ~ expr }
+xlist = _{ x_maybe_k ~ ("," ~ x_maybe_k)* ~ ","? }
 call_args = _{ x_maybe_k ~ ("," ~ x_maybe_k)* ~ ","? }
 
-dot_expr = { term ~ "." ~ id }
 typecall_expr = { term ~ "'" ~ id }
 call_expr = { term ~ "(" ~ call_args? ~ ")" }
 
 x1 = _{
-    prefix_expr
-    | postfix_expr
-    | dot_expr
     | typecall_expr
     | call_expr
+    | prefix_expr
+    | postfix_expr
     | term
 }
 
