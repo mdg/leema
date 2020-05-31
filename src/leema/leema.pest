@@ -63,21 +63,15 @@ id = @{ !keywords ~ (LETTER | "_") ~ ( LETTER | NUMBER | "_" )* }
 
 term = _{ id | number | str | ("(" ~ expr ~ ")") }
 
-prefix_expr = { prefix_op ~ term }
-postfix_expr = { term ~ postfix_op }
-
 x_maybe_k = { (id ~ ":")? ~ expr }
 xlist = _{ x_maybe_k ~ ("," ~ x_maybe_k)* ~ ","? }
 call_args = _{ x_maybe_k ~ ("," ~ x_maybe_k)* ~ ","? }
 
-typecall_expr = { term ~ "'" ~ id }
-call_expr = { term ~ "(" ~ call_args? ~ ")" }
-
+prefix1 = _{ prefix_op ~ term }
+postfix1 = _{ term ~ postfix_op }
 x1 = _{
-    | typecall_expr
-    | call_expr
-    | prefix_expr
-    | postfix_expr
+    prefix1
+    | postfix1
     | term
 }
 

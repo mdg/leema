@@ -194,15 +194,7 @@ impl LeemaPratt
                 let i = n.as_str().parse().unwrap();
                 Ok(AstNode::new_constval(Val::Int(i), loc))
             }
-            Rule::x1 => self.parse(&mut n.into_inner()),
             Rule::expr => self.parse(&mut n.into_inner()),
-            Rule::prefix_expr => {
-                let mut inner = n.into_inner();
-                let op = inner.next().unwrap();
-                let arg_x: Pair<Rule> = inner.next().unwrap();
-                let arg: AstResult = self.primary(arg_x);
-                Ok(AstNode::new(Ast::Op1(op.as_str(), arg?), nodeloc(&op)))
-            }
             Rule::strlit => {
                 let s = Val::Str(Lstr::Sref(n.as_str()));
                 Ok(AstNode::new_constval(s, loc))
@@ -262,6 +254,9 @@ impl LeemaPratt
             }
             Rule::EOI => Ok(AstNode::void()),
             Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, loc)),
+            Rule::x1|Rule::prefix1|Rule::postfix1 => {
+                panic!("cannot parse silent rule: {:?}", n);
+            }
             _ => {
                 println!("unsupported rule: {:?}", n);
                 self.parse(&mut n.into_inner())
