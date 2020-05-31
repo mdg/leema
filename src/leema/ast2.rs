@@ -197,6 +197,7 @@ impl ModTree
 pub type Xlist = StrupleKV<Option<&'static str>, AstNode>;
 
 #[derive(Clone)]
+#[derive(Debug)]
 #[derive(PartialEq)]
 pub enum Ast
 {
@@ -305,18 +306,8 @@ impl Ast
     }
 }
 
-impl fmt::Debug for Ast
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        write!(f, "(")?;
-        self.fmt_inner(f)?;
-        write!(f, ")")
-    }
-}
-
-
 #[derive(Clone)]
+#[derive(Debug)]
 #[derive(PartialEq)]
 pub struct AstNode
 {
@@ -384,15 +375,5 @@ impl AstNode
     pub fn set_dst(&mut self, dst: Reg)
     {
         self.dst = dst;
-    }
-}
-
-impl fmt::Debug for AstNode
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        write!(f, "(")?;
-        self.node.fmt_inner(f)?;
-        write!(f, " {} {} {})", self.typ, self.loc.lineno, self.dst)
     }
 }
