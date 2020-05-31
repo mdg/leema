@@ -28,12 +28,12 @@ pub fn parse_tokens(r: Rule, text: &'static str) -> Lresult<Vec<Pair<Rule>>>
 
 pub fn parse(r: Rule, text: &'static str) -> Lresult<Vec<AstNode>>
 {
-    let mut it = LeemaParser::parse(r, text).map_err(|e| {
+    let it = LeemaParser::parse(r, text).map_err(|e| {
         println!("parse error: {:?}", e);
         rustfail!("parse failure", "{:?}", e,)
     })?;
     let mut pratt = LeemaPratt{};
-    it.map(|i| pratt.nullary(i)).collect()
+    it.map(|i| pratt.primary(i)).collect()
 }
 
 pub fn nodeloc(pair: &Pair<Rule>) -> ast2::Loc
@@ -137,13 +137,13 @@ impl PrecBuilder
         self.close().right()
     }
 
-    pub fn infix(self, src: &'static str, r: Rule) -> Self
+    pub fn infix(mut self, src: &'static str, r: Rule) -> Self
     {
         self.prec.push((src, r, Affix::Infix(self.assoc), Arity::Binary));
         self
     }
 
-    pub fn prefix(self, src: &'static str, r: Rule) -> Self
+    pub fn prefix(mut self, src: &'static str, r: Rule) -> Self
     {
         if self.assoc == Associativity::Left {
             panic!("prefix rules cannot be left associative: {:?} {:?}", src, r);
@@ -152,7 +152,7 @@ impl PrecBuilder
         self
     }
 
-    pub fn postfix(self, src: &'static str, r: Rule) -> PrecBuilder
+    pub fn postfix(mut self, src: &'static str, r: Rule) -> PrecBuilder
     {
         if self.assoc == Associativity::Right {
             panic!("postfix rules cannot be right associative: {:?} {:?}", src, r);
@@ -161,7 +161,7 @@ impl PrecBuilder
         self
     }
 
-    fn close(self) -> ParserBuilder
+    fn close(mut self) -> ParserBuilder
     {
         self.parser.prec.push(self.prec);
         self.parser
@@ -185,6 +185,90 @@ impl Into<PrecKey> for PrecBuilder
 
 impl LeemaPratt
 {
+    fn primary(&mut self, n: Pair<'static, Rule>) -> AstResult
+    {
+        let loc = nodeloc(&n);
+        match n.as_rule() {
+            Rule::id => Ok(AstNode::new(Ast::Id1(n.as_str()), loc)),
+            Rule::int => {
+                let i = n.as_str().parse().unwrap();
+                Ok(AstNode::new_constval(Val::Int(i), loc))
+            }
+            Rule::x1 => self.parse(&mut n.into_inner()),
+            Rule::expr => self.parse(&mut n.into_inner()),
+            Rule::prefix_expr => {
+                let mut inner = n.into_inner();
+                let op = inner.next().unwrap();
+                let arg_x: Pair<Rule> = inner.next().unwrap();
+                let arg: AstResult = self.primary(arg_x);
+                Ok(AstNode::new(Ast::Op1(op.as_str(), arg?), nodeloc(&op)))
+            }
+            Rule::strlit => {
+                let s = Val::Str(Lstr::Sref(n.as_str()));
+                Ok(AstNode::new_constval(s, loc))
+            }
+            Rule::str => {
+                println!("str: %{:#?}", n);
+                let strs: Lresult<Vec<AstNode>> =
+                    n.into_inner().map(|i| self.primary(i)).collect();
+                let mut s = strs?;
+                let result = match s.len() {
+                    0 => AstNode::new_constval(Val::Str(Lstr::Sref("")), loc),
+                    1 => s.remove(0),
+                    _ => AstNode::new(Ast::StrExpr(s), loc),
+                };
+                Ok(result)
+            }
+            Rule::and
+            | Rule::or
+            | Rule::not
+            | Rule::less_than
+            | Rule::equality
+            | Rule::greater_than => {
+                Ok(AstNode::new(Ast::Id1(n.as_str()), loc))
+            }
+            Rule::stmt_block | Rule::file => {
+                let inner: Lresult<Vec<AstNode>> =
+                    n.into_inner().map(|i| self.primary(i)).collect();
+                Ok(AstNode::new(Ast::Block(inner?), loc))
+            }
+            Rule::def_func => {
+                let mut inner = n.into_inner();
+                let _func_mode = inner.next().unwrap();
+                let func_name = self.primary(inner.next().unwrap())?;
+                let func_result = self.primary(inner.next().unwrap())?;
+                let func_arg_it = inner.next().unwrap().into_inner();
+                let func_args: Xlist = self.parse_xlist(func_arg_it)?;
+                let block = self.primary(inner.next().unwrap())?;
+                let df = Ast::DefFunc(func_name, func_args, func_result, block);
+                Ok(AstNode::new(df, loc))
+            }
+            Rule::def_func_result => {
+                match n.into_inner().next() {
+                    Some(result) => self.primary(result),
+                    None => Ok(AstNode::new(Ast::Id1("Void"), loc)),
+                }
+            }
+            Rule::mxstmt => {
+                let mut inner = n.into_inner();
+                let mxpair = inner.next().unwrap();
+                let mx = match mxpair.as_str() {
+                    "import" => ModAction::Import,
+                    "export" => ModAction::Export,
+                    _ => panic!("expected import or export, found {:?}", mxpair),
+                };
+                let mxline = parse_mxline(inner.next().unwrap())?;
+                Ok(AstNode::new(Ast::ModAction(mx, mxline), loc))
+            }
+            Rule::EOI => Ok(AstNode::void()),
+            Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, loc)),
+            _ => {
+                println!("unsupported rule: {:?}", n);
+                self.parse(&mut n.into_inner())
+            }
+        }
+    }
+
     pub fn parse_xlist<Inputs>(&mut self, it: Inputs) -> Lresult<Xlist>
         where Inputs: Iterator<Item = Pair<'static, Rule>>,
     {
@@ -207,11 +291,11 @@ impl LeemaPratt
                 let maybe_x = inner.next();
                 match (k_or_x, maybe_x) {
                     (xpair, None) => {
-                        let x = self.nullary(xpair)?;
+                        let x = self.primary(xpair)?;
                         Ok(StrupleItem::new_v(x))
                     }
                     (kpair, Some(xpair)) => {
-                        let x = self.nullary(xpair)?;
+                        let x = self.primary(xpair)?;
                         Ok(StrupleItem::new(Some(kpair.as_str()), x))
                     }
                 }
@@ -219,7 +303,7 @@ impl LeemaPratt
             Rule::def_func_arg => {
                 let mut inner = pair.into_inner();
                 let name = inner.next().unwrap();
-                let typ = self.nullary(inner.next().unwrap())?;
+                let typ = self.primary(inner.next().unwrap())?;
                 Ok(StrupleItem::new(Some(name.as_str()), typ))
             }
             unexpected => {
@@ -280,85 +364,7 @@ impl<Inputs> PrattParser<Inputs> for LeemaPratt
 
     fn nullary(&mut self, n: Self::Input) -> AstResult
     {
-        let loc = nodeloc(&n);
-        match n.as_rule() {
-            Rule::id => Ok(AstNode::new(Ast::Id1(n.as_str()), loc)),
-            Rule::int => {
-                let i = n.as_str().parse().unwrap();
-                Ok(AstNode::new_constval(Val::Int(i), loc))
-            }
-            Rule::x1 => self.parse(&mut n.into_inner()),
-            Rule::expr => self.parse(&mut n.into_inner()),
-            Rule::prefix_expr => {
-                let mut inner = n.into_inner();
-                let op = inner.next().unwrap();
-                let arg = self.nullary(inner.next().unwrap())?;
-                Ok(AstNode::new(Ast::Op1(op.as_str(), arg), nodeloc(&op)))
-            }
-            Rule::strlit => {
-                let s = Val::Str(Lstr::Sref(n.as_str()));
-                Ok(AstNode::new_constval(s, loc))
-            }
-            Rule::str => {
-                println!("str: %{:#?}", n);
-                let strs: Lresult<Vec<AstNode>> =
-                    n.into_inner().map(|i| self.nullary(i)).collect();
-                let mut s = strs?;
-                let result = match s.len() {
-                    0 => AstNode::new_constval(Val::Str(Lstr::Sref("")), loc),
-                    1 => s.remove(0),
-                    _ => AstNode::new(Ast::StrExpr(s), loc),
-                };
-                Ok(result)
-            }
-            Rule::and
-            | Rule::or
-            | Rule::not
-            | Rule::less_than
-            | Rule::equality
-            | Rule::greater_than => {
-                Ok(AstNode::new(Ast::Id1(n.as_str()), loc))
-            }
-            Rule::stmt_block | Rule::file => {
-                let inner: Lresult<Vec<AstNode>> =
-                    n.into_inner().map(|i| self.nullary(i)).collect();
-                Ok(AstNode::new(Ast::Block(inner?), loc))
-            }
-            Rule::def_func => {
-                let mut inner = n.into_inner();
-                let _func_mode = inner.next().unwrap();
-                let func_name = self.nullary(inner.next().unwrap())?;
-                let func_result = self.nullary(inner.next().unwrap())?;
-                let func_arg_it = inner.next().unwrap().into_inner();
-                let func_args: Xlist = self.parse_xlist(func_arg_it)?;
-                let block = self.nullary(inner.next().unwrap())?;
-                let df = Ast::DefFunc(func_name, func_args, func_result, block);
-                Ok(AstNode::new(df, loc))
-            }
-            Rule::def_func_result => {
-                match n.into_inner().next() {
-                    Some(result) => self.nullary(result),
-                    None => Ok(AstNode::new(Ast::Id1("Void"), loc)),
-                }
-            }
-            Rule::mxstmt => {
-                let mut inner = n.into_inner();
-                let mxpair = inner.next().unwrap();
-                let mx = match mxpair.as_str() {
-                    "import" => ModAction::Import,
-                    "export" => ModAction::Export,
-                    _ => panic!("expected import or export, found {:?}", mxpair),
-                };
-                let mxline = parse_mxline(inner.next().unwrap())?;
-                Ok(AstNode::new(Ast::ModAction(mx, mxline), loc))
-            }
-            Rule::EOI => Ok(AstNode::void()),
-            Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, loc)),
-            _ => {
-                println!("unsupported rule: {:?}", n);
-                self.parse(&mut n.into_inner())
-            }
-        }
+        self.primary(n)
     }
 
     fn unary(&mut self, op: Self::Input, x: AstNode) -> AstResult
@@ -368,8 +374,8 @@ impl<Inputs> PrattParser<Inputs> for LeemaPratt
         match op.as_rule() {
             Rule::call_args => {
                 let call_args = self.parse_xlist(op.into_inner())?;
-                loc = x.loc;
-                Ok(AstNode::new(Ast::Call(x, call_args), loc))
+                let call_loc = x.loc;
+                Ok(AstNode::new(Ast::Call(x, call_args), call_loc))
             }
             Rule::negative
             | Rule::not
