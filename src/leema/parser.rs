@@ -441,8 +441,8 @@ mod tests
             input: "foo(5, x: y)",
             rule: Rule::expr,
             tokens: [expr(0, 12, [
-                call_expr(0, 12, [
-                    id(0, 3),
+                id(0, 3),
+                call_args(3, 12, [
                     x_maybe_k(4, 5, [expr(4, 5, [int(4, 5)])]),
                     x_maybe_k(7, 11, [
                         id(7, 8),
@@ -475,16 +475,15 @@ mod tests
                     def_func_args(9, 9),
                     stmt_block(11, 52, [
                         expr(24, 33, [
-                            call_expr(24, 33, [
-                                id(24, 27),
+                            id(24, 27),
+                            call_args(27, 33, [
                                 x_maybe_k(28, 29, [expr(28, 29, [id(28, 29)])]),
                                 x_maybe_k(31, 32, [expr(31, 32, [id(31, 32)])]),
                             ])
                         ]),
                         expr(46, 51, [
-                            call_expr(46, 51, [
-                                id(46, 49),
-                            ])
+                            id(46, 49),
+                            call_args(49, 51),
                         ]),
                     ]),
                 ]),
@@ -604,10 +603,9 @@ mod tests
             rule: Rule::expr,
             tokens: [
                 expr(0, 5, [
-                    typecall_expr(0, 5, [
-                        id(0, 3),
-                        id(4, 5),
-                    ])
+                    id(0, 3),
+                    tick(3, 4),
+                    id(4, 5),
                 ])
             ]
         )
@@ -840,10 +838,8 @@ mod tests
             rule: Rule::expr,
             tokens: [
                 expr(0, 11, [
-                    prefix_expr(0, 5, [
-                        not(0, 3),
-                        id(4, 5),
-                    ]),
+                    not(0, 3),
+                    id(4, 5),
                     and(6, 9),
                     id(10, 11)
                 ])
@@ -879,10 +875,8 @@ mod tests
                 expr(0, 11, [
                     id(0, 1),
                     and(2, 5),
-                    prefix_expr(6, 11, [
-                        not(6, 9),
-                        id(10, 11)
-                    ]),
+                    not(6, 9),
+                    id(10, 11),
                 ])
             ]
         );
@@ -978,9 +972,7 @@ mod tests
             parser: LeemaParser,
             input: "-34",
             rule: Rule::expr,
-            tokens: [expr(0, 3, [
-                prefix_expr(0, 3, [dash(0, 1), int(1, 3)])
-            ])]
+            tokens: [expr(0, 3, [dash(0, 1), int(1, 3)])]
         )
     }
 
@@ -994,10 +986,8 @@ mod tests
             rule: Rule::expr,
             tokens: [
                 expr(0, 6, [
-                    prefix_expr(0, 2, [
-                        dash(0, 1),
-                        int(1, 2)
-                    ]),
+                    dash(0, 1),
+                    int(1, 2),
                     plus(3, 4),
                     int(5, 6)
                 ])
@@ -1017,10 +1007,8 @@ mod tests
                 expr(0, 7, [
                     int(0, 1),
                     dash(2, 3),
-                    prefix_expr(4, 7, [
-                        dash(4, 5),
-                        int(5, 7),
-                    ])
+                    dash(4, 5),
+                    int(5, 7),
                 ])
             ]
         )
