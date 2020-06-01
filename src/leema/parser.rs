@@ -445,9 +445,11 @@ mod tests
     #[test]
     fn call_expr()
     {
+        let input = "foo(5, x: y)";
+        let actual = parse(Rule::expr, input).unwrap();
         parses_to!(
             parser: LeemaParser,
-            input: "foo(5, x: y)",
+            input: input,
             rule: Rule::expr,
             tokens: [expr(0, 12, [
                 id(0, 3),

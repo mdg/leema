@@ -34,6 +34,7 @@ prefix_op = _{
 
 postfix_op = _{
     add_newline
+    | call_args
 }
 
 // keywords
@@ -66,7 +67,7 @@ term = _{ id | number | str | ("(" ~ expr ~ ")") }
 
 x_maybe_k = { (id ~ ":")? ~ expr }
 xlist = _{ x_maybe_k ~ ("," ~ x_maybe_k)* ~ ","? }
-call_args = _{ x_maybe_k ~ ("," ~ x_maybe_k)* ~ ","? }
+call_args = { "(" ~ xlist? ~ ")" }
 
 prefix1 = _{ prefix_op ~ term }
 postfix1 = _{ term ~ postfix_op }
