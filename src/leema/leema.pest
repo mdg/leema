@@ -43,6 +43,7 @@ mxport = { "import" | "export" }
 
 infix_op = _{
     dot
+    | tick
     | star | slash | modulo
     | plus | dash
     | less_than | equality | greater_than

@@ -175,7 +175,7 @@ impl Into<PrecKey> for PrecBuilder
         let mut key = HashMap::new();
         for (iprec, p) in self.close().prec.into_iter().rev().enumerate() {
             for opval in p.into_iter() {
-                let prec = Precedence(iprec as u32);
+                let prec = Precedence(iprec as i32);
                 key.insert(opval.1, Op::new(opval.0, opval.2, opval.3, prec));
             }
         }
@@ -327,7 +327,7 @@ impl<Inputs> PrattParser<Inputs> for LeemaPratt
                     .infix(".", Rule::dot)
                     .infix("'", Rule::tick)
                     .postfix("()", Rule::call_args)
-                .left()
+                .right()
                     .prefix("-", Rule::negative)
                 .left()
                     .infix("*", Rule::star)
@@ -340,21 +340,31 @@ impl<Inputs> PrattParser<Inputs> for LeemaPratt
                     .infix("<", Rule::less_than)
                     .infix("==", Rule::equality)
                     .infix(">", Rule::greater_than)
+                .right()
+                    .prefix("not", Rule::not)
                 .left()
                     .infix("and", Rule::and)
                 .left()
                     .infix("or", Rule::or)
                 .into();
         }
-        KEY.get(&p.as_rule())
-            .map(|op| *op)
-            .ok_or_else(|| {
-                rustfail!(
-                    "compile_error",
-                    "unsupported operator: {:?}",
-                    p,
-                )
-            })
+        let op = match p.as_rule() {
+            Rule::float|Rule::id|Rule::int|Rule::str => {
+                Ok(Op::new("str", Affix::Nilfix, Arity::Nullary, Precedence(0)))
+            }
+            r => {
+                KEY.get(&r)
+                    .map(|op| *op)
+                    .ok_or_else(|| {
+                        rustfail!(
+                            "compile_error",
+                            "unsupported operator: {:?}",
+                            p,
+                        )
+                    })
+            }
+        }?;
+        Ok(op)
     }
 
     fn nullary(&mut self, n: Self::Input) -> AstResult
@@ -398,7 +408,6 @@ impl<Inputs> PrattParser<Inputs> for LeemaPratt
             | Rule::less_than
             | Rule::equality
             | Rule::greater_than => {
-                println!("{} {:?} {:?}", op.as_str(), a, b);
                 let ast = Ast::Op2(op.as_str(), a, b);
                 Ok(AstNode::new(ast, nodeloc(&op)))
             }
@@ -972,7 +981,7 @@ mod tests
             parser: LeemaParser,
             input: "-34",
             rule: Rule::expr,
-            tokens: [expr(0, 3, [dash(0, 1), int(1, 3)])]
+            tokens: [expr(0, 3, [negative(0, 1), int(1, 3)])]
         )
     }
 
@@ -986,7 +995,7 @@ mod tests
             rule: Rule::expr,
             tokens: [
                 expr(0, 6, [
-                    dash(0, 1),
+                    negative(0, 1),
                     int(1, 2),
                     plus(3, 4),
                     int(5, 6)
@@ -1007,7 +1016,7 @@ mod tests
                 expr(0, 7, [
                     int(0, 1),
                     dash(2, 3),
-                    dash(4, 5),
+                    negative(4, 5),
                     int(5, 7),
                 ])
             ]
@@ -1024,7 +1033,18 @@ mod tests
     #[test]
     fn str_const()
     {
-        let ast = parse(Rule::expr, r#""taco""#).unwrap();
+        let input = r#""taco""#;
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::expr,
+            tokens: [
+                expr(0, 6, [
+                    str(0, 6, [strlit(1, 5)])
+                ])
+            ]
+        );
+        let ast = parse(Rule::expr, input).unwrap();
         assert_eq!(Ast::ConstVal(Val::Str(Lstr::Sref("taco"))), *ast[0].node);
     }
 
