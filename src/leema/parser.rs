@@ -32,7 +32,7 @@ pub fn parse(r: Rule, text: &'static str) -> Lresult<Vec<AstNode>>
         println!("parse error: {:?}", e);
         rustfail!("parse failure", "{:?}", e,)
     })?;
-    let mut pratt = LeemaPratt{};
+    let mut pratt = LeemaPratt {};
     it.map(|i| pratt.primary(i)).collect()
 }
 
@@ -60,7 +60,9 @@ pub fn parse_mxline(pair: Pair<'static, Rule>) -> Lresult<ModTree>
                 }
                 (Rule::mxmod, Some(next)) => {
                     let tail = match next.as_rule() {
-                        Rule::id => ModTree::FinalId(next.as_str(), nodeloc(&next)),
+                        Rule::id => {
+                            ModTree::FinalId(next.as_str(), nodeloc(&next))
+                        }
                         _ => {
                             panic!("unexpected import line tail: {:?}", next);
                         }
@@ -93,9 +95,7 @@ impl ParserBuilder
 {
     pub fn new() -> Self
     {
-        ParserBuilder{
-            prec: vec![],
-        }
+        ParserBuilder { prec: vec![] }
     }
 
     pub fn left(self) -> PrecBuilder
@@ -120,7 +120,7 @@ impl PrecBuilder
 {
     pub fn open(parser: ParserBuilder, assoc: Associativity) -> Self
     {
-        PrecBuilder{
+        PrecBuilder {
             parser,
             assoc,
             prec: vec![],
@@ -139,14 +139,18 @@ impl PrecBuilder
 
     pub fn infix(mut self, src: &'static str, r: Rule) -> Self
     {
-        self.prec.push((src, r, Affix::Infix(self.assoc), Arity::Binary));
+        self.prec
+            .push((src, r, Affix::Infix(self.assoc), Arity::Binary));
         self
     }
 
     pub fn prefix(mut self, src: &'static str, r: Rule) -> Self
     {
         if self.assoc == Associativity::Left {
-            panic!("prefix rules cannot be left associative: {:?} {:?}", src, r);
+            panic!(
+                "prefix rules cannot be left associative: {:?} {:?}",
+                src, r
+            );
         }
         self.prec.push((src, r, Affix::Prefix, Arity::Unary));
         self
@@ -155,7 +159,10 @@ impl PrecBuilder
     pub fn postfix(mut self, src: &'static str, r: Rule) -> PrecBuilder
     {
         if self.assoc == Associativity::Right {
-            panic!("postfix rules cannot be right associative: {:?} {:?}", src, r);
+            panic!(
+                "postfix rules cannot be right associative: {:?} {:?}",
+                src, r
+            );
         }
         self.prec.push((src, r, Affix::Postfix, Arity::Unary));
         self
@@ -216,9 +223,7 @@ impl LeemaPratt
             | Rule::not
             | Rule::less_than
             | Rule::equality
-            | Rule::greater_than => {
-                Ok(AstNode::new(Ast::Id1(n.as_str()), loc))
-            }
+            | Rule::greater_than => Ok(AstNode::new(Ast::Id1(n.as_str()), loc)),
             Rule::stmt_block | Rule::file => {
                 let inner: Lresult<Vec<AstNode>> =
                     n.into_inner().map(|i| self.primary(i)).collect();
@@ -247,14 +252,16 @@ impl LeemaPratt
                 let mx = match mxpair.as_str() {
                     "import" => ModAction::Import,
                     "export" => ModAction::Export,
-                    _ => panic!("expected import or export, found {:?}", mxpair),
+                    _ => {
+                        panic!("expected import or export, found {:?}", mxpair)
+                    }
                 };
                 let mxline = parse_mxline(inner.next().unwrap())?;
                 Ok(AstNode::new(Ast::ModAction(mx, mxline), loc))
             }
             Rule::EOI => Ok(AstNode::void()),
             Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, loc)),
-            Rule::x1|Rule::prefix1|Rule::postfix1 => {
+            Rule::x1 | Rule::prefix1 | Rule::postfix1 => {
                 panic!("cannot parse silent rule: {:?}", n);
             }
             _ => {
@@ -265,13 +272,10 @@ impl LeemaPratt
     }
 
     pub fn parse_xlist<Inputs>(&mut self, it: Inputs) -> Lresult<Xlist>
-        where Inputs: Iterator<Item = Pair<'static, Rule>>,
+    where
+        Inputs: Iterator<Item = Pair<'static, Rule>>,
     {
-        it
-            .map(|p| {
-                self.parse_x_maybe_k(p)
-            })
-            .collect()
+        it.map(|p| self.parse_x_maybe_k(p)).collect()
     }
 
     pub fn parse_x_maybe_k(
@@ -313,7 +317,8 @@ impl LeemaPratt
 }
 
 impl<Inputs> PrattParser<Inputs> for LeemaPratt
-    where Inputs: Iterator<Item = Pair<'static, Rule>>,
+where
+    Inputs: Iterator<Item = Pair<'static, Rule>>,
 {
     type Input = Pair<'static, Rule>;
     type Output = AstNode;
@@ -349,19 +354,13 @@ impl<Inputs> PrattParser<Inputs> for LeemaPratt
                 .into();
         }
         let op = match p.as_rule() {
-            Rule::float|Rule::id|Rule::int|Rule::str => {
+            Rule::float | Rule::id | Rule::int | Rule::str => {
                 Ok(Op::new("str", Affix::Nilfix, Arity::Nullary, Precedence(0)))
             }
             r => {
-                KEY.get(&r)
-                    .map(|op| *op)
-                    .ok_or_else(|| {
-                        rustfail!(
-                            "compile_error",
-                            "unsupported operator: {:?}",
-                            p,
-                        )
-                    })
+                KEY.get(&r).map(|op| *op).ok_or_else(|| {
+                    rustfail!("compile_error", "unsupported operator: {:?}", p,)
+                })
             }
         }?;
         Ok(op)
@@ -382,9 +381,7 @@ impl<Inputs> PrattParser<Inputs> for LeemaPratt
                 let call_loc = x.loc;
                 Ok(AstNode::new(Ast::Call(x, call_args), call_loc))
             }
-            Rule::negative
-            | Rule::not
-            | Rule::add_newline => {
+            Rule::negative | Rule::not | Rule::add_newline => {
                 println!("unary {} {:?}", op.as_str(), x);
                 let ast = Ast::Op1(op.as_str(), x);
                 Ok(AstNode::new(ast, loc))
@@ -574,7 +571,6 @@ mod tests
             assert_eq!(Ast::Id1("format"), *name.node);
             assert_eq!(*"x", *args[0].k.unwrap());
             assert_eq!(Ast::Id1("Int"), *args[0].v.node);
-            // assert_eq!(Ast::Id1("Str"), *_result.node);
         } else {
             panic!("expected DefFunc, found {:?}", actual[0]);
         }
