@@ -395,7 +395,9 @@ where
     fn binary(&mut self, op: Self::Input, a: AstNode, b: AstNode) -> AstResult
     {
         match op.as_rule() {
-            Rule::and
+            Rule::dot
+            | Rule::tick
+            | Rule::and
             | Rule::or
             | Rule::plus
             | Rule::dash

@@ -38,7 +38,7 @@ postfix_op = _{
 }
 
 // keywords
-func_mode = { "func" }
+func_mode = { "func" | "macro" }
 rust_block = { "-RUST-" }
 mxport = { "import" | "export" }
 
