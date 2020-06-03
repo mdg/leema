@@ -62,6 +62,7 @@ modname_tail = _{ ASCII_ALPHA_LOWER | ASCII_DIGIT }
 modname = @{ !keywords ~ ASCII_ALPHA_LOWER ~ modname_tail* }
 
 id = @{ !keywords ~ (LETTER | "_") ~ ( LETTER | NUMBER | "_" )* }
+def_id = { id ~ ("'" ~ id)* }
 
 term = _{ id | number | str | ("(" ~ expr ~ ")") }
 
@@ -84,8 +85,13 @@ expr = !{
 
 // types
 
+list_type = { "[" ~ typex ~ "]" }
+generic_type = { id ~ ("'" ~ type_term)+ }
+
 type_term = _{
     "(" ~ typex ~ ")"
+    | list_type
+    | generic_type
     | id
 }
 
@@ -99,10 +105,12 @@ typex = { type_func | type_term }
 
 // statements
 
-def_func_arg = { id ~ (":" ~ type_term)? }
+def_func_arg = { (id ~ ":" ~ type_term) | type_term }
 def_func_args = { ("::" ~ def_func_arg+)? }
 def_func_result = { (":" ~ type_term)? }
 def_func = !{ func_mode ~ id ~ def_func_result ~ def_func_args ~ func_block }
+
+datatype = !{ "datatype" ~ def_id ~ def_func_args ~ "--" }
 
 mxid = _{ "." ~ id }
 mxhead = @{
@@ -116,7 +124,8 @@ mxline = ${ mxmod ~ mxid? }
 mxstmt = !{ mxport ~ (mxline | mxid | star) }
 
 stmt = _{
-    def_func
+    datatype
+    | def_func
     | mxstmt
     | expr
 }

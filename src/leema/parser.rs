@@ -1,5 +1,5 @@
 use crate::leema::ast2;
-use crate::leema::ast2::{Ast, AstNode, AstResult, ModAction, ModTree, Xlist};
+use crate::leema::ast2::{Ast, AstNode, AstResult, DataType, ModAction, ModTree, Xlist};
 use crate::leema::failure::{Failure, Lresult};
 use crate::leema::lstr::Lstr;
 use crate::leema::struple::StrupleItem;
@@ -241,6 +241,27 @@ impl LeemaPratt
                 let inner: Lresult<Vec<AstNode>> =
                     n.into_inner().map(|i| self.primary(i)).collect();
                 Ok(AstNode::new(Ast::Block(inner?), loc))
+            }
+            Rule::def_id => {
+                let mut inner = n.into_inner();
+                let id = self.primary(inner.next().unwrap())?;
+                let generic_result: Lresult<Xlist> = inner.map(|i| {
+                    Ok(StrupleItem::new_v(self.primary(i)?))
+                }).collect();
+                let generics = generic_result?;
+                if generics.is_empty() {
+                    Ok(id)
+                } else {
+                    Ok(AstNode::new(Ast::Generic(id, generics), loc))
+                }
+            }
+            Rule::datatype => {
+                let mut inner = n.into_inner();
+                let id = self.primary(inner.next().unwrap())?;
+                let arg_it = inner.next().unwrap().into_inner();
+                let args: Xlist = self.parse_xlist(arg_it)?;
+                let df = Ast::DefType(DataType::Struct, id, args);
+                Ok(AstNode::new(df, loc))
             }
             Rule::def_func => {
                 let mut inner = n.into_inner();
