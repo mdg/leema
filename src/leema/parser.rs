@@ -26,6 +26,19 @@ pub fn parse_tokens(r: Rule, text: &'static str) -> Lresult<Vec<Pair<Rule>>>
     Ok(it.collect())
 }
 
+pub fn parse_file(text: &'static str) -> Lresult<Vec<AstNode>>
+{
+    let mut file_node = parse(Rule::file, text)?;
+    match *file_node.pop().unwrap().node {
+        Ast::Block(mut stmts) => {
+            // pop the EOF off the end of the list
+            stmts.pop();
+            Ok(stmts)
+        }
+        what => panic!("expected block, found {:?}", what),
+    }
+}
+
 pub fn parse(r: Rule, text: &'static str) -> Lresult<Vec<AstNode>>
 {
     let it = LeemaParser::parse(r, text).map_err(|e| {
@@ -420,7 +433,7 @@ where
 #[cfg(test)]
 mod tests
 {
-    use super::{parse, LeemaParser, Rule};
+    use super::{parse, parse_file, LeemaParser, Rule};
     use crate::leema::ast2::{Ast, ModAction, ModTree};
     use crate::leema::lstr::Lstr;
     use crate::leema::val::Val;
@@ -471,7 +484,7 @@ mod tests
             baz()
         --
         ";
-        let actual = parse(Rule::file, input).unwrap();
+        let actual = parse_file(input).unwrap();
         println!("{:#?}", actual);
         parses_to!(
             parser: LeemaParser,
@@ -506,7 +519,7 @@ mod tests
     fn def_func_rustblock()
     {
         let input = "func foo -RUST-";
-        let actual = parse(Rule::file, input).unwrap();
+        let actual = parse_file(input).unwrap();
         println!("{:#?}", actual);
         parses_to!(
             parser: LeemaParser,
@@ -692,41 +705,37 @@ mod tests
         import child/path
         import child.funky
         ";
-        let actual = parse(Rule::file, input).unwrap();
-        println!("{:#?}", actual);
-        assert_eq!(1, actual.len());
-        if let Ast::Block(imps) = &*actual[0].node {
-            // /root/path
-            if let Ast::ModAction(ModAction::Import, root) = &*imps[0].node {
-                assert_matches!(root, ModTree::FinalMod("/root/path", _));
+        let imps = parse_file(input).unwrap();
+        println!("{:#?}", imps);
+        // /root/path
+        if let Ast::ModAction(ModAction::Import, root) = &*imps[0].node {
+            assert_matches!(root, ModTree::FinalMod("/root/path", _));
+        } else {
+            panic!("expected import, found {:?}", imps[0]);
+        }
+        // ../sibling/path
+        if let Ast::ModAction(ModAction::Import, sib) = &*imps[1].node {
+            assert_matches!(sib, ModTree::FinalMod("../sibling/path", _));
+        } else {
+            panic!("expected import, found {:?}", imps[0]);
+        }
+        // child/path
+        if let Ast::ModAction(ModAction::Import, ch) = &*imps[2].node {
+            assert_matches!(ch, ModTree::FinalMod("child/path", _));
+        } else {
+            panic!("expected import, found {:?}", imps[0]);
+        }
+        // child.funky
+        if let Ast::ModAction(ModAction::Import, ch) = &*imps[3].node {
+            if let ModTree::Sub("child", funky) = ch {
+                assert_matches!(**funky, ModTree::FinalId("funky", _));
             } else {
-                panic!("expected import, found {:?}", imps[0]);
-            }
-            // ../sibling/path
-            if let Ast::ModAction(ModAction::Import, sib) = &*imps[1].node {
-                assert_matches!(sib, ModTree::FinalMod("../sibling/path", _));
-            } else {
-                panic!("expected import, found {:?}", imps[0]);
-            }
-            // child/path
-            if let Ast::ModAction(ModAction::Import, ch) = &*imps[2].node {
-                assert_matches!(ch, ModTree::FinalMod("child/path", _));
-            } else {
-                panic!("expected import, found {:?}", imps[0]);
-            }
-            // child.funky
-            if let Ast::ModAction(ModAction::Import, ch) = &*imps[3].node {
-                if let ModTree::Sub("child", funky) = ch {
-                    assert_matches!(**funky, ModTree::FinalId("funky", _));
-                } else {
-                    panic!("expected FinalId, found {:?}", ch);
-                }
-            } else {
-                panic!("expected import, found {:?}", imps[0]);
+                panic!("expected FinalId, found {:?}", ch);
             }
         } else {
-            panic!("expected block, found: {:?}", actual[0]);
+            panic!("expected import, found {:?}", imps[0]);
         }
+        assert_eq!(4, imps.len());
     }
 
     #[test]

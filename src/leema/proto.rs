@@ -2,14 +2,13 @@ use crate::leema::ast2::{
     Ast, AstNode, DataType, Loc, ModAction, ModTree, Xlist,
 };
 use crate::leema::failure::{self, Failure, Lresult};
-use crate::leema::grammar2::Grammar;
 use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::{
     CanonicalMod, ImportedMod, ModAlias, ModKey, ModRelativity, TypeMod,
 };
+use crate::leema::parser::parse_file;
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
-use crate::leema::token::Tokenz;
 use crate::leema::val::{Fref, FuncType, GenericTypes, Type, Val};
 
 use std::collections::{HashMap, HashSet};
@@ -69,9 +68,7 @@ impl ProtoModule
 {
     pub fn new(key: ModKey, src: &'static str) -> Lresult<ProtoModule>
     {
-        let mut grammar = Grammar::new(Tokenz::lexp(src)?);
-        grammar.set_path(key.best_path());
-        let items = grammar.parse_module()?;
+        let items = parse_file(src)?;
         let modname = key.name.clone();
 
         let mut proto = ProtoModule {
