@@ -44,11 +44,16 @@ mxport = { "import" | "export" }
 
 infix_op = _{
     dot
-    | tick
     | star | slash | modulo
-    | plus | dash
+    | plus
     | less_than | equality | greater_than
     | and | or
+}
+
+spaced_infix_op = _{
+    (as1 ~ infix_op ~ as1)
+    | (hs1 ~ dash ~ as1)
+    | tick
 }
 
 keywords = _{
@@ -86,7 +91,7 @@ x1 = _{
 }
 
 expr = !{
-    x1 ~ (infix_op ~ x1)+
+    x1 ~ (spaced_infix_op ~ x1)+
     | x1
 }
 

@@ -1,4 +1,4 @@
-use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc, ModTree};
+use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc};
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::ModAlias;
@@ -197,10 +197,8 @@ impl ParseStmt
     {
         match tok.tok {
             Token::Const => ParseStmt::parse_defconst(p, tok),
-            Token::Export => ParseStmt::parse_import(p, tok),
             Token::Func => ParseStmt::parse_deffunc(p),
             Token::Macro => ParseStmt::parse_defmacro(p),
-            Token::Import => ParseStmt::parse_import(p, tok),
             Token::Let => ParseStmt::parse_let(p, tok),
             Token::Return => ParseStmt::parse_return(p, Ast::loc(&tok)),
             Token::Datatype => ParseStmt::parse_deftype(p),
@@ -398,129 +396,6 @@ impl ParseStmt
             }
         };
         Ok(AstNode::new(Ast::Export(exp), Ast::loc(&next_tok)))
-    }
-
-    fn parse_import(p: &mut Parsl, tok: TokenSrc) -> AstResult
-    {
-        let action = match tok.tok {
-            Token::Export => ast2::ModAction::Export,
-            Token::Import => ast2::ModAction::Import,
-            _ => {
-                return Err(rustfail!(
-                    PARSE_FAIL,
-                    "expected module action keyword, found: {:?}",
-                    tok,
-                ));
-            }
-        };
-
-        let tree_tok = p.peek()?;
-        let tree = match tree_tok.tok {
-            Token::Id | Token::Slash | Token::Dot | Token::DoubleDot => {
-                Self::parse_import_line_new(p)?
-            }
-            Token::Star => {
-                p.next()?;
-                ModTree::All(Ast::loc(&tree_tok))
-            }
-            _ => {
-                return Err(rustfail!(
-                    PARSE_FAIL,
-                    "expected ID / or .. found: {:?}",
-                    tree_tok,
-                ));
-            }
-        };
-
-        Ok(AstNode::new(Ast::ModAction(action, tree), Ast::loc(&tok)))
-    }
-
-    fn parse_import_line_new(p: &mut Parsl) -> Lresult<ModTree>
-    {
-        let next = p.peek()?;
-        let line = match next.tok {
-            Token::Id => Self::parse_import_line_cont(p)?,
-            Token::Slash => {
-                p.next()?; // eat the /
-                let root = Self::parse_import_line_cont(p)?;
-                ModTree::sub(next.src, root)
-            }
-            Token::Dot => {
-                // eat the dot
-                p.next()?;
-
-                // next thing has to be a token and then we're done
-                let id_tok = expect_next!(p, Token::Id)?;
-                ModTree::FinalId(id_tok.src, Ast::loc(&id_tok))
-            }
-            Token::DoubleDot => {
-                p.next()?; // eat the ..
-                expect_next!(p, Token::Slash)?;
-                let sibling = Self::parse_import_line_cont(p)?;
-                ModTree::Sub(next.src, Box::new(sibling))
-            }
-            _ => {
-                return Err(rustfail!(
-                    PARSE_FAIL,
-                    "expected id . or .. found {:?}",
-                    next,
-                ));
-            }
-        };
-        Ok(line)
-    }
-
-    fn parse_import_line_cont(p: &mut Parsl) -> Lresult<ModTree>
-    {
-        let next = p.next()?;
-        let line = match next.tok {
-            Token::Id => {
-                match p.peek_token()? {
-                    Token::Slash => {
-                        p.next()?;
-                        let subline = Self::parse_import_line_cont(p)?;
-                        ModTree::sub(next.src, subline)
-                    }
-                    Token::Dot => {
-                        p.next()?; // eat the dot
-                        let id_tok = expect_next!(p, Token::Id)?;
-                        // take the next id and then be done
-                        let final_id =
-                            ModTree::FinalId(id_tok.src, Ast::loc(&id_tok));
-                        ModTree::sub(next.src, final_id)
-                    }
-                    Token::DoubleArrow => {
-                        let block = Self::parse_import_block(p)?;
-                        ModTree::sub(next.src, block)
-                    }
-                    _ => ModTree::FinalMod(next.src, Ast::loc(&next)),
-                }
-            }
-            _ => {
-                return Err(rustfail!(
-                    PARSE_FAIL,
-                    "expected id, * or . found {:?}",
-                    next,
-                ));
-            }
-        };
-        Ok(line)
-    }
-
-    fn parse_import_block(p: &mut Parsl) -> Lresult<ModTree>
-    {
-        expect_next!(p, Token::DoubleArrow)?;
-        p.skip_if(Token::LineBegin)?;
-
-        let mut block = vec![];
-        while p.peek_token()? != Token::DoubleDash {
-            let line = ltry!(Self::parse_import_line_new(p));
-            block.push(line);
-            p.skip_if(Token::LineBegin)?;
-        }
-
-        expect_next!(p, Token::DoubleDash)?;
-        Ok(ModTree::Block(block))
     }
 
     fn parse_let(p: &mut Parsl, tok: TokenSrc) -> AstResult
@@ -1662,14 +1537,13 @@ impl Grammar
 mod tests
 {
     use super::Grammar;
-    use crate::leema::ast2::{Ast, DataType, Loc, ModAction, ModTree};
+    use crate::leema::ast2::{Ast, DataType};
     use crate::leema::lstr::Lstr;
     use crate::leema::module::ModAlias;
     use crate::leema::token::Tokenz;
     use crate::leema::val::Val;
 
     use matches::assert_matches;
-    use std::collections::HashMap;
 
 
     #[test]
@@ -1906,30 +1780,6 @@ mod tests
         let toks = Tokenz::lexp(input).unwrap();
         let mut p = Grammar::new(toks);
         p.parse_module().unwrap();
-    }
-
-    #[test]
-    fn test_parse_export_lines()
-    {
-        let input = "
-        export *
-        export child1
-        export child2/func_a
-        export child3/TypeB
-        ";
-        let toks = Tokenz::lexp(input).unwrap();
-        let ast = Grammar::new(toks).parse_module().unwrap();
-        assert_eq!(4, ast.len());
-        assert_matches!(
-            *ast[0].node,
-            Ast::ModAction(ModAction::Export, ModTree::All(_))
-        );
-        assert_matches!(
-            *ast[1].node,
-            Ast::ModAction(ModAction::Export, ModTree::FinalMod("child1", _))
-        );
-        assert_matches!(*ast[2].node, Ast::ModAction(ModAction::Export, _));
-        assert_matches!(*ast[3].node, Ast::ModAction(ModAction::Export, _));
     }
 
     #[test]
@@ -2176,204 +2026,6 @@ mod tests
         let toks = Tokenz::lexp(input).unwrap();
         let ast = Grammar::new(toks).parse_module().unwrap();
         assert_eq!(1, ast.len());
-    }
-
-    #[test]
-    fn test_parse_import_line()
-    {
-        let input = "
-        import /root
-        import child
-        import ../sibling
-        import /burritos/tacos
-        import cat/dog
-        import module.function
-        ";
-        let toks = Tokenz::lexp(input).unwrap();
-        let ast = Grammar::new(toks).parse_module().unwrap();
-        assert_eq!(6, ast.len());
-
-        // /root
-        assert_matches!(
-            *ast[0].node,
-            Ast::ModAction(ModAction::Import, ModTree::Sub("/", _))
-        );
-        if let Ast::ModAction(_, ModTree::Sub("/", root)) = &*ast[0].node {
-            assert_eq!(ModTree::FinalMod("root", Loc::new(2, 17)), **root);
-        }
-        // child
-        assert_matches!(
-            *ast[1].node,
-            Ast::ModAction(ModAction::Import, ModTree::FinalMod("child", _))
-        );
-        // ../sibling
-        assert_matches!(
-            *ast[2].node,
-            Ast::ModAction(ModAction::Import, ModTree::Sub("..", _))
-        );
-        if let Ast::ModAction(_, ModTree::Sub(_, b)) = &*ast[2].node {
-            assert_eq!(ModTree::FinalMod("sibling", Loc::new(4, 19)), **b);
-        }
-        // /burritos/tacos/tortas
-        assert_matches!(
-            *ast[3].node,
-            Ast::ModAction(ModAction::Import, ModTree::Sub("/", _))
-        );
-        if let Ast::ModAction(_, ModTree::Sub("/", root)) = &*ast[3].node {
-            assert_matches!(**root, ModTree::Sub("burritos", _));
-            if let ModTree::Sub(_, ref sub) = &**root {
-                assert_eq!(ModTree::FinalMod("tacos", Loc::new(5, 26)), **sub);
-            }
-        }
-        // cat/dog
-        assert_matches!(
-            *ast[4].node,
-            Ast::ModAction(ModAction::Import, ModTree::Sub("cat", _))
-        );
-        if let Ast::ModAction(_, ModTree::Sub("cat", sub)) = &*ast[4].node {
-            assert_eq!(ModTree::FinalMod("dog", Loc::new(6, 20)), **sub);
-        }
-        // module.function
-        assert_matches!(
-            *ast[5].node,
-            Ast::ModAction(ModAction::Import, ModTree::Sub("module", _))
-        );
-        if let Ast::ModAction(_, ModTree::Sub("cat", sub)) = &*ast[4].node {
-            assert_eq!(ModTree::FinalMod("dog", Loc::new(6, 20)), **sub);
-        }
-    }
-
-    fn parse_block_input() -> &'static str
-    {
-        "
-        import /core >>
-            io
-            net/http
-        --
-        import tacos >>
-            burritos
-            tortas.quesadilla
-        --
-        import ../myapp >>
-            app >>
-                model
-                view
-                controller
-            --
-            .blah
-        --
-        "
-    }
-
-    #[test]
-    fn test_parse_import_block()
-    {
-        let toks = Tokenz::lexp(parse_block_input()).unwrap();
-        let ast = Grammar::new(toks).parse_module().unwrap();
-        assert_eq!(3, ast.len());
-
-        // /core
-        assert_matches!(
-            *ast[0].node,
-            Ast::ModAction(ModAction::Import, ModTree::Sub("/", _))
-        );
-        if let Ast::ModAction(_, ModTree::Sub("/", core)) = &*ast[0].node {
-            assert_matches!(**core, ModTree::Sub("core", _));
-            if let ModTree::Sub("core", core_block) = &**core {
-                assert_matches!(**core_block, ModTree::Block(_));
-                if let ModTree::Block(core_items) = &**core_block {
-                    assert_matches!(
-                        (**core_items)[0],
-                        ModTree::FinalMod("io", _)
-                    );
-                    assert_matches!((**core_items)[1], ModTree::Sub("net", _));
-                }
-            }
-        }
-
-        // tacos
-        assert_matches!(
-            *ast[1].node,
-            Ast::ModAction(ModAction::Import, ModTree::Sub("tacos", _))
-        );
-        if let Ast::ModAction(_, ModTree::Sub("tacos", tacos)) = &*ast[1].node {
-            assert_matches!(**tacos, ModTree::Block(_));
-            if let ModTree::Block(taco_items) = &**tacos {
-                assert_matches!(
-                    (**taco_items)[0],
-                    ModTree::FinalMod("burritos", _)
-                );
-                assert_matches!((**taco_items)[1], ModTree::Sub("tortas", _));
-                if let ModTree::Sub("tortas", ref torta) = (**taco_items)[1] {
-                    assert_matches!(**torta, ModTree::FinalId("quesadilla", _));
-                }
-            }
-        }
-
-        // ../myapp
-        assert_matches!(
-            *ast[2].node,
-            Ast::ModAction(ModAction::Import, ModTree::Sub("..", _))
-        );
-        if let Ast::ModAction(_, ModTree::Sub("..", sibling)) = &*ast[2].node {
-            assert_matches!(**sibling, ModTree::Sub("myapp", _));
-            if let ModTree::Sub("myapp", sub_block) = &**sibling {
-                assert_matches!(**sub_block, ModTree::Block(_));
-                if let ModTree::Block(sub_items) = &**sub_block {
-                    let mut sub_it = sub_items.iter();
-                    assert_matches!(
-                        sub_it.next().unwrap(),
-                        ModTree::Sub("app", _)
-                    );
-                    assert_matches!(
-                        sub_it.next().unwrap(),
-                        ModTree::FinalId("blah", _)
-                    );
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_parse_import_collect()
-    {
-        let toks = Tokenz::lexp(parse_block_input()).unwrap();
-        let ast = Grammar::new(toks).parse_module().unwrap();
-        let mut flats = HashMap::new();
-
-        assert_matches!(*ast[0].node, Ast::ModAction(ModAction::Import, _));
-        if let Ast::ModAction(_, tree) = &*ast[0].node {
-            tree.collect(&mut flats).unwrap();
-        }
-
-        assert_matches!(*ast[1].node, Ast::ModAction(ModAction::Import, _));
-        if let Ast::ModAction(_, tree) = &*ast[1].node {
-            tree.collect(&mut flats).unwrap();
-        }
-
-        assert_matches!(*ast[2].node, Ast::ModAction(ModAction::Import, _));
-        if let Ast::ModAction(_, tree) = &*ast[2].node {
-            tree.collect(&mut flats).unwrap();
-        }
-
-        assert_eq!("/core/io", format!("{}", flats["io"].0));
-        assert_eq!("/core/net/http", format!("{}", flats["http"].0));
-
-        assert_eq!("tacos/burritos", format!("{}", flats["burritos"].0));
-        assert_eq!(
-            "tacos/tortas.quesadilla",
-            format!("{}", flats["quesadilla"].0)
-        );
-
-        assert_eq!("../myapp/app/model", format!("{}", flats["model"].0));
-        assert_eq!("../myapp/app/view", format!("{}", flats["view"].0));
-        assert_eq!(
-            "../myapp/app/controller",
-            format!("{}", flats["controller"].0)
-        );
-        assert_eq!("../myapp.blah", format!("{}", flats["blah"].0));
-
-        assert_eq!(8, flats.len());
     }
 
     #[test]

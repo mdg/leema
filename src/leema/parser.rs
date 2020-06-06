@@ -66,21 +66,17 @@ pub fn parse_mxline(pair: Pair<'static, Rule>) -> Lresult<ModTree>
             let opt_tail = it.next();
             match (head.as_rule(), opt_tail) {
                 (Rule::mxmod, None) => {
-                    Ok(ModTree::FinalMod(head.as_str(), nodeloc(&head)))
-                }
-                (Rule::mxid, None) => {
-                    Ok(ModTree::FinalId(head.as_str(), nodeloc(&head)))
+                    Ok(ModTree::Leaf(head.as_str(), nodeloc(&head)))
                 }
                 (Rule::mxmod, Some(next)) => {
-                    let tail = match next.as_rule() {
-                        Rule::id => {
-                            ModTree::FinalId(next.as_str(), nodeloc(&next))
-                        }
-                        _ => {
-                            panic!("unexpected import line tail: {:?}", next);
-                        }
-                    };
-                    Ok(ModTree::sub(head.as_str(), tail))
+                    if next.as_rule() != Rule::mxblock {
+                        panic!("unexpected import line block: {:?}", next);
+                    }
+                    let block: Lresult<Vec<ModTree>>;
+                    block = next.into_inner().map(|i| {
+                        parse_mxline(i)
+                    }).collect();
+                    Ok(ModTree::branch(head.as_str(), block?))
                 }
                 un => panic!("unexpected import line: {:?}", un),
             }
@@ -711,8 +707,7 @@ mod tests
             input: input,
             rule: Rule::mxline,
             tokens: [mxline(0, 14, [
-                mxmod(0, 9),
-                id(10, 14),
+                mxmod(0, 14),
             ])]
         )
     }
@@ -730,33 +725,52 @@ mod tests
         println!("{:#?}", imps);
         // /root/path
         if let Ast::ModAction(ModAction::Import, root) = &*imps[0].node {
-            assert_matches!(root, ModTree::FinalMod("/root/path", _));
+            assert_matches!(root, ModTree::Leaf("/root/path", _));
         } else {
             panic!("expected import, found {:?}", imps[0]);
         }
         // ../sibling/path
         if let Ast::ModAction(ModAction::Import, sib) = &*imps[1].node {
-            assert_matches!(sib, ModTree::FinalMod("../sibling/path", _));
+            assert_matches!(sib, ModTree::Leaf("../sibling/path", _));
         } else {
             panic!("expected import, found {:?}", imps[0]);
         }
         // child/path
         if let Ast::ModAction(ModAction::Import, ch) = &*imps[2].node {
-            assert_matches!(ch, ModTree::FinalMod("child/path", _));
+            assert_matches!(ch, ModTree::Leaf("child/path", _));
         } else {
             panic!("expected import, found {:?}", imps[0]);
         }
         // child.funky
         if let Ast::ModAction(ModAction::Import, ch) = &*imps[3].node {
-            if let ModTree::Sub("child", funky) = ch {
-                assert_matches!(**funky, ModTree::FinalId("funky", _));
-            } else {
-                panic!("expected FinalId, found {:?}", ch);
-            }
+            assert_matches!(ch, ModTree::Leaf("child.funky", _));
         } else {
             panic!("expected import, found {:?}", imps[0]);
         }
         assert_eq!(4, imps.len());
+    }
+
+    #[test]
+    fn mxblock()
+    {
+        let input = "import /foo ->
+            bar
+            baz/tacos
+            tortas.food
+        --
+        ";
+        let imps = parse_file(input).unwrap();
+        println!("{:#?}", imps);
+        if let Ast::ModAction(ModAction::Import, root) = &*imps[0].node {
+            if let ModTree::Branch("/foo", block) = root {
+                assert_matches!(block[0], ModTree::Leaf("bar", _));
+            } else {
+                panic!("expected sub /foo, found {:?}", root);
+            }
+        } else {
+            panic!("expected import, found {:?}", imps);
+        }
+        assert_eq!(1, imps.len());
     }
 
     #[test]

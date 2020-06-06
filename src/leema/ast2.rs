@@ -103,17 +103,15 @@ pub enum ModAction
 pub enum ModTree
 {
     All(Loc),
-    FinalId(&'static str, Loc),
-    FinalMod(&'static str, Loc),
-    Block(Vec<ModTree>),
-    Sub(&'static str, Box<ModTree>),
+    Leaf(&'static str, Loc),
+    Branch(&'static str, Vec<ModTree>),
 }
 
 impl ModTree
 {
-    pub fn sub(a: &'static str, b: ModTree) -> ModTree
+    pub fn branch(a: &'static str, b: Vec<ModTree>) -> ModTree
     {
-        ModTree::Sub(a, Box::new(b))
+        ModTree::Branch(a, b)
     }
 
     pub fn collect(
@@ -123,27 +121,15 @@ impl ModTree
     {
         let mut paths = PathBuf::new();
         match self {
-            ModTree::FinalMod(id, loc) => {
+            ModTree::Leaf(id, loc) => {
                 paths.push(id);
                 flats.insert(id, (ImportedMod(paths), *loc));
             }
-            ModTree::Sub(id, sub) => {
-                paths.push(id);
-                sub._collect(flats, &mut paths, id)?;
-            }
-            ModTree::Block(_) => {
+            ModTree::Branch(_, _) => {
                 return Err(rustfail!(
                     "compile_failure",
-                    "cannot collect imports from initial Block",
+                    "cannot collect imports from initial Branch",
                 ));
-            }
-            ModTree::FinalId(_, loc) => {
-                let f = rustfail!(
-                    "compile_failure",
-                    "cannot collect imports from initial FinalId",
-                )
-                .loc("", loc.lineno as u32);
-                return Err(f);
             }
             ModTree::All(_) => {
                 // what? shouldn't happen
@@ -164,24 +150,20 @@ impl ModTree
     ) -> Lresult<()>
     {
         match self {
-            ModTree::FinalMod(id, loc) => {
+            ModTree::Leaf(id, loc) => {
                 path.push(id);
                 flats.insert(id, (ImportedMod(path.clone()), *loc));
                 path.pop();
             }
-            ModTree::Sub(id, subs) => {
+            ModTree::Branch(id, branches) => {
                 path.push(id);
-                subs._collect(flats, path, id)?;
-                path.pop();
-            }
-            ModTree::Block(block) => {
-                for item in block.iter() {
-                    item._collect(flats, path, parent)?;
+                if path.extension().is_some() {
+                    panic!("unexpected extension: {:?}", path);
                 }
-            }
-            ModTree::FinalId(id, loc) => {
-                let id_path = path.with_extension(id);
-                flats.insert(id, (ImportedMod(id_path), *loc));
+                for branch in branches.iter() {
+                    branch._collect(flats, path, parent)?;
+                }
+                path.pop();
             }
             ModTree::All(_) => {
                 return Err(rustfail!(

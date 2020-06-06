@@ -1008,9 +1008,9 @@ mod tests
             "
         import /tacos
         import burritos
-        import tortas >>
+        import tortas ->
             huevos
-            huevos >>
+            huevos ->
                 rancheros
                 enchiladas
             --
