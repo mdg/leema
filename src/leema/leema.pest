@@ -51,12 +51,19 @@ infix_op = _{
     | and | or
 }
 
-WHITESPACE = _{ " " }
-
 keywords = _{
     func_mode
     | mxport
 }
+
+// horizontal space only
+hs0 = _{ " "* }
+hs1 = _{ " "+ }
+// any horizontal or vertical space
+as0 = _{ (" " | NEWLINE)* }
+as1 = _{ (" " | NEWLINE)+ }
+// vertical space required
+vs1 = _{ NEWLINE ~ as0 }
 
 modname_tail = _{ ASCII_ALPHA_LOWER | ASCII_DIGIT }
 modname = @{ !keywords ~ ASCII_ALPHA_LOWER ~ modname_tail* }
@@ -66,7 +73,7 @@ def_id = { id ~ ("'" ~ id)* }
 
 term = _{ id | number | str | ("(" ~ expr ~ ")") }
 
-x_maybe_k = { (id ~ ":")? ~ expr }
+x_maybe_k = { (id ~ hs0 ~ ":" ~ hs0)? ~ expr }
 xlist = _{ x_maybe_k ~ ("," ~ x_maybe_k)* ~ ","? }
 call_args = { "(" ~ xlist? ~ ")" }
 
@@ -118,10 +125,10 @@ mxhead = @{
     | ("../" ~ modname)
     | modname
 }
-mxmod = @{ mxhead ~ ("/" ~ modname)* }
-mxline = ${ mxmod ~ mxid? }
-// mxblock = { block_arrow ~ mxline+ ~ double_dash }
-mxstmt = !{ mxport ~ (mxline | mxid | star) }
+mxmod = @{ mxhead ~ ("/" ~ modname)* ~ mxid? | mxid }
+mxline = { mxmod ~ (hs1 ~ mxblock)? }
+mxblock = !{ block_arrow ~ vs1 ~ (mxline ~ vs1)+ ~ "--" }
+mxstmt = !{ mxport ~ hs1 ~ (mxline | star) }
 
 stmt = _{
     datatype
@@ -130,8 +137,8 @@ stmt = _{
     | expr
 }
 
-line = _{ " "* ~ stmt? }
-stmt_block = ${ (line ~ "\n")* }
+line = _{ hs0 ~ stmt? }
+stmt_block = ${ (line ~ vs1)* }
 arrow_block = _{ block_arrow ~ stmt_block }
 func_block = _{
     rust_block
