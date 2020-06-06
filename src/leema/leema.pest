@@ -23,7 +23,7 @@ not = { "not" }
 less_than = { "<" | "<=" }
 equality = { "==" | "!=" }
 greater_than = { ">" | ">=" }
-add_newline = { "\\n" }
+add_newline = { as1 ~ "\\n" }
 block_arrow = _{ "->" | ">>" }
 double_dash = _{ "--" }
 
@@ -33,7 +33,7 @@ prefix_op = _{
 }
 
 postfix_op = _{
-    add_newline
+    (as1 ~ add_newline)
     | call_args
 }
 
@@ -73,11 +73,11 @@ def_id = { id ~ ("'" ~ id)* }
 
 term = _{ id | number | str | ("(" ~ expr ~ ")") }
 
-x_maybe_k = { (id ~ hs0 ~ ":" ~ hs0)? ~ expr }
-xlist = _{ x_maybe_k ~ ("," ~ x_maybe_k)* ~ ","? }
-call_args = { "(" ~ xlist? ~ ")" }
+x_maybe_k = { (id ~ hs0 ~ ":" ~ as0)? ~ expr }
+xlist = _{ x_maybe_k ~ (as0 ~ "," ~ as0 ~ x_maybe_k)* ~ as0 ~ ","? }
+call_args = { "(" ~ as0 ~ xlist? ~ as0 ~ ")" }
 
-prefix1 = _{ prefix_op ~ term }
+prefix1 = _{ prefix_op ~ as0 ~ term }
 postfix1 = _{ term ~ postfix_op }
 x1 = _{
     prefix1
