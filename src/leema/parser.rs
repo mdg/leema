@@ -599,10 +599,11 @@ mod tests
         ";
         let actual = parse(Rule::def_func, input).unwrap();
         println!("{:#?}", actual);
-        if let Ast::DefFunc(name, args, _result, _body) = &*actual[0].node {
+        if let Ast::DefFunc(name, args, result, _body) = &*actual[0].node {
             assert_eq!(Ast::Id1("format"), *name.node);
             assert_eq!(*"x", *args[0].k.unwrap());
             assert_eq!(Ast::Id1("Int"), *args[0].v.node);
+            assert_eq!(Ast::Id1("Str"), *result.node);
         } else {
             panic!("expected DefFunc, found {:?}", actual[0]);
         }
