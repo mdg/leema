@@ -117,10 +117,12 @@ typex = { type_func | type_term }
 
 // statements
 
-def_func_arg = { (id ~ ":" ~ type_term) | type_term }
-def_func_args = { ("::" ~ def_func_arg+)? }
-def_func_result = { (":" ~ type_term)? }
-def_func = !{ func_mode ~ id ~ def_func_result ~ def_func_args ~ func_block }
+def_func_arg = { (id ~ hs0 ~ ":" ~ hs0 ~ type_term) | type_term }
+def_func_args = { (as0 ~ "::" ~ (as0 ~ def_func_arg)+)? }
+def_func_result = { (as0 ~ ":" ~ type_term)? }
+def_func = !{
+    func_mode ~ as1 ~ id ~ def_func_result ~ def_func_args ~ as1 ~ func_block
+}
 
 datatype = !{ "datatype" ~ def_id ~ def_func_args ~ "--" }
 
