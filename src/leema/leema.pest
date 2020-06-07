@@ -121,7 +121,7 @@ def_func_arg = { (id ~ hs0 ~ ":" ~ hs0 ~ type_term) | type_term }
 def_func_args = { (as0 ~ "::" ~ (as0 ~ def_func_arg)+)? }
 def_func_result = { (as0 ~ ":" ~ type_term)? }
 def_func = !{
-    func_mode ~ as1 ~ id ~ def_func_result ~ def_func_args ~ as1 ~ func_block
+    func_mode ~ as1 ~ def_id ~ def_func_result ~ def_func_args ~ as1 ~ func_block
 }
 
 datatype = !{ "datatype" ~ def_id ~ def_func_args ~ "--" }
@@ -149,7 +149,7 @@ stmt_block = ${ (line ~ vs1)* }
 arrow_block = _{ block_arrow ~ stmt_block }
 func_block = _{
     rust_block
-    | (block_arrow ~ stmt_block ~ double_dash)
+    | (block_arrow ~ vs1 ~ stmt_block ~ double_dash)
     | (block_arrow ~ hs1 ~ expr ~ hs1 ~ double_dash)
 }
 file = ${ (line ~ "\n")* ~ line ~ "\n"? ~ EOI }

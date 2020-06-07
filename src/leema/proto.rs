@@ -958,8 +958,7 @@ mod tests
     fn test_proto_genericfunc()
     {
         let input = r#"
-        func swap[T] a:T b:T /(T T)
-        >>
+        func swap'T:T :: a:T b:T ->
             (b, a)
         --
         "#;

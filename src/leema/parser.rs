@@ -510,10 +510,10 @@ mod tests
             tokens: [file(0, 71, [
                 def_func(0, 62, [
                     func_mode(0, 4),
-                    id(5, 8),
+                    def_id(5, 8, [id(5, 8)]),
                     def_func_result(8, 8),
                     def_func_args(8, 8),
-                    stmt_block(11, 60, [
+                    stmt_block(24, 60, [
                         expr(24, 33, [
                             id(24, 27),
                             call_args(27, 33, [
@@ -545,7 +545,7 @@ mod tests
             tokens: [file(0, 15, [
                 def_func(0, 15, [
                     func_mode(0, 4),
-                    id(5, 8),
+                    def_id(5, 8, [id(5, 8)]),
                     def_func_result(8, 8),
                     def_func_args(8, 8),
                     rust_block(9, 15),
@@ -603,6 +603,33 @@ mod tests
             assert_eq!(Ast::Id1("format"), *name.node);
             assert_eq!(*"x", *args[0].k.unwrap());
             assert_eq!(Ast::Id1("Int"), *args[0].v.node);
+        } else {
+            panic!("expected DefFunc, found {:?}", actual[0]);
+        }
+        assert_eq!(1, actual.len());
+    }
+
+    #[test]
+    fn def_func_generic()
+    {
+        let input =
+            "func first'A'B:A :: a:A b:B ->
+                a
+            --";
+        let actual = parse(Rule::def_func, input).unwrap();
+        println!("{:#?}", actual);
+        if let Ast::DefFunc(name, args, result, _body) = &*actual[0].node {
+            if let Ast::Generic(first, type_args) = &*name.node {
+                assert_eq!(Ast::Id1("first"), *first.node);
+                assert_eq!(Ast::Id1("A"), *type_args[0].v.node);
+            } else {
+                panic!("expected generic 'first', found {:?}", name.node);
+            }
+            assert_eq!(*"a", *args[0].k.unwrap());
+            assert_eq!(*"b", *args[1].k.unwrap());
+            assert_eq!(Ast::Id1("A"), *args[0].v.node);
+            assert_eq!(Ast::Id1("B"), *args[1].v.node);
+            assert_eq!(Ast::Id1("A"), *result.node);
         } else {
             panic!("expected DefFunc, found {:?}", actual[0]);
         }
