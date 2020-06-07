@@ -946,7 +946,7 @@ mod tests
     #[test]
     fn test_proto_func_noargs()
     {
-        let proto = new_proto(r#"func hello >> "world" --"#);
+        let proto = new_proto(r#"func hello -> "world" --"#);
 
         let funcseq = proto.funcseq.get(0).expect("no funcseq type");
         assert_eq!("hello", *funcseq);

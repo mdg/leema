@@ -150,6 +150,6 @@ arrow_block = _{ block_arrow ~ stmt_block }
 func_block = _{
     rust_block
     | (block_arrow ~ stmt_block ~ double_dash)
-    | (block_arrow ~ expr ~ double_dash)
+    | (block_arrow ~ hs1 ~ expr ~ hs1 ~ double_dash)
 }
 file = ${ (line ~ "\n")* ~ line ~ "\n"? ~ EOI }

@@ -7,7 +7,7 @@ use crate::leema::val::{Type, Val};
 
 use std::collections::HashMap;
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone)]
 #[derive(Copy)]
@@ -119,17 +119,17 @@ impl ModTree
         flats: &mut HashMap<&'static str, (ImportedMod, Loc)>,
     ) -> Lresult<()>
     {
-        let mut paths = PathBuf::new();
+        let mut path = PathBuf::new();
         match self {
             ModTree::Leaf(id, loc) => {
-                paths.push(id);
-                flats.insert(id, (ImportedMod(paths), *loc));
+                let (key, _) = Self::push(&mut path, id);
+                flats.insert(key, (ImportedMod(path), *loc));
             }
-            ModTree::Branch(_, _) => {
-                return Err(rustfail!(
-                    "compile_failure",
-                    "cannot collect imports from initial Branch",
-                ));
+            ModTree::Branch(base, branches) => {
+                let (_, _) = Self::push(&mut path, base);
+                for b in branches.iter() {
+                    b._collect(flats, &mut path)?;
+                }
             }
             ModTree::All(_) => {
                 // what? shouldn't happen
@@ -146,24 +146,23 @@ impl ModTree
         &self,
         flats: &mut HashMap<&'static str, (ImportedMod, Loc)>,
         path: &mut PathBuf,
-        parent: &'static str,
     ) -> Lresult<()>
     {
         match self {
             ModTree::Leaf(id, loc) => {
-                path.push(id);
-                flats.insert(id, (ImportedMod(path.clone()), *loc));
-                path.pop();
+                let (key, popper) = Self::push(path, id);
+                flats.insert(key, (ImportedMod(path.clone()), *loc));
+                popper(path);
             }
             ModTree::Branch(id, branches) => {
-                path.push(id);
                 if path.extension().is_some() {
                     panic!("unexpected extension: {:?}", path);
                 }
+                let (_, popper) = Self::push(path, id);
                 for branch in branches.iter() {
-                    branch._collect(flats, path, parent)?;
+                    branch._collect(flats, path)?;
                 }
-                path.pop();
+                popper(path);
             }
             ModTree::All(_) => {
                 return Err(rustfail!(
@@ -173,6 +172,35 @@ impl ModTree
             }
         }
         Ok(())
+    }
+
+    pub fn push(p: &mut PathBuf, id: &'static str) -> (&'static str, Box<dyn Fn(&mut PathBuf)>)
+    {
+        if id.starts_with(".") && !id.starts_with("..") {
+            let ext = &id[1..];
+            p.set_extension(ext);
+            (ext, Box::new(|pp: &mut PathBuf| {
+                pp.set_extension("");
+            }))
+        } else {
+            let nextp = Path::new(id);
+            let num_components = nextp.components().count();
+            let key = nextp.extension()
+                .or_else(|| nextp.file_stem())
+                .and_then(|ip| ip.to_str())
+                .unwrap();
+            p.push(id);
+            (key, Box::new(move |pp: &mut PathBuf| {
+                Self::pop(pp, num_components);
+            }))
+        }
+    }
+
+    pub fn pop(p: &mut PathBuf, n: usize)
+    {
+        for _ in 0..n {
+            p.pop();
+        }
     }
 }
 
