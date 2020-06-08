@@ -251,6 +251,13 @@ impl LeemaPratt
                     Ok(AstNode::new(Ast::Generic(id, generics), loc))
                 }
             }
+            Rule::let_stmt => {
+                let mut inner = n.into_inner();
+                let id = self.primary(inner.next().unwrap())?;
+                let x = self.primary(inner.next().unwrap())?;
+                let stmt = Ast::Let(id, AstNode::void(), x);
+                Ok(AstNode::new(stmt, loc))
+            }
             Rule::def_struct => {
                 let mut inner = n.into_inner();
                 let id = self.primary(inner.next().unwrap())?;
@@ -489,6 +496,23 @@ mod tests
                         expr(10, 11, [id(10, 11)]),
                     ]),
                 ])
+            ])]
+        )
+    }
+
+    #[test]
+    fn call_no_args()
+    {
+        let input = "foo()";
+        let actual = parse(Rule::expr, input).unwrap();
+        println!("{:#?}", actual);
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::expr,
+            tokens: [expr(0, 5, [
+                id(0, 3),
+                call_args(3, 5)
             ])]
         )
     }

@@ -1,9 +1,10 @@
 import /io
 
-func inc x:Int /Int >> x + 1 --
+func inc:Int :: x:Int ->
+    x + 1
+--
 
-func main >>
+func main ->
     let i := inc(-4)
-    io::print("inc(-4) = $i\n")
-    inc(4)
+    io.print("inc(-4) = $i\n")
 --

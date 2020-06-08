@@ -43,8 +43,7 @@ rust_block = { "-RUST-" }
 mxport = { "import" | "export" }
 
 infix_op = _{
-    dot
-    | star | slash | modulo
+    star | slash | modulo
     | plus
     | less_than | equality | greater_than
     | and | or
@@ -53,6 +52,7 @@ infix_op = _{
 spaced_infix_op = _{
     (as1 ~ infix_op ~ as1)
     | (hs1 ~ dash ~ as1)
+    | as0 ~ dot ~ as0
     | tick
 }
 
@@ -127,6 +127,8 @@ def_func = !{
 
 def_struct = !{ "datatype" ~ hs1 ~ def_id ~ def_func_args ~ as1 ~ "--" }
 
+let_stmt = !{ "let" ~ hs1 ~ id ~ as1 ~ ":=" ~ as1 ~ expr }
+
 mxid = _{ "." ~ id }
 mxhead = @{
     ("/" ~ modname)
@@ -141,6 +143,7 @@ mxstmt = !{ mxport ~ hs1 ~ (mxline | star) }
 stmt = _{
     def_func
     | def_struct
+    | let_stmt
     | mxstmt
     | expr
 }
