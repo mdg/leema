@@ -929,7 +929,7 @@ mod tests
     use crate::leema::loader::Interloader;
     use crate::leema::lstr::Lstr;
     use crate::leema::module::ModKey;
-    use crate::leema::struple::{self, StrupleItem};
+    use crate::leema::struple::StrupleItem;
     use crate::leema::val::{FuncType, Type, Val};
 
     use std::path::Path;
@@ -958,15 +958,15 @@ mod tests
     fn test_proto_genericfunc()
     {
         let input = r#"
-        func swap'T:T :: a:T b:T ->
-            (b, a)
+        func first'T:T :: a:T b:T ->
+            a
         --
         "#;
         let proto = new_proto(input);
         let tvt = Type::OpenVar("T");
 
         assert_eq!(1, proto.constants.len());
-        assert!(proto.constants.contains_key("swap"));
+        assert!(proto.constants.contains_key("first"));
         assert_eq!(
             Type::Generic(
                 true,
@@ -975,11 +975,11 @@ mod tests
                         StrupleItem::new(Some(Lstr::Sref("a")), tvt.clone()),
                         StrupleItem::new(Some(Lstr::Sref("b")), tvt.clone()),
                     ],
-                    Type::Tuple(struple::new_tuple2(tvt.clone(), tvt.clone())),
+                    tvt.clone(),
                 ))),
                 vec![StrupleItem::new("T", Type::Unknown)],
             ),
-            proto.constants.get("swap").unwrap().typ,
+            proto.constants.get("first").unwrap().typ,
         );
 
         // function definitions do not create new types

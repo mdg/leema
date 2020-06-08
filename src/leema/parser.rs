@@ -251,7 +251,7 @@ impl LeemaPratt
                     Ok(AstNode::new(Ast::Generic(id, generics), loc))
                 }
             }
-            Rule::datatype => {
+            Rule::def_struct => {
                 let mut inner = n.into_inner();
                 let id = self.primary(inner.next().unwrap())?;
                 let arg_it = inner.next().unwrap().into_inner();
