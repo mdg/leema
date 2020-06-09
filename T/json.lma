@@ -4,15 +4,15 @@ import /map
 import /option
 
 
-func encode[T] val:T /Str >> __RUST__ --
-func decode[T] input:Str /T >> __RUST__ --
+func encode'T: Str :: val:T -RUST-
+func decode'T: T :: input:Str -RUST-
 
 datatype Val
-|Integer Int
-|String Str
-|Boolean Bool
-|Array [Val]
-|Object map::T[Str json::Val]
+|Integer :: Int
+|String :: Str
+|Boolean :: Bool
+|Array :: [Val]
+|Object :: map::T[Str json::Val]
 |Null
 --
 

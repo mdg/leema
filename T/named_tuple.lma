@@ -1,8 +1,8 @@
 import /io
 
-datatype Greeting :Str :Str --
+datatype Greeting :: Str Str --
 
-func main >>
+func main ->
     let g := Greeting("hello", "world")
-    io::print("greeting is: \"$g\"\n")
+    io.print("greeting is: \"$g\"\n")
 --

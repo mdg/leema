@@ -1,6 +1,6 @@
 
 datatype T[V]
-|Some(V)
+|Some :: V
 |None
 --
 

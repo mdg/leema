@@ -1,17 +1,17 @@
 
-macro refail f >>
+macro refail :: f ->
     return f
 --
 
 ## recover from a failure w/ a new valid value
-macro unfail new_val >>
+macro unfail :: new_val ->
     new_val
 --
 
 
-func bool_not v:Bool /Bool >> __RUST__ --
+func bool_not:Bool :: v:Bool -RUST-
 
-func equal[T] a:T b:T /Bool >> __RUST__ --
-func less_than[T] a:T b:T /Bool >> __RUST__ --
-func sleep d:Int >> __RUST__ --
-func sleep_forever >> __RUST__ --
+func equal'T:Bool :: a:T b:T  -RUST-
+func less_than'T:Bool :: a:T b:T -RUST-
+func sleep :: d:Int -RUST-
+func sleep_forever -RUST-
