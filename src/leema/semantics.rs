@@ -1694,7 +1694,7 @@ mod tests
     #[test]
     fn test_semantics_param_in_scope()
     {
-        let input = r#"func inc i:Int /Int >> i + 1 --"#.to_string();
+        let input = r#"func inc: Int :: i:Int -> i + 1 --"#.to_string();
 
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::from(("/foo", "inc"));

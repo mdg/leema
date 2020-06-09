@@ -24,6 +24,7 @@ less_than = { "<" | "<=" }
 equality = { "==" | "!=" }
 greater_than = { ">" | ">=" }
 add_newline = { as1 ~ "\\n" }
+underscore = { "_" }
 block_arrow = _{ "->" | ">>" }
 double_dash = _{ "--" }
 
@@ -60,6 +61,7 @@ keywords = _{
     func_mode
     | mxport
     | "datatype"
+    | "match" | "if"
 }
 
 // horizontal space only
@@ -74,14 +76,19 @@ vs1 = _{ NEWLINE ~ as0 }
 modname_tail = _{ ASCII_ALPHA_LOWER | ASCII_DIGIT }
 modname = @{ !keywords ~ ASCII_ALPHA_LOWER ~ modname_tail* }
 
-id = @{ !keywords ~ (LETTER | "_") ~ ( LETTER | NUMBER | "_" )* }
+id = @{ !keywords ~ ((LETTER | "_") ~ ( LETTER | NUMBER | "_" )* | "#") }
 def_id = { id ~ ("'" ~ id)* }
 
 term = _{ id | number | str | ("(" ~ expr ~ ")") }
+pattern = _{ underscore | expr }
 
 x_maybe_k = { (id ~ hs0 ~ ":" ~ as0)? ~ expr }
 xlist = _{ x_maybe_k ~ (as0 ~ "," ~ as0 ~ x_maybe_k)* ~ as0 ~ ","? }
 call_args = { "(" ~ as0 ~ xlist? ~ as0 ~ ")" }
+
+case = { "|" ~ pattern ~ as1 ~ arrow_block }
+ifx = { "if" ~ vs1 ~ case+ ~ "--" }
+matchx = { "match" ~ hs1 ~ expr ~ case+ ~ "--" }
 
 prefix1 = _{ prefix_op ~ as0 ~ term }
 postfix1 = _{ term ~ postfix_op }
@@ -94,6 +101,12 @@ x1 = _{
 expr = !{
     x1 ~ (spaced_infix_op ~ x1)+
     | x1
+}
+
+compound_expr = {
+    ifx
+    | matchx
+    | expr
 }
 
 // types
@@ -127,7 +140,7 @@ def_func = !{
 
 def_struct = !{ "datatype" ~ hs1 ~ def_id ~ def_func_args ~ as1 ~ "--" }
 
-let_stmt = !{ "let" ~ hs1 ~ id ~ as1 ~ ":=" ~ as1 ~ expr }
+let_stmt = !{ "let" ~ hs1 ~ id ~ as1 ~ ":=" ~ as1 ~ compound_expr }
 
 mxid = _{ "." ~ id }
 mxhead = @{
@@ -145,12 +158,14 @@ stmt = _{
     | def_struct
     | let_stmt
     | mxstmt
-    | expr
+    | compound_expr
 }
 
 line = _{ hs0 ~ stmt? }
 stmt_block = ${ (line ~ vs1)* }
-arrow_block = _{ block_arrow ~ stmt_block }
+arrow_block = _{
+    block_arrow ~ (hs1 ~ expr ~ vs1 | vs1 ~ stmt_block)
+}
 func_block = _{
     rust_block
     | (block_arrow ~ vs1 ~ stmt_block ~ double_dash)

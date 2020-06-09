@@ -283,6 +283,15 @@ impl LeemaPratt
                     None => Ok(AstNode::new(Ast::Id1("Void"), loc)),
                 }
             }
+            Rule::list_type => {
+                let mut inner = n.into_inner();
+                let inner_type = self.primary(inner.next().unwrap())?;
+                let ast = Ast::Generic(
+                    AstNode::new(Ast::Id1("List"), loc),
+                    vec![StrupleItem::new_v(inner_type)],
+                );
+                Ok(AstNode::new(ast, loc))
+            }
             Rule::mxstmt => {
                 let mut inner = n.into_inner();
                 let mxpair = inner.next().unwrap();

@@ -11,15 +11,15 @@ func cons'T:[T] :: head:T tail:[T] -RUST-
 
 macro boolean_and :: and_a and_b ->
     if
-    |and_a >> and_b
-    |else >> False
+    |and_a -> and_b
+    |_ -> False
     --
 --
 
 macro boolean_or :: or_a or_b ->
     if
     |or_a -> True
-    |else -> or_b
+    |_ -> or_b
     --
 --
 
