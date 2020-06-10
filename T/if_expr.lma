@@ -1,9 +1,9 @@
 import /io/print
 
-func main() ->
+func main ->
     let a := if
     |true -> 5
-    |else -> 3
+    |_ -> 3
     --
     print("a = $a\n")
 --

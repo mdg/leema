@@ -1,5 +1,5 @@
 use crate::leema::ast2;
-use crate::leema::ast2::{Ast, AstNode, AstResult, DataType, ModAction, ModTree, Xlist};
+use crate::leema::ast2::{Ast, AstNode, AstResult, Case, DataType, ModAction, ModTree, Xlist};
 use crate::leema::failure::{Failure, Lresult};
 use crate::leema::lstr::Lstr;
 use crate::leema::struple::StrupleItem;
@@ -258,6 +258,23 @@ impl LeemaPratt
                 let stmt = Ast::Let(id, AstNode::void(), x);
                 Ok(AstNode::new(stmt, loc))
             }
+            Rule::ifx => {
+                let cases = self.parse_cases(n.into_inner())?;
+                Ok(AstNode::new(Ast::Ifx(cases), loc))
+            }
+            Rule::matchargs => {
+                let cases = self.parse_cases(n.into_inner())?;
+                Ok(AstNode::new(Ast::Matchx(None, cases), loc))
+            }
+            Rule::matchx => {
+                let mut inner = n.into_inner();
+                let x = self.primary(inner.next().unwrap())?;
+                let cases = self.parse_cases(inner)?;
+                Ok(AstNode::new(Ast::Matchx(Some(x), cases), loc))
+            }
+            Rule::underscore => {
+                Ok(AstNode::new(Ast::Wildcard, loc))
+            }
             Rule::def_struct => {
                 let mut inner = n.into_inner();
                 let id = self.primary(inner.next().unwrap())?;
@@ -268,14 +285,36 @@ impl LeemaPratt
             }
             Rule::def_func => {
                 let mut inner = n.into_inner();
-                let _func_mode = inner.next().unwrap();
-                let func_name = self.primary(inner.next().unwrap())?;
-                let func_result = self.primary(inner.next().unwrap())?;
-                let func_arg_it = inner.next().unwrap().into_inner();
-                let func_args: Xlist = self.parse_xlist(func_arg_it)?;
-                let block = self.primary(inner.next().unwrap())?;
-                let df = Ast::DefFunc(func_name, func_args, func_result, block);
-                Ok(AstNode::new(df, loc))
+                let func_mode = inner.next().unwrap();
+                let def = match func_mode.as_str() {
+                    "func" => {
+                        let func_name = self.primary(inner.next().unwrap())?;
+                        let func_result = self.primary(inner.next().unwrap())?;
+                        let func_arg_it = inner.next().unwrap().into_inner();
+                        let func_args: Xlist = self.parse_xlist(func_arg_it)?;
+                        let block = self.primary(inner.next().unwrap())?;
+                        Ast::DefFunc(func_name, func_args, func_result, block)
+                    }
+                    "macro" => {
+                        let func_name = inner.next().unwrap();
+                        // func result should be Void
+                        let _func_result = self.primary(inner.next().unwrap())?;
+                        let func_arg_it = inner.next().unwrap().into_inner();
+                        let func_args = func_arg_it.map(|it| {
+                            it.as_str()
+                        }).collect();
+                        let block = self.primary(inner.next().unwrap())?;
+                        Ast::DefMacro(func_name.as_str(), func_args, block)
+                    }
+                    unknown => {
+                        return Err(rustfail!(
+                            "compile_error",
+                            "unrecognized func mode: {:?}",
+                            unknown,
+                        ));
+                    }
+                };
+                Ok(AstNode::new(def, loc))
             }
             Rule::def_func_result => {
                 match n.into_inner().next() {
@@ -315,6 +354,23 @@ impl LeemaPratt
                 self.parse(&mut n.into_inner())
             }
         }
+    }
+
+    fn parse_case(&mut self, pair: Pair<'static, Rule>) -> Lresult<Case>
+    {
+        let mut inner = pair.into_inner();
+        let patt = self.primary(inner.next().unwrap())?;
+        let block = self.primary(inner.next().unwrap())?;
+        Ok(Case::new(patt, block))
+    }
+
+    fn parse_cases<Inputs>(&mut self, it: Inputs) -> Lresult<Vec<Case>>
+    where
+        Inputs: Iterator<Item = Pair<'static, Rule>>,
+    {
+        it.map(|x| {
+            self.parse_case(x)
+        }).collect()
     }
 
     pub fn parse_xlist<Inputs>(&mut self, it: Inputs) -> Lresult<Xlist>

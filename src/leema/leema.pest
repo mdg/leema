@@ -88,7 +88,8 @@ call_args = { "(" ~ as0 ~ xlist? ~ as0 ~ ")" }
 
 case = { "|" ~ pattern ~ as1 ~ arrow_block }
 ifx = { "if" ~ vs1 ~ case+ ~ "--" }
-matchx = { "match" ~ hs1 ~ expr ~ case+ ~ "--" }
+matchargs = { "match" ~ vs1 ~ case+ ~ "--" }
+matchx = { "match" ~ hs1 ~ expr? ~ case+ ~ "--" }
 
 prefix1 = _{ prefix_op ~ as0 ~ term }
 postfix1 = _{ term ~ postfix_op }
@@ -103,9 +104,10 @@ expr = !{
     | x1
 }
 
-compound_expr = {
+compound_expr = _{
     ifx
     | matchx
+    | matchargs
     | expr
 }
 
