@@ -20,9 +20,9 @@ modulo = { "modulo" }
 and = { "and" }
 or = { "or" }
 not = { "not" }
-less_than = { "<" | "<=" }
+less_than = { "<=" | "<" }
 equality = { "==" | "!=" }
-greater_than = { ">" | ">=" }
+greater_than = { ">=" | ">" }
 add_newline = { as1 ~ "\\n" }
 underscore = { "_" }
 block_arrow = _{ "->" | ">>" }

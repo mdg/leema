@@ -1634,7 +1634,7 @@ mod tests
             3 * 4
             5 / 6
             -8
-            5 mod 6
+            5 modulo 6
             True and False
             True or False
             not True
