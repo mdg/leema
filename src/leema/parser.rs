@@ -270,6 +270,24 @@ impl LeemaPratt
             Rule::underscore => {
                 Ok(AstNode::new(Ast::Wildcard, loc))
             }
+            Rule::def_enum => {
+                let mut inner = n.into_inner();
+                let id = self.primary(inner.next().unwrap())?;
+                let vars: Lresult<Xlist> = inner.map(|var| {
+                    let mut vi = var.into_inner();
+                    let vname = vi.next().unwrap();
+                    let vloc = nodeloc(&vname);
+                    let vname_str = vname.as_str();
+                    let vname_ast = self.primary(vname)?;
+                    let varg_it = vi.next().unwrap().into_inner();
+                    let vargs: Xlist = self.parse_xlist(varg_it)?;
+                    let df = Ast::DefType(DataType::Struct, vname_ast, vargs);
+                    let node = AstNode::new(df, vloc);
+                    Ok(StrupleItem::new(Some(vname_str), node))
+                }).collect();
+                let df = Ast::DefType(DataType::Union, id, vars?);
+                Ok(AstNode::new(df, loc))
+            }
             Rule::def_struct => {
                 let mut inner = n.into_inner();
                 let id = self.primary(inner.next().unwrap())?;
@@ -523,7 +541,7 @@ where
 mod tests
 {
     use super::{parse, parse_file, LeemaParser, Rule};
-    use crate::leema::ast2::{Ast, ModAction, ModTree};
+    use crate::leema::ast2::{Ast, DataType, ModAction, ModTree};
     use crate::leema::lstr::Lstr;
     use crate::leema::val::Val;
 
@@ -548,6 +566,7 @@ mod tests
     {
         let input = "foo(5, x: y)";
         let actual = parse(Rule::expr, input).unwrap();
+        println!("{:#?}", actual);
         parses_to!(
             parser: LeemaParser,
             input: input,
@@ -580,6 +599,39 @@ mod tests
                 call_args(3, 5)
             ])]
         )
+    }
+
+    #[test]
+    fn def_enum_bool()
+    {
+        let input = "datatype Bool
+        |False
+        |True
+        --
+        ";
+        let actual = parse(Rule::def_enum, input).unwrap();
+        println!("{:#?}", actual);
+        if let Ast::DefType(DataType::Union, name, vars) = &*actual[0].node {
+            assert_eq!(Ast::Id1("Bool"), *name.node);
+            assert_eq!("False", vars[0].k.unwrap());
+            assert_eq!("True", vars[1].k.unwrap());
+            if let Ast::DefType(DataType::Struct, n, flds) = &*vars[0].v.node {
+                assert_eq!(Ast::Id1("False"), *n.node);
+                assert_eq!(0, flds.len());
+            } else {
+                panic!("expected False, found {:?}", vars[0].v);
+            }
+            if let Ast::DefType(DataType::Struct, n, flds) = &*vars[1].v.node {
+                assert_eq!(Ast::Id1("True"), *n.node);
+                assert_eq!(0, flds.len());
+            } else {
+                panic!("expected True, found {:?}", vars[1].v);
+            }
+            assert_eq!(2, vars.len());
+        } else {
+            panic!("expected DefUnion, found {:?}", actual[0]);
+        }
+        assert_eq!(1, actual.len());
     }
 
     #[test]
@@ -724,6 +776,21 @@ mod tests
             assert_eq!(Ast::Id1("A"), *result.node);
         } else {
             panic!("expected DefFunc, found {:?}", actual[0]);
+        }
+        assert_eq!(1, actual.len());
+    }
+
+    #[test]
+    fn def_struct_token()
+    {
+        let input = "datatype Taco --";
+        let actual = parse(Rule::def_struct, input).unwrap();
+        println!("{:#?}", actual);
+        if let Ast::DefType(DataType::Struct, name, args) = &*actual[0].node {
+            assert_eq!(Ast::Id1("Taco"), *name.node);
+            assert_eq!(0, args.len());
+        } else {
+            panic!("expected DefStruct, found {:?}", actual[0]);
         }
         assert_eq!(1, actual.len());
     }
