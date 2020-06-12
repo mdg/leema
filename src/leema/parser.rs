@@ -238,18 +238,13 @@ impl LeemaPratt
                     n.into_inner().map(|i| self.primary(i)).collect();
                 Ok(AstNode::new(Ast::Block(inner?), loc))
             }
-            Rule::def_id => {
+            Rule::def_generic => {
                 let mut inner = n.into_inner();
                 let id = self.primary(inner.next().unwrap())?;
-                let generic_result: Lresult<Xlist> = inner.map(|i| {
-                    Ok(StrupleItem::new_v(self.primary(i)?))
+                let generics: Xlist = inner.map(|i| {
+                    StrupleItem::new(Some(i.as_str()), AstNode::void())
                 }).collect();
-                let generics = generic_result?;
-                if generics.is_empty() {
-                    Ok(id)
-                } else {
-                    Ok(AstNode::new(Ast::Generic(id, generics), loc))
-                }
+                Ok(AstNode::new(Ast::Generic(id, generics), loc))
             }
             Rule::let_stmt => {
                 let mut inner = n.into_inner();
@@ -343,6 +338,11 @@ impl LeemaPratt
                 };
                 let mxline = parse_mxline(inner.next().unwrap())?;
                 Ok(AstNode::new(Ast::ModAction(mx, mxline), loc))
+            }
+            Rule::return_stmt => {
+                let mut inner = n.into_inner();
+                let stmt = Ast::Return(self.primary(inner.next().unwrap())?);
+                Ok(AstNode::new(stmt, loc))
             }
             Rule::EOI => Ok(AstNode::void()),
             Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, loc)),
@@ -634,7 +634,7 @@ mod tests
             tokens: [file(0, 15, [
                 def_func(0, 15, [
                     func_mode(0, 4),
-                    def_id(5, 8, [id(5, 8)]),
+                    id(5, 8),
                     def_func_result(8, 8),
                     def_func_args(8, 8),
                     rust_block(9, 15),

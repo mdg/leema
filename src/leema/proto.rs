@@ -324,21 +324,12 @@ impl ProtoModule
                 name_id
             }
             Ast::Generic(gen, gen_args) => {
-                let opens1: Lresult<GenericTypes> = gen_args
+                opens = gen_args
                     .iter()
                     .map(|a| {
-                        if let Ast::Id1(var) = *a.v.node {
-                            Ok(StrupleItem::new(var, Type::Unknown))
-                        } else {
-                            Err(rustfail!(
-                                PROTOFAIL,
-                                "generic arguments must be IDs: {:?}",
-                                a,
-                            ))
-                        }
+                        StrupleItem::new(a.k.unwrap(), Type::Unknown)
                     })
                     .collect();
-                opens = opens1?;
 
                 type_maker = Box::new(|ft| {
                     Type::Generic(true, Box::new(Type::Func(ft)), opens.clone())
@@ -635,11 +626,20 @@ impl ProtoModule
                     self.ast_to_ftype(local_mod, args, result, opens)?;
                 Type::Func(ftype)
             }
-            Ast::Generic(_, typeargs) => {
-                let _gen = struple::map_v(typeargs, |v| {
-                    self.ast_to_type(local_mod, v, opens)
+            Ast::Generic(base, typeargs) => {
+                let genbase = self.ast_to_type(local_mod, base, opens)?;
+                let genargsr: Lresult<GenericTypes> = typeargs.iter().map(|t| {
+                    let k = t.k.unwrap_or("");
+                    Ok(StrupleItem::new(
+                        k,
+                        self.ast_to_type(local_mod, &t.v, opens)?,
+                    ))
+                }).collect();
+                let genargs = genargsr?;
+                let open = genargs.iter().any(|a| {
+                    a.v.is_open()
                 });
-                unimplemented!()
+                Type::Generic(open, Box::new(genbase), genargs)
             }
             Ast::Void => Type::Void,
             invalid => {

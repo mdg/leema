@@ -77,7 +77,8 @@ modname_tail = _{ ASCII_ALPHA_LOWER | ASCII_DIGIT }
 modname = @{ !keywords ~ ASCII_ALPHA_LOWER ~ modname_tail* }
 
 id = @{ !keywords ~ ((LETTER | "_") ~ ( LETTER | NUMBER | "_" )* | "#") }
-def_id = { id ~ ("'" ~ id)* }
+def_generic = { id ~ ("'" ~ id)+ }
+def_id = _{ def_generic | id }
 
 term = _{ id | number | str | ("(" ~ expr ~ ")") }
 pattern = _{ underscore | expr }
@@ -144,6 +145,10 @@ def_struct = !{ "datatype" ~ hs1 ~ def_id ~ def_func_args ~ as1 ~ "--" }
 
 let_stmt = !{ "let" ~ hs1 ~ id ~ as1 ~ ":=" ~ as1 ~ compound_expr }
 
+return_stmt = !{ "return" ~ as1 ~ compound_expr }
+
+comment_line = _{ "##" ~ (!NEWLINE ~ ANY)* }
+
 mxid = _{ "." ~ id }
 mxhead = @{
     ("/" ~ modname)
@@ -159,7 +164,9 @@ stmt = _{
     def_func
     | def_struct
     | let_stmt
+    | return_stmt
     | mxstmt
+    | comment_line
     | compound_expr
 }
 
