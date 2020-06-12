@@ -29,6 +29,7 @@ lazy_static! {
         ids.insert("cons", core_mod.clone());
         ids.insert("create_failure", core_mod.clone());
         ids.insert("fail", core_mod.clone());
+        ids.insert("False", core_mod.clone());
         ids.insert("Hashtag", core_mod.clone());
         ids.insert("Int", core_mod.clone());
         ids.insert("int_add", core_mod.clone());
@@ -40,6 +41,7 @@ lazy_static! {
         ids.insert("int_equal", core_mod.clone());
         ids.insert("int_less_than", core_mod.clone());
         ids.insert("Str", core_mod.clone());
+        ids.insert("True", core_mod.clone());
         ids.insert("#", core_mod);
         ids
     };
@@ -387,12 +389,12 @@ impl ProtoModule
                 let opens1: Lresult<GenericTypes> = gen_args
                     .iter()
                     .map(|a| {
-                        if let Ast::Id1(var) = *a.v.node {
+                        if let Some(var) = a.k {
                             Ok(StrupleItem::new(var, Type::Unknown))
                         } else {
                             Err(rustfail!(
                                 PROTOFAIL,
-                                "generic arguments must be IDs: {:?}",
+                                "generic arguments must have string key: {:?}",
                                 a,
                             ))
                         }

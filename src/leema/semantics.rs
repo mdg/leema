@@ -1621,7 +1621,7 @@ mod tests
     fn test_semantics_default_imports()
     {
         let input = r#"
-        func main >>
+        func main ->
             4;[6]
             4 < 6
             8 > 8

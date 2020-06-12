@@ -599,7 +599,7 @@ mod tests
             tokens: [file(0, 71, [
                 def_func(0, 62, [
                     func_mode(0, 4),
-                    def_id(5, 8, [id(5, 8)]),
+                    id(5, 8),
                     def_func_result(8, 8),
                     def_func_args(8, 8),
                     stmt_block(24, 60, [
@@ -711,7 +711,9 @@ mod tests
         if let Ast::DefFunc(name, args, result, _body) = &*actual[0].node {
             if let Ast::Generic(first, type_args) = &*name.node {
                 assert_eq!(Ast::Id1("first"), *first.node);
-                assert_eq!(Ast::Id1("A"), *type_args[0].v.node);
+                assert_eq!("A", type_args[0].k.unwrap());
+                assert_eq!(Ast::Void, *type_args[0].v.node);
+                assert_eq!(2, type_args.len());
             } else {
                 panic!("expected generic 'first', found {:?}", name.node);
             }
