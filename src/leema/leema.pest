@@ -23,7 +23,7 @@ not = { "not" }
 less_than = { "<=" | "<" }
 equality = { "==" | "!=" }
 greater_than = { ">=" | ">" }
-add_newline = { as1 ~ "\\n" }
+add_newline = { "\\n" }
 underscore = { "_" }
 block_arrow = _{ "->" | ">>" }
 double_dash = _{ "--" }
@@ -166,6 +166,7 @@ mxstmt = !{ mxport ~ hs1 ~ (mxline | star) }
 
 stmt = _{
     def_func
+    | def_enum
     | def_struct
     | let_stmt
     | return_stmt
