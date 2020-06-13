@@ -58,6 +58,7 @@ pub struct ProtoModule
     pub exports_all: bool,
     pub id_canonicals: HashMap<&'static str, CanonicalMod>,
     pub macros: HashMap<&'static str, Ast>,
+    pub modval: Struple2<Val>,
     pub constants: HashMap<&'static str, AstNode>,
     types: HashMap<&'static str, Type>,
     pub funcseq: Vec<&'static str>,
@@ -80,6 +81,7 @@ impl ProtoModule
             exports_all: false,
             id_canonicals: HashMap::new(),
             macros: HashMap::new(),
+            modval: vec![],
             constants: HashMap::new(),
             types: HashMap::new(),
             funcseq: Vec::new(),
@@ -877,8 +879,43 @@ impl ProtoLib
         for (_k, i) in imported.iter() {
             ltry!(self.load_absolute(loader, &i.as_path()))
         }
-
         Ok(())
+    }
+
+    pub fn import_modules(
+        &mut self,
+        modname: &Path,
+    ) -> Lresult<()>
+    {
+        vout!("ProtoLib::import_modules({})\n", modname.display());
+        // unwrap is fine, already verified presence earlier
+        {
+            let proto = self.protos.get(modname).unwrap();
+
+            let mut consts: StrupleKV<&'static str, Val> = vec![];
+            for (i, v) in proto.imports.iter() {
+                let modval = Val::Tuple(self.module_as_val(v)?.clone());
+                consts.push(StrupleItem::new(i, modval));
+            }
+            for (i, v) in proto.id_canonicals.iter() {
+                let model = self.model_as_val(v, i)?;
+                consts.push(StrupleItem::new(i, model.clone()));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn module_as_val(&self, modname: &CanonicalMod) -> Lresult<&Struple2<Val>>
+    {
+        let proto = self.path_proto(modname).unwrap();
+        Ok(&proto.modval)
+    }
+
+    pub fn model_as_val(&self, modname: &CanonicalMod, elem: &'static str) -> Lresult<&Val>
+    {
+        let proto = self.path_proto(modname).unwrap();
+        let val = struple::find(&proto.modval, &Some(Lstr::Sref(elem)));
+        Ok(val.unwrap().1)
     }
 
     pub fn pop_func(

@@ -149,6 +149,8 @@ impl Lib
     {
         let modpath = cmod.mod_path();
         ltry!(self.protos.load_absolute(&mut self.loader, modpath));
-        Ok(ltry!(self.protos.load_imports(&mut self.loader, modpath)))
+        ltry!(self.protos.load_imports(&mut self.loader, modpath));
+        ltry!(self.protos.import_modules(modpath));
+        Ok(())
     }
 }
