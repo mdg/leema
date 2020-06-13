@@ -12,38 +12,43 @@ datatype Val
 |String :: Str
 |Boolean :: Bool
 |Array :: [Val]
-|Object :: map::T[Str json::Val]
+|Object :: {Str:Val}
 |Null
 --
 
-func decode_val input:Str /Val __RUST__
+func decode'T:T :: input:Str ->
+    let jsonval := decode_val(input)
+    let d := json::new_deserializer(jsonval)
+    dessert::deserialize[T](d)
+--
 
-func object_fields(v: Val): map::T[Str, Val]
->>
+func decode_val:Val :: input:Str -RUST-
+
+func decode_obj:{Str:Val} :: input:Str -RUST-
+
+func decode_arr:[Val] :: input:Str -RUST-
+
+func obj_val:Val :: v:Val name:Str ->
+    option::unwrap(map::get(object_fields(v), name))
+--
+
+func obj_int:Int :: v:Val name:Str ->
+    int_val(object_val(v, name))
+--
+
+func obj_str:Str :: v:Val name:Str ->
+    str_val(object_val(v, name))
+--
+
+func obj_bool:Bool :: v:Val, name:Str ->
+    bool_val(object_val(v, name))
+--
+
+func obj_fields(v: Val): map::T[Str, Val] ->
     match v
     |Object(flds) >> flds
     |_ >> fail(#input_error, "json value is not an object: $v")
     --
---
-
-func object_val(v: Val, name: Str): Val
->>
-    option::unwrap(map::get(object_fields(v), name))
---
-
-func object_int(v: Val, name: Str): Int
->>
-    int_val(object_val(v, name))
---
-
-func object_str(v: Val, name: Str): Str
->>
-    str_val(object_val(v, name))
---
-
-func object_bool(v: Val, name: Str): Bool
->>
-    bool_val(object_val(v, name))
 --
 
 func array_map[T](v: Val, transform: F(Val): T): [T]
@@ -54,16 +59,14 @@ func array_map[T](v: Val, transform: F(Val): T): [T]
     --
 --
 
-func bool_val(v: Val): Bool
->>
+func bool_val:Bool :: v:Val ->
     match v
     |Boolean(b) >> b
     |_ >> fail(#input_error, "json value is not a boolean: $v")
     --
 --
 
-func int_val(v: Val): Int
->>
+func int_val:Int :: v:Val ->
     match v
     |Integer(i) >> i
     |_ >> fail(#input_error, "json value is not an integer: $v")
