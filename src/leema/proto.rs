@@ -60,11 +60,9 @@ pub struct ProtoModule
     pub exports: HashMap<ModAlias, ImportedMod>,
     pub exports_all: bool,
     pub id_canonicals: HashMap<&'static str, CanonicalMod>,
-    pub macros: HashMap<&'static str, Ast>,
-    pub imported_vals: Xlist,
-    pub exported_vals: Xlist,
-    pub local_vals: Xlist,
-    pub constants: HashMap<&'static str, AstNode>,
+    imported_vals: Xlist,
+    exported_vals: Xlist,
+    local_vals: Xlist,
     types: HashMap<&'static str, Type>,
     pub funcseq: Vec<&'static str>,
     pub funcsrc: HashMap<&'static str, (Xlist, AstNode)>,
@@ -85,11 +83,9 @@ impl ProtoModule
             exports: HashMap::new(),
             exports_all: false,
             id_canonicals: HashMap::new(),
-            macros: HashMap::new(),
             exported_vals: vec![],
             imported_vals: vec![],
             local_vals: vec![],
-            constants: HashMap::new(),
             types: HashMap::new(),
             funcseq: Vec::new(),
             funcsrc: HashMap::new(),
@@ -210,11 +206,10 @@ impl ProtoModule
         match *node.node {
             Ast::DefConst(name, val) => {
                 ltry!(self.refute_redefines_default(name, node.loc));
-                self.constants.insert(name, val);
+                self.exported_vals.push(StrupleItem::new(Some(name), val));
             }
             Ast::DefMacro(macro_name, _, _) => {
                 ltry!(self.refute_redefines_default(macro_name, node.loc));
-                self.macros.insert(macro_name, *node.node.clone());
                 self.exported_vals.push(StrupleItem::new(
                     Some(macro_name),
                     node,
@@ -259,20 +254,6 @@ impl ProtoModule
             }
         }
 
-        // export any local definitions
-        for name in self.macros.keys() {
-            let mut export_path = Path::new("./").join(Path::new(*name));
-            export_path.set_extension("macro");
-            self.exports
-                .insert(ModAlias(name), ImportedMod(export_path));
-        }
-        // empty tho b/c these are loaded in post
-        // should be able to populate funcseq in pre
-        for name in self.funcseq.iter() {
-            let export_path = Path::new(*name).with_extension("function");
-            self.exports
-                .insert(ModAlias(name), ImportedMod(export_path));
-        }
         Ok(())
     }
 
@@ -373,7 +354,6 @@ impl ProtoModule
         let mut fref_ast = AstNode::new_constval(call, name.loc);
         fref_ast.typ = typ;
 
-        self.constants.insert(name_id, fref_ast.clone());
         self.funcseq.push(name_id);
         self.funcsrc.insert(name_id, (args, body));
         self.exported_vals.push(StrupleItem::new(
@@ -444,10 +424,10 @@ impl ProtoModule
         let constructor_type = Type::Func(ftyp);
         let fref = Fref::new(self.key.clone(), sname_id, constructor_type);
         let constructor_call = Val::Call(fref, call_args);
-        self.constants.insert(
-            sname_id,
+        self.exported_vals.push(StrupleItem::new(
+            Some(sname_id),
             AstNode::new_constval(constructor_call, name.loc),
-        );
+        ));
         self.types.insert(sname_id, struct_typ);
         self.funcseq.push(sname_id);
         // also add to funcsrc and struct_fields
@@ -465,7 +445,6 @@ impl ProtoModule
                 let const_node = AstNode::new_constval(token_val.clone(), name.loc);
                 self.types.insert(name_id, t);
                 self.token.insert(name_id);
-                self.constants.insert(name_id, const_node.clone());
                 self.exported_vals.push(StrupleItem::new(
                     Some(name_id),
                     const_node,
@@ -511,10 +490,6 @@ impl ProtoModule
                 let typ_val = Val::Type(union_typ.clone());
                 let typ_ast = AstNode::new_constval(typ_val.clone(), name.loc);
                 _opens = vec![];
-                self.constants.insert(
-                    name_id,
-                    typ_ast.clone(),
-                );
                 self.exported_vals.push(StrupleItem::new(
                     Some(name_id),
                     typ_ast,
@@ -567,7 +542,7 @@ impl ProtoModule
     /// TODO rename this. Maybe take_func?
     pub fn pop_func(&mut self, func: &str) -> Option<(Xlist, AstNode)>
     {
-        let generic = match self.constants.get(func) {
+        let generic = match self.local_modelem(func) {
             Some(fconst) => fconst.typ.is_open(),
             None => {
                 return None;
@@ -582,38 +557,35 @@ impl ProtoModule
         }
     }
 
-    /// Check if this module defines a function, type or macro of this name
-    pub fn defines(&self, id: &str) -> bool
+    pub fn find_macro<'a, 'b>(&'a self, macroname: &'b str) -> Option<&'a Ast>
     {
-        self.constants.contains_key(id)
-            || self.macros.contains_key(id)
-            || self.types.contains_key(id)
+        self.find_modelem(macroname)
+            .and_then(|node| {
+                if let Ast::DefMacro(_, _, _) = &*node.node {
+                    Some(&*node.node)
+                } else {
+                    None
+                }
+            })
     }
 
-    /// Check if this module defines a type
-    pub fn defines_type(&self, id: &str) -> bool
+    pub fn find_modelem<'a, 'b>(&'a self, name: &'b str) -> Option<&'a AstNode>
     {
-        self.types.contains_key(id)
-    }
-
-    pub fn find_macro(&self, macroname: &str) -> Option<&Ast>
-    {
-        self.macros.get(macroname)
-    }
-
-    pub fn find_const(&self, name: &str) -> Option<&AstNode>
-    {
-        self.constants.get(name)
-    }
-
-    pub fn find_modelem(&self, name: &'static str) -> Option<&AstNode>
-    {
-        struple::find_some(&self.exported_vals, &name)
+        struple::find_str(&self.exported_vals, &name)
             .or_else(|| {
-                struple::find_some(&self.imported_vals, &name)
+                struple::find_str(&self.local_vals, &name)
             })
             .or_else(|| {
-                struple::find_some(&self.local_vals, &name)
+                struple::find_str(&self.imported_vals, &name)
+            })
+            .map(|item| item.1)
+    }
+
+    fn local_modelem<'a, 'b>(&'a self, name: &'b str) -> Option<&'a AstNode>
+    {
+        struple::find_str(&self.exported_vals, &name)
+            .or_else(|| {
+                struple::find_str(&self.local_vals, &name)
             })
             .map(|item| item.1)
     }
@@ -1043,7 +1015,7 @@ mod tests
     use crate::leema::loader::Interloader;
     use crate::leema::lstr::Lstr;
     use crate::leema::module::ModKey;
-    use crate::leema::struple::StrupleItem;
+    use crate::leema::struple::{self, StrupleItem};
     use crate::leema::val::{FuncType, Type, Val};
 
     use std::path::Path;
@@ -1079,8 +1051,8 @@ mod tests
         let proto = new_proto(input);
         let tvt = Type::OpenVar("T");
 
-        assert_eq!(1, proto.constants.len());
-        assert!(proto.constants.contains_key("first"));
+        assert_eq!(1, proto.exported_vals.len());
+        assert!(struple::contains_key(&proto.exported_vals, &Some("first")));
         assert_eq!(
             Type::Generic(
                 true,
@@ -1093,7 +1065,7 @@ mod tests
                 ))),
                 vec![StrupleItem::new("T", Type::Unknown)],
             ),
-            proto.constants.get("first").unwrap().typ,
+            struple::find_str(&proto.exported_vals, "first").unwrap().1.typ,
         );
 
         // function definitions do not create new types
@@ -1316,13 +1288,15 @@ mod tests
         assert_eq!(2, protos.protos.len());
 
         let a = protos.path_proto(&canonical_mod!("/a")).unwrap();
-        assert_eq!(0, a.imports.len());
-        assert_eq!(1, a.exports.len());
-        assert_eq!("foo.function", a.exports["foo"]);
+        assert_eq!(0, a.imported_vals.len());
+        assert_eq!(1, a.exported_vals.len());
+        assert_eq!(0, a.local_vals.len());
+        assert!(struple::contains_key(&a.exported_vals, &Some("foo")));
 
         let b = protos.path_proto(&canonical_mod!("/b")).unwrap();
-        assert_eq!(0, b.imports.len());
-        assert_eq!(1, b.exports.len());
+        assert_eq!(0, b.imported_vals.len());
+        assert_eq!(1, b.exported_vals.len());
+        assert_eq!(0, b.local_vals.len());
         assert_eq!(1, b.id_canonicals.len());
     }
 
@@ -1337,7 +1311,7 @@ mod tests
         assert!(proto.token.contains("Burrito"));
 
         let burrito_val =
-            proto.constants.get("Burrito").expect("no Burrito const");
+            proto.find_modelem("Burrito").expect("no Burrito const");
         assert_matches!(*burrito_val.node, Ast::ConstVal(_));
         if let Ast::ConstVal(ref val) = &*burrito_val.node {
             assert_eq!(Val::Token(burrito_type.clone()), *val);

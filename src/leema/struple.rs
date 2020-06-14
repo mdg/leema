@@ -166,16 +166,19 @@ where
         .map(|(idx, item)| (idx, &item.v))
 }
 
-pub fn find_some<'s, 'k, K, V>(
-    s: &'s [StrupleItem<Option<K>, V>],
-    key: &'k K,
+pub fn find_str<'s, 'k, V>(
+    s: &'s [StrupleItem<Option<&'static str>, V>],
+    key: &'k str,
 ) -> Option<(usize, &'s V)>
-where
-    K: PartialEq,
 {
     s.iter()
         .enumerate()
-        .find(|(_, i)| i.k.is_some() && i.k.as_ref().unwrap() == key)
+        .find(|(_, i)| {
+            match &i.k {
+                Some(ref item_key) => **item_key == *key,
+                None => false,
+            }
+        })
         .map(|(idx, item)| (idx, &item.v))
 }
 

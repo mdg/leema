@@ -534,9 +534,6 @@ impl<'p> SemanticOp for ScopeCheck<'p>
             Ast::Id1(id) => {
                 if self.blocks.var_in_scope(&Lstr::Sref(id)) {
                     // that's cool, nothing to do I guess?
-                } else if let Some(ic) = self.local_mod.find_const(id) {
-                    node = node.replace((*ic.node).clone(), ic.typ.clone());
-                    return Ok(SemanticAction::Keep(node));
                 } else if let Some(me) = self.local_mod.find_modelem(id) {
                     node = node.replace((*me.node).clone(), me.typ.clone());
                     return Ok(SemanticAction::Keep(node));
@@ -582,7 +579,7 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                         )))
                     }));
                 let val_ast = proto
-                    .find_const(id)
+                    .find_modelem(id)
                     .ok_or_else(|| {
                         rustfail!(
                             SEMFAIL,
@@ -1289,7 +1286,7 @@ impl Semantics
         })?;
 
         let local_proto = ltry!(proto.path_proto(&f.m.name));
-        let func_ref = local_proto.find_const(&f.f).ok_or_else(|| {
+        let func_ref = local_proto.find_modelem(&f.f).ok_or_else(|| {
             rustfail!(SEMFAIL, "cannot find func ref for {}", f,)
         })?;
         let closed;
