@@ -537,9 +537,9 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                 } else if let Some(ic) = self.local_mod.find_const(id) {
                     node = node.replace((*ic.node).clone(), ic.typ.clone());
                     return Ok(SemanticAction::Keep(node));
-                } else if let Some(f) = self.local_mod.find_val(id) {
-                    let cv = AstNode::new_constval(f.clone(), node.loc);
-                    return Ok(SemanticAction::Keep(cv));
+                } else if let Some(me) = self.local_mod.find_modelem(id) {
+                    node = node.replace((*me.node).clone(), me.typ.clone());
+                    return Ok(SemanticAction::Keep(node));
                 } else {
                     return Err(rustfail!(
                         SEMFAIL,
