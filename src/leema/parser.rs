@@ -216,7 +216,6 @@ impl LeemaPratt
                 Ok(AstNode::new_constval(s, loc))
             }
             Rule::str => {
-                println!("str: %{:#?}", n);
                 let strs: Lresult<Vec<AstNode>> =
                     n.into_inner().map(|i| self.primary(i)).collect();
                 let mut s = strs?;
@@ -269,6 +268,9 @@ impl LeemaPratt
             }
             Rule::underscore => {
                 Ok(AstNode::new(Ast::Wildcard, loc))
+            }
+            Rule::typex => {
+                self.primary(n.into_inner().next().unwrap())
             }
             Rule::def_enum => {
                 let mut inner = n.into_inner();
@@ -474,7 +476,7 @@ where
                 .into();
         }
         let op = match p.as_rule() {
-            Rule::float | Rule::id | Rule::int | Rule::str => {
+            Rule::expr | Rule::float | Rule::id | Rule::int | Rule::str => {
                 Ok(Op::new("str", Affix::Nilfix, Arity::Nullary, Precedence(0)))
             }
             r => {
@@ -493,7 +495,6 @@ where
 
     fn unary(&mut self, op: Self::Input, x: AstNode) -> AstResult
     {
-        println!("unary {:?} {:?}", op, x);
         let loc = nodeloc(&op);
         match op.as_rule() {
             Rule::call_args => {
@@ -502,7 +503,6 @@ where
                 Ok(AstNode::new(Ast::Call(x, call_args), call_loc))
             }
             Rule::negative | Rule::not | Rule::add_newline => {
-                println!("unary {} {:?}", op.as_str(), x);
                 let ast = Ast::Op1(op.as_str(), x);
                 Ok(AstNode::new(ast, loc))
             }

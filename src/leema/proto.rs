@@ -40,6 +40,9 @@ lazy_static! {
         ids.insert("int_negate", core_mod.clone());
         ids.insert("int_equal", core_mod.clone());
         ids.insert("int_less_than", core_mod.clone());
+        ids.insert("int_lteq", core_mod.clone());
+        ids.insert("int_gt", core_mod.clone());
+        ids.insert("int_gteq", core_mod.clone());
         ids.insert("Str", core_mod.clone());
         ids.insert("True", core_mod.clone());
         ids.insert("#", core_mod);
@@ -949,7 +952,6 @@ println!("ProtoLib::import_modules({})", modname.display());
                 imports.push(StrupleItem::new(Some(Lstr::Sref(i)), modval));
             }
             for (i, v) in proto.id_canonicals.iter().chain(DEFAULT_IDS.iter()) {
-println!("add {} {}", v, i);
                 let makro = self
                     .path_proto(v)?
                     .find_macro(i);
@@ -979,7 +981,6 @@ eprintln!("imported vals: {:#?}", proto.imported_vals);
 
     pub fn model_as_val(&self, modname: &CanonicalMod, elem: &'static str) -> Lresult<&Val>
     {
-println!("model as val: {}.{}", modname, elem);
         let proto = self.path_proto(modname).unwrap();
         struple::find(&proto.local_vals, &Some(Lstr::Sref(elem)))
             .map(|i| i.1)

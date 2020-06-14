@@ -339,6 +339,18 @@ impl<'l> SemanticOp for MacroApplication<'l>
                 let call = Self::op_to_call1("int_less_than", a, b, node.loc);
                 Ok(SemanticAction::Rewrite(call))
             }
+            Ast::Op2(">", a, b) => {
+                let call = Self::op_to_call1("int_gt", a, b, node.loc);
+                Ok(SemanticAction::Rewrite(call))
+            }
+            Ast::Op2("<=", a, b) => {
+                let call = Self::op_to_call1("int_lteq", a, b, node.loc);
+                Ok(SemanticAction::Rewrite(call))
+            }
+            Ast::Op2(">=", a, b) => {
+                let call = Self::op_to_call1("int_gteq", a, b, node.loc);
+                Ok(SemanticAction::Rewrite(call))
+            }
             Ast::Op2(";", a, b) => {
                 if !self.mode.is_pattern() {
                     // if not a pattern, convert to a call
