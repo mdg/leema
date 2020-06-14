@@ -264,19 +264,7 @@ impl<'l> MacroApplication<'l>
 
     fn find_macro_1(&self, macroname: &str) -> Lresult<Option<&Ast>>
     {
-        let local_mac = self.local.find_macro(macroname);
-        if local_mac.is_some() {
-            return Ok(local_mac);
-        }
-
-        let imported_macro = match self.local.canonical_mod_for_id(macroname) {
-            Some(import_path) => {
-                let import_mod = ltry!(self.proto.path_proto(import_path));
-                import_mod.find_macro(macroname)
-            }
-            None => None,
-        };
-        Ok(imported_macro)
+        Ok(self.local.find_macro(macroname))
     }
 }
 
@@ -528,30 +516,7 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                 self.blocks.assign_var(&Lstr::Sref(id), local_type);
             }
             Ast::Id1(id) if self.mode == AstMode::Type => {
-                if self.local_mod.get_type(id).is_ok() {
-                    return Ok(SemanticAction::Keep(node));
-                }
-
-                let import = self.local_mod.canonical_mod_for_id(id);
-                if import.is_none() {
-                    return Err(Failure::static_leema(
-                        failure::Mode::CompileFailure,
-                        lstrf!("type {} is undefined", id),
-                        self.local_mod.key.best_path(),
-                        node.loc.lineno,
-                    ));
-                }
-
-                let import_chain = import.unwrap();
-                let import_proto = ltry!(self.lib.path_proto(import_chain));
-                import_proto.get_type(id).map_err(|_| {
-                    Failure::static_leema(
-                        failure::Mode::CompileFailure,
-                        lstrf!("type {}::{} undefined", import_chain, id),
-                        self.local_mod.key.best_path(),
-                        node.loc.lineno,
-                    )
-                })?;
+                self.local_mod.get_type(id)?;
                 return Ok(SemanticAction::Keep(node));
             }
             Ast::Id1(id) => {
@@ -560,22 +525,9 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                 } else if let Some(ic) = self.local_mod.find_const(id) {
                     node = node.replace((*ic.node).clone(), ic.typ.clone());
                     return Ok(SemanticAction::Keep(node));
-                } else if let Some(ich) =
-                    self.local_mod.canonical_mod_for_id(id)
-                {
-                    let constval = ltry!(self.lib.path_proto(ich))
-                        .find_const(id)
-                        .map(|c| c.clone())
-                        .ok_or_else(|| {
-                            Failure::static_leema(
-                                failure::Mode::CompileFailure,
-                                lstrf!("undefined var: {}", id),
-                                self.local_mod.key.best_path(),
-                                node.loc.lineno,
-                            )
-                        })?;
-                    node = node.replace(*constval.node, constval.typ);
-                    return Ok(SemanticAction::Keep(node));
+                } else if let Some(f) = self.local_mod.find_val(id) {
+                    let cv = AstNode::new_constval(f.clone(), node.loc);
+                    return Ok(SemanticAction::Keep(cv));
                 } else {
                     return Err(rustfail!(
                         SEMFAIL,

@@ -166,6 +166,19 @@ where
         .map(|(idx, item)| (idx, &item.v))
 }
 
+pub fn find_some<'s, 'k, K, V>(
+    s: &'s [StrupleItem<Option<K>, V>],
+    key: &'k K,
+) -> Option<(usize, &'s V)>
+where
+    K: PartialEq,
+{
+    s.iter()
+        .enumerate()
+        .find(|(_, i)| i.k.is_some() && i.k.as_ref().unwrap() == key)
+        .map(|(idx, item)| (idx, &item.v))
+}
+
 pub fn contains_key<K, V>(s: &[StrupleItem<K, V>], k: &K) -> bool
 where
     K: PartialEq,

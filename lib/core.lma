@@ -1,5 +1,9 @@
 
-datatype Bool --
+datatype Bool
+|False
+|True
+--
+
 datatype Failure --
 datatype Hashtag --
 datatype Int --

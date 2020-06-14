@@ -1,5 +1,5 @@
 
 macro println x >> print(x \n) --
 
-func cin /Str >> __RUST__ --
-func print txt:Str >> __RUST__ --
+func cin:Str -RUST-
+func print :: txt:Str -RUST-

@@ -58,7 +58,8 @@ pub struct ProtoModule
     pub exports_all: bool,
     pub id_canonicals: HashMap<&'static str, CanonicalMod>,
     pub macros: HashMap<&'static str, Ast>,
-    pub modval: Struple2<Val>,
+    pub local_vals: Struple2<Val>,
+    pub imported_vals: Struple2<Val>,
     pub constants: HashMap<&'static str, AstNode>,
     types: HashMap<&'static str, Type>,
     pub funcseq: Vec<&'static str>,
@@ -81,7 +82,8 @@ impl ProtoModule
             exports_all: false,
             id_canonicals: HashMap::new(),
             macros: HashMap::new(),
-            modval: vec![],
+            local_vals: vec![],
+            imported_vals: vec![],
             constants: HashMap::new(),
             types: HashMap::new(),
             funcseq: Vec::new(),
@@ -283,11 +285,6 @@ impl ProtoModule
         }
     }
 
-    pub fn default_imports() -> &'static HashMap<&'static str, CanonicalMod>
-    {
-        &DEFAULT_IDS
-    }
-
     fn pre_add_func_name(&mut self, name: &AstNode) -> Lresult<()>
     {
         match &*name.node {
@@ -364,12 +361,16 @@ impl ProtoModule
         let typ = type_maker(ftyp);
         let fref = Fref::new(self.key.clone(), name_id, typ.clone());
         let call = Val::Call(fref, call_args);
-        let mut fref_ast = AstNode::new_constval(call, name.loc);
+        let mut fref_ast = AstNode::new_constval(call.clone(), name.loc);
         fref_ast.typ = typ;
 
         self.constants.insert(name_id, fref_ast);
         self.funcseq.push(name_id);
         self.funcsrc.insert(name_id, (args, body));
+        self.local_vals.push(StrupleItem::new(
+            Some(Lstr::Sref(name_id)),
+            call,
+        ));
 
         Ok(())
     }
@@ -452,10 +453,14 @@ impl ProtoModule
                 let tok_mod = TypeMod::from(&self.key.name);
                 let t = Type::User(tok_mod, name_id);
                 let token_val = Val::Token(t.clone());
-                let const_node = AstNode::new_constval(token_val, name.loc);
+                let const_node = AstNode::new_constval(token_val.clone(), name.loc);
                 self.types.insert(name_id, t);
                 self.token.insert(name_id);
                 self.constants.insert(name_id, const_node);
+                self.local_vals.push(StrupleItem::new(
+                    Some(Lstr::Sref(name_id)),
+                    token_val,
+                ));
             }
             Ast::Generic(iname, _) => {
                 return Err(Failure::static_leema(
@@ -485,8 +490,42 @@ impl ProtoModule
                 name,
             ));
         }
-        // later ltry!(self.refute_redefines_default(name_id, name.loc));
-        // proto.types.push(i);
+
+        let m = &self.key.name;
+        let union_typ: Type;
+        let _opens: GenericTypes;
+
+        let _sname_id = match *name.node {
+            Ast::Id1(name_id) => {
+                ltry!(self.refute_redefines_default(name_id, name.loc));
+                union_typ = Type::User(TypeMod::from(m), name_id);
+                let typ_val = Val::Type(union_typ.clone());
+                _opens = vec![];
+                self.constants.insert(
+                    name_id,
+                    AstNode::new_constval(typ_val.clone(), name.loc),
+                );
+                self.local_vals.push(StrupleItem::new(
+                    Some(Lstr::Sref(name_id)),
+                    typ_val,
+                ));
+
+                for var in variants {
+                    let vkey = var.k.map(|k| Lstr::Sref(k));
+                    let vval = Val::EnumToken(union_typ.clone(), Lstr::Sref(var.k.unwrap()));
+                    self.local_vals.push(StrupleItem::new(vkey, vval)); 
+                }
+                name_id
+            }
+            _ => {
+                return Err(rustfail!(
+                    "compile_failure",
+                    "unknown union id type: {:?}",
+                    name,
+                ));
+            }
+        };
+
         Ok(())
     }
 
@@ -555,6 +594,16 @@ impl ProtoModule
     pub fn find_const(&self, name: &str) -> Option<&AstNode>
     {
         self.constants.get(name)
+    }
+
+    pub fn find_val(&self, name: &'static str) -> Option<&Val>
+    {
+        let lname = Lstr::Sref(name);
+        struple::find_some(&self.local_vals, &lname)
+            .or_else(|| {
+                struple::find_some(&self.imported_vals, &lname)
+            })
+            .map(|item| item.1)
     }
 
     pub fn get_type(&self, name: &str) -> Lresult<&Type>
@@ -888,34 +937,60 @@ impl ProtoLib
     ) -> Lresult<()>
     {
         vout!("ProtoLib::import_modules({})\n", modname.display());
+println!("ProtoLib::import_modules({})", modname.display());
         // unwrap is fine, already verified presence earlier
+        let mut imports: Struple2<Val> = vec![];
+        let mut imported_macros: StrupleKV<&'static str, Ast> = vec![];
         {
             let proto = self.protos.get(modname).unwrap();
 
-            let mut consts: StrupleKV<&'static str, Val> = vec![];
             for (i, v) in proto.imports.iter() {
                 let modval = Val::Tuple(self.module_as_val(v)?.clone());
-                consts.push(StrupleItem::new(i, modval));
+                imports.push(StrupleItem::new(Some(Lstr::Sref(i)), modval));
             }
-            for (i, v) in proto.id_canonicals.iter() {
+            for (i, v) in proto.id_canonicals.iter().chain(DEFAULT_IDS.iter()) {
+println!("add {} {}", v, i);
+                let makro = self
+                    .path_proto(v)?
+                    .find_macro(i);
+                if makro.is_some() {
+                    imported_macros.push(StrupleItem::new(i, makro.unwrap().clone()));
+                    continue;
+                }
                 let model = self.model_as_val(v, i)?;
-                consts.push(StrupleItem::new(i, model.clone()));
+                imports.push(StrupleItem::new(Some(Lstr::Sref(i)), model.clone()));
             }
         }
+
+        let proto = self.protos.get_mut(modname).unwrap();
+        proto.imported_vals.append(&mut imports);
+        for mak in imported_macros {
+            proto.macros.insert(mak.k, mak.v);
+        }
+eprintln!("imported vals: {:#?}", proto.imported_vals);
         Ok(())
     }
 
     pub fn module_as_val(&self, modname: &CanonicalMod) -> Lresult<&Struple2<Val>>
     {
         let proto = self.path_proto(modname).unwrap();
-        Ok(&proto.modval)
+        Ok(&proto.local_vals)
     }
 
     pub fn model_as_val(&self, modname: &CanonicalMod, elem: &'static str) -> Lresult<&Val>
     {
+println!("model as val: {}.{}", modname, elem);
         let proto = self.path_proto(modname).unwrap();
-        let val = struple::find(&proto.modval, &Some(Lstr::Sref(elem)));
-        Ok(val.unwrap().1)
+        struple::find(&proto.local_vals, &Some(Lstr::Sref(elem)))
+            .map(|i| i.1)
+            .ok_or_else(|| {
+                rustfail!(
+                    "compile_error",
+                    "module element not found {}.{}",
+                    modname,
+                    elem,
+                )
+            })
     }
 
     pub fn pop_func(
