@@ -9,6 +9,7 @@ datatype Hashtag --
 datatype Int --
 datatype Str --
 datatype # --
+datatype Void --
 datatype NoResult --
 
 func cons'T:[T] :: head:T tail:[T] -RUST-
@@ -41,3 +42,15 @@ func int_mod:Int :: a:Int b:Int -RUST-
 func int_negate:Int :: a:Int -RUST-
 func int_equal:Bool :: a:Int b:Int -RUST-
 func int_less_than:Bool :: a:Int b:Int -RUST-
+
+func int_lteq:Bool :: a:Int b:Int ->
+    a < b or a == b
+--
+
+func int_gt:Bool :: a:Int b:Int ->
+    not (a <= b)
+--
+
+func int_gteq:Bool :: a:Int b:Int ->
+    not (a < b)
+--

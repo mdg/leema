@@ -116,7 +116,7 @@ fn real_main() -> Lresult<()>
             Fref::with_modules(main_key.clone(), sfunc)
         }
         None => {
-            let main_ftyp = FuncType::new(vec![], Type::Void);
+            let main_ftyp = FuncType::new(vec![], Type::VOID);
             let main_type = Type::Func(main_ftyp);
             Fref::new(main_key.clone(), "main", main_type)
         }

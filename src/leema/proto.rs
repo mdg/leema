@@ -45,6 +45,7 @@ lazy_static! {
         ids.insert("int_gteq", core_mod.clone());
         ids.insert("Str", core_mod.clone());
         ids.insert("True", core_mod.clone());
+        ids.insert("Void", core_mod.clone());
         ids.insert("#", core_mod);
         ids
     };
@@ -675,7 +676,7 @@ impl ProtoModule
                 });
                 Type::Generic(open, Box::new(genbase), genargs)
             }
-            Ast::Void => Type::Void,
+            Ast::Void => Type::VOID,
             invalid => {
                 return Err(rustfail!(
                     PROTOFAIL,
@@ -936,7 +937,6 @@ println!("ProtoLib::import_modules({})", modname.display());
 
         let proto = self.protos.get_mut(modname).unwrap();
         proto.imported_vals.append(&mut imports);
-eprintln!("imported vals: {:#?}", proto.imported_vals);
         Ok(())
     }
 

@@ -572,7 +572,7 @@ impl<'p> TypeCheck<'p>
     {
         let mut check = TypeCheck {
             local_mod,
-            result: Type::Void,
+            result: Type::VOID,
             vartypes: HashMap::new(),
             infers: HashMap::new(),
             calls: vec![],
@@ -974,7 +974,10 @@ impl<'p> SemanticOp for TypeCheck<'p>
             Ast::Wildcard => {
                 node.typ = Type::Unknown;
             }
-            _ => {
+            Ast::Block(_) | Ast::Call(_, _) => {
+                // handled in post
+            }
+            unsupported => {
                 // should handle matches later, but for now it's fine
             }
         }
@@ -988,7 +991,7 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 if let Some(last) = items.last() {
                     node.typ = last.typ.clone();
                 } else {
-                    node.typ = Type::Void;
+                    node.typ = Type::VOID;
                 }
             }
             Ast::Call(ref mut callx, ref mut args) => {
@@ -1259,7 +1262,7 @@ impl Semantics
 
         let mut result = ltry!(Self::walk(&mut pipe, body));
         result.typ = type_check.inferred_type(&result.typ, &[])?;
-        if *ftyp.result != result.typ && *ftyp.result != Type::Void {
+        if *ftyp.result != result.typ && *ftyp.result != Type::VOID {
             return Err(rustfail!(
                 SEMFAIL,
                 "bad return type in {}, expected: {}, found {}",

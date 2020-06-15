@@ -128,7 +128,6 @@ pub enum Type
     Generic(bool, Box<Type>, GenericTypes),
 
     RustBlock,
-    Void,
     Kind,
     Any,
 
@@ -144,6 +143,7 @@ impl Type
     pub const BOOL: Type = Type::User(CORE_MOD, "Bool");
     pub const HASHTAG: Type = Type::User(CORE_MOD, "#");
     pub const FAILURE: Type = Type::User(CORE_MOD, "Failure");
+    pub const VOID: Type = Type::User(CORE_MOD, "Void");
 
     pub fn f(inputs: Struple2<Type>, result: Type) -> Type
     {
@@ -161,7 +161,6 @@ impl Type
     {
         match self {
             &Type::User(ref m, ref name) => lstrf!("{}::{}", m, name),
-            &Type::Void => Lstr::Sref("Void"),
             &Type::OpenVar(name) => Lstr::from(format!("${}", name)),
             &Type::LocalVar(ref name) => Lstr::from(format!("local:{}", name)),
             _ => {
@@ -280,7 +279,6 @@ impl sendclone::SendClone for Type
                 Type::Generic(open, subt2, opens2)
             }
             &Type::User(ref module, typ) => Type::User(module.clone(), typ),
-            &Type::Void => Type::Void,
             _ => {
                 panic!("cannot clone_for_send Type: {:?}", self);
             }
@@ -342,7 +340,6 @@ impl fmt::Display for Type
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
             &Type::RustBlock => write!(f, "RustBlock"),
-            &Type::Void => write!(f, "Void"),
             &Type::Kind => write!(f, "Kind"),
             &Type::Any => write!(f, "Any"),
 
@@ -370,7 +367,6 @@ impl fmt::Debug for Type
                 write!(f, "({} ({}){:?})", open_tag, inner, args)
             }
             &Type::RustBlock => write!(f, "RustBlock"),
-            &Type::Void => write!(f, "Void"),
             &Type::Kind => write!(f, "Kind"),
             &Type::Any => write!(f, "Any"),
 
@@ -724,7 +720,7 @@ impl Val
             &Val::Nil => Type::StrictList(Box::new(Type::Unknown)),
             &Val::Failure2(_) => Type::FAILURE,
             &Val::Type(_) => Type::Kind,
-            &Val::Void => Type::Void,
+            &Val::Void => Type::VOID,
             &Val::Wildcard => Type::Unknown,
             &Val::PatternVar(_) => Type::Unknown,
             &Val::RustBlock => Type::RustBlock,

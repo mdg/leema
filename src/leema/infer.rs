@@ -147,7 +147,7 @@ impl<'b> Inferator<'b>
     {
         if self.typevars.is_empty() {
             // if there are no type parameters, then this should be fine
-            return Ok(Type::Void);
+            return Ok(Type::VOID);
         }
 
         for a in args.iter_v() {
@@ -163,7 +163,7 @@ impl<'b> Inferator<'b>
                 ));
             }
         }
-        Ok(Type::Void)
+        Ok(Type::VOID)
     }
 
     pub fn mark_used_typevars(&mut self, arg: &Type) -> Lresult<Type>
@@ -175,7 +175,7 @@ impl<'b> Inferator<'b>
                     Err(rustfail!("type_error", "undefined type: {}", vname))
                 } else {
                     *mv.unwrap() = true;
-                    Ok(Type::Void)
+                    Ok(Type::VOID)
                 }
             }
             &Type::Unknown => {
@@ -191,7 +191,7 @@ impl<'b> Inferator<'b>
                     Err(rustfail!("type_error", "undefined type: {}", tri))
                 } else {
                     *mv.unwrap() = true;
-                    Ok(Type::Void)
+                    Ok(Type::VOID)
                 }
             }
             // if a UserDef is not local only, it's definitely not a typevar
@@ -199,13 +199,13 @@ impl<'b> Inferator<'b>
                 for p in tri.params.as_ref().unwrap().iter() {
                     self.mark_used_typevars(p)?;
                 }
-                Ok(Type::Void)
+                Ok(Type::VOID)
             }
             &Type::Tuple(ref items) => {
                 for i in items.0.iter() {
                     self.mark_used_typevars(&i.v)?;
                 }
-                Ok(Type::Void)
+                Ok(Type::VOID)
             }
             &Type::Func(ref ftype) => {
                 for a in ftype.args.iter_v() {
@@ -217,7 +217,7 @@ impl<'b> Inferator<'b>
                 self.mark_used_typevars(&ftype.result)
             }
             &Type::StrictList(ref inner) => self.mark_used_typevars(inner),
-            _ => Ok(Type::Void),
+            _ => Ok(Type::VOID),
         }
     }
 
