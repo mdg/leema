@@ -1,7 +1,6 @@
 use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc};
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::ModAlias;
 use crate::leema::parsl::{
     Assoc, InfixParser, ParseFirst, ParseMore, Parsl, ParslMode, Precedence,
     PrefixParser, MIN_PRECEDENCE,
@@ -784,10 +783,10 @@ impl InfixParser for ParseId
 
     fn parse(&self, p: &mut Parsl, left: AstNode, _tok: TokenSrc) -> AstResult
     {
-        if let Ast::Id1(first) = *left.node {
+        if let Ast::Id1(_first) = *left.node {
             let second = expect_next!(p, Token::Id)?;
             Ok(AstNode::new(
-                Ast::Id2(ModAlias::new(first), second.src),
+                Ast::Id1(second.src),
                 left.loc,
             ))
         } else {
@@ -1539,7 +1538,6 @@ mod tests
     use super::Grammar;
     use crate::leema::ast2::{Ast, DataType};
     use crate::leema::lstr::Lstr;
-    use crate::leema::module::ModAlias;
     use crate::leema::token::Tokenz;
     use crate::leema::val::Val;
 
@@ -1684,7 +1682,6 @@ mod tests
         if let Ast::DefFunc(_name, args, result, _body) = &*ast[0].node {
             assert_eq!(1, args.len());
             assert_matches!(args[0].k.unwrap(), "s");
-            assert_matches!(*args[0].v.node, Ast::Id2(ModAlias("core"), "Str"));
             assert_matches!(*result.node, Ast::Void);
         }
     }
@@ -1982,18 +1979,6 @@ mod tests
             Ast::ConstVal(Val::Hashtag(Lstr::from("#hash_tag"))),
             *ast[0].node,
         );
-    }
-
-    #[test]
-    fn test_parse_id2()
-    {
-        let input = "x::y";
-        let toks = Tokenz::lexp(input).unwrap();
-        let mut p = Grammar::new(toks);
-        let ast = p.parse_module().unwrap();
-
-        assert_eq!(Ast::Id2(ModAlias("x"), "y"), *ast[0].node);
-        assert_eq!(1, ast.len());
     }
 
     #[test]

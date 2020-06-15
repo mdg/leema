@@ -1,5 +1,5 @@
 use crate::leema::failure::Lresult;
-use crate::leema::module::{ImportedMod, ModAlias};
+use crate::leema::module::ImportedMod;
 use crate::leema::reg::Reg;
 use crate::leema::struple::{self, StrupleKV};
 use crate::leema::token::TokenSrc;
@@ -223,7 +223,6 @@ pub enum Ast
     FuncType(Xlist, AstNode),
     Generic(AstNode, Xlist),
     Id1(&'static str),
-    Id2(ModAlias, &'static str),
     Ifx(Vec<Case>),
     LessThan3(AstNode, bool, AstNode, bool, AstNode),
     Let(AstNode, AstNode, AstNode),
@@ -290,7 +289,6 @@ impl Ast
             }
             Ast::Generic(id, args) => write!(f, "Generic {:?}[{:?}]", id, args),
             Ast::Id1(id) => write!(f, "Id {}", id),
-            Ast::Id2(id1, id2) => write!(f, "Id {}::{}", id1, id2),
             Ast::Ifx(args) => write!(f, "If {:?}", args),
             Ast::Let(lhp, _lht, rhs) => write!(f, "Let {:?} := {:?}", lhp, rhs),
             Ast::List(items) => write!(f, "List {:?}", items),

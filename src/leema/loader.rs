@@ -74,7 +74,7 @@ impl Interloader
     {
         let stext = Self::static_str(content);
         self.texts.insert(key.name.clone(), stext);
-        self.keys.insert(key.name.mod_path().to_path_buf(), key);
+        self.keys.insert(key.name.as_path().to_path_buf(), key);
         stext
     }
 

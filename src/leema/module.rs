@@ -383,11 +383,6 @@ impl CanonicalMod
         Path::new(self.0.str())
     }
 
-    pub fn mod_path(&self) -> &Path
-    {
-        self.as_path()
-    }
-
     pub fn push(&self, import: &Path) -> CanonicalMod
     {
         match ImportedMod::path_relativity(import) {

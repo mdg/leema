@@ -637,9 +637,6 @@ impl ProtoModule
                 };
                 Type::User(TypeMod::from(canonical_mod), id)
             }
-            Ast::Id2(alias, id) => {
-                Type::User(canonical_typemod!(alias.str()), id)
-            }
             Ast::List(inner_items) if inner_items.len() == 1 => {
                 let inner = &inner_items.first().unwrap().v;
                 let inner_t = self.ast_to_type(local_mod, inner, opens)?;
@@ -875,7 +872,7 @@ impl ProtoLib
         let type_mods = proto.type_modules()?;
         self.protos.insert(modpath.to_path_buf(), proto);
         for tm in type_mods.into_iter() {
-            self.protos.insert(tm.key.name.mod_path().to_path_buf(), tm);
+            self.protos.insert(tm.key.name.as_path().to_path_buf(), tm);
         }
         Ok(())
     }
@@ -965,20 +962,6 @@ eprintln!("imported vals: {:#?}", proto.imported_vals);
             })
     }
 
-    pub fn pop_func(
-        &mut self,
-        module: &CanonicalMod,
-        func: &str,
-    ) -> Lresult<Option<(Xlist, AstNode)>>
-    {
-        self.protos
-            .get_mut(module.as_path())
-            .ok_or_else(|| {
-                rustfail!(PROTOFAIL, "could not find module: {}", module,)
-            })
-            .map(|protomod| protomod.pop_func(func))
-    }
-
     pub fn imported_proto(
         &self,
         proto: &CanonicalMod,
@@ -995,12 +978,14 @@ eprintln!("imported vals: {:#?}", proto.imported_vals);
 
     pub fn path_proto(&self, path: &CanonicalMod) -> Lresult<&ProtoModule>
     {
-        self._path_proto(path.as_path())
+        self.protos.get(path.as_path()).ok_or_else(|| {
+            rustfail!(PROTOFAIL, "module not loaded: {:?}", path)
+        })
     }
 
-    fn _path_proto(&self, path: &Path) -> Lresult<&ProtoModule>
+    pub fn path_proto_mut(&mut self, path: &CanonicalMod) -> Lresult<&mut ProtoModule>
     {
-        self.protos.get(path).ok_or_else(|| {
+        self.protos.get_mut(path.as_path()).ok_or_else(|| {
             rustfail!(PROTOFAIL, "module not loaded: {:?}", path)
         })
     }

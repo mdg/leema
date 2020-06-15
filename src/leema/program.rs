@@ -116,7 +116,8 @@ impl Lib
     pub fn read_semantics(&mut self, f: &Fref) -> Lresult<Semantics>
     {
         ltry!(self.load_proto_and_imports(&f.m.name));
-        Semantics::compile_call(&mut self.protos, f)
+        let proto = self.protos.path_proto_mut(&f.m.name)?;
+        Semantics::compile_call(proto, f)
     }
 
     pub fn read_code(&mut self, f: &Fref) -> Lresult<Code>
@@ -147,7 +148,7 @@ impl Lib
     pub fn load_proto_and_imports(&mut self, cmod: &CanonicalMod)
         -> Lresult<()>
     {
-        let modpath = cmod.mod_path();
+        let modpath = cmod.as_path();
         ltry!(self.protos.load_absolute(&mut self.loader, modpath));
         ltry!(self.protos.load_imports(&mut self.loader, modpath));
         ltry!(self.protos.import_modules(modpath));

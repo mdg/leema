@@ -2,8 +2,7 @@ use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc, Xlist};
 use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::inter::{Blockstack, LocalType};
 use crate::leema::lstr::Lstr;
-use crate::leema::module::ModAlias;
-use crate::leema::proto::{ProtoLib, ProtoModule};
+use crate::leema::proto::ProtoModule;
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{
     Fref, FuncType, GenericTypeSlice, GenericTypes, Type, Val,
@@ -163,7 +162,6 @@ impl<'p> SemanticOp for SemanticPipeline<'p>
 struct MacroApplication<'l>
 {
     local: &'l ProtoModule,
-    proto: &'l ProtoLib,
     ftype: &'l FuncType,
     closed: &'l GenericTypes,
     mode: AstMode,
@@ -173,14 +171,12 @@ impl<'l> MacroApplication<'l>
 {
     pub fn new(
         local: &'l ProtoModule,
-        proto: &'l ProtoLib,
         ftype: &'l FuncType,
         closed: &'l GenericTypes,
     ) -> MacroApplication<'l>
     {
         MacroApplication {
             local,
-            proto,
             ftype,
             closed,
             mode: AstMode::Value,
@@ -234,21 +230,6 @@ impl<'l> MacroApplication<'l>
         Semantics::walk(&mut macro_replace, body.clone())
     }
 
-    fn op_to_call(
-        module: &'static str,
-        func: &'static str,
-        a: AstNode,
-        b: AstNode,
-        loc: Loc,
-    ) -> AstNode
-    {
-        let malias = ModAlias::new(module);
-        let callx = AstNode::new(Ast::Id2(malias, func), loc);
-        let args: StrupleKV<Option<&'static str>, AstNode> =
-            struple::new_tuple2(a, b);
-        AstNode::new(Ast::Call(callx, args), loc)
-    }
-
     fn op_to_call1(
         func: &'static str,
         a: AstNode,
@@ -276,19 +257,6 @@ impl<'l> SemanticOp for MacroApplication<'l>
             Ast::Call(callid, args) => {
                 let optmac = match *callid.node {
                     Ast::Id1(macroname) => self.find_macro_1(macroname)?,
-                    Ast::Id2(ref modname, ref id) => {
-                        ltry!(self
-                            .proto
-                            .imported_proto(&self.local.key.name, modname)
-                            .map_err(|f| {
-                                f.add_context(lstrf!(
-                                    "no protomod for {}::{}",
-                                    modname,
-                                    id
-                                ))
-                            }))
-                        .find_macro(id)
-                    }
                     _ => None,
                 };
                 match optmac {
@@ -477,7 +445,6 @@ struct ScopeCheck<'p>
 {
     blocks: Blockstack,
     local_mod: &'p ProtoModule,
-    lib: &'p ProtoLib,
     mode: AstMode,
 }
 
@@ -486,7 +453,6 @@ impl<'p> ScopeCheck<'p>
     pub fn new(
         ftyp: &'p FuncType,
         local_mod: &'p ProtoModule,
-        lib: &'p ProtoLib,
     ) -> Lresult<ScopeCheck<'p>>
     {
         let mut root = Blockstack::new();
@@ -499,7 +465,6 @@ impl<'p> ScopeCheck<'p>
         Ok(ScopeCheck {
             blocks: root,
             local_mod,
-            lib,
             mode: AstMode::Value,
         })
     }
@@ -546,53 +511,6 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                     ));
                 }
             }
-            Ast::Id2(module, id) if self.mode == AstMode::Type => {
-                let proto = ltry!(self
-                    .lib
-                    .imported_proto(&self.local_mod.key.name, &module)
-                    .map_err(|e| {
-                        e.add_context(Lstr::from(format!(
-                            "module {} not found for {} at {:?}",
-                            module, id, node.loc
-                        )))
-                    }));
-
-                proto.get_type(id).map_err(|_| {
-                    rustfail!(
-                        SEMFAIL,
-                        "cannot find type {} in module {} @ {:?}",
-                        id,
-                        module,
-                        node.loc,
-                    )
-                })?;
-                return Ok(SemanticAction::Keep(node));
-            }
-            Ast::Id2(module, id) => {
-                let proto = ltry!(self
-                    .lib
-                    .imported_proto(&self.local_mod.key.name, &module)
-                    .map_err(|e| {
-                        e.add_context(Lstr::from(format!(
-                            "module {} not found for {} at {:?}",
-                            module, id, node.loc
-                        )))
-                    }));
-                let val_ast = proto
-                    .find_modelem(id)
-                    .ok_or_else(|| {
-                        rustfail!(
-                            SEMFAIL,
-                            "cannot find {} in module {} @ {:?}",
-                            id,
-                            module,
-                            node.loc,
-                        )
-                    })?
-                    .clone();
-                node = node.replace(*val_ast.node, val_ast.typ);
-                return Ok(SemanticAction::Rewrite(node));
-            }
             _ => {
                 // do nothing otherwise
             }
@@ -638,7 +556,6 @@ impl<'l> fmt::Debug for ScopeCheck<'l>
 struct TypeCheck<'p>
 {
     local_mod: &'p ProtoModule,
-    lib: &'p ProtoLib,
     result: Type,
     vartypes: HashMap<&'static str, Type>,
     infers: HashMap<Lstr, Type>,
@@ -650,13 +567,11 @@ impl<'p> TypeCheck<'p>
 {
     pub fn new(
         local_mod: &'p ProtoModule,
-        lib: &'p ProtoLib,
         ftyp: &'p FuncType,
     ) -> Lresult<TypeCheck<'p>>
     {
         let mut check = TypeCheck {
             local_mod,
-            lib,
             result: Type::Void,
             vartypes: HashMap::new(),
             infers: HashMap::new(),
@@ -1050,13 +965,6 @@ impl<'p> SemanticOp for TypeCheck<'p>
                     // *node.node = Ast::Id1(id);
                 }
             }
-            Ast::Id2(modname, id) => {
-                let module = ltry!(self
-                    .lib
-                    .imported_proto(&self.local_mod.key.name, &modname));
-                let typ = module.get_type(id)?;
-                node.typ = typ.clone();
-            }
             Ast::ConstVal(c) if node.typ.is_open() => {
                 node.typ = c.get_type();
             }
@@ -1276,17 +1184,16 @@ impl Semantics
         &self.src.typ
     }
 
-    pub fn compile_call(proto: &mut ProtoLib, f: &Fref) -> Lresult<Semantics>
+    pub fn compile_call(proto: &mut ProtoModule, f: &Fref) -> Lresult<Semantics>
     {
         let mut sem = Semantics::new();
 
-        let func_ast = proto.pop_func(&f.m.name, &f.f)?;
+        let func_ast = proto.pop_func(&f.f);
         let (_args, body) = func_ast.ok_or_else(|| {
             rustfail!(SEMFAIL, "ast is empty for function {}", f,)
         })?;
 
-        let local_proto = ltry!(proto.path_proto(&f.m.name));
-        let func_ref = local_proto.find_modelem(&f.f).ok_or_else(|| {
+        let func_ref = proto.find_modelem(&f.f).ok_or_else(|| {
             rustfail!(SEMFAIL, "cannot find func ref for {}", f,)
         })?;
         let closed;
@@ -1337,9 +1244,9 @@ impl Semantics
             })
             .collect();
 
-        let mut macs = MacroApplication::new(local_proto, proto, ftyp, &closed);
-        let mut scope_check = ScopeCheck::new(ftyp, local_proto, proto)?;
-        let mut type_check = TypeCheck::new(local_proto, proto, ftyp)?;
+        let mut macs = MacroApplication::new(proto, ftyp, &closed);
+        let mut scope_check = ScopeCheck::new(ftyp, proto)?;
+        let mut type_check = TypeCheck::new(proto, ftyp)?;
         let mut remove_extra = RemoveExtraCode;
         let mut pipe = SemanticPipeline {
             ops: vec![
@@ -1484,7 +1391,6 @@ impl Semantics
 
             // nothing further to walk for these ASTs
             Ast::Id1(id) => Ast::Id1(id),
-            Ast::Id2(id1, id2) => Ast::Id2(id1, id2),
             Ast::RustBlock => Ast::RustBlock,
             Ast::Void => Ast::Void,
             Ast::Wildcard => Ast::Wildcard,
@@ -1843,12 +1749,12 @@ mod tests
     #[test]
     fn test_semantics_exported_call()
     {
-        let foo_input = r#"func bar /Int >> 3 --"#.to_string();
+        let foo_input = r#"func bar:Int -> 3 --"#.to_string();
 
         let baz_input = r#"
         import /foo.bar
 
-        func main >>
+        func main ->
             bar() + 6
         --
         "#
