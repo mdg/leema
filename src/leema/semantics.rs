@@ -501,7 +501,7 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                     // that's cool, nothing to do I guess?
                 } else if let Some(me) = self.local_mod.find_modelem(id) {
                     node = node.replace((*me.node).clone(), me.typ.clone());
-                    return Ok(SemanticAction::Keep(node));
+                    return Ok(SemanticAction::Rewrite(node));
                 } else {
                     return Err(rustfail!(
                         SEMFAIL,
@@ -974,7 +974,7 @@ impl<'p> SemanticOp for TypeCheck<'p>
             Ast::Wildcard => {
                 node.typ = Type::Unknown;
             }
-            Ast::Block(_) | Ast::Call(_, _) => {
+            Ast::Block(_) | Ast::Call(_, _) | Ast::Tuple(_) => {
                 // handled in post
             }
             unsupported => {
@@ -1700,13 +1700,13 @@ mod tests
     #[test]
     fn test_semantics_external_scope_call()
     {
-        let foo_input = r#"func bar /Int >> 3 --"#.to_string();
+        let foo_input = r#"func bar:Int -> 3 --"#.to_string();
 
         let baz_input = r#"
         import /foo
 
-        func main >>
-            foo::bar() + 6
+        func main ->
+            foo.bar() + 6
         --
         "#
         .to_string();

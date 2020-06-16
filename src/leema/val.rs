@@ -355,7 +355,7 @@ impl fmt::Debug for Type
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
-            &Type::Tuple(ref items) => write!(f, "{:?}", items),
+            &Type::Tuple(ref items) => write!(f, "(T{:?})", items),
             &Type::Func(ref ftyp) => write!(f, "{:?}", ftyp),
             // different from base collection/map interfaces?
             // base interface/type should probably be iterator
