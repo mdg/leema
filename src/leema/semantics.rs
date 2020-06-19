@@ -1251,16 +1251,25 @@ impl Semantics
         let mut scope_check = ScopeCheck::new(ftyp, proto)?;
         let mut type_check = TypeCheck::new(proto, ftyp)?;
         let mut remove_extra = RemoveExtraCode;
-        let mut pipe = SemanticPipeline {
-            ops: vec![
-                &mut remove_extra,
-                &mut macs,
-                &mut scope_check,
-                &mut type_check,
-            ],
+
+        let interleaved = true;
+        let mut result = if interleaved {
+            let mut pipe = SemanticPipeline {
+                ops: vec![
+                    &mut remove_extra,
+                    &mut macs,
+                    &mut scope_check,
+                    &mut type_check,
+                ],
+            };
+            ltry!(Self::walk(&mut pipe, body))
+        } else {
+            let mut result = ltry!(Self::walk(&mut macs, body));
+            result = ltry!(Self::walk(&mut scope_check, result));
+            result = ltry!(Self::walk(&mut type_check, result));
+            ltry!(Self::walk(&mut remove_extra, result))
         };
 
-        let mut result = ltry!(Self::walk(&mut pipe, body));
         result.typ = type_check.inferred_type(&result.typ, &[])?;
         if *ftyp.result != result.typ && *ftyp.result != Type::VOID {
             return Err(rustfail!(
@@ -1293,7 +1302,7 @@ impl Semantics
                 Ast::Block(new_children?)
             }
             Ast::Call(id, args) => {
-                let wid = Self::walk(op, id)?;
+                let wid = ltry!(Self::walk(op, id));
                 let wargs = struple::map_v_into(args, |v| Self::walk(op, v))?;
                 Ast::Call(wid, wargs)
             }
@@ -1374,6 +1383,11 @@ impl Semantics
             Ast::Op1(ast_op, node) => {
                 let wnode = Self::walk(op, node)?;
                 Ast::Op1(ast_op, wnode)
+            }
+            Ast::Op2(".", a, b) => {
+                let wa = Self::walk(op, a)?;
+                let wb = Self::walk(op, b)?;
+                Ast::Op2(".", wa, wb)
             }
             Ast::Op2(ast_op, a, b) => {
                 let wa = Self::walk(op, a)?;
