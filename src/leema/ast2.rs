@@ -385,3 +385,83 @@ impl AstNode
         self.dst = dst;
     }
 }
+
+
+macro_rules! steptry {
+    ($r:expr) => {
+        match $r {
+            Ok(NextStep::Ok) => x,
+            Ok(NextStep::Rewrite(0)) => {
+                return
+            }
+            Err(f) => {
+                return Err(f.loc(file!(), line!()));
+            }
+        }
+    };
+}
+
+macro_rules! walktry {
+    ($r:expr) => {
+        match $r {
+            Ok(WalkStep::Ok) => x,
+            Ok(WalkStep::Rewrite(0)) => {
+                return Ok(NextStep::Rewrite(1));
+            }
+            Err(f) => {
+                return Err(f.loc(file!(), line!()));
+            }
+        }
+    };
+}
+
+enum NextWalk
+{
+    Ok,
+    Rewrite,
+    Stop,
+}
+
+enum NextStep
+{
+    Ok,
+    Rewrite(i16),
+    Stop,
+}
+
+type WalkResult = Lresult<NextWalk>;
+type StepResult = Lresult<NextStep>;
+
+trait Op
+{
+    fn pre(&mut self, node: &mut AstNode, op: &mut Walker) -> StepResult;
+    fn post(&mut self, node: &mut AstNode, op: &mut Walker) -> StepResult;
+}
+
+struct Walker
+{
+}
+
+impl Walker
+{
+    pub fn walk(&self, node: &mut AstNode, op: &mut dyn Op) -> WalkResult
+    {
+        steptry!(op.pre(node, self));
+        steptry!(self.step(node, op));
+        steptry!(op.post((node, self));
+        Ok(NextStep::Ok)
+    }
+
+    pub fn step(&self, node: &mut AstNode, op: &mut dyn Op) -> StepResult
+    {
+        match &mut *node.node {
+            Ast::Op2(".", ref mut a, ref mut b) => {
+                walktry!(self.walk(a, op));
+                walktry!(self.walk(b, op));
+            }
+            _ => {
+            }
+        }
+        Ok(NextStep::Ok)
+    }
+}
