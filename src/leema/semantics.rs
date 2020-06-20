@@ -1,4 +1,4 @@
-use crate::leema::ast2::{self, Ast, AstMode, AstNode, AstResult, Loc, LocalType, NextStep, StepResult, Xlist};
+use crate::leema::ast2::{self, Ast, AstMode, AstNode, AstResult, Loc, LocalType, AstStep, StepResult, Xlist};
 use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::inter::{Blockstack};
 use crate::leema::lstr::Lstr;
@@ -10,6 +10,7 @@ use crate::leema::val::{
 
 use std::collections::HashMap;
 use std::fmt;
+use std::mem;
 
 
 /// Stages
@@ -27,99 +28,6 @@ use std::fmt;
 
 const SEMFAIL: &'static str = "semantic_failure";
 const TYPEFAIL: &'static str = "type_failure";
-
-pub enum SemanticAction
-{
-    Keep(AstNode),
-    Rewrite(AstNode),
-    Remove,
-}
-
-pub type SemanticResult = Lresult<SemanticAction>;
-
-pub trait SemanticOp: fmt::Debug
-{
-    fn pre(&mut self, node: AstNode) -> SemanticResult
-    {
-        Ok(SemanticAction::Keep(node))
-    }
-    fn post(&mut self, node: AstNode) -> SemanticResult
-    {
-        Ok(SemanticAction::Keep(node))
-    }
-
-    fn set_mode(&mut self, _mode: AstMode) {}
-}
-
-#[derive(Debug)]
-struct SemanticPipeline<'p>
-{
-    ops: Vec<&'p mut dyn SemanticOp>,
-}
-
-impl<'p> SemanticOp for SemanticPipeline<'p>
-{
-    fn pre(&mut self, mut node: AstNode) -> SemanticResult
-    {
-        loop {
-            let mut do_loop = false;
-            for op in self.ops.iter_mut() {
-                match op.pre(node)? {
-                    SemanticAction::Keep(knode) => {
-                        node = knode;
-                    }
-                    SemanticAction::Rewrite(rnode) => {
-                        node = rnode;
-                        do_loop = true;
-                        break;
-                    }
-                    SemanticAction::Remove => {
-                        return Ok(SemanticAction::Remove);
-                    }
-                }
-            }
-            if !do_loop {
-                break;
-            }
-        }
-
-        Ok(SemanticAction::Keep(node))
-    }
-
-    fn post(&mut self, mut node: AstNode) -> SemanticResult
-    {
-        loop {
-            let mut do_loop = false;
-            for op in self.ops.iter_mut().rev() {
-                match op.post(node)? {
-                    SemanticAction::Keep(knode) => {
-                        node = knode;
-                    }
-                    SemanticAction::Rewrite(rnode) => {
-                        node = rnode;
-                        do_loop = true;
-                        break;
-                    }
-                    SemanticAction::Remove => {
-                        return Ok(SemanticAction::Remove);
-                    }
-                }
-            }
-            if !do_loop {
-                break;
-            }
-        }
-
-        Ok(SemanticAction::Keep(node))
-    }
-
-    fn set_mode(&mut self, mode: AstMode)
-    {
-        for op in self.ops.iter_mut() {
-            op.set_mode(mode);
-        }
-    }
-}
 
 struct MacroApplication<'l>
 {
@@ -148,7 +56,7 @@ impl<'l> MacroApplication<'l>
     fn apply_macro(
         mac: &Ast,
         loc: Loc,
-        args: StrupleKV<Option<&'static str>, AstNode>,
+        args: &StrupleKV<Option<&'static str>, AstNode>,
     ) -> AstResult
     {
         let (macro_name, arg_names, body) =
@@ -183,25 +91,27 @@ impl<'l> MacroApplication<'l>
             }
         }
 
-        let mut arg_map: HashMap<&'static str, AstNode> = HashMap::new();
-        for (n, arg_val) in arg_names.iter().zip(args.into_iter()) {
-            arg_map.insert(n, arg_val.v);
+        let mut arg_map: HashMap<&'static str, &AstNode> = HashMap::new();
+        for (n, arg_val) in arg_names.iter().zip(args.iter()) {
+            arg_map.insert(n, &arg_val.v);
         }
         vout!("replace_ids({:?})\n", arg_map);
         let mut macro_replace = MacroReplacement { arg_map, loc };
-        Semantics::walk(&mut macro_replace, body.clone())
+        Ok(ast2::walk(body.clone(), &mut macro_replace)?)
     }
 
     fn op_to_call1(
         func: &'static str,
-        a: AstNode,
-        b: AstNode,
+        a: &mut AstNode,
+        b: &mut AstNode,
         loc: Loc,
     ) -> AstNode
     {
         let callx = AstNode::new(Ast::Id1(func), loc);
+        let new_a = mem::take(a);
+        let new_b = mem::take(b);
         let args: StrupleKV<Option<&'static str>, AstNode> =
-            struple::new_tuple2(a, b);
+            struple::new_tuple2(new_a, new_b);
         AstNode::new(Ast::Call(callx, args), loc)
     }
 
@@ -211,117 +121,114 @@ impl<'l> MacroApplication<'l>
     }
 }
 
-impl<'l> SemanticOp for MacroApplication<'l>
+impl<'l> ast2::Op for MacroApplication<'l>
 {
-    fn pre(&mut self, mut node: AstNode) -> SemanticResult
+    fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
-        match *node.node {
+        match &mut *node.node {
             Ast::Call(callid, args) => {
-                let optmac = match *callid.node {
+                let optmac = match &mut *callid.node {
                     Ast::Id1(macroname) => self.find_macro_1(macroname)?,
                     _ => None,
                 };
-                match optmac {
-                    Some(mac) => {
-                        let result = Self::apply_macro(mac, callid.loc, args)?;
-                        Ok(SemanticAction::Rewrite(result))
-                    }
-                    None => {
-                        let node2 =
-                            AstNode::new(Ast::Call(callid, args), node.loc);
-                        Ok(SemanticAction::Keep(node2))
-                    }
+                if let Some(mac) = optmac {
+                    *node = Self::apply_macro(mac, callid.loc, args)?;
+                    return Ok(AstStep::Rewrite);
                 }
             }
             Ast::Op2("+", a, b) => {
-                let call = Self::op_to_call1("int_add", a, b, node.loc);
-                Ok(SemanticAction::Rewrite(call))
+                *node = Self::op_to_call1("int_add", a, b, node.loc);
+                return Ok(AstStep::Rewrite);
             }
             Ast::Op2("-", a, b) => {
-                let call = Self::op_to_call1("int_sub", a, b, node.loc);
-                Ok(SemanticAction::Rewrite(call))
+                *node = Self::op_to_call1("int_sub", a, b, node.loc);
+                return Ok(AstStep::Rewrite);
             }
             Ast::Op2("*", a, b) => {
-                let call = Self::op_to_call1("int_mult", a, b, node.loc);
-                Ok(SemanticAction::Rewrite(call))
+                *node = Self::op_to_call1("int_mult", a, b, node.loc);
+                return Ok(AstStep::Rewrite);
             }
             Ast::Op2("/", a, b) => {
-                let call = Self::op_to_call1("int_div", a, b, node.loc);
-                Ok(SemanticAction::Rewrite(call))
+                *node = Self::op_to_call1("int_div", a, b, node.loc);
+                return Ok(AstStep::Rewrite);
             }
             Ast::Op2("mod", a, b) => {
-                let call = Self::op_to_call1("int_mod", a, b, node.loc);
-                Ok(SemanticAction::Rewrite(call))
+                *node = Self::op_to_call1("int_mod", a, b, node.loc);
+                return Ok(AstStep::Rewrite);
             }
             Ast::Op2("and", a, b) => {
-                let call = Self::op_to_call1("boolean_and", a, b, node.loc);
-                Ok(SemanticAction::Rewrite(call))
+                *node = Self::op_to_call1("boolean_and", a, b, node.loc);
+                return Ok(AstStep::Rewrite);
             }
             Ast::Op2("or", a, b) => {
-                let call = Self::op_to_call1("boolean_or", a, b, node.loc);
-                Ok(SemanticAction::Rewrite(call))
+                *node = Self::op_to_call1("boolean_or", a, b, node.loc);
+                return Ok(AstStep::Rewrite);
             }
             Ast::Op2("==", a, b) => {
-                let call = Self::op_to_call1("int_equal", a, b, node.loc);
-                Ok(SemanticAction::Rewrite(call))
+                *node = Self::op_to_call1("int_equal", a, b, node.loc);
+                return Ok(AstStep::Rewrite);
             }
             Ast::Op2("<", a, b) => {
-                let call = Self::op_to_call1("int_less_than", a, b, node.loc);
-                Ok(SemanticAction::Rewrite(call))
+                *node = Self::op_to_call1("int_less_than", a, b, node.loc);
+                return Ok(AstStep::Rewrite);
             }
             Ast::Op2(">", a, b) => {
-                let call = Self::op_to_call1("int_gt", a, b, node.loc);
-                Ok(SemanticAction::Rewrite(call))
+                *node = Self::op_to_call1("int_gt", a, b, node.loc);
+                return Ok(AstStep::Rewrite);
             }
             Ast::Op2("<=", a, b) => {
-                let call = Self::op_to_call1("int_lteq", a, b, node.loc);
-                Ok(SemanticAction::Rewrite(call))
+                *node = Self::op_to_call1("int_lteq", a, b, node.loc);
+                return Ok(AstStep::Rewrite);
             }
             Ast::Op2(">=", a, b) => {
-                let call = Self::op_to_call1("int_gteq", a, b, node.loc);
-                Ok(SemanticAction::Rewrite(call))
+                *node = Self::op_to_call1("int_gteq", a, b, node.loc);
+                return Ok(AstStep::Rewrite);
             }
             Ast::Op2(";", a, b) => {
                 if !self.mode.is_pattern() {
                     // if not a pattern, convert to a call
                     let callx = AstNode::new(Ast::Id1("cons"), node.loc);
-                    let args = struple::new_tuple2(a, b);
-                    let call = AstNode::new(Ast::Call(callx, args), node.loc);
-                    Ok(SemanticAction::Rewrite(call))
-                } else {
-                    // if a pattern, leave as an Op
-                    *node.node = Ast::Op2(";", a, b);
-                    Ok(SemanticAction::Keep(node))
+                    let args = struple::new_tuple2(mem::take(a), mem::take(b));
+                    *node = AstNode::new(Ast::Call(callx, args), node.loc);
+                    return Ok(AstStep::Rewrite);
                 }
             }
             Ast::Op1("-", x) => {
                 let callx = AstNode::new(Ast::Id1("int_negate"), node.loc);
-                let arg = vec![StrupleItem::new_v(x)];
-                let call = AstNode::new(Ast::Call(callx, arg), node.loc);
-                Ok(SemanticAction::Rewrite(call))
+                let arg = vec![StrupleItem::new_v(mem::take(x))];
+                *node = AstNode::new(Ast::Call(callx, arg), node.loc);
+                return Ok(AstStep::Rewrite);
             }
             Ast::Op1("\\n", x) => {
                 let newline =
                     AstNode::new_constval(Val::Str(Lstr::Sref("\n")), node.loc);
-                let strx = Ast::StrExpr(vec![x, newline]);
-                Ok(SemanticAction::Rewrite(AstNode::new(strx, node.loc)))
+                let strx = Ast::StrExpr(vec![mem::take(x), newline]);
+                *node = AstNode::new(strx, node.loc);
+                return Ok(AstStep::Rewrite);
             }
             Ast::ConstVal(Val::Str(s)) => {
-                let new_str_node = match s.str() {
-                    "\\n" => Ast::ConstVal(Val::Str(Lstr::Sref("\n"))),
-                    "\\\"" => Ast::ConstVal(Val::Str(Lstr::Sref("\""))),
-                    _ => Ast::ConstVal(Val::Str(s)),
-                };
-                let node2 = AstNode::new(new_str_node, node.loc);
-                Ok(SemanticAction::Keep(node2))
+                match s.str() {
+                    "\\n" => {
+                        *node = AstNode::new(
+                            Ast::ConstVal(Val::Str(Lstr::Sref("\n"))),
+                            node.loc,
+                        );
+                    }
+                    "\\\"" => {
+                        *node = AstNode::new(
+                            Ast::ConstVal(Val::Str(Lstr::Sref("\""))),
+                            node.loc,
+                        );
+                    }
+                    _ => {} // nothing
+                }
             }
             Ast::Id1(id) => {
                 let nloc = node.loc;
                 if let Some((_, ctype)) = struple::find(self.closed, &id) {
                     let type_ast = Ast::Type(ctype.clone());
-                    Ok(SemanticAction::Rewrite(AstNode::new(type_ast, nloc)))
-                } else {
-                    Ok(SemanticAction::Keep(node))
+                    *node = AstNode::new(type_ast, nloc);
+                    return Ok(AstStep::Rewrite);
                 }
             }
             Ast::Matchx(None, cases) => {
@@ -345,29 +252,22 @@ impl<'l> SemanticOp for MacroApplication<'l>
                     })
                     .collect();
                 let match_input = AstNode::new(Ast::Tuple(args?), node.loc);
-                let matchx = Ast::Matchx(Some(match_input), cases);
-                Ok(SemanticAction::Rewrite(AstNode::new(matchx, node.loc)))
+                let matchx = Ast::Matchx(Some(match_input), mem::take(cases));
+                *node = AstNode::new(matchx, node.loc);
+                return Ok(AstStep::Rewrite);
             }
             // for single element tuples, just take the single item
-            Ast::Tuple(mut items) => {
+            Ast::Tuple(items) => {
                 if items.len() == 1 {
                     if items.first().unwrap().k.is_none() {
-                        return Ok(SemanticAction::Rewrite(
-                            items.pop().unwrap().v,
-                        ));
+                        *node = items.pop().unwrap().v;
+                        return Ok(AstStep::Rewrite);
                     }
                 }
-
-                let node2 = AstNode::new(Ast::Tuple(items), node.loc);
-                Ok(SemanticAction::Keep(node2))
             }
-            _ => Ok(SemanticAction::Keep(node)),
+            _ => {}
         }
-    }
-
-    fn set_mode(&mut self, mode: AstMode)
-    {
-        self.mode = mode;
+        Ok(AstStep::Ok)
     }
 }
 
@@ -380,26 +280,26 @@ impl<'l> fmt::Debug for MacroApplication<'l>
 }
 
 #[derive(Debug)]
-struct MacroReplacement
+struct MacroReplacement<'a>
 {
-    arg_map: HashMap<&'static str, AstNode>,
+    arg_map: HashMap<&'static str, &'a AstNode>,
     loc: Loc,
 }
 
-impl SemanticOp for MacroReplacement
+impl<'a> ast2::Op for MacroReplacement<'a>
 {
-    fn pre(&mut self, node: AstNode) -> SemanticResult
+    fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
         if let Ast::Id1(idname) = &*node.node {
             if let Some(newval) = self.arg_map.get(idname) {
-                return Ok(SemanticAction::Rewrite(newval.clone()));
+                *node = (*newval).clone();
+                return Ok(AstStep::Rewrite);
             }
         }
         // if not replacing the id, replace the location of the call
         // so everything in the macro body traces back to the macro name
-        let mut new_node = node;
-        new_node.loc = self.loc;
-        Ok(SemanticAction::Keep(new_node))
+        node.loc = self.loc;
+        Ok(AstStep::Ok)
     }
 }
 
@@ -434,7 +334,7 @@ impl<'p> ScopeCheck<'p>
 
 impl<'p> ast2::Op for ScopeCheck<'p>
 {
-    fn pre(&mut self, node: &mut AstNode) -> StepResult
+    fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
         match &*node.node {
             Ast::Block(_) => {
@@ -462,7 +362,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                     // that's cool, nothing to do I guess?
                 } else if let Some(me) = self.local_mod.find_modelem(id) {
                     *node = node.replace((*me.node).clone(), me.typ.clone());
-                    return Ok(NextStep::Rewrite);
+                    return Ok(AstStep::Rewrite);
                 } else {
                     return Err(rustfail!(
                         SEMFAIL,
@@ -476,10 +376,10 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                 // do nothing otherwise
             }
         }
-        Ok(NextStep::Ok)
+        Ok(AstStep::Ok)
     }
 
-    fn post(&mut self, node: &mut AstNode) -> StepResult
+    fn post(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
         match &*node.node {
             Ast::Block(_) => {
@@ -489,12 +389,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                 // do nothing, keep walking
             }
         }
-        Ok(NextStep::Ok)
-    }
-
-    fn set_mode(&mut self, mode: AstMode)
-    {
-        self.mode = mode;
+        Ok(AstStep::Ok)
     }
 }
 
@@ -906,9 +801,9 @@ impl<'p> TypeCheck<'p>
     }
 }
 
-impl<'p> SemanticOp for TypeCheck<'p>
+impl<'p> ast2::Op for TypeCheck<'p>
 {
-    fn pre(&mut self, mut node: AstNode) -> SemanticResult
+    fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
         match &mut *node.node {
             // Ast::Let(patt, dtype, x) => {
@@ -942,10 +837,10 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 // should handle matches later, but for now it's fine
             }
         }
-        Ok(SemanticAction::Keep(node))
+        Ok(AstStep::Ok)
     }
 
-    fn post(&mut self, mut node: AstNode) -> SemanticResult
+    fn post(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
         match &mut *node.node {
             Ast::Block(items) => {
@@ -1066,12 +961,7 @@ impl<'p> SemanticOp for TypeCheck<'p>
                 // should handle matches later, but for now it's fine
             }
         }
-        Ok(SemanticAction::Keep(node))
-    }
-
-    fn set_mode(&mut self, mode: AstMode)
-    {
-        self.mode = mode;
+        Ok(AstStep::Ok)
     }
 }
 
@@ -1086,27 +976,25 @@ impl<'l> fmt::Debug for TypeCheck<'l>
 #[derive(Debug)]
 struct RemoveExtraCode;
 
-impl SemanticOp for RemoveExtraCode
+impl ast2::Op for RemoveExtraCode
 {
-    fn post(&mut self, mut node: AstNode) -> SemanticResult
+    fn post(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
-        let action = match *node.node {
-            Ast::Block(mut items) => {
+        match &mut *node.node {
+            Ast::Block(items) => {
                 match items.len() {
-                    0 => SemanticAction::Keep(AstNode::void()),
-                    1 => SemanticAction::Keep(items.pop().unwrap()),
-                    _ => {
-                        *node.node = Ast::Block(items);
-                        SemanticAction::Keep(node)
+                    0 => {
+                        *node = AstNode::void();
                     }
+                    1 => {
+                        *node = items.pop().unwrap();
+                    }
+                    _ => {} // leave as-is
                 }
             }
-            ast => {
-                *node.node = ast;
-                SemanticAction::Keep(node)
-            }
+            _ => {} // do nothing
         };
-        Ok(action)
+        Ok(AstStep::Ok)
     }
 }
 
@@ -1213,25 +1101,13 @@ impl Semantics
         let mut type_check = TypeCheck::new(proto, ftyp)?;
         let mut remove_extra = RemoveExtraCode;
 
-        let interleaved = true;
-        let mut result = if interleaved {
-            let mut pipe = SemanticPipeline {
-                ops: vec![
-                    &mut remove_extra,
-                    &mut macs,
-                    &mut type_check,
-                ],
-            };
-
-            let mut body2 = body;
-            ltry!(ast2::walk(&mut body2, &mut scope_check));
-
-            ltry!(Self::walk(&mut pipe, body2))
-        } else {
-            let mut result = ltry!(Self::walk(&mut macs, body));
-            result = ltry!(Self::walk(&mut type_check, result));
-            ltry!(Self::walk(&mut remove_extra, result))
-        };
+        let mut pipe = ast2::Pipeline::new(vec![
+            &mut remove_extra,
+            &mut scope_check,
+            &mut macs,
+            &mut type_check,
+        ]);
+        let mut result = ltry!(ast2::walk(body, &mut pipe));
 
         result.typ = type_check.inferred_type(&result.typ, &[])?;
         if *ftyp.result != result.typ && *ftyp.result != Type::VOID {
@@ -1248,177 +1124,6 @@ impl Semantics
         sem.calls = type_check.calls;
         sem.src = result;
         Ok(sem)
-    }
-
-    pub fn walk<Op: SemanticOp>(op: &mut Op, node: AstNode) -> AstResult
-    {
-        let mut prenode = match op.pre(node)? {
-            SemanticAction::Keep(inode) => inode,
-            SemanticAction::Rewrite(inode) => inode,
-            SemanticAction::Remove => return Ok(AstNode::void()),
-        };
-
-        let new_ast = match *prenode.node {
-            Ast::Block(children) => {
-                let new_children: Lresult<Vec<AstNode>> =
-                    children.into_iter().map(|ch| Self::walk(op, ch)).collect();
-                Ast::Block(new_children?)
-            }
-            Ast::Call(id, args) => {
-                let wid = ltry!(Self::walk(op, id));
-                let wargs = struple::map_v_into(args, |v| Self::walk(op, v))?;
-                Ast::Call(wid, wargs)
-            }
-            Ast::Ifx(cases) => {
-                let new_cases: Lresult<Vec<ast2::Case>> = cases
-                    .into_iter()
-                    .map(|ch| {
-                        let wcond = Self::walk(op, ch.cond)?;
-                        let wbody = Self::walk(op, ch.body)?;
-                        Ok(ast2::Case::new(wcond, wbody))
-                    })
-                    .collect();
-                Ast::Ifx(new_cases?)
-            }
-            Ast::Matchx(None, args) => {
-                let new_args: Lresult<Vec<ast2::Case>> = args
-                    .into_iter()
-                    .map(|ch| {
-                        op.set_mode(AstMode::MatchPattern);
-                        let wcond = Self::walk(op, ch.cond)?;
-                        op.set_mode(AstMode::Value);
-                        let wbody = Self::walk(op, ch.body)?;
-                        Ok(ast2::Case::new(wcond, wbody))
-                    })
-                    .collect();
-                Ast::Matchx(None, new_args?)
-            }
-            Ast::Matchx(Some(cond), children) => {
-                let wcond = Self::walk(op, cond)?;
-                let wchildren: Lresult<Vec<ast2::Case>> = children
-                    .into_iter()
-                    .map(|ch| {
-                        op.set_mode(AstMode::MatchPattern);
-                        let wcond = Self::walk(op, ch.cond)?;
-                        op.set_mode(AstMode::Value);
-                        let wbody = Self::walk(op, ch.body)?;
-                        Ok(ast2::Case::new(wcond, wbody))
-                    })
-                    .collect();
-                Ast::Matchx(Some(wcond), wchildren?)
-            }
-            Ast::ConstVal(v) => {
-                // can't walk past on const
-                Ast::ConstVal(v)
-            }
-            Ast::DefConst(name, v) => {
-                let wval = Self::walk(op, v)?;
-                Ast::DefConst(name, wval)
-            }
-            Ast::DefFunc(name, args, result, body) => {
-                let wname = Self::walk(op, name)?;
-                let wargs =
-                    struple::map_v_into(args, |arg| Self::walk(op, arg))?;
-                let wresult = Self::walk(op, result)?;
-                let wbody = Self::walk(op, body)?;
-                Ast::DefFunc(wname, wargs, wresult, wbody)
-            }
-            Ast::Generic(id, args) => {
-                let wid = Self::walk(op, id)?;
-                op.set_mode(AstMode::Type);
-                let wargs =
-                    struple::map_v_into(args, |arg| Self::walk(op, arg))?;
-                op.set_mode(AstMode::Value);
-                Ast::Generic(wid, wargs)
-            }
-            Ast::Let(lhp, lht, rhs) => {
-                op.set_mode(AstMode::LetPattern);
-                let wlhp = Self::walk(op, lhp)?;
-                op.set_mode(AstMode::Value);
-                let wrhs = Self::walk(op, rhs)?;
-                Ast::Let(wlhp, lht, wrhs)
-            }
-            Ast::List(items) => {
-                let witems =
-                    struple::map_v_into(items, |item| Self::walk(op, item))?;
-                Ast::List(witems)
-            }
-            Ast::Op1(ast_op, node) => {
-                let wnode = Self::walk(op, node)?;
-                Ast::Op1(ast_op, wnode)
-            }
-            Ast::Op2(".", a, b) => {
-                let wa = Self::walk(op, a)?;
-                let wb = Self::walk(op, b)?;
-                Ast::Op2(".", wa, wb)
-            }
-            Ast::Op2(ast_op, a, b) => {
-                let wa = Self::walk(op, a)?;
-                let wb = Self::walk(op, b)?;
-                Ast::Op2(ast_op, wa, wb)
-            }
-            Ast::Return(x) => Ast::Return(Self::walk(op, x)?),
-            Ast::StrExpr(items) => {
-                let witems: Lresult<Vec<AstNode>> =
-                    items.into_iter().map(|i| Self::walk(op, i)).collect();
-                Ast::StrExpr(witems?)
-            }
-            Ast::Tuple(items) => {
-                let witems =
-                    struple::map_v_into(items, |item| Self::walk(op, item))?;
-                Ast::Tuple(witems)
-            }
-
-            // nothing further to walk for these ASTs
-            Ast::Id1(id) => Ast::Id1(id),
-            Ast::RustBlock => Ast::RustBlock,
-            Ast::Void => Ast::Void,
-            Ast::Wildcard => Ast::Wildcard,
-
-            // these ASTs should already be processed in the proto phase
-            Ast::DefMacro(name, _, _) => {
-                return Err(rustfail!(
-                    SEMFAIL,
-                    "macro definition must already be processed: {} @ {:?}",
-                    name,
-                    prenode.loc,
-                ));
-            }
-            Ast::DefType(_, name, _) => {
-                return Err(rustfail!(
-                    SEMFAIL,
-                    "type definition must already be processed: {:?}",
-                    name,
-                ));
-            }
-            Ast::ModAction(action, tree) => {
-                return Err(rustfail!(
-                    SEMFAIL,
-                    "module action must already be processed: {:?} {:?}",
-                    action,
-                    tree,
-                ));
-            }
-            /*
-            // unimplemented
-            Ast::FuncType(_) => unimplemented!(),
-            Ast::LessThan3(_, _, _, _, _) => unimplemented!(),
-            Ast::Map(_) => unimplemented!(),
-            Ast::NewStruct(_, _) => unimplemented!(),
-            Ast::NewTuple(_) => unimplemented!(),
-            Ast::NewUnion(_, _, _) => unimplemented!(),
-            */
-            ast => ast, // do nothing for everything else
-        };
-        *prenode.node = new_ast;
-
-        let postnode = match op.post(prenode)? {
-            SemanticAction::Keep(inode) => inode,
-            SemanticAction::Rewrite(inode) => inode,
-            SemanticAction::Remove => return Ok(AstNode::void()),
-        };
-
-        Ok(postnode)
     }
 }
 

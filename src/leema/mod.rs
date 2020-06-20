@@ -8,9 +8,10 @@ pub mod lstr;
 pub mod parsl;
 #[macro_use]
 pub mod module;
+#[macro_use]
+pub mod ast2;
 
 pub mod application;
-pub mod ast2;
 pub mod code;
 pub mod fiber;
 pub mod frame;

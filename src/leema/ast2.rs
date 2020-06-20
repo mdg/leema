@@ -386,18 +386,28 @@ impl AstNode
     }
 }
 
+impl Default for AstNode
+{
+    fn default() -> AstNode
+    {
+        AstNode::void()
+    }
+}
 
-macro_rules! steptry {
+
+#[macro_export]
+macro_rules! steptry
+{
     ($r:expr) => {
         match $r {
-            Ok(NextStep::Ok) => {
+            Ok(AstStep::Ok) => {
                 // do nothing
             }
-            Ok(NextStep::Rewrite) => {
-                return Ok(NextStep::Rewrite);
+            Ok(AstStep::Rewrite) => {
+                return Ok(AstStep::Rewrite);
             }
-            Ok(NextStep::Stop) => {
-                return Ok(NextStep::Ok);
+            Ok(AstStep::Stop) => {
+                return Ok(AstStep::Ok);
 
             }
             Err(f) => {
@@ -452,76 +462,241 @@ impl AstMode
     }
 }
 
-pub enum NextStep
+pub enum AstStep
 {
     Ok,
     Rewrite,
     Stop,
 }
 
-pub type StepResult = Lresult<NextStep>;
+pub type StepResult = Lresult<AstStep>;
 
 pub trait Op
 {
-    fn pre(&mut self, _node: &mut AstNode) -> StepResult
+    fn pre(&mut self, _node: &mut AstNode, _mode: AstMode) -> StepResult
     {
-        Ok(NextStep::Ok)
+        Ok(AstStep::Ok)
     }
 
-    fn post(&mut self, _node: &mut AstNode) -> StepResult
+    fn post(&mut self, _node: &mut AstNode, _mode: AstMode) -> StepResult
     {
-        Ok(NextStep::Ok)
+        Ok(AstStep::Ok)
     }
-
-    fn set_mode(&mut self, mode: AstMode);
 }
 
-pub fn walk(node: &mut AstNode, op: &mut dyn Op) -> StepResult
+pub struct Pipeline<'p>
 {
-    loop {
-        match step(node, op)? {
-            NextStep::Ok => {
-                break;
-            }
-            NextStep::Rewrite => {
-                // loop again
-            }
-            NextStep::Stop => {
-                return Ok(NextStep::Stop);
-            }
-        }
-    }
-    Ok(NextStep::Ok)
+    ops: Vec<&'p mut dyn Op>,
 }
 
-fn step(node: &mut AstNode, op: &mut dyn Op) -> StepResult
+impl<'p> Pipeline<'p>
 {
-    match ltry!(op.pre(node)) {
-        NextStep::Ok => {
-            steptry!(inner_step(node, op));
-        }
-        NextStep::Rewrite => {
-            return Ok(NextStep::Rewrite);
-        }
-        NextStep::Stop => {
-            return Ok(NextStep::Ok);
-        }
+    pub fn new(ops: Vec<&'p mut dyn Op>) -> Pipeline<'p>
+    {
+        Pipeline{ ops }
     }
-    op.post(node)
 }
 
-fn inner_step(node: &mut AstNode, op: &mut dyn Op) -> StepResult
+impl<'p> Op for Pipeline<'p>
 {
-    match &mut *node.node {
-        Ast::Op2(".", ref mut a, _b) => {
-            steptry!(walk(a, op));
-            // nowhere to go with b, should be handled in pre or post
+    fn pre(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
+    {
+        for op in self.ops.iter_mut() {
+            steptry!(op.pre(node, mode));
         }
-        Ast::Id1(_) => {
-            // nowhere else to go
-        }
-        _ => {
-        }
+        Ok(AstStep::Ok)
     }
-    Ok(NextStep::Ok)
+
+    fn post(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
+    {
+        for op in self.ops.iter_mut() {
+            steptry!(op.post(node, mode));
+        }
+        Ok(AstStep::Ok)
+    }
+}
+
+struct Walker
+{
+    mode: AstMode,
+}
+
+pub fn walk(mut node: AstNode, op: &mut dyn Op) -> AstResult
+{
+    let mut w = Walker{ mode: AstMode::Value };
+    w.walk(&mut node, op)?;
+    Ok(node)
+}
+
+impl Walker
+{
+    fn set_mode(&mut self, mode: AstMode) -> AstMode
+    {
+        let prev = self.mode;
+        self.mode = mode;
+        prev
+    }
+
+    fn walk(&mut self, node: &mut AstNode, op: &mut dyn Op) -> StepResult
+    {
+        loop {
+            match self.step(node, op)? {
+                AstStep::Ok => {
+                    break;
+                }
+                AstStep::Rewrite => {
+                    // loop again
+                }
+                AstStep::Stop => {
+                    return Ok(AstStep::Stop);
+                }
+            }
+        }
+        Ok(AstStep::Ok)
+    }
+
+    fn step(&mut self, node: &mut AstNode, op: &mut dyn Op) -> StepResult
+    {
+        match ltry!(op.pre(node, self.mode)) {
+            AstStep::Ok => {
+                steptry!(self.step_in(node, op));
+            }
+            AstStep::Rewrite => {
+                return Ok(AstStep::Rewrite);
+            }
+            AstStep::Stop => {
+                return Ok(AstStep::Ok);
+            }
+        }
+        op.post(node, self.mode)
+    }
+
+    fn step_in(&mut self, node: &mut AstNode, op: &mut dyn Op) -> StepResult
+    {
+        match &mut *node.node {
+            Ast::Call(id, args) => {
+                steptry!(self.walk(id, op));
+                for a in args.iter_mut() {
+                    steptry!(self.walk(&mut a.v, op));
+                }
+            }
+            Ast::Op2(".", ref mut a, _b) => {
+                steptry!(self.walk(a, op));
+                // nowhere to go with b, should be handled in pre or post
+                // also it will just cause scope errors
+                // maybe the field shouldn't be a regular Id1
+                // maybe it's an ast mode?
+            }
+            Ast::Op2(_ast_op, ref mut a, ref mut b) => {
+                steptry!(self.walk(a, op));
+                steptry!(self.walk(b, op));
+            }
+            Ast::Op1(_ast_op, a) => {
+                steptry!(self.walk(a, op));
+            }
+            Ast::StrExpr(items) => {
+                for i in items.iter_mut() {
+                    steptry!(self.walk(i, op));
+                }
+            }
+            Ast::List(items) => {
+                for i in items.iter_mut() {
+                    steptry!(self.walk(&mut i.v, op));
+                }
+            }
+            Ast::Tuple(items) => {
+                for i in items.iter_mut() {
+                    steptry!(self.walk(&mut i.v, op));
+                }
+            }
+            Ast::Block(ref mut children) => {
+                for ch in children.iter_mut() {
+                    steptry!(self.walk(ch, op));
+                }
+            }
+            Ast::Let(ref mut lhp, _lht, ref mut rhs) => {
+                self.set_mode(AstMode::LetPattern);
+                steptry!(self.walk(lhp, op));
+                self.set_mode(AstMode::Value);
+                steptry!(self.walk(rhs, op));
+            }
+            Ast::Ifx(cases) => {
+                for c in cases.iter_mut() {
+                    steptry!(self.walk(&mut c.cond, op));
+                    steptry!(self.walk(&mut c.body, op));
+                }
+            }
+            Ast::Matchx(None, cases) => {
+                for c in cases.iter_mut() {
+                    self.set_mode(AstMode::MatchPattern);
+                    steptry!(self.walk(&mut c.cond, op));
+                    self.set_mode(AstMode::Value);
+                    steptry!(self.walk(&mut c.body, op));
+                }
+            }
+            Ast::Matchx(Some(cond), cases) => {
+                steptry!(self.walk(cond, op));
+                for c in cases.iter_mut() {
+                    self.set_mode(AstMode::MatchPattern);
+                    steptry!(self.walk(&mut c.cond, op));
+                    self.set_mode(AstMode::Value);
+                    steptry!(self.walk(&mut c.body, op));
+                }
+            }
+            Ast::Generic(id, args) => {
+                steptry!(self.walk(id, op));
+                self.set_mode(AstMode::Type);
+                for a in args.iter_mut() {
+                    steptry!(self.walk(&mut a.v, op));
+                }
+            }
+            Ast::DefFunc(name, args, result, body) => {
+                steptry!(self.walk(name, op));
+                for a in args.iter_mut() {
+                    steptry!(self.walk(&mut a.v, op));
+                }
+                steptry!(self.walk(result, op));
+                steptry!(self.walk(body, op));
+            }
+            Ast::DefConst(_name, ref mut v) => {
+                steptry!(self.walk(v, op));
+            }
+            Ast::Return(x) => {
+                steptry!(self.walk(x, op));
+            }
+            Ast::ConstVal(_) | Ast::Id1(_) | Ast::RustBlock | Ast::Void => {
+                // nowhere else to go
+            }
+            Ast::Wildcard => {
+                // nowhere else to go
+            }
+            // these ASTs should already be processed in the proto phase
+            Ast::DefMacro(name, _, _) => {
+                return Err(rustfail!(
+                    "compile_failure",
+                    "macro definition must already be processed: {} @ {:?}",
+                    name,
+                    node.loc,
+                ));
+            }
+            Ast::DefType(_, name, _) => {
+                return Err(rustfail!(
+                    "compile_failure",
+                    "type definition must already be processed: {:?}",
+                    name,
+                ));
+            }
+            Ast::ModAction(action, tree) => {
+                return Err(rustfail!(
+                    "compile_failure",
+                    "module action must already be processed: {:?} {:?}",
+                    action,
+                    tree,
+                ));
+            }
+            _ => {
+            }
+        }
+        Ok(AstStep::Ok)
+    }
 }
