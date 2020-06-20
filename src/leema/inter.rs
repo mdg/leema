@@ -1,3 +1,4 @@
+use crate::leema::ast2::LocalType;
 use crate::leema::lstr::Lstr;
 
 use std::collections::{HashMap, HashSet};
@@ -17,17 +18,6 @@ impl Blockscope
             vars: HashSet::new(),
         }
     }
-}
-
-#[derive(Copy)]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-pub enum LocalType
-{
-    Param,
-    Match,
-    Let,
 }
 
 #[derive(Debug)]

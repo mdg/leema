@@ -407,16 +407,61 @@ macro_rules! steptry {
     };
 }
 
-enum NextStep
+#[derive(Copy)]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+pub enum LocalType
+{
+    Param,
+    Match,
+    Let,
+}
+
+#[derive(Copy)]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+pub enum AstMode
+{
+    Value,
+    Type,
+    LetPattern,
+    MatchPattern,
+}
+
+impl AstMode
+{
+    pub fn is_pattern(&self) -> bool
+    {
+        match self {
+            AstMode::LetPattern => true,
+            AstMode::MatchPattern => true,
+            _ => false,
+        }
+    }
+
+    pub fn get_pattern(&self) -> Option<LocalType>
+    {
+        match self {
+            AstMode::LetPattern => Some(LocalType::Let),
+            AstMode::MatchPattern => Some(LocalType::Match),
+            _ => None,
+        }
+    }
+}
+
+pub enum NextStep
 {
     Ok,
     Rewrite,
     Stop,
 }
 
-type StepResult = Lresult<NextStep>;
+pub type StepResult = Lresult<NextStep>;
 
-trait Op
+pub trait Op
 {
     fn pre(&mut self, _node: &mut AstNode) -> StepResult
     {
@@ -427,75 +472,56 @@ trait Op
     {
         Ok(NextStep::Ok)
     }
+
+    fn set_mode(&mut self, mode: AstMode);
 }
 
-struct TestScope;
-
-impl Op for TestScope
+pub fn walk(node: &mut AstNode, op: &mut dyn Op) -> StepResult
 {
-    fn pre(&mut self, node: &mut AstNode) -> StepResult
-    {
-        match &*node.node {
-            Ast::Id1(_id) => {
-            }
-            _ => {
-            }
-        }
-        Ok(NextStep::Ok)
-    }
-}
-
-struct Walker;
-
-impl Walker
-{
-    pub fn walk(&self, node: &mut AstNode, op: &mut dyn Op) -> StepResult
-    {
-        loop {
-            match self.step(node, op)? {
-                NextStep::Ok => {
-                    break;
-                }
-                NextStep::Rewrite => {
-                    // loop again
-                }
-                NextStep::Stop => {
-                    return Ok(NextStep::Stop);
-                }
-            }
-        }
-        Ok(NextStep::Ok)
-    }
-
-    pub fn step(&self, node: &mut AstNode, op: &mut dyn Op) -> StepResult
-    {
-        match ltry!(op.pre(node)) {
+    loop {
+        match step(node, op)? {
             NextStep::Ok => {
-                steptry!(self.inner_step(node, op));
+                break;
             }
             NextStep::Rewrite => {
-                return Ok(NextStep::Rewrite);
+                // loop again
             }
             NextStep::Stop => {
-                return Ok(NextStep::Ok);
+                return Ok(NextStep::Stop);
             }
         }
-        op.post(node)
     }
+    Ok(NextStep::Ok)
+}
 
-    pub fn inner_step(&self, node: &mut AstNode, op: &mut dyn Op) -> StepResult
-    {
-        match &mut *node.node {
-            Ast::Op2(".", ref mut a, _b) => {
-                steptry!(self.walk(a, op));
-                // nowhere to go with b, should be handled in pre or post
-            }
-            Ast::Id1(_) => {
-                // nowhere else to go
-            }
-            _ => {
-            }
+fn step(node: &mut AstNode, op: &mut dyn Op) -> StepResult
+{
+    match ltry!(op.pre(node)) {
+        NextStep::Ok => {
+            steptry!(inner_step(node, op));
         }
-        Ok(NextStep::Ok)
+        NextStep::Rewrite => {
+            return Ok(NextStep::Rewrite);
+        }
+        NextStep::Stop => {
+            return Ok(NextStep::Ok);
+        }
     }
+    op.post(node)
+}
+
+fn inner_step(node: &mut AstNode, op: &mut dyn Op) -> StepResult
+{
+    match &mut *node.node {
+        Ast::Op2(".", ref mut a, _b) => {
+            steptry!(walk(a, op));
+            // nowhere to go with b, should be handled in pre or post
+        }
+        Ast::Id1(_) => {
+            // nowhere else to go
+        }
+        _ => {
+        }
+    }
+    Ok(NextStep::Ok)
 }

@@ -1,6 +1,6 @@
-use crate::leema::ast2::{self, Ast, AstNode, AstResult, Loc, Xlist};
+use crate::leema::ast2::{self, Ast, AstMode, AstNode, AstResult, Loc, LocalType, NextStep, StepResult, Xlist};
 use crate::leema::failure::{self, Failure, Lresult};
-use crate::leema::inter::{Blockstack, LocalType};
+use crate::leema::inter::{Blockstack};
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::ProtoModule;
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
@@ -33,40 +33,6 @@ pub enum SemanticAction
     Keep(AstNode),
     Rewrite(AstNode),
     Remove,
-}
-
-#[derive(Copy)]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
-pub enum AstMode
-{
-    Value,
-    Type,
-    LetPattern,
-    MatchPattern,
-}
-
-impl AstMode
-{
-    pub fn is_pattern(&self) -> bool
-    {
-        match self {
-            AstMode::LetPattern => true,
-            AstMode::MatchPattern => true,
-            _ => false,
-        }
-    }
-
-    pub fn get_pattern(&self) -> Option<LocalType>
-    {
-        match self {
-            AstMode::LetPattern => Some(LocalType::Let),
-            AstMode::MatchPattern => Some(LocalType::Match),
-            _ => None,
-        }
-    }
 }
 
 pub type SemanticResult = Lresult<SemanticAction>;
@@ -466,9 +432,9 @@ impl<'p> ScopeCheck<'p>
     }
 }
 
-impl<'p> SemanticOp for ScopeCheck<'p>
+impl<'p> ast2::Op for ScopeCheck<'p>
 {
-    fn pre(&mut self, mut node: AstNode) -> SemanticResult
+    fn pre(&mut self, node: &mut AstNode) -> StepResult
     {
         match &*node.node {
             Ast::Block(_) => {
@@ -490,14 +456,13 @@ impl<'p> SemanticOp for ScopeCheck<'p>
             }
             Ast::Id1(id) if self.mode == AstMode::Type => {
                 self.local_mod.get_type(id)?;
-                return Ok(SemanticAction::Keep(node));
             }
             Ast::Id1(id) => {
                 if self.blocks.var_in_scope(&Lstr::Sref(id)) {
                     // that's cool, nothing to do I guess?
                 } else if let Some(me) = self.local_mod.find_modelem(id) {
-                    node = node.replace((*me.node).clone(), me.typ.clone());
-                    return Ok(SemanticAction::Rewrite(node));
+                    *node = node.replace((*me.node).clone(), me.typ.clone());
+                    return Ok(NextStep::Rewrite);
                 } else {
                     return Err(rustfail!(
                         SEMFAIL,
@@ -511,10 +476,10 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                 // do nothing otherwise
             }
         }
-        Ok(SemanticAction::Keep(node))
+        Ok(NextStep::Ok)
     }
 
-    fn post(&mut self, node: AstNode) -> SemanticResult
+    fn post(&mut self, node: &mut AstNode) -> StepResult
     {
         match &*node.node {
             Ast::Block(_) => {
@@ -524,7 +489,7 @@ impl<'p> SemanticOp for ScopeCheck<'p>
                 // do nothing, keep walking
             }
         }
-        Ok(SemanticAction::Keep(node))
+        Ok(NextStep::Ok)
     }
 
     fn set_mode(&mut self, mode: AstMode)
@@ -1254,14 +1219,16 @@ impl Semantics
                 ops: vec![
                     &mut remove_extra,
                     &mut macs,
-                    &mut scope_check,
                     &mut type_check,
                 ],
             };
-            ltry!(Self::walk(&mut pipe, body))
+
+            let mut body2 = body;
+            ltry!(ast2::walk(&mut body2, &mut scope_check));
+
+            ltry!(Self::walk(&mut pipe, body2))
         } else {
             let mut result = ltry!(Self::walk(&mut macs, body));
-            result = ltry!(Self::walk(&mut scope_check, result));
             result = ltry!(Self::walk(&mut type_check, result));
             ltry!(Self::walk(&mut remove_extra, result))
         };
