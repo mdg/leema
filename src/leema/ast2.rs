@@ -418,12 +418,12 @@ type StepResult = Lresult<NextStep>;
 
 trait Op
 {
-    fn pre(&mut self, _node: &mut AstNode, _op: &Walker) -> StepResult
+    fn pre(&mut self, _node: &mut AstNode) -> StepResult
     {
         Ok(NextStep::Ok)
     }
 
-    fn post(&mut self, _node: &mut AstNode, _op: &Walker) -> StepResult
+    fn post(&mut self, _node: &mut AstNode) -> StepResult
     {
         Ok(NextStep::Ok)
     }
@@ -433,7 +433,7 @@ struct TestScope;
 
 impl Op for TestScope
 {
-    fn pre(&mut self, node: &mut AstNode, _op: &Walker) -> StepResult
+    fn pre(&mut self, node: &mut AstNode) -> StepResult
     {
         match &*node.node {
             Ast::Id1(_id) => {
@@ -445,9 +445,7 @@ impl Op for TestScope
     }
 }
 
-struct Walker
-{
-}
+struct Walker;
 
 impl Walker
 {
@@ -471,7 +469,7 @@ impl Walker
 
     pub fn step(&self, node: &mut AstNode, op: &mut dyn Op) -> StepResult
     {
-        match ltry!(op.pre(node, self)) {
+        match ltry!(op.pre(node)) {
             NextStep::Ok => {
                 steptry!(self.inner_step(node, op));
             }
@@ -482,7 +480,7 @@ impl Walker
                 return Ok(NextStep::Ok);
             }
         }
-        op.post(node, self)
+        op.post(node)
     }
 
     pub fn inner_step(&self, node: &mut AstNode, op: &mut dyn Op) -> StepResult
