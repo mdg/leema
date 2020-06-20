@@ -73,10 +73,6 @@ pub type SemanticResult = Lresult<SemanticAction>;
 
 pub trait SemanticOp: fmt::Debug
 {
-    fn f(&mut self, node: AstNode) -> SemanticResult
-    {
-        Ok(SemanticAction::Keep(node))
-    }
     fn pre(&mut self, node: AstNode) -> SemanticResult
     {
         Ok(SemanticAction::Keep(node))
