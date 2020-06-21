@@ -1,5 +1,7 @@
 
-macro println x >> print(x \n) --
+macro println :: x ->
+    io.print("$x\n")
+--
 
 func cin:Str -RUST-
 func print :: txt:Str -RUST-

@@ -1,16 +1,14 @@
 import /io
 
-func fact i:Int /Int
->>
+func fact:Int :: i:Int ->
     if
-    |i == 1 >> 1
-    |else >> i * fact(i-1)
+    |i == 1 -> 1
+    |_ -> i * fact(i - 1)
     --
 --
 
-func main
->>
+func main ->
     let f := fact(4)
-    io::print("factorial(4) = $f\n")
+    io.print("factorial(4) = $f\n")
 --
 
