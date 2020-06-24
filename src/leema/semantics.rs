@@ -34,7 +34,6 @@ struct MacroApplication<'l>
     local: &'l ProtoModule,
     ftype: &'l FuncType,
     closed: &'l GenericTypes,
-    mode: AstMode,
 }
 
 impl<'l> MacroApplication<'l>
@@ -49,7 +48,6 @@ impl<'l> MacroApplication<'l>
             local,
             ftype,
             closed,
-            mode: AstMode::Value,
         }
     }
 
@@ -123,7 +121,7 @@ impl<'l> MacroApplication<'l>
 
 impl<'l> ast2::Op for MacroApplication<'l>
 {
-    fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
+    fn pre(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
         match &mut *node.node {
             Ast::Call(callid, args) => {
@@ -185,7 +183,7 @@ impl<'l> ast2::Op for MacroApplication<'l>
                 return Ok(AstStep::Rewrite);
             }
             Ast::Op2(";", a, b) => {
-                if !self.mode.is_pattern() {
+                if !mode.is_pattern() {
                     // if not a pattern, convert to a call
                     let callx = AstNode::new(Ast::Id1("cons"), node.loc);
                     let args = struple::new_tuple2(mem::take(a), mem::take(b));
@@ -307,7 +305,6 @@ struct ScopeCheck<'p>
 {
     blocks: Blockstack,
     local_mod: &'p ProtoModule,
-    mode: AstMode,
 }
 
 impl<'p> ScopeCheck<'p>
@@ -327,21 +324,20 @@ impl<'p> ScopeCheck<'p>
         Ok(ScopeCheck {
             blocks: root,
             local_mod,
-            mode: AstMode::Value,
         })
     }
 }
 
 impl<'p> ast2::Op for ScopeCheck<'p>
 {
-    fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
+    fn pre(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
         match &*node.node {
             Ast::Block(_) => {
                 self.blocks.push_blockscope();
             }
-            Ast::Id1(id) if self.mode.is_pattern() => {
-                let local_type = self.mode.get_pattern().unwrap();
+            Ast::Id1(id) if mode.is_pattern() => {
+                let local_type = mode.get_pattern().unwrap();
                 // make sure this doesn't duplicate an import
                 // why not just add ModAliases to the blocks?
                 if self.local_mod.imports.contains_key(id) {
@@ -354,7 +350,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                 }
                 self.blocks.assign_var(&Lstr::Sref(id), local_type);
             }
-            Ast::Id1(id) if self.mode == AstMode::Type => {
+            Ast::Id1(id) if mode == AstMode::Type => {
                 self.local_mod.get_type(id)?;
             }
             Ast::Id1(id) => {
@@ -416,7 +412,6 @@ struct TypeCheck<'p>
     vartypes: HashMap<&'static str, Type>,
     infers: HashMap<Lstr, Type>,
     calls: Vec<Fref>,
-    mode: AstMode,
 }
 
 impl<'p> TypeCheck<'p>
@@ -432,7 +427,6 @@ impl<'p> TypeCheck<'p>
             vartypes: HashMap::new(),
             infers: HashMap::new(),
             calls: vec![],
-            mode: AstMode::Value,
         };
 
         for arg in ftyp.args.iter() {
@@ -830,7 +824,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
             Ast::Wildcard => {
                 node.typ = Type::Unknown;
             }
-            Ast::Block(_) | Ast::Call(_, _) | Ast::Tuple(_) => {
+            Ast::Block(_) | Ast::Call(_, _) | Ast::Tuple(_) | Ast::Let(_, _, _) => {
                 // handled in post
             }
             unsupported => {
@@ -1200,18 +1194,35 @@ mod tests
     }
 
     #[test]
-    fn test_semantics_macro()
+    fn test_semantics_local_macro()
     {
         let input = r#"
-        macro test_and a b >>
+        macro test_and :: a b ->
             if
-            |a >> b
-            |else >> False
+            |a -> b
+            |_ -> False
             --
         --
 
-        func main >>
+        func main ->
             test_and(True, False)
+        --
+        "#
+        .to_string();
+
+        let mut prog = core_program(&[("/foo", input)]);
+        let fref = Fref::from(("/foo", "main"));
+        let sem = prog.read_semantics(&fref).unwrap();
+
+        assert_matches!(*sem.src.node, Ast::Ifx(_));
+    }
+
+    #[test]
+    fn test_semantics_external_macro()
+    {
+        let input = r#"
+        func main ->
+            True and False
         --
         "#
         .to_string();
@@ -1246,7 +1257,11 @@ mod tests
     #[test]
     fn test_semantics_param_in_scope()
     {
-        let input = r#"func inc: Int :: i:Int -> i + 1 --"#.to_string();
+        let input = r#"
+        func inc:Int :: i:Int ->
+            i + 1
+        --
+        "#.to_string();
 
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::from(("/foo", "inc"));
