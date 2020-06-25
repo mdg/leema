@@ -1273,9 +1273,9 @@ mod tests
     fn test_semantics_module_scope_call()
     {
         let input = r#"
-        func foo /Int >> 5 --
+        func foo:Int -> 5 --
 
-        func main >>
+        func main ->
             foo() + 3
         --
         "#
