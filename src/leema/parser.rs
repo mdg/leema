@@ -453,7 +453,7 @@ where
                 .left()
                     .infix(".", Rule::dot)
                     .infix("'", Rule::tick)
-                    .postfix("()", Rule::call_args)
+                    .postfix("()", Rule::tuple)
                 .right()
                     .prefix("-", Rule::negative)
                 .left()
@@ -497,10 +497,10 @@ where
     {
         let loc = nodeloc(&op);
         match op.as_rule() {
-            Rule::call_args => {
-                let call_args = self.parse_xlist(op.into_inner())?;
+            Rule::tuple => {
+                let tuple = self.parse_xlist(op.into_inner())?;
                 let call_loc = x.loc;
-                Ok(AstNode::new(Ast::Call(x, call_args), call_loc))
+                Ok(AstNode::new(Ast::Call(x, tuple), call_loc))
             }
             Rule::negative | Rule::not | Rule::add_newline => {
                 let ast = Ast::Op1(op.as_str(), x);
@@ -573,7 +573,7 @@ mod tests
             rule: Rule::expr,
             tokens: [expr(0, 12, [
                 id(0, 3),
-                call_args(3, 12, [
+                tuple(3, 12, [
                     x_maybe_k(4, 5, [expr(4, 5, [int(4, 5)])]),
                     x_maybe_k(7, 11, [
                         id(7, 8),
@@ -596,7 +596,7 @@ mod tests
             rule: Rule::expr,
             tokens: [expr(0, 5, [
                 id(0, 3),
-                call_args(3, 5)
+                tuple(3, 5)
             ])]
         )
     }
@@ -657,14 +657,14 @@ mod tests
                     stmt_block(24, 60, [
                         expr(24, 33, [
                             id(24, 27),
-                            call_args(27, 33, [
+                            tuple(27, 33, [
                                 x_maybe_k(28, 29, [expr(28, 29, [id(28, 29)])]),
                                 x_maybe_k(31, 32, [expr(31, 32, [id(31, 32)])]),
                             ])
                         ]),
                         expr(46, 51, [
                             id(46, 49),
-                            call_args(49, 51),
+                            tuple(49, 51),
                         ]),
                     ]),
                 ]),
@@ -776,6 +776,24 @@ mod tests
             assert_eq!(Ast::Id1("A"), *result.node);
         } else {
             panic!("expected DefFunc, found {:?}", actual[0]);
+        }
+        assert_eq!(1, actual.len());
+    }
+
+    #[test]
+    fn def_macro()
+    {
+        let input = "macro macro_first :: a b ->
+            a
+        --";
+        let actual = parse(Rule::def_func, input).unwrap();
+        println!("{:#?}", actual);
+        if let Ast::DefMacro(name, args, _body) = &*actual[0].node {
+            assert_eq!("macro_first", *name);
+            assert_eq!("a", args[0]);
+            assert_eq!("b", args[1]);
+        } else {
+            panic!("expected DefMacro, found {:?}", actual[0]);
         }
         assert_eq!(1, actual.len());
     }

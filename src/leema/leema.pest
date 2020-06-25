@@ -35,7 +35,7 @@ prefix_op = _{
 
 postfix_op = _{
     (as1 ~ add_newline)
-    | call_args
+    | tuple
 }
 
 // keywords
@@ -62,6 +62,11 @@ keywords = _{
     | mxport
     | "datatype"
     | "match" | "if"
+    | and | or | not
+}
+
+keyword_prefix = _{
+    keywords ~ ( LETTER | NUMBER | "_" )+
 }
 
 // horizontal space only
@@ -76,16 +81,19 @@ vs1 = _{ NEWLINE ~ as0 }
 modname_tail = _{ ASCII_ALPHA_LOWER | ASCII_DIGIT }
 modname = @{ !keywords ~ ASCII_ALPHA_LOWER ~ modname_tail* }
 
-id = @{ !keywords ~ ((LETTER | "_") ~ ( LETTER | NUMBER | "_" )* | "#") }
+id = @{
+    keyword_prefix
+    | !keywords ~ ((LETTER | "_") ~ ( LETTER | NUMBER | "_" )* | "#")
+}
 def_generic = { id ~ ("'" ~ id)+ }
 def_id = _{ def_generic | id }
 
-term = _{ id | number | str | ("(" ~ expr ~ ")") }
+term = _{ id | number | str | tuple }
 pattern = _{ underscore | expr }
 
 x_maybe_k = { (id ~ hs0 ~ ":" ~ as0)? ~ expr }
 xlist = _{ x_maybe_k ~ (as0 ~ "," ~ as0 ~ x_maybe_k)* ~ as0 ~ ","? }
-call_args = { "(" ~ as0 ~ xlist? ~ as0 ~ ")" }
+tuple = { "(" ~ as0 ~ xlist? ~ as0 ~ ")" }
 
 case = { "|" ~ pattern ~ as1 ~ arrow_block }
 ifx = { "if" ~ vs1 ~ case+ ~ "--" }
@@ -116,9 +124,10 @@ compound_expr = _{
 
 list_type = { "[" ~ typex ~ "]" }
 generic_type = { id ~ ("'" ~ type_term)+ }
+tuple_type = { "(" ~ as0 ~ def_func_arg* ~ as0 ~ ")" }
 
 type_term = _{
-    "(" ~ typex ~ ")"
+    tuple_type
     | list_type
     | generic_type
     | id
