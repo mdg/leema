@@ -1306,13 +1306,12 @@ mod tests
     fn test_generic_typecall_wrongargs()
     {
         let input = r#"
-        func swap[T] a:T b:T /(T T)
-        >>
+        func swap'T:(T T) :: a:T b:T ->
             (b, a)
         --
 
-        func main >>
-            swap[Str #]("hello", #world)
+        func main ->
+            swap'Str("hello", #world)
         --
         "#
         .to_string();
@@ -1328,14 +1327,13 @@ mod tests
     fn test_type_genericfunc_1()
     {
         let input = r#"
-        func swap[A B] a:A b:B /(B A)
-        >>
+        func swap'A'B:(B A) :: a:A b:B ->
             (b, a)
         --
 
-        func main >>
+        func main ->
             swap(3, 5)
-            swap[Str #]("hello", #world)
+            swap'Str'#("hello", #world)
         --
         "#
         .to_string();
@@ -1371,9 +1369,9 @@ mod tests
     fn test_semantics_match_with_fail()
     {
         let input = r#"
-        func safediv x:Int y:Int /Int
-        |(_, 0) >> fail(#divide_by_0, "cannot divide by zero")
-        |(a, b) >> a + b
+        func safediv:Int :: x:Int y:Int
+        |(_, 0) -> fail(#divide_by_0, "cannot divide by zero")
+        |(a, b) -> a + b
         --
         "#
         .to_string();
@@ -1387,7 +1385,7 @@ mod tests
     #[should_panic]
     fn test_semantics_module_scope_fail()
     {
-        let input = r#"func main >> bar() --"#.to_string();
+        let input = r#"func main -> bar() --"#.to_string();
 
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::from(("/foo", "main"));
@@ -1422,7 +1420,7 @@ mod tests
         let bar_src = r#"
         export foo.Taco
 
-        func bar t: Taco /Int >> 3 --
+        func bar:Int :: t:Taco -> 3 --
         "#
         .to_string();
 
@@ -1430,8 +1428,8 @@ mod tests
         import /bar
         import /bar/foo.Taco
 
-        func main >>
-            bar::bar(Taco) + 6
+        func main ->
+            bar.bar(Taco) + 6
         --
         "#
         .to_string();
