@@ -226,6 +226,10 @@ impl LeemaPratt
                 };
                 Ok(result)
             }
+            Rule::tuple => {
+                let tuple = self.parse_xlist(n.into_inner())?;
+                Ok(AstNode::new(Ast::Tuple(tuple), loc))
+            }
             Rule::and
             | Rule::or
             | Rule::not
@@ -476,7 +480,7 @@ where
                 .into();
         }
         let op = match p.as_rule() {
-            Rule::expr | Rule::float | Rule::id | Rule::int | Rule::str => {
+            Rule::expr | Rule::float | Rule::id | Rule::int | Rule::str | Rule::tuple => {
                 Ok(Op::new("str", Affix::Nilfix, Arity::Nullary, Precedence(0)))
             }
             r => {
