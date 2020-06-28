@@ -397,14 +397,14 @@ impl LeemaPratt
         }).collect()
     }
 
-    pub fn parse_xlist<Inputs>(&mut self, it: Inputs) -> Lresult<Xlist>
+    fn parse_xlist<Inputs>(&mut self, it: Inputs) -> Lresult<Xlist>
     where
         Inputs: Iterator<Item = Pair<'static, Rule>>,
     {
         it.map(|p| self.parse_x_maybe_k(p)).collect()
     }
 
-    pub fn parse_x_maybe_k(
+    fn parse_x_maybe_k(
         &mut self,
         pair: Pair<'static, Rule>,
     ) -> Lresult<StrupleItem<Option<&'static str>, AstNode>>
@@ -439,6 +439,17 @@ impl LeemaPratt
                 ))
             }
         }
+    }
+
+    #[inline(always)]
+    fn nullary_op(name: &'static str) -> Op
+    {
+        Op::new(
+            name,
+            Affix::Nilfix,
+            Arity::Nullary,
+            Precedence(0),
+        )
     }
 }
 
@@ -479,17 +490,35 @@ where
                     .infix("or", Rule::or)
                 .into();
         }
-        let op = match p.as_rule() {
-            Rule::expr | Rule::float | Rule::id | Rule::int | Rule::str | Rule::tuple => {
-                Ok(Op::new("str", Affix::Nilfix, Arity::Nullary, Precedence(0)))
+        match p.as_rule() {
+            Rule::expr => {
+                Ok(Self::nullary_op("expr"))
+            }
+            Rule::float => {
+                Ok(Self::nullary_op("float"))
+            }
+            Rule::id => {
+                Ok(Self::nullary_op("id"))
+            }
+            Rule::int => {
+                Ok(Self::nullary_op("int"))
+            }
+            Rule::str => {
+                Ok(Self::nullary_op("str"))
+            }
+            Rule::tuple => {
+                // check for postfix (call) and if not, return nullary
+                Ok(KEY.get(&Rule::tuple)
+                    .map(|op| *op)
+                    .unwrap_or_else(|| Self::nullary_op("tuple"))
+                )
             }
             r => {
                 KEY.get(&r).map(|op| *op).ok_or_else(|| {
                     rustfail!("compile_error", "unsupported operator: {:?}", p,)
                 })
             }
-        }?;
-        Ok(op)
+        }
     }
 
     fn nullary(&mut self, n: Self::Input) -> AstResult
@@ -979,6 +1008,24 @@ mod tests
             panic!("expected import, found {:?}", imps);
         }
         assert_eq!(1, imps.len());
+    }
+
+    #[test]
+    fn not_with_parens()
+    {
+        let input = "not (x < 5)";
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::expr,
+            tokens: [
+                expr(0, 6, [
+                    int(0, 1),
+                    equality(2, 4),
+                    id(5, 6)
+                ])
+            ]
+        )
     }
 
     #[test]
