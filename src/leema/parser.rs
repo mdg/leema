@@ -8,9 +8,7 @@ use crate::leema::val::Val;
 use lazy_static::lazy_static;
 use pest::iterators::Pair;
 use pest::Parser;
-use pratt::{Affix, Arity, Associativity, Op, PrattParser, Precedence};
-
-use std::collections::HashMap;
+use pratt::{Affix, Arity, Associativity, Op, PrattParser, Precedence, QueryPhase};
 
 #[derive(Parser)]
 #[grammar = "leema/leema.pest"]
@@ -93,7 +91,13 @@ pub fn parse_mxline(pair: Pair<'static, Rule>) -> Lresult<ModTree>
 }
 
 type OpVal = (&'static str, Rule, Affix, Arity);
-type PrecKey = HashMap<Rule, Op>;
+type PrecKey = Vec<(Rule, Op)>;
+
+fn as_op(opval: OpVal, prec: Precedence) -> (Rule, Op)
+{
+   let (name, r, aff, arity) = opval;
+   (r, Op::new(name, aff, arity, prec))
+}
 
 pub struct ParserBuilder
 {
@@ -115,6 +119,11 @@ impl ParserBuilder
     pub fn right(self) -> PrecBuilder
     {
         PrecBuilder::open(self, Associativity::Right)
+    }
+
+    pub fn none(self) -> PrecBuilder
+    {
+        PrecBuilder::open(self, Associativity::Null)
     }
 }
 
@@ -144,6 +153,11 @@ impl PrecBuilder
     pub fn right(self) -> PrecBuilder
     {
         self.close().right()
+    }
+
+    pub fn none(self) -> PrecBuilder
+    {
+        self.close().none()
     }
 
     pub fn infix(mut self, src: &'static str, r: Rule) -> Self
@@ -177,6 +191,13 @@ impl PrecBuilder
         self
     }
 
+    pub fn nullary(mut self, name: &'static str, r: Rule) -> PrecBuilder
+    {
+        self.prec.push((name, r, Affix::Nilfix, Arity::Nullary));
+        self
+
+    }
+
     fn close(mut self) -> ParserBuilder
     {
         self.parser.prec.push(self.prec);
@@ -184,15 +205,30 @@ impl PrecBuilder
     }
 }
 
+fn find_op(key: &PrecKey, rule: Rule, phase: QueryPhase) -> Lresult<Op>
+{
+    for op in key.iter() {
+        if op.0 == rule && phase.affixes((op.1).1) {
+            return Ok(op.1.clone());
+        }
+    }
+    Err(rustfail!(
+        "compile_error",
+        "unsupported {:?} operator: {:?}",
+        phase,
+        rule,
+    ))
+}
+
 impl Into<PrecKey> for PrecBuilder
 {
     fn into(self) -> PrecKey
     {
-        let mut key = HashMap::new();
+        let mut key = Vec::new();
         for (iprec, p) in self.close().prec.into_iter().rev().enumerate() {
             for opval in p.into_iter() {
                 let prec = Precedence(iprec as i32);
-                key.insert(opval.1, Op::new(opval.0, opval.2, opval.3, prec));
+                key.push(as_op(opval, prec));
             }
         }
         key
@@ -461,7 +497,7 @@ where
     type Output = AstNode;
     type Error = Failure;
 
-    fn query(&mut self, p: &Self::Input) -> Lresult<Op>
+    fn query(&mut self, p: &Self::Input, phase: QueryPhase) -> Lresult<Op>
     {
         lazy_static! {
             static ref KEY: PrecKey = ParserBuilder::new()
@@ -488,8 +524,15 @@ where
                     .infix("and", Rule::and)
                 .left()
                     .infix("or", Rule::or)
+                .none()
+                    .nullary("expr", Rule::expr)
+                    .nullary("float", Rule::float)
+                    .nullary("id", Rule::id)
+                    .nullary("int", Rule::int)
+                    .nullary("str", Rule::str)
                 .into();
         }
+
         match p.as_rule() {
             Rule::expr => {
                 Ok(Self::nullary_op("expr"))
@@ -507,16 +550,14 @@ where
                 Ok(Self::nullary_op("str"))
             }
             Rule::tuple => {
-                // check for postfix (call) and if not, return nullary
-                Ok(KEY.get(&Rule::tuple)
-                    .map(|op| *op)
-                    .unwrap_or_else(|| Self::nullary_op("tuple"))
-                )
+                if phase == QueryPhase::Before {
+                    Ok(Self::nullary_op("()"))
+                } else {
+                    find_op(&KEY, Rule::tuple, QueryPhase::Before)
+                }
             }
             r => {
-                KEY.get(&r).map(|op| *op).ok_or_else(|| {
-                    rustfail!("compile_error", "unsupported operator: {:?}", p,)
-                })
+                find_op(&KEY, r, phase)
             }
         }
     }
@@ -1014,18 +1055,27 @@ mod tests
     fn not_with_parens()
     {
         let input = "not (x < 5)";
+        let actual = parse(Rule::expr, input).unwrap();
+        println!("{:#?}", actual);
+        /*
         parses_to!(
             parser: LeemaParser,
             input: input,
             rule: Rule::expr,
             tokens: [
                 expr(0, 6, [
-                    int(0, 1),
-                    equality(2, 4),
-                    id(5, 6)
+                    not(0, 3),
+                    tuple(4, 9, [
+                        x_maybe_k(5, 10, [
+                            expr(5, 10), [
+                                id(6, 7),
+                            ])
+                        ])
+                    ])
                 ])
             ]
         )
+        */
     }
 
     #[test]
