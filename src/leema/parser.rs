@@ -10,10 +10,36 @@ use pest::iterators::Pair;
 use pest::Parser;
 use pratt::{Affix, Arity, Associativity, Op, PrattParser, Precedence, QueryPhase};
 
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum Placement
+{
+    Infix,
+    Prefix,
+    Postfix,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Assoc
+{
+    Left,
+    Right,
+}
+
+impl Assoc
+{
+    pub fn next_prec(self, prec: i32) -> i32
+    {
+        match self {
+            Assoc::Left => prec + 1,
+            Assoc::Right => prec,
+        }
+    }
+}
+
 #[derive(Parser)]
 #[grammar = "leema/leema.pest"]
 pub struct LeemaParser;
-
 
 pub fn parse_tokens(r: Rule, text: &'static str) -> Lresult<Vec<Pair<Rule>>>
 {
@@ -87,6 +113,31 @@ pub fn parse_mxline(pair: Pair<'static, Rule>) -> Lresult<ModTree>
                 pair,
             ))
         }
+    }
+}
+
+pub struct LeemaPrec;
+
+impl LeemaPrec
+{
+    pub fn prec(_placement: Placement, _rule: Rule) -> Option<&'static (i32, Assoc)>
+    {
+        None
+    }
+
+    pub fn primary<'i>(_op: Pair<'i, Rule>) -> AstResult
+    {
+        Ok(AstNode::void())
+    }
+
+    pub fn unary<'i>(_op: Pair<'i, Rule>, _a: AstNode) -> AstResult
+    {
+        Ok(AstNode::void())
+    }
+
+    pub fn binary<'i>(_a: AstNode, _op: Pair<'i, Rule>, _b: AstNode) -> AstResult
+    {
+        Ok(AstNode::void())
     }
 }
 

@@ -1,61 +1,9 @@
 use crate::leema::ast2::{AstNode, AstResult};
-use crate::leema::parser::Rule;
+use crate::leema::parser::{LeemaPrec, Placement, Rule};
 
 use std::iter::Peekable;
 
 use pest::iterators::Pair;
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum Placement
-{
-    Infix,
-    Prefix,
-    Postfix,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Assoc
-{
-    Left,
-    Right,
-}
-
-impl Assoc
-{
-    pub fn next_prec(self, prec: u32) -> u32
-    {
-        match self {
-            Assoc::Left => prec + 1,
-            Assoc::Right => prec,
-        }
-    }
-}
-
-struct LeemaPrec;
-
-impl LeemaPrec
-{
-    fn prec(_placement: Placement, _rule: Rule) -> Option<&'static (u32, Assoc)>
-    {
-        // self.ops.get(&(placement, rule))
-        None
-    }
-
-    fn primary<'i>(_op: Pair<'i, Rule>) -> AstResult
-    {
-        Ok(AstNode::void())
-    }
-
-    fn unary<'i>(_op: Pair<'i, Rule>, _a: AstNode) -> AstResult
-    {
-        Ok(AstNode::void())
-    }
-
-    fn binary<'i>(_a: AstNode, _op: Pair<'i, Rule>, _b: AstNode) -> AstResult
-    {
-        Ok(AstNode::void())
-    }
-}
 
 pub fn parse<'i, P>(pairs: P) -> AstResult
 where
@@ -65,7 +13,7 @@ where
 }
 
 fn parse_0<'i, P>(
-    min_prec: u32,
+    min_prec: i32,
     pairs: &mut Peekable<P>,
 ) -> AstResult
 where
@@ -94,7 +42,7 @@ where
 
 fn parse_1<'i, P>(
     mut lhs: AstNode,
-    min_prec: u32,
+    min_prec: i32,
     pairs: &mut Peekable<P>,
 ) -> AstResult
 where
