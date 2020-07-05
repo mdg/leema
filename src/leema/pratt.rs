@@ -20,16 +20,22 @@ fn parse_0<P>(
 where
     P: Iterator<Item = Pair<'static, Rule>>,
 {
-    let first = pairs
-            .next()
-            .expect("precedence climbing requires a non-empty Pairs");
+    if pairs.peek().is_none() {
+        return Err(rustfail!(
+            "compile_failure",
+            "parsing precedence requires at least one pair",
+        ));
+    }
+
+    let first = pairs.next().unwrap();
     match parser.prefix_prec(first.as_rule()) {
         Some(pre_prec) => {
             if pre_prec < min_prec {
                 parser.primary(first)
             } else {
                 let rhs = parse_0(parser, pre_prec, pairs)?;
-                parser.unary(first, rhs)
+                let lhs = parser.unary(first, rhs)?;
+                parse_1(parser, lhs, min_prec, pairs)
             }
         }
         None => {

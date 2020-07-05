@@ -1271,6 +1271,47 @@ mod tests
     }
 
     #[test]
+    fn not_paren_infix()
+    {
+        let input = "not (a and b)";
+        let actual = parse(Rule::expr, input).unwrap();
+        println!("{:#?}", actual);
+
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::expr,
+            tokens: [
+                expr(0, 13, [
+                    not(0, 3),
+                    tuple(4, 13, [
+                        x_maybe_k(5, 12, [
+                            expr(5, 12, [
+                                id(5, 6),
+                                and(7, 10),
+                                id(11, 12)
+                            ])
+                        ])
+                    ])
+                ])
+            ]
+        );
+
+        let t = &actual[0];
+        if let Ast::Op1("not", x) = &*t.node {
+            if let Ast::Op2("and", a, b) = &*x.node {
+                assert_eq!(Ast::Id1("a"), *a.node);
+                assert_eq!(Ast::Id1("b"), *b.node);
+            } else {
+                panic!("expected and op2, found {:?}", x);
+            }
+        } else {
+            panic!("expected not op1, found {:?}", t);
+        }
+        assert_eq!(1, actual.len());
+    }
+
+    #[test]
     fn infix_and_not()
     {
         let input = "a and not b";
