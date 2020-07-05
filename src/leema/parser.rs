@@ -1,41 +1,82 @@
 use crate::leema::ast2;
 use crate::leema::ast2::{Ast, AstNode, AstResult, Case, DataType, ModAction, ModTree, Xlist};
-use crate::leema::failure::{Failure, Lresult};
+use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
+use crate::leema::pratt;
 use crate::leema::struple::StrupleItem;
 use crate::leema::val::Val;
 
-use lazy_static::lazy_static;
 use pest::iterators::Pair;
 use pest::Parser;
-use pratt::{Affix, Arity, Associativity, Op, PrattParser, Precedence, QueryPhase};
+
+use std::collections::HashMap;
 
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum Placement
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Prec(i32);
+
+impl Prec
 {
-    Infix,
-    Prefix,
-    Postfix,
+    pub fn higher(&self) -> Prec
+    {
+        Prec(self.0 + 1)
+    }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Assoc
 {
     Left,
     Right,
+    None,
 }
 
 impl Assoc
 {
-    pub fn next_prec(self, prec: i32) -> i32
+    pub fn next_prec(self, prec: Prec) -> Prec
     {
         match self {
-            Assoc::Left => prec + 1,
+            Assoc::Left => prec.higher(),
             Assoc::Right => prec,
         }
     }
 }
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Placement
+{
+    Nofix,
+    Prefix,
+    Postfix,
+    Infix(Assoc),
+}
+
+impl Placement
+{
+    pub fn phase(&self) -> Phase
+    {
+        match self {
+            Placement::Nofix | Placement::Prefix => Phase::Zero,
+            Placement::Postfix | Placement::Infix(_) => Phase::One,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum Phase
+{
+    Zero,
+    One,
+}
+
+pub struct PrecRule
+{
+    place: Placement,
+    prec: Prec,
+}
+
+type PrecKey = HashMap<(Phase, Rule), (Placement, Prec)>;
+
 
 #[derive(Parser)]
 #[grammar = "leema/leema.pest"]
@@ -69,8 +110,8 @@ pub fn parse(r: Rule, text: &'static str) -> Lresult<Vec<AstNode>>
         println!("parse error: {:?}", e);
         rustfail!("parse failure", "{:?}", e,)
     })?;
-    let mut pratt = LeemaPratt {};
-    it.map(|i| pratt.primary(i)).collect()
+    let mut prec = LeemaPrec::new();
+    it.map(|i| prec.primary(i)).collect()
 }
 
 pub fn nodeloc(pair: &Pair<Rule>) -> ast2::Loc
@@ -78,8 +119,6 @@ pub fn nodeloc(pair: &Pair<Rule>) -> ast2::Loc
     let (line, col) = pair.as_span().start_pos().line_col();
     ast2::Loc::new(line as u16, col as u8)
 }
-
-pub struct LeemaPratt;
 
 pub fn parse_mxline(pair: Pair<'static, Rule>) -> Lresult<ModTree>
 {
@@ -116,179 +155,60 @@ pub fn parse_mxline(pair: Pair<'static, Rule>) -> Lresult<ModTree>
     }
 }
 
-pub struct LeemaPrec;
+pub struct LeemaPrec
+{
+    key: PrecKey,
+}
 
 impl LeemaPrec
 {
-    pub fn prec(_placement: Placement, _rule: Rule) -> Option<&'static (i32, Assoc)>
+    pub fn new() -> LeemaPrec
     {
-        None
+        LeemaPrec{ key: Self::init_key() }
     }
 
-    pub fn primary<'i>(_op: Pair<'i, Rule>) -> AstResult
+    pub fn prec(&self, phase: Phase, r: Rule) -> Option<(Placement, Prec)>
     {
-        Ok(AstNode::void())
+        self.key.get(&(phase, r))
+            .map(|result| result.clone())
     }
 
-    pub fn unary<'i>(_op: Pair<'i, Rule>, _a: AstNode) -> AstResult
+    fn init_key() -> PrecKey
     {
-        Ok(AstNode::void())
+        ParserBuilder::new()
+            .left()
+                .infix(Rule::dot)
+                .infix(Rule::tick)
+                .postfix(Rule::tuple)
+            .right()
+                .prefix(Rule::negative)
+            .left()
+                .infix(Rule::star)
+                .infix(Rule::slash)
+                .infix(Rule::modulo)
+            .left()
+                .infix(Rule::plus)
+                .infix(Rule::dash)
+            .left()
+                .infix(Rule::less_than)
+                .infix(Rule::equality)
+                .infix(Rule::greater_than)
+            .right()
+                .prefix(Rule::not)
+            .left()
+                .infix(Rule::and)
+            .left()
+                .infix(Rule::or)
+            .none()
+                .nofix(Rule::expr)
+                .nofix(Rule::float)
+                .nofix(Rule::id)
+                .nofix(Rule::int)
+                .nofix(Rule::str)
+            .into()
     }
 
-    pub fn binary<'i>(_a: AstNode, _op: Pair<'i, Rule>, _b: AstNode) -> AstResult
-    {
-        Ok(AstNode::void())
-    }
-}
-
-type OpVal = (&'static str, Rule, Affix, Arity);
-type PrecKey = Vec<(Rule, Op)>;
-
-fn as_op(opval: OpVal, prec: Precedence) -> (Rule, Op)
-{
-   let (name, r, aff, arity) = opval;
-   (r, Op::new(name, aff, arity, prec))
-}
-
-pub struct ParserBuilder
-{
-    prec: Vec<Vec<OpVal>>,
-}
-
-impl ParserBuilder
-{
-    pub fn new() -> Self
-    {
-        ParserBuilder { prec: vec![] }
-    }
-
-    pub fn left(self) -> PrecBuilder
-    {
-        PrecBuilder::open(self, Associativity::Left)
-    }
-
-    pub fn right(self) -> PrecBuilder
-    {
-        PrecBuilder::open(self, Associativity::Right)
-    }
-
-    pub fn none(self) -> PrecBuilder
-    {
-        PrecBuilder::open(self, Associativity::Null)
-    }
-}
-
-pub struct PrecBuilder
-{
-    parser: ParserBuilder,
-    assoc: Associativity,
-    prec: Vec<OpVal>,
-}
-
-impl PrecBuilder
-{
-    pub fn open(parser: ParserBuilder, assoc: Associativity) -> Self
-    {
-        PrecBuilder {
-            parser,
-            assoc,
-            prec: vec![],
-        }
-    }
-
-    pub fn left(self) -> PrecBuilder
-    {
-        self.close().left()
-    }
-
-    pub fn right(self) -> PrecBuilder
-    {
-        self.close().right()
-    }
-
-    pub fn none(self) -> PrecBuilder
-    {
-        self.close().none()
-    }
-
-    pub fn infix(mut self, src: &'static str, r: Rule) -> Self
-    {
-        self.prec
-            .push((src, r, Affix::Infix(self.assoc), Arity::Binary));
-        self
-    }
-
-    pub fn prefix(mut self, src: &'static str, r: Rule) -> Self
-    {
-        if self.assoc == Associativity::Left {
-            panic!(
-                "prefix rules cannot be left associative: {:?} {:?}",
-                src, r
-            );
-        }
-        self.prec.push((src, r, Affix::Prefix, Arity::Unary));
-        self
-    }
-
-    pub fn postfix(mut self, src: &'static str, r: Rule) -> PrecBuilder
-    {
-        if self.assoc == Associativity::Right {
-            panic!(
-                "postfix rules cannot be right associative: {:?} {:?}",
-                src, r
-            );
-        }
-        self.prec.push((src, r, Affix::Postfix, Arity::Unary));
-        self
-    }
-
-    pub fn nullary(mut self, name: &'static str, r: Rule) -> PrecBuilder
-    {
-        self.prec.push((name, r, Affix::Nilfix, Arity::Nullary));
-        self
-
-    }
-
-    fn close(mut self) -> ParserBuilder
-    {
-        self.parser.prec.push(self.prec);
-        self.parser
-    }
-}
-
-fn find_op(key: &PrecKey, rule: Rule, phase: QueryPhase) -> Lresult<Op>
-{
-    for op in key.iter() {
-        if op.0 == rule && phase.affixes((op.1).1) {
-            return Ok(op.1.clone());
-        }
-    }
-    Err(rustfail!(
-        "compile_error",
-        "unsupported {:?} operator: {:?}",
-        phase,
-        rule,
-    ))
-}
-
-impl Into<PrecKey> for PrecBuilder
-{
-    fn into(self) -> PrecKey
-    {
-        let mut key = Vec::new();
-        for (iprec, p) in self.close().prec.into_iter().rev().enumerate() {
-            for opval in p.into_iter() {
-                let prec = Precedence(iprec as i32);
-                key.push(as_op(opval, prec));
-            }
-        }
-        key
-    }
-}
-
-impl LeemaPratt
-{
-    fn primary(&mut self, n: Pair<'static, Rule>) -> AstResult
+    pub fn primary(&self, n: Pair<'static, Rule>) -> AstResult
     {
         let loc = nodeloc(&n);
         match n.as_rule() {
@@ -297,7 +217,7 @@ impl LeemaPratt
                 let i = n.as_str().parse().unwrap();
                 Ok(AstNode::new_constval(Val::Int(i), loc))
             }
-            Rule::expr => self.parse(&mut n.into_inner()),
+            Rule::expr => pratt::parse(self, &mut n.into_inner()),
             Rule::strlit => {
                 let s = Val::Str(Lstr::Sref(n.as_str()));
                 Ok(AstNode::new_constval(s, loc))
@@ -462,12 +382,55 @@ impl LeemaPratt
             }
             _ => {
                 println!("unsupported rule: {:?}", n);
-                self.parse(&mut n.into_inner())
+                pratt::parse(self, &mut n.into_inner())
             }
         }
     }
 
-    fn parse_case(&mut self, pair: Pair<'static, Rule>) -> Lresult<Case>
+    pub fn unary(&self, op: Pair<'static, Rule>, x: AstNode) -> AstResult
+    {
+        let loc = nodeloc(&op);
+        match op.as_rule() {
+            Rule::tuple => {
+                let tuple = self.parse_xlist(op.into_inner())?;
+                let call_loc = x.loc;
+                Ok(AstNode::new(Ast::Call(x, tuple), call_loc))
+            }
+            Rule::negative | Rule::not | Rule::add_newline => {
+                let ast = Ast::Op1(op.as_str(), x);
+                Ok(AstNode::new(ast, loc))
+            }
+            _ => {
+                panic!("unknown unary operator: {:?}", op);
+            }
+        }
+    }
+
+    pub fn binary(&self, a: AstNode, op: Pair<'static, Rule>, b: AstNode) -> AstResult
+    {
+        match op.as_rule() {
+            Rule::dot
+            | Rule::tick
+            | Rule::and
+            | Rule::or
+            | Rule::plus
+            | Rule::dash
+            | Rule::star
+            | Rule::slash
+            | Rule::modulo
+            | Rule::less_than
+            | Rule::equality
+            | Rule::greater_than => {
+                let ast = Ast::Op2(op.as_str(), a, b);
+                Ok(AstNode::new(ast, nodeloc(&op)))
+            }
+            _ => {
+                panic!("unknown operator: {:?}", op);
+            }
+        }
+    }
+
+    fn parse_case(&self, pair: Pair<'static, Rule>) -> Lresult<Case>
     {
         let mut inner = pair.into_inner();
         let patt = self.primary(inner.next().unwrap())?;
@@ -484,7 +447,7 @@ impl LeemaPratt
         }).collect()
     }
 
-    fn parse_xlist<Inputs>(&mut self, it: Inputs) -> Lresult<Xlist>
+    fn parse_xlist<Inputs>(&self, it: Inputs) -> Lresult<Xlist>
     where
         Inputs: Iterator<Item = Pair<'static, Rule>>,
     {
@@ -492,7 +455,7 @@ impl LeemaPratt
     }
 
     fn parse_x_maybe_k(
-        &mut self,
+        &self,
         pair: Pair<'static, Rule>,
     ) -> Lresult<StrupleItem<Option<&'static str>, AstNode>>
     {
@@ -527,140 +490,125 @@ impl LeemaPratt
             }
         }
     }
-
-    #[inline(always)]
-    fn nullary_op(name: &'static str) -> Op
-    {
-        Op::new(
-            name,
-            Affix::Nilfix,
-            Arity::Nullary,
-            Precedence(0),
-        )
-    }
 }
 
-impl<Inputs> PrattParser<Inputs> for LeemaPratt
-where
-    Inputs: Iterator<Item = Pair<'static, Rule>>,
+struct Preop(Placement, Rule);
+
+pub struct ParserBuilder
 {
-    type Input = Pair<'static, Rule>;
-    type Output = AstNode;
-    type Error = Failure;
+    prec: Vec<Vec<Preop>>,
+}
 
-    fn query(&mut self, p: &Self::Input, phase: QueryPhase) -> Lresult<Op>
+impl ParserBuilder
+{
+    pub fn new() -> Self
     {
-        lazy_static! {
-            static ref KEY: PrecKey = ParserBuilder::new()
-                .left()
-                    .infix(".", Rule::dot)
-                    .infix("'", Rule::tick)
-                    .postfix("()", Rule::tuple)
-                .right()
-                    .prefix("-", Rule::negative)
-                .left()
-                    .infix("*", Rule::star)
-                    .infix("/", Rule::slash)
-                    .infix("modulo", Rule::modulo)
-                .left()
-                    .infix("+", Rule::plus)
-                    .infix("-", Rule::dash)
-                .left()
-                    .infix("<", Rule::less_than)
-                    .infix("==", Rule::equality)
-                    .infix(">", Rule::greater_than)
-                .right()
-                    .prefix("not", Rule::not)
-                .left()
-                    .infix("and", Rule::and)
-                .left()
-                    .infix("or", Rule::or)
-                .none()
-                    .nullary("expr", Rule::expr)
-                    .nullary("float", Rule::float)
-                    .nullary("id", Rule::id)
-                    .nullary("int", Rule::int)
-                    .nullary("str", Rule::str)
-                .into();
-        }
-
-        match p.as_rule() {
-            Rule::expr => {
-                Ok(Self::nullary_op("expr"))
-            }
-            Rule::float => {
-                Ok(Self::nullary_op("float"))
-            }
-            Rule::id => {
-                Ok(Self::nullary_op("id"))
-            }
-            Rule::int => {
-                Ok(Self::nullary_op("int"))
-            }
-            Rule::str => {
-                Ok(Self::nullary_op("str"))
-            }
-            Rule::tuple => {
-                if phase == QueryPhase::Before {
-                    Ok(Self::nullary_op("()"))
-                } else {
-                    find_op(&KEY, Rule::tuple, QueryPhase::Before)
-                }
-            }
-            r => {
-                find_op(&KEY, r, phase)
-            }
-        }
+        ParserBuilder { prec: vec![] }
     }
 
-    fn nullary(&mut self, n: Self::Input) -> AstResult
+    pub fn left(self) -> PrecBuilder
     {
-        self.primary(n)
+        PrecBuilder::open(self, Assoc::Left)
     }
 
-    fn unary(&mut self, op: Self::Input, x: AstNode) -> AstResult
+    pub fn right(self) -> PrecBuilder
     {
-        let loc = nodeloc(&op);
-        match op.as_rule() {
-            Rule::tuple => {
-                let tuple = self.parse_xlist(op.into_inner())?;
-                let call_loc = x.loc;
-                Ok(AstNode::new(Ast::Call(x, tuple), call_loc))
-            }
-            Rule::negative | Rule::not | Rule::add_newline => {
-                let ast = Ast::Op1(op.as_str(), x);
-                Ok(AstNode::new(ast, loc))
-            }
-            _ => {
-                panic!("unknown unary operator: {:?}", op);
-            }
-        }
+        PrecBuilder::open(self, Assoc::Right)
     }
 
-    fn binary(&mut self, op: Self::Input, a: AstNode, b: AstNode) -> AstResult
+    pub fn none(self) -> PrecBuilder
     {
-        match op.as_rule() {
-            Rule::dot
-            | Rule::tick
-            | Rule::and
-            | Rule::or
-            | Rule::plus
-            | Rule::dash
-            | Rule::star
-            | Rule::slash
-            | Rule::modulo
-            | Rule::less_than
-            | Rule::equality
-            | Rule::greater_than => {
-                let ast = Ast::Op2(op.as_str(), a, b);
-                Ok(AstNode::new(ast, nodeloc(&op)))
-            }
-            _ => {
-                panic!("unknown operator: {:?}", op);
-            }
-        }
+        PrecBuilder::open(self, Assoc::None)
     }
 }
+
+pub struct PrecBuilder
+{
+    parser: ParserBuilder,
+    assoc: Assoc,
+    prec: Vec<Preop>,
+}
+
+impl PrecBuilder
+{
+    pub fn open(parser: ParserBuilder, assoc: Assoc) -> Self
+    {
+        PrecBuilder {
+            parser,
+            assoc,
+            prec: vec![],
+        }
+    }
+
+    pub fn left(self) -> PrecBuilder
+    {
+        self.close().left()
+    }
+
+    pub fn right(self) -> PrecBuilder
+    {
+        self.close().right()
+    }
+
+    pub fn none(self) -> PrecBuilder
+    {
+        self.close().none()
+    }
+
+    pub fn infix(mut self, r: Rule) -> Self
+    {
+        self.prec.push(Preop(Placement::Infix(self.assoc), r));
+        self
+    }
+
+    pub fn prefix(mut self, r: Rule) -> Self
+    {
+        if self.assoc == Assoc::Left {
+            panic!("prefix rules cannot be left associative: {:?}", r);
+        }
+        self.prec.push(Preop(Placement::Prefix, r));
+        self
+    }
+
+    pub fn postfix(mut self, r: Rule) -> PrecBuilder
+    {
+        if self.assoc == Assoc::Right {
+            panic!("postfix rules cannot be right associative: {:?}", r);
+        }
+        self.prec.push(Preop(Placement::Postfix, r));
+        self
+    }
+
+    pub fn nofix(mut self, r: Rule) -> PrecBuilder
+    {
+        self.prec.push(Preop(Placement::Nofix, r));
+        self
+
+    }
+
+    fn close(mut self) -> ParserBuilder
+    {
+        self.parser.prec.push(self.prec);
+        self.parser
+    }
+}
+
+impl Into<PrecKey> for PrecBuilder
+{
+    fn into(self) -> PrecKey
+    {
+        let mut key = HashMap::new();
+        for (iprec, p) in self.close().prec.into_iter().rev().enumerate() {
+            let prec = Prec(iprec as i32);
+            for preop in p.into_iter() {
+                let phase = preop.0.phase();
+                key.insert((phase, preop.1), (preop.0, prec));
+            }
+        }
+        key
+    }
+}
+
 
 #[cfg(test)]
 mod tests
