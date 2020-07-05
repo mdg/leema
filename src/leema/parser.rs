@@ -9,7 +9,9 @@ use crate::leema::val::Val;
 use pest::iterators::Pair;
 use pest::Parser;
 
+use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -23,7 +25,23 @@ impl Prec
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+impl Default for Prec
+{
+    fn default() -> Prec
+    {
+        Prec(0)
+    }
+}
+
+impl PartialOrd for Prec
+{
+    fn partial_cmp(&self, other: &Prec) -> Option<Ordering>
+    {
+        self.0.partial_cmp(&other.0)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Assoc
 {
     Left,
@@ -37,12 +55,12 @@ impl Assoc
     {
         match self {
             Assoc::Left => prec.higher(),
-            Assoc::Right => prec,
+            Assoc::Right | Assoc::None => prec,
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq)]
 pub enum Placement
 {
     Nofix,
@@ -51,22 +69,37 @@ pub enum Placement
     Infix(Assoc),
 }
 
-impl Placement
+/// This is even sketchier than the Hash implementation
+/// Now it will be impossible to compare Placement and
+/// have it match the Infix association
+impl PartialEq for Placement
 {
-    pub fn phase(&self) -> Phase
+    fn eq(&self, other: &Self) -> bool
     {
-        match self {
-            Placement::Nofix | Placement::Prefix => Phase::Zero,
-            Placement::Postfix | Placement::Infix(_) => Phase::One,
+        match (*self, *other) {
+            (Placement::Nofix, Placement::Nofix) => true,
+            (Placement::Prefix, Placement::Prefix) => true,
+            (Placement::Postfix, Placement::Postfix) => true,
+            (Placement::Infix(_), Placement::Infix(_)) => true,
+            _ => false,
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum Phase
+/// This seems pretty sketchy, but I'm doing it anyway.
+/// I want infix to always match regardless of association
+/// so implementing the hash function to ignore infix association
+impl Hash for Placement
 {
-    Zero,
-    One,
+    fn hash<H: Hasher>(&self, state: &mut H)
+    {
+        match self {
+            Placement::Nofix => 1.hash(state),
+            Placement::Prefix => 2.hash(state),
+            Placement::Postfix => 3.hash(state),
+            Placement::Infix(_) => 4.hash(state),
+        }
+    }
 }
 
 pub struct PrecRule
@@ -75,7 +108,7 @@ pub struct PrecRule
     prec: Prec,
 }
 
-type PrecKey = HashMap<(Phase, Rule), (Placement, Prec)>;
+type PrecKey = HashMap<(Placement, Rule), Prec>;
 
 
 #[derive(Parser)]
@@ -110,7 +143,7 @@ pub fn parse(r: Rule, text: &'static str) -> Lresult<Vec<AstNode>>
         println!("parse error: {:?}", e);
         rustfail!("parse failure", "{:?}", e,)
     })?;
-    let mut prec = LeemaPrec::new();
+    let prec = LeemaPrec::new();
     it.map(|i| prec.primary(i)).collect()
 }
 
@@ -167,10 +200,31 @@ impl LeemaPrec
         LeemaPrec{ key: Self::init_key() }
     }
 
-    pub fn prec(&self, phase: Phase, r: Rule) -> Option<(Placement, Prec)>
+    pub fn prefix_prec(&self, r: Rule) -> Option<Prec>
     {
-        self.key.get(&(phase, r))
-            .map(|result| result.clone())
+        self.prec(Placement::Prefix, r)
+    }
+
+    pub fn postfix_prec(&self, r: Rule) -> Option<Prec>
+    {
+        self.prec(Placement::Postfix, r)
+    }
+
+    pub fn infix_prec(&self, r: Rule) -> Option<(Prec, Assoc)>
+    {
+        self.key.get_key_value(&(Placement::Infix(Assoc::None), r))
+            .and_then(|((place, _), prec)| {
+                match place {
+                    Placement::Infix(assoc) => Some((*prec, *assoc)),
+                    up => panic!("unexpected placement: {:?}", up),
+                }
+            })
+    }
+
+    fn prec(&self, p: Placement, r: Rule) -> Option<Prec>
+    {
+        self.key.get(&(p, r))
+            .map(|result| *result)
     }
 
     fn init_key() -> PrecKey
@@ -438,7 +492,7 @@ impl LeemaPrec
         Ok(Case::new(patt, block))
     }
 
-    fn parse_cases<Inputs>(&mut self, it: Inputs) -> Lresult<Vec<Case>>
+    fn parse_cases<Inputs>(&self, it: Inputs) -> Lresult<Vec<Case>>
     where
         Inputs: Iterator<Item = Pair<'static, Rule>>,
     {
@@ -601,8 +655,7 @@ impl Into<PrecKey> for PrecBuilder
         for (iprec, p) in self.close().prec.into_iter().rev().enumerate() {
             let prec = Prec(iprec as i32);
             for preop in p.into_iter() {
-                let phase = preop.0.phase();
-                key.insert((phase, preop.1), (preop.0, prec));
+                key.insert((preop.0, preop.1), prec);
             }
         }
         key
