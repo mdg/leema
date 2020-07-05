@@ -288,8 +288,12 @@ impl LeemaPrec
                 Ok(result)
             }
             Rule::tuple => {
-                let tuple = self.parse_xlist(n.into_inner())?;
-                Ok(AstNode::new(Ast::Tuple(tuple), loc))
+                let mut tuple = self.parse_xlist(n.into_inner())?;
+                if tuple.len() == 1 && tuple[0].k.is_none() {
+                    Ok(tuple.pop().unwrap().v)
+                } else {
+                    Ok(AstNode::new(Ast::Tuple(tuple), loc))
+                }
             }
             Rule::and
             | Rule::or
@@ -707,7 +711,19 @@ mod tests
                     ]),
                 ])
             ])]
-        )
+        );
+
+        if let Ast::Call(name, args) = &*actual[0].node {
+            assert_eq!(Ast::Id1("foo"), *name.node);
+            assert_eq!(None, args[0].k);
+            assert_eq!(Some("x"), args[1].k);
+            assert_eq!(Ast::ConstVal(Val::Int(5)), *args[0].v.node);
+            assert_eq!(Ast::Id1("y"), *args[1].v.node);
+            assert_eq!(2, args.len());
+        } else {
+            panic!("expected DefUnion, found {:?}", actual[0]);
+        }
+        assert_eq!(1, actual.len());
     }
 
     #[test]
@@ -1101,33 +1117,6 @@ mod tests
             panic!("expected import, found {:?}", imps);
         }
         assert_eq!(1, imps.len());
-    }
-
-    #[test]
-    fn not_with_parens()
-    {
-        let input = "not (x < 5)";
-        let actual = parse(Rule::expr, input).unwrap();
-        println!("{:#?}", actual);
-        /*
-        parses_to!(
-            parser: LeemaParser,
-            input: input,
-            rule: Rule::expr,
-            tokens: [
-                expr(0, 6, [
-                    not(0, 3),
-                    tuple(4, 9, [
-                        x_maybe_k(5, 10, [
-                            expr(5, 10), [
-                                id(6, 7),
-                            ])
-                        ])
-                    ])
-                ])
-            ]
-        )
-        */
     }
 
     #[test]
