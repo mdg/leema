@@ -33,7 +33,7 @@ impl Lstr
         Lstr::Cat(Box::new(a), Box::new(b))
     }
 
-    pub fn str(&self) -> &str
+    pub fn as_str(&self) -> &str
     {
         match self {
             &Lstr::Arc(ref s) => &(**s),
@@ -42,6 +42,11 @@ impl Lstr
                 panic!("not a str: {:?}", self);
             }
         }
+    }
+
+    pub fn str(&self) -> &str
+    {
+        self.as_str()
     }
 
     pub fn sref(&self) -> Lresult<&'static str>
