@@ -1442,7 +1442,7 @@ mod tests
     #[test]
     fn test_semantics_three_level_call()
     {
-        let foo_src = r#"func taco -> 2 --"#.to_string();
+        let foo_src = r#"func taco:Int -> 2 --"#.to_string();
 
         let bar_src = r#"
         export foo.taco
