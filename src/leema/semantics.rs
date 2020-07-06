@@ -716,7 +716,7 @@ impl<'p> TypeCheck<'p>
                 } else {
                     return Err(rustfail!(
                         SEMFAIL,
-                        "call type is not a function: {:?}",
+                        "generic call type is not a function: {:?}",
                         calltype,
                     ));
                 }
@@ -871,6 +871,29 @@ impl<'p> ast2::Op for TypeCheck<'p>
                     ));
                 }
                 node.typ = call_result;
+            }
+            Ast::Op2(".", a, b) => {
+                match (&*a.node, &*b.node) {
+                    (Ast::Tuple(tup), Ast::Id1(name)) => {
+                        match struple::find_str(&tup[..], name) {
+                            Some((_i, elem)) => {
+                                node.typ = elem.typ.clone();
+                                *node.node = (*elem.node).clone();
+                            }
+                            None => {
+                                return Err(rustfail!(
+                                    "compile_error",
+                                    "no {} found in {:?}",
+                                    name,
+                                    tup,
+                                ));
+                            }
+                        }
+                    }
+                    (r, f) => {
+                        eprintln!("type check field:\n\t{:?}\n\t{:?}", r, f);
+                    }
+                }
             }
             Ast::Generic(ref mut callx, ref mut args) => {
                 if let Ast::ConstVal(Val::Call(ref mut fref, _)) =
@@ -1395,41 +1418,45 @@ mod tests
     #[test]
     fn test_semantics_external_scope_call()
     {
-        let foo_input = r#"func bar:Int -> 3 --"#.to_string();
+        let food_input = r#"
+        func tacos:Int -> 3 --
+        func enchiladas:Int -> 2 --
+        "#.to_string();
 
-        let baz_input = r#"
-        import /foo
+        let app_input = r#"
+        import /food
+        import /food.enchiladas
 
         func main ->
-            foo.bar() + 6
+            food.tacos() + enchiladas()
         --
         "#
         .to_string();
 
         let mut prog =
-            core_program(&[("/foo", foo_input), ("/baz", baz_input)]);
-        let fref = Fref::from(("/baz", "main"));
+            core_program(&[("/food", food_input), ("/app", app_input)]);
+        let fref = Fref::from(("/app", "main"));
         prog.read_semantics(&fref).unwrap();
     }
 
     #[test]
     fn test_semantics_three_level_call()
     {
-        let foo_src = r#"datatype Taco --"#.to_string();
+        let foo_src = r#"func taco -> 2 --"#.to_string();
 
         let bar_src = r#"
-        export foo.Taco
+        export foo.taco
 
-        func bar:Int :: t:Taco -> 3 --
+        func inc:Int :: i:Int -> i + 1 --
         "#
         .to_string();
 
         let baz_src = r#"
         import /bar
-        import /bar/foo.Taco
+        import /bar/foo.taco
 
         func main ->
-            bar.bar(Taco) + 6
+            bar.inc(taco()) + 6
         --
         "#
         .to_string();
