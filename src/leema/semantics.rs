@@ -1356,7 +1356,7 @@ mod tests
 
         func main ->
             swap(3, 5)
-            swap'Str'#("hello", #world)
+            swap'Str'Int("hello", 8)
         --
         "#
         .to_string();
@@ -1370,13 +1370,17 @@ mod tests
     fn test_type_genericfuncs()
     {
         let input = r#"
-        func new_pair[A B] a:A b:B /(A B) >> (a, b) --
-
-        func first[A B] p:(A B) /A
-        |(a, _) >> a
+        func new_pair'A'B:(A B) :: a:A b:B ->
+            (a, b)
         --
 
-        func main >>
+        func first'A'B:A :: p:(A B) ->
+            match p
+            |(a, _) -> a
+            --
+        --
+
+        func main ->
             let p := new_pair(4, "b")
             let f := first(p)
         --

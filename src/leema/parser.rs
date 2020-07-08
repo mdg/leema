@@ -415,6 +415,14 @@ impl LeemaPrec
                 );
                 Ok(AstNode::new(ast, loc))
             }
+            Rule::tuple_type => {
+                let inner = n.into_inner();
+                let items: Lresult<Xlist> = inner.map(|i| {
+                    Ok(StrupleItem::new_v(self.primary(i)?))
+                }).collect();
+                let ast = Ast::Tuple(items?);
+                Ok(AstNode::new(ast, loc))
+            }
             Rule::mxstmt => {
                 let mut inner = n.into_inner();
                 let mxpair = inner.next().unwrap();
@@ -919,6 +927,18 @@ mod tests
         } else {
             panic!("expected DefFunc, found {:?}", actual[0]);
         }
+        assert_eq!(1, actual.len());
+    }
+
+    #[test]
+    fn def_func_generic_file()
+    {
+        let input = r#"
+        func new_pair'A'B:(A B) :: a:A b:B ->
+            (a, b)
+        --
+        "#;
+        let actual = parse_file(input).unwrap();
         assert_eq!(1, actual.len());
     }
 
@@ -1508,5 +1528,33 @@ mod tests
                 ])
             ]
         );
+    }
+
+    #[test]
+    fn type_tuple()
+    {
+        let input = r#"(A B)"#;
+        let ast = parse(Rule::typex, input).unwrap();
+        println!("tuple type: {:#?}", ast);
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::typex,
+            tokens: [
+                typex(0, 5, [
+                    tuple_type(0, 5, [
+                        def_func_arg(1, 2, [id(1, 2)]),
+                        def_func_arg(3, 4, [id(3, 4)]),
+                    ])
+                ])
+            ]
+        );
+        if let Ast::Tuple(items) = &*ast[0].node {
+            assert_eq!(Ast::Id1("A"), *items[0].v.node);
+            assert_eq!(Ast::Id1("B"), *items[1].v.node);
+        } else {
+            panic!("expected tuple, found {:?}", *ast[0].node);
+        }
+        assert_eq!(1, ast.len());
     }
 }
