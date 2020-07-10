@@ -685,6 +685,49 @@ impl<'p> TypeCheck<'p>
         Ok(calltype.clone())
     }
 
+    pub fn apply_typecall2(
+        &mut self,
+        calltype: &Type,
+        typearg: &Type,
+    ) -> Lresult<Type>
+    {
+        match calltype {
+            Type::Generic(true, inner, targs) => {
+                let replaced = Self::first_open_var(targs)?;
+                Ok(Type::Unknown)
+            }
+            Type::Generic(false, _, _) => {
+                Err(rustfail!(
+                    "compile_error",
+                    "generic type is closed: {}",
+                    calltype,
+                ))
+            }
+            _ => {
+                Err(rustfail!(
+                    "compile_error",
+                    "not generic: {:?}",
+                    calltype,
+                ))
+            }
+        }
+    }
+
+    fn first_open_var(typeargs: &StrupleKV<&'static str, Type>) -> Lresult<&'static str>
+    {
+        for i in typeargs.iter() {
+            if i.v == Type::Unknown {
+                return Ok(i.k);
+            }
+        }
+        Err(Failure::static_leema(
+            failure::Mode::CompileFailure,
+            lstrf!("open type has no open subtypes: {:?}", typeargs),
+            Lstr::Sref(""),
+            0,
+        ))
+    }
+
     pub fn applied_call_type(
         &mut self,
         calltype: &mut Type,
@@ -894,6 +937,9 @@ impl<'p> ast2::Op for TypeCheck<'p>
                         eprintln!("type check field:\n\t{:?}\n\t{:?}", r, f);
                     }
                 }
+            }
+            Ast::Op2("'", a, b) => {
+                let _result = self.apply_typecall2(&a.typ, &b.typ)?;
             }
             Ast::Generic(ref mut callx, ref mut args) => {
                 if let Ast::ConstVal(Val::Call(ref mut fref, _)) =

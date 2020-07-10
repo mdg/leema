@@ -276,26 +276,6 @@ impl ProtoModule
         }
     }
 
-    fn pre_add_func_name(&mut self, name: &AstNode) -> Lresult<()>
-    {
-        match &*name.node {
-            Ast::Id1(name_id) => {
-                self.funcseq.push(name_id);
-            }
-            Ast::Generic(ref name, _args) => {
-                self.pre_add_func_name(name)?;
-            }
-            _ => {
-                return Err(rustfail!(
-                    PROTOFAIL,
-                    "invalid function name: {:?}",
-                    name,
-                ));
-            }
-        }
-        Ok(())
-    }
-
     fn add_func(
         &mut self,
         name: AstNode,
