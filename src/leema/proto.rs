@@ -571,6 +571,12 @@ impl ProtoModule
             .map(|item| item.1)
     }
 
+    pub fn find_type(&self, name: &str) -> Option<&Type>
+    {
+        self.types
+            .get(name)
+    }
+
     pub fn get_type(&self, name: &str) -> Lresult<&Type>
     {
         self.types

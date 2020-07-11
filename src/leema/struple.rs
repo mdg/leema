@@ -1,3 +1,15 @@
+/// General structure / tuple storage mechanism
+///
+/// Eventually look at an optimization like:
+/// enum Struple<K, V>
+/// {
+///     Two([StrupleItem<K, V>; 2]),
+///     Three([StrupleItem<K, V>; 3]),
+///     Four([StrupleItem<K, V>; 4]),
+///     Some(Rc<Vec<StrupleItem<K, V>>>),
+///     Many(TreeMap<K, V>),
+///     Cow(TreeMap<K, V>, Rc<Vec<StrupleItem<K, V>>>),
+/// }
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::reg::{self, Ireg};

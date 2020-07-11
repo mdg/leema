@@ -1,3 +1,13 @@
+/// internal List library
+///
+/// TODO: Convert to local list object like:
+/// enum List
+/// {
+///     Cons(Val, Rc<List>),
+///     Nil,
+/// }
+/// Possibly make it generic to use for AstNode as well?
+///
 use crate::leema::val::Val;
 
 use std::cmp::Eq;

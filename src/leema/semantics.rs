@@ -351,7 +351,8 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                 self.blocks.assign_var(&Lstr::Sref(id), local_type);
             }
             Ast::Id1(id) if mode == AstMode::Type => {
-                self.local_mod.get_type(id)?;
+                self.local_mod.find_type(id);
+                node.typ = Type::Kind;
             }
             Ast::Id1(id) => {
                 if self.blocks.var_in_scope(&Lstr::Sref(id)) {
@@ -688,7 +689,7 @@ impl<'p> TypeCheck<'p>
     pub fn apply_typecall2(
         &mut self,
         calltype: &Type,
-        typearg: &Type,
+        typearg: &AstNode,
     ) -> Lresult<Type>
     {
         match calltype {
@@ -867,6 +868,9 @@ impl<'p> ast2::Op for TypeCheck<'p>
             Ast::Wildcard => {
                 node.typ = Type::Unknown;
             }
+            Ast::Op2(_, _, _) => {
+                // handled in post
+            }
             Ast::Block(_) | Ast::Call(_, _) | Ast::Tuple(_) | Ast::Let(_, _, _) => {
                 // handled in post
             }
@@ -939,7 +943,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 }
             }
             Ast::Op2("'", a, b) => {
-                let _result = self.apply_typecall2(&a.typ, &b.typ)?;
+                let result = self.apply_typecall2(&a.typ, &b)?;
             }
             Ast::Generic(ref mut callx, ref mut args) => {
                 if let Ast::ConstVal(Val::Call(ref mut fref, _)) =
