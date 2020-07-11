@@ -587,6 +587,12 @@ impl Walker
                 // maybe the field shouldn't be a regular Id1
                 // maybe it's an ast mode?
             }
+            Ast::Op2("'", ref mut a, b) => {
+                steptry!(self.walk(a, op));
+                let prev = self.set_mode(AstMode::Type);
+                steptry!(self.walk(b, op));
+                self.set_mode(prev);
+            }
             Ast::Op2(_ast_op, ref mut a, ref mut b) => {
                 steptry!(self.walk(a, op));
                 steptry!(self.walk(b, op));
