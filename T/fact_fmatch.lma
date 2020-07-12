@@ -1,12 +1,11 @@
 import /io
 
 func fmatch_fact i:Int /Int
-|1 >> 1
-|_ >> i * fmatch_fact(i-1)
+|1 -> 1
+|_ -> i * fmatch_fact(i-1)
 --
 
-func main
->>
+func main ->
     let f := fmatch_fact(4)
     io::print("factorial(4) = $f\n")
 --

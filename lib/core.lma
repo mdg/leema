@@ -6,8 +6,8 @@ datatype Bool
 
 datatype Failure --
 datatype Hashtag --
-datatype Int --
-datatype Str --
+datatype Int -RUST-
+datatype Str -RUST-
 datatype # --
 datatype Void --
 datatype NoResult --
@@ -48,9 +48,9 @@ func int_lteq:Bool :: a:Int b:Int ->
 --
 
 func int_gt:Bool :: a:Int b:Int ->
-    not (a <= b)
+    not a <= b
 --
 
 func int_gteq:Bool :: a:Int b:Int ->
-    not (a < b)
+    not a < b
 --
