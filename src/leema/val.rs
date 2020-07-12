@@ -219,6 +219,25 @@ impl Type
         }
     }
 
+    pub fn replace_openvar(&self, id: &str, new_type: &Type) -> Lresult<Type>
+    {
+        let op = |t: &Type| -> Lresult<Option<Type>>
+        {
+            match t {
+                Type::OpenVar(ovar) => {
+                    let replacement = if *ovar == id {
+                        Some(new_type.clone())
+                    } else {
+                        None
+                    };
+                    Ok(replacement)
+                }
+                _ => Ok(None)
+            }
+        };
+        self.map(&op)
+    }
+
     pub fn map<Op>(&self, op: &Op) -> Lresult<Type>
     where
         Op: Fn(&Type) -> Lresult<Option<Type>>,
@@ -1077,7 +1096,7 @@ impl fmt::Debug for Val
             Val::Nil => write!(f, "L[]"),
             Val::Hashtag(ref s) => f.write_str(s),
             Val::Buffer(ref buf) => write!(f, "Buffer<{:?}>", buf),
-            Val::Tuple(ref fields) => write!(f, "struple {:?}", fields),
+            Val::Tuple(ref fields) => write!(f, "Tuple {:?}", fields),
             Val::Struct(ref typ, ref fields) => {
                 write!(f, "struct({}{:?})", typ, fields)
             }
@@ -1695,7 +1714,7 @@ mod tests
         );
 
         let s_str = format!("{}", s);
-        assert_eq!("tortas::Taco.Burrito(:5,:8,)", s_str);
+        assert_eq!("tortas::Taco.Burrito(5,8,)", s_str);
     }
 
     #[test]

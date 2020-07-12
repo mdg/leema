@@ -351,14 +351,19 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                 self.blocks.assign_var(&Lstr::Sref(id), local_type);
             }
             Ast::Id1(id) if mode == AstMode::Type => {
-                self.local_mod.find_type(id);
-                node.typ = Type::Kind;
+                let found = self.local_mod.find_type(id);
+                if let Some(typ) = found {
+                    node.replace(
+                        Ast::ConstVal(Val::Type(typ.clone())),
+                        Type::Kind,
+                    );
+                }
             }
             Ast::Id1(id) => {
                 if self.blocks.var_in_scope(&Lstr::Sref(id)) {
                     // that's cool, nothing to do I guess?
                 } else if let Some(me) = self.local_mod.find_modelem(id) {
-                    *node = node.replace((*me.node).clone(), me.typ.clone());
+                    node.replace((*me.node).clone(), me.typ.clone());
                     return Ok(AstStep::Rewrite);
                 } else {
                     return Err(rustfail!(
@@ -630,20 +635,32 @@ impl<'p> TypeCheck<'p>
             ));
         };
 
-        if opens[open_idx].v == Type::Unknown {
-            // newly defined type, set it in opens
-            opens[open_idx].v = t.clone();
-            Ok(t.clone())
-        } else if opens[open_idx].v == *t {
-            // already the same type, good
-            return Ok(t.clone());
-        } else {
-            // different type, run a match and then assign the result
-            // this upgrades inference local vars to concrete types
-            let old_type = opens[open_idx].v.clone();
-            let new_type = ltry!(self.match_type(&old_type, t, opens));
-            opens[open_idx].v = new_type.clone();
-            Ok(new_type)
+        match &opens[open_idx].v {
+            Type::Unknown => {
+                // newly defined type, set it in opens
+                opens[open_idx].v = t.clone();
+                Ok(t.clone())
+            }
+            Type::OpenVar(open_var) if **open_var == *var => {
+                // newly defined type, set it in opens
+                opens[open_idx].v = t.clone();
+                Ok(t.clone())
+            }
+            Type::OpenVar(some_other_var) => {
+                panic!("unexpected var: {:?}", some_other_var);
+            }
+            matched_t if *matched_t == *t => {
+                // already the same type, good
+                return Ok(t.clone());
+            }
+            _ => {
+                // different type, run a match and then assign the result
+                // this upgrades inference local vars to concrete types
+                let old_type = opens[open_idx].v.clone();
+                let new_type = ltry!(self.match_type(&old_type, t, opens));
+                opens[open_idx].v = new_type.clone();
+                Ok(new_type)
+            }
         }
     }
 
@@ -687,22 +704,36 @@ impl<'p> TypeCheck<'p>
     }
 
     pub fn apply_typecall2(
-        &mut self,
-        calltype: &Type,
+        calltype: &mut AstNode,
         typearg: &AstNode,
-    ) -> Lresult<Type>
+    ) -> Lresult<()>
     {
-        match calltype {
-            Type::Generic(true, inner, targs) => {
-                let replaced = Self::first_open_var(targs)?;
-                Ok(Type::Unknown)
-            }
-            Type::Generic(false, _, _) => {
+                // let new_node = mem::take(a);
+                // *node = new_node;
+        match (&mut *calltype.node, &mut calltype.typ) {
+            (_, Type::Generic(false, _, _)) => {
                 Err(rustfail!(
                     "compile_error",
-                    "generic type is closed: {}",
+                    "generic type is closed: {:?}",
                     calltype,
                 ))
+            }
+            // Call(AstNode, Xlist),
+            (Ast::ConstVal(Val::Call(ref mut fref, _args)), Type::Generic(ref mut open, ref mut inner, ref mut targs)) => {
+                // open is true b/c of pattern above
+                let (repl_idx, repl_id) = Self::first_open_var(targs)?;
+                match &*typearg.node {
+                    Ast::ConstVal(Val::Type(t)) => {
+                        targs[repl_idx].v = t.clone();
+                        **inner = inner.replace_openvar(repl_id, t)?;
+                        *open = targs.iter().any(|a| {
+                            a.v.is_open()
+                        });
+                        fref.t = Type::Generic(*open, inner.clone(), targs.clone());
+                        Ok(())
+                    }
+                    _ => Ok(()),
+                }
             }
             _ => {
                 Err(rustfail!(
@@ -714,11 +745,14 @@ impl<'p> TypeCheck<'p>
         }
     }
 
-    fn first_open_var(typeargs: &StrupleKV<&'static str, Type>) -> Lresult<&'static str>
+    fn first_open_var(typeargs: &StrupleKV<&'static str, Type>) -> Lresult<(usize, &'static str)>
     {
-        for i in typeargs.iter() {
-            if i.v == Type::Unknown {
-                return Ok(i.k);
+        for (idx, i) in typeargs.iter().enumerate() {
+            match i.v {
+                Type::OpenVar(_) | Type::Unknown => {
+                    return Ok((idx, i.k));
+                }
+                _ => {} // not open, keep looking
             }
         }
         Err(Failure::static_leema(
@@ -942,8 +976,10 @@ impl<'p> ast2::Op for TypeCheck<'p>
                     }
                 }
             }
-            Ast::Op2("'", a, b) => {
-                let result = self.apply_typecall2(&a.typ, &b)?;
+            Ast::Op2("'", ref mut a, b) => {
+                Self::apply_typecall2(a, &b)?;
+                let new_node = mem::take(a);
+                *node = new_node;
             }
             Ast::Generic(ref mut callx, ref mut args) => {
                 if let Ast::ConstVal(Val::Call(ref mut fref, _)) =
@@ -1405,7 +1441,7 @@ mod tests
         --
 
         func main ->
-            swap(3, 5)
+            swap(3, "txt")
             swap'Str'Int("hello", 8)
         --
         "#

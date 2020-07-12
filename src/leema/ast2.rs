@@ -48,6 +48,7 @@ pub enum DataType
 {
     Struct,
     Union,
+    Rust,
 }
 
 #[derive(Clone)]
@@ -363,14 +364,10 @@ impl AstNode
         }
     }
 
-    pub fn replace(&self, node: Ast, t: Type) -> AstNode
+    pub fn replace(&mut self, node: Ast, t: Type)
     {
-        AstNode {
-            node: Box::new(node),
-            loc: self.loc.clone(),
-            typ: t,
-            dst: self.dst.clone(),
-        }
+        *self.node = node;
+        self.typ = t;
     }
 
     /// Replace the Ast member in this AstNode

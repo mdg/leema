@@ -229,6 +229,9 @@ impl ProtoModule
                     ltry!(self.add_struct(name, fields));
                 }
             }
+            Ast::DefType(DataType::Rust, name, _) => {
+                ltry!(self.add_rust_type(name));
+            }
             Ast::ModAction(_, _) => {
                 return Err(Failure::static_leema(
                     failure::Mode::CompileFailure,
@@ -299,7 +302,8 @@ impl ProtoModule
                 opens = gen_args
                     .iter()
                     .map(|a| {
-                        StrupleItem::new(a.k.unwrap(), Type::Unknown)
+                        let var = a.k.unwrap();
+                        StrupleItem::new(var, Type::OpenVar(var))
                     })
                     .collect();
 
@@ -401,10 +405,9 @@ impl ProtoModule
 
         let args = self.xlist_to_types(&m, &fields, &opens)?;
         let ftyp = FuncType::new(args, struct_typ.clone());
-        let call_args = ftyp.call_args();
         let constructor_type = Type::Func(ftyp);
         let fref = Fref::new(self.key.clone(), sname_id, constructor_type);
-        let constructor_call = Val::Call(fref, call_args);
+        let constructor_call = Val::Construct(fref);
         self.exported_vals.push(StrupleItem::new(
             Some(sname_id),
             AstNode::new_constval(constructor_call, name.loc),
@@ -429,6 +432,41 @@ impl ProtoModule
                 self.exported_vals.push(StrupleItem::new(
                     Some(name_id),
                     const_node,
+                ));
+            }
+            Ast::Generic(iname, _) => {
+                return Err(Failure::static_leema(
+                    failure::Mode::CompileFailure,
+                    lstrf!("tokens cannot be generic: {:?}", iname),
+                    self.key.best_path(),
+                    name.loc.lineno,
+                ));
+            }
+            invalid_name => {
+                return Err(rustfail!(
+                    PROTOFAIL,
+                    "invalid token name: {:?}",
+                    invalid_name,
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn add_rust_type(&mut self, name: AstNode) -> Lresult<()>
+    {
+        match *name.node {
+            Ast::Id1(name_id) => {
+                ltry!(self.refute_redefines_default(name_id, name.loc));
+                let tok_mod = TypeMod::from(&self.key.name);
+                let t = Type::User(tok_mod, name_id);
+                let typeval = Val::Type(t.clone());
+                let mut node = AstNode::new_constval(typeval, name.loc);
+                node.typ = Type::Kind;
+                self.types.insert(name_id, t);
+                self.exported_vals.push(StrupleItem::new(
+                    Some(name_id),
+                    node,
                 ));
             }
             Ast::Generic(iname, _) => {
@@ -573,8 +611,13 @@ impl ProtoModule
 
     pub fn find_type(&self, name: &str) -> Option<&Type>
     {
-        self.types
-            .get(name)
+        self.find_modelem(name)
+            .and_then(|node| {
+                match &*node.node {
+                    Ast::ConstVal(Val::Type(typeval)) => Some(typeval),
+                    _ => None,
+                }
+            })
     }
 
     pub fn get_type(&self, name: &str) -> Lresult<&Type>

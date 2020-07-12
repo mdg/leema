@@ -441,6 +441,12 @@ impl LeemaPrec
                 let stmt = Ast::Return(self.primary(inner.next().unwrap())?);
                 Ok(AstNode::new(stmt, loc))
             }
+            Rule::def_rust_type => {
+                let mut inner = n.into_inner();
+                let id = self.primary(inner.next().unwrap())?;
+                let df = Ast::DefType(DataType::Rust, id, vec![]);
+                Ok(AstNode::new(df, loc))
+            }
             Rule::EOI => Ok(AstNode::void()),
             Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, loc)),
             Rule::x1 | Rule::prefix1 | Rule::postfix1 => {
