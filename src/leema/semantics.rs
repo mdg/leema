@@ -924,6 +924,11 @@ impl<'p> ast2::Op for TypeCheck<'p>
                     node.typ = Type::VOID;
                 }
             }
+            Ast::Id1(id) => {
+                let nopens = vec![];
+                let id_type = self.inferred_type(&node.typ, &nopens)?;
+                node.typ = id_type;
+            }
             Ast::Call(ref mut callx, ref mut args) => {
                 let call_result = ltry!(self
                     .applied_call_type(&mut callx.typ, args)
@@ -1045,7 +1050,9 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 x.typ = typ;
             }
             Ast::List(ref inner) => {
-                let inner_typ = inner.first().unwrap().v.typ.clone();
+                let inner_typ = inner.first()
+                    .map(|item| item.v.typ.clone())
+                    .unwrap_or(Type::Unknown);
                 node.typ = Type::StrictList(Box::new(inner_typ));
             }
             Ast::Tuple(ref items) => {
@@ -1423,7 +1430,7 @@ mod tests
         --
 
         func main ->
-            swap'Str("hello", #world)
+            swap'Str("hello", 8)
         --
         "#
         .to_string();
@@ -1431,8 +1438,8 @@ mod tests
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::from(("/foo", "main"));
         let f = prog.read_semantics(&fref).unwrap_err();
-        assert_eq!("type_failure", f.tag.str());
-        assert_eq!("wrong number of args, expected 1, found 2", f.msg.str());
+        assert_eq!("semantic_failure", f.tag.str());
+        assert_eq!("types do not match: (/core::Str != /core::Int)", f.msg.str());
     }
 
     #[test]
@@ -1485,9 +1492,11 @@ mod tests
     fn test_semantics_match_with_fail()
     {
         let input = r#"
-        func safediv:Int :: x:Int y:Int
-        |(_, 0) -> fail(#divide_by_0, "cannot divide by zero")
-        |(a, b) -> a + b
+        func safediv:Int :: x:Int y:Int ->
+            match
+            |(_, 0) -> fail(#divide_by_0, "cannot divide by zero")
+            |(a, b) -> a + b
+            --
         --
         "#
         .to_string();

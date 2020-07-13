@@ -287,6 +287,10 @@ impl LeemaPrec
                 };
                 Ok(result)
             }
+            Rule::hashtag => {
+                let val = Val::Hashtag(Lstr::Sref(n.as_str()));
+                Ok(AstNode::new_constval(val, loc))
+            }
             Rule::tuple => {
                 let mut tuple = self.parse_xlist(n.into_inner())?;
                 if tuple.len() == 1 && tuple[0].k.is_none() {

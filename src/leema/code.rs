@@ -830,13 +830,14 @@ mod tests
         let input = r#"
         import /io.print
 
-        func is_empty l:[Int]
-        |[] >> True
-        |h;t >> False
-        |_ >> False
+        func is_empty:Bool :: l:[Int] ->
+            match
+            |[] -> True
+            |_ -> False
+            --
         --
 
-        func main >>
+        func main ->
             let e := is_empty([4, 8, 3])
             print("is empty? $e\n")
         --
