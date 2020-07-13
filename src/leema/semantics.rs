@@ -878,7 +878,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
     {
         match &mut *node.node {
             // Ast::Let(patt, dtype, x) => {
-            Ast::Id1(id) => {
+            Ast::Id1(id) => { // mode == value
                 // if the type is known, assign it to this variable
                 if let Some(typ) = self.vartypes.get(id) {
                     node.typ = typ.clone();
@@ -1220,7 +1220,10 @@ impl Semantics
             &mut macs,
             &mut type_check,
         ]);
-        let mut result = ltry!(ast2::walk(body, &mut pipe));
+        let mut result = ltry!(ast2::walk(body, &mut pipe)
+            .map_err(|e| {
+                e.add_context(lstrf!("function: {}.{}", f.m.name, f.f))
+            }));
 
         result.typ = type_check.inferred_type(&result.typ, &[])?;
         if *ftyp.result != result.typ && *ftyp.result != Type::VOID {
