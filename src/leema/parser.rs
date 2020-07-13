@@ -295,6 +295,10 @@ impl LeemaPrec
                     Ok(AstNode::new(Ast::Tuple(tuple), loc))
                 }
             }
+            Rule::list => {
+                let items = self.parse_xlist(n.into_inner())?;
+                Ok(AstNode::new(Ast::List(items), loc))
+            }
             Rule::and
             | Rule::or
             | Rule::not
@@ -408,12 +412,9 @@ impl LeemaPrec
             }
             Rule::list_type => {
                 let mut inner = n.into_inner();
-                let inner_type = self.primary(inner.next().unwrap())?;
-                let ast = Ast::Generic(
-                    AstNode::new(Ast::Id1("List"), loc),
-                    vec![StrupleItem::new_v(inner_type)],
-                );
-                Ok(AstNode::new(ast, loc))
+                let inner = self.primary(inner.next().unwrap())?;
+                let inner_type = vec![StrupleItem::new_v(inner)];
+                Ok(AstNode::new(Ast::List(inner_type), loc))
             }
             Rule::tuple_type => {
                 let inner = n.into_inner();

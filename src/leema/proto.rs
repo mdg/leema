@@ -1077,7 +1077,7 @@ mod tests
                     ],
                     tvt.clone(),
                 ))),
-                vec![StrupleItem::new("T", Type::Unknown)],
+                vec![StrupleItem::new("T", Type::OpenVar("T"))],
             ),
             struple::find_str(&proto.exported_vals, "first").unwrap().1.typ,
         );

@@ -88,11 +88,12 @@ id = @{
 def_generic = { id ~ ("'" ~ id)+ }
 def_id = _{ def_generic | id }
 
-term = _{ id | number | str | tuple }
+term = _{ id | number | str | tuple | list }
 pattern = _{ underscore | expr }
 
 x_maybe_k = { (id ~ hs0 ~ ":" ~ as0)? ~ expr }
 xlist = _{ x_maybe_k ~ (as0 ~ "," ~ as0 ~ x_maybe_k)* ~ as0 ~ ","? }
+list = { "[" ~ as0 ~ xlist? ~ as0 ~ "]" }
 tuple = { "(" ~ as0 ~ xlist? ~ as0 ~ ")" }
 
 case = { "|" ~ pattern ~ as1 ~ arrow_block }

@@ -199,6 +199,7 @@ impl Type
             Type::Generic(open, _, _) => *open,
             Type::OpenVar(_) => true,
             Type::Tuple(items) => items.iter().any(|i| i.v.is_open()),
+            Type::StrictList(inner) => inner.is_open(),
             Type::Unknown => true,
             _ => false,
         }

@@ -780,8 +780,7 @@ impl<'p> TypeCheck<'p>
             Type::Generic(gopen @ true, ref mut open_ftyp, ref mut opens) => {
                 if let Type::Func(inner_ftyp) = &mut **open_ftyp {
                     // figure out arg types
-                    let result =
-                        self.match_argtypes(inner_ftyp, args, opens)?;
+                    let result = self.match_argtypes(inner_ftyp, args, opens)?;
                     if result.is_open() {
                         return Err(rustfail!(
                             TYPEFAIL,
@@ -1045,6 +1044,10 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 patt.typ = typ.clone();
                 x.typ = typ;
             }
+            Ast::List(ref inner) => {
+                let inner_typ = inner.first().unwrap().v.typ.clone();
+                node.typ = Type::StrictList(Box::new(inner_typ));
+            }
             Ast::Tuple(ref items) => {
                 let itypes: Lresult<Struple2<Type>> = items
                     .iter()
@@ -1255,10 +1258,10 @@ mod tests
     fn test_typecheck_open_local_vars()
     {
         let input = r#"
-        func sort[T] unsorted:[T] /[T] >> __RUST__ --
-        func take_names with_names:[(Int Str)] /[Str] >> __RUST__ --
+        func sort'T:[T] :: unsorted:[T] -RUST-
+        func take_names:[Str] :: with_names:[(Int Str)] -RUST-
 
-        func main >>
+        func main ->
             let plain := [(3, "hello"), (5, "world")]
             let sorted_tuples := sort(plain)
             let names := take_names(sorted_tuples)
