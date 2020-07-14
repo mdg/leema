@@ -233,35 +233,44 @@ impl LeemaPrec
     fn init_key() -> PrecKey
     {
         ParserBuilder::new()
+            //----
             .left()
-                .infix(Rule::dot)
-                .infix(Rule::tick)
-                .postfix(Rule::tuple)
+            .infix(Rule::dot)
+            .infix(Rule::tick)
+            .postfix(Rule::tuple)
+            //----
             .right()
-                .prefix(Rule::negative)
+            .prefix(Rule::negative)
+            //----
             .left()
-                .infix(Rule::star)
-                .infix(Rule::slash)
-                .infix(Rule::modulo)
+            .infix(Rule::star)
+            .infix(Rule::slash)
+            .infix(Rule::modulo)
+            //----
             .left()
-                .infix(Rule::plus)
-                .infix(Rule::dash)
+            .infix(Rule::plus)
+            .infix(Rule::dash)
+            //----
             .left()
-                .infix(Rule::less_than)
-                .infix(Rule::equality)
-                .infix(Rule::greater_than)
+            .infix(Rule::less_than)
+            .infix(Rule::equality)
+            .infix(Rule::greater_than)
+            //----
             .right()
-                .prefix(Rule::not)
+            .prefix(Rule::not)
+            //----
             .left()
-                .infix(Rule::and)
+            .infix(Rule::and)
+            //----
             .left()
-                .infix(Rule::or)
+            .infix(Rule::or)
+            //----
             .none()
-                .nofix(Rule::expr)
-                .nofix(Rule::float)
-                .nofix(Rule::id)
-                .nofix(Rule::int)
-                .nofix(Rule::str)
+            .nofix(Rule::expr)
+            .nofix(Rule::float)
+            .nofix(Rule::id)
+            .nofix(Rule::int)
+            .nofix(Rule::str)
             .into()
     }
 
