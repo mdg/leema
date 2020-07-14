@@ -175,25 +175,35 @@ impl ModTree
         Ok(())
     }
 
-    pub fn push(p: &mut PathBuf, id: &'static str) -> (&'static str, Box<dyn Fn(&mut PathBuf)>)
+    pub fn push(
+        p: &mut PathBuf,
+        id: &'static str,
+    ) -> (&'static str, Box<dyn Fn(&mut PathBuf)>)
     {
         if id.starts_with(".") && !id.starts_with("..") {
             let ext = &id[1..];
             p.set_extension(ext);
-            (ext, Box::new(|pp: &mut PathBuf| {
-                pp.set_extension("");
-            }))
+            (
+                ext,
+                Box::new(|pp: &mut PathBuf| {
+                    pp.set_extension("");
+                }),
+            )
         } else {
             let nextp = Path::new(id);
             let num_components = nextp.components().count();
-            let key = nextp.extension()
+            let key = nextp
+                .extension()
                 .or_else(|| nextp.file_stem())
                 .and_then(|ip| ip.to_str())
                 .unwrap();
             p.push(id);
-            (key, Box::new(move |pp: &mut PathBuf| {
-                Self::pop(pp, num_components);
-            }))
+            (
+                key,
+                Box::new(move |pp: &mut PathBuf| {
+                    Self::pop(pp, num_components);
+                }),
+            )
         }
     }
 
@@ -395,8 +405,7 @@ impl Default for AstNode
 
 
 #[macro_export]
-macro_rules! steptry
-{
+macro_rules! steptry {
     ($r:expr) => {
         match $r {
             Ok(AstStep::Ok) => {
@@ -407,7 +416,6 @@ macro_rules! steptry
             }
             Ok(AstStep::Stop) => {
                 return Ok(AstStep::Ok);
-
             }
             Err(f) => {
                 return Err(f.loc(file!(), line!()));
@@ -492,7 +500,7 @@ impl<'p> Pipeline<'p>
 {
     pub fn new(ops: Vec<&'p mut dyn Op>) -> Pipeline<'p>
     {
-        Pipeline{ ops }
+        Pipeline { ops }
     }
 }
 
@@ -522,7 +530,9 @@ struct Walker
 
 pub fn walk(mut node: AstNode, op: &mut dyn Op) -> AstResult
 {
-    let mut w = Walker{ mode: AstMode::Value };
+    let mut w = Walker {
+        mode: AstMode::Value,
+    };
     w.walk(&mut node, op)?;
     Ok(node)
 }
@@ -699,8 +709,7 @@ impl Walker
                     tree,
                 ));
             }
-            _ => {
-            }
+            _ => {}
         }
         Ok(AstStep::Ok)
     }

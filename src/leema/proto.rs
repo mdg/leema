@@ -211,10 +211,8 @@ impl ProtoModule
             }
             Ast::DefMacro(macro_name, _, _) => {
                 ltry!(self.refute_redefines_default(macro_name, node.loc));
-                self.exported_vals.push(StrupleItem::new(
-                    Some(macro_name),
-                    node,
-                ))
+                self.exported_vals
+                    .push(StrupleItem::new(Some(macro_name), node))
             }
             Ast::DefFunc(name, args, result, body) => {
                 self.add_func(name, args, result, body)?;
@@ -341,10 +339,8 @@ impl ProtoModule
 
         self.funcseq.push(name_id);
         self.funcsrc.insert(name_id, (args, body));
-        self.exported_vals.push(StrupleItem::new(
-            Some(name_id),
-            fref_ast,
-        ));
+        self.exported_vals
+            .push(StrupleItem::new(Some(name_id), fref_ast));
 
         Ok(())
     }
@@ -426,13 +422,12 @@ impl ProtoModule
                 let tok_mod = TypeMod::from(&self.key.name);
                 let t = Type::User(tok_mod, name_id);
                 let token_val = Val::Token(t.clone());
-                let const_node = AstNode::new_constval(token_val.clone(), name.loc);
+                let const_node =
+                    AstNode::new_constval(token_val.clone(), name.loc);
                 self.types.insert(name_id, t);
                 self.token.insert(name_id);
-                self.exported_vals.push(StrupleItem::new(
-                    Some(name_id),
-                    const_node,
-                ));
+                self.exported_vals
+                    .push(StrupleItem::new(Some(name_id), const_node));
             }
             Ast::Generic(iname, _) => {
                 return Err(Failure::static_leema(
@@ -464,10 +459,8 @@ impl ProtoModule
                 let mut node = AstNode::new_constval(typeval, name.loc);
                 node.typ = Type::Kind;
                 self.types.insert(name_id, t);
-                self.exported_vals.push(StrupleItem::new(
-                    Some(name_id),
-                    node,
-                ));
+                self.exported_vals
+                    .push(StrupleItem::new(Some(name_id), node));
             }
             Ast::Generic(iname, _) => {
                 return Err(Failure::static_leema(
@@ -509,15 +502,16 @@ impl ProtoModule
                 let typ_val = Val::Type(union_typ.clone());
                 let typ_ast = AstNode::new_constval(typ_val.clone(), name.loc);
                 _opens = vec![];
-                self.exported_vals.push(StrupleItem::new(
-                    Some(name_id),
-                    typ_ast,
-                ));
+                self.exported_vals
+                    .push(StrupleItem::new(Some(name_id), typ_ast));
 
                 for var in variants {
-                    let vval = Val::EnumToken(union_typ.clone(), Lstr::Sref(var.k.unwrap()));
+                    let vval = Val::EnumToken(
+                        union_typ.clone(),
+                        Lstr::Sref(var.k.unwrap()),
+                    );
                     let vast = AstNode::new_constval(vval, var.v.loc);
-                    self.exported_vals.push(StrupleItem::new(var.k, vast)); 
+                    self.exported_vals.push(StrupleItem::new(var.k, vast));
                 }
                 name_id
             }
@@ -578,46 +572,39 @@ impl ProtoModule
 
     pub fn find_macro<'a, 'b>(&'a self, macroname: &'b str) -> Option<&'a Ast>
     {
-        self.find_modelem(macroname)
-            .and_then(|node| {
-                if let Ast::DefMacro(_, _, _) = &*node.node {
-                    Some(&*node.node)
-                } else {
-                    None
-                }
-            })
+        self.find_modelem(macroname).and_then(|node| {
+            if let Ast::DefMacro(_, _, _) = &*node.node {
+                Some(&*node.node)
+            } else {
+                None
+            }
+        })
     }
 
-    pub fn find_modelem<'a, 'b>(&'a self, name: &'b str) -> Option<&'a AstNode>
+    pub fn find_modelem<'a, 'b>(&'a self, name: &'b str)
+        -> Option<&'a AstNode>
     {
         struple::find_str(&self.exported_vals, &name)
-            .or_else(|| {
-                struple::find_str(&self.local_vals, &name)
-            })
-            .or_else(|| {
-                struple::find_str(&self.imported_vals, &name)
-            })
+            .or_else(|| struple::find_str(&self.local_vals, &name))
+            .or_else(|| struple::find_str(&self.imported_vals, &name))
             .map(|item| item.1)
     }
 
     fn local_modelem<'a, 'b>(&'a self, name: &'b str) -> Option<&'a AstNode>
     {
         struple::find_str(&self.exported_vals, &name)
-            .or_else(|| {
-                struple::find_str(&self.local_vals, &name)
-            })
+            .or_else(|| struple::find_str(&self.local_vals, &name))
             .map(|item| item.1)
     }
 
     pub fn find_type(&self, name: &str) -> Option<&Type>
     {
-        self.find_modelem(name)
-            .and_then(|node| {
-                match &*node.node {
-                    Ast::ConstVal(Val::Type(typeval)) => Some(typeval),
-                    _ => None,
-                }
-            })
+        self.find_modelem(name).and_then(|node| {
+            match &*node.node {
+                Ast::ConstVal(Val::Type(typeval)) => Some(typeval),
+                _ => None,
+            }
+        })
     }
 
     pub fn get_type(&self, name: &str) -> Lresult<&Type>
@@ -692,17 +679,18 @@ impl ProtoModule
             }
             Ast::Generic(base, typeargs) => {
                 let genbase = self.ast_to_type(local_mod, base, opens)?;
-                let genargsr: Lresult<GenericTypes> = typeargs.iter().map(|t| {
-                    let k = t.k.unwrap_or("");
-                    Ok(StrupleItem::new(
-                        k,
-                        self.ast_to_type(local_mod, &t.v, opens)?,
-                    ))
-                }).collect();
+                let genargsr: Lresult<GenericTypes> = typeargs
+                    .iter()
+                    .map(|t| {
+                        let k = t.k.unwrap_or("");
+                        Ok(StrupleItem::new(
+                            k,
+                            self.ast_to_type(local_mod, &t.v, opens)?,
+                        ))
+                    })
+                    .collect();
                 let genargs = genargsr?;
-                let open = genargs.iter().any(|a| {
-                    a.v.is_open()
-                });
+                let open = genargs.iter().any(|a| a.v.is_open());
                 Type::Generic(open, Box::new(genbase), genargs)
             }
             Ast::Void => Type::VOID,
@@ -942,13 +930,10 @@ impl ProtoLib
         Ok(())
     }
 
-    pub fn import_modules(
-        &mut self,
-        modname: &Path,
-    ) -> Lresult<()>
+    pub fn import_modules(&mut self, modname: &Path) -> Lresult<()>
     {
         vout!("ProtoLib::import_modules({})\n", modname.display());
-println!("ProtoLib::import_modules({})", modname.display());
+        println!("ProtoLib::import_modules({})", modname.display());
         // unwrap is fine, already verified presence earlier
         let mut imports: Xlist = vec![];
         {
@@ -976,7 +961,11 @@ println!("ProtoLib::import_modules({})", modname.display());
         Ok(AstNode::new(tup, Loc::default()))
     }
 
-    pub fn export_as_val(&self, modname: &CanonicalMod, elem: &'static str) -> Lresult<&AstNode>
+    pub fn export_as_val(
+        &self,
+        modname: &CanonicalMod,
+        elem: &'static str,
+    ) -> Lresult<&AstNode>
     {
         let proto = self.path_proto(modname).unwrap();
         struple::find(&proto.exported_vals, &Some(elem))
@@ -1012,7 +1001,10 @@ println!("ProtoLib::import_modules({})", modname.display());
         })
     }
 
-    pub fn path_proto_mut(&mut self, path: &CanonicalMod) -> Lresult<&mut ProtoModule>
+    pub fn path_proto_mut(
+        &mut self,
+        path: &CanonicalMod,
+    ) -> Lresult<&mut ProtoModule>
     {
         self.protos.get_mut(path.as_path()).ok_or_else(|| {
             rustfail!(PROTOFAIL, "module not loaded: {:?}", path)
@@ -1079,7 +1071,10 @@ mod tests
                 ))),
                 vec![StrupleItem::new("T", Type::OpenVar("T"))],
             ),
-            struple::find_str(&proto.exported_vals, "first").unwrap().1.typ,
+            struple::find_str(&proto.exported_vals, "first")
+                .unwrap()
+                .1
+                .typ,
         );
 
         // function definitions do not create new types

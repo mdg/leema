@@ -1,5 +1,7 @@
 use crate::leema::ast2;
-use crate::leema::ast2::{Ast, AstNode, AstResult, Case, DataType, ModAction, ModTree, Xlist};
+use crate::leema::ast2::{
+    Ast, AstNode, AstResult, Case, DataType, ModAction, ModTree, Xlist,
+};
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::pratt;
@@ -169,9 +171,8 @@ pub fn parse_mxline(pair: Pair<'static, Rule>) -> Lresult<ModTree>
                         panic!("unexpected import line block: {:?}", next);
                     }
                     let block: Lresult<Vec<ModTree>>;
-                    block = next.into_inner().map(|i| {
-                        parse_mxline(i)
-                    }).collect();
+                    block =
+                        next.into_inner().map(|i| parse_mxline(i)).collect();
                     Ok(ModTree::branch(head.as_str(), block?))
                 }
                 un => panic!("unexpected import line: {:?}", un),
@@ -197,7 +198,9 @@ impl LeemaPrec
 {
     pub fn new() -> LeemaPrec
     {
-        LeemaPrec{ key: Self::init_key() }
+        LeemaPrec {
+            key: Self::init_key(),
+        }
     }
 
     pub fn prefix_prec(&self, r: Rule) -> Option<Prec>
@@ -212,7 +215,8 @@ impl LeemaPrec
 
     pub fn infix_prec(&self, r: Rule) -> Option<(Prec, Assoc)>
     {
-        self.key.get_key_value(&(Placement::Infix(Assoc::None), r))
+        self.key
+            .get_key_value(&(Placement::Infix(Assoc::None), r))
             .and_then(|((place, _), prec)| {
                 match place {
                     Placement::Infix(assoc) => Some((*prec, *assoc)),
@@ -223,8 +227,7 @@ impl LeemaPrec
 
     fn prec(&self, p: Placement, r: Rule) -> Option<Prec>
     {
-        self.key.get(&(p, r))
-            .map(|result| *result)
+        self.key.get(&(p, r)).map(|result| *result)
     }
 
     fn init_key() -> PrecKey
@@ -317,9 +320,11 @@ impl LeemaPrec
             Rule::def_generic => {
                 let mut inner = n.into_inner();
                 let id = self.primary(inner.next().unwrap())?;
-                let generics: Xlist = inner.map(|i| {
-                    StrupleItem::new(Some(i.as_str()), AstNode::void())
-                }).collect();
+                let generics: Xlist = inner
+                    .map(|i| {
+                        StrupleItem::new(Some(i.as_str()), AstNode::void())
+                    })
+                    .collect();
                 Ok(AstNode::new(Ast::Generic(id, generics), loc))
             }
             Rule::let_stmt => {
@@ -343,27 +348,26 @@ impl LeemaPrec
                 let cases = self.parse_cases(inner)?;
                 Ok(AstNode::new(Ast::Matchx(Some(x), cases), loc))
             }
-            Rule::underscore => {
-                Ok(AstNode::new(Ast::Wildcard, loc))
-            }
-            Rule::typex => {
-                self.primary(n.into_inner().next().unwrap())
-            }
+            Rule::underscore => Ok(AstNode::new(Ast::Wildcard, loc)),
+            Rule::typex => self.primary(n.into_inner().next().unwrap()),
             Rule::def_enum => {
                 let mut inner = n.into_inner();
                 let id = self.primary(inner.next().unwrap())?;
-                let vars: Lresult<Xlist> = inner.map(|var| {
-                    let mut vi = var.into_inner();
-                    let vname = vi.next().unwrap();
-                    let vloc = nodeloc(&vname);
-                    let vname_str = vname.as_str();
-                    let vname_ast = self.primary(vname)?;
-                    let varg_it = vi.next().unwrap().into_inner();
-                    let vargs: Xlist = self.parse_xlist(varg_it)?;
-                    let df = Ast::DefType(DataType::Struct, vname_ast, vargs);
-                    let node = AstNode::new(df, vloc);
-                    Ok(StrupleItem::new(Some(vname_str), node))
-                }).collect();
+                let vars: Lresult<Xlist> = inner
+                    .map(|var| {
+                        let mut vi = var.into_inner();
+                        let vname = vi.next().unwrap();
+                        let vloc = nodeloc(&vname);
+                        let vname_str = vname.as_str();
+                        let vname_ast = self.primary(vname)?;
+                        let varg_it = vi.next().unwrap().into_inner();
+                        let vargs: Xlist = self.parse_xlist(varg_it)?;
+                        let df =
+                            Ast::DefType(DataType::Struct, vname_ast, vargs);
+                        let node = AstNode::new(df, vloc);
+                        Ok(StrupleItem::new(Some(vname_str), node))
+                    })
+                    .collect();
                 let df = Ast::DefType(DataType::Union, id, vars?);
                 Ok(AstNode::new(df, loc))
             }
@@ -381,7 +385,8 @@ impl LeemaPrec
                 let def = match func_mode.as_str() {
                     "func" => {
                         let func_name = self.primary(inner.next().unwrap())?;
-                        let func_result = self.primary(inner.next().unwrap())?;
+                        let func_result =
+                            self.primary(inner.next().unwrap())?;
                         let func_arg_it = inner.next().unwrap().into_inner();
                         let func_args: Xlist = self.parse_xlist(func_arg_it)?;
                         let block = self.primary(inner.next().unwrap())?;
@@ -390,11 +395,11 @@ impl LeemaPrec
                     "macro" => {
                         let func_name = inner.next().unwrap();
                         // func result should be Void
-                        let _func_result = self.primary(inner.next().unwrap())?;
+                        let _func_result =
+                            self.primary(inner.next().unwrap())?;
                         let func_arg_it = inner.next().unwrap().into_inner();
-                        let func_args = func_arg_it.map(|it| {
-                            it.as_str()
-                        }).collect();
+                        let func_args =
+                            func_arg_it.map(|it| it.as_str()).collect();
                         let block = self.primary(inner.next().unwrap())?;
                         Ast::DefMacro(func_name.as_str(), func_args, block)
                     }
@@ -422,9 +427,9 @@ impl LeemaPrec
             }
             Rule::tuple_type => {
                 let inner = n.into_inner();
-                let items: Lresult<Xlist> = inner.map(|i| {
-                    Ok(StrupleItem::new_v(self.primary(i)?))
-                }).collect();
+                let items: Lresult<Xlist> = inner
+                    .map(|i| Ok(StrupleItem::new_v(self.primary(i)?)))
+                    .collect();
                 let ast = Ast::Tuple(items?);
                 Ok(AstNode::new(ast, loc))
             }
@@ -483,7 +488,12 @@ impl LeemaPrec
         }
     }
 
-    pub fn binary(&self, a: AstNode, op: Pair<'static, Rule>, b: AstNode) -> AstResult
+    pub fn binary(
+        &self,
+        a: AstNode,
+        op: Pair<'static, Rule>,
+        b: AstNode,
+    ) -> AstResult
     {
         match op.as_rule() {
             Rule::dot
@@ -519,9 +529,7 @@ impl LeemaPrec
     where
         Inputs: Iterator<Item = Pair<'static, Rule>>,
     {
-        it.map(|x| {
-            self.parse_case(x)
-        }).collect()
+        it.map(|x| self.parse_case(x)).collect()
     }
 
     fn parse_xlist<Inputs>(&self, it: Inputs) -> Lresult<Xlist>
@@ -660,7 +668,6 @@ impl PrecBuilder
     {
         self.prec.push(Preop(Placement::Nofix, r));
         self
-
     }
 
     fn close(mut self) -> ParserBuilder
@@ -915,8 +922,7 @@ mod tests
     #[test]
     fn def_func_generic()
     {
-        let input =
-            "func first'A'B:A :: a:A b:B ->
+        let input = "func first'A'B:A :: a:A b:B ->
                 a
             --";
         let actual = parse(Rule::def_func, input).unwrap();

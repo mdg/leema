@@ -222,8 +222,7 @@ impl Type
 
     pub fn replace_openvar(&self, id: &str, new_type: &Type) -> Lresult<Type>
     {
-        let op = |t: &Type| -> Lresult<Option<Type>>
-        {
+        let op = |t: &Type| -> Lresult<Option<Type>> {
             match t {
                 Type::OpenVar(ovar) => {
                     let replacement = if *ovar == id {
@@ -233,7 +232,7 @@ impl Type
                     };
                     Ok(replacement)
                 }
-                _ => Ok(None)
+                _ => Ok(None),
             }
         };
         self.map(&op)

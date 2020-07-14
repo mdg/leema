@@ -1,6 +1,9 @@
-use crate::leema::ast2::{self, Ast, AstMode, AstNode, AstResult, Loc, LocalType, AstStep, StepResult, Xlist};
+use crate::leema::ast2::{
+    self, Ast, AstMode, AstNode, AstResult, AstStep, Loc, LocalType,
+    StepResult, Xlist,
+};
 use crate::leema::failure::{self, Failure, Lresult};
-use crate::leema::inter::{Blockstack};
+use crate::leema::inter::Blockstack;
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::ProtoModule;
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
@@ -708,8 +711,8 @@ impl<'p> TypeCheck<'p>
         typearg: &AstNode,
     ) -> Lresult<()>
     {
-                // let new_node = mem::take(a);
-                // *node = new_node;
+        // let new_node = mem::take(a);
+        // *node = new_node;
         match (&mut *calltype.node, &mut calltype.typ) {
             (_, Type::Generic(false, _, _)) => {
                 Err(rustfail!(
@@ -719,33 +722,33 @@ impl<'p> TypeCheck<'p>
                 ))
             }
             // Call(AstNode, Xlist),
-            (Ast::ConstVal(Val::Call(ref mut fref, _args)), Type::Generic(ref mut open, ref mut inner, ref mut targs)) => {
+            (
+                Ast::ConstVal(Val::Call(ref mut fref, _args)),
+                Type::Generic(ref mut open, ref mut inner, ref mut targs),
+            ) => {
                 // open is true b/c of pattern above
                 let (repl_idx, repl_id) = Self::first_open_var(targs)?;
                 match &*typearg.node {
                     Ast::ConstVal(Val::Type(t)) => {
                         targs[repl_idx].v = t.clone();
                         **inner = inner.replace_openvar(repl_id, t)?;
-                        *open = targs.iter().any(|a| {
-                            a.v.is_open()
-                        });
-                        fref.t = Type::Generic(*open, inner.clone(), targs.clone());
+                        *open = targs.iter().any(|a| a.v.is_open());
+                        fref.t =
+                            Type::Generic(*open, inner.clone(), targs.clone());
                         Ok(())
                     }
                     _ => Ok(()),
                 }
             }
             _ => {
-                Err(rustfail!(
-                    "compile_error",
-                    "not generic: {:?}",
-                    calltype,
-                ))
+                Err(rustfail!("compile_error", "not generic: {:?}", calltype,))
             }
         }
     }
 
-    fn first_open_var(typeargs: &StrupleKV<&'static str, Type>) -> Lresult<(usize, &'static str)>
+    fn first_open_var(
+        typeargs: &StrupleKV<&'static str, Type>,
+    ) -> Lresult<(usize, &'static str)>
     {
         for (idx, i) in typeargs.iter().enumerate() {
             match i.v {
@@ -780,7 +783,8 @@ impl<'p> TypeCheck<'p>
             Type::Generic(gopen @ true, ref mut open_ftyp, ref mut opens) => {
                 if let Type::Func(inner_ftyp) = &mut **open_ftyp {
                     // figure out arg types
-                    let result = self.match_argtypes(inner_ftyp, args, opens)?;
+                    let result =
+                        self.match_argtypes(inner_ftyp, args, opens)?;
                     if result.is_open() {
                         return Err(rustfail!(
                             TYPEFAIL,
@@ -878,7 +882,8 @@ impl<'p> ast2::Op for TypeCheck<'p>
     {
         match &mut *node.node {
             // Ast::Let(patt, dtype, x) => {
-            Ast::Id1(id) => { // mode == value
+            Ast::Id1(id) => {
+                // mode == value
                 // if the type is known, assign it to this variable
                 if let Some(typ) = self.vartypes.get(id) {
                     node.typ = typ.clone();
@@ -904,7 +909,10 @@ impl<'p> ast2::Op for TypeCheck<'p>
             Ast::Op2(_, _, _) => {
                 // handled in post
             }
-            Ast::Block(_) | Ast::Call(_, _) | Ast::Tuple(_) | Ast::Let(_, _, _) => {
+            Ast::Block(_)
+            | Ast::Call(_, _)
+            | Ast::Tuple(_)
+            | Ast::Let(_, _, _) => {
                 // handled in post
             }
             _ => {
@@ -1068,7 +1076,8 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 x.typ = typ;
             }
             Ast::List(ref inner) => {
-                let inner_typ = inner.first()
+                let inner_typ = inner
+                    .first()
                     .map(|item| item.v.typ.clone())
                     .unwrap_or(Type::Unknown);
                 node.typ = Type::StrictList(Box::new(inner_typ));
@@ -1167,7 +1176,8 @@ impl Semantics
         &self.src.typ
     }
 
-    pub fn compile_call(proto: &mut ProtoModule, f: &Fref) -> Lresult<Semantics>
+    pub fn compile_call(proto: &mut ProtoModule, f: &Fref)
+        -> Lresult<Semantics>
     {
         let mut sem = Semantics::new();
 
@@ -1238,10 +1248,9 @@ impl Semantics
             &mut macs,
             &mut type_check,
         ]);
-        let mut result = ltry!(ast2::walk(body, &mut pipe)
-            .map_err(|e| {
-                e.add_context(lstrf!("function: {}.{}", f.m.name, f.f))
-            }));
+        let mut result = ltry!(ast2::walk(body, &mut pipe).map_err(|e| {
+            e.add_context(lstrf!("function: {}.{}", f.m.name, f.f))
+        }));
 
         result.typ = type_check.inferred_type(&result.typ, &[])?;
         if *ftyp.result != result.typ && *ftyp.result != Type::VOID {
@@ -1401,7 +1410,8 @@ mod tests
         func inc:Int :: i:Int ->
             i + 1
         --
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::from(("/foo", "inc"));
@@ -1460,7 +1470,10 @@ mod tests
         let fref = Fref::from(("/foo", "main"));
         let f = prog.read_semantics(&fref).unwrap_err();
         assert_eq!("semantic_failure", f.tag.str());
-        assert_eq!("types do not match: (/core::Str != /core::Int)", f.msg.str());
+        assert_eq!(
+            "types do not match: (/core::Str != /core::Int)",
+            f.msg.str()
+        );
     }
 
     #[test]
@@ -1544,7 +1557,8 @@ mod tests
         let food_input = r#"
         func tacos:Int -> 3 --
         func enchiladas:Int -> 2 --
-        "#.to_string();
+        "#
+        .to_string();
 
         let app_input = r#"
         import /food
