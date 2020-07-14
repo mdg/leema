@@ -230,6 +230,7 @@ pub enum Ast
     List(Xlist),
     Matchx(Option<AstNode>, Vec<Case>),
     ModAction(ModAction, ModTree),
+    Module(Xlist),
     Op1(&'static str, AstNode),
     Op2(&'static str, AstNode, AstNode),
     Return(AstNode),
@@ -300,6 +301,7 @@ impl Ast
             Ast::ModAction(action, tree) => {
                 write!(f, "{:?} {:?}", action, tree)
             }
+            Ast::Module(items) => write!(f, "Module {:?}", items),
             Ast::Op1(op, node) => write!(f, "Op1 {} {:?}", op, node),
             Ast::Op2(op, a, b) => write!(f, "Op2 {} {:?} {:?}", op, a, b),
             Ast::Return(result) => write!(f, "Return {:?}", result),
@@ -670,7 +672,7 @@ impl Walker
             Ast::ConstVal(_) | Ast::Id1(_) | Ast::RustBlock | Ast::Void => {
                 // nowhere else to go
             }
-            Ast::Wildcard => {
+            Ast::Module(_) | Ast::Wildcard => {
                 // nowhere else to go
             }
             // these ASTs should already be processed in the proto phase

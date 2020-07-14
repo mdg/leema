@@ -972,7 +972,7 @@ println!("ProtoLib::import_modules({})", modname.display());
     pub fn exports_as_val(&self, modname: &CanonicalMod) -> Lresult<AstNode>
     {
         let proto = ltry!(self.path_proto(modname));
-        let tup = Ast::Tuple(proto.exported_vals.clone());
+        let tup = Ast::Module(proto.exported_vals.clone());
         Ok(AstNode::new(tup, Loc::default()))
     }
 

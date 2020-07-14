@@ -959,6 +959,22 @@ impl<'p> ast2::Op for TypeCheck<'p>
             }
             Ast::Op2(".", a, b) => {
                 match (&*a.node, &*b.node) {
+                    (Ast::Module(tup), Ast::Id1(name)) => {
+                        match struple::find_str(&tup[..], name) {
+                            Some((_i, elem)) => {
+                                node.typ = elem.typ.clone();
+                                *node.node = (*elem.node).clone();
+                            }
+                            None => {
+                                return Err(rustfail!(
+                                    "compile_error",
+                                    "no {} found in module {:?}",
+                                    name,
+                                    tup,
+                                ));
+                            }
+                        }
+                    }
                     (Ast::Tuple(tup), Ast::Id1(name)) => {
                         match struple::find_str(&tup[..], name) {
                             Some((_i, elem)) => {
