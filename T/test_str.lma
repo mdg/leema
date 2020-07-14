@@ -1,10 +1,9 @@
 import /io
 import /str
 
-func main
->>
+func main ->
     let a := "aBcDeFg"
-    let lower_a := str::to_lowercase(a)
-    let upper_a := str::to_uppercase(a)
-    io::print("a: $a\nupper: $upper_a\nlower: $lower_a\n")
+    let lower_a := str.to_lowercase(a)
+    let upper_a := str.to_uppercase(a)
+    io.print("a: $a\nupper: $upper_a\nlower: $lower_a\n")
 --

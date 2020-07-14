@@ -933,7 +933,6 @@ impl ProtoLib
     pub fn import_modules(&mut self, modname: &Path) -> Lresult<()>
     {
         vout!("ProtoLib::import_modules({})\n", modname.display());
-        println!("ProtoLib::import_modules({})", modname.display());
         // unwrap is fine, already verified presence earlier
         let mut imports: Xlist = vec![];
         {
