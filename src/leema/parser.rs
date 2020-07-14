@@ -299,6 +299,15 @@ impl LeemaPrec
                 };
                 Ok(result)
             }
+            Rule::stresc => {
+                let unescaped = match n.as_str() {
+                    "\\n" => "\n",
+                    "\\\"" => "\"",
+                    keep => keep,
+                };
+                let s = Val::Str(Lstr::Sref(unescaped));
+                Ok(AstNode::new_constval(s, loc))
+            }
             Rule::hashtag => {
                 let val = Val::Hashtag(Lstr::Sref(n.as_str()));
                 Ok(AstNode::new_constval(val, loc))
@@ -1523,6 +1532,50 @@ mod tests
         );
         let ast = parse(Rule::expr, input).unwrap();
         assert_eq!(Ast::ConstVal(Val::Str(Lstr::Sref("taco"))), *ast[0].node);
+    }
+
+    #[test]
+    fn str_escapes()
+    {
+        let input = r#""ta\co\"burr\nito\n""#;
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::expr,
+            tokens: [
+                expr(0, 20, [
+                    str(0, 20, [
+                        strlit(1, 3),
+                        stresc(3, 4),
+                        strlit(4, 6),
+                        stresc(6, 8),
+                        strlit(8, 12),
+                        stresc(12, 14),
+                        strlit(14, 17),
+                        stresc(17, 19),
+                    ])
+                ])
+            ]
+        );
+        let sstr = |s: &'static str| {
+            Ast::ConstVal(Val::Str(Lstr::Sref(s)))
+        };
+        let actual = parse(Rule::expr, input).unwrap();
+        if let Ast::StrExpr(s) = &*actual[0].node {
+            let mut it = s.iter();
+            assert_eq!(sstr("ta"), *it.next().unwrap().node);
+            assert_eq!(sstr("\\"), *it.next().unwrap().node);
+            assert_eq!(sstr("co"), *it.next().unwrap().node);
+            assert_eq!(sstr("\""), *it.next().unwrap().node);
+            assert_eq!(sstr("burr"), *it.next().unwrap().node);
+            assert_eq!(sstr("\n"), *it.next().unwrap().node);
+            assert_eq!(sstr("ito"), *it.next().unwrap().node);
+            assert_eq!(sstr("\n"), *it.next().unwrap().node);
+            assert_eq!(None, it.next());
+        } else {
+            panic!("expected StrExpr, found {:?}", actual[0]);
+        }
+        assert_eq!(1, actual.len());
     }
 
     #[test]

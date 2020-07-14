@@ -1315,13 +1315,13 @@ mod tests
     #[test]
     fn test_semantics_default_imports()
     {
+        // 4;[6]
         let input = r#"
         func main ->
-            4;[6]
             4 < 6
             8 > 8
-            "x" <= "y"
-            "x" >= "y"
+            3 <= 2
+            8 >= 6
             4 == 8
             9 != 7
             3 + 4

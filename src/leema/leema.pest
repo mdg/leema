@@ -3,11 +3,12 @@ float = @{ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
 int = @{ ASCII_DIGIT+ }
 number = _{ float | int }
 
-strchar = { !"\"" ~ !"$" ~ ANY }
+strchar = { !"\"" ~ !"$" ~ !"\\" ~ ANY }
+stresc = @{ "\\n" | "\\\"" | "\\" }
 strlit = @{ strchar+ }
 strid = _{ "$" ~ id }
 strx = _{ "${" ~ expr ~ "}" }
-str = ${ "\"" ~ (strlit | strid | strx )* ~ "\"" }
+str = ${ "\"" ~ (stresc | strlit | strid | strx )* ~ "\"" }
 
 negative = { "-" }
 plus = { "+" }
