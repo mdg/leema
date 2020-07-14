@@ -907,7 +907,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
             Ast::Block(_) | Ast::Call(_, _) | Ast::Tuple(_) | Ast::Let(_, _, _) => {
                 // handled in post
             }
-            unsupported => {
+            _ => {
                 // should handle matches later, but for now it's fine
             }
         }
@@ -924,7 +924,9 @@ impl<'p> ast2::Op for TypeCheck<'p>
                     node.typ = Type::VOID;
                 }
             }
-            Ast::Id1(id) => {
+            Ast::Id1(_id) => {
+                // does this _id need to be used? should be ok b/c the type
+                // incorporates the id from pre phase
                 let nopens = vec![];
                 let id_type = self.inferred_type(&node.typ, &nopens)?;
                 node.typ = id_type;
