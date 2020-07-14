@@ -1,6 +1,6 @@
 import /io
 
-func main >>
+func main ->
     ## print a message to the console
-    io::print("hello \"quotes\"\n")
+    io.print("hello \"quotes\"\n")
 --
