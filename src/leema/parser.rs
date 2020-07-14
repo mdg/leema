@@ -1557,9 +1557,7 @@ mod tests
                 ])
             ]
         );
-        let sstr = |s: &'static str| {
-            Ast::ConstVal(Val::Str(Lstr::Sref(s)))
-        };
+        let sstr = |s: &'static str| Ast::ConstVal(Val::Str(Lstr::Sref(s)));
         let actual = parse(Rule::expr, input).unwrap();
         if let Ast::StrExpr(s) = &*actual[0].node {
             let mut it = s.iter();
