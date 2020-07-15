@@ -1,12 +1,13 @@
-import /io/print
+import /io.print
 
-func main() ->
+func main ->
     let x := 2
-    if x == 1 ->
-        print("hello")
-    else if x == 2 ->
-        print("tacos")
-    else ->
-        print("burritos")
+    if
+    |x == 1 ->
+        print("hello\n")
+    |x == 2 ->
+        print("tacos\n")
+    |True ->
+        print("burritos\n")
     --
 --
