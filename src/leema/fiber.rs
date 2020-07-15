@@ -348,21 +348,33 @@ impl Fiber
     {
         vout!("execute_jump_if_not({:?},{:?})\n", jmp, reg);
         let tjump: i32 = {
-            let test_val = ltry!(self.head.e.get_reg(reg));
-            if let &Val::Bool(test) = test_val {
-                if test {
-                    vout!("if test is true\n");
-                    1
-                } else {
-                    vout!("if test is false\n");
-                    jmp as i32
+            match ltry!(self.head.e.get_reg(reg)) {
+                &Val::Bool(test) => {
+                    if test {
+                        vout!("if test is true\n");
+                        1
+                    } else {
+                        vout!("if test is false\n");
+                        jmp as i32
+                    }
                 }
-            } else {
-                return Err(rustfail!(
-                    "type_failure",
-                    "can't if check a not bool {:?}",
-                    test_val,
-                ));
+                // EnumToken(Type, Lstr),
+                &Val::EnumToken(ref typ, ref var) if *typ == Type::BOOL => {
+                    if var.as_str() == "True" {
+                        vout!("if test is True\n");
+                        1
+                    } else {
+                        vout!("if test is False\n");
+                        jmp as i32
+                    }
+                }
+                unexpected => {
+                    return Err(rustfail!(
+                        "type_failure",
+                        "can't if check a not bool {:?}",
+                        unexpected,
+                    ));
+                }
             }
         };
         self.head.pc += tjump;
