@@ -5,12 +5,11 @@ import /option
 import /io.print
 
 
-datatype User
+datatype User ::
     id:Int
     name:Str
 --
 
-#>>
 func serialize[User](u: User): serial::Val
 >>
     s = serial::ize(s, u.id)
@@ -34,33 +33,24 @@ func json_deserialize[T](d: Deserializer, fldname: Str): T
     json::from_val[T](fldval)
 --
 
-func json_decode[T](input: Str): T
->>
-    let jsonval := json::decode_val(input)
-    let d := json::new_deserializer(jsonval)
-    dessert::deserialize[T](d)
+func decode'User:User :: input:Str ->
+    let jsonv := json.decode_val(input)
+    let id := json.obj_int(jsonv, "id")
+    let name := json.obj_str(jsonv, "name")
+    User(id, name)
 --
 
-func json_encode[T](input: T): Str
->>
-    let s = json::new_serializer()
-    dessert::serialize[T](input, s)
-    s.to_string()
-#--
-
-func user_from_json
-    juser: json::Val
->>
+func user_from_json:User :: juser:json.Val ->
     let fields := json::object_fields(juser)
     let id := json::int_val(option::unwrap(map::get(fields, "id")))
     let name := json::str_val(option::unwrap(map::get(fields, "name")))
     User(id, name)
 --
 
-func test_decode >>
-    let s := json::decode[Str]("\"coded  '\"")
-    let i := json::decode[Int]("9")
-    let b := json::decode[Bool]("true")
+func test_decode ->
+    let s := json.decode'Str("\"coded  '\"")
+    let i := json.decode'Int("9")
+    let b := json.decode'Bool("true")
     println("$s $i or $b")
 --
 
@@ -71,11 +61,11 @@ func test_decode_val >>
 --
 
 func test_encode >>
-    println(json::encode(6))
-    println(json::encode(False))
-    print(json::encode("hello") \n)
-    print(json::encode(#world) \n)
-    print(json::encode(["a", "b"]) \n)
+    println(json.encode(6))
+    println(json.encode(False))
+    print(json.encode("hello") \n)
+    print(json.encode(#world) \n)
+    print(json.encode(["a", "b"]) \n)
     ## let m := map::set({}, "x", 4)
     ## print(json::encode(m) \n)
     let u := User(4, "Javier")

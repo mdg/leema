@@ -4,8 +4,8 @@ import /map
 import /option
 
 
-func encode'T: Str :: val:T -RUST-
-func decode'T: T :: input:Str -RUST-
+func encode'T:Str :: val:T -RUST-
+func decode'T:T :: input:Str -RUST-
 
 datatype Val
 |Integer :: Int
