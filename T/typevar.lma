@@ -1,20 +1,26 @@
 import /io
 
-func new_pair[A B] a:A b:B /(A B) >> (a, b) --
-
-func first[A B] p:(A B) /A
-|(a, _) >> a
+func new_pair'A'B:(A B) :: a:A b:B ->
+    (a, b)
 --
 
-func second[A B] p:(A B) /B
-|(_, b) >> b
+func first'A'B:A :: p:(A B) ->
+    match
+    |(a, _) -> a
+    --
 --
 
-func main >>
+func second'A'B:B :: p:(A B) ->
+    match
+    |(_, b) -> b
+    --
+--
+
+func main ->
     let p := new_pair(4, "b")
     let f := first(p)
     let s := second(p)
 
-    io::print("first: $f, second: $s\n")
+    io.print("first: $f, second: $s\n")
 --
 
