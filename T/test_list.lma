@@ -6,15 +6,13 @@ func cat(acc, x)
     x;acc
 --
 
-func test_one_deep()
->>
+func test_one_deep ->
     let input := [3, 4, 5, 6, 7]
     let output := list::reduce([], input, cat)
     println("output: $output")
 --
 
-func test_nested_reduce()
->>
+func test_nested_reduce ->
     let input := [[3, 4, 5, 6, 7], [8, 9, 10, 11, 12]]
     let output := list::reduce([], input, fn(acc, i) >>
         let rev := list::reduce([], i, cat)
@@ -23,8 +21,7 @@ func test_nested_reduce()
     println("nested output: $output")
 --
 
-func test_nested_flat()
->>
+func test_nested_flat ->
     let input := [[3, 4, 5, 6, 7], [8, 9, 10, 11, 12], [13, 14, 15]]
     let output := list::reduce([], input, fn(acc, i) >>
         list::reduce(acc, i, cat)
@@ -32,8 +29,7 @@ func test_nested_flat()
     println("flat output: $output")
 --
 
-func main()
->>
+func main ->
     test_one_deep()
     test_nested_reduce()
     test_nested_flat()
