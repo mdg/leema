@@ -54,6 +54,11 @@ impl<'a> RustFuncContext<'a>
         &self.task.head.function
     }
 
+    pub fn pc(&self) -> i32
+    {
+        self.task.head.pc
+    }
+
     pub fn get_param(&self, i: i8) -> Lresult<&Val>
     {
         self.task.head.e.get_param(i)
@@ -72,6 +77,13 @@ impl<'a> RustFuncContext<'a>
     pub fn set_result(&mut self, r: Val)
     {
         self.task.head.parent.set_result(r);
+    }
+
+    pub fn new_call(&mut self, return_pc: i32, f: Fref, args: Struple2<Val>) -> Lresult<Event>
+    {
+        let start_pc = self.task.head.pc;
+        self.task.head.pc = return_pc;
+        Ok(Event::Call(Reg::stack(0), start_pc as i16, f, args))
     }
 
     pub fn new_task(&self, f: Fref, args: Struple2<Val>)

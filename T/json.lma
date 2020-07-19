@@ -5,7 +5,11 @@ import /option
 
 
 func encode'T:Str :: val:T -RUST-
-func decode'T:T :: input:Str -RUST-
+func decode'T:T :: input:Str ->
+    let json_val := decode_val(input)
+    from_jsonval'T(val)
+--
+func from_jsonval'T:T :: input:Val -RUST-
 
 datatype Val
 |Integer :: Int
@@ -14,12 +18,6 @@ datatype Val
 |Array :: [Val]
 |Object :: {Str:Val}
 |Null
---
-
-func decode'T:T :: input:Str ->
-    let jsonval := decode_val(input)
-    let d := json::new_deserializer(jsonval)
-    dessert::deserialize[T](d)
 --
 
 func decode_val:Val :: input:Str -RUST-
@@ -51,14 +49,6 @@ func obj_fields(v: Val): map::T[Str, Val] ->
     --
 --
 
-func array_map[T](v: Val, transform: F(Val): T): [T]
->>
-    match v
-    |Array(items) >> list::map(items, transform)
-    |_ >> fail(#input_error, "json value is not an array: $v")
-    --
---
-
 func bool_val:Bool :: v:Val ->
     match v
     |Boolean(b) >> b
@@ -73,8 +63,7 @@ func int_val:Int :: v:Val ->
     --
 --
 
-func str_val(v: Val): Str
->>
+func str_val:Str :: v:Val ->
     match v
     |String(s) >> s
     |_ >> fail(#input_error, "json value is not a string: $v")

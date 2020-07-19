@@ -4,9 +4,9 @@ use crate::leema::frame::Event;
 use crate::leema::list;
 use crate::leema::lmap::{Lmap, LmapNode};
 use crate::leema::lstr::Lstr;
-use crate::leema::module::TypeMod;
+use crate::leema::module::{ModKey, TypeMod};
 use crate::leema::struple::StrupleItem;
-use crate::leema::val::{Type, Val};
+use crate::leema::val::{Fref, Type, Val};
 use crate::leema::worker::RustFuncContext;
 
 use serde::ser::{Serialize, SerializeMap, SerializeSeq};
@@ -77,6 +77,43 @@ where
 }
 
 pub fn decode(mut ctx: RustFuncContext) -> Lresult<Event>
+{
+    const DECODE_WITH_ARGS: i32 = 1;
+    match ctx.pc() {
+        0 => {
+            let fref = ctx.current_fref();
+            match &fref.t {
+                Type::Generic(true, _, _) => {
+                    panic!("generic is open: {}", fref);
+                }
+                Type::Generic(false, _inner, targs) => {
+                    let json_type = targs.first().unwrap().v.clone();
+                    let json_type2 = json_type.clone();
+                    let jtval = Val::Type(json_type);
+                    ctx.new_call(
+                        DECODE_WITH_ARGS,
+                        Fref{
+                            m: ModKey::from("core"),
+                            f: "type_fields",
+                            t: json_type2,
+                        },
+                        vec![StrupleItem::new_v(jtval)],
+                    )
+                }
+                Type::Func(_) => {
+                    panic!("function is not generic: {}", fref);
+                }
+                _ => {
+                    panic!("not a function: {}", fref);
+                }
+            }
+        }
+        DECODE_WITH_ARGS => decode_with_args(ctx),
+        what => panic!("unexpected pc: {}", what),
+    }
+}
+
+fn decode_with_args(mut ctx: RustFuncContext) -> Lresult<Event>
 {
     let result: Val = {
         let text = ctx.get_param(0)?.str();
