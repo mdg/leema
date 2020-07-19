@@ -9,7 +9,52 @@ func decode'T:T :: input:Str ->
     let json_val := decode_val(input)
     from_jsonval'T(val)
 --
-func from_jsonval'T:T :: input:Val -RUST-
+
+func from_jsonval'T:T :: input:Val ->
+    let field_types := structfields T
+    let result := default(T)
+    iter.map(field_types, default(T), fn((k, v) ->
+        set(k, from_jsonval'(*V)()
+    --)
+--
+
+func from_jsonval'Int:Int :: input:Val ->
+    match
+    |Integer(i) -> i
+    |_ -> fail(#input_error, "json value is not an integer")
+    --
+--
+
+func from_jsonval'Str: :: input:Val ->
+    match
+    |String(s) -> s
+    |_ -> fail(#input_error, "json value is not a string $input")
+    --
+--
+
+func from_jsonval'Bool: :: input:Val ->
+    match
+    |Boolean(b) -> b
+    |_ -> fail(#input_error, "json value is not a boolean $input")
+    --
+--
+
+func from_jsonval'(Option'T): :: input:Val ->
+    match
+    |Null(b) -> None,
+    |other -> Some(from_jsonval'T(other))
+    --
+--
+
+func from_jsonval'[T]: :: input:Val ->
+    match
+    |Array(items) ->
+        list.map(items, fn(i) ->
+            from_jsonval'T(i)
+        --)
+    |_ -> fail(#input_error, "json value is not a boolean $input")
+    --
+--
 
 datatype Val
 |Integer :: Int
