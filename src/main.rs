@@ -14,7 +14,6 @@ use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
 use crate::leema::parser;
 use crate::leema::program;
-use crate::leema::struple::StrupleItem;
 use crate::leema::val::{Fref, FuncType, Type, Val};
 
 use docopt::Docopt;
@@ -156,12 +155,7 @@ fn real_main() -> Lresult<()>
             "wouldn't it be cool if there were a repl?",
         ));
     } else {
-        let prog = program::Lib::new(inter);
-        let mut app = Application::new(prog);
-        let caller = app.caller();
-        app.run();
-        let main_arg = vec![StrupleItem::new(None, leema_args)];
-        let result_recv = caller.push_call(fref, main_arg);
+        let (mut app, result_recv) = Application::run_main(inter, fref, leema_args);
         app.wait_for_result(result_recv)
     };
 

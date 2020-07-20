@@ -1,7 +1,8 @@
 use crate::leema::io::{Io, IoLoop};
+use crate::leema::loader::Interloader;
 use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use crate::leema::program;
-use crate::leema::struple::Struple2;
+use crate::leema::struple::{Struple2, StrupleItem};
 use crate::leema::val::{Fref, Val};
 use crate::leema::worker::Worker;
 
@@ -63,6 +64,17 @@ impl Application
     )
     {
         self.calls.push((dst, call, args));
+    }
+
+    pub fn run_main(inter: Interloader, fref: Fref, args: Val) -> (Application, Receiver<Val>)
+    {
+        let prog = program::Lib::new(inter);
+        let mut app = Application::new(prog);
+        let caller = app.caller();
+        app.run();
+        let main_arg = vec![StrupleItem::new(None, args)];
+        let result_recv = caller.push_call(fref, main_arg);
+        (app, result_recv)
     }
 
     pub fn run(&mut self)
