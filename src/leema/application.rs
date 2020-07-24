@@ -66,16 +66,17 @@ impl Application
         self.calls.push((dst, call, args));
     }
 
-    pub fn run_main(inter: Interloader, mainf: Fref, args: Struple2<Val>) -> (Application, Receiver<Val>)
+    pub fn run_main(inter: Interloader, mainf: Fref, args: Val) -> (Application, Receiver<Val>)
     {
         let mut app = Application::new();
         let caller = app.caller();
         app.run();
         let prog = program::Lib::new(inter);
         let progval = Val::Lib(Arc::new(prog));
+        let main_args = vec![StrupleItem::new_v(args)];
         let init_args = vec![
             StrupleItem::new(None, progval),
-            StrupleItem::new(None, Val::Call(mainf, args)),
+            StrupleItem::new(None, Val::Call(mainf, main_args)),
         ];
         let initf = Fref::new(
             ModKey::from("/core"),
