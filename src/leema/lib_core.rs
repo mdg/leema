@@ -7,6 +7,22 @@ use crate::leema::val::{self, Val};
 use crate::leema::worker::RustFuncContext;
 
 
+pub fn init_main(ctx: RustFuncContext) -> Lresult<frame::Event>
+{
+    let _prog = ctx.get_param(0)?;
+    let (mainf, main_args) = match ctx.get_param(1)? {
+        Val::Call(fref, args) => (fref.clone(), args.clone()),
+        unexpected => {
+            return Err(rustfail!(
+                "runtime_failure",
+                "unexpected main call {:?}",
+                unexpected,
+            ));
+        }
+    };
+    Ok(frame::Event::TailCall(mainf, main_args))
+}
+
 pub fn create_failure(ctx: RustFuncContext) -> Lresult<frame::Event>
 {
     let failtag = ctx.get_param(0)?;
@@ -214,6 +230,7 @@ pub fn int_less_than(mut f: RustFuncContext) -> Lresult<frame::Event>
 pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
+        "__init_main__" => Some(Code::Rust2(init_main)),
         "cons" => Some(Code::Rust2(list_cons)),
         "create_failure" => Some(Code::Rust2(create_failure)),
         "int_add" => Some(Code::Rust(int_add)),

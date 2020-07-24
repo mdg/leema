@@ -18,7 +18,7 @@ use std::sync::{Arc, Mutex};
 use mopa::mopafy;
 
 
-const CORE_MOD: TypeMod = canonical_typemod!("/core");
+pub const CORE_MOD: TypeMod = canonical_typemod!("/core");
 
 #[derive(Debug)]
 #[derive(Clone)]

@@ -7,13 +7,14 @@ use crate::leema::loader::Interloader;
 use crate::leema::module::CanonicalMod;
 use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::semantics::Semantics;
-use crate::leema::val::Fref;
+use crate::leema::val::{self, Fref, LibVal, Type};
 use crate::leema::{
     file, lib_core, lib_hyper, lib_io, lib_json, lib_list, lib_math, lib_task,
     prefab, tcp, udp,
 };
 
 use std::collections::HashMap;
+use std::fmt;
 use std::path::Path;
 
 
@@ -24,6 +25,14 @@ pub struct Lib
     semantics: Semantics,
     rust_load: HashMap<CanonicalMod, fn(&str) -> Option<code::Code>>,
     code: HashMap<Fref, Code>,
+}
+
+impl LibVal for Lib
+{
+    fn get_type(&self) -> Type
+    {
+        Type::User(val::CORE_MOD, "ProgramLib")
+    }
 }
 
 impl Lib
@@ -153,5 +162,13 @@ impl Lib
         ltry!(self.protos.load_imports(&mut self.loader, modpath));
         ltry!(self.protos.import_modules(modpath));
         Ok(())
+    }
+}
+
+impl fmt::Debug for Lib
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "ProgramLib {}", self.loader.main_mod.0)
     }
 }

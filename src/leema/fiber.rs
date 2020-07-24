@@ -70,6 +70,18 @@ impl Fiber
         self.head.set_parent(parent);
     }
 
+    pub fn push_tailcall(
+        &mut self,
+        func: Fref,
+        args: Struple2<Val>,
+    )
+    {
+        self.head.function = func;
+        self.head.pc = 0;
+        self.head.e = Env::with_args(args);
+        self.head.trace = self.head.push_frame_trace(0);
+    }
+
     pub fn execute_leema_frame(&mut self, ops: &OpVec) -> Lresult<Event>
     {
         let mut e = Event::Uneventful;

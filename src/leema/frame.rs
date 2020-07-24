@@ -81,6 +81,7 @@ pub enum Event
 {
     Uneventful,
     Call(Reg, i16, Fref, Struple2<Val>),
+    TailCall(Fref, Struple2<Val>),
     NewTask(Fref, Struple2<Val>),
     FutureWait(Reg),
     Iop((i64, i64), rsrc::IopAction, Vec<Val>),
@@ -106,6 +107,13 @@ impl fmt::Debug for Event
                     f,
                     "Event::Call({:?}@{}, {}, {:?})",
                     r, line, cfunc, cargs
+                )
+            }
+            &Event::TailCall(ref cfunc, ref cargs) => {
+                write!(
+                    f,
+                    "Event::TailCall({}, {:?})",
+                    cfunc, cargs
                 )
             }
             &Event::NewTask(ref fref, ref args) => {

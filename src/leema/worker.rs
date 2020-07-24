@@ -269,6 +269,12 @@ impl Worker
                 self.load_code(fbr)?;
                 Result::Ok(Async::NotReady)
             }
+            Event::TailCall(func, args) => {
+                vout!("push_tailcall({}, {:?})\n", func, args);
+                fbr.push_tailcall(func, args);
+                self.load_code(fbr)?;
+                Result::Ok(Async::NotReady)
+            }
             Event::NewTask(fref, callargs) => {
                 let (sender, _receiver) = channel();
                 let msg = AppMsg::Spawn(sender, fref, callargs);

@@ -9,11 +9,11 @@ extern crate pest_derive;
 
 use crate::leema::application::Application;
 use crate::leema::failure::Lresult;
-use crate::leema::list;
 use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
 use crate::leema::parser;
 use crate::leema::program;
+use crate::leema::struple::{StrupleItem};
 use crate::leema::val::{Fref, FuncType, Type, Val};
 
 use docopt::Docopt;
@@ -102,10 +102,6 @@ fn real_main() -> Lresult<()>
     };
 
     let main_file = Interloader::static_str(args.arg_script);
-    let leema_args_rev: Val = args.arg_args.iter().fold(Val::Nil, |aacc, a| {
-        list::cons(Val::Str(Lstr::from(a.to_string())), aacc)
-    });
-    let leema_args = list::reverse(&leema_args_rev);
     let mut inter = Interloader::new(main_file, leema_path);
     let main_key = inter.new_key(inter.main_mod.as_path())?;
     let main_mod = inter.main_mod.clone();
@@ -155,6 +151,9 @@ fn real_main() -> Lresult<()>
             "wouldn't it be cool if there were a repl?",
         ));
     } else {
+        let leema_args = args.arg_args.iter().map(|a| {
+            StrupleItem::new_v(Val::Str(Lstr::from(a)))
+        }).collect();
         let (mut app, result_recv) = Application::run_main(inter, fref, leema_args);
         app.wait_for_result(result_recv)
     };

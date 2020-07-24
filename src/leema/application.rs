@@ -1,13 +1,15 @@
 use crate::leema::io::{Io, IoLoop};
 use crate::leema::loader::Interloader;
+use crate::leema::module::ModKey;
 use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use crate::leema::program;
 use crate::leema::struple::{Struple2, StrupleItem};
-use crate::leema::val::{Fref, Val};
+use crate::leema::val::{Fref, FuncType, Type, Val};
 use crate::leema::worker::Worker;
 
 use std::cmp::min;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::thread;
 use std::time::Duration;
@@ -15,7 +17,6 @@ use std::time::Duration;
 
 pub struct Application
 {
-    prog: program::Lib,
     app_recv: Receiver<AppMsg>,
     app_send: Sender<AppMsg>,
     io_recv: Option<Receiver<IoMsg>>,
@@ -30,12 +31,11 @@ pub struct Application
 
 impl Application
 {
-    pub fn new(prog: program::Lib) -> Application
+    pub fn new() -> Application
     {
         let (tx, rx) = channel();
         let (iotx, iorx) = channel();
         Application {
-            prog,
             app_recv: rx,
             app_send: tx,
             io_recv: Some(iorx),
@@ -66,14 +66,23 @@ impl Application
         self.calls.push((dst, call, args));
     }
 
-    pub fn run_main(inter: Interloader, fref: Fref, args: Val) -> (Application, Receiver<Val>)
+    pub fn run_main(inter: Interloader, mainf: Fref, args: Struple2<Val>) -> (Application, Receiver<Val>)
     {
-        let prog = program::Lib::new(inter);
-        let mut app = Application::new(prog);
+        let mut app = Application::new();
         let caller = app.caller();
         app.run();
-        let main_arg = vec![StrupleItem::new(None, args)];
-        let result_recv = caller.push_call(fref, main_arg);
+        let prog = program::Lib::new(inter);
+        let progval = Val::Lib(Arc::new(prog));
+        let init_args = vec![
+            StrupleItem::new(None, progval),
+            StrupleItem::new(None, Val::Call(mainf, args)),
+        ];
+        let initf = Fref::new(
+            ModKey::from("/core"),
+            "__init__",
+            Type::Func(FuncType::new(vec![], Type::VOID)),
+        );
+        let result_recv = caller.push_call(initf, init_args);
         (app, result_recv)
     }
 
