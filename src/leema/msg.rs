@@ -47,8 +47,6 @@ pub enum AppMsg
 {
     // Spawn(module, function)
     Spawn(mpsc::Sender<Val>, Fref, Struple2<Val>),
-    // RequestCode(worker_id, fiber_id, module, function)
-    RequestCode(i64, i64, MsgItem<Fref>),
     MainResult(MsgVal),
 }
 

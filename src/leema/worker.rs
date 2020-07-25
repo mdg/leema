@@ -4,8 +4,11 @@ use crate::leema::fiber::Fiber;
 use crate::leema::frame::{Event, Frame, FrameTrace, Parent};
 use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use crate::leema::reg::Reg;
+use crate::leema::rsrc;
 use crate::leema::struple::{Struple2, StrupleItem};
 use crate::leema::val::{Fref, MsgVal, Val};
+
+use crate::leema::lib_core;
 
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
@@ -205,12 +208,17 @@ impl Worker
         if let Some(func) = opt_code {
             self.push_coded_fiber(curf, func)
         } else {
-            let msg = AppMsg::RequestCode(
-                self.id,
-                curf.fiber_id,
-                MsgItem::new(&curf.head.function),
-            );
-            self.app_tx
+            let args = Val::Tuple(vec![StrupleItem::new_v(
+                Val::Call(curf.head.function.clone(), vec![]),
+            )]);
+            let msg = IoMsg::Iop{
+                worker_id: self.id,
+                fiber_id: curf.fiber_id,
+                action: lib_core::load_code,
+                rsrc_id: Some(rsrc::ID_PROGLIB),
+                params: MsgItem::new(&args),
+            };
+            self.io_tx
                 .send(msg)
                 .expect("failure sending load code message to app");
             let fiber_id = curf.fiber_id;

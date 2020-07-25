@@ -1,5 +1,5 @@
 use crate::leema::lstr::Lstr;
-use crate::leema::msg::{AppMsg, IoMsg, WorkerMsg};
+use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use crate::leema::program;
 use crate::leema::rsrc::{self, Event, IopCtx, Rsrc};
 use crate::leema::struple::Struple2;
@@ -318,6 +318,17 @@ impl Io
             Event::Result(result) => {
                 vout!("handle Event::Result\n");
                 self.send_result(worker_id, fiber_id, result);
+            }
+            Event::FoundCode(fref, code) => {
+                vout!("handle Event::FoundCode\n");
+                let tx = self.worker_tx.get(&worker_id).unwrap();
+                let msg = WorkerMsg::FoundCode(
+                    fiber_id,
+                    MsgItem::new(&fref),
+                    code,
+                );
+                tx.send(msg)
+                    .expect("failed sending found code to worker");
             }
             Event::Future(libfut) => {
                 vout!("handle Event::Future\n");

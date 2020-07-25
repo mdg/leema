@@ -1,10 +1,9 @@
 use crate::leema::io::{Io, IoLoop};
 use crate::leema::loader::Interloader;
-use crate::leema::module::ModKey;
-use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
+use crate::leema::msg::{AppMsg, IoMsg, WorkerMsg};
 use crate::leema::program;
 use crate::leema::struple::{Struple2, StrupleItem};
-use crate::leema::val::{Fref, FuncType, Type, Val};
+use crate::leema::val::{Fref, Val};
 use crate::leema::worker::Worker;
 
 use std::cmp::min;
@@ -71,15 +70,7 @@ impl Application
         let caller = app.caller();
         app.run(inter);
         let main_args = vec![StrupleItem::new_v(args)];
-        let init_args = vec![
-            StrupleItem::new(None, Val::Call(mainf, main_args)),
-        ];
-        let initf = Fref::new(
-            ModKey::from("/core"),
-            "__init__",
-            Type::Func(FuncType::new(vec![], Type::VOID)),
-        );
-        let result_recv = caller.push_call(initf, init_args);
+        let result_recv = caller.push_call(mainf, main_args);
         (app, result_recv)
     }
 
@@ -192,35 +183,6 @@ impl Application
     {
         vout!("Received a message! {:?}\n", msg);
         match msg {
-            AppMsg::RequestCode(worker_id, frame, msg_f) => {
-                let fref = msg_f.take();
-                vout!(
-                    "AppMsg::RequestCode({}, {}, {})\n",
-                    worker_id,
-                    frame,
-                    fref
-                );
-                let worker = self.worker.get(&worker_id).unwrap();
-                let reply = match self.prog.load_code(&fref) {
-                    Ok(code) => {
-                        WorkerMsg::FoundCode(
-                            frame,
-                            MsgItem::new(&fref),
-                            code.clone(),
-                        )
-                    }
-                    Err(f) => {
-                        eprintln!("code load error: {}\n{:#?}", fref, f);
-                        WorkerMsg::IopResult(
-                            frame,
-                            MsgItem::new(&Val::Failure2(Box::new(f))),
-                        )
-                    }
-                };
-                worker
-                    .send(reply)
-                    .expect("fail to send found code to worker");
-            }
             AppMsg::MainResult(mv) => {
                 self.result = Some(mv.take());
                 self.done = true;

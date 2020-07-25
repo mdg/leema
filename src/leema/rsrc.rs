@@ -1,6 +1,7 @@
+use crate::leema::code::Code;
 use crate::leema::io::Io;
 pub use crate::leema::io::RunQueue;
-use crate::leema::val::{Type, Val};
+use crate::leema::val::{Fref, Type, Val};
 
 use std::cell::RefCell;
 use std::fmt;
@@ -29,6 +30,7 @@ pub enum Event
     ReturnRsrc(Box<dyn Rsrc>),
     DropRsrc,
     Result(Val),
+    FoundCode(Fref, Code),
     Sequence(Box<Event>, Box<Event>),
 }
 
@@ -37,6 +39,11 @@ impl Event
     pub fn seq(first: Event, second: Event) -> Event
     {
         Event::Sequence(Box::new(first), Box::new(second))
+    }
+
+    pub fn cat(self, next: Event) -> Event
+    {
+        Event::Sequence(Box::new(self), Box::new(next))
     }
 }
 
@@ -51,6 +58,9 @@ impl fmt::Debug for Event
             Event::ReturnRsrc(ref r) => write!(f, "Event::ReturnRsrc({:?})", r),
             Event::DropRsrc => write!(f, "Event::ReturnRsrc"),
             Event::Result(ref r) => write!(f, "Event::Result({:?})", r),
+            Event::FoundCode(ref fc, _) => {
+                write!(f, "Event::FoundCode({})", fc)
+            }
             Event::Sequence(ref first, ref second) => {
                 write!(f, "Event::Seq({:?}, {:?})", first, second)
             }

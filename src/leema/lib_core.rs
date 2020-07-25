@@ -3,6 +3,8 @@ use crate::leema::failure::{Failure, Lresult};
 use crate::leema::fiber::Fiber;
 use crate::leema::frame;
 use crate::leema::list;
+use crate::leema::program;
+use crate::leema::rsrc;
 use crate::leema::val::{self, Val};
 use crate::leema::worker::RustFuncContext;
 
@@ -225,6 +227,27 @@ pub fn int_less_than(mut f: RustFuncContext) -> Lresult<frame::Event>
     };
     f.set_result(result);
     frame::Event::success()
+}
+
+pub fn load_code(mut ctx: rsrc::IopCtx) -> rsrc::Event
+{
+    vout!("load_code()\n");
+    let mut prog: program::Lib = ctx.take_rsrc();
+    let fref = match ctx.take_param(0).unwrap() {
+        Val::Call(fr, _) => fr,
+        what => panic!("what is this? {:?}", what),
+    };
+    let rcode = prog.load_code(&fref).map(|c| (*c).clone());
+    match rcode {
+        Ok(code) => {
+            rsrc::Event::ReturnRsrc(Box::new(prog))
+                .cat(rsrc::Event::FoundCode(fref, code))
+        }
+        Err(f) => {
+            eprintln!("code load error: {}\n{:#?}", fref, f);
+            rsrc::Event::Result(Val::Failure2(Box::new(f)))
+        }
+    }
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>
