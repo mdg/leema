@@ -15,23 +15,16 @@ datatype User ::
     user_name:Str
 --
 
-func serialize[User](u: User): serial::Val
->>
-    s = serial::ize(s, u.id)
-    s = serial::ize(s, u.name)
---
-
-func deserialize[User](d: serial::Val): User
->>
-    let id :=   dessert::deserialize[Int](d, "user_id")
-    let name := dessert::deserialize[Str](d, "user_name")
-    User(id, name)
---
-
-func json_deserialize[T](d: Deserializer, fldname: Str): T
->>
+func deserialize'T:T :: d:Deserializer fldname:Str ->
     let fldval := json::get_field(d, fldname)
     json::from_val[T](fldval)
+--
+
+func fold_fields'T'Op'U:U :: val:T f:Op acc:U ->
+    f.pre(acc)
+    f.field($?, val.user_id)
+    f.field($?, val.user_name)
+    f.post($?)
 --
 
 func decode'User:User :: input:Str ->
@@ -68,9 +61,9 @@ func test_encode >>
     print(json.encode(#world) \n)
     print(json.encode(["a", "b"]) \n)
     ## let m := map::set({}, "x", 4)
-    ## print(json::encode(m) \n)
+    ## print(json.encode(m) \n)
     let u := User(4, "Javier")
-    println(json::encode(u))
+    println(json.encode(u))
 --
 
 func main >>
