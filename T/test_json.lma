@@ -5,9 +5,14 @@ import /option
 import /io.print
 
 
+datatype Item ::
+    item_id:Int
+    item_name:Str
+--
+
 datatype User ::
-    id:Int
-    name:Str
+    user_id:Int
+    user_name:Str
 --
 
 func serialize[User](u: User): serial::Val
@@ -18,12 +23,8 @@ func serialize[User](u: User): serial::Val
 
 func deserialize[User](d: serial::Val): User
 >>
-    let id := dessert::deserialize[Int](d, "id")
-    let name := dessert::deserialize[Str](d, "name")
-    let addr := dessert::deserialize[Address](d, "addr")
-    let id := serial::get_field[Int](v, "id")
-    let name := serial::get_field[Str](v, "name")
-    let addr := serial::get_field[Address](v, "addr")
+    let id :=   dessert::deserialize[Int](d, "user_id")
+    let name := dessert::deserialize[Str](d, "user_name")
     User(id, name)
 --
 
@@ -35,8 +36,8 @@ func json_deserialize[T](d: Deserializer, fldname: Str): T
 
 func decode'User:User :: input:Str ->
     let jsonv := json.decode_val(input)
-    let id := json.obj_int(jsonv, "id")
-    let name := json.obj_str(jsonv, "name")
+    let id := json.obj_int(jsonv, "user_id")
+    let name := json.obj_str(jsonv, "user_name")
     User(id, name)
 --
 
