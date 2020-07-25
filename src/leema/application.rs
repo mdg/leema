@@ -9,7 +9,6 @@ use crate::leema::worker::Worker;
 
 use std::cmp::min;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::thread;
 use std::time::Duration;
@@ -70,12 +69,9 @@ impl Application
     {
         let mut app = Application::new();
         let caller = app.caller();
-        app.run();
-        let prog = program::Lib::new(inter);
-        let progval = Val::Lib(Arc::new(prog));
+        app.run(inter);
         let main_args = vec![StrupleItem::new_v(args)];
         let init_args = vec![
-            StrupleItem::new(None, progval),
             StrupleItem::new(None, Val::Call(mainf, main_args)),
         ];
         let initf = Fref::new(
@@ -87,21 +83,22 @@ impl Application
         (app, result_recv)
     }
 
-    pub fn run(&mut self)
+    pub fn run(&mut self, inter: Interloader)
     {
-        self.start_io();
+        self.start_io(inter);
         self.start_worker();
         self.start_worker();
     }
 
-    fn start_io(&mut self) -> thread::JoinHandle<()>
+    fn start_io(&mut self, inter: Interloader) -> thread::JoinHandle<()>
     {
+        let prog = program::Lib::new(inter);
         let app_send = self.app_send.clone();
         let io_recv = self.io_recv.take().unwrap();
         thread::Builder::new()
             .name("leema-io".to_string())
             .spawn(move || {
-                let rcio = Io::new(app_send, io_recv);
+                let rcio = Io::new(app_send, io_recv, prog);
                 IoLoop::run(rcio);
             })
             .unwrap()

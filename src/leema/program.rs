@@ -6,8 +6,9 @@ use crate::leema::lib_str;
 use crate::leema::loader::Interloader;
 use crate::leema::module::CanonicalMod;
 use crate::leema::proto::{ProtoLib, ProtoModule};
+use crate::leema::rsrc::Rsrc;
 use crate::leema::semantics::Semantics;
-use crate::leema::val::{self, Fref, LibVal, Type};
+use crate::leema::val::{self, Fref, Type};
 use crate::leema::{
     file, lib_core, lib_hyper, lib_io, lib_json, lib_list, lib_math, lib_task,
     prefab, tcp, udp,
@@ -27,7 +28,7 @@ pub struct Lib
     code: HashMap<Fref, Code>,
 }
 
-impl LibVal for Lib
+impl Rsrc for Lib
 {
     fn get_type(&self) -> Type
     {

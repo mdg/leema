@@ -11,6 +11,9 @@ use futures::stream;
 use mopa::mopafy;
 
 
+pub const ID_PROGLIB: i64 = 0;
+pub const ID_INITIAL: i64 = 10;
+
 pub trait Rsrc: mopa::Any + fmt::Debug
 {
     fn get_type(&self) -> Type;

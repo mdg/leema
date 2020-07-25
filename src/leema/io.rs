@@ -1,5 +1,6 @@
 use crate::leema::lstr::Lstr;
 use crate::leema::msg::{AppMsg, IoMsg, WorkerMsg};
+use crate::leema::program;
 use crate::leema::rsrc::{self, Event, IopCtx, Rsrc};
 use crate::leema::struple::Struple2;
 use crate::leema::val::{Fref, MsgVal, Val};
@@ -162,18 +163,21 @@ impl Io
     pub fn new(
         app_tx: Sender<AppMsg>,
         msg_rx: Receiver<IoMsg>,
+        prog: program::Lib,
     ) -> Rc<RefCell<Io>>
     {
-        let io = Io {
+        let mut io = Io {
             resource: HashMap::new(),
             next: LinkedList::new(),
             msg_rx,
             app_tx,
             worker_tx: HashMap::new(),
-            next_rsrc_id: 1,
+            next_rsrc_id: rsrc::ID_INITIAL,
             io: None,
             done: false,
         };
+        let libq = RsrcQueue::new(rsrc::ID_PROGLIB, Box::new(prog));
+        io.resource.insert(rsrc::ID_PROGLIB, libq);
         let rcio = Rc::new(RefCell::new(io));
         let rcio2 = rcio.clone();
         rcio.borrow_mut().io = Some(rcio2);
