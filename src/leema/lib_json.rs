@@ -92,7 +92,7 @@ pub fn decode(mut ctx: RustFuncContext) -> Lresult<Event>
                     let jtval = Val::Type(json_type);
                     ctx.new_call(
                         DECODE_WITH_ARGS,
-                        Fref{
+                        Fref {
                             m: ModKey::from("core"),
                             f: "type_fields",
                             t: json_type2,

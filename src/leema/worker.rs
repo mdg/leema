@@ -82,7 +82,12 @@ impl<'a> RustFuncContext<'a>
         self.task.head.parent.set_result(r);
     }
 
-    pub fn new_call(&mut self, return_pc: i32, f: Fref, args: Struple2<Val>) -> Lresult<Event>
+    pub fn new_call(
+        &mut self,
+        return_pc: i32,
+        f: Fref,
+        args: Struple2<Val>,
+    ) -> Lresult<Event>
     {
         let start_pc = self.task.head.pc;
         self.task.head.pc = return_pc;
@@ -208,10 +213,11 @@ impl Worker
         if let Some(func) = opt_code {
             self.push_coded_fiber(curf, func)
         } else {
-            let args = Val::Tuple(vec![StrupleItem::new_v(
-                Val::Call(curf.head.function.clone(), vec![]),
-            )]);
-            let msg = IoMsg::Iop{
+            let args = Val::Tuple(vec![StrupleItem::new_v(Val::Call(
+                curf.head.function.clone(),
+                vec![],
+            ))]);
+            let msg = IoMsg::Iop {
                 worker_id: self.id,
                 fiber_id: curf.fiber_id,
                 action: lib_core::load_code,

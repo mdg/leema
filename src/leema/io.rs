@@ -322,13 +322,9 @@ impl Io
             Event::FoundCode(fref, code) => {
                 vout!("handle Event::FoundCode\n");
                 let tx = self.worker_tx.get(&worker_id).unwrap();
-                let msg = WorkerMsg::FoundCode(
-                    fiber_id,
-                    MsgItem::new(&fref),
-                    code,
-                );
-                tx.send(msg)
-                    .expect("failed sending found code to worker");
+                let msg =
+                    WorkerMsg::FoundCode(fiber_id, MsgItem::new(&fref), code);
+                tx.send(msg).expect("failed sending found code to worker");
             }
             Event::Future(libfut) => {
                 vout!("handle Event::Future\n");

@@ -9,8 +9,8 @@ extern crate pest_derive;
 
 use crate::leema::application::Application;
 use crate::leema::failure::Lresult;
-use crate::leema::loader::Interloader;
 use crate::leema::list;
+use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
 use crate::leema::parser;
 use crate::leema::program;
@@ -151,12 +151,14 @@ fn real_main() -> Lresult<()>
             "wouldn't it be cool if there were a repl?",
         ));
     } else {
-        let lma_args_rev: Val = args.arg_args.iter().fold(Val::Nil, |aacc, a| {
-            list::cons(Val::Str(Lstr::from(a.to_string())), aacc)
-        });
+        let lma_args_rev: Val =
+            args.arg_args.iter().fold(Val::Nil, |aacc, a| {
+                list::cons(Val::Str(Lstr::from(a.to_string())), aacc)
+            });
         let leema_args = list::reverse(&lma_args_rev);
 
-        let (mut app, result_recv) = Application::run_main(inter, fref, leema_args);
+        let (mut app, result_recv) =
+            Application::run_main(inter, fref, leema_args);
         app.wait_for_result(result_recv)
     };
 

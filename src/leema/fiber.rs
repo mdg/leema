@@ -70,11 +70,7 @@ impl Fiber
         self.head.set_parent(parent);
     }
 
-    pub fn push_tailcall(
-        &mut self,
-        func: Fref,
-        args: Struple2<Val>,
-    )
+    pub fn push_tailcall(&mut self, func: Fref, args: Struple2<Val>)
     {
         self.head.function = func;
         self.head.pc = 0;

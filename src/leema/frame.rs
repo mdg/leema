@@ -110,11 +110,7 @@ impl fmt::Debug for Event
                 )
             }
             &Event::TailCall(ref cfunc, ref cargs) => {
-                write!(
-                    f,
-                    "Event::TailCall({}, {:?})",
-                    cfunc, cargs
-                )
+                write!(f, "Event::TailCall({}, {:?})", cfunc, cargs)
             }
             &Event::NewTask(ref fref, ref args) => {
                 write!(f, "Event::NewTask({}, {:?})", fref, args)

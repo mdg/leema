@@ -54,7 +54,11 @@ impl Application
         }
     }
 
-    pub fn run_main(inter: Interloader, mainf: Fref, args: Val) -> (Application, Receiver<Val>)
+    pub fn run_main(
+        inter: Interloader,
+        mainf: Fref,
+        args: Val,
+    ) -> (Application, Receiver<Val>)
     {
         let mut app = Application::new();
         let caller = app.caller();
