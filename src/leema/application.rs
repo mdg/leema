@@ -256,7 +256,6 @@ mod tests
     use crate::leema::application::Application;
     use crate::leema::loader::Interloader;
     use crate::leema::module::ModKey;
-    use crate::leema::program;
     use crate::leema::val::{Fref, Val};
 
     use libc::getpid;
@@ -273,16 +272,12 @@ mod tests
         writeln!(stderr(), "test_main_func_finishes {:?}", p).unwrap();
         let input = "func main >> 3 --".to_string();
         let path = vec![PathBuf::from("lib")];
-        let mut inter = Interloader::new("test.lma", path);
+        let mut loader = Interloader::new("test.lma", path);
         let test_key = ModKey::from("/test");
-        inter.set_mod_txt(test_key.clone(), input);
-        let prog = program::Lib::new(inter);
+        loader.set_mod_txt(test_key.clone(), input);
 
-        let mut app = Application::new(prog);
-        let caller = app.caller();
-        let recv =
-            caller.push_call(Fref::with_modules(test_key, "main"), vec![]);
-        app.run();
+        let mainf = Fref::with_modules(test_key, "main");
+        let (mut app, recv) = Application::run_main(loader, mainf, Val::Nil);
 
         writeln!(stderr(), "Application::wait_until_done").unwrap();
         let result = app.wait_for_result(recv);

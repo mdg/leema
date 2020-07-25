@@ -146,6 +146,6 @@ mod tests
         let response = exercise_iop_action(udp::udp_socket, vec![]);
         assert!(response.is_ok());
         let (_fiber_id, rsrc_ref) = response.ok().unwrap();
-        assert_eq!(Val::ResourceRef(1), rsrc_ref);
+        assert_eq!(Val::ResourceRef(10), rsrc_ref);
     }
 }

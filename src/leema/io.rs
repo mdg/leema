@@ -495,8 +495,10 @@ impl Future for IoLoop
 pub mod tests
 {
     use crate::leema::io::{Io, IoLoop};
+    use crate::leema::loader::Interloader;
     use crate::leema::lstr::Lstr;
     use crate::leema::msg;
+    use crate::leema::program;
     use crate::leema::rsrc::{self, Rsrc};
     use crate::leema::struple::Struple2;
     use crate::leema::val::{MsgVal, Type, Val};
@@ -512,6 +514,11 @@ pub mod tests
         {
             user_type!("foo", "MockRsrc")
         }
+    }
+
+    fn empty_program() -> program::Lib
+    {
+        program::Lib::new(Interloader::default())
     }
 
     fn mock_iop_action(_ctx: rsrc::IopCtx) -> rsrc::Event
@@ -537,7 +544,7 @@ pub mod tests
         let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
         let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
 
-        let rcio = Io::new(app_tx, msg_rx);
+        let rcio = Io::new(app_tx, msg_rx, empty_program());
 
         let msg_params = MsgVal::new(&Val::Tuple(params));
         msg_tx.send(msg::IoMsg::NewWorker(11, worker_tx)).unwrap();
@@ -571,7 +578,7 @@ pub mod tests
         let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
         // let worker_tx = HashMap::new();
 
-        Io::new(app_tx, msg_rx);
+        Io::new(app_tx, msg_rx, empty_program());
     }
 
     #[test]
@@ -588,7 +595,7 @@ pub mod tests
         let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
         let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
 
-        let io = Io::new(app_tx, msg_rx);
+        let io = Io::new(app_tx, msg_rx, empty_program());
         let rsrc_id = io.borrow_mut().new_rsrc(Box::new(MockRsrc {}));
 
         msg_tx.send(msg::IoMsg::NewWorker(8, worker_tx)).unwrap();
