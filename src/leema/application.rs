@@ -29,7 +29,7 @@ pub struct Application
 
 impl Application
 {
-    pub fn new() -> Application
+    fn new() -> Application
     {
         let (tx, rx) = channel();
         let (iotx, iorx) = channel();
@@ -54,16 +54,6 @@ impl Application
         }
     }
 
-    pub fn push_call(
-        &mut self,
-        dst: Sender<Val>,
-        call: Fref,
-        args: Struple2<Val>,
-    )
-    {
-        self.calls.push((dst, call, args));
-    }
-
     pub fn run_main(inter: Interloader, mainf: Fref, args: Val) -> (Application, Receiver<Val>)
     {
         let mut app = Application::new();
@@ -74,7 +64,14 @@ impl Application
         (app, result_recv)
     }
 
-    pub fn run(&mut self, inter: Interloader)
+    pub fn run_lib(inter: Interloader) -> Application
+    {
+        let mut app = Application::new();
+        app.run(inter);
+        app
+    }
+
+    fn run(&mut self, inter: Interloader)
     {
         self.start_io(inter);
         self.start_worker();
