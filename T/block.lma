@@ -1,12 +1,12 @@
 import /io
 
-func main >>
-    let x := >>
+func main ->
+    let x := ->
         let y := 8
         y + 4
     --
-    let z := >>
+    let z := ->
         x * 3
     --
-    io::print("z is: $z\n")
+    io.print("z is: $z\n")
 --
