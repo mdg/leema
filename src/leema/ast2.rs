@@ -683,6 +683,12 @@ impl Walker
             Ast::Module(_) | Ast::Wildcard => {
                 // nowhere else to go
             }
+            Ast::FuncType(_, _)
+            | Ast::Copy(_)
+            | Ast::LessThan3(_, _, _, _, _)
+            | Ast::Type(_) => {
+                panic!("func type crawling not implemented");
+            }
             // these ASTs should already be processed in the proto phase
             Ast::DefMacro(name, _, _) => {
                 return Err(rustfail!(
@@ -707,7 +713,6 @@ impl Walker
                     tree,
                 ));
             }
-            _ => {}
         }
         Ok(AstStep::Ok)
     }

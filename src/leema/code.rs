@@ -279,6 +279,9 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             rops.ops.push(Op::Return);
             rops.ops
         }
+        Ast::Op2(".", ref _base, ref _field) => {
+            panic!("field access not implemented");
+        }
         Ast::Id1(ref _id) => vec![],
         Ast::RustBlock => vec![],
         Ast::Void => vec![],

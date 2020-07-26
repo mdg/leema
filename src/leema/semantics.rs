@@ -949,21 +949,25 @@ impl<'p> ast2::Op for TypeCheck<'p>
                             callx.typ,
                         ))
                     }));
-                if let Ast::ConstVal(Val::Call(ref mut fref, _argvals)) =
-                    &mut *callx.node
-                {
-                    fref.t = callx.typ.clone();
-                    // an optimization here might be to iterate over ast args
-                    // and initialize any constants
-                    // actually better might be to stop having the args
-                    // in the Val::Call const
-                    self.calls.push(fref.clone());
-                } else {
-                    return Err(rustfail!(
-                        SEMFAIL,
-                        "call expression is not a const fref: {:?}",
-                        callx,
-                    ));
+                match &mut *callx.node {
+                    Ast::ConstVal(Val::Call(ref mut fref, _argvals)) => {
+                        fref.t = callx.typ.clone();
+                        // an optimization here might be to iterate over
+                        // ast args and initialize any constants
+                        // actually better might be to stop having the args
+                        // in the Val::Call const
+                        self.calls.push(fref.clone());
+                    }
+                    Ast::ConstVal(Val::Construct(ref mut fref)) => {
+                        self.calls.push(fref.clone());
+                    }
+                    other => {
+                        return Err(rustfail!(
+                            SEMFAIL,
+                            "call expression is not a const fref: {:?}",
+                            other,
+                        ));
+                    }
                 }
                 node.typ = call_result;
             }

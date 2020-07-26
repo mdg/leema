@@ -742,7 +742,7 @@ impl Val
             &Val::Nil => Type::StrictList(Box::new(Type::Unknown)),
             &Val::Failure2(_) => Type::FAILURE,
             &Val::Type(_) => Type::Kind,
-            &Val::Construct(_) => Type::Kind,
+            &Val::Construct(ref f) => f.t.clone(),
             &Val::Void => Type::VOID,
             &Val::Wildcard => Type::Unknown,
             &Val::PatternVar(_) => Type::Unknown,
