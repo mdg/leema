@@ -377,26 +377,6 @@ impl ParseStmt
         Ok(AstNode::new(data, loc))
     }
 
-    fn parse_export(p: &mut Parsl) -> AstResult
-    {
-        let next_tok = p.peek()?;
-        let exp = match next_tok.tok {
-            Token::Star => {
-                p.next()?;
-                AstNode::new(Ast::Wildcard, Ast::loc(&next_tok))
-            }
-            Token::Id => Grammar::parse_id_or_two(p)?,
-            _ => {
-                return Err(rustfail!(
-                    PARSE_FAIL,
-                    "expected * or ID, found: {:?}",
-                    next_tok,
-                ));
-            }
-        };
-        Ok(AstNode::new(Ast::Export(exp), Ast::loc(&next_tok)))
-    }
-
     fn parse_let(p: &mut Parsl, tok: TokenSrc) -> AstResult
     {
         let lhs = p.parse_new(&ExprMode)?;

@@ -102,9 +102,6 @@ impl ProtoModule
                 Ast::ModAction(_, _) => {
                     // an import, take the next
                 }
-                Ast::Export(_) => {
-                    // an export, take the next
-                }
                 _ => {
                     // no more imports or exports. move on to the regular stuff
                     break;
@@ -234,14 +231,6 @@ impl ProtoModule
                 return Err(Failure::static_leema(
                     failure::Mode::CompileFailure,
                     Lstr::Sref("imports must come before definitions"),
-                    self.key.best_path(),
-                    node.loc.lineno,
-                ));
-            }
-            Ast::Export(_) => {
-                return Err(Failure::static_leema(
-                    failure::Mode::CompileFailure,
-                    Lstr::Sref("exports must come before definitions"),
                     self.key.best_path(),
                     node.loc.lineno,
                 ));
