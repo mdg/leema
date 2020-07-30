@@ -9,7 +9,7 @@ use crate::leema::module::{
 };
 use crate::leema::parser::parse_file;
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
-use crate::leema::val::{Fref, FuncType, GenericTypes, Type, Val};
+use crate::leema::val::{Fref, FuncType, GenericTypes, Type, TypeKey, Val};
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -68,7 +68,7 @@ pub struct ProtoModule
     pub funcseq: Vec<&'static str>,
     pub funcsrc: HashMap<&'static str, (Xlist, AstNode)>,
     pub token: HashSet<&'static str>,
-    pub struct_fields: HashMap<&'static str, AstNode>,
+    pub struct_fields: Vec<(&'static str, Type, Struple2<Type>)>,
 }
 
 impl ProtoModule
@@ -91,7 +91,7 @@ impl ProtoModule
             funcseq: Vec::new(),
             funcsrc: HashMap::new(),
             token: HashSet::new(),
-            struct_fields: HashMap::new(),
+            struct_fields: vec![],
         };
 
         let mut exports = HashMap::new();
@@ -389,7 +389,7 @@ impl ProtoModule
         };
 
         let args = self.xlist_to_types(&m, &fields, &opens)?;
-        let ftyp = FuncType::new(args, struct_typ.clone());
+        let ftyp = FuncType::new(args.clone(), struct_typ.clone());
         let constructor_type = Type::Func(ftyp);
         let fref = Fref::new(self.key.clone(), sname_id, constructor_type);
         let constructor_call = Val::Construct(fref);
@@ -397,9 +397,9 @@ impl ProtoModule
             Some(sname_id),
             AstNode::new_constval(constructor_call, name.loc),
         ));
-        self.types.insert(sname_id, struct_typ);
+        self.types.insert(sname_id, struct_typ.clone());
         self.funcseq.push(sname_id);
-        // also add to funcsrc and struct_fields
+        self.struct_fields.push((sname_id, struct_typ, args));
         Ok(())
     }
 
@@ -727,10 +727,13 @@ impl ProtoModule
     }
 }
 
+pub type StructFieldMap = HashMap<TypeKey, (Type, Struple2<Type>)>;
+
 #[derive(Debug)]
 pub struct ProtoLib
 {
     protos: HashMap<PathBuf, ProtoModule>,
+    fields: StructFieldMap,
 }
 
 impl ProtoLib
@@ -739,6 +742,7 @@ impl ProtoLib
     {
         ProtoLib {
             protos: HashMap::new(),
+            fields: HashMap::new(),
         }
     }
 
@@ -922,9 +926,9 @@ impl ProtoLib
     pub fn import_modules(&mut self, modname: &Path) -> Lresult<()>
     {
         vout!("ProtoLib::import_modules({})\n", modname.display());
-        // unwrap is fine, already verified presence earlier
         let mut imports: Xlist = vec![];
         {
+            // unwrap is fine, already verified presence earlier
             let proto = self.protos.get(modname).unwrap();
 
             for (i, v) in proto.imports.iter() {
@@ -934,6 +938,16 @@ impl ProtoLib
             for (i, v) in proto.id_canonicals.iter().chain(DEFAULT_IDS.iter()) {
                 let model = self.export_as_val(v, i)?;
                 imports.push(StrupleItem::new(Some(i), model.clone()));
+            }
+        }
+
+        {
+            // unwrap is fine, already verified presence earlier
+            let proto = self.protos.get_mut(modname).unwrap();
+
+            for (id, typ, flds) in proto.struct_fields.drain(..) {
+                self.fields
+                    .insert((proto.key.name.clone(), id), (typ, flds));
             }
         }
 
@@ -992,11 +1006,15 @@ impl ProtoLib
     pub fn path_proto_mut(
         &mut self,
         path: &CanonicalMod,
-    ) -> Lresult<&mut ProtoModule>
+    ) -> Lresult<(&mut ProtoModule, &StructFieldMap)>
     {
-        self.protos.get_mut(path.as_path()).ok_or_else(|| {
+        let result = self.protos.get_mut(path.as_path()).ok_or_else(|| {
             rustfail!(PROTOFAIL, "module not loaded: {:?}", path)
-        })
+        });
+        match result {
+            Err(e) => Err(e),
+            Ok(p) => Ok((p, &self.fields)),
+        }
     }
 }
 

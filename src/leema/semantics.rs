@@ -5,7 +5,8 @@ use crate::leema::ast2::{
 use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::inter::Blockstack;
 use crate::leema::lstr::Lstr;
-use crate::leema::proto::ProtoModule;
+use crate::leema::module::CanonicalMod;
+use crate::leema::proto::{ProtoModule, StructFieldMap};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{
     Fref, FuncType, GenericTypeSlice, GenericTypes, Type, Val,
@@ -417,6 +418,7 @@ impl<'l> fmt::Debug for ScopeCheck<'l>
 struct TypeCheck<'p>
 {
     local_mod: &'p ProtoModule,
+    fields: &'p StructFieldMap,
     result: Type,
     vartypes: HashMap<&'static str, Type>,
     infers: HashMap<Lstr, Type>,
@@ -428,10 +430,12 @@ impl<'p> TypeCheck<'p>
     pub fn new(
         local_mod: &'p ProtoModule,
         ftyp: &'p FuncType,
+        fields: &'p StructFieldMap,
     ) -> Lresult<TypeCheck<'p>>
     {
         let mut check = TypeCheck {
             local_mod,
+            fields,
             result: Type::VOID,
             vartypes: HashMap::new(),
             infers: HashMap::new(),
@@ -1005,8 +1009,44 @@ impl<'p> ast2::Op for TypeCheck<'p>
                             }
                         }
                     }
-                    (r, f) => {
-                        eprintln!("type check field:\n\t{:?}\n\t{:?}", r, f);
+                    (r, Ast::Id1(f)) => {
+                        match &a.typ {
+                            Type::User(tmod, tname) => {
+                                let (_styp, flds) = self
+                                    .fields
+                                    .get(&(
+                                        CanonicalMod(tmod.canonical.clone()),
+                                        *tname,
+                                    ))
+                                    .expect("no struct fields found");
+                                match struple::find_lstr(&flds[..], f) {
+                                    Some((fld_idx, _)) => {
+                                        *b.node = Ast::ConstVal(Val::Int(
+                                            fld_idx as i64,
+                                        ));
+                                    }
+                                    None => {
+                                        return Err(Failure::static_leema(
+                                            failure::Mode::CompileFailure,
+                                            lstrf!("type has no field: {}", f),
+                                            self.local_mod.key.name.0.clone(),
+                                            node.loc.lineno,
+                                        ));
+                                    }
+                                }
+                            }
+                            _ => {
+                                return Err(Failure::static_leema(
+                                    failure::Mode::CompileFailure,
+                                    lstrf!("type has no fields: {}", a.typ),
+                                    self.local_mod.key.name.0.clone(),
+                                    node.loc.lineno,
+                                ));
+                            }
+                        }
+                    }
+                    (_r, f) => {
+                        panic!("unsupported field name: {:#?}", f);
                     }
                 }
             }
@@ -1136,6 +1176,20 @@ impl ast2::Op for RemoveExtraCode
                     _ => {} // leave as-is
                 }
             }
+            Ast::Call(callx, _args) => {
+                match &mut *callx.node {
+                    Ast::ConstVal(ref mut ccv) => {
+                        match ccv {
+                            Val::Construct(fref) => {
+                                let result: Lresult<Val> = From::from(&*fref);
+                                *ccv = result?;
+                            }
+                            _ => {} // call probably
+                        }
+                    }
+                    _ => {} // something else
+                }
+            }
             _ => {} // do nothing
         };
         Ok(AstStep::Ok)
@@ -1180,8 +1234,11 @@ impl Semantics
         &self.src.typ
     }
 
-    pub fn compile_call(proto: &mut ProtoModule, f: &Fref)
-        -> Lresult<Semantics>
+    pub fn compile_call(
+        proto: &mut ProtoModule,
+        f: &Fref,
+        fields: &StructFieldMap,
+    ) -> Lresult<Semantics>
     {
         let mut sem = Semantics::new();
 
@@ -1243,7 +1300,7 @@ impl Semantics
 
         let mut macs = MacroApplication::new(proto, ftyp, &closed);
         let mut scope_check = ScopeCheck::new(ftyp, proto)?;
-        let mut type_check = TypeCheck::new(proto, ftyp)?;
+        let mut type_check = TypeCheck::new(proto, ftyp, fields)?;
         let mut remove_extra = RemoveExtraCode;
 
         let mut pipe = ast2::Pipeline::new(vec![

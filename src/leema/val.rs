@@ -3,7 +3,7 @@ use crate::leema::frame::FrameTrace;
 use crate::leema::list;
 use crate::leema::lmap::{self, LmapNode};
 use crate::leema::lstr::Lstr;
-use crate::leema::module::{ModKey, TypeMod};
+use crate::leema::module::{CanonicalMod, ModKey, TypeMod};
 use crate::leema::msg;
 use crate::leema::reg::{self, Ireg, Iregistry, Reg};
 use crate::leema::sendclone;
@@ -107,6 +107,7 @@ impl FuncType
 
 pub type GenericTypes = StrupleKV<&'static str, Type>;
 pub type GenericTypeSlice = [StrupleItem<&'static str, Type>];
+pub type TypeKey = (CanonicalMod, &'static str);
 
 // #[derive(Debug)]
 #[derive(Clone)]
@@ -950,6 +951,28 @@ impl Val
             }
         }
         f.write_str(")")
+    }
+}
+
+impl From<&Fref> for Lresult<Val>
+{
+    fn from(f: &Fref) -> Lresult<Val>
+    {
+        match &f.t {
+            Type::Func(ft) => {
+                Ok(Val::Call(
+                    f.clone(),
+                    struple::map_v(&ft.args, |_| Ok(Val::Void))?,
+                ))
+            }
+            not_func => {
+                Err(rustfail!(
+                    "compile_failure",
+                    "not a func type: {}",
+                    not_func,
+                ))
+            }
+        }
     }
 }
 

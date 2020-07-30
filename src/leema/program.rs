@@ -126,8 +126,8 @@ impl Lib
     pub fn read_semantics(&mut self, f: &Fref) -> Lresult<Semantics>
     {
         ltry!(self.load_proto_and_imports(&f.m.name));
-        let proto = self.protos.path_proto_mut(&f.m.name)?;
-        Semantics::compile_call(proto, f)
+        let (proto, flds) = self.protos.path_proto_mut(&f.m.name)?;
+        Semantics::compile_call(proto, f, flds)
     }
 
     pub fn read_code(&mut self, f: &Fref) -> Lresult<Code>

@@ -194,6 +194,22 @@ pub fn find_str<'s, 'k, V>(
         .map(|(idx, item)| (idx, &item.v))
 }
 
+pub fn find_lstr<'s, 'k, V>(
+    s: &'s [StrupleItem<Option<Lstr>, V>],
+    key: &'k str,
+) -> Option<(usize, &'s V)>
+{
+    s.iter()
+        .enumerate()
+        .find(|(_, i)| {
+            match &i.k {
+                Some(ref item_key) => **item_key == *key,
+                None => false,
+            }
+        })
+        .map(|(idx, item)| (idx, &item.v))
+}
+
 pub fn contains_key<K, V>(s: &[StrupleItem<K, V>], k: &K) -> bool
 where
     K: PartialEq,

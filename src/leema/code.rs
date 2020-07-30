@@ -204,9 +204,9 @@ impl Clone for Code
 pub fn make_ops2(input: AstNode) -> OpVec
 {
     vout!("make_ops2({:?})\n", input);
-    let input_dst = input.dst.clone();
+    let ops_dst = input.dst.clone();
     let mut ops = make_sub_ops2(input);
-    ops.ops.push(Op::SetResult(input_dst));
+    ops.ops.push(Op::SetResult(ops_dst));
     ops.ops.push(Op::Return);
     ops.ops
 }
@@ -230,7 +230,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
         Ast::Call(f, args) => make_call_ops(input_dst, f, args),
         Ast::Copy(src) => {
             let mut src_ops = make_sub_ops2(src);
-            src_ops.ops.push(Op::Copy(input.dst.clone(), src_ops.dst));
+            src_ops.ops.push(Op::Copy(input_dst.clone(), src_ops.dst));
             src_ops.ops
         }
         Ast::Let(patt, _, x) => {
@@ -259,18 +259,18 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             let newtup = Op::ConstVal(input_dst, Val::new_tuple(items.len()));
             let mut ops: Vec<Op> = vec![newtup];
             for (i, item) in items.into_iter().enumerate() {
-                let subdst = input.dst.sub(i as i8);
+                let subdst = input_dst.sub(i as i8);
                 let mut iops = make_sub_ops2(item.v);
                 // should be able to generalize this
                 if iops.dst != subdst {
                     iops.ops.push(Op::Copy(subdst, iops.dst));
                 }
                 ops.append(&mut iops.ops);
-                // ops.push((Op::Copy(input.dst.clone(), iops.dst), i.1.line));
+                // ops.push((Op::Copy(input_dst.clone(), iops.dst), i.1.line));
             }
             ops
         }
-        Ast::StrExpr(items) => make_str_ops(input.dst.clone(), items),
+        Ast::StrExpr(items) => make_str_ops(input_dst.clone(), items),
         Ast::Ifx(cases) => make_if_ops(cases),
         Ast::Matchx(Some(x), cases) => make_matchexpr_ops(x, cases),
         Ast::Return(result) => {
@@ -279,8 +279,9 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             rops.ops.push(Op::Return);
             rops.ops
         }
-        Ast::Op2(".", ref _base, ref _field) => {
-            panic!("field access not implemented");
+        Ast::Op2(".", base, _field) => {
+            let base_ops = make_sub_ops2(base);
+            base_ops.ops
         }
         Ast::Id1(ref _id) => vec![],
         Ast::RustBlock => vec![],
@@ -298,7 +299,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
     };
     Oxpr {
         ops,
-        dst: input.dst,
+        dst: input_dst,
     }
 }
 
@@ -714,8 +715,22 @@ impl Registration
                     self.assign_registers(&mut i.v)?;
                 }
             }
+            Ast::Op2(".", ref mut base, ref field) => {
+                self.assign_registers(base)?;
+                let field_idx = match &*field.node {
+                    Ast::Id1(idx_str) => idx_str.parse().unwrap(),
+                    Ast::ConstVal(Val::Int(i)) => *i as i8,
+                    other => {
+                        panic!("field name is not an identifier: {:?}", other)
+                    }
+                };
+                node.dst = base.dst.sub(field_idx);
+            }
             // don't handle anything else in pre
-            _ => {}
+            Ast::ConstVal(_) => {}
+            other => {
+                eprintln!("no registers assigned for {:#?}", other);
+            }
         }
 
         // if the dst reg has changed, insert a copy node
