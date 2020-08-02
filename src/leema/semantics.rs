@@ -75,15 +75,16 @@ impl<'l> MacroApplication<'l>
             (a, b) if a < b => {
                 return Err(rustfail!(
                     SEMFAIL,
-                    "Too many arguments passed to macro {}, expected {}",
+                    "too many arguments passed to macro {}, expected {}, found {:?}",
                     macro_name,
                     a,
+                    args,
                 ));
             }
             (a, b) if a > b => {
                 return Err(rustfail!(
                     SEMFAIL,
-                    "Too few arguments passed to macro {}, expected {}",
+                    "too few arguments passed to macro {}, expected {}",
                     macro_name,
                     a
                 ));
@@ -824,6 +825,8 @@ impl<'p> TypeCheck<'p>
     ) -> Lresult<Type>
     {
         if args.len() < ftyp.args.len() {
+            vout!("expected function type: {:#?}\n", ftyp);
+            vout!("given args: {:#?}\n", args);
             return Err(rustfail!(
                 SEMFAIL,
                 "too few arguments, expected {}, found {}",

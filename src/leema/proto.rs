@@ -43,6 +43,7 @@ lazy_static! {
         ids.insert("int_lteq", core_mod.clone());
         ids.insert("int_gt", core_mod.clone());
         ids.insert("int_gteq", core_mod.clone());
+        ids.insert("new_struct_val", core_mod.clone());
         ids.insert("Str", core_mod.clone());
         ids.insert("True", core_mod.clone());
         ids.insert("Void", core_mod.clone());
@@ -339,7 +340,7 @@ impl ProtoModule
         let m = &self.key.name;
         let struct_typ: Type;
         let opens: GenericTypes;
-        // let loc = name.loc;
+        let loc = name.loc;
 
         let sname_id = match *name.node {
             Ast::Id1(name_id) => {
@@ -400,14 +401,19 @@ impl ProtoModule
         ));
         self.types.insert(sname_id, struct_typ.clone());
         self.funcseq.push(sname_id);
-        /*
-        let macro_call = AstNode::new(Ast::Id1("construct"), loc);
-        let macro_args = args.iter().map(|a| {
-            StrupleItem::new_v(AstNode::new(Ast::Id1(a.k.unwrap()), loc))
-        });
+        let macro_call = AstNode::new(Ast::Id1("new_struct_val"), loc);
+        let fields_arg = fields.iter().map(|f| {
+            StrupleItem::new(
+                f.k,
+                AstNode::new(Ast::Id1(f.k.unwrap()), loc),
+            )
+        }).collect();
+        let macro_args = vec![
+            StrupleItem::new_v(AstNode::new(Ast::Id1(sname_id), loc)),
+            StrupleItem::new_v(AstNode::new(Ast::Tuple(fields_arg), loc)),
+        ];
         let construction = AstNode::new(Ast::Call(macro_call, macro_args), loc);
         self.funcsrc.insert(sname_id, (fields, construction));
-        */
         self.struct_fields.push((sname_id, struct_typ, args));
         Ok(())
     }
