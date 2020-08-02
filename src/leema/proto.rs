@@ -339,6 +339,7 @@ impl ProtoModule
         let m = &self.key.name;
         let struct_typ: Type;
         let opens: GenericTypes;
+        // let loc = name.loc;
 
         let sname_id = match *name.node {
             Ast::Id1(name_id) => {
@@ -399,8 +400,47 @@ impl ProtoModule
         ));
         self.types.insert(sname_id, struct_typ.clone());
         self.funcseq.push(sname_id);
+        /*
+        let macro_call = AstNode::new(Ast::Id1("construct"), loc);
+        let macro_args = args.iter().map(|a| {
+            StrupleItem::new_v(AstNode::new(Ast::Id1(a.k.unwrap()), loc))
+        });
+        let construction = AstNode::new(Ast::Call(macro_call, macro_args), loc);
+        self.funcsrc.insert(sname_id, (fields, construction));
+        */
         self.struct_fields.push((sname_id, struct_typ, args));
         Ok(())
+    }
+
+    fn new_struct_src(
+        name: &'static str,
+        _struct_typ: Type,
+        fld_names: &[&'static str],
+    ) -> Lresult<AstNode>
+    {
+        let args = fld_names.join(", ");
+        let _constructor = format!(
+            r#"
+        let _new_struct_ = {}(Void)
+        _new_struct_({})
+        "#,
+            name, args
+        );
+        // parse_file(
+        /*
+        let void_args = Vec::with_capacity(args.len());
+        void_args.resize(args.len(), Val::Void);
+        let mut block = vec![
+            AstNode::new(Ast::ConstVal(Val::Struct(
+                struct_typ.clone(),
+                Vec::with_capacity(args.len()),
+            )), loc),
+        ];
+        block.push(AstNode::new(Ast::Call(new_id, fld_names), loc));
+        let block_node = AstNode::new(Ast::Block(block), loc);
+        let constructor_src = new_struct_src(sname_id, args);
+        */
+        Ok(AstNode::void())
     }
 
     fn add_token(&mut self, name: AstNode) -> Lresult<()>

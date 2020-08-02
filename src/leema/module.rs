@@ -524,6 +524,19 @@ impl From<&CanonicalMod> for TypeMod
     }
 }
 
+impl sendclone::SendClone for TypeMod
+{
+    type Item = TypeMod;
+
+    fn clone_for_send(&self) -> TypeMod
+    {
+        TypeMod {
+            import: self.import.clone_for_send(),
+            canonical: self.canonical.clone_for_send(),
+        }
+    }
+}
+
 /*
 impl From<ModAlias> for TypeMod
 {

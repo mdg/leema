@@ -125,6 +125,7 @@ pub enum Type
     // and then it should be a protocol, not type
     StrictList(Box<Type>),
     User(TypeMod, &'static str),
+    Variant(Box<Type>, &'static str),
     /// bool is open
     /// TODO: convert open flag to an enum
     Generic(bool, Box<Type>, GenericTypes),
@@ -162,7 +163,8 @@ impl Type
     pub fn full_typename(&self) -> Lstr
     {
         match self {
-            &Type::User(ref m, ref name) => lstrf!("{}::{}", m, name),
+            &Type::User(ref m, ref name) => lstrf!("{}.{}", m, name),
+            &Type::Variant(ref t, ref var) => lstrf!("{}::{}", t, var),
             &Type::OpenVar(name) => Lstr::from(format!("${}", name)),
             &Type::LocalVar(ref name) => Lstr::from(format!("local:{}", name)),
             _ => {
@@ -300,6 +302,9 @@ impl sendclone::SendClone for Type
                 Type::Generic(open, subt2, opens2)
             }
             &Type::User(ref module, typ) => Type::User(module.clone(), typ),
+            &Type::Variant(ref t, var) => {
+                Type::Variant(Box::new(t.clone_for_send()), var)
+            }
             _ => {
                 panic!("cannot clone_for_send Type: {:?}", self);
             }
@@ -351,7 +356,8 @@ impl fmt::Display for Type
                 }
                 write!(f, ")")
             }
-            &Type::User(ref module, ref id) => write!(f, "{}::{}", module, id),
+            &Type::User(ref module, ref id) => write!(f, "{}.{}", module, id),
+            &Type::Variant(ref t, ref var) => write!(f, "{}::{}", t, var),
             &Type::Generic(_, ref inner, ref args) => {
                 write!(f, "{}{:?}", inner, args)
             }
@@ -382,7 +388,8 @@ impl fmt::Debug for Type
             // base interface/type should probably be iterator
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
-            &Type::User(ref module, ref id) => write!(f, "{}::{}", module, id),
+            &Type::User(ref module, ref id) => write!(f, "{}.{}", module, id),
+            &Type::Variant(ref t, ref var) => write!(f, "{}::{}", t, var),
             &Type::Generic(open, ref inner, ref args) => {
                 let open_tag = if open { "Open" } else { "Closed" };
                 write!(f, "({} ({}){:?})", open_tag, inner, args)
@@ -447,28 +454,6 @@ pub const DEFAULT_SRC_LOC: SrcLoc = SrcLoc {
     lineno: 0,
     column: 0,
 };
-
-#[derive(Copy)]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-pub enum FailureStatus
-{
-    // user input errors
-    BadUserInput,
-    Unauthenticated,
-    Unauthorized,
-    MissingData,
-    // leema program errors
-    MissingEntryPoint,
-    Timeout,
-    ProgramError
-    {
-        status: i8, // positive numbers only
-    },
-    // vm errors
-    LeemaInternalError,
-}
 
 pub const FAILURE_SUCCESS: i8 = 0;
 pub const FAILURE_NOENTRY: i8 = -1;

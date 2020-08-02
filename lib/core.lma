@@ -8,7 +8,7 @@ datatype Failure --
 datatype Hashtag --
 datatype Int -RUST-
 datatype Str -RUST-
-datatype # --
+datatype # -RUST-
 datatype Void --
 datatype NoResult --
 
@@ -53,4 +53,14 @@ func int_gt:Bool :: a:Int b:Int ->
 
 func int_gteq:Bool :: a:Int b:Int ->
     not a < b
+--
+
+macro new_struct_val(name, field_names*) ->
+    let _new_val_ = $name(Void)
+    _new_val_($field_names)
+--
+
+macro new_enum_variant(name, variant, field_names*) ->
+    let _new_val_ = $variant(Void)
+    _new_val_($field_names)
 --
