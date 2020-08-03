@@ -57,7 +57,7 @@ impl Debug for LeemaFile
 pub fn file_open(_ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("file_open()\n");
-    rsrc::Event::Result(Val::Void)
+    rsrc::Event::Result(Val::VOID)
 }
 
 pub fn file_read_file(mut ctx: rsrc::IopCtx) -> rsrc::Event
@@ -74,7 +74,7 @@ pub fn file_read_file(mut ctx: rsrc::IopCtx) -> rsrc::Event
 pub fn file_write(_ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("file_write()\n");
-    rsrc::Event::Result(Val::Void)
+    rsrc::Event::Result(Val::VOID)
 }
 
 pub fn file_write_file(mut ctx: rsrc::IopCtx) -> rsrc::Event
@@ -91,7 +91,7 @@ pub fn file_write_file(mut ctx: rsrc::IopCtx) -> rsrc::Event
         .unwrap();
     f.write_all(output.str().as_bytes())
         .expect("write_all failure");
-    rsrc::Event::Result(Val::Void)
+    rsrc::Event::Result(Val::VOID)
 }
 
 pub fn file_exists(mut ctx: rsrc::IopCtx) -> rsrc::Event

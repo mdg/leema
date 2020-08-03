@@ -310,7 +310,7 @@ pub fn make_sub_ops(input: &Ixpr) -> Oxpr
             let mut ops = Vec::with_capacity(cvs.0.len() + 1);
             let dst = rt.dst().clone();
             let blanks = Struple2(
-                cvs.0.iter().map(|cv| (cv.0.clone(), Val::Void)).collect(),
+                cvs.0.iter().map(|cv| (cv.0.clone(), Val::VOID)).collect(),
             );
             ops.push((
                 Op::ConstVal(
@@ -400,11 +400,11 @@ pub fn make_construple_ops(
         Some(ref _ivar) => {
             // let var = ivar.clone();
             // Op::ConstructEnum(dst.clone(), typ.clone(), var, flds.clone())
-            Op::ConstVal(dst.clone(), Val::Void)
+            Op::ConstVal(dst.clone(), Val::VOID)
         }
         None => {
             // Op::Construple(dst.clone(), typ.clone(), flds.clone()),
-            Op::ConstVal(dst.clone(), Val::Void)
+            Op::ConstVal(dst.clone(), Val::VOID)
         }
     };
     let ops: Vec<Op> = vec![construct];

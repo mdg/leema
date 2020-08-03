@@ -124,7 +124,7 @@ pub fn leema_sleep(mut ctx: rsrc::IopCtx) -> rsrc::Event
     let tint = ctx.take_param(0).unwrap().to_int() as u64;
     let i = Instant::now() + Duration::from_millis(tint);
     let d = Delay::new(i)
-        .map(|_| rsrc::Event::Result(Val::Void))
+        .map(|_| rsrc::Event::Result(Val::VOID))
         .map_err(|_e| rsrc::Event::Result(Val::Int(5)));
     rsrc::Event::Future(Box::new(d))
 }
@@ -166,7 +166,7 @@ pub fn printerr(f: &mut Fiber) -> Lresult<Event>
         write!(stderr(), "{}", va)
             .map_err(|e| rustfail!("io_failure", "{}", e))?;
     }
-    f.head.parent.set_result(Val::Void);
+    f.head.parent.set_result(Val::VOID);
     Event::success()
 }
 

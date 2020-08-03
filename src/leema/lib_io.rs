@@ -9,7 +9,7 @@ pub fn print(mut ctx: RustFuncContext) -> Lresult<frame::Event>
 {
     let v = ctx.get_param(0)?;
     print!("{}", v);
-    ctx.set_result(Val::Void);
+    ctx.set_result(Val::VOID);
     frame::Event::success()
 }
 

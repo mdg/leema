@@ -163,7 +163,7 @@ fn real_main() -> Lresult<()>
     };
 
     match main_result {
-        Some(Val::Void) => Ok(()),
+        Some(Val::Token(t)) if t == Type::VOID => Ok(()),
         Some(Val::Int(_)) => Ok(()),
         Some(Val::Failure2(failure)) => Err(*failure),
         Some(mainr) => {

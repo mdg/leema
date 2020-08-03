@@ -89,7 +89,7 @@ impl FuncType
         self.args
             .iter()
             .chain(self.closed.iter())
-            .map(|a| StrupleItem::new(a.k.clone(), Val::Void))
+            .map(|a| StrupleItem::new(a.k.clone(), Val::VOID))
             .collect()
     }
 
@@ -555,7 +555,6 @@ pub enum Val
     ResourceRef(i64),
     RustBlock,
     Future(Arc<Mutex<Receiver<Val>>>),
-    Void,
     Wildcard,
     PatternVar(Reg),
 }
@@ -730,7 +729,6 @@ impl Val
             &Val::Failure2(_) => Type::FAILURE,
             &Val::Type(_) => Type::Kind,
             &Val::Construct(ref f) => f.t.clone(),
-            &Val::Void => Type::VOID,
             &Val::Wildcard => Type::Unknown,
             &Val::PatternVar(_) => Type::Unknown,
             &Val::RustBlock => Type::RustBlock,
@@ -948,7 +946,7 @@ impl From<&Fref> for Lresult<Val>
             Type::Func(ft) => {
                 Ok(Val::Call(
                     f.clone(),
-                    struple::map_v(&ft.args, |_| Ok(Val::Void))?,
+                    struple::map_v(&ft.args, |_| Ok(Val::VOID))?,
                 ))
             }
             not_func => {
@@ -966,7 +964,7 @@ impl From<Error> for Val
 {
     fn from(_e: Error) -> Val
     {
-        Val::Void
+        Val::VOID
     }
 }
 
@@ -1014,7 +1012,6 @@ impl sendclone::SendClone for Val
             // &Val::Lib(LibVal),
             // &Val::RustBlock,
             &Val::Future(ref f) => Val::Future(f.clone()),
-            &Val::Void => Val::Void,
             &Val::Wildcard => Val::Wildcard,
             &Val::PatternVar(ref r) => Val::PatternVar(r.clone()),
             &Val::Map(_) => {
@@ -1079,7 +1076,6 @@ impl fmt::Display for Val
                 write!(f, "{}::{}({:?}): {}", fref.m, fref.f, args, fref.t)
             }
             Val::Future(_) => write!(f, "Future"),
-            Val::Void => write!(f, "Void"),
             Val::PatternVar(ref r) => write!(f, "pvar:{:?}", r),
             Val::Wildcard => write!(f, "_"),
         }
@@ -1128,7 +1124,6 @@ impl fmt::Debug for Val
             }
             Val::Future(_) => write!(f, "Future"),
             Val::PatternVar(ref r) => write!(f, "pvar:{:?}", r),
-            Val::Void => write!(f, "Void"),
             Val::Wildcard => write!(f, "_Wildcard"),
         }
     }
@@ -1160,12 +1155,6 @@ impl reg::Iregistry for Val
                     "leema_failure",
                     "Cannot access frame trace until it is implemented as a leema value {:?}",
                     failure.trace,
-                ))
-            }
-            (_, &Val::Void) => {
-                Err(rustfail!(
-                    "leema_failure",
-                    "cannot access a register on void",
                 ))
             }
             _ => {
@@ -1254,7 +1243,6 @@ impl PartialOrd for Val
                 }
             }
             (&Val::RustBlock, &Val::RustBlock) => Some(Ordering::Equal),
-            (&Val::Void, &Val::Void) => Some(Ordering::Equal),
             // tuple to tuple comparison
             (&Val::Tuple(ref av), &Val::Tuple(ref bv)) => {
                 PartialOrd::partial_cmp(av, bv)
@@ -1337,8 +1325,6 @@ impl PartialOrd for Val
             (_, &Val::EnumToken(_, _)) => Some(Ordering::Greater),
             (&Val::Token(_), _) => Some(Ordering::Less),
             (_, &Val::Token(_)) => Some(Ordering::Greater),
-            (&Val::Void, _) => Some(Ordering::Less),
-            (_, &Val::Void) => Some(Ordering::Greater),
             (&Val::RustBlock, _) => Some(Ordering::Less),
             (_, &Val::RustBlock) => Some(Ordering::Greater),
             (&Val::Wildcard, _) => Some(Ordering::Less),
@@ -1383,7 +1369,7 @@ impl Default for Val
 {
     fn default() -> Val
     {
-        Val::Void
+        Val::VOID
     }
 }
 
@@ -1419,9 +1405,6 @@ impl Clone for Val
             }
             &Val::Lib(ref lv, ref typ) => {
                 Val::Lib((*lv).clone(), typ.clone())
-            }
-            &Val::Void => {
-                Val::Void
             }
         }
     }

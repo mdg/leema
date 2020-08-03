@@ -27,7 +27,7 @@ impl Parent
 {
     pub fn new_main() -> Parent
     {
-        Parent::Main(Val::Void)
+        Parent::Main(Val::VOID)
     }
 
     pub fn new_fork(dst: Sender<Val>) -> Parent
