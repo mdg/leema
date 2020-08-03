@@ -561,12 +561,13 @@ pub enum Val
 }
 
 const NIL: Val = Val::Nil;
-pub const VOID: Val = Val::Void;
 pub const FALSE: Val = Val::Bool(false);
 pub const TRUE: Val = Val::Bool(true);
 
 impl Val
 {
+    pub const VOID: Val = Val::Token(Type::VOID);
+
     pub fn empty_tuple() -> Val
     {
         Val::new_tuple(0)
@@ -577,7 +578,7 @@ impl Val
         let mut t = Vec::with_capacity(*sz);
         let mut i: usize = *sz;
         while i > 0 {
-            t.push(StrupleItem::new(None, VOID));
+            t.push(StrupleItem::new(None, Val::VOID));
             i = i - 1;
         }
         Val::Tuple(t)

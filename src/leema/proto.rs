@@ -728,7 +728,6 @@ impl ProtoModule
                 let open = genargs.iter().any(|a| a.v.is_open());
                 Type::Generic(open, Box::new(genbase), genargs)
             }
-            Ast::Void => Type::VOID,
             invalid => {
                 return Err(rustfail!(
                     PROTOFAIL,

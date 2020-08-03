@@ -247,12 +247,13 @@ pub enum Ast
     StrExpr(Vec<AstNode>),
     Tuple(Xlist),
     Type(Type),
-    Void,
     Wildcard,
 }
 
 impl Ast
 {
+    pub const VOID: Ast = Ast::ConstVal(Val::VOID);
+
     pub fn loc(t: &TokenSrc) -> Loc
     {
         Loc {
@@ -317,7 +318,6 @@ impl Ast
             Ast::StrExpr(items) => write!(f, "Str {:?}", items),
             Ast::Tuple(items) => write!(f, "Tuple {:?}", items),
             Ast::Type(inner) => write!(f, "Type {}", inner),
-            Ast::Void => write!(f, "Void"),
             Ast::Wildcard => write!(f, "_"),
             // unimplemented
             Ast::LessThan3(_, _, _, _, _) => unimplemented!(),
@@ -364,12 +364,12 @@ impl AstNode
     pub fn void() -> AstNode
     {
         AstNode {
-            node: Box::new(Ast::Void),
+            node: Box::new(Ast::ConstVal(Val::VOID)),
             loc: Loc {
                 lineno: 0,
                 column: 0,
             },
-            typ: Type::Unknown,
+            typ: Type::VOID,
             dst: Reg::Undecided,
         }
     }
@@ -677,7 +677,7 @@ impl Walker
             Ast::Return(x) => {
                 steptry!(self.walk(x, op));
             }
-            Ast::ConstVal(_) | Ast::Id1(_) | Ast::RustBlock | Ast::Void => {
+            Ast::ConstVal(_) | Ast::Id1(_) | Ast::RustBlock => {
                 // nowhere else to go
             }
             Ast::Module(_) | Ast::Wildcard => {

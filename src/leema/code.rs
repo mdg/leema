@@ -285,7 +285,6 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
         }
         Ast::Id1(ref _id) => vec![],
         Ast::RustBlock => vec![],
-        Ast::Void => vec![],
 
         // invalid patterns
         Ast::Matchx(None, _) => {
@@ -682,7 +681,7 @@ impl Registration
             Ast::Ifx(ref mut cases) => {
                 let cond_dst = self.stack.push_dst();
                 for case in cases.iter_mut() {
-                    if *case.cond.node == Ast::Void {
+                    if *case.cond.node == Ast::VOID {
                         case.cond.dst = Reg::Void;
                     } else {
                         case.cond.dst = cond_dst;

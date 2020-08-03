@@ -622,7 +622,7 @@ impl PrefixParser for ParseVariant
         if peeked == Token::CasePipe || peeked == Token::DoubleDash {
             Ok(StrupleItem::new(
                 Some(name.src),
-                AstNode::new(Ast::Void, Ast::loc(&name)),
+                AstNode::void(),
             ))
         } else {
             let name_id = AstNode::new(Ast::Id1(name.src), Ast::loc(&name));
@@ -1427,7 +1427,7 @@ impl PrefixParser for ParseCase
     {
         assert_eq!(Token::CasePipe, tok.tok);
         let condition = match p.next_if(Token::Else)? {
-            Some(else_tok) => AstNode::new(Ast::Void, Ast::loc(&else_tok)),
+            Some(_else_tok) => AstNode::void(),
             None => p.parse_new(&ExprMode)?,
         };
         let arrow = expect_next!(p, Token::DoubleArrow)?;
@@ -1639,7 +1639,6 @@ mod tests
             assert_eq!(1, args.len());
             assert_matches!(args[0].k.unwrap(), "s");
             assert_matches!(*args[0].v.node, Ast::Id1("Str"));
-            assert_matches!(*result.node, Ast::Void);
         }
     }
 
@@ -1659,7 +1658,6 @@ mod tests
         if let Ast::DefFunc(_name, args, result, _body) = &*ast[0].node {
             assert_eq!(1, args.len());
             assert_matches!(args[0].k.unwrap(), "s");
-            assert_matches!(*result.node, Ast::Void);
         }
     }
 
@@ -1831,7 +1829,6 @@ mod tests
                 assert_eq!(Ast::Id1("T"), *some_fields[0].v.node);
                 assert_eq!(1, some_fields.len());
             }
-            assert_eq!(Ast::Void, *variants[1].v.node);
             assert_eq!(2, variants.len());
         }
     }
@@ -1874,8 +1871,6 @@ mod tests
                 assert_eq!(Ast::Id1("Int"), *bar_fields[1].v.node);
                 assert_eq!(2, bar_fields.len());
             }
-
-            assert_eq!(Ast::Void, *variants[1].v.node);
         }
     }
 
@@ -2366,9 +2361,6 @@ mod tests
             assert_eq!("Red", vars[0].k.unwrap());
             assert_eq!("Green", vars[1].k.unwrap());
             assert_eq!("Blue", vars[2].k.unwrap());
-            assert_eq!(Ast::Void, *vars[0].v.node);
-            assert_eq!(Ast::Void, *vars[1].v.node);
-            assert_eq!(Ast::Void, *vars[2].v.node);
         }
     }
 }
