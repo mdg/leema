@@ -5,8 +5,6 @@ pub mod failure;
 #[macro_use]
 pub mod lstr;
 #[macro_use]
-pub mod parsl;
-#[macro_use]
 pub mod module;
 #[macro_use]
 pub mod ast2;
@@ -15,7 +13,6 @@ pub mod application;
 pub mod code;
 pub mod fiber;
 pub mod frame;
-pub mod grammar2;
 pub mod inter;
 pub mod io;
 pub mod list;
@@ -31,10 +28,8 @@ pub mod rsrc;
 pub mod semantics;
 pub mod sendclone;
 pub mod struple;
-pub mod tcp;
 pub mod token;
 pub mod types;
-pub mod udp;
 pub mod val;
 pub mod worker;
 
@@ -51,3 +46,5 @@ pub mod lib_str;
 pub mod lib_task;
 pub mod lib_time;
 pub mod prefab;
+pub mod tcp;
+pub mod udp;
