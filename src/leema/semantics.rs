@@ -947,6 +947,26 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 node.typ = id_type;
             }
             Ast::Call(ref mut callx, ref mut args) => {
+                if args.len() == 1 && *args.first().unwrap().v.node == Ast::VOID {
+                    if let Ast::ConstVal(Val::Construct(c)) = &*callx.node {
+                        let new_val = match &c.t {
+                            Type::Func(ft) => {
+                                let args = struple::map_v(&ft.args, |_| Ok(Val::VOID))?;
+                                let typ = (*ft.result).clone();
+                                Val::Struct(typ, args)
+                            }
+                            Type::Generic(_, _, _) => {
+                                panic!("constructors unimplemented for generics");
+                            }
+                            _ => {
+                                panic!("this doesn't make sense");
+                            }
+                        };
+                        node.typ = new_val.get_type();
+                        *node.node = Ast::ConstVal(new_val);
+                        return Ok(AstStep::Rewrite);
+                    }
+                }
                 let call_result = ltry!(self
                     .applied_call_type(&mut callx.typ, args)
                     .map_err(|f| {

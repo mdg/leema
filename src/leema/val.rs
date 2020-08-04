@@ -1120,7 +1120,7 @@ impl fmt::Debug for Val
             Val::Type(ref t) => write!(f, "TypeVal({:?})", t),
             Val::Construct(ref t) => write!(f, "Construct({:?})", t),
             Val::Call(ref fref, ref args) => {
-                write!(f, "({}::{} {:?}: {:?})", fref.m, fref.f, args, fref.t)
+                write!(f, "(call {}.{} {:?}: {:?})", fref.m, fref.f, args, fref.t)
             }
             Val::Future(_) => write!(f, "Future"),
             Val::PatternVar(ref r) => write!(f, "pvar:{:?}", r),
