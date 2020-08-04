@@ -514,7 +514,7 @@ impl<'p> Op for Pipeline<'p>
 
     fn post(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
-        for op in self.ops.iter_mut() {
+        for op in self.ops.iter_mut().rev() {
             steptry!(op.post(node, mode));
         }
         Ok(AstStep::Ok)
