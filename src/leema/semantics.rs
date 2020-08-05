@@ -947,24 +947,51 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 node.typ = id_type;
             }
             Ast::Call(ref mut callx, ref mut args) => {
-                if args.len() == 1 && *args.first().unwrap().v.node == Ast::VOID {
-                    if let Ast::ConstVal(Val::Construct(c)) = &*callx.node {
-                        let new_val = match &c.t {
-                            Type::Func(ft) => {
-                                let args = struple::map_v(&ft.args, |_| Ok(Val::VOID))?;
-                                let typ = (*ft.result).clone();
-                                Val::Struct(typ, args)
-                            }
-                            Type::Generic(_, _, _) => {
-                                panic!("constructors unimplemented for generics");
-                            }
-                            _ => {
-                                panic!("this doesn't make sense");
-                            }
-                        };
-                        node.typ = new_val.get_type();
-                        *node.node = Ast::ConstVal(new_val);
-                        return Ok(AstStep::Rewrite);
+                match &mut *callx.node {
+                    Ast::ConstVal(Val::Call(ref mut fref, _argvals)) => {
+                        fref.t = callx.typ.clone();
+                        // an optimization here might be to iterate over
+                        // ast args and initialize any constants
+                        // actually better might be to stop having
+                        // the args in the Val::Call const
+                        self.calls.push(fref.clone());
+                    }
+                    Ast::ConstVal(Val::Construct(c)) => {
+                        self.calls.push(c.clone());
+                        if args.len() == 1 && *args.first().unwrap().v.node == Ast::VOID {
+                            let new_val = match &c.t {
+                                Type::Func(ft) => {
+                                    let args = struple::map_v(&ft.args, |_| Ok(Val::VOID))?;
+                                    let typ = (*ft.result).clone();
+                                    Val::Struct(typ, args)
+                                }
+                                Type::Generic(_, _, _) => {
+                                    panic!("constructors unimplemented for generics");
+                                }
+                                _ => {
+                                    panic!("this doesn't make sense");
+                                }
+                            };
+                            node.typ = new_val.get_type();
+                            *node.node = Ast::ConstVal(new_val);
+                            return Ok(AstStep::Rewrite);
+                        }
+                    }
+                    _ => {
+                        if callx.typ.is_user() {
+                            /*
+                            let copy_typ = callx.typ.clone();
+                            let base = mem::take(callx);
+                            let args_copy = mem::take(args);
+                            node.replace(Ast::CopyAndSet(base, args_copy), copy_typ);
+                            */
+                        } else {
+                            return Err(rustfail!(
+                                SEMFAIL,
+                                "unexpected call expression: {:?}",
+                                callx,
+                            ));
+                        }
                     }
                 }
                 let call_result = ltry!(self
@@ -976,26 +1003,6 @@ impl<'p> ast2::Op for TypeCheck<'p>
                             callx.typ,
                         ))
                     }));
-                match &mut *callx.node {
-                    Ast::ConstVal(Val::Call(ref mut fref, _argvals)) => {
-                        fref.t = callx.typ.clone();
-                        // an optimization here might be to iterate over
-                        // ast args and initialize any constants
-                        // actually better might be to stop having the args
-                        // in the Val::Call const
-                        self.calls.push(fref.clone());
-                    }
-                    Ast::ConstVal(Val::Construct(ref mut fref)) => {
-                        self.calls.push(fref.clone());
-                    }
-                    other => {
-                        return Err(rustfail!(
-                            SEMFAIL,
-                            "call expression is not a const fref: {:?}",
-                            other,
-                        ));
-                    }
-                }
                 node.typ = call_result;
             }
             Ast::Op2(".", a, b) => {

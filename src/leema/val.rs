@@ -188,6 +188,16 @@ impl Type
         Type::LocalVar(lstrf!("{}$inner{}", var.str(), i))
     }
 
+    pub fn is_user(&self) -> bool
+    {
+        match self {
+            &Type::User(_, _) => true,
+            &Type::Variant(_, _) => true,
+            &Type::Generic(_, ref inner, _) => inner.is_user(),
+            _ => false,
+        }
+    }
+
     pub fn is_func(&self) -> bool
     {
         match self {

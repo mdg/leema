@@ -226,6 +226,7 @@ pub enum Ast
     Call(AstNode, Xlist),
     ConstVal(Val),
     Copy(AstNode),
+    CopyAndSet(AstNode, Xlist),
     DefConst(&'static str, AstNode),
     DefFunc(AstNode, Xlist, AstNode, AstNode),
     DefMacro(&'static str, Vec<&'static str>, AstNode),
@@ -280,6 +281,7 @@ impl Ast
             Ast::Call(id, args) => write!(f, "Call {:?} {:?}", id, args),
             Ast::ConstVal(v) => write!(f, "Const {:?}", v),
             Ast::Copy(src) => write!(f, "Copy {:?}", src),
+            Ast::CopyAndSet(src, flds) => write!(f, "(CopyAndSet {:?} {:?})", src, flds),
             Ast::DefConst(id, x) => write!(f, "DefConst {} := {:?}", id, x),
             Ast::DefFunc(name, args, result, body) => {
                 write!(
@@ -684,6 +686,12 @@ impl Walker
             }
             Ast::Return(x) => {
                 steptry!(self.walk(x, op));
+            }
+            Ast::CopyAndSet(src, flds) => {
+                steptry!(self.walk(src, op));
+                for f in flds.iter_mut() {
+                    steptry!(self.walk(&mut f.v, op));
+                }
             }
             Ast::ConstVal(_) | Ast::Id1(_) | Ast::RustBlock => {
                 // nowhere else to go
