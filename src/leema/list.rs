@@ -430,7 +430,7 @@ mod tests
             if let &Val::Bool(b) = v {
                 Val::Bool(!b)
             } else {
-                Val::Void
+                Val::VOID
             }
         });
 

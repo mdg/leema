@@ -949,7 +949,7 @@ mod tests
             if let Ast::Generic(first, type_args) = &*name.node {
                 assert_eq!(Ast::Id1("first"), *first.node);
                 assert_eq!("A", type_args[0].k.unwrap());
-                assert_eq!(Ast::Void, *type_args[0].v.node);
+                assert_eq!(Ast::VOID, *type_args[0].v.node);
                 assert_eq!(2, type_args.len());
             } else {
                 panic!("expected generic 'first', found {:?}", name.node);

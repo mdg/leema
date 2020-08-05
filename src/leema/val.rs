@@ -1691,7 +1691,7 @@ mod tests
         let s = Val::Token(typ);
 
         let s_str = format!("{}", s);
-        assert_eq!("foo::Taco", s_str);
+        assert_eq!("foo.Taco", s_str);
     }
 
     #[test]
@@ -1716,7 +1716,7 @@ mod tests
         );
 
         let s_str = format!("{}", s);
-        assert_eq!("tortas::Taco.Burrito(5,8,)", s_str);
+        assert_eq!("tortas.Taco.Burrito(5,8,)", s_str);
     }
 
     #[test]
