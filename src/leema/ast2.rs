@@ -325,6 +325,14 @@ impl Ast
     }
 }
 
+impl Default for Ast
+{
+    fn default() -> Ast
+    {
+        Ast::VOID
+    }
+}
+
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
