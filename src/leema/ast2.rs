@@ -281,7 +281,9 @@ impl Ast
             Ast::Call(id, args) => write!(f, "Call {:?} {:?}", id, args),
             Ast::ConstVal(v) => write!(f, "Const {:?}", v),
             Ast::Copy(src) => write!(f, "Copy {:?}", src),
-            Ast::CopyAndSet(src, flds) => write!(f, "(CopyAndSet {:?} {:?})", src, flds),
+            Ast::CopyAndSet(src, flds) => {
+                write!(f, "(CopyAndSet {:?} {:?})", src, flds)
+            }
             Ast::DefConst(id, x) => write!(f, "DefConst {} := {:?}", id, x),
             Ast::DefFunc(name, args, result, body) => {
                 write!(

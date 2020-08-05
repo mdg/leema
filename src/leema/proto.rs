@@ -402,12 +402,12 @@ impl ProtoModule
         self.types.insert(sname_id, struct_typ.clone());
         self.funcseq.push(sname_id);
         let macro_call = AstNode::new(Ast::Id1("new_struct_val"), loc);
-        let fields_arg = fields.iter().map(|f| {
-            StrupleItem::new(
-                f.k,
-                AstNode::new(Ast::Id1(f.k.unwrap()), loc),
-            )
-        }).collect();
+        let fields_arg = fields
+            .iter()
+            .map(|f| {
+                StrupleItem::new(f.k, AstNode::new(Ast::Id1(f.k.unwrap()), loc))
+            })
+            .collect();
         let macro_args = vec![
             StrupleItem::new_v(AstNode::new(Ast::Id1(sname_id), loc)),
             StrupleItem::new_v(AstNode::new(Ast::Tuple(fields_arg), loc)),

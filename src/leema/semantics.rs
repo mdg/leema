@@ -958,10 +958,15 @@ impl<'p> ast2::Op for TypeCheck<'p>
                     }
                     Ast::ConstVal(Val::Construct(c)) => {
                         self.calls.push(c.clone());
-                        if args.len() == 1 && *args.first().unwrap().v.node == Ast::VOID {
+                        if args.len() == 1
+                            && *args.first().unwrap().v.node == Ast::VOID
+                        {
                             let new_val = match &c.t {
                                 Type::Func(ft) => {
-                                    let args = struple::map_v(&ft.args, |_| Ok(Val::VOID))?;
+                                    let args =
+                                        struple::map_v(&ft.args, |_| {
+                                            Ok(Val::VOID)
+                                        })?;
                                     let typ = (*ft.result).clone();
                                     Val::Struct(typ, args)
                                 }
