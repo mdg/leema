@@ -12,7 +12,7 @@ datatype Rgb ::
     blue: Int
 --
 
-func main >>
+func main ->
     let c := Rgb(10, 20, 30)
     print("color: $c\n")
     print("red: ${c.red}\n")

@@ -984,12 +984,11 @@ impl<'p> ast2::Op for TypeCheck<'p>
                     }
                     _ => {
                         if callx.typ.is_user() {
-                            /*
                             let copy_typ = callx.typ.clone();
                             let base = mem::take(callx);
                             let args_copy = mem::take(args);
                             node.replace(Ast::CopyAndSet(base, args_copy), copy_typ);
-                            */
+                            return Ok(AstStep::Rewrite);
                         } else {
                             return Err(rustfail!(
                                 SEMFAIL,

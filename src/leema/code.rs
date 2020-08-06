@@ -254,6 +254,14 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             // xops.ops.append(&mut failops);
             xops.ops
         }
+        Ast::CopyAndSet(src, flds) => {
+            let mut cs_ops = make_sub_ops2(src);
+            for f in flds.into_iter() {
+                let mut f_ops = make_sub_ops2(f.v);
+                cs_ops.ops.append(&mut f_ops.ops);
+            }
+            cs_ops.ops
+        }
         Ast::List(items) => make_list_ops(input_dst, items),
         Ast::Tuple(items) => {
             let newtup = Op::ConstVal(input_dst, Val::new_tuple(items.len()));
@@ -724,6 +732,13 @@ impl Registration
                     }
                 };
                 node.dst = base.dst.sub(field_idx);
+            }
+            Ast::CopyAndSet(ref mut src, ref mut fields) => {
+                self.assign_registers(src)?;
+                for (i, f) in fields.iter_mut().enumerate() {
+                    f.v.dst = src.dst.sub(i as i8);
+                    self.assign_registers(&mut f.v)?;
+                }
             }
             // don't handle anything else in pre
             Ast::ConstVal(_) => {}

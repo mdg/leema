@@ -701,8 +701,10 @@ impl Walker
             Ast::Module(_) | Ast::Wildcard => {
                 // nowhere else to go
             }
+            Ast::Copy(src) => {
+                steptry!(self.walk(src, op));
+            }
             Ast::FuncType(_, _)
-            | Ast::Copy(_)
             | Ast::LessThan3(_, _, _, _, _)
             | Ast::Type(_) => {
                 panic!("func type crawling not implemented");
