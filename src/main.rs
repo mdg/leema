@@ -8,6 +8,7 @@ mod leema;
 extern crate pest_derive;
 
 use crate::leema::application::Application;
+use crate::leema::code;
 use crate::leema::failure::Lresult;
 use crate::leema::list;
 use crate::leema::loader::Interloader;
@@ -32,6 +33,7 @@ struct Args
     flag_preface: bool,
     flag_proto: bool,
     flag_semantics: bool,
+    flag_registers: bool,
     flag_typecheck: bool,
     flag_code: bool,
     flag_repl: bool,
@@ -52,6 +54,7 @@ Options:
      --preface     Show the preface for the module
      --proto       Show the proto mod for the module
      --semantics   Semantically analyze the module
+     --registers   Assign registers to the AST
      --code        Show code for the function
      --repl        Launch the REPL
      --func=<func>
@@ -139,6 +142,15 @@ fn real_main() -> Lresult<()>
         let mut prog = program::Lib::new(inter);
         let semantics = prog.read_semantics(&fref)?;
         println!("\n{:#?}\n", semantics);
+        None
+    } else if args.flag_registers {
+        let mut prog = program::Lib::new(inter);
+        let start = start_timer!();
+        let semantics = prog.read_semantics(&fref)?;
+        let mut semantics_ast = semantics.src;
+        code::assign_registers(&mut semantics_ast, semantics.args)?;
+        println!("\n{:#?}\n", semantics_ast);
+        println!("registers {:?}", start.elapsed());
         None
     } else if args.flag_code {
         let mut prog = program::Lib::new(inter);
