@@ -58,11 +58,13 @@ impl Fiber
         args: Struple2<Val>,
     )
     {
+        let pushed_stack = self.head.stack.push(50);
         let mut newf = Frame {
             parent: Parent::Null,
             function: func,
             trace: self.head.push_frame_trace(line),
             e: Env::with_args(args),
+            stack: pushed_stack,
             pc: 0,
         };
         mem::swap(&mut self.head, &mut newf);
