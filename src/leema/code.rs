@@ -1,4 +1,4 @@
-use crate::leema::ast2::{Ast, AstNode, Case, Xlist};
+use crate::leema::ast2::{self, Ast, AstMode, AstNode, AstStep, Case, Xlist};
 use crate::leema::failure::Lresult;
 use crate::leema::fiber;
 use crate::leema::frame;
@@ -604,7 +604,7 @@ pub fn assign_registers(
 {
     vout!("assign_registers({:?})\n", input);
     let mut rs = Registration::new(args);
-    rs.assign_registers(input)?;
+    ast2::walk_ref_mut(input, &mut rs)?;
     Ok(())
 }
 
@@ -624,138 +624,6 @@ impl Registration
             stack: RegStack::new(),
             is_pattern: false,
         }
-    }
-
-    fn assign_registers(&mut self, node: &mut AstNode) -> Lresult<()>
-    {
-        self.stack.push_node();
-        if node.dst == Reg::Undecided {
-            node.dst = self.stack.dst.clone();
-        }
-        let first_dst = node.dst.clone();
-
-        match &mut *node.node {
-            Ast::Block(ref mut items) => {
-                // copy the block's dst to the last item in the block
-                if let Some(item) = items.last_mut() {
-                    item.dst = node.dst.clone();
-                    self.assign_registers(item)?;
-                }
-
-                for i in items.iter_mut().rev().skip(1) {
-                    self.assign_registers(i)?;
-                }
-            }
-            Ast::Id1(ref name) => {
-                node.dst = self.tab.named(name);
-            }
-            Ast::Let(ref mut lhs, _, ref mut rhs) => {
-                if let Ast::Id1(name) = &*lhs.node {
-                    // if single assignment, replace the let w/
-                    // rhs assigned to lhs name
-                    rhs.dst = self.tab.named(name);
-                    *node = mem::replace(rhs, AstNode::void());
-                    self.assign_registers(node)?;
-                } else {
-                    let pval = ltry!(self.make_pattern_val(&lhs));
-                    *lhs = AstNode::new_constval(pval, lhs.loc);
-                    lhs.dst = self.stack.push_dst();
-                    self.assign_registers(rhs)?;
-                }
-            }
-            Ast::Call(ref mut f, ref mut args) => {
-                f.dst = self.tab.unnamed();
-                self.assign_registers(f)?;
-                for (i, a) in args.iter_mut().enumerate() {
-                    a.v.dst = f.dst.sub(i as i8);
-                    self.assign_registers(&mut a.v)?;
-                }
-            }
-            Ast::Matchx(ref mut match_input, ref mut cases) => {
-                if let Some(ref mut mi) = match_input {
-                    mi.dst = self.stack.push_dst();
-                    self.assign_registers(mi)?;
-                }
-                let cond_dst = self.stack.push_dst();
-                for case in cases.iter_mut() {
-                    let pval = ltry!(self.make_pattern_val(&case.cond));
-                    let mut cond = AstNode::new_constval(pval, case.cond.loc);
-                    cond.dst = cond_dst;
-                    case.cond = cond;
-                    case.body.dst = node.dst;
-                    self.assign_registers(&mut case.body)?;
-                }
-            }
-            Ast::Ifx(ref mut cases) => {
-                let cond_dst = self.stack.push_dst();
-                for case in cases.iter_mut() {
-                    if *case.cond.node == Ast::VOID {
-                        case.cond.dst = Reg::Void;
-                    } else {
-                        case.cond.dst = cond_dst;
-                    }
-                    case.body.dst = node.dst;
-                    self.assign_registers(&mut case.cond)?;
-                    self.assign_registers(&mut case.body)?;
-                }
-            }
-            Ast::StrExpr(ref mut items) => {
-                let item_dst = self.stack.push_dst();
-                for i in items {
-                    i.dst = item_dst.clone();
-                    self.assign_registers(i)?;
-                }
-            }
-            Ast::Tuple(ref mut items) => {
-                if node.dst.is_sub() {
-                    node.dst = self.stack.push_dst();
-                }
-                for (i, item) in items.iter_mut().enumerate() {
-                    item.v.dst = node.dst.sub(i as i8);
-                    self.assign_registers(&mut item.v)?;
-                }
-            }
-            Ast::List(ref mut items) => {
-                let dst = self.stack.push_dst();
-                for i in items.iter_mut() {
-                    i.v.dst = dst.clone();
-                    self.assign_registers(&mut i.v)?;
-                }
-            }
-            Ast::Op2(".", ref mut base, ref field) => {
-                self.assign_registers(base)?;
-                let field_idx = match &*field.node {
-                    Ast::Id1(idx_str) => idx_str.parse().unwrap(),
-                    Ast::ConstVal(Val::Int(i)) => *i as i8,
-                    other => {
-                        panic!("field name is not an identifier: {:?}", other)
-                    }
-                };
-                node.dst = base.dst.sub(field_idx);
-            }
-            Ast::CopyAndSet(ref mut src, ref mut fields) => {
-                self.assign_registers(src)?;
-                for (i, f) in fields.iter_mut().enumerate() {
-                    f.v.dst = src.dst.sub(i as i8);
-                    self.assign_registers(&mut f.v)?;
-                }
-            }
-            // don't handle anything else in pre
-            Ast::ConstVal(_) => {}
-            other => {
-                eprintln!("no registers assigned for {:#?}", other);
-            }
-        }
-
-        // if the dst reg has changed, insert a copy node
-        if node.dst != first_dst && first_dst != Reg::Void {
-            let mut copy_node = AstNode::void();
-            copy_node.dst = first_dst;
-            mem::swap(node, &mut copy_node);
-            node.node = Box::new(Ast::Copy(copy_node));
-        }
-        self.stack.pop_node();
-        Ok(())
     }
 
     fn make_pattern_val(&mut self, pattern: &AstNode) -> Lresult<Val>
@@ -802,6 +670,122 @@ impl Registration
             }
         };
         Ok(pval)
+    }
+}
+
+impl ast2::Op for Registration
+{
+    fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> ast2::StepResult
+    {
+        self.stack.push_node();
+        if node.dst == Reg::Undecided {
+            node.dst = self.stack.dst.clone();
+        }
+        let first_dst = node.dst.clone();
+
+        match &mut *node.node {
+            Ast::Block(ref mut items) => {
+                // copy the block's dst to the last item in the block
+                if let Some(item) = items.last_mut() {
+                    item.dst = node.dst.clone();
+                }
+            }
+            Ast::Id1(ref name) => {
+                node.dst = self.tab.named(name);
+            }
+            Ast::Let(ref mut lhs, _, ref mut rhs) => {
+                if let Ast::Id1(name) = &*lhs.node {
+                    // if single assignment, replace the let w/
+                    // rhs assigned to lhs name
+                    rhs.dst = self.tab.named(name);
+                    *node = mem::replace(rhs, AstNode::void());
+                } else {
+                    let pval = ltry!(self.make_pattern_val(&lhs));
+                    *lhs = AstNode::new_constval(pval, lhs.loc);
+                    lhs.dst = self.stack.push_dst();
+                }
+            }
+            Ast::Call(ref mut f, ref mut args) => {
+                f.dst = self.tab.unnamed();
+                for (i, a) in args.iter_mut().enumerate() {
+                    a.v.dst = f.dst.sub(i as i8);
+                }
+            }
+            Ast::Matchx(ref mut match_input, ref mut cases) => {
+                if let Some(ref mut mi) = match_input {
+                    mi.dst = self.stack.push_dst();
+                }
+                let cond_dst = self.stack.push_dst();
+                for case in cases.iter_mut() {
+                    let pval = ltry!(self.make_pattern_val(&case.cond));
+                    let mut cond = AstNode::new_constval(pval, case.cond.loc);
+                    cond.dst = cond_dst;
+                    case.cond = cond;
+                    case.body.dst = node.dst;
+                }
+            }
+            Ast::Ifx(ref mut cases) => {
+                let cond_dst = self.stack.push_dst();
+                for case in cases.iter_mut() {
+                    if *case.cond.node == Ast::VOID {
+                        case.cond.dst = Reg::Void;
+                    } else {
+                        case.cond.dst = cond_dst;
+                    }
+                    case.body.dst = node.dst;
+                }
+            }
+            Ast::StrExpr(ref mut items) => {
+                let item_dst = self.stack.push_dst();
+                for i in items {
+                    i.dst = item_dst.clone();
+                }
+            }
+            Ast::Tuple(ref mut items) => {
+                if node.dst.is_sub() {
+                    node.dst = self.stack.push_dst();
+                }
+                for (i, item) in items.iter_mut().enumerate() {
+                    item.v.dst = node.dst.sub(i as i8);
+                }
+            }
+            Ast::List(ref mut items) => {
+                let dst = self.stack.push_dst();
+                for i in items.iter_mut() {
+                    i.v.dst = dst.clone();
+                }
+            }
+            Ast::Op2(".", ref mut base, ref field) => {
+                let field_idx = match &*field.node {
+                    Ast::Id1(idx_str) => idx_str.parse().unwrap(),
+                    Ast::ConstVal(Val::Int(i)) => *i as i8,
+                    other => {
+                        panic!("field name is not an identifier: {:?}", other)
+                    }
+                };
+                node.dst = base.dst.sub(field_idx);
+            }
+            Ast::CopyAndSet(ref mut src, ref mut fields) => {
+                for (i, f) in fields.iter_mut().enumerate() {
+                    f.v.dst = src.dst.sub(i as i8);
+                }
+            }
+            // don't handle anything else in pre
+            Ast::ConstVal(_) => {}
+            other => {
+                eprintln!("no registers assigned for {:#?}", other);
+            }
+        }
+
+        // if the dst reg has changed, insert a copy node
+        if node.dst != first_dst && first_dst != Reg::Void {
+            let mut copy_node = AstNode::void();
+            copy_node.dst = first_dst;
+            mem::swap(node, &mut copy_node);
+            node.node = Box::new(Ast::Copy(copy_node));
+        }
+        self.stack.pop_node();
+        Ok(AstStep::Ok)
     }
 }
 

@@ -547,6 +547,15 @@ pub fn walk(mut node: AstNode, op: &mut dyn Op) -> AstResult
     Ok(node)
 }
 
+pub fn walk_ref_mut(node: &mut AstNode, op: &mut dyn Op) -> Lresult<()>
+{
+    let mut w = Walker {
+        mode: AstMode::Value,
+    };
+    w.walk(node, op)?;
+    Ok(())
+}
+
 impl Walker
 {
     fn set_mode(&mut self, mode: AstMode) -> AstMode
