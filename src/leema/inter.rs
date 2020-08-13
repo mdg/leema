@@ -1,14 +1,14 @@
 use crate::leema::ast2::LocalType;
-use crate::leema::reg::RegTab;
+use crate::leema::failure::Lresult;
+use crate::leema::reg::{Reg, RegTab};
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 
 #[derive(Debug)]
 pub struct Blockscope
 {
-    vars: HashSet<&'static str>,
-    tab: RegTab,
+    vars: RegTab,
 }
 
 impl Blockscope
@@ -16,8 +16,7 @@ impl Blockscope
     pub fn new() -> Blockscope
     {
         Blockscope {
-            vars: HashSet::new(),
-            tab: RegTab::new(vec![]),
+            vars: RegTab::new(vec![]),
         }
     }
 }
@@ -84,29 +83,29 @@ impl Blockstack
         self.stack.last_mut().unwrap()
     }
 
-    pub fn assign_var(&mut self, id: &'static str, vt: LocalType)
+    pub fn assign_var(&mut self, id: &'static str, vt: LocalType) -> Lresult<Reg>
     {
-        if self.var_in_scope(id) {
-            let var_data = self.locals.get_mut(id).unwrap();
-            match (var_data.var_type, vt) {
-                (LocalType::Let, LocalType::Let) => {
-                    var_data.num_reassignments += 1;
-                }
-                (LocalType::Param, LocalType::Let) => {
-                    panic!("cannot reassign a function parameter: {}", id);
-                }
-                (LocalType::Match, LocalType::Let) => {
-                    panic!("cannot reassign a pattern variable: {}", id);
-                }
-                _ => {
-                    // matching on an existing variable, that's cool
-                }
-            }
-        } else {
-            let new_var = LocalVar::new(id.clone(), vt);
-            self.locals.insert(id.clone(), new_var);
-            self.current_block_mut().vars.insert(id.clone());
+        if let Some(r) = self.stack.last().unwrap().vars.with_name(id) {
+            // since this var is already in the current stack
+            // reassign to the current register
+            return Ok(r);
         }
+
+        if let Some(var_data) = self.locals.get_mut(id) {
+            if var_data.var_type == LocalType::Param {
+                return Err(rustfail!(
+                    "compile_error",
+                    "cannot reassign a function parameter: {}",
+                    id,
+                ));
+            }
+            var_data.num_reassignments += 1;
+            return Ok(self.var_in_scope(id).unwrap());
+        }
+
+        let new_var = LocalVar::new(id.clone(), vt);
+        self.locals.insert(id.clone(), new_var);
+        Ok(self.current_block_mut().vars.new_name(id))
     }
 
     pub fn access_var(&mut self, id: &'static str, lineno: i16)
@@ -122,8 +121,13 @@ impl Blockstack
         vi.last_access = Some(lineno)
     }
 
-    pub fn var_in_scope(&self, id: &'static str) -> bool
+    pub fn var_in_scope(&self, id: &'static str) -> Option<Reg>
     {
-        self.stack.iter().any(|bs| bs.vars.contains(id))
+        for s in self.stack.iter() {
+            if let Some(r) = s.vars.with_name(id) {
+                return Some(r);
+            }
+        }
+        None
     }
 }

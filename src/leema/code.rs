@@ -694,7 +694,9 @@ impl ast2::Op for Registration
                 node.dst = self.tab.new_name(name);
             }
             Ast::Id1(ref name) if mode == AstMode::Value => {
-                node.dst = self.tab.with_name(name)?;
+                if node.dst == Reg::Undecided {
+                    panic!("unexpected unknown register for {}", name);
+                }
             }
             Ast::Let(ref mut lhs, _, ref mut rhs) => {
                 if let Ast::Id1(name) = &*lhs.node {

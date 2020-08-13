@@ -217,17 +217,9 @@ impl RegTab
         Reg::local(r)
     }
 
-    pub fn with_name(&mut self, id: &'static str) -> Lresult<Reg>
+    pub fn with_name(&mut self, id: &'static str) -> Option<Reg>
     {
-        self.ids.get(id)
-            .map(|r| r.clone())
-            .ok_or_else(|| {
-                rustfail!(
-                    "compile_failure",
-                    "no register assigned for {}",
-                    id,
-                )
-            })
+        self.ids.get(id).map(|r| r.clone())
     }
 
     pub fn unnamed(&mut self) -> Reg

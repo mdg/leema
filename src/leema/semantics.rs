@@ -371,8 +371,8 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                 }
             }
             Ast::Id1(id) => {
-                if self.blocks.var_in_scope(id) {
-                    // that's cool, nothing to do I guess?
+                if let Some(r) = self.blocks.var_in_scope(id) {
+                    node.dst = r;
                 } else if let Some(me) = self.local_mod.find_modelem(id) {
                     node.replace((*me.node).clone(), me.typ.clone());
                     return Ok(AstStep::Rewrite);
