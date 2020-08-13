@@ -630,7 +630,7 @@ impl Registration
     {
         let pval = match &*pattern.node {
             Ast::Id1(id) => {
-                let dst = self.tab.named(id);
+                let dst = self.tab.new_name(id);
                 vout!("pattern var:reg is {}.{:?}\n", id, pattern.dst);
                 Val::PatternVar(dst)
             }
@@ -675,7 +675,7 @@ impl Registration
 
 impl ast2::Op for Registration
 {
-    fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> ast2::StepResult
+    fn pre(&mut self, node: &mut AstNode, mode: AstMode) -> ast2::StepResult
     {
         self.stack.push_node();
         if node.dst == Reg::Undecided {
@@ -690,14 +690,17 @@ impl ast2::Op for Registration
                     item.dst = node.dst.clone();
                 }
             }
-            Ast::Id1(ref name) => {
-                node.dst = self.tab.named(name);
+            Ast::Id1(ref name) if mode.is_pattern() => {
+                node.dst = self.tab.new_name(name);
+            }
+            Ast::Id1(ref name) if mode == AstMode::Value => {
+                node.dst = self.tab.with_name(name)?;
             }
             Ast::Let(ref mut lhs, _, ref mut rhs) => {
                 if let Ast::Id1(name) = &*lhs.node {
                     // if single assignment, replace the let w/
                     // rhs assigned to lhs name
-                    rhs.dst = self.tab.named(name);
+                    rhs.dst = self.tab.new_name(name);
                     *node = mem::replace(rhs, AstNode::void());
                 } else {
                     let pval = ltry!(self.make_pattern_val(&lhs));

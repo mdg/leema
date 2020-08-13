@@ -208,15 +208,25 @@ impl RegTab
         RegTab { ids, next_local: 0 }
     }
 
-    pub fn named(&mut self, id: &'static str) -> Reg
+    pub fn new_name(&mut self, id: &'static str) -> Reg
     {
-        if let Some(r) = self.ids.get(id) {
-            return r.clone();
-        }
         let r = self.next_local;
         self.next_local += 1;
         self.ids.insert(id, Reg::local(r));
         Reg::local(r)
+    }
+
+    pub fn with_name(&mut self, id: &'static str) -> Lresult<Reg>
+    {
+        self.ids.get(id)
+            .map(|r| r.clone())
+            .ok_or_else(|| {
+                rustfail!(
+                    "compile_failure",
+                    "no register assigned for {}",
+                    id,
+                )
+            })
     }
 
     pub fn unnamed(&mut self) -> Reg
