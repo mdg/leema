@@ -189,6 +189,7 @@ impl fmt::Debug for Reg
 /// Down:
 /// - ids assign new or existing
 /// - calls assign new, push params as current
+#[derive(Debug)]
 pub struct RegTab
 {
     ids: HashMap<&'static str, Reg>,

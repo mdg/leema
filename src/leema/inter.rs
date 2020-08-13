@@ -1,5 +1,5 @@
 use crate::leema::ast2::LocalType;
-use crate::leema::lstr::Lstr;
+use crate::leema::reg::RegTab;
 
 use std::collections::{HashMap, HashSet};
 
@@ -7,7 +7,8 @@ use std::collections::{HashMap, HashSet};
 #[derive(Debug)]
 pub struct Blockscope
 {
-    vars: HashSet<Lstr>,
+    vars: HashSet<&'static str>,
+    tab: RegTab,
 }
 
 impl Blockscope
@@ -16,6 +17,7 @@ impl Blockscope
     {
         Blockscope {
             vars: HashSet::new(),
+            tab: RegTab::new(vec![]),
         }
     }
 }
@@ -23,9 +25,8 @@ impl Blockscope
 #[derive(Debug)]
 pub struct LocalVar
 {
-    name: Lstr,
+    name: &'static str,
     var_type: LocalType,
-    num_scopes: i16,
     num_reassignments: i16,
     first_assign: i16,
     first_access: Option<i16>,
@@ -35,12 +36,11 @@ pub struct LocalVar
 
 impl LocalVar
 {
-    pub fn new(name: Lstr, vt: LocalType) -> LocalVar
+    pub fn new(name: &'static str, vt: LocalType) -> LocalVar
     {
         LocalVar {
             name,
             var_type: vt,
-            num_scopes: 1,
             num_reassignments: 0,
             first_assign: 0,
             first_access: None,
@@ -54,7 +54,7 @@ impl LocalVar
 pub struct Blockstack
 {
     stack: Vec<Blockscope>,
-    locals: HashMap<Lstr, LocalVar>,
+    locals: HashMap<&'static str, LocalVar>,
     in_failed: bool,
 }
 
@@ -84,7 +84,7 @@ impl Blockstack
         self.stack.last_mut().unwrap()
     }
 
-    pub fn assign_var(&mut self, id: &Lstr, vt: LocalType)
+    pub fn assign_var(&mut self, id: &'static str, vt: LocalType)
     {
         if self.var_in_scope(id) {
             let var_data = self.locals.get_mut(id).unwrap();
@@ -109,7 +109,7 @@ impl Blockstack
         }
     }
 
-    pub fn access_var(&mut self, id: &Lstr, lineno: i16)
+    pub fn access_var(&mut self, id: &'static str, lineno: i16)
     {
         let opt_local = self.locals.get_mut(id);
         if opt_local.is_none() {
@@ -122,7 +122,7 @@ impl Blockstack
         vi.last_access = Some(lineno)
     }
 
-    pub fn var_in_scope(&self, id: &Lstr) -> bool
+    pub fn var_in_scope(&self, id: &'static str) -> bool
     {
         self.stack.iter().any(|bs| bs.vars.contains(id))
     }

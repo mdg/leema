@@ -321,10 +321,16 @@ impl<'p> ScopeCheck<'p>
     {
         let mut root = Blockstack::new();
         for arg in ftyp.args.iter() {
-            let argn = arg.k.as_ref().ok_or_else(|| {
-                rustfail!(SEMFAIL, "arguments must have a name: {:?}", arg)
-            })?;
-            root.assign_var(&argn, LocalType::Param);
+            match arg.k {
+                Some(Lstr::Sref(argn)) => {
+                    root.assign_var(&argn, LocalType::Param);
+                }
+                _ => {
+                   return Err(rustfail!(
+                       SEMFAIL, "arguments must have a name: {:?}", arg,
+                   ));
+                }
+            }
         }
         Ok(ScopeCheck {
             blocks: root,
@@ -353,7 +359,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                         node.loc.lineno,
                     ));
                 }
-                self.blocks.assign_var(&Lstr::Sref(id), local_type);
+                self.blocks.assign_var(id, local_type);
             }
             Ast::Id1(id) if mode == AstMode::Type => {
                 let found = self.local_mod.find_type(id);
@@ -365,7 +371,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                 }
             }
             Ast::Id1(id) => {
-                if self.blocks.var_in_scope(&Lstr::Sref(id)) {
+                if self.blocks.var_in_scope(id) {
                     // that's cool, nothing to do I guess?
                 } else if let Some(me) = self.local_mod.find_modelem(id) {
                     node.replace((*me.node).clone(), me.typ.clone());
