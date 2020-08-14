@@ -217,7 +217,7 @@ impl RegTab
         Reg::local(r)
     }
 
-    pub fn with_name(&mut self, id: &'static str) -> Option<Reg>
+    pub fn with_name(&self, id: &'static str) -> Option<Reg>
     {
         self.ids.get(id).map(|r| r.clone())
     }

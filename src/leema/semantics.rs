@@ -323,7 +323,7 @@ impl<'p> ScopeCheck<'p>
         for arg in ftyp.args.iter() {
             match arg.k {
                 Some(Lstr::Sref(argn)) => {
-                    root.assign_var(&argn, LocalType::Param);
+                    root.assign_var(&argn, LocalType::Param)?;
                 }
                 _ => {
                    return Err(rustfail!(
@@ -359,7 +359,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                         node.loc.lineno,
                     ));
                 }
-                self.blocks.assign_var(id, local_type);
+                node.dst = self.blocks.assign_var(id, local_type)?;
             }
             Ast::Id1(id) if mode == AstMode::Type => {
                 let found = self.local_mod.find_type(id);
