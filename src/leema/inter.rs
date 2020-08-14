@@ -13,10 +13,17 @@ pub struct Blockscope
 
 impl Blockscope
 {
-    pub fn new() -> Blockscope
+    pub fn push(&self) -> Blockscope
     {
         Blockscope {
-            vars: RegTab::new(vec![]),
+            vars: self.vars.push(),
+        }
+    }
+
+    pub fn with_args(args: Vec<&'static str>) -> Blockscope
+    {
+        Blockscope {
+            vars: RegTab::with_args(args),
         }
     }
 }
@@ -59,10 +66,10 @@ pub struct Blockstack
 
 impl Blockstack
 {
-    pub fn new() -> Blockstack
+    pub fn with_args(args: Vec<&'static str>) -> Blockstack
     {
         Blockstack {
-            stack: vec![Blockscope::new()],
+            stack: vec![Blockscope::with_args(args)],
             locals: HashMap::new(),
             in_failed: false,
         }
@@ -70,7 +77,8 @@ impl Blockstack
 
     pub fn push_blockscope(&mut self)
     {
-        self.stack.push(Blockscope::new());
+        let new_blockscope = self.stack.last().unwrap().push();
+        self.stack.push(new_blockscope);
     }
 
     pub fn pop_blockscope(&mut self)

@@ -198,15 +198,18 @@ pub struct RegTab
 
 impl RegTab
 {
-    pub fn new(params: Vec<Option<&'static str>>) -> RegTab
+    pub fn with_args(args: Vec<&'static str>) -> RegTab
     {
         let mut ids = HashMap::new();
-        for (i, name) in params.iter().enumerate() {
-            if let Some(iname) = name {
-                ids.insert(*iname, Reg::param(i as i8));
-            }
+        for (i, name) in args.iter().enumerate() {
+            ids.insert(*name, Reg::param(i as i8));
         }
         RegTab { ids, next_local: 0 }
+    }
+
+    pub fn push(&self) -> RegTab
+    {
+        RegTab { ids: HashMap::new(), next_local: self.next_local }
     }
 
     pub fn new_name(&mut self, id: &'static str) -> Reg

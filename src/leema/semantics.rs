@@ -1,5 +1,5 @@
 use crate::leema::ast2::{
-    self, Ast, AstMode, AstNode, AstResult, AstStep, Loc, LocalType,
+    self, Ast, AstMode, AstNode, AstResult, AstStep, Loc,
     StepResult, Xlist,
 };
 use crate::leema::failure::{self, Failure, Lresult};
@@ -58,7 +58,7 @@ impl<'l> MacroApplication<'l>
     fn apply_macro(
         mac: &Ast,
         loc: Loc,
-        args: &StrupleKV<Option<&'static str>, AstNode>,
+        args: &Xlist,
     ) -> AstResult
     {
         let (macro_name, arg_names, body) =
@@ -113,8 +113,7 @@ impl<'l> MacroApplication<'l>
         let callx = AstNode::new(Ast::Id1(func), loc);
         let new_a = mem::take(a);
         let new_b = mem::take(b);
-        let args: StrupleKV<Option<&'static str>, AstNode> =
-            struple::new_tuple2(new_a, new_b);
+        let args: Xlist = struple::new_tuple2(new_a, new_b);
         AstNode::new(Ast::Call(callx, args), loc)
     }
 
@@ -319,21 +318,19 @@ impl<'p> ScopeCheck<'p>
         local_mod: &'p ProtoModule,
     ) -> Lresult<ScopeCheck<'p>>
     {
-        let mut root = Blockstack::new();
-        for arg in ftyp.args.iter() {
-            match arg.k {
-                Some(Lstr::Sref(argn)) => {
-                    root.assign_var(&argn, LocalType::Param)?;
+        let mut args: Vec<&'static str> = Vec::new();
+        for a in ftyp.args.iter() {
+            match a.k {
+                Some(Lstr::Sref(arg)) => {
+                    args.push(arg);
                 }
                 _ => {
-                   return Err(rustfail!(
-                       SEMFAIL, "arguments must have a name: {:?}", arg,
-                   ));
+                    panic!("function argument missing name: {:?}", ftyp);
                 }
             }
         }
         Ok(ScopeCheck {
-            blocks: root,
+            blocks: Blockstack::with_args(args),
             local_mod,
         })
     }
@@ -1252,7 +1249,7 @@ impl ast2::Op for RemoveExtraCode
 pub struct Semantics
 {
     pub src: AstNode,
-    pub args: Vec<Option<&'static str>>,
+    pub args: Vec<&'static str>,
     pub infers: HashMap<Lstr, Type>,
     pub calls: Vec<Fref>,
 }
@@ -1327,13 +1324,14 @@ impl Semantics
         sem.args = ftyp
             .args
             .iter()
-            .map(|kv| {
+            .enumerate()
+            .map(|(_i, kv)| {
                 match &kv.k {
-                    Some(Lstr::Sref(name)) => Some(*name),
+                    Some(Lstr::Sref(name)) => *name,
                     Some(Lstr::Arc(ref name)) => {
                         panic!("func arg name is not a static: {}", name);
                     }
-                    _ => None,
+                    _ => "missing_field",
                 }
             })
             .collect();

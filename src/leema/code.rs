@@ -599,11 +599,11 @@ pub fn make_str_ops(dst: Reg, items: Vec<AstNode>) -> OpVec
 
 pub fn assign_registers(
     input: &mut AstNode,
-    args: Vec<Option<&'static str>>,
+    args: Vec<&'static str>,
 ) -> Lresult<()>
 {
     vout!("assign_registers({:?})\n", input);
-    let mut rs = Registration::new(args);
+    let mut rs = Registration::with_args(args);
     ast2::walk_ref_mut(input, &mut rs)?;
     Ok(())
 }
@@ -617,10 +617,10 @@ pub struct Registration
 
 impl Registration
 {
-    pub fn new(params: Vec<Option<&'static str>>) -> Registration
+    pub fn with_args(args: Vec<&'static str>) -> Registration
     {
         Registration {
-            tab: RegTab::new(params),
+            tab: RegTab::with_args(args),
             stack: RegStack::new(),
             is_pattern: false,
         }
@@ -810,6 +810,7 @@ mod tests
     use crate::leema::code::{self, Op};
     use crate::leema::loader::Interloader;
     use crate::leema::module::ModKey;
+    use crate::leema::parser::{self, Rule};
     use crate::leema::program;
     use crate::leema::reg::Reg;
     use crate::leema::val::{Fref, Val};
