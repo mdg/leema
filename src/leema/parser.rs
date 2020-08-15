@@ -241,6 +241,7 @@ impl LeemaPrec
             //----
             .right()
             .prefix(Rule::negative)
+            .prefix(Rule::star)
             //----
             .left()
             .infix(Rule::star)
@@ -496,7 +497,7 @@ impl LeemaPrec
                 let call_loc = x.loc;
                 Ok(AstNode::new(Ast::Call(x, tuple), call_loc))
             }
-            Rule::negative | Rule::not | Rule::add_newline => {
+            Rule::negative | Rule::not | Rule::star | Rule::add_newline => {
                 let ast = Ast::Op1(op.as_str(), x);
                 Ok(AstNode::new(ast, loc))
             }

@@ -32,6 +32,7 @@ double_dash = _{ "--" }
 prefix_op = _{
     negative
     | not
+    | star
 }
 
 postfix_op = _{
@@ -134,6 +135,7 @@ type_term = _{
     tuple_type
     | list_type
     | generic_type
+    | id ~ star
     | id
 }
 

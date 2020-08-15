@@ -288,6 +288,52 @@ struct MacroReplacement<'a>
     loc: Loc,
 }
 
+impl<'a> MacroReplacement<'a>
+{
+    fn expand_args(args: &mut Xlist) -> StepResult
+    {
+        let (expands, extra_items) = args.iter().fold((false, 0),
+            |(matches, extra_items), a| {
+                if let Ast::Op1("*", expansion_node) = &*a.v.node {
+                    match &*expansion_node.node {
+                        Ast::Tuple(expansion) => {
+                            (true, extra_items + expansion.len())
+                        }
+                        what => {
+                            panic!("expected tuple, found {:?}", what);
+                        }
+                    }
+                } else {
+                    (matches, extra_items)
+                }
+            },
+        );
+        if !expands {
+            return Ok(AstStep::Ok);
+        }
+
+        let mut new_args = Vec::with_capacity(args.len() + extra_items);
+        let tmp_args = mem::take(args);
+        for a in tmp_args.into_iter() {
+            if let Ast::Op1("*", expansion_node) = *a.v.node {
+                match *expansion_node.node {
+                    Ast::Tuple(mut expansion) => {
+                        new_args.append(&mut expansion);
+                    }
+                    what => {
+                        panic!("expected tuple, found {:?}", what);
+                    }
+                }
+            } else {
+                // not an expansion, just pass it through
+                new_args.push(a);
+            }
+        }
+        mem::swap(args, &mut new_args);
+        Ok(AstStep::Ok)
+    }
+}
+
 impl<'a> ast2::Op for MacroReplacement<'a>
 {
     fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
@@ -297,6 +343,20 @@ impl<'a> ast2::Op for MacroReplacement<'a>
                 *node = (*newval).clone();
                 return Ok(AstStep::Rewrite);
             }
+        }
+        // if not replacing the id, replace the location of the call
+        // so everything in the macro body traces back to the macro name
+        node.loc = self.loc;
+        Ok(AstStep::Ok)
+    }
+
+    fn post(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
+    {
+        match &mut *node.node {
+            Ast::Call(_callx, ref mut args) if mode == AstMode::Value => {
+                Self::expand_args(args)?;
+            }
+            _ => {} // nothing
         }
         // if not replacing the id, replace the location of the call
         // so everything in the macro body traces back to the macro name

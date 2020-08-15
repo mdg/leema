@@ -772,11 +772,18 @@ impl ast2::Op for Registration
             }
             Ast::CopyAndSet(ref mut src, ref mut fields) => {
                 for (i, f) in fields.iter_mut().enumerate() {
-                    f.v.dst = src.dst.sub(i as i8);
+                    if f.v.dst != Reg::Undecided {
+                        let copied = mem::take(&mut f.v);
+                        *f.v.node = Ast::Copy(copied);
+                        // skip assigning the type,
+                        // probably don' care about it anymore
+                        // f.v.typ = copied.typ.clone();
+                    }
+                    f.v.dst = node.dst.sub(i as i8);
                 }
             }
             // don't handle anything else in pre
-            Ast::ConstVal(_) => {}
+            Ast::ConstVal(_) | Ast::Copy(_) => {}
             other => {
                 eprintln!("no registers assigned for {:#?}", other);
             }
