@@ -348,9 +348,22 @@ impl LeemaPrec
             }
             Rule::let_stmt => {
                 let mut inner = n.into_inner();
-                let id = self.primary(inner.next().unwrap())?;
-                let x = self.primary(inner.next().unwrap())?;
-                let stmt = Ast::Let(id, AstNode::void(), x);
+                let let_mode = inner.next().unwrap();
+                let stmt = match let_mode.as_str() {
+                    "let" => {
+                        let id = self.primary(inner.next().unwrap())?;
+                        let x = self.primary(inner.next().unwrap())?;
+                        Ast::Let(id, AstNode::void(), x)
+                    }
+                    "const" => {
+                        let id = inner.next().unwrap();
+                        let x = self.primary(inner.next().unwrap())?;
+                        Ast::DefConst(id.as_str(), x)
+                    }
+                    other => {
+                        panic!("unexpected let mode {:?}", other);
+                    }
+                };
                 Ok(AstNode::new(stmt, loc))
             }
             Rule::ifx => {

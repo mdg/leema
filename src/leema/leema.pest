@@ -42,6 +42,7 @@ postfix_op = _{
 
 // keywords
 func_mode = { "func" | "macro" }
+let_mode = { "let" | "const" }
 rust_block = { "-RUST-" }
 mxport = { "import" | "export" }
 
@@ -164,7 +165,7 @@ def_enum = !{ "datatype" ~ hs1 ~ def_id ~ def_enum_variant+ ~ vs1 ~ "--" }
 
 def_rust_type = !{ "datatype" ~ hs1 ~ id ~ as1 ~ rust_block }
 
-let_stmt = !{ "let" ~ hs1 ~ id ~ as1 ~ ":=" ~ as1 ~ compound_expr }
+let_stmt = !{ let_mode ~ hs1 ~ id ~ as1 ~ ":=" ~ as1 ~ compound_expr }
 
 return_stmt = !{ "return" ~ as1 ~ compound_expr }
 
