@@ -743,7 +743,9 @@ impl ast2::Op for Registration
             Ast::StrExpr(ref mut items) => {
                 let item_dst = self.stack.push_dst();
                 for i in items {
-                    i.dst = item_dst.clone();
+                    if i.dst == Reg::Undecided {
+                        i.dst = item_dst.clone();
+                    }
                 }
             }
             Ast::Tuple(ref mut items) => {
