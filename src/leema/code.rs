@@ -698,17 +698,10 @@ impl ast2::Op for Registration
                     panic!("unexpected unknown register for {}", name);
                 }
             }
-            Ast::Let(ref mut lhs, _, ref mut rhs) => {
-                if let Ast::Id1(name) = &*lhs.node {
-                    // if single assignment, replace the let w/
-                    // rhs assigned to lhs name
-                    rhs.dst = self.tab.new_name(name);
-                    *node = mem::replace(rhs, AstNode::void());
-                } else {
-                    let pval = ltry!(self.make_pattern_val(&lhs));
-                    *lhs = AstNode::new_constval(pval, lhs.loc);
-                    lhs.dst = self.stack.push_dst();
-                }
+            Ast::Let(ref mut lhs, _, ref mut _rhs) => {
+                let pval = ltry!(self.make_pattern_val(&lhs));
+                *lhs = AstNode::new_constval(pval, lhs.loc);
+                lhs.dst = self.stack.push_dst();
             }
             Ast::Call(ref mut f, ref mut args) => {
                 f.dst = self.tab.unnamed();
@@ -772,7 +765,7 @@ impl ast2::Op for Registration
                 };
                 node.dst = base.dst.sub(field_idx);
             }
-            Ast::CopyAndSet(ref mut src, ref mut fields) => {
+            Ast::CopyAndSet(_src, ref mut fields) => {
                 for (i, f) in fields.iter_mut().enumerate() {
                     if f.v.dst != Reg::Undecided {
                         let copied = mem::take(&mut f.v);

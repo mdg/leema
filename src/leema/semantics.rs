@@ -951,7 +951,6 @@ impl<'p> ast2::Op for TypeCheck<'p>
     fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
         match &mut *node.node {
-            // Ast::Let(patt, dtype, x) => {
             Ast::Id1(id) => {
                 // mode == value
                 // if the type is known, assign it to this variable
@@ -1285,6 +1284,14 @@ impl ast2::Op for RemoveExtraCode
                         }
                     }
                     _ => {} // something else
+                }
+            }
+            Ast::Let(ref mut lhs, _, ref mut rhs) => {
+                if let Ast::Id1(name) = &*lhs.node {
+                    // if single assignment, replace the let w/
+                    // rhs assigned to lhs name
+                    rhs.dst = lhs.dst;
+                    *node = mem::take(rhs);
                 }
             }
             _ => {} // do nothing
