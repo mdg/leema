@@ -148,7 +148,7 @@ impl Lib
             Ok(rustfunc.unwrap())
         } else {
             let mut semantics_ast = semantics.src;
-            code::assign_registers(&mut semantics_ast, semantics.args)?;
+            code::assign_registers(&mut semantics_ast)?;
             let ops = code::make_ops2(semantics_ast);
             log_timer!(start, "read_code {}", f);
             Ok(Code::Leema(ops))

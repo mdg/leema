@@ -277,15 +277,6 @@ impl RegStack
         }
     }
 
-    pub fn put_dst(&mut self, a: Reg) -> Reg
-    {
-        if Reg::Undecided != a {
-            self.dst = a.clone();
-            return a;
-        }
-        self.push_dst()
-    }
-
     pub fn push_dst(&mut self) -> Reg
     {
         self.dst = Reg::stack(self.next);

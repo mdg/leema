@@ -148,7 +148,7 @@ fn real_main() -> Lresult<()>
         let start = start_timer!();
         let semantics = prog.read_semantics(&fref)?;
         let mut semantics_ast = semantics.src;
-        code::assign_registers(&mut semantics_ast, semantics.args)?;
+        code::assign_registers(&mut semantics_ast)?;
         println!("\n{:#?}\n", semantics_ast);
         println!("registers {:?}", start.elapsed());
         None

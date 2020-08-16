@@ -4,7 +4,7 @@ use crate::leema::fiber;
 use crate::leema::frame;
 use crate::leema::list;
 use crate::leema::lstr::Lstr;
-use crate::leema::reg::{Reg, RegStack, RegTab};
+use crate::leema::reg::{Reg, RegStack};
 use crate::leema::rsrc;
 use crate::leema::sendclone::SendClone;
 use crate::leema::struple::{Struple2, StrupleItem};
@@ -601,28 +601,25 @@ pub fn make_str_ops(dst: Reg, items: Vec<AstNode>) -> OpVec
 
 pub fn assign_registers(
     input: &mut AstNode,
-    args: Vec<&'static str>,
 ) -> Lresult<()>
 {
     vout!("assign_registers({:?})\n", input);
-    let mut rs = Registration::with_args(args);
+    let mut rs = Registration::new();
     ast2::walk_ref_mut(input, &mut rs)?;
     Ok(())
 }
 
 pub struct Registration
 {
-    tab: RegTab,
     stack: RegStack,
     is_pattern: bool,
 }
 
 impl Registration
 {
-    pub fn with_args(args: Vec<&'static str>) -> Registration
+    pub fn new() -> Registration
     {
         Registration {
-            tab: RegTab::with_args(args),
             stack: RegStack::new(),
             is_pattern: false,
         }
@@ -632,9 +629,10 @@ impl Registration
     {
         let pval = match &*pattern.node {
             Ast::Id1(id) => {
-                let dst = self.tab.new_name(id);
-                vout!("pattern var:reg is {}.{:?}\n", id, pattern.dst);
-                Val::PatternVar(dst)
+                if pattern.dst == Reg::Undecided {
+                    panic!("unexpected undecided pattern reg: {}", id);
+                }
+                Val::PatternVar(pattern.dst)
             }
             Ast::Tuple(ref items) => {
                 let tval: Lresult<Struple2<Val>> = items
@@ -677,7 +675,7 @@ impl Registration
 
 impl ast2::Op for Registration
 {
-    fn pre(&mut self, node: &mut AstNode, mode: AstMode) -> ast2::StepResult
+    fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> ast2::StepResult
     {
         self.stack.push_node();
         if node.dst == Reg::Undecided {
@@ -692,10 +690,7 @@ impl ast2::Op for Registration
                     item.dst = node.dst.clone();
                 }
             }
-            Ast::Id1(ref name) if mode.is_pattern() => {
-                node.dst = self.tab.new_name(name);
-            }
-            Ast::Id1(ref name) if mode == AstMode::Value => {
+            Ast::Id1(ref name) => {
                 if node.dst == Reg::Undecided {
                     panic!("unexpected unknown register for {}", name);
                 }
@@ -706,7 +701,7 @@ impl ast2::Op for Registration
                 lhs.dst = self.stack.push_dst();
             }
             Ast::Call(ref mut f, ref mut args) => {
-                f.dst = self.tab.unnamed();
+                f.dst = self.stack.push_dst();
                 for (i, a) in args.iter_mut().enumerate() {
                     a.v.dst = f.dst.sub(i as i8);
                 }
