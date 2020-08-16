@@ -12,7 +12,7 @@ use crate::leema::val::{
     Fref, FuncType, GenericTypeSlice, GenericTypes, Type, Val,
 };
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::mem;
 
@@ -1311,7 +1311,7 @@ pub struct Semantics
     pub src: AstNode,
     pub args: Vec<&'static str>,
     pub infers: HashMap<Lstr, Type>,
-    pub calls: Vec<Fref>,
+    pub calls: HashSet<Fref>,
 }
 
 impl Semantics
@@ -1322,7 +1322,7 @@ impl Semantics
             src: AstNode::void(),
             args: Vec::new(),
             infers: HashMap::new(),
-            calls: Vec::new(),
+            calls: HashSet::new(),
         }
     }
 
@@ -1423,7 +1423,7 @@ impl Semantics
         }
 
         sem.infers = type_check.infers;
-        sem.calls = type_check.calls;
+        sem.calls = type_check.calls.into_iter().collect();
         sem.src = result;
         Ok(sem)
     }

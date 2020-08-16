@@ -89,7 +89,11 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        write!(f, "({:?}:{:?})", self.k, self.v)
+        if f.alternate() {
+            write!(f, "({:#?}:{:#?})", self.k, self.v)
+        } else {
+            write!(f, "({:?}:{:?})", self.k, self.v)
+        }
     }
 }
 
