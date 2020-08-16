@@ -255,7 +255,9 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             xops.ops
         }
         Ast::CopyAndSet(src, flds) => {
+            let src_dst = src.dst.clone();
             let mut cs_ops = make_sub_ops2(src);
+            cs_ops.ops.push(Op::Copy(input.dst, src_dst));
             for f in flds.into_iter() {
                 let mut f_ops = make_sub_ops2(f.v);
                 cs_ops.ops.append(&mut f_ops.ops);
