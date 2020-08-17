@@ -789,7 +789,6 @@ impl<'p> TypeCheck<'p>
                     calltype,
                 ))
             }
-            // Call(AstNode, Xlist),
             (
                 Ast::ConstVal(Val::Call(ref mut fref, _args)),
                 Type::Generic(ref mut open, ref mut inner, ref mut targs),

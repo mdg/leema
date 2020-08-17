@@ -3,7 +3,8 @@ use crate::leema::val::Val;
 
 use std::collections::HashMap;
 use std::fmt;
-use std::ops::Deref;
+use std::mem;
+use std::ops::{Deref, DerefMut};
 
 
 #[derive(PartialEq)]
@@ -314,11 +315,19 @@ impl<'r> Deref for RegStackRef<'r>
     }
 }
 
+impl<'r> DerefMut for RegStackRef<'r>
+{
+    fn deref_mut(&mut self) -> &mut Self::Target
+    {
+        &mut self.0
+    }
+}
+
 impl<'r> Drop for RegStackRef<'r>
 {
     fn drop(&mut self)
     {
-        *self.0 = self.1;
+        mem::swap(self.0, &mut self.1);
     }
 }
 

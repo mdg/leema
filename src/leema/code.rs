@@ -625,59 +625,29 @@ impl Registration
         }
     }
 
-    fn make_pattern_val(&mut self, pattern: &AstNode) -> Lresult<Val>
+    fn extract_pattern_val(node: &mut AstNode) -> Lresult<Val>
     {
-        let pval = match &*pattern.node {
-            Ast::Id1(id) => {
-                if pattern.dst == Reg::Undecided {
-                    panic!("unexpected undecided pattern reg: {}", id);
-                }
-                Val::PatternVar(pattern.dst)
-            }
-            Ast::Tuple(ref items) => {
-                let tval: Lresult<Struple2<Val>> = items
-                    .iter()
-                    .map(|item| {
-                        let pk = item.k.map(|k| Lstr::Sref(k));
-                        let pv = self.make_pattern_val(&item.v)?;
-                        Ok(StrupleItem::new(pk, pv))
-                    })
-                    .collect();
-                Val::Tuple(tval?)
-            }
-            Ast::List(ref items) => {
-                let mut result = Val::Nil;
-                for i in items.iter().rev() {
-                    let next = self.make_pattern_val(&i.v)?;
-                    result = list::cons(next, result);
-                }
-                result
-            }
-            Ast::ConstVal(ref val) => val.clone(),
-            Ast::Wildcard => Val::Wildcard,
-            Ast::Op2(";", a, b) => {
-                let pa = self.make_pattern_val(a)?;
-                let pb = self.make_pattern_val(b)?;
-                list::cons(pa, pb)
-            }
-            pnode => {
-                // do nothing with other pattern values
-                return Err(rustfail!(
-                    CODEFAIL,
-                    "cannot make a pattern val: {:?}",
-                    pnode,
-                ));
-            }
-        };
-        Ok(pval)
+        if let Ast::ConstVal(ref mut pval) = &mut *node.node {
+            Ok(mem::take(pval))
+        } else {
+            Err(rustfail!(
+                "compile_failure",
+                "expected ConstVal, found {:?}",
+                node,
+            ))
+        }
     }
 }
 
 impl ast2::Op for Registration
 {
-    fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> ast2::StepResult
+    fn pre(&mut self, node: &mut AstNode, mode: AstMode) -> ast2::StepResult
     {
-        let stack = RegStackRef::new(&mut self.stack);
+        if mode.is_pattern() {
+            return Ok(AstStep::Ok);
+        }
+
+        let mut stack = RegStackRef::new(&mut self.stack);
         if node.dst == Reg::Undecided {
             node.dst = stack.top();
         }
@@ -695,11 +665,6 @@ impl ast2::Op for Registration
                     panic!("unexpected unknown register for {}", name);
                 }
             }
-            Ast::Let(ref mut lhs, _, ref mut _rhs) => {
-                let pval = ltry!(self.make_pattern_val(&lhs));
-                *lhs = AstNode::new_constval(pval, lhs.loc);
-                lhs.dst = stack.push();
-            }
             Ast::Call(ref mut f, ref mut args) => {
                 stack.push_if_undecided(&mut f.dst);
                 for (i, a) in args.iter_mut().enumerate() {
@@ -712,10 +677,7 @@ impl ast2::Op for Registration
                 }
                 let cond_dst = stack.push();
                 for case in cases.iter_mut() {
-                    let pval = ltry!(self.make_pattern_val(&case.cond));
-                    let mut cond = AstNode::new_constval(pval, case.cond.loc);
-                    cond.dst = cond_dst;
-                    case.cond = cond;
+                    case.cond.dst = cond_dst;
                     case.body.dst = node.dst;
                 }
             }
@@ -788,6 +750,58 @@ impl ast2::Op for Registration
             mem::swap(node, &mut copy_node);
             node.node = Box::new(Ast::Copy(copy_node));
         }
+        Ok(AstStep::Ok)
+    }
+
+    fn post(&mut self, node: &mut AstNode, mode: AstMode) -> ast2::StepResult
+    {
+        if !mode.is_pattern() {
+            return Ok(AstStep::Ok);
+        }
+
+        let pval = match &mut *node.node {
+            Ast::Id1(id) => {
+                if node.dst == Reg::Undecided {
+                    panic!("unexpected undecided pattern reg: {}", id);
+                }
+                Val::PatternVar(node.dst)
+            }
+            Ast::Tuple(ref mut items) => {
+                let tval: Lresult<Struple2<Val>> = items
+                    .iter_mut()
+                    .map(|item| {
+                        let pk = item.k.map(|k| Lstr::Sref(k));
+                        let pv = ltry!(Self::extract_pattern_val(&mut item.v));
+                        Ok(StrupleItem::new(pk, pv))
+                    })
+                    .collect();
+                Val::Tuple(tval?)
+            }
+            Ast::List(ref mut items) => {
+                let mut result = Val::Nil;
+                for i in items.iter_mut().rev() {
+                    let next = ltry!(Self::extract_pattern_val(&mut i.v));
+                    result = list::cons(next, result);
+                }
+                result
+            }
+            Ast::ConstVal(ref val) => val.clone(),
+            Ast::Wildcard => Val::Wildcard,
+            Ast::Op2(";", ref mut a, ref mut b) => {
+                let pa = ltry!(Self::extract_pattern_val(a));
+                let pb = ltry!(Self::extract_pattern_val(b));
+                list::cons(pa, pb)
+            }
+            pnode => {
+                // do nothing with other pattern values
+                return Err(rustfail!(
+                    CODEFAIL,
+                    "cannot make a pattern val: {:?}",
+                    pnode,
+                ));
+            }
+        };
+        *node.node = Ast::ConstVal(pval);
         Ok(AstStep::Ok)
     }
 }
