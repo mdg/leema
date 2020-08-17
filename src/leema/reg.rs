@@ -3,6 +3,7 @@ use crate::leema::val::Val;
 
 use std::collections::HashMap;
 use std::fmt;
+use std::ops::Deref;
 
 
 #[derive(PartialEq)]
@@ -261,9 +262,7 @@ impl RegTab
 #[derive(Clone)]
 pub struct RegStack
 {
-    pub dst: Reg,
-    next: i8,
-    stack: Vec<(Reg, i8)>,
+    current: i8,
 }
 
 impl RegStack
@@ -271,32 +270,57 @@ impl RegStack
     pub fn new() -> RegStack
     {
         RegStack {
-            dst: Reg::stack(0),
-            next: 1,
-            stack: Vec::new(),
+            current: 0,
         }
     }
 
-    pub fn push_dst(&mut self) -> Reg
+    pub fn push(&mut self) -> Reg
     {
-        self.dst = Reg::stack(self.next);
-        self.next += 1;
-        self.dst.clone()
+        self.current += 1;
+        self.top()
     }
 
-    pub fn push_node(&mut self)
+    pub fn push_if_undecided(&mut self, dst: &mut Reg)
     {
-        self.stack.push((self.dst.clone(), self.next));
+        if *dst == Reg::Undecided {
+            *dst = self.push();
+        }
     }
 
-    pub fn pop_node(&mut self)
+    pub fn top(&self) -> Reg
     {
-        let top = self.stack.pop().unwrap();
-        self.dst = top.0;
-        self.next = top.1;
+        Reg::stack(self.current)
     }
 }
 
+pub struct RegStackRef<'r>(&'r mut RegStack, RegStack);
+
+impl<'r> RegStackRef<'r>
+{
+    pub fn new(rsr: &'r mut RegStack) -> RegStackRef<'r>
+    {
+        let orig = rsr.clone();
+        RegStackRef(rsr, orig)
+    }
+}
+
+impl<'r> Deref for RegStackRef<'r>
+{
+    type Target = RegStack;
+
+    fn deref(&self) -> &Self::Target
+    {
+        &self.0
+    }
+}
+
+impl<'r> Drop for RegStackRef<'r>
+{
+    fn drop(&mut self)
+    {
+        *self.0 = self.1;
+    }
+}
 
 #[cfg(test)]
 mod tests

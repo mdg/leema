@@ -4,7 +4,7 @@ use crate::leema::fiber;
 use crate::leema::frame;
 use crate::leema::list;
 use crate::leema::lstr::Lstr;
-use crate::leema::reg::{Reg, RegStack};
+use crate::leema::reg::{Reg, RegStack, RegStackRef};
 use crate::leema::rsrc;
 use crate::leema::sendclone::SendClone;
 use crate::leema::struple::{Struple2, StrupleItem};
@@ -677,9 +677,9 @@ impl ast2::Op for Registration
 {
     fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> ast2::StepResult
     {
-        self.stack.push_node();
+        let stack = RegStackRef::new(&mut self.stack);
         if node.dst == Reg::Undecided {
-            node.dst = self.stack.dst.clone();
+            node.dst = stack.top();
         }
         let first_dst = node.dst.clone();
 
@@ -698,19 +698,19 @@ impl ast2::Op for Registration
             Ast::Let(ref mut lhs, _, ref mut _rhs) => {
                 let pval = ltry!(self.make_pattern_val(&lhs));
                 *lhs = AstNode::new_constval(pval, lhs.loc);
-                lhs.dst = self.stack.push_dst();
+                lhs.dst = stack.push();
             }
             Ast::Call(ref mut f, ref mut args) => {
-                f.dst = self.stack.push_dst();
+                stack.push_if_undecided(&mut f.dst);
                 for (i, a) in args.iter_mut().enumerate() {
                     a.v.dst = f.dst.sub(i as i8);
                 }
             }
             Ast::Matchx(ref mut match_input, ref mut cases) => {
                 if let Some(ref mut mi) = match_input {
-                    mi.dst = self.stack.push_dst();
+                    stack.push_if_undecided(&mut mi.dst);
                 }
-                let cond_dst = self.stack.push_dst();
+                let cond_dst = stack.push();
                 for case in cases.iter_mut() {
                     let pval = ltry!(self.make_pattern_val(&case.cond));
                     let mut cond = AstNode::new_constval(pval, case.cond.loc);
@@ -720,7 +720,7 @@ impl ast2::Op for Registration
                 }
             }
             Ast::Ifx(ref mut cases) => {
-                let cond_dst = self.stack.push_dst();
+                let cond_dst = stack.push();
                 for case in cases.iter_mut() {
                     if *case.cond.node == Ast::VOID {
                         case.cond.dst = Reg::Void;
@@ -731,7 +731,7 @@ impl ast2::Op for Registration
                 }
             }
             Ast::StrExpr(ref mut items) => {
-                let item_dst = self.stack.push_dst();
+                let item_dst = stack.push();
                 for i in items {
                     if i.dst == Reg::Undecided {
                         i.dst = item_dst.clone();
@@ -740,14 +740,14 @@ impl ast2::Op for Registration
             }
             Ast::Tuple(ref mut items) => {
                 if node.dst.is_sub() {
-                    node.dst = self.stack.push_dst();
+                    node.dst = stack.push();
                 }
                 for (i, item) in items.iter_mut().enumerate() {
                     item.v.dst = node.dst.sub(i as i8);
                 }
             }
             Ast::List(ref mut items) => {
-                let dst = self.stack.push_dst();
+                let dst = stack.push();
                 for i in items.iter_mut() {
                     i.v.dst = dst.clone();
                 }
@@ -788,7 +788,6 @@ impl ast2::Op for Registration
             mem::swap(node, &mut copy_node);
             node.node = Box::new(Ast::Copy(copy_node));
         }
-        self.stack.pop_node();
         Ok(AstStep::Ok)
     }
 }
