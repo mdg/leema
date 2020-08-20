@@ -261,6 +261,7 @@ impl RegTab
 /// pushed(r) -> popper -> (pusher|tab)
 ///           -> prev pushed
 #[derive(Clone)]
+#[derive(Copy)]
 pub struct RegStack
 {
     current: i8,
