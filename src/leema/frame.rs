@@ -39,7 +39,7 @@ impl Parent
     {
         match self {
             &mut Parent::Caller(_, ref mut pf, ref dst) => {
-                pf.e.set_reg(*dst, r);
+                pf.e.set_reg(*dst, r).unwrap();
             }
             // &mut Parent::Fork(_, _) => {}
             &mut Parent::Main(ref mut res) => {

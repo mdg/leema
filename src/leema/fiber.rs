@@ -152,7 +152,7 @@ impl Fiber
                 _ => Val::Str(Lstr::from(format!("{}{}", dst, src))),
             }
         };
-        self.head.e.set_reg(dstreg, result);
+        ltry!(self.head.e.set_reg(dstreg, result));
         self.head.pc += 1;
         Ok(Event::Uneventful)
     }
@@ -182,14 +182,14 @@ impl Fiber
                             // don't write into param, it's already correct
                         }
                         (pdst, v) => {
-                            self.head.e.set_reg(pdst, v);
+                            ltry!(self.head.e.set_reg(pdst, v));
                         }
                     }
                 }
-                self.head.e.set_reg(dst, Val::Bool(true));
+                ltry!(self.head.e.set_reg(dst, Val::Bool(true)));
             }
             None => {
-                self.head.e.set_reg(dst, Val::Bool(false));
+                ltry!(self.head.e.set_reg(dst, Val::Bool(false)));
             }
         }
         self.head.pc += 1;
@@ -230,7 +230,7 @@ impl Fiber
 
     pub fn execute_const_val(&mut self, reg: Reg, v: &Val) -> Lresult<Event>
     {
-        self.head.e.set_reg(reg, v.clone());
+        ltry!(self.head.e.set_reg(reg, v.clone()));
         self.head.pc += 1;
         Ok(Event::Uneventful)
     }
@@ -265,7 +265,7 @@ impl Fiber
             ));
         };
 
-        self.head.e.set_reg(reg, construple);
+        ltry!(self.head.e.set_reg(reg, construple));
         self.head.pc = self.head.pc + 1;
         Ok(Event::Uneventful)
     }
@@ -299,7 +299,7 @@ impl Fiber
             ));
         };
 
-        self.head.e.set_reg(reg, construple);
+        ltry!(self.head.e.set_reg(reg, construple));
         self.head.pc = self.head.pc + 1;
         Ok(Event::Uneventful)
     }
@@ -316,21 +316,21 @@ impl Fiber
             let tailval = ltry!(self.head.e.get_reg(tail)).clone();
             list::cons(headval, tailval)
         };
-        self.head.e.set_reg(dst, new_list);
+        ltry!(self.head.e.set_reg(dst, new_list));
         self.head.pc += 1;
         Ok(Event::Uneventful)
     }
 
     pub fn execute_create_list(&mut self, dst: Reg) -> Lresult<Event>
     {
-        self.head.e.set_reg(dst, list::empty());
+        ltry!(self.head.e.set_reg(dst, list::empty()));
         self.head.pc = self.head.pc + 1;
         Ok(Event::Uneventful)
     }
 
     pub fn execute_create_map(&mut self, dst: Reg) -> Lresult<Event>
     {
-        self.head.e.set_reg(dst, Val::Map(Lmap::new()));
+        ltry!(self.head.e.set_reg(dst, Val::Map(Lmap::new())));
         self.head.pc = self.head.pc + 1;
         Ok(Event::Uneventful)
     }
@@ -342,7 +342,7 @@ impl Fiber
     ) -> Lresult<Event>
     {
         let tupsize: usize = *sz as usize;
-        self.head.e.set_reg(dst, Val::new_tuple(tupsize));
+        ltry!(self.head.e.set_reg(dst, Val::new_tuple(tupsize)));
         self.head.pc = self.head.pc + 1;
         Ok(Event::Uneventful)
     }
@@ -404,7 +404,7 @@ impl Fiber
     pub fn execute_copy(&mut self, dst: Reg, src: Reg) -> Lresult<Event>
     {
         let src_val = ltry!(self.head.e.get_reg(src)).clone();
-        self.head.e.set_reg(dst, src_val);
+        ltry!(self.head.e.set_reg(dst, src_val));
         self.head.pc = self.head.pc + 1;
         Ok(Event::Uneventful)
     }
@@ -460,8 +460,14 @@ mod tests
         let main_parent = Parent::new_main();
         let callri = Fref::with_modules(From::from("foo"), "bar");
         let mut frame = Frame::new_root(main_parent, callri, Vec::new());
-        frame.e.set_reg(r1, Val::Str(Lstr::Sref("i like ")));
-        frame.e.set_reg(r2, Val::Str(Lstr::Sref("burritos")));
+        frame
+            .e
+            .set_reg(r1, Val::Str(Lstr::Sref("i like ")))
+            .unwrap();
+        frame
+            .e
+            .set_reg(r2, Val::Str(Lstr::Sref("burritos")))
+            .unwrap();
         let mut fib = Fiber::spawn(1, frame);
 
         let event = fib.execute_strcat(r1, r2).unwrap();

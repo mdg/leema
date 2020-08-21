@@ -1473,7 +1473,7 @@ impl Env
         }
     }
 
-    pub fn set_reg(&mut self, reg: Reg, v: Val)
+    pub fn set_reg(&mut self, reg: Reg, v: Val) -> Lresult<()>
     {
         match reg {
             Reg::Local(i) => {
@@ -1481,21 +1481,28 @@ impl Env
                 if primary >= self.locals.len() {
                     self.locals.resize(primary + 1, Default::default())
                 }
-                self.locals.ireg_set(i, v)
+                self.locals.ireg_set(i, v);
+                Ok(())
             }
             Reg::Stack(i) => {
                 let primary = i.get_primary() as usize;
                 if primary >= self.stack.len() {
                     self.stack.resize(primary + 1, Default::default())
                 }
-                self.stack.ireg_set(i, v)
+                self.stack.ireg_set(i, v);
+                Ok(())
             }
             Reg::Void => {
                 // do nothing, void reg is like /dev/null
+                Ok(())
             }
-            _ => {
-                panic!("set other reg: {:?}", reg);
+            Reg::Undecided => {
+                Err(rustfail!(
+                    "runtime_failure",
+                    "cannot set undecided register",
+                ))
             }
+            _ => Err(rustfail!("runtime_failure", "set other reg: {:?}", reg,)),
         }
     }
 

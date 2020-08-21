@@ -653,6 +653,9 @@ impl Registration
                 if let Some(item) = items.last_mut() {
                     Self::set_dst_or_copy(item, node.dst);
                 }
+                for i in items.iter_mut() {
+                    Self::assign_registers(i, stack)?;
+                }
             }
             Ast::Call(ref mut f, ref mut args) => {
                 stack.push_if_undecided(&mut f.dst);
