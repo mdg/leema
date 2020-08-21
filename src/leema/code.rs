@@ -648,7 +648,7 @@ impl Registration
             Ast::Call(ref mut f, ref mut args) => {
                 stack.push_if_undecided(&mut f.dst);
                 for (i, a) in args.iter_mut().enumerate() {
-                    a.v.dst = f.dst.sub(i as i8);
+                    Self::set_dst_or_copy(&mut a.v, f.dst.sub(i as i8));
                     Self::assign_registers(&mut a.v, stack)?;
                 }
             }
