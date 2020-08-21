@@ -235,7 +235,6 @@ pub enum Ast
     Generic(AstNode, Xlist),
     Id1(&'static str),
     Ifx(Vec<Case>),
-    LessThan3(AstNode, bool, AstNode, bool, AstNode),
     Let(AstNode, AstNode, AstNode),
     List(Xlist),
     Matchx(Option<AstNode>, Vec<Case>),
@@ -323,8 +322,6 @@ impl Ast
             Ast::Tuple(items) => write!(f, "Tuple {:?}", items),
             Ast::Type(inner) => write!(f, "Type {}", inner),
             Ast::Wildcard => write!(f, "_"),
-            // unimplemented
-            Ast::LessThan3(_, _, _, _, _) => unimplemented!(),
         }
     }
 }
@@ -714,7 +711,6 @@ impl Walker
                 steptry!(self.walk(src, op));
             }
             Ast::FuncType(_, _)
-            | Ast::LessThan3(_, _, _, _, _)
             | Ast::Type(_) => {
                 panic!("func type crawling not implemented");
             }

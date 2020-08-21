@@ -635,7 +635,11 @@ impl Registration
 
     fn set_dst_or_copy(node: &mut AstNode, dst: Reg)
     {
-        if dst != Reg::Undecided {
+        if node.dst == dst {
+            // already set, do nothing
+            return;
+        }
+        if node.dst != Reg::Undecided {
             // make the copy
             *node = AstNode::new(Ast::Copy(mem::take(node)), node.loc);
         }
@@ -658,6 +662,7 @@ impl Registration
                 stack.push_if_undecided(&mut f.dst);
                 for (i, a) in args.iter_mut().enumerate() {
                     a.v.dst = f.dst.sub(i as i8);
+                    Self::assign_registers(&mut a.v, stack)?;
                 }
             }
             Ast::Let(ref mut lhs, _, ref mut rhs) => {
@@ -666,14 +671,13 @@ impl Registration
             }
             Ast::Matchx(ref mut match_input, ref mut cases) => {
                 if let Some(ref mut mi) = match_input {
-                    stack.push_if_undecided(&mut mi.dst);
                     Self::assign_registers(mi, stack)?;
                 }
                 let cond_dst = stack.push();
                 for case in cases.iter_mut() {
-                    Self::make_pattern_val(&mut case.cond)?;
                     case.cond.dst = cond_dst;
-                    case.body.dst = node.dst;
+                    Self::make_pattern_val(&mut case.cond)?;
+                    Self::set_dst_or_copy(&mut case.body, node.dst);
                     Self::assign_registers(&mut case.body, stack)?;
                 }
             }
@@ -682,35 +686,45 @@ impl Registration
                 for case in cases.iter_mut() {
                     if *case.cond.node == Ast::VOID {
                         case.cond.dst = Reg::Void;
-                    } else {
+                    } else if case.cond.dst == Reg::Undecided {
                         case.cond.dst = cond_dst;
                     }
-                    case.body.dst = node.dst;
+                    Self::set_dst_or_copy(&mut case.body, node.dst);
                 }
             }
             Ast::StrExpr(ref mut items) => {
-                let item_dst = stack.push();
-                for i in items {
-                    if i.dst == Reg::Undecided {
-                        i.dst = item_dst.clone();
-                    }
+                for i in items.iter_mut() {
+                    Self::assign_registers(i, stack)?;
                 }
             }
             Ast::Tuple(ref mut items) => {
-                if node.dst.is_sub() {
+                // subs can't go past 2 levels, so if the tuple itself
+                // is a sub, move it to a temp stacked reg, set the fields
+                // and copy it back to its original sub reg
+                let sub_dst = if node.dst.is_sub() {
+                    let tmp = node.dst;
                     node.dst = stack.push();
-                }
+                    Some(tmp)
+                } else {
+                    None
+                };
                 for (i, item) in items.iter_mut().enumerate() {
                     item.v.dst = node.dst.sub(i as i8);
+                    Self::assign_registers(&mut item.v, stack)?;
+                }
+                if let Some(old_dst) = sub_dst {
+                    *node = AstNode::new(Ast::Copy(mem::take(node)), node.loc);
+                    node.dst = old_dst;
                 }
             }
             Ast::List(ref mut items) => {
-                let dst = stack.push();
+                // not really sure what's going on here or why
                 for i in items.iter_mut() {
-                    i.v.dst = dst.clone();
+                    Self::assign_registers(&mut i.v, stack)?;
                 }
             }
             Ast::Op2(".", ref mut base, ref field) => {
+                Self::assign_registers(base, stack)?;
                 let field_idx = match &*field.node {
                     Ast::Id1(idx_str) => idx_str.parse().unwrap(),
                     Ast::ConstVal(Val::Int(i)) => *i as i8,
@@ -720,16 +734,16 @@ impl Registration
                 };
                 node.dst = base.dst.sub(field_idx);
             }
-            Ast::CopyAndSet(_src, ref mut fields) => {
+            Ast::Op2(op2, ref mut a, ref mut b) => {
+                panic!("assign registers to op2? {:?} {} {:?}", a, op2, b);
+            }
+            Ast::CopyAndSet(ref mut src, ref mut fields) => {
+                Self::assign_registers(src, stack)?;
                 for (i, f) in fields.iter_mut().enumerate() {
-                    if f.v.dst != Reg::Undecided {
-                        let copied = mem::take(&mut f.v);
-                        *f.v.node = Ast::Copy(copied);
-                        // skip assigning the type,
-                        // probably don' care about it anymore
-                        // f.v.typ = copied.typ.clone();
-                    }
-                    f.v.dst = node.dst.sub(i as i8);
+                    Self::set_dst_or_copy(&mut f.v, node.dst.sub(i as i8));
+                    // skip assigning the type,
+                    // probably don' care about it anymore
+                    // f.v.typ = copied.typ.clone();
                 }
             }
             Ast::Copy(ref mut src) => {
@@ -738,10 +752,19 @@ impl Registration
                     *node = mem::take(src);
                 }
             }
+            Ast::Return(ref mut result) => {
+                Self::assign_registers(result, stack)?;
+            }
             // nothing else to do
             Ast::Id1(_) | Ast::ConstVal(_) => {}
-            other => {
-                eprintln!("no registers assigned for {:#?}", other);
+            // these shouldn't be here
+            Ast::DefConst(_, _) | Ast::DefFunc(_, _, _, _) | Ast::DefMacro(_, _, _) | Ast::DefType(_, _, _) | Ast::FuncType(_, _) | Ast::Generic(_, _) => {} // do nothing
+            Ast::ModAction(_, _) | Ast::Module(_) | Ast::RustBlock | Ast::Wildcard => {} // do nothing
+            Ast::Op1(op1, x) => {
+                panic!("unexpected Op1 {} {:?}", op1, x);
+            }
+            Ast::Type(t) => {
+                panic!("assigning a register to a type? {:?}", t);
             }
         }
 
