@@ -1101,7 +1101,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                             }
                         }
                     }
-                    (r, Ast::Id1(f)) => {
+                    (_r, Ast::Id1(f)) => {
                         match &a.typ {
                             Type::User(tmod, tname) => {
                                 let (_styp, flds) = self
@@ -1283,7 +1283,7 @@ impl ast2::Op for RemoveExtraCode
                 }
             }
             Ast::Let(ref mut lhs, _, ref mut rhs) => {
-                if let Ast::Id1(name) = &*lhs.node {
+                if let Ast::Id1(_name) = &*lhs.node {
                     // if single assignment, replace the let w/
                     // rhs assigned to lhs name
                     rhs.dst = lhs.dst;

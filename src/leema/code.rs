@@ -787,10 +787,6 @@ impl Registration
 
     fn make_pattern_val(node: &mut AstNode) -> Lresult<()>
     {
-        /*
-        if !mode.is_pattern() {
-        */
-
         let pval = match &mut *node.node {
             Ast::Id1(id) => {
                 if node.dst == Reg::Undecided {
