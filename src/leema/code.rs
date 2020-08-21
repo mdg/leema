@@ -283,6 +283,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
         Ast::StrExpr(items) => make_str_ops(input_dst.clone(), items),
         Ast::Ifx(cases) => make_if_ops(cases),
         Ast::Matchx(Some(x), cases) => make_matchexpr_ops(x, cases),
+        Ast::Wildcard => vec![Op::ConstVal(input_dst, Val::Bool(true))],
         Ast::Return(result) => {
             let mut rops = make_sub_ops2(result);
             rops.ops.push(Op::SetResult(rops.dst.clone()));

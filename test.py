@@ -22,9 +22,9 @@ class TestScripts(unittest.TestCase):
         result = run_leema('booland')
         self.assertEqual(0, result['code'])
         lines = result['output'].split(b"\n")
-        self.assertEqual(b"a is true", lines[0])
-        self.assertEqual(b"b is false", lines[1])
-        self.assertEqual(b"a and b is false", lines[2])
+        self.assertEqual(b"a is True", lines[0])
+        self.assertEqual(b"b is False", lines[1])
+        self.assertEqual(b"a and b is False", lines[2])
 
     def test_block(self):
         result = run_leema('block')
@@ -285,7 +285,7 @@ class TestScripts(unittest.TestCase):
     def test_empty_struct(self):
         result = run_leema('empty_struct')
         self.assertEqual(0, result['code'])
-        expected = b"empty: /empty_struct::Empty\n"
+        expected = b"empty: /empty_struct.Empty\n"
         self.assertEqual(expected, result['output'])
 
     def test_named_tuple(self):
