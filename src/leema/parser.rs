@@ -494,9 +494,10 @@ impl LeemaPrec
             Rule::x1 | Rule::prefix1 | Rule::postfix1 => {
                 panic!("cannot parse silent rule: {:?}", n);
             }
+            // ignore this level and go one deeper
+            Rule::def_func_arg => pratt::parse(self, &mut n.into_inner()),
             _ => {
-                println!("unsupported rule: {:?}", n);
-                pratt::parse(self, &mut n.into_inner())
+                panic!("unsupported rule: {:?}", n);
             }
         }
     }

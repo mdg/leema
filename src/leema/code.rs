@@ -850,7 +850,6 @@ mod tests
     use crate::leema::code::{self, Op};
     use crate::leema::loader::Interloader;
     use crate::leema::module::ModKey;
-    use crate::leema::parser::{self, Rule};
     use crate::leema::program;
     use crate::leema::reg::Reg;
     use crate::leema::val::{Fref, Val};
