@@ -101,6 +101,8 @@ xlist = _{ x_maybe_k ~ (as0 ~ "," ~ as0 ~ x_maybe_k)* ~ as0 ~ ","? }
 list = { "[]" | "[" ~ as0 ~ xlist? ~ as0 ~ "]" }
 tuple = { "(" ~ as0 ~ xlist? ~ as0 ~ ")" }
 
+blockx = { (block_arrow ~ vs1 ~ stmt_block ~ double_dash) }
+
 case = { "|" ~ pattern ~ as1 ~ arrow_block }
 ifx = { "if" ~ vs1 ~ case+ ~ "--" }
 matchargs = { "match" ~ vs1 ~ case+ ~ "--" }
@@ -115,7 +117,8 @@ x1 = _{
 }
 
 expr = !{
-    x1 ~ (spaced_infix_op ~ x1)+
+    blockx
+    | x1 ~ (spaced_infix_op ~ x1)+
     | x1
 }
 

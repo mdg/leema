@@ -491,11 +491,15 @@ impl LeemaPrec
             }
             Rule::EOI => Ok(AstNode::void()),
             Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, loc)),
+            // ignore this level and go one deeper
+            Rule::blockx | Rule::def_func_arg => {
+                pratt::parse(self, &mut n.into_inner())
+            }
+
+            // unexpected and invalid
             Rule::x1 | Rule::prefix1 | Rule::postfix1 => {
                 panic!("cannot parse silent rule: {:?}", n);
             }
-            // ignore this level and go one deeper
-            Rule::def_func_arg => pratt::parse(self, &mut n.into_inner()),
             _ => {
                 panic!("unsupported rule: {:?}", n);
             }
