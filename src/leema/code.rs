@@ -599,25 +599,20 @@ pub fn make_str_ops(dst: Reg, items: Vec<AstNode>) -> OpVec
     ops
 }
 
-pub fn assign_registers(
-    input: &mut AstNode,
-) -> Lresult<()>
+pub fn assign_registers(input: &mut AstNode) -> Lresult<()>
 {
     vout!("assign_registers({:?})\n", input);
     Registration::assign_registers(input, RegStack::new())?;
     Ok(())
 }
 
-pub struct Registration
-{
-}
+pub struct Registration {}
 
 impl Registration
 {
     pub fn new() -> Registration
     {
-        Registration {
-        }
+        Registration {}
     }
 
     fn extract_pattern_val(node: &mut AstNode) -> Lresult<Val>
@@ -646,7 +641,8 @@ impl Registration
         node.dst = dst;
     }
 
-    fn assign_registers(node: &mut AstNode, mut stack: RegStack) -> Lresult<()>
+    fn assign_registers(node: &mut AstNode, mut stack: RegStack)
+        -> Lresult<()>
     {
         stack.push_if_undecided(&mut node.dst);
         let first_dst = node.dst.clone();
@@ -758,8 +754,16 @@ impl Registration
             // nothing else to do
             Ast::Id1(_) | Ast::ConstVal(_) => {}
             // these shouldn't be here
-            Ast::DefConst(_, _) | Ast::DefFunc(_, _, _, _) | Ast::DefMacro(_, _, _) | Ast::DefType(_, _, _) | Ast::FuncType(_, _) | Ast::Generic(_, _) => {} // do nothing
-            Ast::ModAction(_, _) | Ast::Module(_) | Ast::RustBlock | Ast::Wildcard => {} // do nothing
+            Ast::DefConst(_, _)
+            | Ast::DefFunc(_, _, _, _)
+            | Ast::DefMacro(_, _, _)
+            | Ast::DefType(_, _, _)
+            | Ast::FuncType(_, _)
+            | Ast::Generic(_, _)
+            | Ast::ModAction(_, _)
+            | Ast::Module(_)
+            | Ast::RustBlock
+            | Ast::Wildcard => {} // do nothing
             Ast::Op1(op1, x) => {
                 panic!("unexpected Op1 {} {:?}", op1, x);
             }

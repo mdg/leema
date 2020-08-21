@@ -249,7 +249,7 @@ impl Stack
 {
     pub fn new(size: usize) -> Stack
     {
-        Stack{
+        Stack {
             data: Vec::with_capacity(std::cmp::max(64, size)),
             base: 0,
             size,
@@ -258,7 +258,7 @@ impl Stack
 
     pub fn push(&mut self, new_size: usize) -> Stack
     {
-        let mut new_stack = Stack{
+        let mut new_stack = Stack {
             data: vec![],
             base: self.base + self.size,
             size: new_size,

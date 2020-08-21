@@ -1,6 +1,5 @@
 use crate::leema::ast2::{
-    self, Ast, AstMode, AstNode, AstResult, AstStep, Loc,
-    StepResult, Xlist,
+    self, Ast, AstMode, AstNode, AstResult, AstStep, Loc, StepResult, Xlist,
 };
 use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::inter::Blockstack;
@@ -55,11 +54,7 @@ impl<'l> MacroApplication<'l>
         }
     }
 
-    fn apply_macro(
-        mac: &Ast,
-        loc: Loc,
-        args: &Xlist,
-    ) -> AstResult
+    fn apply_macro(mac: &Ast, loc: Loc, args: &Xlist) -> AstResult
     {
         let (macro_name, arg_names, body) =
             if let Ast::DefMacro(iname, idefargs, ibody) = mac {
@@ -292,8 +287,8 @@ impl<'a> MacroReplacement<'a>
 {
     fn expand_args(args: &mut Xlist) -> StepResult
     {
-        let (expands, extra_items) = args.iter().fold((false, 0),
-            |(matches, extra_items), a| {
+        let (expands, extra_items) =
+            args.iter().fold((false, 0), |(matches, extra_items), a| {
                 if let Ast::Op1("*", expansion_node) = &*a.v.node {
                     match &*expansion_node.node {
                         Ast::Tuple(expansion) => {
@@ -306,8 +301,7 @@ impl<'a> MacroReplacement<'a>
                 } else {
                     (matches, extra_items)
                 }
-            },
-        );
+            });
         if !expands {
             return Ok(AstStep::Ok);
         }
@@ -1048,7 +1042,10 @@ impl<'p> ast2::Op for TypeCheck<'p>
                             let copy_typ = callx.typ.clone();
                             let base = mem::take(callx);
                             let args_copy = mem::take(args);
-                            node.replace(Ast::CopyAndSet(base, args_copy), copy_typ);
+                            node.replace(
+                                Ast::CopyAndSet(base, args_copy),
+                                copy_typ,
+                            );
                             return Ok(AstStep::Rewrite);
                         } else {
                             return Err(rustfail!(

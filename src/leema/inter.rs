@@ -91,7 +91,11 @@ impl Blockstack
         self.stack.last_mut().unwrap()
     }
 
-    pub fn assign_var(&mut self, id: &'static str, vt: LocalType) -> Lresult<Reg>
+    pub fn assign_var(
+        &mut self,
+        id: &'static str,
+        vt: LocalType,
+    ) -> Lresult<Reg>
     {
         if let Some(r) = self.stack.last().unwrap().vars.with_name(id) {
             // since this var is already in the current stack

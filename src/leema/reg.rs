@@ -211,7 +211,10 @@ impl RegTab
 
     pub fn push(&self) -> RegTab
     {
-        RegTab { ids: HashMap::new(), next_local: self.next_local }
+        RegTab {
+            ids: HashMap::new(),
+            next_local: self.next_local,
+        }
     }
 
     pub fn new_name(&mut self, id: &'static str) -> Reg
@@ -271,9 +274,7 @@ impl RegStack
 {
     pub fn new() -> RegStack
     {
-        RegStack {
-            current: 0,
-        }
+        RegStack { current: 0 }
     }
 
     pub fn push(&mut self) -> Reg

@@ -710,8 +710,7 @@ impl Walker
             Ast::Copy(src) => {
                 steptry!(self.walk(src, op));
             }
-            Ast::FuncType(_, _)
-            | Ast::Type(_) => {
+            Ast::FuncType(_, _) | Ast::Type(_) => {
                 panic!("func type crawling not implemented");
             }
             // these ASTs should already be processed in the proto phase
