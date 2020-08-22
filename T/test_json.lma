@@ -15,32 +15,6 @@ datatype User ::
     user_name:Str
 --
 
-func deserialize'T:T :: d:Deserializer fldname:Str ->
-    let fldval := json::get_field(d, fldname)
-    json::from_val[T](fldval)
---
-
-func fold_fields'T'Op'U:U :: val:T f:Op acc:U ->
-    f.pre(acc)
-    f.field($?, val.user_id)
-    f.field($?, val.user_name)
-    f.post($?)
---
-
-func decode'User:User :: input:Str ->
-    let jsonv := json.decode_val(input)
-    let id := json.obj_int(jsonv, "user_id")
-    let name := json.obj_str(jsonv, "user_name")
-    User(id, name)
---
-
-func user_from_json:User :: juser:json.Val ->
-    let fields := json::object_fields(juser)
-    let id := json::int_val(option::unwrap(map::get(fields, "id")))
-    let name := json::str_val(option::unwrap(map::get(fields, "name")))
-    User(id, name)
---
-
 func test_decode ->
     let s := json.decode'Str("\"coded  '\"")
     let i := json.decode'Int("9")
@@ -49,7 +23,7 @@ func test_decode ->
 --
 
 func test_decode_val >>
-    let ju := json::decode_val("{\"id\": 8, \"name\": \"Gerald\"}")
+    let ju := json.decode_val("{\"id\": 8, \"name\": \"Gerald\"}")
     let u := user_from_json(ju)
     println("$u")
 --
@@ -57,9 +31,9 @@ func test_decode_val >>
 func test_encode >>
     println(json.encode(6))
     println(json.encode(False))
-    print(json.encode("hello") \n)
-    print(json.encode(#world) \n)
-    print(json.encode(["a", "b"]) \n)
+    println(json.encode("hello"))
+    println(json.encode(#world))
+    println(json.encode(["a", "b"]))
     ## let m := map::set({}, "x", 4)
     ## print(json.encode(m) \n)
     let u := User(4, "Javier")

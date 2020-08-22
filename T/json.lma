@@ -10,8 +10,8 @@ func decode'T:T :: input:Str ->
 --
 
 func from_jsonval'T:T :: input:Val ->
-    let field_types := structfields T
-    iter.map(field_types, default(T), fn((k, v) ->
+    let field_types := *T
+    list.map(field_types, default(T), fn((k, v) ->
         k.$k = from_jsonval'(*V)()
     --)
 --
