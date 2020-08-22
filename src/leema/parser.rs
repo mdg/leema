@@ -756,6 +756,29 @@ mod tests
     use pest::{consumes_to, parses_to};
 
     #[test]
+    fn add_newline()
+    {
+        // call as postfix + add_newline postfix
+        let input = r#"f(x) \n"#;
+        let actual = parse(Rule::expr, input).unwrap();
+        println!("{:#?}", actual);
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::expr,
+            tokens: [
+                expr(0, 4, [
+                    id(0, 1),
+                    tuple(1, 4, [
+                        x_maybe_k(2, 3, [expr(2, 3, [id(2, 3)])]),
+                    ]),
+                    add_newline(5, 7),
+                ])
+            ]
+        )
+    }
+
+    #[test]
     fn bool_true()
     {
         parses_to!(
