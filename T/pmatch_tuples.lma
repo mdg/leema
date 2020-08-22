@@ -1,7 +1,6 @@
 import /io
 
-func match_zero x:Int y:Int /Str
->>
+func match_zero:Str :: x:Int y:Int ->
     match (x, y)
     |(0, 0) >> "both"
     |(0, _) >> "first"
@@ -10,9 +9,9 @@ func match_zero x:Int y:Int /Str
     --
 --
 
-func main >>
-    io::print(match_zero(0, 0) \n)
-    io::print(match_zero(0, 1) \n)
-    io::print(match_zero(2, 0) \n)
-    io::print(match_zero(4, 3) \n)
+func main ->
+    io.print(match_zero(0, 0) \n)
+    io.print(match_zero(0, 1) \n)
+    io.print(match_zero(2, 0) \n)
+    io.print(match_zero(4, 3) \n)
 --
