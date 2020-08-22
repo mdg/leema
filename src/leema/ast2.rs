@@ -1,4 +1,5 @@
 use crate::leema::failure::Lresult;
+use crate::leema::lstr::Lstr;
 use crate::leema::module::ImportedMod;
 use crate::leema::reg::Reg;
 use crate::leema::struple::{self, StrupleKV};
@@ -253,6 +254,7 @@ pub enum Ast
 impl Ast
 {
     pub const VOID: Ast = Ast::ConstVal(Val::VOID);
+    pub const NEWLINE: Ast = Ast::ConstVal(Val::Str(Lstr::Sref("\n")));
 
     pub fn loc(t: &TokenSrc) -> Loc
     {

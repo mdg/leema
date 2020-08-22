@@ -1,12 +1,10 @@
 import /io
 
-func match_zero:Str :: x:Int y:Int ->
-    match (x, y)
-    |(0, 0) >> "both"
-    |(0, _) >> "first"
-    |(_, 0) >> "second"
-    |_ >> "neither"
-    --
+func match_zero:Str :: x:Int y:Int
+|(0, 0) >> "both"
+|(0, _) >> "first"
+|(_, 0) >> "second"
+|_ >> "neither"
 --
 
 func main ->

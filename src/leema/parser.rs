@@ -251,6 +251,7 @@ impl LeemaPrec
             .left()
             .infix(Rule::plus)
             .infix(Rule::dash)
+            .postfix(Rule::add_newline)
             //----
             .left()
             .infix(Rule::less_than)
@@ -519,9 +520,13 @@ impl LeemaPrec
                 let call_loc = x.loc;
                 Ok(AstNode::new(Ast::Call(x, tuple), call_loc))
             }
-            Rule::negative | Rule::not | Rule::star | Rule::add_newline => {
+            Rule::negative | Rule::not | Rule::star => {
                 let ast = Ast::Op1(op.as_str(), x);
                 Ok(AstNode::new(ast, loc))
+            }
+            Rule::add_newline => {
+                let strx = vec![x, AstNode::new(Ast::NEWLINE, loc)];
+                Ok(AstNode::new(Ast::StrExpr(strx), loc))
             }
             _ => {
                 panic!("unknown unary operator: {:?}", op);
@@ -767,7 +772,7 @@ mod tests
             input: input,
             rule: Rule::expr,
             tokens: [
-                expr(0, 4, [
+                expr(0, 7, [
                     id(0, 1),
                     tuple(1, 4, [
                         x_maybe_k(2, 3, [expr(2, 3, [id(2, 3)])]),

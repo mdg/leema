@@ -116,9 +116,14 @@ x1 = _{
     | term
 }
 
+x2 = _{
+    spaced_infix_op ~ x1
+    | postfix_op
+}
+
 expr = !{
     blockx
-    | x1 ~ (spaced_infix_op ~ x1)+
+    | x1 ~ x2+
     | x1
 }
 
