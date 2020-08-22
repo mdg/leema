@@ -1,10 +1,10 @@
 import /io
 
-func main >>
+func main ->
     let l1 := [3, 2, 8]
-    io::print("l1: $l1\n")
+    io.print("l1: $l1\n")
 
     let l2 := 4;6;l1
-    io::print("l2: $l2\n")
+    io.print("l2: $l2\n")
 --
 
