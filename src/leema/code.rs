@@ -652,8 +652,9 @@ impl Registration
                     Self::assign_registers(&mut a.v, stack)?;
                 }
             }
-            Ast::Let(ref lhs, _, ref mut rhs) => {
-                Self::make_pattern_val(lhs)?;
+            Ast::Let(ref mut lhs, _, ref mut rhs) => {
+                let pval = Self::make_pattern_val(lhs)?;
+                *lhs.node = Ast::ConstVal(pval);
                 Self::assign_registers(rhs, stack)?;
             }
             Ast::Matchx(ref mut match_input, ref mut cases) => {
@@ -663,7 +664,8 @@ impl Registration
                 let cond_dst = stack.push();
                 for case in cases.iter_mut() {
                     case.cond.dst = cond_dst;
-                    Self::make_pattern_val(&case.cond)?;
+                    let pval = Self::make_pattern_val(&case.cond)?;
+                    *case.cond.node = Ast::ConstVal(pval);
                     Self::set_dst_or_copy(&mut case.body, node.dst);
                     Self::assign_registers(&mut case.body, stack)?;
                 }
