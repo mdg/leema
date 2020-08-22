@@ -671,14 +671,13 @@ impl Registration
                 }
             }
             Ast::Ifx(ref mut cases) => {
-                let cond_dst = stack.push();
                 for case in cases.iter_mut() {
                     if *case.cond.node == Ast::VOID {
                         case.cond.dst = Reg::Void;
-                    } else if case.cond.dst == Reg::Undecided {
-                        case.cond.dst = cond_dst;
                     }
+                    Self::assign_registers(&mut case.cond, stack)?;
                     Self::set_dst_or_copy(&mut case.body, node.dst);
+                    Self::assign_registers(&mut case.body, stack)?;
                 }
             }
             Ast::StrExpr(ref mut items) => {
