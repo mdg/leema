@@ -1,9 +1,9 @@
 import /io
 
-func foo a:[#]
+func foo :: a:[#]
 |[] -> io.print("done\n")
 |#c;t ->
-    io::print("found c.\n")
+    io.print("found c.\n")
     foo(t)
 |h;t ->
     match h
