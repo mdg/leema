@@ -1,10 +1,10 @@
 
-datatype T[V]
+datatype T'V
 |Some :: V
 |None
 --
 
-func unwrap[V] opt:T[V] /V
-|Some(result) >> result
-|None >> fail(#option_error, "cannot unwrap None")
+func unwrap'V:V :: opt:T[V]
+|Some(result) -> result
+|None -> fail(#option_error, "cannot unwrap None")
 --

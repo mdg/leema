@@ -163,7 +163,7 @@ def_func = !{
 def_struct_args = _{ def_id ~ def_func_args }
 def_struct = !{ "datatype" ~ hs1 ~ def_struct_args ~ as1 ~ "--" }
 
-def_enum_variant = { vs1 ~ "|" ~ def_struct_args }
+def_enum_variant = { vs1 ~ "|" ~ ( def_struct_args | def_id ) }
 def_enum = !{ "datatype" ~ hs1 ~ def_id ~ def_enum_variant+ ~ vs1 ~ "--" }
 
 def_rust_type = !{ "datatype" ~ hs1 ~ id ~ as1 ~ rust_block }
