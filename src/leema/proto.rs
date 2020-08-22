@@ -52,6 +52,26 @@ lazy_static! {
     };
 }
 
+const STATIC_INDEX_NAMES: [&'static str; 17] = [
+    "statixName0",
+    "statixName1",
+    "statixName2",
+    "statixName3",
+    "statixName4",
+    "statixName5",
+    "statixName6",
+    "statixName7",
+    "statixName8",
+    "statixName9",
+    "statixName10",
+    "statixName11",
+    "statixName12",
+    "statixName13",
+    "statixName14",
+    "statixName15",
+    "statixName16",
+];
+
 
 /// Asts separated into their types of components
 #[derive(Debug)]
@@ -390,31 +410,48 @@ impl ProtoModule
             }
         };
 
-        let args = self.xlist_to_types(&m, &fields, &opens)?;
-        let ftyp = FuncType::new(args.clone(), struct_typ.clone());
+        self.add_typed_struct(struct_typ, sname_id, &opens, fields, loc)?;
+        Ok(())
+    }
+
+    fn add_typed_struct(
+        &mut self,
+        typ: Type,
+        name: &'static str,
+        opens: &GenericTypes,
+        fields: Xlist,
+        loc: Loc,
+    ) -> Lresult<()>
+    {
+        let args = self.xlist_to_types(&self.key.name, &fields, &opens)?;
+        let ftyp = FuncType::new(args.clone(), typ.clone());
         let constructor_type = Type::Func(ftyp);
-        let fref = Fref::new(self.key.clone(), sname_id, constructor_type);
+        let fref = Fref::new(self.key.clone(), name, constructor_type);
         let constructor_call = Val::Construct(fref);
-        self.exported_vals.push(StrupleItem::new(
-            Some(sname_id),
-            AstNode::new_constval(constructor_call, name.loc),
-        ));
-        self.types.insert(sname_id, struct_typ.clone());
-        self.funcseq.push(sname_id);
+
         let macro_call = AstNode::new(Ast::Id1("new_struct_val"), loc);
         let fields_arg = fields
             .iter()
-            .map(|f| {
-                StrupleItem::new(f.k, AstNode::new(Ast::Id1(f.k.unwrap()), loc))
+            .enumerate()
+            .map(|(i, f)| {
+                let k = f.k.unwrap_or(STATIC_INDEX_NAMES[i]);
+                StrupleItem::new(f.k, AstNode::new(Ast::Id1(k), loc))
             })
             .collect();
         let macro_args = vec![
-            StrupleItem::new_v(AstNode::new(Ast::Id1(sname_id), loc)),
+            StrupleItem::new_v(AstNode::new(Ast::Id1(name), loc)),
             StrupleItem::new_v(AstNode::new(Ast::Tuple(fields_arg), loc)),
         ];
+
         let construction = AstNode::new(Ast::Call(macro_call, macro_args), loc);
-        self.funcsrc.insert(sname_id, (fields, construction));
-        self.struct_fields.push((sname_id, struct_typ, args));
+        self.exported_vals.push(StrupleItem::new(
+            Some(name),
+            AstNode::new_constval(constructor_call, loc),
+        ));
+        self.types.insert(name, typ.clone());
+        self.funcseq.push(name);
+        self.funcsrc.insert(name, (fields, construction));
+        self.struct_fields.push((name, typ, args));
         Ok(())
     }
 
@@ -518,6 +555,7 @@ impl ProtoModule
 
     fn add_union(&mut self, name: AstNode, variants: Xlist) -> Lresult<()>
     {
+        let loc = name.loc;
         if variants.len() < 2 {
             return Err(rustfail!(
                 PROTOFAIL,
@@ -575,10 +613,10 @@ impl ProtoModule
                 ));
             }
         };
-        ltry!(self.refute_redefines_default(sname_id, name.loc));
+        ltry!(self.refute_redefines_default(sname_id, loc));
 
         let typ_val = Val::Type(union_typ.clone());
-        let typ_ast = AstNode::new_constval(typ_val.clone(), name.loc);
+        let typ_ast = AstNode::new_constval(typ_val.clone(), loc);
         self.exported_vals
             .push(StrupleItem::new(Some(sname_id), typ_ast));
         self.types.insert(sname_id, union_typ.clone());
@@ -594,7 +632,9 @@ impl ProtoModule
                     self.exported_vals.push(StrupleItem::new(var.k, vast));
                 } else {
                     let var_typ = Type::variant(union_typ.clone(), var_name);
-                    self.types.insert(var_name, var_typ);
+                    self.add_typed_struct(
+                        var_typ, sname_id, &opens, flds, loc,
+                    )?;
                 }
             } else {
                 return Err(rustfail!(
