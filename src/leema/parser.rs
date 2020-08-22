@@ -380,6 +380,10 @@ impl LeemaPrec
                 let cases = self.parse_cases(inner)?;
                 Ok(AstNode::new(Ast::Matchx(Some(x), cases), loc))
             }
+            Rule::case_block => {
+                let cases = self.parse_cases(n.into_inner())?;
+                Ok(AstNode::new(Ast::Matchx(None, cases), loc))
+            }
             Rule::underscore => Ok(AstNode::new(Ast::Wildcard, loc)),
             Rule::typex => self.primary(n.into_inner().next().unwrap()),
             Rule::def_enum => {
@@ -600,8 +604,18 @@ impl LeemaPrec
             Rule::def_func_arg => {
                 let mut inner = pair.into_inner();
                 let name = inner.next().unwrap();
-                let typ = self.primary(inner.next().unwrap())?;
-                Ok(StrupleItem::new(Some(name.as_str()), typ))
+                match inner.next() {
+                    Some(inner_typ) => {
+                        let typ = self.primary(inner_typ)?;
+                        Ok(StrupleItem::new(Some(name.as_str()), typ))
+                    }
+                    None => {
+                        Ok(StrupleItem::new_v(AstNode::new(
+                            Ast::Id1(name.as_str()),
+                            nodeloc(&name),
+                        )))
+                    }
+                }
             }
             unexpected => {
                 Err(rustfail!(
@@ -990,6 +1004,20 @@ mod tests
         let input = r#"
         func new_pair'A'B:(A B) :: a:A b:B ->
             (a, b)
+        --
+        "#;
+        let actual = parse_file(input).unwrap();
+        assert_eq!(1, actual.len());
+    }
+
+    #[test]
+    fn def_func_match_block()
+    {
+        let input = r#"
+        func factorial:Int :: i:Int
+        |0 -> 0
+        |1 -> 1
+        |n -> n * factorial(n - 1)
         --
         "#;
         let actual = parse_file(input).unwrap();

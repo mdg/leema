@@ -104,9 +104,9 @@ tuple = { "(" ~ as0 ~ xlist? ~ as0 ~ ")" }
 blockx = { (block_arrow ~ vs1 ~ stmt_block ~ double_dash) }
 
 case = { "|" ~ pattern ~ as1 ~ arrow_block }
-ifx = { "if" ~ vs1 ~ case+ ~ "--" }
-matchargs = { "match" ~ vs1 ~ case+ ~ "--" }
-matchx = { "match" ~ hs1 ~ expr? ~ vs1 ~ case+ ~ "--" }
+ifx = { "if" ~ vs1 ~ case+ ~ double_dash }
+matchargs = { "match" ~ vs1 ~ case+ ~ double_dash }
+matchx = { "match" ~ hs1 ~ expr? ~ vs1 ~ case+ ~ double_dash }
 
 prefix1 = _{ prefix_op ~ as0 ~ term }
 postfix1 = _{ term ~ postfix_op }
@@ -202,8 +202,10 @@ stmt_block = ${ (line ~ vs1)* }
 arrow_block = _{
     block_arrow ~ (hs1 ~ expr ~ vs1 | vs1 ~ stmt_block)
 }
+case_block = { case+ }
 func_block = _{
     rust_block
+    | case_block ~ double_dash
     | (block_arrow ~ vs1 ~ stmt_block ~ double_dash)
     | (block_arrow ~ hs1 ~ expr ~ hs1 ~ double_dash)
 }
