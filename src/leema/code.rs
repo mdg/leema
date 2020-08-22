@@ -659,6 +659,7 @@ impl Registration
             }
             Ast::Matchx(ref mut match_input, ref mut cases) => {
                 if let Some(ref mut mi) = match_input {
+                    stack.push_if_undecided(&mut mi.dst);
                     Self::assign_registers(mi, stack)?;
                 }
                 let cond_dst = stack.push();
@@ -697,7 +698,7 @@ impl Registration
                     None
                 };
                 for (i, item) in items.iter_mut().enumerate() {
-                    item.v.dst = node.dst.sub(i as i8);
+                    Self::set_dst_or_copy(&mut item.v, node.dst.sub(i as i8));
                     Self::assign_registers(&mut item.v, stack)?;
                 }
                 if let Some(old_dst) = sub_dst {
