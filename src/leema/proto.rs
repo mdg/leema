@@ -518,46 +518,92 @@ impl ProtoModule
 
     fn add_union(&mut self, name: AstNode, variants: Xlist) -> Lresult<()>
     {
-        if variants.is_empty() {
+        if variants.len() < 2 {
             return Err(rustfail!(
                 PROTOFAIL,
-                "union must have at least variant variant: {:?}",
+                "unions must have at least two variants: {:?}",
                 name,
             ));
         }
 
         let m = &self.key.name;
         let union_typ: Type;
-        let _opens: GenericTypes;
+        let opens: GenericTypes;
 
-        let _sname_id = match *name.node {
+        let sname_id = match *name.node {
             Ast::Id1(name_id) => {
-                ltry!(self.refute_redefines_default(name_id, name.loc));
                 union_typ = Type::User(TypeMod::from(m), name_id);
-                let typ_val = Val::Type(union_typ.clone());
-                let typ_ast = AstNode::new_constval(typ_val.clone(), name.loc);
-                _opens = vec![];
-                self.exported_vals
-                    .push(StrupleItem::new(Some(name_id), typ_ast));
-
-                for var in variants {
-                    let vval = Val::EnumToken(
-                        union_typ.clone(),
-                        Lstr::Sref(var.k.unwrap()),
-                    );
-                    let vast = AstNode::new_constval(vval, var.v.loc);
-                    self.exported_vals.push(StrupleItem::new(var.k, vast));
-                }
+                opens = vec![];
                 name_id
+            }
+            Ast::Generic(gen_id, gen_args) => {
+                let opens1: Lresult<GenericTypes> = gen_args
+                    .iter()
+                    .map(|a| {
+                        if let Some(var) = a.k {
+                            Ok(StrupleItem::new(var, Type::Unknown))
+                        } else {
+                            Err(rustfail!(
+                                PROTOFAIL,
+                                "generic arguments must have string key: {:?}",
+                                a,
+                            ))
+                        }
+                    })
+                    .collect();
+                opens = opens1?;
+
+                if let Ast::Id1(name_id) = *gen_id.node {
+                    let itmod = TypeMod::from(m);
+                    let inner = Type::User(itmod, name_id);
+                    union_typ =
+                        Type::Generic(true, Box::new(inner), opens.clone());
+                    name_id
+                } else {
+                    return Err(rustfail!(
+                        PROTOFAIL,
+                        "invalid generic struct name: {:?}",
+                        gen_id,
+                    ));
+                }
             }
             _ => {
                 return Err(rustfail!(
                     "compile_failure",
-                    "unknown union id type: {:?}",
+                    "unsupported datatype id: {:?}",
                     name,
                 ));
             }
         };
+        ltry!(self.refute_redefines_default(sname_id, name.loc));
+
+        let typ_val = Val::Type(union_typ.clone());
+        let typ_ast = AstNode::new_constval(typ_val.clone(), name.loc);
+        self.exported_vals
+            .push(StrupleItem::new(Some(sname_id), typ_ast));
+        self.types.insert(sname_id, union_typ.clone());
+
+        for var in variants.into_iter() {
+            let var_name = var.k.unwrap();
+            self.funcseq.push(var_name);
+            if let Ast::DefType(DataType::Struct, _, flds) = *var.v.node {
+                if flds.is_empty() {
+                    let vval =
+                        Val::EnumToken(union_typ.clone(), Lstr::Sref(var_name));
+                    let vast = AstNode::new_constval(vval, var.v.loc);
+                    self.exported_vals.push(StrupleItem::new(var.k, vast));
+                } else {
+                    let var_typ = Type::variant(union_typ.clone(), var_name);
+                    self.types.insert(var_name, var_typ);
+                }
+            } else {
+                return Err(rustfail!(
+                    "compile_failure",
+                    "expected variant struct found: {:?}",
+                    var,
+                ));
+            }
+        }
 
         Ok(())
     }

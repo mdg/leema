@@ -157,6 +157,11 @@ impl Type
         })
     }
 
+    pub fn variant(base: Type, var_name: &'static str) -> Type
+    {
+        Type::Variant(Box::new(base), var_name)
+    }
+
     /**
      * Get the typename including the module
      */
