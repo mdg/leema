@@ -1002,23 +1002,14 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 node.typ = id_type;
             }
             Ast::Call(ref mut callx, ref mut args) => {
-                let mut call_to_push: Fref;
-                match &mut *callx.node {
-                    Ast::ConstVal(Val::Call(ref mut fref, _argvals)) => {
-                        fref.t = callx.typ.clone();
-                        // an optimization here might be to iterate over
-                        // ast args and initialize any constants
-                        // actually better might be to stop having
-                        // the args in the Val::Call const
-                        call_to_push =
-                            Fref::new(fref.m.clone(), fref.f, Type::VOID);
-                    }
-                    Ast::ConstVal(Val::Construct(c)) => {
-                        call_to_push = Fref::new(c.m.clone(), c.f, Type::VOID);
+                if let Ast::ConstVal(ref mut ccv) = &mut *callx.node {
+                    if let Val::Construct(cfref) = ccv {
+                        // check for void constructors,
+                        // do different stuff w/ tem
                         if args.len() == 1
                             && *args.first().unwrap().v.node == Ast::VOID
                         {
-                            let new_val = match &c.t {
+                            let new_val = match &cfref.t {
                                 Type::Func(ft) => {
                                     let args =
                                         struple::map_v(&ft.args, |_| {
@@ -1038,38 +1029,46 @@ impl<'p> ast2::Op for TypeCheck<'p>
                             *node.node = Ast::ConstVal(new_val);
                             return Ok(AstStep::Rewrite);
                         }
+
+                        // reassign the construct as a call
+                        let result: Lresult<Val> = From::from(&*cfref);
+                        *ccv = result?;
                     }
-                    _ => {
-                        if callx.typ.is_user() {
-                            let copy_typ = callx.typ.clone();
-                            let base = mem::take(callx);
-                            let args_copy = mem::take(args);
-                            node.replace(
-                                Ast::CopyAndSet(base, args_copy),
-                                copy_typ,
-                            );
-                            return Ok(AstStep::Rewrite);
-                        } else {
-                            return Err(rustfail!(
-                                SEMFAIL,
-                                "unexpected call expression: {:?}",
-                                callx,
-                            ));
-                        }
+
+                    if let Val::Call(ref mut fref, _argvals) = ccv {
+                        // an optimization here might be to iterate over
+                        // ast args and initialize any constants
+                        // actually better might be to stop having
+                        // the args in the Val::Call const
+                        fref.t = callx.typ.clone();
+
+                        let call_result = ltry!(self
+                            .applied_call_type(&mut callx.typ, args)
+                            .map_err(|f| {
+                                f.add_context(lstrf!("for function: {}", fref,))
+                            }));
+                        fref.t = callx.typ.clone();
+                        self.calls.push(fref.clone());
+                        node.typ = call_result;
+                    }
+                } else {
+                    if callx.typ.is_user() {
+                        let copy_typ = callx.typ.clone();
+                        let base = mem::take(callx);
+                        let args_copy = mem::take(args);
+                        node.replace(
+                            Ast::CopyAndSet(base, args_copy),
+                            copy_typ,
+                        );
+                        return Ok(AstStep::Rewrite);
+                    } else {
+                        return Err(rustfail!(
+                            SEMFAIL,
+                            "unexpected call expression: {:?}",
+                            callx,
+                        ));
                     }
                 }
-                let call_result = ltry!(self
-                    .applied_call_type(&mut callx.typ, args)
-                    .map_err(|f| {
-                        f.add_context(lstrf!(
-                            "for function: {:?} with type {}",
-                            callx.node,
-                            callx.typ,
-                        ))
-                    }));
-                call_to_push.t = callx.typ.clone();
-                self.calls.push(call_to_push);
-                node.typ = call_result;
             }
             Ast::Op2(".", a, b) => {
                 match (&*a.node, &*b.node) {
@@ -1270,21 +1269,6 @@ impl ast2::Op for RemoveExtraCode
                         *node = items.pop().unwrap();
                     }
                     _ => {} // leave as-is
-                }
-            }
-            Ast::Call(callx, _args) => {
-                match &mut *callx.node {
-                    Ast::ConstVal(ref mut ccv) => {
-                        match ccv {
-                            Val::Construct(fref) => {
-                                // reassign the construct as a call
-                                let result: Lresult<Val> = From::from(&*fref);
-                                *ccv = result?;
-                            }
-                            _ => {} // call probably
-                        }
-                    }
-                    _ => {} // something else
                 }
             }
             Ast::Let(ref mut lhs, _, ref mut rhs) => {
