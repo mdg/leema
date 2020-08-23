@@ -1002,6 +1002,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 node.typ = id_type;
             }
             Ast::Call(ref mut callx, ref mut args) => {
+                let mut call_to_push: Fref;
                 match &mut *callx.node {
                     Ast::ConstVal(Val::Call(ref mut fref, _argvals)) => {
                         fref.t = callx.typ.clone();
@@ -1009,10 +1010,11 @@ impl<'p> ast2::Op for TypeCheck<'p>
                         // ast args and initialize any constants
                         // actually better might be to stop having
                         // the args in the Val::Call const
-                        self.calls.push(fref.clone());
+                        call_to_push =
+                            Fref::new(fref.m.clone(), fref.f, Type::VOID);
                     }
                     Ast::ConstVal(Val::Construct(c)) => {
-                        self.calls.push(c.clone());
+                        call_to_push = Fref::new(c.m.clone(), c.f, Type::VOID);
                         if args.len() == 1
                             && *args.first().unwrap().v.node == Ast::VOID
                         {
@@ -1065,6 +1067,8 @@ impl<'p> ast2::Op for TypeCheck<'p>
                             callx.typ,
                         ))
                     }));
+                call_to_push.t = callx.typ.clone();
+                self.calls.push(call_to_push);
                 node.typ = call_result;
             }
             Ast::Op2(".", a, b) => {
@@ -1273,6 +1277,7 @@ impl ast2::Op for RemoveExtraCode
                     Ast::ConstVal(ref mut ccv) => {
                         match ccv {
                             Val::Construct(fref) => {
+                                // reassign the construct as a call
                                 let result: Lresult<Val> = From::from(&*fref);
                                 *ccv = result?;
                             }
@@ -1375,11 +1380,15 @@ impl Semantics
                     }
                 }
             }
-            unexpected => {
+            _ => {
                 return Err(rustfail!(
                     SEMFAIL,
-                    "unexpected call types: {:?}",
-                    unexpected,
+                    "{}.{} original call type: {:?}, fields? {:?}, result call type {:?}",
+                    f.m,
+                    f.f,
+                    f.t,
+                    fields,
+                    func_ref.typ
                 ));
             }
         };
