@@ -1,8 +1,8 @@
 import /io
 
-func sum x:Int y:Int z:Int /Int >> x + y + z --
+func sum:Int :: x:Int y:Int z:Int -> x + y + z --
 
-func main >>
+func main ->
     let s := sum(3, 8, 2)
-    io::print("sum(3, 8, 2) = $s\n")
+    io.print("sum(3, 8, 2) = $s\n")
 --

@@ -1,13 +1,13 @@
 import /io.print
 
-func main >>
+func main ->
     let l := [3, 2, 8, 4]
     print("l: $l\n")
 
     match l
-    |h1;h2;t >>
+    |h1;h2;t ->
         print("l is a list starting with $h1, $h2 and ending with $t\n")
-    |_ >>
+    |_ ->
         print("l is not a list with at least 2 element\n")
     --
 --

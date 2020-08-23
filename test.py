@@ -104,9 +104,9 @@ class TestScripts(unittest.TestCase):
     def test_generic_func(self):
         result = run_leema('test_generic')
         self.assertEqual(0, result['code'])
-        self.assertEqual(b"x: (:#burrito,:taco,)\n" \
-            + b"y: (:true,:3,)\n" \
-            + b"z: (:3,:#burrito,)\n"
+        self.assertEqual(b"x: (#burrito,taco,)\n" \
+            + b"y: (True,3,)\n" \
+            + b"z: (3,#burrito,)\n"
             , result['output'])
 
     def test_if_else_true(self):
