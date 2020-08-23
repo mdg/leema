@@ -1,21 +1,20 @@
 import /io
 
-func fizbuz x:Int max:Int
->>
-    let xm30 := (x mod 3) == 0
-    let xm50 := (x mod 5) == 0
+func fizbuz :: x:Int max:Int ->
+    let xm30 := (x modulo 3) == 0
+    let xm50 := (x modulo 5) == 0
 
     if
-    |xm30 and xm50 >> io::print("fizzbuzz\n")
-    |xm30 >> io::print("fizz\n")
-    |xm50 >> io::print("buzz\n")
-    |else >> io::print("$x\n")
+    |xm30 and xm50 -> io.print("fizzbuzz\n")
+    |xm30 -> io.print("fizz\n")
+    |xm50 -> io.print("buzz\n")
+    |_ -> io.print("$x\n")
     --
 
-    if x < max >>
-        fizbuz(x+1, max)
+    if x < max ->
+        fizbuz(x + 1, max)
     --
 --
 
 
-func main >> fizbuz(1, 100) --
+func main -> fizbuz(1, 100) --

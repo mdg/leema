@@ -367,6 +367,10 @@ impl LeemaPrec
                 };
                 Ok(AstNode::new(stmt, loc))
             }
+            Rule::if_stmt => {
+                let if_case = self.parse_case(n)?;
+                Ok(AstNode::new(Ast::Ifx(vec![if_case]), loc))
+            }
             Rule::ifx => {
                 let cases = self.parse_cases(n.into_inner())?;
                 Ok(AstNode::new(Ast::Ifx(cases), loc))

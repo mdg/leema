@@ -149,6 +149,10 @@ impl<'l> ast2::Op for MacroApplication<'l>
                 *node = Self::op_to_call1("int_div", a, b, node.loc);
                 return Ok(AstStep::Rewrite);
             }
+            Ast::Op2("modulo", a, b) => {
+                *node = Self::op_to_call1("int_mod", a, b, node.loc);
+                return Ok(AstStep::Rewrite);
+            }
             Ast::Op2("mod", a, b) => {
                 *node = Self::op_to_call1("int_mod", a, b, node.loc);
                 return Ok(AstStep::Rewrite);
