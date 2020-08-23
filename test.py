@@ -178,7 +178,7 @@ class TestScripts(unittest.TestCase):
     def test_fmatch_list_empty(self):
         result = run_leema('fmatch_list_empty')
         self.assertEqual(0, result['code'])
-        self.assertEqual(b"is_empty? false\n", result['output'])
+        self.assertEqual(b"is_empty? False\n", result['output'])
 
     def test_fmatch_scope_depth(self):
         result = run_leema('fmatch_scope_depth')

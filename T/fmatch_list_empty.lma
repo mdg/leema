@@ -2,8 +2,8 @@
 import /io.print
 
 func is_empty:Bool :: l:[Int]
-|[] >> True
-|_ >> False
+|[] -> True
+|_ -> False
 --
 
 func main ->
