@@ -1,0 +1,58 @@
+import /option
+
+datatype {T}
+|Empty
+|Node ::
+    left:{T}
+    data:T
+    right:{T}
+--
+
+## create a new set
+func new`T:{T} -RUST-
+
+## push a new item into the set, return a new set and the item replaced
+func push'T:({T} T?) :: s:{T} new_data:T ->
+    match s
+    |Empty -> Node(Empty, new_data, Empty)
+    |Node(left, data, right) ->
+        if
+        |new_data < data ->
+            let (new_left, replaced) := push(left, new_data)
+            (Node(new_left, data, right), replaced)
+        |new_data > data ->
+            let (new_right, replaced) := push(right, new_data)
+            (Node(left, data, new_right), replaced)
+        |_ ->
+            (Node(left, new_data, right), data)
+        --
+--
+
+## return an item from a set and whether the item existed before being popped
+func pop'T:({T} Bool) :: s:{T} rm:T ->
+    match s
+    |Empty -> (Empty, False)
+    |Node(left, data, right) ->
+        if
+        |rm < data ->
+            let (new_left, found) := pop(left, rm)
+            (Node(new_left, data, right), found)
+        |new > data ->
+            let (new_right, found) := pop(right, rm)
+            (Node(left, data, new_right), found)
+        |_ ->
+            (Node(left, new_data, right), True)
+        --
+--
+
+## insert an item into a set and return the new set
+func insert'T:{T} :: s:{T} new_data:T ->
+    let (new_s, _) := push(s, new_data)
+    new_s
+--
+
+## remove an item from a set and return the new set
+func remove'T:{T} :: s:{T} rm:T ->
+    let (new_s, _) := pop(s, rm)
+    new_s
+--

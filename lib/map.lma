@@ -1,7 +1,7 @@
 import /option
 
 
-datatype Map`K`V --
+datatype Map`K`V -RUST-
 
 ## create a new map
 func new`K`V:Map'K'V -RUST-

@@ -22,13 +22,13 @@ func test_decode ->
     println("$s $i or $b")
 --
 
-func test_decode_val >>
+func test_decode_val ->
     let ju := json.decode_val("{\"id\": 8, \"name\": \"Gerald\"}")
     let u := user_from_json(ju)
     println("$u")
 --
 
-func test_encode >>
+func test_encode ->
     println(json.encode(6))
     println(json.encode(False))
     println(json.encode("hello"))
@@ -40,7 +40,7 @@ func test_encode >>
     println(json.encode(u))
 --
 
-func main >>
+func main ->
     test_encode()
     test_decode()
     test_decode_val()
