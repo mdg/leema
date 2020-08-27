@@ -467,12 +467,8 @@ impl LeemaPrec
                 Ok(AstNode::new(Ast::List(inner_type), loc))
             }
             Rule::tuple_type => {
-                let inner = n.into_inner();
-                let items: Lresult<Xlist> = inner
-                    .map(|i| Ok(StrupleItem::new_v(self.primary(i)?)))
-                    .collect();
-                let ast = Ast::Tuple(items?);
-                Ok(AstNode::new(ast, loc))
+                let items = self.parse_xlist(n.into_inner())?;
+                Ok(AstNode::new(Ast::Tuple(items), loc))
             }
             Rule::mxstmt => {
                 let mut inner = n.into_inner();
@@ -501,7 +497,7 @@ impl LeemaPrec
             Rule::EOI => Ok(AstNode::void()),
             Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, loc)),
             // ignore this level and go one deeper
-            Rule::blockx | Rule::def_func_arg => {
+            Rule::blockx | Rule::tx_maybe_k => {
                 pratt::parse(self, &mut n.into_inner())
             }
 
@@ -595,7 +591,7 @@ impl LeemaPrec
     ) -> Lresult<StrupleItem<Option<&'static str>, AstNode>>
     {
         match pair.as_rule() {
-            Rule::x_maybe_k => {
+            Rule::x_maybe_k | Rule::tx_maybe_k => {
                 let mut inner = pair.into_inner();
                 let k_or_x: Pair<'static, Rule> = inner.next().unwrap();
                 let maybe_x = inner.next();
@@ -607,22 +603,6 @@ impl LeemaPrec
                     (kpair, Some(xpair)) => {
                         let x = self.primary(xpair)?;
                         Ok(StrupleItem::new(Some(kpair.as_str()), x))
-                    }
-                }
-            }
-            Rule::def_func_arg => {
-                let mut inner = pair.into_inner();
-                let name = inner.next().unwrap();
-                match inner.next() {
-                    Some(inner_typ) => {
-                        let typ = self.primary(inner_typ)?;
-                        Ok(StrupleItem::new(Some(name.as_str()), typ))
-                    }
-                    None => {
-                        Ok(StrupleItem::new_v(AstNode::new(
-                            Ast::Id1(name.as_str()),
-                            nodeloc(&name),
-                        )))
                     }
                 }
             }
@@ -956,13 +936,13 @@ mod tests
             input: input,
             rule: Rule::def_func_args,
             tokens: [def_func_args(0, 14, [
-                def_func_arg(3, 8, [
+                tx_maybe_k(3, 8, [
                     id(3, 4),
-                    id(5, 8),
+                    typex(5, 8, [id(5, 8)]),
                 ]),
-                def_func_arg(9, 14, [
+                tx_maybe_k(9, 14, [
                     id(9, 10),
-                    id(11, 14),
+                    typex(11, 14, [id(11, 14)]),
                 ])
             ])]
         )
@@ -1699,8 +1679,50 @@ mod tests
             tokens: [
                 typex(0, 5, [
                     tuple_type(0, 5, [
-                        def_func_arg(1, 2, [id(1, 2)]),
-                        def_func_arg(3, 4, [id(3, 4)]),
+                        tx_maybe_k(1, 2, [
+                            typex(1, 2, [id(1, 2)]),
+                        ]),
+                        tx_maybe_k(3, 4, [
+                            typex(3, 4, [id(3, 4)]),
+                        ]),
+                    ])
+                ])
+            ]
+        );
+        if let Ast::Tuple(items) = &*ast[0].node {
+            assert_eq!(Ast::Id1("A"), *items[0].v.node);
+            assert_eq!(Ast::Id1("B"), *items[1].v.node);
+        } else {
+            panic!("expected tuple, found {:?}", *ast[0].node);
+        }
+        assert_eq!(1, ast.len());
+    }
+
+    #[test]
+    fn type_suffixes()
+    {
+        let input = r#"(A? B*)"#;
+        let ast = parse(Rule::typex, input).unwrap();
+        println!("suffix type: {:#?}", ast);
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::typex,
+            tokens: [
+                typex(0, 7, [
+                    tuple_type(0, 7, [
+                        tx_maybe_k(1, 3, [
+                            typex(1, 3, [
+                                id(1, 2),
+                                question(2, 3),
+                            ]),
+                        ]),
+                        tx_maybe_k(4, 6, [
+                            typex(4, 6, [
+                                id(4, 5),
+                                star(5, 6),
+                            ]),
+                        ]),
                     ])
                 ])
             ]

@@ -17,6 +17,7 @@ star = { "*" }
 slash = { "/" }
 tick = { "'" }
 dot = { "." }
+question = { "?" }
 modulo = { "modulo" }
 and = { "and" }
 or = { "or" }
@@ -54,9 +55,19 @@ infix_op = _{
 }
 
 spaced_infix_op = _{
-    (as1 ~ infix_op ~ as1)
-    | (hs1 ~ dash ~ as1)
+    as0 ~ infix_op ~ as0
+    | hs0 ~ dash ~ as0
     | as0 ~ dot ~ as0
+    | tick
+}
+
+type_postfix_op = _{
+    question
+    | star
+}
+
+type_infix_op = _{
+    dot
     | tick
 }
 
@@ -96,8 +107,11 @@ hashtag = @{ "#" ~ id }
 term = _{ hashtag | id | number | str | tuple | list }
 pattern = _{ underscore | expr }
 
+tx_maybe_k = { (id ~ hs0 ~ ":" ~ as0)? ~ typex }
 x_maybe_k = { (id ~ hs0 ~ ":" ~ as0)? ~ expr }
+txlist = _{ tx_maybe_k ~ (as1 ~ tx_maybe_k)* }
 xlist = _{ x_maybe_k ~ (as0 ~ "," ~ as0 ~ x_maybe_k)* ~ as0 ~ ","? }
+
 list = { "[]" | "[" ~ as0 ~ xlist? ~ as0 ~ "]" }
 tuple = { "(" ~ as0 ~ xlist? ~ as0 ~ ")" }
 
@@ -138,28 +152,38 @@ compound_expr = _{
 
 list_type = { "[" ~ typex ~ "]" }
 generic_type = { id ~ ("'" ~ type_term)+ }
-tuple_type = { "(" ~ (as0 ~ def_func_arg)* ~ as0 ~ ")" }
+tuple_type = { "(" ~ txlist? ~ ")" }
 
 type_term = _{
-    tuple_type
+    "(" ~ type_func ~ ")"
+    | tuple_type
     | list_type
     | generic_type
-    | id ~ star
     | id
 }
 
 type_func = {
-    "::" ~ x_maybe_k*
-    | type_term ~ "::" ~ x_maybe_k*
-    | type_term ~ "::"
+    "::" ~ as1 ~ tx_maybe_k*
+    | tx1 ~ as1 ~ "::" ~ (as1 ~ tx_maybe_k)*
 }
 
-typex = { type_func | type_term }
+tx1 = _{
+    type_term ~ type_postfix_op
+    | type_term
+}
+
+tx2 = _{
+    type_infix_op ~ tx1
+    | type_postfix_op
+}
+
+typex = { tx1 ~ tx2* }
+
+any_type = { type_func | typex }
 
 // statements
 
-def_func_arg = { (id ~ hs0 ~ ":" ~ as0 ~ type_term) | type_term }
-def_func_args = { (hs0 ~ "::" ~ (as0 ~ def_func_arg)+)? }
+def_func_args = { (hs0 ~ "::" ~ (as0 ~ tx_maybe_k)+)? }
 def_func_result = { (as0 ~ ":" ~ type_term)? }
 def_func = !{
     func_mode ~ as1 ~ def_id ~ def_func_result ~ def_func_args ~ as1 ~ func_block
