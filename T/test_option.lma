@@ -1,19 +1,18 @@
 
 ## test that enums with parameters work, like Option.Some(5)
 
-import /option
 import /io.print
 
-func print_opt opt:option::T[Int] >>
-|option::Some(i) >> print("option is $i\n")
-|option::None >> print("no option\n")
+func print_opt :: o:Int?
+|Some(i) -> print("option is $i\n")
+|None -> print("no option\n")
 --
 
-func main >>
-    let option_a := option::None
+func main ->
+    let option_a := None
     print("option a? $option_a\n")
 
-    let option_b := option::Some(4)
+    let option_b := Some(4)
     print("option b? $option_b\n")
 
     print_opt(option_b)
