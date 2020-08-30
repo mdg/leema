@@ -151,14 +151,11 @@ compound_expr = _{
 // types
 
 list_type = { "[" ~ typex ~ "]" }
-generic_type = { id ~ ("'" ~ type_term)+ }
 tuple_type = { "(" ~ txlist? ~ ")" }
 
 type_term = _{
-    "(" ~ type_func ~ ")"
-    | tuple_type
+    tuple_type
     | list_type
-    | generic_type
     | id
 }
 
@@ -184,7 +181,7 @@ any_type = { type_func | typex }
 // statements
 
 def_func_args = { (hs0 ~ "::" ~ (as0 ~ tx_maybe_k)+)? }
-def_func_result = { (as0 ~ ":" ~ type_term)? }
+def_func_result = { (as0 ~ ":" ~ typex)? }
 def_func = !{
     func_mode ~ as1 ~ def_id ~ def_func_result ~ def_func_args ~ as1 ~ func_block
 }

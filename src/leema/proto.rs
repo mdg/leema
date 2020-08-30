@@ -44,6 +44,9 @@ lazy_static! {
         ids.insert("int_gt", core_mod.clone());
         ids.insert("int_gteq", core_mod.clone());
         ids.insert("new_struct_val", core_mod.clone());
+        ids.insert("None", core_mod.clone());
+        ids.insert("Option", core_mod.clone());
+        ids.insert("Some", core_mod.clone());
         ids.insert("Str", core_mod.clone());
         ids.insert("True", core_mod.clone());
         ids.insert("Void", core_mod.clone());
@@ -425,7 +428,13 @@ impl ProtoModule
     {
         let args = self.xlist_to_types(&self.key.name, &fields, &opens)?;
         let ftyp = FuncType::new(args.clone(), typ.clone());
-        let constructor_type = Type::Func(ftyp);
+        let inner_type = Type::Func(ftyp);
+        let constructor_type =
+            if typ.is_open() {
+                Type::Generic(true, Box::new(inner_type), opens.clone())
+            } else {
+                inner_type
+            };
         let fref = Fref::new(self.key.clone(), name, constructor_type);
         let constructor_call = Val::Construct(fref);
 
@@ -575,27 +584,29 @@ impl ProtoModule
                 name_id
             }
             Ast::Generic(gen_id, gen_args) => {
-                let opens1: Lresult<GenericTypes> = gen_args
-                    .iter()
-                    .map(|a| {
-                        if let Some(var) = a.k {
-                            Ok(StrupleItem::new(var, Type::Unknown))
-                        } else {
-                            Err(rustfail!(
-                                PROTOFAIL,
-                                "generic arguments must have string key: {:?}",
-                                a,
-                            ))
-                        }
-                    })
-                    .collect();
-                opens = opens1?;
+                let mut opens1 = Vec::with_capacity(gen_args.len());
+                let mut gen_arg_vars = Vec::with_capacity(gen_args.len());
+                for a in gen_args.iter() {
+                    if let Some(var) = a.k {
+                        opens1.push(StrupleItem::new(var, Type::Unknown));
+                        gen_arg_vars.push(
+                            StrupleItem::new(var, Type::OpenVar(var)),
+                        );
+                    } else {
+                        return Err(rustfail!(
+                            PROTOFAIL,
+                            "generic arguments must have string key: {:?}",
+                            a,
+                        ));
+                    }
+                }
+                opens = opens1;
 
                 if let Ast::Id1(name_id) = *gen_id.node {
                     let itmod = TypeMod::from(m);
                     let inner = Type::User(itmod, name_id);
                     union_typ =
-                        Type::Generic(true, Box::new(inner), opens.clone());
+                        Type::Generic(true, Box::new(inner), gen_arg_vars);
                     name_id
                 } else {
                     return Err(rustfail!(
@@ -623,17 +634,16 @@ impl ProtoModule
 
         for var in variants.into_iter() {
             let var_name = var.k.unwrap();
+            let var_typ = Type::variant(union_typ.clone(), var_name);
             self.funcseq.push(var_name);
             if let Ast::DefType(DataType::Struct, _, flds) = *var.v.node {
                 if flds.is_empty() {
-                    let vval =
-                        Val::EnumToken(union_typ.clone(), Lstr::Sref(var_name));
+                    let vval = Val::EnumToken(var_typ, Lstr::Sref(var_name));
                     let vast = AstNode::new_constval(vval, var.v.loc);
                     self.exported_vals.push(StrupleItem::new(var.k, vast));
                 } else {
-                    let var_typ = Type::variant(union_typ.clone(), var_name);
                     self.add_typed_struct(
-                        var_typ, sname_id, &opens, flds, loc,
+                        var_typ, var_name, &opens, flds, loc,
                     )?;
                 }
             } else {
@@ -761,10 +771,6 @@ impl ProtoModule
     ) -> Lresult<Type>
     {
         Ok(match &*node.node {
-            // Ast::Id1("Bool") => Type::BOOL,
-            // Ast::Id1("Int") => Type::INT,
-            // Ast::Id1("Str") => Type::STR,
-            // Ast::Id1("#") => Type::HASHTAG,
             Ast::Id1(id) if struple::contains_key(opens, id) => {
                 Type::OpenVar(id)
             }

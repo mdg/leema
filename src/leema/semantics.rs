@@ -549,7 +549,22 @@ impl<'p> TypeCheck<'p>
                 let iresult = self.inferred_type(&ftyp.result, opens)?;
                 Type::Func(FuncType::new(iargs, iresult))
             }
-            _ => t.clone(),
+            Type::Generic(open, inner, type_args) => {
+                let inner2 = self.inferred_type(&*inner, opens)?;
+                let typargs2 = struple::map_v(type_args, |tv| {
+                    self.inferred_type(tv, opens)
+                })?;
+                let open2 = typargs2.iter().any(|ta| ta.v.is_open());
+                Type::Generic(open2, Box::new(inner2), typargs2)
+            }
+            Type::Variant(inner, var) => {
+                let inner2 = self.inferred_type(&*inner, opens)?;
+                Type::Variant(Box::new(inner2), var)
+            }
+            Type::User(_, _) => t.clone(),
+            _ => {
+                t.clone()
+            }
         };
         Ok(newt)
     }
@@ -908,8 +923,8 @@ impl<'p> TypeCheck<'p>
                 .match_type(&arg.0.v, &arg.1.v.typ, opens)
                 .map_err(|f| {
                     f.add_context(lstrf!(
-                        "function param: {}, expected {}, found {} column:{}",
-                        arg.0.k.as_ref().unwrap(),
+                        "function param: {:?}, expected {}, found {} column:{}",
+                        arg.0.k.as_ref(),
                         arg.0.v,
                         arg.1.v.typ,
                         arg.1.v.loc.column,

@@ -252,6 +252,7 @@ impl LeemaPrec
             .infix(Rule::plus)
             .infix(Rule::dash)
             .postfix(Rule::add_newline)
+            .postfix(Rule::question)
             //----
             .left()
             .infix(Rule::less_than)
@@ -286,6 +287,7 @@ impl LeemaPrec
                 Ok(AstNode::new_constval(Val::Int(i), loc))
             }
             Rule::expr => pratt::parse(self, &mut n.into_inner()),
+            Rule::typex => pratt::parse(self, &mut n.into_inner()),
             Rule::strlit => {
                 let s = Val::Str(Lstr::Sref(n.as_str()));
                 Ok(AstNode::new_constval(s, loc))
@@ -390,7 +392,6 @@ impl LeemaPrec
                 Ok(AstNode::new(Ast::Matchx(None, cases), loc))
             }
             Rule::underscore => Ok(AstNode::new(Ast::Wildcard, loc)),
-            Rule::typex => self.primary(n.into_inner().next().unwrap()),
             Rule::def_enum => {
                 let mut inner = n.into_inner();
                 let id = self.primary(inner.next().unwrap())?;
@@ -522,6 +523,13 @@ impl LeemaPrec
             }
             Rule::negative | Rule::not | Rule::star => {
                 let ast = Ast::Op1(op.as_str(), x);
+                Ok(AstNode::new(ast, loc))
+            }
+            Rule::question => {
+                let ast = Ast::Generic(
+                    AstNode::new(Ast::Id1("Option"), loc),
+                    vec![StrupleItem::new_v(x)],
+                );
                 Ok(AstNode::new(ast, loc))
             }
             Rule::add_newline => {
