@@ -579,6 +579,13 @@ impl LeemaPrec
                 );
                 Ok(AstNode::new(ast, loc))
             }
+            Rule::star if m == Mode::Type => {
+                let ast = Ast::Generic(
+                    AstNode::new(Ast::Id1("Seq"), loc),
+                    vec![StrupleItem::new_v(x)],
+                );
+                Ok(AstNode::new(ast, loc))
+            }
             Rule::add_newline => {
                 let strx = vec![x, AstNode::new(Ast::NEWLINE, loc)];
                 Ok(AstNode::new(Ast::StrExpr(strx), loc))
@@ -1805,8 +1812,24 @@ mod tests
             ]
         );
         if let Ast::Tuple(items) = &*ast[0].node {
-            assert_eq!(Ast::Id1("A"), *items[0].v.node);
-            assert_eq!(Ast::Id1("B"), *items[1].v.node);
+            // A?
+            if let Ast::Generic(opt, args) = &*items[0].v.node {
+                assert_eq!(Ast::Id1("Option"), *opt.node);
+                assert_eq!(None, args[0].k);
+                assert_eq!(Ast::Id1("A"), *args[0].v.node);
+                assert_eq!(1, args.len());
+            } else {
+                panic!("expected A to be generic, found {:?}", items[0]);
+            }
+            // B*
+            if let Ast::Generic(seq, args) = &*items[1].v.node {
+                assert_eq!(Ast::Id1("Seq"), *seq.node);
+                assert_eq!(None, args[0].k);
+                assert_eq!(Ast::Id1("B"), *args[0].v.node);
+                assert_eq!(1, args.len());
+            } else {
+                panic!("expected B to be generic, found {:?}", items[1]);
+            }
         } else {
             panic!("expected tuple, found {:?}", *ast[0].node);
         }
