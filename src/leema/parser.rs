@@ -236,7 +236,6 @@ impl LeemaPrec
             //----
             .left()
             .infix(Rule::dot)
-            .infix(Rule::tick)
             .postfix(Rule::tuple)
             //----
             .right()
@@ -339,15 +338,11 @@ impl LeemaPrec
                     n.into_inner().map(|i| self.primary(i)).collect();
                 Ok(AstNode::new(Ast::Block(inner?), loc))
             }
-            Rule::def_generic => {
+            Rule::gen_type => {
                 let mut inner = n.into_inner();
-                let id = self.primary(inner.next().unwrap())?;
-                let generics: Xlist = inner
-                    .map(|i| {
-                        StrupleItem::new(Some(i.as_str()), AstNode::void())
-                    })
-                    .collect();
-                Ok(AstNode::new(Ast::Generic(id, generics), loc))
+                let base = self.primary(inner.next().unwrap())?;
+                let args = self.parse_xlist(inner)?;
+                Ok(AstNode::new(Ast::Generic(base, args), loc))
             }
             Rule::let_stmt => {
                 let mut inner = n.into_inner();
@@ -551,7 +546,6 @@ impl LeemaPrec
     {
         match op.as_rule() {
             Rule::dot
-            | Rule::tick
             | Rule::and
             | Rule::or
             | Rule::plus
@@ -991,9 +985,9 @@ mod tests
     }
 
     #[test]
-    fn def_func_generic()
+    fn def_func_generic_line()
     {
-        let input = "func first'A'B:A :: a:A b:B ->
+        let input = "func <first A B>:A :: a:A b:B ->
                 a
             --";
         let actual = parse(Rule::def_func, input).unwrap();
@@ -1001,8 +995,10 @@ mod tests
         if let Ast::DefFunc(name, args, result, _body) = &*actual[0].node {
             if let Ast::Generic(first, type_args) = &*name.node {
                 assert_eq!(Ast::Id1("first"), *first.node);
-                assert_eq!("A", type_args[0].k.unwrap());
-                assert_eq!(Ast::VOID, *type_args[0].v.node);
+                assert_eq!(None, type_args[0].k);
+                assert_eq!(None, type_args[1].k);
+                assert_eq!(Ast::Id1("A"), *type_args[0].v.node);
+                assert_eq!(Ast::Id1("B"), *type_args[1].v.node);
                 assert_eq!(2, type_args.len());
             } else {
                 panic!("expected generic 'first', found {:?}", name.node);
@@ -1101,18 +1097,39 @@ mod tests
         );
     }
 
+    /*
     #[test]
-    fn generic_id()
+    fn generic_expr()
     {
         parses_to!(
             parser: LeemaParser,
-            input: "foo'A",
+            input: "<foo A>",
             rule: Rule::expr,
             tokens: [
                 expr(0, 5, [
+                    <
                     id(0, 3),
                     tick(3, 4),
                     id(4, 5),
+                ])
+            ]
+        )
+    }
+    */
+
+    #[test]
+    fn generic_typex()
+    {
+        parses_to!(
+            parser: LeemaParser,
+            input: "<foo A>",
+            rule: Rule::typex,
+            tokens: [
+                typex(0, 7, [
+                    gen_type(0, 7, [
+                        typex(1, 4, [id(1, 4)]),
+                        tx_maybe_k(5, 6, [typex(5, 6, [id(5, 6)])]),
+                    ])
                 ])
             ]
         )

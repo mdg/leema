@@ -15,7 +15,6 @@ plus = { "+" }
 dash = { "-" }
 star = { "*" }
 slash = { "/" }
-tick = { "'" }
 dot = { "." }
 question = { "?" }
 modulo = { "modulo" }
@@ -58,7 +57,6 @@ spaced_infix_op = _{
     as0 ~ infix_op ~ as0
     | hs0 ~ dash ~ as0
     | as0 ~ dot ~ as0
-    | tick
 }
 
 type_postfix_op = _{
@@ -68,7 +66,6 @@ type_postfix_op = _{
 
 type_infix_op = _{
     dot
-    | tick
 }
 
 keywords = _{
@@ -99,8 +96,7 @@ id = @{
     keyword_prefix
     | !keywords ~ ((LETTER | "_") ~ ( LETTER | NUMBER | "_" )* | "#")
 }
-def_generic = { id ~ ("'" ~ id)+ }
-def_id = _{ def_generic | id }
+def_id = _{ gen_type | id }
 
 hashtag = @{ "#" ~ id }
 
@@ -152,10 +148,12 @@ compound_expr = _{
 
 list_type = { "[" ~ typex ~ "]" }
 tuple_type = { "(" ~ txlist? ~ ")" }
+gen_type = { "<" ~ typex ~ as1 ~ txlist ~ ">" }
 
 type_term = _{
     tuple_type
     | list_type
+    | gen_type
     | id
 }
 
