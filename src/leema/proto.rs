@@ -429,12 +429,11 @@ impl ProtoModule
         let args = self.xlist_to_types(&self.key.name, &fields, &opens)?;
         let ftyp = FuncType::new(args.clone(), typ.clone());
         let inner_type = Type::Func(ftyp);
-        let constructor_type =
-            if typ.is_open() {
-                Type::Generic(true, Box::new(inner_type), opens.clone())
-            } else {
-                inner_type
-            };
+        let constructor_type = if typ.is_open() {
+            Type::Generic(true, Box::new(inner_type), opens.clone())
+        } else {
+            inner_type
+        };
         let fref = Fref::new(self.key.clone(), name, constructor_type);
         let constructor_call = Val::Construct(fref);
 
@@ -589,9 +588,8 @@ impl ProtoModule
                 for a in gen_args.iter() {
                     if let Some(var) = a.k {
                         opens1.push(StrupleItem::new(var, Type::Unknown));
-                        gen_arg_vars.push(
-                            StrupleItem::new(var, Type::OpenVar(var)),
-                        );
+                        gen_arg_vars
+                            .push(StrupleItem::new(var, Type::OpenVar(var)));
                     } else {
                         return Err(rustfail!(
                             PROTOFAIL,

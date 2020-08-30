@@ -562,9 +562,7 @@ impl<'p> TypeCheck<'p>
                 Type::Variant(Box::new(inner2), var)
             }
             Type::User(_, _) => t.clone(),
-            _ => {
-                t.clone()
-            }
+            _ => t.clone(),
         };
         Ok(newt)
     }
