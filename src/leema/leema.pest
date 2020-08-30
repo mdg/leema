@@ -100,7 +100,7 @@ def_id = _{ gen_type | id }
 
 hashtag = @{ "#" ~ id }
 
-term = _{ hashtag | id | number | str | tuple | list }
+term = _{ hashtag | id | number | str | tuple | list | gen_type }
 pattern = _{ underscore | expr }
 
 tx_maybe_k = { (id ~ hs0 ~ ":" ~ as0)? ~ typex }

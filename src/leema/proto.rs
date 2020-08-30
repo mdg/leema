@@ -310,13 +310,24 @@ impl ProtoModule
                 name_id
             }
             Ast::Generic(gen, gen_args) => {
-                opens = gen_args
+                let open_result: Lresult<GenericTypes> = gen_args
                     .iter()
                     .map(|a| {
-                        let var = a.k.unwrap();
-                        StrupleItem::new(var, Type::OpenVar(var))
+                        let var = if let Some(v) = a.k {
+                            v
+                        } else if let Ast::Id1(v) = *a.v.node {
+                            v
+                        } else {
+                            return Err(rustfail!(
+                                "compile_failure",
+                                "unexpected generic argument: {:?}",
+                                a,
+                            ));
+                        };
+                        Ok(StrupleItem::new(var, Type::OpenVar(var)))
                     })
                     .collect();
+                opens = open_result?;
 
                 type_maker = Box::new(|ft| {
                     Type::Generic(true, Box::new(Type::Func(ft)), opens.clone())
@@ -377,14 +388,16 @@ impl ProtoModule
                     .iter()
                     .map(|a| {
                         if let Some(var) = a.k {
-                            Ok(StrupleItem::new(var, Type::Unknown))
-                        } else {
-                            Err(rustfail!(
-                                PROTOFAIL,
-                                "generic arguments must have string key: {:?}",
-                                a,
-                            ))
+                            return Ok(StrupleItem::new(var, Type::Unknown))
                         }
+                        if let Ast::Id1(var) = &*a.v.node {
+                            return Ok(StrupleItem::new(*var, Type::Unknown))
+                        }
+                        Err(rustfail!(
+                            PROTOFAIL,
+                            "generic struct arguments must have string key: {:?}",
+                            a,
+                        ))
                     })
                     .collect();
                 opens = opens1?;
@@ -586,17 +599,20 @@ impl ProtoModule
                 let mut opens1 = Vec::with_capacity(gen_args.len());
                 let mut gen_arg_vars = Vec::with_capacity(gen_args.len());
                 for a in gen_args.iter() {
-                    if let Some(var) = a.k {
-                        opens1.push(StrupleItem::new(var, Type::Unknown));
-                        gen_arg_vars
-                            .push(StrupleItem::new(var, Type::OpenVar(var)));
+                    let var = if let Some(var) = a.k {
+                        var
+                    } else if let Ast::Id1(var) = *a.v.node {
+                        var
                     } else {
                         return Err(rustfail!(
                             PROTOFAIL,
-                            "generic arguments must have string key: {:?}",
+                            "generic union arguments must have string key: {:?}",
                             a,
                         ));
-                    }
+                    };
+                    opens1.push(StrupleItem::new(var, Type::Unknown));
+                    gen_arg_vars
+                        .push(StrupleItem::new(var, Type::OpenVar(var)));
                 }
                 opens = opens1;
 

@@ -112,6 +112,13 @@ pub struct PrecRule
 
 type PrecKey = HashMap<(Placement, Rule), Prec>;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Mode
+{
+    Value,
+    Type,
+}
+
 
 #[derive(Parser)]
 #[grammar = "leema/leema.pest"]
@@ -146,7 +153,7 @@ pub fn parse(r: Rule, text: &'static str) -> Lresult<Vec<AstNode>>
         rustfail!("parse failure", "{:?}", e,)
     })?;
     let prec = LeemaPrec::new();
-    it.map(|i| prec.primary(i)).collect()
+    it.map(|i| prec.primary(Mode::Value, i)).collect()
 }
 
 pub fn nodeloc(pair: &Pair<Rule>) -> ast2::Loc
@@ -191,7 +198,8 @@ pub fn parse_mxline(pair: Pair<'static, Rule>) -> Lresult<ModTree>
 
 pub struct LeemaPrec
 {
-    key: PrecKey,
+    value_key: PrecKey,
+    type_key: PrecKey,
 }
 
 impl LeemaPrec
@@ -199,23 +207,24 @@ impl LeemaPrec
     pub fn new() -> LeemaPrec
     {
         LeemaPrec {
-            key: Self::init_key(),
+            value_key: Self::init_value_key(),
+            type_key: Self::init_type_key(),
         }
     }
 
-    pub fn prefix_prec(&self, r: Rule) -> Option<Prec>
+    pub fn prefix_prec(&self, m: Mode, r: Rule) -> Option<Prec>
     {
-        self.prec(Placement::Prefix, r)
+        self.prec(m, Placement::Prefix, r)
     }
 
-    pub fn postfix_prec(&self, r: Rule) -> Option<Prec>
+    pub fn postfix_prec(&self, m: Mode, r: Rule) -> Option<Prec>
     {
-        self.prec(Placement::Postfix, r)
+        self.prec(m, Placement::Postfix, r)
     }
 
-    pub fn infix_prec(&self, r: Rule) -> Option<(Prec, Assoc)>
+    pub fn infix_prec(&self, m: Mode, r: Rule) -> Option<(Prec, Assoc)>
     {
-        self.key
+        self.mode_key(m)
             .get_key_value(&(Placement::Infix(Assoc::None), r))
             .and_then(|((place, _), prec)| {
                 match place {
@@ -225,12 +234,20 @@ impl LeemaPrec
             })
     }
 
-    fn prec(&self, p: Placement, r: Rule) -> Option<Prec>
+    fn prec(&self, m: Mode, p: Placement, r: Rule) -> Option<Prec>
     {
-        self.key.get(&(p, r)).map(|result| *result)
+        self.mode_key(m).get(&(p, r)).map(|result| *result)
     }
 
-    fn init_key() -> PrecKey
+    fn mode_key(&self, m: Mode) -> &PrecKey
+    {
+        match m {
+            Mode::Value => &self.value_key,
+            Mode::Type => &self.type_key,
+        }
+    }
+
+    fn init_value_key() -> PrecKey
     {
         ParserBuilder::new()
             //----
@@ -276,7 +293,24 @@ impl LeemaPrec
             .into()
     }
 
-    pub fn primary(&self, n: Pair<'static, Rule>) -> AstResult
+    fn init_type_key() -> PrecKey
+    {
+        ParserBuilder::new()
+            //----
+            .left()
+            .infix(Rule::dot)
+            //----
+            .left()
+            .postfix(Rule::question)
+            .postfix(Rule::star)
+            //----
+            .none()
+            .nofix(Rule::typex)
+            .nofix(Rule::id)
+            .into()
+    }
+
+    pub fn primary(&self, m: Mode, n: Pair<'static, Rule>) -> AstResult
     {
         let loc = nodeloc(&n);
         match n.as_rule() {
@@ -285,15 +319,17 @@ impl LeemaPrec
                 let i = n.as_str().parse().unwrap();
                 Ok(AstNode::new_constval(Val::Int(i), loc))
             }
-            Rule::expr => pratt::parse(self, &mut n.into_inner()),
-            Rule::typex => pratt::parse(self, &mut n.into_inner()),
+            Rule::expr => pratt::parse(self, Mode::Value, &mut n.into_inner()),
+            Rule::typex => pratt::parse(self, Mode::Type, &mut n.into_inner()),
             Rule::strlit => {
                 let s = Val::Str(Lstr::Sref(n.as_str()));
                 Ok(AstNode::new_constval(s, loc))
             }
             Rule::str => {
-                let strs: Lresult<Vec<AstNode>> =
-                    n.into_inner().map(|i| self.primary(i)).collect();
+                let strs: Lresult<Vec<AstNode>> = n
+                    .into_inner()
+                    .map(|i| self.primary(Mode::Value, i))
+                    .collect();
                 let mut s = strs?;
                 let result = match s.len() {
                     0 => AstNode::new_constval(Val::Str(Lstr::Sref("")), loc),
@@ -316,7 +352,7 @@ impl LeemaPrec
                 Ok(AstNode::new_constval(val, loc))
             }
             Rule::tuple => {
-                let mut tuple = self.parse_xlist(n.into_inner())?;
+                let mut tuple = self.parse_xlist(m, n.into_inner())?;
                 if tuple.len() == 1 && tuple[0].k.is_none() {
                     Ok(tuple.pop().unwrap().v)
                 } else {
@@ -324,7 +360,7 @@ impl LeemaPrec
                 }
             }
             Rule::list => {
-                let items = self.parse_xlist(n.into_inner())?;
+                let items = self.parse_xlist(m, n.into_inner())?;
                 Ok(AstNode::new(Ast::List(items), loc))
             }
             Rule::and
@@ -334,14 +370,16 @@ impl LeemaPrec
             | Rule::equality
             | Rule::greater_than => Ok(AstNode::new(Ast::Id1(n.as_str()), loc)),
             Rule::stmt_block | Rule::file => {
-                let inner: Lresult<Vec<AstNode>> =
-                    n.into_inner().map(|i| self.primary(i)).collect();
+                let inner: Lresult<Vec<AstNode>> = n
+                    .into_inner()
+                    .map(|i| self.primary(Mode::Value, i))
+                    .collect();
                 Ok(AstNode::new(Ast::Block(inner?), loc))
             }
             Rule::gen_type => {
                 let mut inner = n.into_inner();
-                let base = self.primary(inner.next().unwrap())?;
-                let args = self.parse_xlist(inner)?;
+                let base = self.primary(Mode::Type, inner.next().unwrap())?;
+                let args = self.parse_xlist(Mode::Type, inner)?;
                 Ok(AstNode::new(Ast::Generic(base, args), loc))
             }
             Rule::let_stmt => {
@@ -349,13 +387,16 @@ impl LeemaPrec
                 let let_mode = inner.next().unwrap();
                 let stmt = match let_mode.as_str() {
                     "let" => {
-                        let id = self.primary(inner.next().unwrap())?;
-                        let x = self.primary(inner.next().unwrap())?;
+                        let id =
+                            self.primary(Mode::Value, inner.next().unwrap())?;
+                        let x =
+                            self.primary(Mode::Value, inner.next().unwrap())?;
                         Ast::Let(id, AstNode::void(), x)
                     }
                     "const" => {
                         let id = inner.next().unwrap();
-                        let x = self.primary(inner.next().unwrap())?;
+                        let x =
+                            self.primary(Mode::Value, inner.next().unwrap())?;
                         Ast::DefConst(id.as_str(), x)
                     }
                     other => {
@@ -378,7 +419,7 @@ impl LeemaPrec
             }
             Rule::matchx => {
                 let mut inner = n.into_inner();
-                let x = self.primary(inner.next().unwrap())?;
+                let x = self.primary(Mode::Value, inner.next().unwrap())?;
                 let cases = self.parse_cases(inner)?;
                 Ok(AstNode::new(Ast::Matchx(Some(x), cases), loc))
             }
@@ -389,16 +430,17 @@ impl LeemaPrec
             Rule::underscore => Ok(AstNode::new(Ast::Wildcard, loc)),
             Rule::def_enum => {
                 let mut inner = n.into_inner();
-                let id = self.primary(inner.next().unwrap())?;
+                let id = self.primary(Mode::Type, inner.next().unwrap())?;
                 let vars: Lresult<Xlist> = inner
                     .map(|var| {
                         let mut vi = var.into_inner();
                         let vname = vi.next().unwrap();
                         let vloc = nodeloc(&vname);
                         let vname_str = vname.as_str();
-                        let vname_ast = self.primary(vname)?;
+                        let vname_ast = self.primary(Mode::Type, vname)?;
                         let varg_it = vi.next().unwrap().into_inner();
-                        let vargs: Xlist = self.parse_xlist(varg_it)?;
+                        let vargs: Xlist =
+                            self.parse_xlist(Mode::Type, varg_it)?;
                         let df =
                             Ast::DefType(DataType::Struct, vname_ast, vargs);
                         let node = AstNode::new(df, vloc);
@@ -410,9 +452,9 @@ impl LeemaPrec
             }
             Rule::def_struct => {
                 let mut inner = n.into_inner();
-                let id = self.primary(inner.next().unwrap())?;
+                let id = self.primary(Mode::Type, inner.next().unwrap())?;
                 let arg_it = inner.next().unwrap().into_inner();
-                let args: Xlist = self.parse_xlist(arg_it)?;
+                let args: Xlist = self.parse_xlist(Mode::Type, arg_it)?;
                 let df = Ast::DefType(DataType::Struct, id, args);
                 Ok(AstNode::new(df, loc))
             }
@@ -421,23 +463,26 @@ impl LeemaPrec
                 let func_mode = inner.next().unwrap();
                 let def = match func_mode.as_str() {
                     "func" => {
-                        let func_name = self.primary(inner.next().unwrap())?;
+                        let func_name =
+                            self.primary(Mode::Type, inner.next().unwrap())?;
                         let func_result =
-                            self.primary(inner.next().unwrap())?;
+                            self.primary(Mode::Type, inner.next().unwrap())?;
                         let func_arg_it = inner.next().unwrap().into_inner();
-                        let func_args: Xlist = self.parse_xlist(func_arg_it)?;
-                        let block = self.primary(inner.next().unwrap())?;
+                        let func_args: Xlist =
+                            self.parse_xlist(Mode::Type, func_arg_it)?;
+                        let block =
+                            self.primary(Mode::Value, inner.next().unwrap())?;
                         Ast::DefFunc(func_name, func_args, func_result, block)
                     }
                     "macro" => {
                         let func_name = inner.next().unwrap();
-                        // func result should be Void
-                        let _func_result =
-                            self.primary(inner.next().unwrap())?;
+                        // macro func result is nothing, skip it
+                        inner.next().unwrap();
                         let func_arg_it = inner.next().unwrap().into_inner();
                         let func_args =
                             func_arg_it.map(|it| it.as_str()).collect();
-                        let block = self.primary(inner.next().unwrap())?;
+                        let block =
+                            self.primary(Mode::Value, inner.next().unwrap())?;
                         Ast::DefMacro(func_name.as_str(), func_args, block)
                     }
                     unknown => {
@@ -452,18 +497,18 @@ impl LeemaPrec
             }
             Rule::def_func_result => {
                 match n.into_inner().next() {
-                    Some(result) => self.primary(result),
+                    Some(result) => self.primary(Mode::Type, result),
                     None => Ok(AstNode::new(Ast::Id1("Void"), loc)),
                 }
             }
             Rule::list_type => {
                 let mut inner = n.into_inner();
-                let inner = self.primary(inner.next().unwrap())?;
+                let inner = self.primary(Mode::Type, inner.next().unwrap())?;
                 let inner_type = vec![StrupleItem::new_v(inner)];
                 Ok(AstNode::new(Ast::List(inner_type), loc))
             }
             Rule::tuple_type => {
-                let items = self.parse_xlist(n.into_inner())?;
+                let items = self.parse_xlist(Mode::Type, n.into_inner())?;
                 Ok(AstNode::new(Ast::Tuple(items), loc))
             }
             Rule::mxstmt => {
@@ -481,21 +526,23 @@ impl LeemaPrec
             }
             Rule::return_stmt => {
                 let mut inner = n.into_inner();
-                let stmt = Ast::Return(self.primary(inner.next().unwrap())?);
-                Ok(AstNode::new(stmt, loc))
+                let result =
+                    self.primary(Mode::Value, inner.next().unwrap())?;
+                Ok(AstNode::new(Ast::Return(result), loc))
             }
             Rule::def_rust_type => {
                 let mut inner = n.into_inner();
-                let id = self.primary(inner.next().unwrap())?;
+                let id = self.primary(Mode::Type, inner.next().unwrap())?;
                 let df = Ast::DefType(DataType::Rust, id, vec![]);
                 Ok(AstNode::new(df, loc))
             }
             Rule::EOI => Ok(AstNode::void()),
             Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, loc)),
             // ignore this level and go one deeper
-            Rule::blockx | Rule::tx_maybe_k => {
-                pratt::parse(self, &mut n.into_inner())
+            Rule::tx_maybe_k => {
+                pratt::parse(self, Mode::Type, &mut n.into_inner())
             }
+            Rule::blockx => pratt::parse(self, m, &mut n.into_inner()),
 
             // unexpected and invalid
             Rule::x1 | Rule::prefix1 | Rule::postfix1 => {
@@ -507,20 +554,25 @@ impl LeemaPrec
         }
     }
 
-    pub fn unary(&self, op: Pair<'static, Rule>, x: AstNode) -> AstResult
+    pub fn unary(
+        &self,
+        m: Mode,
+        op: Pair<'static, Rule>,
+        x: AstNode,
+    ) -> AstResult
     {
         let loc = nodeloc(&op);
         match op.as_rule() {
             Rule::tuple => {
-                let tuple = self.parse_xlist(op.into_inner())?;
+                let tuple = self.parse_xlist(m, op.into_inner())?;
                 let call_loc = x.loc;
                 Ok(AstNode::new(Ast::Call(x, tuple), call_loc))
             }
-            Rule::negative | Rule::not | Rule::star => {
+            Rule::negative | Rule::not | Rule::star if m == Mode::Value => {
                 let ast = Ast::Op1(op.as_str(), x);
                 Ok(AstNode::new(ast, loc))
             }
-            Rule::question => {
+            Rule::question if m == Mode::Type => {
                 let ast = Ast::Generic(
                     AstNode::new(Ast::Id1("Option"), loc),
                     vec![StrupleItem::new_v(x)],
@@ -539,6 +591,7 @@ impl LeemaPrec
 
     pub fn binary(
         &self,
+        _m: Mode,
         a: AstNode,
         op: Pair<'static, Rule>,
         b: AstNode,
@@ -568,8 +621,8 @@ impl LeemaPrec
     fn parse_case(&self, pair: Pair<'static, Rule>) -> Lresult<Case>
     {
         let mut inner = pair.into_inner();
-        let patt = self.primary(inner.next().unwrap())?;
-        let block = self.primary(inner.next().unwrap())?;
+        let patt = self.primary(Mode::Value, inner.next().unwrap())?;
+        let block = self.primary(Mode::Value, inner.next().unwrap())?;
         Ok(Case::new(patt, block))
     }
 
@@ -580,15 +633,16 @@ impl LeemaPrec
         it.map(|x| self.parse_case(x)).collect()
     }
 
-    fn parse_xlist<Inputs>(&self, it: Inputs) -> Lresult<Xlist>
+    fn parse_xlist<Inputs>(&self, m: Mode, it: Inputs) -> Lresult<Xlist>
     where
         Inputs: Iterator<Item = Pair<'static, Rule>>,
     {
-        it.map(|p| self.parse_x_maybe_k(p)).collect()
+        it.map(|p| self.parse_x_maybe_k(m, p)).collect()
     }
 
     fn parse_x_maybe_k(
         &self,
+        m: Mode,
         pair: Pair<'static, Rule>,
     ) -> Lresult<StrupleItem<Option<&'static str>, AstNode>>
     {
@@ -599,11 +653,11 @@ impl LeemaPrec
                 let maybe_x = inner.next();
                 match (k_or_x, maybe_x) {
                     (xpair, None) => {
-                        let x = self.primary(xpair)?;
+                        let x = self.primary(m, xpair)?;
                         Ok(StrupleItem::new_v(x))
                     }
                     (kpair, Some(xpair)) => {
-                        let x = self.primary(xpair)?;
+                        let x = self.primary(m, xpair)?;
                         Ok(StrupleItem::new(Some(kpair.as_str()), x))
                     }
                 }
@@ -959,7 +1013,7 @@ mod tests
             input: input,
             rule: Rule::def_func_result,
             tokens: [def_func_result(0, 4, [
-                id(1, 4),
+                typex(1, 4, [id(1, 4)]),
             ])]
         )
     }
@@ -1018,7 +1072,7 @@ mod tests
     fn def_func_generic_file()
     {
         let input = r#"
-        func new_pair'A'B:(A B) :: a:A b:B ->
+        func <new_pair A B>:(A B) :: a:A b:B ->
             (a, b)
         --
         "#;
@@ -1097,7 +1151,6 @@ mod tests
         );
     }
 
-    /*
     #[test]
     fn generic_expr()
     {
@@ -1106,16 +1159,15 @@ mod tests
             input: "<foo A>",
             rule: Rule::expr,
             tokens: [
-                expr(0, 5, [
-                    <
-                    id(0, 3),
-                    tick(3, 4),
-                    id(4, 5),
+                expr(0, 7, [
+                    gen_type(0, 7, [
+                        typex(1, 4, [id(1, 4)]),
+                        tx_maybe_k(5, 6, [typex(5, 6, [id(5, 6)])]),
+                    ])
                 ])
             ]
         )
     }
-    */
 
     #[test]
     fn generic_typex()

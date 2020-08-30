@@ -11,7 +11,7 @@ macro unfail :: new_val ->
 
 func bool_not:Bool :: v:Bool -RUST-
 
-func equal'T:Bool :: a:T b:T  -RUST-
-func less_than'T:Bool :: a:T b:T -RUST-
+func <equal T>:Bool :: a:T b:T  -RUST-
+func <less_than T>:Bool :: a:T b:T -RUST-
 func sleep :: d:Int -RUST-
 func sleep_forever -RUST-
