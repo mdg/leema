@@ -33,6 +33,12 @@ macro boolean_or :: or_a or_b ->
     --
 --
 
+func boolean_not:Bool :: v:Bool -RUST-
+
+macro not_equal :: a b ->
+    not (a == b)
+--
+
 macro fail :: ft msg ->
     create_failure(ft, msg)
 --

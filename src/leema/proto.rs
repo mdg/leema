@@ -25,6 +25,7 @@ lazy_static! {
         let mut ids = HashMap::new();
         ids.insert("Bool", core_mod.clone());
         ids.insert("boolean_and", core_mod.clone());
+        ids.insert("boolean_not", core_mod.clone());
         ids.insert("boolean_or", core_mod.clone());
         ids.insert("cons", core_mod.clone());
         ids.insert("create_failure", core_mod.clone());
@@ -44,6 +45,7 @@ lazy_static! {
         ids.insert("int_gt", core_mod.clone());
         ids.insert("int_gteq", core_mod.clone());
         ids.insert("new_struct_val", core_mod.clone());
+        ids.insert("not_equal", core_mod.clone());
         ids.insert("None", core_mod.clone());
         ids.insert("Option", core_mod.clone());
         ids.insert("Some", core_mod.clone());

@@ -169,6 +169,10 @@ impl<'l> ast2::Op for MacroApplication<'l>
                 *node = Self::op_to_call1("int_equal", a, b, node.loc);
                 return Ok(AstStep::Rewrite);
             }
+            Ast::Op2("!=", a, b) => {
+                *node = Self::op_to_call1("not_equal", a, b, node.loc);
+                return Ok(AstStep::Rewrite);
+            }
             Ast::Op2("<", a, b) => {
                 *node = Self::op_to_call1("int_less_than", a, b, node.loc);
                 return Ok(AstStep::Rewrite);
@@ -193,6 +197,12 @@ impl<'l> ast2::Op for MacroApplication<'l>
                     *node = AstNode::new(Ast::Call(callx, args), node.loc);
                     return Ok(AstStep::Rewrite);
                 }
+            }
+            Ast::Op1("not", x) => {
+                let callx = AstNode::new(Ast::Id1("boolean_not"), node.loc);
+                let arg = vec![StrupleItem::new_v(mem::take(x))];
+                *node = AstNode::new(Ast::Call(callx, arg), node.loc);
+                return Ok(AstStep::Rewrite);
             }
             Ast::Op1("-", x) => {
                 let callx = AstNode::new(Ast::Id1("int_negate"), node.loc);
