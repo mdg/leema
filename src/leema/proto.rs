@@ -836,6 +836,7 @@ impl ProtoModule
                 let open = genargs.iter().any(|a| a.v.is_open());
                 Type::Generic(open, Box::new(genbase), genargs)
             }
+            Ast::ConstVal(cv) => cv.get_type(),
             invalid => {
                 return Err(rustfail!(
                     PROTOFAIL,
@@ -1209,7 +1210,7 @@ mod tests
     fn test_proto_genericfunc()
     {
         let input = r#"
-        func first'T:T :: a:T b:T ->
+        func <first T>:T :: a:T b:T ->
             a
         --
         "#;
@@ -1243,7 +1244,7 @@ mod tests
     #[test]
     fn test_proto_generic_struct()
     {
-        let proto = new_proto("datatype Point'T :: x:T y:T --");
+        let proto = new_proto("datatype <Point T> :: x:T y:T --");
 
         let point_type = proto.types.get("Point").expect("no Point type");
         let expected = Type::Generic(

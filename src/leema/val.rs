@@ -147,6 +147,7 @@ impl Type
     pub const HASHTAG: Type = Type::User(CORE_MOD, "#");
     pub const FAILURE: Type = Type::User(CORE_MOD, "Failure");
     pub const VOID: Type = Type::User(CORE_MOD, "Void");
+    pub const NO_RETURN: Type = Type::User(CORE_MOD, "NoReturn");
     const OPTION: Type = Type::User(CORE_MOD, "Option");
 
     pub fn f(inputs: Struple2<Type>, result: Type) -> Type

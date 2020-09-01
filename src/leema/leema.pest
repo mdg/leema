@@ -46,17 +46,20 @@ let_mode = { "let" | "const" }
 rust_block = { "-RUST-" }
 mxport = { "import" | "export" }
 
-infix_op = _{
-    star | slash | modulo
-    | plus
-    | less_than | equality | greater_than
+anyspace_infix_op = _{
+    modulo
+    | equality | greater_than
     | and | or
+    | dot
+}
+
+hspace_infix_op = _{
+    dash | plus | slash | star | less_than
 }
 
 spaced_infix_op = _{
-    as0 ~ infix_op ~ as0
-    | hs0 ~ dash ~ as0
-    | as0 ~ dot ~ as0
+    as0 ~ anyspace_infix_op ~ as0
+    | hs0 ~ hspace_infix_op ~ as0
 }
 
 type_postfix_op = _{
