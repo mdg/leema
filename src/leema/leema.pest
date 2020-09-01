@@ -15,7 +15,6 @@ plus = { "+" }
 dash = { "-" }
 star = { "*" }
 slash = { "/" }
-tick = { "'" }
 dot = { "." }
 question = { "?" }
 modulo = { "modulo" }
@@ -47,18 +46,20 @@ let_mode = { "let" | "const" }
 rust_block = { "-RUST-" }
 mxport = { "import" | "export" }
 
-infix_op = _{
-    star | slash | modulo
-    | plus
-    | less_than | equality | greater_than
+anyspace_infix_op = _{
+    modulo
+    | equality | greater_than
     | and | or
+    | dot
+}
+
+hspace_infix_op = _{
+    dash | plus | slash | star | less_than
 }
 
 spaced_infix_op = _{
-    as0 ~ infix_op ~ as0
-    | hs0 ~ dash ~ as0
-    | as0 ~ dot ~ as0
-    | tick
+    as0 ~ anyspace_infix_op ~ as0
+    | hs0 ~ hspace_infix_op ~ as0
 }
 
 type_postfix_op = _{
@@ -68,7 +69,6 @@ type_postfix_op = _{
 
 type_infix_op = _{
     dot
-    | tick
 }
 
 keywords = _{
@@ -99,12 +99,11 @@ id = @{
     keyword_prefix
     | !keywords ~ ((LETTER | "_") ~ ( LETTER | NUMBER | "_" )* | "#")
 }
-def_generic = { id ~ ("'" ~ id)+ }
-def_id = _{ def_generic | id }
+def_id = _{ gen_type | id }
 
 hashtag = @{ "#" ~ id }
 
-term = _{ hashtag | id | number | str | tuple | list }
+term = _{ hashtag | id | number | str | tuple | list | gen_type }
 pattern = _{ underscore | expr }
 
 tx_maybe_k = { (id ~ hs0 ~ ":" ~ as0)? ~ typex }
@@ -151,14 +150,13 @@ compound_expr = _{
 // types
 
 list_type = { "[" ~ typex ~ "]" }
-generic_type = { id ~ ("'" ~ type_term)+ }
 tuple_type = { "(" ~ txlist? ~ ")" }
+gen_type = { "<" ~ typex ~ as1 ~ txlist ~ ">" }
 
 type_term = _{
-    "(" ~ type_func ~ ")"
-    | tuple_type
+    tuple_type
     | list_type
-    | generic_type
+    | gen_type
     | id
 }
 
@@ -184,7 +182,7 @@ any_type = { type_func | typex }
 // statements
 
 def_func_args = { (hs0 ~ "::" ~ (as0 ~ tx_maybe_k)+)? }
-def_func_result = { (as0 ~ ":" ~ type_term)? }
+def_func_result = { (as0 ~ ":" ~ typex)? }
 def_func = !{
     func_mode ~ as1 ~ def_id ~ def_func_result ~ def_func_args ~ as1 ~ func_block
 }

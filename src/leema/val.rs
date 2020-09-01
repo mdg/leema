@@ -147,6 +147,8 @@ impl Type
     pub const HASHTAG: Type = Type::User(CORE_MOD, "#");
     pub const FAILURE: Type = Type::User(CORE_MOD, "Failure");
     pub const VOID: Type = Type::User(CORE_MOD, "Void");
+    pub const NO_RETURN: Type = Type::User(CORE_MOD, "NoReturn");
+    const OPTION: Type = Type::User(CORE_MOD, "Option");
 
     pub fn f(inputs: Struple2<Type>, result: Type) -> Type
     {
@@ -155,6 +157,13 @@ impl Type
             closed: vec![],
             result: Box::new(result),
         })
+    }
+
+    pub fn option(inner: Type) -> Type
+    {
+        let open = inner.is_open();
+        let gen_args = vec![StrupleItem::new("T", inner.clone())];
+        Type::Generic(open, Box::new(Type::OPTION), gen_args)
     }
 
     pub fn variant(base: Type, var_name: &'static str) -> Type
@@ -169,7 +178,7 @@ impl Type
     {
         match self {
             &Type::User(ref m, ref name) => lstrf!("{}.{}", m, name),
-            &Type::Variant(ref t, ref var) => lstrf!("{}::{}", t, var),
+            &Type::Variant(ref t, ref var) => lstrf!("{}.{}", t, var),
             &Type::OpenVar(name) => Lstr::from(format!("${}", name)),
             &Type::LocalVar(ref name) => Lstr::from(format!("local:{}", name)),
             _ => {
@@ -215,6 +224,7 @@ impl Type
     {
         match self {
             Type::Generic(open, _, _) => *open,
+            Type::Variant(inner, _) => inner.is_open(),
             Type::OpenVar(_) => true,
             Type::Tuple(items) => items.iter().any(|i| i.v.is_open()),
             Type::StrictList(inner) => inner.is_open(),
@@ -372,9 +382,9 @@ impl fmt::Display for Type
                 write!(f, ")")
             }
             &Type::User(ref module, ref id) => write!(f, "{}.{}", module, id),
-            &Type::Variant(ref t, ref var) => write!(f, "{}::{}", t, var),
-            &Type::Generic(_, ref inner, ref args) => {
-                write!(f, "{}{:?}", inner, args)
+            &Type::Variant(ref t, ref var) => write!(f, "{}.{}", t, var),
+            &Type::Generic(open, ref inner, ref args) => {
+                write!(f, "<{:?} {} {:?}>", inner, open, args)
             }
             &Type::Func(ref ftyp) => write!(f, "F{}", ftyp),
             // different from base collection/map interfaces?
@@ -416,10 +426,10 @@ impl fmt::Debug for Type
             // and then it should be a protocol, not type
             &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
             &Type::User(ref module, ref id) => write!(f, "{}.{}", module, id),
-            &Type::Variant(ref t, ref var) => write!(f, "{}::{}", t, var),
+            &Type::Variant(ref t, ref var) => write!(f, "{:?}.{}", t, var),
             &Type::Generic(open, ref inner, ref args) => {
                 let open_tag = if open { "Open" } else { "Closed" };
-                write!(f, "({} ({}){:?})", open_tag, inner, args)
+                write!(f, "<{:?} {} {:?}>", inner, open_tag, args)
             }
             &Type::RustBlock => write!(f, "RustBlock"),
             &Type::Kind => write!(f, "Kind"),
@@ -975,6 +985,20 @@ impl From<&Fref> for Lresult<Val>
                     f.clone(),
                     struple::map_v(&ft.args, |_| Ok(Val::VOID))?,
                 ))
+            }
+            Type::Generic(_open, inner, _args) => {
+                if let Type::Func(ft) = &**inner {
+                    Ok(Val::Call(
+                        f.clone(),
+                        struple::map_v(&ft.args, |_| Ok(Val::VOID))?,
+                    ))
+                } else {
+                    Err(rustfail!(
+                        "compile_failure",
+                        "not a generic func type: {}",
+                        f,
+                    ))
+                }
             }
             not_func => {
                 Err(rustfail!(

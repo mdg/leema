@@ -169,6 +169,10 @@ impl<'l> ast2::Op for MacroApplication<'l>
                 *node = Self::op_to_call1("int_equal", a, b, node.loc);
                 return Ok(AstStep::Rewrite);
             }
+            Ast::Op2("!=", a, b) => {
+                *node = Self::op_to_call1("not_equal", a, b, node.loc);
+                return Ok(AstStep::Rewrite);
+            }
             Ast::Op2("<", a, b) => {
                 *node = Self::op_to_call1("int_less_than", a, b, node.loc);
                 return Ok(AstStep::Rewrite);
@@ -193,6 +197,12 @@ impl<'l> ast2::Op for MacroApplication<'l>
                     *node = AstNode::new(Ast::Call(callx, args), node.loc);
                     return Ok(AstStep::Rewrite);
                 }
+            }
+            Ast::Op1("not", x) => {
+                let callx = AstNode::new(Ast::Id1("boolean_not"), node.loc);
+                let arg = vec![StrupleItem::new_v(mem::take(x))];
+                *node = AstNode::new(Ast::Call(callx, arg), node.loc);
+                return Ok(AstStep::Rewrite);
             }
             Ast::Op1("-", x) => {
                 let callx = AstNode::new(Ast::Id1("int_negate"), node.loc);
@@ -549,6 +559,19 @@ impl<'p> TypeCheck<'p>
                 let iresult = self.inferred_type(&ftyp.result, opens)?;
                 Type::Func(FuncType::new(iargs, iresult))
             }
+            Type::Generic(_open, inner, type_args) => {
+                let inner2 = self.inferred_type(&*inner, opens)?;
+                let typargs2 = struple::map_v(type_args, |tv| {
+                    self.inferred_type(tv, opens)
+                })?;
+                let open2 = typargs2.iter().any(|ta| ta.v.is_open());
+                Type::Generic(open2, Box::new(inner2), typargs2)
+            }
+            Type::Variant(inner, var) => {
+                let inner2 = self.inferred_type(&*inner, opens)?;
+                Type::Variant(Box::new(inner2), var)
+            }
+            Type::User(_, _) => t.clone(),
             _ => t.clone(),
         };
         Ok(newt)
@@ -623,6 +646,11 @@ impl<'p> TypeCheck<'p>
             (Type::LocalVar(_), Type::StrictList(_)) => {
                 self.match_type(t1, t0, opens)
             }
+            (Type::Variant(inner0, _), Type::Variant(inner1, _)) => {
+                self.match_type(inner0, inner1, opens)
+            }
+            (Type::Variant(inner0, _), _) => self.match_type(inner0, t1, opens),
+            (_, Type::Variant(inner1, _)) => self.match_type(t0, inner1, opens),
             (Type::OpenVar(v0), t1) => {
                 lfailoc!(self.close_generic(v0, t1, opens))
             }
@@ -750,12 +778,20 @@ impl<'p> TypeCheck<'p>
                     ));
                 }
                 for a in targs.iter_mut().zip(args.iter_mut()) {
-                    let t = self.local_mod.ast_to_type(
-                        &self.local_mod.key.name,
-                        &a.1.v,
-                        &[],
-                    )?;
-                    a.0.v = t;
+                    match &*a.1.v.node {
+                        Ast::ConstVal(Val::Type(t)) => {
+                            a.0.v = t.clone();
+                        }
+                        _ => {
+                            let t = self.local_mod.ast_to_type(
+                                &self.local_mod.key.name,
+                                &a.1.v,
+                                &[],
+                            )?;
+                            a.0.v = t;
+                            panic!("unexpected type setting");
+                        }
+                    }
                 }
                 let t = self.inferred_type(&inner, &targs)?;
                 *inner = Box::new(t);
@@ -908,8 +944,8 @@ impl<'p> TypeCheck<'p>
                 .match_type(&arg.0.v, &arg.1.v.typ, opens)
                 .map_err(|f| {
                     f.add_context(lstrf!(
-                        "function param: {}, expected {}, found {} column:{}",
-                        arg.0.k.as_ref().unwrap(),
+                        "function param: {:?}, expected {}, found {} column:{}",
+                        arg.0.k.as_ref(),
                         arg.0.v,
                         arg.1.v.typ,
                         arg.1.v.loc.column,
@@ -1237,8 +1273,13 @@ impl<'p> ast2::Op for TypeCheck<'p>
                     .collect();
                 node.typ = Type::Tuple(itypes?);
             }
+            Ast::ConstVal(_) => {
+                // leave as is
+            }
+            Ast::Wildcard => {} // wildcard is whatever type
+            Ast::Module(_) => {}
             Ast::Return(_) => {
-                node.typ = user_type!("core", "NoReturn");
+                node.typ = Type::NO_RETURN;
             }
             _ => {
                 // should handle matches later, but for now it's fine
@@ -1454,7 +1495,7 @@ mod tests
     fn test_typecheck_open_local_vars()
     {
         let input = r#"
-        func sort'T:[T] :: unsorted:[T] -RUST-
+        func <sort T>:[T] :: unsorted:[T] -RUST-
         func take_names:[Str] :: with_names:[(Int Str)] -RUST-
 
         func main ->
@@ -1615,12 +1656,12 @@ mod tests
     fn test_generic_typecall_wrongargs()
     {
         let input = r#"
-        func swap'T:(T T) :: a:T b:T ->
+        func <swap T>:(T T) :: a:T b:T ->
             (b, a)
         --
 
         func main ->
-            swap'Str("hello", 8)
+            <swap Str>("hello", 8)
         --
         "#
         .to_string();
@@ -1628,21 +1669,21 @@ mod tests
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::from(("/foo", "main"));
         let f = prog.read_semantics(&fref).unwrap_err();
-        assert_eq!("semantic_failure", f.tag.str());
         assert_eq!("types do not match: (/core.Str != /core.Int)", f.msg.str());
+        assert_eq!("semantic_failure", f.tag.str());
     }
 
     #[test]
     fn test_type_genericfunc_1()
     {
         let input = r#"
-        func swap'A'B:(B A) :: a:A b:B ->
+        func <swap A B>:(B A) :: a:A b:B ->
             (b, a)
         --
 
         func main ->
             swap(3, "txt")
-            swap'Str'Int("hello", 8)
+            <swap Str Int>("hello", 8)
         --
         "#
         .to_string();
@@ -1656,11 +1697,11 @@ mod tests
     fn test_type_genericfuncs()
     {
         let input = r#"
-        func new_pair'A'B:(A B) :: a:A b:B ->
+        func <new_pair A B>:(A B) :: a:A b:B ->
             (a, b)
         --
 
-        func first'A'B:A :: p:(A B) ->
+        func <first A B>:A :: p:(A B) ->
             match p
             |(a, _) -> a
             --

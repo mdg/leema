@@ -12,12 +12,12 @@ datatype # -RUST-
 datatype Void --
 datatype NoResult --
 
-datatype Option'T
+datatype <Option T>
 |None
 |Some :: T
 --
 
-func cons'T:[T] :: head:T tail:[T] -RUST-
+func <cons T>:[T] :: head:T tail:[T] -RUST-
 
 macro boolean_and :: and_a and_b ->
     if
@@ -31,6 +31,12 @@ macro boolean_or :: or_a or_b ->
     |or_a -> True
     |_ -> or_b
     --
+--
+
+func boolean_not:Bool :: v:Bool -RUST-
+
+macro not_equal :: a b ->
+    not (a == b)
 --
 
 macro fail :: ft msg ->

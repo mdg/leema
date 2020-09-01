@@ -3,6 +3,7 @@ use crate::leema::failure::{Failure, Lresult};
 use crate::leema::fiber::Fiber;
 use crate::leema::frame;
 use crate::leema::list;
+use crate::leema::lstr::Lstr;
 use crate::leema::program;
 use crate::leema::rsrc;
 use crate::leema::val::{self, Val};
@@ -229,6 +230,25 @@ pub fn int_less_than(mut f: RustFuncContext) -> Lresult<frame::Event>
     frame::Event::success()
 }
 
+pub fn boolean_not(f: &mut Fiber) -> Lresult<frame::Event>
+{
+    let i = f.head.e.get_param(0)?;
+    if let &Val::Bool(b) = i {
+        f.head.parent.set_result(Val::Bool(!b));
+        frame::Event::success()
+    } else {
+        Err(Failure::leema_new(
+            Val::Hashtag(Lstr::Sref("invalid_type")),
+            Val::Str(Lstr::from(format!(
+                "input to not must be a boolean: {:?}",
+                i
+            ))),
+            Some(f.head.trace.clone()),
+            val::FAILURE_TYPE,
+        ))
+    }
+}
+
 pub fn load_code(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("load_code()\n");
@@ -254,6 +274,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
         "__init_main__" => Some(Code::Rust2(init_main)),
+        "boolean_not" => Some(Code::Rust(boolean_not)),
         "cons" => Some(Code::Rust2(list_cons)),
         "create_failure" => Some(Code::Rust2(create_failure)),
         "int_add" => Some(Code::Rust(int_add)),

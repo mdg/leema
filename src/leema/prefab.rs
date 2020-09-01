@@ -1,5 +1,5 @@
 use crate::leema::code::Code;
-use crate::leema::failure::{Failure, Lresult};
+use crate::leema::failure::Lresult;
 use crate::leema::fiber::Fiber;
 use crate::leema::frame::Event;
 use crate::leema::lstr::Lstr;
@@ -13,25 +13,6 @@ use futures::future::empty;
 use futures::Future;
 use tokio::timer::Delay;
 
-
-pub fn bool_not(f: &mut Fiber) -> Lresult<Event>
-{
-    let i = f.head.e.get_param(0)?;
-    if let &Val::Bool(b) = i {
-        f.head.parent.set_result(Val::Bool(!b));
-        Event::success()
-    } else {
-        Err(Failure::leema_new(
-            Val::Hashtag(Lstr::Sref("invalid_type")),
-            Val::Str(Lstr::from(format!(
-                "input to not must be a boolean: {:?}",
-                i
-            ))),
-            Some(f.head.trace.clone()),
-            val::FAILURE_TYPE,
-        ))
-    }
-}
 
 pub fn bool_xor(f: &mut Fiber) -> Lresult<Event>
 {
@@ -187,7 +168,6 @@ macro_rules! load_rust_funcs {
 pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
-        "bool_not" => Some(Code::Rust(bool_not)),
         "bool_xor" => Some(Code::Rust(bool_xor)),
         "sleep" => Some(Code::Iop(leema_sleep, None)),
         "sleep_forever" => Some(Code::Iop(leema_sleep_forever, None)),
