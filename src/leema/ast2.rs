@@ -234,7 +234,7 @@ pub enum Ast
     DefType(DataType, AstNode, Xlist),
     FuncType(Xlist, AstNode),
     Generic(AstNode, Xlist),
-    Id1(&'static str),
+    Id(&'static str),
     Ifx(Vec<Case>),
     Let(AstNode, AstNode, AstNode),
     List(Xlist),
@@ -304,7 +304,7 @@ impl Ast
                 write!(f, "FuncType {:?} / {:?}]", args, result)
             }
             Ast::Generic(id, args) => write!(f, "Generic {:?}[{:?}]", id, args),
-            Ast::Id1(id) => write!(f, "Id {}", id),
+            Ast::Id(id) => write!(f, "Id {}", id),
             Ast::Ifx(args) => write!(f, "If {:?}", args),
             Ast::Let(lhp, _lht, rhs) => write!(f, "Let {:?} := {:?}", lhp, rhs),
             Ast::List(items) => write!(f, "List {:?}", items),
@@ -703,7 +703,7 @@ impl Walker
                     steptry!(self.walk(&mut f.v, op));
                 }
             }
-            Ast::ConstVal(_) | Ast::Id1(_) | Ast::RustBlock => {
+            Ast::ConstVal(_) | Ast::Id(_) | Ast::RustBlock => {
                 // nowhere else to go
             }
             Ast::Module(_) | Ast::Wildcard => {

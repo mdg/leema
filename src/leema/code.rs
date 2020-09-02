@@ -294,7 +294,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             let base_ops = make_sub_ops2(base);
             base_ops.ops
         }
-        Ast::Id1(ref _id) => vec![],
+        Ast::Id(ref _id) => vec![],
         Ast::RustBlock => vec![],
 
         // invalid patterns
@@ -715,7 +715,7 @@ impl Registration
             Ast::Op2(".", ref mut base, ref field) => {
                 Self::assign_registers(base, stack)?;
                 let field_idx = match &*field.node {
-                    Ast::Id1(idx_str) => idx_str.parse().unwrap(),
+                    Ast::Id(idx_str) => idx_str.parse().unwrap(),
                     Ast::ConstVal(Val::Int(i)) => *i as i8,
                     other => {
                         panic!("field name is not an identifier: {:?}", other)
@@ -745,7 +745,7 @@ impl Registration
                 Self::assign_registers(result, stack)?;
             }
             // nothing else to do
-            Ast::Id1(_) | Ast::ConstVal(_) => {}
+            Ast::Id(_) | Ast::ConstVal(_) => {}
             // these shouldn't be here
             Ast::DefConst(_, _)
             | Ast::DefFunc(_, _, _, _)
@@ -778,7 +778,7 @@ impl Registration
     fn make_pattern_val(node: &AstNode) -> Lresult<Val>
     {
         let pval = match &*node.node {
-            Ast::Id1(id) => {
+            Ast::Id(id) => {
                 if node.dst == Reg::Undecided {
                     panic!("unexpected undecided pattern reg: {}", id);
                 }

@@ -314,7 +314,7 @@ impl LeemaPrec
     {
         let loc = nodeloc(&n);
         match n.as_rule() {
-            Rule::id => Ok(AstNode::new(Ast::Id1(n.as_str()), loc)),
+            Rule::id => Ok(AstNode::new(Ast::Id(n.as_str()), loc)),
             Rule::int => {
                 let i = n.as_str().parse().unwrap();
                 Ok(AstNode::new_constval(Val::Int(i), loc))
@@ -368,7 +368,7 @@ impl LeemaPrec
             | Rule::not
             | Rule::less_than
             | Rule::equality
-            | Rule::greater_than => Ok(AstNode::new(Ast::Id1(n.as_str()), loc)),
+            | Rule::greater_than => Ok(AstNode::new(Ast::Id(n.as_str()), loc)),
             Rule::stmt_block | Rule::file => {
                 let inner: Lresult<Vec<AstNode>> = n
                     .into_inner()
@@ -498,7 +498,7 @@ impl LeemaPrec
             Rule::def_func_result => {
                 match n.into_inner().next() {
                     Some(result) => self.primary(Mode::Type, result),
-                    None => Ok(AstNode::new(Ast::Id1("Void"), loc)),
+                    None => Ok(AstNode::new(Ast::Id("Void"), loc)),
                 }
             }
             Rule::list_type => {
@@ -574,14 +574,14 @@ impl LeemaPrec
             }
             Rule::question if m == Mode::Type => {
                 let ast = Ast::Generic(
-                    AstNode::new(Ast::Id1("Option"), loc),
+                    AstNode::new(Ast::Id("Option"), loc),
                     vec![StrupleItem::new_v(x)],
                 );
                 Ok(AstNode::new(ast, loc))
             }
             Rule::star if m == Mode::Type => {
                 let ast = Ast::Generic(
-                    AstNode::new(Ast::Id1("Seq"), loc),
+                    AstNode::new(Ast::Id("Seq"), loc),
                     vec![StrupleItem::new_v(x)],
                 );
                 Ok(AstNode::new(ast, loc))
@@ -866,11 +866,11 @@ mod tests
         );
 
         if let Ast::Call(name, args) = &*actual[0].node {
-            assert_eq!(Ast::Id1("foo"), *name.node);
+            assert_eq!(Ast::Id("foo"), *name.node);
             assert_eq!(None, args[0].k);
             assert_eq!(Some("x"), args[1].k);
             assert_eq!(Ast::ConstVal(Val::Int(5)), *args[0].v.node);
-            assert_eq!(Ast::Id1("y"), *args[1].v.node);
+            assert_eq!(Ast::Id("y"), *args[1].v.node);
             assert_eq!(2, args.len());
         } else {
             panic!("expected DefUnion, found {:?}", actual[0]);
@@ -906,17 +906,17 @@ mod tests
         let actual = parse(Rule::def_enum, input).unwrap();
         println!("{:#?}", actual);
         if let Ast::DefType(DataType::Union, name, vars) = &*actual[0].node {
-            assert_eq!(Ast::Id1("Bool"), *name.node);
+            assert_eq!(Ast::Id("Bool"), *name.node);
             assert_eq!("False", vars[0].k.unwrap());
             assert_eq!("True", vars[1].k.unwrap());
             if let Ast::DefType(DataType::Struct, n, flds) = &*vars[0].v.node {
-                assert_eq!(Ast::Id1("False"), *n.node);
+                assert_eq!(Ast::Id("False"), *n.node);
                 assert_eq!(0, flds.len());
             } else {
                 panic!("expected False, found {:?}", vars[0].v);
             }
             if let Ast::DefType(DataType::Struct, n, flds) = &*vars[1].v.node {
-                assert_eq!(Ast::Id1("True"), *n.node);
+                assert_eq!(Ast::Id("True"), *n.node);
                 assert_eq!(0, flds.len());
             } else {
                 panic!("expected True, found {:?}", vars[1].v);
@@ -1035,10 +1035,10 @@ mod tests
         let actual = parse(Rule::def_func, input).unwrap();
         println!("{:#?}", actual);
         if let Ast::DefFunc(name, args, result, _body) = &*actual[0].node {
-            assert_eq!(Ast::Id1("format"), *name.node);
+            assert_eq!(Ast::Id("format"), *name.node);
             assert_eq!(*"x", *args[0].k.unwrap());
-            assert_eq!(Ast::Id1("Int"), *args[0].v.node);
-            assert_eq!(Ast::Id1("Str"), *result.node);
+            assert_eq!(Ast::Id("Int"), *args[0].v.node);
+            assert_eq!(Ast::Id("Str"), *result.node);
         } else {
             panic!("expected DefFunc, found {:?}", actual[0]);
         }
@@ -1055,20 +1055,20 @@ mod tests
         println!("{:#?}", actual);
         if let Ast::DefFunc(name, args, result, _body) = &*actual[0].node {
             if let Ast::Generic(first, type_args) = &*name.node {
-                assert_eq!(Ast::Id1("first"), *first.node);
+                assert_eq!(Ast::Id("first"), *first.node);
                 assert_eq!(None, type_args[0].k);
                 assert_eq!(None, type_args[1].k);
-                assert_eq!(Ast::Id1("A"), *type_args[0].v.node);
-                assert_eq!(Ast::Id1("B"), *type_args[1].v.node);
+                assert_eq!(Ast::Id("A"), *type_args[0].v.node);
+                assert_eq!(Ast::Id("B"), *type_args[1].v.node);
                 assert_eq!(2, type_args.len());
             } else {
                 panic!("expected generic 'first', found {:?}", name.node);
             }
             assert_eq!(*"a", *args[0].k.unwrap());
             assert_eq!(*"b", *args[1].k.unwrap());
-            assert_eq!(Ast::Id1("A"), *args[0].v.node);
-            assert_eq!(Ast::Id1("B"), *args[1].v.node);
-            assert_eq!(Ast::Id1("A"), *result.node);
+            assert_eq!(Ast::Id("A"), *args[0].v.node);
+            assert_eq!(Ast::Id("B"), *args[1].v.node);
+            assert_eq!(Ast::Id("A"), *result.node);
         } else {
             panic!("expected DefFunc, found {:?}", actual[0]);
         }
@@ -1126,7 +1126,7 @@ mod tests
         let actual = parse(Rule::def_struct, input).unwrap();
         println!("{:#?}", actual);
         if let Ast::DefType(DataType::Struct, name, args) = &*actual[0].node {
-            assert_eq!(Ast::Id1("Taco"), *name.node);
+            assert_eq!(Ast::Id("Taco"), *name.node);
             assert_eq!(0, args.len());
         } else {
             panic!("expected DefStruct, found {:?}", actual[0]);
@@ -1363,10 +1363,10 @@ mod tests
         // assertion syntax like this would be nice
         ast_match!(actual, Ast::Op2("or", a_and_b, c), [
             ast_match!(a_and_b, Ast::Op2("and", a, b), [
-                ast_eq!(b, Ast::Id1("a")),
-                ast_eq!(c, Ast::Id1("b")),
+                ast_eq!(b, Ast::Id("a")),
+                ast_eq!(c, Ast::Id("b")),
             ])
-            ast_eq!(c, Ast::Id1("c")),
+            ast_eq!(c, Ast::Id("c")),
         ]);
         */
 
@@ -1374,12 +1374,12 @@ mod tests
         let t = &actual[0];
         if let Ast::Op2("or", a_and_b, c) = &*t.node {
             if let Ast::Op2("and", a, b) = &*a_and_b.node {
-                assert_eq!(Ast::Id1("a"), *a.node);
-                assert_eq!(Ast::Id1("b"), *b.node);
+                assert_eq!(Ast::Id("a"), *a.node);
+                assert_eq!(Ast::Id("b"), *b.node);
             } else {
                 panic!("expected and operation, found {:?}", a_and_b);
             }
-            assert_eq!(Ast::Id1("c"), *c.node);
+            assert_eq!(Ast::Id("c"), *c.node);
         } else {
             panic!("expected or operation, found {:?}", t);
         }
@@ -1410,10 +1410,10 @@ mod tests
         assert_eq!(1, actual.len());
         let t = &actual[0];
         if let Ast::Op2("or", a, b_and_c) = &*t.node {
-            assert_eq!(Ast::Id1("a"), *a.node);
+            assert_eq!(Ast::Id("a"), *a.node);
             if let Ast::Op2("and", b, c) = &*b_and_c.node {
-                assert_eq!(Ast::Id1("b"), *b.node);
-                assert_eq!(Ast::Id1("c"), *c.node);
+                assert_eq!(Ast::Id("b"), *b.node);
+                assert_eq!(Ast::Id("c"), *c.node);
             } else {
                 panic!("expected and operation, found {:?}", b_and_c);
             }
@@ -1446,11 +1446,11 @@ mod tests
         let t = &actual[0];
         if let Ast::Op2("and", not_a, b) = &*t.node {
             if let Ast::Op1("not", a) = &*not_a.node {
-                assert_eq!(Ast::Id1("a"), *a.node);
+                assert_eq!(Ast::Id("a"), *a.node);
             } else {
                 panic!("expected not op1, found {:?}", not_a);
             }
-            assert_eq!(Ast::Id1("b"), *b.node);
+            assert_eq!(Ast::Id("b"), *b.node);
         } else {
             panic!("expected and op2, found {:?}", t);
         }
@@ -1487,8 +1487,8 @@ mod tests
         let t = &actual[0];
         if let Ast::Op1("not", x) = &*t.node {
             if let Ast::Op2("and", a, b) = &*x.node {
-                assert_eq!(Ast::Id1("a"), *a.node);
-                assert_eq!(Ast::Id1("b"), *b.node);
+                assert_eq!(Ast::Id("a"), *a.node);
+                assert_eq!(Ast::Id("b"), *b.node);
             } else {
                 panic!("expected and op2, found {:?}", x);
             }
@@ -1521,9 +1521,9 @@ mod tests
 
         let t = &actual[0];
         if let Ast::Op2("and", a, not_b) = &*t.node {
-            assert_eq!(Ast::Id1("a"), *a.node);
+            assert_eq!(Ast::Id("a"), *a.node);
             if let Ast::Op1("not", b) = &*not_b.node {
-                assert_eq!(Ast::Id1("b"), *b.node);
+                assert_eq!(Ast::Id("b"), *b.node);
             } else {
                 panic!("expected not op1, found {:?}", not_b);
             }
@@ -1555,8 +1555,8 @@ mod tests
 
         let t = &actual[0];
         if let Ast::Op2("<", a, b) = &*t.node {
-            assert_eq!(Ast::Id1("a"), *a.node);
-            assert_eq!(Ast::Id1("b"), *b.node);
+            assert_eq!(Ast::Id("a"), *a.node);
+            assert_eq!(Ast::Id("b"), *b.node);
         } else {
             panic!("expected < op2, found {:?}", t);
         }
@@ -1728,7 +1728,7 @@ mod tests
                 Ast::ConstVal(Val::Str(Lstr::Sref("hello "))),
                 *strx[0].node,
             );
-            assert_eq!(Ast::Id1("world"), *strx[1].node);
+            assert_eq!(Ast::Id("world"), *strx[1].node);
             assert_eq!(2, strx.len());
         } else {
             panic!("expected StrExpr, found {:?}", actual[0]);
@@ -1774,8 +1774,8 @@ mod tests
             ]
         );
         if let Ast::Tuple(items) = &*ast[0].node {
-            assert_eq!(Ast::Id1("A"), *items[0].v.node);
-            assert_eq!(Ast::Id1("B"), *items[1].v.node);
+            assert_eq!(Ast::Id("A"), *items[0].v.node);
+            assert_eq!(Ast::Id("B"), *items[1].v.node);
         } else {
             panic!("expected tuple, found {:?}", *ast[0].node);
         }
@@ -1814,18 +1814,18 @@ mod tests
         if let Ast::Tuple(items) = &*ast[0].node {
             // A?
             if let Ast::Generic(opt, args) = &*items[0].v.node {
-                assert_eq!(Ast::Id1("Option"), *opt.node);
+                assert_eq!(Ast::Id("Option"), *opt.node);
                 assert_eq!(None, args[0].k);
-                assert_eq!(Ast::Id1("A"), *args[0].v.node);
+                assert_eq!(Ast::Id("A"), *args[0].v.node);
                 assert_eq!(1, args.len());
             } else {
                 panic!("expected A to be generic, found {:?}", items[0]);
             }
             // B*
             if let Ast::Generic(seq, args) = &*items[1].v.node {
-                assert_eq!(Ast::Id1("Seq"), *seq.node);
+                assert_eq!(Ast::Id("Seq"), *seq.node);
                 assert_eq!(None, args[0].k);
-                assert_eq!(Ast::Id1("B"), *args[0].v.node);
+                assert_eq!(Ast::Id("B"), *args[0].v.node);
                 assert_eq!(1, args.len());
             } else {
                 panic!("expected B to be generic, found {:?}", items[1]);

@@ -305,7 +305,7 @@ impl ProtoModule
         let type_maker: Box<dyn Fn(FuncType) -> Type>;
 
         let name_id = match *name.node {
-            Ast::Id1(name_id) => {
+            Ast::Id(name_id) => {
                 ltry!(self.refute_redefines_default(name_id, name.loc));
                 opens = vec![];
                 type_maker = Box::new(|ft| Type::Func(ft));
@@ -317,7 +317,7 @@ impl ProtoModule
                     .map(|a| {
                         let var = if let Some(v) = a.k {
                             v
-                        } else if let Ast::Id1(v) = *a.v.node {
+                        } else if let Ast::Id(v) = *a.v.node {
                             v
                         } else {
                             return Err(rustfail!(
@@ -335,7 +335,7 @@ impl ProtoModule
                     Type::Generic(true, Box::new(Type::Func(ft)), opens.clone())
                 });
 
-                if let Ast::Id1(name_id) = *gen.node {
+                if let Ast::Id(name_id) = *gen.node {
                     ltry!(self.refute_redefines_default(name_id, name.loc));
                     name_id
                 } else {
@@ -379,7 +379,7 @@ impl ProtoModule
         let loc = name.loc;
 
         let sname_id = match *name.node {
-            Ast::Id1(name_id) => {
+            Ast::Id(name_id) => {
                 ltry!(self.refute_redefines_default(name_id, name.loc));
                 struct_typ = Type::User(TypeMod::from(m), name_id);
                 opens = vec![];
@@ -392,7 +392,7 @@ impl ProtoModule
                         if let Some(var) = a.k {
                             return Ok(StrupleItem::new(var, Type::Unknown))
                         }
-                        if let Ast::Id1(var) = &*a.v.node {
+                        if let Ast::Id(var) = &*a.v.node {
                             return Ok(StrupleItem::new(*var, Type::Unknown))
                         }
                         Err(rustfail!(
@@ -404,7 +404,7 @@ impl ProtoModule
                     .collect();
                 opens = opens1?;
 
-                if let Ast::Id1(name_id) = *gen.node {
+                if let Ast::Id(name_id) = *gen.node {
                     ltry!(self.refute_redefines_default(name_id, name.loc));
                     let itmod = TypeMod::from(m);
                     let inner = Type::User(itmod, name_id);
@@ -452,17 +452,17 @@ impl ProtoModule
         let fref = Fref::new(self.key.clone(), name, constructor_type);
         let constructor_call = Val::Construct(fref);
 
-        let macro_call = AstNode::new(Ast::Id1("new_struct_val"), loc);
+        let macro_call = AstNode::new(Ast::Id("new_struct_val"), loc);
         let fields_arg = fields
             .iter()
             .enumerate()
             .map(|(i, f)| {
                 let k = f.k.unwrap_or(STATIC_INDEX_NAMES[i]);
-                StrupleItem::new(f.k, AstNode::new(Ast::Id1(k), loc))
+                StrupleItem::new(f.k, AstNode::new(Ast::Id(k), loc))
             })
             .collect();
         let macro_args = vec![
-            StrupleItem::new_v(AstNode::new(Ast::Id1(name), loc)),
+            StrupleItem::new_v(AstNode::new(Ast::Id(name), loc)),
             StrupleItem::new_v(AstNode::new(Ast::Tuple(fields_arg), loc)),
         ];
 
@@ -512,7 +512,7 @@ impl ProtoModule
     fn add_token(&mut self, name: AstNode) -> Lresult<()>
     {
         match *name.node {
-            Ast::Id1(name_id) => {
+            Ast::Id(name_id) => {
                 ltry!(self.refute_redefines_default(name_id, name.loc));
                 let tok_mod = TypeMod::from(&self.key.name);
                 let t = Type::User(tok_mod, name_id);
@@ -546,7 +546,7 @@ impl ProtoModule
     fn add_rust_type(&mut self, name: AstNode) -> Lresult<()>
     {
         match *name.node {
-            Ast::Id1(name_id) => {
+            Ast::Id(name_id) => {
                 ltry!(self.refute_redefines_default(name_id, name.loc));
                 let tok_mod = TypeMod::from(&self.key.name);
                 let t = Type::User(tok_mod, name_id);
@@ -592,7 +592,7 @@ impl ProtoModule
         let opens: GenericTypes;
 
         let sname_id = match *name.node {
-            Ast::Id1(name_id) => {
+            Ast::Id(name_id) => {
                 union_typ = Type::User(TypeMod::from(m), name_id);
                 opens = vec![];
                 name_id
@@ -603,7 +603,7 @@ impl ProtoModule
                 for a in gen_args.iter() {
                     let var = if let Some(var) = a.k {
                         var
-                    } else if let Ast::Id1(var) = *a.v.node {
+                    } else if let Ast::Id(var) = *a.v.node {
                         var
                     } else {
                         return Err(rustfail!(
@@ -618,7 +618,7 @@ impl ProtoModule
                 }
                 opens = opens1;
 
-                if let Ast::Id1(name_id) = *gen_id.node {
+                if let Ast::Id(name_id) = *gen_id.node {
                     let itmod = TypeMod::from(m);
                     let inner = Type::User(itmod, name_id);
                     union_typ =
@@ -787,10 +787,10 @@ impl ProtoModule
     ) -> Lresult<Type>
     {
         Ok(match &*node.node {
-            Ast::Id1(id) if struple::contains_key(opens, id) => {
+            Ast::Id(id) if struple::contains_key(opens, id) => {
                 Type::OpenVar(id)
             }
-            Ast::Id1(id) => {
+            Ast::Id(id) => {
                 let canonical_mod = match self.canonical_mod_for_id(id) {
                     Some(module) => module,
                     None => &self.key.name,

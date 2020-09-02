@@ -105,7 +105,7 @@ impl<'l> MacroApplication<'l>
         loc: Loc,
     ) -> AstNode
     {
-        let callx = AstNode::new(Ast::Id1(func), loc);
+        let callx = AstNode::new(Ast::Id(func), loc);
         let new_a = mem::take(a);
         let new_b = mem::take(b);
         let args: Xlist = struple::new_tuple2(new_a, new_b);
@@ -125,7 +125,7 @@ impl<'l> ast2::Op for MacroApplication<'l>
         match &mut *node.node {
             Ast::Call(callid, args) => {
                 let optmac = match &mut *callid.node {
-                    Ast::Id1(macroname) => self.find_macro_1(macroname)?,
+                    Ast::Id(macroname) => self.find_macro_1(macroname)?,
                     _ => None,
                 };
                 if let Some(mac) = optmac {
@@ -192,20 +192,20 @@ impl<'l> ast2::Op for MacroApplication<'l>
             Ast::Op2(";", a, b) => {
                 if !mode.is_pattern() {
                     // if not a pattern, convert to a call
-                    let callx = AstNode::new(Ast::Id1("cons"), node.loc);
+                    let callx = AstNode::new(Ast::Id("cons"), node.loc);
                     let args = struple::new_tuple2(mem::take(a), mem::take(b));
                     *node = AstNode::new(Ast::Call(callx, args), node.loc);
                     return Ok(AstStep::Rewrite);
                 }
             }
             Ast::Op1("not", x) => {
-                let callx = AstNode::new(Ast::Id1("boolean_not"), node.loc);
+                let callx = AstNode::new(Ast::Id("boolean_not"), node.loc);
                 let arg = vec![StrupleItem::new_v(mem::take(x))];
                 *node = AstNode::new(Ast::Call(callx, arg), node.loc);
                 return Ok(AstStep::Rewrite);
             }
             Ast::Op1("-", x) => {
-                let callx = AstNode::new(Ast::Id1("int_negate"), node.loc);
+                let callx = AstNode::new(Ast::Id("int_negate"), node.loc);
                 let arg = vec![StrupleItem::new_v(mem::take(x))];
                 *node = AstNode::new(Ast::Call(callx, arg), node.loc);
                 return Ok(AstStep::Rewrite);
@@ -234,7 +234,7 @@ impl<'l> ast2::Op for MacroApplication<'l>
                     _ => {} // nothing
                 }
             }
-            Ast::Id1(id) => {
+            Ast::Id(id) => {
                 let nloc = node.loc;
                 if let Some((_, ctype)) = struple::find(self.closed, &id) {
                     let type_ast = Ast::Type(ctype.clone());
@@ -251,7 +251,7 @@ impl<'l> ast2::Op for MacroApplication<'l>
                     .map(|arg| {
                         if let Some(Lstr::Sref(argname)) = arg.k {
                             let argnode =
-                                AstNode::new(Ast::Id1(argname), node_loc);
+                                AstNode::new(Ast::Id(argname), node_loc);
                             Ok(StrupleItem::new_v(argnode))
                         } else {
                             return Err(rustfail!(
@@ -346,7 +346,7 @@ impl<'a> ast2::Op for MacroReplacement<'a>
 {
     fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
-        if let Ast::Id1(idname) = &*node.node {
+        if let Ast::Id(idname) = &*node.node {
             if let Some(newval) = self.arg_map.get(idname) {
                 *node = (*newval).clone();
                 return Ok(AstStep::Rewrite);
@@ -412,7 +412,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
             Ast::Block(_) => {
                 self.blocks.push_blockscope();
             }
-            Ast::Id1(id) if mode.is_pattern() => {
+            Ast::Id(id) if mode.is_pattern() => {
                 let local_type = mode.get_pattern().unwrap();
                 // make sure this doesn't duplicate an import
                 // why not just add ModAliases to the blocks?
@@ -426,7 +426,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                 }
                 node.dst = self.blocks.assign_var(id, local_type)?;
             }
-            Ast::Id1(id) if mode == AstMode::Type => {
+            Ast::Id(id) if mode == AstMode::Type => {
                 let found = self.local_mod.find_type(id);
                 if let Some(typ) = found {
                     node.replace(
@@ -435,7 +435,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                     );
                 }
             }
-            Ast::Id1(id) => {
+            Ast::Id(id) => {
                 if let Some(r) = self.blocks.var_in_scope(id) {
                     node.dst = r;
                 } else if let Some(me) = self.local_mod.find_modelem(id) {
@@ -984,19 +984,19 @@ impl<'p> ast2::Op for TypeCheck<'p>
     fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
         match &mut *node.node {
-            Ast::Id1(id) => {
+            Ast::Id(id) => {
                 // mode == value
                 // if the type is known, assign it to this variable
                 if let Some(typ) = self.vartypes.get(id) {
                     node.typ = typ.clone();
                 // put the node back the way it was
-                // *node.node = Ast::Id1(id);
+                // *node.node = Ast::Id(id);
                 } else {
                     let tvar = Type::LocalVar(Lstr::Sref(id));
                     self.vartypes.insert(id, tvar.clone());
                     node.typ = tvar;
                     // put the node back the way it was
-                    // *node.node = Ast::Id1(id);
+                    // *node.node = Ast::Id(id);
                 }
             }
             Ast::ConstVal(c) if node.typ.is_open() => {
@@ -1034,7 +1034,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                     node.typ = Type::VOID;
                 }
             }
-            Ast::Id1(_id) => {
+            Ast::Id(_id) => {
                 // does this _id need to be used? should be ok b/c the type
                 // incorporates the id from pre phase
                 let nopens = vec![];
@@ -1112,7 +1112,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
             }
             Ast::Op2(".", a, b) => {
                 match (&*a.node, &*b.node) {
-                    (Ast::Module(tup), Ast::Id1(name)) => {
+                    (Ast::Module(tup), Ast::Id(name)) => {
                         match struple::find_str(&tup[..], name) {
                             Some((_i, elem)) => {
                                 node.typ = elem.typ.clone();
@@ -1128,7 +1128,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                             }
                         }
                     }
-                    (Ast::Tuple(tup), Ast::Id1(name)) => {
+                    (Ast::Tuple(tup), Ast::Id(name)) => {
                         match struple::find_str(&tup[..], name) {
                             Some((_i, elem)) => {
                                 node.typ = elem.typ.clone();
@@ -1144,7 +1144,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                             }
                         }
                     }
-                    (_r, Ast::Id1(f)) => {
+                    (_r, Ast::Id(f)) => {
                         match &a.typ {
                             Type::User(tmod, tname) => {
                                 let (_styp, flds) = self
@@ -1317,7 +1317,7 @@ impl ast2::Op for RemoveExtraCode
                 }
             }
             Ast::Let(ref mut lhs, _, ref mut rhs) => {
-                if let Ast::Id1(_name) = &*lhs.node {
+                if let Ast::Id(_name) = &*lhs.node {
                     // if single assignment, replace the let w/
                     // rhs assigned to lhs name
                     rhs.dst = lhs.dst;
