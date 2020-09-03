@@ -1751,6 +1751,33 @@ mod tests
     }
 
     #[test]
+    fn struct_field_exp()
+    {
+        let input = "func taco ->
+            let f := *obj
+        --
+        ";
+        let actual = parse_file(input).unwrap();
+        if let Ast::DefFunc(_name, _args, _result, body) = &*actual[0].node {
+            if let Ast::Block(lines) = &*body.node {
+                if let Ast::Let(_, _, x) = &*lines[0].node {
+                    if let Ast::Op1("*", obj) = &*x.node {
+                        assert_eq!(Ast::Id("obj"), *obj.node);
+                    } else {
+                        panic!("expected Op1(*, _), found: {:?}", x);
+                    }
+                } else {
+                    panic!("expected let stmt, found: {:?}", lines);
+                }
+                assert_eq!(1, lines.len());
+            }
+        } else {
+            panic!("expected StrExpr, found {:?}", actual[0]);
+        }
+        assert_eq!(1, actual.len());
+    }
+
+    #[test]
     fn type_tuple()
     {
         let input = r#"(A B)"#;
