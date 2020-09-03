@@ -1024,6 +1024,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
         Ok(AstStep::Ok)
     }
 
+    /// TypeCheck post
     fn post(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
         match &mut *node.node {
@@ -1840,6 +1841,26 @@ mod tests
 
         let mut prog = core_program(&[("foo", foo_input), ("app", app_input)]);
         let fref = Fref::from(("app", "main"));
+        prog.read_semantics(&fref).unwrap();
+    }
+
+    #[test]
+    fn struct_field_expansion()
+    {
+        let baz_input = r#"
+        datatype Foo ::
+            x:Int
+            y:Str
+        --
+
+        func main ->
+            let flds := *Foo
+        --
+        "#
+        .to_string();
+
+        let mut prog = core_program(&[("/baz", baz_input)]);
+        let fref = Fref::from(("/baz", "main"));
         prog.read_semantics(&fref).unwrap();
     }
 

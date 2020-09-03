@@ -1,5 +1,5 @@
 
-func map'A'B:[B] :: items:[A] f:(B :: A) >>
+func <map A B>:[B] :: items:[A] f:(B :: A) ->
     _map([], items, f)
 --
 
@@ -8,13 +8,17 @@ func _map'C'D:[C] :: result:[C] input:[D] f:(C :: D)
 |(result, h;t, f) >> _map(f(h);result, t, f)
 --
 
-func reduce'A'B:A :: init:A items:[B] f:(A :: A B) ->
+func <reduce A B>:A :: init:A items:[B] f:(A :: A B) ->
     match items
     |[] >> init
     |head;tail >>
         let new_val := f(init, head)
         reduce(new_val, tail, f)
     --
+--
+
+func <len T>:Int :: items:[T] ->
+    reduce(0, items, fn(sum, _) -> sum + 1 --)
 --
 
 func filter[H] items:[H] f:(Fn H /Bool) /[H] >>
