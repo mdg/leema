@@ -3,7 +3,14 @@ import /list
 import /map
 
 
-func encode'T:Str :: val:T -RUST-
+func encode'T:Str :: val:T ->
+    let fields := *val
+    list.reduce({:}, fields, fn(obj, (k, v)) ->
+        map.put(obj, k, v)
+        obj(*k, to_jsonval(v))
+    --)
+--
+
 func decode'T:T :: input:Str ->
     let json_val := decode_val(input)
     from_jsonval'T(val)
