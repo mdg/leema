@@ -230,12 +230,14 @@ pub enum Ast
     CopyAndSet(AstNode, Xlist),
     DefConst(&'static str, AstNode),
     DefFunc(AstNode, Xlist, AstNode, AstNode),
+    DefInterface(AstNode, Vec<AstNode>),
     DefMacro(&'static str, Vec<&'static str>, AstNode),
     DefType(DataType, AstNode, Xlist),
     FuncType(Xlist, AstNode),
     Generic(AstNode, Xlist),
     Id(&'static str),
     Ifx(Vec<Case>),
+    InterfaceBlock,
     Let(AstNode, AstNode, AstNode),
     List(Xlist),
     Matchx(Option<AstNode>, Vec<Case>),
@@ -293,6 +295,9 @@ impl Ast
                     name, args, result, body
                 )
             }
+            Ast::DefInterface(name, funcs) => {
+                write!(f, "DefInterface {:?} {:?}", name, funcs)
+            }
             Ast::DefMacro(name, args, body) => {
                 write!(f, "DefMacro {:?} {:?} {:?}", name, args, body)
             }
@@ -306,6 +311,7 @@ impl Ast
             Ast::Generic(id, args) => write!(f, "Generic {:?}[{:?}]", id, args),
             Ast::Id(id) => write!(f, "Id {}", id),
             Ast::Ifx(args) => write!(f, "If {:?}", args),
+            Ast::InterfaceBlock => write!(f, "InterfaceBlock"),
             Ast::Let(lhp, _lht, rhs) => write!(f, "Let {:?} := {:?}", lhp, rhs),
             Ast::List(items) => write!(f, "List {:?}", items),
             Ast::Matchx(None, args) => write!(f, "Match None {:?}", args),
@@ -703,7 +709,7 @@ impl Walker
                     steptry!(self.walk(&mut f.v, op));
                 }
             }
-            Ast::ConstVal(_) | Ast::Id(_) | Ast::RustBlock => {
+            Ast::ConstVal(_) | Ast::Id(_) | Ast::InterfaceBlock | Ast::RustBlock => {
                 // nowhere else to go
             }
             Ast::Module(_) | Ast::Wildcard => {
@@ -722,6 +728,13 @@ impl Walker
                     "macro definition must already be processed: {} @ {:?}",
                     name,
                     node.loc,
+                ));
+            }
+            Ast::DefInterface(name, _) => {
+                return Err(rustfail!(
+                    "compile_failure",
+                    "interface definition must already be processed: {:?}",
+                    name,
                 ));
             }
             Ast::DefType(_, name, _) => {

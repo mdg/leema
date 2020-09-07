@@ -43,6 +43,7 @@ postfix_op = _{
 // keywords
 func_mode = { "func" | "macro" }
 let_mode = { "let" | "const" }
+interface_block = { double_dash }
 rust_block = { "-RUST-" }
 mxport = { "import" | "export" }
 
@@ -193,6 +194,8 @@ def_struct = !{ "datatype" ~ hs1 ~ def_struct_args ~ as1 ~ "--" }
 def_enum_variant = { vs1 ~ "|" ~ ( def_struct_args | def_id ) }
 def_enum = !{ "datatype" ~ hs1 ~ def_id ~ def_enum_variant+ ~ vs1 ~ "--" }
 
+def_interface = !{ "interface" ~ hs1 ~ def_id ~ as1 ~ impl_block  }
+
 def_rust_type = !{ "datatype" ~ hs1 ~ id ~ as1 ~ rust_block }
 
 let_stmt = !{ let_mode ~ hs1 ~ id ~ as1 ~ ":=" ~ as1 ~ compound_expr }
@@ -218,6 +221,7 @@ stmt = _{
     def_func
     | def_rust_type
     | def_enum
+    | def_interface
     | def_struct
     | let_stmt
     | if_stmt
@@ -232,9 +236,13 @@ stmt_block = ${ (line ~ vs1)* }
 arrow_block = _{
     block_arrow ~ (hs1 ~ expr ~ vs1 | vs1 ~ stmt_block)
 }
+impl_block = _{
+    "::" ~ vs1 ~ stmt_block ~ double_dash
+}
 case_block = { case+ }
 func_block = _{
     rust_block
+    | interface_block
     | case_block ~ double_dash
     | (block_arrow ~ vs1 ~ stmt_block ~ double_dash)
     | (block_arrow ~ hs1 ~ expr ~ hs1 ~ double_dash)

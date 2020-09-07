@@ -530,6 +530,15 @@ impl LeemaPrec
                     self.primary(Mode::Value, inner.next().unwrap())?;
                 Ok(AstNode::new(Ast::Return(result), loc))
             }
+            Rule::def_interface => {
+                let mut inner = n.into_inner();
+                let id = self.primary(Mode::Type, inner.next().unwrap())?;
+                let block = inner.next().unwrap().into_inner();
+                let funcs: Lresult<Vec<AstNode>> = block.map(|f| {
+                    self.primary(Mode::Value, f)
+                }).collect();
+                Ok(AstNode::new(Ast::DefInterface(id, funcs?), loc))
+            }
             Rule::def_rust_type => {
                 let mut inner = n.into_inner();
                 let id = self.primary(Mode::Type, inner.next().unwrap())?;
@@ -537,6 +546,7 @@ impl LeemaPrec
                 Ok(AstNode::new(df, loc))
             }
             Rule::EOI => Ok(AstNode::void()),
+            Rule::interface_block => Ok(AstNode::new(Ast::InterfaceBlock, loc)),
             Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, loc)),
             // ignore this level and go one deeper
             Rule::tx_maybe_k => {
@@ -549,7 +559,7 @@ impl LeemaPrec
                 panic!("cannot parse silent rule: {:?}", n);
             }
             _ => {
-                panic!("unsupported rule: {:?}", n);
+                panic!("unsupported rule: {:#?}", n);
             }
         }
     }
@@ -1455,6 +1465,30 @@ mod tests
             panic!("expected and op2, found {:?}", t);
         }
         assert_eq!(1, actual.len());
+    }
+
+    #[test]
+    fn interface_with_func()
+    {
+        let input = "interface Taco ::
+           func burrito:Int :: Self --
+        --";
+        let actual = parse(Rule::stmt, input).unwrap();
+        println!("{:#?}", actual);
+
+        let t = &actual[0];
+        if let Ast::DefInterface(iname, funcs) = &*t.node {
+            assert_matches!(*iname.node, Ast::Id("Taco"));
+            if let Ast::DefFunc(fname, _, _, body) = &*funcs[0].node {
+                assert_matches!(*fname.node, Ast::Id("burrito"));
+                assert_eq!(Ast::InterfaceBlock, *body.node);
+            } else {
+                panic!("expected a func, found {:?}", funcs);
+            }
+            assert_eq!(1, funcs.len());
+        } else {
+            panic!("expected an interface, found {:?}", t);
+        }
     }
 
     #[test]
