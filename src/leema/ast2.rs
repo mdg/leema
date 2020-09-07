@@ -709,7 +709,10 @@ impl Walker
                     steptry!(self.walk(&mut f.v, op));
                 }
             }
-            Ast::ConstVal(_) | Ast::Id(_) | Ast::InterfaceBlock | Ast::RustBlock => {
+            Ast::ConstVal(_)
+            | Ast::Id(_)
+            | Ast::InterfaceBlock
+            | Ast::RustBlock => {
                 // nowhere else to go
             }
             Ast::Module(_) | Ast::Wildcard => {

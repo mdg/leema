@@ -534,9 +534,8 @@ impl LeemaPrec
                 let mut inner = n.into_inner();
                 let id = self.primary(Mode::Type, inner.next().unwrap())?;
                 let block = inner.next().unwrap().into_inner();
-                let funcs: Lresult<Vec<AstNode>> = block.map(|f| {
-                    self.primary(Mode::Value, f)
-                }).collect();
+                let funcs: Lresult<Vec<AstNode>> =
+                    block.map(|f| self.primary(Mode::Value, f)).collect();
                 Ok(AstNode::new(Ast::DefInterface(id, funcs?), loc))
             }
             Rule::def_rust_type => {

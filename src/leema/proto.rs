@@ -677,7 +677,11 @@ impl ProtoModule
         Ok(())
     }
 
-    fn add_interface(&mut self, name: AstNode, _funcs: Vec<AstNode>) -> Lresult<()>
+    fn add_interface(
+        &mut self,
+        name: AstNode,
+        _funcs: Vec<AstNode>,
+    ) -> Lresult<()>
     {
         let itmod = TypeMod::from(&self.key.name);
         let ityp: Type;
