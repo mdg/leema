@@ -377,7 +377,7 @@ impl ProtoModule
     fn add_struct(&mut self, name: AstNode, fields: Xlist) -> Lresult<()>
     {
         let loc = name.loc;
-        let (id, struct_typ, opens) = self.add_user_type(name)?;
+        let (id, struct_typ, opens) = self.make_user_type(name)?;
         self.add_typed_struct(struct_typ, id, &opens, fields, loc)?;
         Ok(())
     }
@@ -496,7 +496,7 @@ impl ProtoModule
     fn add_rust_type(&mut self, name: AstNode) -> Lresult<()>
     {
         let loc = name.loc;
-        let (name_id, t, _) = self.add_user_type(name)?;
+        let (name_id, t, _) = self.make_user_type(name)?;
         let typeval = Val::Type(t.clone());
         let mut node = AstNode::new_constval(typeval, loc);
         node.typ = Type::Kind;
@@ -516,7 +516,7 @@ impl ProtoModule
                 name,
             ));
         }
-        let (sname_id, union_typ, opens) = self.add_user_type(name)?;
+        let (sname_id, union_typ, opens) = self.make_user_type(name)?;
 
         let typ_val = Val::Type(union_typ.clone());
         let typ_ast = AstNode::new_constval(typ_val.clone(), loc);
@@ -556,7 +556,7 @@ impl ProtoModule
         _funcs: Vec<AstNode>,
     ) -> Lresult<()>
     {
-        let (id, ityp, _opens) = self.add_user_type(name)?;
+        let (id, ityp, _opens) = self.make_user_type(name)?;
         self.types.insert(id, ityp.clone());
         Ok(())
     }
@@ -581,7 +581,7 @@ impl ProtoModule
         Ok(())
     }
 
-    fn add_user_type(
+    fn make_user_type(
         &mut self,
         name: AstNode,
     ) -> Lresult<(&'static str, Type, GenericTypes)>
