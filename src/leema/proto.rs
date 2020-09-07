@@ -495,34 +495,14 @@ impl ProtoModule
 
     fn add_rust_type(&mut self, name: AstNode) -> Lresult<()>
     {
-        match *name.node {
-            Ast::Id(name_id) => {
-                ltry!(self.refute_redefines_default(name_id, name.loc));
-                let tok_mod = TypeMod::from(&self.key.name);
-                let t = Type::User(tok_mod, name_id);
-                let typeval = Val::Type(t.clone());
-                let mut node = AstNode::new_constval(typeval, name.loc);
-                node.typ = Type::Kind;
-                self.types.insert(name_id, t);
-                self.exported_vals
-                    .push(StrupleItem::new(Some(name_id), node));
-            }
-            Ast::Generic(iname, _) => {
-                return Err(Failure::static_leema(
-                    failure::Mode::CompileFailure,
-                    lstrf!("tokens cannot be generic: {:?}", iname),
-                    self.key.best_path(),
-                    name.loc.lineno,
-                ));
-            }
-            invalid_name => {
-                return Err(rustfail!(
-                    PROTOFAIL,
-                    "invalid token name: {:?}",
-                    invalid_name,
-                ));
-            }
-        }
+        let loc = name.loc;
+        let (name_id, t, _) = self.add_user_type(name)?;
+        let typeval = Val::Type(t.clone());
+        let mut node = AstNode::new_constval(typeval, loc);
+        node.typ = Type::Kind;
+        self.types.insert(name_id, t);
+        self.exported_vals
+            .push(StrupleItem::new(Some(name_id), node));
         Ok(())
     }
 
@@ -638,6 +618,18 @@ impl ProtoModule
                 opens = opens1;
 
                 if let Ast::Id(name_id) = *gen_id.node {
+                    if opens.is_empty() {
+                        return Err(Failure::static_leema(
+                            failure::Mode::TypeFailure,
+                            lstrf!(
+                                "generic must have at least one argument: {}",
+                                name_id,
+                            ),
+                            m.0.clone(),
+                            name.loc.lineno,
+                        ));
+                    }
+
                     let itmod = TypeMod::from(m);
                     let inner = Type::User(itmod, name_id);
                     utyp = Type::Generic(true, Box::new(inner), gen_arg_vars);
