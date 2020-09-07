@@ -240,6 +240,9 @@ impl ProtoModule
             Ast::DefFunc(name, args, result, body) => {
                 self.add_func(name, args, result, body)?;
             }
+            Ast::DefInterface(name, funcs) => {
+                ltry!(self.add_interface(name, funcs));
+            }
             Ast::DefType(DataType::Union, name, variants) => {
                 self.add_union(name, variants)?;
             }
@@ -671,6 +674,39 @@ impl ProtoModule
             }
         }
 
+        Ok(())
+    }
+
+    fn add_interface(&mut self, name: AstNode, _funcs: Vec<AstNode>) -> Lresult<()>
+    {
+        let itmod = TypeMod::from(&self.key.name);
+        let ityp: Type;
+        let name_id = match &*name.node {
+            Ast::Id(iname) => {
+                ityp = Type::User(itmod, iname);
+                iname
+            }
+            Ast::Generic(name, _) => {
+                if let Ast::Id(iname) = &*name.node {
+                    ityp = Type::User(itmod, iname);
+                    iname
+                } else {
+                    return Err(rustfail!(
+                        "compile_failure",
+                        "expected generic interface name, found {:?}",
+                        name,
+                    ));
+                }
+            }
+            _ => {
+                return Err(rustfail!(
+                    "compile_failure",
+                    "expected interface name, found {:?}",
+                    name,
+                ));
+            }
+        };
+        self.types.insert(name_id, ityp);
         Ok(())
     }
 
