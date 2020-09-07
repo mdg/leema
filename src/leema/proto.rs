@@ -840,7 +840,7 @@ impl ProtoModule
             Ast::List(inner_items) if inner_items.len() == 1 => {
                 let inner = &inner_items.first().unwrap().v;
                 let inner_t = self.ast_to_type(local_mod, inner, opens)?;
-                Type::StrictList(Box::new(inner_t))
+                Type::list(inner_t)
             }
             Ast::Tuple(inner_items) => {
                 let inner_t: Lresult<Vec<StrupleItem<Option<Lstr>, Type>>> =
@@ -873,8 +873,7 @@ impl ProtoModule
                     })
                     .collect();
                 let genargs = genargsr?;
-                let open = genargs.iter().any(|a| a.v.is_open());
-                Type::Generic(open, Box::new(genbase), genargs)
+                Type::generic(genbase, genargs)
             }
             Ast::ConstVal(cv) => cv.get_type(),
             invalid => {

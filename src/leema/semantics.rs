@@ -548,10 +548,6 @@ impl<'p> TypeCheck<'p>
                     struple::map_v(items, |it| self.inferred_type(it, opens))?;
                 Type::Tuple(mitems)
             }
-            Type::StrictList(inner) => {
-                let inferred = self.inferred_type(inner, opens)?;
-                Type::StrictList(Box::new(inferred))
-            }
             Type::Func(ftyp) => {
                 let iargs = struple::map_v(&ftyp.args, |a| {
                     self.inferred_type(a, opens)
@@ -564,8 +560,7 @@ impl<'p> TypeCheck<'p>
                 let typargs2 = struple::map_v(type_args, |tv| {
                     self.inferred_type(tv, opens)
                 })?;
-                let open2 = typargs2.iter().any(|ta| ta.v.is_open());
-                Type::Generic(open2, Box::new(inner2), typargs2)
+                Type::generic(inner2, typargs2)
             }
             Type::Variant(inner, var) => {
                 let inner2 = self.inferred_type(&*inner, opens)?;
@@ -633,18 +628,28 @@ impl<'p> TypeCheck<'p>
                     .collect();
                 Ok(Type::Tuple(im?))
             }
-            (Type::StrictList(i0), Type::StrictList(i1)) => {
-                let it = ltry!(self.match_type(i0, i1, opens));
-                Ok(Type::StrictList(Box::new(it)))
-            }
-            (Type::StrictList(_), Type::LocalVar(v1)) => {
-                let local_inner = Type::inner(v1, 0);
-                let il1 = Type::StrictList(Box::new(local_inner));
-                let mlist = ltry!(self.match_type(t0, &il1, opens));
-                self.infer_type(v1, &mlist, opens)
-            }
-            (Type::LocalVar(_), Type::StrictList(_)) => {
-                self.match_type(t1, t0, opens)
+            (
+                Type::Generic(_, inner0, args0),
+                Type::Generic(_, inner1, args1),
+            ) => {
+                let inner = self.match_type(inner0, inner1, opens)?;
+                if args0.len() != args1.len() {
+                    return Err(Failure::static_leema(
+                        failure::Mode::TypeFailure,
+                        lstrf!("args mismatch: {:?} != {:?}", args0, args1),
+                        self.local_mod.key.name.0.clone(),
+                        0,
+                    ));
+                }
+                let argr: Lresult<GenericTypes> = args0
+                    .iter()
+                    .zip(args1.iter())
+                    .map(|args| {
+                        let v = self.match_type(&args.0.v, &args.1.v, opens)?;
+                        Ok(StrupleItem::new(args.0.k, v))
+                    })
+                    .collect();
+                Ok(Type::generic(inner, argr?))
             }
             (Type::Variant(inner0, _), Type::Variant(inner1, _)) => {
                 self.match_type(inner0, inner1, opens)
@@ -676,7 +681,7 @@ impl<'p> TypeCheck<'p>
                 if t0 != t1 {
                     Err(rustfail!(
                         SEMFAIL,
-                        "types do not match: ({:#?} != {})",
+                        "types do not match: ({} != {})",
                         t0,
                         t1,
                     ))
@@ -835,7 +840,7 @@ impl<'p> TypeCheck<'p>
                         **inner = inner.replace_openvar(repl_id, t)?;
                         *open = targs.iter().any(|a| a.v.is_open());
                         fref.t =
-                            Type::Generic(*open, inner.clone(), targs.clone());
+                            Type::generic((**inner).clone(), targs.clone());
                         Ok(())
                     }
                     _ => Ok(()),
@@ -1260,7 +1265,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                     .first()
                     .map(|item| item.v.typ.clone())
                     .unwrap_or(Type::Unknown);
-                node.typ = Type::StrictList(Box::new(inner_typ));
+                node.typ = Type::list(inner_typ);
             }
             Ast::Tuple(ref items) => {
                 let itypes: Lresult<Struple2<Type>> = items

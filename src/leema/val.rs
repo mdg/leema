@@ -120,10 +120,6 @@ pub enum Type
 {
     Tuple(Struple2<Type>),
     Func(FuncType),
-    // different from base collection/map interfaces?
-    // base interface/type should probably be iterator
-    // and then it should be a protocol, not type
-    StrictList(Box<Type>),
     User(TypeMod, &'static str),
     Variant(Box<Type>, &'static str),
     /// bool is open
@@ -148,6 +144,7 @@ impl Type
     pub const FAILURE: Type = Type::User(CORE_MOD, "Failure");
     pub const VOID: Type = Type::User(CORE_MOD, "Void");
     pub const NO_RETURN: Type = Type::User(CORE_MOD, "NoReturn");
+    const LIST: Type = Type::User(CORE_MOD, "List");
     const OPTION: Type = Type::User(CORE_MOD, "Option");
 
     pub fn f(inputs: Struple2<Type>, result: Type) -> Type
@@ -157,6 +154,13 @@ impl Type
             closed: vec![],
             result: Box::new(result),
         })
+    }
+
+    pub fn list(inner: Type) -> Type
+    {
+        let open = inner.is_open();
+        let gen_args = vec![StrupleItem::new("T", inner.clone())];
+        Type::Generic(open, Box::new(Type::LIST), gen_args)
     }
 
     pub fn option(inner: Type) -> Type
@@ -169,6 +173,12 @@ impl Type
     pub fn variant(base: Type, var_name: &'static str) -> Type
     {
         Type::Variant(Box::new(base), var_name)
+    }
+
+    pub fn generic(inner: Type, args: GenericTypes) -> Type
+    {
+        let open = args.iter().any(|a| a.v.is_open());
+        Type::Generic(open, Box::new(inner), args)
     }
 
     /**
@@ -227,7 +237,6 @@ impl Type
             Type::Variant(inner, _) => inner.is_open(),
             Type::OpenVar(_) => true,
             Type::Tuple(items) => items.iter().any(|i| i.v.is_open()),
-            Type::StrictList(inner) => inner.is_open(),
             Type::Unknown => true,
             _ => false,
         }
@@ -279,10 +288,6 @@ impl Type
                 let m_items = struple::map_v(items, |i| i.map(op))?;
                 Type::Tuple(m_items)
             }
-            &Type::StrictList(ref inner) => {
-                let m_inner = inner.map(op)?;
-                Type::StrictList(Box::new(m_inner))
-            }
             &Type::Func(ref ftyp) => {
                 let m_ftype = ftyp.map(op)?;
                 Type::Func(m_ftype)
@@ -290,19 +295,6 @@ impl Type
             _ => self.clone(),
         };
         Ok(res)
-    }
-
-    pub fn list_inner_type(&self) -> Type
-    {
-        match self {
-            &Type::StrictList(ref inner) => (**inner).clone(),
-            &Type::OpenVar(_) => Type::Unknown,
-            &Type::LocalVar(_) => Type::Unknown,
-            &Type::Unknown => Type::Unknown,
-            _ => {
-                panic!("cannot get inner type of a not list: {:?}", self);
-            }
-        }
     }
 }
 
@@ -314,9 +306,6 @@ impl sendclone::SendClone for Type
     {
         match self {
             &Type::Tuple(ref items) => Type::Tuple(items.clone_for_send()),
-            &Type::StrictList(ref i) => {
-                Type::StrictList(Box::new(i.clone_for_send()))
-            }
             &Type::Func(ref ftyp) => Type::Func(ftyp.clone()),
             &Type::Unknown => Type::Unknown,
             &Type::OpenVar(id) => Type::OpenVar(id),
@@ -384,13 +373,10 @@ impl fmt::Display for Type
             &Type::User(ref module, ref id) => write!(f, "{}.{}", module, id),
             &Type::Variant(ref t, ref var) => write!(f, "{}.{}", t, var),
             &Type::Generic(open, ref inner, ref args) => {
-                write!(f, "<{:?} {} {:?}>", inner, open, args)
+                let open_tag = if open { "Open" } else { "Closed" };
+                write!(f, "<{:?} {} {:?}>", inner, open_tag, args)
             }
             &Type::Func(ref ftyp) => write!(f, "F{}", ftyp),
-            // different from base collection/map interfaces?
-            // base interface/type should probably be iterator
-            // and then it should be a protocol, not type
-            &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
             &Type::RustBlock => write!(f, "RustBlock"),
             &Type::Kind => write!(f, "Kind"),
             &Type::Any => write!(f, "Any"),
@@ -421,10 +407,6 @@ impl fmt::Debug for Type
                     write!(f, "{:?}", ftyp)
                 }
             }
-            // different from base collection/map interfaces?
-            // base interface/type should probably be iterator
-            // and then it should be a protocol, not type
-            &Type::StrictList(ref typ) => write!(f, "List<{}>", typ),
             &Type::User(ref module, ref id) => write!(f, "{}.{}", module, id),
             &Type::Variant(ref t, ref var) => write!(f, "{:?}.{}", t, var),
             &Type::Generic(open, ref inner, ref args) => {
@@ -760,9 +742,9 @@ impl Val
             &Val::Hashtag(_) => Type::HASHTAG.clone(),
             &Val::Cons(ref head, _) => {
                 let inner = head.get_type();
-                Type::StrictList(Box::new(inner))
+                Type::list(inner)
             }
-            &Val::Nil => Type::StrictList(Box::new(Type::Unknown)),
+            &Val::Nil => Type::list(Type::Unknown),
             &Val::Failure2(_) => Type::FAILURE,
             &Val::Type(_) => Type::Kind,
             &Val::Construct(ref f) => f.t.clone(),
@@ -1804,14 +1786,14 @@ mod tests
     fn test_get_type_empty_list()
     {
         let typ = Val::Nil.get_type();
-        assert_eq!(Type::StrictList(Box::new(Type::Unknown)), typ);
+        assert_eq!(Type::list(Type::Unknown), typ);
     }
 
     #[test]
     fn test_get_type_int_list()
     {
         let typ = list::from2(Val::Int(3), Val::Int(8)).get_type();
-        assert_eq!(Type::StrictList(Box::new(Type::INT)), typ);
+        assert_eq!(Type::list(Type::INT), typ);
     }
 
     #[test]
