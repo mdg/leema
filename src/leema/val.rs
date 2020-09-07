@@ -109,7 +109,6 @@ pub type GenericTypes = StrupleKV<&'static str, Type>;
 pub type GenericTypeSlice = [StrupleItem<&'static str, Type>];
 pub type TypeKey = (CanonicalMod, &'static str);
 
-// #[derive(Debug)]
 #[derive(Clone)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]

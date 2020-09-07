@@ -376,62 +376,9 @@ impl ProtoModule
 
     fn add_struct(&mut self, name: AstNode, fields: Xlist) -> Lresult<()>
     {
-        let m = &self.key.name;
-        let struct_typ: Type;
-        let opens: GenericTypes;
         let loc = name.loc;
-
-        let sname_id = match *name.node {
-            Ast::Id(name_id) => {
-                ltry!(self.refute_redefines_default(name_id, name.loc));
-                struct_typ = Type::User(TypeMod::from(m), name_id);
-                opens = vec![];
-                name_id
-            }
-            Ast::Generic(gen, gen_args) => {
-                let opens1: Lresult<GenericTypes> = gen_args
-                    .iter()
-                    .map(|a| {
-                        if let Some(var) = a.k {
-                            return Ok(StrupleItem::new(var, Type::Unknown))
-                        }
-                        if let Ast::Id(var) = &*a.v.node {
-                            return Ok(StrupleItem::new(*var, Type::Unknown))
-                        }
-                        Err(rustfail!(
-                            PROTOFAIL,
-                            "generic struct arguments must have string key: {:?}",
-                            a,
-                        ))
-                    })
-                    .collect();
-                opens = opens1?;
-
-                if let Ast::Id(name_id) = *gen.node {
-                    ltry!(self.refute_redefines_default(name_id, name.loc));
-                    let itmod = TypeMod::from(m);
-                    let inner = Type::User(itmod, name_id);
-                    struct_typ =
-                        Type::Generic(true, Box::new(inner), opens.clone());
-                    name_id
-                } else {
-                    return Err(rustfail!(
-                        PROTOFAIL,
-                        "invalid generic struct name: {:?}",
-                        gen,
-                    ));
-                }
-            }
-            invalid_name => {
-                return Err(rustfail!(
-                    PROTOFAIL,
-                    "invalid struct name: {:?}",
-                    invalid_name,
-                ));
-            }
-        };
-
-        self.add_typed_struct(struct_typ, sname_id, &opens, fields, loc)?;
+        let (id, struct_typ, opens) = self.add_user_type(name)?;
+        self.add_typed_struct(struct_typ, id, &opens, fields, loc)?;
         Ok(())
     }
 
@@ -589,67 +536,12 @@ impl ProtoModule
                 name,
             ));
         }
-
-        let m = &self.key.name;
-        let union_typ: Type;
-        let opens: GenericTypes;
-
-        let sname_id = match *name.node {
-            Ast::Id(name_id) => {
-                union_typ = Type::User(TypeMod::from(m), name_id);
-                opens = vec![];
-                name_id
-            }
-            Ast::Generic(gen_id, gen_args) => {
-                let mut opens1 = Vec::with_capacity(gen_args.len());
-                let mut gen_arg_vars = Vec::with_capacity(gen_args.len());
-                for a in gen_args.iter() {
-                    let var = if let Some(var) = a.k {
-                        var
-                    } else if let Ast::Id(var) = *a.v.node {
-                        var
-                    } else {
-                        return Err(rustfail!(
-                            PROTOFAIL,
-                            "generic union arguments must have string key: {:?}",
-                            a,
-                        ));
-                    };
-                    opens1.push(StrupleItem::new(var, Type::Unknown));
-                    gen_arg_vars
-                        .push(StrupleItem::new(var, Type::OpenVar(var)));
-                }
-                opens = opens1;
-
-                if let Ast::Id(name_id) = *gen_id.node {
-                    let itmod = TypeMod::from(m);
-                    let inner = Type::User(itmod, name_id);
-                    union_typ =
-                        Type::Generic(true, Box::new(inner), gen_arg_vars);
-                    name_id
-                } else {
-                    return Err(rustfail!(
-                        PROTOFAIL,
-                        "invalid generic struct name: {:?}",
-                        gen_id,
-                    ));
-                }
-            }
-            _ => {
-                return Err(rustfail!(
-                    "compile_failure",
-                    "unsupported datatype id: {:?}",
-                    name,
-                ));
-            }
-        };
-        ltry!(self.refute_redefines_default(sname_id, loc));
+        let (sname_id, union_typ, opens) = self.add_user_type(name)?;
 
         let typ_val = Val::Type(union_typ.clone());
         let typ_ast = AstNode::new_constval(typ_val.clone(), loc);
         self.exported_vals
             .push(StrupleItem::new(Some(sname_id), typ_ast));
-        self.types.insert(sname_id, union_typ.clone());
 
         for var in variants.into_iter() {
             let var_name = var.k.unwrap();
@@ -673,6 +565,7 @@ impl ProtoModule
                 ));
             }
         }
+        self.types.insert(sname_id, union_typ);
 
         Ok(())
     }
@@ -683,34 +576,8 @@ impl ProtoModule
         _funcs: Vec<AstNode>,
     ) -> Lresult<()>
     {
-        let itmod = TypeMod::from(&self.key.name);
-        let ityp: Type;
-        let name_id = match &*name.node {
-            Ast::Id(iname) => {
-                ityp = Type::User(itmod, iname);
-                iname
-            }
-            Ast::Generic(name, _) => {
-                if let Ast::Id(iname) = &*name.node {
-                    ityp = Type::User(itmod, iname);
-                    iname
-                } else {
-                    return Err(rustfail!(
-                        "compile_failure",
-                        "expected generic interface name, found {:?}",
-                        name,
-                    ));
-                }
-            }
-            _ => {
-                return Err(rustfail!(
-                    "compile_failure",
-                    "expected interface name, found {:?}",
-                    name,
-                ));
-            }
-        };
-        self.types.insert(name_id, ityp);
+        let (id, ityp, _opens) = self.add_user_type(name)?;
+        self.types.insert(id, ityp.clone());
         Ok(())
     }
 
@@ -732,6 +599,67 @@ impl ProtoModule
             self.exports.insert(ModAlias(k), v);
         }
         Ok(())
+    }
+
+    fn add_user_type(
+        &mut self,
+        name: AstNode,
+    ) -> Lresult<(&'static str, Type, GenericTypes)>
+    {
+        let m = &self.key.name;
+        let utyp: Type;
+        let opens: GenericTypes;
+
+        let id = match *name.node {
+            Ast::Id(name_id) => {
+                utyp = Type::User(TypeMod::from(m), name_id);
+                opens = vec![];
+                name_id
+            }
+            Ast::Generic(gen_id, gen_args) => {
+                let mut opens1 = Vec::with_capacity(gen_args.len());
+                let mut gen_arg_vars = Vec::with_capacity(gen_args.len());
+                for a in gen_args.iter() {
+                    let var = if let Some(var) = a.k {
+                        var
+                    } else if let Ast::Id(var) = *a.v.node {
+                        var
+                    } else {
+                        return Err(rustfail!(
+                            PROTOFAIL,
+                            "generic arguments must have string key: {:?}",
+                            a,
+                        ));
+                    };
+                    opens1.push(StrupleItem::new(var, Type::Unknown));
+                    gen_arg_vars
+                        .push(StrupleItem::new(var, Type::OpenVar(var)));
+                }
+                opens = opens1;
+
+                if let Ast::Id(name_id) = *gen_id.node {
+                    let itmod = TypeMod::from(m);
+                    let inner = Type::User(itmod, name_id);
+                    utyp = Type::Generic(true, Box::new(inner), gen_arg_vars);
+                    name_id
+                } else {
+                    return Err(rustfail!(
+                        PROTOFAIL,
+                        "invalid generic type name: {:?}",
+                        gen_id,
+                    ));
+                }
+            }
+            _ => {
+                return Err(rustfail!(
+                    "compile_failure",
+                    "unsupported datatype id: {:?}",
+                    name,
+                ));
+            }
+        };
+        ltry!(self.refute_redefines_default(id, name.loc));
+        Ok((id, utyp, opens))
     }
 
     pub fn type_modules(&self) -> Lresult<Vec<ProtoModule>>
@@ -1289,7 +1217,7 @@ mod tests
         let expected = Type::Generic(
             true,
             Box::new(user_type!("/foo", "Point")),
-            vec![StrupleItem::new("T", Type::Unknown)],
+            vec![StrupleItem::new("T", Type::OpenVar("T"))],
         );
         assert_eq!(expected, *point_type);
     }
