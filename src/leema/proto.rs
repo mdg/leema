@@ -553,11 +553,49 @@ impl ProtoModule
     fn add_interface(
         &mut self,
         name: AstNode,
-        _funcs: Vec<AstNode>,
+        funcs: Vec<AstNode>,
     ) -> Lresult<()>
     {
-        let (id, ityp, _opens) = self.make_user_type(name)?;
-        self.types.insert(id, ityp.clone());
+        let (id, ityp, opens) = self.make_user_type(name)?;
+        let mut fields = Vec::with_capacity(funcs.len());
+        for df in funcs {
+            if let Ast::DefFunc(fname, args, result, body) = *df.node {
+                let f_id = if let Ast::Id(fid) = &*fname.node {
+                    fid
+                } else {
+                    return Err(rustfail!(
+                        "compile_failure",
+                        "unsupported func name: {:?}",
+                        fname,
+                    ));
+                };
+                let ft =
+                    self.ast_to_ftype(&self.key.name, &args, &result, &opens)?;
+                let mut ftyp = Type::Func(ft);
+                if !opens.is_empty() {
+                    ftyp = Type::Generic(true, Box::new(ftyp), opens.clone());
+                };
+                fields.push(StrupleItem::new(Some(Lstr::from(*f_id)), ftyp));
+
+                if Ast::InterfaceBlock == *body.node {
+                    // no code to add
+                } else {
+                    eprintln!(
+                        "need default interface function: {}.{}",
+                        id, f_id
+                    );
+                }
+            } else {
+                return Err(Failure::static_leema(
+                    failure::Mode::ParseFailure,
+                    lstrf!("expected func definition, found: {:?}", df),
+                    self.key.name.0.clone(),
+                    df.loc.lineno,
+                ));
+            }
+        }
+        self.struct_fields.push((id, ityp.clone(), fields));
+        self.types.insert(id, ityp);
         Ok(())
     }
 
