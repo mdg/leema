@@ -303,68 +303,15 @@ impl ProtoModule
         body: AstNode,
     ) -> Lresult<()>
     {
-        let m = &self.key.name;
-        let opens: GenericTypes;
-        let type_maker: Box<dyn Fn(FuncType) -> Type>;
+        let loc = name.loc;
+        let (name_id, ft, ftyp) =
+            self.make_func_type(name, &args, result, vec![])?;
 
-        let name_id = match *name.node {
-            Ast::Id(name_id) => {
-                ltry!(self.refute_redefines_default(name_id, name.loc));
-                opens = vec![];
-                type_maker = Box::new(|ft| Type::Func(ft));
-                name_id
-            }
-            Ast::Generic(gen, gen_args) => {
-                let open_result: Lresult<GenericTypes> = gen_args
-                    .iter()
-                    .map(|a| {
-                        let var = if let Some(v) = a.k {
-                            v
-                        } else if let Ast::Id(v) = *a.v.node {
-                            v
-                        } else {
-                            return Err(rustfail!(
-                                "compile_failure",
-                                "unexpected generic argument: {:?}",
-                                a,
-                            ));
-                        };
-                        Ok(StrupleItem::new(var, Type::OpenVar(var)))
-                    })
-                    .collect();
-                opens = open_result?;
-
-                type_maker = Box::new(|ft| {
-                    Type::Generic(true, Box::new(Type::Func(ft)), opens.clone())
-                });
-
-                if let Ast::Id(name_id) = *gen.node {
-                    ltry!(self.refute_redefines_default(name_id, name.loc));
-                    name_id
-                } else {
-                    return Err(rustfail!(
-                        PROTOFAIL,
-                        "invalid generic func name: {:?}",
-                        gen,
-                    ));
-                }
-            }
-            invalid_name => {
-                return Err(rustfail!(
-                    PROTOFAIL,
-                    "unsupported func name: {:?}",
-                    invalid_name,
-                ));
-            }
-        };
-
-        let ftyp = self.ast_to_ftype(m, &args, &result, &opens)?;
-        let call_args = ftyp.call_args();
-        let typ = type_maker(ftyp);
-        let fref = Fref::new(self.key.clone(), name_id, typ.clone());
+        let call_args = ft.call_args();
+        let fref = Fref::new(self.key.clone(), name_id, ftyp.clone());
         let call = Val::Call(fref, call_args);
-        let mut fref_ast = AstNode::new_constval(call, name.loc);
-        fref_ast.typ = typ;
+        let mut fref_ast = AstNode::new_constval(call, loc);
+        fref_ast.typ = ftyp;
 
         self.funcseq.push(name_id);
         self.funcsrc.insert(name_id, (args, body));
@@ -560,22 +507,9 @@ impl ProtoModule
         let mut fields = Vec::with_capacity(funcs.len());
         for df in funcs {
             if let Ast::DefFunc(fname, args, result, body) = *df.node {
-                let f_id = if let Ast::Id(fid) = &*fname.node {
-                    fid
-                } else {
-                    return Err(rustfail!(
-                        "compile_failure",
-                        "unsupported func name: {:?}",
-                        fname,
-                    ));
-                };
-                let ft =
-                    self.ast_to_ftype(&self.key.name, &args, &result, &opens)?;
-                let mut ftyp = Type::Func(ft);
-                if !opens.is_empty() {
-                    ftyp = Type::Generic(true, Box::new(ftyp), opens.clone());
-                };
-                fields.push(StrupleItem::new(Some(Lstr::from(*f_id)), ftyp));
+                let (f_id, _ft, ftyp) =
+                    self.make_func_type(fname, &args, result, opens.clone())?;
+                fields.push(StrupleItem::new(Some(Lstr::from(f_id)), ftyp));
 
                 if Ast::InterfaceBlock == *body.node {
                     // no code to add
@@ -617,6 +551,72 @@ impl ProtoModule
             self.exports.insert(ModAlias(k), v);
         }
         Ok(())
+    }
+
+    fn make_func_type(
+        &mut self,
+        name: AstNode,
+        args: &Xlist,
+        result: AstNode,
+        mut opens: GenericTypes,
+    ) -> Lresult<(&'static str, FuncType, Type)>
+    {
+        let loc = name.loc;
+        let type_maker: Box<dyn Fn(FuncType) -> Type>;
+
+        let id = match *name.node {
+            Ast::Id(name_id) => {
+                opens = vec![];
+                type_maker = Box::new(|ft| Type::Func(ft));
+                name_id
+            }
+            Ast::Generic(gen, gen_args) => {
+                let open_result: Lresult<GenericTypes> = gen_args
+                    .iter()
+                    .map(|a| {
+                        let var = if let Some(v) = a.k {
+                            v
+                        } else if let Ast::Id(v) = *a.v.node {
+                            v
+                        } else {
+                            return Err(rustfail!(
+                                "compile_failure",
+                                "unexpected generic argument: {:?}",
+                                a,
+                            ));
+                        };
+                        Ok(StrupleItem::new(var, Type::OpenVar(var)))
+                    })
+                    .collect();
+                opens.append(&mut open_result?);
+
+                type_maker = Box::new(|ft| {
+                    Type::Generic(true, Box::new(Type::Func(ft)), opens.clone())
+                });
+
+                if let Ast::Id(name_id) = *gen.node {
+                    name_id
+                } else {
+                    return Err(rustfail!(
+                        PROTOFAIL,
+                        "invalid generic func name: {:?}",
+                        gen,
+                    ));
+                }
+            }
+            invalid_name => {
+                return Err(rustfail!(
+                    PROTOFAIL,
+                    "unsupported func name: {:?}",
+                    invalid_name,
+                ));
+            }
+        };
+
+        ltry!(self.refute_redefines_default(id, loc));
+        let ft = self.ast_to_ftype(&self.key.name, &args, &result, &opens)?;
+        let ftyp = type_maker(ft.clone());
+        Ok((id, ft, ftyp))
     }
 
     fn make_user_type(
