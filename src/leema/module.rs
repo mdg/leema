@@ -11,6 +11,23 @@ use std::path::{Component, Path, PathBuf};
 const DEFAULT_MODNAME: &'static str = "$";
 pub const DEFAULT_MOD: CanonicalMod = CanonicalMod(Lstr::Sref("$"));
 
+#[derive(Clone)]
+#[derive(Copy)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(Eq)]
+#[derive(Hash)]
+#[derive(PartialOrd)]
+#[derive(Ord)]
+pub enum SubModTyp
+{
+    Type,
+    Interface,
+    InterfaceImpl,
+    Protocol,
+    ProtocolImpl,
+}
+
 #[derive(Debug)]
 #[derive(Clone)]
 #[derive(PartialEq)]
@@ -22,6 +39,7 @@ pub struct ModKey
 {
     pub name: CanonicalMod,
     pub file: Option<Box<Path>>,
+    pub submod: Option<SubModTyp>,
 }
 
 impl ModKey
@@ -31,6 +49,7 @@ impl ModKey
         ModKey {
             name,
             file: Some(From::from(path)),
+            submod: None,
         }
     }
 
@@ -48,13 +67,26 @@ impl ModKey
                 self.name.0.clone()
             })
     }
+
+    pub fn submod(&self, smt: SubModTyp, name: &'static str) -> ModKey
+    {
+        ModKey {
+            name: CanonicalMod(lstrf!("{}.{}", self.name, name)),
+            file: self.file.clone(),
+            submod: Some(smt),
+        }
+    }
 }
 
 impl From<CanonicalMod> for ModKey
 {
     fn from(name: CanonicalMod) -> ModKey
     {
-        ModKey { name, file: None }
+        ModKey {
+            name,
+            file: None,
+            submod: None,
+        }
     }
 }
 
@@ -65,6 +97,7 @@ impl From<&'static str> for ModKey
         ModKey {
             name: CanonicalMod(Lstr::Sref(mod_str)),
             file: None,
+            submod: None,
         }
     }
 }
@@ -76,6 +109,7 @@ impl Default for ModKey
         ModKey {
             name: DEFAULT_MOD,
             file: None,
+            submod: None,
         }
     }
 }
@@ -99,8 +133,9 @@ impl sendclone::SendClone for ModKey
     fn clone_for_send(&self) -> ModKey
     {
         ModKey {
-            name: self.name.clone(),
+            name: CanonicalMod(self.name.0.clone_for_send()),
             file: self.file.clone(),
+            submod: self.submod.clone(),
         }
     }
 }

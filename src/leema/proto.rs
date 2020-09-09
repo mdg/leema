@@ -5,7 +5,8 @@ use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::{
-    CanonicalMod, ImportedMod, ModAlias, ModKey, ModRelativity, TypeMod,
+    CanonicalMod, ImportedMod, ModAlias, ModKey, ModRelativity, SubModTyp,
+    TypeMod,
 };
 use crate::leema::parser::parse_file;
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
@@ -95,6 +96,7 @@ pub struct ProtoModule
     pub funcsrc: HashMap<&'static str, (Xlist, AstNode)>,
     pub token: HashSet<&'static str>,
     pub struct_fields: Vec<(&'static str, Type, Struple2<Type>)>,
+    submods: HashMap<&'static str, ProtoModule>,
 }
 
 impl ProtoModule
@@ -102,6 +104,16 @@ impl ProtoModule
     pub fn new(key: ModKey, src: &'static str) -> Lresult<ProtoModule>
     {
         let items = parse_file(src)?;
+        Self::with_ast(key, items)
+    }
+
+    pub fn interface(key: ModKey, items: Vec<AstNode>) -> Lresult<ProtoModule>
+    {
+        Self::with_ast(key, items)
+    }
+
+    fn with_ast(key: ModKey, items: Vec<AstNode>) -> Lresult<ProtoModule>
+    {
         let modname = key.name.clone();
 
         let mut proto = ProtoModule {
@@ -118,6 +130,7 @@ impl ProtoModule
             funcsrc: HashMap::new(),
             token: HashSet::new(),
             struct_fields: vec![],
+            submods: HashMap::new(),
         };
 
         let mut exports = HashMap::new();
@@ -503,32 +516,10 @@ impl ProtoModule
         funcs: Vec<AstNode>,
     ) -> Lresult<()>
     {
-        let (id, ityp, opens) = self.make_user_type(name)?;
-        let mut fields = Vec::with_capacity(funcs.len());
-        for df in funcs {
-            if let Ast::DefFunc(fname, args, result, body) = *df.node {
-                let (f_id, _ft, ftyp) =
-                    self.make_func_type(fname, &args, result, opens.clone())?;
-                fields.push(StrupleItem::new(Some(Lstr::from(f_id)), ftyp));
-
-                if Ast::InterfaceBlock == *body.node {
-                    // no code to add
-                } else {
-                    eprintln!(
-                        "need default interface function: {}.{}",
-                        id, f_id
-                    );
-                }
-            } else {
-                return Err(Failure::static_leema(
-                    failure::Mode::ParseFailure,
-                    lstrf!("expected func definition, found: {:?}", df),
-                    self.key.name.0.clone(),
-                    df.loc.lineno,
-                ));
-            }
-        }
-        self.struct_fields.push((id, ityp.clone(), fields));
+        let (id, ityp, _opens) = self.make_user_type(name)?;
+        let subkey = self.key.submod(SubModTyp::Interface, id);
+        self.submods
+            .insert(id, ProtoModule::with_ast(subkey, funcs)?);
         self.types.insert(id, ityp);
         Ok(())
     }
