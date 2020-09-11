@@ -538,6 +538,25 @@ impl LeemaPrec
                     block.map(|f| self.primary(Mode::Value, f)).collect();
                 Ok(AstNode::new(Ast::DefInterface(id, funcs?), loc))
             }
+            Rule::def_impl => {
+                let mut inner = n.into_inner();
+                let t0 = self.primary(Mode::Type, inner.next().unwrap())?;
+                let i1 = inner.next().unwrap();
+                let (t1, i2) = if let Some(i2) = inner.next() {
+                    // interface impl, use i1 as the real type
+                    // and i2 as the block
+                    (Some(self.primary(Mode::Type, i1)?), i2)
+                } else {
+                    // standard impl
+                    // no i2, so use i1 as the block
+                    (None, i1)
+                };
+
+                let block = i2.into_inner();
+                let funcs: Lresult<Vec<AstNode>> =
+                    block.map(|f| self.primary(Mode::Value, f)).collect();
+                Ok(AstNode::new(Ast::DefImpl(t0, t1, funcs?), loc))
+            }
             Rule::def_rust_type => {
                 let mut inner = n.into_inner();
                 let id = self.primary(Mode::Type, inner.next().unwrap())?;

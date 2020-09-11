@@ -749,6 +749,7 @@ impl Registration
             // these shouldn't be here
             Ast::DefConst(_, _)
             | Ast::DefFunc(_, _, _, _)
+            | Ast::DefImpl(_, _, _)
             | Ast::DefInterface(_, _)
             | Ast::DefMacro(_, _, _)
             | Ast::DefType(_, _, _)

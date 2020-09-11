@@ -230,6 +230,7 @@ pub enum Ast
     CopyAndSet(AstNode, Xlist),
     DefConst(&'static str, AstNode),
     DefFunc(AstNode, Xlist, AstNode, AstNode),
+    DefImpl(AstNode, Option<AstNode>, Vec<AstNode>),
     DefInterface(AstNode, Vec<AstNode>),
     DefMacro(&'static str, Vec<&'static str>, AstNode),
     DefType(DataType, AstNode, Xlist),
@@ -294,6 +295,9 @@ impl Ast
                     "DefFunc {:?} {:?} / {:?} {:?}",
                     name, args, result, body
                 )
+            }
+            Ast::DefImpl(typ, iface, funcs) => {
+                write!(f, "DefImpl {:?} {:?} {:?}", typ, iface, funcs)
             }
             Ast::DefInterface(name, funcs) => {
                 write!(f, "DefInterface {:?} {:?}", name, funcs)
@@ -731,6 +735,14 @@ impl Walker
                     "macro definition must already be processed: {} @ {:?}",
                     name,
                     node.loc,
+                ));
+            }
+            Ast::DefImpl(name, iface, _) => {
+                return Err(rustfail!(
+                    "compile_failure",
+                    "impl definition must already be processed: {:?} as {:?}",
+                    name,
+                    iface,
                 ));
             }
             Ast::DefInterface(name, _) => {

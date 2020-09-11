@@ -18,25 +18,27 @@ datatype Rectangle ::
     width:Int
 --
 
-impl Shape for Circle ::
+impl Circle as Shape ::
     func area:Int :: self ->
         self.radius * self.radius * 3
     --
 --
 
-impl Shape for Square ::
+impl Square as Shape ::
     func area:Int :: self ->
         self.length * self.length
     --
 --
 
-impl Shape for Rectangle ::
+impl Rectangle as Shape ::
     func area:Int :: self ->
         self.length * self.width
     --
 --
 
 func main ->
-    let r := Circle(2)
+    let c := Circle(2)
+    let s := Square(3)
+    let r := Rectangle(4, 5)
     io.print("hello\n")
 --
