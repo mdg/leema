@@ -1,0 +1,42 @@
+
+import /io
+
+interface Shape ::
+    func area:Int :: Self --
+--
+
+datatype Circle ::
+    radius: Int
+--
+
+datatype Square ::
+    length:Int
+--
+
+datatype Rectangle ::
+    length:Int
+    width:Int
+--
+
+impl Shape for Circle ::
+    func area:Int :: self ->
+        self.radius * self.radius * 3
+    --
+--
+
+impl Shape for Square ::
+    func area:Int :: self ->
+        self.length * self.length
+    --
+--
+
+impl Shape for Rectangle ::
+    func area:Int :: self ->
+        self.length * self.width
+    --
+--
+
+func main ->
+    let r := Circle(2)
+    io.print("hello\n")
+--
