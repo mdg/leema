@@ -21,7 +21,7 @@ pub const DEFAULT_MOD: CanonicalMod = CanonicalMod(Lstr::Sref("$"));
 #[derive(Ord)]
 pub enum SubModTyp
 {
-    Type,
+    Datatype,
     Interface,
     InterfaceImpl,
     Protocol,

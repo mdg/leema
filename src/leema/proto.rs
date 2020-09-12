@@ -256,6 +256,12 @@ impl ProtoModule
             Ast::DefInterface(name, funcs) => {
                 ltry!(self.add_interface(name, funcs));
             }
+            Ast::DefImpl(typ, None, funcs) => {
+                ltry!(self.impl_datatype(typ, funcs));
+            }
+            Ast::DefImpl(typ, Some(iface), funcs) => {
+                ltry!(self.impl_interface(typ, iface, funcs));
+            }
             Ast::DefType(DataType::Union, name, variants) => {
                 self.add_union(name, variants)?;
             }
@@ -521,6 +527,25 @@ impl ProtoModule
         self.submods
             .insert(id, ProtoModule::with_ast(subkey, funcs)?);
         self.types.insert(id, ityp);
+        Ok(())
+    }
+
+    fn impl_datatype(
+        &mut self,
+        _typ: AstNode,
+        _funcs: Vec<AstNode>,
+    ) -> Lresult<()>
+    {
+        Ok(())
+    }
+
+    fn impl_interface(
+        &mut self,
+        _typ: AstNode,
+        _iface: AstNode,
+        _funcs: Vec<AstNode>,
+    ) -> Lresult<()>
+    {
         Ok(())
     }
 
