@@ -523,10 +523,23 @@ impl ProtoModule
     ) -> Lresult<()>
     {
         let (id, ityp, _opens) = self.make_user_type(name)?;
+        self.types.insert(id, ityp);
         let subkey = self.key.submod(SubModTyp::Interface, id);
+        self.add_submod(id, subkey, funcs)
+    }
+
+    fn add_submod(
+        &mut self,
+        id: &'static str,
+        subkey: ModKey,
+        funcs: Vec<AstNode>,
+    ) -> Lresult<()>
+    {
+        let iface_imod = ImportedMod::from(subkey.name.0.str());
+        self.id_canonicals.insert(id, subkey.name.clone());
+        self.exports.insert(ModAlias(id), iface_imod);
         self.submods
             .insert(id, ProtoModule::with_ast(subkey, funcs)?);
-        self.types.insert(id, ityp);
         Ok(())
     }
 
@@ -1038,8 +1051,12 @@ impl ProtoLib
 
         let modkey = ltry!(loader.new_key(modpath));
         let modtxt = ltry!(loader.read_mod(&modkey));
-        let proto = ltry!(ProtoModule::new(modkey.clone(), modtxt)
+        let mut proto = ltry!(ProtoModule::new(modkey.clone(), modtxt)
             .map_err(|e| { e.lstr_loc(modkey.best_path(), 0) }));
+        for sub in proto.submods.drain() {
+            let submodname = sub.1.key.name.clone();
+            self.put_module(submodname.as_path(), sub.1)?;
+        }
         self.put_module(modpath, proto)?;
         Ok(())
     }
@@ -1142,7 +1159,7 @@ impl ProtoLib
             .ok_or_else(|| {
                 rustfail!(
                     "compile_error",
-                    "module element not found {}.{}",
+                    "module element not found {} {}",
                     modname,
                     elem,
                 )

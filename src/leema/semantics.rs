@@ -1169,7 +1169,11 @@ impl<'p> ast2::Op for TypeCheck<'p>
                                     None => {
                                         return Err(Failure::static_leema(
                                             failure::Mode::CompileFailure,
-                                            lstrf!("type has no field: {}", f),
+                                            lstrf!(
+                                                "type has no field: {}.{}",
+                                                tname,
+                                                f,
+                                            ),
                                             self.local_mod.key.name.0.clone(),
                                             node.loc.lineno,
                                         ));
@@ -1179,7 +1183,10 @@ impl<'p> ast2::Op for TypeCheck<'p>
                             _ => {
                                 return Err(Failure::static_leema(
                                     failure::Mode::CompileFailure,
-                                    lstrf!("type has no fields: {}", a.typ),
+                                    lstrf!(
+                                        "builtin type has no fields: {}",
+                                        a.typ
+                                    ),
                                     self.local_mod.key.name.0.clone(),
                                     node.loc.lineno,
                                 ));
