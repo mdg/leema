@@ -5,8 +5,7 @@ use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::{
-    CanonicalMod, ImportedMod, ModAlias, ModKey, ModRelativity, SubModTyp,
-    TypeMod,
+    CanonicalMod, ImportedMod, ModAlias, ModKey, ModRelativity, ModTyp, TypeMod,
 };
 use crate::leema::parser::parse_file;
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
@@ -524,7 +523,7 @@ impl ProtoModule
     {
         let (id, ityp, _opens) = self.make_user_type(name)?;
         self.types.insert(id, ityp);
-        let subkey = self.key.submod(SubModTyp::Interface, id);
+        let subkey = self.key.submod(ModTyp::Interface, id);
         self.add_submod(id, subkey, funcs)
     }
 

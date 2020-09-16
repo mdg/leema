@@ -19,9 +19,13 @@ pub const DEFAULT_MOD: CanonicalMod = CanonicalMod(Lstr::Sref("$"));
 #[derive(Hash)]
 #[derive(PartialOrd)]
 #[derive(Ord)]
-pub enum SubModTyp
+pub enum ModTyp
 {
-    Datatype,
+    File,
+    Token,
+    Struct,
+    Variant,
+    Function,
     Interface,
     InterfaceImpl,
     Protocol,
@@ -39,7 +43,7 @@ pub struct ModKey
 {
     pub name: CanonicalMod,
     pub file: Option<Box<Path>>,
-    pub submod: Option<SubModTyp>,
+    pub mtyp: ModTyp,
 }
 
 impl ModKey
@@ -49,7 +53,7 @@ impl ModKey
         ModKey {
             name,
             file: Some(From::from(path)),
-            submod: None,
+            mtyp: ModTyp::File,
         }
     }
 
@@ -68,12 +72,12 @@ impl ModKey
             })
     }
 
-    pub fn submod(&self, smt: SubModTyp, name: &'static str) -> ModKey
+    pub fn submod(&self, mt: ModTyp, name: &'static str) -> ModKey
     {
         ModKey {
             name: CanonicalMod(lstrf!("{}.{}", self.name, name)),
             file: self.file.clone(),
-            submod: Some(smt),
+            mtyp: mt,
         }
     }
 }
@@ -85,7 +89,7 @@ impl From<CanonicalMod> for ModKey
         ModKey {
             name,
             file: None,
-            submod: None,
+            mtyp: ModTyp::File,
         }
     }
 }
@@ -97,7 +101,7 @@ impl From<&'static str> for ModKey
         ModKey {
             name: CanonicalMod(Lstr::Sref(mod_str)),
             file: None,
-            submod: None,
+            mtyp: ModTyp::File,
         }
     }
 }
@@ -109,7 +113,7 @@ impl Default for ModKey
         ModKey {
             name: DEFAULT_MOD,
             file: None,
-            submod: None,
+            mtyp: ModTyp::File,
         }
     }
 }
@@ -135,7 +139,7 @@ impl sendclone::SendClone for ModKey
         ModKey {
             name: CanonicalMod(self.name.0.clone_for_send()),
             file: self.file.clone(),
-            submod: self.submod.clone(),
+            mtyp: self.mtyp.clone(),
         }
     }
 }
