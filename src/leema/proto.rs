@@ -535,7 +535,7 @@ impl ProtoModule
     ) -> Lresult<()>
     {
         let iface_imod = ImportedMod::from(subkey.name.0.str());
-        self.id_canonicals.insert(id, subkey.name.clone());
+        self.imports.insert(id, subkey.name.clone());
         self.exports.insert(ModAlias(id), iface_imod);
         self.submods
             .insert(id, ProtoModule::with_ast(subkey, funcs)?);
@@ -544,7 +544,7 @@ impl ProtoModule
 
     fn impl_datatype(
         &mut self,
-        _typ: AstNode,
+        _datatype: AstNode,
         _funcs: Vec<AstNode>,
     ) -> Lresult<()>
     {
@@ -757,9 +757,9 @@ impl ProtoModule
     pub fn find_modelem<'a, 'b>(&'a self, name: &'b str)
         -> Option<&'a AstNode>
     {
-        struple::find_str(&self.exported_vals, &name)
+        struple::find_str(&self.imported_vals, &name)
             .or_else(|| struple::find_str(&self.local_vals, &name))
-            .or_else(|| struple::find_str(&self.imported_vals, &name))
+            .or_else(|| struple::find_str(&self.exported_vals, &name))
             .map(|item| item.1)
     }
 
@@ -1119,7 +1119,7 @@ impl ProtoLib
                 imports.push(StrupleItem::new(Some(i), modval.clone()));
             }
             for (i, v) in proto.id_canonicals.iter().chain(DEFAULT_IDS.iter()) {
-                let model = self.export_as_val(v, i)?;
+                let model = ltry!(self.export_as_val(v, i));
                 imports.push(StrupleItem::new(Some(i), model.clone()));
             }
         }

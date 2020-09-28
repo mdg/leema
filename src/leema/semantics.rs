@@ -1098,22 +1098,18 @@ impl<'p> ast2::Op for TypeCheck<'p>
                         node.typ = call_result;
                     }
                 } else {
-                    if callx.typ.is_user() {
-                        let copy_typ = callx.typ.clone();
-                        let base = mem::take(callx);
-                        let args_copy = mem::take(args);
-                        node.replace(
-                            Ast::CopyAndSet(base, args_copy),
-                            copy_typ,
-                        );
-                        return Ok(AstStep::Rewrite);
-                    } else {
+                    if !callx.typ.is_user() {
                         return Err(rustfail!(
                             SEMFAIL,
                             "unexpected call expression: {:?}",
                             callx,
                         ));
                     }
+                    let copy_typ = callx.typ.clone();
+                    let base = mem::take(callx);
+                    let args_copy = mem::take(args);
+                    node.replace(Ast::CopyAndSet(base, args_copy), copy_typ);
+                    return Ok(AstStep::Rewrite);
                 }
             }
             Ast::Op2(".", a, b) => {
@@ -1170,7 +1166,8 @@ impl<'p> ast2::Op for TypeCheck<'p>
                                         return Err(Failure::static_leema(
                                             failure::Mode::CompileFailure,
                                             lstrf!(
-                                                "type has no field: {}.{}",
+                                                "type has no field: {}.{}.{}",
+                                                tmod,
                                                 tname,
                                                 f,
                                             ),
