@@ -1,11 +1,11 @@
-use crate::leema::module::TypeMod;
+use crate::leema::module::CanonicalMod;
 use crate::leema::struple::StrupleItem;
 use crate::leema::val::{Type, Val};
 
 use std::sync::Arc;
 
 
-const MODULE: TypeMod = canonical_typemod!("/map");
+const MODULE: CanonicalMod = canonical_typemod!("/map");
 const INNER_MAP_TYPE: Type = Type::User(MODULE, "T");
 
 pub fn map_type() -> Type

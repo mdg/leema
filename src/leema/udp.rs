@@ -1,6 +1,6 @@
 use crate::leema::code::Code;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::TypeMod;
+use crate::leema::module::CanonicalMod;
 use crate::leema::rsrc::{self, Rsrc};
 use crate::leema::val::{Type, Val};
 
@@ -11,7 +11,7 @@ use futures::{Async, Future, Poll};
 use tokio::net::UdpSocket;
 
 
-const MODULE: TypeMod = canonical_typemod!("/udp");
+const MODULE: CanonicalMod = canonical_typemod!("/udp");
 const SOCKET_TYPE: Type = Type::User(MODULE, "Socket");
 
 impl Rsrc for UdpSocket

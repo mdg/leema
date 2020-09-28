@@ -3,7 +3,7 @@ use crate::leema::frame::FrameTrace;
 use crate::leema::list;
 use crate::leema::lmap::{self, LmapNode};
 use crate::leema::lstr::Lstr;
-use crate::leema::module::{CanonicalMod, ModKey, TypeMod};
+use crate::leema::module::{CanonicalMod, ModKey};
 use crate::leema::msg;
 use crate::leema::reg::{self, Ireg, Iregistry, Reg};
 use crate::leema::sendclone;
@@ -18,7 +18,7 @@ use std::sync::{Arc, Mutex};
 use mopa::mopafy;
 
 
-pub const CORE_MOD: TypeMod = canonical_typemod!("/core");
+pub const CORE_MOD: CanonicalMod = canonical_typemod!("/core");
 
 #[derive(Debug)]
 #[derive(Clone)]
@@ -119,7 +119,7 @@ pub enum Type
 {
     Tuple(Struple2<Type>),
     Func(FuncType),
-    User(TypeMod, &'static str),
+    User(CanonicalMod, &'static str),
     Variant(Box<Type>, &'static str),
     /// bool is open
     /// TODO: convert open flag to an enum
@@ -249,9 +249,7 @@ impl Type
     pub fn is_failure(&self) -> bool
     {
         match self {
-            &Type::User(ref module, "Failure") => {
-                module.canonical.str() == "/core"
-            }
+            &Type::User(ref module, "Failure") => module.0.as_str() == "/core",
             _ => false,
         }
     }

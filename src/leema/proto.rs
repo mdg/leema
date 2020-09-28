@@ -5,7 +5,7 @@ use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::{
-    CanonicalMod, ImportedMod, ModAlias, ModKey, ModRelativity, ModTyp, TypeMod,
+    CanonicalMod, ImportedMod, ModAlias, ModKey, ModRelativity, ModTyp,
 };
 use crate::leema::parser::parse_file;
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
@@ -429,7 +429,7 @@ impl ProtoModule
         match *name.node {
             Ast::Id(name_id) => {
                 ltry!(self.refute_redefines_default(name_id, name.loc));
-                let tok_mod = TypeMod::from(&self.key.name);
+                let tok_mod = self.key.name.clone();
                 let t = Type::User(tok_mod, name_id);
                 let token_val = Val::Token(t.clone());
                 let const_node =
@@ -658,6 +658,70 @@ impl ProtoModule
 
         let id = match *name.node {
             Ast::Id(name_id) => {
+                utyp = Type::User(self.key.name.clone(), name_id);
+                opens = vec![];
+                name_id
+            }
+            Ast::Generic(gen_id, gen_args) => {
+                let mut opens1 = Vec::with_capacity(gen_args.len());
+                let mut gen_arg_vars = Vec::with_capacity(gen_args.len());
+                for a in gen_args.iter() {
+                    let var = if let Some(var) = a.k {
+                        var
+                    } else if let Ast::Id(var) = *a.v.node {
+                        var
+                    } else {
+                        return Err(rustfail!(
+                            PROTOFAIL,
+                            "generic arguments must have string key: {:?}",
+                            a,
+                        ));
+                    };
+                    opens1.push(StrupleItem::new(var, Type::Unknown));
+                    gen_arg_vars
+                        .push(StrupleItem::new(var, Type::OpenVar(var)));
+                }
+                opens = opens1;
+
+                if let Ast::Id(name_id) = *gen_id.node {
+                    if opens.is_empty() {
+                        return Err(Failure::static_leema(
+                            failure::Mode::TypeFailure,
+                            lstrf!(
+                                "generic must have at least one argument: {}",
+                                name_id,
+                            ),
+                            m.0.clone(),
+                            name.loc.lineno,
+                        ));
+                    }
+
+                    let inner = Type::User(m.clone(), name_id);
+                    utyp = Type::Generic(true, Box::new(inner), gen_arg_vars);
+                    name_id
+                } else {
+                    return Err(rustfail!(
+                        PROTOFAIL,
+                        "invalid generic type name: {:?}",
+                        gen_id,
+                    ));
+                }
+            }
+            _ => {
+                return Err(rustfail!(
+                    "compile_failure",
+                    "unsupported datatype id: {:?}",
+                    name,
+                ));
+            }
+        };
+        ltry!(self.refute_redefines_default(id, name.loc));
+        Ok((id, utyp, opens))
+    }
+
+    /*
+        let id = match *name.node {
+            Ast::Id(name_id) => {
                 utyp = Type::User(TypeMod::from(m), name_id);
                 opens = vec![];
                 name_id
@@ -719,6 +783,7 @@ impl ProtoModule
         ltry!(self.refute_redefines_default(id, name.loc));
         Ok((id, utyp, opens))
     }
+    */
 
     pub fn type_modules(&self) -> Lresult<Vec<ProtoModule>>
     {
@@ -821,7 +886,7 @@ impl ProtoModule
                     Some(module) => module,
                     None => &self.key.name,
                 };
-                Type::User(TypeMod::from(canonical_mod), id)
+                Type::User(canonical_mod.clone(), id)
             }
             Ast::List(inner_items) if inner_items.len() == 1 => {
                 let inner = &inner_items.first().unwrap().v;

@@ -178,13 +178,6 @@ pub enum ModRelativity
 /// .local_mod
 /// .canonical
 ///
-/// TypeMod
-/// |Alias .str
-/// |Import
-///    .alias
-///    .canonical
-/// |Canonical .str
-///
 /// ModKey
 /// .canonical
 /// .path: str
@@ -523,25 +516,10 @@ impl fmt::Display for CanonicalMod
     }
 }
 
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialOrd)]
-#[derive(Eq)]
-#[derive(Ord)]
-#[derive(Hash)]
-pub struct TypeMod
-{
-    pub import: Lstr,
-    pub canonical: Lstr,
-}
-
 #[macro_export]
 macro_rules! canonical_typemod {
     ($tm:expr) => {
-        crate::leema::module::TypeMod {
-            import: crate::leema::lstr::Lstr::Sref($tm),
-            canonical: crate::leema::lstr::Lstr::Sref($tm),
-        }
+        crate::leema::module::CanonicalMod(crate::leema::lstr::Lstr::Sref($tm))
     };
 }
 
@@ -550,68 +528,6 @@ macro_rules! user_type {
     ($m:expr, $t:expr) => {
         crate::leema::val::Type::User(canonical_typemod!($m), $t)
     };
-}
-
-impl From<&CanonicalMod> for TypeMod
-{
-    fn from(cmod: &CanonicalMod) -> TypeMod
-    {
-        TypeMod {
-            import: cmod.0.clone(),
-            canonical: cmod.0.clone(),
-        }
-    }
-}
-
-impl sendclone::SendClone for TypeMod
-{
-    type Item = TypeMod;
-
-    fn clone_for_send(&self) -> TypeMod
-    {
-        TypeMod {
-            import: self.import.clone_for_send(),
-            canonical: self.canonical.clone_for_send(),
-        }
-    }
-}
-
-/*
-impl From<ModAlias> for TypeMod
-{
-    fn from(alias: ModAlias) -> TypeMod
-    {
-        TypeMod::Alias(alias.0)
-    }
-}
-
-impl From<(ModAlias, &ImportedMod)> for TypeMod
-{
-    fn from(mods: (ModAlias, &ImportedMod)) -> TypeMod
-    {
-        TypeMod {
-            alias: mods.0,
-            imported: mods.1.clone(),
-            canonical: None,
-        }
-    }
-}
-*/
-
-impl PartialEq for TypeMod
-{
-    fn eq(&self, other: &TypeMod) -> bool
-    {
-        self.canonical == other.canonical
-    }
-}
-
-impl fmt::Display for TypeMod
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        f.write_str(self.import.str())
-    }
 }
 
 

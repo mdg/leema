@@ -1,11 +1,11 @@
 use crate::leema::list;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::TypeMod;
+use crate::leema::module::CanonicalMod;
 use crate::leema::struple::StrupleItem;
 use crate::leema::val::{Type, Val};
 
 
-const MODULE: TypeMod = canonical_typemod!("/types");
+const MODULE: CanonicalMod = canonical_typemod!("/types");
 pub const STRUCT_FIELD_TYPE: Type = Type::User(MODULE, "StructFieldVal");
 
 

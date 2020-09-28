@@ -1,7 +1,7 @@
 use crate::leema::code::Code;
 use crate::leema::frame::FrameTrace;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::TypeMod;
+use crate::leema::module::CanonicalMod;
 use crate::leema::rsrc::{self, Rsrc};
 use crate::leema::val::{self, Type, Val};
 
@@ -19,7 +19,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpListener, TcpStream};
 
 
-const MODULE: TypeMod = canonical_typemod!("/tcp");
+const MODULE: CanonicalMod = canonical_typemod!("/tcp");
 const SOCKET_TYPE: Type = Type::User(MODULE, "Socket");
 const LISTENER_TYPE: Type = Type::User(MODULE, "Listener");
 

@@ -4,7 +4,6 @@ use crate::leema::ast2::{
 use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::inter::Blockstack;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::CanonicalMod;
 use crate::leema::proto::{ProtoModule, StructFieldMap};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{
@@ -1151,10 +1150,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                             Type::User(tmod, tname) => {
                                 let (_styp, flds) = self
                                     .fields
-                                    .get(&(
-                                        CanonicalMod(tmod.canonical.clone()),
-                                        *tname,
-                                    ))
+                                    .get(&(tmod.clone(), *tname))
                                     .expect("no struct fields found");
                                 match struple::find_lstr(&flds[..], f) {
                                     Some((fld_idx, _)) => {
