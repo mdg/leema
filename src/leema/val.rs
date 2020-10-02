@@ -1133,7 +1133,11 @@ impl fmt::Debug for Val
             Val::Buffer(ref buf) => write!(f, "Buffer<{:?}>", buf),
             Val::Tuple(ref fields) => write!(f, "Tuple {:?}", fields),
             Val::Struct(ref typ, ref fields) => {
-                write!(f, "struct({}{:?})", typ, fields)
+                if f.alternate() {
+                    write!(f, "struct({}{:#?})", typ, fields)
+                } else {
+                    write!(f, "struct({}{:?})", typ, fields)
+                }
             }
             Val::EnumStruct(ref name, ref var_name, ref val) => {
                 write!(f, "enum({:?}.{}{:?})", name, var_name, val)
@@ -1150,11 +1154,12 @@ impl fmt::Debug for Val
             Val::Type(ref t) => write!(f, "TypeVal({:?})", t),
             Val::Construct(ref t) => write!(f, "Construct({:?})", t),
             Val::Call(ref fref, ref args) => {
-                write!(
-                    f,
-                    "(call {}.{} {:?}: {:?})",
-                    fref.m, fref.f, args, fref.t
-                )
+                write!(f, "(call {}.{}:", fref.m, fref.f)?;
+                if f.alternate() {
+                    write!(f, "{:#?} :: {:#?})", fref.t, args)
+                } else {
+                    write!(f, "{:?} :: {:?})", fref.t, args)
+                }
             }
             Val::Future(_) => write!(f, "Future"),
             Val::PatternVar(ref r) => write!(f, "pvar:{:?}", r),

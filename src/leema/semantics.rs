@@ -1113,7 +1113,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
             }
             Ast::Op2(".", a, b) => {
                 match (&*a.node, &*b.node) {
-                    (Ast::Module(tup), Ast::Id(name)) => {
+                    (Ast::Module(_, tup), Ast::Id(name)) => {
                         match struple::find_str(&tup[..], name) {
                             Some((_i, elem)) => {
                                 node.typ = elem.typ.clone();
@@ -1283,7 +1283,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 // leave as is
             }
             Ast::Wildcard => {} // wildcard is whatever type
-            Ast::Module(_) => {}
+            Ast::Module(_, _) => {}
             Ast::Return(_) => {
                 node.typ = Type::NO_RETURN;
             }

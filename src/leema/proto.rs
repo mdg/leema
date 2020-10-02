@@ -87,7 +87,7 @@ pub struct ProtoModule
     pub exports: HashMap<ModAlias, ImportedMod>,
     pub exports_all: bool,
     pub id_canonicals: HashMap<&'static str, CanonicalMod>,
-    imported_vals: Xlist,
+    pub imported_vals: Xlist,
     exported_vals: Xlist,
     local_vals: Xlist,
     types: HashMap<&'static str, Type>,
@@ -219,6 +219,14 @@ impl ProtoModule
             proto.add_definition(i)?;
         }
         Ok(proto)
+    }
+
+    fn append(&mut self, items: Vec<AstNode>) -> Lresult<()>
+    {
+        for i in items.into_iter() {
+            self.add_definition(i)?;
+        }
+        Ok(())
     }
 
     fn add_import(
@@ -386,6 +394,15 @@ impl ProtoModule
             Some(name),
             AstNode::new_constval(constructor_call, loc),
         ));
+        let constructor_ast = AstNode::new(Ast::DefFunc(
+            AstNode::new(Ast::Id("construct"), loc),
+            fields.clone(),
+            AstNode::new(Ast::Type(typ.clone()), loc),
+            construction.clone(),
+        ), loc);
+
+        let submodkey = self.key.submod(ModTyp::Struct, name);
+        self.add_submod(name, submodkey, vec![constructor_ast])?;
         self.types.insert(name, typ.clone());
         self.funcseq.push(name);
         self.funcsrc.insert(name, (fields, construction));
@@ -537,8 +554,14 @@ impl ProtoModule
         let iface_imod = ImportedMod::from(subkey.name.0.str());
         self.imports.insert(id, subkey.name.clone());
         self.exports.insert(ModAlias(id), iface_imod);
-        self.submods
-            .insert(id, ProtoModule::with_ast(subkey, funcs)?);
+        match self.submods.get_mut(id) {
+            Some(proto) => {
+                proto.append(funcs)?;
+            }
+            None => {
+                self.submods.insert(id, ProtoModule::with_ast(subkey, funcs)?);
+            }
+        }
         Ok(())
     }
 
@@ -927,6 +950,7 @@ impl ProtoModule
                 Type::generic(genbase, genargs)
             }
             Ast::ConstVal(cv) => cv.get_type(),
+            Ast::Type(typ) => typ.clone(),
             invalid => {
                 return Err(rustfail!(
                     PROTOFAIL,
@@ -1207,7 +1231,7 @@ impl ProtoLib
     pub fn exports_as_val(&self, modname: &CanonicalMod) -> Lresult<AstNode>
     {
         let proto = ltry!(self.path_proto(modname));
-        let tup = Ast::Module(proto.exported_vals.clone());
+        let tup = Ast::Module(proto.key.clone(), proto.exported_vals.clone());
         Ok(AstNode::new(tup, Loc::default()))
     }
 
