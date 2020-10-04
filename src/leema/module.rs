@@ -24,12 +24,24 @@ pub enum ModTyp
     File,
     Token,
     Struct,
-    Variant,
+    VariantToken,
+    VariantStruct,
     Function,
     Interface,
     InterfaceImpl,
     Protocol,
     ProtocolImpl,
+}
+
+impl ModTyp
+{
+    pub fn is_struct(&self) -> bool
+    {
+        match self {
+            ModTyp::Struct | ModTyp::VariantStruct => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug)]
