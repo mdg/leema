@@ -355,6 +355,14 @@ impl fmt::Display for FuncType
     }
 }
 
+impl Default for Type
+{
+    fn default() -> Type
+    {
+        Type::Unknown
+    }
+}
+
 impl fmt::Display for Type
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result

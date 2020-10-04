@@ -198,6 +198,22 @@ pub fn find_str<'s, 'k, V>(
         .map(|(idx, item)| (idx, &item.v))
 }
 
+pub fn find_str_mut<'s, 'k, V>(
+    s: &'s mut [StrupleItem<Option<&'static str>, V>],
+    key: &'k str,
+) -> Option<(usize, &'s mut V)>
+{
+    s.iter_mut()
+        .enumerate()
+        .find(|(_, i)| {
+            match &i.k {
+                Some(ref item_key) => **item_key == *key,
+                None => false,
+            }
+        })
+        .map(|(idx, item)| (idx, &mut item.v))
+}
+
 pub fn find_lstr<'s, 'k, V>(
     s: &'s [StrupleItem<Option<Lstr>, V>],
     key: &'k str,

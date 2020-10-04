@@ -130,7 +130,24 @@ impl<'l> ast2::Op for MacroApplication<'l>
                             return Ok(AstStep::Rewrite);
                         } // else not a call, that's fine
                     }
-                    Ast::Module(_m, _, _) => {}
+                    Ast::Module(m, c, _a) if m.mtyp.is_struct() => {
+                        if let Some(consf) =
+                            struple::find_str_mut(c, "construct")
+                        {
+                            *callid = AstNode {
+                                node: mem::take(&mut consf.1.node),
+                                loc: node.loc,
+                                typ: mem::take(&mut consf.1.typ),
+                                dst: node.dst,
+                            };
+                        } else {
+                            return Err(rustfail!(
+                                SEMFAIL,
+                                "no constructor for: {}",
+                                m.name,
+                            ));
+                        }
+                    }
                     _other => {
                         // is something else, like a method call maybe
                         // should be fine
@@ -1109,17 +1126,6 @@ impl<'p> ast2::Op for TypeCheck<'p>
                             fref.t = callx.typ.clone();
                             self.calls.push(fref.clone());
                             node.typ = call_result;
-                        }
-                    }
-                    Ast::Module(k, c, _a) if k.mtyp.is_struct() => {
-                        if let Some(consf) = struple::find_str(c, "construct") {
-                            node.typ = consf.1.typ.clone();
-                        } else {
-                            return Err(rustfail!(
-                                SEMFAIL,
-                                "no constructor for: {:?}",
-                                callx,
-                            ));
                         }
                     }
                     _ => {
