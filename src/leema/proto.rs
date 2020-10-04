@@ -1231,7 +1231,7 @@ impl ProtoLib
     pub fn exports_as_val(&self, modname: &CanonicalMod) -> Lresult<AstNode>
     {
         let proto = ltry!(self.path_proto(modname));
-        let tup = Ast::Module(proto.key.clone(), proto.exported_vals.clone());
+        let tup = Ast::Module(proto.key.clone(), proto.exported_vals.clone(), vec![]);
         Ok(AstNode::new(tup, Loc::default()))
     }
 
