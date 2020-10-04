@@ -394,12 +394,15 @@ impl ProtoModule
             Some(name),
             AstNode::new_constval(constructor_call, loc),
         ));
-        let constructor_ast = AstNode::new(Ast::DefFunc(
-            AstNode::new(Ast::Id("construct"), loc),
-            fields.clone(),
-            AstNode::new(Ast::Type(typ.clone()), loc),
-            construction.clone(),
-        ), loc);
+        let constructor_ast = AstNode::new(
+            Ast::DefFunc(
+                AstNode::new(Ast::Id("construct"), loc),
+                fields.clone(),
+                AstNode::new(Ast::Type(typ.clone()), loc),
+                construction.clone(),
+            ),
+            loc,
+        );
 
         let submodkey = self.key.submod(ModTyp::Struct, name);
         self.add_submod(name, submodkey, vec![constructor_ast])?;
@@ -559,7 +562,8 @@ impl ProtoModule
                 proto.append(funcs)?;
             }
             None => {
-                self.submods.insert(id, ProtoModule::with_ast(subkey, funcs)?);
+                self.submods
+                    .insert(id, ProtoModule::with_ast(subkey, funcs)?);
             }
         }
         Ok(())
@@ -1231,7 +1235,8 @@ impl ProtoLib
     pub fn exports_as_val(&self, modname: &CanonicalMod) -> Lresult<AstNode>
     {
         let proto = ltry!(self.path_proto(modname));
-        let tup = Ast::Module(proto.key.clone(), proto.exported_vals.clone(), vec![]);
+        let tup =
+            Ast::Module(proto.key.clone(), proto.exported_vals.clone(), vec![]);
         Ok(AstNode::new(tup, Loc::default()))
     }
 
