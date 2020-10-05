@@ -1148,7 +1148,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 }
             }
             Ast::Op2(".", a, b) => {
-                match (&*a.node, &*b.node) {
+                match (&mut *a.node, &*b.node) {
                     (Ast::Module(_, tup, _), Ast::Id(name)) => {
                         match struple::find_str(&tup[..], name) {
                             Some((_i, elem)) => {
@@ -1181,9 +1181,32 @@ impl<'p> ast2::Op for TypeCheck<'p>
                             }
                         }
                     }
-                    (_r, Ast::Id(f)) => {
+                    (ref mut r, Ast::Id(f)) => {
                         match &a.typ {
                             Type::User(tmod, tname) => {
+                                let modval = self.local_mod.find_modelem(tname);
+                                if let Some(mvnode) = modval {
+                                    if let Ast::Module(_k, c, _) = &*mvnode.node
+                                    {
+                                        if let Some(thing) =
+                                            struple::find_str(c, f)
+                                        {
+                                            // it's a method
+                                            let target = AstNode::new(
+                                                mem::take(r),
+                                                node.loc,
+                                            );
+                                            let mut call = (*thing.1).clone();
+                                            call.loc = node.loc;
+                                            node.typ =
+                                                call.typ.method_type()?;
+                                            *node.node =
+                                                Ast::Method(target, call);
+                                            return Ok(AstStep::Rewrite);
+                                        }
+                                    }
+                                }
+
                                 let (_styp, flds) = self
                                     .fields
                                     .get(&(tmod.clone(), *tname))

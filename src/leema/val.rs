@@ -196,6 +196,25 @@ impl Type
         }
     }
 
+    pub fn method_type(&self) -> Lresult<Type>
+    {
+        match self {
+            Type::Func(ref ftyp) => {
+                Ok(Type::Func(FuncType::new(
+                    ftyp.args[1..].iter().map(|a| a.clone()).collect(),
+                    (*ftyp.result).clone(),
+                )))
+            }
+            _ => {
+                Err(rustfail!(
+                    "leema_failure",
+                    "expected method type, found {:?}",
+                    self,
+                ))
+            }
+        }
+    }
+
     pub fn split_func_ref(t: &Type) -> (&Struple2<Type>, &Type)
     {
         match t {

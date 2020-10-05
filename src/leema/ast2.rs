@@ -242,6 +242,7 @@ pub enum Ast
     Let(AstNode, AstNode, AstNode),
     List(Xlist),
     Matchx(Option<AstNode>, Vec<Case>),
+    Method(AstNode, AstNode),
     ModAction(ModAction, ModTree),
     Module(ModKey, Xlist, Xlist),
     Op1(&'static str, AstNode),
@@ -322,6 +323,7 @@ impl Ast
             Ast::Matchx(Some(cond), args) => {
                 write!(f, "Match {:?} {:?}", cond, args)
             }
+            Ast::Method(obj, call) => write!(f, "Method {:?} {:?}", obj, call),
             Ast::ModAction(action, tree) => {
                 write!(f, "{:?} {:?}", action, tree)
             }
@@ -618,6 +620,10 @@ impl Walker
                 for a in args.iter_mut() {
                     steptry!(self.walk(&mut a.v, op));
                 }
+            }
+            Ast::Method(obj, call) => {
+                steptry!(self.walk(obj, op));
+                steptry!(self.walk(call, op));
             }
             Ast::Op2(".", ref mut a, _b) => {
                 steptry!(self.walk(a, op));

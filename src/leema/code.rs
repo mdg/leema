@@ -652,6 +652,10 @@ impl Registration
                     Self::assign_registers(&mut a.v, stack)?;
                 }
             }
+            Ast::Method(ref mut obj, ref mut call) => {
+                Self::assign_registers(obj, stack)?;
+                Self::assign_registers(call, stack)?;
+            }
             Ast::Let(ref mut lhs, _, ref mut rhs) => {
                 let pval = Self::make_pattern_val(lhs)?;
                 *lhs.node = Ast::ConstVal(pval);
