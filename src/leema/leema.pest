@@ -194,6 +194,8 @@ def_struct = !{ "datatype" ~ hs1 ~ def_struct_args ~ as1 ~ "--" }
 def_enum_variant = { vs1 ~ "|" ~ ( def_struct_args | def_id ) }
 def_enum = !{ "datatype" ~ hs1 ~ def_id ~ def_enum_variant+ ~ vs1 ~ "--" }
 
+def_alias_type = !{ "datatype" ~ hs1 ~ def_id ~ as1 ~ ":=" ~ as1 ~ typex }
+
 def_interface = !{ "interface" ~ hs1 ~ def_id ~ as1 ~ impl_block  }
 def_impl = !{
     "impl" ~ hs1 ~ def_id ~ (as1 ~ "as" ~ as1 ~ def_id)? ~ as1 ~ impl_block
@@ -222,6 +224,7 @@ mxstmt = !{ mxport ~ hs1 ~ (mxline | star) }
 
 stmt = _{
     def_func
+    | def_alias_type
     | def_rust_type
     | def_enum
     | def_impl

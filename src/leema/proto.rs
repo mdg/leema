@@ -324,12 +324,20 @@ impl ProtoModule
     fn add_func(
         &mut self,
         name: AstNode,
-        args: Xlist,
+        mut args: Xlist,
         result: AstNode,
         body: AstNode,
     ) -> Lresult<()>
     {
         let loc = name.loc;
+        if args.len() > 0 {
+            let first = args.get_mut(0).unwrap();
+            if first.k.is_none() && *first.v.node == Ast::Id("self") {
+                first.k = Some("self");
+                *first.v.node = Ast::Id("Self");
+            }
+        }
+
         let (name_id, ft, ftyp) =
             self.make_func_type(name, &args, result, vec![])?;
 

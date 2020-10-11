@@ -458,6 +458,17 @@ impl LeemaPrec
                 let df = Ast::DefType(DataType::Struct, id, args);
                 Ok(AstNode::new(df, loc))
             }
+            Rule::def_alias_type => {
+                let mut inner = n.into_inner();
+                let id = self.primary(Mode::Type, inner.next().unwrap())?;
+                let src = self.primary(Mode::Type, inner.next().unwrap())?;
+                let df = Ast::DefType(
+                    DataType::Alias,
+                    id,
+                    vec![StrupleItem::new_v(src)],
+                );
+                Ok(AstNode::new(df, loc))
+            }
             Rule::def_func => {
                 let mut inner = n.into_inner();
                 let func_mode = inner.next().unwrap();
@@ -1827,6 +1838,30 @@ mod tests
             panic!("expected StrExpr, found {:?}", actual[0]);
         }
         assert_eq!(1, actual.len());
+    }
+
+    #[test]
+    fn type_alias()
+    {
+        let input = r#"datatype Taco := (Int Str)"#;
+        let ast = parse(Rule::def_alias_type, input).unwrap();
+        println!("alias type: {:#?}", ast);
+
+        if let Ast::DefType(DataType::Alias, id, src) = &*ast[0].node {
+            assert_eq!(Ast::Id("Taco"), *id.node);
+            assert_eq!(None, src[0].k);
+            if let Ast::Tuple(items) = &*src[0].v.node {
+                assert_eq!(Ast::Id("Int"), *items[0].v.node);
+                assert_eq!(Ast::Id("Str"), *items[1].v.node);
+                assert_eq!(2, items.len());
+            } else {
+                panic!("expected tuple type, found {:?}", src[0].v);
+            }
+            assert_eq!(1, src.len());
+        } else {
+            panic!("expected deftype alias, found {:?}", *ast[0].node);
+        }
+        assert_eq!(1, ast.len());
     }
 
     #[test]

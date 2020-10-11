@@ -49,6 +49,7 @@ pub enum DataType
 {
     Struct,
     Union,
+    Alias,
     Rust,
 }
 
