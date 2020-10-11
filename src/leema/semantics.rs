@@ -148,6 +148,15 @@ impl<'l> ast2::Op for MacroApplication<'l>
                             ));
                         }
                     }
+                    Ast::Op2(".", base, call) => {
+                        if let Ast::ConstVal(callval) = &*call.node {
+                            if let Val::Call(_, _) = callval {
+                                let base2 = mem::take(base);
+                                *callid = mem::take(call);
+                                args.insert(0, StrupleItem::new_v(base2));
+                            }
+                        }
+                    }
                     _other => {
                         // is something else, like a method call maybe
                         // should be fine
@@ -298,6 +307,28 @@ impl<'l> ast2::Op for MacroApplication<'l>
                 }
             }
             _ => {}
+        }
+        Ok(AstStep::Ok)
+    }
+
+    fn post(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
+    {
+        match &mut *node.node {
+            Ast::Call(callid, args) => {
+                if let Ast::Op2(".", base, call) = &mut *callid.node {
+                    if let Ast::ConstVal(callval) = &*call.node {
+                        if let Val::Call(_, _) = callval {
+                            let base2 = mem::take(base);
+                            *callid = mem::take(call);
+                            args.insert(0, StrupleItem::new_v(base2));
+                            return Ok(AstStep::Rewrite);
+                        }
+                    }
+                }
+            }
+            what => {
+                eprintln!("MacroApp.Post what? {:?}", what);
+            }
         }
         Ok(AstStep::Ok)
     }
@@ -1181,7 +1212,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                             }
                         }
                     }
-                    (ref mut r, Ast::Id(f)) => {
+                    (ref mut _r, Ast::Id(f)) => {
                         match &a.typ {
                             Type::User(tmod, tname) => {
                                 let modval = self.local_mod.find_modelem(tname);
@@ -1192,16 +1223,9 @@ impl<'p> ast2::Op for TypeCheck<'p>
                                             struple::find_str(c, f)
                                         {
                                             // it's a method
-                                            let target = AstNode::new(
-                                                mem::take(r),
-                                                node.loc,
-                                            );
-                                            let mut call = (*thing.1).clone();
-                                            call.loc = node.loc;
-                                            node.typ =
-                                                call.typ.method_type()?;
-                                            *node.node =
-                                                Ast::Method(target, call);
+                                            *b.node = (*thing.1.node).clone();
+                                            b.typ = thing.1.typ.clone();
+                                            node.typ = b.typ.method_type()?;
                                             return Ok(AstStep::Rewrite);
                                         }
                                     }
@@ -1243,6 +1267,13 @@ impl<'p> ast2::Op for TypeCheck<'p>
                                     node.loc.lineno,
                                 ));
                             }
+                        }
+                    }
+                    (_, Ast::ConstVal(callv)) => {
+                        if let Val::Call(_, _) = callv {
+                            return Ok(AstStep::Ok);
+                        } else {
+                            panic!("unsupported const field: {:#?}", callv);
                         }
                     }
                     (_r, f) => {
