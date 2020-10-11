@@ -279,6 +279,16 @@ impl ProtoModule
                     ltry!(self.add_struct(name, fields));
                 }
             }
+            Ast::DefType(DataType::Alias, name, mut src_vec) => {
+                if src_vec.is_empty() {
+                    return Err(rustfail!(
+                        "parse_failure",
+                        "expected source type, found none",
+                    ));
+                }
+                let src = src_vec.drain(0..1).next().unwrap().v;
+                ltry!(self.add_alias_type(name, src));
+            }
             Ast::DefType(DataType::Rust, name, _) => {
                 ltry!(self.add_rust_type(name));
             }
@@ -483,6 +493,19 @@ impl ProtoModule
                 ));
             }
         }
+        Ok(())
+    }
+
+    fn add_alias_type(&mut self, name: AstNode, _src: AstNode) -> Lresult<()>
+    {
+        let loc = name.loc;
+        let (name_id, t, _) = self.make_user_type(name)?;
+        let typeval = Val::Type(t.clone());
+        let mut node = AstNode::new_constval(typeval, loc);
+        node.typ = Type::Kind;
+        self.types.insert(name_id, t);
+        self.exported_vals
+            .push(StrupleItem::new(Some(name_id), node));
         Ok(())
     }
 
