@@ -496,11 +496,13 @@ impl ProtoModule
         Ok(())
     }
 
-    fn add_alias_type(&mut self, name: AstNode, _src: AstNode) -> Lresult<()>
+    fn add_alias_type(&mut self, name: AstNode, src: AstNode) -> Lresult<()>
     {
         let loc = name.loc;
         let (name_id, t, _) = self.make_user_type(name)?;
-        let typeval = Val::Type(t.clone());
+        let srct = self.ast_to_type(&self.key.name, &src, &[])?;
+        let aliast = Type::Alias(Box::new(t.clone()), Box::new(srct));
+        let typeval = Val::Type(aliast);
         let mut node = AstNode::new_constval(typeval, loc);
         node.typ = Type::Kind;
         self.types.insert(name_id, t);
@@ -1648,5 +1650,26 @@ mod tests
 
         let point_type = proto.types.get("Point").expect("no Point type");
         assert_eq!(user_type!("/foo", "Point"), *point_type);
+    }
+
+    #[test]
+    fn test_proto_alias_type()
+    {
+        let proto = new_proto("datatype Burrito := Int");
+
+        let burrito_type = proto.types.get("Burrito").expect("no Burrito type");
+        assert_eq!(user_type!("/foo", "Burrito"), *burrito_type,);
+
+        let burrito_val =
+            proto.find_modelem("Burrito").expect("no Burrito const");
+        assert_matches!(*burrito_val.node, Ast::ConstVal(_));
+        if let Ast::ConstVal(ref val) = &*burrito_val.node {
+            if let Val::Type(Type::Alias(t1, t2)) = &*val {
+                assert_eq!(user_type!("/foo", "Burrito"), **t1);
+                assert_eq!(user_type!("/core", "Int"), **t2);
+            } else {
+                panic!("expected alias type, found: {:?}", val);
+            }
+        }
     }
 }

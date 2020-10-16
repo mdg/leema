@@ -124,6 +124,7 @@ pub enum Type
     /// bool is open
     /// TODO: convert open flag to an enum
     Generic(bool, Box<Type>, GenericTypes),
+    Alias(Box<Type>, Box<Type>),
 
     RustBlock,
     Kind,
@@ -400,6 +401,7 @@ impl fmt::Display for Type
                 let open_tag = if open { "Open" } else { "Closed" };
                 write!(f, "<{:?} {} {:?}>", inner, open_tag, args)
             }
+            &Type::Alias(ref lhs, ref rhs) => write!(f, "({} as {})", lhs, rhs),
             &Type::Func(ref ftyp) => write!(f, "F{}", ftyp),
             &Type::RustBlock => write!(f, "RustBlock"),
             &Type::Kind => write!(f, "Kind"),
@@ -436,6 +438,13 @@ impl fmt::Debug for Type
             &Type::Generic(open, ref inner, ref args) => {
                 let open_tag = if open { "Open" } else { "Closed" };
                 write!(f, "<{:?} {} {:?}>", inner, open_tag, args)
+            }
+            &Type::Alias(ref lhs, ref rhs) => {
+                if f.alternate() {
+                    write!(f, "({:#?} as {:#?})", lhs, rhs)
+                } else {
+                    write!(f, "({:?} as {:?})", lhs, rhs)
+                }
             }
             &Type::RustBlock => write!(f, "RustBlock"),
             &Type::Kind => write!(f, "Kind"),
