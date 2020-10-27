@@ -1987,6 +1987,12 @@ mod tests
         func produce_t:d.T ->
             T(1, "a")
         --
+
+        func consume_a :: a:c.A ->
+        --
+
+        func consume_t :: t:d.T ->
+        --
         "#
         .to_string();
 

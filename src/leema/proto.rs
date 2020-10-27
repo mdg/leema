@@ -991,12 +991,18 @@ impl ProtoModule
             Ast::Op2(".", module_node, id_node) => {
                 match (&*module_node.node, &*id_node.node) {
                     (Ast::Id(m), Ast::Id(id)) => {
-                        return Err(rustfail!(
-                            PROTOFAIL,
-                            "type for {}.{}",
-                            m,
-                            id,
-                        ));
+                        match self.imports.get(m) {
+                            Some(canonical) => {
+                                Type::User(canonical.clone(), id)
+                            }
+                            None => {
+                                return Err(rustfail!(
+                                    PROTOFAIL,
+                                    "unknown module {}",
+                                    m,
+                                ));
+                            }
+                        }
                     }
                     what => {
                         return Err(rustfail!(
