@@ -1963,6 +1963,57 @@ mod tests
     }
 
     #[test]
+    fn check_type_alias_without_import()
+    {
+        let input_a = r#"
+        import /b
+        import /c
+
+        func main ->
+            b.consume_t(b.produce_a())
+            b.consume_a(b.produce_t())
+        --
+        "#
+        .to_string();
+
+        let input_b = r#"
+        import /c
+        import /d
+
+        func produce_a:c.A ->
+            A(1, "a")
+        --
+
+        func produce_t:d.T ->
+            T(1, "a")
+        --
+        "#
+        .to_string();
+
+        let input_c = r#"
+        import /d
+
+        datatype A := d.T
+        "#
+        .to_string();
+
+        let input_d = r#"
+        datatype T :: Int Str --
+        "#
+        .to_string();
+
+        let mut prog = core_program(&[
+            ("/a", input_a),
+            ("/b", input_b),
+            ("/c", input_c),
+            ("/d", input_d),
+        ]);
+        let err = prog.read_semantics(&Fref::from(("/a", "main")));
+        assert_matches!(err, Err(_));
+        err.unwrap_err();
+    }
+
+    #[test]
     fn test_semantics_undefined_variable()
     {
         let baz_input = r#"
