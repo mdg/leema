@@ -2008,9 +2008,7 @@ mod tests
             ("/c", input_c),
             ("/d", input_d),
         ]);
-        let err = prog.read_semantics(&Fref::from(("/a", "main")));
-        assert_matches!(err, Err(_));
-        err.unwrap_err();
+        prog.read_semantics(&Fref::from(("/a", "main"))).unwrap();
     }
 
     #[test]
