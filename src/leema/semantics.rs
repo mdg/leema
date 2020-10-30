@@ -4,6 +4,7 @@ use crate::leema::ast2::{
 use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::inter::Blockstack;
 use crate::leema::lstr::Lstr;
+use crate::leema::module::CanonicalMod;
 use crate::leema::proto::{ProtoModule, StructFieldMap};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{
@@ -734,6 +735,13 @@ impl<'p> TypeCheck<'p>
             (t0, Type::LocalVar(v1)) => {
                 lfailoc!(self.infer_type(v1, t0, opens))
             }
+            (Type::User(m0, u0), Type::User(m1, u1))
+                if m0 == m1 && u0 == u1 =>
+            {
+                return Ok(Type::User(m0.clone(), u0.clone()));
+            }
+            (Type::User(m0, u0), _) => self.match_type_alias(m0, u0, t1),
+            (_, Type::User(m1, u1)) => self.match_type_alias(m1, u1, t0),
             (t0, t1) => {
                 if t0 != t1 {
                     Err(rustfail!(
@@ -747,6 +755,23 @@ impl<'p> TypeCheck<'p>
                 }
             }
         }
+    }
+
+    // check if one of these type 0 is an alias for type 1
+    fn match_type_alias(
+        &self,
+        m0: &CanonicalMod,
+        u0: &'static str,
+        t1: &Type,
+    ) -> Lresult<Type>
+    {
+        Err(rustfail!(
+            SEMFAIL,
+            "user types do not match: ({}.{} != {})",
+            m0,
+            u0,
+            t1,
+        ))
     }
 
     pub fn infer_type(

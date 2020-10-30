@@ -702,7 +702,8 @@ impl ProtoModule
         };
 
         ltry!(self.refute_redefines_default(id, loc));
-        let ft = ltry!(self.ast_to_ftype(&self.key.name, &args, &result, &opens));
+        let ft =
+            ltry!(self.ast_to_ftype(&self.key.name, &args, &result, &opens));
         let ftyp = type_maker(ft.clone());
         Ok((id, ft, ftyp))
     }
@@ -959,8 +960,9 @@ impl ProtoModule
                         .iter()
                         .map(|item| {
                             let k = item.k.map(|ik| Lstr::Sref(ik));
-                            let v =
-                                ltry!(self.ast_to_type(local_mod, &item.v, opens));
+                            let v = ltry!(
+                                self.ast_to_type(local_mod, &item.v, opens)
+                            );
                             Ok(StrupleItem::new(k, v))
                         })
                         .collect();
