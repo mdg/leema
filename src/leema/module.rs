@@ -398,7 +398,6 @@ impl fmt::Display for ImportedMod
 }
 
 #[derive(Clone)]
-#[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
 #[derive(Eq)]
@@ -525,6 +524,14 @@ impl fmt::Display for CanonicalMod
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         f.write_str(self.0.str())
+    }
+}
+
+impl fmt::Debug for CanonicalMod
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "{:?}", self.0.str())
     }
 }
 
