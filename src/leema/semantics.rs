@@ -508,6 +508,55 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                 ast2::walk_ref_mut(callx, self)?;
                 return Ok(AstStep::Ok);
             }
+            Ast::Op2(".", base_node, sub_node) => {
+                if let (Ast::Id(id), Ast::Id(sub)) = (&*base_node.node, &*sub_node.node) {
+                    if self.blocks.var_in_scope(id).is_none() {
+                        if let Some(me) = self.local_mod.find_modelem(id) {
+                            if let Ast::Module(_, mes, _) = &*me.node {
+                                if let Some((_, i)) = struple::find_str(mes, sub) {
+                                    *node.node = (*i.node).clone();
+                                } else {
+                                    return Err(rustfail!(
+                                        SEMFAIL,
+                                        "unfound module element {}.{}",
+                                        id,
+                                        sub,
+                                    ));
+                                }
+                            } else {
+                                return Err(rustfail!(
+                                    SEMFAIL,
+                                    "sub {} from id {} as {:?}",
+                                    sub,
+                                    id,
+                                    me,
+                                ));
+                            }
+                        } else {
+                            return Err(rustfail!(
+                                SEMFAIL,
+                                "what's it? {}.{}",
+                                id,
+                                sub,
+                            ));
+                        }
+                    } else {
+                        return Err(rustfail!(
+                            SEMFAIL,
+                            "not in scope {}.{}",
+                            id,
+                            sub,
+                        ));
+                    }
+                } else {
+                    return Err(rustfail!(
+                        SEMFAIL,
+                        "huh {:?}.{:?}",
+                        base_node,
+                        sub_node,
+                    ));
+                }
+            }
             _ => {
                 // do nothing otherwise
             }
@@ -548,6 +597,7 @@ impl<'l> fmt::Debug for ScopeCheck<'l>
 struct TypeCheck<'p>
 {
     local_mod: &'p ProtoModule,
+    aliases: &'p HashMap<(CanonicalMod, &'static str), (Xlist, AstNode)>,
     fields: &'p StructFieldMap,
     result: Type,
     vartypes: HashMap<&'static str, Type>,
@@ -561,11 +611,13 @@ impl<'p> TypeCheck<'p>
         local_mod: &'p ProtoModule,
         ftyp: &'p FuncType,
         fields: &'p StructFieldMap,
+        aliases: &'p HashMap<(CanonicalMod, &'static str), (Xlist, AstNode)>,
     ) -> Lresult<TypeCheck<'p>>
     {
         let mut check = TypeCheck {
             local_mod,
             fields,
+            aliases,
             result: Type::VOID,
             vartypes: HashMap::new(),
             infers: HashMap::new(),
@@ -740,8 +792,8 @@ impl<'p> TypeCheck<'p>
             {
                 return Ok(Type::User(m0.clone(), u0.clone()));
             }
-            (Type::User(m0, u0), _) => self.match_type_alias(m0, u0, t1),
-            (_, Type::User(m1, u1)) => self.match_type_alias(m1, u1, t0),
+            (Type::User(m0, u0), _) => self.match_type_alias(m0, u0, t1, opens),
+            (_, Type::User(m1, u1)) => self.match_type_alias(m1, u1, t0, opens),
             (t0, t1) => {
                 if t0 != t1 {
                     Err(rustfail!(
@@ -759,19 +811,28 @@ impl<'p> TypeCheck<'p>
 
     // check if one of these type 0 is an alias for type 1
     fn match_type_alias(
-        &self,
+        &mut self,
         m0: &CanonicalMod,
         u0: &'static str,
         t1: &Type,
+        opens: &mut StrupleKV<&'static str, Type>,
     ) -> Lresult<Type>
     {
-        Err(rustfail!(
-            SEMFAIL,
-            "user types do not match: ({}.{} != {})",
-            m0,
-            u0,
-            t1,
-        ))
+        match self.aliases.get(&(m0.clone(), u0)) {
+            None => {
+                Err(rustfail!(
+                    SEMFAIL,
+                    "user types do not match: ({}.{} != {})",
+                    m0,
+                    u0,
+                    t1,
+                ))
+            }
+            Some((_, astt)) => {
+                let rt = self.local_mod.ast_to_type(&self.local_mod.key.name, &astt, opens)?;
+                self.match_type(&rt, t1, opens)
+            }
+        }
     }
 
     pub fn infer_type(
@@ -1558,9 +1619,10 @@ impl Semantics
             })
             .collect();
 
+        let aliases = HashMap::new();
         let mut macs = MacroApplication::new(proto, ftyp, &closed);
         let mut scope_check = ScopeCheck::new(ftyp, proto)?;
-        let mut type_check = TypeCheck::new(proto, ftyp, fields)?;
+        let mut type_check = TypeCheck::new(proto, ftyp, fields, &aliases)?;
         let mut remove_extra = RemoveExtraCode;
 
         // This interleaves all the calls.

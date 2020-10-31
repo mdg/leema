@@ -401,7 +401,9 @@ impl fmt::Display for Type
                 let open_tag = if open { "Open" } else { "Closed" };
                 write!(f, "<{:?} {} {:?}>", inner, open_tag, args)
             }
-            &Type::Alias(ref lhs, ref rhs) => write!(f, "({} as {})", lhs, rhs),
+            &Type::Alias(ref lhs, ref rhs) => {
+                write!(f, "({} as {})", lhs, rhs)
+            }
             &Type::Func(ref ftyp) => write!(f, "F{}", ftyp),
             &Type::RustBlock => write!(f, "RustBlock"),
             &Type::Kind => write!(f, "Kind"),

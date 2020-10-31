@@ -94,6 +94,7 @@ pub struct ProtoModule
     pub funcseq: Vec<&'static str>,
     pub funcsrc: HashMap<&'static str, (Xlist, AstNode)>,
     pub token: HashSet<&'static str>,
+    alias: HashMap<(CanonicalMod, &'static str), (Xlist, AstNode)>,
     pub struct_fields: Vec<(&'static str, Type, Struple2<Type>)>,
     submods: HashMap<&'static str, ProtoModule>,
 }
@@ -128,6 +129,7 @@ impl ProtoModule
             funcseq: Vec::new(),
             funcsrc: HashMap::new(),
             token: HashSet::new(),
+            alias: HashMap::new(),
             struct_fields: vec![],
             submods: HashMap::new(),
         };
@@ -508,6 +510,7 @@ impl ProtoModule
         self.types.insert(name_id, t);
         self.exported_vals
             .push(StrupleItem::new(Some(name_id), node));
+        self.alias.insert((self.key.name.clone(), name_id), (vec![], src));
         Ok(())
     }
 
@@ -1066,6 +1069,7 @@ pub struct ProtoLib
 {
     protos: HashMap<PathBuf, ProtoModule>,
     fields: StructFieldMap,
+    aliases: HashMap<(CanonicalMod, &'static str), (Xlist, AstNode)>,
 }
 
 impl ProtoLib
@@ -1075,6 +1079,7 @@ impl ProtoLib
         ProtoLib {
             protos: HashMap::new(),
             fields: HashMap::new(),
+            aliases: HashMap::new(),
         }
     }
 
@@ -1284,6 +1289,10 @@ impl ProtoLib
             for (id, typ, flds) in proto.struct_fields.drain(..) {
                 self.fields
                     .insert((proto.key.name.clone(), id), (typ, flds));
+            }
+
+            for ((m, u), (o, r)) in proto.alias.drain() {
+                self.aliases.insert((m, u), (o, r));
             }
         }
 
