@@ -544,22 +544,10 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                                 sub,
                             ));
                         }
-                    } else {
-                        return Err(rustfail!(
-                            SEMFAIL,
-                            "not in scope {}.{}",
-                            id,
-                            sub,
-                        ));
                     }
-                } else {
-                    return Err(rustfail!(
-                        SEMFAIL,
-                        "huh {:?}.{:?}",
-                        base_node,
-                        sub_node,
-                    ));
+                    // else is a regular var in scope
                 }
+                // else it's probably (hopefully?) a method or something
             }
             _ => {
                 // do nothing otherwise
