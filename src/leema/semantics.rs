@@ -792,8 +792,20 @@ impl<'p> TypeCheck<'p>
             {
                 return Ok(Type::User(m0.clone(), u0.clone()));
             }
-            (Type::User(m0, u0), _) => self.match_type_alias(m0, u0, t1, opens),
-            (_, Type::User(m1, u1)) => self.match_type_alias(m1, u1, t0, opens),
+            (Type::User(m0, u0), Type::User(m1, u1)) => {
+                if let Some(r) = self.match_type_alias(m0, u0, t1, opens)? {
+                    return Ok(r);
+                }
+                if let Some(r) = self.match_type_alias(m1, u1, t0, opens)? {
+                    return Ok(r);
+                }
+                Err(rustfail!(
+                    SEMFAIL,
+                    "user types do not match: ({} != {})",
+                    t0,
+                    t1,
+                ))
+            }
             (t0, t1) => {
                 if t0 != t1 {
                     Err(rustfail!(
@@ -816,21 +828,13 @@ impl<'p> TypeCheck<'p>
         u0: &'static str,
         t1: &Type,
         opens: &mut StrupleKV<&'static str, Type>,
-    ) -> Lresult<Type>
+    ) -> Lresult<Option<Type>>
     {
         match self.aliases.get(&(m0.clone(), u0)) {
-            None => {
-                Err(rustfail!(
-                    SEMFAIL,
-                    "user types do not match: ({}.{} != {})",
-                    m0,
-                    u0,
-                    t1,
-                ))
-            }
+            None => Ok(None),
             Some((_, astt)) => {
                 let rt = self.local_mod.ast_to_type(&self.local_mod.key.name, &astt, opens)?;
-                self.match_type(&rt, t1, opens)
+                Ok(Some(self.match_type(&rt, t1, opens)?))
             }
         }
     }
@@ -2055,6 +2059,7 @@ mod tests
         let input_a = r#"
         import /b
         import /c
+        import /d
 
         func main ->
             b.consume_t(b.produce_a())

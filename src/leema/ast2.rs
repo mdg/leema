@@ -561,13 +561,12 @@ pub fn walk(mut node: AstNode, op: &mut dyn Op) -> AstResult
     Ok(node)
 }
 
-pub fn walk_ref_mut(node: &mut AstNode, op: &mut dyn Op) -> Lresult<()>
+pub fn walk_ref_mut(node: &mut AstNode, op: &mut dyn Op) -> StepResult
 {
     let mut w = Walker {
         mode: AstMode::Value,
     };
-    w.walk(node, op)?;
-    Ok(())
+    w.walk(node, op)
 }
 
 impl Walker
