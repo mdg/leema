@@ -77,6 +77,7 @@ const STATIC_INDEX_NAMES: [&'static str; 17] = [
     "statixName16",
 ];
 
+pub type AliasMap = HashMap<(CanonicalMod, &'static str), (Xlist, AstNode)>;
 
 /// Asts separated into their types of components
 #[derive(Debug)]
@@ -94,7 +95,7 @@ pub struct ProtoModule
     pub funcseq: Vec<&'static str>,
     pub funcsrc: HashMap<&'static str, (Xlist, AstNode)>,
     pub token: HashSet<&'static str>,
-    alias: HashMap<(CanonicalMod, &'static str), (Xlist, AstNode)>,
+    alias: AliasMap,
     pub struct_fields: Vec<(&'static str, Type, Struple2<Type>)>,
     submods: HashMap<&'static str, ProtoModule>,
 }
@@ -1069,7 +1070,7 @@ pub struct ProtoLib
 {
     protos: HashMap<PathBuf, ProtoModule>,
     fields: StructFieldMap,
-    aliases: HashMap<(CanonicalMod, &'static str), (Xlist, AstNode)>,
+    aliases: AliasMap,
 }
 
 impl ProtoLib
@@ -1218,9 +1219,13 @@ impl ProtoLib
         Ok(())
     }
 
-    fn put_module(&mut self, modpath: &Path, proto: ProtoModule)
+    fn put_module(&mut self, modpath: &Path, mut proto: ProtoModule)
         -> Lresult<()>
     {
+        for ((m, u), (o, r)) in proto.alias.drain() {
+            self.aliases.insert((m, u), (o, r));
+        }
+
         let type_mods = proto.type_modules()?;
         self.protos.insert(modpath.to_path_buf(), proto);
         for tm in type_mods.into_iter() {
@@ -1264,6 +1269,7 @@ impl ProtoLib
         Ok(())
     }
 
+    // load stuff from imported modules into modname
     pub fn import_modules(&mut self, modname: &Path) -> Lresult<()>
     {
         vout!("ProtoLib::import_modules({})\n", modname.display());
@@ -1289,10 +1295,6 @@ impl ProtoLib
             for (id, typ, flds) in proto.struct_fields.drain(..) {
                 self.fields
                     .insert((proto.key.name.clone(), id), (typ, flds));
-            }
-
-            for ((m, u), (o, r)) in proto.alias.drain() {
-                self.aliases.insert((m, u), (o, r));
             }
         }
 
@@ -1352,14 +1354,14 @@ impl ProtoLib
     pub fn path_proto_mut(
         &mut self,
         path: &CanonicalMod,
-    ) -> Lresult<(&mut ProtoModule, &StructFieldMap)>
+    ) -> Lresult<(&mut ProtoModule, &StructFieldMap, &AliasMap)>
     {
         let result = self.protos.get_mut(path.as_path()).ok_or_else(|| {
             rustfail!(PROTOFAIL, "module not loaded: {:?}", path)
         });
         match result {
             Err(e) => Err(e),
-            Ok(p) => Ok((p, &self.fields)),
+            Ok(p) => Ok((p, &self.fields, &self.aliases)),
         }
     }
 }

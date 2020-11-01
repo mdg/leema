@@ -5,7 +5,7 @@ use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::inter::Blockstack;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::CanonicalMod;
-use crate::leema::proto::{ProtoModule, StructFieldMap};
+use crate::leema::proto::{AliasMap, ProtoModule, StructFieldMap};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{
     Fref, FuncType, GenericTypeSlice, GenericTypes, Type, Val,
@@ -597,7 +597,7 @@ impl<'l> fmt::Debug for ScopeCheck<'l>
 struct TypeCheck<'p>
 {
     local_mod: &'p ProtoModule,
-    aliases: &'p HashMap<(CanonicalMod, &'static str), (Xlist, AstNode)>,
+    aliases: &'p AliasMap,
     fields: &'p StructFieldMap,
     result: Type,
     vartypes: HashMap<&'static str, Type>,
@@ -611,7 +611,7 @@ impl<'p> TypeCheck<'p>
         local_mod: &'p ProtoModule,
         ftyp: &'p FuncType,
         fields: &'p StructFieldMap,
-        aliases: &'p HashMap<(CanonicalMod, &'static str), (Xlist, AstNode)>,
+        aliases: &'p AliasMap,
     ) -> Lresult<TypeCheck<'p>>
     {
         let mut check = TypeCheck {
@@ -1554,6 +1554,7 @@ impl Semantics
         proto: &mut ProtoModule,
         f: &Fref,
         fields: &StructFieldMap,
+        aliases: &AliasMap,
     ) -> Lresult<Semantics>
     {
         let mut sem = Semantics::new();
@@ -1619,7 +1620,6 @@ impl Semantics
             })
             .collect();
 
-        let aliases = HashMap::new();
         let mut macs = MacroApplication::new(proto, ftyp, &closed);
         let mut scope_check = ScopeCheck::new(ftyp, proto)?;
         let mut type_check = TypeCheck::new(proto, ftyp, fields, &aliases)?;
