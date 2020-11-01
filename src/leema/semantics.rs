@@ -509,11 +509,15 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                 return Ok(AstStep::Ok);
             }
             Ast::Op2(".", base_node, sub_node) => {
-                if let (Ast::Id(id), Ast::Id(sub)) = (&*base_node.node, &*sub_node.node) {
+                if let (Ast::Id(id), Ast::Id(sub)) =
+                    (&*base_node.node, &*sub_node.node)
+                {
                     if self.blocks.var_in_scope(id).is_none() {
                         if let Some(me) = self.local_mod.find_modelem(id) {
                             if let Ast::Module(_, mes, _) = &*me.node {
-                                if let Some((_, i)) = struple::find_str(mes, sub) {
+                                if let Some((_, i)) =
+                                    struple::find_str(mes, sub)
+                                {
                                     *node.node = (*i.node).clone();
                                 } else {
                                     return Err(rustfail!(
@@ -833,7 +837,11 @@ impl<'p> TypeCheck<'p>
         match self.aliases.get(&(m0.clone(), u0)) {
             None => Ok(None),
             Some((_, astt)) => {
-                let rt = self.local_mod.ast_to_type(&self.local_mod.key.name, &astt, opens)?;
+                let rt = self.local_mod.ast_to_type(
+                    &self.local_mod.key.name,
+                    &astt,
+                    opens,
+                )?;
                 Ok(Some(self.match_type(&rt, t1, opens)?))
             }
         }

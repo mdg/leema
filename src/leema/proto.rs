@@ -511,7 +511,8 @@ impl ProtoModule
         self.types.insert(name_id, t);
         self.exported_vals
             .push(StrupleItem::new(Some(name_id), node));
-        self.alias.insert((self.key.name.clone(), name_id), (vec![], src));
+        self.alias
+            .insert((self.key.name.clone(), name_id), (vec![], src));
         Ok(())
     }
 
@@ -1219,8 +1220,11 @@ impl ProtoLib
         Ok(())
     }
 
-    fn put_module(&mut self, modpath: &Path, mut proto: ProtoModule)
-        -> Lresult<()>
+    fn put_module(
+        &mut self,
+        modpath: &Path,
+        mut proto: ProtoModule,
+    ) -> Lresult<()>
     {
         for ((m, u), (o, r)) in proto.alias.drain() {
             self.aliases.insert((m, u), (o, r));
