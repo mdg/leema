@@ -426,6 +426,30 @@ impl CanonicalMod
         Path::new(self.0.str())
     }
 
+    pub fn split_type(&self) -> Lresult<(CanonicalMod, &'static str)>
+    {
+        match self.0 {
+            Lstr::Sref(s) => {
+                let p = Path::new(s);
+                let parent = CanonicalMod(Lstr::Sref(
+                    p.parent().unwrap().to_str().unwrap(),
+                ));
+                let end = p.file_name().unwrap();
+                Ok((parent, end.to_str().unwrap()))
+            }
+            Lstr::Arc(ref s) => {
+                Err(rustfail!(
+                    "internal_failure",
+                    "expected non-static module: {}",
+                    s,
+                ))
+            }
+            ref other => {
+                panic!("not a normal Lstr: {:?}", other);
+            }
+        }
+    }
+
     pub fn push(&self, import: &Path) -> CanonicalMod
     {
         match ImportedMod::path_relativity(import) {
