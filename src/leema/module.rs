@@ -431,19 +431,21 @@ impl CanonicalMod
         match self.0 {
             Lstr::Sref(s) => {
                 let p = Path::new(s);
-                let parent = CanonicalMod(Lstr::Sref(
-                    p.parent().unwrap().to_str().unwrap(),
+                let ext = p.extension().unwrap();
+                let stem = p.file_stem().unwrap();
+                let parent = CanonicalMod(Lstr::from(
+                    p.with_file_name(stem).to_str().unwrap().to_string()
                 ));
-                let end = p.file_name().unwrap();
-                Ok((parent, Lstr::Sref(end.to_str().unwrap())))
+                Ok((parent, Lstr::Sref(ext.to_str().unwrap())))
             }
             Lstr::Arc(ref s) => {
                 let p = Path::new(&**s);
+                let ext = p.extension().unwrap();
+                let stem = p.file_stem().unwrap();
                 let parent = CanonicalMod(Lstr::from(
-                    p.parent().unwrap().to_str().unwrap().to_string(),
+                    p.with_file_name(stem).to_str().unwrap().to_string()
                 ));
-                let end = p.file_name().unwrap();
-                Ok((parent, Lstr::from(end.to_str().unwrap().to_string())))
+                Ok((parent, Lstr::from(ext.to_str().unwrap().to_string())))
             }
             ref other => {
                 panic!("not a normal Lstr: {:?}", other);
@@ -610,6 +612,24 @@ mod tests
         let cm = CanonicalMod(Lstr::from("/foo/bar"));
         let result = cm.push(Path::new("../taco"));
         assert_eq!("/foo/taco", result.0.str());
+    }
+
+    #[test]
+    fn test_canonical_split_type_arc()
+    {
+        let ct = CanonicalMod(Lstr::from("/taco.Burrito".to_string()));
+        let (m, t) = ct.split_type().unwrap();
+        assert_eq!("/taco", m.0.str());
+        assert_eq!("Burrito", t.str());
+    }
+
+    #[test]
+    fn test_canonical_split_type_sref()
+    {
+        let ct = CanonicalMod(Lstr::from("/taco.Burrito"));
+        let (m, t) = ct.split_type().unwrap();
+        assert_eq!("/taco", m.0.str());
+        assert_eq!("Burrito", t.str());
     }
 
     #[test]
