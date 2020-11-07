@@ -592,6 +592,13 @@ impl ProtoModule
         funcs: Vec<AstNode>,
     ) -> Lresult<()>
     {
+        let (tmod, _tname) = subkey.name.split_type()?;
+        let typ = AstNode::new(
+            Ast::Type(Type::User(tmod, id)),
+            Loc::default(),
+        );
+        self.alias
+            .insert((subkey.name.clone(), "Self"), (vec![], typ));
         let iface_imod = ImportedMod::from(subkey.name.0.str());
         self.imports.insert(id, subkey.name.clone());
         self.exports.insert(ModAlias(id), iface_imod);
