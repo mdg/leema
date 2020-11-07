@@ -737,13 +737,8 @@ impl Walker
                 panic!("func type crawling not implemented");
             }
             // these ASTs should already be processed in the proto phase
-            Ast::DefMacro(name, _, _) => {
-                return Err(rustfail!(
-                    "compile_failure",
-                    "macro definition must already be processed: {} @ {:?}",
-                    name,
-                    node.loc,
-                ));
+            Ast::DefMacro(_, _, _) => {
+                // don't do anything w/ macro
             }
             Ast::DefImpl(name, iface, _) => {
                 return Err(rustfail!(

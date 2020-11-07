@@ -158,6 +158,9 @@ impl<'l> ast2::Op for MacroApplication<'l>
                             }
                         }
                     }
+                    mac @ Ast::DefMacro(_, _, _) => {
+                        *node = Self::apply_macro(mac, node.loc, args)?;
+                    }
                     _other => {
                         // is something else, like a method call maybe
                         // should be fine
@@ -793,7 +796,7 @@ impl<'p> TypeCheck<'p>
                 }
                 Err(rustfail!(
                     SEMFAIL,
-                    "user types do not match: ({} != {})",
+                    "types do not match: ({} != {})",
                     t0,
                     t1,
                 ))
