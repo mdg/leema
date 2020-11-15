@@ -239,7 +239,7 @@ impl ProtoModule
     ) -> Lresult<()>
     {
         let (base_module, had_extension) = imp.trim_extension();
-        let canonical = self.key.name.push(base_module);
+        let canonical = self.key.name.push(&base_module);
         if had_extension {
             self.id_canonicals.insert(name, canonical);
         } else {
@@ -397,7 +397,7 @@ impl ProtoModule
         let constructor_call = Val::Construct(fref);
 
         let macro_call = AstNode::new(Ast::Id("new_struct_val"), loc);
-        let fields_arg = fields
+        let fields_arg: Xlist = fields
             .iter()
             .enumerate()
             .map(|(i, f)| {
@@ -406,7 +406,8 @@ impl ProtoModule
             })
             .collect();
         let macro_args = vec![
-            StrupleItem::new_v(AstNode::new(Ast::Id(name), loc)),
+            StrupleItem::new_v(AstNode::new(Ast::ConstVal(Val::Type(typ.clone())), loc)),
+            StrupleItem::new_v(AstNode::new(Ast::ConstVal(Val::Int(fields_arg.len() as i64)), loc)),
             StrupleItem::new_v(AstNode::new(Ast::Tuple(fields_arg), loc)),
         ];
 

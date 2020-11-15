@@ -355,72 +355,67 @@ struct MacroReplacement<'a>
 
 impl<'a> MacroReplacement<'a>
 {
-    fn expand_args(args: &mut Xlist) -> StepResult
+    fn expand_args(&self, args: &mut Xlist) -> StepResult
     {
-        let (expands, extra_items) =
-            args.iter().fold((false, 0), |(matches, extra_items), a| {
-                if let Ast::Op1("*", expansion_node) = &*a.v.node {
-                    match &*expansion_node.node {
-                        Ast::Tuple(expansion) => {
-                            (true, extra_items + expansion.len())
+        let args2: Lresult<Xlist> = args.drain(..).try_fold(vec![], |mut acc, a| {
+            if let Ast::Op1("*", expansion_node) = &*a.v.node {
+                match &*expansion_node.node {
+                    Ast::Id(expansion) => {
+                        if let Some(newval) = self.arg_map.get(expansion) {
+                            match &*newval.node {
+                                Ast::Tuple(items) => {
+                                    acc.extend_from_slice(&items[..]);
+                                }
+                                other => {
+                                    return Err(rustfail!(
+                                        "macro_error",
+                                        "cannot expand {:?}",
+                                        other,
+                                    ));
+                                }
+                            }
+                        } else {
+                            return Err(rustfail!(
+                                "macro_error",
+                                "undefined macro parameter: {}",
+                                expansion,
+                            ));
                         }
-                        what => {
-                            panic!("expected tuple, found {:?}", what);
-                        }
-                    }
-                } else {
-                    (matches, extra_items)
-                }
-            });
-        if !expands {
-            return Ok(AstStep::Ok);
-        }
-
-        let mut new_args = Vec::with_capacity(args.len() + extra_items);
-        let tmp_args = mem::take(args);
-        for a in tmp_args.into_iter() {
-            if let Ast::Op1("*", expansion_node) = *a.v.node {
-                match *expansion_node.node {
-                    Ast::Tuple(mut expansion) => {
-                        new_args.append(&mut expansion);
                     }
                     what => {
-                        panic!("expected tuple, found {:?}", what);
+                        return Err(rustfail!(
+                            "macro_error",
+                            "expected id, found {:?}",
+                            what,
+                        ));
                     }
                 }
             } else {
-                // not an expansion, just pass it through
-                new_args.push(a);
+                acc.push(a);
             }
-        }
-        mem::swap(args, &mut new_args);
+            Ok(acc)
+        });
+
+        mem::swap(args, &mut args2?);
         Ok(AstStep::Ok)
     }
 }
 
 impl<'a> ast2::Op for MacroReplacement<'a>
 {
-    fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
-    {
-        if let Ast::Id(idname) = &*node.node {
-            if let Some(newval) = self.arg_map.get(idname) {
-                *node = (*newval).clone();
-                return Ok(AstStep::Rewrite);
-            }
-        }
-        // if not replacing the id, replace the location of the call
-        // so everything in the macro body traces back to the macro name
-        node.loc = self.loc;
-        Ok(AstStep::Ok)
-    }
-
-    fn post(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
+    fn pre(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
         match &mut *node.node {
-            Ast::Call(_callx, ref mut args) if mode == AstMode::Value => {
-                Self::expand_args(args)?;
+            Ast::Id(idname) => {
+                if let Some(newval) = self.arg_map.get(idname) {
+                    *node = (*newval).clone();
+                    return Ok(AstStep::Rewrite);
+                }
             }
-            _ => {} // nothing
+            Ast::Call(_callx, ref mut args) if mode == AstMode::Value => {
+                self.expand_args(args)?;
+            }
+            _ => {} // nothing, all good
         }
         // if not replacing the id, replace the location of the call
         // so everything in the macro body traces back to the macro name
@@ -933,14 +928,25 @@ impl<'p> TypeCheck<'p>
                         Ast::ConstVal(Val::Type(t)) => {
                             a.0.v = t.clone();
                         }
-                        _ => {
+                        Ast::Id(id) => {
+                            a.0.v = self.local_mod.find_type(id)
+                                .ok_or_else(|| {
+                                    rustfail!(
+                                        TYPEFAIL,
+                                        "undefined type: {} in module {}",
+                                        id,
+                                        self.local_mod.key.name,
+                                    )
+                                })?.clone();
+                        }
+                        what => {
                             let t = self.local_mod.ast_to_type(
                                 &self.local_mod.key.name,
                                 &a.1.v,
                                 &[],
                             )?;
                             a.0.v = t;
-                            panic!("unexpected type setting");
+                            panic!("unexpected type setting: {:#?}", what);
                         }
                     }
                 }
@@ -1027,7 +1033,7 @@ impl<'p> TypeCheck<'p>
         match calltype {
             Type::Func(inner_ftyp) => {
                 let mut opens = vec![];
-                self.match_argtypes(inner_ftyp, args, &mut opens)
+                Ok(ltry!(self.match_argtypes(inner_ftyp, args, &mut opens)))
             }
             Type::Generic(false, ref mut inner, _) => {
                 self.applied_call_type(&mut *inner, args)
@@ -1036,7 +1042,7 @@ impl<'p> TypeCheck<'p>
                 if let Type::Func(inner_ftyp) = &mut **open_ftyp {
                     // figure out arg types
                     let result =
-                        self.match_argtypes(inner_ftyp, args, opens)?;
+                        ltry!(self.match_argtypes(inner_ftyp, args, opens));
                     if result.is_open() {
                         return Err(rustfail!(
                             TYPEFAIL,
@@ -1247,6 +1253,17 @@ impl<'p> ast2::Op for TypeCheck<'p>
                             self.calls.push(fref.clone());
                             node.typ = call_result;
                         }
+                    }
+                    Ast::Op2(".", ref mut base, ref mut method) => {
+                        if let Type::User(ref cm, ref id) = &base.typ {
+                            let method_mod = cm.push(id);
+                        } else {
+                            unimplemented!();
+                        }
+                        let meth_obj = mem::take(base);
+                        args.insert(0, StrupleItem::new_v(meth_obj));
+                        *callx = mem::take(method);
+                        return Ok(AstStep::Rewrite);
                     }
                     _ => {
                         if !callx.typ.is_user() {

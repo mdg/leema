@@ -3,6 +3,7 @@ use crate::leema::lstr::Lstr;
 use crate::leema::sendclone;
 
 use std::borrow::Borrow;
+use std::ffi::OsStr;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::path::{Component, Path, PathBuf};
@@ -453,8 +454,9 @@ impl CanonicalMod
         }
     }
 
-    pub fn push(&self, import: &Path) -> CanonicalMod
+    pub fn push<S: AsRef<OsStr>>(&self, imp: &S) -> CanonicalMod
     {
+        let import = Path::new(imp);
         match ImportedMod::path_relativity(import) {
             ModRelativity::Absolute => {
                 CanonicalMod(Lstr::from(format!("{}", import.display())))
