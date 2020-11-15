@@ -6,7 +6,8 @@ use crate::leema::list;
 use crate::leema::lstr::Lstr;
 use crate::leema::program;
 use crate::leema::rsrc;
-use crate::leema::val::{self, Val};
+use crate::leema::struple::StrupleItem;
+use crate::leema::val::{self, Type, Val};
 use crate::leema::worker::RustFuncContext;
 
 
@@ -270,6 +271,45 @@ pub fn load_code(mut ctx: rsrc::IopCtx) -> rsrc::Event
     }
 }
 
+pub fn void_func(mut f: RustFuncContext) -> Lresult<frame::Event>
+{
+    let num_args: usize = match f.get_param(0)? {
+        Val::Int(i) => *i as usize,
+        other => {
+            return Err(rustfail!(
+                "type_error",
+                "expected an integer, not {:?}",
+                other,
+            ));
+        }
+    };
+    let void_type: Type = match &f.current_fref().t {
+        Type::Generic(false, inner, _opens) => {
+            match &**inner {
+                Type::Func(ft) => (*ft.result).clone(),
+                other => {
+                    return Err(rustfail!(
+                        "leema_failure",
+                        "void func type is not func: {:?}",
+                        other,
+                    ));
+                }
+            }
+        }
+        other => {
+            return Err(rustfail!(
+                "leema_failure",
+                "void func is not closed generic: {:?}",
+                other,
+            ));
+        }
+    };
+    let flds = vec![StrupleItem::new_v(Val::VOID); num_args];
+    let result = Val::Struct(void_type, flds);
+    f.set_result(result);
+    frame::Event::success()
+}
+
 pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
@@ -285,6 +325,7 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         "int_negate" => Some(Code::Rust(int_negate)),
         "int_equal" => Some(Code::Rust2(int_equal)),
         "int_less_than" => Some(Code::Rust2(int_less_than)),
+        "void" => Some(Code::Rust2(void_func)),
         _ => None,
     }
 }

@@ -51,6 +51,7 @@ lazy_static! {
         ids.insert("Some", core_mod.clone());
         ids.insert("Str", core_mod.clone());
         ids.insert("True", core_mod.clone());
+        ids.insert("void", core_mod.clone());
         ids.insert("Void", core_mod.clone());
         ids.insert("#", core_mod);
         ids

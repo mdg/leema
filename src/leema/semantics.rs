@@ -1340,7 +1340,13 @@ impl<'p> ast2::Op for TypeCheck<'p>
                                 let (_styp, flds) = self
                                     .fields
                                     .get(&(tmod.clone(), *tname))
-                                    .expect("no struct fields found");
+                                    .ok_or_else(|| {
+                                        rustfail!(
+                                            "type_failure",
+                                            "no struct fields found in {}",
+                                            tname,
+                                        )
+                                    })?;
                                 match struple::find_lstr(&flds[..], f) {
                                     Some((fld_idx, _)) => {
                                         *b.node = Ast::ConstVal(Val::Int(
