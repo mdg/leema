@@ -244,7 +244,8 @@ impl Type
     pub fn is_func(&self) -> bool
     {
         match self {
-            &Type::Func(_) => true,
+            Type::Func(_) => true,
+            Type::Generic(_, ref inner, _) => inner.is_func(),
             _ => false,
         }
     }
