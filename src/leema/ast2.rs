@@ -696,10 +696,11 @@ impl Walker
             }
             Ast::Generic(id, args) => {
                 steptry!(self.walk(id, op));
-                self.set_mode(AstMode::Type);
+                let prev = self.set_mode(AstMode::Type);
                 for a in args.iter_mut() {
                     steptry!(self.walk(&mut a.v, op));
                 }
+                self.set_mode(prev);
             }
             Ast::DefFunc(name, args, result, body) => {
                 steptry!(self.walk(name, op));
