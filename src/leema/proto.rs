@@ -1,6 +1,7 @@
 use crate::leema::ast2::{
     Ast, AstNode, DataType, Loc, ModAction, ModTree, Xlist,
 };
+use crate::leema::canonical::Canonical;
 use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
@@ -9,7 +10,7 @@ use crate::leema::module::{
 };
 use crate::leema::parser::parse_file;
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
-use crate::leema::val::{Fref, FuncType, GenericTypes, Type, TypeKey, Val};
+use crate::leema::val::{Fref, FuncType, GenericTypes, Type, TypeSrc, Val};
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -96,6 +97,7 @@ pub struct ProtoModule
     pub funcseq: Vec<&'static str>,
     pub funcsrc: HashMap<&'static str, (Xlist, AstNode)>,
     pub token: HashSet<&'static str>,
+    type_src: HashMap<&'static str, TypeSrc>,
     alias: AliasMap,
     pub struct_fields: Vec<(&'static str, Type, Struple2<Type>)>,
     submods: HashMap<&'static str, ProtoModule>,
@@ -131,6 +133,7 @@ impl ProtoModule
             funcseq: Vec::new(),
             funcsrc: HashMap::new(),
             token: HashSet::new(),
+            type_src: HashMap::new(),
             alias: HashMap::new(),
             struct_fields: vec![],
             submods: HashMap::new(),
@@ -1073,7 +1076,7 @@ impl ProtoModule
     }
 }
 
-pub type StructFieldMap = HashMap<TypeKey, (Type, Struple2<Type>)>;
+pub type StructFieldMap = HashMap<(CanonicalMod, &'static str), (Type, Struple2<Type>)>;
 
 #[derive(Debug)]
 pub struct ProtoLib
@@ -1081,6 +1084,7 @@ pub struct ProtoLib
     protos: HashMap<PathBuf, ProtoModule>,
     fields: StructFieldMap,
     aliases: AliasMap,
+    type_src: HashMap<Canonical, TypeSrc>,
 }
 
 impl ProtoLib
@@ -1091,6 +1095,7 @@ impl ProtoLib
             protos: HashMap::new(),
             fields: HashMap::new(),
             aliases: HashMap::new(),
+            type_src: HashMap::new(),
         }
     }
 
@@ -1225,6 +1230,7 @@ impl ProtoLib
             let submodname = sub.1.key.name.clone();
             self.put_module(submodname.as_path(), sub.1)?;
         }
+
         self.put_module(modpath, proto)?;
         Ok(())
     }

@@ -1,3 +1,4 @@
+use crate::leema::canonical::Canonical;
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::sendclone;
@@ -425,6 +426,11 @@ impl CanonicalMod
     pub fn as_path(&self) -> &Path
     {
         Path::new(self.0.str())
+    }
+
+    pub fn to_canonical(&self) -> Canonical
+    {
+        Canonical::new(self.0.clone())
     }
 
     pub fn split_type(&self) -> Lresult<(CanonicalMod, Lstr)>

@@ -1,3 +1,4 @@
+use crate::leema::canonical::Canonical;
 use crate::leema::failure::{Failure, Lresult};
 use crate::leema::frame::FrameTrace;
 use crate::leema::list;
@@ -107,7 +108,6 @@ impl FuncType
 
 pub type GenericTypes = StrupleKV<&'static str, Type>;
 pub type GenericTypeSlice = [StrupleItem<&'static str, Type>];
-pub type TypeKey = (CanonicalMod, &'static str);
 
 #[derive(Clone)]
 #[derive(PartialEq)]
@@ -458,6 +458,16 @@ impl fmt::Debug for Type
     }
 }
 
+#[derive(Clone)]
+#[derive(Debug)]
+pub enum TypeSrc
+{
+    Alias(Type, Type),
+    Enum(Canonical, Vec<Canonical>),
+    Generic(Box<TypeSrc>, GenericTypes),
+    Struct(Canonical, Struple2<Type>),
+    Token(Canonical),
+}
 
 pub trait LibVal: mopa::Any + fmt::Debug + Send + Sync
 {

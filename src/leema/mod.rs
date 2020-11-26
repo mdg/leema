@@ -7,6 +7,8 @@ pub mod lstr;
 #[macro_use]
 pub mod module;
 #[macro_use]
+pub mod canonical;
+#[macro_use]
 pub mod ast2;
 
 pub mod application;
