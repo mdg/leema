@@ -357,44 +357,45 @@ impl<'a> MacroReplacement<'a>
 {
     fn expand_args(&self, args: &mut Xlist) -> StepResult
     {
-        let args2: Lresult<Xlist> = args.drain(..).try_fold(vec![], |mut acc, a| {
-            if let Ast::Op1("*", expansion_node) = &*a.v.node {
-                match &*expansion_node.node {
-                    Ast::Id(expansion) => {
-                        if let Some(newval) = self.arg_map.get(expansion) {
-                            match &*newval.node {
-                                Ast::Tuple(items) => {
-                                    acc.extend_from_slice(&items[..]);
+        let args2: Lresult<Xlist> =
+            args.drain(..).try_fold(vec![], |mut acc, a| {
+                if let Ast::Op1("*", expansion_node) = &*a.v.node {
+                    match &*expansion_node.node {
+                        Ast::Id(expansion) => {
+                            if let Some(newval) = self.arg_map.get(expansion) {
+                                match &*newval.node {
+                                    Ast::Tuple(items) => {
+                                        acc.extend_from_slice(&items[..]);
+                                    }
+                                    other => {
+                                        return Err(rustfail!(
+                                            "macro_error",
+                                            "cannot expand {:?}",
+                                            other,
+                                        ));
+                                    }
                                 }
-                                other => {
-                                    return Err(rustfail!(
-                                        "macro_error",
-                                        "cannot expand {:?}",
-                                        other,
-                                    ));
-                                }
+                            } else {
+                                return Err(rustfail!(
+                                    "macro_error",
+                                    "undefined macro parameter: {}",
+                                    expansion,
+                                ));
                             }
-                        } else {
+                        }
+                        what => {
                             return Err(rustfail!(
                                 "macro_error",
-                                "undefined macro parameter: {}",
-                                expansion,
+                                "expected id, found {:?}",
+                                what,
                             ));
                         }
                     }
-                    what => {
-                        return Err(rustfail!(
-                            "macro_error",
-                            "expected id, found {:?}",
-                            what,
-                        ));
-                    }
+                } else {
+                    acc.push(a);
                 }
-            } else {
-                acc.push(a);
-            }
-            Ok(acc)
-        });
+                Ok(acc)
+            });
 
         mem::swap(args, &mut args2?);
         Ok(AstStep::Ok)
@@ -929,7 +930,9 @@ impl<'p> TypeCheck<'p>
                             a.0.v = t.clone();
                         }
                         Ast::Id(id) => {
-                            a.0.v = self.local_mod.find_type(id)
+                            a.0.v = self
+                                .local_mod
+                                .find_type(id)
                                 .ok_or_else(|| {
                                     rustfail!(
                                         TYPEFAIL,
@@ -937,7 +940,8 @@ impl<'p> TypeCheck<'p>
                                         id,
                                         self.local_mod.key.name,
                                     )
-                                })?.clone();
+                                })?
+                                .clone();
                         }
                         what => {
                             let t = self.local_mod.ast_to_type(

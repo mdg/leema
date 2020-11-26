@@ -1,5 +1,5 @@
-use crate::leema::lstr::Lstr;
 use crate::leema::failure::Lresult;
+use crate::leema::lstr::Lstr;
 
 use std::borrow::Borrow;
 use std::fmt;
@@ -57,9 +57,7 @@ impl Canonical
                 new_path.set_extension(sub);
                 new_path
             }
-            None => {
-                p.with_extension(sub)
-            }
+            None => p.with_extension(sub),
         };
         Canonical(Lstr::from(new_p.to_str().unwrap().to_string()))
     }
@@ -72,7 +70,7 @@ impl Canonical
                 let ext = p.extension().unwrap();
                 let stem = p.file_stem().unwrap();
                 let parent = Canonical(Lstr::from(
-                    p.with_file_name(stem).to_str().unwrap().to_string()
+                    p.with_file_name(stem).to_str().unwrap().to_string(),
                 ));
                 Ok((parent, Lstr::Sref(ext.to_str().unwrap())))
             }
@@ -81,7 +79,7 @@ impl Canonical
                 let ext = p.extension().unwrap();
                 let stem = p.file_stem().unwrap();
                 let parent = Canonical(Lstr::from(
-                    p.with_file_name(stem).to_str().unwrap().to_string()
+                    p.with_file_name(stem).to_str().unwrap().to_string(),
                 ));
                 Ok((parent, Lstr::from(ext.to_str().unwrap().to_string())))
             }

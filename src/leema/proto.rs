@@ -410,8 +410,14 @@ impl ProtoModule
             })
             .collect();
         let macro_args = vec![
-            StrupleItem::new_v(AstNode::new(Ast::ConstVal(Val::Type(typ.clone())), loc)),
-            StrupleItem::new_v(AstNode::new(Ast::ConstVal(Val::Int(fields_arg.len() as i64)), loc)),
+            StrupleItem::new_v(AstNode::new(
+                Ast::ConstVal(Val::Type(typ.clone())),
+                loc,
+            )),
+            StrupleItem::new_v(AstNode::new(
+                Ast::ConstVal(Val::Int(fields_arg.len() as i64)),
+                loc,
+            )),
             StrupleItem::new_v(AstNode::new(Ast::Tuple(fields_arg), loc)),
         ];
 
@@ -598,10 +604,7 @@ impl ProtoModule
     ) -> Lresult<()>
     {
         let (tmod, _tname) = subkey.name.split_type()?;
-        let typ = AstNode::new(
-            Ast::Type(Type::User(tmod, id)),
-            Loc::default(),
-        );
+        let typ = AstNode::new(Ast::Type(Type::User(tmod, id)), Loc::default());
         self.alias
             .insert((subkey.name.clone(), "Self"), (vec![], typ));
         let iface_imod = ImportedMod::from(subkey.name.0.str());
@@ -1076,7 +1079,8 @@ impl ProtoModule
     }
 }
 
-pub type StructFieldMap = HashMap<(CanonicalMod, &'static str), (Type, Struple2<Type>)>;
+pub type StructFieldMap =
+    HashMap<(CanonicalMod, &'static str), (Type, Struple2<Type>)>;
 
 #[derive(Debug)]
 pub struct ProtoLib

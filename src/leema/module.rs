@@ -441,7 +441,7 @@ impl CanonicalMod
                 let ext = p.extension().unwrap();
                 let stem = p.file_stem().unwrap();
                 let parent = CanonicalMod(Lstr::from(
-                    p.with_file_name(stem).to_str().unwrap().to_string()
+                    p.with_file_name(stem).to_str().unwrap().to_string(),
                 ));
                 Ok((parent, Lstr::Sref(ext.to_str().unwrap())))
             }
@@ -450,7 +450,7 @@ impl CanonicalMod
                 let ext = p.extension().unwrap();
                 let stem = p.file_stem().unwrap();
                 let parent = CanonicalMod(Lstr::from(
-                    p.with_file_name(stem).to_str().unwrap().to_string()
+                    p.with_file_name(stem).to_str().unwrap().to_string(),
                 ));
                 Ok((parent, Lstr::from(ext.to_str().unwrap().to_string())))
             }
