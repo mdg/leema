@@ -618,7 +618,7 @@ mod tests
     fn test_canonical_push_sibling()
     {
         let cm = CanonicalMod(Lstr::from("/foo/bar"));
-        let result = cm.push(Path::new("../taco"));
+        let result = cm.push(&Path::new("../taco"));
         assert_eq!("/foo/taco", result.0.str());
     }
 

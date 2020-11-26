@@ -1260,7 +1260,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                     }
                     Ast::Op2(".", ref mut base, ref mut method) => {
                         if let Type::User(ref cm, ref id) = &base.typ {
-                            let method_mod = cm.push(id);
+                            let _method_mod = cm.push(id);
                         } else {
                             unimplemented!();
                         }
