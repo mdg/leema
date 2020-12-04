@@ -199,36 +199,21 @@ pub fn find_str<'s, 'k, K, S, V>(
         .map(|(idx, item)| (idx, &item.v))
 }
 
-pub fn find_str_mut<'s, 'k, V>(
-    s: &'s mut [StrupleItem<Option<&'static str>, V>],
-    key: &'k str,
+pub fn find_str_mut<'s, 'k, K, S, V>(
+    s: &'s mut [StrupleItem<Option<S>, V>],
+    key: K,
 ) -> Option<(usize, &'s mut V)>
+    where S: AsRef<str>, K: AsRef<str>
 {
     s.iter_mut()
         .enumerate()
         .find(|(_, i)| {
             match &i.k {
-                Some(ref item_key) => **item_key == *key,
+                Some(ref item_key) => *item_key.as_ref() == *key.as_ref(),
                 None => false,
             }
         })
         .map(|(idx, item)| (idx, &mut item.v))
-}
-
-pub fn find_lstr<'s, 'k, V>(
-    s: &'s [StrupleItem<Option<Lstr>, V>],
-    key: &'k str,
-) -> Option<(usize, &'s V)>
-{
-    s.iter()
-        .enumerate()
-        .find(|(_, i)| {
-            match &i.k {
-                Some(ref item_key) => **item_key == *key,
-                None => false,
-            }
-        })
-        .map(|(idx, item)| (idx, &item.v))
 }
 
 pub fn contains_key<K, V>(s: &[StrupleItem<K, V>], k: &K) -> bool

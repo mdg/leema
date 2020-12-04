@@ -1045,6 +1045,8 @@ impl ProtoModule
         })
     }
 
+    /// for finding the field index in a defined struct type
+    /// ok great, but can you find a method in an interface implementation?
     pub fn type_field_idx<S>(type_src: &CanonicalTypeSrc, c: &Canonical, fld: &S) -> Option<i64>
         where S: AsRef<str>
     {
