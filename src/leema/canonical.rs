@@ -139,6 +139,17 @@ impl From<&'static Path> for Canonical
     }
 }
 
+impl From<PathBuf> for Canonical
+{
+    fn from(cp: PathBuf) -> Canonical
+    {
+        if !cp.is_absolute() {
+            panic!("canonical must be absolute: {:?}", cp);
+        }
+        Canonical::new(Lstr::from(cp.to_str().expect("expected unicode path")))
+    }
+}
+
 impl Borrow<str> for Canonical
 {
     fn borrow(&self) -> &str

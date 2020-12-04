@@ -5,7 +5,7 @@ use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::inter::Blockstack;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::CanonicalMod;
-use crate::leema::proto::{AliasMap, ProtoModule, StructFieldMap};
+use crate::leema::proto::{CanonicalTypeSrc, ProtoModule};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{
     Fref, FuncType, GenericTypeSlice, GenericTypes, Type, Val,
@@ -588,8 +588,7 @@ impl<'l> fmt::Debug for ScopeCheck<'l>
 struct TypeCheck<'p>
 {
     local_mod: &'p ProtoModule,
-    aliases: &'p AliasMap,
-    fields: &'p StructFieldMap,
+    type_src: &'p CanonicalTypeSrc,
     result: Type,
     vartypes: HashMap<&'static str, Type>,
     infers: HashMap<Lstr, Type>,
@@ -601,14 +600,12 @@ impl<'p> TypeCheck<'p>
     pub fn new(
         local_mod: &'p ProtoModule,
         ftyp: &'p FuncType,
-        fields: &'p StructFieldMap,
-        aliases: &'p AliasMap,
+        type_src: &'p CanonicalTypeSrc,
     ) -> Lresult<TypeCheck<'p>>
     {
         let mut check = TypeCheck {
             local_mod,
-            fields,
-            aliases,
+            type_src,
             result: Type::VOID,
             vartypes: HashMap::new(),
             infers: HashMap::new(),
@@ -821,9 +818,10 @@ impl<'p> TypeCheck<'p>
         opens: &mut StrupleKV<&'static str, Type>,
     ) -> Lresult<Option<Type>>
     {
-        match self.aliases.get(&(m0.clone(), u0)) {
+        let canon = m0.push(&u0).to_canonical();
+        match self.type_src.get(&canon) {
             None => Ok(None),
-            Some((_, astt)) => {
+            Some(ts) => {
                 let rt = self.local_mod.ast_to_type(
                     &self.local_mod.key.name,
                     &astt,
@@ -1583,8 +1581,7 @@ impl Semantics
     pub fn compile_call(
         proto: &mut ProtoModule,
         f: &Fref,
-        fields: &StructFieldMap,
-        aliases: &AliasMap,
+        type_src: &CanonicalTypeSrc,
     ) -> Lresult<Semantics>
     {
         let mut sem = Semantics::new();
@@ -1629,7 +1626,7 @@ impl Semantics
                     f.m,
                     f.f,
                     f.t,
-                    fields,
+                    type_src,
                     func_ref.typ
                 ));
             }
@@ -1652,7 +1649,7 @@ impl Semantics
 
         let mut macs = MacroApplication::new(proto, ftyp, &closed);
         let mut scope_check = ScopeCheck::new(ftyp, proto)?;
-        let mut type_check = TypeCheck::new(proto, ftyp, fields, &aliases)?;
+        let mut type_check = TypeCheck::new(proto, ftyp, type_src)?;
         let mut remove_extra = RemoveExtraCode;
 
         // This interleaves all the calls.

@@ -79,7 +79,7 @@ const STATIC_INDEX_NAMES: [&'static str; 17] = [
     "statixName16",
 ];
 
-pub type AliasMap = HashMap<(CanonicalMod, &'static str), (Xlist, AstNode)>;
+pub type CanonicalTypeSrc = HashMap<Canonical, TypeSrc>;
 
 /// Asts separated into their types of components
 #[derive(Debug)]
@@ -98,8 +98,6 @@ pub struct ProtoModule
     pub funcsrc: HashMap<&'static str, (Xlist, AstNode)>,
     pub token: HashSet<&'static str>,
     type_src: HashMap<&'static str, TypeSrc>,
-    alias: AliasMap,
-    pub struct_fields: Vec<(&'static str, Type, Struple2<Type>)>,
     submods: HashMap<&'static str, ProtoModule>,
 }
 
@@ -134,8 +132,6 @@ impl ProtoModule
             funcsrc: HashMap::new(),
             token: HashSet::new(),
             type_src: HashMap::new(),
-            alias: HashMap::new(),
-            struct_fields: vec![],
             submods: HashMap::new(),
         };
 
@@ -441,7 +437,6 @@ impl ProtoModule
         self.types.insert(name, typ.clone());
         self.funcseq.push(name);
         self.funcsrc.insert(name, (fields, construction));
-        self.struct_fields.push((name, typ, args));
         Ok(())
     }
 
@@ -515,15 +510,18 @@ impl ProtoModule
         let loc = name.loc;
         let (name_id, t, _) = self.make_user_type(name)?;
         let srct = ltry!(self.ast_to_type(&self.key.name, &src, &[]));
-        let aliast = Type::Alias(Box::new(t.clone()), Box::new(srct));
+        let aliast = Type::Alias(Box::new(t.clone()), Box::new(srct.clone()));
         let typeval = Val::Type(aliast);
         let mut node = AstNode::new_constval(typeval, loc);
         node.typ = Type::Kind;
         self.types.insert(name_id, t);
         self.exported_vals
             .push(StrupleItem::new(Some(name_id), node));
-        self.alias
-            .insert((self.key.name.clone(), name_id), (vec![], src));
+        self.type_src
+            .insert(name_id, TypeSrc::Alias(
+                Type::User(self.key.name.clone(), name_id),
+                srct,
+            ));
         Ok(())
     }
 
@@ -603,10 +601,13 @@ impl ProtoModule
         funcs: Vec<AstNode>,
     ) -> Lresult<()>
     {
-        let (tmod, _tname) = subkey.name.split_type()?;
-        let typ = AstNode::new(Ast::Type(Type::User(tmod, id)), Loc::default());
-        self.alias
-            .insert((subkey.name.clone(), "Self"), (vec![], typ));
+        let (tmod, tname) = subkey.name.split_type()?;
+        let utyp = Type::User(tmod, id);
+        let typ = AstNode::new(Ast::Type(utyp.clone()), Loc::default());
+        self.type_src.insert(
+            "Self",
+            TypeSrc::Alias(Type::User(subkey.name.clone(), "Self"), utyp),
+        );
         let iface_imod = ImportedMod::from(subkey.name.0.str());
         self.imports.insert(id, subkey.name.clone());
         self.exports.insert(ModAlias(id), iface_imod);
@@ -1079,16 +1080,11 @@ impl ProtoModule
     }
 }
 
-pub type StructFieldMap =
-    HashMap<(CanonicalMod, &'static str), (Type, Struple2<Type>)>;
-
 #[derive(Debug)]
 pub struct ProtoLib
 {
     protos: HashMap<PathBuf, ProtoModule>,
-    fields: StructFieldMap,
-    aliases: AliasMap,
-    type_src: HashMap<Canonical, TypeSrc>,
+    type_src: CanonicalTypeSrc,
 }
 
 impl ProtoLib
@@ -1097,8 +1093,6 @@ impl ProtoLib
     {
         ProtoLib {
             protos: HashMap::new(),
-            fields: HashMap::new(),
-            aliases: HashMap::new(),
             type_src: HashMap::new(),
         }
     }
@@ -1245,8 +1239,9 @@ impl ProtoLib
         mut proto: ProtoModule,
     ) -> Lresult<()>
     {
-        for ((m, u), (o, r)) in proto.alias.drain() {
-            self.aliases.insert((m, u), (o, r));
+        for (u, tsrc) in proto.type_src.drain() {
+            let canon = Canonical::from(modpath.join(u));
+            self.type_src.insert(canon, tsrc);
         }
 
         let type_mods = proto.type_modules()?;
@@ -1311,16 +1306,6 @@ impl ProtoLib
             }
         }
 
-        {
-            // unwrap is fine, already verified presence earlier
-            let proto = self.protos.get_mut(modname).unwrap();
-
-            for (id, typ, flds) in proto.struct_fields.drain(..) {
-                self.fields
-                    .insert((proto.key.name.clone(), id), (typ, flds));
-            }
-        }
-
         let proto = self.protos.get_mut(modname).unwrap();
         proto.imported_vals.append(&mut imports);
         Ok(())
@@ -1377,14 +1362,14 @@ impl ProtoLib
     pub fn path_proto_mut(
         &mut self,
         path: &CanonicalMod,
-    ) -> Lresult<(&mut ProtoModule, &StructFieldMap, &AliasMap)>
+    ) -> Lresult<(&mut ProtoModule, &CanonicalTypeSrc)>
     {
         let result = self.protos.get_mut(path.as_path()).ok_or_else(|| {
             rustfail!(PROTOFAIL, "module not loaded: {:?}", path)
         });
         match result {
             Err(e) => Err(e),
-            Ok(p) => Ok((p, &self.fields, &self.aliases)),
+            Ok(p) => Ok((p, &self.type_src)),
         }
     }
 }
