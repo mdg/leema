@@ -146,7 +146,8 @@ impl From<PathBuf> for Canonical
         if !cp.is_absolute() {
             panic!("canonical must be absolute: {:?}", cp);
         }
-        Canonical::new(Lstr::from(cp.to_str().expect("expected unicode path")))
+        let cstr: String = cp.to_str().expect("expected unicode path").to_string();
+        Canonical::new(Lstr::from(cstr))
     }
 }
 

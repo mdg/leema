@@ -603,7 +603,6 @@ impl ProtoModule
     {
         let (tmod, tname) = subkey.name.split_type()?;
         let utyp = Type::User(tmod, id);
-        let typ = AstNode::new(Ast::Type(utyp.clone()), Loc::default());
         self.type_src.insert(
             "Self",
             TypeSrc::Alias(Type::User(subkey.name.clone(), "Self"), utyp),
@@ -1044,6 +1043,24 @@ impl ProtoModule
                 ));
             }
         })
+    }
+
+    pub fn type_field_idx<S>(type_src: &CanonicalTypeSrc, c: &Canonical, fld: &S) -> Option<i64>
+        where S: AsRef<str>
+    {
+        match type_src.get(c)? {
+            TypeSrc::Struct(_t, flds) => {
+                match struple::find_str(&flds[..], fld) {
+                    Some((fld_idx, _)) => Some(fld_idx as i64),
+                    None => None,
+                }
+            }
+            TypeSrc::Alias(_t0, Type::User(m1, t1)) => {
+                let c1 = m1.push(t1).to_canonical();
+                Self::type_field_idx(type_src, &c1, fld)
+            }
+            _ => None,
+        }
     }
 
     fn ast_to_ftype(

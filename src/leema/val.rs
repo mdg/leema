@@ -463,10 +463,9 @@ impl fmt::Debug for Type
 pub enum TypeSrc
 {
     Alias(Type, Type),
-    Enum(Canonical, Vec<Canonical>),
-    Generic(Box<TypeSrc>, GenericTypes),
-    Struct(Canonical, Struple2<Type>),
-    Token(Canonical),
+    Enum(Type, Struple2<Canonical>),
+    Struct(Type, Struple2<Type>),
+    Token(Type, Canonical),
 }
 
 pub trait LibVal: mopa::Any + fmt::Debug + Send + Sync

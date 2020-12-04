@@ -8,7 +8,7 @@ use crate::leema::module::CanonicalMod;
 use crate::leema::proto::{CanonicalTypeSrc, ProtoModule};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{
-    Fref, FuncType, GenericTypeSlice, GenericTypes, Type, Val,
+    Fref, FuncType, GenericTypeSlice, GenericTypes, Type, TypeSrc, Val,
 };
 
 use std::collections::{HashMap, HashSet};
@@ -820,15 +820,11 @@ impl<'p> TypeCheck<'p>
     {
         let canon = m0.push(&u0).to_canonical();
         match self.type_src.get(&canon) {
-            None => Ok(None),
-            Some(ts) => {
-                let rt = self.local_mod.ast_to_type(
-                    &self.local_mod.key.name,
-                    &astt,
-                    opens,
-                )?;
-                Ok(Some(self.match_type(&rt, t1, opens)?))
+            Some(TypeSrc::Alias(ref _key, ref result)) => {
+                // do something with opens from key?
+                Ok(Some(self.match_type(result, t1, opens)?))
             }
+            _ => Ok(None),
         }
     }
 
@@ -1339,18 +1335,9 @@ impl<'p> ast2::Op for TypeCheck<'p>
                                     }
                                 }
 
-                                let (_styp, flds) = self
-                                    .fields
-                                    .get(&(tmod.clone(), *tname))
-                                    .ok_or_else(|| {
-                                        rustfail!(
-                                            "type_failure",
-                                            "no struct fields found in {}",
-                                            tname,
-                                        )
-                                    })?;
-                                match struple::find_lstr(&flds[..], f) {
-                                    Some((fld_idx, _)) => {
+                                let canon = tmod.push(tname).to_canonical();
+                                match ProtoModule::type_field_idx(self.type_src, &canon, f) {
+                                    Some(fld_idx) => {
                                         *b.node = Ast::ConstVal(Val::Int(
                                             fld_idx as i64,
                                         ));
@@ -1359,9 +1346,8 @@ impl<'p> ast2::Op for TypeCheck<'p>
                                         return Err(Failure::static_leema(
                                             failure::Mode::CompileFailure,
                                             lstrf!(
-                                                "type has no field: {}.{}.{}",
-                                                tmod,
-                                                tname,
+                                                "type has no field: {}.{}",
+                                                canon,
                                                 f,
                                             ),
                                             self.local_mod.key.name.0.clone(),
