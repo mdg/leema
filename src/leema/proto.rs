@@ -603,20 +603,19 @@ impl ProtoModule
     {
         let (tmod, tname) = subkey.name.split_type()?;
         let utyp = Type::User(tmod, id);
-        self.type_src.insert(
-            "Self",
-            TypeSrc::Alias(Type::User(subkey.name.clone(), "Self"), utyp),
-        );
+        let alias = TypeSrc::Alias(Type::User(subkey.name.clone(), "Self"), utyp);
         let iface_imod = ImportedMod::from(subkey.name.0.str());
         self.imports.insert(id, subkey.name.clone());
         self.exports.insert(ModAlias(id), iface_imod);
         match self.submods.get_mut(id) {
             Some(proto) => {
                 proto.append(funcs)?;
+                proto.type_src.insert("Self", alias);
             }
             None => {
-                self.submods
-                    .insert(id, ProtoModule::with_ast(subkey, funcs)?);
+                let mut proto = ProtoModule::with_ast(subkey, funcs)?;
+                proto.type_src.insert("Self", alias);
+                self.submods.insert(id, proto);
             }
         }
         Ok(())
