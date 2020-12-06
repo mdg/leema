@@ -436,6 +436,8 @@ impl ProtoModule
         self.types.insert(name, typ.clone());
         self.funcseq.push(name);
         self.funcsrc.insert(name, (fields, construction));
+        let typesrc = TypeSrc::Struct(typ, args);
+        self.type_src.insert(name, typesrc);
         Ok(())
     }
 
