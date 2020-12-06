@@ -1,15 +1,17 @@
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
+use crate::leema::module::{ImportedMod, ModRelativity};
 
 use std::borrow::Borrow;
+use std::ffi::OsStr;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
 
 #[macro_export]
 macro_rules! canonical {
-    ($cm:expr) => {
-        crate::leema::canonical::Canonical(crate::leema::lstr::Lstr::Sref($cm))
+    ($c:expr) => {
+        crate::leema::canonical::Canonical(crate::leema::lstr::Lstr::Sref($c))
     };
 }
 
@@ -19,12 +21,12 @@ macro_rules! canonical {
 #[derive(Eq)]
 #[derive(Ord)]
 #[derive(Hash)]
-pub struct Canonical(Lstr);
-
-const DEFAULT_CANONICAL: Canonical = canonical!("_");
+pub struct Canonical(pub Lstr);
 
 impl Canonical
 {
+    pub const DEFAULT: Canonical = canonical!("_");
+
     pub fn new(c: Lstr) -> Canonical
     {
         Canonical(c)
@@ -60,6 +62,52 @@ impl Canonical
             None => p.with_extension(sub),
         };
         Canonical(Lstr::from(new_p.to_str().unwrap().to_string()))
+    }
+
+    pub fn join<S>(&self, sub: S) -> Lresult<Canonical>
+        where S: AsRef<OsStr> + std::fmt::Debug
+    {
+        let subpath = Path::new(sub.as_ref());
+        match ImportedMod::path_relativity(subpath) {
+            ModRelativity::Absolute => {
+                return Err(rustfail!(
+                    "leema_failure",
+                    "cannot join an absolute path: {:?}",
+                    sub,
+                ));
+            }
+            ModRelativity::Sibling => {
+                let sib_base = self.as_path().parent().unwrap();
+                let sib_path = subpath.strip_prefix("../").unwrap();
+                // recursing in here would be good to allow multiple ../
+                let sib = sib_base.join(sib_path);
+                Ok(Canonical(Lstr::from(format!("{}", sib.display()))))
+            }
+            ModRelativity::Child | ModRelativity::Local => {
+                let ch_path = self.as_path().join(subpath);
+                Ok(Canonical(Lstr::from(format!("{}", ch_path.display()))))
+            }
+        }
+    }
+
+    pub fn push<S: AsRef<OsStr>>(&self, imp: &S) -> Canonical
+    {
+        let import = Path::new(imp);
+        match ImportedMod::path_relativity(import) {
+            ModRelativity::Absolute => {
+                Canonical(Lstr::from(format!("{}", import.display())))
+            }
+            ModRelativity::Sibling => {
+                let sib_base = self.as_path().parent().unwrap();
+                let sib_path = import.strip_prefix("../").unwrap();
+                let sib = sib_base.join(sib_path);
+                Canonical(Lstr::from(format!("{}", sib.display())))
+            }
+            ModRelativity::Child | ModRelativity::Local => {
+                let ch_path = self.as_path().join(import);
+                Canonical(Lstr::from(format!("{}", ch_path.display())))
+            }
+        }
     }
 
     pub fn split_id(&self) -> Lresult<(Canonical, Lstr)>
@@ -128,14 +176,15 @@ impl Canonical
     }
 }
 
-impl From<&'static Path> for Canonical
+impl From<&Path> for Canonical
 {
-    fn from(cp: &'static Path) -> Canonical
+    fn from(cp: &Path) -> Canonical
     {
         if !cp.is_absolute() {
             panic!("canonical must be absolute: {:?}", cp);
         }
-        Canonical::new(Lstr::Sref(cp.to_str().expect("expected unicode path")))
+        let cstr: String = cp.to_str().expect("expected unicode path").to_string();
+        Canonical::new(Lstr::from(cstr))
     }
 }
 
@@ -171,7 +220,7 @@ impl Default for Canonical
 {
     fn default() -> Canonical
     {
-        DEFAULT_CANONICAL
+        Canonical::DEFAULT
     }
 }
 

@@ -244,7 +244,7 @@ impl Fiber
     ) -> Lresult<Event>
     {
         let items = self.head.e.get_params();
-        let construple = if let Type::User(_mname, _fname) = new_typ {
+        let construple = if let Type::User(_) = new_typ {
             let new_items = items
                 .iter()
                 .zip(flds.iter())
@@ -278,7 +278,7 @@ impl Fiber
     ) -> Lresult<Event>
     {
         let items = self.head.e.get_params();
-        let construple = if let Type::User(_, _) = new_typ {
+        let construple = if let Type::User(_) = new_typ {
             let new_items = items
                 .iter()
                 .zip(flds.iter())

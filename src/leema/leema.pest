@@ -104,7 +104,7 @@ def_id = _{ gen_type | id }
 
 hashtag = @{ "#" ~ id }
 
-term = _{ hashtag | id | number | str | tuple | list | gen_type }
+term = _{ hashtag | id | number | str | tuple | list | gen_type | canonical }
 pattern = _{ underscore | expr }
 
 tx_maybe_k = { (id ~ hs0 ~ ":" ~ as0)? ~ typex }
@@ -114,6 +114,7 @@ xlist = _{ x_maybe_k ~ (as0 ~ "," ~ as0 ~ x_maybe_k)* ~ as0 ~ ","? }
 
 list = { "[]" | "[" ~ as0 ~ xlist? ~ as0 ~ "]" }
 tuple = { "(" ~ as0 ~ xlist? ~ as0 ~ ")" }
+canonical = { "(" ~ as0 ~ mxmod ~ as0 ~ ")" }
 
 blockx = { (block_arrow ~ vs1 ~ stmt_block ~ double_dash) }
 

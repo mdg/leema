@@ -6,7 +6,7 @@ use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::{
-    CanonicalMod, ImportedMod, ModAlias, ModKey, ModRelativity, ModTyp,
+    ImportedMod, ModAlias, ModKey, ModRelativity, ModTyp,
 };
 use crate::leema::parser::parse_file;
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
@@ -21,8 +21,8 @@ use lazy_static::lazy_static;
 const PROTOFAIL: &'static str = "prototype_failure";
 
 lazy_static! {
-    static ref DEFAULT_IDS: HashMap<&'static str, CanonicalMod> = {
-        let core_mod = canonical_mod!("/core");
+    static ref DEFAULT_IDS: HashMap<&'static str, Canonical> = {
+        let core_mod = canonical!("/core");
         let mut ids = HashMap::new();
         ids.insert("Bool", core_mod.clone());
         ids.insert("boolean_and", core_mod.clone());
@@ -86,10 +86,10 @@ pub type CanonicalTypeSrc = HashMap<Canonical, TypeSrc>;
 pub struct ProtoModule
 {
     pub key: ModKey,
-    pub imports: HashMap<&'static str, CanonicalMod>,
+    pub imports: HashMap<&'static str, Canonical>,
     pub exports: HashMap<ModAlias, ImportedMod>,
     pub exports_all: bool,
-    pub id_canonicals: HashMap<&'static str, CanonicalMod>,
+    pub id_canonicals: HashMap<&'static str, Canonical>,
     pub imported_vals: Xlist,
     exported_vals: Xlist,
     local_vals: Xlist,
@@ -432,8 +432,7 @@ impl ProtoModule
             loc,
         );
 
-        let submodkey = self.key.submod(ModTyp::Struct, name);
-        self.add_submod(name, submodkey, vec![constructor_ast])?;
+        self.add_submod(ModTyp::Struct, name, vec![constructor_ast])?;
         self.types.insert(name, typ.clone());
         self.funcseq.push(name);
         self.funcsrc.insert(name, (fields, construction));
@@ -477,7 +476,7 @@ impl ProtoModule
             Ast::Id(name_id) => {
                 ltry!(self.refute_redefines_default(name_id, name.loc));
                 let tok_mod = self.key.name.clone();
-                let t = Type::User(tok_mod, name_id);
+                let t = Type::User(tok_mod.push(&name_id));
                 let token_val = Val::Token(t.clone());
                 let const_node =
                     AstNode::new_constval(token_val.clone(), name.loc);
@@ -510,8 +509,7 @@ impl ProtoModule
         let loc = name.loc;
         let (name_id, t, _) = self.make_user_type(name)?;
         let srct = ltry!(self.ast_to_type(&self.key.name, &src, &[]));
-        let aliast = Type::Alias(Box::new(t.clone()), Box::new(srct.clone()));
-        let typeval = Val::Type(aliast);
+        let typeval = Val::Type(t.clone());
         let mut node = AstNode::new_constval(typeval, loc);
         node.typ = Type::Kind;
         self.types.insert(name_id, t);
@@ -519,7 +517,7 @@ impl ProtoModule
             .push(StrupleItem::new(Some(name_id), node));
         self.type_src
             .insert(name_id, TypeSrc::Alias(
-                Type::User(self.key.name.clone(), name_id),
+                Type::User(self.key.name.join(&name_id)?),
                 srct,
             ));
         Ok(())
@@ -590,20 +588,19 @@ impl ProtoModule
     {
         let (id, ityp, _opens) = self.make_user_type(name)?;
         self.types.insert(id, ityp);
-        let subkey = self.key.submod(ModTyp::Interface, id);
-        self.add_submod(id, subkey, funcs)
+        self.add_submod(ModTyp::Interface, id, funcs)
     }
 
     fn add_submod(
         &mut self,
+        subtype: ModTyp,
         id: &'static str,
-        subkey: ModKey,
         funcs: Vec<AstNode>,
     ) -> Lresult<()>
     {
-        let (tmod, tname) = subkey.name.split_type()?;
-        let utyp = Type::User(tmod, id);
-        let alias = TypeSrc::Alias(Type::User(subkey.name.clone(), "Self"), utyp);
+        let subkey = self.key.submod(subtype, id);
+        let utyp = Type::User(subkey.name.clone());
+        let alias = TypeSrc::Alias(Type::User(subkey.name.join("Self")?), utyp);
         let iface_imod = ImportedMod::from(subkey.name.0.str());
         self.imports.insert(id, subkey.name.clone());
         self.exports.insert(ModAlias(id), iface_imod);
@@ -738,7 +735,7 @@ impl ProtoModule
 
         let id = match *name.node {
             Ast::Id(name_id) => {
-                utyp = Type::User(self.key.name.clone(), name_id);
+                utyp = Type::User(self.key.name.join(name_id)?);
                 opens = vec![];
                 name_id
             }
@@ -776,7 +773,7 @@ impl ProtoModule
                         ));
                     }
 
-                    let inner = Type::User(m.clone(), name_id);
+                    let inner = Type::User(m.join(name_id)?);
                     utyp = Type::Generic(true, Box::new(inner), gen_arg_vars);
                     name_id
                 } else {
@@ -932,7 +929,7 @@ impl ProtoModule
             .ok_or_else(|| rustfail!(PROTOFAIL, "type not found: {}", name))
     }
 
-    pub fn imported_module(&self, alias: &ModAlias) -> Lresult<&CanonicalMod>
+    pub fn imported_module(&self, alias: &ModAlias) -> Lresult<&Canonical>
     {
         self.imports.get(alias.as_ref()).ok_or_else(|| {
             rustfail!(
@@ -945,14 +942,14 @@ impl ProtoModule
     }
 
     /// get the canonical module for an id
-    pub fn canonical_mod_for_id(&self, id: &str) -> Option<&CanonicalMod>
+    pub fn canonical_mod_for_id(&self, id: &str) -> Option<&Canonical>
     {
         self.id_canonicals.get(id).or_else(|| DEFAULT_IDS.get(id))
     }
 
     pub fn ast_to_type(
         &self,
-        local_mod: &CanonicalMod,
+        local_mod: &Canonical,
         node: &AstNode,
         opens: &[StrupleItem<&'static str, Type>],
     ) -> Lresult<Type>
@@ -966,7 +963,7 @@ impl ProtoModule
                     Some(module) => module,
                     None => &self.key.name,
                 };
-                Type::User(canonical_mod.clone(), id)
+                Type::User(canonical_mod.join(id)?)
             }
             Ast::List(inner_items) if inner_items.len() == 1 => {
                 let inner = &inner_items.first().unwrap().v;
@@ -1014,7 +1011,7 @@ impl ProtoModule
                     (Ast::Id(m), Ast::Id(id)) => {
                         match self.imports.get(m) {
                             Some(canonical) => {
-                                Type::User(canonical.clone(), id)
+                                Type::User(canonical.join(id)?)
                             }
                             None => {
                                 return Err(rustfail!(
@@ -1056,8 +1053,7 @@ impl ProtoModule
                     None => None,
                 }
             }
-            TypeSrc::Alias(_t0, Type::User(m1, t1)) => {
-                let c1 = m1.push(t1).to_canonical();
+            TypeSrc::Alias(_t0, Type::User(c1)) => {
                 Self::type_field_idx(type_src, &c1, fld)
             }
             _ => None,
@@ -1066,7 +1062,7 @@ impl ProtoModule
 
     fn ast_to_ftype(
         &self,
-        local_mod: &CanonicalMod,
+        local_mod: &Canonical,
         args: &Xlist,
         result: &AstNode,
         opens: &[StrupleItem<&'static str, Type>],
@@ -1079,7 +1075,7 @@ impl ProtoModule
 
     fn xlist_to_types(
         &self,
-        local_mod: &CanonicalMod,
+        local_mod: &Canonical,
         args: &Xlist,
         opens: &[StrupleItem<&'static str, Type>],
     ) -> Lresult<Struple2<Type>>
@@ -1130,7 +1126,7 @@ impl ProtoLib
                 modname.display(),
             ));
         }
-        let modkey = ModKey::from(CanonicalMod::from(modname));
+        let modkey = ModKey::from(Canonical::from(modname));
         let proto = ProtoModule::new(modkey, src)?;
         self.put_module(modname, proto)?;
         Ok(())
@@ -1181,7 +1177,7 @@ impl ProtoLib
                 mod_path,
             ));
         }
-        for p in CanonicalMod::ancestors(mod_path) {
+        for p in Canonical::ancestors(mod_path) {
             ltry!(self.load_canonical(loader, p));
         }
         Ok(())
@@ -1277,7 +1273,7 @@ impl ProtoLib
     ) -> Lresult<()>
     {
         vout!("ProtoLib::load_imports({})\n", modname.display());
-        let mut imported: Vec<(ModAlias, CanonicalMod)> = vec![];
+        let mut imported: Vec<(ModAlias, Canonical)> = vec![];
         {
             let proto = self.protos.get(modname).ok_or_else(|| {
                 rustfail!(
@@ -1329,7 +1325,7 @@ impl ProtoLib
         Ok(())
     }
 
-    pub fn exports_as_val(&self, modname: &CanonicalMod) -> Lresult<AstNode>
+    pub fn exports_as_val(&self, modname: &Canonical) -> Lresult<AstNode>
     {
         let proto = ltry!(self.path_proto(modname));
         let tup =
@@ -1339,7 +1335,7 @@ impl ProtoLib
 
     pub fn export_as_val(
         &self,
-        modname: &CanonicalMod,
+        modname: &Canonical,
         elem: &'static str,
     ) -> Lresult<&AstNode>
     {
@@ -1358,7 +1354,7 @@ impl ProtoLib
 
     pub fn imported_proto(
         &self,
-        proto: &CanonicalMod,
+        proto: &Canonical,
         alias: &ModAlias,
     ) -> Lresult<&ProtoModule>
     {
@@ -1370,7 +1366,7 @@ impl ProtoLib
         Ok(ltry!(self.path_proto(&new_path)))
     }
 
-    pub fn path_proto(&self, path: &CanonicalMod) -> Lresult<&ProtoModule>
+    pub fn path_proto(&self, path: &Canonical) -> Lresult<&ProtoModule>
     {
         self.protos.get(path.as_path()).ok_or_else(|| {
             rustfail!(PROTOFAIL, "module not loaded: {:?}", path)
@@ -1379,7 +1375,7 @@ impl ProtoLib
 
     pub fn path_proto_mut(
         &mut self,
-        path: &CanonicalMod,
+        path: &Canonical,
     ) -> Lresult<(&mut ProtoModule, &CanonicalTypeSrc)>
     {
         let result = self.protos.get_mut(path.as_path()).ok_or_else(|| {

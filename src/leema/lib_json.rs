@@ -4,7 +4,7 @@ use crate::leema::frame::Event;
 use crate::leema::list;
 use crate::leema::lmap::{Lmap, LmapNode};
 use crate::leema::lstr::Lstr;
-use crate::leema::module::{CanonicalMod, ModKey};
+use crate::leema::module::ModKey;
 use crate::leema::struple::StrupleItem;
 use crate::leema::val::{Fref, Type, Val};
 use crate::leema::worker::RustFuncContext;
@@ -14,8 +14,7 @@ use serde::Serializer;
 use serde_json::{self, Value};
 
 
-const MODULE: CanonicalMod = canonical_typemod!("/json");
-const JSON_VAL_TYPE: Type = Type::User(MODULE, "Val");
+const JSON_VAL_TYPE: Type = user_type!("/json/Val");
 
 impl Serialize for Val
 {

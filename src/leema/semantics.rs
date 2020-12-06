@@ -1,10 +1,10 @@
 use crate::leema::ast2::{
     self, Ast, AstMode, AstNode, AstResult, AstStep, Loc, StepResult, Xlist,
 };
+use crate::leema::canonical::Canonical;
 use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::inter::Blockstack;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::CanonicalMod;
 use crate::leema::proto::{CanonicalTypeSrc, ProtoModule};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{
@@ -664,7 +664,7 @@ impl<'p> TypeCheck<'p>
                 let inner2 = self.inferred_type(&*inner, opens)?;
                 Type::Variant(Box::new(inner2), var)
             }
-            Type::User(_, _) => t.clone(),
+            Type::User(_) => t.clone(),
             _ => t.clone(),
         };
         Ok(newt)
@@ -775,16 +775,16 @@ impl<'p> TypeCheck<'p>
             (t0, Type::LocalVar(v1)) => {
                 lfailoc!(self.infer_type(v1, t0, opens))
             }
-            (Type::User(m0, u0), Type::User(m1, u1))
-                if m0 == m1 && u0 == u1 =>
+            (Type::User(u0), Type::User(u1))
+                if u0 == u1 =>
             {
-                return Ok(Type::User(m0.clone(), u0.clone()));
+                return Ok(Type::User(u0.clone()));
             }
-            (Type::User(m0, u0), Type::User(m1, u1)) => {
-                if let Some(r) = self.match_type_alias(m0, u0, t1, opens)? {
+            (Type::User(u0), Type::User(u1)) => {
+                if let Some(r) = self.match_type_alias(u0, t1, opens)? {
                     return Ok(r);
                 }
-                if let Some(r) = self.match_type_alias(m1, u1, t0, opens)? {
+                if let Some(r) = self.match_type_alias(u1, t0, opens)? {
                     return Ok(r);
                 }
                 Err(rustfail!(
@@ -812,14 +812,12 @@ impl<'p> TypeCheck<'p>
     // check if one of these type 0 is an alias for type 1
     fn match_type_alias(
         &mut self,
-        m0: &CanonicalMod,
-        u0: &'static str,
+        u0: &Canonical,
         t1: &Type,
         opens: &mut StrupleKV<&'static str, Type>,
     ) -> Lresult<Option<Type>>
     {
-        let canon = m0.push(&u0).to_canonical();
-        match self.type_src.get(&canon) {
+        match self.type_src.get(u0) {
             Some(TypeSrc::Alias(ref _key, ref result)) => {
                 // do something with opens from key?
                 Ok(Some(self.match_type(result, t1, opens)?))
@@ -1253,8 +1251,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                         }
                     }
                     Ast::Op2(".", ref mut base, ref mut method) => {
-                        if let Type::User(ref cm, ref id) = &base.typ {
-                            let _method_mod = cm.push(id);
+                        if let Type::User(cmethod) = &base.typ {
                         } else {
                             unimplemented!();
                         }
@@ -1285,6 +1282,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
             Ast::Op2(".", a, b) => {
                 match (&mut *a.node, &*b.node) {
                     (Ast::Module(_, tup, _), Ast::Id(name)) => {
+                        // accessing an item in an imported module. makes sense.
                         match struple::find_str(&tup[..], name) {
                             Some((_i, elem)) => {
                                 node.typ = elem.typ.clone();
@@ -1301,6 +1299,8 @@ impl<'p> ast2::Op for TypeCheck<'p>
                         }
                     }
                     (Ast::Tuple(tup), Ast::Id(name)) => {
+                        // why getting a field on a tuple?
+                        // is it a previous version of a module?
                         match struple::find_str(&tup[..], name) {
                             Some((_i, elem)) => {
                                 node.typ = elem.typ.clone();
@@ -1317,8 +1317,23 @@ impl<'p> ast2::Op for TypeCheck<'p>
                         }
                     }
                     (ref mut _r, Ast::Id(f)) => {
+                        // a field access
                         match &a.typ {
-                            Type::User(tmod, tname) => {
+                            Type::User(tname) => {
+                                // find a field in a struct or interface or
+                                // whatever else
+                                match self.type_src.get(tname) {
+                                    Some(TypeSrc::Struct(_, _)) => {
+                                    }
+                                    Some(_) => {
+                                    }
+                                    None => {
+                                    }
+                                }
+
+                                // trying to get a method from an interface?
+                                // think this is covered by case above
+                                /*
                                 let modval = self.local_mod.find_modelem(tname);
                                 if let Some(mvnode) = modval {
                                     if let Ast::Module(_k, c, _) = &*mvnode.node
@@ -1334,9 +1349,9 @@ impl<'p> ast2::Op for TypeCheck<'p>
                                         }
                                     }
                                 }
+                                */
 
-                                let canon = tmod.push(tname).to_canonical();
-                                match ProtoModule::type_field_idx(self.type_src, &canon, f) {
+                                match ProtoModule::type_field_idx(self.type_src, &tname, f) {
                                     Some(fld_idx) => {
                                         *b.node = Ast::ConstVal(Val::Int(
                                             fld_idx as i64,
@@ -1347,7 +1362,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                                             failure::Mode::CompileFailure,
                                             lstrf!(
                                                 "type has no field: {}.{}",
-                                                canon,
+                                                tname,
                                                 f,
                                             ),
                                             self.local_mod.key.name.0.clone(),

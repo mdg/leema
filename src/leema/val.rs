@@ -4,7 +4,7 @@ use crate::leema::frame::FrameTrace;
 use crate::leema::list;
 use crate::leema::lmap::{self, LmapNode};
 use crate::leema::lstr::Lstr;
-use crate::leema::module::{CanonicalMod, ModKey};
+use crate::leema::module::ModKey;
 use crate::leema::msg;
 use crate::leema::reg::{self, Ireg, Iregistry, Reg};
 use crate::leema::sendclone;
@@ -19,7 +19,23 @@ use std::sync::{Arc, Mutex};
 use mopa::mopafy;
 
 
-pub const CORE_MOD: CanonicalMod = canonical_typemod!("/core");
+#[macro_export]
+macro_rules! core_type {
+    ($t:ident) => {
+        crate::leema::val::Type::User(crate::leema::canonical::Canonical(
+            crate::leema::lstr::Lstr::Sref(concat!("/core/", stringify!($t)))
+        ))
+    };
+}
+
+#[macro_export]
+macro_rules! user_type {
+    ($ct:literal) => {
+        crate::leema::val::Type::User(crate::leema::canonical::Canonical(
+            crate::leema::lstr::Lstr::Sref($ct)
+        ))
+    };
+}
 
 #[derive(Debug)]
 #[derive(Clone)]
@@ -119,7 +135,7 @@ pub enum Type
 {
     Tuple(Struple2<Type>),
     Func(FuncType),
-    User(CanonicalMod, &'static str),
+    User(Canonical),
     Variant(Box<Type>, &'static str),
     /// bool is open
     /// TODO: convert open flag to an enum
@@ -137,15 +153,15 @@ pub enum Type
 
 impl Type
 {
-    pub const INT: Type = Type::User(CORE_MOD, "Int");
-    pub const STR: Type = Type::User(CORE_MOD, "Str");
-    pub const BOOL: Type = Type::User(CORE_MOD, "Bool");
-    pub const HASHTAG: Type = Type::User(CORE_MOD, "#");
-    pub const FAILURE: Type = Type::User(CORE_MOD, "Failure");
-    pub const VOID: Type = Type::User(CORE_MOD, "Void");
-    pub const NO_RETURN: Type = Type::User(CORE_MOD, "NoReturn");
-    const LIST: Type = Type::User(CORE_MOD, "List");
-    const OPTION: Type = Type::User(CORE_MOD, "Option");
+    pub const INT: Type = core_type!(Int);
+    pub const STR: Type = core_type!(Str);
+    pub const BOOL: Type = core_type!(Bool);
+    pub const HASHTAG: Type = Type::User(Canonical(Lstr::Sref("/core/#")));
+    pub const FAILURE: Type = core_type!(Failure);
+    pub const VOID: Type = core_type!(Void);
+    pub const NO_RETURN: Type = core_type!(NoReturn);
+    const LIST: Type = core_type!(List);
+    const OPTION: Type = core_type!(Option);
 
     pub fn f(inputs: Struple2<Type>, result: Type) -> Type
     {
@@ -187,7 +203,7 @@ impl Type
     pub fn full_typename(&self) -> Lstr
     {
         match self {
-            &Type::User(ref m, ref name) => lstrf!("{}.{}", m, name),
+            &Type::User(ref name) => name.0.clone(),
             &Type::Variant(ref t, ref var) => lstrf!("{}.{}", t, var),
             &Type::OpenVar(name) => Lstr::from(format!("${}", name)),
             &Type::LocalVar(ref name) => Lstr::from(format!("local:{}", name)),
@@ -234,7 +250,7 @@ impl Type
     pub fn is_user(&self) -> bool
     {
         match self {
-            &Type::User(_, _) => true,
+            &Type::User(_) => true,
             &Type::Variant(_, _) => true,
             &Type::Generic(_, ref inner, _) => inner.is_user(),
             _ => false,
@@ -269,10 +285,7 @@ impl Type
 
     pub fn is_failure(&self) -> bool
     {
-        match self {
-            &Type::User(ref module, "Failure") => module.0.as_str() == "/core",
-            _ => false,
-        }
+        *self == Type::FAILURE
     }
 
     pub fn replace_openvar(&self, id: &str, new_type: &Type) -> Lresult<Type>
@@ -333,7 +346,7 @@ impl sendclone::SendClone for Type
                 let opens2 = opens.clone_for_send();
                 Type::Generic(open, subt2, opens2)
             }
-            &Type::User(ref module, typ) => Type::User(module.clone(), typ),
+            &Type::User(ref c) => Type::User(Canonical(c.0.clone_for_send())),
             &Type::Variant(ref t, var) => {
                 Type::Variant(Box::new(t.clone_for_send()), var)
             }
@@ -396,7 +409,7 @@ impl fmt::Display for Type
                 }
                 write!(f, ")")
             }
-            &Type::User(ref module, ref id) => write!(f, "{}.{}", module, id),
+            &Type::User(ref c) => write!(f, "{}", c.0),
             &Type::Variant(ref t, ref var) => write!(f, "{}.{}", t, var),
             &Type::Generic(open, ref inner, ref args) => {
                 let open_tag = if open { "Open" } else { "Closed" };
@@ -434,7 +447,7 @@ impl fmt::Debug for Type
                     write!(f, "{:?}", ftyp)
                 }
             }
-            &Type::User(ref module, ref id) => write!(f, "{}.{}", module, id),
+            &Type::User(ref c) => write!(f, "({})", c.0),
             &Type::Variant(ref t, ref var) => write!(f, "{:?}.{}", t, var),
             &Type::Generic(open, ref inner, ref args) => {
                 let open_tag = if open { "Open" } else { "Closed" };

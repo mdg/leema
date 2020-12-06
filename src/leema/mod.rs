@@ -10,6 +10,8 @@ pub mod module;
 pub mod canonical;
 #[macro_use]
 pub mod ast2;
+#[macro_use]
+pub mod val;
 
 pub mod application;
 pub mod code;
@@ -32,7 +34,6 @@ pub mod sendclone;
 pub mod struple;
 pub mod token;
 pub mod types;
-pub mod val;
 pub mod worker;
 
 // libraries

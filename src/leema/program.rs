@@ -1,14 +1,14 @@
 use crate::leema::ast2::Ast;
+use crate::leema::canonical::Canonical;
 use crate::leema::code::{self, Code};
 use crate::leema::failure::Lresult;
 use crate::leema::lib_map;
 use crate::leema::lib_str;
 use crate::leema::loader::Interloader;
-use crate::leema::module::CanonicalMod;
 use crate::leema::proto::{ProtoLib, ProtoModule};
 use crate::leema::rsrc::Rsrc;
 use crate::leema::semantics::Semantics;
-use crate::leema::val::{self, Fref, Type};
+use crate::leema::val::{Fref, Type};
 use crate::leema::{
     file, lib_core, lib_hyper, lib_io, lib_json, lib_list, lib_math, lib_task,
     prefab, tcp, udp,
@@ -24,7 +24,7 @@ pub struct Lib
     loader: Interloader,
     protos: ProtoLib,
     semantics: Semantics,
-    rust_load: HashMap<CanonicalMod, fn(&str) -> Option<code::Code>>,
+    rust_load: HashMap<Canonical, fn(&str) -> Option<code::Code>>,
     code: HashMap<Fref, Code>,
 }
 
@@ -32,7 +32,7 @@ impl Rsrc for Lib
 {
     fn get_type(&self) -> Type
     {
-        Type::User(val::CORE_MOD, "ProgramLib")
+        core_type!(ProgramLib)
     }
 }
 
@@ -61,47 +61,47 @@ impl Lib
 
         proglib
             .rust_load
-            .insert(canonical_mod!("/core"), lib_core::load_rust_func);
+            .insert(canonical!("/core"), lib_core::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("/prefab"), prefab::load_rust_func);
+            .insert(canonical!("/prefab"), prefab::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("/file"), file::load_rust_func);
+            .insert(canonical!("/file"), file::load_rust_func);
         proglib.rust_load.insert(
-            canonical_mod!("/hyper_client"),
+            canonical!("/hyper_client"),
             lib_hyper::load_client_func,
         );
         proglib
             .rust_load
-            .insert(canonical_mod!("/hyper_server"), lib_hyper::load_rust_func);
+            .insert(canonical!("/hyper_server"), lib_hyper::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("/io"), lib_io::load_rust_func);
+            .insert(canonical!("/io"), lib_io::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("/json"), lib_json::load_rust_func);
+            .insert(canonical!("/json"), lib_json::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("/list"), lib_list::load_rust_func);
+            .insert(canonical!("/list"), lib_list::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("/map"), lib_map::load_rust_func);
+            .insert(canonical!("/map"), lib_map::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("/math"), lib_math::load_rust_func);
+            .insert(canonical!("/math"), lib_math::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("/str"), lib_str::load_rust_func);
+            .insert(canonical!("/str"), lib_str::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("/task"), lib_task::load_rust_func);
+            .insert(canonical!("/task"), lib_task::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("/tcp"), tcp::load_rust_func);
+            .insert(canonical!("/tcp"), tcp::load_rust_func);
         proglib
             .rust_load
-            .insert(canonical_mod!("/udp"), udp::load_rust_func);
+            .insert(canonical!("/udp"), udp::load_rust_func);
 
         proglib
     }
@@ -118,7 +118,7 @@ impl Lib
             .ok_or_else(|| rustfail!("codefail", "cannot find code for: {}", f))
     }
 
-    pub fn find_proto(&self, path: &CanonicalMod) -> Lresult<&ProtoModule>
+    pub fn find_proto(&self, path: &Canonical) -> Lresult<&ProtoModule>
     {
         self.protos.path_proto(&path)
     }
@@ -155,7 +155,7 @@ impl Lib
         }
     }
 
-    pub fn load_proto_and_imports(&mut self, cmod: &CanonicalMod)
+    pub fn load_proto_and_imports(&mut self, cmod: &Canonical)
         -> Lresult<()>
     {
         let modpath = cmod.as_path();

@@ -22,7 +22,7 @@ impl rsrc::Rsrc for Lfuture
     {
         // this should probably have a known type field later
         let type_args = vec![StrupleItem::new("T", Type::Unknown)];
-        let futype = Box::new(user_type!("/task", "Future"));
+        let futype = Box::new(user_type!("/task/Future"));
         Type::Generic(true, futype, type_args)
     }
 }

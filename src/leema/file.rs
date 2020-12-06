@@ -3,7 +3,6 @@ use crate::leema::failure::Lresult;
 use crate::leema::fiber::Fiber;
 use crate::leema::frame::Event;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::CanonicalMod;
 use crate::leema::rsrc;
 use crate::leema::val::{self, LibVal, Type, Val};
 
@@ -14,8 +13,7 @@ use std::path::Path;
 use std::sync::Mutex;
 
 
-const MODULE: CanonicalMod = canonical_typemod!("/file");
-const FILE_TYPE: Type = Type::User(MODULE, "File");
+const FILE_TYPE: Type = user_type!("/file/File");
 
 struct LeemaFile
 {
