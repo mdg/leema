@@ -1,12 +1,24 @@
 
 import /io
 
-interface Shape ::
-    func area:Int :: Self --
+trait Shape ::
+    func area:Int :: self --
 --
 
 datatype Circle ::
     radius: Int
+--
+
+interface Circle ::
+    radius: Int
+--
+
+datatype Circle ::
+    fields : Struple<K?, V>
+
+    interface : Struple<K, T>
+
+    impl : Struple<K, F>
 --
 
 datatype Square ::
@@ -16,15 +28,25 @@ datatype Square ::
 datatype Rectangle ::
     length:Int
     width:Int
+
+    func construct:Circle :: radius:Int ->
+        void(Circle)(radius:radius)
+    --
+--
+
+impl Shape with Circle ::
 --
 
 impl Circle as Shape ::
+--
+
+impl Shape with Circle as Shape ::
     func area:Int :: self ->
         self.radius * self.radius * 3
     --
 --
 
-impl Square as Shape ::
+impl Shape with Square ::
     func area:Int :: self ->
         self.length * self.length
     --
