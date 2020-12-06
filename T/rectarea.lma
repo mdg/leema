@@ -1,0 +1,16 @@
+import /io
+
+datatype Rectangle ::
+    length:Int
+    width:Int
+
+    func area:Int :: self ->
+        self.length * self.width
+    --
+--
+
+func main ->
+    let s := Rectangle(3, 4)
+    let a := s.area()
+    io.print("area: $a\n")
+--
