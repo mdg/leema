@@ -28,9 +28,23 @@ datatype Square ::
 datatype Rectangle ::
     length:Int
     width:Int
+--
 
+interface Rectangle ::
     func construct:Circle :: radius:Int ->
         void(Circle)(radius:radius)
+    --
+--
+
+datatype Shape
+|Circle :: radius:Int
+|Square :: length:Int
+|Rectangle :: length:Int width:Int
+
+    func area:Int :: self
+    |Circle(r) -> r * r * 3
+    |Square(l) -> l * l
+    |Rectangle(l, w) -> l * w
     --
 --
 
