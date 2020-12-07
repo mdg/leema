@@ -91,14 +91,15 @@ hs1 = _{ " "+ }
 as0 = _{ (" " | NEWLINE)* }
 as1 = _{ (" " | NEWLINE)+ }
 // vertical space required
-vs1 = _{ NEWLINE ~ as0 }
+vs1 = _{ ((NEWLINE | hs0 ~ comment_line) ~ as0)+ }
 
 modname_tail = _{ ASCII_ALPHA_LOWER | ASCII_DIGIT }
 modname = @{ !keywords ~ ASCII_ALPHA_LOWER ~ modname_tail* }
 
 id = @{
     keyword_prefix
-    | !keywords ~ ((LETTER | "_") ~ ( LETTER | NUMBER | "_" )* | "#")
+    | !keywords ~ ((LETTER | "_") ~ ( LETTER | NUMBER | "_" )*)
+    | "#"
 }
 def_id = _{ gen_type | id }
 
@@ -190,16 +191,16 @@ def_func = !{
 }
 
 def_struct_args = _{ def_id ~ def_func_args }
-def_struct = !{ "datatype" ~ hs1 ~ def_struct_args ~ as1 ~ "--" }
+def_struct = !{ "datatype" ~ hs1 ~ def_struct_args ~ (as1 | vs1 ~ stmt_block) ~ "--" }
 
-def_enum_variant = { vs1 ~ "|" ~ ( def_struct_args | def_id ) }
+def_enum_variant = { vs1 ~ "|" ~ def_struct_args }
 def_enum = !{ "datatype" ~ hs1 ~ def_id ~ def_enum_variant+ ~ vs1 ~ "--" }
 
 def_alias_type = !{ "datatype" ~ hs1 ~ def_id ~ as1 ~ ":=" ~ as1 ~ typex }
 
-def_interface = !{ "interface" ~ hs1 ~ def_id ~ as1 ~ impl_block  }
+def_interface = !{ "trait" ~ hs1 ~ def_id ~ as1 ~ impl_block  }
 def_impl = !{
-    "impl" ~ hs1 ~ def_id ~ (as1 ~ "as" ~ as1 ~ def_id)? ~ as1 ~ impl_block
+    "impl" ~ hs1 ~ def_id ~ as1 ~ "with" ~ as1 ~ def_id ~ as1 ~ impl_block
 }
 
 def_rust_type = !{ "datatype" ~ hs1 ~ id ~ as1 ~ rust_block }
