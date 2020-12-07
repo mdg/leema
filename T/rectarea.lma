@@ -1,8 +1,11 @@
 import /io
 
-datatype Rectangle ::
-    length:Int
-    width:Int
+
+interface Rectangle ::
+    datatype ::
+        length:Int
+        width:Int
+    --
 
     func area:Int :: self ->
         self.length * self.width
