@@ -452,8 +452,16 @@ impl LeemaPrec
             }
             Rule::def_struct => {
                 let mut inner = n.into_inner();
-                let id = self.primary(Mode::Type, inner.next().unwrap())?;
-                let arg_it = inner.next().unwrap().into_inner();
+                let n0 = inner.next().unwrap();
+                let (id, args_tok) = match inner.next() {
+                    Some(n1) => {
+                        (self.primary(Mode::Type, n0)?, n1)
+                    }
+                    None => {
+                        (AstNode::void(), n0)
+                    }
+                };
+                let arg_it = args_tok.into_inner();
                 let args: Xlist = self.parse_xlist(Mode::Type, arg_it)?;
                 let df = Ast::DefType(DataType::Struct, id, args);
                 Ok(AstNode::new(df, loc))
@@ -1825,6 +1833,35 @@ mod tests
                 panic!("expected a func, found {:?}", funcs);
             }
             assert_eq!(1, funcs.len());
+        } else {
+            panic!("expected an interface, found {:?}", t);
+        }
+    }
+
+    #[test]
+    fn trait_with_struct()
+    {
+        let input = "trait Rectangle ::
+            datatype ::
+                length:Int
+                width:Int
+            --
+
+            func area:Int :: self --
+        --";
+        let actual = parse(Rule::stmt, input).unwrap();
+        println!("{:#?}", actual);
+
+        let t = &actual[0];
+        if let Ast::DefInterface(iname, stmts) = &*t.node {
+            assert_matches!(*iname.node, Ast::Id("Rectangle"));
+            if let Ast::DefFunc(fname, _, _, body) = &*stmts[0].node {
+                assert_matches!(*fname.node, Ast::Id("burrito"));
+                assert_eq!(Ast::InterfaceBlock, *body.node);
+            } else {
+                panic!("expected a func, found {:?}", stmts);
+            }
+            assert_eq!(1, stmts.len());
         } else {
             panic!("expected an interface, found {:?}", t);
         }
