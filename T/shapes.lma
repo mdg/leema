@@ -36,6 +36,26 @@ interface Rectangle ::
     --
 --
 
+interface Shape ::
+    datatype
+    |Circle :: radius:Int
+    |Square :: length:Int
+    |Rectangle :: length:Int width:Int
+    --
+
+    func area:Int :: self
+    |Circle(r) -> r * r * 3
+    |Square(l) -> l * l
+    |Rectangle(l, w) -> l * w
+    --
+
+    perimeter:func:Int :: self
+    |Circle(r) -> 2 * r * 3
+    |Square(l) -> 4 * l
+    |Rectangle(l, w) -> 2 * l + 2 * w
+    --
+--
+
 datatype Shape
 |Circle :: radius:Int
 |Square :: length:Int
