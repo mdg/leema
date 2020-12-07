@@ -1487,30 +1487,6 @@ mod tests
     }
 
     #[test]
-    fn trait_with_func()
-    {
-        let input = "trait Taco ::
-           func burrito:Int :: Self --
-        --";
-        let actual = parse(Rule::stmt, input).unwrap();
-        println!("{:#?}", actual);
-
-        let t = &actual[0];
-        if let Ast::DefInterface(iname, funcs) = &*t.node {
-            assert_matches!(*iname.node, Ast::Id("Taco"));
-            if let Ast::DefFunc(fname, _, _, body) = &*funcs[0].node {
-                assert_matches!(*fname.node, Ast::Id("burrito"));
-                assert_eq!(Ast::InterfaceBlock, *body.node);
-            } else {
-                panic!("expected a func, found {:?}", funcs);
-            }
-            assert_eq!(1, funcs.len());
-        } else {
-            panic!("expected an interface, found {:?}", t);
-        }
-    }
-
-    #[test]
     fn not_paren_infix()
     {
         let input = "not (a and b)";
@@ -1828,6 +1804,30 @@ mod tests
             panic!("expected StrExpr, found {:?}", actual[0]);
         }
         assert_eq!(1, actual.len());
+    }
+
+    #[test]
+    fn trait_with_func()
+    {
+        let input = "trait Taco ::
+           func burrito:Int :: Self --
+        --";
+        let actual = parse(Rule::stmt, input).unwrap();
+        println!("{:#?}", actual);
+
+        let t = &actual[0];
+        if let Ast::DefInterface(iname, funcs) = &*t.node {
+            assert_matches!(*iname.node, Ast::Id("Taco"));
+            if let Ast::DefFunc(fname, _, _, body) = &*funcs[0].node {
+                assert_matches!(*fname.node, Ast::Id("burrito"));
+                assert_eq!(Ast::InterfaceBlock, *body.node);
+            } else {
+                panic!("expected a func, found {:?}", funcs);
+            }
+            assert_eq!(1, funcs.len());
+        } else {
+            panic!("expected an interface, found {:?}", t);
+        }
     }
 
     #[test]
