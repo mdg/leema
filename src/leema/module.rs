@@ -399,7 +399,6 @@ impl fmt::Display for ImportedMod
 mod tests
 {
     use super::{ImportedMod, ModAlias, ModRelativity};
-    use crate::leema::lstr::Lstr;
 
     use std::collections::HashMap;
     use std::path::Path;
@@ -412,42 +411,6 @@ mod tests
         ma_map.insert(ModAlias("whatever"), wp);
         let wp_str = wp.to_str().unwrap();
         ma_map.get(wp_str).unwrap();
-    }
-
-    #[test]
-    fn test_canonical_ancestors()
-    {
-        let a = CanonicalMod::ancestors(Path::new("/foo/bar.baz"));
-        let mut it = a.iter();
-        assert_eq!("/foo", it.next().unwrap().as_os_str());
-        assert_eq!("/foo/bar", it.next().unwrap().as_os_str());
-        assert_eq!(2, a.len());
-    }
-
-    #[test]
-    fn test_canonical_push_sibling()
-    {
-        let cm = CanonicalMod(Lstr::from("/foo/bar"));
-        let result = cm.push(&Path::new("../taco"));
-        assert_eq!("/foo/taco", result.0.str());
-    }
-
-    #[test]
-    fn test_canonical_split_type_arc()
-    {
-        let ct = CanonicalMod(Lstr::from("/taco.Burrito".to_string()));
-        let (m, t) = ct.split_type().unwrap();
-        assert_eq!("/taco", m.0.str());
-        assert_eq!("Burrito", t.str());
-    }
-
-    #[test]
-    fn test_canonical_split_type_sref()
-    {
-        let ct = CanonicalMod(Lstr::from("/taco.Burrito"));
-        let (m, t) = ct.split_type().unwrap();
-        assert_eq!("/taco", m.0.str());
-        assert_eq!("Burrito", t.str());
     }
 
     #[test]

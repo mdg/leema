@@ -1464,7 +1464,7 @@ mod tests
         let point_type = proto.types.get("Point").expect("no Point type");
         let expected = Type::Generic(
             true,
-            Box::new(user_type!("/foo", "Point")),
+            Box::new(user_type!("/foo/Point")),
             vec![StrupleItem::new("T", Type::OpenVar("T"))],
         );
         assert_eq!(expected, *point_type);
@@ -1671,13 +1671,13 @@ mod tests
         protos.load_imports(&mut loader, Path::new("/b")).unwrap();
         assert_eq!(2, protos.protos.len());
 
-        let a = protos.path_proto(&canonical_mod!("/a")).unwrap();
+        let a = protos.path_proto(&canonical!("/a")).unwrap();
         assert_eq!(0, a.imported_vals.len());
         assert_eq!(1, a.exported_vals.len());
         assert_eq!(0, a.local_vals.len());
         assert!(struple::contains_key(&a.exported_vals, &Some("foo")));
 
-        let b = protos.path_proto(&canonical_mod!("/b")).unwrap();
+        let b = protos.path_proto(&canonical!("/b")).unwrap();
         assert_eq!(0, b.imported_vals.len());
         assert_eq!(1, b.exported_vals.len());
         assert_eq!(0, b.local_vals.len());
@@ -1690,7 +1690,7 @@ mod tests
         let proto = new_proto("datatype Burrito --");
 
         let burrito_type = proto.types.get("Burrito").expect("no Burrito type");
-        assert_eq!(user_type!("/foo", "Burrito"), *burrito_type,);
+        assert_eq!(user_type!("/foo/Burrito"), *burrito_type,);
 
         assert!(proto.token.contains("Burrito"));
 
@@ -1708,7 +1708,7 @@ mod tests
         let proto = new_proto("datatype Point :: x:Int y:Int --");
 
         let point_type = proto.types.get("Point").expect("no Point type");
-        assert_eq!(user_type!("/foo", "Point"), *point_type);
+        assert_eq!(user_type!("/foo/Point"), *point_type);
     }
 
     #[test]
@@ -1717,17 +1717,16 @@ mod tests
         let proto = new_proto("datatype Burrito := Int");
 
         let burrito_type = proto.types.get("Burrito").expect("no Burrito type");
-        assert_eq!(user_type!("/foo", "Burrito"), *burrito_type,);
+        assert_eq!(user_type!("/foo/Burrito"), *burrito_type,);
 
         let burrito_val =
             proto.find_modelem("Burrito").expect("no Burrito const");
         assert_matches!(*burrito_val.node, Ast::ConstVal(_));
         if let Ast::ConstVal(ref val) = &*burrito_val.node {
-            if let Val::Type(Type::Alias(t1, t2)) = &*val {
-                assert_eq!(user_type!("/foo", "Burrito"), **t1);
-                assert_eq!(user_type!("/core", "Int"), **t2);
+            if let Val::Type(t1) = &*val {
+                assert_eq!(user_type!("/foo/Burrito"), *t1);
             } else {
-                panic!("expected alias type, found: {:?}", val);
+                panic!("expected user type, found: {:?}", val);
             }
         }
     }

@@ -1487,9 +1487,9 @@ mod tests
     }
 
     #[test]
-    fn interface_with_func()
+    fn trait_with_func()
     {
-        let input = "interface Taco ::
+        let input = "trait Taco ::
            func burrito:Int :: Self --
         --";
         let actual = parse(Rule::stmt, input).unwrap();

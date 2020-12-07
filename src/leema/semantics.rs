@@ -1883,7 +1883,7 @@ mod tests
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::from(("/foo", "main"));
         let f = prog.read_semantics(&fref).unwrap_err();
-        assert_eq!("types do not match: (/core.Str != /core.Int)", f.msg.str());
+        assert_eq!("types do not match: (/core/Str != /core/Int)", f.msg.str());
         assert_eq!("semantic_failure", f.tag.str());
     }
 

@@ -1695,7 +1695,7 @@ mod tests
     #[test]
     fn test_struct_eq()
     {
-        let t = user_type!("foo", "Taco");
+        let t = user_type!("/foo/Taco");
         let a = Val::Struct(
             t.clone(),
             struple::new_tuple2(Val::Int(3), Val::Bool(false)),
@@ -1709,11 +1709,11 @@ mod tests
     fn test_struct_lt_type()
     {
         let a = Val::Struct(
-            user_type!("foo", "Burrito"),
+            user_type!("/foo/Burrito"),
             struple::new_tuple2(Val::Int(3), Val::Bool(false)),
         );
         let b = Val::Struct(
-            user_type!("foo", "Taco"),
+            user_type!("/foo/Taco"),
             struple::new_tuple2(Val::Int(3), Val::Bool(false)),
         );
         assert!(a < b);
@@ -1722,7 +1722,7 @@ mod tests
     #[test]
     fn test_struct_lt_val()
     {
-        let typ = user_type!("foo", "Taco");
+        let typ = user_type!("/foo/Taco");
         let a = Val::Struct(
             typ.clone(),
             struple::new_tuple2(Val::Bool(false), Val::Int(3)),
@@ -1737,7 +1737,7 @@ mod tests
     #[test]
     fn test_enum_eq()
     {
-        let etype = user_type!("animals", "Animal");
+        let etype = user_type!("/animals/Animal");
 
         let a = Val::EnumToken(etype.clone(), Lstr::from("Dog".to_string()));
         let b = Val::EnumToken(etype.clone(), Lstr::Sref("Dog"));
@@ -1747,7 +1747,7 @@ mod tests
     #[test]
     fn test_enum_lt_type()
     {
-        let typ = user_type!("foo", "Taco");
+        let typ = user_type!("/foo/Taco");
         let a = Val::EnumToken(typ.clone(), Lstr::Sref("Quesadilla"));
         let b = Val::EnumToken(typ, Lstr::Sref("Torta"));
         assert!(a < b);
@@ -1756,7 +1756,7 @@ mod tests
     #[test]
     fn test_enum_lt_variant()
     {
-        let typ = user_type!("foo", "Taco");
+        let typ = user_type!("/foo/Taco");
         let a = Val::EnumToken(typ.clone(), Lstr::Sref("Burrito"));
         let b = Val::EnumToken(typ, Lstr::Sref("Torta"));
         assert!(a < b);
@@ -1765,7 +1765,7 @@ mod tests
     #[test]
     fn test_enum_lt_val()
     {
-        let typ = user_type!("foo", "Taco");
+        let typ = user_type!("/foo/Taco");
         let a = Val::EnumStruct(
             typ.clone(),
             Lstr::Sref("Burrito"),
@@ -1782,17 +1782,17 @@ mod tests
     #[test]
     fn test_format_struct_empty()
     {
-        let typ = user_type!("foo", "Taco");
+        let typ = user_type!("/foo/Taco");
         let s = Val::Token(typ);
 
         let s_str = format!("{}", s);
-        assert_eq!("foo.Taco", s_str);
+        assert_eq!("/foo/Taco", s_str);
     }
 
     #[test]
     fn test_format_enum_token()
     {
-        let typ = user_type!("foo", "Taco");
+        let typ = user_type!("/foo/Taco");
         let e = Val::EnumToken(typ, Lstr::Sref("Burrito"));
 
         let e_str = format!("{}", e);
@@ -1803,7 +1803,7 @@ mod tests
     fn test_format_enum_namedtuple()
     {
         let burrito_str = Lstr::Sref("Burrito");
-        let stype = user_type!("tortas", "Taco");
+        let stype = user_type!("/tortas/Taco");
         let s = Val::EnumStruct(
             stype,
             burrito_str.clone(),
@@ -1811,7 +1811,7 @@ mod tests
         );
 
         let s_str = format!("{}", s);
-        assert_eq!("tortas.Taco.Burrito(5,8,)", s_str);
+        assert_eq!("/tortas/Taco.Burrito(5,8,)", s_str);
     }
 
     #[test]
@@ -1821,12 +1821,12 @@ mod tests
         let t = Val::Bool(true);
         let i = Val::Int(7);
         let s = Val::Str(Lstr::Sref("hello"));
-        let stype = user_type!("foo", "Foo");
+        let stype = user_type!("/foo/Foo");
         let strct = Val::Struct(
             stype,
             struple::new_tuple2(Val::Int(2), Val::Bool(true)),
         );
-        let etype = user_type!("foo", "Taco");
+        let etype = user_type!("/foo/Taco");
         let enm = Val::EnumStruct(
             etype,
             Lstr::Sref("Burrito"),

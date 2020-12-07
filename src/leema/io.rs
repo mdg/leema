@@ -508,7 +508,7 @@ pub mod tests
     {
         fn get_type(&self) -> Type
         {
-            user_type!("foo", "MockRsrc")
+            user_type!("/foo/MockRsrc")
         }
     }
 

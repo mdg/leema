@@ -182,11 +182,12 @@ where
         .map(|(idx, item)| (idx, &item.v))
 }
 
-pub fn find_str<'s, 'k, K, S, V>(
+pub fn find_str<'s, K, S, V>(
     s: &'s [StrupleItem<Option<S>, V>],
-    key: &'k K,
+    key: K,
 ) -> Option<(usize, &'s V)>
-    where S: AsRef<str>, K: AsRef<str>
+    where S: AsRef<str>
+        , K: AsRef<str>
 {
     s.iter()
         .enumerate()

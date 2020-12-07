@@ -239,3 +239,49 @@ impl fmt::Debug for Canonical
         write!(f, "{:?}", self.0.str())
     }
 }
+
+
+#[cfg(test)]
+mod tests
+{
+    use super::Canonical;
+    use crate::leema::lstr::Lstr;
+
+    use std::path::Path;
+
+    #[test]
+    fn test_canonical_ancestors()
+    {
+        let a = Canonical::ancestors(Path::new("/foo/bar.baz"));
+        let mut it = a.iter();
+        assert_eq!("/foo", it.next().unwrap().as_os_str());
+        assert_eq!("/foo/bar", it.next().unwrap().as_os_str());
+        assert_eq!(2, a.len());
+    }
+
+    #[test]
+    fn test_canonical_push_sibling()
+    {
+        let cm = Canonical(Lstr::from("/foo/bar"));
+        let result = cm.join(&Path::new("../taco")).unwrap();
+        assert_eq!("/foo/taco", result.0.str());
+    }
+
+    #[test]
+    fn test_canonical_split_id_arc()
+    {
+        let ct = Canonical(Lstr::from("/taco.Burrito".to_string()));
+        let (m, t) = ct.split_id().unwrap();
+        assert_eq!("/taco", m.0.str());
+        assert_eq!("Burrito", t.str());
+    }
+
+    #[test]
+    fn test_canonical_split_id_sref()
+    {
+        let ct = Canonical(Lstr::from("/taco.Burrito"));
+        let (m, t) = ct.split_id().unwrap();
+        assert_eq!("/taco", m.0.str());
+        assert_eq!("Burrito", t.str());
+    }
+}
