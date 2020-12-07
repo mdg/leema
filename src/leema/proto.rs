@@ -266,10 +266,7 @@ impl ProtoModule
             Ast::DefInterface(name, funcs) => {
                 ltry!(self.add_interface(name, funcs));
             }
-            Ast::DefImpl(typ, None, funcs) => {
-                ltry!(self.impl_datatype(typ, funcs));
-            }
-            Ast::DefImpl(typ, Some(iface), funcs) => {
+            Ast::DefImpl(iface, typ, funcs) => {
                 ltry!(self.impl_interface(typ, iface, funcs));
             }
             Ast::DefType(DataType::Union, name, variants) => {

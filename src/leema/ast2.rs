@@ -231,7 +231,7 @@ pub enum Ast
     CopyAndSet(AstNode, Xlist),
     DefConst(&'static str, AstNode),
     DefFunc(AstNode, Xlist, AstNode, AstNode),
-    DefImpl(AstNode, Option<AstNode>, Vec<AstNode>),
+    DefImpl(AstNode, AstNode, Vec<AstNode>),
     DefInterface(AstNode, Vec<AstNode>),
     DefMacro(&'static str, Vec<&'static str>, AstNode),
     DefType(DataType, AstNode, Xlist),
