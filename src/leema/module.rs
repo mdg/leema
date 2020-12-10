@@ -25,8 +25,8 @@ pub enum ModTyp
     VariantToken,
     VariantStruct,
     Function,
-    Interface,
-    InterfaceImpl,
+    Trait,
+    TraitImpl,
     Protocol,
     ProtocolImpl,
 }

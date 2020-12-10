@@ -750,7 +750,7 @@ impl Registration
             Ast::DefConst(_, _)
             | Ast::DefFunc(_, _, _, _)
             | Ast::DefImpl(_, _, _)
-            | Ast::DefInterface(_, _)
+            | Ast::DefTrait(_, _)
             | Ast::DefMacro(_, _, _)
             | Ast::DefType(_, _, _)
             | Ast::FuncType(_, _)
@@ -759,9 +759,6 @@ impl Registration
             | Ast::Module(_, _, _)
             | Ast::RustBlock
             | Ast::Wildcard => {} // do nothing
-            Ast::InterfaceBlock => {
-                panic!("unexpected interface block: {:?}", node.loc);
-            }
             Ast::Op1(op1, x) => {
                 panic!("unexpected Op1 {} {:?}", op1, x);
             }

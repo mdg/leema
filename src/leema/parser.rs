@@ -555,7 +555,7 @@ impl LeemaPrec
                 let block = inner.next().unwrap().into_inner();
                 let funcs: Lresult<Vec<AstNode>> =
                     block.map(|f| self.primary(Mode::Value, f)).collect();
-                Ok(AstNode::new(Ast::DefInterface(id, funcs?), loc))
+                Ok(AstNode::new(Ast::DefTrait(id, funcs?), loc))
             }
             Rule::def_impl => {
                 let mut inner = n.into_inner();
@@ -573,7 +573,7 @@ impl LeemaPrec
                 Ok(AstNode::new(df, loc))
             }
             Rule::EOI => Ok(AstNode::void()),
-            Rule::interface_block => Ok(AstNode::new(Ast::InterfaceBlock, loc)),
+            Rule::trait_block => Ok(AstNode::new(Ast::VOID, loc)),
             Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, loc)),
             // ignore this level and go one deeper
             Rule::tx_maybe_k => {
@@ -1824,7 +1824,7 @@ mod tests
         println!("{:#?}", actual);
 
         let t = &actual[0];
-        if let Ast::DefInterface(iname, funcs) = &*t.node {
+        if let Ast::DefTrait(iname, funcs) = &*t.node {
             assert_matches!(*iname.node, Ast::Id("Taco"));
             if let Ast::DefFunc(fname, _, _, body) = &*funcs[0].node {
                 assert_matches!(*fname.node, Ast::Id("burrito"));
@@ -1853,7 +1853,7 @@ mod tests
         println!("{:#?}", actual);
 
         let t = &actual[0];
-        if let Ast::DefInterface(iname, stmts) = &*t.node {
+        if let Ast::DefTrait(iname, stmts) = &*t.node {
             assert_matches!(*iname.node, Ast::Id("Rectangle"));
             if let Ast::DefFunc(fname, _, _, body) = &*stmts[0].node {
                 assert_matches!(*fname.node, Ast::Id("burrito"));

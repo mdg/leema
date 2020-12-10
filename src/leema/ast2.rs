@@ -232,14 +232,13 @@ pub enum Ast
     DefConst(&'static str, AstNode),
     DefFunc(AstNode, Xlist, AstNode, AstNode),
     DefImpl(AstNode, AstNode, Vec<AstNode>),
-    DefInterface(AstNode, Vec<AstNode>),
+    DefTrait(AstNode, Vec<AstNode>),
     DefMacro(&'static str, Vec<&'static str>, AstNode),
     DefType(DataType, AstNode, Xlist),
     FuncType(Xlist, AstNode),
     Generic(AstNode, Xlist),
     Id(&'static str),
     Ifx(Vec<Case>),
-    InterfaceBlock,
     Let(AstNode, AstNode, AstNode),
     List(Xlist),
     Matchx(Option<AstNode>, Vec<Case>),
@@ -300,8 +299,8 @@ impl Ast
             Ast::DefImpl(typ, iface, funcs) => {
                 write!(f, "DefImpl {:?} {:?} {:?}", typ, iface, funcs)
             }
-            Ast::DefInterface(name, funcs) => {
-                write!(f, "DefInterface {:?} {:?}", name, funcs)
+            Ast::DefTrait(name, funcs) => {
+                write!(f, "DefTrait {:?} {:?}", name, funcs)
             }
             Ast::DefMacro(name, args, body) => {
                 write!(f, "DefMacro {:?} {:?} {:?}", name, args, body)
@@ -316,7 +315,6 @@ impl Ast
             Ast::Generic(id, args) => write!(f, "Generic {:?}[{:?}]", id, args),
             Ast::Id(id) => write!(f, "Id {}", id),
             Ast::Ifx(args) => write!(f, "If {:?}", args),
-            Ast::InterfaceBlock => write!(f, "InterfaceBlock"),
             Ast::Let(lhp, _lht, rhs) => write!(f, "Let {:?} := {:?}", lhp, rhs),
             Ast::List(items) => write!(f, "List {:?}", items),
             Ast::Matchx(None, args) => write!(f, "Match None {:?}", args),
@@ -718,7 +716,6 @@ impl Walker
             }
             Ast::ConstVal(_)
             | Ast::Id(_)
-            | Ast::InterfaceBlock
             | Ast::RustBlock => {
                 // nowhere else to go
             }
@@ -743,10 +740,10 @@ impl Walker
                     iface,
                 ));
             }
-            Ast::DefInterface(name, _) => {
+            Ast::DefTrait(name, _) => {
                 return Err(rustfail!(
                     "compile_failure",
-                    "interface definition must already be processed: {:?}",
+                    "trait definition must already be processed: {:?}",
                     name,
                 ));
             }

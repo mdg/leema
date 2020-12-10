@@ -43,7 +43,7 @@ postfix_op = _{
 // keywords
 func_mode = { "func" | "macro" }
 let_mode = { "let" | "const" }
-interface_block = { double_dash }
+trait_block = { double_dash }
 rust_block = { "-RUST-" }
 mxport = { "import" | "export" }
 
@@ -251,7 +251,7 @@ impl_block = _{
 case_block = { case+ }
 func_block = _{
     rust_block
-    | interface_block
+    | trait_block
     | case_block ~ double_dash
     | (block_arrow ~ vs1 ~ stmt_block ~ double_dash)
     | (block_arrow ~ hs1 ~ expr ~ hs1 ~ double_dash)

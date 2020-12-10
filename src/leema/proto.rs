@@ -109,11 +109,6 @@ impl ProtoModule
         Self::with_ast(key, items)
     }
 
-    pub fn interface(key: ModKey, items: Vec<AstNode>) -> Lresult<ProtoModule>
-    {
-        Self::with_ast(key, items)
-    }
-
     fn with_ast(key: ModKey, items: Vec<AstNode>) -> Lresult<ProtoModule>
     {
         let modname = key.name.clone();
@@ -263,11 +258,11 @@ impl ProtoModule
             Ast::DefFunc(name, args, result, body) => {
                 ltry!(self.add_func(name, args, result, body));
             }
-            Ast::DefInterface(name, funcs) => {
-                ltry!(self.add_interface(name, funcs));
+            Ast::DefTrait(name, funcs) => {
+                ltry!(self.add_trait(name, funcs));
             }
             Ast::DefImpl(iface, typ, funcs) => {
-                ltry!(self.impl_interface(typ, iface, funcs));
+                ltry!(self.impl_trait(typ, iface, funcs));
             }
             Ast::DefType(DataType::Union, name, variants) => {
                 self.add_union(name, variants)?;
@@ -579,7 +574,7 @@ impl ProtoModule
         Ok(())
     }
 
-    fn add_interface(
+    fn add_trait(
         &mut self,
         name: AstNode,
         funcs: Vec<AstNode>,
@@ -587,7 +582,7 @@ impl ProtoModule
     {
         let (id, ityp, _opens) = self.make_user_type(name)?;
         self.types.insert(id, ityp);
-        self.add_submod(ModTyp::Interface, id, funcs)
+        self.add_submod(ModTyp::Trait, id, funcs)
     }
 
     fn add_submod(
@@ -626,7 +621,7 @@ impl ProtoModule
         Ok(())
     }
 
-    fn impl_interface(
+    fn impl_trait(
         &mut self,
         _typ: AstNode,
         _iface: AstNode,
@@ -1041,7 +1036,7 @@ impl ProtoModule
     }
 
     /// for finding the field index in a defined struct type
-    /// ok great, but can you find a method in an interface implementation?
+    /// ok great, but can you find a method in a trait implementation?
     pub fn type_field_idx<S>(type_src: &CanonicalTypeSrc, c: &Canonical, fld: &S) -> Option<i64>
         where S: AsRef<str>
     {
