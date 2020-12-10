@@ -79,6 +79,15 @@ const STATIC_INDEX_NAMES: [&'static str; 17] = [
     "statixName16",
 ];
 
+#[derive(Clone)]
+#[derive(Debug)]
+struct ProtoType
+{
+    n: &'static str,
+    t: Type,
+    g: GenericTypes,
+}
+
 pub type CanonicalTypeSrc = HashMap<Canonical, TypeSrc>;
 
 /// Asts separated into their types of components
@@ -86,6 +95,7 @@ pub type CanonicalTypeSrc = HashMap<Canonical, TypeSrc>;
 pub struct ProtoModule
 {
     pub key: ModKey,
+    parent: Option<ProtoType>,
     pub imports: HashMap<&'static str, Canonical>,
     pub exports: HashMap<ModAlias, ImportedMod>,
     pub exports_all: bool,
@@ -106,15 +116,21 @@ impl ProtoModule
     pub fn new(key: ModKey, src: &'static str) -> Lresult<ProtoModule>
     {
         let items = parse_file(src)?;
-        Self::with_ast(key, items)
+        Self::with_ast(key, None, items)
     }
 
-    fn with_ast(key: ModKey, items: Vec<AstNode>) -> Lresult<ProtoModule>
+    fn new_submod(key: ModKey, parent: ProtoType, items: Vec<AstNode>) -> Lresult<ProtoModule>
+    {
+        Self::with_ast(key, Some(parent), items)
+    }
+
+    fn with_ast(key: ModKey, parent: Option<ProtoType>, items: Vec<AstNode>) -> Lresult<ProtoModule>
     {
         let modname = key.name.clone();
 
         let mut proto = ProtoModule {
             key,
+            parent,
             imports: HashMap::new(),
             exports: HashMap::new(),
             exports_all: false,
@@ -363,25 +379,25 @@ impl ProtoModule
     fn add_struct(&mut self, name: AstNode, fields: Xlist) -> Lresult<()>
     {
         let loc = name.loc;
-        let (id, struct_typ, opens) = self.make_user_type(name)?;
-        self.add_typed_struct(struct_typ, id, &opens, fields, loc)?;
+        let proto_t = self.make_proto_type(name)?;
+        self.add_typed_struct(proto_t, fields, loc)?;
         Ok(())
     }
 
     fn add_typed_struct(
         &mut self,
-        typ: Type,
-        name: &'static str,
-        opens: &GenericTypes,
+        proto: ProtoType,
         fields: Xlist,
         loc: Loc,
     ) -> Lresult<()>
     {
-        let args = self.xlist_to_types(&self.key.name, &fields, &opens)?;
+        let name = proto.n;
+        let typ = proto.t.clone();
+        let args = self.xlist_to_types(&self.key.name, &fields, &proto.g)?;
         let ftyp = FuncType::new(args.clone(), typ.clone());
         let inner_type = Type::Func(ftyp);
         let constructor_type = if typ.is_open() {
-            Type::Generic(true, Box::new(inner_type), opens.clone())
+            Type::Generic(true, Box::new(inner_type), proto.g.clone())
         } else {
             inner_type
         };
@@ -424,7 +440,7 @@ impl ProtoModule
             loc,
         );
 
-        self.add_submod(ModTyp::Struct, name, vec![constructor_ast])?;
+        self.add_submod(ModTyp::Struct, proto, vec![constructor_ast])?;
         self.types.insert(name, typ.clone());
         self.funcseq.push(name);
         self.funcsrc.insert(name, (fields, construction));
@@ -501,7 +517,7 @@ impl ProtoModule
     fn add_alias_type(&mut self, name: AstNode, src: AstNode) -> Lresult<()>
     {
         let loc = name.loc;
-        let (name_id, t, _) = self.make_user_type(name)?;
+        let ProtoType{n: name_id, t, ..} = self.make_proto_type(name)?;
         let srct = ltry!(self.ast_to_type(&self.key.name, &src, &[]));
         let typeval = Val::Type(t.clone());
         let mut node = AstNode::new_constval(typeval, loc);
@@ -520,7 +536,7 @@ impl ProtoModule
     fn add_rust_type(&mut self, name: AstNode) -> Lresult<()>
     {
         let loc = name.loc;
-        let (name_id, t, _) = self.make_user_type(name)?;
+        let ProtoType{n: name_id, t, ..} = self.make_proto_type(name)?;
         let typeval = Val::Type(t.clone());
         let mut node = AstNode::new_constval(typeval, loc);
         node.typ = Type::Kind;
@@ -540,7 +556,9 @@ impl ProtoModule
                 name,
             ));
         }
-        let (sname_id, union_typ, opens) = self.make_user_type(name)?;
+        let proto = self.make_proto_type(name)?;
+        let sname_id = proto.n;
+        let union_typ = proto.t.clone();
 
         let typ_val = Val::Type(union_typ.clone());
         let typ_ast = AstNode::new_constval(typ_val.clone(), loc);
@@ -557,9 +575,7 @@ impl ProtoModule
                     let vast = AstNode::new_constval(vval, var.v.loc);
                     self.exported_vals.push(StrupleItem::new(var.k, vast));
                 } else {
-                    self.add_typed_struct(
-                        var_typ, var_name, &opens, flds, loc,
-                    )?;
+                    self.add_typed_struct(proto.clone(), flds, loc)?;
                 }
             } else {
                 return Err(rustfail!(
@@ -580,18 +596,19 @@ impl ProtoModule
         funcs: Vec<AstNode>,
     ) -> Lresult<()>
     {
-        let (id, ityp, _opens) = self.make_user_type(name)?;
-        self.types.insert(id, ityp);
-        self.add_submod(ModTyp::Trait, id, funcs)
+        let proto_t = self.make_proto_type(name)?;
+        self.types.insert(proto_t.n, proto_t.t.clone());
+        self.add_submod(ModTyp::Trait, proto_t, funcs)
     }
 
     fn add_submod(
         &mut self,
         subtype: ModTyp,
-        id: &'static str,
+        proto_t: ProtoType,
         funcs: Vec<AstNode>,
     ) -> Lresult<()>
     {
+        let id = proto_t.n;
         let subkey = self.key.submod(subtype, id);
         let utyp = Type::User(subkey.name.clone());
         let alias = TypeSrc::Alias(Type::User(subkey.name.join("Self")?), utyp);
@@ -604,7 +621,7 @@ impl ProtoModule
                 proto.type_src.insert("Self", alias);
             }
             None => {
-                let mut proto = ProtoModule::with_ast(subkey, funcs)?;
+                let mut proto = ProtoModule::new_submod(subkey, proto_t, funcs)?;
                 proto.type_src.insert("Self", alias);
                 self.submods.insert(id, proto);
             }
@@ -718,16 +735,16 @@ impl ProtoModule
         Ok((id, ft, ftyp))
     }
 
-    fn make_user_type(
+    fn make_proto_type(
         &mut self,
         name: AstNode,
-    ) -> Lresult<(&'static str, Type, GenericTypes)>
+    ) -> Lresult<ProtoType>
     {
         let m = &self.key.name;
         let utyp: Type;
         let opens: GenericTypes;
 
-        let id = match *name.node {
+        let id: &'static str = match *name.node {
             Ast::Id(name_id) => {
                 utyp = Type::User(self.key.name.join(name_id)?);
                 opens = vec![];
@@ -778,6 +795,19 @@ impl ProtoModule
                     ));
                 }
             }
+            Ast::ConstVal(cv) if cv == Val::VOID => {
+                if self.parent.is_none() {
+                    return Err(rustfail!(
+                        "syntax_error",
+                        "datatypes must have a typename: {:?}",
+                        self.key.best_path(),
+                    ));
+                }
+                let parent = self.parent.as_ref().unwrap();
+                utyp = parent.t.clone();
+                opens = parent.g.clone();
+                parent.n
+            }
             _ => {
                 return Err(rustfail!(
                     "compile_failure",
@@ -787,7 +817,7 @@ impl ProtoModule
             }
         };
         ltry!(self.refute_redefines_default(id, name.loc));
-        Ok((id, utyp, opens))
+        Ok(ProtoType{n: id, t: utyp, g: opens})
     }
 
     /*
