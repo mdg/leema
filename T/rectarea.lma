@@ -1,7 +1,7 @@
 import /io
 
 
-interface Rectangle ::
+trait Rectangle ::
     datatype ::
         length:Int
         width:Int

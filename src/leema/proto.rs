@@ -310,7 +310,7 @@ impl ProtoModule
 
     fn refute_redefines_default(
         &self,
-        id: &'static str,
+        id: &str,
         loc: Loc,
     ) -> Lresult<()>
     {
