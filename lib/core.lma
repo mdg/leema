@@ -12,9 +12,18 @@ datatype # -RUST-
 datatype Void --
 datatype NoResult --
 
-datatype <Option T>
-|None
-|Some :: T
+trait <Option T> ::
+    datatype
+    |None
+    |Some :: T
+    --
+
+    fn is_some:Bool :: self
+    |Some(_) -> true
+    |_ -> false
+    --
+
+    fn is_none:Bool :: self -> not self.is_some() --
 --
 
 func <cons T>:[T] :: head:T tail:[T] -RUST-
