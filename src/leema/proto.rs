@@ -440,7 +440,7 @@ impl ProtoModule
             loc,
         );
 
-        self.add_submod(ModTyp::Struct, proto, vec![constructor_ast])?;
+        self.add_submod(ModTyp::Data, proto, vec![constructor_ast])?;
         self.types.insert(name, typ.clone());
         self.funcseq.push(name);
         self.funcsrc.insert(name, (fields, construction));

@@ -20,23 +20,18 @@ use std::path::{Component, Path, PathBuf};
 pub enum ModTyp
 {
     File,
-    Token,
-    Struct,
-    VariantToken,
-    VariantStruct,
-    Function,
+    Data,
+    TraitData,
     Trait,
-    TraitImpl,
     Protocol,
-    ProtocolImpl,
 }
 
 impl ModTyp
 {
-    pub fn is_struct(&self) -> bool
+    pub fn is_data(&self) -> bool
     {
         match self {
-            ModTyp::Struct | ModTyp::VariantStruct => true,
+            ModTyp::Data | ModTyp::TraitData => true,
             _ => false,
         }
     }

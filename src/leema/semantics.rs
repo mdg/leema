@@ -131,7 +131,7 @@ impl<'l> ast2::Op for MacroApplication<'l>
                             return Ok(AstStep::Rewrite);
                         } // else not a call, that's fine
                     }
-                    Ast::Module(m, c, _a) if m.mtyp.is_struct() => {
+                    Ast::Module(m, c, _a) if m.mtyp.is_data() => {
                         if let Some(consf) =
                             struple::find_str_mut(c, "construct")
                         {
