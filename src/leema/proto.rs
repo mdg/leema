@@ -379,9 +379,15 @@ impl ProtoModule
     fn add_struct(&mut self, name: AstNode, fields: Xlist) -> Lresult<()>
     {
         let loc = name.loc;
-        let proto_t = self.make_proto_type(name)?;
-        self.add_typed_struct(proto_t, fields, loc)?;
-        Ok(())
+        let proto_t = match (&*name.node, &self.parent) {
+            (Ast::ConstVal(cv), Some(parent)) if *cv == Val::VOID => {
+                parent.clone()
+            }
+            _ => {
+                self.make_proto_type(name)?
+            }
+        };
+        self.add_typed_struct(proto_t, fields, loc)
     }
 
     fn add_typed_struct(
