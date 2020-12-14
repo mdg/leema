@@ -18,6 +18,8 @@ use std::path::{Path, PathBuf};
 use lazy_static::lazy_static;
 
 
+pub const CONSTRUCT_NAME: &'static str = "__construct";
+pub const TYPE_NAME: &'static str = "__type";
 const PROTOFAIL: &'static str = "prototype_failure";
 
 lazy_static! {
@@ -401,14 +403,15 @@ impl ProtoModule
         let typ = proto.t.clone();
         let args = self.xlist_to_types(&self.key.name, &fields, &proto.g)?;
         let ftyp = FuncType::new(args.clone(), typ.clone());
+        let constructor_args = ftyp.call_args();
         let inner_type = Type::Func(ftyp);
         let constructor_type = if typ.is_open() {
             Type::Generic(true, Box::new(inner_type), proto.g.clone())
         } else {
             inner_type
         };
-        let fref = Fref::new(self.key.clone(), name, constructor_type);
-        let constructor_call = Val::Construct(fref);
+        let fref = Fref::new(self.key.clone(), CONSTRUCT_NAME, constructor_type);
+        let constructor_call = Val::Call(fref, constructor_args);
 
         let macro_call = AstNode::new(Ast::Id("new_struct_val"), loc);
         let fields_arg: Xlist = fields
@@ -433,12 +436,18 @@ impl ProtoModule
 
         let construction = AstNode::new(Ast::Call(macro_call, macro_args), loc);
         self.exported_vals.push(StrupleItem::new(
-            Some(name),
+            Some(CONSTRUCT_NAME),
             AstNode::new_constval(constructor_call, loc),
+        ));
+        let mut type_node = AstNode::new(Ast::Type(typ.clone()), loc);
+        type_node.typ = Type::Kind;
+        self.exported_vals.push(StrupleItem::new(
+            Some(TYPE_NAME),
+            type_node,
         ));
         let constructor_ast = AstNode::new(
             Ast::DefFunc(
-                AstNode::new(Ast::Id("construct"), loc),
+                AstNode::new(Ast::Id(CONSTRUCT_NAME), loc),
                 fields.clone(),
                 AstNode::new(Ast::Type(typ.clone()), loc),
                 construction.clone(),

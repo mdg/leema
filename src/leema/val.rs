@@ -623,7 +623,6 @@ pub enum Val
     Map(LmapNode),
     Failure2(Box<Failure>),
     Type(Type),
-    Construct(Fref),
     Lib(Arc<dyn LibVal>),
     // Fref(Fref),
     Call(Fref, Struple2<Val>),
@@ -720,7 +719,6 @@ impl Val
     {
         match self {
             &Val::Type(_) => true,
-            &Val::Construct(_) => true,
             _ => false,
         }
     }
@@ -803,7 +801,6 @@ impl Val
             &Val::Nil => Type::list(Type::Unknown),
             &Val::Failure2(_) => Type::FAILURE,
             &Val::Type(_) => Type::Kind,
-            &Val::Construct(ref f) => f.t.clone(),
             &Val::Wildcard => Type::Unknown,
             &Val::PatternVar(_) => Type::Unknown,
             &Val::RustBlock => Type::RustBlock,
@@ -1096,7 +1093,6 @@ impl sendclone::SendClone for Val
                 Val::Failure2(Box::new(f.clone_for_send()))
             }
             &Val::Type(ref t) => Val::Type(t.clone_for_send()),
-            &Val::Construct(ref t) => Val::Construct(t.clone_for_send()),
             &Val::ResourceRef(r) => Val::ResourceRef(r),
             // &Val::Lib(LibVal),
             // &Val::RustBlock,
@@ -1160,7 +1156,6 @@ impl fmt::Display for Val
             Val::RustBlock => write!(f, "RustBlock"),
             Val::Failure2(ref fail) => write!(f, "Failure({:?})", **fail),
             Val::Type(ref t) => write!(f, "{}", t),
-            Val::Construct(ref t) => write!(f, "{}", t),
             Val::Call(ref fref, ref args) => {
                 write!(f, "{}::{}({:?}): {}", fref.m, fref.f, args, fref.t)
             }
@@ -1211,7 +1206,6 @@ impl fmt::Debug for Val
             Val::RustBlock => write!(f, "RustBlock"),
             Val::Failure2(ref fail) => write!(f, "Failure({:?})", fail),
             Val::Type(ref t) => write!(f, "TypeVal({:?})", t),
-            Val::Construct(ref t) => write!(f, "Construct({:?})", t),
             Val::Call(ref fref, ref args) => {
                 write!(f, "(call {}.{}:", fref.m, fref.f)?;
                 if f.alternate() {

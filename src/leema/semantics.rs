@@ -5,7 +5,7 @@ use crate::leema::canonical::Canonical;
 use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::inter::Blockstack;
 use crate::leema::lstr::Lstr;
-use crate::leema::proto::{CanonicalTypeSrc, ProtoModule};
+use crate::leema::proto::{self, CanonicalTypeSrc, ProtoModule};
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{
     Fref, FuncType, GenericTypeSlice, GenericTypes, Type, TypeSrc, Val,
@@ -1260,8 +1260,24 @@ impl<'p> ast2::Op for TypeCheck<'p>
                         *callx = mem::take(method);
                         return Ok(AstStep::Rewrite);
                     }
+                    Ast::Module(k, modelems, _) => {
+                        match struple::find_str(modelems, proto::CONSTRUCT_NAME) {
+                            Some(cons) => {
+                                *callx = cons.1.clone();
+                                return Ok(AstStep::Rewrite);
+                            }
+                            None => {
+                                return Err(rustfail!(
+                                    SEMFAIL,
+                                    "called a module: {:?}",
+                                    k,
+                                ));
+                            }
+                        }
+                    }
                     _ => {
                         if !callx.typ.is_user() {
+eprintln!("type: {:#?}", callx);
                             return Err(rustfail!(
                                 SEMFAIL,
                                 "unexpected call expression: {:?}",
