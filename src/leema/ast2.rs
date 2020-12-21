@@ -224,6 +224,7 @@ pub type Xlist = StrupleKV<Option<&'static str>, AstNode>;
 #[derive(PartialEq)]
 pub enum Ast
 {
+    Alias(Xlist, Box<AstNode>),
     Block(Vec<AstNode>),
     Call(AstNode, Xlist),
     ConstVal(Val),
@@ -287,6 +288,7 @@ impl Ast
     pub fn fmt_inner(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
+            Ast::Alias(gens, src) => write!(f, "Alias {:?} {:?}", gens, src),
             Ast::Block(items) => write!(f, "Block {:?}", items),
             Ast::Call(id, args) => write!(f, "Call {:?} {:?}", id, args),
             Ast::ConstVal(v) => write!(f, "Const {:?}", v),
@@ -617,6 +619,12 @@ impl Walker
     fn step_in(&mut self, node: &mut AstNode, op: &mut dyn Op) -> StepResult
     {
         match &mut *node.node {
+            Ast::Alias(gens, src) => {
+                for g in gens.iter_mut() {
+                    steptry!(self.walk(&mut g.v, op));
+                }
+                steptry!(self.walk(src, op));
+            }
             Ast::Call(id, args) => {
                 steptry!(self.walk(id, op));
                 for a in args.iter_mut() {

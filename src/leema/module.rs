@@ -374,6 +374,14 @@ impl From<&str> for ImportedMod
     }
 }
 
+impl AsRef<std::ffi::OsStr> for ImportedMod
+{
+    fn as_ref(&self) -> &std::ffi::OsStr
+    {
+        self.0.as_os_str()
+    }
+}
+
 impl PartialEq<ImportedMod> for &str
 {
     fn eq(&self, other: &ImportedMod) -> bool

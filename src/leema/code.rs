@@ -759,6 +759,9 @@ impl Registration
             | Ast::Module(_, _, _)
             | Ast::RustBlock
             | Ast::Wildcard => {} // do nothing
+            Ast::Alias(_, _) => {
+                panic!("unexpected alias {:?}, at {:?}", node.node, node.loc);
+            }
             Ast::Op1(op1, x) => {
                 panic!("unexpected Op1 {} {:?}", op1, x);
             }
