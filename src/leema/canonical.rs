@@ -15,6 +15,15 @@ macro_rules! canonical {
     };
 }
 
+pub enum Lpath
+{
+    Root,
+    Local(&'static Lpath, &'static str),
+    Exported(&'static Lpath, &'static str),
+}
+
+static ROOT: Lpath = Lpath::Root;
+
 #[derive(Clone)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
