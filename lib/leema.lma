@@ -1,0 +1,8 @@
+
+datatype ModTyp
+|File
+|Enum
+|Protocol
+|Struct
+|Trait
+--

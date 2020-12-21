@@ -278,6 +278,12 @@ impl Ast
         }
     }
 
+    // check if an Ast object is const VOID
+    pub fn is_void(&self) -> bool
+    {
+        *self == Ast::VOID
+    }
+
     pub fn fmt_inner(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {

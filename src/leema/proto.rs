@@ -1,3 +1,36 @@
+/// First pass at a module
+/// Extract any macros, types and function declarations
+/// All processing is local to the module
+///
+/// A ProtoMod is a thing that can hold functions.
+/// It can be a:
+///   - file module
+///   - trait
+///   - struct
+///   - enum
+///   - protocol
+///   - implemented trait or protocol
+///     maybe implementations get put back w/ their
+///     original traits or protocols?
+///
+/// data or trait functions get put in their own module, not the parent
+///
+/// trait
+///   struct
+///
+/// trait
+///   enum
+///     struct
+///     struct
+///
+/// enum
+///   struct
+///   token
+///
+/// token
+///
+/// trait
+///
 use crate::leema::ast2::{
     Ast, AstNode, DataType, Loc, ModAction, ModTree, Xlist,
 };
@@ -18,8 +51,26 @@ use std::path::{Path, PathBuf};
 use lazy_static::lazy_static;
 
 
-pub const CONSTRUCT_NAME: &'static str = "__construct";
-pub const TYPE_NAME: &'static str = "__type";
+// special module field names
+// Func
+pub const MODNAME_CONSTRUCT: &'static str = "__construct";
+// Type
+pub const MODNAME_DATATYPE: &'static str = "__datatype";
+// Bool
+pub const MODNAME_EXPORTALL: &'static str = "__exportall";
+// Struple2<Type>
+pub const MODNAME_FIELDS: &'static str = "__fields";
+// Str
+pub const MODNAME_FILE: &'static str = "__file";
+// ModTyp Enum
+pub const MODNAME_MODTYP: &'static str = "__modtyp";
+// Str
+pub const MODNAME_NAME: &'static str = "__name";
+// Struple2<Type>
+pub const MODNAME_VARIANTS: &'static str = "__variants";
+
+const NUM_MODNAMES: usize = 7;
+
 const PROTOFAIL: &'static str = "prototype_failure";
 
 lazy_static! {
@@ -98,6 +149,7 @@ pub struct ProtoModule
 {
     pub key: ModKey,
     parent: Option<ProtoType>,
+    type_src: Option<TypeSrc>,
     pub imports: HashMap<&'static str, Canonical>,
     pub exports: HashMap<ModAlias, ImportedMod>,
     pub exports_all: bool,
@@ -109,8 +161,9 @@ pub struct ProtoModule
     pub funcseq: Vec<&'static str>,
     pub funcsrc: HashMap<&'static str, (Xlist, AstNode)>,
     pub token: HashSet<&'static str>,
-    type_src: HashMap<&'static str, TypeSrc>,
+    type_src_1: HashMap<&'static str, TypeSrc>,
     submods: HashMap<&'static str, ProtoModule>,
+    modscope: Xlist,
 }
 
 impl ProtoModule
@@ -133,6 +186,7 @@ impl ProtoModule
         let mut proto = ProtoModule {
             key,
             parent,
+            type_src: None,
             imports: HashMap::new(),
             exports: HashMap::new(),
             exports_all: false,
@@ -144,8 +198,9 @@ impl ProtoModule
             funcseq: Vec::new(),
             funcsrc: HashMap::new(),
             token: HashSet::new(),
-            type_src: HashMap::new(),
+            type_src_1: HashMap::new(),
             submods: HashMap::new(),
+            modscope: Vec::with_capacity(NUM_MODNAMES),
         };
 
         let mut exports = HashMap::new();
@@ -237,7 +292,7 @@ impl ProtoModule
         Ok(proto)
     }
 
-    fn append(&mut self, items: Vec<AstNode>) -> Lresult<()>
+    fn append_ast(&mut self, items: Vec<AstNode>) -> Lresult<()>
     {
         for i in items.into_iter() {
             ltry!(self.add_definition(i));
@@ -381,15 +436,28 @@ impl ProtoModule
     fn add_struct(&mut self, name: AstNode, fields: Xlist) -> Lresult<()>
     {
         let loc = name.loc;
-        let proto_t = match (&*name.node, &self.parent) {
-            (Ast::ConstVal(cv), Some(parent)) if *cv == Val::VOID => {
-                parent.clone()
+        if self.parent.is_some() {
+            if !name.node.is_void() {
+                return Err(rustfail!(
+                    "semantic_error",
+                    "cannot define new struct within trait: {:?} at {:?}",
+                    name,
+                    loc,
+                ));
             }
-            _ => {
-                self.make_proto_type(name)?
+            let parent = self.parent.as_ref().unwrap().clone();
+            self.add_typed_struct(parent, fields, loc)
+        } else {
+            if name.node.is_void() {
+                return Err(rustfail!(
+                    "semantic_error",
+                    "cannot define unnamed struct outside of trait: {:?}",
+                    loc,
+                ));
             }
-        };
-        self.add_typed_struct(proto_t, fields, loc)
+            let proto_t = self.make_proto_type(name)?;
+            self.add_typed_struct(proto_t, fields, loc)
+        }
     }
 
     fn add_typed_struct(
@@ -410,7 +478,7 @@ impl ProtoModule
         } else {
             inner_type
         };
-        let fref = Fref::new(self.key.clone(), CONSTRUCT_NAME, constructor_type);
+        let fref = Fref::new(self.key.clone(), MODNAME_CONSTRUCT, constructor_type);
         let constructor_call = Val::Call(fref, constructor_args);
 
         let macro_call = AstNode::new(Ast::Id("new_struct_val"), loc);
@@ -436,18 +504,18 @@ impl ProtoModule
 
         let construction = AstNode::new(Ast::Call(macro_call, macro_args), loc);
         self.exported_vals.push(StrupleItem::new(
-            Some(CONSTRUCT_NAME),
+            Some(MODNAME_CONSTRUCT),
             AstNode::new_constval(constructor_call, loc),
         ));
         let mut type_node = AstNode::new(Ast::Type(typ.clone()), loc);
         type_node.typ = Type::Kind;
         self.exported_vals.push(StrupleItem::new(
-            Some(TYPE_NAME),
+            Some(MODNAME_DATATYPE),
             type_node,
         ));
         let constructor_ast = AstNode::new(
             Ast::DefFunc(
-                AstNode::new(Ast::Id(CONSTRUCT_NAME), loc),
+                AstNode::new(Ast::Id(MODNAME_CONSTRUCT), loc),
                 fields.clone(),
                 AstNode::new(Ast::Type(typ.clone()), loc),
                 construction.clone(),
@@ -455,12 +523,14 @@ impl ProtoModule
             loc,
         );
 
-        self.add_submod(ModTyp::Data, proto, vec![constructor_ast])?;
-        self.types.insert(name, typ.clone());
-        self.funcseq.push(name);
-        self.funcsrc.insert(name, (fields, construction));
-        let typesrc = TypeSrc::Struct(typ, args);
-        self.type_src.insert(name, typesrc);
+        if self.parent.is_some() {
+            self.append_ast(vec![constructor_ast])?;
+        } else {
+            self.add_submod(ModTyp::Data, proto, vec![constructor_ast])?;
+        }
+        let type_src = TypeSrc::Struct(typ, args);
+        self.type_src = Some(type_src.clone());
+        self.type_src_1.insert(name, type_src);
         Ok(())
     }
 
@@ -540,7 +610,7 @@ impl ProtoModule
         self.types.insert(name_id, t);
         self.exported_vals
             .push(StrupleItem::new(Some(name_id), node));
-        self.type_src
+        self.type_src_1
             .insert(name_id, TypeSrc::Alias(
                 Type::User(self.key.name.join(&name_id)?),
                 srct,
@@ -612,7 +682,6 @@ impl ProtoModule
     ) -> Lresult<()>
     {
         let proto_t = self.make_proto_type(name)?;
-        self.types.insert(proto_t.n, proto_t.t.clone());
         self.add_submod(ModTyp::Trait, proto_t, funcs)
     }
 
@@ -630,17 +699,9 @@ impl ProtoModule
         let iface_imod = ImportedMod::from(subkey.name.0.str());
         self.imports.insert(id, subkey.name.clone());
         self.exports.insert(ModAlias(id), iface_imod);
-        match self.submods.get_mut(id) {
-            Some(proto) => {
-                proto.append(funcs)?;
-                proto.type_src.insert("Self", alias);
-            }
-            None => {
-                let mut proto = ProtoModule::new_submod(subkey, proto_t, funcs)?;
-                proto.type_src.insert("Self", alias);
-                self.submods.insert(id, proto);
-            }
-        }
+        let mut proto = ProtoModule::new_submod(subkey, proto_t, funcs)?;
+        proto.type_src_1.insert("Self", alias);
+        self.submods.insert(id, proto);
         Ok(())
     }
 
@@ -1292,7 +1353,7 @@ impl ProtoLib
         mut proto: ProtoModule,
     ) -> Lresult<()>
     {
-        for (u, tsrc) in proto.type_src.drain() {
+        for (u, tsrc) in proto.type_src_1.drain() {
             let canon = Canonical::from(modpath.join(u));
             self.type_src.insert(canon, tsrc);
         }

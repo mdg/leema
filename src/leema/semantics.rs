@@ -1261,7 +1261,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                         return Ok(AstStep::Rewrite);
                     }
                     Ast::Module(k, modelems, _) => {
-                        match struple::find_str(modelems, proto::CONSTRUCT_NAME) {
+                        match struple::find_str(modelems, proto::MODNAME_CONSTRUCT) {
                             Some(cons) => {
                                 *callx = cons.1.clone();
                                 return Ok(AstStep::Rewrite);
