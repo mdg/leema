@@ -43,7 +43,7 @@ use crate::leema::module::{
 };
 use crate::leema::parser::parse_file;
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
-use crate::leema::val::{Fref, FuncType, GenericTypes, Type, TypeSrc, Val};
+use crate::leema::val::{Fref, FuncType, GenericTypes, GenericTypeSlice, Type, TypeSrc, Val};
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -174,10 +174,17 @@ impl ProtoModule
     fn with_ast(key: ModKey, parent: Option<ProtoType>, items: Vec<AstNode>) -> Lresult<ProtoModule>
     {
         let modname = key.name.clone();
+        let open_buf = [];
+        let opens: &GenericTypeSlice = if let Some(proto_t) = parent.as_ref() {
+            eprintln!("with_ast.parent: {:?}", proto_t);
+            proto_t.g.as_slice()
+        } else {
+            &open_buf
+        };
 
         let mut proto = ProtoModule {
             key,
-            parent,
+            parent: parent.clone(),
             imports: HashMap::new(),
             exports_all: None,
             funcseq: Vec::new(),
@@ -273,15 +280,15 @@ impl ProtoModule
         }
 
         for i in it {
-            ltry!(proto.add_definition(i));
+            ltry!(proto.add_definition(i, opens));
         }
         Ok(proto)
     }
 
-    fn append_ast(&mut self, items: Vec<AstNode>) -> Lresult<()>
+    fn append_ast(&mut self, items: Vec<AstNode>, opens: &GenericTypeSlice) -> Lresult<()>
     {
         for i in items.into_iter() {
-            ltry!(self.add_definition(i));
+            ltry!(self.add_definition(i, opens));
         }
         Ok(())
     }
@@ -298,7 +305,7 @@ impl ProtoModule
         Ok(())
     }
 
-    pub fn add_definition(&mut self, node: AstNode) -> Lresult<()>
+    pub fn add_definition(&mut self, node: AstNode, opens: &GenericTypeSlice) -> Lresult<()>
     {
         let loc = node.loc;
         let result = match *node.node {
@@ -311,7 +318,7 @@ impl ProtoModule
                 lfailoc!(self.refute_redefines_default(macro_name, loc))
             }
             Ast::DefFunc(name, args, result, body) => {
-                lfailoc!(self.add_func(name, args, result, body))
+                lfailoc!(self.add_func(name, opens, args, result, body))
             }
             Ast::DefTrait(name, funcs) => {
                 lfailoc!(self.add_trait(name, funcs))
@@ -390,6 +397,7 @@ impl ProtoModule
     fn add_func(
         &mut self,
         name: AstNode,
+        opens: &GenericTypeSlice,
         mut args: Xlist,
         result: AstNode,
         body: AstNode,
@@ -405,7 +413,7 @@ impl ProtoModule
         }
 
         let (name_id, ft, ftyp) =
-            ltry!(self.make_func_type(name, &args, result, vec![]));
+            ltry!(self.make_func_type(name, opens, &args, result, vec![]));
 
         let call_args = ft.call_args();
         let fref = Fref::new(self.key.clone(), name_id, ftyp.clone());
@@ -491,7 +499,7 @@ impl ProtoModule
         );
 
         if self.parent.is_some() {
-            self.append_ast(vec![constructor_ast])?;
+            self.append_ast(vec![constructor_ast], proto.g.as_slice())?;
         } else {
             self.add_submod(ModTyp::Data, proto, vec![constructor_ast])?;
             self.modscope.insert(MODNAME_DATATYPE, type_node);
@@ -641,6 +649,8 @@ impl ProtoModule
     ) -> Lresult<()>
     {
         let proto_t = self.make_proto_type(name)?;
+        // look in funcs for a struct def and use the ModTyp::Data?
+        // or does that get set in add_typed_struct
         self.add_submod(ModTyp::Trait, proto_t, funcs)
     }
 
@@ -693,6 +703,7 @@ impl ProtoModule
     fn make_func_type(
         &mut self,
         name: AstNode,
+        _opens: &GenericTypeSlice,
         args: &Xlist,
         result: AstNode,
         mut opens: GenericTypes,
