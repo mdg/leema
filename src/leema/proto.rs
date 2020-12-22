@@ -300,66 +300,73 @@ impl ProtoModule
 
     pub fn add_definition(&mut self, node: AstNode) -> Lresult<()>
     {
-        match *node.node {
+        let loc = node.loc;
+        let result = match *node.node {
             Ast::DefConst(name, val) => {
-                ltry!(self.refute_redefines_default(name, node.loc));
                 self.modscope.insert(name, val);
+                lfailoc!(self.refute_redefines_default(name, loc))
             }
             Ast::DefMacro(macro_name, _, _) => {
-                ltry!(self.refute_redefines_default(macro_name, node.loc));
                 self.modscope.insert(macro_name, node);
+                lfailoc!(self.refute_redefines_default(macro_name, loc))
             }
             Ast::DefFunc(name, args, result, body) => {
-                ltry!(self.add_func(name, args, result, body));
+                lfailoc!(self.add_func(name, args, result, body))
             }
             Ast::DefTrait(name, funcs) => {
-                ltry!(self.add_trait(name, funcs));
+                lfailoc!(self.add_trait(name, funcs))
             }
             Ast::DefImpl(iface, typ, funcs) => {
-                ltry!(self.impl_trait(typ, iface, funcs));
+                lfailoc!(self.impl_trait(typ, iface, funcs))
             }
             Ast::DefType(DataType::Union, name, variants) => {
-                self.add_union(name, variants)?;
+                lfailoc!(self.add_union(name, variants))
             }
             Ast::DefType(DataType::Struct, name, fields) => {
                 if fields.is_empty() {
-                    ltry!(self.add_token(name));
+                    lfailoc!(self.add_token(name))
                 } else {
-                    ltry!(self.add_struct(name, fields));
+                    lfailoc!(self.add_struct(name, fields))
                 }
             }
             Ast::DefType(DataType::Alias, name, mut src_vec) => {
                 if src_vec.is_empty() {
-                    return Err(rustfail!(
+                    Err(rustfail!(
                         "parse_failure",
                         "expected source type, found none",
-                    ));
+                    ))
+                } else {
+                    let src = src_vec.drain(0..1).next().unwrap().v;
+                    lfailoc!(self.add_alias_type(name, src))
                 }
-                let src = src_vec.drain(0..1).next().unwrap().v;
-                ltry!(self.add_alias_type(name, src));
             }
             Ast::DefType(DataType::Rust, name, _) => {
-                ltry!(self.add_rust_type(name));
+                lfailoc!(self.add_rust_type(name))
             }
             Ast::ModAction(_, _) => {
-                return Err(Failure::static_leema(
+                Err(Failure::static_leema(
                     failure::Mode::CompileFailure,
                     Lstr::Sref("imports must come before definitions"),
                     self.key.best_path(),
                     node.loc.lineno,
-                ));
+                ))
             }
             _ => {
-                return Err(Failure::static_leema(
+                Err(Failure::static_leema(
                     failure::Mode::CompileFailure,
                     lstrf!("expected module statement, found {:?}", node),
                     self.key.best_path(),
                     node.loc.lineno,
-                ));
+                ))
             }
-        }
+        };
 
-        Ok(())
+        result.map_err(|e| {
+            e.lstr_loc(
+                Lstr::from(self.key.best_path_ref().to_string()),
+                loc.lineno as u32,
+            )
+        })
     }
 
     fn refute_redefines_default(
@@ -579,7 +586,7 @@ impl ProtoModule
         let mut node = AstNode::new_constval(typeval, loc);
         node.typ = Type::Kind;
         let subkey = self.key.submod(ModTyp::Data, name_id);
-        let mut sub = Self::new_submod(subkey, proto_t.clone(), vec![])?;
+        let mut sub = ltry!(Self::new_submod(subkey, proto_t.clone(), vec![]));
         // TODO: add __datatype or whatever
         sub.modscope.insert(MODNAME_DATATYPE, node);
         self.submods.insert(name_id, sub);
@@ -659,7 +666,7 @@ impl ProtoModule
         );
         funcs.push(alias);
         self.imports.insert(id, subkey.name.clone());
-        let proto = ProtoModule::new_submod(subkey, proto_t, funcs)?;
+        let proto = ltry!(ProtoModule::new_submod(subkey, proto_t, funcs));
         self.submods.insert(id, proto);
         Ok(())
     }
