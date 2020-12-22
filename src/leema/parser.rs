@@ -1828,7 +1828,7 @@ mod tests
             assert_matches!(*iname.node, Ast::Id("Taco"));
             if let Ast::DefFunc(fname, _, _, body) = &*funcs[0].node {
                 assert_matches!(*fname.node, Ast::Id("burrito"));
-                assert_eq!(Ast::InterfaceBlock, *body.node);
+                assert_eq!(Ast::VOID, *body.node);
             } else {
                 panic!("expected a func, found {:?}", funcs);
             }
@@ -1857,7 +1857,7 @@ mod tests
             assert_matches!(*iname.node, Ast::Id("Rectangle"));
             if let Ast::DefFunc(fname, _, _, body) = &*stmts[0].node {
                 assert_matches!(*fname.node, Ast::Id("burrito"));
-                assert_eq!(Ast::InterfaceBlock, *body.node);
+                assert_eq!(Ast::VOID, *body.node);
             } else {
                 panic!("expected a func, found {:?}", stmts);
             }

@@ -1427,8 +1427,8 @@ mod tests
         let proto = new_proto(input);
         let tvt = Type::OpenVar("T");
 
-        assert_eq!(1, proto.exported_vals.len());
-        assert!(struple::contains_key(&proto.exported_vals, &Some("first")));
+        assert_eq!(1, proto.modscope.len());
+        assert!(proto.modscope.contains_key("first"));
         assert_eq!(
             Type::Generic(
                 true,
@@ -1441,14 +1441,15 @@ mod tests
                 ))),
                 vec![StrupleItem::new("T", Type::OpenVar("T"))],
             ),
-            struple::find_str(&proto.exported_vals, "first")
+            proto.modscope.get("first")
                 .unwrap()
-                .1
                 .typ,
         );
 
-        // function definitions do not create new types
-        assert_eq!(0, proto.types.len());
+        // first is exported by default
+        assert_eq!(0, proto.localdef.len());
+        // function definitions do not create new modules
+        assert_eq!(0, proto.submods.len());
     }
 
     #[test]
@@ -1513,9 +1514,8 @@ mod tests
         let proto = new_proto("export tacos");
 
         assert_eq!(1, proto.imports.len());
-        assert_eq!(1, proto.exports.len());
+        assert_eq!(0, proto.localdef.len());
         assert_eq!(*"/foo/tacos", proto.imports["tacos"]);
-        assert_eq!("tacos", proto.exports["tacos"]);
         assert_eq!(Some(false), proto.exports_all);
     }
 
