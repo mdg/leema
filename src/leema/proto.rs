@@ -43,7 +43,7 @@ use crate::leema::module::{
 };
 use crate::leema::parser::parse_file;
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
-use crate::leema::val::{Fref, FuncType, GenericTypes, Type, TypeSrc, Val};
+use crate::leema::val::{Fref, FuncType, GenericTypes, Type, Val};
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -151,8 +151,6 @@ struct ProtoType
     t: Type,
     g: GenericTypes,
 }
-
-pub type CanonicalTypeSrc = HashMap<Canonical, TypeSrc>;
 
 /// Asts separated into their types of components
 #[derive(Debug)]
@@ -1095,25 +1093,6 @@ impl ProtoModule
         })
     }
 
-    /// for finding the field index in a defined struct type
-    /// ok great, but can you find a method in a trait implementation?
-    pub fn type_field_idx<S>(type_src: &CanonicalTypeSrc, c: &Canonical, fld: &S) -> Option<i64>
-        where S: AsRef<str>
-    {
-        match type_src.get(c)? {
-            TypeSrc::Struct(_t, flds) => {
-                match struple::find_str(&flds[..], fld) {
-                    Some((fld_idx, _)) => Some(fld_idx as i64),
-                    None => None,
-                }
-            }
-            TypeSrc::Alias(_t0, Type::User(c1)) => {
-                Self::type_field_idx(type_src, &c1, fld)
-            }
-            _ => None,
-        }
-    }
-
     fn ast_to_ftype(
         &self,
         local_mod: &Canonical,
@@ -1152,7 +1131,6 @@ impl ProtoModule
 pub struct ProtoLib
 {
     protos: HashMap<PathBuf, ProtoModule>,
-    type_src: CanonicalTypeSrc,
 }
 
 impl ProtoLib
@@ -1161,7 +1139,6 @@ impl ProtoLib
     {
         ProtoLib {
             protos: HashMap::new(),
-            type_src: HashMap::new(),
         }
     }
 
@@ -1374,6 +1351,15 @@ impl ProtoLib
                     loc.lineno,
                 )
             })
+    }
+
+    /// for finding the field index in a defined struct type
+    /// ok great, but can you find a method in a trait implementation?
+    pub fn type_field_idx<S>(&self, c: &Canonical, fld: &S) -> Lresult<i64>
+        where S: AsRef<str> + std::fmt::Display
+    {
+        let proto = self.path_proto(c)?;
+        Ok(0)
     }
 
     pub fn imported_proto(
