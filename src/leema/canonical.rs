@@ -15,6 +15,16 @@ macro_rules! canonical {
     };
 }
 
+// imported path
+pub enum Impath
+{
+    Absolute,
+    Sibling,
+    Child,
+    Local(&'static Impath, &'static str),
+    Exported(&'static Impath, &'static str),
+}
+
 pub enum Lpath
 {
     Root,
@@ -23,6 +33,7 @@ pub enum Lpath
 }
 
 static ROOT: Lpath = Lpath::Root;
+static DEFPATH: Lpath = Lpath::Exported(&ROOT, "_");
 
 #[derive(Clone)]
 #[derive(PartialEq)]
