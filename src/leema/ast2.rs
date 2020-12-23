@@ -1,3 +1,4 @@
+use crate::leema::canonical::Canonical;
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::{ImportedMod, ModKey};
@@ -227,6 +228,7 @@ pub enum Ast
     Alias(Xlist, Box<AstNode>),
     Block(Vec<AstNode>),
     Call(AstNode, Xlist),
+    Canonical(Canonical),
     ConstVal(Val),
     Copy(AstNode),
     CopyAndSet(AstNode, Xlist),
@@ -291,6 +293,7 @@ impl Ast
             Ast::Alias(gens, src) => write!(f, "Alias {:?} {:?}", gens, src),
             Ast::Block(items) => write!(f, "Block {:?}", items),
             Ast::Call(id, args) => write!(f, "Call {:?} {:?}", id, args),
+            Ast::Canonical(c) => write!(f, "Canonical {:?}", c),
             Ast::ConstVal(v) => write!(f, "Const {:?}", v),
             Ast::Copy(src) => write!(f, "Copy {:?}", src),
             Ast::CopyAndSet(src, flds) => {
@@ -728,7 +731,8 @@ impl Walker
                     steptry!(self.walk(&mut f.v, op));
                 }
             }
-            Ast::ConstVal(_)
+            Ast::Canonical(_)
+            | Ast::ConstVal(_)
             | Ast::Id(_)
             | Ast::RustBlock => {
                 // nowhere else to go

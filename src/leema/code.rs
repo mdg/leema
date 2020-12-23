@@ -747,7 +747,8 @@ impl Registration
             // nothing else to do
             Ast::Id(_) | Ast::ConstVal(_) => {}
             // these shouldn't be here
-            Ast::DefConst(_, _)
+            Ast::Canonical(_)
+            | Ast::DefConst(_, _)
             | Ast::DefFunc(_, _, _, _)
             | Ast::DefImpl(_, _, _)
             | Ast::DefTrait(_, _)

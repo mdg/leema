@@ -262,7 +262,7 @@ impl ProtoModule
                 ));
             }
 
-            proto.add_import(k, v)?;
+            proto.add_import(k, v, loc)?;
             // note this import as local and not accessible from parents
             proto.localdef.insert(k);
         }
@@ -279,7 +279,7 @@ impl ProtoModule
                 ));
             }
 
-            proto.add_import(k, v.clone())?;
+            proto.add_import(k, v.clone(), loc)?;
             // let this imported item be accessible from parents
         }
 
@@ -301,11 +301,13 @@ impl ProtoModule
         &mut self,
         name: &'static str,
         imp: ImportedMod,
+        loc: Loc,
     ) -> Lresult<()>
     {
         // if imp is absolute, canonical will just be imp
-        let canonical = self.key.name.push(&imp);
-        self.imports.insert(name, canonical);
+        let canon = self.key.name.push(&imp);
+        self.imports.insert(name, canon.clone());
+        self.modscope.insert(name, AstNode::new(Ast::Canonical(canon), loc));
         Ok(())
     }
 
@@ -1398,15 +1400,11 @@ impl ProtoLib
     pub fn path_proto_mut(
         &mut self,
         path: &Canonical,
-    ) -> Lresult<(&mut ProtoModule, &CanonicalTypeSrc)>
+    ) -> Lresult<&mut ProtoModule>
     {
-        let result = self.protos.get_mut(path.as_path()).ok_or_else(|| {
+        self.protos.get_mut(path.as_path()).ok_or_else(|| {
             rustfail!(PROTOFAIL, "module not loaded: {:?}", path)
-        });
-        match result {
-            Err(e) => Err(e),
-            Ok(p) => Ok((p, &self.type_src)),
-        }
+        })
     }
 }
 
