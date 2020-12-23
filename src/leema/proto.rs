@@ -43,7 +43,7 @@ use crate::leema::module::{
 };
 use crate::leema::parser::parse_file;
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
-use crate::leema::val::{Fref, FuncType, GenericTypes, GenericTypeSlice, Type, TypeSrc, Val};
+use crate::leema::val::{Fref, FuncType, GenericTypes, Type, TypeSrc, Val};
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -110,6 +110,17 @@ lazy_static! {
         ids.insert("#", core_mod);
         ids
     };
+
+    static ref DEFAULT_TYPES: HashMap<&'static str, Type> = {
+        let mut ids = HashMap::new();
+        ids.insert("Bool", Type::BOOL);
+        ids.insert("Int", Type::INT);
+        ids.insert("Option", Type::option(None));
+        ids.insert("Str", Type::STR);
+        ids.insert("Void", Type::VOID);
+        ids.insert("#", Type::HASHTAG);
+        ids
+    };
 }
 
 const STATIC_INDEX_NAMES: [&'static str; 17] = [
@@ -148,7 +159,7 @@ pub type CanonicalTypeSrc = HashMap<Canonical, TypeSrc>;
 pub struct ProtoModule
 {
     pub key: ModKey,
-    parent: Option<ProtoType>,
+    typ: Option<ProtoType>,
     pub imports: HashMap<&'static str, Canonical>,
     pub exports_all: Option<bool>,
     pub funcseq: Vec<&'static str>,
@@ -174,17 +185,10 @@ impl ProtoModule
     fn with_ast(key: ModKey, parent: Option<ProtoType>, items: Vec<AstNode>) -> Lresult<ProtoModule>
     {
         let modname = key.name.clone();
-        let open_buf = [];
-        let opens: &GenericTypeSlice = if let Some(proto_t) = parent.as_ref() {
-            eprintln!("with_ast.parent: {:?}", proto_t);
-            proto_t.g.as_slice()
-        } else {
-            &open_buf
-        };
 
         let mut proto = ProtoModule {
             key,
-            parent: parent.clone(),
+            typ: parent,
             imports: HashMap::new(),
             exports_all: None,
             funcseq: Vec::new(),
@@ -280,15 +284,15 @@ impl ProtoModule
         }
 
         for i in it {
-            ltry!(proto.add_definition(i, opens));
+            ltry!(proto.add_definition(i));
         }
         Ok(proto)
     }
 
-    fn append_ast(&mut self, items: Vec<AstNode>, opens: &GenericTypeSlice) -> Lresult<()>
+    fn append_ast(&mut self, items: Vec<AstNode>) -> Lresult<()>
     {
         for i in items.into_iter() {
-            ltry!(self.add_definition(i, opens));
+            ltry!(self.add_definition(i));
         }
         Ok(())
     }
@@ -305,7 +309,7 @@ impl ProtoModule
         Ok(())
     }
 
-    pub fn add_definition(&mut self, node: AstNode, opens: &GenericTypeSlice) -> Lresult<()>
+    pub fn add_definition(&mut self, node: AstNode) -> Lresult<()>
     {
         let loc = node.loc;
         let result = match *node.node {
@@ -318,7 +322,7 @@ impl ProtoModule
                 lfailoc!(self.refute_redefines_default(macro_name, loc))
             }
             Ast::DefFunc(name, args, result, body) => {
-                lfailoc!(self.add_func(name, opens, args, result, body))
+                lfailoc!(self.add_func(name, args, result, body))
             }
             Ast::DefTrait(name, funcs) => {
                 lfailoc!(self.add_trait(name, funcs))
@@ -397,7 +401,6 @@ impl ProtoModule
     fn add_func(
         &mut self,
         name: AstNode,
-        opens: &GenericTypeSlice,
         mut args: Xlist,
         result: AstNode,
         body: AstNode,
@@ -412,8 +415,9 @@ impl ProtoModule
             }
         }
 
+        let opens = self.typ.as_ref().map(|o| o.g.clone()).unwrap_or(vec![]);
         let (name_id, ft, ftyp) =
-            ltry!(self.make_func_type(name, opens, &args, result, vec![]));
+            ltry!(self.make_func_type(name, &args, result, opens));
 
         let call_args = ft.call_args();
         let fref = Fref::new(self.key.clone(), name_id, ftyp.clone());
@@ -431,7 +435,7 @@ impl ProtoModule
     fn add_struct(&mut self, name: AstNode, fields: Xlist) -> Lresult<()>
     {
         let loc = name.loc;
-        if self.parent.is_some() {
+        if self.typ.is_some() {
             if !name.node.is_void() {
                 return Err(rustfail!(
                     "semantic_error",
@@ -440,7 +444,7 @@ impl ProtoModule
                     loc,
                 ));
             }
-            let parent = self.parent.as_ref().unwrap().clone();
+            let parent = self.typ.as_ref().unwrap().clone();
             self.add_typed_struct(parent, fields, loc)
         } else {
             if name.node.is_void() {
@@ -498,8 +502,8 @@ impl ProtoModule
             loc,
         );
 
-        if self.parent.is_some() {
-            self.append_ast(vec![constructor_ast], proto.g.as_slice())?;
+        if self.typ.is_some() {
+            self.append_ast(vec![constructor_ast])?;
         } else {
             self.add_submod(ModTyp::Data, proto, vec![constructor_ast])?;
             self.modscope.insert(MODNAME_DATATYPE, type_node);
@@ -703,7 +707,6 @@ impl ProtoModule
     fn make_func_type(
         &mut self,
         name: AstNode,
-        _opens: &GenericTypeSlice,
         args: &Xlist,
         result: AstNode,
         mut opens: GenericTypes,
@@ -714,7 +717,6 @@ impl ProtoModule
 
         let id = match *name.node {
             Ast::Id(name_id) => {
-                opens = vec![];
                 type_maker = Box::new(|ft| Type::Func(ft));
                 name_id
             }
@@ -829,17 +831,17 @@ impl ProtoModule
                 }
             }
             Ast::ConstVal(cv) if cv == Val::VOID => {
-                if self.parent.is_none() {
+                if self.typ.is_none() {
                     return Err(rustfail!(
                         "syntax_error",
                         "datatypes must have a typename: {:?}",
                         self.key.best_path(),
                     ));
                 }
-                let parent = self.parent.as_ref().unwrap();
-                utyp = parent.t.clone();
-                opens = parent.g.clone();
-                parent.n
+                let typ = self.typ.as_ref().unwrap();
+                utyp = typ.t.clone();
+                opens = typ.g.clone();
+                typ.n
             }
             _ => {
                 return Err(rustfail!(
@@ -997,15 +999,23 @@ impl ProtoModule
                 Type::OpenVar(id)
             }
             Ast::Id(id) => {
-                let opt_modelem = self.find_modelem(id);
-                if opt_modelem.is_none() {
-                    return Err(rustfail!(
-                        "internal_failure",
-                        "should this have been found? {}",
-                        id,
-                    ));
+                match self.find_modelem(id) {
+                    Some(modelem) => {
+                        ltry!(self.ast_to_type(local_mod, modelem, opens))
+                    }
+                    None => {
+                        match DEFAULT_TYPES.get(id) {
+                            Some(dt) => dt.clone(),
+                            None => {
+                                return Err(rustfail!(
+                                    "internal_failure",
+                                    "should this have been found? {}",
+                                    id,
+                                ));
+                            }
+                        }
+                    }
                 }
-                self.ast_to_type(local_mod, opt_modelem.as_ref().unwrap(), opens)?
             }
             Ast::List(inner_items) if inner_items.len() == 1 => {
                 let inner = &inner_items.first().unwrap().v;

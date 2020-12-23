@@ -179,10 +179,13 @@ impl Type
         Type::Generic(open, Box::new(Type::LIST), gen_args)
     }
 
-    pub fn option(inner: Type) -> Type
+    pub fn option(inner: Option<Type>) -> Type
     {
-        let open = inner.is_open();
-        let gen_args = vec![StrupleItem::new("T", inner.clone())];
+        let (open, arg) = match inner {
+            Some(i) => (i.is_open(), i),
+            None => (true, Type::Unknown),
+        };
+        let gen_args = vec![StrupleItem::new("T", arg)];
         Type::Generic(open, Box::new(Type::OPTION), gen_args)
     }
 
