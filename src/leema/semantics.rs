@@ -466,6 +466,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
 {
     fn pre(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
+        let loc = node.loc;
         match &mut *node.node {
             Ast::Block(_) => {
                 self.blocks.push_blockscope();
@@ -499,12 +500,15 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                 } else if let Some(me) = self.local_mod.find_modelem(id) {
                     node.replace((*me.node).clone(), me.typ.clone());
                     return Ok(AstStep::Rewrite);
+                } else if let Some(b) = proto::find_builtin(id) {
+                    node.replace_node(b.clone());
+                    return Ok(AstStep::Rewrite);
                 } else {
                     return Err(rustfail!(
                         SEMFAIL,
                         "var not in scope: {} @ {:?}",
                         id,
-                        node.loc,
+                        loc,
                     ));
                 }
             }

@@ -111,7 +111,22 @@ lazy_static! {
         ids
     };
 
-    static ref DEFAULT_TYPES: HashMap<&'static str, Type> = {
+    static ref BUILTIN_SCOPE: HashMap<&'static str, Ast> = {
+        let mut ids = HashMap::new();
+        // types
+        ids.insert("Bool", Ast::canonical("/core/Bool"));
+        ids.insert("Int", Ast::canonical("/core/Int"));
+        ids.insert("Str", Ast::canonical("/core/Str"));
+        ids.insert("Option", Ast::canonical("/core/Option"));
+        ids.insert("#", Ast::canonical("/core/#"));
+        // constants
+        ids.insert("Void", Ast::ConstVal(Val::VOID));
+        // functions
+        ids.insert("int_equal", Ast::canonical("/core/int_equal"));
+        ids
+    };
+
+    static ref BUILTIN_TYPES: HashMap<&'static str, Type> = {
         let mut ids = HashMap::new();
         ids.insert("Bool", Type::BOOL);
         ids.insert("Int", Type::INT);
@@ -1004,7 +1019,7 @@ impl ProtoModule
                         ltry!(self.ast_to_type(local_mod, modelem, opens))
                     }
                     None => {
-                        match DEFAULT_TYPES.get(id) {
+                        match BUILTIN_TYPES.get(id) {
                             Some(dt) => dt.clone(),
                             None => {
                                 return Err(rustfail!(
@@ -1125,6 +1140,11 @@ impl ProtoModule
             .collect();
         Ok(arg_types_r?)
     }
+}
+
+pub fn find_builtin(id: &str) -> Option<&'static Ast>
+{
+    BUILTIN_SCOPE.get(id)
 }
 
 #[derive(Debug)]

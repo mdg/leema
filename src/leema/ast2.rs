@@ -262,6 +262,11 @@ impl Ast
     pub const VOID: Ast = Ast::ConstVal(Val::VOID);
     pub const NEWLINE: Ast = Ast::ConstVal(Val::Str(Lstr::Sref("\n")));
 
+    pub const fn canonical(c: &'static str) -> Ast
+    {
+        Ast::Canonical(Canonical(Lstr::Sref(c)))
+    }
+
     pub fn loc(t: &TokenSrc) -> Loc
     {
         Loc {
@@ -414,10 +419,19 @@ impl AstNode
     }
 
     /// Replace the Ast member in this AstNode
-    pub fn replace_node(mut self, node: Ast) -> AstNode
+    /// update the type if possible
+    pub fn replace_node(&mut self, node: Ast)
     {
+        match &node {
+            Ast::ConstVal(cv) => {
+                self.typ = cv.get_type();
+            }
+            Ast::Type(_) => {
+                self.typ = Type::Kind;
+            }
+            _ => {} // leave type as-is
+        }
         *self.node = node;
-        self
     }
 
     pub fn set_dst(&mut self, dst: Reg)
