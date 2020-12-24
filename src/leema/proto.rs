@@ -691,14 +691,14 @@ impl ProtoModule
         let alias = AstNode::new(
             Ast::DefType(
                 DataType::Alias,
-                AstNode::new(Ast::Id("Self"), Loc::default()),
+                AstNode::new(Ast::Id("Self"), loc),
                 vec![StrupleItem::new_v(
-                    AstNode::new(Ast::Type(utyp), Loc::default()),
+                    AstNode::new(Ast::Type(utyp), loc),
                 )],
             ),
             loc,
         );
-        funcs.push(alias);
+        funcs.insert(0, alias);
         self.imports.insert(id, subkey.name.clone());
         self.modscope.insert(id, AstNode::new(
             Ast::Canonical(subkey.name.clone()),
@@ -1107,6 +1107,7 @@ impl ProtoModule
                     }
                 }
             }
+            Ast::Alias(_, src) => self.ast_to_type(local_mod, src, opens)?,
             invalid => {
                 return Err(rustfail!(
                     PROTOFAIL,
