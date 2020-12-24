@@ -1,6 +1,5 @@
 import /io
 
-
 trait Rectangle ::
     datatype ::
         length:Int
