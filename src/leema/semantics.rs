@@ -1209,7 +1209,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
             Ast::Call(ref mut callx, ref mut args) => {
                 match &mut *callx.node {
                     Ast::ConstVal(ref mut ccv) => {
-                        if let Val::Construct(cfref) = ccv {
+                        if let Val::Call(cfref, _args) = ccv {
                             // check for void constructors,
                             // do different stuff w/ tem
                             if args.len() == 1
