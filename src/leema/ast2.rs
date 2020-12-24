@@ -1,7 +1,7 @@
 use crate::leema::canonical::Canonical;
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::{ImportedMod, ModKey};
+use crate::leema::module::ImportedMod;
 use crate::leema::reg::Reg;
 use crate::leema::struple::{self, StrupleKV};
 use crate::leema::token::TokenSrc;
@@ -246,7 +246,6 @@ pub enum Ast
     List(Xlist),
     Matchx(Option<AstNode>, Vec<Case>),
     ModAction(ModAction, ModTree),
-    Module(ModKey, Xlist, Xlist),
     Op1(&'static str, AstNode),
     Op2(&'static str, AstNode, AstNode),
     Return(AstNode),
@@ -339,9 +338,6 @@ impl Ast
             }
             Ast::ModAction(action, tree) => {
                 write!(f, "{:?} {:?}", action, tree)
-            }
-            Ast::Module(k, items, ifc) => {
-                write!(f, "(Module {} {:?} {:?})", k, items, ifc)
             }
             Ast::Op1(op, node) => write!(f, "Op1 {} {:?}", op, node),
             Ast::Op2(op, a, b) => write!(f, "Op2 {} {:?} {:?}", op, a, b),
@@ -748,10 +744,8 @@ impl Walker
             Ast::Canonical(_)
             | Ast::ConstVal(_)
             | Ast::Id(_)
-            | Ast::RustBlock => {
-                // nowhere else to go
-            }
-            Ast::Module(_, _, _) | Ast::Wildcard => {
+            | Ast::RustBlock
+            | Ast::Wildcard => {
                 // nowhere else to go
             }
             Ast::Copy(src) => {

@@ -757,7 +757,6 @@ impl Registration
             | Ast::FuncType(_, _)
             | Ast::Generic(_, _)
             | Ast::ModAction(_, _)
-            | Ast::Module(_, _, _)
             | Ast::RustBlock
             | Ast::Wildcard => {} // do nothing
             Ast::Alias(_, _) => {

@@ -134,24 +134,6 @@ impl<'l> ast2::Op for MacroApplication<'l>
                             return Ok(AstStep::Rewrite);
                         } // else not a call, that's fine
                     }
-                    Ast::Module(m, c, _a) if m.mtyp.is_data() => {
-                        if let Some(consf) =
-                            struple::find_str_mut(c, "construct")
-                        {
-                            *callid = AstNode {
-                                node: mem::take(&mut consf.1.node),
-                                loc: node.loc,
-                                typ: mem::take(&mut consf.1.typ),
-                                dst: node.dst,
-                            };
-                        } else {
-                            return Err(rustfail!(
-                                SEMFAIL,
-                                "no constructor for: {}",
-                                m.name,
-                            ));
-                        }
-                    }
                     Ast::Op2(".", base, call) => {
                         if let Ast::ConstVal(callval) = &*call.node {
                             if let Val::Call(_, _) = callval {
@@ -524,20 +506,6 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                     if self.blocks.var_in_scope(id).is_none() {
                         if let Some(me) = self.local_mod.find_modelem(id) {
                             match &*me.node {
-                                Ast::Module(_, mes, _) => {
-                                    if let Some((_, i)) =
-                                        struple::find_str(mes, sub)
-                                    {
-                                        *node.node = (*i.node).clone();
-                                    } else {
-                                        return Err(rustfail!(
-                                            SEMFAIL,
-                                            "unfound module element {}.{}",
-                                            id,
-                                            sub,
-                                        ));
-                                    }
-                                }
                                 Ast::Canonical(can) => {
                                     let node2 = self.lib.exported_elem(can, sub, base_node.loc)?;
                                     node.replace((*node2.node).clone(), node2.typ.clone());
@@ -1281,21 +1249,6 @@ eprintln!("method mod fail: {:?}", base.typ);
                         *callx = mem::take(method);
                         return Ok(AstStep::Rewrite);
                     }
-                    Ast::Module(k, modelems, _) => {
-                        match struple::find_str(modelems, proto::MODNAME_CONSTRUCT) {
-                            Some(cons) => {
-                                *callx = cons.1.clone();
-                                return Ok(AstStep::Rewrite);
-                            }
-                            None => {
-                                return Err(rustfail!(
-                                    SEMFAIL,
-                                    "called a module: {:?}",
-                                    k,
-                                ));
-                            }
-                        }
-                    }
                     Ast::Canonical(c) => {
                         if let Ok(proto) = self.lib.path_proto(c) {
                             // check for type and find constructor
@@ -1343,23 +1296,6 @@ eprintln!("type: {:#?}", callx);
             }
             Ast::Op2(".", a, b) => {
                 match (&mut *a.node, &*b.node) {
-                    (Ast::Module(_, tup, _), Ast::Id(name)) => {
-                        // accessing an item in an imported module. makes sense.
-                        match struple::find_str(&tup[..], name) {
-                            Some((_i, elem)) => {
-                                node.typ = elem.typ.clone();
-                                *node.node = (*elem.node).clone();
-                            }
-                            None => {
-                                return Err(rustfail!(
-                                    "compile_error",
-                                    "no {} found in module {:?}",
-                                    name,
-                                    tup,
-                                ));
-                            }
-                        }
-                    }
                     (Ast::Tuple(tup), Ast::Id(name)) => {
                         // why getting a field on a tuple?
                         // is it a previous version of a module?
@@ -1534,7 +1470,6 @@ eprintln!("type: {:#?}", callx);
                 // leave as is
             }
             Ast::Wildcard => {} // wildcard is whatever type
-            Ast::Module(_, _, _) => {}
             Ast::Return(_) => {
                 node.typ = Type::NO_RETURN;
             }
