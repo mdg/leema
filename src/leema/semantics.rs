@@ -1296,6 +1296,21 @@ eprintln!("method mod fail: {:?}", base.typ);
                             }
                         }
                     }
+                    Ast::Canonical(c) => {
+                        if let Ok(_proto) = self.lib.path_proto(c) {
+                            // check for type and find constructor
+                        } else if let Ok((parent, id)) = c.split_id() {
+                            if let Ok(f) = self.lib.exported_elem(&parent, id.as_str(), node.loc) {
+                                callx.replace((*f.node).clone(), f.typ.clone());
+                            }
+                        } else {
+                            return Err(rustfail!(
+                                "semantic_error",
+                                "undefined: {}",
+                                c,
+                            ));
+                        }
+                    }
                     _ => {
                         if !callx.typ.is_user() {
 eprintln!("type: {:#?}", callx);

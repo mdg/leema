@@ -123,6 +123,8 @@ lazy_static! {
         ids.insert("Void", Ast::ConstVal(Val::VOID));
         // functions
         ids.insert("int_equal", Ast::canonical("/core/int_equal"));
+        ids.insert("int_mult", Ast::canonical("/core/int_mult"));
+        ids.insert("int_sub", Ast::canonical("/core/int_sub"));
         ids
     };
 
@@ -1349,7 +1351,7 @@ impl ProtoLib
     pub fn exported_elem(
         &self,
         modname: &Canonical,
-        elem: &'static str,
+        elem: &str,
         loc: Loc,
     ) -> Lresult<&AstNode>
     {
