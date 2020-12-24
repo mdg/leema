@@ -64,26 +64,8 @@ impl Canonical
         Path::new(self.0.str())
     }
 
-    // add an identifier to an existing canonical
-    // if the canonical is a module, add the id as an extension
-    // if the canonical is an ID already, upgrade the ID to a module
-    // and add the new sub id as an extension
-    pub fn sub_id(&self, sub: &str) -> Canonical
-    {
-        let p = Path::new(self.0.str());
-        let new_p = match p.extension() {
-            Some(ext) => {
-                let stem = p.file_stem().unwrap().to_str().unwrap();
-                let mut new_path = p.parent().unwrap().join(stem);
-                new_path.push(ext);
-                new_path.set_extension(sub);
-                new_path
-            }
-            None => p.with_extension(sub),
-        };
-        Canonical(Lstr::from(new_p.to_str().unwrap().to_string()))
-    }
-
+    /// add an identifier to an existing canonical
+    /// fails if sub is Absolute
     pub fn join<S>(&self, sub: S) -> Lresult<Canonical>
         where S: AsRef<OsStr> + std::fmt::Debug
     {
@@ -110,6 +92,7 @@ impl Canonical
         }
     }
 
+    /// if imp is absolute, replace self with imp
     pub fn push<S: AsRef<OsStr>>(&self, imp: &S) -> Canonical
     {
         let import = Path::new(imp);
@@ -130,17 +113,27 @@ impl Canonical
         }
     }
 
+    /// split the final element off the end of Canonical
     pub fn split_id(&self) -> Lresult<(Canonical, Lstr)>
     {
         match self.0 {
             Lstr::Sref(s) => {
                 let p = Path::new(s);
-                let ext = p.extension().unwrap();
-                let stem = p.file_stem().unwrap();
-                let parent = Canonical(Lstr::from(
-                    p.with_file_name(stem).to_str().unwrap().to_string(),
-                ));
-                Ok((parent, Lstr::Sref(ext.to_str().unwrap())))
+                match (p.parent(), p.file_name()) {
+                    (Some(parent), Some(id)) => {
+                        Ok((
+                            Canonical(Lstr::Sref(parent.to_str().unwrap())),
+                            Lstr::Sref(id.to_str().unwrap()),
+                        ))
+                    }
+                    _ => {
+                        return Err(rustfail!(
+                            "failure",
+                            "split cannot be split: {}",
+                            self.0,
+                        ));
+                    }
+                }
             }
             Lstr::Arc(ref s) => {
                 let p = Path::new(&**s);
