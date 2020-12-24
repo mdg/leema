@@ -1297,8 +1297,18 @@ eprintln!("method mod fail: {:?}", base.typ);
                         }
                     }
                     Ast::Canonical(c) => {
-                        if let Ok(_proto) = self.lib.path_proto(c) {
+                        if let Ok(proto) = self.lib.path_proto(c) {
                             // check for type and find constructor
+                            let optcons = proto.find_modelem(proto::MODNAME_CONSTRUCT);
+                            if optcons.is_none() {
+                                return Err(rustfail!(
+                                    "compile_error",
+                                    "replace {} with constructor",
+                                    c,
+                                ));
+                            }
+                            let cons = optcons.unwrap();
+                            callx.replace((*cons.node).clone(), cons.typ.clone());
                         } else if let Ok((parent, id)) = c.split_id() {
                             if let Ok(f) = self.lib.exported_elem(&parent, id.as_str(), node.loc) {
                                 callx.replace((*f.node).clone(), f.typ.clone());

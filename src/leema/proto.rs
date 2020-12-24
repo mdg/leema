@@ -125,6 +125,7 @@ lazy_static! {
         ids.insert("int_equal", Ast::canonical("/core/int_equal"));
         ids.insert("int_mult", Ast::canonical("/core/int_mult"));
         ids.insert("int_sub", Ast::canonical("/core/int_sub"));
+        ids.insert("new_struct_val", Ast::canonical("/core/new_struct_val"));
         ids
     };
 
@@ -522,7 +523,7 @@ impl ProtoModule
         if self.typ.is_some() {
             self.append_ast(vec![constructor_ast])?;
         } else {
-            self.add_submod(ModTyp::Data, proto, vec![constructor_ast])?;
+            self.add_submod(ModTyp::Data, proto, vec![constructor_ast], loc)?;
             self.modscope.insert(MODNAME_DATATYPE, type_node);
             // TODO add this definition to the struct module instead
             // TODO the fields too
@@ -669,10 +670,11 @@ impl ProtoModule
         funcs: Vec<AstNode>,
     ) -> Lresult<()>
     {
+        let loc = name.loc;
         let proto_t = self.make_proto_type(name)?;
         // look in funcs for a struct def and use the ModTyp::Data?
         // or does that get set in add_typed_struct
-        self.add_submod(ModTyp::Trait, proto_t, funcs)
+        self.add_submod(ModTyp::Trait, proto_t, funcs, loc)
     }
 
     fn add_submod(
@@ -680,6 +682,7 @@ impl ProtoModule
         subtype: ModTyp,
         proto_t: ProtoType,
         mut funcs: Vec<AstNode>,
+        loc: Loc,
     ) -> Lresult<()>
     {
         let id = proto_t.n;
@@ -693,10 +696,14 @@ impl ProtoModule
                     AstNode::new(Ast::Type(utyp), Loc::default()),
                 )],
             ),
-            Loc::default(),
+            loc,
         );
         funcs.push(alias);
         self.imports.insert(id, subkey.name.clone());
+        self.modscope.insert(id, AstNode::new(
+            Ast::Canonical(subkey.name.clone()),
+            loc,
+        ));
         let proto = ltry!(ProtoModule::new_submod(subkey, proto_t, funcs));
         self.submods.insert(id, proto);
         Ok(())
