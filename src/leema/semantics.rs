@@ -496,8 +496,34 @@ impl<'p> ast2::Op for ScopeCheck<'p>
             }
             Ast::Call(ref mut callx, _) => {
                 // go depth first on the call expression
-                ast2::walk_ref_mut(callx, self)?;
+                steptry!(ast2::walk_ref_mut(callx, self));
                 return Ok(AstStep::Ok);
+            }
+            Ast::Canonical(c) => {
+                if let Ok(proto) = self.lib.path_proto(c) {
+                    // check for type and find constructor
+                    let optcons = proto.find_modelem(proto::MODNAME_CONSTRUCT);
+                    if optcons.is_none() {
+                        return Err(rustfail!(
+                            "compile_error",
+                            "replace {} with constructor",
+                            c,
+                        ));
+                    }
+                    let cons = optcons.unwrap();
+                    node.replace((*cons.node).clone(), cons.typ.clone());
+                } else if let Ok((parent, id)) = c.split_id() {
+                    if let Ok(f) = self.lib.exported_elem(&parent, id.as_str(), node.loc) {
+                        node.replace((*f.node).clone(), f.typ.clone());
+                    }
+                } else {
+                    return Err(rustfail!(
+                        "semantic_error",
+                        "undefined: {}",
+                        c,
+                    ));
+                }
+                return Ok(AstStep::Rewrite);
             }
             Ast::Op2(".", base_node, sub_node) => {
                 if let (Ast::Id(id), Ast::Id(sub)) =
@@ -1248,31 +1274,6 @@ eprintln!("method mod fail: {:?}", base.typ);
                         args.insert(0, StrupleItem::new_v(meth_obj));
                         *callx = mem::take(method);
                         return Ok(AstStep::Rewrite);
-                    }
-                    Ast::Canonical(c) => {
-                        if let Ok(proto) = self.lib.path_proto(c) {
-                            // check for type and find constructor
-                            let optcons = proto.find_modelem(proto::MODNAME_CONSTRUCT);
-                            if optcons.is_none() {
-                                return Err(rustfail!(
-                                    "compile_error",
-                                    "replace {} with constructor",
-                                    c,
-                                ));
-                            }
-                            let cons = optcons.unwrap();
-                            callx.replace((*cons.node).clone(), cons.typ.clone());
-                        } else if let Ok((parent, id)) = c.split_id() {
-                            if let Ok(f) = self.lib.exported_elem(&parent, id.as_str(), node.loc) {
-                                callx.replace((*f.node).clone(), f.typ.clone());
-                            }
-                        } else {
-                            return Err(rustfail!(
-                                "semantic_error",
-                                "undefined: {}",
-                                c,
-                            ));
-                        }
                     }
                     _ => {
                         if !callx.typ.is_user() {

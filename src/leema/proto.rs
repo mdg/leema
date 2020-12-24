@@ -105,7 +105,6 @@ lazy_static! {
         ids.insert("Some", core_mod.clone());
         ids.insert("Str", core_mod.clone());
         ids.insert("True", core_mod.clone());
-        ids.insert("void", core_mod.clone());
         ids.insert("Void", core_mod.clone());
         ids.insert("#", core_mod);
         ids
@@ -126,6 +125,7 @@ lazy_static! {
         ids.insert("int_mult", Ast::canonical("/core/int_mult"));
         ids.insert("int_sub", Ast::canonical("/core/int_sub"));
         ids.insert("new_struct_val", Ast::canonical("/core/new_struct_val"));
+        ids.insert("void", Ast::canonical("/core/void"));
         ids
     };
 
