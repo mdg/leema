@@ -72,8 +72,3 @@ macro new_struct_val :: name num_args field_names ->
     let new_val_ := <void name>(num_args)
     new_val_(*field_names)
 --
-
-macro new_enum_variant :: name variant field_names ->
-    let new_val_ := void(variant)
-    new_val_(field_names)
---
