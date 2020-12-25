@@ -1191,6 +1191,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
     /// TypeCheck post
     fn post(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
+        let loc = node.loc;
         match &mut *node.node {
             Ast::Block(items) => {
                 if let Some(last) = items.last() {
@@ -1255,6 +1256,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                                         "for function: {}",
                                         fref,
                                     ))
+                                    .lstr_loc(self.local_mod.key.best_path(), loc.lineno as u32)
                                 }));
                             fref.t = callx.typ.clone();
                             self.calls.push(fref.clone());
@@ -1321,8 +1323,15 @@ eprintln!("type: {:#?}", callx);
                             Type::User(tname) => {
                                 // find a field in a struct or interface or
                                 // whatever else
-                                let tmod = self.lib.path_proto(tname)?;
+                                let tproto = self.lib.path_proto(tname)?;
 
+                                if let Some(func) = tproto.find_modelem(f) {
+                                    node.replace(
+                                        (*func.node).clone(),
+                                        func.typ.clone(),
+                                    );
+                                    return Ok(AstStep::Rewrite);
+                                }
                                 // trying to get a method from an interface?
                                 // think this is covered by case above
                                 /*
