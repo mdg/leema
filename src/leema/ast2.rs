@@ -452,6 +452,9 @@ macro_rules! steptry {
             Ok(AstStep::Ok) => {
                 // do nothing
             }
+            Ok(AstStep::Replace(node, typ)) => {
+                return Ok(AstStep::Replace(node, typ));
+            }
             Ok(AstStep::Rewrite) => {
                 return Ok(AstStep::Rewrite);
             }
@@ -513,6 +516,7 @@ impl AstMode
 pub enum AstStep
 {
     Ok,
+    Replace(Ast, Type),
     Rewrite,
     Stop,
 }
@@ -602,6 +606,10 @@ impl Walker
                 AstStep::Ok => {
                     break;
                 }
+                AstStep::Replace(new_node, typ) => {
+                    node.replace(new_node, typ);
+                    // loop again
+                }
                 AstStep::Rewrite => {
                     // loop again
                 }
@@ -615,17 +623,8 @@ impl Walker
 
     fn step(&mut self, node: &mut AstNode, op: &mut dyn Op) -> StepResult
     {
-        match ltry!(op.pre(node, self.mode)) {
-            AstStep::Ok => {
-                steptry!(self.step_in(node, op));
-            }
-            AstStep::Rewrite => {
-                return Ok(AstStep::Rewrite);
-            }
-            AstStep::Stop => {
-                return Ok(AstStep::Ok);
-            }
-        }
+        steptry!(op.pre(node, self.mode));
+        steptry!(self.step_in(node, op));
         op.post(node, self.mode)
     }
 
