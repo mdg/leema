@@ -285,21 +285,32 @@ where
         }
     }
 
-    fn ireg_set(&mut self, i: Ireg, v: Val)
+    fn ireg_set(&mut self, i: Ireg, v: Val) -> Lresult<()>
     {
         match i {
             // set reg on struple
             Ireg::Reg(p) => {
                 if p as usize >= self.len() {
-                    panic!("{:?} too big for struple {:?}", i, self);
+                    return Err(rustfail!(
+                        "leema_failure",
+                        "{:?} too big for struple {:?}",
+                        i,
+                        self,
+                    ));
                 }
                 self[p as usize].v = v;
+                Ok(())
             }
             Ireg::Sub(p, s) => {
                 if p as usize >= self.len() {
-                    panic!("{:?} too big for strtuple {:?}", i, self);
+                    return Err(rustfail!(
+                        "leema_failure",
+                        "{:?} too big for strtuple {:?}",
+                        i,
+                        self,
+                    ));
                 }
-                self[p as usize].v.ireg_set(Ireg::Reg(s), v);
+                self[p as usize].v.ireg_set(Ireg::Reg(s), v)
             }
         }
     }

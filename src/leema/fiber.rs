@@ -84,7 +84,12 @@ impl Fiber
     {
         let mut e = Event::Uneventful;
         while let Event::Uneventful = e {
-            e = self.execute_leema_op(ops)?;
+            e = match self.execute_leema_op(ops) {
+                Ok(success) => success,
+                Err(f) => {
+                    return Err(f.lstr_loc(self.head.function.m.best_path(), 0));
+                }
+            };
         }
         Ok(e)
     }
@@ -230,7 +235,9 @@ impl Fiber
 
     pub fn execute_const_val(&mut self, reg: Reg, v: &Val) -> Lresult<Event>
     {
-        ltry!(self.head.e.set_reg(reg, v.clone()));
+        ltry!(self.head.e.set_reg(reg, v.clone()).map_err(|f| {
+            f.add_context(lstrf!("cannot load constant: {:?}", v))
+        }));
         self.head.pc += 1;
         Ok(Event::Uneventful)
     }

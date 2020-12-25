@@ -1253,37 +1253,51 @@ impl reg::Iregistry for Val
         }
     }
 
-    fn ireg_set(&mut self, i: Ireg, v: Val)
+    fn ireg_set(&mut self, i: Ireg, v: Val) -> Lresult<()>
     {
         match (i, self) {
             // set reg on tuples
             (_, &mut Val::Tuple(ref mut fields)) => {
-                fields.ireg_set(i, v);
+                fields.ireg_set(i, v)
             }
             // set reg on structs
             (_, &mut Val::Struct(_, ref mut fields)) => {
-                fields.ireg_set(i, v);
+                fields.ireg_set(i, v)
             }
             // set reg on lists
             (Ireg::Reg(0), &mut Val::Cons(ref mut head, _)) => {
                 **head = v;
+                Ok(())
             }
             (Ireg::Sub(0, s), &mut Val::Cons(ref mut head, _)) => {
-                head.ireg_set(Ireg::Reg(s), v);
+                head.ireg_set(Ireg::Reg(s), v)
             }
             (_, &mut Val::Cons(_, _)) => {
-                panic!("cannot set reg within a list: {}", i);
+                Err(rustfail!(
+                    "leema_failure",
+                    "cannot set reg within a list: {}",
+                    i,
+                ))
             }
             (_, &mut Val::Nil) => {
-                panic!("cannot set reg on empty list: {}", i);
+                Err(rustfail!(
+                    "leema_failure",
+                    "cannot set reg on empty list: {}",
+                    i,
+                ))
             }
             // set reg on Fref
             (_, &mut Val::Call(_, ref mut args)) => {
-                args.ireg_set(i, v);
+                args.ireg_set(i, v)
             }
             // values that can't act as registries
             (_, dst) => {
-                panic!("Can't ireg_set({:?}, {:?})", i, dst);
+                Err(rustfail!(
+                    "leema_failure",
+                    "Can't ireg_set({:?}, {:?})",
+                    i,
+                    dst,
+                ))
             }
         }
     }
@@ -1540,16 +1554,14 @@ impl Env
                 if primary >= self.locals.len() {
                     self.locals.resize(primary + 1, Default::default())
                 }
-                self.locals.ireg_set(i, v);
-                Ok(())
+                self.locals.ireg_set(i, v)
             }
             Reg::Stack(i) => {
                 let primary = i.get_primary() as usize;
                 if primary >= self.stack.len() {
                     self.stack.resize(primary + 1, Default::default())
                 }
-                self.stack.ireg_set(i, v);
-                Ok(())
+                self.stack.ireg_set(i, v)
             }
             Reg::Void => {
                 // do nothing, void reg is like /dev/null
