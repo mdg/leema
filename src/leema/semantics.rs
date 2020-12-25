@@ -299,28 +299,6 @@ impl<'l> ast2::Op for MacroApplication<'l>
         }
         Ok(AstStep::Ok)
     }
-
-    fn post(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
-    {
-        match &mut *node.node {
-            Ast::Call(callid, args) => {
-                if let Ast::Op2(".", base, call) = &mut *callid.node {
-                    if let Ast::ConstVal(callval) = &*call.node {
-                        if let Val::Call(_, _) = callval {
-                            let base2 = mem::take(base);
-                            *callid = mem::take(call);
-                            args.insert(0, StrupleItem::new_v(base2));
-                            return Ok(AstStep::Rewrite);
-                        }
-                    }
-                }
-            }
-            what => {
-                eprintln!("MacroApp.Post what? {:?}", what);
-            }
-        }
-        Ok(AstStep::Ok)
-    }
 }
 
 impl<'l> fmt::Debug for MacroApplication<'l>
@@ -1141,6 +1119,45 @@ impl<'p> TypeCheck<'p>
         }
         Ok(prev_typ.unwrap())
     }
+
+    fn post_call(&mut self, call_typ: &mut Type, fref: &mut Fref, args: &mut Xlist, loc: Loc) -> Lresult<AstStep>
+    {
+        // an optimization here might be to iterate over
+        // ast args and initialize any constants
+        // actually better might be to stop having
+        // the args in the Val::Call const?
+
+        *call_typ = ltry!(self
+            .applied_call_type(&mut fref.t, args)
+            .map_err(|f| {
+                f.add_context(lstrf!(
+                    "for function: {}",
+                    fref,
+                ))
+                .lstr_loc(self.local_mod.key.best_path(), loc.lineno as u32)
+            }));
+        self.calls.push(fref.clone());
+                /*
+                error message for some other scenario, maybe unnecessary
+                */
+        Ok(AstStep::Ok)
+    }
+
+    /// move base into first args element
+    /// return the new callx node
+    fn post_method_call(&mut self, base: AstNode, method: &AstNode, args: &mut Xlist) -> StepResult
+    {
+        if let Ast::Canonical(cbase) = &*base.node {
+            // shouldn't get here b/c the canonical should have been replaced
+            // in the ScopeCheck phase
+            panic!("method base canonical: {}", cbase);
+        } else if let Type::User(cmethod) = &base.typ {
+        } else {
+            panic!("method mod fail: {:?}", base.typ);
+        }
+        args.insert(0, StrupleItem::new_v(base));
+        Ok(AstStep::Replace((*method.node).clone(), method.typ.clone()))
+    }
 }
 
 impl<'p> ast2::Op for TypeCheck<'p>
@@ -1191,7 +1208,6 @@ impl<'p> ast2::Op for TypeCheck<'p>
     /// TypeCheck post
     fn post(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
-        let loc = node.loc;
         match &mut *node.node {
             Ast::Block(items) => {
                 if let Some(last) = items.last() {
@@ -1207,96 +1223,40 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 let id_type = self.inferred_type(&node.typ, &nopens)?;
                 node.typ = id_type;
             }
+            // set struct fields w/ name(x: y) syntax
+            Ast::Call(ref mut callx, ref mut args) if callx.typ.is_user() => {
+                let copy_typ = callx.typ.clone();
+                let base = mem::take(callx);
+                let args_copy = mem::take(args);
+                return Ok(AstStep::Replace(
+                    // should this be CopyIfNecessary instead?
+                    // or maybe just Set and rely on Rc::make_mut?
+                    Ast::CopyAndSet(base, args_copy),
+                    copy_typ,
+                ));
+            }
             Ast::Call(ref mut callx, ref mut args) => {
                 match &mut *callx.node {
-                    Ast::ConstVal(ref mut ccv) => {
-                        if let Val::Call(cfref, _args) = ccv {
-                            // check for void constructors,
-                            // do different stuff w/ tem
-                            if args.len() == 1
-                                && *args.first().unwrap().v.node == Ast::VOID
-                            {
-                                let new_val = match &cfref.t {
-                                    Type::Func(ft) => {
-                                        let args =
-                                            struple::map_v(&ft.args, |_| {
-                                                Ok(Val::VOID)
-                                            })?;
-                                        let typ = (*ft.result).clone();
-                                        Val::Struct(typ, args)
-                                    }
-                                    Type::Generic(_, _, _) => {
-                                        panic!("constructors unimplemented for generics");
-                                    }
-                                    _ => {
-                                        panic!("this doesn't make sense");
-                                    }
-                                };
-                                node.typ = new_val.get_type();
-                                *node.node = Ast::ConstVal(new_val);
-                                return Ok(AstStep::Rewrite);
-                            }
-
-                            // reassign the construct as a call
-                            let result: Lresult<Val> = From::from(&*cfref);
-                            *ccv = result?;
-                        }
-
-                        if let Val::Call(ref mut fref, _argvals) = ccv {
-                            // an optimization here might be to iterate over
-                            // ast args and initialize any constants
-                            // actually better might be to stop having
-                            // the args in the Val::Call const
-                            fref.t = callx.typ.clone();
-
-                            let call_result = ltry!(self
-                                .applied_call_type(&mut callx.typ, args)
-                                .map_err(|f| {
-                                    f.add_context(lstrf!(
-                                        "for function: {}",
-                                        fref,
-                                    ))
-                                    .lstr_loc(self.local_mod.key.best_path(), loc.lineno as u32)
-                                }));
-                            fref.t = callx.typ.clone();
-                            self.calls.push(fref.clone());
-                            node.typ = call_result;
-                        }
+                    // handle a non-method call
+                    Ast::ConstVal(Val::Call(fref, _)) => {
+                        steptry!(self.post_call(&mut node.typ, fref, args, node.loc));
+                        callx.typ = fref.t.clone();
                     }
+                    // handle a method call
                     Ast::Op2(".", ref mut base, ref mut method) => {
-                        if let Ast::Canonical(cbase) = &*base.node {
-eprintln!("method base canonical: {}", cbase);
-                        } else if let Type::User(cmethod) = &base.typ {
-eprintln!("method mod: {}", cmethod);
-                        } else {
-eprintln!("method mod fail: {:?}", base.typ);
-                            unimplemented!();
-                        }
-                        let meth_obj = mem::take(base);
-                        args.insert(0, StrupleItem::new_v(meth_obj));
-                        *callx = mem::take(method);
-                        return Ok(AstStep::Rewrite);
+                        let base_obj = mem::take(base);
+                        let meth_obj = mem::take(method);
+                        steptry!(self.post_method_call(base_obj, &meth_obj, args));
                     }
-                    _ => {
-                        if !callx.typ.is_user() {
-eprintln!("type: {:#?}", callx);
-                            return Err(rustfail!(
-                                SEMFAIL,
-                                "unexpected call expression: {:?}",
-                                callx,
-                            ));
-                        }
-                        let copy_typ = callx.typ.clone();
-                        let base = mem::take(callx);
-                        let args_copy = mem::take(args);
-                        node.replace(
-                            Ast::CopyAndSet(base, args_copy),
-                            copy_typ,
-                        );
-                        return Ok(AstStep::Rewrite);
+                    // handle closure call
+                    // do they get handled like regular non-method calls
+                    // and rely on the callx.typ?
+                    closure => {
+                        panic!("closures not supported: {:?}", closure);
                     }
                 }
             }
+            // field access, not a method?
             Ast::Op2(".", a, b) => {
                 match (&mut *a.node, &*b.node) {
                     (Ast::Tuple(tup), Ast::Id(name)) => {
