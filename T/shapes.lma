@@ -2,27 +2,17 @@
 import /io
 
 trait Shape ::
-    func area:Int :: self --
+    func area:Int :: Self --
 --
 
 datatype Circle ::
-    radius: Int
+    radius:Int
 --
 
-interface Circle ::
-    radius: Int
---
-
-datatype Circle ::
-    fields : Struple<K?, V>
-
-    interface : Struple<K, T>
-
-    impl : Struple<K, F>
---
-
-datatype Square ::
-    length:Int
+impl Shape with Circle ::
+    func area:Int :: self ->
+        3 * self.radius * self.radius
+    --
 --
 
 datatype Rectangle ::
@@ -30,63 +20,7 @@ datatype Rectangle ::
     width:Int
 --
 
-interface Rectangle ::
-    func construct:Circle :: radius:Int ->
-        void(Circle)(radius:radius)
-    --
---
-
-interface Shape ::
-    datatype
-    |Circle :: radius:Int
-    |Square :: length:Int
-    |Rectangle :: length:Int width:Int
-    --
-
-    func area:Int :: self
-    |Circle(r) -> r * r * 3
-    |Square(l) -> l * l
-    |Rectangle(l, w) -> l * w
-    --
-
-    perimeter:func:Int :: self
-    |Circle(r) -> 2 * r * 3
-    |Square(l) -> 4 * l
-    |Rectangle(l, w) -> 2 * l + 2 * w
-    --
---
-
-datatype Shape
-|Circle :: radius:Int
-|Square :: length:Int
-|Rectangle :: length:Int width:Int
-
-    func area:Int :: self
-    |Circle(r) -> r * r * 3
-    |Square(l) -> l * l
-    |Rectangle(l, w) -> l * w
-    --
---
-
-impl Shape with Circle ::
---
-
-impl Circle as Shape ::
---
-
-impl Shape with Circle as Shape ::
-    func area:Int :: self ->
-        self.radius * self.radius * 3
-    --
---
-
-impl Shape with Square ::
-    func area:Int :: self ->
-        self.length * self.length
-    --
---
-
-impl Rectangle as Shape ::
+impl Shape with Rectangle ::
     func area:Int :: self ->
         self.length * self.width
     --
@@ -94,7 +28,9 @@ impl Rectangle as Shape ::
 
 func main ->
     let c := Circle(2)
-    let s := Square(3)
     let r := Rectangle(4, 5)
-    io.print("hello\n")
+    let carea := c.area()
+    let rarea := r.area()
+    io.print("circular area: $carea\n")
+    io.print("rectangular area: $rarea\n")
 --
