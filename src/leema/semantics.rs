@@ -827,13 +827,11 @@ impl<'p> TypeCheck<'p>
             if var_type == *t {
                 Ok(var_type)
             } else {
-                lfailoc!(self.match_type(&var_type, t, opens)).map_err(|f| {
-                    f.add_context(lstrf!(
-                        "inferring type var {} as {}",
-                        var,
-                        var_type
-                    ))
-                })
+                Ok(lfctx!(
+                    self.match_type(&var_type, t, opens),
+                    "inferring type var": var.clone(),
+                    "as type": lstrf!("{}", var_type)
+                ))
             }
         } else {
             self.infers.insert(var.clone(), t.clone());
@@ -1577,9 +1575,11 @@ impl Semantics
             &mut macs,
             &mut type_check,
         ]);
-        let mut result = ltry!(ast2::walk(body, &mut pipe).map_err(|e| {
-            e.add_context(lstrf!("function: {}.{}", f.m.name, f.f))
-        }));
+        let mut result = lfctx!(
+            ast2::walk(body, &mut pipe),
+            "module": f.m.name.0.clone(),
+            "function": Lstr::Sref(f.f)
+        );
 
         result.typ = type_check.inferred_type(&result.typ, &[])?;
         if *ftyp.result != result.typ && *ftyp.result != Type::VOID {

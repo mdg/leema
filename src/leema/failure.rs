@@ -133,7 +133,6 @@ pub struct Failure
     pub status: Mode,
     pub code: i8,
     context: Vec<StrupleKV<Lstr, Lstr>>,
-    loc: Vec<(Lstr, u32)>,
 }
 
 pub type Lresult<T> = Result<T, Failure>;
@@ -148,7 +147,6 @@ impl Failure
             trace: None,
             status: Mode::Ok,
             code: 0,
-            loc: vec![],
             context: vec![],
         }
     }
@@ -166,7 +164,6 @@ impl Failure
             trace,
             status: Mode::Ok,
             code,
-            loc: vec![],
             context: vec![],
         }
     }
@@ -185,7 +182,6 @@ impl Failure
             trace: None,
             status,
             code: 0,
-            loc: vec![(module.clone(), lineno as u32)],
             context: vec![vec![
                 StrupleItem::new(Lstr::Sref("module"), module),
                 StrupleItem::new(Lstr::Sref("line"), lstrf!("{}", lineno)),
@@ -196,7 +192,6 @@ impl Failure
 
     pub fn loc(mut self, file: &'static str, line: u32) -> Self
     {
-        self.loc.push((Lstr::Sref(file), line));
         self.context.push(vec![
             StrupleItem::new(Lstr::Sref("file"), Lstr::Sref(file)),
             StrupleItem::new(Lstr::Sref("line"), lstrf!("{}", line)),
@@ -206,7 +201,6 @@ impl Failure
 
     pub fn lstr_loc(mut self, file: Lstr, line: u32) -> Self
     {
-        self.loc.push((file.clone(), line));
         self.context.push(vec![
             StrupleItem::new(Lstr::Sref("file"), file),
             StrupleItem::new(Lstr::Sref("line"), lstrf!("{}", line)),
@@ -243,9 +237,6 @@ impl fmt::Display for Failure
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         write!(f, "Failure({} ", self.tag)?;
-        if !self.loc.is_empty() {
-            write!(f, "\n @ {:?}\n", self.loc)?;
-        }
         for c in &self.context {
             write!(f, "   {:?}\n", c)?;
         }
@@ -267,20 +258,13 @@ impl SendClone for Failure
 
     fn clone_for_send(&self) -> Failure
     {
-        let loc = self
-            .loc
-            .iter()
-            .map(|l| (l.0.clone_for_send(), l.1))
-            .collect();
         let context = self.context.iter().map(|c| c.clone_for_send()).collect();
-
         Failure {
             tag: self.tag.clone_for_send(),
             msg: self.msg.clone_for_send(),
             trace: self.trace.clone_for_send(),
             status: self.status,
             code: self.code,
-            loc,
             context,
         }
     }
