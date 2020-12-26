@@ -1,7 +1,7 @@
 use crate::leema::frame::FrameTrace;
-use crate::leema::lmap::LmapNode;
 use crate::leema::lstr::Lstr;
 use crate::leema::sendclone::SendClone;
+use crate::leema::struple::{StrupleItem, StrupleKV};
 use crate::leema::val::Val;
 
 use std::fmt;
@@ -37,6 +37,21 @@ macro_rules! ltry {
             Ok(x) => x,
             Err(f) => {
                 return Err(f.loc(file!(), line!()));
+            }
+        }
+    };
+}
+
+macro_rules! lfctx {
+    ($x:expr, $($key:literal : $val:expr),+) => {
+        match $x {
+            Ok(success) => success,
+            Err(f) => {
+                return Err(f.with_context(vec![
+                    StrupleItem::new(Lstr::Sref("file"), Lstr::Sref(file!())),
+                    StrupleItem::new(Lstr::Sref("line"), lstrf!("{}", line!())),
+                    $(StrupleItem::new(Lstr::Sref($key), $val)),+
+                ]));
             }
         }
     };
@@ -117,9 +132,8 @@ pub struct Failure
     pub trace: Option<Arc<FrameTrace>>,
     pub status: Mode,
     pub code: i8,
+    context: Vec<StrupleKV<Lstr, Lstr>>,
     loc: Vec<(Lstr, u32)>,
-    meta: LmapNode,
-    context: Vec<Lstr>,
 }
 
 pub type Lresult<T> = Result<T, Failure>;
@@ -135,7 +149,6 @@ impl Failure
             status: Mode::Ok,
             code: 0,
             loc: vec![],
-            meta: None,
             context: vec![],
         }
     }
@@ -154,7 +167,6 @@ impl Failure
             status: Mode::Ok,
             code,
             loc: vec![],
-            meta: None,
             context: vec![],
         }
     }
@@ -174,7 +186,6 @@ impl Failure
             status,
             code: 0,
             loc: vec![(module, lineno as u32)],
-            meta: None,
             context: vec![],
         }
     }
@@ -192,6 +203,12 @@ impl Failure
     }
 
     pub fn add_context(mut self, ctx: Lstr) -> Self
+    {
+        self.context.push(vec![StrupleItem::new(Lstr::Sref("context"), ctx)]);
+        self
+    }
+
+    pub fn with_context(mut self, ctx: StrupleKV<Lstr, Lstr>) -> Self
     {
         self.context.push(ctx);
         self
@@ -218,7 +235,7 @@ impl fmt::Display for Failure
             write!(f, "\n @ {:?}\n", self.loc)?;
         }
         for c in &self.context {
-            write!(f, "   {}\n", c)?;
+            write!(f, "   {:?}\n", c)?;
         }
         write!(f, "'{}')", self.msg)
     }
@@ -252,7 +269,6 @@ impl SendClone for Failure
             status: self.status,
             code: self.code,
             loc,
-            meta: self.meta.clone_for_send(),
             context,
         }
     }

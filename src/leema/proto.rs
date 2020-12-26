@@ -772,7 +772,12 @@ impl ProtoModule
 
         ltry!(self.refute_redefines_default(id, loc));
         let ft =
-            ltry!(self.ast_to_ftype(&self.key.name, &args, &result, &opens));
+            lfctx!(
+                self.ast_to_ftype(&self.key.name, &args, &result, &opens),
+                "file": self.key.best_path(),
+                "line": lstrf!("{}", name.loc.lineno),
+                "func": Lstr::Sref(id)
+            );
         let ftyp = type_maker(ft.clone());
         Ok((id, ft, ftyp))
     }
