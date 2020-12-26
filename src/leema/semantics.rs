@@ -1157,31 +1157,36 @@ impl<'p> TypeCheck<'p>
                                 (*found.node).clone(),
                                 found.typ.clone(),
                             );
-                            return Ok(AstStep::Ok);
                         }
                         Ast::DataMember(t, i) => {
                             fld.replace(
                                 (*found.node).clone(),
                                 found.typ.clone(),
                             );
-                            return Ok(AstStep::Ok);
                         }
                         other => {
+                            return Err(rustfail!(
+                                "leema_failure",
+                                "invalid type field: {}.{} {:?}",
+                                tname,
+                                f,
+                                other,
+                            ));
                         }
                     }
                 } else {
+                    return Err(Failure::static_leema(
+                        failure::Mode::CompileFailure,
+                        lstrf!(
+                            "type has no field: {}.{}",
+                            tname,
+                            f,
+                        ),
+                        self.local_mod.key.name.0.clone(),
+                        fld.loc.lineno,
+                    ));
                 }
-
-                return Err(Failure::static_leema(
-                    failure::Mode::CompileFailure,
-                    lstrf!(
-                        "type has no field: {}.{}",
-                        tname,
-                        f,
-                    ),
-                    self.local_mod.key.name.0.clone(),
-                    fld.loc.lineno,
-                ));
+                Ok(AstStep::Ok)
             }
             (_, Ast::Id(id)) => {
                 return Err(Failure::static_leema(
