@@ -1142,22 +1142,6 @@ impl<'p> TypeCheck<'p>
                 */
         Ok(AstStep::Ok)
     }
-
-    /// move base into first args element
-    /// return the new callx node
-    fn post_method_call(&mut self, base: AstNode, method: &AstNode, args: &mut Xlist) -> StepResult
-    {
-        if let Ast::Canonical(cbase) = &*base.node {
-            // shouldn't get here b/c the canonical should have been replaced
-            // in the ScopeCheck phase
-            panic!("method base canonical: {}", cbase);
-        } else if let Type::User(cmethod) = &base.typ {
-        } else {
-            panic!("method mod fail: {:?}", base.typ);
-        }
-        args.insert(0, StrupleItem::new_v(base));
-        Ok(AstStep::Replace((*method.node).clone(), method.typ.clone()))
-    }
 }
 
 impl<'p> ast2::Op for TypeCheck<'p>
@@ -1243,10 +1227,13 @@ impl<'p> ast2::Op for TypeCheck<'p>
                         callx.typ = fref.t.clone();
                     }
                     // handle a method call
-                    Ast::Op2(".", ref mut base, ref mut method) => {
-                        let base_obj = mem::take(base);
-                        let meth_obj = mem::take(method);
-                        steptry!(self.post_method_call(base_obj, &meth_obj, args));
+                    Ast::Op2(".", ref mut base_ref, ref mut method_ref) => {
+                        let base = mem::take(base_ref);
+                        let method = mem::take(method_ref);
+                        args.insert(0, StrupleItem::new_v(base));
+                        *callx.node = *method.node;
+                        callx.typ = method.typ;
+                        return Ok(AstStep::Rewrite);
                     }
                     // handle closure call
                     // do they get handled like regular non-method calls
@@ -1256,94 +1243,65 @@ impl<'p> ast2::Op for TypeCheck<'p>
                     }
                 }
             }
-            // field access, not a method?
+            // field access, maybe a method
             Ast::Op2(".", a, b) => {
-                match (&mut *a.node, &*b.node) {
-                    (Ast::Tuple(tup), Ast::Id(name)) => {
-                        // why getting a field on a tuple?
-                        // is it a previous version of a module?
-                        match struple::find_str(&tup[..], name) {
-                            Some((_i, elem)) => {
-                                node.typ = elem.typ.clone();
-                                *node.node = (*elem.node).clone();
-                            }
-                            None => {
-                                return Err(rustfail!(
-                                    "compile_error",
-                                    "no {} found in {:?}",
-                                    name,
-                                    tup,
-                                ));
-                            }
-                        }
-                    }
-                    (ref mut _r, Ast::Id(f)) => {
-                        // a field access
-                        match &a.typ {
-                            Type::User(tname) => {
-                                // find a field in a struct or interface or
-                                // whatever else
-                                let tproto = self.lib.path_proto(tname)?;
+                match (&a.typ, &*b.node) {
+                    (Type::User(tname), Ast::Id(f)) => {
+                        // find a field in a struct or interface or
+                        // whatever else
+                        let tproto = self.lib.path_proto(tname)?;
 
-                                if let Some(func) = tproto.find_modelem(f) {
-                                    node.replace(
-                                        (*func.node).clone(),
-                                        func.typ.clone(),
-                                    );
+                        if let Some(func) = tproto.find_modelem(f) {
+                            b.replace(
+                                (*func.node).clone(),
+                                func.typ.clone(),
+                            );
+                            return Ok(AstStep::Ok);
+                        }
+                        // trying to get a method from an interface?
+                        // think this is covered by case above
+                        /*
+                        let modval = self.local_mod.find_modelem(tname);
+                        if let Some(mvnode) = modval {
+                            if let Ast::Module(_k, c, _) = &*mvnode.node
+                            {
+                                if let Some(thing) =
+                                    struple::find_str(c, f)
+                                {
+                                    // it's a method
+                                    *b.node = (*thing.1.node).clone();
+                                    b.typ = thing.1.typ.clone();
+                                    node.typ = b.typ.method_type()?;
                                     return Ok(AstStep::Rewrite);
                                 }
-                                // trying to get a method from an interface?
-                                // think this is covered by case above
-                                /*
-                                let modval = self.local_mod.find_modelem(tname);
-                                if let Some(mvnode) = modval {
-                                    if let Ast::Module(_k, c, _) = &*mvnode.node
-                                    {
-                                        if let Some(thing) =
-                                            struple::find_str(c, f)
-                                        {
-                                            // it's a method
-                                            *b.node = (*thing.1.node).clone();
-                                            b.typ = thing.1.typ.clone();
-                                            node.typ = b.typ.method_type()?;
-                                            return Ok(AstStep::Rewrite);
-                                        }
-                                    }
-                                }
-                                */
+                            }
+                        }
+                        */
 
-                                return Err(Failure::static_leema(
-                                    failure::Mode::CompileFailure,
-                                    lstrf!(
-                                        "type has no field: {}.{}",
-                                        tname,
-                                        f,
-                                    ),
-                                    self.local_mod.key.name.0.clone(),
-                                    node.loc.lineno,
-                                ));
-                            }
-                            _ => {
-                                return Err(Failure::static_leema(
-                                    failure::Mode::CompileFailure,
-                                    lstrf!(
-                                        "builtin type has no fields: {}",
-                                        a.typ
-                                    ),
-                                    self.local_mod.key.name.0.clone(),
-                                    node.loc.lineno,
-                                ));
-                            }
-                        }
+                        return Err(Failure::static_leema(
+                            failure::Mode::CompileFailure,
+                            lstrf!(
+                                "type has no field: {}.{}",
+                                tname,
+                                f,
+                            ),
+                            self.local_mod.key.name.0.clone(),
+                            node.loc.lineno,
+                        ));
                     }
-                    (_, Ast::ConstVal(callv)) => {
-                        if let Val::Call(_, _) = callv {
-                            return Ok(AstStep::Ok);
-                        } else {
-                            panic!("unsupported const field: {:#?}", callv);
-                        }
+                    (_, Ast::Id(id)) => {
+                        return Err(Failure::static_leema(
+                            failure::Mode::CompileFailure,
+                            lstrf!(
+                                "builtin type has no {} field: {}",
+                                id,
+                                a.typ
+                            ),
+                            self.local_mod.key.name.0.clone(),
+                            node.loc.lineno,
+                        ));
                     }
-                    (_r, f) => {
+                    (_, f) => {
                         panic!("unsupported field name: {:#?}", f);
                     }
                 }
