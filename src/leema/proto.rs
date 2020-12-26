@@ -100,9 +100,7 @@ lazy_static! {
         ids.insert("int_gteq", core_mod.clone());
         ids.insert("new_struct_val", core_mod.clone());
         ids.insert("not_equal", core_mod.clone());
-        ids.insert("None", core_mod.clone());
         ids.insert("Option", core_mod.clone());
-        ids.insert("Some", core_mod.clone());
         ids.insert("Str", core_mod.clone());
         ids.insert("True", core_mod.clone());
         ids.insert("Void", core_mod.clone());
@@ -598,8 +596,8 @@ impl ProtoModule
         let loc = name.loc;
         let ProtoType{n: name_id, ..} = self.make_proto_type(name)?;
         let srct = ltry!(self.ast_to_type(&self.key.name, &src, &[]));
-        let typeval = Val::Type(srct.clone());
-        let mut node = AstNode::new_constval(typeval, loc);
+        let typenode = Ast::Type(srct.clone());
+        let mut node = AstNode::new(typenode, loc);
         node.typ = Type::Kind;
         let alias_generics = vec![]; // add generics later
         let alias_node = AstNode::new(Ast::Alias(alias_generics, Box::new(node)), loc);
