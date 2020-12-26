@@ -191,15 +191,9 @@ impl ProtoModule
         Self::with_ast(key, None, items)
     }
 
-    fn new_submod(key: ModKey, parent: ProtoType, items: Vec<AstNode>) -> Lresult<ProtoModule>
-    {
-        Self::with_ast(key, Some(parent), items)
-    }
-
     fn with_ast(key: ModKey, parent: Option<ProtoType>, items: Vec<AstNode>) -> Lresult<ProtoModule>
     {
         let modname = key.name.clone();
-
         let mut proto = ProtoModule {
             key,
             typ: parent,
@@ -604,12 +598,11 @@ impl ProtoModule
     {
         let loc = name.loc;
         let proto_t = self.make_proto_type(name)?;
-        let ProtoType{n: name_id, t, ..} = &proto_t;
-        let typeval = Val::Type(t.clone());
+        let name_id = proto_t.n;
+        let typeval = Val::Type(proto_t.t.clone());
         let mut node = AstNode::new_constval(typeval, loc);
         node.typ = Type::Kind;
-        let subkey = self.key.submod(ModTyp::Data, name_id);
-        let mut sub = ltry!(Self::new_submod(subkey, proto_t.clone(), vec![]));
+        let mut sub = ltry!(self.new_selfmod(ModTyp::Data, proto_t, vec![], loc));
         // TODO: add __datatype or whatever
         sub.modscope.insert(MODNAME_DATATYPE, node);
         self.submods.insert(name_id, sub);
