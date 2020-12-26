@@ -482,6 +482,7 @@ impl ProtoModule
         loc: Loc,
     ) -> Lresult<()>
     {
+        let name = proto.n;
         let typ = proto.t.clone();
 
         let macro_call = AstNode::new(Ast::Id("new_struct_val"), loc);
@@ -520,44 +521,38 @@ impl ProtoModule
 
         if self.typ.is_some() {
             self.append_ast(vec![constructor_ast])?;
-        } else {
-            self.add_submod(ModTyp::Data, proto, vec![constructor_ast], loc)?;
             self.modscope.insert(MODNAME_DATATYPE, type_node);
+            ltry!(self.add_data_fields(fields));
+        } else {
+            let mut subp = ltry!(self.new_selfmod(ModTyp::Data, proto, vec![constructor_ast], loc));
+            subp.modscope.insert(MODNAME_DATATYPE, type_node);
             // TODO add this definition to the struct module instead
-            // TODO the fields too
+            ltry!(subp.add_data_fields(fields));
+            self.submods.insert(name, subp);
         }
         Ok(())
     }
 
-    fn new_struct_src(
-        name: &'static str,
-        _struct_typ: Type,
-        fld_names: &[&'static str],
-    ) -> Lresult<AstNode>
+    fn add_data_fields(
+        &mut self,
+        fields: Xlist,
+    ) -> Lresult<()>
     {
-        let args = fld_names.join(", ");
-        let _constructor = format!(
-            r#"
-        let _new_struct_ = {}(Void)
-        _new_struct_({})
-        "#,
-            name, args
-        );
-        // parse_file(
-        /*
-        let void_args = Vec::with_capacity(args.len());
-        void_args.resize(args.len(), Val::Void);
-        let mut block = vec![
-            AstNode::new(Ast::ConstVal(Val::Struct(
-                struct_typ.clone(),
-                Vec::with_capacity(args.len()),
-            )), loc),
-        ];
-        block.push(AstNode::new(Ast::Call(new_id, fld_names), loc));
-        let block_node = AstNode::new(Ast::Block(block), loc);
-        let constructor_src = new_struct_src(sname_id, args);
-        */
-        Ok(AstNode::void())
+        for f in fields {
+            let t = match &self.typ {
+                Some(p) =>  self.ast_to_type(&self.key.name, &f.v, &p.g)?,
+                None => self.ast_to_type(&self.key.name, &f.v, &[])?,
+            };
+            match f.k {
+                Some(k) => {
+                    let scope_type = AstNode::new(Ast::DataMember(t), f.v.loc);
+                    self.modscope.insert(k, scope_type);
+                }
+                None => {
+                }
+            }
+        }
+        Ok(())
     }
 
     fn add_token(&mut self, name: AstNode) -> Lresult<()>
@@ -670,18 +665,21 @@ impl ProtoModule
     {
         let loc = name.loc;
         let proto_t = self.make_proto_type(name)?;
+        let id = proto_t.n;
         // look in funcs for a struct def and use the ModTyp::Data?
         // or does that get set in add_typed_struct
-        self.add_submod(ModTyp::Trait, proto_t, funcs, loc)
+        let p = ltry!(self.new_selfmod(ModTyp::Trait, proto_t, funcs, loc));
+        self.submods.insert(id, p);
+        Ok(())
     }
 
-    fn add_submod(
+    fn new_selfmod(
         &mut self,
         subtype: ModTyp,
         proto_t: ProtoType,
         mut funcs: Vec<AstNode>,
         loc: Loc,
-    ) -> Lresult<()>
+    ) -> Lresult<ProtoModule>
     {
         let id = proto_t.n;
         let subkey = self.key.submod(subtype, id);
@@ -702,9 +700,7 @@ impl ProtoModule
             Ast::Canonical(subkey.name.clone()),
             loc,
         ));
-        let proto = ltry!(ProtoModule::new_submod(subkey, proto_t, funcs));
-        self.submods.insert(id, proto);
-        Ok(())
+        ProtoModule::with_ast(subkey, Some(proto_t), funcs)
     }
 
     fn impl_datatype(

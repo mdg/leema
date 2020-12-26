@@ -1142,6 +1142,51 @@ impl<'p> TypeCheck<'p>
                 */
         Ok(AstStep::Ok)
     }
+
+    fn post_field_access(&self, base_typ: &Type, fld: &mut AstNode) -> Lresult<AstStep>
+    {
+        match (base_typ, &*fld.node) {
+            (Type::User(tname), Ast::Id(f)) => {
+                // find a field in a struct or interface or
+                // whatever else
+                let tproto = self.lib.path_proto(tname)?;
+
+                if let Some(func) = tproto.find_modelem(f) {
+                    fld.replace(
+                        (*func.node).clone(),
+                        func.typ.clone(),
+                    );
+                    return Ok(AstStep::Ok);
+                }
+
+                return Err(Failure::static_leema(
+                    failure::Mode::CompileFailure,
+                    lstrf!(
+                        "type has no field: {}.{}",
+                        tname,
+                        f,
+                    ),
+                    self.local_mod.key.name.0.clone(),
+                    fld.loc.lineno,
+                ));
+            }
+            (_, Ast::Id(id)) => {
+                return Err(Failure::static_leema(
+                    failure::Mode::CompileFailure,
+                    lstrf!(
+                        "builtin type has no {} field: {}",
+                        id,
+                        base_typ,
+                    ),
+                    self.local_mod.key.name.0.clone(),
+                    fld.loc.lineno,
+                ));
+            }
+            (_, f) => {
+                panic!("unsupported field name: {:#?}", f);
+            }
+        }
+    }
 }
 
 impl<'p> ast2::Op for TypeCheck<'p>
@@ -1245,66 +1290,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
             }
             // field access, maybe a method
             Ast::Op2(".", a, b) => {
-                match (&a.typ, &*b.node) {
-                    (Type::User(tname), Ast::Id(f)) => {
-                        // find a field in a struct or interface or
-                        // whatever else
-                        let tproto = self.lib.path_proto(tname)?;
-
-                        if let Some(func) = tproto.find_modelem(f) {
-                            b.replace(
-                                (*func.node).clone(),
-                                func.typ.clone(),
-                            );
-                            return Ok(AstStep::Ok);
-                        }
-                        // trying to get a method from an interface?
-                        // think this is covered by case above
-                        /*
-                        let modval = self.local_mod.find_modelem(tname);
-                        if let Some(mvnode) = modval {
-                            if let Ast::Module(_k, c, _) = &*mvnode.node
-                            {
-                                if let Some(thing) =
-                                    struple::find_str(c, f)
-                                {
-                                    // it's a method
-                                    *b.node = (*thing.1.node).clone();
-                                    b.typ = thing.1.typ.clone();
-                                    node.typ = b.typ.method_type()?;
-                                    return Ok(AstStep::Rewrite);
-                                }
-                            }
-                        }
-                        */
-
-                        return Err(Failure::static_leema(
-                            failure::Mode::CompileFailure,
-                            lstrf!(
-                                "type has no field: {}.{}",
-                                tname,
-                                f,
-                            ),
-                            self.local_mod.key.name.0.clone(),
-                            node.loc.lineno,
-                        ));
-                    }
-                    (_, Ast::Id(id)) => {
-                        return Err(Failure::static_leema(
-                            failure::Mode::CompileFailure,
-                            lstrf!(
-                                "builtin type has no {} field: {}",
-                                id,
-                                a.typ
-                            ),
-                            self.local_mod.key.name.0.clone(),
-                            node.loc.lineno,
-                        ));
-                    }
-                    (_, f) => {
-                        panic!("unsupported field name: {:#?}", f);
-                    }
-                }
+                steptry!(self.post_field_access(&a.typ, b));
             }
             Ast::Op2("'", ref mut a, b) => {
                 Self::apply_typecall2(a, &b)?;

@@ -748,6 +748,7 @@ impl Registration
             Ast::Id(_) | Ast::ConstVal(_) => {}
             // these shouldn't be here
             Ast::Canonical(_)
+            | Ast::DataMember(_)
             | Ast::DefConst(_, _)
             | Ast::DefFunc(_, _, _, _)
             | Ast::DefImpl(_, _, _)
