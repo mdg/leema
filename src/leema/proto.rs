@@ -596,12 +596,17 @@ impl ProtoModule
     {
         let loc = name.loc;
         let proto_t = self.make_proto_type(name)?;
-        let typeval = Val::Type(proto_t.t.clone());
-        let mut node = AstNode::new_constval(typeval, loc);
+        let name = proto_t.n;
+        let typenode = Ast::Type(proto_t.t.clone());
+        let mut node = AstNode::new(typenode, loc);
         node.typ = Type::Kind;
-        let sub = ltry!(self.add_selfmod(ModTyp::Data, proto_t, vec![], loc));
-        // TODO: add __datatype or whatever
-        sub.modscope.insert(MODNAME_DATATYPE, node);
+        let subcon = {
+            let sub = ltry!(self.add_selfmod(ModTyp::Data, proto_t, vec![], loc));
+            // TODO: add __datatype or whatever
+            sub.modscope.insert(MODNAME_DATATYPE, node);
+            sub.key.name.clone()
+        };
+        self.modscope.insert(name, AstNode::new(Ast::Canonical(subcon), loc));
         Ok(())
     }
 
@@ -1011,22 +1016,27 @@ impl ProtoModule
                 Type::OpenVar(id)
             }
             Ast::Id(id) => {
-                match self.find_modelem(id) {
-                    Some(modelem) => {
+                if let Some(sub) = self.submods.get(id) {
+                    if let Some(modelem) = sub.find_modelem(MODNAME_DATATYPE) {
                         ltry!(self.ast_to_type(local_mod, modelem, opens))
+                    } else {
+                        return Err(rustfail!(
+                            "compile_error",
+                            "{} is not a type at {:?}",
+                            id,
+                            node.loc
+                        ));
                     }
-                    None => {
-                        match BUILTIN_TYPES.get(id) {
-                            Some(dt) => dt.clone(),
-                            None => {
-                                return Err(rustfail!(
-                                    "internal_failure",
-                                    "should this have been found? {}",
-                                    id,
-                                ));
-                            }
-                        }
-                    }
+                } else if let Some(modelem) = self.find_modelem(id) {
+                    ltry!(self.ast_to_type(local_mod, modelem, opens))
+                } else if let Some(dt) = BUILTIN_TYPES.get(id) {
+                    dt.clone()
+                } else {
+                    return Err(rustfail!(
+                        "internal_failure",
+                        "should this have been found? {}",
+                        id,
+                    ));
                 }
             }
             Ast::List(inner_items) if inner_items.len() == 1 => {
