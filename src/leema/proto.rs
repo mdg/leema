@@ -530,14 +530,14 @@ impl ProtoModule
         fields: Xlist,
     ) -> Lresult<()>
     {
-        for f in fields {
+        for (i, f) in fields.iter().enumerate() {
             let t = match &self.typ {
                 Some(p) =>  self.ast_to_type(&f.v, &p.g)?,
                 None => self.ast_to_type(&f.v, &[])?,
             };
             match f.k {
                 Some(k) => {
-                    let scope_type = AstNode::new(Ast::DataMember(t), f.v.loc);
+                    let scope_type = AstNode::new(Ast::DataMember(t, i as u8), f.v.loc);
                     self.modscope.insert(k, scope_type);
                 }
                 None => {

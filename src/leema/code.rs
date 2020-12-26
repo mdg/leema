@@ -715,10 +715,21 @@ impl Registration
             Ast::Op2(".", ref mut base, ref field) => {
                 Self::assign_registers(base, stack)?;
                 let field_idx = match &*field.node {
-                    Ast::Id(idx_str) => idx_str.parse().unwrap(),
+                    Ast::Id(idx_str) => {
+                        idx_str.parse()
+                            .map_err(|e| {
+                                rustfail!(
+                                    "leema_failure",
+                                    "{} for {:?}",
+                                    e,
+                                    idx_str,
+                                )
+                            })?
+                    }
                     Ast::ConstVal(Val::Int(i)) => *i as i8,
+                    Ast::DataMember(_, i) => *i as i8,
                     other => {
-                        panic!("field name is not an identifier: {:?}", other)
+                        panic!("field name is not an identifier: {:?} @ {:?}", other, field.loc)
                     }
                 };
                 node.dst = base.dst.sub(field_idx);
@@ -748,7 +759,7 @@ impl Registration
             Ast::Id(_) | Ast::ConstVal(_) => {}
             // these shouldn't be here
             Ast::Canonical(_)
-            | Ast::DataMember(_)
+            | Ast::DataMember(_, _)
             | Ast::DefConst(_, _)
             | Ast::DefFunc(_, _, _, _)
             | Ast::DefImpl(_, _, _)

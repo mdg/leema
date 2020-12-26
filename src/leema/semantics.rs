@@ -1150,12 +1150,26 @@ impl<'p> TypeCheck<'p>
                 // whatever else
                 let tproto = self.lib.path_proto(tname)?;
 
-                if let Some(func) = tproto.find_modelem(f) {
-                    fld.replace(
-                        (*func.node).clone(),
-                        func.typ.clone(),
-                    );
-                    return Ok(AstStep::Ok);
+                if let Some(found) = tproto.find_modelem(f) {
+                    match &*found.node {
+                        Ast::ConstVal(_) => {
+                            fld.replace(
+                                (*found.node).clone(),
+                                found.typ.clone(),
+                            );
+                            return Ok(AstStep::Ok);
+                        }
+                        Ast::DataMember(t, i) => {
+                            fld.replace(
+                                (*found.node).clone(),
+                                found.typ.clone(),
+                            );
+                            return Ok(AstStep::Ok);
+                        }
+                        other => {
+                        }
+                    }
+                } else {
                 }
 
                 return Err(Failure::static_leema(
