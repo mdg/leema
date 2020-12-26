@@ -926,7 +926,6 @@ impl<'p> TypeCheck<'p>
                         }
                         what => {
                             let t = self.local_mod.ast_to_type(
-                                &self.local_mod.key.name,
                                 &a.1.v,
                                 &[],
                             )?;
