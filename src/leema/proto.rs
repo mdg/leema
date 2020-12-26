@@ -476,7 +476,6 @@ impl ProtoModule
         loc: Loc,
     ) -> Lresult<()>
     {
-        let name = proto.n;
         let typ = proto.t.clone();
 
         let macro_call = AstNode::new(Ast::Id("new_struct_val"), loc);
@@ -518,11 +517,10 @@ impl ProtoModule
             self.modscope.insert(MODNAME_DATATYPE, type_node);
             ltry!(self.add_data_fields(fields));
         } else {
-            let mut subp = ltry!(self.new_selfmod(ModTyp::Data, proto, vec![constructor_ast], loc));
+            let subp = ltry!(self.add_selfmod(ModTyp::Data, proto, vec![constructor_ast], loc));
             subp.modscope.insert(MODNAME_DATATYPE, type_node);
             // TODO add this definition to the struct module instead
             ltry!(subp.add_data_fields(fields));
-            self.submods.insert(name, subp);
         }
         Ok(())
     }
@@ -598,14 +596,12 @@ impl ProtoModule
     {
         let loc = name.loc;
         let proto_t = self.make_proto_type(name)?;
-        let name_id = proto_t.n;
         let typeval = Val::Type(proto_t.t.clone());
         let mut node = AstNode::new_constval(typeval, loc);
         node.typ = Type::Kind;
-        let mut sub = ltry!(self.new_selfmod(ModTyp::Data, proto_t, vec![], loc));
+        let sub = ltry!(self.add_selfmod(ModTyp::Data, proto_t, vec![], loc));
         // TODO: add __datatype or whatever
         sub.modscope.insert(MODNAME_DATATYPE, node);
-        self.submods.insert(name_id, sub);
         Ok(())
     }
 
@@ -658,21 +654,19 @@ impl ProtoModule
     {
         let loc = name.loc;
         let proto_t = self.make_proto_type(name)?;
-        let id = proto_t.n;
         // look in funcs for a struct def and use the ModTyp::Data?
         // or does that get set in add_typed_struct
-        let p = ltry!(self.new_selfmod(ModTyp::Trait, proto_t, funcs, loc));
-        self.submods.insert(id, p);
+        ltry!(self.add_selfmod(ModTyp::Trait, proto_t, funcs, loc));
         Ok(())
     }
 
-    fn new_selfmod(
+    fn add_selfmod(
         &mut self,
         subtype: ModTyp,
         proto_t: ProtoType,
         mut funcs: Vec<AstNode>,
         loc: Loc,
-    ) -> Lresult<ProtoModule>
+    ) -> Lresult<&mut ProtoModule>
     {
         let id = proto_t.n;
         let subkey = self.key.submod(subtype, id);
@@ -693,7 +687,9 @@ impl ProtoModule
             Ast::Canonical(subkey.name.clone()),
             loc,
         ));
-        ProtoModule::with_ast(subkey, Some(proto_t), funcs)
+        let sub = ltry!(ProtoModule::with_ast(subkey, Some(proto_t), funcs));
+        self.submods.insert(id, sub);
+        Ok(self.submods.get_mut(id).unwrap())
     }
 
     fn impl_datatype(
