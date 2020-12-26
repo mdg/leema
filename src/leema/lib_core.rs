@@ -265,7 +265,7 @@ pub fn load_code(mut ctx: rsrc::IopCtx) -> rsrc::Event
                 .cat(rsrc::Event::FoundCode(fref, code))
         }
         Err(f) => {
-            eprintln!("code load error: {}.{}\n{:#?}", fref.m.name, fref.f, f);
+            eprintln!("code load error: {}.{}", fref.m.name, fref.f);
             rsrc::Event::Result(Val::Failure2(Box::new(f)))
         }
     }
