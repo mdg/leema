@@ -181,24 +181,36 @@ impl Failure
     {
         Failure {
             tag: Val::Str(Lstr::Sref(status.as_str())),
-            msg: Val::Str(msg),
+            msg: Val::Str(msg.clone()),
             trace: None,
             status,
             code: 0,
-            loc: vec![(module, lineno as u32)],
-            context: vec![],
+            loc: vec![(module.clone(), lineno as u32)],
+            context: vec![vec![
+                StrupleItem::new(Lstr::Sref("module"), module),
+                StrupleItem::new(Lstr::Sref("line"), lstrf!("{}", lineno)),
+                StrupleItem::new(Lstr::Sref("msg"), msg),
+            ]],
         }
     }
 
     pub fn loc(mut self, file: &'static str, line: u32) -> Self
     {
         self.loc.push((Lstr::Sref(file), line));
+        self.context.push(vec![
+            StrupleItem::new(Lstr::Sref("file"), Lstr::Sref(file)),
+            StrupleItem::new(Lstr::Sref("line"), lstrf!("{}", line)),
+        ]);
         self
     }
 
     pub fn lstr_loc(mut self, file: Lstr, line: u32) -> Self
     {
-        self.loc.push((file, line));
+        self.loc.push((file.clone(), line));
+        self.context.push(vec![
+            StrupleItem::new(Lstr::Sref("file"), file),
+            StrupleItem::new(Lstr::Sref("line"), lstrf!("{}", line)),
+        ]);
         self
     }
 

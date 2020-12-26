@@ -1582,8 +1582,8 @@ impl Env
         match reg {
             Reg::Param(r) => lfailoc!(self.params.ireg_get(r)),
             Reg::Local(i) => {
-                lfailoc!(self.locals.ireg_get(i))
-                    .map_err(|f| f.add_context(lstrf!("get_reg {}", reg)))
+                let reg_str: Lstr = lstrf!("{}", reg);
+                Ok(lfctx!(self.locals.ireg_get(i), "reg": reg_str))
             }
             Reg::Stack(i) => lfailoc!(self.stack.ireg_get(i)),
             Reg::Void => {
