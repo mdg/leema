@@ -541,12 +541,15 @@ impl ProtoModule
                     self.modscope.insert(k, scope_type);
                 }
                 None => {
+                    eprintln!("unnamed field: {} {:?}", i, f)
+                    /*
                     return Err(Failure::static_leema(
                         failure::Mode::LeemaTodoFailure,
                         Lstr::Sref("unnamed fields unimplemented"),
                         self.key.name.0.clone(),
                         f.v.loc.lineno,
                     ))
+                    */
                 }
             }
         }

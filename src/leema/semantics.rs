@@ -146,9 +146,22 @@ impl<'l> ast2::Op for MacroApplication<'l>
                     mac @ Ast::DefMacro(_, _, _) => {
                         *node = Self::apply_macro(mac, node.loc, args)?;
                     }
-                    _other => {
+                    Ast::ConstVal(Val::Call(_, _)) => {
+                        // already what it needs to be. continue.
+                    }
+                    Ast::Generic(_, _) => {
+                        // what's happening with generics here?
+                        eprintln!("why generic call at line {}", callid.loc.lineno);
+                    }
+                    other => {
                         // is something else, like a method call maybe
-                        // should be fine
+                        // but what is it?
+                        return Err(Failure::static_leema(
+                            failure::Mode::StaticLeemaFailure,
+                            lstrf!("unexpected call expression: {:?}", other),
+                            self.local.key.name.0.clone(),
+                            callid.loc.lineno,
+                        ));
                     }
                 }
             }
@@ -537,6 +550,17 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                 }
                 // else it's probably (hopefully?) a method or something
             }
+            Ast::Generic(_base, _args) => {
+                // what's happening w/ generics here?
+                /*
+                return Err(Failure::static_leema(
+                    failure::Mode::LeemaTodoFailure,
+                    Lstr::Sref("generics are not yet implemented here"),
+                    self.local_mod.key.name.0.clone(),
+                    loc.lineno,
+                ));
+                */
+            }
             _ => {
                 // do nothing otherwise
             }
@@ -802,14 +826,33 @@ impl<'p> TypeCheck<'p>
     fn match_type_alias(
         &mut self,
         u0: &Canonical,
-        _t1: &Type,
-        _opens: &mut StrupleKV<&'static str, Type>,
+        t1: &Type,
+        opens: &mut StrupleKV<&'static str, Type>,
     ) -> Lresult<Option<Type>>
     {
         match self.lib.path_proto(u0) {
-            Ok(_proto) => { // ::Alias(ref _key, ref result)) => {
+            Ok(proto) => {
                 // do something with opens from key?
-                Ok(None)
+                eprintln!("match_type_alias: {} {:?} {}", u0, t1, proto.key.name);
+                if let Some(s0) = proto.find_modelem(proto::MODNAME_DATATYPE) {
+                    if let Ast::Type(t0) = &*s0.node {
+                        Ok(Some(self.match_type(t0, t1, opens)?))
+                    } else {
+                        Err(Failure::static_leema(
+                            failure::Mode::TypeFailure,
+                            lstrf!("not a type: {}", u0),
+                            self.local_mod.key.name.0.clone(),
+                            0,
+                        ))
+                    }
+                } else {
+                    Err(Failure::static_leema(
+                        failure::Mode::TypeFailure,
+                        lstrf!("invalid type: {}", u0),
+                        self.local_mod.key.name.0.clone(),
+                        0,
+                    ))
+                }
             }
             _ => Ok(None),
         }
@@ -1156,7 +1199,7 @@ impl<'p> TypeCheck<'p>
                                 found.typ.clone(),
                             );
                         }
-                        Ast::DataMember(t, i) => {
+                        Ast::DataMember(_, _) => {
                             fld.replace(
                                 (*found.node).clone(),
                                 found.typ.clone(),
