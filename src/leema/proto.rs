@@ -338,7 +338,7 @@ impl ProtoModule
                 lfailoc!(self.add_trait(name, funcs))
             }
             Ast::DefImpl(iface, typ, funcs) => {
-                lfailoc!(self.impl_trait(typ, iface, funcs))
+                lfailoc!(self.impl_trait(iface, typ, funcs))
             }
             Ast::DefType(DataType::Union, name, variants) => {
                 lfailoc!(self.add_union(name, variants))
@@ -703,19 +703,10 @@ impl ProtoModule
         Ok(self.submods.get_mut(id).unwrap())
     }
 
-    fn impl_datatype(
-        &mut self,
-        _datatype: AstNode,
-        _funcs: Vec<AstNode>,
-    ) -> Lresult<()>
-    {
-        Ok(())
-    }
-
     fn impl_trait(
         &mut self,
-        _typ: AstNode,
         _iface: AstNode,
+        _typ: AstNode,
         _funcs: Vec<AstNode>,
     ) -> Lresult<()>
     {
@@ -877,72 +868,6 @@ impl ProtoModule
         ltry!(self.refute_redefines_default(id, name.loc));
         Ok(ProtoType{n: id, t: utyp, g: opens})
     }
-
-    /*
-        let id = match *name.node {
-            Ast::Id(name_id) => {
-                utyp = Type::User(TypeMod::from(m), name_id);
-                opens = vec![];
-                name_id
-            }
-            Ast::Generic(gen_id, gen_args) => {
-                let mut opens1 = Vec::with_capacity(gen_args.len());
-                let mut gen_arg_vars = Vec::with_capacity(gen_args.len());
-                for a in gen_args.iter() {
-                    let var = if let Some(var) = a.k {
-                        var
-                    } else if let Ast::Id(var) = *a.v.node {
-                        var
-                    } else {
-                        return Err(rustfail!(
-                            PROTOFAIL,
-                            "generic arguments must have string key: {:?}",
-                            a,
-                        ));
-                    };
-                    opens1.push(StrupleItem::new(var, Type::Unknown));
-                    gen_arg_vars
-                        .push(StrupleItem::new(var, Type::OpenVar(var)));
-                }
-                opens = opens1;
-
-                if let Ast::Id(name_id) = *gen_id.node {
-                    if opens.is_empty() {
-                        return Err(Failure::static_leema(
-                            failure::Mode::TypeFailure,
-                            lstrf!(
-                                "generic must have at least one argument: {}",
-                                name_id,
-                            ),
-                            m.0.clone(),
-                            name.loc.lineno,
-                        ));
-                    }
-
-                    let itmod = TypeMod::from(m);
-                    let inner = Type::User(itmod, name_id);
-                    utyp = Type::Generic(true, Box::new(inner), gen_arg_vars);
-                    name_id
-                } else {
-                    return Err(rustfail!(
-                        PROTOFAIL,
-                        "invalid generic type name: {:?}",
-                        gen_id,
-                    ));
-                }
-            }
-            _ => {
-                return Err(rustfail!(
-                    "compile_failure",
-                    "unsupported datatype id: {:?}",
-                    name,
-                ));
-            }
-        };
-        ltry!(self.refute_redefines_default(id, name.loc));
-        Ok((id, utyp, opens))
-    }
-    */
 
     pub fn type_modules(&self) -> Lresult<Vec<ProtoModule>>
     {
@@ -1382,15 +1307,6 @@ impl ProtoLib
                     loc.lineno,
                 )
             })
-    }
-
-    /// for finding the field index in a defined struct type
-    /// ok great, but can you find a method in a trait implementation?
-    pub fn type_field_idx<S>(&self, c: &Canonical, fld: &S) -> Lresult<i64>
-        where S: AsRef<str> + std::fmt::Display
-    {
-        let proto = self.path_proto(c)?;
-        Ok(0)
     }
 
     pub fn imported_proto(
