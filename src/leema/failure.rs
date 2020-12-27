@@ -78,6 +78,7 @@ pub enum Mode
     // internal leema errors
     StaticLeemaFailure,
     RuntimeLeemaFailure,
+    LeemaTodoFailure,
 }
 
 impl Mode
@@ -99,6 +100,7 @@ impl Mode
             // internal leema errors
             Mode::StaticLeemaFailure => -1,
             Mode::RuntimeLeemaFailure => -2,
+            Mode::LeemaTodoFailure => -3,
         }
     }
 
@@ -119,6 +121,7 @@ impl Mode
             // internal leema errors
             Mode::StaticLeemaFailure => "static_leema_failure",
             Mode::RuntimeLeemaFailure => "runtime_leema_failure",
+            Mode::LeemaTodoFailure => "leema_todo_failure",
         }
     }
 }
