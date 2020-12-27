@@ -186,8 +186,9 @@ pub fn find_str<'s, K, S, V>(
     s: &'s [StrupleItem<Option<S>, V>],
     key: K,
 ) -> Option<(usize, &'s V)>
-    where S: AsRef<str>
-        , K: AsRef<str>
+where
+    S: AsRef<str>,
+    K: AsRef<str>,
 {
     s.iter()
         .enumerate()
@@ -204,7 +205,9 @@ pub fn find_str_mut<'s, 'k, K, S, V>(
     s: &'s mut [StrupleItem<Option<S>, V>],
     key: K,
 ) -> Option<(usize, &'s mut V)>
-    where S: AsRef<str>, K: AsRef<str>
+where
+    S: AsRef<str>,
+    K: AsRef<str>,
 {
     s.iter_mut()
         .enumerate()

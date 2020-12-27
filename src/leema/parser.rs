@@ -454,12 +454,8 @@ impl LeemaPrec
                 let mut inner = n.into_inner();
                 let n0 = inner.next().unwrap();
                 let (id, args_tok) = match inner.next() {
-                    Some(n1) => {
-                        (self.primary(Mode::Type, n0)?, n1)
-                    }
-                    None => {
-                        (AstNode::void(), n0)
-                    }
+                    Some(n1) => (self.primary(Mode::Type, n0)?, n1),
+                    None => (AstNode::void(), n0),
                 };
                 let arg_it = args_tok.into_inner();
                 let args: Xlist = self.parse_xlist(Mode::Type, arg_it)?;

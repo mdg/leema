@@ -82,12 +82,8 @@ impl ModKey
     {
         self.file
             .as_ref()
-            .and_then(|f| {
-                f.to_str()
-            })
-            .unwrap_or_else(|| {
-                self.name.0.as_str()
-            })
+            .and_then(|f| f.to_str())
+            .unwrap_or_else(|| self.name.0.as_str())
     }
 
     pub fn submod(&self, mt: ModTyp, name: &'static str) -> ModKey

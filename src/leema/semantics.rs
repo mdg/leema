@@ -151,7 +151,10 @@ impl<'l> ast2::Op for MacroApplication<'l>
                     }
                     Ast::Generic(_, _) => {
                         // what's happening with generics here?
-                        eprintln!("why generic call at line {}", callid.loc.lineno);
+                        eprintln!(
+                            "why generic call at line {}",
+                            callid.loc.lineno
+                        );
                     }
                     other => {
                         // is something else, like a method call maybe
@@ -504,7 +507,9 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                     let cons = optcons.unwrap();
                     node.replace((*cons.node).clone(), cons.typ.clone());
                 } else if let Ok((parent, id)) = c.split_id() {
-                    if let Ok(f) = self.lib.exported_elem(&parent, id.as_str(), node.loc) {
+                    if let Ok(f) =
+                        self.lib.exported_elem(&parent, id.as_str(), node.loc)
+                    {
                         node.replace((*f.node).clone(), f.typ.clone());
                     }
                 } else {
@@ -524,8 +529,15 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                         if let Some(me) = self.local_mod.find_modelem(id) {
                             match &*me.node {
                                 Ast::Canonical(can) => {
-                                    let node2 = self.lib.exported_elem(can, sub, base_node.loc)?;
-                                    node.replace((*node2.node).clone(), node2.typ.clone());
+                                    let node2 = self.lib.exported_elem(
+                                        can,
+                                        sub,
+                                        base_node.loc,
+                                    )?;
+                                    node.replace(
+                                        (*node2.node).clone(),
+                                        node2.typ.clone(),
+                                    );
                                 }
                                 _ => {
                                     return Err(rustfail!(
@@ -788,9 +800,7 @@ impl<'p> TypeCheck<'p>
             (t0, Type::LocalVar(v1)) => {
                 lfailoc!(self.infer_type(v1, t0, opens))
             }
-            (Type::User(u0), Type::User(u1))
-                if u0 == u1 =>
-            {
+            (Type::User(u0), Type::User(u1)) if u0 == u1 => {
                 return Ok(Type::User(u0.clone()));
             }
             (Type::User(u0), Type::User(u1)) => {
@@ -833,7 +843,10 @@ impl<'p> TypeCheck<'p>
         match self.lib.path_proto(u0) {
             Ok(proto) => {
                 // do something with opens from key?
-                eprintln!("match_type_alias: {} {:?} {}", u0, t1, proto.key.name);
+                eprintln!(
+                    "match_type_alias: {} {:?} {}",
+                    u0, t1, proto.key.name
+                );
                 if let Some(s0) = proto.find_modelem(proto::MODNAME_DATATYPE) {
                     if let Ast::Type(t0) = &*s0.node {
                         Ok(Some(self.match_type(t0, t1, opens)?))
@@ -966,10 +979,7 @@ impl<'p> TypeCheck<'p>
                                 .clone();
                         }
                         what => {
-                            let t = self.local_mod.ast_to_type(
-                                &a.1.v,
-                                &[],
-                            )?;
+                            let t = self.local_mod.ast_to_type(&a.1.v, &[])?;
                             a.0.v = t;
                             panic!("unexpected type setting: {:#?}", what);
                         }
@@ -1160,30 +1170,36 @@ impl<'p> TypeCheck<'p>
         Ok(prev_typ.unwrap())
     }
 
-    fn post_call(&mut self, call_typ: &mut Type, fref: &mut Fref, args: &mut Xlist, loc: Loc) -> Lresult<AstStep>
+    fn post_call(
+        &mut self,
+        call_typ: &mut Type,
+        fref: &mut Fref,
+        args: &mut Xlist,
+        loc: Loc,
+    ) -> Lresult<AstStep>
     {
         // an optimization here might be to iterate over
         // ast args and initialize any constants
         // actually better might be to stop having
         // the args in the Val::Call const?
 
-        *call_typ = ltry!(self
-            .applied_call_type(&mut fref.t, args)
-            .map_err(|f| {
-                f.add_context(lstrf!(
-                    "for function: {}",
-                    fref,
-                ))
-                .lstr_loc(self.local_mod.key.best_path(), loc.lineno as u32)
+        *call_typ =
+            ltry!(self.applied_call_type(&mut fref.t, args).map_err(|f| {
+                f.add_context(lstrf!("for function: {}", fref,))
+                    .lstr_loc(self.local_mod.key.best_path(), loc.lineno as u32)
             }));
         self.calls.push(fref.clone());
-                /*
-                error message for some other scenario, maybe unnecessary
-                */
+        /*
+        error message for some other scenario, maybe unnecessary
+        */
         Ok(AstStep::Ok)
     }
 
-    fn post_field_access(&self, base_typ: &Type, fld: &mut AstNode) -> Lresult<AstStep>
+    fn post_field_access(
+        &self,
+        base_typ: &Type,
+        fld: &mut AstNode,
+    ) -> Lresult<AstStep>
     {
         match (base_typ, &*fld.node) {
             (Type::User(tname), Ast::Id(f)) => {
@@ -1218,11 +1234,7 @@ impl<'p> TypeCheck<'p>
                 } else {
                     return Err(Failure::static_leema(
                         failure::Mode::CompileFailure,
-                        lstrf!(
-                            "type has no field: {}.{}",
-                            tname,
-                            f,
-                        ),
+                        lstrf!("type has no field: {}.{}", tname, f,),
                         self.local_mod.key.name.0.clone(),
                         fld.loc.lineno,
                     ));
@@ -1232,11 +1244,7 @@ impl<'p> TypeCheck<'p>
             (_, Ast::Id(id)) => {
                 return Err(Failure::static_leema(
                     failure::Mode::CompileFailure,
-                    lstrf!(
-                        "builtin type has no {} field: {}",
-                        id,
-                        base_typ,
-                    ),
+                    lstrf!("builtin type has no {} field: {}", id, base_typ,),
                     self.local_mod.key.name.0.clone(),
                     fld.loc.lineno,
                 ));
@@ -1327,7 +1335,12 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 match &mut *callx.node {
                     // handle a non-method call
                     Ast::ConstVal(Val::Call(fref, _)) => {
-                        steptry!(self.post_call(&mut node.typ, fref, args, node.loc));
+                        steptry!(self.post_call(
+                            &mut node.typ,
+                            fref,
+                            args,
+                            node.loc
+                        ));
                         callx.typ = fref.t.clone();
                     }
                     // handle a method call
@@ -1533,10 +1546,7 @@ impl Semantics
         &self.src.typ
     }
 
-    pub fn compile_call(
-        lib: &mut ProtoLib,
-        f: &Fref,
-    ) -> Lresult<Semantics>
+    pub fn compile_call(lib: &mut ProtoLib, f: &Fref) -> Lresult<Semantics>
     {
         let mut sem = Semantics::new();
 

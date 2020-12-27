@@ -191,7 +191,11 @@ impl ProtoModule
         Self::with_ast(key, None, items)
     }
 
-    fn with_ast(key: ModKey, parent: Option<ProtoType>, items: Vec<AstNode>) -> Lresult<ProtoModule>
+    fn with_ast(
+        key: ModKey,
+        parent: Option<ProtoType>,
+        items: Vec<AstNode>,
+    ) -> Lresult<ProtoModule>
     {
         let modname = key.name.clone();
         let mut proto = ProtoModule {
@@ -229,7 +233,9 @@ impl ProtoModule
                     if !proto.exports_all.is_none() {
                         return Err(Failure::static_leema(
                             failure::Mode::CompileFailure,
-                            Lstr::Sref("cannot mix exporting * and specific modules"),
+                            Lstr::Sref(
+                                "cannot mix exporting * and specific modules",
+                            ),
                             modname.0.clone(),
                             loc.lineno,
                         ));
@@ -315,7 +321,8 @@ impl ProtoModule
         // if imp is absolute, canonical will just be imp
         let canon = self.key.name.push(&imp);
         self.imports.insert(name, canon.clone());
-        self.modscope.insert(name, AstNode::new(Ast::Canonical(canon), loc));
+        self.modscope
+            .insert(name, AstNode::new(Ast::Canonical(canon), loc));
         Ok(())
     }
 
@@ -334,9 +341,7 @@ impl ProtoModule
             Ast::DefFunc(name, args, result, body) => {
                 lfailoc!(self.add_func(name, args, result, body))
             }
-            Ast::DefTrait(name, funcs) => {
-                lfailoc!(self.add_trait(name, funcs))
-            }
+            Ast::DefTrait(name, funcs) => lfailoc!(self.add_trait(name, funcs)),
             Ast::DefImpl(iface, typ, funcs) => {
                 lfailoc!(self.impl_trait(iface, typ, funcs))
             }
@@ -390,11 +395,7 @@ impl ProtoModule
         })
     }
 
-    fn refute_redefines_default(
-        &self,
-        id: &str,
-        loc: Loc,
-    ) -> Lresult<()>
+    fn refute_redefines_default(&self, id: &str, loc: Loc) -> Lresult<()>
     {
         if !self.key.name.is_core() && DEFAULT_IDS.contains_key(id) {
             Err(Failure::static_leema(
@@ -517,7 +518,12 @@ impl ProtoModule
             self.modscope.insert(MODNAME_DATATYPE, type_node);
             ltry!(self.add_data_fields(fields));
         } else {
-            let subp = ltry!(self.add_selfmod(ModTyp::Data, proto, vec![constructor_ast], loc));
+            let subp = ltry!(self.add_selfmod(
+                ModTyp::Data,
+                proto,
+                vec![constructor_ast],
+                loc
+            ));
             subp.modscope.insert(MODNAME_DATATYPE, type_node);
             // TODO add this definition to the struct module instead
             ltry!(subp.add_data_fields(fields));
@@ -525,19 +531,17 @@ impl ProtoModule
         Ok(())
     }
 
-    fn add_data_fields(
-        &mut self,
-        fields: Xlist,
-    ) -> Lresult<()>
+    fn add_data_fields(&mut self, fields: Xlist) -> Lresult<()>
     {
         for (i, f) in fields.iter().enumerate() {
             let t = match &self.typ {
-                Some(p) =>  self.ast_to_type(&f.v, &p.g)?,
+                Some(p) => self.ast_to_type(&f.v, &p.g)?,
                 None => self.ast_to_type(&f.v, &[])?,
             };
             match f.k {
                 Some(k) => {
-                    let scope_type = AstNode::new(Ast::DataMember(t, i as u8), f.v.loc);
+                    let scope_type =
+                        AstNode::new(Ast::DataMember(t, i as u8), f.v.loc);
                     self.modscope.insert(k, scope_type);
                 }
                 None => {
@@ -590,13 +594,14 @@ impl ProtoModule
     fn add_alias_type(&mut self, name: AstNode, src: AstNode) -> Lresult<()>
     {
         let loc = name.loc;
-        let ProtoType{n: name_id, ..} = self.make_proto_type(name)?;
+        let ProtoType { n: name_id, .. } = self.make_proto_type(name)?;
         let srct = ltry!(self.ast_to_type(&src, &[]));
         let typenode = Ast::Type(srct.clone());
         let mut node = AstNode::new(typenode, loc);
         node.typ = Type::Kind;
         let alias_generics = vec![]; // add generics later
-        let alias_node = AstNode::new(Ast::Alias(alias_generics, Box::new(node)), loc);
+        let alias_node =
+            AstNode::new(Ast::Alias(alias_generics, Box::new(node)), loc);
         self.modscope.insert(name_id, alias_node);
         Ok(())
     }
@@ -610,12 +615,14 @@ impl ProtoModule
         let mut node = AstNode::new(typenode, loc);
         node.typ = Type::Kind;
         let subcon = {
-            let sub = ltry!(self.add_selfmod(ModTyp::Data, proto_t, vec![], loc));
+            let sub =
+                ltry!(self.add_selfmod(ModTyp::Data, proto_t, vec![], loc));
             // TODO: add __datatype or whatever
             sub.modscope.insert(MODNAME_DATATYPE, node);
             sub.key.name.clone()
         };
-        self.modscope.insert(name, AstNode::new(Ast::Canonical(subcon), loc));
+        self.modscope
+            .insert(name, AstNode::new(Ast::Canonical(subcon), loc));
         Ok(())
     }
 
@@ -660,11 +667,7 @@ impl ProtoModule
         Ok(())
     }
 
-    fn add_trait(
-        &mut self,
-        name: AstNode,
-        funcs: Vec<AstNode>,
-    ) -> Lresult<()>
+    fn add_trait(&mut self, name: AstNode, funcs: Vec<AstNode>) -> Lresult<()>
     {
         let loc = name.loc;
         let proto_t = self.make_proto_type(name)?;
@@ -689,18 +692,14 @@ impl ProtoModule
             Ast::DefType(
                 DataType::Alias,
                 AstNode::new(Ast::Id("Self"), loc),
-                vec![StrupleItem::new_v(
-                    AstNode::new(Ast::Type(utyp), loc),
-                )],
+                vec![StrupleItem::new_v(AstNode::new(Ast::Type(utyp), loc))],
             ),
             loc,
         );
         funcs.insert(0, alias);
         self.imports.insert(id, subkey.name.clone());
-        self.modscope.insert(id, AstNode::new(
-            Ast::Canonical(subkey.name.clone()),
-            loc,
-        ));
+        self.modscope
+            .insert(id, AstNode::new(Ast::Canonical(subkey.name.clone()), loc));
         let sub = ltry!(ProtoModule::with_ast(subkey, Some(proto_t), funcs));
         self.submods.insert(id, sub);
         Ok(self.submods.get_mut(id).unwrap())
@@ -776,21 +775,17 @@ impl ProtoModule
         };
 
         ltry!(self.refute_redefines_default(id, loc));
-        let ft =
-            lfctx!(
-                self.ast_to_ftype(&args, &result, &opens),
-                "file": self.key.best_path(),
-                "line": lstrf!("{}", name.loc.lineno),
-                "func": Lstr::Sref(id)
-            );
+        let ft = lfctx!(
+            self.ast_to_ftype(&args, &result, &opens),
+            "file": self.key.best_path(),
+            "line": lstrf!("{}", name.loc.lineno),
+            "func": Lstr::Sref(id)
+        );
         let ftyp = type_maker(ft.clone());
         Ok((id, ft, ftyp))
     }
 
-    fn make_proto_type(
-        &mut self,
-        name: AstNode,
-    ) -> Lresult<ProtoType>
+    fn make_proto_type(&mut self, name: AstNode) -> Lresult<ProtoType>
     {
         let m = &self.key.name;
         let utyp: Type;
@@ -869,7 +864,11 @@ impl ProtoModule
             }
         };
         ltry!(self.refute_redefines_default(id, name.loc));
-        Ok(ProtoType{n: id, t: utyp, g: opens})
+        Ok(ProtoType {
+            n: id,
+            t: utyp,
+            g: opens,
+        })
     }
 
     pub fn type_modules(&self) -> Lresult<Vec<ProtoModule>>
@@ -983,17 +982,14 @@ impl ProtoModule
                         .iter()
                         .map(|item| {
                             let k = item.k.map(|ik| Lstr::Sref(ik));
-                            let v = ltry!(
-                                self.ast_to_type(&item.v, opens)
-                            );
+                            let v = ltry!(self.ast_to_type(&item.v, opens));
                             Ok(StrupleItem::new(k, v))
                         })
                         .collect();
                 Type::Tuple(inner_t?)
             }
             Ast::FuncType(args, result) => {
-                let ftype =
-                    ltry!(self.ast_to_ftype(args, result, opens));
+                let ftype = ltry!(self.ast_to_ftype(args, result, opens));
                 Type::Func(ftype)
             }
             Ast::Generic(base, typeargs) => {
@@ -1017,9 +1013,7 @@ impl ProtoModule
                 match (&*module_node.node, &*id_node.node) {
                     (Ast::Id(m), Ast::Id(id)) => {
                         match self.imports.get(m) {
-                            Some(canonical) => {
-                                Type::User(canonical.join(id)?)
-                            }
+                            Some(canonical) => Type::User(canonical.join(id)?),
                             None => {
                                 return Err(rustfail!(
                                     PROTOFAIL,
@@ -1237,11 +1231,8 @@ impl ProtoLib
         Ok(())
     }
 
-    fn put_module(
-        &mut self,
-        modpath: &Path,
-        proto: ProtoModule,
-    ) -> Lresult<()>
+    fn put_module(&mut self, modpath: &Path, proto: ProtoModule)
+        -> Lresult<()>
     {
         let type_mods = proto.type_modules()?;
         self.protos.insert(modpath.to_path_buf(), proto);
@@ -1301,15 +1292,14 @@ impl ProtoLib
                 loc.lineno,
             ));
         }
-        proto.modscope.get(elem)
-            .ok_or_else(|| {
-                Failure::static_leema(
-                    failure::Mode::CompileFailure,
-                    lstrf!("module element not found {} {}", modname, elem),
-                    modname.0.clone(),
-                    loc.lineno,
-                )
-            })
+        proto.modscope.get(elem).ok_or_else(|| {
+            Failure::static_leema(
+                failure::Mode::CompileFailure,
+                lstrf!("module element not found {} {}", modname, elem),
+                modname.0.clone(),
+                loc.lineno,
+            )
+        })
     }
 
     pub fn imported_proto(
@@ -1403,9 +1393,7 @@ mod tests
                 ))),
                 vec![StrupleItem::new("T", Type::OpenVar("T"))],
             ),
-            proto.modscope.get("first")
-                .unwrap()
-                .typ,
+            proto.modscope.get("first").unwrap().typ,
         );
 
         // first is exported by default

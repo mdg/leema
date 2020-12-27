@@ -67,7 +67,8 @@ impl Canonical
     /// add an identifier to an existing canonical
     /// fails if sub is Absolute
     pub fn join<S>(&self, sub: S) -> Lresult<Canonical>
-        where S: AsRef<OsStr> + std::fmt::Debug
+    where
+        S: AsRef<OsStr> + std::fmt::Debug,
     {
         let subpath = Path::new(sub.as_ref());
         match ImportedMod::path_relativity(subpath) {
@@ -196,7 +197,8 @@ impl From<&Path> for Canonical
         if !cp.is_absolute() {
             panic!("canonical must be absolute: {:?}", cp);
         }
-        let cstr: String = cp.to_str().expect("expected unicode path").to_string();
+        let cstr: String =
+            cp.to_str().expect("expected unicode path").to_string();
         Canonical::new(Lstr::from(cstr))
     }
 }
@@ -208,7 +210,8 @@ impl From<PathBuf> for Canonical
         if !cp.is_absolute() {
             panic!("canonical must be absolute: {:?}", cp);
         }
-        let cstr: String = cp.to_str().expect("expected unicode path").to_string();
+        let cstr: String =
+            cp.to_str().expect("expected unicode path").to_string();
         Canonical::new(Lstr::from(cstr))
     }
 }

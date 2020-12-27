@@ -235,7 +235,8 @@ impl Fiber
 
     pub fn execute_const_val(&mut self, reg: Reg, v: &Val) -> Lresult<Event>
     {
-        lfctx!(self.head.e.set_reg(reg, v.clone()),
+        lfctx!(
+            self.head.e.set_reg(reg, v.clone()),
             "cannot_load_constant": lstrf!("{:?}", v)
         );
         self.head.pc += 1;

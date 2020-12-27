@@ -23,7 +23,7 @@ use mopa::mopafy;
 macro_rules! core_type {
     ($t:ident) => {
         crate::leema::val::Type::User(crate::leema::canonical::Canonical(
-            crate::leema::lstr::Lstr::Sref(concat!("/core/", stringify!($t)))
+            crate::leema::lstr::Lstr::Sref(concat!("/core/", stringify!($t))),
         ))
     };
 }
@@ -32,7 +32,7 @@ macro_rules! core_type {
 macro_rules! user_type {
     ($ct:literal) => {
         crate::leema::val::Type::User(crate::leema::canonical::Canonical(
-            crate::leema::lstr::Lstr::Sref($ct)
+            crate::leema::lstr::Lstr::Sref($ct),
         ))
     };
 }
@@ -1257,13 +1257,9 @@ impl reg::Iregistry for Val
     {
         match (i, self) {
             // set reg on tuples
-            (_, &mut Val::Tuple(ref mut fields)) => {
-                fields.ireg_set(i, v)
-            }
+            (_, &mut Val::Tuple(ref mut fields)) => fields.ireg_set(i, v),
             // set reg on structs
-            (_, &mut Val::Struct(_, ref mut fields)) => {
-                fields.ireg_set(i, v)
-            }
+            (_, &mut Val::Struct(_, ref mut fields)) => fields.ireg_set(i, v),
             // set reg on lists
             (Ireg::Reg(0), &mut Val::Cons(ref mut head, _)) => {
                 **head = v;
@@ -1287,9 +1283,7 @@ impl reg::Iregistry for Val
                 ))
             }
             // set reg on Fref
-            (_, &mut Val::Call(_, ref mut args)) => {
-                args.ireg_set(i, v)
-            }
+            (_, &mut Val::Call(_, ref mut args)) => args.ireg_set(i, v),
             // values that can't act as registries
             (_, dst) => {
                 Err(rustfail!(

@@ -716,20 +716,22 @@ impl Registration
                 Self::assign_registers(base, stack)?;
                 let field_idx = match &*field.node {
                     Ast::Id(idx_str) => {
-                        idx_str.parse()
-                            .map_err(|e| {
-                                rustfail!(
-                                    "leema_failure",
-                                    "{} for {:?}",
-                                    e,
-                                    idx_str,
-                                )
-                            })?
+                        idx_str.parse().map_err(|e| {
+                            rustfail!(
+                                "leema_failure",
+                                "{} for {:?}",
+                                e,
+                                idx_str,
+                            )
+                        })?
                     }
                     Ast::ConstVal(Val::Int(i)) => *i as i8,
                     Ast::DataMember(_, i) => *i as i8,
                     other => {
-                        panic!("field name is not an identifier: {:?} @ {:?}", other, field.loc)
+                        panic!(
+                            "field name is not an identifier: {:?} @ {:?}",
+                            other, field.loc
+                        )
                     }
                 };
                 node.dst = base.dst.sub(field_idx);

@@ -56,10 +56,7 @@ impl Lstr
             Ok(s)
         } else {
             let msg = Lstr::Sref("string is not static");
-            let f = crate::leema::failure::Failure::new(
-                "leema_failure",
-                msg,
-            );
+            let f = crate::leema::failure::Failure::new("leema_failure", msg);
             Err(f.with_context(vec![
                 StrupleItem::new(Lstr::Sref("file"), Lstr::Sref(file!())),
                 StrupleItem::new(Lstr::Sref("line"), lstrf!("{}", file!())),

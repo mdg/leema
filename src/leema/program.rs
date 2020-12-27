@@ -68,10 +68,9 @@ impl Lib
         proglib
             .rust_load
             .insert(canonical!("/file"), file::load_rust_func);
-        proglib.rust_load.insert(
-            canonical!("/hyper_client"),
-            lib_hyper::load_client_func,
-        );
+        proglib
+            .rust_load
+            .insert(canonical!("/hyper_client"), lib_hyper::load_client_func);
         proglib
             .rust_load
             .insert(canonical!("/hyper_server"), lib_hyper::load_rust_func);
@@ -154,8 +153,7 @@ impl Lib
         }
     }
 
-    pub fn load_proto_and_imports(&mut self, cmod: &Canonical)
-        -> Lresult<()>
+    pub fn load_proto_and_imports(&mut self, cmod: &Canonical) -> Lresult<()>
     {
         let modpath = cmod.as_path();
         ltry!(self.protos.load_absolute(&mut self.loader, modpath));

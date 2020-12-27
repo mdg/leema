@@ -213,7 +213,8 @@ impl Failure
 
     pub fn add_context(mut self, ctx: Lstr) -> Self
     {
-        self.context.push(vec![StrupleItem::new(Lstr::Sref("context"), ctx)]);
+        self.context
+            .push(vec![StrupleItem::new(Lstr::Sref("context"), ctx)]);
         self
     }
 
