@@ -1,3 +1,8 @@
+/// Canonical module and id type
+///
+/// /core/Str
+/// /core/<Option T>
+/// /core\LocalType
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::{ImportedMod, ModRelativity};
@@ -25,11 +30,18 @@ pub enum Impath
     Exported(&'static Impath, &'static str),
 }
 
-pub enum Lpath
+#[derive(Clone)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Ord)]
+#[derive(Hash)]
+enum Lpath
 {
-    Root,
-    Local(&'static Lpath, &'static str),
-    Exported(&'static Lpath, &'static str),
+    Root(&'static str),
+    Path2([&'static str; 2]),
+    Path3([&'static str; 3]),
+    Path(Rc<Lpath>, &'static str),
 }
 
 static ROOT: Lpath = Lpath::Root;
