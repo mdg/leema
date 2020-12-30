@@ -14,11 +14,11 @@ pub fn map_type() -> Type
         vec![
             StrupleItem {
                 k: "K",
-                v: Type::Unknown,
+                v: Type::UNKNOWN,
             },
             StrupleItem {
                 k: "V",
-                v: Type::Unknown,
+                v: Type::UNKNOWN,
             },
         ],
     )

@@ -381,7 +381,7 @@ impl AstNode
         AstNode {
             node: Box::new(node),
             loc,
-            typ: Type::Unknown,
+            typ: Type::UNKNOWN,
             dst: Reg::Undecided,
         }
     }

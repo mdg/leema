@@ -686,7 +686,6 @@ impl<'p> TypeCheck<'p>
                 Type::generic(inner2, typargs2)
             }
             Type::User(_) => t.clone(),
-            _ => t.clone(),
         };
         Ok(newt)
     }
@@ -710,13 +709,13 @@ impl<'p> TypeCheck<'p>
     ) -> Lresult<Type>
     {
         match (t0, t1) {
-            (t0, Type::Unknown) => {
+            (t0, unknown1) if *unknown1 == Type::UNKNOWN => {
                 if t0.is_open() {
                     eprintln!("yikes, type is open {}", t0);
                 }
                 Ok(t0.clone())
             }
-            (Type::Unknown, t1) => {
+            (unknown0, t1) if *unknown0 == Type::UNKNOWN => {
                 if t1.is_open() {
                     eprintln!("yikes, type is open {}", t1);
                 }
@@ -882,7 +881,7 @@ impl<'p> TypeCheck<'p>
         };
 
         match &opens[open_idx].v {
-            Type::Unknown => {
+            unknown if *unknown == Type::UNKNOWN => {
                 // newly defined type, set it in opens
                 opens[open_idx].v = t.clone();
                 Ok(t.clone())
@@ -1012,7 +1011,10 @@ impl<'p> TypeCheck<'p>
     {
         for (idx, i) in typeargs.iter().enumerate() {
             match i.v {
-                Type::OpenVar(_) | Type::Unknown => {
+                Type::OpenVar(_) => {
+                    return Ok((idx, i.k));
+                }
+                ref unknown if *unknown == Type::UNKNOWN => {
                     return Ok((idx, i.k));
                 }
                 _ => {} // not open, keep looking
@@ -1250,7 +1252,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 node.typ = self.result.clone();
             }
             Ast::Wildcard => {
-                node.typ = Type::Unknown;
+                node.typ = Type::UNKNOWN;
             }
             Ast::Op2(_, _, _) => {
                 // handled in post
@@ -1404,7 +1406,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 let inner_typ = inner
                     .first()
                     .map(|item| item.v.typ.clone())
-                    .unwrap_or(Type::Unknown);
+                    .unwrap_or(Type::UNKNOWN);
                 node.typ = Type::list(inner_typ);
             }
             Ast::Tuple(ref items) => {

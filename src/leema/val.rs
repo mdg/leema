@@ -149,7 +149,6 @@ pub enum Type
     /// TODO: convert open flag to an enum
     Generic(bool, Box<Type>, GenericTypes),
 
-    Unknown,
     OpenVar(&'static str),
     LocalVar(Lstr),
 }
@@ -170,7 +169,9 @@ impl Type
 
     /// Type assigned to -RUST- code blocks
     /// gets special treatment by the type checker to match any type
-    const RUST_BLOCK: Type = leema_type!(RustBlock);
+    pub const RUST_BLOCK: Type = leema_type!(RustBlock);
+    /// Initial type to indicate the type checker doesn't know
+    pub const UNKNOWN: Type = leema_type!(Unknown);
 
     pub fn f(inputs: Struple2<Type>, result: Type) -> Type
     {
@@ -192,7 +193,7 @@ impl Type
     {
         let (open, arg) = match inner {
             Some(i) => (i.is_open(), i),
-            None => (true, Type::Unknown),
+            None => (true, Type::UNKNOWN),
         };
         let gen_args = vec![StrupleItem::new("T", arg)];
         Type::Generic(open, Box::new(Type::OPTION), gen_args)
@@ -277,7 +278,7 @@ impl Type
             Type::Generic(open, _, _) => *open,
             Type::OpenVar(_) => true,
             Type::Tuple(items) => items.iter().any(|i| i.v.is_open()),
-            Type::Unknown => true,
+            unknown if *unknown == Type::UNKNOWN => true,
             _ => false,
         }
     }
@@ -342,7 +343,6 @@ impl sendclone::SendClone for Type
         match self {
             &Type::Tuple(ref items) => Type::Tuple(items.clone_for_send()),
             &Type::Func(ref ftyp) => Type::Func(ftyp.clone()),
-            &Type::Unknown => Type::Unknown,
             &Type::OpenVar(id) => Type::OpenVar(id),
             &Type::LocalVar(ref id) => Type::LocalVar(id.clone_for_send()),
             &Type::Generic(open, ref subt, ref opens) => {
@@ -391,7 +391,7 @@ impl Default for Type
 {
     fn default() -> Type
     {
-        Type::Unknown
+        Type::UNKNOWN
     }
 }
 
@@ -414,7 +414,6 @@ impl fmt::Display for Type
             }
             &Type::Func(ref ftyp) => write!(f, "F{}", ftyp),
 
-            &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::OpenVar(ref name) => write!(f, "${}", name),
             &Type::LocalVar(ref name) => write!(f, "local${}", name),
         }
@@ -446,7 +445,6 @@ impl fmt::Debug for Type
                 write!(f, "<{:?} {} {:?}>", inner, open_tag, args)
             }
 
-            &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::OpenVar(name) => write!(f, "${}", name),
             &Type::LocalVar(ref name) => write!(f, "local${}", name),
         }
@@ -538,7 +536,7 @@ impl Fref
         Fref {
             m,
             f,
-            t: Type::Unknown,
+            t: Type::UNKNOWN,
         }
     }
 }
@@ -770,11 +768,11 @@ impl Val
                 let inner = head.get_type();
                 Type::list(inner)
             }
-            &Val::Nil => Type::list(Type::Unknown),
+            &Val::Nil => Type::list(Type::UNKNOWN),
             &Val::Failure2(_) => Type::FAILURE,
             &Val::Type(_) => Type::KIND,
-            &Val::Wildcard => Type::Unknown,
-            &Val::PatternVar(_) => Type::Unknown,
+            &Val::Wildcard => Type::UNKNOWN,
+            &Val::PatternVar(_) => Type::UNKNOWN,
             &Val::RustBlock => Type::RUST_BLOCK,
             &Val::Map(_) => lmap::map_type(),
             &Val::Tuple(ref items) if items.len() == 1 => {
@@ -1819,7 +1817,7 @@ mod tests
     fn test_get_type_empty_list()
     {
         let typ = Val::Nil.get_type();
-        assert_eq!(Type::list(Type::Unknown), typ);
+        assert_eq!(Type::list(Type::UNKNOWN), typ);
     }
 
     #[test]

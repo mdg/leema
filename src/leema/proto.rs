@@ -823,7 +823,7 @@ impl ProtoModule
                             a,
                         ));
                     };
-                    opens1.push(StrupleItem::new(var, Type::Unknown));
+                    opens1.push(StrupleItem::new(var, Type::UNKNOWN));
                     gen_arg_vars
                         .push(StrupleItem::new(var, Type::OpenVar(var)));
                 }

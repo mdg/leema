@@ -21,7 +21,7 @@ impl rsrc::Rsrc for Lfuture
     fn get_type(&self) -> Type
     {
         // this should probably have a known type field later
-        let type_args = vec![StrupleItem::new("T", Type::Unknown)];
+        let type_args = vec![StrupleItem::new("T", Type::UNKNOWN)];
         let futype = Box::new(user_type!("/task/Future"));
         Type::Generic(true, futype, type_args)
     }
