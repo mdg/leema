@@ -6,7 +6,6 @@ use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::sendclone;
 
-use std::borrow::Borrow;
 use std::ffi::OsStr;
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -189,13 +188,13 @@ impl Canonical
     }
 
     /// get the string portion of the Canonical
-    fn as_str(&self) -> &Lstr
+    fn path_str(&self) -> &Lstr
     {
         match self {
             Canonical::Path(p) => p,
             Canonical::Open(p, _) => p,
             Canonical::Closed(p, _) => p,
-            Canonical::Impl(_, _) => panic!("which as str?"),
+            Canonical::Impl(_, _) => panic!("which path?"),
         }
     }
 
@@ -261,14 +260,6 @@ impl From<PathBuf> for Canonical
         let cstr: String =
             cp.to_str().expect("expected unicode path").to_string();
         Canonical::new(Lstr::from(cstr))
-    }
-}
-
-impl Borrow<str> for Canonical
-{
-    fn borrow(&self) -> &str
-    {
-        self.as_str()
     }
 }
 
