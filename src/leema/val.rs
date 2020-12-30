@@ -136,7 +136,6 @@ pub enum Type
     Tuple(Struple2<Type>),
     Func(FuncType),
     User(Canonical),
-    Variant(Box<Type>, &'static str),
     /// bool is open
     /// TODO: convert open flag to an enum
     Generic(bool, Box<Type>, GenericTypes),
@@ -188,11 +187,6 @@ impl Type
         Type::Generic(open, Box::new(Type::OPTION), gen_args)
     }
 
-    pub fn variant(base: Type, var_name: &'static str) -> Type
-    {
-        Type::Variant(Box::new(base), var_name)
-    }
-
     pub fn generic(inner: Type, args: GenericTypes) -> Type
     {
         let open = args.iter().any(|a| a.v.is_open());
@@ -206,7 +200,6 @@ impl Type
     {
         match self {
             &Type::User(ref name) => name.to_lstr(),
-            &Type::Variant(ref t, ref var) => lstrf!("{}.{}", t, var),
             &Type::OpenVar(name) => Lstr::from(format!("${}", name)),
             &Type::LocalVar(ref name) => Lstr::from(format!("local:{}", name)),
             _ => {
@@ -253,7 +246,6 @@ impl Type
     {
         match self {
             &Type::User(_) => true,
-            &Type::Variant(_, _) => true,
             &Type::Generic(_, ref inner, _) => inner.is_user(),
             _ => false,
         }
@@ -272,7 +264,6 @@ impl Type
     {
         match self {
             Type::Generic(open, _, _) => *open,
-            Type::Variant(inner, _) => inner.is_open(),
             Type::OpenVar(_) => true,
             Type::Tuple(items) => items.iter().any(|i| i.v.is_open()),
             Type::Unknown => true,
@@ -349,9 +340,6 @@ impl sendclone::SendClone for Type
                 Type::Generic(open, subt2, opens2)
             }
             &Type::User(ref c) => Type::User(c.clone_for_send()),
-            &Type::Variant(ref t, var) => {
-                Type::Variant(Box::new(t.clone_for_send()), var)
-            }
             _ => {
                 panic!("cannot clone_for_send Type: {:?}", self);
             }
@@ -412,7 +400,6 @@ impl fmt::Display for Type
                 write!(f, ")")
             }
             &Type::User(ref c) => write!(f, "{}", c),
-            &Type::Variant(ref t, ref var) => write!(f, "{}.{}", t, var),
             &Type::Generic(open, ref inner, ref args) => {
                 let open_tag = if open { "Open" } else { "Closed" };
                 write!(f, "<{:?} {} {:?}>", inner, open_tag, args)
@@ -449,7 +436,6 @@ impl fmt::Debug for Type
                 }
             }
             &Type::User(ref c) => write!(f, "({})", c),
-            &Type::Variant(ref t, ref var) => write!(f, "{:?}.{}", t, var),
             &Type::Generic(open, ref inner, ref args) => {
                 let open_tag = if open { "Open" } else { "Closed" };
                 write!(f, "<{:?} {} {:?}>", inner, open_tag, args)

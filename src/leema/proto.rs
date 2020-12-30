@@ -650,11 +650,10 @@ impl ProtoModule
 
         for var in variants.into_iter() {
             let var_name = var.k.unwrap();
-            let var_typ = Type::variant(union_typ.clone(), var_name);
             self.funcseq.push(var_name);
             if let Ast::DefType(DataType::Struct, _, flds) = *var.v.node {
                 if flds.is_empty() {
-                    let vval = Val::EnumToken(var_typ, Lstr::Sref(var_name));
+                    let vval = Val::EnumToken(union_typ.clone(), Lstr::Sref(var_name));
                     let vast = AstNode::new_constval(vval, var.v.loc);
                     self.modscope.insert(sname_id, vast);
                 } else {

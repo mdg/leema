@@ -685,10 +685,6 @@ impl<'p> TypeCheck<'p>
                 })?;
                 Type::generic(inner2, typargs2)
             }
-            Type::Variant(inner, var) => {
-                let inner2 = self.inferred_type(&*inner, opens)?;
-                Type::Variant(Box::new(inner2), var)
-            }
             Type::User(_) => t.clone(),
             _ => t.clone(),
         };
@@ -774,11 +770,6 @@ impl<'p> TypeCheck<'p>
                     .collect();
                 Ok(Type::generic(inner, argr?))
             }
-            (Type::Variant(inner0, _), Type::Variant(inner1, _)) => {
-                self.match_type(inner0, inner1, opens)
-            }
-            (Type::Variant(inner0, _), _) => self.match_type(inner0, t1, opens),
-            (_, Type::Variant(inner1, _)) => self.match_type(t0, inner1, opens),
             (Type::OpenVar(v0), t1) => {
                 lfailoc!(self.close_generic(v0, t1, opens))
             }
