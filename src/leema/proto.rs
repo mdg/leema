@@ -763,7 +763,7 @@ impl ProtoModule
                 opens.append(&mut open_result?);
 
                 type_maker = Box::new(|ft| {
-                    Type::Generic(true, Box::new(Type::Func(ft)), opens.clone())
+                    Type::Generic(Box::new(Type::Func(ft)), opens.clone())
                 });
 
                 if let Ast::Id(name_id) = *gen.node {
@@ -843,7 +843,7 @@ impl ProtoModule
                     }
 
                     let inner = Type::User(m.join(name_id)?);
-                    utyp = Type::Generic(true, Box::new(inner), gen_arg_vars);
+                    utyp = Type::Generic(Box::new(inner), gen_arg_vars);
                     name_id
                 } else {
                     return Err(rustfail!(
@@ -1394,7 +1394,6 @@ mod tests
         assert!(proto.modscope.contains_key("first"));
         assert_eq!(
             Type::Generic(
-                true,
                 Box::new(Type::Func(FuncType::new(
                     vec![
                         StrupleItem::new(Some(Lstr::Sref("a")), tvt.clone()),
@@ -1420,7 +1419,6 @@ mod tests
 
         let point_type = proto.types.get("Point").expect("no Point type");
         let expected = Type::Generic(
-            true,
             Box::new(user_type!("/foo/Point")),
             vec![StrupleItem::new("T", Type::OpenVar("T"))],
         );

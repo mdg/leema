@@ -8,9 +8,8 @@ pub const STRUCT_FIELD_TYPE: Type = user_type!("/types/StructFieldVal");
 
 pub fn option_type(t: Type) -> Type
 {
-    let open = t.is_open();
     let opt = Box::new(user_type!("/option/T"));
-    Type::Generic(open, opt, vec![StrupleItem::new("T", t)])
+    Type::Generic(opt, vec![StrupleItem::new("T", t)])
 }
 
 pub fn new_some(v: Val) -> Val

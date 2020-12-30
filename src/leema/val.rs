@@ -147,7 +147,7 @@ pub enum Type
     User(Canonical),
     /// bool is open
     /// TODO: convert open flag to an enum
-    Generic(bool, Box<Type>, GenericTypes),
+    Generic(Box<Type>, GenericTypes),
 
     OpenVar(&'static str),
     LocalVar(Lstr),
@@ -184,25 +184,23 @@ impl Type
 
     pub fn list(inner: Type) -> Type
     {
-        let open = inner.is_open();
         let gen_args = vec![StrupleItem::new("T", inner.clone())];
-        Type::Generic(open, Box::new(Type::LIST), gen_args)
+        Type::Generic(Box::new(Type::LIST), gen_args)
     }
 
     pub fn option(inner: Option<Type>) -> Type
     {
-        let (open, arg) = match inner {
-            Some(i) => (i.is_open(), i),
-            None => (true, Type::UNKNOWN),
+        let arg = match inner {
+            Some(i) => i,
+            None => Type::UNKNOWN,
         };
         let gen_args = vec![StrupleItem::new("T", arg)];
-        Type::Generic(open, Box::new(Type::OPTION), gen_args)
+        Type::Generic(Box::new(Type::OPTION), gen_args)
     }
 
     pub fn generic(inner: Type, args: GenericTypes) -> Type
     {
-        let open = args.iter().any(|a| a.v.is_open());
-        Type::Generic(open, Box::new(inner), args)
+        Type::Generic(Box::new(inner), args)
     }
 
     /**
@@ -258,7 +256,7 @@ impl Type
     {
         match self {
             &Type::User(_) => true,
-            &Type::Generic(_, ref inner, _) => inner.is_user(),
+            &Type::Generic(ref inner, _) => inner.is_user(),
             _ => false,
         }
     }
@@ -267,15 +265,27 @@ impl Type
     {
         match self {
             Type::Func(_) => true,
-            Type::Generic(_, ref inner, _) => inner.is_func(),
+            Type::Generic(ref inner, _) => inner.is_func(),
             _ => false,
         }
+    }
+
+    /// check if any of the generic type args are open
+    pub fn open_args(args: &GenericTypes) -> bool
+    {
+        args.iter().any(|a| a.v.is_open())
+    }
+
+    /// check if any of the generic type args are closed
+    pub fn closed_args(args: &GenericTypes) -> bool
+    {
+        !Type::open_args(args)
     }
 
     pub fn is_open(&self) -> bool
     {
         match self {
-            Type::Generic(open, _, _) => *open,
+            Type::Generic(_, args) => Type::open_args(args),
             Type::OpenVar(_) => true,
             Type::Tuple(items) => items.iter().any(|i| i.v.is_open()),
             unknown if *unknown == Type::UNKNOWN => true,
@@ -345,10 +355,10 @@ impl sendclone::SendClone for Type
             &Type::Func(ref ftyp) => Type::Func(ftyp.clone()),
             &Type::OpenVar(id) => Type::OpenVar(id),
             &Type::LocalVar(ref id) => Type::LocalVar(id.clone_for_send()),
-            &Type::Generic(open, ref subt, ref opens) => {
+            &Type::Generic(ref subt, ref opens) => {
                 let subt2 = Box::new(subt.clone_for_send());
                 let opens2 = opens.clone_for_send();
-                Type::Generic(open, subt2, opens2)
+                Type::Generic(subt2, opens2)
             }
             &Type::User(ref c) => Type::User(c.clone_for_send()),
         }
@@ -408,9 +418,8 @@ impl fmt::Display for Type
                 write!(f, ")")
             }
             &Type::User(ref c) => write!(f, "{}", c),
-            &Type::Generic(open, ref inner, ref args) => {
-                let open_tag = if open { "Open" } else { "Closed" };
-                write!(f, "<{:?} {} {:?}>", inner, open_tag, args)
+            &Type::Generic(ref inner, ref args) => {
+                write!(f, "<{:?} {:?}>", inner, args)
             }
             &Type::Func(ref ftyp) => write!(f, "F{}", ftyp),
 
@@ -440,9 +449,8 @@ impl fmt::Debug for Type
                 }
             }
             &Type::User(ref c) => write!(f, "({})", c),
-            &Type::Generic(open, ref inner, ref args) => {
-                let open_tag = if open { "Open" } else { "Closed" };
-                write!(f, "<{:?} {} {:?}>", inner, open_tag, args)
+            &Type::Generic(ref inner, ref args) => {
+                write!(f, "<{:?} {:?}>", inner, args)
             }
 
             &Type::OpenVar(name) => write!(f, "${}", name),
@@ -991,7 +999,7 @@ impl From<&Fref> for Lresult<Val>
                     struple::map_v(&ft.args, |_| Ok(Val::VOID))?,
                 ))
             }
-            Type::Generic(_open, inner, _args) => {
+            Type::Generic(inner, _args) => {
                 if let Type::Func(ft) = &**inner {
                     Ok(Val::Call(
                         f.clone(),

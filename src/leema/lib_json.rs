@@ -82,10 +82,10 @@ pub fn decode(mut ctx: RustFuncContext) -> Lresult<Event>
         0 => {
             let fref = ctx.current_fref();
             match &fref.t {
-                Type::Generic(true, _, _) => {
+                Type::Generic(_inner, targs) if Type::open_args(targs) => {
                     panic!("generic is open: {}", fref);
                 }
-                Type::Generic(false, _inner, targs) => {
+                Type::Generic(_inner, targs) => {
                     let json_type = targs.first().unwrap().v.clone();
                     let json_type2 = json_type.clone();
                     let jtval = Val::Type(json_type);
@@ -119,7 +119,7 @@ fn decode_with_args(mut ctx: RustFuncContext) -> Lresult<Event>
         let fref = ctx.current_fref();
         // previous typechecking should assure that the type param is
         // there and that there will be exactly 1
-        let tparam = if let Type::Generic(_, _, args) = &fref.t {
+        let tparam = if let Type::Generic(_, args) = &fref.t {
             &args.get(0).unwrap().v
         } else {
             panic!("not a generic");

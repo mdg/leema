@@ -9,7 +9,6 @@ const INNER_MAP_TYPE: Type = user_type!("/map/T");
 pub fn map_type() -> Type
 {
     Type::Generic(
-        true,
         Box::new(INNER_MAP_TYPE),
         vec![
             StrupleItem {

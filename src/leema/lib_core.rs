@@ -284,7 +284,7 @@ pub fn void_func(mut f: RustFuncContext) -> Lresult<frame::Event>
         }
     };
     let void_type: Type = match &f.current_fref().t {
-        Type::Generic(false, inner, _opens) => {
+        Type::Generic(inner, opens) if !Type::open_args(opens) => {
             match &**inner {
                 Type::Func(ft) => (*ft.result).clone(),
                 other => {

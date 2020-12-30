@@ -678,7 +678,7 @@ impl<'p> TypeCheck<'p>
                 let iresult = self.inferred_type(&ftyp.result, opens)?;
                 Type::Func(FuncType::new(iargs, iresult))
             }
-            Type::Generic(_open, inner, type_args) => {
+            Type::Generic(inner, type_args) => {
                 let inner2 = self.inferred_type(&*inner, opens)?;
                 let typargs2 = struple::map_v(type_args, |tv| {
                     self.inferred_type(tv, opens)
@@ -746,10 +746,7 @@ impl<'p> TypeCheck<'p>
                     .collect();
                 Ok(Type::Tuple(im?))
             }
-            (
-                Type::Generic(_, inner0, args0),
-                Type::Generic(_, inner1, args1),
-            ) => {
+            (Type::Generic(inner0, args0), Type::Generic(inner1, args1)) => {
                 let inner = self.match_type(inner0, inner1, opens)?;
                 if args0.len() != args1.len() {
                     return Err(Failure::static_leema(
@@ -916,7 +913,7 @@ impl<'p> TypeCheck<'p>
     ) -> Lresult<Type>
     {
         match calltype {
-            Type::Generic(gopen @ true, ref mut inner, ref mut targs) => {
+            Type::Generic(ref mut inner, ref mut targs) => {
                 if args.len() != targs.len() {
                     return Err(rustfail!(
                         TYPEFAIL,
@@ -953,7 +950,6 @@ impl<'p> TypeCheck<'p>
                 }
                 let t = self.inferred_type(&inner, &targs)?;
                 *inner = Box::new(t);
-                *gopen = false;
             }
             _ => {
                 return Err(rustfail!(
@@ -974,7 +970,7 @@ impl<'p> TypeCheck<'p>
         // let new_node = mem::take(a);
         // *node = new_node;
         match (&mut *calltype.node, &mut calltype.typ) {
-            (_, Type::Generic(false, _, _)) => {
+            (_, Type::Generic(_, targs)) if Type::closed_args(targs) => {
                 Err(rustfail!(
                     "compile_error",
                     "generic type is closed: {:?}",
@@ -983,7 +979,7 @@ impl<'p> TypeCheck<'p>
             }
             (
                 Ast::ConstVal(Val::Call(ref mut fref, _args)),
-                Type::Generic(ref mut open, ref mut inner, ref mut targs),
+                Type::Generic(ref mut inner, ref mut targs),
             ) => {
                 // open is true b/c of pattern above
                 let (repl_idx, repl_id) = Self::first_open_var(targs)?;
@@ -991,7 +987,6 @@ impl<'p> TypeCheck<'p>
                     Ast::ConstVal(Val::Type(t)) => {
                         targs[repl_idx].v = t.clone();
                         **inner = inner.replace_openvar(repl_id, t)?;
-                        *open = targs.iter().any(|a| a.v.is_open());
                         fref.t =
                             Type::generic((**inner).clone(), targs.clone());
                         Ok(())
@@ -1039,10 +1034,12 @@ impl<'p> TypeCheck<'p>
                 let mut opens = vec![];
                 Ok(ltry!(self.match_argtypes(inner_ftyp, args, &mut opens)))
             }
-            Type::Generic(false, ref mut inner, _) => {
+            Type::Generic(ref mut inner, ref mut targs)
+                if Type::closed_args(targs) =>
+            {
                 self.applied_call_type(&mut *inner, args)
             }
-            Type::Generic(gopen @ true, ref mut open_ftyp, ref mut opens) => {
+            Type::Generic(ref mut open_ftyp, ref mut opens) => {
                 if let Type::Func(inner_ftyp) = &mut **open_ftyp {
                     // figure out arg types
                     let result =
@@ -1054,7 +1051,6 @@ impl<'p> TypeCheck<'p>
                             result,
                         ));
                     }
-                    *gopen = false;
                     Ok(result)
                 } else {
                     return Err(rustfail!(
@@ -1538,9 +1534,9 @@ impl Semantics
                 ft1
             }
             (
-                Type::Generic(true, _ft1, _open),
-                Type::Generic(false, ref ft2, ref iclosed),
-            ) => {
+                Type::Generic(_ft1, opens),
+                Type::Generic(ref ft2, ref iclosed),
+            ) if Type::open_args(opens) && Type::closed_args(iclosed) => {
                 match &**ft2 {
                     // take the closed version that has real types
                     Type::Func(ref ift2) => {
