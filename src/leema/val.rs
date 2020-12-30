@@ -20,6 +20,15 @@ use mopa::mopafy;
 
 
 #[macro_export]
+macro_rules! leema_type {
+    ($t:ident) => {
+        crate::leema::val::Type::User(crate::leema::canonical::Canonical::Path(
+            crate::leema::lstr::Lstr::Sref(concat!("/leema/", stringify!($t))),
+        ))
+    };
+}
+
+#[macro_export]
 macro_rules! core_type {
     ($t:ident) => {
         crate::leema::val::Type::User(crate::leema::canonical::Canonical::Path(
@@ -140,7 +149,6 @@ pub enum Type
     /// TODO: convert open flag to an enum
     Generic(bool, Box<Type>, GenericTypes),
 
-    RustBlock,
     Kind,
 
     Unknown,
@@ -160,6 +168,10 @@ impl Type
     pub const NO_RETURN: Type = core_type!(NoReturn);
     const LIST: Type = core_type!(List);
     const OPTION: Type = core_type!(Option);
+
+    /// Type assigned to -RUST- code blocks
+    /// gets special treatment by the type checker to match any type
+    const RUST_BLOCK: Type = leema_type!(RustBlock);
 
     pub fn f(inputs: Struple2<Type>, result: Type) -> Type
     {
@@ -405,7 +417,6 @@ impl fmt::Display for Type
                 write!(f, "<{:?} {} {:?}>", inner, open_tag, args)
             }
             &Type::Func(ref ftyp) => write!(f, "F{}", ftyp),
-            &Type::RustBlock => write!(f, "RustBlock"),
             &Type::Kind => write!(f, "Kind"),
 
             &Type::Unknown => write!(f, "TypeUnknown"),
@@ -439,7 +450,6 @@ impl fmt::Debug for Type
                 let open_tag = if open { "Open" } else { "Closed" };
                 write!(f, "<{:?} {} {:?}>", inner, open_tag, args)
             }
-            &Type::RustBlock => write!(f, "RustBlock"),
             &Type::Kind => write!(f, "Kind"),
 
             &Type::Unknown => write!(f, "TypeUnknown"),
@@ -771,7 +781,7 @@ impl Val
             &Val::Type(_) => Type::Kind,
             &Val::Wildcard => Type::Unknown,
             &Val::PatternVar(_) => Type::Unknown,
-            &Val::RustBlock => Type::RustBlock,
+            &Val::RustBlock => Type::RUST_BLOCK,
             &Val::Map(_) => lmap::map_type(),
             &Val::Tuple(ref items) if items.len() == 1 => {
                 items.get(0).unwrap().v.get_type()

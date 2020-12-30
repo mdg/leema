@@ -6,3 +6,5 @@ datatype ModTyp
 |Struct
 |Trait
 --
+
+datatype RustBlock --
