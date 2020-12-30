@@ -466,7 +466,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                 if let Some(typ) = found {
                     node.replace(
                         Ast::ConstVal(Val::Type(typ.clone())),
-                        Type::Kind,
+                        Type::KIND,
                     );
                 }
             }

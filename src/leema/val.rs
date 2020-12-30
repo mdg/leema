@@ -149,8 +149,6 @@ pub enum Type
     /// TODO: convert open flag to an enum
     Generic(bool, Box<Type>, GenericTypes),
 
-    Kind,
-
     Unknown,
     OpenVar(&'static str),
     LocalVar(Lstr),
@@ -164,6 +162,7 @@ impl Type
     pub const HASHTAG: Type =
         Type::User(Canonical::Path(Lstr::Sref("/core/#")));
     pub const FAILURE: Type = core_type!(Failure);
+    pub const KIND: Type = core_type!(Kind);
     pub const VOID: Type = core_type!(Void);
     pub const NO_RETURN: Type = core_type!(NoReturn);
     const LIST: Type = core_type!(List);
@@ -352,9 +351,6 @@ impl sendclone::SendClone for Type
                 Type::Generic(open, subt2, opens2)
             }
             &Type::User(ref c) => Type::User(c.clone_for_send()),
-            _ => {
-                panic!("cannot clone_for_send Type: {:?}", self);
-            }
         }
     }
 }
@@ -417,7 +413,6 @@ impl fmt::Display for Type
                 write!(f, "<{:?} {} {:?}>", inner, open_tag, args)
             }
             &Type::Func(ref ftyp) => write!(f, "F{}", ftyp),
-            &Type::Kind => write!(f, "Kind"),
 
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::OpenVar(ref name) => write!(f, "${}", name),
@@ -450,7 +445,6 @@ impl fmt::Debug for Type
                 let open_tag = if open { "Open" } else { "Closed" };
                 write!(f, "<{:?} {} {:?}>", inner, open_tag, args)
             }
-            &Type::Kind => write!(f, "Kind"),
 
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::OpenVar(name) => write!(f, "${}", name),
@@ -778,7 +772,7 @@ impl Val
             }
             &Val::Nil => Type::list(Type::Unknown),
             &Val::Failure2(_) => Type::FAILURE,
-            &Val::Type(_) => Type::Kind,
+            &Val::Type(_) => Type::KIND,
             &Val::Wildcard => Type::Unknown,
             &Val::PatternVar(_) => Type::Unknown,
             &Val::RustBlock => Type::RUST_BLOCK,

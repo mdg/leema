@@ -7,4 +7,4 @@ datatype ModTyp
 |Trait
 --
 
-datatype RustBlock --
+datatype RustBlock -RUST-

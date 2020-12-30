@@ -425,7 +425,7 @@ impl AstNode
                 self.typ = cv.get_type();
             }
             Ast::Type(_) => {
-                self.typ = Type::Kind;
+                self.typ = Type::KIND;
             }
             _ => {} // leave type as-is
         }

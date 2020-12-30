@@ -507,7 +507,7 @@ impl ProtoModule
 
         let construction = AstNode::new(Ast::Call(macro_call, macro_args), loc);
         let mut type_node = AstNode::new(Ast::Type(typ.clone()), loc);
-        type_node.typ = Type::Kind;
+        type_node.typ = Type::KIND;
         let constructor_ast = AstNode::new(
             Ast::DefFunc(
                 AstNode::new(Ast::Id(MODNAME_CONSTRUCT), loc),
@@ -603,7 +603,7 @@ impl ProtoModule
         let srct = ltry!(self.ast_to_type(&src, &[]));
         let typenode = Ast::Type(srct.clone());
         let mut node = AstNode::new(typenode, loc);
-        node.typ = Type::Kind;
+        node.typ = Type::KIND;
         let alias_generics = vec![]; // add generics later
         let alias_node =
             AstNode::new(Ast::Alias(alias_generics, Box::new(node)), loc);
@@ -618,7 +618,7 @@ impl ProtoModule
         let name = proto_t.n;
         let typenode = Ast::Type(proto_t.t.clone());
         let mut node = AstNode::new(typenode, loc);
-        node.typ = Type::Kind;
+        node.typ = Type::KIND;
         let subcon = {
             let sub =
                 ltry!(self.add_selfmod(ModTyp::Data, proto_t, vec![], loc));

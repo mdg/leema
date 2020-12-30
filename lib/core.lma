@@ -4,10 +4,11 @@ datatype Bool
 |True
 --
 
-datatype Any --
-datatype Failure --
-datatype Hashtag --
+datatype Any -RUST-
+datatype Failure -RUST-
+datatype Hashtag -RUST-
 datatype Int -RUST-
+datatype Kind -RUST-
 datatype Str -RUST-
 datatype # -RUST-
 datatype Void --
