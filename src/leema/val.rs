@@ -22,7 +22,7 @@ use mopa::mopafy;
 #[macro_export]
 macro_rules! core_type {
     ($t:ident) => {
-        crate::leema::val::Type::User(crate::leema::canonical::Canonical(
+        crate::leema::val::Type::User(crate::leema::canonical::Canonical::Path(
             crate::leema::lstr::Lstr::Sref(concat!("/core/", stringify!($t))),
         ))
     };
@@ -31,7 +31,7 @@ macro_rules! core_type {
 #[macro_export]
 macro_rules! user_type {
     ($ct:literal) => {
-        crate::leema::val::Type::User(crate::leema::canonical::Canonical(
+        crate::leema::val::Type::User(crate::leema::canonical::Canonical::Path(
             crate::leema::lstr::Lstr::Sref($ct),
         ))
     };
@@ -156,7 +156,7 @@ impl Type
     pub const INT: Type = core_type!(Int);
     pub const STR: Type = core_type!(Str);
     pub const BOOL: Type = core_type!(Bool);
-    pub const HASHTAG: Type = Type::User(Canonical(Lstr::Sref("/core/#")));
+    pub const HASHTAG: Type = Type::User(Canonical::Path(Lstr::Sref("/core/#")));
     pub const FAILURE: Type = core_type!(Failure);
     pub const VOID: Type = core_type!(Void);
     pub const NO_RETURN: Type = core_type!(NoReturn);
@@ -206,7 +206,7 @@ impl Type
     pub fn full_typename(&self) -> Lstr
     {
         match self {
-            &Type::User(ref name) => name.0.clone(),
+            &Type::User(ref name) => name.to_lstr(),
             &Type::Variant(ref t, ref var) => lstrf!("{}.{}", t, var),
             &Type::OpenVar(name) => Lstr::from(format!("${}", name)),
             &Type::LocalVar(ref name) => Lstr::from(format!("local:{}", name)),
@@ -349,7 +349,7 @@ impl sendclone::SendClone for Type
                 let opens2 = opens.clone_for_send();
                 Type::Generic(open, subt2, opens2)
             }
-            &Type::User(ref c) => Type::User(Canonical(c.0.clone_for_send())),
+            &Type::User(ref c) => Type::User(c.clone_for_send()),
             &Type::Variant(ref t, var) => {
                 Type::Variant(Box::new(t.clone_for_send()), var)
             }
@@ -412,7 +412,7 @@ impl fmt::Display for Type
                 }
                 write!(f, ")")
             }
-            &Type::User(ref c) => write!(f, "{}", c.0),
+            &Type::User(ref c) => write!(f, "{}", c),
             &Type::Variant(ref t, ref var) => write!(f, "{}.{}", t, var),
             &Type::Generic(open, ref inner, ref args) => {
                 let open_tag = if open { "Open" } else { "Closed" };
@@ -450,7 +450,7 @@ impl fmt::Debug for Type
                     write!(f, "{:?}", ftyp)
                 }
             }
-            &Type::User(ref c) => write!(f, "({})", c.0),
+            &Type::User(ref c) => write!(f, "({})", c),
             &Type::Variant(ref t, ref var) => write!(f, "{:?}.{}", t, var),
             &Type::Generic(open, ref inner, ref args) => {
                 let open_tag = if open { "Open" } else { "Closed" };

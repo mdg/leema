@@ -109,7 +109,7 @@ impl<'a> From<&'a String> for Lstr
     }
 }
 
-impl<'a> From<&'static str> for Lstr
+impl From<&'static str> for Lstr
 {
     fn from(s: &'static str) -> Lstr
     {

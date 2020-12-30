@@ -174,6 +174,8 @@ pub struct ProtoModule
 {
     pub key: ModKey,
     typ: Option<ProtoType>,
+    data_t: Option<ProtoType>,
+    trait_t: Option<ProtoType>,
     pub imports: HashMap<&'static str, Canonical>,
     pub exports_all: Option<bool>,
     pub funcseq: Vec<&'static str>,
@@ -201,6 +203,8 @@ impl ProtoModule
         let mut proto = ProtoModule {
             key,
             typ: parent,
+            data_t: None,
+            trait_t: None,
             imports: HashMap::new(),
             exports_all: None,
             funcseq: Vec::new(),
@@ -236,7 +240,7 @@ impl ProtoModule
                             Lstr::Sref(
                                 "cannot mix exporting * and specific modules",
                             ),
-                            modname.0.clone(),
+                            modname.to_lstr(),
                             loc.lineno,
                         ));
                     }
@@ -247,7 +251,7 @@ impl ProtoModule
                         return Err(Failure::static_leema(
                             failure::Mode::CompileFailure,
                             Lstr::Sref("cannot mix export * and specific"),
-                            modname.0.clone(),
+                            modname.to_lstr(),
                             i.loc.lineno,
                         ));
                     }
@@ -319,7 +323,11 @@ impl ProtoModule
     ) -> Lresult<()>
     {
         // if imp is absolute, canonical will just be imp
-        let canon = self.key.name.push(&imp);
+        let canon = if imp.is_absolute() {
+            Canonical::from(imp.0)
+        } else {
+            self.key.name.join(&imp)?
+        };
         self.imports.insert(name, canon.clone());
         self.modscope
             .insert(name, AstNode::new(Ast::Canonical(canon), loc));
@@ -389,7 +397,7 @@ impl ProtoModule
 
         result.map_err(|e| {
             e.lstr_loc(
-                Lstr::from(self.key.best_path_ref().to_string()),
+                Lstr::from(self.key.best_path()),
                 loc.lineno as u32,
             )
         })
@@ -566,7 +574,7 @@ impl ProtoModule
             Ast::Id(name_id) => {
                 ltry!(self.refute_redefines_default(name_id, name.loc));
                 let tok_mod = self.key.name.clone();
-                let t = Type::User(tok_mod.push(&name_id));
+                let t = Type::User(tok_mod.join(&name_id)?);
                 let token_val = Val::Token(t.clone());
                 let const_node =
                     AstNode::new_constval(token_val.clone(), name.loc);
@@ -671,9 +679,11 @@ impl ProtoModule
     {
         let loc = name.loc;
         let proto_t = self.make_proto_type(name)?;
+        let trait_type = AstNode::new(Ast::Type(proto_t.t.clone()), loc);
         // look in funcs for a struct def and use the ModTyp::Data?
         // or does that get set in add_typed_struct
-        ltry!(self.add_selfmod(ModTyp::Trait, proto_t, funcs, loc));
+        let m = ltry!(self.add_selfmod(ModTyp::Trait, proto_t, funcs, loc));
+        m.modscope.insert(MODNAME_DATATYPE, trait_type);
         Ok(())
     }
 
@@ -686,7 +696,7 @@ impl ProtoModule
     ) -> Lresult<&mut ProtoModule>
     {
         let id = proto_t.n;
-        let subkey = self.key.submod(subtype, id);
+        let subkey = self.key.submod(subtype, id)?;
         let utyp = Type::User(subkey.name.clone());
         let alias = AstNode::new(
             Ast::DefType(
@@ -705,13 +715,17 @@ impl ProtoModule
         Ok(self.submods.get_mut(id).unwrap())
     }
 
+    /// mark a trait as implemented for a given type
+    /// put to a list
     fn impl_trait(
         &mut self,
-        _iface: AstNode,
-        _typ: AstNode,
+        trait_node: AstNode,
+        typ_node: AstNode,
         _funcs: Vec<AstNode>,
     ) -> Lresult<()>
     {
+        let _trait_t = self.make_proto_type(trait_node)?;
+        let _typ_t = self.make_proto_type(typ_node)?;
         Ok(())
     }
 
@@ -826,7 +840,7 @@ impl ProtoModule
                                 "generic must have at least one argument: {}",
                                 name_id,
                             ),
-                            m.0.clone(),
+                            m.to_lstr(),
                             name.loc.lineno,
                         ));
                     }
@@ -1288,7 +1302,7 @@ impl ProtoLib
             return Err(Failure::static_leema(
                 failure::Mode::CompileFailure,
                 lstrf!("module element is not exported {} {}", modname, elem),
-                modname.0.clone(),
+                modname.to_lstr(),
                 loc.lineno,
             ));
         }
@@ -1296,7 +1310,7 @@ impl ProtoLib
             Failure::static_leema(
                 failure::Mode::CompileFailure,
                 lstrf!("module element not found {} {}", modname, elem),
-                modname.0.clone(),
+                modname.to_lstr(),
                 loc.lineno,
             )
         })

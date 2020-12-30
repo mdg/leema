@@ -166,6 +166,6 @@ impl fmt::Debug for Lib
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        write!(f, "ProgramLib {}", self.loader.main_mod.0)
+        write!(f, "ProgramLib {}", self.loader.main_mod)
     }
 }

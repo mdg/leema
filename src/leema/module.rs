@@ -21,9 +21,9 @@ pub enum ModTyp
 {
     File,
     Data,
+    Impl,
     TraitData,
     Trait,
-    Protocol,
 }
 
 impl ModTyp
@@ -72,27 +72,17 @@ impl ModKey
                 Lstr::from(format!("{}", f.display()))
             })
             .unwrap_or_else(|| {
-                // clone the name Lstr
-                self.name.0.clone()
+                self.name.to_lstr()
             })
     }
 
-    /// If the path exists, get it. Otherwise return the module name
-    pub fn best_path_ref(&self) -> &str
+    pub fn submod(&self, mt: ModTyp, name: &'static str) -> Lresult<ModKey>
     {
-        self.file
-            .as_ref()
-            .and_then(|f| f.to_str())
-            .unwrap_or_else(|| self.name.0.as_str())
-    }
-
-    pub fn submod(&self, mt: ModTyp, name: &'static str) -> ModKey
-    {
-        ModKey {
-            name: Canonical(lstrf!("{}/{}", self.name, name)),
+        Ok(ModKey {
+            name: self.name.join(name)?,
             file: self.file.clone(),
             mtyp: mt,
-        }
+        })
     }
 }
 
@@ -113,7 +103,7 @@ impl From<&'static str> for ModKey
     fn from(mod_str: &'static str) -> ModKey
     {
         ModKey {
-            name: Canonical(Lstr::Sref(mod_str)),
+            name: Canonical::new(Lstr::Sref(mod_str)),
             file: None,
             mtyp: ModTyp::File,
         }
@@ -151,7 +141,7 @@ impl sendclone::SendClone for ModKey
     fn clone_for_send(&self) -> ModKey
     {
         ModKey {
-            name: Canonical(self.name.0.clone_for_send()),
+            name: self.name.clone_for_send(),
             file: self.file.clone(),
             mtyp: self.mtyp.clone(),
         }
@@ -259,11 +249,13 @@ pub struct ImportedMod(pub PathBuf);
 
 impl ImportedMod
 {
+    /// Check the relativity for this module's path
     pub fn relativity(&self) -> ModRelativity
     {
         Self::path_relativity(&self.0)
     }
 
+    /// check the relativity for any path
     pub fn path_relativity(p: &Path) -> ModRelativity
     {
         if p.extension().map(|x| x == "function").unwrap_or(false) {
@@ -282,6 +274,7 @@ impl ImportedMod
         }
     }
 
+    /// check if this imported module has an absolute path
     pub fn is_absolute(&self) -> bool
     {
         !(self.is_sibling() || self.is_child())

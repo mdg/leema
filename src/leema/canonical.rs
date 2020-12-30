@@ -4,7 +4,7 @@
 /// /core/<Option T>
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::{ImportedMod, ModRelativity};
+use crate::leema::sendclone;
 
 use std::borrow::Borrow;
 use std::ffi::OsStr;
@@ -15,7 +15,9 @@ use std::path::{Path, PathBuf};
 #[macro_export]
 macro_rules! canonical {
     ($c:expr) => {
-        crate::leema::canonical::Canonical(crate::leema::lstr::Lstr::Sref($c))
+        crate::leema::canonical::Canonical::Path(
+            crate::leema::lstr::Lstr::Sref($c),
+        )
     };
 }
 
@@ -29,34 +31,54 @@ pub enum Impath
     Exported(&'static Impath, &'static str),
 }
 
-
 #[derive(Clone)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
 #[derive(Eq)]
 #[derive(Ord)]
 #[derive(Hash)]
-pub struct Canonical(pub Lstr);
+pub enum Canonical
+{
+    Path(Lstr),
+    Open(Lstr, Lstr),
+    Closed(Lstr, Box<Canonical>),
+    Impl(Box<Canonical>, Box<Canonical>),
+}
 
 impl Canonical
 {
     pub const DEFAULT: Canonical = canonical!("_");
 
-    pub fn new(c: Lstr) -> Canonical
+    pub const fn new(c: Lstr) -> Canonical
     {
-        Canonical(c)
+        Canonical::Path(c)
     }
 
     /// Check if this module is a core module
     pub fn is_core(&self) -> bool
     {
         // maybe memoize this as a struct var at some point
-        self.0.starts_with("/core")
+        self.as_path().starts_with("/core")
     }
 
     pub fn as_path(&self) -> &Path
     {
-        Path::new(self.0.str())
+        match self {
+            Canonical::Path(p) => Path::new(p.as_str()),
+            Canonical::Open(p, _) => Path::new(p.as_str()),
+            Canonical::Closed(p, _) => Path::new(p.as_str()),
+            Canonical::Impl(_, _) => panic!("which path?"),
+        }
+    }
+
+    /// convert this canonical to an Lstr
+    pub fn to_lstr(&self) -> Lstr
+    {
+        if let Canonical::Path(p) = self {
+            p.clone()
+        } else {
+            lstrf!("{}", self)
+        }
     }
 
     /// add an identifier to an existing canonical
@@ -65,60 +87,80 @@ impl Canonical
     where
         S: AsRef<OsStr> + std::fmt::Debug,
     {
-        let subpath = Path::new(sub.as_ref());
-        match ImportedMod::path_relativity(subpath) {
-            ModRelativity::Absolute => {
-                return Err(rustfail!(
-                    "leema_failure",
-                    "cannot join an absolute path: {:?}",
-                    sub,
-                ));
+        match self {
+            Canonical::Path(p) => {
+                Ok(Canonical::Path(Self::join_path(p, sub)?))
             }
-            ModRelativity::Sibling => {
-                let sib_base = self.as_path().parent().unwrap();
-                let sib_path = subpath.strip_prefix("../").unwrap();
-                // recursing in here would be good to allow multiple ../
-                let sib = sib_base.join(sib_path);
-                Ok(Canonical(Lstr::from(format!("{}", sib.display()))))
+            Canonical::Open(_p, _v) => {
+                panic!("no open");
             }
-            ModRelativity::Child | ModRelativity::Local => {
-                let ch_path = self.as_path().join(subpath);
-                Ok(Canonical(Lstr::from(format!("{}", ch_path.display()))))
+            Canonical::Closed(_p, _t) => {
+                panic!("no closed");
+            }
+            Canonical::Impl(_t, _s) => {
+                panic!("no impl");
             }
         }
     }
 
-    /// if imp is absolute, replace self with imp
-    pub fn push<S: AsRef<OsStr>>(&self, imp: &S) -> Canonical
+    /// add an identifier to an existing canonical
+    /// fails if sub is Absolute
+    fn join_path<S>(p: &Lstr, sub: S) -> Lresult<Lstr>
+    where
+        S: AsRef<OsStr> + std::fmt::Debug,
     {
-        let import = Path::new(imp);
-        match ImportedMod::path_relativity(import) {
-            ModRelativity::Absolute => {
-                Canonical(Lstr::from(format!("{}", import.display())))
-            }
-            ModRelativity::Sibling => {
-                let sib_base = self.as_path().parent().unwrap();
-                let sib_path = import.strip_prefix("../").unwrap();
-                let sib = sib_base.join(sib_path);
-                Canonical(Lstr::from(format!("{}", sib.display())))
-            }
-            ModRelativity::Child | ModRelativity::Local => {
-                let ch_path = self.as_path().join(import);
-                Canonical(Lstr::from(format!("{}", ch_path.display())))
-            }
+        let subpath = Path::new(sub.as_ref());
+        if subpath.is_absolute() {
+            return Err(rustfail!(
+                "leema_failure",
+                "cannot join an absolute path: {:?}",
+                sub,
+            ));
+        } else if subpath.starts_with("../") {
+            let sib_base = Path::new(p.as_str()).parent().unwrap();
+            let sib_path = subpath.strip_prefix("../").unwrap();
+            // recursing in here would be good to allow multiple ../
+            let sib = sib_base.join(sib_path);
+            Ok(Lstr::from(format!("{}", sib.display())))
+        } else {
+            let ch_path = Path::new(p.as_str()).join(subpath);
+            Ok(Lstr::from(format!("{}", ch_path.display())))
         }
     }
 
     /// split the final element off the end of Canonical
     pub fn split_id(&self) -> Lresult<(Canonical, Lstr)>
     {
-        match self.0 {
+        match self {
+            Canonical::Path(p) => {
+                let (pp, id) = Self::split_id_str(p)?;
+                Ok((Canonical::Path(pp), id))
+            }
+            Canonical::Open(p, _) => {
+                let (pp, id) = Self::split_id_str(p)?;
+                Ok((Canonical::Path(pp), id))
+            }
+            Canonical::Closed(p, _) => {
+                let (pp, id) = Self::split_id_str(p)?;
+                Ok((Canonical::Path(pp), id))
+            }
+            Canonical::Impl(_, _) => {
+                panic!("split which id?");
+            }
+        }
+    }
+
+    /// split the final element off the end of Canonical
+    fn split_id_str(path_str: &Lstr) -> Lresult<(Lstr, Lstr)>
+    {
+        match path_str {
             Lstr::Sref(s) => {
-                let p = Path::new(s);
+                let ss: &'static str = s;
+                let p: &'static Path = Path::new(ss);
                 match (p.parent(), p.file_name()) {
                     (Some(parent), Some(id)) => {
                         Ok((
-                            Canonical(Lstr::Sref(parent.to_str().unwrap())),
+                            Lstr::Sref(parent.to_str().unwrap()),
                             Lstr::Sref(id.to_str().unwrap()),
                         ))
                     }
@@ -126,7 +168,7 @@ impl Canonical
                         return Err(rustfail!(
                             "failure",
                             "split cannot be split: {}",
-                            self.0,
+                            s,
                         ));
                     }
                 }
@@ -135,14 +177,25 @@ impl Canonical
                 let p = Path::new(&**s);
                 let ext = p.extension().unwrap();
                 let stem = p.file_stem().unwrap();
-                let parent = Canonical(Lstr::from(
+                let parent = Lstr::from(
                     p.with_file_name(stem).to_str().unwrap().to_string(),
-                ));
+                );
                 Ok((parent, Lstr::from(ext.to_str().unwrap().to_string())))
             }
             ref other => {
                 panic!("not a normal Lstr: {:?}", other);
             }
+        }
+    }
+
+    /// get the string portion of the Canonical
+    fn as_str(&self) -> &Lstr
+    {
+        match self {
+            Canonical::Path(p) => p,
+            Canonical::Open(p, _) => p,
+            Canonical::Closed(p, _) => p,
+            Canonical::Impl(_, _) => panic!("which as str?"),
         }
     }
 
@@ -215,7 +268,7 @@ impl Borrow<str> for Canonical
 {
     fn borrow(&self) -> &str
     {
-        self.0.str()
+        self.as_str()
     }
 }
 
@@ -223,7 +276,10 @@ impl PartialEq<Canonical> for str
 {
     fn eq(&self, other: &Canonical) -> bool
     {
-        *self == other.0
+        match (self, other) {
+            (p0, Canonical::Path(p1)) => p0 == p1,
+            _ => false,
+        }
     }
 }
 
@@ -239,7 +295,47 @@ impl fmt::Display for Canonical
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        f.write_str(self.0.str())
+        match self {
+            Canonical::Path(p) => write!(f, "{}", p),
+            Canonical::Open(p, s) => {
+                write!(f, "<{} {}>", p, s)
+            }
+            Canonical::Closed(p, s) => {
+                write!(f, "<")?;
+                write!(f, "{} {}", p, s)?;
+                write!(f, ">")
+            }
+            Canonical::Impl(t, s) => {
+                write!(f, "{} <: {}", t, s)
+            }
+        }
+    }
+}
+
+impl sendclone::SendClone for Canonical
+{
+    type Item = Canonical;
+
+    fn clone_for_send(&self) -> Canonical
+    {
+        match self {
+            Canonical::Path(p) => Canonical::Path(p.clone_for_send()),
+            Canonical::Open(p, s) => {
+                Canonical::Open(p.clone_for_send(), s.clone_for_send())
+            }
+            Canonical::Closed(p, s) => {
+                Canonical::Closed(
+                    p.clone_for_send(),
+                    Box::new(s.clone_for_send()),
+                )
+            }
+            Canonical::Impl(t, s) => {
+                Canonical::Impl(
+                    Box::new(t.clone_for_send()),
+                    Box::new(s.clone_for_send()),
+                )
+            }
+        }
     }
 }
 
@@ -247,7 +343,7 @@ impl fmt::Debug for Canonical
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        write!(f, "{:?}", self.0.str())
+        write!(f, "{}", self)
     }
 }
 

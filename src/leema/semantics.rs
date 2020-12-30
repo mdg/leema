@@ -162,7 +162,7 @@ impl<'l> ast2::Op for MacroApplication<'l>
                         return Err(Failure::static_leema(
                             failure::Mode::StaticLeemaFailure,
                             lstrf!("unexpected call expression: {:?}", other),
-                            self.local.key.name.0.clone(),
+                            self.local.key.name.to_lstr(),
                             callid.loc.lineno,
                         ));
                     }
@@ -760,7 +760,7 @@ impl<'p> TypeCheck<'p>
                     return Err(Failure::static_leema(
                         failure::Mode::TypeFailure,
                         lstrf!("args mismatch: {:?} != {:?}", args0, args1),
-                        self.local_mod.key.name.0.clone(),
+                        self.local_mod.key.name.to_lstr(),
                         0,
                     ));
                 }
@@ -837,38 +837,17 @@ impl<'p> TypeCheck<'p>
         &mut self,
         u0: &Canonical,
         t1: &Type,
-        opens: &mut StrupleKV<&'static str, Type>,
+        _opens: &mut StrupleKV<&'static str, Type>,
     ) -> Lresult<Option<Type>>
     {
-        match self.lib.path_proto(u0) {
-            Ok(proto) => {
-                // do something with opens from key?
-                eprintln!(
-                    "match_type_alias: {} {:?} {}",
-                    u0, t1, proto.key.name
-                );
-                if let Some(s0) = proto.find_modelem(proto::MODNAME_DATATYPE) {
-                    if let Ast::Type(t0) = &*s0.node {
-                        Ok(Some(self.match_type(t0, t1, opens)?))
-                    } else {
-                        Err(Failure::static_leema(
-                            failure::Mode::TypeFailure,
-                            lstrf!("not a type: {}", u0),
-                            self.local_mod.key.name.0.clone(),
-                            0,
-                        ))
-                    }
-                } else {
-                    Err(Failure::static_leema(
-                        failure::Mode::TypeFailure,
-                        lstrf!("invalid type: {}", u0),
-                        self.local_mod.key.name.0.clone(),
-                        0,
-                    ))
-                }
-            }
-            _ => Ok(None),
+        if let Ok(proto) = self.lib.path_proto(u0) {
+            // do something with opens from key?
+            eprintln!(
+                "match_type_alias: {} {:?} {}",
+                u0, t1, proto.key.name
+            );
         }
+        Ok(None)
     }
 
     pub fn infer_type(
@@ -1235,7 +1214,7 @@ impl<'p> TypeCheck<'p>
                     return Err(Failure::static_leema(
                         failure::Mode::CompileFailure,
                         lstrf!("type has no field: {}.{}", tname, f,),
-                        self.local_mod.key.name.0.clone(),
+                        self.local_mod.key.name.to_lstr(),
                         fld.loc.lineno,
                     ));
                 }
@@ -1245,7 +1224,7 @@ impl<'p> TypeCheck<'p>
                 return Err(Failure::static_leema(
                     failure::Mode::CompileFailure,
                     lstrf!("builtin type has no {} field: {}", id, base_typ,),
-                    self.local_mod.key.name.0.clone(),
+                    self.local_mod.key.name.to_lstr(),
                     fld.loc.lineno,
                 ));
             }
@@ -1630,7 +1609,7 @@ impl Semantics
         ]);
         let mut result = lfctx!(
             ast2::walk(body, &mut pipe),
-            "module": f.m.name.0.clone(),
+            "module": f.m.name.to_lstr(),
             "function": Lstr::Sref(f.f)
         );
 

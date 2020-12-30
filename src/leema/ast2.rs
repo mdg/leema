@@ -264,7 +264,7 @@ impl Ast
 
     pub const fn canonical(c: &'static str) -> Ast
     {
-        Ast::Canonical(Canonical(Lstr::Sref(c)))
+        Ast::Canonical(Canonical::new(Lstr::Sref(c)))
     }
 
     pub fn loc(t: &TokenSrc) -> Loc
