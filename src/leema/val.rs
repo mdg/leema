@@ -142,7 +142,6 @@ pub enum Type
 
     RustBlock,
     Kind,
-    Any,
 
     Unknown,
     OpenVar(&'static str),
@@ -408,7 +407,6 @@ impl fmt::Display for Type
             &Type::Func(ref ftyp) => write!(f, "F{}", ftyp),
             &Type::RustBlock => write!(f, "RustBlock"),
             &Type::Kind => write!(f, "Kind"),
-            &Type::Any => write!(f, "Any"),
 
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::OpenVar(ref name) => write!(f, "${}", name),
@@ -443,7 +441,6 @@ impl fmt::Debug for Type
             }
             &Type::RustBlock => write!(f, "RustBlock"),
             &Type::Kind => write!(f, "Kind"),
-            &Type::Any => write!(f, "Any"),
 
             &Type::Unknown => write!(f, "TypeUnknown"),
             &Type::OpenVar(name) => write!(f, "${}", name),

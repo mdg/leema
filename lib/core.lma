@@ -4,6 +4,7 @@ datatype Bool
 |True
 --
 
+datatype Any --
 datatype Failure --
 datatype Hashtag --
 datatype Int -RUST-
