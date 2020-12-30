@@ -154,7 +154,8 @@ impl Type
     pub const INT: Type = core_type!(Int);
     pub const STR: Type = core_type!(Str);
     pub const BOOL: Type = core_type!(Bool);
-    pub const HASHTAG: Type = Type::User(Canonical::Path(Lstr::Sref("/core/#")));
+    pub const HASHTAG: Type =
+        Type::User(Canonical::Path(Lstr::Sref("/core/#")));
     pub const FAILURE: Type = core_type!(Failure);
     pub const VOID: Type = core_type!(Void);
     pub const NO_RETURN: Type = core_type!(NoReturn);

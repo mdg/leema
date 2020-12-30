@@ -71,9 +71,7 @@ impl ModKey
                 // convert the path to a string and then Lstr
                 Lstr::from(format!("{}", f.display()))
             })
-            .unwrap_or_else(|| {
-                self.name.to_lstr()
-            })
+            .unwrap_or_else(|| self.name.to_lstr())
     }
 
     pub fn submod(&self, mt: ModTyp, name: &'static str) -> Lresult<ModKey>

@@ -396,10 +396,7 @@ impl ProtoModule
         };
 
         result.map_err(|e| {
-            e.lstr_loc(
-                Lstr::from(self.key.best_path()),
-                loc.lineno as u32,
-            )
+            e.lstr_loc(Lstr::from(self.key.best_path()), loc.lineno as u32)
         })
     }
 
@@ -653,7 +650,8 @@ impl ProtoModule
             self.funcseq.push(var_name);
             if let Ast::DefType(DataType::Struct, _, flds) = *var.v.node {
                 if flds.is_empty() {
-                    let vval = Val::EnumToken(union_typ.clone(), Lstr::Sref(var_name));
+                    let vval =
+                        Val::EnumToken(union_typ.clone(), Lstr::Sref(var_name));
                     let vast = AstNode::new_constval(vval, var.v.loc);
                     self.modscope.insert(sname_id, vast);
                 } else {

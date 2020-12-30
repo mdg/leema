@@ -87,9 +87,7 @@ impl Canonical
         S: AsRef<OsStr> + std::fmt::Debug,
     {
         match self {
-            Canonical::Path(p) => {
-                Ok(Canonical::Path(Self::join_path(p, sub)?))
-            }
+            Canonical::Path(p) => Ok(Canonical::Path(Self::join_path(p, sub)?)),
             Canonical::Open(_p, _v) => {
                 panic!("no open");
             }

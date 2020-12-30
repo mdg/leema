@@ -833,10 +833,7 @@ impl<'p> TypeCheck<'p>
     {
         if let Ok(proto) = self.lib.path_proto(u0) {
             // do something with opens from key?
-            eprintln!(
-                "match_type_alias: {} {:?} {}",
-                u0, t1, proto.key.name
-            );
+            eprintln!("match_type_alias: {} {:?} {}", u0, t1, proto.key.name);
         }
         Ok(None)
     }
