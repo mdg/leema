@@ -134,6 +134,9 @@ impl FuncType
 pub type GenericTypes = StrupleKV<&'static str, Type>;
 pub type GenericTypeSlice = [StrupleItem<&'static str, Type>];
 
+/// Enum to hold type info
+/// does it need to be an enum or could it be flattened
+/// to look like this? Type(Canonical, Struple2<Type>)
 #[derive(Clone)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
@@ -142,12 +145,31 @@ pub type GenericTypeSlice = [StrupleItem<&'static str, Type>];
 #[derive(Ord)]
 pub enum Type
 {
+    /// Type("/core/Tuple", [T0, T1, T2])
+    /// Tuple can't define its own generics so it looks pretty much
+    /// the same with generics
     Tuple(Struple2<Type>),
+
+    /// Type("/core/Fn", [
+    ///     g: Type("/leema/Generics", [...]) or Void,
+    ///     r: ResultType or Void,
+    ///     a: Type("/leema/Args", [...]) or Void,
+    ///     c: Closed or Void (or nothing?),
+    /// ])
+    /// It kind of works, but also complex
     Func(FuncType),
+
+    /// Merge User and Generic to be
+    /// Type(Canonical, Struple2<Type>)
+    /// works fine for those 2 if it can also work for functions
     User(Canonical),
     Generic(Box<Type>, GenericTypes),
 
+    /// Type("open:VarName")
+    /// or Type("VarName", ["/leema/Open"])
     OpenVar(&'static str),
+
+    /// Type("local:VarName") or Type("VarName", ["/leema/Local"])
     LocalVar(Lstr),
 }
 
