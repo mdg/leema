@@ -148,11 +148,6 @@ pub enum Type
     /// The future Type struct
     T(Canonical, Struple2<Type>),
 
-    /// Type("/core/Tuple", [T0, T1, T2])
-    /// Tuple can't define its own generics so it looks pretty much
-    /// the same with generics
-    Tuple(Struple2<Type>),
-
     /// Type("/core/Fn", [
     ///     g: Type("/leema/Generics", [...]) or Void,
     ///     r: ResultType or Void,
@@ -190,6 +185,9 @@ impl Type
     const LIST: Type = core_type!(List);
     const OPTION: Type = core_type!(Option);
 
+    /// Canonical path for the Tuple type
+    pub const TUPLE: Canonical = canonical!("/core/Tuple");
+
     /// Type assigned to -RUST- code blocks
     /// gets special treatment by the type checker to match any type
     pub const RUST_BLOCK: Type = leema_type!(RustBlock);
@@ -203,6 +201,11 @@ impl Type
             closed: vec![],
             result: Box::new(result),
         })
+    }
+
+    pub fn tuple(items: Struple2<Type>) -> Type
+    {
+        Type::T(Type::TUPLE, items)
     }
 
     pub fn list(inner: Type) -> Type
@@ -310,7 +313,7 @@ impl Type
         match self {
             Type::Generic(_, args) => Type::open_args(args),
             Type::OpenVar(_) => true,
-            Type::Tuple(items) => items.iter().any(|i| i.v.is_open()),
+            Type::T(_p, items) => items.iter().any(|i| i.v.is_open()),
             unknown if *unknown == Type::UNKNOWN => true,
             _ => false,
         }
@@ -353,9 +356,9 @@ impl Type
         }
 
         let res = match self {
-            &Type::Tuple(ref items) => {
+            &Type::T(ref path, ref items) => {
                 let m_items = struple::map_v(items, |i| i.map(op))?;
-                Type::Tuple(m_items)
+                Type::T(path.clone(), m_items)
             }
             &Type::Func(ref ftyp) => {
                 let m_ftype = ftyp.map(op)?;
@@ -377,7 +380,6 @@ impl sendclone::SendClone for Type
             &Type::T(ref path, ref items) => {
                 Type::T(path.clone_for_send(), items.clone_for_send())
             }
-            &Type::Tuple(ref items) => Type::Tuple(items.clone_for_send()),
             &Type::Func(ref ftyp) => Type::Func(ftyp.clone()),
             &Type::OpenVar(id) => Type::OpenVar(id),
             &Type::LocalVar(ref id) => Type::LocalVar(id.clone_for_send()),
@@ -436,6 +438,13 @@ impl fmt::Display for Type
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
+            &Type::T(ref path, ref args) if *path == Type::TUPLE => {
+                write!(f, "(")?;
+                for a in args {
+                    write!(f, "{},", a)?;
+                }
+                write!(f, ")")
+            }
             &Type::T(ref path, ref args) => {
                 if args.is_empty() {
                     write!(f, "{}", path)
@@ -446,13 +455,6 @@ impl fmt::Display for Type
                     }
                     write!(f, ")")
                 }
-            }
-            &Type::Tuple(ref items) => {
-                write!(f, "(")?;
-                for i in items {
-                    write!(f, "{}", i)?;
-                }
-                write!(f, ")")
             }
             &Type::User(ref c) => write!(f, "{}", c),
             &Type::Generic(ref inner, ref args) => {
@@ -478,13 +480,6 @@ impl fmt::Debug for Type
                     write!(f, "({} {:#?})", path, args)
                 } else {
                     write!(f, "({} {:?})", path, args)
-                }
-            }
-            &Type::Tuple(ref items) => {
-                if f.alternate() {
-                    write!(f, "(T{:#?})", items)
-                } else {
-                    write!(f, "(T{:?})", items)
                 }
             }
             &Type::Func(ref ftyp) => {
@@ -837,7 +832,7 @@ impl Val
                     .iter()
                     .map(|i| (StrupleItem::new(i.k.clone(), i.v.get_type())))
                     .collect();
-                Type::Tuple(tuptypes)
+                Type::tuple(tuptypes)
             }
             &Val::Struct(ref typ, _) => typ.clone(),
             &Val::EnumStruct(ref typ, _, _) => typ.clone(),
@@ -1153,7 +1148,7 @@ impl fmt::Display for Val
             Val::Tuple(ref items) => {
                 write!(f, "(")?;
                 for i in items {
-                    write!(f, "{}", i)?;
+                    write!(f, "{},", i)?;
                 }
                 write!(f, ")")
             }

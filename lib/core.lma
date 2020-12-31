@@ -11,6 +11,7 @@ datatype Int -RUST-
 datatype Kind -RUST-
 datatype Str -RUST-
 datatype # -RUST-
+datatype Tuple -RUST-
 datatype Void --
 datatype NoResult --
 

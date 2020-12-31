@@ -1,5 +1,8 @@
-let t := (3, 4, 5)
-print("t = $t\n")
-let tp := type(t)
-print("tp = $tp\n")
-tp
+import /io
+
+func main ->
+    let t := (3, 4, 5)
+    io.print("t = $t\n")
+    ## let tp := type(t)
+    ## io.print("tp = $tp\n")
+--

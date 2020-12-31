@@ -53,8 +53,8 @@ where
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self.k {
-            Some(ref k) => write!(f, "{}:{},", k, self.v),
-            None => write!(f, "{},", self.v),
+            Some(ref k) => write!(f, "{}:{}", k, self.v),
+            None => write!(f, "{}", self.v),
         }
     }
 }

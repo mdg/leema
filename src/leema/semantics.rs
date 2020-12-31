@@ -660,6 +660,11 @@ impl<'p> TypeCheck<'p>
     ) -> Lresult<Type>
     {
         let newt = match t {
+            Type::T(path, args) if *path == Type::TUPLE => {
+                let margs =
+                    struple::map_v(args, |it| self.inferred_type(it, opens))?;
+                Type::T(Type::TUPLE, margs)
+            }
             Type::T(_path, _args) => t.clone(),
             Type::OpenVar(v) => {
                 struple::find(opens, &v)
@@ -667,11 +672,6 @@ impl<'p> TypeCheck<'p>
                     .unwrap_or(Type::OpenVar(v))
             }
             Type::LocalVar(v) => self.inferred_local(&v),
-            Type::Tuple(items) => {
-                let mitems =
-                    struple::map_v(items, |it| self.inferred_type(it, opens))?;
-                Type::Tuple(mitems)
-            }
             Type::Func(ftyp) => {
                 let iargs = struple::map_v(&ftyp.args, |a| {
                     self.inferred_type(a, opens)
@@ -734,7 +734,9 @@ impl<'p> TypeCheck<'p>
                 }
                 Ok(t1.clone())
             }
-            (Type::Tuple(i0), Type::Tuple(i1)) => {
+            (Type::T(p0, i0), Type::T(p1, i1))
+                if p0 == p1 && i0.len() == i1.len() =>
+            {
                 let im: Lresult<Struple2<Type>>;
                 im = i0
                     .iter()
@@ -745,7 +747,7 @@ impl<'p> TypeCheck<'p>
                         Ok(StrupleItem::new(k, v))
                     })
                     .collect();
-                Ok(Type::Tuple(im?))
+                Ok(Type::T(p0.clone(), im?))
             }
             (Type::Generic(inner0, args0), Type::Generic(inner1, args1)) => {
                 let inner = self.match_type(inner0, inner1, opens)?;
@@ -1416,7 +1418,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                         ))
                     })
                     .collect();
-                node.typ = Type::Tuple(itypes?);
+                node.typ = Type::tuple(itypes?);
             }
             Ast::ConstVal(_) => {
                 // leave as is

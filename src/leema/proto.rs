@@ -997,7 +997,7 @@ impl ProtoModule
                             Ok(StrupleItem::new(k, v))
                         })
                         .collect();
-                Type::Tuple(inner_t?)
+                Type::tuple(inner_t?)
             }
             Ast::FuncType(args, result) => {
                 let ftype = ltry!(self.ast_to_ftype(args, result, opens));
