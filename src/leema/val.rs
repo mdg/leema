@@ -23,7 +23,7 @@ use mopa::mopafy;
 macro_rules! leema_type {
     ($t:ident) => {
         crate::leema::val::Type::T(
-            crate::leema::canonical::Canonical::Path(
+            crate::leema::canonical::Canonical::new(
                 crate::leema::lstr::Lstr::Sref(concat!(
                     "/leema/",
                     stringify!($t)
@@ -38,7 +38,7 @@ macro_rules! leema_type {
 macro_rules! core_type {
     ($t:ident) => {
         crate::leema::val::Type::T(
-            crate::leema::canonical::Canonical::Path(
+            crate::leema::canonical::Canonical::new(
                 crate::leema::lstr::Lstr::Sref(concat!(
                     "/core/",
                     stringify!($t)
@@ -53,7 +53,7 @@ macro_rules! core_type {
 macro_rules! user_type {
     ($ct:literal) => {
         crate::leema::val::Type::T(
-            crate::leema::canonical::Canonical::Path(
+            crate::leema::canonical::Canonical::new(
                 crate::leema::lstr::Lstr::Sref($ct),
             ),
             vec![],

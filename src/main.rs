@@ -138,7 +138,7 @@ fn real_main() -> Lresult<()>
     } else if args.flag_proto {
         let mut prog = program::Lib::new(inter);
         let module = match args.flag_mod {
-            Some(user_mod) => Canonical::Path(Lstr::from(user_mod)),
+            Some(user_mod) => Canonical::new(Lstr::from(user_mod)),
             None => main_mod.clone(),
         };
         prog.load_proto_and_imports(&module)?;
