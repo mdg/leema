@@ -145,8 +145,6 @@ pub enum Type
     Tuple(Struple2<Type>),
     Func(FuncType),
     User(Canonical),
-    /// bool is open
-    /// TODO: convert open flag to an enum
     Generic(Box<Type>, GenericTypes),
 
     OpenVar(&'static str),
