@@ -155,7 +155,7 @@ impl FuncType
 #[derive(Eq)]
 #[derive(Hash)]
 #[derive(Ord)]
-pub struct FuncRef<'a>
+pub struct FuncTypeRef<'a>
 {
     pub type_args: Option<&'a Struple2Slice<Type>>,
     pub result: &'a Type,
@@ -414,7 +414,7 @@ impl Type
         }
     }
 
-    fn func_ref<'a>(&'a self) -> Lresult<FuncRef<'a>>
+    fn func_ref<'a>(&'a self) -> Lresult<FuncTypeRef<'a>>
     {
         let tref = self.type_ref();
         if let TypeRef {
@@ -422,7 +422,7 @@ impl Type
             args: [_gen, result, targs],
         } = tref
         {
-            Ok(FuncRef {
+            Ok(FuncTypeRef {
                 type_args: None,
                 result: &result.v,
                 args: targs.v.type_ref().args,
