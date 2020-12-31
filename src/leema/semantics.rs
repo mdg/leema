@@ -660,6 +660,7 @@ impl<'p> TypeCheck<'p>
     ) -> Lresult<Type>
     {
         let newt = match t {
+            Type::T(_path, _args) => t.clone(),
             Type::OpenVar(v) => {
                 struple::find(opens, &v)
                     .map(|(_, item)| item.clone())

@@ -145,6 +145,9 @@ pub type GenericTypeSlice = [StrupleItem<&'static str, Type>];
 #[derive(Ord)]
 pub enum Type
 {
+    /// The future Type struct
+    T(Canonical, Struple2<Type>),
+
     /// Type("/core/Tuple", [T0, T1, T2])
     /// Tuple can't define its own generics so it looks pretty much
     /// the same with generics
@@ -371,6 +374,9 @@ impl sendclone::SendClone for Type
     fn clone_for_send(&self) -> Type
     {
         match self {
+            &Type::T(ref path, ref items) => {
+                Type::T(path.clone_for_send(), items.clone_for_send())
+            }
             &Type::Tuple(ref items) => Type::Tuple(items.clone_for_send()),
             &Type::Func(ref ftyp) => Type::Func(ftyp.clone()),
             &Type::OpenVar(id) => Type::OpenVar(id),
@@ -430,6 +436,17 @@ impl fmt::Display for Type
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
+            &Type::T(ref path, ref args) => {
+                if args.is_empty() {
+                    write!(f, "{}", path)
+                } else {
+                    write!(f, "({}", path)?;
+                    for a in args {
+                        write!(f, " {}", a)?;
+                    }
+                    write!(f, ")")
+                }
+            }
             &Type::Tuple(ref items) => {
                 write!(f, "(")?;
                 for i in items {
@@ -454,6 +471,15 @@ impl fmt::Debug for Type
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
+            &Type::T(ref path, ref args) => {
+                if args.is_empty() {
+                    write!(f, "{}", path)
+                } else if f.alternate() {
+                    write!(f, "({} {:#?})", path, args)
+                } else {
+                    write!(f, "({} {:?})", path, args)
+                }
+            }
             &Type::Tuple(ref items) => {
                 if f.alternate() {
                     write!(f, "(T{:#?})", items)
