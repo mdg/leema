@@ -674,13 +674,6 @@ impl<'p> TypeCheck<'p>
             Type::T(var, _) if t.is_local() => {
                 self.inferred_local(var.as_lstr())
             }
-            Type::Func(ftyp) => {
-                let iargs = struple::map_v(&ftyp.args, |a| {
-                    self.inferred_type(a, opens)
-                })?;
-                let iresult = self.inferred_type(&ftyp.result, opens)?;
-                Type::Func(FuncType::new(iargs, iresult))
-            }
             Type::Generic(inner, type_args) => {
                 let inner2 = self.inferred_type(&*inner, opens)?;
                 let typargs2 = struple::map_v(type_args, |tv| {
@@ -688,7 +681,11 @@ impl<'p> TypeCheck<'p>
                 })?;
                 Type::generic(inner2, typargs2)
             }
-            Type::T(_path, _args) => t.clone(),
+            Type::T(path, args) => {
+                let args2 =
+                    struple::map_v(&args, |a| self.inferred_type(a, opens))?;
+                Type::T(path.clone(), args2)
+            }
         };
         Ok(newt)
     }
@@ -1039,10 +1036,6 @@ impl<'p> TypeCheck<'p>
     ) -> Lresult<Type>
     {
         match calltype {
-            Type::Func(inner_ftyp) => {
-                let mut opens = vec![];
-                Ok(ltry!(self.match_argtypes(inner_ftyp, args, &mut opens)))
-            }
             Type::Generic(ref mut inner, ref mut targs)
                 if Type::closed_args(targs) =>
             {
@@ -1068,6 +1061,10 @@ impl<'p> TypeCheck<'p>
                         calltype,
                     ));
                 }
+            }
+            Type::Func(inner_ftyp) => {
+                let mut opens = vec![];
+                Ok(ltry!(self.match_argtypes(inner_ftyp, args, &mut opens)))
             }
             _ => {
                 return Err(rustfail!(

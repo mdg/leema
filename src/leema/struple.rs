@@ -139,14 +139,13 @@ pub fn iter_v<K, V>(s: &StrupleKV<K, V>) -> impl Iterator<Item = &V>
 }
 
 pub fn map_v<K, V, F, U>(
-    s: &StrupleKV<K, V>,
+    s: &StrupleSlice<K, V>,
     mut f: F,
 ) -> Lresult<StrupleKV<K, U>>
 where
     F: FnMut(&V) -> Lresult<U>,
     K: Clone,
 {
-    // let m_result_items: Vec<Lresult<StrupleItem<K, U>>> = s
     let m_result_items = s.iter().map(|kv| {
         let u = f(&kv.v)?;
         Ok(StrupleItem::new(kv.k.clone(), u))

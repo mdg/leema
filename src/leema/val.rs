@@ -8,7 +8,9 @@ use crate::leema::module::ModKey;
 use crate::leema::msg;
 use crate::leema::reg::{self, Ireg, Iregistry, Reg};
 use crate::leema::sendclone;
-use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
+use crate::leema::struple::{
+    self, Struple2, Struple2Slice, StrupleItem, StrupleKV,
+};
 
 use std::cmp::{Ordering, PartialEq, PartialOrd};
 use std::fmt;
@@ -146,8 +148,29 @@ impl FuncType
     }
 }
 
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Hash)]
+#[derive(Ord)]
+pub struct FuncRef<'a>
+{
+    pub type_args: Option<&'a Struple2Slice<Type>>,
+    pub result: &'a Type,
+    pub args: &'a Struple2Slice<Type>,
+    pub closed_args: Option<&'a Struple2Slice<Type>>,
+}
+
 pub type GenericTypes = StrupleKV<&'static str, Type>;
 pub type GenericTypeSlice = [StrupleItem<&'static str, Type>];
+
+pub struct TypeRef<'a>
+{
+    path: &'a str,
+    args: &'a Struple2Slice<Type>,
+}
 
 /// Enum to hold type info
 /// does it need to be an enum or could it be flattened
@@ -299,31 +322,11 @@ impl Type
 
     pub fn method_type(&self) -> Lresult<Type>
     {
-        match self {
-            Type::Func(ref ftyp) => {
-                Ok(Type::Func(FuncType::new(
-                    ftyp.args[1..].iter().map(|a| a.clone()).collect(),
-                    (*ftyp.result).clone(),
-                )))
-            }
-            _ => {
-                Err(rustfail!(
-                    "leema_failure",
-                    "expected method type, found {:?}",
-                    self,
-                ))
-            }
-        }
-    }
-
-    pub fn split_func_ref(t: &Type) -> (&Struple2<Type>, &Type)
-    {
-        match t {
-            &Type::Func(ref ftype) => (&ftype.args, &ftype.result),
-            _ => {
-                panic!("not a func type {:?}", t);
-            }
-        }
+        let fref = self.func_ref()?;
+        Ok(Type::f(
+            fref.result.clone(),
+            fref.args[1..].iter().map(|a| a.clone()).collect(),
+        ))
     }
 
     pub fn inner(var: &Lstr, i: i16) -> Type
@@ -342,10 +345,13 @@ impl Type
 
     pub fn is_func(&self) -> bool
     {
-        match self {
-            Type::Func(_) => true,
-            Type::Generic(ref inner, _) => inner.is_func(),
-            _ => false,
+        if let TypeRef {
+            path: "/core/Fn", ..
+        } = self.type_ref()
+        {
+            true
+        } else {
+            false
         }
     }
 
@@ -396,6 +402,37 @@ impl Type
         *self == Type::FAILURE
     }
 
+    fn type_ref<'a>(&'a self) -> TypeRef<'a>
+    {
+        if let Type::T(p, args) = self {
+            TypeRef {
+                path: p.as_str(),
+                args: args.as_slice(),
+            }
+        } else {
+            panic!("not a Type::T");
+        }
+    }
+
+    fn func_ref<'a>(&'a self) -> Lresult<FuncRef<'a>>
+    {
+        let tref = self.type_ref();
+        if let TypeRef {
+            path: "/core/Fn",
+            args: [_gen, result, targs],
+        } = tref
+        {
+            Ok(FuncRef {
+                type_args: None,
+                result: &result.v,
+                args: targs.v.type_ref().args,
+                closed_args: None,
+            })
+        } else {
+            Err(rustfail!("leema_failure", "not a func type: {}", tref.path,))
+        }
+    }
+
     pub fn replace_openvar(&self, id: &str, new_type: &Type) -> Lresult<Type>
     {
         let op = |t: &Type| -> Lresult<Option<Type>> {
@@ -427,10 +464,6 @@ impl Type
                 let m_items = struple::map_v(items, |i| i.map(op))?;
                 Type::T(path.clone(), m_items)
             }
-            &Type::Func(ref ftyp) => {
-                let m_ftype = ftyp.map(op)?;
-                Type::Func(m_ftype)
-            }
             _ => self.clone(),
         };
         Ok(res)
@@ -447,7 +480,6 @@ impl sendclone::SendClone for Type
             &Type::T(ref path, ref items) => {
                 Type::T(path.clone_for_send(), items.clone_for_send())
             }
-            &Type::Func(ref ftyp) => Type::Func(ftyp.clone()),
             &Type::OpenVar(id) => Type::OpenVar(id),
             &Type::Generic(ref subt, ref opens) => {
                 let subt2 = Box::new(subt.clone_for_send());
@@ -524,8 +556,6 @@ impl fmt::Display for Type
             &Type::Generic(ref inner, ref args) => {
                 write!(f, "<{:?} {:?}>", inner, args)
             }
-            &Type::Func(ref ftyp) => write!(f, "F{}", ftyp),
-
             &Type::OpenVar(ref name) => write!(f, "${}", name),
         }
     }
@@ -543,13 +573,6 @@ impl fmt::Debug for Type
                     write!(f, "({} {:#?})", path, args)
                 } else {
                     write!(f, "({} {:?})", path, args)
-                }
-            }
-            &Type::Func(ref ftyp) => {
-                if f.alternate() {
-                    write!(f, "{:#?}", ftyp)
-                } else {
-                    write!(f, "{:?}", ftyp)
                 }
             }
             &Type::Generic(ref inner, ref args) => {
@@ -1094,35 +1117,11 @@ impl From<&Fref> for Lresult<Val>
 {
     fn from(f: &Fref) -> Lresult<Val>
     {
-        match &f.t {
-            Type::Func(ft) => {
-                Ok(Val::Call(
-                    f.clone(),
-                    struple::map_v(&ft.args, |_| Ok(Val::VOID))?,
-                ))
-            }
-            Type::Generic(inner, _args) => {
-                if let Type::Func(ft) = &**inner {
-                    Ok(Val::Call(
-                        f.clone(),
-                        struple::map_v(&ft.args, |_| Ok(Val::VOID))?,
-                    ))
-                } else {
-                    Err(rustfail!(
-                        "compile_failure",
-                        "not a generic func type: {}",
-                        f,
-                    ))
-                }
-            }
-            not_func => {
-                Err(rustfail!(
-                    "compile_failure",
-                    "not a func type: {}",
-                    not_func,
-                ))
-            }
-        }
+        let fref = ltry!(f.t.func_ref());
+        Ok(Val::Call(
+            f.clone(),
+            struple::map_v(fref.args, |_| Ok(Val::VOID))?,
+        ))
     }
 }
 

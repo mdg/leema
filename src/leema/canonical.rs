@@ -135,6 +135,12 @@ impl Canonical
         &self.0
     }
 
+    /// get the str out of the Canonical
+    pub fn as_str(&self) -> &str
+    {
+        self.0.as_str()
+    }
+
     pub fn ancestors(path: &Path) -> Vec<&Path>
     {
         let av: Vec<&Path> = path.ancestors().collect();

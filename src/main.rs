@@ -16,7 +16,7 @@ use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
 use crate::leema::parser;
 use crate::leema::program;
-use crate::leema::val::{Fref, FuncType, Type, Val};
+use crate::leema::val::{Fref, Type, Val};
 
 use docopt::Docopt;
 use std::env;
@@ -117,8 +117,7 @@ fn real_main() -> Lresult<()>
             Fref::with_modules(main_key.clone(), sfunc)
         }
         None => {
-            let main_ftyp = FuncType::new(vec![], Type::VOID);
-            let main_type = Type::Func(main_ftyp);
+            let main_type = Type::f(Type::VOID, vec![]);
             Fref::new(main_key.clone(), "main", main_type)
         }
     };
