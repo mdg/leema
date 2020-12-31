@@ -11,6 +11,7 @@ use crate::leema::val::{
     Fref, FuncType, GenericTypeSlice, GenericTypes, Type, Val,
 };
 
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::mem;
@@ -648,9 +649,9 @@ impl<'p> TypeCheck<'p>
     pub fn inferred_local(&self, local_tvar: &Lstr) -> Type
     {
         self.infers
-            .get(local_tvar.str())
+            .get(local_tvar.as_ref())
             .map(|t| t.clone())
-            .unwrap_or(Type::LocalVar(local_tvar.clone()))
+            .unwrap_or_else(|| Type::local(local_tvar.clone()))
     }
 
     pub fn inferred_type(
@@ -665,13 +666,14 @@ impl<'p> TypeCheck<'p>
                     struple::map_v(args, |it| self.inferred_type(it, opens))?;
                 Type::T(Type::TUPLE, margs)
             }
-            Type::T(_path, _args) => t.clone(),
             Type::OpenVar(v) => {
                 struple::find(opens, &v)
                     .map(|(_, item)| item.clone())
                     .unwrap_or(Type::OpenVar(v))
             }
-            Type::LocalVar(v) => self.inferred_local(&v),
+            Type::T(var, _) if t.is_local() => {
+                self.inferred_local(var.as_lstr())
+            }
             Type::Func(ftyp) => {
                 let iargs = struple::map_v(&ftyp.args, |a| {
                     self.inferred_type(a, opens)
@@ -686,6 +688,7 @@ impl<'p> TypeCheck<'p>
                 })?;
                 Type::generic(inner2, typargs2)
             }
+            Type::T(_path, _args) => t.clone(),
         };
         Ok(newt)
     }
@@ -733,6 +736,26 @@ impl<'p> TypeCheck<'p>
                 }
                 Ok(t1.clone())
             }
+            // case for local vars
+            (Type::T(v0, _), Type::T(v1, _))
+                if t0.is_local() && t1.is_local() =>
+            {
+                match Ord::cmp(v0, v1) {
+                    Ordering::Equal => Ok(self.inferred_local(v0.as_lstr())),
+                    Ordering::Less => {
+                        lfailoc!(self.infer_type(v0.as_lstr(), t1, opens))
+                    }
+                    Ordering::Greater => {
+                        lfailoc!(self.infer_type(v1.as_lstr(), t0, opens))
+                    }
+                }
+            }
+            (Type::T(v0, _), _) if t0.is_local() => {
+                lfailoc!(self.infer_type(v0.as_lstr(), t1, opens))
+            }
+            (_, Type::T(v1, _)) if t1.is_local() => {
+                lfailoc!(self.infer_type(v1.as_lstr(), t0, opens))
+            }
             (Type::T(p0, i0), Type::T(p1, i1))
                 if p0 == p1 && i0.len() == i1.len() =>
             {
@@ -773,21 +796,6 @@ impl<'p> TypeCheck<'p>
             }
             (t0, Type::OpenVar(v1)) => {
                 lfailoc!(self.close_generic(v1, t0, opens))
-            }
-            (Type::LocalVar(v0), Type::LocalVar(v1)) if v0 == v1 => {
-                Ok(self.inferred_local(v0))
-            }
-            (Type::LocalVar(v0), Type::LocalVar(v1)) if v0 < v1 => {
-                lfailoc!(self.infer_type(v0, t1, opens))
-            }
-            (Type::LocalVar(v0), Type::LocalVar(v1)) if v1 < v0 => {
-                lfailoc!(self.infer_type(v1, t0, opens))
-            }
-            (Type::LocalVar(v0), t1) => {
-                lfailoc!(self.infer_type(v0, t1, opens))
-            }
-            (t0, Type::LocalVar(v1)) => {
-                lfailoc!(self.infer_type(v1, t0, opens))
             }
             // case for alias types where the types may need to be
             // dereferenced before they will match
@@ -1235,7 +1243,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 // put the node back the way it was
                 // *node.node = Ast::Id(id);
                 } else {
-                    let tvar = Type::LocalVar(Lstr::Sref(id));
+                    let tvar = Type::local(Lstr::Sref(id));
                     self.vartypes.insert(id, tvar.clone());
                     node.typ = tvar;
                     // put the node back the way it was

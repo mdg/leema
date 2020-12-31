@@ -180,13 +180,11 @@ pub enum Type
     /// Type("open:VarName")
     /// or Type("VarName", ["/leema/Open"])
     OpenVar(&'static str),
-
-    /// Type("local:VarName") or Type("VarName", ["/leema/Local"])
-    LocalVar(Lstr),
 }
 
 impl Type
 {
+    // core types
     pub const INT: Type = core_type!(Int);
     pub const STR: Type = core_type!(Str);
     pub const BOOL: Type = core_type!(Bool);
@@ -201,6 +199,13 @@ impl Type
     /// Canonical path for the Tuple type
     pub const TUPLE: Canonical = canonical!("/core/Tuple");
 
+    // leema types, only used for internal compilation, not user code
+    /// identifies a locally defined type variable
+    const LOCAL: Type = leema_type!(Local);
+    const LOCAL_ITEM: StrupleItem<Option<Lstr>, Type> = StrupleItem {
+        k: None,
+        v: Type::LOCAL,
+    };
     /// Type assigned to -RUST- code blocks
     /// gets special treatment by the type checker to match any type
     pub const RUST_BLOCK: Type = leema_type!(RustBlock);
@@ -248,6 +253,11 @@ impl Type
         Type::Generic(Box::new(inner), args)
     }
 
+    pub fn local(var: Lstr) -> Type
+    {
+        Type::T(Canonical::new(var), vec![Type::LOCAL_ITEM])
+    }
+
     /**
      * Get the typename including the module
      */
@@ -255,9 +265,11 @@ impl Type
     {
         match self {
             &Type::T(ref path, ref args) if args.is_empty() => path.to_lstr(),
+            &Type::T(ref name, _) if self.is_local() => {
+                Lstr::from(format!("local:{}", name))
+            }
             &Type::T(_, _) => lstrf!("{}", self),
             &Type::OpenVar(name) => Lstr::from(format!("${}", name)),
-            &Type::LocalVar(ref name) => Lstr::from(format!("local:{}", name)),
             _ => {
                 panic!("no typename for {:?}", self);
             }
@@ -295,7 +307,7 @@ impl Type
 
     pub fn inner(var: &Lstr, i: i16) -> Type
     {
-        Type::LocalVar(lstrf!("{}$inner{}", var.str(), i))
+        Type::local(lstrf!("{}$inner{}", var.str(), i))
     }
 
     pub fn is_user(&self) -> bool
@@ -314,6 +326,20 @@ impl Type
             Type::Generic(ref inner, _) => inner.is_func(),
             _ => false,
         }
+    }
+
+    pub fn is_local(&self) -> bool
+    {
+        if let Type::T(_, args) = self {
+            Self::local_args(args)
+        } else {
+            false
+        }
+    }
+
+    pub fn local_args(args: &Struple2<Type>) -> bool
+    {
+        args.len() == 1 && *(args.first().unwrap()) == Type::LOCAL_ITEM
     }
 
     /// check if any of the generic type args are open
@@ -402,7 +428,6 @@ impl sendclone::SendClone for Type
             }
             &Type::Func(ref ftyp) => Type::Func(ftyp.clone()),
             &Type::OpenVar(id) => Type::OpenVar(id),
-            &Type::LocalVar(ref id) => Type::LocalVar(id.clone_for_send()),
             &Type::Generic(ref subt, ref opens) => {
                 let subt2 = Box::new(subt.clone_for_send());
                 let opens2 = opens.clone_for_send();
@@ -481,7 +506,6 @@ impl fmt::Display for Type
             &Type::Func(ref ftyp) => write!(f, "F{}", ftyp),
 
             &Type::OpenVar(ref name) => write!(f, "${}", name),
-            &Type::LocalVar(ref name) => write!(f, "local${}", name),
         }
     }
 }
@@ -512,7 +536,6 @@ impl fmt::Debug for Type
             }
 
             &Type::OpenVar(name) => write!(f, "${}", name),
-            &Type::LocalVar(ref name) => write!(f, "local${}", name),
         }
     }
 }

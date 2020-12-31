@@ -130,7 +130,7 @@ impl Canonical
     }
 
     /// get the Lstr out of the Canonical
-    fn as_lstr(&self) -> &Lstr
+    pub fn as_lstr(&self) -> &Lstr
     {
         &self.0
     }
