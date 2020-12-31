@@ -196,10 +196,21 @@ impl Type
     const LIST: Type = core_type!(List);
     const OPTION: Type = core_type!(Option);
 
+    /// Canonical path for the func type
+    pub const FN: Canonical = canonical!("/core/Fn");
     /// Canonical path for the Tuple type
     pub const TUPLE: Canonical = canonical!("/core/Tuple");
 
-    // leema types, only used for internal compilation, not user code
+    // leema types
+    // only used for internal compilation, not user code
+    /// function args
+    const FN_ARGS: Canonical = canonical!("/leema/FnArgs");
+    /// closed arguments for a closure
+    const FN_CLOSEDARGS: Type = leema_type!(FnClosedArgs);
+    /// return value of a function
+    const FN_RESULT: Type = leema_type!(FnResult);
+    /// type arguments for a generic function
+    const FN_TYPEARGS: Type = leema_type!(FnTypeArgs);
     /// identifies a locally defined type variable
     const LOCAL: Type = leema_type!(Local);
     const LOCAL_ITEM: StrupleItem<Option<Lstr>, Type> = StrupleItem {
@@ -212,19 +223,29 @@ impl Type
     /// Initial type to indicate the type checker doesn't know
     pub const UNKNOWN: Type = leema_type!(Unknown);
 
+    pub const FNKEY_ARGS: Option<Lstr> = Some(Lstr::Sref("args"));
+    pub const FNKEY_CLOSED: Option<Lstr> = Some(Lstr::Sref("closed"));
+    pub const FNKEY_RESULT: Option<Lstr> = Some(Lstr::Sref("result"));
+    pub const FNKEY_TYPEARGS: Option<Lstr> = Some(Lstr::Sref("typeargs"));
+
     /// Create a type w/ the given path name and no type arguments
     pub const fn named(path: Canonical) -> Type
     {
         Type::T(path, vec![])
     }
 
-    pub fn f(inputs: Struple2<Type>, result: Type) -> Type
+    pub fn f(result: Type, args: Struple2<Type>) -> Type
     {
-        Type::Func(FuncType {
-            args: inputs,
-            closed: vec![],
-            result: Box::new(result),
-        })
+        let argst = Type::T(Type::FN_ARGS, args);
+        Type::T(
+            Type::FN,
+            vec![
+                StrupleItem::new(Type::FNKEY_TYPEARGS, Type::VOID),
+                StrupleItem::new(Type::FNKEY_RESULT, result),
+                StrupleItem::new(Type::FNKEY_ARGS, argst),
+                // no closed vals
+            ],
+        )
     }
 
     pub fn tuple(items: Struple2<Type>) -> Type
