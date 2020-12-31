@@ -41,7 +41,6 @@ pub enum Canonical
     Path(Lstr),
     Open(Lstr, Lstr),
     Closed(Lstr, Box<Canonical>),
-    Impl(Box<Canonical>, Box<Canonical>),
 }
 
 impl Canonical
@@ -66,7 +65,6 @@ impl Canonical
             Canonical::Path(p) => Path::new(p.as_str()),
             Canonical::Open(p, _) => Path::new(p.as_str()),
             Canonical::Closed(p, _) => Path::new(p.as_str()),
-            Canonical::Impl(_, _) => panic!("which path?"),
         }
     }
 
@@ -93,9 +91,6 @@ impl Canonical
             }
             Canonical::Closed(_p, _t) => {
                 panic!("no closed");
-            }
-            Canonical::Impl(_t, _s) => {
-                panic!("no impl");
             }
         }
     }
@@ -140,9 +135,6 @@ impl Canonical
             Canonical::Closed(p, _) => {
                 let (pp, id) = Self::split_id_str(p)?;
                 Ok((Canonical::Path(pp), id))
-            }
-            Canonical::Impl(_, _) => {
-                panic!("split which id?");
             }
         }
     }
@@ -192,7 +184,6 @@ impl Canonical
             Canonical::Path(p) => p,
             Canonical::Open(p, _) => p,
             Canonical::Closed(p, _) => p,
-            Canonical::Impl(_, _) => panic!("which path?"),
         }
     }
 
@@ -294,9 +285,6 @@ impl fmt::Display for Canonical
                 write!(f, "{} {}", p, s)?;
                 write!(f, ">")
             }
-            Canonical::Impl(t, s) => {
-                write!(f, "{} <: {}", t, s)
-            }
         }
     }
 }
@@ -315,12 +303,6 @@ impl sendclone::SendClone for Canonical
             Canonical::Closed(p, s) => {
                 Canonical::Closed(
                     p.clone_for_send(),
-                    Box::new(s.clone_for_send()),
-                )
-            }
-            Canonical::Impl(t, s) => {
-                Canonical::Impl(
-                    Box::new(t.clone_for_send()),
                     Box::new(s.clone_for_send()),
                 )
             }
