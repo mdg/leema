@@ -571,7 +571,7 @@ impl ProtoModule
             Ast::Id(name_id) => {
                 ltry!(self.refute_redefines_default(name_id, name.loc));
                 let tok_mod = self.key.name.clone();
-                let t = Type::User(tok_mod.join(&name_id)?);
+                let t = Type::named(tok_mod.join(&name_id)?);
                 let token_val = Val::Token(t.clone());
                 let const_node =
                     AstNode::new_constval(token_val.clone(), name.loc);
@@ -694,7 +694,7 @@ impl ProtoModule
     {
         let id = proto_t.n;
         let subkey = self.key.submod(subtype, id)?;
-        let utyp = Type::User(subkey.name.clone());
+        let utyp = Type::named(subkey.name.clone());
         let alias = AstNode::new(
             Ast::DefType(
                 DataType::Alias,
@@ -804,7 +804,7 @@ impl ProtoModule
 
         let id: &'static str = match *name.node {
             Ast::Id(name_id) => {
-                utyp = Type::User(self.key.name.join(name_id)?);
+                utyp = Type::named(self.key.name.join(name_id)?);
                 opens = vec![];
                 name_id
             }
@@ -842,7 +842,7 @@ impl ProtoModule
                         ));
                     }
 
-                    let inner = Type::User(m.join(name_id)?);
+                    let inner = Type::named(m.join(name_id)?);
                     utyp = Type::Generic(Box::new(inner), gen_arg_vars);
                     name_id
                 } else {
@@ -1024,7 +1024,7 @@ impl ProtoModule
                 match (&*module_node.node, &*id_node.node) {
                     (Ast::Id(m), Ast::Id(id)) => {
                         match self.imports.get(m) {
-                            Some(canonical) => Type::User(canonical.join(id)?),
+                            Some(canonical) => Type::named(canonical.join(id)?),
                             None => {
                                 return Err(rustfail!(
                                     PROTOFAIL,

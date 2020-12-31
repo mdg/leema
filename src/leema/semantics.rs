@@ -686,7 +686,6 @@ impl<'p> TypeCheck<'p>
                 })?;
                 Type::generic(inner2, typargs2)
             }
-            Type::User(_) => t.clone(),
         };
         Ok(newt)
     }
@@ -790,10 +789,9 @@ impl<'p> TypeCheck<'p>
             (t0, Type::LocalVar(v1)) => {
                 lfailoc!(self.infer_type(v1, t0, opens))
             }
-            (Type::User(u0), Type::User(u1)) if u0 == u1 => {
-                return Ok(Type::User(u0.clone()));
-            }
-            (Type::User(u0), Type::User(u1)) => {
+            // case for alias types where the types may need to be
+            // dereferenced before they will match
+            (Type::T(u0, _a0), Type::T(u1, _a1)) => {
                 if let Some(r) = self.match_type_alias(u0, t1, opens)? {
                     return Ok(r);
                 }
@@ -1170,7 +1168,7 @@ impl<'p> TypeCheck<'p>
     ) -> Lresult<AstStep>
     {
         match (base_typ, &*fld.node) {
-            (Type::User(tname), Ast::Id(f)) => {
+            (Type::T(tname, targs), Ast::Id(f)) if targs.is_empty() => {
                 // find a field in a struct or interface or
                 // whatever else
                 let tproto = self.lib.path_proto(tname)?;

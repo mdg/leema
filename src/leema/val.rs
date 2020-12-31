@@ -22,27 +22,42 @@ use mopa::mopafy;
 #[macro_export]
 macro_rules! leema_type {
     ($t:ident) => {
-        crate::leema::val::Type::User(crate::leema::canonical::Canonical::Path(
-            crate::leema::lstr::Lstr::Sref(concat!("/leema/", stringify!($t))),
-        ))
+        crate::leema::val::Type::T(
+            crate::leema::canonical::Canonical::Path(
+                crate::leema::lstr::Lstr::Sref(concat!(
+                    "/leema/",
+                    stringify!($t)
+                )),
+            ),
+            vec![],
+        )
     };
 }
 
 #[macro_export]
 macro_rules! core_type {
     ($t:ident) => {
-        crate::leema::val::Type::User(crate::leema::canonical::Canonical::Path(
-            crate::leema::lstr::Lstr::Sref(concat!("/core/", stringify!($t))),
-        ))
+        crate::leema::val::Type::T(
+            crate::leema::canonical::Canonical::Path(
+                crate::leema::lstr::Lstr::Sref(concat!(
+                    "/core/",
+                    stringify!($t)
+                )),
+            ),
+            vec![],
+        )
     };
 }
 
 #[macro_export]
 macro_rules! user_type {
     ($ct:literal) => {
-        crate::leema::val::Type::User(crate::leema::canonical::Canonical::Path(
-            crate::leema::lstr::Lstr::Sref($ct),
-        ))
+        crate::leema::val::Type::T(
+            crate::leema::canonical::Canonical::Path(
+                crate::leema::lstr::Lstr::Sref($ct),
+            ),
+            vec![],
+        )
     };
 }
 
@@ -160,7 +175,6 @@ pub enum Type
     /// Merge User and Generic to be
     /// Type(Canonical, Struple2<Type>)
     /// works fine for those 2 if it can also work for functions
-    User(Canonical),
     Generic(Box<Type>, GenericTypes),
 
     /// Type("open:VarName")
@@ -176,8 +190,7 @@ impl Type
     pub const INT: Type = core_type!(Int);
     pub const STR: Type = core_type!(Str);
     pub const BOOL: Type = core_type!(Bool);
-    pub const HASHTAG: Type =
-        Type::User(Canonical::Path(Lstr::Sref("/core/#")));
+    pub const HASHTAG: Type = user_type!("/core/#");
     pub const FAILURE: Type = core_type!(Failure);
     pub const KIND: Type = core_type!(Kind);
     pub const VOID: Type = core_type!(Void);
@@ -193,6 +206,12 @@ impl Type
     pub const RUST_BLOCK: Type = leema_type!(RustBlock);
     /// Initial type to indicate the type checker doesn't know
     pub const UNKNOWN: Type = leema_type!(Unknown);
+
+    /// Create a type w/ the given path name and no type arguments
+    pub const fn named(path: Canonical) -> Type
+    {
+        Type::T(path, vec![])
+    }
 
     pub fn f(inputs: Struple2<Type>, result: Type) -> Type
     {
@@ -235,7 +254,8 @@ impl Type
     pub fn full_typename(&self) -> Lstr
     {
         match self {
-            &Type::User(ref name) => name.to_lstr(),
+            &Type::T(ref path, ref args) if args.is_empty() => path.to_lstr(),
+            &Type::T(_, _) => lstrf!("{}", self),
             &Type::OpenVar(name) => Lstr::from(format!("${}", name)),
             &Type::LocalVar(ref name) => Lstr::from(format!("local:{}", name)),
             _ => {
@@ -281,7 +301,7 @@ impl Type
     pub fn is_user(&self) -> bool
     {
         match self {
-            &Type::User(_) => true,
+            &Type::T(_, _) => true,
             &Type::Generic(ref inner, _) => inner.is_user(),
             _ => false,
         }
@@ -388,7 +408,6 @@ impl sendclone::SendClone for Type
                 let opens2 = opens.clone_for_send();
                 Type::Generic(subt2, opens2)
             }
-            &Type::User(ref c) => Type::User(c.clone_for_send()),
         }
     }
 }
@@ -456,7 +475,6 @@ impl fmt::Display for Type
                     write!(f, ")")
                 }
             }
-            &Type::User(ref c) => write!(f, "{}", c),
             &Type::Generic(ref inner, ref args) => {
                 write!(f, "<{:?} {:?}>", inner, args)
             }
@@ -489,7 +507,6 @@ impl fmt::Debug for Type
                     write!(f, "{:?}", ftyp)
                 }
             }
-            &Type::User(ref c) => write!(f, "({})", c),
             &Type::Generic(ref inner, ref args) => {
                 write!(f, "<{:?} {:?}>", inner, args)
             }

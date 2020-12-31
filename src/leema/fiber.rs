@@ -252,26 +252,19 @@ impl Fiber
     ) -> Lresult<Event>
     {
         let items = self.head.e.get_params();
-        let construple = if let Type::User(_) = new_typ {
-            let new_items = items
-                .iter()
-                .zip(flds.iter())
-                .map(|(i, f)| {
-                    if i.k.is_some() {
-                        StrupleItem::new(i.k.clone(), i.v.clone())
-                    } else {
-                        StrupleItem::new(f.k.clone(), i.v.clone())
-                    }
-                })
-                .collect();
-            Val::EnumStruct(new_typ.clone(), variant.clone(), new_items)
-        } else {
-            return Err(rustfail!(
-                "leema_failure",
-                "struct type is not user defined: {:?}",
-                new_typ,
-            ));
-        };
+        let new_items = items
+            .iter()
+            .zip(flds.iter())
+            .map(|(i, f)| {
+                if i.k.is_some() {
+                    StrupleItem::new(i.k.clone(), i.v.clone())
+                } else {
+                    StrupleItem::new(f.k.clone(), i.v.clone())
+                }
+            })
+            .collect();
+        let construple =
+            Val::EnumStruct(new_typ.clone(), variant.clone(), new_items);
 
         ltry!(self.head.e.set_reg(reg, construple));
         self.head.pc = self.head.pc + 1;
@@ -286,26 +279,18 @@ impl Fiber
     ) -> Lresult<Event>
     {
         let items = self.head.e.get_params();
-        let construple = if let Type::User(_) = new_typ {
-            let new_items = items
-                .iter()
-                .zip(flds.iter())
-                .map(|(i, f)| {
-                    if i.k.is_some() {
-                        StrupleItem::new(i.k.clone(), i.v.clone())
-                    } else {
-                        StrupleItem::new(f.k.clone(), i.v.clone())
-                    }
-                })
-                .collect();
-            Val::Struct(new_typ.clone(), new_items)
-        } else {
-            return Err(rustfail!(
-                "leema_failure",
-                "struct type is not user defined: {:?}",
-                new_typ,
-            ));
-        };
+        let new_items = items
+            .iter()
+            .zip(flds.iter())
+            .map(|(i, f)| {
+                if i.k.is_some() {
+                    StrupleItem::new(i.k.clone(), i.v.clone())
+                } else {
+                    StrupleItem::new(f.k.clone(), i.v.clone())
+                }
+            })
+            .collect();
+        let construple = Val::Struct(new_typ.clone(), new_items);
 
         ltry!(self.head.e.set_reg(reg, construple));
         self.head.pc = self.head.pc + 1;
