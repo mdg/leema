@@ -686,6 +686,7 @@ impl<'p> TypeCheck<'p>
                     struple::map_v(&args, |a| self.inferred_type(a, opens))?;
                 Type::T(path.clone(), args2)
             }
+            &Type::Func(_) => panic!("bad func"),
         };
         Ok(newt)
     }

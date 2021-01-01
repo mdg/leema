@@ -486,6 +486,7 @@ impl sendclone::SendClone for Type
                 let opens2 = opens.clone_for_send();
                 Type::Generic(subt2, opens2)
             }
+            &Type::Func(_) => panic!("bad func"),
         }
     }
 }
@@ -557,6 +558,7 @@ impl fmt::Display for Type
                 write!(f, "<{:?} {:?}>", inner, args)
             }
             &Type::OpenVar(ref name) => write!(f, "${}", name),
+            &Type::Func(_) => panic!("bad func"),
         }
     }
 }
@@ -580,6 +582,7 @@ impl fmt::Debug for Type
             }
 
             &Type::OpenVar(name) => write!(f, "${}", name),
+            &Type::Func(_) => panic!("bad func"),
         }
     }
 }

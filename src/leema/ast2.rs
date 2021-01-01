@@ -239,7 +239,7 @@ pub enum Ast
     DefTrait(AstNode, Vec<AstNode>),
     DefMacro(&'static str, Vec<&'static str>, AstNode),
     DefType(DataType, AstNode, Xlist),
-    FuncType(Xlist, AstNode),
+    FuncType(AstNode, Xlist),
     Generic(AstNode, Xlist),
     Id(&'static str),
     Ifx(Vec<Case>),

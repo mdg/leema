@@ -787,7 +787,7 @@ impl ProtoModule
 
         ltry!(self.refute_redefines_default(id, loc));
         let ft = lfctx!(
-            self.ast_to_ftype(&args, &result, &opens),
+            self.ast_to_ftype(&result, &args, &opens),
             "file": self.key.best_path(),
             "line": lstrf!("{}", name.loc.lineno),
             "func": Lstr::Sref(id)
@@ -1056,8 +1056,8 @@ impl ProtoModule
 
     fn ast_to_ftype(
         &self,
-        args: &Xlist,
         result: &AstNode,
+        args: &Xlist,
         opens: &[StrupleItem<&'static str, Type>],
     ) -> Lresult<FuncType>
     {
