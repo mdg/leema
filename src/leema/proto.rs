@@ -757,7 +757,7 @@ impl ProtoModule
                                 a,
                             ));
                         };
-                        Ok(StrupleItem::new(var, Type::OpenVar(var)))
+                        Ok(StrupleItem::new(var, Type::open(Lstr::from(var))))
                     })
                     .collect();
                 opens.append(&mut open_result?);
@@ -824,8 +824,10 @@ impl ProtoModule
                         ));
                     };
                     opens1.push(StrupleItem::new(var, Type::UNKNOWN));
-                    gen_arg_vars
-                        .push(StrupleItem::new(var, Type::OpenVar(var)));
+                    gen_arg_vars.push(StrupleItem::new(
+                        var,
+                        Type::open(Lstr::from(var)),
+                    ));
                 }
                 opens = opens1;
 
@@ -956,7 +958,7 @@ impl ProtoModule
     {
         Ok(match &*node.node {
             Ast::Id(id) if struple::contains_key(opens, id) => {
-                Type::OpenVar(id)
+                Type::open(Lstr::Sref(id))
             }
             Ast::Id(id) => {
                 if let Some(sub) = self.submods.get(id) {
@@ -1388,7 +1390,7 @@ mod tests
         --
         "#;
         let proto = new_proto(input);
-        let tvt = Type::OpenVar("T");
+        let tvt = Type::open("T");
 
         assert_eq!(1, proto.modscope.len());
         assert!(proto.modscope.contains_key("first"));
@@ -1401,7 +1403,7 @@ mod tests
                     ],
                     tvt.clone(),
                 ))),
-                vec![StrupleItem::new("T", Type::OpenVar("T"))],
+                vec![StrupleItem::new("T", Type::open("T"))],
             ),
             proto.modscope.get("first").unwrap().typ,
         );
@@ -1420,7 +1422,7 @@ mod tests
         let point_type = proto.types.get("Point").expect("no Point type");
         let expected = Type::Generic(
             Box::new(user_type!("/foo/Point")),
-            vec![StrupleItem::new("T", Type::OpenVar("T"))],
+            vec![StrupleItem::new("T", Type::open("T"))],
         );
         assert_eq!(expected, *point_type);
     }

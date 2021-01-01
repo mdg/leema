@@ -666,10 +666,10 @@ impl<'p> TypeCheck<'p>
                     struple::map_v(args, |it| self.inferred_type(it, opens))?;
                 Type::T(Type::TUPLE, margs)
             }
-            Type::OpenVar(v) => {
-                struple::find(opens, &v)
+            Type::T(v, _) if t.is_openvar() => {
+                struple::find(opens, v.as_str())
                     .map(|(_, item)| item.clone())
-                    .unwrap_or(Type::OpenVar(v))
+                    .unwrap_or_else(|| Type::open(v.to_lstr()))
             }
             Type::T(var, _) if t.is_local() => {
                 self.inferred_local(var.as_lstr())
@@ -754,6 +754,12 @@ impl<'p> TypeCheck<'p>
             (_, Type::T(v1, _)) if t1.is_local() => {
                 lfailoc!(self.infer_type(v1.as_lstr(), t0, opens))
             }
+            (Type::T(v0, _), _) if t0.is_openvar() => {
+                lfailoc!(self.close_generic(v0.as_lstr(), t1, opens))
+            }
+            (_, Type::T(v1, _)) if t1.is_openvar() => {
+                lfailoc!(self.close_generic(v1.as_lstr(), t0, opens))
+            }
             (Type::T(p0, i0), Type::T(p1, i1))
                 if p0 == p1 && i0.len() == i1.len() =>
             {
@@ -788,12 +794,6 @@ impl<'p> TypeCheck<'p>
                     })
                     .collect();
                 Ok(Type::generic(inner, argr?))
-            }
-            (Type::OpenVar(v0), t1) => {
-                lfailoc!(self.close_generic(v0, t1, opens))
-            }
-            (t0, Type::OpenVar(v1)) => {
-                lfailoc!(self.close_generic(v1, t0, opens))
             }
             // case for alias types where the types may need to be
             // dereferenced before they will match
@@ -867,7 +867,7 @@ impl<'p> TypeCheck<'p>
 
     pub fn close_generic(
         &mut self,
-        var: &'static str,
+        var: &Lstr,
         t: &Type,
         opens: &mut StrupleKV<&'static str, Type>,
     ) -> Lresult<Type>
@@ -884,32 +884,33 @@ impl<'p> TypeCheck<'p>
             ));
         };
 
-        match &opens[open_idx].v {
-            unknown if *unknown == Type::UNKNOWN => {
-                // newly defined type, set it in opens
-                opens[open_idx].v = t.clone();
-                Ok(t.clone())
+        let open = &opens[open_idx].v;
+        if *open == Type::UNKNOWN {
+            // newly defined type, set it in opens
+            opens[open_idx].v = t.clone();
+            Ok(t.clone())
+        } else if open.is_openvar() {
+            if let Type::T(p, _) = open {
+                if p.as_lstr() == var {
+                    // newly defined type, set it in opens
+                    opens[open_idx].v = t.clone();
+                    Ok(t.clone())
+                } else {
+                    panic!("unexpected var: {:?}", p);
+                }
+            } else {
+                panic!("unexpected type variant: {:?}", open);
             }
-            Type::OpenVar(open_var) if **open_var == *var => {
-                // newly defined type, set it in opens
-                opens[open_idx].v = t.clone();
-                Ok(t.clone())
-            }
-            Type::OpenVar(some_other_var) => {
-                panic!("unexpected var: {:?}", some_other_var);
-            }
-            matched_t if *matched_t == *t => {
-                // already the same type, good
-                return Ok(t.clone());
-            }
-            _ => {
-                // different type, run a match and then assign the result
-                // this upgrades inference local vars to concrete types
-                let old_type = opens[open_idx].v.clone();
-                let new_type = ltry!(self.match_type(&old_type, t, opens));
-                opens[open_idx].v = new_type.clone();
-                Ok(new_type)
-            }
+        } else if open == t {
+            // already the same type, good
+            Ok(t.clone())
+        } else {
+            // different type, run a match and then assign the result
+            // this upgrades inference local vars to concrete types
+            let old_type = opens[open_idx].v.clone();
+            let new_type = ltry!(self.match_type(&old_type, t, opens));
+            opens[open_idx].v = new_type.clone();
+            Ok(new_type)
         }
     }
 
@@ -1012,14 +1013,8 @@ impl<'p> TypeCheck<'p>
     ) -> Lresult<(usize, &'static str)>
     {
         for (idx, i) in typeargs.iter().enumerate() {
-            match i.v {
-                Type::OpenVar(_) => {
-                    return Ok((idx, i.k));
-                }
-                ref unknown if *unknown == Type::UNKNOWN => {
-                    return Ok((idx, i.k));
-                }
-                _ => {} // not open, keep looking
+            if i.v.is_openvar() || i.v == Type::UNKNOWN {
+                return Ok((idx, i.k));
             }
         }
         Err(Failure::static_leema(

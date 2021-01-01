@@ -199,10 +199,6 @@ pub enum Type
     /// Type(Canonical, Struple2<Type>)
     /// works fine for those 2 if it can also work for functions
     Generic(Box<Type>, GenericTypes),
-
-    /// Type("open:VarName")
-    /// or Type("VarName", ["/leema/Open"])
-    OpenVar(&'static str),
 }
 
 impl Type
@@ -239,6 +235,12 @@ impl Type
     const LOCAL_ITEM: StrupleItem<Option<Lstr>, Type> = StrupleItem {
         k: None,
         v: Type::LOCAL,
+    };
+    /// identifies an open type variable
+    const OPEN: Type = leema_type!(Open);
+    const OPENVAR_ITEM: StrupleItem<Option<Lstr>, Type> = StrupleItem {
+        k: None,
+        v: Type::OPEN,
     };
     /// Type assigned to -RUST- code blocks
     /// gets special treatment by the type checker to match any type
@@ -302,6 +304,11 @@ impl Type
         Type::T(Canonical::new(var), vec![Type::LOCAL_ITEM])
     }
 
+    pub fn open(var: Lstr) -> Type
+    {
+        Type::T(Canonical::new(var), vec![Type::OPENVAR_ITEM])
+    }
+
     /**
      * Get the typename including the module
      */
@@ -312,8 +319,10 @@ impl Type
             &Type::T(ref name, _) if self.is_local() => {
                 Lstr::from(format!("local:{}", name))
             }
+            &Type::T(ref name, _) if self.is_openvar() => {
+                Lstr::from(format!("open:{}", name))
+            }
             &Type::T(_, _) => lstrf!("{}", self),
-            &Type::OpenVar(name) => Lstr::from(format!("${}", name)),
             _ => {
                 panic!("no typename for {:?}", self);
             }
@@ -369,6 +378,20 @@ impl Type
         args.len() == 1 && *(args.first().unwrap()) == Type::LOCAL_ITEM
     }
 
+    pub fn is_openvar(&self) -> bool
+    {
+        if let Type::T(_, args) = self {
+            Self::openvar_args(args)
+        } else {
+            false
+        }
+    }
+
+    pub fn openvar_args(args: &Struple2<Type>) -> bool
+    {
+        args.len() == 1 && *(args.first().unwrap()) == Type::OPENVAR_ITEM
+    }
+
     /// check if any of the generic type args are open
     pub fn open_args(args: &GenericTypes) -> bool
     {
@@ -383,9 +406,11 @@ impl Type
 
     pub fn is_open(&self) -> bool
     {
+        if self.is_openvar() {
+            return true;
+        }
         match self {
             Type::Generic(_, args) => Type::open_args(args),
-            Type::OpenVar(_) => true,
             Type::T(_p, items) => items.iter().any(|i| i.v.is_open()),
             unknown if *unknown == Type::UNKNOWN => true,
             _ => false,
@@ -436,17 +461,14 @@ impl Type
     pub fn replace_openvar(&self, id: &str, new_type: &Type) -> Lresult<Type>
     {
         let op = |t: &Type| -> Lresult<Option<Type>> {
-            match t {
-                Type::OpenVar(ovar) => {
-                    let replacement = if *ovar == id {
-                        Some(new_type.clone())
-                    } else {
-                        None
-                    };
-                    Ok(replacement)
+            if t.is_openvar() {
+                if let Type::T(p, _) = t {
+                    if p.as_str() == id {
+                        return Ok(Some(new_type.clone()));
+                    }
                 }
-                _ => Ok(None),
             }
+            Ok(None)
         };
         self.map(&op)
     }
@@ -480,7 +502,6 @@ impl sendclone::SendClone for Type
             &Type::T(ref path, ref items) => {
                 Type::T(path.clone_for_send(), items.clone_for_send())
             }
-            &Type::OpenVar(id) => Type::OpenVar(id),
             &Type::Generic(ref subt, ref opens) => {
                 let subt2 = Box::new(subt.clone_for_send());
                 let opens2 = opens.clone_for_send();
@@ -543,6 +564,12 @@ impl fmt::Display for Type
                 }
                 write!(f, ")")
             }
+            &Type::T(ref name, _) if self.is_local() => {
+                write!(f, "local:{}", name)
+            }
+            &Type::T(ref name, _) if self.is_openvar() => {
+                write!(f, "open:{}", name)
+            }
             &Type::T(ref path, ref args) => {
                 if args.is_empty() {
                     write!(f, "{}", path)
@@ -557,7 +584,6 @@ impl fmt::Display for Type
             &Type::Generic(ref inner, ref args) => {
                 write!(f, "<{:?} {:?}>", inner, args)
             }
-            &Type::OpenVar(ref name) => write!(f, "${}", name),
             &Type::Func(_) => panic!("bad func"),
         }
     }
@@ -568,6 +594,12 @@ impl fmt::Debug for Type
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
+            &Type::T(ref name, _) if self.is_local() => {
+                write!(f, "local:{}", name)
+            }
+            &Type::T(ref name, _) if self.is_openvar() => {
+                write!(f, "open:{}", name)
+            }
             &Type::T(ref path, ref args) => {
                 if args.is_empty() {
                     write!(f, "{}", path)
@@ -581,7 +613,6 @@ impl fmt::Debug for Type
                 write!(f, "<{:?} {:?}>", inner, args)
             }
 
-            &Type::OpenVar(name) => write!(f, "${}", name),
             &Type::Func(_) => panic!("bad func"),
         }
     }

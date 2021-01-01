@@ -168,16 +168,16 @@ where
     Lresult::from_iter(m_result_items)
 }
 
-pub fn find<'s, 'k, K, V>(
+pub fn find<'s, K, V>(
     s: &'s [StrupleItem<K, V>],
-    key: &'k K,
+    key: K,
 ) -> Option<(usize, &'s V)>
 where
     K: PartialEq,
 {
     s.iter()
         .enumerate()
-        .find(|(_, i)| i.k == *key)
+        .find(|(_, i)| i.k == key)
         .map(|(idx, item)| (idx, &item.v))
 }
 
@@ -219,7 +219,7 @@ where
         .map(|(idx, item)| (idx, &mut item.v))
 }
 
-pub fn contains_key<K, V>(s: &[StrupleItem<K, V>], k: &K) -> bool
+pub fn contains_key<K, V>(s: &[StrupleItem<K, V>], k: K) -> bool
 where
     K: PartialEq,
 {
