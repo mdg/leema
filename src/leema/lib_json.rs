@@ -117,22 +117,22 @@ fn decode_with_args(mut ctx: RustFuncContext) -> Lresult<Event>
         if !fref.t.is_generic() {
             panic!("not a generic");
         }
-        let tparam = &fref.t.args.first().unwrap().v;
+        let tparam = fref.t.first_arg()?;
 
-        match tparam.path {
-            Type::BOOL => {
+        match tparam.path_str() {
+            Type::PATH_BOOL => {
                 let b = serde_json::from_str(text).unwrap();
                 Val::Bool(b)
             }
-            Type::INT => {
+            Type::PATH_INT => {
                 let i = serde_json::from_str(text).unwrap();
                 Val::Int(i)
             }
-            Type::STR => {
+            Type::PATH_STR => {
                 let v: String = serde_json::from_str(text).unwrap();
                 Val::Str(Lstr::from(v))
             }
-            Type::HASHTAG => {
+            Type::PATH_HASHTAG => {
                 let s: String = serde_json::from_str(text).unwrap();
                 Val::Hashtag(Lstr::from(s))
             }

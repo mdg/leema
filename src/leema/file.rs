@@ -13,7 +13,8 @@ use std::path::Path;
 use std::sync::Mutex;
 
 
-const FILE_TYPE: Type = user_type!("/file/File");
+const TYPEPATH_FILE: &'static str = "/file/File";
+const TYPE_FILE: Type = Type::named(TYPEPATH_FILE);
 
 struct LeemaFile
 {
@@ -32,7 +33,7 @@ impl LibVal for LeemaFile
 {
     fn get_type(&self) -> Type
     {
-        FILE_TYPE
+        TYPE_FILE
     }
 }
 

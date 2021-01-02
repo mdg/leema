@@ -24,42 +24,21 @@ use mopa::mopafy;
 #[macro_export]
 macro_rules! leema_type {
     ($t:ident) => {
-        crate::leema::val::Type::new(
-            crate::leema::canonical::Canonical::new(
-                crate::leema::lstr::Lstr::Sref(concat!(
-                    "/leema/",
-                    stringify!($t)
-                )),
-            ),
-            vec![],
-        )
+        crate::leema::val::Type::new(concat!("/leema/", stringify!($t)), vec![])
     };
 }
 
 #[macro_export]
 macro_rules! core_type {
     ($t:ident) => {
-        crate::leema::val::Type::new(
-            crate::leema::canonical::Canonical::new(
-                crate::leema::lstr::Lstr::Sref(concat!(
-                    "/core/",
-                    stringify!($t)
-                )),
-            ),
-            vec![],
-        )
+        crate::leema::val::Type::new(concat!("/core/", stringify!($t)), vec![])
     };
 }
 
 #[macro_export]
-macro_rules! as_type {
+macro_rules! user_type {
     ($ct:literal) => {
-        crate::leema::val::Type::new(
-            crate::leema::canonical::Canonical::new(
-                crate::leema::lstr::Lstr::Sref($ct),
-            ),
-            vec![],
-        )
+        crate::leema::val::Type::new($ct, vec![])
     };
 }
 
@@ -204,7 +183,17 @@ impl Type
     pub const PATH_STR: &'static str = "/core/Str";
     /// Canonical path for the Tuple type
     pub const PATH_TUPLE: &'static str = "/core/Tuple";
+    pub const PATH_TYPE: &'static str = "/core/Type";
     pub const PATH_VOID: &'static str = "/core/Void";
+
+    // core types
+    pub const BOOL: Type = Type::named(Type::PATH_BOOL);
+    pub const HASHTAG: Type = Type::named(Type::PATH_HASHTAG);
+    pub const INT: Type = Type::named(Type::PATH_INT);
+    pub const KIND: Type = Type::named(Type::PATH_KIND);
+    pub const STR: Type = Type::named(Type::PATH_STR);
+    pub const TYPE: Type = Type::named(Type::PATH_TYPE);
+    pub const VOID: Type = Type::named(Type::PATH_VOID);
 
     // leema type paths
     // only used for internal compilation, not user code
@@ -233,7 +222,6 @@ impl Type
     pub const RUST_BLOCK: Type = leema_type!(RustBlock);
     /// Initial type to indicate the type checker doesn't know
     pub const UNKNOWN: Type = leema_type!(Unknown);
-    pub const VOID: Type = leema_type!(Unknown);
 
     pub const FNKEY_ARGS: Option<Lstr> = Some(Lstr::Sref("args"));
     pub const FNKEY_CLOSED: Option<Lstr> = Some(Lstr::Sref("closed"));
@@ -260,9 +248,9 @@ impl Type
 
     pub fn f(result: Type, args: Struple2<Type>) -> Type
     {
-        let argst = Type::new(Type::FN_ARGS, args);
+        let argst = Type::new(Type::PATH_FNARGS, args);
         Type::new(
-            canonical!(Type::FN),
+            Type::PATH_FN,
             vec![
                 StrupleItem::new(Type::FNKEY_TYPEARGS, Type::VOID),
                 StrupleItem::new(Type::FNKEY_RESULT, result),
@@ -274,18 +262,18 @@ impl Type
 
     pub fn tuple(items: Struple2<Type>) -> Type
     {
-        Type::new(canonical!(Type::PATH_TUPLE), items)
+        Type::new(Type::PATH_TUPLE, items)
     }
 
     /// construct a list type object
     pub fn list(inner: Type) -> Type
     {
-        Self::generic_1(Type::LIST, Some(inner))
+        Self::generic_1(Type::PATH_LIST, Some(inner))
     }
 
     pub fn option(inner: Option<Type>) -> Type
     {
-        Self::generic_1(Type::OPTION, inner)
+        Self::generic_1(Type::PATH_OPTION, inner)
     }
 
     pub fn generic_1(path: &'static str, inner: Option<Type>) -> Type
@@ -295,12 +283,15 @@ impl Type
             None => Type::UNKNOWN,
         };
         let args = vec![StrupleItem::new(Some(Lstr::Sref("T")), arg)];
-        Type::new(Canonical::new(Lstr::Sref(path)), args)
+        Type::new(path, args)
     }
 
     pub fn generic(path: Lstr, args: Struple2<Type>) -> Type
     {
-        Type::new(Canonical::new(path), args)
+        Type {
+            path: Canonical::new(path),
+            args,
+        }
     }
 
     pub fn local(var: Lstr) -> Type
@@ -341,6 +332,19 @@ impl Type
     pub fn inner(var: &Lstr, i: i16) -> Type
     {
         Type::local(lstrf!("{}$inner{}", var.str(), i))
+    }
+
+    /// Check if this type has generic args
+    pub fn is_generic(&self) -> bool
+    {
+        if self.args.is_empty() {
+            return false;
+        }
+        if !self.path.is_func() {
+            return false;
+        }
+        let first = self.first_arg().unwrap();
+        *first == Type::VOID
     }
 
     /// not really sure why this is anymore
@@ -426,6 +430,25 @@ impl Type
         } else {
             Err(rustfail!("leema_failure", "not a func type: {}", tref.path,))
         }
+    }
+
+    pub fn path_str(&self) -> &str
+    {
+        self.path.as_str()
+    }
+
+    pub fn first_arg(&self) -> Lresult<&Type>
+    {
+        let first = lfctx!(
+            self.args.first().ok_or_else(|| {
+                rustfail!(
+                    "leema_failure",
+                    "no first argument to return",
+                )
+            }),
+            "path": self.path.lstr()
+        );
+        Ok(&first.v)
     }
 
     pub fn replace_openvar(&self, id: &str, new_type: &Type) -> Lresult<Type>
