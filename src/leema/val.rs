@@ -24,7 +24,7 @@ use mopa::mopafy;
 #[macro_export]
 macro_rules! leema_type {
     ($t:ident) => {
-        crate::leema::val::Type::T(
+        crate::leema::val::Type::new(
             crate::leema::canonical::Canonical::new(
                 crate::leema::lstr::Lstr::Sref(concat!(
                     "/leema/",
@@ -39,7 +39,7 @@ macro_rules! leema_type {
 #[macro_export]
 macro_rules! core_type {
     ($t:ident) => {
-        crate::leema::val::Type::T(
+        crate::leema::val::Type::new(
             crate::leema::canonical::Canonical::new(
                 crate::leema::lstr::Lstr::Sref(concat!(
                     "/core/",
@@ -52,9 +52,9 @@ macro_rules! core_type {
 }
 
 #[macro_export]
-macro_rules! user_type {
+macro_rules! as_type {
     ($ct:literal) => {
-        crate::leema::val::Type::T(
+        crate::leema::val::Type::new(
             crate::leema::canonical::Canonical::new(
                 crate::leema::lstr::Lstr::Sref($ct),
             ),
@@ -181,55 +181,41 @@ pub struct TypeRef<'a>
 #[derive(Eq)]
 #[derive(Hash)]
 #[derive(Ord)]
-pub enum Type
+pub struct Type
 {
-    /// The future Type struct
-    T(Canonical, Struple2<Type>),
-
-    /// Type("/core/Fn", [
-    ///     g: Type("/leema/Generics", [...]) or Void,
-    ///     r: ResultType or Void,
-    ///     a: Type("/leema/Args", [...]) or Void,
-    ///     c: Closed or Void (or nothing?),
-    /// ])
-    /// It kind of works, but also complex
-    Func(FuncType),
-
-    /// Merge User and Generic to be
-    /// Type(Canonical, Struple2<Type>)
-    /// works fine for those 2 if it can also work for functions
-    Generic(Box<Type>, GenericTypes),
+    path: Canonical,
+    args: Struple2<Type>,
 }
 
 impl Type
 {
-    // core types
-    pub const INT: Type = core_type!(Int);
-    pub const STR: Type = core_type!(Str);
-    pub const BOOL: Type = core_type!(Bool);
-    pub const HASHTAG: Type = user_type!("/core/#");
-    pub const FAILURE: Type = core_type!(Failure);
-    pub const KIND: Type = core_type!(Kind);
-    pub const VOID: Type = core_type!(Void);
-    pub const NO_RETURN: Type = core_type!(NoReturn);
-    const LIST: Type = core_type!(List);
-    const OPTION: Type = core_type!(Option);
-
+    // core type names to match for special behavior
+    pub const PATH_BOOL: &'static str = "/core/Bool";
     /// Canonical path for the func type
-    pub const FN: Canonical = canonical!("/core/Fn");
+    pub const PATH_FN: &'static str = "/core/Fn";
+    pub const PATH_FAILURE: &'static str = "/core/Failure";
+    pub const PATH_HASHTAG: &'static str = "/core/#";
+    pub const PATH_KIND: &'static str = "/core/Kind";
+    /// Canonical path for the list type
+    pub const PATH_LIST: &'static str = "/core/List";
+    pub const PATH_NORETURN: &'static str = "/core/NoReturn";
+    pub const PATH_INT: &'static str = "/core/Int";
+    pub const PATH_OPTION: &'static str = "/core/Option";
+    pub const PATH_STR: &'static str = "/core/Str";
     /// Canonical path for the Tuple type
-    pub const TUPLE: Canonical = canonical!("/core/Tuple");
+    pub const PATH_TUPLE: &'static str = "/core/Tuple";
+    pub const PATH_VOID: &'static str = "/core/Void";
 
-    // leema types
+    // leema type paths
     // only used for internal compilation, not user code
     /// function args
-    const FN_ARGS: Canonical = canonical!("/leema/FnArgs");
+    const PATH_FNARGS: &'static str = "/leema/FnArgs";
     /// closed arguments for a closure
-    const FN_CLOSEDARGS: Type = leema_type!(FnClosedArgs);
+    const PATH_FNCLOSED: Type = leema_type!(FnClosedArgs);
     /// return value of a function
-    const FN_RESULT: Type = leema_type!(FnResult);
+    const PATH_FNRESULT: Type = leema_type!(FnResult);
     /// type arguments for a generic function
-    const FN_TYPEARGS: Type = leema_type!(FnTypeArgs);
+    const PATH_FNTYPEARGS: Type = leema_type!(FnTypeArgs);
     /// identifies a locally defined type variable
     const LOCAL: Type = leema_type!(Local);
     const LOCAL_ITEM: StrupleItem<Option<Lstr>, Type> = StrupleItem {
@@ -247,6 +233,7 @@ impl Type
     pub const RUST_BLOCK: Type = leema_type!(RustBlock);
     /// Initial type to indicate the type checker doesn't know
     pub const UNKNOWN: Type = leema_type!(Unknown);
+    pub const VOID: Type = leema_type!(Unknown);
 
     pub const FNKEY_ARGS: Option<Lstr> = Some(Lstr::Sref("args"));
     pub const FNKEY_CLOSED: Option<Lstr> = Some(Lstr::Sref("closed"));
@@ -254,16 +241,28 @@ impl Type
     pub const FNKEY_TYPEARGS: Option<Lstr> = Some(Lstr::Sref("typeargs"));
 
     /// Create a type w/ the given path name and no type arguments
-    pub const fn named(path: Canonical) -> Type
+    pub const fn new(path: &'static str, args: Struple2<Type>) -> Type
     {
-        Type::T(path, vec![])
+        Type {
+            path: canonical!(path),
+            args,
+        }
+    }
+
+    /// Create a type w/ the given path name and no type arguments
+    pub const fn named(path: &'static str) -> Type
+    {
+        Type {
+            path: canonical!(path),
+            args: vec![],
+        }
     }
 
     pub fn f(result: Type, args: Struple2<Type>) -> Type
     {
-        let argst = Type::T(Type::FN_ARGS, args);
-        Type::T(
-            Type::FN,
+        let argst = Type::new(Type::FN_ARGS, args);
+        Type::new(
+            canonical!(Type::FN),
             vec![
                 StrupleItem::new(Type::FNKEY_TYPEARGS, Type::VOID),
                 StrupleItem::new(Type::FNKEY_RESULT, result),
@@ -275,38 +274,43 @@ impl Type
 
     pub fn tuple(items: Struple2<Type>) -> Type
     {
-        Type::T(Type::TUPLE, items)
+        Type::new(canonical!(Type::PATH_TUPLE), items)
     }
 
+    /// construct a list type object
     pub fn list(inner: Type) -> Type
     {
-        let gen_args = vec![StrupleItem::new("T", inner.clone())];
-        Type::Generic(Box::new(Type::LIST), gen_args)
+        Self::generic_1(Type::LIST, Some(inner))
     }
 
     pub fn option(inner: Option<Type>) -> Type
+    {
+        Self::generic_1(Type::OPTION, inner)
+    }
+
+    pub fn generic_1(path: &'static str, inner: Option<Type>) -> Type
     {
         let arg = match inner {
             Some(i) => i,
             None => Type::UNKNOWN,
         };
-        let gen_args = vec![StrupleItem::new("T", arg)];
-        Type::Generic(Box::new(Type::OPTION), gen_args)
+        let args = vec![StrupleItem::new(Some(Lstr::Sref("T")), arg)];
+        Type::new(Canonical::new(Lstr::Sref(path)), args)
     }
 
-    pub fn generic(inner: Type, args: GenericTypes) -> Type
+    pub fn generic(path: Lstr, args: Struple2<Type>) -> Type
     {
-        Type::Generic(Box::new(inner), args)
+        Type::new(Canonical::new(path), args)
     }
 
     pub fn local(var: Lstr) -> Type
     {
-        Type::T(Canonical::new(var), vec![Type::LOCAL_ITEM])
+        Type::new(Canonical::new(var), vec![Type::LOCAL_ITEM])
     }
 
     pub fn open(var: Lstr) -> Type
     {
-        Type::T(Canonical::new(var), vec![Type::OPENVAR_ITEM])
+        Type::new(Canonical::new(var), vec![Type::OPENVAR_ITEM])
     }
 
     /**
@@ -314,18 +318,14 @@ impl Type
      */
     pub fn full_typename(&self) -> Lstr
     {
-        match self {
-            &Type::T(ref path, ref args) if args.is_empty() => path.to_lstr(),
-            &Type::T(ref name, _) if self.is_local() => {
-                Lstr::from(format!("local:{}", name))
-            }
-            &Type::T(ref name, _) if self.is_openvar() => {
-                Lstr::from(format!("open:{}", name))
-            }
-            &Type::T(_, _) => lstrf!("{}", self),
-            _ => {
-                panic!("no typename for {:?}", self);
-            }
+        if self.args.is_empty() {
+            self.path.to_lstr()
+        } else if self.is_local() {
+            Lstr::from(format!("local:{}", self.path))
+        } else if self.is_openvar() {
+            Lstr::from(format!("open:{}", self.path))
+        } else {
+            lstrf!("{}", self)
         }
     }
 
@@ -343,34 +343,26 @@ impl Type
         Type::local(lstrf!("{}$inner{}", var.str(), i))
     }
 
+    /// not really sure why this is anymore
     pub fn is_user(&self) -> bool
     {
-        match self {
-            &Type::T(_, _) => true,
-            &Type::Generic(ref inner, _) => inner.is_user(),
-            _ => false,
+        match self.path.as_str() {
+            "/core/Fn" | "/core/Tuple" => false,
+            _ => true,
         }
     }
 
     pub fn is_func(&self) -> bool
     {
-        if let TypeRef {
-            path: "/core/Fn", ..
-        } = self.type_ref()
-        {
-            true
-        } else {
-            false
+        match self.path.as_str() {
+            "/core/Fn" => true,
+            _ => false,
         }
     }
 
     pub fn is_local(&self) -> bool
     {
-        if let Type::T(_, args) = self {
-            Self::local_args(args)
-        } else {
-            false
-        }
+        Self::local_args(&self.args)
     }
 
     pub fn local_args(args: &Struple2<Type>) -> bool
@@ -380,11 +372,7 @@ impl Type
 
     pub fn is_openvar(&self) -> bool
     {
-        if let Type::T(_, args) = self {
-            Self::openvar_args(args)
-        } else {
-            false
-        }
+        Self::openvar_args(&self.args)
     }
 
     pub fn openvar_args(args: &Struple2<Type>) -> bool
@@ -392,28 +380,14 @@ impl Type
         args.len() == 1 && *(args.first().unwrap()) == Type::OPENVAR_ITEM
     }
 
-    /// check if any of the generic type args are open
-    pub fn open_args(args: &GenericTypes) -> bool
-    {
-        args.iter().any(|a| a.v.is_open())
-    }
-
-    /// check if any of the generic type args are closed
-    pub fn closed_args(args: &GenericTypes) -> bool
-    {
-        !Type::open_args(args)
-    }
-
     pub fn is_open(&self) -> bool
     {
         if self.is_openvar() {
-            return true;
-        }
-        match self {
-            Type::Generic(_, args) => Type::open_args(args),
-            Type::T(_p, items) => items.iter().any(|i| i.v.is_open()),
-            unknown if *unknown == Type::UNKNOWN => true,
-            _ => false,
+            true
+        } else if *self == Type::UNKNOWN {
+            true
+        } else {
+            self.args.iter().any(|a| a.v.is_open())
         }
     }
 
@@ -427,19 +401,15 @@ impl Type
         *self == Type::FAILURE
     }
 
-    fn type_ref<'a>(&'a self) -> TypeRef<'a>
+    pub fn type_ref<'a>(&'a self) -> TypeRef<'a>
     {
-        if let Type::T(p, args) = self {
-            TypeRef {
-                path: p.as_str(),
-                args: args.as_slice(),
-            }
-        } else {
-            panic!("not a Type::T");
+        TypeRef {
+            path: self.path.as_str(),
+            args: self.args.as_slice(),
         }
     }
 
-    fn func_ref<'a>(&'a self) -> Lresult<FuncTypeRef<'a>>
+    pub fn func_ref<'a>(&'a self) -> Lresult<FuncTypeRef<'a>>
     {
         let tref = self.type_ref();
         if let TypeRef {
@@ -461,14 +431,11 @@ impl Type
     pub fn replace_openvar(&self, id: &str, new_type: &Type) -> Lresult<Type>
     {
         let op = |t: &Type| -> Lresult<Option<Type>> {
-            if t.is_openvar() {
-                if let Type::T(p, _) = t {
-                    if p.as_str() == id {
-                        return Ok(Some(new_type.clone()));
-                    }
-                }
+            if t.is_openvar() && t.path.as_str() == id {
+                Ok(Some(new_type.clone()))
+            } else {
+                Ok(None)
             }
-            Ok(None)
         };
         self.map(&op)
     }
@@ -481,14 +448,8 @@ impl Type
             return Ok(m_self);
         }
 
-        let res = match self {
-            &Type::T(ref path, ref items) => {
-                let m_items = struple::map_v(items, |i| i.map(op))?;
-                Type::T(path.clone(), m_items)
-            }
-            _ => self.clone(),
-        };
-        Ok(res)
+        let m_items = struple::map_v(self.args.as_slice(), |i| i.map(op))?;
+        Ok(Type::new(self.path.clone(), m_items))
     }
 }
 
@@ -498,17 +459,7 @@ impl sendclone::SendClone for Type
 
     fn clone_for_send(&self) -> Type
     {
-        match self {
-            &Type::T(ref path, ref items) => {
-                Type::T(path.clone_for_send(), items.clone_for_send())
-            }
-            &Type::Generic(ref subt, ref opens) => {
-                let subt2 = Box::new(subt.clone_for_send());
-                let opens2 = opens.clone_for_send();
-                Type::Generic(subt2, opens2)
-            }
-            &Type::Func(_) => panic!("bad func"),
-        }
+        Type::new(self.path.clone_for_send(), self.args.clone_for_send())
     }
 }
 
@@ -556,35 +507,39 @@ impl fmt::Display for Type
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        match self {
-            &Type::T(ref path, ref args) if *path == Type::TUPLE => {
-                write!(f, "(")?;
-                for a in args {
-                    write!(f, "{},", a)?;
-                }
-                write!(f, ")")
-            }
-            &Type::T(ref name, _) if self.is_local() => {
-                write!(f, "local:{}", name)
-            }
-            &Type::T(ref name, _) if self.is_openvar() => {
-                write!(f, "open:{}", name)
-            }
-            &Type::T(ref path, ref args) => {
-                if args.is_empty() {
-                    write!(f, "{}", path)
-                } else {
-                    write!(f, "({}", path)?;
-                    for a in args {
-                        write!(f, " {}", a)?;
+        if self.is_local() {
+            write!(f, "local:{}", self.path)
+        } else if self.is_openvar() {
+            write!(f, "open:{}", self.path)
+        } else {
+            match self.path.as_str() {
+                Type::TUPLE => {
+                    write!(f, "(")?;
+                    for a in self.args {
+                        write!(f, "{},", a)?;
                     }
                     write!(f, ")")
                 }
+                Type::LIST => {
+                    write!(f, "[")?;
+                    write!(f, "{}", self.args.first().unwrap().v)?;
+                    write!(f, "]")
+                }
+                Type::FN => {
+                    write!(f, "(func type: {:?})", self.args)
+                }
+                _ => {
+                    if self.args.is_empty() {
+                        write!(f, "{}", self.path)
+                    } else {
+                        write!(f, "<{}", self.path)?;
+                        for a in self.args {
+                            write!(f, " {}", a)?;
+                        }
+                        write!(f, ">")
+                    }
+                }
             }
-            &Type::Generic(ref inner, ref args) => {
-                write!(f, "<{:?} {:?}>", inner, args)
-            }
-            &Type::Func(_) => panic!("bad func"),
         }
     }
 }
@@ -593,27 +548,43 @@ impl fmt::Debug for Type
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        match self {
-            &Type::T(ref name, _) if self.is_local() => {
-                write!(f, "local:{}", name)
-            }
-            &Type::T(ref name, _) if self.is_openvar() => {
-                write!(f, "open:{}", name)
-            }
-            &Type::T(ref path, ref args) => {
-                if args.is_empty() {
-                    write!(f, "{}", path)
-                } else if f.alternate() {
-                    write!(f, "({} {:#?})", path, args)
-                } else {
-                    write!(f, "({} {:?})", path, args)
+        if self.is_local() {
+            write!(f, "local:{}", self.path)
+        } else if self.is_openvar() {
+            write!(f, "open:{}", self.path)
+        } else {
+            match self.path.as_str() {
+                Type::TUPLE => {
+                    write!(f, "(")?;
+                    for a in self.args {
+                        write!(f, "{:?},", a)?;
+                    }
+                    write!(f, ")")
+                }
+                Type::LIST => {
+                    write!(f, "[")?;
+                    write!(f, "{:?}", self.args.first().unwrap().v)?;
+                    write!(f, "]")
+                }
+                Type::FN => {
+                    write!(f, "(func type: {:?})", self.args)
+                }
+                _ => {
+                    if self.args.is_empty() {
+                        write!(f, "{}", self.path)
+                    } else {
+                        write!(f, "<{}", self.path)?;
+                        for a in self.args {
+                            if f.alternate() {
+                                write!(f, " {:#?}", a)?;
+                            } else {
+                                write!(f, " {:?}", a)?;
+                            }
+                        }
+                        write!(f, ">")
+                    }
                 }
             }
-            &Type::Generic(ref inner, ref args) => {
-                write!(f, "<{:?} {:?}>", inner, args)
-            }
-
-            &Type::Func(_) => panic!("bad func"),
         }
     }
 }
