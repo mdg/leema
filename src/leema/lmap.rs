@@ -1,4 +1,3 @@
-use crate::leema::canonical::Canonical;
 use crate::leema::lstr::Lstr;
 use crate::leema::struple::StrupleItem;
 use crate::leema::val::{Type, Val};
@@ -6,12 +5,12 @@ use crate::leema::val::{Type, Val};
 use std::sync::Arc;
 
 
-const MAP_PATH: Canonical = Canonical::new(Lstr::Sref("/map/T"));
+const TYPEPATH_MAP: &'static str = "/map/T";
 
 pub fn map_type() -> Type
 {
     Type::new(
-        MAP_PATH,
+        TYPEPATH_MAP,
         vec![
             StrupleItem {
                 k: Some(Lstr::Sref("K")),

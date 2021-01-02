@@ -188,12 +188,20 @@ impl Type
 
     // core types
     pub const BOOL: Type = Type::named(Type::PATH_BOOL);
+    pub const FAILURE: Type = Type::named(Type::PATH_FAILURE);
     pub const HASHTAG: Type = Type::named(Type::PATH_HASHTAG);
     pub const INT: Type = Type::named(Type::PATH_INT);
     pub const KIND: Type = Type::named(Type::PATH_KIND);
     pub const STR: Type = Type::named(Type::PATH_STR);
     pub const TYPE: Type = Type::named(Type::PATH_TYPE);
     pub const VOID: Type = Type::named(Type::PATH_VOID);
+
+    // leema types
+    /// Type assigned to -RUST- code blocks
+    /// gets special treatment by the type checker to match any type
+    pub const RUST_BLOCK: Type = leema_type!(RustBlock);
+    /// Initial type to indicate the type checker doesn't know
+    pub const UNKNOWN: Type = leema_type!(Unknown);
 
     // leema type paths
     // only used for internal compilation, not user code
@@ -206,22 +214,9 @@ impl Type
     /// type arguments for a generic function
     const PATH_FNTYPEARGS: Type = leema_type!(FnTypeArgs);
     /// identifies a locally defined type variable
-    const LOCAL: Type = leema_type!(Local);
-    const LOCAL_ITEM: StrupleItem<Option<Lstr>, Type> = StrupleItem {
-        k: None,
-        v: Type::LOCAL,
-    };
+    const PATH_LOCAL: &'static str = "/leema/Local";
     /// identifies an open type variable
-    const OPEN: Type = leema_type!(Open);
-    const OPENVAR_ITEM: StrupleItem<Option<Lstr>, Type> = StrupleItem {
-        k: None,
-        v: Type::OPEN,
-    };
-    /// Type assigned to -RUST- code blocks
-    /// gets special treatment by the type checker to match any type
-    pub const RUST_BLOCK: Type = leema_type!(RustBlock);
-    /// Initial type to indicate the type checker doesn't know
-    pub const UNKNOWN: Type = leema_type!(Unknown);
+    const PATH_OPENVAR: &'static str = "/leema/Open";
 
     pub const FNKEY_ARGS: Option<Lstr> = Some(Lstr::Sref("args"));
     pub const FNKEY_CLOSED: Option<Lstr> = Some(Lstr::Sref("closed"));
@@ -296,12 +291,24 @@ impl Type
 
     pub fn local(var: Lstr) -> Type
     {
-        Type::new(Canonical::new(var), vec![Type::LOCAL_ITEM])
+        Type::new(
+            Type::PATH_LOCAL,
+            vec![StrupleItem {
+                k: Some(var),
+                v: Type::VOID,
+            }],
+        )
     }
 
     pub fn open(var: Lstr) -> Type
     {
-        Type::new(Canonical::new(var), vec![Type::OPENVAR_ITEM])
+        Type::new(
+            Type::PATH_OPENVAR,
+            vec![StrupleItem {
+                k: Some(var),
+                v: Type::VOID,
+            }],
+        )
     }
 
     /**
@@ -337,10 +344,12 @@ impl Type
     /// Check if this type has generic args
     pub fn is_generic(&self) -> bool
     {
+        // can't be generic if no args
         if self.args.is_empty() {
             return false;
         }
-        if !self.path.is_func() {
+        // can't be generic if no args and not a func
+        if !self.is_func() {
             return false;
         }
         let first = self.first_arg().unwrap();
@@ -366,22 +375,12 @@ impl Type
 
     pub fn is_local(&self) -> bool
     {
-        Self::local_args(&self.args)
-    }
-
-    pub fn local_args(args: &Struple2<Type>) -> bool
-    {
-        args.len() == 1 && *(args.first().unwrap()) == Type::LOCAL_ITEM
+        self.path.as_str() == Type::PATH_LOCAL
     }
 
     pub fn is_openvar(&self) -> bool
     {
-        Self::openvar_args(&self.args)
-    }
-
-    pub fn openvar_args(args: &Struple2<Type>) -> bool
-    {
-        args.len() == 1 && *(args.first().unwrap()) == Type::OPENVAR_ITEM
+        self.path.as_str() == Type::PATH_OPENVAR
     }
 
     pub fn is_open(&self) -> bool
@@ -402,7 +401,7 @@ impl Type
 
     pub fn is_failure(&self) -> bool
     {
-        *self == Type::FAILURE
+        self.path.as_str() == Type::PATH_FAILURE
     }
 
     pub fn type_ref<'a>(&'a self) -> TypeRef<'a>
@@ -446,7 +445,7 @@ impl Type
                     "no first argument to return",
                 )
             }),
-            "path": self.path.lstr()
+            "path": self.path.to_lstr()
         );
         Ok(&first.v)
     }
@@ -472,7 +471,10 @@ impl Type
         }
 
         let m_items = struple::map_v(self.args.as_slice(), |i| i.map(op))?;
-        Ok(Type::new(self.path.clone(), m_items))
+        Ok(Type {
+            path: self.path.clone(),
+            args: m_items,
+        })
     }
 }
 
@@ -482,7 +484,10 @@ impl sendclone::SendClone for Type
 
     fn clone_for_send(&self) -> Type
     {
-        Type::new(self.path.clone_for_send(), self.args.clone_for_send())
+        Type {
+            path: self.path.clone_for_send(),
+            args: self.args.clone_for_send(),
+        }
     }
 }
 
@@ -536,19 +541,19 @@ impl fmt::Display for Type
             write!(f, "open:{}", self.path)
         } else {
             match self.path.as_str() {
-                Type::TUPLE => {
+                Type::PATH_TUPLE => {
                     write!(f, "(")?;
                     for a in self.args {
                         write!(f, "{},", a)?;
                     }
                     write!(f, ")")
                 }
-                Type::LIST => {
+                Type::PATH_LIST => {
                     write!(f, "[")?;
                     write!(f, "{}", self.args.first().unwrap().v)?;
                     write!(f, "]")
                 }
-                Type::FN => {
+                Type::PATH_FN => {
                     write!(f, "(func type: {:?})", self.args)
                 }
                 _ => {
@@ -577,19 +582,19 @@ impl fmt::Debug for Type
             write!(f, "open:{}", self.path)
         } else {
             match self.path.as_str() {
-                Type::TUPLE => {
+                Type::PATH_TUPLE => {
                     write!(f, "(")?;
                     for a in self.args {
                         write!(f, "{:?},", a)?;
                     }
                     write!(f, ")")
                 }
-                Type::LIST => {
+                Type::PATH_LIST => {
                     write!(f, "[")?;
                     write!(f, "{:?}", self.args.first().unwrap().v)?;
                     write!(f, "]")
                 }
-                Type::FN => {
+                Type::PATH_FN => {
                     write!(f, "(func type: {:?})", self.args)
                 }
                 _ => {
