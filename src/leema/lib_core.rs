@@ -283,27 +283,16 @@ pub fn void_func(mut f: RustFuncContext) -> Lresult<frame::Event>
             ));
         }
     };
-    let void_type: Type = match &f.current_fref().t {
-        Type::Generic(inner, opens) if !Type::open_args(opens) => {
-            match &**inner {
-                Type::Func(ft) => (*ft.result).clone(),
-                other => {
-                    return Err(rustfail!(
-                        "leema_failure",
-                        "void func type is not func: {:?}",
-                        other,
-                    ));
-                }
-            }
-        }
-        other => {
-            return Err(rustfail!(
-                "leema_failure",
-                "void func is not closed generic: {:?}",
-                other,
-            ));
-        }
-    };
+    let ftyp = &f.current_fref().t;
+    if ftyp.is_open() {
+        return Err(rustfail!(
+            "leema_failure",
+            "void func type is an open generic: {:?}",
+            ftyp,
+        ));
+    }
+    let fref = ftyp.func_ref()?;
+    let void_type: Type = fref.result.clone();
     let flds = vec![StrupleItem::new_v(Val::VOID); num_args];
     let result = Val::Struct(void_type, flds);
     f.set_result(result);

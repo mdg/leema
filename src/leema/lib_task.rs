@@ -3,7 +3,6 @@ use crate::leema::failure::Lresult;
 use crate::leema::frame::Event;
 use crate::leema::io::RunQueueReceiver;
 use crate::leema::rsrc;
-use crate::leema::struple::StrupleItem;
 use crate::leema::val::{Type, Val};
 use crate::leema::worker::RustFuncContext;
 
@@ -20,10 +19,8 @@ impl rsrc::Rsrc for Lfuture
 {
     fn get_type(&self) -> Type
     {
-        // this should probably have a known type field later
-        let type_args = vec![StrupleItem::new("T", Type::UNKNOWN)];
-        let futype = Box::new(user_type!("/task/Future"));
-        Type::Generic(futype, type_args)
+        // should this have a known type field later?
+        Type::generic_1("/task/Future", None)
     }
 }
 

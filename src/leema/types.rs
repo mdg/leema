@@ -6,23 +6,17 @@ use crate::leema::val::{Type, Val};
 
 pub const STRUCT_FIELD_TYPE: Type = user_type!("/types/StructFieldVal");
 
-pub fn option_type(t: Type) -> Type
-{
-    let opt = Box::new(user_type!("/option/T"));
-    Type::Generic(opt, vec![StrupleItem::new("T", t)])
-}
-
 pub fn new_some(v: Val) -> Val
 {
     let some_type = v.get_type();
-    let optype = option_type(some_type);
+    let optype = Type::option(Some(some_type));
     let fields = vec![StrupleItem::new(None, v)];
     Val::EnumStruct(optype, Lstr::Sref("Some"), fields)
 }
 
 pub fn new_none(t: Type) -> Val
 {
-    let optype = option_type(t);
+    let optype = Type::option(Some(t));
     Val::EnumToken(optype, Lstr::Sref("None"))
 }
 
