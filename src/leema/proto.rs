@@ -1059,7 +1059,11 @@ impl ProtoModule
     {
         let arg_types = self.xlist_to_types(args, &opens)?;
         let result_type = ltry!(self.ast_to_type(&result, opens));
-        Ok(Type::f(result_type, arg_types))
+        let gens = opens
+            .iter()
+            .map(|i| StrupleItem::new(Some(Lstr::Sref(i.k)), i.v.clone()))
+            .collect();
+        Ok(Type::generic_f(gens, result_type, arg_types))
     }
 
     fn xlist_to_types(
@@ -1642,7 +1646,7 @@ mod tests
         let b = protos.path_proto(&canonical!("/b")).unwrap();
         assert_eq!(1, b.imports.len());
         assert_eq!(2, b.modscope.len());
-        assert_eq!(0, b.localdef.len());
+        assert_eq!(1, b.localdef.len());
         assert!(b.modscope.contains_key("foo"));
         assert!(b.modscope.contains_key("bar"));
     }
