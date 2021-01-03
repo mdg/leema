@@ -9,7 +9,10 @@ use crate::leema::proto::{self, ProtoLib, ProtoModule};
 use crate::leema::struple::{
     self, Struple2, StrupleItem, StrupleKV, StrupleSlice,
 };
-use crate::leema::val::{Fref, FuncTypeRef, GenericTypes, Type, TypeRef2, Val};
+use crate::leema::val::{
+    Fref, FuncTypeRef, FuncTypeRefMut, GenericTypes, Type, TypeRef2,
+    TypeRefMut, Val,
+};
 
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
@@ -858,7 +861,7 @@ impl<'p> TypeCheck<'p>
         args: &mut ast2::Xlist,
     ) -> Lresult<Type>
     {
-        let TypeRef2(_p, targs) = calltype.try_generic_ref()?;
+        let TypeRefMut(_p, targs) = calltype.try_generic_ref_mut()?;
 
         if args.len() != targs.len() {
             return Err(rustfail!(
@@ -924,14 +927,14 @@ impl<'p> TypeCheck<'p>
         args: &mut ast2::Xlist,
     ) -> Lresult<Type>
     {
-        let funcref = calltype.try_func_ref()?;
+        let mut funcref = calltype.try_func_ref_mut()?;
         let mut opens = vec![];
-        self.match_argtypes(&funcref, args, &mut opens)
+        self.match_argtypes(&mut funcref, args, &mut opens)
     }
 
     fn match_argtypes<'a>(
         &mut self,
-        ftyp: &FuncTypeRef<'a>,
+        ftyp: &mut FuncTypeRefMut<'a>,
         args: &mut ast2::Xlist,
         opens: &mut StrupleKV<&'static str, Type>,
     ) -> Lresult<Type>
@@ -1381,7 +1384,7 @@ impl Semantics
         let func_ref = proto.find_modelem(&f.f).ok_or_else(|| {
             rustfail!(SEMFAIL, "cannot find func ref for {}", f,)
         })?;
-        let closed;
+        let closed = vec![];
         let ftyp = if func_ref.typ.is_generic() {
             func_ref.typ.try_func_ref()?
         } else if f.t.is_closed() {

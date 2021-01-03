@@ -470,6 +470,25 @@ impl Type
         }
     }
 
+    pub fn try_func_ref_mut<'a>(&'a mut self) -> Lresult<FuncTypeRefMut<'a>>
+    {
+        // sketchy: working around a borrow checker limitation
+        // that for some reason keeps this from working. cast self
+        // to a pointer, then back to a reference and use the reference
+        // instead to avoid double borrow errors
+        // Explained in this rust user forum thread:
+        // https://users.rust-lang.org/t/solved-borrow-doesnt-drop-returning-this-value-requires-that/24182/6
+        let ft = unsafe { &mut (*(self as *mut Type)) };
+        if let Some(fref) = ft.func_ref_mut() {
+            return Ok(fref);
+        }
+        Err(rustfail!(
+            "leema_failure",
+            "type is not a function: {}",
+            self,
+        ))
+    }
+
     pub fn try_func_ref<'a>(&'a self) -> Lresult<FuncTypeRef<'a>>
     {
         if let Some(f) = self.func_ref() {
@@ -507,7 +526,15 @@ impl Type
     pub fn try_generic_ref_mut<'a>(&'a mut self) -> Lresult<TypeRefMut<'a>>
     {
         {
-            let opt_func_ref: Option<FuncTypeRefMut<'a>> = self.func_ref_mut();
+            // sketchy: working around a borrow checker limitation
+            // that for some reason keeps this from working. cast self
+            // to a pointer, then back to a reference and use the reference
+            // instead to avoid double borrow errors
+            // Explained in this rust user forum thread:
+            // https://users.rust-lang.org/t/solved-borrow-doesnt-drop-returning-this-value-requires-that/24182/6
+            let ft = unsafe { &mut (*(self as *mut Type)) };
+
+            let opt_func_ref = ft.func_ref_mut();
             if opt_func_ref.is_some() {
                 let f = opt_func_ref.unwrap();
                 if f.type_args.is_none() {
@@ -531,10 +558,10 @@ impl Type
         }
 
         if self.is_generic() {
-            return Ok(self.type_ref_mut());
+            Ok(self.type_ref_mut())
+        } else {
+            Err(rustfail!("leema_failure", "type is not generic: {}", self,))
         }
-
-        Err(rustfail!("leema_failure", "type is not generic: {}", self,))
     }
 
     pub fn path_str(&self) -> &str
