@@ -1372,14 +1372,14 @@ impl fmt::Display for Val
             Val::Struct(ref typename, ref items) => {
                 write!(f, "{}(", typename)?;
                 for i in items {
-                    write!(f, "{}", i)?;
+                    write!(f, "{},", i)?;
                 }
                 write!(f, ")")
             }
             Val::EnumStruct(ref tname, ref var, ref items) => {
                 write!(f, "{}.{}(", tname, var)?;
                 for i in items {
-                    write!(f, "{}", i)?;
+                    write!(f, "{},", i)?;
                 }
                 write!(f, ")")
             }
