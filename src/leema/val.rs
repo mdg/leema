@@ -63,57 +63,6 @@ pub enum FuncType2
 #[derive(Eq)]
 #[derive(Hash)]
 #[derive(Ord)]
-pub struct FuncType
-{
-    pub args: Struple2<Type>,
-    pub closed: Struple2<Type>,
-    pub result: Box<Type>,
-}
-
-impl FuncType
-{
-    pub fn new(args: Struple2<Type>, result: Type) -> FuncType
-    {
-        FuncType {
-            args,
-            closed: vec![],
-            result: Box::new(result),
-        }
-    }
-
-    pub fn new_closure(
-        args: Struple2<Type>,
-        closed: Struple2<Type>,
-        result: Type,
-    ) -> FuncType
-    {
-        FuncType {
-            args,
-            closed,
-            result: Box::new(result),
-        }
-    }
-
-    pub fn is_open(&self) -> bool
-    {
-        self.args.iter().any(|a| a.v.is_open())
-            || self.closed.iter().any(|c| c.v.is_open())
-            || self.result.is_open()
-    }
-
-    pub fn is_closed(&self) -> bool
-    {
-        !self.is_open()
-    }
-}
-
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
-#[derive(Eq)]
-#[derive(Hash)]
-#[derive(Ord)]
 pub struct FuncTypeRef<'a>
 {
     pub path: &'a str,
@@ -216,7 +165,7 @@ impl Type
     /// function args
     const PATH_FN_ARGS: &'static str = "/leema/FnArgs";
     /// closed arguments for a closure
-    const PATH_FN_CLOSED: Type = leema_type!(FnClosedArgs);
+    const PATH_FN_CLOSEDARGS: &'static str = "/leema/FnClosedArgs";
     /// return value of a function
     const PATH_FN_RESULT: Type = leema_type!(FnResult);
     /// type arguments for a generic function
@@ -294,6 +243,25 @@ impl Type
                 StrupleItem::new(Type::FNKEY_RESULT, result),
                 StrupleItem::new(Type::FNKEY_ARGS, argst),
                 // no closed vals
+            ],
+        )
+    }
+
+    pub fn closure_f(
+        result: Type,
+        args: Struple2<Type>,
+        closed: Struple2<Type>,
+    ) -> Type
+    {
+        let argst = Type::t(Type::PATH_FN_ARGS, args);
+        let closed_argst = Type::t(Type::PATH_FN_CLOSEDARGS, closed);
+        Type::t(
+            Type::PATH_FN,
+            vec![
+                StrupleItem::new(Type::FNKEY_TYPEARGS, Type::VOID),
+                StrupleItem::new(Type::FNKEY_RESULT, result),
+                StrupleItem::new(Type::FNKEY_ARGS, argst),
+                StrupleItem::new(Type::FNKEY_CLOSED, closed_argst),
             ],
         )
     }
@@ -676,38 +644,6 @@ impl sendclone::SendClone for Type
             path: self.path.clone_for_send(),
             args: self.args.clone_for_send(),
         }
-    }
-}
-
-impl fmt::Display for FuncType
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        write!(f, "(")?;
-        for a in self.args.iter() {
-            match a.k {
-                Some(ref k) => {
-                    write!(f, "{}:{},", k, a.v)?;
-                }
-                None => {
-                    write!(f, "{},", a.v)?;
-                }
-            }
-        }
-        if !self.closed.is_empty() {
-            write!(f, "...")?;
-        }
-        for c in self.closed.iter() {
-            match c.k {
-                Some(ref k) => {
-                    write!(f, "{}:{},", k, c.v)?;
-                }
-                None => {
-                    write!(f, "{},", c.v)?;
-                }
-            }
-        }
-        write!(f, "):{}", self.result)
     }
 }
 
