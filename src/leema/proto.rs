@@ -42,8 +42,8 @@ use crate::leema::module::{
     ImportedMod, ModAlias, ModKey, ModRelativity, ModTyp,
 };
 use crate::leema::parser::parse_file;
-use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
-use crate::leema::val::{Fref, Type, TypeArgs, Val};
+use crate::leema::struple::{self, StrupleItem};
+use crate::leema::val::{Fref, Type, TypeArgSlice, TypeArgs, Val};
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -546,7 +546,7 @@ impl ProtoModule
     {
         for (i, f) in fields.iter().enumerate() {
             let t = match &self.typ {
-                Some(p) => self.ast_to_type(&f.v, &p.g)?,
+                Some(p) => self.ast_to_type(&f.v, p.t.type_args())?,
                 None => self.ast_to_type(&f.v, &[])?,
             };
             match f.k {
@@ -747,17 +747,14 @@ impl ProtoModule
             Ast::Generic(gen, gen_args) => {
                 let open_result: Lresult<TypeArgs> = gen_args
                     .iter()
-                    .map(|a| {
+                    .enumerate()
+                    .map(|(i, a)| {
                         let var = if let Some(v) = a.k {
-                            v
+                            Lstr::Sref(v)
                         } else if let Ast::Id(v) = *a.v.node {
-                            v
+                            Lstr::Sref(v)
                         } else {
-                            return Err(rustfail!(
-                                "compile_failure",
-                                "unexpected generic argument: {:?}",
-                                a,
-                            ));
+                            Type::unwrap_name(&None, i)
                         };
                         Ok(StrupleItem::new(var, Type::open(Lstr::from(var))))
                     })
@@ -808,21 +805,17 @@ impl ProtoModule
             Ast::Generic(gen_id, gen_args) => {
                 let mut opens1 = Vec::with_capacity(gen_args.len());
                 let mut gen_arg_vars = Vec::with_capacity(gen_args.len());
-                for a in gen_args.iter() {
+                for (i, a) in gen_args.iter().enumerate() {
                     let var = if let Some(var) = a.k {
-                        var
+                        Lstr::Sref(var)
                     } else if let Ast::Id(var) = *a.v.node {
-                        var
+                        Lstr::Sref(var)
                     } else {
-                        return Err(rustfail!(
-                            PROTOFAIL,
-                            "generic arguments must have string key: {:?}",
-                            a,
-                        ));
+                        Type::unwrap_name(&None, i)
                     };
                     opens1.push(StrupleItem::new(var, Type::UNKNOWN));
                     gen_arg_vars.push(StrupleItem::new(
-                        Some(Lstr::Sref(var)),
+                        var,
                         Type::open(Lstr::from(var)),
                     ));
                 }
@@ -862,7 +855,6 @@ impl ProtoModule
                 }
                 let typ = self.typ.as_ref().unwrap();
                 utyp = typ.t.clone();
-                opens = typ.g.clone();
                 typ.n
             }
             _ => {
@@ -874,11 +866,7 @@ impl ProtoModule
             }
         };
         ltry!(self.refute_redefines_default(id, name.loc));
-        Ok(ProtoType {
-            n: id,
-            t: utyp,
-            g: opens,
-        })
+        Ok(ProtoType { n: id, t: utyp })
     }
 
     pub fn type_modules(&self) -> Lresult<Vec<ProtoModule>>
@@ -950,7 +938,7 @@ impl ProtoModule
     pub fn ast_to_type(
         &self,
         node: &AstNode,
-        opens: &[StrupleItem<&'static str, Type>],
+        opens: &TypeArgSlice,
     ) -> Lresult<Type>
     {
         Ok(match &*node.node {
@@ -987,15 +975,16 @@ impl ProtoModule
                 Type::list(inner_t)
             }
             Ast::Tuple(inner_items) => {
-                let inner_t: Lresult<Vec<StrupleItem<Option<Lstr>, Type>>> =
-                    inner_items
-                        .iter()
-                        .map(|item| {
-                            let k = item.k.map(|ik| Lstr::Sref(ik));
-                            let v = ltry!(self.ast_to_type(&item.v, opens));
-                            Ok(StrupleItem::new(k, v))
-                        })
-                        .collect();
+                let inner_t: Lresult<TypeArgs> = inner_items
+                    .iter()
+                    .enumerate()
+                    .map(|(i, item)| {
+                        let klstr = item.k.map(|s| Lstr::Sref(s));
+                        let k = Type::unwrap_name(&klstr, i);
+                        let v = ltry!(self.ast_to_type(&item.v, opens));
+                        Ok(StrupleItem::new(k, v))
+                    })
+                    .collect();
                 Type::tuple(inner_t?)
             }
             Ast::FuncType(args, result) => {
@@ -1006,12 +995,13 @@ impl ProtoModule
                 if genbase.argc() > 0 {
                     panic!("generic inner generic: {}", genbase);
                 }
-                let genargsr: Lresult<Struple2<Type>> = typeargs
+                let genargsr: Lresult<TypeArgs> = typeargs
                     .iter()
-                    .map(|t| {
+                    .enumerate()
+                    .map(|(i, t)| {
                         let k = t.k.map(|s| Lstr::Sref(s));
                         Ok(StrupleItem::new(
-                            k,
+                            Type::unwrap_name(&k, i),
                             ltry!(self.ast_to_type(&t.v, opens)),
                         ))
                     })
@@ -1059,30 +1049,29 @@ impl ProtoModule
         &self,
         result: &AstNode,
         args: &Xlist,
-        opens: &[StrupleItem<&'static str, Type>],
+        opens: &TypeArgSlice,
     ) -> Lresult<Type>
     {
         let arg_types = self.xlist_to_types(args, &opens)?;
         let result_type = ltry!(self.ast_to_type(&result, opens));
-        let gens = opens
-            .iter()
-            .map(|i| StrupleItem::new(Some(Lstr::Sref(i.k)), i.v.clone()))
-            .collect();
+        let gens = Vec::from(opens);
         Ok(Type::generic_f(gens, result_type, arg_types))
     }
 
     fn xlist_to_types(
         &self,
         args: &Xlist,
-        opens: &[StrupleItem<&'static str, Type>],
-    ) -> Lresult<Struple2<Type>>
+        opens: &TypeArgSlice,
+    ) -> Lresult<TypeArgs>
     {
-        let arg_types_r: Lresult<StrupleKV<Option<Lstr>, Type>>;
+        let arg_types_r: Lresult<TypeArgs>;
         arg_types_r = args
             .into_iter()
-            .map(|i| {
+            .enumerate()
+            .map(|(idx, i)| {
+                let klstr = i.k.map(|k| Lstr::Sref(k));
                 Ok(StrupleItem::new(
-                    i.k.map(|k| Lstr::Sref(k)),
+                    Type::unwrap_name(&klstr, idx),
                     ltry!(self.ast_to_type(&i.v, opens)),
                 ))
             })

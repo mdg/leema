@@ -482,6 +482,16 @@ impl Type
         }
     }
 
+    /// get the type args from this Type
+    pub fn type_args(&self) -> &TypeArgSlice
+    {
+        if let Some(f) = self.func_ref() {
+            &f.type_args
+        } else {
+            self.args.as_slice()
+        }
+    }
+
     pub fn try_generic_ref<'a>(&'a self) -> Lresult<TypeRef<'a>>
     {
         if let Some(f) = self.func_ref() {
