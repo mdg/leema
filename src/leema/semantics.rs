@@ -10,8 +10,7 @@ use crate::leema::struple::{
     self, Struple2, StrupleItem, StrupleKV, StrupleSlice,
 };
 use crate::leema::val::{
-    Fref, FuncTypeRef, FuncTypeRefMut, GenericTypes, Type, TypeRef2,
-    TypeRefMut, Val,
+    Fref, FuncTypeRef, FuncTypeRefMut, Type, TypeArgs, TypeRef, TypeRefMut, Val,
 };
 
 use std::cmp::Ordering;
@@ -41,7 +40,7 @@ struct MacroApplication<'l>
     lib: &'l ProtoLib,
     local: &'l ProtoModule,
     ftype: &'l FuncTypeRef<'l>,
-    closed: &'l GenericTypes,
+    closed: &'l TypeArgs,
 }
 
 impl<'l> MacroApplication<'l>
@@ -50,7 +49,7 @@ impl<'l> MacroApplication<'l>
         lib: &'l ProtoLib,
         local: &'l ProtoModule,
         ftype: &'l FuncTypeRef<'l>,
-        closed: &'l GenericTypes,
+        closed: &'l TypeArgs,
     ) -> MacroApplication<'l>
     {
         MacroApplication {
@@ -664,11 +663,11 @@ impl<'p> TypeCheck<'p>
     ) -> Lresult<Type>
     {
         let newt = match t.type_ref_2() {
-            TypeRef2(
+            TypeRef(
                 Type::PATH_LOCAL,
                 [StrupleItem { k: Some(local), .. }, ..],
             ) => self.inferred_local(local),
-            TypeRef2(
+            TypeRef(
                 Type::PATH_OPENVAR,
                 [StrupleItem { k: Some(open), .. }, ..],
             ) => {
@@ -789,7 +788,7 @@ impl<'p> TypeCheck<'p>
         &mut self,
         var: &Lstr,
         t: &Type,
-        opens: &mut StrupleKV<&'static str, Type>,
+        opens: &mut TypeArgs,
     ) -> Lresult<Type>
     {
         if self.infers.contains_key(var) {
@@ -1029,7 +1028,7 @@ impl<'p> TypeCheck<'p>
     ) -> Lresult<AstStep>
     {
         match (base_typ.type_ref_2(), &*fld.node) {
-            (TypeRef2(tname, targs), Ast::Id(f)) if targs.is_empty() => {
+            (TypeRef(tname, targs), Ast::Id(f)) if targs.is_empty() => {
                 // find a field in a struct or interface or
                 // whatever else
                 let tproto = self.lib.path_proto(&base_typ.path)?;

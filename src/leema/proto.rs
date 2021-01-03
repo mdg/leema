@@ -43,7 +43,7 @@ use crate::leema::module::{
 };
 use crate::leema::parser::parse_file;
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
-use crate::leema::val::{Fref, GenericTypes, Type, Val};
+use crate::leema::val::{Fref, Type, TypeArgs, Val};
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -165,7 +165,6 @@ struct ProtoType
 {
     n: &'static str,
     t: Type,
-    g: GenericTypes,
 }
 
 /// Asts separated into their types of components
@@ -432,7 +431,12 @@ impl ProtoModule
             }
         }
 
-        let opens = self.typ.as_ref().map(|o| o.g.clone()).unwrap_or(vec![]);
+        let opens = self
+            .typ
+            .as_ref()
+            .and_then(|o| o.t.try_generic_ref().ok())
+            .map(|o| Vec::from(o.1))
+            .unwrap_or(vec![]);
         let (name_id, ftyp) =
             ltry!(self.make_func_type(name, &args, result, opens));
         let ft = ftyp.try_func_ref()?;
@@ -733,7 +737,7 @@ impl ProtoModule
         name: AstNode,
         args: &Xlist,
         result: AstNode,
-        mut opens: GenericTypes,
+        mut opens: TypeArgs,
     ) -> Lresult<(&'static str, Type)>
     {
         let loc = name.loc;
@@ -741,7 +745,7 @@ impl ProtoModule
         let id = match *name.node {
             Ast::Id(name_id) => name_id,
             Ast::Generic(gen, gen_args) => {
-                let open_result: Lresult<GenericTypes> = gen_args
+                let open_result: Lresult<TypeArgs> = gen_args
                     .iter()
                     .map(|a| {
                         let var = if let Some(v) = a.k {
@@ -793,7 +797,7 @@ impl ProtoModule
     {
         let m = &self.key.name;
         let utyp: Type;
-        let opens: GenericTypes;
+        let opens: TypeArgs;
 
         let id: &'static str = match *name.node {
             Ast::Id(name_id) => {

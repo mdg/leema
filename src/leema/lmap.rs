@@ -13,11 +13,11 @@ pub fn map_type() -> Type
         TYPEPATH_MAP,
         vec![
             StrupleItem {
-                k: Some(Lstr::Sref("K")),
+                k: Lstr::Sref("K"),
                 v: Type::UNKNOWN,
             },
             StrupleItem {
-                k: Some(Lstr::Sref("V")),
+                k: Lstr::Sref("V"),
                 v: Type::UNKNOWN,
             },
         ],
