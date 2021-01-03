@@ -1651,12 +1651,7 @@ mod tests
     fn test_proto_token()
     {
         let proto = new_proto("datatype Burrito --");
-
-        let burrito_type =
-            proto.modscope.get("Burrito").expect("no Burrito type");
         let expected_type = user_type!("/foo/Burrito");
-        assert_eq!(Ast::Type(expected_type.clone()), *burrito_type.node);
-
         let burrito_val =
             proto.find_modelem("Burrito").expect("no Burrito const");
         assert_matches!(*burrito_val.node, Ast::ConstVal(_));
@@ -1669,9 +1664,8 @@ mod tests
     fn test_proto_struct()
     {
         let proto = new_proto("datatype Point :: x:Int y:Int --");
-
         let point_type = proto.modscope.get("Point").expect("no Point type");
-        assert_eq!(Ast::Type(user_type!("/foo/Point")), *point_type.node);
+        assert_eq!(Ast::Canonical(canonical!("/foo/Point")), *point_type.node);
     }
 
     #[test]

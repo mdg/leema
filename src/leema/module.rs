@@ -275,7 +275,7 @@ impl ImportedMod
     /// check if this imported module has an absolute path
     pub fn is_absolute(&self) -> bool
     {
-        !(self.is_sibling() || self.is_child())
+        self.0.components().next().unwrap() == Component::RootDir
     }
 
     pub fn is_sibling(&self) -> bool
@@ -414,6 +414,13 @@ mod tests
         ma_map.insert(ModAlias("whatever"), wp);
         let wp_str = wp.to_str().unwrap();
         ma_map.get(wp_str).unwrap();
+    }
+
+    #[test]
+    fn test_imported_mod_not_absolute()
+    {
+        let rel = ImportedMod::from("tortas/tacos");
+        assert!(!rel.is_absolute());
     }
 
     #[test]
