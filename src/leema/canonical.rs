@@ -116,12 +116,23 @@ impl Canonical
             }
             Lstr::Arc(ref s) => {
                 let p = Path::new(&**s);
-                let ext = p.extension().unwrap();
-                let stem = p.file_stem().unwrap();
-                let parent = Canonical::new(Lstr::from(
-                    p.with_file_name(stem).to_str().unwrap().to_string(),
-                ));
-                Ok((parent, Lstr::from(ext.to_str().unwrap().to_string())))
+                match (p.parent(), p.file_name()) {
+                    (Some(parent), Some(id)) => {
+                        let parent_lstr =
+                            Lstr::from(String::from(parent.to_str().unwrap()));
+                        Ok((
+                            Canonical::new(parent_lstr),
+                            Lstr::from(String::from(id.to_str().unwrap())),
+                        ))
+                    }
+                    _ => {
+                        return Err(rustfail!(
+                            "leema_failure",
+                            "split cannot be split: {}",
+                            s,
+                        ));
+                    }
+                }
             }
             ref other => {
                 panic!("not a normal Lstr: {:?}", other);
@@ -260,11 +271,12 @@ mod tests
     #[test]
     fn test_canonical_ancestors()
     {
-        let a = Canonical::ancestors(Path::new("/foo/bar.baz"));
+        let a = Canonical::ancestors(Path::new("/foo/bar/baz"));
         let mut it = a.iter();
         assert_eq!("/foo", it.next().unwrap().as_os_str());
         assert_eq!("/foo/bar", it.next().unwrap().as_os_str());
-        assert_eq!(2, a.len());
+        assert_eq!("/foo/bar/baz", it.next().unwrap().as_os_str());
+        assert_eq!(3, a.len());
     }
 
     #[test]
@@ -278,7 +290,7 @@ mod tests
     #[test]
     fn test_canonical_split_id_arc()
     {
-        let ct = Canonical(Lstr::from("/taco.Burrito".to_string()));
+        let ct = Canonical(Lstr::from("/taco/Burrito".to_string()));
         let (m, t) = ct.split_id().unwrap();
         assert_eq!("/taco", m.0.str());
         assert_eq!("Burrito", t.str());
@@ -287,7 +299,7 @@ mod tests
     #[test]
     fn test_canonical_split_id_sref()
     {
-        let ct = Canonical(Lstr::from("/taco.Burrito"));
+        let ct = Canonical(Lstr::from("/taco/Burrito"));
         let (m, t) = ct.split_id().unwrap();
         assert_eq!("/taco", m.0.str());
         assert_eq!("Burrito", t.str());
