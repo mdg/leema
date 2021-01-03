@@ -43,7 +43,7 @@ use crate::leema::module::{
 };
 use crate::leema::parser::parse_file;
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
-use crate::leema::val::{Fref, FuncType, GenericTypes, Type, Val};
+use crate::leema::val::{Fref, GenericTypes, Type, Val};
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -432,8 +432,9 @@ impl ProtoModule
         }
 
         let opens = self.typ.as_ref().map(|o| o.g.clone()).unwrap_or(vec![]);
-        let (name_id, ft, ftyp) =
+        let (name_id, ftyp) =
             ltry!(self.make_func_type(name, &args, result, opens));
+        let ft = ftyp.try_func_ref()?;
 
         let call_args = ft.call_args();
         let fref = Fref::new(self.key.clone(), name_id, ftyp.clone());
@@ -571,7 +572,7 @@ impl ProtoModule
             Ast::Id(name_id) => {
                 ltry!(self.refute_redefines_default(name_id, name.loc));
                 let tok_mod = self.key.name.clone();
-                let t = Type::named(tok_mod.join(&name_id)?);
+                let t = Type::from(tok_mod.join(&name_id)?);
                 let token_val = Val::Token(t.clone());
                 let const_node =
                     AstNode::new_constval(token_val.clone(), name.loc);
@@ -694,7 +695,7 @@ impl ProtoModule
     {
         let id = proto_t.n;
         let subkey = self.key.submod(subtype, id)?;
-        let utyp = Type::named(subkey.name.clone());
+        let utyp = Type::from(subkey.name.clone());
         let alias = AstNode::new(
             Ast::DefType(
                 DataType::Alias,
@@ -732,16 +733,12 @@ impl ProtoModule
         args: &Xlist,
         result: AstNode,
         mut opens: GenericTypes,
-    ) -> Lresult<(&'static str, FuncType, Type)>
+    ) -> Lresult<(&'static str, Type)>
     {
         let loc = name.loc;
-        let type_maker: Box<dyn Fn(FuncType) -> Type>;
 
         let id = match *name.node {
-            Ast::Id(name_id) => {
-                type_maker = Box::new(|ft| Type::Func(ft));
-                name_id
-            }
+            Ast::Id(name_id) => name_id,
             Ast::Generic(gen, gen_args) => {
                 let open_result: Lresult<GenericTypes> = gen_args
                     .iter()
@@ -761,10 +758,6 @@ impl ProtoModule
                     })
                     .collect();
                 opens.append(&mut open_result?);
-
-                type_maker = Box::new(|ft| {
-                    Type::Generic(Box::new(Type::Func(ft)), opens.clone())
-                });
 
                 if let Ast::Id(name_id) = *gen.node {
                     name_id
@@ -786,14 +779,13 @@ impl ProtoModule
         };
 
         ltry!(self.refute_redefines_default(id, loc));
-        let ft = lfctx!(
+        let ftyp = lfctx!(
             self.ast_to_ftype(&result, &args, &opens),
             "file": self.key.best_path(),
             "line": lstrf!("{}", name.loc.lineno),
             "func": Lstr::Sref(id)
         );
-        let ftyp = type_maker(ft.clone());
-        Ok((id, ft, ftyp))
+        Ok((id, ftyp))
     }
 
     fn make_proto_type(&mut self, name: AstNode) -> Lresult<ProtoType>
@@ -804,7 +796,7 @@ impl ProtoModule
 
         let id: &'static str = match *name.node {
             Ast::Id(name_id) => {
-                utyp = Type::named(self.key.name.join(name_id)?);
+                utyp = Type::from(self.key.name.join(name_id)?);
                 opens = vec![];
                 name_id
             }
@@ -825,7 +817,7 @@ impl ProtoModule
                     };
                     opens1.push(StrupleItem::new(var, Type::UNKNOWN));
                     gen_arg_vars.push(StrupleItem::new(
-                        var,
+                        Some(Lstr::Sref(var)),
                         Type::open(Lstr::from(var)),
                     ));
                 }
@@ -844,8 +836,8 @@ impl ProtoModule
                         ));
                     }
 
-                    let inner = Type::named(m.join(name_id)?);
-                    utyp = Type::Generic(Box::new(inner), gen_arg_vars);
+                    let inner = m.join(name_id)?;
+                    utyp = Type::new(inner, gen_arg_vars);
                     name_id
                 } else {
                     return Err(rustfail!(
@@ -1002,15 +994,17 @@ impl ProtoModule
                 Type::tuple(inner_t?)
             }
             Ast::FuncType(args, result) => {
-                let ftype = ltry!(self.ast_to_ftype(args, result, opens));
-                Type::Func(ftype)
+                ltry!(self.ast_to_ftype(args, result, opens))
             }
             Ast::Generic(base, typeargs) => {
                 let genbase = ltry!(self.ast_to_type(base, opens));
-                let genargsr: Lresult<GenericTypes> = typeargs
+                if genbase.argc() > 0 {
+                    panic!("generic inner generic: {}", genbase);
+                }
+                let genargsr: Lresult<Struple2<Type>> = typeargs
                     .iter()
                     .map(|t| {
-                        let k = t.k.unwrap_or("");
+                        let k = t.k.map(|s| Lstr::Sref(s));
                         Ok(StrupleItem::new(
                             k,
                             ltry!(self.ast_to_type(&t.v, opens)),
@@ -1018,7 +1012,7 @@ impl ProtoModule
                     })
                     .collect();
                 let genargs = genargsr?;
-                Type::generic(genbase, genargs)
+                Type::new(genbase.path.clone(), genargs)
             }
             Ast::ConstVal(cv) => cv.get_type(),
             Ast::Type(typ) => typ.clone(),
@@ -1026,7 +1020,7 @@ impl ProtoModule
                 match (&*module_node.node, &*id_node.node) {
                     (Ast::Id(m), Ast::Id(id)) => {
                         match self.imports.get(m) {
-                            Some(canonical) => Type::named(canonical.join(id)?),
+                            Some(canonical) => Type::from(canonical.join(id)?),
                             None => {
                                 return Err(rustfail!(
                                     PROTOFAIL,
@@ -1061,11 +1055,11 @@ impl ProtoModule
         result: &AstNode,
         args: &Xlist,
         opens: &[StrupleItem<&'static str, Type>],
-    ) -> Lresult<FuncType>
+    ) -> Lresult<Type>
     {
         let arg_types = self.xlist_to_types(args, &opens)?;
         let result_type = ltry!(self.ast_to_type(&result, opens));
-        Ok(FuncType::new(arg_types, result_type))
+        Ok(Type::f(result_type, arg_types))
     }
 
     fn xlist_to_types(

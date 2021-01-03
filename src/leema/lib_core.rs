@@ -291,7 +291,7 @@ pub fn void_func(mut f: RustFuncContext) -> Lresult<frame::Event>
             ftyp,
         ));
     }
-    let fref = ftyp.func_ref()?;
+    let fref = ftyp.try_func_ref()?;
     let void_type: Type = fref.result.clone();
     let flds = vec![StrupleItem::new_v(Val::VOID); num_args];
     let result = Val::Struct(void_type, flds);

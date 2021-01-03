@@ -9,7 +9,7 @@ const TYPEPATH_MAP: &'static str = "/map/T";
 
 pub fn map_type() -> Type
 {
-    Type::new(
+    Type::t(
         TYPEPATH_MAP,
         vec![
             StrupleItem {

@@ -84,7 +84,7 @@ pub fn decode(mut ctx: RustFuncContext) -> Lresult<Event>
             if fref.t.is_open() {
                 panic!("generic is open: {}", fref);
             }
-            let funcref = fref.t.func_ref()?;
+            let funcref = fref.t.try_func_ref()?;
             if funcref.type_args.is_empty() {
                 panic!("function is not generic: {}", fref);
             }
@@ -119,7 +119,7 @@ fn decode_with_args(mut ctx: RustFuncContext) -> Lresult<Event>
         }
         let tparam = fref.t.first_arg()?;
 
-        match tparam.path_str() {
+        match tparam.v.path_str() {
             Type::PATH_BOOL => {
                 let b = serde_json::from_str(text).unwrap();
                 Val::Bool(b)

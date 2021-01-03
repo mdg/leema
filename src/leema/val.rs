@@ -24,21 +24,21 @@ use mopa::mopafy;
 #[macro_export]
 macro_rules! leema_type {
     ($t:ident) => {
-        crate::leema::val::Type::new(concat!("/leema/", stringify!($t)), vec![])
+        crate::leema::val::Type::t(concat!("/leema/", stringify!($t)), vec![])
     };
 }
 
 #[macro_export]
 macro_rules! core_type {
     ($t:ident) => {
-        crate::leema::val::Type::new(concat!("/core/", stringify!($t)), vec![])
+        crate::leema::val::Type::t(concat!("/core/", stringify!($t)), vec![])
     };
 }
 
 #[macro_export]
 macro_rules! user_type {
     ($ct:literal) => {
-        crate::leema::val::Type::new($ct, vec![])
+        crate::leema::val::Type::t($ct, vec![])
     };
 }
 
@@ -105,26 +105,6 @@ impl FuncType
     {
         !self.is_open()
     }
-
-    pub fn call_args(&self) -> Struple2<Val>
-    {
-        self.args
-            .iter()
-            .chain(self.closed.iter())
-            .map(|a| StrupleItem::new(a.k.clone(), Val::VOID))
-            .collect()
-    }
-
-    pub fn map<Op>(&self, op: &Op) -> Lresult<FuncType>
-    where
-        Op: Fn(&Type) -> Lresult<Option<Type>>,
-    {
-        let mapf = |v: &Type| v.map(op);
-        let m_args = struple::map_v(&self.args, mapf)?;
-        let m_closed = struple::map_v(&self.closed, mapf)?;
-        let m_result = self.result.map(op)?;
-        Ok(FuncType::new_closure(m_args, m_closed, m_result))
-    }
 }
 
 #[derive(Clone)]
@@ -136,14 +116,45 @@ impl FuncType
 #[derive(Ord)]
 pub struct FuncTypeRef<'a>
 {
-    pub type_args: Option<&'a Struple2Slice<Type>>,
+    pub path: &'a str,
+    pub type_args: &'a Struple2Slice<Type>,
     pub result: &'a Type,
     pub args: &'a Struple2Slice<Type>,
-    pub closed_args: Option<&'a Struple2Slice<Type>>,
+    pub closed_args: &'a Struple2Slice<Type>,
+}
+
+impl<'a> FuncTypeRef<'a>
+{
+    pub fn call_args(&self) -> Struple2<Val>
+    {
+        self.args
+            .iter()
+            .chain(self.closed_args.iter())
+            .map(|a| StrupleItem::new(a.k.clone(), Val::VOID))
+            .collect()
+    }
+}
+
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(PartialOrd)]
+#[derive(Eq)]
+#[derive(Hash)]
+#[derive(Ord)]
+pub struct FuncTypeRefMut<'a>
+{
+    pub path: &'a str,
+    pub type_args: Option<&'a mut Struple2Slice<Type>>,
+    pub result: &'a mut Type,
+    pub args: &'a mut Struple2Slice<Type>,
+    pub closed_args: Option<&'a mut Struple2Slice<Type>>,
 }
 
 pub type GenericTypes = StrupleKV<&'static str, Type>;
 pub type GenericTypeSlice = [StrupleItem<&'static str, Type>];
+
+pub struct TypeRef2<'a>(pub &'a str, pub &'a Struple2Slice<Type>);
+pub struct TypeRefMut<'a>(pub &'a str, pub &'a mut Struple2Slice<Type>);
 
 pub struct TypeRef<'a>
 {
@@ -162,8 +173,8 @@ pub struct TypeRef<'a>
 #[derive(Ord)]
 pub struct Type
 {
-    path: Canonical,
-    args: Struple2<Type>,
+    pub path: Canonical,
+    pub args: Struple2<Type>,
 }
 
 impl Type
@@ -195,36 +206,49 @@ impl Type
     pub const STR: Type = Type::named(Type::PATH_STR);
     pub const TYPE: Type = Type::named(Type::PATH_TYPE);
     pub const VOID: Type = Type::named(Type::PATH_VOID);
+    /*
+    pub const : Type = Type::named(Type::PATH_);
+    pub const : Type = Type::named(Type::PATH_);
+    */
+
+    // leema type paths
+    // only used for internal compilation, not user code
+    /// function args
+    const PATH_FN_ARGS: &'static str = "/leema/FnArgs";
+    /// closed arguments for a closure
+    const PATH_FN_CLOSED: Type = leema_type!(FnClosedArgs);
+    /// return value of a function
+    const PATH_FN_RESULT: Type = leema_type!(FnResult);
+    /// type arguments for a generic function
+    const PATH_FN_TYPEARGS: Type = leema_type!(FnTypeArgs);
+    /// identifies a locally defined type variable
+    pub const PATH_LOCAL: &'static str = "/leema/Local";
+    /// identifies an open type variable
+    pub const PATH_OPENVAR: &'static str = "/leema/Open";
+    /// identifies an unknown type
+    pub const PATH_UNKNOWN: &'static str = "/leema/Unknown";
 
     // leema types
     /// Type assigned to -RUST- code blocks
     /// gets special treatment by the type checker to match any type
     pub const RUST_BLOCK: Type = leema_type!(RustBlock);
     /// Initial type to indicate the type checker doesn't know
-    pub const UNKNOWN: Type = leema_type!(Unknown);
+    pub const UNKNOWN: Type = Type::named(Type::PATH_UNKNOWN);
 
-    // leema type paths
-    // only used for internal compilation, not user code
-    /// function args
-    const PATH_FNARGS: &'static str = "/leema/FnArgs";
-    /// closed arguments for a closure
-    const PATH_FNCLOSED: Type = leema_type!(FnClosedArgs);
-    /// return value of a function
-    const PATH_FNRESULT: Type = leema_type!(FnResult);
-    /// type arguments for a generic function
-    const PATH_FNTYPEARGS: Type = leema_type!(FnTypeArgs);
-    /// identifies a locally defined type variable
-    const PATH_LOCAL: &'static str = "/leema/Local";
-    /// identifies an open type variable
-    const PATH_OPENVAR: &'static str = "/leema/Open";
-
+    // function struple key names
     pub const FNKEY_ARGS: Option<Lstr> = Some(Lstr::Sref("args"));
     pub const FNKEY_CLOSED: Option<Lstr> = Some(Lstr::Sref("closed"));
     pub const FNKEY_RESULT: Option<Lstr> = Some(Lstr::Sref("result"));
     pub const FNKEY_TYPEARGS: Option<Lstr> = Some(Lstr::Sref("typeargs"));
 
     /// Create a type w/ the given path name and no type arguments
-    pub const fn new(path: &'static str, args: Struple2<Type>) -> Type
+    pub const fn new(path: Canonical, args: Struple2<Type>) -> Type
+    {
+        Type { path, args }
+    }
+
+    /// Create a type w/ the given path name and no type arguments
+    pub const fn t(path: &'static str, args: Struple2<Type>) -> Type
     {
         Type {
             path: canonical!(path),
@@ -243,8 +267,8 @@ impl Type
 
     pub fn f(result: Type, args: Struple2<Type>) -> Type
     {
-        let argst = Type::new(Type::PATH_FNARGS, args);
-        Type::new(
+        let argst = Type::t(Type::PATH_FN_ARGS, args);
+        Type::t(
             Type::PATH_FN,
             vec![
                 StrupleItem::new(Type::FNKEY_TYPEARGS, Type::VOID),
@@ -257,7 +281,7 @@ impl Type
 
     pub fn tuple(items: Struple2<Type>) -> Type
     {
-        Type::new(Type::PATH_TUPLE, items)
+        Type::t(Type::PATH_TUPLE, items)
     }
 
     /// construct a list type object
@@ -278,20 +302,12 @@ impl Type
             None => Type::UNKNOWN,
         };
         let args = vec![StrupleItem::new(Some(Lstr::Sref("T")), arg)];
-        Type::new(path, args)
-    }
-
-    pub fn generic(path: Lstr, args: Struple2<Type>) -> Type
-    {
-        Type {
-            path: Canonical::new(path),
-            args,
-        }
+        Type::t(path, args)
     }
 
     pub fn local(var: Lstr) -> Type
     {
-        Type::new(
+        Type::t(
             Type::PATH_LOCAL,
             vec![StrupleItem {
                 k: Some(var),
@@ -302,7 +318,7 @@ impl Type
 
     pub fn open(var: Lstr) -> Type
     {
-        Type::new(
+        Type::t(
             Type::PATH_OPENVAR,
             vec![StrupleItem {
                 k: Some(var),
@@ -329,7 +345,7 @@ impl Type
 
     pub fn method_type(&self) -> Lresult<Type>
     {
-        let fref = self.func_ref()?;
+        let fref = self.try_func_ref()?;
         Ok(Type::f(
             fref.result.clone(),
             fref.args[1..].iter().map(|a| a.clone()).collect(),
@@ -349,11 +365,11 @@ impl Type
             return false;
         }
         // can't be generic if no args and not a func
-        if !self.is_func() {
-            return false;
+        if let Some(f) = self.func_ref() {
+            f.type_args.is_empty()
+        } else {
+            false
         }
-        let first = self.first_arg().unwrap();
-        *first == Type::VOID
     }
 
     /// not really sure why this is anymore
@@ -404,6 +420,16 @@ impl Type
         self.path.as_str() == Type::PATH_FAILURE
     }
 
+    pub fn type_ref_2<'a>(&'a self) -> TypeRef2<'a>
+    {
+        TypeRef2(self.path.as_str(), &self.args)
+    }
+
+    pub fn type_ref_mut<'a>(&'a mut self) -> TypeRefMut<'a>
+    {
+        TypeRefMut(self.path.as_str(), &mut self.args)
+    }
+
     pub fn type_ref<'a>(&'a self) -> TypeRef<'a>
     {
         TypeRef {
@@ -412,23 +438,103 @@ impl Type
         }
     }
 
-    pub fn func_ref<'a>(&'a self) -> Lresult<FuncTypeRef<'a>>
+    pub fn func_ref<'a>(&'a self) -> Option<FuncTypeRef<'a>>
     {
-        let tref = self.type_ref();
-        if let TypeRef {
-            path: "/core/Fn",
-            args: [_gen, result, targs],
-        } = tref
-        {
-            Ok(FuncTypeRef {
-                type_args: None,
-                result: &result.v,
-                args: targs.v.type_ref().args,
-                closed_args: None,
-            })
-        } else {
-            Err(rustfail!("leema_failure", "not a func type: {}", tref.path,))
+        match self.type_ref_2() {
+            TypeRef2(Type::PATH_FN, [_gen, result, args]) => {
+                Some(FuncTypeRef {
+                    path: Type::PATH_FN,
+                    type_args: &[],
+                    result: &result.v,
+                    args: args.v.type_ref().args,
+                    closed_args: &[],
+                })
+            }
+            _ => None,
         }
+    }
+
+    pub fn func_ref_mut<'a>(&'a mut self) -> Option<FuncTypeRefMut<'a>>
+    {
+        match self.type_ref_mut() {
+            TypeRefMut(Type::PATH_FN, [_gen, result, args]) => {
+                Some(FuncTypeRefMut {
+                    path: Type::PATH_FN,
+                    type_args: None,
+                    result: &mut result.v,
+                    args: args.v.type_ref_mut().1,
+                    closed_args: None,
+                })
+            }
+            _ => None,
+        }
+    }
+
+    pub fn try_func_ref<'a>(&'a self) -> Lresult<FuncTypeRef<'a>>
+    {
+        if let Some(f) = self.func_ref() {
+            Ok(f)
+        } else {
+            Err(rustfail!("leema_failure", "not a func type: {}", self.path))
+        }
+    }
+
+    pub fn try_generic_ref<'a>(&'a self) -> Lresult<TypeRef2<'a>>
+    {
+        if let Some(f) = self.func_ref() {
+            if f.type_args.is_empty() {
+                Err(rustfail!("leema_failure", "function is not generic")
+                    .with_context(vec![
+                        StrupleItem::new(
+                            Lstr::Sref("result"),
+                            lstrf!("{}", f.result),
+                        ),
+                        StrupleItem::new(
+                            Lstr::Sref("args"),
+                            lstrf!("{:?}", f.args),
+                        ),
+                    ]))
+            } else {
+                Ok(TypeRef2(self.path.as_str(), &f.type_args))
+            }
+        } else if self.is_generic() {
+            Ok(self.type_ref_2())
+        } else {
+            Err(rustfail!("leema_failure", "type is not generic: {}", self,))
+        }
+    }
+
+    pub fn try_generic_ref_mut<'a>(&'a mut self) -> Lresult<TypeRefMut<'a>>
+    {
+        {
+            let opt_func_ref: Option<FuncTypeRefMut<'a>> = self.func_ref_mut();
+            if opt_func_ref.is_some() {
+                let f = opt_func_ref.unwrap();
+                if f.type_args.is_none() {
+                    return Err(rustfail!(
+                        "leema_failure",
+                        "function is not generic"
+                    )
+                    .with_context(vec![
+                        StrupleItem::new(
+                            Lstr::Sref("result"),
+                            lstrf!("{}", f.result),
+                        ),
+                        StrupleItem::new(
+                            Lstr::Sref("args"),
+                            lstrf!("{:?}", f.args),
+                        ),
+                    ]));
+                }
+                return Ok(TypeRefMut(f.path, f.type_args.unwrap()));
+            }
+        }
+
+        if self.is_generic() {
+            return Ok(self.type_ref_mut());
+        }
+
+        Err(rustfail!("leema_failure", "type is not generic: {}", self,))
     }
 
     pub fn path_str(&self) -> &str
@@ -436,7 +542,12 @@ impl Type
         self.path.as_str()
     }
 
-    pub fn first_arg(&self) -> Lresult<&Type>
+    pub fn argc(&self) -> usize
+    {
+        self.args.len()
+    }
+
+    pub fn first_arg(&self) -> Lresult<&StrupleItem<Option<Lstr>, Type>>
     {
         let first = lfctx!(
             self.args.first().ok_or_else(|| {
@@ -447,7 +558,18 @@ impl Type
             }),
             "path": self.path.to_lstr()
         );
-        Ok(&first.v)
+        Ok(&first)
+    }
+
+    /// clone this type if it's not open
+    /// return an Err if it is open
+    pub fn clone_closed(&self) -> Lresult<Type>
+    {
+        if self.is_open() {
+            Err(rustfail!("leema_failure", "unexpected open type: {}", self,))
+        } else {
+            Ok(self.clone())
+        }
     }
 
     pub fn replace_openvar(&self, id: &str, new_type: &Type) -> Lresult<Type>
@@ -466,15 +588,35 @@ impl Type
     where
         Op: Fn(&Type) -> Lresult<Option<Type>>,
     {
-        if let Some(m_self) = op(self)? {
-            return Ok(m_self);
-        }
-
-        let m_items = struple::map_v(self.args.as_slice(), |i| i.map(op))?;
+        let m_items = struple::map_v(self.args.as_slice(), |a| {
+            match op(a)? {
+                Some(t2) => t2.map(op),
+                None => a.map(op),
+            }
+        })?;
         Ok(Type {
             path: self.path.clone(),
             args: m_items,
         })
+    }
+
+    pub fn map_v<Op>(&self, op: &Op) -> Lresult<Type>
+    where
+        Op: Fn(&Type) -> Lresult<Type>,
+    {
+        let m_items = struple::map_v(self.args.as_slice(), op)?;
+        Ok(Type {
+            path: self.path.clone(),
+            args: m_items,
+        })
+    }
+}
+
+impl From<Canonical> for Type
+{
+    fn from(path: Canonical) -> Type
+    {
+        Type { path, args: vec![] }
     }
 }
 
@@ -543,7 +685,7 @@ impl fmt::Display for Type
             match self.path.as_str() {
                 Type::PATH_TUPLE => {
                     write!(f, "(")?;
-                    for a in self.args {
+                    for a in self.args.iter() {
                         write!(f, "{},", a)?;
                     }
                     write!(f, ")")
@@ -561,7 +703,7 @@ impl fmt::Display for Type
                         write!(f, "{}", self.path)
                     } else {
                         write!(f, "<{}", self.path)?;
-                        for a in self.args {
+                        for a in self.args.iter() {
                             write!(f, " {}", a)?;
                         }
                         write!(f, ">")
@@ -584,7 +726,7 @@ impl fmt::Debug for Type
             match self.path.as_str() {
                 Type::PATH_TUPLE => {
                     write!(f, "(")?;
-                    for a in self.args {
+                    for a in self.args.iter() {
                         write!(f, "{:?},", a)?;
                     }
                     write!(f, ")")
@@ -602,7 +744,7 @@ impl fmt::Debug for Type
                         write!(f, "{}", self.path)
                     } else {
                         write!(f, "<{}", self.path)?;
-                        for a in self.args {
+                        for a in self.args.iter() {
                             if f.alternate() {
                                 write!(f, " {:#?}", a)?;
                             } else {
@@ -1150,7 +1292,7 @@ impl From<&Fref> for Lresult<Val>
 {
     fn from(f: &Fref) -> Lresult<Val>
     {
-        let fref = ltry!(f.t.func_ref());
+        let fref = ltry!(f.t.try_func_ref());
         Ok(Val::Call(
             f.clone(),
             struple::map_v(fref.args, |_| Ok(Val::VOID))?,
