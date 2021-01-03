@@ -182,44 +182,6 @@ where
         .map(|(idx, item)| (idx, &item.v))
 }
 
-pub fn find_str<'s, K, S, V>(
-    s: &'s [StrupleItem<Option<S>, V>],
-    key: K,
-) -> Option<(usize, &'s V)>
-where
-    S: AsRef<str>,
-    K: AsRef<str>,
-{
-    s.iter()
-        .enumerate()
-        .find(|(_, i)| {
-            match &i.k {
-                Some(ref item_key) => *item_key.as_ref() == *key.as_ref(),
-                None => false,
-            }
-        })
-        .map(|(idx, item)| (idx, &item.v))
-}
-
-pub fn find_str_mut<'s, 'k, K, S, V>(
-    s: &'s mut [StrupleItem<Option<S>, V>],
-    key: K,
-) -> Option<(usize, &'s mut V)>
-where
-    S: AsRef<str>,
-    K: AsRef<str>,
-{
-    s.iter_mut()
-        .enumerate()
-        .find(|(_, i)| {
-            match &i.k {
-                Some(ref item_key) => *item_key.as_ref() == *key.as_ref(),
-                None => false,
-            }
-        })
-        .map(|(idx, item)| (idx, &mut item.v))
-}
-
 pub fn contains_key<S, V, K>(s: &[StrupleItem<S, V>], k: K) -> bool
 where
     S: AsRef<str>,
@@ -324,22 +286,20 @@ where
 #[cfg(test)]
 mod tests
 {
-    use crate::leema::lstr::Lstr;
-    use crate::leema::struple::{self, Struple2, StrupleItem};
+    use crate::leema::struple::{self, StrupleItem};
     use crate::leema::val::Val;
 
 
     #[test]
     fn test_struple_find()
     {
-        let s: Struple2<Val> = vec![
-            StrupleItem::new(Some(Lstr::Sref("taco")), Val::Int(2)),
-            StrupleItem::new(None, Val::Int(3)),
-            StrupleItem::new(Some(Lstr::Sref("burrito")), Val::Int(4)),
+        let s = vec![
+            StrupleItem::new("taco", Val::Int(2)),
+            StrupleItem::new("torta", Val::Int(3)),
+            StrupleItem::new("burrito", Val::Int(4)),
         ];
 
-        let actual = struple::find(&s, &Some(Lstr::Sref("burrito")))
-            .expect("burrito value");
+        let actual = struple::find(&s, "burrito").expect("burrito value");
         assert_eq!(2, actual.0);
         assert_eq!(Val::Int(4), *actual.1);
     }

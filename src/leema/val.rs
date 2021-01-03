@@ -220,7 +220,7 @@ impl Type
     /// return value of a function
     const PATH_FN_RESULT: Type = leema_type!(FnResult);
     /// type arguments for a generic function
-    const PATH_FN_TYPEARGS: Type = leema_type!(FnTypeArgs);
+    const PATH_FN_TYPEARGS: &'static str = "/leema/FnTypeArgs";
     /// identifies a locally defined type variable
     pub const PATH_LOCAL: &'static str = "/leema/Local";
     /// identifies an open type variable
@@ -272,6 +272,25 @@ impl Type
             Type::PATH_FN,
             vec![
                 StrupleItem::new(Type::FNKEY_TYPEARGS, Type::VOID),
+                StrupleItem::new(Type::FNKEY_RESULT, result),
+                StrupleItem::new(Type::FNKEY_ARGS, argst),
+                // no closed vals
+            ],
+        )
+    }
+
+    pub fn generic_f(
+        type_args: Struple2<Type>,
+        result: Type,
+        args: Struple2<Type>,
+    ) -> Type
+    {
+        let type_argst = Type::t(Type::PATH_FN_TYPEARGS, type_args);
+        let argst = Type::t(Type::PATH_FN_ARGS, args);
+        Type::t(
+            Type::PATH_FN,
+            vec![
+                StrupleItem::new(Type::FNKEY_TYPEARGS, type_argst),
                 StrupleItem::new(Type::FNKEY_RESULT, result),
                 StrupleItem::new(Type::FNKEY_ARGS, argst),
                 // no closed vals

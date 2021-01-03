@@ -1350,8 +1350,8 @@ mod tests
     use crate::leema::loader::Interloader;
     use crate::leema::lstr::Lstr;
     use crate::leema::module::ModKey;
-    use crate::leema::struple::{self, StrupleItem};
-    use crate::leema::val::{FuncType, Type, Val};
+    use crate::leema::struple::StrupleItem;
+    use crate::leema::val::{Type, Val};
 
     use std::path::Path;
 
@@ -1384,20 +1384,21 @@ mod tests
         --
         "#;
         let proto = new_proto(input);
-        let tvt = Type::open("T");
+        let tvt = Type::open(Lstr::Sref("T"));
 
         assert_eq!(1, proto.modscope.len());
         assert!(proto.modscope.contains_key("first"));
         assert_eq!(
-            Type::Generic(
-                Box::new(Type::Func(FuncType::new(
-                    vec![
-                        StrupleItem::new(Some(Lstr::Sref("a")), tvt.clone()),
-                        StrupleItem::new(Some(Lstr::Sref("b")), tvt.clone()),
-                    ],
-                    tvt.clone(),
-                ))),
-                vec![StrupleItem::new("T", Type::open("T"))],
+            Type::generic_f(
+                vec![StrupleItem::new(
+                    Some(Lstr::Sref("T")),
+                    Type::open(Lstr::Sref("T"))
+                )],
+                tvt.clone(),
+                vec![
+                    StrupleItem::new(Some(Lstr::Sref("a")), tvt.clone()),
+                    StrupleItem::new(Some(Lstr::Sref("b")), tvt.clone()),
+                ],
             ),
             proto.modscope.get("first").unwrap().typ,
         );
@@ -1413,12 +1414,14 @@ mod tests
     {
         let proto = new_proto("datatype <Point T> :: x:T y:T --");
 
-        let point_type = proto.types.get("Point").expect("no Point type");
+        let point_type = proto.modscope.get("Point").expect("no Point type");
+        /*
         let expected = Type::Generic(
             Box::new(user_type!("/foo/Point")),
             vec![StrupleItem::new("T", Type::open("T"))],
         );
-        assert_eq!(expected, *point_type);
+        */
+        assert_eq!(Ast::Canonical(canonical!("/foo/Point")), *point_type.node);
     }
 
     #[test]
@@ -1440,7 +1443,6 @@ mod tests
         );
 
         assert_eq!(6, proto.imports.len());
-        assert_eq!(0, proto.exports.len());
 
         assert_eq!(*"/tacos", proto.imports["tacos"]);
         assert_eq!(*"/foo/burritos", proto.imports["burritos"]);
@@ -1459,7 +1461,6 @@ mod tests
         let proto = new_proto("export *");
 
         assert_eq!(0, proto.imports.len());
-        assert_eq!(0, proto.exports.len());
         assert_eq!(Some(true), proto.exports_all);
     }
 
@@ -1480,9 +1481,7 @@ mod tests
         let proto = new_proto("import tacos");
 
         assert_eq!(1, proto.imports.len());
-        assert_eq!(1, proto.exports.len());
         assert_eq!(*"/foo/tacos", proto.imports["tacos"]);
-        assert_eq!("tacos", proto.exports["tacos"]);
         assert_eq!(None, proto.exports_all);
     }
 
@@ -1634,16 +1633,18 @@ mod tests
         assert_eq!(2, protos.protos.len());
 
         let a = protos.path_proto(&canonical!("/a")).unwrap();
-        assert_eq!(0, a.imported_vals.len());
-        assert_eq!(1, a.exported_vals.len());
-        assert_eq!(0, a.local_vals.len());
-        assert!(struple::contains_key(&a.exported_vals, &Some("foo")));
+        assert_eq!(0, a.imports.len());
+        assert_eq!(1, a.modscope.len());
+        assert_eq!(0, a.localdef.len());
+        assert!(a.modscope.contains_key("foo"));
+        assert!(!a.modscope.contains_key("bar"));
 
         let b = protos.path_proto(&canonical!("/b")).unwrap();
-        assert_eq!(0, b.imported_vals.len());
-        assert_eq!(1, b.exported_vals.len());
-        assert_eq!(0, b.local_vals.len());
-        assert_eq!(1, b.id_canonicals.len());
+        assert_eq!(1, b.imports.len());
+        assert_eq!(2, b.modscope.len());
+        assert_eq!(0, b.localdef.len());
+        assert!(b.modscope.contains_key("foo"));
+        assert!(b.modscope.contains_key("bar"));
     }
 
     #[test]
@@ -1651,16 +1652,16 @@ mod tests
     {
         let proto = new_proto("datatype Burrito --");
 
-        let burrito_type = proto.types.get("Burrito").expect("no Burrito type");
-        assert_eq!(user_type!("/foo/Burrito"), *burrito_type,);
-
-        assert!(proto.token.contains("Burrito"));
+        let burrito_type =
+            proto.modscope.get("Burrito").expect("no Burrito type");
+        let expected_type = user_type!("/foo/Burrito");
+        assert_eq!(Ast::Type(expected_type.clone()), *burrito_type.node);
 
         let burrito_val =
             proto.find_modelem("Burrito").expect("no Burrito const");
         assert_matches!(*burrito_val.node, Ast::ConstVal(_));
         if let Ast::ConstVal(ref val) = &*burrito_val.node {
-            assert_eq!(Val::Token(burrito_type.clone()), *val);
+            assert_eq!(Val::Token(expected_type), *val);
         }
     }
 
@@ -1669,8 +1670,8 @@ mod tests
     {
         let proto = new_proto("datatype Point :: x:Int y:Int --");
 
-        let point_type = proto.types.get("Point").expect("no Point type");
-        assert_eq!(user_type!("/foo/Point"), *point_type);
+        let point_type = proto.modscope.get("Point").expect("no Point type");
+        assert_eq!(Ast::Type(user_type!("/foo/Point")), *point_type.node);
     }
 
     #[test]
@@ -1678,8 +1679,9 @@ mod tests
     {
         let proto = new_proto("datatype Burrito := Int");
 
-        let burrito_type = proto.types.get("Burrito").expect("no Burrito type");
-        assert_eq!(user_type!("/foo/Burrito"), *burrito_type,);
+        let burrito_type =
+            proto.modscope.get("Burrito").expect("no Burrito type");
+        assert_eq!(Ast::Type(user_type!("/foo/Burrito")), *burrito_type.node);
 
         let burrito_val =
             proto.find_modelem("Burrito").expect("no Burrito const");
