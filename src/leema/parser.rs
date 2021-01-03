@@ -1851,13 +1851,13 @@ mod tests
         let t = &actual[0];
         if let Ast::DefTrait(iname, stmts) = &*t.node {
             assert_matches!(*iname.node, Ast::Id("Rectangle"));
-            if let Ast::DefFunc(fname, _, _, body) = &*stmts[0].node {
-                assert_matches!(*fname.node, Ast::Id("burrito"));
+            if let Ast::DefFunc(fname, _, _, body) = &*stmts[1].node {
+                assert_matches!(*fname.node, Ast::Id("area"));
                 assert_eq!(Ast::VOID, *body.node);
             } else {
                 panic!("expected a func, found {:?}", stmts);
             }
-            assert_eq!(1, stmts.len());
+            assert_eq!(2, stmts.len());
         } else {
             panic!("expected an interface, found {:?}", t);
         }
