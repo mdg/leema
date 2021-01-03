@@ -255,6 +255,7 @@ impl ProtoModule
                             i.loc.lineno,
                         ));
                     }
+                    proto.exports_all = Some(false);
                     tree.collect(&mut exports)?;
                 }
                 what => {
@@ -1677,19 +1678,16 @@ mod tests
     {
         let proto = new_proto("datatype Burrito := Int");
 
-        let burrito_type =
-            proto.modscope.get("Burrito").expect("no Burrito type");
-        assert_eq!(Ast::Type(user_type!("/foo/Burrito")), *burrito_type.node);
-
-        let burrito_val =
-            proto.find_modelem("Burrito").expect("no Burrito const");
-        assert_matches!(*burrito_val.node, Ast::ConstVal(_));
-        if let Ast::ConstVal(ref val) = &*burrito_val.node {
-            if let Val::Type(t1) = &*val {
-                assert_eq!(user_type!("/foo/Burrito"), *t1);
+        let burrito = proto.find_modelem("Burrito").expect("no Burrito alias");
+        if let Ast::Alias(targs, src) = &*burrito.node {
+            assert!(targs.is_empty());
+            if let Ast::Type(srct) = &*src.node {
+                assert_eq!(user_type!("/core/Int"), *srct);
             } else {
-                panic!("expected user type, found: {:?}", val);
+                panic!("expected Ast::Type, found: {:?}", src.node);
             }
+        } else {
+            panic!("expected Burrito to be Alias, found {:?}", burrito.node);
         }
     }
 }
